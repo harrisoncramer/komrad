@@ -337,7 +337,7 @@ func doesShareHistory(ctx context.Context, dir, left, right string) (bool, error
 }
 
 // isAncestor reports whether one commit is reachable from another.
-func isAncestor(ctx context.Context, on runner, dir, maybeAncestor, of string) (bool, error) {
+func isAncestor(ctx context.Context, on runner, dir, maybeAncestor, of string) (bool, error) { //nolint:revive // a params struct is the follow-up
 	_, err := runOn(ctx, on, dir, "merge-base", "--is-ancestor", maybeAncestor, of)
 	if err == nil {
 		return true, nil

@@ -8,6 +8,7 @@ import (
 
 	"weave/internal/engine"
 	"weave/internal/position"
+	"weave/lib/xslice"
 )
 
 // EngineClient is git run on the engine an agent's worktree is on, reached through its transport.
@@ -26,14 +27,10 @@ func (c *EngineClient) GetRoot(ctx context.Context, dir string) (string, error) 
 	return getRoot(ctx, c.on, dir)
 }
 
-// ReadFile is one file as a commit holds it.
-func (c *EngineClient) ReadFile(ctx context.Context, dir, sha, path string) ([]byte, error) {
-	return readFile(ctx, c.on, dir, sha, path)
-}
-
-// ReadFileLines is one file as a commit holds it, split into lines.
-func (c *EngineClient) ReadFileLines(ctx context.Context, dir, sha, path string) ([]string, error) {
-	return readFileLines(ctx, c.on, dir, sha, path)
+// ReadFiles is every named file as its commit holds it, read in one command, with a file the
+// commit does not hold left out.
+func (c *EngineClient) ReadFiles(ctx context.Context, dir string, revisions []FileRevision) (map[FileRevision][]byte, error) {
+	return readFiles(ctx, c.on, dir, revisions)
 }
 
 // CountChangedFiles is how many files differ between two commits.
@@ -106,7 +103,11 @@ type engineRunner struct {
 }
 
 func (r engineRunner) command(ctx context.Context, dir string, env []string, args ...string) *exec.Cmd {
-	return engineCommand(ctx, r.remote, shellCommand(dir, env, args))
+	if len(env) > 0 {
+		return exec.CommandContext(ctx, "")
+	}
+
+	return engineCommand(ctx, r.remote, shellCommand(dir, args))
 }
 
 func engineCommand(ctx context.Context, remote engine.Remote, command string) *exec.Cmd {
@@ -118,20 +119,8 @@ func engineCommand(ctx context.Context, remote engine.Remote, command string) *e
 	return exec.CommandContext(ctx, argv[0], argv[1:]...)
 }
 
-func shellCommand(dir string, env []string, args []string) string {
-	words := make([]string, 0, len(env)+len(args)+4)
-
-	if len(env) > 0 {
-		words = append(words, "env")
-		for _, entry := range env {
-			words = append(words, engine.Quote(entry))
-		}
-	}
-
-	words = append(words, "git", "-C", engine.Quote(dir))
-	for _, arg := range args {
-		words = append(words, engine.Quote(arg))
-	}
+func shellCommand(dir string, args []string) string {
+	words := append([]string{"git", "-C", engine.Quote(dir)}, xslice.Map(args, engine.Quote)...)
 
 	return strings.Join(words, " ")
 }

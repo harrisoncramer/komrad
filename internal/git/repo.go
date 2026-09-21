@@ -1,8 +1,10 @@
 package git
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -52,11 +54,7 @@ func (c *Client) GetCurrentBranch(ctx context.Context, dir string) *string {
 
 // ReadFile is one file as a commit holds it.
 func (c *Client) ReadFile(ctx context.Context, dir, sha, path string) ([]byte, error) {
-	return readFile(ctx, local, dir, sha, path)
-}
-
-func readFile(ctx context.Context, on runner, dir, sha, path string) ([]byte, error) {
-	out, err := runBytesOn(ctx, on, dir, "show", sha+":"+path)
+	out, err := RunBytes(ctx, dir, "show", sha+":"+path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read %q at %q: %w", path, sha, err)
 	}
@@ -66,16 +64,72 @@ func readFile(ctx context.Context, on runner, dir, sha, path string) ([]byte, er
 
 // ReadFileLines is one file as a commit holds it, split into lines.
 func (c *Client) ReadFileLines(ctx context.Context, dir, sha, path string) ([]string, error) {
-	return readFileLines(ctx, local, dir, sha, path)
-}
-
-func readFileLines(ctx context.Context, on runner, dir, sha, path string) ([]string, error) {
-	out, err := readFile(ctx, on, dir, sha, path)
+	out, err := c.ReadFile(ctx, dir, sha, path)
 	if err != nil {
 		return nil, err
 	}
 
 	return strings.Split(strings.TrimSuffix(string(out), "\n"), "\n"), nil
+}
+
+// FileRevision names one file as one commit holds it.
+type FileRevision struct {
+	SHA  string
+	Path string
+}
+
+// ReadFiles is every named file as its commit holds it, read in one command, with a file the
+// commit does not hold left out.
+func (c *Client) ReadFiles(ctx context.Context, dir string, revisions []FileRevision) (map[FileRevision][]byte, error) {
+	return readFiles(ctx, local, dir, revisions)
+}
+
+func readFiles(ctx context.Context, on runner, dir string, revisions []FileRevision) (map[FileRevision][]byte, error) {
+	files := make(map[FileRevision][]byte, len(revisions))
+	if len(revisions) == 0 {
+		return files, nil
+	}
+
+	var input bytes.Buffer
+	for _, revision := range revisions {
+		input.WriteString(revision.SHA + ":" + revision.Path + "\n")
+	}
+
+	out, err := runInput(ctx, on, dir, nil, input.Bytes(), "cat-file", "--batch")
+	if err != nil {
+		return nil, fmt.Errorf("failed to read %d files of %q: %w", len(revisions), dir, err)
+	}
+
+	for _, revision := range revisions {
+		header, rest, found := bytes.Cut(out, []byte{'\n'})
+		if !found {
+			return nil, fmt.Errorf("failed to read %q at %q: git answered nothing", revision.Path, revision.SHA)
+		}
+
+		out = rest
+
+		if bytes.HasSuffix(header, []byte(" missing")) || bytes.HasSuffix(header, []byte(" ambiguous")) {
+			continue
+		}
+
+		fields := strings.Fields(string(header))
+		if len(fields) != 3 {
+			return nil, fmt.Errorf("failed to read %q at %q: git answered %q", revision.Path, revision.SHA, header)
+		}
+
+		size, err := strconv.Atoi(fields[2])
+		if err != nil || size+1 > len(out) {
+			return nil, fmt.Errorf("failed to read %q at %q: git answered %q", revision.Path, revision.SHA, header)
+		}
+
+		if fields[1] == "blob" {
+			files[revision] = out[:size:size]
+		}
+
+		out = out[size+1:]
+	}
+
+	return files, nil
 }
 
 // excludePathspecs turns paths into pathspecs git will subtract, so a caller writes only a path

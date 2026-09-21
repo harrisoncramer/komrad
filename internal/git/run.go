@@ -83,7 +83,7 @@ func runEnv(ctx context.Context, dir string, env []string, args ...string) (stri
 
 // runAllowing is git run where one exit code carries an answer rather than a failure, so the
 // output of a command that reports its finding by exiting non-zero is not thrown away.
-func runAllowing(ctx context.Context, on runner, dir string, allowed int, args ...string) (string, error) {
+func runAllowing(ctx context.Context, on runner, dir string, allowed int, args ...string) (string, error) { //nolint:revive // a params struct is the follow-up
 	ctx, cancel := context.WithTimeout(ctx, commandTimeout)
 	defer cancel()
 

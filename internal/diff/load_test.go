@@ -150,3 +150,26 @@ func TestAPathSurvivesTheUserSDiffPrefixConfig(t *testing.T) {
 		})
 	}
 }
+
+// TestLoadReadsBothSidesOfEveryFile covers the sources the colouring reads arriving for a
+// changed file, a new one and a deleted one alike.
+func TestLoadReadsBothSidesOfEveryFile(t *testing.T) {
+	t.Parallel()
+
+	root := repo(t)
+
+	write(t, root, "kept.go", "package main\n\nfunc main() {}\n")
+	write(t, root, "untracked.go", "package main\n")
+	require.NoError(t, os.Remove(filepath.Join(root, "proto/gen/api.pb.go")))
+
+	sources := map[string][2]string{}
+	for _, file := range loadRound(t, root).Files {
+		sources[file.Path()] = [2]string{file.OldSource, file.NewSource}
+	}
+
+	assert.Equal(t, map[string][2]string{
+		"kept.go":             {"package main\n", "package main\n\nfunc main() {}\n"},
+		"untracked.go":        {"", "package main\n"},
+		"proto/gen/api.pb.go": {"package gen\n", ""},
+	}, sources)
+}

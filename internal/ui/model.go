@@ -132,7 +132,6 @@ type uiTmux interface {
 
 // ReviewGit is the git the review screen reads a round through.
 type ReviewGit interface {
-	ReadFileLines(ctx context.Context, dir, sha, path string) ([]string, error)
 	CountChangedFiles(ctx context.Context, params git.CountChangedFilesParams) (int, error)
 	MapRanges(ctx context.Context, params git.MapRangesParams) ([]position.Mapping, error)
 	Replay(ctx context.Context, params git.ReplayParams) (*git.Replayed, error)
@@ -141,7 +140,7 @@ type ReviewGit interface {
 	GetTree(ctx context.Context, dir, sha string) (string, error)
 	GetRoot(ctx context.Context, dir string) (string, error)
 	Diff(ctx context.Context, params git.DiffParams) ([]byte, error)
-	ReadFile(ctx context.Context, dir, sha, path string) ([]byte, error)
+	ReadFiles(ctx context.Context, dir string, revisions []git.FileRevision) (map[git.FileRevision][]byte, error)
 }
 
 // harnessFrameReader tells a harness that has drawn itself in a pane from one that has only

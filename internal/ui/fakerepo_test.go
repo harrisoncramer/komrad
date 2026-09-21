@@ -346,22 +346,15 @@ func (f *fakeRepo) patchBetween(params patchBetweenParams) (string, error) {
 	return patch, nil
 }
 
-func (f *fakeRepo) ReadFile(_ context.Context, _, sha, path string) ([]byte, error) {
-	source, stated := f.sources[sourceOf(sha, path)]
-	if !stated {
-		return nil, fmt.Errorf("the snapshot %s holds no %s: %w", sha, path, errNoGit)
+func (f *fakeRepo) ReadFiles(_ context.Context, _ string, revisions []git.FileRevision) (map[git.FileRevision][]byte, error) {
+	files := make(map[git.FileRevision][]byte, len(revisions))
+	for _, revision := range revisions {
+		if source, stated := f.sources[sourceOf(revision.SHA, revision.Path)]; stated {
+			files[revision] = []byte(source)
+		}
 	}
 
-	return []byte(source), nil
-}
-
-func (f *fakeRepo) ReadFileLines(ctx context.Context, dir, sha, path string) ([]string, error) {
-	out, err := f.ReadFile(ctx, dir, sha, path)
-	if err != nil {
-		return nil, err
-	}
-
-	return strings.Split(strings.TrimSuffix(string(out), "\n"), "\n"), nil
+	return files, nil
 }
 
 func (f *fakeRepo) ProbeTree(context.Context, string) (string, error) {

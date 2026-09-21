@@ -96,13 +96,16 @@ func TestEngineClientReadsWhatTheLocalClientReads(t *testing.T) {
 	assert.Contains(t, string(patch), "it's here.go")
 	assert.NotContains(t, string(patch), "api.pb.go")
 
-	file, err := engineClient.ReadFile(t.Context(), root, head, "it's here.go")
+	files, err := engineClient.ReadFiles(t.Context(), root, []FileRevision{
+		{SHA: head, Path: "it's here.go"},
+		{SHA: base, Path: "it's here.go"},
+		{SHA: head, Path: "proto/gen/api.pb.go"},
+	})
 	require.NoError(t, err)
-	assert.Equal(t, "package main\n\nfunc main() {}\n", string(file))
-
-	lines, err := engineClient.ReadFileLines(t.Context(), root, head, "it's here.go")
-	require.NoError(t, err)
-	assert.Equal(t, []string{"package main", "", "func main() {}"}, lines)
+	assert.Equal(t, map[FileRevision][]byte{
+		{SHA: head, Path: "it's here.go"}:        []byte("package main\n\nfunc main() {}\n"),
+		{SHA: head, Path: "proto/gen/api.pb.go"}: []byte("package gen\n\nvar moved = 1\n"),
+	}, files)
 
 	changed, err := engineClient.CountChangedFiles(t.Context(), CountChangedFilesParams{Dir: root, FromSHA: base, ToSHA: head})
 	require.NoError(t, err)
@@ -185,7 +188,20 @@ func TestEngineClientProbeMovesWhenTheWorktreeDoes(t *testing.T) {
 func TestShellCommandQuotesEveryWord(t *testing.T) {
 	t.Parallel()
 
-	got := shellCommand("/var/lib/it's", []string{"GIT_INDEX_FILE=/tmp/x"}, []string{"show", "abc:a b.go"})
+	got := shellCommand("/var/lib/it's", []string{"show", "abc:a b.go"})
 
-	assert.Equal(t, `env 'GIT_INDEX_FILE=/tmp/x' git -C '/var/lib/it'\''s' 'show' 'abc:a b.go'`, got)
+	assert.Equal(t, `git -C '/var/lib/it'\''s' 'show' 'abc:a b.go'`, got)
+}
+
+// TestEngineRunnerRefusesAnEnvironment covers a snapshot writer's environment never being carried
+// onto the engine.
+func TestEngineRunnerRefusesAnEnvironment(t *testing.T) {
+	t.Parallel()
+
+	remote, log := shellEngine(t)
+
+	_, err := runInput(t.Context(), engineRunner{remote: remote}, t.TempDir(), []string{"GIT_INDEX_FILE=/tmp/x"}, nil, "write-tree")
+
+	require.Error(t, err)
+	assert.Empty(t, commandsRun(t, log))
 }
