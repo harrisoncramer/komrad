@@ -125,14 +125,18 @@ type staged interface {
 	stage(m *model)
 }
 
-// active is the screen that is up, pointing into this root for a screen that holds its own
-// state.
-func (m *model) active() screenModel {
-	switch m.screen {
+// active is the screen that is up.
+func (m model) active() screenModel {
+	return m.screen.adapter()
+}
+
+// adapter is the screen behind the enum, every one of them still a set of methods on the root.
+func (s screen) adapter() screenModel {
+	switch s {
 	case screenAgents:
 		return agentsScreen{}
 	case screenSchedules:
-		return &m.schedules
+		return schedulesAdapter{}
 	case screenArchive:
 		return archiveScreen{}
 	case screenSearch:
@@ -146,13 +150,6 @@ func (m *model) active() screenModel {
 	// The switch carries every screen and no default, so this is what a screen added without an
 	// arm compiles to until the exhaustive check refuses it.
 	return nil
-}
-
-// adapter is a screen's door with no root behind it.
-func (s screen) adapter() screenModel {
-	m := model{screen: s}
-
-	return m.active()
 }
 
 // onKey hands a keypress to a handler still on the root and leaves every other message alone.

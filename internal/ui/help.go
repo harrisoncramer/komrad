@@ -250,24 +250,6 @@ func (m model) showHiddenDesc() string {
 	return "show hidden"
 }
 
-func (m model) scheduleHelp() keyMap {
-	own := schedulesActions().help(m)
-
-	return keyMap{
-		short: slices.Concat(own.short, m.globalHelp()),
-		full: slices.Concat(
-			own.full,
-			[]key.Binding{
-				m.detailsBinding(),
-				m.messagesBinding(),
-			},
-			m.infoPaneHelp(),
-			[]key.Binding{m.columnScrollBinding("the record")},
-			m.globalHelp(),
-		),
-	}
-}
-
 func (m model) archiveHelp() keyMap {
 	own := archiveActions().help(m)
 

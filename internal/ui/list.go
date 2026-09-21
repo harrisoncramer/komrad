@@ -65,10 +65,6 @@ func (c rowCursor) jump(idx, length int) (rowCursor, bool) {
 	return c, true
 }
 
-func (m model) listHeader(title string) string {
-	return m.talliedHeader(title, "")
-}
-
 // screenTitle is a listing's title: its icon and its name, set in from the pane's edge.
 func screenTitle(icon view.Glyph, name string) string {
 	return " " + view.Spell(icon) + "  " + name
@@ -100,7 +96,12 @@ func (m model) headedListView(header string, rows []string, cursor int, help str
 
 // emptyListLine is what a screen says over no rows.
 func (m model) emptyListLine(idle string) string {
-	if m.filter.doesNarrow(sectionList) {
+	return emptyLineOf(m.filter, idle)
+}
+
+// emptyLineOf is what a list says over no rows, under the search standing in it.
+func emptyLineOf(filter filterState, idle string) string {
+	if filter.doesNarrow(sectionList) {
 		return "nothing matches"
 	}
 

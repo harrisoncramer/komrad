@@ -455,6 +455,9 @@ type screenListParams struct {
 	// rows is how many rows the list holds.
 	rows     int
 	snapshot func(listPane) view.Snapshot
+	// lines is the list drawn by the screen itself, row by row with its cursor, on a screen that
+	// draws no snapshot.
+	lines func(listPane) ([]string, int)
 }
 
 // listPane is the column a list is drawn in this frame and how its cursor stands.
@@ -483,14 +486,23 @@ func (m model) columnListView(params screenListParams) string {
 // screenListView draws a moved screen's list under its header with its record and its legend
 // under it.
 func (m model) screenListView(params screenListParams) string {
-	return m.listView(listViewParams{
-		chrome: m.listChromeOf(params),
-		empty:  params.empty,
-		rows:   params.rows,
-		snapshot: func(m model, pane int) view.Snapshot {
-			return params.snapshot(listPane{width: pane, caret: m.caretOf(sectionList), blinkedOut: m.rowCursor.Blink})
-		},
-	})
+	chrome := m.listChromeOf(params)
+	if params.lines == nil {
+		return m.listView(listViewParams{
+			chrome: chrome,
+			empty:  params.empty,
+			rows:   params.rows,
+			snapshot: func(m model, pane int) view.Snapshot {
+				return params.snapshot(listPane{width: pane, caret: m.caretOf(sectionList), blinkedOut: m.rowCursor.Blink})
+			},
+		})
+	}
+
+	header := chrome.header(m)
+	record, help := m.detailsView(), m.renderHelp(chrome.help(m), header)
+	rows, cursor := params.lines(listPane{width: m.paneWidth(), caret: m.caretOf(sectionList), blinkedOut: m.rowCursor.Blink})
+
+	return m.headedListView(header, rows, cursor, record+m.messagesRegion(record, help, header)+help)
 }
 
 func (m model) listFitsTabs(params screenListParams) bool {

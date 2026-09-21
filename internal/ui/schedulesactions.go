@@ -6,154 +6,131 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// schedulesActions is the schedules screen as one table, walked in precedence order by the
-// dispatch and named in reading order by a legend of the same ids.
-func schedulesActions() actionSpec {
-	return actionSpec{
-		table: []action{
+// actions is the schedules screen as one table, walked in precedence order by the dispatch and
+// named in reading order by a legend of the same ids.
+func (w *schedulesScreen) actions() screenActionSpec {
+	list := w.list()
+	standing := func(s panelShared) bool { return s.chrome.filter.isStanding() }
+
+	return screenActionSpec{
+		table: []screenAction{
 			{
 				id:   actionFilterOpen,
 				keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
-				run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.openFilter() },
+				run: func(h host, _ panelShared, _ string) tea.Cmd {
+					h.beginFilter()
+
+					return nil
+				},
 			},
 			{
 				id:   actionQuit,
-				keys: func(k config.Keybindings) []string { return k.Schedules.Quit },
-				run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m, m.hide() },
+				keys: list.quit,
+				run:  func(h host, _ panelShared, _ string) tea.Cmd { return h.hide() },
 			},
 			{
 				id:   actionFilterMatch,
 				keys: func(k config.Keybindings) []string { return concatKeys(k.Filter.NextMatch, k.Filter.PrevMatch) },
-				when: func(m model) bool { return m.filter.isStanding() },
-				run:  model.jumpFilterMatch,
+				when: standing,
+				run:  func(h host, _ panelShared, pressed string) tea.Cmd { return h.jumpToFilterMatch(pressed) },
 			},
 			{
 				id:   actionFilterClear,
-				keys: func(k config.Keybindings) []string { return k.Schedules.Back },
-				when: func(m model) bool { return m.filter.isStanding() },
-				run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.clearSearch() },
+				keys: list.back,
+				when: standing,
+				run: func(h host, _ panelShared, _ string) tea.Cmd {
+					h.clearFilter()
+
+					return nil
+				},
 			},
 			{
 				id:   actionScheduleBack,
-				keys: func(k config.Keybindings) []string { return k.Schedules.Back },
-				run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.returnToAgents() },
+				keys: list.back,
+				run:  func(h host, _ panelShared, _ string) tea.Cmd { return h.enter(screenAgents, screenTarget{}) },
 			},
 			{
 				id:   actionMove,
 				keys: func(k config.Keybindings) []string { return concatKeys(k.Nav.Up, k.Nav.Down) },
-				run:  moveSchedules,
+				run:  list.movePressed,
 			},
 			{
 				id:   actionNavPage,
 				keys: func(k config.Keybindings) []string { return concatKeys(k.Nav.PageUp, k.Nav.PageDown) },
-				run: func(m model, pressed string) (tea.Model, tea.Cmd) {
-					m.schedules.jump(&m, m.shared(), m.schedules.cursor+m.navPageDelta(pressed))
-
-					return m, nil
-				},
+				run:  list.pagePressed,
 			},
 			{
 				id:   actionScheduleNew,
 				keys: func(k config.Keybindings) []string { return k.Schedules.New },
-				run: func(m model, _ string) (tea.Model, tea.Cmd) {
-					cmd := m.schedules.newForm(&m, m.shared())
-
-					return m, cmd
-				},
+				run:  func(h host, s panelShared, _ string) tea.Cmd { return w.newForm(h, s) },
 			},
 			{
 				id:   actionScheduleEdit,
 				keys: func(k config.Keybindings) []string { return k.Schedules.Edit },
-				run: func(m model, _ string) (tea.Model, tea.Cmd) {
-					cmd := m.schedules.editForm(&m, m.shared())
-
-					return m, cmd
-				},
+				run:  func(h host, s panelShared, _ string) tea.Cmd { return w.editForm(h, s) },
 			},
 			{
 				id:   actionScheduleToggle,
 				keys: func(k config.Keybindings) []string { return k.Schedules.Toggle },
-				run: func(m model, _ string) (tea.Model, tea.Cmd) {
-					cmd := m.schedules.toggle(&m, m.shared())
-
-					return m, cmd
-				},
+				run:  func(h host, s panelShared, _ string) tea.Cmd { return w.toggle(h, s) },
 			},
 			{
 				id:   actionScheduleArchive,
 				keys: func(k config.Keybindings) []string { return k.Schedules.Archive },
-				run: func(m model, _ string) (tea.Model, tea.Cmd) {
-					cmd := m.schedules.archiveConfirm(&m, m.shared())
-
-					return m, cmd
-				},
+				run:  func(h host, s panelShared, _ string) tea.Cmd { return w.archiveConfirm(h, s) },
 			},
 		},
-		legend: []legendRow{
+		legend: []screenLegendRow{
 			{
 				of:   []actionID{actionScheduleNew},
-				desc: func(model) string { return "new schedule" },
+				desc: func(panelShared) string { return "new schedule" },
 			},
 			{
 				of:    []actionID{actionScheduleEdit},
-				desc:  func(model) string { return "edit" },
+				desc:  func(panelShared) string { return "edit" },
 				strip: true,
 			},
 			{
 				of:   []actionID{actionScheduleToggle},
-				desc: scheduleToggleDesc,
+				desc: w.toggleDesc,
 			},
 			{
 				of:   []actionID{actionScheduleArchive},
-				desc: func(model) string { return "archive" },
+				desc: func(panelShared) string { return "archive" },
 			},
 			{
 				of:   []actionID{actionFilterOpen},
-				desc: model.filterDesc,
+				desc: filterDescOf,
 			},
 			{
 				of:   []actionID{actionFilterMatch},
-				desc: func(model) string { return "next/prev match" },
+				desc: func(panelShared) string { return "next/prev match" },
 			},
 			{
 				of:    []actionID{actionMove},
-				desc:  func(model) string { return "move" },
+				desc:  func(panelShared) string { return "move" },
 				label: moveLabel,
 			},
 			{
 				of:    []actionID{actionNavPage},
-				desc:  func(model) string { return "page" },
+				desc:  func(panelShared) string { return "page" },
 				label: navPageLabel,
 			},
 			{
 				of:   []actionID{actionScheduleBack},
-				desc: func(model) string { return "back" },
+				desc: func(panelShared) string { return "back" },
 			},
 			{
 				of:    []actionID{actionFilterClear},
-				desc:  model.filterClearDesc,
+				desc:  filterClearDescOf,
 				strip: true,
 			},
 		},
 	}
 }
 
-// moveSchedules steps the cursor, and a step refused at the bottom walks on into the record.
-func moveSchedules(m model, pressed string) (tea.Model, tea.Cmd) {
-	delta := -1
-	if isBound(pressed, m.keys.Nav.Down) {
-		delta = 1
-	}
-
-	if !m.schedules.move(&m, m.shared(), delta) && delta > 0 {
-		return m.walkIntoDetails()
-	}
-
-	return m, nil
-}
-
-func scheduleToggleDesc(m model) string {
-	if item, ok := m.schedules.selected(m.shared()); ok && !item.schedule.Enabled {
+func (w *schedulesScreen) toggleDesc(s panelShared) string {
+	if item, ok := w.selected(s); ok && !item.schedule.Enabled {
 		return "resume"
 	}
 
