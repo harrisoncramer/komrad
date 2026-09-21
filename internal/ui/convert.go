@@ -29,8 +29,8 @@ func protoToAgent(s *agentv1.Agent) agentstore.Agent {
 		Cwd:                s.GetCwd(),
 		Flags:              s.GetFlags(),
 		Prompt:             s.GetPrompt(),
-		State:              agentstore.State(s.GetState()),
-		Role:               agentstore.Role(s.GetRole()),
+		State:              stateFrom(s.GetState()),
+		Role:               roleFrom(s.GetRole()),
 		ReportedReason:     s.GetReportedReason(),
 		Harness:            s.GetHarness(),
 		SessionID:          s.GetSessionId(),
@@ -47,6 +47,42 @@ func protoToAgent(s *agentv1.Agent) agentstore.Agent {
 		ParentAgentID:      s.ParentAgentId,
 		HeldAt:             dates.ParsePtr(s.GetHeldAt()),
 	}
+}
+
+// stateFrom is a state as the wire carries it.
+func stateFrom(state agentv1.AgentState) agentstore.State {
+	switch state {
+	case agentv1.AgentState_AGENT_STATE_IDLE:
+		return agentstore.StateIdle
+	case agentv1.AgentState_AGENT_STATE_THINKING:
+		return agentstore.StateThinking
+	case agentv1.AgentState_AGENT_STATE_WAITING:
+		return agentstore.StateWaiting
+	case agentv1.AgentState_AGENT_STATE_SETTING_UP:
+		return agentstore.StateSettingUp
+	case agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE:
+		return agentstore.StateFailedToCreate
+	case agentv1.AgentState_AGENT_STATE_FAILED_TO_CLEANUP:
+		return agentstore.StateFailedToCleanup
+	case agentv1.AgentState_AGENT_STATE_UNCERTAIN, agentv1.AgentState_AGENT_STATE_UNSPECIFIED:
+	}
+
+	return agentstore.StateUncertain
+}
+
+// roleFrom is a role as the wire carries it.
+func roleFrom(role agentv1.AgentRole) agentstore.Role {
+	switch role {
+	case agentv1.AgentRole_AGENT_ROLE_IMPLEMENTER:
+		return agentstore.RoleImplementer
+	case agentv1.AgentRole_AGENT_ROLE_REVIEWER:
+		return agentstore.RoleReviewer
+	case agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR:
+		return agentstore.RoleOrchestrator
+	case agentv1.AgentRole_AGENT_ROLE_UNSPECIFIED:
+	}
+
+	return ""
 }
 
 func agentItemsFrom(listed []*agentv1.Agent) []agentItem {
@@ -239,7 +275,7 @@ func worktreeAgentFrom(a *worktreev1.WorktreeAgent) worktreeAgent {
 	return worktreeAgent{
 		id:         a.GetId(),
 		name:       a.GetName(),
-		state:      agentstore.State(a.GetState()),
+		state:      stateFrom(a.GetState()),
 		archivedAt: dates.ParsePtr(a.GetArchivedAt()),
 	}
 }

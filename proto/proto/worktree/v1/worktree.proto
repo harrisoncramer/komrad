@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package worktree.v1;
 
+import "agent/v1/agent.proto";
 import "annotation/v1/tool.proto";
 import "buf/validate/validate.proto";
 import "google/protobuf/empty.proto";
@@ -13,8 +14,8 @@ message WorktreeAgent {
   string id = 1;
   // What the panel lists it as.
   string name = 2;
-  // The agent's state, as the agents listing spells it.
-  string state = 3;
+  // The agent's state, as the agents listing carries it.
+  agent.v1.AgentState state = 3;
   // When the agent was put away, in RFC 3339, unset while it is live.
   optional string archived_at = 4;
   // Whether the branch was somebody's before the agent was put on it, which cleanup never
@@ -197,7 +198,7 @@ service WorktreeService {
       cli: true
       mcp: true
       name: "remove_unowned_worktrees"
-      description: "Remove worktree directories no agent answers for, which delete_agents cannot reach: a directory under the worktrees directories whose agent row is gone, or whose row is in failed_to_cleanup because git can no longer read the registration. Each directory goes and, where the repository can still be read, git worktree prune runs in it; no branch is ever touched, since without a row nothing says whether the branch was adopted. A directory outside the worktrees directories, one a live or archived agent still answers for, one an agent works in or under, or one holding another worktree is refused with the reason and the rest go; delete the agent instead for those. Read list_worktrees first and pass only the directories it reports with no agent."
+      description: "Remove worktree directories no agent answers for, which delete_agents cannot reach: a directory under the worktrees directories whose agent row is gone, or whose row is in AGENT_STATE_FAILED_TO_CLEANUP because git can no longer read the registration. Each directory goes and, where the repository can still be read, git worktree prune runs in it; no branch is ever touched, since without a row nothing says whether the branch was adopted. A directory outside the worktrees directories, one a live or archived agent still answers for, one an agent works in or under, or one holding another worktree is refused with the reason and the rest go; delete the agent instead for those. Read list_worktrees first and pass only the directories it reports with no agent."
       destructive: true
     };
   }

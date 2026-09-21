@@ -10,6 +10,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
 	pullrequeststore "weave/internal/store/pullrequest"
+	reviewstore "weave/internal/store/review"
 	transcriptstore "weave/internal/store/transcript"
 	"weave/lib/xptr"
 	"weave/lib/xslice"
@@ -43,8 +44,8 @@ type agentFlags struct {
 	// localRounds is how many rounds of local review this agent's own work has been through.
 	localRounds int32
 	// localVerdict is what the last released local review concluded about this agent's work,
-	// empty when none has concluded anything.
-	localVerdict string
+	// nil when none has concluded anything.
+	localVerdict *reviewstore.Verdict
 	// localTree is where the worktree stands against the round that verdict was given on.
 	localTree git.Standing
 	// pullRequest is the one the agent's row stands for, nil when none was opened from its
@@ -99,8 +100,8 @@ func renderAgent(stored agentstore.Agent, flags agentFlags, opts ...agentOption)
 			Prompt:             prompt,
 			PromptTruncated:    promptTruncated,
 			PaneId:             stored.Pane,
-			State:              string(stored.State),
-			Role:               string(stored.Role),
+			State:              render.AgentStateOf(stored.State),
+			Role:               render.AgentRoleOf(stored.Role),
 			SessionId:          stored.SessionID,
 			Harness:            stored.Harness,
 			WorkflowId:         stored.WorkflowID,
@@ -124,13 +125,23 @@ func renderAgent(stored agentstore.Agent, flags agentFlags, opts ...agentOption)
 			FailedRun:          flags.failedRun,
 			FailedRunLog:       flags.failedRunLog,
 			LocalReviewRounds:  flags.localRounds,
-			LocalReviewVerdict: flags.localVerdict,
+			LocalReviewVerdict: renderLocalVerdict(flags.localVerdict),
 			LocalReviewTree:    renderStanding(flags.localTree),
 			HeldAt:             heldStamp(stored.HeldAt),
 			PullRequest:        renderPullRequestStanding(flags),
 		},
 		cursor: agentstore.Cursor{ID: stored.ID},
 	}
+}
+
+// renderLocalVerdict is the last local conclusion as the wire carries it, UNSPECIFIED when
+// there is none.
+func renderLocalVerdict(verdict *reviewstore.Verdict) agentv1.ReviewVerdict {
+	if verdict == nil {
+		return agentv1.ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED
+	}
+
+	return toReviewVerdict(*verdict)
 }
 
 // renderPullRequestStanding is where the agent's pull request stands as the wire carries it:

@@ -5,8 +5,8 @@ import (
 
 	"weave/internal/git"
 	agentstore "weave/internal/store/agent"
-	reviewstore "weave/internal/store/review"
 	"weave/internal/view"
+	agentv1 "weave/proto/gen/agent/v1"
 	pullrequestv1 "weave/proto/gen/pullrequest/v1"
 )
 
@@ -216,8 +216,8 @@ func snapshotRepo(agent agentstore.Agent) view.Repo {
 // snapshotReview is where the tree on disk stands with the local review of an agent's work, the
 // last conclusion released and whether the worktree still matches the round it was given on.
 func snapshotReview(item agentItem) view.Review {
-	switch reviewstore.Verdict(item.localVerdict) {
-	case reviewstore.VerdictApproved:
+	switch item.localVerdict {
+	case agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED:
 		switch item.localTree {
 		case git.StandingMoved:
 			return view.ReviewApprovedMoved
@@ -229,7 +229,7 @@ func snapshotReview(item agentItem) view.Review {
 		}
 
 		return view.ReviewApproved
-	case reviewstore.VerdictChangesRequested:
+	case agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED:
 		switch item.localTree {
 		case git.StandingMoved:
 			return view.ReviewChangesPushed
@@ -241,7 +241,7 @@ func snapshotReview(item agentItem) view.Review {
 		}
 
 		return view.ReviewChangesRequested
-	case reviewstore.VerdictCommented:
+	case agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED, agentv1.ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED:
 	}
 
 	return view.ReviewNone

@@ -9,8 +9,8 @@ import (
 	"time"
 
 	agentstore "weave/internal/store/agent"
-	reviewstore "weave/internal/store/review"
 	"weave/lib/xptr"
+	agentv1 "weave/proto/gen/agent/v1"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/termenv"
@@ -43,7 +43,7 @@ func TestNoticeBlockGolden(t *testing.T) {
 			name: "column-facts",
 			item: func(item *agentItem) {
 				item.agent.SequenceInProgress = true
-				item.localVerdict = string(reviewstore.VerdictChangesRequested)
+				item.localVerdict = agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED
 				item.localRounds = 2
 			},
 		},
