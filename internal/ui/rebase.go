@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"weave/internal/git"
 	"weave/internal/ui/paint/label"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -119,7 +120,7 @@ func (m *model) applyRebased(msg rebasedMsg) tea.Model {
 			kind:    messageError,
 			summary: msg.name + ": the rebase stopped on conflicts",
 			detail: fmt.Sprintf("onto %s (%s). The rebase is still in progress in that worktree. %s has been told to settle it.",
-				msg.baseRef, label.ShortSHA(msg.baseSHA), msg.name),
+				msg.baseRef, git.ShortSHA(msg.baseSHA), msg.name),
 		})
 
 		return m
@@ -130,7 +131,7 @@ func (m *model) applyRebased(msg rebasedMsg) tea.Model {
 			kind:    messageInfo,
 			summary: msg.name + ": moved onto " + msg.baseRef,
 			detail: fmt.Sprintf("%s. The base already had its work, so %s were dropped instead of replayed.",
-				label.ShortSHA(msg.baseSHA), label.Count(msg.landed, "commit", "commits")),
+				git.ShortSHA(msg.baseSHA), label.Count(msg.landed, "commit", "commits")),
 		})
 
 		return m
@@ -140,7 +141,7 @@ func (m *model) applyRebased(msg rebasedMsg) tea.Model {
 		kind:    messageInfo,
 		summary: msg.name + ": rebased onto " + msg.baseRef,
 		detail: fmt.Sprintf("%s. %s replayed.",
-			label.ShortSHA(msg.baseSHA), label.Count(msg.replay, "commit", "commits")),
+			git.ShortSHA(msg.baseSHA), label.Count(msg.replay, "commit", "commits")),
 	})
 
 	return m

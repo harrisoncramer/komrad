@@ -30,9 +30,9 @@ type scheduleOptions struct {
 
 type scheduleOption = render.LoadOption[scheduleOptions]
 
-// withPromptHead draws the opening of the prompt rather than the whole of it.
-func withPromptHead(limit int) scheduleOption {
-	return func(o *scheduleOptions) { o.promptHead = limit }
+// SetPromptHead sets how much of the prompt is drawn.
+func (o *scheduleOptions) SetPromptHead(limit int) {
+	o.promptHead = limit
 }
 
 // scheduleViewOptions turns the view a request asked for into rendering options.
@@ -41,7 +41,7 @@ func scheduleViewOptions(view viewv1.View) []scheduleOption {
 		return nil
 	}
 
-	return []scheduleOption{withPromptHead(render.SummaryHead)}
+	return []scheduleOption{render.WithPromptHead[scheduleOptions](render.SummaryHead)}
 }
 
 func renderSchedule(s schedulestore.Schedule, now time.Time, opts ...scheduleOption) schedule {

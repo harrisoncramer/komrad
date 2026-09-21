@@ -3,7 +3,6 @@ package agents
 import (
 	"context"
 	"fmt"
-	"hash/fnv"
 	"log/slog"
 	"time"
 
@@ -250,20 +249,13 @@ func (r *Reconciler) observeUnrecognized(ctx context.Context, agent agentstore.A
 		slog.String(logging.AgentID, agent.ID),
 		slog.Int(logging.UnrecognizedFrameCount, r.unrecognizedTotal))
 
-	if r.tally.isUnrecognizedHeld(agent.ID, hashFrame(frame)) {
+	if r.tally.isUnrecognizedHeld(agent.ID, frames.Hash(frame)) {
 		r.tally.clearMisses(agent.ID)
 
 		return
 	}
 
 	r.settle(ctx, agent, agentstore.StateUncertain)
-}
-
-func hashFrame(frame string) uint64 {
-	h := fnv.New64a()
-	_, _ = h.Write([]byte(frame))
-
-	return h.Sum64()
 }
 
 // forget drops the pane an agent is no longer running in and reports whether the row it was

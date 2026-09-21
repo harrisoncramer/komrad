@@ -70,7 +70,7 @@ func (r *Recorder) Record(params RecordParams) error {
 		return nil
 	}
 
-	hash := hashFrame(params.Frame)
+	hash := Hash(params.Frame)
 	if !r.shouldRecord(params, hash) {
 		return nil
 	}
@@ -120,8 +120,8 @@ func (r *Recorder) remember(agentID string, hash uint64) {
 	r.last[agentID] = hash
 }
 
-// hashFrame reduces a frame to the one number held for it between passes.
-func hashFrame(frame string) uint64 {
+// Hash reduces a frame to the one number held for it between passes.
+func Hash(frame string) uint64 {
 	hash := fnv.New64a()
 	_, _ = hash.Write([]byte(frame))
 

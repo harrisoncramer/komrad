@@ -8,6 +8,7 @@ import (
 
 	"weave/config"
 	"weave/internal/errui"
+	"weave/internal/git"
 	"weave/internal/ui/paint/label"
 	"weave/internal/view"
 	"weave/lib/xslice"
@@ -474,7 +475,7 @@ func changeLines(read worktreeInspection) []string {
 func commitLines(commits []worktreeCommit) []string {
 	var lines []string
 	for _, commit := range commits {
-		lines = append(lines, fmt.Sprintf("%s  %-4s %s", label.ShortSHA(commit.sha), label.Age(commit.committedAt), commit.subject))
+		lines = append(lines, fmt.Sprintf("%s  %-4s %s", git.ShortSHA(commit.sha), label.Age(commit.committedAt), commit.subject))
 	}
 
 	return lines
