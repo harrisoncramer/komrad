@@ -75,3 +75,26 @@ func TestFocusPaneIsEmptyOnceTheStageShowsSomethingElse(t *testing.T) {
 
 	assert.Empty(t, frame.FocusPane())
 }
+
+// TestRemoteGuestIsAttachedAgainOnceItsViewerDies covers the ssh in the stage dropping while the
+// cursor stays on the same agent, which takes the stage pane with it.
+func TestRemoteGuestIsAttachedAgainOnceItsViewerDies(t *testing.T) {
+	tmux := &recordingTmux{width: 80, height: 40, deadPanes: map[string]bool{}}
+	frame := New(tmux, config.DefaultLayout(), WithEngine(remoteEngine()))
+	frame.Attach("%1")
+	frame.ShowGuest("%7")
+
+	stage := frame.Pane(RegionStage)
+	require.NotEmpty(t, stage)
+	require.Len(t, tmux.respawns, 1)
+
+	frame.ShowGuest("%7")
+	require.Len(t, tmux.respawns, 1, "the same agent is not attached twice")
+
+	tmux.deadPanes[stage] = true
+
+	frame.ShowGuest("%7")
+
+	assert.Len(t, tmux.respawns, 2, "the viewer is run again in a fresh stage")
+	assert.Equal(t, frame.Pane(RegionStage), frame.FocusPane())
+}

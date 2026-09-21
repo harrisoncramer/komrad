@@ -2,6 +2,8 @@ package cli
 
 import (
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"strconv"
 	"testing"
 
@@ -65,7 +67,10 @@ func listenOnTunnelPort(t *testing.T, remote engine.Remote, engineAddr string) s
 	listener, err := net.Listen("tcp", addr)
 	require.NoError(t, err, "the port this engine's forward lands on is already taken")
 
-	t.Cleanup(func() { _ = listener.Close() })
+	server := httptest.NewUnstartedServer(http.NotFoundHandler())
+	server.Listener = listener
+	server.Start()
+	t.Cleanup(server.Close)
 
 	return addr
 }

@@ -114,7 +114,7 @@ func isPanelStale(ctx context.Context, state *app, build string) bool {
 // the session it already has when only the panel has gone.
 func ensureManagerSession(ctx context.Context, state *app, detached, headless bool) error {
 	if !headless && isPanelStale(ctx, state, version.Describe(version.Version(), version.Commit())) {
-		state.tmux.KillPane(state.tmux.GetPanelPane())
+		evictPanel(state)
 	}
 
 	if !isManagerSessionRunning(ctx, state) {
@@ -136,6 +136,20 @@ func ensureManagerSession(ctx context.Context, state *app, detached, headless bo
 
 	return runTmux(ctx, state, "open a panel window in the manager session",
 		buildPanelWindowArgs(state, state.selfPath(), detached))
+}
+
+// evictPanel takes down the window the panel is drawing in, first putting any agent's pane it
+// had swapped in back into a window of its own.
+func evictPanel(state *app) {
+	panel := state.tmux.GetPanelPane()
+
+	for _, pane := range state.tmux.GetSiblingPanes(panel) {
+		if state.tmux.GetPaneOwner(pane) != "" {
+			state.tmux.BreakPane(pane)
+		}
+	}
+
+	state.tmux.KillWindow(panel)
 }
 
 // silenceManagerPrefix leaves the engine's own server answering to no prefix.
@@ -176,7 +190,7 @@ func buildPanelWindowArgs(state *app, self string, detached bool) []string {
 		args = append(args, "-d")
 	}
 
-	return append(append(args, "-t", agents.ManagerSession), panelCommandArgs(state, self)...)
+	return append(append(args, "-t", agents.ManagerSession+":"), panelCommandArgs(state, self)...)
 }
 
 func sessionEnvArgs(state *app) []string {

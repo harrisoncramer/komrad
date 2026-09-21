@@ -145,7 +145,7 @@ func TestBuildPanelWindowArgsOpensInTheSessionItAlreadyHas(t *testing.T) {
 
 	args := buildPanelWindowArgs(state, "/usr/local/bin/weave", false)
 
-	assert.Equal(t, []string{"new-window", "-t", agents.ManagerSession}, args[:3])
+	assert.Equal(t, []string{"new-window", "-t", agents.ManagerSession + ":"}, args[:3])
 	assert.Equal(t, forwardedEnv(t, buildManagerSessionArgs(state, "/usr/local/bin/weave", false)), forwardedEnv(t, args))
 	assert.Equal(t, []string{"--", "/usr/local/bin/weave", "panel", "--config", "/tmp/somewhere/config.toml"},
 		args[len(args)-5:])
@@ -184,12 +184,12 @@ func TestBuildPanelWindowArgsDetachesWhenNobodyIsAttaching(t *testing.T) {
 		{
 			name:     "about to attach",
 			detached: false,
-			want:     []string{"new-window", "-t", agents.ManagerSession},
+			want:     []string{"new-window", "-t", agents.ManagerSession + ":"},
 		},
 		{
 			name:     "returning without attaching",
 			detached: true,
-			want:     []string{"new-window", "-d", "-t", agents.ManagerSession},
+			want:     []string{"new-window", "-d", "-t", agents.ManagerSession + ":"},
 		},
 	}
 
@@ -339,4 +339,85 @@ func TestEnsureManagerSessionReplacesAPanelFromAnotherBuild(t *testing.T) {
 			assert.Len(t, after, 1, "one panel is up either way")
 		})
 	}
+}
+
+// TestEnsureManagerSessionReplacesAPanelHoldingAGuest covers a stale panel whose window also
+// holds the pane it was showing an agent in: an agent's own pane on a local engine, which has to
+// survive in a window of its own, and a viewer on a remote engine, which goes with the window.
+func TestEnsureManagerSessionReplacesAPanelHoldingAGuest(t *testing.T) {
+	tests := []struct {
+		name     string
+		owner    string
+		survives bool
+	}{
+		{
+			name:     "a viewer attached to a remote engine",
+			owner:    "",
+			survives: false,
+		},
+		{
+			name:     "an agent's own pane on a local engine",
+			owner:    "01a0c202-9943-70e2-b323-ab9a507b82bb",
+			survives: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			socket := throwawaySocket(t)
+			panelSession(t, socket)
+
+			state := hideState(socket, "")
+			state.self = sleepingPanel(t)
+
+			panelPane := hostQuery(t, socket, "display-message", "-p", "-t", agents.ManagerSession, "#{pane_id}")
+			state.tmux.RecordPanelPane(panelPane)
+			state.tmux.RecordPanelBuild("devel (0000000)")
+			require.NoError(t, exec.Command("tmux", "-L", socket, "rename-window", "-t", panelPane, "weave").Run())
+
+			guest := hostQuery(t, socket, "split-window", "-d", "-h", "-t", panelPane, "-P", "-F", "#{pane_id}", "sleep 60")
+			if tt.owner != "" {
+				require.NoError(t, state.tmux.SetPaneOwner(guest, tt.owner))
+			}
+
+			panelPID := hostQuery(t, socket, "display-message", "-p", "-t", panelPane, "#{pane_pid}")
+			guestPID := hostQuery(t, socket, "display-message", "-p", "-t", guest, "#{pane_pid}")
+
+			require.NoError(t, ensureManagerSession(t.Context(), state, true, false))
+
+			pids := strings.Fields(hostQuery(t, socket, "list-panes", "-a", "-F", "#{pane_pid}"))
+
+			assert.NotContains(t, pids, panelPID, "the stale panel has gone")
+			assert.Equal(t, tt.survives, slices.Contains(pids, guestPID))
+
+			if tt.survives {
+				assert.Len(t, pids, 2, "the fresh panel and the agent's pane")
+				assert.Empty(t, state.tmux.GetSiblingPanes(guest), "the agent's pane stands in a window of its own")
+			} else {
+				assert.Len(t, pids, 1, "the fresh panel alone")
+			}
+		})
+	}
+}
+
+// TestEnsureManagerSessionRepairsBesideAWindowNamedAfterTheSession covers the repair aiming at
+// the session when a window in it carries the session's name.
+func TestEnsureManagerSessionRepairsBesideAWindowNamedAfterTheSession(t *testing.T) {
+	socket := throwawaySocket(t)
+	panelSession(t, socket)
+
+	state := hideState(socket, "")
+	state.self = sleepingPanel(t)
+
+	panelPane := hostQuery(t, socket, "display-message", "-p", "-t", agents.ManagerSession, "#{pane_id}")
+	state.tmux.RecordPanelPane(panelPane)
+
+	require.NoError(t, exec.Command("tmux", "-L", socket, "new-window", "-d", "-t", agents.ManagerSession,
+		"-n", agents.ManagerSession, "sleep 60").Run())
+	require.NoError(t, exec.Command("tmux", "-L", socket, "kill-pane", "-t", panelPane).Run())
+
+	require.NoError(t, ensureManagerSession(t.Context(), state, true, false))
+
+	assert.Len(t, strings.Fields(hostQuery(t, socket, "list-panes", "-a", "-F", "#{pane_id}")), 2,
+		"the fresh panel beside the window that was there")
 }
