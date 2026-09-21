@@ -189,9 +189,6 @@ func (m *model) applyRefresh(result refreshResult) tea.Cmd {
 		redrawn = m.redrawOpenForm()
 	}
 
-	// Explainer: a form drawn over the list holds the stage as it was when it went up, and the
-	// review draws a diff this pass knows nothing about.
-	//
 	// A screen that draws what it holds beside its own list stages nothing at all, since the pass
 	// that changed the rows has already changed what is drawn from them.
 	if spec := m.screen.spec(); spec.fromListing && spec.stage != nil && !m.form.isActive() {

@@ -41,9 +41,6 @@ const (
 	localChangesLandedMovedNotice  = "changes were asked for on a tree that has since landed, and there is new work since that nobody has read"
 )
 
-// Explainer: a notice teaches one mark on the row above it, so it takes its glyph and its tone
-// from the cell that row draws rather than naming either itself.
-
 var (
 	// failureSaid is what the status column drawn broken says about how an agent got there.
 	failureSaid = map[agentstore.State]string{
@@ -120,13 +117,6 @@ func appendNotice(notices []notice, show bool, icon string, tone paint.Tone, tex
 		text: text,
 	})
 }
-
-// Explainer: a hold is taken on one reading of a pane, and an agent that was about to start a
-// turn reads exactly like one that has stopped. The reconciler goes on reading that pane every
-// few seconds, so weave finds out, and what it does about it is say so rather than quietly let
-// go of a tree somebody has an editor open on. A pane that has since gone unreadable is its own
-// answer: it says nothing about whether the agent stopped, which is a different thing to tell
-// somebody with an editor open than that it did.
 
 // heldNoticeText is what the record has to say about an agent somebody is holding.
 func heldNoticeText(item agentItem) string {

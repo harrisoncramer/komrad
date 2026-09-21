@@ -25,17 +25,6 @@ type formFieldEditedMsg struct {
 	err  error
 }
 
-// Explainer: huh has an editor key of its own, and it does the wrong thing on a form with more
-// than one text field. When the editor closes, huh hands what was written to the whole group of
-// fields as a single message. Every text field in that group takes it, so editing one field
-// overwrites all of them. The panel opens the editor itself instead. It looks up which field has
-// the cursor, opens the editor on that field alone, and writes the result back to that one
-// string.
-//
-// Explainer: the bug is charmbracelet/huh#686 and the fix for it is charmbracelet/huh#687, which
-// was approved in August 2025 and is still unmerged. Nothing here is needed once that ships, so
-// this file and every ExternalEditor(false) can go then.
-
 // openFormFieldEditor opens the editor on the field with the cursor, and reports whether the
 // key belonged to the panel.
 func (m model) openFormFieldEditor() (tea.Model, tea.Cmd, bool) {
@@ -109,9 +98,6 @@ func (m model) applyFormFieldEdited(msg formFieldEditedMsg) (tea.Model, tea.Cmd)
 
 	return m, m.redrawFormOn(msg.key)
 }
-
-// Explainer: a huh text field shows the string it was built from and has no setter, so a field
-// only shows an edit once the form around it has been built again.
 
 // redrawFormOn draws the form again and leaves the cursor on the field named.
 func (m *model) redrawFormOn(key string) tea.Cmd {

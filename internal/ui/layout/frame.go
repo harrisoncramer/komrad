@@ -295,11 +295,6 @@ func (f *Frame) Solo(on bool) {
 // IsSolo reports whether the sidebar is holding the whole window.
 func (f *Frame) IsSolo() bool { return f.solo }
 
-// Explainer: tmux drops a pane's zoom when the keys move off it and calls into nothing when it
-// does. A focus report cannot tell that from the terminal the whole session is in losing focus,
-// which leaves the zoom alone: the keys moving off reads as window_zoomed_flag 1 with
-// pane_active 1, against 0 and 0 for a select-pane.
-
 // SyncKeys puts the frame right about whether the sidebar is still holding the window.
 func (f *Frame) SyncKeys() {
 	if f.sidebar == "" {

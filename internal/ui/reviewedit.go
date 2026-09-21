@@ -125,10 +125,6 @@ func (m model) isReviewAgentUnreadable() (string, bool) {
 		return "", false
 	}
 
-	// Explainer: uncertain is weave failing to read the pane rather than the agent doing nothing,
-	// so an agent part way through a build or a screen weave has no pattern for sits here while it
-	// writes. A pause is granted on a reading of that same pane, so asking for one here would be
-	// asking the thing that cannot answer.
 	return "weave cannot read this agent's pane, so it may be writing in this worktree · " +
 		"look at the pane before you edit", true
 }
@@ -181,21 +177,12 @@ func (m model) editReviewFile() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// Explainer: an agent sitting on comments nobody has settled is a writer that has not started
-// yet, since answering them is what it does next. Editing the tree underneath it means its answer
-// and the edit land on the same lines, which is the collision the pause exists to avoid, arriving
-// later rather than at once.
-
 // isReviewOwedAnAnswer reports whether comments stand against this work, and what to say about it.
 func (m model) isReviewOwedAnAnswer() (string, bool) {
 	if !m.review.isOwedAnAnswer() {
 		return "", false
 	}
 
-	// Explainer: editing is the one key this screen keeps for an agent nobody is there to read a
-	// comment on, since it writes to the worktree rather than to the agent. An agent that will
-	// never answer is not a wait, so holding the key behind one would take it away in the very
-	// case the screen means to offer it.
 	if _, unreachable := m.isReviewReadOnly(); unreachable {
 		return "", false
 	}

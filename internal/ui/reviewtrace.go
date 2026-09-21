@@ -39,9 +39,6 @@ func traceThreads(ctx context.Context, params traceThreadsParams) map[string]rev
 		return exact
 	}
 
-	// Explainer: the pairs are all or nothing. Sharing the load's deadline let it land part way
-	// through, which placed the threads of whichever pairs had answered and sent the rest to the
-	// foot, so two identical loads drew the same comments in different places.
 	ctx, cancel := context.WithTimeout(ctx, traceTimeout)
 	defer cancel()
 

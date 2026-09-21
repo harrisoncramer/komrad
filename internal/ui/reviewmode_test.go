@@ -1132,9 +1132,6 @@ func TestTheOpenCommentKeyDoesNotClaimAFoldedReviewIsSettled(t *testing.T) {
 	assert.NotContains(t, written.review.notice, "settled")
 }
 
-// Explainer: the cursor can be on the last comment the walk can reach while another sits in a
-// file folded away. Saying only the first contradicts the legend, which is counting both.
-
 // TestTheOpenCommentKeySaysBothWhenOneIsFoldedAway pins which of the two the key says.
 func TestTheOpenCommentKeySaysBothWhenOneIsFoldedAway(t *testing.T) {
 	repo := newFakeRepo(t.TempDir())

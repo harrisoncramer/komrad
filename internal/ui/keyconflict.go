@@ -8,14 +8,6 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 )
 
-// Explainer: one key on two actions is how the shipped bindings put three actions on the archive
-// key and how esc both clears a filter and steps back, and it works because the arm that reads
-// the row or the filter comes first and the one that answers whatever is on screen comes last.
-// The dispatch takes the first arm that answers, so an arm with no guard answers every press and
-// nothing after it on that key can run. That is what this refuses, and it needs the tables rather
-// than the file, which is why it is here rather than in the loader. The keys routeGlobalKey owns
-// are read before any screen's table, so each screen is walked as those arms followed by its own.
-
 // screenNames are the screens as an error names them.
 var screenNames = map[screen]string{
 	screenAgents:    "the agents list",

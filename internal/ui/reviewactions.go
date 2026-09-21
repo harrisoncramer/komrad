@@ -163,10 +163,6 @@ func orRefuseWrite(fn func(model) (tea.Model, tea.Cmd)) func(model, string) (tea
 	}
 }
 
-// Explainer: the review already out is stacked on by a second batch of findings about the same
-// work, not by an answer to what it said. The service draws that line at the thread, so the
-// screen draws it in the same place rather than refusing a key the service would take.
-
 // pressReviewCompose is the comment key, which refuses a new thread while a review is owed an
 // answer.
 func (m model) pressReviewCompose() (tea.Model, tea.Cmd) {

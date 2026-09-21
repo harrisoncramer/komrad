@@ -30,11 +30,6 @@ const (
 	reviewDeliveredTone = paint.ToneSuccess
 )
 
-// Explainer: the dead bar is reversed rather than merely coloured, since a reader who keeps
-// writing against a patch that has already moved has those comments pinned as ghosted or adrift
-// when they finally reload, which is worth a bar across the sidebar rather than a dim line they
-// read past.
-
 // reviewDeadStyle says there is nobody left to send a review to.
 func reviewDeadStyle(palette paint.Palette) lipgloss.Style {
 	return lipgloss.NewStyle().Foreground(lipgloss.Color("0")).Background(palette.Color(paint.ToneMuted)).Bold(true)

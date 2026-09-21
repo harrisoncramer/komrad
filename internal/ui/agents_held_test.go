@@ -150,10 +150,6 @@ func TestHeldAgentShowsDocNotPane(t *testing.T) {
 	assert.Equal(t, heldPlaceholder, m.agentDoc(), "held agent shows paused placeholder")
 }
 
-// Explainer: a hold is taken on one reading, so an agent that was about to start a turn reads
-// like one that has stopped, and a pane that goes unreadable afterwards says nothing about
-// whether it stopped at all. The row admits both rather than letting go on the person's behalf.
-
 // TestAPausedRowSaysWhichThingIsTrue pins what a paused row draws in each case.
 func TestAPausedRowSaysWhichThingIsTrue(t *testing.T) {
 	at := time.Now()

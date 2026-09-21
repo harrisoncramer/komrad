@@ -142,10 +142,6 @@ func formResized() tea.Cmd {
 	return func() tea.Msg { return formResizedMsg{} }
 }
 
-// Explainer: Group.View joins its header, its viewport and its footer with a blank line before
-// the footer, while the height it was given subtracts only the footer, so a form with a strip of
-// keys under it renders exactly one row taller than it was asked for.
-
 // formHelpLines is the row the panel keeps back rather than tells the form about.
 const formHelpLines = 1
 
@@ -323,9 +319,6 @@ func splitLines(text string) []string {
 
 	return lines
 }
-
-// Explainer: huh steps the cursor over the fields it can focus and passes the rest by, a note
-// being the one it passes by, so a count of every field drawn would step the cursor too far.
 
 // formOf draws a group of fields as one form, and lists the keys of the fields the cursor can
 // reach, in the order they are drawn.
@@ -858,10 +851,6 @@ func worktreeDetailFields(values *workflowFormValues) []huh.Field {
 	}
 }
 
-// Explainer: a list this short is left unbounded instead, since huh scrolls a select it was
-// given a height for even when every option would have fit, which hides the options above the
-// chosen one.
-
 // hookOptionsShown bounds one moment's list, so five moments and everything above them still
 // leave the form scrollable.
 const hookOptionsShown = 4
@@ -932,9 +921,6 @@ func hookFields(values *workflowFormValues, available []hookChoice) []huh.Field 
 
 	return fields
 }
-
-// Explainer: a list too long to draw whole says so, since there is nothing else on screen to
-// say the options carry on past the ones it can see.
 
 // hookFieldDescription leads with the empty case rather than appending it.
 func hookFieldDescription(description string, available []hookChoice, scrolls bool) string {

@@ -64,10 +64,6 @@ func newReviewInput(params newReviewInputParams) (reviewInput, tea.Cmd) {
 	return input, tea.Batch(form.Init(), input.resize(params.Width))
 }
 
-// Explainer: huh lays a field out from a window size and only while nothing was set at build
-// time, so the width the sidebar has is sent as a resize rather than through WithWidth, which
-// would make the field deaf to every later one.
-
 // resize tells the field how much of the sidebar it has.
 func (i reviewInput) resize(width int) tea.Cmd {
 	if i.form == nil {
@@ -83,10 +79,6 @@ func (i reviewInput) resize(width int) tea.Cmd {
 
 	return cmd
 }
-
-// Explainer: huh answers a height too small for what it holds by cutting the bottom off the
-// words rather than by growing, and the title and the hint both wrap, so how many rows they take
-// is measured at the width about to be sent rather than counted once.
 
 // chromeRows is how many rows the title and the hint under it take at one width.
 func (i reviewInput) chromeRows(width int) int {

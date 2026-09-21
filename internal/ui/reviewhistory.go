@@ -11,10 +11,6 @@ import (
 // they have none, so a reader part way through a review keeps reading the snapshot they started
 // on rather than being moved onto whatever the agent has written since.
 func findPendingRound(rounds []*agentv1.ReviewRound, openBatchID string) (*agentv1.ReviewRound, bool) {
-	// Explainer: the batch says which snapshot the review is being written against, and a thread
-	// does not. Replying into a thread from an earlier round leaves an unsent message on that
-	// thread, so reading the round off the thread would drag the whole diff back to whenever that
-	// conversation started.
 	if openBatchID == "" {
 		return nil, false
 	}
@@ -60,9 +56,6 @@ func findPreviousReviewedRound(
 			continue
 		}
 
-		// Explainer: two rounds measured from different points are not comparable. History was
-		// rewritten under the branch between them, so a diff of the two snapshots would carry
-		// whatever else moved on the base as though the agent had written it.
 		if earlier.GetBaseSha() != round.GetBaseSha() {
 			return nil
 		}
@@ -90,11 +83,6 @@ func findLastHumanReview(reviews []*agentv1.Review, ordinal int32) *agentv1.Revi
 
 	return last
 }
-
-// Explainer: the screen used to ask whether the round on screen was the one last reviewed, which
-// is the question the service stopped asking: an agent moving on is not an answer. The service
-// reads the count off the newest released review alone, so reading any other review here would
-// leave the panel refusing keys the service would allow, with nothing on the round to lift it.
 
 // findLastOwedReview is the review the person released last while it is still owed an answer,
 // nil once nothing is.

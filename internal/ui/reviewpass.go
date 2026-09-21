@@ -11,12 +11,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// Explainer: the first thing written in a pass pauses the agent, and nobody asked for that in so
-// many words, so it has to be a thing the panel does rather than a thing the reader arranges. An
-// agent writing in the tree while a person edits it is the collision the pause exists to prevent,
-// and a comment pinned to a snapshot the agent has already written past is the same collision
-// arriving later.
-
 // passIntent is what the reader pressed, which is what happens once the agent has stopped.
 type passIntent uint8
 
@@ -37,9 +31,6 @@ type reviewPausedMsg struct {
 // startReviewPass stops the agent and opens the pass on what the reader pressed, and is a no-op
 // for a pass already under way.
 func (m model) startReviewPass(intent passIntent) (tea.Model, tea.Cmd) {
-	// Explainer: an agent that is dormant or archived cannot write, so there is nothing for a
-	// pause to stop and nothing to let go of afterwards. The editor still opens on its worktree,
-	// which is what the review screen keeps that key for.
 	if _, dead := m.isReviewReadOnly(); dead {
 		m.review.mode = modeReviewing
 
@@ -61,9 +52,6 @@ func (m model) startReviewPass(intent passIntent) (tea.Model, tea.Cmd) {
 
 	stopping := m.holdReviewAgentCmd(intent)
 
-	// Explainer: a comment writes nothing to the worktree, so it opens while the agent is still
-	// coming to a stop. An editor does write to it, and an interrupt that never lands would put a
-	// second writer in a tree the agent is still using, so that one waits for the answer.
 	if intent == intentEdit {
 		return m, stopping
 	}
@@ -101,10 +89,6 @@ func (m model) applyReviewPaused(msg reviewPausedMsg) (tea.Model, tea.Cmd) {
 
 	m.review.pausing = false
 
-	// Explainer: the hold outlives the keypress that asked for it, so the pass may be over before
-	// the agent has stopped. An agent stopped for a pass nobody is making is one nothing left in
-	// the panel would ever let go, so it is let go here rather than opening an editor onto a
-	// screen that has gone back to watching.
 	if m.review.mode != modeReviewing {
 		if msg.err != nil {
 			return m, nil
@@ -163,9 +147,6 @@ func (m model) endReviewPass(said string) (tea.Model, tea.Cmd) {
 
 	m.rememberEdited(agentID, touched)
 
-	// Explainer: a pause the reader took themselves is theirs to let go, from the screen they took
-	// it on, so the files they opened are left where that release will find them rather than
-	// reaching an agent nobody is letting go yet.
 	if !ours {
 		return m, nil
 	}

@@ -164,9 +164,6 @@ func (m *model) widenReviewBase() {
 
 // doesReviewFitBaseLegend reports whether the base key is worth a legend row.
 func (m model) doesReviewFitBaseLegend() bool {
-	// Explainer: the expanded legend is drawn whole rather than windowed, so a row past the pane
-	// overruns it. The record gives way first at these heights and the newest legend row goes
-	// next, while the key itself keeps working for a reader who knows it.
 	if m.helpExpanded && m.height > 0 && m.height < reviewLegendFloor {
 		return false
 	}

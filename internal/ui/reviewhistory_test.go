@@ -8,10 +8,6 @@ import (
 	agentv1 "weave/proto/gen/agent/v1"
 )
 
-// Explainer: the service reads the newest released review and nothing else, so a panel that
-// looked at any other one would refuse keys the service allows, and nothing the reader does on
-// the round on screen would lift it.
-
 // TestOnlyTheLastReleasedReviewIsOwedAnAnswer pins which review the screen reads and what it
 // reads off it.
 func TestOnlyTheLastReleasedReviewIsOwedAnAnswer(t *testing.T) {

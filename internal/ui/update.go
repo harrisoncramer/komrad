@@ -84,10 +84,6 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 
-		// Explainer: When there's a fatal error, if we close the application, we also quit it.
-		// This way, the next time it opens, we retry. This works well because the fatal
-		// error might be for instance a transient database connection issue, which should re-connect
-		// automatically.
 		if _, hidden := msg.(tea.BlurMsg); hidden {
 			return m, tea.Quit
 		}

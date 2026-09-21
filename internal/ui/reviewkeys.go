@@ -259,9 +259,6 @@ func (m model) noOpenThreadSaid(standingOnIt bool) string {
 		return "this is the only comment left open"
 	}
 
-	// Explainer: a thread in a file the reader has folded away is never pinned to a row, so the
-	// walk cannot reach it while the count still holds it. Saying everything is settled there
-	// would contradict the legend, which is counting the same thread.
 	if m.review.view.CountOpenThreads() > 0 {
 		return "the comments left open are in files you have folded away"
 	}
