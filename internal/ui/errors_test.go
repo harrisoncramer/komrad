@@ -422,7 +422,7 @@ func TestUnreachableView(t *testing.T) {
 }
 
 // TestRefusedPauseIsReported covers the pause weave would not claim, which leaves the agent
-// running and so changes nothing on screen without the message.
+// isRunning and so changes nothing on screen without the message.
 func TestRefusedPauseIsReported(t *testing.T) {
 	m := model{
 		api: api{

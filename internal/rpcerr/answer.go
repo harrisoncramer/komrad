@@ -30,7 +30,7 @@ func From(err error, failure string) *fail.Error {
 	// A sentinel nobody worded says only what it was declared as, so whatever the domain added
 	// around it on the way up is the detail about this request.
 	if found := fail.Of(err); found != nil {
-		if !found.Worded() && err.Error() != found.Error() {
+		if !found.IsWorded() && err.Error() != found.Error() {
 			return found.Saying("%s", err.Error())
 		}
 

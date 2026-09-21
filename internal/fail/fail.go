@@ -64,8 +64,8 @@ func (s *Error) Saying(format string, args ...any) *Error {
 	}
 }
 
-// Worded says whether a raise site chose this failure's message for one request.
-func (s *Error) Worded() bool {
+// IsWorded says whether a raise site chose this failure's message for one request.
+func (s *Error) IsWorded() bool {
 	return s.worded
 }
 

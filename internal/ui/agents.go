@@ -394,7 +394,7 @@ func (m model) agentsSnapshot(pane int) view.Snapshot {
 		selected:      m.tree.selected,
 		scheduled:     m.scheduledWorkflows(),
 		focused:       rowKeyAt(rows, m.tree.cursor),
-		caretHidden:   m.cursorBlinkedOut(m.isListFocused()),
+		caretHidden:   m.isCursorBlinkedOut(m.isListFocused()),
 		barBlinkedOut: m.rowCursor.Blink,
 		matcher:       m.filter.pattern,
 		showHidden:    m.tree.showHidden,

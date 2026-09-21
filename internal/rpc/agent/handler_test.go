@@ -877,7 +877,7 @@ func (f *fakeReconciler) RecordReportedReason(_, reason string) {
 func TestHoldAgentRefusesHoldingYourself(t *testing.T) {
 	svc, st := service(t)
 	holder := &fakeHolder{}
-	svc.Impl.(*AgentService).holder = holder
+	svc.Impl.(*Handler).holder = holder
 
 	mine := st.SeedAgent(t, agentstore.Agent{Name: "mine", State: agentstore.StateThinking}).ID
 	theirs := st.SeedAgent(t, agentstore.Agent{Name: "theirs", State: agentstore.StateIdle}).ID
@@ -914,7 +914,7 @@ func (f *fakeHolder) Release(_ context.Context, params agents.ReleaseParams) (*a
 // speaks for is turned away rather than stamping somebody.
 func TestRecordReportRefusesACallerWithNoIdentity(t *testing.T) {
 	reconciler := &fakeReconciler{}
-	svc := agentv1weave.AgentServiceAdapter{Impl: NewAgentService(NewAgentServiceParams{Writer: rowWriterOver(nil, reconciler)})}
+	svc := agentv1weave.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{Writer: rowWriterOver(nil, reconciler)})}
 
 	_, err := svc.RecordReport(t.Context(), connect.NewRequest(&agentv1.RecordReportRequest{TurnEnded: true}))
 	assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
@@ -927,7 +927,7 @@ func TestRecordReportRefusesACallerWithNoIdentity(t *testing.T) {
 func TestRecordReportTellsTheReconcilerAboutTheTurn(t *testing.T) {
 	svc, st := service(t)
 	reconciler := &fakeReconciler{}
-	svc.Impl.(*AgentService).writer = rowWriterOver(st, reconciler)
+	svc.Impl.(*Handler).writer = rowWriterOver(st, reconciler)
 
 	id := st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateIdle}).ID
 
@@ -948,7 +948,7 @@ func TestRecordReportTellsTheReconcilerAboutTheTurn(t *testing.T) {
 func TestRecordReportKeepsTheReasonWithoutEndingTheTurn(t *testing.T) {
 	svc, st := service(t)
 	reconciler := &fakeReconciler{}
-	svc.Impl.(*AgentService).writer = rowWriterOver(st, reconciler)
+	svc.Impl.(*Handler).writer = rowWriterOver(st, reconciler)
 
 	id := st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateThinking}).ID
 	ctx := caller.With(t.Context(), caller.Caller{AgentID: id})
@@ -1211,7 +1211,7 @@ func TestSendMailPastTheExchangeLimitIsResourceExhausted(t *testing.T) {
 		Config:         fakeMailConfig(1),
 	})
 	liveness := &fakeLauncher{}
-	svc := agentv1weave.AgentServiceAdapter{Impl: NewAgentService(NewAgentServiceParams{
+	svc := agentv1weave.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{
 		Agents:      st.Agents,
 		Rows:        rowReaderOver(st, liveness, fakeTrees{}),
 		Transcripts: st.Transcripts,
@@ -2279,7 +2279,7 @@ func serviceWithLauncher(t *testing.T) (agentv1weave.AgentServiceAdapter, *store
 		Mailer:    mailer,
 	})
 
-	return agentv1weave.AgentServiceAdapter{Impl: NewAgentService(NewAgentServiceParams{
+	return agentv1weave.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{
 		Agents:      st.Agents,
 		Rows:        rowReaderOver(st, launcher, fakeTrees{}),
 		Writer:      rowWriterOver(st, &fakeReconciler{}),
@@ -2355,7 +2355,7 @@ func TestEmptyArchiveQueuesTheSweep(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			archive := &fakeArchiveEmptier{err: tt.err}
-			svc := agentv1weave.AgentServiceAdapter{Impl: NewAgentService(NewAgentServiceParams{Archive: archive})}
+			svc := agentv1weave.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{Archive: archive})}
 
 			_, err := svc.EmptyArchive(t.Context(), connect.NewRequest(&emptypb.Empty{}))
 

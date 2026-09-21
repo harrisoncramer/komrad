@@ -28,7 +28,7 @@ type mailer interface {
 }
 
 // SendMail records mail from the calling agent to the recipient the request names.
-func (s *AgentService) SendMail(ctx context.Context, req *agentv1.SendMailRequest) (*agentv1.SendMailResponse, *fail.Error) {
+func (s *Handler) SendMail(ctx context.Context, req *agentv1.SendMailRequest) (*agentv1.SendMailResponse, *fail.Error) {
 	from := caller.From(ctx).AgentID
 
 	recipient, err := s.mail.ResolveRecipient(ctx, mail.ResolveRecipientParams{
@@ -55,7 +55,7 @@ func (s *AgentService) SendMail(ctx context.Context, req *agentv1.SendMailReques
 	}, nil
 }
 
-func (s *AgentService) buildDormantWarning(recipient agentstore.Agent) *string {
+func (s *Handler) buildDormantWarning(recipient agentstore.Agent) *string {
 	if s.liveness.IsAgentRunning(recipient) || !recipient.State.DoesPaneDecide() {
 		return nil
 	}
@@ -64,7 +64,7 @@ func (s *AgentService) buildDormantWarning(recipient agentstore.Agent) *string {
 }
 
 // ReadMail claims an agent's waiting mail, defaulting to the caller's own mailbox.
-func (s *AgentService) ReadMail(ctx context.Context, req *agentv1.ReadMailRequest) (*agentv1.ReadMailResponse, *fail.Error) {
+func (s *Handler) ReadMail(ctx context.Context, req *agentv1.ReadMailRequest) (*agentv1.ReadMailResponse, *fail.Error) {
 	id, failure := scopedAgentID(ctx, req.GetId())
 	if failure != nil {
 		return nil, failure
@@ -83,7 +83,7 @@ func (s *AgentService) ReadMail(ctx context.Context, req *agentv1.ReadMailReques
 }
 
 // ListMail returns a page of an agent's mail without claiming any of it.
-func (s *AgentService) ListMail(ctx context.Context, req *agentv1.ListMailRequest) (*agentv1.ListMailResponse, *fail.Error) {
+func (s *Handler) ListMail(ctx context.Context, req *agentv1.ListMailRequest) (*agentv1.ListMailResponse, *fail.Error) {
 	id, failure := scopedAgentID(ctx, req.GetId())
 	if failure != nil {
 		return nil, failure
@@ -120,7 +120,7 @@ func (s *AgentService) ListMail(ctx context.Context, req *agentv1.ListMailReques
 }
 
 // DeleteMail permanently removes mail by id, so the recipient never sees it.
-func (s *AgentService) DeleteMail(ctx context.Context, req *agentv1.DeleteMailRequest) (*emptypb.Empty, *fail.Error) {
+func (s *Handler) DeleteMail(ctx context.Context, req *agentv1.DeleteMailRequest) (*emptypb.Empty, *fail.Error) {
 	if err := s.mail.DeleteMail(ctx, req.GetIds()); err != nil {
 		return nil, rpcerr.From(err, "failed to delete mail")
 	}

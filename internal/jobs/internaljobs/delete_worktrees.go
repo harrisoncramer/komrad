@@ -131,7 +131,7 @@ func (w *DeleteWorktreesWorker) Work(ctx context.Context, job *river.Job[DeleteW
 			switch {
 			case refusal.Failed:
 				failed = append(failed, fmt.Errorf("%s: %s", refusal.Dir, refusal.Reason))
-			case holdsAny(refusal.Dir, tearing):
+			case hasAny(refusal.Dir, tearing):
 				failed = append(failed, fmt.Errorf("%s: %s; an agent's teardown is still running under it", refusal.Dir, refusal.Reason))
 			default:
 				refused = append(refused, refusal)
@@ -174,8 +174,8 @@ func deepestFirst(dirs []string) [][]string {
 	return groups
 }
 
-// holdsAny reports whether any of the paths sits inside the directory.
-func holdsAny(dir string, paths []string) bool {
+// hasAny reports whether any of the paths sits inside the directory.
+func hasAny(dir string, paths []string) bool {
 	return slices.ContainsFunc(paths, func(path string) bool {
 		return strings.HasPrefix(filepath.Clean(path), dir+string(filepath.Separator))
 	})

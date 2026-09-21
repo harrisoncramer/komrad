@@ -24,7 +24,7 @@ type transcriptReader interface {
 
 // SearchTranscripts runs a search over stored transcripts and returns one page of the turns
 // that say the words, and one of the turns that only carry the letters.
-func (s *AgentService) SearchTranscripts(ctx context.Context, req *agentv1.SearchTranscriptsRequest) (*agentv1.SearchTranscriptsResponse, *fail.Error) {
+func (s *Handler) SearchTranscripts(ctx context.Context, req *agentv1.SearchTranscriptsRequest) (*agentv1.SearchTranscriptsResponse, *fail.Error) {
 	paginator, err := pagination.New[transcriptstore.Cursor, searchPage](req.GetPagination())
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to read the pagination")
@@ -79,7 +79,7 @@ func clampWindow(requested int32) int {
 }
 
 // GetTranscript returns one window of an agent's stored transcript by id.
-func (s *AgentService) GetTranscript(ctx context.Context, req *agentv1.GetTranscriptRequest) (*agentv1.GetTranscriptResponse, *fail.Error) {
+func (s *Handler) GetTranscript(ctx context.Context, req *agentv1.GetTranscriptRequest) (*agentv1.GetTranscriptResponse, *fail.Error) {
 	logCrossAgentRead(ctx, req.GetAgentId(), "agent read another agent's transcript")
 
 	cursor, err := pagination.Decode[transcriptstore.ContentCursor](req.GetCursor())
@@ -149,7 +149,7 @@ const assistantRole = "assistant"
 
 // GetLastTurns returns the newest turns an agent wrote and the prompts between them, oldest
 // first, each cut from the head to fit the window asked for.
-func (s *AgentService) GetLastTurns(ctx context.Context, req *agentv1.GetLastTurnsRequest) (*agentv1.GetLastTurnsResponse, *fail.Error) {
+func (s *Handler) GetLastTurns(ctx context.Context, req *agentv1.GetLastTurnsRequest) (*agentv1.GetLastTurnsResponse, *fail.Error) {
 	logCrossAgentRead(ctx, req.GetAgentId(), "agent read another agent's transcript")
 
 	exists, err := s.agents.Exists(ctx, req.GetAgentId())
@@ -180,7 +180,7 @@ type listLastTurnsParams struct {
 
 // listLastTurns reads an agent's newest turns and the prompts between them, oldest first, each
 // cut from the head to fit the window.
-func (s *AgentService) listLastTurns(ctx context.Context, params listLastTurnsParams) ([]*agentv1.Turn, *fail.Error) {
+func (s *Handler) listLastTurns(ctx context.Context, params listLastTurnsParams) ([]*agentv1.Turn, *fail.Error) {
 	count := params.Turns
 	if count <= 0 {
 		count = 1

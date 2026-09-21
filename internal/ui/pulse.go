@@ -33,24 +33,24 @@ func (p *pulse) advance() {
 	}
 }
 
-// running reports whether the blink has halves left to draw.
-func (p pulse) running() bool {
+// isRunning reports whether the blink has halves left to draw.
+func (p pulse) isRunning() bool {
 	return p.left > 0
 }
 
-// lit reports whether the blink is in its bright half.
-func (p pulse) lit() bool {
+// isLit reports whether the blink is in its bright half.
+func (p pulse) isLit() bool {
 	return p.left%2 == 1
 }
 
-// pulsing reports whether any of the panel's blinks is still running.
-func (m model) pulsing() bool {
-	return m.messages.pulse.running()
+// isPulsing reports whether any of the panel's blinks is still running.
+func (m model) isPulsing() bool {
+	return m.messages.pulse.isRunning()
 }
 
 // startPulse sets a blink running, asking for a tick where nothing else is already driving one.
 func (m *model) startPulse(blinking *pulse, blinks int) tea.Cmd {
-	running := m.pulsing()
+	running := m.isPulsing()
 	blinking.start(blinks)
 
 	if running {
@@ -64,7 +64,7 @@ func (m *model) startPulse(blinking *pulse, blinks int) tea.Cmd {
 func (m *model) advancePulses() tea.Cmd {
 	m.messages.pulse.advance()
 
-	if !m.pulsing() {
+	if !m.isPulsing() {
 		return nil
 	}
 

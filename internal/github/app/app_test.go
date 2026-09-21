@@ -133,9 +133,9 @@ func TestMintExplainsARefusal(t *testing.T) {
 // TestFreshRefusesATokenAboutToExpire covers a long push losing its credential partway through.
 func TestFreshRefusesATokenAboutToExpire(t *testing.T) {
 	now := time.Now()
-	assert.True(t, Token{Value: "x", ExpiresAt: now.Add(time.Hour)}.Fresh(now))
-	assert.False(t, Token{Value: "x", ExpiresAt: now.Add(time.Minute)}.Fresh(now))
-	assert.False(t, Token{ExpiresAt: now.Add(time.Hour)}.Fresh(now))
+	assert.True(t, Token{Value: "x", ExpiresAt: now.Add(time.Hour)}.IsFresh(now))
+	assert.False(t, Token{Value: "x", ExpiresAt: now.Add(time.Minute)}.IsFresh(now))
+	assert.False(t, Token{ExpiresAt: now.Add(time.Hour)}.IsFresh(now))
 }
 
 // TestCredentialQueryReadsGitsBlock covers the key-value block git writes on stdin.

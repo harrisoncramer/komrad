@@ -62,7 +62,7 @@ func TestWriteStageFileIsNeverTornInHalf(t *testing.T) {
 	tall := strings.Repeat("a tall frame\n", 400)
 	short := "one row\n"
 
-	require.True(t, writeStageFile(path, tall))
+	require.NoError(t, writeStageFile(path, tall))
 
 	written := 0
 	done := make(chan struct{})
@@ -76,7 +76,7 @@ func TestWriteStageFileIsNeverTornInHalf(t *testing.T) {
 				frame = short
 			}
 
-			if !writeStageFile(path, frame) {
+			if writeStageFile(path, frame) != nil {
 				return
 			}
 

@@ -34,7 +34,7 @@ func TestListHooks(t *testing.T) {
 		},
 	}}
 
-	resp, err := hookv1weave.HookServiceAdapter{Impl: NewHookService(manager)}.ListHooks(t.Context(), connect.NewRequest(&emptypb.Empty{}))
+	resp, err := hookv1weave.HookServiceAdapter{Impl: NewHandler(manager)}.ListHooks(t.Context(), connect.NewRequest(&emptypb.Empty{}))
 	require.NoError(t, err)
 
 	listed := resp.Msg.GetHooks()
@@ -53,7 +53,7 @@ func TestListHooks(t *testing.T) {
 // TestListHooksFailure covers a directory that could not be read at all.
 func TestListHooksFailure(t *testing.T) {
 	failing := &fakeHooks{listErr: errors.New("permission denied")}
-	service := hookv1weave.HookServiceAdapter{Impl: NewHookService(failing)}
+	service := hookv1weave.HookServiceAdapter{Impl: NewHandler(failing)}
 
 	_, err := service.ListHooks(t.Context(), connect.NewRequest(&emptypb.Empty{}))
 

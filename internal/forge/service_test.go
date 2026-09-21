@@ -78,7 +78,7 @@ func (f *fakeForge) ReviewDecisions(context.Context, git.RemoteURL, []int) (map[
 }
 
 type fixture struct {
-	service     *ForgeService
+	service     *Service
 	store       *forgestore.Store
 	credentials *FileStore
 	seen        []Credential
@@ -96,7 +96,7 @@ func newFixture(t *testing.T, login string, verifyErr error) *fixture {
 	t.Cleanup(func() { _ = pool.Close() })
 
 	f := &fixture{store: forgestore.New(pool.GetDB()), credentials: NewFileStore(t.TempDir())}
-	f.service = NewForgeService(NewForgeServiceParams{
+	f.service = NewService(NewServiceParams{
 		Connections: f.store,
 		Credentials: f.credentials,
 		Builders: map[string]Builder{
@@ -384,7 +384,7 @@ func TestForConnectionRecordsWhereItIsTold(t *testing.T) {
 	connection, err := f.service.Connect(ctx, ConnectParams{Host: "github.com", Token: NewSecret("tok")})
 	require.NoError(t, err)
 
-	reporting := NewForgeService(NewForgeServiceParams{
+	reporting := NewService(NewServiceParams{
 		Connections: f.store,
 		Credentials: f.credentials,
 		Builders:    map[string]Builder{KindGitHub: func(_ string, auth Authenticator) Forge { return &fakeForge{auth: auth, err: ErrUnauthorized} }},

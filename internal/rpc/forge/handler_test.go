@@ -92,7 +92,7 @@ func TestConnectForge(t *testing.T) {
 	t.Parallel()
 
 	forges := &fakeForges{connection: connected(), held: true}
-	service := forgev1weave.ForgeServiceAdapter{Impl: NewForgeService(forges)}
+	service := forgev1weave.ForgeServiceAdapter{Impl: NewHandler(forges)}
 
 	resp, err := service.ConnectForge(t.Context(), connect.NewRequest(&forgev1.ConnectForgeRequest{Host: "github.com", Token: "ghp_secret"}))
 	require.NoError(t, err)
@@ -106,7 +106,7 @@ func TestConnectForge(t *testing.T) {
 func TestConnectForgeRefusal(t *testing.T) {
 	t.Parallel()
 
-	service := forgev1weave.ForgeServiceAdapter{Impl: NewForgeService(&fakeForges{})}
+	service := forgev1weave.ForgeServiceAdapter{Impl: NewHandler(&fakeForges{})}
 
 	_, err := service.ConnectForge(t.Context(), connect.NewRequest(&forgev1.ConnectForgeRequest{Host: "github.com", Token: "tok"}))
 	require.Error(t, err)
@@ -164,7 +164,7 @@ func TestCheckForges(t *testing.T) {
 				held:       true,
 				checkErr:   tt.checkErr,
 			}
-			service := forgev1weave.ForgeServiceAdapter{Impl: NewForgeService(forges)}
+			service := forgev1weave.ForgeServiceAdapter{Impl: NewHandler(forges)}
 
 			resp, err := service.CheckForges(t.Context(), connect.NewRequest(&emptypb.Empty{}))
 			require.NoError(t, err)
@@ -183,7 +183,7 @@ func TestDisconnectForge(t *testing.T) {
 	t.Parallel()
 
 	forges := &fakeForges{connection: connected()}
-	service := forgev1weave.ForgeServiceAdapter{Impl: NewForgeService(forges)}
+	service := forgev1weave.ForgeServiceAdapter{Impl: NewHandler(forges)}
 
 	_, err := service.DisconnectForge(t.Context(), connect.NewRequest(&forgev1.DisconnectForgeRequest{Host: "github.com"}))
 	require.NoError(t, err)

@@ -27,7 +27,7 @@ const appCallTimeout = 20 * time.Second
 
 // IsConfigured says whether the App has everything it needs to mint.
 func (a App) IsConfigured() bool {
-	return a.Cache.Identity.Configured()
+	return a.Cache.Identity.IsConfigured()
 }
 
 // At is the same App speaking to an enterprise host's API, or unchanged when api is empty.

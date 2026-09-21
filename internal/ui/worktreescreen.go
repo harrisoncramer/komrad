@@ -193,7 +193,7 @@ func (m model) worktreesSnapshot(pane int) view.Snapshot {
 		selected:      m.worktrees.selected,
 		focused:       rowKeyAt(rows, m.worktrees.cursor),
 		live:          m.listing.agents,
-		caretHidden:   m.cursorBlinkedOut(m.isListFocused()),
+		caretHidden:   m.isCursorBlinkedOut(m.isListFocused()),
 		barBlinkedOut: m.rowCursor.Blink,
 		matcher:       m.filter.pattern,
 		pane:          pane,

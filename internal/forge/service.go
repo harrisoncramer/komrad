@@ -63,8 +63,8 @@ type ConnectParams struct {
 	Token Secret
 }
 
-// NewForgeServiceParams says what the service writes to and which forges it can build.
-type NewForgeServiceParams struct {
+// NewServiceParams says what the service writes to and which forges it can build.
+type NewServiceParams struct {
 	Connections *forgestore.Store
 	Credentials CredentialStore
 	Builders    map[string]Builder
@@ -78,8 +78,8 @@ type NewForgeServiceParams struct {
 	Now func() time.Time
 }
 
-// ForgeService connects and disconnects forges, and builds one to speak to for a connection.
-type ForgeService struct {
+// Service connects and disconnects forges, and builds one to speak to for a connection.
+type Service struct {
 	connections *forgestore.Store
 	credentials CredentialStore
 	builders    map[string]Builder
@@ -88,8 +88,8 @@ type ForgeService struct {
 	now         func() time.Time
 }
 
-// NewForgeService builds the service.
-func NewForgeService(params NewForgeServiceParams) *ForgeService {
+// NewService builds the service.
+func NewService(params NewServiceParams) *Service {
 	now := params.Now
 	if now == nil {
 		now = time.Now
@@ -105,7 +105,7 @@ func NewForgeService(params NewForgeServiceParams) *ForgeService {
 		}
 	}
 
-	return &ForgeService{
+	return &Service{
 		connections: params.Connections,
 		credentials: params.Credentials,
 		builders:    params.Builders,
@@ -165,7 +165,7 @@ func HeaderFor(kind, method string) string {
 
 // Connect proves a credential against the forge and records the connection, refusing a host
 // that is already connected and a credential the forge does not accept.
-func (s *ForgeService) Connect(ctx context.Context, params ConnectParams) (*forgestore.Connection, error) {
+func (s *Service) Connect(ctx context.Context, params ConnectParams) (*forgestore.Connection, error) {
 	params.Host = strings.ToLower(strings.TrimSpace(params.Host))
 	if params.Host == "" {
 		return nil, ErrNoHost
@@ -236,7 +236,7 @@ func (s *ForgeService) Connect(ctx context.Context, params ConnectParams) (*forg
 }
 
 // proveToken asks the forge who a pasted token belongs to.
-func (s *ForgeService) proveToken(ctx context.Context, build Builder, params ConnectParams) (string, error) {
+func (s *Service) proveToken(ctx context.Context, build Builder, params ConnectParams) (string, error) {
 	if params.Token.IsZero() {
 		return "", ErrNoToken
 	}
@@ -255,7 +255,7 @@ func (s *ForgeService) proveToken(ctx context.Context, build Builder, params Con
 
 // proveApp mints from the App, checks its installation reaches a repository, and answers with
 // the App's own name.
-func (s *ForgeService) proveApp(ctx context.Context, build Builder, params ConnectParams) (string, error) {
+func (s *Service) proveApp(ctx context.Context, build Builder, params ConnectParams) (string, error) {
 	if params.Kind != KindGitHub {
 		return "", ErrAppNotGitHub
 	}
@@ -300,12 +300,12 @@ func requireInstallationReach(ctx context.Context, f Forge) error {
 }
 
 // List is every connection, by host.
-func (s *ForgeService) List(ctx context.Context) ([]forgestore.Connection, error) {
+func (s *Service) List(ctx context.Context) ([]forgestore.Connection, error) {
 	return s.connections.List(ctx)
 }
 
 // Disconnect removes a connection and the credential beside it.
-func (s *ForgeService) Disconnect(ctx context.Context, host string) error {
+func (s *Service) Disconnect(ctx context.Context, host string) error {
 	connection, err := s.connections.GetByHost(ctx, strings.ToLower(strings.TrimSpace(host)))
 	if err != nil {
 		return err
@@ -321,7 +321,7 @@ func (s *ForgeService) Disconnect(ctx context.Context, host string) error {
 // Check asks the forge whether a connection still works, the way its method allows: who the
 // token belongs to for a pasted token, and whether the installation still reaches a repository
 // for an App, whose login is the row's own.
-func (s *ForgeService) Check(ctx context.Context, connection forgestore.Connection) (string, error) {
+func (s *Service) Check(ctx context.Context, connection forgestore.Connection) (string, error) {
 	held, err := s.HasCredential(ctx, connection)
 	if err != nil {
 		return "", err
@@ -347,18 +347,18 @@ func (s *ForgeService) Check(ctx context.Context, connection forgestore.Connecti
 }
 
 // ConnectionFor is the connection a host has, or ErrNotFound.
-func (s *ForgeService) ConnectionFor(ctx context.Context, host string) (*forgestore.Connection, error) {
+func (s *Service) ConnectionFor(ctx context.Context, host string) (*forgestore.Connection, error) {
 	return s.connections.GetByHost(ctx, strings.ToLower(host))
 }
 
 // SetVerifiedAt records when a forge last confirmed a connection, or clears it.
-func (s *ForgeService) SetVerifiedAt(ctx context.Context, id string, at *time.Time) error {
+func (s *Service) SetVerifiedAt(ctx context.Context, id string, at *time.Time) error {
 	return s.connections.SetVerifiedAt(ctx, id, at)
 }
 
 // HasCredential says whether a connection still has what it needs to speak, which for an App
 // row is always so.
-func (s *ForgeService) HasCredential(ctx context.Context, connection forgestore.Connection) (bool, error) {
+func (s *Service) HasCredential(ctx context.Context, connection forgestore.Connection) (bool, error) {
 	if connection.Method == MethodGitHubApp {
 		return true, nil
 	}
@@ -375,12 +375,12 @@ func (s *ForgeService) HasCredential(ctx context.Context, connection forgestore.
 }
 
 // SetThrottledUntil records when a connection's forge said its rate limit resets, or clears it.
-func (s *ForgeService) SetThrottledUntil(ctx context.Context, id string, until *time.Time) error {
+func (s *Service) SetThrottledUntil(ctx context.Context, id string, until *time.Time) error {
 	return s.connections.SetThrottledUntil(ctx, id, until)
 }
 
 // ForConnection is the forge to speak to as a connection.
-func (s *ForgeService) ForConnection(connection forgestore.Connection) (Forge, error) {
+func (s *Service) ForConnection(connection forgestore.Connection) (Forge, error) {
 	build, ok := s.builders[connection.Kind]
 	if !ok {
 		return nil, ErrUnknownKind.Saying("%q is not a forge this build knows", connection.Kind)

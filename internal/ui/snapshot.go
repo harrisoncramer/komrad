@@ -104,7 +104,7 @@ func agentFacts(row view.Row, item agentItem) view.Row {
 	row.Archived = item.agent.ArchivedAt != nil
 	row.Hidden = item.agent.Hidden && !row.Archived
 	row.Held = item.agent.HeldAt != nil
-	row.HeldWorking = row.Held && heldWorking(item)
+	row.HeldWorking = row.Held && isHeldWorking(item)
 	row.UnreadMail = item.unreadMail
 	row.FailedRun = item.failedRun
 	row.Scheduled = item.agent.ScheduleID != nil
@@ -172,9 +172,8 @@ func matchesIn(matcher *regexp.Regexp, name string) []view.Span {
 	return spans
 }
 
-// heldWorking reports whether an agent somebody paused is working anyway, which weave finds out
-// by going on reading the pane rather than by the hold failing.
-func heldWorking(item agentItem) bool {
+// isHeldWorking reports whether an agent somebody paused is working anyway.
+func isHeldWorking(item agentItem) bool {
 	if !item.alive {
 		return false
 	}

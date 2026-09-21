@@ -21,6 +21,6 @@ func TestPulseKeepsOneTickStream(t *testing.T) {
 		ticks++
 	}
 
-	assert.False(t, m.pulsing())
+	assert.False(t, m.isPulsing())
 	assert.Positive(t, ticks)
 }

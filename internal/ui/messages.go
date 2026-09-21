@@ -86,9 +86,9 @@ func (m model) pulseMessages(before int) (model, tea.Cmd) {
 	return m, m.startPulse(&m.messages.pulse, messagesPulseBlinks)
 }
 
-// messagesPulseOn reports whether the newest message is in the lit half of a blink.
-func (m model) messagesPulseOn() bool {
-	return m.messages.pulse.lit() && m.messages.clampedCursor() == 0
+// isMessagesPulseOn reports whether the newest message is in the lit half of a blink.
+func (m model) isMessagesPulseOn() bool {
+	return m.messages.pulse.isLit() && m.messages.clampedCursor() == 0
 }
 
 // messagePiece is one part of a message the cursor stands on: the label it is drawn behind, the
@@ -331,7 +331,7 @@ func (m model) messagesSummaryStyle(held message, taken int, flashed bool) strin
 	switch {
 	case flashed:
 		style = flashFieldStyle(paint.Panel)
-	case m.messagesPulseOn():
+	case m.isMessagesPulseOn():
 		style = style.Foreground(paint.Panel.Color(pulseTone(held.kind)))
 	}
 

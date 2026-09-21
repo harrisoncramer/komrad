@@ -79,7 +79,7 @@ func TestTabStripDrawsTheChosenTabInTheTonesOfItsFocus(t *testing.T) {
 }
 
 // TestTabStripIsCutToThePane covers a strip wider than the pane ending in an ellipsis rather than
-// running past it.
+// isRunning past it.
 func TestTabStripIsCutToThePane(t *testing.T) {
 	drawn := stripFixture().view(tabsState{}, paint.Panel, 12)
 
@@ -335,7 +335,7 @@ func TestWorktreesScreenGolden(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m := worktreesModel()
 			m.width, m.height = 44, 28
-			m = m.at(44)
+			m = m.measuredAt(44)
 			m.worktrees.cursor = 4
 			m.worktrees.sort = tt.state
 
@@ -436,7 +436,7 @@ func TestAgentsAndArchiveScreenGolden(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m := worktreesModel()
 			m.width, m.height = 44, 28
-			m = m.at(44)
+			m = m.measuredAt(44)
 			m.screen = tt.screen
 			m.tree.cursor = 1
 			m.tree.sort, m.archive.sort = tt.state, tt.state

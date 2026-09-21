@@ -58,9 +58,9 @@ type treeRowsParams struct {
 	foldOrchestrators bool
 }
 
-// folded reports whether an agent is drawn on its workflow's own row rather than on one of its
+// isFolded reports whether an agent is drawn on its workflow's own row rather than on one of its
 // own.
-func folded(params treeRowsParams, it agentItem) bool {
+func isFolded(params treeRowsParams, it agentItem) bool {
 	return params.foldOrchestrators && it.agent.Role == agentstore.RoleOrchestrator
 }
 
@@ -71,11 +71,11 @@ func treeRows(params treeRowsParams) []agentRow {
 	drawsRow := make(map[string]bool, len(agents))
 	orchestrators := make(map[string]agentItem)
 	for _, it := range agents {
-		drawsRow[it.agent.ID] = !folded(params, it)
+		drawsRow[it.agent.ID] = !isFolded(params, it)
 		if it.agent.ParentAgentID != nil {
 			children[*it.agent.ParentAgentID] = append(children[*it.agent.ParentAgentID], it)
 		}
-		if folded(params, it) {
+		if isFolded(params, it) {
 			orchestrators[it.agent.WorkflowID] = it
 		}
 	}
@@ -85,7 +85,7 @@ func treeRows(params treeRowsParams) []agentRow {
 	for _, it := range agents {
 		// An orchestrator is drawn on its workflow's own row, so it stands in no count and no
 		// key reveals it here.
-		if folded(params, it) {
+		if isFolded(params, it) {
 			continue
 		}
 

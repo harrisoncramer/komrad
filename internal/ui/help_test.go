@@ -99,7 +99,7 @@ func TestNoLegendIsDrawnAsAnEllipsis(t *testing.T) {
 		m := helpModel()
 		m.screen = s
 		m.helpExpanded = true
-		m = m.at(nameWidth)
+		m = m.measuredAt(nameWidth)
 
 		k := legend(m)
 		drawn := ansi.Strip(m.renderHelp(k))
@@ -120,7 +120,7 @@ func TestNoLegendIsDrawnAsAnEllipsis(t *testing.T) {
 func TestARefusedExpansionSaysItShowedNothing(t *testing.T) {
 	m := helpModel()
 	m.helpExpanded = true
-	m = m.at(nameWidth)
+	m = m.measuredAt(nameWidth)
 
 	drawn := ansi.Strip(m.renderHelp(m.agentHelp()))
 
@@ -290,7 +290,7 @@ func TestNoLegendIsWiderThanThePane(t *testing.T) {
 				for _, expanded := range []bool{false, true} {
 					m := helpModel()
 					m.helpExpanded = expanded
-					m = m.at(width)
+					m = m.measuredAt(width)
 
 					drawn := ansi.Strip(m.renderHelp(legend(m)))
 					for i, row := range strings.Split(drawn, "\n") {
@@ -312,7 +312,7 @@ func TestAPausedRowsLegendStillDraws(t *testing.T) {
 			m := helpModel()
 			m.listing.agents[0].agent.HeldAt = &at
 			m.helpExpanded = expanded
-			m = m.at(width)
+			m = m.measuredAt(width)
 
 			drawn := ansi.Strip(m.renderHelp(m.agentHelp()))
 			for i, row := range strings.Split(drawn, "\n") {

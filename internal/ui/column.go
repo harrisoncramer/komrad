@@ -249,7 +249,7 @@ func (m model) columnView(list func(model) string) string {
 
 	// Asked for before either half is drawn, so the halves are laid out already knowing their
 	// column.
-	held := m.at(split.sidebar)
+	held := m.measuredAt(split.sidebar)
 
 	return m.joinColumns(split, list(held), held.docColumnView(split))
 }

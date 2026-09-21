@@ -25,7 +25,7 @@ func newTextContent(markdown string) layout.Content {
 		Dir:   homeDir(),
 		Wraps: true,
 		Render: func(target layout.Target) ([]string, bool) {
-			if !writeStageFile(stageTextPath, paint.Panel.Render(markdown, target.Width)) {
+			if err := writeStageFile(stageTextPath, paint.Panel.Render(markdown, target.Width)); err != nil {
 				return nil, false
 			}
 
@@ -59,15 +59,14 @@ func stageFilePath(name string) string {
 	return filepath.Join(os.TempDir(), fmt.Sprintf("weave-%s-%d.ansi", name, os.Getpid()))
 }
 
-// writeStageFile renames the frame into place, so a drawer reading while the panel writes gets
-// the frame before or the frame after rather than half of each.
-func writeStageFile(path, content string) bool {
+// writeStageFile writes the frame beside the path and renames it into place.
+func writeStageFile(path, content string) error {
 	temp := path + ".tmp"
-	if os.WriteFile(temp, []byte(content), 0o644) != nil {
-		return false
+	if err := os.WriteFile(temp, []byte(content), 0o644); err != nil {
+		return err
 	}
 
-	return os.Rename(temp, path) == nil
+	return os.Rename(temp, path)
 }
 
 func pagerArgv(path string, line int) []string {

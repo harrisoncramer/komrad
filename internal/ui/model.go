@@ -283,9 +283,8 @@ type lastFrame struct {
 	text string
 }
 
-// at hands back a model that measures its own chrome in a column named outright rather than
-// asking which column it has.
-func (m model) at(width int) model {
+// measuredAt hands back a model that measures its own chrome in the column given.
+func (m model) measuredAt(width int) model {
 	m.paneMeasure = width
 
 	return m

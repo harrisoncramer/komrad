@@ -507,10 +507,10 @@ func TestMessagesPulseHoldsStillOnAnOlderMessage(t *testing.T) {
 	m.pushMessage(message{summary: "second", detail: "two"})
 
 	m, _ = m.pulseMessages(m.messages.landed - 1)
-	require.True(t, m.messagesPulseOn())
+	require.True(t, m.isMessagesPulseOn())
 
 	m.messages.cursor = 1
-	assert.False(t, m.messagesPulseOn())
+	assert.False(t, m.isMessagesPulseOn())
 }
 
 // TestChromeKeepsEveryRowInsideThePane covers every block of chrome the panel draws staying
