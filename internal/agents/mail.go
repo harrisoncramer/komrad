@@ -50,7 +50,7 @@ type mailReadWriter interface {
 	GetByID(ctx context.Context, id string) (*mailstore.Mail, error)
 	Claim(ctx context.Context, toAgentID string, limit int32) ([]mailstore.Mail, error)
 	CountPending(ctx context.Context, toAgentID string) (int64, error)
-	GetPendingOfKind(ctx context.Context, toAgentID string, kind mailstore.Kind, about *string) (*mailstore.Mail, error)
+	GetPendingOfKind(ctx context.Context, toAgentID string, kind mailstore.Kind, about string) (*mailstore.Mail, error)
 	ListPage(ctx context.Context, toAgentID string, limit int32, cursor *mailstore.Cursor) ([]mailstore.Mail, error)
 	ListSentPage(ctx context.Context, fromAgentID string, limit int32, cursor *mailstore.Cursor) ([]mailstore.Mail, error)
 	ListByID(ctx context.Context, ids []string) ([]mailstore.Mail, error)
@@ -189,8 +189,7 @@ type SendNoticeParams struct {
 	Body      string
 	// Kind is what the notice is about, which is how the panel tells it from mail an agent wrote.
 	Kind mailstore.Kind
-	// About is the other agent the notice concerns, and a further notice about the same agent
-	// joins the one still unread rather than being sent again.
+	// About is the other agent the notice concerns.
 	About *string
 }
 
@@ -202,7 +201,7 @@ func (s *MailService) SendNotice(ctx context.Context, params SendNoticeParams) (
 	}
 
 	if params.About != nil {
-		waiting, err := s.mailReadWriter.GetPendingOfKind(ctx, params.ToAgentID, params.Kind, params.About)
+		waiting, err := s.mailReadWriter.GetPendingOfKind(ctx, params.ToAgentID, params.Kind, *params.About)
 		if err != nil && !errors.Is(err, store.ErrNotFound) {
 			return nil, err
 		}

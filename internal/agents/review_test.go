@@ -1968,13 +1968,14 @@ type countingMailbox struct {
 
 func (f *countingMailbox) Send(_ context.Context, params mailstore.SendParams) (*mailstore.Mail, error) {
 	sent := mailstore.Mail{
-		ID:          fmt.Sprintf("mail-%d", len(f.held)+1),
-		FromAgentID: params.FromAgentID,
-		FromName:    params.FromName,
-		ToAgentID:   params.ToAgentID,
-		Body:        params.Body,
-		Kind:        params.Kind,
-		ReplyTo:     params.ReplyTo,
+		ID:           fmt.Sprintf("mail-%d", len(f.held)+1),
+		FromAgentID:  params.FromAgentID,
+		FromName:     params.FromName,
+		ToAgentID:    params.ToAgentID,
+		Body:         params.Body,
+		Kind:         params.Kind,
+		ReplyTo:      params.ReplyTo,
+		AboutAgentID: params.AboutAgentID,
 	}
 	f.held = append(f.held, sent)
 
@@ -2019,9 +2020,11 @@ func (f *countingMailbox) Claim(_ context.Context, toAgentID string, limit int32
 	return claimed, nil
 }
 
-func (f *countingMailbox) GetPendingOfKind(_ context.Context, toAgentID string, kind mailstore.Kind, _ *string) (*mailstore.Mail, error) {
+func (f *countingMailbox) GetPendingOfKind(_ context.Context, toAgentID string, kind mailstore.Kind, about string) (*mailstore.Mail, error) {
 	for i := range f.held {
-		if f.held[i].ToAgentID == toAgentID && f.held[i].Kind == kind && f.held[i].ClaimedAt == nil {
+		held := f.held[i]
+		sameSubject := held.AboutAgentID != nil && *held.AboutAgentID == about
+		if held.ToAgentID == toAgentID && held.Kind == kind && sameSubject && held.ClaimedAt == nil {
 			return &f.held[i], nil
 		}
 	}

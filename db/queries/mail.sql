@@ -28,7 +28,7 @@ FROM
 WHERE
     m.to_agent_id = @to_agent_id
     AND m.kind = @kind
-    AND m.about_agent_id IS NOT DISTINCT FROM sqlc.narg('about_agent_id')
+    AND m.about_agent_id = @about_agent_id::uuid
     AND m.claimed_at IS NULL
     AND m.expires_at > NOW()
 ORDER BY
