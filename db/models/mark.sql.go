@@ -9,7 +9,7 @@ import (
 	"context"
 )
 
-const clearMarkConflicts = `-- name: ClearMarkConflicts :exec
+const clearMarkConflicts = `-- name: ClearMarkConflicts :many
 WITH target AS (
     SELECT
         $2::uuid AS agent_id,
@@ -45,6 +45,9 @@ WHERE EXISTS (
 AND (marks.mark = $1
     OR marks.agent_id = target.agent_id
     OR marks.workflow_id = target.workflow_id)
+RETURNING
+    marks.agent_id,
+    marks.workflow_id
 `
 
 type ClearMarkConflictsParams struct {
@@ -53,9 +56,29 @@ type ClearMarkConflictsParams struct {
 	WorkflowID *string
 }
 
-func (q *Queries) ClearMarkConflicts(ctx context.Context, arg ClearMarkConflictsParams) error {
-	_, err := q.db.Exec(ctx, clearMarkConflicts, arg.Mark, arg.AgentID, arg.WorkflowID)
-	return err
+type ClearMarkConflictsRow struct {
+	AgentID    *string
+	WorkflowID *string
+}
+
+func (q *Queries) ClearMarkConflicts(ctx context.Context, arg ClearMarkConflictsParams) ([]*ClearMarkConflictsRow, error) {
+	rows, err := q.db.Query(ctx, clearMarkConflicts, arg.Mark, arg.AgentID, arg.WorkflowID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*ClearMarkConflictsRow
+	for rows.Next() {
+		var i ClearMarkConflictsRow
+		if err := rows.Scan(&i.AgentID, &i.WorkflowID); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const deleteMarkForTarget = `-- name: DeleteMarkForTarget :execrows

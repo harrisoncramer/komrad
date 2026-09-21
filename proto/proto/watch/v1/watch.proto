@@ -1,0 +1,78 @@
+syntax = "proto3";
+
+package watch.v1;
+
+import "agent/v1/agent.proto";
+import "annotation/v1/tool.proto";
+import "schedule/v1/schedule.proto";
+import "workflow/v1/workflow.proto";
+
+option go_package = "weave/proto/gen/watch/v1;watchv1";
+
+// WatchRequest opens the stream, and asks for nothing in particular.
+message WatchRequest {}
+
+// WatchEvent is one row as the panel should now hold it, a tombstone for one it should drop,
+// the mark that the snapshot is complete, or a heartbeat.
+message WatchEvent {
+  // Where the event sits in the service's order, increasing for the life of the process. A
+  // row held with a higher seq is newer than this one.
+  uint64 seq = 1;
+  // What moved.
+  oneof event {
+    // One agent row as ListAgents renders it.
+    agent.v1.Agent agent = 2;
+    // One workflow as ListWorkflows renders it.
+    workflow.v1.Workflow workflow = 3;
+    // One schedule as ListSchedules renders it.
+    schedule.v1.Schedule schedule = 4;
+    // A row its listing no longer holds.
+    Deleted deleted = 5;
+    // The snapshot is complete, and live events follow.
+    Synced synced = 6;
+    // Nothing has changed for a while, and the stream is still alive.
+    Heartbeat heartbeat = 7;
+  }
+}
+
+// RowKind is which listing a row is on.
+enum RowKind {
+  // No kind was set, which the service never sends.
+  ROW_KIND_UNSPECIFIED = 0;
+  // An agent on the live listing.
+  ROW_KIND_AGENT = 1;
+  // A workflow on the live listing.
+  ROW_KIND_WORKFLOW = 2;
+  // A schedule on the live listing.
+  ROW_KIND_SCHEDULE = 3;
+}
+
+// Deleted names a row its listing no longer holds, whether it was removed, archived or claimed
+// for a delete.
+message Deleted {
+  // Which listing the row was on.
+  RowKind kind = 1;
+  // The id of the row.
+  string id = 2;
+}
+
+// Synced says every row the listings held when the stream opened has been sent.
+message Synced {}
+
+// Heartbeat says the stream is alive while nothing has changed.
+message Heartbeat {}
+
+// WatchService streams every change to the rows the panel draws.
+service WatchService {
+  // Watch sends a snapshot of every agent, workflow and schedule the live listings hold, then
+  // Synced, then one event per change for as long as the stream is open, with a heartbeat when
+  // nothing has changed for a while.
+  rpc Watch(WatchRequest) returns (stream WatchEvent) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (annotation.v1.surfaces) = {
+      cli: false
+      mcp: false
+      reason: "a stream the panel holds open; a model or a script lists instead"
+    };
+  }
+}

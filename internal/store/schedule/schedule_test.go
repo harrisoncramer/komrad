@@ -515,6 +515,22 @@ func TestList(t *testing.T) {
 	}
 }
 
+// TestListLiveByID pins the read the watch renders from: a live schedule answers and an
+// archived one does not.
+func TestListLiveByID(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	live := seed(t, st, Config{Name: "live", Cron: "0 9 * * *", Prompt: "go"})
+	gone := seed(t, st, Config{Name: "gone", Cron: "0 9 * * *", Prompt: "go"})
+	require.NoError(t, st.Archive(ctx, gone.ID))
+
+	listed, err := st.ListLiveByID(ctx, []string{live.ID, gone.ID, "not-an-id"})
+	require.NoError(t, err)
+	require.Len(t, listed, 1)
+	assert.Equal(t, live.ID, listed[0].ID)
+}
+
 // TestListPage walks the listing through its cursor the way the RPC does.
 func TestListPage(t *testing.T) {
 	tests := []struct {

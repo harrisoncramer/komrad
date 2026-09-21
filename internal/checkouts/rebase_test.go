@@ -17,6 +17,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
 	workflowstore "weave/internal/store/workflow"
+	"weave/internal/watchtest"
 	"weave/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
@@ -276,10 +277,12 @@ func TestRebaseRecordsAStoppedRebase(t *testing.T) {
 				rebaser.replayErr = git.ErrRebaseConflicted
 			}
 
+			watch := watchtest.NewRecorder()
 			service := NewRebaseService(NewRebaseServiceParams{
 				Agents:    agents,
 				Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
 				Rebaser:   rebaser,
+				Watch:     watch,
 			})
 
 			result, err := service.Rebase(t.Context(), "a1")
@@ -287,6 +290,11 @@ func TestRebaseRecordsAStoppedRebase(t *testing.T) {
 			require.Equal(t, tt.conflict, result.Conflicted)
 
 			assert.Equal(t, tt.wantStopped, agents.setStopped)
+			if tt.wantStopped {
+				assert.Equal(t, []string{"a1"}, watch.Agents(), "the stopped rebase is on the row, so it is said")
+			} else {
+				assert.Empty(t, watch.Agents())
+			}
 		})
 	}
 }

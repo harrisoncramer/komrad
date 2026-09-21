@@ -18,6 +18,7 @@ import (
 	mailstore "weave/internal/store/mail"
 	reviewstore "weave/internal/store/review"
 	workflowstore "weave/internal/store/workflow"
+	"weave/internal/watchtest"
 	"weave/lib/xptr"
 	"weave/lib/xslice"
 
@@ -396,6 +397,43 @@ func TestReleasingAReviewWritesItOutAndRingsOnce(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, string(written), "Changes requested")
 	assert.Contains(t, string(written), "round 1")
+}
+
+// TestReleasingAReviewPublishesTheReviewedAgent pins that the verdict, which is on the agent's
+// row, is said to have moved once the release is recorded.
+func TestReleasingAReviewPublishesTheReviewedAgent(t *testing.T) {
+	reviews := newFakeReviewStore()
+	reviews.comments = 1
+	_, err := reviews.OpenReview(t.Context(), reviewstore.OpenReviewParams{
+		AgentID:    reviewedAgentID,
+		RoundID:    reviewRoundID,
+		AuthorKind: reviewstore.AuthorHuman,
+	})
+	require.NoError(t, err)
+
+	watch := watchtest.NewRecorder()
+	service := NewReviewService(NewReviewServiceParams{
+		Threads:   reviews,
+		Messages:  reviews,
+		Viewed:    reviews,
+		Rounds:    reviews,
+		Reviews:   reviews,
+		Snapshots: &fakeSnapshotter{sha: "snapshot-sha", base: "base-sha"},
+		Workflows: fakeWorkflowGetter{},
+		Agents:    fakeAgentReaderFunc(findLiveAgent),
+		Mailer:    &fakeNoticeSender{answer: &mailstore.Mail{ID: "mail-1"}},
+		Watch:     watch,
+		StateDir:  t.TempDir(),
+	})
+
+	_, err = service.ReleaseReview(t.Context(), ReleaseReviewParams{
+		AgentID: reviewedAgentID,
+		Verdict: reviewstore.VerdictApproved,
+		Author:  humanAuthor(),
+	})
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{reviewedAgentID}, watch.Agents())
 }
 
 // TestReleasingAnEmptyReviewIsRefused pins that a batch with nothing in it rings nobody.

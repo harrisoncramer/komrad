@@ -1,6 +1,7 @@
 package checkouts
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -17,6 +18,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
 	workflowstore "weave/internal/store/workflow"
+	"weave/internal/watch"
 	"weave/lib/xpath"
 )
 
@@ -90,6 +92,8 @@ type NewRebaseServiceParams struct {
 	Notifier  systemMailSender
 	Rebaser   worktreeRebaser
 	Locks     *TreeLocks
+	// Watch is told which rows moved, watch.Discard when unset.
+	Watch watch.Publisher
 }
 
 // RebaseService moves an agent's existing worktree onto the latest base without replacing it.
@@ -100,6 +104,7 @@ type RebaseService struct {
 	notifier  systemMailSender
 	rebaser   worktreeRebaser
 	locks     *TreeLocks
+	watch     watch.Publisher
 }
 
 // NewRebaseService builds the service from its dependencies.
@@ -116,6 +121,7 @@ func NewRebaseService(params NewRebaseServiceParams) *RebaseService {
 		notifier:  params.Notifier,
 		rebaser:   params.Rebaser,
 		locks:     locks,
+		watch:     cmp.Or(params.Watch, watch.Discard),
 	}
 }
 
@@ -331,7 +337,11 @@ func (s *RebaseService) recordStopped(ctx context.Context, agent agentstore.Agen
 	if err := s.agents.SetSequenceInProgressByID(ctx, agent.ID, true); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to record that an agent's rebase stopped part-way",
 			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
+
+		return
 	}
+
+	s.watch.TouchAgents(agent.ID)
 }
 
 // tell says what happened in the agent's mailbox.

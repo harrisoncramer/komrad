@@ -12,6 +12,7 @@ import (
 	"weave/internal/logging"
 	"weave/internal/store"
 	schedulestore "weave/internal/store/schedule"
+	"weave/internal/watch"
 	"weave/lib/xptr"
 
 	"github.com/riverqueue/river"
@@ -49,18 +50,31 @@ type LaunchAgentWorker struct {
 	agents    AgentLauncher
 	running   RunningAgentCounter
 	results   LaunchResultRecorder
+	watch     watch.Publisher
 	logger    *slog.Logger
+}
+
+// NewLaunchAgentWorkerParams is what the worker is built over.
+type NewLaunchAgentWorkerParams struct {
+	Schedules ScheduleGetter
+	Launcher  AgentLauncher
+	Running   RunningAgentCounter
+	Results   LaunchResultRecorder
+	// Watch is told which schedules moved, watch.Discard when unset.
+	Watch  watch.Publisher
+	Logger *slog.Logger
 }
 
 // NewLaunchAgentWorker builds the worker over the schedules it reads and the service that
 // launches an agent.
-func NewLaunchAgentWorker(schedules ScheduleGetter, launcher AgentLauncher, running RunningAgentCounter, results LaunchResultRecorder, logger *slog.Logger) *LaunchAgentWorker { //nolint:revive // a params struct is the follow-up
+func NewLaunchAgentWorker(params NewLaunchAgentWorkerParams) *LaunchAgentWorker {
 	return &LaunchAgentWorker{
-		schedules: schedules,
-		agents:    launcher,
-		running:   running,
-		results:   results,
-		logger:    cmp.Or(logger, slog.Default()),
+		schedules: params.Schedules,
+		agents:    params.Launcher,
+		running:   params.Running,
+		results:   params.Results,
+		watch:     cmp.Or(params.Watch, watch.Discard),
+		logger:    cmp.Or(params.Logger, slog.Default()),
 	}
 }
 
@@ -144,7 +158,10 @@ func (w *LaunchAgentWorker) record(ctx context.Context, scheduleID string, statu
 				slog.String(logging.ScheduleID, scheduleID),
 				slog.String(logging.LaunchResult, string(status)),
 			}, logging.Err(err)...)...)
+
+		return
 	}
+	w.watch.TouchSchedules(scheduleID)
 }
 
 // launchKey identifies one firing of one schedule, the schedule naming the recurring launch and

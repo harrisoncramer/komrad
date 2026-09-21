@@ -8,6 +8,7 @@ import (
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
+	"weave/lib/xslice"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -69,7 +70,8 @@ func (f *fixture) seedWorkflow(t *testing.T, name string) string {
 func (f *fixture) set(t *testing.T, mark string, target Target) bool {
 	t.Helper()
 
-	require.NoError(t, f.ClearConflicts(t.Context(), mark, target))
+	_, err := f.ClearConflicts(t.Context(), mark, target)
+	require.NoError(t, err)
 	marked, err := f.Set(t.Context(), mark, target)
 	require.NoError(t, err)
 
@@ -305,5 +307,22 @@ func TestDeletingARowTakesItsLetter(t *testing.T) {
 
 	_, err := st.agents.Delete(t.Context(), []string{alpha})
 	require.NoError(t, err)
+	assert.Empty(t, st.marks(t))
+}
+
+// TestClearConflictsNamesTheRowsItFreed pins that a caller learns which rows lost a letter, the
+// one holding the letter and the one the target already answered to.
+func TestClearConflictsNamesTheRowsItFreed(t *testing.T) {
+	st := open(t)
+	alpha := st.seedAgent(t, "alpha")
+	beta := st.seedAgent(t, "beta")
+	require.True(t, st.set(t, "a", OnAgent(alpha)))
+	require.True(t, st.set(t, "b", OnAgent(beta)))
+
+	freed, err := st.ClearConflicts(t.Context(), "a", OnAgent(beta))
+	require.NoError(t, err)
+
+	ids := xslice.Map(freed, func(target Target) string { return *target.AgentID })
+	assert.ElementsMatch(t, []string{alpha, beta}, ids)
 	assert.Empty(t, st.marks(t))
 }

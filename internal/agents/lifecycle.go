@@ -1,6 +1,7 @@
 package agents
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 	"weave/internal/logging"
 	"weave/internal/scripts"
 	"weave/internal/store"
+	"weave/internal/watch"
 	"weave/lib/xslice"
 	"weave/lib/xstr"
 
@@ -68,6 +70,7 @@ type LifecycleService struct {
 	scripts        agentScriptRunner
 	reviews        reviewReaper
 	snapshots      snapshotReleaser
+	watch          watch.Publisher
 	logsDir        string
 	framesDir      string
 	maxAgents      int
@@ -85,10 +88,12 @@ type NewLifecycleServiceParams struct {
 	Scripts        agentScriptRunner
 	Reviews        reviewReaper
 	Snapshots      snapshotReleaser
-	LogsDir        string
-	FramesDir      string
-	MaxAgents      int
-	MaxChildren    int
+	// Watch is told which rows moved, watch.Discard when unset.
+	Watch       watch.Publisher
+	LogsDir     string
+	FramesDir   string
+	MaxAgents   int
+	MaxChildren int
 }
 
 // NewLifecycleService builds the service from its dependencies.
@@ -102,6 +107,7 @@ func NewLifecycleService(params NewLifecycleServiceParams) *LifecycleService {
 		scripts:        params.Scripts,
 		reviews:        params.Reviews,
 		snapshots:      params.Snapshots,
+		watch:          cmp.Or(params.Watch, watch.Discard),
 		logsDir:        params.LogsDir,
 		framesDir:      params.FramesDir,
 		maxAgents:      params.MaxAgents,
@@ -115,17 +121,18 @@ func NewLifecycleService(params NewLifecycleServiceParams) *LifecycleService {
 func (s *LifecycleService) DeleteAgents(ctx context.Context, ids []string) error {
 	named, err := s.requireEveryAgent(ctx, ids)
 	if err != nil {
-		return errors.Join(err, s.agents.ClearDeleting(ctx, ids))
+		return errors.Join(err, s.clearDeleting(ctx, ids))
 	}
 
 	agents, err := s.withChildren(ctx, named)
 	if err != nil {
-		return errors.Join(err, s.agents.ClearDeleting(ctx, ids))
+		return errors.Join(err, s.clearDeleting(ctx, ids))
 	}
 
 	if err := s.agents.MarkDeleting(ctx, agentstore.IDs(agents)); err != nil {
-		return errors.Join(err, s.agents.ClearDeleting(ctx, ids))
+		return errors.Join(err, s.clearDeleting(ctx, ids))
 	}
+	s.watch.TouchAgents(agentstore.IDs(agents)...)
 
 	// A deprovisioner must not run against a directory a CLI is still working in, and since the
 	// children share their parent's, this is what keeps the parent's deprovision from tearing down a
@@ -166,12 +173,20 @@ func (s *LifecycleService) DeleteAgents(ctx context.Context, ids []string) error
 	}
 
 	if err := s.removeAgents(ctx, agentstore.IDs(immediate)); err != nil {
-		return errors.Join(err, s.agents.ClearDeleting(ctx, agentstore.IDs(immediate)))
+		return errors.Join(err, s.clearDeleting(ctx, agentstore.IDs(immediate)))
 	}
 
 	s.cleanupEmptyWorkflows(ctx, immediate)
 
 	return nil
+}
+
+// clearDeleting hands the rows back to the listing and says so.
+func (s *LifecycleService) clearDeleting(ctx context.Context, ids []string) error {
+	err := s.agents.ClearDeleting(ctx, ids)
+	s.watch.TouchAgents(ids...)
+
+	return err
 }
 
 // tearDown runs a workflow's teardown hooks while the agent's directory is still there, then
@@ -246,7 +261,7 @@ func (s *LifecycleService) finishDelete(ctx context.Context, agent agentstore.Ag
 func (s *LifecycleService) failCleanup(ctx context.Context, agent agentstore.Agent, cause error) {
 	failAs(ctx, s.agents, agent, agentstore.StateFailedToCleanup, "cleanup", cause)
 
-	if err := s.agents.ClearDeleting(ctx, []string{agent.ID}); err != nil {
+	if err := s.clearDeleting(ctx, []string{agent.ID}); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to release an agent whose cleanup failed",
 			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
 	}
@@ -284,6 +299,7 @@ func (s *LifecycleService) ArchiveAgents(ctx context.Context, ids []string) erro
 	if err != nil {
 		return fmt.Errorf("failed to archive %d agents: %w", len(agents), err)
 	}
+	s.watch.TouchAgents(agentstore.IDs(agents)...)
 	// A pane recorded in between only reaches here through what the write took off the rows.
 	killPanes(ctx, s.tmux, taken)
 
@@ -320,6 +336,7 @@ func (s *LifecycleService) ArchiveUnchangedAgents(ctx context.Context, observed 
 	if err := s.agents.RestampArchived(ctx, agentstore.IDs(archived)); err != nil {
 		failures = append(failures, err)
 	}
+	s.watch.TouchAgents(agentstore.IDs(archived)...)
 
 	return archived, errors.Join(failures...)
 }
@@ -399,6 +416,8 @@ func (s *LifecycleService) RestoreAgents(ctx context.Context, ids []string) ([]a
 	if err != nil {
 		return nil, fmt.Errorf("failed to restore %d agents: %w", len(archived), err)
 	}
+	s.watch.TouchAgents(agentstore.IDs(archived)...)
+	s.watch.TouchWorkflows(workflowIDs(archived)...)
 
 	restored, err := s.agents.ListByID(ctx, agentstore.IDs(agents))
 	if err != nil {
@@ -546,6 +565,7 @@ func (s *LifecycleService) removeAgents(ctx context.Context, ids []string) error
 		return err
 	}
 
+	s.watch.TouchAgents(ids...)
 	killPanes(ctx, s.tmux, taken)
 	s.removeRunLogs(ctx, ids)
 	s.removeFrames(ctx, ids)

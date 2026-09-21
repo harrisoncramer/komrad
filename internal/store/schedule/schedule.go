@@ -105,6 +105,23 @@ func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor) ([]Sc
 	return schedules, nil
 }
 
+// ListLiveByID returns the schedules among the given ids that the live listing holds.
+func (s *Store) ListLiveByID(ctx context.Context, ids []string) ([]Schedule, error) {
+	storable := store.KeepIDs(ids)
+	if len(storable) == 0 {
+		return nil, nil
+	}
+
+	rows, err := s.queries.ListLiveSchedulesByID(ctx, storable)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get %d schedules: %w", len(storable), err)
+	}
+
+	return xslice.Map(rows, func(row *models.ListLiveSchedulesByIDRow) Schedule {
+		return scheduleFromRow(row.Schedule)
+	}), nil
+}
+
 // Get returns a schedule by id, or ErrNotFound when none has that id.
 func (s *Store) Get(ctx context.Context, id string) (*Schedule, error) {
 	if !store.IsID(id) {

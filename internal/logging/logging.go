@@ -19,6 +19,7 @@ const (
 	RPCService             = "rpc.service"
 	RPCMethod              = "rpc.method"
 	RPCErrorCode           = "rpc.connect_rpc.error_code"
+	RPCMessagesSent        = "rpc.stream.messages_sent"
 	ClientAddress          = "client.address"
 	HTTPMethod             = "http.request.method"
 	URLPath                = "url.path"

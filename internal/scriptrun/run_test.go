@@ -22,6 +22,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	runstore "weave/internal/store/run"
 	workflowstore "weave/internal/store/workflow"
+	"weave/internal/watchtest"
 	"weave/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
@@ -1123,6 +1124,26 @@ func TestRunHookRecordsTheRun(t *testing.T) {
 			assert.Contains(t, finished[0].Failure, tt.wantFailure)
 		})
 	}
+}
+
+// TestARunPublishesTheAgentAsItOpensAndCloses pins that the row a run leaves behind, which is
+// what flips the failed mark, is said to have moved when it is opened and again when it is
+// closed or dropped.
+func TestARunPublishesTheAgentAsItOpensAndCloses(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "install-deps"), []byte("#!/bin/sh\nexit 0\n"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, firedScript), []byte("#!/bin/sh\nexit 0\n"), 0o644))
+
+	svc, _ := scriptServiceRecording(t, dir, scripts.NewRunner(), t.TempDir())
+	watch := watchtest.NewRecorder()
+	svc.watch = watch
+
+	require.NoError(t, svc.RunHook(t.Context(), agentstore.Agent{ID: "a1", Cwd: t.TempDir()}, "install-deps", workflowstore.HookPostLaunch))
+	assert.Equal(t, []string{"a1", "a1"}, watch.Agents(), "the row opening and the row closing")
+
+	watch.Reset()
+	require.Error(t, fireScript(t.Context(), t, svc), "a file nobody made executable is not startable")
+	assert.Equal(t, []string{fixtureAgentID, fixtureAgentID}, watch.Agents(), "the row opening and the row dropped")
 }
 
 // TestAHookThatFailedSilentlySaysSoInItsLog covers a hook exiting non-zero having printed

@@ -313,6 +313,38 @@ func (q *Queries) ListAgentPullRequests(ctx context.Context, agentID string) ([]
 	return items, nil
 }
 
+const listLiveAgentsOnRepositories = `-- name: ListLiveAgentsOnRepositories :many
+SELECT
+    id
+FROM
+    agents
+WHERE
+    archived_at IS NULL
+    AND repository_url = ANY ($1::text[])
+ORDER BY
+    id
+`
+
+func (q *Queries) ListLiveAgentsOnRepositories(ctx context.Context, urls []string) ([]string, error) {
+	rows, err := q.db.Query(ctx, listLiveAgentsOnRepositories, urls)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listLiveRepositories = `-- name: ListLiveRepositories :many
 SELECT DISTINCT
     repository_url

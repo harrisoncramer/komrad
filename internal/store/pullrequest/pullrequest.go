@@ -280,6 +280,21 @@ func (s *Store) ListObservations(ctx context.Context, agentID string) ([]Observa
 	}), nil
 }
 
+// ListLiveAgentsOnRepositories returns the ids of the live agents whose checkouts push to any
+// of the repositories.
+func (s *Store) ListLiveAgentsOnRepositories(ctx context.Context, urls []string) ([]string, error) {
+	if len(urls) == 0 {
+		return nil, nil
+	}
+
+	ids, err := s.queries.ListLiveAgentsOnRepositories(ctx, urls)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the agents on %d repositories: %w", len(urls), err)
+	}
+
+	return ids, nil
+}
+
 // ListLiveRepositories is every repository a live agent sits on.
 func (s *Store) ListLiveRepositories(ctx context.Context) ([]string, error) {
 	rows, err := s.queries.ListLiveRepositories(ctx)

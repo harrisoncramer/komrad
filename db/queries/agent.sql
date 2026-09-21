@@ -120,6 +120,9 @@ SELECT
         LEFT JOIN opened p ON p.agent_id = s.id
     WHERE (sqlc.narg('ids')::uuid[] IS NULL
         OR s.id = ANY (sqlc.narg('ids')::uuid[]))
+    AND (NOT @live_only::boolean
+        OR (s.archived_at IS NULL
+            AND s.deleting_at IS NULL))
     AND (sqlc.narg('ids')::uuid[] IS NOT NULL
         OR ((@archived::boolean) =(s.archived_at IS NOT NULL)
             AND s.deleting_at IS NULL

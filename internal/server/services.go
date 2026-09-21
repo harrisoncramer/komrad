@@ -17,10 +17,12 @@ import (
 	"weave/internal/marks"
 	"weave/internal/pullrequests"
 	"weave/internal/reviews"
+	rpcwatch "weave/internal/rpc/watch"
 	"weave/internal/schedules"
 	"weave/internal/scriptrun"
 	"weave/internal/scripts"
 	"weave/internal/transcripts"
+	"weave/internal/watch"
 	"weave/internal/worktrees"
 )
 
@@ -52,6 +54,7 @@ type services struct {
 	inspector       *worktrees.Inspector
 	remover         *worktrees.Remover
 	measurer        *worktrees.Measurer
+	watchRows       *rpcwatch.Rows
 }
 
 // BuiltinScriptsDir is where the scripts weave ships are installed under a cache directory,
@@ -60,7 +63,7 @@ func BuiltinScriptsDir(cacheDir string) string {
 	return filepath.Join(cacheDir, "weave-builtin-scripts")
 }
 
-func buildServices(params NewServerParams, st *stores) (*services, error) {
+func buildServices(params NewServerParams, st *stores, broker *watch.Broker) (*services, error) {
 	loadConfig := func() (*config.Config, error) { return config.LoadStack(params.ConfigStack) }
 	gitClient := git.NewClient()
 
@@ -69,11 +72,13 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		Agents:         st.agents,
 		Workflows:      st.workflows,
 		Config:         mailConfig(loadConfig),
+		Watch:          broker,
 	})
 	stateDir := params.Env.StateDir
 	scheduleService := schedules.NewScheduleService(schedules.NewScheduleServiceParams{
 		Schedules: st.schedules,
 		Workflows: st.workflows,
+		Watch:     broker,
 	})
 
 	builtinScriptsDir := BuiltinScriptsDir(params.Env.CacheDir)
@@ -92,6 +97,7 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		Tmux:       params.Tmux,
 		Runner:     scripts.NewRunner(),
 		Runs:       st.runs,
+		Watch:      broker,
 		Load:       loadConfig,
 		Addr:       params.Addr,
 		Socket:     params.Env.TmuxSocket,
@@ -120,6 +126,7 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		Launcher:           harnessLauncher,
 		Harnesses:          params.Harnesses,
 		Scripts:            scriptService,
+		Watch:              broker,
 		UserDefaultHarness: params.DefaultHarness,
 		UserDefaultFlags:   params.DefaultFlags,
 		MaxAgents:          params.MaxAgents,
@@ -132,6 +139,7 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		Launcher:           harnessLauncher,
 		Harnesses:          params.Harnesses,
 		Scripts:            scriptService,
+		Watch:              broker,
 		FallbackResumeRoot: params.FallbackResumeRoot,
 	})
 	reviewService := reviews.NewReviewService(reviews.NewReviewServiceParams{
@@ -145,6 +153,7 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		Agents:    st.agents,
 		Mailer:    mailService,
 		Resumer:   resumeService,
+		Watch:     broker,
 		StateDir:  stateDir,
 		Interrupter: agents.NewInterrupter(agents.NewInterrupterParams{
 			Agents:   st.agents,
@@ -162,6 +171,7 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		Settler:   settler,
 		Notifier:  mailService,
 		Rebaser:   gitClient,
+		Watch:     broker,
 	})
 	adoptService := agents.NewAdoptService(agents.NewAdoptServiceParams{
 		Agents:    st.agents,
@@ -173,6 +183,7 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		Workflows: st.workflows,
 		Agents:    st.agents,
 		Schedules: st.schedules,
+		Watch:     broker,
 	})
 	lifecycleService := agents.NewLifecycleService(agents.NewLifecycleServiceParams{
 		Tmux:           params.Tmux,
@@ -183,6 +194,7 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		Scripts:        scriptService,
 		Reviews:        st.review,
 		Snapshots:      gitClient,
+		Watch:          broker,
 		LogsDir:        runLogsDir,
 		FramesDir:      params.Env.FramesDir(),
 		MaxAgents:      params.MaxAgents,
@@ -197,11 +209,12 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		Tmux:         params.Tmux,
 		Tx:           st.pool,
 		Scripts:      scriptService,
+		Watch:        broker,
 		MaxAgents:    params.MaxAgents,
 		MaxChildren:  params.MaxChildren,
 	})
 
-	markService := marks.NewMarkService(marks.NewMarkServiceParams{Marks: st.marks, Tx: st.pool})
+	markService := marks.NewMarkService(marks.NewMarkServiceParams{Marks: st.marks, Tx: st.pool, Watch: broker})
 
 	builders := params.ForgeBuilders
 	if builders == nil {
@@ -226,6 +239,7 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		PullRequests: st.pullRequests,
 		Syncs:        st.pullRequestSyncs,
 		Tx:           st.pool,
+		Watch:        broker,
 	})
 	cwdSyncer := checkouts.NewCwdSyncer(checkouts.NewCwdSyncerParams{
 		Agents:  st.agents,
@@ -233,12 +247,14 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		Trees:   gitClient,
 		Tallies: st.review,
 		Bases:   st.workflows,
+		Watch:   broker,
 	})
 
 	transcriptSyncer := transcripts.NewTranscriptSyncer(transcripts.NewTranscriptSyncerParams{
 		Agents:      st.agents,
 		Transcripts: st.transcripts,
 		Harnesses:   params.Harnesses,
+		Watch:       broker,
 	})
 
 	worktreeLister := worktrees.NewLister(worktrees.NewListerParams{
@@ -259,19 +275,29 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		Panes:    params.Tmux,
 		Observer: paneChannel,
 		States:   st.agents,
+		Watch:    broker,
 	}).WithFrameRecorder(frames.NewRecorder(params.Env.FramesDir(), newFrameSettings(loadConfig).get))
+
+	rowReader := agents.NewRowReader(agents.NewRowReaderParams{
+		Rows:     st.rows,
+		Liveness: paneLiveness,
+		Trees:    cwdSyncer,
+	})
 
 	return &services{
 		loadConfig: loadConfig,
-		rows: agents.NewRowReader(agents.NewRowReaderParams{
-			Rows:     st.rows,
-			Liveness: paneLiveness,
-			Trees:    cwdSyncer,
+		rows:       rowReader,
+		watchRows: rpcwatch.NewRows(rpcwatch.NewRowsParams{
+			Agents:    rowReader,
+			Workflows: st.workflows,
+			Schedules: st.schedules,
+			Marks:     markService,
 		}),
 		rowWriter: agents.NewRowWriter(agents.NewRowWriterParams{
 			Agents:     st.agents,
 			Runs:       st.runs,
 			Reconciler: reconciler,
+			Watch:      broker,
 		}),
 		marks:           markService,
 		rebase:          rebaseService,
@@ -306,6 +332,7 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 			Agents:  st.agents,
 			Channel: paneChannel,
 			Settler: settler,
+			Watch:   broker,
 		}),
 		adopt:     adoptService,
 		lifecycle: lifecycleService,
@@ -325,6 +352,7 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 			NudgeClaimer:  st.agents,
 			PaneReader:    paneLiveness,
 			Channel:       paneChannel,
+			Watch:         broker,
 		}),
 		reconciler: reconciler,
 	}, nil
