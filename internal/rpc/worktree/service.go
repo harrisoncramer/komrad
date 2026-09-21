@@ -36,7 +36,7 @@ type claimedDirLister interface {
 	ListClaimedDirs(ctx context.Context) ([]string, error)
 }
 
-type WorktreeService struct {
+type Handler struct {
 	lister    lister
 	inspector inspector
 	remover   remover
@@ -44,7 +44,7 @@ type WorktreeService struct {
 	claimed   claimedDirLister
 }
 
-type NewWorktreeServiceParams struct {
+type NewHandlerParams struct {
 	Lister    lister
 	Inspector inspector
 	Remover   remover
@@ -52,10 +52,10 @@ type NewWorktreeServiceParams struct {
 	Claimed   claimedDirLister
 }
 
-// NewWorktreeService constructs the handler over the worktree readers, the remover, the queue
+// NewHandler constructs the handler over the worktree readers, the remover, the queue
 // the bulk delete goes to and the reader of what that queue still holds.
-func NewWorktreeService(params NewWorktreeServiceParams) *WorktreeService {
-	return &WorktreeService{
+func NewHandler(params NewHandlerParams) *Handler {
+	return &Handler{
 		lister:    params.Lister,
 		inspector: params.Inspector,
 		remover:   params.Remover,
@@ -65,7 +65,7 @@ func NewWorktreeService(params NewWorktreeServiceParams) *WorktreeService {
 }
 
 // ListWorktrees is every directory under the worktree directories that no delete has claimed.
-func (s *WorktreeService) ListWorktrees(ctx context.Context, _ *emptypb.Empty) (*worktreev1.ListWorktreesResponse, *fail.Error) {
+func (s *Handler) ListWorktrees(ctx context.Context, _ *emptypb.Empty) (*worktreev1.ListWorktreesResponse, *fail.Error) {
 	listing, err := s.lister.List(ctx)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to list worktrees")
@@ -84,7 +84,7 @@ func (s *WorktreeService) ListWorktrees(ctx context.Context, _ *emptypb.Empty) (
 }
 
 // GetWorktree reads one directory through git.
-func (s *WorktreeService) GetWorktree(ctx context.Context, req *worktreev1.GetWorktreeRequest) (*worktreev1.GetWorktreeResponse, *fail.Error) {
+func (s *Handler) GetWorktree(ctx context.Context, req *worktreev1.GetWorktreeRequest) (*worktreev1.GetWorktreeResponse, *fail.Error) {
 	inspection, err := s.inspector.Inspect(ctx, worktrees.InspectParams{Dir: req.GetDir(), Fetch: req.GetFetch()})
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to read the worktree")
@@ -111,7 +111,7 @@ func (s *WorktreeService) GetWorktree(ctx context.Context, req *worktreev1.GetWo
 }
 
 // RemoveUnownedWorktrees takes away the directories no agent answers for.
-func (s *WorktreeService) RemoveUnownedWorktrees(ctx context.Context, req *worktreev1.RemoveUnownedWorktreesRequest) (*worktreev1.RemoveUnownedWorktreesResponse, *fail.Error) {
+func (s *Handler) RemoveUnownedWorktrees(ctx context.Context, req *worktreev1.RemoveUnownedWorktreesRequest) (*worktreev1.RemoveUnownedWorktreesResponse, *fail.Error) {
 	removal, err := s.remover.Remove(ctx, req.GetDirs())
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to remove worktrees")
@@ -126,7 +126,7 @@ func (s *WorktreeService) RemoveUnownedWorktrees(ctx context.Context, req *workt
 }
 
 // DeleteWorktrees queues the delete of the directories named as one background job.
-func (s *WorktreeService) DeleteWorktrees(ctx context.Context, req *worktreev1.DeleteWorktreesRequest) (*emptypb.Empty, *fail.Error) {
+func (s *Handler) DeleteWorktrees(ctx context.Context, req *worktreev1.DeleteWorktreesRequest) (*emptypb.Empty, *fail.Error) {
 	if err := s.deleter.DeleteWorktrees(ctx, req.GetDirs()); err != nil {
 		return nil, rpcerr.From(err, "failed to queue the delete")
 	}

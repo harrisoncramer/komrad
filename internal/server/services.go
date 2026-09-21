@@ -45,7 +45,7 @@ type services struct {
 	rebase          *checkouts.RebaseService
 	cwdSync         *checkouts.CwdSyncer
 	transcriptSync  *transcripts.TranscriptSyncer
-	forge           *forge.ForgeService
+	forge           *forge.Service
 	pullRequestSync *pullrequests.PullRequestSyncer
 	worktrees       *worktrees.Lister
 	inspector       *worktrees.Inspector
@@ -206,7 +206,7 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		builders = forges.Builders
 	}
 	tokenCachePath := forges.TokenCachePath(params.Env.CacheDir)
-	forgeService := forge.NewForgeService(forge.NewForgeServiceParams{
+	forgeService := forge.NewService(forge.NewServiceParams{
 		Connections: st.forges,
 		Credentials: forge.NewFileStore(stateDir),
 		Builders:    builders,

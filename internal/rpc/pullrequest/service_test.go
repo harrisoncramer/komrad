@@ -93,7 +93,7 @@ func TestListPullRequests(t *testing.T) {
 		MergedAt:   &merged,
 		ClosedAt:   &merged,
 	}}}
-	service := pullrequestv1weave.PullRequestServiceAdapter{Impl: NewPullRequestService(NewPullRequestServiceParams{Forges: &fakeFinder{forge: fake}})}
+	service := pullrequestv1weave.PullRequestServiceAdapter{Impl: NewHandler(NewHandlerParams{Forges: &fakeFinder{forge: fake}})}
 
 	resp, err := service.ListPullRequests(t.Context(), connect.NewRequest(&pullrequestv1.ListPullRequestsRequest{
 		RemoteUrl: "git@github.com:harrisoncramer/weave.git",
@@ -120,7 +120,7 @@ func TestListPullRequestsPages(t *testing.T) {
 	t.Parallel()
 
 	fake := &fakeForge{hasMore: true}
-	service := pullrequestv1weave.PullRequestServiceAdapter{Impl: NewPullRequestService(NewPullRequestServiceParams{Forges: &fakeFinder{forge: fake}})}
+	service := pullrequestv1weave.PullRequestServiceAdapter{Impl: NewHandler(NewHandlerParams{Forges: &fakeFinder{forge: fake}})}
 
 	first, err := service.ListPullRequests(t.Context(), connect.NewRequest(&pullrequestv1.ListPullRequestsRequest{
 		RemoteUrl:  "git@github.com:harrisoncramer/weave.git",
@@ -168,7 +168,7 @@ func TestListPullRequestsRefusesABadToken(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			service := pullrequestv1weave.PullRequestServiceAdapter{Impl: NewPullRequestService(NewPullRequestServiceParams{Forges: &fakeFinder{forge: &fakeForge{}}})}
+			service := pullrequestv1weave.PullRequestServiceAdapter{Impl: NewHandler(NewHandlerParams{Forges: &fakeFinder{forge: &fakeForge{}}})}
 
 			_, err := service.ListPullRequests(t.Context(), connect.NewRequest(&pullrequestv1.ListPullRequestsRequest{
 				RemoteUrl:  "git@github.com:harrisoncramer/weave.git",
@@ -185,7 +185,7 @@ func TestListPullRequestsRefusesABadToken(t *testing.T) {
 func TestListPullRequestsRefusals(t *testing.T) {
 	t.Parallel()
 
-	service := NewPullRequestService(NewPullRequestServiceParams{Forges: &fakeFinder{forge: &fakeForge{}}})
+	service := NewHandler(NewHandlerParams{Forges: &fakeFinder{forge: &fakeForge{}}})
 
 	_, failure := service.ListPullRequests(t.Context(), &pullrequestv1.ListPullRequestsRequest{RemoteUrl: "/local/path", Branch: "main"})
 	require.NotNil(t, failure)
@@ -296,7 +296,7 @@ func TestListAgentPullRequests(t *testing.T) {
 			t.Parallel()
 
 			st := storetest.Open(t)
-			service := pullrequestv1weave.PullRequestServiceAdapter{Impl: NewPullRequestService(NewPullRequestServiceParams{
+			service := pullrequestv1weave.PullRequestServiceAdapter{Impl: NewHandler(NewHandlerParams{
 				Forges:           &fakeFinder{forge: &fakeForge{}},
 				Agents:           st.Agents,
 				PullRequests:     st.PullRequests,
@@ -338,7 +338,7 @@ func TestListAgentPullRequestsFallsBackToTheNewestFinished(t *testing.T) {
 
 	st := storetest.Open(t)
 	ctx := t.Context()
-	service := pullrequestv1weave.PullRequestServiceAdapter{Impl: NewPullRequestService(NewPullRequestServiceParams{
+	service := pullrequestv1weave.PullRequestServiceAdapter{Impl: NewHandler(NewHandlerParams{
 		Agents:           st.Agents,
 		PullRequests:     st.PullRequests,
 		PullRequestSyncs: st.PullRequestSyncs,

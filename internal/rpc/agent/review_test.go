@@ -133,7 +133,7 @@ func reviewServiceOver(t *testing.T, trees fakeTrees) (agentv1weave.AgentService
 
 	liveness := &fakeLauncher{}
 
-	return agentv1weave.AgentServiceAdapter{Impl: NewAgentService(NewAgentServiceParams{
+	return agentv1weave.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{
 		Agents:   st.Agents,
 		Rows:     rowReaderOver(st, liveness, trees),
 		Mail:     mailer,

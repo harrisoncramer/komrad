@@ -11,24 +11,24 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// NewDoctorServiceParams is the machine the checks are made against and the checks to make.
-type NewDoctorServiceParams struct {
+// NewHandlerParams is the machine the checks are made against and the checks to make.
+type NewHandlerParams struct {
 	Env    doctor.Env
 	Checks []doctor.Check
 }
 
-type DoctorService struct {
+type Handler struct {
 	env    doctor.Env
 	checks []doctor.Check
 }
 
-// NewDoctorService constructs the handler over the checks the service makes on its own machine.
-func NewDoctorService(params NewDoctorServiceParams) *DoctorService {
-	return &DoctorService{env: params.Env, checks: params.Checks}
+// NewHandler constructs the handler over the checks the service makes on its own machine.
+func NewHandler(params NewHandlerParams) *Handler {
+	return &Handler{env: params.Env, checks: params.Checks}
 }
 
 // RunDoctor makes every check and answers with the findings.
-func (s *DoctorService) RunDoctor(ctx context.Context, _ *emptypb.Empty) (*doctorv1.RunDoctorResponse, *fail.Error) {
+func (s *Handler) RunDoctor(ctx context.Context, _ *emptypb.Empty) (*doctorv1.RunDoctorResponse, *fail.Error) {
 	report := doctor.Run(ctx, s.env, s.checks)
 
 	findings := make([]*doctorv1.Finding, 0, len(report.Findings))

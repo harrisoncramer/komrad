@@ -25,7 +25,7 @@ var errNothingToForward = fail.Precondition("the source has no turns synced yet,
 var errForwardTooLong = fail.InvalidArgument("the forward would run past what one piece of mail holds")
 
 // ForwardLastTurns sends another agent's newest turns to a third agent as mail weave composes.
-func (s *AgentService) ForwardLastTurns(ctx context.Context, req *agentv1.ForwardLastTurnsRequest) (*agentv1.ForwardLastTurnsResponse, *fail.Error) {
+func (s *Handler) ForwardLastTurns(ctx context.Context, req *agentv1.ForwardLastTurnsRequest) (*agentv1.ForwardLastTurnsResponse, *fail.Error) {
 	logCrossAgentRead(ctx, req.GetFromAgentId(), "agent read another agent's transcript")
 
 	source, err := s.agents.GetByID(ctx, req.GetFromAgentId())

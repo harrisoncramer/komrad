@@ -18,18 +18,18 @@ type hookLister interface {
 	ListHooks() ([]agents.Script, error)
 }
 
-type HookService struct {
+type Handler struct {
 	hooks hookLister
 }
 
-// NewHookService constructs the handler from the services that own the rules.
-func NewHookService(hooks hookLister) *HookService {
-	return &HookService{hooks: hooks}
+// NewHandler constructs the handler from the services that own the rules.
+func NewHandler(hooks hookLister) *Handler {
+	return &Handler{hooks: hooks}
 }
 
 // ListHooks returns every file in the user's hooks directory, and a directory that is not
 // there is an empty listing rather than an error.
-func (s *HookService) ListHooks(_ context.Context, _ *emptypb.Empty) (*hookv1.ListHooksResponse, *fail.Error) {
+func (s *Handler) ListHooks(_ context.Context, _ *emptypb.Empty) (*hookv1.ListHooksResponse, *fail.Error) {
 	listed, err := s.hooks.ListHooks()
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to list hooks")

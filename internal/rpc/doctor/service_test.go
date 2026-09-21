@@ -49,7 +49,7 @@ func TestRunDoctorCarriesEveryFinding(t *testing.T) {
 			},
 		},
 	}
-	service := doctorv1weave.DoctorServiceAdapter{Impl: NewDoctorService(NewDoctorServiceParams{Checks: checks})}
+	service := doctorv1weave.DoctorServiceAdapter{Impl: NewHandler(NewHandlerParams{Checks: checks})}
 
 	resp, err := service.RunDoctor(t.Context(), connect.NewRequest(&emptypb.Empty{}))
 	require.NoError(t, err)

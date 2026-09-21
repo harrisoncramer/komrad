@@ -437,7 +437,7 @@ func forwardServiceOver(st *storetest.Stores, maxExchange int, liveness *fakeLau
 		Config:         fakeMailConfig(maxExchange),
 	})
 
-	return agentv1weave.AgentServiceAdapter{Impl: NewAgentService(NewAgentServiceParams{
+	return agentv1weave.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{
 		Agents:      st.Agents,
 		Rows:        rowReaderOver(st, liveness, fakeTrees{}),
 		Transcripts: st.Transcripts,

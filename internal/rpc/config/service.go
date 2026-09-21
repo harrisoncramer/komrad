@@ -17,18 +17,18 @@ import (
 
 type loader func() (*weaveconfig.Config, error)
 
-type ConfigService struct {
+type Handler struct {
 	load loader
 }
 
-// NewConfigService constructs the handler from the loader it reads the config through.
-func NewConfigService(load loader) *ConfigService {
-	return &ConfigService{load: load}
+// NewHandler constructs the handler from the loader it reads the config through.
+func NewHandler(load loader) *Handler {
+	return &Handler{load: load}
 }
 
 // GetConfig returns the configuration in force and the build answering, falling back to the
 // built-in defaults and the reason when the user's file will not parse.
-func (s *ConfigService) GetConfig(_ context.Context, _ *emptypb.Empty) (*configv1.GetConfigResponse, *fail.Error) {
+func (s *Handler) GetConfig(_ context.Context, _ *emptypb.Empty) (*configv1.GetConfigResponse, *fail.Error) {
 	var configError *string
 
 	cfg, err := s.load()

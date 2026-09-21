@@ -229,7 +229,7 @@ func TestGetSchedule(t *testing.T) {
 func TestGetScheduleLastResult(t *testing.T) {
 	st := storetest.Open(t)
 	manager := schedules.NewScheduleService(schedules.NewScheduleServiceParams{Schedules: st.Schedules, Workflows: st.Workflows})
-	svc := schedulev1weave.ScheduleServiceAdapter{Impl: NewScheduleService(st.Schedules, manager)}
+	svc := schedulev1weave.ScheduleServiceAdapter{Impl: NewHandler(st.Schedules, manager)}
 	workflow := st.SeedWorkflow(t, workflowstore.Config{Name: "schedules"}).ID
 
 	id := createSchedule(t, svc, workflow, "morning-ci")
@@ -514,7 +514,7 @@ func service(t *testing.T) (schedulev1weave.ScheduleServiceAdapter, string) {
 	st := storetest.Open(t)
 	manager := schedules.NewScheduleService(schedules.NewScheduleServiceParams{Schedules: st.Schedules, Workflows: st.Workflows})
 
-	return schedulev1weave.ScheduleServiceAdapter{Impl: NewScheduleService(st.Schedules, manager)}, st.SeedWorkflow(t, workflowstore.Config{Name: "schedules"}).ID
+	return schedulev1weave.ScheduleServiceAdapter{Impl: NewHandler(st.Schedules, manager)}, st.SeedWorkflow(t, workflowstore.Config{Name: "schedules"}).ID
 }
 
 func createSchedule(t *testing.T, svc schedulev1weave.ScheduleServiceAdapter, workflow, name string) string {

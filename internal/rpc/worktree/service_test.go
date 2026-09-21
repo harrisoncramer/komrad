@@ -63,7 +63,7 @@ func (f *fakeWorktrees) ListClaimedDirs(context.Context) ([]string, error) {
 }
 
 func newService(fake *fakeWorktrees) worktreev1weave.WorktreeServiceAdapter {
-	return worktreev1weave.WorktreeServiceAdapter{Impl: NewWorktreeService(NewWorktreeServiceParams{
+	return worktreev1weave.WorktreeServiceAdapter{Impl: NewHandler(NewHandlerParams{
 		Lister:    fake,
 		Inspector: fake,
 		Remover:   fake,

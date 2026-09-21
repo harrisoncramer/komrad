@@ -41,23 +41,23 @@ type syncReader interface {
 	GetSync(ctx context.Context, repositoryURL string) (*pullrequeststore.Sync, error)
 }
 
-type PullRequestService struct {
+type Handler struct {
 	forges       forgeFinder
 	agents       agentGetter
 	pullRequests storedPullRequestReader
 	syncs        syncReader
 }
 
-type NewPullRequestServiceParams struct {
+type NewHandlerParams struct {
 	Forges           forgeFinder
 	Agents           agentGetter
 	PullRequests     storedPullRequestReader
 	PullRequestSyncs syncReader
 }
 
-// NewPullRequestService constructs the handler over the forge service and the stores.
-func NewPullRequestService(params NewPullRequestServiceParams) *PullRequestService {
-	return &PullRequestService{
+// NewHandler constructs the handler over the forge service and the stores.
+func NewHandler(params NewHandlerParams) *Handler {
+	return &Handler{
 		forges:       params.Forges,
 		agents:       params.Agents,
 		pullRequests: params.PullRequests,
@@ -86,7 +86,7 @@ func (c pageCursor) Validate() error {
 
 // ListPullRequests is one page of a repository's pull requests, read through the connection
 // for the repository's host.
-func (s *PullRequestService) ListPullRequests(ctx context.Context, req *pullrequestv1.ListPullRequestsRequest) (*pullrequestv1.ListPullRequestsResponse, *fail.Error) {
+func (s *Handler) ListPullRequests(ctx context.Context, req *pullrequestv1.ListPullRequestsRequest) (*pullrequestv1.ListPullRequestsResponse, *fail.Error) {
 	repo, err := git.ParseRemoteURL(req.GetRemoteUrl())
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to read the remote")
@@ -139,7 +139,7 @@ func (s *PullRequestService) ListPullRequests(ctx context.Context, req *pullrequ
 
 // ListAgentPullRequests is every stored pull request opened from an agent's branch, newest
 // opened first, with the one its row stands for marked.
-func (s *PullRequestService) ListAgentPullRequests(ctx context.Context, req *pullrequestv1.ListAgentPullRequestsRequest) (*pullrequestv1.ListAgentPullRequestsResponse, *fail.Error) {
+func (s *Handler) ListAgentPullRequests(ctx context.Context, req *pullrequestv1.ListAgentPullRequestsRequest) (*pullrequestv1.ListAgentPullRequestsResponse, *fail.Error) {
 	agent, err := s.agents.GetByID(ctx, req.GetAgentId())
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to get agent")
