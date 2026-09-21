@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"weave/internal/ui/paint/label"
 	"weave/internal/view"
 	"weave/lib/xslice"
 )
@@ -66,8 +67,7 @@ var (
 	}
 )
 
-// calibration is characters of undisputed width, measured alongside the glyphs so a terminal
-// answering nonsense is caught before any of its other answers is believed.
+// calibration is characters of undisputed width, measured alongside the glyphs.
 var calibration = []view.Drawn{
 	{
 		Name:    "latin x",
@@ -81,32 +81,32 @@ var calibration = []view.Drawn{
 	},
 }
 
-// emphasis is the terminfo name of each escape the list letters a row with, and what is lost
-// when the entry names none.
-var emphasis = []struct {
+// emphasisFault is a terminfo escape the list letters a row with and what is lost without it.
+type emphasisFault struct {
 	capability string
 	loss       string
-}{
+}
+
+// emphasis is every escape the list letters a row with.
+var emphasis = []emphasisFault{
 	{capability: "bold", loss: "a workflow row reads as an ordinary agent"},
 	{capability: "sitm", loss: "a child reads as an ordinary agent"},
 }
 
-// screenEntry and screenEntryPrefix are what tmux refuses to send italics on, drawing them
-// reversed however well the terminal it paints to would have drawn them.
+// screenEntry and screenEntryPrefix are the entries tmux refuses to send italics on.
 const (
 	screenEntry       = "screen"
 	screenEntryPrefix = "screen-"
 )
 
-// newTerminalGlyphCheck measures what the terminal draws each of the list's glyphs in, which is
-// the one thing here that is measured rather than inferred.
+// newTerminalGlyphCheck measures how many columns the terminal draws each of the list's glyphs in.
 func newTerminalGlyphCheck() Check {
 	return Check{
 		Name:        "terminal glyphs",
 		Description: "the list's glyphs are drawn in the columns its layout counts them as",
 		Run: func(ctx context.Context, env Env) Result {
 			if env.MeasureColumns == nil {
-				return Result{Status: StatusSkip, Detail: "not checked, nothing is attached to a terminal to ask"}
+				return skip("nothing is attached to a terminal to ask")
 			}
 
 			drawings := append(slices.Clone(calibration), view.Drawings()...)
@@ -114,7 +114,7 @@ func newTerminalGlyphCheck() Check {
 			measured, err := env.MeasureColumns(ctx, xslice.Map(drawings, textOf))
 			if err != nil {
 				if codeOf(err) == ErrNoTerminal.Code {
-					return Result{Status: StatusSkip, Detail: "not checked, " + err.Error()}
+					return skip(err.Error())
 				}
 
 				return warn(err, "")
@@ -138,7 +138,7 @@ func newTerminalGlyphCheck() Check {
 }
 
 // newTerminalEmphasisCheck reports whether the terminal that paints honours the bold and italic
-// escapes, which is what tells a workflow row from an agent row and an agent row from a child.
+// escapes.
 func newTerminalEmphasisCheck() Check {
 	return Check{
 		Name:        "terminal emphasis",
@@ -146,20 +146,20 @@ func newTerminalEmphasisCheck() Check {
 		Run: func(ctx context.Context, env Env) Result {
 			painting, err := findPaintingTerm(ctx, env)
 			if err != nil {
-				return Result{Status: StatusSkip, Detail: "not checked, " + err.Error()}
+				return skip(err.Error())
 			}
 
-			missing, losses, err := findMissingEmphasis(ctx, env, painting)
+			missing, err := findMissingEmphasis(ctx, env, painting)
 			if err != nil {
 				return warn(err, painting)
 			}
 
 			substituted, err := doesTmuxSubstituteItalics(ctx, env)
 			if err != nil {
-				return Result{Status: StatusSkip, Detail: "not checked, " + err.Error()}
+				return skip(err.Error())
 			}
 
-			faults, fixes := describeEmphasisFaults(painting, missing, losses, substituted)
+			faults, fixes := describeEmphasisFaults(painting, missing, substituted)
 			if len(faults) > 0 {
 				problem := ErrItalicSubstituted
 				if len(missing) > 0 {
@@ -179,8 +179,7 @@ func newTerminalEmphasisCheck() Check {
 	}
 }
 
-// newTerminalColorCheck reports the colour depth terminfo claims, which is what the palette's
-// tones are mixed for.
+// newTerminalColorCheck reports the colour depth terminfo claims.
 func newTerminalColorCheck() Check {
 	return Check{
 		Name:        "terminal color",
@@ -222,8 +221,7 @@ func newTerminalColorCheck() Check {
 
 func textOf(drawn view.Drawn) string { return drawn.Text }
 
-// reportGlyphWidths is the reading turned into a finding, warning rather than failing because a
-// row laid out a column wide is a degraded panel rather than a broken weave.
+// reportGlyphWidths is the reading turned into a finding.
 func reportGlyphWidths(drawings []view.Drawn, measured []int, insideTmux bool) Result {
 	caveat := ""
 	if insideTmux {
@@ -232,7 +230,7 @@ func reportGlyphWidths(drawings []view.Drawn, measured []int, insideTmux bool) R
 
 	mismatch := describeMismatch(drawings, measured)
 	if mismatch == "" {
-		return pass(count(len(drawings), "glyph") + " drawn at the widths the layout counts on" + caveat)
+		return pass(label.Counted(len(drawings), "glyph") + " drawn at the widths the layout counts on" + caveat)
 	}
 
 	return Result{
@@ -243,8 +241,7 @@ func reportGlyphWidths(drawings []view.Drawn, measured []int, insideTmux bool) R
 	}
 }
 
-// describeMismatch groups the glyphs the terminal and the layout disagree about, since the text
-// mode of the report shows this instead of the detail and a list of fifteen would be cut.
+// describeMismatch groups the glyphs the terminal and the layout disagree about.
 func describeMismatch(drawings []view.Drawn, measured []int) string {
 	type disagreement struct {
 		drew    int
@@ -262,12 +259,11 @@ func describeMismatch(drawings []view.Drawn, measured []int) string {
 
 	return strings.Join(xslice.Map(pairs, func(pair disagreement) string {
 		return fmt.Sprintf("%s drew in %s where the layout counts them as %d",
-			count(grouped[pair], "glyph"), count(pair.drew, "column"), pair.counted)
+			label.Counted(grouped[pair], "glyph"), label.Counted(pair.drew, "column"), pair.counted)
 	}), "; ")
 }
 
-// describeWidths groups the glyphs by the width they drew in, since what a person wants is how
-// uniform they were rather than fifteen separate numbers.
+// describeWidths groups the glyphs by the width they drew in.
 func describeWidths(drawings []view.Drawn, measured []int) string {
 	grouped := map[int][]string{}
 	for index, drawn := range drawings {
@@ -277,26 +273,12 @@ func describeWidths(drawings []view.Drawn, measured []int) string {
 	widths := slices.Sorted(maps.Keys(grouped))
 
 	return strings.Join(xslice.Map(widths, func(width int) string {
-		return fmt.Sprintf("%s: %s", count(width, "column"), strings.Join(grouped[width], ", "))
+		return fmt.Sprintf("%s: %s", label.Counted(width, "column"), strings.Join(grouped[width], ", "))
 	}), "; ")
 }
 
-// count is a number and the thing it counts, plural unless there is one of them.
-func count(number int, noun string) string {
-	if number == 1 {
-		return "1 " + noun
-	}
-
-	return strconv.Itoa(number) + " " + noun + "s"
-}
-
-// Explainer: lipgloss emits SGR 1 and SGR 3 from termenv's hardcoded BoldSeq and ItalicSeq
-// without consulting terminfo, so the panel sends both escapes whatever TERM says and the entry
-// TERM names inside tmux gates nothing. What decides whether a person sees italics is the
-// terminal tmux paints to, which converts them to standout when its own entry names no sitm.
-
-// findPaintingTerm is the terminfo entry of the terminal that actually paints the panel, which
-// inside tmux is tmux's own client rather than the entry tmux advertises to what it runs.
+// findPaintingTerm is the terminfo entry of the terminal that paints the panel, which inside
+// tmux is tmux's own client.
 func findPaintingTerm(ctx context.Context, env Env) (string, error) {
 	if env.InsideTmux == "" {
 		if env.Term == "" {
@@ -318,20 +300,18 @@ func findPaintingTerm(ctx context.Context, env Env) (string, error) {
 	return strings.TrimSpace(client), nil
 }
 
-// reversedChild is what becomes of a child row wherever tmux stands in the way, since tmux
-// substitutes standout rather than dropping the attribute.
+// reversedChild is what becomes of a child row wherever tmux stands in the way.
 const reversedChild = "a child row is drawn reversed rather than italic"
 
-// describeEmphasisFaults is everything wrong with a row's lettering and what to do about each,
-// since a terminal can carry both faults and hearing about one is not hearing about the other.
-func describeEmphasisFaults(painting string, missing, losses []string, substituted bool) (faults, fixes []string) {
+// describeEmphasisFaults is everything wrong with a row's lettering and what to do about each.
+func describeEmphasisFaults(painting string, missing []emphasisFault, substituted bool) (faults, fixes []string) {
 	if len(missing) > 0 {
 		faults = append(faults, fmt.Sprintf("%s names no %s, so %s",
-			painting, joinWords(missing), strings.Join(losses, " and ")))
+			painting, joinWords(xslice.Map(missing, capabilityOf)), strings.Join(xslice.Map(missing, lossOf), " and ")))
 		fixes = append(fixes, "set your terminal's TERM to an entry that names them, such as xterm-256color")
 	}
 
-	if substituted && !slices.Contains(missing, "sitm") {
+	if substituted && !slices.ContainsFunc(missing, isItalic) {
 		faults = append(faults, "tmux sends standout in place of italics, so "+reversedChild)
 		fixes = append(fixes, "set tmux's default-terminal to tmux-256color rather than a screen entry")
 	}
@@ -340,32 +320,37 @@ func describeEmphasisFaults(painting string, missing, losses []string, substitut
 }
 
 // findMissingEmphasis reads both escapes out of terminfo and returns the ones the entry does
-// not name, alongside what the list loses without each.
-func findMissingEmphasis(ctx context.Context, env Env, term string) (missing, losses []string, err error) {
+// not name.
+func findMissingEmphasis(ctx context.Context, env Env, term string) ([]emphasisFault, error) {
+	var missing []emphasisFault
+
 	for _, wanted := range emphasis {
 		escape, err := env.ReadTerminfo(ctx, term, wanted.capability)
 		if err != nil {
-			return nil, nil, fmt.Errorf("%w: %w", ErrTerminfoUnreadable, err)
+			return nil, fmt.Errorf("%w: %w", ErrTerminfoUnreadable, err)
 		}
 
 		if escape != "" {
 			continue
 		}
 
-		loss := wanted.loss
-		if wanted.capability == "sitm" && env.InsideTmux != "" {
-			loss = reversedChild
+		if isItalic(wanted) && env.InsideTmux != "" {
+			wanted.loss = reversedChild
 		}
 
-		missing = append(missing, wanted.capability)
-		losses = append(losses, loss)
+		missing = append(missing, wanted)
 	}
 
-	return missing, losses, nil
+	return missing, nil
 }
 
-// doesTmuxSubstituteItalics reports whether tmux's own default-terminal is one of the screen
-// entries it refuses to send italics on.
+func capabilityOf(fault emphasisFault) string { return fault.capability }
+
+func lossOf(fault emphasisFault) string { return fault.loss }
+
+func isItalic(fault emphasisFault) bool { return fault.capability == "sitm" }
+
+// doesTmuxSubstituteItalics reports whether tmux's own default-terminal is a screen entry.
 func doesTmuxSubstituteItalics(ctx context.Context, env Env) (bool, error) {
 	if env.InsideTmux == "" {
 		return false, nil

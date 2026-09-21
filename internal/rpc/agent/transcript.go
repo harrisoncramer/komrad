@@ -30,8 +30,6 @@ func (s *AgentService) SearchTranscripts(ctx context.Context, req *agentv1.Searc
 		return nil, rpcerr.From(err, "failed to read the pagination")
 	}
 
-	// Scope is worked out per page rather than carried in the token, so a replayed cursor
-	// cannot widen a search.
 	scope := searchScope(ctx, req.GetAgentId())
 	if scope != nil {
 		logCrossAgentRead(ctx, *scope, "agent read another agent's transcript")
@@ -61,17 +59,24 @@ func (s *AgentService) SearchTranscripts(ctx context.Context, req *agentv1.Searc
 	}, nil
 }
 
-// errCursorMidRune is a cursor pointing inside a character, which the transcript being
-// rewritten under it leaves behind.
+// errCursorMidRune is a cursor pointing inside a character.
 var errCursorMidRune = fail.InvalidArgument(
 	"cursor no longer names the start of a character, since the transcript was rewritten; read it again from the first window")
 
 // errWindowTooSmall is a window too small to hold even one character.
 var errWindowTooSmall = fail.InvalidArgument("the window is too small to hold the next character")
 
-// maxTranscriptWindow is the most content one GetTranscript call returns, the rest of a
-// transcript being reached by following the page token.
+// maxTranscriptWindow is the most content one call returns.
 const maxTranscriptWindow = 32 * 1024
+
+// clampWindow is the window a request asked for, bounded above by maxTranscriptWindow.
+func clampWindow(requested int32) int {
+	if requested > 0 && int(requested) < maxTranscriptWindow {
+		return int(requested)
+	}
+
+	return maxTranscriptWindow
+}
 
 // GetTranscript returns one window of an agent's stored transcript by id.
 func (s *AgentService) GetTranscript(ctx context.Context, req *agentv1.GetTranscriptRequest) (*agentv1.GetTranscriptResponse, *fail.Error) {
@@ -82,8 +87,6 @@ func (s *AgentService) GetTranscript(ctx context.Context, req *agentv1.GetTransc
 		return nil, rpcerr.From(err, "failed to read the cursor")
 	}
 
-	// Empty content would read as an agent with nothing stored yet, so a missing one is
-	// not_found instead.
 	exists, err := s.agents.Exists(ctx, req.GetAgentId())
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to look up agent")
@@ -92,9 +95,6 @@ func (s *AgentService) GetTranscript(ctx context.Context, req *agentv1.GetTransc
 		return nil, agents.ErrAgentNotFound.Saying("no agent with id %q", req.GetAgentId())
 	}
 
-	// The store assembles the whole conversation and the window is cut from it below, so the cap
-	// bounds what the caller reads rather than what the server does, and paging one to its end
-	// costs the whole transcript once per window.
 	content, err := s.transcripts.Get(ctx, req.GetAgentId())
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to get transcript")
@@ -108,21 +108,17 @@ func (s *AgentService) GetTranscript(ctx context.Context, req *agentv1.GetTransc
 	return &agentv1.GetTranscriptResponse{Content: window, NextPageToken: next}, nil
 }
 
-// transcriptWindow cuts the window the request asked for out of content and mints the token for
-// the one after it, cutting between runes so every window is text the caller can decode.
+// transcriptWindow cuts the window the request asked for out of content, between runes, and
+// mints the token for the one after it.
 func transcriptWindow(content string, cursor *transcriptstore.ContentCursor, requested int32) (string, *string, *fail.Error) {
-	limit := maxTranscriptWindow
-	if requested > 0 && int(requested) < limit {
-		limit = int(requested)
-	}
+	limit := clampWindow(requested)
 
 	var offset int
 	if cursor != nil {
 		offset = int(cursor.Offset)
 	}
 
-	// An offset past the end is the empty last page rather than an error, a transcript still being
-	// written growing between one call and the next.
+	// An offset past the end is the empty last page of a transcript still being written.
 	if offset >= len(content) {
 		return "", nil, nil
 	}
@@ -136,8 +132,7 @@ func transcriptWindow(content string, cursor *transcriptstore.ContentCursor, req
 		return window, nil, nil
 	}
 
-	// A limit landing inside the first rune would return nothing and hand back a token that
-	// asks the same question again, so the window has to move forward or stop.
+	// A limit landing inside the first rune would hand back a token asking the same question again.
 	if window == "" {
 		return "", nil, errWindowTooSmall.Saying("maxBytes of %d is too small to hold the next character", limit)
 	}
@@ -200,10 +195,7 @@ func (s *AgentService) listLastTurns(ctx context.Context, params listLastTurnsPa
 		return nil, rpcerr.From(err, "failed to list the last turns")
 	}
 
-	limit := maxTranscriptWindow
-	if requested := int(params.MaxBytes); requested > 0 && requested < limit {
-		limit = requested
-	}
+	limit := clampWindow(params.MaxBytes)
 
 	turns := make([]*agentv1.Turn, 0, len(newest))
 	for _, turn := range newest {
