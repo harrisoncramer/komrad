@@ -531,6 +531,7 @@ func (s *ReviewService) ReleaseReview(
 		// The mail has gone, so the agent has the review whatever the panel goes on to draw.
 		return nil, fmt.Errorf("failed to record that the review reached %q: %w", agent.Name, err)
 	}
+	s.watch.TouchAgents(params.AgentID)
 
 	return &ReleaseReviewResult{
 		Review:   *released,

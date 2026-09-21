@@ -50,6 +50,7 @@ func (s *LaunchService) RetryCreate(ctx context.Context, params RetryCreateParam
 	if !marked {
 		return nil, ErrAgentNotFailed.Saying("%q was changed while the retry was starting", agent.Name)
 	}
+	s.watch.TouchAgents(agent.ID)
 
 	// The panel prefills its retry form with the flags already composed for the CLI the agent is
 	// on, so flags that came back unchanged name nothing.
@@ -138,10 +139,16 @@ func (s *LaunchService) moveOntoHarness(ctx context.Context, agent *agentstore.A
 
 	agent.SessionID = hn.MintSessionID()
 
-	return s.agents.SetHarness(ctx, agentstore.SetHarnessParams{
+	err := s.agents.SetHarness(ctx, agentstore.SetHarnessParams{
 		ID:        agent.ID,
 		Harness:   agent.Harness,
 		Flags:     agent.Flags,
 		SessionID: agent.SessionID,
 	})
+	if err != nil {
+		return err
+	}
+	s.watch.TouchAgents(agent.ID)
+
+	return nil
 }

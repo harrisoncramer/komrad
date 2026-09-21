@@ -1,6 +1,7 @@
 package transcripts
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"weave/internal/harness"
 	agentstore "weave/internal/store/agent"
 	transcriptstore "weave/internal/store/transcript"
+	"weave/internal/watch"
 	"weave/lib/xslice"
 )
 
@@ -31,12 +33,15 @@ type TranscriptSyncer struct {
 	agents    agentSessionReadWriter
 	store     transcriptReadWriter
 	harnesses harnessGetter
+	watch     watch.Publisher
 }
 
 type NewTranscriptSyncerParams struct {
 	Agents      agentSessionReadWriter
 	Transcripts transcriptReadWriter
 	Harnesses   harnessGetter
+	// Watch is told which rows moved, watch.Discard when unset.
+	Watch watch.Publisher
 }
 
 // NewTranscriptSyncer builds a syncer over the store, reading each agent's log through the
@@ -46,6 +51,7 @@ func NewTranscriptSyncer(params NewTranscriptSyncerParams) *TranscriptSyncer {
 		agents:    params.Agents,
 		store:     params.Transcripts,
 		harnesses: params.Harnesses,
+		watch:     cmp.Or(params.Watch, watch.Discard),
 	}
 }
 
@@ -90,6 +96,7 @@ func (ts *TranscriptSyncer) adoptSessions(ctx context.Context, agents []agentsto
 		if err := ts.agents.SetSessionID(ctx, agent.ID, found); err != nil {
 			continue
 		}
+		ts.watch.TouchAgents(agent.ID)
 
 		agents[i].SessionID = found
 	}

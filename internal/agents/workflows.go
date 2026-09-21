@@ -1,9 +1,11 @@
 package agents
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"slices"
@@ -12,9 +14,12 @@ import (
 	"weave/config"
 	"weave/internal/fail"
 	"weave/internal/git"
+	"weave/internal/logging"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
+	"weave/internal/watch"
+	"weave/lib/xslice"
 )
 
 const (
@@ -59,6 +64,7 @@ type WorkflowService struct {
 	tmux         paneKiller
 	tx           txRunner
 	scripts      agentScriptRunner
+	watch        watch.Publisher
 	maxAgents    int
 	maxChildren  int
 }
@@ -72,8 +78,10 @@ type NewWorkflowServiceParams struct {
 	Tmux         paneKiller
 	Tx           txRunner
 	Scripts      agentScriptRunner
-	MaxAgents    int
-	MaxChildren  int
+	// Watch is told which rows moved, watch.Discard when unset.
+	Watch       watch.Publisher
+	MaxAgents   int
+	MaxChildren int
 }
 
 // NewWorkflowService builds the service from its dependencies.
@@ -87,6 +95,7 @@ func NewWorkflowService(params NewWorkflowServiceParams) *WorkflowService {
 		tmux:         params.Tmux,
 		tx:           params.Tx,
 		scripts:      params.Scripts,
+		watch:        cmp.Or(params.Watch, watch.Discard),
 		maxAgents:    params.MaxAgents,
 		maxChildren:  params.MaxChildren,
 	}
@@ -145,6 +154,7 @@ func (w *WorkflowService) NewWorkflow(ctx context.Context, cfg workflowstore.Con
 	if err != nil {
 		return nil, fmt.Errorf("failed to create workflow %q: %w", cfg.Name, err)
 	}
+	w.watch.TouchWorkflows(created.ID)
 
 	return created, nil
 }
@@ -194,6 +204,18 @@ func (w *WorkflowService) UpdateWorkflow(ctx context.Context, id string, cfg wor
 	if err != nil {
 		return fmt.Errorf("failed to update workflow %q: %w", id, err)
 	}
+	w.watch.TouchWorkflows(id)
+
+	// The base branch decides which of its agents' branches carry a pull request, so every row
+	// inside is read again.
+	inside, err := w.agents.ListLiveInWorkflow(ctx, id)
+	if err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to list the agents an updated workflow holds, so their rows are not read again",
+			append([]slog.Attr{slog.String(logging.WorkflowID, id)}, logging.Err(err)...)...)
+
+		return nil
+	}
+	w.watch.TouchAgents(agentstore.IDs(inside)...)
 
 	return nil
 }
@@ -342,6 +364,8 @@ func (w *WorkflowService) ArchiveWorkflow(ctx context.Context, id string) error 
 	if err != nil {
 		return fmt.Errorf("failed to archive workflow %q: %w", id, err)
 	}
+	w.watch.TouchWorkflows(id)
+	w.watch.TouchAgents(xslice.Map(taken, func(pane agentstore.AgentPane) string { return pane.AgentID })...)
 	// A pane recorded after inside was read only ever reaches here through what the transaction
 	// took off the rows.
 	killPanes(ctx, w.tmux, taken)
@@ -398,6 +422,8 @@ func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*work
 	if err != nil {
 		return nil, fmt.Errorf("failed to restore workflow %q: %w", existing.Name, err)
 	}
+	w.watch.TouchWorkflows(id)
+	w.watch.TouchAgents(agentstore.IDs(restoring)...)
 
 	// Restoring the folder leaves its agents in the state restoring them one at a time does, so
 	// it owes them the same hook, over the set the transaction found archived rather than

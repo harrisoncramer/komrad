@@ -1,6 +1,7 @@
 package schedules
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 	"weave/internal/store"
 	schedulestore "weave/internal/store/schedule"
 	workflowstore "weave/internal/store/workflow"
+	"weave/internal/watch"
 
 	"github.com/robfig/cron/v3"
 )
@@ -38,16 +40,23 @@ var (
 type ScheduleService struct {
 	store     scheduleReadWriter
 	workflows workflowReader
+	watch     watch.Publisher
 }
 
 type NewScheduleServiceParams struct {
 	Schedules scheduleReadWriter
 	Workflows workflowReader
+	// Watch is told which schedules moved, watch.Discard when unset.
+	Watch watch.Publisher
 }
 
 // NewScheduleService builds the service from its dependencies.
 func NewScheduleService(params NewScheduleServiceParams) *ScheduleService {
-	return &ScheduleService{store: params.Schedules, workflows: params.Workflows}
+	return &ScheduleService{
+		store:     params.Schedules,
+		workflows: params.Workflows,
+		watch:     cmp.Or(params.Watch, watch.Discard),
+	}
 }
 
 // GetSchedule returns a schedule by id, or nil when none has that id.
@@ -75,6 +84,7 @@ func (s *ScheduleService) NewSchedule(ctx context.Context, cfg schedulestore.Con
 	if err != nil {
 		return nil, fmt.Errorf("failed to create schedule %q: %w", normalized.Name, err)
 	}
+	s.watch.TouchSchedules(created.ID)
 
 	return created, nil
 }
@@ -104,6 +114,7 @@ func (s *ScheduleService) UpdateSchedule(ctx context.Context, id string, cfg sch
 	if err := s.store.Update(ctx, id, normalized); err != nil {
 		return fmt.Errorf("failed to update schedule %q: %w", id, err)
 	}
+	s.watch.TouchSchedules(id)
 
 	return nil
 }
@@ -121,6 +132,7 @@ func (s *ScheduleService) SetScheduleEnabled(ctx context.Context, id string, ena
 	if err := s.store.SetEnabled(ctx, id, enabled); err != nil {
 		return fmt.Errorf("failed to set schedule %q enabled to %t: %w", id, enabled, err)
 	}
+	s.watch.TouchSchedules(id)
 
 	return nil
 }
@@ -139,6 +151,7 @@ func (s *ScheduleService) ArchiveSchedule(ctx context.Context, id string) error 
 	if err := s.store.Archive(ctx, id); err != nil {
 		return fmt.Errorf("failed to archive schedule %q: %w", id, err)
 	}
+	s.watch.TouchSchedules(id)
 
 	return nil
 }

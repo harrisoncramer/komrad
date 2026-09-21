@@ -1,6 +1,7 @@
 package mail
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
+	"weave/internal/watch"
 )
 
 type Delivery int
@@ -47,6 +49,7 @@ type DeliveryService struct {
 	nudgeClaimer  nudgeClaimer
 	paneReader    paneReader
 	channel       harness.Channel
+	watch         watch.Publisher
 }
 
 type NewDeliveryServiceParams struct {
@@ -54,6 +57,8 @@ type NewDeliveryServiceParams struct {
 	NudgeClaimer  nudgeClaimer
 	PaneReader    paneReader
 	Channel       harness.Channel
+	// Watch is told whose mailbox moved, watch.Discard when unset.
+	Watch watch.Publisher
 }
 
 // NewDeliveryService builds the service from its dependencies.
@@ -63,6 +68,7 @@ func NewDeliveryService(params NewDeliveryServiceParams) *DeliveryService {
 		nudgeClaimer:  params.NudgeClaimer,
 		paneReader:    params.PaneReader,
 		channel:       params.Channel,
+		watch:         cmp.Or(params.Watch, watch.Discard),
 	}
 }
 
@@ -163,6 +169,7 @@ func (s *DeliveryService) Deliver(ctx context.Context, agentID string) (Delivery
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to record the nudge weave sent an agent, so the next one will read as a first",
 			append(logging.Err(err), slog.String(logging.TargetAgentID, agent.ID))...)
 	}
+	s.watch.TouchAgents(agent.ID)
 
 	return DeliverySoon, nil
 }
@@ -208,6 +215,8 @@ func (s *DeliveryService) reportExpired(ctx context.Context, agent agentstore.Ag
 	if err != nil || len(expired) == 0 {
 		return
 	}
+	// Mail expiring is the one way a mailbox empties with nothing written.
+	s.watch.TouchAgents(agent.ID)
 
 	for _, item := range expired {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "a piece of mail expired before it was read",

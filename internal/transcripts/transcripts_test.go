@@ -14,6 +14,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	transcriptstore "weave/internal/store/transcript"
 	"weave/internal/storetest"
+	"weave/internal/watchtest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -284,14 +285,16 @@ func TestSyncAdoptsSessions(t *testing.T) {
 			st := storetest.Open(t)
 			ctx := t.Context()
 
-			st.SeedAgent(t, agentstore.Agent{
+			seeded := st.SeedAgent(t, agentstore.Agent{
 				Name: "adopter", State: agentstore.StateIdle, Harness: "claude", SessionID: tt.held,
 			})
 
+			watch := watchtest.NewRecorder()
 			syncer := NewTranscriptSyncer(NewTranscriptSyncerParams{
 				Agents:      st.Agents,
 				Transcripts: st.Transcripts,
 				Harnesses:   fakeHarnesses{found: tt.found},
+				Watch:       watch,
 			})
 			require.NoError(t, syncer.Sync(ctx))
 
@@ -299,6 +302,12 @@ func TestSyncAdoptsSessions(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, adopter)
 			assert.Equal(t, tt.want, adopter.SessionID)
+
+			if tt.want != "" && tt.held == "" {
+				assert.Equal(t, []string{seeded.ID}, watch.Agents(), "an adopted session is on the row")
+			} else {
+				assert.Empty(t, watch.Agents(), "a pass that adopted nothing says nothing")
+			}
 		})
 	}
 }

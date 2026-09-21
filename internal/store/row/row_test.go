@@ -317,6 +317,23 @@ func TestListByID(t *testing.T) {
 	assert.Empty(t, rows)
 }
 
+// TestListLiveByID pins the read the watch renders from: a row the live listing holds answers,
+// and one it has archived or is deleting does not.
+func TestListLiveByID(t *testing.T) {
+	st := storetest.Open(t)
+	ctx := t.Context()
+	live := st.SeedAgent(t, agentstore.Agent{Name: "live"})
+	archived := st.SeedAgent(t, agentstore.Agent{Name: "archived"})
+	deleting := st.SeedAgent(t, agentstore.Agent{Name: "deleting"})
+	_, err := st.Agents.Archive(ctx, []string{archived.ID})
+	require.NoError(t, err)
+	require.NoError(t, st.Agents.MarkDeleting(ctx, []string{deleting.ID}))
+
+	rows, err := st.Rows.ListLiveByID(ctx, []string{live.ID, archived.ID, deleting.ID})
+	require.NoError(t, err)
+	assert.Equal(t, []string{live.ID}, xslice.Map(rows, func(row rowstore.Row) string { return row.ID }))
+}
+
 func openPullRequest(providerID string, number int, branch string) pullrequeststore.UpsertParams {
 	opened := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
 

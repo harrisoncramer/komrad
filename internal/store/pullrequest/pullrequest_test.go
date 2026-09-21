@@ -234,6 +234,15 @@ func TestLiveRepositoriesAndUnscannedBranches(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []string{weave, fixture}, repositories)
 
+	onWeave, err := h.ListLiveAgentsOnRepositories(ctx, []string{weave, "https://github.com/harrisoncramer/gone"})
+	require.NoError(t, err)
+	assert.Len(t, onWeave, 2, "the live agents on the repositories named, and not the archived one")
+	assert.NotContains(t, onWeave, archived)
+
+	none, err := h.ListLiveAgentsOnRepositories(ctx, nil)
+	require.NoError(t, err)
+	assert.Empty(t, none)
+
 	branches, err := h.syncs.ListUnscannedBranches(ctx, weave)
 	require.NoError(t, err)
 	assert.Equal(t, []string{"agent/x", "agent/y"}, branches)

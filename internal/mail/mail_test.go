@@ -11,6 +11,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
 	workflowstore "weave/internal/store/workflow"
+	"weave/internal/watchtest"
 	"weave/lib/xptr"
 	"weave/lib/xslice"
 
@@ -1008,4 +1009,43 @@ func newFakeFamily() *fakeDirectory {
 			"stranger": {ID: "stranger", Name: "unrelated"},
 		},
 	}
+}
+
+// TestMailWritesPublishTheMailbox pins that a send, a claim and a delete each say whose row
+// the unread mark moved on.
+func TestMailWritesPublishTheMailbox(t *testing.T) {
+	mailbox := &fakeMailbox{
+		claimed: []mailstore.Mail{{ID: "mail-1", Body: "hello"}},
+		byID: map[string]mailstore.Mail{
+			"mail-2": {ID: "mail-2", ToAgentID: "agent-a"},
+			"mail-3": {ID: "mail-3", ToAgentID: "agent-b"},
+		},
+	}
+	watch := watchtest.NewRecorder()
+	svc := NewMailService(NewMailServiceParams{
+		MailReadWriter: mailbox,
+		Agents:         newFakeDirectory(),
+		Config:         fakeMailConfig{maxExchange: config.DefaultMaxExchange},
+		Watch:          watch,
+	})
+	ctx := t.Context()
+
+	_, err := svc.SendMail(ctx, SendMailParams{From: "agent-a", ToAgentID: "agent-b", Body: "hello"})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"agent-b"}, watch.Agents(), "a send moves the recipient's row")
+
+	watch.Reset()
+	_, err = svc.ClaimMail(ctx, "agent-b")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"agent-b"}, watch.Agents(), "a claim moves the reader's row")
+
+	watch.Reset()
+	mailbox.claimed = nil
+	_, err = svc.ClaimMail(ctx, "agent-b")
+	require.NoError(t, err)
+	assert.Empty(t, watch.Agents(), "a claim that took nothing moved nothing")
+
+	watch.Reset()
+	require.NoError(t, svc.DeleteMail(ctx, []string{"mail-2", "mail-3"}))
+	assert.Equal(t, []string{"agent-a", "agent-b"}, watch.Agents(), "a delete moves every recipient's row")
 }

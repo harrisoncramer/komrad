@@ -1,6 +1,7 @@
 package checkouts
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	reviewstore "weave/internal/store/review"
 	workflowstore "weave/internal/store/workflow"
+	"weave/internal/watch"
 	"weave/lib/xptr"
 
 	"github.com/harrisoncramer/streamer"
@@ -53,6 +55,7 @@ type CwdSyncer struct {
 	trees     standingReader
 	tallies   tallyLister
 	bases     workflowLister
+	watch     watch.Publisher
 	mu        sync.Mutex
 	standings map[string]roundStanding
 }
@@ -70,6 +73,8 @@ type NewCwdSyncerParams struct {
 	Trees   standingReader
 	Tallies tallyLister
 	Bases   workflowLister
+	// Watch is told which rows moved, watch.Discard when unset.
+	Watch watch.Publisher
 }
 
 // NewCwdSyncer builds a syncer over the agent store.
@@ -80,6 +85,7 @@ func NewCwdSyncer(params NewCwdSyncerParams) *CwdSyncer {
 		trees:     params.Trees,
 		tallies:   params.Tallies,
 		bases:     params.Bases,
+		watch:     cmp.Or(params.Watch, watch.Discard),
 		standings: map[string]roundStanding{},
 	}
 }
@@ -136,6 +142,7 @@ func (cs *CwdSyncer) Sync(ctx context.Context) error {
 
 	standings := map[string]roundStanding{}
 	var failures []error
+	var moved []string
 	for _, look := range looks {
 		if round := rounds[look.agent.ID]; round != "" {
 			standings[look.agent.ID] = roundStanding{snapshotSHA: round, standing: look.standing}
@@ -143,8 +150,12 @@ func (cs *CwdSyncer) Sync(ctx context.Context) error {
 		if look.err != nil {
 			failures = append(failures, look.err)
 		}
-		if err := cs.write(ctx, look); err != nil {
+		written, err := cs.write(ctx, look)
+		if err != nil {
 			failures = append(failures, err)
+		}
+		if written || cs.hasStandingMoved(look.agent.ID, standings[look.agent.ID]) {
+			moved = append(moved, look.agent.ID)
 		}
 	}
 
@@ -152,7 +163,18 @@ func (cs *CwdSyncer) Sync(ctx context.Context) error {
 	cs.standings = standings
 	cs.mu.Unlock()
 
+	cs.watch.TouchAgents(moved...)
+
 	return errors.Join(failures...)
+}
+
+// hasStandingMoved reports whether the pass found an agent's worktree somewhere other than
+// where the last one left it.
+func (cs *CwdSyncer) hasStandingMoved(agentID string, found roundStanding) bool {
+	cs.mu.Lock()
+	defer cs.mu.Unlock()
+
+	return cs.standings[agentID] != found
 }
 
 // listBases is the branch each workflow cuts its worktrees from, by workflow id.
@@ -214,8 +236,9 @@ func (cs *CwdSyncer) look(ctx context.Context, agent agentstore.Agent, round, ba
 	return look
 }
 
-// write records what the look found, when any of it differs from the row.
-func (cs *CwdSyncer) write(ctx context.Context, look cwdLook) error {
+// write records what the look found, when any of it differs from the row, and reports whether
+// it wrote.
+func (cs *CwdSyncer) write(ctx context.Context, look cwdLook) (bool, error) {
 	agent, head := look.agent, look.head
 	checkout := agentstore.SetCheckoutParams{
 		Branch:             xptr.NonEmpty(head.Branch),
@@ -228,14 +251,14 @@ func (cs *CwdSyncer) write(ctx context.Context, look cwdLook) error {
 		agent.WorktreeRemoved == checkout.WorktreeRemoved &&
 		agent.SequenceInProgress == checkout.SequenceInProgress
 	if unchanged {
-		return nil
+		return false, nil
 	}
 
 	if err := cs.agents.SetCheckout(ctx, agent.ID, checkout); err != nil {
-		return fmt.Errorf("failed to set the checkout for %q: %w", agent.Name, err)
+		return false, fmt.Errorf("failed to set the checkout for %q: %w", agent.Name, err)
 	}
 
-	return nil
+	return true, nil
 }
 
 func isCwdRemoved(ctx context.Context, dir string) bool {

@@ -1,6 +1,7 @@
 package mail
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -14,6 +15,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
 	workflowstore "weave/internal/store/workflow"
+	"weave/internal/watch"
 	"weave/lib/xslice"
 	"weave/lib/xstr"
 )
@@ -93,6 +95,7 @@ type MailService struct {
 	agents         mailAgentReadWriter
 	workflows      workflowGetter
 	config         mailConfigReader
+	watch          watch.Publisher
 }
 
 type NewMailServiceParams struct {
@@ -100,6 +103,8 @@ type NewMailServiceParams struct {
 	Agents         mailAgentReadWriter
 	Workflows      workflowGetter
 	Config         mailConfigReader
+	// Watch is told whose mailbox moved, watch.Discard when unset.
+	Watch watch.Publisher
 }
 
 // NewMailService builds the service that sends, claims and lists the mail agents leave for
@@ -110,6 +115,7 @@ func NewMailService(params NewMailServiceParams) *MailService {
 		agents:         params.Agents,
 		workflows:      params.Workflows,
 		config:         params.Config,
+		watch:          cmp.Or(params.Watch, watch.Discard),
 	}
 }
 
@@ -349,6 +355,7 @@ func (s *MailService) send(ctx context.Context, params sendParams) (*mailstore.M
 	if err != nil {
 		return nil, err
 	}
+	s.watch.TouchAgents(recipient.ID)
 
 	return sent, nil
 }
@@ -408,6 +415,9 @@ func (s *MailService) ClaimMail(ctx context.Context, agentID string) ([]mailstor
 	if err != nil {
 		return nil, err
 	}
+	if len(claimed) > 0 {
+		s.watch.TouchAgents(agent.ID)
+	}
 
 	return claimed, nil
 }
@@ -466,6 +476,7 @@ func (s *MailService) DeleteMail(ctx context.Context, ids []string) error {
 	if err := s.mailReadWriter.Delete(ctx, ids); err != nil {
 		return fmt.Errorf("failed to delete %d mail: %w", len(ids), err)
 	}
+	s.watch.TouchAgents(xslice.Map(found, func(mail mailstore.Mail) string { return mail.ToAgentID })...)
 
 	return nil
 }
