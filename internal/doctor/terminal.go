@@ -219,7 +219,9 @@ func newTerminalColorCheck() Check {
 	}
 }
 
-func textOf(drawn view.Drawn) string { return drawn.Text }
+func textOf(drawn view.Drawn) string {
+	return drawn.Text
+}
 
 // reportGlyphWidths is the reading turned into a finding.
 func reportGlyphWidths(drawings []view.Drawn, measured []int, insideTmux bool) Result {
@@ -344,11 +346,17 @@ func findMissingEmphasis(ctx context.Context, env Env, term string) ([]emphasisF
 	return missing, nil
 }
 
-func capabilityOf(fault emphasisFault) string { return fault.capability }
+func capabilityOf(fault emphasisFault) string {
+	return fault.capability
+}
 
-func lossOf(fault emphasisFault) string { return fault.loss }
+func lossOf(fault emphasisFault) string {
+	return fault.loss
+}
 
-func isItalic(fault emphasisFault) bool { return fault.capability == "sitm" }
+func isItalic(fault emphasisFault) bool {
+	return fault.capability == "sitm"
+}
 
 // doesTmuxSubstituteItalics reports whether tmux's own default-terminal is a screen entry.
 func doesTmuxSubstituteItalics(ctx context.Context, env Env) (bool, error) {

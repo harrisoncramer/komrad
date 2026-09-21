@@ -19,7 +19,9 @@ const emptyArchiveBatch = 25
 type EmptyArchiveArgs struct{}
 
 // Kind is the River job kind.
-func (EmptyArchiveArgs) Kind() string { return "empty_archive" }
+func (EmptyArchiveArgs) Kind() string {
+	return "empty_archive"
+}
 
 // InsertOpts keeps one sweep in flight, using River's default states without completed so a
 // finished sweep does not swallow every later press.

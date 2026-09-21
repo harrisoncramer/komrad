@@ -6,11 +6,11 @@
 // command. Nothing else imports it, and `go list ./...` in the main module does not see it, so
 // its own tests are run by the test task rather than by the suite.
 //
-// The sentinel and handler rules read syntax alone, so for them a name is only a name: a package
+// The sentinel, handler and one-line rules read syntax alone, so for them a name is only a name: a package
 // aliased to errors reads as the standard library's, and one brought in by a dot import does not
-// read as anything at all. The secret rule needs to know a method's receiver, so the plugin
-// loads types for every package it runs over, which the other linters in the pass already pay
-// for.
+// read as anything at all. The secret rule needs to know a method's receiver and the conversion
+// rule where a result type is declared, so the plugin loads types for every package it runs
+// over, which the other linters in the pass already pay for.
 package weavelint
 
 import (
@@ -63,8 +63,24 @@ func (l *linter) BuildAnalyzers() ([]*analysis.Analyzer, error) {
 		return nil, err
 	}
 
-	return []*analysis.Analyzer{sentinels, inline, phrases, handlers, newSecretExpose(l.config.SecretExpose), bare}, nil
+	conversions, err := newConversionName(l.config.ConversionName)
+	if err != nil {
+		return nil, err
+	}
+
+	return []*analysis.Analyzer{
+		sentinels,
+		inline,
+		phrases,
+		handlers,
+		newSecretExpose(l.config.SecretExpose),
+		bare,
+		newOnelineFunc(l.config.OnelineFunc),
+		conversions,
+	}, nil
 }
 
 // GetLoadMode tells golangci-lint the analyzers need types resolved.
-func (l *linter) GetLoadMode() string { return register.LoadModeTypesInfo }
+func (l *linter) GetLoadMode() string {
+	return register.LoadModeTypesInfo
+}

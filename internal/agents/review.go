@@ -82,7 +82,9 @@ type ReviewAuthor struct {
 }
 
 // IsHuman reports whether the call came from the person reviewing rather than from an agent.
-func (a ReviewAuthor) IsHuman() bool { return a.Kind != reviewstore.AuthorAgent }
+func (a ReviewAuthor) IsHuman() bool {
+	return a.Kind != reviewstore.AuthorAgent
+}
 
 // ReviewThreadWithMessages is a thread and everything said in it.
 type ReviewThreadWithMessages struct {

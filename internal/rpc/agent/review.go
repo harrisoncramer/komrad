@@ -57,7 +57,7 @@ func (s *AgentService) ListReviewThreads(ctx context.Context, req *agentv1.ListR
 
 	answered := make([]*agentv1.ReviewThread, 0, len(threads))
 	for _, thread := range threads {
-		answered = append(answered, toReviewThread(thread))
+		answered = append(answered, renderReviewThread(thread))
 	}
 
 	return &agentv1.ListReviewThreadsResponse{Threads: answered}, nil
@@ -83,7 +83,7 @@ func (s *AgentService) CreateReviewThread(ctx context.Context, req *agentv1.Crea
 		return nil, rpcerr.From(err, "failed to create the review thread")
 	}
 
-	return &agentv1.CreateReviewThreadResponse{Thread: toReviewThread(*thread)}, nil
+	return &agentv1.CreateReviewThreadResponse{Thread: renderReviewThread(*thread)}, nil
 }
 
 // AddReviewMessage says something in an existing thread, as whoever is calling.
@@ -98,7 +98,7 @@ func (s *AgentService) AddReviewMessage(ctx context.Context, req *agentv1.AddRev
 		return nil, rpcerr.From(err, "failed to add the review message")
 	}
 
-	return &agentv1.AddReviewMessageResponse{Message: toReviewMessage(*message)}, nil
+	return &agentv1.AddReviewMessageResponse{Message: renderReviewMessage(*message)}, nil
 }
 
 // EditReviewMessage rewrites what was said.
@@ -113,7 +113,7 @@ func (s *AgentService) EditReviewMessage(ctx context.Context, req *agentv1.EditR
 		return nil, rpcerr.From(err, "failed to edit the review message")
 	}
 
-	return &agentv1.EditReviewMessageResponse{Message: toReviewMessage(*message)}, nil
+	return &agentv1.EditReviewMessageResponse{Message: renderReviewMessage(*message)}, nil
 }
 
 // MarkReviewThreadRead catches the calling side up on one conversation.
@@ -127,7 +127,7 @@ func (s *AgentService) MarkReviewThreadRead(ctx context.Context, req *agentv1.Ma
 	}
 
 	return &agentv1.MarkReviewThreadReadResponse{
-		Thread: toReviewThread(agents.ReviewThreadWithMessages{Thread: *thread}),
+		Thread: renderReviewThread(agents.ReviewThreadWithMessages{Thread: *thread}),
 	}, nil
 }
 
@@ -143,7 +143,7 @@ func (s *AgentService) SetReviewThreadResolved(ctx context.Context, req *agentv1
 	}
 
 	return &agentv1.SetReviewThreadResolvedResponse{
-		Thread: toReviewThread(agents.ReviewThreadWithMessages{Thread: *thread}),
+		Thread: renderReviewThread(agents.ReviewThreadWithMessages{Thread: *thread}),
 	}, nil
 }
 
@@ -154,7 +154,7 @@ func (s *AgentService) OpenReviewRound(ctx context.Context, req *agentv1.OpenRev
 		return nil, rpcerr.From(err, "failed to open a review round")
 	}
 
-	return &agentv1.OpenReviewRoundResponse{Round: toReviewRound(*round)}, nil
+	return &agentv1.OpenReviewRoundResponse{Round: renderReviewRound(*round)}, nil
 }
 
 // ListReviewRounds reads every round taken of an agent.
@@ -166,7 +166,7 @@ func (s *AgentService) ListReviewRounds(ctx context.Context, req *agentv1.ListRe
 
 	answered := make([]*agentv1.ReviewRound, 0, len(rounds))
 	for _, round := range rounds {
-		answered = append(answered, toReviewRound(round))
+		answered = append(answered, renderReviewRound(round))
 	}
 
 	return &agentv1.ListReviewRoundsResponse{Rounds: answered}, nil
@@ -181,7 +181,7 @@ func (s *AgentService) ListReviews(ctx context.Context, req *agentv1.ListReviews
 
 	answered := make([]*agentv1.Review, 0, len(reviews))
 	for _, review := range reviews {
-		answered = append(answered, toReview(review))
+		answered = append(answered, renderReview(review))
 	}
 
 	return &agentv1.ListReviewsResponse{Reviews: answered}, nil
@@ -201,7 +201,7 @@ func (s *AgentService) ReleaseReview(ctx context.Context, req *agentv1.ReleaseRe
 	}
 
 	return &agentv1.ReleaseReviewResponse{
-		Review:   toReview(result.Review),
+		Review:   renderReview(result.Review),
 		Comments: int32(result.Comments),
 		Path:     result.Path,
 	}, nil
@@ -222,7 +222,7 @@ func (s *AgentService) SetReviewFileViewed(ctx context.Context, req *agentv1.Set
 
 	answered := &agentv1.SetReviewFileViewedResponse{}
 	if viewed != nil {
-		answered.Viewed = toReviewViewedFile(*viewed)
+		answered.Viewed = renderReviewViewedFile(*viewed)
 	}
 
 	return answered, nil
@@ -240,7 +240,7 @@ func (s *AgentService) ListReviewViewedFiles(ctx context.Context, req *agentv1.L
 
 	answered := make([]*agentv1.ReviewViewedFile, 0, len(files))
 	for _, file := range files {
-		answered = append(answered, toReviewViewedFile(file))
+		answered = append(answered, renderReviewViewedFile(file))
 	}
 
 	return &agentv1.ListReviewViewedFilesResponse{Viewed: answered}, nil
@@ -259,7 +259,7 @@ func reviewAuthorFrom(ctx context.Context) agents.ReviewAuthor {
 	return agents.ReviewAuthor{Kind: reviewstore.AuthorAgent, AgentID: &agentID}
 }
 
-func toReviewThread(thread agents.ReviewThreadWithMessages) *agentv1.ReviewThread {
+func renderReviewThread(thread agents.ReviewThreadWithMessages) *agentv1.ReviewThread {
 	answered := &agentv1.ReviewThread{
 		Id:            thread.Thread.ID,
 		AgentId:       thread.Thread.AgentID,
@@ -283,13 +283,13 @@ func toReviewThread(thread agents.ReviewThreadWithMessages) *agentv1.ReviewThrea
 	}
 
 	for _, message := range thread.Messages {
-		answered.Messages = append(answered.Messages, toReviewMessage(message))
+		answered.Messages = append(answered.Messages, renderReviewMessage(message))
 	}
 
 	return answered
 }
 
-func toReviewMessage(message reviewstore.Message) *agentv1.ReviewMessage {
+func renderReviewMessage(message reviewstore.Message) *agentv1.ReviewMessage {
 	kind := agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN
 	if message.AuthorKind == reviewstore.AuthorAgent {
 		kind = agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT
@@ -302,7 +302,7 @@ func toReviewMessage(message reviewstore.Message) *agentv1.ReviewMessage {
 		AuthorAgentId: message.AuthorAgentID,
 		Body:          message.Body,
 		Suggestion:    message.Suggestion,
-		Delivery:      toReviewDeliveryState(message.Delivery),
+		Delivery:      renderReviewDeliveryState(message.Delivery),
 		CreatedAt:     dates.Stamp(message.CreatedAt),
 		UpdatedAt:     dates.Stamp(message.UpdatedAt),
 	}
@@ -317,7 +317,7 @@ func toReviewMessage(message reviewstore.Message) *agentv1.ReviewMessage {
 	return answered
 }
 
-func toReviewDeliveryState(state reviewstore.DeliveryState) agentv1.ReviewDeliveryState {
+func renderReviewDeliveryState(state reviewstore.DeliveryState) agentv1.ReviewDeliveryState {
 	switch state {
 	case reviewstore.DeliveryUnsent:
 		return agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT
@@ -332,7 +332,7 @@ func toReviewDeliveryState(state reviewstore.DeliveryState) agentv1.ReviewDelive
 	}
 }
 
-func toReviewViewedFile(viewed reviewstore.ViewedFile) *agentv1.ReviewViewedFile {
+func renderReviewViewedFile(viewed reviewstore.ViewedFile) *agentv1.ReviewViewedFile {
 	return &agentv1.ReviewViewedFile{
 		AgentId:     viewed.AgentID,
 		FilePath:    viewed.FilePath,
@@ -341,7 +341,7 @@ func toReviewViewedFile(viewed reviewstore.ViewedFile) *agentv1.ReviewViewedFile
 	}
 }
 
-func toReviewRound(round reviewstore.Round) *agentv1.ReviewRound {
+func renderReviewRound(round reviewstore.Round) *agentv1.ReviewRound {
 	return &agentv1.ReviewRound{
 		Id:          round.ID,
 		AgentId:     round.AgentID,
@@ -352,7 +352,7 @@ func toReviewRound(round reviewstore.Round) *agentv1.ReviewRound {
 	}
 }
 
-func toReview(review reviewstore.Review) *agentv1.Review {
+func renderReview(review reviewstore.Review) *agentv1.Review {
 	kind := agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN
 	if review.AuthorKind == reviewstore.AuthorAgent {
 		kind = agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT
@@ -373,7 +373,7 @@ func toReview(review reviewstore.Review) *agentv1.Review {
 	}
 
 	if review.Verdict != nil {
-		answered.Verdict = toReviewVerdict(*review.Verdict)
+		answered.Verdict = renderReviewVerdict(*review.Verdict)
 	}
 	if at := review.ReleasedAt; at != nil {
 		answered.ReleasedAt = dates.Stamp(*at)
@@ -385,7 +385,7 @@ func toReview(review reviewstore.Review) *agentv1.Review {
 	return answered
 }
 
-func toReviewVerdict(verdict reviewstore.Verdict) agentv1.ReviewVerdict {
+func renderReviewVerdict(verdict reviewstore.Verdict) agentv1.ReviewVerdict {
 	switch verdict {
 	case reviewstore.VerdictApproved:
 		return agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED

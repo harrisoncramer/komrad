@@ -103,17 +103,25 @@ func New(root string) (*Harness, error) {
 }
 
 // ID is the name an agent running this harness is recorded under.
-func (h *Harness) ID() string { return ID }
+func (h *Harness) ID() string {
+	return ID
+}
 
 // Binary is the script this harness runs, as a path rather than a name on PATH.
-func (h *Harness) Binary() string { return h.script }
+func (h *Harness) Binary() string {
+	return h.script
+}
 
 // MintSessionID names the conversation before it exists, the way a CLI that takes an id on
 // its command line lets the panel do.
-func (h *Harness) MintSessionID() string { return uuid.NewString() }
+func (h *Harness) MintSessionID() string {
+	return uuid.NewString()
+}
 
 // FindSession has nothing to find, every conversation being named at launch.
-func (h *Harness) FindSession(string) (string, error) { return "", nil }
+func (h *Harness) FindSession(string) (string, error) {
+	return "", nil
+}
 
 // BuildCommand renders the command line that puts the fake agent up, quoting everything
 // interpolated the way a real harness has to.
@@ -142,7 +150,9 @@ func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 }
 
 // InterruptKeys is what the panel would send to stop this harness where it stands.
-func (h *Harness) InterruptKeys() []string { return []string{"Escape"} }
+func (h *Harness) InterruptKeys() []string {
+	return []string{"Escape"}
+}
 
 // ReadInput reads the bottom of a captured frame, where only the last line the agent
 // printed is its current state.

@@ -94,8 +94,13 @@ func isTest(pass *analysis.Pass, file *ast.File) bool {
 
 // isExcluded says whether a file sits in a package the rule does not hold.
 func isExcluded(pass *analysis.Pass, file *ast.File, excluded []*regexp.Regexp) bool {
+	return isUnder(pass, file, excluded)
+}
+
+// isUnder says whether a file's path matches any of the patterns.
+func isUnder(pass *analysis.Pass, file *ast.File, patterns []*regexp.Regexp) bool {
 	path := repoRelative(pass.Fset.Position(file.Pos()).Filename)
-	for _, pattern := range excluded {
+	for _, pattern := range patterns {
 		if pattern.MatchString(path) {
 			return true
 		}

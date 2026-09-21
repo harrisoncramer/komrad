@@ -71,10 +71,14 @@ func Bound(limit int32) int64 {
 }
 
 // Limit is how many records the query should fetch.
-func (p *Paginator[C, M]) Limit() int64 { return p.limit }
+func (p *Paginator[C, M]) Limit() int64 {
+	return p.limit
+}
 
 // Cursor is the decoded request cursor, nil on the first page.
-func (p *Paginator[C, M]) Cursor() *C { return p.cursor }
+func (p *Paginator[C, M]) Cursor() *C {
+	return p.cursor
+}
 
 // NextToken returns the token for the page after these records, or nil when there is none.
 func (p *Paginator[C, M]) NextToken(resources []M) (*string, error) {

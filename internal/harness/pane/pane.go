@@ -75,4 +75,6 @@ func NewPane(params NewPaneParams) *Pane {
 }
 
 // Forget drops what was remembered of an agent's input box.
-func (p *Pane) Forget(agentID string) { p.drafts.forget(agentID) }
+func (p *Pane) Forget(agentID string) {
+	p.drafts.forget(agentID)
+}

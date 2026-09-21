@@ -9,6 +9,26 @@ type Config struct {
 	HandlerShape   HandlerShapeConfig   `json:"handler_shape"`
 	SecretExpose   SecretExposeConfig   `json:"secret_expose"`
 	BareHTTP       BareHTTPConfig       `json:"bare_http"`
+	OnelineFunc    OnelineFuncConfig    `json:"oneline_func"`
+	ConversionName ConversionNameConfig `json:"conversion_name"`
+}
+
+// OnelineFuncConfig settles whether the one-line declaration rule runs.
+type OnelineFuncConfig struct {
+	// Skip turns the rule off.
+	Skip bool `json:"skip"`
+}
+
+// ConversionNameConfig settles which packages each naming of a proto converter holds in.
+type ConversionNameConfig struct {
+	// Skip turns the rule off.
+	Skip bool `json:"skip"`
+	// Render is unanchored regexps over the file path, for the packages whose functions build
+	// proto messages and so are named render.
+	Render []string `json:"render"`
+	// From is unanchored regexps over the file path, for the packages whose functions read
+	// proto messages and so are named xFrom rather than protoToX, xFromProto or renderX.
+	From []string `json:"from"`
 }
 
 // BareHTTPConfig settles where net/http's own clients may be built.

@@ -39,21 +39,31 @@ func NewHarness(params NewHarnessParams) *Harness {
 }
 
 // ID is the name an agent running Claude Code is recorded under.
-func (h *Harness) ID() string { return HarnessID }
+func (h *Harness) ID() string {
+	return HarnessID
+}
 
 // Binary is the CLI a pane's shell has to resolve to start an agent.
-func (h *Harness) Binary() string { return HarnessID }
+func (h *Harness) Binary() string {
+	return HarnessID
+}
 
 // InterruptKeys stops Claude where it stands, the second Escape dismissing the prompt the first
 // can leave behind.
-func (h *Harness) InterruptKeys() []string { return []string{"Escape", "Escape"} }
+func (h *Harness) InterruptKeys() []string {
+	return []string{"Escape", "Escape"}
+}
 
 // MintSessionID names the conversation a fresh launch will hold, which Claude takes on the
 // command line and every later resume keys on.
-func (h *Harness) MintSessionID() string { return uuid.NewString() }
+func (h *Harness) MintSessionID() string {
+	return uuid.NewString()
+}
 
 // FindSession has nothing to find, Claude being told the id of every conversation it starts.
-func (h *Harness) FindSession(string) (string, error) { return "", nil }
+func (h *Harness) FindSession(string) (string, error) {
+	return "", nil
+}
 
 // NamedConfigDir reads the directory the environment names in place of ~/.claude, empty when
 // it names none.

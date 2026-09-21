@@ -80,7 +80,9 @@ func (p *postbox) attach(program *tea.Program) {
 	go p.deliver()
 }
 
-func (p *postbox) close() { close(p.wake) }
+func (p *postbox) close() {
+	close(p.wake)
+}
 
 // resize reports the size the panel's own pane landed at as the resize it is, so a frame is never
 // drawn at a width the renderer has not been told about.

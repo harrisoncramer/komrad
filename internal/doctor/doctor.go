@@ -36,7 +36,9 @@ type ProblemError struct {
 }
 
 // Error returns the message the check wrote.
-func (p *ProblemError) Error() string { return p.Message }
+func (p *ProblemError) Error() string {
+	return p.Message
+}
 
 // codeOf returns the stable code of the problem err carries, or empty when it carries none,
 // looking through the chain because a check wraps its sentinel to add detail.

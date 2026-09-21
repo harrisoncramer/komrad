@@ -253,7 +253,7 @@ linters:
     custom:
       weavelint:
         type: module
-        description: Checks for this repo; a sentinel error must declare the kind of failure it is and be declared at package scope, a message wrapping another error opens with "failed to " or with the error itself, a connect handler must hand its strict half to the adapter rather than answering for itself, a forge Secret gives up its token only where it is sent or kept, and an HTTP client is built by lib/xhttp.
+        description: Checks for this repo; a sentinel error must declare the kind of failure it is and be declared at package scope, a message wrapping another error opens with "failed to " or with the error itself, a connect handler must hand its strict half to the adapter rather than answering for itself, a forge Secret gives up its token only where it is sent or kept, an HTTP client is built by lib/xhttp, a declared function spans more than one line, and a proto converter is named for its direction.
         settings:
           sentinel_inline:
             skip: false
@@ -265,6 +265,18 @@ linters:
             exclude:
               - ^config/
               - ^cmd/gen-docs/
+          oneline_func:
+            skip: false
+          conversion_name:
+            skip: false
+            # Unanchored regexps over the path lint was run from. The service builds proto
+            # messages, so its converters are renderX.
+            render:
+              - ^internal/rpc/
+            # The panel reads proto messages, so its converters are xFrom, never protoToX,
+            # xFromProto or renderX.
+            from:
+              - ^internal/ui/
           bare_http:
             skip: false
             # Unanchored regexps over the path lint was run from. The one package that builds

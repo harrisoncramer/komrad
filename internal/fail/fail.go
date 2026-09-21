@@ -45,10 +45,14 @@ type Error struct {
 }
 
 // Error returns the sentinel's own wording.
-func (s *Error) Error() string { return s.message }
+func (s *Error) Error() string {
+	return s.message
+}
 
 // Kind returns what a caller can do about this failure.
-func (s *Error) Kind() Kind { return s.kind }
+func (s *Error) Kind() Kind {
+	return s.kind
+}
 
 // Saying returns this sentinel worded for one request, replacing its own message.
 func (s *Error) Saying(format string, args ...any) *Error {
@@ -61,10 +65,14 @@ func (s *Error) Saying(format string, args ...any) *Error {
 }
 
 // Worded says whether a raise site chose this failure's message for one request.
-func (s *Error) Worded() bool { return s.worded }
+func (s *Error) Worded() bool {
+	return s.worded
+}
 
 // Unwrap returns the sentinel this one was worded from, or the failure it was built around.
-func (s *Error) Unwrap() error { return s.wrapped }
+func (s *Error) Unwrap() error {
+	return s.wrapped
+}
 
 // Kinded returns this failure as a different kind, for a code somebody else already decided.
 func (s *Error) Kinded(kind Kind) *Error {
@@ -87,10 +95,14 @@ func Because(err error, message string) *Error {
 }
 
 // Internal declares a sentinel for a failure the caller did nothing to cause and cannot fix.
-func Internal(message string) *Error { return &Error{kind: KindInternal, message: message} }
+func Internal(message string) *Error {
+	return &Error{kind: KindInternal, message: message}
+}
 
 // NotFound declares a sentinel for a thing the request named that does not exist.
-func NotFound(message string) *Error { return &Error{kind: KindNotFound, message: message} }
+func NotFound(message string) *Error {
+	return &Error{kind: KindNotFound, message: message}
+}
 
 // AlreadyExists declares a sentinel for a thing the request would create that exists already.
 func AlreadyExists(message string) *Error {
@@ -108,10 +120,14 @@ func InvalidArgument(message string) *Error {
 }
 
 // Exhausted declares a sentinel for a limit the request would take past its ceiling.
-func Exhausted(message string) *Error { return &Error{kind: KindExhausted, message: message} }
+func Exhausted(message string) *Error {
+	return &Error{kind: KindExhausted, message: message}
+}
 
 // Denied declares a sentinel for a request its caller is not allowed to make.
-func Denied(message string) *Error { return &Error{kind: KindDenied, message: message} }
+func Denied(message string) *Error {
+	return &Error{kind: KindDenied, message: message}
+}
 
 // Of returns the failure an error answers with, or nil when it holds none.
 func Of(err error) *Error {

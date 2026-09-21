@@ -40,10 +40,14 @@ func New(t *testing.T) *Server {
 }
 
 // Socket is the name this server is reached by.
-func (s *Server) Socket() string { return s.socket }
+func (s *Server) Socket() string {
+	return s.socket
+}
 
 // Client is a tmux client bound to this server.
-func (s *Server) Client() *tmux.Client { return tmux.NewClient(s.socket) }
+func (s *Server) Client() *tmux.Client {
+	return tmux.NewClient(s.socket)
+}
 
 // Run runs a tmux command against this server and returns its output, failing the test
 // when tmux refuses.

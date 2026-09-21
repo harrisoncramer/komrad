@@ -50,7 +50,9 @@ type reviewThreads struct {
 }
 
 // isOwedAnAnswer reports whether a comment the reader released is still open.
-func (t reviewThreads) isOwedAnAnswer() bool { return t.owed != "" }
+func (t reviewThreads) isOwedAnAnswer() bool {
+	return t.owed != ""
+}
 
 // set holds the conversation and the probe a refresh compares it against together.
 func (t *reviewThreads) set(threads []*agentv1.ReviewThread) {
