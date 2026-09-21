@@ -68,35 +68,51 @@ func held(entries []Entry) int64 {
 	return total
 }
 
-// TestInspectReadsNothingAgainstABaseGitCannotName covers a clone with no origin and no base
-// answering with no base and no standing rather than a standing against HEAD.
-func TestInspectReadsNothingAgainstABaseGitCannotName(t *testing.T) {
+// TestInspectReportsABaseTheCloneDoesNotHold covers a clone without the workflow's base
+// answering with why rather than with a standing against something else.
+func TestInspectReportsABaseTheCloneDoesNotHold(t *testing.T) {
 	f := newFixture(t)
 	dir := f.cut(t, "hhhh")
+	f.own("hhhh", "stale", nil)
 	f.git.unresolved = true
 	f.git.commits = []git.Commit{{SHA: "never"}}
 
 	inspection, err := f.inspector().Inspect(t.Context(), InspectParams{Dir: dir})
 	require.NoError(t, err)
 
+	require.ErrorIs(t, inspection.BaseErr, git.ErrBaseMissing)
 	assert.Empty(t, inspection.BaseRef)
 	assert.Empty(t, inspection.Commits)
 	assert.False(t, inspection.KeepsBranch)
 }
 
+// TestInspectReportsADirectoryWithNoRowAsHavingNoBase covers a directory whose agent row is
+// gone, which names no workflow and so no base.
+func TestInspectReportsADirectoryWithNoRowAsHavingNoBase(t *testing.T) {
+	f := newFixture(t)
+	dir := f.cut(t, "iiii")
+
+	inspection, err := f.inspector().Inspect(t.Context(), InspectParams{Dir: dir})
+	require.NoError(t, err)
+
+	require.ErrorIs(t, inspection.BaseErr, git.ErrBaseMissing)
+	assert.Empty(t, inspection.BaseRef)
+}
+
 // TestInspectFetchesWhenAsked covers the fetch flag going to git's fetch rather than its
-// resolve, and a directory with no row measuring against origin's own head.
+// resolve, with the workflow's base named to it.
 func TestInspectFetchesWhenAsked(t *testing.T) {
 	f := newFixture(t)
 	dir := f.cut(t, "bbbb")
+	f.own("bbbb", "fetched", nil)
 
 	inspection, err := f.inspector().Inspect(t.Context(), InspectParams{Dir: dir, Fetch: true})
 	require.NoError(t, err)
 
 	assert.Equal(t, 0, f.git.resolves)
 	assert.Equal(t, 1, f.git.fetches)
-	assert.Empty(t, f.git.fetched)
-	assert.Equal(t, "origin/", inspection.BaseRef)
+	assert.Equal(t, "main", f.git.fetched)
+	assert.Equal(t, "origin/main", inspection.BaseRef)
 }
 
 // TestInspectReadsALandedBranchAsLeavingNothingBehind covers a branch some other ref reaches
@@ -104,6 +120,7 @@ func TestInspectFetchesWhenAsked(t *testing.T) {
 func TestInspectReadsALandedBranchAsLeavingNothingBehind(t *testing.T) {
 	f := newFixture(t)
 	dir := f.cut(t, "cccc")
+	f.own("cccc", "landed", nil)
 	f.git.held = true
 
 	inspection, err := f.inspector().Inspect(t.Context(), InspectParams{Dir: dir})
@@ -131,6 +148,7 @@ func TestInspectKeepsAnAdoptedBranch(t *testing.T) {
 func TestInspectReadsAnUnrelatedBaseAsNothingLanded(t *testing.T) {
 	f := newFixture(t)
 	dir := f.cut(t, "eeee")
+	f.own("eeee", "unrelated", nil)
 	f.git.predictErr = git.ErrBaseUnrelated
 
 	inspection, err := f.inspector().Inspect(t.Context(), InspectParams{Dir: dir})

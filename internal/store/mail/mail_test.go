@@ -599,7 +599,7 @@ func open(t *testing.T) *fixture {
 	t.Cleanup(func() { _ = p.Close() })
 
 	workflows := workflowstore.New(p.GetDB())
-	created, err := workflows.Create(t.Context(), workflowstore.Config{Name: "default"})
+	created, err := workflows.Create(t.Context(), workflowstore.Config{Name: "default", Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"}})
 	require.NoError(t, err)
 
 	return &fixture{

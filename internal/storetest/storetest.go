@@ -157,9 +157,13 @@ func (s *Stores) SeedTurns(t *testing.T, agentID string, turns ...transcriptstor
 }
 
 // SeedWorkflow creates a workflow and returns it, for the tests that only need
-// something to file an agent under.
+// something to file an agent under, naming main as its base when the test names none.
 func (s *Stores) SeedWorkflow(t *testing.T, cfg workflowstore.Config) *workflowstore.Workflow {
 	t.Helper()
+
+	if cfg.Worktree.BaseBranch == "" {
+		cfg.Worktree.BaseBranch = "main"
+	}
 
 	created, err := s.Workflows.Create(t.Context(), cfg)
 	require.NoError(t, err)

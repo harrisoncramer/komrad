@@ -62,12 +62,12 @@ func (h *harness) createAgent(t *testing.T, workflowID, name, repositoryURL, bra
 	return created.ID
 }
 
-func (h *harness) createWorkflow(t *testing.T, name, baseBranch string) string {
+func (h *harness) createWorkflow(t *testing.T) string {
 	t.Helper()
 
 	created, err := h.workflows.Create(t.Context(), workflowstore.Config{
-		Name:     name,
-		Worktree: workflowstore.WorktreeConfig{Enabled: baseBranch != "", BaseBranch: baseBranch},
+		Name:     "weave",
+		Worktree: workflowstore.WorktreeConfig{Enabled: true, BaseBranch: "main"},
 	})
 	require.NoError(t, err)
 
@@ -164,7 +164,7 @@ func TestObserveJoinsLiveAgentsToTheirBranches(t *testing.T) {
 	h := open(t)
 	ctx := t.Context()
 
-	workflow := h.createWorkflow(t, "weave", "main")
+	workflow := h.createWorkflow(t)
 	onBranch := h.createAgent(t, workflow, "on-branch", weave, "agent/x")
 	other := h.createAgent(t, workflow, "elsewhere", weave, "agent/y")
 	onMain := h.createAgent(t, workflow, "on-main", weave, "main")
@@ -199,32 +199,12 @@ func TestObserveJoinsLiveAgentsToTheirBranches(t *testing.T) {
 	assert.Zero(t, again, "a pair seen within the hour is not written again")
 }
 
-// TestObserveReachesAnAgentWithNoBaseBranchOnMain covers a workflow that names no base branch,
-// where nothing is excluded.
-func TestObserveReachesAnAgentWithNoBaseBranchOnMain(t *testing.T) {
-	h := open(t)
-	ctx := t.Context()
-
-	workflow := h.createWorkflow(t, "plain", "")
-	onMain := h.createAgent(t, workflow, "on-main", weave, "main")
-	_, err := h.Upsert(ctx, openPullRequest("PR_2", 2, "main"))
-	require.NoError(t, err)
-
-	written, err := h.Observe(ctx)
-	require.NoError(t, err)
-	assert.Equal(t, int64(1), written)
-
-	seen, err := h.ListObservations(ctx, onMain)
-	require.NoError(t, err)
-	assert.Len(t, seen, 1)
-}
-
 // TestObserveSkipsArchivedAgents covers that only live agents are attributed.
 func TestObserveSkipsArchivedAgents(t *testing.T) {
 	h := open(t)
 	ctx := t.Context()
 
-	workflow := h.createWorkflow(t, "weave", "main")
+	workflow := h.createWorkflow(t)
 	archived := h.createAgent(t, workflow, "archived", weave, "agent/x")
 	_, err := h.agents.Archive(ctx, []string{archived})
 	require.NoError(t, err)
@@ -242,7 +222,7 @@ func TestLiveRepositoriesAndUnscannedBranches(t *testing.T) {
 	h := open(t)
 	ctx := t.Context()
 
-	workflow := h.createWorkflow(t, "weave", "main")
+	workflow := h.createWorkflow(t)
 	h.createAgent(t, workflow, "a", weave, "agent/x")
 	h.createAgent(t, workflow, "b", weave, "agent/y")
 	h.createAgent(t, workflow, "c", fixture, "fixture/open")
@@ -402,7 +382,7 @@ func TestListStaleStandingsAnswersOpenRowsOnAgentBranches(t *testing.T) {
 	h := open(t)
 	ctx := t.Context()
 
-	workflow := h.createWorkflow(t, "weave", "main")
+	workflow := h.createWorkflow(t)
 	h.createAgent(t, workflow, "a", weave, "agent/x")
 	archived := h.createAgent(t, workflow, "b", weave, "agent/archived")
 	_, err := h.agents.Archive(ctx, []string{archived})
@@ -523,7 +503,7 @@ func TestListForAgentIsTheBranchNewestFirst(t *testing.T) {
 	h := open(t)
 	ctx := t.Context()
 
-	workflow := h.createWorkflow(t, "weave", "main")
+	workflow := h.createWorkflow(t)
 	agent := h.createAgent(t, workflow, "a", weave, "agent/x")
 	onMain := h.createAgent(t, workflow, "on-main", weave, "main")
 

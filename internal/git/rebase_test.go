@@ -143,54 +143,42 @@ func TestFetchBaseRefusesARepositoryWithNoOrigin(t *testing.T) {
 
 	repo := newRepo(t)
 
-	_, _, err := client.FetchBase(t.Context(), repo, "")
+	_, _, err := client.FetchBase(t.Context(), repo, "main")
 	require.Error(t, err)
 }
 
-// TestFetchBaseRefusesABaseThatResolvesToHead covers a blank base resolving to the literal
-// HEAD, which a rebase would succeed against trivially and report as a success.
-func TestFetchBaseRefusesABaseThatResolvesToHead(t *testing.T) {
-	t.Parallel()
-
-	root := t.TempDir()
-	bare := filepath.Join(root, "origin.git")
-	run(t, root, "init", "--quiet", "--bare", "-b", "main", bare)
-
-	clone := filepath.Join(root, "clone")
-	run(t, root, "clone", "--quiet", bare, clone)
-
-	_, _, err := client.FetchBase(t.Context(), clone, "")
-	require.ErrorIs(t, err, git.ErrBaseUnresolved)
-}
-
-// TestFetchBaseRepairsAMissingOriginHead pins why the guard above needs an empty remote to reach.
-func TestFetchBaseRepairsAMissingOriginHead(t *testing.T) {
+// TestFetchBaseRefusesABaseOriginDoesNotHave covers a workflow naming a branch origin no longer
+// has, which is reported as that rather than measured against something else.
+func TestFetchBaseRefusesABaseOriginDoesNotHave(t *testing.T) {
 	t.Parallel()
 
 	_, clone := newClonePair(t)
-	run(t, clone, "symbolic-ref", "-d", "refs/remotes/origin/HEAD")
 
-	ref, _, err := client.FetchBase(t.Context(), clone, "")
-	require.NoError(t, err)
+	_, _, err := client.FetchBase(t.Context(), clone, "trunk")
+	require.Error(t, err)
+	require.NotErrorIs(t, err, git.ErrBaseMissing, "a branch origin has never had fails at the fetch")
 
-	assert.Equal(t, "origin/main", ref, "the unqualified fetch put origin/HEAD back")
+	_, _, err = client.FetchBase(t.Context(), clone, "")
+	require.ErrorIs(t, err, git.ErrBaseMissing, "a workflow naming no base is refused before anything is fetched")
 }
 
-// TestFetchBaseFetchesWhenNoBaseIsNamed pins the default configuration working.
-func TestFetchBaseFetchesWhenNoBaseIsNamed(t *testing.T) {
+// TestFetchBaseFetchesTheNamedBase pins the base being fetched by name rather than read from
+// the clone's cache.
+func TestFetchBaseFetchesTheNamedBase(t *testing.T) {
 	t.Parallel()
 
 	origin, clone := newClonePair(t)
+	run(t, clone, "symbolic-ref", "-d", "refs/remotes/origin/HEAD")
 
 	// The origin moves on after the clone, so a stale remote-tracking ref and a fetched one
 	// name different commits.
 	run(t, origin, "commit", "--quiet", "--allow-empty", "-m", "origin moved on")
 	moved := out(t, origin, "rev-parse", "HEAD")
 
-	ref, sha, err := client.FetchBase(t.Context(), clone, "")
+	ref, sha, err := client.FetchBase(t.Context(), clone, "main")
 	require.NoError(t, err)
 
-	assert.Equal(t, "origin/main", ref, "the base resolves to a remote-tracking ref, never to HEAD")
+	assert.Equal(t, "origin/main", ref, "the base resolves to a remote-tracking ref without origin/HEAD")
 	assert.Equal(t, moved, sha, "the base was fetched rather than read from the clone's cache")
 }
 

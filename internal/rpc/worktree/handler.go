@@ -99,6 +99,7 @@ func (s *Handler) GetWorktree(ctx context.Context, req *worktreev1.GetWorktreeRe
 		Modified:           inspection.Changes.Modified,
 		Untracked:          inspection.Changes.Untracked,
 		BaseRef:            inspection.BaseRef,
+		BaseError:          describeBaseErr(inspection.BaseErr),
 		Ahead:              int32(inspection.Ahead),
 		Behind:             int32(inspection.Behind),
 		LandedCommits:      int32(inspection.Landed),
@@ -199,4 +200,12 @@ func renderAgent(agent worktrees.Agent) *worktreev1.WorktreeAgent {
 		ArchivedAt: dates.StampPtr(agent.ArchivedAt),
 		Adopted:    agent.Adopted,
 	}
+}
+
+func describeBaseErr(err error) string {
+	if err == nil {
+		return ""
+	}
+
+	return err.Error()
 }

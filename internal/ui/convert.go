@@ -300,6 +300,7 @@ func worktreeInspectionFrom(read *worktreev1.GetWorktreeResponse, now time.Time)
 		modified:    read.GetModified(),
 		untracked:   read.GetUntracked(),
 		baseRef:     read.GetBaseRef(),
+		baseError:   read.GetBaseError(),
 		ahead:       int(read.GetAhead()),
 		behind:      int(read.GetBehind()),
 		landed:      int(read.GetLandedCommits()),

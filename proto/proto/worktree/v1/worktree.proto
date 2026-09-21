@@ -115,10 +115,12 @@ message GetWorktreeResponse {
   repeated string modified = 3;
   // The paths git neither tracks nor ignores.
   repeated string untracked = 4;
-  // The ref the branch is measured against: the workflow's base branch when a row names a
-  // workflow, otherwise origin's default branch, empty when the repository cannot be read or
-  // names neither, in which case nothing below is measured.
+  // The ref the branch is measured against, which is the workflow's base branch as the clone
+  // holds it, empty when the repository cannot be read or the clone does not hold the base, in
+  // which case nothing below is measured.
   string base_ref = 5;
+  // Why the base could not be named, when base_ref is empty for that reason.
+  string base_error = 13;
   // How many of the branch's commits the base does not hold.
   int32 ahead = 6;
   // How many of the base's commits the branch does not hold.

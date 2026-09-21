@@ -297,10 +297,10 @@ func lastActiveField(item worktreeItem, now time.Time) string {
 	return field
 }
 
-// baseField spells where the branch stands against its base, or a dash when git names none.
+// baseField spells where the branch stands against its base, or why git could not name one.
 func baseField(read worktreeInspection) string {
 	if read.baseRef == "" {
-		return label.Dash
+		return label.OrDash(read.baseError)
 	}
 
 	var parts []string

@@ -133,12 +133,9 @@ func parseCommits(out string) ([]Commit, error) {
 	return commits, nil
 }
 
-// ResolveBase is the ref a checkout is measured against, origin's copy of the base when it has
-// one and origin's default branch when no base is named, and false when it has neither.
-func (c *Client) ResolveBase(ctx context.Context, dir, base string) (string, bool) {
-	ref := resolveBase(ctx, dir, base)
-
-	return ref, ref != "HEAD"
+// ResolveBase is the ref a checkout is measured against, as the clone last fetched it.
+func (c *Client) ResolveBase(ctx context.Context, dir, base string) (string, error) {
+	return resolveBase(ctx, dir, base)
 }
 
 // PruneWorktrees drops the registrations of checkouts whose directories are gone.

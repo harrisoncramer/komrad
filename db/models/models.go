@@ -604,8 +604,9 @@ type WorkflowHook struct {
 
 // Whether a workflow gives each of its agents a git worktree of its own, and how that worktree is set up.
 type WorkflowProvisionerConfig struct {
-	ID                   string
-	WorktreeEnabled      bool
+	ID              string
+	WorktreeEnabled bool
+	// The branch worktrees are cut from and every agent's work is measured against, never blank.
 	WorktreeBaseBranch   string
 	WorktreeCopyPaths    []string
 	WorktreeSymlinkPaths []string

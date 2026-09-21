@@ -49,7 +49,7 @@ func open(t *testing.T) *fixture {
 	p := pool(t)
 
 	workflows := workflowstore.New(p.GetDB())
-	created, err := workflows.Create(t.Context(), workflowstore.Config{Name: "default"})
+	created, err := workflows.Create(t.Context(), workflowstore.Config{Name: "default", Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"}})
 	require.NoError(t, err)
 
 	return &fixture{

@@ -28,6 +28,8 @@ type Env struct {
 	ReadPendingMigrations func(ctx context.Context, url string) ([]string, error)
 	ConnectReadOnly       func(ctx context.Context, url string) error
 	ReadWorktreeOwners    func(ctx context.Context, url string) (WorktreeOwners, error)
+	ReadWorkflowBases     func(ctx context.Context, url string) ([]WorkflowBase, error)
+	ResolveBase           func(ctx context.Context, dir, base string) (string, error)
 	CheckForges           func(ctx context.Context) ([]ForgeStatus, error)
 	ProbeServer           func(ctx context.Context) (ServerStatus, error)
 	IsPanelRunning        func(ctx context.Context) bool
@@ -98,6 +100,8 @@ func NewEnv(settings Settings) Env {
 		ReadPendingMigrations: readPendingMigrations,
 		ConnectReadOnly:       connectReadOnly,
 		ReadWorktreeOwners:    readWorktreeOwners,
+		ReadWorkflowBases:     readWorkflowBases,
+		ResolveBase:           resolveWorkflowBase,
 		ReadTerminfo:          readTerminfo,
 	}
 }

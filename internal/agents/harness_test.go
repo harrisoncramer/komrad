@@ -50,8 +50,9 @@ func TestNewAgentGetsHarness(t *testing.T) {
 			})
 
 			created, err := st.Workflows.Create(t.Context(), workflowstore.Config{
-				Name:    "workflow-" + uuid.NewString(),
-				Harness: tt.workflow,
+				Name:     "workflow-" + uuid.NewString(),
+				Harness:  tt.workflow,
+				Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"},
 			})
 			require.NoError(t, err)
 
@@ -102,9 +103,10 @@ func TestWorkflowFlagsFollowItsHarness(t *testing.T) {
 			})
 
 			created, err := st.Workflows.Create(t.Context(), workflowstore.Config{
-				Name:    "workflow-" + uuid.NewString(),
-				Harness: testHarnessID,
-				Flags:   "--model opus",
+				Name:     "workflow-" + uuid.NewString(),
+				Harness:  testHarnessID,
+				Flags:    "--model opus",
+				Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"},
 			})
 			require.NoError(t, err)
 

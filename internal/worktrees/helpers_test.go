@@ -2,6 +2,7 @@ package worktrees
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -39,10 +40,12 @@ func newFixture(t *testing.T) *fixture {
 		repo:   filepath.Join(root, "repo"),
 		shared: filepath.Join(root, "trees"),
 		owners: &fakeOwners{},
-		flows:  &fakeWorkflows{flows: map[string]*workflowstore.Workflow{}},
-		git:    &fakeGit{},
-		sizes:  &fakeSizes{stored: map[string]worktreestore.Size{}},
-		now:    time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC),
+		flows: &fakeWorkflows{flows: map[string]*workflowstore.Workflow{
+			"flow": {Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"}},
+		}},
+		git:   &fakeGit{},
+		sizes: &fakeSizes{stored: map[string]worktreestore.Size{}},
+		now:   time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC),
 	}
 	require.NoError(t, os.MkdirAll(filepath.Join(f.repo, ".git", "worktrees"), 0o755))
 	require.NoError(t, os.MkdirAll(f.shared, 0o755))
@@ -196,17 +199,14 @@ func (g *fakeGit) ReadTreeState(context.Context, string) (git.TreeState, error) 
 	return g.state, nil
 }
 
-func (g *fakeGit) ResolveBase(_ context.Context, _, base string) (string, bool) {
+func (g *fakeGit) ResolveBase(_ context.Context, _, base string) (string, error) {
 	g.resolved = base
 	g.resolves++
-	if g.unresolved {
-		return "HEAD", false
-	}
-	if base == "" {
-		return "origin/HEAD", true
+	if g.unresolved || base == "" {
+		return "", fmt.Errorf("%w: the clone has no origin/%s", git.ErrBaseMissing, base)
 	}
 
-	return "origin/" + base, true
+	return "origin/" + base, nil
 }
 
 func (g *fakeGit) FetchBase(_ context.Context, _, base string) (string, string, error) {

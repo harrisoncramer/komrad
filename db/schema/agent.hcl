@@ -65,7 +65,7 @@ table "workflow_provisioner_configs" {
   column "worktree_base_branch" {
     null    = false
     type    = text
-    default = ""
+    comment = "The branch worktrees are cut from and every agent's work is measured against, never blank."
   }
   column "worktree_dir" {
     null    = false
@@ -99,6 +99,9 @@ table "workflow_provisioner_configs" {
   }
   primary_key {
     columns = [column.id]
+  }
+  check "worktree_base_branch_named" {
+    expr = "worktree_base_branch <> ''"
   }
 }
 

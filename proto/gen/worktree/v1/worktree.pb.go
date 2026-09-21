@@ -564,10 +564,12 @@ type GetWorktreeResponse struct {
 	Modified []string `protobuf:"bytes,3,rep,name=modified,proto3" json:"modified,omitempty"`
 	// The paths git neither tracks nor ignores.
 	Untracked []string `protobuf:"bytes,4,rep,name=untracked,proto3" json:"untracked,omitempty"`
-	// The ref the branch is measured against: the workflow's base branch when a row names a
-	// workflow, otherwise origin's default branch, empty when the repository cannot be read or
-	// names neither, in which case nothing below is measured.
+	// The ref the branch is measured against, which is the workflow's base branch as the clone
+	// holds it, empty when the repository cannot be read or the clone does not hold the base, in
+	// which case nothing below is measured.
 	BaseRef string `protobuf:"bytes,5,opt,name=base_ref,json=baseRef,proto3" json:"base_ref,omitempty"`
+	// Why the base could not be named, when base_ref is empty for that reason.
+	BaseError string `protobuf:"bytes,13,opt,name=base_error,json=baseError,proto3" json:"base_error,omitempty"`
 	// How many of the branch's commits the base does not hold.
 	Ahead int32 `protobuf:"varint,6,opt,name=ahead,proto3" json:"ahead,omitempty"`
 	// How many of the base's commits the branch does not hold.
@@ -654,6 +656,13 @@ func (x *GetWorktreeResponse) GetUntracked() []string {
 func (x *GetWorktreeResponse) GetBaseRef() string {
 	if x != nil {
 		return x.BaseRef
+	}
+	return ""
+}
+
+func (x *GetWorktreeResponse) GetBaseError() string {
+	if x != nil {
+		return x.BaseError
 	}
 	return ""
 }
@@ -944,7 +953,7 @@ const file_worktree_v1_worktree_proto_rawDesc = "" +
 	"\x06Commit\x12\x10\n" +
 	"\x03sha\x18\x01 \x01(\tR\x03sha\x12\x18\n" +
 	"\asubject\x18\x02 \x01(\tR\asubject\x12!\n" +
-	"\fcommitted_at\x18\x03 \x01(\tR\vcommittedAt\"\xc3\x03\n" +
+	"\fcommitted_at\x18\x03 \x01(\tR\vcommittedAt\"\xe2\x03\n" +
 	"\x13GetWorktreeResponse\x121\n" +
 	"\bworktree\x18\x01 \x01(\v2\x15.worktree.v1.WorktreeR\bworktree\x12\x1d\n" +
 	"\n" +
@@ -952,7 +961,9 @@ const file_worktree_v1_worktree_proto_rawDesc = "" +
 	"\aentries\x18\x02 \x03(\v2\x12.worktree.v1.EntryR\aentries\x12\x1a\n" +
 	"\bmodified\x18\x03 \x03(\tR\bmodified\x12\x1c\n" +
 	"\tuntracked\x18\x04 \x03(\tR\tuntracked\x12\x19\n" +
-	"\bbase_ref\x18\x05 \x01(\tR\abaseRef\x12\x14\n" +
+	"\bbase_ref\x18\x05 \x01(\tR\abaseRef\x12\x1d\n" +
+	"\n" +
+	"base_error\x18\r \x01(\tR\tbaseError\x12\x14\n" +
 	"\x05ahead\x18\x06 \x01(\x05R\x05ahead\x12\x16\n" +
 	"\x06behind\x18\a \x01(\x05R\x06behind\x12%\n" +
 	"\x0elanded_commits\x18\b \x01(\x05R\rlandedCommits\x120\n" +

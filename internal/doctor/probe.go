@@ -11,9 +11,11 @@ import (
 	"time"
 
 	"weave/db"
+	"weave/internal/git"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
+	"weave/lib/xslice"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -79,6 +81,39 @@ func connectReadOnly(ctx context.Context, url string) error {
 	pool.Close()
 
 	return nil
+}
+
+// readWorkflowBases reads the directory and base branch of every live workflow.
+func readWorkflowBases(ctx context.Context, url string) ([]WorkflowBase, error) {
+	pool, err := openReadOnlyPool(ctx, url)
+	if err != nil {
+		return nil, err
+	}
+	defer pool.Close()
+
+	ctx, cancel := context.WithTimeout(ctx, connectTimeout)
+	defer cancel()
+
+	workflows, err := workflowstore.New(pool).List(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return xslice.Map(workflows, func(workflow workflowstore.Workflow) WorkflowBase {
+		return WorkflowBase{Name: workflow.Name, Cwd: workflow.Cwd, Base: workflow.Worktree.BaseBranch}
+	}), nil
+}
+
+// resolveWorkflowBase is the ref a workflow's clone holds for its base, read without a fetch.
+func resolveWorkflowBase(ctx context.Context, dir, base string) (string, error) {
+	client := git.NewClient()
+
+	root, err := client.GetRoot(ctx, dir)
+	if err != nil {
+		return "", err
+	}
+
+	return client.ResolveBase(ctx, root, base)
 }
 
 // inspectDir is what a directory looks like from outside: whether it is there, whether it is

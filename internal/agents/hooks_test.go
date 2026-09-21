@@ -25,7 +25,7 @@ func TestNewAgentRunsPreLaunchHooksInOrder(t *testing.T) {
 	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
 		Name:     "backend",
 		Cwd:      fakeCheckout(t),
-		Worktree: workflowstore.WorktreeConfig{Enabled: true},
+		Worktree: workflowstore.WorktreeConfig{Enabled: true, BaseBranch: "main"},
 		Hooks: []workflowstore.Hook{
 			{Event: workflowstore.HookPreLaunch, Script: "install-deps"},
 			{Event: workflowstore.HookPreLaunch, Script: "copy-env"},
@@ -103,7 +103,7 @@ func TestNewAgentAbandonsACreateAPreLaunchHookRefused(t *testing.T) {
 	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
 		Name:     "backend",
 		Cwd:      fakeCheckout(t),
-		Worktree: workflowstore.WorktreeConfig{Enabled: true},
+		Worktree: workflowstore.WorktreeConfig{Enabled: true, BaseBranch: "main"},
 		Hooks: []workflowstore.Hook{
 			{Event: workflowstore.HookPreLaunch, Script: "install-deps"},
 			{Event: workflowstore.HookPreLaunch, Script: "copy-env"},
@@ -175,7 +175,7 @@ func TestARetiredProvisionerRunsNoHooks(t *testing.T) {
 	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
 		Name:     "backend",
 		Cwd:      fakeCheckout(t),
-		Worktree: workflowstore.WorktreeConfig{Enabled: true},
+		Worktree: workflowstore.WorktreeConfig{Enabled: true, BaseBranch: "main"},
 		Hooks: []workflowstore.Hook{
 			{Event: workflowstore.HookPreLaunch, Script: "install-deps"},
 			{Event: workflowstore.HookPostLaunch, Script: "announce"},
@@ -219,7 +219,8 @@ func TestWorkflowHooksRoundTripInOrder(t *testing.T) {
 	workflows := workflowsFor(st, newFakeTmux())
 
 	created, err := workflows.NewWorkflow(t.Context(), workflowstore.Config{
-		Name: "backend",
+		Name:     "backend",
+		Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"},
 		Hooks: []workflowstore.Hook{
 			{Event: workflowstore.HookPreLaunch, Script: "install-deps"},
 			{Event: workflowstore.HookPreLaunch, Script: "copy-env"},
@@ -238,8 +239,9 @@ func TestWorkflowHooksRoundTripInOrder(t *testing.T) {
 	}, got.Hooks, "the blank a None select sends is dropped rather than stored")
 
 	require.NoError(t, workflows.UpdateWorkflow(t.Context(), created.ID, workflowstore.Config{
-		Name:  "backend",
-		Hooks: []workflowstore.Hook{{Event: workflowstore.HookPostLaunch, Script: "announce"}},
+		Name:     "backend",
+		Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"},
+		Hooks:    []workflowstore.Hook{{Event: workflowstore.HookPostLaunch, Script: "announce"}},
 	}))
 
 	updated, err := st.GetWorkflow(t.Context(), created.ID)
@@ -258,7 +260,8 @@ func TestResumeFiresPostResumeHooks(t *testing.T) {
 	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
 
 	created, err := st.Workflows.Create(ctx, workflowstore.Config{
-		Name: "backend",
+		Name:     "backend",
+		Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"},
 		Hooks: []workflowstore.Hook{
 			{Event: workflowstore.HookPreLaunch, Script: "install-deps"},
 			{Event: workflowstore.HookPostResume, Script: "announce-back"},
@@ -292,8 +295,9 @@ func TestRestoreFiresPostRestoreHooks(t *testing.T) {
 	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
 
 	created, err := st.Workflows.Create(ctx, workflowstore.Config{
-		Name:  "backend",
-		Hooks: []workflowstore.Hook{{Event: workflowstore.HookPostRestore, Script: "unlock"}},
+		Name:     "backend",
+		Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"},
+		Hooks:    []workflowstore.Hook{{Event: workflowstore.HookPostRestore, Script: "unlock"}},
 	})
 	require.NoError(t, err)
 
@@ -350,7 +354,7 @@ func TestAProvisionerDisabledAgentRunsNoHooksOnTheWayBackIn(t *testing.T) {
 			created, err := st.Workflows.Create(ctx, workflowstore.Config{
 				Name:     "backend",
 				Cwd:      fakeCheckout(t),
-				Worktree: workflowstore.WorktreeConfig{Enabled: true},
+				Worktree: workflowstore.WorktreeConfig{Enabled: true, BaseBranch: "main"},
 				Hooks: []workflowstore.Hook{
 					{Event: workflowstore.HookPostResume, Script: "announce-back"},
 					{Event: workflowstore.HookPostRestore, Script: "unlock"},
@@ -391,8 +395,9 @@ func TestRestoreFiresPostRestoreOnlyOnWhatWasArchived(t *testing.T) {
 	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
 
 	created, err := st.Workflows.Create(ctx, workflowstore.Config{
-		Name:  "backend",
-		Hooks: []workflowstore.Hook{{Event: workflowstore.HookPostRestore, Script: "unlock"}},
+		Name:     "backend",
+		Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"},
+		Hooks:    []workflowstore.Hook{{Event: workflowstore.HookPostRestore, Script: "unlock"}},
 	})
 	require.NoError(t, err)
 
@@ -432,8 +437,9 @@ func TestRestoreWorkflowFiresPostRestoreHooks(t *testing.T) {
 	workflows := st.workflowService(workflowServiceOptions{tmux: tmux, lifecycle: lifecycle})
 
 	created, err := workflows.NewWorkflow(ctx, workflowstore.Config{
-		Name:  "backend",
-		Hooks: []workflowstore.Hook{{Event: workflowstore.HookPostRestore, Script: "unlock"}},
+		Name:     "backend",
+		Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"},
+		Hooks:    []workflowstore.Hook{{Event: workflowstore.HookPostRestore, Script: "unlock"}},
 	})
 	require.NoError(t, err)
 

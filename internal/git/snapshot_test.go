@@ -343,19 +343,24 @@ func TestARebaseMovesTheTree(t *testing.T) {
 	assert.Equal(t, StandingLandedMoved, standing(t, root, snapshot.SHA))
 }
 
-// TestAnUnreadableBaseReadsAsMoved pins that a base git cannot find never demotes a moved tree.
-func TestAnUnreadableBaseReadsAsMoved(t *testing.T) {
+// TestAnUnreadableBaseIsRefused pins that a base git cannot find is reported rather than read
+// as a standing against something else.
+func TestAnUnreadableBaseIsRefused(t *testing.T) {
 	root := repo(t)
 	snapshot := topicRound(t, root)
 	write(t, root, "later.go", "package main\n")
 
-	standing, err := client.ReadStanding(t.Context(), ReadStandingParams{Dir: root, Base: "develop", SnapshotSHA: snapshot.SHA})
-	require.NoError(t, err)
-	assert.Equal(t, StandingMoved, standing)
+	_, err := client.ReadStanding(t.Context(), ReadStandingParams{Dir: root, Base: "develop", SnapshotSHA: snapshot.SHA})
+	require.ErrorIs(t, err, ErrBaseMissing)
+
+	for _, base := range []string{"", "HEAD"} {
+		_, err := client.ReadStanding(t.Context(), ReadStandingParams{Dir: root, Base: base, SnapshotSHA: snapshot.SHA})
+		require.ErrorIs(t, err, ErrBaseMissing, "base %q", base)
+	}
 }
 
-// TestABaseThatIsTheHeadCannotHoldTheRound pins that a base falling through to the branch the
-// agent is on, or to HEAD itself, never reads as having taken the round.
+// TestABaseThatIsTheHeadCannotHoldTheRound pins that a base naming the branch the agent is on
+// never reads as having taken the round.
 func TestABaseThatIsTheHeadCannotHoldTheRound(t *testing.T) {
 	root := repo(t)
 	snapshot := topicRound(t, root)
@@ -363,11 +368,9 @@ func TestABaseThatIsTheHeadCannotHoldTheRound(t *testing.T) {
 	run(t, root, "add", "-A")
 	run(t, root, "commit", "-m", "later")
 
-	for _, base := range []string{"", "topic", "HEAD"} {
-		standing, err := client.ReadStanding(t.Context(), ReadStandingParams{Dir: root, Base: base, SnapshotSHA: snapshot.SHA})
-		require.NoError(t, err)
-		assert.Equal(t, StandingMoved, standing, "base %q", base)
-	}
+	standing, err := client.ReadStanding(t.Context(), ReadStandingParams{Dir: root, Base: "topic", SnapshotSHA: snapshot.SHA})
+	require.NoError(t, err)
+	assert.Equal(t, StandingMoved, standing)
 }
 
 // TestALandedRoundWithNothingOnTopIsLanded is the round shipped and the branch reset onto the

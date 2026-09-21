@@ -11,6 +11,7 @@ import (
 
 	"weave/config"
 	"weave/internal/fail"
+	"weave/internal/git"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
@@ -32,6 +33,8 @@ var ErrWorktreeCwdNotPrimaryCheckout = fail.InvalidArgument("a worktree-enabled 
 var ErrWorktreeUnsafePath = fail.InvalidArgument("a worktree copy or symlink path must be a relative path inside the repo")
 
 var ErrUnknownHookEvent = fail.InvalidArgument("a hook must name a moment weave fires")
+
+var ErrWorktreeNeedsBase = fail.InvalidArgument("a workflow's base branch cannot be blank")
 
 type workflowScheduleCounter interface {
 	CountLive(ctx context.Context, workflowID string) (int64, error)
@@ -99,7 +102,8 @@ func (w *WorkflowService) GetWorkflow(ctx context.Context, id string) (*workflow
 	return found, nil
 }
 
-// NewWorkflow creates a workflow, defaulting a blank name so the list always has a label.
+// NewWorkflow creates a workflow, defaulting a blank name so the list always has a label and a
+// blank base branch to what the cwd's clone names.
 func (w *WorkflowService) NewWorkflow(ctx context.Context, cfg workflowstore.Config) (*workflowstore.Workflow, error) {
 	cfg.Name = strings.TrimSpace(cfg.Name)
 	if cfg.Name == "" {
@@ -109,6 +113,9 @@ func (w *WorkflowService) NewWorkflow(ctx context.Context, cfg workflowstore.Con
 	cfg.Cwd = config.ExpandHome(strings.TrimSpace(cfg.Cwd))
 	cfg.Flags = strings.TrimSpace(cfg.Flags)
 	normalizeWorktree(&cfg)
+	if cfg.Worktree.BaseBranch == "" {
+		cfg.Worktree.BaseBranch = git.DefaultBase(ctx, cfg.Cwd)
+	}
 
 	if err := validateWorktreePaths(cfg); err != nil {
 		return nil, err
@@ -161,6 +168,9 @@ func (w *WorkflowService) UpdateWorkflow(ctx context.Context, id string, cfg wor
 	cfg.Cwd = config.ExpandHome(strings.TrimSpace(cfg.Cwd))
 	cfg.Flags = strings.TrimSpace(cfg.Flags)
 	normalizeWorktree(&cfg)
+	if cfg.Worktree.BaseBranch == "" {
+		return ErrWorktreeNeedsBase
+	}
 
 	if err := validateWorktreePaths(cfg); err != nil {
 		return err

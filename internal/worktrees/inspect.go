@@ -22,8 +22,10 @@ type Inspection struct {
 	Entries []Entry
 	Changes git.Changes
 	// BaseRef is what the branch is measured against, empty when git cannot read the directory
-	// or cannot name a base for it.
+	// or the clone does not hold the base.
 	BaseRef string
+	// BaseErr is why the base could not be named, when it could not.
+	BaseErr error
 	Ahead   int
 	Behind  int
 	// Landed is how many of the branch's own commits the base already holds whole.
@@ -37,7 +39,7 @@ type Inspection struct {
 type gitReader interface {
 	ReadChanges(ctx context.Context, dir string) (git.Changes, error)
 	ReadTreeState(ctx context.Context, dir string) (git.TreeState, error)
-	ResolveBase(ctx context.Context, dir, base string) (string, bool)
+	ResolveBase(ctx context.Context, dir, base string) (string, error)
 	FetchBase(ctx context.Context, dir, base string) (ref, sha string, err error)
 	CountAheadBehind(ctx context.Context, dir, ref string) (ahead, behind int, err error)
 	PredictRebase(ctx context.Context, dir, ref string) (git.Prediction, error)
@@ -125,12 +127,14 @@ func (i *Inspector) Inspect(ctx context.Context, params InspectParams) (*Inspect
 		return nil, err
 	}
 
-	ref, ok, err := i.nameBase(ctx, dir, base, params.Fetch)
+	ref, err := i.nameBase(ctx, dir, base, params.Fetch)
+	if errors.Is(err, git.ErrBaseMissing) {
+		inspection.BaseErr = err
+
+		return inspection, nil
+	}
 	if err != nil {
 		return nil, err
-	}
-	if !ok {
-		return inspection, nil
 	}
 	inspection.BaseRef = ref
 
@@ -141,23 +145,15 @@ func (i *Inspector) Inspect(ctx context.Context, params InspectParams) (*Inspect
 	return inspection, nil
 }
 
-// nameBase is the ref the branch is measured against, and whether git could name one.
-func (i *Inspector) nameBase(ctx context.Context, dir, base string, fetch bool) (string, bool, error) {
+// nameBase is the ref the branch is measured against, fetched from origin first when asked.
+func (i *Inspector) nameBase(ctx context.Context, dir, base string, fetch bool) (string, error) {
 	if !fetch {
-		ref, ok := i.git.ResolveBase(ctx, dir, base)
-
-		return ref, ok, nil
+		return i.git.ResolveBase(ctx, dir, base)
 	}
 
 	ref, _, err := i.git.FetchBase(ctx, dir, base)
-	if errors.Is(err, git.ErrBaseUnresolved) {
-		return "", false, nil
-	}
-	if err != nil {
-		return "", false, err
-	}
 
-	return ref, true, nil
+	return ref, err
 }
 
 // baseOf is the base branch the directory's workflow names, empty when no row names one.

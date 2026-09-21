@@ -309,7 +309,7 @@ func seedWorktreeWorkflow(t *testing.T, st *testStore, repo string) string {
 	created, err := st.Workflows.Create(t.Context(), workflowstore.Config{
 		Name:     "workflow-" + uuid.NewString(),
 		Cwd:      repo,
-		Worktree: workflowstore.WorktreeConfig{Enabled: true},
+		Worktree: workflowstore.WorktreeConfig{Enabled: true, BaseBranch: "main"},
 	})
 	require.NoError(t, err)
 	require.NotNil(t, created)

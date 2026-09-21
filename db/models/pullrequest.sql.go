@@ -222,7 +222,6 @@ FROM
 WHERE
     a.id = $1
     AND (c.worktree_base_branch IS NULL
-        OR c.worktree_base_branch = ''
         OR a.branch <> c.worktree_base_branch)
 ORDER BY
     p.opened_at DESC
@@ -519,7 +518,6 @@ WHERE
     AND a.branch IS NOT NULL
     AND a.branch <> ''
     AND (c.worktree_base_branch IS NULL
-        OR c.worktree_base_branch = ''
         OR a.branch <> c.worktree_base_branch)
 ON CONFLICT (agent_id,
     pull_request_id)
