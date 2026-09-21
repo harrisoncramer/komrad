@@ -51,12 +51,12 @@ without access to a private repository shows up.`,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return state.withAPI(cmd.Context(), func(ctx context.Context, base string) error {
-				req := &pullrequestv1.ListPullRequestsRequest{RemoteUrl: args[0]}
+				branch := ""
 				if len(args) == 2 {
-					req.Branch = args[1]
+					branch = args[1]
 				}
 
-				pullRequests, err := client.ListAllPullRequests(ctx, pullrequestv1connect.NewPullRequestServiceClient(xhttp.NewClient(apiCallTimeout), base), req)
+				pullRequests, err := client.ListAllPullRequests(ctx, pullrequestv1connect.NewPullRequestServiceClient(xhttp.NewClient(apiCallTimeout), base), args[0], branch)
 				if err != nil {
 					return err
 				}
