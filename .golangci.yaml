@@ -113,6 +113,9 @@ linters:
         domain:
           files:
             - "**/internal/agents/**"
+            - "**/internal/marks/**"
+            - "**/internal/schedules/**"
+            - "**/internal/transcripts/**"
           deny:
             - pkg: weave/proto/gen
               desc: the service decides in its own types, and rendering them onto the wire is the handler's job

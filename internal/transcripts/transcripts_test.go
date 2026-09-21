@@ -13,10 +13,8 @@ import (
 	"weave/internal/harness/codex"
 	agentstore "weave/internal/store/agent"
 	transcriptstore "weave/internal/store/transcript"
-	workflowstore "weave/internal/store/workflow"
 	"weave/internal/storetest"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -197,17 +195,13 @@ const testSessionID = "claude-abc"
 
 func seedWithSessionID(t *testing.T, st *storetest.Stores, sessionID, name string) agentstore.Agent {
 	t.Helper()
-	ctx := t.Context()
-	require.NoError(t, seed(ctx, st, agentstore.Agent{
+
+	return *st.SeedAgent(t, agentstore.Agent{
 		Name:      name,
 		State:     agentstore.StateIdle,
+		Harness:   "claude",
 		SessionID: sessionID,
-	}))
-	got, err := st.LiveAgentByName(ctx, name)
-	require.NoError(t, err)
-	require.NotNil(t, got)
-
-	return *got
+	})
 }
 
 func writeLog(t *testing.T, configDir, body string) string {
@@ -241,12 +235,12 @@ func TestSyncReportsAnUnknownHarness(t *testing.T) {
 	st := storetest.Open(t)
 	ctx := t.Context()
 
-	require.NoError(t, seed(ctx, st, agentstore.Agent{
+	st.SeedAgent(t, agentstore.Agent{
 		Name:      "orphan",
 		State:     agentstore.StateIdle,
 		Harness:   "gemini",
 		SessionID: testSessionID,
-	}))
+	})
 
 	syncer := NewTranscriptSyncer(NewTranscriptSyncerParams{
 		Agents:      st.Agents,
@@ -290,9 +284,9 @@ func TestSyncAdoptsSessions(t *testing.T) {
 			st := storetest.Open(t)
 			ctx := t.Context()
 
-			require.NoError(t, seed(ctx, st, agentstore.Agent{
-				Name: "adopter", State: agentstore.StateIdle, SessionID: tt.held,
-			}))
+			st.SeedAgent(t, agentstore.Agent{
+				Name: "adopter", State: agentstore.StateIdle, Harness: "claude", SessionID: tt.held,
+			})
 
 			syncer := NewTranscriptSyncer(NewTranscriptSyncerParams{
 				Agents:      st.Agents,
@@ -319,12 +313,9 @@ func TestSyncAdoptedSessionIsIndexed(t *testing.T) {
 
 	const sessionID = "019fb3e7-2cb6-7ab3-86a0-51a670a33140"
 
-	require.NoError(t, seed(ctx, st, agentstore.Agent{
+	created := st.SeedAgent(t, agentstore.Agent{
 		Name: "adopter", State: agentstore.StateIdle, Harness: "codex", Cwd: cwd,
-	}))
-	created, err := st.LiveAgentByName(ctx, "adopter")
-	require.NoError(t, err)
-	require.NotNil(t, created)
+	})
 
 	dir := filepath.Join(codexHome, "sessions", "2026", "07", "30")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
@@ -526,24 +517,6 @@ func TestArchivedAgentWithNothingNewFallsOut(t *testing.T) {
 	after, err := st.Transcripts.Get(ctx, agent.ID)
 	require.NoError(t, err)
 	assert.Equal(t, "the whole conversation", after, "an archived agent is not read again")
-}
-
-// seed records an agent the way the fixture in agents does, under claude and a workflow of
-// its own when the test named neither.
-func seed(ctx context.Context, st *storetest.Stores, agent agentstore.Agent) error {
-	if agent.Harness == "" {
-		agent.Harness = "claude"
-	}
-	if agent.WorkflowID == "" {
-		created, err := st.Workflows.Create(ctx, workflowstore.Config{Name: "workflow-" + uuid.NewString()})
-		if err != nil {
-			return err
-		}
-
-		agent.WorkflowID = created.ID
-	}
-
-	return st.Agents.Create(ctx, agent)
 }
 
 // mustRegistry is a registry of the harnesses a test names.
