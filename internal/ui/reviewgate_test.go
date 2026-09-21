@@ -32,9 +32,9 @@ func gatedReview(t *testing.T, m model, agents *fakeReviewAgents) model {
 func refreshReview(t *testing.T, m model) model {
 	t.Helper()
 
-	refreshed, ok := m.refreshReviewThreadsCmd()().(reviewRefreshedMsg)
+	refreshed, ok := m.review.refreshThreadsCmd(&m)().(reviewRefreshedMsg)
 	require.True(t, ok)
-	m.applyReviewRefreshed(refreshed)
+	m.review.applyRefreshed(m.shared(), refreshed)
 
 	return m
 }
@@ -56,7 +56,7 @@ func pressReview(t *testing.T, m model, key tea.KeyMsg) model {
 		return m
 	}
 
-	m.applyReviewWrote(wrote)
+	m.review.applyWrote(&m, m.shared(), wrote)
 
 	return m
 }

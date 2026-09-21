@@ -2,9 +2,11 @@ package ui
 
 import (
 	"errors"
+	"slices"
 
 	"weave/config"
 	"weave/internal/ui/paint"
+	"weave/internal/ui/panel"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
@@ -36,7 +38,7 @@ func (m model) openGitMenu() (tea.Model, tea.Cmd) {
 	agent := item.agent
 	form, choice := gitMenuForm(gitMenu{
 		name:           agent.Name,
-		rebaseable:     m.isRebaseable(agent),
+		rebaseable:     m.listing.isRebaseable(agent),
 		hasPullRequest: item.pullRequest.url != "",
 	}, m.keys.Git, formKeys())
 
@@ -152,7 +154,7 @@ func (m model) runGitChoice(agentID string, choice gitChoice) (model, tea.Cmd) {
 
 	switch choice {
 	case gitChoiceRebase:
-		if !m.isRebaseable(agent) {
+		if !m.listing.isRebaseable(agent) {
 			m.report("Could not rebase the worktree of "+agent.Name, errNoWorktree)
 
 			return m, nil
@@ -168,4 +170,23 @@ func (m model) runGitChoice(agentID string, choice gitChoice) (model, tea.Cmd) {
 	// The switch carries every entry and no default, so this is what an entry added without an arm
 	// compiles to until the exhaustive check refuses it.
 	return m, nil
+}
+
+// isRebaseable reports whether an agent sits in a worktree weave cut for it alone.
+func (l listing) isRebaseable(agent panel.Agent) bool {
+	if !hasCheckout(agent) {
+		return false
+	}
+
+	index := slices.IndexFunc(l.workflows, func(w panel.Workflow) bool { return w.ID == agent.WorkflowID })
+	if index < 0 {
+		return false
+	}
+
+	// A child sits in its parent's checkout.
+	if agent.ParentAgentID != nil {
+		return false
+	}
+
+	return l.workflows[index].Worktree.Enabled
 }

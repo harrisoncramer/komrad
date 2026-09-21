@@ -83,43 +83,40 @@ type reviewPausedMsg struct {
 	err     error
 }
 
-// startReviewPass stops the agent and opens the pass on what the reader pressed, and is a no-op
-// for a pass already under way.
-func (m model) startReviewPass(intent passIntent) (tea.Model, tea.Cmd) {
-	if _, dead := m.isReviewReadOnly(); dead {
-		m.review.pass.mode = modeReviewing
+// startPass stops the agent and opens the pass on what the reader pressed, and is a no-op for a
+// pass already under way.
+func (r *reviewScreen) startPass(h host, s panelShared, intent passIntent) tea.Cmd {
+	if _, dead := r.isReadOnly(s); dead {
+		r.pass.mode = modeReviewing
 
-		return m.openReviewPass(intent)
+		return r.openPass(h, s, intent)
 	}
 
 	// An agent the person stopped themselves is already where the pass needs it, and letting it
 	// go at the end of the pass is not this screen's to do.
-	if item, ok := m.getReviewAgentItem(); ok && item.agent.HeldAt != nil {
-		m.review.pass.mode = modeReviewing
-		m.review.pass.paused = true
-		m.review.pass.ourPause = false
+	if item, ok := r.agentItem(s); ok && item.agent.HeldAt != nil {
+		r.pass.mode = modeReviewing
+		r.pass.paused = true
+		r.pass.ourPause = false
 
-		return m.openReviewPass(intent)
+		return r.openPass(h, s, intent)
 	}
 
-	m.review.pass.mode = modeReviewing
-	m.review.pass.pausing = true
+	r.pass.mode = modeReviewing
+	r.pass.pausing = true
 
-	stopping := m.holdReviewAgentCmd(intent)
+	stopping := r.holdAgentCmd(h, intent)
 
 	if intent == intentEdit {
-		return m, stopping
+		return stopping
 	}
 
-	next, opening := m.openReviewPass(intent)
-	m, _ = next.(model)
-
-	return m, tea.Batch(stopping, opening)
+	return tea.Batch(stopping, r.openPass(h, s, intent))
 }
 
-// holdReviewAgentCmd asks for the agent to stop and reports what came back.
-func (m model) holdReviewAgentCmd(intent passIntent) tea.Cmd {
-	agents, agentID := m.api.agents, m.review.agentID
+// holdAgentCmd asks for the agent to stop and reports what came back.
+func (r reviewScreen) holdAgentCmd(h host, intent passIntent) tea.Cmd {
+	agents, agentID := h.client().agents, r.agentID
 
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
@@ -135,112 +132,78 @@ func (m model) holdReviewAgentCmd(intent passIntent) tea.Cmd {
 	}
 }
 
-// applyReviewPaused opens the pass the reader asked for, or gives it up when the agent would not
-// stop.
-func (m model) applyReviewPaused(msg reviewPausedMsg) (tea.Model, tea.Cmd) {
-	if msg.agentID != m.review.agentID {
-		return m, nil
+// applyPaused opens the pass the reader asked for, or gives it up when the agent would not stop.
+func (r *reviewScreen) applyPaused(h host, s panelShared, msg reviewPausedMsg) tea.Cmd {
+	if msg.agentID != r.agentID {
+		return nil
 	}
 
-	m.review.pass.pausing = false
+	r.pass.pausing = false
 
-	if m.review.pass.mode != modeReviewing {
+	if r.pass.mode != modeReviewing {
 		if msg.err != nil {
-			return m, nil
+			return nil
 		}
 
-		m.review.pass.paused = true
-		m.review.pass.ourPause = true
+		r.pass.paused = true
+		r.pass.ourPause = true
 
-		return m.endReviewPass(abandonedSaid)
+		return r.endPass(h, s, abandonedSaid)
 	}
 
 	if msg.err != nil {
 		// A comment written against a snapshot the agent is free to write past is the collision
 		// the pass exists to prevent, so the composer goes with the pass rather than standing on
 		// without one.
-		m.review.threads.cancelMessage()
-		m.review.pass.mode = modeWatching
-		m.report("Could not pause "+m.review.agentName, msg.err)
+		r.threads.cancelMessage()
+		r.pass.mode = modeWatching
+		h.report("Could not pause "+r.agentName, msg.err)
 
-		return m, nil
+		return nil
 	}
 
-	m.review.pass.paused = true
-	m.review.pass.ourPause = true
+	r.pass.paused = true
+	r.pass.ourPause = true
 
 	// The composer was opened when the key was pressed, so there is nothing left to open here.
 	if msg.intent == intentComment {
-		return m, nil
+		return nil
 	}
 
-	return m.openReviewPass(msg.intent)
+	return r.openPass(h, s, msg.intent)
 }
 
-// openReviewPass does the thing the pass was opened for.
-func (m model) openReviewPass(intent passIntent) (tea.Model, tea.Cmd) {
+// openPass does the thing the pass was opened for.
+func (r *reviewScreen) openPass(h host, s panelShared, intent passIntent) tea.Cmd {
 	switch intent {
 	case intentEdit:
-		return m.editReviewFile()
+		return r.editFile(h, s)
 	case intentComment:
 	}
 
-	return m.composeReview()
+	return r.compose(h, s)
 }
 
-// endReviewPass goes back to watching and lets the agent go, telling it what the reader did while
-// it was stopped.
-func (m model) endReviewPass(said string) (tea.Model, tea.Cmd) {
-	agentID := m.review.agentID
-	ours, touched := m.review.pass.end()
+// endPass goes back to watching and lets the agent go, telling it what the reader did while it
+// was stopped.
+func (r *reviewScreen) endPass(h host, s panelShared, said string) tea.Cmd {
+	agentID := r.agentID
+	ours, touched := r.pass.end()
 
-	m.rememberEdited(agentID, touched)
+	h.noteEdited(agentID, touched)
 
 	if !ours {
-		return m, nil
+		return nil
 	}
 
-	item, ok := m.getReviewAgentItem()
+	item, ok := r.agentItem(s)
 	if !ok {
-		return m, nil
+		return nil
 	}
 
-	agent, name := item.agent, m.review.agentName
+	agent, name := item.agent, r.agentName
 
-	return m, m.releaseCmd("Could not let "+name+" go", agent, said)
-}
-
-// rememberEdited keeps the files a reader opened over a paused agent until whoever holds that
-// pause lets it go.
-func (m *model) rememberEdited(agentID string, touched []string) {
-	if len(touched) == 0 {
-		return
-	}
-
-	if m.edited == nil {
-		m.edited = map[string][]string{}
-	}
-
-	for _, path := range touched {
-		if !slices.Contains(m.edited[agentID], path) {
-			m.edited[agentID] = append(m.edited[agentID], path)
-		}
-	}
-}
-
-// forgetSpoken drops the files a release has already carried.
-func (m *model) forgetSpoken(agentID string, carried []string) {
-	kept := slices.DeleteFunc(m.edited[agentID], func(path string) bool {
-		return slices.Contains(carried, path)
-	})
-
-	if len(kept) == 0 {
-		delete(m.edited, agentID)
-
-		return
-	}
-
-	m.edited[agentID] = kept
+	return h.releaseCmd("Could not let "+name+" go", agent, said)
 }
 
 // touchedSaid names the files the reader opened an editor on.

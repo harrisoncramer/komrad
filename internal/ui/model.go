@@ -225,7 +225,7 @@ type model struct {
 	inspections  map[string]worktreeInspection
 	pullRequests pullRequestsState
 	search       searchScreen
-	review       reviewState
+	review       reviewScreen
 	filter       filterState
 	rowCursor    cursor.Model
 	column       columnState

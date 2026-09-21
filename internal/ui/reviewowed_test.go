@@ -67,7 +67,7 @@ func TestTheOwedListNamesWhatIsHoldingTheReview(t *testing.T) {
 		owedThread("t2", "b.txt", 5, agentReply()),
 	})
 
-	shown := ansi.Strip(m.reviewSidebarView())
+	shown := ansi.Strip(m.review.sidebarView(m.shared()))
 
 	assert.Contains(t, shown, "Open in your review")
 	assert.Contains(t, shown, "a.txt:2")
@@ -83,12 +83,12 @@ func TestTheOwedListCountsItsOwnRows(t *testing.T) {
 		owedThread("t2", "b.txt", 5),
 	})
 
-	require.Contains(t, ansi.Strip(m.reviewSidebarView()), "Open in your review  2")
+	require.Contains(t, ansi.Strip(m.review.sidebarView(m.shared())), "Open in your review  2")
 
 	m.review.threads.list[0].ResolvedAt = "2026-09-13T11:00:00Z"
-	m.applyReviewThreads(m.review.threads.list)
+	m.review.applyThreads(m.shared(), m.review.threads.list)
 
-	shown := ansi.Strip(m.reviewSidebarView())
+	shown := ansi.Strip(m.review.sidebarView(m.shared()))
 
 	require.True(t, m.review.threads.isOwedAnAnswer(), "the flag has not been asked again yet")
 	assert.Contains(t, shown, "Open in your review  1")
@@ -100,13 +100,13 @@ func TestTheOwedListCountsItsOwnRows(t *testing.T) {
 func TestTheOwedListGoesWhenTheLastCommentIsSettled(t *testing.T) {
 	m := owedModel(t, []*agentv1.ReviewThread{owedThread("t1", "a.txt", 2)})
 
-	require.Contains(t, ansi.Strip(m.reviewSidebarView()), "Open in your review")
+	require.Contains(t, ansi.Strip(m.review.sidebarView(m.shared())), "Open in your review")
 
 	m.review.threads.list[0].ResolvedAt = "2026-09-13T11:00:00Z"
-	m.applyReviewThreads(m.review.threads.list)
+	m.review.applyThreads(m.shared(), m.review.threads.list)
 
 	require.True(t, m.review.threads.isOwedAnAnswer(), "the flag has not been asked again yet")
-	assert.NotContains(t, ansi.Strip(m.reviewSidebarView()), "Open in your review")
+	assert.NotContains(t, ansi.Strip(m.review.sidebarView(m.shared())), "Open in your review")
 }
 
 // TestTheOwedListCountsWhatItCannotDraw covers a sidebar with more comments than rows.
@@ -118,7 +118,7 @@ func TestTheOwedListCountsWhatItCannotDraw(t *testing.T) {
 
 	m := owedModel(t, threads)
 
-	shown := ansi.Strip(m.reviewSidebarView())
+	shown := ansi.Strip(m.review.sidebarView(m.shared()))
 
 	assert.Contains(t, shown, "Open in your review  6")
 	assert.Contains(t, shown, "+ 3 more", "three are drawn and the rest are counted")
@@ -129,11 +129,11 @@ func TestTheOwedListCountsWhatItCannotDraw(t *testing.T) {
 func TestTheOwedListIsNotDrawnOverADeadAgent(t *testing.T) {
 	m := owedModel(t, []*agentv1.ReviewThread{owedThread("t1", "a.txt", 2)})
 
-	require.Contains(t, ansi.Strip(m.reviewSidebarView()), "Open in your review")
+	require.Contains(t, ansi.Strip(m.review.sidebarView(m.shared())), "Open in your review")
 
 	m.listing.agents[0].alive = false
 
-	assert.NotContains(t, ansi.Strip(m.reviewSidebarView()), "Open in your review")
+	assert.NotContains(t, ansi.Strip(m.review.sidebarView(m.shared())), "Open in your review")
 }
 
 // TestTheOwedListSaysWhenACommentIsFoldedAway covers the comment in a file the reader has put away,
@@ -141,13 +141,13 @@ func TestTheOwedListIsNotDrawnOverADeadAgent(t *testing.T) {
 func TestTheOwedListSaysWhenACommentIsFoldedAway(t *testing.T) {
 	m := owedModel(t, []*agentv1.ReviewThread{owedThread("t1", fakeFile, 2)})
 
-	require.Contains(t, ansi.Strip(m.reviewSidebarView()), "no reply")
+	require.Contains(t, ansi.Strip(m.review.sidebarView(m.shared())), "no reply")
 
 	next, _ := m.updateReview(keyMsg("v"))
 	m, ok := next.(model)
 	require.True(t, ok)
 
-	assert.Contains(t, ansi.Strip(m.reviewSidebarView()), "folded away")
+	assert.Contains(t, ansi.Strip(m.review.sidebarView(m.shared())), "folded away")
 }
 
 // TestTheOwedListBrightensWhatIsOnScreen covers a comment in view being drawn in the panel's own
@@ -161,17 +161,17 @@ func TestTheOwedListBrightensWhatIsOnScreen(t *testing.T) {
 
 	rows := m.review.owedComments()
 	require.Len(t, rows, 1)
-	require.True(t, m.isReviewCommentNear(rows[0]), "its line is drawn beside the list")
+	require.True(t, m.review.isCommentNear(m.shared(), rows[0]), "its line is drawn beside the list")
 
 	bright := paint.Panel.Style(reviewOwedTone).Bold(true).Render(fakeFile + ":2")
-	assert.Contains(t, m.reviewSidebarView(), bright)
+	assert.Contains(t, m.review.sidebarView(m.shared()), bright)
 
 	// The reader scrolls past it.
 	m.review.diff.top = m.review.diff.view.Len() + 100
 
-	require.False(t, m.isReviewCommentNear(m.review.owedComments()[0]), "and now it is not")
-	assert.NotContains(t, m.reviewSidebarView(), bright)
-	assert.Contains(t, m.reviewSidebarView(), dimStyle.Render(fakeFile+":2"), "the row is still named, dim")
+	require.False(t, m.review.isCommentNear(m.shared(), m.review.owedComments()[0]), "and now it is not")
+	assert.NotContains(t, m.review.sidebarView(m.shared()), bright)
+	assert.Contains(t, m.review.sidebarView(m.shared()), dimStyle.Render(fakeFile+":2"), "the row is still named, dim")
 }
 
 // walkOpen presses a key and gives back the row the cursor landed on.
@@ -233,9 +233,9 @@ func TestTheLegendFollowsTheKeysOntoTheThread(t *testing.T) {
 	m.helpExpanded = true
 
 	m, _ = walkOpen(t, m, "u")
-	require.False(t, m.isReviewThreadFocused(), "the diff holds the keys to start")
+	require.False(t, m.review.isThreadFocused(m.shared()), "the diff holds the keys to start")
 
-	diff := ansi.Strip(m.renderHelp(m.reviewHelp()))
+	diff := ansi.Strip(m.renderHelp(m.review.help(m.shared())))
 	assert.NotContains(t, diff, "scroll the thread")
 
 	next, _ := m.updateReview(keyMsg("ctrl+f"))
@@ -243,7 +243,7 @@ func TestTheLegendFollowsTheKeysOntoTheThread(t *testing.T) {
 	require.True(t, ok)
 	require.True(t, m.review.threads.focus, "and now the conversation does")
 
-	thread := ansi.Strip(m.renderHelp(m.reviewHelp()))
+	thread := ansi.Strip(m.renderHelp(m.review.help(m.shared())))
 	assert.Contains(t, thread, "scroll the thread")
 	assert.Contains(t, thread, "back to the diff")
 	assert.NotEqual(t, diff, thread, "which is a different legend")
@@ -252,5 +252,5 @@ func TestTheLegendFollowsTheKeysOntoTheThread(t *testing.T) {
 	m, ok = next.(model)
 	require.True(t, ok)
 
-	assert.Equal(t, diff, ansi.Strip(m.renderHelp(m.reviewHelp())), "and the diff's legend is back")
+	assert.Equal(t, diff, ansi.Strip(m.renderHelp(m.review.help(m.shared()))), "and the diff's legend is back")
 }

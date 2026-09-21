@@ -79,7 +79,7 @@ func reviewColumn() columnSpec {
 		rows: func(m model, split columnSplit) int {
 			// The band stands on the diff's own rows rather than the window's, so what is left is
 			// what the patch is drawn in and what the cursor is scrolled against.
-			return split.rows - strings.Count(m.reviewBandView(split.column), "\n")
+			return split.rows - strings.Count(m.review.bandView(m.shared(), split.column), "\n")
 		},
 	}
 }
@@ -91,7 +91,7 @@ const (
 )
 
 // diffNotice is what stands in the diff's own column before a patch does.
-func (r reviewState) diffNotice() string {
+func (r reviewScreen) diffNotice() string {
 	if r.loading {
 		return "_" + reviewLoadingWord + "_"
 	}
@@ -99,21 +99,21 @@ func (r reviewState) diffNotice() string {
 	return "_" + reviewEmptyWord + "_"
 }
 
-// reviewDiffView is the screenful of the patch beside the sidebar, starting at top, with the
-// cursor's own row dim while the keys are on the record rather than on the diff.
-func (m model) reviewDiffView(split columnSplit) string {
-	view := m.review.diff.view
+// diffView is the screenful of the patch beside the sidebar, starting at top, with the cursor's
+// own row dim while the keys are on the record rather than on the diff.
+func (r reviewScreen) diffView(s panelShared, split columnSplit) string {
+	view := r.diff.view
 	if view == nil || view.Len() == 0 {
 		// This is the larger half of the window, so it says what is being waited on rather than
 		// standing empty under a band, and stands rather than collapsing so the frame does not
 		// shift under the reader when the patch lands.
-		return docWindow{rows: paint.DocStyledRows(m.review.diffNotice(), split.column, reviewColumnStyle())}.view(split.rows)
+		return docWindow{rows: paint.DocStyledRows(r.diffNotice(), split.column, reviewColumnStyle())}.view(split.rows)
 	}
 
-	start := max(min(m.review.diff.top, view.Len()-split.rows), 0)
+	start := max(min(r.diff.top, view.Len()-split.rows), 0)
 
 	held := diffview.LiveCursor
-	if !m.isReviewDiffFocused() {
+	if !r.isDiffFocused(s) {
 		held = diffview.DimCursor
 	}
 
@@ -122,11 +122,11 @@ func (m model) reviewDiffView(split columnSplit) string {
 	rows := make([]string, 0, split.rows)
 	for y := start; y < min(start+split.rows, view.Len()); y++ {
 		mark := diffview.NoCursor
-		if y == m.review.diff.cursor {
+		if y == r.diff.cursor {
 			mark = held
 		}
 
-		rows = append(rows, view.RenderRow(y, mark, split.column, m.review.diff.pan))
+		rows = append(rows, view.RenderRow(y, mark, split.column, r.diff.pan))
 	}
 
 	// Padded out rather than left short, so a diff smaller than the pane keeps its half of the

@@ -552,11 +552,16 @@ func (m model) detailFieldRows(fields []detailsRow, cursor int) []string {
 }
 
 func (m model) lineWidth() int {
-	if m.paneWidth() <= 0 {
+	return lineWidthOf(m.paneWidth())
+}
+
+// lineWidthOf is the column a line of prose is wrapped into, in a pane of the width given.
+func lineWidthOf(pane int) int {
+	if pane <= 0 {
 		return nameWidth
 	}
 
-	return m.paneWidth()
+	return pane
 }
 
 func labelColumn(fields []recordField) int {

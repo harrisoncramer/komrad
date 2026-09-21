@@ -85,7 +85,7 @@ func TestARoundAcrossAMovedBaseIsReplayedOntoIt(t *testing.T) {
 	files := m.review.diff.view.Stat().Files
 	assert.Equal(t, 1, files, "only what the agent wrote between the two reviews is drawn")
 
-	shown := ansi.Strip(m.reviewView())
+	shown := ansi.Strip(m.review.view(m.shared()))
 	assert.Contains(t, shown, "round 2 of 2, not reviewed yet, the base moved, replayed")
 	assert.NotContains(t, shown, "not comparable")
 }
@@ -103,7 +103,7 @@ func TestAChapterTheBaseRewroteUnderTheAgentStaysRefused(t *testing.T) {
 
 	assert.Equal(t, fakeSnapshotSHA, m.review.diff.base, "the diff is still the two snapshots")
 
-	shown := ansi.Strip(m.reviewView())
+	shown := ansi.Strip(m.review.view(m.shared()))
 	assert.Contains(t, shown, "round 2 of 2, not comparable, the base moved, conflicts in greet.go, second.go")
 }
 
@@ -117,7 +117,7 @@ func TestAGitThatCannotReplayLeavesTheRefusalStanding(t *testing.T) {
 
 	assert.Equal(t, fakeSnapshotSHA, m.review.diff.base)
 
-	shown := ansi.Strip(m.reviewView())
+	shown := ansi.Strip(m.review.view(m.shared()))
 	assert.Contains(t, shown, "round 2 of 2, not comparable, the base moved")
 	assert.NotContains(t, shown, "rebased")
 }
@@ -132,7 +132,7 @@ func TestARewrittenHistoryIsSaidToBeOne(t *testing.T) {
 
 	m = pressReviewBase(t, m)
 
-	shown := ansi.Strip(m.reviewView())
+	shown := ansi.Strip(m.review.view(m.shared()))
 	assert.Contains(t, shown, "round 2 of 2, not reviewed yet, history was rewritten, replayed")
 }
 
@@ -236,6 +236,6 @@ func TestTheFirstChapterIsMeasuredFromItsOwnBase(t *testing.T) {
 	assert.Equal(t, fakeSnapshotSHA, m.review.diff.view.GetSnapshotSHA())
 	assert.Equal(t, 1, m.review.diff.view.Stat().Files)
 
-	shown := ansi.Strip(m.reviewView())
+	shown := ansi.Strip(m.review.view(m.shared()))
 	assert.Contains(t, shown, "round 1 of 2, reviewed at "+releasedClock("2026-09-08T10:00:00Z")+", on an earlier base")
 }

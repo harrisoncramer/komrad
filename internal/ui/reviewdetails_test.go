@@ -22,18 +22,19 @@ func TestReviewDrawsTheAgentRecord(t *testing.T) {
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
 	m = openReview(t, m)
 
-	view := ansi.Strip(m.reviewView())
+	view := ansi.Strip(m.review.view(m.shared()))
 
 	assert.Contains(t, view, "  name")
 	assert.Contains(t, view, "agent_id")
 
 	m.details.focused = true
 	require.True(t, m.isDetailsFocused())
-	assert.Contains(t, ansi.Strip(m.reviewView()), "› name", "the arrow arrives with the keys")
+	assert.Contains(t, ansi.Strip(m.review.view(m.shared())), "› name", "the arrow arrives with the keys")
 	m.details.focused = false
 
 	held := m.hoveredDetails()
-	bottom := ansi.Strip(m.setDetailsCursor(held, len(held.fields)-1).reviewView())
+	m = m.setDetailsCursor(held, len(held.fields)-1)
+	bottom := ansi.Strip(m.review.view(m.shared()))
 
 	assert.Contains(t, bottom, "base", "the commit the diff was taken from")
 	assert.Contains(t, bottom, "snapshot", "the commit the diff on screen was frozen as")
@@ -49,10 +50,10 @@ func TestReviewRecordNamesWhatTheDiffIsAgainst(t *testing.T) {
 	require.NotNil(t, m.review.diff.view)
 	require.NotNil(t, m.review.round)
 
-	assert.Equal(t, git.ShortSHA(m.review.round.GetBaseSha()), fieldValue(t, m.reviewDetails(), "base"))
-	assert.Equal(t, git.ShortSHA(m.review.round.GetSnapshotSha()), fieldValue(t, m.reviewDetails(), "snapshot"))
+	assert.Equal(t, git.ShortSHA(m.review.round.GetBaseSha()), fieldValue(t, m.review.details(m.shared()), "base"))
+	assert.Equal(t, git.ShortSHA(m.review.round.GetSnapshotSha()), fieldValue(t, m.review.details(m.shared()), "snapshot"))
 
-	for _, field := range m.reviewDetails().fields {
+	for _, field := range m.review.details(m.shared()).fields {
 		assert.NotEqual(t, "round", field.label, "the reader is never shown weave's numbering")
 	}
 }
@@ -136,11 +137,11 @@ func TestReviewRecordGivesWayInASmallPane(t *testing.T) {
 	m := reviewWithAnEarlierReview(t, newFakeRepo(t.TempDir()), agents)
 
 	require.NotNil(t, m.review.diff.baseRound, "the base key has somewhere to go")
-	require.Contains(t, ansi.Strip(m.reviewView()), "agent_id", "the record draws at full height")
+	require.Contains(t, ansi.Strip(m.review.view(m.shared())), "agent_id", "the record draws at full height")
 
 	m.helpExpanded = true
 	m.height = 20
-	view := m.reviewView()
+	view := m.review.view(m.shared())
 
 	assert.NotContains(t, ansi.Strip(view), "› name", "and gives way rather than running past the pane")
 	assert.LessOrEqual(t, strings.Count(strings.TrimRight(view, "\n"), "\n")+1, m.height)
@@ -157,7 +158,7 @@ func TestReviewRecordCannotTakeTheKeysWhileItIsDropped(t *testing.T) {
 	m.height = 12
 
 	require.Positive(t, m.detailsLines(), "the pane would hold a record, for this to prove anything")
-	require.NotContains(t, ansi.Strip(m.reviewView()), "› name", "and the sidebar drops it anyway")
+	require.NotContains(t, ansi.Strip(m.review.view(m.shared())), "› name", "and the sidebar drops it anyway")
 
 	next, _ := m.Update(keyMsg("ctrl+t"))
 	refused := next.(model)
@@ -182,7 +183,7 @@ func TestReviewRecordGivesTheKeysBackWhenThePaneShrinks(t *testing.T) {
 
 	focused.helpExpanded = true
 	focused.height = 12
-	require.NotContains(t, ansi.Strip(focused.reviewView()), "› name")
+	require.NotContains(t, ansi.Strip(focused.review.view(focused.shared())), "› name")
 	assert.False(t, focused.isDetailsFocused(), "the record went, so the keys came back")
 
 	cursor := focused.review.diff.cursor
@@ -214,7 +215,7 @@ func TestReviewRecordKeysFollowWhatIsDrawn(t *testing.T) {
 
 				taken++
 
-				assert.Contains(t, ansi.Strip(focused.reviewView()), "› name",
+				assert.Contains(t, ansi.Strip(focused.review.view(focused.shared())), "› name",
 					"the record took the keys at height %d without being drawn, query=%q expanded=%v",
 					height, query, expanded)
 			}
@@ -232,9 +233,9 @@ func TestReviewRecordSaysNothingAboutAnAgentThatIsGone(t *testing.T) {
 	m = openReview(t, m)
 	m.listing.agents = nil
 
-	assert.Empty(t, m.reviewDetails().fields)
+	assert.Empty(t, m.review.details(m.shared()).fields)
 	assert.Empty(t, m.detailsView())
-	assert.NotContains(t, ansi.Strip(m.reviewView()), "agent_id")
+	assert.NotContains(t, ansi.Strip(m.review.view(m.shared())), "agent_id")
 }
 
 func fieldValue(t *testing.T, held details, label string) string {

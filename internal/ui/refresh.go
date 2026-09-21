@@ -338,6 +338,39 @@ func (m *model) writeCmd(summary string, write func(api) error) tea.Cmd {
 	}
 }
 
+// noteEdited keeps the files a reader opened over a paused agent until whoever holds that pause
+// lets it go.
+func (m *model) noteEdited(agentID string, touched []string) {
+	if len(touched) == 0 {
+		return
+	}
+
+	if m.edited == nil {
+		m.edited = map[string][]string{}
+	}
+
+	for _, path := range touched {
+		if !slices.Contains(m.edited[agentID], path) {
+			m.edited[agentID] = append(m.edited[agentID], path)
+		}
+	}
+}
+
+// forgetSpoken drops the files a release has already carried.
+func (m *model) forgetSpoken(agentID string, carried []string) {
+	kept := slices.DeleteFunc(m.edited[agentID], func(path string) bool {
+		return slices.Contains(carried, path)
+	})
+
+	if len(kept) == 0 {
+		delete(m.edited, agentID)
+
+		return
+	}
+
+	m.edited[agentID] = kept
+}
+
 // releaseCmd lets an agent go, naming the files a reader had open over it.
 func (m *model) releaseCmd(summary string, agent panel.Agent, said string) tea.Cmd {
 	let := released{

@@ -71,13 +71,9 @@ func TestLeavingAPassLetsTheAgentGo(t *testing.T) {
 	m = pressEdit(t, m)
 	require.True(t, m.review.pass.paused)
 
-	next, _ := m.closeReviewEdit()
-	m, ok := next.(model)
-	require.True(t, ok)
+	m.review.closeEdit(&m)
 
-	next, cmd := m.leaveReviewWriting()
-	m, ok = next.(model)
-	require.True(t, ok)
+	cmd := m.review.leaveWriting(&m, m.shared())
 
 	assert.Equal(t, modeWatching, m.review.pass.mode)
 	assert.False(t, m.review.pass.paused)
@@ -112,7 +108,7 @@ func TestAPauseTheReaderTookThemselvesIsNotThePassToLetGo(t *testing.T) {
 	require.True(t, m.review.pass.paused)
 	require.False(t, m.review.pass.ourPause)
 
-	_, cmd := m.leaveReviewWriting()
+	cmd := m.review.leaveWriting(&m, m.shared())
 
 	assert.Nil(t, cmd, "so the end of the pass asks for nothing")
 	assert.Nil(t, agents.letGo, "and the pause the reader took stands")
@@ -185,9 +181,7 @@ func TestAPassGivenUpBeforeTheAgentStopsLetsItGo(t *testing.T) {
 	paused, ok := cmd().(reviewPausedMsg)
 	require.True(t, ok)
 
-	next, letGo := m.applyReviewPaused(paused)
-	m, ok = next.(model)
-	require.True(t, ok)
+	letGo := m.review.applyPaused(&m, m.shared(), paused)
 
 	assert.False(t, m.review.pass.atEditor, "nothing opens onto a screen that went back to watching")
 	assert.Equal(t, modeWatching, m.review.pass.mode)
@@ -234,12 +228,10 @@ func TestADiffThatStopsBeingReadableLetsTheAgentGo(t *testing.T) {
 
 	m.review.diff.cursor = reviewRowWithAnEditTarget(t, m)
 	m = pressEdit(t, m)
-	next, _ := m.closeReviewEdit()
-	m, ok := next.(model)
-	require.True(t, ok)
+	m.review.closeEdit(&m)
 	require.True(t, m.review.pass.paused)
 
-	letGo := m.abandonReview(errors.New("the worktree could not be read"))
+	letGo := m.review.abandon(&m, m.shared(), errors.New("the worktree could not be read"))
 
 	assert.Equal(t, screenAgents, m.screen)
 
@@ -266,17 +258,13 @@ func TestAReadersOwnPauseKeepsTheFilesForWhoeverLetsItGo(t *testing.T) {
 
 	m.review.diff.cursor = reviewRowWithAnEditTarget(t, m)
 	m = pressEdit(t, m)
-	next, _ := m.closeReviewEdit()
-	m, ok := next.(model)
-	require.True(t, ok)
+	m.review.closeEdit(&m)
 
 	agentID := m.review.agentID
 
-	next, _ = m.leaveReviewWriting()
-	m, ok = next.(model)
-	require.True(t, ok)
+	m.review.leaveWriting(&m, m.shared())
 
-	held, ok := m.getReviewAgentItem()
+	held, ok := m.review.agentItem(m.shared())
 	require.True(t, ok)
 
 	_, cmd := m.pauseAgent(held.agent)
@@ -304,15 +292,13 @@ func TestADroppedPassKeepsTheFilesForAReadersOwnPause(t *testing.T) {
 
 	m.review.diff.cursor = reviewRowWithAnEditTarget(t, m)
 	m = pressEdit(t, m)
-	next, _ := m.closeReviewEdit()
-	m, ok := next.(model)
-	require.True(t, ok)
+	m.review.closeEdit(&m)
 
 	agentID := m.review.agentID
-	held, ok := m.getReviewAgentItem()
+	held, ok := m.review.agentItem(m.shared())
 	require.True(t, ok)
 
-	letGo := m.abandonReview(errors.New("the worktree could not be read"))
+	letGo := m.review.abandon(&m, m.shared(), errors.New("the worktree could not be read"))
 	assert.Nil(t, letGo, "a pause the reader took is not the pass's to let go")
 
 	_, cmd := m.pauseAgent(held.agent)
@@ -347,17 +333,15 @@ func TestAPassRedrawsTheReadersOwnEdits(t *testing.T) {
 
 	repo.wrote(wroteParams{Tree: "tree-the-reader-edited", Whole: fakePatchWrittenOver})
 
-	next, cmd = m.closeReviewEdit()
-	m, ok = next.(model)
-	require.True(t, ok)
+	cmd = m.review.closeEdit(&m)
 	require.NotNil(t, cmd, "closing the editor reads the worktree again")
 
 	loaded, ok := cmd().(reviewLoadedMsg)
 	require.True(t, ok)
-	m.applyReviewLoaded(loaded)
+	m.review.applyLoaded(&m, m.shared(), loaded)
 
 	assert.Equal(t, snapshotOf("tree-the-reader-edited"), m.review.diff.view.GetSnapshotSHA())
-	assert.Contains(t, ansi.Strip(m.reviewView()), "written by the agent")
+	assert.Contains(t, ansi.Strip(m.review.view(m.shared())), "written by the agent")
 }
 
 // settlePauseBatch runs a batch holding the stop and whatever was opened beside it, and hands the
@@ -371,11 +355,9 @@ func settlePauseBatch(t *testing.T, m model, cmd tea.Cmd) model {
 			continue
 		}
 
-		next, _ := m.applyReviewPaused(paused)
-		settled, ok := next.(model)
-		require.True(t, ok)
+		m.review.applyPaused(&m, m.shared(), paused)
 
-		return settled
+		return m
 	}
 
 	t.Fatal("the pass asked for nothing to stop")

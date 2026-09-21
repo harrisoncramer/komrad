@@ -2,6 +2,7 @@ package ui
 
 import (
 	"log/slog"
+	"time"
 
 	"github.com/charmbracelet/bubbles/cursor"
 	tea "github.com/charmbracelet/bubbletea"
@@ -187,7 +188,7 @@ func (m model) resizeTo(size tea.WindowSizeMsg) model {
 
 	// A field open in the review's sidebar is drawn in a column of this window rather than in the
 	// form's, so the size is rewritten here too.
-	m.review.threads.editor.resize(m.reviewInputWidth())
+	m.review.threads.editor.resize(reviewInputWidth(m.paneWidth()))
 
 	if rewrap {
 		m.search.drawPreview(m.shared())
@@ -268,7 +269,7 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		m.awaitingSize = false
 		next, readRuns := m.dwellRunsRead(msg.at)
 		reviewing := next.refreshReviewCmd(msg.at)
-		next, edited := next.reconcileEditor()
+		edited := next.reconcileEditor()
 
 		next = next.noticeRebuild()
 		if next.fatal() != nil {
@@ -287,10 +288,10 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		m.keysElsewhere = false
 		m.syncKeys()
 
-		next, cmd := m.reconcileEditor()
-		next.reconcileSolo()
+		cmd := m.reconcileEditor()
+		m.reconcileSolo()
 
-		return next, cmd, true
+		return m, cmd, true
 	case warmupTickMsg:
 		next, cmd := m.applyWarmupTick()
 
@@ -325,28 +326,10 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		return next, cmd, true
 	case rebasedMsg:
 		return m.applyRebased(msg), nil, true
-	case reviewLoadedMsg:
-		return m, m.applyReviewLoaded(msg), true
-	case reviewPausedMsg:
-		next, cmd := m.applyReviewPaused(msg)
-
-		return next, cmd, true
-	case reviewWroteMsg:
-		return m, m.applyReviewWrote(msg), true
-	case reviewRefreshedMsg:
-		m.applyReviewRefreshed(msg)
-
-		return m, nil, true
 	case formFieldEditedMsg:
 		next, cmd := m.applyFormFieldEdited(msg)
 
 		return next, cmd, true
-	case messageEditedMsg:
-		m.applyMessageEdited(msg)
-
-		return m, nil, true
-	case reviewDiffPolledMsg:
-		return m, m.applyReviewDiffPolled(msg), true
 	case copyResult:
 		m.applyCopy(msg)
 
@@ -364,6 +347,26 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 	default:
 		return m, nil, false
 	}
+}
+
+// refreshReviewCmd is what the tick asks the review for while it is up.
+func (m *model) refreshReviewCmd(now time.Time) tea.Cmd {
+	if m.screen != screenReview {
+		return nil
+	}
+
+	return m.review.refresh(m, m.shared(), now)
+}
+
+// reconcileEditor catches the info pane and the review's editor going away on their own.
+func (m *model) reconcileEditor() tea.Cmd {
+	m.reconcileInfo()
+
+	if m.screen != screenReview {
+		return nil
+	}
+
+	return m.review.reconcileEditor(m, m.shared())
 }
 
 // isTyping reports whether the panel's own bindings are off: the list's filter, a text input the
