@@ -516,7 +516,7 @@ func TestASplitAgentsListIsLaidOutAgainstItsOwnColumn(t *testing.T) {
 	split, ok := m.screenColumnSplit()
 	require.True(t, ok, "the hovered header has no pane, so the panel draws a document beside its list")
 
-	sidebar := m.at(split.sidebar)
+	sidebar := m.measuredAt(split.sidebar)
 	require.Equal(t, split.sidebar, sidebar.paneWidth())
 
 	for i, row := range strings.Split(strings.TrimRight(sidebar.agentsListView(), "\n"), "\n") {

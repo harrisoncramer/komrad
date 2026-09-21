@@ -228,7 +228,7 @@ func requireLevel( //nolint:revive // a params struct is the follow-up
 	kind string,
 	want descriptorpb.MethodOptions_IdempotencyLevel,
 ) error {
-	if !namedFor(method, prefixes) {
+	if !isNamedFor(method, prefixes) {
 		return nil
 	}
 
@@ -249,7 +249,7 @@ func requireLevel( //nolint:revive // a params struct is the follow-up
 	return nil
 }
 
-func namedFor(method protoreflect.MethodDescriptor, prefixes []string) bool {
+func isNamedFor(method protoreflect.MethodDescriptor, prefixes []string) bool {
 	name := string(method.Name())
 
 	for _, prefix := range prefixes {

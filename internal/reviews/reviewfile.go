@@ -85,7 +85,9 @@ func writeThread(out *strings.Builder, params writeThreadParams) {
 		fmt.Fprintf(out, "%s\n\n", oldSideSentence(thread, params.Round))
 	}
 
-	if !writeContext(out, thread, params.Lines) && len(thread.QuotedLines) > 0 {
+	if hasContext(thread, params.Lines) {
+		writeContext(out, thread, params.Lines)
+	} else if len(thread.QuotedLines) > 0 {
 		out.WriteString("```diff\n")
 		for _, line := range thread.QuotedLines {
 			out.WriteString(line)
@@ -121,13 +123,17 @@ func suggestionLead(byHuman bool) string {
 	return "Suggested replacement for those lines:"
 }
 
+// hasContext reports whether the round's file holds the lines a comment was written about.
+func hasContext(thread reviewstore.Thread, lines []string) bool {
+	start := int(thread.NewStart)
+
+	return start > 0 && start <= len(lines)
+}
+
 // writeContext draws the file around the lines a comment was written about as the round froze
-// them, marking those lines, and reports whether it drew anything.
-func writeContext(out *strings.Builder, thread reviewstore.Thread, lines []string) bool {
+// them, marking those lines.
+func writeContext(out *strings.Builder, thread reviewstore.Thread, lines []string) {
 	start, end := int(thread.NewStart), int(thread.NewEnd)
-	if start <= 0 || start > len(lines) {
-		return false
-	}
 	if end < start {
 		end = start
 	}
@@ -145,8 +151,6 @@ func writeContext(out *strings.Builder, thread reviewstore.Thread, lines []strin
 		fmt.Fprintf(out, "%s %*d  %s\n", mark, width, number, lines[number-1])
 	}
 	out.WriteString("```\n\n")
-
-	return true
 }
 
 // anchorOf names where a thread is pinned in the terms the diff uses, preferring the new side.

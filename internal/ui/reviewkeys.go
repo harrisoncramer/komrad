@@ -309,7 +309,8 @@ func (m model) toggleReviewExpanded() (tea.Model, tea.Cmd) {
 	// Where the cursor is standing is taken before the rows are built again.
 	place, located := m.review.diff.view.GetPlace(m.review.diff.cursor)
 
-	if m.review.diff.view.SetFileExpanded(path, expanding) != expanding {
+	m.review.diff.view.SetFileExpanded(path, expanding)
+	if m.review.diff.view.IsExpanded(path) != expanding {
 		m.review.notice = "there is no more of that file to show"
 
 		return m, nil

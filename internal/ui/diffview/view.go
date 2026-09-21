@@ -219,24 +219,21 @@ func (v *View) SetExpanded(paths map[string]bool) {
 	v.redraw()
 }
 
-// SetFileExpanded draws one file whole, or gives back its hunks alone, and reports whether the
-// file is drawn whole afterwards.
-func (v *View) SetFileExpanded(path string, expanded bool) bool {
+// SetFileExpanded draws one file whole, or gives back its hunks alone.
+func (v *View) SetFileExpanded(path string, expanded bool) {
 	if !expanded {
 		delete(v.expanded, path)
 		v.redraw()
 
-		return false
+		return
 	}
 
 	if _, ok := v.wholeFile(path); !ok {
-		return false
+		return
 	}
 
 	v.expanded[path] = true
 	v.redraw()
-
-	return true
 }
 
 // IsExpanded reports whether a file is drawn whole.

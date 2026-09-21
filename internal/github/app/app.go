@@ -58,8 +58,8 @@ type Token struct {
 	ExpiresAt time.Time `json:"expires_at"`
 }
 
-// Fresh reports whether a token is worth handing out rather than minting again.
-func (t Token) Fresh(now time.Time) bool {
+// IsFresh reports whether a token is worth handing out rather than minting again.
+func (t Token) IsFresh(now time.Time) bool {
 	return t.Value != "" && t.ExpiresAt.After(now.Add(renewWithin))
 }
 
@@ -95,14 +95,14 @@ func (a Identity) keyDigest() string {
 	return base64.RawURLEncoding.EncodeToString(sum[:])
 }
 
-// Configured reports whether an engine was told how to reach GitHub at all.
-func (a Identity) Configured() bool {
+// IsConfigured reports whether an engine was told how to reach GitHub at all.
+func (a Identity) IsConfigured() bool {
 	return a.ID != "" && a.InstallationID != "" && a.PrivateKeyPath != ""
 }
 
 // Mint exchanges the App's key for an installation token.
 func (a Identity) Mint(ctx context.Context, client *http.Client, now time.Time) (Token, error) {
-	if !a.Configured() {
+	if !a.IsConfigured() {
 		return Token{}, errors.New("no github app is configured, so there is nothing to mint a token from")
 	}
 
@@ -164,7 +164,7 @@ func (a Identity) Mint(ctx context.Context, client *http.Client, now time.Time) 
 // Slug is the name GitHub knows the App by, read as the App itself rather than as an
 // installation.
 func (a Identity) Slug(ctx context.Context, client *http.Client, now time.Time) (string, error) {
-	if !a.Configured() {
+	if !a.IsConfigured() {
 		return "", errors.New("no github app is configured, so there is nothing to ask about")
 	}
 
@@ -374,7 +374,7 @@ func (c Cache) Forget() error {
 // Fetch is the cached token when one matches the App and is still worth reusing, and a freshly
 // minted one otherwise.
 func (c Cache) Fetch(ctx context.Context, client *http.Client, now time.Time) (Token, error) {
-	if token := c.Read(); token.Fresh(now) {
+	if token := c.Read(); token.IsFresh(now) {
 		return token, nil
 	}
 

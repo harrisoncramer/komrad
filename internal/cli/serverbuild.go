@@ -10,8 +10,8 @@ import (
 	"weave/internal/version"
 )
 
-// sameBuild reports whether a server that answered with this health body is running this code.
-func sameBuild(body server.Health, selfVersion, selfCommit string) bool {
+// isSameBuild reports whether a server that answered with this health body is running this code.
+func isSameBuild(body server.Health, selfVersion, selfCommit string) bool {
 	if selfCommit != "" || body.Commit != "" {
 		return selfCommit == body.Commit
 	}

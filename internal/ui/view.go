@@ -84,7 +84,7 @@ func (m model) screenView() string {
 
 	// Asked for before either half is drawn, so the halves are laid out already knowing their
 	// column.
-	held := m.at(split.sidebar)
+	held := m.measuredAt(split.sidebar)
 
 	// The list is drawn beside the form as the context the form was opened from, and takes none of
 	// the keys while it is there.

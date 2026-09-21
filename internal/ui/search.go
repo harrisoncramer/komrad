@@ -266,12 +266,12 @@ func (m model) buildSearchAgents() []searchAgent {
 	}
 
 	for _, item := range m.listing.agents {
-		if nameSays(item.agent.Name, query) {
+		if doesNameSay(item.agent.Name, query) {
 			add(searchAgent{id: item.agent.ID, name: item.agent.Name})
 		}
 	}
 	for _, agent := range m.listing.archivedAgents {
-		if nameSays(agent.Name, query) {
+		if doesNameSay(agent.Name, query) {
 			add(searchAgent{
 				id:       agent.ID,
 				name:     agent.Name,
@@ -291,7 +291,7 @@ func (m model) buildSearchAgents() []searchAgent {
 	return agents
 }
 
-func nameSays(name, query string) bool {
+func doesNameSay(name, query string) bool {
 	return strings.Contains(paint.FoldASCII(name), paint.FoldASCII(query))
 }
 
@@ -517,7 +517,7 @@ func (m model) searchSnapshot(agents []searchAgent, pane int) view.Snapshot {
 			return m.searchRow(agent, archived)
 		}),
 		Dropped:       searchDropped,
-		CaretHidden:   m.cursorBlinkedOut(m.isListFocused()),
+		CaretHidden:   m.isCursorBlinkedOut(m.isListFocused()),
 		BarBlinkedOut: m.rowCursor.Blink,
 		Focused:       rowKeyAt(agents, m.search.cursor),
 		Pane:          pane,
