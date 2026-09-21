@@ -1868,12 +1868,21 @@ func (q *Queries) MarkAgentsDeleting(ctx context.Context, ids []string) error {
 
 const markArchivedAgentsDeleting = `-- name: MarkArchivedAgentsDeleting :exec
 UPDATE
-    agents
+    agents a
 SET
     deleting_at = NOW()
 WHERE
-    archived_at IS NOT NULL
-    AND deleting_at IS NULL
+    a.archived_at IS NOT NULL
+    AND a.state <> 'failed_to_cleanup'
+    AND a.deleting_at IS NULL
+    AND NOT EXISTS (
+        SELECT
+            1
+        FROM
+            agents parent
+        WHERE
+            parent.id = a.parent_agent_id
+            AND parent.state = 'failed_to_cleanup')
 `
 
 func (q *Queries) MarkArchivedAgentsDeleting(ctx context.Context) error {
@@ -1883,13 +1892,22 @@ func (q *Queries) MarkArchivedAgentsDeleting(ctx context.Context) error {
 
 const markArchivedAgentsDeletingByID = `-- name: MarkArchivedAgentsDeletingByID :exec
 UPDATE
-    agents
+    agents a
 SET
     deleting_at = NOW()
-WHERE (id = ANY ($1::uuid[])
-    OR parent_agent_id = ANY ($1::uuid[]))
-AND archived_at IS NOT NULL
-AND deleting_at IS NULL
+WHERE (a.id = ANY ($1::uuid[])
+    OR a.parent_agent_id = ANY ($1::uuid[]))
+AND a.archived_at IS NOT NULL
+AND a.state <> 'failed_to_cleanup'
+AND a.deleting_at IS NULL
+AND NOT EXISTS (
+    SELECT
+        1
+    FROM
+        agents parent
+    WHERE
+        parent.id = a.parent_agent_id
+        AND parent.state = 'failed_to_cleanup')
 `
 
 func (q *Queries) MarkArchivedAgentsDeletingByID(ctx context.Context, ids []string) error {

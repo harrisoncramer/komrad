@@ -136,7 +136,6 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 		Results:   st.schedules,
 		Launcher:  svc.launch,
 		Deleter:   svc.lifecycle,
-		Releaser:  st.agents,
 		Archived:  st.agents,
 		Running:   st.agents,
 		Worktrees: svc.worktrees,

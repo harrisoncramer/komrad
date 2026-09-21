@@ -179,6 +179,34 @@ func TestDeleteClaimsTheRowWhileTheTeardownRuns(t *testing.T) {
 	}
 }
 
+// TestDeleteGivesBackWhatItCouldNotTake covers a delete refused whole, over a batch naming
+// an agent that has gone, releasing the claim a queued delete had already put on the rest.
+func TestDeleteGivesBackWhatItCouldNotTake(t *testing.T) {
+	tmux := newFakeTmux()
+	st := newStore(t)
+	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, &fakeLifecycle{})
+	ctx := t.Context()
+
+	created, err := workflowsFor(st, tmux).NewWorkflow(ctx, worktreeConfig(t, "backend"))
+	require.NoError(t, err)
+	agent, err := manager.launch.NewAgent(ctx, NewAgentParams{
+		Title:      "agent",
+		Dir:        t.TempDir(),
+		WorkflowID: created.ID,
+	})
+	require.NoError(t, err)
+	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, []string{agent.ID}))
+	require.NoError(t, st.Agents.MarkDeleting(ctx, []string{agent.ID}))
+
+	err = manager.lifecycle.DeleteAgents(ctx, []string{agent.ID, "00000000-0000-0000-0000-000000000000"})
+	require.ErrorIs(t, err, ErrAgentNotFound)
+
+	page, err := st.Agents.ListPage(ctx, 10, nil, true)
+	require.NoError(t, err)
+	require.Len(t, page, 1, "the row the delete could not take is back in the archive")
+	assert.Nil(t, page[0].DeletingAt)
+}
+
 // TestDeleteStaysArchivedOnAFailedTeardown pins a failed cleanup leaving the row in the
 // archive, which is where the user was working and so where the failure shows.
 func TestDeleteStaysArchivedOnAFailedTeardown(t *testing.T) {

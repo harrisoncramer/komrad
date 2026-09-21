@@ -27,7 +27,6 @@ type NewClientParams struct {
 	Results   internaljobs.LaunchResultRecorder
 	Launcher  internaljobs.AgentLauncher
 	Deleter   internaljobs.AgentDeleter
-	Releaser  internaljobs.DeletionReleaser
 	Archived  internaljobs.ArchivedAgentLister
 	Running   internaljobs.RunningAgentCounter
 	Worktrees internaljobs.WorktreeLister
@@ -40,15 +39,10 @@ type NewClientParams struct {
 func NewClient(params NewClientParams) (*river.Client[pgx.Tx], error) {
 	workers := river.NewWorkers()
 	river.AddWorker(workers, internaljobs.NewLaunchAgentWorker(params.Schedules, params.Launcher, params.Running, params.Results, params.Logger))
-	river.AddWorker(workers, internaljobs.NewEmptyArchiveWorker(internaljobs.NewEmptyArchiveWorkerParams{
-		Archived: params.Archived,
-		Deleter:  params.Deleter,
-		Releaser: params.Releaser,
-	}))
+	river.AddWorker(workers, internaljobs.NewEmptyArchiveWorker(params.Archived, params.Deleter))
 	river.AddWorker(workers, internaljobs.NewDeleteWorktreesWorker(internaljobs.NewDeleteWorktreesWorkerParams{
 		Worktrees: params.Worktrees,
 		Deleter:   params.Deleter,
-		Releaser:  params.Releaser,
 		Remover:   params.Remover,
 		Logger:    params.Logger,
 	}))

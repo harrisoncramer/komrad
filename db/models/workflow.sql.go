@@ -656,6 +656,14 @@ WHERE
         WHERE
             agents.workflow_id = workflows.id
             AND agents.archived_at IS NOT NULL)
+    AND NOT EXISTS (
+        SELECT
+            1
+        FROM
+            agents
+        WHERE
+            agents.workflow_id = workflows.id
+            AND agents.state = 'failed_to_cleanup')
 `
 
 func (q *Queries) MarkArchivedWorkflowsDeleting(ctx context.Context) error {

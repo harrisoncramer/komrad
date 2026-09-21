@@ -19,10 +19,17 @@ func TestDeletingClaimHidesTheWorkflow(t *testing.T) {
 		name         string
 		archive      bool
 		holdsAgent   bool
+		failed       bool
 		releaseAgent bool
 		releaseAll   bool
 		wantHidden   bool
 	}{
+		{
+			name:       "an archived workflow holding a failed agent is left alone",
+			archive:    true,
+			holdsAgent: true,
+			failed:     true,
+		},
 		{
 			name:       "a live workflow is left alone",
 			holdsAgent: true,
@@ -69,6 +76,10 @@ func TestDeletingClaimHidesTheWorkflow(t *testing.T) {
 				agentID = author.ID
 				_, err = agents.Archive(ctx, []string{agentID})
 				require.NoError(t, err)
+				if tt.failed {
+					author.State = agentstore.StateFailedToCleanup
+					require.NoError(t, agents.Update(ctx, *author))
+				}
 			}
 			if tt.archive {
 				require.NoError(t, f.Archive(ctx, created.ID))

@@ -45,22 +45,40 @@ AND deleting_at IS NULL;
 
 -- name: MarkArchivedAgentsDeleting :exec
 UPDATE
-    agents
+    agents a
 SET
     deleting_at = NOW()
 WHERE
-    archived_at IS NOT NULL
-    AND deleting_at IS NULL;
+    a.archived_at IS NOT NULL
+    AND a.state <> 'failed_to_cleanup'
+    AND a.deleting_at IS NULL
+    AND NOT EXISTS (
+        SELECT
+            1
+        FROM
+            agents parent
+        WHERE
+            parent.id = a.parent_agent_id
+            AND parent.state = 'failed_to_cleanup');
 
 -- name: MarkArchivedAgentsDeletingByID :exec
 UPDATE
-    agents
+    agents a
 SET
     deleting_at = NOW()
-WHERE (id = ANY (@ids::uuid[])
-    OR parent_agent_id = ANY (@ids::uuid[]))
-AND archived_at IS NOT NULL
-AND deleting_at IS NULL;
+WHERE (a.id = ANY (@ids::uuid[])
+    OR a.parent_agent_id = ANY (@ids::uuid[]))
+AND a.archived_at IS NOT NULL
+AND a.state <> 'failed_to_cleanup'
+AND a.deleting_at IS NULL
+AND NOT EXISTS (
+    SELECT
+        1
+    FROM
+        agents parent
+    WHERE
+        parent.id = a.parent_agent_id
+        AND parent.state = 'failed_to_cleanup');
 
 -- name: ClearAgentsDeleting :exec
 WITH released AS (

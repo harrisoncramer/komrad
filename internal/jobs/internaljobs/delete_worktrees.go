@@ -56,7 +56,6 @@ type DeleteWorktreesWorker struct {
 	river.WorkerDefaults[DeleteWorktreesArgs]
 	worktrees WorktreeLister
 	deleter   AgentDeleter
-	releaser  DeletionReleaser
 	remover   WorktreeRemover
 	logger    *slog.Logger
 }
@@ -64,7 +63,6 @@ type DeleteWorktreesWorker struct {
 type NewDeleteWorktreesWorkerParams struct {
 	Worktrees WorktreeLister
 	Deleter   AgentDeleter
-	Releaser  DeletionReleaser
 	Remover   WorktreeRemover
 	Logger    *slog.Logger
 }
@@ -75,7 +73,6 @@ func NewDeleteWorktreesWorker(params NewDeleteWorktreesWorkerParams) *DeleteWork
 	return &DeleteWorktreesWorker{
 		worktrees: params.Worktrees,
 		deleter:   params.Deleter,
-		releaser:  params.Releaser,
 		remover:   params.Remover,
 		logger:    cmp.Or(params.Logger, slog.Default()),
 	}
@@ -115,7 +112,6 @@ func (w *DeleteWorktreesWorker) Work(ctx context.Context, job *river.Job[DeleteW
 		ids := xslice.Map(batch, func(worktree worktrees.Worktree) string { return worktree.Agent.ID })
 		if err := w.deleter.DeleteAgents(ctx, ids); err != nil {
 			failed = append(failed, fmt.Errorf("failed to delete %d agents: %w", len(batch), err))
-			failed = append(failed, releaseClaims(ctx, w.releaser, ids)...)
 
 			continue
 		}

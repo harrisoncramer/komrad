@@ -16,10 +16,38 @@ func TestDeletingClaimHidesTheRow(t *testing.T) {
 	tests := []struct {
 		name       string
 		archive    bool
+		failed     bool
 		claim      func(ctx context.Context, f *fixture, parentID string) error
 		release    func(ctx context.Context, f *fixture, parentID string) error
 		wantHidden bool
 	}{
+		{
+			name:    "an archived claim leaves a failed parent and its child alone",
+			archive: true,
+			failed:  true,
+			claim: func(ctx context.Context, f *fixture, parentID string) error {
+				return f.MarkArchivedDeletingByID(ctx, []string{parentID})
+			},
+			wantHidden: false,
+		},
+		{
+			name:    "the archive claim leaves a failed parent and its child alone",
+			archive: true,
+			failed:  true,
+			claim: func(ctx context.Context, f *fixture, _ string) error {
+				return f.MarkArchivedDeleting(ctx)
+			},
+			wantHidden: false,
+		},
+		{
+			name:    "a claim by id takes a failed parent and its child",
+			archive: true,
+			failed:  true,
+			claim: func(ctx context.Context, f *fixture, parentID string) error {
+				return f.MarkDeleting(ctx, []string{parentID})
+			},
+			wantHidden: true,
+		},
 		{
 			name:    "an archived claim leaves a live parent alone",
 			archive: false,
@@ -100,6 +128,10 @@ func TestDeletingClaimHidesTheRow(t *testing.T) {
 			if tt.archive {
 				_, err := f.Archive(ctx, []string{parent.ID, child.ID})
 				require.NoError(t, err)
+			}
+			if tt.failed {
+				parent.State = StateFailedToCleanup
+				require.NoError(t, f.Update(ctx, *parent))
 			}
 
 			require.NoError(t, tt.claim(ctx, f, parent.ID))

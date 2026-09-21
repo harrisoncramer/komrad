@@ -42,23 +42,12 @@ type EmptyArchiveWorker struct {
 	river.WorkerDefaults[EmptyArchiveArgs]
 	archived ArchivedAgentLister
 	agents   AgentDeleter
-	releaser DeletionReleaser
 }
 
-type NewEmptyArchiveWorkerParams struct {
-	Archived ArchivedAgentLister
-	Deleter  AgentDeleter
-	Releaser DeletionReleaser
-}
-
-// NewEmptyArchiveWorker builds the worker over the archive it reads, the service that deletes
-// agents, and the store that lets go of a row the delete could not take.
-func NewEmptyArchiveWorker(params NewEmptyArchiveWorkerParams) *EmptyArchiveWorker {
-	return &EmptyArchiveWorker{
-		archived: params.Archived,
-		agents:   params.Deleter,
-		releaser: params.Releaser,
-	}
+// NewEmptyArchiveWorker builds the worker over the archive it reads and the service that
+// deletes agents, which also deletes a workflow left with nothing in it.
+func NewEmptyArchiveWorker(archived ArchivedAgentLister, deleter AgentDeleter) *EmptyArchiveWorker {
+	return &EmptyArchiveWorker{archived: archived, agents: deleter}
 }
 
 // Work deletes the archive a page at a time by cursor, so a page that will not go does not
@@ -101,18 +90,8 @@ func (w *EmptyArchiveWorker) Work(ctx context.Context, job *river.Job[EmptyArchi
 		ids := xslice.Map(named, func(agent agentstore.Agent) string { return agent.ID })
 		if err := w.agents.DeleteAgents(ctx, ids); err != nil {
 			failures = append(failures, fmt.Errorf("failed to delete %d archived agents: %w", len(ids), err))
-			failures = append(failures, releaseClaims(ctx, w.releaser, ids)...)
 		}
 	}
-}
-
-// releaseClaims lets the rows of a delete that did not start back into the listings.
-func releaseClaims(ctx context.Context, releaser DeletionReleaser, ids []string) []error {
-	if err := releaser.ClearDeleting(ctx, ids); err != nil {
-		return []error{fmt.Errorf("failed to release %d agents the delete could not take: %w", len(ids), err)}
-	}
-
-	return nil
 }
 
 // orphanedChildren picks the children on a page whose parent is not in the archive with them,
