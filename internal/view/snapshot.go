@@ -11,6 +11,7 @@ const (
 	KindWorkflow
 	KindChild
 	KindResult
+	KindHit
 )
 
 // Process is how much of a process stands behind a row.
@@ -108,6 +109,7 @@ type Row struct {
 	// Key is what the row answers to.
 	Key  string
 	Kind RowKind
+	Lead string
 	Name string
 	// Mark is the letter a person typed onto this row, empty when none is on it.
 	Mark string

@@ -148,7 +148,7 @@ func TestSearchPreviewFollowsTheCursor(t *testing.T) {
 		length:  length,
 		snippet: marked("reconcile"),
 	})
-	m.search.cursor = 1
+	m.search.cursor = 2
 	m.applyPreview(previewResult{
 		agentID: "a2",
 		query:   "reconcile",
@@ -347,4 +347,71 @@ func pressSearch(t *testing.T, m model, k string) model {
 	require.True(t, ok)
 
 	return got
+}
+
+// TestSearchPreviewMovesToTheHoveredTurn covers stepping between two turns of one conversation,
+// which moves the transcript already held rather than fetching it again.
+func TestSearchPreviewMovesToTheHoveredTurn(t *testing.T) {
+	m, _ := searchPreviewModel(t)
+
+	content, _, length := searchTranscript()
+	early := strings.Index(content, "line 3 of the conversation before")
+	m.search.turns = append(m.search.turns, searchHit{
+		agentID: "a1",
+		name:    "billing",
+		seq:     0,
+		offset:  int64(early),
+		length:  length,
+		snippet: marked("conversation"),
+	})
+	m.search.turns[0].seq = 7
+	m.search.cursor = 1
+	m.applyPreview(previewResult{
+		agentID: "a1",
+		query:   "reconcile",
+		content: content,
+	})
+	onLater := m.search.preview.doc.top
+	require.Positive(t, onLater)
+
+	m = pressSearch(t, m, "j")
+	assert.Equal(t, 2, m.search.cursor)
+	assert.Less(t, m.search.preview.doc.top, onLater, "the preview moves up to the earlier turn")
+	assert.Equal(t, "a1", m.search.preview.agentID, "without dropping the transcript it held")
+
+	m = pressSearch(t, m, "k")
+	assert.Equal(t, onLater, m.search.preview.doc.top, "and back")
+}
+
+// TestSearchPagesWhenTheCursorReachesTheEnd covers the page after the hits held being asked for
+// once the cursor stands on the last row, and its hits following the ones already drawn.
+func TestSearchPagesWhenTheCursorReachesTheEnd(t *testing.T) {
+	m, _ := searchPreviewModel(t)
+	token := "page-2"
+	m.search.next = &token
+
+	m = pressSearch(t, m, "G")
+	require.Equal(t, 1, m.search.cursor, "the last row is the one turn")
+	assert.True(t, m.search.paging, "the next page is on its way")
+
+	m.applySearch(searchResult{
+		query: "stale",
+		hits:  hits("z"),
+		paged: true,
+	})
+	assert.Len(t, m.search.turns, 1, "a page for a query the input has moved past is dropped")
+
+	m.applySearch(searchResult{
+		query: "reconcile",
+		hits:  hits("a2"),
+		paged: true,
+	})
+	assert.Len(t, m.search.turns, 2, "the page's hits follow the ones held")
+	assert.Equal(t, 1, m.search.cursor, "the cursor stays where it was")
+	assert.False(t, m.search.paging)
+	assert.Nil(t, m.search.next, "and there is no page after it")
+	assert.Len(t, m.searchRows(), 4)
+
+	m = pressSearch(t, m, "G")
+	assert.False(t, m.search.paging, "the end of the last page asks for nothing more")
 }

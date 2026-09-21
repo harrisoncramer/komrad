@@ -23,9 +23,25 @@ func resultRows() []Row {
 			Name: "billing",
 		},
 		{
+			Key:     "live/3",
+			Kind:    KindHit,
+			Lead:    "agent #3",
+			Name:    "the ledger is reconciled nightly",
+			Matches: []Span{{Start: 4, End: 10}},
+		},
+		{
 			Key:      "archived",
 			Kind:     KindResult,
 			Name:     "payouts",
+			Archived: true,
+			Process:  ProcessStopped,
+		},
+		{
+			Key:      "archived/1",
+			Kind:     KindHit,
+			Lead:     "you #1",
+			Name:     "ledger",
+			Matches:  []Span{{Start: 0, End: 6}},
 			Archived: true,
 			Process:  ProcessStopped,
 		},
@@ -78,10 +94,60 @@ func TestResultRowOpensAtTheGutter(t *testing.T) {
 	require.Len(t, drawn, len(list.Lines))
 
 	for i, line := range list.Lines {
+		if line.Lead != "" {
+			continue
+		}
+
 		assert.Equal(t, 0, line.Indent, "row %q", drawn[i])
 		assert.Equal(t, WeightRegular, line.Weight, "row %q", drawn[i])
 		assert.Equal(t, drawnResultNameColumn, nameColumnOf(drawn[i], line), "row %q", drawn[i])
 	}
+}
+
+// TestHitRowHangsUnderItsResult pins that a turn is drawn one step in under the agent that
+// said it, its lead before the words and the three columns left blank.
+func TestHitRowHangsUnderItsResult(t *testing.T) {
+	list := Prepare(Snapshot{
+		Rows:    resultRows(),
+		Dropped: everyColumn(),
+		Pane:    canonicalPane,
+	})
+	drawn := drawResults(canonicalPane)
+	require.Len(t, drawn, len(list.Lines))
+
+	hits := 0
+	for i, line := range list.Lines {
+		if line.Lead == "" {
+			continue
+		}
+		hits++
+
+		assert.Equal(t, indentColumns, line.Indent, "row %q", drawn[i])
+		assert.Equal(t, WeightRegular, line.Weight, "row %q", drawn[i])
+		assert.False(t, line.Rule, "row %q", drawn[i])
+		lead := strings.Index(drawn[i], line.Lead)
+		require.GreaterOrEqual(t, lead, 0, "row %q", drawn[i])
+		assert.Equal(t, wantNameColumn(KindHit), drawnColumns(drawn[i][:lead]), "row %q", drawn[i])
+		assert.Equal(t, wantNameColumn(KindHit)+len(line.Lead)+1, nameColumnOf(drawn[i], line), "row %q", drawn[i])
+		for _, cell := range []Cell{line.Repo, line.Review, line.Forge} {
+			assert.True(t, cell.IsBlank(), "row %q", drawn[i])
+		}
+	}
+
+	assert.Equal(t, 2, hits)
+}
+
+// TestHitRowGivesItsLeadRoom pins that a narrow pane clips the words rather than the lead.
+func TestHitRowGivesItsLeadRoom(t *testing.T) {
+	line := prepareOne(t, Row{
+		Kind: KindHit,
+		Lead: "agent #3",
+		Name: "the ledger is reconciled nightly",
+	})
+	fitted := fitRow(line, 20)
+
+	assert.Equal(t, "agent #3", fitted.Lead)
+	assert.Len(t, []rune(fitted.Name), 20-indentColumns-len("agent #3")-1)
 }
 
 // TestRenderResultList draws a result list whole.

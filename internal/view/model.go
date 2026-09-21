@@ -80,6 +80,7 @@ type Line struct {
 	Rule bool
 	// Indent is how far this row's name is set in from the gutter.
 	Indent int
+	Lead   string
 	Name   string
 	// Matches are the stretches of the name a search picked out, in bytes of the name as it is
 	// drawn rather than as it was gathered.
