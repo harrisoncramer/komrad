@@ -179,6 +179,9 @@ message ReviewMessage {
   string sent_at = 9;
   // When the agent claimed the doorbell raised for this comment, empty until it has.
   string delivered_at = 10;
+  // The review this message went out with, absent for an answer written by the agent under
+  // review, which belongs to no batch.
+  optional string review_id = 12;
 }
 
 message ListReviewThreadsRequest {
@@ -308,6 +311,35 @@ message ListReviewRoundsRequest {
 message ListReviewRoundsResponse {
   // Every round taken of that agent, oldest first.
   repeated ReviewRound rounds = 1;
+}
+
+// ReviewThreadInContext is one thread of a released review, with the code it was written
+// about drawn from the round's snapshot.
+message ReviewThreadInContext {
+  // The thread as list_review_threads renders it, holding only the messages that went out
+  // with this review.
+  ReviewThread thread = 1;
+  // The snapshot's lines around the thread's range, each prefixed with its line number and
+  // ">>" on the lines the thread is about. Empty when the snapshot cannot be read, in which
+  // case the thread's quoted_lines are what there is.
+  repeated string context = 2;
+}
+
+message GetReviewRequest {
+  // Which review to read, which the mail announcing a release names.
+  string review_id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+// GetReviewResponse is one released review whole, in reading order: the verdict and what
+// the reviewer said about the work, then each thread with its anchor, the code around it,
+// and the messages that went out with this release.
+message GetReviewResponse {
+  // The review, carrying its verdict and body.
+  Review review = 1;
+  // The round the review was given against.
+  ReviewRound round = 2;
+  // The threads this review wrote in, ordered by file and line.
+  repeated ReviewThreadInContext threads = 3;
 }
 
 message ListReviewsRequest {

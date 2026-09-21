@@ -962,6 +962,15 @@ service AgentService {
       description: "Read every review released on an agent, in the order their rounds were taken, each with the verdict it carried. This is how you find where a change stands: whether the person reviewing has approved it, asked for changes, or only commented, and how many rounds it took to get there. The findings themselves are in the threads, which list_review_threads reads; this is the verdict on each round rather than the comments under it. agentId names whose reviews to read. The path of the file a review was written out to is dropped for anyone but the agent that wrote that review, so your own reviews come back with their paths and somebody else's do not. A review nobody has released is left out for the same reason, since what is in it is the reviewer's until they let go of it; a person running this from a terminal is drawn the open ones too. You may read your own reviews and those of the agent you are a child of, and anybody else's are refused as permission_denied."
     };
   }
+  rpc GetReview(GetReviewRequest) returns (GetReviewResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: true
+      name: "get_review"
+      description: "Read one released review whole, which is what the mail announcing a release tells you to do with the review id it names. It comes back in reading order: the verdict and what the reviewer said about the work as a whole, then each thread with the file and lines it is pinned to, the lines it quoted, the code around them as the round's snapshot held it with the commented lines marked, and the messages that went out with this release, so on a later round only the new comments are here. Those line numbers are true of the snapshot rather than of your files now, so once you have edited, search for the quoted text rather than counting lines. Answer each thread with add_review_message, naming its id; list_review_threads is for looking a thread up again afterwards. You may read a review of your own work and of the work of the agent you are a child of, and anybody else's is refused as permission_denied. A review nobody has released is not_found for anyone but its author."
+    };
+  }
   rpc ReleaseReview(ReleaseReviewRequest) returns (ReleaseReviewResponse) {
     option (annotation.v1.surfaces) = {
       cli: true

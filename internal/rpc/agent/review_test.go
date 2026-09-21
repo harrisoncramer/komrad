@@ -101,6 +101,91 @@ func TestListReviewThreadsAnswersTheCallerItHas(t *testing.T) {
 	assert.Equal(t, agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSPECIFIED, message.GetDelivery())
 }
 
+// TestGetReviewHandsTheAgentOneReleaseWhole pins that the agent reads a release in one call and
+// sees only what went out with it, cut by the review each message carries.
+func TestGetReviewHandsTheAgentOneReleaseWhole(t *testing.T) {
+	svc, st, _ := reviewService(t)
+	worker := st.SeedAgent(t, agentstore.Agent{
+		Name:  "worker",
+		Cwd:   "/repo",
+		State: agentstore.StateIdle,
+	})
+
+	asHuman := caller.With(t.Context(), caller.Caller{})
+	_, err := svc.OpenReviewRound(asHuman, connect.NewRequest(&agentv1.OpenReviewRoundRequest{
+		AgentId: worker.ID,
+	}))
+	require.NoError(t, err)
+
+	opened, err := svc.CreateReviewThread(asHuman, connect.NewRequest(&agentv1.CreateReviewThreadRequest{
+		AgentId:     worker.ID,
+		FilePath:    "greet.go",
+		NewStart:    41,
+		NewEnd:      41,
+		QuotedLines: []string{"+\tgreet(nil)"},
+		Body:        "this needs a nil check",
+	}))
+	require.NoError(t, err)
+
+	first, err := svc.ReleaseReview(asHuman, connect.NewRequest(&agentv1.ReleaseReviewRequest{
+		AgentId: worker.ID,
+		Verdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
+		Body:    "one thing before it goes",
+	}))
+	require.NoError(t, err)
+
+	asAgent := caller.With(t.Context(), caller.Caller{AgentID: worker.ID})
+	_, err = svc.AddReviewMessage(asAgent, connect.NewRequest(&agentv1.AddReviewMessageRequest{
+		ThreadId: opened.Msg.GetThread().GetId(),
+		Body:     "done",
+	}))
+	require.NoError(t, err)
+
+	_, err = svc.AddReviewMessage(asHuman, connect.NewRequest(&agentv1.AddReviewMessageRequest{
+		ThreadId: opened.Msg.GetThread().GetId(),
+		Body:     "not quite, the other branch too",
+	}))
+	require.NoError(t, err)
+
+	second, err := svc.ReleaseReview(asHuman, connect.NewRequest(&agentv1.ReleaseReviewRequest{
+		AgentId: worker.ID,
+		Verdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
+	}))
+	require.NoError(t, err)
+
+	whole, err := svc.GetReview(asAgent, connect.NewRequest(&agentv1.GetReviewRequest{
+		ReviewId: first.Msg.GetReview().GetId(),
+	}))
+	require.NoError(t, err)
+
+	assert.Equal(t, agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED, whole.Msg.GetReview().GetVerdict())
+	assert.Equal(t, "one thing before it goes", whole.Msg.GetReview().GetBody())
+	assert.Empty(t, whole.Msg.GetReview().GetPath(), "the agent is not told where the file is")
+	assert.Equal(t, int32(1), whole.Msg.GetRound().GetOrdinal())
+
+	require.Len(t, whole.Msg.GetThreads(), 1)
+	thread := whole.Msg.GetThreads()[0].GetThread()
+	assert.Equal(t, opened.Msg.GetThread().GetId(), thread.GetId())
+	assert.Equal(t, "greet.go", thread.GetFilePath())
+	require.Len(t, thread.GetMessages(), 1, "the agent's answer and the second release belong elsewhere")
+	assert.Equal(t, "this needs a nil check", thread.GetMessages()[0].GetBody())
+	assert.Equal(t, first.Msg.GetReview().GetId(), thread.GetMessages()[0].GetReviewId())
+
+	again, err := svc.GetReview(asAgent, connect.NewRequest(&agentv1.GetReviewRequest{
+		ReviewId: second.Msg.GetReview().GetId(),
+	}))
+	require.NoError(t, err)
+	require.Len(t, again.Msg.GetThreads(), 1)
+	require.Len(t, again.Msg.GetThreads()[0].GetThread().GetMessages(), 1)
+	assert.Equal(t, "not quite, the other branch too", again.Msg.GetThreads()[0].GetThread().GetMessages()[0].GetBody())
+
+	threads, err := svc.ListReviewThreads(asAgent, connect.NewRequest(&agentv1.ListReviewThreadsRequest{}))
+	require.NoError(t, err)
+	require.Len(t, threads.Msg.GetThreads(), 1)
+	require.Len(t, threads.Msg.GetThreads()[0].GetMessages(), 3)
+	assert.Nil(t, threads.Msg.GetThreads()[0].GetMessages()[1].ReviewId, "an answer belongs to no batch")
+}
+
 func reviewService(t *testing.T) (agentv1weave.AgentServiceAdapter, *storetest.Stores, *reviewstore.Store) {
 	t.Helper()
 

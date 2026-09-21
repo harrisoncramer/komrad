@@ -56,6 +56,7 @@ type AgentServiceImpl interface {
 	OpenReviewRound(context.Context, *v1.OpenReviewRoundRequest) (*v1.OpenReviewRoundResponse, *fail.Error)
 	ListReviewRounds(context.Context, *v1.ListReviewRoundsRequest) (*v1.ListReviewRoundsResponse, *fail.Error)
 	ListReviews(context.Context, *v1.ListReviewsRequest) (*v1.ListReviewsResponse, *fail.Error)
+	GetReview(context.Context, *v1.GetReviewRequest) (*v1.GetReviewResponse, *fail.Error)
 	ReleaseReview(context.Context, *v1.ReleaseReviewRequest) (*v1.ReleaseReviewResponse, *fail.Error)
 	SetReviewFileViewed(context.Context, *v1.SetReviewFileViewedRequest) (*v1.SetReviewFileViewedResponse, *fail.Error)
 	ListReviewViewedFiles(context.Context, *v1.ListReviewViewedFilesRequest) (*v1.ListReviewViewedFilesResponse, *fail.Error)
@@ -265,6 +266,11 @@ func (a AgentServiceAdapter) ListReviewRounds(ctx context.Context, req *connect.
 // ListReviews answers the request as connect serves it.
 func (a AgentServiceAdapter) ListReviews(ctx context.Context, req *connect.Request[v1.ListReviewsRequest]) (*connect.Response[v1.ListReviewsResponse], error) {
 	return rpcerr.Answer(a.Impl.ListReviews(ctx, req.Msg))
+}
+
+// GetReview answers the request as connect serves it.
+func (a AgentServiceAdapter) GetReview(ctx context.Context, req *connect.Request[v1.GetReviewRequest]) (*connect.Response[v1.GetReviewResponse], error) {
+	return rpcerr.Answer(a.Impl.GetReview(ctx, req.Msg))
 }
 
 // ReleaseReview answers the request as connect serves it.

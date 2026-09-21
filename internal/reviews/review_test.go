@@ -1606,6 +1606,7 @@ func (f *fakeReviewStore) ReleaseReview(
 	verdict := params.Verdict
 	review.Verdict = &verdict
 	review.ReleasedAt = &settledAt
+	review.Body = params.Body
 	review.Path = params.Path
 	review.DoorbellMailID = params.DoorbellMailID
 
