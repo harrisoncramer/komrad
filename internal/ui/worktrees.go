@@ -70,6 +70,8 @@ type worktreeInspection struct {
 	modified  []string
 	untracked []string
 	baseRef   string
+	// baseError is why git could not name a base, when baseRef is empty for that reason.
+	baseError string
 	ahead     int
 	behind    int
 	// landed is how many of the branch's own commits the base already holds whole.

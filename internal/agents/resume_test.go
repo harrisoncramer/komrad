@@ -316,7 +316,7 @@ func TestAResumeInItsSetupIsNotArchivedOutFromUnderItself(t *testing.T) {
 	created, err := st.Workflows.Create(ctx, workflowstore.Config{
 		Name:     "worktrees",
 		Cwd:      fakeCheckout(t),
-		Worktree: workflowstore.WorktreeConfig{Enabled: true},
+		Worktree: workflowstore.WorktreeConfig{Enabled: true, BaseBranch: "main"},
 	})
 	require.NoError(t, err)
 
@@ -369,7 +369,7 @@ func TestAPassArchivesAResumeThatFinishedFirst(t *testing.T) {
 	created, err := st.Workflows.Create(ctx, workflowstore.Config{
 		Name:     "worktrees",
 		Cwd:      t.TempDir(),
-		Worktree: workflowstore.WorktreeConfig{Enabled: true},
+		Worktree: workflowstore.WorktreeConfig{Enabled: true, BaseBranch: "main"},
 	})
 	require.NoError(t, err)
 
@@ -400,7 +400,7 @@ func TestAResumeThatGivesUpPutsTheStateBack(t *testing.T) {
 	require.NoError(t, st.Workflows.Update(ctx, workflowID, workflowstore.Config{
 		Name:     "workflow",
 		Cwd:      fakeCheckout(t),
-		Worktree: workflowstore.WorktreeConfig{Enabled: true},
+		Worktree: workflowstore.WorktreeConfig{Enabled: true, BaseBranch: "main"},
 	}))
 
 	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
@@ -499,7 +499,7 @@ func TestAPassThatArchivesBeforeTheMarkStopsTheResume(t *testing.T) {
 	created, err := st.Workflows.Create(ctx, workflowstore.Config{
 		Name:     "worktrees",
 		Cwd:      t.TempDir(),
-		Worktree: workflowstore.WorktreeConfig{Enabled: true},
+		Worktree: workflowstore.WorktreeConfig{Enabled: true, BaseBranch: "main"},
 	})
 	require.NoError(t, err)
 
@@ -535,7 +535,7 @@ func TestAnArchiveAfterTheMarkStopsTheResume(t *testing.T) {
 	created, err := st.Workflows.Create(ctx, workflowstore.Config{
 		Name:     "worktrees",
 		Cwd:      fakeCheckout(t),
-		Worktree: workflowstore.WorktreeConfig{Enabled: true},
+		Worktree: workflowstore.WorktreeConfig{Enabled: true, BaseBranch: "main"},
 	})
 	require.NoError(t, err)
 
@@ -586,7 +586,7 @@ func TestADeleteAfterTheMarkStopsTheResume(t *testing.T) {
 	created, err := st.Workflows.Create(ctx, workflowstore.Config{
 		Name:     "worktrees",
 		Cwd:      fakeCheckout(t),
-		Worktree: workflowstore.WorktreeConfig{Enabled: true},
+		Worktree: workflowstore.WorktreeConfig{Enabled: true, BaseBranch: "main"},
 	})
 	require.NoError(t, err)
 
@@ -707,7 +707,7 @@ func TestResumeRunsTheProvisioner(t *testing.T) {
 			created, err := st.Workflows.Create(ctx, workflowstore.Config{
 				Name:     "resume-" + tt.name,
 				Cwd:      fakeCheckout(t),
-				Worktree: workflowstore.WorktreeConfig{Enabled: true},
+				Worktree: workflowstore.WorktreeConfig{Enabled: true, BaseBranch: "main"},
 			})
 			require.NoError(t, err)
 

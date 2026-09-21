@@ -411,8 +411,9 @@ func TestRequestReviewLandsTheReviewerOnTheHarnessAsked(t *testing.T) {
 			ctx := t.Context()
 
 			created, err := st.Workflows.Create(ctx, workflowstore.Config{
-				Name:    "workflow-" + uuid.NewString(),
-				Harness: tt.workflow,
+				Name:     "workflow-" + uuid.NewString(),
+				Harness:  tt.workflow,
+				Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"},
 			})
 			require.NoError(t, err)
 

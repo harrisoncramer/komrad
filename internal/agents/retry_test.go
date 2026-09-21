@@ -206,9 +206,10 @@ func TestRetryCreateOntoAnotherHarnessDropsWorkflowFlags(t *testing.T) {
 	})
 
 	wf, err := st.Workflows.Create(t.Context(), workflowstore.Config{
-		Name:    "workflow-" + uuid.NewString(),
-		Harness: testHarnessID,
-		Flags:   "--model opus",
+		Name:     "workflow-" + uuid.NewString(),
+		Harness:  testHarnessID,
+		Flags:    "--model opus",
+		Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"},
 	})
 	require.NoError(t, err)
 
@@ -356,9 +357,10 @@ func TestRetryCreateFromThePanelOntoAnotherHarness(t *testing.T) {
 			})
 
 			wf, err := st.Workflows.Create(t.Context(), workflowstore.Config{
-				Name:    "workflow-" + uuid.NewString(),
-				Harness: testHarnessID,
-				Flags:   tt.workflowFlags,
+				Name:     "workflow-" + uuid.NewString(),
+				Harness:  testHarnessID,
+				Flags:    tt.workflowFlags,
+				Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"},
 			})
 			require.NoError(t, err)
 

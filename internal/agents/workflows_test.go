@@ -62,14 +62,20 @@ func TestUpdateWorkflow(t *testing.T) {
 		{
 			name:     "a blank name keeps the one it had",
 			create:   true,
-			cfg:      workflowstore.Config{Name: "   "},
+			cfg:      workflowstore.Config{Name: "   ", Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"}},
 			wantName: "backend",
 		},
 		{
 			name:     "a new name is written",
 			create:   true,
-			cfg:      workflowstore.Config{Name: "platform"},
+			cfg:      workflowstore.Config{Name: "platform", Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"}},
 			wantName: "platform",
+		},
+		{
+			name:      "a blank base branch is refused, since every field is written",
+			create:    true,
+			cfg:       workflowstore.Config{Name: "platform"},
+			wantErrIs: ErrWorktreeNeedsBase,
 		},
 	}
 
@@ -271,7 +277,7 @@ func TestUpdateWorkflowRefusesAnUnsafeWorktreePath(t *testing.T) {
 	err = workflows.UpdateWorkflow(t.Context(), created.ID, workflowstore.Config{
 		Name:     "backend",
 		Cwd:      "/repo",
-		Worktree: workflowstore.WorktreeConfig{Enabled: true, SymlinkPaths: []string{"../elsewhere"}},
+		Worktree: workflowstore.WorktreeConfig{Enabled: true, BaseBranch: "main", SymlinkPaths: []string{"../elsewhere"}},
 	})
 	require.ErrorIs(t, err, ErrWorktreeUnsafePath)
 }
@@ -304,6 +310,7 @@ func TestWorkflowWorktreePathsAreStoredCleaned(t *testing.T) {
 		Cwd:  repo,
 		Worktree: workflowstore.WorktreeConfig{
 			Enabled:      true,
+			BaseBranch:   "main",
 			CopyPaths:    []string{"./secrets/api.key"},
 			SymlinkPaths: []string{"./vendor"},
 			DiffExclude:  []string{"./db/models"},
@@ -330,7 +337,7 @@ func TestUpdateWorkflowWorktree(t *testing.T) {
 	err = workflows.UpdateWorkflow(t.Context(), created.ID, workflowstore.Config{
 		Name:     "backend",
 		Cwd:      fakeCheckout(t),
-		Worktree: workflowstore.WorktreeConfig{Enabled: true},
+		Worktree: workflowstore.WorktreeConfig{Enabled: true, BaseBranch: "main"},
 	})
 	require.NoError(t, err)
 
@@ -338,7 +345,11 @@ func TestUpdateWorkflowWorktree(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, afterEnable.Worktree.Enabled)
 
-	err = workflows.UpdateWorkflow(t.Context(), created.ID, workflowstore.Config{Name: "backend", Cwd: "/repo"})
+	err = workflows.UpdateWorkflow(t.Context(), created.ID, workflowstore.Config{
+		Name:     "backend",
+		Cwd:      "/repo",
+		Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"},
+	})
 	require.NoError(t, err)
 
 	afterDisable, err := st.GetWorkflow(t.Context(), created.ID)

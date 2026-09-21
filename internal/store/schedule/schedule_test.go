@@ -610,7 +610,7 @@ func seed(t *testing.T, st *fixture, cfg Config) *Schedule {
 func seedWorkflow(t *testing.T, st *fixture) string {
 	t.Helper()
 
-	created, err := st.workflows.Create(t.Context(), workflowstore.Config{Name: "backend-" + uuid.NewString()})
+	created, err := st.workflows.Create(t.Context(), workflowstore.Config{Name: "backend-" + uuid.NewString(), Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"}})
 	require.NoError(t, err)
 	require.NotNil(t, created)
 

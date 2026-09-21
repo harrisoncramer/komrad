@@ -35,8 +35,7 @@ var snapshotIdentity = []string{
 type TakeSnapshotParams struct {
 	// Dir is anywhere inside the agent's worktree.
 	Dir string
-	// Base is the branch the worktree was cut from, or empty to ask the repository for its
-	// default branch.
+	// Base is the branch the worktree was cut from.
 	Base string
 	// Ref is the full ref name the snapshot is held by, so nothing collects it.
 	Ref string
@@ -109,7 +108,10 @@ func (c *Client) TakeSnapshot(ctx context.Context, params TakeSnapshotParams) (*
 		return nil, err
 	}
 
-	base := resolveBase(ctx, root, params.Base)
+	base, err := resolveBase(ctx, root, params.Base)
+	if err != nil {
+		return nil, err
+	}
 
 	baseSHA, err := Run(ctx, root, "merge-base", base, "HEAD")
 	if err != nil {
@@ -410,7 +412,10 @@ func (c *Client) ReadStanding(ctx context.Context, params ReadStandingParams) (S
 		return StandingSame, nil
 	}
 
-	base := resolveBase(ctx, root, params.Base)
+	base, err := resolveBase(ctx, root, params.Base)
+	if err != nil {
+		return StandingMoved, err
+	}
 	if isOwnHead(ctx, root, base) {
 		return StandingMoved, nil
 	}
@@ -436,11 +441,7 @@ func (c *Client) ReadStanding(ctx context.Context, params ReadStandingParams) (S
 // isOwnHead reports whether a base names the very branch the worktree is on, which can hold
 // nothing the worktree does not.
 func isOwnHead(ctx context.Context, root, base string) bool {
-	if base == "HEAD" {
-		return true
-	}
-
-	branch, err := Run(ctx, root, "rev-parse", "--abbrev-ref", "HEAD")
+	branch, err := Run(ctx, root, "symbolic-ref", "--quiet", "HEAD")
 
 	return err == nil && branch == base
 }

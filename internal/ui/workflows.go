@@ -82,6 +82,7 @@ func (m model) openWorkflowConfigForm(values *workflowFormValues, target *panel.
 			Values:    values,
 			Hooks:     m.getAvailableHooks(),
 			Keys:      formKeys(),
+			Editing:   target != nil,
 		})
 	}
 

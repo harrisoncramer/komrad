@@ -13,9 +13,6 @@ import (
 // ErrRebaseConflicted says a rebase stopped part-way on paths it could not settle.
 var ErrRebaseConflicted = fail.Precondition("the rebase stopped on conflicts")
 
-// ErrBaseUnresolved says the base to rebase onto is not a ref this repository can reach.
-var ErrBaseUnresolved = fail.Precondition("the base branch does not resolve to a remote-tracking ref")
-
 // ErrBaseUnrelated says the base shares no history with the branch, so nothing relates them.
 var ErrBaseUnrelated = fail.Precondition("the base shares no history with this branch")
 
@@ -99,20 +96,24 @@ func (c *Client) FetchBase(ctx context.Context, dir, base string) (ref, sha stri
 		return "", "", err
 	}
 
-	// Fetched before the base is resolved, and unqualified when nothing was named.
-	args := []string{"fetch", "--quiet", "origin"}
-	if trimmed := strings.TrimSpace(base); trimmed != "" {
-		args = append(args, trimmed)
-	}
-	if _, err := Run(ctx, root, args...); err != nil {
-		return "", "", fmt.Errorf("failed to fetch the base from origin: %w", err)
+	base = strings.TrimSpace(base)
+	if base == "" {
+		return "", "", fmt.Errorf("%w: the workflow names no base branch", ErrBaseMissing)
 	}
 
-	ref = resolveBase(ctx, root, base)
+	_, fetchErr := Run(ctx, root, "fetch", "--quiet", "origin", base)
 
-	// Rebasing onto the literal HEAD succeeds trivially, reporting a no-op as a success.
-	if !strings.HasPrefix(ref, "origin/") {
-		return "", "", fmt.Errorf("%w: resolved to %q", ErrBaseUnresolved, ref)
+	// A base origin no longer has fails at the fetch, and is a missing base when the clone
+	// holds no copy of its own either.
+	ref, err = resolveBase(ctx, root, base)
+	if err != nil && fetchErr != nil {
+		return "", "", fmt.Errorf("%w: %w", err, fetchErr)
+	}
+	if err != nil {
+		return "", "", err
+	}
+	if fetchErr != nil {
+		return "", "", fmt.Errorf("failed to fetch %s from origin: %w", base, fetchErr)
 	}
 
 	sha, err = Run(ctx, dir, "rev-parse", "--verify", ref)

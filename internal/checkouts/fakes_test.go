@@ -17,7 +17,7 @@ import (
 func seedWorkflow(t *testing.T, st *storetest.Stores) string {
 	t.Helper()
 
-	created, err := st.Workflows.Create(t.Context(), workflowstore.Config{Name: "workflow-" + uuid.NewString()})
+	created, err := st.Workflows.Create(t.Context(), workflowstore.Config{Name: "workflow-" + uuid.NewString(), Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"}})
 	require.NoError(t, err)
 	require.NotNil(t, created)
 

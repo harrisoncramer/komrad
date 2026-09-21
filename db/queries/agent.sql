@@ -71,7 +71,6 @@ opened AS (
         LEFT JOIN workflow_provisioner_configs c ON c.id = w.provisioner_config_id
     WHERE
         c.worktree_base_branch IS NULL
-        OR c.worktree_base_branch = ''
         OR a.branch <> c.worktree_base_branch
     ORDER BY
         a.id,

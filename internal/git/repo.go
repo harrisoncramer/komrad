@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"weave/internal/fail"
 )
 
 // GetRoot is the top of the working tree any path inside it belongs to.
@@ -22,23 +24,52 @@ func getRoot(ctx context.Context, on runner, dir string) (string, error) {
 	return root, nil
 }
 
-// resolveBase turns a configured base branch into something git can name, preferring a
-// remote-tracking ref.
-func resolveBase(ctx context.Context, root, base string) string {
+// ErrBaseMissing says the workflow's base branch is not a ref this clone holds.
+var ErrBaseMissing = fail.Precondition("the base branch is not one the clone has")
+
+// resolveBase is the ref a named base is measured as: origin's copy when the clone has one,
+// the local branch when the clone has no origin at all.
+func resolveBase(ctx context.Context, root, base string) (string, error) {
 	base = strings.TrimSpace(base)
 	if base == "" {
-		if head, err := Run(ctx, root, "symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"); err == nil {
-			return head
+		return "", fmt.Errorf("%w: the workflow names no base branch", ErrBaseMissing)
+	}
+
+	if _, err := Run(ctx, root, "rev-parse", "--verify", "--quiet", "refs/remotes/origin/"+base); err == nil {
+		return "origin/" + base, nil
+	}
+
+	if _, err := Run(ctx, root, "remote", "get-url", "origin"); err != nil {
+		if _, err := Run(ctx, root, "rev-parse", "--verify", "--quiet", "refs/heads/"+base); err == nil {
+			return "refs/heads/" + base, nil
 		}
 
-		return "HEAD"
+		return "", fmt.Errorf("%w: the clone has no branch %s; set the workflow's base branch to one it has", ErrBaseMissing, base)
 	}
 
-	if _, err := Run(ctx, root, "rev-parse", "--verify", "--quiet", "origin/"+base); err == nil {
-		return "origin/" + base
+	return "", fmt.Errorf("%w: the clone has no origin/%s; fetch it or set the workflow's base branch to one it has", ErrBaseMissing, base)
+}
+
+// DefaultBase is the branch a repository would name as its base when nobody has: what the
+// clone's origin/HEAD points at, else the branch the checkout is on, else main.
+func DefaultBase(ctx context.Context, dir string) string {
+	if strings.TrimSpace(dir) == "" {
+		return "main"
 	}
 
-	return base
+	head, err := Run(ctx, dir, "symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD")
+	if err == nil {
+		if name, ok := strings.CutPrefix(head, "origin/"); ok && name != "" {
+			return name
+		}
+	}
+
+	branch, err := Run(ctx, dir, "symbolic-ref", "--quiet", "--short", "HEAD")
+	if err == nil && branch != "" {
+		return branch
+	}
+
+	return "main"
 }
 
 // GetCurrentBranch is the branch a worktree is on, and nothing for a detached head or a

@@ -147,6 +147,24 @@ func TestCreateWorkflowWorktree(t *testing.T) {
 	}
 }
 
+// TestCreateWorkflowFillsABlankBase covers a blank base being stored as main when the cwd is no
+// repository to read one from, with the response carrying the name stored.
+func TestCreateWorkflowFillsABlankBase(t *testing.T) {
+	svc, st := service(t)
+
+	created, err := svc.CreateWorkflow(t.Context(), connect.NewRequest(&workflowv1.CreateWorkflowRequest{
+		Name:     "backend",
+		Cwd:      primaryCheckout(t),
+		Worktree: &workflowv1.WorktreeConfig{Enabled: true},
+	}))
+	require.NoError(t, err)
+	assert.Equal(t, "main", created.Msg.GetWorkflow().GetWorktree().GetBaseBranch())
+
+	stored, err := st.Workflows.Get(t.Context(), created.Msg.GetWorkflow().GetId())
+	require.NoError(t, err)
+	assert.Equal(t, "main", stored.Worktree.BaseBranch)
+}
+
 // TestUpdateWorkflowWorktreeDirSurvivesAReread pins the worktree directory against being
 // dropped on the way in: a field the write path forgets still reads back correctly from the
 // response it echoes, and only a second read shows it was never stored.
@@ -165,8 +183,9 @@ func TestUpdateWorkflowWorktreeDirSurvivesAReread(t *testing.T) {
 		Name: "backend",
 		Cwd:  primaryCheckout(t),
 		Worktree: &workflowv1.WorktreeConfig{
-			Enabled: true,
-			Dir:     "/repo/.worktrees",
+			Enabled:    true,
+			BaseBranch: "main",
+			Dir:        "/repo/.worktrees",
 		},
 	}))
 	require.NoError(t, err)
@@ -243,9 +262,10 @@ func TestUpdateWorkflow(t *testing.T) {
 			name:   "every field is replaced",
 			create: true,
 			req: &workflowv1.UpdateWorkflowRequest{
-				Name:    "platform",
-				Context: "rewritten",
-				Cwd:     "/repo",
+				Name:     "platform",
+				Context:  "rewritten",
+				Cwd:      "/repo",
+				Worktree: &workflowv1.WorktreeConfig{BaseBranch: "main"},
 			},
 			wantName: "platform",
 			wantCwd:  "/repo",
@@ -254,9 +274,18 @@ func TestUpdateWorkflow(t *testing.T) {
 			name:   "a blank name keeps the one it has",
 			create: true,
 			req: &workflowv1.UpdateWorkflowRequest{
-				Context: "rewritten",
+				Context:  "rewritten",
+				Worktree: &workflowv1.WorktreeConfig{BaseBranch: "main"},
 			},
 			wantName: "backend",
+		},
+		{
+			name:   "a blank base branch is refused",
+			create: true,
+			req: &workflowv1.UpdateWorkflowRequest{
+				Context: "rewritten",
+			},
+			wantCode: connect.CodeInvalidArgument,
 		},
 	}
 

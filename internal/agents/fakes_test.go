@@ -412,7 +412,7 @@ func (s *testStore) Create(ctx context.Context, agent agentstore.Agent) error {
 		agent.Harness = testHarnessID
 	}
 	if agent.WorkflowID == "" {
-		created, err := s.Workflows.Create(ctx, workflowstore.Config{Name: "workflow-" + uuid.NewString()})
+		created, err := s.Workflows.Create(ctx, workflowstore.Config{Name: "workflow-" + uuid.NewString(), Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"}})
 		if err != nil {
 			return err
 		}
@@ -940,7 +940,7 @@ func agentByID(t *testing.T, st *testStore, id string) agentstore.Agent {
 func seedWorkflow(t *testing.T, st *testStore) string {
 	t.Helper()
 
-	created, err := st.Workflows.Create(t.Context(), workflowstore.Config{Name: "workflow-" + uuid.NewString()})
+	created, err := st.Workflows.Create(t.Context(), workflowstore.Config{Name: "workflow-" + uuid.NewString(), Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"}})
 	require.NoError(t, err)
 	require.NotNil(t, created)
 
@@ -963,7 +963,7 @@ func worktreeConfig(t *testing.T, name string) workflowstore.Config {
 	return workflowstore.Config{
 		Name:     name,
 		Cwd:      fakeCheckout(t),
-		Worktree: workflowstore.WorktreeConfig{Enabled: true},
+		Worktree: workflowstore.WorktreeConfig{Enabled: true, BaseBranch: "main"},
 	}
 }
 

@@ -287,7 +287,7 @@ func TestRestore(t *testing.T) {
 			}
 			scope := st.defaultWorkflow
 			if tt.withWorkflow {
-				workflow, err := workflows.Create(ctx, workflowstore.Config{Name: "backend"})
+				workflow, err := workflows.Create(ctx, workflowstore.Config{Name: "backend", Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"}})
 				require.NoError(t, err)
 				agent.WorkflowID = workflow.ID
 				scope = workflow.ID
@@ -433,7 +433,7 @@ func TestArchiveAndRestoreInBatches(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 
-	other, err := st.workflows.Create(ctx, workflowstore.Config{Name: "frontend"})
+	other, err := st.workflows.Create(ctx, workflowstore.Config{Name: "frontend", Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"}})
 	require.NoError(t, err)
 
 	names := map[string]string{"auth": st.defaultWorkflow, "api": st.defaultWorkflow, "ui": other.ID}

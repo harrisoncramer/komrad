@@ -12,6 +12,12 @@ Ultimately, each workflow setting for an agent can be overridden at the moment w
 
 Workflows also hold shared context. Represented as free text, this is appended to the system prompt of every agent created inside the workflow.
 
+## The base branch
+
+Every workflow names a base branch. It is the branch worktrees are cut from, the branch a review round is diffed against, and the branch a rebase moves an agent onto, so it is chosen once and stored rather than worked out on every pass. Leave it blank when creating the workflow and weave fills it in from the clone at `cwd`: what `origin/HEAD` names there, else the branch the checkout is on, else `main`. The response and the form show what was stored, and editing the workflow later requires one.
+
+A base the clone does not hold is reported rather than replaced: a rebase or a review round refuses naming the branch, the worktrees screen says why it cannot measure the directory, and `weave doctor` lists every workflow whose base its clone cannot resolve. Fetch the branch, or update the workflow to one the clone has.
+
 ## Where the worktrees go
 
 A worktree workflow makes its worktrees in the directory your [config](../config.toml) names under `[worktrees]`, which every workflow shares. Some repositories will not have that: their own tooling expects worktrees in a particular place, and finds nothing when an agent's checkout is somewhere else. A monorepo might assign each worktree under `.worktrees` its own ports and docker project, keyed on the directory it sits in.

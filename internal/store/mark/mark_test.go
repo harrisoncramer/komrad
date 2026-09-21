@@ -29,7 +29,7 @@ func open(t *testing.T) *fixture {
 	t.Cleanup(func() { _ = pool.Close() })
 
 	workflows := workflowstore.New(pool.GetDB())
-	created, err := workflows.Create(t.Context(), workflowstore.Config{Name: "default"})
+	created, err := workflows.Create(t.Context(), workflowstore.Config{Name: "default", Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"}})
 	require.NoError(t, err)
 
 	return &fixture{
@@ -58,7 +58,7 @@ func (f *fixture) seedAgent(t *testing.T, name string) string {
 func (f *fixture) seedWorkflow(t *testing.T, name string) string {
 	t.Helper()
 
-	created, err := f.workflows.Create(t.Context(), workflowstore.Config{Name: name})
+	created, err := f.workflows.Create(t.Context(), workflowstore.Config{Name: name, Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"}})
 	require.NoError(t, err)
 
 	return created.ID

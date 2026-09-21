@@ -121,7 +121,7 @@ func TestDeletingClaimHidesTheWorkflow(t *testing.T) {
 			f, agents := New(pool.GetDB()), agentstore.New(pool.GetDB())
 			ctx := t.Context()
 
-			created, err := f.Create(ctx, Config{Name: "backend"})
+			created, err := f.Create(ctx, Config{Name: "backend", Worktree: WorktreeConfig{BaseBranch: "main"}})
 			require.NoError(t, err)
 			var ids []string
 			for i := range tt.agents {

@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -141,6 +142,8 @@ type workflowConfigParams struct {
 	Values    *workflowFormValues
 	Hooks     []hookChoice
 	Keys      config.FormKeys
+	// Editing says the workflow already exists and its base branch is required.
+	Editing bool
 }
 
 func workflowConfigForm(params workflowConfigParams) (form *huh.Form, order []string) {
@@ -162,7 +165,7 @@ func workflowConfigForm(params workflowConfigParams) (form *huh.Form, order []st
 	)
 
 	if values.Provisioner == provisionerWorktree {
-		fields = append(fields, worktreeDetailFields(values)...)
+		fields = append(fields, worktreeDetailFields(values, params.Editing)...)
 	}
 
 	fields = append(fields, hookFields(values, params.Hooks)...)
@@ -172,10 +175,9 @@ func workflowConfigForm(params workflowConfigParams) (form *huh.Form, order []st
 	return formOf(keys, fields...)
 }
 
-func worktreeDetailFields(values *workflowFormValues) []huh.Field {
+func worktreeDetailFields(values *workflowFormValues, editing bool) []huh.Field {
 	return []huh.Field{
-		huh.NewInput().Key("worktree_base_branch").Title("Worktree base branch").
-			Placeholder("repo's default branch").Value(&values.WorktreeBaseBranch),
+		baseBranchField(values, editing),
 		huh.NewInput().Key("worktree_dir").Title("Worktree parent directory").
 			Description("where this workflow's worktrees are made, for a repo that expects them somewhere of its own").
 			Placeholder("the configured worktrees directory").Value(&values.WorktreeDir),
@@ -189,6 +191,25 @@ func worktreeDetailFields(values *workflowFormValues) []huh.Field {
 			Description("one path or glob per line, left out of the diff the review screen draws, such as proto/gen or *.pb.go").
 			Lines(2).Value(&values.WorktreeDiffExclude),
 	}
+}
+
+// baseBranchField is the branch worktrees are cut from, filled in from the clone on create and
+// required once stored.
+func baseBranchField(values *workflowFormValues, editing bool) huh.Field {
+	field := huh.NewInput().Key("worktree_base_branch").Title("Worktree base branch").
+		Value(&values.WorktreeBaseBranch)
+	if !editing {
+		return field.Description("left blank, it is read from the clone: origin/HEAD, else the branch the checkout is on")
+	}
+
+	return field.Description("the branch every agent's work is measured against").
+		Validate(func(name string) error {
+			if strings.TrimSpace(name) == "" {
+				return errors.New("a workflow's base branch cannot be blank")
+			}
+
+			return nil
+		})
 }
 
 // hookOptionsShown bounds one moment's list, so five moments and everything above them still
