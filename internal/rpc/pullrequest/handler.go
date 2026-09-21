@@ -17,6 +17,7 @@ import (
 	pullrequeststore "weave/internal/store/pullrequest"
 	"weave/lib/dates"
 	"weave/lib/pagination"
+	"weave/lib/xslice"
 	pullrequestv1 "weave/proto/gen/pullrequest/v1"
 )
 
@@ -119,10 +120,7 @@ func (s *Handler) ListPullRequests(ctx context.Context, req *pullrequestv1.ListP
 		return nil, rpcerr.From(err, "failed to list the pull requests")
 	}
 
-	resources := make([]*pullrequestv1.PullRequest, 0, len(listed.PullRequests))
-	for _, pullRequest := range listed.PullRequests {
-		resources = append(resources, renderPullRequest(pullRequest))
-	}
+	resources := xslice.Map(listed.PullRequests, renderPullRequest)
 
 	response := &pullrequestv1.ListPullRequestsResponse{PullRequests: resources}
 	if listed.HasMore {

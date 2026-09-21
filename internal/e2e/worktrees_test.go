@@ -10,6 +10,7 @@ import (
 
 	worktreestore "weave/internal/store/worktree"
 	"weave/internal/weavetest"
+	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
 	worktreev1 "weave/proto/gen/worktree/v1"
@@ -113,10 +114,9 @@ func TestDeletingAnAgentTakesItsWorktreeOutOfTheListing(t *testing.T) {
 
 	listed, err := instance.Worktrees.ListWorktrees(ctx, connect.NewRequest(&emptypb.Empty{}))
 	require.NoError(t, err)
-	dirs := make([]string, 0, len(listed.Msg.GetWorktrees()))
-	for _, found := range listed.Msg.GetWorktrees() {
-		dirs = append(dirs, found.GetDir())
-	}
+	dirs := xslice.Map(listed.Msg.GetWorktrees(), func(found *worktreev1.Worktree) string {
+		return found.GetDir()
+	})
 	assert.Equal(t, []string{orphan}, dirs, "the directory leaves the listing as soon as the delete claims it")
 
 	require.EventuallyWithT(t, func(c *assert.CollectT) {

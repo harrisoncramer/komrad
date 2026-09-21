@@ -17,8 +17,10 @@ import (
 	"weave/internal/harness"
 	"weave/internal/harness/claude"
 	"weave/internal/harness/codex"
+	"weave/lib/xslice"
 	"weave/proto/gen/agent/v1/agentv1connect"
 
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -208,10 +210,9 @@ func TestClampReason(t *testing.T) {
 // TestEveryInstalledHookHasASubcommand pins that each event weave points a harness at is
 // answered by a subcommand of weave hook.
 func TestEveryInstalledHookHasASubcommand(t *testing.T) {
-	var names []string
-	for _, cmd := range hookCmd(&app{}).Commands() {
-		names = append(names, cmd.Name())
-	}
+	names := xslice.Map(hookCmd(&app{}).Commands(), func(cmd *cobra.Command) string {
+		return cmd.Name()
+	})
 
 	for event, install := range claude.InstalledHooks {
 		assert.Contains(t, names, install.Subcommand, "the %s hook runs weave hook %s", event, install.Subcommand)

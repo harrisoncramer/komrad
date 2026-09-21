@@ -3,6 +3,8 @@ package doctor
 import (
 	"testing"
 
+	"weave/lib/xslice"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -67,10 +69,9 @@ func TestChecksAreWellFormed(t *testing.T) {
 func TestChecksMakesEveryCheckOnce(t *testing.T) {
 	settings := Settings{Harnesses: []HarnessInfo{{ID: "claude", Binary: "claude"}}}
 
-	names := make([]string, 0)
-	for _, check := range Checks(settings) {
-		names = append(names, check.Name)
-	}
+	names := xslice.Map(Checks(settings), func(check Check) string {
+		return check.Name
+	})
 
 	assert.Equal(t, []string{
 		"tmux",

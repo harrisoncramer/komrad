@@ -7,6 +7,7 @@ import (
 	"weave/internal/forge"
 	"weave/internal/storetest"
 	"weave/lib/xptr"
+	"weave/lib/xslice"
 
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
@@ -270,10 +271,9 @@ func TestListPage(t *testing.T) {
 	require.NoError(t, st.Agents.MarkDeleting(ctx, []string{deleting.ID, archivedDeleting.ID}))
 
 	names := func(rows []rowstore.Row) []string {
-		listed := make([]string, 0, len(rows))
-		for _, row := range rows {
-			listed = append(listed, row.Name)
-		}
+		listed := xslice.Map(rows, func(row rowstore.Row) string {
+			return row.Name
+		})
 
 		return listed
 	}

@@ -3,6 +3,8 @@ package position
 import (
 	"cmp"
 	"slices"
+
+	"weave/lib/xslice"
 )
 
 // TransformParams says which places to move, what happened to their files, and what to do with a
@@ -35,14 +37,14 @@ func Transform(params TransformParams) []Result {
 			continue
 		}
 
-		for _, mapping := range mappings {
-			results = append(results, transformOne(transformOneParams{
+		results = append(results, xslice.Map(mappings, func(mapping Mapping) Result {
+			return transformOne(transformOneParams{
 				Index:    index,
 				Position: current,
 				Mapping:  mapping,
 				Policy:   params.Policy,
-			}))
-		}
+			})
+		})...)
 	}
 
 	return results

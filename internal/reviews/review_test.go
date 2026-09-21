@@ -1941,10 +1941,9 @@ func TestAReleasedReviewLeavesRoomForPeerMail(t *testing.T) {
 	claimed, err := mailer.ClaimMail(t.Context(), reviewedAgentID)
 	require.NoError(t, err)
 
-	bodies := make([]string, 0, len(claimed))
-	for _, held := range claimed {
-		bodies = append(bodies, held.Body)
-	}
+	bodies := xslice.Map(claimed, func(held mailstore.Mail) string {
+		return held.Body
+	})
 
 	assert.Contains(t, bodies, "here is the answer you asked for", "the peer's mail is in the batch the agent reads")
 }

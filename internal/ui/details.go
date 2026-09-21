@@ -482,9 +482,9 @@ func (m model) noticeLines(n notice, most int) []string {
 	}
 
 	lines := []string{"  " + icon + " " + dimStyle.Render(text[0])}
-	for _, line := range text[1:] {
-		lines = append(lines, indent+dimStyle.Render(line))
-	}
+	lines = append(lines, xslice.Map(text[1:], func(line string) string {
+		return indent + dimStyle.Render(line)
+	})...)
 
 	return lines
 }

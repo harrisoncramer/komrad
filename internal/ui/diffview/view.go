@@ -7,6 +7,7 @@ import (
 	"slices"
 
 	"weave/internal/diff"
+	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
 )
 
@@ -136,15 +137,15 @@ func (v *View) build() {
 			continue
 		}
 
-		for _, metadata := range file.Metadata {
-			v.rows = append(v.rows, row{
+		v.rows = append(v.rows, xslice.Map(file.Metadata, func(metadata string) row {
+			return row{
 				kind: metadataRow,
 				file: fileIndex,
 				hunk: -1,
 				line: -1,
 				text: metadata,
-			})
-		}
+			}
+		})...)
 
 		for hunkIndex := range file.Hunks {
 			hunk := &file.Hunks[hunkIndex]

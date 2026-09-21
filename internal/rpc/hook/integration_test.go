@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"weave/lib/xslice"
 	hookv1weave "weave/proto/gen/hook/v1/hookv1weave"
 
 	"weave/config"
@@ -58,10 +59,9 @@ func TestHookServiceOverHTTP(t *testing.T) {
 }
 
 func names(listed []*hookv1.Hook) []string {
-	found := make([]string, 0, len(listed))
-	for _, hook := range listed {
-		found = append(found, hook.GetName())
-	}
+	found := xslice.Map(listed, func(hook *hookv1.Hook) string {
+		return hook.GetName()
+	})
 
 	return found
 }

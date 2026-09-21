@@ -9,6 +9,7 @@ import (
 	"weave/internal/ui/paint"
 	"weave/internal/ui/panel"
 	"weave/lib/xptr"
+	"weave/lib/xslice"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
@@ -431,10 +432,9 @@ func filterModeScreens() model {
 }
 
 func scheduleNames(rows []scheduleItem) []string {
-	names := make([]string, 0, len(rows))
-	for _, row := range rows {
-		names = append(names, row.schedule.Name)
-	}
+	names := xslice.Map(rows, func(row scheduleItem) string {
+		return row.schedule.Name
+	})
 
 	return names
 }

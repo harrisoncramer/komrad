@@ -9,6 +9,7 @@ import (
 	"weave/internal/errui"
 	"weave/internal/ui/layout"
 	"weave/internal/ui/panel"
+	"weave/lib/xslice"
 	hookv1 "weave/proto/gen/hook/v1"
 	"weave/proto/gen/hook/v1/hookv1connect"
 	workflowv1 "weave/proto/gen/workflow/v1"
@@ -285,10 +286,9 @@ func TestApplyWorkflows(t *testing.T) {
 
 			m.applyWorkflows(tt.fresh)
 
-			names := make([]string, 0, len(m.listing.workflows))
-			for _, w := range m.listing.workflows {
-				names = append(names, w.Name)
-			}
+			names := xslice.Map(m.listing.workflows, func(w panel.Workflow) string {
+				return w.Name
+			})
 			assert.Equal(t, tt.wantNames, names)
 		})
 	}

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"weave/internal/frames"
+	"weave/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -22,10 +23,9 @@ func written(t *testing.T, dir, agentID string) []string {
 	}
 	require.NoError(t, err)
 
-	var names []string
-	for _, entry := range entries {
-		names = append(names, entry.Name())
-	}
+	names := xslice.Map(entries, func(entry os.DirEntry) string {
+		return entry.Name()
+	})
 
 	return names
 }

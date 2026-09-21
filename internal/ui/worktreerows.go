@@ -111,9 +111,9 @@ func worktreeRows(items []worktreeItem, order sortOrder) []worktreeRow {
 				return strings.Compare(a.dir, b.dir)
 			},
 		})
-		for _, item := range members {
-			rows = append(rows, worktreeRow{repo: heading, item: item})
-		}
+		rows = append(rows, xslice.Map(members, func(item worktreeItem) worktreeRow {
+			return worktreeRow{repo: heading, item: item}
+		})...)
 	}
 
 	return rows

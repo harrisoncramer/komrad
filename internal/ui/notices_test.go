@@ -7,6 +7,7 @@ import (
 
 	"weave/internal/ui/panel"
 	"weave/lib/xptr"
+	"weave/lib/xslice"
 
 	"weave/internal/git"
 	"weave/internal/view"
@@ -86,10 +87,9 @@ func TestNoticesAreOrderedByUrgency(t *testing.T) {
 		failedRun:  true,
 	}
 
-	texts := make([]string, 0, len(agentNotices(noticeRow(item))))
-	for _, n := range agentNotices(noticeRow(item)) {
-		texts = append(texts, n.text)
-	}
+	texts := xslice.Map(agentNotices(noticeRow(item)), func(n notice) string {
+		return n.text
+	})
 
 	assert.Equal(t, []string{
 		failedToCleanupNotice,

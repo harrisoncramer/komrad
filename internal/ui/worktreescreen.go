@@ -461,22 +461,20 @@ func entryName(entry worktreeEntry) string {
 }
 
 func changeLines(read worktreeInspection) []string {
-	var lines []string
-	for _, path := range read.modified {
-		lines = append(lines, "M "+path)
-	}
-	for _, path := range read.untracked {
-		lines = append(lines, "? "+path)
-	}
+	lines := xslice.Map(read.modified, func(path string) string {
+		return "M " + path
+	})
+	lines = append(lines, xslice.Map(read.untracked, func(path string) string {
+		return "? " + path
+	})...)
 
 	return lines
 }
 
 func commitLines(commits []worktreeCommit) []string {
-	var lines []string
-	for _, commit := range commits {
-		lines = append(lines, fmt.Sprintf("%s  %-4s %s", git.ShortSHA(commit.sha), label.Age(commit.committedAt), commit.subject))
-	}
+	lines := xslice.Map(commits, func(commit worktreeCommit) string {
+		return fmt.Sprintf("%s  %-4s %s", git.ShortSHA(commit.sha), label.Age(commit.committedAt), commit.subject)
+	})
 
 	return lines
 }

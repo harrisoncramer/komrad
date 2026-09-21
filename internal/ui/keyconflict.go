@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"weave/config"
+	"weave/lib/xslice"
 
 	"github.com/charmbracelet/bubbles/key"
 )
@@ -149,13 +150,13 @@ func dispatchOrder(s screen, keys config.Keybindings) []dispatchArm {
 		return arms
 	}
 
-	for _, a := range spec.table {
-		arms = append(arms, dispatchArm{
+	arms = append(arms, xslice.Map(spec.table, func(a action) dispatchArm {
+		return dispatchArm{
 			describe: "an action of the screen's own",
 			keys:     a.keys(keys),
 			guarded:  a.when != nil,
-		})
-	}
+		}
+	})...)
 
 	return arms
 }

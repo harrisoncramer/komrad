@@ -8,6 +8,7 @@ import (
 	"weave/internal/agents"
 	"weave/internal/fail"
 	"weave/internal/rpcerr"
+	"weave/lib/xslice"
 	hookv1 "weave/proto/gen/hook/v1"
 
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -35,16 +36,15 @@ func (s *Handler) ListHooks(_ context.Context, _ *emptypb.Empty) (*hookv1.ListHo
 		return nil, rpcerr.From(err, "failed to list hooks")
 	}
 
-	resources := make([]*hookv1.Hook, 0, len(listed))
-	for _, hook := range listed {
-		resources = append(resources, &hookv1.Hook{
+	resources := xslice.Map(listed, func(hook agents.Script) *hookv1.Hook {
+		return &hookv1.Hook{
 			Name:           hook.Name,
 			Executable:     hook.Executable,
 			Description:    hook.Header.Description,
 			Timeout:        declaredTimeout(hook.Header.Timeout),
 			HeaderProblems: hook.Header.Problems,
-		})
-	}
+		}
+	})
 
 	return &hookv1.ListHooksResponse{Hooks: resources}, nil
 }

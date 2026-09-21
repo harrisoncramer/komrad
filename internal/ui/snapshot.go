@@ -6,6 +6,7 @@ import (
 	"weave/internal/git"
 	"weave/internal/ui/panel"
 	"weave/internal/view"
+	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
 	pullrequestv1 "weave/proto/gen/pullrequest/v1"
 )
@@ -38,10 +39,9 @@ type snapshotParams struct {
 
 // agentsSnapshot reads the listing into the plain data the agents list draws itself from.
 func agentsSnapshot(params snapshotParams) view.Snapshot {
-	rows := make([]view.Row, 0, len(params.rows))
-	for _, r := range params.rows {
-		rows = append(rows, snapshotRow(r, params))
-	}
+	rows := xslice.Map(params.rows, func(r agentRow) view.Row {
+		return snapshotRow(r, params)
+	})
 
 	return view.Snapshot{
 		Rows:          rows,
@@ -164,10 +164,9 @@ func matchesIn(matcher *regexp.Regexp, name string) []view.Span {
 		return nil
 	}
 
-	spans := make([]view.Span, 0, len(found))
-	for _, at := range found {
-		spans = append(spans, view.Span{Start: at[0], End: at[1]})
-	}
+	spans := xslice.Map(found, func(at []int) view.Span {
+		return view.Span{Start: at[0], End: at[1]}
+	})
 
 	return spans
 }

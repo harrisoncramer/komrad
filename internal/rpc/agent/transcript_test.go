@@ -6,6 +6,7 @@ import (
 
 	"weave/internal/rpcerr"
 	"weave/lib/pagination"
+	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
 
 	transcriptstore "weave/internal/store/transcript"
@@ -319,15 +320,14 @@ func TestGetLastTurns(t *testing.T) {
 
 			require.NoError(t, err)
 
-			read := make([]lastTurn, 0, len(got.Msg.GetTurns()))
-			for _, turn := range got.Msg.GetTurns() {
-				read = append(read, lastTurn{
+			read := xslice.Map(got.Msg.GetTurns(), func(turn *agentv1.Turn) lastTurn {
+				return lastTurn{
 					role:      turn.GetRole(),
 					seq:       turn.GetSeq(),
 					content:   turn.GetContent(),
 					truncated: turn.GetTruncated(),
-				})
-			}
+				}
+			})
 			assert.Equal(t, tt.want, read)
 		})
 	}

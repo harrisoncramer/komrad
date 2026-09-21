@@ -9,6 +9,7 @@ import (
 	"weave/internal/ui/paint/label"
 	"weave/internal/ui/panel"
 	"weave/lib/xptr"
+	"weave/lib/xslice"
 	pullrequestv1 "weave/proto/gen/pullrequest/v1"
 	"weave/proto/gen/pullrequest/v1/pullrequestv1connect"
 
@@ -133,10 +134,9 @@ func TestAgentFieldsPlaceThePullRequestAfterTheBranch(t *testing.T) {
 		agent:    agent,
 		standing: pullRequestStanding{state: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN, number: 7},
 	})
-	labels := make([]string, 0, len(fields))
-	for _, field := range fields {
-		labels = append(labels, field.label)
-	}
+	labels := xslice.Map(fields, func(field recordField) string {
+		return field.label
+	})
 
 	branch := indexOf(labels, "branch")
 	require.NotEqual(t, -1, branch)

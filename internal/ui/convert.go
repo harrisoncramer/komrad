@@ -110,25 +110,22 @@ func pullRequestStandingFrom(standing *agentv1.PullRequestStanding) pullRequestS
 }
 
 func agentPullRequestsFrom(listed *pullrequestv1.ListAgentPullRequestsResponse) agentPullRequests {
-	read := agentPullRequests{
+	return agentPullRequests{
 		answered: true,
 		readAt:   dates.ParsePtr(listed.GetRepositoryReadAt()),
-		items:    make([]agentPullRequest, 0, len(listed.GetPullRequests())),
+		items: xslice.Map(listed.GetPullRequests(), func(pullRequest *pullrequestv1.AgentPullRequest) agentPullRequest {
+			return agentPullRequest{
+				number:   pullRequest.GetNumber(),
+				url:      pullRequest.GetUrl(),
+				title:    pullRequest.GetTitle(),
+				state:    pullRequest.GetState(),
+				current:  pullRequest.GetCurrent(),
+				openedAt: dates.Parse(pullRequest.GetOpenedAt()),
+				mergedAt: dates.ParsePtr(pullRequest.GetMergedAt()),
+				closedAt: dates.ParsePtr(pullRequest.GetClosedAt()),
+			}
+		}),
 	}
-	for _, pullRequest := range listed.GetPullRequests() {
-		read.items = append(read.items, agentPullRequest{
-			number:   pullRequest.GetNumber(),
-			url:      pullRequest.GetUrl(),
-			title:    pullRequest.GetTitle(),
-			state:    pullRequest.GetState(),
-			current:  pullRequest.GetCurrent(),
-			openedAt: dates.Parse(pullRequest.GetOpenedAt()),
-			mergedAt: dates.ParsePtr(pullRequest.GetMergedAt()),
-			closedAt: dates.ParsePtr(pullRequest.GetClosedAt()),
-		})
-	}
-
-	return read
 }
 
 // standingFrom is a standing as the wire carries it.

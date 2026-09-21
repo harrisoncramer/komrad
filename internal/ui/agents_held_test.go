@@ -8,10 +8,12 @@ import (
 	"weave/config"
 	"weave/internal/ui/layout"
 	"weave/internal/ui/panel"
+	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
 
 	"connectrpc.com/connect"
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -213,10 +215,9 @@ func heldSaid(said []string) []string {
 
 // noticeTexts is what a row's notices say, without their icons.
 func noticeTexts(notices []notice) []string {
-	said := make([]string, 0, len(notices))
-	for _, n := range notices {
-		said = append(said, n.text)
-	}
+	said := xslice.Map(notices, func(n notice) string {
+		return n.text
+	})
 
 	return said
 }
@@ -286,19 +287,17 @@ func TestAPausedRowNamesTheWayOutOfThePause(t *testing.T) {
 
 	m := heldModel(&recordingHolds{}, &at)
 
-	var descs []string
-	for _, b := range m.agentHelp().full {
-		descs = append(descs, b.Help().Key+" "+b.Help().Desc)
-	}
+	descs := xslice.Map(m.agentHelp().full, func(b key.Binding) string {
+		return b.Help().Key + " " + b.Help().Desc
+	})
 
 	assert.Contains(t, descs, "P unpause in silence")
 
 	loose := heldModel(&recordingHolds{}, nil)
 
-	var others []string
-	for _, b := range loose.agentHelp().full {
-		others = append(others, b.Help().Desc)
-	}
+	others := xslice.Map(loose.agentHelp().full, func(b key.Binding) string {
+		return b.Help().Desc
+	})
 
 	assert.NotContains(t, others, "unpause in silence", "a row nobody is holding has no pause to get out of")
 }

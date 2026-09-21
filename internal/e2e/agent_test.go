@@ -9,6 +9,7 @@ import (
 	"weave/internal/harness"
 	agentstore "weave/internal/store/agent"
 	"weave/internal/weavetest"
+	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
 
@@ -185,10 +186,9 @@ func names(t *testing.T, instance *weavetest.Instance, archived bool) []string {
 	}))
 	require.NoError(t, err)
 
-	found := make([]string, 0, len(listed.Msg.GetAgents()))
-	for _, agent := range listed.Msg.GetAgents() {
-		found = append(found, agent.GetName())
-	}
+	found := xslice.Map(listed.Msg.GetAgents(), func(agent *agentv1.Agent) string {
+		return agent.GetName()
+	})
 
 	return found
 }

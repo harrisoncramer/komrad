@@ -8,6 +8,7 @@ import (
 
 	"weave/db/models"
 	"weave/internal/store"
+	"weave/lib/xslice"
 )
 
 // Mark is one letter and the row it names, exactly one of which is set.
@@ -33,14 +34,13 @@ func (s *Store) List(ctx context.Context) ([]Mark, error) {
 		return nil, fmt.Errorf("failed to list marks: %w", err)
 	}
 
-	marks := make([]Mark, 0, len(rows))
-	for _, row := range rows {
-		marks = append(marks, Mark{
+	marks := xslice.Map(rows, func(row *models.ListMarksRow) Mark {
+		return Mark{
 			Mark:       row.Mark,
 			AgentID:    row.AgentID,
 			WorkflowID: row.WorkflowID,
-		})
-	}
+		}
+	})
 
 	return marks, nil
 }

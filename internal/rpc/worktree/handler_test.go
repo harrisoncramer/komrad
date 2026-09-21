@@ -10,6 +10,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	worktreestore "weave/internal/store/worktree"
 	"weave/internal/worktrees"
+	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
 	worktreev1 "weave/proto/gen/worktree/v1"
 	worktreev1weave "weave/proto/gen/worktree/v1/worktreev1weave"
@@ -223,10 +224,9 @@ func TestListWorktreesLeavesOutTheClaimed(t *testing.T) {
 			resp, err := newService(fake).ListWorktrees(t.Context(), connect.NewRequest(&emptypb.Empty{}))
 			require.NoError(t, err)
 
-			var dirs []string
-			for _, worktree := range resp.Msg.GetWorktrees() {
-				dirs = append(dirs, worktree.GetDir())
-			}
+			dirs := xslice.Map(resp.Msg.GetWorktrees(), func(worktree *worktreev1.Worktree) string {
+				return worktree.GetDir()
+			})
 			assert.Equal(t, tt.want, dirs)
 		})
 	}

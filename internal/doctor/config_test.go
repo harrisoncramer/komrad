@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"weave/config"
+	"weave/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -194,10 +195,9 @@ func TestHarnessChecksFollowTheRegistry(t *testing.T) {
 		{ID: "aider", Binary: "aider"},
 	}})
 
-	names := make([]string, 0, len(checks))
-	for _, check := range checks {
-		names = append(names, check.Name)
-	}
+	names := xslice.Map(checks, func(check Check) string {
+		return check.Name
+	})
 
 	assert.Contains(t, names, "claude")
 	assert.Contains(t, names, "codex")

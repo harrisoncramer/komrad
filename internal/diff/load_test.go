@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"weave/internal/git"
+	"weave/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -71,10 +72,9 @@ func loadRound(t *testing.T, root string, exclude ...string) *Patch {
 }
 
 func paths(patch *Patch) []string {
-	found := make([]string, 0, len(patch.Files))
-	for _, file := range patch.Files {
-		found = append(found, file.Path())
-	}
+	found := xslice.Map(patch.Files, func(file File) string {
+		return file.Path()
+	})
 
 	slices.Sort(found)
 

@@ -18,6 +18,7 @@ import (
 	mailstore "weave/internal/store/mail"
 	reviewstore "weave/internal/store/review"
 	workflowstore "weave/internal/store/workflow"
+	"weave/lib/xslice"
 )
 
 // interruptSettleFor is how long the agent is given to act on the interrupt keys before the
@@ -191,10 +192,9 @@ func (s *ReviewService) ListReviewThreads(
 		return nil, nil
 	}
 
-	ids := make([]string, 0, len(threads))
-	for _, thread := range threads {
-		ids = append(ids, thread.ID)
-	}
+	ids := xslice.Map(threads, func(thread reviewstore.Thread) string {
+		return thread.ID
+	})
 
 	messages, err := s.messages.ListMessages(ctx, ids)
 	if err != nil {

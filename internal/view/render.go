@@ -5,16 +5,16 @@ import (
 
 	"weave/internal/ui/paint"
 	"weave/internal/ui/paint/label"
+	"weave/lib/xslice"
 
 	"github.com/charmbracelet/lipgloss"
 )
 
 // Rows draws every row of the agents list as its own string.
 func Rows(list List, palette paint.Palette, width int) []string {
-	rows := make([]string, 0, len(list.Lines))
-	for _, line := range list.Lines {
-		rows = append(rows, renderLine(line, list.Columns, palette, width))
-	}
+	rows := xslice.Map(list.Lines, func(line Line) string {
+		return renderLine(line, list.Columns, palette, width)
+	})
 
 	return rows
 }
@@ -26,9 +26,9 @@ func renderLine(line Line, columns Columns, palette paint.Palette, width int) st
 		drawGutterCell(palette, line.Focus),
 		drawGutterCell(palette, line.Mark),
 	}
-	for _, cell := range drawnColumnCells(line, columns) {
-		cells = append(cells, drawGutterCell(palette, cell))
-	}
+	cells = append(cells, xslice.Map(drawnColumnCells(line, columns), func(cell Cell) string {
+		return drawGutterCell(palette, cell)
+	})...)
 
 	gutter := strings.Join(append(cells, drawGutterCell(palette, line.Status)), " ")
 

@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"weave/internal/position"
+	"weave/lib/xslice"
 
 	"github.com/bluekeyes/go-gitdiff/gitdiff"
 )
@@ -52,16 +53,15 @@ func mapPatch(raw []byte) ([]position.Mapping, error) {
 		return nil, fmt.Errorf("failed to parse a patch: %w", err)
 	}
 
-	mappings := make([]position.Mapping, 0, len(files))
-	for _, file := range files {
-		mappings = append(mappings, position.Mapping{
+	mappings := xslice.Map(files, func(file *gitdiff.File) position.Mapping {
+		return position.Mapping{
 			File: position.FileMapping{
 				OldPath: FilePath(file.OldName),
 				NewPath: FilePath(file.NewName),
 			},
 			Ranges: rangesOf(file),
-		})
-	}
+		}
+	})
 
 	return mappings, nil
 }
@@ -90,13 +90,12 @@ func rangesOf(file *gitdiff.File) []position.RangeMapping {
 		return nil
 	}
 
-	ranges := make([]position.RangeMapping, 0, len(file.TextFragments))
-	for _, fragment := range file.TextFragments {
-		ranges = append(ranges, position.RangeMapping{
+	ranges := xslice.Map(file.TextFragments, func(fragment *gitdiff.TextFragment) position.RangeMapping {
+		return position.RangeMapping{
 			Old: rangeOf(fragment.OldPosition, fragment.OldLines),
 			New: rangeOf(fragment.NewPosition, fragment.NewLines),
-		})
-	}
+		}
+	})
 
 	return ranges
 }

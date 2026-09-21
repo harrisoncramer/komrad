@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"weave/internal/view"
+	"weave/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -23,10 +24,9 @@ func measuring(t *testing.T, glyphColumns int) Env {
 		MeasureColumns: func(_ context.Context, samples []string) ([]int, error) {
 			require.Len(t, samples, len(calibration)+len(view.Drawings()))
 
-			columns := make([]int, 0, len(samples))
-			for _, drawn := range calibration {
-				columns = append(columns, drawn.Columns)
-			}
+			columns := xslice.Map(calibration, func(drawn view.Drawn) int {
+				return drawn.Columns
+			})
 			for range view.Drawings() {
 				columns = append(columns, glyphColumns)
 			}
@@ -58,13 +58,10 @@ func TestGlyphCheckSkipsWhenTheTerminalWalkedAway(t *testing.T) {
 // agreeing is an env whose terminal draws everything in the width the layout counts it as.
 func agreeing() Env {
 	return Env{
-		MeasureColumns: func(_ context.Context, samples []string) ([]int, error) {
-			columns := make([]int, 0, len(samples))
-			for _, drawn := range append(slices.Clone(calibration), view.Drawings()...) {
-				columns = append(columns, drawn.Columns)
-			}
-
-			return columns, nil
+		MeasureColumns: func(_ context.Context, _ []string) ([]int, error) {
+			return xslice.Map(slices.Concat(calibration, view.Drawings()), func(drawn view.Drawn) int {
+				return drawn.Columns
+			}), nil
 		},
 	}
 }

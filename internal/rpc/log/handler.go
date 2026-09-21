@@ -8,6 +8,7 @@ import (
 	"weave/internal/logging"
 	"weave/internal/logread"
 	"weave/internal/rpcerr"
+	"weave/lib/xslice"
 	logv1 "weave/proto/gen/log/v1"
 
 	"google.golang.org/protobuf/types/known/structpb"
@@ -59,15 +60,14 @@ func (s *Handler) ListRecentTraces(_ context.Context, req *logv1.ListRecentTrace
 		return nil, rpcerr.From(err, "failed to list the traces")
 	}
 
-	resources := make([]*logv1.TraceSummary, 0, len(summaries))
-	for _, summary := range summaries {
-		resources = append(resources, &logv1.TraceSummary{
+	resources := xslice.Map(summaries, func(summary logread.Summary) *logv1.TraceSummary {
+		return &logv1.TraceSummary{
 			TraceId:   summary.Trace,
 			StartedAt: summary.StartedAt,
 			What:      summary.What,
 			Lines:     int32(summary.Lines),
-		})
-	}
+		}
+	})
 
 	return &logv1.ListRecentTracesResponse{Traces: resources}, nil
 }

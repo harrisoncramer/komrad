@@ -7,6 +7,7 @@ import (
 
 	"weave/internal/store"
 	workflowstore "weave/internal/store/workflow"
+	"weave/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -535,10 +536,9 @@ func TestListForTranscriptSync(t *testing.T) {
 			listed, err := f.ListForTranscriptSync(ctx)
 			require.NoError(t, err)
 
-			ids := make([]string, 0, len(listed))
-			for _, agent := range listed {
-				ids = append(ids, agent.ID)
-			}
+			ids := xslice.Map(listed, func(agent Agent) string {
+				return agent.ID
+			})
 
 			if tt.wantsRead {
 				assert.Contains(t, ids, subject.ID)

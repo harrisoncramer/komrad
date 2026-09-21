@@ -5,6 +5,7 @@ import (
 
 	"weave/config"
 	"weave/internal/ui/panel"
+	"weave/lib/xslice"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/stretchr/testify/assert"
@@ -117,10 +118,9 @@ func TestApplyAgents(t *testing.T) {
 			require.True(t, ok, "the cursor is on an agent")
 			assert.Equal(t, tt.wantCursor, selected.agent.Name)
 
-			names := make([]string, 0, len(m.listing.agents))
-			for _, agent := range m.listing.agents {
-				names = append(names, agent.agent.Name)
-			}
+			names := xslice.Map(m.listing.agents, func(agent agentItem) string {
+				return agent.agent.Name
+			})
 			assert.Equal(t, tt.wantOrder, names)
 		})
 	}
@@ -183,14 +183,13 @@ func TestPlaceTreeCursorSkipsHeaderAfterAgentRemoved(t *testing.T) {
 const testWorkflowID = "w1"
 
 func items(names ...string) []agentItem {
-	out := make([]agentItem, 0, len(names))
-	for _, name := range names {
-		out = append(out, agentItem{agent: panel.Agent{
+	out := xslice.Map(names, func(name string) agentItem {
+		return agentItem{agent: panel.Agent{
 			ID:         name,
 			Name:       name,
 			WorkflowID: testWorkflowID,
-		}})
-	}
+		}}
+	})
 
 	return out
 }

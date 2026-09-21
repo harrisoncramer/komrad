@@ -712,10 +712,9 @@ func TestArchiveFields(t *testing.T) {
 	assert.Contains(t, fields, recordField{"session_id", "sess-1"})
 	assert.Contains(t, fields, recordField{"launched by", "nightly"})
 
-	labels := make([]string, 0, len(fields))
-	for _, field := range fields {
-		labels = append(labels, field.label)
-	}
+	labels := xslice.Map(fields, func(field recordField) string {
+		return field.label
+	})
 	assert.Contains(t, labels, "archived", "the record says when it was put away")
 }
 
@@ -956,10 +955,9 @@ func (f *fakeArchiveAgents) RestoreAgents(_ context.Context, req *connect.Reques
 	}
 	f.restored = append(f.restored, req.Msg.GetIds()...)
 
-	response := &agentv1.RestoreAgentsResponse{}
-	for _, id := range req.Msg.GetIds() {
-		response.Agents = append(response.Agents, &agentv1.Agent{Id: id, Name: "api-refactor"})
-	}
+	response := &agentv1.RestoreAgentsResponse{Agents: xslice.Map(req.Msg.GetIds(), func(id string) *agentv1.Agent {
+		return &agentv1.Agent{Id: id, Name: "api-refactor"}
+	})}
 
 	return connect.NewResponse(response), nil
 }
