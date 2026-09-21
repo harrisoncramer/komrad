@@ -12,6 +12,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 )
 
 const listWidth = 30
@@ -233,7 +234,7 @@ func (m model) rowLine(index int, row Row) string {
 		tail = paint.Panel.Style(paint.ToneSuccess).Render("ready")
 	}
 
-	return paint.Clip(marker+title+"  "+tail, listWidth)
+	return ansi.Truncate(marker+title+"  "+tail, listWidth, "…")
 }
 
 func (m model) preview() string {
