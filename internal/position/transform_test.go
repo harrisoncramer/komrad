@@ -471,7 +471,7 @@ func (s script) apply(old []string) []string {
 			next = append(next, old[cursor-1])
 		}
 
-		for written := 0; written < current.newLen; written++ {
+		for written := range current.newLen {
 			next = append(next, fmt.Sprintf("written %d.%d", index, written))
 		}
 
@@ -553,7 +553,7 @@ func TestASurvivingLineTracesToItself(t *testing.T) {
 		old[index] = fmt.Sprintf("original %d", index+1)
 	}
 
-	for round := 0; round < 200; round++ {
+	for round := range 200 {
 		edit := buildScript(random, fileLines)
 		next := edit.apply(old)
 
@@ -605,7 +605,7 @@ func TestAnInsertionPointIsPlacedOrRefused(t *testing.T) {
 
 	const fileLines = 50
 
-	for round := 0; round < 200; round++ {
+	for round := range 200 {
 		edit := buildScript(random, fileLines)
 
 		for gap := 1; gap <= fileLines+1; gap++ {
@@ -645,7 +645,7 @@ func TestEveryPositionIsAnsweredExactlyOnce(t *testing.T) {
 		old[index] = fmt.Sprintf("original %d", index+1)
 	}
 
-	for round := 0; round < 200; round++ {
+	for round := range 200 {
 		edit := buildScript(random, fileLines)
 
 		positions := make([]Position, 0, fileLines)
@@ -679,7 +679,7 @@ func TestOnlyARewrittenLineConflicts(t *testing.T) {
 
 	const fileLines = 50
 
-	for round := 0; round < 200; round++ {
+	for round := range 200 {
 		edit := buildScript(random, fileLines)
 
 		for line := 1; line <= fileLines; line++ {

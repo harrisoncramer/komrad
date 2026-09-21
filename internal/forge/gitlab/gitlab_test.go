@@ -424,12 +424,13 @@ func TestGetRefusesWhatIsNotAMergeRequest(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			_, err := f.Get(t.Context(), tt.address)
 			require.ErrorIs(t, err, forge.ErrNotPullRequest)
+			assert.Empty(t, fake.calls)
 		})
 	}
-
-	assert.Empty(t, fake.calls)
 }
 
 // TestListRefusesABarePath covers a repository path GitLab cannot address.

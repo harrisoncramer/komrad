@@ -139,7 +139,7 @@ func modulePath(path string) (string, error) {
 		return "", fmt.Errorf("failed to read %s: %w", path, err)
 	}
 
-	defer file.Close() //nolint:errcheck // a closed file is nothing the reader can act on
+	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {

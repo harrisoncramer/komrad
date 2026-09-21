@@ -48,7 +48,7 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	return migrate(ctx, pool, files)
 }
 
-// migrate applies the migrations in files
+// migrate applies the migrations in files.
 func migrate(ctx context.Context, pool *pgxpool.Pool, files fs.FS) error {
 	versions, err := listMigrationVersions(files)
 	if err != nil {

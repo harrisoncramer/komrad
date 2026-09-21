@@ -106,7 +106,7 @@ func appendCellNotice(notices []notice, cell view.Cell, text string) []notice {
 	return appendNotice(notices, !cell.IsBlank() && text != "", view.Spell(cell.Glyph), cell.Tone, text)
 }
 
-func appendNotice(notices []notice, show bool, icon string, tone paint.Tone, text string) []notice {
+func appendNotice(notices []notice, show bool, icon string, tone paint.Tone, text string) []notice { //nolint:revive // a params struct is the follow-up
 	if !show {
 		return notices
 	}

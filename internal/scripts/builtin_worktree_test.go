@@ -1172,7 +1172,7 @@ func TestBuiltinWorktreeCleanupLeavesAWorktreeItDoesNotOwnAloneWhenGitCannotAnsw
 func failingGitDir(t *testing.T, failFor string) string {
 	t.Helper()
 
-	real, err := exec.LookPath("git")
+	gitPath, err := exec.LookPath("git")
 	require.NoError(t, err)
 
 	dir := t.TempDir()
@@ -1181,7 +1181,7 @@ case " $* " in
 *%q*) echo "fatal: shimmed failure for %s" >&2; exit 1 ;;
 esac
 exec %q "$@"
-`, failFor, failFor, real)
+`, failFor, failFor, gitPath)
 
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "git"), []byte(shim), 0o755))
 

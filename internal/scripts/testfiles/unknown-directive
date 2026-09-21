@@ -1,5 +1,5 @@
 #!/bin/sh
-#WEAVE descriptoin="A key nobody spelled right."
+#WEAVE summary="A key weave does not read."
 #WEAVE tools.node="20"
 set -eu
 

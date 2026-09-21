@@ -268,7 +268,7 @@ func readStopHookPayload(body []byte) (*stopHookPayload, error) {
 }
 
 // reportHookEvent hands one hook payload to the harness that fired it and records what it read.
-func reportHookEvent(cmd *cobra.Command, state *app, harnessID string, event harness.Event, payload []byte) {
+func reportHookEvent(cmd *cobra.Command, state *app, harnessID string, event harness.Event, payload []byte) { //nolint:revive // a params struct is the follow-up
 	hn, err := state.harnesses.GetByID(harnessID)
 	if err != nil {
 		reportHookProblem(cmd, "weave has no harness to read the hook payload with, so nothing was recorded", err)

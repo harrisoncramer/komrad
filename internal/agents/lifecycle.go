@@ -161,7 +161,7 @@ func (s *LifecycleService) DeleteAgents(ctx context.Context, ids []string) error
 
 // tearDown runs a workflow's teardown hooks while the agent's directory is still there, then
 // lets the deprovisioner take it away.
-func (s *LifecycleService) tearDown(ctx context.Context, agent agentstore.Agent, hooks []workflowstore.Hook, deprovisioner string, done func(error)) {
+func (s *LifecycleService) tearDown(ctx context.Context, agent agentstore.Agent, hooks []workflowstore.Hook, deprovisioner string, done func(error)) { //nolint:revive // a params struct is the follow-up
 	// A hook has nothing to run against once the directory has gone.
 	if requireUsableDir(agent.Cwd) == nil {
 		// The deprovisioner waits until the teardown has worked.

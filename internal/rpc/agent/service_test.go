@@ -550,6 +550,7 @@ func TestUpdateAgent(t *testing.T) {
 			if tt.wantCode != 0 {
 				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
 				assert.NotContains(t, err.Error(), "constraint", "the driver's message stays server-side")
+
 				return
 			}
 
@@ -1790,6 +1791,7 @@ func TestPagedReadsRefuseAMangledToken(t *testing.T) {
 					Query:      "reconciler",
 					Pagination: page,
 				}))
+
 				return err
 			},
 		},

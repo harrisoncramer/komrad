@@ -87,6 +87,7 @@ func TestCreateAgentValidation(t *testing.T) {
 			if tt.wantErr {
 				assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
 				assert.Empty(t, launcher.got.Prompt, "a rejected request should never reach the launcher")
+
 				return
 			}
 

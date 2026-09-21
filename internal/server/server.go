@@ -53,8 +53,8 @@ type NewServerParams struct {
 // defaults.
 type mailConfig func() (*config.Config, error)
 
-func (load mailConfig) GetDeliveryDeadline() (time.Duration, error) {
-	cfg, err := load()
+func (c mailConfig) GetDeliveryDeadline() (time.Duration, error) {
+	cfg, err := c()
 	if err != nil {
 		return 0, fmt.Errorf("failed to read the config: %w", err)
 	}
@@ -62,8 +62,8 @@ func (load mailConfig) GetDeliveryDeadline() (time.Duration, error) {
 	return cfg.Mail.GetDeliveryDeadline()
 }
 
-func (load mailConfig) GetMaxExchange() (int, error) {
-	cfg, err := load()
+func (c mailConfig) GetMaxExchange() (int, error) {
+	cfg, err := c()
 	if err != nil {
 		return 0, fmt.Errorf("failed to read the config: %w", err)
 	}

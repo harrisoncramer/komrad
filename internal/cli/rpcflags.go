@@ -207,8 +207,8 @@ func describeField(field protoreflect.FieldDescriptor) string {
 
 	rules := rpcapi.GetRules(field)
 	if text := rules.GetString(); text != nil {
-		if max := text.GetMaxLen(); max > 0 {
-			parts = append(parts, fmt.Sprintf("at most %d characters", max))
+		if limit := text.GetMaxLen(); limit > 0 {
+			parts = append(parts, fmt.Sprintf("at most %d characters", limit))
 		}
 		if pattern := text.GetPattern(); pattern != "" {
 			parts = append(parts, "matching "+pattern)

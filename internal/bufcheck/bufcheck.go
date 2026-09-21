@@ -221,7 +221,7 @@ func fieldRules(field protoreflect.FieldDescriptor) *validate.FieldRules {
 	return rules
 }
 
-func requireLevel(
+func requireLevel( //nolint:revive // a params struct is the follow-up
 	responseWriter check.ResponseWriter,
 	method protoreflect.MethodDescriptor,
 	prefixes []string,

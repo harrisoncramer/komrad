@@ -422,6 +422,7 @@ func formKeyMap(keys config.FormKeys) *huh.KeyMap {
 
 	km := huh.NewDefaultKeyMap()
 	km.Quit = key.NewBinding(key.WithKeys(quit...), key.WithHelp(keyLabel(keys.Back), "back"))
+
 	return km
 }
 
@@ -442,7 +443,7 @@ func confirmForm(title, description, affirmative string, keys config.FormKeys) (
 }
 
 // confirmFormStartingOn builds a confirmation sitting on one of its two answers.
-func confirmFormStartingOn(confirmed bool, title, description, affirmative string, keys config.FormKeys) (*huh.Form, *bool) {
+func confirmFormStartingOn(confirmed bool, title, description, affirmative string, keys config.FormKeys) (*huh.Form, *bool) { //nolint:revive // a params struct is the follow-up
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewConfirm().

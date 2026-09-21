@@ -39,8 +39,8 @@ type worktreeItem struct {
 }
 
 // isMeasured reports whether the directory carries a size.
-func (item worktreeItem) isMeasured() bool {
-	return item.size != nil && item.size.err == ""
+func (i worktreeItem) isMeasured() bool {
+	return i.size != nil && i.size.err == ""
 }
 
 // worktreeEntry is one top-level entry of a directory.
@@ -82,18 +82,18 @@ type worktreeInspection struct {
 }
 
 // isStale reports whether the answer is old enough to ask for again.
-func (read worktreeInspection) isStale(now time.Time) bool {
-	return !read.answered || (!read.isSettled() && now.Sub(read.readAt) > worktreeReadTTL)
+func (r worktreeInspection) isStale(now time.Time) bool {
+	return !r.answered || (!r.isSettled() && now.Sub(r.readAt) > worktreeReadTTL)
 }
 
 // isRead reports whether git has answered for the directory.
-func (read worktreeInspection) isRead() bool {
-	return read.answered && (read.err == nil || read.item.dir != "")
+func (r worktreeInspection) isRead() bool {
+	return r.answered && (r.err == nil || r.item.dir != "")
 }
 
 // isSettled reports whether the answer is one that will never change.
-func (read worktreeInspection) isSettled() bool {
-	return read.answered && errui.IsNotFound(read.err)
+func (r worktreeInspection) isSettled() bool {
+	return r.answered && errui.IsNotFound(r.err)
 }
 
 type worktreesState struct {

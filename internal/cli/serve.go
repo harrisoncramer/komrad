@@ -227,11 +227,11 @@ func serve(ctx context.Context, params serveParams) error {
 	return failure
 }
 
-func closeWithin(logger *slog.Logger, what string, close func()) {
+func closeWithin(logger *slog.Logger, what string, fn func()) {
 	finished := xsync.WithinTimeout(closeTimeout, func() {
 		defer logging.LogAndRepanic(context.Background())
 
-		close()
+		fn()
 	})
 	if !finished {
 		logger.LogAttrs(context.Background(), slog.LevelWarn, "a database handle did not close in time",

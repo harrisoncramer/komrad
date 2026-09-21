@@ -35,7 +35,7 @@ func runWithEnv(ctx context.Context, dir string, env []string, args ...string) (
 
 // runInput is git run with something written to its standard input, for the commands that take
 // their paths that way rather than as arguments.
-func runInput(ctx context.Context, dir string, env []string, input []byte, args ...string) ([]byte, error) {
+func runInput(ctx context.Context, dir string, env []string, input []byte, args ...string) ([]byte, error) { //nolint:revive // a params struct is the follow-up
 	ctx, cancel := context.WithTimeout(ctx, commandTimeout)
 	defer cancel()
 

@@ -76,6 +76,7 @@ func TestParseCron(t *testing.T) {
 			if tt.wantErr {
 				require.ErrorIs(t, err, ErrBadCron)
 				assert.Nil(t, parsed)
+
 				return
 			}
 
@@ -215,6 +216,7 @@ func TestNewSchedule(t *testing.T) {
 				listed, listErr := st.Schedules.List(t.Context())
 				require.NoError(t, listErr)
 				assert.Empty(t, listed, "a refused schedule is not written")
+
 				return
 			}
 

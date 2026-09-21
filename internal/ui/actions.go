@@ -10,7 +10,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// actionID names one thing a screen does with a key
+// actionID names one thing a screen does with a key.
 type actionID int
 
 const (

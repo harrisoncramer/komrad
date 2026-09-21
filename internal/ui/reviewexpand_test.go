@@ -194,7 +194,7 @@ func TestACommentCanBeWrittenOnAnExpandedLine(t *testing.T) {
 	m = typeReviewMessage(t, m, "this one is unchanged and wrong")
 
 	next, cmd := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
-	m, ok = next.(model)
+	_, ok = next.(model)
 	require.True(t, ok)
 	require.NotNil(t, cmd)
 
