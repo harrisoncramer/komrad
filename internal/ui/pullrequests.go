@@ -60,7 +60,7 @@ type agentPullRequestsListedMsg struct {
 // listPullRequestsCmd asks the service for the hovered agent's pull requests, answered under the
 // agent's own id, and asks nothing while an answer for it is still on its way.
 func (m *model) listPullRequestsCmd() tea.Cmd {
-	item, ok := m.hoveredPullRequestAgent()
+	item, ok := m.hoveredRecordAgent()
 	if !ok {
 		return nil
 	}
@@ -94,7 +94,7 @@ func (m *model) listPullRequestsCmd() tea.Cmd {
 // listHoveredPullRequestsCmd asks for the hovered agent's pull requests where nothing has been
 // asked for it yet, or where its row's standing has moved since the answer.
 func (m *model) listHoveredPullRequestsCmd() tea.Cmd {
-	item, ok := m.hoveredPullRequestAgent()
+	item, ok := m.hoveredRecordAgent()
 	if !ok {
 		return nil
 	}
@@ -105,9 +105,9 @@ func (m *model) listHoveredPullRequestsCmd() tea.Cmd {
 	return m.listPullRequestsCmd()
 }
 
-// hoveredPullRequestAgent is the agent whose pull requests the record under the agents list is
-// about, and none on any other screen or row.
-func (m model) hoveredPullRequestAgent() (agentItem, bool) {
+// hoveredRecordAgent is the agent the record under the agents list is about, and none on any
+// other screen or row.
+func (m model) hoveredRecordAgent() (agentItem, bool) {
 	if m.screen != screenAgents {
 		return agentItem{}, false
 	}

@@ -82,7 +82,7 @@ func archiveTable() []action {
 			id:   actionFilterMatch,
 			keys: func(k config.Keybindings) []string { return concatKeys(k.Filter.NextMatch, k.Filter.PrevMatch) },
 			when: func(m model) bool { return !m.archive.selected.isActive() && m.filter.isStanding() },
-			run:  model.jumpArchiveMatch,
+			run:  model.jumpFilterMatch,
 		},
 		{
 			id:   actionFilterClear,
@@ -269,14 +269,6 @@ func (m model) moveArchive(pressed string) (tea.Model, tea.Cmd) {
 	}
 
 	return m.moveArchiveCursor(-1), nil
-}
-
-func (m model) jumpArchiveMatch(pressed string) (tea.Model, tea.Cmd) {
-	if isBound(pressed, m.keys.Filter.PrevMatch) {
-		return m.jumpMatch(-1)
-	}
-
-	return m.jumpMatch(1)
 }
 
 func (m model) clearArchiveSelection(string) (tea.Model, tea.Cmd) {

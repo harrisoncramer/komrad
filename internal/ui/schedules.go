@@ -268,8 +268,8 @@ func (m model) schedulesHeader() string {
 	return m.listHeader(screenTitle(view.GlyphSchedule, "Schedules"))
 }
 
-func (m model) doesSchedulesFitDetails() bool {
-	return m.doesListFitDetails(m.schedulesHeader(), model.scheduleHelp)
+func (m model) schedulesDetailsRoom() int {
+	return m.listDetailsRoom(m.schedulesHeader(), model.scheduleHelp)
 }
 
 func (m model) schedulesListView() string {

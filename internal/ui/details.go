@@ -1,9 +1,13 @@
 package ui
 
 import (
+	"slices"
+	"strconv"
 	"strings"
 
+	"weave/config"
 	"weave/internal/ui/paint"
+	"weave/lib/xslice"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -19,12 +23,29 @@ type detailsState struct {
 	cursor  int
 	row     string
 	flashed int
+	// filter is the search over the record's own rows, standing apart from the list's.
+	filter filterState
 }
 
 type details struct {
 	id      string
 	notices []notice
 	fields  []recordField
+}
+
+// detailsRow is one field as the record draws it, keyed by its place in the whole record.
+type detailsRow struct {
+	id    string
+	field recordField
+}
+
+func (r detailsRow) key() string {
+	return r.id
+}
+
+// fieldText is what a search reads a field by.
+func fieldText(field recordField) string {
+	return strings.TrimSpace(field.label + " " + field.value)
 }
 
 func (m model) hoveredDetails() details {
@@ -40,28 +61,48 @@ func (m model) isDetailsScreen() bool {
 	return m.screen.spec().details != nil
 }
 
+// detailsRows is the record's fields as its search leaves them.
+func (m model) detailsRows(held details) []detailsRow {
+	rows := make([]detailsRow, 0, len(held.fields))
+	for i, field := range held.fields {
+		if m.details.filter.isNarrowing() && !m.details.filter.doesMatch(fieldText(field)) {
+			continue
+		}
+
+		rows = append(rows, detailsRow{id: strconv.Itoa(i), field: field})
+	}
+
+	return rows
+}
+
 func (m model) detailsCursor(held details) int {
 	if m.details.row != held.id {
 		return 0
 	}
 
-	return min(m.details.cursor, max(len(held.fields)-1, 0))
+	return min(m.details.cursor, max(len(m.detailsRows(held))-1, 0))
 }
 
+// isDetailsDrawn is whether the record's share fits in the pane, judged with the keys on the
+// list.
 func (m model) isDetailsDrawn(held details) bool {
+	m.details.focused = false
+
 	if len(held.fields) == 0 || m.detailsLines() == 0 {
 		return false
 	}
 
 	spec := m.screen.spec().details
-	if spec == nil || spec.fits == nil {
+	if spec == nil || spec.room == nil {
 		return true
 	}
 
-	return spec.fits(m)
+	return spec.room(m)-m.detailsSearchLines() >= m.detailsLines()
 }
 
-func (m model) doesListFitDetails(header string, help func(model) keyMap) bool {
+// listDetailsRoom is the lines a list screen has for the record between its rules, with a row
+// kept back for the list.
+func (m model) listDetailsRoom(header string, help func(model) keyMap) int {
 	m.details.focused = false
 
 	legend := m.renderHelp(help(m), header)
@@ -69,23 +110,23 @@ func (m model) doesListFitDetails(header string, help func(model) keyMap) bool {
 		legend = focused
 	}
 
-	return m.spareLines(header, legend) > m.detailsLines()+detailsChromeLines
+	return m.spareLines(header, legend) - detailsChromeLines - 1
 }
 
 func (m model) isDetailsFocused() bool {
 	return m.details.focused && m.isDetailsDrawn(m.hoveredDetails())
 }
 
-func (m model) toggleDetailsFocus() model {
+// toggleDetailsFocus moves the keys between the list and the record, reading its directory again
+// on the way in.
+func (m model) toggleDetailsFocus() (model, tea.Cmd) {
 	if m.isDetailsFocused() {
-		m.details.focused = false
-
-		return m.refocused()
+		return m.blurDetails(), nil
 	}
 
 	held := m.hoveredDetails()
 	if !m.isDetailsDrawn(held) {
-		return m
+		return m, nil
 	}
 
 	m.details.focused = true
@@ -94,6 +135,16 @@ func (m model) toggleDetailsFocus() model {
 		m.details.cursor = 0
 	}
 	m.details.row = held.id
+
+	return m.refocused(), m.rereadAgentWorktreeCmd()
+}
+
+// blurDetails hands the keys back to the list, dropping a search that was still being typed.
+func (m model) blurDetails() model {
+	m.details.focused = false
+	if m.details.filter.typing {
+		m.details.filter.abandon()
+	}
 
 	return m.refocused()
 }
@@ -112,40 +163,160 @@ func (m model) refocused() model {
 
 func (m model) updateDetails(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
-	held := m.hoveredDetails()
 
-	if !m.isDetailsDrawn(held) {
-		m.details.focused = false
-
-		return m.refocused(), nil
+	if !m.isDetailsDrawn(m.hoveredDetails()) {
+		return m.blurDetails(), nil
 	}
 
-	cursor := m.detailsCursor(held)
-
-	switch {
-	case isBound(k, m.keys.Details.Focus), k == "esc":
-		m.details.focused = false
-
-		return m.refocused(), nil
-	case isBound(k, m.quitKeys()):
+	if isBound(k, m.quitKeys()) {
 		return m, m.hide()
-	case isBound(k, m.keys.Nav.Up):
-		m = m.setDetailsCursor(held, cursor-1)
-	case isBound(k, m.keys.Nav.Down):
-		m = m.setDetailsCursor(held, cursor+1)
-	case isBound(k, m.keys.Nav.Top):
-		m = m.setDetailsCursor(held, 0)
-	case isBound(k, m.keys.Nav.Bottom):
-		m = m.setDetailsCursor(held, len(held.fields)-1)
-	case isBound(k, m.keys.Details.Copy):
-		return m.copyDetailsField(held, cursor)
 	}
 
-	return m, nil
+	return detailsActions().dispatch(m, k)
+}
+
+func detailsActions() actionSpec {
+	standing := func(m model) bool { return m.details.filter.isStanding() }
+
+	return actionSpec{
+		table: []action{
+			{
+				id:   actionFilterClear,
+				keys: func(config.Keybindings) []string { return []string{"esc"} },
+				when: standing,
+				run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.clearSearch() },
+			},
+			{
+				id:   actionDetails,
+				keys: func(k config.Keybindings) []string { return append(slices.Clone(k.Details.Focus), "esc") },
+				run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.blurDetails(), nil },
+			},
+			{
+				id:   actionMove,
+				keys: func(k config.Keybindings) []string { return concatKeys(k.Nav.Up, k.Nav.Down) },
+				run:  model.moveDetailsCursor,
+			},
+			{
+				id:   actionJump,
+				keys: func(k config.Keybindings) []string { return concatKeys(k.Nav.Top, k.Nav.Bottom) },
+				run:  model.jumpDetailsCursor,
+			},
+			{
+				id:   actionFilterOpen,
+				keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
+				run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.openFilter() },
+			},
+			{
+				id:   actionFilterMatch,
+				keys: func(k config.Keybindings) []string { return concatKeys(k.Filter.NextMatch, k.Filter.PrevMatch) },
+				when: standing,
+				run:  model.jumpFilterMatch,
+			},
+			{
+				id:   actionDetailsCopy,
+				keys: func(k config.Keybindings) []string { return k.Details.Copy },
+				run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.copyDetailsField() },
+			},
+		},
+		legend: []legendRow{
+			{
+				of:    []actionID{actionDetailsCopy},
+				desc:  func(model) string { return "copy field" },
+				strip: true,
+			},
+			{
+				of:    []actionID{actionDetails},
+				desc:  func(model) string { return "back to the list" },
+				label: func(k config.Keybindings) string { return keyLabel(k.Details.Focus) },
+				strip: true,
+			},
+			{
+				of:   []actionID{actionFilterOpen},
+				desc: model.detailsFilterDesc,
+			},
+			{
+				of:   []actionID{actionFilterMatch},
+				desc: func(model) string { return "next/prev match" },
+			},
+			{
+				of:   []actionID{actionFilterClear},
+				desc: func(m model) string { return "clear " + m.details.filter.mode.String() },
+			},
+			{
+				of:    []actionID{actionMove},
+				desc:  func(model) string { return "move" },
+				label: func(k config.Keybindings) string { return keyLabel(k.Nav.Up) + "/" + keyLabel(k.Nav.Down) },
+			},
+			{
+				of:    []actionID{actionJump},
+				desc:  func(model) string { return "top/bottom" },
+				label: func(k config.Keybindings) string { return keyLabel(k.Nav.Top) + "/" + keyLabel(k.Nav.Bottom) },
+			},
+		},
+	}
+}
+
+func (m model) detailsFilterDesc() string {
+	if m.details.filter.isStanding() {
+		return m.details.filter.mode.String() + ": " + m.details.filter.query
+	}
+
+	return "search"
+}
+
+func (m model) detailsHelp() keyMap {
+	own := detailsActions().help(m)
+
+	return keyMap{
+		short: slices.Concat(own.short, m.globalHelp()),
+		full:  slices.Concat(own.full, m.globalHelp()),
+	}
+}
+
+// detailsFilterSpec is how the record's search keeps its cursor on the field it was on as the
+// pattern changes under it.
+func detailsFilterSpec() *filterSpec {
+	return &filterSpec{
+		hovered: func(m model) string {
+			held := m.hoveredDetails()
+
+			return rowKeyAt(m.detailsRows(held), m.detailsCursor(held))
+		},
+		place: func(m *model, hovered string) {
+			held := m.hoveredDetails()
+			rows := m.detailsRows(held)
+			m.details.cursor = placeCursor(rowIndexOfKey(rows, hovered), m.detailsCursor(held), len(rows))
+			m.details.row = held.id
+		},
+		rows: func(m model) []filterRow {
+			return xslice.Map(m.detailsRows(m.hoveredDetails()), func(row detailsRow) filterRow {
+				return filterRow{key: row.id, name: fieldText(row.field)}
+			})
+		},
+	}
+}
+
+func (m model) moveDetailsCursor(pressed string) (tea.Model, tea.Cmd) {
+	held := m.hoveredDetails()
+	cursor := m.detailsCursor(held)
+	if isBound(pressed, m.keys.Nav.Down) {
+		return m.setDetailsCursor(held, cursor+1), nil
+	}
+
+	return m.setDetailsCursor(held, cursor-1), nil
+}
+
+func (m model) jumpDetailsCursor(pressed string) (tea.Model, tea.Cmd) {
+	held := m.hoveredDetails()
+	if isBound(pressed, m.keys.Nav.Bottom) {
+		return m.setDetailsCursor(held, len(m.detailsRows(held))-1), nil
+	}
+
+	return m.setDetailsCursor(held, 0), nil
 }
 
 func (m model) setDetailsCursor(held details, idx int) model {
-	m.details.cursor = clampCursor(idx, len(held.fields))
+	m.details.cursor = clampCursor(idx, len(m.detailsRows(held)))
 	m.details.row = held.id
 
 	return m
@@ -160,12 +331,21 @@ func (m model) quitKeys() []string {
 	return spec.quit(m.keys)
 }
 
-func (m model) copyDetailsField(held details, idx int) (tea.Model, tea.Cmd) {
-	m.details.flashed = idx + 1
+func (m model) copyDetailsField() (tea.Model, tea.Cmd) {
+	held := m.hoveredDetails()
+	rows := m.detailsRows(held)
+	if len(rows) == 0 {
+		return m, nil
+	}
 
-	return m, tea.Batch(m.copyCmd(held.fields[idx].value), flashRevertTick())
+	cursor := m.detailsCursor(held)
+	m.details.flashed = cursor + 1
+
+	return m, tea.Batch(m.copyCmd(rows[cursor].field.value), flashRevertTick())
 }
 
+// detailsLines is the field lines the record draws: its share, or every line it needs once it
+// holds the keys.
 func (m model) detailsLines() int {
 	if m.height <= 0 {
 		return 0
@@ -175,11 +355,46 @@ func (m model) detailsLines() int {
 	if m.detailsHeight < 1 {
 		lines = int(float64(m.height) * m.detailsHeight)
 	}
+	lines = min(lines, max(m.height/2-detailsChromeLines, 0))
 
-	return min(lines, max(m.height/2-detailsChromeLines, 0))
+	spec := m.screen.spec().details
+	if !m.details.focused || spec == nil || spec.room == nil {
+		return lines
+	}
+
+	return min(max(lines, m.detailsWanted(m.hoveredDetails())), max(spec.room(m)-detailsSearchLine, 1))
 }
 
+// detailsWanted is the lines the whole record takes: its notices, a blank under them, and every
+// field its search leaves.
+func (m model) detailsWanted(held details) int {
+	wanted := len(m.detailsRows(held))
+	if notices := m.detailsNotices(held, m.height); len(notices) > 0 {
+		wanted += len(notices) + 1
+	}
+
+	return wanted
+}
+
+// detailsChromeLines is the two rules the record is drawn between.
 const detailsChromeLines = 2
+
+// detailsSearchLine is the row the record's search takes when it is drawn.
+const detailsSearchLine = 1
+
+// isDetailsSearchDrawn reports whether the record draws its search line: while it holds the keys
+// or a search stands over it.
+func (m model) isDetailsSearchDrawn() bool {
+	return m.details.focused || m.details.filter.isStanding() || m.details.filter.typing
+}
+
+func (m model) detailsSearchLines() int {
+	if m.isDetailsSearchDrawn() {
+		return detailsSearchLine
+	}
+
+	return 0
+}
 
 func (m model) detailsView() string {
 	held := m.hoveredDetails()
@@ -197,12 +412,24 @@ func (m model) detailsView() string {
 	}
 
 	cursor := m.detailsCursor(held)
-	rows := m.detailFieldRows(held.fields, cursor)
+	rows := m.detailFieldRows(m.detailsRows(held), cursor)
+	if len(rows) == 0 && m.details.filter.isNarrowing() {
+		rows = []string{dimStyle.Render("  nothing matches")}
+	}
 
 	return m.detailsRule() +
+		m.detailsSearchLine() +
 		block +
 		paint.PadRows(paint.RenderList(rows, cursor, lines, dimStyle), lines) +
 		m.detailsRule()
+}
+
+func (m model) detailsSearchLine() string {
+	if !m.isDetailsSearchDrawn() {
+		return ""
+	}
+
+	return " " + m.details.filter.line(paint.Panel) + "\n"
 }
 
 func (m model) detailsRule() string {
@@ -269,22 +496,25 @@ func (m model) noticeLines(n notice, most int) []string {
 	return lines
 }
 
-func (m model) detailFieldRows(fields []recordField, cursor int) []string {
-	labels := labelColumn(fields)
+func (m model) detailFieldRows(fields []detailsRow, cursor int) []string {
+	labels := labelColumn(xslice.Map(fields, func(row detailsRow) recordField { return row.field }))
 	rows := make([]string, 0, len(fields))
 
 	const gutter = 2
 
-	for i, field := range fields {
+	for i, row := range fields {
 		prefix := "  "
 		if i == cursor {
 			prefix = m.cursorPrefix(m.details.focused)
 		}
 
-		label := dimStyle.Render(padRight(field.label, labels))
-		value := paint.Clip(field.value, max(m.lineWidth()-labels-gutter-1, 1))
-		if m.details.flashed == i+1 {
+		label := m.details.filter.highlight(paint.Panel, padRight(row.field.label, labels), dimStyle)
+		value := paint.Clip(row.field.value, max(m.lineWidth()-labels-gutter-1, 1))
+		switch {
+		case m.details.flashed == i+1:
 			value = flashFieldStyle(paint.Panel).Render(value)
+		case m.details.filter.pattern != nil:
+			value = m.details.filter.highlight(paint.Panel, value, lipgloss.NewStyle())
 		}
 
 		rows = append(rows, prefix+label+" "+value)

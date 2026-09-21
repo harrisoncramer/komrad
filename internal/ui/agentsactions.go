@@ -85,7 +85,7 @@ func agentsModeActions() []action {
 			id:   actionFilterMatch,
 			keys: func(k config.Keybindings) []string { return concatKeys(k.Filter.NextMatch, k.Filter.PrevMatch) },
 			when: func(m model) bool { return !m.tree.selected.isActive() && m.filter.isStanding() },
-			run:  model.jumpAgentMatch,
+			run:  model.jumpFilterMatch,
 		},
 		{
 			id:   actionFilterClear,
@@ -328,14 +328,6 @@ func (m model) moveAgentCursor(pressed string) (tea.Model, tea.Cmd) {
 	next, cmd := m.moveCursor(-1)
 
 	return next, cmd
-}
-
-func (m model) jumpAgentMatch(pressed string) (tea.Model, tea.Cmd) {
-	if isBound(pressed, m.keys.Filter.PrevMatch) {
-		return m.jumpMatch(-1)
-	}
-
-	return m.jumpMatch(1)
 }
 
 func (m model) clearAgentSelection(string) (tea.Model, tea.Cmd) {

@@ -43,7 +43,7 @@ sidebar_width  = 30
 info_side      = "below"
 # How tall the info pane opens, either a share of the stage's height below one or a whole number of rows.
 info_height    = 0.4
-# How many lines the details under the list draw, either a share of the sidebar's height below one or a whole number of lines. The marks the hovered row is carrying are spelled out in that same room, ahead of the fields. The chrome around them is added on top, and the two together never take more than half the sidebar's height.
+# How many lines the details under the list draw, either a share of the sidebar's height below one or a whole number of lines. The marks the hovered row is carrying are spelled out in that same room, ahead of the fields. The chrome around them is added on top, and the two together never take more than half the sidebar's height. Once the details hold the keys they grow past this to show the whole record, as far as the sidebar allows.
 details_height = 9
 
 # Panel keybindings, scoped to the screen each binding acts in.

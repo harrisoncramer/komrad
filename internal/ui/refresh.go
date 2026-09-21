@@ -179,7 +179,7 @@ func (m *model) applyRefresh(result refreshResult) tea.Cmd {
 	}
 
 	preview := m.placeSearchAgent(searchRow)
-	inspect := m.inspectHoveredWorktreeCmd()
+	inspect := tea.Batch(m.inspectHoveredWorktreeCmd(), m.inspectAgentWorktreeCmd(time.Now()))
 	pullRequests := m.listHoveredPullRequestsCmd()
 
 	// A form draws its options from the listing it was built over, so it is drawn again when

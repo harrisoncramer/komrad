@@ -54,6 +54,12 @@ The third glyph on an agent's row is the pull request opened from its branch, re
 
 The details carry a `pull request` row for the current one, "#740 merged 2h ago", and a `pull requests` row listing the rest when the branch holds more than one. `list_agent_pull_requests` over [MCP](mcp.md) answers the same listing.
 
+## The details
+
+The details under the list are the record of the hovered row. For an agent they hold what it was launched with, its branch and pull requests, its worktree's standing against the base, its metadata, and then the uncommitted paths and the commits since the base, ten of each at most. The worktree rows come from `get_worktree`, read when the cursor rests on the row and again once a minute, so they can be a minute behind.
+
+`ctrl+t` moves the keys onto the record, which grows to show every row the sidebar has room for. `/` then searches the rows as it does the list: `tab` turns the search into a filter, `enter` keeps it, `n` and `N` step between matches, and `esc` clears it before a second `esc` hands the keys back. A kept filter stays over the record as the list cursor moves.
+
 ## The git menu
 
 `b`, for branch, draws the git actions beside the list: `r` rebases the hovered agent's worktree onto the latest base, and `o` opens the current pull request in your browser. An entry is picked with its own letter or with the cursor, and `esc` leaves without doing anything.

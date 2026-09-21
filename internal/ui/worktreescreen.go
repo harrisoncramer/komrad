@@ -103,29 +103,35 @@ func (m *model) stageWorktrees() {
 	m.stageInfo()
 }
 
-// inspectWorktreeCmd asks the service for the hovered directory's standing, answered under the
-// directory's own name, and asks nothing while an answer for it is still on its way.
+// inspectWorktreeCmd asks the service for the hovered directory's standing.
 func (m *model) inspectWorktreeCmd() tea.Cmd {
 	row, ok := m.hoveredWorktree()
 	if !ok {
 		return nil
 	}
-	read, asked := m.worktrees.inspected[row.item.dir]
+
+	return m.readWorktreeCmd(row.item.dir)
+}
+
+// readWorktreeCmd asks the service for one directory's standing, answered under the directory's
+// own name, and asks nothing while an answer for it is still on its way.
+func (m *model) readWorktreeCmd(dir string) tea.Cmd {
+	read, asked := m.worktrees.inspected[dir]
 	if asked && read.pending {
 		return nil
 	}
 
 	read.pending = true
-	m.applyWorktreeInspection(worktreeInspectedMsg{dir: row.item.dir, inspection: read})
-	clients, dir := m.api, row.item.dir
+	m.applyWorktreeInspection(worktreeInspectedMsg{dir: dir, inspection: read})
+	clients := m.api
 
 	return func() tea.Msg {
 		read, err := clients.getWorktree(dir)
 		if err != nil {
-			return worktreeInspectedMsg{dir: dir, inspection: worktreeInspection{answered: true, err: err}}
+			return worktreeInspectedMsg{dir: dir, inspection: worktreeInspection{answered: true, readAt: time.Now(), err: err}}
 		}
 
-		return worktreeInspectedMsg{dir: dir, inspection: worktreeInspectionFrom(read)}
+		return worktreeInspectedMsg{dir: dir, inspection: worktreeInspectionFrom(read, time.Now())}
 	}
 }
 
@@ -194,8 +200,8 @@ func (m model) worktreesTally() string {
 	return fmt.Sprintf("%d · %s", len(m.worktrees.items), totalLabel(m.worktrees.items))
 }
 
-func (m model) doesWorktreesFitDetails() bool {
-	return m.doesListFitDetails(m.worktreesHeader(), model.worktreesHelp)
+func (m model) worktreesDetailsRoom() int {
+	return m.listDetailsRoom(m.worktreesHeader(), model.worktreesHelp)
 }
 
 func (m model) worktreesListView() string {

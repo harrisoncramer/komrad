@@ -181,7 +181,7 @@ func (m *model) applyStageTick(msg stageTickMsg) tea.Cmd {
 
 	m.stageSelection()
 
-	return m.listPullRequestsCmd()
+	return tea.Batch(m.listPullRequestsCmd(), m.inspectAgentWorktreeCmd(time.Now()))
 }
 
 // openHovered attaches to whatever the cursor is on, which for a workflow is the orchestrator
@@ -302,12 +302,17 @@ func (m model) agentsDetails() details {
 // agentDetailFields is the record for an agent as the listing holds it, with the names the
 // record needs looked up and what the service has answered about its pull requests.
 func (m model) agentDetailFields(item agentItem) []recordField {
+	worktree, read := m.agentWorktree(item.agent.Cwd)
+
 	return agentFields(agentFieldsParams{
 		agent:    item.agent,
 		schedule: m.scheduleName(item.agent),
 		parent:   m.parentName(item.agent),
 		standing: item.pullRequest,
 		listed:   m.pullRequests.listed[item.agent.ID],
+		worktree: worktree,
+		read:     read,
+		now:      time.Now(),
 	})
 }
 
@@ -564,8 +569,8 @@ func (m model) doesAgentsFitTabs() bool {
 	return m.doesListFitTabs(screenTitle(view.GlyphWorkflow, "Agents & Workflows"), "", model.agentHelp)
 }
 
-func (m model) doesAgentsFitDetails() bool {
-	return m.doesListFitDetails(m.agentsHeader(), model.agentHelp)
+func (m model) agentsDetailsRoom() int {
+	return m.listDetailsRoom(m.agentsHeader(), model.agentHelp)
 }
 
 func (m model) agentsListView() string {

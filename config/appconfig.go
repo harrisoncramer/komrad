@@ -553,7 +553,7 @@ type Layout struct {
 	InfoSide string `mapstructure:"info_side"`
 	// How tall the info pane opens, either a share of the stage's height below one or a whole number of rows.
 	InfoHeight float64 `mapstructure:"info_height"`
-	// How many lines the details under the list draw, either a share of the sidebar's height below one or a whole number of lines. The marks the hovered row is carrying are spelled out in that same room, ahead of the fields. The chrome around them is added on top, and the two together never take more than half the sidebar's height.
+	// How many lines the details under the list draw, either a share of the sidebar's height below one or a whole number of lines. The marks the hovered row is carrying are spelled out in that same room, ahead of the fields. The chrome around them is added on top, and the two together never take more than half the sidebar's height. Once the details hold the keys they grow past this to show the whole record, as far as the sidebar allows.
 	DetailsHeight float64 `mapstructure:"details_height"`
 }
 

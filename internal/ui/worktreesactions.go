@@ -78,7 +78,7 @@ func worktreesTable() []action {
 			id:   actionFilterMatch,
 			keys: func(k config.Keybindings) []string { return concatKeys(k.Filter.NextMatch, k.Filter.PrevMatch) },
 			when: func(m model) bool { return !m.worktrees.selected.isActive() && m.filter.isStanding() },
-			run:  model.jumpWorktreeMatch,
+			run:  model.jumpFilterMatch,
 		},
 		{
 			id:   actionFilterClear,
@@ -248,14 +248,6 @@ func (m model) moveWorktrees(pressed string) (tea.Model, tea.Cmd) {
 	}
 
 	return m.moveWorktreeCursor(-1)
-}
-
-func (m model) jumpWorktreeMatch(pressed string) (tea.Model, tea.Cmd) {
-	if isBound(pressed, m.keys.Filter.PrevMatch) {
-		return m.jumpMatch(-1)
-	}
-
-	return m.jumpMatch(1)
 }
 
 func (m model) clearWorktreeSelection(string) (tea.Model, tea.Cmd) {

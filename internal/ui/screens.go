@@ -86,9 +86,9 @@ type detailsSpec struct {
 	// that draws nothing saying where the keys are.
 	refocus func(*model)
 
-	// fits is whether the screen has the room to draw the record at all, nil on a screen that
-	// always has it, and what stops the keys being taken by a record the pane cannot show.
-	fits func(model) bool
+	// room is the lines the screen has for the record between its rules, with a row kept back for
+	// what stands above it, and nil on a screen that always has them.
+	room func(model) int
 }
 
 // filterSpec is how a filtered list keeps its cursor on the row it was on as the pattern changes
@@ -125,7 +125,7 @@ func (s screen) spec() screenSpec {
 			details: &detailsSpec{
 				hovered: model.agentsDetails,
 				quit:    func(keys config.Keybindings) []string { return keys.Agents.Quit },
-				fits:    model.doesAgentsFitDetails,
+				room:    model.agentsDetailsRoom,
 			},
 			filter: &filterSpec{
 				hovered: model.hoveredAgentKey,
@@ -148,7 +148,7 @@ func (s screen) spec() screenSpec {
 			details: &detailsSpec{
 				hovered: model.schedulesDetails,
 				quit:    func(keys config.Keybindings) []string { return keys.Schedules.Quit },
-				fits:    model.doesSchedulesFitDetails,
+				room:    model.schedulesDetailsRoom,
 			},
 			filter: &filterSpec{
 				hovered: model.hoveredScheduleKey,
@@ -168,7 +168,7 @@ func (s screen) spec() screenSpec {
 			details: &detailsSpec{
 				hovered: model.archiveDetails,
 				quit:    func(keys config.Keybindings) []string { return keys.Archive.Quit },
-				fits:    model.doesArchiveFitDetails,
+				room:    model.archiveDetailsRoom,
 			},
 			filter: &filterSpec{
 				hovered: model.hoveredArchiveKey,
@@ -202,7 +202,7 @@ func (s screen) spec() screenSpec {
 			details: &detailsSpec{
 				hovered: model.worktreesDetails,
 				quit:    func(keys config.Keybindings) []string { return keys.Worktrees.Quit },
-				fits:    model.doesWorktreesFitDetails,
+				room:    model.worktreesDetailsRoom,
 			},
 			filter: &filterSpec{
 				hovered: model.hoveredWorktreeKey,
@@ -224,7 +224,7 @@ func (s screen) spec() screenSpec {
 			details: &detailsSpec{
 				hovered: model.reviewDetails,
 				quit:    func(keys config.Keybindings) []string { return keys.Review.Quit },
-				fits:    model.doesReviewFitDetails,
+				room:    model.reviewDetailsRoom,
 			},
 			column: reviewColumn,
 		}
