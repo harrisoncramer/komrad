@@ -39,12 +39,12 @@ func screensModel() model {
 			Name:       name,
 			WorkflowID: "w1",
 		}})
-		m.archive.agents = append(m.archive.agents, agentstore.Agent{
+		m.listing.archivedAgents = append(m.listing.archivedAgents, agentstore.Agent{
 			ID:         name,
 			Name:       name,
 			WorkflowID: "w1",
 		})
-		m.schedules.items = append(m.schedules.items, scheduleItem{schedule: schedulestore.Schedule{Name: name}})
+		m.listing.schedules = append(m.listing.schedules, scheduleItem{schedule: schedulestore.Schedule{Name: name}})
 	}
 
 	m.tree.cursor = total

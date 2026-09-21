@@ -60,25 +60,25 @@ func worktreesModel() model {
 					alive: true,
 				},
 			},
+			archivedAgents: []agentstore.Agent{
+				{
+					ID:         "archived",
+					Name:       "review-column",
+					WorkflowID: "w1",
+					Harness:    "claude",
+					ArchivedAt: &archived,
+					Cwd:        "/trees/archived",
+				},
+				{
+					ID:         "admin",
+					Name:       "custom-cargo-fixes",
+					WorkflowID: "w1",
+					Harness:    "claude",
+					ArchivedAt: &archived,
+					Cwd:        "/trees/admin",
+				},
+			},
 		},
-		archive: archiveState{agents: []agentstore.Agent{
-			{
-				ID:         "archived",
-				Name:       "review-column",
-				WorkflowID: "w1",
-				Harness:    "claude",
-				ArchivedAt: &archived,
-				Cwd:        "/trees/archived",
-			},
-			{
-				ID:         "admin",
-				Name:       "custom-cargo-fixes",
-				WorkflowID: "w1",
-				Harness:    "claude",
-				ArchivedAt: &archived,
-				Cwd:        "/trees/admin",
-			},
-		}},
 		worktrees: worktreesState{items: worktreeFixture()},
 	}
 }
@@ -111,7 +111,7 @@ func TestApplyWorktreesSpendsTheFocusOnTheAgentsRow(t *testing.T) {
 func TestApplyWorktreesKeepsTheCursorOnItsRow(t *testing.T) {
 	m := worktreesModel()
 	m.worktrees.cursor = 5
-	m.worktrees.inspected = map[string]worktreeInspection{
+	m.inspections = map[string]worktreeInspection{
 		"/trees/orphan": {answered: true, baseRef: "origin/main"},
 		"/trees/gone":   {answered: true, baseRef: "origin/main"},
 	}
@@ -121,8 +121,8 @@ func TestApplyWorktreesKeepsTheCursorOnItsRow(t *testing.T) {
 	m.applyWorktrees(fresh, worktreesList().hovered(m))
 
 	assert.Equal(t, "tree:/trees/orphan", worktreesList().hovered(m))
-	assert.Contains(t, m.worktrees.inspected, "/trees/orphan")
-	assert.NotContains(t, m.worktrees.inspected, "/trees/gone")
+	assert.Contains(t, m.inspections, "/trees/orphan")
+	assert.NotContains(t, m.inspections, "/trees/gone")
 }
 
 // TestOpenWorktreesLandsOnTheHoveredAgent covers the key from the agents list entering the
@@ -618,7 +618,7 @@ func TestRefreshAsksForTheHoveredDirectoryOnce(t *testing.T) {
 	require.Equal(t, "tree:/trees/archived", worktreesList().hovered(m))
 
 	require.NotNil(t, m.inspectHoveredWorktreeCmd())
-	assert.True(t, m.worktrees.inspected["/trees/archived"].pending)
+	assert.True(t, m.inspections["/trees/archived"].pending)
 	assert.Nil(t, m.inspectHoveredWorktreeCmd(), "an answer on its way is not asked for again")
 	assert.Nil(t, m.inspectWorktreeCmd(), "not even by a rest of the cursor")
 	assert.Contains(t, m.worktreeDoc(), "reading the directory")
@@ -645,7 +645,7 @@ func TestARowReturnedToKeepsItsAnswerWhileItIsReadAgain(t *testing.T) {
 
 	require.NotNil(t, m.inspectWorktreeCmd())
 
-	assert.True(t, m.worktrees.inspected["/trees/archived"].pending)
+	assert.True(t, m.inspections["/trees/archived"].pending)
 	assert.Equal(t, "origin/main  ↑2", fieldMap(m.worktreesDetails().fields)["base"])
 	assert.Contains(t, m.worktreeDoc(), "## Commits since origin/main")
 	assert.NotContains(t, m.worktreeDoc(), "reading the directory")

@@ -23,10 +23,8 @@ var archiveDropped = view.Columns{
 }
 
 type archiveState struct {
-	agents    []agentstore.Agent
-	workflows []workflowstore.Workflow
-	sort      tabsState
-	rows      []agentRow
+	sort tabsState
+	rows []agentRow
 	rowCursor
 }
 
@@ -95,7 +93,7 @@ func (m model) archiveRows() []agentRow {
 }
 
 func (m model) buildArchiveRows() []agentRow {
-	items := xslice.Map(m.archive.agents, func(agent agentstore.Agent) agentItem { return agentItem{agent: agent} })
+	items := xslice.Map(m.listing.archivedAgents, func(agent agentstore.Agent) agentItem { return agentItem{agent: agent} })
 
 	// The archive draws an archived orchestrator as a row of its own.
 	rows := treeRows(treeRowsParams{
@@ -108,10 +106,10 @@ func (m model) buildArchiveRows() []agentRow {
 }
 
 func (m model) archiveHeaders() []workflowstore.Workflow {
-	holding := xslice.KeyBy(m.archive.agents, func(agent agentstore.Agent) string { return agent.WorkflowID })
-	archived := xslice.KeyBy(m.archive.workflows, func(w workflowstore.Workflow) string { return w.ID })
+	holding := xslice.KeyBy(m.listing.archivedAgents, func(agent agentstore.Agent) string { return agent.WorkflowID })
+	archived := xslice.KeyBy(m.listing.archivedWorkflows, func(w workflowstore.Workflow) string { return w.ID })
 
-	headers := slices.Clone(m.archive.workflows)
+	headers := slices.Clone(m.listing.archivedWorkflows)
 	for _, w := range m.listing.workflows {
 		_, isHolding := holding[w.ID]
 		_, isArchived := archived[w.ID]
@@ -131,7 +129,7 @@ func archivedByID(agents []agentstore.Agent) map[string]agentstore.Agent {
 }
 
 func (m model) archivedAgent(id string) (agentstore.Agent, bool) {
-	for _, agent := range m.archive.agents {
+	for _, agent := range m.listing.archivedAgents {
 		if agent.ID == id {
 			return agent, true
 		}
@@ -141,7 +139,7 @@ func (m model) archivedAgent(id string) (agentstore.Agent, bool) {
 }
 
 func (m *model) applyArchive(agents []agentstore.Agent, workflows []workflowstore.Workflow, selected string) {
-	m.archive.agents, m.archive.workflows = agents, workflows
+	m.listing.archivedAgents, m.listing.archivedWorkflows = agents, workflows
 
 	rows := m.archiveRows()
 	m.archive.selected = m.archive.selected.pruned(refsOf(rows))
@@ -240,7 +238,7 @@ func (m model) deleteFromArchiveConfirm(agents []agentstore.Agent) (tea.Model, t
 		return m, nil
 	}
 
-	form, confirmed := deleteAgentsForm(agents, unnamedChildren(m.archive.agents, agents), formKeys())
+	form, confirmed := deleteAgentsForm(agents, unnamedChildren(m.listing.archivedAgents, agents), formKeys())
 
 	return m, m.openForm(formState{
 		kind:   formArchiveDelete,
@@ -280,11 +278,11 @@ func (m model) deleteWorkflowConfirm(workflow workflowstore.Workflow) (tea.Model
 }
 
 func (m model) emptyArchiveConfirm() (tea.Model, tea.Cmd) {
-	if len(m.archive.agents) == 0 {
+	if len(m.listing.archivedAgents) == 0 {
 		return m, nil
 	}
 
-	form, confirmed := emptyArchiveForm(len(m.archive.agents), formKeys())
+	form, confirmed := emptyArchiveForm(len(m.listing.archivedAgents), formKeys())
 
 	return m, m.openForm(formState{
 		kind:   formArchiveEmpty,
@@ -300,7 +298,7 @@ func (m model) emptyArchiveConfirm() (tea.Model, tea.Cmd) {
 				message{
 					kind:    messageInfo,
 					summary: "Emptying the archive",
-					detail:  fmt.Sprintf("A background job is deleting %s, each with its worktree. The rows are out of the archive now, and one whose delete fails comes back saying so.", label.Count(len(m.archive.agents), "archived agent", "archived agents")),
+					detail:  fmt.Sprintf("A background job is deleting %s, each with its worktree. The rows are out of the archive now, and one whose delete fails comes back saying so.", label.Count(len(m.listing.archivedAgents), "archived agent", "archived agents")),
 				},
 				func(a api) error { return a.emptyArchive() },
 			)
@@ -357,7 +355,7 @@ func (m model) archiveDocument(agent agentstore.Agent) string {
 }
 
 func (m model) archivedCount(workflowID string) int {
-	return xslice.Count(m.archive.agents, func(agent agentstore.Agent) bool { return agent.WorkflowID == workflowID })
+	return xslice.Count(m.listing.archivedAgents, func(agent agentstore.Agent) bool { return agent.WorkflowID == workflowID })
 }
 
 // archiveColumn is the archived agent's own notes drawn beside the list.

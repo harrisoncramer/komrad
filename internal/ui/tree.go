@@ -433,8 +433,11 @@ func (m *model) placeTreeCursor(selected string) {
 }
 
 type listing struct {
-	agents    []agentItem
-	workflows []workflowstore.Workflow
+	agents            []agentItem
+	workflows         []workflowstore.Workflow
+	archivedAgents    []agentstore.Agent
+	archivedWorkflows []workflowstore.Workflow
+	schedules         []scheduleItem
 	// marks are the letters a person types to jump to rows, keyed by the row key each names.
 	marks map[string]string
 }

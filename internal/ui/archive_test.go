@@ -152,14 +152,14 @@ func TestArchiveKeys(t *testing.T) {
 			m := archiveModel(agents, workflows, keys)
 			m.archive.cursor = tt.cursor
 			if tt.state != "" {
-				m.archive.agents[0].State = tt.state
+				m.listing.archivedAgents[0].State = tt.state
 			}
 			if tt.archivedFolder {
 				m.listing.workflows = nil
-				m.archive.workflows = []workflowstore.Workflow{archivedWorkflow("w1", "backend")}
+				m.listing.archivedWorkflows = []workflowstore.Workflow{archivedWorkflow("w1", "backend")}
 			}
 			if tt.empty {
-				m.listing.workflows, m.archive.agents = nil, nil
+				m.listing.workflows, m.listing.archivedAgents = nil, nil
 			}
 
 			updated, cmd := m.updateArchive(keyMsg(tt.key))
@@ -255,8 +255,7 @@ func TestArchiveRows(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m := model{
 				keys:    config.DefaultKeybindings(),
-				listing: listing{workflows: tt.live},
-				archive: archiveState{agents: tt.agents, workflows: tt.archived},
+				listing: listing{workflows: tt.live, archivedAgents: tt.agents, archivedWorkflows: tt.archived},
 			}
 
 			assert.Equal(t, tt.wantRows, describeRows(m.archiveRows()))
@@ -309,11 +308,11 @@ func TestArchiveHelpSplitsOnTheRow(t *testing.T) {
 			m.archive.cursor = tt.cursor
 			m.helpExpanded = true
 			if tt.neverViable {
-				m.archive.agents[0].State = agentstore.StateFailedToCreate
+				m.listing.archivedAgents[0].State = agentstore.StateFailedToCreate
 			}
 			if tt.archived {
 				m.listing.workflows = nil
-				m.archive.workflows = []workflowstore.Workflow{archivedWorkflow("w1", "backend")}
+				m.listing.archivedWorkflows = []workflowstore.Workflow{archivedWorkflow("w1", "backend")}
 			}
 
 			got := ansi.Strip(m.renderHelp(m.archiveHelp()))
@@ -352,7 +351,7 @@ func TestArchiveDeleteConfirm(t *testing.T) {
 			client := &fakeArchiveAgents{}
 			m := archiveModel(client, &fakeArchiveWorkflows{}, config.DefaultKeybindings())
 
-			opened, _ := m.deleteFromArchiveConfirm(m.archive.agents)
+			opened, _ := m.deleteFromArchiveConfirm(m.listing.archivedAgents)
 			m, ok := opened.(model)
 			require.True(t, ok)
 			require.Equal(t, formArchiveDelete, m.form.kind)
@@ -563,7 +562,7 @@ func TestRefusedArchiveWritesAreReported(t *testing.T) {
 			name: "a refused delete",
 			act: func(t *testing.T, m model) model {
 				t.Helper()
-				opened, _ := m.deleteFromArchiveConfirm(m.archive.agents)
+				opened, _ := m.deleteFromArchiveConfirm(m.listing.archivedAgents)
 				got, ok := opened.(model)
 				require.True(t, ok)
 
@@ -583,7 +582,7 @@ func TestRefusedArchiveWritesAreReported(t *testing.T) {
 			)
 			if tt.onFolder {
 				m.listing.workflows = nil
-				m.archive.workflows = []workflowstore.Workflow{archivedWorkflow("w1", "backend")}
+				m.listing.archivedWorkflows = []workflowstore.Workflow{archivedWorkflow("w1", "backend")}
 				m.archive.cursor = 0
 			}
 
@@ -652,7 +651,8 @@ func TestArchiveView(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m := archiveModel(&fakeArchiveAgents{}, &fakeArchiveWorkflows{}, config.DefaultKeybindings())
 			m.listing.workflows = tt.live
-			m.archive = archiveState{agents: tt.agents, workflows: tt.archived}
+			m.listing.archivedAgents = tt.agents
+			m.listing.archivedWorkflows = tt.archived
 
 			view := ansi.Strip(m.archiveView())
 			for _, want := range tt.wants {
@@ -681,15 +681,15 @@ func TestArchiveMarkdown(t *testing.T) {
 func TestArchiveDrawsWhyADeleteLeftARowBehind(t *testing.T) {
 	m := archiveModel(&fakeArchiveAgents{}, &fakeArchiveWorkflows{}, config.DefaultKeybindings())
 	m.listing.workflows = []workflowstore.Workflow{{ID: "w1", Name: "backend"}}
-	m.archive = archiveState{agents: []agentstore.Agent{{
+	m.listing.archivedAgents = []agentstore.Agent{{
 		ID:         "a1",
 		Name:       "api-refactor",
 		WorkflowID: "w1",
 		State:      agentstore.StateFailedToCleanup,
 		Metadata:   []agentstore.Metadata{{Key: failureReasonKey, Value: "the worktree is dirty"}},
-	}}}
+	}}
 
-	drawn := m.archiveDocument(m.archive.agents[0])
+	drawn := m.archiveDocument(m.listing.archivedAgents[0])
 
 	assert.Contains(t, drawn, "teardown failed")
 	assert.Contains(t, drawn, "the worktree is dirty")
@@ -729,7 +729,7 @@ func archiveSortModel() model {
 	m := worktreesModel()
 	m.screen = screenArchive
 	m.width, m.height = 200, 40
-	m.archive.agents = []agentstore.Agent{
+	m.listing.archivedAgents = []agentstore.Agent{
 		{
 			ID:         "zeta",
 			Name:       "zeta",
@@ -831,7 +831,7 @@ func TestArchiveIsListedSeparatelyFromTheAgents(t *testing.T) {
 		archived: []*workflowv1.Workflow{archivedProtoWorkflow("w9", "retired", "2026-07-30T09:00:00Z")},
 	}
 	m := archiveModel(agents, workflows, config.DefaultKeybindings())
-	m.archive.agents = nil
+	m.listing.archivedAgents = nil
 
 	entered, cmd := m.enterArchive()
 	opened, ok := entered.(model)
@@ -841,10 +841,10 @@ func TestArchiveIsListedSeparatelyFromTheAgents(t *testing.T) {
 
 	assert.Contains(t, agents.listedArchived, true, "the archive is asked for by the pass the screen starts")
 	assert.Contains(t, workflows.listed, true, "and so are the folders it draws over them")
-	require.Len(t, got.archive.agents, 1)
-	assert.Equal(t, "api-refactor", got.archive.agents[0].Name)
-	require.Len(t, got.archive.workflows, 1)
-	assert.NotNil(t, got.archive.workflows[0].ArchivedAt, "an archived folder carries when it was put away")
+	require.Len(t, got.listing.archivedAgents, 1)
+	assert.Equal(t, "api-refactor", got.listing.archivedAgents[0].Name)
+	require.Len(t, got.listing.archivedWorkflows, 1)
+	assert.NotNil(t, got.listing.archivedWorkflows[0].ArchivedAt, "an archived folder carries when it was put away")
 	assert.Empty(t, got.listing.agents, "the tree's rows are not what the archive listed")
 	assert.Empty(t, got.listing.workflows, "and the archived folder is not one of the tree's")
 }
@@ -858,21 +858,21 @@ func archiveModel(agents agentv1connect.AgentServiceClient, workflows workflowv1
 			workflows: workflows,
 			schedules: emptyLists{},
 		},
-		tmux:    tmux,
-		popup:   NewPopupWindow(tmux, "test-session"),
-		frame:   layout.New(tmux, config.DefaultLayout()),
-		keys:    keys,
-		screen:  screenArchive,
-		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}}},
-		archive: archiveState{
-			agents: []agentstore.Agent{{
+		tmux:   tmux,
+		popup:  NewPopupWindow(tmux, "test-session"),
+		frame:  layout.New(tmux, config.DefaultLayout()),
+		keys:   keys,
+		screen: screenArchive,
+		listing: listing{
+			workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
+			archivedAgents: []agentstore.Agent{{
 				ID:         "a1",
 				Name:       "api-refactor",
 				WorkflowID: "w1",
 				State:      agentstore.StateIdle,
 			}},
-			rowCursor: rowCursor{cursor: 1},
 		},
+		archive: archiveState{rowCursor: rowCursor{cursor: 1}},
 	}
 }
 
@@ -1036,6 +1036,8 @@ func TestArchiveDrawsNothingArchivedBesideTheList(t *testing.T) {
 	m := splitArchiveModel(t)
 	m.archive = archiveState{}
 	m.listing.workflows = nil
+	m.listing.archivedAgents = nil
+	m.listing.archivedWorkflows = nil
 
 	view := ansi.Strip(m.View())
 
@@ -1286,10 +1288,8 @@ func archiveLines(t *testing.T, m model) []view.Line {
 func TestArchiveGreysWhatIsPutAway(t *testing.T) {
 	m := archiveModel(&fakeArchiveAgents{}, &fakeArchiveWorkflows{}, config.DefaultKeybindings())
 	m.listing.workflows = []workflowstore.Workflow{{ID: "w1", Name: "backend"}}
-	m.archive = archiveState{
-		agents:    []agentstore.Agent{archivedAgent("a1", "auth", "w1"), archivedAgent("a2", "ui", "w2")},
-		workflows: []workflowstore.Workflow{archivedWorkflow("w2", "frontend")},
-	}
+	m.listing.archivedAgents = []agentstore.Agent{archivedAgent("a1", "auth", "w1"), archivedAgent("a2", "ui", "w2")}
+	m.listing.archivedWorkflows = []workflowstore.Workflow{archivedWorkflow("w2", "frontend")}
 	// Parked on the last row, where the cursor's own colour beats greying.
 	m.archive.cursor = 3
 
@@ -1337,7 +1337,7 @@ func TestArchiveDrawsTheQuietBarExceptWhereADeleteFailed(t *testing.T) {
 	m := archiveModel(&fakeArchiveAgents{}, &fakeArchiveWorkflows{}, config.DefaultKeybindings())
 	broken := archivedAgent("a2", "stuck", "w1")
 	broken.State = agentstore.StateFailedToCleanup
-	m.archive = archiveState{agents: []agentstore.Agent{archivedAgent("a1", "auth", "w1"), broken}}
+	m.listing.archivedAgents = []agentstore.Agent{archivedAgent("a1", "auth", "w1"), broken}
 
 	lines := archiveLines(t, m)
 	require.Len(t, lines, 3)

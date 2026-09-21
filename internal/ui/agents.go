@@ -308,7 +308,7 @@ func (m model) scheduleName(agent agentstore.Agent) string {
 		return ""
 	}
 
-	for _, item := range m.schedules.items {
+	for _, item := range m.listing.schedules {
 		if item.schedule.ID == *agent.ScheduleID {
 			return item.schedule.Name
 		}
@@ -404,8 +404,8 @@ func (m model) agentsSnapshot(pane int) view.Snapshot {
 
 // scheduledWorkflows is the workflows at least one schedule launches into.
 func (m model) scheduledWorkflows() map[string]bool {
-	scheduled := make(map[string]bool, len(m.schedules.items))
-	for _, item := range m.schedules.items {
+	scheduled := make(map[string]bool, len(m.listing.schedules))
+	for _, item := range m.listing.schedules {
 		scheduled[item.schedule.WorkflowID] = true
 	}
 

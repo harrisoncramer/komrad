@@ -313,7 +313,7 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 		{
 			name: "the schedule delete prompt",
 			open: func(t *testing.T, m model) model {
-				m.schedules.items = []scheduleItem{{schedule: schedulestore.Schedule{ID: "s1", Name: "sweeper"}}}
+				m.listing.schedules = []scheduleItem{{schedule: schedulestore.Schedule{ID: "s1", Name: "sweeper"}}}
 
 				opened, _ := m.archiveScheduleConfirm()
 
@@ -328,9 +328,9 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 		{
 			name: "the archive delete prompt",
 			open: func(t *testing.T, m model) model {
-				m.archive.agents = []agentstore.Agent{{ID: "a1", Name: "api-refactor"}}
+				m.listing.archivedAgents = []agentstore.Agent{{ID: "a1", Name: "api-refactor"}}
 
-				opened, _ := m.deleteFromArchiveConfirm(m.archive.agents)
+				opened, _ := m.deleteFromArchiveConfirm(m.listing.archivedAgents)
 
 				return asModel(t, opened)
 			},

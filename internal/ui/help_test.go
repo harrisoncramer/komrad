@@ -209,7 +209,7 @@ func legendLabels(bindings []key.Binding) []string {
 // TestNoScreenBindsOneKeyTwice pins that every legend a screen draws names each key once.
 func TestNoScreenBindsOneKeyTwice(t *testing.T) {
 	base := helpModel()
-	base.schedules.items = []scheduleItem{{}}
+	base.listing.schedules = []scheduleItem{{}}
 
 	tests := []struct {
 		name   string

@@ -304,7 +304,7 @@ func (m model) keepsBranch(deletion worktreeDeletion) *bool {
 		return nil
 	}
 
-	read, ok := m.worktrees.inspected[deletion.agents[0].dir]
+	read, ok := m.inspections[deletion.agents[0].dir]
 	if !ok || read.err != nil || read.baseRef == "" {
 		return nil
 	}

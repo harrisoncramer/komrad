@@ -94,7 +94,7 @@ func (m *model) inspectWorktreeCmd() tea.Cmd {
 
 // readWorktreeCmd asks the service for one directory's standing, once at a time.
 func (m *model) readWorktreeCmd(dir string) tea.Cmd {
-	last, asked := m.worktrees.inspected[dir]
+	last, asked := m.inspections[dir]
 	if asked && last.pending {
 		return nil
 	}
@@ -127,7 +127,7 @@ func (m *model) inspectHoveredWorktreeCmd() tea.Cmd {
 	if !ok {
 		return nil
 	}
-	if _, asked := m.worktrees.inspected[row.item.dir]; asked {
+	if _, asked := m.inspections[row.item.dir]; asked {
 		return nil
 	}
 
@@ -141,11 +141,11 @@ type worktreeInspectedMsg struct {
 }
 
 func (m *model) applyWorktreeInspection(msg worktreeInspectedMsg) {
-	if m.worktrees.inspected == nil {
-		m.worktrees.inspected = map[string]worktreeInspection{}
+	if m.inspections == nil {
+		m.inspections = map[string]worktreeInspection{}
 	}
 
-	m.worktrees.inspected[msg.dir] = msg.inspection
+	m.inspections[msg.dir] = msg.inspection
 }
 
 func worktreesColumn() columnSpec {
@@ -242,7 +242,7 @@ func (m model) worktreeFields(item worktreeItem, now time.Time) []recordField {
 	if len(item.occupants) > 0 {
 		fields = append(fields, recordField{"also here", occupantsField(item)})
 	}
-	read := m.worktrees.inspected[item.dir]
+	read := m.inspections[item.dir]
 	if read.answered && read.err != nil {
 		fields = append(fields, recordField{"worktree", "could not read: " + errui.GetReason(read.err)})
 	}
@@ -351,7 +351,7 @@ func (m model) worktreeWorkflowField(item worktreeItem) string {
 		workflowID = archived.WorkflowID
 	}
 
-	for _, w := range slices.Concat(m.listing.workflows, m.archive.workflows) {
+	for _, w := range slices.Concat(m.listing.workflows, m.listing.archivedWorkflows) {
 		if w.ID == workflowID {
 			return w.Name
 		}
@@ -370,7 +370,7 @@ func (m model) worktreeDoc() string {
 		return renderDocument(label.Path(row.repo, homeDir()), fmt.Sprintf("_%s_", label.Count(m.countUnder(row.repo), "worktree", "worktrees")), "", "")
 	}
 
-	read, ok := m.worktrees.inspected[row.item.dir]
+	read, ok := m.inspections[row.item.dir]
 	switch {
 	case !ok || !read.answered:
 		return renderDocument(row.name(), "_"+row.item.dir+"_", "_reading the directory…_", "")

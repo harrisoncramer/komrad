@@ -15,7 +15,6 @@ import (
 )
 
 type scheduleState struct {
-	items  []scheduleItem
 	cursor int
 	rows   []scheduleItem
 }
@@ -61,7 +60,7 @@ func (m model) scheduleRows() []scheduleItem {
 
 func (m model) buildScheduleRows() []scheduleItem {
 	return narrowed(m.filter, narrowedParams[scheduleItem]{
-		rows:  m.schedules.items,
+		rows:  m.listing.schedules,
 		depth: func(scheduleItem) int { return 0 },
 		name:  func(item scheduleItem) string { return item.schedule.Name },
 	})
@@ -319,7 +318,7 @@ func (m *model) applySchedules(fresh []scheduleItem) {
 		selected = item.schedule.ID
 	}
 
-	m.schedules.items = fresh
+	m.listing.schedules = fresh
 
 	rows := m.scheduleRows()
 	for i, item := range rows {

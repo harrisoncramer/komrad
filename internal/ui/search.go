@@ -270,7 +270,7 @@ func (m model) buildSearchAgents() []searchAgent {
 			add(searchAgent{id: item.agent.ID, name: item.agent.Name})
 		}
 	}
-	for _, agent := range m.archive.agents {
+	for _, agent := range m.listing.archivedAgents {
 		if nameSays(agent.Name, query) {
 			add(searchAgent{
 				id:       agent.ID,
@@ -510,7 +510,7 @@ func archivedSearchRow(row view.Row, id string, archived map[string]agentstore.A
 
 // searchSnapshot is the agents the search found, as the list draws them.
 func (m model) searchSnapshot(agents []searchAgent, pane int) view.Snapshot {
-	archived := archivedByID(m.archive.agents)
+	archived := archivedByID(m.listing.archivedAgents)
 
 	return view.Snapshot{
 		Rows: xslice.Map(agents, func(agent searchAgent) view.Row {

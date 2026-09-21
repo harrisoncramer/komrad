@@ -209,15 +209,17 @@ type model struct {
 	schedules     scheduleState
 	archive       archiveState
 	worktrees     worktreesState
-	pullRequests  pullRequestsState
-	search        searchState
-	review        reviewState
-	filter        filterState
-	rowCursor     cursor.Model
-	column        columnState
-	marks         markState
-	form          formState
-	held          heldWrite
+	// inspections is what the service answered for each worktree directory.
+	inspections  map[string]worktreeInspection
+	pullRequests pullRequestsState
+	search       searchState
+	review       reviewState
+	filter       filterState
+	rowCursor    cursor.Model
+	column       columnState
+	marks        markState
+	form         formState
+	held         heldWrite
 	// detached holds the writes a person escaped out of, which land without taking the screen to
 	// what they made.
 	detached map[int]struct{}
