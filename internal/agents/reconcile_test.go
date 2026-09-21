@@ -399,7 +399,7 @@ func TestReconcileOverPasses(t *testing.T) {
 				last := i == len(tt.passes)-1
 				if last && tt.archiveBeforeLast {
 					require.NoError(t, st.SoftDelete(ctx, "agent"))
-					assert.NotZero(t, rec.tally.countMisses(agent.ID), "the earlier idle pass should have recorded a miss")
+					assert.NotZero(t, rec.tally.read(agent.ID).misses, "the earlier idle pass should have recorded a miss")
 				}
 
 				tmux.captures["%1"] = frame
@@ -423,7 +423,7 @@ func TestReconcileOverPasses(t *testing.T) {
 			}
 
 			if tt.wantMisses != nil {
-				assert.Equal(t, *tt.wantMisses, rec.tally.countMisses(agent.ID))
+				assert.Equal(t, *tt.wantMisses, rec.tally.read(agent.ID).misses)
 			}
 		})
 	}
@@ -510,7 +510,7 @@ func TestReconcileTurnBoundaryOnlyAcceleratesWhatThePaneAgrees(t *testing.T) {
 
 			require.NoError(t, rec.Reconcile(ctx))
 			assert.Equal(t, tt.want, stateOf(t, st, "agent"))
-			assert.Zero(t, rec.tally.countMisses(agent.ID), "the boundary settles it in one pass rather than accruing a miss")
+			assert.Zero(t, rec.tally.read(agent.ID).misses, "the boundary settles it in one pass rather than accruing a miss")
 		})
 	}
 }
@@ -537,7 +537,7 @@ func TestReconcileTurnBoundaryOlderThanTheLastObservationDoesNothing(t *testing.
 
 	require.NoError(t, rec.Reconcile(ctx))
 	assert.Equal(t, agentstore.StateThinking, stateOf(t, st, "agent"), "a stale boundary is not licence to skip a miss")
-	assert.Equal(t, 1, rec.tally.countMisses(agent.ID), "the pass still counted as an ordinary miss")
+	assert.Equal(t, 1, rec.tally.read(agent.ID).misses, "the pass still counted as an ordinary miss")
 }
 
 // TestReconcileUnrecognizedFrameSettlesUncertainWhenStatic pins that a frame nothing recognizes
@@ -589,7 +589,7 @@ func TestReconcileUnrecognizedFrameThatKeepsChangingHolds(t *testing.T) {
 		tmux.captures["%1"] = fmt.Sprintf("%s-%d", unrecognizedFrame, i)
 		require.NoError(t, rec.Reconcile(ctx))
 		assert.Equal(t, agentstore.StateThinking, stateOf(t, st, "agent"))
-		assert.Zero(t, rec.tally.countMisses(agent.ID))
+		assert.Zero(t, rec.tally.read(agent.ID).misses)
 	}
 }
 
@@ -1118,8 +1118,8 @@ func TestReconcileReportedReasonMovesNoState(t *testing.T) {
 	require.NoError(t, rec.Reconcile(ctx))
 	assert.Equal(t, agentstore.StateThinking, stateOf(t, st, "agent"),
 		"a reason says nothing about whether the turn ended")
-	assert.Equal(t, 1, rec.tally.countMisses(agent.ID), "the pass counted as an ordinary miss")
-	assert.Equal(t, "Bash", rec.tally.readReportedReason(agent.ID))
+	assert.Equal(t, 1, rec.tally.read(agent.ID).misses, "the pass counted as an ordinary miss")
+	assert.Equal(t, "Bash", rec.tally.read(agent.ID).reportedReason)
 }
 
 // TestReconcileTurnBoundaryDoesNotShortcutIntoUncertain pins that the one positive report weave
@@ -1205,7 +1205,7 @@ func TestReconcileMissesOnlyCountTowardsTheStateTheyWereEarnedFor(t *testing.T) 
 				"one reading of its own is not the stretch a change is debounced behind")
 			assert.Nil(t, agentByID(t, st, agent.ID).TurnEndedAt,
 				"and nothing has finished a turn on the strength of it either")
-			assert.Equal(t, 1, rec.tally.countMisses(agent.ID),
+			assert.Equal(t, 1, rec.tally.read(agent.ID).misses,
 				"the run restarts at one, since the reading counts towards its own destination")
 
 			for range reconcileMisses - 1 {

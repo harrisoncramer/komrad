@@ -43,16 +43,6 @@ func EnginePath(name string) (string, error) {
 	return path, nil
 }
 
-// AvailableEngines is every engine this machine can be pointed at, in the order they list.
-func AvailableEngines() ([]string, error) {
-	dir, err := EnginesDir()
-	if err != nil {
-		return nil, err
-	}
-
-	return engineNames(dir), nil
-}
-
 func engineNames(dir string) []string {
 	entries, err := os.ReadDir(dir)
 	if err != nil {

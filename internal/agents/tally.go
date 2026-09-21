@@ -91,10 +91,6 @@ func (t *tally) recordReportedReason(agentID, reason string) {
 	t.update(agentID, func(entry *trackedAgent) { entry.reportedReason = reason })
 }
 
-func (t *tally) readReportedReason(agentID string) string {
-	return t.read(agentID).reportedReason
-}
-
 func (t *tally) hasFreshTurnBoundary(agentID string, since time.Time) bool {
 	return t.read(agentID).turnBoundary.After(since)
 }
@@ -111,10 +107,6 @@ func (t *tally) recordMiss(agentID string, state agentstore.State) int {
 	})
 
 	return misses
-}
-
-func (t *tally) countMisses(agentID string) int {
-	return t.read(agentID).misses
 }
 
 func (t *tally) clearMisses(agentID string) {

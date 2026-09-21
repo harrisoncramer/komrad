@@ -51,15 +51,6 @@ func (p Palette) Mark(show bool, icon string, tone Tone) string {
 	return " " + p.Style(tone).Render(icon)
 }
 
-// MarkGutter is the column a mark is drawn in, left of every row.
-func (p Palette) MarkGutter(mark string) string {
-	if mark == "" {
-		return "  "
-	}
-
-	return p.Style(ToneMark).Render(mark) + " "
-}
-
 // Clip cuts text to a width, ending it in an ellipsis.
 func Clip(text string, width int) string {
 	runes := []rune(text)

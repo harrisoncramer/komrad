@@ -2,8 +2,6 @@
 package rpccodec
 
 import (
-	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -66,20 +64,6 @@ func (c strictJSON) Unmarshal(binary []byte, message any) error {
 	}
 
 	return nil
-}
-
-func (c strictJSON) MarshalStable(message any) ([]byte, error) {
-	encoded, err := c.Marshal(message)
-	if err != nil {
-		return nil, err
-	}
-
-	var compacted bytes.Buffer
-	if err := json.Compact(&compacted, encoded); err != nil {
-		return nil, err
-	}
-
-	return compacted.Bytes(), nil
 }
 
 func (c strictJSON) IsBinary() bool { return false }

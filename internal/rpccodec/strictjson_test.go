@@ -82,13 +82,10 @@ func TestStrictJSONMarshal(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "head:"+string(encoded), string(appended))
 
-	stable, err := codec.MarshalStable(message)
-	require.NoError(t, err)
-	assert.JSONEq(t, string(encoded), string(stable))
 	assert.False(t, codec.IsBinary())
 
 	var read agentv1.ListMailRequest
-	require.NoError(t, codec.Unmarshal(stable, &read))
+	require.NoError(t, codec.Unmarshal(encoded, &read))
 	assert.True(t, proto.Equal(message, &read))
 }
 

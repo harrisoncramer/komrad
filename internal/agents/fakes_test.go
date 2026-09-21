@@ -398,10 +398,6 @@ func newStore(t *testing.T) *testStore {
 	return &testStore{Stores: storetest.Open(t)}
 }
 
-func (s *testStore) Close() error {
-	return s.Pool.Close()
-}
-
 func (s *testStore) Get(ctx context.Context, name string) (*agentstore.Agent, error) {
 	return s.LiveAgentByName(ctx, name)
 }
@@ -427,11 +423,6 @@ func (s *testStore) Create(ctx context.Context, agent agentstore.Agent) error {
 // Update rewrites an agent the test already recorded.
 func (s *testStore) Update(ctx context.Context, agent agentstore.Agent) error {
 	return s.Agents.Update(ctx, agent)
-}
-
-// ForgetPane drops an agent's recorded pane.
-func (s *testStore) ForgetPane(ctx context.Context, params agentstore.ForgetPaneParams) (bool, error) {
-	return s.Agents.ForgetPane(ctx, params)
 }
 
 func (s *testStore) List(ctx context.Context) ([]agentstore.Agent, error) {

@@ -164,9 +164,6 @@ func (f *Frame) reportSize() {
 	f.onSize(width, height)
 }
 
-// IsCollecting reports whether a change is still being collected.
-func (f *Frame) IsCollecting() bool { return f.collecting }
-
 // move records a pane move, sending it at once unless a change is being collected around it.
 func (f *Frame) move(m panes.Move) {
 	f.pending = append(f.pending, m)

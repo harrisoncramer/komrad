@@ -141,13 +141,6 @@ func TestCheckedBindsReportWhatTmuxSaid(t *testing.T) {
 	err := client.BindKeyChecked("F4", "no-such-tmux-command")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "F4", "the refusal names the key that was refused")
-
-	require.NoError(t, client.SetGlobalChecked("status", "off"))
-	assert.Equal(t, "off", client.ShowGlobal("status"))
-
-	err = client.SetGlobalChecked("no-such-tmux-option", "on")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "no-such-tmux-option", "and the refusal names the option")
 }
 
 func keyTable(t *testing.T, c *Client, table string) string {

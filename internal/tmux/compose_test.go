@@ -174,7 +174,7 @@ func rawPane(t *testing.T, client *Client, session string) (pane, received strin
 		"--", readlineShell, "-c", script)
 	require.NoError(t, err)
 
-	require.NoError(t, client.SendText(pane, "started"))
+	sendText(t, client, pane, "started")
 	waitForLine(t, received, "started")
 
 	return pane, received
@@ -195,7 +195,7 @@ func TestCutAndYankRoundTripsThroughReadline(t *testing.T) {
 	waitForFrame(t, client, pane, "$")
 	prompt := lastLine(client.CapturePane(pane))
 
-	require.NoError(t, client.SendText(pane, "echo hello world"))
+	sendText(t, client, pane, "echo hello world")
 	waitForFrame(t, client, pane, "echo hello world")
 
 	// The cursor is left mid-line.

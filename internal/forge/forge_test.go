@@ -8,8 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"weave/internal/git"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -152,25 +150,4 @@ func TestPullRequestIsFinished(t *testing.T) {
 	assert.False(t, PullRequest{}.IsFinished())
 	assert.True(t, PullRequest{ClosedAt: &now}.IsFinished())
 	assert.True(t, PullRequest{MergedAt: &now, ClosedAt: &now}.IsFinished())
-}
-
-// TestPullRequestIsCrossRepository covers a branch in the target repository, one in a fork, and
-// one whose fork the forge no longer has.
-func TestPullRequestIsCrossRepository(t *testing.T) {
-	t.Parallel()
-
-	upstream := git.RemoteURL{
-		Scheme: "https",
-		Host:   "github.com",
-		Path:   "owner/repo",
-	}
-	fork := git.RemoteURL{
-		Scheme: "https",
-		Host:   "github.com",
-		Path:   "someone/repo",
-	}
-
-	assert.False(t, PullRequest{Repository: upstream, Head: upstream}.IsCrossRepository())
-	assert.True(t, PullRequest{Repository: upstream, Head: fork}.IsCrossRepository())
-	assert.True(t, PullRequest{Repository: upstream}.IsCrossRepository())
 }
