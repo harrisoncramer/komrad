@@ -2464,7 +2464,8 @@ WITH q AS (
                 SELECT
                     PHRASETO_TSQUERY('english', e)
                 FROM
-                    UNNEST($6::text[]) e) AS forbidden
+                    UNNEST($6::text[]) e) AS forbidden,
+                $7::text AS phrase
 ),
 ranked AS (
     SELECT
@@ -2475,8 +2476,8 @@ ranked AS (
         OCTET_LENGTH(c.content) AS content_length,
         a.name,
         a.archived_at IS NOT NULL AS archived,
-        TS_HEADLINE('english', c.content, q.words, $7) AS snippet,
-        TS_RANK_CD(c.tsv, q.words, 32) AS rank
+        TS_HEADLINE('english', c.content, q.words, $8) AS snippet,
+        TS_RANK_CD(c.tsv, q.words, 2) + COALESCE((c.content ~* q.phrase)::int, 0) AS rank
     FROM
         agent_transcript_chunks c
         CROSS JOIN q
@@ -2485,8 +2486,8 @@ ranked AS (
         CARDINALITY(q.required) > 0
         AND c.tsv @@ ALL (q.required)
         AND NOT (c.tsv @@ ANY (q.forbidden))
-        AND ($8::uuid IS NULL
-            OR c.agent_id = $8))
+        AND ($9::uuid IS NULL
+            OR c.agent_id = $9))
 SELECT
     r.agent_id,
     r.seq,
@@ -2519,6 +2520,7 @@ type SearchTranscriptsParams struct {
 	Lim           int32
 	Terms         []string
 	Excluded      []string
+	Phrase        *string
 	Headline      string
 	AgentID       *string
 }
@@ -2543,6 +2545,7 @@ func (q *Queries) SearchTranscripts(ctx context.Context, arg SearchTranscriptsPa
 		arg.Lim,
 		arg.Terms,
 		arg.Excluded,
+		arg.Phrase,
 		arg.Headline,
 		arg.AgentID,
 	)
