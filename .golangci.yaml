@@ -262,7 +262,7 @@ linters:
     custom:
       weavelint:
         type: module
-        description: Checks for this repo; a sentinel error must declare the kind of failure it is and be declared at package scope, a message wrapping another error opens with "failed to " or with the error itself, a connect handler must hand its strict half to the adapter rather than answering for itself, a forge Secret gives up its token only where it is sent or kept, an HTTP client is built by lib/xhttp, a declared function spans more than one line, a proto converter is named for its direction, a comment carries no justification clause, and a loop that only maps a slice is xslice.Map.
+        description: Checks for this repo; a sentinel error must declare the kind of failure it is and be declared at package scope, a message wrapping another error opens with "failed to " or with the error itself, a connect handler must hand its strict half to the adapter rather than answering for itself, a forge Secret gives up its token only where it is sent or kept, an HTTP client is built by lib/xhttp, a declared function spans more than one line, a proto converter is named for its direction, a comment carries no justification clause, a loop that only maps a slice is xslice.Map, and a constructor taking a params struct is New<T>(New<T>Params) declared as params, type, constructor.
         settings:
           sentinel_inline:
             skip: false
@@ -282,6 +282,9 @@ linters:
             # comments are the text of the generated config.toml, so they are prose on purpose.
             exclude:
               - config/appconfig\.go$
+          constructor_shape:
+            skip: false
+            exclude: []
           single_append:
             skip: false
             # Unanchored regexps over the path lint was run from. The package that defines Map,

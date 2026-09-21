@@ -79,6 +79,11 @@ func (l *linter) BuildAnalyzers() ([]*analysis.Analyzer, error) {
 		return nil, err
 	}
 
+	constructors, err := newConstructorShape(l.config.ConstructorShape)
+	if err != nil {
+		return nil, err
+	}
+
 	return []*analysis.Analyzer{
 		sentinels,
 		inline,
@@ -90,6 +95,7 @@ func (l *linter) BuildAnalyzers() ([]*analysis.Analyzer, error) {
 		conversions,
 		comments,
 		mappings,
+		constructors,
 	}, nil
 }
 
