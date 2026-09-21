@@ -837,7 +837,7 @@ func (r rebaseRoster) SetSequenceInProgressByID(context.Context, string, bool) e
 }
 
 // TestRebaseRefusesAnAgentInTheCallersCheckout covers who is asking rather than who the row
-// belongs to, a child sharing its parent's checkout.
+// belongs to.
 func TestRebaseRefusesAnAgentInTheCallersCheckout(t *testing.T) {
 	t.Parallel()
 

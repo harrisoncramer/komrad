@@ -84,20 +84,28 @@ func clausePos(group *ast.CommentGroup, starts []int, offset int) token.Pos {
 	for i := len(starts) - 1; i >= 0; i-- {
 		if offset >= starts[i] {
 			comment := group.List[i]
-			marker := len(comment.Text) - len(commentBody(comment.Text))
 
-			return comment.Pos() + token.Pos(marker+offset-starts[i])
+			return comment.Pos() + token.Pos(markerLen(comment.Text)+offset-starts[i])
 		}
 	}
 
 	return group.Pos()
 }
 
-// commentBody is a comment's text with its opening marker gone.
+// commentBody is a comment's text with its markers gone.
 func commentBody(text string) string {
 	if strings.HasPrefix(text, "//") {
-		return strings.TrimPrefix(text[2:], " ")
+		return text[markerLen(text):]
 	}
 
 	return strings.TrimSuffix(text[2:], "*/")
+}
+
+// markerLen is how many bytes a comment's opening marker takes, the space after // included.
+func markerLen(text string) int {
+	if strings.HasPrefix(text, "// ") {
+		return 3
+	}
+
+	return 2
 }
