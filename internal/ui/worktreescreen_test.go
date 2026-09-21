@@ -27,7 +27,7 @@ import (
 // worktreesModel is the worktrees screen over the fixture listing, with the live agent on the
 // agents list and the archived ones in the archive.
 func worktreesModel() model {
-	archived := time.Date(2026, 9, 17, 12, 0, 0, 0, time.UTC)
+	archived := time.Date(2026, 9, 17, 12, 0, 0, 0, time.Local)
 
 	return model{
 		frame:         layout.New(&recordingTmux{}, config.DefaultLayout()),
