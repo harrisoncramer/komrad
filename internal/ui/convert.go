@@ -3,6 +3,7 @@ package ui
 import (
 	"time"
 
+	"weave/internal/ui/panel"
 	agentv1 "weave/proto/gen/agent/v1"
 	pullrequestv1 "weave/proto/gen/pullrequest/v1"
 	schedulev1 "weave/proto/gen/schedule/v1"
@@ -10,20 +11,16 @@ import (
 	worktreev1 "weave/proto/gen/worktree/v1"
 
 	"weave/internal/git"
-	"weave/internal/rpc/render"
-	agentstore "weave/internal/store/agent"
-	schedulestore "weave/internal/store/schedule"
-	workflowstore "weave/internal/store/workflow"
 	"weave/lib/dates"
 	"weave/lib/xslice"
 )
 
-func agentFrom(s *agentv1.Agent) agentstore.Agent {
-	metadata := xslice.Map(s.GetMetadata(), func(entry *agentv1.AgentMetadata) agentstore.Metadata {
-		return agentstore.Metadata{Key: entry.GetKey(), Value: entry.GetValue()}
+func agentFrom(s *agentv1.Agent) panel.Agent {
+	metadata := xslice.Map(s.GetMetadata(), func(entry *agentv1.AgentMetadata) panel.Metadata {
+		return panel.Metadata{Key: entry.GetKey(), Value: entry.GetValue()}
 	})
 
-	return agentstore.Agent{
+	return panel.Agent{
 		ID:                 s.GetId(),
 		Name:               s.GetName(),
 		Pane:               s.GetPaneId(),
@@ -50,36 +47,36 @@ func agentFrom(s *agentv1.Agent) agentstore.Agent {
 	}
 }
 
-// stateFrom is a wire state as the panel stores it.
-func stateFrom(state agentv1.AgentState) agentstore.State {
+// stateFrom is a wire state as the panel keeps it.
+func stateFrom(state agentv1.AgentState) panel.State {
 	switch state {
 	case agentv1.AgentState_AGENT_STATE_IDLE:
-		return agentstore.StateIdle
+		return panel.StateIdle
 	case agentv1.AgentState_AGENT_STATE_THINKING:
-		return agentstore.StateThinking
+		return panel.StateThinking
 	case agentv1.AgentState_AGENT_STATE_WAITING:
-		return agentstore.StateWaiting
+		return panel.StateWaiting
 	case agentv1.AgentState_AGENT_STATE_SETTING_UP:
-		return agentstore.StateSettingUp
+		return panel.StateSettingUp
 	case agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE:
-		return agentstore.StateFailedToCreate
+		return panel.StateFailedToCreate
 	case agentv1.AgentState_AGENT_STATE_FAILED_TO_CLEANUP:
-		return agentstore.StateFailedToCleanup
+		return panel.StateFailedToCleanup
 	case agentv1.AgentState_AGENT_STATE_UNCERTAIN, agentv1.AgentState_AGENT_STATE_UNSPECIFIED:
 	}
 
-	return agentstore.StateUncertain
+	return panel.StateUncertain
 }
 
-// roleFrom is a wire role as the panel stores it.
-func roleFrom(role agentv1.AgentRole) agentstore.Role {
+// roleFrom is a wire role as the panel keeps it.
+func roleFrom(role agentv1.AgentRole) panel.Role {
 	switch role {
 	case agentv1.AgentRole_AGENT_ROLE_IMPLEMENTER:
-		return agentstore.RoleImplementer
+		return panel.RoleImplementer
 	case agentv1.AgentRole_AGENT_ROLE_REVIEWER:
-		return agentstore.RoleReviewer
+		return panel.RoleReviewer
 	case agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR:
-		return agentstore.RoleOrchestrator
+		return panel.RoleOrchestrator
 	case agentv1.AgentRole_AGENT_ROLE_UNSPECIFIED:
 	}
 
@@ -149,27 +146,38 @@ func standingFrom(standing agentv1.ReviewTreeStanding) git.Standing {
 	return git.StandingSame
 }
 
-func workflowsFrom(listed []*workflowv1.Workflow) []workflowstore.Workflow {
+func workflowsFrom(listed []*workflowv1.Workflow) []panel.Workflow {
 	return xslice.Map(listed, workflowFrom)
 }
 
-func workflowFrom(w *workflowv1.Workflow) workflowstore.Workflow {
-	return workflowstore.Workflow{
+func workflowFrom(w *workflowv1.Workflow) panel.Workflow {
+	return panel.Workflow{
 		ID:       w.GetId(),
 		Name:     w.GetName(),
 		Context:  w.GetContext(),
 		Harness:  w.GetHarness(),
 		Cwd:      w.GetCwd(),
 		Flags:    w.GetFlags(),
-		Worktree: render.WorktreeConfigFromProto(w.GetWorktree()),
-		Hooks: xslice.Map(w.GetHooks(), func(hook *workflowv1.WorkflowHook) workflowstore.Hook {
-			return workflowstore.Hook{Event: hook.GetEvent(), Script: hook.GetScript()}
+		Worktree: worktreeConfigFrom(w.GetWorktree()),
+		Hooks: xslice.Map(w.GetHooks(), func(hook *workflowv1.WorkflowHook) panel.Hook {
+			return panel.Hook{Event: hook.GetEvent(), Script: hook.GetScript()}
 		}),
 		ArchivedAt: dates.ParsePtr(w.GetArchivedAt()),
 	}
 }
 
-func archivedAgentsFrom(listed []*agentv1.Agent) []agentstore.Agent {
+func worktreeConfigFrom(w *workflowv1.WorktreeConfig) panel.WorktreeConfig {
+	return panel.WorktreeConfig{
+		Enabled:      w.GetEnabled(),
+		BaseBranch:   w.GetBaseBranch(),
+		Dir:          w.GetDir(),
+		CopyPaths:    w.GetCopyPaths(),
+		SymlinkPaths: w.GetSymlinkPaths(),
+		DiffExclude:  w.GetDiffExclude(),
+	}
+}
+
+func archivedAgentsFrom(listed []*agentv1.Agent) []panel.Agent {
 	return xslice.Map(listed, agentFrom)
 }
 
@@ -184,8 +192,8 @@ func scheduleItemsFrom(listed []*schedulev1.Schedule) []scheduleItem {
 	})
 }
 
-func scheduleFrom(s *schedulev1.Schedule) schedulestore.Schedule {
-	schedule := schedulestore.Schedule{
+func scheduleFrom(s *schedulev1.Schedule) panel.Schedule {
+	schedule := panel.Schedule{
 		ID:                s.GetId(),
 		Name:              s.GetName(),
 		Cron:              s.GetCron(),
@@ -194,7 +202,7 @@ func scheduleFrom(s *schedulev1.Schedule) schedulestore.Schedule {
 		HideAgents:        s.GetHideAgents(),
 		Prompt:            s.GetPrompt(),
 		WorkflowID:        s.GetWorkflowId(),
-		LastResultStatus:  schedulestore.LaunchResultStatus(s.GetLastResultStatus()),
+		LastResultStatus:  s.GetLastResultStatus(),
 		LastResultMessage: s.GetLastResultMessage(),
 	}
 
