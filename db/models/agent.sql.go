@@ -114,13 +114,26 @@ func (q *Queries) ClaimAgentNudge(ctx context.Context, arg ClaimAgentNudgeParams
 }
 
 const clearAgentsDeleting = `-- name: ClearAgentsDeleting :exec
+WITH released AS (
+    UPDATE
+        agents
+    SET
+        deleting_at = NULL
+    WHERE
+        id = ANY ($1::uuid[])
+        OR parent_agent_id = ANY ($1::uuid[])
+    RETURNING
+        workflow_id)
 UPDATE
-    agents
+    workflows
 SET
     deleting_at = NULL
 WHERE
-    id = ANY ($1::uuid[])
-    OR parent_agent_id = ANY ($1::uuid[])
+    id IN (
+        SELECT
+            workflow_id
+        FROM
+            released)
 `
 
 func (q *Queries) ClearAgentsDeleting(ctx context.Context, ids []string) error {

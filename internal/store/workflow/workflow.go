@@ -19,6 +19,7 @@ type Workflow struct {
 	Worktree   WorktreeConfig
 	Hooks      []Hook
 	ArchivedAt *time.Time
+	DeletingAt *time.Time
 	UpdatedAt  time.Time
 }
 
@@ -103,6 +104,7 @@ func workflowFromRow(w models.Workflow, cfg models.WorkflowConfig, prov models.W
 		},
 		Hooks:      hooks,
 		ArchivedAt: w.ArchivedAt,
+		DeletingAt: w.DeletingAt,
 		UpdatedAt:  w.UpdatedAt,
 	}
 }

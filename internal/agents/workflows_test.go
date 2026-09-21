@@ -948,6 +948,53 @@ func TestDeleteWorkflowLeavesAStragglerAndItsWorkflowBehind(t *testing.T) {
 	got, err := st.Workflows.GetIncludingArchived(ctx, created.ID)
 	require.NoError(t, err)
 	require.NotNil(t, got, "the workflow the straggler is still in stays archived")
+	assert.Nil(t, got.DeletingAt, "and is given back to the archive with it")
 
 	assert.Equal(t, agentstore.StateFailedToCleanup, agentByID(t, st, agent.ID).State)
+}
+
+// TestDeleteWorkflowClaimsTheWorkflowWhileItsAgentsGo covers the archived workflow leaving the
+// archive listing with its agents the moment the delete is asked, and going for good once the
+// last teardown has worked.
+func TestDeleteWorkflowClaimsTheWorkflowWhileItsAgentsGo(t *testing.T) {
+	st := newStore(t)
+	tmux := newFakeTmux()
+	lifecycle := &fakeLifecycle{holdDeprovision: true}
+	agentSvc := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
+	workflows := NewWorkflowService(NewWorkflowServiceParams{
+		Workflows:    st.Workflows,
+		Agents:       st.Agents,
+		AgentDeleter: agentSvc.lifecycle,
+		Emptied:      agentSvc.emptied,
+		Schedules:    st.Schedules,
+		Tmux:         tmux,
+		Tx:           st.Pool,
+	})
+	ctx := t.Context()
+
+	created, err := workflows.NewWorkflow(ctx, worktreeConfig(t, "backend"))
+	require.NoError(t, err)
+	_, err = agentSvc.launch.NewAgent(ctx, NewAgentParams{
+		Title:      "agent",
+		Dir:        t.TempDir(),
+		WorkflowID: created.ID,
+	})
+	require.NoError(t, err)
+	require.NoError(t, workflows.ArchiveWorkflow(ctx, created.ID))
+
+	require.NoError(t, workflows.DeleteWorkflow(ctx, created.ID))
+
+	page, err := st.Workflows.ListPage(ctx, 10, nil, true)
+	require.NoError(t, err)
+	assert.Empty(t, page, "the workflow is out of the archive while its agent's teardown runs")
+	got, err := st.Workflows.GetIncludingArchived(ctx, created.ID)
+	require.NoError(t, err)
+	require.NotNil(t, got, "and still there")
+	assert.NotNil(t, got.DeletingAt)
+
+	require.Len(t, lifecycle.held, 1)
+	lifecycle.held[0](nil)
+
+	_, err = st.Workflows.GetIncludingArchived(ctx, created.ID)
+	require.ErrorIs(t, err, store.ErrNotFound, "the last agent going takes the workflow with it")
 }

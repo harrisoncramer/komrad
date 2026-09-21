@@ -570,6 +570,8 @@ type Workflow struct {
 	ArchivedAt          *time.Time
 	CreatedAt           time.Time
 	UpdatedAt           time.Time
+	// When a delete claimed the workflow, which happens when a delete claims the agents inside it. A claimed workflow is left out of the archive until the last of those agents goes and takes the row with it, and an agent whose delete fails gives the workflow back as it comes back itself.
+	DeletingAt *time.Time
 }
 
 // The harness, working directory and flags a workflow gives each new agent it creates.

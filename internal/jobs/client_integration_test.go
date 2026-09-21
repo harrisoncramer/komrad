@@ -226,12 +226,17 @@ func TestEnqueuerClaimsWhatItQueues(t *testing.T) {
 
 			workflow, err := stores.Workflows.Create(ctx, workflowstore.Config{Name: "backend"})
 			require.NoError(t, err)
+			putAway, err := stores.Workflows.Create(ctx, workflowstore.Config{Name: "put-away"})
+			require.NoError(t, err)
 			live := agentstore.Agent{ID: newID(t), Name: "live", WorkflowID: workflow.ID, State: agentstore.StateIdle}
 			archived := agentstore.Agent{ID: newID(t), Name: "archived", WorkflowID: workflow.ID, State: agentstore.StateIdle}
+			inside := agentstore.Agent{ID: newID(t), Name: "inside", WorkflowID: putAway.ID, State: agentstore.StateIdle}
 			require.NoError(t, stores.Agents.Create(ctx, live))
 			require.NoError(t, stores.Agents.Create(ctx, archived))
-			_, err = stores.Agents.Archive(ctx, []string{archived.ID})
+			require.NoError(t, stores.Agents.Create(ctx, inside))
+			_, err = stores.Agents.Archive(ctx, []string{archived.ID, inside.ID})
 			require.NoError(t, err)
+			require.NoError(t, stores.Workflows.Archive(ctx, putAway.ID))
 			dirs := []string{"/trees/" + archived.ID, "/trees/" + live.ID, "/trees/orphan"}
 
 			require.NoError(t, tt.queue(ctx, enqueuer, dirs))
@@ -242,6 +247,12 @@ func TestEnqueuerClaimsWhatItQueues(t *testing.T) {
 			left, err := stores.Agents.GetByID(ctx, live.ID)
 			require.NoError(t, err)
 			assert.Nil(t, left.DeletingAt, "the live agent is not")
+			gone, err := stores.Workflows.GetIncludingArchived(ctx, putAway.ID)
+			require.NoError(t, err)
+			assert.Equal(t, !tt.wantDirs, gone.DeletingAt != nil, "the archive sweep claims the archived workflow, the worktree delete leaves it")
+			kept, err := stores.Workflows.GetIncludingArchived(ctx, workflow.ID)
+			require.NoError(t, err)
+			assert.Nil(t, kept.DeletingAt, "a live workflow is never claimed")
 
 			listed, err := enqueuer.ListClaimedDirs(ctx)
 			require.NoError(t, err)

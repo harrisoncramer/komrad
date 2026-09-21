@@ -63,13 +63,26 @@ AND archived_at IS NOT NULL
 AND deleting_at IS NULL;
 
 -- name: ClearAgentsDeleting :exec
+WITH released AS (
+    UPDATE
+        agents
+    SET
+        deleting_at = NULL
+    WHERE
+        id = ANY (@ids::uuid[])
+        OR parent_agent_id = ANY (@ids::uuid[])
+    RETURNING
+        workflow_id)
 UPDATE
-    agents
+    workflows
 SET
     deleting_at = NULL
 WHERE
-    id = ANY (@ids::uuid[])
-    OR parent_agent_id = ANY (@ids::uuid[]);
+    id IN (
+        SELECT
+            workflow_id
+        FROM
+            released);
 
 -- name: ClearAllAgentsDeleting :exec
 UPDATE

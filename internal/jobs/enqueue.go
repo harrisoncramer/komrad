@@ -8,6 +8,7 @@ import (
 
 	"weave/internal/jobs/internaljobs"
 	agentstore "weave/internal/store/agent"
+	workflowstore "weave/internal/store/workflow"
 	"weave/lib/xslice"
 
 	"github.com/jackc/pgx/v5"
@@ -42,10 +43,13 @@ func NewEnqueuer(client *river.Client[pgx.Tx], db txBeginner) *Enqueuer {
 	return &Enqueuer{client: client, db: db}
 }
 
-// EmptyArchive claims every archived agent and queues the sweep that deletes them, in one
-// transaction, and returns once the job is recorded.
+// EmptyArchive claims every archived agent and the archived workflows holding them and queues
+// the sweep that deletes them, in one transaction, and returns once the job is recorded.
 func (e *Enqueuer) EmptyArchive(ctx context.Context) error {
 	return e.inTx(ctx, func(tx pgx.Tx) error {
+		if err := workflowstore.New(tx).MarkArchivedDeleting(ctx); err != nil {
+			return err
+		}
 		if err := agentstore.New(tx).MarkArchivedDeleting(ctx); err != nil {
 			return err
 		}

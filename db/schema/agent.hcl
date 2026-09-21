@@ -174,6 +174,11 @@ table "workflows" {
     null = true
     type = timestamptz
   }
+  column "deleting_at" {
+    null    = true
+    type    = timestamptz
+    comment = "When a delete claimed the workflow, which happens when a delete claims the agents inside it. A claimed workflow is left out of the archive until the last of those agents goes and takes the row with it, and an agent whose delete fails gives the workflow back as it comes back itself."
+  }
   column "created_at" {
     null    = false
     type    = timestamptz
