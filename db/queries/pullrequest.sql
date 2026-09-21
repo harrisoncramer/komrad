@@ -343,7 +343,7 @@ WHERE
         OR (p.checks = 'pending'
             AND p.checks_read_at < @pending_before::timestamptz)
         OR (p.checks IS NULL
-            AND p.changed_at > @settled_after::timestamptz
+            AND p.changed_at > @changed_since::timestamptz
             AND p.checks_read_at < @pending_before::timestamptz)
         OR (p.checks IN ('passing', 'failing')
             AND p.checks_read_at < @settled_before::timestamptz))

@@ -80,7 +80,7 @@ func (s *SyncStore) ListStaleStandings(ctx context.Context, params ListStaleStan
 	rows, err := s.queries.ListStaleStandings(ctx, models.ListStaleStandingsParams{
 		RepositoryUrl: params.RepositoryURL,
 		PendingBefore: params.Now.Add(-params.PendingAfter),
-		SettledAfter:  params.Now.Add(-params.SettleWithin),
+		ChangedSince:  params.Now.Add(-params.SettleWithin),
 		SettledBefore: params.Now.Add(-params.SettledAfter),
 	})
 	if err != nil {

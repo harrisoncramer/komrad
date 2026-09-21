@@ -382,7 +382,7 @@ ORDER BY
 type ListStaleStandingsParams struct {
 	RepositoryUrl string
 	PendingBefore time.Time
-	SettledAfter  time.Time
+	ChangedSince  time.Time
 	SettledBefore time.Time
 }
 
@@ -390,7 +390,7 @@ func (q *Queries) ListStaleStandings(ctx context.Context, arg ListStaleStandings
 	rows, err := q.db.Query(ctx, listStaleStandings,
 		arg.RepositoryUrl,
 		arg.PendingBefore,
-		arg.SettledAfter,
+		arg.ChangedSince,
 		arg.SettledBefore,
 	)
 	if err != nil {

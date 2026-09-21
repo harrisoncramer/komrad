@@ -200,8 +200,7 @@ func currentPullRequestField(pullRequest agentPullRequest) string {
 // pullRequestFieldKey labels the pull request an agent's row stands for.
 const pullRequestFieldKey = "pull request"
 
-// pullRequestWords is the state word with the checks beside it while a run is in flight,
-// which is what tells an open row with an approval waiting on its checks from a bare one.
+// pullRequestWords is the state word with the checks beside it while a run is in flight.
 func pullRequestWords(state pullrequestv1.PullRequestState, checks pullrequestv1.Checks) string {
 	word := pullRequestStateWord(state)
 	if checks == pullrequestv1.Checks_CHECKS_PENDING && state != pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING {

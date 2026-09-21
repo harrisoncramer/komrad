@@ -567,8 +567,7 @@ func (n standingNode) standing() forge.Standing {
 	return forge.Standing{Decision: n.decision(), Checks: n.checks(), HeadSHA: n.DiffHeadSha}
 }
 
-// checks is the head pipeline's status in weave's words: a cancelled pipeline blocks the merge
-// the way a failed one does, and a skipped or manual one says nothing about the branch.
+// checks is the head pipeline's status in weave's words.
 func (n standingNode) checks() forge.Checks {
 	if n.HeadPipeline == nil {
 		return forge.ChecksNone
