@@ -589,13 +589,6 @@ func (h searchHit) spans(content string) []paint.Span {
 	return paint.MatchSpans(content, h.offset, h.length, paint.MarkedTerms(h.snippet))
 }
 
-// searchDropped are the three columns the search screen gives up.
-var searchDropped = view.Columns{
-	Repo:   true,
-	Review: true,
-	Forge:  true,
-}
-
 // agentRow reads one agent the search found into the row the agents list draws.
 func (w *searchScreen) agentRow(s panelShared, agent searchAgent, archived map[string]agentItem) view.Row {
 	row := view.Row{
@@ -688,7 +681,7 @@ func (w *searchScreen) snapshot(s panelShared, rows []searchRow, pane listPane) 
 
 			return w.agentRow(s, row.agent, archived)
 		}),
-		Dropped:       searchDropped,
+		Columns:       view.NoColumns(),
 		Caret:         pane.caret,
 		BarBlinkedOut: pane.blinkedOut,
 		Focused:       rowKeyAt(rows, w.cursor),

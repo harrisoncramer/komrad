@@ -35,8 +35,6 @@ type snapshotParams struct {
 	flat bool
 	// pane is how many columns the list is drawn in.
 	pane int
-	// dropped are the columns this screen does not draw at all.
-	dropped view.Columns
 }
 
 // agentsSnapshot reads the listing into the plain data the agents list draws itself from.
@@ -51,7 +49,6 @@ func agentsSnapshot(params snapshotParams) view.Snapshot {
 		BarBlinkedOut: params.barBlinkedOut,
 		Focused:       params.focused,
 		Pane:          params.pane,
-		Dropped:       params.dropped,
 	}
 }
 

@@ -7,23 +7,20 @@ import (
 
 // Prepare turns a snapshot of the agents list into the view model a renderer draws.
 func Prepare(snapshot Snapshot) List {
+	columns := snapshot.columns()
 	lines := xslice.Map(snapshot.Rows, func(row Row) Line {
 		return prepareLine(prepareLineParams{
 			row:           row,
+			columns:       columns,
 			focused:       isFocused(row, snapshot.Focused),
 			caret:         snapshot.Caret,
 			barBlinkedOut: snapshot.BarBlinkedOut,
 		})
 	})
 
-	columns := fitColumns(snapshot.Pane, snapshot.Dropped)
 	if snapshot.Pane > 0 {
 		width := NameColumns(snapshot.Pane, columns)
-		trailed := hasRoomForTrails(width)
 		for i := range lines {
-			if !trailed {
-				lines[i].Trail = ""
-			}
 			lines[i] = fitRow(lines[i], width)
 		}
 	}
@@ -31,39 +28,10 @@ func Prepare(snapshot Snapshot) List {
 	return List{Lines: lines, Columns: columns}
 }
 
-// hasRoomForTrails reports whether a list drawn in the given name columns keeps its trails.
-func hasRoomForTrails(width int) bool {
-	return width-indentColumns-trailBudget >= minNameColumns
-}
-
-// fitColumns gives the columns up from the right as the pane narrows, reading the pane alone so
-// a list does not change shape when a row gains a mark.
-func fitColumns(pane int, dropped Columns) Columns {
-	columns := Columns{
-		Repo:   !dropped.Repo,
-		Review: !dropped.Review,
-		Forge:  !dropped.Forge,
-	}
-	if pane <= 0 {
-		return columns
-	}
-
-	// The repo column is never given up: a sidebar too narrow for the other two still says
-	// whether the checkout under an agent is somewhere you can work.
-	for _, give := range []*bool{&columns.Forge, &columns.Review} {
-		if NameColumns(pane, columns) >= minNameColumns {
-			return columns
-		}
-
-		*give = false
-	}
-
-	return columns
-}
-
 // prepareLineParams is one row and what the list around it says about that row.
 type prepareLineParams struct {
 	row           Row
+	columns       Columns
 	focused       bool
 	caret         Caret
 	barBlinkedOut bool
@@ -77,9 +45,7 @@ func prepareLine(params prepareLineParams) Line {
 		Focused:  focused,
 		Focus:    markCell(focused && params.caret == CaretDrawn, GlyphFocus, paint.ToneAccent),
 		Mark:     textCell(row.Mark, paint.ToneMuted),
-		Repo:     RepoCell(row),
-		Review:   ReviewCell(row),
-		Forge:    ForgeCell(row),
+		Columns:  columnCells(row, params.columns),
 		Status:   blinkBar(StatusCell(row), row, params.barBlinkedOut),
 		Rule:     row.Kind == KindChild,
 		Indent:   indentFor(row.Kind),
@@ -95,8 +61,28 @@ func prepareLine(params prepareLineParams) Line {
 		Tally:    row.HiddenCount,
 		Schedule: markCell(row.Scheduled, GlyphSchedule, paint.ToneMuted),
 		Selected: row.Selected,
-		Trail:    row.Trail,
 	}
+}
+
+// columnCells resolves a row's cell for each column the list draws.
+func columnCells(row Row, columns Columns) []Cell {
+	cells := make([]Cell, len(columns))
+	for i, column := range columns {
+		switch column.Kind {
+		case ColumnRepo:
+			cells[i] = RepoCell(row)
+		case ColumnReview:
+			cells[i] = ReviewCell(row)
+		case ColumnForge:
+			cells[i] = ForgeCell(row)
+		case ColumnText:
+			if i < len(row.Cells) {
+				cells[i] = row.Cells[i]
+			}
+		}
+	}
+
+	return cells
 }
 
 // isDim reports whether the process behind a row is gone.

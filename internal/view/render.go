@@ -23,18 +23,22 @@ func Rows(list List, palette paint.Palette, width int) []string {
 // colours it already carries read through.
 func renderLine(line Line, columns Columns, palette paint.Palette, width int) string {
 	cells := []string{
-		drawGutterCell(palette, line.Focus),
-		drawGutterCell(palette, line.Mark),
+		drawGutterCell(palette, line.Focus, plainColumns),
+		drawGutterCell(palette, line.Mark, plainColumns),
 	}
-	cells = append(cells, xslice.Map(drawnColumnCells(line, columns), func(cell Cell) string {
-		return drawGutterCell(palette, cell)
-	})...)
+	for i, column := range columns {
+		var cell Cell
+		if i < len(line.Columns) {
+			cell = line.Columns[i]
+		}
 
-	gutter := strings.Join(append(cells, drawGutterCell(palette, line.Status)), " ")
+		cells = append(cells, drawGutterCell(palette, cell, column.Width))
+	}
+
+	gutter := strings.Join(append(cells, drawGutterCell(palette, line.Status, plainColumns)), " ")
 
 	row := gutter + " " + strings.Repeat(" ", line.Indent) + drawRule(palette, line.Rule) +
 		drawLead(palette, line.Lead) + drawName(palette, line) + drawTrailing(palette, line)
-	row += drawTrail(palette, line, width-lipgloss.Width(row))
 
 	if line.Selected {
 		return paint.PaintRow(row, width)
@@ -69,25 +73,16 @@ func drawTrailing(palette paint.Palette, line Line) string {
 	return b.String()
 }
 
-// drawTrail is the text at the right edge, padded across the columns left after what precedes
-// it.
-func drawTrail(palette paint.Palette, line Line, left int) string {
-	if line.Trail == "" {
-		return ""
-	}
-
-	pad := max(left-lipgloss.Width(line.Trail), spaceColumns)
-
-	return strings.Repeat(" ", pad) + palette.Style(paint.ToneMuted).Render(line.Trail)
-}
-
-// drawGutterCell is a cell that holds its column whether or not it has anything to draw.
-func drawGutterCell(palette paint.Palette, cell Cell) string {
+// drawGutterCell is a cell that holds its column whether or not it has anything to draw, its
+// text set against the right edge of the column.
+func drawGutterCell(palette paint.Palette, cell Cell, width int) string {
 	if cell.IsBlank() {
-		return " "
+		return strings.Repeat(" ", width)
 	}
 
-	return drawCell(palette, cell)
+	text := paint.Clip(cellText(cell), width)
+
+	return strings.Repeat(" ", max(width-lipgloss.Width(text), 0)) + palette.Style(cell.Tone).Render(text)
 }
 
 func drawLead(palette paint.Palette, lead string) string {
@@ -109,12 +104,16 @@ func drawRule(palette paint.Palette, rule bool) string {
 
 // drawCell is what a cell holds, in its own tone.
 func drawCell(palette paint.Palette, cell Cell) string {
-	text := cell.Text
-	if text == "" {
-		text = Spell(cell.Glyph)
+	return palette.Style(cell.Tone).Render(cellText(cell))
+}
+
+// cellText is what a cell holds, the letter a person typed or the glyph spelled out.
+func cellText(cell Cell) string {
+	if cell.Text != "" {
+		return cell.Text
 	}
 
-	return palette.Style(cell.Tone).Render(text)
+	return Spell(cell.Glyph)
 }
 
 // nameStyle is the lettering a name is drawn in: its weight from where it sits in the tree, its

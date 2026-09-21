@@ -10,19 +10,19 @@
 //
 // # Agents indent under their workflow
 //
-// A row is a fixed sequence of cells: focus, mark gutter, repo, review, forge, status bar, name,
-// then trailing marks. Every gutter cell is always drawn and holds its column whether or not it
-// has anything to say, so the gutter is identical on every row whatever kind it is. Only the
-// name is indented: a workflow opens at the gutter, an agent one step in, and a child one step
-// further, on the corner it hangs off its parent by. Weight carries the same structure over
-// again, bold for a workflow and italic for a child, so neither the indent nor the lettering is
-// the only thing saying where a row sits.
+// A row is a fixed sequence of cells: focus, mark gutter, the columns the list declares, status
+// bar, name, then trailing marks. Every gutter cell is always drawn and holds its column whether
+// or not it has anything to say, so the gutter is identical on every row whatever kind it is.
+// Only the name is indented: a workflow opens at the gutter, an agent one step in, and a child
+// one step further, on the corner it hangs off its parent by. Weight carries the same structure
+// over again, bold for a workflow and italic for a child, so neither the indent nor the
+// lettering is the only thing saying where a row sits.
 //
 // One rule covers every cell of the row: blank is nothing to say, anything drawn is applicable,
-// and the shape says which state it is in. The three columns are blank on a row that can never
-// own a checkout, and the review column is blank as well on a branch no review has been released
-// on. The bar is the exception: it is drawn on every row, a thin pipe where nothing is happening
-// and a heavy one where an agent is thinking, waiting or broken, so it runs as one rail down the
+// and the shape says which state it is in. The agents list declares three glyph columns, repo,
+// review and forge, and they are blank on a row that can never own a checkout, the review column
+// blank as well on a branch no review has been released on. The bar is the exception: it is
+// drawn on every row, a thin pipe where nothing is happening and a heavy one where an agent is thinking, waiting or broken, so it runs as one rail down the
 // list. A thinking agent's bar pulses between the two on the cursor's blink. Whether a process is
 // still there is the weight's to say, not the bar's.
 //
@@ -47,31 +47,30 @@
 // workflow at the same pane, and the narrowing and the mark shedding both read the indent rather
 // than the gutter alone.
 //
-// # A narrow pane gives up columns, not names
+// # A list declares its columns
 //
-// The columns drop from the right as the pane narrows, forge first and then review, decided by
-// the pane alone so a list never changes shape because a row gained a mark. The repo column is
-// never given up. Nothing else is given up for width: not the focus caret, the mark gutter or the
-// status bar. A row too full for what is left gives up its tally and then its name, a row at a
-// time rather than the whole list, and gives up its marks only where the marks alone would not
-// fit the pane: the schedule first, then the hiding, then the pause, then the mail, and the
-// failed run last.
+// The columns between the mark and the bar are the screen's to name, in Snapshot.Columns, each
+// with a kind and a width. A glyph column is one of repo, review or forge, one column wide and
+// filled from the row's own state. A text column is as wide as the screen says and filled by the
+// row through Row.Cells, indexed by column position, set against the right edge of the column.
+// A snapshot naming no columns draws the agents list's three, so a test writing Snapshot{} gets
+// the agents list it meant.
 //
-// # A screen may give up a column its rows could never fill
+// The worktrees list declares a size and an age. A directory is the row there, and its checkout,
+// its review and its pull request belong to whichever agent holds it rather than to the row
+// itself. A search declares none: a result is a pointer into a conversation, not a piece of work
+// to triage.
 //
-// The narrowing above is about room. Dropped is about meaning: a column a screen gives up there
-// is gone at every pane. The worktrees list is one case, where a directory is the row and its
-// checkout, its review and its pull request belong to whichever agent holds it rather than to
-// the row itself, so a greyed glyph on each would be promising something the row cannot say.
-//
-// A dropped column buys the name its room.
+// Every declared column is drawn at every pane, and a column not declared buys the name its
+// room. Nothing is given up for width but the row's own odds and ends: a row too full for what
+// is left gives up its tally and then its name, a row at a time rather than the whole list, and
+// gives up its marks only where the marks alone would not fit the pane: the schedule first, then
+// the hiding, then the pause, then the mail, and the failed run last.
 //
 // # A list of results is not a tree
 //
 // A search draws the agents it found rather than a tree, so its rows are KindResult: nothing
-// sits under anything, every name opens at the gutter and no row is lettered for structure. It
-// drops all three columns: a result is a pointer into a conversation, not a piece of work to
-// triage.
+// sits under anything, every name opens at the gutter and no row is lettered for structure.
 //
 // # Scrolling belongs to the caller
 //

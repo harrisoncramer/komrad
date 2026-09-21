@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"weave/internal/ui/paint"
 	"weave/internal/ui/paint/label"
 	"weave/internal/ui/panel"
 	"weave/internal/view"
@@ -23,12 +24,19 @@ type worktreeRow struct {
 	item worktreeItem
 }
 
-// worktreesDropped are the columns the worktrees list gives up.
-var worktreesDropped = view.Columns{
-	Repo:   true,
-	Review: true,
-	Forge:  true,
+// worktreeColumns is the gutter of the worktrees list: a directory's size, then its age.
+func worktreeColumns() view.Columns {
+	return view.Columns{
+		{Kind: view.ColumnText, Width: sizeColumns},
+		{Kind: view.ColumnText, Width: ageColumns},
+	}
 }
+
+// sizeColumns and ageColumns are how wide the two figures are drawn.
+const (
+	sizeColumns = 4
+	ageColumns  = 4
+)
 
 // noRepository heads the directories whose .git file names nothing.
 const noRepository = "no repository"
@@ -252,14 +260,13 @@ func worktreesSnapshot(params worktreesSnapshotParams) view.Snapshot {
 		case r.header:
 			row.Kind = view.KindWorkflow
 			row.Process = view.ProcessNone
-			row.Trail = groupTrail(params.items, r.repo)
+			row.Cells = groupCells(params.items, r.repo)
 		default:
 			row.Kind = view.KindAgent
 			if params.flat {
 				row.Kind = view.KindResult
 			}
-			row.Repo = repoStanding(r.item)
-			row.Trail = rowTrail(r.item, params.now)
+			row.Cells = rowCells(r.item, params.now)
 			if r.item.agent != nil {
 				row = worktreeAgentFacts(row, *r.item.agent, live)
 			} else {
@@ -277,7 +284,7 @@ func worktreesSnapshot(params worktreesSnapshotParams) view.Snapshot {
 		BarBlinkedOut: params.barBlinkedOut,
 		Focused:       params.focused,
 		Pane:          params.pane,
-		Dropped:       worktreesDropped,
+		Columns:       worktreeColumns(),
 	}
 }
 
@@ -296,22 +303,21 @@ func worktreeAgentFacts(row view.Row, agent worktreeAgent, live map[string]agent
 	return agentFacts(row, item)
 }
 
-func repoStanding(item worktreeItem) view.Repo {
-	if !item.readable {
-		return view.RepoGone
+// rowCells are a directory's size then its age.
+func rowCells(item worktreeItem, now time.Time) []view.Cell {
+	return []view.Cell{
+		mutedCell(sizeLabel(item)),
+		mutedCell(label.AgeAt(item.lastActiveAt, now)),
 	}
-
-	return view.RepoClean
 }
 
-// rowTrail is a directory's size then its age.
-func rowTrail(item worktreeItem, now time.Time) string {
-	return view.Trail(sizeLabel(item), label.AgeAt(item.lastActiveAt, now))
+// groupCells are the total of the measured directories under a header, over the size column.
+func groupCells(items []worktreeItem, repo string) []view.Cell {
+	return []view.Cell{mutedCell(totalLabel(itemsUnder(items, repo)))}
 }
 
-// groupTrail is the total of the measured directories under a header, over the size column.
-func groupTrail(items []worktreeItem, repo string) string {
-	return view.Trail(totalLabel(itemsUnder(items, repo)), "")
+func mutedCell(text string) view.Cell {
+	return view.Cell{Text: text, Tone: paint.ToneMuted}
 }
 
 // sizeLabel is what a directory takes, or a dash while it is unmeasured.
