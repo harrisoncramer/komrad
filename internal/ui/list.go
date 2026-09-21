@@ -105,7 +105,7 @@ func (m model) searchLine() filterState {
 func (m model) headedListView(header string, rows []string, cursor int, help string) string {
 	lines := m.listLines(header, help)
 
-	return m.headedBlockView(header, paint.RenderList(rows, cursor, lines, dimStyle), lines, help)
+	return headedBlockView(header, paint.RenderList(rows, cursor, lines, dimStyle), lines, help)
 }
 
 // emptyListLine is what a screen says over no rows.
@@ -118,7 +118,7 @@ func (m model) emptyListLine(idle string) string {
 }
 
 // headedBlockView draws a list already fitted to the pane.
-func (m model) headedBlockView(header, block string, lines int, help string) string {
+func headedBlockView(header, block string, lines int, help string) string {
 	return header + paint.PadRows(block, lines) + help
 }
 
@@ -538,5 +538,5 @@ func (m model) listView(params listViewParams) string {
 		Lines:   lines,
 	})
 
-	return m.headedBlockView(header, window, lines, below)
+	return headedBlockView(header, window, lines, below)
 }

@@ -100,7 +100,7 @@ func TestScheduleKeys(t *testing.T) {
 			client := &fakeSchedules{}
 			m := scheduleModel(client, keys)
 			if tt.empty {
-				m.schedules.items = nil
+				m.listing.schedules = nil
 			}
 			if tt.noWorkflows {
 				m.listing.workflows = nil
@@ -156,7 +156,7 @@ func TestSchedulesView(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := scheduleModel(&fakeSchedules{}, config.DefaultKeybindings())
-			m.schedules.items = tt.schedules
+			m.listing.schedules = tt.schedules
 			m.schedules.cursor = 0
 
 			view := m.schedulesView()
@@ -385,13 +385,13 @@ func TestApplySchedules(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := scheduleModel(&fakeSchedules{}, config.DefaultKeybindings())
-			m.schedules.items = tt.start
+			m.listing.schedules = tt.start
 			m.schedules.cursor = tt.cursor
 
 			m.applySchedules(tt.fresh)
 
 			assert.Equal(t, tt.wantCursor, m.schedules.cursor)
-			assert.Len(t, m.schedules.items, len(tt.fresh))
+			assert.Len(t, m.listing.schedules, len(tt.fresh))
 		})
 	}
 }
@@ -485,19 +485,19 @@ func scheduleModel(client schedulev1connect.ScheduleServiceClient, keys config.K
 	tmux := &recordingTmux{}
 
 	return model{
-		api:  api{schedules: client},
-		tmux: tmux,
-		listing: listing{workflows: []workflowstore.Workflow{{
-			ID:   "w1",
-			Name: "api",
-			Cwd:  "/work/api",
-		}}},
+		api:    api{schedules: client},
+		tmux:   tmux,
 		popup:  NewPopupWindow(tmux, "test-session"),
 		frame:  layout.New(tmux, config.DefaultLayout()),
 		keys:   keys,
 		screen: screenSchedules,
-		schedules: scheduleState{
-			items: []scheduleItem{
+		listing: listing{
+			workflows: []workflowstore.Workflow{{
+				ID:   "w1",
+				Name: "api",
+				Cwd:  "/work/api",
+			}},
+			schedules: []scheduleItem{
 				{schedule: schedulestore.Schedule{
 					ID:      "s1",
 					Name:    "morning-ci",
@@ -633,7 +633,7 @@ func TestScheduleName(t *testing.T) {
 // which the form has to offer without being closed and opened again.
 func TestScheduleFormTakesNewWorkflows(t *testing.T) {
 	m := scheduleModel(&fakeSchedules{}, config.DefaultKeybindings())
-	m.schedules.items = []scheduleItem{{schedule: schedulestore.Schedule{
+	m.listing.schedules = []scheduleItem{{schedule: schedulestore.Schedule{
 		ID:         "s1",
 		Name:       "morning-ci",
 		Cron:       "0 9 * * 1-5",

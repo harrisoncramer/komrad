@@ -224,7 +224,7 @@ func TestSearchEscapeGoesBackFromAStandingSearch(t *testing.T) {
 // TestArchiveSearchWalksAndClears pins the archive getting the same search as the agents list.
 func TestArchiveSearchWalksAndClears(t *testing.T) {
 	m := archiveModel(&fakeArchiveAgents{}, &fakeArchiveWorkflows{}, config.DefaultKeybindings())
-	m.archive.agents = []agentstore.Agent{
+	m.listing.archivedAgents = []agentstore.Agent{
 		{
 			ID:         "a1",
 			Name:       "api-refactor",

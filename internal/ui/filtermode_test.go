@@ -305,7 +305,7 @@ func TestJumpMarkThroughAFilterToAHiddenRow(t *testing.T) {
 // the trees: a search walks its matches and a filter narrows to them.
 func TestSchedulesSearchWalksAndNarrows(t *testing.T) {
 	m := scheduleModel(&fakeSchedules{}, config.DefaultKeybindings())
-	m.schedules.items = scheduleItems("nightly", "morning", "weekly")
+	m.listing.schedules = scheduleItems("nightly", "morning", "weekly")
 
 	opened, _ := m.updateSchedules(keyMsg("/"))
 	standing := pressMark(t, opened.(model), "ly", "enter")
@@ -426,7 +426,7 @@ func filterModeTree() model {
 // can miss.
 func filterModeScreens() model {
 	m := worktreesModel()
-	m.schedules.items = scheduleItems("nightly")
+	m.listing.schedules = scheduleItems("nightly")
 
 	return m
 }

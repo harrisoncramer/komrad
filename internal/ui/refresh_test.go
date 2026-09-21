@@ -343,12 +343,12 @@ func TestCursorHoldsItsAgentWhenAFolderArrives(t *testing.T) {
 // folders are replaced before its own listings land.
 func TestArchiveCursorHoldsItsAgentWhenAFolderGoes(t *testing.T) {
 	m := model{
-		frame:   layout.New(&recordingTmux{}, config.DefaultLayout()),
-		keys:    config.DefaultKeybindings(),
-		screen:  screenArchive,
-		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "api"}, {ID: "w2", Name: "infra"}}},
-		archive: archiveState{
-			agents: []agentstore.Agent{
+		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
+		keys:   config.DefaultKeybindings(),
+		screen: screenArchive,
+		listing: listing{
+			workflows: []workflowstore.Workflow{{ID: "w1", Name: "api"}, {ID: "w2", Name: "infra"}},
+			archivedAgents: []agentstore.Agent{
 				{
 					ID:         "x1",
 					Name:       "api-spike",
@@ -365,8 +365,8 @@ func TestArchiveCursorHoldsItsAgentWhenAFolderGoes(t *testing.T) {
 					WorkflowID: "w2",
 				},
 			},
-			rowCursor: rowCursor{cursor: 3},
 		},
+		archive: archiveState{rowCursor: rowCursor{cursor: 3}},
 	}
 
 	m.applyRefresh(refreshResult{
@@ -416,7 +416,7 @@ func TestSearchListsTheArchive(t *testing.T) {
 
 		m = settle(t, m, m.refreshCmd())
 
-		assert.Len(t, m.archive.agents, tc.want, "screen %d holds the archived agents it asked for", tc.screen)
+		assert.Len(t, m.listing.archivedAgents, tc.want, "screen %d holds the archived agents it asked for", tc.screen)
 	}
 }
 

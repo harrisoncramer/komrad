@@ -502,7 +502,7 @@ func TestJumpToSearchHit(t *testing.T) {
 			m.screen = screenSearch
 			m.search = searchState{query: "ledger", turns: []searchHit{tt.hit}}
 			m.listing.agents[1].agent.Hidden = tt.hidden
-			m.archive.agents = []agentstore.Agent{{
+			m.listing.archivedAgents = []agentstore.Agent{{
 				ID:         "a3",
 				Name:       "old-work",
 				WorkflowID: "w1",
@@ -518,7 +518,7 @@ func TestJumpToSearchHit(t *testing.T) {
 
 			rows, cursor := got.agentRows(), got.tree.cursor
 			if got.screen == screenArchive {
-				got.applyArchive(got.archive.agents, nil, "")
+				got.applyArchive(got.listing.archivedAgents, nil, "")
 				rows, cursor = got.archiveRows(), got.archive.cursor
 			}
 
@@ -791,7 +791,7 @@ func TestSearchRowCarriesTheAgent(t *testing.T) {
 			unreadMail: true,
 		},
 	}
-	m.archive.agents = []agentstore.Agent{
+	m.listing.archivedAgents = []agentstore.Agent{
 		{
 			ID:         "a2",
 			Name:       "payouts",
@@ -861,7 +861,7 @@ func TestSearchTellsAHiddenHitFromAnArchivedOne(t *testing.T) {
 			State:      agentstore.StateIdle,
 		}},
 	}
-	m.archive.agents = []agentstore.Agent{
+	m.listing.archivedAgents = []agentstore.Agent{
 		{
 			ID:         "a3",
 			Name:       "put-away",
@@ -975,14 +975,14 @@ func TestArchivedAgentsSayTheSameOnBothScreens(t *testing.T) {
 			m := filterModel()
 			m.screen = screenSearch
 			m.search = searchState{query: "payouts"}
-			m.archive.agents = []agentstore.Agent{agent}
+			m.listing.archivedAgents = []agentstore.Agent{agent}
 
 			archive := view.StatusCell(snapshotRow(agentRow{item: agentItem{agent: agent}}, snapshotParams{}))
 			search := view.StatusCell(m.searchRow(searchAgent{
 				id:       "a2",
 				name:     "payouts",
 				archived: true,
-			}, archivedByID(m.archive.agents)))
+			}, archivedByID(m.listing.archivedAgents)))
 
 			assert.Equal(t, archive, search, "the two screens draw one agent the same")
 		})
@@ -1018,13 +1018,13 @@ func TestArchivedHitGreysOnWhatTheServerSaid(t *testing.T) {
 			m := filterModel()
 			m.screen = screenSearch
 			m.search = searchState{query: "payouts"}
-			m.archive.agents = tt.listed
+			m.listing.archivedAgents = tt.listed
 
 			row := m.searchRow(searchAgent{
 				id:       "a2",
 				name:     "payouts",
 				archived: true,
-			}, archivedByID(m.archive.agents))
+			}, archivedByID(m.listing.archivedAgents))
 
 			assert.True(t, row.Archived, "the server said it is archived, so it greys")
 			assert.Equal(t, view.ProcessStopped, row.Process, "and it is over, whatever else is unknown")
@@ -1047,13 +1047,13 @@ func TestArchivedSearchRowKeepsTheDeleteThatFailed(t *testing.T) {
 	m := filterModel()
 	m.screen = screenSearch
 	m.search = searchState{query: "stuck"}
-	m.archive.agents = []agentstore.Agent{agent}
+	m.listing.archivedAgents = []agentstore.Agent{agent}
 
 	cell := view.StatusCell(m.searchRow(searchAgent{
 		id:       "a2",
 		name:     "stuck",
 		archived: true,
-	}, archivedByID(m.archive.agents)))
+	}, archivedByID(m.listing.archivedAgents)))
 
 	assert.Equal(t, view.GlyphBusy, cell.Glyph, "a failed delete is not quietened by being archived")
 	assert.Equal(t, paint.ToneDanger, cell.Tone)
@@ -1218,7 +1218,7 @@ func TestJumpLeavesTheSearchBehind(t *testing.T) {
 			m.screen = screenSearch
 			m.listing.agents[1].alive = true
 			m.listing.agents[1].agent.Pane = "%9"
-			m.archive.agents = []agentstore.Agent{{
+			m.listing.archivedAgents = []agentstore.Agent{{
 				ID:         "a3",
 				Name:       "old-work",
 				WorkflowID: "w1",
@@ -1324,7 +1324,7 @@ func TestSearchNamesStandFirst(t *testing.T) {
 	m := filterModel()
 	m.screen = screenSearch
 	m.width = 80
-	m.archive.agents = []agentstore.Agent{{
+	m.listing.archivedAgents = []agentstore.Agent{{
 		ID:         "a3",
 		Name:       "billing-old",
 		WorkflowID: "w1",

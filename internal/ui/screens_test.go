@@ -146,7 +146,7 @@ func TestALongNameIsCutWithAnEllipsis(t *testing.T) {
 	t.Run("a workflow in the archive", func(t *testing.T) {
 		m := crowdedModel(t)
 		m.width, m.height = 80, 40
-		m.archive.workflows = []workflowstore.Workflow{{ID: "w1", Name: long}}
+		m.listing.archivedWorkflows = []workflowstore.Workflow{{ID: "w1", Name: long}}
 
 		assert.Contains(t, rowWith(t, m.archiveListView(), long[:10]), "…", "the name says it was cut")
 	})
@@ -154,8 +154,8 @@ func TestALongNameIsCutWithAnEllipsis(t *testing.T) {
 	t.Run("a schedule", func(t *testing.T) {
 		m := crowdedModel(t)
 		m.width, m.height = 80, 40
-		m.schedules.items[0].schedule.Name = long
-		m.schedules.items[0].schedule.Cron = "0 9 * * 1"
+		m.listing.schedules[0].schedule.Name = long
+		m.listing.schedules[0].schedule.Cron = "0 9 * * 1"
 
 		row := rowWith(t, m.schedulesListView(), long[:10])
 		assert.Contains(t, row, "…", "the name says it was cut")
@@ -186,8 +186,8 @@ func longNamedModel(t *testing.T) model {
 
 	m := crowdedModel(t)
 	m.listing.workflows[0].Name = long
-	m.archive.workflows = m.listing.workflows
-	m.schedules.items[0].schedule.Name = long
+	m.listing.archivedWorkflows = m.listing.workflows
+	m.listing.schedules[0].schedule.Name = long
 	m.listing.agents = append([]agentItem{{
 		agent: agentstore.Agent{
 			ID:         "zz",
@@ -223,12 +223,12 @@ func crowdedModel(t *testing.T) model {
 				WorkflowID: "w1",
 			},
 		})
-		m.archive.agents = append(m.archive.agents, agentstore.Agent{
+		m.listing.archivedAgents = append(m.listing.archivedAgents, agentstore.Agent{
 			ID:         fmt.Sprintf("r%d", i),
 			Name:       name,
 			WorkflowID: "w1",
 		})
-		m.schedules.items = append(m.schedules.items, scheduleItem{
+		m.listing.schedules = append(m.listing.schedules, scheduleItem{
 			schedule: schedulestore.Schedule{ID: fmt.Sprintf("s%d", i), Name: name},
 		})
 		m.search.turns = append(m.search.turns, searchHit{

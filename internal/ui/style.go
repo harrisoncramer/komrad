@@ -11,7 +11,7 @@ const nameWidth = 30
 
 var dimStyle = errui.Dim
 
-func (m model) rowCursorStyle() lipgloss.Style {
+func rowCursorStyle() lipgloss.Style {
 	return paint.Panel.Cursor()
 }
 
@@ -34,7 +34,7 @@ func scheduleTone(enabled bool) paint.Tone {
 func (m model) nameStyle(hovered, inactive bool) lipgloss.Style {
 	switch {
 	case hovered:
-		return m.rowCursorStyle()
+		return rowCursorStyle()
 	case inactive:
 		return dimStyle
 	default:

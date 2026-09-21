@@ -101,8 +101,6 @@ type worktreesState struct {
 	items []worktreeItem
 	sort  tabsState
 	rows  []worktreeRow
-	// inspected is what the service answered for each directory.
-	inspected map[string]worktreeInspection
 }
 
 func (m *model) applyWorktrees(items []worktreeItem, hovered string) {
@@ -112,9 +110,9 @@ func (m *model) applyWorktrees(items []worktreeItem, hovered string) {
 	for _, item := range items {
 		listedDirs[item.dir] = true
 	}
-	for dir := range m.worktrees.inspected {
+	for dir := range m.inspections {
 		if !listedDirs[dir] {
-			delete(m.worktrees.inspected, dir)
+			delete(m.inspections, dir)
 		}
 	}
 

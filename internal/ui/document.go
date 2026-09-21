@@ -75,6 +75,6 @@ func (d docWindow) view(rows int) string {
 }
 
 // columnStyle is the markdown the block beside the list is drawn in.
-func (m model) columnStyle() ansi.StyleConfig {
+func columnStyle() ansi.StyleConfig {
 	return paint.Panel.Stage()
 }

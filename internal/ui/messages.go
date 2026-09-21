@@ -88,7 +88,7 @@ func (m model) pulseMessages(before int) (model, tea.Cmd) {
 
 // messagesPulseOn reports whether the newest message is in the lit half of a blink.
 func (m model) messagesPulseOn() bool {
-	return m.messages.pulse.lit() && m.messagesCursor() == 0
+	return m.messages.pulse.lit() && m.messages.clampedCursor() == 0
 }
 
 // messagePiece is one part of a message the cursor stands on: the label it is drawn behind, the
@@ -190,7 +190,7 @@ func (m model) messagePieces() []messagePiece {
 		return nil
 	}
 
-	held := m.messages.items[m.messagesCursor()]
+	held := m.messages.items[m.messages.clampedCursor()]
 	landed := label.Friendly(held.at)
 
 	// The reason is the one thing here somebody has to read, so it is drawn in the plain
@@ -232,7 +232,7 @@ func (m model) messagePieces() []messagePiece {
 // its rows and the rest under the indent the cursor leaves.
 func (m model) messagePieceRows(piece messagePiece, hovered, flashed bool) []string {
 	if piece.head {
-		return []string{m.messagesCursorPrefix(hovered) + m.messagesSummaryStyle(m.messages.items[m.messagesCursor()], messagesIndent, flashed) + m.messagesTally(messagesIndent)}
+		return []string{m.messagesCursorPrefix(hovered) + m.messagesSummaryStyle(m.messages.items[m.messages.clampedCursor()], messagesIndent, flashed) + m.messagesTally(messagesIndent)}
 	}
 
 	style := piece.style
@@ -297,12 +297,12 @@ func (m model) messagesSlot() []string {
 		}
 	}
 
-	held := m.messages.items[m.messagesCursor()]
+	held := m.messages.items[m.messages.clampedCursor()]
 
 	return []string{
 		m.messagesSummaryStyle(held, 0, false) + m.messagesTally(0),
 		dimStyle.Render("  " + paint.Clip(held.detail, max(m.lineWidth()-messagesIndent, 1))),
-		dimStyle.Render("  " + m.messagesHint()),
+		dimStyle.Render("  " + messagesHint()),
 	}
 }
 
@@ -313,7 +313,7 @@ func (m model) messagesSummaryLine(taken int) string {
 		return kindIcon(messageSuccess) + " No messages"
 	}
 
-	held := m.messages.items[m.messagesCursor()]
+	held := m.messages.items[m.messages.clampedCursor()]
 
 	return paint.Clip(kindIcon(held.kind)+" "+held.summary, max(m.lineWidth()-taken-messagesTallyWidth, 1))
 }
@@ -338,7 +338,7 @@ func (m model) messagesSummaryStyle(held message, taken int, flashed bool) strin
 	return paint.Panel.Style(kindTone(held.kind)).Render(icon) + " " + style.Render(words)
 }
 
-func (m model) messagesHint() string {
+func messagesHint() string {
 	return messagesFocusKey + " to read"
 }
 
@@ -355,7 +355,7 @@ func (m model) messagesTally(taken int) string {
 	if m.messages.focused {
 		// Counted from the oldest, so the newest message is the last of them rather than the
 		// first: the stack itself is held newest first.
-		tally = label.OfCount(count-m.messagesCursor(), count)
+		tally = label.OfCount(count-m.messages.clampedCursor(), count)
 		style = paint.Panel.Header()
 	} else if count < 2 {
 		return ""
@@ -385,7 +385,7 @@ func (m *model) pushMessage(next message) {
 	}
 
 	if m.messages.focused {
-		m.messages.cursor = m.messagesCursor() + 1
+		m.messages.cursor = m.messages.clampedCursor() + 1
 
 		return
 	}
@@ -395,12 +395,12 @@ func (m *model) pushMessage(next message) {
 
 // setNewestHint says what to do about the message that has just been reported, which the write
 // that reported it knows and the call that failed does not.
-func (m *model) setNewestHint(hint string) {
-	if len(m.messages.items) == 0 {
+func (s *messagesState) setNewestHint(hint string) {
+	if len(s.items) == 0 {
 		return
 	}
 
-	m.messages.items[0].hint = hint
+	s.items[0].hint = hint
 }
 
 // messagesDoc is the whole of the message the cursor is on, drawn in the block beside the list so
@@ -410,7 +410,7 @@ func (m model) messagesDoc() string {
 		return "_No messages_\n\nWeave is running normally."
 	}
 
-	held := m.messages.items[m.messagesCursor()]
+	held := m.messages.items[m.messages.clampedCursor()]
 
 	var b strings.Builder
 	fmt.Fprintf(&b, "`%s` **%s**\n\n%s\n", kindIcon(held.kind), held.summary, held.detail)
@@ -419,7 +419,7 @@ func (m model) messagesDoc() string {
 		fmt.Fprintf(&b, "\n%s\n", held.hint)
 	}
 
-	fmt.Fprintf(&b, "\n_%s · %s · message %d of %d_\n", kindLabel(held.kind), held.at.Format("3:04pm"), len(m.messages.items)-m.messagesCursor(), len(m.messages.items))
+	fmt.Fprintf(&b, "\n_%s · %s · message %d of %d_\n", kindLabel(held.kind), held.at.Format("3:04pm"), len(m.messages.items)-m.messages.clampedCursor(), len(m.messages.items))
 
 	if held.trace != "" {
 		fmt.Fprintf(&b, "\n```\nweave log %s\n```\n", held.trace)
@@ -442,11 +442,11 @@ func (m model) messagesKind() messageKind {
 		return messageSuccess
 	}
 
-	return m.messages.items[m.messagesCursor()].kind
+	return m.messages.items[m.messages.clampedCursor()].kind
 }
 
-func (m model) messagesCursor() int {
-	return clampCursor(m.messages.cursor, len(m.messages.items))
+func (s messagesState) clampedCursor() int {
+	return clampCursor(s.cursor, len(s.items))
 }
 
 // isMessagesRegion is whether the screen on top draws the region at all, which the review screen
@@ -508,10 +508,10 @@ func (m model) updateMessages(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.dismissMessage(), nil
 	// The newest message is the one on screen, so back through the stack is back through time.
 	case k == "<", k == "[":
-		m.messages.cursor = clampCursor(m.messagesCursor()+1, len(m.messages.items))
+		m.messages.cursor = clampCursor(m.messages.clampedCursor()+1, len(m.messages.items))
 		m = m.landedOnMessage()
 	case k == ">", k == "]":
-		m.messages.cursor = clampCursor(m.messagesCursor()-1, len(m.messages.items))
+		m.messages.cursor = clampCursor(m.messages.clampedCursor()-1, len(m.messages.items))
 		m = m.landedOnMessage()
 	case k == messagesMockKey:
 		return m.pushMockMessage(), nil
@@ -545,7 +545,7 @@ func (m model) dismissMessage() model {
 		return m.toggleMessagesFocus()
 	}
 
-	cursor := m.messagesCursor()
+	cursor := m.messages.clampedCursor()
 	m.messages.items = slices.Delete(slices.Clone(m.messages.items), cursor, cursor+1)
 	m.messages.cursor = clampCursor(cursor, len(m.messages.items))
 	m = m.landedOnMessage()

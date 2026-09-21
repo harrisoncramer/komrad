@@ -129,12 +129,12 @@ func (m *model) reportUnreachable(err error) {
 	}
 
 	reason := errui.GetReason(err)
-	if m.addr != "" && !strings.Contains(reason, m.addr) {
-		reason = m.addr + ": " + reason
+	if m.settings.Addr != "" && !strings.Contains(reason, m.settings.Addr) {
+		reason = m.settings.Addr + ": " + reason
 	}
 
 	m.reportBrief("Cannot reach the server", reason, err)
-	m.setNewestHint("Start it with: weave serve")
+	m.messages.setNewestHint("Start it with: weave serve")
 }
 
 func (m *model) applyRefresh(result refreshResult) tea.Cmd {
@@ -544,7 +544,7 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 					m.tmux.SelectPane(result.written.pane)
 				}
 			} else {
-				m.holdForWarmup(result.written.pane, result.written.harness, result.written.focus)
+				m.warm.hold(result.written.pane, result.written.harness, result.written.focus)
 			}
 		}
 	}
@@ -569,7 +569,7 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 			return m, tea.Batch(cmd, m.refreshCmd())
 		}
 
-		m.setNewestHint("fix and submit again")
+		m.messages.setNewestHint("fix and submit again")
 	}
 
 	// A refusal is reported into the region under the record, so the form is told to lay itself

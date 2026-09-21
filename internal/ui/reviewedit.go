@@ -152,7 +152,7 @@ func (m model) editReviewFile() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m.frame.Show(layout.RegionStage, editorContent(m.editor, m.review.root, path, line))
+	m.frame.Show(layout.RegionStage, editorContent(m.settings.Editor, m.review.root, path, line))
 
 	// The mode is taken only once there is a pane in it, a refused split otherwise leaving the
 	// band saying editing over a screen with no editor on it.

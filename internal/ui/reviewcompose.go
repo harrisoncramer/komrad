@@ -161,7 +161,7 @@ func (m model) openMessageEditor() (tea.Model, tea.Cmd) {
 
 	// The message is one file with nothing above it, so the editor opens on its first line.
 	//nolint:noctx // the editor runs until the reviewer closes it, so it takes no deadline
-	open := exec.Command("sh", "-c", editorShell(m.editor, path, 1))
+	open := exec.Command("sh", "-c", editorShell(m.settings.Editor, path, 1))
 
 	return m, tea.ExecProcess(open, func(err error) tea.Msg {
 		if err != nil {

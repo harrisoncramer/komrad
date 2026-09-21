@@ -102,7 +102,7 @@ func (m model) olderLog() model {
 		return m
 	}
 
-	runs := config.ListRunLogs(m.runLogsDir, agent.ID)
+	runs := config.ListRunLogs(m.settings.RunLogsDir, agent.ID)
 	if len(runs) < 2 {
 		return m
 	}
@@ -121,7 +121,7 @@ func (m model) runPosition() string {
 		return "older run"
 	}
 
-	total := len(config.ListRunLogs(m.runLogsDir, agent.ID))
+	total := len(config.ListRunLogs(m.settings.RunLogsDir, agent.ID))
 	if total < 2 {
 		return "older run"
 	}
@@ -140,13 +140,13 @@ func (m model) runLogContent() layout.Content {
 		return newTextContent("no script has run for this agent yet")
 	}
 
-	return newLogContent(processLogArgv(m.processViewer, run.Path))
+	return newLogContent(processLogArgv(m.settings.ProcessViewer, run.Path))
 }
 
 // runLog is the run the pane is showing, counting back from the most recent, falling back to
 // the most recent one there when the one it was showing has since been pruned.
 func (m model) runLog(agentID string, back int) (config.RunLog, bool) {
-	runs := config.ListRunLogs(m.runLogsDir, agentID)
+	runs := config.ListRunLogs(m.settings.RunLogsDir, agentID)
 	if len(runs) == 0 {
 		return config.RunLog{}, false
 	}
@@ -165,7 +165,7 @@ func (m model) runAt(agentID string, number *int32) int {
 		return 0
 	}
 
-	for at, run := range config.ListRunLogs(m.runLogsDir, agentID) {
+	for at, run := range config.ListRunLogs(m.settings.RunLogsDir, agentID) {
 		if run.Number == int(*number) {
 			return at
 		}
@@ -188,7 +188,7 @@ func (m model) failedRunLog(agentID string) *int32 {
 
 // latestRunLog is the most recent run at one of the given moments that has anything to read.
 func (m model) latestRunLog(agentID string, moments []string) (config.RunLog, bool) {
-	for _, run := range config.ListRunLogs(m.runLogsDir, agentID) {
+	for _, run := range config.ListRunLogs(m.settings.RunLogsDir, agentID) {
 		if !slices.Contains(moments, run.Trigger) {
 			continue
 		}
@@ -209,5 +209,5 @@ func (m model) agentLogContent() layout.Content {
 		return newTextContent("select an agent to see its log")
 	}
 
-	return newLogContent(logArgv(m.logViewer, m.logPath, agent.ID))
+	return newLogContent(logArgv(m.settings.LogViewer, m.settings.LogPath, agent.ID))
 }

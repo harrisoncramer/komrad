@@ -32,7 +32,12 @@ type reviewState struct {
 // doesTakeEveryKey reports whether the review is mid-input, in which case a key bound elsewhere
 // in the panel belongs here instead.
 func (r reviewState) doesTakeEveryKey() bool {
-	return r.threads.composing || r.threads.releasing || r.diff.filter.typing
+	return r.isWriting() || r.diff.filter.typing
+}
+
+// isWriting reports whether the reader is composing a message or asking what to send.
+func (r reviewState) isWriting() bool {
+	return r.threads.composing || r.threads.releasing
 }
 
 // isThreadTaken reports whether the reader has taken the keys onto a conversation the cursor is

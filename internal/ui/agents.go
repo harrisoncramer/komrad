@@ -1,26 +1,17 @@
 package ui
 
 import (
-	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"weave/config"
-	"weave/internal/ui/layout"
 	"weave/internal/view"
 
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
-	"weave/lib/xptr"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/huh"
 )
-
-var errNoWorkflow = errors.New("every agent belongs to a workflow, so create one first")
-
-var errChildOfChild = errors.New("a child agent may not have children of its own")
 
 func agentsList() listSpec[agentRow] {
 	return listSpec[agentRow]{
@@ -114,56 +105,6 @@ func (m model) archiveAndDeleteAgents(agents []agentstore.Agent) (model, tea.Cmd
 			return a.deleteAgents(ids)
 		},
 	)
-}
-
-// releasePanes swaps the given agents' panes out of the stage and marks them locally as no
-// longer alive.
-func (m *model) releasePanes(agents []agentstore.Agent) {
-	released := make(map[string]bool, len(agents))
-	for _, agent := range agents {
-		m.frame.ReleaseGuest(agent.Pane)
-		released[agent.ID] = true
-	}
-
-	for i, item := range m.listing.agents {
-		if released[item.agent.ID] {
-			m.listing.agents[i].alive = false
-		}
-	}
-}
-
-// stageDelay is how long a cursor has to rest before the panes are moved to what it is standing
-// on.
-const stageDelay = 90 * time.Millisecond
-
-// stageTickMsg is the rest a cursor move waited for, carrying the move it was owed to.
-type stageTickMsg struct {
-	move int
-}
-
-// deferStaging waits for the cursor to come to rest before the panes are moved.
-func (m model) deferStaging() (model, tea.Cmd) {
-	m.staging++
-	move := m.staging
-
-	return m, tea.Tick(stageDelay, func(time.Time) tea.Msg { return stageTickMsg{move: move} })
-}
-
-// applyStageTick stages what the cursor came to rest on and asks for what the screen reads of it.
-func (m *model) applyStageTick(msg stageTickMsg) tea.Cmd {
-	if msg.move != m.staging {
-		return nil
-	}
-
-	if m.screen == screenWorktrees {
-		m.stageWorktrees()
-
-		return m.inspectWorktreeCmd()
-	}
-
-	m.stageSelection()
-
-	return tea.Batch(m.listPullRequestsCmd(), m.inspectAgentWorktreeCmd(time.Now()))
 }
 
 // openHovered attaches to whatever the cursor is on, which for a workflow is the orchestrator
@@ -349,110 +290,6 @@ func (m model) agentDoc() string {
 	}
 }
 
-// sizeAgentWindows keeps every agent's own window at the size of the pane it is shown in.
-func (m *model) sizeAgentWindows() {
-	if m.frame.IsRemote() {
-		return
-	}
-
-	width, height := m.frame.StageCols(), m.height
-	if width <= 0 || height <= 0 {
-		return
-	}
-
-	if m.sized == nil {
-		m.sized = map[string]string{}
-	}
-
-	want := fmt.Sprintf("%dx%d", width, height)
-	guest := m.frame.GuestPane()
-
-	for _, item := range m.listing.agents {
-		pane := item.agent.Pane
-
-		// The guest is standing in the panel's own window, so resizing its window would resize the
-		// terminal weave is drawn in.
-		if pane == "" || pane == guest || m.sized[pane] == want {
-			continue
-		}
-
-		m.tmux.ResizeWindow(pane, width, height)
-		m.sized[pane] = want
-	}
-}
-
-// stageSelection puts the pane of whatever the cursor is standing on beside the list.
-func (m *model) stageSelection() {
-	m.frame.Begin()
-	defer m.afterStaging()
-
-	rows := m.agentRows()
-	m.placeColumn(screenAgents, rowKeyAt(rows, m.tree.cursor))
-	m.reconcileSolo()
-
-	r, ok := rowAt(rows, m.tree.cursor)
-	staged, held := r.paneItem()
-
-	switch {
-	case ok && held && !m.hasNoAgentPane() && m.isPaneStageable(staged.agent.Pane, staged.agent.Harness):
-		m.sizeGuestWindow(staged.agent.Pane)
-		m.frame.ShowGuest(staged.agent.Pane)
-	case m.frame.IsSolo() && m.isGuestLive():
-	default:
-		m.frame.Show(layout.RegionStage, newBlankContent())
-	}
-
-	m.stageInfo()
-}
-
-// afterStaging sends the pane moves staging collected.
-func (m *model) afterStaging() {
-	m.frame.Flush()
-}
-
-// sizeGuestWindow puts an agent's own window at the size of the stage before it is swapped in.
-func (m *model) sizeGuestWindow(pane string) {
-	// A remote agent's window is sized by the ssh client attached to it, which is the stage pane
-	// itself, so there is nothing here to set and the pane id names a window on another server.
-	if m.frame.IsRemote() {
-		return
-	}
-
-	width, height := m.frame.StageCols(), m.height
-	if pane == "" || pane == m.frame.GuestPane() || width <= 0 || height <= 0 {
-		return
-	}
-
-	if m.sized == nil {
-		m.sized = map[string]string{}
-	}
-
-	want := fmt.Sprintf("%dx%d", width, height)
-	if m.sized[pane] == want {
-		return
-	}
-
-	m.tmux.ResizeWindow(pane, width, height)
-	m.sized[pane] = want
-}
-
-// isGuestLive reports whether the pane parked in the stage still belongs to an agent the last
-// listing found running.
-func (m model) isGuestLive() bool {
-	guest := m.frame.GuestPane()
-	if guest == "" {
-		return true
-	}
-
-	for _, item := range m.listing.agents {
-		if item.agent.Pane == guest {
-			return item.alive
-		}
-	}
-
-	return false
-}
-
 // parentName is what the agent a child is attached to is called.
 func (m model) parentName(agent agentstore.Agent) string {
 	if agent.ParentAgentID == nil {
@@ -471,7 +308,7 @@ func (m model) scheduleName(agent agentstore.Agent) string {
 		return ""
 	}
 
-	for _, item := range m.schedules.items {
+	for _, item := range m.listing.schedules {
 		if item.schedule.ID == *agent.ScheduleID {
 			return item.schedule.Name
 		}
@@ -567,209 +404,12 @@ func (m model) agentsSnapshot(pane int) view.Snapshot {
 
 // scheduledWorkflows is the workflows at least one schedule launches into.
 func (m model) scheduledWorkflows() map[string]bool {
-	scheduled := make(map[string]bool, len(m.schedules.items))
-	for _, item := range m.schedules.items {
+	scheduled := make(map[string]bool, len(m.listing.schedules))
+	for _, item := range m.listing.schedules {
 		scheduled[item.schedule.WorkflowID] = true
 	}
 
 	return scheduled
-}
-
-func (m model) openNewAgent(workflow *workflowstore.Workflow) (tea.Model, tea.Cmd) {
-	if workflow == nil {
-		m.report("Could not start an agent", errNoWorkflow)
-
-		return m, nil
-	}
-
-	values := agentPrefill(*workflow)
-
-	return m.openAgentForm(*workflow, &values)
-}
-
-// agentPrefill is the new-agent form as the workflow leaves it, before anything is typed.
-func agentPrefill(workflow workflowstore.Workflow) agentFormValues {
-	return agentFormValues{
-		Harness:  workflow.Harness,
-		Dir:      workflow.Cwd,
-		Worktree: inheritWorktree,
-	}
-}
-
-func (m model) openAgentForm(workflow workflowstore.Workflow, values *agentFormValues) (tea.Model, tea.Cmd) {
-	return m.openRedrawnForm(openRedrawnFormParams{
-		Kind: formAgent,
-		Build: func(m model) (*huh.Form, []string) {
-			return newAgentForm(formKeys(), values, workflow.Worktree.Enabled)
-		},
-		Editable: []editableText{{key: "prompt", value: &values.Prompt}},
-		Submit:   func(m model) (tea.Model, tea.Cmd) { return m.submitAgent(workflow, *values) },
-	})
-}
-
-// openNewChild opens the form that attaches a child to the hovered agent.
-func (m model) openNewChild(parent agentstore.Agent) (tea.Model, tea.Cmd) {
-	if parent.ParentAgentID != nil {
-		m.report("Could not attach a child", errChildOfChild)
-
-		return m, nil
-	}
-
-	values := childPrefill(parent)
-
-	return m.openChildForm(parent, &values)
-}
-
-// childPrefill is the child form as the parent leaves it.
-func childPrefill(parent agentstore.Agent) agentFormValues {
-	return agentFormValues{Harness: parent.Harness}
-}
-
-func (m model) openChildForm(parent agentstore.Agent, values *agentFormValues) (tea.Model, tea.Cmd) {
-	return m.openRedrawnForm(openRedrawnFormParams{
-		Kind:     formChild,
-		Build:    func(m model) (*huh.Form, []string) { return childAgentForm(formKeys(), values, parent) },
-		Editable: []editableText{{key: "prompt", value: &values.Prompt}},
-		Submit:   func(m model) (tea.Model, tea.Cmd) { return m.submitChild(parent, *values) },
-	})
-}
-
-// submitChild launches the child without a directory or a provisioner.
-func (m model) submitChild(parent agentstore.Agent, values agentFormValues) (tea.Model, tea.Cmd) {
-	cmd := m.createCmd(createAgentParams{
-		Prompt:        values.Prompt,
-		Title:         values.Title,
-		Harness:       values.Harness,
-		Flags:         values.Flags,
-		WorkflowID:    parent.WorkflowID,
-		ParentAgentID: parent.ID,
-	})
-
-	return m, tea.Batch(cmd, m.holdForm())
-}
-
-func (m model) openRetryForm(agent agentstore.Agent) (tea.Model, tea.Cmd) {
-	values := retryFormValues{
-		Prompt:  agent.Prompt,
-		Harness: agent.Harness,
-		Flags:   agent.Flags,
-	}
-
-	return m.openRedrawnForm(openRedrawnFormParams{
-		Kind:     formAgentRetry,
-		Build:    func(m model) (*huh.Form, []string) { return retryAgentForm(formKeys(), &values) },
-		Editable: []editableText{{key: "prompt", value: &values.Prompt}},
-		Submit:   func(m model) (tea.Model, tea.Cmd) { return m.submitRetry(agent, values) },
-	})
-}
-
-func (m model) submitRetry(agent agentstore.Agent, values retryFormValues) (tea.Model, tea.Cmd) {
-	cmd := m.retryCmd(agent, values)
-
-	return m, tea.Batch(cmd, m.holdForm())
-}
-
-func (m model) openRename(agent agentstore.Agent) (tea.Model, tea.Cmd) {
-	return m.openRenameForm(agent, new(string))
-}
-
-func (m model) openRenameForm(agent agentstore.Agent, name *string) (tea.Model, tea.Cmd) {
-	return m.openRedrawnForm(openRedrawnFormParams{
-		Kind:   formRename,
-		Build:  func(m model) (*huh.Form, []string) { return renameForm(agent.Name, name, formKeys()) },
-		Submit: func(m model) (tea.Model, tea.Cmd) { return m.submitRename(agent, *name) },
-	})
-}
-
-func (m model) openAdopt(workflow *workflowstore.Workflow) (tea.Model, tea.Cmd) {
-	if workflow == nil {
-		m.report("Could not adopt", errNoWorkflow)
-
-		return m, nil
-	}
-
-	values := adoptPrefill(*workflow)
-
-	return m.openAdoptForm(*workflow, &values)
-}
-
-// adoptPrefill is the adopt form as the workflow leaves it, before anything is typed.
-func adoptPrefill(workflow workflowstore.Workflow) adoptFormValues {
-	return adoptFormValues{Harness: workflow.Harness}
-}
-
-func (m model) openAdoptForm(workflow workflowstore.Workflow, values *adoptFormValues) (tea.Model, tea.Cmd) {
-	return m.openRedrawnForm(openRedrawnFormParams{
-		Kind:     formAdopt,
-		Build:    func(m model) (*huh.Form, []string) { return adoptAgentForm(formKeys(), values) },
-		Editable: []editableText{{key: "prompt", value: &values.Prompt}},
-		Submit:   func(m model) (tea.Model, tea.Cmd) { return m.submitAdopt(workflow, *values) },
-	})
-}
-
-func (m model) submitAdopt(workflow workflowstore.Workflow, values adoptFormValues) (tea.Model, tea.Cmd) {
-	cmd := m.adoptCmd(adoptParams{
-		Ref:        values.Ref,
-		Prompt:     values.Prompt,
-		Title:      values.Title,
-		Harness:    values.Harness,
-		Flags:      values.Flags,
-		WorkflowID: workflow.ID,
-	})
-
-	return m, tea.Batch(cmd, m.holdForm())
-}
-
-func (m model) submitRename(agent agentstore.Agent, typed string) (tea.Model, tea.Cmd) {
-	name := strings.TrimSpace(typed)
-	cmd := m.writeCmd(
-		fmt.Sprintf("Could not rename agent %q", agent.Name),
-		func(a api) error { return a.renameAgent(agent, name) },
-	)
-
-	return m, tea.Batch(cmd, m.holdForm())
-}
-
-func (m model) submitAgent(workflow workflowstore.Workflow, values agentFormValues) (tea.Model, tea.Cmd) {
-	cmd := m.createCmd(createAgentParams{
-		Prompt:           values.Prompt,
-		Title:            values.Title,
-		Harness:          values.Harness,
-		Dir:              m.currentDir(values.Dir),
-		Flags:            values.Flags,
-		ProvisionEnabled: worktreeOverride(values.Worktree),
-		WorkflowID:       workflow.ID,
-	})
-
-	return m, tea.Batch(cmd, m.holdForm())
-}
-
-// worktreeOverride is what the form says about the agent's directory: nil to follow the
-// workflow, false to keep the directory it was given.
-func worktreeOverride(selected string) *bool {
-	if selected == withoutWorktree {
-		return xptr.Ptr(false)
-	}
-
-	return nil
-}
-
-// openRebaseConfirm asks before bringing a worktree up to date.
-func (m model) openRebaseConfirm(plan rebasePlan) (tea.Model, tea.Cmd) {
-	form, confirmed := rebaseForm(plan, formKeys())
-
-	return m, m.openForm(formState{
-		kind:   formAgentRebase,
-		form:   form,
-		update: model.updateForm,
-		submit: confirmSubmit(func(m model) (model, tea.Cmd) {
-			if !*confirmed {
-				return m, nil
-			}
-
-			return m, m.rebaseCmd(plan.agentID, plan.name)
-		}),
-	})
 }
 
 // startOrchestrator brings the workflow's orchestrator back and puts the keyboard in its pane.

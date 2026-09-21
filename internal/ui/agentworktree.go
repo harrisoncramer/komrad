@@ -25,7 +25,7 @@ func (m *model) inspectAgentWorktreeCmd(now time.Time) tea.Cmd {
 	if !ok || item.agent.Cwd == "" {
 		return nil
 	}
-	if read, asked := m.worktrees.inspected[item.agent.Cwd]; asked && !read.isStale(now) {
+	if read, asked := m.inspections[item.agent.Cwd]; asked && !read.isStale(now) {
 		return nil
 	}
 
@@ -36,7 +36,7 @@ func (m *model) inspectAgentWorktreeCmd(now time.Time) tea.Cmd {
 // for it is, short of an answer that will never change.
 func (m *model) rereadAgentWorktreeCmd() tea.Cmd {
 	item, ok := m.hoveredRecordAgent()
-	if !ok || item.agent.Cwd == "" || m.worktrees.inspected[item.agent.Cwd].isSettled() {
+	if !ok || item.agent.Cwd == "" || m.inspections[item.agent.Cwd].isSettled() {
 		return nil
 	}
 
@@ -46,7 +46,7 @@ func (m *model) rereadAgentWorktreeCmd() tea.Cmd {
 // agentWorktree is what has been read of an agent's directory, and nothing for one that is not
 // a worktree weave holds.
 func (m model) agentWorktree(cwd string) (worktreeInspection, bool) {
-	read, ok := m.worktrees.inspected[cwd]
+	read, ok := m.inspections[cwd]
 	if !ok || !read.answered || read.isSettled() {
 		return worktreeInspection{}, false
 	}

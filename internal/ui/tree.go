@@ -387,7 +387,7 @@ func (m *model) applyWorkflows(fresh []workflowstore.Workflow) {
 
 func (m *model) applyAgents(fresh []agentItem) {
 	m.listing.agents = fresh
-	m.forgetUnlistedPullRequests(fresh)
+	m.pullRequests.forgetUnlisted(fresh)
 }
 
 // applyMarks takes the letters off both listings at once.
@@ -433,8 +433,11 @@ func (m *model) placeTreeCursor(selected string) {
 }
 
 type listing struct {
-	agents    []agentItem
-	workflows []workflowstore.Workflow
+	agents            []agentItem
+	workflows         []workflowstore.Workflow
+	archivedAgents    []agentstore.Agent
+	archivedWorkflows []workflowstore.Workflow
+	schedules         []scheduleItem
 	// marks are the letters a person types to jump to rows, keyed by the row key each names.
 	marks map[string]string
 }

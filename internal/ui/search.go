@@ -154,7 +154,7 @@ func (m model) openSearchInput() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m model) debounceSearchCmd(query string) tea.Cmd {
+func debounceSearchCmd(query string) tea.Cmd {
 	if strings.TrimSpace(query) == "" {
 		return func() tea.Msg { return searchResult{query: query} }
 	}
@@ -270,7 +270,7 @@ func (m model) buildSearchAgents() []searchAgent {
 			add(searchAgent{id: item.agent.ID, name: item.agent.Name})
 		}
 	}
-	for _, agent := range m.archive.agents {
+	for _, agent := range m.listing.archivedAgents {
 		if nameSays(agent.Name, query) {
 			add(searchAgent{
 				id:       agent.ID,
@@ -400,15 +400,15 @@ func (m model) updateSearchInput(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.search.query = paint.TrimLastRune(m.search.query)
 		}
 
-		return m, m.debounceSearchCmd(m.search.query)
+		return m, debounceSearchCmd(m.search.query)
 	case key.Type == tea.KeySpace:
 		m.search.query += " "
 
-		return m, m.debounceSearchCmd(m.search.query)
+		return m, debounceSearchCmd(m.search.query)
 	case key.Type == tea.KeyRunes:
 		m.search.query += string(key.Runes)
 
-		return m, m.debounceSearchCmd(m.search.query)
+		return m, debounceSearchCmd(m.search.query)
 	}
 
 	return m, nil
@@ -510,7 +510,7 @@ func archivedSearchRow(row view.Row, id string, archived map[string]agentstore.A
 
 // searchSnapshot is the agents the search found, as the list draws them.
 func (m model) searchSnapshot(agents []searchAgent, pane int) view.Snapshot {
-	archived := archivedByID(m.archive.agents)
+	archived := archivedByID(m.listing.archivedAgents)
 
 	return view.Snapshot{
 		Rows: xslice.Map(agents, func(agent searchAgent) view.Row {

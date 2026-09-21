@@ -68,7 +68,7 @@ func TestTerminalOpensInTheHoveredAgentDirectory(t *testing.T) {
 func TestTerminalReplacesOpenLogs(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, dir := terminalModel(t, tmux)
-	m.runLogsDir = t.TempDir()
+	m.settings.RunLogsDir = t.TempDir()
 
 	logs := pressLogs(t, m)
 	require.Equal(t, infoRunLog, logs.info.kind)

@@ -150,6 +150,23 @@ type harnessFrameReader interface {
 	DoesFrameShowHarness(pane, harnessID string) bool
 }
 
+// PanelSettings is what the panel was configured with, read once at launch.
+type PanelSettings struct {
+	// Addr is the address the service answers at.
+	Addr string
+	// LogViewer is the command the service log is read with, and LogPath the file it is in.
+	LogViewer string
+	LogPath   string
+	// ProcessViewer is the command a run log is read with, and RunLogsDir the directory they are
+	// written under.
+	ProcessViewer string
+	RunLogsDir    string
+	// Editor is the command a text field or a reviewed file is opened in.
+	Editor string
+	// Pane is the tmux pane the panel is drawn in.
+	Pane string
+}
+
 type Deps struct {
 	PopupWindow     *PopupWindow
 	Tmux            uiTmux
@@ -165,16 +182,10 @@ type Deps struct {
 	Keys            config.Keybindings
 	Layout          config.Layout
 	Engine          engine.Remote
-	Addr            string
-	LogViewer       string
-	LogPath         string
-	ProcessViewer   string
-	Editor          string
-	RunLogsDir      string
+	Settings        PanelSettings
 	ConfigErr       error
 	StartupErr      error
 	StartupFindings []errui.Finding
-	Pane            string
 }
 
 type model struct {
@@ -185,7 +196,7 @@ type model struct {
 	browser         browser.Opener
 	harnessFrames   harnessFrameReader
 	frame           *layout.Frame
-	addr            string
+	settings        PanelSettings
 	unreachable     error
 	epoch           int
 	pending         int
@@ -209,15 +220,17 @@ type model struct {
 	schedules     scheduleState
 	archive       archiveState
 	worktrees     worktreesState
-	pullRequests  pullRequestsState
-	search        searchState
-	review        reviewState
-	filter        filterState
-	rowCursor     cursor.Model
-	column        columnState
-	marks         markState
-	form          formState
-	held          heldWrite
+	// inspections is what the service answered for each worktree directory.
+	inspections  map[string]worktreeInspection
+	pullRequests pullRequestsState
+	search       searchState
+	review       reviewState
+	filter       filterState
+	rowCursor    cursor.Model
+	column       columnState
+	marks        markState
+	form         formState
+	held         heldWrite
 	// detached holds the writes a person escaped out of, which land without taking the screen to
 	// what they made.
 	detached map[int]struct{}
@@ -233,12 +246,6 @@ type model struct {
 	helpExpanded  bool
 	topHeld       bool
 	keys          config.Keybindings
-	logPath       string
-	logViewer     string
-	processViewer string
-	editor        string
-	runLogsDir    string
-	pane          string
 	// paneMeasure is the column one half of a split is laid out in once the split has been chosen.
 	paneMeasure int
 	// shell is what tmux starts a pane's process with, read once.
@@ -305,13 +312,7 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 		harnessFrames:   deps.HarnessFrames,
 		frame:           layout.New(deps.Tmux, deps.Layout, layout.WithEngine(deps.Engine)),
 		detailsHeight:   deps.Layout.DetailsHeight,
-		addr:            deps.Addr,
-		logPath:         deps.LogPath,
-		logViewer:       deps.LogViewer,
-		processViewer:   deps.ProcessViewer,
-		editor:          deps.Editor,
-		runLogsDir:      deps.RunLogsDir,
-		pane:            deps.Pane,
+		settings:        deps.Settings,
 		keys:            deps.Keys,
 		configErr:       deps.ConfigErr,
 		startupErr:      deps.StartupErr,
@@ -326,7 +327,7 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 	}
 
 	m.frame.OnResize(post.resize)
-	m.frame.Attach(deps.Pane)
+	m.frame.Attach(deps.Settings.Pane)
 	m.shell = deps.Tmux.GetDefaultShell()
 
 	return m

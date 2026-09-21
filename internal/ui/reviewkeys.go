@@ -83,7 +83,7 @@ func (m model) isReviewThreadFocused() bool {
 		return false
 	}
 
-	if m.review.threads.composing || m.review.threads.releasing {
+	if m.review.isWriting() {
 		return true
 	}
 

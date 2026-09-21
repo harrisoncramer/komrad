@@ -348,7 +348,7 @@ func (m model) reviewHelp() keyMap {
 
 // isReviewThreadHolding reports whether the reader has taken the keys onto the conversation.
 func (m model) isReviewThreadHolding() bool {
-	if m.screen != screenReview || m.review.threads.composing || m.review.threads.releasing {
+	if m.screen != screenReview || m.review.isWriting() {
 		return false
 	}
 

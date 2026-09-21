@@ -256,12 +256,12 @@ func TestPruneSelection(t *testing.T) {
 
 func archiveSelectionTree() model {
 	return model{
-		frame:   layout.New(&recordingTmux{}, config.DefaultLayout()),
-		keys:    config.DefaultKeybindings(),
-		screen:  screenArchive,
-		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}}},
-		archive: archiveState{
-			agents: []agentstore.Agent{
+		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
+		keys:   config.DefaultKeybindings(),
+		screen: screenArchive,
+		listing: listing{
+			workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
+			archivedAgents: []agentstore.Agent{
 				{
 					ID:         "a1",
 					Name:       "auth",
@@ -361,7 +361,7 @@ func TestArchiveSelection(t *testing.T) {
 		m := archiveSelectionTree()
 		m.api = api{agents: &fakeArchiveAgents{}, workflows: workflows}
 		m.listing.workflows = nil
-		m.archive.workflows = []workflowstore.Workflow{archivedWorkflow("w1", "backend")}
+		m.listing.archivedWorkflows = []workflowstore.Workflow{archivedWorkflow("w1", "backend")}
 		m.archive.cursor = 0
 		m.archive.selected = selectAgents([]string{"a1"}...)
 

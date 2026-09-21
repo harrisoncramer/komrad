@@ -71,7 +71,7 @@ func (m *model) listPullRequestsCmd() tea.Cmd {
 
 	listed.pending = true
 	listed.standing = item.pullRequest
-	m.applyAgentPullRequests(agentPullRequestsListedMsg{agentID: item.agent.ID, listed: listed})
+	m.pullRequests.apply(agentPullRequestsListedMsg{agentID: item.agent.ID, listed: listed})
 	clients, agentID, standing := m.api, item.agent.ID, item.pullRequest
 
 	return func() tea.Msg {
@@ -120,23 +120,23 @@ func (m model) hoveredRecordAgent() (agentItem, bool) {
 	return row.item, true
 }
 
-func (m *model) applyAgentPullRequests(msg agentPullRequestsListedMsg) {
-	if m.pullRequests.listed == nil {
-		m.pullRequests.listed = map[string]agentPullRequests{}
+func (p *pullRequestsState) apply(msg agentPullRequestsListedMsg) {
+	if p.listed == nil {
+		p.listed = map[string]agentPullRequests{}
 	}
 
-	m.pullRequests.listed[msg.agentID] = msg.listed
+	p.listed[msg.agentID] = msg.listed
 }
 
-// forgetUnlistedPullRequests drops what was answered for agents the listing no longer holds.
-func (m *model) forgetUnlistedPullRequests(fresh []agentItem) {
+// forgetUnlisted drops what was answered for agents the listing no longer holds.
+func (p *pullRequestsState) forgetUnlisted(fresh []agentItem) {
 	listedIDs := make(map[string]bool, len(fresh))
 	for _, item := range fresh {
 		listedIDs[item.agent.ID] = true
 	}
-	for agentID := range m.pullRequests.listed {
+	for agentID := range p.listed {
 		if !listedIDs[agentID] {
-			delete(m.pullRequests.listed, agentID)
+			delete(p.listed, agentID)
 		}
 	}
 }

@@ -438,7 +438,7 @@ func TestFocusKeyFollowsTheStagedPane(t *testing.T) {
 func FocusKeyModel(binds *bindingTmux) model {
 	m := filterModel()
 	m.popup = NewPopupWindow(binds, "weave")
-	m.pane = "%3"
+	m.settings.Pane = "%3"
 	for i := range m.listing.agents {
 		m.listing.agents[i].alive = true
 		m.listing.agents[i].agent.Pane = "%9"

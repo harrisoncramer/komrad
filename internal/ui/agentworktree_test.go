@@ -161,7 +161,7 @@ func TestStageTickReadsTheHoveredAgentsWorktree(t *testing.T) {
 	next, _ := m.deferStaging()
 	ask := next.applyStageTick(stageTickMsg{move: next.staging})
 	require.NotNil(t, ask)
-	assert.True(t, next.worktrees.inspected["/repo"].pending)
+	assert.True(t, next.inspections["/repo"].pending)
 
 	for _, msg := range produced(ask) {
 		updated, _ := next.Update(msg)
@@ -171,7 +171,7 @@ func TestStageTickReadsTheHoveredAgentsWorktree(t *testing.T) {
 	}
 
 	assert.Equal(t, []string{"/repo"}, client.asked)
-	read := next.worktrees.inspected["/repo"]
+	read := next.inspections["/repo"]
 	assert.True(t, read.answered)
 	assert.False(t, read.pending)
 	assert.Equal(t, "origin/main  ↑1", fieldValue(t, next.hoveredDetails(), "base"))
