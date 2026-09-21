@@ -23,8 +23,9 @@ type worktreeRow struct {
 	item worktreeItem
 }
 
-// worktreesDropped are the two columns the worktrees list gives up.
+// worktreesDropped are the columns the worktrees list gives up.
 var worktreesDropped = view.Columns{
+	Repo:   true,
 	Review: true,
 	Forge:  true,
 }
