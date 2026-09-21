@@ -35,22 +35,22 @@ func (f *fakeForge) Get(context.Context, string) (forge.PullRequest, error) {
 	return forge.PullRequest{}, nil
 }
 
-func (f *fakeForge) ListUpdated(context.Context, forge.ListUpdatedParams) (*forge.ListUpdatedResult, error) {
-	return &forge.ListUpdatedResult{}, nil
+func (f *fakeForge) ListUpdated(context.Context, forge.ListUpdatedParams) (*forge.Page, error) {
+	return &forge.Page{}, nil
 }
 
-func (f *fakeForge) ListChanged(context.Context, forge.ListChangedParams) (*forge.ListChangedResult, error) {
-	return &forge.ListChangedResult{}, nil
+func (f *fakeForge) ListChanged(context.Context, forge.ListChangedParams) (*forge.Page, error) {
+	return &forge.Page{}, nil
 }
 
 func (f *fakeForge) ReviewDecisions(context.Context, git.RemoteURL, []int) (map[int]forge.ReviewDecision, error) {
 	return map[int]forge.ReviewDecision{}, nil
 }
 
-func (f *fakeForge) List(_ context.Context, params forge.ListParams) (*forge.ListResult, error) {
+func (f *fakeForge) List(_ context.Context, params forge.ListParams) (*forge.Page, error) {
 	f.params = params
 
-	return &forge.ListResult{
+	return &forge.Page{
 		PullRequests: f.pullRequests,
 		HasMore:      f.hasMore,
 		Cursor:       "end-of-page",

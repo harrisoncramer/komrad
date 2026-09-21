@@ -16,16 +16,13 @@ import (
 
 	"weave/internal/fail"
 	"weave/internal/forge"
+	"weave/internal/forge/graphql"
 	"weave/internal/git"
-	"weave/lib/xhttp"
 	"weave/lib/xptr"
 )
 
 // DefaultAPI is where gitlab.com answers REST calls, with GraphQL beside it.
 const DefaultAPI = "https://gitlab.com/api/v4"
-
-// DefaultTimeout bounds one call to GitLab.
-const DefaultTimeout = 30 * time.Second
 
 // MaxPerPage is the most GitLab hands over in one page, above which it silently trims.
 const MaxPerPage = 100
@@ -80,6 +77,16 @@ const listUpdatedQuery = `query ListUpdated($path: ID!, $first: Int!, $after: St
 // errTooComplex is GitLab refusing a query for its complexity.
 var errTooComplex = fail.Exhausted("gitlab refused the query for its complexity")
 
+// errNotCursor is a ListChanged cursor this forge did not hand out.
+var errNotCursor = fail.InvalidArgument("not a gitlab cursor")
+
+// dialect is what GitLab does differently on the wire.
+var dialect = graphql.Dialect{
+	Name:            "gitlab",
+	RateLimitHeader: "RateLimit",
+	Version:         "/v4",
+}
+
 // NewParams says how the forge reaches the API and as whom.
 type NewParams struct {
 	Auth forge.Authenticator
@@ -87,7 +94,7 @@ type NewParams struct {
 	API string
 	// Next is the round tripper under the credential transport, the default when nil.
 	Next http.RoundTripper
-	// Timeout bounds one call, DefaultTimeout when unset.
+	// Timeout bounds one call, graphql.DefaultTimeout when unset.
 	Timeout time.Duration
 	// Now is the clock a Retry-After is counted from, time.Now when unset.
 	Now func() time.Time
@@ -95,9 +102,7 @@ type NewParams struct {
 
 // Forge is GitLab, spoken to over its GraphQL API.
 type Forge struct {
-	api    string
-	client *http.Client
-	now    func() time.Time
+	client *graphql.Client
 }
 
 // New builds the forge.
@@ -107,25 +112,20 @@ func New(params NewParams) *Forge {
 		api = DefaultAPI
 	}
 
-	timeout := params.Timeout
-	if timeout == 0 {
-		timeout = DefaultTimeout
-	}
-
-	now := params.Now
-	if now == nil {
-		now = time.Now
-	}
-
-	return &Forge{
-		api:    strings.TrimRight(api, "/"),
-		client: xhttp.NewClientOver(forge.NewTransport(params.Auth, params.Next), timeout),
-		now:    now,
-	}
+	return &Forge{client: graphql.New(graphql.NewParams{
+		Dialect: dialect,
+		Auth:    params.Auth,
+		API:     api,
+		Next:    params.Next,
+		Timeout: params.Timeout,
+		Now:     params.Now,
+	})}
 }
 
 // Kind is what the forge answers to.
-func (f *Forge) Kind() string { return forge.KindGitLab }
+func (f *Forge) Kind() string {
+	return forge.KindGitLab
+}
 
 // Verify asks GitLab who the credential belongs to.
 func (f *Forge) Verify(ctx context.Context) (string, error) {
@@ -134,11 +134,11 @@ func (f *Forge) Verify(ctx context.Context) (string, error) {
 			Username string `json:"username"`
 		} `json:"currentUser"`
 	}
-	answer, err := f.query(ctx, verifyQuery, nil, &data)
+	answer, err := f.client.Query(ctx, verifyQuery, nil, &data)
 	if err != nil {
 		return "", err
 	}
-	if err := answer.failure(); err != nil {
+	if err := failureOf(answer); err != nil {
 		return "", err
 	}
 	if data.CurrentUser == nil || data.CurrentUser.Username == "" {
@@ -150,7 +150,7 @@ func (f *Forge) Verify(ctx context.Context) (string, error) {
 
 // List is one page of the project's merge requests, every one from the named branch or the
 // open ones when no branch is named, and where the next page starts.
-func (f *Forge) List(ctx context.Context, params forge.ListParams) (*forge.ListResult, error) {
+func (f *Forge) List(ctx context.Context, params forge.ListParams) (*forge.Page, error) {
 	path, err := projectPath(params.Repo.Path)
 	if err != nil {
 		return nil, err
@@ -159,7 +159,7 @@ func (f *Forge) List(ctx context.Context, params forge.ListParams) (*forge.ListR
 	variables := map[string]any{
 		"path":  path,
 		"first": min(max(params.PerPage, 1), MaxPerPage),
-		"after": cursorOf(params.Cursor),
+		"after": graphql.CursorOf(params.Cursor),
 		"state": "opened",
 	}
 	if params.Branch != "" {
@@ -167,52 +167,32 @@ func (f *Forge) List(ctx context.Context, params forge.ListParams) (*forge.ListR
 		delete(variables, "state")
 	}
 
-	page, limit, err := f.listMergeRequests(ctx, listQuery, variables, path)
-	if err != nil {
-		return nil, err
-	}
-
-	return &forge.ListResult{
-		PullRequests: page.toPullRequests(false),
-		HasMore:      page.PageInfo.HasNextPage,
-		Cursor:       page.PageInfo.EndCursor,
-		RateLimit:    limit,
-	}, nil
+	return f.listMergeRequests(ctx, listQuery, variables)
 }
 
 // ListUpdated is one page of every merge request in the project, newest change first, and
 // where the next page starts.
-func (f *Forge) ListUpdated(ctx context.Context, params forge.ListUpdatedParams) (*forge.ListUpdatedResult, error) {
+func (f *Forge) ListUpdated(ctx context.Context, params forge.ListUpdatedParams) (*forge.Page, error) {
 	path, err := projectPath(params.Repo.Path)
 	if err != nil {
 		return nil, err
 	}
 
-	page, limit, err := f.listMergeRequests(ctx, listUpdatedQuery, map[string]any{
+	return f.listMergeRequests(ctx, listUpdatedQuery, map[string]any{
 		"path":  path,
 		"first": MaxPerPage,
-		"after": cursorOf(params.Cursor),
-	}, path)
-	if err != nil {
-		return nil, err
-	}
-
-	return &forge.ListUpdatedResult{
-		PullRequests: page.toPullRequests(false),
-		HasMore:      page.PageInfo.HasNextPage,
-		Cursor:       page.PageInfo.EndCursor,
-		RateLimit:    limit,
-	}, nil
+		"after": graphql.CursorOf(params.Cursor),
+	})
 }
 
 // ListChanged is one page of every merge request across the projects changed at or after
 // Since, newest first per project, each with its decision, read with the projects aliased
 // into as few queries as GitLab's complexity limit allows.
-func (f *Forge) ListChanged(ctx context.Context, params forge.ListChangedParams) (*forge.ListChangedResult, error) {
+func (f *Forge) ListChanged(ctx context.Context, params forge.ListChangedParams) (*forge.Page, error) {
 	pending := map[string]string{}
 	if params.Cursor != "" {
 		if err := json.Unmarshal([]byte(params.Cursor), &pending); err != nil {
-			return nil, fail.InvalidArgument("not a gitlab cursor").Saying("%q is not a cursor this forge handed out", params.Cursor)
+			return nil, errNotCursor.Saying("%q is not a cursor this forge handed out", params.Cursor)
 		}
 	} else {
 		for _, repo := range params.Repos {
@@ -231,28 +211,28 @@ func (f *Forge) ListChanged(ctx context.Context, params forge.ListChangedParams)
 	}
 	slices.Sort(paths)
 
-	result := &forge.ListChangedResult{}
+	result := &forge.Page{}
 	next := map[string]string{}
 	err := sendInBatches(ctx, paths, changedProjectsPerQuery, func(ctx context.Context, batch []string) (complexity, error) {
-		answer, pages, err := f.listChangedBatch(ctx, batch, pending, params.Since)
+		read, err := f.listChangedBatch(ctx, listChangedBatchParams{paths: batch, after: pending, since: params.Since})
 		if err != nil {
 			return complexity{}, err
 		}
 
 		for i, path := range batch {
-			page := pages[i]
+			page := read.pages[i]
 			if page == nil {
 				continue
 			}
 
-			result.PullRequests = append(result.PullRequests, page.toPullRequests(true)...)
-			if page.PageInfo.HasNextPage {
-				next[path] = page.PageInfo.EndCursor
+			result.PullRequests = append(result.PullRequests, page.PullRequests...)
+			if page.HasMore {
+				next[path] = page.Cursor
 			}
 		}
-		result.RateLimit = answer.rateLimit
+		result.RateLimit = read.rateLimit
 
-		return answer.complexity, nil
+		return read.complexity, nil
 	})
 	if err != nil {
 		return nil, err
@@ -271,43 +251,60 @@ func (f *Forge) ListChanged(ctx context.Context, params forge.ListChangedParams)
 	return result, nil
 }
 
+// listChangedBatchParams says which projects one ListChanged query reads, each from its own cursor.
+type listChangedBatchParams struct {
+	paths []string
+	after map[string]string
+	since time.Time
+}
+
+// changedBatch is what one ListChanged query answered, a page per project asked about.
+type changedBatch struct {
+	pages      []*forge.Page
+	rateLimit  forge.RateLimit
+	complexity complexity
+}
+
 // listChangedBatch reads one page of changes from each project in one query, answering nil
 // for a project GitLab has nothing for.
-func (f *Forge) listChangedBatch(ctx context.Context, paths []string, after map[string]string, since time.Time) (*graphqlAnswer, []*connection, error) {
+func (f *Forge) listChangedBatch(ctx context.Context, params listChangedBatchParams) (*changedBatch, error) {
 	var declared, fields strings.Builder
-	variables := map[string]any{"since": since.UTC().Format(time.RFC3339), "first": MaxPerPage}
-	for i, path := range paths {
+	variables := map[string]any{"since": params.since.UTC().Format(time.RFC3339), "first": MaxPerPage}
+	for i, path := range params.paths {
 		fmt.Fprintf(&declared, ", $p%d: ID!, $a%d: String", i, i)
 		fmt.Fprintf(&fields, "\n  r%d: project(fullPath: $p%d) { mergeRequests(updatedAfter: $since, sort: UPDATED_DESC, first: $first, after: $a%d) { pageInfo { hasNextPage endCursor } nodes { ...mergeRequestFields "+approvalFields+" } } }", i, i, i)
 		variables["p"+strconv.Itoa(i)] = path
-		variables["a"+strconv.Itoa(i)] = cursorOf(after[path])
+		variables["a"+strconv.Itoa(i)] = graphql.CursorOf(params.after[path])
 	}
 	operation := "query ListChanged($since: Time, $first: Int!" + declared.String() + ") {" + fields.String() + "\n  queryComplexity { score limit }\n}\n" + mergeRequestFragment
 
 	var data map[string]json.RawMessage
-	answer, err := f.query(ctx, operation, variables, &data)
+	answer, err := f.client.Query(ctx, operation, variables, &data)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	if err := answer.failure(); err != nil {
-		return nil, nil, err
+	if err := failureOf(answer); err != nil {
+		return nil, err
 	}
-	answer.complexity = complexityOf(data)
 
-	pages := make([]*connection, len(paths))
-	for i := range paths {
+	read := &changedBatch{
+		pages:      make([]*forge.Page, len(params.paths)),
+		rateLimit:  answer.RateLimit,
+		complexity: complexityOf(data),
+	}
+	for i, path := range params.paths {
 		var project *struct {
 			MergeRequests connection `json:"mergeRequests"`
 		}
 		if err := json.Unmarshal(data["r"+strconv.Itoa(i)], &project); err != nil {
-			return nil, nil, fmt.Errorf("failed to decode gitlab's answer for %s: %w", paths[i], err)
+			return nil, fmt.Errorf("failed to decode gitlab's answer for %s: %w", path, err)
 		}
 		if project != nil {
-			pages[i] = &project.MergeRequests
+			read.pages[i] = pageOf(&project.MergeRequests, answer.RateLimit, true)
 		}
 	}
 
-	return answer, pages, nil
+	return read, nil
 }
 
 // Get is one merge request by its web address.
@@ -322,11 +319,11 @@ func (f *Forge) Get(ctx context.Context, address string) (forge.PullRequest, err
 			MergeRequest *mergeRequestNode `json:"mergeRequest"`
 		} `json:"project"`
 	}
-	answer, err := f.query(ctx, getQuery, map[string]any{"path": path, "iid": strconv.Itoa(number)}, &data)
+	answer, err := f.client.Query(ctx, getQuery, map[string]any{"path": path, "iid": strconv.Itoa(number)}, &data)
 	if err != nil {
 		return forge.PullRequest{}, err
 	}
-	if err := answer.failure(); err != nil {
+	if err := failureOf(answer); err != nil {
 		return forge.PullRequest{}, err
 	}
 	if data.Project == nil || data.Project.MergeRequest == nil {
@@ -344,7 +341,7 @@ func (f *Forge) ReviewDecisions(ctx context.Context, repo git.RemoteURL, numbers
 		return nil, err
 	}
 	if len(numbers) > forge.MaxReviewDecisions {
-		return nil, fail.InvalidArgument("too many review decisions for one call").Saying("at most %d review decisions can be read in one call, not %d", forge.MaxReviewDecisions, len(numbers))
+		return nil, forge.ErrTooManyDecisions.Saying("at most %d review decisions can be read in one call, not %d", forge.MaxReviewDecisions, len(numbers))
 	}
 
 	decisions := make(map[int]forge.ReviewDecision, len(numbers))
@@ -359,11 +356,11 @@ func (f *Forge) ReviewDecisions(ctx context.Context, repo git.RemoteURL, numbers
 			Project         map[string]*approvalNode `json:"project"`
 			QueryComplexity complexity               `json:"queryComplexity"`
 		}
-		answer, err := f.query(ctx, operation, map[string]any{"path": path}, &data)
+		answer, err := f.client.Query(ctx, operation, map[string]any{"path": path}, &data)
 		if err != nil {
 			return complexity{}, err
 		}
-		if err := answer.failure(); err != nil {
+		if err := failureOf(answer); err != nil {
 			return complexity{}, err
 		}
 		if data.Project == nil {
@@ -390,24 +387,31 @@ func (f *Forge) ReviewDecisions(ctx context.Context, repo git.RemoteURL, numbers
 
 // listMergeRequests reads one page of a project's mergeRequests connection, whichever query
 // shapes it.
-func (f *Forge) listMergeRequests(ctx context.Context, operation string, variables map[string]any, path string) (*connection, forge.RateLimit, error) {
+func (f *Forge) listMergeRequests(ctx context.Context, operation string, variables map[string]any) (*forge.Page, error) {
 	var data struct {
 		Project *struct {
 			MergeRequests connection `json:"mergeRequests"`
 		} `json:"project"`
 	}
-	answer, err := f.query(ctx, operation, variables, &data)
+	answer, err := f.client.Query(ctx, operation, variables, &data)
 	if err != nil {
-		return nil, forge.RateLimit{}, err
+		return nil, err
 	}
-	if err := answer.failure(); err != nil {
-		return nil, forge.RateLimit{}, err
+	if err := failureOf(answer); err != nil {
+		return nil, err
 	}
 	if data.Project == nil {
-		return nil, forge.RateLimit{}, fmt.Errorf("%w: gitlab has no project %s, which is also its answer for one the credential cannot see", forge.ErrNotFound, path)
+		return nil, fmt.Errorf("%w: gitlab has no project %s, which is also its answer for one the credential cannot see", forge.ErrNotFound, variables["path"])
 	}
 
-	return &data.Project.MergeRequests, answer.rateLimit, nil
+	return pageOf(&data.Project.MergeRequests, answer.RateLimit, false), nil
+}
+
+// pageOf is a connection as one page of pull requests, each with its decision when asked for.
+func pageOf(c *connection, limit forge.RateLimit, withDecision bool) *forge.Page {
+	return graphql.PageOf(c, limit, func(node mergeRequestNode) forge.PullRequest {
+		return node.toPullRequest(withDecision)
+	})
 }
 
 // sendInBatches sends one query per batch of items, sized from what GitLab last said about its
@@ -436,15 +440,6 @@ func sendInBatches[T any](ctx context.Context, items []T, size int, send func(co
 	return nil
 }
 
-// cursorOf is a cursor as the query variable takes it, null for the first page.
-func cursorOf(cursor string) *string {
-	if cursor == "" {
-		return nil
-	}
-
-	return xptr.Ptr(cursor)
-}
-
 // complexity is what GitLab said one query cost against its limit.
 type complexity struct {
 	Score int `json:"score"`
@@ -462,130 +457,18 @@ func complexityOf(data map[string]json.RawMessage) complexity {
 	return measured
 }
 
-// graphqlError is one entry of the errors a GraphQL answer carries beside its data.
-type graphqlError struct {
-	Message string `json:"message"`
-}
-
-// graphqlAnswer is what one query came back with besides its data.
-type graphqlAnswer struct {
-	errors     []graphqlError
-	rateLimit  forge.RateLimit
-	complexity complexity
-}
-
-// failure is the first error the answer carries as weave's, nil when it carries none.
-func (a *graphqlAnswer) failure() error {
-	if len(a.errors) == 0 {
+// failureOf is the first error the answer carries as weave's, nil when it carries none.
+func failureOf(answer *graphql.Answer) error {
+	if len(answer.Errors) == 0 {
 		return nil
 	}
 
-	failure := a.errors[0]
+	failure := answer.Errors[0]
 	if strings.Contains(failure.Message, "exceeds max complexity") {
 		return fmt.Errorf("%w: %s", errTooComplex, failure.Message)
 	}
 
 	return fmt.Errorf("gitlab refused the query: %s", failure.Message)
-}
-
-// graphqlURL is where the host answers GraphQL, beside the REST base rather than under it.
-func (f *Forge) graphqlURL() string {
-	return strings.TrimSuffix(f.api, "/v4") + "/graphql"
-}
-
-// query sends one named operation to GitLab's GraphQL endpoint, decodes its data, and turns
-// GitLab's refusals into weave's.
-func (f *Forge) query(ctx context.Context, operation string, variables map[string]any, into any) (*graphqlAnswer, error) {
-	var envelope struct {
-		Data   json.RawMessage `json:"data"`
-		Errors []graphqlError  `json:"errors"`
-	}
-	answer, err := xhttp.JSON(ctx, xhttp.JSONParams{
-		Client: f.client,
-		Method: http.MethodPost,
-		URL:    f.graphqlURL(),
-		Body:   map[string]any{"query": operation, "variables": variables},
-	}, &envelope)
-	if err != nil {
-		if failure := fail.Of(err); failure != nil {
-			return nil, failure
-		}
-
-		return nil, err
-	}
-
-	switch {
-	case answer.Status == http.StatusUnauthorized:
-		return nil, fmt.Errorf("%w: %s", forge.ErrUnauthorized, messageOf(answer.Body))
-	case answer.Status == http.StatusNotFound:
-		return nil, fmt.Errorf("gitlab answered 404 at %s, which is not where its GraphQL lives", f.graphqlURL())
-	case answer.Status == http.StatusTooManyRequests:
-		return nil, throttleOf(answer, f.now())
-	case !answer.IsSuccess():
-		return nil, fmt.Errorf("gitlab answered %d for %s: %s", answer.Status, operationOf(operation), messageOf(answer.Body))
-	}
-
-	if len(envelope.Data) > 0 && string(envelope.Data) != "null" {
-		if err := json.Unmarshal(envelope.Data, into); err != nil {
-			return nil, fmt.Errorf("failed to decode gitlab's answer to %s: %w", operationOf(operation), err)
-		}
-	}
-
-	return &graphqlAnswer{errors: envelope.Errors, rateLimit: readRateLimit(answer.Header)}, nil
-}
-
-// operationOf is the name a query was written with.
-func operationOf(operation string) string {
-	name, _, _ := strings.Cut(strings.TrimPrefix(operation, "query "), "(")
-	name, _, _ = strings.Cut(name, " ")
-
-	return name
-}
-
-// readRateLimit is what GitLab's headers said about the credential's budget.
-func readRateLimit(header http.Header) forge.RateLimit {
-	remaining, err := strconv.Atoi(header.Get("RateLimit-Remaining"))
-	if err != nil {
-		return forge.RateLimit{}
-	}
-
-	limit := forge.RateLimit{Known: true, Remaining: remaining}
-	if reset, err := strconv.ParseInt(header.Get("RateLimit-Reset"), 10, 64); err == nil {
-		limit.ResetAt = time.Unix(reset, 0)
-	}
-
-	return limit
-}
-
-// throttleOf is the refusal a 429 is, with when GitLab said to try again.
-func throttleOf(answer xhttp.Answer, now time.Time) *forge.ThrottledError {
-	if seconds, err := strconv.Atoi(answer.Header.Get("Retry-After")); err == nil && seconds >= 0 {
-		return &forge.ThrottledError{RetryAt: now.Add(time.Duration(seconds) * time.Second)}
-	}
-
-	if limit := readRateLimit(answer.Header); limit.IsExhausted() && !limit.ResetAt.IsZero() {
-		return &forge.ThrottledError{RetryAt: limit.ResetAt}
-	}
-
-	return &forge.ThrottledError{}
-}
-
-// messageOf is what GitLab said went wrong, which its error bodies carry as message or error.
-func messageOf(body []byte) string {
-	var failure struct {
-		Message json.RawMessage `json:"message"`
-		Error   string          `json:"error"`
-	}
-	if err := json.Unmarshal(body, &failure); err == nil {
-		if failure.Error != "" {
-			return failure.Error
-		}
-		if len(failure.Message) > 0 {
-			return strings.Trim(string(failure.Message), `"`)
-		}
-	}
-
-	return strings.TrimSpace(string(body))
 }
 
 // projectPath is the full path a project is addressed by.
@@ -619,22 +502,7 @@ func parseMergeRequestURL(address string) (path string, number int, err error) {
 }
 
 // connection is one page of a merge request connection as GitLab answers it.
-type connection struct {
-	PageInfo struct {
-		HasNextPage bool   `json:"hasNextPage"`
-		EndCursor   string `json:"endCursor"`
-	} `json:"pageInfo"`
-	Nodes []mergeRequestNode `json:"nodes"`
-}
-
-func (c *connection) toPullRequests(withDecision bool) []forge.PullRequest {
-	pullRequests := make([]forge.PullRequest, 0, len(c.Nodes))
-	for _, node := range c.Nodes {
-		pullRequests = append(pullRequests, node.toPullRequest(withDecision))
-	}
-
-	return pullRequests
-}
+type connection = graphql.Connection[mergeRequestNode]
 
 // mergeRequestNode is the slice of GitLab's merge request node the record is built from.
 type mergeRequestNode struct {
@@ -661,6 +529,15 @@ type mergeRequestNode struct {
 
 type projectNode struct {
 	WebURL string `json:"webUrl"`
+}
+
+// remote is the project the node names, zero for one GitLab no longer has.
+func (n *projectNode) remote() git.RemoteURL {
+	if n == nil {
+		return git.RemoteURL{}
+	}
+
+	return graphql.RemoteOf(n.WebURL)
 }
 
 // approvalNode is what GitLab says about a merge request's reviews.
@@ -709,8 +586,8 @@ func (n mergeRequestNode) toPullRequest(withDecision bool) forge.PullRequest {
 		Forge:      forge.KindGitLab,
 		ProviderID: strings.TrimPrefix(n.ID, "gid://gitlab/MergeRequest/"),
 		URL:        n.WebURL,
-		Repository: remoteOf(n.TargetProject),
-		Head:       remoteOf(n.SourceProject),
+		Repository: n.TargetProject.remote(),
+		Head:       n.SourceProject.remote(),
 		Number:     numberOf(n.IID),
 		Title:      n.Title,
 		HeadBranch: n.SourceBranch,
@@ -758,20 +635,6 @@ func stateOf(state string) string {
 	}
 
 	return strings.ToUpper(state)
-}
-
-// remoteOf is the project a node names, zero for one GitLab no longer has.
-func remoteOf(node *projectNode) git.RemoteURL {
-	if node == nil {
-		return git.RemoteURL{}
-	}
-
-	remote, err := git.ParseRemoteURL(node.WebURL)
-	if err != nil {
-		return git.RemoteURL{}
-	}
-
-	return remote
 }
 
 // Build is the Builder for GitLab.

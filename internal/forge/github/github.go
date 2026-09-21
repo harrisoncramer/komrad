@@ -3,7 +3,6 @@ package github
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -11,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"weave/internal/fail"
 	"weave/internal/forge"
+	"weave/internal/forge/graphql"
 	"weave/internal/git"
 	"weave/lib/xhttp"
 	"weave/lib/xptr"
@@ -20,9 +19,6 @@ import (
 
 // DefaultAPI is where github.com answers REST calls, with GraphQL beside it.
 const DefaultAPI = "https://api.github.com"
-
-// DefaultTimeout bounds one call to GitHub.
-const DefaultTimeout = 30 * time.Second
 
 // MaxPerPage is the most GitHub hands over in one page, above which it silently trims.
 const MaxPerPage = 100
@@ -68,6 +64,17 @@ const listChangedQuery = `query ListChanged($query: String!, $first: Int!, $afte
 }
 ` + pullRequestFragment
 
+// dialect is what GitHub does differently on the wire.
+var dialect = graphql.Dialect{
+	Name: "github",
+	Header: http.Header{
+		"Accept":               {"application/vnd.github+json"},
+		"X-Github-Api-Version": {"2022-11-28"},
+	},
+	RateLimitHeader: "X-RateLimit",
+	Version:         "/v3",
+}
+
 // NewParams says how the forge reaches the API and as whom.
 type NewParams struct {
 	Auth forge.Authenticator
@@ -75,7 +82,7 @@ type NewParams struct {
 	API string
 	// Next is the round tripper under the credential transport, the default when nil.
 	Next http.RoundTripper
-	// Timeout bounds one call, DefaultTimeout when unset.
+	// Timeout bounds one call, graphql.DefaultTimeout when unset.
 	Timeout time.Duration
 	// Now is the clock a Retry-After is counted from, time.Now when unset.
 	Now func() time.Time
@@ -83,9 +90,7 @@ type NewParams struct {
 
 // Forge is GitHub, spoken to over its GraphQL API.
 type Forge struct {
-	api    string
-	client *http.Client
-	now    func() time.Time
+	client *graphql.Client
 }
 
 // New builds the forge.
@@ -95,25 +100,20 @@ func New(params NewParams) *Forge {
 		api = DefaultAPI
 	}
 
-	timeout := params.Timeout
-	if timeout == 0 {
-		timeout = DefaultTimeout
-	}
-
-	now := params.Now
-	if now == nil {
-		now = time.Now
-	}
-
-	return &Forge{
-		api:    strings.TrimRight(api, "/"),
-		client: xhttp.NewClientOver(forge.NewTransport(params.Auth, params.Next), timeout),
-		now:    now,
-	}
+	return &Forge{client: graphql.New(graphql.NewParams{
+		Dialect: dialect,
+		Auth:    params.Auth,
+		API:     api,
+		Next:    params.Next,
+		Timeout: params.Timeout,
+		Now:     params.Now,
+	})}
 }
 
 // Kind is what the forge answers to.
-func (f *Forge) Kind() string { return forge.KindGitHub }
+func (f *Forge) Kind() string {
+	return forge.KindGitHub
+}
 
 // Verify asks GitHub who the credential belongs to.
 func (f *Forge) Verify(ctx context.Context) (string, error) {
@@ -122,11 +122,11 @@ func (f *Forge) Verify(ctx context.Context) (string, error) {
 			Login string `json:"login"`
 		} `json:"viewer"`
 	}
-	answer, err := f.query(ctx, verifyQuery, nil, &data)
+	answer, err := f.client.Query(ctx, verifyQuery, nil, &data)
 	if err != nil {
 		return "", err
 	}
-	if err := answer.failure(); err != nil {
+	if err := failureOf(answer, ""); err != nil {
 		return "", err
 	}
 	if data.Viewer.Login == "" {
@@ -142,9 +142,9 @@ func (f *Forge) VerifyInstallation(ctx context.Context) (int, error) {
 	var installation struct {
 		TotalCount int `json:"total_count"`
 	}
-	answer, err := f.send(ctx, xhttp.JSONParams{
+	answer, err := f.client.Send(ctx, xhttp.JSONParams{
 		Method: http.MethodGet,
-		URL:    f.api + "/installation/repositories?per_page=1",
+		URL:    f.client.API() + "/installation/repositories?per_page=1",
 	}, &installation)
 	if err != nil {
 		return 0, err
@@ -158,7 +158,7 @@ func (f *Forge) VerifyInstallation(ctx context.Context) (int, error) {
 
 // List is one page of the repository's pull requests, every one from the named branch or
 // the open ones when no branch is named, and where the next page starts.
-func (f *Forge) List(ctx context.Context, params forge.ListParams) (*forge.ListResult, error) {
+func (f *Forge) List(ctx context.Context, params forge.ListParams) (*forge.Page, error) {
 	owner, name, err := ownerAndName(params.Repo.Path)
 	if err != nil {
 		return nil, err
@@ -168,7 +168,7 @@ func (f *Forge) List(ctx context.Context, params forge.ListParams) (*forge.ListR
 		"owner":  owner,
 		"name":   name,
 		"first":  min(max(params.PerPage, 1), MaxPerPage),
-		"after":  cursorOf(params.Cursor),
+		"after":  graphql.CursorOf(params.Cursor),
 		"states": []string{"OPEN"},
 	}
 	if params.Branch != "" {
@@ -176,48 +176,28 @@ func (f *Forge) List(ctx context.Context, params forge.ListParams) (*forge.ListR
 		variables["states"] = []string{"OPEN", "CLOSED", "MERGED"}
 	}
 
-	page, limit, err := f.listPullRequests(ctx, listQuery, variables, owner, name)
-	if err != nil {
-		return nil, err
-	}
-
-	return &forge.ListResult{
-		PullRequests: page.toPullRequests(false),
-		HasMore:      page.PageInfo.HasNextPage,
-		Cursor:       page.PageInfo.EndCursor,
-		RateLimit:    limit,
-	}, nil
+	return f.listPullRequests(ctx, listQuery, variables)
 }
 
 // ListUpdated is one page of every pull request in the repository, newest change first, and
 // where the next page starts.
-func (f *Forge) ListUpdated(ctx context.Context, params forge.ListUpdatedParams) (*forge.ListUpdatedResult, error) {
+func (f *Forge) ListUpdated(ctx context.Context, params forge.ListUpdatedParams) (*forge.Page, error) {
 	owner, name, err := ownerAndName(params.Repo.Path)
 	if err != nil {
 		return nil, err
 	}
 
-	page, limit, err := f.listPullRequests(ctx, listUpdatedQuery, map[string]any{
+	return f.listPullRequests(ctx, listUpdatedQuery, map[string]any{
 		"owner": owner,
 		"name":  name,
 		"first": MaxPerPage,
-		"after": cursorOf(params.Cursor),
-	}, owner, name)
-	if err != nil {
-		return nil, err
-	}
-
-	return &forge.ListUpdatedResult{
-		PullRequests: page.toPullRequests(false),
-		HasMore:      page.PageInfo.HasNextPage,
-		Cursor:       page.PageInfo.EndCursor,
-		RateLimit:    limit,
-	}, nil
+		"after": graphql.CursorOf(params.Cursor),
+	})
 }
 
 // ListChanged is one page of every pull request across the repositories changed at or after
 // Since, newest first, each with its review decision, read through GitHub's search.
-func (f *Forge) ListChanged(ctx context.Context, params forge.ListChangedParams) (*forge.ListChangedResult, error) {
+func (f *Forge) ListChanged(ctx context.Context, params forge.ListChangedParams) (*forge.Page, error) {
 	terms := []string{"is:pr"}
 	for _, repo := range params.Repos {
 		owner, name, err := ownerAndName(repo.Path)
@@ -232,24 +212,21 @@ func (f *Forge) ListChanged(ctx context.Context, params forge.ListChangedParams)
 	var data struct {
 		Search connection `json:"search"`
 	}
-	answer, err := f.query(ctx, listChangedQuery, map[string]any{
+	answer, err := f.client.Query(ctx, listChangedQuery, map[string]any{
 		"query": strings.Join(terms, " "),
 		"first": MaxPerPage,
-		"after": cursorOf(params.Cursor),
+		"after": graphql.CursorOf(params.Cursor),
 	}, &data)
 	if err != nil {
 		return nil, err
 	}
-	if err := answer.failure(); err != nil {
+	if err := failureOf(answer, ""); err != nil {
 		return nil, err
 	}
 
-	return &forge.ListChangedResult{
-		PullRequests: data.Search.toPullRequests(true),
-		HasMore:      data.Search.PageInfo.HasNextPage,
-		Cursor:       data.Search.PageInfo.EndCursor,
-		RateLimit:    answer.rateLimit,
-	}, nil
+	return graphql.PageOf(&data.Search, answer.RateLimit, func(node pullRequestNode) forge.PullRequest {
+		return node.toPullRequest(true)
+	}), nil
 }
 
 // Get is one pull request by its web address.
@@ -264,7 +241,7 @@ func (f *Forge) Get(ctx context.Context, address string) (forge.PullRequest, err
 			PullRequest *pullRequestNode `json:"pullRequest"`
 		} `json:"repository"`
 	}
-	answer, err := f.query(ctx, getQuery, map[string]any{
+	answer, err := f.client.Query(ctx, getQuery, map[string]any{
 		"owner":  owner,
 		"name":   name,
 		"number": number,
@@ -272,7 +249,7 @@ func (f *Forge) Get(ctx context.Context, address string) (forge.PullRequest, err
 	if err != nil {
 		return forge.PullRequest{}, err
 	}
-	if err := answer.failure(); err != nil {
+	if err := failureOf(answer, ""); err != nil {
 		return forge.PullRequest{}, err
 	}
 	if data.Repository == nil || data.Repository.PullRequest == nil {
@@ -290,7 +267,7 @@ func (f *Forge) ReviewDecisions(ctx context.Context, repo git.RemoteURL, numbers
 		return nil, err
 	}
 	if len(numbers) > forge.MaxReviewDecisions {
-		return nil, fail.InvalidArgument("too many review decisions for one call").Saying("at most %d review decisions can be read in one call, not %d", forge.MaxReviewDecisions, len(numbers))
+		return nil, forge.ErrTooManyDecisions.Saying("at most %d review decisions can be read in one call, not %d", forge.MaxReviewDecisions, len(numbers))
 	}
 
 	var fields strings.Builder
@@ -304,15 +281,16 @@ func (f *Forge) ReviewDecisions(ctx context.Context, repo git.RemoteURL, numbers
 			ReviewDecision *string `json:"reviewDecision"`
 		} `json:"repository"`
 	}
-	answer, err := f.query(ctx, operation, map[string]any{"owner": owner, "name": name}, &data)
+	variables := map[string]any{"owner": owner, "name": name}
+	answer, err := f.client.Query(ctx, operation, variables, &data)
 	if err != nil {
 		return nil, err
 	}
-	if err := answer.failureOutside("repository"); err != nil {
+	if err := failureOf(answer, "repository"); err != nil {
 		return nil, err
 	}
 	if data.Repository == nil {
-		return nil, fmt.Errorf("%w: github has no repository %s/%s, which is also its answer for one the credential cannot see", forge.ErrNotFound, owner, name)
+		return nil, noRepository(variables)
 	}
 
 	decisions := make(map[int]forge.ReviewDecision, len(numbers))
@@ -330,33 +308,49 @@ func (f *Forge) ReviewDecisions(ctx context.Context, repo git.RemoteURL, numbers
 
 // listPullRequests reads one page of a repository's pullRequests connection, whichever query
 // shapes it.
-func (f *Forge) listPullRequests(ctx context.Context, operation string, variables map[string]any, owner, name string) (*connection, forge.RateLimit, error) {
+func (f *Forge) listPullRequests(ctx context.Context, operation string, variables map[string]any) (*forge.Page, error) {
 	var data struct {
 		Repository *struct {
 			PullRequests connection `json:"pullRequests"`
 		} `json:"repository"`
 	}
-	answer, err := f.query(ctx, operation, variables, &data)
+	answer, err := f.client.Query(ctx, operation, variables, &data)
 	if err != nil {
-		return nil, forge.RateLimit{}, err
+		return nil, err
 	}
-	if err := answer.failure(); err != nil {
-		return nil, forge.RateLimit{}, err
+	if err := failureOf(answer, ""); err != nil {
+		return nil, err
 	}
 	if data.Repository == nil {
-		return nil, forge.RateLimit{}, fmt.Errorf("%w: github has no repository %s/%s, which is also its answer for one the credential cannot see", forge.ErrNotFound, owner, name)
+		return nil, noRepository(variables)
 	}
 
-	return &data.Repository.PullRequests, answer.rateLimit, nil
+	return graphql.PageOf(&data.Repository.PullRequests, answer.RateLimit, func(node pullRequestNode) forge.PullRequest {
+		return node.toPullRequest(false)
+	}), nil
 }
 
-// cursorOf is a cursor as the query variable takes it, null for the first page.
-func cursorOf(cursor string) *string {
-	if cursor == "" {
-		return nil
+// noRepository is GitHub answering null for the repository a query's variables name.
+func noRepository(variables map[string]any) error {
+	return fmt.Errorf("%w: github has no repository %s/%s, which is also its answer for one the credential cannot see", forge.ErrNotFound, variables["owner"], variables["name"])
+}
+
+// failureOf is the first error the answer carries as weave's, nil when it carries none, with a
+// NOT_FOUND under one alias of the named field forgiven.
+func failureOf(answer *graphql.Answer, field string) error {
+	for _, failure := range answer.Errors {
+		if failure.Type == "NOT_FOUND" {
+			if field != "" && len(failure.Path) == 2 && failure.Path[0] == field {
+				continue
+			}
+
+			return fmt.Errorf("%w: %s, which is also github's answer for a repository the credential cannot see", forge.ErrNotFound, failure.Message)
+		}
+
+		return fmt.Errorf("github refused the query: %s", failure.Message)
 	}
 
-	return xptr.Ptr(cursor)
+	return nil
 }
 
 // reviewDecisionOf is GitHub's reviewDecision in weave's words, none for a null.
@@ -375,194 +369,6 @@ func reviewDecisionOf(decision *string) forge.ReviewDecision {
 	}
 
 	return forge.ReviewDecisionNone
-}
-
-// graphqlURL is where the host answers GraphQL, beside the REST base rather than under it.
-func (f *Forge) graphqlURL() string {
-	return strings.TrimSuffix(f.api, "/v3") + "/graphql"
-}
-
-// graphqlError is one entry of the errors a GraphQL answer carries beside its data.
-type graphqlError struct {
-	Type    string `json:"type"`
-	Message string `json:"message"`
-	Path    []any  `json:"path"`
-}
-
-// graphqlAnswer is what one query came back with besides its data.
-type graphqlAnswer struct {
-	errors    []graphqlError
-	rateLimit forge.RateLimit
-}
-
-// failure is the first error the answer carries as weave's, nil when it carries none.
-func (a *graphqlAnswer) failure() error {
-	return a.failureOutside("")
-}
-
-// failureOutside is failure with a NOT_FOUND under one alias of the named field forgiven.
-func (a *graphqlAnswer) failureOutside(field string) error {
-	for _, failure := range a.errors {
-		if failure.Type == "NOT_FOUND" {
-			if field != "" && len(failure.Path) == 2 && failure.Path[0] == field {
-				continue
-			}
-
-			return fmt.Errorf("%w: %s, which is also github's answer for a repository the credential cannot see", forge.ErrNotFound, failure.Message)
-		}
-
-		return fmt.Errorf("github refused the query: %s", failure.Message)
-	}
-
-	return nil
-}
-
-// query sends one named operation to GitHub's GraphQL endpoint, decodes its data, and turns
-// GitHub's refusals into weave's.
-func (f *Forge) query(ctx context.Context, operation string, variables map[string]any, into any) (*graphqlAnswer, error) {
-	var envelope struct {
-		Data   json.RawMessage `json:"data"`
-		Errors []graphqlError  `json:"errors"`
-	}
-	answer, err := f.send(ctx, xhttp.JSONParams{
-		Method: http.MethodPost,
-		URL:    f.graphqlURL(),
-		Body:   map[string]any{"query": operation, "variables": variables},
-	}, &envelope)
-	if err != nil {
-		return nil, err
-	}
-	if answer.Status == http.StatusNotFound {
-		return nil, fmt.Errorf("github answered 404 at %s, which is not where its GraphQL lives", f.graphqlURL())
-	}
-
-	limit := readRateLimit(answer.Header)
-	for _, failure := range envelope.Errors {
-		if failure.Type == "RATE_LIMITED" {
-			return nil, &forge.ThrottledError{RetryAt: limit.ResetAt}
-		}
-	}
-
-	if len(envelope.Data) > 0 && string(envelope.Data) != "null" {
-		if err := json.Unmarshal(envelope.Data, into); err != nil {
-			return nil, fmt.Errorf("failed to decode github's answer to %s: %w", operationOf(operation), err)
-		}
-	}
-
-	return &graphqlAnswer{errors: envelope.Errors, rateLimit: limit}, nil
-}
-
-// operationOf is the name a query was written with.
-func operationOf(operation string) string {
-	name, _, _ := strings.Cut(strings.TrimPrefix(operation, "query "), "(")
-	name, _, _ = strings.Cut(name, " ")
-
-	return name
-}
-
-// send makes one call with the headers every GitHub call carries and turns GitHub's refusals
-// into weave's, a 404 aside.
-func (f *Forge) send(ctx context.Context, params xhttp.JSONParams, into any) (xhttp.Answer, error) {
-	if params.Header == nil {
-		params.Header = http.Header{}
-	}
-	params.Header.Set("Accept", "application/vnd.github+json")
-	params.Header.Set("X-GitHub-Api-Version", "2022-11-28")
-	params.Client = f.client
-	path := strings.TrimPrefix(params.URL, f.api)
-
-	answer, err := xhttp.JSON(ctx, params, into)
-	if err != nil {
-		if failure := fail.Of(err); failure != nil {
-			return xhttp.Answer{}, failure
-		}
-
-		return xhttp.Answer{}, err
-	}
-
-	switch {
-	case answer.Status == http.StatusUnauthorized:
-		return answer, fmt.Errorf("%w: %s", forge.ErrUnauthorized, messageOf(answer.Body))
-	case answer.Status == http.StatusNotFound:
-		return answer, nil
-	case answer.Status == http.StatusForbidden || answer.Status == http.StatusTooManyRequests:
-		if throttled := throttleOf(answer, f.now()); throttled != nil {
-			return answer, throttled
-		}
-
-		return answer, fmt.Errorf("github answered %d for %s: %s", answer.Status, path, messageOf(answer.Body))
-	case !answer.IsSuccess():
-		return answer, fmt.Errorf("github answered %d for %s: %s", answer.Status, path, messageOf(answer.Body))
-	}
-
-	return answer, nil
-}
-
-// readRateLimit is what GitHub's headers said about the credential's budget.
-func readRateLimit(header http.Header) forge.RateLimit {
-	remaining, err := strconv.Atoi(header.Get("X-RateLimit-Remaining"))
-	if err != nil {
-		return forge.RateLimit{}
-	}
-
-	limit := forge.RateLimit{Known: true, Remaining: remaining}
-	if reset, err := strconv.ParseInt(header.Get("X-RateLimit-Reset"), 10, 64); err == nil {
-		limit.ResetAt = time.Unix(reset, 0)
-	}
-
-	return limit
-}
-
-// throttleOf is the refusal a 403 or 429 is when it is GitHub's rate limit rather than a
-// permission answer, nil otherwise.
-func throttleOf(answer xhttp.Answer, now time.Time) *forge.ThrottledError {
-	retryAfter, hasRetryAfter := readRetryAfter(answer.Header)
-	limit := readRateLimit(answer.Header)
-	throttled := answer.Status == http.StatusTooManyRequests ||
-		hasRetryAfter ||
-		limit.IsExhausted() ||
-		isSecondaryLimitMessage(messageOf(answer.Body))
-	if !throttled {
-		return nil
-	}
-
-	switch {
-	case hasRetryAfter:
-		return &forge.ThrottledError{RetryAt: now.Add(retryAfter)}
-	case limit.IsExhausted() && !limit.ResetAt.IsZero():
-		return &forge.ThrottledError{RetryAt: limit.ResetAt}
-	default:
-		return &forge.ThrottledError{}
-	}
-}
-
-func readRetryAfter(header http.Header) (time.Duration, bool) {
-	seconds, err := strconv.Atoi(header.Get("Retry-After"))
-	if err != nil || seconds < 0 {
-		return 0, false
-	}
-
-	return time.Duration(seconds) * time.Second, true
-}
-
-// isSecondaryLimitMessage recognises the body GitHub sends for its secondary limit, which can
-// come with neither rate limit header.
-func isSecondaryLimitMessage(message string) bool {
-	lowered := strings.ToLower(message)
-
-	return strings.Contains(lowered, "secondary rate limit") || strings.Contains(lowered, "abuse detection")
-}
-
-// messageOf is what GitHub said went wrong, which its error bodies carry as message.
-func messageOf(body []byte) string {
-	var failure struct {
-		Message string `json:"message"`
-	}
-	if err := json.Unmarshal(body, &failure); err == nil && failure.Message != "" {
-		return failure.Message
-	}
-
-	return strings.TrimSpace(string(body))
 }
 
 // ownerAndName splits a repository path, which on GitHub is always two segments.
@@ -596,22 +402,7 @@ func parsePullURL(address string) (owner, name string, number int, err error) {
 }
 
 // connection is one page of a pull request connection as GitHub answers it.
-type connection struct {
-	PageInfo struct {
-		HasNextPage bool   `json:"hasNextPage"`
-		EndCursor   string `json:"endCursor"`
-	} `json:"pageInfo"`
-	Nodes []pullRequestNode `json:"nodes"`
-}
-
-func (c *connection) toPullRequests(withDecision bool) []forge.PullRequest {
-	pullRequests := make([]forge.PullRequest, 0, len(c.Nodes))
-	for _, node := range c.Nodes {
-		pullRequests = append(pullRequests, node.toPullRequest(withDecision))
-	}
-
-	return pullRequests
-}
+type connection = graphql.Connection[pullRequestNode]
 
 // pullRequestNode is the slice of GitHub's pull request node the record is built from.
 type pullRequestNode struct {
@@ -638,14 +429,23 @@ type repositoryNode struct {
 	URL string `json:"url"`
 }
 
+// remote is the repository the node names, zero for one GitHub no longer has.
+func (n *repositoryNode) remote() git.RemoteURL {
+	if n == nil {
+		return git.RemoteURL{}
+	}
+
+	return graphql.RemoteOf(n.URL)
+}
+
 // toPullRequest is the node as the record, carrying its decision when the query asked for one.
 func (n pullRequestNode) toPullRequest(withDecision bool) forge.PullRequest {
 	pullRequest := forge.PullRequest{
 		Forge:      forge.KindGitHub,
 		ProviderID: n.ID,
 		URL:        n.URL,
-		Repository: remoteOf(n.BaseRepository),
-		Head:       remoteOf(n.HeadRepository),
+		Repository: n.BaseRepository.remote(),
+		Head:       n.HeadRepository.remote(),
 		Number:     n.Number,
 		Title:      n.Title,
 		HeadBranch: n.HeadRefName,
@@ -664,20 +464,6 @@ func (n pullRequestNode) toPullRequest(withDecision bool) forge.PullRequest {
 	}
 
 	return pullRequest
-}
-
-// remoteOf is the repository a node names, zero for one GitHub no longer has.
-func remoteOf(node *repositoryNode) git.RemoteURL {
-	if node == nil {
-		return git.RemoteURL{}
-	}
-
-	remote, err := git.ParseRemoteURL(node.URL)
-	if err != nil {
-		return git.RemoteURL{}
-	}
-
-	return remote
 }
 
 // Build is the Builder for GitHub.

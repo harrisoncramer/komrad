@@ -126,7 +126,9 @@ type verifiedSetter interface {
 type NoRecord struct{}
 
 // SetVerifiedAt does nothing.
-func (NoRecord) SetVerifiedAt(context.Context, string, *time.Time) error { return nil }
+func (NoRecord) SetVerifiedAt(context.Context, string, *time.Time) error {
+	return nil
+}
 
 // StoredCredential is a token a person supplied, read from the store on each use.
 type StoredCredential struct {

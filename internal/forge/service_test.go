@@ -34,7 +34,9 @@ type fakeForge struct {
 	err     error
 }
 
-func (f *fakeForge) Kind() string { return KindGitHub }
+func (f *fakeForge) Kind() string {
+	return KindGitHub
+}
 
 func (f *fakeForge) Verify(ctx context.Context) (string, error) {
 	credential, err := f.auth.Credential(ctx)
@@ -57,16 +59,16 @@ func (f *fakeForge) VerifyInstallation(ctx context.Context) (int, error) {
 	return f.reaches, f.err
 }
 
-func (f *fakeForge) ListUpdated(context.Context, ListUpdatedParams) (*ListUpdatedResult, error) {
-	return &ListUpdatedResult{}, nil
+func (f *fakeForge) ListUpdated(context.Context, ListUpdatedParams) (*Page, error) {
+	return &Page{}, nil
 }
 
-func (f *fakeForge) List(context.Context, ListParams) (*ListResult, error) {
-	return &ListResult{}, nil
+func (f *fakeForge) List(context.Context, ListParams) (*Page, error) {
+	return &Page{}, nil
 }
 
-func (f *fakeForge) ListChanged(context.Context, ListChangedParams) (*ListChangedResult, error) {
-	return &ListChangedResult{}, nil
+func (f *fakeForge) ListChanged(context.Context, ListChangedParams) (*Page, error) {
+	return &Page{}, nil
 }
 
 func (f *fakeForge) Get(context.Context, string) (PullRequest, error) { return PullRequest{}, nil }
@@ -204,9 +206,9 @@ func TestConnectRefusals(t *testing.T) {
 	}
 }
 
-// TestAPIURLFor covers where the API is looked for: nowhere special for a public host, the
+// TestResolveAPIURL covers where the API is looked for: nowhere special for a public host, the
 // self-hosted convention for any other, an https address as given, and anything else refused.
-func TestAPIURLFor(t *testing.T) {
+func TestResolveAPIURL(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -281,7 +283,7 @@ func TestAPIURLFor(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := APIURLFor(tt.kind, tt.host, tt.given)
+			got, err := ConnectParams{Kind: tt.kind, Host: tt.host, APIURL: tt.given}.ResolveAPIURL()
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
 

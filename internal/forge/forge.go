@@ -23,6 +23,9 @@ var ErrNotPullRequest = fail.InvalidArgument("not a pull request on this forge")
 // ErrUnauthorized says the forge refused the credential.
 var ErrUnauthorized = fail.Denied("the forge refused the credential")
 
+// ErrTooManyDecisions says one ReviewDecisions call asked about more pull requests than it may.
+var ErrTooManyDecisions = fail.InvalidArgument("too many review decisions for one call")
+
 // ErrThrottled says the forge refused for its rate limit rather than for anything about the
 // request.
 var ErrThrottled = fail.Exhausted("the forge is rate limiting this credential")
@@ -130,13 +133,13 @@ type Forge interface {
 	Verify(ctx context.Context) (login string, err error)
 	// List is one page of the repository's pull requests: every one from the named branch,
 	// whatever its state, or the open ones when the branch is empty.
-	List(ctx context.Context, params ListParams) (*ListResult, error)
+	List(ctx context.Context, params ListParams) (*Page, error)
 	// ListUpdated is one page of every pull request in the repository, whatever its state,
 	// newest change first.
-	ListUpdated(ctx context.Context, params ListUpdatedParams) (*ListUpdatedResult, error)
+	ListUpdated(ctx context.Context, params ListUpdatedParams) (*Page, error)
 	// ListChanged is one page of every pull request across the repositories changed at or
 	// after a moment, newest first, each carrying its review decision.
-	ListChanged(ctx context.Context, params ListChangedParams) (*ListChangedResult, error)
+	ListChanged(ctx context.Context, params ListChangedParams) (*Page, error)
 	// Get is one pull request by its web address.
 	Get(ctx context.Context, url string) (PullRequest, error)
 	// ReviewDecisions is where the forge says the reviews of up to fifty pull requests stand,
@@ -159,8 +162,8 @@ type ListParams struct {
 	PerPage int
 }
 
-// ListResult is one page of pull requests and where the next one starts.
-type ListResult struct {
+// Page is one page of pull requests and where the next one starts.
+type Page struct {
 	PullRequests []PullRequest
 	HasMore      bool
 	// Cursor is where this page ended, to send back for the next.
@@ -176,15 +179,6 @@ type ListUpdatedParams struct {
 	Cursor string
 }
 
-// ListUpdatedResult is one page of pull requests by last change and where the next starts.
-type ListUpdatedResult struct {
-	PullRequests []PullRequest
-	HasMore      bool
-	// Cursor is where this page ended, to send back for the next.
-	Cursor    string
-	RateLimit RateLimit
-}
-
 // ListChangedParams says which repositories to read the changes of, and since when.
 type ListChangedParams struct {
 	// Repos are the repositories, every one on the forge's own host.
@@ -193,16 +187,6 @@ type ListChangedParams struct {
 	Since time.Time
 	// Cursor is where a previous page ended, empty for the first.
 	Cursor string
-}
-
-// ListChangedResult is one page of changed pull requests, each with its decision, and where
-// the next page starts.
-type ListChangedResult struct {
-	PullRequests []PullRequest
-	HasMore      bool
-	// Cursor is where this page ended, to send back for the next.
-	Cursor    string
-	RateLimit RateLimit
 }
 
 // InstallationVerifier is a forge that can say what an installation token reaches.

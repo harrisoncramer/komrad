@@ -31,6 +31,21 @@ var ErrAppReachesNothing = fail.Precondition("the github app is installed on no 
 // ErrKindUnknownForHost says a host names no public forge, so the kind has to be given.
 var ErrKindUnknownForHost = fail.InvalidArgument("the host does not say which forge it runs")
 
+// ErrNoHost says a connection was asked for with no host.
+var ErrNoHost = fail.InvalidArgument("a host is needed")
+
+// ErrUnknownMethod says a connection was asked for by a method that is not one.
+var ErrUnknownMethod = fail.InvalidArgument("not a way to connect")
+
+// ErrNoToken says the token method was asked for with no token.
+var ErrNoToken = fail.InvalidArgument("a token is needed")
+
+// ErrAppNotGitHub says the App method was asked for on a forge that is not GitHub.
+var ErrAppNotGitHub = fail.InvalidArgument("a github app connects only to github")
+
+// ErrNoInstallationCheck says the forge has no way to check an installation.
+var ErrNoInstallationCheck = fail.InvalidArgument("this forge cannot check an installation")
+
 // Builder makes the forge for one kind, reaching the API at api as auth.
 type Builder func(api string, auth Authenticator) Forge
 
@@ -112,10 +127,10 @@ func KindForHost(host string) (string, error) {
 	}
 }
 
-// APIURLFor is where a host's API answers: the given address checked for https, or for a host
-// that is not the public forge, the place that forge's self-hosted builds put it.
-func APIURLFor(kind, host, given string) (string, error) {
-	given = strings.TrimRight(strings.TrimSpace(given), "/")
+// ResolveAPIURL is where the host's API answers: APIURL checked for https, or for a host that
+// is not the public forge, the place that forge's self-hosted builds put it.
+func (p ConnectParams) ResolveAPIURL() (string, error) {
+	given := strings.TrimRight(strings.TrimSpace(p.APIURL), "/")
 	if given != "" {
 		parsed, err := url.Parse(given)
 		if err != nil || parsed.Scheme != "https" || parsed.Host == "" {
@@ -125,17 +140,17 @@ func APIURLFor(kind, host, given string) (string, error) {
 		return given, nil
 	}
 
-	if _, err := KindForHost(host); err == nil {
+	if _, err := KindForHost(p.Host); err == nil {
 		return "", nil
 	}
 
-	switch kind {
+	switch p.Kind {
 	case KindGitHub:
-		return "https://" + host + "/api/v3", nil
+		return "https://" + p.Host + "/api/v3", nil
 	case KindGitLab:
-		return "https://" + host + "/api/v4", nil
+		return "https://" + p.Host + "/api/v4", nil
 	default:
-		return "", ErrUnknownKind.Saying("%q is not a forge this build knows", kind)
+		return "", ErrUnknownKind.Saying("%q is not a forge this build knows", p.Kind)
 	}
 }
 
@@ -151,60 +166,59 @@ func HeaderFor(kind, method string) string {
 // Connect proves a credential against the forge and records the connection, refusing a host
 // that is already connected and a credential the forge does not accept.
 func (s *ForgeService) Connect(ctx context.Context, params ConnectParams) (*forgestore.Connection, error) {
-	host := strings.ToLower(strings.TrimSpace(params.Host))
-	if host == "" {
-		return nil, fail.InvalidArgument("a host is needed")
+	params.Host = strings.ToLower(strings.TrimSpace(params.Host))
+	if params.Host == "" {
+		return nil, ErrNoHost
 	}
 
-	kind := params.Kind
-	if kind == "" {
-		found, err := KindForHost(host)
+	if params.Kind == "" {
+		found, err := KindForHost(params.Host)
 		if err != nil {
 			return nil, err
 		}
 
-		kind = found
+		params.Kind = found
 	}
 
-	build, ok := s.builders[kind]
+	build, ok := s.builders[params.Kind]
 	if !ok {
-		return nil, ErrUnknownKind.Saying("%q is not a forge this build knows", kind)
+		return nil, ErrUnknownKind.Saying("%q is not a forge this build knows", params.Kind)
 	}
 
-	method := params.Method
-	if method == "" {
-		method = MethodToken
+	if params.Method == "" {
+		params.Method = MethodToken
 	}
 
-	apiURL, err := APIURLFor(kind, host, params.APIURL)
+	apiURL, err := params.ResolveAPIURL()
 	if err != nil {
 		return nil, err
 	}
+	params.APIURL = apiURL
 
-	if _, err := s.connections.GetByHost(ctx, host); err == nil {
-		return nil, forgestore.ErrHostTaken.Saying("%s is already connected; disconnect it first", host)
+	if _, err := s.connections.GetByHost(ctx, params.Host); err == nil {
+		return nil, forgestore.ErrHostTaken.Saying("%s is already connected; disconnect it first", params.Host)
 	} else if !errors.Is(err, store.ErrNotFound) {
 		return nil, err
 	}
 
 	var login string
-	switch method {
+	switch params.Method {
 	case MethodToken:
-		login, err = s.proveToken(ctx, build, kind, host, apiURL, params.Token)
+		login, err = s.proveToken(ctx, build, params)
 	case MethodGitHubApp:
-		login, err = s.proveApp(ctx, build, kind, apiURL)
+		login, err = s.proveApp(ctx, build, params)
 	default:
-		return nil, fail.InvalidArgument("not a way to connect").Saying("%q is not a way to connect", method)
+		return nil, ErrUnknownMethod.Saying("%q is not a way to connect", params.Method)
 	}
 	if err != nil {
 		return nil, err
 	}
 
 	connection, err := s.connections.Create(ctx, forgestore.CreateParams{
-		Kind:       kind,
-		Host:       host,
-		APIURL:     apiURL,
-		Method:     method,
+		Kind:       params.Kind,
+		Host:       params.Host,
+		APIURL:     params.APIURL,
+		Method:     params.Method,
 		Login:      login,
 		VerifiedAt: s.now(),
 	})
@@ -212,7 +226,7 @@ func (s *ForgeService) Connect(ctx context.Context, params ConnectParams) (*forg
 		return nil, err
 	}
 
-	if method == MethodToken {
+	if params.Method == MethodToken {
 		if err := s.credentials.Set(ctx, connection.ID, params.Token); err != nil {
 			return nil, errors.Join(err, s.connections.Delete(ctx, connection.ID))
 		}
@@ -222,15 +236,15 @@ func (s *ForgeService) Connect(ctx context.Context, params ConnectParams) (*forg
 }
 
 // proveToken asks the forge who a pasted token belongs to.
-func (s *ForgeService) proveToken(ctx context.Context, build Builder, kind, host, apiURL string, token Secret) (string, error) {
-	if token.IsZero() {
-		return "", fail.InvalidArgument("a token is needed")
+func (s *ForgeService) proveToken(ctx context.Context, build Builder, params ConnectParams) (string, error) {
+	if params.Token.IsZero() {
+		return "", ErrNoToken
 	}
 
-	probe := build(apiURL, staticCredential{Header: HeaderFor(kind, MethodToken), Token: token})
+	probe := build(params.APIURL, staticCredential{Header: HeaderFor(params.Kind, MethodToken), Token: params.Token})
 	login, err := probe.Verify(ctx)
 	if errors.Is(err, ErrUnauthorized) {
-		return "", fmt.Errorf("%s did not accept the token: %w", host, err)
+		return "", fmt.Errorf("%s did not accept the token: %w", params.Host, err)
 	}
 	if err != nil {
 		return "", err
@@ -241,9 +255,9 @@ func (s *ForgeService) proveToken(ctx context.Context, build Builder, kind, host
 
 // proveApp mints from the App, checks its installation reaches a repository, and answers with
 // the App's own name.
-func (s *ForgeService) proveApp(ctx context.Context, build Builder, kind, apiURL string) (string, error) {
-	if kind != KindGitHub {
-		return "", fail.InvalidArgument("a github app connects only to github")
+func (s *ForgeService) proveApp(ctx context.Context, build Builder, params ConnectParams) (string, error) {
+	if params.Kind != KindGitHub {
+		return "", ErrAppNotGitHub
 	}
 	app, err := s.loadApp()
 	if err != nil {
@@ -253,24 +267,36 @@ func (s *ForgeService) proveApp(ctx context.Context, build Builder, kind, apiURL
 		return "", ErrNoApp.Saying("set app_id, installation_id and private_key_path under [github_app]")
 	}
 
-	app = app.At(apiURL)
-	probe, ok := build(apiURL, NewAppCredential(NewAppCredentialParams{App: app, Connections: NoRecord{}})).(InstallationVerifier)
-	if !ok {
-		return "", fail.InvalidArgument("this forge cannot check an installation")
-	}
-
-	reached, err := probe.VerifyInstallation(ctx)
+	app = app.At(params.APIURL)
+	probe := build(params.APIURL, NewAppCredential(NewAppCredentialParams{App: app, Connections: NoRecord{}}))
+	err = requireInstallationReach(ctx, probe)
 	if errors.Is(err, ErrUnauthorized) {
 		return "", fmt.Errorf("github did not accept the app's token: %w", err)
 	}
 	if err != nil {
 		return "", err
 	}
-	if reached == 0 {
-		return "", ErrAppReachesNothing.Saying("install the app on the repositories your agents work in")
-	}
 
 	return app.Slug(ctx)
+}
+
+// requireInstallationReach asks the forge whether the credential's installation reaches a
+// repository, refusing a forge that cannot say and an installation that reaches none.
+func requireInstallationReach(ctx context.Context, f Forge) error {
+	installation, ok := f.(InstallationVerifier)
+	if !ok {
+		return ErrNoInstallationCheck
+	}
+
+	reached, err := installation.VerifyInstallation(ctx)
+	if err != nil {
+		return err
+	}
+	if reached == 0 {
+		return ErrAppReachesNothing.Saying("install the app on the repositories your agents work in")
+	}
+
+	return nil
 }
 
 // List is every connection, by host.
@@ -313,17 +339,8 @@ func (s *ForgeService) Check(ctx context.Context, connection forgestore.Connecti
 		return f.Verify(ctx)
 	}
 
-	installation, ok := f.(InstallationVerifier)
-	if !ok {
-		return "", fail.InvalidArgument("this forge cannot check an installation")
-	}
-
-	reached, err := installation.VerifyInstallation(ctx)
-	if err != nil {
+	if err := requireInstallationReach(ctx, f); err != nil {
 		return "", err
-	}
-	if reached == 0 {
-		return "", ErrAppReachesNothing.Saying("install the app on the repositories your agents work in")
 	}
 
 	return connection.Login, nil
@@ -398,4 +415,6 @@ func (c staticCredential) Credential(context.Context) (Credential, error) {
 	return Credential(c), nil
 }
 
-func (staticCredential) Invalidate(context.Context) error { return nil }
+func (staticCredential) Invalidate(context.Context) error {
+	return nil
+}
