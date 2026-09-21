@@ -21,6 +21,7 @@ const (
 	actionNavPage
 	actionColumnScroll
 	actionDetails
+	actionDetailsCopy
 	actionMessages
 	actionFilterOpen
 	actionFilterClear

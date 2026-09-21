@@ -42,8 +42,8 @@ func (m model) renderHelp(k keyMap, above ...string) string {
 	if m.isMessagesFocused() {
 		k = m.messagesHelp()
 	}
-	if m.filter.typing {
-		k = filterHelp(m.filter.mode)
+	if typing := m.filterTarget().state; typing.typing {
+		k = filterHelp(typing.mode)
 	}
 
 	width := m.paneWidth()
@@ -260,16 +260,6 @@ func (m model) detailsBinding() key.Binding {
 	}
 
 	return binding(m.keys.Details.Focus, desc)
-}
-
-func (m model) detailsHelp() keyMap {
-	copyField := binding(m.keys.Details.Copy, "copy field")
-	back := binding(m.keys.Details.Focus, "back to the list")
-
-	return keyMap{
-		short: []key.Binding{copyField, back, m.helpBinding()},
-		full:  slices.Concat([]key.Binding{copyField, back, m.moveBinding(), m.jumpBinding()}, m.globalHelp()),
-	}
 }
 
 func (m model) showHiddenDesc() string {

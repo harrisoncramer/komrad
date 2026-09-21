@@ -3,6 +3,7 @@ package ui
 import (
 	"time"
 
+	"weave/internal/errui"
 	agentstore "weave/internal/store/agent"
 )
 
@@ -58,17 +59,42 @@ type worktreeCommit struct {
 // worktreeInspection is one directory read through git, or why it could not be.
 type worktreeInspection struct {
 	// pending says a fresh reading is on its way, and answered that one has come at all.
-	pending     bool
-	answered    bool
-	entries     []worktreeEntry
-	modified    []string
-	untracked   []string
-	baseRef     string
-	ahead       int
-	behind      int
+	pending  bool
+	answered bool
+	// readAt is when the answer came.
+	readAt time.Time
+	// item is the directory as the listing reports it, measured afresh by the read.
+	item      worktreeItem
+	entries   []worktreeEntry
+	modified  []string
+	untracked []string
+	baseRef   string
+	ahead     int
+	behind    int
+	// landed is how many of the branch's own commits the base already holds whole.
+	landed int
+	// sequencing says a merge, a rebase or a cherry-pick is part-way through.
+	sequencing  bool
 	keepsBranch bool
 	commits     []worktreeCommit
 	err         error
+}
+
+// isStale reports whether the answer is old enough to ask for again.
+func (read worktreeInspection) isStale(now time.Time) bool {
+	return !read.answered || (!read.isSettled() && now.Sub(read.readAt) > worktreeReadTTL)
+}
+
+// isRead reports whether git has answered for the directory, on this read or on one a failed
+// read kept.
+func (read worktreeInspection) isRead() bool {
+	return read.answered && (read.err == nil || read.item.dir != "")
+}
+
+// isSettled reports whether the answer is one that will never change, which the service saying
+// the directory is not a worktree it holds is.
+func (read worktreeInspection) isSettled() bool {
+	return read.answered && errui.IsNotFound(read.err)
 }
 
 type worktreesState struct {

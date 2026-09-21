@@ -319,6 +319,16 @@ func TestScreensFitATightPane(t *testing.T) {
 				m.details.focused = true
 			},
 		},
+		{
+			name:  "with a search being typed over the focused record",
+			width: 30,
+			prepare: func(m *model) {
+				m.helpExpanded = true
+				m.details.focused = true
+				m.details.filter.typing = true
+				m.details.filter.setQuery("a")
+			},
+		},
 	}
 
 	for _, tt := range tests {

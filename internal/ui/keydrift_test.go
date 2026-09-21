@@ -225,6 +225,7 @@ func driftAPI() api {
 		agents:    emptyLists{},
 		workflows: emptyLists{},
 		schedules: emptyLists{},
+		worktrees: emptyLists{},
 		hooks:     &fakeHooks{},
 	}
 }

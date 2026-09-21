@@ -89,6 +89,10 @@ type detailsSpec struct {
 	// fits is whether the screen has the room to draw the record at all, nil on a screen that
 	// always has it, and what stops the keys being taken by a record the pane cannot show.
 	fits func(model) bool
+
+	// room is the rows the screen has under its header and the legend it is drawing, which is
+	// what the record grows into once it holds the keys.
+	room func(model) int
 }
 
 // filterSpec is how a filtered list keeps its cursor on the row it was on as the pattern changes
@@ -126,6 +130,7 @@ func (s screen) spec() screenSpec {
 				hovered: model.agentsDetails,
 				quit:    func(keys config.Keybindings) []string { return keys.Agents.Quit },
 				fits:    model.doesAgentsFitDetails,
+				room:    model.agentsDetailsRoom,
 			},
 			filter: &filterSpec{
 				hovered: model.hoveredAgentKey,
@@ -149,6 +154,7 @@ func (s screen) spec() screenSpec {
 				hovered: model.schedulesDetails,
 				quit:    func(keys config.Keybindings) []string { return keys.Schedules.Quit },
 				fits:    model.doesSchedulesFitDetails,
+				room:    model.schedulesDetailsRoom,
 			},
 			filter: &filterSpec{
 				hovered: model.hoveredScheduleKey,
@@ -169,6 +175,7 @@ func (s screen) spec() screenSpec {
 				hovered: model.archiveDetails,
 				quit:    func(keys config.Keybindings) []string { return keys.Archive.Quit },
 				fits:    model.doesArchiveFitDetails,
+				room:    model.archiveDetailsRoom,
 			},
 			filter: &filterSpec{
 				hovered: model.hoveredArchiveKey,
@@ -203,6 +210,7 @@ func (s screen) spec() screenSpec {
 				hovered: model.worktreesDetails,
 				quit:    func(keys config.Keybindings) []string { return keys.Worktrees.Quit },
 				fits:    model.doesWorktreesFitDetails,
+				room:    model.worktreesDetailsRoom,
 			},
 			filter: &filterSpec{
 				hovered: model.hoveredWorktreeKey,
@@ -225,6 +233,7 @@ func (s screen) spec() screenSpec {
 				hovered: model.reviewDetails,
 				quit:    func(keys config.Keybindings) []string { return keys.Review.Quit },
 				fits:    model.doesReviewFitDetails,
+				room:    model.reviewDetailsRoom,
 			},
 			column: reviewColumn,
 		}

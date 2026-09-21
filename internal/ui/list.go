@@ -85,7 +85,17 @@ func (m model) headerLines(title, tally, tabs string) string {
 		header = ansi.Truncate(header, width, "…")
 	}
 
-	return header + "\n\n " + m.filter.line(paint.Panel) + "\n" + tabs + "\n"
+	return header + "\n\n " + m.searchLine().line(paint.Panel) + "\n" + tabs + "\n"
+}
+
+// searchLine is the search the header draws: the record's while the record has the keys, the
+// list's otherwise.
+func (m model) searchLine() filterState {
+	if m.details.focused {
+		return m.details.filter
+	}
+
+	return m.filter
 }
 
 // headedListView draws a list under its header, padded out so the record and the legend under it

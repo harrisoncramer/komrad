@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"time"
+
 	agentv1 "weave/proto/gen/agent/v1"
 	pullrequestv1 "weave/proto/gen/pullrequest/v1"
 	schedulev1 "weave/proto/gen/schedule/v1"
@@ -228,9 +230,11 @@ func worktreeAgentFrom(a *worktreev1.WorktreeAgent) worktreeAgent {
 	}
 }
 
-func worktreeInspectionFrom(read *worktreev1.GetWorktreeResponse) worktreeInspection {
+func worktreeInspectionFrom(read *worktreev1.GetWorktreeResponse, now time.Time) worktreeInspection {
 	return worktreeInspection{
 		answered: true,
+		readAt:   now,
+		item:     worktreeItemFrom(read.GetWorktree()),
 		entries: xslice.Map(read.GetEntries(), func(entry *worktreev1.Entry) worktreeEntry {
 			return worktreeEntry{
 				path:  entry.GetPath(),
@@ -243,6 +247,8 @@ func worktreeInspectionFrom(read *worktreev1.GetWorktreeResponse) worktreeInspec
 		baseRef:     read.GetBaseRef(),
 		ahead:       int(read.GetAhead()),
 		behind:      int(read.GetBehind()),
+		landed:      int(read.GetLandedCommits()),
+		sequencing:  read.GetSequenceInProgress(),
 		keepsBranch: read.GetKeepsBranch(),
 		commits: xslice.Map(read.GetCommits(), func(commit *worktreev1.Commit) worktreeCommit {
 			return worktreeCommit{

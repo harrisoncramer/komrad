@@ -283,6 +283,10 @@ func (m model) doesSchedulesFitDetails() bool {
 	return m.doesListFitDetails(m.schedulesHeader(), model.scheduleHelp)
 }
 
+func (m model) schedulesDetailsRoom() int {
+	return m.listDetailsRoom(m.schedulesHeader(), model.scheduleHelp)
+}
+
 func (m model) schedulesListView() string {
 	header := m.schedulesHeader()
 	record, help := m.detailsView(), m.renderHelp(m.scheduleHelp(), header)

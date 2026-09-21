@@ -128,6 +128,21 @@ func writeStyled(b *strings.Builder, style lipgloss.Style, segment string) {
 	b.WriteString(style.Render(segment))
 }
 
+// filterTarget is the search a key reaches: the record's while the record holds the keys, the
+// list's otherwise.
+type filterTarget struct {
+	state *filterState
+	spec  *filterSpec
+}
+
+func (m *model) filterTarget() filterTarget {
+	if m.isDetailsFocused() {
+		return filterTarget{state: &m.details.filter, spec: detailsFilterSpec()}
+	}
+
+	return filterTarget{state: &m.filter, spec: m.screen.spec().filter}
+}
+
 func (m model) openFilter() (tea.Model, tea.Cmd) {
 	m.beginFilter()
 
@@ -139,10 +154,11 @@ func (m model) openFilter() (tea.Model, tea.Cmd) {
 func (m *model) beginFilter() {
 	origin := m.hoveredFilterKey()
 
-	m.filter.typing = true
-	m.filter.mode = filterModeSearch
-	m.filter.setQuery("")
-	m.filter.origin = origin
+	filter := m.filterTarget().state
+	filter.typing = true
+	filter.mode = filterModeSearch
+	filter.setQuery("")
+	filter.origin = origin
 	m.placeFilteredCursor(origin)
 }
 
@@ -155,6 +171,7 @@ func (m *model) enterScreen(next screen) {
 
 	if m.screen != next {
 		m.filter = filterState{}
+		m.details.filter = filterState{}
 	}
 
 	m.screen = next
@@ -196,10 +213,11 @@ func (f *filterState) abandon() {
 
 // clearSearch drops a search that is standing and puts the cursor back where it opened.
 func (m model) clearSearch() (tea.Model, tea.Cmd) {
-	origin := m.filter.origin
-	m.filter.abandon()
+	filter := m.filterTarget().state
+	origin := filter.origin
+	filter.abandon()
 	m.placeFilteredCursor(origin)
-	m.filter.origin = ""
+	filter.origin = ""
 
 	return m, nil
 }
@@ -212,23 +230,24 @@ func (m model) updateFilterInput(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	abandoning := key.String() == "esc"
 
 	hovered := m.hoveredFilterKey()
+	filter := m.filterTarget().state
 	switch {
 	case key.String() == "tab":
-		m.filter.mode = m.filter.mode.flipped()
-	case !m.filter.takeKey(key):
+		filter.mode = filter.mode.flipped()
+	case !filter.takeKey(key):
 		return m, nil
 	}
 
 	if abandoning {
-		m.placeFilteredCursor(m.filter.origin)
-		m.filter.origin = ""
+		m.placeFilteredCursor(filter.origin)
+		filter.origin = ""
 
 		return m, nil
 	}
 
 	// Typing walks the cursor onto what it has found so far, so the search says where it is
 	// rather than only which rows it likes.
-	if next, ok := m.matchAt(m.filter.origin, 0); ok {
+	if next, ok := m.matchAt(filter.origin, 0); ok {
 		m.placeFilteredCursor(next)
 
 		return m, nil
@@ -240,7 +259,7 @@ func (m model) updateFilterInput(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) hoveredFilterKey() string {
-	spec := m.screen.spec().filter
+	spec := m.filterTarget().spec
 	if spec == nil {
 		return ""
 	}
@@ -249,7 +268,7 @@ func (m model) hoveredFilterKey() string {
 }
 
 func (m *model) placeFilteredCursor(hovered string) {
-	if spec := m.screen.spec().filter; spec != nil {
+	if spec := m.filterTarget().spec; spec != nil {
 		spec.place(m, hovered)
 	}
 }
@@ -374,8 +393,9 @@ func (f filterState) line(palette paint.Palette) string {
 // matchAt is the row a search lands on, counted from the row given: zero is the first match at
 // or after it, and a step walks the matches from there, wrapping at either end.
 func (m model) matchAt(from string, delta int) (string, bool) {
-	spec := m.screen.spec().filter
-	if spec == nil || spec.rows == nil || m.filter.pattern == nil {
+	target := m.filterTarget()
+	spec, filter := target.spec, target.state
+	if spec == nil || spec.rows == nil || filter.pattern == nil {
 		return "", false
 	}
 
@@ -404,12 +424,20 @@ func (m model) matchAt(from string, delta int) (string, bool) {
 
 	for ; step <= len(rows); step++ {
 		at := ((start+walk*step)%len(rows) + len(rows)) % len(rows)
-		if m.filter.doesMatch(rows[at].name) {
+		if filter.doesMatch(rows[at].name) {
 			return rows[at].key, true
 		}
 	}
 
 	return "", false
+}
+
+func (m model) jumpFilterMatch(pressed string) (tea.Model, tea.Cmd) {
+	if isBound(pressed, m.keys.Filter.PrevMatch) {
+		return m.jumpMatch(-1)
+	}
+
+	return m.jumpMatch(1)
 }
 
 // jumpMatch walks the cursor to the next row the search matches, and answers only while a search

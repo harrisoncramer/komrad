@@ -100,11 +100,16 @@ func (m model) reviewThreadWindow(rendered string, lines int) string {
 // its share.
 func (m model) doesReviewFitDetails() bool {
 	// Measured with the keys on the diff, which keeps this out of its own answer.
-	m.details.focused = false
+	m.details.focused, m.details.filter = false, filterState{}
 
 	spare := m.spareLines(m.renderHelp(m.reviewHelp()), m.reviewHeadView(owedRows))
 
 	return spare > m.detailsLines()+detailsChromeLines
+}
+
+// reviewDetailsRoom is the rows the sidebar has under the head and the legend it is drawing.
+func (m model) reviewDetailsRoom() int {
+	return m.spareLines(m.renderHelp(m.reviewHelp()), m.reviewHeadView(owedRows))
 }
 
 // reviewHeadView is the fixed top of the sidebar: whatever is standing in the way of a review, or

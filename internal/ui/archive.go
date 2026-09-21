@@ -458,6 +458,10 @@ func (m model) doesArchiveFitDetails() bool {
 	return m.doesListFitDetails(m.archiveHeader(), model.archiveHelp)
 }
 
+func (m model) archiveDetailsRoom() int {
+	return m.listDetailsRoom(m.archiveHeader(), model.archiveHelp)
+}
+
 func (m model) archiveListView() string {
 	header := m.archiveHeader()
 	record, help := m.detailsView(), m.renderHelp(m.archiveHelp(), header)

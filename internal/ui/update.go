@@ -46,6 +46,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	routed, blink := routed.updateRowCursor(msg)
 	routed, warming := routed.pollWarmup()
 	routed, pulse := routed.pulseMessages(m.messages.landed)
+	routed = routed.releaseHiddenDetails()
 	routed.holdFocusKey()
 
 	return routed, tea.Batch(cmd, blink, warming, pulse)
@@ -140,7 +141,7 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if m.filter.typing {
+	if m.filterTarget().state.typing {
 		return m.updateFilterInput(key)
 	}
 
@@ -252,7 +253,9 @@ func (m model) routeGlobalKey(key tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 			return next, cmd, true
 		}
 		if isBound(key.String(), m.keys.Details.Focus) {
-			return m.toggleDetailsFocus(), nil, true
+			next, cmd := m.toggleDetailsFocus()
+
+			return next, cmd, true
 		}
 	}
 
@@ -374,7 +377,7 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 // isTyping reports whether the panel's own bindings are off: the list's filter, a text input the
 // screen put up, or a key prefix waiting on the key that completes it.
 func (m model) isTyping() bool {
-	if m.filter.typing {
+	if m.filterTarget().state.typing {
 		return true
 	}
 

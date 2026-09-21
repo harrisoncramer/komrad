@@ -25,7 +25,7 @@ func schedulesActions() actionSpec {
 				id:   actionFilterMatch,
 				keys: func(k config.Keybindings) []string { return concatKeys(k.Filter.NextMatch, k.Filter.PrevMatch) },
 				when: func(m model) bool { return m.filter.isStanding() },
-				run:  model.jumpScheduleMatch,
+				run:  model.jumpFilterMatch,
 			},
 			{
 				id:   actionFilterClear,
@@ -116,14 +116,6 @@ func schedulesActions() actionSpec {
 			},
 		},
 	}
-}
-
-func (m model) jumpScheduleMatch(pressed string) (tea.Model, tea.Cmd) {
-	if isBound(pressed, m.keys.Filter.PrevMatch) {
-		return m.jumpMatch(-1)
-	}
-
-	return m.jumpMatch(1)
 }
 
 func (m model) pageSchedules(pressed string) (tea.Model, tea.Cmd) {

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"weave/internal/errui"
 	"weave/internal/ui/paint"
 	"weave/internal/ui/paint/label"
 	"weave/internal/view"
@@ -103,29 +104,39 @@ func (m *model) stageWorktrees() {
 	m.stageInfo()
 }
 
-// inspectWorktreeCmd asks the service for the hovered directory's standing, answered under the
-// directory's own name, and asks nothing while an answer for it is still on its way.
+// inspectWorktreeCmd asks the service for the hovered directory's standing.
 func (m *model) inspectWorktreeCmd() tea.Cmd {
 	row, ok := m.hoveredWorktree()
 	if !ok {
 		return nil
 	}
-	read, asked := m.worktrees.inspected[row.item.dir]
-	if asked && read.pending {
+
+	return m.readWorktreeCmd(row.item.dir)
+}
+
+// readWorktreeCmd asks the service for one directory's standing, answered under the directory's
+// own name, and asks nothing while an answer for it is still on its way.
+func (m *model) readWorktreeCmd(dir string) tea.Cmd {
+	last, asked := m.worktrees.inspected[dir]
+	if asked && last.pending {
 		return nil
 	}
 
-	read.pending = true
-	m.applyWorktreeInspection(worktreeInspectedMsg{dir: row.item.dir, inspection: read})
-	clients, dir := m.api, row.item.dir
+	pending := last
+	pending.pending = true
+	m.applyWorktreeInspection(worktreeInspectedMsg{dir: dir, inspection: pending})
+	clients := m.api
 
 	return func() tea.Msg {
 		read, err := clients.getWorktree(dir)
 		if err != nil {
-			return worktreeInspectedMsg{dir: dir, inspection: worktreeInspection{answered: true, err: err}}
+			// The last answer stays on the row with the refusal beside it.
+			last.answered, last.readAt, last.err = true, time.Now(), err
+
+			return worktreeInspectedMsg{dir: dir, inspection: last}
 		}
 
-		return worktreeInspectedMsg{dir: dir, inspection: worktreeInspectionFrom(read)}
+		return worktreeInspectedMsg{dir: dir, inspection: worktreeInspectionFrom(read, time.Now())}
 	}
 }
 
@@ -198,6 +209,10 @@ func (m model) worktreesTally() string {
 
 func (m model) doesWorktreesFitDetails() bool {
 	return m.doesListFitDetails(m.worktreesHeader(), model.worktreesHelp)
+}
+
+func (m model) worktreesDetailsRoom() int {
+	return m.listDetailsRoom(m.worktreesHeader(), model.worktreesHelp)
 }
 
 func (m model) worktreesListView() string {
@@ -280,7 +295,11 @@ func (m model) worktreeFields(item worktreeItem, now time.Time) []recordField {
 	if len(item.occupants) > 0 {
 		fields = append(fields, recordField{"also here", occupantsField(item)})
 	}
-	if read, ok := m.worktrees.inspected[item.dir]; ok && read.answered && read.err == nil {
+	read := m.worktrees.inspected[item.dir]
+	if read.answered && read.err != nil {
+		fields = append(fields, recordField{"worktree", "could not read: " + errui.GetReason(read.err)})
+	}
+	if read.isRead() {
 		fields = append(fields,
 			recordField{"base", baseField(read)},
 			recordField{"changes", changesField(read)},
@@ -411,8 +430,10 @@ func (m model) worktreeDoc() string {
 	switch {
 	case !ok || !read.answered:
 		return renderDocument(row.name(), "_"+row.item.dir+"_", "_reading the directory…_", "")
+	case read.err != nil && !read.isRead():
+		return renderDocument(row.name(), "_"+row.item.dir+"_", "could not read: "+errui.GetReason(read.err), "")
 	case read.err != nil:
-		return renderDocument(row.name(), "_"+row.item.dir+"_", read.err.Error(), "")
+		return renderDocument(row.name(), "_"+row.item.dir+"_", "_could not read: "+errui.GetReason(read.err)+"_\n\n"+worktreeProse(row.item, read), "")
 	}
 
 	return renderDocument(row.name(), "_"+row.item.dir+"_", worktreeProse(row.item, read), "")

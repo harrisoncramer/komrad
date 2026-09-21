@@ -255,6 +255,43 @@ func TestTraceOf(t *testing.T) {
 	}
 }
 
+// TestIsNotFound covers the one refusal the panel reads the code of, which a wrapped answer
+// still carries and a failure that never reached the service never does.
+func TestIsNotFound(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{
+			name: "the service saying it is not there",
+			err:  connect.NewError(connect.CodeNotFound, errors.New("no agent has that id")),
+			want: true,
+		},
+		{
+			name: "the same answer wrapped by the client",
+			err:  fmt.Errorf("failed to read: %w", connect.NewError(connect.CodeNotFound, errors.New("not there"))),
+			want: true,
+		},
+		{
+			name: "another refusal",
+			err:  connect.NewError(connect.CodeFailedPrecondition, errors.New("already archived")),
+			want: false,
+		},
+		{
+			name: "an error that never reached the service",
+			err:  errors.New("dial tcp: connection refused"),
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, IsNotFound(tt.err))
+		})
+	}
+}
+
 func tracedError(trace string) error {
 	err := connect.NewError(connect.CodeInternal, errors.New("the pane was already gone"))
 	err.Meta().Set(caller.TraceHeader, trace)

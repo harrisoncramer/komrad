@@ -503,22 +503,26 @@ func TestDetailsShareTooSmallToDrawAField(t *testing.T) {
 	assertKeysWithTheList(t, send(t, m, "ctrl+t"))
 }
 
-// TestDetailsFocusReturnsWithTheSection covers the terminal shrinking and growing again, where
-// the keys come back to the section on the field they were left on.
-func TestDetailsFocusReturnsWithTheSection(t *testing.T) {
+// TestDetailsFocusStaysWithTheListAfterAShrink covers the terminal shrinking and growing again,
+// where the keys stay with the list until the focus key is pressed again, and the header's
+// search line is the list's the whole time.
+func TestDetailsFocusStaysWithTheListAfterAShrink(t *testing.T) {
 	focused := send(t, send(t, strandedModel(), "ctrl+t"), "j")
 	require.Equal(t, 1, focused.details.cursor)
 
 	shrunk := asModel(t, resize(focused, 40, 4))
 	assertKeysWithTheList(t, shrunk)
+	assert.False(t, shrunk.details.focused, "the flag goes with the keys")
 
 	grown := asModel(t, resize(shrunk, 40, 24))
 	require.NotEmpty(t, grown.detailsView())
 
 	moved := send(t, grown, "j")
 
-	assert.Equal(t, 2, moved.details.cursor, "the keys are back on the fields")
-	assert.Equal(t, 1, moved.tree.cursor, "and off the list")
+	assert.Equal(t, 2, moved.tree.cursor, "the keys are still on the list")
+
+	back := send(t, moved, "ctrl+t")
+	assert.True(t, back.isDetailsFocused())
 }
 
 func resize(m model, width, height int) tea.Model {

@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"weave/internal/ui/paint/label"
 
@@ -89,6 +90,11 @@ type agentFieldsParams struct {
 	// listed is what the service has answered about the branch's pull requests, unanswered
 	// while it has not.
 	listed agentPullRequests
+	// worktree is what the service has answered about the agent's directory, and read says
+	// whether it has answered that the directory is a worktree at all.
+	worktree worktreeInspection
+	read     bool
+	now      time.Time
 }
 
 func agentFields(params agentFieldsParams) []recordField {
@@ -115,6 +121,9 @@ func agentFields(params agentFieldsParams) []recordField {
 		fields = append(fields, recordField{branchFieldKey, *agent.Branch})
 		fields = append(fields, pullRequestFields(params.standing, params.listed)...)
 	}
+	if params.read {
+		fields = append(fields, worktreeStandingFields(params.worktree, params.now)...)
+	}
 
 	fields = append(fields,
 		recordField{"flags", label.OrDash(agent.Flags)},
@@ -140,6 +149,9 @@ func agentFields(params agentFieldsParams) []recordField {
 		}
 
 		fields = append(fields, recordField{entry.Key, entry.Value})
+	}
+	if params.read {
+		fields = append(fields, worktreeHistoryFields(params.worktree)...)
 	}
 
 	return fields
