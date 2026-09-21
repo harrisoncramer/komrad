@@ -12,6 +12,7 @@ import (
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	reviewstore "weave/internal/store/review"
+	rowstore "weave/internal/store/row"
 	workflowstore "weave/internal/store/workflow"
 
 	"github.com/stretchr/testify/assert"
@@ -157,7 +158,7 @@ func TestDeleteClaimsTheRowWhileTheTeardownRuns(t *testing.T) {
 
 			require.NoError(t, manager.lifecycle.DeleteAgents(t.Context(), []string{agent.ID}))
 
-			page, err := st.Agents.ListPage(t.Context(), 10, nil, true)
+			page, err := st.Rows.ListPage(t.Context(), rowstore.Page{Limit: 10, Archived: true})
 			require.NoError(t, err)
 			assert.Empty(t, page, "the row is out of the archive while the teardown runs")
 			all, err := st.ListAll(t.Context())
@@ -168,7 +169,7 @@ func TestDeleteClaimsTheRowWhileTheTeardownRuns(t *testing.T) {
 			require.Len(t, lifecycle.held, 1)
 			lifecycle.held[0](tt.teardownErr)
 
-			page, err = st.Agents.ListPage(t.Context(), 10, nil, true)
+			page, err = st.Rows.ListPage(t.Context(), rowstore.Page{Limit: 10, Archived: true})
 			require.NoError(t, err)
 			require.Len(t, page, tt.wantListed)
 			if tt.wantListed > 0 {
@@ -201,7 +202,7 @@ func TestDeleteGivesBackWhatItCouldNotTake(t *testing.T) {
 	err = manager.lifecycle.DeleteAgents(ctx, []string{agent.ID, "00000000-0000-0000-0000-000000000000"})
 	require.ErrorIs(t, err, ErrAgentNotFound)
 
-	page, err := st.Agents.ListPage(ctx, 10, nil, true)
+	page, err := st.Rows.ListPage(ctx, rowstore.Page{Limit: 10, Archived: true})
 	require.NoError(t, err)
 	require.Len(t, page, 1, "the row the delete could not take is back in the archive")
 	assert.Nil(t, page[0].DeletingAt)

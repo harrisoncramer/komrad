@@ -363,37 +363,6 @@ WHERE
         decision_changed_at) IS DISTINCT FROM (sqlc.narg('review_decision'),
         changed_at);
 
--- name: ListCurrentPullRequests :many
-SELECT DISTINCT ON (a.id)
-    a.id AS agent_id,
-    sqlc.embed(p)
-FROM
-    agents a
-    JOIN pull_requests p ON p.repository_url = a.repository_url
-        AND p.head_repository_url = a.repository_url
-        AND p.head_branch = a.branch
-    JOIN workflows w ON w.id = a.workflow_id
-    LEFT JOIN workflow_provisioner_configs c ON c.id = w.provisioner_config_id
-WHERE
-    a.archived_at IS NULL
-    AND (c.worktree_base_branch IS NULL
-        OR c.worktree_base_branch = ''
-        OR a.branch <> c.worktree_base_branch)
-ORDER BY
-    a.id,
-    COALESCE(p.merged_at, p.closed_at) IS NOT NULL,
-    p.opened_at DESC;
-
--- name: ListReadRepositories :many
-SELECT
-    repository_url
-FROM
-    pull_request_syncs
-WHERE
-    updated_through IS NOT NULL
-ORDER BY
-    repository_url;
-
 -- name: ListAgentBranchPullRequests :many
 SELECT
     p.*

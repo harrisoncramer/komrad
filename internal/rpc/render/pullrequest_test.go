@@ -19,12 +19,12 @@ func TestPullRequestStateOf(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		pullRequest pullrequeststore.PullRequest
+		pullRequest pullrequeststore.Summary
 		want        pullrequestv1.PullRequestState
 	}{
 		{
 			name: "merged beats everything, closed_at included",
-			pullRequest: pullrequeststore.PullRequest{
+			pullRequest: pullrequeststore.Summary{
 				MergedAt:       &stamp,
 				ClosedAt:       &stamp,
 				Draft:          true,
@@ -34,7 +34,7 @@ func TestPullRequestStateOf(t *testing.T) {
 		},
 		{
 			name: "closed without merging beats draft and the decision",
-			pullRequest: pullrequeststore.PullRequest{
+			pullRequest: pullrequeststore.Summary{
 				ClosedAt:       &stamp,
 				Draft:          true,
 				ReviewDecision: xptr.Ptr(forge.ReviewDecisionApproved),
@@ -43,7 +43,7 @@ func TestPullRequestStateOf(t *testing.T) {
 		},
 		{
 			name: "a draft beats its decision",
-			pullRequest: pullrequeststore.PullRequest{
+			pullRequest: pullrequeststore.Summary{
 				Draft:          true,
 				ReviewDecision: xptr.Ptr(forge.ReviewDecisionApproved),
 			},
@@ -51,22 +51,22 @@ func TestPullRequestStateOf(t *testing.T) {
 		},
 		{
 			name:        "approved",
-			pullRequest: pullrequeststore.PullRequest{ReviewDecision: xptr.Ptr(forge.ReviewDecisionApproved)},
+			pullRequest: pullrequeststore.Summary{ReviewDecision: xptr.Ptr(forge.ReviewDecisionApproved)},
 			want:        pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED,
 		},
 		{
 			name:        "changes requested",
-			pullRequest: pullrequeststore.PullRequest{ReviewDecision: xptr.Ptr(forge.ReviewDecisionChangesRequested)},
+			pullRequest: pullrequeststore.Summary{ReviewDecision: xptr.Ptr(forge.ReviewDecisionChangesRequested)},
 			want:        pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED,
 		},
 		{
 			name:        "a pending review is open",
-			pullRequest: pullrequeststore.PullRequest{ReviewDecision: xptr.Ptr(forge.ReviewDecisionPending)},
+			pullRequest: pullrequeststore.Summary{ReviewDecision: xptr.Ptr(forge.ReviewDecisionPending)},
 			want:        pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
 		},
 		{
 			name:        "no decision is open",
-			pullRequest: pullrequeststore.PullRequest{},
+			pullRequest: pullrequeststore.Summary{},
 			want:        pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
 		},
 	}

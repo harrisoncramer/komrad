@@ -569,17 +569,6 @@ func (f *fakeMailbox) Delete(_ context.Context, ids []string) error {
 	return nil
 }
 
-func (f *fakeMailbox) ListUnreadMailboxes(context.Context) ([]string, error) {
-	var unread []string
-	for _, mail := range f.byID {
-		if mail.ClaimedAt == nil {
-			unread = append(unread, mail.ToAgentID)
-		}
-	}
-
-	return unread, nil
-}
-
 // CountExchanged counts off the mail the fake holds, in both directions and ignoring notices,
 // the way the real store's query does.
 func (f *fakeMailbox) CountExchanged(_ context.Context, one, other string) (int64, error) {

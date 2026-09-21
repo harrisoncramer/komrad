@@ -74,16 +74,6 @@ func (s *SyncStore) ListStaleDecisions(ctx context.Context, repositoryURL string
 	return xslice.Map(rows, fromRow), nil
 }
 
-// ListReadRepositories is every repository whose first sweep has completed.
-func (s *SyncStore) ListReadRepositories(ctx context.Context) ([]string, error) {
-	rows, err := s.queries.ListReadRepositories(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list the repositories the sync has read: %w", err)
-	}
-
-	return rows, nil
-}
-
 // ListUnscannedBranches is every branch a live agent sits on in a repository whose one-time
 // listing has not completed.
 func (s *SyncStore) ListUnscannedBranches(ctx context.Context, repositoryURL string) ([]string, error) {

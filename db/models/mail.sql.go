@@ -449,36 +449,6 @@ func (q *Queries) ListMailboxesWithPendingMail(ctx context.Context) ([]string, e
 	return items, nil
 }
 
-const listMailboxesWithUnreadMail = `-- name: ListMailboxesWithUnreadMail :many
-SELECT DISTINCT
-    m.to_agent_id
-FROM
-    mail m
-WHERE
-    m.claimed_at IS NULL
-    AND m.expires_at > NOW()
-`
-
-func (q *Queries) ListMailboxesWithUnreadMail(ctx context.Context) ([]string, error) {
-	rows, err := q.db.Query(ctx, listMailboxesWithUnreadMail)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []string
-	for rows.Next() {
-		var to_agent_id string
-		if err := rows.Scan(&to_agent_id); err != nil {
-			return nil, err
-		}
-		items = append(items, to_agent_id)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const reportExpiredMail = `-- name: ReportExpiredMail :many
 WITH unreported AS (
     SELECT

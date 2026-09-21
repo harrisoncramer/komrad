@@ -8,15 +8,121 @@ WHERE
 ORDER BY
     s.id DESC;
 
--- name: ListAgentsPage :many
+-- name: ListAgentRows :many
+WITH failed AS (
+    SELECT DISTINCT ON (r.agent_id)
+        r.agent_id,
+        r.log_number
+    FROM
+        agent_runs r
+    WHERE
+        r.failure <> ''
+        AND r.viewed_at IS NULL
+    ORDER BY
+        r.agent_id,
+        r.started_at DESC,
+        r.id DESC
+),
+tallied AS (
+    SELECT
+        v.agent_id,
+        COUNT(DISTINCT v.round_id)::int AS rounds
+    FROM
+        reviews v
+    WHERE
+        v.released_at IS NOT NULL
+    GROUP BY
+        v.agent_id
+),
+concluded AS (
+    SELECT DISTINCT ON (v.agent_id)
+        v.agent_id,
+        v.verdict,
+        n.snapshot_sha
+    FROM
+        reviews v
+        JOIN review_rounds n ON n.id = v.round_id
+    WHERE
+        v.released_at IS NOT NULL
+        AND v.verdict IN ('approved', 'changes_requested')
+    ORDER BY
+        v.agent_id,
+        n.ordinal DESC,
+        v.released_at DESC
+),
+opened AS (
+    SELECT DISTINCT ON (a.id)
+        a.id AS agent_id,
+        p.number,
+        p.url,
+        p.title,
+        p.draft,
+        p.merged_at,
+        p.closed_at,
+        p.review_decision
+    FROM
+        agents a
+        JOIN pull_requests p ON p.repository_url = a.repository_url
+            AND p.head_repository_url = a.repository_url
+            AND p.head_branch = a.branch
+        JOIN workflows w ON w.id = a.workflow_id
+        LEFT JOIN workflow_provisioner_configs c ON c.id = w.provisioner_config_id
+    WHERE
+        a.archived_at IS NULL
+        AND (c.worktree_base_branch IS NULL
+            OR c.worktree_base_branch = ''
+            OR a.branch <> c.worktree_base_branch)
+    ORDER BY
+        a.id,
+        COALESCE(p.merged_at, p.closed_at) IS NOT NULL,
+        p.opened_at DESC
+)
 SELECT
-    *
-FROM
-    agents s
-WHERE (@archived::boolean) =(s.archived_at IS NOT NULL)
-    AND s.deleting_at IS NULL
-    AND (sqlc.narg('cursor_id')::uuid IS NULL
-        OR s.id < sqlc.narg('cursor_id'))
+    sqlc.embed(s),
+    EXISTS (
+        SELECT
+            1
+        FROM
+            mail m
+        WHERE
+            m.to_agent_id = s.id
+            AND m.claimed_at IS NULL
+            AND m.expires_at > NOW())::boolean AS unread_mail,
+(f.agent_id IS NOT NULL)::boolean AS failed_run,
+        f.log_number AS failed_run_log,
+        k.mark,
+        COALESCE(t.rounds, 0)::int AS local_rounds,
+        c.verdict AS local_verdict,
+        c.snapshot_sha AS local_snapshot_sha,
+        p.number AS pull_request_number,
+        p.url AS pull_request_url,
+        p.title AS pull_request_title,
+        p.draft AS pull_request_draft,
+        p.merged_at AS pull_request_merged_at,
+        p.closed_at AS pull_request_closed_at,
+        p.review_decision AS pull_request_review_decision,
+        EXISTS (
+            SELECT
+                1
+            FROM
+                pull_request_syncs y
+            WHERE
+                y.repository_url = s.repository_url
+                AND y.updated_through IS NOT NULL)::boolean AS repository_read
+        FROM
+            agents s
+        LEFT JOIN failed f ON f.agent_id = s.id
+        LEFT JOIN marks k ON k.agent_id = s.id
+        LEFT JOIN tallied t ON t.agent_id = s.id
+        LEFT JOIN concluded c ON c.agent_id = s.id
+        LEFT JOIN opened p ON p.agent_id = s.id
+    WHERE (sqlc.narg('ids')::uuid[] IS NULL
+        OR s.id = ANY (sqlc.narg('ids')::uuid[]))
+    AND (sqlc.narg('ids')::uuid[] IS NOT NULL
+        OR ((@archived::boolean) =(s.archived_at IS NOT NULL)
+            AND s.deleting_at IS NULL
+            AND (sqlc.narg('cursor_id')::uuid IS NULL
+                OR s.id < sqlc.narg('cursor_id'))))
 ORDER BY
     s.id DESC
 LIMIT @lim;

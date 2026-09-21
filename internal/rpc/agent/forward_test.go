@@ -438,14 +438,13 @@ func forwardServiceOver(st *storetest.Stores, maxExchange int, liveness *fakeLau
 	})
 
 	return agentv1weave.AgentServiceAdapter{Impl: NewAgentService(NewAgentServiceParams{
-		Agents:           st.Agents,
-		Transcripts:      st.Transcripts,
-		Mail:             mailer,
-		Liveness:         liveness,
-		Runs:             st.Runs,
-		Marks:            markService(st),
-		PullRequests:     st.PullRequests,
-		PullRequestSyncs: st.PullRequestSyncs,
-		Clock:            func() time.Time { return forwardedAt },
+		Agents:      st.Agents,
+		Rows:        rowReaderOver(st, liveness, fakeTrees{}),
+		Transcripts: st.Transcripts,
+		Mail:        mailer,
+		Liveness:    liveness,
+		Runs:        st.Runs,
+		Marks:       markService(st),
+		Clock:       func() time.Time { return forwardedAt },
 	})}
 }

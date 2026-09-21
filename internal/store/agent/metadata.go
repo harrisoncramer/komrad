@@ -23,11 +23,11 @@ func (s *Store) hydrateMetadataForAgents(ctx context.Context, rows []*models.Age
 	agents := make([]Agent, 0, len(rows))
 	ids := make([]string, 0, len(rows))
 	for _, row := range rows {
-		agents = append(agents, agentFromRow(*row))
+		agents = append(agents, FromRow(*row))
 		ids = append(ids, row.ID)
 	}
 
-	metadata, err := s.metadataByAgent(ctx, ids)
+	metadata, err := s.ListMetadata(ctx, ids)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +48,8 @@ func (s *Store) hydrateMetadataForAgent(ctx context.Context, row *models.Agent) 
 	return &agents[0], nil
 }
 
-func (s *Store) metadataByAgent(ctx context.Context, ids []string) (map[string][]Metadata, error) {
+// ListMetadata is the metadata each of the given agents holds, keyed by agent id.
+func (s *Store) ListMetadata(ctx context.Context, ids []string) (map[string][]Metadata, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}

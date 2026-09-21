@@ -10,6 +10,7 @@ import (
 	markstore "weave/internal/store/mark"
 	pullrequeststore "weave/internal/store/pullrequest"
 	reviewstore "weave/internal/store/review"
+	rowstore "weave/internal/store/row"
 	runstore "weave/internal/store/run"
 	schedulestore "weave/internal/store/schedule"
 	transcriptstore "weave/internal/store/transcript"
@@ -20,6 +21,7 @@ import (
 type stores struct {
 	pool             *store.Pool
 	agents           *agentstore.Store
+	rows             *rowstore.Store
 	workflows        *workflowstore.Store
 	schedules        *schedulestore.Store
 	transcripts      *transcriptstore.Store
@@ -44,6 +46,7 @@ func openStores(ctx context.Context, databaseURL string) (*stores, error) {
 	return &stores{
 		pool:             pool,
 		agents:           agentstore.New(db),
+		rows:             rowstore.New(db),
 		workflows:        workflowstore.New(db),
 		schedules:        schedulestore.New(db),
 		transcripts:      transcriptstore.New(db),

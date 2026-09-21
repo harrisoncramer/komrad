@@ -193,7 +193,8 @@ func IDs(agents []Agent) []string {
 	return xslice.Map(agents, func(agent Agent) string { return agent.ID })
 }
 
-func agentFromRow(agent models.Agent) Agent {
+// FromRow is the agent one stored row describes, its metadata left for a second read.
+func FromRow(agent models.Agent) Agent {
 	return Agent{
 		ID:                 agent.ID,
 		Name:               agent.Name,

@@ -377,65 +377,6 @@ func TestListPendingMailboxesKeepsAMailboxWithLiveMailAfterItsExpiredMailIsRepor
 	assert.Contains(t, mailboxes, recipient, "the mailbox still holds live mail, so it must stay in the sweep")
 }
 
-// TestListUnreadMailboxesExcludesExpiredMail pins that mail nobody can read any more does
-// not make a mailbox look unread.
-func TestListUnreadMailboxesExcludesExpiredMail(t *testing.T) {
-	st := open(t)
-	ctx := t.Context()
-	recipient := seedAgent(t, st, "recipient")
-
-	_, err := st.Send(ctx, SendParams{
-		ToAgentID: recipient,
-		Body:      "too late",
-		Deadline:  -time.Minute,
-	})
-	require.NoError(t, err)
-
-	mailboxes, err := st.ListUnreadMailboxes(ctx)
-	require.NoError(t, err)
-	assert.NotContains(t, mailboxes, recipient, "expired mail cannot be read, so it does not count as unread")
-}
-
-// TestListUnreadMailboxesExcludesClaimedMail pins that mail already taken stops counting as
-// unread.
-func TestListUnreadMailboxesExcludesClaimedMail(t *testing.T) {
-	st := open(t)
-	ctx := t.Context()
-	recipient := seedAgent(t, st, "recipient")
-
-	_, err := st.Send(ctx, SendParams{
-		ToAgentID: recipient,
-		Body:      "already read",
-		Deadline:  time.Hour,
-	})
-	require.NoError(t, err)
-	_, err = st.Claim(ctx, recipient, 10)
-	require.NoError(t, err)
-
-	mailboxes, err := st.ListUnreadMailboxes(ctx)
-	require.NoError(t, err)
-	assert.NotContains(t, mailboxes, recipient)
-}
-
-// TestListUnreadMailboxesIncludesLiveUnclaimedMail pins that mail still waiting to be taken
-// is what makes a mailbox unread.
-func TestListUnreadMailboxesIncludesLiveUnclaimedMail(t *testing.T) {
-	st := open(t)
-	ctx := t.Context()
-	recipient := seedAgent(t, st, "recipient")
-
-	_, err := st.Send(ctx, SendParams{
-		ToAgentID: recipient,
-		Body:      "still live",
-		Deadline:  time.Hour,
-	})
-	require.NoError(t, err)
-
-	mailboxes, err := st.ListUnreadMailboxes(ctx)
-	require.NoError(t, err)
-	assert.Contains(t, mailboxes, recipient)
-}
-
 // TestListPage pins that a listing is newest first, is scoped to one mailbox, and shows
 // claimed mail rather than dropping it.
 func TestListPage(t *testing.T) {

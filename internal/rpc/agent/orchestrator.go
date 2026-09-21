@@ -25,7 +25,7 @@ func (s *AgentService) StartOrchestrator(
 		return nil, rpcerr.From(err, "failed to start the orchestrator")
 	}
 
-	rendered, failure := s.renderOneAgent(ctx, *started)
+	rendered, failure := s.renderOneAgent(ctx, started.ID)
 	if failure != nil {
 		return nil, failure
 	}

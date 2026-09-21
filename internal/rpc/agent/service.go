@@ -11,7 +11,6 @@ import (
 	"weave/internal/agents"
 	"weave/internal/caller"
 	"weave/internal/fail"
-	"weave/internal/git"
 	"weave/internal/logging"
 	"weave/internal/rpcerr"
 	"weave/internal/store"
@@ -21,9 +20,7 @@ import (
 
 	agentstore "weave/internal/store/agent"
 	markstore "weave/internal/store/mark"
-	pullrequeststore "weave/internal/store/pullrequest"
-	reviewstore "weave/internal/store/review"
-	runstore "weave/internal/store/run"
+	rowstore "weave/internal/store/row"
 
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -47,11 +44,13 @@ type agentAdopter interface {
 
 type agentLiveness interface {
 	IsAgentRunning(agent agentstore.Agent) bool
-	GetRunningAgents(ctx context.Context, agents []agentstore.Agent) map[string]bool
 }
 
-type standingGetter interface {
-	GetStanding(agentID, snapshotSHA string) git.Standing
+// rowReader is what an agent's row says, read once for a page and once for one agent.
+type rowReader interface {
+	ListRows(ctx context.Context, page rowstore.Page) ([]agents.Row, error)
+	ListRowsByID(ctx context.Context, ids []string) ([]agents.Row, error)
+	GetRow(ctx context.Context, id string) (*agents.Row, error)
 }
 
 type agentLifecycle interface {
@@ -70,7 +69,6 @@ type agentHolder interface {
 }
 
 type agentReadWriter interface {
-	ListPage(ctx context.Context, limit int64, cursor *agentstore.Cursor, archived bool) ([]agentstore.Agent, error)
 	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
 	Exists(ctx context.Context, id string) (bool, error)
 	SetHidden(ctx context.Context, id string, hidden bool) (bool, error)
@@ -88,10 +86,8 @@ type markReadWriter interface {
 	ClearMark(ctx context.Context, target markstore.Target) (bool, error)
 }
 
-// runReadWriter is the record of the scripts weave fired, which the listing reads to say whether
-// an agent is holding a failure nobody has looked at.
+// runReadWriter is the record of the scripts weave fired.
 type runReadWriter interface {
-	ListUnreadFailures(ctx context.Context) ([]runstore.Failure, error)
 	MarkRead(ctx context.Context, agentID string) error
 }
 
@@ -99,61 +95,46 @@ type archiveEmptier interface {
 	EmptyArchive(ctx context.Context) error
 }
 
-// currentPullRequestReader is what the listing reads to say where each agent's pull request
-// stands.
-type currentPullRequestReader interface {
-	ListCurrentPullRequests(ctx context.Context) ([]pullrequeststore.Current, error)
-}
-
-// readRepositoryLister is what the listing reads to tell an unread repository from a read one.
-type readRepositoryLister interface {
-	ListReadRepositories(ctx context.Context) ([]string, error)
-}
-
 type AgentService struct {
-	agents           agentReadWriter
-	transcripts      transcriptReader
-	mail             mailer
-	creator          agentCreator
-	adopter          agentAdopter
-	liveness         agentLiveness
-	trees            standingGetter
-	lifecycle        agentLifecycle
-	resumer          agentResumer
-	holder           agentHolder
-	reconciler       reportRecorder
-	archive          archiveEmptier
-	review           reviewConversation
-	runs             runReadWriter
-	marks            markReadWriter
-	rebaser          worktreeRebaser
-	orchestrator     orchestratorStarter
-	pullRequests     currentPullRequestReader
-	pullRequestSyncs readRepositoryLister
-	now              func() time.Time
+	agents       agentReadWriter
+	rows         rowReader
+	transcripts  transcriptReader
+	mail         mailer
+	creator      agentCreator
+	adopter      agentAdopter
+	liveness     agentLiveness
+	lifecycle    agentLifecycle
+	resumer      agentResumer
+	holder       agentHolder
+	reconciler   reportRecorder
+	archive      archiveEmptier
+	review       reviewConversation
+	runs         runReadWriter
+	marks        markReadWriter
+	rebaser      worktreeRebaser
+	orchestrator orchestratorStarter
+	now          func() time.Time
 }
 
 type NewAgentServiceParams struct {
-	Agents           agentReadWriter
-	Transcripts      transcriptReader
-	Mail             mailer
-	Creator          agentCreator
-	Adopter          agentAdopter
-	Liveness         agentLiveness
-	Trees            standingGetter
-	Lifecycle        agentLifecycle
-	Resumer          agentResumer
-	Holder           agentHolder
-	Reconciler       reportRecorder
-	Archive          archiveEmptier
-	Review           reviewConversation
-	Runs             runReadWriter
-	Marks            markReadWriter
-	Rebaser          worktreeRebaser
-	Orchestrator     orchestratorStarter
-	PullRequests     currentPullRequestReader
-	PullRequestSyncs readRepositoryLister
-	Clock            func() time.Time
+	Agents       agentReadWriter
+	Rows         rowReader
+	Transcripts  transcriptReader
+	Mail         mailer
+	Creator      agentCreator
+	Adopter      agentAdopter
+	Liveness     agentLiveness
+	Lifecycle    agentLifecycle
+	Resumer      agentResumer
+	Holder       agentHolder
+	Reconciler   reportRecorder
+	Archive      archiveEmptier
+	Review       reviewConversation
+	Runs         runReadWriter
+	Marks        markReadWriter
+	Rebaser      worktreeRebaser
+	Orchestrator orchestratorStarter
+	Clock        func() time.Time
 }
 
 // NewAgentService constructs the handler from the stores it reads and the services that move agents
@@ -165,26 +146,24 @@ func NewAgentService(params NewAgentServiceParams) *AgentService {
 	}
 
 	return &AgentService{
-		agents:           params.Agents,
-		transcripts:      params.Transcripts,
-		mail:             params.Mail,
-		creator:          params.Creator,
-		adopter:          params.Adopter,
-		liveness:         params.Liveness,
-		trees:            params.Trees,
-		lifecycle:        params.Lifecycle,
-		resumer:          params.Resumer,
-		holder:           params.Holder,
-		reconciler:       params.Reconciler,
-		archive:          params.Archive,
-		review:           params.Review,
-		runs:             params.Runs,
-		marks:            params.Marks,
-		rebaser:          params.Rebaser,
-		orchestrator:     params.Orchestrator,
-		pullRequests:     params.PullRequests,
-		pullRequestSyncs: params.PullRequestSyncs,
-		now:              now,
+		agents:       params.Agents,
+		rows:         params.Rows,
+		transcripts:  params.Transcripts,
+		mail:         params.Mail,
+		creator:      params.Creator,
+		adopter:      params.Adopter,
+		liveness:     params.Liveness,
+		lifecycle:    params.Lifecycle,
+		resumer:      params.Resumer,
+		holder:       params.Holder,
+		reconciler:   params.Reconciler,
+		archive:      params.Archive,
+		review:       params.Review,
+		runs:         params.Runs,
+		marks:        params.Marks,
+		rebaser:      params.Rebaser,
+		orchestrator: params.Orchestrator,
+		now:          now,
 	}
 }
 
@@ -220,7 +199,12 @@ func (s *AgentService) CreateAgent(ctx context.Context, req *agentv1.CreateAgent
 		return nil, rpcerr.From(err, "failed to create agent")
 	}
 
-	return &agentv1.CreateAgentResponse{Agent: renderAgent(*created, agentFlags{alive: s.liveness.IsAgentRunning(*created)}).Agent}, nil
+	rendered, failure := s.renderOneAgent(ctx, created.ID)
+	if failure != nil {
+		return nil, failure
+	}
+
+	return &agentv1.CreateAgentResponse{Agent: rendered}, nil
 }
 
 // RequestReview spawns the reviewer for the calling agent's own work and answers with the half
@@ -243,10 +227,12 @@ func (s *AgentService) RequestReview(ctx context.Context, req *agentv1.RequestRe
 		return nil, rpcerr.From(err, "failed to request a review")
 	}
 
-	return &agentv1.RequestReviewResponse{
-		Reviewer: renderAgent(*reviewer, agentFlags{alive: s.liveness.IsAgentRunning(*reviewer)}).Agent,
-		Guidance: guidance,
-	}, nil
+	rendered, failure := s.renderOneAgent(ctx, reviewer.ID)
+	if failure != nil {
+		return nil, failure
+	}
+
+	return &agentv1.RequestReviewResponse{Reviewer: rendered, Guidance: guidance}, nil
 }
 
 // Adopt puts an agent on a branch or pull request that already exists.
@@ -268,80 +254,12 @@ func (s *AgentService) Adopt(ctx context.Context, req *agentv1.AdoptRequest) (*a
 		return nil, rpcerr.From(err, "failed to adopt agent")
 	}
 
-	return &agentv1.AdoptResponse{Agent: renderAgent(*created, agentFlags{alive: s.liveness.IsAgentRunning(*created)}).Agent}, nil
-}
-
-// agentFlagsFor gathers the facts about a set of agents that are not on their own rows, asking
-// for each once rather than once per agent.
-func (s *AgentService) agentFlagsFor(ctx context.Context, listed []agentstore.Agent) (func(agentstore.Agent) agentFlags, *fail.Error) {
-	running := s.liveness.GetRunningAgents(ctx, listed)
-
-	mailboxes, err := s.mail.ListUnreadMailboxes(ctx)
-	if err != nil {
-		return nil, rpcerr.From(err, "failed to list the mailboxes holding unread mail")
-	}
-	waiting := xslice.KeyBy(mailboxes, func(id string) string { return id })
-
-	tallied, err := s.review.ListTallies(ctx)
-	if err != nil {
-		return nil, rpcerr.From(err, "failed to count the rounds of review the agents have been through")
-	}
-	tallies := xslice.KeyBy(tallied, func(tally reviewstore.Tally) string { return tally.AgentID })
-
-	failures, err := s.runs.ListUnreadFailures(ctx)
-	if err != nil {
-		return nil, rpcerr.From(err, "failed to list the agents holding a failed run")
-	}
-	failed := xslice.KeyBy(failures, func(failure runstore.Failure) string { return failure.AgentID })
-
-	listedMarks, err := s.marks.ListMarks(ctx)
-	if err != nil {
-		return nil, rpcerr.From(err, "failed to list the marks")
-	}
-	marks := make(map[string]*string, len(listedMarks))
-	for _, mark := range listedMarks {
-		if mark.AgentID != nil {
-			marks[*mark.AgentID] = &mark.Mark
-		}
+	rendered, failure := s.renderOneAgent(ctx, created.ID)
+	if failure != nil {
+		return nil, failure
 	}
 
-	listedCurrent, err := s.pullRequests.ListCurrentPullRequests(ctx)
-	if err != nil {
-		return nil, rpcerr.From(err, "failed to list the agents' current pull requests")
-	}
-	current := xslice.KeyBy(listedCurrent, func(entry pullrequeststore.Current) string { return entry.AgentID })
-
-	readRepositories, err := s.pullRequestSyncs.ListReadRepositories(ctx)
-	if err != nil {
-		return nil, rpcerr.From(err, "failed to list the repositories the sync has read")
-	}
-	read := xslice.KeyBy(readRepositories, func(repositoryURL string) string { return repositoryURL })
-
-	return func(a agentstore.Agent) agentFlags {
-		_, hasMail := waiting[a.ID]
-		failure, hasFailure := failed[a.ID]
-		repositoryRead := false
-		if a.RepositoryURL != nil {
-			_, repositoryRead = read[*a.RepositoryURL]
-		}
-
-		flags := agentFlags{
-			mark:           marks[a.ID],
-			alive:          running[a.ID],
-			unreadMail:     hasMail,
-			failedRun:      hasFailure,
-			failedRunLog:   failure.LogNumber,
-			localRounds:    tallies[a.ID].Rounds,
-			localVerdict:   tallies[a.ID].Verdict,
-			localTree:      s.trees.GetStanding(a.ID, tallies[a.ID].SnapshotSHA),
-			repositoryRead: repositoryRead,
-		}
-		if entry, ok := current[a.ID]; ok {
-			flags.pullRequest = &entry.PullRequest
-		}
-
-		return flags
-	}, nil
+	return &agentv1.AdoptResponse{Agent: rendered}, nil
 }
 
 // ListAgents returns one page of stored agents, newest first.
@@ -351,18 +269,17 @@ func (s *AgentService) ListAgents(ctx context.Context, req *agentv1.ListAgentsRe
 		return nil, rpcerr.From(err, "failed to read the pagination")
 	}
 
-	agents, err := s.agents.ListPage(ctx, paginator.Limit(), paginator.Cursor(), req.GetArchived())
+	rows, err := s.rows.ListRows(ctx, rowstore.Page{
+		Limit:    paginator.Limit(),
+		Cursor:   paginator.Cursor(),
+		Archived: req.GetArchived(),
+	})
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to list agents")
 	}
 
-	flags, failure := s.agentFlagsFor(ctx, agents)
-	if failure != nil {
-		return nil, failure
-	}
-
 	view := agentViewOptions(req.GetView())
-	resources := xslice.Map(agents, func(a agentstore.Agent) agent { return renderAgent(a, flags(a), view...) })
+	resources := xslice.Map(rows, func(row agents.Row) agent { return renderAgent(row, view...) })
 
 	next, err := paginator.NextToken(resources)
 	if err != nil {
@@ -375,24 +292,19 @@ func (s *AgentService) ListAgents(ctx context.Context, req *agentv1.ListAgentsRe
 	return response, nil
 }
 
-// renderOneAgent gathers the facts an agent's row does not hold and renders it.
-func (s *AgentService) renderOneAgent(ctx context.Context, stored agentstore.Agent) (*agentv1.Agent, *fail.Error) {
-	flags, failure := s.agentFlagsFor(ctx, []agentstore.Agent{stored})
-	if failure != nil {
-		return nil, failure
-	}
-
-	return renderAgent(stored, flags(stored)).Agent, nil
-}
-
-// GetAgent returns one agent by id, archived or not.
-func (s *AgentService) GetAgent(ctx context.Context, req *agentv1.GetAgentRequest) (*agentv1.GetAgentResponse, *fail.Error) {
-	agent, err := s.agents.GetByID(ctx, req.GetId())
+// renderOneAgent reads one agent's row and renders it.
+func (s *AgentService) renderOneAgent(ctx context.Context, id string) (*agentv1.Agent, *fail.Error) {
+	row, err := s.rows.GetRow(ctx, id)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to get agent")
 	}
 
-	rendered, failure := s.renderOneAgent(ctx, *agent)
+	return renderAgent(*row).Agent, nil
+}
+
+// GetAgent returns one agent by id, archived or not.
+func (s *AgentService) GetAgent(ctx context.Context, req *agentv1.GetAgentRequest) (*agentv1.GetAgentResponse, *fail.Error) {
+	rendered, failure := s.renderOneAgent(ctx, req.GetId())
 	if failure != nil {
 		return nil, failure
 	}
@@ -585,15 +497,13 @@ func (s *AgentService) RestoreAgents(ctx context.Context, req *agentv1.RestoreAg
 		return nil, rpcerr.From(err, "failed to restore agents")
 	}
 
-	flags, failure := s.agentFlagsFor(ctx, restored)
-	if failure != nil {
-		return nil, failure
+	rows, err := s.rows.ListRowsByID(ctx, agentstore.IDs(restored))
+	if err != nil {
+		return nil, rpcerr.From(err, "failed to get the restored agents")
 	}
 
 	return &agentv1.RestoreAgentsResponse{
-		Agents: xslice.Map(restored, func(a agentstore.Agent) *agentv1.Agent {
-			return renderAgent(a, flags(a)).Agent
-		}),
+		Agents: xslice.Map(rows, func(row agents.Row) *agentv1.Agent { return renderAgent(row).Agent }),
 	}, nil
 }
 
@@ -614,7 +524,7 @@ func (s *AgentService) ResumeAgent(ctx context.Context, req *agentv1.ResumeAgent
 		return nil, rpcerr.From(err, "failed to resume agent")
 	}
 
-	rendered, failure := s.renderOneAgent(ctx, *resumed)
+	rendered, failure := s.renderOneAgent(ctx, resumed.ID)
 	if failure != nil {
 		return nil, failure
 	}
@@ -634,7 +544,7 @@ func (s *AgentService) RetryAgent(ctx context.Context, req *agentv1.RetryAgentRe
 		return nil, rpcerr.From(err, "failed to retry agent")
 	}
 
-	rendered, failure := s.renderOneAgent(ctx, *retried)
+	rendered, failure := s.renderOneAgent(ctx, retried.ID)
 	if failure != nil {
 		return nil, failure
 	}
@@ -654,7 +564,7 @@ func (s *AgentService) HoldAgent(ctx context.Context, req *agentv1.HoldAgentRequ
 		return nil, rpcerr.From(err, "failed to hold agent")
 	}
 
-	rendered, failure := s.renderOneAgent(ctx, *held)
+	rendered, failure := s.renderOneAgent(ctx, held.ID)
 	if failure != nil {
 		return nil, failure
 	}
@@ -672,7 +582,7 @@ func (s *AgentService) ReleaseAgent(ctx context.Context, req *agentv1.ReleaseAge
 		return nil, rpcerr.From(err, "failed to release agent")
 	}
 
-	rendered, failure := s.renderOneAgent(ctx, *released)
+	rendered, failure := s.renderOneAgent(ctx, released.ID)
 	if failure != nil {
 		return nil, failure
 	}

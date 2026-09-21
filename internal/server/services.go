@@ -28,6 +28,7 @@ type services struct {
 	review          *agents.ReviewService
 	schedule        *schedules.ScheduleService
 	liveness        *agents.PaneLiveness
+	rows            *agents.RowReader
 	launch          *agents.LaunchService
 	resume          *agents.ResumeService
 	adopt           *agents.AdoptService
@@ -250,7 +251,12 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 	})
 
 	return &services{
-		loadConfig:      loadConfig,
+		loadConfig: loadConfig,
+		rows: agents.NewRowReader(agents.NewRowReaderParams{
+			Rows:     st.rows,
+			Liveness: paneLiveness,
+			Trees:    cwdSyncer,
+		}),
 		marks:           markService,
 		rebase:          rebaseService,
 		cwdSync:         cwdSyncer,

@@ -4,7 +4,9 @@ import (
 	"testing"
 	"time"
 
+	"weave/internal/agents"
 	agentstore "weave/internal/store/agent"
+	rowstore "weave/internal/store/row"
 	"weave/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
@@ -13,12 +15,12 @@ import (
 // TestRenderAgentCarriesWhatTheSyncersWrite covers the branch and the worktree removal flag,
 // which a client cannot draw if the response never carries them.
 func TestRenderAgentCarriesWhatTheSyncersWrite(t *testing.T) {
-	rendered := renderAgent(agentstore.Agent{
+	rendered := renderAgent(rowOf(agentstore.Agent{
 		ID:              "a1",
 		Name:            "worker",
 		Branch:          xptr.Ptr("fix/thing"),
 		WorktreeRemoved: true,
-	}, agentFlags{})
+	}))
 
 	assert.Equal(t, "fix/thing", rendered.GetBranch())
 	assert.True(t, rendered.GetWorktreeRemoved())
@@ -27,7 +29,7 @@ func TestRenderAgentCarriesWhatTheSyncersWrite(t *testing.T) {
 // TestRenderAgentLeavesAPresentWorktreeAlone covers the other side of the flag: an agent
 // whose cwd the syncer still finds is rendered without it.
 func TestRenderAgentLeavesAPresentWorktreeAlone(t *testing.T) {
-	rendered := renderAgent(agentstore.Agent{ID: "a2", Name: "reviewer"}, agentFlags{})
+	rendered := renderAgent(rowOf(agentstore.Agent{ID: "a2", Name: "reviewer"}))
 
 	assert.False(t, rendered.GetWorktreeRemoved())
 }
@@ -36,7 +38,7 @@ func TestRenderAgentLeavesAPresentWorktreeAlone(t *testing.T) {
 // is written nowhere but this response.
 func TestRenderAgentCarriesTheStateChange(t *testing.T) {
 	changed := time.Date(2026, time.September, 1, 9, 9, 0, 0, time.UTC)
-	rendered := renderAgent(agentstore.Agent{ID: "a1", StateChangedAt: changed}, agentFlags{})
+	rendered := renderAgent(rowOf(agentstore.Agent{ID: "a1", StateChangedAt: changed}))
 
 	assert.Equal(t, changed.Format(time.RFC3339), rendered.GetStateChangedAt())
 }
@@ -44,5 +46,10 @@ func TestRenderAgentCarriesTheStateChange(t *testing.T) {
 // TestRenderAgentWithoutAStateChange covers an agent that has never been given one, which
 // sends nothing rather than a formatted zero time.
 func TestRenderAgentWithoutAStateChange(t *testing.T) {
-	assert.Empty(t, renderAgent(agentstore.Agent{ID: "a2"}, agentFlags{}).GetStateChangedAt())
+	assert.Empty(t, renderAgent(rowOf(agentstore.Agent{ID: "a2"})).GetStateChangedAt())
+}
+
+// rowOf is an agent's row with nothing beside it.
+func rowOf(stored agentstore.Agent) agents.Row {
+	return agents.Row{Row: rowstore.Row{Agent: stored}}
 }

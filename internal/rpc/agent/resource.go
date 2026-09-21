@@ -3,13 +3,13 @@ package agent
 import (
 	"time"
 
+	"weave/internal/agents"
 	"weave/internal/git"
 	"weave/internal/rpc/render"
 	"weave/lib/dates"
 
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
-	pullrequeststore "weave/internal/store/pullrequest"
 	reviewstore "weave/internal/store/review"
 	transcriptstore "weave/internal/store/transcript"
 	"weave/lib/xptr"
@@ -28,31 +28,6 @@ type agent struct {
 // Cursor returns the keyset cursor locating this agent.
 func (s agent) Cursor() (agentstore.Cursor, error) {
 	return s.cursor, nil
-}
-
-// agentFlags are the facts about an agent that are not on its own row: whether it is running
-// and whether it has mail it has not read.
-type agentFlags struct {
-	alive      bool
-	unreadMail bool
-	failedRun  bool
-	// mark is the letter a person types to jump to this row, which lives beside the agent rather
-	// than on it.
-	mark *string
-	// failedRunLog is the log the failure went to.
-	failedRunLog *int32
-	// localRounds is how many rounds of local review this agent's own work has been through.
-	localRounds int32
-	// localVerdict is what the last released local review concluded about this agent's work,
-	// nil when none has concluded anything.
-	localVerdict *reviewstore.Verdict
-	// localTree is where the worktree stands against the round that verdict was given on.
-	localTree git.Standing
-	// pullRequest is the one the agent's row stands for, nil when none was opened from its
-	// branch.
-	pullRequest *pullrequeststore.PullRequest
-	// repositoryRead says the sync has read the agent's repository at least once.
-	repositoryRead bool
 }
 
 // agentOptions is how much of an agent is drawn.
@@ -76,12 +51,13 @@ func agentViewOptions(view viewv1.View) []agentOption {
 	return []agentOption{withPromptHead(render.SummaryHead)}
 }
 
-func renderAgent(stored agentstore.Agent, flags agentFlags, opts ...agentOption) agent {
+func renderAgent(row agents.Row, opts ...agentOption) agent {
 	options := agentOptions{}
 	for _, opt := range opts {
 		opt(&options)
 	}
 
+	stored := row.Agent
 	metadata := xslice.Map(stored.Metadata, func(entry agentstore.Metadata) *agentv1.AgentMetadata {
 		return &agentv1.AgentMetadata{Key: entry.Key, Value: entry.Value}
 	})
@@ -110,9 +86,9 @@ func renderAgent(stored agentstore.Agent, flags agentFlags, opts ...agentOption)
 			StateChangedAt:     dates.Stamp(stored.StateChangedAt),
 			ReportedReason:     stored.ReportedReason,
 			ArchivedAt:         dates.StampPtr(stored.ArchivedAt),
-			Alive:              flags.alive,
-			UnreadMail:         flags.unreadMail,
-			Mark:               flags.mark,
+			Alive:              row.Alive,
+			UnreadMail:         row.UnreadMail,
+			Mark:               row.Mark,
 			Hidden:             stored.Hidden,
 			Metadata:           metadata,
 			IdempotencyKey:     stored.IdempotencyKey,
@@ -122,13 +98,13 @@ func renderAgent(stored agentstore.Agent, flags agentFlags, opts ...agentOption)
 			RepositoryUrl:      stored.RepositoryURL,
 			WorktreeRemoved:    stored.WorktreeRemoved,
 			SequenceInProgress: stored.SequenceInProgress,
-			FailedRun:          flags.failedRun,
-			FailedRunLog:       flags.failedRunLog,
-			LocalReviewRounds:  flags.localRounds,
-			LocalReviewVerdict: renderLocalVerdict(flags.localVerdict),
-			LocalReviewTree:    renderStanding(flags.localTree),
+			FailedRun:          row.FailedRun,
+			FailedRunLog:       row.FailedRunLog,
+			LocalReviewRounds:  row.LocalRounds,
+			LocalReviewVerdict: renderLocalVerdict(row.LocalVerdict),
+			LocalReviewTree:    renderStanding(row.LocalTree),
 			HeldAt:             heldStamp(stored.HeldAt),
-			PullRequest:        renderPullRequestStanding(flags),
+			PullRequest:        renderPullRequestStanding(row),
 		},
 		cursor: agentstore.Cursor{ID: stored.ID},
 	}
@@ -147,10 +123,10 @@ func renderLocalVerdict(verdict *reviewstore.Verdict) agentv1.ReviewVerdict {
 // renderPullRequestStanding is where the agent's pull request stands as the wire carries it:
 // unread until the sync has looked at the repository, none when it has and found nothing on
 // the branch, else the current one and its state.
-func renderPullRequestStanding(flags agentFlags) *agentv1.PullRequestStanding {
-	if flags.pullRequest == nil {
+func renderPullRequestStanding(row agents.Row) *agentv1.PullRequestStanding {
+	if row.PullRequest == nil {
 		state := pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNREAD
-		if flags.repositoryRead {
+		if row.RepositoryRead {
 			state = pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE
 		}
 
@@ -158,10 +134,10 @@ func renderPullRequestStanding(flags agentFlags) *agentv1.PullRequestStanding {
 	}
 
 	return &agentv1.PullRequestStanding{
-		State:  render.PullRequestStateOf(*flags.pullRequest),
-		Number: xptr.Ptr(int32(flags.pullRequest.Number)),
-		Url:    xptr.Ptr(flags.pullRequest.URL),
-		Title:  xptr.Ptr(flags.pullRequest.Title),
+		State:  render.PullRequestStateOf(*row.PullRequest),
+		Number: xptr.Ptr(int32(row.PullRequest.Number)),
+		Url:    xptr.Ptr(row.PullRequest.URL),
+		Title:  xptr.Ptr(row.PullRequest.Title),
 	}
 }
 

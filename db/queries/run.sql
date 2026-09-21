@@ -46,20 +46,6 @@ WHERE agent_runs.agent_id = @agent_id
         FROM
             kept);
 
--- name: ListAgentsWithUnreadFailures :many
-SELECT DISTINCT ON (agent_id)
-    agent_id,
-    log_number
-FROM
-    agent_runs
-WHERE
-    failure <> ''
-    AND viewed_at IS NULL
-ORDER BY
-    agent_id,
-    started_at DESC,
-    id DESC;
-
 -- name: MarkAgentRunsRead :exec
 UPDATE
     agent_runs

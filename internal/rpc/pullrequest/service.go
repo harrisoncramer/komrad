@@ -193,7 +193,7 @@ func renderAgentPullRequest(pullRequest pullrequeststore.PullRequest, current bo
 		Number:   int32(pullRequest.Number),
 		Url:      pullRequest.URL,
 		Title:    pullRequest.Title,
-		State:    render.PullRequestStateOf(pullRequest),
+		State:    render.PullRequestStateOf(pullRequest.GetSummary()),
 		Current:  current,
 		OpenedAt: dates.Stamp(pullRequest.OpenedAt),
 		MergedAt: dates.StampPtr(pullRequest.MergedAt),
