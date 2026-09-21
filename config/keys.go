@@ -11,14 +11,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// Explainer: a binding is matched by string equality against what bubbletea prints for a press,
-// so the only strings that can ever match are the names it prints and the single runes a
-// keyboard sends. Nothing about that is visible in a config file: "escape", "PgUp" and "ctrl+m"
-// all read as careful spellings and none of them is a key, the last because bubbletea prints
-// that press as "enter". A binding of two characters cannot match either, since typing it
-// delivers two presses. These are all checked here, when the file is read, because the panel
-// cannot tell a key nobody pressed from a key that cannot be pressed.
-
 // The span of tea.KeyType values pressableNames reads.
 const (
 	firstKeyType = -100
