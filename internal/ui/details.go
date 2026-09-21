@@ -102,13 +102,13 @@ func (m model) isDetailsDrawn(held details) bool {
 }
 
 // doesListFitDetails is whether the record's share fits under a list, judged with the keys on
-// the list so the answer does not move with them.
+// the list.
 func (m model) doesListFitDetails(header string, help func(model) keyMap) bool {
 	m.details.focused = false
 	legend := m.renderHelp(help(m), header)
 
-	// A focused record shrinks to the room its own legend leaves, so its legend is measured without
-	// the search and only the list's is measured with it.
+	// Only the list's legend is measured with the search; a focused record shrinks to the room
+	// its own legend leaves.
 	m.filter = filterState{}
 	if focused := m.renderHelp(m.detailsHelp(), header); strings.Count(focused, "\n") > strings.Count(legend, "\n") {
 		legend = focused
@@ -174,8 +174,7 @@ func (m model) releaseHiddenDetails() model {
 	return m.blurDetails()
 }
 
-// blurDetails hands the keys back to the list, and a filter narrowing the record eases to a
-// search so the prompt's glyph keeps saying what the list is doing.
+// blurDetails hands the keys back to the list, easing a filter over the record to a search.
 func (m model) blurDetails() model {
 	m.details.focused = false
 	if m.filter.over == sectionRecord {

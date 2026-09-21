@@ -92,8 +92,7 @@ const (
 	CaretDrawn Caret = iota
 	// CaretBlinkedOut is the arrow in the hidden half of its blink, the name still in the accent.
 	CaretBlinkedOut
-	// CaretAbsent is the keys in another section of the panel, so neither the arrow nor the
-	// accent is drawn and the row is only kept on screen.
+	// CaretAbsent is no arrow and no accent, the row only kept on screen.
 	CaretAbsent
 )
 
