@@ -44,7 +44,7 @@ The other four failures in `internal/git` on this machine (`TestARebaseMovesTheT
 
 ## Proposal
 
-A workflow always names its base branch. The name is chosen once, when the workflow is made, and stored. Every base resolution reads the stored name and nothing reads `origin/HEAD`. A base that origin no longer has is reported as that, naming the workflow, rather than being replaced with a guess.
+A workflow always names its base branch. The name is chosen once, when the workflow is made, and stored. Every base resolution reads the stored name, and nothing reads `origin/HEAD` after the workflow is made. A base that origin no longer has is reported as that, naming the workflow, rather than being replaced with a guess.
 
 ## Details
 
@@ -60,7 +60,7 @@ No network: creation is the one moment this RFC allows a guess, the person sees 
 
 **Each caller.** The rebase, inspector, cwd sync and review round paths change only in what they do with `ErrBaseMissing`: `plan_rebase` and `rebase_worktree` refuse with it, `get_worktree` and the worktrees screen show it in place of the standing, cwd sync records it as the agent's standing error the way it already records a tree it could not read, and `open_review_round` refuses with it rather than taking a round whose base is the branch's own tip. The `_worktree_setup` script loses the guessing block, `origin_head` and `record_head`: a blank `WEAVE_WORKTREE_BASE_BRANCH` exits 1 saying the workflow names no base, and the rest of the script, which fetches a named base and stages it under `refs/weave/base/<agent>` for single-branch clones, stays as it is. The pull request query drops its blank arm.
 
-**`FetchBase`'s repair.** Not needed anywhere. Nothing reads `origin/HEAD` after this change, so whether a fetch writes it back is of no interest, and `git remote set-head` disappears from the tree.
+**`FetchBase`'s repair.** Not needed anywhere. Nothing reads `origin/HEAD` after the workflow is made, so whether a fetch writes it back is of no interest, and `git remote set-head` disappears from the tree.
 
 **`weave doctor`.** A new `bases` check on the engine, after `database`: for every live workflow whose `cwd` is a repository, `ResolveBase` answers for its stored base. An `ErrBaseMissing` warns, naming the workflow and the branch, with the advice to fetch or to update the workflow. No network, and no `origin` condition: a never-pushed repository on `trunk` that the migration backfilled as `main` is exactly the row this check exists to name.
 
