@@ -141,6 +141,151 @@ func TestTabStripStepsAndWraps(t *testing.T) {
 	}
 }
 
+func groupedStripFixture() tabStrip {
+	strip := stripFixture()
+	strip.grouped = "repo"
+
+	return strip
+}
+
+// TestTabStripDrawsTheGroupStop covers the stop after the columns: muted with the grouped label
+// while grouped, reading flat while not, lit in the accent only while the focus is on it, and
+// the chosen column falling back to muted while it is.
+func TestTabStripDrawsTheGroupStop(t *testing.T) {
+	withANSI(t)
+
+	muted := paint.Panel.Style(paint.ToneMuted)
+	accent := paint.Panel.Cursor()
+	columns := " " + muted.Render("↑↓") + "   " + muted.Render("↓ size") + "  " + muted.Render("age") + "  " + muted.Render("name")
+	dot := "  " + muted.Render("·") + "  "
+
+	tests := []struct {
+		name  string
+		state tabsState
+		want  string
+	}{
+		{
+			name:  "grouped on the list's keys",
+			state: tabsState{},
+			want:  columns + dot + muted.Render("repo"),
+		},
+		{
+			name:  "flat on the list's keys",
+			state: tabsState{flat: true},
+			want:  columns + dot + muted.Render("flat"),
+		},
+		{
+			name:  "the focus on a column leaves the stop muted",
+			state: tabsState{focused: true, flat: true},
+			want:  " " + muted.Render("↑↓") + "   " + accent.Render("↓ size") + "  " + muted.Render("age") + "  " + muted.Render("name") + dot + muted.Render("flat"),
+		},
+		{
+			name:  "the focus on the stop lights it and not the column",
+			state: tabsState{focused: true, onGroup: true},
+			want:  columns + dot + accent.Render("repo"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, groupedStripFixture().view(tt.state, paint.Panel, 0))
+		})
+	}
+}
+
+// TestTabStripStepsOntoTheGroupStop covers tab walking from the last column onto the stop and
+// from the stop back to the first column, shift+tab the other way, and the column and its arrow
+// standing still while the stop is stepped onto and off.
+func TestTabStripStepsOntoTheGroupStop(t *testing.T) {
+	tests := []struct {
+		name  string
+		from  tabsState
+		delta int
+		want  tabsState
+	}{
+		{
+			name:  "forward from the last column lands on the stop",
+			from:  tabsState{chosen: "name", direction: tabUp},
+			delta: 1,
+			want:  tabsState{chosen: "name", direction: tabUp, onGroup: true},
+		},
+		{
+			name:  "forward from the stop wraps to the first column",
+			from:  tabsState{chosen: "name", direction: tabUp, onGroup: true, flat: true},
+			delta: 1,
+			want:  tabsState{chosen: "size", flat: true},
+		},
+		{
+			name:  "back from the first column wraps to the stop",
+			from:  tabsState{chosen: "size"},
+			delta: -1,
+			want:  tabsState{chosen: "size", onGroup: true},
+		},
+		{
+			name:  "back from the stop lands on the last column",
+			from:  tabsState{chosen: "age", direction: tabUp, onGroup: true},
+			delta: -1,
+			want:  tabsState{chosen: "name"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			state := tt.from
+
+			groupedStripFixture().step(&state, tt.delta)
+
+			assert.Equal(t, tt.want, state)
+		})
+	}
+}
+
+// TestTabsGroupStopFlipsFlat covers the navigation keys flipping the grouping while the focus is
+// on the stop, with the chosen column and its arrow left alone, the cursor keeping its row
+// across the flip, and escape handing the keys back with the grouping kept.
+func TestTabsGroupStopFlipsFlat(t *testing.T) {
+	m := sortedWorktreesModel()
+	require.Equal(t, "tree:/trees/live", worktreesList().hovered(m))
+
+	onStop := send(t, send(t, send(t, m, "f"), "tab"), "tab")
+	require.Equal(t, tabsState{chosen: "last-accessed", focused: true, onGroup: true}, onStop.worktrees.sort)
+
+	flat := send(t, onStop, "j")
+	assert.Equal(t, tabsState{chosen: "last-accessed", focused: true, onGroup: true, flat: true}, flat.worktrees.sort)
+	assert.Equal(t, "tree:/trees/live", worktreesList().hovered(flat), "the cursor keeps its row")
+	assert.Equal(t, 0, flat.worktrees.cursor, "at the top of the one list, being the most recent")
+	assert.Contains(t, flat.worktreesTally(), "flat")
+
+	grouped := send(t, flat, "k")
+	assert.Equal(t, tabsState{chosen: "last-accessed", focused: true, onGroup: true}, grouped.worktrees.sort)
+	assert.Equal(t, "tree:/trees/live", worktreesList().hovered(grouped))
+	assert.Equal(t, 3, grouped.worktrees.cursor, "back under its heading")
+	assert.NotContains(t, grouped.worktreesTally(), "flat")
+
+	left := send(t, send(t, grouped, "j"), "esc")
+	assert.Equal(t, tabsState{chosen: "last-accessed", flat: true}, left.worktrees.sort, "the grouping is kept and the focus leaves the stop")
+	assert.True(t, left.isListFocused())
+
+	back := send(t, send(t, left, "f"), "tab")
+	assert.Equal(t, tabsState{chosen: "last-accessed", focused: true, onGroup: true, flat: true}, back.worktrees.sort, "the focus comes back on the chosen column, a tab from the stop")
+}
+
+// TestFlatWorktreesCursorLeavesAHeadingForARow covers a cursor on a heading landing on the
+// nearest row once the headings are gone.
+func TestFlatWorktreesCursorLeavesAHeadingForARow(t *testing.T) {
+	m := sortedWorktreesModel()
+	m.worktrees.cursor = 2
+	require.Equal(t, "repo:/home/h/weave", worktreesList().hovered(m))
+
+	flat := send(t, send(t, send(t, send(t, m, "f"), "tab"), "tab"), "j")
+
+	assert.True(t, flat.worktrees.sort.flat)
+	row, ok := flat.hoveredWorktree()
+	require.True(t, ok)
+	assert.False(t, row.header)
+	assert.Equal(t, 2, flat.worktrees.cursor)
+}
+
 // sortedWorktreesModel is the worktrees screen over the measured fixture, with the cursor on
 // the live agent's directory.
 func sortedWorktreesModel() model {
@@ -196,12 +341,12 @@ func TestTabsFocusTakesTheKeys(t *testing.T) {
 }
 
 // TestEscapeLeavesTheTabsAndKeepsTheSort covers escape handing the keys back with the chosen
-// column and its arrow as they were, from a choice that was wrapped to, the rows staying in
-// that order and the cursor on its row.
+// column and its arrow as they were, from a choice that was wrapped to past the group stop, the
+// rows staying in that order and the cursor on its row.
 func TestEscapeLeavesTheTabsAndKeepsTheSort(t *testing.T) {
 	m := sortedWorktreesModel()
 
-	turned := send(t, send(t, send(t, m, "f"), "shift+tab"), "k")
+	turned := send(t, send(t, send(t, send(t, m, "f"), "shift+tab"), "shift+tab"), "k")
 	require.Equal(t, tabsState{chosen: "last-accessed", direction: tabUp, focused: true}, turned.worktrees.sort)
 	require.Equal(t, 5, turned.worktrees.cursor, "the sort has moved the row")
 	order := xslice.Map(turned.worktreeRows(), worktreeRow.key)
@@ -329,6 +474,10 @@ func TestWorktreesScreenGolden(t *testing.T) {
 			name:  "worktrees-sort-strip-focused",
 			state: tabsState{chosen: "last-accessed", direction: tabUp, focused: true},
 		},
+		{
+			name:  "worktrees-sort-strip-flat",
+			state: tabsState{flat: true},
+		},
 	}
 
 	for _, tt := range tests {
@@ -338,6 +487,7 @@ func TestWorktreesScreenGolden(t *testing.T) {
 			m = m.measuredAt(44)
 			m.worktrees.cursor = 4
 			m.worktrees.sort = tt.state
+			m.placeFilteredCursor("tree:/trees/live")
 
 			requireGolden(t, tt.name, m.worktreesListView())
 		})

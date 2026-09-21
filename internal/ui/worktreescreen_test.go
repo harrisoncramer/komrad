@@ -478,14 +478,14 @@ func TestWorktreeFieldsNameTheOccupants(t *testing.T) {
 			item:       worktreeFixture()[0],
 			occupants:  nil,
 			want:       "",
-			wantLabels: []string{"name", "directory", "size", "last active", "branch", "agent", "workflow"},
+			wantLabels: []string{"name", "directory", "size", "last active", "branch", "repository", "agent", "workflow"},
 		},
 		{
 			name:       "one is named",
 			item:       worktreeFixture()[0],
 			occupants:  []worktreeAgent{{id: "occ", name: "review-607"}},
 			want:       "review-607",
-			wantLabels: []string{"name", "directory", "size", "last active", "branch", "also here", "agent", "workflow"},
+			wantLabels: []string{"name", "directory", "size", "last active", "branch", "repository", "also here", "agent", "workflow"},
 		},
 		{
 			name: "two are named in the listing's order",
@@ -495,7 +495,7 @@ func TestWorktreeFieldsNameTheOccupants(t *testing.T) {
 				{id: "reader", name: "second-reader"},
 			},
 			want:       "review-607, second-reader",
-			wantLabels: []string{"name", "directory", "size", "last active", "branch", "also here", "agent", "workflow"},
+			wantLabels: []string{"name", "directory", "size", "last active", "branch", "repository", "also here", "agent", "workflow"},
 		},
 		{
 			name:       "an unreadable directory names them after its repository",

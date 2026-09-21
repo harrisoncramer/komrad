@@ -167,12 +167,19 @@ func worktreesTabs() tabStrip {
 		legend:   "sort",
 		options:  tabOptionsOf(worktreeSorts),
 		fallback: "size",
+		grouped:  "repo",
 	}
 }
 
-// worktreesTally is how many directories the listing holds and what the measured ones take.
+// worktreesTally is how many directories the listing holds, what the measured ones take, and
+// whether they are drawn as one list.
 func (m model) worktreesTally() string {
-	return fmt.Sprintf("%d · %s", len(m.worktrees.items), totalLabel(m.worktrees.items))
+	tally := fmt.Sprintf("%d · %s", len(m.worktrees.items), totalLabel(m.worktrees.items))
+	if m.worktrees.sort.flat {
+		tally += " · " + flatLabel
+	}
+
+	return tally
 }
 
 func (m model) worktreesListView() string {
@@ -193,6 +200,7 @@ func (m model) worktreesSnapshot(pane int) view.Snapshot {
 		selected:      m.worktrees.selected,
 		focused:       rowKeyAt(rows, m.worktrees.cursor),
 		live:          m.listing.agents,
+		flat:          m.worktrees.sort.flat,
 		caretHidden:   m.isCursorBlinkedOut(m.isListFocused()),
 		barBlinkedOut: m.rowCursor.Blink,
 		matcher:       m.filter.pattern,
@@ -238,7 +246,10 @@ func (m model) worktreeFields(item worktreeItem, now time.Time) []recordField {
 		return append(fields, recordField{"agent", m.worktreeAgentField(item)})
 	}
 
-	fields = append(fields, recordField{"branch", label.OrDash(item.branch)})
+	fields = append(fields,
+		recordField{"branch", label.OrDash(item.branch)},
+		recordField{"repository", label.OrDash(label.Path(item.repoDir, homeDir()))},
+	)
 	if len(item.occupants) > 0 {
 		fields = append(fields, recordField{"also here", occupantsField(item)})
 	}

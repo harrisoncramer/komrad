@@ -43,12 +43,29 @@ type tabStrip struct {
 	legend   string
 	options  []tabOption
 	fallback string
+	// grouped is the label of the stop after the columns while the rows sit under their headings.
+	grouped string
 }
+
+// flatLabel is what the stop after the columns reads while the headings are off.
+const flatLabel = "flat"
 
 type tabsState struct {
 	chosen    string
 	direction tabDirection
 	focused   bool
+	// onGroup says the focus is on the stop after the columns rather than on a column.
+	onGroup bool
+	// flat says the rows are one list rather than grouped under their headings.
+	flat bool
+}
+
+func (s tabStrip) groupLabel(state tabsState) string {
+	if state.flat {
+		return flatLabel
+	}
+
+	return s.grouped
 }
 
 type tabsSpec struct {
@@ -67,7 +84,21 @@ func (s tabStrip) indexOf(state tabsState) int {
 }
 
 func (s tabStrip) step(state *tabsState, delta int) {
-	at := (s.indexOf(*state) + delta + len(s.options)) % len(s.options)
+	stops := len(s.options)
+	if s.grouped != "" {
+		stops++
+	}
+
+	at := s.indexOf(*state)
+	if state.onGroup {
+		at = len(s.options)
+	}
+	at = (at + delta + stops) % stops
+
+	state.onGroup = at == len(s.options)
+	if state.onGroup {
+		return
+	}
 	state.chosen, state.direction = s.options[at].id, s.options[at].direction
 }
 
@@ -84,7 +115,7 @@ func (s tabStrip) view(state tabsState, palette paint.Palette, width int) string
 		}
 
 		text := state.direction.glyph() + " " + option.label
-		if state.focused {
+		if state.focused && !state.onGroup {
 			text = palette.Cursor().Render(text)
 		} else {
 			text = muted.Render(text)
@@ -93,6 +124,13 @@ func (s tabStrip) view(state tabsState, palette paint.Palette, width int) string
 	}
 
 	line := " " + muted.Render(s.title) + "   " + strings.Join(parts, "  ")
+	if s.grouped != "" {
+		group := muted.Render(s.groupLabel(state))
+		if state.focused && state.onGroup {
+			group = palette.Cursor().Render(s.groupLabel(state))
+		}
+		line += "  " + muted.Render("·") + "  " + group
+	}
 	if width > 0 {
 		line = ansi.Truncate(line, width, "…")
 	}
@@ -175,12 +213,14 @@ func (m model) updateTabs(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		spec.strip.step(state, 1)
 	case k == tabPrevKey:
 		spec.strip.step(state, -1)
+	case state.onGroup && isBound(k, concatKeys(m.keys.Nav.Down, m.keys.Nav.Up)):
+		state.flat = !state.flat
 	case isBound(k, m.keys.Nav.Down):
 		state.direction = tabDown
 	case isBound(k, m.keys.Nav.Up):
 		state.direction = tabUp
 	case k == "esc":
-		state.focused = false
+		state.focused, state.onGroup = false, false
 	case isBound(k, m.quitKeys()):
 		return m, m.hide()
 	}
@@ -201,7 +241,7 @@ func (m model) tabsBinding() key.Binding {
 
 func (m model) tabsHelp() keyMap {
 	column := key.NewBinding(key.WithKeys(tabNextKey, tabPrevKey), key.WithHelp("tab/S-tab", "column"))
-	direction := binding(concatKeys(m.keys.Nav.Down, m.keys.Nav.Up), "direction")
+	direction := binding(concatKeys(m.keys.Nav.Down, m.keys.Nav.Up), "direction, grouping")
 	back := binding([]string{"esc"}, "back to the list")
 
 	return keyMap{
