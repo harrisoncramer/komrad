@@ -82,6 +82,52 @@ func TestKeybindingsCheckIgnoresThePanelsOwnFocusBinding(t *testing.T) {
 	assert.Equal(t, StatusOK, result.Status)
 }
 
+// TestKeybindingsCheckIgnoresAKeyThePanelHasTaken covers a root binding the panel made itself,
+// which hands the key through on its own pane and runs the user's command elsewhere.
+func TestKeybindingsCheckIgnoresAKeyThePanelHasTaken(t *testing.T) {
+	env := configEnv(config.Defaults(), nil, true)
+	env.TmuxSocket = "weave"
+	env.FocusKey = ui.FocusKey
+	env.ValidateKeybindings = ui.ValidateKeybindings
+	env.Output = func(_ context.Context, _ string, args ...string) (string, error) {
+		if slices.Contains(args, "list-keys") {
+			return `bind-key  -T root C-d    if-shell -F "#{==:#{pane_id},#{@weave_panel_pane}}" send-keys "copy-mode -u"`, nil
+		}
+
+		return "C-b\n", nil
+	}
+
+	result := newKeybindingsCheck().Run(t.Context(), env)
+
+	assert.Equal(t, StatusOK, result.Status)
+	assert.Equal(t, "no panel key is held by tmux", result.Detail)
+}
+
+// TestKeybindingsCheckWaitsForThePanelToTakeAKey covers the user's binding standing on a panel
+// key while no panel is running, which the next panel rebinds as it starts.
+func TestKeybindingsCheckWaitsForThePanelToTakeAKey(t *testing.T) {
+	env := rootKeysEnv(config.Defaults(), "C-d", "C-u")
+	env.IsPanelRunning = func(context.Context) bool { return false }
+
+	result := newKeybindingsCheck().Run(t.Context(), env)
+
+	assert.Equal(t, StatusOK, result.Status)
+	assert.Equal(t, "the panel takes C-d, C-u for its own pane when it opens", result.Detail)
+}
+
+// TestKeybindingsCheckFindsAKeyThePanelCouldNotTake covers the user's binding still standing on
+// a panel key with the panel up, which is the rebinding having been refused or undone.
+func TestKeybindingsCheckFindsAKeyThePanelCouldNotTake(t *testing.T) {
+	env := rootKeysEnv(config.Defaults(), "C-d")
+	env.IsPanelRunning = func(context.Context) bool { return true }
+
+	result := newKeybindingsCheck().Run(t.Context(), env)
+
+	assert.Equal(t, StatusFail, result.Status)
+	assert.Equal(t, "ctrl+d", result.Detail)
+	assert.Contains(t, result.Fix, "unbind -n C-d")
+}
+
 // TestKeybindingsCheckFindsAPrefixOnTheFocusKey covers a prefix set to the focus key, which tmux
 // reads before the root table, so the focus key installs and never fires.
 func TestKeybindingsCheckFindsAPrefixOnTheFocusKey(t *testing.T) {

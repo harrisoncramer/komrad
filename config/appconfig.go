@@ -804,6 +804,32 @@ func DefaultKeybindings() Keybindings {
 	return keys
 }
 
+// GetBoundKeys is every key the bindings name, once each and in a settled order.
+func (k Keybindings) GetBoundKeys() []string {
+	var bound []string
+
+	groups := reflect.ValueOf(k)
+	for i := range groups.NumField() {
+		group := groups.Field(i)
+		for j := range group.NumField() {
+			keys, ok := group.Field(j).Interface().([]string)
+			if !ok {
+				continue
+			}
+
+			for _, key := range keys {
+				if !slices.Contains(bound, key) {
+					bound = append(bound, key)
+				}
+			}
+		}
+	}
+
+	slices.Sort(bound)
+
+	return bound
+}
+
 // defaultKeys is one field's shipped binding, as the comma-separated list its tag holds. A field
 // with no tag, or an empty one, panics rather than binding nothing, since a key that answers
 // nowhere is the quietest way for this file to be wrong. TestEveryBindingShipsAKey catches it
