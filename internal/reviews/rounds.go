@@ -552,7 +552,7 @@ type reviewNoticeParams struct {
 // and how to read it.
 func reviewNotice(params reviewNoticeParams) string {
 	return fmt.Sprintf("weave: review of round %d released: %s, %d comment(s). "+
-		"Call get_review with review id %s to read it, then answer each thread with add_review_message, or read %s.",
+		"Call get_review with review id %s, or read %s, then answer each thread with add_review_message.",
 		params.Ordinal, strings.ReplaceAll(string(params.Verdict), "_", " "), params.Comments, params.ReviewID, params.Path)
 }
 
@@ -603,12 +603,8 @@ type ReviewThreadInContext struct {
 
 // ReviewInFull is one released review in reading order.
 type ReviewInFull struct {
-	Review reviewstore.Review
-	Round  reviewstore.Round
-	// Agent is the agent whose work was reviewed.
-	Agent agentstore.Agent
-	// Author names the agent that gave the review, and is empty when a person gave it.
-	Author  string
+	Review  reviewstore.Review
+	Round   reviewstore.Round
 	Threads []ReviewThreadInContext
 }
 
@@ -623,11 +619,13 @@ func (s *ReviewService) GetReview(ctx context.Context, reviewID string, author R
 		return nil, err
 	}
 
-	if err := s.requireMayRead(ctx, review.AgentID, author); err != nil {
-		return nil, err
-	}
+	// An unreleased review is not found before it is refused, so a bare id does not tell a
+	// stranger whose draft it names.
 	if review.ReleasedAt == nil && !author.IsHuman() && !doesOwnReviewBatch(author, *review) {
 		return nil, fmt.Errorf("%w: %q", ErrReviewNotFound, reviewID)
+	}
+	if err := s.requireMayRead(ctx, review.AgentID, author); err != nil {
+		return nil, err
 	}
 	if !author.IsHuman() && !doesOwnReviewBatch(author, *review) {
 		review.Path = ""
@@ -659,8 +657,6 @@ func (s *ReviewService) GetReview(ctx context.Context, reviewID string, author R
 	return &ReviewInFull{
 		Review:  *review,
 		Round:   *round,
-		Agent:   *agent,
-		Author:  s.getAuthorName(ctx, *review),
 		Threads: s.threadsInContext(ctx, agent.Cwd, *round, threads),
 	}, nil
 }

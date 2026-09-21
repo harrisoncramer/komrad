@@ -50,8 +50,6 @@ func TestAReleasedReviewIsReadWholeOverTheAPI(t *testing.T) {
 	assert.Equal(t, "two things before it goes", whole.Review.Body)
 	assert.Empty(t, whole.Review.Path, "the agent is not told where the file is")
 	assert.Equal(t, "snapshot-sha", whole.Round.SnapshotSHA)
-	assert.Equal(t, "worker", whole.Agent.Name)
-	assert.Empty(t, whole.Author, "a person gave it")
 
 	require.Len(t, whole.Threads, 1)
 	thread := whole.Threads[0]
@@ -115,9 +113,11 @@ func TestAnUnreleasedReviewIsNotFoundForAnyoneButItsAuthor(t *testing.T) {
 	_, err = service.GetReview(t.Context(), open.ID, agentAuthor(reviewedAgentID))
 	require.ErrorIs(t, err, ErrReviewNotFound, "the agent under review is not told it exists")
 
-	forAuthor, err := service.GetReview(t.Context(), open.ID, agentAuthor(reviewerAgentID))
+	_, err = service.GetReview(t.Context(), open.ID, agentAuthor(otherAgentID))
+	require.ErrorIs(t, err, ErrReviewNotFound, "and a stranger is not told whose it is")
+
+	_, err = service.GetReview(t.Context(), open.ID, agentAuthor(reviewerAgentID))
 	require.NoError(t, err, "but the reviewer reads its own draft")
-	assert.Equal(t, "reviewer", forAuthor.Author)
 
 	_, err = service.GetReview(t.Context(), open.ID, humanAuthor())
 	require.NoError(t, err, "and so does the person")
