@@ -94,9 +94,10 @@ pass that read the store before a write landed is dropped whole rather than putt
 write's effect back on screen. A listing the watch built is as fresh as the last event on the
 stream, so it takes the epoch it lands under instead.
 
-While any write is in flight the poll stands down and the watch's listings are left unapplied,
-since either would show rows the write is about to replace, and a write re-lists as it lands
-anyway.
+While any write is in flight the poll stands down, since it would read rows the write is about
+to replace, and a write re-lists as it lands anyway. The watch's listings are left unapplied
+from the write until that re-list has landed, since one built before the write committed can
+arrive after the write's own result.
 
 Cursors are read off the trees still on screen before new rows are applied, then placed again
 by the row they were on rather than the index that row happened to be drawn at. Either

@@ -219,6 +219,8 @@ type model struct {
 	pending       int
 	// watching says the watch has delivered a listing and the stream behind it is still open.
 	watching bool
+	// polledEpoch is the epoch of the last polled listing to land.
+	polledEpoch int
 	// polledAt is when the tick last listed everything.
 	polledAt        time.Time
 	configErr       error

@@ -14,8 +14,12 @@ import (
 	"weave/proto/gen/watch/v1/watchv1connect"
 )
 
-// pollInterval is how often the tick lists everything while the watch is delivering.
-const pollInterval = 15 * time.Second
+const (
+	// pollInterval is how often the tick lists everything while the watch is delivering.
+	pollInterval = 15 * time.Second
+	// driftLogTimeout bounds the drift log's own context.
+	driftLogTimeout = time.Second
+)
 
 // watchLostMsg says the stream has ended and the tick is the only source until it is back.
 type watchLostMsg struct {
@@ -65,8 +69,11 @@ const (
 	driftOnlyWatched = "only_watched"
 )
 
-// logDrift says at debug level where a poll disagrees with the listing the watch had built.
-func logDrift(ctx context.Context, watched listing, polled refreshResult) {
+// logDrift says at debug level where a poll disagrees with the listing the watch has built.
+func logDrift(watched listing, polled refreshResult) {
+	ctx, cancel := context.WithTimeout(context.Background(), driftLogTimeout)
+	defer cancel()
+
 	logger := logging.From(ctx)
 
 	report := func(how string, row slog.Attr) {

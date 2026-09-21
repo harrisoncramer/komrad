@@ -83,12 +83,16 @@ func Watch(ctx context.Context, params WatchParams) {
 	wait := params.Retry
 
 	for {
-		err := watchOnce(ctx, params)
+		synced, err := watchOnce(ctx, params)
 		if ctx.Err() != nil {
 			return
 		}
 
 		params.OnLost(err)
+
+		if synced {
+			wait = params.Retry
+		}
 
 		select {
 		case <-ctx.Done():
@@ -113,15 +117,16 @@ func (p WatchParams) withDefaults() WatchParams {
 	return p
 }
 
-// watchOnce reads one stream to its end and answers with what ended it.
-func watchOnce(ctx context.Context, params WatchParams) error {
+// watchOnce reads one stream to its end and answers with whether it reached Synced and what
+// ended it.
+func watchOnce(ctx context.Context, params WatchParams) (bool, error) {
 	ctx, cancel := context.WithCancel(ctx)
 
 	stream, err := params.Open(ctx)
 	if err != nil {
 		cancel()
 
-		return err
+		return false, err
 	}
 
 	// The reader is let go before the stream is closed under it.
@@ -163,11 +168,11 @@ func watchOnce(ctx context.Context, params WatchParams) error {
 	for {
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return synced, ctx.Err()
 		case err := <-ended:
-			return err
+			return synced, err
 		case <-silence.C:
-			return errors.New("the watch said nothing for " + params.Silence.String())
+			return synced, errors.New("the watch said nothing for " + params.Silence.String())
 		case <-flush:
 			flush = nil
 

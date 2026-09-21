@@ -69,13 +69,6 @@ func (m model) refreshCmd() tea.Cmd {
 	needs := m.active().needs()
 	clients, epoch, withArchive, withWorktrees := m.api, m.epoch, needs.archive, needs.worktrees
 
-	// The listing the watch has built is what this poll is checked against once it is in.
-	var watched *listing
-	if m.watching {
-		held := m.listing
-		watched = &held
-	}
-
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), agentsTimeout)
 		defer cancel()
@@ -121,10 +114,6 @@ func (m model) refreshCmd() tea.Cmd {
 			})
 		}
 		wg.Wait()
-
-		if watched != nil {
-			logDrift(ctx, *watched, result)
-		}
 
 		return result
 	}
