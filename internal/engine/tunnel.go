@@ -113,7 +113,7 @@ func (t *Tunnel) Close() error {
 	return nil
 }
 
-// waitForPort blocks until the forward is carrying traffic, since ssh returns before it is.
+// waitForPort blocks until the forward is carrying traffic.
 func waitForPort(ctx context.Context, address string, wait time.Duration) error {
 	deadline := time.Now().Add(wait)
 

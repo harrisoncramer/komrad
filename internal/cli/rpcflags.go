@@ -17,7 +17,7 @@ const nestingLimit = 2
 type requestFields struct {
 	bound   []boundField
 	skipped []string
-	// exclusive groups the flags of one oneof, since a request may carry only one of them.
+	// exclusive groups the flags of one oneof.
 	exclusive [][]string
 	// groups is where each oneof's flags are being collected, by that oneof's place in the request.
 	groups map[string]int

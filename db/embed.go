@@ -245,8 +245,7 @@ func refuseSharedDatabase(ctx context.Context, conn *pgxpool.Conn, pending []str
 // unlockTimeout bounds the unlock so it cannot hang on a connection whose peer is gone.
 const unlockTimeout = 5 * time.Second
 
-// releaseMigrateLock unlocks on a context of its own, since a cancelled caller context would
-// fail before reaching the server and leave the pooled connection holding the lock.
+// releaseMigrateLock unlocks on a context of its own.
 func releaseMigrateLock(ctx context.Context, conn *pgxpool.Conn) {
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), unlockTimeout)
 	defer cancel()

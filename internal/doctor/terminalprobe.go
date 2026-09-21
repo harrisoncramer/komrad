@@ -18,7 +18,7 @@ import (
 const cursorReplyTimeout = 500 * time.Millisecond
 
 // MeasureColumnsOnTTY writes each sample to the controlling terminal and asks where the cursor
-// landed, which is the width that terminal drew it in with the font it is using.
+// landed.
 func MeasureColumnsOnTTY(ctx context.Context, samples []string) ([]int, error) {
 	if !term.IsTerminal(int(os.Stdin.Fd())) || !term.IsTerminal(int(os.Stdout.Fd())) {
 		return nil, ErrNoTerminal

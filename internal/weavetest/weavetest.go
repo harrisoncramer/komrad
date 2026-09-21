@@ -10,9 +10,8 @@
 // writes into its harness root for the first time whenever it gets there, which can be after the
 // test has ended, so that root is a directory of weavetest's own rather than a t.TempDir, removed
 // with tolerance for a write that lands mid-walk. And the temp directories are claimed before the
-// tmux server, since cleanups run in reverse and that is what leaves the panes dead before the
-// tree beneath them goes. Neither is cosmetic: both surface as "TempDir RemoveAll cleanup:
-// directory not empty" against a test whose own assertions all passed.
+// tmux server, so the panes are dead before the tree beneath them goes. Both surface as
+// "TempDir RemoveAll cleanup: directory not empty" against a test whose own assertions all passed.
 package weavetest
 
 import (
@@ -107,7 +106,7 @@ func Start(t *testing.T, p Params) *Instance {
 		p.MaxAgents = 50
 	}
 
-	// Claimed before the tmux server, which is what orders the two teardowns.
+	// Claimed before the tmux server.
 	root := t.TempDir()
 	harnessDir := harnessRoot(t)
 
@@ -229,7 +228,7 @@ const (
 func harnessRoot(t *testing.T) string {
 	t.Helper()
 
-	//nolint:usetesting // a t.TempDir here is removed strictly, which is what turns a straggling pane's write into a failure
+	//nolint:usetesting // a t.TempDir here is removed strictly, so a straggling pane's write fails the test
 	dir, err := os.MkdirTemp("", "weavetest-harness-")
 	require.NoError(t, err)
 
@@ -366,8 +365,7 @@ func (i *Instance) WaitForActivity(agentID string, activity harness.Activity) {
 	i.t.Fatalf("agent %s never showed activity %v in its own pane", agentID, activity)
 }
 
-// Deliver runs one pass of the work the delivery queue does for an agent, which is what
-// gets mail to somebody who has stopped and would otherwise never look.
+// Deliver runs one pass of the work the delivery queue does for an agent.
 func (i *Instance) Deliver(agentID string) agents.Delivery {
 	i.t.Helper()
 

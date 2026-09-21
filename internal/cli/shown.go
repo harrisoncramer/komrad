@@ -49,8 +49,8 @@ func isPanelShownHere(state *app) bool {
 
 	here := state.tmux.GetHostSocket() == socket && state.popup.IsShown()
 
-	// This runs on the user's server on every press, which is the last moment before the panel
-	// is on screen, so it is where the directory a new agent inherits is freshest.
+	// This runs on the user's server on every press, the last moment before the panel is on
+	// screen.
 	state.tmux.RecordHostPath(hostPath(socket))
 
 	return here

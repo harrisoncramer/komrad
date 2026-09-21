@@ -1,11 +1,10 @@
 // Package engine says how the panel reaches the weave an agent is running in.
 //
-// An agent's terminal belongs to the tmux server the engine runs on. When that is
-// this machine the panel shows it by moving the pane itself into the stage, which is what
-// swap-pane does and what the rest of the layout code assumes. When the engine is somewhere
-// else that move is impossible, because a pane cannot cross tmux servers, so the stage instead
-// runs a command that attaches to the engine's tmux over ssh and lets the local server draw
-// what comes back.
+// An agent's terminal belongs to the tmux server the engine runs on. When that is this machine
+// the panel shows it by moving the pane itself into the stage with swap-pane, which the rest of
+// the layout code assumes. When the engine is somewhere else a pane cannot cross tmux servers,
+// so the stage instead runs a command that attaches to the engine's tmux over ssh and lets the
+// local server draw what comes back.
 package engine
 
 import (
@@ -57,7 +56,7 @@ func (r Remote) AttachArgv(pane string) []string {
 	command := r.attachScript(pane)
 
 	// A transport that does not arrive as the account owning the engine's tmux steps into it
-	// here, since only the transport knows whose session it opened.
+	// here.
 	if r.User != "" {
 		command = "sudo -u " + quote(r.User) + " sh -c " + quote(command)
 	}
@@ -100,8 +99,7 @@ func (r Remote) attachScript(pane string) string {
 	tmux := "tmux -L " + quote(r.Socket)
 	view := quote(ViewSession(pane))
 
-	// The window is looked up rather than passed in, since the panel knows an agent by its pane
-	// and only the engine can say which window holds it.
+	// The window is looked up rather than passed in.
 	window := "$(" + tmux + " display-message -p -t " + quote(pane) + " '#{window_id}')"
 
 	return strings.Join([]string{
@@ -115,7 +113,7 @@ func (r Remote) attachScript(pane string) string {
 }
 
 // quote wraps a value for the shell on the far side, which is given one string rather than an
-// argv and so would otherwise split on whatever the value contains.
+// argv.
 func quote(value string) string {
 	return "'" + strings.ReplaceAll(value, "'", `'\''`) + "'"
 }

@@ -1,10 +1,10 @@
 // Package errui draws the failures a person has to see: the full screens weave falls back to
 // when it cannot start, and the readers that reduce a service error to the part worth showing.
 //
-// A failure at startup has no panel to report itself inside, since the panel is the thing that
-// did not come up, so it is rendered as a screen of its own carrying the reason, the details
-// needed to fix it, and the trace id to search the service log by. Every failure while the panel
-// is already running is reported in the panel's own message region instead.
+// A failure at startup has no panel to report itself inside, so it is rendered as a screen of
+// its own carrying the reason, the details needed to fix it, and the trace id to search the
+// service log by. Every failure while the panel is already running is reported in the panel's
+// own message region instead.
 package errui
 
 import (

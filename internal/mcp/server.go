@@ -20,8 +20,8 @@ type NewHandlerParams struct {
 	BaseURL string
 }
 
-// NewHandler builds the MCP server as an HTTP handler with no auth on it, which is safe only
-// while it listens on loopback.
+// NewHandler builds the MCP server as an HTTP handler with no auth on it, safe only while it
+// listens on loopback.
 func NewHandler(params NewHandlerParams) (http.Handler, error) {
 	server := mcpsdk.NewServer(&mcpsdk.Implementation{
 		Name:    "weave-db",

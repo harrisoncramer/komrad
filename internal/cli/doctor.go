@@ -103,8 +103,7 @@ func (a *app) runDoctor(ctx context.Context, onTTY bool) (doctor.Report, error) 
 		return doctor.Report{}, err
 	}
 
-	// The terminal is taken over only for the command a person typed, since anything
-	// already drawing reads a cursor query's answer as a keypress.
+	// The terminal is taken over only for the command a person typed.
 	if onTTY {
 		env.MeasureColumns = doctor.MeasureColumnsOnTTY
 	}

@@ -58,7 +58,7 @@ func (s *Server) Run(args ...string) string {
 	return strings.TrimSpace(string(out))
 }
 
-// NewSession starts a detached session, which is what a pane can be opened in afterwards.
+// NewSession starts a detached session.
 func (s *Server) NewSession(name string) {
 	s.t.Helper()
 	s.Run("new-session", "-d", "-s", name, "-c", s.t.TempDir())
@@ -72,7 +72,7 @@ func (s *Server) Spawn(name, command string) string {
 	return s.Run("display-message", "-p", "-t", name, "#{pane_id}")
 }
 
-// Kill tears down a session, which is what an agent's pane going away looks like.
+// Kill tears down a session.
 func (s *Server) Kill(name string) {
 	s.t.Helper()
 	s.Run("kill-session", "-t", name)

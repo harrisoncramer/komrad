@@ -486,8 +486,7 @@ func (s *AgentService) SetMetadata(ctx context.Context, req *agentv1.SetMetadata
 	return &emptypb.Empty{}, nil
 }
 
-// Log writes one line to weave's log for an agent, which is how a running script whose stdout
-// goes nowhere says what it did.
+// Log writes one line to weave's log for an agent.
 func (s *AgentService) Log(ctx context.Context, req *agentv1.LogRequest) (*emptypb.Empty, *fail.Error) {
 	id, failure := scopedAgentID(ctx, req.GetId())
 	if failure != nil {

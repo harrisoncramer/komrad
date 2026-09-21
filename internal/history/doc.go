@@ -5,9 +5,9 @@
 // caller arrives somewhere by choice, which drops everything after the cursor, removes any
 // earlier entry for the same place, and appends.
 //
-// Dropping keeps stepping back honest, since the list is then the path actually taken to the
-// current entry rather than a record of everywhere the cursor has sat. Removing the earlier entry
-// is what makes the keypress worth pressing: without it, bouncing between two places by hand
+// Dropping keeps stepping back honest: the list is then the path actually taken to the current
+// entry rather than a record of everywhere the cursor has sat. Removing the earlier entry is
+// what makes the keypress worth pressing: without it, bouncing between two places by hand
 // leaves a list alternating between them, and three steps back reach only two places.
 //
 // Arriving where you already are is ignored rather than treated as a move, so a caller that walks
