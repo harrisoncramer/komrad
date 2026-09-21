@@ -20,18 +20,18 @@ type Size struct {
 	Error string
 }
 
-// Store reads and writes worktree sizes.
-type Store struct {
+// WorktreeStore reads and writes worktree sizes.
+type WorktreeStore struct {
 	queries *models.Queries
 }
 
-// New builds a size store over a pool or transaction.
-func New(db store.DBTX) *Store {
-	return &Store{queries: models.New(db)}
+// NewWorktreeStore builds a size store over a pool or transaction.
+func NewWorktreeStore(db store.DBTX) *WorktreeStore {
+	return &WorktreeStore{queries: models.New(db)}
 }
 
 // ListSizes reads every measurement, by directory.
-func (s *Store) ListSizes(ctx context.Context) ([]Size, error) {
+func (s *WorktreeStore) ListSizes(ctx context.Context) ([]Size, error) {
 	rows, err := s.queries.ListWorktreeSizes(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list worktree sizes: %w", err)
@@ -52,7 +52,7 @@ func (s *Store) ListSizes(ctx context.Context) ([]Size, error) {
 }
 
 // Upsert writes a directory's measurement over whatever it held.
-func (s *Store) Upsert(ctx context.Context, size Size) error {
+func (s *WorktreeStore) Upsert(ctx context.Context, size Size) error {
 	params := models.UpsertWorktreeSizeParams{
 		Dir:        size.Dir,
 		SizeBytes:  size.Bytes,
@@ -70,7 +70,7 @@ func (s *Store) Upsert(ctx context.Context, size Size) error {
 }
 
 // Delete forgets the measurements of the directories named.
-func (s *Store) Delete(ctx context.Context, dirs []string) error {
+func (s *WorktreeStore) Delete(ctx context.Context, dirs []string) error {
 	if len(dirs) == 0 {
 		return nil
 	}

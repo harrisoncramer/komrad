@@ -11,14 +11,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func open(t *testing.T) *Store {
+func open(t *testing.T) *WorktreeStore {
 	t.Helper()
 
 	pool, err := store.Open(t.Context(), dbtest.URL(t))
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = pool.Close() })
 
-	return New(pool.GetDB())
+	return NewWorktreeStore(pool.GetDB())
 }
 
 // TestUpsertReplacesAMeasurement covers a second write over the same directory replacing the
