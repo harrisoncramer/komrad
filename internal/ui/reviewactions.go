@@ -51,6 +51,11 @@ func (r *reviewScreen) table() []screenAction {
 			run:  r.pagePressed,
 		},
 		{
+			id:   actionColumnScroll,
+			keys: func(k config.Keybindings) []string { return concatKeys(k.Column.ScrollDown, k.Column.ScrollUp) },
+			run:  r.wheelPressed,
+		},
+		{
 			id:   actionReviewFile,
 			keys: func(k config.Keybindings) []string { return concatKeys(k.Review.NextFile, k.Review.PrevFile) },
 			run:  r.stepFile,
@@ -230,6 +235,13 @@ func (r *reviewScreen) legend() []screenLegendRow {
 			of:    []actionID{actionNavPage},
 			desc:  func(panelShared) string { return "page" },
 			label: navPageLabel,
+		},
+		{
+			of:   []actionID{actionColumnScroll},
+			desc: func(panelShared) string { return "scroll" },
+			label: func(k config.Keybindings) string {
+				return keyLabel(k.Column.ScrollDown) + "/" + keyLabel(k.Column.ScrollUp)
+			},
 		},
 		{
 			of:   []actionID{actionReviewFile},

@@ -5,6 +5,7 @@ package tmux
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -116,4 +117,112 @@ func paneOption(t *testing.T, c *Client, pane, format string) string {
 	require.NoError(t, err)
 
 	return out
+}
+
+// TestTakePanelWheelPressesTheScrollKeyOnThePanelPane pins the wheel binding's shape: the pane
+// under the mouse presses the scroll key when it is the panel's, and the user's own command runs
+// everywhere else.
+func TestTakePanelWheelPressesTheScrollKeyOnThePanelPane(t *testing.T) {
+	client := testServer(t, "wheel")
+
+	config := filepath.Join(t.TempDir(), "tmux.conf")
+	require.NoError(t, os.WriteFile(config, []byte(`
+bind -n WheelUpPane if-shell -F "#{||:#{pane_in_mode},#{mouse_any_flag}}" { send-keys -M } { copy-mode -e }
+bind -n WheelDownPane send-keys -M
+`), 0o600))
+	_, err := client.query("source-file", config)
+	require.NoError(t, err)
+
+	require.NoError(t, client.TakePanelWheel("ctrl+p", "ctrl+n"))
+
+	rebound, err := client.GetRootKeys()
+	require.NoError(t, err)
+
+	for _, wheel := range []string{"WheelUpPane", "WheelDownPane"} {
+		assert.True(t, IsPanelPassThrough(rebound[wheel]), "%s is now the panel's: %s", wheel, rebound[wheel])
+		assert.Contains(t, rebound[wheel], "-t = ", "the pane under the mouse is the one asked and pressed")
+		assert.Contains(t, rebound[wheel], "pane_in_mode", "copy-mode over the panel keeps the wheel")
+	}
+
+	assert.Contains(t, rebound["WheelUpPane"], "send-keys -t = 'C-p'")
+	assert.Contains(t, rebound["WheelUpPane"], "copy-mode -e", "the user's command is the other arm")
+	assert.Contains(t, rebound["WheelDownPane"], "send-keys -t = 'C-n'")
+
+	require.NoError(t, client.TakePanelWheel("ctrl+p", "ctrl+n"))
+
+	again, err := client.GetRootKeys()
+	require.NoError(t, err)
+	assert.Equal(t, rebound, again, "a second panel finds the wheel taken and leaves it be")
+
+	require.NoError(t, client.TakePanelWheel("ctrl+u", "ctrl+d"))
+
+	moved, err := client.GetRootKeys()
+	require.NoError(t, err)
+	assert.Contains(t, moved["WheelUpPane"], "send-keys -t = 'C-u'", "a panel with another scroll key presses that one")
+	assert.Contains(t, moved["WheelUpPane"], "copy-mode -e", "and the user's command is still the other arm")
+	assert.Contains(t, moved["WheelDownPane"], "send-keys -t = 'C-d'")
+	assert.NotContains(t, moved["WheelDownPane"], "C-n")
+
+	pane, err := client.query("new-window", "-P", "-F", "#{pane_id}", "-t", "wheel:", "--", "cat")
+	require.NoError(t, err)
+
+	other, err := client.query("split-window", "-P", "-F", "#{pane_id}", "-t", pane, "--", "cat")
+	require.NoError(t, err)
+
+	client.RecordPanelPane(pane)
+	assert.Equal(t, "1", paneOption(t, client, pane, wheelPaneFormat[2:len(wheelPaneFormat)-1]), "the panel's pane takes the wheel")
+	assert.Equal(t, "0", paneOption(t, client, other, wheelPaneFormat[2:len(wheelPaneFormat)-1]), "any other pane keeps the user's binding")
+
+	_, err = client.query("copy-mode", "-t", pane)
+	require.NoError(t, err)
+	assert.Equal(t, "0", paneOption(t, client, pane, wheelPaneFormat[2:len(wheelPaneFormat)-1]), "copy-mode over the panel keeps the user's binding")
+	_, err = client.query("send-keys", "-t", pane, "-X", "cancel")
+	require.NoError(t, err)
+}
+
+// TestWheelOverThePanelPressesItsScrollKey turns a real wheel, written to the client's terminal
+// as the mouse sequence, over each pane of a split window.
+func TestWheelOverThePanelPressesItsScrollKey(t *testing.T) {
+	client := testServer(t, "turn")
+	client.SetGlobal("mouse", "on")
+
+	config := filepath.Join(t.TempDir(), "tmux.conf")
+	require.NoError(t, os.WriteFile(config, []byte(`
+bind -n WheelUpPane if-shell -F "#{||:#{pane_in_mode},#{mouse_any_flag}}" { send-keys -M } { set -g @turned yes }
+`), 0o600))
+	_, err := client.query("source-file", config)
+	require.NoError(t, err)
+
+	pane, err := client.query("new-window", "-P", "-F", "#{pane_id}", "-t", "turn:", "--",
+		"sh", "-c", "stty raw -echo; cat -v")
+	require.NoError(t, err)
+
+	other, err := client.query("split-window", "-v", "-P", "-F", "#{pane_id}", "-t", pane, "--", "cat")
+	require.NoError(t, err)
+
+	require.NoError(t, client.TakePanelWheel("ctrl+p", "ctrl+n"))
+	client.RecordPanelPane(pane)
+
+	outer := attachClient(t, client, "turn")
+
+	wheelUp := func(row int) {
+		t.Helper()
+
+		_, err := outer.query("send-keys", "-l", "\x1b[<64;5;"+strconv.Itoa(row)+"M")
+		require.NoError(t, err)
+	}
+
+	wheelUp(2)
+
+	require.Eventually(t, func() bool {
+		return strings.Contains(client.CapturePane(pane), "^P")
+	}, 5*time.Second, 20*time.Millisecond, "the wheel over the panel presses its scroll key")
+	assert.Empty(t, client.ShowGlobal("@turned"), "and the user's binding did not run")
+
+	wheelUp(20)
+
+	require.Eventually(t, func() bool {
+		return client.ShowGlobal("@turned") == "yes"
+	}, 5*time.Second, 20*time.Millisecond, "the wheel over any other pane runs the user's binding")
+	assert.NotContains(t, client.CapturePane(other), "^P")
 }

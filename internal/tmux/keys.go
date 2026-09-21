@@ -8,6 +8,12 @@ import (
 
 const panelPaneFormat = "#{==:#{pane_id},#{" + panelPaneOption + "}}"
 
+// wheelOptionPrefix names the global options holding the user's own wheel commands.
+const wheelOptionPrefix = "@weave_wheel_"
+
+// wheelPaneFormat is true of the panel's pane outside copy-mode.
+const wheelPaneFormat = "#{&&:" + panelPaneFormat + ",#{==:#{pane_in_mode},0}}"
+
 var keyNames = map[string]string{
 	" ":         "Space",
 	"enter":     "Enter",
@@ -80,7 +86,53 @@ func (c *Client) TakePanelKeys(keys []string) error {
 	return errors.Join(errs...)
 }
 
-// IsPanelPassThrough reports whether a root binding is one TakePanelKeys made.
+// TakePanelWheel rebinds the mouse wheel to press the panel's scroll keys on its own pane and
+// keep the user's command everywhere else.
+func (c *Client) TakePanelWheel(up, down string) error {
+	held, err := c.GetRootKeys()
+	if err != nil {
+		return err
+	}
+
+	var errs []error
+
+	for _, turn := range []struct{ wheel, key string }{{"WheelUpPane", up}, {"WheelDownPane", down}} {
+		if turn.key == "" {
+			continue
+		}
+
+		command, ok := held[turn.wheel]
+		if !ok {
+			continue
+		}
+
+		through := "send-keys -t = " + quoteKey(SpellKey(turn.key))
+
+		option := wheelOptionPrefix + turn.wheel
+		if IsPanelPassThrough(command) {
+			if strings.Contains(command, through) {
+				continue
+			}
+
+			command = c.ShowGlobal(option)
+			if command == "" {
+				continue
+			}
+		} else {
+			c.SetGlobal(option, command)
+		}
+
+		otherwise := strings.ReplaceAll(command, ` \; `, " ; ")
+
+		if _, err := c.query("bind-key", "-n", turn.wheel, "if-shell", "-F", "-t", "=", wheelPaneFormat, through, otherwise); err != nil {
+			errs = append(errs, fmt.Errorf("failed to pass %s to the panel: %w", turn.wheel, err))
+		}
+	}
+
+	return errors.Join(errs...)
+}
+
+// IsPanelPassThrough reports whether a root binding is one the panel made for itself.
 func IsPanelPassThrough(command string) bool {
 	return strings.HasPrefix(command, "if-shell") && strings.Contains(command, panelPaneFormat)
 }

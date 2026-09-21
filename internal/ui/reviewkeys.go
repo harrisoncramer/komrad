@@ -79,6 +79,14 @@ func (r *reviewScreen) updateThread(s panelShared, k string) bool {
 		r.scrollThread(s, -r.threads.scroll)
 
 		return true
+	case isBound(k, s.keys.Column.ScrollUp):
+		r.scrollThread(s, reviewWheelStep)
+
+		return true
+	case isBound(k, s.keys.Column.ScrollDown):
+		r.scrollThread(s, -reviewWheelStep)
+
+		return true
 	}
 
 	return false
@@ -335,8 +343,23 @@ func (r *reviewScreen) moveCursor(h host, s panelShared, next int) tea.Cmd {
 }
 
 func (r *reviewScreen) scroll(h host, s panelShared, direction int) tea.Cmd {
+	return r.step(h, s, direction, navPageStep)
+}
+
+// reviewWheelStep is how many rows one scroll key moves the diff.
+const reviewWheelStep = 3
+
+func (r *reviewScreen) wheelPressed(h host, s panelShared, pressed string) tea.Cmd {
+	if isBound(pressed, s.keys.Column.ScrollUp) {
+		return r.step(h, s, -1, reviewWheelStep)
+	}
+
+	return r.step(h, s, 1, reviewWheelStep)
+}
+
+func (r *reviewScreen) step(h host, s panelShared, direction, rows int) tea.Cmd {
 	cursor := r.diff.cursor
-	for range navPageStep {
+	for range rows {
 		cursor = r.diff.view.Move(cursor, direction)
 	}
 
