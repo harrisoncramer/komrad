@@ -5,6 +5,7 @@ package e2e
 import (
 	"testing"
 
+	agentstore "weave/internal/store/agent"
 	"weave/internal/weavetest"
 	agentv1 "weave/proto/gen/agent/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
@@ -36,7 +37,7 @@ func TestWorktreeRemovedReachesTheCaller(t *testing.T) {
 	agentID := created.Msg.GetAgent().GetId()
 	assert.False(t, created.Msg.GetAgent().GetWorktreeRemoved(), "a freshly created agent has a cwd")
 
-	require.NoError(t, instance.Stores.Agents.SetWorktreeRemovedByID(ctx, agentID, true))
+	require.NoError(t, instance.Stores.Agents.SetCheckout(ctx, agentID, agentstore.SetCheckoutParams{WorktreeRemoved: true}))
 
 	fetched, err := instance.Agents.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: agentID}))
 	require.NoError(t, err)

@@ -212,6 +212,7 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 	pullRequestSyncer := agents.NewPullRequestSyncer(agents.NewPullRequestSyncerParams{
 		Forges:       forgeService,
 		PullRequests: st.pullRequests,
+		Syncs:        st.pullRequestSyncs,
 		Tx:           st.pool,
 	})
 	cwdSyncer := agents.NewCwdSyncer(agents.NewCwdSyncerParams{

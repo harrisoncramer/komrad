@@ -65,8 +65,8 @@ type agentResumer interface {
 }
 
 type agentHolder interface {
-	Hold(ctx context.Context, agentID string) (agentstore.Agent, error)
-	Release(ctx context.Context, params agents.ReleaseParams) (agentstore.Agent, error)
+	Hold(ctx context.Context, agentID string) (*agentstore.Agent, error)
+	Release(ctx context.Context, params agents.ReleaseParams) (*agentstore.Agent, error)
 }
 
 type agentReadWriter interface {
@@ -103,51 +103,57 @@ type archiveEmptier interface {
 // stands.
 type currentPullRequestReader interface {
 	ListCurrentPullRequests(ctx context.Context) ([]pullrequeststore.Current, error)
+}
+
+// readRepositoryLister is what the listing reads to tell an unread repository from a read one.
+type readRepositoryLister interface {
 	ListReadRepositories(ctx context.Context) ([]string, error)
 }
 
 type AgentService struct {
-	agents       agentReadWriter
-	transcripts  transcriptReader
-	mail         mailer
-	creator      agentCreator
-	adopter      agentAdopter
-	liveness     agentLiveness
-	trees        standingGetter
-	lifecycle    agentLifecycle
-	resumer      agentResumer
-	holder       agentHolder
-	reconciler   reportRecorder
-	archive      archiveEmptier
-	review       reviewConversation
-	runs         runReadWriter
-	marks        markReadWriter
-	refresher    worktreeRefresher
-	orchestrator orchestratorStarter
-	pullRequests currentPullRequestReader
-	now          func() time.Time
+	agents           agentReadWriter
+	transcripts      transcriptReader
+	mail             mailer
+	creator          agentCreator
+	adopter          agentAdopter
+	liveness         agentLiveness
+	trees            standingGetter
+	lifecycle        agentLifecycle
+	resumer          agentResumer
+	holder           agentHolder
+	reconciler       reportRecorder
+	archive          archiveEmptier
+	review           reviewConversation
+	runs             runReadWriter
+	marks            markReadWriter
+	refresher        worktreeRefresher
+	orchestrator     orchestratorStarter
+	pullRequests     currentPullRequestReader
+	pullRequestSyncs readRepositoryLister
+	now              func() time.Time
 }
 
 type NewAgentServiceParams struct {
-	Agents       agentReadWriter
-	Transcripts  transcriptReader
-	Mail         mailer
-	Creator      agentCreator
-	Adopter      agentAdopter
-	Liveness     agentLiveness
-	Trees        standingGetter
-	Lifecycle    agentLifecycle
-	Resumer      agentResumer
-	Holder       agentHolder
-	Reconciler   reportRecorder
-	Archive      archiveEmptier
-	Review       reviewConversation
-	Runs         runReadWriter
-	Marks        markReadWriter
-	Refresher    worktreeRefresher
-	Orchestrator orchestratorStarter
-	PullRequests currentPullRequestReader
-	Clock        func() time.Time
+	Agents           agentReadWriter
+	Transcripts      transcriptReader
+	Mail             mailer
+	Creator          agentCreator
+	Adopter          agentAdopter
+	Liveness         agentLiveness
+	Trees            standingGetter
+	Lifecycle        agentLifecycle
+	Resumer          agentResumer
+	Holder           agentHolder
+	Reconciler       reportRecorder
+	Archive          archiveEmptier
+	Review           reviewConversation
+	Runs             runReadWriter
+	Marks            markReadWriter
+	Refresher        worktreeRefresher
+	Orchestrator     orchestratorStarter
+	PullRequests     currentPullRequestReader
+	PullRequestSyncs readRepositoryLister
+	Clock            func() time.Time
 }
 
 // NewAgentService constructs the handler from the stores it reads and the services that move agents
@@ -159,25 +165,26 @@ func NewAgentService(params NewAgentServiceParams) *AgentService {
 	}
 
 	return &AgentService{
-		agents:       params.Agents,
-		transcripts:  params.Transcripts,
-		mail:         params.Mail,
-		creator:      params.Creator,
-		adopter:      params.Adopter,
-		liveness:     params.Liveness,
-		trees:        params.Trees,
-		lifecycle:    params.Lifecycle,
-		resumer:      params.Resumer,
-		holder:       params.Holder,
-		reconciler:   params.Reconciler,
-		archive:      params.Archive,
-		review:       params.Review,
-		runs:         params.Runs,
-		marks:        params.Marks,
-		refresher:    params.Refresher,
-		orchestrator: params.Orchestrator,
-		pullRequests: params.PullRequests,
-		now:          now,
+		agents:           params.Agents,
+		transcripts:      params.Transcripts,
+		mail:             params.Mail,
+		creator:          params.Creator,
+		adopter:          params.Adopter,
+		liveness:         params.Liveness,
+		trees:            params.Trees,
+		lifecycle:        params.Lifecycle,
+		resumer:          params.Resumer,
+		holder:           params.Holder,
+		reconciler:       params.Reconciler,
+		archive:          params.Archive,
+		review:           params.Review,
+		runs:             params.Runs,
+		marks:            params.Marks,
+		refresher:        params.Refresher,
+		orchestrator:     params.Orchestrator,
+		pullRequests:     params.PullRequests,
+		pullRequestSyncs: params.PullRequestSyncs,
+		now:              now,
 	}
 }
 
@@ -304,7 +311,7 @@ func (s *AgentService) agentFlagsFor(ctx context.Context, listed []agentstore.Ag
 	}
 	current := xslice.KeyBy(listedCurrent, func(entry pullrequeststore.Current) string { return entry.AgentID })
 
-	readRepositories, err := s.pullRequests.ListReadRepositories(ctx)
+	readRepositories, err := s.pullRequestSyncs.ListReadRepositories(ctx)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to list the repositories the sync has read")
 	}
@@ -647,11 +654,8 @@ func (s *AgentService) RetryAgent(ctx context.Context, req *agentv1.RetryAgentRe
 }
 
 // HoldAgent stops an agent so a person may take its worktree, refusing unless it is seen to come
-// to rest.
+// to rest and refusing an agent that asks to hold itself.
 func (s *AgentService) HoldAgent(ctx context.Context, req *agentv1.HoldAgentRequest) (*agentv1.HoldAgentResponse, *fail.Error) {
-	// Explainer: a caller is part-way through a turn by definition, so a hold on itself interrupts
-	// the turn that asked, reads as settled, and is granted, which leaves the agent stopped with
-	// nobody who knows to release it. A person pressing the key carries no agent id and is unaffected.
 	if from := caller.From(ctx).AgentID; from != "" && from == req.GetId() {
 		return nil, agents.ErrHoldSelf
 	}
@@ -661,7 +665,7 @@ func (s *AgentService) HoldAgent(ctx context.Context, req *agentv1.HoldAgentRequ
 		return nil, rpcerr.From(err, "failed to hold agent")
 	}
 
-	rendered, failure := s.renderOneAgent(ctx, held)
+	rendered, failure := s.renderOneAgent(ctx, *held)
 	if failure != nil {
 		return nil, failure
 	}
@@ -679,7 +683,7 @@ func (s *AgentService) ReleaseAgent(ctx context.Context, req *agentv1.ReleaseAge
 		return nil, rpcerr.From(err, "failed to release agent")
 	}
 
-	rendered, failure := s.renderOneAgent(ctx, released)
+	rendered, failure := s.renderOneAgent(ctx, *released)
 	if failure != nil {
 		return nil, failure
 	}

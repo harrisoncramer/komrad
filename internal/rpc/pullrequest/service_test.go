@@ -206,7 +206,7 @@ func TestListAgentPullRequests(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		seed        func(t *testing.T, st *storetest.Stores, pullRequests *pullrequeststore.Store) string
+		seed        func(t *testing.T, st *storetest.Stores) string
 		wantCode    connect.Code
 		wantRead    bool
 		wantNumbers []int
@@ -215,14 +215,14 @@ func TestListAgentPullRequests(t *testing.T) {
 	}{
 		{
 			name: "an id nobody holds",
-			seed: func(*testing.T, *storetest.Stores, *pullrequeststore.Store) string {
+			seed: func(*testing.T, *storetest.Stores) string {
 				return "00000000-0000-0000-0000-000000000000"
 			},
 			wantCode: connect.CodeNotFound,
 		},
 		{
 			name: "a checkout that is not on a forge repository lists nothing",
-			seed: func(t *testing.T, st *storetest.Stores, _ *pullrequeststore.Store) string {
+			seed: func(t *testing.T, st *storetest.Stores) string {
 				t.Helper()
 
 				return st.SeedAgent(t, agentstore.Agent{Name: "local"}).ID
@@ -230,7 +230,7 @@ func TestListAgentPullRequests(t *testing.T) {
 		},
 		{
 			name: "a repository the sync has not read lists nothing and no read stamp",
-			seed: func(t *testing.T, st *storetest.Stores, _ *pullrequeststore.Store) string {
+			seed: func(t *testing.T, st *storetest.Stores) string {
 				t.Helper()
 
 				return seedAgentOn(t, st, "unread", "agent/x")
@@ -238,32 +238,32 @@ func TestListAgentPullRequests(t *testing.T) {
 		},
 		{
 			name: "a repository asked about but never swept has no read stamp",
-			seed: func(t *testing.T, st *storetest.Stores, pullRequests *pullrequeststore.Store) string {
+			seed: func(t *testing.T, st *storetest.Stores) string {
 				t.Helper()
 				ctx := t.Context()
 
 				id := seedAgentOn(t, st, "missing", "agent/missing")
-				require.NoError(t, pullRequests.EnsureSync(ctx, weaveRepository))
-				require.NoError(t, pullRequests.RecordSyncRequest(ctx, weaveRepository))
+				require.NoError(t, st.PullRequestSyncs.EnsureSync(ctx, weaveRepository))
+				require.NoError(t, st.PullRequestSyncs.RecordSyncRequest(ctx, weaveRepository))
 
 				return id
 			},
 		},
 		{
 			name: "the branch's pull requests, newest opened first, with the current one marked",
-			seed: func(t *testing.T, st *storetest.Stores, pullRequests *pullrequeststore.Store) string {
+			seed: func(t *testing.T, st *storetest.Stores) string {
 				t.Helper()
 				ctx := t.Context()
 
 				id := seedAgentOn(t, st, "on-branch", "agent/x")
-				require.NoError(t, pullRequests.EnsureSync(ctx, weaveRepository))
-				require.NoError(t, pullRequests.RecordSyncRequest(ctx, weaveRepository))
-				require.NoError(t, pullRequests.StartSweep(ctx, pullrequeststore.StartSweepParams{
+				require.NoError(t, st.PullRequestSyncs.EnsureSync(ctx, weaveRepository))
+				require.NoError(t, st.PullRequestSyncs.RecordSyncRequest(ctx, weaveRepository))
+				require.NoError(t, st.PullRequestSyncs.StartSweep(ctx, pullrequeststore.StartSweepParams{
 					RepositoryURL: weaveRepository,
 					Newest:        opened,
 					ListedAt:      opened,
 				}))
-				require.NoError(t, pullRequests.CompleteSweep(ctx, weaveRepository))
+				require.NoError(t, st.PullRequestSyncs.CompleteSweep(ctx, weaveRepository))
 
 				mergedAt := opened.Add(2 * time.Hour)
 				for _, params := range []pullrequeststore.UpsertParams{
@@ -271,12 +271,12 @@ func TestListAgentPullRequests(t *testing.T) {
 					storedPullRequest("PR_2", 2, opened.Add(time.Hour), nil),
 					storedPullRequest("PR_3", 3, opened.Add(2*time.Hour), &mergedAt),
 				} {
-					_, err := pullRequests.Upsert(ctx, params)
+					_, err := st.PullRequests.Upsert(ctx, params)
 					require.NoError(t, err)
 				}
-				approved, err := pullRequests.GetByIdentity(ctx, "github.com", "PR_2")
+				approved, err := st.PullRequests.GetByIdentity(ctx, "github.com", "PR_2")
 				require.NoError(t, err)
-				require.NoError(t, pullRequests.SetReviewDecision(ctx, approved.ID, forge.ReviewDecisionApproved))
+				require.NoError(t, st.PullRequests.SetReviewDecision(ctx, approved.ID, forge.ReviewDecisionApproved))
 
 				return id
 			},
@@ -296,13 +296,13 @@ func TestListAgentPullRequests(t *testing.T) {
 			t.Parallel()
 
 			st := storetest.Open(t)
-			pullRequests := pullrequeststore.New(st.Pool.GetDB())
 			service := pullrequestv1weave.PullRequestServiceAdapter{Impl: NewPullRequestService(NewPullRequestServiceParams{
-				Forges:       &fakeFinder{forge: &fakeForge{}},
-				Agents:       st.Agents,
-				PullRequests: pullRequests,
+				Forges:           &fakeFinder{forge: &fakeForge{}},
+				Agents:           st.Agents,
+				PullRequests:     st.PullRequests,
+				PullRequestSyncs: st.PullRequestSyncs,
 			})}
-			id := tt.seed(t, st, pullRequests)
+			id := tt.seed(t, st)
 
 			resp, err := service.ListAgentPullRequests(t.Context(), connect.NewRequest(&pullrequestv1.ListAgentPullRequestsRequest{AgentId: id}))
 			if tt.wantCode != 0 {
@@ -338,10 +338,10 @@ func TestListAgentPullRequestsFallsBackToTheNewestFinished(t *testing.T) {
 
 	st := storetest.Open(t)
 	ctx := t.Context()
-	pullRequests := pullrequeststore.New(st.Pool.GetDB())
 	service := pullrequestv1weave.PullRequestServiceAdapter{Impl: NewPullRequestService(NewPullRequestServiceParams{
-		Agents:       st.Agents,
-		PullRequests: pullRequests,
+		Agents:           st.Agents,
+		PullRequests:     st.PullRequests,
+		PullRequestSyncs: st.PullRequestSyncs,
 	})}
 	id := seedAgentOn(t, st, "finished", "agent/x")
 
@@ -351,7 +351,7 @@ func TestListAgentPullRequestsFallsBackToTheNewestFinished(t *testing.T) {
 		storedPullRequest("PR_1", 1, opened, &closedAt),
 		storedPullRequest("PR_2", 2, opened.Add(time.Hour), &closedAt),
 	} {
-		_, err := pullRequests.Upsert(ctx, params)
+		_, err := st.PullRequests.Upsert(ctx, params)
 		require.NoError(t, err)
 	}
 
@@ -373,8 +373,7 @@ func seedAgentOn(t *testing.T, st *storetest.Stores, name, branch string) string
 
 	id := st.SeedAgent(t, agentstore.Agent{Name: name}).ID
 	repository := weaveRepository
-	require.NoError(t, st.Agents.SetRepositoryURLByID(ctx, id, &repository))
-	require.NoError(t, st.Agents.SetBranchByID(ctx, id, &branch))
+	require.NoError(t, st.Agents.SetCheckout(ctx, id, agentstore.SetCheckoutParams{RepositoryURL: &repository, Branch: &branch}))
 
 	return id
 }

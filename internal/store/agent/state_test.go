@@ -115,12 +115,10 @@ func TestSettersRefuseAnIDThatIsNotOne(t *testing.T) {
 		write func(*Store, string) error
 	}{
 		{
-			name:  "the branch",
-			write: func(s *Store, id string) error { return s.SetBranchByID(t.Context(), id, xptr.Ptr("main")) },
-		},
-		{
-			name:  "the removed worktree",
-			write: func(s *Store, id string) error { return s.SetWorktreeRemovedByID(t.Context(), id, true) },
+			name: "the checkout",
+			write: func(s *Store, id string) error {
+				return s.SetCheckout(t.Context(), id, SetCheckoutParams{Branch: xptr.Ptr("main")})
+			},
 		},
 		{
 			name:  "the cut-off turn",

@@ -2560,22 +2560,34 @@ func (q *Queries) SearchTranscriptsNear(ctx context.Context, arg SearchTranscrip
 	return items, nil
 }
 
-const setAgentBranchByID = `-- name: SetAgentBranchByID :exec
+const setAgentCheckoutByID = `-- name: SetAgentCheckoutByID :exec
 UPDATE
     agents
 SET
-    branch = $1
+    branch = $1,
+    repository_url = $2,
+    worktree_removed = $3,
+    sequence_in_progress = $4
 WHERE
-    id = $2
+    id = $5
 `
 
-type SetAgentBranchByIDParams struct {
-	Branch *string
-	ID     string
+type SetAgentCheckoutByIDParams struct {
+	Branch             *string
+	RepositoryUrl      *string
+	WorktreeRemoved    bool
+	SequenceInProgress bool
+	ID                 string
 }
 
-func (q *Queries) SetAgentBranchByID(ctx context.Context, arg SetAgentBranchByIDParams) error {
-	_, err := q.db.Exec(ctx, setAgentBranchByID, arg.Branch, arg.ID)
+func (q *Queries) SetAgentCheckoutByID(ctx context.Context, arg SetAgentCheckoutByIDParams) error {
+	_, err := q.db.Exec(ctx, setAgentCheckoutByID,
+		arg.Branch,
+		arg.RepositoryUrl,
+		arg.WorktreeRemoved,
+		arg.SequenceInProgress,
+		arg.ID,
+	)
 	return err
 }
 
@@ -2747,25 +2759,6 @@ func (q *Queries) SetAgentReportedReasonByID(ctx context.Context, arg SetAgentRe
 	return err
 }
 
-const setAgentRepositoryURLByID = `-- name: SetAgentRepositoryURLByID :exec
-UPDATE
-    agents
-SET
-    repository_url = $1
-WHERE
-    id = $2
-`
-
-type SetAgentRepositoryURLByIDParams struct {
-	RepositoryUrl *string
-	ID            string
-}
-
-func (q *Queries) SetAgentRepositoryURLByID(ctx context.Context, arg SetAgentRepositoryURLByIDParams) error {
-	_, err := q.db.Exec(ctx, setAgentRepositoryURLByID, arg.RepositoryUrl, arg.ID)
-	return err
-}
-
 const setAgentSequenceInProgressByID = `-- name: SetAgentSequenceInProgressByID :exec
 UPDATE
     agents
@@ -2848,25 +2841,6 @@ WHERE
 
 func (q *Queries) SetAgentTurnEndedByID(ctx context.Context, id string) error {
 	_, err := q.db.Exec(ctx, setAgentTurnEndedByID, id)
-	return err
-}
-
-const setAgentWorktreeRemovedByID = `-- name: SetAgentWorktreeRemovedByID :exec
-UPDATE
-    agents
-SET
-    worktree_removed = $1
-WHERE
-    id = $2
-`
-
-type SetAgentWorktreeRemovedByIDParams struct {
-	WorktreeRemoved bool
-	ID              string
-}
-
-func (q *Queries) SetAgentWorktreeRemovedByID(ctx context.Context, arg SetAgentWorktreeRemovedByIDParams) error {
-	_, err := q.db.Exec(ctx, setAgentWorktreeRemovedByID, arg.WorktreeRemoved, arg.ID)
 	return err
 }
 

@@ -34,6 +34,10 @@ type agentGetter interface {
 // storedPullRequestReader is what the handler reads of what the sync has stored.
 type storedPullRequestReader interface {
 	ListForAgent(ctx context.Context, agentID string) ([]pullrequeststore.PullRequest, error)
+}
+
+// syncReader is what the handler reads of where the sync is for a repository.
+type syncReader interface {
 	GetSync(ctx context.Context, repositoryURL string) (*pullrequeststore.Sync, error)
 }
 
@@ -41,12 +45,14 @@ type PullRequestService struct {
 	forges       forgeFinder
 	agents       agentGetter
 	pullRequests storedPullRequestReader
+	syncs        syncReader
 }
 
 type NewPullRequestServiceParams struct {
-	Forges       forgeFinder
-	Agents       agentGetter
-	PullRequests storedPullRequestReader
+	Forges           forgeFinder
+	Agents           agentGetter
+	PullRequests     storedPullRequestReader
+	PullRequestSyncs syncReader
 }
 
 // NewPullRequestService constructs the handler over the forge service and the stores.
@@ -55,6 +61,7 @@ func NewPullRequestService(params NewPullRequestServiceParams) *PullRequestServi
 		forges:       params.Forges,
 		agents:       params.Agents,
 		pullRequests: params.PullRequests,
+		syncs:        params.PullRequestSyncs,
 	}
 }
 
@@ -143,7 +150,7 @@ func (s *PullRequestService) ListAgentPullRequests(ctx context.Context, req *pul
 		return response, nil
 	}
 
-	sync, err := s.pullRequests.GetSync(ctx, *agent.RepositoryURL)
+	sync, err := s.syncs.GetSync(ctx, *agent.RepositoryURL)
 	if err != nil && !errors.Is(err, store.ErrNotFound) {
 		return nil, rpcerr.From(err, "failed to read where the sync is for the repository")
 	}

@@ -73,7 +73,7 @@ func TestRequestReviewNamesTheBranch(t *testing.T) {
 		WorkflowID: seedWorkflow(t, st),
 	})
 	require.NoError(t, err)
-	require.NoError(t, st.Agents.SetBranchByID(ctx, author.ID, xptr.Ptr("agent/one")))
+	require.NoError(t, st.Agents.SetCheckout(ctx, author.ID, agentstore.SetCheckoutParams{Branch: xptr.Ptr("agent/one")}))
 
 	reviewer, _, err := manager.launch.RequestReview(ctx, RequestReviewParams{AgentID: author.ID, Prompt: "read it"})
 	require.NoError(t, err)
