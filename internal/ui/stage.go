@@ -35,12 +35,18 @@ type stageTickMsg struct {
 	move int
 }
 
-// deferStaging waits for the cursor to come to rest before the panes are moved.
 func (m model) deferStaging() (model, tea.Cmd) {
+	cmd := m.waitToStage()
+
+	return m, cmd
+}
+
+// waitToStage waits for the cursor to come to rest before the panes are moved.
+func (m *model) waitToStage() tea.Cmd {
 	m.staging++
 	move := m.staging
 
-	return m, tea.Tick(stageDelay, func(time.Time) tea.Msg { return stageTickMsg{move: move} })
+	return tea.Tick(stageDelay, func(time.Time) tea.Msg { return stageTickMsg{move: move} })
 }
 
 // applyStageTick stages what the cursor came to rest on and asks for what the screen reads of it.
@@ -51,7 +57,7 @@ func (m *model) applyStageTick(msg stageTickMsg) tea.Cmd {
 
 	switch m.screen {
 	case screenWorktrees:
-		m.stageWorktrees()
+		m.worktrees.stage(m, m.shared())
 
 		return m.inspectWorktreeCmd()
 	case screenArchive:

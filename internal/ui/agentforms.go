@@ -338,6 +338,34 @@ func promptSubject(agents []panel.Agent, children int) string {
 	return subject
 }
 
+// confirmArchiveAgents asks before archiving agents, counting the children they hold among the
+// live agents, and offers to delete them too.
+func confirmArchiveAgents(h host, live []panel.Agent, agents []panel.Agent) tea.Cmd {
+	if len(agents) == 0 {
+		return nil
+	}
+
+	form, answer := archiveAgentsForm(agents, unnamedChildren(live, agents), formKeys())
+
+	return h.openForm(formState{
+		kind:   formAgentArchive,
+		form:   form,
+		update: model.updateForm,
+		submit: confirmSubmit(func(m model) (model, tea.Cmd) {
+			switch *answer {
+			case archiveChoiceArchive:
+				return m.archiveAgents(agents)
+			case archiveChoiceArchiveDelete:
+				return m.archiveAndDeleteAgents(agents)
+			case archiveChoiceCancel:
+				return m, nil
+			}
+
+			return m, nil
+		}),
+	})
+}
+
 func archiveAgentsForm(agents []panel.Agent, children int, keys config.FormKeys) (*huh.Form, *archiveChoice) {
 	title := "Archive " + promptSubject(agents, children) + "?"
 

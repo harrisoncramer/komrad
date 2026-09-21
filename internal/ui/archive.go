@@ -111,13 +111,7 @@ func archivedByID(items []agentItem) map[string]agentItem {
 }
 
 func (m model) archivedAgent(id string) (panel.Agent, bool) {
-	for _, item := range m.listing.archivedAgents {
-		if item.agent.ID == id {
-			return item.agent, true
-		}
-	}
-
-	return panel.Agent{}, false
+	return m.listing.archivedAgent(id)
 }
 
 // archivedAgents is the archive listing as bare rows.
@@ -429,7 +423,17 @@ func (archiveScreen) needs() screenNeeds {
 	return screenNeeds{fromListing: true, archive: true}
 }
 
-func (archiveScreen) reenter(m model) (tea.Model, tea.Cmd) {
+// open lands on the agent the target names, remembering it as the focus for the listing the
+// refresh brings back.
+func (archiveScreen) open(m model, target screenTarget) (tea.Model, tea.Cmd) {
+	if target.agentID != "" {
+		m.enterScreen(screenArchive)
+		m.archive.focus = target.agentID
+		if idx := rowIndexOfAgentID(m.archiveRows(), target.agentID); idx >= 0 {
+			m.archive.cursor = idx
+		}
+	}
+
 	return m.enterArchive()
 }
 

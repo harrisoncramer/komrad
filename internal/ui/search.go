@@ -750,8 +750,8 @@ func (searchScreen) needs() screenNeeds {
 	return screenNeeds{archive: true}
 }
 
-// reenter is the screen as it stands, nothing being drawn over the search.
-func (searchScreen) reenter(m model) (tea.Model, tea.Cmd) {
+// open is the screen as it stands, nothing being drawn over the search.
+func (searchScreen) open(m model, _ screenTarget) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 

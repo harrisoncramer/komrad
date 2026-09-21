@@ -200,9 +200,15 @@ func (f *filterState) abandon() {
 	f.setQuery("")
 }
 
-// clearSearch drops a standing search and puts the cursor back where the search opened, unless
-// the keys have since moved to the other section.
 func (m model) clearSearch() (tea.Model, tea.Cmd) {
+	m.clearFilter()
+
+	return m, nil
+}
+
+// clearFilter drops a standing search and puts the cursor back where the search opened, unless
+// the keys have since moved to the other section.
+func (m *model) clearFilter() {
 	filter := m.filterTarget().state
 	origin, over := filter.origin, filter.over
 	filter.abandon()
@@ -210,8 +216,6 @@ func (m model) clearSearch() (tea.Model, tea.Cmd) {
 	if over == m.keyholder() {
 		m.placeFilteredCursor(origin)
 	}
-
-	return m, nil
 }
 
 func (m model) updateFilterInput(key tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -444,11 +448,22 @@ func (m model) matchAt(from string, delta int) (string, bool) {
 }
 
 func (m model) jumpFilterMatch(pressed string) (tea.Model, tea.Cmd) {
+	return m, m.jumpToFilterMatch(pressed)
+}
+
+// jumpToFilterMatch walks the cursor to the next row the search matches, the way the key says.
+func (m *model) jumpToFilterMatch(pressed string) tea.Cmd {
+	delta := 1
 	if isBound(pressed, m.keys.Filter.PrevMatch) {
-		return m.jumpMatch(-1)
+		delta = -1
 	}
 
-	return m.jumpMatch(1)
+	next, cmd := m.jumpMatch(delta)
+	if landed, ok := next.(model); ok {
+		*m = landed
+	}
+
+	return cmd
 }
 
 // sidebarRow is one row a search can land on, in the section that draws it.

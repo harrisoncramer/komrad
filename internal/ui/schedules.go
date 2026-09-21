@@ -314,8 +314,8 @@ func (s *schedulesScreen) needs() screenNeeds {
 	return screenNeeds{fromListing: true}
 }
 
-// reenter puts the screen up and lands its cursor.
-func (s *schedulesScreen) reenter(m model) (tea.Model, tea.Cmd) {
+// open puts the screen up and lands its cursor.
+func (s *schedulesScreen) open(m model, _ screenTarget) (tea.Model, tea.Cmd) {
 	m.enterScreen(screenSchedules)
 	m.schedules.enter(&m, m.shared())
 

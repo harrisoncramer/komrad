@@ -152,17 +152,26 @@ func (m model) focusDetails() (model, tea.Cmd) {
 	return m, m.rereadAgentWorktreeCmd()
 }
 
-// walkIntoDetails answers a step the list refused at its bottom by moving the keys into the
-// record, on its first field.
 func (m model) walkIntoDetails() (model, tea.Cmd) {
+	cmd := m.stepIntoDetails()
+
+	return m, cmd
+}
+
+// stepIntoDetails answers a step the list refused at its bottom by moving the keys into the
+// record, on its first field.
+func (m *model) stepIntoDetails() tea.Cmd {
 	held := m.hoveredDetails()
 	if !m.isDetailsDrawn(held) {
-		return m, nil
+		return nil
 	}
 
 	m.details.row, m.details.cursor = held.id, 0
 
-	return m.focusDetails()
+	focused, cmd := m.focusDetails()
+	*m = focused
+
+	return cmd
 }
 
 // releaseHiddenDetails hands the keys back from a record the pane no longer draws.

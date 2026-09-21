@@ -22,6 +22,11 @@ func isBound(pressed string, keys []string) bool {
 	return true
 }
 
+// isTopHeld reports whether the last press opened the doubled top key and is waiting on its pair.
+func (m model) isTopHeld() bool {
+	return m.topHeld
+}
+
 func (m *model) takeTopPress(pressed string) bool {
 	held := m.topHeld
 	m.topHeld = !held && isBound(pressed, m.keys.Nav.Top)

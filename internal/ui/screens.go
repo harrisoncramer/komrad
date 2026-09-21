@@ -42,11 +42,18 @@ type screenModel interface {
 	// needs is what the refresh has to fetch for the screen.
 	needs() screenNeeds
 
-	// reenter comes back to the screen with its cursor and stage put right.
-	reenter(m model) (tea.Model, tea.Cmd)
+	// open lands on the screen with its cursor on the target where the target is on screen,
+	// and its stage put right.
+	open(m model, target screenTarget) (tea.Model, tea.Cmd)
 
 	// takesEveryKey reports whether something on the screen is taking every key.
 	takesEveryKey(m model) bool
+}
+
+// screenTarget is the row a screen is asked to land on, read by each screen for the fields it
+// understands.
+type screenTarget struct {
+	agentID string
 }
 
 // screenNeeds is what the refresh fetches for a screen.
@@ -133,7 +140,7 @@ func (m *model) active() screenModel {
 	case screenReview:
 		return reviewScreen{}
 	case screenWorktrees:
-		return worktreesScreen{}
+		return worktreesAdapter{}
 	}
 
 	// The switch carries every screen and no default, so this is what a screen added without an
@@ -165,12 +172,21 @@ type host interface {
 	report(summary string, err error)
 	reportBrief(summary, detail string, err error)
 	openForm(f formState) tea.Cmd
-	enterScreen(next screen)
+	enter(next screen, target screenTarget) tea.Cmd
 	refreshCmd() tea.Cmd
 	placeColumn(owner screen, row string)
 	stageInfo()
+	waitToStage() tea.Cmd
 	hide() tea.Cmd
 	client() api
+
+	// The keys every list shares are the root's to answer.
+	takeTopPress(pressed string) bool
+	isTopHeld() bool
+	stepIntoDetails() tea.Cmd
+	beginFilter()
+	clearFilter()
+	jumpToFilterMatch(pressed string) tea.Cmd
 }
 
 var _ host = (*model)(nil)
@@ -178,6 +194,16 @@ var _ host = (*model)(nil)
 // client is the service as a screen reads it.
 func (m *model) client() api {
 	return m.api
+}
+
+// enter leaves whichever screen is up for the next, landing it on the target.
+func (m *model) enter(next screen, target screenTarget) tea.Cmd {
+	entered, cmd := next.adapter().open(*m, target)
+	if landed, ok := entered.(model); ok {
+		*m = landed
+	}
+
+	return cmd
 }
 
 // panelShared is what the root hands a screen on every call, and nothing the screen may write.
@@ -190,6 +216,12 @@ type panelShared struct {
 	// pane is the column the screen draws its own list, record and legend in.
 	pane   int
 	chrome chromeState
+
+	// inspections is what the service has answered for each worktree directory.
+	inspections map[string]worktreeInspection
+
+	// draw is the frame the root draws a screen's own list, record and legend in.
+	draw drawer
 }
 
 // chromeState is the details, filter, column, messages, help and form the root draws over any
@@ -204,7 +236,7 @@ type chromeState struct {
 }
 
 // shared is the root as a screen is allowed to see it.
-func (m model) shared() panelShared {
+func (m *model) shared() panelShared {
 	return panelShared{
 		listing: m.listing,
 		keys:    m.keys,
@@ -219,5 +251,7 @@ func (m model) shared() panelShared {
 			form:         m.form,
 			helpExpanded: m.helpExpanded,
 		},
+		inspections: m.inspections,
+		draw:        m,
 	}
 }

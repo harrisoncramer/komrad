@@ -360,7 +360,7 @@ func (m model) closeForm() (tea.Model, tea.Cmd) {
 	m.form = formState{}
 	m.reconcileSolo()
 
-	return m.active().reenter(m)
+	return m.active().open(m, screenTarget{})
 }
 
 const (

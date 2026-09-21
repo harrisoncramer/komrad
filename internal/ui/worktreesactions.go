@@ -11,140 +11,139 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// worktreesActions is the worktrees screen as one table and the legend that names it.
-func worktreesActions() actionSpec {
-	return actionSpec{
-		table:  worktreesTable(),
-		legend: worktreesLegend(),
+// actions is the worktrees screen as one table and the legend that names it.
+func (w *worktreesScreen) actions() screenActionSpec {
+	return screenActionSpec{
+		table:  w.table(),
+		legend: w.legend(),
 	}
 }
 
-func worktreesTable() []action {
-	list := worktreesList()
+func (w *worktreesScreen) table() []screenAction {
+	list := w.list()
 
 	return append(list.actions(),
-		action{
+		screenAction{
 			id:   actionDeleteSelected,
 			keys: func(k config.Keybindings) []string { return k.Worktrees.Delete },
 			when: list.isSelecting,
-			run:  model.deleteChosenWorktrees,
+			run:  w.deleteChosen,
 		},
-		action{
+		screenAction{
 			id:   actionWorktreesBack,
 			keys: func(k config.Keybindings) []string { return k.Worktrees.Back },
 			when: list.isBrowsing,
-			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.returnToAgents() },
+			run:  func(h host, _ panelShared, _ string) tea.Cmd { return h.enter(screenAgents, screenTarget{}) },
 		},
-		action{
+		screenAction{
 			id:   actionWorktreesJumpToAgent,
 			keys: func(k config.Keybindings) []string { return k.Worktrees.JumpToAgent },
-			when: model.canWorktreeRowOpen,
-			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.jumpToWorktreeAgent() },
+			when: w.canRowOpen,
+			run:  func(h host, s panelShared, _ string) tea.Cmd { return w.jumpToAgent(h, s) },
 		},
-		action{
+		screenAction{
 			id:   actionWorktreesDelete,
 			keys: func(k config.Keybindings) []string { return k.Worktrees.Delete },
 			when: list.isBrowsing,
-			run:  model.deleteHoveredWorktree,
+			run:  w.deleteHovered,
 		},
-		action{
+		screenAction{
 			id:   actionWorktreesClear,
 			keys: func(k config.Keybindings) []string { return k.Worktrees.Clear },
 			when: list.isBrowsing,
-			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.clearWorktreesConfirm() },
+			run:  func(h host, s panelShared, _ string) tea.Cmd { return w.clearConfirm(h, s) },
 		},
 	)
 }
 
-func worktreesLegend() []legendRow {
-	list := worktreesList()
+func (w *worktreesScreen) legend() []screenLegendRow {
+	list := w.list()
 
-	return slices.Concat(list.selectionLegend(), []legendRow{
+	return slices.Concat(list.selectionLegend(), []screenLegendRow{
 		{
 			of:   []actionID{actionDeleteSelected},
-			desc: func(model) string { return "delete all" },
+			desc: func(panelShared) string { return "delete all" },
 			show: list.isSelecting,
 		},
 		{
 			of:    []actionID{actionWorktreesJumpToAgent},
-			desc:  func(model) string { return "jump to agent" },
-			show:  model.canWorktreeRowOpen,
+			desc:  func(panelShared) string { return "jump to agent" },
+			show:  w.canRowOpen,
 			strip: true,
 		},
 		{
 			of:   []actionID{actionSelectToggle},
 			desc: list.toggleDesc,
-			show: model.doesWorktreesHoldARow,
+			show: w.holdsARow,
 		},
 		{
 			of:    []actionID{actionWorktreesDelete},
-			desc:  model.worktreeDeleteDesc,
-			show:  model.doesWorktreesHoldADirectory,
+			desc:  w.deleteDesc,
+			show:  w.holdsADirectory,
 			strip: true,
 		},
 		{
 			of:   []actionID{actionWorktreesClear},
-			desc: func(model) string { return "clear what can go" },
-			show: model.doesWorktreesHoldARow,
+			desc: func(panelShared) string { return "clear what can go" },
+			show: w.holdsARow,
 		},
 		{
 			of:   []actionID{actionFilterOpen},
-			desc: model.filterDesc,
+			desc: filterDescOf,
 		},
-	}, navLegend(), []legendRow{
+	}, screenNavLegend(), []screenLegendRow{
 		{
 			of:   []actionID{actionWorktreesBack},
-			desc: func(model) string { return "back" },
+			desc: func(panelShared) string { return "back" },
 		},
 		{
 			of:    []actionID{actionFilterClear},
-			desc:  model.filterClearDesc,
+			desc:  filterClearDescOf,
 			strip: true,
 		},
 		{
 			of:    []actionID{actionFilterMatch},
-			desc:  func(model) string { return "next/prev match" },
+			desc:  func(panelShared) string { return "next/prev match" },
 			strip: true,
 		},
 	})
 }
 
-func (m model) doesWorktreesHoldARow() bool {
-	if m.worktrees.selected.isActive() {
+func (w *worktreesScreen) holdsARow(s panelShared) bool {
+	if w.selected.isActive() {
 		return false
 	}
 
-	_, ok := rowAt(m.worktreeRows(), m.worktrees.cursor)
+	_, ok := rowAt(w.rows(s), w.cursor)
 
 	return ok
 }
 
-// doesWorktreesHoldADirectory reports whether the cursor is on a directory rather than on a
-// repository.
-func (m model) doesWorktreesHoldADirectory() bool {
-	if m.worktrees.selected.isActive() {
+// holdsADirectory reports whether the cursor is on a directory rather than on a repository.
+func (w *worktreesScreen) holdsADirectory(s panelShared) bool {
+	if w.selected.isActive() {
 		return false
 	}
 
-	_, ok := m.hoveredWorktree()
+	_, ok := w.hovered(s)
 
 	return ok
 }
 
-// canWorktreeRowOpen reports whether the hovered row has an agent the panel can land on.
-func (m model) canWorktreeRowOpen() bool {
-	if m.worktrees.selected.isActive() {
+// canRowOpen reports whether the hovered row has an agent the panel can land on.
+func (w *worktreesScreen) canRowOpen(s panelShared) bool {
+	if w.selected.isActive() {
 		return false
 	}
 
-	row, ok := m.hoveredWorktree()
+	row, ok := w.hovered(s)
 
 	return ok && row.item.agent != nil
 }
 
-// worktreeDeleteDesc names what the delete key does to the hovered directory.
-func (m model) worktreeDeleteDesc() string {
-	row, ok := m.hoveredWorktree()
+// deleteDesc names what the delete key does to the hovered directory.
+func (w *worktreesScreen) deleteDesc(s panelShared) string {
+	row, ok := w.hovered(s)
 	if !ok {
 		return "delete"
 	}
@@ -173,64 +172,53 @@ const (
 	fateLive
 )
 
-// jumpToWorktreeAgent lands the agents list or the archive on the hovered row's agent.
-func (m model) jumpToWorktreeAgent() (tea.Model, tea.Cmd) {
-	row, ok := m.hoveredWorktree()
+// jumpToAgent lands the agents list or the archive on the hovered row's agent.
+func (w *worktreesScreen) jumpToAgent(h host, s panelShared) tea.Cmd {
+	row, ok := w.hovered(s)
 	if !ok || row.item.agent == nil {
-		return m, nil
+		return nil
 	}
 
-	id := row.item.agent.id
-	if _, live := m.liveAgent(id); live {
-		m.enterScreen(screenAgents)
-		m.revealAgent(id)
-		m.stageSelection()
-
-		return m, nil
+	target := screenTarget{agentID: row.item.agent.id}
+	if _, live := s.listing.liveAgent(target.agentID); live {
+		return h.enter(screenAgents, target)
 	}
 
-	m.enterScreen(screenArchive)
-
-	m.archive.focus = id
-	if idx := rowIndexOfAgentID(m.archiveRows(), id); idx >= 0 {
-		m.archive.cursor = idx
-	}
-
-	return m.enterArchive()
+	return h.enter(screenArchive, target)
 }
 
-func (m model) deleteHoveredWorktree(string) (tea.Model, tea.Cmd) {
-	row, ok := m.hoveredWorktree()
+func (w *worktreesScreen) deleteHovered(h host, s panelShared, _ string) tea.Cmd {
+	row, ok := w.hovered(s)
 	if !ok {
-		return m, nil
+		return nil
 	}
 
 	switch row.item.fate {
 	case fateLive:
-		if item, ok := m.liveAgent(row.item.agent.id); ok {
-			return m.archiveAgentsConfirm([]panel.Agent{item.agent})
+		if item, ok := s.listing.liveAgent(row.item.agent.id); ok {
+			return confirmArchiveAgents(h, s.listing.liveAgents(), []panel.Agent{item.agent})
 		}
 	case fateArchived:
-		return m.deleteWorktreesConfirm(worktreeDeletion{agents: []worktreeItem{row.item}})
+		return confirmDeleteWorktrees(h, s, worktreeDeletion{agents: []worktreeItem{row.item}})
 	case fateUnowned:
-		return m.deleteWorktreesConfirm(worktreeDeletion{unowned: []worktreeItem{row.item}})
+		return confirmDeleteWorktrees(h, s, worktreeDeletion{unowned: []worktreeItem{row.item}})
 	}
 
-	return m, nil
+	return nil
 }
 
-func (m model) deleteChosenWorktrees(string) (tea.Model, tea.Cmd) {
+func (w *worktreesScreen) deleteChosen(h host, s panelShared, _ string) tea.Cmd {
 	deletion := worktreeDeletion{}
-	for _, row := range m.worktreeRows() {
-		if row.header || !m.worktrees.selected.has(row.key()) {
+	for _, row := range w.rows(s) {
+		if row.header || !w.selected.has(row.key()) {
 			continue
 		}
 
 		switch row.item.fate {
 		case fateLive:
-			m.reportBrief("A live agent is in the selection", "Archive "+row.name()+" from the agents list first; nothing bulk stops a running agent.", nil)
+			h.reportBrief("A live agent is in the selection", "Archive "+row.name()+" from the agents list first; nothing bulk stops a running agent.", nil)
 
-			return m, nil
+			return nil
 		case fateArchived:
 			deletion.agents = append(deletion.agents, row.item)
 		case fateUnowned:
@@ -238,13 +226,13 @@ func (m model) deleteChosenWorktrees(string) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	return m.deleteWorktreesConfirm(deletion)
+	return confirmDeleteWorktrees(h, s, deletion)
 }
 
-// clearWorktreesConfirm offers everything on the screen that can go without stopping an agent.
-func (m model) clearWorktreesConfirm() (tea.Model, tea.Cmd) {
+// clearConfirm offers everything on the screen that can go without stopping an agent.
+func (w *worktreesScreen) clearConfirm(h host, s panelShared) tea.Cmd {
 	deletion := worktreeDeletion{}
-	for _, row := range m.worktreeRows() {
+	for _, row := range w.rows(s) {
 		if row.header {
 			continue
 		}
@@ -258,7 +246,7 @@ func (m model) clearWorktreesConfirm() (tea.Model, tea.Cmd) {
 		}
 	}
 
-	return m.deleteWorktreesConfirm(deletion)
+	return confirmDeleteWorktrees(h, s, deletion)
 }
 
 // worktreeDeletion is what one delete takes: the directories that go through their agent, and
@@ -272,14 +260,15 @@ func (d worktreeDeletion) isEmpty() bool {
 	return len(d.agents)+len(d.unowned) == 0
 }
 
-func (m model) deleteWorktreesConfirm(deletion worktreeDeletion) (tea.Model, tea.Cmd) {
+// confirmDeleteWorktrees asks before a deletion, saying where a lone branch would stand.
+func confirmDeleteWorktrees(h host, s panelShared, deletion worktreeDeletion) tea.Cmd {
 	if deletion.isEmpty() {
-		return m, nil
+		return nil
 	}
 
-	form, confirmed := deleteWorktreesForm(deletion, m.keepsBranch(deletion), formKeys())
+	form, confirmed := deleteWorktreesForm(deletion, keepsBranch(s, deletion), formKeys())
 
-	return m, m.openForm(formState{
+	return h.openForm(formState{
 		kind:   formWorktreesDelete,
 		form:   form,
 		update: model.updateForm,
@@ -288,19 +277,19 @@ func (m model) deleteWorktreesConfirm(deletion worktreeDeletion) (tea.Model, tea
 				return m, nil
 			}
 
-			return m, m.deleteWorktreesCmd(deletion)
+			return m, deleteWorktreesCmd(&m, deletion)
 		}),
 	})
 }
 
 // keepsBranch says whether a single directory's branch would be kept, and nothing for more than
 // one or for one not yet read.
-func (m model) keepsBranch(deletion worktreeDeletion) *bool {
+func keepsBranch(s panelShared, deletion worktreeDeletion) *bool {
 	if len(deletion.agents) != 1 || len(deletion.unowned) != 0 {
 		return nil
 	}
 
-	read, ok := m.inspections[deletion.agents[0].dir]
+	read, ok := s.inspections[deletion.agents[0].dir]
 	if !ok || read.err != nil || read.baseRef == "" {
 		return nil
 	}
@@ -309,11 +298,11 @@ func (m model) keepsBranch(deletion worktreeDeletion) *bool {
 }
 
 // deleteWorktreesCmd queues the deletion as one background job.
-func (m *model) deleteWorktreesCmd(deletion worktreeDeletion) tea.Cmd {
+func deleteWorktreesCmd(h host, deletion worktreeDeletion) tea.Cmd {
 	dirs := xslice.Map(slices.Concat(deletion.agents, deletion.unowned), func(item worktreeItem) string { return item.dir })
 	subject := label.Count(len(dirs), "worktree", "worktrees")
 
-	return m.queuedCmd(
+	return h.queuedCmd(
 		"Could not delete "+subject,
 		message{
 			kind:    messageInfo,

@@ -78,14 +78,14 @@ func worktreesModel() model {
 				},
 			}),
 		},
-		worktrees: worktreesState{items: worktreeFixture()},
+		worktrees: worktreesScreen{items: worktreeFixture()},
 	}
 }
 
 func pressWorktrees(t *testing.T, m model, key tea.KeyMsg) (model, tea.Cmd) {
 	t.Helper()
 
-	next, cmd := m.updateWorktrees(key)
+	next, cmd := worktreesAdapter{}.update(m, key)
 	updated, ok := next.(model)
 	require.True(t, ok)
 
@@ -101,7 +101,7 @@ func TestApplyWorktreesSpendsTheFocusOnTheAgentsRow(t *testing.T) {
 
 	m.applyWorktrees(worktreeFixture(), "")
 
-	assert.Equal(t, "tree:/trees/live", worktreesList().hovered(m))
+	assert.Equal(t, "tree:/trees/live", m.worktrees.list().hovered(m.shared()))
 	assert.Empty(t, m.worktrees.focus)
 }
 
@@ -114,12 +114,12 @@ func TestApplyWorktreesKeepsTheCursorOnItsRow(t *testing.T) {
 		"/trees/orphan": {answered: true, baseRef: "origin/main"},
 		"/trees/gone":   {answered: true, baseRef: "origin/main"},
 	}
-	require.Equal(t, "tree:/trees/orphan", worktreesList().hovered(m))
+	require.Equal(t, "tree:/trees/orphan", m.worktrees.list().hovered(m.shared()))
 
 	fresh := worktreeFixture()[1:]
-	m.applyWorktrees(fresh, worktreesList().hovered(m))
+	m.applyWorktrees(fresh, m.worktrees.list().hovered(m.shared()))
 
-	assert.Equal(t, "tree:/trees/orphan", worktreesList().hovered(m))
+	assert.Equal(t, "tree:/trees/orphan", m.worktrees.list().hovered(m.shared()))
 	assert.Contains(t, m.inspections, "/trees/orphan")
 	assert.NotContains(t, m.inspections, "/trees/gone")
 }
@@ -135,7 +135,7 @@ func TestOpenWorktreesLandsOnTheHoveredAgent(t *testing.T) {
 	require.True(t, ok)
 
 	assert.Equal(t, screenWorktrees, opened.screen)
-	assert.Equal(t, "tree:/trees/archived", worktreesList().hovered(opened))
+	assert.Equal(t, "tree:/trees/archived", opened.worktrees.list().hovered(opened.shared()))
 }
 
 // TestEnterOnAWorktreeLandsOnItsAgent covers the jump both ways: a live agent to the agents
@@ -144,7 +144,7 @@ func TestEnterOnAWorktreeLandsOnItsAgent(t *testing.T) {
 	t.Run("live", func(t *testing.T) {
 		m := worktreesModel()
 		m.worktrees.cursor = 4
-		require.Equal(t, "tree:/trees/live", worktreesList().hovered(m))
+		require.Equal(t, "tree:/trees/live", m.worktrees.list().hovered(m.shared()))
 
 		after, _ := pressWorktrees(t, m, keyMsg("J"))
 
@@ -155,7 +155,7 @@ func TestEnterOnAWorktreeLandsOnItsAgent(t *testing.T) {
 	t.Run("archived", func(t *testing.T) {
 		m := worktreesModel()
 		m.worktrees.cursor = 3
-		require.Equal(t, "tree:/trees/archived", worktreesList().hovered(m))
+		require.Equal(t, "tree:/trees/archived", m.worktrees.list().hovered(m.shared()))
 
 		after, _ := pressWorktrees(t, m, keyMsg("J"))
 
@@ -166,12 +166,12 @@ func TestEnterOnAWorktreeLandsOnItsAgent(t *testing.T) {
 	t.Run("nobody's", func(t *testing.T) {
 		m := worktreesModel()
 		m.worktrees.cursor = 5
-		require.Equal(t, "tree:/trees/orphan", worktreesList().hovered(m))
+		require.Equal(t, "tree:/trees/orphan", m.worktrees.list().hovered(m.shared()))
 
 		after, _ := pressWorktrees(t, m, keyMsg("J"))
 
 		assert.Equal(t, screenWorktrees, after.screen)
-		assert.False(t, m.canWorktreeRowOpen())
+		assert.False(t, m.worktrees.canRowOpen(m.shared()))
 	})
 }
 
@@ -372,9 +372,9 @@ func formText(form *huh.Form) string {
 func TestWorktreeFieldsReadTheListingAndTheInspection(t *testing.T) {
 	m := worktreesModel()
 	m.worktrees.cursor = 3
-	require.Equal(t, "tree:/trees/archived", worktreesList().hovered(m))
+	require.Equal(t, "tree:/trees/archived", m.worktrees.list().hovered(m.shared()))
 
-	before := fieldMap(m.worktreesDetails().fields)
+	before := fieldMap(m.worktrees.details(m.shared()).fields)
 	assert.Equal(t, "review-column", before["name"])
 	assert.Equal(t, "—", before["size"])
 	assert.Equal(t, "—", before["last active"])
@@ -392,7 +392,7 @@ func TestWorktreeFieldsReadTheListingAndTheInspection(t *testing.T) {
 		untracked: []string{"b.txt", "c.txt"},
 	}})
 
-	after := fieldMap(m.worktreesDetails().fields)
+	after := fieldMap(m.worktrees.details(m.shared()).fields)
 	assert.Equal(t, "origin/main  ↑2 ↓12", after["base"])
 	assert.Equal(t, "1 modified, 2 untracked", after["changes"])
 }
@@ -454,7 +454,8 @@ func TestWorktreeFieldsSayWhatTheDirectoryTakesAndWhenItWasActive(t *testing.T) 
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fields := fieldMap(worktreesModel().worktreeFields(tt.item, now))
+			m := worktreesModel()
+			fields := fieldMap(worktreeFields(m.shared(), tt.item, now))
 
 			assert.Equal(t, tt.wantSize, fields["size"])
 			assert.Equal(t, tt.wantLastActive, fields["last active"])
@@ -512,7 +513,7 @@ func TestWorktreeFieldsNameTheOccupants(t *testing.T) {
 			item := tt.item
 			item.occupants = tt.occupants
 
-			fields := m.worktreeFields(item, time.Now())
+			fields := worktreeFields(m.shared(), item, time.Now())
 
 			assert.Equal(t, tt.want, fieldMap(fields)["also here"])
 			assert.Equal(t, tt.wantLabels, xslice.Map(fields, func(field recordField) string { return field.label }))
@@ -525,9 +526,9 @@ func TestWorktreeFieldsNameTheOccupants(t *testing.T) {
 func TestWorktreeFieldsOfAnUnreadableDirectory(t *testing.T) {
 	m := worktreesModel()
 	m.worktrees.cursor = 7
-	require.Equal(t, "tree:/trees/broken", worktreesList().hovered(m))
+	require.Equal(t, "tree:/trees/broken", m.worktrees.list().hovered(m.shared()))
 
-	fields := fieldMap(m.worktreesDetails().fields)
+	fields := fieldMap(m.worktrees.details(m.shared()).fields)
 	assert.Equal(t, "/var/folders/T/repo", fields["repository"])
 	assert.Equal(t, "none", fields["agent"])
 	assert.NotContains(t, fields, "branch")
@@ -538,9 +539,9 @@ func TestWorktreeFieldsOfAnUnreadableDirectory(t *testing.T) {
 func TestWorktreeDocDrawsTheInspection(t *testing.T) {
 	m := worktreesModel()
 	m.worktrees.cursor = 4
-	require.Equal(t, "tree:/trees/live", worktreesList().hovered(m))
+	require.Equal(t, "tree:/trees/live", m.worktrees.list().hovered(m.shared()))
 
-	assert.Contains(t, m.worktreeDoc(), "reading the directory")
+	assert.Contains(t, m.worktrees.doc(m.shared()), "reading the directory")
 
 	m.applyWorktreeInspection(worktreeInspectedMsg{dir: "/trees/live", inspection: worktreeInspection{
 		answered: true,
@@ -562,7 +563,7 @@ func TestWorktreeDocDrawsTheInspection(t *testing.T) {
 		}},
 	}})
 
-	doc := m.worktreeDoc()
+	doc := m.worktrees.doc(m.shared())
 	assert.Contains(t, doc, "# worktree-view")
 	assert.Contains(t, doc, "local/")
 	assert.Contains(t, doc, "40M")
@@ -572,7 +573,7 @@ func TestWorktreeDocDrawsTheInspection(t *testing.T) {
 	assert.Contains(t, doc, "87a3bcc98c47  2h   fix(view): drop the column")
 
 	m.applyWorktreeInspection(worktreeInspectedMsg{dir: "/trees/live", inspection: worktreeInspection{answered: true, err: errors.New("git exploded")}})
-	assert.Contains(t, m.worktreeDoc(), "git exploded")
+	assert.Contains(t, m.worktrees.doc(m.shared()), "git exploded")
 }
 
 // TestEntryLinesCutTheListAndCountTheRest covers the entries beyond the first ten folding
@@ -598,7 +599,7 @@ func TestStageTickOnTheWorktreesScreenAsksForTheInspection(t *testing.T) {
 
 	moved, cmd := pressWorktrees(t, m, keyMsg("j"))
 	require.NotNil(t, cmd, "a move schedules a rest")
-	assert.Equal(t, "tree:/trees/orphan", worktreesList().hovered(moved))
+	assert.Equal(t, "tree:/trees/orphan", moved.worktrees.list().hovered(moved.shared()))
 
 	inspect := moved.applyStageTick(stageTickMsg{move: moved.staging})
 	assert.NotNil(t, inspect, "the rest asks for the hovered directory")
@@ -612,13 +613,13 @@ func TestStageTickOnTheWorktreesScreenAsksForTheInspection(t *testing.T) {
 func TestRefreshAsksForTheHoveredDirectoryOnce(t *testing.T) {
 	m := worktreesModel()
 	m.worktrees.cursor = 3
-	require.Equal(t, "tree:/trees/archived", worktreesList().hovered(m))
+	require.Equal(t, "tree:/trees/archived", m.worktrees.list().hovered(m.shared()))
 
 	require.NotNil(t, m.inspectHoveredWorktreeCmd())
 	assert.True(t, m.inspections["/trees/archived"].pending)
 	assert.Nil(t, m.inspectHoveredWorktreeCmd(), "an answer on its way is not asked for again")
 	assert.Nil(t, m.inspectWorktreeCmd(), "not even by a rest of the cursor")
-	assert.Contains(t, m.worktreeDoc(), "reading the directory")
+	assert.Contains(t, m.worktrees.doc(m.shared()), "reading the directory")
 
 	m.applyWorktreeInspection(worktreeInspectedMsg{dir: "/trees/archived", inspection: worktreeInspection{answered: true, err: errors.New("refused")}})
 	assert.Nil(t, m.inspectHoveredWorktreeCmd(), "an answer, even a refusal, is not asked for again")
@@ -633,7 +634,7 @@ func TestRefreshAsksForTheHoveredDirectoryOnce(t *testing.T) {
 func TestARowReturnedToKeepsItsAnswerWhileItIsReadAgain(t *testing.T) {
 	m := worktreesModel()
 	m.worktrees.cursor = 3
-	require.Equal(t, "tree:/trees/archived", worktreesList().hovered(m))
+	require.Equal(t, "tree:/trees/archived", m.worktrees.list().hovered(m.shared()))
 	m.applyWorktreeInspection(worktreeInspectedMsg{dir: "/trees/archived", inspection: worktreeInspection{
 		answered: true,
 		baseRef:  "origin/main",
@@ -643,19 +644,19 @@ func TestARowReturnedToKeepsItsAnswerWhileItIsReadAgain(t *testing.T) {
 	require.NotNil(t, m.inspectWorktreeCmd())
 
 	assert.True(t, m.inspections["/trees/archived"].pending)
-	assert.Equal(t, "origin/main  ↑2", fieldMap(m.worktreesDetails().fields)["base"])
-	assert.Contains(t, m.worktreeDoc(), "## Commits since origin/main")
-	assert.NotContains(t, m.worktreeDoc(), "reading the directory")
+	assert.Equal(t, "origin/main  ↑2", fieldMap(m.worktrees.details(m.shared()).fields)["base"])
+	assert.Contains(t, m.worktrees.doc(m.shared()), "## Commits since origin/main")
+	assert.NotContains(t, m.worktrees.doc(m.shared()), "reading the directory")
 }
 
 // TestWorktreesTallyHeadsTheList covers the title carrying the count and the total of what has
 // been measured across every group, and a dash while nothing has.
 func TestWorktreesTallyHeadsTheList(t *testing.T) {
 	m := worktreesModel()
-	assert.Equal(t, "5 · —", m.worktreesTally())
+	assert.Equal(t, "5 · —", m.worktrees.tally())
 
 	m.worktrees.items = measuredFixture(time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC))
-	assert.Equal(t, "5 · 1.6G", m.worktreesTally())
+	assert.Equal(t, "5 · 1.6G", m.worktrees.tally())
 }
 
 func fieldMap(fields []recordField) map[string]string {
@@ -685,4 +686,14 @@ func TestWorktreesScreenHoldsTheWindow(t *testing.T) {
 	assert.True(t, m.frame.IsSolo(), "the panel draws both halves itself")
 	assert.Empty(t, m.frame.GuestPane(), "no agent pane is put on the stage")
 	assert.False(t, screenWorktrees.opensInfoPane(), "and the log and terminal keys do not act here")
+}
+
+// worktreesChrome is the worktrees list as the root's own chrome reads it.
+func (m model) worktreesChrome() listChrome {
+	return m.listChromeOf(m.worktrees.listParams(m.shared()))
+}
+
+// worktreesHelp is the worktrees legend as the frame draws it.
+func (m model) worktreesHelp() keyMap {
+	return m.worktreesChrome().help(m)
 }
