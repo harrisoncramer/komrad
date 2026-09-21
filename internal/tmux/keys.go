@@ -101,9 +101,11 @@ func (c *Client) TakePanelWheel(up, down string) error {
 			continue
 		}
 
+		// tmux binds no WheelDownPane of its own, so an unbound wheel falls back to what the pane
+		// would have been given.
 		command, ok := held[turn.wheel]
 		if !ok {
-			continue
+			command = "send-keys -M"
 		}
 
 		through := "send-keys -t = " + quoteKey(SpellKey(turn.key))

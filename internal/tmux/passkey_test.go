@@ -128,7 +128,6 @@ func TestTakePanelWheelPressesTheScrollKeyOnThePanelPane(t *testing.T) {
 	config := filepath.Join(t.TempDir(), "tmux.conf")
 	require.NoError(t, os.WriteFile(config, []byte(`
 bind -n WheelUpPane if-shell -F "#{||:#{pane_in_mode},#{mouse_any_flag}}" { send-keys -M } { copy-mode -e }
-bind -n WheelDownPane send-keys -M
 `), 0o600))
 	_, err := client.query("source-file", config)
 	require.NoError(t, err)
@@ -147,6 +146,7 @@ bind -n WheelDownPane send-keys -M
 	assert.Contains(t, rebound["WheelUpPane"], "send-keys -t = 'C-p'")
 	assert.Contains(t, rebound["WheelUpPane"], "copy-mode -e", "the user's command is the other arm")
 	assert.Contains(t, rebound["WheelDownPane"], "send-keys -t = 'C-n'")
+	assert.Contains(t, rebound["WheelDownPane"], `"send-keys -M"`, "a wheel tmux never bound is handed to the pane elsewhere")
 
 	require.NoError(t, client.TakePanelWheel("ctrl+p", "ctrl+n"))
 
