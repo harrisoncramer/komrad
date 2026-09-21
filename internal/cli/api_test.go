@@ -13,8 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestDialAPIReachesARemoteEngineThroughItsForward covers which address a command talks to, since
-// a remote engine's own address means something else on the machine the command runs on.
+// TestDialAPIReachesARemoteEngineThroughItsForward covers which address a command talks to.
 func TestDialAPIReachesARemoteEngineThroughItsForward(t *testing.T) {
 	t.Parallel()
 

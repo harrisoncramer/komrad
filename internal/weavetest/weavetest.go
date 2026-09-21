@@ -8,7 +8,7 @@
 //
 // Two things in here are about a pane outliving the test that opened it. A CLI coming up in one
 // writes into its harness root for the first time whenever it gets there, which can be after the
-// test has ended, so that root is a directory of weavetest's own rather than a t.TempDir, removed
+// test has ended, so the root is a directory of weavetest's own rather than a t.TempDir, removed
 // with tolerance for a write that lands mid-walk. And the temp directories are claimed before the
 // tmux server, so the panes are dead before the tree beneath them goes. Both surface as
 // "TempDir RemoveAll cleanup: directory not empty" against a test whose own assertions all passed.

@@ -385,8 +385,7 @@ func TestPredictRebaseCutoffIsTheTipWhenEverythingLanded(t *testing.T) {
 	assert.Zero(t, prediction.Replay)
 }
 
-// TestPredictRebaseFindsNoCutoffOnAnOrdinaryBranch pins the ordinary case finding nothing, since
-// a walk that always found a cutoff would be worth as little as one that never did.
+// TestPredictRebaseFindsNoCutoffOnAnOrdinaryBranch pins the ordinary case finding nothing.
 func TestPredictRebaseFindsNoCutoffOnAnOrdinaryBranch(t *testing.T) {
 	t.Parallel()
 

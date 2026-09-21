@@ -17,8 +17,7 @@ import (
 	reviewstore "weave/internal/store/review"
 )
 
-// reviewDirName is where released reviews are kept under weave's own state directory, rather
-// than in the worktree where they would show up in the diff being reviewed.
+// reviewDirName is where released reviews are kept under weave's own state directory.
 const reviewDirName = "reviews"
 
 // ErrReviewNoRound is answered when a review is asked for on an agent no round has been taken

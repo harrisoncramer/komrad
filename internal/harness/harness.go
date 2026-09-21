@@ -1,5 +1,4 @@
-// Package harness is the boundary between weave and the CLI an agent actually runs, so that
-// Claude and Codex differ only inside their own packages.
+// Package harness is the boundary between weave and the CLI an agent actually runs.
 //
 // A harness knows what weave cannot know generically: the command line that starts a
 // conversation, the keys that interrupt one, where the CLI writes its conversation log and how

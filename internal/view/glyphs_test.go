@@ -45,9 +45,7 @@ func TestDrawingsAgreeWithTheLayout(t *testing.T) {
 	assert.Equal(t, plainColumns, widths["child"])
 }
 
-// TestGlyphsSpellTheirOcticons pins each mark written from its number to its codepoint, since
-// the private use characters are lost in transit and a wrong one draws as a box rather than
-// failing.
+// TestGlyphsSpellTheirOcticons pins each mark written from its number to its codepoint.
 func TestGlyphsSpellTheirOcticons(t *testing.T) {
 	tests := []struct {
 		glyph Glyph

@@ -15,8 +15,7 @@ const transcriptPreviewBefore = 12
 // searchPreview is the transcript standing beside the list: what it was drawn from, the rows it
 // drew to, and where in them the words the hit matched on landed.
 type searchPreview struct {
-	// conversation is the markdown the rows are drawn from, held rather than only the rows, since
-	// the column is wrapped again whenever the window changes width.
+	// conversation is the markdown the rows are drawn from, held for the next wrap of the column.
 	conversation string
 	spans        []paint.Span
 	doc          docWindow

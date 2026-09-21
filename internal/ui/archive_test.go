@@ -1290,7 +1290,7 @@ func TestArchiveGreysWhatIsPutAway(t *testing.T) {
 		agents:    []agentstore.Agent{archivedAgent("a1", "auth", "w1"), archivedAgent("a2", "ui", "w2")},
 		workflows: []workflowstore.Workflow{archivedWorkflow("w2", "frontend")},
 	}
-	// Parked on the last row, since the cursor's own colour beats greying on the row it stands on.
+	// Parked on the last row, where the cursor's own colour beats greying.
 	m.archive.cursor = 3
 
 	lines := archiveLines(t, m)
@@ -1311,8 +1311,7 @@ func TestArchiveGreysWhatIsPutAway(t *testing.T) {
 		"which is what tells the folder restore acts on from the one it does not")
 }
 
-// TestArchiveGivesUpTheThreeColumns pins the archive drawing fewer columns than the agents list,
-// since none of the three is refreshed once an agent is put away.
+// TestArchiveGivesUpTheThreeColumns pins the archive drawing fewer columns than the agents list.
 func TestArchiveGivesUpTheThreeColumns(t *testing.T) {
 	m := archiveModel(&fakeArchiveAgents{}, &fakeArchiveWorkflows{}, config.DefaultKeybindings())
 

@@ -6,7 +6,7 @@
 // command. Nothing else imports it, and `go list ./...` in the main module does not see it, so
 // its own tests are run by the test task rather than by the suite.
 //
-// The sentinel, handler and one-line rules read syntax alone, so for them a name is only a name: a package
+// The sentinel, handler, one-line and comment rules read syntax alone, so for them a name is only a name: a package
 // aliased to errors reads as the standard library's, and one brought in by a dot import does not
 // read as anything at all. The secret rule needs to know a method's receiver and the conversion
 // rule where a result type is declared, so the plugin loads types for every package it runs
@@ -68,6 +68,11 @@ func (l *linter) BuildAnalyzers() ([]*analysis.Analyzer, error) {
 		return nil, err
 	}
 
+	comments, err := newCommentClause(l.config.CommentClause)
+	if err != nil {
+		return nil, err
+	}
+
 	return []*analysis.Analyzer{
 		sentinels,
 		inline,
@@ -77,6 +82,7 @@ func (l *linter) BuildAnalyzers() ([]*analysis.Analyzer, error) {
 		bare,
 		newOnelineFunc(l.config.OnelineFunc),
 		conversions,
+		comments,
 	}, nil
 }
 

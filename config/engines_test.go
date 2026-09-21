@@ -9,8 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestEnginePathRefusesAPath covers a name that would reach outside the engines directory, since
-// an engine is chosen by name from a hotkey rather than typed as a path.
+// TestEnginePathRefusesAPath covers a name that would reach outside the engines directory.
 func TestEnginePathRefusesAPath(t *testing.T) {
 	for _, name := range []string{"../secrets", "a/b", ".", "..", "  "} {
 		_, err := EnginePath(name)

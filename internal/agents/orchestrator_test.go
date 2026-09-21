@@ -157,8 +157,7 @@ func TestStartOrchestratorReturnsTheOneTheWorkflowHas(t *testing.T) {
 	}
 }
 
-// TestOrchestratorSpawnsOnlyIntoItsOwnWorkflow pins the boundary an orchestrator is held to,
-// since it stands behind one workflow rather than the panel.
+// TestOrchestratorSpawnsOnlyIntoItsOwnWorkflow pins the boundary an orchestrator is held to.
 func TestOrchestratorSpawnsOnlyIntoItsOwnWorkflow(t *testing.T) {
 	st := newStore(t)
 	tmux := newFakeTmux()

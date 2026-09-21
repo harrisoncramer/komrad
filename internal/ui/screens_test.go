@@ -95,8 +95,7 @@ func TestFormIsDrawnOverTheScreenItWasOpenedFrom(t *testing.T) {
 const paneFloor = 38
 
 // TestNoScreenOutgrowsThePaneItWasGiven sweeps every screen at panes tall enough to hold their
-// own chrome, since a row wider than the pane is cut by whoever draws it next and loses its tail
-// with nothing to say so.
+// own chrome.
 func TestNoScreenOutgrowsThePaneItWasGiven(t *testing.T) {
 	widths := []int{paneFloor, 39, 40, 41, 42, 44, 46, 50, 60, 80, 120, 200}
 

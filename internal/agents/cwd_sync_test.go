@@ -700,7 +700,7 @@ func TestCwdSyncerSyncForgetsAMoveTheNextPassDoesNotSee(t *testing.T) {
 }
 
 // TestCwdSyncerSyncReportsAProbeItCouldNotMake pins that a tree the pass cannot hash is said
-// rather than read as unmoved, since silence there keeps a green check on code nobody has read.
+// rather than read as unmoved.
 func TestCwdSyncerSyncReportsAProbeItCouldNotMake(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
