@@ -200,19 +200,19 @@ func TestDeleteWorktreesIsQueuedOncePerSet(t *testing.T) {
 func TestEnqueuerClaimsWhatItQueues(t *testing.T) {
 	tests := []struct {
 		name     string
-		queue    func(ctx context.Context, enqueuer *Enqueuer, dirs []string) error
+		queue    func(ctx context.Context, queue *Enqueuer, dirs []string) error
 		wantDirs bool
 	}{
 		{
 			name: "emptying the archive",
-			queue: func(ctx context.Context, enqueuer *Enqueuer, _ []string) error {
-				return enqueuer.EmptyArchive(ctx)
+			queue: func(ctx context.Context, queue *Enqueuer, _ []string) error {
+				return NewArchiveSweep(queue).EmptyArchive(ctx)
 			},
 		},
 		{
 			name: "deleting worktrees",
-			queue: func(ctx context.Context, enqueuer *Enqueuer, dirs []string) error {
-				return enqueuer.DeleteWorktrees(ctx, dirs)
+			queue: func(ctx context.Context, queue *Enqueuer, dirs []string) error {
+				return NewWorktreeDelete(queue).DeleteWorktrees(ctx, dirs)
 			},
 			wantDirs: true,
 		},
@@ -222,7 +222,8 @@ func TestEnqueuerClaimsWhatItQueues(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			client, stores := newRiverClientWithStores(t)
 			ctx := t.Context()
-			enqueuer := NewEnqueuer(client, stores.Pool.GetRawPool())
+			queue := NewEnqueuer(client, stores.Pool.GetRawPool())
+			worktreeDelete := NewWorktreeDelete(queue)
 
 			workflow, err := stores.Workflows.Create(ctx, workflowstore.Config{Name: "backend"})
 			require.NoError(t, err)
@@ -239,7 +240,7 @@ func TestEnqueuerClaimsWhatItQueues(t *testing.T) {
 			require.NoError(t, stores.Workflows.Archive(ctx, putAway.ID))
 			dirs := []string{"/trees/" + archived.ID, "/trees/" + live.ID, "/trees/orphan"}
 
-			require.NoError(t, tt.queue(ctx, enqueuer, dirs))
+			require.NoError(t, tt.queue(ctx, queue, dirs))
 
 			claimed, err := stores.Agents.GetByID(ctx, archived.ID)
 			require.NoError(t, err)
@@ -254,7 +255,7 @@ func TestEnqueuerClaimsWhatItQueues(t *testing.T) {
 			require.NoError(t, err)
 			assert.Nil(t, kept.DeletingAt, "a live workflow is never claimed")
 
-			listed, err := enqueuer.ListClaimedDirs(ctx)
+			listed, err := worktreeDelete.ListClaimedDirs(ctx)
 			require.NoError(t, err)
 			if !tt.wantDirs {
 				assert.Empty(t, listed)
@@ -269,7 +270,7 @@ func TestEnqueuerClaimsWhatItQueues(t *testing.T) {
 			_, err = client.JobCancel(ctx, queued.Jobs[0].ID)
 			require.NoError(t, err)
 
-			listed, err = enqueuer.ListClaimedDirs(ctx)
+			listed, err = worktreeDelete.ListClaimedDirs(ctx)
 			require.NoError(t, err)
 			assert.Empty(t, listed, "and not once it is finished with")
 		})

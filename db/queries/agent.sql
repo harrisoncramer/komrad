@@ -35,21 +35,101 @@ ORDER BY
 LIMIT @lim;
 
 -- name: MarkAgentsDeleting :exec
+WITH claimed AS (
+    UPDATE
+        agents
+    SET
+        deleting_at = NOW()
+    WHERE (id = ANY (@ids::uuid[])
+        OR parent_agent_id = ANY (@ids::uuid[]))
+    AND deleting_at IS NULL
+RETURNING
+    id,
+    workflow_id)
 UPDATE
-    agents
-SET
-    deleting_at = NOW()
-WHERE (id = ANY (@ids::uuid[])
-    OR parent_agent_id = ANY (@ids::uuid[]))
-AND deleting_at IS NULL;
-
--- name: MarkArchivedAgentsDeleting :exec
-UPDATE
-    agents a
+    workflows w
 SET
     deleting_at = NOW()
 WHERE
-    a.archived_at IS NOT NULL
+    w.archived_at IS NOT NULL
+    AND w.deleting_at IS NULL
+    AND w.id IN (
+        SELECT
+            workflow_id
+        FROM
+            claimed)
+    AND NOT EXISTS (
+        SELECT
+            1
+        FROM
+            agents a
+        WHERE
+            a.workflow_id = w.id
+            AND a.archived_at IS NOT NULL
+            AND a.deleting_at IS NULL
+            AND a.id NOT IN (
+                SELECT
+                    id
+                FROM
+                    claimed));
+
+-- name: MarkArchivedAgentsDeleting :exec
+WITH claimed AS (
+    UPDATE
+        agents a
+    SET
+        deleting_at = NOW()
+    WHERE
+        a.archived_at IS NOT NULL
+        AND a.state <> 'failed_to_cleanup'
+        AND a.deleting_at IS NULL
+        AND NOT EXISTS (
+            SELECT
+                1
+            FROM
+                agents parent
+            WHERE
+                parent.id = a.parent_agent_id
+                AND parent.state = 'failed_to_cleanup')
+        RETURNING
+            a.id,
+            a.workflow_id)
+UPDATE
+    workflows w
+SET
+    deleting_at = NOW()
+WHERE
+    w.archived_at IS NOT NULL
+    AND w.deleting_at IS NULL
+    AND w.id IN (
+        SELECT
+            workflow_id
+        FROM
+            claimed)
+    AND NOT EXISTS (
+        SELECT
+            1
+        FROM
+            agents a
+        WHERE
+            a.workflow_id = w.id
+            AND a.archived_at IS NOT NULL
+            AND a.deleting_at IS NULL
+            AND a.id NOT IN (
+                SELECT
+                    id
+                FROM
+                    claimed));
+
+-- name: MarkArchivedAgentsDeletingByID :exec
+WITH claimed AS (
+    UPDATE
+        agents a
+    SET
+        deleting_at = NOW()
+    WHERE (a.id = ANY (@ids::uuid[])
+        OR a.parent_agent_id = ANY (@ids::uuid[]))
+    AND a.archived_at IS NOT NULL
     AND a.state <> 'failed_to_cleanup'
     AND a.deleting_at IS NULL
     AND NOT EXISTS (
@@ -59,26 +139,36 @@ WHERE
             agents parent
         WHERE
             parent.id = a.parent_agent_id
-            AND parent.state = 'failed_to_cleanup');
-
--- name: MarkArchivedAgentsDeletingByID :exec
+            AND parent.state = 'failed_to_cleanup')
+    RETURNING
+        a.id,
+        a.workflow_id)
 UPDATE
-    agents a
+    workflows w
 SET
     deleting_at = NOW()
-WHERE (a.id = ANY (@ids::uuid[])
-    OR a.parent_agent_id = ANY (@ids::uuid[]))
-AND a.archived_at IS NOT NULL
-AND a.state <> 'failed_to_cleanup'
-AND a.deleting_at IS NULL
-AND NOT EXISTS (
-    SELECT
-        1
-    FROM
-        agents parent
-    WHERE
-        parent.id = a.parent_agent_id
-        AND parent.state = 'failed_to_cleanup');
+WHERE
+    w.archived_at IS NOT NULL
+    AND w.deleting_at IS NULL
+    AND w.id IN (
+        SELECT
+            workflow_id
+        FROM
+            claimed)
+    AND NOT EXISTS (
+        SELECT
+            1
+        FROM
+            agents a
+        WHERE
+            a.workflow_id = w.id
+            AND a.archived_at IS NOT NULL
+            AND a.deleting_at IS NULL
+            AND a.id NOT IN (
+                SELECT
+                    id
+                FROM
+                    claimed));
 
 -- name: ClearAgentsDeleting :exec
 WITH released AS (
@@ -86,17 +176,18 @@ WITH released AS (
         agents
     SET
         deleting_at = NULL
-    WHERE
-        id = ANY (@ids::uuid[])
-        OR parent_agent_id = ANY (@ids::uuid[])
-    RETURNING
-        workflow_id)
+    WHERE (id = ANY (@ids::uuid[])
+        OR parent_agent_id = ANY (@ids::uuid[]))
+    AND deleting_at IS NOT NULL
+RETURNING
+    workflow_id)
 UPDATE
     workflows
 SET
     deleting_at = NULL
 WHERE
-    id IN (
+    deleting_at IS NOT NULL
+    AND id IN (
         SELECT
             workflow_id
         FROM

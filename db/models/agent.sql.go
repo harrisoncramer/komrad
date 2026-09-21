@@ -119,17 +119,18 @@ WITH released AS (
         agents
     SET
         deleting_at = NULL
-    WHERE
-        id = ANY ($1::uuid[])
-        OR parent_agent_id = ANY ($1::uuid[])
-    RETURNING
-        workflow_id)
+    WHERE (id = ANY ($1::uuid[])
+        OR parent_agent_id = ANY ($1::uuid[]))
+    AND deleting_at IS NOT NULL
+RETURNING
+    workflow_id)
 UPDATE
     workflows
 SET
     deleting_at = NULL
 WHERE
-    id IN (
+    deleting_at IS NOT NULL
+    AND id IN (
         SELECT
             workflow_id
         FROM
@@ -1852,13 +1853,43 @@ func (q *Queries) MarkAgentsArchived(ctx context.Context, ids []string) ([]*Mark
 }
 
 const markAgentsDeleting = `-- name: MarkAgentsDeleting :exec
+WITH claimed AS (
+    UPDATE
+        agents
+    SET
+        deleting_at = NOW()
+    WHERE (id = ANY ($1::uuid[])
+        OR parent_agent_id = ANY ($1::uuid[]))
+    AND deleting_at IS NULL
+RETURNING
+    id,
+    workflow_id)
 UPDATE
-    agents
+    workflows w
 SET
     deleting_at = NOW()
-WHERE (id = ANY ($1::uuid[])
-    OR parent_agent_id = ANY ($1::uuid[]))
-AND deleting_at IS NULL
+WHERE
+    w.archived_at IS NOT NULL
+    AND w.deleting_at IS NULL
+    AND w.id IN (
+        SELECT
+            workflow_id
+        FROM
+            claimed)
+    AND NOT EXISTS (
+        SELECT
+            1
+        FROM
+            agents a
+        WHERE
+            a.workflow_id = w.id
+            AND a.archived_at IS NOT NULL
+            AND a.deleting_at IS NULL
+            AND a.id NOT IN (
+                SELECT
+                    id
+                FROM
+                    claimed))
 `
 
 func (q *Queries) MarkAgentsDeleting(ctx context.Context, ids []string) error {
@@ -1867,12 +1898,68 @@ func (q *Queries) MarkAgentsDeleting(ctx context.Context, ids []string) error {
 }
 
 const markArchivedAgentsDeleting = `-- name: MarkArchivedAgentsDeleting :exec
+WITH claimed AS (
+    UPDATE
+        agents a
+    SET
+        deleting_at = NOW()
+    WHERE
+        a.archived_at IS NOT NULL
+        AND a.state <> 'failed_to_cleanup'
+        AND a.deleting_at IS NULL
+        AND NOT EXISTS (
+            SELECT
+                1
+            FROM
+                agents parent
+            WHERE
+                parent.id = a.parent_agent_id
+                AND parent.state = 'failed_to_cleanup')
+        RETURNING
+            a.id,
+            a.workflow_id)
 UPDATE
-    agents a
+    workflows w
 SET
     deleting_at = NOW()
 WHERE
-    a.archived_at IS NOT NULL
+    w.archived_at IS NOT NULL
+    AND w.deleting_at IS NULL
+    AND w.id IN (
+        SELECT
+            workflow_id
+        FROM
+            claimed)
+    AND NOT EXISTS (
+        SELECT
+            1
+        FROM
+            agents a
+        WHERE
+            a.workflow_id = w.id
+            AND a.archived_at IS NOT NULL
+            AND a.deleting_at IS NULL
+            AND a.id NOT IN (
+                SELECT
+                    id
+                FROM
+                    claimed))
+`
+
+func (q *Queries) MarkArchivedAgentsDeleting(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, markArchivedAgentsDeleting)
+	return err
+}
+
+const markArchivedAgentsDeletingByID = `-- name: MarkArchivedAgentsDeletingByID :exec
+WITH claimed AS (
+    UPDATE
+        agents a
+    SET
+        deleting_at = NOW()
+    WHERE (a.id = ANY ($1::uuid[])
+        OR a.parent_agent_id = ANY ($1::uuid[]))
+    AND a.archived_at IS NOT NULL
     AND a.state <> 'failed_to_cleanup'
     AND a.deleting_at IS NULL
     AND NOT EXISTS (
@@ -1883,31 +1970,35 @@ WHERE
         WHERE
             parent.id = a.parent_agent_id
             AND parent.state = 'failed_to_cleanup')
-`
-
-func (q *Queries) MarkArchivedAgentsDeleting(ctx context.Context) error {
-	_, err := q.db.Exec(ctx, markArchivedAgentsDeleting)
-	return err
-}
-
-const markArchivedAgentsDeletingByID = `-- name: MarkArchivedAgentsDeletingByID :exec
+    RETURNING
+        a.id,
+        a.workflow_id)
 UPDATE
-    agents a
+    workflows w
 SET
     deleting_at = NOW()
-WHERE (a.id = ANY ($1::uuid[])
-    OR a.parent_agent_id = ANY ($1::uuid[]))
-AND a.archived_at IS NOT NULL
-AND a.state <> 'failed_to_cleanup'
-AND a.deleting_at IS NULL
-AND NOT EXISTS (
-    SELECT
-        1
-    FROM
-        agents parent
-    WHERE
-        parent.id = a.parent_agent_id
-        AND parent.state = 'failed_to_cleanup')
+WHERE
+    w.archived_at IS NOT NULL
+    AND w.deleting_at IS NULL
+    AND w.id IN (
+        SELECT
+            workflow_id
+        FROM
+            claimed)
+    AND NOT EXISTS (
+        SELECT
+            1
+        FROM
+            agents a
+        WHERE
+            a.workflow_id = w.id
+            AND a.archived_at IS NOT NULL
+            AND a.deleting_at IS NULL
+            AND a.id NOT IN (
+                SELECT
+                    id
+                FROM
+                    claimed))
 `
 
 func (q *Queries) MarkArchivedAgentsDeletingByID(ctx context.Context, ids []string) error {

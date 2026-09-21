@@ -47,13 +47,8 @@ type workflowAgentDeleter interface {
 	DeleteAgents(ctx context.Context, ids []string) error
 }
 
-type workflowReadClaimer interface {
-	workflowReader
-	MarkDeleting(ctx context.Context, id string) error
-}
-
 type WorkflowService struct {
-	store        workflowReadClaimer
+	store        workflowReader
 	agents       workflowAgentLister
 	agentDeleter workflowAgentDeleter
 	emptied      *EmptyWorkflowDeleter
@@ -66,7 +61,7 @@ type WorkflowService struct {
 }
 
 type NewWorkflowServiceParams struct {
-	Workflows    workflowReadClaimer
+	Workflows    workflowReader
 	Agents       workflowAgentLister
 	AgentDeleter workflowAgentDeleter
 	Emptied      *EmptyWorkflowDeleter
@@ -433,10 +428,6 @@ func (w *WorkflowService) DeleteWorkflow(ctx context.Context, id string) error {
 		// No agent delete runs to check an empty workflow, so this is the one case that removes
 		// the row here.
 		return w.emptied.deleteWithSchedules(ctx, existing, schedules)
-	}
-
-	if err := w.store.MarkDeleting(ctx, id); err != nil {
-		return err
 	}
 
 	// Deleting an agent checks the workflow it leaves behind for itself, and leaves behind any

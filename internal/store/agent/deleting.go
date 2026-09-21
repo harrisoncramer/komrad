@@ -5,8 +5,8 @@ import (
 	"fmt"
 )
 
-// MarkDeleting claims agents and their children for a delete, leaving a claim already there
-// as it was.
+// MarkDeleting claims agents and their children for a delete, and with them any archived
+// workflow whose last archived agent that claim takes.
 func (s *Store) MarkDeleting(ctx context.Context, ids []string) error {
 	storable := keepStorableIDs(ids)
 	if len(storable) == 0 {
@@ -20,7 +20,8 @@ func (s *Store) MarkDeleting(ctx context.Context, ids []string) error {
 	return nil
 }
 
-// MarkArchivedDeleting claims every archived agent for a delete.
+// MarkArchivedDeleting claims every archived agent whose delete has not already failed, and
+// every archived workflow left with nothing unclaimed inside it.
 func (s *Store) MarkArchivedDeleting(ctx context.Context) error {
 	if err := s.queries.MarkArchivedAgentsDeleting(ctx); err != nil {
 		return fmt.Errorf("failed to claim the archive for a delete: %w", err)
@@ -29,8 +30,8 @@ func (s *Store) MarkArchivedDeleting(ctx context.Context) error {
 	return nil
 }
 
-// MarkArchivedDeletingByID claims the archived agents among those named, and their children,
-// for a delete.
+// MarkArchivedDeletingByID claims the archived agents among those named whose delete has not
+// already failed, their children, and any archived workflow left with nothing unclaimed.
 func (s *Store) MarkArchivedDeletingByID(ctx context.Context, ids []string) error {
 	storable := keepStorableIDs(ids)
 	if len(storable) == 0 {
@@ -44,7 +45,7 @@ func (s *Store) MarkArchivedDeletingByID(ctx context.Context, ids []string) erro
 	return nil
 }
 
-// ClearDeleting takes the delete's claim off agents and their children.
+// ClearDeleting takes the delete's claim off agents, their children and their workflows.
 func (s *Store) ClearDeleting(ctx context.Context, ids []string) error {
 	storable := keepStorableIDs(ids)
 	if len(storable) == 0 {

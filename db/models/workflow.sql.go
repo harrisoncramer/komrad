@@ -640,37 +640,6 @@ func (q *Queries) ListWorkflowsPage(ctx context.Context, arg ListWorkflowsPagePa
 	return items, nil
 }
 
-const markArchivedWorkflowsDeleting = `-- name: MarkArchivedWorkflowsDeleting :exec
-UPDATE
-    workflows
-SET
-    deleting_at = NOW()
-WHERE
-    archived_at IS NOT NULL
-    AND deleting_at IS NULL
-    AND EXISTS (
-        SELECT
-            1
-        FROM
-            agents
-        WHERE
-            agents.workflow_id = workflows.id
-            AND agents.archived_at IS NOT NULL)
-    AND NOT EXISTS (
-        SELECT
-            1
-        FROM
-            agents
-        WHERE
-            agents.workflow_id = workflows.id
-            AND agents.state = 'failed_to_cleanup')
-`
-
-func (q *Queries) MarkArchivedWorkflowsDeleting(ctx context.Context) error {
-	_, err := q.db.Exec(ctx, markArchivedWorkflowsDeleting)
-	return err
-}
-
 const markWorkflowArchived = `-- name: MarkWorkflowArchived :exec
 WITH prior AS (
     SELECT
@@ -701,21 +670,6 @@ WHERE
 
 func (q *Queries) MarkWorkflowArchived(ctx context.Context, id string) error {
 	_, err := q.db.Exec(ctx, markWorkflowArchived, id)
-	return err
-}
-
-const markWorkflowDeleting = `-- name: MarkWorkflowDeleting :exec
-UPDATE
-    workflows
-SET
-    deleting_at = NOW()
-WHERE
-    id = $1
-    AND deleting_at IS NULL
-`
-
-func (q *Queries) MarkWorkflowDeleting(ctx context.Context, id string) error {
-	_, err := q.db.Exec(ctx, markWorkflowDeleting, id)
 	return err
 }
 

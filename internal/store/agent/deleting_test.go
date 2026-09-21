@@ -163,3 +163,22 @@ func TestDeletingClaimHidesTheRow(t *testing.T) {
 		})
 	}
 }
+
+// TestReleaseLeavesAnUnclaimedRowUntouched pins a release naming a row with no claim on it
+// writing nothing, so the stamp the optimistic locks compare on does not move.
+func TestReleaseLeavesAnUnclaimedRowUntouched(t *testing.T) {
+	f := open(t)
+	ctx := t.Context()
+
+	require.NoError(t, f.Create(ctx, Agent{Name: "author", State: StateIdle}))
+	before, err := f.Get(ctx, "author")
+	require.NoError(t, err)
+	require.NotNil(t, before)
+
+	require.NoError(t, f.ClearDeleting(ctx, []string{before.ID}))
+
+	after, err := f.Get(ctx, "author")
+	require.NoError(t, err)
+	require.NotNil(t, after)
+	assert.Equal(t, before.UpdatedAt, after.UpdatedAt)
+}

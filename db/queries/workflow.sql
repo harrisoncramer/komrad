@@ -181,40 +181,6 @@ SET
 WHERE
     id = @id;
 
--- name: MarkWorkflowDeleting :exec
-UPDATE
-    workflows
-SET
-    deleting_at = NOW()
-WHERE
-    id = @id
-    AND deleting_at IS NULL;
-
--- name: MarkArchivedWorkflowsDeleting :exec
-UPDATE
-    workflows
-SET
-    deleting_at = NOW()
-WHERE
-    archived_at IS NOT NULL
-    AND deleting_at IS NULL
-    AND EXISTS (
-        SELECT
-            1
-        FROM
-            agents
-        WHERE
-            agents.workflow_id = workflows.id
-            AND agents.archived_at IS NOT NULL)
-    AND NOT EXISTS (
-        SELECT
-            1
-        FROM
-            agents
-        WHERE
-            agents.workflow_id = workflows.id
-            AND agents.state = 'failed_to_cleanup');
-
 -- name: ClearAllWorkflowsDeleting :exec
 UPDATE
     workflows
