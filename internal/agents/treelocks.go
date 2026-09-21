@@ -2,12 +2,6 @@ package agents
 
 import "sync"
 
-// Explainer: the lock is keyed on the directory rather than on the agent because the directory
-// is what two operations collide over: a child shares its parent's checkout, and a review round
-// is taken of the same tree the agent works in. It holds only within this process, and an
-// agent's own CLI does not take it, so it orders weave's operations against each other rather
-// than against the thing living in the directory.
-
 // TreeLocks serialises the operations that write to an agent's checkout.
 type TreeLocks struct {
 	mu   sync.Mutex

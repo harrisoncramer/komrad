@@ -206,9 +206,6 @@ func (s *ReviewService) ListReviews(
 			continue
 		}
 
-		// Explainer: a review nobody has released is the reviewer's own draft, and both its verdict
-		// and how many findings it holds are things the agent being written about is told when the
-		// reviewer lets go of it rather than while it is still being written.
 		if review.ReleasedAt == nil {
 			continue
 		}
@@ -249,10 +246,6 @@ func (s *ReviewService) roundFor(
 		return s.rounds.GetRound(ctx, params.RoundID)
 	}
 
-	// Explainer: the snapshot is the stronger fact than a round id would be, since it names the
-	// exact tree the numbers were counted off. A tree that has moved since is a round of its own,
-	// so a caller reading an older one is filed there rather than against a file its numbers do
-	// not describe.
 	if params.SnapshotSHA != "" {
 		round, err := s.rounds.GetRoundBySnapshot(ctx, params.AgentID, params.SnapshotSHA)
 		if errors.Is(err, store.ErrNotFound) {
@@ -343,10 +336,6 @@ func (s *ReviewService) requirePreviousReviewAnswered(
 		return nil
 	}
 
-	// Explainer: the danger a second review runs is stacking, where one set of comments is still
-	// owed an answer and another arrives about the same work. What says the first is done with is
-	// its comments having been settled by whoever wrote them, rather than the agent having
-	// written or said anything, either of which it can do without the finding being dealt with.
 	last, err := s.reviews.GetLastReleasedReview(ctx, params)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil

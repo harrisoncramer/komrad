@@ -297,10 +297,6 @@ func (s *ReviewService) CreateReviewThread(
 		return nil, err
 	}
 
-	// Explainer: a review is written against one snapshot. Letting a second snapshot into the
-	// batch already open would send the agent comments about two versions of its work in one
-	// message, with nothing in the batch saying which comment meant which. So the reader sends
-	// what they have before starting on another snapshot.
 	if open.RoundID != round.ID {
 		held, err := s.rounds.GetRound(ctx, open.RoundID)
 		if err != nil {
@@ -622,11 +618,6 @@ func (s *ReviewService) SetReviewThreadResolved(
 		return nil, err
 	}
 
-	// Explainer: whether a thread is settled is what says whether a review is finished, so an
-	// agent that could settle a comment about its own work would be marking its own homework. What
-	// it may settle is a comment it wrote itself, which is how a reviewer says the answer was good
-	// enough. A person may settle anything, including somebody else's, since somebody has to be
-	// able to clear a thread whose author is gone.
 	if !params.Author.IsHuman() && !doesOwnReview(params.Author, *thread) {
 		return nil, ErrReviewNotYours.Saying(
 			"%q is a comment about your own work, so it is not yours to settle", params.ID)

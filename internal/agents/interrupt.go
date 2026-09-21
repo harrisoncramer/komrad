@@ -50,9 +50,6 @@ func (i *Interrupter) Interrupt(ctx context.Context, agentID string) error {
 	return i.channel.Interrupt(ctx, target)
 }
 
-// Explainer: Observe fails only when the agent's harness is not registered. Interrupt looks that
-// same harness up, so in that case no keys can land and the failure is reported from there.
-
 // hasTurnToCut reports whether the pane says a turn is running.
 func (i *Interrupter) hasTurnToCut(ctx context.Context, target harness.Target) bool {
 	observed, err := i.observer.Observe(ctx, target)

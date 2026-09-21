@@ -229,11 +229,6 @@ func TestReconcileReturnsAHoldWhenTheListingComesBack(t *testing.T) {
 
 	board := seedBoard(t, it, st, 5)
 
-	// Explainer: this last agent sits on a pane that captures nothing, because a tmux degraded
-	// enough to drop panes from a listing is the same tmux whose captures come back empty, and
-	// an empty capture returns before apply. Every other agent here reaches apply on a present
-	// pass, and apply clears the absences along with the rest of the debounce, so without this
-	// one the test would pass whether or not a returning listing gives a hold back.
 	quietPane := it.Spawn("quiet", `sh -c 'exec cat'`)
 	board = append(board, seedRunning(t, st, it.Client(), "quiet", quietPane, agentstore.StateThinking))
 	require.Empty(t, it.Client().CapturePane(quietPane), "the quiet agent's pane captures nothing")

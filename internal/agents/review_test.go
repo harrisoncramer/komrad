@@ -2411,11 +2411,6 @@ func TestACommentReadFromAnOlderSnapshotIsRefused(t *testing.T) {
 	assert.Equal(t, round.ID, opened.Thread.RoundID, "the snapshot it named is the round it went under")
 }
 
-// Explainer: whether a thread is settled is what says whether a review is finished, so who may
-// settle one decides whether that fact means anything. A reviewer settling its own comment is a
-// reviewer saying the answer was good enough, which is the whole loop; the agent under review
-// settling it would be marking its own homework.
-
 // TestAReviewerSettlesItsOwnComment pins the half of the rule that was refused before.
 func TestAReviewerSettlesItsOwnComment(t *testing.T) {
 	reviews := newFakeReviewStore()
@@ -2546,10 +2541,6 @@ func TestTheAgentCannotReopenWhatThePersonSettled(t *testing.T) {
 	})
 	require.NoError(t, err, "the agent writing does not take the person's settling back")
 }
-
-// Explainer: the rule this replaces asked whether the agent had written since the last review,
-// which an agent can do without answering a word. What says a review is done with is its comments
-// having been settled by whoever wrote them.
 
 // TestASecondReviewWaitsForTheFirstToBeSettled pins both halves of the new rule.
 func TestASecondReviewWaitsForTheFirstToBeSettled(t *testing.T) {
