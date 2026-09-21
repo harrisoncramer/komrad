@@ -59,8 +59,8 @@ func NewSettler(params NewSettlerParams) *Settler {
 	}
 }
 
-// Settle reads the agent's pane as it is now rather than the stored state, cuts a turn in
-// flight, and waits for the pane to show the agent at rest, reporting whether a turn was cut.
+// Settle reads the agent's pane as it is now, cuts a turn in flight, and waits for the agent to
+// come to rest, reporting whether a turn was cut.
 func (s *Settler) Settle(ctx context.Context, agent agentstore.Agent) (bool, error) {
 	target := buildTarget(agent)
 

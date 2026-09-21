@@ -208,8 +208,6 @@ func (s *RebaseService) Rebase(ctx context.Context, agentID string) (*RebaseResu
 	}
 	defer unlock()
 
-	// Read once here so a tree that would be refused does not cost the agent its turn, and again
-	// in the plan once the agent has stopped.
 	if _, err := s.readTreeState(ctx, *agent); err != nil {
 		return nil, err
 	}
@@ -242,8 +240,7 @@ func (s *RebaseService) settle(ctx context.Context, agent agentstore.Agent) (boo
 	return s.settler.Settle(ctx, agent)
 }
 
-// rebase plans the move and makes it, reading the row again for a hold that landed while the
-// agent was being settled.
+// rebase plans the move and makes it.
 func (s *RebaseService) rebase(ctx context.Context, agent agentstore.Agent) (*RebaseResult, error) {
 	if _, err := s.read(ctx, agent.ID); err != nil {
 		return nil, err
