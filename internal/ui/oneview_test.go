@@ -40,7 +40,7 @@ func TestListSearchLightsTheRecord(t *testing.T) {
 	narrowed := pressMark(t, typed, "tab", "enter")
 	require.True(t, narrowed.filter.doesNarrow(sectionList))
 	assert.False(t, narrowed.filter.doesNarrow(sectionRecord))
-	assert.Equal(t, []string{"backend", "auth"}, rowNames(narrowed.agentRows()))
+	assert.Equal(t, []string{"backend", "auth"}, rowNames(narrowed.agents.rows(narrowed.shared())))
 	assert.Len(t, narrowed.detailsRows(narrowed.hoveredDetails()), len(held.fields), "the record keeps every field")
 }
 
@@ -210,7 +210,7 @@ func TestTypingMovesNothingUntilApplied(t *testing.T) {
 
 	filtered := pressMark(t, typed, "tab", "enter")
 	assert.False(t, filtered.isDetailsFocused())
-	assert.Len(t, filtered.agentRows(), len(m.agentRows()), "a header match keeps the rows under it")
+	assert.Len(t, filtered.agents.rows(filtered.shared()), len(m.agents.rows(m.shared())), "a header match keeps the rows under it")
 	assert.Len(t, filtered.detailsRows(filtered.hoveredDetails()), len(m.hoveredDetails().fields), "and the record is not narrowed")
 }
 
@@ -240,7 +240,7 @@ func TestFieldOnlyFilterEmptiesTheList(t *testing.T) {
 
 	narrowed := pressMark(t, m, "/", "a", "b", "c", "tab", "enter")
 
-	assert.Empty(t, narrowed.agentRows())
+	assert.Empty(t, narrowed.agents.rows(narrowed.shared()))
 	assert.False(t, narrowed.isDetailsFocused())
 	assert.Contains(t, ansi.Strip(narrowed.View()), "nothing matches")
 }

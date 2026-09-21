@@ -101,11 +101,12 @@ func (m model) isDetailsDrawn(held details) bool {
 	return d.detailsFit(m.shared())
 }
 
-// doesListFitDetails is whether the record's share fits under a list, judged with the keys on
-// the list.
-func (m model) doesListFitDetails(header string, help func(model) keyMap) bool {
+// listFitsDetails is whether the record's share fits under a list, judged with the keys on the
+// list.
+func (m model) listFitsDetails(params screenListParams) bool {
 	m.details.focused = false
-	legend := m.renderHelp(help(m), header)
+	header := m.tabbedHeader(params.title, params.tally)
+	legend := m.renderHelp(m.listHelpOf(params), header)
 
 	// Only the list's legend is measured with the search; a focused record shrinks to the room
 	// its own legend leaves.
@@ -117,9 +118,11 @@ func (m model) doesListFitDetails(header string, help func(model) keyMap) bool {
 	return m.spareLines(header, legend) > m.detailsLines()+detailsChromeLines
 }
 
-// listDetailsRoom is the lines a list screen has under its header and the legend it is drawing.
-func (m model) listDetailsRoom(header string, help func(model) keyMap) int {
-	return m.spareLines(header, m.renderHelp(help(m), header))
+// listRecordRoom is the lines a list screen has under its header and the legend it is drawing.
+func (m model) listRecordRoom(params screenListParams) int {
+	header := m.tabbedHeader(params.title, params.tally)
+
+	return m.spareLines(header, m.renderHelp(m.listHelpOf(params), header))
 }
 
 func (m model) isDetailsFocused() bool {

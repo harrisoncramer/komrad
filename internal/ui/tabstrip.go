@@ -184,7 +184,9 @@ func (m model) tabsLine() string {
 	return t.tabs().view(*t.tabsState(), paint.Panel, m.paneWidth()) + "\n"
 }
 
-func (m model) doesListFitTabs(title, tally string, help func(model) keyMap) bool {
+// listFitsTabs is whether a list has the room to draw its strip, judged with the keys on the
+// list.
+func (m model) listFitsTabs(params screenListParams) bool {
 	t, ok := m.activeTabs()
 	if !ok {
 		return false
@@ -197,7 +199,7 @@ func (m model) doesListFitTabs(title, tally string, help func(model) keyMap) boo
 	m.details.focused, m.helpExpanded = false, false
 	t.tabsState().focused = false
 
-	return m.spareLines(m.headerLines(title, tally, m.tabsLine()), m.renderHelp(help(m))) >= 1
+	return m.spareLines(m.headerLines(params.title, params.tally, m.tabsLine()), m.renderHelp(m.listHelpOf(params))) >= 1
 }
 
 func (m *model) blurTabs() {

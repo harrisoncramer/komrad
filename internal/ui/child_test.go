@@ -56,7 +56,8 @@ func familyTree() model {
 // TestChildRowsFollowTheirParent pins that a child is drawn under the agent it is attached to
 // rather than wherever its own id lands in the listing.
 func TestChildRowsFollowTheirParent(t *testing.T) {
-	rows := familyTree().agentRows()
+	m := familyTree()
+	rows := m.agents.rows(m.shared())
 
 	assert.Equal(t, []string{
 		"header:weave",
@@ -77,7 +78,7 @@ func TestHiddenParentTakesItsChildren(t *testing.T) {
 	m := familyTree()
 	m.listing.agents[0].agent.Hidden = true
 
-	rows := m.agentRows()
+	rows := m.agents.rows(m.shared())
 	assert.Equal(t, []string{"header:weave", "agent:fix-gutter"}, describeRows(rows))
 	assert.Equal(t, 3, rows[0].hiddenCount, "the tally stands in for the whole family")
 
@@ -88,7 +89,7 @@ func TestHiddenParentTakesItsChildren(t *testing.T) {
 		"agent:reviewer",
 		"agent:test-runner",
 		"agent:fix-gutter",
-	}, describeRows(m.agentRows()))
+	}, describeRows(m.agents.rows(m.shared())))
 }
 
 // TestOrphanedChildStandsOnItsOwn pins that a child whose parent is not in the listing is still
@@ -97,7 +98,7 @@ func TestOrphanedChildStandsOnItsOwn(t *testing.T) {
 	m := familyTree()
 	m.listing.agents = m.listing.agents[1:]
 
-	rows := m.agentRows()
+	rows := m.agents.rows(m.shared())
 	assert.Equal(t, []string{
 		"header:weave",
 		"agent:fix-gutter",
@@ -121,7 +122,7 @@ func TestChildDetailsLeadWithTheParent(t *testing.T) {
 	m := familyTree()
 	m.agents.cursor = 2
 
-	held := m.agentsDetails()
+	held := m.agents.details(m.shared())
 	require.Greater(t, len(held.fields), 1)
 	assert.Equal(t, "name", held.fields[0].label)
 	assert.Equal(t, "attached to", held.fields[1].label)
@@ -226,7 +227,7 @@ func TestHiddenChildCountsOnItsParent(t *testing.T) {
 	m := familyTree()
 	m.listing.agents[2].agent.Hidden = true
 
-	rows := m.agentRows()
+	rows := m.agents.rows(m.shared())
 	assert.Equal(t, []string{
 		"header:weave",
 		"agent:author",
@@ -237,7 +238,7 @@ func TestHiddenChildCountsOnItsParent(t *testing.T) {
 	assert.Equal(t, 1, rows[1].hiddenCount)
 
 	m.height = 20
-	view := ansi.Strip(m.agentsView())
+	view := ansi.Strip(m.agents.view(m.shared()))
 	for _, line := range strings.Split(view, "\n") {
 		if strings.Contains(line, "author") {
 			assert.Contains(t, line, "+1")
@@ -245,7 +246,7 @@ func TestHiddenChildCountsOnItsParent(t *testing.T) {
 	}
 
 	m.agents.showHidden = true
-	assert.NotContains(t, ansi.Strip(m.agentsView()), "+1")
+	assert.NotContains(t, ansi.Strip(m.agents.view(m.shared())), "+1")
 }
 
 // TestChildIsNotReviewable pins that the review key answers on the parent's row only.

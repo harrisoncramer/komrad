@@ -51,9 +51,9 @@ func TestAgentsListOnAnEmptyPanel(t *testing.T) {
 	}
 	m.agents.cursor = -1
 
-	assert.NotPanics(t, func() { m.agentsView() })
-	assert.Contains(t, ansi.Strip(m.agentsView()), "Agents & Workflows")
-	assert.Contains(t, m.agentDoc(), "nothing here yet")
+	assert.NotPanics(t, func() { m.agents.view(m.shared()) })
+	assert.Contains(t, ansi.Strip(m.agents.view(m.shared())), "Agents & Workflows")
+	assert.Contains(t, m.agents.doc(m.shared()), "nothing here yet")
 }
 
 // longListModel is a panel holding one workflow with more agents under it than its pane has

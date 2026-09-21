@@ -136,7 +136,7 @@ func TestToggleSelection(t *testing.T) {
 func TestToggleSelectionEmptyFolder(t *testing.T) {
 	m := selectionTree()
 	m.listing.workflows = append(m.listing.workflows, panel.Workflow{ID: "w3", Name: "chores"})
-	m.agents.cursor = len(m.agentRows()) - 1
+	m.agents.cursor = len(m.agents.rows(m.shared())) - 1
 
 	after := press(t, m, keyMsg("v"))
 	assert.Empty(t, selectedIDs(after.agents.selected))
@@ -237,7 +237,7 @@ func TestPruneSelection(t *testing.T) {
 			Name:       "ui",
 			WorkflowID: "w2",
 		}}})
-		m.placeTreeCursor("")
+		m.agents.apply(m.shared(), "")
 
 		assert.Equal(t, []string{"a4"}, selectedIDs(m.agents.selected))
 	})
@@ -528,13 +528,13 @@ func TestSelectionKeepsItsBarWhileAFormHasTheKeys(t *testing.T) {
 	m.agents.selected = selectAgents([]string{"a2"}...)
 
 	require.True(t, m.isListFocused(), "the list has the keys to begin with")
-	require.Contains(t, line(t, m.agentsView(), "api"), paint.BackgroundSequence(paint.SelectionBackground))
+	require.Contains(t, line(t, m.agents.view(m.shared()), "api"), paint.BackgroundSequence(paint.SelectionBackground))
 
 	form, _ := confirmForm("Archive 1 agent?", "", "Archive", config.FormKeys{})
 	m.form.form = form
 
 	require.False(t, m.isListFocused(), "and gives them up to the confirm")
-	assert.Contains(t, line(t, m.agentsView(), "api"), paint.BackgroundSequence(paint.SelectionBackground),
+	assert.Contains(t, line(t, m.agents.view(m.shared()), "api"), paint.BackgroundSequence(paint.SelectionBackground),
 		"but the bar under it does not follow the keys")
 }
 

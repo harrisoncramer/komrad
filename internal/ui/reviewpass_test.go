@@ -406,7 +406,7 @@ func TestDroppingTheReviewWhileTheAgentIsStillStoppingLetsItGo(t *testing.T) {
 			m.review.diff.cursor = reviewRowWithAnEditTarget(t, m)
 		}
 
-		next, cmd := m.updateReview(key)
+		next, cmd := m.routeScreenMessage(key)
 		m, ok := next.(model)
 		require.True(t, ok)
 		require.True(t, m.review.pass.pausing)

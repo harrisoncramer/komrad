@@ -60,7 +60,7 @@ func heldModel(agents agentv1connect.AgentServiceClient, held *time.Time) model 
 			}, alive: true}},
 		},
 	}
-	m.agents.cursor = firstAgentRowIndex(m.agentRows())
+	m.agents.cursor = firstAgentRowIndex(m.agents.rows(m.shared()))
 
 	return m
 }
@@ -130,11 +130,11 @@ func TestOpenKeyDoesNothingForHeldAgent(t *testing.T) {
 			}},
 		},
 	}
-	m.agents.cursor = firstAgentRowIndex(m.agentRows())
+	m.agents.cursor = firstAgentRowIndex(m.agents.rows(m.shared()))
 	m.frame.Attach("%3")
 
-	pressed, _ := m.openAgent()
-	got := asModel(t, pressed)
+	m.agents.openAgent(&m, m.shared())
+	got := m
 
 	assert.Empty(t, tmux.selected, "held agent pane not focused")
 	assert.Empty(t, got.frame.GuestPane(), "held agent pane not shown as guest")
@@ -147,8 +147,8 @@ func TestHeldAgentShowsDocNotPane(t *testing.T) {
 
 	m := heldModel(&recordingHolds{}, &at)
 
-	assert.True(t, m.hasNoAgentPane(), "held agent treated as having no pane")
-	assert.Equal(t, heldPlaceholder, m.agentDoc(), "held agent shows paused placeholder")
+	assert.True(t, m.agents.hasNoAgentPane(m.shared()), "held agent treated as having no pane")
+	assert.Equal(t, heldPlaceholder, m.agents.doc(m.shared()), "held agent shows paused placeholder")
 }
 
 // TestAPausedRowSaysWhichThingIsTrue pins what a paused row draws in each case.

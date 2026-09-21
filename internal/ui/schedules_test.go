@@ -732,7 +732,7 @@ func TestScheduleFormOffersEveryWorkflow(t *testing.T) {
 
 // scheduleHelp is the schedules legend as the frame draws it.
 func (m model) scheduleHelp() keyMap {
-	return m.listChromeOf(m.schedules.listParams(m.shared())).help(m)
+	return m.listHelpOf(m.schedules.listParams(m.shared()))
 }
 
 // TestSchedulesLegendIsTheOneItDrewBeforeTheMove sweeps the expanded legend across widths against

@@ -51,9 +51,7 @@ func searchPreviewModel(t *testing.T) (model, *recordingTmux) {
 	// measured at.
 	m.width, m.height = 200, 30
 
-	next, _ := m.enterSearch()
-	m, ok := next.(model)
-	require.True(t, ok)
+	m.enter(screenSearch, screenTarget{})
 
 	content, offset, length := searchTranscript()
 	m.search.typing = false

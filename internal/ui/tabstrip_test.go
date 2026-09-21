@@ -418,14 +418,14 @@ func TestTabsLegendWhileTheStripHoldsTheKeys(t *testing.T) {
 	assert.Contains(t, list, "f")
 
 	focused := send(t, m, "f")
-	legend := focused.renderHelp(focused.worktreesHelp(), focused.worktreesChrome().header(focused))
+	legend := focused.renderHelp(focused.worktreesHelp(), focused.worktreesHeader())
 	assert.Contains(t, legend, "move")
 	assert.Contains(t, legend, "sort down/up, flip")
 	assert.Contains(t, legend, "back to the list")
 	assert.NotContains(t, legend, "jump to agent")
 
 	focused.helpExpanded = true
-	expanded := focused.renderHelp(focused.worktreesHelp(), focused.worktreesChrome().header(focused))
+	expanded := focused.renderHelp(focused.worktreesHelp(), focused.worktreesHeader())
 	assert.Contains(t, expanded, "tab/S-tab")
 	assert.Contains(t, expanded, "hide help")
 }
@@ -437,7 +437,7 @@ func TestTabsStandDownOnAShortPane(t *testing.T) {
 	m.screen = screenWorktrees
 
 	m.height = 6
-	require.NotContains(t, m.worktreesChrome().header(m), "↑↓", "the strip gives up its row")
+	require.NotContains(t, m.worktreesHeader(), "↑↓", "the strip gives up its row")
 	assert.Contains(t, m.View(), "agent39", "to the row the cursor stands on")
 
 	refused := send(t, m, "f")
@@ -448,7 +448,7 @@ func TestTabsStandDownOnAShortPane(t *testing.T) {
 	assert.False(t, refused.isTabsFocused(), "and the refused press does not wake once the pane grows")
 
 	m.height = 7
-	require.Contains(t, m.worktreesChrome().header(m), "↑↓", "the strip is drawn once the list keeps a row beside it")
+	require.Contains(t, m.worktreesHeader(), "↑↓", "the strip is drawn once the list keeps a row beside it")
 	assert.Contains(t, m.View(), "agent39")
 	assert.Len(t, lines(m.View()), 7)
 
@@ -469,8 +469,8 @@ func TestTabsTakeOneRowOffTheList(t *testing.T) {
 	m := screensModel()
 	m.screen, m.height = screenWorktrees, 30
 
-	with := m.listLines(m.worktreesChrome().header(m), m.renderHelp(m.worktreesHelp(), m.worktreesChrome().header(m)))
-	without := m.listLines(m.talliedHeader("Worktrees", m.worktrees.tally()), m.renderHelp(m.worktreesHelp(), m.worktreesChrome().header(m)))
+	with := m.listLines(m.worktreesHeader(), m.renderHelp(m.worktreesHelp(), m.worktreesHeader()))
+	without := m.listLines(m.talliedHeader("Worktrees", m.worktrees.tally()), m.renderHelp(m.worktreesHelp(), m.worktreesHeader()))
 
 	assert.Equal(t, without-1, with)
 }
@@ -480,7 +480,7 @@ func TestTabsTakeOneRowOffTheList(t *testing.T) {
 func TestTabsSitUnderTheFilterLine(t *testing.T) {
 	m := sortedWorktreesModel()
 
-	header := strings.Split(strings.TrimSuffix(m.worktreesChrome().header(m), "\n"), "\n")
+	header := strings.Split(strings.TrimSuffix(m.worktreesHeader(), "\n"), "\n")
 
 	require.Len(t, header, 5)
 	assert.Contains(t, header[2], "/")

@@ -56,7 +56,7 @@ func TestAgentsViewRowsOpenAtTheGutter(t *testing.T) {
 	}
 	m.agents.cursor = -1
 
-	rows := strings.Split(m.agentsView(), "\n")
+	rows := strings.Split(m.agents.view(m.shared()), "\n")
 	// The focus and mark gutter cells, each a blank column and its separator.
 	opening := 4
 
@@ -191,7 +191,7 @@ func TestAgentRowsOrderFamiliesByTheColumn(t *testing.T) {
 			m := agentsSortModel()
 			m.agents.sort = tt.state
 
-			assert.Equal(t, tt.want, xslice.Map(m.agentRows(), agentRow.key))
+			assert.Equal(t, tt.want, xslice.Map(m.agents.rows(m.shared()), agentRow.key))
 		})
 	}
 }
@@ -227,7 +227,7 @@ func TestAgentRowsFlatOrderTheFamiliesAcrossWorkflows(t *testing.T) {
 			m := agentsSortModel()
 			m.agents.sort = tt.state
 
-			rows := m.agentRows()
+			rows := m.agents.rows(m.shared())
 			assert.Equal(t, tt.want, xslice.Map(rows, agentRow.key))
 			for _, row := range rows {
 				assert.False(t, row.header)
@@ -286,94 +286,20 @@ func TestAgentsTabsKeepTheCursorOnItsRow(t *testing.T) {
 	assert.Equal(t, 1, left.agents.cursor)
 }
 
-// agentRows is the tree as the agents screen would draw it.
-func (m model) agentRows() []agentRow {
-	return m.agents.rows(m.shared())
-}
-
 // agentHelp is the agents legend as the frame draws it.
 func (m model) agentHelp() keyMap {
 	return m.listHelp(m.agents.help(m.shared()))
 }
 
-func (m model) agentsView() string {
-	return m.agents.view(m.shared())
-}
-
-func (m model) agentDoc() string {
-	return m.agents.doc(m.shared())
-}
-
-func (m model) hasNoAgentPane() bool {
-	return m.agents.hasNoAgentPane(m.shared())
-}
-
-func (m model) selectedAgent() (agentItem, bool) {
-	return m.agents.selectedAgent(m.shared())
-}
-
-func (m model) hoveredWorkflow() (panel.Workflow, bool) {
-	return m.agents.hoveredWorkflow(m.shared())
-}
-
-// placeTreeCursor is the agents screen taking the listing as it stands.
-func (m *model) placeTreeCursor(selected string) {
-	m.agents.apply(m.shared(), selected)
-}
-
 // agentsHeader is the list's header as the frame draws it.
 func (m model) agentsHeader() string {
-	return m.listChromeOf(m.agents.listParams(m.shared())).header(m)
+	params := m.agents.listParams(m.shared())
+
+	return m.tabbedHeader(params.title, params.tally)
 }
 
 func (m model) agentsListView() string {
 	return m.screenListView(m.agents.listParams(m.shared()))
-}
-
-func (m model) agentsDetails() details {
-	return m.agents.details(m.shared())
-}
-
-func (m model) deferStaging() (model, tea.Cmd) {
-	cmd := m.waitToStage()
-
-	return m, cmd
-}
-
-func (m model) readMark(key tea.KeyMsg) (tea.Model, tea.Cmd) {
-	cmd := m.agents.readMark(&m, m.shared(), key)
-
-	return m, cmd
-}
-
-func (m model) openAgent() (tea.Model, tea.Cmd) {
-	cmd := m.agents.openAgent(&m, m.shared())
-
-	return m, cmd
-}
-
-func (m model) toggleHiddenAgents() (tea.Model, tea.Cmd) {
-	cmd := m.agents.toggleHidden(&m, m.shared(), "")
-
-	return m, cmd
-}
-
-func (m model) enterArchive() (tea.Model, tea.Cmd) {
-	cmd := m.enter(screenArchive, screenTarget{})
-
-	return m, cmd
-}
-
-func (m model) enterSearch() (tea.Model, tea.Cmd) {
-	cmd := m.enter(screenSearch, screenTarget{})
-
-	return m, cmd
-}
-
-func (m model) openWorktrees(agentID string) model {
-	m.enter(screenWorktrees, screenTarget{agentID: agentID})
-
-	return m
 }
 
 // The forms the agents screen opens, each reached through the root as the tests here open them.

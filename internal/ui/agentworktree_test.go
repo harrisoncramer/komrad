@@ -159,11 +159,12 @@ func TestStageTickReadsTheHoveredAgentsWorktree(t *testing.T) {
 	m.api.worktrees = client
 	m.api.pullRequests = &recordingPullRequests{}
 
-	next, _ := m.deferStaging()
-	ask := next.applyStageTick(stageTickMsg{move: next.staging})
+	m.waitToStage()
+	ask := m.applyStageTick(stageTickMsg{move: m.staging})
 	require.NotNil(t, ask)
-	assert.True(t, next.inspections["/repo"].pending)
+	assert.True(t, m.inspections["/repo"].pending)
 
+	next := m
 	for _, msg := range produced(ask) {
 		updated, _ := next.Update(msg)
 		landed, ok := updated.(model)
@@ -360,7 +361,7 @@ func TestRecordFilterLeavingNothingSaysSo(t *testing.T) {
 
 	assert.Contains(t, ansi.Strip(narrowed.detailsView()), "nothing matches")
 	assert.True(t, narrowed.isDetailsFocused(), "the record keeps the keys")
-	assert.Len(t, narrowed.agentRows(), len(m.agentRows()), "the list is untouched")
+	assert.Len(t, narrowed.agents.rows(narrowed.shared()), len(m.agents.rows(m.shared())), "the list is untouched")
 }
 
 // TestRecordSearchEscapes covers escape over the record: it abandons an input being typed at,
@@ -398,7 +399,7 @@ func TestRecordSearchStaysWhenTheKeysGo(t *testing.T) {
 	assert.True(t, back.filter.isStanding())
 	assert.Equal(t, filterModeFilter, back.filter.mode)
 	assert.Len(t, back.detailsRows(back.hoveredDetails()), 1, "the record is still narrowed")
-	assert.Equal(t, []string{"backend", "auth"}, rowNames(back.agentRows()), "and so is the list")
+	assert.Equal(t, []string{"backend", "auth"}, rowNames(back.agents.rows(back.shared())), "and so is the list")
 	assert.Contains(t, ansi.Strip(back.View()), "▽ aut")
 }
 

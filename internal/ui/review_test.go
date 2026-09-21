@@ -1566,9 +1566,9 @@ func TestReviewSearchLeavesTheAgentsListAlone(t *testing.T) {
 	require.Positive(t, m.review.diff.view.MatchCount())
 
 	assert.Empty(t, m.filter.query, "the pattern is the review's, not the panel's")
-	require.Len(t, m.agentRows(), 2, "so the agents list is still whole behind it")
+	require.Len(t, m.agents.rows(m.shared()), 2, "so the agents list is still whole behind it")
 
-	m.placeTreeCursor(rowKeyAt(m.agentRows(), m.agents.cursor))
+	m.agents.apply(m.shared(), rowKeyAt(m.agents.rows(m.shared()), m.agents.cursor))
 	assert.Equal(t, 1, m.agents.cursor, "and a refresh leaves the cursor where it was")
 
 	// Enter puts the prompt away and keeps the pattern.

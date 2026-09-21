@@ -271,9 +271,10 @@ func TestStageTickOnTheAgentsListAsksForThePullRequests(t *testing.T) {
 	m.listing.agents[0].agent.Branch = xptr.Ptr("agent/x")
 	m.listing.agents[0].pullRequest = pullRequestStanding{state: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED, number: 740}
 
-	next, cmd := m.deferStaging()
+	cmd := m.waitToStage()
 	require.NotNil(t, cmd, "a move schedules a rest")
 
+	next := m
 	ask := next.applyStageTick(stageTickMsg{move: next.staging})
 	require.NotNil(t, ask, "the rest asks for the hovered agent")
 	assert.True(t, next.pullRequests.listed["a1"].pending)
@@ -292,7 +293,7 @@ func TestStageTickOnTheAgentsListAsksForThePullRequests(t *testing.T) {
 	assert.False(t, listed.pending)
 	require.Len(t, listed.items, 1)
 	assert.Equal(t, int32(740), listed.items[0].number)
-	assert.Contains(t, next.agentsDetails().fields, recordField{"pull request", "#740 merged " + ageOf(t, "2026-09-20T10:00:00Z") + " ago"})
+	assert.Contains(t, next.agents.details(next.shared()).fields, recordField{"pull request", "#740 merged " + ageOf(t, "2026-09-20T10:00:00Z") + " ago"})
 }
 
 // TestRefreshAsksForTheHoveredAgentsPullRequestsWhenTheyMove covers a listing landing without
