@@ -330,7 +330,7 @@ func revealPaths(ctx context.Context, root, index string, env []string, paths []
 
 	for _, flag := range []string{"--no-skip-worktree", "--no-assume-unchanged"} {
 		args := []string{"update-index", flag, "-z", "--stdin"}
-		if _, err := runInput(ctx, root, env, input.Bytes(), args...); err != nil {
+		if _, err := runInput(ctx, local, root, env, input.Bytes(), args...); err != nil {
 			return fmt.Errorf("failed to unflag the files of %q for a snapshot: %w", root, err)
 		}
 	}
@@ -357,7 +357,11 @@ func removeIndex(path string) {
 // GetTree is the tree one snapshot commit holds, which a probe of the worktree is compared
 // against to say whether the agent has written anything since.
 func (c *Client) GetTree(ctx context.Context, dir, sha string) (string, error) {
-	tree, err := Run(ctx, dir, "rev-parse", sha+"^{tree}")
+	return getTree(ctx, local, dir, sha)
+}
+
+func getTree(ctx context.Context, on runner, dir, sha string) (string, error) {
+	tree, err := runOn(ctx, on, dir, "rev-parse", sha+"^{tree}")
 	if err != nil {
 		return "", fmt.Errorf("failed to read the tree of %q: %w", sha, err)
 	}
@@ -443,7 +447,7 @@ func isOwnHead(ctx context.Context, root, base string) bool {
 
 // doesHoldWhole reports whether merging a commit into the base would change nothing of it.
 func doesHoldWhole(ctx context.Context, root, base, baseTree, sha string) (bool, error) { //nolint:revive // a params struct is the follow-up
-	merged, _, err := readMergedTree(ctx, readMergedTreeParams{Dir: root, Left: base, Right: sha})
+	merged, _, err := readMergedTree(ctx, local, readMergedTreeParams{Dir: root, Left: base, Right: sha})
 	if err != nil {
 		return false, err
 	}
@@ -459,7 +463,7 @@ func isCleanOnto(ctx context.Context, root, base, baseTree, probe string) (bool,
 		return false, fmt.Errorf("failed to find where %q left %q: %w", root, base, err)
 	}
 
-	merged, _, err := readMergedTree(ctx, readMergedTreeParams{Dir: root, Left: base, Right: probe, MergeBase: mergeBase})
+	merged, _, err := readMergedTree(ctx, local, readMergedTreeParams{Dir: root, Left: base, Right: probe, MergeBase: mergeBase})
 	if err != nil {
 		return false, err
 	}

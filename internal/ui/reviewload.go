@@ -296,7 +296,7 @@ func (m model) loadReviewCmd(params loadReviewCmdParams) tea.Cmd {
 // changedSinceLastReviewParams says which round to measure against and what to leave out of the
 // count.
 type changedSinceLastReviewParams struct {
-	Git     uiGit
+	Git     ReviewGit
 	Dir     string
 	Exclude []string
 	// Earlier is the round the person last reviewed, nil when there is none.

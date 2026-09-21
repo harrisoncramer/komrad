@@ -28,7 +28,7 @@ const maxFileBytes = 2 << 20
 type patchReader interface {
 	GetRoot(ctx context.Context, dir string) (string, error)
 	Diff(ctx context.Context, params git.DiffParams) ([]byte, error)
-	ReadFile(ctx context.Context, dir, sha, path string) ([]byte, error)
+	ReadFiles(ctx context.Context, dir string, revisions []git.FileRevision) (map[git.FileRevision][]byte, error)
 }
 
 // LoadParams says which snapshot to read and what to measure it against.
@@ -126,6 +126,8 @@ func parseFiles(ctx context.Context, params parseFilesParams) ([]File, error) {
 	}
 
 	files := make([]File, 0, len(parsed))
+	coloured := make([]int, 0, len(parsed))
+
 	for _, current := range parsed {
 		file := File{OldPath: git.FilePath(current.OldName), NewPath: git.FilePath(current.NewName)}
 
@@ -153,15 +155,55 @@ func parseFiles(ctx context.Context, params parseFilesParams) ([]File, error) {
 			file.Metadata = append(file.Metadata, "content omitted: over 2 MiB")
 			file.Content = current.OldOIDPrefix + ".." + current.NewOIDPrefix
 		default:
-			file.OldSource = readRevision(ctx, params.Git, params.Root, params.BaseSHA, file.OldPath)
-			file.NewSource = readRevision(ctx, params.Git, params.Root, params.SnapshotSHA, file.NewPath)
 			file.Hunks = buildHunks(current.TextFragments)
+			coloured = append(coloured, len(files))
 		}
 
 		files = append(files, file)
 	}
 
+	readSources(ctx, params, files, coloured)
+
 	return files, nil
+}
+
+func readSources(ctx context.Context, params parseFilesParams, files []File, coloured []int) {
+	revisions := make([]git.FileRevision, 0, len(coloured)*2)
+	for _, i := range coloured {
+		revisions = append(revisions, revisionsOf(params, files[i])...)
+	}
+
+	sources, err := params.Git.ReadFiles(ctx, params.Root, revisions)
+	if err != nil {
+		return
+	}
+
+	for _, i := range coloured {
+		files[i].OldSource = sourceOf(sources, git.FileRevision{SHA: params.BaseSHA, Path: files[i].OldPath})
+		files[i].NewSource = sourceOf(sources, git.FileRevision{SHA: params.SnapshotSHA, Path: files[i].NewPath})
+	}
+}
+
+func revisionsOf(params parseFilesParams, file File) []git.FileRevision {
+	revisions := make([]git.FileRevision, 0, 2)
+	if file.OldPath != "" {
+		revisions = append(revisions, git.FileRevision{SHA: params.BaseSHA, Path: file.OldPath})
+	}
+
+	if file.NewPath != "" {
+		revisions = append(revisions, git.FileRevision{SHA: params.SnapshotSHA, Path: file.NewPath})
+	}
+
+	return revisions
+}
+
+func sourceOf(sources map[git.FileRevision][]byte, revision git.FileRevision) string {
+	out, held := sources[revision]
+	if !held || len(out) > maxFileBytes {
+		return ""
+	}
+
+	return string(out)
 }
 
 // countDrawnBytes is how much text a file's hunks would put on screen, which decides whether it
@@ -238,17 +280,4 @@ func buildHunks(fragments []*gitdiff.TextFragment) []Hunk {
 	}
 
 	return hunks
-}
-
-func readRevision(ctx context.Context, repo patchReader, root, revision, path string) string { //nolint:revive // a params struct is the follow-up
-	if path == "" {
-		return ""
-	}
-
-	out, err := repo.ReadFile(ctx, root, revision, path)
-	if err != nil || len(out) > maxFileBytes {
-		return ""
-	}
-
-	return string(out)
 }

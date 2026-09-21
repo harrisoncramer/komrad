@@ -42,6 +42,6 @@ func (fakeGit) GetRoot(context.Context, string) (string, error) { return "", err
 
 func (fakeGit) Diff(context.Context, git.DiffParams) ([]byte, error) { return nil, errNoGit }
 
-func (fakeGit) ReadFile(context.Context, string, string, string) ([]byte, error) {
+func (fakeGit) ReadFiles(context.Context, string, []git.FileRevision) (map[git.FileRevision][]byte, error) {
 	return nil, errNoGit
 }
