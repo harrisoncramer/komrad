@@ -76,8 +76,8 @@ func drawTrailing(palette paint.Palette, line Line) string {
 // drawGutterCell is a cell that holds its column whether or not it has anything to draw, its
 // text set against the right edge of the column.
 func drawGutterCell(palette paint.Palette, cell Cell, width int) string {
-	if cell.IsBlank() {
-		return strings.Repeat(" ", width)
+	if width <= 0 || cell.IsBlank() {
+		return strings.Repeat(" ", max(width, 0))
 	}
 
 	text := paint.Clip(cellText(cell), width)

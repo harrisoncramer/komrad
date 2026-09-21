@@ -22,9 +22,10 @@
 // and the shape says which state it is in. The agents list declares three glyph columns, repo,
 // review and forge, and they are blank on a row that can never own a checkout, the review column
 // blank as well on a branch no review has been released on. The bar is the exception: it is
-// drawn on every row, a thin pipe where nothing is happening and a heavy one where an agent is thinking, waiting or broken, so it runs as one rail down the
-// list. A thinking agent's bar pulses between the two on the cursor's blink. Whether a process is
-// still there is the weight's to say, not the bar's.
+// drawn on every row, a thin pipe where nothing is happening and a heavy one where an agent is
+// thinking, waiting or broken, so it runs as one rail down the list. A thinking agent's bar
+// pulses between the two on the cursor's blink. Whether a process is still there is the weight's
+// to say, not the bar's.
 //
 // # Dim means the process is gone
 //
@@ -44,7 +45,7 @@
 // dormant one is dim with the mark, and an archived one is dim without it.
 //
 // An indent costs the name the columns it spends, so an agent has less room for its name than a
-// workflow at the same pane, and the narrowing and the mark shedding both read the indent rather
+// workflow at the same pane, and the name clip and the mark shedding both read the indent rather
 // than the gutter alone.
 //
 // # A list declares its columns

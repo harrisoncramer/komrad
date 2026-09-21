@@ -76,18 +76,39 @@ func TestRenderTextColumnsSitBesideTheBar(t *testing.T) {
 }
 
 // TestRenderTextCellIsClippedToItsColumn pins a figure wider than its column being cut rather
-// than pushing the name along.
+// than pushing the name along, and a column with no width drawing nothing at all.
 func TestRenderTextCellIsClippedToItsColumn(t *testing.T) {
-	list := Prepare(Snapshot{
-		Rows: []Row{{
-			Kind:  KindWorkflow,
-			Name:  "weave",
-			Cells: []Cell{muted("12345")},
-		}},
-		Columns: Columns{{Kind: ColumnText, Width: 4}},
-	})
+	tests := []struct {
+		name  string
+		width int
+		want  string
+	}{
+		{
+			name:  "a column of no width draws nothing",
+			width: 0,
+			want:  "     │ weave",
+		},
+		{
+			name:  "a figure wider than its column is cut",
+			width: 4,
+			want:  "    123… │ weave",
+		},
+	}
 
-	drawn := ansiEscapes.ReplaceAllString(render(list, paint.Panel, 0), "")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			list := Prepare(Snapshot{
+				Rows: []Row{{
+					Kind:  KindWorkflow,
+					Name:  "weave",
+					Cells: []Cell{muted("12345")},
+				}},
+				Columns: Columns{{Kind: ColumnText, Width: tt.width}},
+			})
 
-	assert.Equal(t, "    123… │ weave", drawn)
+			drawn := ansiEscapes.ReplaceAllString(render(list, paint.Panel, 0), "")
+
+			assert.Equal(t, tt.want, drawn)
+		})
+	}
 }

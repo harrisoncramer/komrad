@@ -990,7 +990,7 @@ func TestPrepareShedsMarksOnlyWhereTheMarksAloneWillNotFit(t *testing.T) {
 		},
 		{
 			name: "wider still keeps every mark, the schedule last",
-			pane: 28,
+			pane: 24,
 			want: []Glyph{GlyphPaused, GlyphHidden, GlyphMail, GlyphAlert, GlyphSchedule},
 		},
 	}
