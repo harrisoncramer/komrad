@@ -140,17 +140,6 @@ func (r *reviewScreen) applyPaused(h host, s panelShared, msg reviewPausedMsg) t
 
 	r.pass.pausing = false
 
-	if r.pass.mode != modeReviewing {
-		if msg.err != nil {
-			return nil
-		}
-
-		r.pass.paused = true
-		r.pass.ourPause = true
-
-		return r.endPass(h, s, abandonedSaid)
-	}
-
 	if msg.err != nil {
 		// A comment written against a snapshot the agent is free to write past is the collision
 		// the pass exists to prevent, so the composer goes with the pass rather than standing on
@@ -171,6 +160,23 @@ func (r *reviewScreen) applyPaused(h host, s panelShared, msg reviewPausedMsg) t
 	}
 
 	return r.openPass(h, s, msg.intent)
+}
+
+func (m model) isPassing(agentID string) bool {
+	return m.screen == screenReview && m.review.agentID == agentID && m.review.pass.mode == modeReviewing
+}
+
+func (m *model) releaseAbandonedPause(msg reviewPausedMsg) tea.Cmd {
+	if msg.err != nil {
+		return nil
+	}
+
+	item, ok := m.listing.liveAgent(msg.agentID)
+	if !ok {
+		return nil
+	}
+
+	return m.releaseCmd("Could not let "+item.agent.Name+" go", item.agent, abandonedSaid)
 }
 
 // openPass does the thing the pass was opened for.
