@@ -117,8 +117,11 @@ holds the window and when it gives it up.
 ## The files
 
 Screens, listed in screens.go and each holding its own rows, keys, and view: agents.go, with
-tree.go for the rows and the cursor, workflows.go for the keys that act on a folder header,
-and selection.go for the multi-select. Then archive.go, schedules.go, search.go, and mail.go.
+tree.go for the rows and the cursor, stage.go for the pane it puts beside the list, workflows.go
+for the keys that act on a folder header, and selection.go for the multi-select. Then
+archive.go, schedules.go, search.go, and mail.go. Each screen's forms sit beside it in a file
+of their own: agentforms.go, workflowforms.go, scheduleforms.go, worktreeforms.go and
+archiveforms.go, with forms.go holding only the machinery they share.
 
 Shared concerns: api.go, column.go, details.go, document.go, filter.go, forms.go, help.go,
 info.go, logs.go, refresh.go, keys.go, clipboard.go, report.go, convert.go.
