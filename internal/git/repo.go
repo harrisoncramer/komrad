@@ -28,7 +28,7 @@ func getRoot(ctx context.Context, on runner, dir string) (string, error) {
 var ErrBaseMissing = fail.Precondition("the base branch is not one the clone has")
 
 // resolveBase is the ref a named base is measured as: origin's copy when the clone has one,
-// the local branch when the clone has no origin at all.
+// else the local branch.
 func resolveBase(ctx context.Context, root, base string) (string, error) {
 	base = strings.TrimSpace(base)
 	if base == "" {
@@ -39,15 +39,11 @@ func resolveBase(ctx context.Context, root, base string) (string, error) {
 		return "origin/" + base, nil
 	}
 
-	if _, err := Run(ctx, root, "remote", "get-url", "origin"); err != nil {
-		if _, err := Run(ctx, root, "rev-parse", "--verify", "--quiet", "refs/heads/"+base); err == nil {
-			return "refs/heads/" + base, nil
-		}
-
-		return "", fmt.Errorf("%w: the clone has no branch %s; set the workflow's base branch to one it has", ErrBaseMissing, base)
+	if _, err := Run(ctx, root, "rev-parse", "--verify", "--quiet", "refs/heads/"+base); err == nil {
+		return "refs/heads/" + base, nil
 	}
 
-	return "", fmt.Errorf("%w: the clone has no origin/%s; fetch it or set the workflow's base branch to one it has", ErrBaseMissing, base)
+	return "", fmt.Errorf("%w: the clone has no origin/%s and no branch %s; set the workflow's base branch to one it has", ErrBaseMissing, base, base)
 }
 
 // DefaultBase is the branch a repository would name as its base when nobody has: what the
