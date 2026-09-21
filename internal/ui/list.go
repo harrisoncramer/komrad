@@ -276,8 +276,7 @@ func (s listSpec[T]) jump(m model, idx int) (model, tea.Cmd) {
 	return s.landed(m)
 }
 
-// update settles the doubled top key ahead of the table, which would otherwise let a single
-// press jump.
+// update settles the doubled top key ahead of the table.
 func (s listSpec[T]) update(m model, key tea.KeyMsg, actions actionSpec) (tea.Model, tea.Cmd) {
 	k := key.String()
 
@@ -373,8 +372,7 @@ func (s listSpec[T]) filterActions() []action {
 	}
 }
 
-// jumpPressed answers the bottom key, the top key being a doubled gesture the screen has already
-// taken before the table is reached.
+// jumpPressed answers the bottom key.
 func (s listSpec[T]) jumpPressed(m model, pressed string) (tea.Model, tea.Cmd) {
 	if isBound(pressed, m.keys.Nav.Bottom) {
 		return s.jump(m, len(s.rows(m))-1)
