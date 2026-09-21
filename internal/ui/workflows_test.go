@@ -7,9 +7,8 @@ import (
 
 	"weave/config"
 	"weave/internal/errui"
-	agentstore "weave/internal/store/agent"
-	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
+	"weave/internal/ui/panel"
 	hookv1 "weave/proto/gen/hook/v1"
 	"weave/proto/gen/hook/v1/hookv1connect"
 	workflowv1 "weave/proto/gen/workflow/v1"
@@ -27,7 +26,7 @@ import (
 func TestAgentRows(t *testing.T) {
 	tests := []struct {
 		name      string
-		workflows []workflowstore.Workflow
+		workflows []panel.Workflow
 		agents    []agentItem
 		wantRows  []string
 	}{
@@ -37,18 +36,18 @@ func TestAgentRows(t *testing.T) {
 		},
 		{
 			name:      "an empty workflow keeps its header, so an agent can be added to it",
-			workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
+			workflows: []panel.Workflow{{ID: "w1", Name: "backend"}},
 			wantRows:  []string{"header:backend"},
 		},
 		{
 			name: "agents nest under the workflow they belong to",
-			workflows: []workflowstore.Workflow{
+			workflows: []panel.Workflow{
 				{ID: "w1", Name: "backend"},
 				{ID: "w2", Name: "frontend"},
 			},
 			agents: []agentItem{
-				{agent: agentstore.Agent{Name: "auth", WorkflowID: "w1"}},
-				{agent: agentstore.Agent{Name: "ui", WorkflowID: "w2"}},
+				{agent: panel.Agent{Name: "auth", WorkflowID: "w1"}},
+				{agent: panel.Agent{Name: "ui", WorkflowID: "w2"}},
 			},
 			wantRows: []string{
 				"header:backend",
@@ -59,12 +58,12 @@ func TestAgentRows(t *testing.T) {
 		},
 		{
 			name: "an agent whose workflow is gone is not rendered",
-			workflows: []workflowstore.Workflow{
+			workflows: []panel.Workflow{
 				{ID: "w1", Name: "backend"},
 			},
 			agents: []agentItem{
-				{agent: agentstore.Agent{Name: "auth", WorkflowID: "w1"}},
-				{agent: agentstore.Agent{Name: "orphan", WorkflowID: "vanished"}},
+				{agent: panel.Agent{Name: "auth", WorkflowID: "w1"}},
+				{agent: panel.Agent{Name: "orphan", WorkflowID: "vanished"}},
 			},
 			wantRows: []string{
 				"header:backend",
@@ -112,9 +111,9 @@ func TestHoveredWorkflow(t *testing.T) {
 	}
 
 	m := model{
-		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}}, agents: []agentItem{
-			{agent: agentstore.Agent{Name: "auth", WorkflowID: "w1"}},
-			{agent: agentstore.Agent{Name: "loose"}},
+		listing: listing{workflows: []panel.Workflow{{ID: "w1", Name: "backend"}}, agents: []agentItem{
+			{agent: panel.Agent{Name: "auth", WorkflowID: "w1"}},
+			{agent: panel.Agent{Name: "loose"}},
 		}},
 	}
 
@@ -170,7 +169,7 @@ func TestWorkflowWrites(t *testing.T) {
 		{
 			name: "a refused create",
 			call: func(m model) error {
-				_, err := m.api.createWorkflow(workflowstore.Config{Name: "api"})
+				_, err := m.api.createWorkflow(panel.WorkflowConfig{Name: "api"})
 
 				return err
 			},
@@ -179,7 +178,7 @@ func TestWorkflowWrites(t *testing.T) {
 		},
 		{
 			name:       "a refused update",
-			call:       func(m model) error { return m.api.updateWorkflow(workflowstore.Workflow{ID: "w1", Name: "api"}) },
+			call:       func(m model) error { return m.api.updateWorkflow(panel.Workflow{ID: "w1", Name: "api"}) },
 			wantWrites: 1,
 			wantReason: "quota reached",
 		},
@@ -191,7 +190,7 @@ func TestWorkflowWrites(t *testing.T) {
 		},
 		{
 			name: "an update to a blank name never reaches the service",
-			call: func(m model) error { return m.api.updateWorkflow(workflowstore.Workflow{ID: "w1", Name: "  "}) },
+			call: func(m model) error { return m.api.updateWorkflow(panel.Workflow{ID: "w1", Name: "  "}) },
 		},
 	}
 
@@ -235,7 +234,7 @@ func TestFailedWorkflowListKeepsTheTree(t *testing.T) {
 	m := model{
 		frame:   layout.New(&recordingTmux{}, config.DefaultLayout()),
 		keys:    config.DefaultKeybindings(),
-		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "api"}, {ID: "w2", Name: "web"}}},
+		listing: listing{workflows: []panel.Workflow{{ID: "w1", Name: "api"}, {ID: "w2", Name: "web"}}},
 	}
 
 	m.applyRefresh(refreshResult{workflowsErr: errors.New("connection reset")})
@@ -249,14 +248,14 @@ func TestFailedWorkflowListKeepsTheTree(t *testing.T) {
 func TestApplyWorkflows(t *testing.T) {
 	tests := []struct {
 		name      string
-		current   []workflowstore.Workflow
-		fresh     []workflowstore.Workflow
+		current   []panel.Workflow
+		fresh     []panel.Workflow
 		wantNames []string
 	}{
 		{
 			name:    "an edit lands on the workflow without moving it",
-			current: []workflowstore.Workflow{{ID: "w1", Name: "api"}, {ID: "w2", Name: "web"}},
-			fresh: []workflowstore.Workflow{
+			current: []panel.Workflow{{ID: "w1", Name: "api"}, {ID: "w2", Name: "web"}},
+			fresh: []panel.Workflow{
 				{ID: "w1", Name: "api"},
 				{
 					ID:      "w2",
@@ -268,14 +267,14 @@ func TestApplyWorkflows(t *testing.T) {
 		},
 		{
 			name:      "a workflow created elsewhere lands where the listing put it",
-			current:   []workflowstore.Workflow{{ID: "w1", Name: "api"}},
-			fresh:     []workflowstore.Workflow{{ID: "w2", Name: "web"}, {ID: "w1", Name: "api"}},
+			current:   []panel.Workflow{{ID: "w1", Name: "api"}},
+			fresh:     []panel.Workflow{{ID: "w2", Name: "web"}, {ID: "w1", Name: "api"}},
 			wantNames: []string{"web", "api"},
 		},
 		{
 			name:      "a workflow archived elsewhere drops out",
-			current:   []workflowstore.Workflow{{ID: "w1", Name: "api"}, {ID: "w2", Name: "web"}},
-			fresh:     []workflowstore.Workflow{{ID: "w2", Name: "web"}},
+			current:   []panel.Workflow{{ID: "w1", Name: "api"}, {ID: "w2", Name: "web"}},
+			fresh:     []panel.Workflow{{ID: "w2", Name: "web"}},
 			wantNames: []string{"web"},
 		},
 	}
@@ -310,7 +309,7 @@ func TestRefreshDrawsAnEditedWorkflowContext(t *testing.T) {
 		height: 40,
 		screen: screenAgents,
 		listing: listing{
-			workflows: []workflowstore.Workflow{
+			workflows: []panel.Workflow{
 				{
 					ID:      "w1",
 					Name:    "api",
@@ -325,7 +324,7 @@ func TestRefreshDrawsAnEditedWorkflowContext(t *testing.T) {
 	staged := len(tmux.respawns)
 
 	fresh := refreshResult{
-		workflows: []workflowstore.Workflow{
+		workflows: []panel.Workflow{
 			{
 				ID:      "w1",
 				Name:    "api",
@@ -371,7 +370,7 @@ func TestWorkflowEditFormRoundTripsTheStoredConfig(t *testing.T) {
 		Worktree: &workflowv1.WorktreeConfig{Enabled: true, BaseBranch: "develop"},
 	}}
 
-	opened, _ := formModel(sent).editWorkflowForm(workflowstore.Workflow{ID: "w1", Name: "api"})
+	opened, _ := formModel(sent).editWorkflowForm(panel.Workflow{ID: "w1", Name: "api"})
 	editing, ok := opened.(model)
 	require.True(t, ok)
 	require.Equal(t, formWorkflow, editing.form.kind)

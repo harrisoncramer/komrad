@@ -7,10 +7,8 @@ import (
 
 	"weave/config"
 	"weave/internal/panes"
-
-	agentstore "weave/internal/store/agent"
-	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
+	"weave/internal/ui/panel"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -32,7 +30,7 @@ func TestInfoStaysShut(t *testing.T) {
 // TestWorkflowContextMarkdown covers the document the stage pages for a workflow, which is
 // the context its agents inherit.
 func TestWorkflowContextMarkdown(t *testing.T) {
-	workflow := workflowstore.Workflow{
+	workflow := panel.Workflow{
 		ID:      "w1",
 		Name:    "api",
 		Context: "shared notes",
@@ -49,7 +47,7 @@ func TestWorkflowContextMarkdown(t *testing.T) {
 // TestWorkflowFields covers what the details draw for a workflow: how many agents it holds,
 // then the defaults future agents under it inherit.
 func TestWorkflowFields(t *testing.T) {
-	fields := workflowFields(workflowstore.Workflow{
+	fields := workflowFields(panel.Workflow{
 		ID:      "w1",
 		Name:    "api",
 		Harness: "codex",
@@ -71,12 +69,12 @@ func TestWorkflowFields(t *testing.T) {
 // TestWorkflowFieldsWorktree pins that a worktree workflow's details draw the worktree
 // settings the user chose.
 func TestWorkflowFieldsWorktree(t *testing.T) {
-	workflow := workflowstore.Workflow{
+	workflow := panel.Workflow{
 		ID:      "w1",
 		Name:    "api",
 		Harness: "codex",
 		Cwd:     "/repo/api",
-		Worktree: workflowstore.WorktreeConfig{
+		Worktree: panel.WorktreeConfig{
 			Enabled:      true,
 			BaseBranch:   "main",
 			CopyPaths:    []string{".env", ".envrc"},
@@ -287,12 +285,12 @@ func infoModel(tmux *recordingTmux) model {
 		keys:          config.DefaultKeybindings(),
 		screen:        screenAgents,
 		detailsHeight: config.DefaultDetailsHeight,
-		listing: listing{workflows: []workflowstore.Workflow{{
+		listing: listing{workflows: []panel.Workflow{{
 			ID:       "w1",
 			Name:     "backend",
-			Worktree: workflowstore.WorktreeConfig{Enabled: true},
+			Worktree: panel.WorktreeConfig{Enabled: true},
 		}}, agents: []agentItem{
-			{agent: agentstore.Agent{
+			{agent: panel.Agent{
 				Name:       "auth",
 				Pane:       "%9",
 				Cwd:        "/repo",

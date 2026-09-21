@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	agentstore "weave/internal/store/agent"
+	"weave/internal/ui/panel"
 	"weave/internal/view"
 	"weave/lib/xslice"
 
@@ -27,12 +27,12 @@ func worktreeFixture() []worktreeItem {
 			agent: &worktreeAgent{
 				id:    "live",
 				name:  "worktree-view",
-				state: agentstore.StateThinking,
+				state: panel.StateThinking,
 			},
 			occupants: []worktreeAgent{{
 				id:    "occ",
 				name:  "review-607",
-				state: agentstore.StateIdle,
+				state: panel.StateIdle,
 			}},
 			fate: fateLive,
 		},
@@ -44,7 +44,7 @@ func worktreeFixture() []worktreeItem {
 			agent: &worktreeAgent{
 				id:         "archived",
 				name:       "review-column",
-				state:      agentstore.StateThinking,
+				state:      panel.StateThinking,
 				archivedAt: &archived,
 			},
 			fate: fateArchived,
@@ -67,7 +67,7 @@ func worktreeFixture() []worktreeItem {
 			agent: &worktreeAgent{
 				id:         "admin",
 				name:       "custom-cargo-fixes",
-				state:      agentstore.StateIdle,
+				state:      panel.StateIdle,
 				archivedAt: &archived,
 			},
 			fate: fateArchived,
@@ -272,10 +272,10 @@ func TestWorktreesSnapshotReadsEveryRow(t *testing.T) {
 		selected: selection{keys: []string{"tree:/trees/orphan"}},
 		focused:  "tree:/trees/live",
 		live: []agentItem{{
-			agent: agentstore.Agent{
+			agent: panel.Agent{
 				ID:    "live",
 				Name:  "worktree-view",
-				State: agentstore.StateWaiting,
+				State: panel.StateWaiting,
 			},
 			alive:      true,
 			unreadMail: true,
@@ -322,49 +322,49 @@ func TestWorktreeAgentFactsOffTheWorktreeListing(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		state       agentstore.State
+		state       panel.State
 		archivedAt  *time.Time
 		wantStatus  view.Status
 		wantProcess view.Process
 	}{
 		{
 			name:        "archived mid-turn",
-			state:       agentstore.StateThinking,
+			state:       panel.StateThinking,
 			archivedAt:  &archived,
 			wantStatus:  view.StatusIdle,
 			wantProcess: view.ProcessStopped,
 		},
 		{
 			name:        "archived while waiting",
-			state:       agentstore.StateWaiting,
+			state:       panel.StateWaiting,
 			archivedAt:  &archived,
 			wantStatus:  view.StatusIdle,
 			wantProcess: view.ProcessStopped,
 		},
 		{
 			name:        "archived while unreadable",
-			state:       agentstore.StateUncertain,
+			state:       panel.StateUncertain,
 			archivedAt:  &archived,
 			wantStatus:  view.StatusIdle,
 			wantProcess: view.ProcessStopped,
 		},
 		{
 			name:        "archived idle",
-			state:       agentstore.StateIdle,
+			state:       panel.StateIdle,
 			archivedAt:  &archived,
 			wantStatus:  view.StatusIdle,
 			wantProcess: view.ProcessStopped,
 		},
 		{
 			name:        "left behind by a failed cleanup",
-			state:       agentstore.StateFailedToCleanup,
+			state:       panel.StateFailedToCleanup,
 			archivedAt:  &archived,
 			wantStatus:  view.StatusBroken,
 			wantProcess: view.ProcessAlive,
 		},
 		{
 			name:        "not yet in the agents listing",
-			state:       agentstore.StateThinking,
+			state:       panel.StateThinking,
 			wantStatus:  view.StatusIdle,
 			wantProcess: view.ProcessStopped,
 		},

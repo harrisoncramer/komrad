@@ -6,14 +6,12 @@ import (
 	"testing"
 
 	"weave/config"
-	agentv1 "weave/proto/gen/agent/v1"
-	"weave/proto/gen/agent/v1/agentv1connect"
-
-	agentstore "weave/internal/store/agent"
-	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
 	"weave/internal/ui/paint"
+	"weave/internal/ui/panel"
 	"weave/lib/xslice"
+	agentv1 "weave/proto/gen/agent/v1"
+	"weave/proto/gen/agent/v1/agentv1connect"
 
 	"connectrpc.com/connect"
 	tea "github.com/charmbracelet/bubbletea"
@@ -29,32 +27,32 @@ func selectionTree() model {
 	return model{
 		frame: layout.New(&recordingTmux{}, config.DefaultLayout()),
 		keys:  config.DefaultKeybindings(),
-		listing: listing{workflows: []workflowstore.Workflow{
+		listing: listing{workflows: []panel.Workflow{
 			{ID: "w1", Name: "backend"},
 			{ID: "w2", Name: "frontend"},
 		}, agents: []agentItem{
-			{agent: agentstore.Agent{
+			{agent: panel.Agent{
 				ID:         "a1",
 				Name:       "auth",
 				WorkflowID: "w1",
 			}},
-			{agent: agentstore.Agent{
+			{agent: panel.Agent{
 				ID:         "a2",
 				Name:       "api",
 				WorkflowID: "w1",
 			}},
-			{agent: agentstore.Agent{
+			{agent: panel.Agent{
 				ID:         "a3",
 				Name:       "db",
 				WorkflowID: "w1",
 			}},
-			{agent: agentstore.Agent{
+			{agent: panel.Agent{
 				ID:         "a5",
 				Name:       "sweep",
 				WorkflowID: "w1",
 				Hidden:     true,
 			}},
-			{agent: agentstore.Agent{
+			{agent: panel.Agent{
 				ID:         "a4",
 				Name:       "ui",
 				WorkflowID: "w2",
@@ -137,7 +135,7 @@ func TestToggleSelection(t *testing.T) {
 // read as wholly selected and put the panel in a mode holding nothing.
 func TestToggleSelectionEmptyFolder(t *testing.T) {
 	m := selectionTree()
-	m.listing.workflows = append(m.listing.workflows, workflowstore.Workflow{ID: "w3", Name: "chores"})
+	m.listing.workflows = append(m.listing.workflows, panel.Workflow{ID: "w3", Name: "chores"})
 	m.tree.cursor = len(m.agentRows()) - 1
 
 	after := press(t, m, keyMsg("v"))
@@ -234,7 +232,7 @@ func TestPruneSelection(t *testing.T) {
 		m.tree.placed = true
 		m.tree.selected = selectAgents([]string{"a1", "a4"}...)
 
-		m.applyAgents([]agentItem{{agent: agentstore.Agent{
+		m.applyAgents([]agentItem{{agent: panel.Agent{
 			ID:         "a4",
 			Name:       "ui",
 			WorkflowID: "w2",
@@ -260,8 +258,8 @@ func archiveSelectionTree() model {
 		keys:   config.DefaultKeybindings(),
 		screen: screenArchive,
 		listing: listing{
-			workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
-			archivedAgents: []agentstore.Agent{
+			workflows: []panel.Workflow{{ID: "w1", Name: "backend"}},
+			archivedAgents: []panel.Agent{
 				{
 					ID:         "a1",
 					Name:       "auth",
@@ -361,7 +359,7 @@ func TestArchiveSelection(t *testing.T) {
 		m := archiveSelectionTree()
 		m.api = api{agents: &fakeArchiveAgents{}, workflows: workflows}
 		m.listing.workflows = nil
-		m.listing.archivedWorkflows = []workflowstore.Workflow{archivedWorkflow("w1", "backend")}
+		m.listing.archivedWorkflows = []panel.Workflow{archivedWorkflow("w1", "backend")}
 		m.archive.cursor = 0
 		m.archive.selected = selectAgents([]string{"a1"}...)
 
@@ -389,7 +387,7 @@ func TestArchiveSelection(t *testing.T) {
 		m.archive.selected = selectAgents([]string{"a1", "a3"}...)
 
 		m.applyArchive(
-			[]agentstore.Agent{{
+			[]panel.Agent{{
 				ID:         "a3",
 				Name:       "db",
 				WorkflowID: "w1",

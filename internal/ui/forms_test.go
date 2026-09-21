@@ -9,6 +9,9 @@ import (
 	"time"
 
 	"weave/config"
+	"weave/internal/ui/layout"
+	"weave/internal/ui/panel"
+	"weave/lib/xptr"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	hookv1 "weave/proto/gen/hook/v1"
@@ -17,12 +20,6 @@ import (
 	"weave/proto/gen/schedule/v1/schedulev1connect"
 	workflowv1 "weave/proto/gen/workflow/v1"
 	"weave/proto/gen/workflow/v1/workflowv1connect"
-
-	agentstore "weave/internal/store/agent"
-	schedulestore "weave/internal/store/schedule"
-	workflowstore "weave/internal/store/workflow"
-	"weave/internal/ui/layout"
-	"weave/lib/xptr"
 
 	"connectrpc.com/connect"
 	tea "github.com/charmbracelet/bubbletea"
@@ -71,7 +68,7 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 		{
 			name: "the child form",
 			open: func(t *testing.T, m model) model {
-				parent := agentstore.Agent{
+				parent := panel.Agent{
 					ID:         "a1",
 					Name:       "author",
 					WorkflowID: "w1",
@@ -101,7 +98,7 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 			open: func(t *testing.T, m model) model {
 				name := "api-v2"
 
-				opened, _ := m.openRenameForm(agentstore.Agent{ID: "a1", Name: "api-refactor"}, &name)
+				opened, _ := m.openRenameForm(panel.Agent{ID: "a1", Name: "api-refactor"}, &name)
 
 				return asModel(t, opened)
 			},
@@ -170,12 +167,12 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 			open: func(t *testing.T, m model) model {
 				target := m.listing.workflows[0]
 
-				values := workflowFormValuesFrom(workflowstore.Config{
+				values := workflowFormValuesFrom(panel.WorkflowConfig{
 					Name:     target.Name,
 					Context:  "shared notes",
 					Cwd:      target.Cwd,
 					Flags:    target.Flags,
-					Worktree: workflowstore.WorktreeConfig{Enabled: true},
+					Worktree: panel.WorktreeConfig{Enabled: true},
 				})
 				values.Cwd = "/work/api-v2"
 
@@ -213,7 +210,7 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 		{
 			name: "the new-schedule form",
 			open: func(t *testing.T, m model) model {
-				values := schedulestore.Config{
+				values := panel.ScheduleConfig{
 					Enabled:    true,
 					WorkflowID: m.listing.workflows[0].ID,
 					Name:       "sweeper",
@@ -239,7 +236,7 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 		{
 			name: "the schedule edit form",
 			open: func(t *testing.T, m model) model {
-				target := schedulestore.Schedule{
+				target := panel.Schedule{
 					ID:         "s1",
 					Name:       "sweeper",
 					Cron:       "*/5 * * * *",
@@ -280,7 +277,7 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 		{
 			name: "the agent archive prompt",
 			open: func(t *testing.T, m model) model {
-				opened, _ := m.archiveAgentsConfirm([]agentstore.Agent{{ID: "a1", Name: "api-refactor"}})
+				opened, _ := m.archiveAgentsConfirm([]panel.Agent{{ID: "a1", Name: "api-refactor"}})
 
 				return asModel(t, opened)
 			},
@@ -294,7 +291,7 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 		{
 			name: "the agent archive prompt answered archive and delete",
 			open: func(t *testing.T, m model) model {
-				opened, _ := m.archiveAgentsConfirm([]agentstore.Agent{{ID: "a1", Name: "api-refactor"}})
+				opened, _ := m.archiveAgentsConfirm([]panel.Agent{{ID: "a1", Name: "api-refactor"}})
 				m = asModel(t, opened)
 
 				// The prompt opens on Archive, so the second answer is one step down the list.
@@ -313,7 +310,7 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 		{
 			name: "the schedule delete prompt",
 			open: func(t *testing.T, m model) model {
-				m.listing.schedules = []scheduleItem{{schedule: schedulestore.Schedule{ID: "s1", Name: "sweeper"}}}
+				m.listing.schedules = []scheduleItem{{schedule: panel.Schedule{ID: "s1", Name: "sweeper"}}}
 
 				opened, _ := m.archiveScheduleConfirm()
 
@@ -328,7 +325,7 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 		{
 			name: "the archive delete prompt",
 			open: func(t *testing.T, m model) model {
-				m.listing.archivedAgents = []agentstore.Agent{{ID: "a1", Name: "api-refactor"}}
+				m.listing.archivedAgents = []panel.Agent{{ID: "a1", Name: "api-refactor"}}
 
 				opened, _ := m.deleteFromArchiveConfirm(m.listing.archivedAgents)
 
@@ -397,7 +394,7 @@ func TestNewAgentFormWorktreeOverride(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			sent := &formRecorder{}
 			m := formModel(sent)
-			m.listing.workflows[0].Worktree = workflowstore.WorktreeConfig{Enabled: true}
+			m.listing.workflows[0].Worktree = panel.WorktreeConfig{Enabled: true}
 			workflow := m.listing.workflows[0]
 
 			values := agentPrefill(workflow)
@@ -460,7 +457,7 @@ func TestRefusedSubmitKeepsTheForm(t *testing.T) {
 			open: func(t *testing.T, m model) (model, func() string) {
 				name := "api-v2"
 
-				opened, _ := m.openRenameForm(agentstore.Agent{ID: "a1", Name: "api-refactor"}, &name)
+				opened, _ := m.openRenameForm(panel.Agent{ID: "a1", Name: "api-refactor"}, &name)
 				m = asModel(t, opened)
 				m.form.form.State = huh.StateCompleted
 
@@ -488,7 +485,7 @@ func TestRefusedSubmitKeepsTheForm(t *testing.T) {
 		{
 			name: "the new-schedule form",
 			open: func(t *testing.T, m model) (model, func() string) {
-				values := schedulestore.Config{
+				values := panel.ScheduleConfig{
 					Enabled:    true,
 					WorkflowID: "w1",
 					Cron:       "*/5 * * * *",
@@ -553,7 +550,7 @@ func TestNewAgentSubmitHoldsTheForm(t *testing.T) {
 			m.tmux = recorder
 			m.frame = layout.New(recorder, config.DefaultLayout())
 			m.frame.Attach("%0")
-			m.listing.workflows[0].Worktree = workflowstore.WorktreeConfig{Enabled: true}
+			m.listing.workflows[0].Worktree = panel.WorktreeConfig{Enabled: true}
 
 			workflow := m.listing.workflows[0]
 
@@ -688,7 +685,7 @@ func TestArchivePromptChoices(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			sent := &formRecorder{}
 
-			opened, cmd := formModel(sent).archiveAgentsConfirm([]agentstore.Agent{{ID: "a1", Name: "api-refactor"}})
+			opened, cmd := formModel(sent).archiveAgentsConfirm([]panel.Agent{{ID: "a1", Name: "api-refactor"}})
 			m := delivered(t, asModel(t, opened), cmd)
 
 			for range tt.down {
@@ -707,7 +704,7 @@ func TestArchivePromptChoices(t *testing.T) {
 
 // TestArchivePromptOpensOnArchive covers the prompt as first drawn.
 func TestArchivePromptOpensOnArchive(t *testing.T) {
-	form, choice := archiveAgentsForm([]agentstore.Agent{{ID: "a1", Name: "api-refactor"}}, 0, config.FixedFormKeys())
+	form, choice := archiveAgentsForm([]panel.Agent{{ID: "a1", Name: "api-refactor"}}, 0, config.FixedFormKeys())
 	form.Init()
 	form.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
 
@@ -730,7 +727,7 @@ func TestArchivePromptOpensOnArchive(t *testing.T) {
 func TestArchivePromptKeepsTheRecordWhenTheArchiveIsRefused(t *testing.T) {
 	sent := &formRecorder{refuse: connect.NewError(connect.CodeFailedPrecondition, errors.New("already archived"))}
 
-	opened, _ := formModel(sent).archiveAgentsConfirm([]agentstore.Agent{{ID: "a1", Name: "api-refactor"}})
+	opened, _ := formModel(sent).archiveAgentsConfirm([]panel.Agent{{ID: "a1", Name: "api-refactor"}})
 	m := asModel(t, opened)
 
 	// The prompt opens on Archive, so archive-and-delete is one step down the list.
@@ -750,7 +747,7 @@ func TestArchivePromptKeepsTheRecordWhenTheArchiveIsRefused(t *testing.T) {
 func TestConfirmingArchiveTracksTheWriteAsPending(t *testing.T) {
 	sent := &formRecorder{}
 
-	opened, _ := formModel(sent).archiveAgentsConfirm([]agentstore.Agent{{ID: "a1", Name: "api-refactor"}})
+	opened, _ := formModel(sent).archiveAgentsConfirm([]panel.Agent{{ID: "a1", Name: "api-refactor"}})
 	m := asModel(t, opened)
 	m.form.form.State = huh.StateCompleted
 
@@ -792,7 +789,7 @@ func asModel(t *testing.T, updated tea.Model) model {
 // TestFormResultsAreNotWhatIsSubmitted pins a field reaching huh's own results only as the
 // cursor leaves it.
 func TestFormResultsAreNotWhatIsSubmitted(t *testing.T) {
-	values := schedulestore.Config{
+	values := panel.ScheduleConfig{
 		Name:       "sweeper",
 		Cron:       "*/5 * * * *",
 		Prompt:     "sweep",
@@ -824,7 +821,7 @@ func formModel(sent *formRecorder) model {
 		popup: NewPopupWindow(tmux, "test-session"),
 		frame: layout.New(tmux, config.DefaultLayout()),
 		keys:  config.DefaultKeybindings(),
-		listing: listing{workflows: []workflowstore.Workflow{{
+		listing: listing{workflows: []panel.Workflow{{
 			ID:      "w1",
 			Name:    "api",
 			Harness: "claude",
@@ -1139,15 +1136,15 @@ func TestAdoptKeyDoesNothingOnAnAgentRow(t *testing.T) {
 
 // TestWorkflowFormRoundTripsEveryHookMoment pins the form editing every moment there is.
 func TestWorkflowFormRoundTripsEveryHookMoment(t *testing.T) {
-	hooks := []workflowstore.Hook{
-		{Event: workflowstore.HookPreLaunch, Script: "install-deps"},
-		{Event: workflowstore.HookPostLaunch, Script: "announce"},
-		{Event: workflowstore.HookPostResume, Script: "announce-back"},
-		{Event: workflowstore.HookPostRestore, Script: "unlock"},
-		{Event: workflowstore.HookPreTeardown, Script: "take-the-stack-down"},
+	hooks := []panel.Hook{
+		{Event: config.HookPreLaunch, Script: "install-deps"},
+		{Event: config.HookPostLaunch, Script: "announce"},
+		{Event: config.HookPostResume, Script: "announce-back"},
+		{Event: config.HookPostRestore, Script: "unlock"},
+		{Event: config.HookPreTeardown, Script: "take-the-stack-down"},
 	}
 
-	values := workflowFormValuesFrom(workflowstore.Config{Name: "backend", Hooks: hooks})
+	values := workflowFormValuesFrom(panel.WorkflowConfig{Name: "backend", Hooks: hooks})
 
 	assert.Equal(t, "install-deps", values.PreLaunchHook, "a moment's hook is what its select is sitting on")
 	assert.Equal(t, hooks, values.toConfig().Hooks, "and every moment comes back as it went in")
@@ -1156,26 +1153,26 @@ func TestWorkflowFormRoundTripsEveryHookMoment(t *testing.T) {
 // TestWorkflowFormKeepsTheFirstHookOnAMomentHoldingTwo pins what the form does with a workflow
 // written when a moment could hold several.
 func TestWorkflowFormKeepsTheFirstHookOnAMomentHoldingTwo(t *testing.T) {
-	values := workflowFormValuesFrom(workflowstore.Config{
+	values := workflowFormValuesFrom(panel.WorkflowConfig{
 		Name: "backend",
-		Hooks: []workflowstore.Hook{
-			{Event: workflowstore.HookPreLaunch, Script: "install-deps"},
-			{Event: workflowstore.HookPreLaunch, Script: "copy-env"},
+		Hooks: []panel.Hook{
+			{Event: config.HookPreLaunch, Script: "install-deps"},
+			{Event: config.HookPreLaunch, Script: "copy-env"},
 		},
 	})
 
 	assert.Equal(t, "install-deps", values.PreLaunchHook, "the one that ran first is the one on offer")
-	assert.Equal(t, []workflowstore.Hook{
-		{Event: workflowstore.HookPreLaunch, Script: "install-deps"},
+	assert.Equal(t, []panel.Hook{
+		{Event: config.HookPreLaunch, Script: "install-deps"},
 	}, values.toConfig().Hooks, "and saving the form writes the one moment holds")
 }
 
 // TestHookFieldsOfferTheHooksDirectory pins the picker being a select over the hooks directory
 // rather than free text, and opening on what the workflow already names.
 func TestHookFieldsOfferTheHooksDirectory(t *testing.T) {
-	values := workflowFormValuesFrom(workflowstore.Config{
+	values := workflowFormValuesFrom(panel.WorkflowConfig{
 		Name:  "backend",
-		Hooks: []workflowstore.Hook{{Event: workflowstore.HookPreLaunch, Script: "copy-env"}},
+		Hooks: []panel.Hook{{Event: config.HookPreLaunch, Script: "copy-env"}},
 	})
 
 	form, _ := workflowConfigForm(workflowConfigParams{
@@ -1196,14 +1193,14 @@ func TestHookFieldsOfferTheHooksDirectory(t *testing.T) {
 // TestHookFieldsDrawEveryOptionThatFits pins a moment already naming a hook still offering the
 // options above it.
 func TestHookFieldsDrawEveryOptionThatFits(t *testing.T) {
-	values := workflowFormValuesFrom(workflowstore.Config{
+	values := workflowFormValuesFrom(panel.WorkflowConfig{
 		Name: "backend",
-		Hooks: []workflowstore.Hook{
-			{Event: workflowstore.HookPreLaunch, Script: "copy-env"},
-			{Event: workflowstore.HookPostLaunch, Script: "copy-env"},
-			{Event: workflowstore.HookPostResume, Script: "copy-env"},
-			{Event: workflowstore.HookPostRestore, Script: "copy-env"},
-			{Event: workflowstore.HookPreTeardown, Script: "copy-env"},
+		Hooks: []panel.Hook{
+			{Event: config.HookPreLaunch, Script: "copy-env"},
+			{Event: config.HookPostLaunch, Script: "copy-env"},
+			{Event: config.HookPostResume, Script: "copy-env"},
+			{Event: config.HookPostRestore, Script: "copy-env"},
+			{Event: config.HookPreTeardown, Script: "copy-env"},
 		},
 	})
 
@@ -1216,7 +1213,7 @@ func TestHookFieldsDrawEveryOptionThatFits(t *testing.T) {
 	sizeForm(form, 60)
 
 	view := form.View()
-	assert.Equal(t, len(workflowstore.HookEvents()), strings.Count(view, "install-deps"),
+	assert.Equal(t, len(panel.HookEvents()), strings.Count(view, "install-deps"),
 		"every moment offers the hook above the one it names")
 	assert.NotContains(t, view, "↑/↓ for more", "and says nothing about scrolling for a list it draws whole")
 }
@@ -1306,12 +1303,12 @@ func sizeForm(form *huh.Form, height int) {
 // TestHookFieldsSurviveBeingWalkedThrough pins the fields not rewriting themselves as the
 // cursor passes over them.
 func TestHookFieldsSurviveBeingWalkedThrough(t *testing.T) {
-	values := workflowFormValuesFrom(workflowstore.Config{
+	values := workflowFormValuesFrom(panel.WorkflowConfig{
 		Name:     "backend",
-		Worktree: workflowstore.WorktreeConfig{Enabled: true},
-		Hooks: []workflowstore.Hook{
-			{Event: workflowstore.HookPreLaunch, Script: "install-deps"},
-			{Event: workflowstore.HookPostLaunch, Script: "announce"},
+		Worktree: panel.WorktreeConfig{Enabled: true},
+		Hooks: []panel.Hook{
+			{Event: config.HookPreLaunch, Script: "install-deps"},
+			{Event: config.HookPostLaunch, Script: "announce"},
 		},
 	})
 	before := values.toConfig().Hooks

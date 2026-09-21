@@ -3,7 +3,7 @@ package ui
 import (
 	"testing"
 
-	agentstore "weave/internal/store/agent"
+	"weave/internal/ui/panel"
 	agentv1 "weave/proto/gen/agent/v1"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -324,7 +324,7 @@ func TestReviewOfADeadAgentIsReadOnly(t *testing.T) {
 			// An archived agent is on no listing at all, where a dormant one is listed and not alive.
 			m.listing.agents = nil
 			if tt.want == "this agent is dormant" {
-				m.listing.agents = []agentItem{{agent: agentstore.Agent{ID: "a1"}, alive: tt.alive}}
+				m.listing.agents = []agentItem{{agent: panel.Agent{ID: "a1"}, alive: tt.alive}}
 			}
 
 			shown := ansi.Strip(m.reviewView())

@@ -4,9 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"weave/internal/rpc/render"
-	agentstore "weave/internal/store/agent"
-	workflowstore "weave/internal/store/workflow"
+	"weave/internal/ui/panel"
 	agentv1 "weave/proto/gen/agent/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
 
@@ -69,18 +67,18 @@ func TestWorkflowsFromCarriesTheWholeWorkflow(t *testing.T) {
 	}})
 
 	require.Len(t, got, 1)
-	assert.Equal(t, workflowstore.Workflow{
+	assert.Equal(t, panel.Workflow{
 		ID:      "w1",
 		Name:    "api",
 		Context: "shared notes",
 		Harness: "claude",
 		Cwd:     "/work/api",
 		Flags:   "--model opus",
-		Hooks: []workflowstore.Hook{
+		Hooks: []panel.Hook{
 			{Event: "pre-launch", Script: "install-deps"},
 			{Event: "post-launch", Script: "announce"},
 		},
-		Worktree: workflowstore.WorktreeConfig{
+		Worktree: panel.WorktreeConfig{
 			Enabled:      true,
 			BaseBranch:   "develop",
 			CopyPaths:    []string{".env"},
@@ -90,36 +88,39 @@ func TestWorkflowsFromCarriesTheWholeWorkflow(t *testing.T) {
 	}, got[0])
 }
 
-// TestStateFromRoundTripsEveryStoredState pins the panel's reading of a state to the service's
-// rendering of it.
-func TestStateFromRoundTripsEveryStoredState(t *testing.T) {
+// TestStateFromReadsEveryWireState pins each wire state to the one the panel keeps, and every
+// value the wire can carry to one of them.
+func TestStateFromReadsEveryWireState(t *testing.T) {
 	t.Parallel()
 
-	states := []agentstore.State{
-		agentstore.StateIdle,
-		agentstore.StateThinking,
-		agentstore.StateWaiting,
-		agentstore.StateSettingUp,
-		agentstore.StateFailedToCreate,
-		agentstore.StateFailedToCleanup,
-		agentstore.StateUncertain,
+	states := map[agentv1.AgentState]panel.State{
+		agentv1.AgentState_AGENT_STATE_UNSPECIFIED:       panel.StateUncertain,
+		agentv1.AgentState_AGENT_STATE_IDLE:              panel.StateIdle,
+		agentv1.AgentState_AGENT_STATE_THINKING:          panel.StateThinking,
+		agentv1.AgentState_AGENT_STATE_WAITING:           panel.StateWaiting,
+		agentv1.AgentState_AGENT_STATE_SETTING_UP:        panel.StateSettingUp,
+		agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE:  panel.StateFailedToCreate,
+		agentv1.AgentState_AGENT_STATE_FAILED_TO_CLEANUP: panel.StateFailedToCleanup,
+		agentv1.AgentState_AGENT_STATE_UNCERTAIN:         panel.StateUncertain,
 	}
-	for _, state := range states {
-		assert.Equal(t, state, stateFrom(render.AgentStateOf(state)), string(state))
+	assert.Len(t, states, len(agentv1.AgentState_name), "every wire state is answered for")
+	for wire, want := range states {
+		assert.Equal(t, want, stateFrom(wire), wire.String())
 	}
 }
 
-// TestRoleFromRoundTripsEveryStoredRole pins the panel's reading of a role to the service's
-// rendering of it.
-func TestRoleFromRoundTripsEveryStoredRole(t *testing.T) {
+// TestRoleFromReadsEveryWireRole pins each wire role to the one the panel keeps.
+func TestRoleFromReadsEveryWireRole(t *testing.T) {
 	t.Parallel()
 
-	roles := []agentstore.Role{
-		agentstore.RoleImplementer,
-		agentstore.RoleReviewer,
-		agentstore.RoleOrchestrator,
+	roles := map[agentv1.AgentRole]panel.Role{
+		agentv1.AgentRole_AGENT_ROLE_UNSPECIFIED:  "",
+		agentv1.AgentRole_AGENT_ROLE_IMPLEMENTER:  panel.RoleImplementer,
+		agentv1.AgentRole_AGENT_ROLE_REVIEWER:     panel.RoleReviewer,
+		agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR: panel.RoleOrchestrator,
 	}
-	for _, role := range roles {
-		assert.Equal(t, role, roleFrom(render.AgentRoleOf(role)), string(role))
+	assert.Len(t, roles, len(agentv1.AgentRole_name), "every wire role is answered for")
+	for wire, want := range roles {
+		assert.Equal(t, want, roleFrom(wire), wire.String())
 	}
 }

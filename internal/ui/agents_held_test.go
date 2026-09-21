@@ -6,9 +6,8 @@ import (
 	"time"
 
 	"weave/config"
-	agentstore "weave/internal/store/agent"
-	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
+	"weave/internal/ui/panel"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
 
@@ -49,11 +48,11 @@ func heldModel(agents agentv1connect.AgentServiceClient, held *time.Time) model 
 		keys:   config.DefaultKeybindings(),
 		screen: screenAgents,
 		listing: listing{
-			workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
-			agents: []agentItem{{agent: agentstore.Agent{
+			workflows: []panel.Workflow{{ID: "w1", Name: "backend"}},
+			agents: []agentItem{{agent: panel.Agent{
 				ID:         "a1",
 				Name:       "telescope",
-				State:      agentstore.StateThinking,
+				State:      panel.StateThinking,
 				WorkflowID: "w1",
 				HeldAt:     held,
 			}, alive: true}},
@@ -112,15 +111,15 @@ func TestOpenKeyDoesNothingForHeldAgent(t *testing.T) {
 		keys:     config.DefaultKeybindings(),
 		screen:   screenAgents,
 		listing: listing{
-			workflows: []workflowstore.Workflow{{
+			workflows: []panel.Workflow{{
 				ID:   "w1",
 				Name: "backend",
 			}},
 			agents: []agentItem{{
-				agent: agentstore.Agent{
+				agent: panel.Agent{
 					ID:         "a1",
 					Name:       "telescope",
-					State:      agentstore.StateThinking,
+					State:      panel.StateThinking,
 					WorkflowID: "w1",
 					Pane:       "%9",
 					HeldAt:     &at,
@@ -154,8 +153,8 @@ func TestHeldAgentShowsDocNotPane(t *testing.T) {
 func TestAPausedRowSaysWhichThingIsTrue(t *testing.T) {
 	at := time.Now()
 
-	held := func(state agentstore.State) agentItem {
-		return agentItem{agent: agentstore.Agent{
+	held := func(state panel.State) agentItem {
+		return agentItem{agent: panel.Agent{
 			Name:   "telescope",
 			State:  state,
 			HeldAt: &at,
@@ -169,22 +168,22 @@ func TestAPausedRowSaysWhichThingIsTrue(t *testing.T) {
 	}{
 		{
 			name:  "at rest, which is what a pause claims",
-			item:  held(agentstore.StateIdle),
+			item:  held(panel.StateIdle),
 			wants: heldNotice,
 		},
 		{
 			name:  "writing again",
-			item:  held(agentstore.StateThinking),
+			item:  held(panel.StateThinking),
 			wants: heldWorkingNotice,
 		},
 		{
 			name:  "stopped at a prompt anybody could answer",
-			item:  held(agentstore.StateWaiting),
+			item:  held(panel.StateWaiting),
 			wants: heldPromptedNotice,
 		},
 		{
 			name:  "a pane nobody can read",
-			item:  held(agentstore.StateUncertain),
+			item:  held(panel.StateUncertain),
 			wants: heldUnreadableNotice,
 		},
 	}

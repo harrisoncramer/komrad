@@ -8,10 +8,9 @@ import (
 	"time"
 
 	"weave/config"
-	agentstore "weave/internal/store/agent"
-	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
 	"weave/internal/ui/paint/label"
+	"weave/internal/ui/panel"
 	"weave/lib/xslice"
 	worktreev1 "weave/proto/gen/worktree/v1"
 	"weave/proto/gen/worktree/v1/worktreev1connect"
@@ -36,21 +35,21 @@ func worktreesModel() model {
 		screen:        screenWorktrees,
 		detailsHeight: config.DefaultDetailsHeight,
 		listing: listing{
-			workflows: []workflowstore.Workflow{{ID: "w1", Name: "weave"}},
+			workflows: []panel.Workflow{{ID: "w1", Name: "weave"}},
 			agents: []agentItem{
 				{
-					agent: agentstore.Agent{
+					agent: panel.Agent{
 						ID:         "live",
 						Name:       "worktree-view",
 						WorkflowID: "w1",
 						Harness:    "claude",
-						State:      agentstore.StateThinking,
+						State:      panel.StateThinking,
 						Cwd:        "/trees/live",
 					},
 					alive: true,
 				},
 				{
-					agent: agentstore.Agent{
+					agent: panel.Agent{
 						ID:         "occ",
 						Name:       "review-607",
 						WorkflowID: "w1",
@@ -60,7 +59,7 @@ func worktreesModel() model {
 					alive: true,
 				},
 			},
-			archivedAgents: []agentstore.Agent{
+			archivedAgents: []panel.Agent{
 				{
 					ID:         "archived",
 					Name:       "review-column",

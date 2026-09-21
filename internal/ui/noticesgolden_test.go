@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	agentstore "weave/internal/store/agent"
+	"weave/internal/ui/panel"
 	"weave/lib/xptr"
 	agentv1 "weave/proto/gen/agent/v1"
 
@@ -50,7 +50,7 @@ func TestNoticeBlockGolden(t *testing.T) {
 		{
 			name: "a-failed-create",
 			item: func(item *agentItem) {
-				item.agent.State = agentstore.StateFailedToCreate
+				item.agent.State = panel.StateFailedToCreate
 				item.agent.WorktreeRemoved = true
 			},
 		},

@@ -5,11 +5,9 @@ import (
 	"testing"
 
 	"weave/config"
-	"weave/internal/ui/paint"
-
-	agentstore "weave/internal/store/agent"
-	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
+	"weave/internal/ui/paint"
+	"weave/internal/ui/panel"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -224,7 +222,7 @@ func TestSearchEscapeGoesBackFromAStandingSearch(t *testing.T) {
 // TestArchiveSearchWalksAndClears pins the archive getting the same search as the agents list.
 func TestArchiveSearchWalksAndClears(t *testing.T) {
 	m := archiveModel(&fakeArchiveAgents{}, &fakeArchiveWorkflows{}, config.DefaultKeybindings())
-	m.listing.archivedAgents = []agentstore.Agent{
+	m.listing.archivedAgents = []panel.Agent{
 		{
 			ID:         "a1",
 			Name:       "api-refactor",
@@ -391,7 +389,7 @@ func TestFilterKeepsSelection(t *testing.T) {
 	got := typeIntoFilter(m, "payouts")
 
 	assert.Equal(t, whole, rowNames(got.agentRows()), "the tree is left whole")
-	assert.Equal(t, []string{"a1", "a2"}, agentstore.IDs(chosenAgents(got.tree.selected, got.agentRows())), "both chosen agents are still acted on")
+	assert.Equal(t, []string{"a1", "a2"}, panel.IDs(chosenAgents(got.tree.selected, got.agentRows())), "both chosen agents are still acted on")
 }
 
 // TestFilterDroppedLeavingScreen covers a pattern following the user off the list it was typed
@@ -524,7 +522,7 @@ func typeIntoFilter(m model, query string) model {
 
 func filterModel() model {
 	tmux := &recordingTmux{}
-	workflow := workflowstore.Workflow{ID: "w1", Name: "core"}
+	workflow := panel.Workflow{ID: "w1", Name: "core"}
 
 	return model{
 		tmux:   tmux,
@@ -532,13 +530,13 @@ func filterModel() model {
 		frame:  layout.New(tmux, config.DefaultLayout()),
 		keys:   config.DefaultKeybindings(),
 		screen: screenAgents,
-		listing: listing{workflows: []workflowstore.Workflow{workflow}, agents: []agentItem{
-			{agent: agentstore.Agent{
+		listing: listing{workflows: []panel.Workflow{workflow}, agents: []agentItem{
+			{agent: panel.Agent{
 				ID:         "a1",
 				Name:       "billing",
 				WorkflowID: "w1",
 			}},
-			{agent: agentstore.Agent{
+			{agent: panel.Agent{
 				ID:         "a2",
 				Name:       "payouts",
 				WorkflowID: "w1",

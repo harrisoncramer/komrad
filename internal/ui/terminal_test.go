@@ -3,7 +3,7 @@ package ui
 import (
 	"testing"
 
-	agentstore "weave/internal/store/agent"
+	"weave/internal/ui/panel"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/stretchr/testify/assert"
@@ -103,7 +103,7 @@ func TestTerminalStaysPutAsTheCursorMoves(t *testing.T) {
 	m, first := terminalModel(t, tmux)
 
 	second := t.TempDir()
-	m.listing.agents = append(m.listing.agents, agentItem{agent: agentstore.Agent{
+	m.listing.agents = append(m.listing.agents, agentItem{agent: panel.Agent{
 		ID:         "a2",
 		Name:       "billing",
 		Cwd:        second,
@@ -128,7 +128,7 @@ func TestTerminalMovesWhenAskedOnAnotherAgent(t *testing.T) {
 	m, first := terminalModel(t, tmux)
 
 	second := t.TempDir()
-	m.listing.agents = append(m.listing.agents, agentItem{agent: agentstore.Agent{
+	m.listing.agents = append(m.listing.agents, agentItem{agent: panel.Agent{
 		ID:         "a2",
 		Name:       "billing",
 		Cwd:        second,
@@ -156,7 +156,7 @@ func TestTerminalStaysPutOnASiblingSharingTheDirectory(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, dir := terminalModel(t, tmux)
 
-	m.listing.agents = append(m.listing.agents, agentItem{agent: agentstore.Agent{
+	m.listing.agents = append(m.listing.agents, agentItem{agent: panel.Agent{
 		ID:         "a2",
 		Name:       "billing",
 		Cwd:        dir,
@@ -206,7 +206,7 @@ func TestTerminalRefusesToMoveToAMissingWorktree(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, dir := terminalModel(t, tmux)
 
-	m.listing.agents = append(m.listing.agents, agentItem{agent: agentstore.Agent{
+	m.listing.agents = append(m.listing.agents, agentItem{agent: panel.Agent{
 		ID:         "a2",
 		Name:       "billing",
 		Cwd:        "/no/such/worktree",

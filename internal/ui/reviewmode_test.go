@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"weave/internal/diff"
-	agentstore "weave/internal/store/agent"
 	"weave/internal/ui/diffview"
+	"weave/internal/ui/panel"
 	agentv1 "weave/proto/gen/agent/v1"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -584,7 +584,7 @@ func TestAnEditPausesAnAgentMidTurn(t *testing.T) {
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	setReviewAgentState(&m, agentstore.StateThinking)
+	setReviewAgentState(&m, panel.StateThinking)
 	m.review.diff.cursor = reviewRowWithAnEditTarget(t, m)
 
 	next, cmd := m.updateReview(editorKey())
@@ -611,7 +611,7 @@ func TestAPassThatCannotStopTheAgentOpensNothing(t *testing.T) {
 
 	// An idle agent is the case with nothing else standing in the way, so what keeps the editor
 	// shut here is the stop not having landed rather than the row saying the agent is writing.
-	setReviewAgentState(&m, agentstore.StateIdle)
+	setReviewAgentState(&m, panel.StateIdle)
 	m.review.diff.cursor = reviewRowWithAnEditTarget(t, m)
 
 	next, cmd := m.updateReview(editorKey())
@@ -675,14 +675,14 @@ func TestWatchingHoldsTheDiffWhileTheAgentWrites(t *testing.T) {
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	setReviewAgentState(&m, agentstore.StateThinking)
+	setReviewAgentState(&m, panel.StateThinking)
 	assert.False(t, m.doesReviewFollowLive(), "a diff is not redrawn under a writer")
 
 	cmd := m.applyReviewDiffPolled(reviewDiffPolledMsg{agentID: m.review.agentID, moved: true})
 	assert.Nil(t, cmd, "so nothing is read again while it writes")
 	assert.Contains(t, m.reviewStaleSaid(), "catches up when it stops")
 
-	setReviewAgentState(&m, agentstore.StateIdle)
+	setReviewAgentState(&m, panel.StateIdle)
 	require.True(t, m.doesReviewFollowLive(), "the end of a turn is where it catches up")
 
 	cmd = m.applyReviewDiffPolled(reviewDiffPolledMsg{agentID: m.review.agentID, moved: true})
@@ -697,7 +697,7 @@ func TestAWaitingAgentDoesNotHoldTheEditKey(t *testing.T) {
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	setReviewAgentState(&m, agentstore.StateWaiting)
+	setReviewAgentState(&m, panel.StateWaiting)
 	m.review.diff.cursor = reviewRowWithAnEditTarget(t, m)
 
 	m = pressEdit(t, m)
@@ -713,7 +713,7 @@ func TestAnUnreadablePaneRefusesTheEditKey(t *testing.T) {
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	setReviewAgentState(&m, agentstore.StateUncertain)
+	setReviewAgentState(&m, panel.StateUncertain)
 	m.review.diff.cursor = reviewRowWithAnEditTarget(t, m)
 
 	next, _ := m.updateReview(editorKey())
@@ -736,13 +736,13 @@ func TestTheGateReadsTheReviewedAgentRatherThanTheFirstRow(t *testing.T) {
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	idle := agentItem{agent: agentstore.Agent{
+	idle := agentItem{agent: panel.Agent{
 		ID:    "someone-else",
 		Name:  "idle",
-		State: agentstore.StateIdle,
+		State: panel.StateIdle,
 	}, alive: true}
 	m.listing.agents = append([]agentItem{idle}, m.listing.agents...)
-	setReviewAgentState(&m, agentstore.StateThinking)
+	setReviewAgentState(&m, panel.StateThinking)
 
 	m.review.diff.cursor = reviewRowWithAnEditTarget(t, m)
 
@@ -775,7 +775,7 @@ func TestEditingGivesTheWindowToTheEditor(t *testing.T) {
 }
 
 // setReviewAgentState puts the agent whose diff is on screen into one state.
-func setReviewAgentState(m *model, state agentstore.State) {
+func setReviewAgentState(m *model, state panel.State) {
 	for i, item := range m.listing.agents {
 		if item.agent.ID == m.review.agentID {
 			m.listing.agents[i].agent.State = state

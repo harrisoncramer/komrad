@@ -6,9 +6,8 @@ import (
 	"testing"
 
 	"weave/config"
-	agentstore "weave/internal/store/agent"
-	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
+	"weave/internal/ui/panel"
 	"weave/lib/xptr"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
@@ -72,7 +71,7 @@ func orchestratorModel(agents agentv1connect.AgentServiceClient, items ...agentI
 		width:  120,
 		height: 40,
 		listing: listing{
-			workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
+			workflows: []panel.Workflow{{ID: "w1", Name: "backend"}},
 			agents:    items,
 		},
 	}
@@ -80,14 +79,14 @@ func orchestratorModel(agents agentv1connect.AgentServiceClient, items ...agentI
 
 // orchestratorItem is a workflow's orchestrator, alive and thinking.
 func orchestratorItem() agentItem {
-	return agentItem{agent: agentstore.Agent{
+	return agentItem{agent: panel.Agent{
 		ID:         "o1",
 		Name:       "orchestrator",
 		Pane:       "%9",
 		Harness:    "claude",
-		State:      agentstore.StateThinking,
+		State:      panel.StateThinking,
 		WorkflowID: "w1",
-		Role:       agentstore.RoleOrchestrator,
+		Role:       panel.RoleOrchestrator,
 	}, alive: true}
 }
 
@@ -99,7 +98,7 @@ const failedOrchestratorDoc = "<failed>"
 func dormantOrchestrator() agentItem {
 	it := orchestratorItem()
 	it.alive = false
-	it.agent.State = agentstore.StateIdle
+	it.agent.State = panel.StateIdle
 
 	return it
 }
@@ -108,7 +107,7 @@ func dormantOrchestrator() agentItem {
 func failedOrchestrator() agentItem {
 	it := orchestratorItem()
 	it.alive = false
-	it.agent.State = agentstore.StateFailedToCreate
+	it.agent.State = panel.StateFailedToCreate
 
 	return it
 }
@@ -126,8 +125,8 @@ func TestOrchestratorIsNotARowOfItsOwn(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			worker := agentItem{agent: agentstore.Agent{
-				ID: "a1", Name: "telescope", State: agentstore.StateIdle, WorkflowID: "w1",
+			worker := agentItem{agent: panel.Agent{
+				ID: "a1", Name: "telescope", State: panel.StateIdle, WorkflowID: "w1",
 			}, alive: true}
 
 			m := orchestratorModel(&recordingOrchestrators{}, orchestratorItem(), worker)
@@ -153,7 +152,7 @@ func TestWorkflowRowShowsItsOrchestrator(t *testing.T) {
 		name        string
 		items       []agentItem
 		wantPane    bool
-		wantStateOf agentstore.State
+		wantStateOf panel.State
 		// wantDoc is the markdown the stage draws when there is no pane.
 		wantDoc string
 	}{
@@ -165,18 +164,18 @@ func TestWorkflowRowShowsItsOrchestrator(t *testing.T) {
 			name:        "a workflow whose orchestrator is running",
 			items:       []agentItem{orchestratorItem()},
 			wantPane:    true,
-			wantStateOf: agentstore.StateThinking,
+			wantStateOf: panel.StateThinking,
 		},
 		{
 			name:        "a workflow whose orchestrator has stopped",
 			items:       []agentItem{dormantOrchestrator()},
-			wantStateOf: agentstore.StateIdle,
+			wantStateOf: panel.StateIdle,
 			wantDoc:     dormantPlaceholder,
 		},
 		{
 			name:        "a workflow whose orchestrator failed to start",
 			items:       []agentItem{failedOrchestrator()},
-			wantStateOf: agentstore.StateFailedToCreate,
+			wantStateOf: panel.StateFailedToCreate,
 			wantDoc:     failedOrchestratorDoc,
 		},
 	}
@@ -253,8 +252,8 @@ func TestFocusAloneStartsNothing(t *testing.T) {
 
 // TestASearchHitLandsOnTheWorkflowRow pins where a hit on a folded orchestrator goes.
 func TestASearchHitLandsOnTheWorkflowRow(t *testing.T) {
-	worker := agentItem{agent: agentstore.Agent{
-		ID: "a1", Name: "telescope", State: agentstore.StateIdle, WorkflowID: "w1",
+	worker := agentItem{agent: panel.Agent{
+		ID: "a1", Name: "telescope", State: panel.StateIdle, WorkflowID: "w1",
 	}, alive: true}
 
 	m := orchestratorModel(&recordingOrchestrators{}, worker, orchestratorItem())
@@ -270,7 +269,7 @@ func TestASearchHitLandsOnTheWorkflowRow(t *testing.T) {
 // TestArchiveDrawsAnOrchestratorOfItsOwn pins the one screen that must show one.
 func TestArchiveDrawsAnOrchestratorOfItsOwn(t *testing.T) {
 	rows := treeRows(treeRowsParams{
-		workflows:  []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
+		workflows:  []panel.Workflow{{ID: "w1", Name: "backend"}},
 		agents:     []agentItem{orchestratorItem()},
 		showHidden: true,
 	})
@@ -300,7 +299,7 @@ func TestCreatingAWorkflowStartsItsOrchestrator(t *testing.T) {
 	m := orchestratorModel(agents)
 	m.api.workflows = &creatingWorkflows{id: "w2"}
 
-	settle(t, m, m.createWorkflowCmd(workflowstore.Config{Name: "backend"}))
+	settle(t, m, m.createWorkflowCmd(panel.WorkflowConfig{Name: "backend"}))
 
 	assert.Equal(t, []string{"w2"}, agents.started)
 }
@@ -314,7 +313,7 @@ func TestCreatingAWorkflowStandsWhenItsOrchestratorWillNot(t *testing.T) {
 	m.api.workflows = &creatingWorkflows{id: "w2"}
 
 	var result writeResult
-	for _, msg := range produced(m.createWorkflowCmd(workflowstore.Config{Name: "backend"})) {
+	for _, msg := range produced(m.createWorkflowCmd(panel.WorkflowConfig{Name: "backend"})) {
 		if written, ok := msg.(writeResult); ok {
 			result = written
 		}
@@ -329,8 +328,8 @@ func TestCreatingAWorkflowStandsWhenItsOrchestratorWillNot(t *testing.T) {
 // TestAnOrchestratorsChildStandsOnItsOwn pins that an agent whose parent is folded onto the
 // workflow row is drawn rather than left with no row anywhere.
 func TestAnOrchestratorsChildStandsOnItsOwn(t *testing.T) {
-	child := agentItem{agent: agentstore.Agent{
-		ID: "a1", Name: "reader", State: agentstore.StateIdle, WorkflowID: "w1",
+	child := agentItem{agent: panel.Agent{
+		ID: "a1", Name: "reader", State: panel.StateIdle, WorkflowID: "w1",
 		ParentAgentID: xptr.Ptr("o1"),
 	}, alive: true}
 

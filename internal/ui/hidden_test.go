@@ -5,10 +5,8 @@ import (
 	"testing"
 
 	"weave/config"
-
-	agentstore "weave/internal/store/agent"
-	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
+	"weave/internal/ui/panel"
 
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
@@ -19,28 +17,28 @@ func hiddenTree() model {
 	return model{
 		frame: layout.New(&recordingTmux{}, config.DefaultLayout()),
 		keys:  config.DefaultKeybindings(),
-		listing: listing{workflows: []workflowstore.Workflow{
+		listing: listing{workflows: []panel.Workflow{
 			{ID: "w1", Name: "backend"},
 			{ID: "w2", Name: "frontend"},
 		}, agents: []agentItem{
-			{agent: agentstore.Agent{
+			{agent: panel.Agent{
 				ID:         "a1",
 				Name:       "auth",
 				WorkflowID: "w1",
 			}},
-			{agent: agentstore.Agent{
+			{agent: panel.Agent{
 				ID:         "a2",
 				Name:       "chore",
 				WorkflowID: "w1",
 				Hidden:     true,
 			}},
-			{agent: agentstore.Agent{
+			{agent: panel.Agent{
 				ID:         "a3",
 				Name:       "sweep",
 				WorkflowID: "w1",
 				Hidden:     true,
 			}},
-			{agent: agentstore.Agent{
+			{agent: panel.Agent{
 				ID:         "a4",
 				Name:       "ui",
 				WorkflowID: "w2",

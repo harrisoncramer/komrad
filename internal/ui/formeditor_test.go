@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"weave/config"
-	agentstore "weave/internal/store/agent"
+	"weave/internal/ui/panel"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
@@ -64,7 +64,7 @@ func TestEditorKeyIsHandedOnByAFieldWithNoText(t *testing.T) {
 	m.settings.Editor = "true"
 
 	name := ""
-	opened, _ := m.openRenameForm(agentstore.Agent{ID: "a1", Name: "api"}, &name)
+	opened, _ := m.openRenameForm(panel.Agent{ID: "a1", Name: "api"}, &name)
 	m = asModel(t, opened)
 
 	_, _, taken := m.openFormFieldEditor()

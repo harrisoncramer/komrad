@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"weave/config"
-	agentstore "weave/internal/store/agent"
 	"weave/internal/ui/layout"
+	"weave/internal/ui/panel"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/stretchr/testify/assert"
@@ -32,20 +32,20 @@ func pressLogs(t *testing.T, m model) model {
 	t.Helper()
 
 	next, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}})
-	panel, ok := next.(model)
+	shown, ok := next.(model)
 	require.True(t, ok)
 
-	return panel
+	return shown
 }
 
 func pressOlderLog(t *testing.T, m model) model {
 	t.Helper()
 
 	next, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'L'}})
-	panel, ok := next.(model)
+	shown, ok := next.(model)
 	require.True(t, ok)
 
-	return panel
+	return shown
 }
 
 // writeRun leaves one run of a script on disk for an agent.
@@ -150,10 +150,10 @@ func TestCycleLogsSurvivesACursorMove(t *testing.T) {
 	require.Equal(t, infoRunLog, shown.info.kind)
 
 	moved, _ := shown.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("k")})
-	panel, ok := moved.(model)
+	shown, ok := moved.(model)
 	require.True(t, ok)
 
-	assert.Equal(t, infoRunLog, panel.info.kind)
+	assert.Equal(t, infoRunLog, shown.info.kind)
 }
 
 // TestCycleLogsTypeIntoAnOpenQuery pins that the key is a character while a search is being
@@ -297,10 +297,10 @@ func TestFailedPlaceholderPointsAtTheLogWhenThereIsOne(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, _ := logsModel(t, tmux)
 
-	agent := agentstore.Agent{
+	agent := panel.Agent{
 		ID:    "a1",
-		State: agentstore.StateFailedToCreate,
-		Metadata: []agentstore.Metadata{
+		State: panel.StateFailedToCreate,
+		Metadata: []panel.Metadata{
 			{Key: "error", Value: "failed to open a window: tmux refused"},
 		},
 	}
@@ -323,10 +323,10 @@ func TestFailedPlaceholderPointsAtTheHookThatFailedTheCreate(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, _ := logsModel(t, tmux)
 
-	agent := agentstore.Agent{
+	agent := panel.Agent{
 		ID:       "a1",
-		State:    agentstore.StateFailedToCreate,
-		Metadata: []agentstore.Metadata{{Key: "error", Value: "install-deps: mise refused"}},
+		State:    panel.StateFailedToCreate,
+		Metadata: []panel.Metadata{{Key: "error", Value: "install-deps: mise refused"}},
 	}
 
 	writeRun(t, m.settings.RunLogsDir, agent.ID, 1, config.TriggerProvision, "make-worktree")
@@ -341,10 +341,10 @@ func TestFailedPlaceholderPointsAtTheHookThatFailedTheDelete(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, _ := logsModel(t, tmux)
 
-	agent := agentstore.Agent{
+	agent := panel.Agent{
 		ID:       "a1",
-		State:    agentstore.StateFailedToCleanup,
-		Metadata: []agentstore.Metadata{{Key: "error", Value: "take-the-stack-down: docker refused"}},
+		State:    panel.StateFailedToCleanup,
+		Metadata: []panel.Metadata{{Key: "error", Value: "take-the-stack-down: docker refused"}},
 	}
 
 	writeRun(t, m.settings.RunLogsDir, agent.ID, 1, config.TriggerProvision, "make-worktree")
@@ -361,10 +361,10 @@ func TestFailedPlaceholderSkipsARunWithNothingInIt(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, _ := logsModel(t, tmux)
 
-	agent := agentstore.Agent{
+	agent := panel.Agent{
 		ID:       "a1",
-		State:    agentstore.StateFailedToCreate,
-		Metadata: []agentstore.Metadata{{Key: "error", Value: "tmux refused the window"}},
+		State:    panel.StateFailedToCreate,
+		Metadata: []panel.Metadata{{Key: "error", Value: "tmux refused the window"}},
 	}
 
 	empty := writeRun(t, m.settings.RunLogsDir, agent.ID, 1, config.TriggerProvision, "make-worktree")
@@ -421,7 +421,7 @@ func TestAgentLogContentKeyFollowsTheAgent(t *testing.T) {
 func TestAgentLogRespawnsOnACursorMove(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, _ := logsModel(t, tmux)
-	m.listing.agents = append(m.listing.agents, agentItem{agent: agentstore.Agent{
+	m.listing.agents = append(m.listing.agents, agentItem{agent: panel.Agent{
 		ID:         "a2",
 		Name:       "billing",
 		Pane:       "%8",

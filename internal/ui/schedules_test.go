@@ -9,10 +9,8 @@ import (
 	"time"
 
 	"weave/config"
-	agentstore "weave/internal/store/agent"
-	schedulestore "weave/internal/store/schedule"
-	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
+	"weave/internal/ui/panel"
 	"weave/lib/xptr"
 	schedulev1 "weave/proto/gen/schedule/v1"
 	"weave/proto/gen/schedule/v1/schedulev1connect"
@@ -135,7 +133,7 @@ func TestSchedulesView(t *testing.T) {
 		{
 			name: "a schedule shows its name and its expression",
 			schedules: []scheduleItem{
-				{schedule: schedulestore.Schedule{
+				{schedule: panel.Schedule{
 					Name:    "morning-ci",
 					Cron:    "0 9 * * 1-5",
 					Enabled: true,
@@ -146,7 +144,7 @@ func TestSchedulesView(t *testing.T) {
 		{
 			name: "a paused one is marked differently from an armed one",
 			schedules: []scheduleItem{
-				{schedule: schedulestore.Schedule{Name: "paused", Cron: "0 9 * * *"}},
+				{schedule: panel.Schedule{Name: "paused", Cron: "0 9 * * *"}},
 			},
 			wants:    []string{"paused", scheduleIcon(false)},
 			notWants: []string{scheduleIcon(true)},
@@ -173,13 +171,13 @@ func TestSchedulesView(t *testing.T) {
 // TestScheduleFormButtonsLineUp pins the confirm buttons left, which huh otherwise centres
 // under the field's own prompt.
 func TestScheduleFormButtonsLineUp(t *testing.T) {
-	form, _ := scheduleForm(&schedulestore.Config{
+	form, _ := scheduleForm(&panel.ScheduleConfig{
 		Name:       "sweeper",
 		Cron:       "*/5 * * * *",
 		Prompt:     "sweep",
 		Enabled:    true,
 		WorkflowID: "w1",
-	}, []workflowstore.Workflow{{
+	}, []panel.Workflow{{
 		ID:   "w1",
 		Name: "api",
 		Cwd:  "/work/api",
@@ -223,7 +221,7 @@ func TestScheduleMarkdown(t *testing.T) {
 		{
 			name: "an armed schedule leads with when it next fires",
 			item: scheduleItem{
-				schedule: schedulestore.Schedule{
+				schedule: panel.Schedule{
 					Name:    "morning-ci",
 					Enabled: true,
 					Prompt:  "check CI",
@@ -235,18 +233,18 @@ func TestScheduleMarkdown(t *testing.T) {
 		},
 		{
 			name:     "a paused one says it will not run",
-			item:     scheduleItem{schedule: schedulestore.Schedule{Name: "draft", Prompt: "later"}},
+			item:     scheduleItem{schedule: panel.Schedule{Name: "draft", Prompt: "later"}},
 			wants:    []string{"draft", "paused"},
 			notWants: []string{"next run"},
 		},
 		{
 			name:  "a schedule with no prompt says so rather than paging a blank",
-			item:  scheduleItem{schedule: schedulestore.Schedule{Name: "bare", Enabled: true}},
+			item:  scheduleItem{schedule: panel.Schedule{Name: "bare", Enabled: true}},
 			wants: []string{"bare", "no prompt set"},
 		},
 		{
 			name: "one whose runs start hidden says where they will not appear",
-			item: scheduleItem{schedule: schedulestore.Schedule{
+			item: scheduleItem{schedule: panel.Schedule{
 				Name:       "quiet",
 				Enabled:    true,
 				HideAgents: true,
@@ -256,7 +254,7 @@ func TestScheduleMarkdown(t *testing.T) {
 		{
 			name: "a schedule that has never fired says nothing about a result",
 			item: scheduleItem{
-				schedule: schedulestore.Schedule{
+				schedule: panel.Schedule{
 					Name:    "fresh",
 					Enabled: true,
 					Prompt:  "go",
@@ -267,11 +265,11 @@ func TestScheduleMarkdown(t *testing.T) {
 		{
 			name: "a status without a time does not render rather than guess one",
 			item: scheduleItem{
-				schedule: schedulestore.Schedule{
+				schedule: panel.Schedule{
 					Name:             "odd",
 					Enabled:          true,
 					Prompt:           "go",
-					LastResultStatus: schedulestore.LaunchResultLaunched,
+					LastResultStatus: "launched",
 				},
 			},
 			notWants: []string{"last result"},
@@ -279,11 +277,11 @@ func TestScheduleMarkdown(t *testing.T) {
 		{
 			name: "a schedule that failed to launch shows what happened and why",
 			item: scheduleItem{
-				schedule: schedulestore.Schedule{
+				schedule: panel.Schedule{
 					Name:              "flaky",
 					Enabled:           true,
 					Prompt:            "go",
-					LastResultStatus:  schedulestore.LaunchResultCannotLaunch,
+					LastResultStatus:  "cannot_launch",
 					LastResultMessage: "bad directory",
 					LastResultAt:      &next,
 				},
@@ -309,7 +307,7 @@ func TestScheduleMarkdown(t *testing.T) {
 // TestScheduleFields covers what the details under the list draw for a schedule: its own settings
 // first, then the defaults of the workflow it fires into.
 func TestScheduleFields(t *testing.T) {
-	sched := schedulestore.Schedule{
+	sched := panel.Schedule{
 		Name:     "morning-ci",
 		Cron:     "0 9 * * 1-5",
 		Timezone: "America/New_York",
@@ -317,7 +315,7 @@ func TestScheduleFields(t *testing.T) {
 	}
 
 	t.Run("its own settings, then what the workflow hands each run", func(t *testing.T) {
-		fields := scheduleFields(sched, &workflowstore.Workflow{
+		fields := scheduleFields(sched, &panel.Workflow{
 			Name:    "api",
 			Harness: "codex",
 			Cwd:     "/work/api",
@@ -337,7 +335,7 @@ func TestScheduleFields(t *testing.T) {
 	})
 
 	t.Run("a workflow with no defaults falls back to dashes", func(t *testing.T) {
-		fields := scheduleFields(sched, &workflowstore.Workflow{Name: "api"})
+		fields := scheduleFields(sched, &panel.Workflow{Name: "api"})
 
 		assert.Contains(t, fields, recordField{"directory", "—"})
 		assert.Contains(t, fields, recordField{"worktree", "off"})
@@ -419,7 +417,7 @@ func TestScheduleWriteFailure(t *testing.T) {
 			name: "a refused create",
 			act: func(t *testing.T, m model) model {
 				t.Helper()
-				values := schedulestore.Config{Name: "x", Cron: "0 9 * * *"}
+				values := panel.ScheduleConfig{Name: "x", Cron: "0 9 * * *"}
 
 				opened, _ := m.openScheduleForm(&values, nil)
 				m = asModel(t, opened)
@@ -492,13 +490,13 @@ func scheduleModel(client schedulev1connect.ScheduleServiceClient, keys config.K
 		keys:   keys,
 		screen: screenSchedules,
 		listing: listing{
-			workflows: []workflowstore.Workflow{{
+			workflows: []panel.Workflow{{
 				ID:   "w1",
 				Name: "api",
 				Cwd:  "/work/api",
 			}},
 			schedules: []scheduleItem{
-				{schedule: schedulestore.Schedule{
+				{schedule: panel.Schedule{
 					ID:      "s1",
 					Name:    "morning-ci",
 					Cron:    "0 9 * * 1-5",
@@ -512,7 +510,7 @@ func scheduleModel(client schedulev1connect.ScheduleServiceClient, keys config.K
 func scheduleItems(names ...string) []scheduleItem {
 	out := make([]scheduleItem, 0, len(names))
 	for _, name := range names {
-		out = append(out, scheduleItem{schedule: schedulestore.Schedule{
+		out = append(out, scheduleItem{schedule: panel.Schedule{
 			ID:      name,
 			Name:    name,
 			Enabled: true,
@@ -602,21 +600,21 @@ var namedKeys = map[string]tea.KeyType{
 func TestScheduleName(t *testing.T) {
 	tests := []struct {
 		name  string
-		agent agentstore.Agent
+		agent panel.Agent
 		want  string
 	}{
 		{
 			name:  "a schedule still listed maps to its name",
-			agent: agentstore.Agent{ScheduleID: xptr.Ptr("s1")},
+			agent: panel.Agent{ScheduleID: xptr.Ptr("s1")},
 			want:  "morning-ci",
 		},
 		{
 			name:  "a schedule since deleted maps to nothing",
-			agent: agentstore.Agent{ScheduleID: xptr.Ptr("gone")},
+			agent: panel.Agent{ScheduleID: xptr.Ptr("gone")},
 		},
 		{
 			name:  "an agent with no schedule maps to nothing",
-			agent: agentstore.Agent{},
+			agent: panel.Agent{},
 		},
 	}
 
@@ -633,7 +631,7 @@ func TestScheduleName(t *testing.T) {
 // which the form has to offer without being closed and opened again.
 func TestScheduleFormTakesNewWorkflows(t *testing.T) {
 	m := scheduleModel(&fakeSchedules{}, config.DefaultKeybindings())
-	m.listing.schedules = []scheduleItem{{schedule: schedulestore.Schedule{
+	m.listing.schedules = []scheduleItem{{schedule: panel.Schedule{
 		ID:         "s1",
 		Name:       "morning-ci",
 		Cron:       "0 9 * * 1-5",
@@ -652,7 +650,7 @@ func TestScheduleFormTakesNewWorkflows(t *testing.T) {
 	settle(t, edit, edit.form.form.NextField())
 	require.Equal(t, "cron", edit.form.form.GetFocusedField().GetKey())
 
-	cmd := edit.applyRefresh(refreshResult{workflows: []workflowstore.Workflow{
+	cmd := edit.applyRefresh(refreshResult{workflows: []panel.Workflow{
 		{
 			ID:   "w1",
 			Name: "api",
@@ -677,19 +675,19 @@ func TestScheduleFormKeepsAWorkflowThatIsGone(t *testing.T) {
 	m := scheduleModel(&fakeSchedules{}, config.DefaultKeybindings())
 	m.width, m.height = 120, 40
 
-	values := schedulestore.Config{
+	values := panel.ScheduleConfig{
 		Name:       "morning-ci",
 		Cron:       "0 9 * * 1-5",
 		Enabled:    true,
 		WorkflowID: "w1",
 	}
 
-	opened, _ := m.openScheduleForm(&values, &schedulestore.Schedule{ID: "s1", Name: "morning-ci"})
+	opened, _ := m.openScheduleForm(&values, &panel.Schedule{ID: "s1", Name: "morning-ci"})
 	edit, ok := opened.(model)
 	require.True(t, ok)
 	edit.form.form.Update(tea.WindowSizeMsg{Width: 80, Height: 40})
 
-	cmd := edit.applyRefresh(refreshResult{workflows: []workflowstore.Workflow{
+	cmd := edit.applyRefresh(refreshResult{workflows: []panel.Workflow{
 		{
 			ID:   "w2",
 			Name: "other",
@@ -706,7 +704,7 @@ func TestScheduleFormKeepsAWorkflowThatIsGone(t *testing.T) {
 // TestScheduleFormOffersEveryWorkflow covers the options a schedule on any workflow but the
 // first is offered.
 func TestScheduleFormOffersEveryWorkflow(t *testing.T) {
-	values := schedulestore.Config{
+	values := panel.ScheduleConfig{
 		Name:       "bughunt-fixer-dispatcher",
 		Cron:       "*/5 * * * *",
 		Prompt:     "sweep",
@@ -714,7 +712,7 @@ func TestScheduleFormOffersEveryWorkflow(t *testing.T) {
 		WorkflowID: "w2",
 	}
 
-	form, _ := scheduleForm(&values, []workflowstore.Workflow{
+	form, _ := scheduleForm(&values, []panel.Workflow{
 		{
 			ID:   "w1",
 			Name: "bughunt",

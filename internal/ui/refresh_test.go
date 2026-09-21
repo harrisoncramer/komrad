@@ -6,9 +6,8 @@ import (
 	"testing"
 
 	"weave/config"
-	agentstore "weave/internal/store/agent"
-	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
+	"weave/internal/ui/panel"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	schedulev1 "weave/proto/gen/schedule/v1"
@@ -71,11 +70,11 @@ func TestRefreshAppliesWhatAnswered(t *testing.T) {
 		frame:   layout.New(&recordingTmux{}, config.DefaultLayout()),
 		keys:    config.DefaultKeybindings(),
 		screen:  screenAgents,
-		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "api"}}},
+		listing: listing{workflows: []panel.Workflow{{ID: "w1", Name: "api"}}},
 	}
 
 	m.applyRefresh(refreshResult{
-		agents:       []agentItem{{agent: agentstore.Agent{Name: "api-refactor", WorkflowID: "w1"}}},
+		agents:       []agentItem{{agent: panel.Agent{Name: "api-refactor", WorkflowID: "w1"}}},
 		workflowsErr: errors.New("connection reset"),
 	})
 
@@ -92,12 +91,12 @@ func TestStaleRefreshIsDropped(t *testing.T) {
 		frame:   layout.New(&recordingTmux{}, config.DefaultLayout()),
 		keys:    config.DefaultKeybindings(),
 		screen:  screenAgents,
-		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "api"}}},
+		listing: listing{workflows: []panel.Workflow{{ID: "w1", Name: "api"}}},
 	}
 
 	inFlight := refreshResult{
 		epoch:  m.epoch,
-		agents: []agentItem{{agent: agentstore.Agent{Name: "hidden-since", WorkflowID: "w1"}}},
+		agents: []agentItem{{agent: panel.Agent{Name: "hidden-since", WorkflowID: "w1"}}},
 	}
 	m.beginWrite()
 
@@ -130,12 +129,12 @@ func TestFirstListingLandsOnTheFirstAgent(t *testing.T) {
 		frame:   layout.New(&recordingTmux{}, config.DefaultLayout()),
 		keys:    config.DefaultKeybindings(),
 		screen:  screenAgents,
-		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "api"}}},
+		listing: listing{workflows: []panel.Workflow{{ID: "w1", Name: "api"}}},
 	}
 
 	m.applyRefresh(refreshResult{
-		workflows: []workflowstore.Workflow{{ID: "w1", Name: "api"}},
-		agents:    []agentItem{{agent: agentstore.Agent{Name: "api-refactor", WorkflowID: "w1"}}},
+		workflows: []panel.Workflow{{ID: "w1", Name: "api"}},
+		agents:    []agentItem{{agent: panel.Agent{Name: "api-refactor", WorkflowID: "w1"}}},
 	})
 
 	selected, ok := m.selectedAgent()
@@ -154,7 +153,7 @@ func TestCreatedAgentReceivesFocus(t *testing.T) {
 		frame:  layout.New(tmux, config.DefaultLayout()),
 		keys:   config.DefaultKeybindings(),
 		screen: screenAgents,
-		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "api"}}, agents: []agentItem{{agent: agentstore.Agent{
+		listing: listing{workflows: []panel.Workflow{{ID: "w1", Name: "api"}}, agents: []agentItem{{agent: panel.Agent{
 			ID: "old", Name: "api-refactor", WorkflowID: "w1",
 		}}}}, tree: treeState{rowCursor: rowCursor{cursor: 1}, placed: true},
 	}
@@ -182,12 +181,12 @@ func TestCreatedAgentReceivesFocus(t *testing.T) {
 		epoch:     m.epoch,
 		workflows: m.listing.workflows,
 		agents: []agentItem{
-			{agent: agentstore.Agent{
+			{agent: panel.Agent{
 				ID:         "old",
 				Name:       "api-refactor",
 				WorkflowID: "w1",
 			}},
-			{agent: agentstore.Agent{
+			{agent: panel.Agent{
 				ID:         "new",
 				Name:       "api-tests",
 				WorkflowID: "w1",
@@ -231,7 +230,7 @@ func TestCreatedWorkflowReceivesFocus(t *testing.T) {
 		frame:   layout.New(&recordingTmux{}, config.DefaultLayout()),
 		keys:    config.DefaultKeybindings(),
 		screen:  screenAgents,
-		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "api"}}}, tree: treeState{placed: true},
+		listing: listing{workflows: []panel.Workflow{{ID: "w1", Name: "api"}}}, tree: treeState{placed: true},
 	}
 
 	values := workflowFormValues{Name: "web"}
@@ -251,7 +250,7 @@ func TestCreatedWorkflowReceivesFocus(t *testing.T) {
 
 	m.applyRefresh(refreshResult{
 		epoch: m.epoch,
-		workflows: []workflowstore.Workflow{
+		workflows: []panel.Workflow{
 			{ID: "w1", Name: "api"},
 			{ID: "new", Name: "web"},
 		},
@@ -269,13 +268,13 @@ func TestCursorHoldsItsFolderAcrossARefresh(t *testing.T) {
 		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
 		keys:   config.DefaultKeybindings(),
 		screen: screenAgents,
-		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "api"}, {ID: "w2", Name: "infra"}}, agents: []agentItem{
-			{agent: agentstore.Agent{
+		listing: listing{workflows: []panel.Workflow{{ID: "w1", Name: "api"}, {ID: "w2", Name: "infra"}}, agents: []agentItem{
+			{agent: panel.Agent{
 				ID:         "a1",
 				Name:       "api-refactor",
 				WorkflowID: "w1",
 			}},
-			{agent: agentstore.Agent{
+			{agent: panel.Agent{
 				ID:         "a2",
 				Name:       "infra-audit",
 				WorkflowID: "w2",
@@ -284,8 +283,8 @@ func TestCursorHoldsItsFolderAcrossARefresh(t *testing.T) {
 	}
 
 	m.applyRefresh(refreshResult{
-		workflows: []workflowstore.Workflow{{ID: "w2", Name: "infra"}},
-		agents: []agentItem{{agent: agentstore.Agent{
+		workflows: []panel.Workflow{{ID: "w2", Name: "infra"}},
+		agents: []agentItem{{agent: panel.Agent{
 			ID:         "a2",
 			Name:       "infra-audit",
 			WorkflowID: "w2",
@@ -304,13 +303,13 @@ func TestCursorHoldsItsAgentWhenAFolderArrives(t *testing.T) {
 		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
 		keys:   config.DefaultKeybindings(),
 		screen: screenAgents,
-		listing: listing{workflows: []workflowstore.Workflow{{ID: "w2", Name: "infra"}}, agents: []agentItem{
-			{agent: agentstore.Agent{
+		listing: listing{workflows: []panel.Workflow{{ID: "w2", Name: "infra"}}, agents: []agentItem{
+			{agent: panel.Agent{
 				ID:         "b1",
 				Name:       "infra-audit",
 				WorkflowID: "w2",
 			}},
-			{agent: agentstore.Agent{
+			{agent: panel.Agent{
 				ID:         "b2",
 				Name:       "infra-upgrade",
 				WorkflowID: "w2",
@@ -319,14 +318,14 @@ func TestCursorHoldsItsAgentWhenAFolderArrives(t *testing.T) {
 	}
 
 	m.applyRefresh(refreshResult{
-		workflows: []workflowstore.Workflow{{ID: "w1", Name: "api"}, {ID: "w2", Name: "infra"}},
+		workflows: []panel.Workflow{{ID: "w1", Name: "api"}, {ID: "w2", Name: "infra"}},
 		agents: []agentItem{
-			{agent: agentstore.Agent{
+			{agent: panel.Agent{
 				ID:         "b1",
 				Name:       "infra-audit",
 				WorkflowID: "w2",
 			}},
-			{agent: agentstore.Agent{
+			{agent: panel.Agent{
 				ID:         "b2",
 				Name:       "infra-upgrade",
 				WorkflowID: "w2",
@@ -347,8 +346,8 @@ func TestArchiveCursorHoldsItsAgentWhenAFolderGoes(t *testing.T) {
 		keys:   config.DefaultKeybindings(),
 		screen: screenArchive,
 		listing: listing{
-			workflows: []workflowstore.Workflow{{ID: "w1", Name: "api"}, {ID: "w2", Name: "infra"}},
-			archivedAgents: []agentstore.Agent{
+			workflows: []panel.Workflow{{ID: "w1", Name: "api"}, {ID: "w2", Name: "infra"}},
+			archivedAgents: []panel.Agent{
 				{
 					ID:         "x1",
 					Name:       "api-spike",
@@ -370,9 +369,9 @@ func TestArchiveCursorHoldsItsAgentWhenAFolderGoes(t *testing.T) {
 	}
 
 	m.applyRefresh(refreshResult{
-		workflows:      []workflowstore.Workflow{{ID: "w2", Name: "infra"}},
+		workflows:      []panel.Workflow{{ID: "w2", Name: "infra"}},
 		archivedListed: true,
-		archived: []agentstore.Agent{
+		archived: []panel.Agent{
 			{
 				ID:         "x2",
 				Name:       "infra-audit",
