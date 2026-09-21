@@ -15,8 +15,7 @@ import (
 // update rewrites every golden file from what the renderer draws.
 var update = flag.Bool("update", false, "rewrite the golden files")
 
-// TestMain pins the colour profile, since lipgloss writes no escapes at all when nothing it can
-// ask about the terminal answers.
+// TestMain pins the colour profile.
 func TestMain(m *testing.M) {
 	flag.Parse()
 	lipgloss.SetColorProfile(termenv.ANSI)

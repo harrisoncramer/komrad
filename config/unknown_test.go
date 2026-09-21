@@ -96,8 +96,7 @@ func TestReportUnknownKeysWithNothingUnused(t *testing.T) {
 	assert.NoError(t, reportUnknownKeys(nil))
 }
 
-// TestListKnownKeys covers resolving a dotted table to what it holds, which is what decides
-// whether a key gets a list beside it or is reported on its own.
+// TestListKnownKeys covers resolving a dotted table to what it holds.
 func TestListKnownKeys(t *testing.T) {
 	tests := []struct {
 		name  string

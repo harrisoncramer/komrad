@@ -56,8 +56,7 @@ func TestAttachArgvRunsSshWithOneScript(t *testing.T) {
 	assert.Equal(t, []string{"ssh", "-t", "ubuntu@host"}, argv[:3])
 }
 
-// TestAttachArgvPointsAtAViewSessionOfItsOwn covers one session per staged agent, which is what
-// keeps two stage panes from resizing one another.
+// TestAttachArgvPointsAtAViewSessionOfItsOwn covers one session per staged agent.
 func TestAttachArgvPointsAtAViewSessionOfItsOwn(t *testing.T) {
 	t.Parallel()
 
@@ -196,8 +195,7 @@ func TestClosingANilTunnelIsFine(t *testing.T) {
 func TestTunnelPortIsStableForAnEngine(t *testing.T) {
 	t.Parallel()
 
-	// Two values rather than two calls on one, since the port has to come from what the engine is
-	// rather than from anything an instance remembers.
+	// Two values rather than two calls on one.
 	first := engine.Remote{Destination: "weave@host"}
 	second := engine.Remote{Destination: "weave@host"}
 

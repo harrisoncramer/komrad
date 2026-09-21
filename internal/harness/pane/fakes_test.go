@@ -47,8 +47,7 @@ type fakeTerminal struct {
 	// a CLI that has yet to repaint.
 	staleReads int
 
-	// pasteErr and yankErr are what tmux refuses with, which is a query timing out under load
-	// or a pane that has just gone.
+	// pasteErr and yankErr are what tmux refuses with.
 	pasteErr error
 	yankErr  error
 
@@ -156,8 +155,7 @@ func (f *fakeHarness) ReadInput(frame string) harness.Input {
 	}
 }
 
-// composingLines is the box's lines out of the frame a test wrote, which is one line of its own
-// unless the test spelled some.
+// composingLines is the box's lines out of the frame a test wrote.
 func composingLines(held string) []string {
 	if held == "" {
 		return []string{"half a question about"}

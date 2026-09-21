@@ -128,8 +128,8 @@ func TestUserPanelKeyReadsTheServerTheUserIsAt(t *testing.T) {
 		"attaching from outside tmux still reads the server the panel was opened from")
 }
 
-// TestBuildPanelWindowArgsOpensInTheSessionItAlreadyHas covers the repair path carrying
-// everything the session path does, since it opens the same process on the same settings.
+// TestBuildPanelWindowArgsOpensInTheSessionItAlreadyHas covers the repair path carrying everything
+// the session path does.
 func TestBuildPanelWindowArgsOpensInTheSessionItAlreadyHas(t *testing.T) {
 	state := &app{
 		env: &config.Environment{
@@ -173,9 +173,8 @@ func TestIsPanelRunningNeedsThePanelsOwnPane(t *testing.T) {
 	assert.False(t, isPanelRunning(t.Context(), state), "the panel's own pane has gone")
 }
 
-// TestBuildPanelWindowArgsDetachesWhenNobodyIsAttaching covers a repair under --detach leaving
-// the current window alone, since a script that only wants the session there would otherwise
-// move whoever is watching one off the agent they were reading.
+// TestBuildPanelWindowArgsDetachesWhenNobodyIsAttaching covers a repair under --detach leaving the
+// current window alone.
 func TestBuildPanelWindowArgsDetachesWhenNobodyIsAttaching(t *testing.T) {
 	tests := []struct {
 		name     string

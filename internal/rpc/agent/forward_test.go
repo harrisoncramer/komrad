@@ -28,9 +28,7 @@ import (
 
 var forwardedAt = time.Date(2026, time.September, 19, 10, 0, 0, 0, time.UTC)
 
-// TestForwardLastTurns covers the mail a forward composes, which is a header weave wrote, the
-// caller's note, and the turns as get_last_turns would return them, and the refusals a forward
-// answers with before anything is sent.
+// TestForwardLastTurns covers the mail a forward composes.
 func TestForwardLastTurns(t *testing.T) {
 	stored := []transcriptstore.Turn{
 		{

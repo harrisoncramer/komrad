@@ -50,8 +50,7 @@ func TestListHooks(t *testing.T) {
 	assert.Nil(t, listed[1].GetTimeout(), "a file that declared no timeout sends none")
 }
 
-// TestListHooksFailure covers a directory that could not be read at all, which is the server's
-// problem rather than the caller's.
+// TestListHooksFailure covers a directory that could not be read at all.
 func TestListHooksFailure(t *testing.T) {
 	failing := &fakeHooks{listErr: errors.New("permission denied")}
 	service := hookv1weave.HookServiceAdapter{Impl: NewHookService(failing)}

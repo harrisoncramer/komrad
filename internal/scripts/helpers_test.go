@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// write puts an empty script at the path, which is all a test listing scripts needs one to be.
+// write puts an empty script at the path.
 func write(t *testing.T, path string, mode os.FileMode) {
 	t.Helper()
 

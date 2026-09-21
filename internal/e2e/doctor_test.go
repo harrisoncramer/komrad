@@ -13,9 +13,8 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// TestRunDoctorChecksTheServersOwnMachine covers what a doctor pointed at an engine reads
-// back: the service makes the checks about its machine with what it holds, which is the
-// database it opened and the tmux server it runs, and answers every one with a status.
+// TestRunDoctorChecksTheServersOwnMachine covers what a doctor pointed at an engine reads back: the
+// service makes the checks about its machine with what it holds.
 func TestRunDoctorChecksTheServersOwnMachine(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 

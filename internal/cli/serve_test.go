@@ -98,8 +98,7 @@ func TestServeAddrFlagCarriesNoDefault(t *testing.T) {
 	assert.Empty(t, flag.DefValue, "a default here shadows WEAVE_ADDR")
 }
 
-// TestServeRefusesAnAddressTheFileWouldRefuse covers the flag, which is read ahead of the
-// configured address and reaches the same rule.
+// TestServeRefusesAnAddressTheFileWouldRefuse covers the flag.
 func TestServeRefusesAnAddressTheFileWouldRefuse(t *testing.T) {
 	tests := []struct {
 		name    string

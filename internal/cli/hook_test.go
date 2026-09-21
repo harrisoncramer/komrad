@@ -297,8 +297,7 @@ func TestStopHookSurvivesAServerThatIsNotThere(t *testing.T) {
 	assert.Contains(t, errOut.String(), "weave could not be reached")
 }
 
-// recordedReport is one call of the endpoint every hook event reports through, which is what a
-// test asserts on rather than the payload the hook was handed.
+// recordedReport is one call of the endpoint every hook event reports through.
 type recordedReport struct {
 	agentID   string
 	reason    string
@@ -375,8 +374,7 @@ func fakeMailServer(t *testing.T, params fakeMailParams) string {
 	return strippedHost(t, server.URL)
 }
 
-// TestTurnEndHookRecordsTheBoundary covers codex's notify program, which is handed one JSON
-// argument and fires for more than a turn ending, so the type is what decides.
+// TestTurnEndHookRecordsTheBoundary covers codex's notify program.
 func TestTurnEndHookRecordsTheBoundary(t *testing.T) {
 	tests := []struct {
 		name         string

@@ -43,9 +43,8 @@ func TestInstallBuiltinsReplacesWhatWasThere(t *testing.T) {
 	assert.True(t, os.IsNotExist(err), "a script this build does not ship is not left behind")
 }
 
-// TestInstallBuiltinsRefusesRelativePath covers the directory the install empties being
-// named relative to wherever the service happened to be started, which is a delete of
-// whatever that name means there rather than of weave's own directory.
+// TestInstallBuiltinsRefusesRelativePath covers the directory the install empties being named
+// relative to wherever the service happened to be started.
 func TestInstallBuiltinsRefusesRelativePath(t *testing.T) {
 	work := t.TempDir()
 	t.Chdir(work)
@@ -60,9 +59,8 @@ func TestInstallBuiltinsRefusesRelativePath(t *testing.T) {
 	assert.FileExists(t, filepath.Join(theirs, "deploy.sh"), "a directory weave did not name is not emptied")
 }
 
-// TestInstallBuiltinsRefusesDirectoryItDoesNotOwn covers an absolute path that is somebody
-// else's directory, which is what a hand-set cache directory pointed at a project root
-// leaves the install aimed at.
+// TestInstallBuiltinsRefusesDirectoryItDoesNotOwn covers an absolute path that is somebody else's
+// directory.
 func TestInstallBuiltinsRefusesDirectoryItDoesNotOwn(t *testing.T) {
 	theirs := filepath.Join(t.TempDir(), "scripts")
 	require.NoError(t, os.MkdirAll(theirs, 0o755))

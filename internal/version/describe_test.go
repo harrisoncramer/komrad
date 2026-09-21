@@ -6,8 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestDescribe covers naming a build where the version alone cannot, since every build from a
-// worktree reports devel.
+// TestDescribe covers naming a build where the version alone cannot.
 func TestDescribe(t *testing.T) {
 	tests := []struct {
 		name    string

@@ -100,8 +100,7 @@ func TestTakePanelKeysHandsThePressToThePanelPaneOnly(t *testing.T) {
 	assert.NotContains(t, client.CapturePane(pane), "^T", "and the pane itself never saw the key")
 }
 
-// TestPassKeyToPanelReportsWhatTmuxRefused pins the refusal naming the key, which is what the
-// panel logs when a binding stays with tmux.
+// TestPassKeyToPanelReportsWhatTmuxRefused pins the refusal naming the key.
 func TestPassKeyToPanelReportsWhatTmuxRefused(t *testing.T) {
 	client := testServer(t, "refused")
 

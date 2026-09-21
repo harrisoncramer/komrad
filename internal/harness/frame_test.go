@@ -75,8 +75,7 @@ func TestStripDim(t *testing.T) {
 	}
 }
 
-// TestForegrounds covers the colour a line's first character is drawn in, which is how a harness
-// tells a box greyed out for the length of a turn from the same box once it is over.
+// TestForegrounds covers the colour a line's first character is drawn in.
 func TestForegrounds(t *testing.T) {
 	const rule = "\x1b[38;5;102m" + "────────"
 

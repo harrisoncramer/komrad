@@ -325,8 +325,7 @@ func TestUpdateSchedule(t *testing.T) {
 	}
 }
 
-// TestSetScheduleEnabled covers the pause toggle, which is the edit the panel
-// makes with one keystroke.
+// TestSetScheduleEnabled covers the pause toggle.
 func TestSetScheduleEnabled(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -494,8 +493,8 @@ func TestListSchedules(t *testing.T) {
 	}
 }
 
-// TestListSchedulesRefusesAMangledToken covers a token that decodes but holds an id no row
-// can have, which is the caller's mistake rather than a database failure.
+// TestListSchedulesRefusesAMangledToken covers a token that decodes but holds an id no row can
+// have.
 func TestListSchedulesRefusesAMangledToken(t *testing.T) {
 	svc, _ := service(t)
 

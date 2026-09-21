@@ -25,8 +25,7 @@ func capture(t *testing.T, root string, args ...string) string {
 	return strings.TrimSpace(string(out))
 }
 
-// TestTakeHoldsCommittedAndUncommittedWorkAlike pins what a round covers, which is an agent's
-// committed work and what it has left in the worktree.
+// TestTakeHoldsCommittedAndUncommittedWorkAlike pins what a round covers.
 func TestTakeHoldsCommittedAndUncommittedWorkAlike(t *testing.T) {
 	root := repo(t)
 	run(t, root, "checkout", "-b", "agent/one")
@@ -119,8 +118,7 @@ func TestTakeIgnoresWhatGitIgnores(t *testing.T) {
 	assert.NotContains(t, changed(patch), ".weave/reviews/round-1.md")
 }
 
-// TestTakeExcludesNothingItself pins where the workflow's excludes are applied, which is the diff
-// rather than the snapshot, so a round holds the whole tree whatever the reader is shown.
+// TestTakeExcludesNothingItself pins where the workflow's excludes are applied.
 func TestTakeExcludesNothingItself(t *testing.T) {
 	root := repo(t)
 	write(t, root, "proto/gen/api.pb.go", "package gen\n\nfunc Gen() {}\n")
@@ -132,8 +130,7 @@ func TestTakeExcludesNothingItself(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// The round holds the excluded file whole, which is what makes an exclude a view of a
-	// snapshot rather than a decision baked into it.
+	// The round holds the excluded file whole.
 	lines, err := gitClient.ReadFileLines(t.Context(), root, snapshot.SHA, "proto/gen/api.pb.go")
 	require.NoError(t, err)
 	assert.Contains(t, lines, "func Gen() {}")

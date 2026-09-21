@@ -31,8 +31,8 @@ func writeKey(t *testing.T) string {
 	return path
 }
 
-// TestMintSignsAnAssertionGitHubCanCheck covers the assertion carrying the app as its issuer and
-// an expiry inside the window github allows, which is what it refuses a token over.
+// TestMintSignsAnAssertionGitHubCanCheck covers the assertion carrying the app as its issuer and an
+// expiry inside the window github allows.
 func TestMintSignsAnAssertionGitHubCanCheck(t *testing.T) {
 	var seen string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -174,7 +174,7 @@ func TestCacheRoundTrips(t *testing.T) {
 }
 
 // TestCacheTightensAFileSomebodyElseCreated covers the mode being the one asked for rather than
-// whatever the path was first created with, which is what open(2) would otherwise leave alone.
+// whatever the path was first created with.
 func TestCacheTightensAFileSomebodyElseCreated(t *testing.T) {
 	cache := Cache{Path: filepath.Join(t.TempDir(), "token.json"), Identity: Identity{
 		ID:             "12345",

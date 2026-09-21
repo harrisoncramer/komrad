@@ -18,7 +18,7 @@ import (
 )
 
 // TestEveryMethodDeclaresOneSurface fails when an RPC declares neither a tool annotation nor a
-// panel-only one, since a method carrying neither is served and reachable from nothing.
+// panel-only one.
 func TestEveryMethodDeclaresOneSurface(t *testing.T) {
 	tests := []struct {
 		name string

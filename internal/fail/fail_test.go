@@ -41,8 +41,8 @@ func TestSaying(t *testing.T) {
 	assert.Equal(t, `no agent with id "a-1"`, found.Error())
 }
 
-// TestSayingSurvivesWrapping covers the domain putting its own prefix on a worded sentinel on
-// the way up, which is for the log rather than for whoever asked.
+// TestSayingSurvivesWrapping covers the domain putting its own prefix on a worded sentinel on the
+// way up.
 func TestSayingSurvivesWrapping(t *testing.T) {
 	sentinel := fail.NotFound("schedule not found")
 

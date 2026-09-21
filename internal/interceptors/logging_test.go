@@ -85,8 +85,7 @@ func TestLoggingRecordsAServedCall(t *testing.T) {
 	assert.NotEmpty(t, res.Header().Get(TraceHeader), "the caller is told the trace it can be found under")
 }
 
-// TestLoggingKeepsTheDefaultQuiet covers a served call writing nothing at info, which is what
-// leaves a failure the only thing in the file.
+// TestLoggingKeepsTheDefaultQuiet covers a served call writing nothing at info.
 func TestLoggingKeepsTheDefaultQuiet(t *testing.T) {
 	written, _, err := loggedCall(t, slog.LevelInfo, unaryRequest("/agent.v1.AgentService/ListAgents", ""), nil)
 
@@ -94,8 +93,7 @@ func TestLoggingKeepsTheDefaultQuiet(t *testing.T) {
 	assert.Empty(t, written)
 }
 
-// TestLoggingRecordsAFailure covers the connect code being its own field, which is what tells a
-// bad request from a broken service.
+// TestLoggingRecordsAFailure covers the connect code being its own field.
 func TestLoggingRecordsAFailure(t *testing.T) {
 	refused := connect.NewError(connect.CodeInvalidArgument, errors.New("name is required"))
 

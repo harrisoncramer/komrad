@@ -58,7 +58,7 @@ func TestEngineStandIns(t *testing.T) {
 }
 
 // TestStaleServerFixDependsOnWhereTheEngineIs covers the advice given when the service is a
-// different build, since restarting tmux here does nothing to a service on another machine.
+// different build.
 func TestStaleServerFixDependsOnWhereTheEngineIs(t *testing.T) {
 	t.Parallel()
 

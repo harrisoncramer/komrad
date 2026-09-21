@@ -118,8 +118,7 @@ func TestKillPaneStillWarnsOnARealFailure(t *testing.T) {
 	assert.Contains(t, buf.String(), "a tmux command failed", "a real failure is not silenced")
 }
 
-// TestIsRunningShellReadsMeasuredCommands pins the shell allowlist to what a pane actually
-// reports, which is never the binary weave launched.
+// TestIsRunningShellReadsMeasuredCommands pins the shell allowlist to what a pane actually reports.
 func TestIsRunningShellReadsMeasuredCommands(t *testing.T) {
 	shells := []string{"sh", "bash", "dash", "ash", "zsh", "ksh", "csh", "tcsh", "fish", "nu", "-zsh", "-bash", "-dash"}
 	for _, command := range shells {

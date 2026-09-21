@@ -128,8 +128,7 @@ func TestHTTPLoggingKeepsTheHandlerFlushable(t *testing.T) {
 		"a handler that only wrote a body still logs the status it implies")
 }
 
-// TestHTTPLoggingCarriesATrace covers the id the caller is given back, which is how a
-// failure somebody is looking at is found in the log by the id they were shown.
+// TestHTTPLoggingCarriesATrace covers the id the caller is given back.
 func TestHTTPLoggingCarriesATrace(t *testing.T) {
 	var out bytes.Buffer
 

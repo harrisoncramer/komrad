@@ -54,16 +54,15 @@ func twoHunkView() *View {
 	}), false)
 }
 
-// TestSearchMatchesTheLineAsDrawn covers what a pattern is matched against, which is the line
-// with the marker the diff put in front of it, so anchoring at an added line works.
+// TestSearchMatchesTheLineAsDrawn covers what a pattern is matched against.
 func TestSearchMatchesTheLineAsDrawn(t *testing.T) {
 	view := twoHunkView()
 
 	assert.Equal(t, 2, view.SetPattern(regexp.MustCompile(`^\+`)), "the marker is part of what is searched")
 }
 
-// TestSearchWrapsAtTheEnds covers stepping through matches: forwards past the last one comes
-// back to the first, which is what a search does rather than stopping.
+// TestSearchWrapsAtTheEnds covers stepping through matches: forwards past the last one comes back
+// to the first.
 func TestSearchWrapsAtTheEnds(t *testing.T) {
 	view := twoHunkView()
 

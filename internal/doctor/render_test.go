@@ -105,8 +105,7 @@ func TestWriteTextHeadsTheEngineFindings(t *testing.T) {
 	assert.Equal(t, 1, strings.Count(out.String(), "on the engine"))
 }
 
-// TestWriteTextSaysWhatFailed covers the last line, which is what a reader takes away when
-// they do not read the list.
+// TestWriteTextSaysWhatFailed covers the last line.
 func TestWriteTextSaysWhatFailed(t *testing.T) {
 	tests := []struct {
 		name     string

@@ -11,8 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestReadHeadStateReadsASettledCheckout covers the ordinary answer, which is the branch
-// itself and nothing holding it.
+// TestReadHeadStateReadsASettledCheckout covers the ordinary answer.
 func TestReadHeadStateReadsASettledCheckout(t *testing.T) {
 	t.Parallel()
 
@@ -84,8 +83,8 @@ func TestReadHeadStateNamesTheBranchAStoppedRebaseBelongsTo(t *testing.T) {
 	assert.True(t, head.SequenceInProgress)
 }
 
-// TestReadHeadStateCarriesNoBranchForARebaseOffADetachedHead covers what git writes into
-// head-name when the rebase started from no branch, which is prose rather than a ref.
+// TestReadHeadStateCarriesNoBranchForARebaseOffADetachedHead covers what git writes into head-name
+// when the rebase started from no branch.
 func TestReadHeadStateCarriesNoBranchForARebaseOffADetachedHead(t *testing.T) {
 	t.Parallel()
 
@@ -97,8 +96,7 @@ func TestReadHeadStateCarriesNoBranchForARebaseOffADetachedHead(t *testing.T) {
 	assert.True(t, head.SequenceInProgress)
 }
 
-// TestReadHeadStateReadsAStoppedMerge covers a sequence that holds the index without
-// detaching, which is read the ordinary way and still reported.
+// TestReadHeadStateReadsAStoppedMerge covers a sequence that holds the index without detaching.
 func TestReadHeadStateReadsAStoppedMerge(t *testing.T) {
 	t.Parallel()
 
@@ -111,8 +109,7 @@ func TestReadHeadStateReadsAStoppedMerge(t *testing.T) {
 	assert.True(t, head.SequenceInProgress)
 }
 
-// TestReadHeadStateClearsItselfWhenTheRebaseIsSettled covers the recovery nobody tells weave
-// about, which is somebody settling the rebase in the worktree by hand.
+// TestReadHeadStateClearsItselfWhenTheRebaseIsSettled covers the recovery nobody tells weave about.
 func TestReadHeadStateClearsItselfWhenTheRebaseIsSettled(t *testing.T) {
 	t.Parallel()
 
@@ -150,7 +147,7 @@ func stoppedRebase(t *testing.T, checkout ...string) string {
 	run(t, dir, "commit", "--quiet", "-am", "moved on")
 	run(t, dir, append([]string{"checkout", "--quiet"}, append(checkout, "topic")...)...)
 
-	// Expected to fail, which is the point.
+	// Expected to fail.
 	_, _ = git.Run(t.Context(), dir, "rebase", "main")
 
 	return dir

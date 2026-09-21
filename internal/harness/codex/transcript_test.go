@@ -98,8 +98,7 @@ func TestFlattenRollout(t *testing.T) {
 	}
 }
 
-// TestReadLog covers what one pass over a rollout reports, which is what the syncer's
-// offset bookkeeping is built on.
+// TestReadLog covers what one pass over a rollout reports.
 func TestReadLog(t *testing.T) {
 	opening := metaRecord + "\n" + promptRecord + "\n"
 

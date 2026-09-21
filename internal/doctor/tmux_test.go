@@ -229,8 +229,8 @@ func TestTmuxVersionCheck(t *testing.T) {
 	}
 }
 
-// TestTmuxVersionNeedsTheBinary covers that the version check does not repeat the missing
-// binary as a second failure, which is what the declared dependency is for.
+// TestTmuxVersionNeedsTheBinary covers that the version check does not repeat the missing binary as
+// a second failure.
 func TestTmuxVersionNeedsTheBinary(t *testing.T) {
 	assert.Contains(t, newTmuxVersionCheck().Needs, newTmuxBinaryCheck().Name)
 }

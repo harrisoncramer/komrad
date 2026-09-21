@@ -676,9 +676,7 @@ func TestRenderKeepsEveryReachableRowInsideThePane(t *testing.T) {
 	}
 }
 
-// reachableRows is every combination of marks a row can actually carry, which is not every
-// combination of the fields: a child carries neither a tally nor a schedule, since nothing is
-// hidden behind it and a schedule targets a workflow rather than an agent.
+// reachableRows is every combination of marks a row can actually carry.
 func reachableRows() []Row {
 	name := "an agent with a very long name indeed"
 

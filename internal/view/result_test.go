@@ -45,7 +45,7 @@ func drawResults(pane int) []string {
 }
 
 // TestPrepareResultsDropEveryColumn pins what a list of results asks for: the three columns are
-// gone whatever the pane, rather than narrowed away.
+// gone whatever the pane.
 func TestPrepareResultsDropEveryColumn(t *testing.T) {
 	wide := Prepare(Snapshot{
 		Rows:    resultRows(),

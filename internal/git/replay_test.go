@@ -76,8 +76,7 @@ func TestReplayCarriesOnlyTheAgentsOwnChange(t *testing.T) {
 	assert.NotContains(t, diff, "main moved", "the base's own line is on both sides")
 }
 
-// TestReplayIsTheSameTreeTwice pins that a chapter drawn twice reads its old side from one
-// tree, which is what lets a comment's old-side numbers be trusted against it later.
+// TestReplayIsTheSameTreeTwice pins that a chapter drawn twice reads its old side from one tree.
 func TestReplayIsTheSameTreeTwice(t *testing.T) {
 	repo, fixture := newMovedBase(t)
 

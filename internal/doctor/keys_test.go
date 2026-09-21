@@ -118,8 +118,8 @@ func TestKeybindingsCheckWaitsForThePanelToTakeAKey(t *testing.T) {
 	assert.Equal(t, "the panel takes C-d, C-u for its own pane when it opens", result.Detail)
 }
 
-// TestKeybindingsCheckFindsAKeyThePanelCouldNotTake covers the user's binding still standing on
-// a panel key with the panel up, which is the rebinding having been refused or undone.
+// TestKeybindingsCheckFindsAKeyThePanelCouldNotTake covers the user's binding still standing on a
+// panel key with the panel up.
 func TestKeybindingsCheckFindsAKeyThePanelCouldNotTake(t *testing.T) {
 	result := newKeybindingsCheck().Run(t.Context(), rootKeysEnv(config.Defaults(), "C-d"))
 

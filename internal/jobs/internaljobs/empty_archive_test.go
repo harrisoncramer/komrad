@@ -92,8 +92,7 @@ type fakeArchive struct {
 	// going through.
 	failOn int
 
-	// keepRows is the delete succeeding while leaving the rows where they are, which is what
-	// the real one does for an agent whose deprovisioner is still running.
+	// keepRows is the delete succeeding while leaving the rows where they are.
 	keepRows bool
 }
 
@@ -106,8 +105,7 @@ func newFakeArchive(count int) *fakeArchive {
 	return archive
 }
 
-// archivedRow stamps the archive time the store carries on a row the sweep reads, which is what
-// tells an archived parent from a live one.
+// archivedRow stamps the archive time the store carries on a row the sweep reads.
 func archivedRow(agent agentstore.Agent) agentstore.Agent {
 	agent.ArchivedAt = xptr.Ptr(time.Now())
 

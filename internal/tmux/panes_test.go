@@ -91,8 +91,7 @@ func paneCorner(t *testing.T, c *Client, pane string) (left, top string) {
 	return l, tp
 }
 
-// TestSelectPaneMovesTheKeyboard pins the move that hands a pane the keys, which is how anything
-// the person has to type into gets them once it is up.
+// TestSelectPaneMovesTheKeyboard pins the move that hands a pane the keys.
 func TestSelectPaneMovesTheKeyboard(t *testing.T) {
 	client := testServer(t, "select")
 
@@ -310,8 +309,7 @@ func TestClientPathFollowsTheCurrentWindow(t *testing.T) {
 	assert.Equal(t, want, got)
 }
 
-// TestRespawnPaneRunsTheCommandInPlace covers how an agent's CLI is started, which is as the
-// pane's own process rather than as a line typed at a shell.
+// TestRespawnPaneRunsTheCommandInPlace covers how an agent's CLI is started.
 func TestRespawnPaneRunsTheCommandInPlace(t *testing.T) {
 	client := testServer(t, "respawn")
 	pane := paneAt(t, client, "respawn", 0)

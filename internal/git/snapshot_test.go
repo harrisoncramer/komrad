@@ -101,7 +101,7 @@ func TestFileAtReadsTheRoundRatherThanTheWorktree(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []string{"package main", "", "func greet() {}"}, lines)
 
-	// The agent rewrites the file wholesale, which is the case the round exists for.
+	// The agent rewrites the file wholesale.
 	write(t, root, "greet.go", "package main\n\nfunc greet(name string) {}\n")
 
 	again, err := client.ReadFileLines(t.Context(), root, snapshot.SHA, "greet.go")
@@ -112,8 +112,7 @@ func TestFileAtReadsTheRoundRatherThanTheWorktree(t *testing.T) {
 	require.Error(t, err, "a path the round does not hold is an error the caller falls back from")
 }
 
-// controlTree is the tree an index seeded from HEAD gives, which is how the snapshot was built
-// before it read the agent's own index.
+// controlTree is the tree an index seeded from HEAD gives.
 func controlTree(t *testing.T, root string) string {
 	t.Helper()
 

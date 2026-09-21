@@ -11,7 +11,7 @@ import (
 )
 
 // expandableView is a file whose patch draws one changed line in the middle of it, with the whole
-// of its new side to hand, which is what the expand key opens out.
+// of its new side to hand.
 func expandableView() *View {
 	return NewView(patchWith(diff.File{
 		OldPath:   "tall.go",
@@ -37,7 +37,7 @@ func expandableView() *View {
 	}), false)
 }
 
-// headingAbove is the foot section a thread was sorted into, which is the notice drawn over it.
+// headingAbove is the foot section a thread was sorted into.
 func headingAbove(t *testing.T, view *View, id string) string {
 	t.Helper()
 

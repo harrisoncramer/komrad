@@ -75,7 +75,7 @@ func TestJSON(t *testing.T) {
 	assert.Empty(t, ignored.Method)
 }
 
-// TestJSONCapsTheBody covers a body longer than the cap, which is cut rather than read whole.
+// TestJSONCapsTheBody covers a body longer than the cap.
 func TestJSONCapsTheBody(t *testing.T) {
 	t.Parallel()
 
@@ -94,8 +94,7 @@ func TestJSONCapsTheBody(t *testing.T) {
 	assert.Len(t, answer.Body, 10)
 }
 
-// TestJSONReportsAnUnreachableHost covers the transport failing, which is an error rather than
-// an answer.
+// TestJSONReportsAnUnreachableHost covers the transport failing.
 func TestJSONReportsAnUnreachableHost(t *testing.T) {
 	t.Parallel()
 

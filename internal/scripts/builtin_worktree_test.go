@@ -1500,10 +1500,8 @@ func TestBuiltinWorktreeSetupAdoptsALocalBranch(t *testing.T) {
 	assert.FileExists(t, filepath.Join(tree, "theirs.txt"), "the commits already on the branch are what the agent is looking at")
 }
 
-// TestBuiltinWorktreeSetupAdoptsABranchOnlyOnOrigin covers adopting a pull request nobody
-// here has pulled yet, which is the ordinary case: the branch exists on the forge and not in
-// this checkout, so setup fetches it and git makes the local tracking branch as it adds the
-// worktree.
+// TestBuiltinWorktreeSetupAdoptsABranchOnlyOnOrigin covers adopting a pull request nobody here has
+// pulled yet.
 func TestBuiltinWorktreeSetupAdoptsABranchOnlyOnOrigin(t *testing.T) {
 	upstream := initBareRepo(t)
 	author := cloneRepo(t, upstream)

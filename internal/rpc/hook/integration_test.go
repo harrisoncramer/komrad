@@ -28,8 +28,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// TestHookServiceOverHTTP drives the whole path over the wire with real scripts, which is the
-// only way to reach the validation interceptor and the payload arriving in a process.
+// TestHookServiceOverHTTP drives the whole path over the wire with real scripts.
 func TestHookServiceOverHTTP(t *testing.T) {
 	hooks := t.TempDir()
 	builtins := t.TempDir()
