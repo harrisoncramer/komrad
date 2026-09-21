@@ -3,6 +3,7 @@
 package review
 
 import (
+	"maps"
 	"slices"
 
 	"weave/internal/diff"
@@ -236,6 +237,9 @@ func (v *View) SetFileExpanded(path string, expanded bool) bool {
 
 // IsExpanded reports whether a file is drawn whole.
 func (v *View) IsExpanded(path string) bool { return v.expanded[path] }
+
+// GetExpanded is the files drawn whole, by path, as a copy a view built later can be given.
+func (v *View) GetExpanded() map[string]bool { return maps.Clone(v.expanded) }
 
 // wholeFile is a file with every line of it drawn, and false for one there is nothing to add to.
 func (v *View) wholeFile(path string) (*diff.File, bool) {

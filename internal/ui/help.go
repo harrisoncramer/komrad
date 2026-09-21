@@ -348,13 +348,11 @@ func (m model) reviewHelp() keyMap {
 
 // isReviewThreadHolding reports whether the reader has taken the keys onto the conversation.
 func (m model) isReviewThreadHolding() bool {
-	if m.screen != screenReview || m.review.composing || m.review.releasing {
+	if m.screen != screenReview || m.review.threads.composing || m.review.threads.releasing {
 		return false
 	}
 
-	_, ok := m.reviewThreadAtCursor()
-
-	return ok && m.review.threadFocus
+	return m.review.isThreadTaken()
 }
 
 // reviewThreadHelp is the legend while the conversation holds the keys.
@@ -363,7 +361,7 @@ func (m model) reviewThreadHelp() keyMap {
 	ends := binding(concatKeys(m.keys.Nav.Top, m.keys.Nav.Bottom), "top/bottom")
 	back := binding(m.keys.Review.FocusThread, "back to the diff")
 	reply := binding(m.keys.Review.Compose, "reply")
-	settle := binding(m.keys.Review.Resolve, m.reviewResolveDesc())
+	settle := binding(m.keys.Review.Resolve, m.review.diff.resolveDesc())
 	send := binding(formKeys().Submit, "send the review")
 
 	return keyMap{
@@ -375,7 +373,7 @@ func (m model) reviewThreadHelp() keyMap {
 // reviewThreadDesc names the key that moves between the diff and the conversation beside it,
 // read from the flag and not from whether the thread holds the keys.
 func (m model) reviewThreadDesc() string {
-	if _, ok := m.reviewThreadAtCursor(); ok && m.review.threadFocus {
+	if m.review.isThreadTaken() {
 		return "back to the diff"
 	}
 

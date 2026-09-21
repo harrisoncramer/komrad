@@ -79,10 +79,10 @@ func TestARoundAcrossAMovedBaseIsReplayedOntoIt(t *testing.T) {
 
 	m = pressReviewBase(t, m)
 
-	assert.Equal(t, replayedTree, m.review.base, "the old side is the first round carried onto the moved base")
-	assert.Equal(t, snapshotOf(secondTree), m.review.head)
+	assert.Equal(t, replayedTree, m.review.diff.base, "the old side is the first round carried onto the moved base")
+	assert.Equal(t, snapshotOf(secondTree), m.review.diff.head)
 
-	files := m.review.view.Stat().Files
+	files := m.review.diff.view.Stat().Files
 	assert.Equal(t, 1, files, "only what the agent wrote between the two reviews is drawn")
 
 	shown := ansi.Strip(m.reviewView())
@@ -101,7 +101,7 @@ func TestAChapterTheBaseRewroteUnderTheAgentStaysRefused(t *testing.T) {
 
 	m = pressReviewBase(t, m)
 
-	assert.Equal(t, fakeSnapshotSHA, m.review.base, "the diff is still the two snapshots")
+	assert.Equal(t, fakeSnapshotSHA, m.review.diff.base, "the diff is still the two snapshots")
 
 	shown := ansi.Strip(m.reviewView())
 	assert.Contains(t, shown, "round 2 of 2, not comparable, the base moved, conflicts in greet.go, second.go")
@@ -115,7 +115,7 @@ func TestAGitThatCannotReplayLeavesTheRefusalStanding(t *testing.T) {
 
 	m = pressReviewBase(t, m)
 
-	assert.Equal(t, fakeSnapshotSHA, m.review.base)
+	assert.Equal(t, fakeSnapshotSHA, m.review.diff.base)
 
 	shown := ansi.Strip(m.reviewView())
 	assert.Contains(t, shown, "round 2 of 2, not comparable, the base moved")
@@ -147,12 +147,12 @@ func TestTheWalkHasTheSameStopsWhetherOrNotItReplays(t *testing.T) {
 		Conflicts: []string{fakeFile},
 	})
 
-	require.Len(t, replayed.review.chapters, 2)
-	require.Len(t, refused.review.chapters, 2)
+	require.Len(t, replayed.review.diff.chapters, 2)
+	require.Len(t, refused.review.diff.chapters, 2)
 
-	for i := range replayed.review.chapters {
-		assert.Equal(t, refused.review.chapters[i].ToSHA, replayed.review.chapters[i].ToSHA)
-		assert.Equal(t, refused.review.chapters[i].Ordinal, replayed.review.chapters[i].Ordinal)
+	for i := range replayed.review.diff.chapters {
+		assert.Equal(t, refused.review.diff.chapters[i].ToSHA, replayed.review.diff.chapters[i].ToSHA)
+		assert.Equal(t, refused.review.diff.chapters[i].Ordinal, replayed.review.diff.chapters[i].Ordinal)
 	}
 }
 
@@ -184,18 +184,18 @@ func TestAnOldSideCountedInAReplayedTreePinsOnlyThere(t *testing.T) {
 	}}
 
 	m = pressReviewBase(t, m)
-	require.Equal(t, replayedTree, m.review.base)
+	require.Equal(t, replayedTree, m.review.diff.base)
 
 	row := reviewRowOfThread(t, m, "t1")
-	anchor, ok := m.review.view.GetAnchor(row)
+	anchor, ok := m.review.diff.view.GetAnchor(row)
 	require.True(t, ok, "on the replayed chapter the thread stands on a line of the diff")
 	assert.Equal(t, 4, anchor.OldStart, "the line its old side was counted in")
 
 	m = pressReviewBaseForward(t, m)
-	require.Empty(t, m.review.base, "the whole change is measured from the round's own base")
+	require.Empty(t, m.review.diff.base, "the whole change is measured from the round's own base")
 
 	row = reviewRowOfThread(t, m, "t1")
-	_, ok = m.review.view.GetAnchor(row)
+	_, ok = m.review.diff.view.GetAnchor(row)
 	assert.False(t, ok, "and there the same number is refused, so the thread stands at the foot")
 }
 
@@ -203,8 +203,8 @@ func TestAnOldSideCountedInAReplayedTreePinsOnlyThere(t *testing.T) {
 func reviewRowOfThread(t *testing.T, m model, id string) int {
 	t.Helper()
 
-	for y := range m.review.view.Len() {
-		if thread, ok := m.review.view.GetThreadAt(y); ok && thread.GetId() == id {
+	for y := range m.review.diff.view.Len() {
+		if thread, ok := m.review.diff.view.GetThreadAt(y); ok && thread.GetId() == id {
 			return y
 		}
 	}

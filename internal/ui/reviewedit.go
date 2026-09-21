@@ -3,7 +3,6 @@ package ui
 import (
 	"fmt"
 	"path/filepath"
-	"slices"
 	"strings"
 
 	agentstore "weave/internal/store/agent"
@@ -70,7 +69,7 @@ func editorContent(editor, dir, path string, line int) layout.Content {
 // pressReviewEdit is the edit key, refused on a round the agent has written past, and the way
 // into a pass when the reader is still only watching.
 func (m model) pressReviewEdit() (tea.Model, tea.Cmd) {
-	if said, history := m.isReviewHistory(); history && !m.review.atEditor {
+	if said, history := m.review.isHistory(); history && !m.review.pass.atEditor {
 		m.review.notice = said + " is finished, so the worktree no longer holds these lines · " +
 			keyLabel(m.keys.Review.BaseForward) + " for the current work"
 
@@ -79,13 +78,13 @@ func (m model) pressReviewEdit() (tea.Model, tea.Cmd) {
 
 	// A press that arrives while the agent is still coming to a stop is the wait, not a second
 	// thing to do, and letting it through would open the editor the wait exists to hold shut.
-	if m.review.pausing {
+	if m.review.pass.pausing {
 		m.review.notice = "the agent is still stopping"
 
 		return m, nil
 	}
 
-	if m.review.mode != modeReviewing {
+	if m.review.pass.mode != modeReviewing {
 		// The refusals are read before the agent is stopped.
 		if reason, refused := m.isReviewEditRefused(); refused {
 			m.review.notice = reason
@@ -101,7 +100,7 @@ func (m model) pressReviewEdit() (tea.Model, tea.Cmd) {
 
 // isReviewEditRefused is why the edit key would open nothing, read before a pass is opened for it.
 func (m model) isReviewEditRefused() (string, bool) {
-	if _, _, ok := m.review.view.GetEditTarget(m.review.cursor); !ok {
+	if _, _, ok := m.review.diff.view.GetEditTarget(m.review.diff.cursor); !ok {
 		return "that file was deleted, so there is nothing to open", true
 	}
 
@@ -130,11 +129,11 @@ func (m model) isReviewAgentUnreadable() (string, bool) {
 // editReviewFile opens the file under the cursor in the agent's own worktree, in the stage beside
 // the sidebar.
 func (m model) editReviewFile() (tea.Model, tea.Cmd) {
-	if m.review.atEditor {
+	if m.review.pass.atEditor {
 		return m.closeReviewEdit()
 	}
 
-	path, line, ok := m.review.view.GetEditTarget(m.review.cursor)
+	path, line, ok := m.review.diff.view.GetEditTarget(m.review.diff.cursor)
 	if !ok {
 		m.review.notice = "that file was deleted, so there is nothing to open"
 
@@ -164,12 +163,7 @@ func (m model) editReviewFile() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m.review.atEditor = true
-	m.review.editingPath = path
-	m.review.editorPane = pane
-	if !slices.Contains(m.review.touched, path) {
-		m.review.touched = append(m.review.touched, path)
-	}
+	m.review.pass.openEditor(path, pane)
 	m.tmux.SelectPane(pane)
 
 	return m, nil
@@ -177,7 +171,7 @@ func (m model) editReviewFile() (tea.Model, tea.Cmd) {
 
 // isReviewOwedAnAnswer reports whether comments stand against this work, and what to say about it.
 func (m model) isReviewOwedAnAnswer() (string, bool) {
-	if !m.review.isOwedAnAnswer() {
+	if !m.review.threads.isOwedAnAnswer() {
 		return "", false
 	}
 
@@ -185,7 +179,7 @@ func (m model) isReviewOwedAnAnswer() (string, bool) {
 		return "", false
 	}
 
-	return reviewOwedSaid(m.reviewOwedComments()) + " · " +
+	return reviewOwedSaid(m.review.owedComments()) + " · " +
 		keyLabel(m.keys.Review.Resolve) + " settles one, " +
 		keyLabel(m.keys.Review.NextOpenThread) + " walks them", true
 }
@@ -194,7 +188,7 @@ func (m model) isReviewOwedAnAnswer() (string, bool) {
 func (m model) isReviewAgentBusy() (string, bool) {
 	// A pass stops the agent before it opens anything, and an agent that has been seen to stop is
 	// not writing, whatever the state on its row was read as before that.
-	if m.review.paused {
+	if m.review.pass.paused {
 		return "", false
 	}
 
@@ -232,9 +226,7 @@ func (m model) getReviewAgentItem() (agentItem, bool) {
 // closeReviewEdit gives the stage back to the diff and reads the worktree again, staying in the
 // pass.
 func (m model) closeReviewEdit() (tea.Model, tea.Cmd) {
-	m.review.atEditor = false
-	m.review.editingPath = ""
-	m.review.editorPane = ""
+	m.review.pass.closeEditor()
 
 	m.frame.Show(layout.RegionStage, newBlankContent())
 	m.tmux.SelectPane(m.frame.Pane(layout.RegionSidebar))
@@ -247,13 +239,13 @@ func (m model) closeReviewEdit() (tea.Model, tea.Cmd) {
 func (m model) reconcileEditor() (model, tea.Cmd) {
 	m.reconcileInfo()
 
-	if !m.review.atEditor || m.screen != screenReview {
+	if !m.review.pass.atEditor || m.screen != screenReview {
 		return m, nil
 	}
 
 	// A pane the split refused is not one that can go away, so nothing here reports it as the
 	// editor closing.
-	if m.review.editorPane == "" || m.tmux.IsPaneAlive(m.review.editorPane) {
+	if m.review.pass.editorPane == "" || m.tmux.IsPaneAlive(m.review.pass.editorPane) {
 		return m, nil
 	}
 
@@ -267,8 +259,9 @@ func (m model) reconcileEditor() (model, tea.Cmd) {
 	return written, cmd
 }
 
-func (m model) reviewEditorDesc() string {
-	if m.review.atEditor {
+// editorDesc says what the edit key would do.
+func (p reviewPass) editorDesc() string {
+	if p.atEditor {
 		return "close the editor"
 	}
 

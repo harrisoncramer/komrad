@@ -36,23 +36,23 @@ type owedComment struct {
 	folded bool
 }
 
-// reviewOwedComments are the comments holding the reader's last review, in the order the diff
-// draws them.
-func (m model) reviewOwedComments() []owedComment {
-	if m.review.owed == "" || m.review.view == nil {
+// owedComments are the comments holding the reader's last review, in the order the diff draws
+// them.
+func (r reviewState) owedComments() []owedComment {
+	if r.threads.owed == "" || r.diff.view == nil {
 		return nil
 	}
 
-	owed := make([]owedComment, 0, len(m.review.threads))
+	owed := make([]owedComment, 0, len(r.threads.list))
 
 	// The thread list is every comment the agent has ever had, so this keeps only the gating
 	// review's own.
-	for _, thread := range m.review.threads {
-		if thread.GetReviewId() != m.review.owed || thread.GetResolvedAt() != "" {
+	for _, thread := range r.threads.list {
+		if thread.GetReviewId() != r.threads.owed || thread.GetResolvedAt() != "" {
 			continue
 		}
 
-		row, drawn := m.review.view.GetThreadRow(thread.GetId())
+		row, drawn := r.diff.view.GetThreadRow(thread.GetId())
 		if !drawn {
 			row = noRow
 		}
@@ -60,7 +60,7 @@ func (m model) reviewOwedComments() []owedComment {
 		owed = append(owed, owedComment{
 			thread: thread,
 			row:    row,
-			folded: m.review.view.IsFoldedAway(thread),
+			folded: r.diff.view.IsFoldedAway(thread),
 		})
 	}
 
@@ -93,11 +93,11 @@ func (m model) isReviewOwedDrawn() bool {
 		return false
 	}
 
-	if _, history := m.isReviewHistory(); history {
+	if _, history := m.review.isHistory(); history {
 		return false
 	}
 
-	return m.review.isOwedAnAnswer()
+	return m.review.threads.isOwedAnAnswer()
 }
 
 // reviewOwedView is what the reader has not settled, drawn above the conversation.
@@ -106,7 +106,7 @@ func (m model) reviewOwedView(room int) string {
 		return ""
 	}
 
-	owed := m.reviewOwedComments()
+	owed := m.review.owedComments()
 	if len(owed) == 0 {
 		return ""
 	}
@@ -173,10 +173,10 @@ func (m model) isReviewCommentNear(comment owedComment) bool {
 
 	split, ok := m.screenColumnSplit()
 	if !ok {
-		return comment.row == m.review.cursor
+		return comment.row == m.review.diff.cursor
 	}
 
-	return comment.row >= m.review.top && comment.row < m.review.top+split.rows
+	return comment.row >= m.review.diff.top && comment.row < m.review.diff.top+split.rows
 }
 
 // reviewOwedState is the one word a row carries about what the comment is waiting for.

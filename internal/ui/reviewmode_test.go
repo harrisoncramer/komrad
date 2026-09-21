@@ -105,11 +105,11 @@ func TestAMessageWithAnUnreadableStampIsKept(t *testing.T) {
 func TestIsReviewHistoryReadsTheDiffOnScreen(t *testing.T) {
 	m := model{}
 	m.review.round = &agentv1.ReviewRound{Id: "r3", SnapshotSha: "s3"}
-	m.review.chapters = []reviewChapter{{ToSHA: "s3", Ordinal: 3}}
-	m.review.chapter = 0
-	m.review.head = "s2"
+	m.review.diff.chapters = []reviewChapter{{ToSHA: "s3", Ordinal: 3}}
+	m.review.diff.chapter = 0
+	m.review.diff.head = "s2"
 
-	said, history := m.isReviewHistory()
+	said, history := m.review.isHistory()
 	assert.True(t, history, "the diff was drawn to an older snapshot")
 	assert.NotEmpty(t, said, "and the refusal has something to name")
 }
@@ -121,10 +121,10 @@ func TestReloadWithNoChaptersLetsTheReaderOut(t *testing.T) {
 	agents := &fakeReviewAgents{}
 	m := reviewWithAnEarlierReview(t, newFakeRepo(t.TempDir()), agents)
 	m = pressReviewBase(t, m)
-	require.NotEmpty(t, m.review.base)
-	require.GreaterOrEqual(t, m.review.chapter, 0)
+	require.NotEmpty(t, m.review.diff.base)
+	require.GreaterOrEqual(t, m.review.diff.chapter, 0)
 
-	narrowed := m.review.view
+	narrowed := m.review.diff.view
 
 	_, reload := m.reloadReview()
 	require.NotNil(t, reload)
@@ -135,11 +135,11 @@ func TestReloadWithNoChaptersLetsTheReaderOut(t *testing.T) {
 
 	again := m.applyReviewLoaded(loaded)
 
-	assert.Negative(t, m.review.chapter, "the index does not outlive the list")
-	assert.Empty(t, m.review.base, "and the diff is back to the whole change")
-	assert.Empty(t, m.review.head)
-	assert.Nil(t, m.review.view, "the diff measured for the old round is not drawn")
-	assert.NotSame(t, narrowed, m.review.view)
+	assert.Negative(t, m.review.diff.chapter, "the index does not outlive the list")
+	assert.Empty(t, m.review.diff.base, "and the diff is back to the whole change")
+	assert.Empty(t, m.review.diff.head)
+	assert.Nil(t, m.review.diff.view, "the diff measured for the old round is not drawn")
+	assert.NotSame(t, narrowed, m.review.diff.view)
 	assert.True(t, m.review.loading, "and the screen says so until the whole change lands")
 
 	require.NotNil(t, again, "the whole change is asked for rather than assumed")
@@ -156,9 +156,9 @@ func TestReloadWithNoChaptersLetsTheReaderOut(t *testing.T) {
 func TestIsReviewHistoryReadsTheSnapshotDrawn(t *testing.T) {
 	m := model{}
 	m.review.round = &agentv1.ReviewRound{Id: "r3", SnapshotSha: "s3"}
-	m.review.view = review.NewView(&diff.Patch{BaseSHA: "s1", SnapshotSHA: "s2"}, false)
+	m.review.diff.view = review.NewView(&diff.Patch{BaseSHA: "s1", SnapshotSHA: "s2"}, false)
 
-	said, history := m.isReviewHistory()
+	said, history := m.review.isHistory()
 	assert.True(t, history, "the diff on screen was drawn to an older snapshot")
 	assert.NotEmpty(t, said, "and the refusal has something to name")
 }
@@ -242,24 +242,24 @@ func TestSendingAReviewLeavesWritingBehind(t *testing.T) {
 
 	next, _ := m.updateReview(keyMsg("c"))
 	m = next.(model)
-	require.Equal(t, modeReviewing, m.review.mode, "the compose key opens the mode")
+	require.Equal(t, modeReviewing, m.review.pass.mode, "the compose key opens the mode")
 
 	// The composer holds the keyboard while it is open, so it is put away before the verdict key
 	// is pressed.
 	next, _ = m.updateReview(keyMsg("esc"))
 	m = next.(model)
-	require.False(t, m.review.composing)
-	require.Equal(t, modeReviewing, m.review.mode, "and the mode outlives one abandoned comment")
+	require.False(t, m.review.threads.composing)
+	require.Equal(t, modeReviewing, m.review.pass.mode, "and the mode outlives one abandoned comment")
 
 	next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
 	m = next.(model)
-	require.True(t, m.review.releasing, "the verdict panel is open")
+	require.True(t, m.review.threads.releasing, "the verdict panel is open")
 
 	next, cmd := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
 	m = next.(model)
 	require.NotNil(t, cmd, "and the same key sends it")
 
-	assert.Equal(t, modeReviewing, m.review.mode, "the pass stands until the comments have landed")
+	assert.Equal(t, modeReviewing, m.review.pass.mode, "the pass stands until the comments have landed")
 
 	letGo := m.applyReviewWrote(reviewWroteMsg{
 		agentID: m.review.agentID,
@@ -267,7 +267,7 @@ func TestSendingAReviewLeavesWritingBehind(t *testing.T) {
 		sent:    true,
 	})
 
-	assert.Equal(t, modeWatching, m.review.mode, "and then goes with the review it was for")
+	assert.Equal(t, modeWatching, m.review.pass.mode, "and then goes with the review it was for")
 	assert.Nil(t, letGo, "with nothing to let go of, since this pass stopped nothing")
 }
 
@@ -279,11 +279,11 @@ func TestASendThatFailsKeepsThePass(t *testing.T) {
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	m.review.cursor = reviewRowWithAnEditTarget(t, m)
+	m.review.diff.cursor = reviewRowWithAnEditTarget(t, m)
 	m = pressEdit(t, m)
 	next, _ := m.closeReviewEdit()
 	m = next.(model)
-	require.True(t, m.review.paused)
+	require.True(t, m.review.pass.paused)
 
 	next, cmd := m.sendReview(false)
 	m = next.(model)
@@ -297,8 +297,8 @@ func TestASendThatFailsKeepsThePass(t *testing.T) {
 
 	assert.Nil(t, letGo, "the agent is not let go over comments it never got")
 	assert.Nil(t, agents.letGo)
-	assert.Equal(t, modeReviewing, m.review.mode, "and the reader is left where they were")
-	assert.True(t, m.review.paused)
+	assert.Equal(t, modeReviewing, m.review.pass.mode, "and the reader is left where they were")
+	assert.True(t, m.review.pass.paused)
 }
 
 // TestASendThatLandedIsNotUndoneByAnUnreadableReview covers the two failures the answer used to
@@ -310,11 +310,11 @@ func TestASendThatLandedIsNotUndoneByAnUnreadableReview(t *testing.T) {
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	m.review.cursor = reviewRowWithAnEditTarget(t, m)
+	m.review.diff.cursor = reviewRowWithAnEditTarget(t, m)
 	m = pressEdit(t, m)
 	next, _ := m.closeReviewEdit()
 	m = next.(model)
-	require.True(t, m.review.paused)
+	require.True(t, m.review.pass.paused)
 
 	next, cmd := m.sendReview(false)
 	m = next.(model)
@@ -327,8 +327,8 @@ func TestASendThatLandedIsNotUndoneByAnUnreadableReview(t *testing.T) {
 		sent:    true,
 	})
 
-	assert.Equal(t, modeWatching, m.review.mode, "the review went, so the pass is over")
-	assert.False(t, m.review.paused)
+	assert.Equal(t, modeWatching, m.review.pass.mode, "the review went, so the pass is over")
+	assert.False(t, m.review.pass.paused)
 
 	runReviewCmd(t, letGo)
 
@@ -345,11 +345,11 @@ func TestAnotherWriteLandingMidSendIsNotTheSend(t *testing.T) {
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	m.review.cursor = reviewRowWithAnEditTarget(t, m)
+	m.review.diff.cursor = reviewRowWithAnEditTarget(t, m)
 	m = pressEdit(t, m)
 	next, _ := m.closeReviewEdit()
 	m = next.(model)
-	require.True(t, m.review.paused)
+	require.True(t, m.review.pass.paused)
 
 	next, cmd := m.sendReview(false)
 	m = next.(model)
@@ -359,8 +359,8 @@ func TestAnotherWriteLandingMidSendIsNotTheSend(t *testing.T) {
 
 	assert.Nil(t, letGo, "an ordinary write is not the send")
 	assert.Nil(t, agents.letGo)
-	assert.Equal(t, modeReviewing, m.review.mode)
-	assert.True(t, m.review.paused, "so the agent is still stopped when the review lands")
+	assert.Equal(t, modeReviewing, m.review.pass.mode)
+	assert.True(t, m.review.pass.paused, "so the agent is still stopped when the review lands")
 }
 
 // TestTheVerdictIsRefusedOnAFinishedRound covers rule three reaching the third write key: the
@@ -377,7 +377,7 @@ func TestTheVerdictIsRefusedOnAFinishedRound(t *testing.T) {
 	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
 	m = next.(model)
 
-	assert.False(t, m.review.releasing, "the verdict panel stays shut")
+	assert.False(t, m.review.threads.releasing, "the verdict panel stays shut")
 	assert.Contains(t, m.review.notice, "round 1 of 2 is finished")
 	assert.Nil(t, agents.released, "and nothing went to the agent")
 }
@@ -390,13 +390,13 @@ func TestWritingIsRefusedWhileAReviewIsOut(t *testing.T) {
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	m.review.owed = "r1"
+	m.review.threads.owed = "r1"
 
 	next, _ := m.updateReview(keyMsg("c"))
 	m = next.(model)
 
-	assert.Equal(t, modeWatching, m.review.mode, "the mode did not open")
-	assert.False(t, m.review.composing, "and no editor did either")
+	assert.Equal(t, modeWatching, m.review.pass.mode, "the mode did not open")
+	assert.False(t, m.review.threads.composing, "and no editor did either")
 	assert.Contains(t, m.review.notice, "still owed an answer")
 	assert.Nil(t, agents.created, "and nothing was written")
 }
@@ -410,13 +410,13 @@ func TestReplyingIsAllowedWhileAReviewIsOut(t *testing.T) {
 	m = openReview(t, m)
 
 	m.applyReviewThreads(pinnedThread(t, m, deliveredComment()))
-	m.review.owed = "r1"
+	m.review.threads.owed = "r1"
 
 	next, _ := m.updateReview(keyMsg("c"))
 	m = next.(model)
 
-	assert.True(t, m.review.composing, "the editor opened on the thread")
-	assert.Equal(t, "t1", m.review.editing, "and what it writes goes into that thread")
+	assert.True(t, m.review.threads.composing, "the editor opened on the thread")
+	assert.Equal(t, "t1", m.review.threads.editing, "and what it writes goes into that thread")
 	assert.Empty(t, m.review.notice)
 }
 
@@ -428,12 +428,12 @@ func TestSendingIsRefusedWhileAReviewIsOutWithNothingWritten(t *testing.T) {
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	m.review.owed = "r1"
+	m.review.threads.owed = "r1"
 
 	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
 	m = next.(model)
 
-	assert.False(t, m.review.releasing, "the verdict panel stays shut")
+	assert.False(t, m.review.threads.releasing, "the verdict panel stays shut")
 	assert.Contains(t, m.review.notice, "still owed an answer")
 	assert.Nil(t, agents.released)
 }
@@ -445,13 +445,13 @@ func TestSendingAReplyIsAllowedWhileAReviewIsOut(t *testing.T) {
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	m.review.owed = "r1"
-	m.review.activity.delivery[deliverySlot(agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT)] = 1
+	m.review.threads.owed = "r1"
+	m.review.threads.activity.delivery[deliverySlot(agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT)] = 1
 
 	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
 	m = next.(model)
 
-	assert.True(t, m.review.releasing, "what has been written can go")
+	assert.True(t, m.review.threads.releasing, "what has been written can go")
 	assert.Empty(t, m.review.notice)
 }
 
@@ -474,12 +474,12 @@ func reviewRepoWithADeletion(t *testing.T) *fakeRepo {
 func reviewRowInDeletedFile(t *testing.T, m model) int {
 	t.Helper()
 
-	for row := range m.review.view.Len() {
-		if _, _, ok := m.review.view.GetEditTarget(row); ok {
+	for row := range m.review.diff.view.Len() {
+		if _, _, ok := m.review.diff.view.GetEditTarget(row); ok {
 			continue
 		}
 
-		if file, ok := m.review.view.GetDrawnFileAt(row); ok && file.OldPath == "gone.go" {
+		if file, ok := m.review.diff.view.GetDrawnFileAt(row); ok && file.OldPath == "gone.go" {
 			return row
 		}
 	}
@@ -505,7 +505,7 @@ func pressEdit(t *testing.T, m model) model {
 
 	// The first write in a pass stops the agent first, so the editor opens on the answer to that
 	// rather than on the keypress.
-	if written.review.pausing {
+	if written.review.pass.pausing {
 		written = settlePause(t, written, cmd)
 	}
 
@@ -532,8 +532,8 @@ func settlePause(t *testing.T, m model, cmd tea.Cmd) model {
 func reviewRowWithAnEditTarget(t *testing.T, m model) int {
 	t.Helper()
 
-	for row := range m.review.view.Len() {
-		if _, _, ok := m.review.view.GetEditTarget(row); ok {
+	for row := range m.review.diff.view.Len() {
+		if _, _, ok := m.review.diff.view.GetEditTarget(row); ok {
 			return row
 		}
 	}
@@ -550,12 +550,12 @@ func TestAnEditRefusedOnADeletedFileOpensNoMode(t *testing.T) {
 	m, _ := reviewModelOver(t, agents, reviewRepoWithADeletion(t))
 	m = openReview(t, m)
 
-	m.review.cursor = reviewRowInDeletedFile(t, m)
+	m.review.diff.cursor = reviewRowInDeletedFile(t, m)
 
 	next, _ := m.updateReview(editorKey())
 	m = next.(model)
 
-	assert.Equal(t, modeWatching, m.review.mode, "a press that opened nothing does not open a mode")
+	assert.Equal(t, modeWatching, m.review.pass.mode, "a press that opened nothing does not open a mode")
 	assert.Contains(t, m.review.notice, "deleted")
 }
 
@@ -567,13 +567,13 @@ func TestAnEditThatTakesOpensTheEditingMode(t *testing.T) {
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	m.review.cursor = reviewRowWithAnEditTarget(t, m)
+	m.review.diff.cursor = reviewRowWithAnEditTarget(t, m)
 
 	m = pressEdit(t, m)
 
-	assert.Equal(t, modeReviewing, m.review.mode)
-	assert.True(t, m.review.atEditor, "the editor holds the stage")
-	assert.NotEmpty(t, m.review.editingPath, "and the band can name what it opened")
+	assert.Equal(t, modeReviewing, m.review.pass.mode)
+	assert.True(t, m.review.pass.atEditor, "the editor holds the stage")
+	assert.NotEmpty(t, m.review.pass.editingPath, "and the band can name what it opened")
 }
 
 // TestAnEditPausesAnAgentMidTurn pins what a pass does about two writers in one checkout: it stops
@@ -585,20 +585,20 @@ func TestAnEditPausesAnAgentMidTurn(t *testing.T) {
 	m = openReview(t, m)
 
 	setReviewAgentState(&m, agentstore.StateThinking)
-	m.review.cursor = reviewRowWithAnEditTarget(t, m)
+	m.review.diff.cursor = reviewRowWithAnEditTarget(t, m)
 
 	next, cmd := m.updateReview(editorKey())
 	m = next.(model)
 
-	require.True(t, m.review.pausing, "the editor waits on the agent stopping")
-	assert.False(t, m.review.atEditor, "so nothing is open over a writer yet")
+	require.True(t, m.review.pass.pausing, "the editor waits on the agent stopping")
+	assert.False(t, m.review.pass.atEditor, "so nothing is open over a writer yet")
 
 	m = settlePause(t, m, cmd)
 
 	require.NotNil(t, agents.held, "the agent was asked to stop")
 	assert.Equal(t, m.review.agentID, agents.held.GetId())
-	assert.True(t, m.review.paused)
-	assert.True(t, m.review.atEditor, "and the editor opens once it has")
+	assert.True(t, m.review.pass.paused)
+	assert.True(t, m.review.pass.atEditor, "and the editor opens once it has")
 }
 
 // TestAPassThatCannotStopTheAgentOpensNothing pins the case the whole wait is for: an interrupt
@@ -612,17 +612,17 @@ func TestAPassThatCannotStopTheAgentOpensNothing(t *testing.T) {
 	// An idle agent is the case with nothing else standing in the way, so what keeps the editor
 	// shut here is the stop not having landed rather than the row saying the agent is writing.
 	setReviewAgentState(&m, agentstore.StateIdle)
-	m.review.cursor = reviewRowWithAnEditTarget(t, m)
+	m.review.diff.cursor = reviewRowWithAnEditTarget(t, m)
 
 	next, cmd := m.updateReview(editorKey())
 	m = next.(model)
-	require.False(t, m.review.atEditor, "nothing opens while the agent may still be writing")
+	require.False(t, m.review.pass.atEditor, "nothing opens while the agent may still be writing")
 
 	m = settlePause(t, m, cmd)
 
-	assert.Equal(t, modeWatching, m.review.mode, "the pass is given up rather than opened")
-	assert.False(t, m.review.paused)
-	assert.False(t, m.review.atEditor, "and nothing is open over an agent that may be writing")
+	assert.Equal(t, modeWatching, m.review.pass.mode, "the pass is given up rather than opened")
+	assert.False(t, m.review.pass.paused)
+	assert.False(t, m.review.pass.atEditor, "and nothing is open over an agent that may be writing")
 }
 
 // TestTheEditorClosingGivesTheStageBack covers the screen noticing an editor that was quit
@@ -633,17 +633,17 @@ func TestTheEditorClosingGivesTheStageBack(t *testing.T) {
 	m, tmux := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	m.review.cursor = reviewRowWithAnEditTarget(t, m)
+	m.review.diff.cursor = reviewRowWithAnEditTarget(t, m)
 	m = pressEdit(t, m)
-	require.Equal(t, modeReviewing, m.review.mode)
-	require.NotEmpty(t, m.review.editorPane, "the editor was given a pane")
+	require.Equal(t, modeReviewing, m.review.pass.mode)
+	require.NotEmpty(t, m.review.pass.editorPane, "the editor was given a pane")
 
-	tmux.deadPanes = map[string]bool{m.review.editorPane: true}
+	tmux.deadPanes = map[string]bool{m.review.pass.editorPane: true}
 
 	m, cmd := m.reconcileEditor()
 
-	assert.Equal(t, modeReviewing, m.review.mode, "closing an editor is not the end of the pass")
-	assert.False(t, m.review.atEditor)
+	assert.Equal(t, modeReviewing, m.review.pass.mode, "closing an editor is not the end of the pass")
+	assert.False(t, m.review.pass.atEditor)
 	assert.NotNil(t, cmd, "and the diff is read again, since the editor may have written to it")
 }
 
@@ -655,16 +655,16 @@ func TestLeavingTheReviewClosesTheEditorFirst(t *testing.T) {
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	m.review.cursor = reviewRowWithAnEditTarget(t, m)
+	m.review.diff.cursor = reviewRowWithAnEditTarget(t, m)
 	m = pressEdit(t, m)
-	require.Equal(t, modeReviewing, m.review.mode)
+	require.Equal(t, modeReviewing, m.review.pass.mode)
 
 	next, _ := m.leaveReview()
 	m = next.(model)
 
 	assert.Equal(t, screenReview, m.screen, "the first press gives up the editor rather than the screen")
-	assert.Equal(t, modeReviewing, m.review.mode, "and stays in the pass the editor was opened in")
-	assert.False(t, m.review.atEditor)
+	assert.Equal(t, modeReviewing, m.review.pass.mode, "and stays in the pass the editor was opened in")
+	assert.False(t, m.review.pass.atEditor)
 }
 
 // TestWatchingHoldsTheDiffWhileTheAgentWrites is what keeps watching from costing history: a
@@ -698,11 +698,11 @@ func TestAWaitingAgentDoesNotHoldTheEditKey(t *testing.T) {
 	m = openReview(t, m)
 
 	setReviewAgentState(&m, agentstore.StateWaiting)
-	m.review.cursor = reviewRowWithAnEditTarget(t, m)
+	m.review.diff.cursor = reviewRowWithAnEditTarget(t, m)
 
 	m = pressEdit(t, m)
 
-	assert.Equal(t, modeReviewing, m.review.mode)
+	assert.Equal(t, modeReviewing, m.review.pass.mode)
 }
 
 // TestAnUnreadablePaneRefusesTheEditKey pins the state that says weave could not read the pane
@@ -714,12 +714,12 @@ func TestAnUnreadablePaneRefusesTheEditKey(t *testing.T) {
 	m = openReview(t, m)
 
 	setReviewAgentState(&m, agentstore.StateUncertain)
-	m.review.cursor = reviewRowWithAnEditTarget(t, m)
+	m.review.diff.cursor = reviewRowWithAnEditTarget(t, m)
 
 	next, _ := m.updateReview(editorKey())
 	m = next.(model)
 
-	assert.Equal(t, modeWatching, m.review.mode, "nothing opened")
+	assert.Equal(t, modeWatching, m.review.pass.mode, "nothing opened")
 	assert.Contains(t, m.review.notice, "cannot read this agent's pane")
 
 	// The catch-up is the other reader of the agent's state, and an unreadable pane is not a
@@ -744,7 +744,7 @@ func TestTheGateReadsTheReviewedAgentRatherThanTheFirstRow(t *testing.T) {
 	m.listing.agents = append([]agentItem{idle}, m.listing.agents...)
 	setReviewAgentState(&m, agentstore.StateThinking)
 
-	m.review.cursor = reviewRowWithAnEditTarget(t, m)
+	m.review.diff.cursor = reviewRowWithAnEditTarget(t, m)
 
 	next, cmd := m.updateReview(editorKey())
 	m = next.(model)
@@ -768,7 +768,7 @@ func TestEditingGivesTheWindowToTheEditor(t *testing.T) {
 	require.NotNil(t, spec.holds, "the review says whether it is holding the window")
 	require.True(t, spec.holds(m), "and it is, while it is drawing the diff")
 
-	m.review.cursor = reviewRowWithAnEditTarget(t, m)
+	m.review.diff.cursor = reviewRowWithAnEditTarget(t, m)
 	m = pressEdit(t, m)
 
 	assert.False(t, spec.holds(m), "the editor has the window now")
@@ -787,9 +787,9 @@ func setReviewAgentState(m *model, state agentstore.State) {
 // the key was drawn in the writing mode, where its own action refuses to run.
 func TestTheForwardRoundKeyIsOfferedOnlyWhereItAnswers(t *testing.T) {
 	m := model{}
-	m.review.chapters = []reviewChapter{{ToSHA: "s1", Ordinal: 1}, {ToSHA: "s2", Ordinal: 2}}
-	m.review.chapter = 0
-	m.review.mode = modeReviewing
+	m.review.diff.chapters = []reviewChapter{{ToSHA: "s1", Ordinal: 1}, {ToSHA: "s2", Ordinal: 2}}
+	m.review.diff.chapter = 0
+	m.review.pass.mode = modeReviewing
 
 	for _, row := range reviewLegend() {
 		if len(row.of) == 1 && row.of[0] == actionReviewBaseForward {
@@ -806,8 +806,8 @@ func TestTheForwardRoundKeyIsOfferedOnlyWhereItAnswers(t *testing.T) {
 func reviewRowWithAnAnchor(t *testing.T, m model) int {
 	t.Helper()
 
-	for row := range m.review.view.Len() {
-		if _, ok := m.review.view.GetAnchor(row); ok {
+	for row := range m.review.diff.view.Len() {
+		if _, ok := m.review.diff.view.GetAnchor(row); ok {
 			return row
 		}
 	}
@@ -821,7 +821,7 @@ func reviewRowWithAnAnchor(t *testing.T, m model) int {
 func reviewAnchorInTheDiff(t *testing.T, m model) review.Anchor {
 	t.Helper()
 
-	anchor, ok := m.review.view.GetAnchor(reviewRowWithAnAnchor(t, m))
+	anchor, ok := m.review.diff.view.GetAnchor(reviewRowWithAnAnchor(t, m))
 	require.True(t, ok)
 
 	return *anchor
@@ -834,13 +834,13 @@ func TestAComposerDoesNotOutliveTheDiffItWasWrittenOn(t *testing.T) {
 	agents := &fakeReviewAgents{}
 	m := reviewWithAnEarlierReview(t, newFakeRepo(t.TempDir()), agents)
 	m = pressReviewBase(t, m)
-	require.GreaterOrEqual(t, m.review.chapter, 0)
+	require.GreaterOrEqual(t, m.review.diff.chapter, 0)
 
-	m.review.cursor = reviewRowWithAnAnchor(t, m)
+	m.review.diff.cursor = reviewRowWithAnAnchor(t, m)
 
 	next, _ := m.updateReview(keyMsg("c"))
 	m = next.(model)
-	require.True(t, m.review.composing, "the composer is open on a line of the round")
+	require.True(t, m.review.threads.composing, "the composer is open on a line of the round")
 
 	m = typeReviewMessage(t, m, "this should say hello")
 
@@ -852,9 +852,9 @@ func TestAComposerDoesNotOutliveTheDiffItWasWrittenOn(t *testing.T) {
 	loaded.chapters = nil
 
 	m.applyReviewLoaded(loaded)
-	require.Nil(t, m.review.view)
+	require.Nil(t, m.review.diff.view)
 
-	assert.False(t, m.review.composing, "the composer goes with the diff it was anchored to")
+	assert.False(t, m.review.threads.composing, "the composer goes with the diff it was anchored to")
 
 	next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
 	m = next.(model)
@@ -871,13 +871,13 @@ func TestACommentRecordsTheDiffItWasWrittenOn(t *testing.T) {
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	drawnBase := m.review.view.GetBaseSHA()
-	drawnSnapshot := m.review.view.GetSnapshotSHA()
+	drawnBase := m.review.diff.view.GetBaseSHA()
+	drawnSnapshot := m.review.diff.view.GetSnapshotSHA()
 	require.NotEmpty(t, drawnBase)
 	require.NotEmpty(t, drawnSnapshot)
 
-	m.review.base = "some-other-commit"
-	m.review.head = ""
+	m.review.diff.base = "some-other-commit"
+	m.review.diff.head = ""
 
 	anchor := reviewAnchorInTheDiff(t, m)
 
@@ -905,7 +905,7 @@ func TestTheSendKeyIsOfferedOnlyWhereItAnswers(t *testing.T) {
 	assert.True(t, row.show(m), "reading the current work is where a verdict answers")
 
 	out := m
-	out.review.owed = "r1"
+	out.review.threads.owed = "r1"
 	assert.True(t, row.show(out), "a review already out is still answered in its own threads")
 
 	assert.False(t, row.show(standOnAFinishedRound(m)), "and a finished round holds nothing to send")
@@ -930,7 +930,7 @@ func reviewLegendRowFor(t *testing.T, id actionID) legendRow {
 // writing it puts the review down, and the legend claimed it left the screen.
 func TestTheBackKeySaysWhichThingItLeaves(t *testing.T) {
 	m := model{}
-	m.review.mode = modeReviewing
+	m.review.pass.mode = modeReviewing
 
 	for _, row := range reviewLegend() {
 		if len(row.of) == 1 && row.of[0] == actionReviewBack {
@@ -953,8 +953,8 @@ func TestComposingOnARowWithNoLineSaysSo(t *testing.T) {
 	m = openReview(t, m)
 
 	blank := -1
-	for row := 0; row < m.review.view.Len(); row++ {
-		if _, ok := m.review.view.GetAnchor(row); !ok {
+	for row := 0; row < m.review.diff.view.Len(); row++ {
+		if _, ok := m.review.diff.view.GetAnchor(row); !ok {
 			blank = row
 
 			break
@@ -962,12 +962,12 @@ func TestComposingOnARowWithNoLineSaysSo(t *testing.T) {
 	}
 
 	require.GreaterOrEqual(t, blank, 0, "the diff draws a row with no line of its own")
-	m.review.cursor = blank
+	m.review.diff.cursor = blank
 
 	next, _ := m.updateReview(keyMsg("c"))
 	m = next.(model)
 
-	assert.False(t, m.review.composing, "no editor opened")
+	assert.False(t, m.review.threads.composing, "no editor opened")
 	assert.NotEmpty(t, m.review.notice, "and the key said why")
 }
 
@@ -979,11 +979,11 @@ func TestACommentOnTheNewestRoundRecordsItsBase(t *testing.T) {
 
 	m := reviewWithAnEarlierReview(t, newFakeRepo(t.TempDir()), agents)
 	m = pressReviewBase(t, m)
-	require.NotEmpty(t, m.review.base, "the diff is measured from the round reviewed before")
+	require.NotEmpty(t, m.review.diff.base, "the diff is measured from the round reviewed before")
 
-	for row := 0; row < m.review.view.Len(); row++ {
-		if found, ok := m.review.view.GetAnchor(row); ok && found.NewStart > 0 {
-			m.review.cursor = row
+	for row := 0; row < m.review.diff.view.Len(); row++ {
+		if found, ok := m.review.diff.view.GetAnchor(row); ok && found.NewStart > 0 {
+			m.review.diff.cursor = row
 
 			break
 		}
@@ -991,7 +991,7 @@ func TestACommentOnTheNewestRoundRecordsItsBase(t *testing.T) {
 
 	next, _ := m.updateReview(keyMsg("c"))
 	m = next.(model)
-	require.True(t, m.review.composing, "writing is allowed on the newest round")
+	require.True(t, m.review.threads.composing, "writing is allowed on the newest round")
 
 	m = typeReviewMessage(t, m, "this line, in the work since I last looked")
 
@@ -1001,7 +1001,7 @@ func TestACommentOnTheNewestRoundRecordsItsBase(t *testing.T) {
 	cmd()
 
 	require.NotNil(t, agents.created, "the thread reached the service")
-	assert.Equal(t, m.review.base, agents.created.GetBaseSha(),
+	assert.Equal(t, m.review.diff.base, agents.created.GetBaseSha(),
 		"and says which commit its old side was counted from")
 	assert.Equal(t, m.review.round.GetSnapshotSha(), agents.created.GetSnapshotSha(),
 		"and which snapshot its new side came from")
@@ -1022,7 +1022,7 @@ func TestTheOpenCommentKeyWalksOnlyWhatIsUnsettled(t *testing.T) {
 	written, ok := next.(model)
 	require.True(t, ok)
 
-	thread, ok := written.review.view.GetThreadAt(written.review.cursor)
+	thread, ok := written.review.diff.view.GetThreadAt(written.review.diff.cursor)
 	require.True(t, ok, "the key lands on a thread")
 	assert.Empty(t, thread.GetResolvedAt(), "and it is one nobody has settled")
 	assert.Equal(t, "open-1", thread.GetId(), "which is the open one rather than the settled one above it")
@@ -1119,7 +1119,7 @@ func TestTheOpenCommentKeyDoesNotClaimAFoldedReviewIsSettled(t *testing.T) {
 	next, _ := m.updateReview(keyMsg("v"))
 	written, ok := next.(model)
 	require.True(t, ok)
-	require.Positive(t, written.review.view.CountOpenThreads(), "the folded file's comment is still open")
+	require.Positive(t, written.review.diff.view.CountOpenThreads(), "the folded file's comment is still open")
 
 	next, _ = written.updateReview(keyMsg("u"))
 	written, ok = next.(model)
@@ -1146,13 +1146,13 @@ func TestTheOpenCommentKeySaysBothWhenOneIsFoldedAway(t *testing.T) {
 	})
 
 	m = openReview(t, m)
-	require.Equal(t, 2, m.review.view.Stat().Files, "the diff draws both files")
+	require.Equal(t, 2, m.review.diff.view.Stat().Files, "the diff draws both files")
 
 	m.applyReviewWrote(reviewWroteMsg{agentID: "a1", threads: openThreadInEachFile(t)})
-	require.Equal(t, 2, m.review.view.CountOpenThreads())
+	require.Equal(t, 2, m.review.diff.view.CountOpenThreads())
 
 	// Fold the file the cursor is standing in, which leaves one open comment drawn and one not.
-	m.review.cursor = firstRowInFile(t, m, "second.go")
+	m.review.diff.cursor = firstRowInFile(t, m, "second.go")
 
 	next, _ := m.updateReview(keyMsg("v"))
 	written, ok := next.(model)
@@ -1201,8 +1201,8 @@ func openThreadInEachFile(t *testing.T) []*agentv1.ReviewThread {
 func firstRowInFile(t *testing.T, m model, path string) int {
 	t.Helper()
 
-	for row := range m.review.view.Len() {
-		if at, _, ok := m.review.view.GetEditTarget(row); ok && at == path {
+	for row := range m.review.diff.view.Len() {
+		if at, _, ok := m.review.diff.view.GetEditTarget(row); ok && at == path {
 			return row
 		}
 	}
@@ -1220,15 +1220,15 @@ func TestEditingIsRefusedWhileYourReviewIsOwedAnAnswer(t *testing.T) {
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	m.review.cursor = reviewRowWithAnEditTarget(t, m)
-	m.review.owed = "r1"
+	m.review.diff.cursor = reviewRowWithAnEditTarget(t, m)
+	m.review.threads.owed = "r1"
 
 	next, _ := m.updateReview(editorKey())
 	written, ok := next.(model)
 	require.True(t, ok)
 
-	assert.Equal(t, modeWatching, written.review.mode, "nothing opened")
-	assert.False(t, written.review.atEditor)
+	assert.Equal(t, modeWatching, written.review.pass.mode, "nothing opened")
+	assert.False(t, written.review.pass.atEditor)
 	assert.Contains(t, written.review.notice, "owed an answer")
 	assert.Contains(t, written.review.notice, keyLabel(m.keys.Review.Resolve), "and it names the key that settles one")
 }
@@ -1247,12 +1247,12 @@ func TestEditingADormantAgentIsAllowedWhileOwedAnAnswer(t *testing.T) {
 		}
 	}
 
-	m.review.cursor = reviewRowWithAnEditTarget(t, m)
-	m.review.owed = "r1"
+	m.review.diff.cursor = reviewRowWithAnEditTarget(t, m)
+	m.review.threads.owed = "r1"
 
 	m = pressEdit(t, m)
 
-	assert.Equal(t, modeReviewing, m.review.mode, "an agent that will never answer is not a wait")
+	assert.Equal(t, modeReviewing, m.review.pass.mode, "an agent that will never answer is not a wait")
 }
 
 // TestEditingIsAllowedOnceNothingIsOwed is the other half.
@@ -1262,10 +1262,10 @@ func TestEditingIsAllowedOnceNothingIsOwed(t *testing.T) {
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	m.review.cursor = reviewRowWithAnEditTarget(t, m)
-	m.review.owed = ""
+	m.review.diff.cursor = reviewRowWithAnEditTarget(t, m)
+	m.review.threads.owed = ""
 
 	m = pressEdit(t, m)
 
-	assert.Equal(t, modeReviewing, m.review.mode)
+	assert.Equal(t, modeReviewing, m.review.pass.mode)
 }

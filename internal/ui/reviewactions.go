@@ -23,7 +23,7 @@ func reviewTable() []action {
 			// Writing is a mode inside the screen, so the back key gives up the mode before it
 			// gives up the screen.
 			run: func(m model, _ string) (tea.Model, tea.Cmd) {
-				if m.review.mode == modeReviewing {
+				if m.review.pass.mode == modeReviewing {
 					return m.leaveReviewWriting()
 				}
 
@@ -85,18 +85,18 @@ func reviewTable() []action {
 		{
 			id:   actionReviewPanReset,
 			keys: func(k config.Keybindings) []string { return k.Review.PanReset },
-			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.panReview(-m.review.pan) },
+			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.panReview(-m.review.diff.pan) },
 		},
 		{
 			id:   actionReviewBase,
 			keys: func(k config.Keybindings) []string { return k.Review.Base },
-			when: model.doesReviewWalk,
+			when: func(m model) bool { return m.review.doesWalk() },
 			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.stepReviewBase() },
 		},
 		{
 			id:   actionReviewBaseForward,
 			keys: func(k config.Keybindings) []string { return k.Review.BaseForward },
-			when: model.doesReviewWalk,
+			when: func(m model) bool { return m.review.doesWalk() },
 			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.stepReviewBaseForward() },
 		},
 		{
@@ -129,7 +129,11 @@ func reviewTable() []action {
 		{
 			id:   actionReviewFocusThread,
 			keys: func(k config.Keybindings) []string { return k.Review.FocusThread },
-			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.focusReviewThread(), nil },
+			run: func(m model, _ string) (tea.Model, tea.Cmd) {
+				m.review.focusThread()
+
+				return m, nil
+			},
 		},
 		// The two keys that write are taken whether or not anybody is there to read.
 		{
@@ -155,7 +159,7 @@ func orRefuseWrite(fn func(model) (tea.Model, tea.Cmd)) func(model, string) (tea
 			return m.refuseReviewWrite()
 		}
 
-		if said, history := m.isReviewHistory(); history {
+		if said, history := m.review.isHistory(); history {
 			return m.refuseReviewHistory(said)
 		}
 
@@ -166,7 +170,7 @@ func orRefuseWrite(fn func(model) (tea.Model, tea.Cmd)) func(model, string) (tea
 // pressReviewCompose is the comment key, which refuses a new thread while a review is owed an
 // answer.
 func (m model) pressReviewCompose() (tea.Model, tea.Cmd) {
-	if _, replying := m.reviewThreadAtCursor(); m.review.isOwedAnAnswer() && !replying {
+	if _, replying := m.review.diff.threadAtCursor(); m.review.threads.isOwedAnAnswer() && !replying {
 		return m.refuseReviewAwaiting()
 	}
 
@@ -176,7 +180,7 @@ func (m model) pressReviewCompose() (tea.Model, tea.Cmd) {
 // pressReviewSend is the send key, which while a review is owed an answer needs replies written
 // to send, a verdict on its own being the second review the wait holds off.
 func (m model) pressReviewSend() (tea.Model, tea.Cmd) {
-	if m.review.isOwedAnAnswer() && !m.doesReviewHoldUnsent() {
+	if m.review.threads.isOwedAnAnswer() && !m.review.threads.holdsUnsent() {
 		return m.refuseReviewAwaiting()
 	}
 
@@ -195,7 +199,7 @@ func reviewLegend() []legendRow {
 	// An older round holds no line a comment could ask to be changed, so the keys that write are
 	// not offered on one.
 	offered := func(m model) bool {
-		_, history := m.isReviewHistory()
+		_, history := m.review.isHistory()
 
 		return reachable(m) && !history
 	}
@@ -221,7 +225,7 @@ func reviewLegend() []legendRow {
 		},
 		{
 			of:   []actionID{actionReviewThread, actionReviewOpenThread},
-			desc: model.threadStepDesc,
+			desc: func(m model) string { return m.review.diff.threadStepDesc() },
 			label: func(k config.Keybindings) string {
 				return headLabel(k.Review.NextThread) + "/" + headLabel(k.Review.PrevThread) +
 					"/" + headLabel(k.Review.NextOpenThread) + "/" + headLabel(k.Review.PrevOpenThread)
@@ -253,11 +257,11 @@ func reviewLegend() []legendRow {
 		},
 		{
 			of:   []actionID{actionReviewEdit},
-			desc: model.reviewEditorDesc,
+			desc: func(m model) string { return m.review.pass.editorDesc() },
 			// The one thing standing in the way of editing is an earlier round, whose line numbers
 			// name a file the worktree no longer holds.
 			show: func(m model) bool {
-				_, history := m.isReviewHistory()
+				_, history := m.review.isHistory()
 
 				return !history
 			},
@@ -265,20 +269,20 @@ func reviewLegend() []legendRow {
 		},
 		{
 			of:   []actionID{actionReviewBase},
-			desc: model.reviewBaseDesc,
+			desc: func(model) string { return "an earlier round" },
 			show: model.doesReviewFitBaseLegend,
 		},
 		{
 			of:   []actionID{actionReviewReload},
-			desc: model.reviewReloadDesc,
+			desc: func(m model) string { return m.review.diff.reloadDesc() },
 		},
 		{
 			of:   []actionID{actionReviewResolve},
-			desc: model.reviewResolveDesc,
+			desc: func(m model) string { return m.review.diff.resolveDesc() },
 		},
 		{
 			of:   []actionID{actionReviewViewed, actionReviewExpand},
-			desc: model.reviewFileDesc,
+			desc: func(m model) string { return m.review.diff.fileDesc() },
 		},
 		{
 			of:   []actionID{actionReviewFocusThread},
@@ -286,42 +290,42 @@ func reviewLegend() []legendRow {
 		},
 		{
 			of:   []actionID{actionReviewBaseForward},
-			desc: model.reviewBaseForwardDesc,
+			desc: func(model) string { return "a later round" },
 			show: model.doesReviewFitBaseLegend,
 		},
 		{
 			of:   []actionID{actionReviewCompose},
-			desc: model.reviewComposeDesc,
+			desc: func(m model) string { return m.review.composeDesc() },
 			// The compose key is the way into the mode that writes, so reading offers it too.
 			show:  offered,
 			strip: true,
 		},
 		{
 			of:   []actionID{actionReviewSend},
-			desc: model.reviewSendDesc,
+			desc: func(m model) string { return m.review.threads.sendDesc() },
 			show: offered,
 		},
 		{
 			of:   []actionID{actionReviewBack},
-			desc: model.reviewBackDesc,
+			desc: func(m model) string { return m.review.pass.backDesc() },
 		},
 	}
 }
 
 func (m model) moveReview(pressed string) (tea.Model, tea.Cmd) {
 	if isBound(pressed, m.keys.Nav.Down) {
-		return m.moveReviewCursor(m.review.view.Move(m.review.cursor, 1))
+		return m.moveReviewCursor(m.review.diff.view.Move(m.review.diff.cursor, 1))
 	}
 
-	return m.moveReviewCursor(m.review.view.Move(m.review.cursor, -1))
+	return m.moveReviewCursor(m.review.diff.view.Move(m.review.diff.cursor, -1))
 }
 
 func (m model) jumpReview(pressed string) (tea.Model, tea.Cmd) {
 	if isBound(pressed, m.keys.Nav.Bottom) {
-		return m.moveReviewCursor(m.review.view.GetLastRow())
+		return m.moveReviewCursor(m.review.diff.view.GetLastRow())
 	}
 
-	return m.moveReviewCursor(m.review.view.GetFirstRow())
+	return m.moveReviewCursor(m.review.diff.view.GetFirstRow())
 }
 
 func (m model) pageReview(pressed string) (tea.Model, tea.Cmd) {
@@ -351,10 +355,10 @@ func (m model) stepOpenThread(pressed string) (tea.Model, tea.Cmd) {
 
 func (m model) stepReviewThread(pressed string) (tea.Model, tea.Cmd) {
 	if isBound(pressed, m.keys.Review.PrevThread) {
-		return m.moveReviewCursor(m.review.view.JumpThread(m.review.cursor, -1))
+		return m.moveReviewCursor(m.review.diff.view.JumpThread(m.review.diff.cursor, -1))
 	}
 
-	return m.moveReviewCursor(m.review.view.JumpThread(m.review.cursor, 1))
+	return m.moveReviewCursor(m.review.diff.view.JumpThread(m.review.diff.cursor, 1))
 }
 
 func (m model) stepReviewMatch(pressed string) (tea.Model, tea.Cmd) {
@@ -374,8 +378,8 @@ func (m model) panReviewBy(pressed string) (tea.Model, tea.Cmd) {
 }
 
 func (m model) openReviewFilter(string) (tea.Model, tea.Cmd) {
-	m.review.filter.typing = true
-	m.review.filter.setQuery("")
+	m.review.diff.filter.typing = true
+	m.review.diff.filter.setQuery("")
 	m.searchReview()
 
 	return m, nil

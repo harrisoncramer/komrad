@@ -26,33 +26,33 @@ var reviewVerdicts = []agentv1.ReviewVerdict{
 // composeReview opens the editor on the line under the cursor, replying in the thread already
 // there or opening a new one, writing prose alone rather than editing the round.
 func (m model) composeReview() (tea.Model, tea.Cmd) {
-	if m.review.mode != modeReviewing {
+	if m.review.pass.mode != modeReviewing {
 		return m.enterReviewWriting(intentComment)
 	}
 
-	thread, replying := m.reviewThreadAtCursor()
+	thread, replying := m.review.diff.threadAtCursor()
 
 	// A thread whose code is gone has no line to anchor a new thread to, but replying to it is
 	// what it is still on screen for.
-	if _, ok := m.review.view.GetAnchor(m.review.cursor); !ok && !replying {
+	if _, ok := m.review.diff.view.GetAnchor(m.review.diff.cursor); !ok && !replying {
 		return m.refuseReviewLine()
 	}
 
-	m.review.editing = ""
+	m.review.threads.editing = ""
 	if replying {
-		m.review.editing = thread.GetId()
+		m.review.threads.editing = thread.GetId()
 	}
 
-	m.review.composing = true
+	m.review.threads.composing = true
 
 	return m.openReviewInput(newReviewInputParams{
-		Title:       m.reviewInputTitle(replying),
+		Title:       reviewInputTitle(replying),
 		Description: reviewInputHint(formKeys().Editor, formKeys().Submit, "save"),
 		Placeholder: "what should the agent change here?",
 	})
 }
 
-func (m model) reviewInputTitle(replying bool) string {
+func reviewInputTitle(replying bool) string {
 	if replying {
 		return "Reply"
 	}
@@ -77,7 +77,7 @@ func (m model) openReviewInput(params newReviewInputParams) (tea.Model, tea.Cmd)
 	params.Keys = formKeys()
 
 	input, cmd := newReviewInput(params)
-	m.review.editor = input
+	m.review.threads.editor = input
 
 	return m, cmd
 }
@@ -85,12 +85,12 @@ func (m model) openReviewInput(params newReviewInputParams) (tea.Model, tea.Cmd)
 // enterReviewWriting moves from reading to writing, keeping the reader on the line they pressed
 // the key on, and refuses when that line is in a round the whole change does not draw.
 func (m model) enterReviewWriting(intent passIntent) (tea.Model, tea.Cmd) {
-	if said, history := m.isReviewHistory(); history {
+	if said, history := m.review.isHistory(); history {
 		return m.refuseReviewHistory(said)
 	}
 
-	if _, ok := m.review.view.GetAnchor(m.review.cursor); !ok {
-		if _, replying := m.reviewThreadAtCursor(); !replying {
+	if _, ok := m.review.diff.view.GetAnchor(m.review.diff.cursor); !ok {
+		if _, replying := m.review.diff.threadAtCursor(); !replying {
 			return m.refuseReviewLine()
 		}
 	}
@@ -110,8 +110,8 @@ func (m model) refuseReviewLine() (tea.Model, tea.Cmd) {
 func (m model) leaveReviewWriting() (tea.Model, tea.Cmd) {
 	// Comments already written are held by the panel rather than by the pass, so leaving keeps
 	// them and says so.
-	if m.doesReviewHoldUnsent() {
-		m.review.notice = label.Counted(m.reviewUnsentCount(), "comment") + " kept, still unsent"
+	if m.review.threads.holdsUnsent() {
+		m.review.notice = label.Counted(m.review.threads.unsentCount(), "comment") + " kept, still unsent"
 	}
 
 	return m.endReviewPass(abandonedSaid)
@@ -124,7 +124,9 @@ func (m model) updateReviewComposer(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// the one that opens it in an editor, come from the form keymap.
 	switch {
 	case isBound(k, formKeys().Back):
-		return m.cancelReviewMessage(), nil
+		m.review.threads.cancelMessage()
+
+		return m, nil
 	case isBound(k, formKeys().Quit):
 		return m, m.hide()
 	case isBound(k, formKeys().Editor):
@@ -133,8 +135,8 @@ func (m model) updateReviewComposer(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.saveReviewMessage()
 	}
 
-	editor, cmd := m.review.editor.update(key)
-	m.review.editor = editor
+	editor, cmd := m.review.threads.editor.update(key)
+	m.review.threads.editor = editor
 
 	return m, cmd
 }
@@ -151,7 +153,7 @@ func (m model) openMessageEditor() (tea.Model, tea.Cmd) {
 	agentID := m.review.agentID
 	path := messageDraftPath(agentID)
 
-	if err := os.WriteFile(path, []byte(m.review.editor.value()), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte(m.review.threads.editor.value()), 0o600); err != nil {
 		m.report("Your editor could not be opened on that message", err)
 
 		return m, nil
@@ -183,7 +185,7 @@ func messageDraftPath(agentID string) string {
 
 // applyMessageEdited puts what the editor wrote back into the composer.
 func (m *model) applyMessageEdited(msg messageEditedMsg) {
-	if msg.agentID != m.review.agentID || (!m.review.composing && !m.review.releasing) {
+	if msg.agentID != m.review.agentID || (!m.review.threads.composing && !m.review.threads.releasing) {
 		return
 	}
 
@@ -194,30 +196,32 @@ func (m *model) applyMessageEdited(msg messageEditedMsg) {
 	}
 
 	said, key := "save", formKeys().Submit
-	if m.review.releasing {
+	if m.review.threads.releasing {
 		said = "send"
 	}
 
 	input, _ := newReviewInput(newReviewInputParams{
-		Title:       m.reviewInputTitle(m.review.editing != ""),
+		Title:       reviewInputTitle(m.review.threads.editing != ""),
 		Description: reviewInputHint(formKeys().Editor, key, said),
 		Body:        strings.TrimRight(msg.body, "\n"),
 		Width:       m.reviewInputWidth(),
 		Keys:        formKeys(),
 	})
-	m.review.editor = input
+	m.review.threads.editor = input
 }
 
 func (m model) saveReviewMessage() (tea.Model, tea.Cmd) {
-	body := strings.TrimSpace(m.review.editor.value())
+	body := strings.TrimSpace(m.review.threads.editor.value())
 	if body == "" {
-		return m.cancelReviewMessage(), nil
+		m.review.threads.cancelMessage()
+
+		return m, nil
 	}
 
-	m.review.editor = reviewInput{}
-	m.review.composing = false
+	m.review.threads.editor = reviewInput{}
+	m.review.threads.composing = false
 
-	agents, threadID := m.api.agents, m.review.editing
+	agents, threadID := m.api.agents, m.review.threads.editing
 	if threadID != "" {
 		// Nothing is said back: the reply is drawn in the thread it went into.
 		return m, m.reviewWriteCmd("", func(ctx context.Context) error {
@@ -230,7 +234,7 @@ func (m model) saveReviewMessage() (tea.Model, tea.Cmd) {
 		})
 	}
 
-	anchor, ok := m.review.view.GetAnchor(m.review.cursor)
+	anchor, ok := m.review.diff.view.GetAnchor(m.review.diff.cursor)
 	if !ok {
 		return m, nil
 	}
@@ -238,12 +242,10 @@ func (m model) saveReviewMessage() (tea.Model, tea.Cmd) {
 	return m, m.createReviewThreadCmd(*anchor, body)
 }
 
-// cancelReviewMessage puts the composer away, abandoning nothing but the words typed into it.
-func (m model) cancelReviewMessage() model {
-	m.review.editor = reviewInput{}
-	m.review.composing = false
-
-	return m
+// cancelMessage puts the composer away, abandoning nothing but the words typed into it.
+func (t *reviewThreads) cancelMessage() {
+	t.editor = reviewInput{}
+	t.composing = false
 }
 
 func (m model) createReviewThreadCmd(anchor review.Anchor, body string) tea.Cmd {
@@ -251,11 +253,11 @@ func (m model) createReviewThreadCmd(anchor review.Anchor, body string) tea.Cmd 
 
 	// The old side of these numbers came from whatever the diff was measured from, so the thread
 	// records that rather than leaving a later reader to assume the round's own base.
-	base := m.review.view.GetBaseSHA()
+	base := m.review.diff.view.GetBaseSHA()
 
 	// The new side names the snapshot it was read from, which the service compares against the
 	// round it would file the thread under rather than trusting the numbers.
-	snapshot := m.review.view.GetSnapshotSHA()
+	snapshot := m.review.diff.view.GetSnapshotSHA()
 	if snapshot == "" {
 		snapshot = m.review.round.GetSnapshotSha()
 	}
@@ -281,7 +283,7 @@ func (m model) createReviewThreadCmd(anchor review.Anchor, body string) tea.Cmd 
 // resolveReviewThread settles the thread the cursor is standing on, or reopens one already
 // settled.
 func (m model) resolveReviewThread() (tea.Model, tea.Cmd) {
-	thread, ok := m.reviewThreadAtCursor()
+	thread, ok := m.review.diff.threadAtCursor()
 	if !ok {
 		return m, nil
 	}
@@ -306,28 +308,28 @@ func (m model) resolveReviewThread() (tea.Model, tea.Cmd) {
 // toggleReviewViewed folds the file the cursor is in away once it has been read, or opens it
 // again, stepping on to the next file when it has just been folded.
 func (m model) toggleReviewViewed() (tea.Model, tea.Cmd) {
-	if m.isReviewNarrowed() {
+	if m.review.diff.isNarrowed() {
 		return m.refuseReviewViewed()
 	}
 
-	file, ok := m.review.view.GetPatchFileAt(m.review.cursor)
+	file, ok := m.review.diff.view.GetPatchFileAt(m.review.diff.cursor)
 	if !ok {
 		return m, nil
 	}
 
 	path := file.Path()
-	viewed := !m.review.view.IsViewed(path)
+	viewed := !m.review.diff.view.IsViewed(path)
 
 	// Where the cursor is standing is taken before the rows are built again.
-	place, located := m.review.view.GetPlace(m.review.cursor)
-	m.review.view.SetFileViewed(path, viewed)
-	m.keepReviewCursor(place, located)
+	place, located := m.review.diff.view.GetPlace(m.review.diff.cursor)
+	m.review.diff.view.SetFileViewed(path, viewed)
+	m.review.diff.keepCursor(place, located)
 
 	notice := "file opened again"
 	if viewed {
 		notice = "file viewed"
-		m.review.cursor = m.review.view.JumpFile(m.review.cursor, 1)
-		m.review.pinTop = false
+		m.review.diff.cursor = m.review.diff.view.JumpFile(m.review.diff.cursor, 1)
+		m.review.diff.pinTop = false
 	}
 
 	m.scrollReviewToCursor()
@@ -349,7 +351,7 @@ func (m model) toggleReviewViewed() (tea.Model, tea.Cmd) {
 
 // markReviewThreadReadCmd claims the thread the cursor has just landed on and only that one.
 func (m model) markReviewThreadReadCmd() tea.Cmd {
-	thread, ok := m.reviewThreadAtCursor()
+	thread, ok := m.review.diff.threadAtCursor()
 	if !ok || !thread.GetUnreadByHuman() {
 		return nil
 	}
@@ -365,8 +367,8 @@ func (m model) markReviewThreadReadCmd() tea.Cmd {
 
 // openReviewRelease asks what to send rather than sending.
 func (m model) openReviewRelease() (tea.Model, tea.Cmd) {
-	m.review.releasing = true
-	m.review.verdict = 0
+	m.review.threads.releasing = true
+	m.review.threads.verdict = 0
 	m.review.notice = ""
 
 	return m.openReviewInput(newReviewInputParams{
@@ -383,15 +385,17 @@ func (m model) updateReviewRelease(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	switch {
 	case isBound(k, formKeys().Back):
-		return m.closeReviewRelease(), nil
+		m.review.threads.closeRelease()
+
+		return m, nil
 	case isBound(k, formKeys().Quit):
 		return m, m.hide()
 	case k == "tab":
-		m.review.verdict = (m.review.verdict + 1) % len(reviewVerdicts)
+		m.review.threads.cycleVerdict(1)
 
 		return m, nil
 	case k == "shift+tab":
-		m.review.verdict = (m.review.verdict + len(reviewVerdicts) - 1) % len(reviewVerdicts)
+		m.review.threads.cycleVerdict(-1)
 
 		return m, nil
 	case isBound(k, formKeys().Editor):
@@ -402,8 +406,8 @@ func (m model) updateReviewRelease(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.sendReview(true)
 	}
 
-	editor, cmd := m.review.editor.update(key)
-	m.review.editor = editor
+	editor, cmd := m.review.threads.editor.update(key)
+	m.review.threads.editor = editor
 
 	return m, cmd
 }
@@ -411,10 +415,10 @@ func (m model) updateReviewRelease(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 // sendReview releases the batch with the verdict chosen and whatever was written about the work
 // as a whole, reaching the agent as one file and one piece of mail.
 func (m model) sendReview(interrupt bool) (tea.Model, tea.Cmd) {
-	verdict := reviewVerdicts[m.review.verdict]
-	body := strings.TrimSpace(m.review.editor.value())
+	verdict := reviewVerdicts[m.review.threads.verdict]
+	body := strings.TrimSpace(m.review.threads.editor.value())
 
-	m = m.closeReviewRelease()
+	m.review.threads.closeRelease()
 
 	agents, agentID := m.api.agents, m.review.agentID
 
@@ -442,11 +446,15 @@ const sentSaid = "I paused you while I reviewed your work and have let you go no
 	"My comments are pinned to your work as it stood when I started, so read them against " +
 	"the worktree as it is rather than assuming the lines still match."
 
-func (m model) closeReviewRelease() model {
-	m.review.editor = reviewInput{}
-	m.review.releasing = false
+// cycleVerdict moves the choice of verdict one step round the list.
+func (t *reviewThreads) cycleVerdict(delta int) {
+	t.verdict = (t.verdict + delta + len(reviewVerdicts)) % len(reviewVerdicts)
+}
 
-	return m
+// closeRelease puts the release panel away, sent or not.
+func (t *reviewThreads) closeRelease() {
+	t.editor = reviewInput{}
+	t.releasing = false
 }
 
 // releasedNotice says what went.

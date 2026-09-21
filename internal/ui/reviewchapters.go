@@ -50,28 +50,41 @@ type reviewChapter struct {
 // stepReviewBase walks back a round, from the whole change to the newest round and on into the
 // older ones, and stops on the oldest.
 func (m model) stepReviewBase() (tea.Model, tea.Cmd) {
-	if m.review.chapter < 0 {
-		return m.showReviewChapter(len(m.review.chapters) - 1)
+	if m.review.diff.chapter < 0 {
+		return m.showReviewChapter(len(m.review.diff.chapters) - 1)
 	}
 
-	return m.showReviewChapter(m.review.chapter - 1)
+	return m.showReviewChapter(m.review.diff.chapter - 1)
 }
 
 // stepReviewBaseForward walks the other way, and stops on the whole change.
 func (m model) stepReviewBaseForward() (tea.Model, tea.Cmd) {
-	if m.review.chapter < 0 {
+	if m.review.diff.chapter < 0 {
 		return m, nil
 	}
 
-	return m.showReviewChapter(m.review.chapter + 1)
+	return m.showReviewChapter(m.review.diff.chapter + 1)
 }
 
 // showReviewChapter puts one round of the review on screen, or the whole change past the newest
-// round, stopping at either end so a held key walks to the end and stays there.
+// round, and reads the diff again once the walk has moved.
 func (m model) showReviewChapter(at int) (tea.Model, tea.Cmd) {
-	held := len(m.review.chapters)
-	if held == 0 {
+	if !m.review.diff.showChapter(at) {
 		return m, nil
+	}
+
+	next, cmd := m.reloadReview()
+
+	return next, cmd
+}
+
+// showChapter narrows the diff to one round, or widens it to the whole change past the newest
+// round, and reports whether that moved it, stopping at either end so a held key walks to the end
+// and stays there.
+func (d *reviewDiff) showChapter(at int) bool {
+	held := len(d.chapters)
+	if held == 0 {
+		return false
 	}
 
 	// The whole change sits after the newest round rather than before the oldest.
@@ -82,31 +95,27 @@ func (m model) showReviewChapter(at int) (tea.Model, tea.Cmd) {
 		at = -1
 	}
 
-	if at == m.review.chapter {
-		return m, nil
+	if at == d.chapter {
+		return false
 	}
 
-	m.review.chapter = at
+	d.chapter = at
 	if at < 0 {
-		m.widenReviewBase()
+		d.widen()
 
-		next, cmd := m.reloadReview()
-
-		return next, cmd
+		return true
 	}
 
-	chapter := m.review.chapters[at]
-	m.review.base = chapter.FromSHA
-	m.review.head = chapter.ToSHA
-	m.review.baseLabel = reviewChapterLabel(reviewChapterLabelParams{
+	chapter := d.chapters[at]
+	d.base = chapter.FromSHA
+	d.head = chapter.ToSHA
+	d.baseLabel = reviewChapterLabel(reviewChapterLabelParams{
 		Chapter: chapter,
 		At:      at,
 		Held:    held,
 	})
 
-	next, cmd := m.reloadReview()
-
-	return next, cmd
+	return true
 }
 
 // reviewChapterLabelParams is one chapter and where it sits in the walk.
@@ -152,12 +161,18 @@ func baseMovedSaid(chapter reviewChapter) string {
 	return "the base moved"
 }
 
-// widenReviewBase puts the diff back to the whole change.
-func (m *model) widenReviewBase() {
-	m.review.base = ""
-	m.review.head = ""
-	m.review.baseLabel = ""
-	m.review.chapter = -1
+// isNarrowed reports whether the diff on screen is one chapter of the change rather than the
+// whole of it.
+func (d reviewDiff) isNarrowed() bool {
+	return d.base != "" || d.head != ""
+}
+
+// widen puts the diff back to the whole change.
+func (d *reviewDiff) widen() {
+	d.base = ""
+	d.head = ""
+	d.baseLabel = ""
+	d.chapter = -1
 }
 
 // doesReviewFitBaseLegend reports whether the base key is worth a legend row.
@@ -166,17 +181,7 @@ func (m model) doesReviewFitBaseLegend() bool {
 		return false
 	}
 
-	return m.doesReviewWalk()
-}
-
-// reviewBaseDesc names the base key in the legend, inside its own width budget.
-func (m model) reviewBaseDesc() string {
-	return "an earlier round"
-}
-
-// reviewBaseForwardDesc is the same for the key that walks the other way.
-func (m model) reviewBaseForwardDesc() string {
-	return "a later round"
+	return m.review.doesWalk()
 }
 
 // cutChaptersParams is everything the chapters are cut from, kept apart from the calls that read

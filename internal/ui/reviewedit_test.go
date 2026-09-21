@@ -81,11 +81,11 @@ func TestEditorOpensAtTheRepositoryRoot(t *testing.T) {
 	m.listing.agents[0].agent.Cwd = filepath.Join(dir, "cmd", "greet")
 
 	m = openReview(t, m)
-	require.NotNil(t, m.review.view)
+	require.NotNil(t, m.review.diff.view)
 	require.Equal(t, dir, m.review.root)
 
 	written := pressEdit(t, m)
-	require.True(t, written.review.atEditor, "the edit key opened an editor")
+	require.True(t, written.review.pass.atEditor, "the edit key opened an editor")
 
 	require.NotEmpty(t, tmux.respawnDirs)
 	assert.Equal(t, dir, tmux.respawnDirs[0], "the editor is opened at the root the paths are named from")

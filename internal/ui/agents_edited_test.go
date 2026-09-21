@@ -121,8 +121,8 @@ func TestARefusedEndOfAReviewPassKeepsTheEditedFiles(t *testing.T) {
 	m := heldModel(agents, &at)
 	m.review.agentID = "a1"
 	m.review.agentName = "telescope"
-	m.review.ourPause = true
-	m.review.touched = []string{"internal/agents/hold.go"}
+	m.review.pass.ourPause = true
+	m.review.pass.touched = []string{"internal/agents/hold.go"}
 
 	ended, cmd := m.endReviewPass("read your worktree.")
 	got := settle(t, asModel(t, ended), cmd)
