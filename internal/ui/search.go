@@ -404,16 +404,23 @@ func (m *model) applySearch(result searchResult) tea.Cmd {
 	}
 
 	if result.paged {
+		was := m.hoveredSearchID()
 		m.search.paging = false
 		m.search.turns = append(m.search.turns, result.hits...)
 		m.search.next = result.next
 		m.search.rows = nil
 
-		return nil
+		rows := m.searchRows()
+		m.search.cursor = placeCursor(rowIndexOfKey(rows, was), m.search.cursor, len(rows))
+		landed, cmd := m.landOnSearchRow()
+		*m = landed
+
+		return cmd
 	}
 
 	m.search.turns = result.hits
 	m.search.next = result.next
+	m.search.paging = false
 	m.search.rows = nil
 
 	rows := m.searchRows()
