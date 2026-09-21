@@ -380,28 +380,6 @@ func TestSyncRowRoundTrip(t *testing.T) {
 	}
 }
 
-// TestListOnBranchIsNewestFirst covers the read the future readers make: pull requests from one
-// branch ordered by when the forge opened them.
-func TestListOnBranchIsNewestFirst(t *testing.T) {
-	h := open(t)
-	ctx := t.Context()
-
-	first := openPullRequest("PR_1", 1, "agent/x")
-	second := openPullRequest("PR_2", 2, "agent/x")
-	second.OpenedAt = first.OpenedAt.Add(time.Hour)
-	second.URL = "https://github.com/harrisoncramer/weave/pull/2"
-	for _, params := range []UpsertParams{first, second} {
-		_, err := h.Upsert(ctx, params)
-		require.NoError(t, err)
-	}
-
-	listed, err := h.ListOnBranch(ctx, weave, "agent/x")
-	require.NoError(t, err)
-	require.Len(t, listed, 2)
-	assert.Equal(t, 2, listed[0].Number)
-	assert.Equal(t, 1, listed[1].Number)
-}
-
 // finishedPullRequest is openPullRequest merged an hour after it changed.
 func finishedPullRequest(providerID string, number int, branch string) UpsertParams {
 	params := openPullRequest(providerID, number, branch)

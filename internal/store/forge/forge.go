@@ -46,6 +46,7 @@ type CreateParams struct {
 	VerifiedAt time.Time
 }
 
+// Store reads and writes forge connections.
 type Store struct {
 	queries *models.Queries
 }

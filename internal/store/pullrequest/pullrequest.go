@@ -12,6 +12,7 @@ import (
 	"weave/internal/forge"
 	"weave/internal/store"
 	"weave/lib/xptr"
+	"weave/lib/xslice"
 )
 
 // PullRequest is one pull request as the forge last described it, owned by nobody.
@@ -145,6 +146,7 @@ type BranchScan struct {
 	CompletedAt *time.Time
 }
 
+// Store reads and writes pull requests, their observations and the sync rows.
 type Store struct {
 	queries *models.Queries
 }
@@ -203,22 +205,6 @@ func (s *Store) GetByIdentity(ctx context.Context, host, providerID string) (*Pu
 	return &pullRequest, nil
 }
 
-// ListOnBranch is every pull request opened from a branch of a repository, newest first by the
-// forge's creation time.
-func (s *Store) ListOnBranch(ctx context.Context, repositoryURL, branch string) ([]PullRequest, error) {
-	rows, err := s.queries.ListPullRequestsOnBranch(ctx, models.ListPullRequestsOnBranchParams{RepositoryUrl: repositoryURL, HeadBranch: branch})
-	if err != nil {
-		return nil, fmt.Errorf("failed to list pull requests on %s of %s: %w", branch, repositoryURL, err)
-	}
-
-	pullRequests := make([]PullRequest, 0, len(rows))
-	for _, row := range rows {
-		pullRequests = append(pullRequests, fromRow(row))
-	}
-
-	return pullRequests, nil
-}
-
 // ListForAgent is every pull request opened from an agent's branch in its repository, newest
 // opened first, on the same terms the agent's row is attributed by.
 func (s *Store) ListForAgent(ctx context.Context, agentID string) ([]PullRequest, error) {
@@ -231,12 +217,7 @@ func (s *Store) ListForAgent(ctx context.Context, agentID string) ([]PullRequest
 		return nil, fmt.Errorf("failed to list the pull requests of agent %q: %w", agentID, err)
 	}
 
-	pullRequests := make([]PullRequest, 0, len(rows))
-	for _, row := range rows {
-		pullRequests = append(pullRequests, fromRow(row))
-	}
-
-	return pullRequests, nil
+	return xslice.Map(rows, fromRow), nil
 }
 
 // ListStaleDecisions is every open pull request on a branch a live agent sits on in a
@@ -248,12 +229,7 @@ func (s *Store) ListStaleDecisions(ctx context.Context, repositoryURL string) ([
 		return nil, fmt.Errorf("failed to list the stale review decisions of %s: %w", repositoryURL, err)
 	}
 
-	pullRequests := make([]PullRequest, 0, len(rows))
-	for _, row := range rows {
-		pullRequests = append(pullRequests, fromRow(row))
-	}
-
-	return pullRequests, nil
+	return xslice.Map(rows, fromRow), nil
 }
 
 // SetReviewDecision records where the forge said a pull request's reviews stand, read for the
@@ -280,12 +256,9 @@ func (s *Store) ListCurrentPullRequests(ctx context.Context) ([]Current, error) 
 		return nil, fmt.Errorf("failed to list the current pull requests: %w", err)
 	}
 
-	current := make([]Current, 0, len(rows))
-	for _, row := range rows {
-		current = append(current, Current{AgentID: row.AgentID, PullRequest: fromRow(&row.PullRequest)})
-	}
-
-	return current, nil
+	return xslice.Map(rows, func(row *models.ListCurrentPullRequestsRow) Current {
+		return Current{AgentID: row.AgentID, PullRequest: fromRow(&row.PullRequest)}
+	}), nil
 }
 
 // ListReadRepositories is every repository whose first sweep has completed.
@@ -321,17 +294,14 @@ func (s *Store) ListObservations(ctx context.Context, agentID string) ([]Observa
 		return nil, fmt.Errorf("failed to list the pull requests agent %q was seen with: %w", agentID, err)
 	}
 
-	observations := make([]Observation, 0, len(rows))
-	for _, row := range rows {
-		observations = append(observations, Observation{
+	return xslice.Map(rows, func(row *models.AgentPullRequest) Observation {
+		return Observation{
 			AgentID:       row.AgentID,
 			PullRequestID: row.PullRequestID,
 			FirstSeenAt:   row.FirstSeenAt,
 			LastSeenAt:    row.LastSeenAt,
-		})
-	}
-
-	return observations, nil
+		}
+	}), nil
 }
 
 // ListLiveRepositories is every repository a live agent sits on.

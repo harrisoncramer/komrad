@@ -20,6 +20,7 @@ type Size struct {
 	Error string
 }
 
+// WorktreeStore reads and writes worktree sizes.
 type WorktreeStore struct {
 	queries *models.Queries
 }

@@ -122,17 +122,6 @@ WHERE
     host = @host
     AND provider_id = @provider_id;
 
--- name: ListPullRequestsOnBranch :many
-SELECT
-    *
-FROM
-    pull_requests
-WHERE
-    repository_url = @repository_url
-    AND head_branch = @head_branch
-ORDER BY
-    opened_at DESC;
-
 -- name: ObserveAgentPullRequests :execrows
 INSERT INTO agent_pull_requests(
     agent_id,
