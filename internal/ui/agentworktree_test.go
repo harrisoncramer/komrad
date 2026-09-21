@@ -553,7 +553,7 @@ func TestBlindTypingAfterAShrink(t *testing.T) {
 // alone would overrun the pane, where the record draws nothing rather than two bare rules.
 func TestGrownRecordWithNoRowDrawsNothing(t *testing.T) {
 	m := screensModel()
-	m.width, m.height, m.detailsHeight, m.helpExpanded = 40, 14, 2, true
+	m.width, m.height, m.detailsHeight, m.helpExpanded = 40, 17, 2, true
 
 	focused := pressMark(t, send(t, m, "ctrl+t"), "/", "a", "tab", "enter")
 	require.True(t, focused.details.focused)
