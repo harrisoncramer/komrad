@@ -644,9 +644,8 @@ func TestDelete(t *testing.T) {
 	require.ErrorIs(t, err, store.ErrNotFound, "deleted mail is gone, not just claimed")
 }
 
-// answered is what the notice to a reviewer says, which is that there is an answer to read and
-// nothing of the answer itself.
-const answered = "weave: worker answered your review, read the threads with list_review_threads"
+// answerNotice is what the notice to a reviewer says.
+const answerNotice = "weave: worker answered your review, read the threads with list_review_threads"
 
 type fixture struct {
 	*Store
@@ -736,7 +735,7 @@ func TestPendingNoticeOfKindIsTheOneWaiting(t *testing.T) {
 
 	stale, err := st.Send(ctx, SendParams{
 		ToAgentID:    recipient,
-		Body:         answered,
+		Body:         answerNotice,
 		Kind:         KindReviewActivity,
 		AboutAgentID: &author,
 		Deadline:     -time.Hour,
@@ -748,7 +747,7 @@ func TestPendingNoticeOfKindIsTheOneWaiting(t *testing.T) {
 
 	live, err := st.Send(ctx, SendParams{
 		ToAgentID:    recipient,
-		Body:         answered,
+		Body:         answerNotice,
 		Kind:         KindReviewActivity,
 		AboutAgentID: &author,
 		Deadline:     time.Hour,
