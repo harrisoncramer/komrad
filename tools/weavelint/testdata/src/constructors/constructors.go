@@ -28,7 +28,7 @@ type Server struct {
 	addr string
 }
 
-func NewServer(p ServerParams) *Server { // want "NewServer takes ServerParams, and a constructor's params struct is named NewServerParams"
+func NewServer(p ServerParams) *Server { // want "NewServer takes ServerParams: name it NewServerParams"
 	return &Server{addr: p.Addr}
 }
 
@@ -40,7 +40,7 @@ type NewPaneParams struct {
 	ID string
 }
 
-func NewPane(p NewPaneParams) *Pane { // want "NewPane is declared right after Pane, which is declared right after NewPaneParams"
+func NewPane(p NewPaneParams) *Pane { // want "NewPane is out of order: declare NewPaneParams, then Pane, then NewPane, one after another"
 	return &Pane{id: p.ID}
 }
 
@@ -54,13 +54,23 @@ type Syncer struct {
 
 type tick int
 
-func NewSyncer(p NewSyncerParams) *Syncer { // want "NewSyncer is declared right after Syncer, which is declared right after NewSyncerParams"
+func NewSyncer(p NewSyncerParams) *Syncer { // want "NewSyncer is out of order: declare NewSyncerParams, then Syncer, then NewSyncer, one after another"
 	return &Syncer{every: p.Every}
+}
+
+type NewLoggerParams struct {
+	Name string
+}
+
+type level int
+
+func NewLogger(p NewLoggerParams) func() string { // want "NewLogger is out of order: declare NewLoggerParams directly above NewLogger"
+	return func() string { return p.Name }
 }
 
 type Registry struct{}
 
-// NewAgentParams is a method's params, which follow the method rule rather than this one.
+// NewAgentParams is a method's params.
 type NewAgentParams struct {
 	Name string
 }
@@ -73,4 +83,7 @@ func NewRegistry() *Registry {
 	return &Registry{}
 }
 
-var _ tick
+var (
+	_ tick
+	_ level
+)

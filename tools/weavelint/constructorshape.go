@@ -62,13 +62,19 @@ func checkConstructors(pass *analysis.Pass, file *ast.File) {
 		typeName := strings.TrimPrefix(function.Name.Name, constructorPrefix)
 		want := function.Name.Name + paramsSuffix
 		if params != want {
-			pass.Reportf(function.Pos(), "%s takes %s, and a constructor's params struct is named %s", function.Name.Name, params, want)
+			pass.Reportf(function.Pos(), "%s takes %s: name it %s", function.Name.Name, params, want)
 
 			continue
 		}
 
-		if !isOrdered(file.Decls, index, typeName) {
-			pass.Reportf(function.Pos(), "%s is declared right after %s, which is declared right after %s", function.Name.Name, typeName, want)
+		if isOrdered(file.Decls, index, typeName, want) {
+			continue
+		}
+
+		if declaresType(file.Decls, typeName) {
+			pass.Reportf(function.Pos(), "%s is out of order: declare %s, then %s, then %s, one after another", function.Name.Name, want, typeName, function.Name.Name)
+		} else {
+			pass.Reportf(function.Pos(), "%s is out of order: declare %s directly above %s", function.Name.Name, want, function.Name.Name)
 		}
 	}
 }
@@ -86,8 +92,7 @@ func paramsArgument(function *ast.FuncDecl) string {
 }
 
 // isOrdered says whether the declarations before a constructor are its params and then its type.
-func isOrdered(decls []ast.Decl, index int, typeName string) bool {
-	params := "New" + typeName + paramsSuffix
+func isOrdered(decls []ast.Decl, index int, typeName, params string) bool {
 	if declaresType(decls, typeName) {
 		return index >= 2 && isTypeDecl(decls[index-1], typeName) && isTypeDecl(decls[index-2], params)
 	}
