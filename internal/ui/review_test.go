@@ -453,6 +453,28 @@ func TestReviewCursorRedrawsInPlace(t *testing.T) {
 	assert.Equal(t, m.height, reviewFrameRows(t, m))
 }
 
+// TestReviewScrollKeysMoveTheCursorAWheelTurn pins the column scroll keys on the diff, which is
+// what the mouse wheel over the panel presses.
+func TestReviewScrollKeysMoveTheCursorAWheelTurn(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	before := m.review.diff.cursor
+
+	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlN})
+	m = next.(model)
+
+	down := m.review.diff.cursor
+	require.Greater(t, down, before)
+	assert.LessOrEqual(t, down-before, reviewWheelStep, "a turn is a few rows, not a page")
+
+	next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlP})
+	m = next.(model)
+
+	assert.Equal(t, before, m.review.diff.cursor, "the other key turns it back")
+}
+
 func reviewFrameText(t *testing.T, m model) string {
 	t.Helper()
 
@@ -830,6 +852,35 @@ func TestReviewThreadFocusIsRefusedWithoutAThread(t *testing.T) {
 
 	assert.False(t, m.review.isThreadFocused(m.shared()))
 	assert.NotEmpty(t, m.review.notice)
+}
+
+// TestReviewScrollKeysMoveTheThreadWhileItHoldsTheKeys pins the wheel reading further up a
+// conversation rather than dropping the reader back onto the diff.
+func TestReviewScrollKeysMoveTheThreadWhileItHoldsTheKeys(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1", threads: reviewLongThread(t, m)})
+	m.height = 14
+
+	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlF})
+	m = next.(model)
+	require.True(t, m.review.isThreadFocused(m.shared()))
+
+	cursor := m.review.diff.cursor
+
+	next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlP})
+	m = next.(model)
+
+	assert.True(t, m.review.isThreadFocused(m.shared()), "the conversation keeps the keys")
+	assert.Equal(t, reviewWheelStep, m.review.threads.scroll)
+	assert.Equal(t, cursor, m.review.diff.cursor, "and the diff did not move")
+
+	next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlN})
+	m = next.(model)
+
+	assert.Zero(t, m.review.threads.scroll)
 }
 
 // TestReviewThreadCursorMoveDropsTheScroll covers the window being counted from the end of one

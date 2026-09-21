@@ -102,7 +102,7 @@ func TestIsClientAtPaneWithSomebodyWhoHasStoppedTyping(t *testing.T) {
 
 // attachClient puts a real client on a session of the server under test, running it in a pane of
 // a second server of its own.
-func attachClient(t *testing.T, client *Client, session string) {
+func attachClient(t *testing.T, client *Client, session string) *Client {
 	t.Helper()
 
 	socket := client.server[1]
@@ -121,4 +121,6 @@ func attachClient(t *testing.T, client *Client, session string) {
 
 		return err == nil && listed != ""
 	}, 5*time.Second, 20*time.Millisecond, "no client ever attached to the server under test")
+
+	return outer
 }

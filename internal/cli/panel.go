@@ -59,6 +59,11 @@ Use ` + "`weave open`" + ` to bring the panel up.`,
 					"a key the panel is bound to stays with tmux", logging.Err(err)...)
 			}
 
+			if err := state.tmux.TakePanelWheel(firstKey(state.keys.Column.ScrollUp), firstKey(state.keys.Column.ScrollDown)); err != nil {
+				logging.From(cmd.Context()).LogAttrs(cmd.Context(), slog.LevelWarn,
+					"the mouse wheel stays with tmux over the panel", logging.Err(err)...)
+			}
+
 			remote := state.engine()
 			addr := state.env.Addr
 
@@ -168,4 +173,12 @@ func reviewGit(remote engine.Remote) ui.ReviewGit {
 	}
 
 	return git.NewClient()
+}
+
+func firstKey(keys []string) string {
+	if len(keys) == 0 {
+		return ""
+	}
+
+	return keys[0]
 }
