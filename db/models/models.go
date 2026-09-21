@@ -314,9 +314,8 @@ type AgentTranscriptChunk struct {
 	Role          string
 	Content       string
 	ContentOffset int64
-	Tsv           interface{}
 	SessionID     string
-	TsvSimple     interface{}
+	Tsv           interface{}
 }
 
 // One conversation an agent has held, holding how far its log has been copied into the store.

@@ -290,15 +290,7 @@ table "agent_transcript_chunks" {
     null = false
     type = sql("tsvector")
     as {
-      expr = "to_tsvector('english', content)"
-      type = STORED
-    }
-  }
-  column "tsv_simple" {
-    null = false
-    type = sql("tsvector")
-    as {
-      expr = "to_tsvector('simple', content)"
+      expr = "to_tsvector('english_nostop', content)"
       type = STORED
     }
   }
@@ -323,10 +315,6 @@ table "agent_transcript_chunks" {
   index "agent_transcript_chunks_tsv" {
     type    = GIN
     columns = [column.tsv]
-  }
-  index "agent_transcript_chunks_tsv_simple" {
-    type    = GIN
-    columns = [column.tsv_simple]
   }
   index "agent_transcript_chunks_content_trgm" {
     type = GIN

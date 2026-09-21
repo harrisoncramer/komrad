@@ -1130,53 +1130,9 @@ VALUES (
 -- name: SearchTranscripts :many
 WITH q AS (
     SELECT
-        PLAINTO_TSQUERY('english', ARRAY_TO_STRING(@terms::text[], ' ')) AS words,
-        PLAINTO_TSQUERY('simple', ARRAY_TO_STRING(@terms::text[], ' ')) AS words_simple,
-        ARRAY (
-            SELECT
-                PHRASETO_TSQUERY('english', w)
-            FROM
-                UNNEST(@words::text[]) w
-            WHERE
-                PHRASETO_TSQUERY('english', w) <> '') AS required,
-            ARRAY (
-                SELECT
-                    PHRASETO_TSQUERY('simple', w)
-                FROM
-                    UNNEST(@words::text[]) w
-                WHERE
-                    PHRASETO_TSQUERY('english', w) = ''
-                    AND PHRASETO_TSQUERY('simple', w) <> ''
-                UNION ALL
-                SELECT
-                    PHRASETO_TSQUERY('simple', p)
-                FROM
-                    UNNEST(@phrases::text[]) p
-                WHERE
-                    PHRASETO_TSQUERY('simple', p) <> '') AS required_simple,
-                ARRAY (
-                    SELECT
-                        PHRASETO_TSQUERY('english', e)
-                    FROM
-                        UNNEST(@excluded::text[]) e
-                    WHERE
-                        PHRASETO_TSQUERY('english', e) <> '') AS forbidden,
-                    ARRAY (
-                        SELECT
-                            PHRASETO_TSQUERY('simple', e)
-                        FROM
-                            UNNEST(@excluded::text[]) e
-                        WHERE
-                            PHRASETO_TSQUERY('english', e) = ''
-                            AND PHRASETO_TSQUERY('simple', e) <> ''
-                        UNION ALL
-                        SELECT
-                            PHRASETO_TSQUERY('simple', p)
-                        FROM
-                            UNNEST(@excluded_phrases::text[]) p
-                        WHERE
-                            PHRASETO_TSQUERY('simple', p) <> '') AS forbidden_simple,
-                        sqlc.narg('phrase')::text AS phrase
+        WEBSEARCH_TO_TSQUERY('english_nostop', @wanted::text) AS wanted,
+        WEBSEARCH_TO_TSQUERY('english_nostop', @excluded::text) AS unwanted,
+        sqlc.narg('phrase')::text AS phrase
 ),
 ranked AS (
     SELECT
@@ -1187,26 +1143,15 @@ ranked AS (
         OCTET_LENGTH(c.content) AS content_length,
         a.name,
         a.archived_at IS NOT NULL AS archived,
-        CASE WHEN q.words <> '' THEN
-            TS_HEADLINE('english', c.content, q.words, @headline)
-        ELSE
-            TS_HEADLINE('simple', c.content, q.words_simple, @headline)
-        END AS snippet,
-        CASE WHEN q.words <> '' THEN
-            TS_RANK_CD(c.tsv, q.words, 2)
-        ELSE
-            TS_RANK_CD(c.tsv_simple, q.words_simple, 2)
-        END + COALESCE((c.content ~* q.phrase)::int, 0) AS rank
+        TS_HEADLINE('english_nostop', c.content, q.wanted, @headline) AS snippet,
+        TS_RANK_CD(c.tsv, q.wanted, 2) + COALESCE((c.content ~* q.phrase)::int, 0) AS rank
     FROM
         agent_transcript_chunks c
         CROSS JOIN q
         JOIN agents a ON a.id = c.agent_id
     WHERE
-        CARDINALITY(q.required) + CARDINALITY(q.required_simple) > 0
-        AND c.tsv @@ ALL (q.required)
-        AND c.tsv_simple @@ ALL (q.required_simple)
-        AND NOT (c.tsv @@ ANY (q.forbidden))
-        AND NOT (c.tsv_simple @@ ANY (q.forbidden_simple))
+        q.wanted <> ''
+        AND c.tsv @@(q.wanted && q.unwanted)
         AND (sqlc.narg('agent_id')::uuid IS NULL
             OR c.agent_id = sqlc.narg('agent_id')))
 SELECT
@@ -1238,50 +1183,8 @@ WITH q AS (
     SELECT
         @terms::text[] AS terms,
         @patterns::text[] AS patterns,
-        ARRAY (
-            SELECT
-                PHRASETO_TSQUERY('english', w)
-            FROM
-                UNNEST(@words::text[]) w
-            WHERE
-                PHRASETO_TSQUERY('english', w) <> '') AS required,
-        ARRAY (
-            SELECT
-                PHRASETO_TSQUERY('simple', w)
-            FROM
-                UNNEST(@words::text[]) w
-            WHERE
-                PHRASETO_TSQUERY('english', w) = ''
-                AND PHRASETO_TSQUERY('simple', w) <> ''
-            UNION ALL
-            SELECT
-                PHRASETO_TSQUERY('simple', p)
-            FROM
-                UNNEST(@phrases::text[]) p
-            WHERE
-                PHRASETO_TSQUERY('simple', p) <> '') AS required_simple,
-        ARRAY (
-            SELECT
-                PHRASETO_TSQUERY('english', e)
-            FROM
-                UNNEST(@excluded::text[]) e
-            WHERE
-                PHRASETO_TSQUERY('english', e) <> '') AS forbidden,
-        ARRAY (
-            SELECT
-                PHRASETO_TSQUERY('simple', e)
-            FROM
-                UNNEST(@excluded::text[]) e
-            WHERE
-                PHRASETO_TSQUERY('english', e) = ''
-                AND PHRASETO_TSQUERY('simple', e) <> ''
-            UNION ALL
-            SELECT
-                PHRASETO_TSQUERY('simple', p)
-            FROM
-                UNNEST(@excluded_phrases::text[]) p
-            WHERE
-                PHRASETO_TSQUERY('simple', p) <> '') AS forbidden_simple
+        WEBSEARCH_TO_TSQUERY('english_nostop', @wanted::text) AS wanted,
+        WEBSEARCH_TO_TSQUERY('english_nostop', @excluded::text) AS unwanted
 ),
 ranked AS (
     SELECT
@@ -1307,11 +1210,10 @@ ranked AS (
     WHERE
         CARDINALITY(q.terms) > 0
         AND c.content ILIKE ALL (q.patterns)
-        AND NOT (CARDINALITY(q.required) + CARDINALITY(q.required_simple) > 0
-            AND c.tsv @@ ALL (q.required)
-            AND c.tsv_simple @@ ALL (q.required_simple))
-        AND NOT (c.tsv @@ ANY (q.forbidden))
-        AND NOT (c.tsv_simple @@ ANY (q.forbidden_simple))
+        AND NOT (q.wanted <> ''
+            AND c.tsv @@ q.wanted)
+        AND (q.unwanted = ''
+            OR c.tsv @@ q.unwanted)
         AND (sqlc.narg('agent_id')::uuid IS NULL
             OR c.agent_id = sqlc.narg('agent_id')))
 SELECT

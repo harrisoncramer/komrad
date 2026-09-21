@@ -25,7 +25,7 @@ const (
 
 type SearchTranscriptsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The words to look for, matched whole and stemmed, with a quoted phrase required verbatim and
+	// The words to look for, matched whole and stemmed, with a quoted phrase required in that order and
 	// a leading minus excluding a word.
 	Query string `protobuf:"bytes,1,opt,name=query,proto3" json:"query,omitempty"`
 	// Where to carry on from, since one page of matches and one page of near misses advance

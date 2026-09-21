@@ -315,9 +315,11 @@ func (s *Store) Search(ctx context.Context, params SearchParams) (Results, error
 	query := strings.ReplaceAll(params.Query, "\x00", "")
 
 	terms := splitTerms(query)
-	if len(terms.positive) == 0 {
+	if len(terms.wanted) == 0 {
 		return Results{}, nil
 	}
+
+	wanted, excluded := quoteTerms(terms.wanted, ""), quoteTerms(terms.excluded, "-")
 
 	if params.AgentID != nil && !store.IsID(*params.AgentID) {
 		return Results{}, nil
@@ -341,18 +343,15 @@ func (s *Store) Search(ctx context.Context, params SearchParams) (Results, error
 	matchesRan := first || matchesAt != nil
 	if matchesRan {
 		rows, err := s.queries.SearchTranscripts(ctx, models.SearchTranscriptsParams{
-			Terms:           terms.positive,
-			Words:           terms.words,
-			Phrases:         terms.phrases,
-			Excluded:        terms.negative,
-			ExcludedPhrases: terms.negativePhrases,
-			Phrase:          phrasePattern(terms.positive),
-			Headline:        headlineOptions,
-			Lim:             int32(limit),
-			AgentID:         params.AgentID,
-			CursorRank:      rankOf(matchesAt),
-			CursorAgentID:   agentOf(matchesAt),
-			CursorSeq:       seqOf(matchesAt),
+			Wanted:        wanted,
+			Excluded:      excluded,
+			Phrase:        phrasePattern(terms.wanted),
+			Headline:      headlineOptions,
+			Lim:           int32(limit),
+			AgentID:       params.AgentID,
+			CursorRank:    rankOf(matchesAt),
+			CursorAgentID: agentOf(matchesAt),
+			CursorSeq:     seqOf(matchesAt),
 		})
 		if err != nil {
 			return Results{}, fmt.Errorf("failed to search transcripts for %q: %w", query, err)
@@ -373,22 +372,20 @@ func (s *Store) Search(ctx context.Context, params SearchParams) (Results, error
 		})
 	}
 
-	nearStarts := matchesRan && int64(len(results.Matches)) < limit && hasNearTerms(terms.positive)
+	nearStarts := matchesRan && int64(len(results.Matches)) < limit && hasNearTerms(terms.wanted)
 	if nearAt != nil || nearStarts {
 		rows, err := s.queries.SearchTranscriptsNear(ctx, models.SearchTranscriptsNearParams{
-			Terms:           terms.positive,
-			Words:           terms.words,
-			Phrases:         terms.phrases,
-			Patterns:        likePatterns(terms.positive),
-			Excluded:        terms.negative,
-			ExcludedPhrases: terms.negativePhrases,
-			Lead:            snippetLead,
-			Width:           snippetWidth,
-			Lim:             int32(limit),
-			AgentID:         params.AgentID,
-			CursorRank:      rankOf(nearAt),
-			CursorAgentID:   agentOf(nearAt),
-			CursorSeq:       seqOf(nearAt),
+			Terms:         terms.wanted,
+			Patterns:      likePatterns(terms.wanted),
+			Wanted:        wanted,
+			Excluded:      excluded,
+			Lead:          snippetLead,
+			Width:         snippetWidth,
+			Lim:           int32(limit),
+			AgentID:       params.AgentID,
+			CursorRank:    rankOf(nearAt),
+			CursorAgentID: agentOf(nearAt),
+			CursorSeq:     seqOf(nearAt),
 		})
 		if err != nil {
 			return Results{}, fmt.Errorf("failed to search transcripts near %q: %w", query, err)
@@ -403,7 +400,7 @@ func (s *Store) Search(ctx context.Context, params SearchParams) (Results, error
 				Role:          row.Role,
 				ContentOffset: row.ContentOffset,
 				ContentLength: int64(row.ContentLength),
-				Snippet:       markMatches(row.Snippet, terms.positive),
+				Snippet:       markMatches(row.Snippet, terms.wanted),
 				Rank:          row.Rank,
 			}
 		})
@@ -466,11 +463,8 @@ func seqOf(p *Position) *int32 {
 }
 
 type queryTerms struct {
-	positive        []string
-	words           []string
-	phrases         []string
-	negative        []string
-	negativePhrases []string
+	wanted   []string
+	excluded []string
 }
 
 // splitTerms reads a query as the words it is looking for, quoted or not, and the words it
@@ -480,35 +474,27 @@ func splitTerms(query string) queryTerms {
 		terms   queryTerms
 		text    strings.Builder
 		quoted  bool
-		phrase  bool
 		minuses int
 	)
 
 	flush := func() {
-		term, leading, asPhrase := text.String(), minuses, phrase
+		term, leading := text.String(), minuses
 		text.Reset()
-		quoted, phrase, minuses = false, false, 0
+		quoted, minuses = false, 0
 
 		switch {
 		case term == "":
-		case leading == 1 && asPhrase:
-			terms.negativePhrases = append(terms.negativePhrases, term)
 		case leading == 1:
-			terms.negative = append(terms.negative, term)
-		case asPhrase:
-			terms.positive = append(terms.positive, term)
-			terms.phrases = append(terms.phrases, term)
+			terms.excluded = append(terms.excluded, term)
 		default:
 			// Only a single minus excludes, so a flag name stays the word it looks like.
-			term = strings.Repeat("-", leading) + term
-			terms.positive = append(terms.positive, term)
-			terms.words = append(terms.words, term)
+			terms.wanted = append(terms.wanted, strings.Repeat("-", leading)+term)
 		}
 	}
 	for _, r := range query {
 		switch {
 		case r == '"':
-			quoted, phrase = !quoted, true
+			quoted = !quoted
 		case unicode.IsSpace(r) && !quoted:
 			flush()
 		case r == '-' && !quoted && text.Len() == 0:
@@ -520,6 +506,14 @@ func splitTerms(query string) queryTerms {
 	flush()
 
 	return terms
+}
+
+func quoteTerms(terms []string, prefix string) string {
+	quoted := xslice.Map(terms, func(term string) string {
+		return prefix + `"` + term + `"`
+	})
+
+	return strings.Join(quoted, " ")
 }
 
 func hasNearTerms(terms []string) bool {
