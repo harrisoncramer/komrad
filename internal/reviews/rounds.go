@@ -619,8 +619,7 @@ func (s *ReviewService) GetReview(ctx context.Context, reviewID string, author R
 		return nil, err
 	}
 
-	// An unreleased review is not found before it is refused, so a bare id does not tell a
-	// stranger whose draft it names.
+	// An unreleased review is not found before it is refused.
 	if review.ReleasedAt == nil && !author.IsHuman() && !doesOwnReviewBatch(author, *review) {
 		return nil, fmt.Errorf("%w: %q", ErrReviewNotFound, reviewID)
 	}
