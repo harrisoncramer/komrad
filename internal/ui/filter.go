@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"weave/internal/ui/paint"
-	"weave/lib/xslice"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -14,8 +13,7 @@ import (
 // filterOpenKey opens the filter on every screen that draws one.
 const filterOpenKey = "/"
 
-// filterMode is what a pattern does to the rows it does not match: search leaves them where
-// they are and lights the ones it does, filter takes them off the screen.
+// filterMode is what a pattern does to the rows it does not match.
 type filterMode int
 
 const (
@@ -128,8 +126,7 @@ func writeStyled(b *strings.Builder, style lipgloss.Style, segment string) {
 	b.WriteString(style.Render(segment))
 }
 
-// filterTarget is the search a key reaches: the record's while the record holds the keys, the
-// list's otherwise.
+// filterTarget is the search a key reaches.
 type filterTarget struct {
 	state *filterState
 	spec  *filterSpec
@@ -149,8 +146,7 @@ func (m model) openFilter() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// beginFilter starts a search from nothing, keeping the cursor on the row it was on as the rows
-// the last query hid come back.
+// beginFilter starts a search from nothing, keeping the cursor on the row it was on.
 func (m *model) beginFilter() {
 	origin := m.hoveredFilterKey()
 
@@ -182,8 +178,8 @@ func (m *model) enterScreen(next screen) {
 	m.reconcileSolo()
 }
 
-// takeKey applies one keypress to a search being typed at, and reports whether the keypress was
-// one of the search's.
+// takeKey applies one keypress to a search being typed at, and reports whether it was one of
+// the search's.
 func (f *filterState) takeKey(key tea.KeyMsg) bool {
 	switch k := key.String(); {
 	case k == "esc":
@@ -203,8 +199,7 @@ func (f *filterState) takeKey(key tea.KeyMsg) bool {
 	return true
 }
 
-// abandon drops the search and the row it was going to leave you on, which makes escape the way
-// back out rather than a way of keeping what you typed.
+// abandon drops the search and the row it was going to leave you on.
 func (f *filterState) abandon() {
 	f.typing = false
 	f.mode = filterModeSearch
@@ -273,12 +268,6 @@ func (m *model) placeFilteredCursor(hovered string) {
 	}
 }
 
-func filterRows(rows []agentRow) []filterRow {
-	return xslice.Map(rows, func(row agentRow) filterRow {
-		return filterRow{key: rowKey(row), name: agentRowName(row)}
-	})
-}
-
 // agentRowName is the text a search reads a row of the tree by: the workflow's own name on a
 // header, the agent's on a row.
 func agentRowName(row agentRow) string {
@@ -309,8 +298,8 @@ type narrowedParams[T any] struct {
 	name  func(T) string
 }
 
-// narrowed is the rows a filter leaves on screen: each one the pattern matches, the rows above
-// it, and the rows under it.
+// narrowed is the rows a filter leaves on screen: each match, the rows above it and the rows
+// under it.
 func narrowed[T any](filter filterState, params narrowedParams[T]) []T {
 	if !filter.isNarrowing() {
 		return params.rows
@@ -390,8 +379,7 @@ func (f filterState) line(palette paint.Palette) string {
 	return line
 }
 
-// matchAt is the row a search lands on, counted from the row given: zero is the first match at
-// or after it, and a step walks the matches from there, wrapping at either end.
+// matchAt is the row a search lands on, counted from the row given and wrapping at either end.
 func (m model) matchAt(from string, delta int) (string, bool) {
 	target := m.filterTarget()
 	spec, filter := target.spec, target.state
@@ -440,8 +428,7 @@ func (m model) jumpFilterMatch(pressed string) (tea.Model, tea.Cmd) {
 	return m.jumpMatch(1)
 }
 
-// jumpMatch walks the cursor to the next row the search matches, and answers only while a search
-// stands.
+// jumpMatch walks the cursor to the next row the search matches.
 func (m model) jumpMatch(delta int) (tea.Model, tea.Cmd) {
 	next, ok := m.matchAt(m.hoveredFilterKey(), delta)
 	if !ok {

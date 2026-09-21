@@ -23,8 +23,7 @@ type worktreeRow struct {
 	item worktreeItem
 }
 
-// worktreesDropped are the two columns the worktrees list gives up: the verdict rides the live
-// listing's tally and nothing fills the forge.
+// worktreesDropped are the two columns the worktrees list gives up.
 var worktreesDropped = view.Columns{
 	Review: true,
 	Forge:  true,
@@ -49,8 +48,7 @@ func treeRowKey(dir string) string {
 	return "tree:" + dir
 }
 
-// name is what the row is listed as: the agent's name when one answers, the branch when none
-// does, and the directory's own name when it has neither.
+// name is what the row is listed as.
 func (r worktreeRow) name() string {
 	switch {
 	case r.header:
@@ -86,8 +84,7 @@ var worktreeSorts = []sortColumn[worktreeItem]{
 	},
 }
 
-// worktreeRows groups the listing under its repositories in path order, each group holding
-// its directories in the order given, the directory name settling a tie.
+// worktreeRows groups the listing under its repositories in path order.
 func worktreeRows(items []worktreeItem, order sortOrder) []worktreeRow {
 	byRepo := map[string][]worktreeItem{}
 	for _, item := range items {
@@ -161,8 +158,7 @@ func repoHeading(item worktreeItem) string {
 	return item.repoDir
 }
 
-// worktreeRefs is the worktrees list as the selection sees it, each row grouped under its
-// repository.
+// worktreeRefs is the worktrees list as the selection sees it.
 func worktreeRefs(rows []worktreeRow) []rowRef {
 	return xslice.Map(rows, func(row worktreeRow) rowRef {
 		return rowRef{
@@ -192,13 +188,6 @@ func rowIndexOfWorktreeAgent(rows []worktreeRow, id string) int {
 	}
 
 	return -1
-}
-
-// worktreeFilterRows is the list's own rows with the name a search reads each by.
-func worktreeFilterRows(rows []worktreeRow) []filterRow {
-	return xslice.Map(rows, func(row worktreeRow) filterRow {
-		return filterRow{key: row.key(), name: row.name()}
-	})
 }
 
 // worktreesSnapshotParams is what the panel holds about the worktrees list, as plain data.
@@ -259,8 +248,7 @@ func worktreesSnapshot(params worktreesSnapshotParams) view.Snapshot {
 	}
 }
 
-// worktreeAgentFacts is what a row says about the agent behind it, read off the agents listing
-// where it holds the agent and off the worktree listing where it does not yet.
+// worktreeAgentFacts is what a row says about the agent behind it.
 func worktreeAgentFacts(row view.Row, agent worktreeAgent, live map[string]agentItem) view.Row {
 	item, ok := live[agent.id]
 	if !ok {
@@ -283,7 +271,7 @@ func repoStanding(item worktreeItem) view.Repo {
 	return view.RepoClean
 }
 
-// rowTrail is a directory's size then its age, the size a dash until it has been measured.
+// rowTrail is a directory's size then its age.
 func rowTrail(item worktreeItem, now time.Time) string {
 	return view.Trail(sizeLabel(item), label.AgeAt(item.lastActiveAt, now))
 }
@@ -293,8 +281,7 @@ func groupTrail(items []worktreeItem, repo string) string {
 	return view.Trail(totalLabel(itemsUnder(items, repo)), "")
 }
 
-// sizeLabel is what a directory takes, a dash until it has been measured or while its last
-// walk failed.
+// sizeLabel is what a directory takes, or a dash while it is unmeasured.
 func sizeLabel(item worktreeItem) string {
 	if !item.isMeasured() {
 		return label.Dash
@@ -303,7 +290,7 @@ func sizeLabel(item worktreeItem) string {
 	return label.Bytes(item.size.bytes)
 }
 
-// totalLabel is what the measured directories take together, a dash while none is.
+// totalLabel is what the measured directories take together.
 func totalLabel(items []worktreeItem) string {
 	var total int64
 	measured := false

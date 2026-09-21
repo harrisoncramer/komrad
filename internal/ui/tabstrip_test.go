@@ -158,7 +158,7 @@ func sortedWorktreesModel() model {
 // has the keys, and escape handing them back with the choice kept.
 func TestTabsFocusTakesTheKeys(t *testing.T) {
 	m := sortedWorktreesModel()
-	require.Equal(t, "tree:/trees/live", m.hoveredWorktreeKey())
+	require.Equal(t, "tree:/trees/live", worktreesList().hovered(m))
 	before := xslice.Map(m.worktreeRows(), worktreeRow.key)
 
 	focused := send(t, m, "f")
@@ -169,12 +169,12 @@ func TestTabsFocusTakesTheKeys(t *testing.T) {
 	assert.Equal(t, "last-accessed", tabbed.worktrees.sort.chosen)
 	assert.Equal(t, tabDown, tabbed.worktrees.sort.direction)
 	assert.NotEqual(t, before, xslice.Map(tabbed.worktreeRows(), worktreeRow.key), "the rows take the order the tab names")
-	assert.Equal(t, "tree:/trees/live", tabbed.hoveredWorktreeKey(), "the cursor stays on its row")
+	assert.Equal(t, "tree:/trees/live", worktreesList().hovered(tabbed), "the cursor stays on its row")
 	assert.Equal(t, 3, tabbed.worktrees.cursor, "at the index the row moved to")
 
 	turned := send(t, tabbed, "k")
 	assert.Equal(t, tabUp, turned.worktrees.sort.direction)
-	assert.Equal(t, "tree:/trees/live", turned.hoveredWorktreeKey(), "the cursor follows its row as the arrow turns")
+	assert.Equal(t, "tree:/trees/live", worktreesList().hovered(turned), "the cursor follows its row as the arrow turns")
 	assert.Equal(t, 5, turned.worktrees.cursor)
 
 	turned = send(t, turned, "j")
@@ -192,7 +192,7 @@ func TestTabsFocusTakesTheKeys(t *testing.T) {
 
 	moved := send(t, back, "j")
 	assert.Equal(t, 4, moved.worktrees.cursor, "the list has the keys again")
-	assert.Equal(t, "tree:/trees/orphan", moved.hoveredWorktreeKey())
+	assert.Equal(t, "tree:/trees/orphan", worktreesList().hovered(moved))
 }
 
 // TestEscapeLeavesTheTabsAndKeepsTheSort covers escape handing the keys back with the chosen
@@ -212,7 +212,7 @@ func TestEscapeLeavesTheTabsAndKeepsTheSort(t *testing.T) {
 	assert.Equal(t, tabsState{chosen: "last-accessed", direction: tabUp}, left.worktrees.sort)
 	assert.Equal(t, order, xslice.Map(left.worktreeRows(), worktreeRow.key), "the rows keep the order the strip named")
 	assert.Equal(t, screenWorktrees, left.screen, "the press is spent on the strip rather than on the screen's back key")
-	assert.Equal(t, "tree:/trees/live", left.hoveredWorktreeKey(), "the cursor stays on its row")
+	assert.Equal(t, "tree:/trees/live", worktreesList().hovered(left), "the cursor stays on its row")
 	assert.Equal(t, 5, left.worktrees.cursor)
 }
 
@@ -242,14 +242,14 @@ func TestTabsLegendWhileTheStripHoldsTheKeys(t *testing.T) {
 	assert.Contains(t, list, "f")
 
 	focused := send(t, m, "f")
-	legend := focused.renderHelp(focused.worktreesHelp(), focused.worktreesHeader())
+	legend := focused.renderHelp(focused.worktreesHelp(), worktreesChrome().header(focused))
 	assert.Contains(t, legend, "column")
 	assert.Contains(t, legend, "direction")
 	assert.Contains(t, legend, "back to the list")
 	assert.NotContains(t, legend, "jump to agent")
 
 	focused.helpExpanded = true
-	expanded := focused.renderHelp(focused.worktreesHelp(), focused.worktreesHeader())
+	expanded := focused.renderHelp(focused.worktreesHelp(), worktreesChrome().header(focused))
 	assert.Contains(t, expanded, "tab/S-tab")
 	assert.Contains(t, expanded, "hide help")
 }
@@ -261,7 +261,7 @@ func TestTabsStandDownOnAShortPane(t *testing.T) {
 	m.screen = screenWorktrees
 
 	m.height = 6
-	require.NotContains(t, m.worktreesHeader(), "↑↓", "the strip gives up its row")
+	require.NotContains(t, worktreesChrome().header(m), "↑↓", "the strip gives up its row")
 	assert.Contains(t, m.View(), "agent39", "to the row the cursor stands on")
 
 	refused := send(t, m, "f")
@@ -272,7 +272,7 @@ func TestTabsStandDownOnAShortPane(t *testing.T) {
 	assert.False(t, refused.isTabsFocused(), "and the refused press does not wake once the pane grows")
 
 	m.height = 7
-	require.Contains(t, m.worktreesHeader(), "↑↓", "the strip is drawn once the list keeps a row beside it")
+	require.Contains(t, worktreesChrome().header(m), "↑↓", "the strip is drawn once the list keeps a row beside it")
 	assert.Contains(t, m.View(), "agent39")
 	assert.Len(t, lines(m.View()), 7)
 
@@ -293,8 +293,8 @@ func TestTabsTakeOneRowOffTheList(t *testing.T) {
 	m := screensModel()
 	m.screen, m.height = screenWorktrees, 30
 
-	with := m.listLines(m.worktreesHeader(), m.renderHelp(m.worktreesHelp(), m.worktreesHeader()))
-	without := m.listLines(m.talliedHeader("Worktrees", m.worktreesTally()), m.renderHelp(m.worktreesHelp(), m.worktreesHeader()))
+	with := m.listLines(worktreesChrome().header(m), m.renderHelp(m.worktreesHelp(), worktreesChrome().header(m)))
+	without := m.listLines(m.talliedHeader("Worktrees", m.worktreesTally()), m.renderHelp(m.worktreesHelp(), worktreesChrome().header(m)))
 
 	assert.Equal(t, without-1, with)
 }
@@ -304,7 +304,7 @@ func TestTabsTakeOneRowOffTheList(t *testing.T) {
 func TestTabsSitUnderTheFilterLine(t *testing.T) {
 	m := sortedWorktreesModel()
 
-	header := strings.Split(strings.TrimSuffix(m.worktreesHeader(), "\n"), "\n")
+	header := strings.Split(strings.TrimSuffix(worktreesChrome().header(m), "\n"), "\n")
 
 	require.Len(t, header, 5)
 	assert.Contains(t, header[2], "/")

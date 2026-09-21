@@ -397,23 +397,6 @@ func (m *model) applyMarks(onAgents, onWorkflows map[string]string) {
 	m.listing.marks = marks
 }
 
-// agentFilterRows is every row of the tree with the name a search reads it by: the workflow's
-// own name on a header, the agent's on a row.
-func (m model) agentFilterRows() []filterRow {
-	return filterRows(m.agentRows())
-}
-
-// hoveredAgentKey is the row the cursor is on, read before a search moves it to a match.
-func (m model) hoveredAgentKey() string {
-	return rowKeyAt(m.agentRows(), m.tree.cursor)
-}
-
-func (m *model) placeAgentCursor(hovered string) {
-	rows := m.agentRows()
-	m.tree.cursor = placeCursor(rowIndexOfKey(rows, hovered), m.tree.cursor, len(rows))
-	m.stageSelection()
-}
-
 func (m *model) placeTreeCursor(selected string) {
 	focus := m.tree.focus
 	m.tree.focus = ""

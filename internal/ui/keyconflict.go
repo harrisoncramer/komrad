@@ -49,7 +49,7 @@ func screenActions(s screen) (actionSpec, bool) {
 	case screenWorktrees:
 		return worktreesActions(), true
 	case screenSearch:
-		return actionSpec{}, false
+		return searchActions(), true
 	}
 
 	return actionSpec{}, false
@@ -57,7 +57,7 @@ func screenActions(s screen) (actionSpec, bool) {
 
 // ValidateKeybindings rejects the bindings a screen could not dispatch.
 func ValidateKeybindings(keys config.Keybindings) error {
-	for _, s := range []screen{screenAgents, screenSchedules, screenArchive, screenReview, screenWorktrees} {
+	for _, s := range []screen{screenAgents, screenSchedules, screenArchive, screenReview, screenWorktrees, screenSearch} {
 		if err := validateScreenKeys(s, keys); err != nil {
 			return err
 		}

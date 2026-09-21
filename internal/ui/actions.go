@@ -45,6 +45,8 @@ const (
 	actionAgentNew
 	actionAgentRetry
 	actionAgentSearch
+	actionSearchOpen
+	actionSearchEdit
 	actionWorkflowNew
 	actionWorkflowAdopt
 	actionWorkflowRename

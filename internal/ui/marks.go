@@ -185,7 +185,7 @@ func (m model) jumpToRow(key string) (model, tea.Cmd, bool) {
 
 	revealed.marks.origin = origin
 
-	next, cmd := revealed.jumpCursor(idx)
+	next, cmd := agentsList().jump(revealed, idx)
 
 	return next, cmd, true
 }

@@ -337,7 +337,7 @@ func TestOpenWorktreesThroughAFilter(t *testing.T) {
 
 	assert.Equal(t, screenWorktrees, opened.screen)
 	assert.False(t, opened.filter.isStanding(), "the filter stays on the screen it was typed on")
-	assert.Equal(t, "tree:/trees/archived", opened.hoveredWorktreeKey())
+	assert.Equal(t, "tree:/trees/archived", worktreesList().hovered(opened))
 }
 
 // TestWorktreeHeaderFiguresStayWhole covers a repository's count and size reading the whole
@@ -356,7 +356,7 @@ func TestWorktreeHeaderFiguresStayWhole(t *testing.T) {
 
 	assert.Equal(t, whole, m.countUnder("/home/h/weave"))
 
-	snapshot := m.worktreesSnapshot(rows, 80)
+	snapshot := m.worktreesSnapshot(80)
 	assert.Equal(t, groupTrail(m.worktrees.items, "/home/h/weave"), snapshot.Rows[0].Trail)
 	assert.Contains(t, snapshot.Rows[0].Trail, "2.0M")
 }

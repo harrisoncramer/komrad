@@ -17,8 +17,7 @@ const (
 	screenWorktrees
 )
 
-// opensInfoPane reports whether the keys that draw a pane beside the panel act on a screen,
-// which a screen drawing the whole window itself says no to.
+// opensInfoPane reports whether the keys that draw a pane beside the panel act on a screen.
 func (s screen) opensInfoPane() bool {
 	switch s {
 	case screenAgents, screenSchedules:
@@ -32,8 +31,7 @@ func (s screen) opensInfoPane() bool {
 	return false
 }
 
-// screenSpec is everything the panel asks of whichever screen is up, resolved from the screen
-// alone.
+// screenSpec is everything the panel asks of whichever screen is up.
 type screenSpec struct {
 	// key takes a keypress the panel's own bindings did not claim.
 	key func(model, tea.KeyMsg) (tea.Model, tea.Cmd)
@@ -45,12 +43,10 @@ type screenSpec struct {
 	// is filled by something arriving later.
 	stage func(*model)
 
-	// fromListing is whether the refresh's own results are what this screen draws, so a pass that
-	// lands should restage it.
+	// fromListing is whether the refresh's own results are what this screen draws.
 	fromListing bool
 
-	// needsArchive is whether the refresh has to list the archived agents too, a call the screens
-	// that never name an archived agent do not pay.
+	// needsArchive is whether the refresh has to list the archived agents too.
 	needsArchive bool
 
 	// needsWorktrees is whether the refresh has to list the worktree directories too.
@@ -60,26 +56,23 @@ type screenSpec struct {
 	// nothing is ever drawn over.
 	reenter func(model) (tea.Model, tea.Cmd)
 
-	// typing reports whether something on the screen is taking every key and standing the panel's
-	// own bindings down, and is nil on a screen that never takes typing.
+	// typing reports whether something on the screen is taking every key, and is nil on a screen
+	// that never takes typing.
 	typing  func(model) bool
 	details *detailsSpec
 	filter  *filterSpec
 	tabs    *tabsSpec
 
-	// column is the block the screen draws beside its own list, left nil by a screen that draws
-	// none, in which case the panel keeps the share of the window the frame gave it.
+	// column is the block the screen draws beside its own list, nil on a screen that draws none.
 	column func() columnSpec
 }
 
-// detailsSpec is the record a screen draws under its list, left nil by a screen that draws none,
-// in which case the details keys do nothing there.
+// detailsSpec is the record a screen draws under its list.
 type detailsSpec struct {
 	// hovered is the record the cursor is standing on.
 	hovered func(model) details
 
-	// quit is the screen's own quit binding, which has to keep working while the details hold the
-	// cursor and the keys.
+	// quit is the screen's own quit binding, kept working while the details hold the keys.
 	quit func(config.Keybindings) []string
 
 	// refocus is called when the record takes the keys or gives them back, and is nil on a screen
@@ -87,16 +80,15 @@ type detailsSpec struct {
 	refocus func(*model)
 
 	// fits is whether the screen has the room to draw the record at all, nil on a screen that
-	// always has it, and what stops the keys being taken by a record the pane cannot show.
+	// always has it.
 	fits func(model) bool
 
-	// room is the rows the screen has under its header and the legend it is drawing, which is
-	// what the record grows into once it holds the keys.
+	// room is the rows the screen has under its header and the legend it is drawing.
 	room func(model) int
 }
 
-// filterSpec is how a filtered list keeps its cursor on the row it was on as the pattern changes
-// under it, left nil by a screen that draws no filter.
+// filterSpec is how a filtered list keeps its cursor on the row it was on, nil on a screen that
+// draws no filter.
 type filterSpec struct {
 	// hovered is the key of the row the cursor is on, read before the pattern changes.
 	hovered func(model) string
@@ -115,8 +107,7 @@ type filterRow struct {
 	name string
 }
 
-// spec carries no default arm, so the exhaustive check fails the build on a screen added
-// without one.
+// spec is what the panel asks of each screen.
 func (s screen) spec() screenSpec {
 	switch s {
 	case screenAgents:
@@ -129,18 +120,14 @@ func (s screen) spec() screenSpec {
 			details: &detailsSpec{
 				hovered: model.agentsDetails,
 				quit:    func(keys config.Keybindings) []string { return keys.Agents.Quit },
-				fits:    model.doesAgentsFitDetails,
-				room:    model.agentsDetailsRoom,
+				fits:    agentsChrome().doesFitDetails,
+				room:    agentsChrome().detailsRoom,
 			},
-			filter: &filterSpec{
-				hovered: model.hoveredAgentKey,
-				place:   (*model).placeAgentCursor,
-				rows:    model.agentFilterRows,
-			},
+			filter: agentsList().filter(),
 			tabs: &tabsSpec{
 				strip: agentsTabs(),
 				state: func(m *model) *tabsState { return &m.tree.sort },
-				fits:  model.doesAgentsFitTabs,
+				fits:  agentsChrome().doesFitTabs,
 			},
 			column: agentsColumn,
 		}
@@ -174,18 +161,14 @@ func (s screen) spec() screenSpec {
 			details: &detailsSpec{
 				hovered: model.archiveDetails,
 				quit:    func(keys config.Keybindings) []string { return keys.Archive.Quit },
-				fits:    model.doesArchiveFitDetails,
-				room:    model.archiveDetailsRoom,
+				fits:    archiveChrome().doesFitDetails,
+				room:    archiveChrome().detailsRoom,
 			},
-			filter: &filterSpec{
-				hovered: model.hoveredArchiveKey,
-				place:   (*model).placeArchiveCursor,
-				rows:    model.archiveFilterRows,
-			},
+			filter: archiveList().filter(),
 			tabs: &tabsSpec{
 				strip: archiveTabs(),
 				state: func(m *model) *tabsState { return &m.archive.sort },
-				fits:  model.doesArchiveFitTabs,
+				fits:  archiveChrome().doesFitTabs,
 			},
 			column: archiveColumn,
 		}
@@ -209,18 +192,14 @@ func (s screen) spec() screenSpec {
 			details: &detailsSpec{
 				hovered: model.worktreesDetails,
 				quit:    func(keys config.Keybindings) []string { return keys.Worktrees.Quit },
-				fits:    model.doesWorktreesFitDetails,
-				room:    model.worktreesDetailsRoom,
+				fits:    worktreesChrome().doesFitDetails,
+				room:    worktreesChrome().detailsRoom,
 			},
-			filter: &filterSpec{
-				hovered: model.hoveredWorktreeKey,
-				place:   (*model).placeWorktreeCursor,
-				rows:    model.worktreeFilterRows,
-			},
+			filter: worktreesList().filter(),
 			tabs: &tabsSpec{
 				strip: worktreesTabs(),
 				state: func(m *model) *tabsState { return &m.worktrees.sort },
-				fits:  model.doesWorktreesFitTabs,
+				fits:  worktreesChrome().doesFitTabs,
 			},
 			column: worktreesColumn,
 		}

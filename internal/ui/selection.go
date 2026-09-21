@@ -8,8 +8,7 @@ import (
 	"weave/lib/xslice"
 )
 
-// rowRef is what the selection knows of a row: the key it answers to, whether it heads a group,
-// and the key of the group it sits in.
+// rowRef is what the selection knows of a row.
 type rowRef struct {
 	key    string
 	header bool
@@ -143,7 +142,7 @@ func groupKeys(refs []rowRef, group string) []string {
 	return keys
 }
 
-// refsOf is the tree as the selection sees it, each agent grouped under its workflow.
+// refsOf is the tree as the selection sees it.
 func refsOf(rows []agentRow) []rowRef {
 	return xslice.Map(rows, func(row agentRow) rowRef {
 		return rowRef{

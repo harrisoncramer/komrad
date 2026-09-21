@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"weave/config"
 	"weave/internal/errui"
-	"weave/internal/ui/paint"
 	"weave/internal/ui/paint/label"
 	"weave/internal/view"
 	"weave/lib/xslice"
@@ -37,18 +37,30 @@ func (m model) openWorktrees(agentID string) (tea.Model, tea.Cmd) {
 	return m.enterWorktrees()
 }
 
-func (m model) hoveredWorktreeKey() string {
-	return rowKeyAt(m.worktreeRows(), m.worktrees.cursor)
+func worktreesList() listSpec[worktreeRow] {
+	return listSpec[worktreeRow]{
+		cursor: func(m *model) *rowCursor { return &m.worktrees.rowCursor },
+		rows:   model.worktreeRows,
+		name:   worktreeRow.name,
+		refs:   worktreeRefs,
+		header: "repository",
+		placed: (*model).stageWorktrees,
+		moved: func(m model) (model, tea.Cmd) {
+			m.placeColumn(screenWorktrees, worktreesList().hovered(m))
+
+			return m.deferStaging()
+		},
+		quit: func(k config.Keybindings) []string { return k.Worktrees.Quit },
+		back: func(k config.Keybindings) []string { return k.Worktrees.Back },
+	}
 }
 
-func (m *model) placeWorktreeCursor(hovered string) {
-	rows := m.worktreeRows()
-	m.landWorktreeCursor(rows, placeCursor(rowIndexOfKey(rows, hovered), m.worktrees.cursor, len(rows)))
-	m.stageWorktrees()
-}
-
-func (m model) worktreeFilterRows() []filterRow {
-	return worktreeFilterRows(m.worktreeRows())
+func worktreesChrome() listChrome {
+	return listChrome{
+		title: screenTitle(view.GlyphRepo, "Worktrees"),
+		tally: model.worktreesTally,
+		help:  model.worktreesHelp,
+	}
 }
 
 func (m model) hoveredWorktree() (worktreeRow, bool) {
@@ -61,46 +73,11 @@ func (m model) hoveredWorktree() (worktreeRow, bool) {
 }
 
 func (m model) updateWorktrees(key tea.KeyMsg) (tea.Model, tea.Cmd) {
-	k := key.String()
-
-	if m.takeTopPress(k) {
-		return m.jumpWorktreeCursor(0)
-	}
-	if m.topHeld {
-		return m, nil
-	}
-
-	return worktreesActions().dispatch(m, k)
-}
-
-func (m model) moveWorktreeCursor(delta int) (tea.Model, tea.Cmd) {
-	rows := m.worktreeRows()
-
-	next, ok := m.worktrees.move(delta, len(rows))
-	if !ok {
-		return m, nil
-	}
-
-	m.landWorktreeCursor(rows, next.cursor)
-
-	return m.deferStaging()
-}
-
-func (m model) jumpWorktreeCursor(idx int) (tea.Model, tea.Cmd) {
-	rows := m.worktreeRows()
-
-	next, ok := m.worktrees.jump(idx, len(rows))
-	if !ok {
-		return m, nil
-	}
-
-	m.landWorktreeCursor(rows, next.cursor)
-
-	return m.deferStaging()
+	return worktreesList().update(m, key, worktreesActions())
 }
 
 func (m *model) stageWorktrees() {
-	m.placeColumn(screenWorktrees, rowKeyAt(m.worktreeRows(), m.worktrees.cursor))
+	m.placeColumn(screenWorktrees, worktreesList().hovered(*m))
 	m.stageInfo()
 }
 
@@ -114,8 +91,7 @@ func (m *model) inspectWorktreeCmd() tea.Cmd {
 	return m.readWorktreeCmd(row.item.dir)
 }
 
-// readWorktreeCmd asks the service for one directory's standing, answered under the directory's
-// own name, and asks nothing while an answer for it is still on its way.
+// readWorktreeCmd asks the service for one directory's standing, once at a time.
 func (m *model) readWorktreeCmd(dir string) tea.Cmd {
 	last, asked := m.worktrees.inspected[dir]
 	if asked && last.pending {
@@ -140,8 +116,7 @@ func (m *model) readWorktreeCmd(dir string) tea.Cmd {
 	}
 }
 
-// inspectHoveredWorktreeCmd asks for the hovered directory's standing where nothing has been
-// asked for it yet.
+// inspectHoveredWorktreeCmd asks for the hovered directory's standing the first time.
 func (m *model) inspectHoveredWorktreeCmd() tea.Cmd {
 	if m.screen != screenWorktrees {
 		return nil
@@ -194,52 +169,23 @@ func worktreesTabs() tabStrip {
 	}
 }
 
-func (m model) worktreesHeader() string {
-	return m.tabbedHeader(screenTitle(view.GlyphRepo, "Worktrees"), m.worktreesTally())
-}
-
-func (m model) doesWorktreesFitTabs() bool {
-	return m.doesListFitTabs(screenTitle(view.GlyphRepo, "Worktrees"), m.worktreesTally(), model.worktreesHelp)
-}
-
 // worktreesTally is how many directories the listing holds and what the measured ones take.
 func (m model) worktreesTally() string {
 	return fmt.Sprintf("%d · %s", len(m.worktrees.items), totalLabel(m.worktrees.items))
 }
 
-func (m model) doesWorktreesFitDetails() bool {
-	return m.doesListFitDetails(m.worktreesHeader(), model.worktreesHelp)
-}
-
-func (m model) worktreesDetailsRoom() int {
-	return m.listDetailsRoom(m.worktreesHeader(), model.worktreesHelp)
-}
-
 func (m model) worktreesListView() string {
-	header := m.worktreesHeader()
-	record, help := m.detailsView(), m.renderHelp(m.worktreesHelp(), header)
-	below := record + m.messagesRegion(record, help, header) + help
-
-	rows := m.worktreeRows()
-	if len(rows) == 0 {
-		return m.headedListView(header, []string{dimStyle.Render(m.emptyListLine("no worktrees"))}, 0, below)
-	}
-
-	pane := m.paneWidth()
-	list := view.Prepare(m.worktreesSnapshot(rows, pane))
-
-	lines := m.listLines(header, below)
-	window := view.Window(view.WindowParams{
-		List:    list,
-		Palette: paint.Panel,
-		Width:   pane,
-		Lines:   lines,
+	return m.listView(listViewParams{
+		chrome:   worktreesChrome(),
+		empty:    "no worktrees",
+		rows:     len(m.worktreeRows()),
+		snapshot: model.worktreesSnapshot,
 	})
-
-	return m.headedBlockView(header, window, lines, below)
 }
 
-func (m model) worktreesSnapshot(rows []worktreeRow, pane int) view.Snapshot {
+func (m model) worktreesSnapshot(pane int) view.Snapshot {
+	rows := m.worktreeRows()
+
 	return worktreesSnapshot(worktreesSnapshotParams{
 		rows:          rows,
 		items:         m.worktrees.items,
@@ -325,8 +271,7 @@ func sizeField(item worktreeItem, now time.Time) string {
 	return fmt.Sprintf("%s, measured %s ago", label.Bytes(item.size.bytes), label.AgeAt(item.size.measuredAt, now))
 }
 
-// lastActiveField is how long ago the directory was last touched, and whether its agent has
-// been put away.
+// lastActiveField is how long ago the directory was last touched.
 func lastActiveField(item worktreeItem, now time.Time) string {
 	if item.lastActiveAt.IsZero() {
 		return label.Dash
@@ -375,8 +320,7 @@ func changesField(read worktreeInspection) string {
 	return strings.Join(parts, ", ")
 }
 
-// worktreeAgentField is the agent behind a directory as the record names it, read off the
-// listing that holds the agent.
+// worktreeAgentField is the agent behind a directory as the record names it.
 func (m model) worktreeAgentField(item worktreeItem) string {
 	if item.agent == nil {
 		return "none"
@@ -415,8 +359,7 @@ func (m model) worktreeWorkflowField(item worktreeItem) string {
 	return label.Dash
 }
 
-// worktreeDoc is the markdown drawn beside the list: what the hovered directory holds and how
-// its branch stands.
+// worktreeDoc is the markdown drawn beside the list for the row the cursor is on.
 func (m model) worktreeDoc() string {
 	row, ok := rowAt(m.worktreeRows(), m.worktrees.cursor)
 	switch {

@@ -85,14 +85,12 @@ func (read worktreeInspection) isStale(now time.Time) bool {
 	return !read.answered || (!read.isSettled() && now.Sub(read.readAt) > worktreeReadTTL)
 }
 
-// isRead reports whether git has answered for the directory, on this read or on one a failed
-// read kept.
+// isRead reports whether git has answered for the directory.
 func (read worktreeInspection) isRead() bool {
 	return read.answered && (read.err == nil || read.item.dir != "")
 }
 
-// isSettled reports whether the answer is one that will never change, which the service saying
-// the directory is not a worktree it holds is.
+// isSettled reports whether the answer is one that will never change.
 func (read worktreeInspection) isSettled() bool {
 	return read.answered && errui.IsNotFound(read.err)
 }
@@ -102,8 +100,7 @@ type worktreesState struct {
 	items []worktreeItem
 	sort  tabsState
 	rows  []worktreeRow
-	// inspected is what get_worktree answered for each directory, kept until the directory
-	// leaves the listing.
+	// inspected is what the service answered for each directory.
 	inspected map[string]worktreeInspection
 }
 
@@ -125,23 +122,15 @@ func (m *model) applyWorktrees(items []worktreeItem, hovered string) {
 
 	focus := m.worktrees.focus
 	m.worktrees.focus = ""
-	if idx := rowIndexOfWorktreeAgent(rows, focus); focus != "" && idx >= 0 {
-		m.landWorktreeCursor(rows, idx)
 
-		return
+	idx := rowIndexOfWorktreeAgent(rows, focus)
+	if idx < 0 {
+		idx = rowIndexOfKey(rows, hovered)
+	}
+	if idx < 0 {
+		idx = clampCursor(m.worktrees.cursor, len(rows))
 	}
 
-	if idx := rowIndexOfKey(rows, hovered); idx >= 0 {
-		m.landWorktreeCursor(rows, idx)
-
-		return
-	}
-
-	m.landWorktreeCursor(rows, clampCursor(m.worktrees.cursor, len(rows)))
-}
-
-// landWorktreeCursor puts the cursor on a row by index and names the row to the column.
-func (m *model) landWorktreeCursor(rows []worktreeRow, idx int) {
 	m.worktrees.cursor = idx
 	m.placeColumn(screenWorktrees, rowKeyAt(rows, idx))
 }

@@ -36,7 +36,9 @@ var takenAndUndrawn = map[screen][]undrawn{
 		{key: "ctrl+c", reason: "quit is not worth a row on any screen"},
 		{key: "V", reason: "select to nearest is named once the selection it needs is standing"},
 	},
-	screenSearch: {},
+	screenSearch: {
+		{key: "ctrl+c", reason: "quit is not worth a row on any screen"},
+	},
 	screenReview: {
 		{key: "ctrl+c", reason: "quit is not worth a row on any screen"},
 	},

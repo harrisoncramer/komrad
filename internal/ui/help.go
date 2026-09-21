@@ -161,24 +161,6 @@ func (m model) moveBinding() key.Binding {
 	)
 }
 
-func (m model) jumpBinding() key.Binding {
-	keys := slices.Concat(m.keys.Nav.Top, m.keys.Nav.Bottom)
-
-	return key.NewBinding(
-		key.WithKeys(keys...),
-		key.WithHelp(doubledLabel(m.keys.Nav.Top)+"/"+keyLabel(m.keys.Nav.Bottom), "top/bottom"),
-	)
-}
-
-func (m model) navPageBinding() key.Binding {
-	keys := slices.Concat(m.keys.Nav.PageUp, m.keys.Nav.PageDown)
-
-	return key.NewBinding(
-		key.WithKeys(keys...),
-		key.WithHelp(navPageLabel(m.keys), "page"),
-	)
-}
-
 func doubledLabel(keys []string) string {
 	pairs := make([]string, len(keys))
 	for i, k := range keys {
@@ -344,22 +326,11 @@ func (m model) searchHelp() keyMap {
 		return keyMap{short: []key.Binding{done, leave}, full: []key.Binding{done, leave}}
 	}
 
-	open := binding([]string{"enter"}, "go to it")
-	edit := binding([]string{"esc", filterOpenKey}, "edit the query")
+	own := searchActions().help(m)
 
 	return keyMap{
-		short: []key.Binding{open, edit, m.helpBinding()},
-		full: slices.Concat(
-			[]key.Binding{
-				open,
-				edit,
-				m.moveBinding(),
-				m.jumpBinding(),
-				m.navPageBinding(),
-				m.columnScrollBinding("the transcript"),
-			},
-			m.globalHelp(),
-		),
+		short: slices.Concat(own.short, m.globalHelp()),
+		full:  slices.Concat(own.full, m.globalHelp()),
 	}
 }
 
