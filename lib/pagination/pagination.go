@@ -50,7 +50,7 @@ const (
 func New[C Cursor, M Cursorable[C]](p *paginationv1.Pagination) (*Paginator[C, M], error) {
 	cursor, err := decode[C](p.GetCursor())
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid pagination cursor: %w", err))
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("failed to decode the pagination cursor: %w", err))
 	}
 
 	return &Paginator[C, M]{limit: Bound(p.GetLimit()), cursor: cursor}, nil
@@ -110,7 +110,7 @@ func Token[C Cursor](cursor C) (*string, error) {
 func Decode[C Cursor](token string) (*C, error) {
 	cursor, err := decode[C](token)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid pagination cursor: %w", err))
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("failed to decode the pagination cursor: %w", err))
 	}
 
 	return cursor, nil

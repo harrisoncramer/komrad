@@ -201,8 +201,18 @@ linters:
     custom:
       weavelint:
         type: module
-        description: Checks for this repo; a sentinel error must declare the kind of failure it is, a connect handler must hand its strict half to the adapter rather than answering for itself, a forge Secret gives up its token only where it is sent or kept, and an HTTP client is built by lib/xhttp.
+        description: Checks for this repo; a sentinel error must declare the kind of failure it is and be declared at package scope, a message wrapping another error opens with "failed to " or with the error itself, a connect handler must hand its strict half to the adapter rather than answering for itself, a forge Secret gives up its token only where it is sent or kept, and an HTTP client is built by lib/xhttp.
         settings:
+          sentinel_inline:
+            skip: false
+            exclude: []
+          wrap_phrase:
+            skip: false
+            # Unanchored regexps over the path lint was run from. A config error names the key
+            # it is about, and the docs generator names the file it was writing.
+            exclude:
+              - ^config/
+              - ^cmd/gen-docs/
           bare_http:
             skip: false
             # Unanchored regexps over the path lint was run from. The one package that builds

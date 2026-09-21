@@ -102,7 +102,7 @@ the machine, start or stop the service, or call an endpoint from a script.`,
 				return fmt.Errorf("failed to create registry: %w", err)
 			}
 			if _, err := harnessRegistry.GetByID(cfg.DefaultHarness); err != nil && app.configErr == nil {
-				app.configErr = fmt.Errorf("default_harness: %w", err)
+				app.configErr = fmt.Errorf("failed to find the default_harness: %w", err)
 			}
 			if err := ui.ValidateKeybindings(cfg.Keybindings); err != nil && app.configErr == nil {
 				app.configErr = err

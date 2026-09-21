@@ -45,7 +45,7 @@ func (h *Harness) trustDir(dir string) error {
 	grown += fmt.Sprintf("[projects.%s]\ntrust_level = %s\n", tomlString(dir), tomlString("trusted"))
 
 	if err := toml.Unmarshal([]byte(grown), &map[string]any{}); err != nil {
-		return fmt.Errorf("refusing to write a codex config that would not parse: %w", err)
+		return fmt.Errorf("failed to parse the codex config as it would be written: %w", err)
 	}
 
 	if err := os.MkdirAll(filepath.Dir(configPath), 0o755); err != nil {
@@ -64,7 +64,7 @@ func isDirListed(config []byte, dir string) (bool, error) {
 		Projects map[string]any `toml:"projects"`
 	}
 	if err := toml.Unmarshal(config, &parsed); err != nil {
-		return false, fmt.Errorf("refusing to touch a codex config that does not parse: %w", err)
+		return false, fmt.Errorf("failed to parse the codex config: %w", err)
 	}
 
 	_, listed := parsed.Projects[dir]

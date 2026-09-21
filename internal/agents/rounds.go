@@ -547,7 +547,7 @@ func (s *ReviewService) ReleaseReview(
 	})
 	if err != nil {
 		// The mail has gone, so the agent has the review whatever the panel goes on to draw.
-		return nil, fmt.Errorf("the review reached %q but weave could not record that it had: %w", agent.Name, err)
+		return nil, fmt.Errorf("failed to record that the review reached %q: %w", agent.Name, err)
 	}
 
 	return &ReleaseReviewResult{

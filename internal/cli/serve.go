@@ -56,7 +56,7 @@ interrupt, or when ` + "`weave stop`" + ` asks it to.`,
 
 			listenAddr := resolveServeAddr(addr, state.env.Addr)
 			if err := config.ValidateAddr(listenAddr); err != nil {
-				return fmt.Errorf("--addr: %w", err)
+				return fmt.Errorf("failed to read --addr: %w", err)
 			}
 
 			ctx, stopSignals := shutdownSignal(cmd.Context())

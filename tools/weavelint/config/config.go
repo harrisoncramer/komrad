@@ -3,10 +3,12 @@ package config
 
 // Config is every rule's settings.
 type Config struct {
-	SentinelKind SentinelKindConfig `json:"sentinel_kind"`
-	HandlerShape HandlerShapeConfig `json:"handler_shape"`
-	SecretExpose SecretExposeConfig `json:"secret_expose"`
-	BareHTTP     BareHTTPConfig     `json:"bare_http"`
+	SentinelKind   SentinelKindConfig   `json:"sentinel_kind"`
+	SentinelInline SentinelInlineConfig `json:"sentinel_inline"`
+	WrapPhrase     WrapPhraseConfig     `json:"wrap_phrase"`
+	HandlerShape   HandlerShapeConfig   `json:"handler_shape"`
+	SecretExpose   SecretExposeConfig   `json:"secret_expose"`
+	BareHTTP       BareHTTPConfig       `json:"bare_http"`
 }
 
 // BareHTTPConfig settles where net/http's own clients may be built.
@@ -42,5 +44,22 @@ type SentinelKindConfig struct {
 	Skip bool `json:"skip"`
 	// Exclude is unanchored regexps over the file path, for the packages no caller reaches
 	// through the RPC layer.
+	Exclude []string `json:"exclude"`
+}
+
+// SentinelInlineConfig settles where the inline sentinel rule applies.
+type SentinelInlineConfig struct {
+	// Skip turns the rule off.
+	Skip bool `json:"skip"`
+	// Exclude is unanchored regexps over the file path.
+	Exclude []string `json:"exclude"`
+}
+
+// WrapPhraseConfig settles where the wrapping message rule applies.
+type WrapPhraseConfig struct {
+	// Skip turns the rule off.
+	Skip bool `json:"skip"`
+	// Exclude is unanchored regexps over the file path, for the packages whose messages open
+	// with the config key they are about.
 	Exclude []string `json:"exclude"`
 }

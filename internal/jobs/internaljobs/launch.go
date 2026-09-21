@@ -100,7 +100,7 @@ func (w *LaunchAgentWorker) Work(ctx context.Context, job *river.Job[LaunchAgent
 		errors.Is(err, agents.ErrProvisionFailed) ||
 		errors.Is(err, agents.ErrTooManyAgents) {
 		return w.cancel(ctx, schedule.ID, schedulestore.LaunchResultCannotLaunch,
-			fmt.Errorf("schedule %q cannot launch: %w", schedule.Name, err))
+			fmt.Errorf("failed to launch schedule %q: %w", schedule.Name, err))
 	}
 	// An occurrence whose agent is already up is recorded rather than retried: this attempt
 	// launched nothing, but the firing it stands for is accounted for either way, and an

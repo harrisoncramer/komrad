@@ -45,7 +45,7 @@ func runInput(ctx context.Context, dir string, env []string, input []byte, args 
 
 	out, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("git %s: %w", strings.Join(args, " "), err)
+		return nil, fmt.Errorf("failed to run git %s: %w", strings.Join(args, " "), err)
 	}
 
 	return out, nil
@@ -77,5 +77,5 @@ func runAllowing(ctx context.Context, dir string, allowed int, args ...string) (
 		return trimmed, nil
 	}
 
-	return "", fmt.Errorf("git %s: %w", strings.Join(args, " "), err)
+	return "", fmt.Errorf("failed to run git %s: %w", strings.Join(args, " "), err)
 }

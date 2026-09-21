@@ -20,7 +20,7 @@ func (a *app) dialAPI(ctx context.Context) (string, func(), error) {
 
 	tunnel, err := remote.Dial(ctx, a.env.Addr, tunnelWait)
 	if err != nil {
-		return "", release, fmt.Errorf("forward a port to the engine serving %s: %w", a.env.Addr, err)
+		return "", release, fmt.Errorf("failed to forward a port to the engine serving %s: %w", a.env.Addr, err)
 	}
 
 	return tunnel.Local, func() { _ = tunnel.Close() }, nil

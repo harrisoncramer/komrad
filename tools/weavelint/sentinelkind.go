@@ -120,7 +120,7 @@ func compile(patterns []string) ([]*regexp.Regexp, error) {
 	for _, pattern := range patterns {
 		expression, err := regexp.Compile(pattern)
 		if err != nil {
-			return nil, fmt.Errorf("unreadable exclude pattern %q: %w", pattern, err)
+			return nil, fmt.Errorf("failed to compile exclude pattern %q: %w", pattern, err)
 		}
 
 		compiled = append(compiled, expression)

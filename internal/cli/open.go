@@ -124,7 +124,7 @@ func ensureManagerSession(ctx context.Context, state *app, detached, headless bo
 	}
 
 	if !isManagerSessionRunning(ctx, state) {
-		if err := runTmux(ctx, state, "failed to create the manager session",
+		if err := runTmux(ctx, state, "create the manager session",
 			buildManagerSessionArgs(state, state.selfPath(), headless)); err != nil {
 			return err
 		}
@@ -140,7 +140,7 @@ func ensureManagerSession(ctx context.Context, state *app, detached, headless bo
 		return nil
 	}
 
-	return runTmux(ctx, state, "failed to open a panel window in the manager session",
+	return runTmux(ctx, state, "open a panel window in the manager session",
 		buildPanelWindowArgs(state, state.selfPath(), detached))
 }
 
@@ -156,7 +156,7 @@ func runTmux(ctx context.Context, state *app, summary string, args []string) err
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("%s: %w", summary, err)
+		return fmt.Errorf("failed to %s: %w", summary, err)
 	}
 
 	return nil
