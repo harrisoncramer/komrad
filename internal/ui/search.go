@@ -566,3 +566,33 @@ func (m model) searchSidebarView() string {
 
 	return header + window + help
 }
+
+// searchScreen is the search screen behind the panel's one door.
+type searchScreen struct{}
+
+var _ columned = searchScreen{}
+
+func (searchScreen) update(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
+	return onKey(m, msg, model.updateSearch)
+}
+
+func (searchScreen) view(m model) string {
+	return m.searchView()
+}
+
+func (searchScreen) needs() screenNeeds {
+	return screenNeeds{archive: true}
+}
+
+// reenter is the screen as it stands, nothing being drawn over the search.
+func (searchScreen) reenter(m model) (tea.Model, tea.Cmd) {
+	return m, nil
+}
+
+func (searchScreen) takesEveryKey(m model) bool {
+	return m.search.typing
+}
+
+func (searchScreen) column() columnSpec {
+	return searchColumn()
+}

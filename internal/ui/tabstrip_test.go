@@ -561,7 +561,7 @@ func TestEveryTabbedScreenTakesTheStrip(t *testing.T) {
 			m := screensModel()
 			m.screen, m.height = tt.screen, 40
 
-			drawn := lines(m.screen.spec().view(m))
+			drawn := lines(m.active().view(m))
 			assert.Contains(t, drawn[2], "/")
 			assert.Contains(t, drawn[3], "↑↓")
 			assert.Empty(t, drawn[4])
@@ -572,7 +572,7 @@ func TestEveryTabbedScreenTakesTheStrip(t *testing.T) {
 
 			turned := send(t, send(t, send(t, focused, "tab"), "j"), "k")
 			assert.Equal(t, tabsState{chosen: tt.second, direction: tabUp, focused: true}, *tt.state(&turned))
-			assert.Contains(t, turned.screen.spec().view(turned), "↑ "+tt.second)
+			assert.Contains(t, turned.active().view(turned), "↑ "+tt.second)
 
 			left := send(t, turned, "esc")
 			assert.Equal(t, tabsState{chosen: tt.second, direction: tabUp}, *tt.state(&left))
@@ -633,7 +633,7 @@ func TestAgentsAndArchiveScreenGolden(t *testing.T) {
 			m.tree.cursor = 1
 			m.tree.sort, m.archive.sort = tt.state, tt.state
 
-			requireGolden(t, tt.name, m.screen.spec().view(m))
+			requireGolden(t, tt.name, m.active().view(m))
 		})
 	}
 }

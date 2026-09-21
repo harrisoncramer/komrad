@@ -230,14 +230,6 @@ func (s listSpec[T]) place(m *model, hovered string) {
 	s.placed(m)
 }
 
-func (s listSpec[T]) filter() *filterSpec {
-	return &filterSpec{
-		hovered: s.hovered,
-		place:   s.place,
-		rows:    s.filterRows,
-	}
-}
-
 func (s listSpec[T]) filterRows(m model) []filterRow {
 	return xslice.Map(s.rows(m), func(row T) filterRow {
 		return filterRow{key: row.key(), name: s.name(row)}

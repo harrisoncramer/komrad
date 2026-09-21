@@ -494,3 +494,82 @@ func commitLines(commits []worktreeCommit) []string {
 
 	return lines
 }
+
+// worktreesScreen is the worktrees screen behind the panel's one door.
+type worktreesScreen struct{}
+
+var (
+	_ detailed = worktreesScreen{}
+	_ filtered = worktreesScreen{}
+	_ tabbed   = worktreesScreen{}
+	_ columned = worktreesScreen{}
+	_ staged   = worktreesScreen{}
+)
+
+func (worktreesScreen) update(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
+	return onKey(m, msg, model.updateWorktrees)
+}
+
+func (worktreesScreen) view(m model) string {
+	return m.worktreesView()
+}
+
+func (worktreesScreen) needs() screenNeeds {
+	return screenNeeds{fromListing: true, archive: true, worktrees: true}
+}
+
+func (worktreesScreen) reenter(m model) (tea.Model, tea.Cmd) {
+	return m.enterWorktrees()
+}
+
+func (worktreesScreen) takesEveryKey(model) bool {
+	return false
+}
+
+func (worktreesScreen) details(m model) details {
+	return m.worktreesDetails()
+}
+
+func (worktreesScreen) detailsQuit(keys config.Keybindings) []string {
+	return keys.Worktrees.Quit
+}
+
+func (worktreesScreen) detailsFit(m model) bool {
+	return worktreesChrome().doesFitDetails(m)
+}
+
+func (worktreesScreen) detailsRoom(m model) int {
+	return worktreesChrome().detailsRoom(m)
+}
+
+func (worktreesScreen) hoveredKey(m model) string {
+	return worktreesList().hovered(m)
+}
+
+func (worktreesScreen) placeAt(m *model, key string) {
+	worktreesList().place(m, key)
+}
+
+func (worktreesScreen) filterRows(m model) []filterRow {
+	return worktreesList().filterRows(m)
+}
+
+func (worktreesScreen) tabs() tabStrip {
+	return worktreesTabs()
+}
+
+func (worktreesScreen) tabsState(m *model) *tabsState {
+	return &m.worktrees.sort
+}
+
+func (worktreesScreen) tabsFit(m model) bool {
+	return worktreesChrome().doesFitTabs(m)
+}
+
+func (worktreesScreen) column() columnSpec {
+	return worktreesColumn()
+}
+
+func (worktreesScreen) stage(m *model) {
+	m.stageWorktrees()
+}

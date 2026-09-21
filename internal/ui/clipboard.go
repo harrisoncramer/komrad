@@ -40,7 +40,7 @@ func flashRevertTick() tea.Cmd {
 }
 
 func (m *model) restageScreen() {
-	if stage := m.screen.spec().stage; stage != nil {
-		stage(m)
+	if s, ok := m.active().(staged); ok {
+		s.stage(m)
 	}
 }

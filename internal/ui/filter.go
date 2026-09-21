@@ -104,18 +104,20 @@ func (f filterState) highlight(palette paint.Palette, name string, base lipgloss
 	return palette.Highlight(name, matchesIn(f.pattern, name), base)
 }
 
-// filterTarget is the search a key reaches.
+// filterTarget is the search a key reaches, and rows is nil on a screen that draws no filter.
 type filterTarget struct {
 	state *filterState
-	spec  *filterSpec
+	rows  filtered
 }
 
 func (m *model) filterTarget() filterTarget {
 	if m.isDetailsFocused() {
-		return filterTarget{state: &m.details.filter, spec: detailsFilterSpec()}
+		return filterTarget{state: &m.details.filter, rows: detailsFilter{}}
 	}
 
-	return filterTarget{state: &m.filter, spec: m.screen.spec().filter}
+	rows, _ := m.active().(filtered)
+
+	return filterTarget{state: &m.filter, rows: rows}
 }
 
 func (m model) openFilter() (tea.Model, tea.Cmd) {
@@ -232,17 +234,17 @@ func (m model) updateFilterInput(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) hoveredFilterKey() string {
-	spec := m.filterTarget().spec
-	if spec == nil {
+	rows := m.filterTarget().rows
+	if rows == nil {
 		return ""
 	}
 
-	return spec.hovered(m)
+	return rows.hoveredKey(m)
 }
 
 func (m *model) placeFilteredCursor(hovered string) {
-	if spec := m.filterTarget().spec; spec != nil {
-		spec.place(m, hovered)
+	if rows := m.filterTarget().rows; rows != nil {
+		rows.placeAt(m, hovered)
 	}
 }
 
@@ -360,12 +362,12 @@ func (f filterState) line(palette paint.Palette) string {
 // matchAt is the row a search lands on, counted from the row given and wrapping at either end.
 func (m model) matchAt(from string, delta int) (string, bool) {
 	target := m.filterTarget()
-	spec, filter := target.spec, target.state
-	if spec == nil || spec.rows == nil || filter.pattern == nil {
+	filter := target.state
+	if target.rows == nil || filter.pattern == nil {
 		return "", false
 	}
 
-	rows := spec.rows(m)
+	rows := target.rows.filterRows(m)
 	if len(rows) == 0 {
 		return "", false
 	}

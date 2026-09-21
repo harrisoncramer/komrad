@@ -47,16 +47,18 @@ func (r detailsRow) key() string {
 }
 
 func (m model) hoveredDetails() details {
-	spec := m.screen.spec().details
-	if spec == nil {
+	d, ok := m.active().(detailed)
+	if !ok {
 		return details{}
 	}
 
-	return spec.hovered(m)
+	return d.details(m)
 }
 
 func (m model) isDetailsScreen() bool {
-	return m.screen.spec().details != nil
+	_, ok := m.active().(detailed)
+
+	return ok
 }
 
 // detailsRows is the record's fields as its search leaves them.
@@ -92,12 +94,12 @@ func (m model) isDetailsDrawn(held details) bool {
 		return false
 	}
 
-	spec := m.screen.spec().details
-	if spec == nil || spec.fits == nil {
+	d, ok := m.active().(detailed)
+	if !ok {
 		return true
 	}
 
-	return spec.fits(m)
+	return d.detailsFit(m)
 }
 
 // doesListFitDetails is whether the record's share fits under a list, judged with the keys on
@@ -141,7 +143,7 @@ func (m model) toggleDetailsFocus() (model, tea.Cmd) {
 	}
 	m.details.row = held.id
 
-	return m.refocused(), m.rereadAgentWorktreeCmd()
+	return m, m.rereadAgentWorktreeCmd()
 }
 
 // releaseHiddenDetails hands the keys back from a record the pane no longer draws.
@@ -157,18 +159,6 @@ func (m model) releaseHiddenDetails() model {
 func (m model) blurDetails() model {
 	m.details.focused = false
 	m.details.filter.abandon()
-
-	return m.refocused()
-}
-
-// refocused tells the screen the keys have moved between its list and the record under it.
-func (m model) refocused() model {
-	spec := m.screen.spec().details
-	if spec == nil || spec.refocus == nil {
-		return m
-	}
-
-	spec.refocus(&m)
 
 	return m
 }
@@ -281,27 +271,29 @@ func (m model) detailsHelp() keyMap {
 	}
 }
 
-// detailsFilterSpec is how the record's search keeps its cursor on the field it was on as the
-// pattern changes under it.
-func detailsFilterSpec() *filterSpec {
-	return &filterSpec{
-		hovered: func(m model) string {
-			held := m.hoveredDetails()
+// detailsFilter is the record's own search, which keeps its cursor on the field it was on as
+// the pattern changes under it.
+type detailsFilter struct{}
 
-			return rowKeyAt(m.detailsRows(held), m.detailsCursor(held))
-		},
-		place: func(m *model, hovered string) {
-			held := m.hoveredDetails()
-			rows := m.detailsRows(held)
-			m.details.cursor = placeCursor(rowIndexOfKey(rows, hovered), m.detailsCursor(held), len(rows))
-			m.details.row = held.id
-		},
-		rows: func(m model) []filterRow {
-			return xslice.Map(m.detailsRows(m.hoveredDetails()), func(row detailsRow) filterRow {
-				return filterRow{key: row.id, name: row.text}
-			})
-		},
-	}
+var _ filtered = detailsFilter{}
+
+func (detailsFilter) hoveredKey(m model) string {
+	held := m.hoveredDetails()
+
+	return rowKeyAt(m.detailsRows(held), m.detailsCursor(held))
+}
+
+func (detailsFilter) placeAt(m *model, key string) {
+	held := m.hoveredDetails()
+	rows := m.detailsRows(held)
+	m.details.cursor = placeCursor(rowIndexOfKey(rows, key), m.detailsCursor(held), len(rows))
+	m.details.row = held.id
+}
+
+func (detailsFilter) filterRows(m model) []filterRow {
+	return xslice.Map(m.detailsRows(m.hoveredDetails()), func(row detailsRow) filterRow {
+		return filterRow{key: row.id, name: row.text}
+	})
 }
 
 func (m model) moveDetailsCursor(pressed string) (tea.Model, tea.Cmd) {
@@ -331,12 +323,12 @@ func (m model) setDetailsCursor(held details, idx int) model {
 }
 
 func (m model) quitKeys() []string {
-	spec := m.screen.spec().details
-	if spec == nil {
+	d, ok := m.active().(detailed)
+	if !ok {
 		return m.keys.Agents.Quit
 	}
 
-	return spec.quit(m.keys)
+	return d.detailsQuit(m.keys)
 }
 
 func (m model) copyDetailsField() (tea.Model, tea.Cmd) {
@@ -370,12 +362,12 @@ func (m model) detailsLines() int {
 func (m model) grownDetailsLines(held details) int {
 	lines := max(m.detailsLines(), m.detailsWanted(held))
 
-	spec := m.screen.spec().details
-	if spec == nil || spec.room == nil {
+	d, ok := m.active().(detailed)
+	if !ok {
 		return lines
 	}
 
-	return max(min(lines, spec.room(m)-detailsChromeLines), 0)
+	return max(min(lines, d.detailsRoom(m)-detailsChromeLines), 0)
 }
 
 // detailsWanted is the lines the whole record takes: its notices, a blank under them, and every

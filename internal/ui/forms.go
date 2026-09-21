@@ -355,12 +355,7 @@ func (m model) closeForm() (tea.Model, tea.Cmd) {
 	m.form = formState{}
 	m.reconcileSolo()
 
-	reenter := m.screen.spec().reenter
-	if reenter == nil {
-		return m, nil
-	}
-
-	return reenter(m)
+	return m.active().reenter(m)
 }
 
 const (
