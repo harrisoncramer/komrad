@@ -152,7 +152,11 @@ func rowAt[T any](rows []T, cursor int) (T, bool) {
 
 // navPageDelta is how far a page key moves the cursor, signed by which of the two it is.
 func (m model) navPageDelta(pressed string) int {
-	if isBound(pressed, m.keys.Nav.PageUp) {
+	return navPageDeltaOf(m.keys, pressed)
+}
+
+func navPageDeltaOf(keys config.Keybindings, pressed string) int {
+	if isBound(pressed, keys.Nav.PageUp) {
 		return -navPageStep
 	}
 

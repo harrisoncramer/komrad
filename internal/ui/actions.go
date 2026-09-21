@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"weave/config"
+	"weave/lib/xslice"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
@@ -193,6 +194,17 @@ func (s actionSpec) rowBinding(m model, row legendRow) key.Binding {
 	}
 
 	return key.NewBinding(key.WithKeys(keys...), key.WithHelp(label, row.desc(m)))
+}
+
+// dispatchArms is the table as the keybinding check walks it.
+func (s actionSpec) dispatchArms(keys config.Keybindings) []dispatchArm {
+	return xslice.Map(s.table, func(a action) dispatchArm {
+		return dispatchArm{
+			describe: "an action of the screen's own",
+			keys:     a.keys(keys),
+			guarded:  a.when != nil,
+		}
+	})
 }
 
 func (s actionSpec) actionOf(id actionID) (action, bool) {

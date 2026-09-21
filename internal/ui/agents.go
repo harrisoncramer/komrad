@@ -46,29 +46,7 @@ func (m model) withSelectedAgent(fn func(agentItem) (tea.Model, tea.Cmd)) (tea.M
 }
 
 func (m model) archiveAgentsConfirm(agents []panel.Agent) (tea.Model, tea.Cmd) {
-	if len(agents) == 0 {
-		return m, nil
-	}
-
-	form, answer := archiveAgentsForm(agents, unnamedChildren(m.liveAgents(), agents), formKeys())
-
-	return m, m.openForm(formState{
-		kind:   formAgentArchive,
-		form:   form,
-		update: model.updateForm,
-		submit: confirmSubmit(func(m model) (model, tea.Cmd) {
-			switch *answer {
-			case archiveChoiceArchive:
-				return m.archiveAgents(agents)
-			case archiveChoiceArchiveDelete:
-				return m.archiveAndDeleteAgents(agents)
-			case archiveChoiceCancel:
-				return m, nil
-			}
-
-			return m, nil
-		}),
-	})
+	return m, confirmArchiveAgents(&m, m.liveAgents(), agents)
 }
 
 func (m model) archiveAgents(agents []panel.Agent) (model, tea.Cmd) {
@@ -227,7 +205,7 @@ func (m model) agentDetailFields(item agentItem) []recordField {
 		agent:    item.agent,
 		schedule: m.scheduleName(item.agent),
 		parent:   m.parentName(item.agent),
-		workflow: m.workflowName(item.agent.WorkflowID),
+		workflow: m.listing.workflowName(item.agent.WorkflowID),
 		standing: item.pullRequest,
 		listed:   m.pullRequests.listed[item.agent.ID],
 		worktree: worktree,
@@ -461,8 +439,18 @@ func (agentsScreen) needs() screenNeeds {
 	return screenNeeds{fromListing: true}
 }
 
-func (agentsScreen) reenter(m model) (tea.Model, tea.Cmd) {
-	return m.returnToAgents()
+// open lands on the agent the target names, showing it if it is hidden, or comes back to the
+// list as it stands.
+func (agentsScreen) open(m model, target screenTarget) (tea.Model, tea.Cmd) {
+	if target.agentID == "" {
+		return m.returnToAgents()
+	}
+
+	m.enterScreen(screenAgents)
+	m.revealAgent(target.agentID)
+	m.stageSelection()
+
+	return m, nil
 }
 
 func (agentsScreen) takesEveryKey(model) bool {

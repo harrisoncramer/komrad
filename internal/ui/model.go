@@ -220,7 +220,7 @@ type model struct {
 	runHover      hoverState
 	schedules     schedulesScreen
 	archive       archiveState
-	worktrees     worktreesState
+	worktrees     worktreesScreen
 	// inspections is what the service answered for each worktree directory.
 	inspections  map[string]worktreeInspection
 	pullRequests pullRequestsState

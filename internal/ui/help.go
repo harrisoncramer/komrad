@@ -286,24 +286,6 @@ func (m model) archiveHelp() keyMap {
 	}
 }
 
-func (m model) worktreesHelp() keyMap {
-	own := worktreesActions().help(m)
-
-	return keyMap{
-		short: slices.Concat(own.short, m.globalHelp()),
-		full: slices.Concat(
-			own.full,
-			[]key.Binding{
-				m.tabsBinding(),
-				m.detailsBinding(),
-				m.messagesBinding(),
-				m.columnScrollBinding("the directory"),
-			},
-			m.globalHelp(),
-		),
-	}
-}
-
 // columnScrollBinding is the pair that moves the block beside the list, drawn as one row since
 // they are the same key going either way.
 func (m model) columnScrollBinding(what string) key.Binding {

@@ -98,40 +98,35 @@ func (r worktreeInspection) isSettled() bool {
 	return r.answered && errui.IsNotFound(r.err)
 }
 
-type worktreesState struct {
+// worktreesScreen is the worktrees screen: the directories the listing holds, the cursor in
+// them, and how they are ordered.
+type worktreesScreen struct {
 	rowCursor
 	items []worktreeItem
 	sort  tabsState
-	rows  []worktreeRow
+	// drawn is the rows built once for the frame being drawn, and nil between frames.
+	drawn []worktreeRow
 }
 
-func (m *model) applyWorktrees(items []worktreeItem, hovered string) {
-	m.worktrees.items = items
+// apply takes a fresh listing, keeping the cursor on the row it was on, or on the agent the
+// screen was opened for.
+func (w *worktreesScreen) apply(h host, s panelShared, items []worktreeItem, hovered string) {
+	w.items = items
 
-	listedDirs := make(map[string]bool, len(items))
-	for _, item := range items {
-		listedDirs[item.dir] = true
-	}
-	for dir := range m.inspections {
-		if !listedDirs[dir] {
-			delete(m.inspections, dir)
-		}
-	}
+	rows := w.rows(s)
+	w.selected = w.selected.pruned(worktreeRefs(rows))
 
-	rows := m.worktreeRows()
-	m.worktrees.selected = m.worktrees.selected.pruned(worktreeRefs(rows))
-
-	focus := m.worktrees.focus
-	m.worktrees.focus = ""
+	focus := w.focus
+	w.focus = ""
 
 	idx := rowIndexOfWorktreeAgent(rows, focus)
 	if idx < 0 {
 		idx = rowIndexOfKey(rows, hovered)
 	}
 	if idx < 0 {
-		idx = clampCursor(m.worktrees.cursor, len(rows))
+		idx = clampCursor(w.cursor, len(rows))
 	}
 
-	m.worktrees.cursor = idx
-	m.placeColumn(screenWorktrees, rowKeyAt(rows, idx))
+	w.cursor = idx
+	h.placeColumn(screenWorktrees, rowKeyAt(rows, idx))
 }

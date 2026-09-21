@@ -75,8 +75,8 @@ func (reviewScreen) needs() screenNeeds {
 	return screenNeeds{}
 }
 
-// reenter is the screen as it stands, nothing being drawn over the review.
-func (reviewScreen) reenter(m model) (tea.Model, tea.Cmd) {
+// open is the screen as it stands, nothing being drawn over the review.
+func (reviewScreen) open(m model, _ screenTarget) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 

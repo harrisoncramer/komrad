@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"weave/internal/git"
+	"weave/internal/ui/paint/label"
 	"weave/internal/ui/panel"
 	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
@@ -360,7 +361,11 @@ func unnamedChildren(pool, named []panel.Agent) int {
 // liveAgents is the listing as bare rows, for what counts over the agents a screen is showing
 // rather than over the marks beside them.
 func (m model) liveAgents() []panel.Agent {
-	return xslice.Map(m.listing.agents, func(it agentItem) panel.Agent { return it.agent })
+	return m.listing.liveAgents()
+}
+
+func (l listing) liveAgents() []panel.Agent {
+	return xslice.Map(l.agents, func(it agentItem) panel.Agent { return it.agent })
 }
 
 func (m model) agentCount(workflowID string) int {
@@ -397,13 +402,38 @@ func displayState(item agentItem) panel.State {
 }
 
 func (m model) liveAgent(id string) (agentItem, bool) {
-	for _, item := range m.listing.agents {
+	return m.listing.liveAgent(id)
+}
+
+func (l listing) liveAgent(id string) (agentItem, bool) {
+	for _, item := range l.agents {
 		if item.agent.ID == id {
 			return item, true
 		}
 	}
 
 	return agentItem{}, false
+}
+
+func (l listing) archivedAgent(id string) (panel.Agent, bool) {
+	for _, item := range l.archivedAgents {
+		if item.agent.ID == id {
+			return item.agent, true
+		}
+	}
+
+	return panel.Agent{}, false
+}
+
+// workflowName is what a workflow is called, live or archived, or a dash when none has the id.
+func (l listing) workflowName(id string) string {
+	for _, w := range slices.Concat(l.workflows, l.archivedWorkflows) {
+		if w.ID == id {
+			return w.Name
+		}
+	}
+
+	return label.Dash
 }
 
 func (m *model) applyWorkflows(fresh []panel.Workflow) {

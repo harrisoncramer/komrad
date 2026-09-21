@@ -153,7 +153,7 @@ func (m *model) applyRefresh(result refreshResult) tea.Cmd {
 
 	treeRow := rowKeyAt(m.agentRows(), m.tree.cursor)
 	archiveRow := rowKeyAt(m.archiveRows(), m.archive.cursor)
-	worktreeRow := rowKeyAt(m.worktreeRows(), m.worktrees.cursor)
+	worktreeRow := m.worktrees.list().hovered(m.shared())
 	searchRow := m.hoveredSearchID()
 
 	before := m.listing

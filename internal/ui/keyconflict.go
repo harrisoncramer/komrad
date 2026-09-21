@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"weave/config"
-	"weave/lib/xslice"
 
 	"github.com/charmbracelet/bubbles/key"
 )
@@ -27,8 +26,13 @@ type dispatchArm struct {
 	guarded  bool
 }
 
-// screenActions is the table each screen dispatches through, walked behind the global keys.
-func screenActions(s screen) (actionSpec, bool) {
+// dispatching is a screen's table as the keybinding check walks it.
+type dispatching interface {
+	dispatchArms(keys config.Keybindings) []dispatchArm
+}
+
+// actionsOf is the table each screen dispatches through, walked behind the global keys.
+func actionsOf(s screen) (dispatching, bool) {
 	switch s {
 	case screenAgents:
 		return agentsActions(), true
@@ -39,12 +43,12 @@ func screenActions(s screen) (actionSpec, bool) {
 	case screenReview:
 		return reviewActions(), true
 	case screenWorktrees:
-		return worktreesActions(), true
+		return (&worktreesScreen{}).actions(), true
 	case screenSearch:
 		return searchActions(), true
 	}
 
-	return actionSpec{}, false
+	return nil, false
 }
 
 // ValidateKeybindings rejects the bindings a screen could not dispatch.
@@ -145,20 +149,12 @@ func validateScreenKeys(s screen, keys config.Keybindings) error {
 func dispatchOrder(s screen, keys config.Keybindings) []dispatchArm {
 	arms := globalArms(s, keys)
 
-	spec, ok := screenActions(s)
+	spec, ok := actionsOf(s)
 	if !ok {
 		return arms
 	}
 
-	arms = append(arms, xslice.Map(spec.table, func(a action) dispatchArm {
-		return dispatchArm{
-			describe: "an action of the screen's own",
-			keys:     a.keys(keys),
-			guarded:  a.when != nil,
-		}
-	})...)
-
-	return arms
+	return append(arms, spec.dispatchArms(keys)...)
 }
 
 // globalArms are the keys the panel answers on one screen ahead of that screen's own table, in
