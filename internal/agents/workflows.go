@@ -392,7 +392,7 @@ func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*work
 	// Restoring the folder leaves its agents in the state restoring them one at a time does, so
 	// it owes them the same hook, over the set the transaction found archived rather than
 	// everything now inside the workflow.
-	restored, err := w.agents.ListByID(ctx, agentIDs(restoring))
+	restored, err := w.agents.ListByID(ctx, agentstore.IDs(restoring))
 	if err != nil {
 		return nil, err
 	}
@@ -432,7 +432,7 @@ func (w *WorkflowService) DeleteWorkflow(ctx context.Context, id string) error {
 
 	// Deleting an agent checks the workflow it leaves behind for itself, and leaves behind any
 	// agent whose cleanup is still running or has failed.
-	return w.agentDeleter.DeleteAgents(ctx, agentIDs(inside))
+	return w.agentDeleter.DeleteAgents(ctx, agentstore.IDs(inside))
 }
 
 func requireNamesFree(ctx context.Context, agents nameChecker, archived []agentstore.Agent) error {

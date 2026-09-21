@@ -127,7 +127,7 @@ func parseFiles(ctx context.Context, params parseFilesParams) ([]File, error) {
 
 	files := make([]File, 0, len(parsed))
 	for _, current := range parsed {
-		file := File{OldPath: filePath(current.OldName), NewPath: filePath(current.NewName)}
+		file := File{OldPath: git.FilePath(current.OldName), NewPath: git.FilePath(current.NewName)}
 
 		switch {
 		case current.IsBinary:
@@ -137,7 +137,7 @@ func parseFiles(ctx context.Context, params parseFilesParams) ([]File, error) {
 		case current.IsDelete:
 			file.Metadata = append(file.Metadata, "deleted file")
 		case current.IsRename:
-			file.Metadata = append(file.Metadata, "renamed from "+filePath(current.OldName))
+			file.Metadata = append(file.Metadata, "renamed from "+git.FilePath(current.OldName))
 		}
 
 		if mode := modeChange(current); mode != "" {
@@ -251,13 +251,4 @@ func readRevision(ctx context.Context, repo patchReader, root, revision, path st
 	}
 
 	return string(out)
-}
-
-// filePath reads /dev/null as no file at all.
-func filePath(path string) string {
-	if path == "/dev/null" {
-		return ""
-	}
-
-	return path
 }

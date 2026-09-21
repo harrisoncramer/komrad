@@ -30,6 +30,35 @@ func (p Palette) Match() lipgloss.Style {
 	return p.Style(ToneWarning).Bold(true)
 }
 
+// Highlight draws text in a base style with the spans a search picked out drawn in the match
+// style, skipping a span that runs backwards or past the end.
+func (p Palette) Highlight(text string, spans []Span, base lipgloss.Style) string {
+	var b strings.Builder
+	at := 0
+	for _, span := range spans {
+		if span.Start < at || span.End > len(text) {
+			continue
+		}
+
+		writeStyled(&b, base, text[at:span.Start])
+		writeStyled(&b, p.Match(), text[span.Start:span.End])
+		at = span.End
+	}
+
+	writeStyled(&b, base, text[at:])
+
+	return b.String()
+}
+
+// writeStyled adds a stretch of text in its style, an empty one carrying no escapes of its own.
+func writeStyled(b *strings.Builder, style lipgloss.Style, segment string) {
+	if segment == "" {
+		return
+	}
+
+	b.WriteString(style.Render(segment))
+}
+
 // Broken is what a row draws in when what it stands for is gone.
 func (p Palette) Broken() lipgloss.Style {
 	return p.Style(ToneDanger)

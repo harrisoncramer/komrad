@@ -84,9 +84,15 @@ FROM
     JOIN workflow_provisioner_configs pc ON pc.id = w.provisioner_config_id
 WHERE
     w.id = $1
-    AND w.archived_at IS NULL
+    AND ($2::boolean
+        OR w.archived_at IS NULL)
 LIMIT 1
 `
+
+type GetWorkflowParams struct {
+	ID              string
+	IncludeArchived bool
+}
 
 type GetWorkflowRow struct {
 	Workflow                  Workflow
@@ -94,61 +100,9 @@ type GetWorkflowRow struct {
 	WorkflowProvisionerConfig WorkflowProvisionerConfig
 }
 
-func (q *Queries) GetWorkflow(ctx context.Context, id string) (*GetWorkflowRow, error) {
-	row := q.db.QueryRow(ctx, getWorkflow, id)
+func (q *Queries) GetWorkflow(ctx context.Context, arg GetWorkflowParams) (*GetWorkflowRow, error) {
+	row := q.db.QueryRow(ctx, getWorkflow, arg.ID, arg.IncludeArchived)
 	var i GetWorkflowRow
-	err := row.Scan(
-		&i.Workflow.ID,
-		&i.Workflow.Name,
-		&i.Workflow.Context,
-		&i.Workflow.WorkflowConfigID,
-		&i.Workflow.ProvisionerConfigID,
-		&i.Workflow.ArchivedAt,
-		&i.Workflow.CreatedAt,
-		&i.Workflow.UpdatedAt,
-		&i.Workflow.DeletingAt,
-		&i.WorkflowConfig.ID,
-		&i.WorkflowConfig.Harness,
-		&i.WorkflowConfig.Cwd,
-		&i.WorkflowConfig.Flags,
-		&i.WorkflowConfig.CreatedAt,
-		&i.WorkflowConfig.UpdatedAt,
-		&i.WorkflowProvisionerConfig.ID,
-		&i.WorkflowProvisionerConfig.WorktreeEnabled,
-		&i.WorkflowProvisionerConfig.WorktreeBaseBranch,
-		&i.WorkflowProvisionerConfig.WorktreeCopyPaths,
-		&i.WorkflowProvisionerConfig.WorktreeSymlinkPaths,
-		&i.WorkflowProvisionerConfig.CreatedAt,
-		&i.WorkflowProvisionerConfig.UpdatedAt,
-		&i.WorkflowProvisionerConfig.WorktreeDiffExclude,
-		&i.WorkflowProvisionerConfig.WorktreeDir,
-	)
-	return &i, err
-}
-
-const getWorkflowIncludingArchived = `-- name: GetWorkflowIncludingArchived :one
-SELECT
-    w.id, w.name, w.context, w.workflow_config_id, w.provisioner_config_id, w.archived_at, w.created_at, w.updated_at, w.deleting_at,
-    wc.id, wc.harness, wc.cwd, wc.flags, wc.created_at, wc.updated_at,
-    pc.id, pc.worktree_enabled, pc.worktree_base_branch, pc.worktree_copy_paths, pc.worktree_symlink_paths, pc.created_at, pc.updated_at, pc.worktree_diff_exclude, pc.worktree_dir
-FROM
-    workflows w
-    JOIN workflow_configs wc ON wc.id = w.workflow_config_id
-    JOIN workflow_provisioner_configs pc ON pc.id = w.provisioner_config_id
-WHERE
-    w.id = $1
-LIMIT 1
-`
-
-type GetWorkflowIncludingArchivedRow struct {
-	Workflow                  Workflow
-	WorkflowConfig            WorkflowConfig
-	WorkflowProvisionerConfig WorkflowProvisionerConfig
-}
-
-func (q *Queries) GetWorkflowIncludingArchived(ctx context.Context, id string) (*GetWorkflowIncludingArchivedRow, error) {
-	row := q.db.QueryRow(ctx, getWorkflowIncludingArchived, id)
-	var i GetWorkflowIncludingArchivedRow
 	err := row.Scan(
 		&i.Workflow.ID,
 		&i.Workflow.Name,

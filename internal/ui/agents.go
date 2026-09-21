@@ -91,7 +91,7 @@ func (m model) archiveAgents(agents []agentstore.Agent) (model, tea.Cmd) {
 
 	return m, m.writeCmd(
 		fmt.Sprintf("Could not archive %s", describeAgents(agents)),
-		func(a api) error { return a.archiveAgents(agentIDs(agents)) },
+		func(a api) error { return a.archiveAgents(agentstore.IDs(agents)) },
 	)
 }
 
@@ -102,7 +102,7 @@ func (m model) archiveAndDeleteAgents(agents []agentstore.Agent) (model, tea.Cmd
 
 	m.releasePanes(agents)
 
-	ids := agentIDs(agents)
+	ids := agentstore.IDs(agents)
 
 	return m, m.writeCmd(
 		fmt.Sprintf("Could not archive and delete %s", describeAgents(agents)),

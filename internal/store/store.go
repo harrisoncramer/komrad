@@ -14,6 +14,7 @@ import (
 	"weave/db"
 	"weave/db/models"
 	"weave/internal/fail"
+	"weave/lib/xslice"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -176,6 +177,11 @@ func (p *Pool) InTx(ctx context.Context, fn func(DBTX) error) error {
 func IsID(id string) bool {
 	_, err := uuid.Parse(id)
 	return err == nil
+}
+
+// KeepIDs drops every string that could not be one of the ids these stores hand out.
+func KeepIDs(ids []string) []string {
+	return xslice.Filter(ids, IsID)
 }
 
 // NewID mints a row id the same way the columns' own uuidv7() default does.

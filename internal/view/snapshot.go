@@ -1,5 +1,7 @@
 package view
 
+import "weave/internal/ui/paint"
+
 // RowKind is what one line of the agents list stands for, an agent leading so a row that names
 // no kind is the ordinary one.
 type RowKind int
@@ -79,10 +81,7 @@ const (
 )
 
 // Span is a stretch of a name a search matched, in bytes of that name.
-type Span struct {
-	Start int
-	End   int
-}
+type Span = paint.Span
 
 // Snapshot is everything the agents list draws itself from.
 type Snapshot struct {

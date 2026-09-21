@@ -101,29 +101,7 @@ func (f filterState) highlight(palette paint.Palette, name string, base lipgloss
 		return base.Render(name)
 	}
 
-	spans := f.pattern.FindAllStringIndex(name, -1)
-	if len(spans) == 0 {
-		return base.Render(name)
-	}
-
-	var b strings.Builder
-	at := 0
-	for _, span := range spans {
-		writeStyled(&b, base, name[at:span[0]])
-		writeStyled(&b, palette.Match(), name[span[0]:span[1]])
-		at = span[1]
-	}
-	writeStyled(&b, base, name[at:])
-
-	return b.String()
-}
-
-func writeStyled(b *strings.Builder, style lipgloss.Style, segment string) {
-	if segment == "" {
-		return
-	}
-
-	b.WriteString(style.Render(segment))
+	return palette.Highlight(name, matchesIn(f.pattern, name), base)
 }
 
 // filterTarget is the search a key reaches.

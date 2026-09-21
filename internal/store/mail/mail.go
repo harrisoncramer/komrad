@@ -211,7 +211,7 @@ func (s *Store) ListSentPage(ctx context.Context, fromAgentID string, limit int3
 
 // ListByID returns whichever of the given ids hold mail.
 func (s *Store) ListByID(ctx context.Context, ids []string) ([]Mail, error) {
-	storable := keepStorableIDs(ids)
+	storable := store.KeepIDs(ids)
 	if len(storable) == 0 {
 		return nil, nil
 	}
@@ -228,7 +228,7 @@ func (s *Store) ListByID(ctx context.Context, ids []string) ([]Mail, error) {
 
 // Delete permanently removes mail by id without checking that every id holds any.
 func (s *Store) Delete(ctx context.Context, ids []string) error {
-	storable := keepStorableIDs(ids)
+	storable := store.KeepIDs(ids)
 	if len(storable) == 0 {
 		return nil
 	}
@@ -308,10 +308,6 @@ func (s *Store) ListExpired(ctx context.Context, toAgentID string) ([]Mail, erro
 	return xslice.Map(rows, func(row *models.Mail) Mail {
 		return mailFromRow(*row)
 	}), nil
-}
-
-func keepStorableIDs(ids []string) []string {
-	return xslice.Filter(ids, store.IsID)
 }
 
 func mailFromRow(row models.Mail) Mail {

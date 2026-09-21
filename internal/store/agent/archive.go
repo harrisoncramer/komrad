@@ -35,7 +35,7 @@ func (s *Store) ArchiveIfUnchanged(ctx context.Context, params ArchiveIfUnchange
 // Archive moves agents out of live listings, returning the pane each row held as it was
 // archived rather than the one the caller last read.
 func (s *Store) Archive(ctx context.Context, ids []string) ([]AgentPane, error) {
-	storable := keepStorableIDs(ids)
+	storable := store.KeepIDs(ids)
 	if len(storable) == 0 {
 		return nil, nil
 	}
@@ -54,7 +54,7 @@ func (s *Store) Archive(ctx context.Context, ids []string) ([]AgentPane, error) 
 
 // RestampArchived moves the stamp of agents that are already archived to now.
 func (s *Store) RestampArchived(ctx context.Context, ids []string) error {
-	storable := keepStorableIDs(ids)
+	storable := store.KeepIDs(ids)
 	if len(storable) == 0 {
 		return nil
 	}
@@ -68,7 +68,7 @@ func (s *Store) RestampArchived(ctx context.Context, ids []string) error {
 
 // Restore returns archived agents to live listings.
 func (s *Store) Restore(ctx context.Context, ids []string) error {
-	storable := keepStorableIDs(ids)
+	storable := store.KeepIDs(ids)
 	if len(storable) == 0 {
 		return nil
 	}

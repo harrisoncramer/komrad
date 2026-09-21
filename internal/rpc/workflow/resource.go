@@ -64,14 +64,7 @@ func renderWorkflow(w workflowstore.Workflow, mark *string, opts ...workflowOpti
 			Mark:             mark,
 			ArchivedAt:       dates.StampPtr(w.ArchivedAt),
 			ContextTruncated: contextTruncated,
-			Worktree: &workflowv1.WorktreeConfig{
-				Enabled:      w.Worktree.Enabled,
-				BaseBranch:   w.Worktree.BaseBranch,
-				Dir:          w.Worktree.Dir,
-				CopyPaths:    w.Worktree.CopyPaths,
-				SymlinkPaths: w.Worktree.SymlinkPaths,
-				DiffExclude:  w.Worktree.DiffExclude,
-			},
+			Worktree:         render.WorktreeConfigToProto(w.Worktree),
 			Hooks: xslice.Map(w.Hooks, func(hook workflowstore.Hook) *workflowv1.WorkflowHook {
 				return &workflowv1.WorkflowHook{Event: hook.Event, Script: hook.Script}
 			}),

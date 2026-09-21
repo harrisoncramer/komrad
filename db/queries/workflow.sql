@@ -48,7 +48,8 @@ FROM
     JOIN workflow_provisioner_configs pc ON pc.id = w.provisioner_config_id
 WHERE
     w.id = @id
-    AND w.archived_at IS NULL
+    AND (@include_archived::boolean
+        OR w.archived_at IS NULL)
 LIMIT 1;
 
 -- name: InsertWorkflowConfig :one
@@ -203,19 +204,6 @@ WHERE id = @id;
 -- name: DeleteWorkflowProvisionerConfig :exec
 DELETE FROM workflow_provisioner_configs
 WHERE id = @id;
-
--- name: GetWorkflowIncludingArchived :one
-SELECT
-    sqlc.embed(w),
-    sqlc.embed(wc),
-    sqlc.embed(pc)
-FROM
-    workflows w
-    JOIN workflow_configs wc ON wc.id = w.workflow_config_id
-    JOIN workflow_provisioner_configs pc ON pc.id = w.provisioner_config_id
-WHERE
-    w.id = @id
-LIMIT 1;
 
 -- name: ListWorkflowHooks :many
 SELECT

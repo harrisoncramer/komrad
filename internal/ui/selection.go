@@ -161,10 +161,6 @@ func chosenAgents(sel selection, rows []agentRow) []agentstore.Agent {
 	return xslice.Map(chosen, func(row agentRow) agentstore.Agent { return row.item.agent })
 }
 
-func agentIDs(agents []agentstore.Agent) []string {
-	return xslice.Map(agents, func(agent agentstore.Agent) string { return agent.ID })
-}
-
 func describeAgents(agents []agentstore.Agent) string {
 	if len(agents) == 1 {
 		return fmt.Sprintf("agent %q", agents[0].Name)
