@@ -50,7 +50,7 @@ The panel shows those in the details under the list, after what the agent was la
 
 ## Pull requests
 
-The third glyph on an agent's row is the pull request opened from its branch, read from the forge by the [pull request sync](forges.md#reading-pull-requests). The row shows one, the current one: the newest opened that is not finished, else the newest opened of the finished. Open is the pull request glyph greyed, one the forge would merge now is a green check, changes requested is the pull request glyph in yellow, a draft has its own glyph greyed, merged is purple, and closed without merging is red. Nothing is drawn while the repository has not been read yet, or once it has and nothing was opened from the branch; the details under the list say which.
+The third glyph on an agent's row is the pull request opened from its branch, read from the forge by the [pull request sync](forges.md#reading-pull-requests). The row shows one, the current one: the newest opened that is not finished, else the newest opened of the finished. Open is the pull request glyph greyed, one the forge would merge now is a green check, changes requested is the pull request glyph in yellow, a draft has its own glyph greyed, a failing check is a red cross, a branch that conflicts with its base is a red stop sign, merged is purple, and closed without merging is red. Nothing is drawn while the repository has not been read yet, or once it has and nothing was opened from the branch; the details under the list say which.
 
 The details carry a `pull request` row for the current one, such as "#740 merged 2h ago", and a `pull requests` row listing the rest when the branch holds more than one. `list_agent_pull_requests` over [MCP](mcp.md) answers the same listing.
 

@@ -166,6 +166,7 @@ func pullRequestFields(standing pullRequestStanding, listed agentPullRequests) [
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED,
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CLOSED,
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING,
+		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CONFLICTING,
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING:
 	}
 
@@ -222,6 +223,7 @@ func pullRequestWords(state pullrequestv1.PullRequestState, checks pullrequestv1
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE,
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED,
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING,
+		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CONFLICTING,
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED,
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CLOSED:
 		return word
@@ -250,6 +252,8 @@ func pullRequestStateWord(state pullrequestv1.PullRequestState) string {
 		return "open"
 	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING:
 		return "checks failing"
+	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CONFLICTING:
+		return "conflicts with the base"
 	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING:
 		return "approved"
 	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED:

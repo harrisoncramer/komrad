@@ -7,8 +7,9 @@ import (
 )
 
 // PullRequestStateOf decides where a stored pull request stands: finished by its two stamps
-// first, then draft, then a failing check, then a change request, then the forge's own word on
-// whether it would merge it now, with an approval held at waiting until that word is clean.
+// first, then draft, then a failing check, then a conflict with the base, then a change request,
+// then the forge's own word on whether it would merge it now, with an approval held at waiting
+// until that word is clean.
 func PullRequestStateOf(pullRequest pullrequeststore.Summary) pullrequestv1.PullRequestState {
 	checks := forge.ChecksNone
 	if pullRequest.Checks != nil {
@@ -24,6 +25,8 @@ func PullRequestStateOf(pullRequest pullrequeststore.Summary) pullrequestv1.Pull
 		return pullrequestv1.PullRequestState_PULL_REQUEST_STATE_DRAFT
 	case checks == forge.ChecksFailing:
 		return pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING
+	case pullRequest.Mergeability != nil && *pullRequest.Mergeability == forge.MergeabilityConflicting:
+		return pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CONFLICTING
 	}
 
 	decision := forge.ReviewDecisionNone

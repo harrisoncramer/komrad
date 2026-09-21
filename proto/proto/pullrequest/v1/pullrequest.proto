@@ -95,8 +95,10 @@ enum PullRequestState {
   // Open with a failing check on its head, whatever its reviews say.
   PULL_REQUEST_STATE_FAILING = 9;
   // Approved on the forge but not yet mergeable: its checks are still running, its branch is
-  // behind or conflicting, or a branch rule is unmet.
+  // behind, or a branch rule is unmet.
   PULL_REQUEST_STATE_APPROVED_WAITING = 10;
+  // Open and no longer merging cleanly into its base, whatever its reviews say.
+  PULL_REQUEST_STATE_CONFLICTING = 11;
 }
 
 // Mergeability is where the forge says a pull request stands against its base and its branch

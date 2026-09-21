@@ -75,6 +75,7 @@ const (
 	ForgeChangesRequested
 	ForgeDraft
 	ForgeFailing
+	ForgeConflicting
 	ForgeMerged
 	ForgeClosed
 	// ForgeEnd is one past the last state, so a caller walking them all gets a bound that moves
