@@ -381,6 +381,12 @@ func (f *Frame) IsRemote() bool {
 	return f.remote.IsRemote()
 }
 
+// ShellArgv is what a pane runs to open a shell rooted at dir on the engine, empty when the
+// engine is this machine.
+func (f *Frame) ShellArgv(dir string) []string {
+	return f.remote.ShellArgv(dir)
+}
+
 // IsSidebarOnRight is the side the panel's own column sits on, so a screen drawing its own split
 // puts it where the panes it took the window from would have.
 func (f *Frame) IsSidebarOnRight() bool {

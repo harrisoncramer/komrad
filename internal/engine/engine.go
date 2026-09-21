@@ -56,6 +56,15 @@ func (r Remote) AttachArgv(pane string) []string {
 	return r.argv(r.attachScript(pane), true)
 }
 
+// ShellArgv is what a pane runs to open a shell on the engine rooted at dir.
+func (r Remote) ShellArgv(dir string) []string {
+	if !r.IsRemote() || strings.TrimSpace(dir) == "" {
+		return nil
+	}
+
+	return r.argv("cd "+Quote(dir)+" && exec \"${SHELL:-sh}\"", true)
+}
+
 // CommandArgv is what runs one shell command on the engine with no terminal attached.
 func (r Remote) CommandArgv(command string) []string {
 	if !r.IsRemote() || strings.TrimSpace(command) == "" {

@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"errors"
 	"os"
 
 	"weave/internal/ui/layout"
@@ -10,6 +11,8 @@ import (
 
 // fallbackShell is what the terminal runs when tmux answers for no default shell.
 const fallbackShell = "sh"
+
+var errNoAgentDir = errors.New("the agent has no directory")
 
 // terminalContent is a shell rooted where it was opened, keyed to be left alone when the region
 // is drawn again.
@@ -23,6 +26,14 @@ func terminalContent(shell, dir string) layout.Content {
 		Key:    "terminal",
 		Dir:    dir,
 		Render: func(layout.Target) ([]string, bool) { return []string{shell}, true },
+	}
+}
+
+// remoteTerminalContent is a shell on the engine.
+func remoteTerminalContent(argv []string) layout.Content {
+	return layout.Content{
+		Key:    "terminal",
+		Render: func(layout.Target) ([]string, bool) { return argv, true },
 	}
 }
 
@@ -52,7 +63,8 @@ func (m model) openTerminal() (tea.Model, tea.Cmd) {
 		return focus()
 	}
 
-	if _, err := os.Stat(agent.Cwd); err != nil {
+	// A directory on the engine cannot be checked from here.
+	if err := m.checkTerminalDir(agent.Cwd); err != nil {
 		m.report("Could not open a terminal", err)
 
 		// The shell up is still worth the keyboard, and the message says why it did not move.
@@ -69,6 +81,20 @@ func (m model) openTerminal() (tea.Model, tea.Cmd) {
 	m.stageInfo()
 
 	return focus()
+}
+
+func (m model) checkTerminalDir(dir string) error {
+	if dir == "" {
+		return errNoAgentDir
+	}
+
+	if m.frame.IsRemote() {
+		return nil
+	}
+
+	_, err := os.Stat(dir)
+
+	return err
 }
 
 func (m model) terminalDesc() string {
