@@ -2,6 +2,7 @@ package ui
 
 import (
 	"testing"
+	"time"
 
 	"weave/config"
 
@@ -71,4 +72,25 @@ func TestScrollKeysMoveTheListARow(t *testing.T) {
 			assert.Equal(t, 0, tt.cursor(m), "the top stops it")
 		})
 	}
+}
+
+// TestScrollKeysKeepTheFocusedRecord pins a turn up on the first field staying in the record,
+// where the move key walks back out into the list.
+func TestScrollKeysKeepTheFocusedRecord(t *testing.T) {
+	m := screensModel()
+	m.height = 30
+	m.applyWorktreeInspection(worktreeInspectedMsg{dir: "", inspection: readWorktree(time.Now())})
+
+	focused := send(t, m, "ctrl+t")
+	require.True(t, focused.isDetailsFocused())
+	require.Equal(t, 0, focused.detailsCursor(focused.hoveredDetails()))
+
+	down := send(t, focused, "ctrl+n")
+	assert.Equal(t, 1, down.detailsCursor(down.hoveredDetails()), "a turn down is a field")
+
+	up := send(t, send(t, down, "ctrl+p"), "ctrl+p")
+	assert.True(t, up.isDetailsFocused(), "a turn up past the first field keeps the record")
+	assert.Equal(t, 0, up.detailsCursor(up.hoveredDetails()))
+
+	assert.False(t, send(t, up, "k").isDetailsFocused(), "where the move key walks out")
 }

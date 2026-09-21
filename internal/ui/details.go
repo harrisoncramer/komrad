@@ -328,8 +328,7 @@ func (detailsFilter) filterRows(m model) []filterRow {
 	})
 }
 
-// moveDetailsCursor steps the field cursor, and an up press on the first field walks back out
-// into the list.
+// scrollDetailsCursor steps the field cursor and stops at the first field.
 func (m model) scrollDetailsCursor(pressed string) (tea.Model, tea.Cmd) {
 	held := m.hoveredDetails()
 	cursor := m.detailsCursor(held)
@@ -340,6 +339,8 @@ func (m model) scrollDetailsCursor(pressed string) (tea.Model, tea.Cmd) {
 	return m.setDetailsCursor(held, cursor-1), nil
 }
 
+// moveDetailsCursor steps the field cursor, and an up press on the first field walks back out
+// into the list.
 func (m model) moveDetailsCursor(pressed string) (tea.Model, tea.Cmd) {
 	held := m.hoveredDetails()
 	cursor := m.detailsCursor(held)
