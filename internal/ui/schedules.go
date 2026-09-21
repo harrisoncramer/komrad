@@ -32,13 +32,17 @@ func (m model) enterSchedules() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m model) moveScheduleCursor(delta int) model {
+// moveScheduleCursor steps the cursor, reporting a step it refused at either end.
+func (m model) moveScheduleCursor(delta int) (model, bool) {
 	rows := m.scheduleRows()
-	if next, ok := stepCursor(m.schedules.cursor, delta, len(rows)); ok {
-		m.landScheduleCursor(rows, next)
+	next, ok := stepCursor(m.schedules.cursor, delta, len(rows))
+	if !ok {
+		return m, false
 	}
 
-	return m
+	m.landScheduleCursor(rows, next)
+
+	return m, true
 }
 
 func (m model) jumpScheduleCursor(idx int) model {
@@ -304,7 +308,7 @@ func (m model) schedulesListView() string {
 			prefix = m.rowCursorPrefix()
 		}
 
-		name := m.filter.highlight(paint.Panel, clipName(item.schedule.Name), m.nameStyle(selected && m.isSectionLit(sectionList), !item.schedule.Enabled))
+		name := m.filter.highlight(paint.Panel, clipName(item.schedule.Name), m.nameStyle(selected && m.caretOf(sectionList) != view.CaretAbsent, !item.schedule.Enabled))
 		icon := paint.Panel.Style(scheduleTone(item.schedule.Enabled)).Render(scheduleIcon(item.schedule.Enabled))
 		rows = append(rows, prefix+"  "+icon+" "+name+"  "+dimStyle.Render(item.schedule.Cron))
 	}

@@ -21,10 +21,8 @@ type snapshotParams struct {
 	selected selection
 	// focused is the key of the row the cursor stands on, empty when it stands on none.
 	focused string
-	// blurred says another section of the panel holds the keys.
-	blurred bool
-	// caretHidden says the blink has the focus caret out of sight this frame.
-	caretHidden bool
+	// caret is how the arrow on the focused row stands this frame.
+	caret view.Caret
 	// barBlinkedOut says the blink has the working bars in their thin half this frame.
 	barBlinkedOut bool
 	// matcher is the search a person is filtering the list by, nil when they are not.
@@ -49,10 +47,9 @@ func agentsSnapshot(params snapshotParams) view.Snapshot {
 
 	return view.Snapshot{
 		Rows:          rows,
-		CaretHidden:   params.caretHidden,
+		Caret:         params.caret,
 		BarBlinkedOut: params.barBlinkedOut,
 		Focused:       params.focused,
-		Blurred:       params.blurred,
 		Pane:          params.pane,
 		Dropped:       params.dropped,
 	}

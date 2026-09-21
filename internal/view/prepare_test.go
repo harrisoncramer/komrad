@@ -774,19 +774,49 @@ func TestPrepareFocusOutranksEveryOtherEmphasis(t *testing.T) {
 	}
 }
 
-// TestPrepareHiddenCaretKeepsTheRowFocused pins the blink taking the caret off without taking
-// the focus with it, so a row stays lit while the caret is dark.
-func TestPrepareHiddenCaretKeepsTheRowFocused(t *testing.T) {
-	list := Prepare(Snapshot{
-		Rows:        []Row{{Key: "one", Name: "one"}},
-		Focused:     "one",
-		CaretHidden: true,
-	})
-	require.Len(t, list.Lines, 1)
+// TestPrepareCaretStates pins the three ways the focused row's arrow stands: drawn, out for the
+// blink with the name still lit, and absent with the accent gone while the row stays focused.
+func TestPrepareCaretStates(t *testing.T) {
+	tests := []struct {
+		name     string
+		caret    Caret
+		blank    bool
+		emphasis Emphasis
+	}{
+		{
+			name:     "absent takes the accent too",
+			caret:    CaretAbsent,
+			blank:    true,
+			emphasis: EmphasisNormal,
+		},
+		{
+			name:     "blinked out keeps the row lit",
+			caret:    CaretBlinkedOut,
+			blank:    true,
+			emphasis: EmphasisFocused,
+		},
+		{
+			name:     "drawn",
+			caret:    CaretDrawn,
+			blank:    false,
+			emphasis: EmphasisFocused,
+		},
+	}
 
-	assert.True(t, list.Lines[0].Focus.IsBlank())
-	assert.True(t, list.Lines[0].Focused)
-	assert.Equal(t, EmphasisFocused, list.Lines[0].Emphasis)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			list := Prepare(Snapshot{
+				Rows:    []Row{{Key: "one", Name: "one"}},
+				Focused: "one",
+				Caret:   tt.caret,
+			})
+			require.Len(t, list.Lines, 1)
+
+			assert.Equal(t, tt.blank, list.Lines[0].Focus.IsBlank())
+			assert.True(t, list.Lines[0].Focused, "the row is the anchor whatever the caret")
+			assert.Equal(t, tt.emphasis, list.Lines[0].Emphasis)
+		})
+	}
 }
 
 // TestPrepareClipsMatchesWithTheName pins a search match surviving the cut that shortens the name

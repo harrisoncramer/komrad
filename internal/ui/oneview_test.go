@@ -31,7 +31,7 @@ func TestListSearchLightsTheRecord(t *testing.T) {
 
 	typed := pressMark(t, m, "/", "a", "u", "t", "h")
 	require.True(t, typed.filter.typing)
-	assert.Equal(t, filterOverList, typed.filter.over)
+	assert.Equal(t, sectionList, typed.filter.over)
 
 	held := typed.hoveredDetails()
 	rows := typed.detailFieldRows(typed.detailsRows(held), typed.detailsCursor(held))
@@ -39,8 +39,8 @@ func TestListSearchLightsTheRecord(t *testing.T) {
 	assert.Contains(t, name, paint.Panel.Match().Render("auth"), "the record's match is lit")
 
 	narrowed := pressMark(t, typed, "tab", "enter")
-	require.True(t, narrowed.filter.doesNarrow(filterOverList))
-	assert.False(t, narrowed.filter.doesNarrow(filterOverRecord))
+	require.True(t, narrowed.filter.doesNarrow(sectionList))
+	assert.False(t, narrowed.filter.doesNarrow(sectionRecord))
 	assert.Len(t, narrowed.detailsRows(narrowed.hoveredDetails()), len(held.fields), "the record keeps every field")
 }
 

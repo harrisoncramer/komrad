@@ -54,24 +54,18 @@ func (m model) isCursorBlinkedOut(focused bool) bool {
 	return focused && !m.isTyping() && m.rowCursor.Blink
 }
 
-// sidebarSection is one part of the panel's own pane that can hold the keys.
+// sidebarSection is one of the sections of the panel's own pane that has a cursor of its own.
 type sidebarSection int
 
 const (
 	sectionList sidebarSection = iota
 	sectionRecord
 	sectionTabs
-	sectionMessages
-	sectionForm
 )
 
-// keyholder is the section that holds the keys, or would if the keyboard were on the panel.
+// keyholder is the section whose cursor the arrow keys would move.
 func (m model) keyholder() sidebarSection {
 	switch {
-	case m.form.isActive():
-		return sectionForm
-	case m.isMessagesFocused():
-		return sectionMessages
 	case m.isTabsFocused():
 		return sectionTabs
 	case m.isDetailsFocused():
@@ -81,20 +75,38 @@ func (m model) keyholder() sidebarSection {
 	return sectionList
 }
 
-// isSectionLit reports whether a section draws its caret and its accent.
-func (m model) isSectionLit(section sidebarSection) bool {
-	return m.keyholder() == section
+// doKeysMoveCursors reports whether the keyboard reaches a sidebar cursor at all, which it does
+// not from another pane, a form, or the messages region.
+func (m model) doKeysMoveCursors() bool {
+	return !m.keysElsewhere && !m.form.isActive() && !m.isMessagesFocused()
 }
 
-// isSectionHeld reports whether a section has the keyboard itself.
-func (m model) isSectionHeld(section sidebarSection) bool {
-	return !m.keysElsewhere && m.isSectionLit(section)
+// caretOf is how a section's arrow stands this frame.
+func (m model) caretOf(section sidebarSection) view.Caret {
+	if m.keyholder() != section {
+		return view.CaretAbsent
+	}
+
+	return m.blinkingCaret(m.doKeysMoveCursors())
 }
 
-// cursorPrefix is the arrow a section draws on its hovered row, blank while the keys are in
-// another section of the panel.
+// blinkingCaret is the arrow as the blink leaves it, which only a cursor the keyboard is on
+// blinks.
+func (m model) blinkingCaret(held bool) view.Caret {
+	if m.isCursorBlinkedOut(held) {
+		return view.CaretBlinkedOut
+	}
+
+	return view.CaretDrawn
+}
+
+// cursorPrefix is the arrow a section draws on its hovered row.
 func (m model) cursorPrefix(section sidebarSection) string {
-	if !m.isSectionLit(section) || m.isCursorBlinkedOut(m.isSectionHeld(section)) {
+	return caretGlyph(m.caretOf(section))
+}
+
+func caretGlyph(caret view.Caret) string {
+	if caret != view.CaretDrawn {
 		return blankCursor
 	}
 
@@ -107,7 +119,7 @@ func (m model) rowCursorPrefix() string {
 
 // isListFocused reports whether the keys are the list's.
 func (m model) isListFocused() bool {
-	return m.isSectionHeld(sectionList)
+	return m.doKeysMoveCursors() && m.keyholder() == sectionList
 }
 
 // isColumnFocused reports whether the block beside the list holds the keys.

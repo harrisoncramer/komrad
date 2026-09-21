@@ -7,6 +7,7 @@ import (
 
 	"weave/config"
 	"weave/internal/ui/paint"
+	"weave/internal/view"
 	"weave/lib/xslice"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -69,7 +70,7 @@ func (m model) detailsRows(held details) []detailsRow {
 		}
 
 		text := strings.TrimSpace(group + " " + field.value)
-		if m.filter.doesNarrow(filterOverRecord) && !m.filter.doesMatch(text) {
+		if m.filter.doesNarrow(sectionRecord) && !m.filter.doesMatch(text) {
 			continue
 		}
 
@@ -170,9 +171,13 @@ func (m model) releaseHiddenDetails() model {
 	return m.blurDetails()
 }
 
-// blurDetails hands the keys back to the list.
+// blurDetails hands the keys back to the list, and a filter narrowing the record eases to a
+// search so the prompt's glyph keeps saying what the list is doing.
 func (m model) blurDetails() model {
 	m.details.focused = false
+	if m.filter.over == sectionRecord {
+		m.filter.mode = filterModeSearch
+	}
 
 	return m
 }
@@ -427,7 +432,7 @@ func (m model) detailsView() string {
 
 	cursor := m.detailsCursor(held)
 	rows := m.detailFieldRows(m.detailsRows(held), cursor)
-	if len(rows) == 0 && m.filter.doesNarrow(filterOverRecord) {
+	if len(rows) == 0 && m.filter.doesNarrow(sectionRecord) {
 		rows = []string{dimStyle.Render("  nothing matches")}
 	}
 
@@ -511,7 +516,7 @@ func (m model) detailFieldRows(fields []detailsRow, cursor int) []string {
 		prefix, labelStyle := "  ", dimStyle
 		if i == cursor {
 			prefix = m.cursorPrefix(sectionRecord)
-			if m.isSectionLit(sectionRecord) {
+			if m.caretOf(sectionRecord) != view.CaretAbsent {
 				labelStyle = rowCursorStyle()
 			}
 		}

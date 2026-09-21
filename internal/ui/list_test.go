@@ -324,7 +324,7 @@ func TestScreensFitATightPane(t *testing.T) {
 				m.helpExpanded = true
 				m.details.focused = true
 				m.filter.typing = true
-				m.filter.over = filterOverRecord
+				m.filter.over = sectionRecord
 				m.filter.setQuery("a")
 			},
 		},

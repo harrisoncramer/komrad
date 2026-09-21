@@ -122,16 +122,19 @@ func (m model) pageSchedules(pressed string) (tea.Model, tea.Cmd) {
 	return m.jumpScheduleCursor(m.schedules.cursor + m.navPageDelta(pressed)), nil
 }
 
+// moveSchedules steps the cursor, and a step refused at the bottom walks on into the record.
 func (m model) moveSchedules(pressed string) (tea.Model, tea.Cmd) {
-	if !isBound(pressed, m.keys.Nav.Down) {
-		return m.moveScheduleCursor(-1), nil
+	delta := -1
+	if isBound(pressed, m.keys.Nav.Down) {
+		delta = 1
 	}
 
-	if _, ok := stepCursor(m.schedules.cursor, 1, len(m.scheduleRows())); !ok {
+	next, ok := m.moveScheduleCursor(delta)
+	if !ok && delta > 0 {
 		return m.walkIntoDetails()
 	}
 
-	return m.moveScheduleCursor(1), nil
+	return next, nil
 }
 
 func (m model) scheduleToggleDesc() string {

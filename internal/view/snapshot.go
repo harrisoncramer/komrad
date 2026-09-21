@@ -84,20 +84,29 @@ const (
 // Span is a stretch of a name a search matched, in bytes of that name.
 type Span = paint.Span
 
+// Caret is how a list draws the arrow on its focused row.
+type Caret int
+
+const (
+	// CaretDrawn is the arrow on the row, in the accent with the name.
+	CaretDrawn Caret = iota
+	// CaretBlinkedOut is the arrow in the hidden half of its blink, the name still in the accent.
+	CaretBlinkedOut
+	// CaretAbsent is the keys in another section of the panel, so neither the arrow nor the
+	// accent is drawn and the row is only kept on screen.
+	CaretAbsent
+)
+
 // Snapshot is everything the agents list draws itself from.
 type Snapshot struct {
 	Rows []Row
-	// CaretHidden says the blink has the focus caret out of sight this frame, which the caller
-	// knows and the view would otherwise have to invent.
-	CaretHidden bool
+	// Caret is how the focused row's arrow stands this frame.
+	Caret Caret
 	// BarBlinkedOut says the blink has a working agent's bar in its thin half this frame.
 	BarBlinkedOut bool
 	// Focused is the key of the row the keyboard is standing on, naming it rather than counting
 	// to it so a list re-sorted after it was gathered still focuses the same row.
 	Focused string
-	// Blurred says another section of the panel holds the keys, so the focused row is kept on
-	// screen but drawn without its caret or its accent.
-	Blurred bool
 	// Pane is how many columns the list is drawn in, from which the view works out which columns
 	// fit and what is left for a name, leaving everything whole when it is unset.
 	Pane int

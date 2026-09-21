@@ -269,7 +269,7 @@ func TestRecordSearchWalksOntoTheMatch(t *testing.T) {
 
 	opened := send(t, m, "/")
 	require.True(t, opened.filter.typing)
-	assert.Equal(t, filterOverRecord, opened.filter.over)
+	assert.Equal(t, sectionRecord, opened.filter.over)
 
 	typed := pressMark(t, opened, "s", "i", "z")
 	held := typed.hoveredDetails()
@@ -310,7 +310,7 @@ func TestRecordFilterNarrowsTheFields(t *testing.T) {
 	m.clip = clip
 
 	narrowed := pressMark(t, send(t, m, "/"), "c", "o", "m", "m", "i", "t", "tab", "enter")
-	require.True(t, narrowed.filter.doesNarrow(filterOverRecord))
+	require.True(t, narrowed.filter.doesNarrow(sectionRecord))
 
 	rows := narrowed.detailsRows(narrowed.hoveredDetails())
 	require.Len(t, rows, 6)
@@ -381,7 +381,8 @@ func TestRecordSearchEscapes(t *testing.T) {
 }
 
 // TestRecordSearchStaysWhenTheKeysGo covers the focus key handing the keys back with the search
-// still standing: a filter opened over the record keeps narrowing it and leaves the list whole.
+// still standing: a filter opened over the record eases to a search, so the record is whole
+// again, its match still lit, and the prompt says nothing is being narrowed.
 func TestRecordSearchStaysWhenTheKeysGo(t *testing.T) {
 	m := recordSearchModel(t)
 
@@ -392,8 +393,10 @@ func TestRecordSearchStaysWhenTheKeysGo(t *testing.T) {
 
 	require.False(t, back.isDetailsFocused())
 	assert.True(t, back.filter.isStanding())
-	assert.Len(t, back.detailsRows(back.hoveredDetails()), 1, "the record is still narrowed")
-	assert.Len(t, back.agentRows(), len(m.agentRows()), "the list is not")
+	assert.Equal(t, filterModeSearch, back.filter.mode)
+	assert.Len(t, back.detailsRows(back.hoveredDetails()), len(back.hoveredDetails().fields))
+	assert.Len(t, back.agentRows(), len(m.agentRows()), "the list was never narrowed")
+	assert.Contains(t, ansi.Strip(back.View()), "/ siz")
 }
 
 // TestRecordSearchDroppedLeavingScreen covers the record's search going with the list's when

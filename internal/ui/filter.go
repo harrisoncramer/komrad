@@ -46,22 +46,14 @@ func (m filterMode) String() string {
 	return "search"
 }
 
-// filterSection is the half of the sidebar a search was opened over.
-type filterSection int
-
-const (
-	filterOverList filterSection = iota
-	filterOverRecord
-)
-
 type filterState struct {
 	typing  bool
 	query   string
 	pattern *regexp.Regexp
 	broken  bool
 	mode    filterMode
-	// over is the section the search was opened over, which is the one a filter narrows.
-	over filterSection
+	// over is the section the search was opened over.
+	over sidebarSection
 	// origin is the row the cursor sat on when the search opened, which abandoning it returns to.
 	origin string
 }
@@ -76,7 +68,7 @@ func (f filterState) isNarrowing() bool {
 }
 
 // doesNarrow reports whether the pattern is taking rows off one section of the sidebar.
-func (f filterState) doesNarrow(section filterSection) bool {
+func (f filterState) doesNarrow(section sidebarSection) bool {
 	return f.isNarrowing() && f.over == section
 }
 
@@ -141,15 +133,6 @@ func (m model) filteredRows() filtered {
 	return rows
 }
 
-// searchSection is the section of the sidebar a search opened now would be over.
-func (m model) searchSection() filterSection {
-	if m.isDetailsFocused() {
-		return filterOverRecord
-	}
-
-	return filterOverList
-}
-
 func (m model) openFilter() (tea.Model, tea.Cmd) {
 	m.beginFilter()
 
@@ -163,7 +146,7 @@ func (m *model) beginFilter() {
 	filter := m.filterTarget().state
 	filter.typing = true
 	filter.mode = filterModeSearch
-	filter.over = m.searchSection()
+	filter.over = m.keyholder()
 	filter.setQuery("")
 	filter.origin = origin
 	m.placeFilteredCursor(origin)
@@ -216,17 +199,16 @@ func (f *filterState) abandon() {
 	f.setQuery("")
 }
 
-// clearSearch drops a search that is standing and puts the cursor back where it opened, as long
-// as the keys are still in the section it opened over.
+// clearSearch drops a standing search and puts the cursor back where the search opened, unless
+// the keys have since moved to the other section.
 func (m model) clearSearch() (tea.Model, tea.Cmd) {
 	filter := m.filterTarget().state
-	origin := filter.origin
-	if filter.over != m.searchSection() {
-		origin = m.hoveredFilterKey()
-	}
+	origin, over := filter.origin, filter.over
 	filter.abandon()
-	m.placeFilteredCursor(origin)
 	filter.origin = ""
+	if over == m.keyholder() {
+		m.placeFilteredCursor(origin)
+	}
 
 	return m, nil
 }
@@ -237,7 +219,7 @@ func (m model) updateFilterInput(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	if isBound(key.String(), m.keys.Details.Focus) && m.isDetailsScreen() {
-		return m.jumpSearchFocus()
+		return m.closeSearchAndMoveKeys()
 	}
 
 	abandoning := key.String() == "esc"
@@ -271,9 +253,10 @@ func (m model) updateFilterInput(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// jumpSearchFocus answers the focus key while the search is being typed: the input closes with
-// the pattern standing, the keys move, and a record they land on opens on its nearest match.
-func (m model) jumpSearchFocus() (tea.Model, tea.Cmd) {
+// closeSearchAndMoveKeys answers the focus key while the search is being typed: the input
+// closes with the pattern standing, the keys move, and a record they land on opens on its
+// nearest match.
+func (m model) closeSearchAndMoveKeys() (tea.Model, tea.Cmd) {
 	m.filter.typing = false
 
 	next, cmd := m.toggleDetailsFocus()
@@ -336,7 +319,7 @@ type narrowedParams[T any] struct {
 // narrowed is the rows a filter leaves on screen: each match, the rows above it and the rows
 // under it.
 func narrowed[T any](filter filterState, params narrowedParams[T]) []T {
-	if !filter.doesNarrow(filterOverList) {
+	if !filter.doesNarrow(sectionList) {
 		return params.rows
 	}
 

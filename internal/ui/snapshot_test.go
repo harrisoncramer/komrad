@@ -797,14 +797,14 @@ func TestSnapshotCarriesTheBlink(t *testing.T) {
 	rows := []agentRow{{item: agentItem{agent: panel.Agent{ID: "a1", Name: "worker"}}}}
 
 	hidden := agentsSnapshot(snapshotParams{
-		rows:        rows,
-		focused:     "agent:a1",
-		caretHidden: true,
+		rows:    rows,
+		focused: "agent:a1",
+		caret:   view.CaretBlinkedOut,
 	})
 	shown := agentsSnapshot(snapshotParams{rows: rows, focused: "agent:a1"})
 
-	assert.True(t, hidden.CaretHidden)
-	assert.False(t, shown.CaretHidden)
+	assert.Equal(t, view.CaretBlinkedOut, hidden.Caret)
+	assert.Equal(t, view.CaretDrawn, shown.Caret)
 	assert.Equal(t, "agent:a1", hidden.Focused)
 }
 

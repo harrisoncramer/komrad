@@ -100,7 +100,7 @@ func (m model) headedListView(header string, rows []string, cursor int, help str
 
 // emptyListLine is what a screen says over no rows.
 func (m model) emptyListLine(idle string) string {
-	if m.filter.doesNarrow(filterOverList) {
+	if m.filter.doesNarrow(sectionList) {
 		return "nothing matches"
 	}
 
@@ -512,7 +512,7 @@ func (m model) listView(params listViewParams) string {
 	record, help := m.detailsView(), m.renderHelp(params.chrome.help(m), header)
 	below := record + m.messagesRegion(record, help, header) + help
 
-	if params.rows == 0 && (params.empty != "" || m.filter.doesNarrow(filterOverList)) {
+	if params.rows == 0 && (params.empty != "" || m.filter.doesNarrow(sectionList)) {
 		return m.headedListView(header, []string{dimStyle.Render(m.emptyListLine(params.empty))}, 0, below)
 	}
 
