@@ -37,8 +37,8 @@ the panel rather than to any one screen, because the schedule form and the archi
 the workflows the agents list happens to have fetched.
 
 Per-screen state is the rest of what a screen draws: its cursor, and whatever it has loaded
-that nothing else reads. treeState, detailsState, scheduleState, archiveState, searchState,
-mailState.
+that nothing else reads. treeState, scheduleState, archiveState, searchState, reviewState,
+worktreesState.
 
 Shared concerns are the things that sit across screens on purpose. The column is the block
 drawn beside whichever list is up, and there is one of it rather than one per screen, because
@@ -94,8 +94,8 @@ its own window is nobody else's business.
 
 Every screen draws a list on the panel's own side and, beside it, one block: the diff being
 reviewed, the transcript of a search hit, an archived agent's notes, a schedule's record, a
-message's body, the folder context or the reason a row has no pane, or a form somebody is
-filling in.
+worktree directory's entries, the folder context or the reason a row has no pane, or a form
+somebody is filling in.
 
 column.go owns all of it. A screen names a columnSpec in screens.go and the machinery does the
 rest: columnGeometry divides the window and refuses one too narrow to hold both halves,
@@ -107,8 +107,9 @@ answers both at once and every way onto a screen and into a form runs through it
 Two things are worth knowing before changing any of it. Anything the block renders that asks
 paneWidth reaches back into the geometry that is still deciding the width, which is why the
 widths and the row budget are two functions, and why a screen that has to measure its own
-sidebar to decide is handed the answer through m.at rather than asked. And a block that falls
-short of its share lets the other half slide under it, which is what fitColumn is for.
+sidebar to decide is handed the answer through m.paneMeasure rather than asked. And a block
+that falls short of its share lets the other half slide under it, which is what fitColumn is
+for.
 
 The exception is the agents list, whose block is only drawn for a row with no pane of its own.
 A running agent's own terminal is what stands there, so that screen's columnSpec says when it
@@ -119,12 +120,17 @@ holds the window and when it gives it up.
 Screens, listed in screens.go and each holding its own rows, keys, and view: agents.go, with
 tree.go for the rows and the cursor, stage.go for the pane it puts beside the list, workflows.go
 for the keys that act on a folder header, and selection.go for the multi-select. Then
-archive.go, schedules.go, search.go, and mail.go. Each screen's forms sit beside it in a file
-of their own: agentforms.go, workflowforms.go, scheduleforms.go, worktreeforms.go and
-archiveforms.go, with forms.go holding only the machinery they share.
+archive.go, schedules.go, search.go, and worktreescreen.go, with worktrees.go and
+worktreerows.go for its rows. The review screen is review.go and the review*.go files beside
+it, split into the diff on screen, the threads pinned to it, and the pass over the work; the
+rows it draws come from internal/ui/diffview. Each screen's forms sit beside it in a file of
+their own: agentforms.go, workflowforms.go, scheduleforms.go, worktreeforms.go and
+archiveforms.go, with forms.go holding only the machinery they share. Each screen's keys are
+an actionSpec in a file of their own, agentsactions.go and the rest, except search, whose keys
+sit in search.go; the four lists draw through one listSpec in list.go.
 
-Shared concerns: api.go, column.go, details.go, document.go, filter.go, forms.go, help.go,
-info.go, logs.go, refresh.go, keys.go, clipboard.go, report.go, convert.go.
+Shared concerns: api.go, actions.go, column.go, details.go, document.go, filter.go, forms.go,
+help.go, info.go, logs.go, refresh.go, keys.go, clipboard.go, report.go, convert.go.
 
 Presentation that still knows what it is drawing: content.go, list.go, markdown.go, style.go.
 style.go is the marks a row wears for an agent's state, and what is left in list.go and
@@ -163,7 +169,7 @@ An agent's own terminal is another process drawing in its own colours, so no pal
 it.
 
 The one contract paint cannot import is the pair of markers the transcript store wraps a
-search hit in. It declares them itself and a test in the transcript handler pins the two
+search hit in. It declares them itself and a test in the agent handler pins the two
 together, so a change to either is a failing test rather than a silent mismatch.
 
 ## Why the errors live in another package

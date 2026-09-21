@@ -6,18 +6,18 @@ Use a hook to install packages or tooling in a worktree, or to do setup the work
 
 ## Where they live
 
-Hooks are scripts that should be placed into your hooks directory, at `~/.config/weave/hooks` by default, unless your [config](configuration.md) names another:
+Hooks are scripts that should be placed into your hooks directory, at `~/.config/weave/hooks` by default, unless your [config](../config.toml) names another:
 
 ```toml
 [hooks]
 dir = "~/some/other/path"
 ```
 
-Hooks runs in their agent's directory, which is the worktree when its workflow provisions one.
+Hooks run in their agent's directory, which is the worktree when its workflow provisions one.
 
 ## The moments
 
-Every workflow can add one hook on each of these lifecycle event, picked in the workflow:
+Every workflow can add one hook on each of these lifecycle events, picked in the workflow:
 
 - `pre-launch` runs after the agent's directory exists but before the pane is opened. Good for dependency installs (that aren't covered by the workflows copy/symlinks), for instance. A failure here is blocking: no agent is spawned, and any worktree created is given back.
 - `post-launch` runs once the CLI has been launched into the pane. It runs in the background.

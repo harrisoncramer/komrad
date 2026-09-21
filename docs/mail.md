@@ -1,8 +1,8 @@
 # Mail
 
-Agents communicate with each other in weave by sending mail. Each agent will, at the end of it's turn, check it's mailbox for new mail. You can use mail to coordinate or orchestrate across multiple agents.
+Agents communicate with each other in weave by sending mail. Each agent will, at the end of its turn, check its mailbox for new mail. You can use mail to coordinate or orchestrate across multiple agents.
 
-Because weave uses a durable datbase and job runner, mail is guaranteed to be delivered.
+Because weave uses a durable database and job runner, mail is guaranteed to be delivered.
 
 ## An Example
 
@@ -20,7 +20,7 @@ Each agent has a mailbox in Postgres. When agents need to send mail, they write 
 
 Agents check their mailboxes for any pending mail at the end of each turn. Mail is therefore not an "interrupt" activity. If you need to urgently interrupt a running agent and tell it something, you should switch into the CLI view and halt the process.
 
-If an agent is dormant when a mail item is written, it'll get "nudged" the next time it wakes up to check it's mailbox. Mail cannot be send to agents that have been archived.
+If an agent is dormant when a mail item is written, it'll get "nudged" the next time it wakes up to check its mailbox. Mail cannot be sent to agents that have been archived.
 
 An idle agent ends no turn, so the nudge is the only way mail reaches one. Keys typed at a pane can be swallowed, and an agent that never saw the line has no reason to do anything, so a nudge stands for a minute and is then sent again while the mail is still unread.
 

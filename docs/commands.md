@@ -2,7 +2,7 @@
 
 The `weave` binary includes the service that watches your agents and the panel you watch them from.
 
-Most days you type none of this, because the tmux manager makes it unnecssary. These commands may be helpful, though, if you are just setting a machine up, for scripts, or when the UI is buggy.
+Most days you type none of this, because the tmux manager makes it unnecessary. These commands may be helpful, though, if you are just setting a machine up, for scripts, or when the UI is buggy.
 
 ## serve
 
@@ -36,7 +36,7 @@ weave stop
 
 ## doctor
 
-Checks that this machine has what weave needs, one line per dependency: tmux and its version, the shell tmux starts panes with, whether your [config](configuration.md) parses, the database and its schema, the read-only login the MCP query tools use, the service, and the CLI behind each [agent](agents.md) harness.
+Checks that this machine has what weave needs, one line per dependency: tmux and its version, the shell tmux starts panes with, whether your [config](../config.toml) parses, the database and its schema, the read-only login the MCP query tools use, the service, and the CLI behind each [agent](agents.md) harness.
 
 It repairs nothing, and exits non-zero when a check failed, so it can gate a script. Run it first when the panel is doing something that makes no sense.
 
