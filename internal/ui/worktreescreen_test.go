@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -16,6 +17,7 @@ import (
 	"weave/proto/gen/worktree/v1/worktreev1connect"
 
 	"connectrpc.com/connect"
+	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/x/ansi"
@@ -696,4 +698,31 @@ func (m model) worktreesChrome() listChrome {
 // worktreesHelp is the worktrees legend as the frame draws it.
 func (m model) worktreesHelp() keyMap {
 	return m.worktreesChrome().help(m)
+}
+
+// TestWorktreesLegendIsTheOneItDrewBeforeTheMove sweeps the expanded legend across widths
+// against the composition the root drew for the worktrees.
+func TestWorktreesLegendIsTheOneItDrewBeforeTheMove(t *testing.T) {
+	for width := 5; width <= 200; width++ {
+		m := worktreesModel()
+		m.helpExpanded = true
+		m = m.measuredAt(width)
+
+		own := m.worktrees.actions().help(m.shared())
+		before := keyMap{
+			short: slices.Concat(own.short, m.globalHelp()),
+			full: slices.Concat(
+				own.full,
+				[]key.Binding{
+					m.tabsBinding(),
+					m.detailsBinding(),
+					m.messagesBinding(),
+					m.columnScrollBinding("the directory"),
+				},
+				m.globalHelp(),
+			),
+		}
+
+		assert.Equal(t, m.renderHelp(before), m.renderHelp(m.worktreesHelp()), "width %d", width)
+	}
 }

@@ -516,16 +516,23 @@ func (m model) listChromeOf(params screenListParams) listChrome {
 
 // listHelp is a list screen's legend: its own rows, then the bindings every list shares.
 func (m model) listHelp(own keyMap, column string) keyMap {
+	// A disabled binding draws nothing but still takes a cell of the expanded legend.
+	var tabs []key.Binding
+	if b := m.tabsBinding(); b.Enabled() {
+		tabs = []key.Binding{b}
+	}
+
 	return keyMap{
 		short: slices.Concat(own.short, m.globalHelp()),
 		full: slices.Concat(
 			own.full,
+			tabs,
 			[]key.Binding{
-				m.tabsBinding(),
 				m.detailsBinding(),
 				m.messagesBinding(),
-				m.columnScrollBinding(column),
 			},
+			m.infoPaneHelp(),
+			[]key.Binding{m.columnScrollBinding(column)},
 			m.globalHelp(),
 		),
 	}
