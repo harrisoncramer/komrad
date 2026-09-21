@@ -58,8 +58,7 @@ func EngineNames() ([]string, error) {
 	return engineNames(dir), nil
 }
 
-// requireEngineLayer refuses an engine file that names a panel key, which belongs to the
-// machine the key is pressed on rather than to any engine.
+// requireEngineLayer refuses an engine file that names a panel key.
 func requireEngineLayer(path string) error {
 	overlay := viper.New()
 	overlay.SetConfigFile(path)

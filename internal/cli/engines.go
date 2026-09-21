@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"sync"
 	"syscall"
 
 	"weave/config"
@@ -61,51 +60,42 @@ func describeEngine(stack config.Stack, name string) enginepick.Row {
 
 	if name != "" {
 		if path, err := config.EnginePath(name); err == nil {
-			row.Facts = append(row.Facts, enginepick.Fact{Label: "file   ", Value: path})
+			row.Facts = append(row.Facts, enginepick.Fact{Label: "file", Value: path})
 		}
 	}
 
 	setup, err := loadEngine(stack, name)
 	if err != nil {
-		row.Facts = append(row.Facts, enginepick.Fact{Label: "config ", Value: err.Error()})
+		row.Facts = append(row.Facts, enginepick.Fact{Label: "config", Value: err.Error()})
 
 		return row
 	}
 
 	row.Facts = append(row.Facts,
-		enginepick.Fact{Label: "addr   ", Value: setup.env.Addr},
-		enginepick.Fact{Label: "tmux   ", Value: setup.env.TmuxSocket},
+		enginepick.Fact{Label: "addr", Value: setup.env.Addr},
+		enginepick.Fact{Label: "tmux", Value: setup.env.TmuxSocket},
 	)
 
 	if setup.remote.IsRemote() {
 		row.Facts = append(row.Facts,
-			enginepick.Fact{Label: "engine ", Value: setup.remote.String()},
-			enginepick.Fact{Label: "socket ", Value: setup.remote.Socket},
+			enginepick.Fact{Label: "engine", Value: setup.remote.String()},
+			enginepick.Fact{Label: "socket", Value: setup.remote.Socket},
 		)
 	}
 
-	row.Facts = append(row.Facts, enginepick.Fact{Label: "cache  ", Value: setup.env.CacheDir})
+	row.Facts = append(row.Facts, enginepick.Fact{Label: "cache", Value: setup.env.CacheDir})
 
 	return row
 }
 
-// engineProber probes each row once and keeps the tunnels it dialled, so the one chosen is
-// still up for the open that follows and the rest can be closed.
 type engineProber struct {
-	stack   config.Stack
-	mu      sync.Mutex
-	tunnels map[string]*engine.Tunnel
+	stack config.Stack
 }
 
-func newEngineProber(stack config.Stack) *engineProber {
-	return &engineProber{stack: stack, tunnels: map[string]*engine.Tunnel{}}
-}
-
-// probe is the picker's Probe for one row.
-func (p *engineProber) probe(ctx context.Context, row enginepick.Row) enginepick.Status {
+func (p engineProber) probe(ctx context.Context, row enginepick.Row) enginepick.Status {
 	setup, err := loadEngine(p.stack, row.Name)
 	if err != nil {
-		return enginepick.Status{Build: "config could not be read", Refused: err.Error()}
+		return enginepick.Status{Build: "config could not be read", Label: "unreadable", Refused: err.Error()}
 	}
 
 	addr := setup.env.Addr
@@ -113,12 +103,8 @@ func (p *engineProber) probe(ctx context.Context, row enginepick.Row) enginepick
 	if setup.remote.IsRemote() {
 		tunnel, err := setup.remote.Dial(ctx, addr, tunnelWait)
 		if err != nil {
-			return enginepick.Status{Build: "not reachable", Refused: err.Error()}
+			return enginepick.Status{Build: "not reachable", Label: "down", Refused: err.Error()}
 		}
-
-		p.mu.Lock()
-		p.tunnels[row.Name] = tunnel
-		p.mu.Unlock()
 
 		addr = tunnel.Local
 	}
@@ -127,31 +113,23 @@ func (p *engineProber) probe(ctx context.Context, row enginepick.Row) enginepick
 
 	switch {
 	case !served.answering && setup.remote.IsRemote():
-		return enginepick.Status{Build: "not answering", Refused: "the engine's server is not answering on " + addr}
+		return enginepick.Status{
+			Build:   "not answering",
+			Label:   "down",
+			Refused: "the engine's server is not answering on " + addr,
+		}
 	case !served.answering:
 		return enginepick.Status{Build: "nothing yet, the server starts on open"}
 	case !served.current && setup.remote.IsRemote():
 		return enginepick.Status{
 			Build: version.Describe(served.version, served.commit),
+			Label: "mismatch",
 			Refused: fmt.Sprintf("the engine runs other code than this weave, %s: %s",
 				version.Describe(version.Version(), version.Commit()),
 				doctor.StaleEngineFix(served.version, served.commit)),
 		}
 	default:
 		return enginepick.Status{Build: version.Describe(served.version, served.commit)}
-	}
-}
-
-// closeAllBut closes every tunnel the probes dialled except the chosen engine's, which the
-// open that follows borrows.
-func (p *engineProber) closeAllBut(chosen string) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	for name, tunnel := range p.tunnels {
-		if name != chosen {
-			_ = tunnel.Close()
-		}
 	}
 }
 
@@ -167,7 +145,10 @@ func pickEngine(ctx context.Context, state *app) (string, error) {
 		return "", nil
 	}
 
-	prober := newEngineProber(state.configStack)
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	prober := engineProber{stack: state.configStack}
 
 	row, chosen, err := enginepick.Run(ctx, enginepick.RunParams{
 		Rows: rows,
@@ -181,12 +162,8 @@ func pickEngine(ctx context.Context, state *app) (string, error) {
 	}
 
 	if !chosen {
-		prober.closeAllBut("")
-
 		return "", errPickerClosed
 	}
-
-	prober.closeAllBut(row.Name)
 
 	return row.Name, nil
 }

@@ -77,8 +77,8 @@ func TestEngineRowsStartWithThisMachine(t *testing.T) {
 		facts[fact.Label] = fact.Value
 	}
 
-	assert.Equal(t, filepath.Join(engines, "remote.toml"), facts["file   "])
-	assert.Equal(t, "127.0.0.1:8799", facts["addr   "])
-	assert.Equal(t, "weave-remote", facts["tmux   "])
-	assert.Contains(t, facts["engine "], "weave@host")
+	assert.Equal(t, filepath.Join(engines, "remote.toml"), facts["file"])
+	assert.Equal(t, "127.0.0.1:8799", facts["addr"])
+	assert.Equal(t, "weave-remote", facts["tmux"])
+	assert.Contains(t, facts["engine"], "weave@host")
 }

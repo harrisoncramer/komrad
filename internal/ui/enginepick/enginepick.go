@@ -39,6 +39,8 @@ type Fact struct {
 type Status struct {
 	// Build names the build answering there, or says why nothing is.
 	Build string
+	// Label is the one word drawn beside a refused row.
+	Label string
 	// Refused says why the row cannot be attached to, empty when it can.
 	Refused string
 }
@@ -95,7 +97,6 @@ type model struct {
 	chosen   int
 	notice   string
 	width    int
-	height   int
 }
 
 func newModel(params RunParams) model {
@@ -135,7 +136,7 @@ func (m model) probeCmd(index int) tea.Cmd {
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.width, m.height = msg.Width, msg.Height
+		m.width = msg.Width
 
 		return m, nil
 	case probedMsg:
@@ -229,7 +230,7 @@ func (m model) rowLine(index int, row Row) string {
 		tail = paint.Panel.Style(paint.ToneMuted).Render("checking")
 	case m.statuses[index].Refused != "":
 		title = paint.Panel.Style(paint.ToneMuted).Render(title)
-		tail = paint.Panel.Style(paint.ToneDanger).Render("mismatch")
+		tail = paint.Panel.Style(paint.ToneDanger).Render(m.statuses[index].Label)
 	default:
 		tail = paint.Panel.Style(paint.ToneSuccess).Render("ready")
 	}
@@ -246,7 +247,7 @@ func (m model) preview() string {
 	width := max(m.width-listWidth-gutter, 20)
 
 	lines := append([]string{paint.Panel.Header().Render(row.Title()), ""}, xslice.Map(row.Facts, func(fact Fact) string {
-		return fact.Label + "  " + paint.Panel.Style(paint.ToneBright).Render(fact.Value)
+		return fmt.Sprintf("%-7s  ", fact.Label) + paint.Panel.Style(paint.ToneBright).Render(fact.Value)
 	})...)
 
 	lines = append(lines, "")
