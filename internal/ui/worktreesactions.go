@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"fmt"
 	"slices"
 
 	"weave/config"
@@ -12,8 +11,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// worktreesActions is the worktrees screen as one table, walked in precedence order by the
-// dispatch and named in reading order by a legend of the same ids.
+// worktreesActions is the worktrees screen as one table and the legend that names it.
 func worktreesActions() actionSpec {
 	return actionSpec{
 		table:  worktreesTable(),
@@ -22,122 +20,50 @@ func worktreesActions() actionSpec {
 }
 
 func worktreesTable() []action {
-	selecting := func(m model) bool { return m.worktrees.selected.isActive() }
-	browsing := func(m model) bool { return !m.worktrees.selected.isActive() }
+	list := worktreesList()
 
-	return []action{
-		{
-			id:   actionJump,
-			keys: func(k config.Keybindings) []string { return concatKeys(k.Nav.Top, k.Nav.Bottom) },
-			run:  model.jumpWorktrees,
-		},
-		{
-			id:   actionSelectClear,
-			keys: func(k config.Keybindings) []string { return k.Selection.Clear },
-			when: selecting,
-			run:  model.clearWorktreeSelection,
-		},
-		{
-			id:   actionSelectToggle,
-			keys: func(k config.Keybindings) []string { return k.Selection.Toggle },
-			run:  model.toggleWorktreeSelection,
-		},
-		{
-			id:   actionSelectRange,
-			keys: func(k config.Keybindings) []string { return k.Selection.Range },
-			run:  model.extendWorktreeSelection,
-		},
-		{
+	return append(list.actions(),
+		action{
 			id:   actionDeleteSelected,
 			keys: func(k config.Keybindings) []string { return k.Worktrees.Delete },
-			when: selecting,
+			when: list.isSelecting,
 			run:  model.deleteChosenWorktrees,
 		},
-		{
-			id:   actionQuit,
-			keys: func(k config.Keybindings) []string { return k.Worktrees.Quit },
-			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m, m.hide() },
-		},
-		{
-			id:   actionMove,
-			keys: func(k config.Keybindings) []string { return concatKeys(k.Nav.Up, k.Nav.Down) },
-			run:  model.moveWorktrees,
-		},
-		{
-			id:   actionNavPage,
-			keys: func(k config.Keybindings) []string { return concatKeys(k.Nav.PageUp, k.Nav.PageDown) },
-			run:  model.pageWorktrees,
-		},
-		{
-			id:   actionFilterOpen,
-			keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
-			when: browsing,
-			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.openFilter() },
-		},
-		{
-			id:   actionFilterMatch,
-			keys: func(k config.Keybindings) []string { return concatKeys(k.Filter.NextMatch, k.Filter.PrevMatch) },
-			when: func(m model) bool { return !m.worktrees.selected.isActive() && m.filter.isStanding() },
-			run:  model.jumpFilterMatch,
-		},
-		{
-			id:   actionFilterClear,
-			keys: func(k config.Keybindings) []string { return k.Worktrees.Back },
-			when: func(m model) bool { return !m.worktrees.selected.isActive() && m.filter.isStanding() },
-			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.clearSearch() },
-		},
-		{
+		action{
 			id:   actionWorktreesBack,
 			keys: func(k config.Keybindings) []string { return k.Worktrees.Back },
-			when: browsing,
+			when: list.isBrowsing,
 			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.returnToAgents() },
 		},
-		{
+		action{
 			id:   actionWorktreesJumpToAgent,
 			keys: func(k config.Keybindings) []string { return k.Worktrees.JumpToAgent },
 			when: model.canWorktreeRowOpen,
 			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.jumpToWorktreeAgent() },
 		},
-		{
+		action{
 			id:   actionWorktreesDelete,
 			keys: func(k config.Keybindings) []string { return k.Worktrees.Delete },
-			when: browsing,
+			when: list.isBrowsing,
 			run:  model.deleteHoveredWorktree,
 		},
-		{
+		action{
 			id:   actionWorktreesClear,
 			keys: func(k config.Keybindings) []string { return k.Worktrees.Clear },
-			when: browsing,
+			when: list.isBrowsing,
 			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.clearWorktreesConfirm() },
 		},
-	}
+	)
 }
 
 func worktreesLegend() []legendRow {
-	selecting := func(m model) bool { return m.worktrees.selected.isActive() }
+	list := worktreesList()
 
-	return []legendRow{
-		{
-			of:    []actionID{actionSelectToggle},
-			desc:  model.worktreeToggleDesc,
-			show:  selecting,
-			strip: true,
-		},
-		{
-			of:   []actionID{actionSelectRange},
-			desc: func(model) string { return "select to nearest" },
-			show: selecting,
-		},
-		{
-			of:    []actionID{actionSelectClear},
-			desc:  model.worktreeClearDesc,
-			show:  selecting,
-			strip: true,
-		},
+	return slices.Concat(list.selectionLegend(), []legendRow{
 		{
 			of:   []actionID{actionDeleteSelected},
 			desc: func(model) string { return "delete all" },
-			show: selecting,
+			show: list.isSelecting,
 		},
 		{
 			of:    []actionID{actionWorktreesJumpToAgent},
@@ -147,7 +73,7 @@ func worktreesLegend() []legendRow {
 		},
 		{
 			of:   []actionID{actionSelectToggle},
-			desc: model.worktreeToggleDesc,
+			desc: list.toggleDesc,
 			show: model.doesWorktreesHoldARow,
 		},
 		{
@@ -165,21 +91,7 @@ func worktreesLegend() []legendRow {
 			of:   []actionID{actionFilterOpen},
 			desc: model.filterDesc,
 		},
-		{
-			of:    []actionID{actionMove},
-			desc:  func(model) string { return "move" },
-			label: moveLabel,
-		},
-		{
-			of:    []actionID{actionJump},
-			desc:  func(model) string { return "top/bottom" },
-			label: jumpLabel,
-		},
-		{
-			of:    []actionID{actionNavPage},
-			desc:  func(model) string { return "page" },
-			label: navPageLabel,
-		},
+	}, navLegend(), []legendRow{
 		{
 			of:   []actionID{actionWorktreesBack},
 			desc: func(model) string { return "back" },
@@ -194,7 +106,7 @@ func worktreesLegend() []legendRow {
 			desc:  func(model) string { return "next/prev match" },
 			strip: true,
 		},
-	}
+	})
 }
 
 func (m model) doesWorktreesHoldARow() bool {
@@ -230,67 +142,7 @@ func (m model) canWorktreeRowOpen() bool {
 	return ok && row.item.agent != nil
 }
 
-func (m model) jumpWorktrees(pressed string) (tea.Model, tea.Cmd) {
-	if isBound(pressed, m.keys.Nav.Bottom) {
-		return m.jumpWorktreeCursor(len(m.worktreeRows()) - 1)
-	}
-
-	return m, nil
-}
-
-func (m model) pageWorktrees(pressed string) (tea.Model, tea.Cmd) {
-	return m.jumpWorktreeCursor(m.worktrees.cursor + m.navPageDelta(pressed))
-}
-
-func (m model) moveWorktrees(pressed string) (tea.Model, tea.Cmd) {
-	if isBound(pressed, m.keys.Nav.Down) {
-		return m.moveWorktreeCursor(1)
-	}
-
-	return m.moveWorktreeCursor(-1)
-}
-
-func (m model) clearWorktreeSelection(string) (tea.Model, tea.Cmd) {
-	m.worktrees.selected = selection{}
-
-	return m, nil
-}
-
-func (m model) toggleWorktreeSelection(string) (tea.Model, tea.Cmd) {
-	m.worktrees.selected = m.worktrees.selected.toggle(worktreeRefs(m.worktreeRows()), m.worktrees.cursor)
-
-	return m, nil
-}
-
-func (m model) extendWorktreeSelection(string) (tea.Model, tea.Cmd) {
-	if !m.worktrees.selected.isActive() {
-		return m.toggleWorktreeSelection("")
-	}
-
-	m.worktrees.selected = m.worktrees.selected.extend(worktreeRefs(m.worktreeRows()), m.worktrees.cursor)
-
-	return m, nil
-}
-
-func (m model) worktreeToggleDesc() string {
-	hovered, _ := rowAt(m.worktreeRows(), m.worktrees.cursor)
-
-	switch {
-	case hovered.header:
-		return "select repository"
-	case m.worktrees.selected.has(hovered.key()):
-		return "deselect"
-	}
-
-	return "select"
-}
-
-func (m model) worktreeClearDesc() string {
-	return fmt.Sprintf("clear %d selected", len(m.worktrees.selected.keys))
-}
-
-// worktreeDeleteDesc names what the delete key does to the hovered directory, which depends on
-// who answers for it.
+// worktreeDeleteDesc names what the delete key does to the hovered directory.
 func (m model) worktreeDeleteDesc() string {
 	row, ok := m.hoveredWorktree()
 	if !ok {
@@ -454,8 +306,8 @@ func (m model) deleteWorktreesConfirm(deletion worktreeDeletion) (tea.Model, tea
 	})
 }
 
-// keepsBranch says whether a single directory's branch would be kept, read off its inspection,
-// and nothing at all for more than one or for one not yet read.
+// keepsBranch says whether a single directory's branch would be kept, and nothing for more than
+// one or for one not yet read.
 func (m model) keepsBranch(deletion worktreeDeletion) *bool {
 	if len(deletion.agents) != 1 || len(deletion.unowned) != 0 {
 		return nil

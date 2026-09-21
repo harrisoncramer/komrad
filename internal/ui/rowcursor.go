@@ -13,12 +13,10 @@ import (
 // blankCursor is the room a row leaves the arrow while the blink has it hidden.
 const blankCursor = "  "
 
-// rowCursorGlyph is the arrow a list draws on the row the cursor is standing on, spelled where
-// every other glyph is.
+// rowCursorGlyph is the arrow a list draws on the row the cursor is standing on.
 var rowCursorGlyph = view.Spell(view.GlyphFocus) + " "
 
-// newRowCursor is the blink the lists share, focused from the start, since a cursor nothing has
-// ticked yet would sit there dark.
+// newRowCursor is the blink the lists share, focused from the start.
 func newRowCursor() cursor.Model {
 	c := cursor.New()
 	c.BlinkSpeed = 300 * time.Millisecond
@@ -28,7 +26,7 @@ func newRowCursor() cursor.Model {
 }
 
 // updateRowCursor carries the bubble's own blink timer, and puts the arrow back on for a
-// keypress so a row being moved to is drawn solid.
+// keypress.
 func (m model) updateRowCursor(msg tea.Msg) (model, tea.Cmd) {
 	// The bubble stops its timer on a blur, and the working bars pulse on that timer whether or
 	// not the panel has the keyboard, so the caret alone reads blurred.
@@ -56,8 +54,7 @@ func (m model) cursorBlinkedOut(focused bool) bool {
 	return focused && !m.isTyping() && m.rowCursor.Blink
 }
 
-// cursorPrefix is the arrow a list draws on its hovered row, blinking while that list has the
-// keyboard and steady while something is being typed into.
+// cursorPrefix is the arrow a list draws on its hovered row.
 func (m model) cursorPrefix(focused bool) string {
 	if m.cursorBlinkedOut(focused) {
 		return blankCursor
@@ -70,14 +67,12 @@ func (m model) rowCursorPrefix() string {
 	return m.cursorPrefix(m.isListFocused())
 }
 
-// isListFocused reports whether the keys are the list's rather than another pane's, the record
-// beside it or a form standing over it.
+// isListFocused reports whether the keys are the list's.
 func (m model) isListFocused() bool {
 	return !m.keysElsewhere && !m.isDetailsFocused() && !m.isTabsFocused() && !m.isMessagesFocused() && !m.form.isActive()
 }
 
-// isColumnFocused reports whether the block beside the list holds the keys, which it does with
-// the list itself on every screen but the review, where the conversation can take them instead.
+// isColumnFocused reports whether the block beside the list holds the keys.
 func (m model) isColumnFocused() bool {
 	return m.isListFocused() && !m.isReviewThreadFocused()
 }

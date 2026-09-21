@@ -1,8 +1,6 @@
 package ui
 
 import (
-	"fmt"
-
 	"weave/config"
 
 	agentstore "weave/internal/store/agent"
@@ -11,8 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// agentsActions is the agents list as one table, walked in precedence order by the dispatch and
-// named in reading order by a legend of the same ids.
+// agentsActions is the agents list as one table and the legend that names it.
 func agentsActions() actionSpec {
 	return actionSpec{
 		table:  agentsTable(),
@@ -24,124 +21,71 @@ func agentsTable() []action {
 	return append(agentsModeActions(), agentsRowActions()...)
 }
 
-// agentsModeActions are the keys that answer whatever the cursor is on, ordered ahead of the row
-// keys.
+// agentsModeActions are the keys that answer whatever the cursor is on.
 func agentsModeActions() []action {
-	return []action{
-		{
-			id:   actionJump,
-			keys: func(k config.Keybindings) []string { return concatKeys(k.Nav.Top, k.Nav.Bottom) },
-			run:  model.jumpAgents,
-		},
-		{
-			id:   actionSelectClear,
-			keys: func(k config.Keybindings) []string { return k.Selection.Clear },
-			when: func(m model) bool { return m.tree.selected.isActive() },
-			run:  model.clearAgentSelection,
-		},
-		{
-			id:   actionSelectToggle,
-			keys: func(k config.Keybindings) []string { return k.Selection.Toggle },
-			run:  model.toggleAgentSelection,
-		},
-		{
-			id:   actionSelectRange,
-			keys: func(k config.Keybindings) []string { return k.Selection.Range },
-			run:  model.extendAgentSelection,
-		},
-		{
+	list := agentsList()
+
+	return append(list.actions(),
+		action{
 			id:   actionArchiveSelected,
 			keys: func(k config.Keybindings) []string { return k.Agents.Archive },
-			when: func(m model) bool { return m.tree.selected.isActive() },
+			when: list.isSelecting,
 			run:  model.archiveChosenAgents,
 		},
-		{
+		action{
 			id:   actionAgentShowHidden,
 			keys: func(k config.Keybindings) []string { return k.Agents.ShowHidden },
 			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.toggleHiddenAgents() },
 		},
-		{
-			id:   actionMove,
-			keys: func(k config.Keybindings) []string { return concatKeys(k.Nav.Up, k.Nav.Down) },
-			run:  model.moveAgentCursor,
-		},
-		{
-			id:   actionNavPage,
-			keys: func(k config.Keybindings) []string { return concatKeys(k.Nav.PageUp, k.Nav.PageDown) },
-			run:  model.pageAgents,
-		},
-		{
-			id:   actionQuit,
-			keys: func(k config.Keybindings) []string { return k.Agents.Quit },
-			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m, m.hide() },
-		},
-		{
-			id:   actionFilterOpen,
-			keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
-			when: func(m model) bool { return !m.tree.selected.isActive() },
-			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.openFilter() },
-		},
-		{
-			id:   actionFilterMatch,
-			keys: func(k config.Keybindings) []string { return concatKeys(k.Filter.NextMatch, k.Filter.PrevMatch) },
-			when: func(m model) bool { return !m.tree.selected.isActive() && m.filter.isStanding() },
-			run:  model.jumpFilterMatch,
-		},
-		{
-			id:   actionFilterClear,
-			keys: func(k config.Keybindings) []string { return k.Agents.Back },
-			when: func(m model) bool { return !m.tree.selected.isActive() && m.filter.isStanding() },
-			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.clearSearch() },
-		},
-		{
+		action{
 			id:   actionAgentsBack,
 			keys: func(k config.Keybindings) []string { return k.Agents.Back },
-			when: func(m model) bool { return !m.tree.selected.isActive() },
+			when: isBrowsing,
 			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m, m.hide() },
 		},
-		{
+		action{
 			id:   actionWorkflowNew,
 			keys: func(k config.Keybindings) []string { return k.Workflows.New },
-			when: func(m model) bool { return !m.tree.selected.isActive() },
+			when: isBrowsing,
 			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.newWorkflowForm() },
 		},
-		{
+		action{
 			id:   actionAgentSearch,
 			keys: func(k config.Keybindings) []string { return k.Agents.Search },
-			when: func(m model) bool { return !m.tree.selected.isActive() },
+			when: isBrowsing,
 			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.enterSearch() },
 		},
-		{
+		action{
 			id:   actionSchedulesOpen,
 			keys: func(k config.Keybindings) []string { return k.Schedules.Open },
-			when: func(m model) bool { return !m.tree.selected.isActive() },
+			when: isBrowsing,
 			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.enterSchedules() },
 		},
-		{
+		action{
 			id:   actionArchiveOpen,
 			keys: func(k config.Keybindings) []string { return k.Archive.Open },
-			when: func(m model) bool { return !m.tree.selected.isActive() },
+			when: isBrowsing,
 			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.openArchive() },
 		},
-		{
+		action{
 			id:   actionWorktreesOpen,
 			keys: func(k config.Keybindings) []string { return k.Worktrees.Open },
-			when: func(m model) bool { return !m.tree.selected.isActive() },
+			when: isBrowsing,
 			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.openWorktrees(m.hoveredAgentID()) },
 		},
-		{
+		action{
 			id:   actionMarkJump,
 			keys: func(k config.Keybindings) []string { return k.Marks.Jump },
-			when: func(m model) bool { return !m.tree.selected.isActive() },
+			when: isBrowsing,
 			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.beginMark(markPendingJump) },
 		},
-		{
+		action{
 			id:   actionMarkSet,
 			keys: func(k config.Keybindings) []string { return k.Marks.Set },
-			when: func(m model) bool { return !m.tree.selected.isActive() },
+			when: isBrowsing,
 			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.beginMark(markPendingSet) },
 		},
-	}
+	)
 }
 
 // agentsRowActions are the keys that act on the row the cursor is on, a workflow or an agent and
@@ -252,7 +196,7 @@ func agentsRowActions() []action {
 }
 
 func isBrowsing(m model) bool {
-	return !m.tree.selected.isActive()
+	return agentsList().isBrowsing(m)
 }
 
 func isHoveringWorkflow(m model) bool {
@@ -280,8 +224,7 @@ func isRetryableAgent(m model) bool {
 	return isHoveringAgent(m) && ok && item.agent.State == agentstore.StateFailedToCreate
 }
 
-// onHoveredWorkflow hands an arm the workflow under the cursor, which its gate has already said
-// is there.
+// onHoveredWorkflow hands an arm the workflow under the cursor.
 func onHoveredWorkflow(fn func(model, workflowstore.Workflow) (tea.Model, tea.Cmd)) func(model, string) (tea.Model, tea.Cmd) {
 	return func(m model, _ string) (tea.Model, tea.Cmd) {
 		workflow, ok := m.hoveredWorkflow()
@@ -293,63 +236,11 @@ func onHoveredWorkflow(fn func(model, workflowstore.Workflow) (tea.Model, tea.Cm
 	}
 }
 
-// onHoveredAgent hands an arm the agent under the cursor, and does nothing on a row holding none.
+// onHoveredAgent hands an arm the agent under the cursor.
 func onHoveredAgent(fn func(model, agentItem) (tea.Model, tea.Cmd)) func(model, string) (tea.Model, tea.Cmd) {
 	return func(m model, _ string) (tea.Model, tea.Cmd) {
 		return m.withSelectedAgent(func(item agentItem) (tea.Model, tea.Cmd) { return fn(m, item) })
 	}
-}
-
-// jumpAgents answers the bottom key, the top key being a doubled gesture the screen has already
-// taken before the table is reached.
-func (m model) jumpAgents(pressed string) (tea.Model, tea.Cmd) {
-	if isBound(pressed, m.keys.Nav.Bottom) {
-		next, cmd := m.jumpCursor(len(m.agentRows()) - 1)
-
-		return next, cmd
-	}
-
-	return m, nil
-}
-
-func (m model) pageAgents(pressed string) (tea.Model, tea.Cmd) {
-	next, cmd := m.jumpCursor(m.tree.cursor + m.navPageDelta(pressed))
-
-	return next, cmd
-}
-
-func (m model) moveAgentCursor(pressed string) (tea.Model, tea.Cmd) {
-	if isBound(pressed, m.keys.Nav.Down) {
-		next, cmd := m.moveCursor(1)
-
-		return next, cmd
-	}
-
-	next, cmd := m.moveCursor(-1)
-
-	return next, cmd
-}
-
-func (m model) clearAgentSelection(string) (tea.Model, tea.Cmd) {
-	m.tree.selected = selection{}
-
-	return m, nil
-}
-
-func (m model) toggleAgentSelection(string) (tea.Model, tea.Cmd) {
-	m.tree.selected = m.tree.selected.toggle(refsOf(m.agentRows()), m.tree.cursor)
-
-	return m, nil
-}
-
-func (m model) extendAgentSelection(string) (tea.Model, tea.Cmd) {
-	if !m.tree.selected.isActive() {
-		return m.toggleAgentSelection("")
-	}
-
-	m.tree.selected = m.tree.selected.extend(refsOf(m.agentRows()), m.tree.cursor)
-
-	return m, nil
 }
 
 func (m model) archiveChosenAgents(string) (tea.Model, tea.Cmd) {
@@ -364,46 +255,27 @@ func agentsLegend() []legendRow {
 	return append(agentsSelectionLegend(), agentsBrowsingLegend()...)
 }
 
-// agentsSelectionLegend is what the screen names while a selection stands, when the keys that
-// act on one agent have stood down.
+// agentsSelectionLegend is what the screen names while a selection stands.
 func agentsSelectionLegend() []legendRow {
-	selecting := func(m model) bool { return m.tree.selected.isActive() }
+	list := agentsList()
 
-	return []legendRow{
-		{
-			of:    []actionID{actionSelectToggle},
-			desc:  model.selectionToggleDesc,
-			show:  selecting,
-			strip: true,
-		},
-		{
-			of:   []actionID{actionSelectRange},
-			desc: func(model) string { return "select to nearest" },
-			show: selecting,
-		},
-		{
-			of:    []actionID{actionSelectClear},
-			desc:  model.selectionClearDesc,
-			show:  selecting,
-			strip: true,
-		},
-		{
+	return append(list.selectionLegend(),
+		legendRow{
 			of:   []actionID{actionArchiveSelected},
 			desc: func(model) string { return "archive all" },
-			show: selecting,
+			show: list.isSelecting,
 		},
-		{
+		legendRow{
 			of:   []actionID{actionAgentShowHidden},
 			desc: model.showHiddenDescOf,
-			show: selecting,
+			show: list.isSelecting,
 		},
-	}
+	)
 }
 
-// agentsBrowsingLegend is the ordinary legend, in reading order rather than in the order the
-// dispatch tries the keys.
+// agentsBrowsingLegend is the ordinary legend, in reading order.
 func agentsBrowsingLegend() []legendRow {
-	return []legendRow{
+	return append([]legendRow{
 		{
 			of:    []actionID{actionAgentOpen},
 			desc:  func(model) string { return "open" },
@@ -416,7 +288,7 @@ func agentsBrowsingLegend() []legendRow {
 		},
 		{
 			of:   []actionID{actionSelectToggle},
-			desc: model.selectionToggleDesc,
+			desc: agentsList().toggleDesc,
 			show: isBrowsing,
 		},
 		{
@@ -424,8 +296,7 @@ func agentsBrowsingLegend() []legendRow {
 			desc: func(model) string { return "git actions" },
 			show: isHoveringAgent,
 		},
-		// The review key answers for some agents and not others, so it is drawn for any of them and
-		// the caveats say which, which keeps the legend one height as the cursor moves.
+		// The review key is drawn for every agent, whether or not it answers for the one hovered.
 		{
 			of:   []actionID{actionAgentReview},
 			desc: func(model) string { return "review diff" },
@@ -527,39 +398,7 @@ func agentsBrowsingLegend() []legendRow {
 			of:   []actionID{actionFilterClear},
 			desc: model.filterClearDesc,
 		},
-		{
-			of:    []actionID{actionMove},
-			desc:  func(model) string { return "move" },
-			label: func(k config.Keybindings) string { return keyLabel(k.Nav.Up) + "/" + keyLabel(k.Nav.Down) },
-		},
-		{
-			of:    []actionID{actionJump},
-			desc:  func(model) string { return "top/bottom" },
-			label: func(k config.Keybindings) string { return doubledLabel(k.Nav.Top) + "/" + keyLabel(k.Nav.Bottom) },
-		},
-		{
-			of:    []actionID{actionNavPage},
-			desc:  func(model) string { return "page" },
-			label: navPageLabel,
-		},
-	}
-}
-
-func (m model) selectionToggleDesc() string {
-	hovered, _ := m.hoveredRow()
-
-	switch {
-	case hovered.header:
-		return "select folder"
-	case m.tree.selected.has(rowKey(hovered)):
-		return "deselect"
-	}
-
-	return "select"
-}
-
-func (m model) selectionClearDesc() string {
-	return fmt.Sprintf("clear %d selected", len(m.tree.selected.keys))
+	}, navLegend()...)
 }
 
 func (m model) showHiddenDescOf() string {
@@ -605,8 +444,7 @@ func concatKeys(lists ...[]string) []string {
 	return out
 }
 
-// hoveredAgentID is the agent under the cursor, or the orchestrator behind a hovered workflow,
-// empty when neither.
+// hoveredAgentID is the agent under the cursor, or the orchestrator behind a hovered workflow.
 func (m model) hoveredAgentID() string {
 	row, ok := m.hoveredRow()
 	if !ok {

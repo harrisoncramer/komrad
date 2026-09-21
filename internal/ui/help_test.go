@@ -138,7 +138,7 @@ func TestARefusedExpansionSaysItShowedNothing(t *testing.T) {
 func TestALegendThePaneCannotHoldGivesWay(t *testing.T) {
 	m := helpModel()
 	m.helpExpanded = true
-	header := m.agentsHeader()
+	header := agentsChrome().header(m)
 	full := m.renderHelp(m.agentHelp())
 	m.height = strings.Count(header, "\n") + strings.Count(full, "\n")
 
@@ -162,8 +162,8 @@ func helpModel() model {
 	}
 }
 
-// TestLegendOrderIsPinned holds the search screen's legend, which is the one screen with no table
-// to declare its own order, its keys being fixed rather than configured while the query is open.
+// TestLegendOrderIsPinned holds the search screen's legend, whose keys are fixed rather than
+// configured.
 func TestLegendOrderIsPinned(t *testing.T) {
 	tests := []struct {
 		name  string

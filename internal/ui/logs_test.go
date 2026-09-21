@@ -434,7 +434,7 @@ func TestAgentLogRespawnsOnACursorMove(t *testing.T) {
 	require.Equal(t, []string{"%2"}, tmux.respawnPanes)
 	require.Contains(t, tmux.respawns[0], "WEAVE_AGENT_ID='a1'")
 
-	moved, _ := m.moveCursor(1)
+	moved, _ := agentsList().move(m, 1)
 	agent, ok := moved.logTarget()
 	require.True(t, ok)
 	require.Equal(t, "a2", agent.ID, "the cursor has to have landed on the other agent for this to mean anything")

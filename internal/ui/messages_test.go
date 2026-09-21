@@ -62,7 +62,7 @@ func TestMessagesRegionGivesUpAShortPane(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	m.height, m.width = 13, 60
 
-	assert.Empty(t, m.messagesRegion(m.detailsView(), m.renderHelp(m.agentHelp()), m.agentsHeader()))
+	assert.Empty(t, m.messagesRegion(m.detailsView(), m.renderHelp(m.agentHelp()), agentsChrome().header(m)))
 }
 
 // TestMessagesStackKeepsWhatCameBefore covers the stack: a second failure does not erase the

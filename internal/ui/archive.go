@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"slices"
 
+	"weave/config"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
-	"weave/internal/ui/paint"
 	"weave/internal/ui/paint/label"
 	"weave/internal/view"
 	"weave/lib/xslice"
@@ -15,8 +15,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// archiveDropped are the three columns the archive gives up: an archived agent's checkout, its
-// review and its pull request are none of them refreshed once it is put away.
+// archiveDropped are the three columns the archive gives up.
 var archiveDropped = view.Columns{
 	Repo:   true,
 	Review: true,
@@ -28,8 +27,27 @@ type archiveState struct {
 	workflows []workflowstore.Workflow
 	sort      tabsState
 	rows      []agentRow
-	// top is how far the document beside the list has been scrolled, held here rather than
 	rowCursor
+}
+
+func archiveList() listSpec[agentRow] {
+	return listSpec[agentRow]{
+		cursor: func(m *model) *rowCursor { return &m.archive.rowCursor },
+		rows:   model.archiveRows,
+		name:   agentRowName,
+		refs:   refsOf,
+		header: "folder",
+		placed: (*model).stageArchive,
+		quit:   func(k config.Keybindings) []string { return k.Archive.Quit },
+		back:   func(k config.Keybindings) []string { return k.Archive.Back },
+	}
+}
+
+func archiveChrome() listChrome {
+	return listChrome{
+		title: screenTitle(view.GlyphArchive, "Archive"),
+		help:  model.archiveHelp,
+	}
 }
 
 func (m model) enterArchive() (tea.Model, tea.Cmd) {
@@ -39,18 +57,13 @@ func (m model) enterArchive() (tea.Model, tea.Cmd) {
 	return m, m.refreshCmd()
 }
 
-// openArchive is the key's own way onto the screen, which lands with the search up.
+// openArchive is the key's own way onto the screen, landing with the search up.
 func (m model) openArchive() (tea.Model, tea.Cmd) {
 	m.enterScreen(screenArchive)
 	m.beginFilter()
 	m.stageArchive()
 
 	return m, m.refreshCmd()
-}
-
-// archiveFilterRows is the archive's own rows with the name a search reads each by.
-func (m model) archiveFilterRows() []filterRow {
-	return filterRows(m.archiveRows())
 }
 
 // archiveSorts is every column the archive can be ordered by.
@@ -107,8 +120,7 @@ func (m model) archiveHeaders() []workflowstore.Workflow {
 		}
 	}
 
-	// The merge draws from two listings, so the result has to be sorted again, and it is
-	// sorted by the same comparator the query is written to reproduce.
+	// The merge draws from two listings, so the result is sorted again the way the query sorts.
 	slices.SortStableFunc(headers, workflowstore.ByName)
 
 	return headers
@@ -128,89 +140,32 @@ func (m model) archivedAgent(id string) (agentstore.Agent, bool) {
 	return agentstore.Agent{}, false
 }
 
-// hoveredArchiveKey is the row the cursor is on, read before a search moves it to a match.
-func (m model) hoveredArchiveKey() string {
-	return rowKeyAt(m.archiveRows(), m.archive.cursor)
-}
-
-func (m *model) placeArchiveCursor(hovered string) {
-	rows := m.archiveRows()
-	m.landArchiveCursor(rows, placeCursor(rowIndexOfKey(rows, hovered), m.archive.cursor, len(rows)))
-	m.stageArchive()
-}
-
-// landArchiveCursor puts the cursor on a row, naming the row rather than only its place in the
-// list so the document's own offset is kept.
-func (m *model) landArchiveCursor(rows []agentRow, idx int) {
-	m.archive.cursor = idx
-	m.placeColumn(screenArchive, rowKeyAt(rows, idx))
-}
-
 func (m *model) applyArchive(agents []agentstore.Agent, workflows []workflowstore.Workflow, selected string) {
 	m.archive.agents, m.archive.workflows = agents, workflows
 
-	m.archive.selected = m.archive.selected.pruned(refsOf(m.archiveRows()))
+	rows := m.archiveRows()
+	m.archive.selected = m.archive.selected.pruned(refsOf(rows))
 
 	focus := m.archive.focus
 	m.archive.focus = ""
 
-	rows := m.archiveRows()
-	if idx := rowIndexOfAgentID(rows, focus); focus != "" && idx >= 0 {
-		m.landArchiveCursor(rows, idx)
-
-		return
+	idx := -1
+	if focus != "" {
+		idx = rowIndexOfAgentID(rows, focus)
+	}
+	if idx < 0 {
+		idx = rowIndexOfKey(rows, selected)
+	}
+	if idx < 0 {
+		idx = clampCursor(m.archive.cursor, len(rows))
 	}
 
-	if idx := rowIndexOfKey(rows, selected); idx >= 0 {
-		m.landArchiveCursor(rows, idx)
-
-		return
-	}
-
-	m.landArchiveCursor(rows, clampCursor(m.archive.cursor, len(rows)))
+	m.archive.cursor = idx
+	m.placeColumn(screenArchive, rowKeyAt(rows, idx))
 }
 
 func (m model) updateArchive(key tea.KeyMsg) (tea.Model, tea.Cmd) {
-	k := key.String()
-
-	// The doubled top key is a gesture rather than a binding, so it is settled before the table,
-	// which would otherwise let a single press jump.
-	if m.takeTopPress(k) {
-		return m.jumpArchiveCursor(0), nil
-	}
-	if m.topHeld {
-		return m, nil
-	}
-
-	return archiveActions().dispatch(m, k)
-}
-
-func (m model) moveArchiveCursor(delta int) model {
-	rows := m.archiveRows()
-
-	next, ok := m.archive.move(delta, len(rows))
-	if !ok {
-		return m
-	}
-
-	m.landArchiveCursor(rows, next.cursor)
-	m.stageArchive()
-
-	return m
-}
-
-func (m model) jumpArchiveCursor(idx int) model {
-	rows := m.archiveRows()
-
-	next, ok := m.archive.jump(idx, len(rows))
-	if !ok {
-		return m
-	}
-
-	m.landArchiveCursor(rows, next.cursor)
-	m.stageArchive()
-
-	return m
+	return archiveList().update(m, key, archiveActions())
 }
 
 func (m model) selectedArchived() (agentstore.Agent, bool) {
@@ -258,7 +213,7 @@ func (m model) restoreAndOpen() (tea.Model, tea.Cmd) {
 }
 
 // restoreAndResumeCmd takes one agent out of the archive and puts its conversation back in a
-// pane, landing the panel on the row it made.
+// pane.
 func (m *model) restoreAndResumeCmd(agent agentstore.Agent) tea.Cmd {
 	return m.openingWriteCmd(fmt.Sprintf("Could not restore and open agent %q", agent.Name), func(a api) (*agentv1.Agent, error) {
 		if err := a.restoreAgents([]string{agent.ID}); err != nil {
@@ -373,13 +328,13 @@ func (m model) archiveDetails() details {
 	}
 }
 
-// stageArchive keeps the info pane on the row the cursor is standing on.
+// stageArchive keeps the notes and the info pane on the row the cursor is standing on.
 func (m *model) stageArchive() {
+	m.placeColumn(screenArchive, archiveList().hovered(*m))
 	m.stageInfo()
 }
 
-// archiveDoc is the markdown drawn beside the list: the notice for an empty archive, a
-// workflow's shared context, or the archived agent the cursor is on.
+// archiveDoc is the markdown drawn beside the list for the row the cursor is on.
 func (m model) archiveDoc() string {
 	r, ok := rowAt(m.archiveRows(), m.archive.cursor)
 	switch {
@@ -405,8 +360,7 @@ func (m model) archivedCount(workflowID string) int {
 	return xslice.Count(m.archive.agents, func(agent agentstore.Agent) bool { return agent.WorkflowID == workflowID })
 }
 
-// archiveColumn is the archived agent's own notes drawn beside the list, refused when the list
-// would not fit the narrower column the split leaves it.
+// archiveColumn is the archived agent's own notes drawn beside the list.
 func archiveColumn() columnSpec {
 	return columnSpec{
 		floor: columnFloor,
@@ -420,8 +374,19 @@ func (m model) archiveView() string {
 	return m.columnView(model.archiveListView)
 }
 
+func (m model) archiveListView() string {
+	return m.listView(listViewParams{
+		chrome:   archiveChrome(),
+		empty:    "nothing archived",
+		rows:     len(m.archiveRows()),
+		snapshot: model.archiveSnapshot,
+	})
+}
+
 // archiveSnapshot is the archive's rows as the plain data the shared drawing reads.
-func (m model) archiveSnapshot(rows []agentRow, pane int) view.Snapshot {
+func (m model) archiveSnapshot(pane int) view.Snapshot {
+	rows := m.archiveRows()
+
 	return agentsSnapshot(snapshotParams{
 		rows:          rows,
 		marks:         m.listing.marks,
@@ -444,46 +409,4 @@ func archiveTabs() tabStrip {
 		options:  tabOptionsOf(archiveSorts),
 		fallback: "archived",
 	}
-}
-
-func (m model) archiveHeader() string {
-	return m.tabbedHeader(screenTitle(view.GlyphArchive, "Archive"), "")
-}
-
-func (m model) doesArchiveFitTabs() bool {
-	return m.doesListFitTabs(screenTitle(view.GlyphArchive, "Archive"), "", model.archiveHelp)
-}
-
-func (m model) doesArchiveFitDetails() bool {
-	return m.doesListFitDetails(m.archiveHeader(), model.archiveHelp)
-}
-
-func (m model) archiveDetailsRoom() int {
-	return m.listDetailsRoom(m.archiveHeader(), model.archiveHelp)
-}
-
-func (m model) archiveListView() string {
-	header := m.archiveHeader()
-	record, help := m.detailsView(), m.renderHelp(m.archiveHelp(), header)
-	below := record + m.messagesRegion(record, help, header) + help
-
-	rows := m.archiveRows()
-	if len(rows) == 0 {
-		return m.headedListView(header, []string{dimStyle.Render(m.emptyListLine("nothing archived"))}, 0, below)
-	}
-
-	palette := paint.Panel
-	pane := m.paneWidth()
-
-	list := view.Prepare(m.archiveSnapshot(rows, pane))
-
-	lines := m.listLines(header, below)
-	window := view.Window(view.WindowParams{
-		List:    list,
-		Palette: palette,
-		Width:   pane,
-		Lines:   lines,
-	})
-
-	return m.headedBlockView(header, window, lines, below)
 }

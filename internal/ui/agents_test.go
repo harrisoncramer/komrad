@@ -202,20 +202,20 @@ func TestAgentRowsOrderFamiliesByTheColumn(t *testing.T) {
 func TestAgentsTabsKeepTheCursorOnItsRow(t *testing.T) {
 	m := agentsSortModel()
 	m.tree.cursor = 3
-	require.Equal(t, "agent:alpha", m.hoveredAgentKey())
+	require.Equal(t, "agent:alpha", agentsList().hovered(m))
 
 	tabbed := send(t, send(t, m, "f"), "tab")
 	assert.Equal(t, tabsState{chosen: "activity", focused: true}, tabbed.tree.sort)
-	assert.Equal(t, "agent:alpha", tabbed.hoveredAgentKey())
+	assert.Equal(t, "agent:alpha", agentsList().hovered(tabbed))
 	assert.Equal(t, 2, tabbed.tree.cursor)
 
 	named := send(t, tabbed, "tab")
 	assert.Equal(t, tabsState{chosen: "name", direction: tabUp, focused: true}, named.tree.sort)
-	assert.Equal(t, "agent:alpha", named.hoveredAgentKey())
+	assert.Equal(t, "agent:alpha", agentsList().hovered(named))
 	assert.Equal(t, 1, named.tree.cursor)
 
 	left := send(t, named, "esc")
 	assert.Equal(t, tabsState{chosen: "name", direction: tabUp}, left.tree.sort)
-	assert.Equal(t, "agent:alpha", left.hoveredAgentKey())
+	assert.Equal(t, "agent:alpha", agentsList().hovered(left))
 	assert.Equal(t, 1, left.tree.cursor)
 }

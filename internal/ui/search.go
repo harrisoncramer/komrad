@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"weave/config"
 	"weave/internal/client"
 	agentstore "weave/internal/store/agent"
 	"weave/internal/ui/paint"
@@ -20,14 +21,83 @@ import (
 )
 
 type searchState struct {
+	rowCursor
 	typing bool
 	query  string
 	// turns are the hits the server found in the conversations, one per turn that said the query.
-	turns  []searchHit
-	cursor int
-	rows   []searchAgent
+	turns []searchHit
+	rows  []searchAgent
 	// preview is the transcript of the agent the cursor is standing on, drawn beside the list.
 	preview searchPreview
+}
+
+func searchList() listSpec[searchAgent] {
+	return listSpec[searchAgent]{
+		cursor: func(m *model) *rowCursor { return &m.search.rowCursor },
+		rows:   model.searchAgents,
+		moved: func(m model) (model, tea.Cmd) {
+			agent, ok := m.hoveredSearchAgent()
+			if !ok {
+				return m, nil
+			}
+
+			return m, m.previewCmd(agent)
+		},
+		quit: func(config.Keybindings) []string { return []string{"ctrl+c"} },
+	}
+}
+
+// searchActions is the search screen as one table once the query line has given the keys up.
+func searchActions() actionSpec {
+	list := searchList()
+
+	return actionSpec{
+		table: append(list.actions(),
+			action{
+				id:   actionSearchEdit,
+				keys: func(config.Keybindings) []string { return []string{"esc", filterOpenKey} },
+				run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.openSearchInput() },
+			},
+			action{
+				id:   actionColumnScroll,
+				keys: func(k config.Keybindings) []string { return concatKeys(k.Column.ScrollDown, k.Column.ScrollUp) },
+				run:  model.scrollPreviewPressed,
+			},
+			action{
+				id:   actionSearchOpen,
+				keys: func(config.Keybindings) []string { return []string{"enter"} },
+				run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.jumpToSearchAgent() },
+			},
+		),
+		legend: slices.Concat([]legendRow{
+			{
+				of:    []actionID{actionSearchOpen},
+				desc:  func(model) string { return "go to it" },
+				strip: true,
+			},
+			{
+				of:    []actionID{actionSearchEdit},
+				desc:  func(model) string { return "edit the query" },
+				strip: true,
+			},
+		}, navLegend(), []legendRow{
+			{
+				of:   []actionID{actionColumnScroll},
+				desc: func(model) string { return "scroll the transcript" },
+				label: func(k config.Keybindings) string {
+					return keyLabel(k.Column.ScrollDown) + "/" + keyLabel(k.Column.ScrollUp)
+				},
+			},
+		}),
+	}
+}
+
+func (m model) scrollPreviewPressed(pressed string) (tea.Model, tea.Cmd) {
+	if isBound(pressed, m.keys.Column.ScrollUp) {
+		return m.scrollPreview(-docScrollStep)
+	}
+
+	return m.scrollPreview(docScrollStep)
 }
 
 const searchLimit = 10
@@ -75,8 +145,6 @@ func (m model) enterSearch() (tea.Model, tea.Cmd) {
 	m.enterScreen(screenSearch)
 	m.search = searchState{typing: true}
 
-	// The archived agents a hit can name are only listed while this screen is up, so the first
-	// pass is asked for here rather than waited on.
 	return m, m.refreshCmd()
 }
 
@@ -145,14 +213,13 @@ func renderHit(h *agentv1.SearchHit) searchHit {
 	}
 }
 
-// hoveredSearchID names the agent the cursor is standing on, read before a refresh moves the
-// rows under it.
+// hoveredSearchID names the agent the cursor is standing on.
 func (m model) hoveredSearchID() string {
-	return rowKeyAt(m.searchAgents(), m.search.cursor)
+	return searchList().hovered(m)
 }
 
-// placeSearchAgent puts the cursor back on the agent it was standing on before a refresh moved
-// the rows, and fetches a preview where that agent has gone.
+// placeSearchAgent puts the cursor back on the agent it was standing on, and fetches a preview
+// where that agent has gone.
 func (m *model) placeSearchAgent(was string) tea.Cmd {
 	agents := m.searchAgents()
 	if len(agents) == 0 {
@@ -171,8 +238,7 @@ func (m *model) placeSearchAgent(was string) tea.Cmd {
 	return m.previewCmd(agents[m.search.cursor])
 }
 
-// searchAgents is every agent the search found, once each: those whose own name says the query
-// first, read off the listings, then those whose conversation said it, best first.
+// searchAgents is every agent the search found, once each, the named ones first.
 func (m model) searchAgents() []searchAgent {
 	if m.search.rows != nil {
 		return m.search.rows
@@ -229,8 +295,7 @@ func nameSays(name, query string) bool {
 	return strings.Contains(paint.FoldASCII(name), paint.FoldASCII(query))
 }
 
-// nameMatches is where in a name the query was found, in bytes of that name, which the fold
-// keeps where a Unicode one would move them.
+// nameMatches is where in a name the query was found, in bytes of that name.
 func nameMatches(name, query string) []view.Span {
 	folded := paint.FoldASCII(strings.TrimSpace(query))
 	if folded == "" {
@@ -350,61 +415,7 @@ func (m model) updateSearchInput(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) updateSearchList(key tea.KeyMsg) (tea.Model, tea.Cmd) {
-	k := key.String()
-
-	if m.takeTopPress(k) {
-		return m.jumpSearchCursor(0)
-	}
-	if m.topHeld {
-		return m, nil
-	}
-
-	switch {
-	case k == "esc", k == filterOpenKey:
-		return m.openSearchInput()
-	case k == "ctrl+c":
-		return m, m.hide()
-	case isBound(k, m.keys.Nav.Up):
-		return m.moveSearchCursor(-1)
-	case isBound(k, m.keys.Nav.Down):
-		return m.moveSearchCursor(1)
-	case isBound(k, m.keys.Nav.Bottom):
-		return m.jumpSearchCursor(len(m.searchAgents()) - 1)
-	case isBound(k, m.keys.Nav.PageUp), isBound(k, m.keys.Nav.PageDown):
-		return m.jumpSearchCursor(m.search.cursor + m.navPageDelta(k))
-	case isBound(k, m.keys.Column.ScrollDown):
-		return m.scrollPreview(docScrollStep)
-	case isBound(k, m.keys.Column.ScrollUp):
-		return m.scrollPreview(-docScrollStep)
-	case k == "enter":
-		return m.jumpToSearchAgent()
-	}
-
-	return m, nil
-}
-
-func (m model) moveSearchCursor(delta int) (tea.Model, tea.Cmd) {
-	agents := m.searchAgents()
-
-	next, ok := stepCursor(m.search.cursor, delta, len(agents))
-	if !ok {
-		return m, nil
-	}
-
-	m.search.cursor = next
-
-	return m, m.previewCmd(agents[next])
-}
-
-func (m model) jumpSearchCursor(index int) (tea.Model, tea.Cmd) {
-	agents := m.searchAgents()
-	if len(agents) == 0 {
-		return m, nil
-	}
-
-	m.search.cursor = clampCursor(index, len(agents))
-
-	return m, m.previewCmd(agents[m.search.cursor])
+	return searchList().update(m, key, searchActions())
 }
 
 func (m model) hoveredSearchAgent() (searchAgent, bool) {
@@ -437,8 +448,7 @@ func (m model) jumpToSearchAgent() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// spans locates every matched word in the transcript, each measured from the turn its own hit
-// names, in the order they are read.
+// spans locates every matched word in the transcript, in the order they are read.
 func (a searchAgent) spans(content string) []paint.Span {
 	var spans []paint.Span
 	for _, hit := range a.turns {
@@ -450,8 +460,7 @@ func (a searchAgent) spans(content string) []paint.Span {
 	return spans
 }
 
-// spans locates this hit's own matched words in the transcript, measured from the turn the hit
-// names.
+// spans locates this hit's own matched words in the turn the hit names.
 func (h searchHit) spans(content string) []paint.Span {
 	return paint.MatchSpans(content, h.offset, h.length, paint.MarkedTerms(h.snippet))
 }
@@ -486,19 +495,14 @@ func (m model) searchRow(agent searchAgent, archived map[string]agentstore.Agent
 	return agentFacts(row, item)
 }
 
-// archivedSearchRow is a result on an agent nobody can reach any more, read the way the archive
-// screen reads it.
+// archivedSearchRow is a result on an archived agent.
 func archivedSearchRow(row view.Row, id string, archived map[string]agentstore.Agent) view.Row {
-	// Nothing is known about a result the archive listing has not landed yet, beyond its being
-	// over.
 	row.Process = view.ProcessStopped
 
 	if agent, ok := archived[id]; ok {
 		row = agentFacts(row, agentItem{agent: agent})
 	}
 
-	// The server said this agent is archived, which holds whether or not the listing carrying
-	// the stamp has arrived.
 	row.Archived = true
 
 	return row
@@ -520,8 +524,7 @@ func (m model) searchSnapshot(agents []searchAgent, pane int) view.Snapshot {
 	}
 }
 
-// searchView draws the agents the search found and, beside them, the transcript of the one the
-// cursor is standing on, as one frame.
+// searchView draws the agents the search found beside the transcript of the hovered one.
 func (m model) searchView() string {
 	m.search.rows = m.buildSearchAgents()
 

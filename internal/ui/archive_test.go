@@ -798,20 +798,20 @@ func TestArchiveRowsOrderByTheColumn(t *testing.T) {
 func TestArchiveTabsKeepTheCursorOnItsRow(t *testing.T) {
 	m := archiveSortModel()
 	m.archive.cursor = 2
-	require.Equal(t, "agent:alpha", m.hoveredArchiveKey())
+	require.Equal(t, "agent:alpha", archiveList().hovered(m))
 
 	tabbed := send(t, send(t, m, "f"), "tab")
 	assert.Equal(t, tabsState{chosen: "name", direction: tabUp, focused: true}, tabbed.archive.sort)
-	assert.Equal(t, "agent:alpha", tabbed.hoveredArchiveKey())
+	assert.Equal(t, "agent:alpha", archiveList().hovered(tabbed))
 	assert.Equal(t, 1, tabbed.archive.cursor)
 
 	turned := send(t, tabbed, "j")
-	assert.Equal(t, "agent:alpha", turned.hoveredArchiveKey())
+	assert.Equal(t, "agent:alpha", archiveList().hovered(turned))
 	assert.Equal(t, 3, turned.archive.cursor)
 
 	left := send(t, turned, "esc")
 	assert.Equal(t, tabsState{chosen: "name", direction: tabDown}, left.archive.sort)
-	assert.Equal(t, "agent:alpha", left.hoveredArchiveKey())
+	assert.Equal(t, "agent:alpha", archiveList().hovered(left))
 	assert.Equal(t, 3, left.archive.cursor)
 }
 
@@ -1026,7 +1026,7 @@ func TestArchiveDrawsTheDocumentBesideTheList(t *testing.T) {
 		assert.LessOrEqual(t, ansi.StringWidth(row), m.width, "neither column runs past the window")
 	}
 
-	m.landArchiveCursor(m.archiveRows(), 0)
+	m, _ = archiveList().jump(m, 0)
 	assert.Contains(t, ansi.Strip(m.View()), "the shared notes", "the document follows the cursor onto the folder")
 }
 
@@ -1047,7 +1047,7 @@ func TestArchiveDrawsNothingArchivedBesideTheList(t *testing.T) {
 // in the panel's own frame: it moves, it says what is past each end, and it stops at both.
 func TestArchiveScrollsTheDocument(t *testing.T) {
 	m := splitArchiveModel(t)
-	m.landArchiveCursor(m.archiveRows(), 0)
+	m, _ = archiveList().jump(m, 0)
 	m.listing.workflows = []workflowstore.Workflow{{
 		ID:      "w1",
 		Name:    "backend",
@@ -1087,11 +1087,11 @@ func TestArchiveCursorTakesTheDocumentBackToItsTop(t *testing.T) {
 	m := splitArchiveModel(t)
 	m.column.top = 12
 
-	m = m.moveArchiveCursor(-1)
+	m, _ = archiveList().move(m, -1)
 	assert.Zero(t, m.column.top, "the cursor landed on another row")
 
 	m.column.top = 12
-	m = m.moveArchiveCursor(-1)
+	m, _ = archiveList().move(m, -1)
 	assert.Equal(t, 12, m.column.top, "a cursor that could not move leaves the offset where it was")
 }
 
@@ -1153,7 +1153,7 @@ func TestArchiveKeepsTheOffsetWhenARowSlides(t *testing.T) {
 	m.applyArchive(held, nil, "")
 
 	rows := m.archiveRows()
-	m.landArchiveCursor(rows, rowIndexOfKey(rows, agentRowKey("a2")))
+	m, _ = archiveList().jump(m, rowIndexOfKey(rows, agentRowKey("a2")))
 	m.column.top = 20
 
 	was := m.archive.cursor
@@ -1192,7 +1192,7 @@ func TestArchiveKeepsTheSplitInAShortPane(t *testing.T) {
 // its half of the window at every offset.
 func TestArchiveDocViewFillsItsColumn(t *testing.T) {
 	m := splitArchiveModel(t)
-	m.landArchiveCursor(m.archiveRows(), 0)
+	m, _ = archiveList().jump(m, 0)
 	m.listing.workflows = []workflowstore.Workflow{{
 		ID:      "w1",
 		Name:    "backend",
@@ -1274,7 +1274,7 @@ func archiveLines(t *testing.T, m model) []view.Line {
 	t.Helper()
 
 	rows := m.archiveRows()
-	list := view.Prepare(m.archiveSnapshot(rows, 80))
+	list := view.Prepare(m.archiveSnapshot(80))
 	require.Len(t, list.Lines, len(rows))
 
 	return list.Lines
@@ -1319,7 +1319,7 @@ func TestArchiveGivesUpTheThreeColumns(t *testing.T) {
 	rows := m.archiveRows()
 	require.NotEmpty(t, rows)
 
-	assert.Equal(t, view.Columns{}, view.Prepare(m.archiveSnapshot(rows, 200)).Columns,
+	assert.Equal(t, view.Columns{}, view.Prepare(m.archiveSnapshot(200)).Columns,
 		"a pane wide enough for all three still draws none of them")
 
 	live := view.Prepare(agentsSnapshot(snapshotParams{rows: m.agentRows(), pane: 200}))

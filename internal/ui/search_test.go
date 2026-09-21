@@ -1380,9 +1380,7 @@ func TestSearchNameHitsTakeTheCursor(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, "a1", opened.id, "the cursor opens on the name")
 
-	updated, _ := m.moveSearchCursor(1)
-	next, ok := updated.(model)
-	require.True(t, ok)
+	next, _ := searchList().move(m, 1)
 
 	agent, ok := next.hoveredSearchAgent()
 	require.True(t, ok)

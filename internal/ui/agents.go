@@ -8,7 +8,6 @@ import (
 
 	"weave/config"
 	"weave/internal/ui/layout"
-	"weave/internal/ui/paint"
 	"weave/internal/view"
 
 	agentstore "weave/internal/store/agent"
@@ -23,21 +22,29 @@ var errNoWorkflow = errors.New("every agent belongs to a workflow, so create one
 
 var errChildOfChild = errors.New("a child agent may not have children of its own")
 
+func agentsList() listSpec[agentRow] {
+	return listSpec[agentRow]{
+		cursor: func(m *model) *rowCursor { return &m.tree.rowCursor },
+		rows:   model.agentRows,
+		name:   agentRowName,
+		refs:   refsOf,
+		header: "folder",
+		placed: (*model).stageSelection,
+		moved:  model.deferStaging,
+		quit:   func(k config.Keybindings) []string { return k.Agents.Quit },
+		back:   func(k config.Keybindings) []string { return k.Agents.Back },
+	}
+}
+
+func agentsChrome() listChrome {
+	return listChrome{
+		title: screenTitle(view.GlyphWorkflow, "Agents & Workflows"),
+		help:  model.agentHelp,
+	}
+}
+
 func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
-	k := key.String()
-
-	// The doubled top key is a gesture rather than a binding, so it is settled before the table,
-	// which would otherwise let a single press jump.
-	if m.takeTopPress(k) {
-		next, cmd := m.jumpCursor(0)
-
-		return next, cmd
-	}
-	if m.topHeld {
-		return m, nil
-	}
-
-	return agentsActions().dispatch(m, k)
+	return agentsList().update(m, key, agentsActions())
 }
 
 func (m model) withSelectedAgent(fn func(agentItem) (tea.Model, tea.Cmd)) (tea.Model, tea.Cmd) {
@@ -125,40 +132,16 @@ func (m *model) releasePanes(agents []agentstore.Agent) {
 	}
 }
 
-func (m model) moveCursor(delta int) (model, tea.Cmd) {
-	next, ok := m.tree.move(delta, len(m.agentRows()))
-	if !ok {
-		return m, nil
-	}
-
-	m.tree.rowCursor = next
-
-	return m.deferStaging()
-}
-
-func (m model) jumpCursor(idx int) (model, tea.Cmd) {
-	next, ok := m.tree.jump(idx, len(m.agentRows()))
-	if !ok {
-		return m, nil
-	}
-
-	m.tree.rowCursor = next
-
-	return m.deferStaging()
-}
-
 // stageDelay is how long a cursor has to rest before the panes are moved to what it is standing
-// on, which is under what a scroll between two rows takes.
+// on.
 const stageDelay = 90 * time.Millisecond
 
-// stageTickMsg is the rest a cursor move waited for, carrying the move it was owed to so a later
-// one takes precedence.
+// stageTickMsg is the rest a cursor move waited for, carrying the move it was owed to.
 type stageTickMsg struct {
 	move int
 }
 
-// deferStaging waits for the cursor to come to rest before the panes are moved, so scrolling a
-// list is one change of layout rather than one for every row passed over.
+// deferStaging waits for the cursor to come to rest before the panes are moved.
 func (m model) deferStaging() (model, tea.Cmd) {
 	m.staging++
 	move := m.staging
@@ -166,8 +149,7 @@ func (m model) deferStaging() (model, tea.Cmd) {
 	return m, tea.Tick(stageDelay, func(time.Time) tea.Msg { return stageTickMsg{move: move} })
 }
 
-// applyStageTick stages what the cursor came to rest on, ignoring a rest the cursor has already
-// moved on from, and answers with whatever the screen reads for the row it rested on.
+// applyStageTick stages what the cursor came to rest on and asks for what the screen reads of it.
 func (m *model) applyStageTick(msg stageTickMsg) tea.Cmd {
 	if msg.move != m.staging {
 		return nil
@@ -260,8 +242,7 @@ func (m model) pauseAgent(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 	})
 }
 
-// releaseInSilenceConfirm lets an agent go without typing at it, which is the only way out of a
-// pause whose agent has an input box that will never take the words.
+// releaseInSilenceConfirm lets an agent go without typing at it.
 func (m model) releaseInSilenceConfirm(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 	form, confirmed := releaseInSilenceForm(agent.Name, formKeys())
 
@@ -299,8 +280,7 @@ func (m model) agentsDetails() details {
 	}
 }
 
-// agentDetailFields is the record for an agent as the listing holds it, with the names the
-// record needs looked up and what the service has answered about its pull requests.
+// agentDetailFields is the record for an agent as the listing holds it.
 func (m model) agentDetailFields(item agentItem) []recordField {
 	worktree, read := m.agentWorktree(item.agent.Cwd)
 
@@ -316,8 +296,7 @@ func (m model) agentDetailFields(item agentItem) []recordField {
 	})
 }
 
-// agentsColumn is what stands where a running agent's own pane would: a folder's shared notes, or
-// why the row under the cursor has no pane to show.
+// agentsColumn is what stands where a running agent's own pane would.
 func agentsColumn() columnSpec {
 	return columnSpec{
 		floor: columnFloor,
@@ -326,8 +305,7 @@ func agentsColumn() columnSpec {
 	}
 }
 
-// hasNoAgentPane reports whether the row the cursor is on has no pane of its own, which is what
-// leaves the window free for the panel to say why instead.
+// hasNoAgentPane reports whether the row the cursor is on has no pane of its own.
 func (m model) hasNoAgentPane() bool {
 	r, ok := rowAt(m.agentRows(), m.tree.cursor)
 	if !ok {
@@ -403,9 +381,7 @@ func (m *model) sizeAgentWindows() {
 	}
 }
 
-// stageSelection puts the pane of whatever the cursor is standing on beside the list, which for a
-// running agent is the agent's own and for everything else is nothing: the panel takes the window
-// and says why there is no pane in its own frame instead.
+// stageSelection puts the pane of whatever the cursor is standing on beside the list.
 func (m *model) stageSelection() {
 	m.frame.Begin()
 	defer m.afterStaging()
@@ -434,8 +410,7 @@ func (m *model) afterStaging() {
 	m.frame.Flush()
 }
 
-// sizeGuestWindow puts an agent's own window at the size of the stage before it is swapped in,
-// which sizeAgentWindows cannot do for the pane already standing there.
+// sizeGuestWindow puts an agent's own window at the size of the stage before it is swapped in.
 func (m *model) sizeGuestWindow(pane string) {
 	// A remote agent's window is sized by the ssh client attached to it, which is the stage pane
 	// itself, so there is nothing here to set and the pane id names a window on another server.
@@ -462,7 +437,7 @@ func (m *model) sizeGuestWindow(pane string) {
 }
 
 // isGuestLive reports whether the pane parked in the stage still belongs to an agent the last
-// listing found running, which is what says it can be left there while the panel covers it.
+// listing found running.
 func (m model) isGuestLive() bool {
 	guest := m.frame.GuestPane()
 	if guest == "" {
@@ -478,8 +453,7 @@ func (m model) isGuestLive() bool {
 	return false
 }
 
-// parentName is what the agent a child is attached to is called, which is what the details show
-// rather than the id the row already carries.
+// parentName is what the agent a child is attached to is called.
 func (m model) parentName(agent agentstore.Agent) string {
 	if agent.ParentAgentID == nil {
 		return ""
@@ -521,8 +495,7 @@ func (m model) noAgentsMarkdown() string {
 
 const settingUpPlaceholder = "_setting up…_\n\nMaking this agent's worktree. It has no pane yet."
 
-// failureReasonKey is the metadata key a failed create or cleanup records its reason under,
-// left out of agentFields since failedPlaceholder is what shows it.
+// failureReasonKey is the metadata key a failed create or cleanup records its reason under.
 const failureReasonKey = "error"
 
 func (m model) failedPlaceholder(agent agentstore.Agent) string {
@@ -567,36 +540,18 @@ func agentsTabs() tabStrip {
 	}
 }
 
-func (m model) agentsHeader() string {
-	return m.tabbedHeader(screenTitle(view.GlyphWorkflow, "Agents & Workflows"), "")
-}
-
-func (m model) doesAgentsFitTabs() bool {
-	return m.doesListFitTabs(screenTitle(view.GlyphWorkflow, "Agents & Workflows"), "", model.agentHelp)
-}
-
-func (m model) doesAgentsFitDetails() bool {
-	return m.doesListFitDetails(m.agentsHeader(), model.agentHelp)
-}
-
-func (m model) agentsDetailsRoom() int {
-	return m.listDetailsRoom(m.agentsHeader(), model.agentHelp)
-}
-
 func (m model) agentsListView() string {
-	header := m.agentsHeader()
-	record, help := m.detailsView(), m.renderHelp(m.agentHelp(), header)
-	below := record + m.messagesRegion(record, help, header) + help
+	return m.listView(listViewParams{
+		chrome:   agentsChrome(),
+		rows:     len(m.agentRows()),
+		snapshot: model.agentsSnapshot,
+	})
+}
 
+func (m model) agentsSnapshot(pane int) view.Snapshot {
 	rows := m.agentRows()
-	if len(rows) == 0 && m.filter.isNarrowing() {
-		return m.headedListView(header, []string{dimStyle.Render(m.emptyListLine(""))}, 0, below)
-	}
 
-	palette := paint.Panel
-	pane := m.paneWidth()
-
-	list := view.Prepare(agentsSnapshot(snapshotParams{
+	return agentsSnapshot(snapshotParams{
 		rows:          rows,
 		marks:         m.listing.marks,
 		selected:      m.tree.selected,
@@ -607,21 +562,10 @@ func (m model) agentsListView() string {
 		matcher:       m.filter.pattern,
 		showHidden:    m.tree.showHidden,
 		pane:          pane,
-	}))
-
-	lines := m.listLines(header, below)
-	window := view.Window(view.WindowParams{
-		List:    list,
-		Palette: palette,
-		Width:   pane,
-		Lines:   lines,
 	})
-
-	return m.headedBlockView(header, window, lines, below)
 }
 
-// scheduledWorkflows is the workflows at least one schedule launches into, which is all a
-// workflow row says about them.
+// scheduledWorkflows is the workflows at least one schedule launches into.
 func (m model) scheduledWorkflows() map[string]bool {
 	scheduled := make(map[string]bool, len(m.schedules.items))
 	for _, item := range m.schedules.items {
@@ -663,8 +607,7 @@ func (m model) openAgentForm(workflow workflowstore.Workflow, values *agentFormV
 	})
 }
 
-// openNewChild attaches a child to the hovered agent, saying why on a child rather than opening
-// a form whose submit the service could only refuse.
+// openNewChild opens the form that attaches a child to the hovered agent.
 func (m model) openNewChild(parent agentstore.Agent) (tea.Model, tea.Cmd) {
 	if parent.ParentAgentID != nil {
 		m.report("Could not attach a child", errChildOfChild)
@@ -801,8 +744,8 @@ func (m model) submitAgent(workflow workflowstore.Workflow, values agentFormValu
 	return m, tea.Batch(cmd, m.holdForm())
 }
 
-// worktreeOverride reads the one thing an agent can say for itself about its directory: unset
-// to follow the workflow, or false to keep the directory it was given.
+// worktreeOverride is what the form says about the agent's directory: nil to follow the
+// workflow, false to keep the directory it was given.
 func worktreeOverride(selected string) *bool {
 	if selected == withoutWorktree {
 		return xptr.Ptr(false)
@@ -811,8 +754,7 @@ func worktreeOverride(selected string) *bool {
 	return nil
 }
 
-// openRefreshConfirm asks before bringing a worktree up to date, saying what it will do to the
-// branch and to the files.
+// openRefreshConfirm asks before bringing a worktree up to date.
 func (m model) openRefreshConfirm(plan refreshPlan) (tea.Model, tea.Cmd) {
 	form, confirmed := refreshForm(plan, formKeys())
 
@@ -830,8 +772,7 @@ func (m model) openRefreshConfirm(plan refreshPlan) (tea.Model, tea.Cmd) {
 	})
 }
 
-// startOrchestrator brings the workflow's orchestrator back, or starts the one it has never
-// had, and ends with the keyboard in its pane.
+// startOrchestrator brings the workflow's orchestrator back and puts the keyboard in its pane.
 func (m model) startOrchestrator(workflow workflowstore.Workflow) (tea.Model, tea.Cmd) {
 	return m, m.rowWriteCmd(
 		fmt.Sprintf("Could not reach the orchestrator of workflow %q", workflow.Name),
