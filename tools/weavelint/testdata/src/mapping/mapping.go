@@ -36,6 +36,21 @@ func intoField(rows []row) row {
 	return r
 }
 
+func intoElement(bags []*row) {
+	for _, bag := range bags {
+		bag.tags = append(bag.tags, "x")
+	}
+}
+
+func copied(rows []row) []row {
+	var out []row
+	for _, r := range rows {
+		out = append(out, r)
+	}
+
+	return out
+}
+
 func byIndex(rows []row, picks []int) []row {
 	var out []row
 	for _, i := range picks {

@@ -57,41 +57,63 @@ func reportSingleAppends(pass *analysis.Pass, file *ast.File) {
 
 // isMappingLoop says whether a range loop is one element in, one append out, over a slice.
 func isMappingLoop(pass *analysis.Pass, loop *ast.RangeStmt) bool {
-	if !usesValueOnly(loop) || !isSlice(pass, loop.X) || len(loop.Body.List) != 1 {
+	value, ok := valueOnly(loop)
+	if !ok || !isSlice(pass, loop.X) || len(loop.Body.List) != 1 {
 		return false
 	}
 
 	target, appended, ok := singleAppend(loop.Body.List[0])
-	if !ok || sameExpr(target, loop.X) {
+	if !ok || sameExpr(target, loop.X) || rootIdent(target) == value {
 		return false
 	}
 
-	switch appended.(type) {
+	switch appended := appended.(type) {
 	case *ast.IndexExpr, *ast.IndexListExpr:
 		return false
+	case *ast.Ident:
+		return appended.Name != value
 	}
 
 	return true
 }
 
-// usesValueOnly says whether a range loop binds its element and leaves its index blank.
-func usesValueOnly(loop *ast.RangeStmt) bool {
+// rootIdent is the identifier a selector path starts from, or empty when there is none.
+func rootIdent(expr ast.Expr) string {
+	for {
+		switch e := expr.(type) {
+		case *ast.Ident:
+			return e.Name
+		case *ast.SelectorExpr:
+			expr = e.X
+		case *ast.ParenExpr:
+			expr = e.X
+		default:
+			return ""
+		}
+	}
+}
+
+// valueOnly is the name a range loop binds its element to, when it leaves its index blank.
+func valueOnly(loop *ast.RangeStmt) (string, bool) {
 	if loop.Tok != token.DEFINE {
-		return false
+		return "", false
 	}
 
 	value, ok := loop.Value.(*ast.Ident)
 	if !ok || value.Name == "_" {
-		return false
+		return "", false
 	}
 
 	if loop.Key == nil {
-		return true
+		return value.Name, true
 	}
 
 	key, ok := loop.Key.(*ast.Ident)
+	if !ok || key.Name != "_" {
+		return "", false
+	}
 
-	return ok && key.Name == "_"
+	return value.Name, true
 }
 
 // isSlice says whether an expression's type is a slice.

@@ -9,8 +9,8 @@ import (
 )
 
 // TestSingleAppend covers a plain mapping loop, one through a named function and one into a
-// field, beside loops that index, filter, spread, use the index, range over a map or a string,
-// grow the ranged slice, or do more than the one append.
+// field, beside loops that index, filter, spread, copy, use the index, range over a map or a
+// string, grow the ranged slice, append into the element, or do more than the one append.
 func TestSingleAppend(t *testing.T) {
 	analyzer, err := newSingleAppend(config.SingleAppendConfig{})
 	if err != nil {
