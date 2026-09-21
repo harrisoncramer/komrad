@@ -23,7 +23,7 @@ func withColour(t *testing.T) {
 }
 
 // TestListSearchLightsTheRecord covers the one search reaching both sections: typed on the list,
-// it lights its matches in the record too, and a filter narrows the list alone.
+// it lights its matches in the record too, and a filter narrows both once applied.
 func TestListSearchLightsTheRecord(t *testing.T) {
 	withColour(t)
 
@@ -31,7 +31,6 @@ func TestListSearchLightsTheRecord(t *testing.T) {
 
 	typed := pressMark(t, m, "/", "a", "u", "t", "h")
 	require.True(t, typed.filter.typing)
-	assert.Equal(t, sectionList, typed.filter.over)
 
 	held := typed.hoveredDetails()
 	rows := typed.detailFieldRows(typed.detailsRows(held), typed.detailsCursor(held))
@@ -39,9 +38,9 @@ func TestListSearchLightsTheRecord(t *testing.T) {
 	assert.Contains(t, name, paint.Panel.Match().Render("auth"), "the record's match is lit")
 
 	narrowed := pressMark(t, typed, "tab", "enter")
-	require.True(t, narrowed.filter.doesNarrow(sectionList))
-	assert.False(t, narrowed.filter.doesNarrow(sectionRecord))
-	assert.Len(t, narrowed.detailsRows(narrowed.hoveredDetails()), len(held.fields), "the record keeps every field")
+	require.True(t, narrowed.filter.isNarrowing())
+	assert.Equal(t, []string{"backend", "auth"}, rowNames(narrowed.agentRows()))
+	assert.Len(t, narrowed.detailsRows(narrowed.hoveredDetails()), 1, "the record narrows to its matching field")
 }
 
 // TestFocusKeyWhileTypingJumpsIntoTheRecord covers the focus key answering while the search input
@@ -181,4 +180,30 @@ func TestMatchKeysWalkAcrossTheSections(t *testing.T) {
 	back := send(t, round, "N")
 	assert.True(t, back.isDetailsFocused(), "N walks the same sequence the other way")
 	assert.Equal(t, "backend", held.fields[back.detailsCursor(held)].value)
+}
+
+// TestTypingMovesNothingUntilApplied covers the search lighting both sections while it is typed
+// and acting only where it is applied: enter walks the list, and ctrl+t leaves the list where it
+// was and walks the record instead, in either mode.
+func TestTypingMovesNothingUntilApplied(t *testing.T) {
+	m := detailsModel(&recordingTmux{})
+	require.Equal(t, 1, m.tree.cursor)
+
+	typed := pressMark(t, m, "/", "b", "a", "c", "k")
+	assert.Equal(t, 1, typed.tree.cursor, "the header matches and the cursor stays put")
+
+	entered := send(t, typed, "enter")
+	assert.Equal(t, 0, entered.tree.cursor, "enter walks onto the header")
+
+	jumped := send(t, typed, "ctrl+t")
+	require.True(t, jumped.isDetailsFocused())
+	assert.Equal(t, 1, jumped.tree.cursor, "ctrl+t leaves the list alone")
+	held := jumped.hoveredDetails()
+	assert.Equal(t, "workflow", held.fields[jumped.detailsCursor(held)].label, "and lands on the record's match")
+
+	filtered := pressMark(t, typed, "tab", "ctrl+t")
+	require.True(t, filtered.isDetailsFocused())
+	assert.Equal(t, 1, filtered.tree.cursor, "the list narrows around the row the cursor is on")
+	assert.Len(t, filtered.agentRows(), len(m.agentRows()), "a header match keeps the rows under it")
+	assert.Len(t, filtered.detailsRows(filtered.hoveredDetails()), 1, "and the record narrows with it")
 }

@@ -80,11 +80,11 @@ Marks are yours. Nothing an agent can call sets one, and a row loses its mark wh
 
 ## Searching the list
 
-Press `/` and type to search the list. It highlights rather than narrows: every row stays where it was, and the matched text is drawn lit up, so you keep the shape of the tree while you look. The cursor walks onto the nearest match as you type.
+Press `/` and type to search the list. It highlights rather than narrows: every row stays where it was, and the matched text is drawn lit up in the list and in the record under it, so you keep the shape of the tree while you look. Nothing moves while you type.
 
-`n` and `N` step forward and back through the matches, wrapping at either end. They only answer while a search is up, since they are ordinary letters the rest of the time.
+Enter applies the search to both sections at once: in filter mode the list and the record narrow to their matches, and the cursor of the section holding the keys walks onto its nearest match. `ctrl+t` applies it the same way but moves the keys to the other section first, so a search typed on the list lands on the record's match with the list's cursor still on the agent you were on. Escape gives up: the search goes and the cursor stays where it was.
 
-Enter puts the input away and leaves you on the row you found, with the search still lit so `n` keeps working. Escape gives up: the search goes and the cursor returns to the row you were on when you pressed `/`.
+`n` and `N` step forward and back through the matches, the list's rows and then the record's fields, wrapping at either end and moving the keys into whichever section the next match is in. They only answer while a search is up, since they are ordinary letters the rest of the time.
 
 ## Archiving, restoring, deleting
 

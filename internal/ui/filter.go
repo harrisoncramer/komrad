@@ -53,8 +53,8 @@ type filterState struct {
 	pattern *regexp.Regexp
 	broken  bool
 	mode    filterMode
-	// over is the section the search was opened over.
-	over sidebarSection
+	// openedIn is the section the keys were in when the search opened.
+	openedIn sidebarSection
 	// origin is the row the cursor sat on when the search opened, which abandoning it returns to.
 	origin string
 }
@@ -65,12 +65,7 @@ func (f filterState) isStanding() bool {
 
 // isNarrowing reports whether the pattern is taking rows off the screen.
 func (f filterState) isNarrowing() bool {
-	return f.mode == filterModeFilter && f.pattern != nil
-}
-
-// doesNarrow reports whether the pattern is taking rows off one section of the sidebar.
-func (f filterState) doesNarrow(section sidebarSection) bool {
-	return f.isNarrowing() && f.over == section
+	return f.mode == filterModeFilter && f.pattern != nil && !f.typing
 }
 
 func (f *filterState) setQuery(query string) {
@@ -147,7 +142,7 @@ func (m *model) beginFilter() {
 	filter := m.filterTarget().state
 	filter.typing = true
 	filter.mode = filterModeSearch
-	filter.over = m.keyholder()
+	filter.openedIn = m.keyholder()
 	filter.setQuery("")
 	filter.origin = origin
 	m.placeFilteredCursor(origin)
@@ -204,10 +199,10 @@ func (f *filterState) abandon() {
 // the keys have since moved to the other section.
 func (m model) clearSearch() (tea.Model, tea.Cmd) {
 	filter := m.filterTarget().state
-	origin, over := filter.origin, filter.over
+	origin, openedIn := filter.origin, filter.openedIn
 	filter.abandon()
 	filter.origin = ""
-	if over == m.keyholder() {
+	if openedIn == m.keyholder() {
 		m.placeFilteredCursor(origin)
 	}
 
@@ -223,9 +218,6 @@ func (m model) updateFilterInput(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.closeSearchAndMoveKeys()
 	}
 
-	abandoning := key.String() == "esc"
-
-	hovered := m.hoveredFilterKey()
 	filter := m.filterTarget().state
 	switch {
 	case key.String() == "tab":
@@ -234,29 +226,32 @@ func (m model) updateFilterInput(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if abandoning {
-		m.placeFilteredCursor(filter.origin)
-		filter.origin = ""
-
-		return m, nil
+	// Typing lights what it has found and moves nothing; enter is what applies the search.
+	if !filter.typing && filter.isStanding() {
+		m.applyFilter()
 	}
-
-	// Typing walks the cursor onto what it has found so far, so the search says where it is
-	// rather than only which rows it likes.
-	if next, ok := m.matchAt(filter.origin, 0); ok {
-		m.placeFilteredCursor(next)
-
-		return m, nil
-	}
-
-	m.placeFilteredCursor(hovered)
 
 	return m, nil
 }
 
+// applyFilter walks the cursor of the section that holds the keys onto the nearest match, the
+// rows of both sections having narrowed the moment the typing stopped.
+func (m *model) applyFilter() {
+	if m.filter.pattern == nil {
+		return
+	}
+
+	if found, ok := m.matchAt(m.hoveredFilterKey(), 0); ok {
+		m.placeFilteredCursor(found)
+
+		return
+	}
+
+	m.placeFilteredCursor(m.hoveredFilterKey())
+}
+
 // closeSearchAndMoveKeys answers the focus key while the search is being typed: the input
-// closes with the pattern standing, the keys move, and a record they land on opens on its
-// nearest match.
+// closes with the pattern standing, the keys move, and the search is applied where they land.
 func (m model) closeSearchAndMoveKeys() (tea.Model, tea.Cmd) {
 	if !m.isDetailsDrawn(m.hoveredDetails()) {
 		return m, nil
@@ -265,13 +260,7 @@ func (m model) closeSearchAndMoveKeys() (tea.Model, tea.Cmd) {
 	m.filter.typing = false
 
 	next, cmd := m.toggleDetailsFocus()
-	if !next.isDetailsFocused() {
-		return next, cmd
-	}
-
-	if found, ok := next.matchAt(next.hoveredFilterKey(), 0); ok {
-		next.placeFilteredCursor(found)
-	}
+	next.applyFilter()
 
 	return next, cmd
 }
@@ -324,7 +313,7 @@ type narrowedParams[T any] struct {
 // narrowed is the rows a filter leaves on screen: each match, the rows above it and the rows
 // under it.
 func narrowed[T any](filter filterState, params narrowedParams[T]) []T {
-	if !filter.doesNarrow(sectionList) {
+	if !filter.isNarrowing() {
 		return params.rows
 	}
 

@@ -87,11 +87,12 @@ func TestNarrowed(t *testing.T) {
 	}
 }
 
-// TestFilterTabFlipsTheMode covers tab while typing switching between lighting the matches and
-// narrowing to them, with the prompt saying which stands.
+// TestFilterTabFlipsTheMode covers tab while typing switching the prompt between a search and a
+// filter, with the tree left whole and the cursor still until enter applies whichever stands.
 func TestFilterTabFlipsTheMode(t *testing.T) {
 	m := filterModeTree()
-	m.tree.cursor = rowIndexOfKey(m.agentRows(), workflowRowKey("w1"))
+	start := rowIndexOfKey(m.agentRows(), workflowRowKey("w1"))
+	m.tree.cursor = start
 	whole := rowNames(m.agentRows())
 
 	opened, _ := m.updateAgents(keyMsg("/"))
@@ -99,29 +100,33 @@ func TestFilterTabFlipsTheMode(t *testing.T) {
 	require.Equal(t, whole, rowNames(typed.agentRows()), "a search leaves the tree whole")
 	assert.True(t, strings.HasPrefix(strings.TrimSpace(ansi.Strip(typed.filter.line(paint.Panel))), "/ db"), "the prompt opens with a slash")
 
-	narrowed := pressMark(t, typed, "tab")
-	assert.Equal(t, filterModeFilter, narrowed.filter.mode)
-	assert.Equal(t, []string{"backend", "db"}, rowNames(narrowed.agentRows()), "the tab narrows to the match and its header")
-	assert.Equal(t, agentRowKey("a3"), rowKeyAt(narrowed.agentRows(), narrowed.tree.cursor), "the cursor stays on the match")
-	assert.True(t, strings.HasPrefix(strings.TrimSpace(ansi.Strip(narrowed.filter.line(paint.Panel))), "▽ db"), "and the prompt opens with the funnel")
+	flipped := pressMark(t, typed, "tab")
+	assert.Equal(t, filterModeFilter, flipped.filter.mode)
+	assert.Equal(t, whole, rowNames(flipped.agentRows()), "the tab narrows nothing yet")
+	assert.Equal(t, start, flipped.tree.cursor, "and moves nothing")
+	assert.True(t, strings.HasPrefix(strings.TrimSpace(ansi.Strip(flipped.filter.line(paint.Panel))), "▽ db"), "the prompt opens with the funnel")
 
-	lit := pressMark(t, narrowed, "tab")
+	narrowed := pressMark(t, flipped, "enter")
+	assert.Equal(t, []string{"backend", "db"}, rowNames(narrowed.agentRows()), "enter narrows to the match and its header")
+	assert.Equal(t, agentRowKey("a3"), rowKeyAt(narrowed.agentRows(), narrowed.tree.cursor), "and puts the cursor on the match")
+
+	lit := pressMark(t, typed, "tab", "tab", "enter")
 	assert.Equal(t, filterModeSearch, lit.filter.mode)
-	assert.Equal(t, whole, rowNames(lit.agentRows()), "a second tab puts every row back")
-	assert.Equal(t, agentRowKey("a3"), rowKeyAt(lit.agentRows(), lit.tree.cursor))
+	assert.Equal(t, whole, rowNames(lit.agentRows()), "a second tab puts the search back")
+	assert.Equal(t, agentRowKey("a3"), rowKeyAt(lit.agentRows(), lit.tree.cursor), "which enter walks onto the match")
 }
 
-// TestFilterTabPlacesTheCursor covers the cursor being put on a row the narrowed list still
-// holds when the flip takes the row it was on off the screen.
-func TestFilterTabPlacesTheCursor(t *testing.T) {
+// TestFilterAppliedPlacesTheCursor covers the cursor being put on a row the narrowed list still
+// holds when applying the filter takes the row it was on off the screen.
+func TestFilterAppliedPlacesTheCursor(t *testing.T) {
 	m := filterModeTree()
 	m.tree.cursor = rowIndexOfKey(m.agentRows(), agentRowKey("a4"))
 
 	opened, _ := m.updateAgents(keyMsg("/"))
-	typed := pressMark(t, opened.(model), "^", "a", "u")
-	require.Equal(t, agentRowKey("a1"), rowKeyAt(typed.agentRows(), typed.tree.cursor))
+	typed := pressMark(t, opened.(model), "^", "a", "u", "tab")
+	require.Equal(t, agentRowKey("a4"), rowKeyAt(typed.agentRows(), typed.tree.cursor), "nothing moves while typing")
 
-	narrowed := pressMark(t, typed, "tab")
+	narrowed := pressMark(t, typed, "enter")
 	rows := narrowed.agentRows()
 	require.Less(t, narrowed.tree.cursor, len(rows))
 	assert.Equal(t, agentRowKey("a1"), rowKeyAt(rows, narrowed.tree.cursor))
