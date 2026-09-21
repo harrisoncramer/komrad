@@ -36,32 +36,34 @@ type registrar interface {
 // Remover takes away the directories no agent answers for.
 type Remover struct {
 	lister *Lister
+	agents agentDirLister
 	git    registrar
 }
 
 type NewRemoverParams struct {
 	Lister *Lister
+	Agents agentDirLister
 	Git    registrar
 }
 
-// NewRemover builds a remover over the lister and git.
+// NewRemover builds a remover over the lister, the agent rows and git.
 func NewRemover(params NewRemoverParams) *Remover {
-	return &Remover{lister: params.Lister, git: params.Git}
+	return &Remover{lister: params.Lister, agents: params.Agents, git: params.Git}
 }
 
 // Remove takes away each directory nothing answers for, refusing the rest by name.
-func (r *Remover) Remove(ctx context.Context, dirs []string) (Removal, error) {
+func (r *Remover) Remove(ctx context.Context, dirs []string) (*Removal, error) {
 	listing, err := r.lister.List(ctx)
 	if err != nil {
-		return Removal{}, err
+		return nil, err
 	}
 
-	rows, err := r.lister.agents.ListDirs(ctx)
+	rows, err := r.agents.ListDirs(ctx)
 	if err != nil {
-		return Removal{}, err
+		return nil, err
 	}
 
-	removal := Removal{}
+	removal := &Removal{}
 	for _, dir := range dirs {
 		dir = filepath.Clean(dir)
 		if refusal, refused := refuse(listing, rows, dir); refused {
@@ -103,7 +105,7 @@ func (r *Remover) Remove(ctx context.Context, dirs []string) (Removal, error) {
 }
 
 // refuse is what keeps a directory from being this remover's to take, false when it is.
-func refuse(listing Listing, rows []agentstore.AgentDir, dir string) (Refusal, bool) {
+func refuse(listing *Listing, rows []agentstore.AgentDir, dir string) (Refusal, bool) {
 	inside, err := isUnder(listing.Dirs, dir)
 	if err != nil {
 		return Refusal{Dir: dir, Reason: err.Error(), Failed: true}, true
@@ -118,7 +120,7 @@ func refuse(listing Listing, rows []agentstore.AgentDir, dir string) (Refusal, b
 	}
 
 	worktree := listing.Worktrees[at]
-	if worktree.Agent != nil && !worktree.IsStuck() {
+	if worktree.Fate() != FateUnowned {
 		return Refusal{Dir: dir, Reason: fmt.Sprintf("agent %s answers for it; delete the agent instead", worktree.Agent.Name)}, true
 	}
 	if len(worktree.Occupants) > 0 {

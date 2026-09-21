@@ -27,8 +27,12 @@ type fakeWorktrees struct {
 	removed   [][]string
 }
 
-func (f *fakeWorktrees) List(context.Context) (worktrees.Listing, error) {
-	return f.listing, f.listErr
+func (f *fakeWorktrees) List(context.Context) (*worktrees.Listing, error) {
+	if f.listErr != nil {
+		return nil, f.listErr
+	}
+
+	return &f.listing, nil
 }
 
 func (f *fakeWorktrees) DeleteAgents(_ context.Context, ids []string) error {
@@ -37,13 +41,13 @@ func (f *fakeWorktrees) DeleteAgents(_ context.Context, ids []string) error {
 	return f.deleteErr
 }
 
-func (f *fakeWorktrees) Remove(_ context.Context, dirs []string) (worktrees.Removal, error) {
+func (f *fakeWorktrees) Remove(_ context.Context, dirs []string) (*worktrees.Removal, error) {
 	f.removed = append(f.removed, dirs)
 	if f.removeErr != nil {
-		return worktrees.Removal{}, f.removeErr
+		return nil, f.removeErr
 	}
 
-	return worktrees.Removal{Removed: dirs, Refused: f.refused}, nil
+	return &worktrees.Removal{Removed: dirs, Refused: f.refused}, nil
 }
 
 func newDeleteWorktreesWorker(fake *fakeWorktrees) *DeleteWorktreesWorker {

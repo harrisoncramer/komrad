@@ -205,6 +205,7 @@ func worktreeItemFrom(w *worktreev1.Worktree) worktreeItem {
 		readable:     w.GetReadable(),
 		occupants:    xslice.Map(w.GetOccupants(), worktreeAgentFrom),
 		lastActiveAt: dates.Parse(w.GetLastActiveAt()),
+		fate:         worktreeFateFrom(w.GetFate()),
 	}
 	if w.Agent != nil {
 		agent := worktreeAgentFrom(w.GetAgent())
@@ -219,6 +220,19 @@ func worktreeItemFrom(w *worktreev1.Worktree) worktreeItem {
 	}
 
 	return item
+}
+
+func worktreeFateFrom(fate worktreev1.WorktreeFate) worktreeFate {
+	switch fate {
+	case worktreev1.WorktreeFate_WORKTREE_FATE_ARCHIVED:
+		return fateArchived
+	case worktreev1.WorktreeFate_WORKTREE_FATE_LIVE:
+		return fateLive
+	case worktreev1.WorktreeFate_WORKTREE_FATE_UNOWNED, worktreev1.WorktreeFate_WORKTREE_FATE_UNSPECIFIED:
+		return fateUnowned
+	}
+
+	return fateUnowned
 }
 
 func worktreeAgentFrom(a *worktreev1.WorktreeAgent) worktreeAgent {

@@ -252,6 +252,7 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		}),
 		remover: worktrees.NewRemover(worktrees.NewRemoverParams{
 			Lister: worktreeLister,
+			Agents: st.agents,
 			Git:    git.NewClient(),
 		}),
 		measurer: worktrees.NewMeasurer(worktrees.NewMeasurerParams{

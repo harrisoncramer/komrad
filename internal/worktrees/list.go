@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"weave/config"
+	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	worktreestore "weave/internal/store/worktree"
 	"weave/lib/xslice"
@@ -54,9 +55,30 @@ type Worktree struct {
 	LastActiveAt time.Time
 }
 
-// IsStuck reports whether the row's own delete failed on a registration git cannot read.
-func (w Worktree) IsStuck() bool {
-	return w.Agent != nil && w.Agent.FailedToCleanup && !w.Readable
+// Fate is which delete path a directory takes.
+type Fate int
+
+const (
+	// FateUnowned is a directory nothing answers for, which the remover takes.
+	FateUnowned Fate = iota
+	// FateArchived is a directory whose agent is put away, which the agent delete takes.
+	FateArchived
+	// FateLive is a directory whose agent is running, which nothing takes.
+	FateLive
+)
+
+// Fate is which delete path the directory takes.
+func (w Worktree) Fate() Fate {
+	switch {
+	case w.Agent == nil:
+		return FateUnowned
+	case w.Agent.FailedToCleanup && !w.Readable:
+		return FateUnowned
+	case w.Agent.ArchivedAt != nil:
+		return FateArchived
+	}
+
+	return FateLive
 }
 
 // Listing is every directory under the worktree directories.
@@ -140,26 +162,63 @@ func (l *Lister) ListPaths(ctx context.Context) (Paths, error) {
 }
 
 // List is every directory under the worktree directories, with what answers for each.
-func (l *Lister) List(ctx context.Context) (Listing, error) {
+func (l *Lister) List(ctx context.Context) (*Listing, error) {
 	dirs, err := l.ListDirs(ctx)
 	if err != nil {
-		return Listing{}, err
+		return nil, err
 	}
 
+	answer, err := l.answerer(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	found := walk(dirs)
+	listing := &Listing{Dirs: dirs, UnreadableDirs: found.Unreadable}
+	for _, dir := range found.Paths {
+		listing.Worktrees = append(listing.Worktrees, answer(dir))
+	}
+
+	return listing, nil
+}
+
+// Get is one directory under the worktree directories, with what answers for it.
+func (l *Lister) Get(ctx context.Context, dir string) (*Worktree, error) {
+	dir = filepath.Clean(dir)
+
+	dirs, err := l.ListDirs(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	parent := filepath.Dir(dir)
+	if !slices.Contains(dirs, parent) || !slices.Contains(walk([]string{parent}).Paths, dir) {
+		return nil, store.ErrNotFound.Saying("%s is not under the worktree directories", dir)
+	}
+
+	answer, err := l.answerer(ctx)
+	if err != nil {
+		return nil, err
+	}
+	worktree := answer(dir)
+
+	return &worktree, nil
+}
+
+// answerer reads the rows and the sizes once and describes any directory against them.
+func (l *Lister) answerer(ctx context.Context) (func(dir string) Worktree, error) {
 	owners, err := l.agents.ListDirs(ctx)
 	if err != nil {
-		return Listing{}, err
+		return nil, err
 	}
 
 	sizes, err := l.sizes.ListSizes(ctx)
 	if err != nil {
-		return Listing{}, err
+		return nil, err
 	}
 	sized := xslice.KeyBy(sizes, func(size worktreestore.Size) string { return size.Dir })
 
-	found := walk(dirs)
-	listing := Listing{Dirs: dirs, UnreadableDirs: found.Unreadable}
-	for _, dir := range found.Paths {
+	return func(dir string) Worktree {
 		worktree := read(dir)
 		worktree.Agent, worktree.Occupants = owned(dir, owners)
 		if size, ok := sized[dir]; ok {
@@ -167,10 +226,8 @@ func (l *Lister) List(ctx context.Context) (Listing, error) {
 		}
 		worktree.LastActiveAt = lastActive(dir, worktree.Agent)
 
-		listing.Worktrees = append(listing.Worktrees, worktree)
-	}
-
-	return listing, nil
+		return worktree
+	}, nil
 }
 
 // Paths is every directory found immediately under the worktree directories.

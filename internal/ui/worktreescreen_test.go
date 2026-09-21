@@ -176,26 +176,20 @@ func TestEnterOnAWorktreeLandsOnItsAgent(t *testing.T) {
 	})
 }
 
-// TestWorktreeFateDecidesTheDeletePath covers the three paths and the one stuck row that takes
-// the remover's.
-func TestWorktreeFateDecidesTheDeletePath(t *testing.T) {
+// TestWorktreeFateIsReadOffTheWire covers each fate the server names landing on the item, and
+// one it does not name reading as unowned.
+func TestWorktreeFateIsReadOffTheWire(t *testing.T) {
 	m := worktreesModel()
-	items := worktreeFixture()
 
-	assert.Equal(t, fateLive, m.worktreeFate(items[0]))
-	assert.Equal(t, fateArchived, m.worktreeFate(items[1]))
-	assert.Equal(t, fateUnowned, m.worktreeFate(items[2]))
-	assert.Equal(t, fateUnowned, m.worktreeFate(items[3]))
-
-	stuck := items[0]
-	stuck.agent = &worktreeAgent{
-		id:    "stuck",
-		name:  "stuck",
-		state: agentstore.StateFailedToCleanup,
+	for wire, want := range map[worktreev1.WorktreeFate]worktreeFate{
+		worktreev1.WorktreeFate_WORKTREE_FATE_LIVE:        fateLive,
+		worktreev1.WorktreeFate_WORKTREE_FATE_ARCHIVED:    fateArchived,
+		worktreev1.WorktreeFate_WORKTREE_FATE_UNOWNED:     fateUnowned,
+		worktreev1.WorktreeFate_WORKTREE_FATE_UNSPECIFIED: fateUnowned,
+	} {
+		item := worktreeItemFrom(&worktreev1.Worktree{Dir: "/trees/a", Fate: wire})
+		assert.Equal(t, want, m.worktreeFate(item), wire.String())
 	}
-	assert.Equal(t, fateLive, m.worktreeFate(stuck), "a readable directory is its agent's however the cleanup went")
-	stuck.readable = false
-	assert.Equal(t, fateUnowned, m.worktreeFate(stuck))
 }
 
 // TestDeleteOnAWorktreeOpensTheFormItsFateNames covers the three keys: the archive choice on a

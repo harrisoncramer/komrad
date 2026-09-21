@@ -24,6 +24,65 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// WorktreeFate is which delete path a directory takes.
+type WorktreeFate int32
+
+const (
+	// Never sent.
+	WorktreeFate_WORKTREE_FATE_UNSPECIFIED WorktreeFate = 0
+	// Nothing answers for the directory, or its agent's own delete failed on a registration git
+	// cannot read, so remove_unowned_worktrees takes it.
+	WorktreeFate_WORKTREE_FATE_UNOWNED WorktreeFate = 1
+	// The agent the directory was made for is archived, so delete_agents takes it.
+	WorktreeFate_WORKTREE_FATE_ARCHIVED WorktreeFate = 2
+	// The agent the directory was made for is live, so nothing takes it until that agent is
+	// archived.
+	WorktreeFate_WORKTREE_FATE_LIVE WorktreeFate = 3
+)
+
+// Enum value maps for WorktreeFate.
+var (
+	WorktreeFate_name = map[int32]string{
+		0: "WORKTREE_FATE_UNSPECIFIED",
+		1: "WORKTREE_FATE_UNOWNED",
+		2: "WORKTREE_FATE_ARCHIVED",
+		3: "WORKTREE_FATE_LIVE",
+	}
+	WorktreeFate_value = map[string]int32{
+		"WORKTREE_FATE_UNSPECIFIED": 0,
+		"WORKTREE_FATE_UNOWNED":     1,
+		"WORKTREE_FATE_ARCHIVED":    2,
+		"WORKTREE_FATE_LIVE":        3,
+	}
+)
+
+func (x WorktreeFate) Enum() *WorktreeFate {
+	p := new(WorktreeFate)
+	*p = x
+	return p
+}
+
+func (x WorktreeFate) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (WorktreeFate) Descriptor() protoreflect.EnumDescriptor {
+	return file_worktree_v1_worktree_proto_enumTypes[0].Descriptor()
+}
+
+func (WorktreeFate) Type() protoreflect.EnumType {
+	return &file_worktree_v1_worktree_proto_enumTypes[0]
+}
+
+func (x WorktreeFate) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use WorktreeFate.Descriptor instead.
+func (WorktreeFate) EnumDescriptor() ([]byte, []int) {
+	return file_worktree_v1_worktree_proto_rawDescGZIP(), []int{0}
+}
+
 type WorktreeAgent struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The agent's id.
@@ -135,7 +194,9 @@ type Worktree struct {
 	// When the directory was last active, in RFC 3339: the later of its agent's last state change
 	// and its archiving when an agent answers for it, else when git last wrote the directory's
 	// .git file, else the directory's own modification time.
-	LastActiveAt  string `protobuf:"bytes,10,opt,name=last_active_at,json=lastActiveAt,proto3" json:"last_active_at,omitempty"`
+	LastActiveAt string `protobuf:"bytes,10,opt,name=last_active_at,json=lastActiveAt,proto3" json:"last_active_at,omitempty"`
+	// Which delete path the directory takes.
+	Fate          WorktreeFate `protobuf:"varint,11,opt,name=fate,proto3,enum=worktree.v1.WorktreeFate" json:"fate,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -238,6 +299,13 @@ func (x *Worktree) GetLastActiveAt() string {
 		return x.LastActiveAt
 	}
 	return ""
+}
+
+func (x *Worktree) GetFate() WorktreeFate {
+	if x != nil {
+		return x.Fate
+	}
+	return WorktreeFate_WORKTREE_FATE_UNSPECIFIED
 }
 
 type ListWorktreesResponse struct {
@@ -843,7 +911,7 @@ const file_worktree_v1_worktree_proto_rawDesc = "" +
 	"\varchived_at\x18\x04 \x01(\tH\x00R\n" +
 	"archivedAt\x88\x01\x01\x12\x18\n" +
 	"\aadopted\x18\x05 \x01(\bR\aadoptedB\x0e\n" +
-	"\f_archived_at\"\x85\x03\n" +
+	"\f_archived_at\"\xb4\x03\n" +
 	"\bWorktree\x12\x10\n" +
 	"\x03dir\x18\x01 \x01(\tR\x03dir\x12\x19\n" +
 	"\brepo_dir\x18\x02 \x01(\tR\arepoDir\x12\x16\n" +
@@ -858,7 +926,8 @@ const file_worktree_v1_worktree_proto_rawDesc = "" +
 	"\n" +
 	"size_error\x18\t \x01(\tR\tsizeError\x12$\n" +
 	"\x0elast_active_at\x18\n" +
-	" \x01(\tR\flastActiveAtB\r\n" +
+	" \x01(\tR\flastActiveAt\x12-\n" +
+	"\x04fate\x18\v \x01(\x0e2\x19.worktree.v1.WorktreeFateR\x04fateB\r\n" +
 	"\v_size_bytesB\x0e\n" +
 	"\f_measured_at\"\x89\x01\n" +
 	"\x15ListWorktreesResponse\x123\n" +
@@ -902,7 +971,12 @@ const file_worktree_v1_worktree_proto_rawDesc = "" +
 	"\arefused\x18\x02 \x03(\v2\x14.worktree.v1.RefusalR\arefused\">\n" +
 	"\x16DeleteWorktreesRequest\x12$\n" +
 	"\x04dirs\x18\x01 \x03(\tB\x10\xbaH\r\x92\x01\n" +
-	"\b\x01\x18\x01\"\x04r\x02\x10\x01R\x04dirs2\xd7\x1d\n" +
+	"\b\x01\x18\x01\"\x04r\x02\x10\x01R\x04dirs*|\n" +
+	"\fWorktreeFate\x12\x1d\n" +
+	"\x19WORKTREE_FATE_UNSPECIFIED\x10\x00\x12\x19\n" +
+	"\x15WORKTREE_FATE_UNOWNED\x10\x01\x12\x1a\n" +
+	"\x16WORKTREE_FATE_ARCHIVED\x10\x02\x12\x16\n" +
+	"\x12WORKTREE_FATE_LIVE\x10\x032\xd7\x1d\n" +
 	"\x0fWorktreeService\x12\x81\b\n" +
 	"\rListWorktrees\x12\x16.google.protobuf.Empty\x1a\".worktree.v1.ListWorktreesResponse\"\xb3\a\x9a\xb5\x18\xab\a\b\x01\x10\x01\x1a\x0elist_worktrees\"\x94\aList every worktree directory weave holds, under the configured worktrees directory and each workflow's own, with the repository it was cut from, its branch, whether git can still read it, the agent it was made for, the other agents working in it, the disk it takes as it was last measured, and when it was last active. A directory with no agent is one whose row was deleted while cleanup did not run, or one a test left behind. A directory a delete has claimed and not yet taken, through delete_agents, delete_worktrees or the panel, is left out until that delete fails. Sizes are measured in the background a few directories at a time, so a directory the loop has not reached yet carries none. This reads the directories, the agent rows and the stored sizes and runs no git, so it is cheap to call often; read one directory's contents and standing against its base with get_worktree, which also measures it afresh.\x90\x02\x01\x12\xac\x05\n" +
 	"\vGetWorktree\x12\x1f.worktree.v1.GetWorktreeRequest\x1a .worktree.v1.GetWorktreeResponse\"\xd9\x04\x9a\xb5\x18\xd1\x04\b\x01\x10\x01\x1a\fget_worktree\"\xbc\x04Read one worktree directory: its size and its top-level entries with theirs, biggest first, walked for the call and recorded so list_worktrees carries the fresh number, what is uncommitted, the base it is measured against with how far ahead and behind it stands and how many of its commits the base already holds whole, whether deleting its agent would keep the branch, and the commits since the base. The base is read as the clone last fetched it unless fetch is set, which asks origin first. A directory whose registration git cannot read answers with the entries alone.\x90\x02\x01\x12\x8a\a\n" +
@@ -921,42 +995,45 @@ func file_worktree_v1_worktree_proto_rawDescGZIP() []byte {
 	return file_worktree_v1_worktree_proto_rawDescData
 }
 
+var file_worktree_v1_worktree_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_worktree_v1_worktree_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_worktree_v1_worktree_proto_goTypes = []any{
-	(*WorktreeAgent)(nil),                  // 0: worktree.v1.WorktreeAgent
-	(*Worktree)(nil),                       // 1: worktree.v1.Worktree
-	(*ListWorktreesResponse)(nil),          // 2: worktree.v1.ListWorktreesResponse
-	(*GetWorktreeRequest)(nil),             // 3: worktree.v1.GetWorktreeRequest
-	(*Entry)(nil),                          // 4: worktree.v1.Entry
-	(*Commit)(nil),                         // 5: worktree.v1.Commit
-	(*GetWorktreeResponse)(nil),            // 6: worktree.v1.GetWorktreeResponse
-	(*RemoveUnownedWorktreesRequest)(nil),  // 7: worktree.v1.RemoveUnownedWorktreesRequest
-	(*Refusal)(nil),                        // 8: worktree.v1.Refusal
-	(*RemoveUnownedWorktreesResponse)(nil), // 9: worktree.v1.RemoveUnownedWorktreesResponse
-	(*DeleteWorktreesRequest)(nil),         // 10: worktree.v1.DeleteWorktreesRequest
-	(*emptypb.Empty)(nil),                  // 11: google.protobuf.Empty
+	(WorktreeFate)(0),                      // 0: worktree.v1.WorktreeFate
+	(*WorktreeAgent)(nil),                  // 1: worktree.v1.WorktreeAgent
+	(*Worktree)(nil),                       // 2: worktree.v1.Worktree
+	(*ListWorktreesResponse)(nil),          // 3: worktree.v1.ListWorktreesResponse
+	(*GetWorktreeRequest)(nil),             // 4: worktree.v1.GetWorktreeRequest
+	(*Entry)(nil),                          // 5: worktree.v1.Entry
+	(*Commit)(nil),                         // 6: worktree.v1.Commit
+	(*GetWorktreeResponse)(nil),            // 7: worktree.v1.GetWorktreeResponse
+	(*RemoveUnownedWorktreesRequest)(nil),  // 8: worktree.v1.RemoveUnownedWorktreesRequest
+	(*Refusal)(nil),                        // 9: worktree.v1.Refusal
+	(*RemoveUnownedWorktreesResponse)(nil), // 10: worktree.v1.RemoveUnownedWorktreesResponse
+	(*DeleteWorktreesRequest)(nil),         // 11: worktree.v1.DeleteWorktreesRequest
+	(*emptypb.Empty)(nil),                  // 12: google.protobuf.Empty
 }
 var file_worktree_v1_worktree_proto_depIdxs = []int32{
-	0,  // 0: worktree.v1.Worktree.agent:type_name -> worktree.v1.WorktreeAgent
-	0,  // 1: worktree.v1.Worktree.occupants:type_name -> worktree.v1.WorktreeAgent
-	1,  // 2: worktree.v1.ListWorktreesResponse.worktrees:type_name -> worktree.v1.Worktree
-	1,  // 3: worktree.v1.GetWorktreeResponse.worktree:type_name -> worktree.v1.Worktree
-	4,  // 4: worktree.v1.GetWorktreeResponse.entries:type_name -> worktree.v1.Entry
-	5,  // 5: worktree.v1.GetWorktreeResponse.commits:type_name -> worktree.v1.Commit
-	8,  // 6: worktree.v1.RemoveUnownedWorktreesResponse.refused:type_name -> worktree.v1.Refusal
-	11, // 7: worktree.v1.WorktreeService.ListWorktrees:input_type -> google.protobuf.Empty
-	3,  // 8: worktree.v1.WorktreeService.GetWorktree:input_type -> worktree.v1.GetWorktreeRequest
-	7,  // 9: worktree.v1.WorktreeService.RemoveUnownedWorktrees:input_type -> worktree.v1.RemoveUnownedWorktreesRequest
-	10, // 10: worktree.v1.WorktreeService.DeleteWorktrees:input_type -> worktree.v1.DeleteWorktreesRequest
-	2,  // 11: worktree.v1.WorktreeService.ListWorktrees:output_type -> worktree.v1.ListWorktreesResponse
-	6,  // 12: worktree.v1.WorktreeService.GetWorktree:output_type -> worktree.v1.GetWorktreeResponse
-	9,  // 13: worktree.v1.WorktreeService.RemoveUnownedWorktrees:output_type -> worktree.v1.RemoveUnownedWorktreesResponse
-	11, // 14: worktree.v1.WorktreeService.DeleteWorktrees:output_type -> google.protobuf.Empty
-	11, // [11:15] is the sub-list for method output_type
-	7,  // [7:11] is the sub-list for method input_type
-	7,  // [7:7] is the sub-list for extension type_name
-	7,  // [7:7] is the sub-list for extension extendee
-	0,  // [0:7] is the sub-list for field type_name
+	1,  // 0: worktree.v1.Worktree.agent:type_name -> worktree.v1.WorktreeAgent
+	1,  // 1: worktree.v1.Worktree.occupants:type_name -> worktree.v1.WorktreeAgent
+	0,  // 2: worktree.v1.Worktree.fate:type_name -> worktree.v1.WorktreeFate
+	2,  // 3: worktree.v1.ListWorktreesResponse.worktrees:type_name -> worktree.v1.Worktree
+	2,  // 4: worktree.v1.GetWorktreeResponse.worktree:type_name -> worktree.v1.Worktree
+	5,  // 5: worktree.v1.GetWorktreeResponse.entries:type_name -> worktree.v1.Entry
+	6,  // 6: worktree.v1.GetWorktreeResponse.commits:type_name -> worktree.v1.Commit
+	9,  // 7: worktree.v1.RemoveUnownedWorktreesResponse.refused:type_name -> worktree.v1.Refusal
+	12, // 8: worktree.v1.WorktreeService.ListWorktrees:input_type -> google.protobuf.Empty
+	4,  // 9: worktree.v1.WorktreeService.GetWorktree:input_type -> worktree.v1.GetWorktreeRequest
+	8,  // 10: worktree.v1.WorktreeService.RemoveUnownedWorktrees:input_type -> worktree.v1.RemoveUnownedWorktreesRequest
+	11, // 11: worktree.v1.WorktreeService.DeleteWorktrees:input_type -> worktree.v1.DeleteWorktreesRequest
+	3,  // 12: worktree.v1.WorktreeService.ListWorktrees:output_type -> worktree.v1.ListWorktreesResponse
+	7,  // 13: worktree.v1.WorktreeService.GetWorktree:output_type -> worktree.v1.GetWorktreeResponse
+	10, // 14: worktree.v1.WorktreeService.RemoveUnownedWorktrees:output_type -> worktree.v1.RemoveUnownedWorktreesResponse
+	12, // 15: worktree.v1.WorktreeService.DeleteWorktrees:output_type -> google.protobuf.Empty
+	12, // [12:16] is the sub-list for method output_type
+	8,  // [8:12] is the sub-list for method input_type
+	8,  // [8:8] is the sub-list for extension type_name
+	8,  // [8:8] is the sub-list for extension extendee
+	0,  // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_worktree_v1_worktree_proto_init() }
@@ -971,13 +1048,14 @@ func file_worktree_v1_worktree_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_worktree_v1_worktree_proto_rawDesc), len(file_worktree_v1_worktree_proto_rawDesc)),
-			NumEnums:      0,
+			NumEnums:      1,
 			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_worktree_v1_worktree_proto_goTypes,
 		DependencyIndexes: file_worktree_v1_worktree_proto_depIdxs,
+		EnumInfos:         file_worktree_v1_worktree_proto_enumTypes,
 		MessageInfos:      file_worktree_v1_worktree_proto_msgTypes,
 	}.Build()
 	File_worktree_v1_worktree_proto = out.File

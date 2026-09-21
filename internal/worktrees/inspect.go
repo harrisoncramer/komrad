@@ -3,8 +3,6 @@ package worktrees
 import (
 	"context"
 	"errors"
-	"path/filepath"
-	"slices"
 	"time"
 
 	"weave/internal/git"
@@ -89,22 +87,23 @@ func NewInspector(params NewInspectorParams) *Inspector {
 	}
 }
 
-// Inspect reads a directory the listing holds, fetching the base first when asked to.
-func (i *Inspector) Inspect(ctx context.Context, dir string, fetch bool) (Inspection, error) {
-	listing, err := i.lister.List(ctx)
+type InspectParams struct {
+	Dir string
+	// Fetch asks origin for the base before measuring against it.
+	Fetch bool
+}
+
+// Inspect reads a directory the listing holds.
+func (i *Inspector) Inspect(ctx context.Context, params InspectParams) (*Inspection, error) {
+	worktree, err := i.lister.Get(ctx, params.Dir)
 	if err != nil {
-		return Inspection{}, err
+		return nil, err
 	}
 
-	dir = filepath.Clean(dir)
-	at := slices.IndexFunc(listing.Worktrees, func(w Worktree) bool { return w.Dir == dir })
-	if at < 0 {
-		return Inspection{}, store.ErrNotFound.Saying("%s is not under the worktree directories", dir)
-	}
-
-	inspection := Inspection{Worktree: listing.Worktrees[at]}
+	dir := worktree.Dir
+	inspection := &Inspection{Worktree: *worktree}
 	if inspection.Bytes, inspection.Entries, err = measure(ctx, dir); err != nil {
-		return Inspection{}, err
+		return nil, err
 	}
 
 	size := worktreestore.Size{
@@ -113,7 +112,7 @@ func (i *Inspector) Inspect(ctx context.Context, dir string, fetch bool) (Inspec
 		MeasuredAt: i.now(),
 	}
 	if err := i.sizes.Upsert(ctx, size); err != nil {
-		return Inspection{}, err
+		return nil, err
 	}
 	inspection.Worktree.Size = &size
 
@@ -123,20 +122,20 @@ func (i *Inspector) Inspect(ctx context.Context, dir string, fetch bool) (Inspec
 
 	base, err := i.baseOf(ctx, inspection.Worktree)
 	if err != nil {
-		return Inspection{}, err
+		return nil, err
 	}
 
-	ref, ok, err := i.nameBase(ctx, dir, base, fetch)
+	ref, ok, err := i.nameBase(ctx, dir, base, params.Fetch)
 	if err != nil {
-		return Inspection{}, err
+		return nil, err
 	}
 	if !ok {
 		return inspection, nil
 	}
 	inspection.BaseRef = ref
 
-	if err := i.readStanding(ctx, &inspection); err != nil {
-		return Inspection{}, err
+	if err := i.readStanding(ctx, inspection); err != nil {
+		return nil, err
 	}
 
 	return inspection, nil

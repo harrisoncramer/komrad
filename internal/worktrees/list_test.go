@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	worktreestore "weave/internal/store/worktree"
 
@@ -256,4 +257,42 @@ func TestListReadsWhenADirectoryWasLastActive(t *testing.T) {
 			assert.True(t, listing.Worktrees[0].LastActiveAt.Equal(tt.want), "got %s, want %s", listing.Worktrees[0].LastActiveAt, tt.want)
 		})
 	}
+}
+
+// TestGetReadsOneDirectory covers one directory answered with its row and its size without
+// the rest being walked, and a path outside the worktree directories refused.
+func TestGetReadsOneDirectory(t *testing.T) {
+	f := newFixture(t)
+	dir := f.cut(t, "aaaa")
+	f.cut(t, "bbbb")
+	f.own("aaaa", "first", nil)
+	f.sizes.stored[dir] = worktreestore.Size{Dir: dir, Bytes: 4096, MeasuredAt: f.now}
+
+	tree, err := f.lister.Get(t.Context(), dir+string(filepath.Separator))
+	require.NoError(t, err)
+
+	assert.Equal(t, dir, tree.Dir)
+	assert.Equal(t, "agent/aaaa", tree.Branch)
+	require.NotNil(t, tree.Agent)
+	assert.Equal(t, "first", tree.Agent.Name)
+	require.NotNil(t, tree.Size)
+	assert.Equal(t, int64(4096), tree.Size.Bytes)
+
+	_, err = f.lister.Get(t.Context(), f.repo)
+	require.ErrorIs(t, err, store.ErrNotFound)
+
+	_, err = f.lister.Get(t.Context(), filepath.Join(f.shared, "cccc"))
+	require.ErrorIs(t, err, store.ErrNotFound)
+}
+
+// TestFateIsDecidedByTheRow covers the three paths, and a row whose own delete failed taking
+// the remover's only once git cannot read the directory.
+func TestFateIsDecidedByTheRow(t *testing.T) {
+	archived := time.Date(2026, 9, 19, 12, 0, 0, 0, time.UTC)
+
+	assert.Equal(t, FateUnowned, Worktree{Readable: true}.Fate())
+	assert.Equal(t, FateLive, Worktree{Readable: true, Agent: &Agent{}}.Fate())
+	assert.Equal(t, FateArchived, Worktree{Readable: true, Agent: &Agent{ArchivedAt: &archived}}.Fate())
+	assert.Equal(t, FateLive, Worktree{Readable: true, Agent: &Agent{FailedToCleanup: true}}.Fate())
+	assert.Equal(t, FateUnowned, Worktree{Agent: &Agent{FailedToCleanup: true}}.Fate())
 }
