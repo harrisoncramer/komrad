@@ -580,6 +580,16 @@ func TestAgentsAndArchiveScreenGolden(t *testing.T) {
 			screen: screenArchive,
 			state:  tabsState{chosen: "name", direction: tabUp, focused: true},
 		},
+		{
+			name:   "agents-sort-strip-flat",
+			screen: screenAgents,
+			state:  tabsState{chosen: "activity", flat: true},
+		},
+		{
+			name:   "archive-sort-strip-flat",
+			screen: screenArchive,
+			state:  tabsState{flat: true},
+		},
 	}
 
 	for _, tt := range tests {

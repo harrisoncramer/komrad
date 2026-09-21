@@ -9,6 +9,7 @@ import (
 	"weave/internal/ui/layout"
 	"weave/internal/ui/panel"
 	"weave/lib/xptr"
+	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	workflowv1 "weave/proto/gen/workflow/v1"
@@ -264,6 +265,28 @@ func TestASearchHitLandsOnTheWorkflowRow(t *testing.T) {
 	rows := m.agentRows()
 	require.True(t, rows[m.tree.cursor].header, "the cursor lands on the workflow it stands behind")
 	assert.Equal(t, "w1", rows[m.tree.cursor].workflow.ID)
+}
+
+// TestFlatTreeLeavesAFoldedOrchestratorOut covers a flat list drawing no row for the
+// orchestrator that would have folded onto the header, the worker keeping its child under it,
+// and the archive, which folds nothing, still drawing its orchestrator as a row.
+func TestFlatTreeLeavesAFoldedOrchestratorOut(t *testing.T) {
+	worker := "a1"
+	agents := []agentItem{
+		orchestratorItem(),
+		{agent: panel.Agent{ID: "a1", Name: "telescope", WorkflowID: "w1"}},
+		{agent: panel.Agent{ID: "a2", Name: "reader", WorkflowID: "w1", ParentAgentID: &worker}},
+	}
+	workflows := []panel.Workflow{{ID: "w1", Name: "backend"}}
+
+	folded := treeRows(treeRowsParams{workflows: workflows, agents: agents, foldOrchestrators: true, flat: true})
+	require.Equal(t, []string{"agent:a1", "agent:a2"}, xslice.Map(folded, agentRow.key))
+	assert.False(t, folded[0].child)
+	assert.True(t, folded[1].child)
+	assert.Equal(t, "w1", folded[1].workflow.ID)
+
+	archived := treeRows(treeRowsParams{workflows: workflows, agents: agents, showHidden: true, flat: true})
+	assert.Equal(t, []string{"agent:o1", "agent:a1", "agent:a2"}, xslice.Map(archived, agentRow.key))
 }
 
 // TestArchiveDrawsAnOrchestratorOfItsOwn pins the one screen that must show one.

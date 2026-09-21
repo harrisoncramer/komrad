@@ -372,6 +372,7 @@ func agentsTabs() tabStrip {
 		legend:   "sort",
 		options:  tabOptionsOf(agentSorts),
 		fallback: "created",
+		grouped:  "workflow",
 	}
 }
 
@@ -396,6 +397,7 @@ func (m model) agentsSnapshot(pane int) view.Snapshot {
 		barBlinkedOut: m.rowCursor.Blink,
 		matcher:       m.filter.pattern,
 		showHidden:    m.tree.showHidden,
+		flat:          m.tree.sort.flat,
 		pane:          pane,
 	})
 }

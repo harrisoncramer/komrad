@@ -55,6 +55,14 @@ type treeRowsParams struct {
 	// foldOrchestrators draws a workflow's orchestrator on the workflow's own row rather than
 	// as a row of its own.
 	foldOrchestrators bool
+	// flat draws the families in the order given with no workflow header over them.
+	flat bool
+}
+
+// family is one agent and its children as rows, under the workflow the head belongs to.
+type family struct {
+	workflowID string
+	rows       []agentRow
 }
 
 // isFolded reports whether an agent is drawn on its workflow's own row rather than on one of its
@@ -79,7 +87,7 @@ func treeRows(params treeRowsParams) []agentRow {
 		}
 	}
 
-	byWorkflow := make(map[string][]agentRow)
+	var families []family
 	hiddenCounts := make(map[string]int)
 	for _, it := range agents {
 		// An orchestrator is drawn on its workflow's own row, so it stands in no count and no
@@ -95,23 +103,22 @@ func treeRows(params treeRowsParams) []agentRow {
 		}
 
 		workflowID := it.agent.WorkflowID
-		family := append([]agentItem{it}, children[it.agent.ID]...)
+		members := append([]agentItem{it}, children[it.agent.ID]...)
 		if it.agent.Hidden {
 			// Hiding the head takes the rows under it too, so the whole family stands in the
 			// workflow's own count.
-			hiddenCounts[workflowID] += len(family)
+			hiddenCounts[workflowID] += len(members)
 			if !params.showHidden {
 				continue
 			}
 		}
 
-		rows := byWorkflow[workflowID]
-		head := len(rows)
-		for _, member := range family {
+		var rows []agentRow
+		for _, member := range members {
 			// A hidden child leaves its count on the parent drawn above it rather than on the
 			// workflow.
 			if member.agent.Hidden && member.agent.ID != it.agent.ID {
-				rows[head].hiddenCount++
+				rows[0].hiddenCount++
 				if !params.showHidden {
 					continue
 				}
@@ -124,7 +131,21 @@ func treeRows(params treeRowsParams) []agentRow {
 				child: member.agent.ID != it.agent.ID,
 			})
 		}
-		byWorkflow[workflowID] = rows
+		families = append(families, family{workflowID: workflowID, rows: rows})
+	}
+
+	if params.flat {
+		byID := xslice.KeyBy(workflows, func(w panel.Workflow) string { return w.ID })
+
+		var rows []agentRow
+		for _, f := range families {
+			for _, row := range f.rows {
+				row.workflow = byID[f.workflowID]
+				rows = append(rows, row)
+			}
+		}
+
+		return rows
 	}
 
 	var rows []agentRow
@@ -139,9 +160,14 @@ func treeRows(params treeRowsParams) []agentRow {
 		}
 
 		rows = append(rows, header)
-		for _, row := range byWorkflow[w.ID] {
-			row.workflow = w
-			rows = append(rows, row)
+		for _, f := range families {
+			if f.workflowID != w.ID {
+				continue
+			}
+			for _, row := range f.rows {
+				row.workflow = w
+				rows = append(rows, row)
+			}
 		}
 	}
 
@@ -205,6 +231,7 @@ func (m model) buildAgentRows() []agentRow {
 		agents:            sortedAgents(m.listing.agents, agentSorts, agentsTabs().order(m.tree.sort)),
 		showHidden:        m.tree.showHidden,
 		foldOrchestrators: true,
+		flat:              m.tree.sort.flat,
 	})
 
 	return narrowedAgentRows(m.filter, rows)
