@@ -179,6 +179,9 @@ message ReviewMessage {
   string sent_at = 9;
   // When the agent claimed the doorbell raised for this comment, empty until it has.
   string delivered_at = 10;
+  // The review this message went out with, absent for an answer written by the agent under
+  // review, which belongs to no batch.
+  optional string review_id = 12;
 }
 
 message ListReviewThreadsRequest {
@@ -310,6 +313,35 @@ message ListReviewRoundsResponse {
   repeated ReviewRound rounds = 1;
 }
 
+// ReviewThreadInContext is one thread of a released review, with the code it was written
+// about drawn from the round's snapshot.
+message ReviewThreadInContext {
+  // The thread as list_review_threads renders it, holding only the messages that went out
+  // with this review.
+  ReviewThread thread = 1;
+  // The snapshot's lines around the thread's range, each prefixed with its line number and
+  // ">>" on the lines the thread is about. Empty when the snapshot cannot be read, in which
+  // case the thread's quoted_lines are what there is.
+  repeated string context = 2;
+}
+
+message GetReviewRequest {
+  // Which review to read, which the mail announcing a release names.
+  string review_id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+// GetReviewResponse is one released review whole, in reading order: the verdict and what
+// the reviewer said about the work, then each thread with its anchor, the code around it,
+// and the messages that went out with this release.
+message GetReviewResponse {
+  // The review, carrying its verdict and body.
+  Review review = 1;
+  // The round the review was given against.
+  ReviewRound round = 2;
+  // The threads this review wrote in, ordered by file and line.
+  repeated ReviewThreadInContext threads = 3;
+}
+
 message ListReviewsRequest {
   // Whose reviews to read.
   string agent_id = 1 [(buf.validate.field).string.min_len = 1];
@@ -320,9 +352,9 @@ message ListReviewsResponse {
   repeated Review reviews = 1;
 }
 
-// ReleaseReviewRequest lets go of the author's open batch. Weave writes the whole review out as
-// one file beside the agent's work and sends one piece of ordinary mail saying where it is, so
-// nothing here decides when the agent is interrupted or typed at: that is mail's own affair.
+// ReleaseReviewRequest lets go of the author's open batch. Weave sends the agent one piece of
+// ordinary mail naming the review, which it reads whole with get_review, so nothing here decides
+// when the agent is interrupted or typed at: that is mail's own affair.
 message ReleaseReviewRequest {
   // Whose work the batch was written against.
   string agent_id = 1 [(buf.validate.field).string.min_len = 1];
@@ -334,8 +366,8 @@ message ReleaseReviewRequest {
   // Stop the agent where it stands before telling it, so it reads now rather than at the end
   // of whatever it is doing.
   bool interrupt = 3;
-  // What to say about the work as a whole rather than about any one line, which goes at the
-  // head of the file the agent reads. Optional: a review of pinned comments alone is complete.
+  // What to say about the work as a whole rather than about any one line, which the agent reads
+  // before the first thread. Optional: a review of pinned comments alone is complete.
   string body = 4 [(buf.validate.field).string.max_len = 1500];
 }
 

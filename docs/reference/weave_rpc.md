@@ -47,6 +47,7 @@ flags, and the response is the API's own JSON on stdout.
 * [weave rpc get-config](weave_rpc_get-config.md)	 - Read the panel's configuration as it is currently in force, keyed the same way the user's config file is.
 * [weave rpc get-last-turns](weave_rpc_get-last-turns.md)	 - Fetch the newest turns an agent has said, by agent id rather than name, without paging through its conversation from the start.
 * [weave rpc get-log-lines](weave_rpc_get-log-lines.md)	 - Read every log line the service wrote under one trace id, in order.
+* [weave rpc get-review](weave_rpc_get-review.md)	 - Read one released review whole, which is what the mail announcing a release tells you to do with the review id it names.
 * [weave rpc get-schedule](weave_rpc_get-schedule.md)	 - Fetch one schedule by id.
 * [weave rpc get-transcript](weave_rpc_get-transcript.md)	 - Fetch one window of an agent's transcript by agent id, not by name.
 * [weave rpc get-workflow](weave_rpc_get-workflow.md)	 - Fetch one workflow by id.

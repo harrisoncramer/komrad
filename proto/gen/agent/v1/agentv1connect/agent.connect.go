@@ -141,6 +141,8 @@ const (
 	// AgentServiceListReviewsProcedure is the fully-qualified name of the AgentService's ListReviews
 	// RPC.
 	AgentServiceListReviewsProcedure = "/agent.v1.AgentService/ListReviews"
+	// AgentServiceGetReviewProcedure is the fully-qualified name of the AgentService's GetReview RPC.
+	AgentServiceGetReviewProcedure = "/agent.v1.AgentService/GetReview"
 	// AgentServiceReleaseReviewProcedure is the fully-qualified name of the AgentService's
 	// ReleaseReview RPC.
 	AgentServiceReleaseReviewProcedure = "/agent.v1.AgentService/ReleaseReview"
@@ -194,6 +196,7 @@ type AgentServiceClient interface {
 	OpenReviewRound(context.Context, *connect.Request[v1.OpenReviewRoundRequest]) (*connect.Response[v1.OpenReviewRoundResponse], error)
 	ListReviewRounds(context.Context, *connect.Request[v1.ListReviewRoundsRequest]) (*connect.Response[v1.ListReviewRoundsResponse], error)
 	ListReviews(context.Context, *connect.Request[v1.ListReviewsRequest]) (*connect.Response[v1.ListReviewsResponse], error)
+	GetReview(context.Context, *connect.Request[v1.GetReviewRequest]) (*connect.Response[v1.GetReviewResponse], error)
 	ReleaseReview(context.Context, *connect.Request[v1.ReleaseReviewRequest]) (*connect.Response[v1.ReleaseReviewResponse], error)
 	SetReviewFileViewed(context.Context, *connect.Request[v1.SetReviewFileViewedRequest]) (*connect.Response[v1.SetReviewFileViewedResponse], error)
 	ListReviewViewedFiles(context.Context, *connect.Request[v1.ListReviewViewedFilesRequest]) (*connect.Response[v1.ListReviewViewedFilesResponse], error)
@@ -475,6 +478,13 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
+		getReview: connect.NewClient[v1.GetReviewRequest, v1.GetReviewResponse](
+			httpClient,
+			baseURL+AgentServiceGetReviewProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("GetReview")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
 		releaseReview: connect.NewClient[v1.ReleaseReviewRequest, v1.ReleaseReviewResponse](
 			httpClient,
 			baseURL+AgentServiceReleaseReviewProcedure,
@@ -540,6 +550,7 @@ type agentServiceClient struct {
 	openReviewRound         *connect.Client[v1.OpenReviewRoundRequest, v1.OpenReviewRoundResponse]
 	listReviewRounds        *connect.Client[v1.ListReviewRoundsRequest, v1.ListReviewRoundsResponse]
 	listReviews             *connect.Client[v1.ListReviewsRequest, v1.ListReviewsResponse]
+	getReview               *connect.Client[v1.GetReviewRequest, v1.GetReviewResponse]
 	releaseReview           *connect.Client[v1.ReleaseReviewRequest, v1.ReleaseReviewResponse]
 	setReviewFileViewed     *connect.Client[v1.SetReviewFileViewedRequest, v1.SetReviewFileViewedResponse]
 	listReviewViewedFiles   *connect.Client[v1.ListReviewViewedFilesRequest, v1.ListReviewViewedFilesResponse]
@@ -745,6 +756,11 @@ func (c *agentServiceClient) ListReviews(ctx context.Context, req *connect.Reque
 	return c.listReviews.CallUnary(ctx, req)
 }
 
+// GetReview calls agent.v1.AgentService.GetReview.
+func (c *agentServiceClient) GetReview(ctx context.Context, req *connect.Request[v1.GetReviewRequest]) (*connect.Response[v1.GetReviewResponse], error) {
+	return c.getReview.CallUnary(ctx, req)
+}
+
 // ReleaseReview calls agent.v1.AgentService.ReleaseReview.
 func (c *agentServiceClient) ReleaseReview(ctx context.Context, req *connect.Request[v1.ReleaseReviewRequest]) (*connect.Response[v1.ReleaseReviewResponse], error) {
 	return c.releaseReview.CallUnary(ctx, req)
@@ -802,6 +818,7 @@ type AgentServiceHandler interface {
 	OpenReviewRound(context.Context, *connect.Request[v1.OpenReviewRoundRequest]) (*connect.Response[v1.OpenReviewRoundResponse], error)
 	ListReviewRounds(context.Context, *connect.Request[v1.ListReviewRoundsRequest]) (*connect.Response[v1.ListReviewRoundsResponse], error)
 	ListReviews(context.Context, *connect.Request[v1.ListReviewsRequest]) (*connect.Response[v1.ListReviewsResponse], error)
+	GetReview(context.Context, *connect.Request[v1.GetReviewRequest]) (*connect.Response[v1.GetReviewResponse], error)
 	ReleaseReview(context.Context, *connect.Request[v1.ReleaseReviewRequest]) (*connect.Response[v1.ReleaseReviewResponse], error)
 	SetReviewFileViewed(context.Context, *connect.Request[v1.SetReviewFileViewedRequest]) (*connect.Response[v1.SetReviewFileViewedResponse], error)
 	ListReviewViewedFiles(context.Context, *connect.Request[v1.ListReviewViewedFilesRequest]) (*connect.Response[v1.ListReviewViewedFilesResponse], error)
@@ -1079,6 +1096,13 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
+	agentServiceGetReviewHandler := connect.NewUnaryHandler(
+		AgentServiceGetReviewProcedure,
+		svc.GetReview,
+		connect.WithSchema(agentServiceMethods.ByName("GetReview")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
 	agentServiceReleaseReviewHandler := connect.NewUnaryHandler(
 		AgentServiceReleaseReviewProcedure,
 		svc.ReleaseReview,
@@ -1181,6 +1205,8 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 			agentServiceListReviewRoundsHandler.ServeHTTP(w, r)
 		case AgentServiceListReviewsProcedure:
 			agentServiceListReviewsHandler.ServeHTTP(w, r)
+		case AgentServiceGetReviewProcedure:
+			agentServiceGetReviewHandler.ServeHTTP(w, r)
 		case AgentServiceReleaseReviewProcedure:
 			agentServiceReleaseReviewHandler.ServeHTTP(w, r)
 		case AgentServiceSetReviewFileViewedProcedure:
@@ -1354,6 +1380,10 @@ func (UnimplementedAgentServiceHandler) ListReviewRounds(context.Context, *conne
 
 func (UnimplementedAgentServiceHandler) ListReviews(context.Context, *connect.Request[v1.ListReviewsRequest]) (*connect.Response[v1.ListReviewsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.ListReviews is not implemented"))
+}
+
+func (UnimplementedAgentServiceHandler) GetReview(context.Context, *connect.Request[v1.GetReviewRequest]) (*connect.Response[v1.GetReviewResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.GetReview is not implemented"))
 }
 
 func (UnimplementedAgentServiceHandler) ReleaseReview(context.Context, *connect.Request[v1.ReleaseReviewRequest]) (*connect.Response[v1.ReleaseReviewResponse], error) {

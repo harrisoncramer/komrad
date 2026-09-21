@@ -65,7 +65,7 @@ func TestAReviewSaysWhereARemovedLineWasCounted(t *testing.T) {
 					SnapshotSHA: "snapshot-sha",
 				},
 				Verdict: reviewstore.VerdictChangesRequested,
-				Threads: []ReviewThreadWithMessages{{Thread: tt.thread}},
+				Threads: []ReviewThreadInContext{{Thread: tt.thread}},
 			})
 
 			assert.Contains(t, body, tt.wantHeading+"\n", "the heading says which side the numbers are on")
@@ -86,7 +86,7 @@ func TestAReviewLeavesALineOnTheNewSideAlone(t *testing.T) {
 			SnapshotSHA: "snapshot-sha",
 		},
 		Verdict: reviewstore.VerdictChangesRequested,
-		Threads: []ReviewThreadWithMessages{{Thread: reviewstore.Thread{
+		Threads: []ReviewThreadInContext{{Thread: reviewstore.Thread{
 			ID:       reviewThreadID,
 			BaseSHA:  "earlier-snapshot-sha",
 			FilePath: "greet.go",

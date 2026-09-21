@@ -26,6 +26,7 @@ type reviewConversation interface {
 	OpenRound(ctx context.Context, agentID string, author reviews.ReviewAuthor) (*reviewstore.Round, error)
 	ListRounds(ctx context.Context, agentID string, author reviews.ReviewAuthor) ([]reviewstore.Round, error)
 	ListReviews(ctx context.Context, agentID string, author reviews.ReviewAuthor) ([]reviewstore.Review, error)
+	GetReview(ctx context.Context, reviewID string, author reviews.ReviewAuthor) (*reviews.ReviewInFull, error)
 	ReleaseReview(ctx context.Context, params reviews.ReleaseReviewParams) (*reviews.ReleaseReviewResult, error)
 	SetReviewFileViewed(ctx context.Context, params reviews.SetReviewFileViewedParams) (*reviewstore.ViewedFile, error)
 	ListReviewViewedFiles(ctx context.Context, params reviews.ListReviewViewedFilesParams) ([]reviewstore.ViewedFile, error)
@@ -178,6 +179,20 @@ func (s *Handler) ListReviews(ctx context.Context, req *agentv1.ListReviewsReque
 	return &agentv1.ListReviewsResponse{Reviews: answered}, nil
 }
 
+// GetReview reads one released review whole.
+func (s *Handler) GetReview(ctx context.Context, req *agentv1.GetReviewRequest) (*agentv1.GetReviewResponse, *fail.Error) {
+	review, err := s.review.GetReview(ctx, req.GetReviewId(), reviewAuthorFrom(ctx))
+	if err != nil {
+		return nil, rpcerr.From(err, "failed to get the review")
+	}
+
+	return &agentv1.GetReviewResponse{
+		Review:  renderReview(review.Review),
+		Round:   renderReviewRound(review.Round),
+		Threads: xslice.Map(review.Threads, renderReviewThreadInContext),
+	}, nil
+}
+
 // ReleaseReview releases the caller's open review, writing it out and mailing the path.
 func (s *Handler) ReleaseReview(ctx context.Context, req *agentv1.ReleaseReviewRequest) (*agentv1.ReleaseReviewResponse, *fail.Error) {
 	result, err := s.review.ReleaseReview(ctx, reviews.ReleaseReviewParams{
@@ -274,6 +289,16 @@ func renderReviewThread(thread reviews.ReviewThreadWithMessages) *agentv1.Review
 	return answered
 }
 
+func renderReviewThreadInContext(thread reviews.ReviewThreadInContext) *agentv1.ReviewThreadInContext {
+	return &agentv1.ReviewThreadInContext{
+		Thread: renderReviewThread(reviews.ReviewThreadWithMessages{
+			Thread:   thread.Thread,
+			Messages: thread.Messages,
+		}),
+		Context: thread.Context,
+	}
+}
+
 func renderReviewMessage(message reviewstore.Message) *agentv1.ReviewMessage {
 	kind := agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN
 	if message.AuthorKind == reviewstore.AuthorAgent {
@@ -285,6 +310,7 @@ func renderReviewMessage(message reviewstore.Message) *agentv1.ReviewMessage {
 		ThreadId:      message.ThreadID,
 		AuthorKind:    kind,
 		AuthorAgentId: message.AuthorAgentID,
+		ReviewId:      message.ReviewID,
 		Body:          message.Body,
 		Suggestion:    message.Suggestion,
 		Delivery:      renderReviewDeliveryState(message.Delivery),

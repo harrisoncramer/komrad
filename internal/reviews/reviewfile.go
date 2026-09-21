@@ -24,16 +24,13 @@ type renderReviewParams struct {
 	// Said is what the reviewer wrote about the change as a whole rather than about any one line,
 	// empty when they wrote nothing.
 	Said    string
-	Threads []ReviewThreadWithMessages
-	// Source holds each file as the round froze it, and a path it has nothing for falls back to
-	// the lines the comment quoted.
-	Source map[string][]string
+	Threads []ReviewThreadInContext
 }
 
 // renderReview writes a whole review out as the markdown the agent reads, drawing the code
 // around each comment out of the round's own source.
 func renderReview(params renderReviewParams) string {
-	round, verdict, threads, source := params.Round, params.Verdict, params.Threads, params.Source
+	round, verdict, threads := params.Round, params.Verdict, params.Threads
 
 	var out strings.Builder
 
@@ -58,7 +55,6 @@ func renderReview(params renderReviewParams) string {
 		writeThread(&out, writeThreadParams{
 			Thread:  thread,
 			Round:   round,
-			Lines:   source[thread.Thread.FilePath],
 			ByHuman: params.Author == "",
 		})
 	}
@@ -69,9 +65,8 @@ func renderReview(params renderReviewParams) string {
 }
 
 type writeThreadParams struct {
-	Thread  ReviewThreadWithMessages
+	Thread  ReviewThreadInContext
 	Round   reviewstore.Round
-	Lines   []string
 	ByHuman bool
 }
 
@@ -85,8 +80,13 @@ func writeThread(out *strings.Builder, params writeThreadParams) {
 		fmt.Fprintf(out, "%s\n\n", oldSideSentence(thread, params.Round))
 	}
 
-	if hasContext(thread, params.Lines) {
-		writeContext(out, thread, params.Lines)
+	if len(params.Thread.Context) > 0 {
+		out.WriteString("```\n")
+		for _, line := range params.Thread.Context {
+			out.WriteString(line)
+			out.WriteString("\n")
+		}
+		out.WriteString("```\n\n")
 	} else if len(thread.QuotedLines) > 0 {
 		out.WriteString("```diff\n")
 		for _, line := range thread.QuotedLines {
@@ -130,9 +130,13 @@ func hasContext(thread reviewstore.Thread, lines []string) bool {
 	return start > 0 && start <= len(lines)
 }
 
-// writeContext draws the file around the lines a comment was written about as the round froze
-// them, marking those lines.
-func writeContext(out *strings.Builder, thread reviewstore.Thread, lines []string) {
+// contextOf is the file around the lines a comment was written about as the round froze them,
+// numbered, with those lines marked, and nothing for a comment the file does not reach.
+func contextOf(thread reviewstore.Thread, lines []string) []string {
+	if !hasContext(thread, lines) {
+		return nil
+	}
+
 	start, end := int(thread.NewStart), int(thread.NewEnd)
 	if end < start {
 		end = start
@@ -141,16 +145,17 @@ func writeContext(out *strings.Builder, thread reviewstore.Thread, lines []strin
 	from, to := max(start-contextLines, 1), min(end+contextLines, len(lines))
 	width := len(strconv.Itoa(to))
 
-	out.WriteString("```\n")
+	drawn := make([]string, 0, to-from+1)
 	for number := from; number <= to; number++ {
 		mark := "  "
 		if number >= start && number <= end {
 			mark = ">>"
 		}
 
-		fmt.Fprintf(out, "%s %*d  %s\n", mark, width, number, lines[number-1])
+		drawn = append(drawn, fmt.Sprintf("%s %*d  %s", mark, width, number, lines[number-1]))
 	}
-	out.WriteString("```\n\n")
+
+	return drawn
 }
 
 // anchorOf names where a thread is pinned in the terms the diff uses, preferring the new side.

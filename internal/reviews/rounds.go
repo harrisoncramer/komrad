@@ -49,6 +49,9 @@ var ErrReviewNotCurrent = fail.Precondition("those lines were read from a snapsh
 // ErrReviewEmpty is answered when a review is released with nothing written in it.
 var ErrReviewEmpty = fail.Precondition("that review has nothing in it")
 
+// ErrReviewNotFound is answered when a review id names nothing the caller may see.
+var ErrReviewNotFound = fail.NotFound("review not found")
+
 type reviewRoundReadWriter interface {
 	CreateRound(ctx context.Context, params reviewstore.CreateRoundParams) (*reviewstore.Round, error)
 	GetRound(ctx context.Context, id string) (*reviewstore.Round, error)
@@ -433,7 +436,7 @@ type ReleaseReviewResult struct {
 }
 
 // ReleaseReview releases the author's open review, writing it out as one file and sending one
-// piece of ordinary mail saying where that file is.
+// piece of ordinary mail naming the review.
 func (s *ReviewService) ReleaseReview(
 	ctx context.Context,
 	params ReleaseReviewParams,
@@ -486,7 +489,14 @@ func (s *ReviewService) ReleaseReview(
 		return nil, err
 	}
 
-	path, err := s.writeReview(ctx, *agent, *round, *open, params, threads)
+	path, err := s.writeReview(ctx, writeReviewParams{
+		Agent:   *agent,
+		Round:   *round,
+		Review:  *open,
+		Verdict: params.Verdict,
+		Body:    params.Body,
+		Threads: s.threadsInContext(ctx, agent.Cwd, *round, threads),
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -497,8 +507,14 @@ func (s *ReviewService) ReleaseReview(
 
 	doorbell, err := s.mailer.SendNotice(ctx, mail.SendNoticeParams{
 		ToAgentID: params.AgentID,
-		Body:      reviewNotice(round.Ordinal, params.Verdict, comments, path),
-		Kind:      mailstore.KindReviewActivity,
+		Body: reviewNotice(reviewNoticeParams{
+			Ordinal:  round.Ordinal,
+			Verdict:  params.Verdict,
+			Comments: comments,
+			ReviewID: open.ID,
+			Path:     path,
+		}),
+		Kind: mailstore.KindReviewActivity,
 	})
 	if err != nil {
 		return nil, err
@@ -523,11 +539,21 @@ func (s *ReviewService) ReleaseReview(
 	}, nil
 }
 
+// reviewNoticeParams is what the mail announcing a release has to say.
+type reviewNoticeParams struct {
+	Ordinal  int32
+	Verdict  reviewstore.Verdict
+	Comments int
+	ReviewID string
+	Path     string
+}
+
 // reviewNotice is the whole of what the mail carries: the round, the verdict, how much there is
-// and where to read it.
-func reviewNotice(ordinal int32, verdict reviewstore.Verdict, comments int, path string) string {
-	return fmt.Sprintf("weave: review of round %d, %s, %d comment(s), read %s",
-		ordinal, strings.ReplaceAll(string(verdict), "_", " "), comments, path)
+// and how to read it.
+func reviewNotice(params reviewNoticeParams) string {
+	return fmt.Sprintf("weave: review of round %d released: %s, %d comment(s). "+
+		"Call get_review with review id %s, or read %s, then answer each thread with add_review_message.",
+		params.Ordinal, strings.ReplaceAll(string(params.Verdict), "_", " "), params.Comments, params.ReviewID, params.Path)
 }
 
 // listBatchThreads is what one review actually says, gathered by the messages written under it
@@ -565,45 +591,112 @@ func (s *ReviewService) listBatchThreads(ctx context.Context, reviewID string) (
 	return mine, nil
 }
 
+// ReviewThreadInContext is a thread, what was said in it under one review, and the code it was
+// written about as the round froze it.
+type ReviewThreadInContext struct {
+	Thread   reviewstore.Thread
+	Messages []reviewstore.Message
+	// Context is the snapshot around the thread's range, numbered and with the range marked,
+	// empty when the snapshot could not be read.
+	Context []string
+}
+
+// ReviewInFull is one released review in reading order.
+type ReviewInFull struct {
+	Review  reviewstore.Review
+	Round   reviewstore.Round
+	Threads []ReviewThreadInContext
+}
+
+// GetReview is one released review whole, which the agent it is about, its reviewer and the
+// person may read, and which its author alone may read before it is released.
+func (s *ReviewService) GetReview(ctx context.Context, reviewID string, author ReviewAuthor) (*ReviewInFull, error) {
+	review, err := s.reviews.GetReview(ctx, reviewID)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, fmt.Errorf("%w: %q", ErrReviewNotFound, reviewID)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	// An unreleased review is not found before it is refused.
+	if review.ReleasedAt == nil && !author.IsHuman() && !doesOwnReviewBatch(author, *review) {
+		return nil, fmt.Errorf("%w: %q", ErrReviewNotFound, reviewID)
+	}
+	if err := s.requireMayRead(ctx, review.AgentID, author); err != nil {
+		return nil, err
+	}
+	if !author.IsHuman() && !doesOwnReviewBatch(author, *review) {
+		review.Path = ""
+	}
+
+	agent, err := s.agents.GetByID(ctx, review.AgentID)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, agents.ErrAgentNotFound.Saying("no agent with id %q", review.AgentID)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	round, err := s.rounds.GetRound(ctx, review.RoundID)
+	if err != nil {
+		return nil, err
+	}
+
+	threads, err := s.listBatchThreads(ctx, review.ID)
+	if err != nil {
+		return nil, err
+	}
+	if !author.IsHuman() {
+		for i := range threads {
+			threads[i].Messages = releasedMessages(threads[i].Messages, author)
+		}
+	}
+
+	return &ReviewInFull{
+		Review:  *review,
+		Round:   *round,
+		Threads: s.threadsInContext(ctx, agent.Cwd, *round, threads),
+	}, nil
+}
+
+// writeReviewParams is everything one review file is written from.
+type writeReviewParams struct {
+	Agent   agentstore.Agent
+	Round   reviewstore.Round
+	Review  reviewstore.Review
+	Verdict reviewstore.Verdict
+	Body    string
+	Threads []ReviewThreadInContext
+}
+
 // writeReview puts the whole review under weave's own state directory rather than in the
 // agent's worktree, and leaves it there for good.
-func (s *ReviewService) writeReview( //nolint:revive // a params struct is the follow-up
-	ctx context.Context,
-	agent agentstore.Agent,
-	round reviewstore.Round,
-	review reviewstore.Review,
-	params ReleaseReviewParams,
-	threads []ReviewThreadWithMessages,
-) (string, error) {
-	dir := filepath.Join(s.stateDir, reviewDirName, agent.ID)
+func (s *ReviewService) writeReview(ctx context.Context, params writeReviewParams) (string, error) {
+	dir := filepath.Join(s.stateDir, reviewDirName, params.Agent.ID)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return "", fmt.Errorf("failed to make room for the review of %q: %w", agent.Name, err)
+		return "", fmt.Errorf("failed to make room for the review of %q: %w", params.Agent.Name, err)
 	}
 
 	body := renderReview(renderReviewParams{
-		Agent:   agent,
-		Round:   round,
-		Author:  s.getAuthorName(ctx, review),
+		Agent:   params.Agent,
+		Round:   params.Round,
+		Author:  s.getAuthorName(ctx, params.Review),
 		Verdict: params.Verdict,
 		Said:    params.Body,
-		Threads: threads,
-		Source: s.getSnapshotLines(ctx, getSnapshotLinesParams{
-			Dir:     agent.Cwd,
-			Round:   round,
-			Threads: threads,
-		}),
+		Threads: params.Threads,
 	})
 
-	full := filepath.Join(dir, fmt.Sprintf("round-%d-%s.md", round.Ordinal, review.ID))
+	full := filepath.Join(dir, fmt.Sprintf("round-%d-%s.md", params.Round.Ordinal, params.Review.ID))
 	if err := os.WriteFile(full, []byte(body), 0o644); err != nil {
-		return "", fmt.Errorf("failed to write the review of %q: %w", agent.Name, err)
+		return "", fmt.Errorf("failed to write the review of %q: %w", params.Agent.Name, err)
 	}
 
 	return full, nil
 }
 
-// getAuthorName is what to call whoever gave a review in the file it is written to, empty for
-// the person and the agent's name for an agent.
+// getAuthorName is what to call whoever gave a review, empty for the person and the agent's
+// name for an agent.
 func (s *ReviewService) getAuthorName(ctx context.Context, review reviewstore.Review) string {
 	if review.AuthorAgentID == nil {
 		return ""
@@ -617,41 +710,37 @@ func (s *ReviewService) getAuthorName(ctx context.Context, review reviewstore.Re
 	return author.Name
 }
 
-// getSnapshotLinesParams says which round to read the files out of and which of them are wanted.
-type getSnapshotLinesParams struct {
-	// Dir is anywhere inside the reviewed agent's worktree.
-	Dir   string
-	Round reviewstore.Round
-	// Threads names the files a review has a comment on.
-	Threads []ReviewThreadWithMessages
-}
-
-// getSnapshotLines reads every file a review touches as the round froze it, leaving out a file
-// that cannot be read rather than failing the release.
-func (s *ReviewService) getSnapshotLines(ctx context.Context, params getSnapshotLinesParams) map[string][]string {
-	if params.Dir == "" {
-		return nil
-	}
-
-	held := make(map[string][]string, len(params.Threads))
-	for _, thread := range params.Threads {
+// threadsInContext draws the code around each thread out of the round's snapshot, reading each
+// file once and leaving a thread without context when its file cannot be read.
+func (s *ReviewService) threadsInContext(
+	ctx context.Context,
+	dir string,
+	round reviewstore.Round,
+	threads []ReviewThreadWithMessages,
+) []ReviewThreadInContext {
+	held := make(map[string][]string, len(threads))
+	drawn := make([]ReviewThreadInContext, 0, len(threads))
+	for _, thread := range threads {
 		path := thread.Thread.FilePath
-		if path == "" {
-			continue
-		}
-		if _, done := held[path]; done {
-			continue
+		lines, done := held[path]
+		if !done && dir != "" && path != "" {
+			read, err := s.snapshots.ReadFileLines(ctx, dir, round.SnapshotSHA, path)
+			if err != nil {
+				read = nil
+			}
+
+			lines = read
+			held[path] = lines
 		}
 
-		lines, err := s.snapshots.ReadFileLines(ctx, params.Dir, params.Round.SnapshotSHA, path)
-		if err != nil {
-			lines = nil
-		}
-
-		held[path] = lines
+		drawn = append(drawn, ReviewThreadInContext{
+			Thread:   thread.Thread,
+			Messages: thread.Messages,
+			Context:  contextOf(thread.Thread, lines),
+		})
 	}
 
-	return held
+	return drawn
 }
 
 // getLiveAgent refuses an agent that has been archived.
