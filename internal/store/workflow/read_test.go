@@ -44,7 +44,7 @@ func TestGet(t *testing.T) {
 
 			id := tt.id
 			if tt.create {
-				created, err := st.Create(ctx, Config{Name: "backend"})
+				created, err := st.Create(ctx, Config{Name: "backend", Worktree: WorktreeConfig{BaseBranch: "main"}})
 				require.NoError(t, err)
 				require.NotEmpty(t, created.ID, "an id is generated on create")
 				id = created.ID
@@ -97,7 +97,7 @@ func TestList(t *testing.T) {
 			ctx := t.Context()
 
 			for _, name := range tt.create {
-				created, err := st.Create(ctx, Config{Name: name})
+				created, err := st.Create(ctx, Config{Name: name, Worktree: WorktreeConfig{BaseBranch: "main"}})
 				require.NoError(t, err)
 
 				if name == tt.archive {
@@ -148,7 +148,7 @@ func TestGetIncludingArchived(t *testing.T) {
 
 			id := missingID
 			if tt.create {
-				created, err := st.Create(ctx, Config{Name: "backend", Cwd: "/repo"})
+				created, err := st.Create(ctx, Config{Name: "backend", Cwd: "/repo", Worktree: WorktreeConfig{BaseBranch: "main"}})
 				require.NoError(t, err)
 				id = created.ID
 			}
@@ -204,11 +204,11 @@ func TestListPageArchived(t *testing.T) {
 			st := open(t)
 			ctx := t.Context()
 
-			gone, err := st.Create(ctx, Config{Name: "archived"})
+			gone, err := st.Create(ctx, Config{Name: "archived", Worktree: WorktreeConfig{BaseBranch: "main"}})
 			require.NoError(t, err)
 			require.NoError(t, st.Archive(ctx, gone.ID))
 
-			_, err = st.Create(ctx, Config{Name: "live"})
+			_, err = st.Create(ctx, Config{Name: "live", Worktree: WorktreeConfig{BaseBranch: "main"}})
 			require.NoError(t, err)
 
 			page, err := st.ListPage(ctx, 10, nil, tt.archived)
@@ -237,7 +237,7 @@ func TestListPageIsAlphabetical(t *testing.T) {
 	ctx := t.Context()
 
 	for _, name := range []string{"zebra", "backend", "backend", "Api", "frontend"} {
-		_, err := st.Create(ctx, Config{Name: name})
+		_, err := st.Create(ctx, Config{Name: name, Worktree: WorktreeConfig{BaseBranch: "main"}})
 		require.NoError(t, err)
 	}
 
@@ -274,7 +274,7 @@ func TestListPageOrderMatchesByName(t *testing.T) {
 
 	var want []Workflow
 	for _, name := range []string{"weavebot", "weave-bughunt", "weave", "Weave.Old", "weave_two"} {
-		created, err := st.Create(ctx, Config{Name: name})
+		created, err := st.Create(ctx, Config{Name: name, Worktree: WorktreeConfig{BaseBranch: "main"}})
 		require.NoError(t, err)
 		want = append(want, *created)
 	}

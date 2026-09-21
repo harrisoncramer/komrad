@@ -148,18 +148,32 @@ func TestFetchBaseRefusesARepositoryWithNoOrigin(t *testing.T) {
 }
 
 // TestFetchBaseRefusesABaseOriginDoesNotHave covers a workflow naming a branch origin no longer
-// has, which is reported as that rather than measured against something else.
+// has, which is reported as a missing base rather than measured against something else.
 func TestFetchBaseRefusesABaseOriginDoesNotHave(t *testing.T) {
 	t.Parallel()
 
 	_, clone := newClonePair(t)
 
 	_, _, err := client.FetchBase(t.Context(), clone, "trunk")
-	require.Error(t, err)
-	require.NotErrorIs(t, err, git.ErrBaseMissing, "a branch origin has never had fails at the fetch")
+	require.ErrorIs(t, err, git.ErrBaseMissing)
+	assert.Contains(t, err.Error(), "git fetch --quiet origin trunk", "the fetch failure rides along")
 
 	_, _, err = client.FetchBase(t.Context(), clone, "")
 	require.ErrorIs(t, err, git.ErrBaseMissing, "a workflow naming no base is refused before anything is fetched")
+}
+
+// TestFetchBaseKeepsTheCloneCopyWhenTheFetchFails covers origin refusing a branch the clone
+// still holds, where the fetch failure is the answer rather than a missing base.
+func TestFetchBaseKeepsTheCloneCopyWhenTheFetchFails(t *testing.T) {
+	t.Parallel()
+
+	origin, clone := newClonePair(t)
+	run(t, origin, "checkout", "--quiet", "-b", "elsewhere")
+	run(t, origin, "branch", "--delete", "--force", "main")
+
+	_, _, err := client.FetchBase(t.Context(), clone, "main")
+	require.Error(t, err)
+	require.NotErrorIs(t, err, git.ErrBaseMissing, "the clone still holds origin/main")
 }
 
 // TestFetchBaseFetchesTheNamedBase pins the base being fetched by name rather than read from

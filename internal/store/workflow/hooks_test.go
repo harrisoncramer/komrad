@@ -19,7 +19,7 @@ func TestHooksComeBackWithEveryReader(t *testing.T) {
 		{Event: HookPostLaunch, Script: "announce"},
 	}
 
-	created, err := st.Create(ctx, Config{Name: "backend", Hooks: hooks})
+	created, err := st.Create(ctx, Config{Name: "backend", Hooks: hooks, Worktree: WorktreeConfig{BaseBranch: "main"}})
 	require.NoError(t, err)
 	assert.Equal(t, hooks, created.Hooks, "create hands back what it wrote")
 

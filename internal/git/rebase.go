@@ -101,13 +101,19 @@ func (c *Client) FetchBase(ctx context.Context, dir, base string) (ref, sha stri
 		return "", "", fmt.Errorf("%w: the workflow names no base branch", ErrBaseMissing)
 	}
 
-	if _, err := Run(ctx, root, "fetch", "--quiet", "origin", base); err != nil {
-		return "", "", fmt.Errorf("failed to fetch %s from origin: %w", base, err)
-	}
+	_, fetchErr := Run(ctx, root, "fetch", "--quiet", "origin", base)
 
+	// A base origin no longer has fails at the fetch, and is a missing base when the clone
+	// holds no copy of its own either.
 	ref, err = resolveBase(ctx, root, base)
+	if err != nil && fetchErr != nil {
+		return "", "", fmt.Errorf("%w: %w", err, fetchErr)
+	}
 	if err != nil {
 		return "", "", err
+	}
+	if fetchErr != nil {
+		return "", "", fmt.Errorf("failed to fetch %s from origin: %w", base, fetchErr)
 	}
 
 	sha, err = Run(ctx, dir, "rev-parse", "--verify", ref)

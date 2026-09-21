@@ -38,7 +38,7 @@ func TestRename(t *testing.T) {
 
 			id := missingID
 			if tt.create {
-				created, err := st.Create(ctx, Config{Name: "backend"})
+				created, err := st.Create(ctx, Config{Name: "backend", Worktree: WorktreeConfig{BaseBranch: "main"}})
 				require.NoError(t, err)
 				id = created.ID
 			}
@@ -84,7 +84,7 @@ func TestDelete(t *testing.T) {
 
 			id := missingID
 			if tt.create {
-				created, err := st.Create(ctx, Config{Name: "backend"})
+				created, err := st.Create(ctx, Config{Name: "backend", Worktree: WorktreeConfig{BaseBranch: "main"}})
 				require.NoError(t, err)
 				id = created.ID
 			}

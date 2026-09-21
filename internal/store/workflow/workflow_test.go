@@ -11,10 +11,11 @@ import (
 // join to workflow_configs, on every path that reads one back.
 func TestConfigRoundTrip(t *testing.T) {
 	cfg := Config{
-		Name:    "backend",
-		Context: "shared notes",
-		Cwd:     "/work/api",
-		Flags:   "--model opus",
+		Name:     "backend",
+		Context:  "shared notes",
+		Cwd:      "/work/api",
+		Flags:    "--model opus",
+		Worktree: WorktreeConfig{BaseBranch: "main"},
 	}
 
 	tests := []struct {
@@ -29,10 +30,11 @@ func TestConfigRoundTrip(t *testing.T) {
 		{
 			name: "after an update",
 			update: &Config{
-				Name:    "backend",
-				Context: "revised notes",
-				Cwd:     "/work/api",
-				Flags:   "--model opus",
+				Name:     "backend",
+				Context:  "revised notes",
+				Cwd:      "/work/api",
+				Flags:    "--model opus",
+				Worktree: WorktreeConfig{BaseBranch: "main"},
 			},
 			wantContext: "revised notes",
 		},
@@ -82,7 +84,7 @@ func TestWorktreeToggleRoundTrips(t *testing.T) {
 	assert.True(t, created.Worktree.Enabled)
 	assert.Equal(t, "develop", created.Worktree.BaseBranch)
 
-	require.NoError(t, st.Update(ctx, created.ID, Config{Name: "backend", Cwd: "/repo"}))
+	require.NoError(t, st.Update(ctx, created.ID, Config{Name: "backend", Cwd: "/repo", Worktree: WorktreeConfig{BaseBranch: "main"}}))
 
 	got, err := st.Get(ctx, created.ID)
 	require.NoError(t, err)
@@ -92,6 +94,22 @@ func TestWorktreeToggleRoundTrips(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, listed, 1)
 	assert.False(t, listed[0].Worktree.Enabled, "and the listing carries it too")
+}
+
+// TestBlankBaseBranchIsRefused pins the database refusing a workflow that names no base, on the
+// create and on an update.
+func TestBlankBaseBranchIsRefused(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	_, err := st.Create(ctx, Config{Name: "backend"})
+	require.ErrorContains(t, err, "worktree_base_branch_named")
+
+	created, err := st.Create(ctx, Config{Name: "backend", Worktree: WorktreeConfig{BaseBranch: "main"}})
+	require.NoError(t, err)
+
+	err = st.Update(ctx, created.ID, Config{Name: "backend"})
+	require.ErrorContains(t, err, "worktree_base_branch_named")
 }
 
 // TestWorktreeConfigRoundTrip checks a workflow's worktree config survives the store,
@@ -105,9 +123,10 @@ func TestWorktreeConfigRoundTrip(t *testing.T) {
 		want   WorktreeConfig
 	}{
 		{
-			name:   "an empty config stores disabled with empty lists",
-			create: Config{Name: "backend"},
+			name:   "a config naming only its base stores disabled with empty lists",
+			create: Config{Name: "backend", Worktree: WorktreeConfig{BaseBranch: "main"}},
 			want: WorktreeConfig{
+				BaseBranch:   "main",
 				CopyPaths:    []string{},
 				SymlinkPaths: []string{},
 				DiffExclude:  []string{},
@@ -143,8 +162,9 @@ func TestWorktreeConfigRoundTrip(t *testing.T) {
 					CopyPaths:  []string{".env"},
 				},
 			},
-			update: &Config{Name: "backend"},
+			update: &Config{Name: "backend", Worktree: WorktreeConfig{BaseBranch: "develop"}},
 			want: WorktreeConfig{
+				BaseBranch:   "develop",
 				CopyPaths:    []string{},
 				SymlinkPaths: []string{},
 				DiffExclude:  []string{},
