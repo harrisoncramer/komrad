@@ -105,7 +105,7 @@ func (r *reviewScreen) startPass(h host, s panelShared, intent passIntent) tea.C
 	r.pass.mode = modeReviewing
 	r.pass.pausing = true
 
-	stopping := r.holdAgentCmd(h, intent)
+	stopping := r.holdAgentCmd(s, intent)
 
 	if intent == intentEdit {
 		return stopping
@@ -115,8 +115,8 @@ func (r *reviewScreen) startPass(h host, s panelShared, intent passIntent) tea.C
 }
 
 // holdAgentCmd asks for the agent to stop and reports what came back.
-func (r reviewScreen) holdAgentCmd(h host, intent passIntent) tea.Cmd {
-	agents, agentID := h.client().agents, r.agentID
+func (r reviewScreen) holdAgentCmd(s panelShared, intent passIntent) tea.Cmd {
+	agents, agentID := s.api.agents, r.agentID
 
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)

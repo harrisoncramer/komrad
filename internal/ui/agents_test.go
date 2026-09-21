@@ -353,7 +353,7 @@ func (m model) newWorkflowForm() (tea.Model, tea.Cmd) {
 }
 
 func (m model) editWorkflowForm(workflow panel.Workflow) (tea.Model, tea.Cmd) {
-	cmd := editWorkflowForm(&m, workflow)
+	cmd := editWorkflowForm(&m, m.shared(), workflow)
 
 	return m, cmd
 }

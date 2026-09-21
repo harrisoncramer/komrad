@@ -71,7 +71,7 @@ func TestLeavingAPassLetsTheAgentGo(t *testing.T) {
 	m = pressEdit(t, m)
 	require.True(t, m.review.pass.paused)
 
-	m.review.closeEdit(&m)
+	m.review.closeEdit(&m, m.shared())
 
 	cmd := m.review.leaveWriting(&m, m.shared())
 
@@ -230,7 +230,7 @@ func TestADiffThatStopsBeingReadableLetsTheAgentGo(t *testing.T) {
 
 	m.review.diff.cursor = reviewRowWithAnEditTarget(t, m)
 	m = pressEdit(t, m)
-	m.review.closeEdit(&m)
+	m.review.closeEdit(&m, m.shared())
 	require.True(t, m.review.pass.paused)
 
 	letGo := m.review.abandon(&m, m.shared(), errors.New("the worktree could not be read"))
@@ -260,7 +260,7 @@ func TestAReadersOwnPauseKeepsTheFilesForWhoeverLetsItGo(t *testing.T) {
 
 	m.review.diff.cursor = reviewRowWithAnEditTarget(t, m)
 	m = pressEdit(t, m)
-	m.review.closeEdit(&m)
+	m.review.closeEdit(&m, m.shared())
 
 	agentID := m.review.agentID
 
@@ -294,7 +294,7 @@ func TestADroppedPassKeepsTheFilesForAReadersOwnPause(t *testing.T) {
 
 	m.review.diff.cursor = reviewRowWithAnEditTarget(t, m)
 	m = pressEdit(t, m)
-	m.review.closeEdit(&m)
+	m.review.closeEdit(&m, m.shared())
 
 	agentID := m.review.agentID
 	held, ok := m.review.agentItem(m.shared())
@@ -335,7 +335,7 @@ func TestAPassRedrawsTheReadersOwnEdits(t *testing.T) {
 
 	repo.wrote(wroteParams{Tree: "tree-the-reader-edited", Whole: fakePatchWrittenOver})
 
-	cmd = m.review.closeEdit(&m)
+	cmd = m.review.closeEdit(&m, m.shared())
 	require.NotNil(t, cmd, "closing the editor reads the worktree again")
 
 	loaded, ok := cmd().(reviewLoadedMsg)

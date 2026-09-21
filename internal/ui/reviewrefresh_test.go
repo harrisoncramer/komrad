@@ -49,7 +49,7 @@ func TestReviewRefreshDrawsAnAnswer(t *testing.T) {
 
 	agents.threads = reviewReply(t, m)
 
-	refreshed, ok := m.review.refreshThreadsCmd(&m)().(reviewRefreshedMsg)
+	refreshed, ok := m.review.refreshThreadsCmd(m.shared())().(reviewRefreshedMsg)
 	require.True(t, ok)
 	m.review.applyRefreshed(m.shared(), refreshed)
 
@@ -71,7 +71,7 @@ func TestReviewRefreshDoesNothingWhenNothingWasSaid(t *testing.T) {
 	// afterwards says whether the probe let it through.
 	agents.threads = reviewReply(t, m)
 
-	refreshed, ok := m.review.refreshThreadsCmd(&m)().(reviewRefreshedMsg)
+	refreshed, ok := m.review.refreshThreadsCmd(m.shared())().(reviewRefreshedMsg)
 	require.True(t, ok)
 	m.review.applyRefreshed(m.shared(), refreshed)
 
@@ -283,7 +283,7 @@ func TestReviewReloadKeepsAFileNameSearch(t *testing.T) {
 	m.review.search(m.shared())
 	header := m.review.diff.cursor
 
-	cmd := m.review.reload(&m)
+	cmd := m.review.reload(m.shared())
 	require.NotNil(t, cmd)
 	loaded, ok := cmd().(reviewLoadedMsg)
 	require.True(t, ok)
@@ -305,7 +305,7 @@ func TestReviewReloadKeepsTheSearch(t *testing.T) {
 	matches := m.review.diff.view.MatchCount()
 	require.Positive(t, matches)
 
-	cmd := m.review.reload(&m)
+	cmd := m.review.reload(m.shared())
 	require.NotNil(t, cmd)
 	loaded, ok := cmd().(reviewLoadedMsg)
 	require.True(t, ok)
@@ -345,13 +345,13 @@ func TestReviewDiffPollCatchesUpOnceTheTurnIsOver(t *testing.T) {
 		},
 	})
 
-	cmd := m.review.pollDiffCmd(&m)
+	cmd := m.review.pollDiffCmd(m.shared())
 	polled, ok := cmd().(reviewDiffPolledMsg)
 	require.True(t, ok)
 	require.NoError(t, polled.err)
 
 	tmux.sentKeys = nil
-	caught := m.review.applyDiffPolled(&m, m.shared(), polled)
+	caught := m.review.applyDiffPolled(m.shared(), polled)
 
 	require.True(t, m.review.diff.moved)
 	require.NotNil(t, caught, "an idle agent's move is read again rather than offered")
@@ -377,11 +377,11 @@ func TestReviewDiffPollIgnoresAWorktreeThatHasNotMoved(t *testing.T) {
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
 	m = openReview(t, m)
 
-	polled, ok := m.review.pollDiffCmd(&m)().(reviewDiffPolledMsg)
+	polled, ok := m.review.pollDiffCmd(m.shared())().(reviewDiffPolledMsg)
 	require.True(t, ok)
 	require.NoError(t, polled.err)
 
-	m.review.applyDiffPolled(&m, m.shared(), polled)
+	m.review.applyDiffPolled(m.shared(), polled)
 
 	assert.False(t, m.review.diff.moved)
 	assert.NotContains(t, ansi.Strip(m.review.view(m.shared())), "the agent has written since")
@@ -397,7 +397,7 @@ func TestReviewBacksOutWhenTheWorktreeWasEmptied(t *testing.T) {
 
 	repo.wrote(wroteParams{Tree: "tree-of-the-base"})
 
-	cmd := m.review.reload(&m)
+	cmd := m.review.reload(m.shared())
 	require.NotNil(t, cmd)
 
 	loaded, ok := cmd().(reviewLoadedMsg)
@@ -427,9 +427,9 @@ func TestReviewReloadKeyOpensTheNextRound(t *testing.T) {
 		},
 	})
 
-	polled, ok := m.review.pollDiffCmd(&m)().(reviewDiffPolledMsg)
+	polled, ok := m.review.pollDiffCmd(m.shared())().(reviewDiffPolledMsg)
 	require.True(t, ok)
-	m.review.applyDiffPolled(&m, m.shared(), polled)
+	m.review.applyDiffPolled(m.shared(), polled)
 	require.True(t, m.review.diff.moved)
 
 	m.review.diff.cursor = m.review.diff.view.Move(m.review.diff.cursor, 1)
@@ -488,7 +488,7 @@ func TestReviewDiffPollWaitsBetweenReads(t *testing.T) {
 	require.True(t, m.review.diff.diffPolling)
 
 	m.review.applyRefreshed(m.shared(), reviewRefreshedMsg{agentID: "a1"})
-	m.review.applyDiffPolled(&m, m.shared(), reviewDiffPolledMsg{agentID: "a1"})
+	m.review.applyDiffPolled(m.shared(), reviewDiffPolledMsg{agentID: "a1"})
 
 	require.NotNil(t, m.refreshReviewCmd(at.Add(time.Second)))
 	assert.False(t, m.review.diff.diffPolling, "a tick a second later reads the conversation and not the worktree")
@@ -561,7 +561,7 @@ func TestReviewSaysWhenEverythingIsExcluded(t *testing.T) {
 	m, _ := reviewModelOver(t, &fakeReviewAgents{}, repo)
 	m = openReview(t, m)
 
-	loaded, ok := loadReviewCmd(&m, loadReviewCmdParams{
+	loaded, ok := loadReviewCmd(m.shared(), loadReviewCmdParams{
 		AgentID: m.review.agentID,
 		Dir:     repo.root,
 		Exclude: []string{"proto/gen"},

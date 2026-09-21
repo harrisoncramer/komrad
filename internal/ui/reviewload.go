@@ -67,7 +67,7 @@ type reviewWroteMsg struct {
 }
 
 // open puts the review on an agent's diff and reads it.
-func (r *reviewScreen) open(h host, s panelShared, agent panel.Agent) tea.Cmd {
+func (r *reviewScreen) open(s panelShared, agent panel.Agent) tea.Cmd {
 	worktree := s.listing.worktreeFor(agent)
 
 	*r = reviewScreen{
@@ -81,14 +81,14 @@ func (r *reviewScreen) open(h host, s panelShared, agent panel.Agent) tea.Cmd {
 		diff: reviewDiff{chapter: -1},
 	}
 
-	return r.loadWholeCmd(h)
+	return r.loadWholeCmd(s)
 }
 
 // refuse backs out to the listing, for a worktree that turned out to hold nothing.
 func (r *reviewScreen) refuse(h host, s panelShared, err error) tea.Cmd {
 	name := r.agentName
 	letGo := r.drop(h, s)
-	h.reportBrief(describeRefusedReview(name, err), err.Error(), nil)
+	h.reportBrief(describeRefusedReview(name, err), err.Error())
 
 	return letGo
 }
@@ -123,8 +123,8 @@ func describeRefusedReview(name string, err error) string {
 }
 
 // loadWholeCmd reads the whole change of the agent on screen.
-func (r reviewScreen) loadWholeCmd(h host) tea.Cmd {
-	return loadReviewCmd(h, loadReviewCmdParams{
+func (r reviewScreen) loadWholeCmd(s panelShared) tea.Cmd {
+	return loadReviewCmd(s, loadReviewCmdParams{
 		AgentID: r.agentID,
 		Dir:     r.dir,
 		Exclude: r.exclude,
@@ -146,10 +146,10 @@ type loadReviewCmdParams struct {
 
 // loadReviewCmd opens a round of the agent and reads that rather than the worktree, a tree that
 // has not moved giving back the round already taken of it.
-func loadReviewCmd(h host, params loadReviewCmdParams) tea.Cmd {
-	agents := h.client().agents
+func loadReviewCmd(s panelShared, params loadReviewCmdParams) tea.Cmd {
+	agents := s.api.agents
 	agentID, dir, exclude := params.AgentID, params.Dir, params.Exclude
-	repo := h.repo()
+	repo := s.git
 
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
@@ -306,7 +306,7 @@ func (r *reviewScreen) applyLoaded(h host, s panelShared, msg reviewLoadedMsg) t
 		r.diff.widen()
 		r.notice = "nothing written " + said
 
-		return r.loadWholeCmd(h)
+		return r.loadWholeCmd(s)
 	}
 
 	// Both draw nothing, so both back out rather than leaving the reader in an empty viewer.
@@ -330,7 +330,7 @@ func (r *reviewScreen) applyLoaded(h host, s panelShared, msg reviewLoadedMsg) t
 		r.diff.drop()
 		r.loading = true
 
-		return r.loadWholeCmd(h)
+		return r.loadWholeCmd(s)
 	}
 
 	r.root = msg.patch.Root
@@ -483,7 +483,7 @@ func (d *reviewDiff) keepCursor(place diffview.Place, ok bool) {
 
 // reload reads the worktree again, holding the place the cursor is standing so the diff comes
 // back under it.
-func (r *reviewScreen) reload(h host) tea.Cmd {
+func (r *reviewScreen) reload(s panelShared) tea.Cmd {
 	if r.diff.view == nil {
 		return nil
 	}
@@ -492,7 +492,7 @@ func (r *reviewScreen) reload(h host) tea.Cmd {
 		r.diff.restore = &place
 	}
 
-	return loadReviewCmd(h, loadReviewCmdParams{
+	return loadReviewCmd(s, loadReviewCmdParams{
 		AgentID: r.agentID,
 		Dir:     r.dir,
 		Exclude: r.exclude,
@@ -504,7 +504,7 @@ func (r *reviewScreen) reload(h host) tea.Cmd {
 
 func (r *reviewScreen) leave(h host, s panelShared) tea.Cmd {
 	if r.pass.atEditor {
-		return r.closeEdit(h)
+		return r.closeEdit(h, s)
 	}
 
 	// The drop is the one way off this screen, and it puts the reader back on the row they came

@@ -2,14 +2,12 @@ package ui
 
 import "weave/internal/errui"
 
-// reportBrief stands in for report where the reason is long and already on screen, so the
-// message says what failed without repeating it.
-func (m *model) reportBrief(summary, detail string, err error) {
+// reportBrief stands in for report where the reason is long and already on screen.
+func (m *model) reportBrief(summary, detail string) {
 	m.pushMessage(message{
 		kind:    messageError,
 		summary: summary,
 		detail:  detail,
-		trace:   errui.GetTrace(err),
 	})
 }
 

@@ -51,31 +51,31 @@ type reviewChapter struct {
 
 // stepBase walks back a round, from the whole change to the newest round and on into the older
 // ones, and stops on the oldest.
-func (r *reviewScreen) stepBase(h host) tea.Cmd {
+func (r *reviewScreen) stepBase(s panelShared) tea.Cmd {
 	if r.diff.chapter < 0 {
-		return r.showChapter(h, len(r.diff.chapters)-1)
+		return r.showChapter(s, len(r.diff.chapters)-1)
 	}
 
-	return r.showChapter(h, r.diff.chapter-1)
+	return r.showChapter(s, r.diff.chapter-1)
 }
 
 // stepBaseForward walks the other way, and stops on the whole change.
-func (r *reviewScreen) stepBaseForward(h host) tea.Cmd {
+func (r *reviewScreen) stepBaseForward(s panelShared) tea.Cmd {
 	if r.diff.chapter < 0 {
 		return nil
 	}
 
-	return r.showChapter(h, r.diff.chapter+1)
+	return r.showChapter(s, r.diff.chapter+1)
 }
 
 // showChapter puts one round of the review on screen, or the whole change past the newest
 // round, and reads the diff again once the walk has moved.
-func (r *reviewScreen) showChapter(h host, at int) tea.Cmd {
+func (r *reviewScreen) showChapter(s panelShared, at int) tea.Cmd {
 	if !r.diff.showChapter(at) {
 		return nil
 	}
 
-	return r.reload(h)
+	return r.reload(s)
 }
 
 // showChapter narrows the diff to one round, or widens it to the whole change past the newest

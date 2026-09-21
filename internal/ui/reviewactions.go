@@ -100,18 +100,18 @@ func (r *reviewScreen) table() []screenAction {
 			id:   actionReviewBase,
 			keys: func(k config.Keybindings) []string { return k.Review.Base },
 			when: func(panelShared) bool { return r.doesWalk() },
-			run:  func(h host, _ panelShared, _ string) tea.Cmd { return r.stepBase(h) },
+			run:  func(_ host, s panelShared, _ string) tea.Cmd { return r.stepBase(s) },
 		},
 		{
 			id:   actionReviewBaseForward,
 			keys: func(k config.Keybindings) []string { return k.Review.BaseForward },
 			when: func(panelShared) bool { return r.doesWalk() },
-			run:  func(h host, _ panelShared, _ string) tea.Cmd { return r.stepBaseForward(h) },
+			run:  func(_ host, s panelShared, _ string) tea.Cmd { return r.stepBaseForward(s) },
 		},
 		{
 			id:   actionReviewReload,
 			keys: func(k config.Keybindings) []string { return k.Review.Reload },
-			run:  func(h host, _ panelShared, _ string) tea.Cmd { return r.reload(h) },
+			run:  func(_ host, s panelShared, _ string) tea.Cmd { return r.reload(s) },
 		},
 		{
 			id:   actionReviewEdit,
@@ -123,7 +123,7 @@ func (r *reviewScreen) table() []screenAction {
 		{
 			id:   actionReviewResolve,
 			keys: func(k config.Keybindings) []string { return k.Review.Resolve },
-			run:  func(h host, _ panelShared, _ string) tea.Cmd { return r.resolveThread(h) },
+			run:  func(_ host, s panelShared, _ string) tea.Cmd { return r.resolveThread(s) },
 		},
 		{
 			id:   actionReviewViewed,
@@ -337,61 +337,61 @@ func (r *reviewScreen) legend() []screenLegendRow {
 	}
 }
 
-func (r *reviewScreen) movePressed(h host, s panelShared, pressed string) tea.Cmd {
+func (r *reviewScreen) movePressed(_ host, s panelShared, pressed string) tea.Cmd {
 	if isBound(pressed, s.keys.Nav.Down) {
-		return r.moveCursor(h, s, r.diff.view.Move(r.diff.cursor, 1))
+		return r.moveCursor(s, r.diff.view.Move(r.diff.cursor, 1))
 	}
 
-	return r.moveCursor(h, s, r.diff.view.Move(r.diff.cursor, -1))
+	return r.moveCursor(s, r.diff.view.Move(r.diff.cursor, -1))
 }
 
-func (r *reviewScreen) jumpPressed(h host, s panelShared, pressed string) tea.Cmd {
+func (r *reviewScreen) jumpPressed(_ host, s panelShared, pressed string) tea.Cmd {
 	if isBound(pressed, s.keys.Nav.Bottom) {
-		return r.moveCursor(h, s, r.diff.view.GetLastRow())
+		return r.moveCursor(s, r.diff.view.GetLastRow())
 	}
 
-	return r.moveCursor(h, s, r.diff.view.GetFirstRow())
+	return r.moveCursor(s, r.diff.view.GetFirstRow())
 }
 
-func (r *reviewScreen) pagePressed(h host, s panelShared, pressed string) tea.Cmd {
+func (r *reviewScreen) pagePressed(_ host, s panelShared, pressed string) tea.Cmd {
 	if isBound(pressed, s.keys.Nav.PageUp) {
-		return r.scroll(h, s, -1)
+		return r.scroll(s, -1)
 	}
 
-	return r.scroll(h, s, 1)
+	return r.scroll(s, 1)
 }
 
-func (r *reviewScreen) stepFile(h host, s panelShared, pressed string) tea.Cmd {
+func (r *reviewScreen) stepFile(_ host, s panelShared, pressed string) tea.Cmd {
 	if isBound(pressed, s.keys.Review.PrevFile) {
-		return r.jumpFile(h, s, -1)
+		return r.jumpFile(s, -1)
 	}
 
-	return r.jumpFile(h, s, 1)
+	return r.jumpFile(s, 1)
 }
 
 // stepOpenThread walks the comments nobody has settled.
-func (r *reviewScreen) stepOpenThread(h host, s panelShared, pressed string) tea.Cmd {
+func (r *reviewScreen) stepOpenThread(_ host, s panelShared, pressed string) tea.Cmd {
 	if isBound(pressed, s.keys.Review.PrevOpenThread) {
-		return r.jumpOpenThread(h, s, -1)
+		return r.jumpOpenThread(s, -1)
 	}
 
-	return r.jumpOpenThread(h, s, 1)
+	return r.jumpOpenThread(s, 1)
 }
 
-func (r *reviewScreen) stepThread(h host, s panelShared, pressed string) tea.Cmd {
+func (r *reviewScreen) stepThread(_ host, s panelShared, pressed string) tea.Cmd {
 	if isBound(pressed, s.keys.Review.PrevThread) {
-		return r.moveCursor(h, s, r.diff.view.JumpThread(r.diff.cursor, -1))
+		return r.moveCursor(s, r.diff.view.JumpThread(r.diff.cursor, -1))
 	}
 
-	return r.moveCursor(h, s, r.diff.view.JumpThread(r.diff.cursor, 1))
+	return r.moveCursor(s, r.diff.view.JumpThread(r.diff.cursor, 1))
 }
 
-func (r *reviewScreen) stepMatch(h host, s panelShared, pressed string) tea.Cmd {
+func (r *reviewScreen) stepMatch(_ host, s panelShared, pressed string) tea.Cmd {
 	if isBound(pressed, s.keys.Review.PrevMatch) {
-		return r.jumpMatch(h, s, -1)
+		return r.jumpMatch(s, -1)
 	}
 
-	return r.jumpMatch(h, s, 1)
+	return r.jumpMatch(s, 1)
 }
 
 func (r *reviewScreen) panBy(_ host, s panelShared, pressed string) tea.Cmd {

@@ -163,7 +163,7 @@ func reloadReview(t *testing.T, m model) model {
 func reloadReviewReading(t *testing.T, m model) (model, reviewLoadedMsg) {
 	t.Helper()
 
-	cmd := m.review.reload(&m)
+	cmd := m.review.reload(m.shared())
 	require.NotNil(t, cmd)
 
 	loaded, ok := cmd().(reviewLoadedMsg)
@@ -297,7 +297,7 @@ func TestExpansionSurvivesTheDiffBeingPutDown(t *testing.T) {
 	// An index past the end of the recut list is what puts the diff down.
 	expanded.review.diff.chapter = len(expanded.review.diff.chapters)
 
-	reload := expanded.review.reload(&expanded)
+	reload := expanded.review.reload(expanded.shared())
 	require.NotNil(t, reload)
 
 	loaded, ok := reload().(reviewLoadedMsg)
