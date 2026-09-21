@@ -192,7 +192,7 @@ func (m model) searchCmd(query string) tea.Cmd {
 			// The turns that say the words stand before the ones that only carry the letters.
 			found := slices.Concat(resp.Msg.GetMatches(), resp.Msg.GetNear())
 
-			return xslice.Map(found, renderHit), nil
+			return xslice.Map(found, searchHitFrom), nil
 		})
 		if err != nil {
 			return searchResult{query: query}
@@ -202,7 +202,7 @@ func (m model) searchCmd(query string) tea.Cmd {
 	}
 }
 
-func renderHit(h *agentv1.SearchHit) searchHit {
+func searchHitFrom(h *agentv1.SearchHit) searchHit {
 	return searchHit{
 		agentID:  h.GetAgentId(),
 		name:     h.GetName(),

@@ -24,7 +24,9 @@ type LaunchAgentArgs struct {
 }
 
 // Kind is the River job kind.
-func (LaunchAgentArgs) Kind() string { return "launch_agent" }
+func (LaunchAgentArgs) Kind() string {
+	return "launch_agent"
+}
 
 // InsertOpts dedups a firing by its arguments, adding the cancelled and discarded states River
 // leaves out so a stopped attempt cannot queue the same occurrence again.

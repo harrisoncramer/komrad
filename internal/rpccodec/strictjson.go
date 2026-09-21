@@ -29,7 +29,9 @@ type strictJSON struct {
 	name string
 }
 
-func (c strictJSON) Name() string { return c.name }
+func (c strictJSON) Name() string {
+	return c.name
+}
 
 func (c strictJSON) Marshal(message any) ([]byte, error) {
 	protoMessage, ok := message.(proto.Message)
@@ -66,7 +68,9 @@ func (c strictJSON) Unmarshal(binary []byte, message any) error {
 	return nil
 }
 
-func (c strictJSON) IsBinary() bool { return false }
+func (c strictJSON) IsBinary() bool {
+	return false
+}
 
 func notProto(message any) error {
 	return fmt.Errorf("%T is not a protobuf message", message)

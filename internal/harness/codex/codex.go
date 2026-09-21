@@ -22,7 +22,9 @@ const originatorEnv = "CODEX_INTERNAL_ORIGINATOR_OVERRIDE"
 
 const homeEnv = "CODEX_HOME"
 
-func originator(agentID string) string { return "weave-" + agentID }
+func originator(agentID string) string {
+	return "weave-" + agentID
+}
 
 func originatorPrefix(agentID string) string {
 	if agentID == "" {
@@ -53,17 +55,25 @@ func NewHarness(params NewHarnessParams) *Harness {
 var _ harness.Harness = (*Harness)(nil)
 
 // ID is the name an agent running Codex is recorded under.
-func (h *Harness) ID() string { return binary }
+func (h *Harness) ID() string {
+	return binary
+}
 
 // Binary is the CLI a pane's shell has to resolve to start an agent.
-func (h *Harness) Binary() string { return binary }
+func (h *Harness) Binary() string {
+	return binary
+}
 
 // InterruptKeys stops Codex where it stands.
-func (h *Harness) InterruptKeys() []string { return []string{"Escape"} }
+func (h *Harness) InterruptKeys() []string {
+	return []string{"Escape"}
+}
 
 // MintSessionID returns empty, Codex taking no session id on the command line and naming the
 // conversation itself.
-func (h *Harness) MintSessionID() string { return "" }
+func (h *Harness) MintSessionID() string {
+	return ""
+}
 
 // NamedHome reads the directory the environment names in place of ~/.codex, empty when it
 // names none.

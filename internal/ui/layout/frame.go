@@ -78,7 +78,9 @@ func New(tmux Tmux, layout config.Layout, options ...Option) *Frame {
 }
 
 // OnResize says where the sidebar's new size is reported once a change has moved it.
-func (f *Frame) OnResize(report func(width, height int)) { f.onSize = report }
+func (f *Frame) OnResize(report func(width, height int)) {
+	f.onSize = report
+}
 
 // Attach anchors the frame to the pane the panel was told it runs in, never one read back from
 // tmux, which answers for whatever window the session is looking at.
@@ -109,7 +111,9 @@ func (f *Frame) Pane(region Region) string {
 }
 
 // GuestPane is the pane somebody else owns currently swapped into the stage.
-func (f *Frame) GuestPane() string { return f.guest }
+func (f *Frame) GuestPane() string {
+	return f.guest
+}
 
 // FocusPane is the pane the focus key jumps to: the agent's own pane when it was moved into the
 // stage and the stage itself when the stage is attached to an agent elsewhere.
@@ -127,7 +131,9 @@ func (f *Frame) FocusPane() string {
 
 // Begin collects the frame's pane moves for Flush to send together, so a change that moves
 // several panes is one invocation of tmux and so one repaint rather than one for each.
-func (f *Frame) Begin() { f.collecting = true }
+func (f *Frame) Begin() {
+	f.collecting = true
+}
 
 // Flush sends the pane moves collected since Begin, and does nothing when there were none.
 func (f *Frame) Flush() {
@@ -215,7 +221,9 @@ func (f *Frame) Close(region Region) {
 
 // Claimed records that another process has taken a region over, so the next content is drawn
 // rather than skipped as already shown.
-func (f *Frame) Claimed(region Region) { f.forget(region) }
+func (f *Frame) Claimed(region Region) {
+	f.forget(region)
+}
 
 // Show draws content in a region, opening it first when needed, and refuses the sidebar since
 // filling it would replace the panel itself.
@@ -286,7 +294,9 @@ func (f *Frame) Solo(on bool) {
 }
 
 // IsSolo reports whether the sidebar is holding the whole window.
-func (f *Frame) IsSolo() bool { return f.solo }
+func (f *Frame) IsSolo() bool {
+	return f.solo
+}
 
 // SyncKeys puts the frame right about whether the sidebar is still holding the window.
 func (f *Frame) SyncKeys() {
@@ -301,7 +311,9 @@ func (f *Frame) SyncKeys() {
 
 // HasKeys reports whether the keyboard is on the panel's own pane rather than on a pane beside
 // it, as of the last sync.
-func (f *Frame) HasKeys() bool { return f.keys }
+func (f *Frame) HasKeys() bool {
+	return f.keys
+}
 
 // SidebarSize is how big tmux has the panel's own pane right now.
 func (f *Frame) SidebarSize() (width, height int) {
@@ -323,7 +335,9 @@ func (f *Frame) SidebarWidth(total int) (int, bool) {
 }
 
 // StageCols is how wide the pane beside the sidebar was last measured at.
-func (f *Frame) StageCols() int { return f.stageCols }
+func (f *Frame) StageCols() int {
+	return f.stageCols
+}
 
 // WindowCols is how many columns the frame has to lay itself out in.
 func (f *Frame) WindowCols() int {
@@ -363,11 +377,15 @@ func (f *Frame) RestoreSplit() {
 
 // IsRemote reports whether the agents are running in an engine this tmux server cannot reach,
 // which decides how a terminal is shown and who owns its size.
-func (f *Frame) IsRemote() bool { return f.remote.IsRemote() }
+func (f *Frame) IsRemote() bool {
+	return f.remote.IsRemote()
+}
 
 // IsSidebarOnRight is the side the panel's own column sits on, so a screen drawing its own split
 // puts it where the panes it took the window from would have.
-func (f *Frame) IsSidebarOnRight() bool { return f.spec.sidebarOnRight }
+func (f *Frame) IsSidebarOnRight() bool {
+	return f.spec.sidebarOnRight
+}
 
 // ShowGuest puts an agent's terminal in the stage, by moving its pane in when the engine is
 // this machine and by attaching to the engine's tmux when it is not.
@@ -563,7 +581,9 @@ func (f *Frame) closeInfo() {
 	f.forget(RegionInfo)
 }
 
-func (f *Frame) forget(region Region) { delete(f.shown, region) }
+func (f *Frame) forget(region Region) {
+	delete(f.shown, region)
+}
 
 func getHomeDir() string {
 	dir, _ := os.UserHomeDir()

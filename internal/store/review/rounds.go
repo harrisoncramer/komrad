@@ -62,10 +62,14 @@ type Review struct {
 }
 
 // IsOpen reports whether the review is still being written.
-func (r Review) IsOpen() bool { return r.ReleasedAt == nil }
+func (r Review) IsOpen() bool {
+	return r.ReleasedAt == nil
+}
 
 // IsSettled reports whether a released review has nothing left owed an answer.
-func (r Review) IsSettled() bool { return !r.IsOpen() && r.OpenThreads == 0 }
+func (r Review) IsSettled() bool {
+	return !r.IsOpen() && r.OpenThreads == 0
+}
 
 type CreateRoundParams struct {
 	AgentID     string

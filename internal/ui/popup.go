@@ -151,7 +151,9 @@ func (p *PopupWindow) IsShown() bool {
 }
 
 // Hide closes the popup by detaching its client, leaving the session alive for the next open.
-func (p *PopupWindow) Hide() { p.tmux.DetachSession(p.session) }
+func (p *PopupWindow) Hide() {
+	p.tmux.DetachSession(p.session)
+}
 
 // SilenceStatus turns off a session's tmux status bar, so the manager panel and the agents it
 // opens fill the popup without a tmux footer under them.

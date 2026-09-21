@@ -103,7 +103,9 @@ type peekedBody struct {
 	closer io.Closer
 }
 
-func (b *peekedBody) Close() error { return b.closer.Close() }
+func (b *peekedBody) Close() error {
+	return b.closer.Close()
+}
 
 type statusRecorder struct {
 	http.ResponseWriter
@@ -125,4 +127,6 @@ func (r *statusRecorder) Write(b []byte) (int, error) {
 	return r.ResponseWriter.Write(b)
 }
 
-func (r *statusRecorder) Unwrap() http.ResponseWriter { return r.ResponseWriter }
+func (r *statusRecorder) Unwrap() http.ResponseWriter {
+	return r.ResponseWriter
+}

@@ -303,7 +303,7 @@ func (a api) getSchedule(id string) (*schedulestore.Schedule, error) {
 			return nil, fmt.Errorf("failed to get schedule %q: %w", id, err)
 		}
 
-		stored := scheduleFromProto(resp.Msg.GetSchedule())
+		stored := scheduleFrom(resp.Msg.GetSchedule())
 
 		return &stored, nil
 	})

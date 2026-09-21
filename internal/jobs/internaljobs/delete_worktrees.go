@@ -26,7 +26,9 @@ type DeleteWorktreesArgs struct {
 }
 
 // Kind is the River job kind.
-func (DeleteWorktreesArgs) Kind() string { return "delete_worktrees" }
+func (DeleteWorktreesArgs) Kind() string {
+	return "delete_worktrees"
+}
 
 // InsertOpts keeps one job per set of directories in flight.
 func (DeleteWorktreesArgs) InsertOpts() river.InsertOpts {

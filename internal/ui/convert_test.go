@@ -18,7 +18,7 @@ import (
 // surviving the conversion.
 func TestProtoToAgentCarriesTheSyncedColumns(t *testing.T) {
 	branch := "fix/thing"
-	converted := protoToAgent(&agentv1.Agent{
+	converted := agentFrom(&agentv1.Agent{
 		Id:              "a1",
 		Branch:          &branch,
 		WorktreeRemoved: true,
@@ -32,7 +32,7 @@ func TestProtoToAgentCarriesTheSyncedColumns(t *testing.T) {
 // TestProtoToAgentCarriesTheStateChange pins the timestamp the row's state is dated by.
 func TestProtoToAgentCarriesTheStateChange(t *testing.T) {
 	changed := time.Date(2026, time.September, 1, 9, 9, 0, 0, time.UTC)
-	converted := protoToAgent(&agentv1.Agent{
+	converted := agentFrom(&agentv1.Agent{
 		Id:             "a1",
 		StateChangedAt: changed.Format(time.RFC3339),
 	})
@@ -43,7 +43,7 @@ func TestProtoToAgentCarriesTheStateChange(t *testing.T) {
 // TestProtoToAgentWithoutAStateChange covers a server that sent no timestamp, which leaves the
 // zero time rather than an instant nothing dated it from.
 func TestProtoToAgentWithoutAStateChange(t *testing.T) {
-	assert.True(t, protoToAgent(&agentv1.Agent{Id: "a1"}).StateChangedAt.IsZero())
+	assert.True(t, agentFrom(&agentv1.Agent{Id: "a1"}).StateChangedAt.IsZero())
 }
 
 // TestWorkflowsFromCarriesTheWholeWorkflow covers the listing conversion field by field.

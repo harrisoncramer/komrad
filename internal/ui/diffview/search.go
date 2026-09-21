@@ -51,7 +51,9 @@ func (v *View) SetPattern(pattern *regexp.Regexp) int {
 }
 
 // ClearSearch forgets the pattern and everything it found.
-func (v *View) ClearSearch() { v.search = nil }
+func (v *View) ClearSearch() {
+	v.search = nil
+}
 
 // MatchCount is how many lines the pattern was found on, counting several matches on one line
 // once.

@@ -99,7 +99,9 @@ type Input struct {
 }
 
 // Text is the whole of what the input box holds.
-func (i Input) Text() string { return strings.Join(i.Held, "\n") }
+func (i Input) Text() string {
+	return strings.Join(i.Held, "\n")
+}
 
 // IsOneLine reports whether every line the input box holds but one is blank.
 func (i Input) IsOneLine() bool {

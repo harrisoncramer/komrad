@@ -18,7 +18,7 @@ import (
 	"weave/lib/xslice"
 )
 
-func protoToAgent(s *agentv1.Agent) agentstore.Agent {
+func agentFrom(s *agentv1.Agent) agentstore.Agent {
 	metadata := xslice.Map(s.GetMetadata(), func(entry *agentv1.AgentMetadata) agentstore.Metadata {
 		return agentstore.Metadata{Key: entry.GetKey(), Value: entry.GetValue()}
 	})
@@ -89,7 +89,7 @@ func roleFrom(role agentv1.AgentRole) agentstore.Role {
 func agentItemsFrom(listed []*agentv1.Agent) []agentItem {
 	return xslice.Map(listed, func(agent *agentv1.Agent) agentItem {
 		return agentItem{
-			agent:        protoToAgent(agent),
+			agent:        agentFrom(agent),
 			alive:        agent.GetAlive(),
 			unreadMail:   agent.GetUnreadMail(),
 			failedRun:    agent.GetFailedRun(),
@@ -170,12 +170,12 @@ func workflowFrom(w *workflowv1.Workflow) workflowstore.Workflow {
 }
 
 func archivedAgentsFrom(listed []*agentv1.Agent) []agentstore.Agent {
-	return xslice.Map(listed, protoToAgent)
+	return xslice.Map(listed, agentFrom)
 }
 
 func scheduleItemsFrom(listed []*schedulev1.Schedule) []scheduleItem {
 	return xslice.Map(listed, func(s *schedulev1.Schedule) scheduleItem {
-		item := scheduleItem{schedule: scheduleFromProto(s)}
+		item := scheduleItem{schedule: scheduleFrom(s)}
 		if next := s.GetNextRunAt(); next != nil {
 			item.nextRun = next.AsTime().Local()
 		}
@@ -184,7 +184,7 @@ func scheduleItemsFrom(listed []*schedulev1.Schedule) []scheduleItem {
 	})
 }
 
-func scheduleFromProto(s *schedulev1.Schedule) schedulestore.Schedule {
+func scheduleFrom(s *schedulev1.Schedule) schedulestore.Schedule {
 	schedule := schedulestore.Schedule{
 		ID:                s.GetId(),
 		Name:              s.GetName(),

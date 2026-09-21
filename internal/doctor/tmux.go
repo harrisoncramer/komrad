@@ -94,7 +94,9 @@ type tmuxVersion struct {
 	minor int
 }
 
-func (v tmuxVersion) String() string { return strconv.Itoa(v.major) + "." + strconv.Itoa(v.minor) }
+func (v tmuxVersion) String() string {
+	return strconv.Itoa(v.major) + "." + strconv.Itoa(v.minor)
+}
 
 func (v tmuxVersion) isAtLeast(other tmuxVersion) bool {
 	if v.major != other.major {

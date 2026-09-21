@@ -105,7 +105,9 @@ func (r *replyReader) pump(in io.Reader) {
 
 // close releases the reading goroutine if it is parked on a send, and not if it is parked on a
 // read of a terminal nobody is typing at.
-func (r *replyReader) close() { close(r.done) }
+func (r *replyReader) close() {
+	close(r.done)
+}
 
 // readCursorColumn reads one CSI row;column R reply and returns the column, one-based as the
 // terminal counts it.

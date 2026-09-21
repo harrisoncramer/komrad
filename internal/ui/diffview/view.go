@@ -84,7 +84,9 @@ type View struct {
 }
 
 // SetNarrowed says whether the patch on screen is a slice of the change rather than all of it.
-func (v *View) SetNarrowed(narrowed bool) { v.narrowed = narrowed }
+func (v *View) SetNarrowed(narrowed bool) {
+	v.narrowed = narrowed
+}
 
 // NewView builds the review view over a patch, highlighting each file for the theme the
 // terminal is on.
@@ -202,7 +204,9 @@ func (v *View) SetFileViewed(path string, viewed bool) {
 }
 
 // IsViewed reports whether a file is drawn collapsed.
-func (v *View) IsViewed(path string) bool { return v.viewed[path] }
+func (v *View) IsViewed(path string) bool {
+	return v.viewed[path]
+}
 
 // SetExpanded says which files are drawn whole, for a view built again over a patch the reader
 // had already opened files in.
@@ -236,10 +240,14 @@ func (v *View) SetFileExpanded(path string, expanded bool) bool {
 }
 
 // IsExpanded reports whether a file is drawn whole.
-func (v *View) IsExpanded(path string) bool { return v.expanded[path] }
+func (v *View) IsExpanded(path string) bool {
+	return v.expanded[path]
+}
 
 // GetExpanded is the files drawn whole, by path, as a copy a view built later can be given.
-func (v *View) GetExpanded() map[string]bool { return maps.Clone(v.expanded) }
+func (v *View) GetExpanded() map[string]bool {
+	return maps.Clone(v.expanded)
+}
 
 // wholeFile is a file with every line of it drawn, and false for one there is nothing to add to.
 func (v *View) wholeFile(path string) (*diff.File, bool) {
@@ -317,10 +325,14 @@ func (v *View) isCollapsed(fileIndex int) bool {
 }
 
 // Len is how many rows the diff was flattened into.
-func (v *View) Len() int { return len(v.rows) }
+func (v *View) Len() int {
+	return len(v.rows)
+}
 
 // Stat is the size of the patch behind the view.
-func (v *View) Stat() diff.Stat { return v.patch.Stat() }
+func (v *View) Stat() diff.Stat {
+	return v.patch.Stat()
+}
 
 // GetFile reports whether the patch on screen draws a file at all.
 func (v *View) GetFile(filePath string) (*diff.File, bool) {

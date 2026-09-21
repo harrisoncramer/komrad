@@ -141,7 +141,7 @@ func renderLocalVerdict(verdict *reviewstore.Verdict) agentv1.ReviewVerdict {
 		return agentv1.ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED
 	}
 
-	return toReviewVerdict(*verdict)
+	return renderReviewVerdict(*verdict)
 }
 
 // renderPullRequestStanding is where the agent's pull request stands as the wire carries it:
@@ -229,7 +229,9 @@ type searchPage struct {
 }
 
 // Cursor returns the keyset cursor locating this page.
-func (p searchPage) Cursor() (transcriptstore.Cursor, error) { return p.cursor, nil }
+func (p searchPage) Cursor() (transcriptstore.Cursor, error) {
+	return p.cursor, nil
+}
 
 func renderSearchHit(hit transcriptstore.SearchHit) *agentv1.SearchHit {
 	return &agentv1.SearchHit{
