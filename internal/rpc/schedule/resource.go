@@ -31,7 +31,9 @@ type scheduleOptions struct {
 type scheduleOption = render.LoadOption[scheduleOptions]
 
 // SetPromptHead sets how much of the prompt is drawn.
-func (o *scheduleOptions) SetPromptHead(limit int) { o.promptHead = limit }
+func (o *scheduleOptions) SetPromptHead(limit int) {
+	o.promptHead = limit
+}
 
 // scheduleViewOptions turns the view a request asked for into rendering options.
 func scheduleViewOptions(view viewv1.View) []scheduleOption {
