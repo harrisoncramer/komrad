@@ -60,6 +60,74 @@ func TestPullRequestFields(t *testing.T) {
 			want:   []recordField{{"pull request", "#741 draft"}},
 		},
 		{
+			name: "an open row with its checks running says so",
+			standing: pullRequestStanding{
+				state:  pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
+				checks: pullrequestv1.Checks_CHECKS_PENDING,
+				number: 741,
+			},
+			want: []recordField{{"pull request", "#741 open, checks running"}},
+		},
+		{
+			name: "an approval waiting on its checks",
+			standing: pullRequestStanding{
+				state:        pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING,
+				checks:       pullrequestv1.Checks_CHECKS_PENDING,
+				mergeability: pullrequestv1.Mergeability_MERGEABILITY_UNSTABLE,
+				number:       741,
+			},
+			want: []recordField{{"pull request", "#741 approved, checks running"}},
+		},
+		{
+			name: "an approval behind its base",
+			standing: pullRequestStanding{
+				state:        pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING,
+				checks:       pullrequestv1.Checks_CHECKS_PASSING,
+				mergeability: pullrequestv1.Mergeability_MERGEABILITY_BEHIND,
+				number:       741,
+			},
+			want: []recordField{{"pull request", "#741 approved, behind the base"}},
+		},
+		{
+			name: "an approval the forge has not computed yet says so",
+			standing: pullRequestStanding{
+				state:        pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING,
+				checks:       pullrequestv1.Checks_CHECKS_PASSING,
+				mergeability: pullrequestv1.Mergeability_MERGEABILITY_UNKNOWN,
+				number:       741,
+			},
+			want: []recordField{{"pull request", "#741 approved, forge still computing"}},
+		},
+		{
+			name: "an open row conflicting with its base says so before its checks",
+			standing: pullRequestStanding{
+				state:        pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
+				checks:       pullrequestv1.Checks_CHECKS_PENDING,
+				mergeability: pullrequestv1.Mergeability_MERGEABILITY_CONFLICTING,
+				number:       741,
+			},
+			want: []recordField{{"pull request", "#741 open, conflicts with the base"}},
+		},
+		{
+			name: "an approval the forge would merge says nothing more",
+			standing: pullRequestStanding{
+				state:        pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED,
+				checks:       pullrequestv1.Checks_CHECKS_PASSING,
+				mergeability: pullrequestv1.Mergeability_MERGEABILITY_CLEAN,
+				number:       741,
+			},
+			want: []recordField{{"pull request", "#741 approved"}},
+		},
+		{
+			name: "a failing run names itself once",
+			standing: pullRequestStanding{
+				state:  pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING,
+				checks: pullrequestv1.Checks_CHECKS_FAILING,
+				number: 741,
+			},
+			want: []recordField{{"pull request", "#741 checks failing"}},
+		},
+		{
 			name: "one pull request with how long ago it merged",
 			standing: pullRequestStanding{
 				state:  pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED,

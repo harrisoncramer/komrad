@@ -138,6 +138,11 @@ message PullRequestStanding {
   optional string url = 3;
   // The title of the current pull request, unset for UNREAD and NONE.
   optional string title = 4;
+  // Where the checks on the current pull request's head stand, UNSPECIFIED for UNREAD and NONE.
+  pullrequest.v1.Checks checks = 5;
+  // Where the forge says the current pull request stands against its base and rules,
+  // UNSPECIFIED for UNREAD and NONE.
+  pullrequest.v1.Mergeability mergeability = 6;
 }
 
 message AgentMetadata {

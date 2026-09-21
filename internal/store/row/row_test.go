@@ -218,13 +218,14 @@ func TestPullRequest(t *testing.T) {
 	}
 	approved, err := st.PullRequests.Upsert(ctx, older)
 	require.NoError(t, err)
-	require.NoError(t, st.PullRequests.SetReviewDecision(ctx, approved.ID, forge.ReviewDecisionApproved))
+	require.NoError(t, st.PullRequests.SetStanding(ctx, approved.ID, forge.Standing{Decision: forge.ReviewDecisionApproved, Mergeability: forge.MergeabilityClean}, time.Now()))
 
 	assert.Equal(t, &pullrequeststore.Summary{
 		Number:         1,
 		URL:            "https://github.com/harrisoncramer/weave/pull/PR_1",
 		Title:          "one",
 		ReviewDecision: xptr.Ptr(forge.ReviewDecisionApproved),
+		Mergeability:   xptr.Ptr(forge.MergeabilityClean),
 	}, rowOf(t, st, unfinished.ID).PullRequest)
 
 	current := rowOf(t, st, finished.ID).PullRequest

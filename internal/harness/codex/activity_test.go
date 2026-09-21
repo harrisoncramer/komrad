@@ -97,7 +97,7 @@ const questionsFrame = "  Question 1/3 (3 unanswered)\n" +
 
 // labelledStartupFrame is the line a startup step draws before the model is reached, where the
 // label holds words and parens of its own and the timer is drawn dim, as tmux captures it.
-const labelledStartupFrame = "\x1b[1m\x1b[38;2;128;128;128m•\x1b[0m \x1b[1m\x1b[38;2;128;128;128mStarting MCP servers (1/3): chariot, codex_apps\x1b[0m " +
+const labelledStartupFrame = "\x1b[1m\x1b[38;2;128;128;128m•\x1b[0m \x1b[1m\x1b[38;2;128;128;128mStarting MCP servers (1/3): gadgets, codex_apps\x1b[0m " +
 	dimOn + "(0s • esc to interrupt)" + dimOff + composerTail
 
 const quotedStatusFrame = dimOn + "  \u2514 weave.send_mail({\"body\":\"the pane still said Working (4s \u2022 esc to interrupt) afterwards\"})" + dimOff + "\n" +
@@ -223,7 +223,7 @@ func TestReadActivity(t *testing.T) {
 		},
 		{
 			name:  "tool output drawn dim from end to end is not work, however it reads",
-			frame: dimOn + "  └ testdata/starting.txt: • Starting MCP servers (1/3): chariot (0s • esc to interrupt)" + dimOff + composerTail,
+			frame: dimOn + "  └ testdata/starting.txt: • Starting MCP servers (1/3): gadgets (0s • esc to interrupt)" + dimOff + composerTail,
 			want:  harness.ActivityIdle,
 		},
 		{

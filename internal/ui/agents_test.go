@@ -97,7 +97,7 @@ func agentsSortModel() model {
 	m := worktreesModel()
 	m.screen = screenAgents
 	m.width, m.height = 200, 40
-	m.listing.workflows = []panel.Workflow{{ID: "w1", Name: "weave"}, {ID: "w2", Name: "chariot"}}
+	m.listing.workflows = []panel.Workflow{{ID: "w1", Name: "weave"}, {ID: "w2", Name: "gadgets"}}
 	m.listing.agents = []agentItem{
 		{agent: panel.Agent{
 			ID:             "delta",

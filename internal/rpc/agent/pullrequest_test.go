@@ -58,7 +58,7 @@ func TestListedAgentsCarryWhereTheirPullRequestStands(t *testing.T) {
 		ChangedAt:         openedAt,
 	})
 	require.NoError(t, err)
-	require.NoError(t, st.PullRequests.SetReviewDecision(ctx, written.ID, forge.ReviewDecisionChangesRequested))
+	require.NoError(t, st.PullRequests.SetStanding(ctx, written.ID, forge.Standing{Decision: forge.ReviewDecisionChangesRequested}, time.Now()))
 
 	listed, err := svc.ListAgents(ctx, connect.NewRequest(&agentv1.ListAgentsRequest{}))
 	require.NoError(t, err)

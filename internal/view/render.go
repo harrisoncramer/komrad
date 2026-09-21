@@ -185,6 +185,8 @@ func Spell(glyph Glyph) string {
 		return "└"
 	case GlyphFocus:
 		return "›"
+	case GlyphFailing:
+		return "\uf467"
 	}
 
 	return ""

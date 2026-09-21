@@ -1096,19 +1096,19 @@ func TestSendMail(t *testing.T) {
 // workflow, and that one held by two other workflows is refused naming both holders.
 func TestSendMailByName(t *testing.T) {
 	svc, st := service(t)
-	chariot := st.SeedWorkflow(t, workflowstore.Config{Name: "chariot"})
+	gadgets := st.SeedWorkflow(t, workflowstore.Config{Name: "gadgets"})
 	weave := st.SeedWorkflow(t, workflowstore.Config{Name: "weave"})
 	docs := st.SeedWorkflow(t, workflowstore.Config{Name: "docs"})
 
 	alpha := st.SeedAgent(t, agentstore.Agent{
 		Name:       "alpha",
 		Cwd:        "/repo",
-		WorkflowID: chariot.ID,
+		WorkflowID: gadgets.ID,
 	})
 	reviewerHere := st.SeedAgent(t, agentstore.Agent{
 		Name:       "reviewer",
 		Cwd:        "/repo",
-		WorkflowID: chariot.ID,
+		WorkflowID: gadgets.ID,
 	})
 	st.SeedAgent(t, agentstore.Agent{
 		Name:       "reviewer",
@@ -1650,7 +1650,7 @@ func TestSearchTranscripts(t *testing.T) {
 		{
 			name:  "a query nothing said matches nothing",
 			turns: []string{"talking about postgres"},
-			query: "kubernetes",
+			query: "sailboats",
 		},
 		{
 			name:     "a hit names the turn that matched rather than the first one",

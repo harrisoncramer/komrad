@@ -23,8 +23,8 @@ var ErrNotPullRequest = fail.InvalidArgument("not a pull request on this forge")
 // ErrUnauthorized says the forge refused the credential.
 var ErrUnauthorized = fail.Denied("the forge refused the credential")
 
-// ErrTooManyDecisions says one ReviewDecisions call asked about more pull requests than it may.
-var ErrTooManyDecisions = fail.InvalidArgument("too many review decisions for one call")
+// ErrTooManyStandings says one Standings call asked about more pull requests than it may.
+var ErrTooManyStandings = fail.InvalidArgument("too many standings for one call")
 
 // ErrThrottled says the forge refused for its rate limit rather than for anything about the
 // request.
@@ -87,6 +87,49 @@ const (
 	ReviewDecisionChangesRequested ReviewDecision = "changes_requested"
 )
 
+// Checks is where a forge says the checks on a pull request's head commit stand, in weave's
+// own words.
+type Checks string
+
+const (
+	// ChecksNone is a commit the forge reports no checks for.
+	ChecksNone Checks = ""
+	// ChecksPending is a run the forge is still waiting on.
+	ChecksPending Checks = "pending"
+	// ChecksPassing is every check the forge counts having succeeded.
+	ChecksPassing Checks = "passing"
+	// ChecksFailing is at least one check the forge counts having failed.
+	ChecksFailing Checks = "failing"
+)
+
+// Mergeability is where a forge says a pull request stands against its base and its branch
+// rules, in weave's own words.
+type Mergeability string
+
+const (
+	// MergeabilityUnknown is a forge that has not computed the answer yet.
+	MergeabilityUnknown Mergeability = ""
+	// MergeabilityClean is a pull request the forge would merge now.
+	MergeabilityClean Mergeability = "clean"
+	// MergeabilityUnstable is a pull request whose checks are not all passing.
+	MergeabilityUnstable Mergeability = "unstable"
+	// MergeabilityBlocked is a branch rule the pull request does not yet satisfy.
+	MergeabilityBlocked Mergeability = "blocked"
+	// MergeabilityBehind is a branch the base has moved past.
+	MergeabilityBehind Mergeability = "behind"
+	// MergeabilityConflicting is a branch that no longer merges cleanly into its base.
+	MergeabilityConflicting Mergeability = "conflicting"
+)
+
+// Standing is what a forge says about one pull request's reviews, checks and mergeability,
+// and the head commit they were read for.
+type Standing struct {
+	Decision     ReviewDecision
+	Checks       Checks
+	Mergeability Mergeability
+	HeadSHA      string
+}
+
 // PullRequest is one pull request as every forge describes it.
 type PullRequest struct {
 	// Forge is the kind of forge the pull request lives on, such as github.
@@ -114,6 +157,11 @@ type PullRequest struct {
 	ClosedAt  *time.Time
 	// Decision is where the reviews stand, nil when the call did not ask.
 	Decision *ReviewDecision
+	// Checks is where the checks on the head commit stand, nil when the call did not ask.
+	Checks *Checks
+	// Mergeability is where the forge says it stands against its base and rules, nil when the
+	// call did not ask.
+	Mergeability *Mergeability
 }
 
 // IsFinished says whether the pull request has merged or closed.
@@ -137,13 +185,13 @@ type Forge interface {
 	ListChanged(ctx context.Context, params ListChangedParams) (*Page, error)
 	// Get is one pull request by its web address.
 	Get(ctx context.Context, url string) (PullRequest, error)
-	// ReviewDecisions is where the forge says the reviews of up to fifty pull requests stand,
-	// by number, leaving out any the forge does not have.
-	ReviewDecisions(ctx context.Context, repo git.RemoteURL, numbers []int) (map[int]ReviewDecision, error)
+	// Standings is where the forge says the reviews, checks and mergeability of up to fifty
+	// pull requests stand, by number, leaving out any the forge does not have.
+	Standings(ctx context.Context, repo git.RemoteURL, numbers []int) (map[int]Standing, error)
 }
 
-// MaxReviewDecisions is the most pull requests one ReviewDecisions call asks about.
-const MaxReviewDecisions = 50
+// MaxStandings is the most pull requests one Standings call asks about.
+const MaxStandings = 50
 
 // ListParams says which pull requests to list and where in them to start.
 type ListParams struct {

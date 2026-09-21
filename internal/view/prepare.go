@@ -170,12 +170,14 @@ func ForgeCell(row Row) Cell {
 		return Cell{Glyph: GlyphForge, Tone: paint.ToneMuted}
 	case ForgeApproved:
 		return Cell{Glyph: GlyphApproved, Tone: paint.ToneSuccess}
+	case ForgeApprovedWaiting:
+		return Cell{Glyph: GlyphApproved, Tone: paint.ToneMuted}
 	case ForgeChangesRequested:
 		return Cell{Glyph: GlyphForge, Tone: paint.ToneWarning}
 	case ForgeDraft:
 		return Cell{Glyph: GlyphDraft, Tone: paint.ToneMuted}
 	case ForgeFailing:
-		return Cell{Glyph: GlyphBroken, Tone: paint.ToneDanger}
+		return Cell{Glyph: GlyphFailing, Tone: paint.ToneDanger}
 	case ForgeMerged:
 		return Cell{Glyph: GlyphMerged, Tone: paint.ToneMerged}
 	case ForgeClosed:

@@ -70,6 +70,7 @@ const (
 	ForgeNone
 	ForgeOpen
 	ForgeApproved
+	ForgeApprovedWaiting
 	ForgeChangesRequested
 	ForgeDraft
 	ForgeFailing

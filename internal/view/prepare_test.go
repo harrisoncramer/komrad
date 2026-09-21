@@ -393,9 +393,14 @@ func TestPrepareForgeColumn(t *testing.T) {
 			want:  Cell{Glyph: GlyphDraft, Tone: paint.ToneMuted},
 		},
 		{
-			name:  "failing checks get the broken glyph in danger",
+			name:  "an approval waiting on the forge keeps the check glyph, muted",
+			forge: ForgeApprovedWaiting,
+			want:  Cell{Glyph: GlyphApproved, Tone: paint.ToneMuted},
+		},
+		{
+			name:  "failing checks get the failing glyph in danger",
 			forge: ForgeFailing,
-			want:  Cell{Glyph: GlyphBroken, Tone: paint.ToneDanger},
+			want:  Cell{Glyph: GlyphFailing, Tone: paint.ToneDanger},
 		},
 		{
 			name:  "a merged change gets its own glyph and its own tone",

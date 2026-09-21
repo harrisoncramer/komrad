@@ -59,7 +59,9 @@ opened AS (
         p.draft,
         p.merged_at,
         p.closed_at,
-        p.review_decision
+        p.review_decision,
+        p.checks,
+        p.mergeability
     FROM
         agents a
         JOIN pull_requests p ON p.repository_url = a.repository_url
@@ -101,6 +103,8 @@ SELECT
         p.merged_at AS pull_request_merged_at,
         p.closed_at AS pull_request_closed_at,
         p.review_decision AS pull_request_review_decision,
+        p.checks AS pull_request_checks,
+        p.mergeability AS pull_request_mergeability,
         EXISTS (
             SELECT
                 1

@@ -138,7 +138,7 @@ func (q *Queries) GetBranchScan(ctx context.Context, arg GetBranchScanParams) (*
 
 const getPullRequestByIdentity = `-- name: GetPullRequestByIdentity :one
 SELECT
-    id, host, forge, provider_id, url, repository_url, head_repository_url, number, title, head_branch, head_sha, base_branch, base_sha, draft, state, opened_at, changed_at, merged_at, closed_at, first_seen_at, review_decision, decision_changed_at
+    id, host, forge, provider_id, url, repository_url, head_repository_url, number, title, head_branch, head_sha, base_branch, base_sha, draft, state, opened_at, changed_at, merged_at, closed_at, first_seen_at, review_decision, decision_changed_at, checks, checks_sha, checks_read_at, mergeability
 FROM
     pull_requests
 WHERE
@@ -177,6 +177,10 @@ func (q *Queries) GetPullRequestByIdentity(ctx context.Context, arg GetPullReque
 		&i.FirstSeenAt,
 		&i.ReviewDecision,
 		&i.DecisionChangedAt,
+		&i.Checks,
+		&i.ChecksSha,
+		&i.ChecksReadAt,
+		&i.Mergeability,
 	)
 	return &i, err
 }
@@ -207,7 +211,7 @@ func (q *Queries) GetPullRequestSync(ctx context.Context, repositoryUrl string) 
 
 const listAgentBranchPullRequests = `-- name: ListAgentBranchPullRequests :many
 SELECT
-    p.id, p.host, p.forge, p.provider_id, p.url, p.repository_url, p.head_repository_url, p.number, p.title, p.head_branch, p.head_sha, p.base_branch, p.base_sha, p.draft, p.state, p.opened_at, p.changed_at, p.merged_at, p.closed_at, p.first_seen_at, p.review_decision, p.decision_changed_at
+    p.id, p.host, p.forge, p.provider_id, p.url, p.repository_url, p.head_repository_url, p.number, p.title, p.head_branch, p.head_sha, p.base_branch, p.base_sha, p.draft, p.state, p.opened_at, p.changed_at, p.merged_at, p.closed_at, p.first_seen_at, p.review_decision, p.decision_changed_at, p.checks, p.checks_sha, p.checks_read_at, p.mergeability
 FROM
     agents a
     JOIN pull_requests p ON p.repository_url = a.repository_url
@@ -256,6 +260,10 @@ func (q *Queries) ListAgentBranchPullRequests(ctx context.Context, agentID strin
 			&i.FirstSeenAt,
 			&i.ReviewDecision,
 			&i.DecisionChangedAt,
+			&i.Checks,
+			&i.ChecksSha,
+			&i.ChecksReadAt,
+			&i.Mergeability,
 		); err != nil {
 			return nil, err
 		}
@@ -339,9 +347,9 @@ func (q *Queries) ListLiveRepositories(ctx context.Context) ([]*string, error) {
 	return items, nil
 }
 
-const listStaleDecisions = `-- name: ListStaleDecisions :many
+const listStaleStandings = `-- name: ListStaleStandings :many
 SELECT
-    p.id, p.host, p.forge, p.provider_id, p.url, p.repository_url, p.head_repository_url, p.number, p.title, p.head_branch, p.head_sha, p.base_branch, p.base_sha, p.draft, p.state, p.opened_at, p.changed_at, p.merged_at, p.closed_at, p.first_seen_at, p.review_decision, p.decision_changed_at
+    p.id, p.host, p.forge, p.provider_id, p.url, p.repository_url, p.head_repository_url, p.number, p.title, p.head_branch, p.head_sha, p.base_branch, p.base_sha, p.draft, p.state, p.opened_at, p.changed_at, p.merged_at, p.closed_at, p.first_seen_at, p.review_decision, p.decision_changed_at, p.checks, p.checks_sha, p.checks_read_at, p.mergeability
 FROM
     pull_requests p
 WHERE
@@ -351,7 +359,15 @@ WHERE
     AND p.closed_at IS NULL
     AND NOT p.draft
     AND (p.decision_changed_at IS NULL
-        OR p.decision_changed_at < p.changed_at)
+        OR p.decision_changed_at < p.changed_at
+        OR p.checks_sha IS DISTINCT FROM p.head_sha
+        OR (p.checks = 'pending'
+            AND p.checks_read_at < $2::timestamptz)
+        OR ((p.checks IS NULL
+                OR p.mergeability IS NULL)
+            AND p.changed_at > $3::timestamptz
+            AND p.checks_read_at < $2::timestamptz)
+        OR (p.checks_read_at < $4::timestamptz))
     AND EXISTS (
         SELECT
             1
@@ -365,8 +381,20 @@ ORDER BY
     p.changed_at DESC
 `
 
-func (q *Queries) ListStaleDecisions(ctx context.Context, repositoryUrl string) ([]*PullRequest, error) {
-	rows, err := q.db.Query(ctx, listStaleDecisions, repositoryUrl)
+type ListStaleStandingsParams struct {
+	RepositoryUrl string
+	PendingBefore time.Time
+	ChangedSince  time.Time
+	SettledBefore time.Time
+}
+
+func (q *Queries) ListStaleStandings(ctx context.Context, arg ListStaleStandingsParams) ([]*PullRequest, error) {
+	rows, err := q.db.Query(ctx, listStaleStandings,
+		arg.RepositoryUrl,
+		arg.PendingBefore,
+		arg.ChangedSince,
+		arg.SettledBefore,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -397,6 +425,10 @@ func (q *Queries) ListStaleDecisions(ctx context.Context, repositoryUrl string) 
 			&i.FirstSeenAt,
 			&i.ReviewDecision,
 			&i.DecisionChangedAt,
+			&i.Checks,
+			&i.ChecksSha,
+			&i.ChecksReadAt,
+			&i.Mergeability,
 		); err != nil {
 			return nil, err
 		}
@@ -578,26 +610,38 @@ func (q *Queries) SetBranchScanCursor(ctx context.Context, arg SetBranchScanCurs
 	return err
 }
 
-const setReviewDecision = `-- name: SetReviewDecision :exec
+const setStanding = `-- name: SetStanding :exec
 UPDATE
     pull_requests
 SET
     review_decision = $1,
-    decision_changed_at = changed_at
+    decision_changed_at = changed_at,
+    checks = $2,
+    mergeability = $3,
+    checks_sha = $4::text,
+    checks_read_at = $5::timestamptz
 WHERE
-    id = $2
-    AND (review_decision,
-        decision_changed_at) IS DISTINCT FROM ($1,
-        changed_at)
+    id = $6
 `
 
-type SetReviewDecisionParams struct {
+type SetStandingParams struct {
 	ReviewDecision *string
+	Checks         *string
+	Mergeability   *string
+	ChecksSha      string
+	ChecksReadAt   time.Time
 	ID             string
 }
 
-func (q *Queries) SetReviewDecision(ctx context.Context, arg SetReviewDecisionParams) error {
-	_, err := q.db.Exec(ctx, setReviewDecision, arg.ReviewDecision, arg.ID)
+func (q *Queries) SetStanding(ctx context.Context, arg SetStandingParams) error {
+	_, err := q.db.Exec(ctx, setStanding,
+		arg.ReviewDecision,
+		arg.Checks,
+		arg.Mergeability,
+		arg.ChecksSha,
+		arg.ChecksReadAt,
+		arg.ID,
+	)
 	return err
 }
 

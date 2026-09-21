@@ -260,6 +260,8 @@ func snapshotForge(item agentItem) view.Forge {
 		return view.ForgeOpen
 	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED:
 		return view.ForgeApproved
+	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING:
+		return view.ForgeApprovedWaiting
 	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED:
 		return view.ForgeChangesRequested
 	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_DRAFT:
@@ -268,6 +270,8 @@ func snapshotForge(item agentItem) view.Forge {
 		return view.ForgeMerged
 	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CLOSED:
 		return view.ForgeClosed
+	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING:
+		return view.ForgeFailing
 	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNSPECIFIED, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNREAD:
 	}
 

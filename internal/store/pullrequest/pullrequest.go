@@ -52,6 +52,15 @@ type PullRequest struct {
 	ReviewDecision *forge.ReviewDecision
 	// DecisionChangedAt is the ChangedAt the decision was read for, nil while it never has been.
 	DecisionChangedAt *time.Time
+	// Checks is where the forge says the checks on the head stand, nil while it reports none.
+	Checks *forge.Checks
+	// Mergeability is where the forge says it stands against its base and rules, nil while the
+	// forge has not computed it.
+	Mergeability *forge.Mergeability
+	// ChecksSHA is the head the checks were read for, empty while they never have been.
+	ChecksSHA string
+	// ChecksReadAt is when the checks were last read, nil while they never have been.
+	ChecksReadAt *time.Time
 }
 
 // Summary is what a row about a pull request shows: how to open it and where it stands.
@@ -65,6 +74,11 @@ type Summary struct {
 	ClosedAt *time.Time
 	// ReviewDecision is where the forge says the reviews stand, nil while it has said nothing.
 	ReviewDecision *forge.ReviewDecision
+	// Checks is where the forge says the checks on the head stand, nil while it reports none.
+	Checks *forge.Checks
+	// Mergeability is where the forge says it stands against its base and rules, nil while the
+	// forge has not computed it.
+	Mergeability *forge.Mergeability
 }
 
 // GetSummary is the pull request as a row shows it.
@@ -77,6 +91,8 @@ func (p PullRequest) GetSummary() Summary {
 		MergedAt:       p.MergedAt,
 		ClosedAt:       p.ClosedAt,
 		ReviewDecision: p.ReviewDecision,
+		Checks:         p.Checks,
+		Mergeability:   p.Mergeability,
 	}
 }
 
@@ -199,17 +215,33 @@ func (s *Store) ListForAgent(ctx context.Context, agentID string) ([]PullRequest
 	return xslice.Map(rows, fromRow), nil
 }
 
-// SetReviewDecision records where the forge said a pull request's reviews stand, read for the
-// change the row holds now, leaving a row that already says so untouched.
-func (s *Store) SetReviewDecision(ctx context.Context, id string, decision forge.ReviewDecision) error {
-	var stored *string
-	if decision != forge.ReviewDecisionNone {
-		stored = xptr.Ptr(string(decision))
+// SetStanding records where the forge said a pull request's reviews, checks and mergeability
+// stand, the reviews read for the change the row holds now and the rest for the head the
+// standing names, and stamps the read at readAt whether or not anything moved.
+func (s *Store) SetStanding(ctx context.Context, id string, standing forge.Standing, readAt time.Time) error {
+	var decision *string
+	if standing.Decision != forge.ReviewDecisionNone {
+		decision = xptr.Ptr(string(standing.Decision))
+	}
+	var checks *string
+	if standing.Checks != forge.ChecksNone {
+		checks = xptr.Ptr(string(standing.Checks))
+	}
+	var mergeability *string
+	if standing.Mergeability != forge.MergeabilityUnknown {
+		mergeability = xptr.Ptr(string(standing.Mergeability))
 	}
 
-	err := s.queries.SetReviewDecision(ctx, models.SetReviewDecisionParams{ID: id, ReviewDecision: stored})
+	err := s.queries.SetStanding(ctx, models.SetStandingParams{
+		ID:             id,
+		ReviewDecision: decision,
+		Checks:         checks,
+		Mergeability:   mergeability,
+		ChecksSha:      standing.HeadSHA,
+		ChecksReadAt:   readAt,
+	})
 	if err != nil {
-		return fmt.Errorf("failed to record the review decision of pull request %s: %w", id, err)
+		return fmt.Errorf("failed to record the standing of pull request %s: %w", id, err)
 	}
 
 	return nil
@@ -289,7 +321,29 @@ func fromRow(row *models.PullRequest) PullRequest {
 		FirstSeenAt:       row.FirstSeenAt,
 		ReviewDecision:    storedReviewDecision(row.ReviewDecision),
 		DecisionChangedAt: row.DecisionChangedAt,
+		Checks:            StoredChecks(row.Checks),
+		Mergeability:      StoredMergeability(row.Mergeability),
+		ChecksSHA:         xptr.Deref(row.ChecksSha),
+		ChecksReadAt:      row.ChecksReadAt,
 	}
+}
+
+// StoredMergeability is the mergeability column as the forge's word, nil for a null.
+func StoredMergeability(stored *string) *forge.Mergeability {
+	if stored == nil {
+		return nil
+	}
+
+	return xptr.Ptr(forge.Mergeability(*stored))
+}
+
+// StoredChecks is the checks column as the forge's word, nil for a null.
+func StoredChecks(stored *string) *forge.Checks {
+	if stored == nil {
+		return nil
+	}
+
+	return xptr.Ptr(forge.Checks(*stored))
 }
 
 func storedReviewDecision(stored *string) *forge.ReviewDecision {

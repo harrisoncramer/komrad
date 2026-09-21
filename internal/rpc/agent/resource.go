@@ -134,10 +134,12 @@ func renderPullRequestStanding(row agents.Row) *agentv1.PullRequestStanding {
 	}
 
 	return &agentv1.PullRequestStanding{
-		State:  render.PullRequestStateOf(*row.PullRequest),
-		Number: xptr.Ptr(int32(row.PullRequest.Number)),
-		Url:    xptr.Ptr(row.PullRequest.URL),
-		Title:  xptr.Ptr(row.PullRequest.Title),
+		State:        render.PullRequestStateOf(*row.PullRequest),
+		Number:       xptr.Ptr(int32(row.PullRequest.Number)),
+		Url:          xptr.Ptr(row.PullRequest.URL),
+		Title:        xptr.Ptr(row.PullRequest.Title),
+		Checks:       render.ChecksOf(row.PullRequest.Checks),
+		Mergeability: render.MergeabilityOf(row.PullRequest.Mergeability),
 	}
 }
 

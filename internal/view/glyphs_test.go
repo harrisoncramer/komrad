@@ -15,7 +15,7 @@ func TestDrawingsCoverEveryGlyph(t *testing.T) {
 		named[entry.glyph] = true
 	}
 
-	for glyph := GlyphNone + 1; glyph <= GlyphFocus; glyph++ {
+	for glyph := GlyphNone + 1; glyph < glyphCount; glyph++ {
 		assert.True(t, named[glyph], "glyph %d is drawn but is not in the inventory the doctor measures", glyph)
 	}
 }
@@ -23,7 +23,7 @@ func TestDrawingsCoverEveryGlyph(t *testing.T) {
 // TestDrawingsCarryTextAndWidth covers that the inventory is worth measuring.
 func TestDrawingsCarryTextAndWidth(t *testing.T) {
 	drawings := Drawings()
-	require.Len(t, drawings, int(GlyphFocus))
+	require.Len(t, drawings, int(glyphCount)-1)
 
 	for _, drawing := range drawings {
 		assert.NotEmpty(t, drawing.Text, "%s has nothing to draw", drawing.Name)

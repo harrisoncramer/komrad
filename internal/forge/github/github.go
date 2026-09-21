@@ -59,10 +59,15 @@ const listUpdatedQuery = `query ListUpdated($owner: String!, $name: String!, $fi
 const listChangedQuery = `query ListChanged($query: String!, $first: Int!, $after: String) {
   search(type: ISSUE, query: $query, first: $first, after: $after) {
     pageInfo { hasNextPage endCursor }
-    nodes { ... on PullRequest { ...pullRequestFields reviewDecision } }
+    nodes { ... on PullRequest { ...pullRequestFields ` + standingFields + ` } }
   }
 }
 ` + pullRequestFragment
+
+// standingFields is what the reviews, checks and mergeability of a pull request are read
+// from: GitHub's computed review decision, the rollup of every check on the head commit and
+// its computed merge state.
+const standingFields = `reviewDecision mergeStateStatus commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }`
 
 // dialect is what GitHub does differently on the wire.
 var dialect = graphql.Dialect{
@@ -259,27 +264,25 @@ func (f *Forge) Get(ctx context.Context, address string) (forge.PullRequest, err
 	return data.Repository.PullRequest.toPullRequest(false), nil
 }
 
-// ReviewDecisions reads GitHub's computed reviewDecision for up to fifty pull requests in one
-// query, by alias, leaving out any GitHub does not have.
-func (f *Forge) ReviewDecisions(ctx context.Context, repo git.RemoteURL, numbers []int) (map[int]forge.ReviewDecision, error) {
+// Standings reads GitHub's computed reviewDecision and the check rollup of the head commit for
+// up to fifty pull requests in one query, by alias, leaving out any GitHub does not have.
+func (f *Forge) Standings(ctx context.Context, repo git.RemoteURL, numbers []int) (map[int]forge.Standing, error) {
 	owner, name, err := ownerAndName(repo.Path)
 	if err != nil {
 		return nil, err
 	}
-	if len(numbers) > forge.MaxReviewDecisions {
-		return nil, forge.ErrTooManyDecisions.Saying("at most %d review decisions can be read in one call, not %d", forge.MaxReviewDecisions, len(numbers))
+	if len(numbers) > forge.MaxStandings {
+		return nil, forge.ErrTooManyStandings.Saying("at most %d standings can be read in one call, not %d", forge.MaxStandings, len(numbers))
 	}
 
 	var fields strings.Builder
 	for _, number := range numbers {
-		fmt.Fprintf(&fields, "\n    p%d: pullRequest(number: %d) { reviewDecision }", number, number)
+		fmt.Fprintf(&fields, "\n    p%d: pullRequest(number: %d) { headRefOid %s }", number, number, standingFields)
 	}
-	operation := "query ReviewDecisions($owner: String!, $name: String!) {\n  repository(owner: $owner, name: $name) {" + fields.String() + "\n  }\n}"
+	operation := "query Standings($owner: String!, $name: String!) {\n  repository(owner: $owner, name: $name) {" + fields.String() + "\n  }\n}"
 
 	var data struct {
-		Repository map[string]*struct {
-			ReviewDecision *string `json:"reviewDecision"`
-		} `json:"repository"`
+		Repository map[string]*standingNode `json:"repository"`
 	}
 	variables := map[string]any{"owner": owner, "name": name}
 	answer, err := f.client.Query(ctx, operation, variables, &data)
@@ -293,17 +296,17 @@ func (f *Forge) ReviewDecisions(ctx context.Context, repo git.RemoteURL, numbers
 		return nil, noRepository(variables)
 	}
 
-	decisions := make(map[int]forge.ReviewDecision, len(numbers))
+	standings := make(map[int]forge.Standing, len(numbers))
 	for _, number := range numbers {
 		node := data.Repository["p"+strconv.Itoa(number)]
 		if node == nil {
 			continue
 		}
 
-		decisions[number] = reviewDecisionOf(node.ReviewDecision)
+		standings[number] = node.standing()
 	}
 
-	return decisions, nil
+	return standings, nil
 }
 
 // listPullRequests reads one page of a repository's pullRequests connection, whichever query
@@ -351,6 +354,25 @@ func failureOf(answer *graphql.Answer, field string) error {
 	}
 
 	return nil
+}
+
+// checksOf is GitHub's statusCheckRollup state in weave's words, none for a commit with no
+// rollup.
+func checksOf(rollup *rollupNode) forge.Checks {
+	if rollup == nil {
+		return forge.ChecksNone
+	}
+
+	switch rollup.State {
+	case "SUCCESS":
+		return forge.ChecksPassing
+	case "FAILURE", "ERROR":
+		return forge.ChecksFailing
+	case "PENDING", "EXPECTED":
+		return forge.ChecksPending
+	}
+
+	return forge.ChecksNone
 }
 
 // reviewDecisionOf is GitHub's reviewDecision in weave's words, none for a null.
@@ -406,19 +428,18 @@ type connection = graphql.Connection[pullRequestNode]
 
 // pullRequestNode is the slice of GitHub's pull request node the record is built from.
 type pullRequestNode struct {
+	standingNode
 	ID             string          `json:"id"`
 	Number         int             `json:"number"`
 	Title          string          `json:"title"`
 	URL            string          `json:"url"`
 	State          string          `json:"state"`
 	IsDraft        bool            `json:"isDraft"`
-	ReviewDecision *string         `json:"reviewDecision"`
 	CreatedAt      time.Time       `json:"createdAt"`
 	UpdatedAt      time.Time       `json:"updatedAt"`
 	MergedAt       *time.Time      `json:"mergedAt"`
 	ClosedAt       *time.Time      `json:"closedAt"`
 	HeadRefName    string          `json:"headRefName"`
-	HeadRefOid     string          `json:"headRefOid"`
 	BaseRefName    string          `json:"baseRefName"`
 	BaseRefOid     string          `json:"baseRefOid"`
 	HeadRepository *repositoryNode `json:"headRepository"`
@@ -427,6 +448,63 @@ type pullRequestNode struct {
 
 type repositoryNode struct {
 	URL string `json:"url"`
+}
+
+// standingNode is what GitHub says about a pull request's reviews, the checks on its head and
+// its merge state.
+type standingNode struct {
+	HeadRefOid       string  `json:"headRefOid"`
+	ReviewDecision   *string `json:"reviewDecision"`
+	MergeStateStatus string  `json:"mergeStateStatus"`
+	Commits          struct {
+		Nodes []struct {
+			Commit struct {
+				StatusCheckRollup *rollupNode `json:"statusCheckRollup"`
+			} `json:"commit"`
+		} `json:"nodes"`
+	} `json:"commits"`
+}
+
+type rollupNode struct {
+	State string `json:"state"`
+}
+
+// standing is the node's decision, checks and mergeability with the head they were read for.
+func (n standingNode) standing() forge.Standing {
+	return forge.Standing{
+		Decision:     reviewDecisionOf(n.ReviewDecision),
+		Checks:       n.checks(),
+		Mergeability: mergeabilityOf(n.MergeStateStatus),
+		HeadSHA:      n.HeadRefOid,
+	}
+}
+
+// mergeabilityOf is GitHub's mergeStateStatus in weave's words.
+func mergeabilityOf(status string) forge.Mergeability {
+	switch status {
+	case "CLEAN", "HAS_HOOKS":
+		return forge.MergeabilityClean
+	case "UNSTABLE":
+		return forge.MergeabilityUnstable
+	case "BLOCKED", "DRAFT":
+		return forge.MergeabilityBlocked
+	case "BEHIND":
+		return forge.MergeabilityBehind
+	case "DIRTY":
+		return forge.MergeabilityConflicting
+	}
+
+	return forge.MergeabilityUnknown
+}
+
+// checks is the rollup of the head commit in weave's words, none when the query carried no
+// commit.
+func (n standingNode) checks() forge.Checks {
+	if len(n.Commits.Nodes) == 0 {
+		return forge.ChecksNone
+	}
+
+	return checksOf(n.Commits.Nodes[len(n.Commits.Nodes)-1].Commit.StatusCheckRollup)
 }
 
 // remote is the repository the node names, zero for one GitHub no longer has.
@@ -438,8 +516,9 @@ func (n *repositoryNode) remote() git.RemoteURL {
 	return graphql.RemoteOf(n.URL)
 }
 
-// toPullRequest is the node as the record, carrying its decision when the query asked for one.
-func (n pullRequestNode) toPullRequest(withDecision bool) forge.PullRequest {
+// toPullRequest is the node as the record, carrying its decision and checks when the query
+// asked for them.
+func (n pullRequestNode) toPullRequest(withStanding bool) forge.PullRequest {
 	pullRequest := forge.PullRequest{
 		Forge:      forge.KindGitHub,
 		ProviderID: n.ID,
@@ -459,8 +538,10 @@ func (n pullRequestNode) toPullRequest(withDecision bool) forge.PullRequest {
 		MergedAt:   n.MergedAt,
 		ClosedAt:   n.ClosedAt,
 	}
-	if withDecision {
+	if withStanding {
 		pullRequest.Decision = xptr.Ptr(reviewDecisionOf(n.ReviewDecision))
+		pullRequest.Checks = xptr.Ptr(n.checks())
+		pullRequest.Mergeability = xptr.Ptr(mergeabilityOf(n.MergeStateStatus))
 	}
 
 	return pullRequest

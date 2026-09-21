@@ -138,7 +138,7 @@ func TestScrubMarks(t *testing.T) {
 func TestDocRowsFitTheColumn(t *testing.T) {
 	bodies := map[string]string{
 		"a code block held with tabs": "Here is the queue:\n\n    125:\t\t\tqueues.SupervisorReconciliation: {\n    135:\t\t\t\t\tGlobalLimit: 1,\n\nSo it is there.\n",
-		"a link nothing will break":   "The run is at https://github.com/chariot-giving/weave/actions/runs/1234567890/job/9876543210 and it failed.\n",
+		"a link nothing will break":   "The run is at https://github.com/acme/gadgets/actions/runs/1234567890/job/9876543210 and it failed.\n",
 	}
 
 	for name, body := range bodies {
