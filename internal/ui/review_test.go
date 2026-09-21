@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -55,6 +56,10 @@ func (f *fakeReviewAgents) HoldAgent(
 ) (*connect.Response[agentv1.HoldAgentResponse], error) {
 	if f.holdErr != nil {
 		return nil, f.holdErr
+	}
+
+	if f.held != nil {
+		return nil, connect.NewError(connect.CodeAlreadyExists, errors.New("this agent is already held"))
 	}
 
 	f.held = req.Msg

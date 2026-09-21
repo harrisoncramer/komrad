@@ -439,3 +439,104 @@ func TestDroppingTheReviewWhileTheAgentIsStillStoppingLetsItGo(t *testing.T) {
 		assert.Equal(t, agentID, agents.letGo.GetId())
 	}
 }
+
+// TestASecondPassOpenedWhileTheFirstHoldIsInFlightKeepsTheAgentItStopped covers the first pass's
+// hold landing on a second pass, and the second pass's own hold then being refused as a repeat.
+func TestASecondPassOpenedWhileTheFirstHoldIsInFlightKeepsTheAgentItStopped(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	setReviewAgentState(&m, panel.StateThinking)
+
+	next, first := m.routeScreenMessage(keyMsg("c"))
+	m, ok := next.(model)
+	require.True(t, ok)
+	require.True(t, m.review.pass.pausing)
+
+	for range 2 {
+		next, _ = m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyEsc})
+		m, ok = next.(model)
+		require.True(t, ok)
+	}
+
+	require.Equal(t, modeWatching, m.review.pass.mode, "the reader gave the first pass up")
+
+	next, second := m.routeScreenMessage(keyMsg("c"))
+	m, ok = next.(model)
+	require.True(t, ok)
+	require.Equal(t, modeReviewing, m.review.pass.mode)
+
+	for _, cmd := range []tea.Cmd{first, second} {
+		for _, msg := range flatten(cmd()) {
+			paused, ok := msg.(reviewPausedMsg)
+			if !ok {
+				continue
+			}
+
+			next, letGo := m.Update(paused)
+			m, ok = next.(model)
+			require.True(t, ok)
+
+			if letGo != nil {
+				letGo()
+			}
+		}
+	}
+
+	require.NotNil(t, agents.held, "the first hold landed")
+
+	assert.Equal(t, modeReviewing, m.review.pass.mode, "a hold refused as a repeat changes nothing")
+	assert.True(t, m.review.pass.paused, "the pass stands on the agent the first hold stopped")
+	assert.True(t, m.review.pass.ourPause, "and ending it is what lets the agent go")
+	assert.True(t, m.review.threads.composing, "with the composer still up")
+	assert.Nil(t, agents.letGo)
+
+	runReviewCmd(t, m.review.endPass(&m, m.shared(), abandonedSaid))
+
+	require.NotNil(t, agents.letGo, "ending the pass lets the agent go")
+	assert.Equal(t, m.review.agentID, agents.letGo.GetId())
+}
+
+// TestAnEditPassOpenedWhileAnEarlierHoldIsInFlightOpensTheEditorWhenItLands covers the pass, not
+// the ask, deciding what opens once the agent has stopped.
+func TestAnEditPassOpenedWhileAnEarlierHoldIsInFlightOpensTheEditorWhenItLands(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	setReviewAgentState(&m, panel.StateThinking)
+	m.review.diff.cursor = reviewRowWithAnAnchor(t, m)
+
+	next, first := m.routeScreenMessage(keyMsg("c"))
+	m, ok := next.(model)
+	require.True(t, ok)
+	require.True(t, m.review.pass.pausing)
+
+	for range 2 {
+		next, _ = m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyEsc})
+		m, ok = next.(model)
+		require.True(t, ok)
+	}
+
+	require.Equal(t, modeWatching, m.review.pass.mode)
+
+	next, second := m.routeScreenMessage(editorKey())
+	m, ok = next.(model)
+	require.True(t, ok)
+	require.Equal(t, modeReviewing, m.review.pass.mode)
+	require.True(t, m.review.pass.pausing)
+
+	m = settlePauseBatch(t, m, first)
+
+	assert.True(t, m.review.pass.atEditor, "the earlier hold landing opens what this pass is for")
+	assert.True(t, m.review.pass.ourPause)
+
+	m = settlePause(t, m, second)
+
+	assert.Equal(t, modeReviewing, m.review.pass.mode, "a hold refused as a repeat changes nothing")
+	assert.True(t, m.review.pass.atEditor)
+	assert.Nil(t, agents.letGo)
+}

@@ -23,6 +23,7 @@ type reviewPass struct {
 	pausing bool
 	// ourPause says this pass is what stopped the agent, so ending the pass is what lets it go.
 	ourPause bool
+	intent   passIntent
 	// touched are the files the reader opened an editor on during the pass, oldest first, which
 	// is what the agent is told about when it is let go.
 	touched []string
@@ -44,6 +45,7 @@ func (p *reviewPass) end() (bool, []string) {
 	p.paused = false
 	p.pausing = false
 	p.ourPause = false
+	p.intent = intentComment
 	p.touched = nil
 
 	return ours, touched
@@ -79,7 +81,6 @@ const (
 // reviewPausedMsg is the agent having stopped, or having refused to.
 type reviewPausedMsg struct {
 	agentID string
-	intent  passIntent
 	err     error
 }
 
@@ -104,8 +105,9 @@ func (r *reviewScreen) startPass(h host, s panelShared, intent passIntent) tea.C
 
 	r.pass.mode = modeReviewing
 	r.pass.pausing = true
+	r.pass.intent = intent
 
-	stopping := r.holdAgentCmd(h, intent)
+	stopping := r.holdAgentCmd(h)
 
 	if intent == intentEdit {
 		return stopping
@@ -115,7 +117,7 @@ func (r *reviewScreen) startPass(h host, s panelShared, intent passIntent) tea.C
 }
 
 // holdAgentCmd asks for the agent to stop and reports what came back.
-func (r reviewScreen) holdAgentCmd(h host, intent passIntent) tea.Cmd {
+func (r reviewScreen) holdAgentCmd(h host) tea.Cmd {
 	agents, agentID := h.client().agents, r.agentID
 
 	return func() tea.Msg {
@@ -126,7 +128,6 @@ func (r reviewScreen) holdAgentCmd(h host, intent passIntent) tea.Cmd {
 
 		return reviewPausedMsg{
 			agentID: agentID,
-			intent:  intent,
 			err:     err,
 		}
 	}
@@ -141,6 +142,10 @@ func (r *reviewScreen) applyPaused(h host, s panelShared, msg reviewPausedMsg) t
 	r.pass.pausing = false
 
 	if msg.err != nil {
+		if r.pass.paused {
+			return nil
+		}
+
 		// A comment written against a snapshot the agent is free to write past is the collision
 		// the pass exists to prevent, so the composer goes with the pass rather than standing on
 		// without one.
@@ -155,11 +160,11 @@ func (r *reviewScreen) applyPaused(h host, s panelShared, msg reviewPausedMsg) t
 	r.pass.ourPause = true
 
 	// The composer was opened when the key was pressed, so there is nothing left to open here.
-	if msg.intent == intentComment {
+	if r.pass.intent == intentComment {
 		return nil
 	}
 
-	return r.openPass(h, s, msg.intent)
+	return r.openPass(h, s, r.pass.intent)
 }
 
 func (m model) isPassing(agentID string) bool {
