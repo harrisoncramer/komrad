@@ -168,7 +168,6 @@ func (m *model) applyRefresh(result refreshResult) tea.Cmd {
 		m.applySchedules(result.schedules)
 	}
 
-	// Done here as well as on a resize.
 	m.sizeAgentWindows()
 
 	if result.archivedListed && result.archivedErr == nil && result.archivedWorkflowsErr == nil {
