@@ -303,9 +303,6 @@ func TestBuiltinWorktreeSetupOnProvisionUsesTheConfiguredDirectory(t *testing.T)
 	assert.NotContains(t, string(second.Stderr), "already exists", "the tree the cwd names is not taken for a create")
 }
 
-// Explainer: the agent is named after the repository's own directory, so the name the tree
-// carries is not what refuses it.
-
 // TestBuiltinWorktreeSetupOnResumeRefusesACwdThatIsTheRepo covers a create that failed before
 // setup replaced the directory, which leaves the agent's cwd naming the workflow's own
 // checkout: resuming into that would run the agent inside the repository.

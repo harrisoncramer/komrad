@@ -392,10 +392,6 @@ func TestThePersonCanTakeTheirOwnSettlingBack(t *testing.T) {
 	assert.Empty(t, again.ResolvedByKind)
 }
 
-// Explainer: whether a review is finished is counted from its unsettled threads, so anyone who
-// could reopen a thread by writing in it could hold the person's next review and every hand-edit
-// open for as long as they kept writing. Reopening is the settler taking their own word back.
-
 // TestWritingInSomebodyElsesThreadLeavesItSettled covers the agent under review writing into a
 // finding the person has settled, which is the shape that would otherwise be a lock it holds.
 func TestWritingInSomebodyElsesThreadLeavesItSettled(t *testing.T) {
@@ -957,10 +953,6 @@ func TestTalliesLeaveOutAnAgentOnlyCommentedOn(t *testing.T) {
 	require.Len(t, tallies, 1)
 	assert.Equal(t, Tally{AgentID: agentID, Rounds: 1}, tallies[0])
 }
-
-// Explainer: the verdict says what its author concluded at the time and never moves again, so a
-// review that has been answered and settled reads the same as one nobody has touched. What is
-// counted here is what changes as the work is done with.
 
 // TestAReviewCountsWhatIsStillOwedAnAnswer pins the count a released review carries.
 func TestAReviewCountsWhatIsStillOwedAnAnswer(t *testing.T) {
