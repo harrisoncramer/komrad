@@ -61,7 +61,7 @@ func TestRebuiltPanelPutsUpTheStartupScreen(t *testing.T) {
 
 	m, cmd := tick(t, m)
 	require.NotNil(t, cmd, "an unchanged binary leaves the refresh loop running")
-	assert.NoError(t, m.fatal())
+	require.NoError(t, m.fatal())
 	assert.Equal(t, 1, binary.asked, "the file is looked at once per refresh")
 
 	binary.replaced = true
