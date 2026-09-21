@@ -49,35 +49,33 @@ type reviewChapter struct {
 	OnOlderBase bool
 }
 
-// stepReviewBase walks back a round, from the whole change to the newest round and on into the
-// older ones, and stops on the oldest.
-func (m model) stepReviewBase() (tea.Model, tea.Cmd) {
-	if m.review.diff.chapter < 0 {
-		return m.showReviewChapter(len(m.review.diff.chapters) - 1)
+// stepBase walks back a round, from the whole change to the newest round and on into the older
+// ones, and stops on the oldest.
+func (r *reviewScreen) stepBase(h host) tea.Cmd {
+	if r.diff.chapter < 0 {
+		return r.showChapter(h, len(r.diff.chapters)-1)
 	}
 
-	return m.showReviewChapter(m.review.diff.chapter - 1)
+	return r.showChapter(h, r.diff.chapter-1)
 }
 
-// stepReviewBaseForward walks the other way, and stops on the whole change.
-func (m model) stepReviewBaseForward() (tea.Model, tea.Cmd) {
-	if m.review.diff.chapter < 0 {
-		return m, nil
+// stepBaseForward walks the other way, and stops on the whole change.
+func (r *reviewScreen) stepBaseForward(h host) tea.Cmd {
+	if r.diff.chapter < 0 {
+		return nil
 	}
 
-	return m.showReviewChapter(m.review.diff.chapter + 1)
+	return r.showChapter(h, r.diff.chapter+1)
 }
 
-// showReviewChapter puts one round of the review on screen, or the whole change past the newest
+// showChapter puts one round of the review on screen, or the whole change past the newest
 // round, and reads the diff again once the walk has moved.
-func (m model) showReviewChapter(at int) (tea.Model, tea.Cmd) {
-	if !m.review.diff.showChapter(at) {
-		return m, nil
+func (r *reviewScreen) showChapter(h host, at int) tea.Cmd {
+	if !r.diff.showChapter(at) {
+		return nil
 	}
 
-	next, cmd := m.reloadReview()
-
-	return next, cmd
+	return r.reload(h)
 }
 
 // showChapter narrows the diff to one round, or widens it to the whole change past the newest
@@ -181,13 +179,13 @@ func (d *reviewDiff) widen() {
 	d.chapter = -1
 }
 
-// doesReviewFitBaseLegend reports whether the base key is worth a legend row.
-func (m model) doesReviewFitBaseLegend() bool {
-	if m.helpExpanded && m.height > 0 && m.height < reviewLegendFloor {
+// doesFitBaseLegend reports whether the base key is worth a legend row.
+func (r reviewScreen) doesFitBaseLegend(s panelShared) bool {
+	if s.chrome.helpExpanded && s.height > 0 && s.height < reviewLegendFloor {
 		return false
 	}
 
-	return m.review.doesWalk()
+	return r.doesWalk()
 }
 
 // cutChaptersParams is everything the chapters are cut from, kept apart from the calls that read

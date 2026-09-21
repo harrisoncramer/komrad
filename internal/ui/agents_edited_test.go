@@ -35,7 +35,7 @@ func TestARefusedUnpauseKeepsTheEditedFiles(t *testing.T) {
 	agents := &refusingHolds{refusals: 1}
 
 	m := heldModel(agents, &at)
-	m.rememberEdited("a1", []string{"internal/agents/hold.go"})
+	m.noteEdited("a1", []string{"internal/agents/hold.go"})
 
 	refused, cmd := m.Update(keyMsg("p"))
 	first := asModel(t, refused)
@@ -58,7 +58,7 @@ func TestASilentUnpauseForgetsTheEditedFiles(t *testing.T) {
 	agents := &recordingHolds{}
 
 	m := heldModel(agents, &at)
-	m.rememberEdited("a1", []string{"internal/agents/hold.go"})
+	m.noteEdited("a1", []string{"internal/agents/hold.go"})
 
 	pressed, _ := m.Update(keyMsg("P"))
 	opened := asModel(t, pressed)
@@ -81,7 +81,7 @@ func TestALandedUnpauseForgetsTheEditedFiles(t *testing.T) {
 	agents := &recordingHolds{}
 
 	m := heldModel(agents, &at)
-	m.rememberEdited("a1", []string{"internal/agents/hold.go"})
+	m.noteEdited("a1", []string{"internal/agents/hold.go"})
 
 	pressed, cmd := m.Update(keyMsg("p"))
 	got := settle(t, asModel(t, pressed), cmd)
@@ -98,11 +98,11 @@ func TestALandedUnpauseKeepsAFileOpenedWhileItFlew(t *testing.T) {
 	agents := &recordingHolds{}
 
 	m := heldModel(agents, &at)
-	m.rememberEdited("a1", []string{"internal/agents/hold.go"})
+	m.noteEdited("a1", []string{"internal/agents/hold.go"})
 
 	pressed, cmd := m.Update(keyMsg("p"))
 	sent := asModel(t, pressed)
-	sent.rememberEdited("a1", []string{"internal/ui/refresh.go"})
+	sent.noteEdited("a1", []string{"internal/ui/refresh.go"})
 
 	got := settle(t, sent, cmd)
 
@@ -124,8 +124,8 @@ func TestARefusedEndOfAReviewPassKeepsTheEditedFiles(t *testing.T) {
 	m.review.pass.ourPause = true
 	m.review.pass.touched = []string{"internal/agents/hold.go"}
 
-	ended, cmd := m.endReviewPass("read your worktree.")
-	got := settle(t, asModel(t, ended), cmd)
+	cmd := m.review.endPass(&m, m.shared(), "read your worktree.")
+	got := settle(t, m, cmd)
 
 	require.Empty(t, agents.released, "the refusal sent nothing")
 	assert.Contains(t, got.edited["a1"], "internal/agents/hold.go",

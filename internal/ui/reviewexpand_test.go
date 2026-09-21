@@ -107,9 +107,7 @@ func TestExpandRefusesAFileItCannotDrawMoreOf(t *testing.T) {
 func TestExpandRefusesAFoldedFile(t *testing.T) {
 	m, _ := tallReview(t)
 
-	folded, _ := m.toggleReviewViewed()
-	m, ok := folded.(model)
-	require.True(t, ok)
+	m.review.toggleViewed(&m, m.shared())
 	require.True(t, m.review.diff.view.IsViewed(fakeTallFile))
 
 	refused := pressExpand(t, m)
@@ -165,15 +163,15 @@ func reloadReview(t *testing.T, m model) model {
 func reloadReviewReading(t *testing.T, m model) (model, reviewLoadedMsg) {
 	t.Helper()
 
-	next, cmd := m.reloadReview()
+	cmd := m.review.reload(&m)
 	require.NotNil(t, cmd)
 
 	loaded, ok := cmd().(reviewLoadedMsg)
 	require.True(t, ok)
 
-	next.applyReviewLoaded(loaded)
+	m.review.applyLoaded(&m, m.shared(), loaded)
 
-	return next, loaded
+	return m, loaded
 }
 
 // TestACommentCanBeWrittenOnAnExpandedLine covers the reason expanding is worth having at all: a
@@ -184,7 +182,7 @@ func TestACommentCanBeWrittenOnAnExpandedLine(t *testing.T) {
 
 	m = pressExpand(t, m)
 	m.review.diff.cursor = rowOfNewLine(t, m, 13)
-	require.Contains(t, ansi.Strip(m.reviewView()), "func Four()")
+	require.Contains(t, ansi.Strip(m.review.view(m.shared())), "func Four()")
 
 	next, _ := m.updateReview(keyMsg("c"))
 	m, ok := next.(model)
@@ -299,21 +297,21 @@ func TestExpansionSurvivesTheDiffBeingPutDown(t *testing.T) {
 	// An index past the end of the recut list is what puts the diff down.
 	expanded.review.diff.chapter = len(expanded.review.diff.chapters)
 
-	next, reload := expanded.reloadReview()
+	reload := expanded.review.reload(&expanded)
 	require.NotNil(t, reload)
 
 	loaded, ok := reload().(reviewLoadedMsg)
 	require.True(t, ok)
 
-	again := next.applyReviewLoaded(loaded)
-	require.Nil(t, next.review.diff.view, "nothing is drawn until the whole change lands")
+	again := expanded.review.applyLoaded(&expanded, expanded.shared(), loaded)
+	require.Nil(t, expanded.review.diff.view, "nothing is drawn until the whole change lands")
 	require.NotNil(t, again)
 
 	answer, ok := again().(reviewLoadedMsg)
 	require.True(t, ok)
-	next.applyReviewLoaded(answer)
+	expanded.review.applyLoaded(&expanded, expanded.shared(), answer)
 
-	require.NotNil(t, next.review.diff.view)
-	assert.True(t, next.review.diff.view.IsExpanded(fakeTallFile), "the file is still drawn whole")
-	assert.Contains(t, ansi.Strip(reviewFrameText(t, next)), "func Four()")
+	require.NotNil(t, expanded.review.diff.view)
+	assert.True(t, expanded.review.diff.view.IsExpanded(fakeTallFile), "the file is still drawn whole")
+	assert.Contains(t, ansi.Strip(reviewFrameText(t, expanded)), "func Four()")
 }

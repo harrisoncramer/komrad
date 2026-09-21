@@ -227,7 +227,7 @@ func TestTheDiffColumnSaysWhatItIsWaitingFor(t *testing.T) {
 	tmux := &recordingTmux{}
 	m := sizedTo(infoModel(tmux), tmux)
 	m.enterScreen(screenReview)
-	m.review = reviewState{
+	m.review = reviewScreen{
 		agentID:   "a1",
 		agentName: "auth",
 		loading:   true,
@@ -237,14 +237,14 @@ func TestTheDiffColumnSaysWhatItIsWaitingFor(t *testing.T) {
 	require.True(t, ok, "the screen holds the window from the moment it is entered")
 	require.Greater(t, split.column, split.sidebar, "and the diff has the larger half of it")
 
-	column := ansi.Strip(m.reviewDiffView(split))
+	column := ansi.Strip(m.review.diffView(m.shared(), split))
 	assert.Contains(t, column, reviewLoadingWord, "which says what it is waiting for")
 	// lipgloss rather than paint.CountLines, which takes one trailing newline off and so under-reports a
 	// block whose last row is blank padding, as this one's is.
 	assert.Equal(t, split.rows, lipgloss.Height(column), "and stands its full height while it waits")
 
 	m.review.loading = false
-	assert.Contains(t, ansi.Strip(m.reviewDiffView(split)), reviewEmptyWord,
+	assert.Contains(t, ansi.Strip(m.review.diffView(m.shared(), split)), reviewEmptyWord,
 		"a worktree that turned out to hold nothing says that instead")
 }
 
@@ -352,7 +352,7 @@ func TestAConfiguredWidthIsWidenedAndCapped(t *testing.T) {
 			m.frame = layout.New(tmux, config.Layout{SidebarWidth: tt.columns})
 			m.frame.Attach("%0")
 			m.enterScreen(screenReview)
-			m.review = reviewState{
+			m.review = reviewScreen{
 				agentID:   "a1",
 				agentName: "auth",
 				loading:   true,
@@ -372,7 +372,7 @@ func TestADraggedDividerIsDrawnWhereItIs(t *testing.T) {
 	tmux := &recordingTmux{}
 	m := sizedTo(infoModel(tmux), tmux)
 	m.enterScreen(screenReview)
-	m.review = reviewState{
+	m.review = reviewScreen{
 		agentID:   "a1",
 		agentName: "auth",
 		loading:   true,

@@ -533,7 +533,7 @@ func TestChromeKeepsEveryRowInsideThePane(t *testing.T) {
 
 		assert.Equal(t, m.height, strings.Count(view, "\n")+1, "frame rows at width %d", width)
 
-		note := m.reviewNote(dimStyle, "editing this round replaces the edit of an earlier one in "+path+", so press again to go on")
+		note := reviewNote(m.shared(), dimStyle, "editing this round replaces the edit of an earlier one in "+path+", so press again to go on")
 		for i, row := range strings.Split(strings.TrimRight(note, "\n"), "\n") {
 			assert.LessOrEqual(t, ansi.StringWidth(row), m.paneWidth(), "review note row %d at width %d: %q", i, width, ansi.Strip(row))
 		}
@@ -555,7 +555,7 @@ func TestReviewNoteWrapsBeforeTheFirstResize(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	m.height, m.width = 0, 0
 
-	note := strings.TrimRight(m.reviewNote(dimStyle, "editing this round replaces the edit of an earlier one, so press again to go on"), "\n")
+	note := strings.TrimRight(reviewNote(m.shared(), dimStyle, "editing this round replaces the edit of an earlier one, so press again to go on"), "\n")
 
 	assert.Less(t, strings.Count(note, "\n")+1, 10, "rows before the first resize: %q", ansi.Strip(note))
 }

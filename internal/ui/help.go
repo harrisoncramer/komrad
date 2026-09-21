@@ -30,9 +30,6 @@ func byLabel(bindings []key.Binding) []key.Binding {
 }
 
 func (m model) renderHelp(k keyMap, above ...string) string {
-	if m.isReviewThreadHolding() {
-		k = m.reviewThreadHelp()
-	}
 	if m.isDetailsFocused() {
 		k = m.detailsHelp()
 	}
@@ -260,54 +257,6 @@ func (m model) columnScrollBinding(what string) key.Binding {
 			"scroll "+what,
 		),
 	)
-}
-
-// reviewHelp keeps the strip to what the screen is for.
-func (m model) reviewHelp() keyMap {
-	own := reviewActions().help(m)
-
-	return keyMap{
-		short: slices.Concat(own.short, m.globalHelp()),
-		full: slices.Concat(
-			own.full,
-			[]key.Binding{m.detailsBinding()},
-			m.globalHelp(),
-		),
-	}
-}
-
-// isReviewThreadHolding reports whether the reader has taken the keys onto the conversation.
-func (m model) isReviewThreadHolding() bool {
-	if m.screen != screenReview || m.review.isWriting() {
-		return false
-	}
-
-	return m.review.isThreadTaken()
-}
-
-// reviewThreadHelp is the legend while the conversation holds the keys.
-func (m model) reviewThreadHelp() keyMap {
-	scroll := binding(concatKeys(m.keys.Nav.Up, m.keys.Nav.Down), "scroll the thread")
-	ends := binding(concatKeys(m.keys.Nav.Top, m.keys.Nav.Bottom), "top/bottom")
-	back := binding(m.keys.Review.FocusThread, "back to the diff")
-	reply := binding(m.keys.Review.Compose, "reply")
-	settle := binding(m.keys.Review.Resolve, m.review.diff.resolveDesc())
-	send := binding(formKeys().Submit, "send the review")
-
-	return keyMap{
-		short: slices.Concat([]key.Binding{scroll, back, reply, settle}, m.globalHelp()),
-		full:  slices.Concat([]key.Binding{scroll, ends, back, reply, settle, send}, m.globalHelp()),
-	}
-}
-
-// reviewThreadDesc names the key that moves between the diff and the conversation beside it,
-// read from the flag and not from whether the thread holds the keys.
-func (m model) reviewThreadDesc() string {
-	if m.review.isThreadTaken() {
-		return "back to the diff"
-	}
-
-	return "read the thread"
 }
 
 func keyLabel(keys []string) string {

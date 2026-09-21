@@ -67,7 +67,7 @@ func pressReviewBaseForward(t *testing.T, m model) model {
 
 	loaded, ok := cmd().(reviewLoadedMsg)
 	require.True(t, ok)
-	m.applyReviewLoaded(loaded)
+	m.review.applyLoaded(&m, m.shared(), loaded)
 
 	return m
 }

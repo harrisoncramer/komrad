@@ -24,15 +24,14 @@ screenModel, which says what takes its keys and what draws it, plus whichever of
 draws: detailed for a record under its list, filtered for a search over it, tabbed for a strip
 over it, columned for a block beside it, and staged for a row it puts on the stage. m.active()
 is the switch from the screen enum to that type, and it carries no default, so the exhaustive
-check refuses a screen with no arm. A screen whose state has moved, which so far is the
-worktrees, the schedules, the archive and the search, holds it in a type of its own with methods that take
-host, the short interface of what a screen may ask the root to do, and panelShared, the
-read-only value of what the root holds; the adapter behind the door is then two lines per
-method, and the screen's own messages reach it through update, which every message the root
-does not claim is handed to. The other screens' adapters are empty and their methods call the
-root's, which is the seam each screen's state moves behind one at a time. screenlist.go is the
-list machinery and the drawing bridge a moved screen uses, beside list.go's until the last
-list screen has moved.
+check refuses a screen with no arm. A screen whose state has moved, which so far is every
+screen but the agents, holds it in a type of its own with methods that take host, the short
+interface of what a screen may ask the root to do, and panelShared, the read-only value of
+what the root holds; the adapter behind the door is then two lines per method, and the
+screen's own messages reach it through update, which every message the root does not claim is
+handed to. The agents screen's adapter is empty and its methods call the root's, which is the
+seam each screen's state moves behind one at a time. screenlist.go is the list machinery and
+the drawing bridge a moved screen uses, beside list.go's until the last list screen has moved.
 
 Everything else in the package is one of those three for one screen.
 
@@ -46,7 +45,7 @@ the panel rather than to any one screen, because the schedule form and the archi
 the workflows the agents list happens to have fetched.
 
 Per-screen state is the rest of what a screen draws: its cursor, and whatever it has loaded
-that nothing else reads. treeState, schedulesScreen, archiveScreen, searchScreen, reviewState,
+that nothing else reads. treeState, schedulesScreen, archiveScreen, searchScreen, reviewScreen,
 worktreesScreen.
 
 Shared concerns are the things that sit across screens on purpose. The column is the block
@@ -136,7 +135,9 @@ rows it draws come from internal/ui/diffview. Each screen's forms sit beside it 
 their own: agentforms.go, workflowforms.go, scheduleforms.go, worktreeforms.go and
 archiveforms.go, with forms.go holding only the machinery they share. Each screen's keys are
 an actionSpec in a file of their own, agentsactions.go and the rest, except search, whose keys
-sit in search.go; the four lists draw through one listSpec in list.go.
+sit in search.go; the four lists draw through one listSpec in list.go. The review composes its
+own frame and reaches the root's drawing through the drawer bridge, and the editor it opens on
+the stage goes through host.
 
 Shared concerns: api.go, actions.go, column.go, details.go, document.go, filter.go, forms.go,
 help.go, info.go, logs.go, refresh.go, keys.go, clipboard.go, report.go, convert.go.

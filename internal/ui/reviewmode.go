@@ -27,13 +27,13 @@ const (
 	modeReviewing
 )
 
-// reviewModeView says which of the two the screen is in, and what to press next.
-func (m model) reviewModeView() string {
-	if m.review.pass.mode == modeReviewing {
-		return m.reviewBandRow(reviewWritingTone, m.review.pass.label(), m.reviewWritingSaid())
+// modeView says which of the two the screen is in, and what to press next.
+func (r reviewScreen) modeView(s panelShared) string {
+	if r.pass.mode == modeReviewing {
+		return bandRow(s, reviewWritingTone, r.pass.label(), r.writingSaid(s))
 	}
 
-	return m.reviewWatchingView()
+	return r.watchingView(s)
 }
 
 // label is what the band calls the pass, which says the editor is up while it is.
@@ -45,50 +45,49 @@ func (p reviewPass) label() string {
 	return "reviewing"
 }
 
-// reviewWatchingView names whatever stands in the way of a review, and says nothing when nothing
-// does.
-func (m model) reviewWatchingView() string {
-	if _, dead := m.isReviewReadOnly(); dead {
-		return m.reviewBandRow(reviewHeldTone, "watching", "this agent is gone, nothing can be sent")
+// watchingView names whatever stands in the way of a review, and says nothing when nothing does.
+func (r reviewScreen) watchingView(s panelShared) string {
+	if _, dead := r.isReadOnly(s); dead {
+		return bandRow(s, reviewHeldTone, "watching", "this agent is gone, nothing can be sent")
 	}
 
-	if m.review.threads.holdsUnsent() {
-		return m.reviewBandRow(reviewHeldTone, "watching",
-			label.Counted(m.review.threads.unsentCount(), "comment")+" not sent · "+
-				keyLabel(m.keys.Review.Compose)+" to carry on")
+	if r.threads.holdsUnsent() {
+		return bandRow(s, reviewHeldTone, "watching",
+			label.Counted(r.threads.unsentCount(), "comment")+" not sent · "+
+				keyLabel(s.keys.Review.Compose)+" to carry on")
 	}
 
-	if m.review.threads.isOwedAnAnswer() {
-		return m.reviewBandRow(reviewHeldTone, "watching",
-			reviewOwedSaid(m.review.owedComments())+" · "+keyLabel(m.keys.Review.NextOpenThread)+
-				" walks them, "+keyLabel(m.keys.Review.Resolve)+" settles one, "+
-				keyLabel(m.keys.Review.Compose)+" replies")
+	if r.threads.isOwedAnAnswer() {
+		return bandRow(s, reviewHeldTone, "watching",
+			reviewOwedSaid(r.owedComments())+" · "+keyLabel(s.keys.Review.NextOpenThread)+
+				" walks them, "+keyLabel(s.keys.Review.Resolve)+" settles one, "+
+				keyLabel(s.keys.Review.Compose)+" replies")
 	}
 
 	return ""
 }
 
-// reviewWritingSaid is what the pass offers: what is happening to the agent, the file under your
+// writingSaid is what the pass offers: what is happening to the agent, the file under your
 // editor while one is open, and the way out or the way to send.
-func (m model) reviewWritingSaid() string {
-	if m.review.pass.atEditor {
-		return m.review.pass.editingPath + " · " + keyLabel(m.keys.Review.EditFile) + " to come back"
+func (r reviewScreen) writingSaid(s panelShared) string {
+	if r.pass.atEditor {
+		return r.pass.editingPath + " · " + keyLabel(s.keys.Review.EditFile) + " to come back"
 	}
 
-	if m.review.pass.pausing {
+	if r.pass.pausing {
 		return "stopping the agent · the pass starts once it has"
 	}
 
-	if !m.review.threads.holdsUnsent() {
-		return m.review.pass.pausedSaid() + keyLabel(m.keys.Review.Back) + " to let it go"
+	if !r.threads.holdsUnsent() {
+		return r.pass.pausedSaid() + keyLabel(s.keys.Review.Back) + " to let it go"
 	}
 
-	if m.review.diff.pinned {
-		return m.review.pass.pausedSaid() + "the code as it was when you started · " +
+	if r.diff.pinned {
+		return r.pass.pausedSaid() + "the code as it was when you started · " +
 			keyLabel(formKeys().Submit) + " sends it"
 	}
 
-	return m.review.pass.pausedSaid() + keyLabel(formKeys().Submit) + " sends it to the agent"
+	return r.pass.pausedSaid() + keyLabel(formKeys().Submit) + " sends it to the agent"
 }
 
 // pausedSaid opens what the band says with the state of the agent.
@@ -105,10 +104,10 @@ func (t reviewThreads) unsentCount() int {
 	return t.activity.delivery[deliverySlot(agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT)]
 }
 
-// isReviewReadOnly reports whether there is nobody there to receive a comment.
-func (m model) isReviewReadOnly() (string, bool) {
-	for _, item := range m.listing.agents {
-		if item.agent.ID != m.review.agentID {
+// isReadOnly reports whether there is nobody there to receive a comment.
+func (r reviewScreen) isReadOnly(s panelShared) (string, bool) {
+	for _, item := range s.listing.agents {
+		if item.agent.ID != r.agentID {
 			continue
 		}
 
@@ -128,7 +127,7 @@ func (t reviewThreads) holdsUnsent() bool {
 }
 
 // isHistory reports whether the round on screen ends before the agent's current work.
-func (r reviewState) isHistory() (string, bool) {
+func (r reviewScreen) isHistory() (string, bool) {
 	drawn := r.diff.head
 	if r.diff.view != nil {
 		drawn = r.diff.view.GetSnapshotSHA()
@@ -148,6 +147,6 @@ func (r reviewState) isHistory() (string, bool) {
 
 // doesWalk says whether the round keys have anywhere to go, which watching has and a pass that
 // holds the tree does not.
-func (r reviewState) doesWalk() bool {
+func (r reviewScreen) doesWalk() bool {
 	return r.pass.mode == modeWatching && len(r.diff.chapters) > 0
 }

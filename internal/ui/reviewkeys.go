@@ -16,92 +16,76 @@ const reviewPanStep = 8
 // scrolls under it.
 const reviewScrollMargin = 4
 
-func (m model) updateReview(key tea.KeyMsg) (tea.Model, tea.Cmd) {
-	if m.review.threads.composing {
-		return m.updateReviewComposer(key)
+func (r *reviewScreen) updateKey(h host, s panelShared, key tea.KeyMsg) tea.Cmd {
+	if r.threads.composing {
+		return r.updateComposer(h, s, key)
 	}
 
-	if m.review.threads.releasing {
-		return m.updateReviewRelease(key)
+	if r.threads.releasing {
+		return r.updateRelease(h, s, key)
 	}
 
-	if m.review.diff.filter.typing {
-		return m.updateReviewFilter(key)
+	if r.diff.filter.typing {
+		return r.updateFilter(h, s, key)
 	}
 
 	k := key.String()
 
 	// The diff opens for an agent that is not there, and only the back key answers until it has
 	// something to draw.
-	if m.review.diff.view == nil {
-		if isBound(k, m.keys.Review.Back) {
-			return m.leaveReview()
+	if r.diff.view == nil {
+		if isBound(k, s.keys.Review.Back) {
+			return r.leave(h, s)
 		}
 
-		return m, nil
+		return nil
 	}
 
-	m.review.notice = ""
+	r.notice = ""
 
 	// The conversation takes the keys ahead of the diff.
-	if next, handled := m.updateReviewThread(k); handled {
-		return next, nil
+	if r.updateThread(s, k) {
+		return nil
 	}
 
-	return reviewActions().dispatch(m, k)
+	return r.actions().dispatch(h, s, k)
 }
 
-// updateReviewThread is the conversation answering the keys while it holds them, reporting
-// whether it took the press so the diff underneath gets whatever it left alone.
-func (m model) updateReviewThread(k string) (model, bool) {
-	if !m.isReviewThreadFocused() {
-		return m, false
+// updateThread is the conversation answering the keys while it holds them, reporting whether it
+// took the press so the diff underneath gets whatever it left alone.
+func (r *reviewScreen) updateThread(s panelShared, k string) bool {
+	if !r.isThreadFocused(s) {
+		return false
 	}
 
 	switch {
-	case isBound(k, m.keys.Review.FocusThread), k == "esc":
-		m.review.threads.blur()
+	case isBound(k, s.keys.Review.FocusThread), k == "esc":
+		r.threads.blur()
 
-		return m, true
-	case isBound(k, m.keys.Nav.Up):
-		return m.scrollReviewThread(1), true
-	case isBound(k, m.keys.Nav.Down):
-		return m.scrollReviewThread(-1), true
-	case isBound(k, m.keys.Nav.Top):
-		return m.scrollReviewThread(m.reviewThreadMax()), true
-	case isBound(k, m.keys.Nav.Bottom):
-		return m.scrollReviewThread(-m.review.threads.scroll), true
-	}
+		return true
+	case isBound(k, s.keys.Nav.Up):
+		r.scrollThread(s, 1)
 
-	return m, false
-}
+		return true
+	case isBound(k, s.keys.Nav.Down):
+		r.scrollThread(s, -1)
 
-// isReviewThreadFocused is whether the sidebar holds the keys, which it does mid-input and
-// while the conversation has been taken.
-func (m model) isReviewThreadFocused() bool {
-	if m.screen != screenReview {
-		return false
-	}
+		return true
+	case isBound(k, s.keys.Nav.Top):
+		r.scrollThread(s, r.threadMax(s))
 
-	if m.review.isWriting() {
+		return true
+	case isBound(k, s.keys.Nav.Bottom):
+		r.scrollThread(s, -r.threads.scroll)
+
 		return true
 	}
 
-	if m.isDetailsFocused() {
-		return false
-	}
-
-	return m.review.isThreadTaken()
-}
-
-// isReviewDiffFocused is whether the patch holds the keys, which it does whenever the record and
-// the conversation beside it do not.
-func (m model) isReviewDiffFocused() bool {
-	return m.isColumnFocused()
+	return false
 }
 
 // focusThread moves the keys onto the conversation, refused while there is none to read.
-func (r *reviewState) focusThread() {
+func (r *reviewScreen) focusThread() {
 	if _, ok := r.diff.threadAtCursor(); !ok {
 		r.notice = "no thread here to read"
 
@@ -117,98 +101,88 @@ func (t *reviewThreads) blur() {
 	t.scroll = 0
 }
 
-// scrollReviewThread moves the sidebar's window up the conversation, counted from its end so the
+// scrollThread moves the sidebar's window up the conversation, counted from its end so the
 // newest message stays where it is as the thread grows.
-func (m model) scrollReviewThread(delta int) model {
-	m.review.threads.scroll = max(min(m.review.threads.scroll+delta, m.reviewThreadMax()), 0)
-
-	return m
+func (r *reviewScreen) scrollThread(s panelShared, delta int) {
+	r.threads.scroll = max(min(r.threads.scroll+delta, r.threadMax(s)), 0)
 }
 
-// reviewThreadMax is how far up the conversation the sidebar can be scrolled.
-func (m model) reviewThreadMax() int {
-	help, record := m.renderHelp(m.reviewHelp()), m.detailsView()
-	lines := m.listLines(help, record, m.reviewHeadView(reviewOwedRoom(m.listLines(help, record))))
+// threadMax is how far up the conversation the sidebar can be scrolled.
+func (r reviewScreen) threadMax(s panelShared) int {
+	help, record := s.draw.renderHelp(r.help(s)), s.draw.detailsView()
+	lines := s.draw.listLines(help, record, r.headView(s, reviewOwedRoom(s.draw.listLines(help, record))))
 
-	return max(paint.CountLines(m.reviewRestView())-max(lines-1, 1), 0)
+	return max(paint.CountLines(r.restView(s))-max(lines-1, 1), 0)
 }
 
-// refuseReviewWrite says why a key that would write to the agent did nothing.
-func (m model) refuseReviewWrite() (tea.Model, tea.Cmd) {
-	reason, _ := m.isReviewReadOnly()
-	m.review.notice = reason
-
-	return m, nil
+// refuseWrite says why a key that would write to the agent did nothing.
+func (r *reviewScreen) refuseWrite(s panelShared) {
+	reason, _ := r.isReadOnly(s)
+	r.notice = reason
 }
 
-// refuseReviewHistory says why a write did not happen on a round the agent has moved past, and
-// names the key back to the work a comment could still ask it to change.
-func (m model) refuseReviewHistory(said string) (tea.Model, tea.Cmd) {
+// refuseHistory says why a write did not happen on a round the agent has moved past, and names
+// the key back to the work a comment could still ask it to change.
+func (r *reviewScreen) refuseHistory(h host, s panelShared, said string) {
 	summary := said + " is finished"
 	detail := "This draws code the agent has already rewritten, so the line under the cursor is " +
 		"not in the work it has now and a comment on it could not be acted on. Press " +
-		keyLabel(m.keys.Review.BaseForward) + " until the whole change is on screen, then comment there."
+		keyLabel(s.keys.Review.BaseForward) + " until the whole change is on screen, then comment there."
 
-	m.reportBrief(summary, detail, nil)
-	m.review.notice = summary + ", so nothing can be written on it"
-
-	return m, nil
+	h.reportBrief(summary, detail, nil)
+	r.notice = summary + ", so nothing can be written on it"
 }
 
-// refuseReviewViewed says why the fold key did nothing on a chapter, and names the key back to
-// the change a mark is about.
-func (m model) refuseReviewViewed() (tea.Model, tea.Cmd) {
+// refuseViewed says why the fold key did nothing on a chapter, and names the key back to the
+// change a mark is about.
+func (r *reviewScreen) refuseViewed(h host, s panelShared) {
 	summary := "a file is read in the whole change, not in one round"
 	detail := "This draws one round of the change, so the file under the cursor is a different " +
 		"diff here than it is in the whole of it and a mark taken on it would say you had read " +
-		"something else. Press " + keyLabel(m.keys.Review.BaseForward) + " until the whole change " +
+		"something else. Press " + keyLabel(s.keys.Review.BaseForward) + " until the whole change " +
 		"is on screen, then mark it there."
 
-	m.reportBrief(summary, detail, nil)
-	m.review.notice = summary
-
-	return m, nil
+	h.reportBrief(summary, detail, nil)
+	r.notice = summary
 }
 
-// refuseReviewAwaiting says why a write did not happen while the review already sent is still
+// refuseAwaiting says why a write did not happen while the review already sent is still
 // unanswered, and names both ways out of it.
-func (m model) refuseReviewAwaiting() (tea.Model, tea.Cmd) {
-	summary := reviewOwedSaid(m.review.owedComments())
+func (r *reviewScreen) refuseAwaiting(h host, s panelShared) {
+	summary := reviewOwedSaid(r.owedComments())
 	detail := "You may not leave more comments until this review is settled. Reviews are settled " +
-		"when all comments are addressed. Press " + keyLabel(m.keys.Review.NextOpenThread) +
+		"when all comments are addressed. Press " + keyLabel(s.keys.Review.NextOpenThread) +
 		" to walk to the next unresolved comment, and reply with " +
-		keyLabel(m.keys.Review.Compose) + " or press " + keyLabel(m.keys.Review.Resolve) +
+		keyLabel(s.keys.Review.Compose) + " or press " + keyLabel(s.keys.Review.Resolve) +
 		" to resolve it."
 
-	m.reportBrief(summary, detail, nil)
-	m.review.notice = summary
-
-	return m, nil
+	h.reportBrief(summary, detail, nil)
+	r.notice = summary
 }
 
-// updateReviewFilter is the search prompt taking keys.
-func (m model) updateReviewFilter(key tea.KeyMsg) (tea.Model, tea.Cmd) {
+// updateFilter is the search prompt taking keys.
+func (r *reviewScreen) updateFilter(h host, s panelShared, key tea.KeyMsg) tea.Cmd {
 	if key.String() == "ctrl+c" {
-		return m, m.hide()
+		return h.hide()
 	}
 
-	if !m.review.diff.filter.takeKey(key) {
-		return m, nil
+	if !r.diff.filter.takeKey(key) {
+		return nil
 	}
 
-	m.searchReview()
+	r.search(s)
 
-	return m, nil
+	return nil
 }
 
-// searchReview runs the pattern over the diff and moves to the first thing it finds.
-func (m *model) searchReview() {
-	if m.review.diff.view == nil {
+// search runs the pattern over the diff and moves to the first thing it finds.
+func (r *reviewScreen) search(s panelShared) {
+	if r.diff.view == nil {
 		return
 	}
 
-	m.review.diff.search()
-	m.scrollReviewToCursor()
+	r.diff.search()
+	r.scrollToCursor(s)
 }
 
 // search runs the pattern over the diff and puts the cursor on the first match at or after it.
@@ -224,31 +198,31 @@ func (d *reviewDiff) search() {
 	}
 }
 
-// jumpReviewMatch steps to the next or previous line the search found, wrapping at the ends.
-func (m model) jumpReviewMatch(direction int) (tea.Model, tea.Cmd) {
-	next, ok := m.review.diff.view.JumpMatch(m.review.diff.cursor, direction)
+// jumpMatch steps to the next or previous line the search found, wrapping at the ends.
+func (r *reviewScreen) jumpMatch(h host, s panelShared, direction int) tea.Cmd {
+	next, ok := r.diff.view.JumpMatch(r.diff.cursor, direction)
 	if !ok {
-		m.review.notice = "nothing to search for yet"
-		if m.review.diff.filter.isStanding() {
-			m.review.notice = "no matches"
+		r.notice = "nothing to search for yet"
+		if r.diff.filter.isStanding() {
+			r.notice = "no matches"
 		}
 
-		return m, nil
+		return nil
 	}
 
-	return m.moveReviewCursor(next)
+	return r.moveCursor(h, s, next)
 }
 
 // jumpOpenThread moves to the next comment nobody has settled, stopping at the ends.
-func (m model) jumpOpenThread(direction int) (tea.Model, tea.Cmd) {
-	next, ok := m.review.diff.view.JumpOpenThread(m.review.diff.cursor, direction)
-	if !ok || next == m.review.diff.cursor {
-		m.review.notice = m.review.diff.noOpenThreadSaid()
+func (r *reviewScreen) jumpOpenThread(h host, s panelShared, direction int) tea.Cmd {
+	next, ok := r.diff.view.JumpOpenThread(r.diff.cursor, direction)
+	if !ok || next == r.diff.cursor {
+		r.notice = r.diff.noOpenThreadSaid()
 
-		return m, nil
+		return nil
 	}
 
-	return m.moveReviewCursor(next)
+	return r.moveCursor(h, s, next)
 }
 
 // noOpenThreadSaid is why the key moved nowhere.
@@ -288,92 +262,90 @@ func (d reviewDiff) threadAtCursor() (*agentv1.ReviewThread, bool) {
 	return d.view.GetThreadAt(d.cursor)
 }
 
-// toggleReviewExpanded draws the whole of the file the cursor is in, or gives back the changed
-// lines and the few around them.
-func (m model) toggleReviewExpanded() (tea.Model, tea.Cmd) {
-	file, ok := m.review.diff.view.GetDrawnFileAt(m.review.diff.cursor)
+// toggleExpanded draws the whole of the file the cursor is in, or gives back the changed lines
+// and the few around them.
+func (r *reviewScreen) toggleExpanded(s panelShared) {
+	file, ok := r.diff.view.GetDrawnFileAt(r.diff.cursor)
 	if !ok {
-		return m, nil
+		return
 	}
 
 	path := file.Path()
-	expanding := !m.review.diff.view.IsExpanded(path)
+	expanding := !r.diff.view.IsExpanded(path)
 
-	if expanding && m.review.diff.view.IsViewed(path) {
-		m.review.notice = "that file is folded away · " +
-			keyLabel(m.keys.Review.ToggleViewed) + " to open it"
+	if expanding && r.diff.view.IsViewed(path) {
+		r.notice = "that file is folded away · " +
+			keyLabel(s.keys.Review.ToggleViewed) + " to open it"
 
-		return m, nil
+		return
 	}
 
 	// Where the cursor is standing is taken before the rows are built again.
-	place, located := m.review.diff.view.GetPlace(m.review.diff.cursor)
+	place, located := r.diff.view.GetPlace(r.diff.cursor)
 
-	m.review.diff.view.SetFileExpanded(path, expanding)
-	if m.review.diff.view.IsExpanded(path) != expanding {
-		m.review.notice = "there is no more of that file to show"
+	r.diff.view.SetFileExpanded(path, expanding)
+	if r.diff.view.IsExpanded(path) != expanding {
+		r.notice = "there is no more of that file to show"
 
-		return m, nil
+		return
 	}
 
-	m.review.threads.blur()
-	m.review.diff.keepCursor(place, located)
-	m.scrollReviewToCursor()
+	r.threads.blur()
+	r.diff.keepCursor(place, located)
+	r.scrollToCursor(s)
 
-	m.review.notice = "showing the changed lines"
+	r.notice = "showing the changed lines"
 	if expanding {
-		m.review.notice = "showing the whole file"
+		r.notice = "showing the whole file"
 	}
-
-	return m, nil
 }
 
-// jumpReviewFile moves to the next or previous file and puts that file's header at the top of
-// the pane.
-func (m model) jumpReviewFile(direction int) (tea.Model, tea.Cmd) {
-	next := m.review.diff.view.JumpFile(m.review.diff.cursor, direction)
-	if next == m.review.diff.cursor {
-		return m, nil
+// jumpFile moves to the next or previous file and puts that file's header at the top of the
+// pane.
+func (r *reviewScreen) jumpFile(h host, s panelShared, direction int) tea.Cmd {
+	next := r.diff.view.JumpFile(r.diff.cursor, direction)
+	if next == r.diff.cursor {
+		return nil
 	}
 
-	m.review.diff.cursor = next
-	m.review.threads.blur()
-	m.review.diff.top = max(min(m.review.diff.view.GetFileTopRow(next), m.review.diff.view.Len()-1), 0)
-	m.review.diff.pinTop = true
-	m.review.diff.pinFloor = m.review.diff.top
-	m.scrollReviewToCursor()
+	r.diff.cursor = next
+	r.threads.blur()
+	r.diff.top = max(min(r.diff.view.GetFileTopRow(next), r.diff.view.Len()-1), 0)
+	r.diff.pinTop = true
+	r.diff.pinFloor = r.diff.top
+	r.scrollToCursor(s)
 
-	return m, m.markReviewThreadReadCmd()
+	return r.markThreadReadCmd(h)
 }
 
-func (m model) moveReviewCursor(next int) (tea.Model, tea.Cmd) {
-	if next == m.review.diff.cursor {
-		return m, nil
+func (r *reviewScreen) moveCursor(h host, s panelShared, next int) tea.Cmd {
+	if next == r.diff.cursor {
+		return nil
 	}
 
-	m.review.diff.cursor = next
-	m.review.diff.pinTop = false
+	r.diff.cursor = next
+	r.diff.pinTop = false
 
 	// The keys and the window both belong to the conversation the cursor was standing on, so
 	// neither means anything against the next one it lands on.
-	m.review.threads.blur()
-	m.scrollReviewToCursor()
+	r.threads.blur()
+	r.scrollToCursor(s)
 
-	return m, m.markReviewThreadReadCmd()
+	return r.markThreadReadCmd(h)
 }
 
-func (m model) scrollReview(direction int) (tea.Model, tea.Cmd) {
-	cursor := m.review.diff.cursor
+func (r *reviewScreen) scroll(h host, s panelShared, direction int) tea.Cmd {
+	cursor := r.diff.cursor
 	for range navPageStep {
-		cursor = m.review.diff.view.Move(cursor, direction)
+		cursor = r.diff.view.Move(cursor, direction)
 	}
 
-	return m.moveReviewCursor(cursor)
+	return r.moveCursor(h, s, cursor)
 }
 
-// getReviewPanStep is a third of the pane, or the smallest jump until the pane is measured.
-func (m model) getReviewPanStep() int {
-	split, ok := m.screenColumnSplit()
+// panStep is a third of the pane, or the smallest jump until the pane is measured.
+func panStep(s panelShared) int {
+	split, ok := s.draw.screenColumnSplit()
 	if !ok {
 		return reviewPanStep
 	}
@@ -381,25 +353,19 @@ func (m model) getReviewPanStep() int {
 	return max(split.column/3, reviewPanStep)
 }
 
-func (m model) panReview(delta int) (tea.Model, tea.Cmd) {
-	m.review.diff.panBy(delta)
-
-	return m, nil
-}
-
 // panBy moves the diff sideways, stopping at its left edge.
 func (d *reviewDiff) panBy(delta int) {
 	d.pan = max(0, d.pan+delta)
 }
 
-// scrollReviewToCursor moves the window only when the cursor is about to leave it.
-func (m *model) scrollReviewToCursor() {
-	split, ok := m.screenColumnSplit()
+// scrollToCursor moves the window only when the cursor is about to leave it.
+func (r *reviewScreen) scrollToCursor(s panelShared) {
+	split, ok := s.draw.screenColumnSplit()
 	if !ok {
 		return
 	}
 
-	m.review.diff.scrollToCursor(split.rows)
+	r.diff.scrollToCursor(split.rows)
 }
 
 // scrollToCursor moves a window of the given height only when the cursor is about to leave it.

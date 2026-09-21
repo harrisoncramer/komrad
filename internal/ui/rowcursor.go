@@ -119,8 +119,3 @@ func (m model) rowCursorPrefix() string {
 func (m model) isListFocused() bool {
 	return m.doKeysMoveCursors() && m.keyholder() == sectionList
 }
-
-// isColumnFocused reports whether the block beside the list holds the keys.
-func (m model) isColumnFocused() bool {
-	return m.isListFocused() && !m.isReviewThreadFocused()
-}

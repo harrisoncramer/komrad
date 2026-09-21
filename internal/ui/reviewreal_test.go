@@ -25,7 +25,7 @@ func TestReviewAgainstARealWorktree(t *testing.T) {
 	require.NotNil(t, m.review.diff.view)
 	t.Logf("rows=%d", m.review.diff.view.Len())
 
-	_ = m.reviewView()
+	_ = m.review.view(m.shared())
 
 	for _, key := range []tea.KeyMsg{
 		{Type: tea.KeyRunes, Runes: []rune("j")},
@@ -45,7 +45,7 @@ func TestReviewAgainstARealWorktree(t *testing.T) {
 	} {
 		next, _ := m.updateReview(key)
 		m = next.(model)
-		_ = m.reviewView()
+		_ = m.review.view(m.shared())
 	}
 
 	t.Logf("respawns=%d last=%s", len(tmux.respawns), tmux.respawns[len(tmux.respawns)-1])

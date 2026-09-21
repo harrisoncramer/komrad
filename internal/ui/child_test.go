@@ -112,8 +112,8 @@ func TestChildIsNotRebaseable(t *testing.T) {
 	m := familyTree()
 	m.listing.workflows[0].Worktree = panel.WorktreeConfig{Enabled: true}
 
-	assert.True(t, m.isRebaseable(m.listing.agents[0].agent), "the parent's own worktree is weave's to move")
-	assert.False(t, m.isRebaseable(m.listing.agents[2].agent))
+	assert.True(t, m.listing.isRebaseable(m.listing.agents[0].agent), "the parent's own worktree is weave's to move")
+	assert.False(t, m.listing.isRebaseable(m.listing.agents[2].agent))
 }
 
 // TestChildDetailsLeadWithTheParent pins the details naming the parent a child belongs to.

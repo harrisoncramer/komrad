@@ -74,9 +74,9 @@ func TestReviewDrawsDeliveryUnderEachComment(t *testing.T) {
 			m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
 			m = openReview(t, m)
 
-			m.applyReviewThreads(pinnedThread(t, m, tt.message))
+			m.review.applyThreads(m.shared(), pinnedThread(t, m, tt.message))
 
-			shown := ansi.Strip(m.reviewView())
+			shown := ansi.Strip(m.review.view(m.shared()))
 			assert.Contains(t, shown, tt.want)
 			assert.NotContains(t, shown, tt.absent)
 		})
@@ -169,7 +169,7 @@ func TestReviewGutterMarksWhatHasNotReachedTheAgent(t *testing.T) {
 			threads := pinnedThread(t, m, tt.thread.GetMessages()...)
 			threads[0].UnreadByHuman = tt.thread.GetUnreadByHuman()
 			threads[0].ResolvedAt = tt.thread.GetResolvedAt()
-			m.applyReviewThreads(threads)
+			m.review.applyThreads(m.shared(), threads)
 
 			row := reviewGutterFor(t, m, "t1")
 			assert.Contains(t, row, tt.want, tt.comment)
@@ -245,8 +245,8 @@ func TestReviewVerdictIsChosenInThePanel(t *testing.T) {
 			assert.Equal(t, tt.want, agents.released.GetVerdict())
 			assert.Contains(t, wrote.notice, tt.says)
 
-			m.applyReviewWrote(wrote)
-			assert.Contains(t, ansi.Strip(m.reviewView()), tt.says)
+			m.review.applyWrote(&m, m.shared(), wrote)
+			assert.Contains(t, ansi.Strip(m.review.view(m.shared())), tt.says)
 		})
 	}
 }
@@ -327,12 +327,12 @@ func TestReviewOfADeadAgentIsReadOnly(t *testing.T) {
 				m.listing.agents = []agentItem{{agent: panel.Agent{ID: "a1"}, alive: tt.alive}}
 			}
 
-			shown := ansi.Strip(m.reviewView())
+			shown := ansi.Strip(m.review.view(m.shared()))
 			assert.Contains(t, shown, tt.want)
 			assert.NotContains(t, shown, "reply in this thread", "and the key is off the strip")
 
 			m.helpExpanded, m.height = true, 40
-			expanded := ansi.Strip(m.reviewView())
+			expanded := ansi.Strip(m.review.view(m.shared()))
 			assert.NotContains(t, expanded, "send the review")
 			assert.Contains(t, expanded, "settle the thread", "what is the person's own record stays")
 
@@ -365,7 +365,7 @@ func TestReviewOfADeadAgentKeepsTheReadersOwnRecords(t *testing.T) {
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	m.applyReviewThreads(pinnedThread(t, m, unsentComment()))
+	m.review.applyThreads(m.shared(), pinnedThread(t, m, unsentComment()))
 	m.listing.agents = nil
 
 	next, cmd := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("r")})
