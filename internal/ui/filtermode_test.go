@@ -96,7 +96,7 @@ func TestFilterTabFlipsTheMode(t *testing.T) {
 	m.agents.cursor = start
 	whole := rowNames(m.agentRows())
 
-	opened, _ := m.updateAgents(keyMsg("/"))
+	opened, _ := m.routeScreenMessage(keyMsg("/"))
 	typed := pressMark(t, opened.(model), "d", "b")
 	require.Equal(t, whole, rowNames(typed.agentRows()), "a search leaves the tree whole")
 	assert.True(t, strings.HasPrefix(strings.TrimSpace(ansi.Strip(typed.filter.line(paint.Panel))), "/ db"), "the prompt opens with a slash")
@@ -123,7 +123,7 @@ func TestFilterAppliedPlacesTheCursor(t *testing.T) {
 	m := filterModeTree()
 	m.agents.cursor = rowIndexOfKey(m.agentRows(), agentRowKey("a4"))
 
-	opened, _ := m.updateAgents(keyMsg("/"))
+	opened, _ := m.routeScreenMessage(keyMsg("/"))
 	typed := pressMark(t, opened.(model), "^", "a", "u", "tab")
 	require.Equal(t, agentRowKey("a4"), rowKeyAt(typed.agentRows(), typed.agents.cursor), "nothing moves while typing")
 
@@ -138,7 +138,7 @@ func TestFilterAppliedPlacesTheCursor(t *testing.T) {
 func TestFilterEnterKeepsNarrowing(t *testing.T) {
 	m := filterModeTree()
 
-	opened, _ := m.updateAgents(keyMsg("/"))
+	opened, _ := m.routeScreenMessage(keyMsg("/"))
 	standing := pressMark(t, opened.(model), "tab", "d", "b", "enter")
 
 	assert.False(t, standing.filter.typing)
@@ -146,7 +146,7 @@ func TestFilterEnterKeepsNarrowing(t *testing.T) {
 	assert.Equal(t, []string{"backend", "db"}, rowNames(standing.agentRows()))
 	assert.Equal(t, "filter: db", standing.filterDesc())
 
-	reopened, _ := standing.updateAgents(keyMsg("/"))
+	reopened, _ := standing.routeScreenMessage(keyMsg("/"))
 	assert.Equal(t, filterModeSearch, reopened.(model).filter.mode, "opening the input again starts a search")
 }
 
@@ -174,7 +174,7 @@ func TestFilterEscapeDropsTheMode(t *testing.T) {
 			m.agents.cursor = start
 			whole := rowNames(m.agentRows())
 
-			opened, _ := m.updateAgents(keyMsg("/"))
+			opened, _ := m.routeScreenMessage(keyMsg("/"))
 			back := pressMark(t, opened.(model), tt.keys...)
 
 			assert.Equal(t, filterModeSearch, back.filter.mode)
@@ -221,12 +221,12 @@ func TestFilterNothingMatchesLine(t *testing.T) {
 		},
 		{
 			name: "archive",
-			view: archiveAdapter{}.view,
+			view: func(m model) string { return m.archive.view(m.shared()) },
 			idle: "nothing archived",
 		},
 		{
 			name: "worktrees",
-			view: worktreesAdapter{}.view,
+			view: func(m model) string { return m.worktrees.view(m.shared()) },
 			idle: "no worktrees",
 		},
 		{
@@ -313,7 +313,7 @@ func TestSchedulesSearchWalksAndNarrows(t *testing.T) {
 	m := scheduleModel(&fakeSchedules{}, config.DefaultKeybindings())
 	m.listing.schedules = scheduleItems("nightly", "morning", "weekly")
 
-	opened, _ := schedulesAdapter{}.update(m, keyMsg("/"))
+	opened, _ := m.routeScreenMessage(keyMsg("/"))
 	standing := pressMark(t, opened.(model), "ly", "enter")
 	require.Len(t, standing.schedules.listRows(standing.shared()), 3, "a search leaves the list whole")
 	assert.Equal(t, "nightly", standing.schedules.list().hovered(standing.shared()))
@@ -324,7 +324,7 @@ func TestSchedulesSearchWalksAndNarrows(t *testing.T) {
 	back := pressMark(t, walked, "N")
 	assert.Equal(t, "nightly", back.schedules.list().hovered(back.shared()), "and N walks back")
 
-	reopened, _ := schedulesAdapter{}.update(back, keyMsg("/"))
+	reopened, _ := back.routeScreenMessage(keyMsg("/"))
 	narrowed := pressMark(t, reopened.(model), "tab", "ly", "enter")
 	assert.Equal(t, []string{"nightly", "weekly"}, scheduleNames(narrowed.schedules.listRows(narrowed.shared())))
 }
@@ -449,7 +449,7 @@ func TestFilterAppliedLandsOnTheNearestMatch(t *testing.T) {
 	m := filterModeTree()
 	m.agents.cursor = rowIndexOfKey(m.agentRows(), agentRowKey("a3"))
 
-	opened, _ := m.updateAgents(keyMsg("/"))
+	opened, _ := m.routeScreenMessage(keyMsg("/"))
 	narrowed := pressMark(t, opened.(model), "u", "tab", "enter")
 
 	assert.Equal(t, []string{"backend", "auth", "api", "frontend", "ui"}, rowNames(narrowed.agentRows()), "the child api stays under its matched parent")
@@ -463,7 +463,7 @@ func TestFilterKeepsTheCursorOnARowItKept(t *testing.T) {
 	m := filterModeTree()
 	m.agents.cursor = rowIndexOfKey(m.agentRows(), agentRowKey("a1"))
 
-	opened, _ := m.updateAgents(keyMsg("/"))
+	opened, _ := m.routeScreenMessage(keyMsg("/"))
 	narrowed := pressMark(t, opened.(model), "b", "a", "c", "k", "e", "n", "d", "|", "a", "p", "i", "tab", "enter")
 
 	assert.Equal(t, []string{"backend", "auth", "api", "db"}, rowNames(narrowed.agentRows()))

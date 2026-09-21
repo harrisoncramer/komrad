@@ -87,7 +87,7 @@ func worktreesModel() model {
 func pressWorktrees(t *testing.T, m model, key tea.KeyMsg) (model, tea.Cmd) {
 	t.Helper()
 
-	next, cmd := worktreesAdapter{}.update(m, key)
+	next, cmd := m.routeScreenMessage(key)
 	updated, ok := next.(model)
 	require.True(t, ok)
 

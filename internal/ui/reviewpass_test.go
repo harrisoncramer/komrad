@@ -23,7 +23,7 @@ func TestACommentOpensWhileTheAgentIsStillStopping(t *testing.T) {
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	next, cmd := m.updateReview(keyMsg("c"))
+	next, cmd := m.routeScreenMessage(keyMsg("c"))
 	m, ok := next.(model)
 	require.True(t, ok)
 
@@ -48,7 +48,7 @@ func TestAPassThatCannotStopTheAgentTakesTheComposerWithIt(t *testing.T) {
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	next, cmd := m.updateReview(keyMsg("c"))
+	next, cmd := m.routeScreenMessage(keyMsg("c"))
 	m, ok := next.(model)
 	require.True(t, ok)
 	require.True(t, m.review.threads.composing)
@@ -147,7 +147,7 @@ func TestAnUnreadablePaneIsNotStopped(t *testing.T) {
 	setReviewAgentState(&m, panel.StateUncertain)
 	m.review.diff.cursor = reviewRowWithAnEditTarget(t, m)
 
-	next, _ := m.updateReview(editorKey())
+	next, _ := m.routeScreenMessage(editorKey())
 	m, ok := next.(model)
 	require.True(t, ok)
 
@@ -167,12 +167,12 @@ func TestAPassGivenUpBeforeTheAgentStopsLetsItGo(t *testing.T) {
 	setReviewAgentState(&m, panel.StateThinking)
 	m.review.diff.cursor = reviewRowWithAnEditTarget(t, m)
 
-	next, cmd := m.updateReview(editorKey())
+	next, cmd := m.routeScreenMessage(editorKey())
 	m, ok := next.(model)
 	require.True(t, ok)
 	require.True(t, m.review.pass.pausing)
 
-	next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyEsc})
+	next, _ = m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyEsc})
 	m, ok = next.(model)
 	require.True(t, ok)
 	require.Equal(t, modeWatching, m.review.pass.mode, "the reader gave the pass up")
@@ -205,12 +205,12 @@ func TestASecondEditPressWaitsRatherThanOpening(t *testing.T) {
 	setReviewAgentState(&m, panel.StateIdle)
 	m.review.diff.cursor = reviewRowWithAnEditTarget(t, m)
 
-	next, cmd := m.updateReview(editorKey())
+	next, cmd := m.routeScreenMessage(editorKey())
 	m, ok := next.(model)
 	require.True(t, ok)
 	require.True(t, m.review.pass.pausing)
 
-	next, _ = m.updateReview(editorKey())
+	next, _ = m.routeScreenMessage(editorKey())
 	m, ok = next.(model)
 	require.True(t, ok)
 
@@ -318,7 +318,7 @@ func TestAPassRedrawsTheReadersOwnEdits(t *testing.T) {
 	m, _ := reviewModelOver(t, agents, repo)
 	m = openReview(t, m)
 
-	next, cmd := m.updateReview(keyMsg("c"))
+	next, cmd := m.routeScreenMessage(keyMsg("c"))
 	m, ok := next.(model)
 	require.True(t, ok)
 	m = settlePauseBatch(t, m, cmd)

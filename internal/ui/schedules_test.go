@@ -107,7 +107,7 @@ func TestScheduleKeys(t *testing.T) {
 				m.listing.workflows = nil
 			}
 
-			updated, cmd := schedulesAdapter{}.update(m, keyMsg(tt.key))
+			updated, cmd := m.routeScreenMessage(keyMsg(tt.key))
 			pressed, ok := updated.(model)
 			require.True(t, ok)
 
@@ -470,7 +470,7 @@ func TestEnterSchedules(t *testing.T) {
 			m := scheduleModel(&fakeSchedules{}, config.DefaultKeybindings())
 			m.screen = screenAgents
 
-			updated, _ := m.updateAgents(keyMsg(tt.key))
+			updated, _ := m.routeScreenMessage(keyMsg(tt.key))
 			got, ok := updated.(model)
 			require.True(t, ok)
 

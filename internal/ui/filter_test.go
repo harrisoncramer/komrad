@@ -180,7 +180,7 @@ func TestSearchEnterKeepsTheRow(t *testing.T) {
 	m := selectionTree()
 	m.agents.cursor = rowIndexOfKey(m.agentRows(), workflowRowKey("w1"))
 
-	opened, _ := m.updateAgents(keyMsg("/"))
+	opened, _ := m.routeScreenMessage(keyMsg("/"))
 	typed := pressMark(t, opened.(model), "d", "b")
 	landed := pressMark(t, typed, "enter")
 
@@ -196,7 +196,7 @@ func TestSearchEscapeGoesBack(t *testing.T) {
 	start := rowIndexOfKey(m.agentRows(), workflowRowKey("w1"))
 	m.agents.cursor = start
 
-	opened, _ := m.updateAgents(keyMsg("/"))
+	opened, _ := m.routeScreenMessage(keyMsg("/"))
 	typed := pressMark(t, opened.(model), "d", "b")
 	require.Equal(t, start, typed.agents.cursor, "typing moves nothing")
 
@@ -212,7 +212,7 @@ func TestSearchEscapeGoesBackFromAStandingSearch(t *testing.T) {
 	start := rowIndexOfKey(m.agentRows(), workflowRowKey("w1"))
 	m.agents.cursor = start
 
-	opened, _ := m.updateAgents(keyMsg("/"))
+	opened, _ := m.routeScreenMessage(keyMsg("/"))
 	standing := pressMark(t, opened.(model), "d", "b", "enter")
 	require.False(t, standing.filter.typing)
 	require.Equal(t, agentRowKey("a3"), rowKeyAt(standing.agentRows(), standing.agents.cursor))
@@ -240,7 +240,7 @@ func TestArchiveSearchWalksAndClears(t *testing.T) {
 	m.archive.cursor = 0
 	require.Equal(t, workflowRowKey("w1"), rowKeyAt(m.archive.listRows(m.shared()), m.archive.cursor))
 
-	opened, _ := archiveAdapter{}.update(m, keyMsg("/"))
+	opened, _ := m.routeScreenMessage(keyMsg("/"))
 	standing := pressMark(t, opened.(model), "^", "a", "enter")
 	require.True(t, standing.filter.isStanding())
 	require.Equal(t, agentRowKey("a1"), rowKeyAt(standing.archive.listRows(standing.shared()), standing.archive.cursor))
@@ -265,7 +265,7 @@ func TestSearchWalksMatchesOnlyWhileOneStands(t *testing.T) {
 	quiet := pressMark(t, m, "n")
 	assert.Equal(t, agentRowKey("a1"), rowKeyAt(quiet.agentRows(), quiet.agents.cursor), "n is not a jump with no search up")
 
-	opened, _ := m.updateAgents(keyMsg("/"))
+	opened, _ := m.routeScreenMessage(keyMsg("/"))
 	standing := pressMark(t, opened.(model), "a", "enter")
 
 	forward := pressMark(t, standing, "n")
@@ -405,7 +405,7 @@ func TestFilterDroppedLeavingScreen(t *testing.T) {
 	m := filterModel()
 	m.filter.setQuery("payouts")
 
-	updated, _ := m.updateAgents(keyMsg("S"))
+	updated, _ := m.routeScreenMessage(keyMsg("S"))
 	got, ok := updated.(model)
 	require.True(t, ok)
 

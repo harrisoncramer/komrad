@@ -355,7 +355,9 @@ func (m model) closeForm() (tea.Model, tea.Cmd) {
 	m.form = formState{}
 	m.reconcileSolo()
 
-	return m.active().open(m, screenTarget{})
+	cmd := m.enter(m.screen, screenTarget{})
+
+	return m, cmd
 }
 
 const (

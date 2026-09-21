@@ -14,7 +14,7 @@ import (
 
 // enter lands on the agent the target names, showing it if it is hidden, or comes back to the
 // list as it stands.
-func (a *agentsScreen) enter(h host, s panelShared, target screenTarget) tea.Cmd { //nolint:unparam // the door's shape
+func (a *agentsScreen) enter(h host, s panelShared, target screenTarget) tea.Cmd {
 	if target.agentID != "" {
 		a.revealAgent(s, target.agentID)
 	} else {
@@ -405,96 +405,62 @@ func startOrchestrator(h host, workflow panel.Workflow) tea.Cmd {
 	)
 }
 
-// agentsAdapter is the agents screen behind the panel's one door.
-type agentsAdapter struct{}
-
 var (
-	_ detailed = agentsAdapter{}
-	_ filtered = agentsAdapter{}
-	_ tabbed   = agentsAdapter{}
-	_ columned = agentsAdapter{}
-	_ staged   = agentsAdapter{}
+	_ detailed = (*agentsScreen)(nil)
+	_ filtered = (*agentsScreen)(nil)
+	_ tabbed   = (*agentsScreen)(nil)
+	_ columned = (*agentsScreen)(nil)
+	_ staged   = (*agentsScreen)(nil)
 )
 
-func (agentsAdapter) update(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
-	cmd := m.agents.update(&m, m.shared(), msg)
-
-	return m, cmd
-}
-
-func (agentsAdapter) view(m model) string {
-	return m.agents.view(m.shared())
-}
-
-func (agentsAdapter) needs() screenNeeds {
+func (a *agentsScreen) needs() screenNeeds {
 	return screenNeeds{fromListing: true}
 }
 
-func (agentsAdapter) open(m model, target screenTarget) (tea.Model, tea.Cmd) {
-	m.enterScreen(screenAgents)
-	cmd := m.agents.enter(&m, m.shared(), target)
-
-	return m, cmd
-}
-
-func (agentsAdapter) takesEveryKey(model) bool {
+func (a *agentsScreen) takesEveryKey() bool {
 	return false
 }
 
-func (agentsAdapter) details(m model) details {
-	return m.agents.details(m.shared())
-}
-
-func (agentsAdapter) detailsQuit(keys config.Keybindings) []string {
+func (a *agentsScreen) detailsQuit(keys config.Keybindings) []string {
 	return keys.Agents.Quit
 }
 
-func (agentsAdapter) detailsFit(m model) bool {
-	s := m.shared()
-
-	return s.draw.listFitsDetails(m.agents.listParams(s))
+func (a *agentsScreen) detailsFit(s panelShared) bool {
+	return s.draw.listFitsDetails(a.listParams(s))
 }
 
-func (agentsAdapter) detailsRoom(m model) int {
-	s := m.shared()
-
-	return s.draw.listRecordRoom(m.agents.listParams(s))
+func (a *agentsScreen) detailsRoom(s panelShared) int {
+	return s.draw.listRecordRoom(a.listParams(s))
 }
 
-func (agentsAdapter) hoveredKey(m model) string {
-	return m.agents.list().hovered(m.shared())
+func (a *agentsScreen) hoveredKey(s panelShared) string {
+	return a.list().hovered(s)
 }
 
-func (agentsAdapter) placeAt(m *model, key string) {
-	m.agents.list().place(m, m.shared(), key)
+func (a *agentsScreen) placeAt(h host, s panelShared, key string) {
+	a.list().place(h, s, key)
 }
 
-func (agentsAdapter) filterRows(m model) []filterRow {
-	return m.agents.list().filterRows(m.shared())
+func (a *agentsScreen) filterRows(s panelShared) []filterRow {
+	return a.list().filterRows(s)
 }
 
-func (agentsAdapter) tabs() tabStrip {
+func (a *agentsScreen) tabs() tabStrip {
 	return agentsTabs()
 }
 
-func (agentsAdapter) tabsState(m *model) *tabsState {
-	return &m.agents.sort
+func (a *agentsScreen) tabsState() *tabsState {
+	return &a.sort
 }
 
-func (agentsAdapter) tabsFit(m model) bool {
-	s := m.shared()
-
-	return s.draw.listFitsTabs(m.agents.listParams(s))
+func (a *agentsScreen) tabsFit(s panelShared) bool {
+	return s.draw.listFitsTabs(a.listParams(s))
 }
 
-func (agentsAdapter) column() columnSpec {
+func (a *agentsScreen) column() columnSpec {
 	return columnSpec{
 		floor: columnFloor,
 		doc:   func(m model) string { return m.agents.doc(m.shared()) },
 		holds: func(m model) bool { return m.agents.hasNoAgentPane(m.unmeasured()) },
 	}
-}
-
-func (agentsAdapter) stage(m *model) {
-	m.agents.stage(m, m.shared())
 }

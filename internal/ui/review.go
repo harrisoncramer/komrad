@@ -33,9 +33,9 @@ type reviewScreen struct {
 	pass reviewPass
 }
 
-// doesTakeEveryKey reports whether the review is mid-input, in which case a key bound elsewhere
+// takesEveryKey reports whether the review is mid-input, in which case a key bound elsewhere
 // in the panel belongs here instead.
-func (r reviewScreen) doesTakeEveryKey() bool {
+func (r reviewScreen) takesEveryKey() bool {
 	return r.isWriting() || r.diff.filter.typing
 }
 
@@ -114,76 +114,29 @@ func (r *reviewScreen) enter(host, panelShared, screenTarget) tea.Cmd {
 
 // enterReview is the agents screen's way onto the review of an agent's diff, with the threads
 // in the sidebar and the diff in the stage.
-func (m model) enterReview(agent panel.Agent) (tea.Model, tea.Cmd) {
+func (m *model) enterReview(agent panel.Agent) tea.Cmd {
 	if !isReviewable(agent) {
-		return m, nil
+		return nil
 	}
 
 	m.enterScreen(screenReview)
-	cmd := m.review.open(&m, m.shared(), agent)
 
-	return m, cmd
+	return m.review.open(m, m.shared(), agent)
 }
-
-// reviewAdapter is the review screen behind the panel's one door.
-type reviewAdapter struct{}
 
 var (
-	_ detailed = reviewAdapter{}
-	_ columned = reviewAdapter{}
+	_ detailed = (*reviewScreen)(nil)
+	_ columned = (*reviewScreen)(nil)
 )
 
-func (reviewAdapter) update(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
-	cmd := m.review.update(&m, m.shared(), msg)
-
-	return m, cmd
-}
-
-func (reviewAdapter) view(m model) string {
-	return m.review.view(m.shared())
-}
-
-func (reviewAdapter) needs() screenNeeds {
+func (r *reviewScreen) needs() screenNeeds {
 	return screenNeeds{}
 }
 
-// open reviews the agent the target names, or leaves the review as it stands.
-func (reviewAdapter) open(m model, target screenTarget) (tea.Model, tea.Cmd) {
-	if target.agentID != "" {
-		item, ok := m.listing.liveAgent(target.agentID)
-		if !ok {
-			return m, nil
-		}
-
-		return m.enterReview(item.agent)
-	}
-
-	m.enterScreen(screenReview)
-	cmd := m.review.enter(&m, m.shared(), target)
-
-	return m, cmd
-}
-
-func (reviewAdapter) takesEveryKey(m model) bool {
-	return m.review.doesTakeEveryKey()
-}
-
-func (reviewAdapter) details(m model) details {
-	return m.review.details(m.shared())
-}
-
-func (reviewAdapter) detailsQuit(keys config.Keybindings) []string {
+func (r *reviewScreen) detailsQuit(keys config.Keybindings) []string {
 	return keys.Review.Quit
 }
 
-func (reviewAdapter) detailsFit(m model) bool {
-	return m.review.detailsFit(m.shared())
-}
-
-func (reviewAdapter) detailsRoom(m model) int {
-	return m.review.detailsRoom(m.shared())
-}
-
-func (reviewAdapter) column() columnSpec {
+func (r *reviewScreen) column() columnSpec {
 	return reviewColumn()
 }

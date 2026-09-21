@@ -761,7 +761,7 @@ func TestSearchNamesEachAgentOnce(t *testing.T) {
 		return hit.snippet
 	}), "an agent's turns sit together on its row")
 
-	view := ansi.Strip(searchAdapter{}.view(m))
+	view := ansi.Strip(m.search.view(m.shared()))
 	assert.Equal(t, 2, strings.Count(view, "dispatcher"), "one row per agent rather than per name")
 	assert.Less(t, strings.Index(view, "first"), strings.Index(view, "third"), "what each turn said is drawn under its agent")
 	assert.Less(t, strings.Index(view, "third"), strings.Index(view, "second"), "in the order the turns came back")
@@ -1166,7 +1166,7 @@ func TestSearchRowWithoutTheAgent(t *testing.T) {
 
 	assert.Equal(t, view.ProcessNone, row.Process, "a hit nothing is known about has nothing behind it")
 
-	header := headerLine(t, ansi.Strip(searchAdapter{}.view(m)), "billing")
+	header := headerLine(t, ansi.Strip(m.search.view(m.shared())), "billing")
 	assert.True(t, strings.HasSuffix(header, view.Spell(view.GlyphQuiet)+" billing"),
 		"and still draws the quiet bar: %q", header)
 	assert.Equal(t, view.GutterColumns(view.NoColumns()), textColumn(t, header, "billing"),
@@ -1324,12 +1324,12 @@ func TestSearchViewFitsThePane(t *testing.T) {
 
 	m.search.apply(&m, m.shared(), searchResult{query: "agent", hits: found})
 
-	view := drawnLines(searchAdapter{}.view(m))
+	view := drawnLines(m.search.view(m.shared()))
 	assert.LessOrEqual(t, len(view), m.height, "the view is no taller than the pane")
 	assert.Contains(t, strings.Join(view, "\n"), "more", "the rows it could not draw are counted")
 
 	m.search.cursor = len(m.search.rows(m.shared())) - 1
-	bottom := drawnLines(searchAdapter{}.view(m))
+	bottom := drawnLines(m.search.view(m.shared()))
 	assert.LessOrEqual(t, len(bottom), m.height, "the view stays inside the pane at the end of the list")
 	assert.Contains(t, strings.Join(bottom, "\n"), "agent-19", "the agent under the cursor is drawn")
 }

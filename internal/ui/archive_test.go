@@ -164,7 +164,7 @@ func TestArchiveKeys(t *testing.T) {
 				m.listing.workflows, m.listing.archivedAgents = nil, nil
 			}
 
-			updated, cmd := archiveAdapter{}.update(m, keyMsg(tt.key))
+			updated, cmd := m.routeScreenMessage(keyMsg(tt.key))
 			pressed, ok := updated.(model)
 			require.True(t, ok)
 
@@ -263,7 +263,7 @@ func TestArchiveRows(t *testing.T) {
 			assert.Equal(t, tt.wantRows, describeRows(m.archive.listRows(m.shared())))
 
 			if tt.wantEmpty {
-				assert.Contains(t, archiveAdapter{}.view(m), "nothing archived")
+				assert.Contains(t, m.archive.view(m.shared()), "nothing archived")
 			}
 		})
 	}
@@ -642,7 +642,7 @@ func TestArchiveView(t *testing.T) {
 			m.listing.archivedAgents = archivedItems(tt.agents)
 			m.listing.archivedWorkflows = tt.archived
 
-			view := ansi.Strip(archiveAdapter{}.view(m))
+			view := ansi.Strip(m.archive.view(m.shared()))
 			for _, want := range tt.wants {
 				assert.Contains(t, view, want)
 			}
@@ -1095,7 +1095,7 @@ func TestArchiveHandsTheWindowBack(t *testing.T) {
 	}, alive: true}}
 	m.agents.cursor = 1
 
-	left, _ := archiveAdapter{}.update(m, keyMsg("esc"))
+	left, _ := m.routeScreenMessage(keyMsg("esc"))
 	m, ok = left.(model)
 	require.True(t, ok)
 	assert.False(t, m.frame.IsSolo(), "leaving the archive for a running agent gives the other panes their share back")
@@ -1165,7 +1165,7 @@ func TestArchiveOpensOnTheList(t *testing.T) {
 	m := archiveModel(&fakeArchiveAgents{}, &fakeArchiveWorkflows{}, keys)
 	m.screen = screenAgents
 
-	entered, _ := m.updateAgents(keyMsg(keys.Archive.Open[0]))
+	entered, _ := m.routeScreenMessage(keyMsg(keys.Archive.Open[0]))
 	opened, ok := entered.(model)
 	require.True(t, ok)
 	assert.Equal(t, screenArchive, opened.screen)

@@ -16,7 +16,7 @@ import (
 func pressExpand(t *testing.T, m model) model {
 	t.Helper()
 
-	next, _ := m.updateReview(keyMsg("E"))
+	next, _ := m.routeScreenMessage(keyMsg("E"))
 	expanded, ok := next.(model)
 	require.True(t, ok)
 
@@ -184,14 +184,14 @@ func TestACommentCanBeWrittenOnAnExpandedLine(t *testing.T) {
 	m.review.diff.cursor = rowOfNewLine(t, m, 13)
 	require.Contains(t, ansi.Strip(m.review.view(m.shared())), "func Four()")
 
-	next, _ := m.updateReview(keyMsg("c"))
+	next, _ := m.routeScreenMessage(keyMsg("c"))
 	m, ok := next.(model)
 	require.True(t, ok)
 	require.True(t, m.review.threads.composing, "the line the expansion drew takes a comment")
 
 	m = typeReviewMessage(t, m, "this one is unchanged and wrong")
 
-	next, cmd := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
+	next, cmd := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyCtrlS})
 	_, ok = next.(model)
 	require.True(t, ok)
 	require.NotNil(t, cmd)
@@ -252,7 +252,7 @@ func TestFoldingAnExpandedFileStaysFolded(t *testing.T) {
 	m = pressExpand(t, m)
 	require.True(t, m.review.diff.view.IsExpanded(fakeTallFile))
 
-	next, cmd := m.updateReview(keyMsg("v"))
+	next, cmd := m.routeScreenMessage(keyMsg("v"))
 	m, ok := next.(model)
 	require.True(t, ok)
 	require.NotNil(t, cmd)

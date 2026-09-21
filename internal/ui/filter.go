@@ -2,6 +2,7 @@ package ui
 
 import (
 	"regexp"
+	"slices"
 	"strings"
 
 	"weave/internal/ui/paint"
@@ -112,26 +113,19 @@ func (f filterState) highlight(palette paint.Palette, name string, base lipgloss
 	return palette.Highlight(name, matchesIn(f.pattern, name), base)
 }
 
-// filterTarget is the search and the cursor a key drives, and rows is nil on a screen that
-// draws no filter.
-type filterTarget struct {
-	state *filterState
-	rows  filtered
-}
-
-func (m *model) filterTarget() filterTarget {
-	return filterTarget{state: &m.filter, rows: m.filteredRows()}
-}
-
-// filteredRows is the cursor the search drives, the record's while the record holds the keys.
-func (m model) filteredRows() filtered {
+// filteredRows is every row the search can land on in the pane holding the keys, and false on a
+// screen that draws no filter.
+func (m model) filteredRows() ([]filterRow, bool) {
 	if m.isDetailsFocused() {
-		return detailsFilter{}
+		return m.detailsFilterRows(), true
 	}
 
-	rows, _ := m.active().(filtered)
+	rows, ok := m.active().(filtered)
+	if !ok {
+		return nil, false
+	}
 
-	return rows
+	return rows.filterRows(m.shared()), true
 }
 
 func (m model) openFilter() (tea.Model, tea.Cmd) {
@@ -144,7 +138,7 @@ func (m model) openFilter() (tea.Model, tea.Cmd) {
 func (m *model) beginFilter() {
 	origin := m.hoveredFilterKey()
 
-	filter := m.filterTarget().state
+	filter := &m.filter
 	filter.typing = true
 	filter.mode = filterModeSearch
 	filter.openedIn = m.keyholder()
@@ -209,7 +203,7 @@ func (m model) clearSearch() (tea.Model, tea.Cmd) {
 // clearFilter drops a standing search and puts the cursor back where the search opened, unless
 // the keys have since moved to the other section.
 func (m *model) clearFilter() {
-	filter := m.filterTarget().state
+	filter := &m.filter
 	origin, openedIn := filter.origin, filter.openedIn
 	filter.abandon()
 	filter.origin = ""
@@ -228,7 +222,7 @@ func (m model) updateFilterInput(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	// Typing lights what it has found and moves nothing; enter is what applies the search.
-	filter := m.filterTarget().state
+	filter := &m.filter
 	switch {
 	case key.String() == "tab":
 		filter.mode = filter.mode.flipped()
@@ -260,18 +254,9 @@ func (m *model) applyFilter() {
 
 // isFilterRowShown reports whether the pane holding the keys still draws a row.
 func (m model) isFilterRowShown(key string) bool {
-	rows := m.filterTarget().rows
-	if rows == nil {
-		return false
-	}
+	rows, _ := m.filteredRows()
 
-	for _, row := range rows.filterRows(m) {
-		if row.key == key {
-			return true
-		}
-	}
-
-	return false
+	return slices.ContainsFunc(rows, func(row filterRow) bool { return row.key == key })
 }
 
 // closeSearchAndMoveKeys answers the focus key while the search is being typed: the input closes
@@ -302,17 +287,27 @@ func (m model) jumpIntoDetails() (tea.Model, tea.Cmd) {
 }
 
 func (m model) hoveredFilterKey() string {
-	rows := m.filterTarget().rows
-	if rows == nil {
+	if m.isDetailsFocused() {
+		return m.hoveredDetailsKey()
+	}
+
+	rows, ok := m.active().(filtered)
+	if !ok {
 		return ""
 	}
 
-	return rows.hoveredKey(m)
+	return rows.hoveredKey(m.shared())
 }
 
 func (m *model) placeFilteredCursor(hovered string) {
-	if rows := m.filterTarget().rows; rows != nil {
-		rows.placeAt(m, hovered)
+	if m.isDetailsFocused() {
+		m.placeDetailsAt(hovered)
+
+		return
+	}
+
+	if rows, ok := m.active().(filtered); ok {
+		rows.placeAt(m, m.shared(), hovered)
 	}
 }
 
@@ -448,13 +443,8 @@ func (m *model) jumpToFilterMatch(pressed string) tea.Cmd {
 // matchAt is the row the search lands on in the pane holding the keys, counted from the hovered
 // row and wrapping at either end, the hovered row itself counting for a step of nothing.
 func (m model) matchAt(delta int) (string, bool) {
-	target := m.filterTarget()
-	if target.rows == nil || target.state.pattern == nil {
-		return "", false
-	}
-
-	rows := target.rows.filterRows(m)
-	if len(rows) == 0 {
+	rows, ok := m.filteredRows()
+	if !ok || m.filter.pattern == nil || len(rows) == 0 {
 		return "", false
 	}
 
@@ -477,7 +467,7 @@ func (m model) matchAt(delta int) (string, bool) {
 
 	for ; step <= len(rows); step++ {
 		at := ((start+walk*step)%len(rows) + len(rows)) % len(rows)
-		if target.state.doesMatch(rows[at].name) {
+		if m.filter.doesMatch(rows[at].name) {
 			return rows[at].key, true
 		}
 	}

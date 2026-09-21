@@ -74,7 +74,7 @@ func withColor(t *testing.T) {
 func press(t *testing.T, m model, key tea.KeyMsg) model {
 	t.Helper()
 
-	next, _ := m.updateAgents(key)
+	next, _ := m.routeScreenMessage(key)
 	updated, ok := next.(model)
 	require.True(t, ok)
 
@@ -283,7 +283,7 @@ func archiveSelectionTree() model {
 func pressArchive(t *testing.T, m model, key tea.KeyMsg) model {
 	t.Helper()
 
-	next, _ := archiveAdapter{}.update(m, key)
+	next, _ := m.routeScreenMessage(key)
 	updated, ok := next.(model)
 	require.True(t, ok)
 
@@ -325,7 +325,7 @@ func TestArchiveSelection(t *testing.T) {
 		m.archive.cursor = 3
 		m.archive.selected = selectAgents([]string{"a1", "a2"}...)
 
-		next, cmd := archiveAdapter{}.update(m, keyMsg("r"))
+		next, cmd := m.routeScreenMessage(keyMsg("r"))
 		require.NotNil(t, cmd)
 		cmd()
 
@@ -363,7 +363,7 @@ func TestArchiveSelection(t *testing.T) {
 		m.archive.cursor = 0
 		m.archive.selected = selectAgents([]string{"a1"}...)
 
-		_, cmd := archiveAdapter{}.update(m, keyMsg("r"))
+		_, cmd := m.routeScreenMessage(keyMsg("r"))
 		require.NotNil(t, cmd)
 		cmd()
 
@@ -405,11 +405,11 @@ func TestArchiveSelection(t *testing.T) {
 		m := archiveSelectionTree()
 		m.width = rowPaneWidth
 
-		rest := archiveAdapter{}.view(m)
+		rest := m.archive.view(m.shared())
 		assert.NotContains(t, line(t, rest, "api"), paint.BackgroundSequence(paint.SelectionBackground))
 
 		m.archive.selected = selectAgents([]string{"a2"}...)
-		view := archiveAdapter{}.view(m)
+		view := m.archive.view(m.shared())
 		assert.Contains(t, line(t, view, "api"), paint.BackgroundSequence(paint.SelectionBackground))
 		assert.NotContains(t, line(t, view, "db"), paint.BackgroundSequence(paint.SelectionBackground), "and only that row")
 		assert.Equal(t, rowPaneWidth, lineWidth(t, view, "api"), "the bar spans the pane")
@@ -484,7 +484,7 @@ func TestArchiveSelectionFromTheTree(t *testing.T) {
 				m.listing.agents[i].agent.Pane = "%" + m.listing.agents[i].agent.ID
 			}
 
-			opened, _ := m.updateAgents(keyMsg("z"))
+			opened, _ := m.routeScreenMessage(keyMsg("z"))
 			pressed, ok := opened.(model)
 			require.True(t, ok)
 			assert.Equal(t, formAgentArchive, pressed.form.kind, "the key opens the prompt rather than archiving outright")

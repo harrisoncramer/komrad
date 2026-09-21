@@ -719,36 +719,16 @@ func (w *searchScreen) help(s panelShared) keyMap {
 	}
 }
 
-// searchAdapter is the search screen behind the panel's one door.
-type searchAdapter struct{}
+var _ columned = (*searchScreen)(nil)
 
-var _ columned = searchAdapter{}
-
-func (searchAdapter) update(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
-	cmd := m.search.update(&m, m.shared(), msg)
-
-	return m, cmd
-}
-
-func (searchAdapter) view(m model) string {
-	return m.search.view(m.shared())
-}
-
-func (searchAdapter) needs() screenNeeds {
+func (w *searchScreen) needs() screenNeeds {
 	return screenNeeds{archive: true}
 }
 
-func (searchAdapter) open(m model, target screenTarget) (tea.Model, tea.Cmd) {
-	m.enterScreen(screenSearch)
-	cmd := m.search.enter(&m, m.shared(), target)
-
-	return m, cmd
+func (w *searchScreen) takesEveryKey() bool {
+	return w.typing
 }
 
-func (searchAdapter) takesEveryKey(m model) bool {
-	return m.search.typing
-}
-
-func (searchAdapter) column() columnSpec {
+func (w *searchScreen) column() columnSpec {
 	return searchColumn()
 }

@@ -291,11 +291,6 @@ func (m model) agentRows() []agentRow {
 	return m.agents.rows(m.shared())
 }
 
-// updateAgents presses one key on the agents screen through the panel's door.
-func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
-	return agentsAdapter{}.update(m, key)
-}
-
 // agentHelp is the agents legend as the frame draws it.
 func (m model) agentHelp() keyMap {
 	return m.listHelp(m.agents.help(m.shared()))

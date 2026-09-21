@@ -1110,7 +1110,7 @@ func TestAdoptKeyOpensTheForm(t *testing.T) {
 	m.api = api{agents: sent}
 	m.agents.cursor = 0
 
-	entered, _ := m.updateAgents(keyMsg("a"))
+	entered, _ := m.routeScreenMessage(keyMsg("a"))
 	opened := asModel(t, entered)
 
 	require.Equal(t, formAdopt, opened.form.kind)
@@ -1128,7 +1128,7 @@ func TestAdoptKeyDoesNothingOnAnAgentRow(t *testing.T) {
 	m := infoModel(&recordingTmux{})
 	m.api = api{agents: &formRecorder{}}
 
-	entered, _ := m.updateAgents(keyMsg("a"))
+	entered, _ := m.routeScreenMessage(keyMsg("a"))
 	opened := asModel(t, entered)
 
 	assert.Equal(t, screenAgents, opened.screen)

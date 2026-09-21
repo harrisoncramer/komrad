@@ -263,9 +263,9 @@ func TestChildIsNotReviewable(t *testing.T) {
 	}
 	assert.False(t, isReviewable(child))
 
-	next, cmd := m.enterReview(child)
+	cmd := m.enterReview(child)
 	assert.Nil(t, cmd)
-	assert.NotEqual(t, screenReview, next.(model).screen)
+	assert.NotEqual(t, screenReview, m.screen)
 }
 
 // TestUnprovisionedAgentIsReviewable pins that an agent told to keep the directory it was
@@ -282,6 +282,6 @@ func TestUnprovisionedAgentIsReviewable(t *testing.T) {
 	}
 	assert.True(t, isReviewable(adopted))
 
-	next, _ := m.enterReview(adopted)
-	assert.Equal(t, screenReview, next.(model).screen)
+	m.enterReview(adopted)
+	assert.Equal(t, screenReview, m.screen)
 }

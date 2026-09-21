@@ -20,7 +20,7 @@ func TestTheComposerIsDrawnAsAnOrdinaryField(t *testing.T) {
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
 	m = openReview(t, m)
 
-	next, _ := m.updateReview(keyMsg("c"))
+	next, _ := m.routeScreenMessage(keyMsg("c"))
 	m, ok := next.(model)
 	require.True(t, ok)
 	require.True(t, m.review.threads.composing)
@@ -39,13 +39,13 @@ func TestTheComposerKeepsReturnForItself(t *testing.T) {
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
 	m = openReview(t, m)
 
-	next, _ := m.updateReview(keyMsg("c"))
+	next, _ := m.routeScreenMessage(keyMsg("c"))
 	m, ok := next.(model)
 	require.True(t, ok)
 
 	m = typeReviewMessage(t, m, "one")
 
-	next, _ = m.updateReview(keyMsg("enter"))
+	next, _ = m.routeScreenMessage(keyMsg("enter"))
 	m, ok = next.(model)
 	require.True(t, ok)
 
@@ -62,7 +62,7 @@ func TestTheComposerTakesAWidthItWasNotBuiltAt(t *testing.T) {
 
 	m = m.resizeTo(tea.WindowSizeMsg{Width: 24, Height: m.height})
 
-	next, _ := m.updateReview(keyMsg("c"))
+	next, _ := m.routeScreenMessage(keyMsg("c"))
 	m, ok := next.(model)
 	require.True(t, ok)
 
@@ -84,14 +84,14 @@ func TestTheComposerKeepsEveryLineAtANarrowSidebar(t *testing.T) {
 
 	m = m.resizeTo(tea.WindowSizeMsg{Width: 22, Height: m.height})
 
-	next, _ := m.updateReview(keyMsg("ctrl+s"))
+	next, _ := m.routeScreenMessage(keyMsg("ctrl+s"))
 	m, ok := next.(model)
 	require.True(t, ok)
 	require.True(t, m.review.threads.releasing)
 
 	for i, line := range []string{"one", "two", "three", "four"} {
 		if i > 0 {
-			next, _ = m.updateReview(keyMsg("enter"))
+			next, _ = m.routeScreenMessage(keyMsg("enter"))
 			m, ok = next.(model)
 			require.True(t, ok)
 		}
@@ -114,7 +114,7 @@ func typeReviewLine(t *testing.T, m model, words string) model {
 	t.Helper()
 
 	for _, letter := range words {
-		next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{letter}})
+		next, _ := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{letter}})
 		written, ok := next.(model)
 		require.True(t, ok)
 		m = written

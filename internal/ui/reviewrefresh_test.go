@@ -227,7 +227,7 @@ func TestReviewRefreshKeepsThePlace(t *testing.T) {
 
 	m.review.diff.panBy(12)
 
-	moved, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("]")})
+	moved, _ := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("]")})
 	m = moved.(model)
 
 	cursor, top, pan := m.review.diff.cursor, m.review.diff.top, m.review.diff.pan
@@ -436,7 +436,7 @@ func TestReviewReloadKeyOpensTheNextRound(t *testing.T) {
 	place, located := m.review.diff.view.GetPlace(m.review.diff.cursor)
 	require.True(t, located)
 
-	next, cmd := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("R")})
+	next, cmd := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("R")})
 	m = next.(model)
 	require.NotNil(t, cmd, "the next round has to be taken")
 
@@ -468,7 +468,7 @@ func TestReviewReloadKeyReadsAgainWithNothingMoved(t *testing.T) {
 
 	require.False(t, m.review.diff.moved)
 
-	_, cmd := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("R")})
+	_, cmd := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("R")})
 	require.NotNil(t, cmd)
 
 	loaded, ok := cmd().(reviewLoadedMsg)

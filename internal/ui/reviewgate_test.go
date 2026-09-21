@@ -43,7 +43,7 @@ func refreshReview(t *testing.T, m model) model {
 func pressReview(t *testing.T, m model, key tea.KeyMsg) model {
 	t.Helper()
 
-	next, cmd := m.updateReview(key)
+	next, cmd := m.routeScreenMessage(key)
 	m, ok := next.(model)
 	require.True(t, ok)
 

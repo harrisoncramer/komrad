@@ -43,7 +43,7 @@ func TestReviewAgainstARealWorktree(t *testing.T) {
 		{Type: tea.KeyRunes, Runes: []rune("v")},
 		{Type: tea.KeyRunes, Runes: []rune("v")},
 	} {
-		next, _ := m.updateReview(key)
+		next, _ := m.routeScreenMessage(key)
 		m = next.(model)
 		_ = m.review.view(m.shared())
 	}

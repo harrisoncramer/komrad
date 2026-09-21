@@ -133,7 +133,7 @@ func TestSearchDrawsBothHalves(t *testing.T) {
 	m, _ := searchPreviewModel(t)
 
 	split := previewSplit(t, m)
-	rows := drawnLines(searchAdapter{}.view(m))
+	rows := drawnLines(m.search.view(m.shared()))
 
 	assert.LessOrEqual(t, len(rows), m.height, "the frame is no taller than the window")
 	for _, row := range rows {
@@ -177,7 +177,7 @@ func TestSearchPutsTheHitsWhereTheLayoutAsks(t *testing.T) {
 			m.frame.Solo(true)
 			m.search.drawPreview(m.shared())
 
-			first, _, _ := strings.Cut(ansi.Strip(searchAdapter{}.view(m)), "\n")
+			first, _, _ := strings.Cut(ansi.Strip(m.search.view(m.shared())), "\n")
 			assert.True(t, strings.HasPrefix(strings.TrimLeft(first, " "), tt.want),
 				"the top row opens with %q: %q", tt.want, first)
 		})
@@ -194,7 +194,7 @@ func TestSearchWithoutTheRoomDrawsTheHitsAlone(t *testing.T) {
 	_, ok := m.screenColumnSplit()
 	assert.False(t, ok, "there is no room for a split")
 
-	view := ansi.Strip(searchAdapter{}.view(m))
+	view := ansi.Strip(m.search.view(m.shared()))
 	assert.Contains(t, view, "billing", "the hits are still drawn")
 	assert.NotContains(t, view, "the reconcile loop", "the transcript is not")
 }
@@ -208,7 +208,7 @@ func TestSearchPreviewWithoutATranscript(t *testing.T) {
 
 	assert.Equal(t, noTranscriptMarkdown, m.search.preview.conversation)
 
-	rows := drawnLines(searchAdapter{}.view(m))
+	rows := drawnLines(m.search.view(m.shared()))
 	assert.Contains(t, strings.Join(rows, "\n"), "no transcript yet")
 	for _, row := range rows {
 		assert.LessOrEqual(t, lipgloss.Width(row), m.width,
@@ -226,7 +226,7 @@ func TestSearchPreviewRewrapsOnResize(t *testing.T) {
 	require.True(t, ok)
 
 	assert.NotEqual(t, before, len(resized.search.preview.doc.rows), "the transcript is wrapped again")
-	for _, row := range strings.Split(searchAdapter{}.view(resized), "\n") {
+	for _, row := range strings.Split(resized.search.view(resized.shared()), "\n") {
 		assert.Equal(t, resized.width, lipgloss.Width(row),
 			"and every row of the frame is squared off, so neither half slides under the other")
 	}

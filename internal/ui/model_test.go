@@ -108,7 +108,7 @@ func TestApplyAgents(t *testing.T) {
 			assert.Len(t, m.listing.agents, tt.wantLen)
 
 			if tt.wantLen == 0 {
-				_, _ = m.updateAgents(tea.KeyMsg{Type: tea.KeyEnter})
+				_, _ = m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyEnter})
 				assert.Equal(t, screenAgents, m.screen)
 
 				return
