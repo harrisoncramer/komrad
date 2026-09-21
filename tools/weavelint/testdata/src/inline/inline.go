@@ -25,5 +25,7 @@ func (s *sentinel) Missing() error {
 }
 
 var later = func() error {
-	return nil
+	return fail.NotFound("nothing later") // want `fail.NotFound inside a function is a sentinel nobody can match`
 }
+
+var ErrWorded = fail.NotFound("nothing worded").Saying("still a sentinel")

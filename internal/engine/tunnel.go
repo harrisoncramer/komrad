@@ -95,7 +95,7 @@ func (r Remote) Dial(ctx context.Context, engineAddr string, wait time.Duration)
 	if err := waitForPort(ctx, local, wait); err != nil {
 		_ = tunnel.Close() //nolint:errcheck // the start failed, and the close is only tidying up after it
 
-		return nil, fmt.Errorf("failed to carry %s through the tunnel to %s: %w", r, engineAddr, err)
+		return nil, fmt.Errorf("failed to carry %s through the tunnel to %s: %w", engineAddr, r, err)
 	}
 
 	return tunnel, nil

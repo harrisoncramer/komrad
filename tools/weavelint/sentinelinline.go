@@ -50,28 +50,43 @@ func newSentinelInline(settings config.SentinelInlineConfig) (*analysis.Analyzer
 	}, nil
 }
 
-// reportInlineSentinels reports every fail constructor called inside a function body.
+// reportInlineSentinels reports every fail constructor called inside a function body, whether
+// the function is declared or a literal.
 func reportInlineSentinels(pass *analysis.Pass, file *ast.File) {
 	for _, decl := range file.Decls {
-		function, ok := decl.(*ast.FuncDecl)
-		if !ok || function.Body == nil {
-			continue
+		switch declaration := decl.(type) {
+		case *ast.FuncDecl:
+			if declaration.Body != nil {
+				reportCalls(pass, declaration.Body)
+			}
+		case *ast.GenDecl:
+			ast.Inspect(declaration, func(node ast.Node) bool {
+				literal, ok := node.(*ast.FuncLit)
+				if ok {
+					reportCalls(pass, literal.Body)
+				}
+
+				return !ok
+			})
+		}
+	}
+}
+
+// reportCalls reports every fail constructor called under a node.
+func reportCalls(pass *analysis.Pass, body ast.Node) {
+	ast.Inspect(body, func(node ast.Node) bool {
+		call, ok := node.(*ast.CallExpr)
+		if !ok {
+			return true
 		}
 
-		ast.Inspect(function.Body, func(node ast.Node) bool {
-			call, ok := node.(*ast.CallExpr)
-			if !ok {
-				return true
-			}
+		if name, ok := failConstructor(call); ok {
+			pass.Reportf(call.Pos(),
+				"fail.%s inside a function is a sentinel nobody can match: declare it as a package-level var and word it here with Saying", name)
+		}
 
-			if name, ok := failConstructor(call); ok {
-				pass.Reportf(call.Pos(),
-					"fail.%s inside a function is a sentinel nobody can match: declare it as a package-level var and word it here with Saying", name)
-			}
-
-			return true
-		})
-	}
+		return true
+	})
 }
 
 // failConstructor returns the name of the fail constructor a call invokes, if it invokes one.
