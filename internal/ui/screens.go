@@ -141,7 +141,7 @@ func (s screen) adapter() screenModel {
 	case screenArchive:
 		return archiveAdapter{}
 	case screenSearch:
-		return searchScreen{}
+		return searchAdapter{}
 	case screenReview:
 		return reviewScreen{}
 	case screenWorktrees:

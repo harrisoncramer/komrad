@@ -132,8 +132,10 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.form.update(m, m.formSizeOf(msg))
 	}
 
+	// What is left of the messages is a screen's own results, which the screen that is up reads
+	// and every other leaves alone.
 	if !isKey {
-		return m, nil
+		return m.active().update(m, msg)
 	}
 
 	if m.filterTarget().state.typing {
@@ -188,7 +190,7 @@ func (m model) resizeTo(size tea.WindowSizeMsg) model {
 	m.review.threads.editor.resize(m.reviewInputWidth())
 
 	if rewrap {
-		m.drawPreview()
+		m.search.drawPreview(m.shared())
 	}
 
 	return m
@@ -345,14 +347,6 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		return m, nil, true
 	case reviewDiffPolledMsg:
 		return m, m.applyReviewDiffPolled(msg), true
-	case searchSettledMsg:
-		return m, m.runSettledSearch(msg), true
-	case searchResult:
-		return m, m.applySearch(msg), true
-	case previewResult:
-		m.applyPreview(msg)
-
-		return m, nil, true
 	case copyResult:
 		m.applyCopy(msg)
 

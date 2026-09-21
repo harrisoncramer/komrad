@@ -475,9 +475,22 @@ type drawer interface {
 	listFitsTabs(params screenListParams) bool
 	listFitsDetails(params screenListParams) bool
 	listRecordRoom(params screenListParams) int
+
+	// The pieces a screen composing its own frame draws with.
+	screenColumnSplit() (columnSplit, bool)
+	joinColumns(split columnSplit, sidebar, column string) string
+	renderHelp(k keyMap, above ...string) string
+	globalHelp() []key.Binding
+	listLines(chrome ...string) int
+	listPane(width int) listPane
 }
 
 var _ drawer = (*model)(nil)
+
+// listPane is the column a list is drawn in this frame and how its cursor stands.
+func (m model) listPane(width int) listPane {
+	return listPane{width: width, caret: m.caretOf(sectionList), blinkedOut: m.rowCursor.Blink}
+}
 
 func (m model) columnListView(params screenListParams) string {
 	return m.columnView(func(m model) string { return m.screenListView(params) })
@@ -493,14 +506,14 @@ func (m model) screenListView(params screenListParams) string {
 			empty:  params.empty,
 			rows:   params.rows,
 			snapshot: func(m model, pane int) view.Snapshot {
-				return params.snapshot(listPane{width: pane, caret: m.caretOf(sectionList), blinkedOut: m.rowCursor.Blink})
+				return params.snapshot(m.listPane(pane))
 			},
 		})
 	}
 
 	header := chrome.header(m)
 	record, help := m.detailsView(), m.renderHelp(chrome.help(m), header)
-	rows, cursor := params.lines(listPane{width: m.paneWidth(), caret: m.caretOf(sectionList), blinkedOut: m.rowCursor.Blink})
+	rows, cursor := params.lines(m.listPane(m.paneWidth()))
 
 	return m.headedListView(header, rows, cursor, record+m.messagesRegion(record, help, header)+help)
 }

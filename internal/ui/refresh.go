@@ -154,7 +154,7 @@ func (m *model) applyRefresh(result refreshResult) tea.Cmd {
 	treeRow := rowKeyAt(m.agentRows(), m.tree.cursor)
 	archiveRow := m.archive.list().hovered(m.shared())
 	worktreeRow := m.worktrees.list().hovered(m.shared())
-	searchRow := m.hoveredSearchID()
+	searchRow := m.search.list().hovered(m.shared())
 
 	before := m.listing
 
@@ -183,7 +183,7 @@ func (m *model) applyRefresh(result refreshResult) tea.Cmd {
 		m.applyWorktrees(result.worktrees, worktreeRow)
 	}
 
-	preview := m.placeSearchRow(searchRow)
+	preview := m.search.place(m, m.shared(), searchRow)
 	inspect := tea.Batch(m.inspectHoveredWorktreeCmd(), m.inspectAgentWorktreeCmd(time.Now()))
 	pullRequests := m.listHoveredPullRequestsCmd()
 

@@ -27,7 +27,7 @@ func screensModel() model {
 		detailsHeight: config.DefaultDetailsHeight,
 		frame:         layout.New(&recordingTmux{}, config.DefaultLayout()),
 		listing:       listing{workflows: []panel.Workflow{{ID: "w1", Name: "everything"}}},
-		search:        searchState{query: "agent39", turns: hits("agent39")},
+		search:        searchScreen{query: "agent39", turns: hits("agent39")},
 	}
 
 	for i := range total {
