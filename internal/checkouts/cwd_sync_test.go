@@ -1,4 +1,4 @@
-package agents
+package checkouts
 
 import (
 	"context"
@@ -13,6 +13,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	reviewstore "weave/internal/store/review"
 	workflowstore "weave/internal/store/workflow"
+	"weave/internal/storetest"
 	"weave/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
@@ -73,7 +74,7 @@ func TestCwdSyncerSync(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			st := newStore(t)
+			st := storetest.Open(t)
 			ctx := t.Context()
 
 			workflowID := seedWorkflow(t, st)
@@ -172,7 +173,7 @@ func TestCwdSyncerSyncRecordsTheRepository(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			st := newStore(t)
+			st := storetest.Open(t)
 			ctx := t.Context()
 
 			workflowID := seedWorkflow(t, st)
@@ -199,7 +200,7 @@ func TestCwdSyncerSyncRecordsTheRepository(t *testing.T) {
 // TestCwdSyncerSyncLooksAtEveryAgent covers the fan-out: a pass over more agents than it has
 // workers still reads every directory and writes every row.
 func TestCwdSyncerSyncLooksAtEveryAgent(t *testing.T) {
-	st := newStore(t)
+	st := storetest.Open(t)
 	ctx := t.Context()
 
 	workflowID := seedWorkflow(t, st)
@@ -230,7 +231,7 @@ func TestCwdSyncerSyncLooksAtEveryAgent(t *testing.T) {
 // TestCwdSyncerSyncRecordsAStoppedSequence covers the signal the row draws from: a checkout
 // part-way through a rebase says so on the agent, and still names the branch the work is on.
 func TestCwdSyncerSyncRecordsAStoppedSequence(t *testing.T) {
-	st := newStore(t)
+	st := storetest.Open(t)
 	ctx := t.Context()
 
 	workflowID := seedWorkflow(t, st)
@@ -264,7 +265,7 @@ func TestCwdSyncerSyncRecordsAStoppedSequence(t *testing.T) {
 // TestCwdSyncerSyncSkipsTheGitCallForARemovedCwd covers the waste the single pass exists to
 // avoid: a cwd that is gone has no branch to read, so nothing waits out a git call against it.
 func TestCwdSyncerSyncSkipsTheGitCallForARemovedCwd(t *testing.T) {
-	st := newStore(t)
+	st := storetest.Open(t)
 	ctx := t.Context()
 
 	workflowID := seedWorkflow(t, st)
@@ -307,7 +308,7 @@ func (r *recordingHeads) ReadHeadState(_ context.Context, dir string) git.HeadSt
 // from a checkout to something that is not one: the next pass has to clear what an earlier
 // pass wrote rather than leave it stale.
 func TestCwdSyncerSyncClearsAStaleBranch(t *testing.T) {
-	st := newStore(t)
+	st := storetest.Open(t)
 	ctx := t.Context()
 
 	workflowID := seedWorkflow(t, st)
@@ -343,7 +344,7 @@ func TestCwdSyncerSyncClearsAStaleBranch(t *testing.T) {
 // vanishing: the next pass has to clear what an earlier pass wrote rather than leave it
 // stuck as removed.
 func TestCwdSyncerSyncClearsAStaleRemoval(t *testing.T) {
-	st := newStore(t)
+	st := storetest.Open(t)
 	ctx := t.Context()
 
 	workflowID := seedWorkflow(t, st)
@@ -391,7 +392,7 @@ func TestCwdSyncerSyncSkipsArchivedAgents(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			st := newStore(t)
+			st := storetest.Open(t)
 			ctx := t.Context()
 
 			workflowID := seedWorkflow(t, st)
@@ -488,7 +489,7 @@ func (r *recordingTrees) ReadStanding(_ context.Context, params git.ReadStanding
 // TestCwdSyncerSyncReadsWhereTheTreeStands pins that a worktree is reported as git finds it
 // against the round of its last verdict, and that nothing is known of any other round.
 func TestCwdSyncerSyncReadsWhereTheTreeStands(t *testing.T) {
-	st := newStore(t)
+	st := storetest.Open(t)
 	ctx := t.Context()
 
 	workflowID := seedWorkflow(t, st)
@@ -542,7 +543,7 @@ func TestCwdSyncerSyncReadsWhereTheTreeStands(t *testing.T) {
 // TestCwdSyncerSyncKeepsAStandingReportedWithAnError pins that a failure after the tree was
 // found to have moved is said, and never demotes the row to unmoved.
 func TestCwdSyncerSyncKeepsAStandingReportedWithAnError(t *testing.T) {
-	st := newStore(t)
+	st := storetest.Open(t)
 	ctx := t.Context()
 
 	workflowID := seedWorkflow(t, st)
@@ -572,7 +573,7 @@ func TestCwdSyncerSyncKeepsAStandingReportedWithAnError(t *testing.T) {
 // TestCwdSyncerSyncMeasuresAgainstTheWorkflowsBase pins that the landed question is asked of
 // the branch the workflow cuts from.
 func TestCwdSyncerSyncMeasuresAgainstTheWorkflowsBase(t *testing.T) {
-	st := newStore(t)
+	st := storetest.Open(t)
 	ctx := t.Context()
 
 	workflowID := seedWorkflow(t, st)
@@ -606,7 +607,7 @@ func TestCwdSyncerSyncMeasuresAgainstTheWorkflowsBase(t *testing.T) {
 // TestCwdSyncerSyncHashesOnlyAReviewedTree covers the cost the pass keeps down: a worktree with
 // no verdict on it, or none left on disk, is never hashed.
 func TestCwdSyncerSyncHashesOnlyAReviewedTree(t *testing.T) {
-	st := newStore(t)
+	st := storetest.Open(t)
 	ctx := t.Context()
 
 	workflowID := seedWorkflow(t, st)
@@ -663,7 +664,7 @@ func TestCwdSyncerSyncHashesOnlyAReviewedTree(t *testing.T) {
 // TestCwdSyncerSyncForgetsAMoveTheNextPassDoesNotSee pins that each pass replaces the last:
 // a round opened on the moved tree leaves nothing for the column to keep saying.
 func TestCwdSyncerSyncForgetsAMoveTheNextPassDoesNotSee(t *testing.T) {
-	st := newStore(t)
+	st := storetest.Open(t)
 	ctx := t.Context()
 
 	workflowID := seedWorkflow(t, st)
@@ -702,7 +703,7 @@ func TestCwdSyncerSyncForgetsAMoveTheNextPassDoesNotSee(t *testing.T) {
 // TestCwdSyncerSyncReportsAProbeItCouldNotMake pins that a tree the pass cannot hash is said
 // rather than read as unmoved.
 func TestCwdSyncerSyncReportsAProbeItCouldNotMake(t *testing.T) {
-	st := newStore(t)
+	st := storetest.Open(t)
 	ctx := t.Context()
 
 	workflowID := seedWorkflow(t, st)

@@ -10,6 +10,7 @@ import (
 
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
+	"weave/lib/xpath"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -99,7 +100,7 @@ func TestAdoptPlacesTheAgent(t *testing.T) {
 				return
 			}
 
-			assert.True(t, isSameDir(elsewhere, stored.Cwd), "the agent is launched into the checkout that already holds the branch")
+			assert.True(t, xpath.IsSameDir(elsewhere, stored.Cwd), "the agent is launched into the checkout that already holds the branch")
 			require.NotNil(t, stored.ProvisionEnabled)
 			assert.False(t, *stored.ProvisionEnabled, "nothing is provisioned for a checkout somebody else made")
 			assert.Empty(t, deprovisionerFor(t.Context(), st.Workflows, stored), "so nothing tears it down either")

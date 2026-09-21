@@ -3,7 +3,7 @@ package agent
 import (
 	"context"
 
-	"weave/internal/agents"
+	"weave/internal/checkouts"
 	"weave/internal/fail"
 	"weave/internal/rpcerr"
 	agentv1 "weave/proto/gen/agent/v1"
@@ -11,8 +11,8 @@ import (
 
 // worktreeRebaser brings an agent's existing worktree up to date in place.
 type worktreeRebaser interface {
-	PlanRebase(ctx context.Context, agentID string) (*agents.RebasePlan, error)
-	Rebase(ctx context.Context, agentID string) (*agents.RebaseResult, error)
+	PlanRebase(ctx context.Context, agentID string) (*checkouts.RebasePlan, error)
+	Rebase(ctx context.Context, agentID string) (*checkouts.RebaseResult, error)
 }
 
 // PlanRebase reads what a rebase would do without doing it.

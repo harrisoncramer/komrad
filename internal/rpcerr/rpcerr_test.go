@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"weave/internal/agents"
+	"weave/internal/checkouts"
 	"weave/internal/git"
 	"weave/internal/mail"
 	"weave/internal/reviews"
@@ -61,8 +62,8 @@ func TestWrapCodes(t *testing.T) {
 		{agents.ErrParentStillArchived, connect.CodeFailedPrecondition},
 		{agents.ErrChildNeedsParentDirectory, connect.CodeFailedPrecondition},
 		{reviews.ErrReviewNoRound, connect.CodeFailedPrecondition},
-		{agents.ErrRebaseShallow, connect.CodeFailedPrecondition},
-		{agents.ErrRebaseHiddenPaths, connect.CodeFailedPrecondition},
+		{checkouts.ErrRebaseShallow, connect.CodeFailedPrecondition},
+		{checkouts.ErrRebaseHiddenPaths, connect.CodeFailedPrecondition},
 		{agents.ErrHookFailed, connect.CodeFailedPrecondition},
 		{agents.ErrNoLiveReviewer, connect.CodeFailedPrecondition},
 		{git.ErrBaseUnresolved, connect.CodeFailedPrecondition},

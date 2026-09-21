@@ -1,4 +1,4 @@
-package agents
+package checkouts
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"weave/internal/agents"
 	"weave/internal/caller"
 	"weave/internal/git"
 	"weave/internal/harness"
@@ -137,7 +138,7 @@ func TestRebaseRefusesAnArchivedAgent(t *testing.T) {
 	})
 
 	_, err := service.Rebase(t.Context(), "a1")
-	require.ErrorIs(t, err, ErrAgentArchived)
+	require.ErrorIs(t, err, agents.ErrAgentArchived)
 }
 
 // TestRebaseTakesTheTreeLock pins the lock being keyed on the directory rather than the agent,
@@ -461,7 +462,7 @@ func TestRebaseSettlesTheAgentBeforeItMoves(t *testing.T) {
 			name:           "an agent that will not stop",
 			pane:           "%1",
 			readings:       []harness.Activity{harness.ActivityWorking},
-			wantErr:        ErrUnsettled,
+			wantErr:        agents.ErrUnsettled,
 			wantSaid:       "had not stopped",
 			wantInterrupts: 1,
 		},
@@ -469,14 +470,14 @@ func TestRebaseSettlesTheAgentBeforeItMoves(t *testing.T) {
 			name:       "a pane that could not be read",
 			pane:       "%1",
 			observeErr: errors.New("the pane is gone"),
-			wantErr:    ErrUnsettled,
+			wantErr:    agents.ErrUnsettled,
 			wantSaid:   "could not be read",
 		},
 		{
 			name:     "a frame that matched nothing, which is no evidence of rest",
 			pane:     "%1",
 			readings: []harness.Activity{harness.ActivityUnrecognized},
-			wantErr:  ErrUnsettled,
+			wantErr:  agents.ErrUnsettled,
 			wantSaid: "could not be read",
 		},
 		{
@@ -627,7 +628,7 @@ func TestRebaseTellsAnAgentCutForNothing(t *testing.T) {
 			})
 
 			_, err := service.Rebase(t.Context(), "a1")
-			require.ErrorIs(t, err, ErrAgentHeld)
+			require.ErrorIs(t, err, agents.ErrAgentHeld)
 
 			assert.Empty(t, rebaser.calls, "nothing moves under a held agent")
 			require.Len(t, notifier.sent, tt.wantMail)
@@ -978,4 +979,27 @@ func TestRebaseRefusesTheCallerWhateverThePathSpelling(t *testing.T) {
 			assert.Empty(t, rebaser.calls)
 		})
 	}
+}
+
+// TestRebasingAHeldAgentIsRefused covers the third writer: a rebase types at the agent and then
+// rewrites the branch under the very checkout somebody stopped it to take.
+func TestRebasingAHeldAgentIsRefused(t *testing.T) {
+	t.Parallel()
+
+	at := time.Now()
+	service := NewRebaseService(NewRebaseServiceParams{
+		Agents: fakeRebaseAgents{agent: agentstore.Agent{
+			ID:         "a1",
+			Name:       "auth",
+			WorkflowID: "w1",
+			Cwd:        "/tree",
+			State:      agentstore.StateIdle,
+			HeldAt:     &at,
+		}},
+		Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
+		Rebaser:   &fakeRebaser{},
+	})
+
+	_, err := service.Rebase(t.Context(), "a1")
+	require.ErrorIs(t, err, agents.ErrAgentHeld)
 }
