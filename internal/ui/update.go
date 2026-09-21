@@ -275,7 +275,13 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 			return next, nil, true
 		}
 
-		return next, tea.Batch(next.refreshCmd(), refreshTick(), reviewing, readRuns, edited), true
+		var listed tea.Cmd
+		if next.isPollDue(msg.at) {
+			next.polledAt = msg.at
+			listed = next.refreshCmd()
+		}
+
+		return next, tea.Batch(listed, refreshTick(), reviewing, readRuns, edited), true
 	case tea.BlurMsg:
 		m.blurred = true
 		m.syncKeys()
@@ -312,9 +318,25 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 
 		return m, nil, true
 	case refreshResult:
+		// A listing the watch built is as fresh as the last event, so it is stamped with the epoch
+		// it lands under rather than dropped against it, and held back only while a write is in
+		// flight the way the poll is.
+		if msg.watched {
+			if m.pending > 0 {
+				return m, nil, true
+			}
+
+			m.watching = true
+			msg.epoch = m.epoch
+		}
+
 		cmd := m.applyRefresh(msg)
 
 		return m, cmd, true
+	case watchLostMsg:
+		m.watching = false
+
+		return m, nil, true
 	case writeResult:
 		next, cmd := m.applyWrite(msg)
 

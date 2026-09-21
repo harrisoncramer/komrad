@@ -17,6 +17,7 @@ import (
 	"weave/proto/gen/hook/v1/hookv1connect"
 	"weave/proto/gen/pullrequest/v1/pullrequestv1connect"
 	"weave/proto/gen/schedule/v1/schedulev1connect"
+	"weave/proto/gen/watch/v1/watchv1connect"
 	"weave/proto/gen/workflow/v1/workflowv1connect"
 	"weave/proto/gen/worktree/v1/worktreev1connect"
 
@@ -104,6 +105,7 @@ Use ` + "`weave open`" + ` to bring the panel up.`,
 			hookClient := hookv1connect.NewHookServiceClient(httpClient, base)
 			worktreeClient := worktreev1connect.NewWorktreeServiceClient(httpClient, base)
 			pullRequestClient := pullrequestv1connect.NewPullRequestServiceClient(httpClient, base)
+			watchClient := watchv1connect.NewWatchServiceClient(httpClient, base)
 
 			state.popup.SilenceStatus(agents.ManagerSession)
 			state.tmux.EnableFocusEvents()
@@ -113,7 +115,7 @@ Use ` + "`weave open`" + ` to bring the panel up.`,
 				binary = watch
 			}
 
-			return ui.Run(ui.Deps{
+			return ui.Run(cmd.Context(), ui.Deps{
 				PopupWindow:   state.popup,
 				Tmux:          state.tmux,
 				Git:           reviewGit(remote),
@@ -126,6 +128,7 @@ Use ` + "`weave open`" + ` to bring the panel up.`,
 				Hooks:         hookClient,
 				Worktrees:     worktreeClient,
 				PullRequests:  pullRequestClient,
+				Watch:         watchClient,
 				Layout:        state.layout,
 				Engine:        remote,
 				Binary:        binary,

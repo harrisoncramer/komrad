@@ -67,6 +67,8 @@ const (
 	RenamedRepositoryURL   = "weave.repository.renamed_url"
 	ThrottledUntil         = "weave.forge.throttled_until"
 	Repeats                = "repeats"
+	WatchDrift             = "weave.watch.drift"
+	RowKey                 = "weave.row.key"
 	Handle                 = "handle"
 	ServerAddress          = "server.address"
 	ErrorType              = "error.type"
