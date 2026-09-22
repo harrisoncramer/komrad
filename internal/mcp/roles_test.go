@@ -56,8 +56,8 @@ func TestRolesAreServedTheToolsTheirBriefingNames(t *testing.T) {
 		{
 			name:    "reviewer",
 			role:    annotationv1.Role_ROLE_REVIEWER,
-			served:  []string{"open_review_round", "create_review_thread", "release_review", "resolve_review_thread", "list_review_threads", "send_mail", "read_mail"},
-			refused: []string{"request_review", "create_agent", "create_workflow", "delete_agents"},
+			served:  []string{"open_review_round", "create_review_thread", "release_review", "resolve_review_thread", "list_review_threads", "send_mail", "read_mail", "create_agent"},
+			refused: []string{"request_review", "create_workflow", "delete_agents"},
 		},
 		{
 			name:    "orchestrator",
