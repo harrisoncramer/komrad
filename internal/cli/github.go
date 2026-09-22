@@ -7,8 +7,10 @@ import (
 	"strings"
 	"time"
 
+	"weave/internal/fail"
 	"weave/internal/forge"
 	"weave/internal/forge/forges"
+	"weave/internal/git"
 	githubapp "weave/internal/github/app"
 	"weave/lib/xhttp"
 
@@ -16,6 +18,12 @@ import (
 )
 
 const githubTokenTimeout = 20 * time.Second
+
+// githubHost is the one host an App minted from the config reaches.
+const githubHost = "github.com"
+
+// errNotGitHubCheckout says a checkout's origin is on a host weave holds no App for.
+var errNotGitHubCheckout = fail.Precondition("the checkout's origin is not on github.com")
 
 func githubCmd(state *app) *cobra.Command {
 	cmd := &cobra.Command{
@@ -42,17 +50,40 @@ Set the App id, the installation id and the path to the key under ` + "`[github_
 }
 
 func githubTokenCmd(state *app) *cobra.Command {
-	return &cobra.Command{
+	var (
+		checkout     string
+		ifConfigured bool
+	)
+
+	cmd := &cobra.Command{
 		Use:   "token",
 		Short: "Print an installation token, minting one if the cached one is spent",
 		Long: `Print an installation token.
 
 Run this to check the App is set up. A token starting ghs_ means the key, the App id
-and the installation id all agree. Any other answer says which one does not.`,
+and the installation id all agree. Any other answer says which one does not.
+
+The stand-in weave puts ahead of an agent's PATH as gh runs this for every call, so
+a tool weave hands the token to never holds a stale one. --checkout is how that
+stand-in says which tree it was run in, and refuses a tree whose origin is on a host
+the App does not reach. --if-configured prints nothing and succeeds on a machine
+that names no App, which leaves gh the credential the machine was logged in with.`,
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			configured, err := isGitHubAppConfigured(state)
+			if err != nil {
+				return err
+			}
+			if !configured && ifConfigured {
+				return nil
+			}
+
+			if err := requireGitHubCheckout(cmd.Context(), checkout); err != nil {
+				return err
+			}
+
 			token, err := githubToken(cmd.Context(), state)
 			if err != nil {
 				return err
@@ -63,6 +94,47 @@ and the installation id all agree. Any other answer says which one does not.`,
 			return nil
 		},
 	}
+
+	cmd.Flags().StringVar(&checkout, "checkout", "", "refuse unless this checkout's origin is a repository on github.com")
+	cmd.Flags().BoolVar(&ifConfigured, "if-configured", false, "print nothing and succeed when the config names no app")
+
+	return cmd
+}
+
+// isGitHubAppConfigured says whether the config names an App to mint from.
+func isGitHubAppConfigured(state *app) (bool, error) {
+	current, err := githubApp(state)
+	if err != nil {
+		return false, err
+	}
+
+	return current.IsConfigured(), nil
+}
+
+// requireGitHubCheckout refuses a checkout whose origin names another forge, and answers for
+// one that names no origin at all.
+func requireGitHubCheckout(ctx context.Context, dir string) error {
+	if strings.TrimSpace(dir) == "" {
+		return nil
+	}
+
+	raw, err := git.Run(ctx, dir, "config", "--get", "remote.origin.url")
+	if err != nil {
+		return nil
+	}
+
+	return requireGitHubRemote(raw)
+}
+
+func requireGitHubRemote(raw string) error {
+	remote, err := git.ParseRemoteURL(raw)
+	if err != nil || remote.Host == githubHost {
+		return nil
+	}
+
+	return errNotGitHubCheckout.Saying(
+		"%s is on %s, and weave holds a GitHub App and nothing else, so it has no credential for that forge",
+		remote.Path, remote.Host)
 }
 
 func githubCredentialCmd(state *app) *cobra.Command {

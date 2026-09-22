@@ -41,7 +41,8 @@ type NewLauncherParams struct {
 	CacheDir    string
 	LogPath     string
 	ContextPath string
-	HookCommand string
+	// BinPath is weave's own binary, which an agent's hooks and its gh stand-in both run.
+	BinPath string
 }
 
 type Launcher struct {
@@ -50,7 +51,7 @@ type Launcher struct {
 	cacheDir    string
 	logPath     string
 	contextPath string
-	hookCommand string
+	binPath     string
 }
 
 // NewLauncher builds a launcher that points spawned agents at the given address.
@@ -65,7 +66,7 @@ func NewLauncher(params NewLauncherParams) *Launcher {
 		cacheDir:    params.CacheDir,
 		logPath:     params.LogPath,
 		contextPath: params.ContextPath,
-		hookCommand: params.HookCommand,
+		binPath:     params.BinPath,
 	}
 }
 
@@ -160,6 +161,21 @@ func (l *Launcher) globalContext() string {
 	return string(text)
 }
 
+// toolsDir is where weave's stand-ins for the tools an agent calls are written, empty when
+// they could not be.
+func (l *Launcher) toolsDir() string {
+	dir, err := harness.WriteGHShim(l.cacheDir, l.binPath)
+	if err != nil {
+		//nolint:sloglint // as in the standing context, there is no context here to carry a logger on
+		slog.Default().Warn("gh could not be given a stand-in, so this agent reaches github as the machine is logged in",
+			logging.Attrs(logging.Err(err))...)
+
+		return ""
+	}
+
+	return dir
+}
+
 type launchParams struct {
 	Pane             string
 	Dir              string
@@ -182,6 +198,7 @@ type launchParams struct {
 
 func (l *Launcher) launch(h harness.Harness, params launchParams) error {
 	command, err := h.BuildCommand(harness.Launch{
+		ToolsDir:    l.toolsDir(),
 		Flags:       params.Flags,
 		Prompt:      params.Prompt,
 		Dir:         params.Dir,
@@ -190,7 +207,7 @@ func (l *Launcher) launch(h harness.Harness, params launchParams) error {
 		AgentID:     params.AgentID,
 		MCPEndpoint: l.serverAddr,
 		CacheDir:    l.cacheDir,
-		HookCommand: l.hookCommand,
+		HookCommand: l.binPath,
 		Resume:      params.Resume,
 	})
 	if err != nil {

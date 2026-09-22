@@ -11,3 +11,9 @@ Settle everything it raises. Answer each thread with add_review_message saying w
 A thread may carry a suggestion, which is replacement lines for the range it is pinned to. Apply it as written rather than treating it as one reading of what was meant, since whoever wrote it named the exact lines. If it no longer applies because you renamed or removed that code, say so in the thread and leave it; do not half-apply it, and do not silently write something near it instead.
 
 A reviewer is an agent, and there is a ceiling on how many may exist at once. If the spawn is refused as resource_exhausted there is no room rather than something broken: say so, carry on without the review, and leave the change for a person to read.
+
+### Opening the pull request
+
+You can talk to the forge yourself. The `gh` you run is weave's, ahead of the real one on your PATH: it asks weave for a token, hands it to the real binary for that one call, and never leaves one in your environment, so there is nothing to export, nothing to paste, and nothing that goes stale between calls. `gh auth status` and `gh auth login` are not the way in and have nothing to say here; just run the command you wanted.
+
+When weave has no credential for the forge your checkout is on, that `gh` refuses and says why rather than running unauthenticated. Take it at its word: do not log in by hand, do not look for a token, and do not try again. Say plainly what you could not do and hand the head, the title, the base and the body to whoever spawned you, which is what the refusal leaves you to do.

@@ -446,7 +446,7 @@ linters:
       # binaries actually do, which is the one case a test has to drive the real thing. It is
       # the set mise/tasks/go/test runs for --kind integration. The fixture packages beside
       # them, such as internal/weavetest, hold no test of their own and so need no entry.
-      - path: (internal/(git|diff|scripts|e2e|tmux|cli)|tools/weaverec)/
+      - path: (internal/(git|diff|scripts|e2e|tmux|cli|harness)|tools/weaverec)/
         linters:
           - forbidigo
       # A binary's package comment would be the first thing a reader of the command sees on
