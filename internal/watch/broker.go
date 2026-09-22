@@ -258,6 +258,12 @@ func (b *Broker) drop(subscription *Subscription) {
 
 	delete(b.subscribers, subscription)
 	close(subscription.changes)
+
+	// Nothing holds the stream's rows once nobody is on it, and the next watcher reseeds from
+	// its own snapshot.
+	if len(b.subscribers) == 0 {
+		clear(b.sent)
+	}
 }
 
 // Close ends every subscription, lets the listener's connection go and stops the render loop,
