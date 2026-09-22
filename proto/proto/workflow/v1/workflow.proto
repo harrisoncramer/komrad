@@ -29,7 +29,6 @@ message Workflow {
   optional string archived_at = 9;
   // Whether its agents each get a worktree of their own, and how those are built.
   WorktreeConfig worktree = 10;
-  reserved 7, 8;
   // Scripts hung on moments in its agents' lives, one per moment.
   repeated WorkflowHook hooks = 12;
   // Whether context holds only its opening, which a summary listing returns.
@@ -151,7 +150,6 @@ message CreateWorkflowRequest {
   WorktreeConfig worktree = 8;
   // Scripts to hang on moments in its agents' lives.
   repeated WorkflowHook hooks = 10 [(buf.validate.field).repeated.max_items = 50];
-  reserved 6, 7;
 }
 
 message CreateWorkflowResponse {
@@ -189,7 +187,6 @@ message UpdateWorkflowRequest {
   WorktreeConfig worktree = 9;
   // The whole hook list, so send back the ones you are keeping.
   repeated WorkflowHook hooks = 11 [(buf.validate.field).repeated.max_items = 50];
-  reserved 7, 8;
 }
 
 message ArchiveWorkflowRequest {

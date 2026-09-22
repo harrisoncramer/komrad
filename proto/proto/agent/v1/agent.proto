@@ -122,7 +122,6 @@ message Agent {
   string held_at = 35;
   // Whether the pull request sync has swept its repository.
   bool repository_read = 39;
-  reserved 40, 41, 42;
 }
 
 // AgentRow is an agent with what is drawn beside it: its mark, its waiting mail and the pull
@@ -222,7 +221,6 @@ message CreateAgentRequest {
   // False to keep the directory named above rather than be given a worktree, which is how an
   // agent reads a checkout somebody else has open.
   optional bool provision_enabled = 8;
-  reserved 9;
   // Which agent to attach this one to as its child, which then runs in that agent's directory
   // and goes when it goes.
   optional string parent_agent_id = 11 [(buf.validate.field).string.min_len = 1];
