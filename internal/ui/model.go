@@ -215,9 +215,9 @@ type model struct {
 	frame         *layout.Frame
 	settings      PanelSettings
 	unreachable   error
-	// epoch counts what a poll can be stale against: a write sent or landed, and a listing the
-	// watch delivered.
-	epoch int
+	// epoch counts the writes sent and landed, and watchedEpoch the listings the watch delivered.
+	epoch        int
+	watchedEpoch int
 	// pending is the writes in flight.
 	pending int
 	// watching says the watch has delivered a listing and the stream behind it is still open.

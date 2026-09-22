@@ -73,9 +73,10 @@ func TestListingArrivesFromEitherTrigger(t *testing.T) {
 	assert.Equal(t, "api-refactor", selected.agent.Name)
 
 	m, _ = update(t, m, refreshResult{
-		epoch:     m.epoch,
-		workflows: []panel.Workflow{{ID: "w1", Name: "api"}},
-		agents:    []agentItem{{agent: panel.Agent{ID: "a1", Name: "renamed", WorkflowID: "w1"}}},
+		epoch:        m.epoch,
+		watchedEpoch: m.watchedEpoch,
+		workflows:    []panel.Workflow{{ID: "w1", Name: "api"}},
+		agents:       []agentItem{{agent: panel.Agent{ID: "a1", Name: "renamed", WorkflowID: "w1"}}},
 	})
 
 	assert.Equal(t, "renamed", m.listing.agents[0].agent.Name, "the poll's listing lands the same way")
@@ -110,6 +111,29 @@ func TestWatchedListingOutranksAPollOnItsWay(t *testing.T) {
 	m, _ = update(t, m, polled)
 
 	assert.Equal(t, "after", m.listing.agents[0].agent.Name, "the poll that read the store first is dropped")
+}
+
+// TestPollBehindTheWatchStillCarriesTheArchive covers the same poll on the archive screen, where
+// its archive half is the only source of those rows and is applied though its live half is not.
+func TestPollBehindTheWatchStillCarriesTheArchive(t *testing.T) {
+	m := watchedPanel()
+	m.screen = screenArchive
+
+	polled := refreshResult{
+		epoch:          m.epoch,
+		agents:         []agentItem{{agent: panel.Agent{ID: "a1", Name: "before"}}},
+		archived:       []agentItem{{agent: panel.Agent{ID: "a0", Name: "retired"}}},
+		archivedListed: true,
+	}
+
+	m, _ = update(t, m, watchedResultFrom(client.WatchListing{
+		Agents: []*agentv1.Agent{{Id: "a1", Name: "after"}},
+	}))
+	m, _ = update(t, m, polled)
+
+	assert.Equal(t, "after", m.listing.agents[0].agent.Name)
+	require.Len(t, m.listing.archivedAgents, 1, "the archive the watch never carries is taken")
+	assert.Equal(t, "retired", m.listing.archivedAgents[0].agent.Name)
 }
 
 // TestWatchedListingLandsUnderAWrite covers the watch delivering while a write is in flight,

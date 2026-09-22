@@ -322,9 +322,9 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		// over any poll still on its way.
 		if msg.watched {
 			m.watching = true
-			m.epoch++
-			msg.epoch = m.epoch
-		} else if m.watching && msg.epoch >= m.epoch {
+			m.watchedEpoch++
+			msg.epoch, msg.watchedEpoch = m.epoch, m.watchedEpoch
+		} else if m.watching && msg.epoch >= m.epoch && msg.watchedEpoch >= m.watchedEpoch {
 			logDrift(m.listing, msg)
 		}
 

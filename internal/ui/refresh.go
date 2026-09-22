@@ -42,8 +42,10 @@ type hoverState struct {
 
 type refreshResult struct {
 	epoch int
-	// watched says the watch built this listing rather than the poll.
+	// watched says the watch built this listing rather than the poll, and watchedEpoch which
+	// of the watch's listings a poll was sent after.
 	watched              bool
+	watchedEpoch         int
 	agents               []agentItem
 	agentsErr            error
 	workflows            []panel.Workflow
@@ -64,7 +66,7 @@ type refreshResult struct {
 
 func (m model) refreshCmd() tea.Cmd {
 	needs := m.active().needs()
-	clients, epoch, withArchive, withWorktrees := m.api, m.epoch, needs.archive, needs.worktrees
+	clients, epoch, watchedEpoch, withArchive, withWorktrees := m.api, m.epoch, m.watchedEpoch, needs.archive, needs.worktrees
 
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), agentsTimeout)
@@ -72,6 +74,7 @@ func (m model) refreshCmd() tea.Cmd {
 
 		result := refreshResult{
 			epoch:           epoch,
+			watchedEpoch:    watchedEpoch,
 			archivedListed:  withArchive,
 			worktreesListed: withWorktrees,
 		}
@@ -162,20 +165,24 @@ func (m *model) applyRefresh(result refreshResult) tea.Cmd {
 
 	before := m.listing
 
-	if result.workflowsErr == nil {
-		m.applyWorkflows(result.workflows)
-	}
-	if result.agentsErr == nil {
-		m.applyAgents(result.agents)
-	}
-	if result.workflowsErr == nil && result.agentsErr == nil {
-		m.applyMarks(result.agentMarks, result.workflowMarks)
-	}
-	if result.workflowsErr == nil || result.agentsErr == nil {
-		m.agents.apply(m.shared(), treeRow)
-	}
-	if result.schedulesErr == nil {
-		m.applySchedules(result.schedules)
+	// A poll sent before the watch last delivered is stale on the listings the watch carries and
+	// current on the ones it does not.
+	if result.watchedEpoch >= m.watchedEpoch {
+		if result.workflowsErr == nil {
+			m.applyWorkflows(result.workflows)
+		}
+		if result.agentsErr == nil {
+			m.applyAgents(result.agents)
+		}
+		if result.workflowsErr == nil && result.agentsErr == nil {
+			m.applyMarks(result.agentMarks, result.workflowMarks)
+		}
+		if result.workflowsErr == nil || result.agentsErr == nil {
+			m.agents.apply(m.shared(), treeRow)
+		}
+		if result.schedulesErr == nil {
+			m.applySchedules(result.schedules)
+		}
 	}
 
 	m.sizeAgentWindows()
@@ -245,8 +252,7 @@ type released struct {
 	silent bool
 }
 
-// written is the row a write made, carried on its result so the panel can put it on screen
-// before the watch delivers it.
+// written is the row a write made, as the write answered with it.
 type written struct {
 	row string
 	// agent and workflow are the rows the write answered with, inserted where the listing lacks

@@ -87,10 +87,12 @@ not carry, which the archive and the worktrees are. Where a poll disagrees with 
 had built it says so at debug level. Nothing about an agent is discovered here: the service
 watches the panes and writes what it saw, and the panel takes rows like any other client.
 
-One guard keeps that from fighting with what the user is doing. Each write, and each listing
-the watch delivers, bumps an epoch, and a polled listing carries the epoch it was requested
-under. A poll that read the store before a write landed, or before the watch delivered, is
-dropped whole rather than putting back rows that have since moved.
+Two stamps keep that from fighting with what the user is doing. Each write bumps an epoch,
+and a polled listing carries the epoch it was requested under: a poll that read the store
+before a write landed is dropped whole rather than putting the write's effect back on screen.
+Each listing the watch delivers bumps a stamp of its own, and a poll sent before it is stale
+only on the listings the watch carries: its agents, workflows and schedules are left, and its
+archive and worktrees, which ride no stream, are still applied.
 
 A write that makes a row answers with it, and the panel puts that row into the listing and the
 cursor onto it as the write lands, rather than waiting for a listing to carry it. The watch's
