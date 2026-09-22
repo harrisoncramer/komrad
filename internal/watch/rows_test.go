@@ -104,20 +104,24 @@ func newStores() *fakeStores {
 	}
 }
 
-func newRowsParams(stores *fakeStores) NewRowsParams {
-	return NewRowsParams{
+func storesFor(stores *fakeStores) Stores {
+	return Stores{
 		Agents:       stores.agents,
 		Workflows:    stores.workflows,
 		Schedules:    stores.schedules,
 		Marks:        stores.marks,
 		Mail:         stores.mail,
 		PullRequests: stores.pullRequests,
-		Now:          func() time.Time { return time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC) },
 	}
 }
 
+// fixedClock is the clock the rendered rows are drawn against.
+func fixedClock() time.Time {
+	return time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC)
+}
+
 func newRows(stores *fakeStores) *Rows {
-	return NewRows(newRowsParams(stores))
+	return NewRows(NewRowsParams{Stores: storesFor(stores), Now: fixedClock})
 }
 
 // TestReadAnswersARowOrATombstoneForEveryTouchedKey pins the read-back: a touched key the
@@ -207,7 +211,7 @@ func TestEveryResourceIsDeclaredWhole(t *testing.T) {
 	stores.mail.put(mailstore.Mail{ID: "k"})
 	stores.pullRequests.put(pullrequeststore.PullRequest{ID: "k"})
 
-	declared := resources(newRowsParams(stores))
+	declared := getResources(storesFor(stores), fixedClock)
 	require.NotEmpty(t, declared)
 
 	for _, r := range declared {

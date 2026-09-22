@@ -1,47 +1,111 @@
 package watch
 
 import (
-	"os"
-	"strings"
+	"context"
 	"testing"
+
+	notifystore "weave/internal/store/notify"
+	"weave/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// migrationPath is the migration the generator writes.
-const migrationPath = "../../db/migrations/20260922050000_watch_attachments.sql"
-
-// TestTheAttachmentsAreCommitted pins the generated migration to the resources: what the
-// generator would write now is what the repository holds.
-func TestTheAttachmentsAreCommitted(t *testing.T) {
-	t.Parallel()
-
-	committed, err := os.ReadFile(migrationPath)
-	require.NoError(t, err)
-	assert.Equal(t, string(RenderAttachments()), string(committed), "run 'mise run gen:triggers'")
+// recordingTriggers is a store that remembers what it was asked to put a trigger on.
+type recordingTriggers struct {
+	resources   []notifystore.Resource
+	projections []notifystore.Projection
+	lookups     []notifystore.Lookup
 }
 
-// TestEveryResourceAndProjectionIsAttached pins that each resource's table and each table
-// projected onto one gets a trigger, with the lookup's parent columns and its narrowing.
-func TestEveryResourceAndProjectionIsAttached(t *testing.T) {
+func (r *recordingTriggers) EnsureResourceTrigger(_ context.Context, resource notifystore.Resource) error {
+	r.resources = append(r.resources, resource)
+
+	return nil
+}
+
+func (r *recordingTriggers) EnsureProjectionTrigger(_ context.Context, projection notifystore.Projection) error {
+	r.projections = append(r.projections, projection)
+
+	return nil
+}
+
+func (r *recordingTriggers) EnsureLookupTrigger(_ context.Context, lookup notifystore.Lookup) error {
+	r.lookups = append(r.lookups, lookup)
+
+	return nil
+}
+
+// TestEveryTableTheWatchReadsGetsItsTrigger spells out the triggers starting the watch puts on,
+// so a resource or a projection leaving the list is a failure here rather than a row that
+// quietly stops updating.
+func TestEveryTableTheWatchReadsGetsItsTrigger(t *testing.T) {
 	t.Parallel()
 
-	rendered := string(RenderAttachments())
+	recorded := &recordingTriggers{}
+	require.NoError(t, ensureTriggers(t.Context(), recorded))
 
-	for _, r := range Resources() {
-		assert.Contains(t, rendered, "attach_watch_trigger('"+r.Table+"', '"+r.Key+"');")
+	assert.Equal(t, []notifystore.Resource{
+		{Table: "agents", Key: "id"},
+		{Table: "workflows", Key: "id"},
+		{Table: "schedules", Key: "id"},
+		{Table: "marks", Key: "mark"},
+		{Table: "mail", Key: "id"},
+		{Table: "pull_requests", Key: "id"},
+	}, recorded.resources)
 
-		for _, p := range r.Projects {
-			if p.Column != "" {
-				assert.Contains(t, rendered, "attach_projection_trigger('"+p.Table+"', '"+r.Table+"', '"+p.Column+"');")
+	assert.Equal(t, []notifystore.Projection{
+		{Table: "agent_metadata", Parent: "agents", Column: "agent_id"},
+		{Table: "agent_runs", Parent: "agents", Column: "agent_id"},
+		{Table: "reviews", Parent: "agents", Column: "agent_id"},
+		{Table: "review_rounds", Parent: "agents", Column: "agent_id"},
+		{Table: "workflow_hooks", Parent: "workflows", Column: "workflow_id"},
+	}, recorded.projections)
 
-				continue
-			}
+	assert.Equal(t, []notifystore.Lookup{
+		{
+			Table:       "pull_request_syncs",
+			Parent:      "agents",
+			ParentKey:   "id",
+			ParentMatch: "repository_url",
+			Match:       "repository_url",
+			Where:       xptr.Ptr("archived_at IS NULL"),
+		},
+		{
+			Table:       "workflow_configs",
+			Parent:      "workflows",
+			ParentKey:   "id",
+			ParentMatch: "workflow_config_id",
+			Match:       "id",
+		},
+		{
+			Table:       "workflow_provisioner_configs",
+			Parent:      "workflows",
+			ParentKey:   "id",
+			ParentMatch: "provisioner_config_id",
+			Match:       "id",
+		},
+	}, recorded.lookups)
+}
 
-			assert.Contains(t, rendered, "attach_projection_lookup_trigger('"+p.Table+"', '"+r.Table+"', '"+r.Key+"', '"+p.Lookup+"', '"+p.Via+"', "+narrowing(p.Where)+");")
-		}
-	}
+// TestEnsureTriggersStopsAtTheFirstFailure pins that a table the trigger will not go on fails
+// the start rather than leaving the rest half attached.
+func TestEnsureTriggersStopsAtTheFirstFailure(t *testing.T) {
+	t.Parallel()
 
-	assert.Equal(t, len(Resources()), strings.Count(rendered, "attach_watch_trigger("))
+	require.Error(t, ensureTriggers(t.Context(), refusingTriggers{}))
+}
+
+type refusingTriggers struct{}
+
+func (refusingTriggers) EnsureResourceTrigger(context.Context, notifystore.Resource) error {
+	return assert.AnError
+}
+
+func (refusingTriggers) EnsureProjectionTrigger(context.Context, notifystore.Projection) error {
+	return assert.AnError
+}
+
+func (refusingTriggers) EnsureLookupTrigger(context.Context, notifystore.Lookup) error {
+	return assert.AnError
 }

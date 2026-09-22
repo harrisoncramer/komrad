@@ -25,14 +25,19 @@ type reader[R any] interface {
 	ListByKey(ctx context.Context, keys []string) ([]R, error)
 }
 
-// NewRowsParams is the store each resource is read from.
-type NewRowsParams struct {
+// Stores is the store each resource is read from.
+type Stores struct {
 	Agents       reader[rowstore.Row]
 	Workflows    reader[workflowstore.Workflow]
 	Schedules    reader[schedulestore.Schedule]
 	Marks        reader[markstore.Mark]
 	Mail         reader[mailstore.Mail]
 	PullRequests reader[pullrequeststore.PullRequest]
+}
+
+// NewRowsParams is what the read-back is built over.
+type NewRowsParams struct {
+	Stores Stores
 	// Now is the clock a schedule's next run is worked out from, time.Now when unset.
 	Now func() time.Time
 }
@@ -46,7 +51,7 @@ type Rows struct {
 // NewRows builds the read-back over the stores the resources are read from.
 func NewRows(params NewRowsParams) *Rows {
 	arms := map[watchv1.Resource]arm{}
-	for _, r := range resources(params) {
+	for _, r := range getResources(params.Stores, params.now) {
 		arms[r.Enum] = r.arm
 	}
 

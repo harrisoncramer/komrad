@@ -1,9 +1,8 @@
 package watch
 
-//go:generate go run gen/main.go
-
 import (
 	"strings"
+	"time"
 
 	"weave/internal/rpc/render"
 	watchv1 "weave/proto/gen/watch/v1"
@@ -51,11 +50,11 @@ type Projection struct {
 	Table string
 	// Column is the column on the projected row holding the resource's key.
 	Column string
-	// Lookup is the column on the resource's table matched against Via, when the key is not on
-	// the projected row.
-	Lookup string
-	// Via is the column on the projected row that Lookup is matched against.
-	Via string
+	// ParentMatch is the column on the resource's table matched against Match, when the key is
+	// not on the projected row.
+	ParentMatch string
+	// Match is the column on the projected row that ParentMatch is matched against.
+	Match string
 	// Where narrows the lookup, such as archived_at IS NULL.
 	Where string
 }
@@ -70,21 +69,20 @@ var resourcesByTable = func() map[string]watchv1.Resource {
 	return byTable
 }()
 
-// Resources is every table the watch carries the rows of, which is what the trigger generator
-// reads.
+// Resources is every table the watch carries the rows of.
 func Resources() []Resource {
-	return resources(NewRowsParams{})
+	return getResources(Stores{}, time.Now)
 }
 
-// resources is the one declaration of what the watch carries: the table each resource is the
-// rows of, how a row is read back and drawn, and the tables whose writes move it.
-func resources(params NewRowsParams) []Resource {
+// getResources is the one declaration of what the watch carries: the table each resource is
+// the rows of, how a row is read back and drawn, and the tables whose writes move it.
+func getResources(stores Stores, now func() time.Time) []Resource {
 	return []Resource{
 		newResource(newResourceParams[rowstore.Row, *agentv1.Agent]{
 			Enum:   watchv1.Resource_RESOURCE_AGENT,
 			Table:  "agents",
 			Key:    "id",
-			Store:  params.Agents,
+			Store:  stores.Agents,
 			RowKey: func(row rowstore.Row) string { return row.ID },
 			Draw:   func(row rowstore.Row) *agentv1.Agent { return render.Agent(row, render.AgentOptions{}) },
 			Wrap:   func(row *agentv1.Agent) *watchv1.Row { return &watchv1.Row{Row: &watchv1.Row_Agent{Agent: row}} },
@@ -93,14 +91,14 @@ func resources(params NewRowsParams) []Resource {
 				{Table: "agent_runs", Column: "agent_id"},
 				{Table: "reviews", Column: "agent_id"},
 				{Table: "review_rounds", Column: "agent_id"},
-				{Table: "pull_request_syncs", Lookup: "repository_url", Via: "repository_url", Where: "archived_at IS NULL"},
+				{Table: "pull_request_syncs", ParentMatch: "repository_url", Match: "repository_url", Where: "archived_at IS NULL"},
 			},
 		}),
 		newResource(newResourceParams[workflowstore.Workflow, *workflowv1.Workflow]{
 			Enum:   watchv1.Resource_RESOURCE_WORKFLOW,
 			Table:  "workflows",
 			Key:    "id",
-			Store:  params.Workflows,
+			Store:  stores.Workflows,
 			RowKey: func(row workflowstore.Workflow) string { return row.ID },
 			Draw: func(row workflowstore.Workflow) *workflowv1.Workflow {
 				return render.Workflow(row, render.WorkflowOptions{})
@@ -110,18 +108,18 @@ func resources(params NewRowsParams) []Resource {
 			},
 			Projects: []Projection{
 				{Table: "workflow_hooks", Column: "workflow_id"},
-				{Table: "workflow_configs", Lookup: "workflow_config_id", Via: "id"},
-				{Table: "workflow_provisioner_configs", Lookup: "provisioner_config_id", Via: "id"},
+				{Table: "workflow_configs", ParentMatch: "workflow_config_id", Match: "id"},
+				{Table: "workflow_provisioner_configs", ParentMatch: "provisioner_config_id", Match: "id"},
 			},
 		}),
 		newResource(newResourceParams[schedulestore.Schedule, *schedulev1.Schedule]{
 			Enum:   watchv1.Resource_RESOURCE_SCHEDULE,
 			Table:  "schedules",
 			Key:    "id",
-			Store:  params.Schedules,
+			Store:  stores.Schedules,
 			RowKey: func(row schedulestore.Schedule) string { return row.ID },
 			Draw: func(row schedulestore.Schedule) *schedulev1.Schedule {
-				return render.Schedule(row, params.now(), render.ScheduleOptions{})
+				return render.Schedule(row, now(), render.ScheduleOptions{})
 			},
 			Wrap: func(row *schedulev1.Schedule) *watchv1.Row {
 				return &watchv1.Row{Row: &watchv1.Row_Schedule{Schedule: row}}
@@ -131,7 +129,7 @@ func resources(params NewRowsParams) []Resource {
 			Enum:   watchv1.Resource_RESOURCE_MARK,
 			Table:  "marks",
 			Key:    "mark",
-			Store:  params.Marks,
+			Store:  stores.Marks,
 			RowKey: func(row markstore.Mark) string { return row.Mark },
 			Draw:   render.Mark,
 			Wrap:   func(row *agentv1.Mark) *watchv1.Row { return &watchv1.Row{Row: &watchv1.Row_Mark{Mark: row}} },
@@ -140,7 +138,7 @@ func resources(params NewRowsParams) []Resource {
 			Enum:   watchv1.Resource_RESOURCE_MAIL,
 			Table:  "mail",
 			Key:    "id",
-			Store:  params.Mail,
+			Store:  stores.Mail,
 			RowKey: func(row mailstore.Mail) string { return row.ID },
 			Draw:   render.Mail,
 			Wrap:   func(row *agentv1.Mail) *watchv1.Row { return &watchv1.Row{Row: &watchv1.Row_Mail{Mail: row}} },
@@ -149,7 +147,7 @@ func resources(params NewRowsParams) []Resource {
 			Enum:   watchv1.Resource_RESOURCE_PULL_REQUEST,
 			Table:  "pull_requests",
 			Key:    "id",
-			Store:  params.PullRequests,
+			Store:  stores.PullRequests,
 			RowKey: func(row pullrequeststore.PullRequest) string { return row.ID },
 			Draw:   render.PullRequest,
 			Wrap: func(row *pullrequestv1.PullRequest) *watchv1.Row {

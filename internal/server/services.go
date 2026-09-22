@@ -264,14 +264,14 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 
 	return &services{
 		loadConfig: loadConfig,
-		watchRows: watch.NewRows(watch.NewRowsParams{
+		watchRows: watch.NewRows(watch.NewRowsParams{Stores: watch.Stores{
 			Agents:       st.rows,
 			Workflows:    st.workflows,
 			Schedules:    st.schedules,
 			Marks:        st.marks,
 			Mail:         st.mail,
 			PullRequests: st.pullRequests,
-		}),
+		}}),
 		rowWriter: agents.NewRowWriter(agents.NewRowWriterParams{
 			Agents:     st.agents,
 			Runs:       st.runs,

@@ -6,6 +6,7 @@ import (
 
 	"weave/db"
 	"weave/internal/dbtest"
+	notifystore "weave/internal/store/notify"
 	watchv1 "weave/proto/gen/watch/v1"
 
 	"github.com/google/uuid"
@@ -72,8 +73,23 @@ func (l *listened) killListener(t *testing.T) {
 		WHERE
 			datname = current_database()
 			AND pid <> pg_backend_pid()
-			AND query = 'LISTEN ' || $1`, db.WatchChannel)
+			AND query LIKE '%LISTEN ' || $1 || '%'`, db.WatchChannel)
 	require.NoError(t, err)
+}
+
+// TestListenIsOnTheChannelTheTriggersRaise pins that the connection ends up on db.WatchChannel.
+func TestListenIsOnTheChannelTheTriggersRaise(t *testing.T) {
+	l := newPooled(t)
+
+	conn, err := l.pool.Acquire(t.Context())
+	require.NoError(t, err)
+	defer conn.Release()
+
+	require.NoError(t, notifystore.NewNotifyStore(conn).OpenWatchChannel(t.Context()))
+
+	var listening string
+	require.NoError(t, conn.QueryRow(t.Context(), "SELECT pg_listening_channels()").Scan(&listening))
+	assert.Equal(t, db.WatchChannel, listening)
 }
 
 // TestANotificationReachesTheWatchers pins the listener end to end: a notification raised in

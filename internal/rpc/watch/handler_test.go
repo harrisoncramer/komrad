@@ -67,14 +67,14 @@ func (emptyStore[R]) ListByKey(context.Context, []string) ([]R, error) { return 
 
 // newRows is the read-back the broker renders through, over the agents a test names.
 func newRows(agents agentStore) *watch.Rows {
-	return watch.NewRows(watch.NewRowsParams{
+	return watch.NewRows(watch.NewRowsParams{Stores: watch.Stores{
 		Agents:       agents,
 		Workflows:    emptyStore[workflowstore.Workflow]{},
 		Schedules:    emptyStore[schedulestore.Schedule]{},
 		Marks:        emptyStore[markstore.Mark]{},
 		Mail:         emptyStore[mailstore.Mail]{},
 		PullRequests: emptyStore[pullrequeststore.PullRequest]{},
-	})
+	}})
 }
 
 // served is a watch service on a test server over a database of the test's own, with the log

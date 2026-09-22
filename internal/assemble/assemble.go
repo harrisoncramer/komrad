@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"weave/lib/dates"
+	"weave/lib/xmap"
 	"weave/lib/xptr"
 
 	agentv1 "weave/proto/gen/agent/v1"
@@ -53,20 +54,20 @@ func (w *World) Put(row *watchv1.Row) (arrived []string) {
 	switch row := row.GetRow().(type) {
 	case *watchv1.Row_Agent:
 		held, ok := w.Agents[row.Agent.GetId()]
-		hold(&w.Agents, row.Agent.GetId(), row.Agent)
+		xmap.Set(&w.Agents, row.Agent.GetId(), row.Agent)
 		if !ok || held.GetRepositoryUrl() != row.Agent.GetRepositoryUrl() || held.GetBranch() != row.Agent.GetBranch() {
 			return []string{row.Agent.GetId()}
 		}
 	case *watchv1.Row_Workflow:
-		hold(&w.Workflows, row.Workflow.GetId(), row.Workflow)
+		xmap.Set(&w.Workflows, row.Workflow.GetId(), row.Workflow)
 	case *watchv1.Row_Schedule:
-		hold(&w.Schedules, row.Schedule.GetId(), row.Schedule)
+		xmap.Set(&w.Schedules, row.Schedule.GetId(), row.Schedule)
 	case *watchv1.Row_Mark:
-		hold(&w.Marks, row.Mark.GetMark(), row.Mark)
+		xmap.Set(&w.Marks, row.Mark.GetMark(), row.Mark)
 	case *watchv1.Row_Mail:
-		hold(&w.Mail, row.Mail.GetId(), row.Mail)
+		xmap.Set(&w.Mail, row.Mail.GetId(), row.Mail)
 	case *watchv1.Row_PullRequest:
-		hold(&w.PullRequests, row.PullRequest.GetId(), row.PullRequest)
+		xmap.Set(&w.PullRequests, row.PullRequest.GetId(), row.PullRequest)
 	case nil:
 	}
 
@@ -92,30 +93,21 @@ func (w *World) drop(deleted *watchv1.Deleted) {
 	}
 }
 
-// hold writes one row into the map it belongs to, making that map on the first row.
-func hold[T any](held *map[string]T, key string, row T) {
-	if *held == nil {
-		*held = map[string]T{}
-	}
-
-	(*held)[key] = row
-}
-
 // AgentRows draws every agent in the world with its mark, its unread mail and its pull
 // requests, newest first.
 func AgentRows(w World, now time.Time) []*agentv1.AgentRow {
 	marks := Marks(w)
-	unread := unreadBy(w.Mail, now)
-	onBranch := pullRequestsByBranch(w.PullRequests)
+	unread := getAgentsWithUnreadMail(w.Mail, now)
+	onBranch := groupPullRequestsByBranch(w.PullRequests)
 
 	rows := make([]*agentv1.AgentRow, 0, len(w.Agents))
 	for _, agent := range w.Agents {
-		pullRequests := onBranch[branchOf(w, agent)]
+		pullRequests := onBranch[getBranchForAgent(w, agent)]
 
 		row := &agentv1.AgentRow{
 			Agent:        agent,
 			UnreadMail:   unread[agent.GetId()],
-			PullRequest:  standingOf(agent, pullRequests),
+			PullRequest:  calculatePullRequestStanding(agent, pullRequests),
 			PullRequests: pullRequests,
 		}
 		if mark, ok := marks[agent.GetId()]; ok {
@@ -154,9 +146,9 @@ type branch struct {
 	name           string
 }
 
-// branchOf is the branch an agent's pull requests are on, and no branch at all when it is the
-// base branch its workflow cuts worktrees from.
-func branchOf(w World, agent *agentv1.Agent) branch {
+// getBranchForAgent is the branch an agent's pull requests are on, and no branch at all when
+// it is the base branch its workflow cuts worktrees from.
+func getBranchForAgent(w World, agent *agentv1.Agent) branch {
 	base := w.Workflows[agent.GetWorkflowId()].GetWorktree().GetBaseBranch()
 	if base != "" && agent.GetBranch() == base {
 		return branch{}
@@ -169,9 +161,9 @@ func branchOf(w World, agent *agentv1.Agent) branch {
 	}
 }
 
-// pullRequestsByBranch indexes the pull requests by the branch they were opened from, each
+// groupPullRequestsByBranch indexes the pull requests by the branch they were opened from, each
 // branch's current one first.
-func pullRequestsByBranch(pullRequests map[string]*pullrequestv1.PullRequest) map[branch][]*pullrequestv1.PullRequest {
+func groupPullRequestsByBranch(pullRequests map[string]*pullrequestv1.PullRequest) map[branch][]*pullrequestv1.PullRequest {
 	onBranch := map[branch][]*pullrequestv1.PullRequest{}
 	for _, pullRequest := range pullRequests {
 		key := branch{
@@ -185,7 +177,7 @@ func pullRequestsByBranch(pullRequests map[string]*pullrequestv1.PullRequest) ma
 	for _, listed := range onBranch {
 		slices.SortFunc(listed, func(a, b *pullrequestv1.PullRequest) int {
 			return cmp.Or(
-				cmp.Compare(finished(a), finished(b)),
+				cmp.Compare(finishedRank(a), finishedRank(b)),
 				dates.Parse(b.GetOpenedAt()).Compare(dates.Parse(a.GetOpenedAt())),
 				strings.Compare(b.GetId(), a.GetId()),
 			)
@@ -195,8 +187,8 @@ func pullRequestsByBranch(pullRequests map[string]*pullrequestv1.PullRequest) ma
 	return onBranch
 }
 
-// finished is 1 for a pull request that has merged or closed and 0 for one still open.
-func finished(pullRequest *pullrequestv1.PullRequest) int {
+// finishedRank is 1 for a pull request that has merged or closed and 0 for one still open.
+func finishedRank(pullRequest *pullrequestv1.PullRequest) int {
 	if pullRequest.MergedAt != nil || pullRequest.ClosedAt != nil {
 		return 1
 	}
@@ -204,9 +196,10 @@ func finished(pullRequest *pullrequestv1.PullRequest) int {
 	return 0
 }
 
-// standingOf is where an agent's pull request stands: unread until the sync has looked at the
-// repository, none when it has and found nothing on the branch, else the current one.
-func standingOf(agent *agentv1.Agent, pullRequests []*pullrequestv1.PullRequest) *agentv1.PullRequestStanding {
+// calculatePullRequestStanding is where an agent's pull request stands: unread until the sync
+// has looked at the repository, none when it has and found nothing on the branch, else the
+// current one.
+func calculatePullRequestStanding(agent *agentv1.Agent, pullRequests []*pullrequestv1.PullRequest) *agentv1.PullRequestStanding {
 	if len(pullRequests) == 0 {
 		state := pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNREAD
 		if agent.GetRepositoryRead() {
@@ -228,8 +221,8 @@ func standingOf(agent *agentv1.Agent, pullRequests []*pullrequestv1.PullRequest)
 	}
 }
 
-// unreadBy is the set of agents with mail waiting that has not expired by now.
-func unreadBy(mail map[string]*agentv1.Mail, now time.Time) map[string]bool {
+// getAgentsWithUnreadMail is the set of agents with mail waiting that has not expired by now.
+func getAgentsWithUnreadMail(mail map[string]*agentv1.Mail, now time.Time) map[string]bool {
 	unread := map[string]bool{}
 	for _, piece := range mail {
 		if dates.Parse(piece.GetExpiresAt()).After(now) {

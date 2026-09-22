@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"weave/db"
 	"weave/internal/logging"
+	notifystore "weave/internal/store/notify"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -73,10 +73,10 @@ func (b *Broker) connect(ctx context.Context) (*pgx.Conn, error) {
 	// it.
 	conn := pooled.Hijack()
 
-	if _, err := conn.Exec(ctx, "LISTEN "+db.WatchChannel); err != nil {
+	if err := notifystore.NewNotifyStore(conn).OpenWatchChannel(ctx); err != nil {
 		_ = conn.Close(ctx)
 
-		return nil, fmt.Errorf("failed to listen on %s: %w", db.WatchChannel, err)
+		return nil, err
 	}
 	b.up()
 
