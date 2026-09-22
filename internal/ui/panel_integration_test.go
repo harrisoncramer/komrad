@@ -15,6 +15,7 @@ import (
 	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
 	schedulev1 "weave/proto/gen/schedule/v1"
+	viewv1 "weave/proto/gen/view/v1"
 	watchv1 "weave/proto/gen/watch/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
 
@@ -35,21 +36,21 @@ func listedFromService(t *testing.T, m model) model {
 
 	ctx := t.Context()
 
-	agents, err := client.ListAllAgents(ctx, m.api.agents)
+	agents, err := m.api.agents.ListAgents(ctx, connect.NewRequest(&agentv1.ListAgentsRequest{View: viewv1.View_VIEW_FULL}))
 	require.NoError(t, err)
-	workflows, err := client.ListAllWorkflows(ctx, m.api.workflows)
+	workflows, err := m.api.workflows.ListWorkflows(ctx, connect.NewRequest(&workflowv1.ListWorkflowsRequest{View: viewv1.View_VIEW_FULL}))
 	require.NoError(t, err)
-	schedules, err := client.ListAllSchedules(ctx, m.api.schedules)
+	schedules, err := m.api.schedules.ListSchedules(ctx, connect.NewRequest(&schedulev1.ListSchedulesRequest{View: viewv1.View_VIEW_FULL}))
 	require.NoError(t, err)
 
 	events := slices.Concat(
-		xslice.Map(agents, func(agent *agentv1.Agent) *watchv1.WatchEvent {
+		xslice.Map(agents.Msg.GetAgents(), func(agent *agentv1.Agent) *watchv1.WatchEvent {
 			return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Agent{Agent: agent}}
 		}),
-		xslice.Map(workflows, func(workflow *workflowv1.Workflow) *watchv1.WatchEvent {
+		xslice.Map(workflows.Msg.GetWorkflows(), func(workflow *workflowv1.Workflow) *watchv1.WatchEvent {
 			return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Workflow{Workflow: workflow}}
 		}),
-		xslice.Map(schedules, func(schedule *schedulev1.Schedule) *watchv1.WatchEvent {
+		xslice.Map(schedules.Msg.GetSchedules(), func(schedule *schedulev1.Schedule) *watchv1.WatchEvent {
 			return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Schedule{Schedule: schedule}}
 		}),
 	)
