@@ -20,8 +20,6 @@ lint:
     - RPC_REQUEST_ENUM_DEFINED_ONLY
     - RPC_NAMED_TYPES_UNIQUE
     - RPC_DECLARES_SURFACES
-    - RESOURCE_NAMES_ITS_TABLE
-    - WATCH_ROW_PER_RESOURCE
     - SERVICE_ONE_PER_FILE
   except:
     # The watch is the one stream, held open by the panel and served by hand.
