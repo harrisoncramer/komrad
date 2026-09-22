@@ -7,6 +7,7 @@ import (
 	"weave/db"
 	"weave/internal/dbtest"
 	notifystore "weave/internal/store/notify"
+	workflowstore "weave/internal/store/workflow"
 	watchv1 "weave/proto/gen/watch/v1"
 
 	"github.com/google/uuid"
@@ -191,6 +192,9 @@ func TestALookupProjectionReachesItsParents(t *testing.T) {
 	subscription, err := l.broker.Subscribe(t.Context())
 	require.NoError(t, err)
 
+	stores.workflows.put(workflowstore.Workflow{ID: rows.workflow, Name: "flow"})
+	stores.agents.put(agentRow(rows.agent))
+
 	// workflow_configs holds no workflow id: its parent is the workflow whose
 	// workflow_config_id is this row's id.
 	l.exec(t, `UPDATE workflow_configs SET flags = '--model opus' WHERE id = $1`, rows.config)
@@ -219,6 +223,9 @@ func TestALookupProjectionSkipsAnArchivedParent(t *testing.T) {
 
 	subscription, err := l.broker.Subscribe(t.Context())
 	require.NoError(t, err)
+
+	stores.workflows.put(workflowstore.Workflow{ID: rows.workflow, Name: "flow"})
+	stores.agents.put(agentRow(rows.agent))
 
 	l.exec(t, `INSERT INTO pull_request_syncs (repository_url, updated_through) VALUES ($1, now())`, rows.repository)
 	// A write that reaches no parent raises nothing, so the workflow write is what proves the

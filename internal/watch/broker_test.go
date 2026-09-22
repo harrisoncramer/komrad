@@ -302,6 +302,7 @@ func TestHearReadsTheTableAndTheKey(t *testing.T) {
 	subscription, err := broker.Subscribe(t.Context())
 	require.NoError(t, err)
 
+	stores.agents.put(agentRow("a b"))
 	broker.hear("river_job 7")
 	broker.hear("agents")
 	broker.hear("agents a b")
