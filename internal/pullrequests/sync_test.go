@@ -1337,7 +1337,7 @@ func TestSyncMatchesARemoteSpelledWithCapitals(t *testing.T) {
 	require.NoError(t, f.syncer.Sync(ctx))
 
 	assert.True(t, f.getSyncOf(t, spelled.Canonical()).IsSwept())
-	listed, err := f.pullRequests.ListForAgent(t.Context(), agent)
+	listed, err := f.pullRequests.ListForAgents(t.Context(), []string{agent})
 	require.NoError(t, err)
 	assert.Len(t, listed, 1, "the agent's row shows the pull request from its branch")
 	seen, err := f.pullRequests.ListObservations(t.Context(), agent)

@@ -2947,7 +2947,7 @@ var File_agent_v1_agent_proto protoreflect.FileDescriptor
 
 const file_agent_v1_agent_proto_rawDesc = "" +
 	"\n" +
-	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x13agent/v1/mail.proto\x1a\x15agent/v1/review.proto\x1a\x19agent/v1/transcript.proto\x1a\x1cannotation/v1/resource.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a pullrequest/v1/pullrequest.proto\x1a\x14rules/v1/rules.proto\x1a\x12view/v1/view.proto\"\x81\x10\n" +
+	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x13agent/v1/mail.proto\x1a\x15agent/v1/review.proto\x1a\x19agent/v1/transcript.proto\x1a\x1cannotation/v1/resource.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a pullrequest/v1/pullrequest.proto\x1a\x14rules/v1/rules.proto\x1a\x12view/v1/view.proto\"\x82\x0f\n" +
 	"\x05Agent\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x10\n" +
@@ -2992,7 +2992,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\rtree_standing\x18) \x01(\x0e2\x1c.agent.v1.ReviewTreeStandingR\ftreeStanding\x12*\n" +
 	"\x11tree_standing_sha\x18* \x01(\tR\x0ftreeStandingSha\x12\x17\n" +
 	"\aheld_at\x18# \x01(\tR\x06heldAt\x12'\n" +
-	"\x0frepository_read\x18' \x01(\bR\x0erepositoryRead:\xc0\x03\xa2\xb5\x18\xbb\x03\n" +
+	"\x0frepository_read\x18' \x01(\bR\x0erepositoryRead:\xc1\x02\xa2\xb5\x18\xbc\x02\n" +
 	"\x06agents\x1a\n" +
 	"updated_at\x1a\rstate_seen_at\x1a\tnudged_at\x1a\rnudge_sent_at\"&\n" +
 	"\x0eagent_metadata\x12\bagent_id2\n" +
@@ -3001,11 +3001,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"agent_runs\x12\bagent_id\"\x1f\n" +
 	"\areviews\x12\bagent_id2\n" +
 	"updated_at\"\x19\n" +
-	"\rreview_rounds\x12\bagent_id\"\x11\n" +
-	"\x05marks\x12\bagent_id\"\x1f\n" +
-	"\x04mail\x12\vto_agent_id2\n" +
-	"updated_at\"I\n" +
-	"\rpull_requests\x1a\x06branch\"\vhead_branch*\x13archived_at IS NULL2\x0echecks_read_at\"\x80\x01\n" +
+	"\rreview_rounds\x12\bagent_id\"\x80\x01\n" +
 	"\x12pull_request_syncs\x1a\x0erepository_url\"\x0erepository_url*\x13archived_at IS NULL2\aread_at2\x05calls2\tlisted_at2\fsweep_cursor2\fsweep_newestB\x0e\n" +
 	"\f_archived_atB\x0e\n" +
 	"\f_schedule_idB\b\n" +

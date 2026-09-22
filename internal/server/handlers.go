@@ -130,11 +130,7 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 		}, options...))
 	mux.Handle(pullrequestv1connect.NewPullRequestServiceHandler(
 		pullrequestv1weave.PullRequestServiceAdapter{
-			Impl: rpcpullrequest.NewHandler(rpcpullrequest.NewHandlerParams{
-				Agents:           params.Stores.agents,
-				PullRequests:     params.Stores.pullRequests,
-				PullRequestSyncs: params.Stores.pullRequestSyncs,
-			}),
+			Impl: rpcpullrequest.NewHandler(rpcpullrequest.NewHandlerParams{PullRequests: params.Stores.pullRequests}),
 		}, options...))
 	mux.Handle(worktreev1connect.NewWorktreeServiceHandler(
 		worktreev1weave.WorktreeServiceAdapter{

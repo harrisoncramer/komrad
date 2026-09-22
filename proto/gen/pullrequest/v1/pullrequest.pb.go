@@ -656,234 +656,6 @@ func (x *ListPullRequestsResponse) GetNextPageToken() string {
 	return ""
 }
 
-type ListAgentPullRequestsRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Which agent's branch to list the pull requests of.
-	AgentId       string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ListAgentPullRequestsRequest) Reset() {
-	*x = ListAgentPullRequestsRequest{}
-	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[3]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ListAgentPullRequestsRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ListAgentPullRequestsRequest) ProtoMessage() {}
-
-func (x *ListAgentPullRequestsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[3]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ListAgentPullRequestsRequest.ProtoReflect.Descriptor instead.
-func (*ListAgentPullRequestsRequest) Descriptor() ([]byte, []int) {
-	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{3}
-}
-
-func (x *ListAgentPullRequestsRequest) GetAgentId() string {
-	if x != nil {
-		return x.AgentId
-	}
-	return ""
-}
-
-type AgentPullRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// The number the forge shows a person, which is per repository.
-	Number int32 `protobuf:"varint,1,opt,name=number,proto3" json:"number,omitempty"`
-	// The web address a person opens.
-	Url string `protobuf:"bytes,2,opt,name=url,proto3" json:"url,omitempty"`
-	// The title as the forge has it.
-	Title string `protobuf:"bytes,3,opt,name=title,proto3" json:"title,omitempty"`
-	// Where it stands, decided from the stored row.
-	State PullRequestState `protobuf:"varint,4,opt,name=state,proto3,enum=pullrequest.v1.PullRequestState" json:"state,omitempty"`
-	// Where the checks on its head stand.
-	Checks Checks `protobuf:"varint,9,opt,name=checks,proto3,enum=pullrequest.v1.Checks" json:"checks,omitempty"`
-	// Where the forge says it stands against its base and rules.
-	Mergeability Mergeability `protobuf:"varint,10,opt,name=mergeability,proto3,enum=pullrequest.v1.Mergeability" json:"mergeability,omitempty"`
-	// Whether this is the one the agent's row stands for: the newest opened that is not finished,
-	// else the newest opened of the finished.
-	Current bool `protobuf:"varint,5,opt,name=current,proto3" json:"current,omitempty"`
-	// When it was opened on the forge, in RFC 3339.
-	OpenedAt string `protobuf:"bytes,6,opt,name=opened_at,json=openedAt,proto3" json:"opened_at,omitempty"`
-	// When it merged, in RFC 3339, unset while it has not.
-	MergedAt *string `protobuf:"bytes,7,opt,name=merged_at,json=mergedAt,proto3,oneof" json:"merged_at,omitempty"`
-	// When it closed, in RFC 3339, unset while it is open; a merged one carries this too.
-	ClosedAt      *string `protobuf:"bytes,8,opt,name=closed_at,json=closedAt,proto3,oneof" json:"closed_at,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *AgentPullRequest) Reset() {
-	*x = AgentPullRequest{}
-	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[4]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *AgentPullRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*AgentPullRequest) ProtoMessage() {}
-
-func (x *AgentPullRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[4]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use AgentPullRequest.ProtoReflect.Descriptor instead.
-func (*AgentPullRequest) Descriptor() ([]byte, []int) {
-	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{4}
-}
-
-func (x *AgentPullRequest) GetNumber() int32 {
-	if x != nil {
-		return x.Number
-	}
-	return 0
-}
-
-func (x *AgentPullRequest) GetUrl() string {
-	if x != nil {
-		return x.Url
-	}
-	return ""
-}
-
-func (x *AgentPullRequest) GetTitle() string {
-	if x != nil {
-		return x.Title
-	}
-	return ""
-}
-
-func (x *AgentPullRequest) GetState() PullRequestState {
-	if x != nil {
-		return x.State
-	}
-	return PullRequestState_PULL_REQUEST_STATE_UNSPECIFIED
-}
-
-func (x *AgentPullRequest) GetChecks() Checks {
-	if x != nil {
-		return x.Checks
-	}
-	return Checks_CHECKS_UNSPECIFIED
-}
-
-func (x *AgentPullRequest) GetMergeability() Mergeability {
-	if x != nil {
-		return x.Mergeability
-	}
-	return Mergeability_MERGEABILITY_UNSPECIFIED
-}
-
-func (x *AgentPullRequest) GetCurrent() bool {
-	if x != nil {
-		return x.Current
-	}
-	return false
-}
-
-func (x *AgentPullRequest) GetOpenedAt() string {
-	if x != nil {
-		return x.OpenedAt
-	}
-	return ""
-}
-
-func (x *AgentPullRequest) GetMergedAt() string {
-	if x != nil && x.MergedAt != nil {
-		return *x.MergedAt
-	}
-	return ""
-}
-
-func (x *AgentPullRequest) GetClosedAt() string {
-	if x != nil && x.ClosedAt != nil {
-		return *x.ClosedAt
-	}
-	return ""
-}
-
-type ListAgentPullRequestsResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Every pull request opened from the agent's branch in its repository, newest opened first,
-	// read from what the sync has stored rather than from the forge.
-	PullRequests []*AgentPullRequest `protobuf:"bytes,1,rep,name=pull_requests,json=pullRequests,proto3" json:"pull_requests,omitempty"`
-	// When the sync last made a request for the repository, in RFC 3339, unset until its first
-	// sweep has completed.
-	RepositoryReadAt *string `protobuf:"bytes,2,opt,name=repository_read_at,json=repositoryReadAt,proto3,oneof" json:"repository_read_at,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
-}
-
-func (x *ListAgentPullRequestsResponse) Reset() {
-	*x = ListAgentPullRequestsResponse{}
-	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[5]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ListAgentPullRequestsResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ListAgentPullRequestsResponse) ProtoMessage() {}
-
-func (x *ListAgentPullRequestsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[5]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ListAgentPullRequestsResponse.ProtoReflect.Descriptor instead.
-func (*ListAgentPullRequestsResponse) Descriptor() ([]byte, []int) {
-	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{5}
-}
-
-func (x *ListAgentPullRequestsResponse) GetPullRequests() []*AgentPullRequest {
-	if x != nil {
-		return x.PullRequests
-	}
-	return nil
-}
-
-func (x *ListAgentPullRequestsResponse) GetRepositoryReadAt() string {
-	if x != nil && x.RepositoryReadAt != nil {
-		return *x.RepositoryReadAt
-	}
-	return ""
-}
-
 var File_pullrequest_v1_pullrequest_proto protoreflect.FileDescriptor
 
 const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
@@ -933,29 +705,7 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\x18ListPullRequestsResponse\x12@\n" +
 	"\rpull_requests\x18\x01 \x03(\v2\x1b.pullrequest.v1.PullRequestR\fpullRequests\x12+\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +
-	"\x10_next_page_token\"B\n" +
-	"\x1cListAgentPullRequestsRequest\x12\"\n" +
-	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"\x93\x03\n" +
-	"\x10AgentPullRequest\x12\x16\n" +
-	"\x06number\x18\x01 \x01(\x05R\x06number\x12\x10\n" +
-	"\x03url\x18\x02 \x01(\tR\x03url\x12\x14\n" +
-	"\x05title\x18\x03 \x01(\tR\x05title\x126\n" +
-	"\x05state\x18\x04 \x01(\x0e2 .pullrequest.v1.PullRequestStateR\x05state\x12.\n" +
-	"\x06checks\x18\t \x01(\x0e2\x16.pullrequest.v1.ChecksR\x06checks\x12@\n" +
-	"\fmergeability\x18\n" +
-	" \x01(\x0e2\x1c.pullrequest.v1.MergeabilityR\fmergeability\x12\x18\n" +
-	"\acurrent\x18\x05 \x01(\bR\acurrent\x12\x1b\n" +
-	"\topened_at\x18\x06 \x01(\tR\bopenedAt\x12 \n" +
-	"\tmerged_at\x18\a \x01(\tH\x00R\bmergedAt\x88\x01\x01\x12 \n" +
-	"\tclosed_at\x18\b \x01(\tH\x01R\bclosedAt\x88\x01\x01B\f\n" +
-	"\n" +
-	"_merged_atB\f\n" +
-	"\n" +
-	"_closed_at\"\xb0\x01\n" +
-	"\x1dListAgentPullRequestsResponse\x12E\n" +
-	"\rpull_requests\x18\x01 \x03(\v2 .pullrequest.v1.AgentPullRequestR\fpullRequests\x121\n" +
-	"\x12repository_read_at\x18\x02 \x01(\tH\x00R\x10repositoryReadAt\x88\x01\x01B\x15\n" +
-	"\x13_repository_read_at*\xa3\x03\n" +
+	"\x10_next_page_token*\xa3\x03\n" +
 	"\x10PullRequestState\x12\"\n" +
 	"\x1ePULL_REQUEST_STATE_UNSPECIFIED\x10\x00\x12\x1d\n" +
 	"\x19PULL_REQUEST_STATE_UNREAD\x10\x01\x12\x1b\n" +
@@ -989,10 +739,9 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\vCHECKS_NONE\x10\x01\x12\x12\n" +
 	"\x0eCHECKS_PENDING\x10\x02\x12\x12\n" +
 	"\x0eCHECKS_PASSING\x10\x03\x12\x12\n" +
-	"\x0eCHECKS_FAILING\x10\x042\x8e\f\n" +
+	"\x0eCHECKS_FAILING\x10\x042\xd8\x06\n" +
 	"\x12PullRequestService\x12\xc1\x06\n" +
-	"\x10ListPullRequests\x12'.pullrequest.v1.ListPullRequestsRequest\x1a(.pullrequest.v1.ListPullRequestsResponse\"\xd9\x05\x9a\xb5\x18\xd1\x05\b\x01\x10\x01\x1a\x12list_pull_requests\"\xb6\x05List the pull requests weave has stored for a repository, a page at a time: every one opened from a branch when one is named, whatever its state, or every one stored for the repository when none is. The unfinished ones come first and each group is newest opened first, so the first answered for a branch is the one an agent's row on that branch stands for. Give the repository as a git remote spells it or as its canonical address, and pass the next_page_token back as pagination.cursor for the next page. This reads what the pull request sync has stored rather than asking the forge, so a repository no live agent sits on may be behind or empty; list_forge_pull_requests asks the forge itself.\x90\x02\x01\x12\xb3\x05\n" +
-	"\x15ListAgentPullRequests\x12,.pullrequest.v1.ListAgentPullRequestsRequest\x1a-.pullrequest.v1.ListAgentPullRequestsResponse\"\xbc\x04\x9a\xb5\x18\xb4\x04\b\x01\x10\x01\x1a\x18list_agent_pull_requests\"\x93\x04List the pull requests opened from an agent's branch in its repository, newest opened first, each with where it stands: open, approved, changes requested, draft, merged or closed. The one marked current is what the agent's row in the panel shows. This reads what the pull request sync has stored rather than asking the forge, so repository_read_at says how fresh it is, and an unset repository_read_at means the repository's first sweep has not completed. An agent whose checkout is not on a forge repository answers an empty list.\x90\x02\x01B.Z,weave/proto/gen/pullrequest/v1;pullrequestv1b\x06proto3"
+	"\x10ListPullRequests\x12'.pullrequest.v1.ListPullRequestsRequest\x1a(.pullrequest.v1.ListPullRequestsResponse\"\xd9\x05\x9a\xb5\x18\xd1\x05\b\x01\x10\x01\x1a\x12list_pull_requests\"\xb6\x05List the pull requests weave has stored for a repository, a page at a time: every one opened from a branch when one is named, whatever its state, or every one stored for the repository when none is. The unfinished ones come first and each group is newest opened first, so the first answered for a branch is the one an agent's row on that branch stands for. Give the repository as a git remote spells it or as its canonical address, and pass the next_page_token back as pagination.cursor for the next page. This reads what the pull request sync has stored rather than asking the forge, so a repository no live agent sits on may be behind or empty; list_forge_pull_requests asks the forge itself.\x90\x02\x01B.Z,weave/proto/gen/pullrequest/v1;pullrequestv1b\x06proto3"
 
 var (
 	file_pullrequest_v1_pullrequest_proto_rawDescOnce sync.Once
@@ -1007,40 +756,31 @@ func file_pullrequest_v1_pullrequest_proto_rawDescGZIP() []byte {
 }
 
 var file_pullrequest_v1_pullrequest_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_pullrequest_v1_pullrequest_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_pullrequest_v1_pullrequest_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_pullrequest_v1_pullrequest_proto_goTypes = []any{
-	(PullRequestState)(0),                 // 0: pullrequest.v1.PullRequestState
-	(Mergeability)(0),                     // 1: pullrequest.v1.Mergeability
-	(ReviewDecision)(0),                   // 2: pullrequest.v1.ReviewDecision
-	(Checks)(0),                           // 3: pullrequest.v1.Checks
-	(*ListPullRequestsRequest)(nil),       // 4: pullrequest.v1.ListPullRequestsRequest
-	(*PullRequest)(nil),                   // 5: pullrequest.v1.PullRequest
-	(*ListPullRequestsResponse)(nil),      // 6: pullrequest.v1.ListPullRequestsResponse
-	(*ListAgentPullRequestsRequest)(nil),  // 7: pullrequest.v1.ListAgentPullRequestsRequest
-	(*AgentPullRequest)(nil),              // 8: pullrequest.v1.AgentPullRequest
-	(*ListAgentPullRequestsResponse)(nil), // 9: pullrequest.v1.ListAgentPullRequestsResponse
-	(*v1.Pagination)(nil),                 // 10: pagination.v1.Pagination
+	(PullRequestState)(0),            // 0: pullrequest.v1.PullRequestState
+	(Mergeability)(0),                // 1: pullrequest.v1.Mergeability
+	(ReviewDecision)(0),              // 2: pullrequest.v1.ReviewDecision
+	(Checks)(0),                      // 3: pullrequest.v1.Checks
+	(*ListPullRequestsRequest)(nil),  // 4: pullrequest.v1.ListPullRequestsRequest
+	(*PullRequest)(nil),              // 5: pullrequest.v1.PullRequest
+	(*ListPullRequestsResponse)(nil), // 6: pullrequest.v1.ListPullRequestsResponse
+	(*v1.Pagination)(nil),            // 7: pagination.v1.Pagination
 }
 var file_pullrequest_v1_pullrequest_proto_depIdxs = []int32{
-	10, // 0: pullrequest.v1.ListPullRequestsRequest.pagination:type_name -> pagination.v1.Pagination
-	0,  // 1: pullrequest.v1.PullRequest.state:type_name -> pullrequest.v1.PullRequestState
-	2,  // 2: pullrequest.v1.PullRequest.review_decision:type_name -> pullrequest.v1.ReviewDecision
-	3,  // 3: pullrequest.v1.PullRequest.checks:type_name -> pullrequest.v1.Checks
-	1,  // 4: pullrequest.v1.PullRequest.mergeability:type_name -> pullrequest.v1.Mergeability
-	5,  // 5: pullrequest.v1.ListPullRequestsResponse.pull_requests:type_name -> pullrequest.v1.PullRequest
-	0,  // 6: pullrequest.v1.AgentPullRequest.state:type_name -> pullrequest.v1.PullRequestState
-	3,  // 7: pullrequest.v1.AgentPullRequest.checks:type_name -> pullrequest.v1.Checks
-	1,  // 8: pullrequest.v1.AgentPullRequest.mergeability:type_name -> pullrequest.v1.Mergeability
-	8,  // 9: pullrequest.v1.ListAgentPullRequestsResponse.pull_requests:type_name -> pullrequest.v1.AgentPullRequest
-	4,  // 10: pullrequest.v1.PullRequestService.ListPullRequests:input_type -> pullrequest.v1.ListPullRequestsRequest
-	7,  // 11: pullrequest.v1.PullRequestService.ListAgentPullRequests:input_type -> pullrequest.v1.ListAgentPullRequestsRequest
-	6,  // 12: pullrequest.v1.PullRequestService.ListPullRequests:output_type -> pullrequest.v1.ListPullRequestsResponse
-	9,  // 13: pullrequest.v1.PullRequestService.ListAgentPullRequests:output_type -> pullrequest.v1.ListAgentPullRequestsResponse
-	12, // [12:14] is the sub-list for method output_type
-	10, // [10:12] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	7, // 0: pullrequest.v1.ListPullRequestsRequest.pagination:type_name -> pagination.v1.Pagination
+	0, // 1: pullrequest.v1.PullRequest.state:type_name -> pullrequest.v1.PullRequestState
+	2, // 2: pullrequest.v1.PullRequest.review_decision:type_name -> pullrequest.v1.ReviewDecision
+	3, // 3: pullrequest.v1.PullRequest.checks:type_name -> pullrequest.v1.Checks
+	1, // 4: pullrequest.v1.PullRequest.mergeability:type_name -> pullrequest.v1.Mergeability
+	5, // 5: pullrequest.v1.ListPullRequestsResponse.pull_requests:type_name -> pullrequest.v1.PullRequest
+	4, // 6: pullrequest.v1.PullRequestService.ListPullRequests:input_type -> pullrequest.v1.ListPullRequestsRequest
+	6, // 7: pullrequest.v1.PullRequestService.ListPullRequests:output_type -> pullrequest.v1.ListPullRequestsResponse
+	7, // [7:8] is the sub-list for method output_type
+	6, // [6:7] is the sub-list for method input_type
+	6, // [6:6] is the sub-list for extension type_name
+	6, // [6:6] is the sub-list for extension extendee
+	0, // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_pullrequest_v1_pullrequest_proto_init() }
@@ -1051,15 +791,13 @@ func file_pullrequest_v1_pullrequest_proto_init() {
 	file_pullrequest_v1_pullrequest_proto_msgTypes[0].OneofWrappers = []any{}
 	file_pullrequest_v1_pullrequest_proto_msgTypes[1].OneofWrappers = []any{}
 	file_pullrequest_v1_pullrequest_proto_msgTypes[2].OneofWrappers = []any{}
-	file_pullrequest_v1_pullrequest_proto_msgTypes[4].OneofWrappers = []any{}
-	file_pullrequest_v1_pullrequest_proto_msgTypes[5].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pullrequest_v1_pullrequest_proto_rawDesc), len(file_pullrequest_v1_pullrequest_proto_rawDesc)),
 			NumEnums:      4,
-			NumMessages:   6,
+			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

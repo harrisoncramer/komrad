@@ -32,10 +32,6 @@ message Workflow {
       {
         table: "workflow_hooks"
         column: "workflow_id"
-      },
-      {
-        table: "marks"
-        column: "workflow_id"
       }
     ]
   };

@@ -370,23 +370,6 @@ SET
 WHERE
     id = @id;
 
--- name: ListAgentBranchPullRequests :many
-SELECT
-    p.*
-FROM
-    agents a
-    JOIN pull_requests p ON p.repository_url = a.repository_url
-        AND p.head_repository_url = a.repository_url
-        AND p.head_branch = a.branch
-    JOIN workflows w ON w.id = a.workflow_id
-    LEFT JOIN workflow_provisioner_configs c ON c.id = w.provisioner_config_id
-WHERE
-    a.id = @agent_id
-    AND (c.worktree_base_branch IS NULL
-        OR a.branch <> c.worktree_base_branch)
-ORDER BY
-    p.opened_at DESC;
-
 -- name: ListPullRequestsOfAgents :many
 SELECT
     p.*
