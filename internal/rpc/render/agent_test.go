@@ -2,12 +2,65 @@ package render
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
 	agentstore "weave/internal/store/agent"
+	rowstore "weave/internal/store/row"
+	"weave/lib/xptr"
 	agentv1 "weave/proto/gen/agent/v1"
 )
+
+// TestAgentCarriesWhatTheSyncersWrite covers the branch and the worktree removal flag, which a
+// client cannot draw if the response never carries them.
+func TestAgentCarriesWhatTheSyncersWrite(t *testing.T) {
+	t.Parallel()
+
+	rendered := Agent(rowOf(agentstore.Agent{
+		ID:              "a1",
+		Name:            "worker",
+		Branch:          xptr.Ptr("fix/thing"),
+		WorktreeRemoved: true,
+	}), AgentOptions{})
+
+	assert.Equal(t, "fix/thing", rendered.GetBranch())
+	assert.True(t, rendered.GetWorktreeRemoved())
+}
+
+// TestAgentLeavesAPresentWorktreeAlone covers the other side of the flag: an agent whose cwd
+// the syncer still finds is rendered without it.
+func TestAgentLeavesAPresentWorktreeAlone(t *testing.T) {
+	t.Parallel()
+
+	rendered := Agent(rowOf(agentstore.Agent{ID: "a2", Name: "reviewer"}), AgentOptions{})
+
+	assert.False(t, rendered.GetWorktreeRemoved())
+}
+
+// TestAgentCarriesTheStateChange pins the timestamp the panel counts a span from, which is
+// written nowhere but this response.
+func TestAgentCarriesTheStateChange(t *testing.T) {
+	t.Parallel()
+
+	changed := time.Date(2026, time.September, 1, 9, 9, 0, 0, time.UTC)
+	rendered := Agent(rowOf(agentstore.Agent{ID: "a1", StateChangedAt: changed}), AgentOptions{})
+
+	assert.Equal(t, changed.Format(time.RFC3339), rendered.GetStateChangedAt())
+}
+
+// TestAgentWithoutAStateChange covers an agent that has never been given one, which sends
+// nothing rather than a formatted zero time.
+func TestAgentWithoutAStateChange(t *testing.T) {
+	t.Parallel()
+
+	assert.Empty(t, Agent(rowOf(agentstore.Agent{ID: "a2"}), AgentOptions{}).GetStateChangedAt())
+}
+
+// rowOf is an agent's row with nothing beside it.
+func rowOf(stored agentstore.Agent) rowstore.Row {
+	return rowstore.Row{Agent: stored}
+}
 
 // TestAgentStateOf checks every stored state lands on its own wire value.
 func TestAgentStateOf(t *testing.T) {

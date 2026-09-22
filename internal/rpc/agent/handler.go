@@ -273,7 +273,7 @@ func (s *Handler) ListAgents(ctx context.Context, req *agentv1.ListAgentsRequest
 		return nil, rpcerr.From(err, "failed to list agents")
 	}
 
-	resources, failure := s.assembleRows(ctx, rows, agentViewOptions(req.GetView())...)
+	resources, failure := s.assembleRows(ctx, rows, agentViewOptions(req.GetView()))
 	if failure != nil {
 		return nil, failure
 	}
@@ -296,7 +296,7 @@ func (s *Handler) renderOneAgent(ctx context.Context, id string) (*agentv1.Agent
 		return nil, rpcerr.From(err, "failed to get agent")
 	}
 
-	return renderAgent(*row), nil
+	return render.Agent(*row, render.AgentOptions{}), nil
 }
 
 // GetAgent returns one agent by id, archived or not, assembled with what is drawn beside it.
@@ -306,7 +306,7 @@ func (s *Handler) GetAgent(ctx context.Context, req *agentv1.GetAgentRequest) (*
 		return nil, rpcerr.From(err, "failed to get agent")
 	}
 
-	resources, failure := s.assembleRows(ctx, []rowstore.Row{*row})
+	resources, failure := s.assembleRows(ctx, []rowstore.Row{*row}, render.AgentOptions{})
 	if failure != nil {
 		return nil, failure
 	}
@@ -490,7 +490,7 @@ func (s *Handler) RestoreAgents(ctx context.Context, req *agentv1.RestoreAgentsR
 	}
 
 	return &agentv1.RestoreAgentsResponse{
-		Agents: xslice.Map(rows, func(row rowstore.Row) *agentv1.Agent { return renderAgent(row) }),
+		Agents: xslice.Map(rows, func(row rowstore.Row) *agentv1.Agent { return render.Agent(row, render.AgentOptions{}) }),
 	}, nil
 }
 

@@ -45,8 +45,8 @@ func (r agentRow) Cursor() (agentstore.Cursor, error) {
 // assembleRows draws the rows of a page of agents: the agents themselves and, read beside
 // them, every mark, the unclaimed mail to them, the pull requests on their branches and their
 // workflows, joined by the assembler.
-func (s *Handler) assembleRows(ctx context.Context, rows []rowstore.Row, opts ...agentOption) ([]agentRow, *fail.Error) {
-	world, failure := s.world(ctx, rows, opts...)
+func (s *Handler) assembleRows(ctx context.Context, rows []rowstore.Row, options render.AgentOptions) ([]agentRow, *fail.Error) {
+	world, failure := s.world(ctx, rows, options)
 	if failure != nil {
 		return nil, failure
 	}
@@ -56,7 +56,7 @@ func (s *Handler) assembleRows(ctx context.Context, rows []rowstore.Row, opts ..
 	}), nil
 }
 
-func (s *Handler) world(ctx context.Context, rows []rowstore.Row, opts ...agentOption) (assemble.World, *fail.Error) {
+func (s *Handler) world(ctx context.Context, rows []rowstore.Row, options render.AgentOptions) (assemble.World, *fail.Error) {
 	agentIDs := xslice.Map(rows, func(row rowstore.Row) string { return row.ID })
 	workflowIDs := xslice.Map(rows, func(row rowstore.Row) string { return row.WorkflowID })
 
@@ -80,7 +80,7 @@ func (s *Handler) world(ctx context.Context, rows []rowstore.Row, opts ...agentO
 		return assemble.World{}, rpcerr.From(err, "failed to list the workflows")
 	}
 
-	agents := xslice.Map(rows, func(row rowstore.Row) *agentv1.Agent { return renderAgent(row, opts...) })
+	agents := xslice.Map(rows, func(row rowstore.Row) *agentv1.Agent { return render.Agent(row, options) })
 
 	return assemble.World{
 		Agents: xslice.KeyBy(agents, func(a *agentv1.Agent) string { return a.GetId() }),
