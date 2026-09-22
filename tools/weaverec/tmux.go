@@ -190,12 +190,12 @@ func (i *instance) sendKeys(ctx context.Context, keys ...string) error {
 		return err
 	}
 
-	client := i.windows[0].client
+	current := i.windows[0]
 
 	for _, key := range keys {
-		args := []string{"send-keys", "-t", client, key}
+		args := []string{"send-keys", "-t", current.session, key}
 		if bound[key] {
-			args = []string{"send-keys", "-K", "-c", client, key}
+			args = []string{"send-keys", "-K", "-c", current.client, key}
 		}
 
 		if _, err := i.inner.run(ctx, args...); err != nil {
@@ -211,7 +211,7 @@ func (i *instance) typeText(ctx context.Context, text string) error {
 		return err
 	}
 
-	_, err := i.inner.run(ctx, "send-keys", "-t", i.windows[0].client, "-l", text)
+	_, err := i.inner.run(ctx, "send-keys", "-t", i.windows[0].session, "-l", text)
 
 	return err
 }
