@@ -6,6 +6,7 @@ import (
 
 	"weave/internal/errui"
 	"weave/internal/ui/paint/label"
+	"weave/internal/ui/panel"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -22,25 +23,25 @@ const worktreeRowsShown = 10
 // what stands is stale.
 func (m *model) inspectAgentWorktreeCmd(now time.Time) tea.Cmd {
 	item, ok := m.hoveredRecordAgent()
-	if !ok || item.agent.Cwd == "" {
+	if !ok || item.Agent.Cwd == "" {
 		return nil
 	}
-	if read, asked := m.inspections[item.agent.Cwd]; asked && !read.isStale(now) {
+	if read, asked := m.inspections[item.Agent.Cwd]; asked && !read.isStale(now) {
 		return nil
 	}
 
-	return m.readWorktreeCmd(item.agent.Cwd)
+	return m.readWorktreeCmd(item.Agent.Cwd)
 }
 
 // rereadAgentWorktreeCmd asks for the hovered agent's directory again however fresh what stands
 // for it is, short of an answer that will never change.
 func (m *model) rereadAgentWorktreeCmd() tea.Cmd {
 	item, ok := m.hoveredRecordAgent()
-	if !ok || item.agent.Cwd == "" || m.inspections[item.agent.Cwd].isSettled() {
+	if !ok || item.Agent.Cwd == "" || m.inspections[item.Agent.Cwd].isSettled() {
 		return nil
 	}
 
-	return m.readWorktreeCmd(item.agent.Cwd)
+	return m.readWorktreeCmd(item.Agent.Cwd)
 }
 
 // agentWorktree is what has been read of an agent's directory, and nothing for one that is not
@@ -123,4 +124,24 @@ func cutRows(lines []string, shown int) []string {
 	}
 
 	return append(lines[:shown:shown], fmt.Sprintf("+ %d more", len(lines)-shown))
+}
+
+// hoveredRecordAgent is the agent the record under the agents list or the archive is about, and
+// none on any other screen or row.
+func (m model) hoveredRecordAgent() (panel.AgentRow, bool) {
+	var row agentRow
+	var ok bool
+	switch m.screen {
+	case screenAgents:
+		row, ok = m.agents.hoveredRow(m.shared())
+	case screenArchive:
+		row, ok = rowAt(m.archive.listRows(m.shared()), m.archive.cursor)
+	case screenSchedules, screenSearch, screenReview, screenWorktrees:
+		return panel.AgentRow{}, false
+	}
+	if !ok || row.header {
+		return panel.AgentRow{}, false
+	}
+
+	return row.item, true
 }

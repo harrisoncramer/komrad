@@ -324,7 +324,7 @@ func TestReviewOfADeadAgentIsReadOnly(t *testing.T) {
 			// An archived agent is on no listing at all, where a dormant one is listed and not alive.
 			m.listing.agents = nil
 			if tt.want == "this agent is dormant" {
-				m.listing.agents = []agentItem{{agent: panel.Agent{ID: "a1"}, alive: tt.alive}}
+				m.listing.agents = []panel.AgentRow{{Agent: panel.Agent{ID: "a1"}, Alive: tt.alive}}
 			}
 
 			shown := ansi.Strip(m.review.view(m.shared()))

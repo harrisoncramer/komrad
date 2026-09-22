@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"time"
 
 	"weave/internal/client"
 	"weave/internal/logging"
@@ -34,57 +35,28 @@ func watchRows(ctx context.Context, watches watchv1connect.WatchServiceClient, p
 	})
 }
 
-// applyWatch takes a batch off the stream: a snapshot replaces the three listings, and every
-// other event replaces or drops the row it names.
+// applyWatch takes a batch off the stream into the world, a snapshot replacing it whole, and
+// draws the listing from it again.
 func (m *model) applyWatch(batch client.WatchBatch) tea.Cmd {
-	return m.withListing(func(l *listing) {
+	var arrived []string
+	listed := m.withListing(func(l *listing) {
 		for _, event := range batch.Events {
 			if _, snapshot := event.GetEvent().(*watchv1.WatchEvent_Snapshot); snapshot {
 				m.reportUnreachable(nil)
 			}
 
-			l.apply(event)
+			arrived = append(arrived, l.world.Apply(event)...)
 		}
+
+		l.assemble(time.Now())
 	})
+
+	return tea.Batch(listed, m.listArrivedPullRequestsCmd(arrived))
 }
 
-func (l *listing) apply(event *watchv1.WatchEvent) {
-	switch row := event.GetEvent().(type) {
-	case *watchv1.WatchEvent_Snapshot:
-		l.agents, l.workflows, l.schedules, l.marks = nil, nil, nil, nil
-		for _, row := range row.Snapshot.GetRows() {
-			l.put(row)
-		}
-	case *watchv1.WatchEvent_Put:
-		l.put(row.Put)
-	case *watchv1.WatchEvent_Deleted:
-		switch row.Deleted.GetResource() {
-		case watchv1.Resource_RESOURCE_AGENT:
-			l.dropAgent(row.Deleted.GetKey())
-		case watchv1.Resource_RESOURCE_WORKFLOW:
-			l.dropWorkflow(row.Deleted.GetKey())
-		case watchv1.Resource_RESOURCE_SCHEDULE:
-			l.dropSchedule(row.Deleted.GetKey())
-		case watchv1.Resource_RESOURCE_UNSPECIFIED,
-			watchv1.Resource_RESOURCE_MARK,
-			watchv1.Resource_RESOURCE_MAIL,
-			watchv1.Resource_RESOURCE_PULL_REQUEST:
-		}
-	case *watchv1.WatchEvent_Heartbeat, nil:
-	}
-}
-
-// put replaces the row of whichever listing the row is on.
-func (l *listing) put(row *watchv1.Row) {
-	switch row := row.GetRow().(type) {
-	case *watchv1.Row_Agent:
-		l.putAgent(row.Agent)
-	case *watchv1.Row_Workflow:
-		l.putWorkflow(row.Workflow)
-	case *watchv1.Row_Schedule:
-		l.putSchedule(row.Schedule)
-	case *watchv1.Row_Mark, *watchv1.Row_Mail, *watchv1.Row_PullRequest, nil:
-	}
+// put is the event that carries one row.
+func put(row *watchv1.Row) *watchv1.WatchEvent {
+	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Put{Put: row}}
 }
 
 // applyWatchLost says the server is gone until the next stream's snapshot says otherwise.

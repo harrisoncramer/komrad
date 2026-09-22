@@ -10,6 +10,7 @@ import (
 	"weave/internal/ui/diffview"
 	"weave/internal/ui/paint"
 	"weave/internal/ui/paint/label"
+	"weave/internal/ui/panel"
 	agentv1 "weave/proto/gen/agent/v1"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -351,13 +352,13 @@ func (t reviewThreads) sendDesc() string {
 
 // details is the record drawn under the review sidebar.
 func (r reviewScreen) details(s panelShared) details {
-	index := slices.IndexFunc(s.listing.agents, func(item agentItem) bool { return item.agent.ID == r.agentID })
+	index := slices.IndexFunc(s.listing.agents, func(item panel.AgentRow) bool { return item.Agent.ID == r.agentID })
 	if index < 0 {
 		return details{}
 	}
 
 	item := s.listing.agents[index]
-	agent := item.agent
+	agent := item.Agent
 	fields := agentDetailFields(s, item)
 
 	// The notices read the row the list would draw, and which columns that row fills depends on

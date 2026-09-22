@@ -62,7 +62,7 @@ func (m model) logTarget() (panel.Agent, bool) {
 		return panel.Agent{}, false
 	}
 
-	return item.agent, true
+	return item.Agent, true
 }
 
 func (m model) cycleLogs() model {
@@ -178,8 +178,8 @@ func (m model) runAt(agentID string, number *int32) int {
 // carrying no mark.
 func (m model) failedRunLog(agentID string) *int32 {
 	for _, item := range m.listing.agents {
-		if item.agent.ID == agentID {
-			return item.failedRunLog
+		if item.Agent.ID == agentID {
+			return item.FailedRunLog
 		}
 	}
 

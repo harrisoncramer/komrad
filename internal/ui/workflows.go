@@ -163,8 +163,8 @@ func archiveWorkflowConfirm(h host, workflow panel.Workflow) tea.Cmd {
 func (l listing) agentsOf(workflowID string) []panel.Agent {
 	var held []panel.Agent
 	for _, item := range l.agents {
-		if item.agent.WorkflowID == workflowID {
-			held = append(held, item.agent)
+		if item.Agent.WorkflowID == workflowID {
+			held = append(held, item.Agent)
 		}
 	}
 

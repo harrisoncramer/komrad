@@ -26,18 +26,18 @@ func checkoutWorkflow() panel.Workflow {
 }
 
 // snapshotOne reads one agent row and hands back the single row it made.
-func snapshotOne(t *testing.T, item agentItem) view.Row {
+func snapshotOne(t *testing.T, item panel.AgentRow) view.Row {
 	t.Helper()
 
 	return snapshotRowOf(t, snapshotParams{rows: []agentRow{{item: item, workflow: checkoutWorkflow()}}})
 }
 
 // snapshotRunning reads one row whose agent is running and doing nothing.
-func snapshotRunning(t *testing.T, item agentItem) view.Row {
+func snapshotRunning(t *testing.T, item panel.AgentRow) view.Row {
 	t.Helper()
 
-	item.alive = true
-	item.agent.State = panel.StateIdle
+	item.Alive = true
+	item.Agent.State = panel.StateIdle
 
 	return snapshotOne(t, item)
 }
@@ -57,55 +57,55 @@ func snapshotRowOf(t *testing.T, params snapshotParams) view.Row {
 func TestSnapshotStatus(t *testing.T) {
 	tests := []struct {
 		name string
-		item agentItem
+		item panel.AgentRow
 		want view.Status
 	}{
 		{
 			name: "a create that failed is broken",
-			item: agentItem{agent: panel.Agent{State: panel.StateFailedToCreate}},
+			item: panel.AgentRow{Agent: panel.Agent{State: panel.StateFailedToCreate}},
 			want: view.StatusBroken,
 		},
 		{
 			name: "a teardown that failed is broken",
-			item: agentItem{agent: panel.Agent{State: panel.StateFailedToCleanup}},
+			item: panel.AgentRow{Agent: panel.Agent{State: panel.StateFailedToCleanup}},
 			want: view.StatusBroken,
 		},
 		{
 			name: "an agent stopped at a prompt wants you",
-			item: agentItem{agent: panel.Agent{State: panel.StateWaiting}, alive: true},
+			item: panel.AgentRow{Agent: panel.Agent{State: panel.StateWaiting}, Alive: true},
 			want: view.StatusWaiting,
 		},
 		{
 			name: "a pane nobody can read wants you, since nobody else will look",
-			item: agentItem{agent: panel.Agent{State: panel.StateUncertain}, alive: true},
+			item: panel.AgentRow{Agent: panel.Agent{State: panel.StateUncertain}, Alive: true},
 			want: view.StatusWaiting,
 		},
 		{
 			name: "an agent somebody paused wants that person back, whatever it was doing",
-			item: agentItem{
-				agent: panel.Agent{State: panel.StateThinking, HeldAt: xptr.Ptr(time.Now())},
-				alive: true,
+			item: panel.AgentRow{
+				Agent: panel.Agent{State: panel.StateThinking, HeldAt: xptr.Ptr(time.Now())},
+				Alive: true,
 			},
 			want: view.StatusWaiting,
 		},
 		{
 			name: "an agent whose pane has gone is idle whatever it stopped in",
-			item: agentItem{agent: panel.Agent{State: panel.StateThinking}},
+			item: panel.AgentRow{Agent: panel.Agent{State: panel.StateThinking}},
 			want: view.StatusIdle,
 		},
 		{
 			name: "an agent still being set up is under way, with nobody blocked",
-			item: agentItem{agent: panel.Agent{State: panel.StateSettingUp}},
+			item: panel.AgentRow{Agent: panel.Agent{State: panel.StateSettingUp}},
 			want: view.StatusThinking,
 		},
 		{
 			name: "a running agent is thinking",
-			item: agentItem{agent: panel.Agent{State: panel.StateThinking}, alive: true},
+			item: panel.AgentRow{Agent: panel.Agent{State: panel.StateThinking}, Alive: true},
 			want: view.StatusThinking,
 		},
 		{
 			name: "an agent doing nothing is idle",
-			item: agentItem{agent: panel.Agent{State: panel.StateIdle}, alive: true},
+			item: panel.AgentRow{Agent: panel.Agent{State: panel.StateIdle}, Alive: true},
 			want: view.StatusIdle,
 		},
 	}
@@ -154,7 +154,7 @@ func TestSnapshotRepo(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, snapshotOne(t, agentItem{agent: tt.agent}).Repo)
+			assert.Equal(t, tt.want, snapshotOne(t, panel.AgentRow{Agent: tt.agent}).Repo)
 		})
 	}
 }
@@ -164,66 +164,66 @@ func TestSnapshotRepo(t *testing.T) {
 func TestSnapshotReview(t *testing.T) {
 	tests := []struct {
 		name string
-		item agentItem
+		item panel.AgentRow
 		want view.Review
 	}{
 		{
 			name: "an approval on the tree as it stands is approved",
-			item: agentItem{localVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED},
+			item: panel.AgentRow{LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED},
 			want: view.ReviewApproved,
 		},
 		{
 			name: "an approval the tree has moved past is owed another pass",
-			item: agentItem{localVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED, localTree: git.StandingMoved},
+			item: panel.AgentRow{LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED, LocalTree: git.StandingMoved},
 			want: view.ReviewApprovedMoved,
 		},
 		{
 			name: "changes requested on the tree as it stands are still owed by the agent",
-			item: agentItem{localVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED},
+			item: panel.AgentRow{LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED},
 			want: view.ReviewChangesRequested,
 		},
 		{
 			name: "changes requested the tree has moved past are ready to read again",
-			item: agentItem{localVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED, localTree: git.StandingMoved},
+			item: panel.AgentRow{LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED, LocalTree: git.StandingMoved},
 			want: view.ReviewChangesPushed,
 		},
 		{
 			name: "an approval the base has taken, with nothing on top, is approved and landed",
-			item: agentItem{localVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED, localTree: git.StandingLanded},
+			item: panel.AgentRow{LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED, LocalTree: git.StandingLanded},
 			want: view.ReviewApprovedLanded,
 		},
 		{
 			name: "an approval the base has taken, with new work on top, is never reviewed for that work",
-			item: agentItem{localVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED, localTree: git.StandingLandedMoved},
+			item: panel.AgentRow{LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED, LocalTree: git.StandingLandedMoved},
 			want: view.ReviewApprovedLandedMoved,
 		},
 		{
 			name: "changes requested on a tree the base took as it was are finished business",
-			item: agentItem{localVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED, localTree: git.StandingLanded},
+			item: panel.AgentRow{LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED, LocalTree: git.StandingLanded},
 			want: view.ReviewChangesLanded,
 		},
 		{
 			name: "changes requested on a landed tree with new work on top are never reviewed for that work",
-			item: agentItem{localVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED, localTree: git.StandingLandedMoved},
+			item: panel.AgentRow{LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED, LocalTree: git.StandingLandedMoved},
 			want: view.ReviewChangesLandedMoved,
 		},
 		{
 			name: "notes without a conclusion are no review",
-			item: agentItem{localVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED},
+			item: panel.AgentRow{LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED},
 			want: view.ReviewNone,
 		},
 		{
 			name: "an archived agent's approval carries the verdict alone, whatever its tree last read",
-			item: agentItem{
-				agent:        panel.Agent{ArchivedAt: xptr.Ptr(time.Now())},
-				localVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED,
-				localTree:    git.StandingMoved,
+			item: panel.AgentRow{
+				Agent:        panel.Agent{ArchivedAt: xptr.Ptr(time.Now())},
+				LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED,
+				LocalTree:    git.StandingMoved,
 			},
 			want: view.ReviewApproved,
 		},
 		{
 			name: "work nobody has concluded on has no review",
-			item: agentItem{},
+			item: panel.AgentRow{},
 			want: view.ReviewNone,
 		},
 	}
@@ -307,12 +307,12 @@ func TestSnapshotForge(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			item := agentItem{
-				agent: panel.Agent{
+			item := panel.AgentRow{
+				Agent: panel.Agent{
 					ID:       "a1",
 					Metadata: []panel.Metadata{{Key: "pr", Value: "https://example.test/1"}},
 				},
-				pullRequest: pullRequestStanding{state: tt.state},
+				PullRequest: panel.PullRequestStanding{State: tt.state},
 			}
 
 			assert.Equal(t, tt.want, snapshotOne(t, item).Forge)
@@ -326,12 +326,12 @@ func TestSnapshotForge(t *testing.T) {
 func TestSnapshotMarksOnARow(t *testing.T) {
 	tests := []struct {
 		name string
-		item agentItem
+		item panel.AgentRow
 		want view.Row
 	}{
 		{
 			name: "an agent somebody is holding says it is paused",
-			item: agentItem{agent: panel.Agent{
+			item: panel.AgentRow{Agent: panel.Agent{
 				ID:     "a1",
 				Name:   "held",
 				HeldAt: xptr.Ptr(time.Now()),
@@ -345,9 +345,9 @@ func TestSnapshotMarksOnARow(t *testing.T) {
 		},
 		{
 			name: "a failed run nobody has read is an alert",
-			item: agentItem{
-				agent:     panel.Agent{ID: "a1", Name: "alert"},
-				failedRun: true,
+			item: panel.AgentRow{
+				Agent:     panel.Agent{ID: "a1", Name: "alert"},
+				FailedRun: true,
 			},
 			want: view.Row{
 				Key:       "agent:a1",
@@ -357,9 +357,9 @@ func TestSnapshotMarksOnARow(t *testing.T) {
 		},
 		{
 			name: "mail it has not read says so",
-			item: agentItem{
-				agent:      panel.Agent{ID: "a1", Name: "mail"},
-				unreadMail: true,
+			item: panel.AgentRow{
+				Agent:      panel.Agent{ID: "a1", Name: "mail"},
+				UnreadMail: true,
 			},
 			want: view.Row{
 				Key:        "agent:a1",
@@ -369,7 +369,7 @@ func TestSnapshotMarksOnARow(t *testing.T) {
 		},
 		{
 			name: "an agent a schedule launched says so",
-			item: agentItem{agent: panel.Agent{
+			item: panel.AgentRow{Agent: panel.Agent{
 				ID:         "a1",
 				Name:       "nightly",
 				ScheduleID: xptr.Ptr("s1"),
@@ -382,7 +382,7 @@ func TestSnapshotMarksOnARow(t *testing.T) {
 		},
 		{
 			name: "a hidden agent carries the fact as a mark of its own",
-			item: agentItem{agent: panel.Agent{
+			item: panel.AgentRow{Agent: panel.Agent{
 				ID:     "a1",
 				Name:   "hidden",
 				Hidden: true,
@@ -395,7 +395,7 @@ func TestSnapshotMarksOnARow(t *testing.T) {
 		},
 		{
 			name: "an archived agent says so rather than being greyed by hand",
-			item: agentItem{agent: panel.Agent{
+			item: panel.AgentRow{Agent: panel.Agent{
 				ID:         "a1",
 				Name:       "put-away",
 				ArchivedAt: xptr.Ptr(time.Now()),
@@ -408,7 +408,7 @@ func TestSnapshotMarksOnARow(t *testing.T) {
 		},
 		{
 			name: "an ordinary agent carries nothing at all",
-			item: agentItem{agent: panel.Agent{ID: "a1", Name: "ordinary"}},
+			item: panel.AgentRow{Agent: panel.Agent{ID: "a1", Name: "ordinary"}},
 			want: view.Row{
 				Key:  "agent:a1",
 				Name: "ordinary",
@@ -428,32 +428,32 @@ func TestSnapshotMarksOnARow(t *testing.T) {
 func TestSnapshotProcess(t *testing.T) {
 	tests := []struct {
 		name string
-		item agentItem
+		item panel.AgentRow
 		want view.Process
 	}{
 		{
 			name: "an agent whose pane has gone has nothing behind it",
-			item: agentItem{agent: panel.Agent{State: panel.StateIdle}},
+			item: panel.AgentRow{Agent: panel.Agent{State: panel.StateIdle}},
 			want: view.ProcessStopped,
 		},
 		{
 			name: "an agent that stopped mid-thought has nothing behind it either",
-			item: agentItem{agent: panel.Agent{State: panel.StateThinking}},
+			item: panel.AgentRow{Agent: panel.Agent{State: panel.StateThinking}},
 			want: view.ProcessStopped,
 		},
 		{
 			name: "a create that failed is not dormant, since the row still has a failure to report",
-			item: agentItem{agent: panel.Agent{State: panel.StateFailedToCreate}},
+			item: panel.AgentRow{Agent: panel.Agent{State: panel.StateFailedToCreate}},
 			want: view.ProcessAlive,
 		},
 		{
 			name: "an agent still being set up is not dormant, since it is on its way",
-			item: agentItem{agent: panel.Agent{State: panel.StateSettingUp}},
+			item: panel.AgentRow{Agent: panel.Agent{State: panel.StateSettingUp}},
 			want: view.ProcessAlive,
 		},
 		{
 			name: "an agent sitting quiet with a pane of its own is not dormant",
-			item: agentItem{agent: panel.Agent{State: panel.StateIdle}, alive: true},
+			item: panel.AgentRow{Agent: panel.Agent{State: panel.StateIdle}, Alive: true},
 			want: view.ProcessAlive,
 		},
 	}
@@ -478,9 +478,9 @@ func TestSnapshotKinds(t *testing.T) {
 			row: agentRow{
 				header:   true,
 				workflow: panel.Workflow{ID: "w1", Name: "weave"},
-				orchestrator: &agentItem{
-					agent: panel.Agent{ID: "o1", State: panel.StateThinking},
-					alive: true,
+				orchestrator: &panel.AgentRow{
+					Agent: panel.Agent{ID: "o1", State: panel.StateThinking},
+					Alive: true,
 				},
 			},
 			want: view.Row{
@@ -508,7 +508,7 @@ func TestSnapshotKinds(t *testing.T) {
 			row: agentRow{
 				header:       true,
 				workflow:     panel.Workflow{ID: "w1", Name: "weave"},
-				orchestrator: &agentItem{agent: panel.Agent{ID: "o1", State: panel.StateIdle}},
+				orchestrator: &panel.AgentRow{Agent: panel.Agent{ID: "o1", State: panel.StateIdle}},
 			},
 			want: view.Row{
 				Key:     "workflow:w1",
@@ -522,7 +522,7 @@ func TestSnapshotKinds(t *testing.T) {
 			row: agentRow{
 				header:       true,
 				workflow:     panel.Workflow{ID: "w1", Name: "weave"},
-				orchestrator: &agentItem{agent: panel.Agent{ID: "o1", State: panel.StateFailedToCreate}},
+				orchestrator: &panel.AgentRow{Agent: panel.Agent{ID: "o1", State: panel.StateFailedToCreate}},
 			},
 			want: view.Row{
 				Key:    "workflow:w1",
@@ -550,8 +550,8 @@ func TestSnapshotKinds(t *testing.T) {
 			name: "an agent under a scheduled workflow does not inherit its mark",
 			row: agentRow{
 				workflow: checkoutWorkflow(),
-				item: agentItem{
-					agent: panel.Agent{
+				item: panel.AgentRow{
+					Agent: panel.Agent{
 						ID:         "a1",
 						Name:       "worker",
 						WorkflowID: "w1",
@@ -571,7 +571,7 @@ func TestSnapshotKinds(t *testing.T) {
 			name: "a child hangs off the row above it",
 			row: agentRow{
 				workflow: checkoutWorkflow(),
-				item: agentItem{agent: panel.Agent{
+				item: panel.AgentRow{Agent: panel.Agent{
 					ID:            "a1",
 					Name:          "reviewer",
 					ParentAgentID: xptr.Ptr("a0"),
@@ -586,7 +586,7 @@ func TestSnapshotKinds(t *testing.T) {
 		},
 		{
 			name: "an agent of its own is the ordinary row",
-			row:  agentRow{workflow: checkoutWorkflow(), item: agentItem{agent: panel.Agent{ID: "a1", Name: "worker"}}},
+			row:  agentRow{workflow: checkoutWorkflow(), item: panel.AgentRow{Agent: panel.Agent{ID: "a1", Name: "worker"}}},
 			want: view.Row{
 				Key:  "agent:a1",
 				Kind: view.KindAgent,
@@ -610,10 +610,10 @@ func TestSnapshotKinds(t *testing.T) {
 func TestSnapshotPlainWorkflowKeepsItsColumns(t *testing.T) {
 	row := snapshotRowOf(t, snapshotParams{rows: []agentRow{{
 		workflow: panel.Workflow{ID: "w1", Name: "weave"},
-		item: agentItem{
-			alive:        true,
-			localVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED,
-			agent: panel.Agent{
+		item: panel.AgentRow{
+			Alive:        true,
+			LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED,
+			Agent: panel.Agent{
 				ID:              "a1",
 				Name:            "worker",
 				WorkflowID:      "w1",
@@ -658,7 +658,7 @@ func TestSnapshotHiddenTally(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			row := snapshotRowOf(t, snapshotParams{
-				rows:       []agentRow{{item: agentItem{agent: panel.Agent{ID: "a1"}}, hiddenCount: tt.count}},
+				rows:       []agentRow{{item: panel.AgentRow{Agent: panel.Agent{ID: "a1"}}, hiddenCount: tt.count}},
 				showHidden: tt.showHidden,
 			})
 
@@ -673,10 +673,10 @@ func TestSnapshotListing(t *testing.T) {
 	params := snapshotParams{
 		rows: []agentRow{
 			{header: true, workflow: panel.Workflow{ID: "w1", Name: "weave"}},
-			{item: agentItem{agent: panel.Agent{ID: "a1", Name: "picked"}}},
-			{item: agentItem{agent: panel.Agent{ID: "a2", Name: "passed over"}}},
+			{item: panel.AgentRow{Agent: panel.Agent{ID: "a1", Name: "picked"}}},
+			{item: panel.AgentRow{Agent: panel.Agent{ID: "a2", Name: "passed over"}}},
 		},
-		marks:    map[string]string{"workflow:w1": "w", "agent:a2": "p"},
+		marks:    map[string]string{"w1": "w", "a2": "p"},
 		selected: selectAgents([]string{"a1"}...),
 		focused:  "agent:a1",
 		pane:     40,
@@ -706,13 +706,13 @@ func TestSnapshotSearchMatches(t *testing.T) {
 		{
 			name: "a search matching nothing in the name leaves it unmarked",
 			expr: "nothing",
-			row:  agentRow{item: agentItem{agent: panel.Agent{ID: "a1", Name: "view-gather"}}},
+			row:  agentRow{item: panel.AgentRow{Agent: panel.Agent{ID: "a1", Name: "view-gather"}}},
 			want: nil,
 		},
 		{
 			name: "a search matching twice marks both",
 			expr: "view",
-			row:  agentRow{item: agentItem{agent: panel.Agent{ID: "a1", Name: "view-of-a-view"}}},
+			row:  agentRow{item: panel.AgentRow{Agent: panel.Agent{ID: "a1", Name: "view-of-a-view"}}},
 			want: []view.Span{{Start: 0, End: 4}, {Start: 10, End: 14}},
 		},
 		{
@@ -737,7 +737,7 @@ func TestSnapshotSearchMatches(t *testing.T) {
 
 // TestSnapshotSearchOffMarksNothing pins a list nobody is searching carrying no matches at all.
 func TestSnapshotSearchOffMarksNothing(t *testing.T) {
-	row := snapshotOne(t, agentItem{agent: panel.Agent{ID: "a1", Name: "view-gather"}})
+	row := snapshotOne(t, panel.AgentRow{Agent: panel.Agent{ID: "a1", Name: "view-gather"}})
 
 	assert.Nil(t, row.Matches)
 }
@@ -747,44 +747,44 @@ func TestSnapshotSearchOffMarksNothing(t *testing.T) {
 func TestSnapshotHeldWorking(t *testing.T) {
 	tests := []struct {
 		name string
-		item agentItem
+		item panel.AgentRow
 		want bool
 	}{
 		{
 			name: "a paused agent that started a turn is working anyway",
-			item: agentItem{
-				agent: panel.Agent{State: panel.StateThinking, HeldAt: xptr.Ptr(time.Now())},
-				alive: true,
+			item: panel.AgentRow{
+				Agent: panel.Agent{State: panel.StateThinking, HeldAt: xptr.Ptr(time.Now())},
+				Alive: true,
 			},
 			want: true,
 		},
 		{
 			name: "so is one stopped at a prompt, where an answer would land a write",
-			item: agentItem{
-				agent: panel.Agent{State: panel.StateWaiting, HeldAt: xptr.Ptr(time.Now())},
-				alive: true,
+			item: panel.AgentRow{
+				Agent: panel.Agent{State: panel.StateWaiting, HeldAt: xptr.Ptr(time.Now())},
+				Alive: true,
 			},
 			want: true,
 		},
 		{
 			name: "a pane nobody can read says nothing either way, so the hold stands",
-			item: agentItem{
-				agent: panel.Agent{State: panel.StateUncertain, HeldAt: xptr.Ptr(time.Now())},
-				alive: true,
+			item: panel.AgentRow{
+				Agent: panel.Agent{State: panel.StateUncertain, HeldAt: xptr.Ptr(time.Now())},
+				Alive: true,
 			},
 			want: false,
 		},
 		{
 			name: "a paused agent sitting quiet is held and nothing more",
-			item: agentItem{
-				agent: panel.Agent{State: panel.StateIdle, HeldAt: xptr.Ptr(time.Now())},
-				alive: true,
+			item: panel.AgentRow{
+				Agent: panel.Agent{State: panel.StateIdle, HeldAt: xptr.Ptr(time.Now())},
+				Alive: true,
 			},
 			want: false,
 		},
 		{
 			name: "an agent nobody paused is never working through a hold",
-			item: agentItem{agent: panel.Agent{State: panel.StateThinking}, alive: true},
+			item: panel.AgentRow{Agent: panel.Agent{State: panel.StateThinking}, Alive: true},
 			want: false,
 		},
 	}
@@ -799,7 +799,7 @@ func TestSnapshotHeldWorking(t *testing.T) {
 // TestSnapshotCarriesTheBlink pins the caret's blink reaching the view as a fact rather than the
 // view inventing one, the focused row being named either way.
 func TestSnapshotCarriesTheBlink(t *testing.T) {
-	rows := []agentRow{{item: agentItem{agent: panel.Agent{ID: "a1", Name: "worker"}}}}
+	rows := []agentRow{{item: panel.AgentRow{Agent: panel.Agent{ID: "a1", Name: "worker"}}}}
 
 	hidden := agentsSnapshot(snapshotParams{
 		rows:    rows,
@@ -856,7 +856,7 @@ func TestSnapshotChildRowCarriesNoTally(t *testing.T) {
 
 	rows := treeRows(treeRowsParams{
 		workflows: []panel.Workflow{{ID: "w1", Name: "weave"}},
-		agents:    []agentItem{{agent: parent}, {agent: child}},
+		agents:    []panel.AgentRow{{Agent: parent}, {Agent: child}},
 	})
 
 	snapshot := agentsSnapshot(snapshotParams{rows: rows})

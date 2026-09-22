@@ -112,13 +112,13 @@ func appendNotice(notices []notice, show bool, icon string, tone paint.Tone, tex
 }
 
 // heldNoticeText is what the record has to say about an agent somebody is holding.
-func heldNoticeText(item agentItem) string {
-	if item.agent.HeldAt == nil {
+func heldNoticeText(item panel.AgentRow) string {
+	if item.Agent.HeldAt == nil {
 		return ""
 	}
 
-	if item.alive {
-		switch item.agent.State {
+	if item.Alive {
+		switch item.Agent.State {
 		case panel.StateThinking:
 			return heldWorkingNotice
 		case panel.StateWaiting:

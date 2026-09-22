@@ -13,6 +13,7 @@ import (
 	"weave/internal/errui"
 	"weave/internal/ui/panel"
 	agentv1 "weave/proto/gen/agent/v1"
+	watchv1 "weave/proto/gen/watch/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -42,7 +43,7 @@ type hoverState struct {
 
 // listedMsg is the listings the watch does not carry, read for the screen that draws them.
 type listedMsg struct {
-	archived             []agentItem
+	archived             []panel.AgentRow
 	archivedErr          error
 	archivedWorkflows    []panel.Workflow
 	archivedWorkflowsErr error
@@ -160,7 +161,6 @@ func (m *model) withListing(change func(*listing)) tea.Cmd {
 	m.schedules.apply(m, m.shared(), scheduleRow)
 	m.archive.place(m.shared(), archiveRow)
 	m.worktrees.place(m.shared(), worktreeRow)
-	m.forgetUnlistedPullRequests()
 	m.sizeAgentWindows()
 
 	preview := m.search.place(m.shared(), searchRow)
@@ -178,7 +178,6 @@ func (m *model) withListing(change func(*listing)) tea.Cmd {
 // afterListing asks for what the hovered rows are owed and stages the screen over them.
 func (m *model) afterListing() tea.Cmd {
 	inspect := tea.Batch(m.inspectHoveredWorktreeCmd(), m.inspectAgentWorktreeCmd(time.Now()))
-	pullRequests := m.listHoveredPullRequestsCmd()
 
 	// A screen that draws what it holds beside its own list stages nothing at all.
 	active := m.active()
@@ -186,7 +185,7 @@ func (m *model) afterListing() tea.Cmd {
 		s.stage(m, m.shared())
 	}
 
-	return tea.Batch(inspect, pullRequests)
+	return inspect
 }
 
 func (r listedMsg) err() error {
@@ -291,8 +290,8 @@ func (m model) runLogTarget() (panel.Agent, bool) {
 // isFailedRunShowing reports whether the agent the run-log pane is on is still carrying a mark.
 func (m model) isFailedRunShowing(agentID string) bool {
 	for _, item := range m.listing.agents {
-		if item.agent.ID == agentID {
-			return item.failedRun
+		if item.Agent.ID == agentID {
+			return item.FailedRun
 		}
 	}
 
@@ -546,9 +545,10 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 	_, walkedAway := m.detached[result.write]
 	delete(m.detached, result.write)
 
+	var landed tea.Cmd
 	if result.written != nil && !walkedAway {
 		m.enterScreen(screenAgents)
-		m.landOn(*result.written)
+		landed = m.landOn(*result.written)
 
 		if result.written.pane != "" {
 			if m.isPaneWarm(result.written.pane, result.written.harness) {
@@ -570,13 +570,15 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 		if result.err == nil && m.warm.pending != "" {
 			m.warm.closesForm = true
 
-			return m, nil
+			return m, landed
 		}
 
 		m.held = heldWrite{}
 
 		if result.err == nil {
-			return m.closeForm()
+			closed, cmd := m.closeForm()
+
+			return closed, tea.Batch(landed, cmd)
 		}
 
 		m.messages.setNewestHint("fix and submit again")
@@ -585,22 +587,26 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 	// A refusal is reported into the region under the record, so the form is told to lay itself
 	// out again.
 	if m.form.isActive() {
-		return m, formResized()
+		return m, tea.Batch(landed, formResized())
 	}
 
-	return m, nil
+	return m, landed
 }
 
-// landOn puts the row a write made into the listing where the watch has not delivered it yet,
+// landOn puts the row a write made into the world where the watch has not delivered it yet,
 // and the cursor on it.
-func (m *model) landOn(row written) {
-	if row.workflow != nil && !m.listing.hasWorkflow(row.workflow.GetId()) {
-		m.listing.putWorkflow(row.workflow)
+func (m *model) landOn(row written) tea.Cmd {
+	var arrived []string
+	if row.workflow != nil && m.listing.world.Workflows[row.workflow.GetId()] == nil {
+		m.listing.world.Apply(put(&watchv1.Row{Row: &watchv1.Row_Workflow{Workflow: row.workflow}}))
 	}
-	if row.agent != nil && !m.listing.hasAgent(row.agent.GetId()) {
-		m.listing.putAgent(row.agent)
-		m.sizeAgentWindows()
+	if row.agent != nil && m.listing.world.Agents[row.agent.GetId()] == nil {
+		arrived = m.listing.world.Apply(put(&watchv1.Row{Row: &watchv1.Row_Agent{Agent: row.agent}}))
 	}
 
+	m.listing.assemble(time.Now())
+	m.sizeAgentWindows()
 	m.agents.apply(m.shared(), row.row)
+
+	return m.listArrivedPullRequestsCmd(arrived)
 }

@@ -131,7 +131,7 @@ func TestTheOwedListIsNotDrawnOverADeadAgent(t *testing.T) {
 
 	require.Contains(t, ansi.Strip(m.review.sidebarView(m.shared())), "Open in your review")
 
-	m.listing.agents[0].alive = false
+	m.listing.agents[0].Alive = false
 
 	assert.NotContains(t, ansi.Strip(m.review.sidebarView(m.shared())), "Open in your review")
 }

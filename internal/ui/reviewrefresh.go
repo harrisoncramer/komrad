@@ -269,7 +269,7 @@ func deliverySlot(state agentv1.ReviewDeliveryState) int {
 // isAgentWriting reports whether the agent whose diff is on screen is putting words in its
 // worktree.
 func (r reviewScreen) isAgentWriting(s panelShared) bool {
-	item, ok := r.agentItem(s)
+	item, ok := r.agentRow(s)
 
-	return ok && item.alive && item.agent.State == panel.StateThinking
+	return ok && item.Alive && item.Agent.State == panel.StateThinking
 }

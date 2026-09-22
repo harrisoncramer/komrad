@@ -31,25 +31,25 @@ func TestAgentsViewRowsOpenAtTheGutter(t *testing.T) {
 				Name:     "weave",
 				Worktree: panel.WorktreeConfig{Enabled: true},
 			}},
-			agents: []agentItem{
+			agents: []panel.AgentRow{
 				{
-					agent: panel.Agent{
+					Agent: panel.Agent{
 						ID:         "a1",
 						Name:       "worker",
 						WorkflowID: "w1",
 						State:      panel.StateIdle,
 					},
-					alive: true,
+					Alive: true,
 				},
 				{
-					agent: panel.Agent{
+					Agent: panel.Agent{
 						ID:         "o1",
 						Name:       "orchestrator",
 						WorkflowID: "w1",
 						Role:       panel.RoleOrchestrator,
 						State:      panel.StateIdle,
 					},
-					alive: true,
+					Alive: true,
 				},
 			},
 		},
@@ -99,15 +99,15 @@ func agentsSortModel() model {
 	m.screen = screenAgents
 	m.width, m.height = 200, 40
 	m.listing.workflows = []panel.Workflow{{ID: "w1", Name: "weave"}, {ID: "w2", Name: "gadgets"}}
-	m.listing.agents = []agentItem{
-		{agent: panel.Agent{
+	m.listing.agents = []panel.AgentRow{
+		{Agent: panel.Agent{
 			ID:             "delta",
 			Name:           "delta",
 			WorkflowID:     "w1",
 			CreatedAt:      at(30),
 			StateChangedAt: at(10),
 		}},
-		{agent: panel.Agent{
+		{Agent: panel.Agent{
 			ID:             "charlie",
 			Name:           "charlie",
 			WorkflowID:     "w1",
@@ -115,21 +115,21 @@ func agentsSortModel() model {
 			CreatedAt:      at(25),
 			StateChangedAt: at(5),
 		}},
-		{agent: panel.Agent{
+		{Agent: panel.Agent{
 			ID:             "zulu",
 			Name:           "Zulu",
 			WorkflowID:     "w1",
 			CreatedAt:      at(20),
 			StateChangedAt: at(30),
 		}},
-		{agent: panel.Agent{
+		{Agent: panel.Agent{
 			ID:             "alpha",
 			Name:           "alpha",
 			WorkflowID:     "w1",
 			CreatedAt:      at(10),
 			StateChangedAt: at(20),
 		}},
-		{agent: panel.Agent{
+		{Agent: panel.Agent{
 			ID:             "bob",
 			Name:           "bob",
 			WorkflowID:     "w1",
@@ -137,7 +137,7 @@ func agentsSortModel() model {
 			CreatedAt:      at(5),
 			StateChangedAt: at(40),
 		}},
-		{agent: panel.Agent{
+		{Agent: panel.Agent{
 			ID:             "echo",
 			Name:           "echo",
 			WorkflowID:     "w2",
@@ -231,8 +231,8 @@ func TestAgentRowsFlatOrderTheFamiliesAcrossWorkflows(t *testing.T) {
 			assert.Equal(t, tt.want, xslice.Map(rows, agentRow.key))
 			for _, row := range rows {
 				assert.False(t, row.header)
-				assert.Equal(t, row.item.agent.WorkflowID, row.workflow.ID)
-				assert.Equal(t, row.item.agent.ParentAgentID != nil, row.child)
+				assert.Equal(t, row.item.Agent.WorkflowID, row.workflow.ID)
+				assert.Equal(t, row.item.Agent.ParentAgentID != nil, row.child)
 			}
 		})
 	}

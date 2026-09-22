@@ -30,29 +30,29 @@ func selectionTree() model {
 		listing: listing{workflows: []panel.Workflow{
 			{ID: "w1", Name: "backend"},
 			{ID: "w2", Name: "frontend"},
-		}, agents: []agentItem{
-			{agent: panel.Agent{
+		}, agents: []panel.AgentRow{
+			{Agent: panel.Agent{
 				ID:         "a1",
 				Name:       "auth",
 				WorkflowID: "w1",
 			}},
-			{agent: panel.Agent{
+			{Agent: panel.Agent{
 				ID:         "a2",
 				Name:       "api",
 				WorkflowID: "w1",
 			}},
-			{agent: panel.Agent{
+			{Agent: panel.Agent{
 				ID:         "a3",
 				Name:       "db",
 				WorkflowID: "w1",
 			}},
-			{agent: panel.Agent{
+			{Agent: panel.Agent{
 				ID:         "a5",
 				Name:       "sweep",
 				WorkflowID: "w1",
 				Hidden:     true,
 			}},
-			{agent: panel.Agent{
+			{Agent: panel.Agent{
 				ID:         "a4",
 				Name:       "ui",
 				WorkflowID: "w2",
@@ -232,7 +232,7 @@ func TestPruneSelection(t *testing.T) {
 		m.agents.placed = true
 		m.agents.selected = selectAgents([]string{"a1", "a4"}...)
 
-		applyListing(&m, []agentItem{{agent: panel.Agent{
+		applyListing(&m, []panel.AgentRow{{Agent: panel.Agent{
 			ID:         "a4",
 			Name:       "ui",
 			WorkflowID: "w2",
@@ -480,7 +480,7 @@ func TestArchiveSelectionFromTheTree(t *testing.T) {
 			m.agents.selected = selectAgents(tt.selected...)
 
 			for i := range m.listing.agents {
-				m.listing.agents[i].agent.Pane = "%" + m.listing.agents[i].agent.ID
+				m.listing.agents[i].Agent.Pane = "%" + m.listing.agents[i].Agent.ID
 			}
 
 			opened, _ := m.routeScreenMessage(keyMsg("z"))

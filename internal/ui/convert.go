@@ -83,62 +83,50 @@ func roleFrom(role agentv1.AgentRole) panel.Role {
 	return ""
 }
 
-func agentItemsFrom(listed []*agentv1.Agent) []agentItem {
-	return xslice.Map(listed, func(agent *agentv1.Agent) agentItem {
-		return agentItemFrom(agent, agent.GetUnreadMail(), agent.GetPullRequest())
-	})
-}
-
 // agentRowsFrom is a listing of assembled rows as the panel keeps them.
-func agentRowsFrom(listed []*agentv1.AgentRow) []agentItem {
-	return xslice.Map(listed, func(row *agentv1.AgentRow) agentItem {
-		return agentItemFrom(row.GetAgent(), row.GetUnreadMail(), row.GetPullRequest())
-	})
+func agentRowsFrom(listed []*agentv1.AgentRow) []panel.AgentRow {
+	return xslice.Map(listed, agentRowFrom)
 }
 
-func agentItemFrom(agent *agentv1.Agent, unreadMail bool, pullRequest *agentv1.PullRequestStanding) agentItem {
-	return agentItem{
-		agent:        agentFrom(agent),
-		alive:        agent.GetAlive(),
-		unreadMail:   unreadMail,
-		failedRun:    agent.GetFailedRun(),
-		failedRunLog: agent.FailedRunLog,
-		localVerdict: agent.GetLocalReviewVerdict(),
-		localTree:    standingFrom(agent.GetLocalReviewTree()),
-		pullRequest:  pullRequestStandingFrom(pullRequest),
+func agentRowFrom(row *agentv1.AgentRow) panel.AgentRow {
+	agent := row.GetAgent()
+
+	return panel.AgentRow{
+		Agent:        agentFrom(agent),
+		Alive:        agent.GetAlive(),
+		UnreadMail:   row.GetUnreadMail(),
+		FailedRun:    agent.GetFailedRun(),
+		FailedRunLog: agent.FailedRunLog,
+		LocalVerdict: agent.GetLocalReviewVerdict(),
+		LocalTree:    standingFrom(agent.GetLocalReviewTree()),
+		PullRequest:  pullRequestStandingFrom(row.GetPullRequest()),
+		PullRequests: xslice.Map(row.GetPullRequests(), pullRequestFrom),
 	}
 }
 
 // pullRequestStandingFrom is the standing as the wire carries it.
-func pullRequestStandingFrom(standing *agentv1.PullRequestStanding) pullRequestStanding {
-	return pullRequestStanding{
-		state:        standing.GetState(),
-		checks:       standing.GetChecks(),
-		mergeability: standing.GetMergeability(),
-		number:       standing.GetNumber(),
-		url:          standing.GetUrl(),
-		title:        standing.GetTitle(),
+func pullRequestStandingFrom(standing *agentv1.PullRequestStanding) panel.PullRequestStanding {
+	return panel.PullRequestStanding{
+		State:        standing.GetState(),
+		Checks:       standing.GetChecks(),
+		Mergeability: standing.GetMergeability(),
+		Number:       standing.GetNumber(),
+		URL:          standing.GetUrl(),
+		Title:        standing.GetTitle(),
 	}
 }
 
-func agentPullRequestsFrom(listed *pullrequestv1.ListAgentPullRequestsResponse) agentPullRequests {
-	return agentPullRequests{
-		answered: true,
-		readAt:   dates.ParsePtr(listed.GetRepositoryReadAt()),
-		items: xslice.Map(listed.GetPullRequests(), func(pullRequest *pullrequestv1.AgentPullRequest) agentPullRequest {
-			return agentPullRequest{
-				number:       pullRequest.GetNumber(),
-				url:          pullRequest.GetUrl(),
-				title:        pullRequest.GetTitle(),
-				state:        pullRequest.GetState(),
-				checks:       pullRequest.GetChecks(),
-				mergeability: pullRequest.GetMergeability(),
-				current:      pullRequest.GetCurrent(),
-				openedAt:     dates.Parse(pullRequest.GetOpenedAt()),
-				mergedAt:     dates.ParsePtr(pullRequest.GetMergedAt()),
-				closedAt:     dates.ParsePtr(pullRequest.GetClosedAt()),
-			}
-		}),
+func pullRequestFrom(pullRequest *pullrequestv1.PullRequest) panel.PullRequest {
+	return panel.PullRequest{
+		Number:       pullRequest.GetNumber(),
+		URL:          pullRequest.GetUrl(),
+		Title:        pullRequest.GetTitle(),
+		State:        pullRequest.GetState(),
+		Checks:       pullRequest.GetChecks(),
+		Mergeability: pullRequest.GetMergeability(),
+		OpenedAt:     dates.Parse(pullRequest.GetOpenedAt()),
+		MergedAt:     dates.ParsePtr(pullRequest.GetMergedAt()),
+		ClosedAt:     dates.ParsePtr(pullRequest.GetClosedAt()),
 	}
 }
 

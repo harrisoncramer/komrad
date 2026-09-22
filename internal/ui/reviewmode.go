@@ -107,11 +107,11 @@ func (t reviewThreads) unsentCount() int {
 // isReadOnly reports whether there is nobody there to receive a comment.
 func (r reviewScreen) isReadOnly(s panelShared) (string, bool) {
 	for _, item := range s.listing.agents {
-		if item.agent.ID != r.agentID {
+		if item.Agent.ID != r.agentID {
 			continue
 		}
 
-		if item.alive {
+		if item.Alive {
 			return "", false
 		}
 

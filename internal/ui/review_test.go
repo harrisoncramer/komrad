@@ -297,7 +297,7 @@ func reviewModelOver(t *testing.T, agents agentv1connect.AgentServiceClient, rep
 				Worktree: panel.WorktreeConfig{Enabled: true, BaseBranch: "main"},
 			},
 		},
-		agents: []agentItem{{agent: reviewAgent(dir), alive: true}},
+		agents: []panel.AgentRow{{Agent: reviewAgent(dir), Alive: true}},
 	}
 
 	return m, tmux
@@ -318,7 +318,7 @@ func reviewAgent(dir string) panel.Agent {
 func loadReviewMsg(t *testing.T, m model) reviewLoadedMsg {
 	t.Helper()
 
-	cmd := m.enterReview(reviewAgent(m.listing.agents[0].agent.Cwd))
+	cmd := m.enterReview(reviewAgent(m.listing.agents[0].Agent.Cwd))
 	require.NotNil(t, cmd)
 
 	loaded, ok := cmd().(reviewLoadedMsg)
@@ -343,7 +343,7 @@ func openReview(t *testing.T, m model) model {
 func enterReview(t *testing.T, m model) model {
 	t.Helper()
 
-	cmd := m.enterReview(reviewAgent(m.listing.agents[0].agent.Cwd))
+	cmd := m.enterReview(reviewAgent(m.listing.agents[0].Agent.Cwd))
 	require.NotNil(t, cmd)
 
 	loaded, ok := cmd().(reviewLoadedMsg)
@@ -596,7 +596,7 @@ func TestReviewSidebarSizesTheDiff(t *testing.T) {
 func TestReviewIsRefusedWithoutADirectory(t *testing.T) {
 	m, tmux := reviewModel(t, &fakeReviewAgents{}, t.TempDir())
 
-	agent := reviewAgent(m.listing.agents[0].agent.Cwd)
+	agent := reviewAgent(m.listing.agents[0].Agent.Cwd)
 	agent.WorktreeRemoved = true
 
 	cmd := m.enterReview(agent)

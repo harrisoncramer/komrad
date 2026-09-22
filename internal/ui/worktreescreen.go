@@ -343,7 +343,7 @@ func worktreeAgentField(l listing, item worktreeItem) string {
 		return "none"
 	}
 	if live, ok := l.liveAgent(item.agent.id); ok {
-		return live.agent.Harness + ", " + string(displayState(live))
+		return live.Agent.Harness + ", " + string(displayState(live))
 	}
 	if archived, ok := l.archivedAgent(item.agent.id); ok && archived.ArchivedAt != nil {
 		return archived.Harness + ", archived " + label.Day(*archived.ArchivedAt)
@@ -362,7 +362,7 @@ func worktreeWorkflowField(l listing, item worktreeItem) string {
 
 	workflowID := ""
 	if live, ok := l.liveAgent(item.agent.id); ok {
-		workflowID = live.agent.WorkflowID
+		workflowID = live.Agent.WorkflowID
 	} else if archived, ok := l.archivedAgent(item.agent.id); ok {
 		workflowID = archived.WorkflowID
 	}

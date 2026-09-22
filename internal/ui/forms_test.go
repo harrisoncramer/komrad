@@ -1355,7 +1355,8 @@ func TestEscDetachesFromAHeldForm(t *testing.T) {
 
 	assert.Empty(t, got.messages.items)
 	require.NotNil(t, sent.createdAgent, "the create the form was submitted for still ran")
-	assert.False(t, got.listing.hasAgent("new"), "and it lands without taking the cursor to the agent it made")
+	_, held := got.listing.liveAgent("new")
+	assert.False(t, held, "and it lands without taking the cursor to the agent it made")
 }
 
 // TestAnEarlierWriteLeavesALaterHoldAlone covers escaping a slow create and submitting another:
@@ -1401,7 +1402,8 @@ func TestAnEarlierWriteLeavesALaterHoldAlone(t *testing.T) {
 
 	assert.True(t, got.held.active, "the escaped create landing leaves the second form held")
 	assert.True(t, got.form.isActive())
-	assert.False(t, got.listing.hasAgent("new"), "and an escaped create takes nobody to the agent it made")
+	_, held := got.listing.liveAgent("new")
+	assert.False(t, held, "and an escaped create takes nobody to the agent it made")
 }
 
 // TestSubmittingNoticeCountsUp pins that a held form's notice stands still while the write is

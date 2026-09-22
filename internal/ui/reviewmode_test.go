@@ -728,12 +728,12 @@ func TestTheGateReadsTheReviewedAgentRatherThanTheFirstRow(t *testing.T) {
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	idle := agentItem{agent: panel.Agent{
+	idle := panel.AgentRow{Agent: panel.Agent{
 		ID:    "someone-else",
 		Name:  "idle",
 		State: panel.StateIdle,
-	}, alive: true}
-	m.listing.agents = append([]agentItem{idle}, m.listing.agents...)
+	}, Alive: true}
+	m.listing.agents = append([]panel.AgentRow{idle}, m.listing.agents...)
 	setReviewAgentState(&m, panel.StateThinking)
 
 	m.review.diff.cursor = reviewRowWithAnEditTarget(t, m)
@@ -769,8 +769,8 @@ func TestEditingGivesTheWindowToTheEditor(t *testing.T) {
 // setReviewAgentState puts the agent whose diff is on screen into one state.
 func setReviewAgentState(m *model, state panel.State) {
 	for i, item := range m.listing.agents {
-		if item.agent.ID == m.review.agentID {
-			m.listing.agents[i].agent.State = state
+		if item.Agent.ID == m.review.agentID {
+			m.listing.agents[i].Agent.State = state
 		}
 	}
 }
@@ -1222,8 +1222,8 @@ func TestEditingADormantAgentIsAllowedWhileOwedAnAnswer(t *testing.T) {
 	m = openReview(t, m)
 
 	for i, item := range m.listing.agents {
-		if item.agent.ID == m.review.agentID {
-			m.listing.agents[i].alive = false
+		if item.Agent.ID == m.review.agentID {
+			m.listing.agents[i].Alive = false
 		}
 	}
 

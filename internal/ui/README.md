@@ -33,7 +33,7 @@ a screen may ask the root to do, and panelShared, the read-only value of what th
 a screen changes screens through host.enter and never by writing into another screen, and a
 value of panelShared is dead after any host call. The root's own state is what routeAsyncMessage
 still switches on: the watch, the archive and worktree listings, the write result, the ticks,
-focus and blur, the inspections and the pull requests two screens read.
+focus and blur, and the inspections.
 
 The agents screen is the root's twin, and the line between them is drawn by who owns the
 state. The stage, the warm-up and the write result's landing are the root's, since a pane on
@@ -51,10 +51,11 @@ Everything else in the package is one of those three for one screen.
 The state divides into four kinds, and knowing which is which is most of understanding this
 package.
 
-The listing is what the watch has delivered, the agents, workflows and schedules, with the
-archive and the worktrees beside them while a screen that draws them is up. It belongs to the
-panel rather than to any one screen, because the schedule form and the archive both draw the
-workflows the agents list is drawn from.
+The listing is what the watch has delivered, held as one map per resource, and the rows
+assembled from those maps: the agents with their marks, mail and pull requests, the workflows
+and the schedules, with the archive and the worktrees beside them while a screen that draws
+them is up. It belongs to the panel rather than to any one screen, because the schedule form
+and the archive both draw the workflows the agents list is drawn from.
 
 Per-screen state is the rest of what a screen draws: its cursor, and whatever it has loaded
 that nothing else reads. agentsScreen, schedulesScreen, archiveScreen, searchScreen,
@@ -78,13 +79,23 @@ the keybindings, the dimensions of its own pane.
 ## How data arrives
 
 The panel is told. It holds the service's watch stream open for its whole life: the stream
-opens with a snapshot of the agents, workflows and schedules, then carries one row per change,
-and the client in internal/client hands the events over in batches a few tens of milliseconds
-wide. The panel replaces or drops each row by id, in the order the list RPCs answer, and never
-lists those three itself. A stream that closes or goes quiet is reported as the server gone and
-opened again, and the next snapshot replaces what the last stream built. Nothing about an agent
-is discovered here: the service watches the panes and writes what it saw, and the panel takes
-rows like any other client.
+opens with a snapshot of every resource the panel draws, agents, workflows, schedules, marks,
+unclaimed mail and the pull requests on live agents' branches, then carries one row per
+change, and the client in internal/client hands the events over in batches a few tens of
+milliseconds wide. Each row goes into the map for its kind, or comes out of it on a tombstone,
+and the rows the screens draw are assembled again from the maps after every batch by
+internal/assemble, the one place that says how an agent's row is joined to its mark, its mail
+and its pull requests. The stream promises no order between resources, so a mark or a pull
+request may arrive before the agent it is for: it is held and drawn once the agent is. A
+stream that closes or goes quiet is reported as the server gone and opened again, and the next
+snapshot replaces what the last stream built. Nothing about an agent is discovered here: the
+service watches the panes and writes what it saw, and the panel takes rows like any other
+client.
+
+One thing is listed on arrival. The stream carries a pull request only once a live agent is on
+its branch, so when an agent the panel had not seen arrives, or one it holds moves to another
+branch, the panel asks once for the pull requests stored for that branch and puts them in the
+map, where the events land over them by key.
 
 Two listings ride no stream. The archive and the worktree directories are read when a screen
 that draws them is entered and on every tick while it is up, and are left alone otherwise.
@@ -166,8 +177,9 @@ model methods that measure a pane before handing the drawing on.
 The frame is its own package, internal/ui/layout, which owns the panes the panel lays out
 around itself and is the only thing here that talks to tmux.
 
-The records are another, internal/ui/panel: an agent, a workflow and a schedule as the panel
-keeps them, which is the fields the wire carries and nothing more. convert.go reads each proto
+The records are another, internal/ui/panel: an agent and its assembled row, a workflow, a
+schedule and a pull request as the panel keeps them, which is the fields the wire carries and
+nothing more. convert.go reads each proto
 into one of them once, and nothing here imports the store's rows. depguard denies the panel the
 store and the handlers' helpers so the panel binary links neither pgx nor river.
 

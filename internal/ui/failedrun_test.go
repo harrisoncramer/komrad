@@ -26,23 +26,23 @@ func failedRunTree() (model, *recordingTmux) {
 		screen: screenAgents,
 		listing: listing{
 			workflows: []panel.Workflow{{ID: "w1", Name: "backend"}},
-			agents: []agentItem{
+			agents: []panel.AgentRow{
 				{
-					agent: panel.Agent{
+					Agent: panel.Agent{
 						ID:         "a1",
 						Name:       "auth",
 						WorkflowID: "w1",
 					},
-					alive:     true,
-					failedRun: true,
+					Alive:     true,
+					FailedRun: true,
 				},
 				{
-					agent: panel.Agent{
+					Agent: panel.Agent{
 						ID:         "a2",
 						Name:       "api",
 						WorkflowID: "w1",
 					},
-					alive: true,
+					Alive: true,
 				},
 			},
 		},
@@ -116,7 +116,7 @@ func TestOpeningTheRunLogLandsOnTheRunThatFailed(t *testing.T) {
 
 	m, _ := failedRunTree()
 	m.settings.RunLogsDir = logsDir
-	m.listing.agents[0].failedRunLog = xptr.Ptr(int32(1))
+	m.listing.agents[0].FailedRunLog = xptr.Ptr(int32(1))
 	m.agents.cursor = 1
 
 	assert.Equal(t, 1, m.runAt("a1", xptr.Ptr(int32(1))), "the failed run is one back from the newest")
@@ -140,7 +140,7 @@ func TestTheRunLogFollowsTheCursorOntoTheFailedRun(t *testing.T) {
 
 	m, _ := failedRunTree()
 	m.settings.RunLogsDir = logsDir
-	m.listing.agents[0].failedRunLog = xptr.Ptr(int32(1))
+	m.listing.agents[0].FailedRunLog = xptr.Ptr(int32(1))
 	m.info.kind = infoRunLog
 
 	// The pane was opened on the unmarked agent, so it sits on that agent's newest run.

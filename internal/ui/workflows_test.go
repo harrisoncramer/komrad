@@ -30,7 +30,7 @@ func TestAgentRows(t *testing.T) {
 	tests := []struct {
 		name      string
 		workflows []panel.Workflow
-		agents    []agentItem
+		agents    []panel.AgentRow
 		wantRows  []string
 	}{
 		{
@@ -48,9 +48,9 @@ func TestAgentRows(t *testing.T) {
 				{ID: "w1", Name: "backend"},
 				{ID: "w2", Name: "frontend"},
 			},
-			agents: []agentItem{
-				{agent: panel.Agent{Name: "auth", WorkflowID: "w1"}},
-				{agent: panel.Agent{Name: "ui", WorkflowID: "w2"}},
+			agents: []panel.AgentRow{
+				{Agent: panel.Agent{Name: "auth", WorkflowID: "w1"}},
+				{Agent: panel.Agent{Name: "ui", WorkflowID: "w2"}},
 			},
 			wantRows: []string{
 				"header:backend",
@@ -64,9 +64,9 @@ func TestAgentRows(t *testing.T) {
 			workflows: []panel.Workflow{
 				{ID: "w1", Name: "backend"},
 			},
-			agents: []agentItem{
-				{agent: panel.Agent{Name: "auth", WorkflowID: "w1"}},
-				{agent: panel.Agent{Name: "orphan", WorkflowID: "vanished"}},
+			agents: []panel.AgentRow{
+				{Agent: panel.Agent{Name: "auth", WorkflowID: "w1"}},
+				{Agent: panel.Agent{Name: "orphan", WorkflowID: "vanished"}},
 			},
 			wantRows: []string{
 				"header:backend",
@@ -114,9 +114,9 @@ func TestHoveredWorkflow(t *testing.T) {
 	}
 
 	m := model{
-		listing: listing{workflows: []panel.Workflow{{ID: "w1", Name: "backend"}}, agents: []agentItem{
-			{agent: panel.Agent{Name: "auth", WorkflowID: "w1"}},
-			{agent: panel.Agent{Name: "loose"}},
+		listing: listing{workflows: []panel.Workflow{{ID: "w1", Name: "backend"}}, agents: []panel.AgentRow{
+			{Agent: panel.Agent{Name: "auth", WorkflowID: "w1"}},
+			{Agent: panel.Agent{Name: "loose"}},
 		}},
 	}
 
@@ -352,7 +352,7 @@ func describeRows(rows []agentRow) []string {
 			continue
 		}
 
-		out = append(out, "agent:"+row.item.agent.Name)
+		out = append(out, "agent:"+row.item.Agent.Name)
 	}
 
 	return out

@@ -117,8 +117,8 @@ func (r reviewScreen) isEditRefused(s panelShared) (string, bool) {
 
 // isAgentUnreadable reports whether weave cannot say what the agent is doing.
 func (r reviewScreen) isAgentUnreadable(s panelShared) (string, bool) {
-	item, ok := r.agentItem(s)
-	if !ok || !item.alive || item.agent.State != panel.StateUncertain {
+	item, ok := r.agentRow(s)
+	if !ok || !item.Alive || item.Agent.State != panel.StateUncertain {
 		return "", false
 	}
 
@@ -189,14 +189,14 @@ func (r reviewScreen) isAgentBusy(s panelShared) (string, bool) {
 		return "", false
 	}
 
-	item, ok := r.agentItem(s)
-	if !ok || !item.alive {
+	item, ok := r.agentRow(s)
+	if !ok || !item.Alive {
 		return "", false
 	}
 
 	// No default, so a state added later fails the exhaustive check here rather than quietly
 	// letting an editor in over a writer.
-	switch item.agent.State {
+	switch item.Agent.State {
 	case panel.StateThinking:
 		return "the agent is writing in this worktree · " +
 			"two writers in one checkout cannot both win, so stop it before you edit", true
@@ -209,8 +209,8 @@ func (r reviewScreen) isAgentBusy(s panelShared) (string, bool) {
 	return "", false
 }
 
-// agentItem hands back the listing's row for the agent whose diff is on screen.
-func (r reviewScreen) agentItem(s panelShared) (agentItem, bool) {
+// agentRow hands back the listing's row for the agent whose diff is on screen.
+func (r reviewScreen) agentRow(s panelShared) (panel.AgentRow, bool) {
 	return s.listing.liveAgent(r.agentID)
 }
 

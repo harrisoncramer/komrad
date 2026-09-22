@@ -32,12 +32,12 @@ func screensModel() model {
 
 	for i := range total {
 		name := fmt.Sprintf("agent%d", i)
-		m.listing.agents = append(m.listing.agents, agentItem{agent: panel.Agent{
+		m.listing.agents = append(m.listing.agents, panel.AgentRow{Agent: panel.Agent{
 			ID:         name,
 			Name:       name,
 			WorkflowID: "w1",
 		}})
-		m.listing.archivedAgents = append(m.listing.archivedAgents, agentItem{agent: panel.Agent{
+		m.listing.archivedAgents = append(m.listing.archivedAgents, panel.AgentRow{Agent: panel.Agent{
 			ID:         name,
 			Name:       name,
 			WorkflowID: "w1",

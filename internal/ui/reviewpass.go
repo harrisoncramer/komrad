@@ -94,7 +94,7 @@ func (r *reviewScreen) startPass(h host, s panelShared, intent passIntent) tea.C
 
 	// An agent the person stopped themselves is already where the pass needs it, and letting it
 	// go at the end of the pass is not this screen's to do.
-	if item, ok := r.agentItem(s); ok && item.agent.HeldAt != nil {
+	if item, ok := r.agentRow(s); ok && item.Agent.HeldAt != nil {
 		r.pass.mode = modeReviewing
 		r.pass.paused = true
 		r.pass.ourPause = false
@@ -176,7 +176,7 @@ func (m *model) releaseAbandonedPause(msg reviewPausedMsg) tea.Cmd {
 		return nil
 	}
 
-	return m.releaseCmd("Could not let "+item.agent.Name+" go", item.agent, abandonedSaid)
+	return m.releaseCmd("Could not let "+item.Agent.Name+" go", item.Agent, abandonedSaid)
 }
 
 // openPass does the thing the pass was opened for.
@@ -202,12 +202,12 @@ func (r *reviewScreen) endPass(h host, s panelShared, said string) tea.Cmd {
 		return nil
 	}
 
-	item, ok := r.agentItem(s)
+	item, ok := r.agentRow(s)
 	if !ok {
 		return nil
 	}
 
-	agent, name := item.agent, r.agentName
+	agent, name := item.Agent, r.agentName
 
 	return h.releaseCmd("Could not let "+name+" go", agent, said)
 }

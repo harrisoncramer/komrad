@@ -108,20 +108,20 @@ func (a *agentsScreen) openAgent(h host, s panelShared) tea.Cmd {
 		return nil
 	}
 
-	if !item.alive && !item.agent.State.DoesPaneDecide() {
+	if !item.Alive && !item.Agent.State.DoesPaneDecide() {
 		return nil
 	}
 
-	if item.alive {
-		if item.agent.HeldAt == nil {
-			h.selectGuest(item.agent.Pane)
+	if item.Alive {
+		if item.Agent.HeldAt == nil {
+			h.selectGuest(item.Agent.Pane)
 		}
 
 		return nil
 	}
 
-	return h.openingWriteCmd(fmt.Sprintf("Could not resume agent %q", item.agent.Name), func(c api) (*agentv1.Agent, error) {
-		return c.resumeAgent(item.agent.ID)
+	return h.openingWriteCmd(fmt.Sprintf("Could not resume agent %q", item.Agent.Name), func(c api) (*agentv1.Agent, error) {
+		return c.resumeAgent(item.Agent.ID)
 	})
 }
 
@@ -198,35 +198,35 @@ func (a *agentsScreen) details(s panelShared) details {
 	}
 
 	return details{
-		id:      r.item.agent.ID,
+		id:      r.item.Agent.ID,
 		notices: agentNotices(r),
 		fields:  agentDetailFields(s, r.item),
 	}
 }
 
 // agentDetailFields is the record for an agent as the listing holds it.
-func agentDetailFields(s panelShared, item agentItem) []recordField {
-	worktree, read := agentWorktree(s.inspections, item.agent.Cwd)
+func agentDetailFields(s panelShared, item panel.AgentRow) []recordField {
+	worktree, read := agentWorktree(s.inspections, item.Agent.Cwd)
 
 	return agentFields(agentFieldsParams{
-		agent:    item.agent,
-		schedule: s.listing.scheduleName(item.agent),
-		parent:   s.listing.parentName(item.agent),
-		workflow: s.listing.workflowName(item.agent.WorkflowID),
-		standing: item.pullRequest,
-		listed:   s.pullRequests.listed[item.agent.ID],
-		worktree: worktree,
-		read:     read,
-		now:      time.Now(),
+		agent:        item.Agent,
+		schedule:     s.listing.scheduleName(item.Agent),
+		parent:       s.listing.parentName(item.Agent),
+		workflow:     s.listing.workflowName(item.Agent.WorkflowID),
+		standing:     item.PullRequest,
+		pullRequests: item.PullRequests,
+		worktree:     worktree,
+		read:         read,
+		now:          time.Now(),
 	})
 }
 
 // hasPane reports whether an agent has a pane of its own worth putting in the window.
-func hasPane(item agentItem) bool {
-	return item.alive &&
-		item.agent.HeldAt == nil &&
-		item.agent.State != panel.StateSettingUp &&
-		!item.agent.State.IsFailed()
+func hasPane(item panel.AgentRow) bool {
+	return item.Alive &&
+		item.Agent.HeldAt == nil &&
+		item.Agent.State != panel.StateSettingUp &&
+		!item.Agent.State.IsFailed()
 }
 
 // doc is the markdown drawn beside the list for a row with no pane of its own.
@@ -239,12 +239,12 @@ func (a *agentsScreen) doc(s panelShared) string {
 		return noAgentsMarkdown(s.keys)
 	case r.header && !held:
 		return workflowContextMarkdown(r.workflow)
-	case item.agent.State == panel.StateSettingUp:
+	case item.Agent.State == panel.StateSettingUp:
 		return settingUpPlaceholder
-	case item.agent.HeldAt != nil:
+	case item.Agent.HeldAt != nil:
 		return heldPlaceholder
-	case item.agent.State.IsFailed():
-		return failedPlaceholder(s, item.agent)
+	case item.Agent.State.IsFailed():
+		return failedPlaceholder(s, item.Agent)
 	default:
 		return dormantPlaceholder
 	}
@@ -257,7 +257,7 @@ func (l listing) parentName(agent panel.Agent) string {
 	}
 
 	if item, ok := l.liveAgent(*agent.ParentAgentID); ok {
-		return item.agent.Name
+		return item.Agent.Name
 	}
 	if parent, ok := l.archivedAgent(*agent.ParentAgentID); ok {
 		return parent.Name

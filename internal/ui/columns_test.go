@@ -90,7 +90,7 @@ func TestAgentsGiveTheWindowToARunningAgent(t *testing.T) {
 func TestAgentsSayWhyADormantAgentHasNoPane(t *testing.T) {
 	tmux := &recordingTmux{}
 	m := sizedTo(infoModel(tmux), tmux)
-	m.listing.agents = []agentItem{{agent: panel.Agent{
+	m.listing.agents = []panel.AgentRow{{Agent: panel.Agent{
 		ID:         "a1",
 		Name:       "auth",
 		WorkflowID: "w1",
@@ -378,7 +378,7 @@ func TestADraggedDividerIsDrawnWhereItIs(t *testing.T) {
 func TestAgentWindowsAreTheSizeOfTheStage(t *testing.T) {
 	tmux := &recordingTmux{}
 	m := sizedTo(infoModel(tmux), tmux)
-	m.listing.agents = append(m.listing.agents, agentItem{agent: panel.Agent{
+	m.listing.agents = append(m.listing.agents, panel.AgentRow{Agent: panel.Agent{
 		ID:         "a2",
 		Name:       "dormant",
 		WorkflowID: "w1",
@@ -488,7 +488,7 @@ func TestASplitAgentsListIsLaidOutAgainstItsOwnColumn(t *testing.T) {
 	withColor(t)
 
 	m, _ := paneless(t)
-	m.listing.agents = []agentItem{{agent: panel.Agent{
+	m.listing.agents = []panel.AgentRow{{Agent: panel.Agent{
 		ID:         "a1",
 		Name:       strings.Repeat("long-agent-name-", 6),
 		WorkflowID: "w1",

@@ -255,7 +255,7 @@ func TestFilterNothingMatchesLine(t *testing.T) {
 // pattern back to a search rather than dropping it.
 func TestJumpMarkThroughAFilter(t *testing.T) {
 	m := markTree()
-	markRow(&m, agentRowKey("a4"))
+	markRow(&m, "a4")
 	m.filter.mode = filterModeFilter
 	m.filter.setQuery("auth")
 	require.Equal(t, -1, rowIndexOfKey(m.agents.rows(m.shared()), agentRowKey("a4")), "the filter hides the marked row")
@@ -294,7 +294,7 @@ func TestJumpMarkThroughAFilterToAHiddenRow(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := markTree()
-			markRow(&m, agentRowKey("a5"))
+			markRow(&m, "a5")
 			m.filter.mode = filterModeFilter
 			m.filter.setQuery(tt.query)
 
@@ -385,25 +385,25 @@ func filterModeWorkflows() []panel.Workflow {
 
 // filterModeAgents is a tree with a child under an agent, so the rule for a row under a match
 // and a row above one both have something to keep.
-func filterModeAgents() []agentItem {
-	return []agentItem{
-		{agent: panel.Agent{
+func filterModeAgents() []panel.AgentRow {
+	return []panel.AgentRow{
+		{Agent: panel.Agent{
 			ID:         "a1",
 			Name:       "auth",
 			WorkflowID: "w1",
 		}},
-		{agent: panel.Agent{
+		{Agent: panel.Agent{
 			ID:            "a2",
 			Name:          "api",
 			WorkflowID:    "w1",
 			ParentAgentID: xptr.Ptr("a1"),
 		}},
-		{agent: panel.Agent{
+		{Agent: panel.Agent{
 			ID:         "a3",
 			Name:       "db",
 			WorkflowID: "w1",
 		}},
-		{agent: panel.Agent{
+		{Agent: panel.Agent{
 			ID:         "a4",
 			Name:       "ui",
 			WorkflowID: "w2",

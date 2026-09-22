@@ -64,7 +64,7 @@ func TestSetMark(t *testing.T) {
 			m := markTree()
 			m.api = api{agents: agents}
 			if tt.holding != nil {
-				m.listing.marks = map[string]string{agentRowKey("a1"): *tt.holding}
+				m.listing.marks = map[string]string{"a1": *tt.holding}
 			}
 			m.agents.cursor = rowIndexOfKey(m.agents.rows(m.shared()), agentRowKey("a1"))
 
@@ -107,7 +107,7 @@ func TestSetMarkClearsAWorkflowsOwnLetter(t *testing.T) {
 	agents := &fakeMarkAgents{}
 	m := markTree()
 	m.api = api{agents: agents}
-	m.listing.marks = map[string]string{workflowRowKey("w1"): "a"}
+	m.listing.marks = map[string]string{"w1": "a"}
 	m.agents.cursor = rowIndexOfKey(m.agents.rows(m.shared()), workflowRowKey("w1"))
 
 	pending, _ := m.Update(keyMsg(m.keys.Marks.Set[0]))
@@ -122,7 +122,7 @@ func TestSetMarkClearsAWorkflowsOwnLetter(t *testing.T) {
 // TestJumpMarkReachesAWorkflow pins a header being somewhere a jump lands.
 func TestJumpMarkReachesAWorkflow(t *testing.T) {
 	m := markTree()
-	markRow(&m, workflowRowKey("w2"))
+	markRow(&m, "w2")
 	m.agents.cursor = rowIndexOfKey(m.agents.rows(m.shared()), agentRowKey("a1"))
 
 	jumped := pressMark(t, m, m.keys.Marks.Jump[0], "c")
@@ -136,7 +136,7 @@ func TestJumpMarkReachesAWorkflow(t *testing.T) {
 func TestJumpMarkReachesAWorkflowThroughAFlatList(t *testing.T) {
 	m := markTree()
 	m.agents.sort.flat = true
-	markRow(&m, workflowRowKey("w2"))
+	markRow(&m, "w2")
 	m.agents.cursor = rowIndexOfKey(m.agents.rows(m.shared()), agentRowKey("a1"))
 	require.Negative(t, rowIndexOfKey(m.agents.rows(m.shared()), workflowRowKey("w2")), "the flat list draws no workflow")
 
@@ -147,7 +147,7 @@ func TestJumpMarkReachesAWorkflowThroughAFlatList(t *testing.T) {
 
 	onAgent := markTree()
 	onAgent.agents.sort.flat = true
-	markAgent(&onAgent, "a1")
+	markRow(&onAgent, "a1")
 	onAgent.agents.cursor = 0
 
 	landed := pressMark(t, onAgent, onAgent.keys.Marks.Jump[0], "c")
@@ -259,7 +259,7 @@ func TestJumpMark(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := markTree()
-			markAgent(&m, tt.marked)
+			markRow(&m, tt.marked)
 			if tt.setup != nil {
 				tt.setup(&m)
 			}
@@ -280,7 +280,7 @@ func TestJumpMark(t *testing.T) {
 // hidden rows as they were.
 func TestJumpMarkThatCannotLandKeepsTheScreen(t *testing.T) {
 	m := markTree()
-	markAgent(&m, "a3")
+	markRow(&m, "a3")
 	// A row whose workflow is not in the listing is drawn under no header, which neither
 	// clearing the filter nor showing hidden rows can reach.
 	m.listing.workflows = nil
@@ -300,7 +300,7 @@ func TestJumpMarkThatCannotLandKeepsTheScreen(t *testing.T) {
 // workflow header, which holds no agent to name it by.
 func TestJumpMarkFromAHeaderComesBack(t *testing.T) {
 	m := markTree()
-	markAgent(&m, "a3")
+	markRow(&m, "a3")
 	m.agents.cursor = rowIndexOfKey(m.agents.rows(m.shared()), workflowRowKey("w1"))
 	require.GreaterOrEqual(t, m.agents.cursor, 0)
 
@@ -314,7 +314,7 @@ func TestJumpMarkFromAHeaderComesBack(t *testing.T) {
 // TestJumpMarkBackToARowThatHasGone pins the key saying so and forgetting the row.
 func TestJumpMarkBackToARowThatHasGone(t *testing.T) {
 	m := markTree()
-	markAgent(&m, "a3")
+	markRow(&m, "a3")
 	m.agents.cursor = rowIndexOfKey(m.agents.rows(m.shared()), agentRowKey("a1"))
 
 	jumped := pressMark(t, m, m.keys.Marks.Jump[0], "c")
@@ -334,7 +334,7 @@ func TestJumpMarkBackToARowThatHasGone(t *testing.T) {
 // alone.
 func TestJumpMarkKeepsAStandingSearch(t *testing.T) {
 	m := markTree()
-	markRow(&m, agentRowKey("a5"))
+	markRow(&m, "a5")
 	m.filter.setQuery("auth")
 
 	jumped := pressMark(t, m, m.keys.Marks.Jump[0], "c")
@@ -364,7 +364,7 @@ func TestJumpMarkUnknownLetter(t *testing.T) {
 // looking at a marked agent and coming back are one gesture.
 func TestJumpMarkBack(t *testing.T) {
 	m := markTree()
-	markAgent(&m, "a3")
+	markRow(&m, "a3")
 	m.agents.cursor = rowIndexOfKey(m.agents.rows(m.shared()), agentRowKey("a1"))
 
 	jumped := pressMark(t, m, m.keys.Marks.Jump[0], "c")
@@ -395,15 +395,11 @@ func markTree() model {
 	return m
 }
 
-func markAgent(m *model, id string) {
-	markRow(m, agentRowKey(id))
-}
-
-func markRow(m *model, key string) {
+func markRow(m *model, id string) {
 	if m.listing.marks == nil {
 		m.listing.marks = map[string]string{}
 	}
-	m.listing.marks[key] = "c"
+	m.listing.marks[id] = "c"
 }
 
 func pressMark(t *testing.T, m model, keys ...string) model {

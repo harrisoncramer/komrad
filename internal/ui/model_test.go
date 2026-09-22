@@ -60,9 +60,9 @@ func TestClampCursor(t *testing.T) {
 func TestApplyAgents(t *testing.T) {
 	tests := []struct {
 		name       string
-		start      []agentItem
+		start      []panel.AgentRow
 		cursor     int
-		fresh      []agentItem
+		fresh      []panel.AgentRow
 		wantLen    int
 		wantCursor string
 		wantOrder  []string
@@ -116,10 +116,10 @@ func TestApplyAgents(t *testing.T) {
 
 			selected, ok := m.agents.selectedAgent(m.shared())
 			require.True(t, ok, "the cursor is on an agent")
-			assert.Equal(t, tt.wantCursor, selected.agent.Name)
+			assert.Equal(t, tt.wantCursor, selected.Agent.Name)
 
-			names := xslice.Map(m.listing.agents, func(agent agentItem) string {
-				return agent.agent.Name
+			names := xslice.Map(m.listing.agents, func(agent panel.AgentRow) string {
+				return agent.Agent.Name
 			})
 			assert.Equal(t, tt.wantOrder, names)
 		})
@@ -137,18 +137,18 @@ func TestPlaceTreeCursorSkipsHeaderAfterAgentRemoved(t *testing.T) {
 				{ID: "w1", Name: "backend"},
 				{ID: "w2", Name: "frontend"},
 			},
-			agents: []agentItem{
-				{agent: panel.Agent{
+			agents: []panel.AgentRow{
+				{Agent: panel.Agent{
 					ID:         "a1",
 					Name:       "a1",
 					WorkflowID: "w1",
 				}},
-				{agent: panel.Agent{
+				{Agent: panel.Agent{
 					ID:         "a2",
 					Name:       "a2",
 					WorkflowID: "w2",
 				}},
-				{agent: panel.Agent{
+				{Agent: panel.Agent{
 					ID:         "a3",
 					Name:       "a3",
 					WorkflowID: "w2",
@@ -162,13 +162,13 @@ func TestPlaceTreeCursorSkipsHeaderAfterAgentRemoved(t *testing.T) {
 	was := rowKeyAt(m.agents.rows(m.shared()), m.agents.cursor)
 	require.Equal(t, "agent:a1", was)
 
-	applyListing(&m, []agentItem{
-		{agent: panel.Agent{
+	applyListing(&m, []panel.AgentRow{
+		{Agent: panel.Agent{
 			ID:         "a2",
 			Name:       "a2",
 			WorkflowID: "w2",
 		}},
-		{agent: panel.Agent{
+		{Agent: panel.Agent{
 			ID:         "a3",
 			Name:       "a3",
 			WorkflowID: "w2",
@@ -177,14 +177,14 @@ func TestPlaceTreeCursorSkipsHeaderAfterAgentRemoved(t *testing.T) {
 
 	selected, ok := m.agents.selectedAgent(m.shared())
 	require.True(t, ok, "the cursor lands on an agent, not the next workflow's header")
-	assert.Equal(t, "a2", selected.agent.Name)
+	assert.Equal(t, "a2", selected.Agent.Name)
 }
 
 const testWorkflowID = "w1"
 
-func items(names ...string) []agentItem {
-	out := xslice.Map(names, func(name string) agentItem {
-		return agentItem{agent: panel.Agent{
+func items(names ...string) []panel.AgentRow {
+	out := xslice.Map(names, func(name string) panel.AgentRow {
+		return panel.AgentRow{Agent: panel.Agent{
 			ID:         name,
 			Name:       name,
 			WorkflowID: testWorkflowID,

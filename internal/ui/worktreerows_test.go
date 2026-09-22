@@ -332,14 +332,14 @@ func TestWorktreesSnapshotReadsEveryRow(t *testing.T) {
 		rows:     rows,
 		selected: selection{keys: []string{"tree:/trees/orphan"}},
 		focused:  "tree:/trees/live",
-		live: []agentItem{{
-			agent: panel.Agent{
+		live: []panel.AgentRow{{
+			Agent: panel.Agent{
 				ID:    "live",
 				Name:  "worktree-view",
 				State: panel.StateWaiting,
 			},
-			alive:      true,
-			unreadMail: true,
+			Alive:      true,
+			UnreadMail: true,
 		}},
 	})
 
@@ -433,7 +433,7 @@ func TestWorktreeAgentFactsOffTheWorktreeListing(t *testing.T) {
 				id:         "gone",
 				state:      tt.state,
 				archivedAt: tt.archivedAt,
-			}, map[string]agentItem{})
+			}, map[string]panel.AgentRow{})
 
 			assert.Equal(t, tt.wantStatus, row.Status)
 			assert.Equal(t, tt.wantProcess, row.Process)
