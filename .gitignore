@@ -17,3 +17,4 @@ crash.*.log
 .claude/*
 !.claude/skills/
 tools/weavepkg/weavepkg
+tools/weaverec/weaverec

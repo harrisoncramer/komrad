@@ -183,6 +183,7 @@ service WorktreeService {
       mcp: true
       name: "list_worktrees"
       description: "List every worktree directory weave holds, under the configured worktrees directory and each workflow's own, with the repository it was cut from, its branch, whether git can still read it, the agent it was made for, the other agents working in it, the disk it takes as it was last measured, and when it was last active. A directory with no agent is one whose row was deleted while cleanup did not run, or one a test left behind. A directory a delete has claimed and not yet taken, through delete_agents, delete_worktrees or the panel, is left out until that delete fails. Sizes are measured in the background a few directories at a time, so a directory the loop has not reached yet carries none. This reads the directories, the agent rows and the stored sizes and runs no git, so it is cheap to call often; read one directory's contents and standing against its base with get_worktree, which also measures it afresh."
+      roles: [ROLE_ORCHESTRATOR]
     };
   }
   rpc GetWorktree(GetWorktreeRequest) returns (GetWorktreeResponse) {
@@ -192,6 +193,7 @@ service WorktreeService {
       mcp: true
       name: "get_worktree"
       description: "Read one worktree directory: its size and its top-level entries with theirs, biggest first, walked for the call and recorded so list_worktrees carries the fresh number, what is uncommitted, the base it is measured against with how far ahead and behind it stands and how many of its commits the base already holds whole, whether deleting its agent would keep the branch, and the commits since the base. The base is read as the clone last fetched it unless fetch is set, which asks origin first. A directory whose registration git cannot read answers with the entries alone."
+      roles: [ROLE_ORCHESTRATOR]
     };
   }
   rpc RemoveUnownedWorktrees(RemoveUnownedWorktreesRequest) returns (RemoveUnownedWorktreesResponse) {
@@ -202,6 +204,7 @@ service WorktreeService {
       name: "remove_unowned_worktrees"
       description: "Remove worktree directories no agent answers for, which delete_agents cannot reach: a directory under the worktrees directories whose agent row is gone, or whose row is in AGENT_STATE_FAILED_TO_CLEANUP because git can no longer read the registration. Each directory goes and, where the repository can still be read, git worktree prune runs in it; no branch is ever touched, since without a row nothing says whether the branch was adopted. A directory outside the worktrees directories, one a live or archived agent still answers for, one an agent works in or under, or one holding another worktree is refused with the reason and the rest go; delete the agent instead for those. Read list_worktrees first and pass only the directories it reports with no agent."
       destructive: true
+      roles: [ROLE_ORCHESTRATOR]
     };
   }
   rpc DeleteWorktrees(DeleteWorktreesRequest) returns (google.protobuf.Empty) {

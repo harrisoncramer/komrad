@@ -18,6 +18,8 @@ packer = "1.16.0"
 "aqua:aws/aws-cli" = "2.35.11"
 "aqua:bufbuild/buf" = "v1.57.2"
 "aqua:jqlang/jq" = "1.7.1"
+gh = "2.101.0"
+"ubi:asciinema/agg" = "1.9.0"
 "go:google.golang.org/protobuf/cmd/protoc-gen-go" = "v1.36.6"
 "go:connectrpc.com/connect/cmd/protoc-gen-connect-go" = "v1.18.1"
 "http:pg_format" = { version = "5.9", url = "https://github.com/darold/pgFormatter/archive/refs/tags/v5.9.tar.gz", strip_components = 1, bin_path = "." }

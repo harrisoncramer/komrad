@@ -17,9 +17,12 @@ const AgentIDEnv = "WEAVE_AGENT_ID"
 const SessionIDEnv = "WEAVE_SESSION_ID"
 
 // EnvPrefix is the assignments that go ahead of the CLI so an agent runs knowing which agent it
-// is and which conversation it is in.
+// is, which conversation it is in, and where weave's stand-ins for the tools it calls are.
 func EnvPrefix(launch Launch) string {
 	var assignments []string
+	if launch.ToolsDir != "" {
+		assignments = append(assignments, "PATH="+QuoteArg(launch.ToolsDir)+`:"$PATH"`)
+	}
 	if launch.AgentID != "" {
 		assignments = append(assignments, fmt.Sprintf("%s=%s", AgentIDEnv, QuoteArg(launch.AgentID)))
 	}
@@ -46,7 +49,10 @@ type Launch struct {
 	// HookCommand is the weave binary a harness points its own hooks at, a harness that wires none
 	// leaving the turn end to the reconciler.
 	HookCommand string
-	Resume      bool
+	// ToolsDir holds weave's stand-ins for the tools an agent calls, and goes ahead of the PATH
+	// the agent runs with.
+	ToolsDir string
+	Resume   bool
 }
 
 type Activity int

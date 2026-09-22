@@ -158,7 +158,11 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 			}),
 		}, options...))
 
-	mcpHandler, err := mcp.NewHandler(mcp.NewHandlerParams{DB: params.ReadOnly, BaseURL: "http://" + params.Addr})
+	mcpHandler, err := mcp.NewHandler(mcp.NewHandlerParams{
+		DB:      params.ReadOnly,
+		BaseURL: "http://" + params.Addr,
+		RoleOf:  newRoleOf(params.Stores.agents, params.Logger),
+	})
 	if err != nil {
 		return nil, err
 	}
