@@ -2,6 +2,7 @@ package ui
 
 import (
 	"errors"
+	"slices"
 	"testing"
 	"time"
 
@@ -146,6 +147,27 @@ func TestEventsReplaceAndDropRows(t *testing.T) {
 	assert.Equal(t, "w1", m.listing.workflows[0].ID)
 	assert.Empty(t, m.listing.marks)
 	assert.Empty(t, m.listing.schedules)
+}
+
+// TestRenamedWorkflowMovesToItsPlace covers a workflow event that changes the name its row is
+// ordered by, which refiles the row rather than leaving it where the old name sorted it, and
+// counts as the workflows moving under an open form.
+func TestRenamedWorkflowMovesToItsPlace(t *testing.T) {
+	m := watchedPanel()
+
+	m, _ = update(t, m, client.WatchBatch{Snapshot: true, Events: []*watchv1.WatchEvent{
+		workflowEvent(&workflowv1.Workflow{Id: "w1", Name: "api"}),
+		workflowEvent(&workflowv1.Workflow{Id: "w2", Name: "web"}),
+	}})
+	before := slices.Clone(m.listing.workflows)
+
+	m.applyWatch(client.WatchBatch{Events: []*watchv1.WatchEvent{
+		workflowEvent(&workflowv1.Workflow{Id: "w1", Name: "zzz"}),
+	}})
+
+	assert.Equal(t, "w2", m.listing.workflows[0].ID)
+	assert.Equal(t, "zzz", m.listing.workflows[1].Name)
+	assert.NotEqual(t, before, m.listing.workflows, "and the rows compared against are the ones from before the event")
 }
 
 // TestLostStreamIsReportedUntilTheNextSnapshot covers the server going away being said once

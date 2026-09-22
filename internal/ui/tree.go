@@ -535,13 +535,10 @@ func (l *listing) setMark(key string, mark *string) {
 	l.marks[key] = *mark
 }
 
-// putRow replaces the row sharing the new one's id, or inserts it where the order puts it.
+// putRow takes out the row sharing the new one's id and inserts the new one where the order
+// puts it.
 func putRow[T any](rows []T, row T, id func(T) string, order func(a, b T) int) []T {
-	if i := slices.IndexFunc(rows, func(r T) bool { return id(r) == id(row) }); i >= 0 {
-		rows[i] = row
-
-		return rows
-	}
+	rows = slices.DeleteFunc(slices.Clone(rows), func(r T) bool { return id(r) == id(row) })
 
 	at, _ := slices.BinarySearchFunc(rows, row, order)
 

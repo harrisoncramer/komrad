@@ -153,7 +153,7 @@ func (m *model) withListing(change func(*listing)) tea.Cmd {
 	worktreeRow := m.worktrees.list().hovered(m.shared())
 	searchRow := m.search.list().hovered(m.shared())
 
-	before := m.listing
+	before := slices.Clone(m.listing.workflows)
 	change(&m.listing)
 
 	m.agents.apply(m.shared(), treeRow)
@@ -168,7 +168,7 @@ func (m *model) withListing(change func(*listing)) tea.Cmd {
 	// A form draws its options from the listing it was built over, so it is drawn again when
 	// that listing moves under it.
 	var redrawn tea.Cmd
-	if !reflect.DeepEqual(before.workflows, m.listing.workflows) {
+	if !reflect.DeepEqual(before, m.listing.workflows) {
 		redrawn = m.redrawOpenForm()
 	}
 
