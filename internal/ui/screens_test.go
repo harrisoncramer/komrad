@@ -45,12 +45,51 @@ func TestEveryScreenDrawsTheChromeItDid(t *testing.T) {
 		column  bool
 		stage   bool
 	}{
-		{name: "agents", screen: screenAgents, details: true, filter: true, tabs: true, column: true, stage: true},
-		{name: "schedules", screen: screenSchedules, details: true, filter: true, column: true},
-		{name: "archive", screen: screenArchive, details: true, filter: true, tabs: true, column: true, stage: true},
-		{name: "search", screen: screenSearch, column: true},
-		{name: "review", screen: screenReview, details: true, column: true},
-		{name: "worktrees", screen: screenWorktrees, details: true, filter: true, tabs: true, column: true, stage: true},
+		{
+			name:    "agents",
+			screen:  screenAgents,
+			details: true,
+			filter:  true,
+			tabs:    true,
+			column:  true,
+			stage:   true,
+		},
+		{
+			name:    "schedules",
+			screen:  screenSchedules,
+			details: true,
+			filter:  true,
+			column:  true,
+		},
+		{
+			name:    "archive",
+			screen:  screenArchive,
+			details: true,
+			filter:  true,
+			tabs:    true,
+			column:  true,
+			stage:   true,
+		},
+		{
+			name:   "search",
+			screen: screenSearch,
+			column: true,
+		},
+		{
+			name:    "review",
+			screen:  screenReview,
+			details: true,
+			column:  true,
+		},
+		{
+			name:    "worktrees",
+			screen:  screenWorktrees,
+			details: true,
+			filter:  true,
+			tabs:    true,
+			column:  true,
+			stage:   true,
+		},
 	}
 
 	for _, tt := range tests {

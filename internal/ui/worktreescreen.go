@@ -498,7 +498,11 @@ var (
 )
 
 func (w *worktreesScreen) needs() screenNeeds {
-	return screenNeeds{fromListing: true, archive: true, worktrees: true}
+	return screenNeeds{
+		fromListing: true,
+		archive:     true,
+		worktrees:   true,
+	}
 }
 
 func (w *worktreesScreen) takesEveryKey() bool {

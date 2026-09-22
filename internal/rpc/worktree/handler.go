@@ -94,7 +94,11 @@ func (s *Handler) GetWorktree(ctx context.Context, req *worktreev1.GetWorktreeRe
 		Worktree:  renderWorktree(inspection.Worktree),
 		SizeBytes: inspection.Bytes,
 		Entries: xslice.Map(inspection.Entries, func(entry worktrees.Entry) *worktreev1.Entry {
-			return &worktreev1.Entry{Path: entry.Path, SizeBytes: entry.Bytes, Dir: entry.Dir}
+			return &worktreev1.Entry{
+				Path:      entry.Path,
+				SizeBytes: entry.Bytes,
+				Dir:       entry.Dir,
+			}
 		}),
 		Modified:           inspection.Changes.Modified,
 		Untracked:          inspection.Changes.Untracked,
@@ -106,7 +110,11 @@ func (s *Handler) GetWorktree(ctx context.Context, req *worktreev1.GetWorktreeRe
 		SequenceInProgress: inspection.SequenceInProgress,
 		KeepsBranch:        inspection.KeepsBranch,
 		Commits: xslice.Map(inspection.Commits, func(commit git.Commit) *worktreev1.Commit {
-			return &worktreev1.Commit{Sha: commit.SHA, Subject: commit.Subject, CommittedAt: dates.Stamp(commit.CommittedAt)}
+			return &worktreev1.Commit{
+				Sha:         commit.SHA,
+				Subject:     commit.Subject,
+				CommittedAt: dates.Stamp(commit.CommittedAt),
+			}
 		}),
 	}, nil
 }

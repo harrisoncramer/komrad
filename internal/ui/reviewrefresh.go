@@ -37,8 +37,7 @@ type reviewThreads struct {
 	// diff.
 	focus bool
 	// scroll is how far up from the end of the conversation the sidebar is showing.
-	scroll int
-
+	scroll    int
 	composing bool
 	// releasing is set while the panel is asking what to send.
 	releasing bool

@@ -230,9 +230,24 @@ func TestEnqueuerClaimsWhatItQueues(t *testing.T) {
 			require.NoError(t, err)
 			putAway, err := stores.Workflows.Create(ctx, workflowstore.Config{Name: "put-away", Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"}})
 			require.NoError(t, err)
-			live := agentstore.Agent{ID: newID(t), Name: "live", WorkflowID: workflow.ID, State: agentstore.StateIdle}
-			archived := agentstore.Agent{ID: newID(t), Name: "archived", WorkflowID: workflow.ID, State: agentstore.StateIdle}
-			inside := agentstore.Agent{ID: newID(t), Name: "inside", WorkflowID: putAway.ID, State: agentstore.StateIdle}
+			live := agentstore.Agent{
+				ID:         newID(t),
+				Name:       "live",
+				WorkflowID: workflow.ID,
+				State:      agentstore.StateIdle,
+			}
+			archived := agentstore.Agent{
+				ID:         newID(t),
+				Name:       "archived",
+				WorkflowID: workflow.ID,
+				State:      agentstore.StateIdle,
+			}
+			inside := agentstore.Agent{
+				ID:         newID(t),
+				Name:       "inside",
+				WorkflowID: putAway.ID,
+				State:      agentstore.StateIdle,
+			}
 			require.NoError(t, stores.Agents.Create(ctx, live))
 			require.NoError(t, stores.Agents.Create(ctx, archived))
 			require.NoError(t, stores.Agents.Create(ctx, inside))

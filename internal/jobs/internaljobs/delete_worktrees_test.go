@@ -135,7 +135,11 @@ func TestDeleteWorktreesSendsEachDirectoryDownItsPath(t *testing.T) {
 			name: "a delete that fails is retried, the refusals riding along in the error",
 			listing: []worktrees.Worktree{
 				archivedWorktree("/trees/a", "a"),
-				{Dir: "/trees/live", Readable: true, Agent: &worktrees.Agent{ID: "live", Name: "worktree-view"}},
+				{
+					Dir:      "/trees/live",
+					Readable: true,
+					Agent:    &worktrees.Agent{ID: "live", Name: "worktree-view"},
+				},
 			},
 			dirs:        []string{"/trees/a", "/trees/live"},
 			deleteErr:   errors.New("the store is away"),
@@ -158,8 +162,12 @@ func TestDeleteWorktreesSendsEachDirectoryDownItsPath(t *testing.T) {
 		{
 			name: "a row whose own delete failed on a registration git cannot read goes to the remover",
 			listing: []worktrees.Worktree{{
-				Dir:   "/trees/stuck",
-				Agent: &worktrees.Agent{ID: "stuck", Name: "stuck", FailedToCleanup: true},
+				Dir: "/trees/stuck",
+				Agent: &worktrees.Agent{
+					ID:              "stuck",
+					Name:            "stuck",
+					FailedToCleanup: true,
+				},
 			}},
 			dirs:        []string{"/trees/stuck"},
 			wantRemoved: [][]string{{"/trees/stuck"}},

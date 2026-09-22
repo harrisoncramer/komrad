@@ -95,7 +95,11 @@ type engineProber struct {
 func (p engineProber) probe(ctx context.Context, row enginepick.Row) enginepick.Status {
 	setup, err := loadEngine(p.stack, row.Name)
 	if err != nil {
-		return enginepick.Status{Build: "config could not be read", Label: "unreadable", Refused: err.Error()}
+		return enginepick.Status{
+			Build:   "config could not be read",
+			Label:   "unreadable",
+			Refused: err.Error(),
+		}
 	}
 
 	addr := setup.env.Addr
@@ -103,7 +107,11 @@ func (p engineProber) probe(ctx context.Context, row enginepick.Row) enginepick.
 	if setup.remote.IsRemote() {
 		tunnel, err := setup.remote.Dial(ctx, addr, tunnelWait)
 		if err != nil {
-			return enginepick.Status{Build: "not reachable", Label: "down", Refused: err.Error()}
+			return enginepick.Status{
+				Build:   "not reachable",
+				Label:   "down",
+				Refused: err.Error(),
+			}
 		}
 
 		addr = tunnel.Local

@@ -274,18 +274,37 @@ func TestFlatTreeLeavesAFoldedOrchestratorOut(t *testing.T) {
 	worker := "a1"
 	agents := []panel.AgentRow{
 		orchestratorItem(),
-		{Agent: panel.Agent{ID: "a1", Name: "telescope", WorkflowID: "w1"}},
-		{Agent: panel.Agent{ID: "a2", Name: "reader", WorkflowID: "w1", ParentAgentID: &worker}},
+		{Agent: panel.Agent{
+			ID:         "a1",
+			Name:       "telescope",
+			WorkflowID: "w1",
+		}},
+		{Agent: panel.Agent{
+			ID:            "a2",
+			Name:          "reader",
+			WorkflowID:    "w1",
+			ParentAgentID: &worker,
+		}},
 	}
 	workflows := []panel.Workflow{{ID: "w1", Name: "backend"}}
 
-	folded := treeRows(treeRowsParams{workflows: workflows, agents: agents, foldOrchestrators: true, flat: true})
+	folded := treeRows(treeRowsParams{
+		workflows:         workflows,
+		agents:            agents,
+		foldOrchestrators: true,
+		flat:              true,
+	})
 	require.Equal(t, []string{"agent:a1", "agent:a2"}, xslice.Map(folded, agentRow.key))
 	assert.False(t, folded[0].child)
 	assert.True(t, folded[1].child)
 	assert.Equal(t, "w1", folded[1].workflow.ID)
 
-	archived := treeRows(treeRowsParams{workflows: workflows, agents: agents, showHidden: true, flat: true})
+	archived := treeRows(treeRowsParams{
+		workflows:  workflows,
+		agents:     agents,
+		showHidden: true,
+		flat:       true,
+	})
 	assert.Equal(t, []string{"agent:o1", "agent:a1", "agent:a2"}, xslice.Map(archived, agentRow.key))
 }
 

@@ -42,6 +42,8 @@ type Change struct {
 // NewBrokerParams is what a broker is built over.
 type NewBrokerParams struct {
 	Logger *slog.Logger
+	Pool   *pgxpool.Pool
+	Rows   *Rows
 }
 
 // Broker hears from the database which rows moved, reads them back and fans them out to every
@@ -72,7 +74,7 @@ type Broker struct {
 	stopped chan struct{}
 }
 
-// NewBroker builds the broker, which hears nothing and renders nothing until Start.
+// NewBroker builds the broker rendering through the rows, which hears nothing until Start.
 func NewBroker(params NewBrokerParams) *Broker {
 	logger := params.Logger
 	if logger == nil {
@@ -83,8 +85,10 @@ func NewBroker(params NewBrokerParams) *Broker {
 	stopped := make(chan struct{})
 	close(stopped)
 
-	return &Broker{
+	b := &Broker{
 		logger:      logger,
+		pool:        params.Pool,
+		rows:        params.Rows,
 		pending:     map[watchv1.Resource]map[string]struct{}{},
 		unknown:     map[string]struct{}{},
 		wake:        make(chan struct{}, 1),
@@ -92,13 +96,20 @@ func NewBroker(params NewBrokerParams) *Broker {
 		stop:        func() {},
 		stopped:     stopped,
 	}
+
+	go func() {
+		for range b.wake {
+			if !b.render() {
+				time.Sleep(retryAfter)
+			}
+		}
+	}()
+
+	return b
 }
 
-// Start puts a connection from the pool on the watch channel and begins rendering through the
-// rows, both of which Close ends.
-func (b *Broker) Start(pool *pgxpool.Pool, rows *Rows) error {
-	b.pool = pool
-
+// Start puts a connection from the pool on the watch channel, which Close ends.
+func (b *Broker) Start() error {
 	ctx, cancel := context.WithCancel(context.Background())
 	conn, err := b.connect(ctx)
 	if err != nil {
@@ -107,7 +118,6 @@ func (b *Broker) Start(pool *pgxpool.Pool, rows *Rows) error {
 		return err
 	}
 
-	b.serve(rows)
 	b.stop = cancel
 	b.stopped = make(chan struct{})
 	go func() {
@@ -117,19 +127,6 @@ func (b *Broker) Start(pool *pgxpool.Pool, rows *Rows) error {
 	}()
 
 	return nil
-}
-
-// serve begins rendering what is heard through the rows.
-func (b *Broker) serve(rows *Rows) {
-	b.rows = rows
-
-	go func() {
-		for range b.wake {
-			if !b.render() {
-				time.Sleep(retryAfter)
-			}
-		}
-	}()
 }
 
 // render reads back everything touched since the last one and sends what moved to every

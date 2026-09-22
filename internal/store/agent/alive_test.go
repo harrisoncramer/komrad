@@ -38,7 +38,11 @@ func TestAliveFollowsThePane(t *testing.T) {
 		{
 			name: "forgetting the pane",
 			clear: func(ctx context.Context, st *fixture, agent Agent) error {
-				_, err := st.ForgetPane(ctx, ForgetPaneParams{ID: agent.ID, Pane: agent.Pane, UpdatedAt: agent.UpdatedAt})
+				_, err := st.ForgetPane(ctx, ForgetPaneParams{
+					ID:        agent.ID,
+					Pane:      agent.Pane,
+					UpdatedAt: agent.UpdatedAt,
+				})
 
 				return err
 			},
@@ -79,7 +83,11 @@ func TestAliveFollowsThePane(t *testing.T) {
 			require.NoError(t, err)
 			assert.False(t, dormant.Alive, "a row created with no pane is dormant")
 
-			require.NoError(t, st.Create(ctx, Agent{Name: "agent", Pane: "%1", State: StateThinking}))
+			require.NoError(t, st.Create(ctx, Agent{
+				Name:  "agent",
+				Pane:  "%1",
+				State: StateThinking,
+			}))
 			created, err := st.Get(ctx, "agent")
 			require.NoError(t, err)
 			assert.True(t, created.Alive, "a row created with a pane is alive")
@@ -101,7 +109,11 @@ func TestSetAlive(t *testing.T) {
 	ctx := t.Context()
 
 	for _, name := range []string{"a", "b", "c"} {
-		require.NoError(t, st.Create(ctx, Agent{Name: name, Pane: "%" + name, State: StateIdle}))
+		require.NoError(t, st.Create(ctx, Agent{
+			Name:  name,
+			Pane:  "%" + name,
+			State: StateIdle,
+		}))
 	}
 	a, err := st.Get(ctx, "a")
 	require.NoError(t, err)

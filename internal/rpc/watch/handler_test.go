@@ -94,8 +94,8 @@ func serve(t *testing.T, agents agentStore, heartbeat time.Duration) *served {
 	require.NoError(t, err)
 	t.Cleanup(pool.Close)
 
-	broker := watch.NewBroker(watch.NewBrokerParams{})
-	require.NoError(t, broker.Start(pool, newRows(agents)))
+	broker := watch.NewBroker(watch.NewBrokerParams{Pool: pool, Rows: newRows(agents)})
+	require.NoError(t, broker.Start())
 	t.Cleanup(broker.Close)
 
 	var out bytes.Buffer

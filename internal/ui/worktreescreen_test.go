@@ -198,10 +198,26 @@ func TestDeleteOnAWorktreeOpensTheFormItsFateNames(t *testing.T) {
 		cursor int
 		kind   formKind
 	}{
-		{name: "a header opens nothing", cursor: 2, kind: formNone},
-		{name: "a live agent is offered the archive", cursor: 4, kind: formAgentArchive},
-		{name: "an archived agent is offered the delete", cursor: 3, kind: formWorktreesDelete},
-		{name: "nobody's directory is offered the delete", cursor: 5, kind: formWorktreesDelete},
+		{
+			name:   "a header opens nothing",
+			cursor: 2,
+			kind:   formNone,
+		},
+		{
+			name:   "a live agent is offered the archive",
+			cursor: 4,
+			kind:   formAgentArchive,
+		},
+		{
+			name:   "an archived agent is offered the delete",
+			cursor: 3,
+			kind:   formWorktreesDelete,
+		},
+		{
+			name:   "nobody's directory is offered the delete",
+			cursor: 5,
+			kind:   formWorktreesDelete,
+		},
 	}
 
 	for _, tt := range tests {

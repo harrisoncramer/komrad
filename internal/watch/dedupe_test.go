@@ -14,7 +14,11 @@ import (
 // stamped is the row a loop writes a stamp on, which the renderer draws no column of.
 func stamped(id string, at time.Time) rowstore.Row {
 	row := agentRow(id)
-	row.Agent = agentstore.Agent{ID: row.ID, Name: row.Name, UpdatedAt: at}
+	row.Agent = agentstore.Agent{
+		ID:        row.ID,
+		Name:      row.Name,
+		UpdatedAt: at,
+	}
 
 	return row
 }

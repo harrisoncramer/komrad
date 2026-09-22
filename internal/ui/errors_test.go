@@ -406,7 +406,11 @@ func TestUnreachableView(t *testing.T) {
 	assert.NotContains(t, ansi.Strip(m.View()), "The panel could not list your agents", "and no screen is taken over")
 
 	back, _ := m.Update(client.WatchBatch{
-		snapshotEvent(agentRowOf(&agentv1.Agent{Id: "a1", Name: "back", State: agentv1.AgentState_AGENT_STATE_IDLE})),
+		snapshotEvent(agentRowOf(&agentv1.Agent{
+			Id:    "a1",
+			Name:  "back",
+			State: agentv1.AgentState_AGENT_STATE_IDLE,
+		})),
 	})
 	m, ok = back.(model)
 	require.True(t, ok)

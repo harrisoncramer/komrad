@@ -216,9 +216,13 @@ func TestAgentRowsFlatOrderTheFamiliesAcrossWorkflows(t *testing.T) {
 			want:  []string{"agent:echo", "agent:zulu", "agent:alpha", "agent:bob", "agent:charlie", "agent:delta"},
 		},
 		{
-			name:  "name up",
-			state: tabsState{chosen: "name", direction: tabUp, flat: true},
-			want:  []string{"agent:alpha", "agent:bob", "agent:charlie", "agent:delta", "agent:echo", "agent:zulu"},
+			name: "name up",
+			state: tabsState{
+				chosen:    "name",
+				direction: tabUp,
+				flat:      true,
+			},
+			want: []string{"agent:alpha", "agent:bob", "agent:charlie", "agent:delta", "agent:echo", "agent:zulu"},
 		},
 	}
 
@@ -247,7 +251,11 @@ func TestFlatAgentsCursorKeepsItsRowAcrossTheFlip(t *testing.T) {
 	require.Equal(t, "agent:echo", m.agents.list().hovered(m.shared()))
 
 	flat := send(t, send(t, send(t, m, "f"), "shift+tab"), "j")
-	require.Equal(t, tabsState{focused: true, onGroup: true, flat: true}, flat.agents.sort, "the created order is untouched by the walk")
+	require.Equal(t, tabsState{
+		focused: true,
+		onGroup: true,
+		flat:    true,
+	}, flat.agents.sort, "the created order is untouched by the walk")
 	assert.Equal(t, "agent:echo", flat.agents.list().hovered(flat.shared()))
 	assert.Equal(t, 5, flat.agents.cursor)
 	assert.False(t, flat.agents.isHoveringWorkflow(flat.shared()))
@@ -276,7 +284,11 @@ func TestAgentsTabsKeepTheCursorOnItsRow(t *testing.T) {
 	assert.Equal(t, 2, tabbed.agents.cursor)
 
 	named := send(t, send(t, tabbed, "tab"), "k")
-	assert.Equal(t, tabsState{chosen: "name", direction: tabUp, focused: true}, named.agents.sort)
+	assert.Equal(t, tabsState{
+		chosen:    "name",
+		direction: tabUp,
+		focused:   true,
+	}, named.agents.sort)
 	assert.Equal(t, "agent:alpha", named.agents.list().hovered(named.shared()))
 	assert.Equal(t, 1, named.agents.cursor)
 

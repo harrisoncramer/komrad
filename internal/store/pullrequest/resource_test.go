@@ -86,21 +86,33 @@ func TestListPageOrdersCurrentFirst(t *testing.T) {
 		return xslice.Map(pullRequests, func(p PullRequest) int { return p.Number })
 	}
 
-	onBranch, err := h.ListPage(ctx, ListPageParams{RepositoryURL: weave, HeadBranch: "agent/x", Limit: 10})
+	onBranch, err := h.ListPage(ctx, ListPageParams{
+		RepositoryURL: weave,
+		HeadBranch:    "agent/x",
+		Limit:         10,
+	})
 	require.NoError(t, err)
 	assert.Equal(t, []int{3, 5, 1, 2}, numbers(onBranch), "unfinished newest first, then the finished")
 
 	var walked []int
 	var cursor *Cursor
 	for {
-		page, err := h.ListPage(ctx, ListPageParams{RepositoryURL: weave, Limit: 2, Cursor: cursor})
+		page, err := h.ListPage(ctx, ListPageParams{
+			RepositoryURL: weave,
+			Limit:         2,
+			Cursor:        cursor,
+		})
 		require.NoError(t, err)
 		walked = append(walked, numbers(page)...)
 		if len(page) < 2 {
 			break
 		}
 		last := page[len(page)-1]
-		cursor = &Cursor{Finished: last.IsFinished(), OpenedAt: last.OpenedAt, ID: last.ID}
+		cursor = &Cursor{
+			Finished: last.IsFinished(),
+			OpenedAt: last.OpenedAt,
+			ID:       last.ID,
+		}
 	}
 	assert.Equal(t, []int{3, 5, 1, 4, 2}, walked, "every page from the whole repository, in one order")
 

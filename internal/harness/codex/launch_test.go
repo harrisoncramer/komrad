@@ -128,9 +128,13 @@ func TestBuildCommandPinsTheHome(t *testing.T) {
 			wantPin: true,
 		},
 		{
-			name:    "and on a resume",
-			home:    "work login",
-			launch:  harness.Launch{AgentID: "agent-1", SessionID: "sess", Resume: true},
+			name: "and on a resume",
+			home: "work login",
+			launch: harness.Launch{
+				AgentID:   "agent-1",
+				SessionID: "sess",
+				Resume:    true,
+			},
 			wantPin: true,
 		},
 		{

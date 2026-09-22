@@ -48,7 +48,11 @@ type Remover struct {
 
 // NewRemover builds a remover over the lister, the agent rows and git.
 func NewRemover(params NewRemoverParams) *Remover {
-	return &Remover{lister: params.Lister, agents: params.Agents, git: params.Git}
+	return &Remover{
+		lister: params.Lister,
+		agents: params.Agents,
+		git:    params.Git,
+	}
 }
 
 // Remove takes away each directory nothing answers for, refusing the rest by name.
@@ -108,7 +112,11 @@ func (r *Remover) Remove(ctx context.Context, dirs []string) (*Removal, error) {
 func refuse(listing *Listing, rows []agentstore.AgentDir, dir string) (Refusal, bool) {
 	inside, err := isUnder(listing.Dirs, dir)
 	if err != nil {
-		return Refusal{Dir: dir, Reason: err.Error(), Failed: true}, true
+		return Refusal{
+			Dir:    dir,
+			Reason: err.Error(),
+			Failed: true,
+		}, true
 	}
 	if !inside {
 		return Refusal{Dir: dir, Reason: "it is not under the worktree directories"}, true

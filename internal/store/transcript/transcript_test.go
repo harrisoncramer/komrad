@@ -794,7 +794,11 @@ func TestSearchNearWaitsForTheWordMatches(t *testing.T) {
 	var near []SearchHit
 	cursor := first.Next
 	for range 4 {
-		page, err := st.Search(ctx, SearchParams{Query: "worktree", Limit: 2, Cursor: cursor})
+		page, err := st.Search(ctx, SearchParams{
+			Query:  "worktree",
+			Limit:  2,
+			Cursor: cursor,
+		})
 		require.NoError(t, err)
 
 		near = append(near, page.Near...)

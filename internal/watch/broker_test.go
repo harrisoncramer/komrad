@@ -21,8 +21,7 @@ const settle = 20 * time.Millisecond
 func newTestBroker(t *testing.T, stores *fakeStores) *Broker {
 	t.Helper()
 
-	broker := NewBroker(NewBrokerParams{})
-	broker.serve(newRows(stores))
+	broker := NewBroker(NewBrokerParams{Rows: newRows(stores)})
 	broker.up()
 	t.Cleanup(broker.Close)
 
@@ -213,8 +212,7 @@ func TestASlowWatcherIsDropped(t *testing.T) {
 // TestCloseEndsEverySubscription pins that closing the broker closes every stream and refuses
 // new watchers, and that closing twice and touching afterwards are safe.
 func TestCloseEndsEverySubscription(t *testing.T) {
-	broker := NewBroker(NewBrokerParams{})
-	broker.serve(newRows(newStores()))
+	broker := NewBroker(NewBrokerParams{Rows: newRows(newStores())})
 	broker.up()
 
 	subscription, err := broker.Subscribe(t.Context())

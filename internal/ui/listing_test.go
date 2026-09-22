@@ -80,12 +80,20 @@ func TestWriteLandsOnTheRowItMade(t *testing.T) {
 	m := watchedPanel()
 	m.applyWatch(client.WatchBatch{snapshotEvent(
 		workflowRowOf(&workflowv1.Workflow{Id: "w1", Name: "api"}),
-		agentRowOf(&agentv1.Agent{Id: "a1", Name: "old", WorkflowId: "w1"}),
+		agentRowOf(&agentv1.Agent{
+			Id:         "a1",
+			Name:       "old",
+			WorkflowId: "w1",
+		}),
 	)})
 
 	landed, _ := m.applyWrite(writeResult{written: &written{
-		row:   agentRowKey("a2"),
-		agent: &agentv1.Agent{Id: "a2", Name: "new", WorkflowId: "w1"},
+		row: agentRowKey("a2"),
+		agent: &agentv1.Agent{
+			Id:         "a2",
+			Name:       "new",
+			WorkflowId: "w1",
+		},
 	}})
 	got := asModel(t, landed)
 
@@ -96,7 +104,12 @@ func TestWriteLandsOnTheRowItMade(t *testing.T) {
 	assert.Equal(t, "new", selected.Agent.Name, "and the cursor is on it")
 
 	got.applyWatch(client.WatchBatch{
-		{Event: &watchv1.WatchEvent_Put{Put: &watchv1.Row{Row: &watchv1.Row_Agent{Agent: &agentv1.Agent{Id: "a2", Name: "new", WorkflowId: "w1", Alive: proto.Bool(true)}}}}},
+		{Event: &watchv1.WatchEvent_Put{Put: &watchv1.Row{Row: &watchv1.Row_Agent{Agent: &agentv1.Agent{
+			Id:         "a2",
+			Name:       "new",
+			WorkflowId: "w1",
+			Alive:      proto.Bool(true),
+		}}}}},
 	})
 
 	require.Len(t, got.listing.agents, 2)
@@ -131,12 +144,21 @@ func TestWriteLeavesARowTheWatchAlreadyDelivered(t *testing.T) {
 	m := watchedPanel()
 	m.applyWatch(client.WatchBatch{snapshotEvent(
 		workflowRowOf(&workflowv1.Workflow{Id: "w1", Name: "api"}),
-		agentRowOf(&agentv1.Agent{Id: "a2", Name: "new", WorkflowId: "w1", Alive: proto.Bool(true)}),
+		agentRowOf(&agentv1.Agent{
+			Id:         "a2",
+			Name:       "new",
+			WorkflowId: "w1",
+			Alive:      proto.Bool(true),
+		}),
 	)})
 
 	landed, _ := m.applyWrite(writeResult{written: &written{
-		row:   agentRowKey("a2"),
-		agent: &agentv1.Agent{Id: "a2", Name: "new", WorkflowId: "w1"},
+		row: agentRowKey("a2"),
+		agent: &agentv1.Agent{
+			Id:         "a2",
+			Name:       "new",
+			WorkflowId: "w1",
+		},
 	}})
 	got := asModel(t, landed)
 
@@ -175,7 +197,11 @@ func TestCreatedAgentReceivesFocus(t *testing.T) {
 	}
 	m.applyWatch(client.WatchBatch{snapshotEvent(
 		workflowRowOf(&workflowv1.Workflow{Id: "w1", Name: "api"}),
-		agentRowOf(&agentv1.Agent{Id: "old", Name: "api-refactor", WorkflowId: "w1"}),
+		agentRowOf(&agentv1.Agent{
+			Id:         "old",
+			Name:       "api-refactor",
+			WorkflowId: "w1",
+		}),
 	)})
 
 	workflow := m.listing.workflows[0]
@@ -198,7 +224,11 @@ func TestCreatedAgentReceivesFocus(t *testing.T) {
 	}
 
 	m.applyWatch(client.WatchBatch{
-		putEvent(agentRowOf(&agentv1.Agent{Id: "new", Name: "api-tests", WorkflowId: "w1"})),
+		putEvent(agentRowOf(&agentv1.Agent{
+			Id:         "new",
+			Name:       "api-tests",
+			WorkflowId: "w1",
+		})),
 	})
 
 	selected, ok := m.agents.selectedAgent(m.shared())

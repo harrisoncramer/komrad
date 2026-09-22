@@ -126,7 +126,11 @@ func TestDeletingClaimHidesTheWorkflow(t *testing.T) {
 			var ids []string
 			for i := range tt.agents {
 				name := "author-" + string(rune('a'+i))
-				require.NoError(t, agents.Create(ctx, agentstore.Agent{Name: name, WorkflowID: created.ID, State: agentstore.StateIdle}))
+				require.NoError(t, agents.Create(ctx, agentstore.Agent{
+					Name:       name,
+					WorkflowID: created.ID,
+					State:      agentstore.StateIdle,
+				}))
 				author, err := agents.GetInWorkflow(ctx, created.ID, name)
 				require.NoError(t, err)
 				ids = append(ids, author.ID)

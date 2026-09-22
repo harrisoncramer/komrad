@@ -58,12 +58,36 @@ func TestAgeAtPicksTheOneUnitThatFits(t *testing.T) {
 		at   time.Time
 		want string
 	}{
-		{name: "seconds", at: now.Add(-40 * time.Second), want: "40s"},
-		{name: "minutes", at: now.Add(-5 * time.Minute), want: "5m"},
-		{name: "hours", at: now.Add(-3 * time.Hour), want: "3h"},
-		{name: "days", at: now.Add(-50 * time.Hour), want: "2d"},
-		{name: "weeks", at: now.Add(-45 * 24 * time.Hour), want: "6w"},
-		{name: "ahead of now", at: now.Add(time.Hour), want: "0s"},
+		{
+			name: "seconds",
+			at:   now.Add(-40 * time.Second),
+			want: "40s",
+		},
+		{
+			name: "minutes",
+			at:   now.Add(-5 * time.Minute),
+			want: "5m",
+		},
+		{
+			name: "hours",
+			at:   now.Add(-3 * time.Hour),
+			want: "3h",
+		},
+		{
+			name: "days",
+			at:   now.Add(-50 * time.Hour),
+			want: "2d",
+		},
+		{
+			name: "weeks",
+			at:   now.Add(-45 * 24 * time.Hour),
+			want: "6w",
+		},
+		{
+			name: "ahead of now",
+			at:   now.Add(time.Hour),
+			want: "0s",
+		},
 		{name: "zero", want: ""},
 	}
 

@@ -580,11 +580,36 @@ func TestStandings(t *testing.T) {
 	standings, err := f.Standings(t.Context(), gitlabOrg, numbers)
 	require.NoError(t, err)
 	assert.Equal(t, map[int]forge.Standing{
-		256666: {Decision: forge.ReviewDecisionNone, Checks: forge.ChecksPending, Mergeability: forge.MergeabilityBlocked, HeadSHA: "834a90786a4b4f6e35100f1f588c56df17a02887"},
-		255110: {Decision: forge.ReviewDecisionApproved, Checks: forge.ChecksPassing, Mergeability: forge.MergeabilityClean, HeadSHA: "b90fb22355180c048573dec4dbdc0c82ef92e31b"},
-		252724: {Decision: forge.ReviewDecisionChangesRequested, Checks: forge.ChecksFailing, Mergeability: forge.MergeabilityConflicting, HeadSHA: "2586500f614ad3dc5c9ee538eaaa0303aa8f076a"},
-		256649: {Decision: forge.ReviewDecisionNone, Checks: forge.ChecksNone, Mergeability: forge.MergeabilityBlocked, HeadSHA: "66fb1f0ba5fe77bb0932daa6c0f3f3f185cac41c"},
-		254626: {Decision: forge.ReviewDecisionPending, Checks: forge.ChecksNone, Mergeability: forge.MergeabilityUnknown, HeadSHA: "0abc488fc8123613c802cac85f1f7d5c4f9d0725"},
+		256666: {
+			Decision:     forge.ReviewDecisionNone,
+			Checks:       forge.ChecksPending,
+			Mergeability: forge.MergeabilityBlocked,
+			HeadSHA:      "834a90786a4b4f6e35100f1f588c56df17a02887",
+		},
+		255110: {
+			Decision:     forge.ReviewDecisionApproved,
+			Checks:       forge.ChecksPassing,
+			Mergeability: forge.MergeabilityClean,
+			HeadSHA:      "b90fb22355180c048573dec4dbdc0c82ef92e31b",
+		},
+		252724: {
+			Decision:     forge.ReviewDecisionChangesRequested,
+			Checks:       forge.ChecksFailing,
+			Mergeability: forge.MergeabilityConflicting,
+			HeadSHA:      "2586500f614ad3dc5c9ee538eaaa0303aa8f076a",
+		},
+		256649: {
+			Decision:     forge.ReviewDecisionNone,
+			Checks:       forge.ChecksNone,
+			Mergeability: forge.MergeabilityBlocked,
+			HeadSHA:      "66fb1f0ba5fe77bb0932daa6c0f3f3f185cac41c",
+		},
+		254626: {
+			Decision:     forge.ReviewDecisionPending,
+			Checks:       forge.ChecksNone,
+			Mergeability: forge.MergeabilityUnknown,
+			HeadSHA:      "0abc488fc8123613c802cac85f1f7d5c4f9d0725",
+		},
 	}, standings)
 
 	seen := fake.last(t)

@@ -66,9 +66,13 @@ func TestTabStripDrawsTheChosenTabInTheTonesOfItsFocus(t *testing.T) {
 			want:  " " + muted.Render("↑↓") + "   " + muted.Render("size") + "  " + accent.Render("↓ age") + "  " + muted.Render("name"),
 		},
 		{
-			name:  "a focus moved off the chosen tab lights the tab it stands on and leaves the arrow",
-			state: tabsState{chosen: "age", focused: true, focus: "name"},
-			want:  " " + muted.Render("↑↓") + "   " + muted.Render("size") + "  " + muted.Render("↓ age") + "  " + accent.Render("name"),
+			name: "a focus moved off the chosen tab lights the tab it stands on and leaves the arrow",
+			state: tabsState{
+				chosen:  "age",
+				focused: true,
+				focus:   "name",
+			},
+			want: " " + muted.Render("↑↓") + "   " + muted.Render("size") + "  " + muted.Render("↓ age") + "  " + accent.Render("name"),
 		},
 		{
 			name:  "a choice the strip does not hold falls back",
@@ -144,11 +148,19 @@ func TestTabStripStepsAndWraps(t *testing.T) {
 // TestTabStripChoosesTheFocusedTab covers a direction key sorting by the tab the focus stands
 // on, in that direction, and the focus settling back onto the chosen tab.
 func TestTabStripChoosesTheFocusedTab(t *testing.T) {
-	state := tabsState{chosen: "size", focus: "name", focused: true}
+	state := tabsState{
+		chosen:  "size",
+		focus:   "name",
+		focused: true,
+	}
 
 	stripFixture().choose(&state, tabUp)
 
-	assert.Equal(t, tabsState{chosen: "name", direction: tabUp, focused: true}, state)
+	assert.Equal(t, tabsState{
+		chosen:    "name",
+		direction: tabUp,
+		focused:   true,
+	}, state)
 }
 
 func groupedStripFixture() tabStrip {
@@ -220,10 +232,20 @@ func TestTabStripStepsOntoTheGroupStop(t *testing.T) {
 			want:  tabsState{chosen: "size", onGroup: true},
 		},
 		{
-			name:  "forward from the stop wraps to the first column",
-			from:  tabsState{chosen: "name", direction: tabUp, onGroup: true, flat: true},
+			name: "forward from the stop wraps to the first column",
+			from: tabsState{
+				chosen:    "name",
+				direction: tabUp,
+				onGroup:   true,
+				flat:      true,
+			},
 			delta: 1,
-			want:  tabsState{chosen: "name", direction: tabUp, focus: "size", flat: true},
+			want: tabsState{
+				chosen:    "name",
+				direction: tabUp,
+				focus:     "size",
+				flat:      true,
+			},
 		},
 		{
 			name:  "back from the first column wraps to the stop",
@@ -232,10 +254,18 @@ func TestTabStripStepsOntoTheGroupStop(t *testing.T) {
 			want:  tabsState{chosen: "size", onGroup: true},
 		},
 		{
-			name:  "back from the stop lands on the last column",
-			from:  tabsState{chosen: "age", direction: tabUp, onGroup: true},
+			name: "back from the stop lands on the last column",
+			from: tabsState{
+				chosen:    "age",
+				direction: tabUp,
+				onGroup:   true,
+			},
 			delta: -1,
-			want:  tabsState{chosen: "age", direction: tabUp, focus: "name"},
+			want: tabsState{
+				chosen:    "age",
+				direction: tabUp,
+				focus:     "name",
+			},
 		},
 	}
 
@@ -262,7 +292,11 @@ func TestTabsGroupStopFlipsFlat(t *testing.T) {
 	require.Equal(t, tabsState{focused: true, onGroup: true}, onStop.worktrees.sort, "the walk chooses nothing")
 
 	flat := send(t, onStop, "j")
-	assert.Equal(t, tabsState{focused: true, onGroup: true, flat: true}, flat.worktrees.sort)
+	assert.Equal(t, tabsState{
+		focused: true,
+		onGroup: true,
+		flat:    true,
+	}, flat.worktrees.sort)
 	assert.Equal(t, "tree:/trees/live", flat.worktrees.list().hovered(flat.shared()), "the cursor keeps its row")
 	assert.Equal(t, 2, flat.worktrees.cursor, "third in the one list by size, the tie with its twin settled by path")
 	assert.Contains(t, flat.worktrees.tally(), "flat")
@@ -278,7 +312,11 @@ func TestTabsGroupStopFlipsFlat(t *testing.T) {
 	assert.True(t, left.isListFocused())
 
 	back := send(t, send(t, left, "f"), "shift+tab")
-	assert.Equal(t, tabsState{focused: true, onGroup: true, flat: true}, back.worktrees.sort, "the focus comes back on the chosen column, a step from the stop")
+	assert.Equal(t, tabsState{
+		focused: true,
+		onGroup: true,
+		flat:    true,
+	}, back.worktrees.sort, "the focus comes back on the chosen column, a step from the stop")
 }
 
 // TestBlurLeavesTheGroupStop covers the focus leaving the strip by any way but escape coming
@@ -293,7 +331,11 @@ func TestBlurLeavesTheGroupStop(t *testing.T) {
 	assert.Equal(t, tabsState{}, onStop.worktrees.sort)
 
 	turned := send(t, send(t, onStop, "f"), "k")
-	assert.Equal(t, tabsState{chosen: "size", direction: tabUp, focused: true}, turned.worktrees.sort)
+	assert.Equal(t, tabsState{
+		chosen:    "size",
+		direction: tabUp,
+		focused:   true,
+	}, turned.worktrees.sort)
 }
 
 // TestFlatWorktreesCursorLeavesAHeadingForARow covers a cursor on a heading landing on the
@@ -343,7 +385,11 @@ func TestTabsFocusTakesTheKeys(t *testing.T) {
 	assert.Equal(t, 4, tabbed.worktrees.cursor)
 
 	chosen := send(t, tabbed, "j")
-	assert.Equal(t, tabsState{chosen: "last-accessed", direction: tabDown, focused: true}, chosen.worktrees.sort)
+	assert.Equal(t, tabsState{
+		chosen:    "last-accessed",
+		direction: tabDown,
+		focused:   true,
+	}, chosen.worktrees.sort)
 	assert.NotEqual(t, before, xslice.Map(chosen.worktrees.rows(chosen.shared()), worktreeRow.key), "the rows take the order the key names")
 	assert.Equal(t, "tree:/trees/live", chosen.worktrees.list().hovered(chosen.shared()), "the cursor stays on its row")
 	assert.Equal(t, 3, chosen.worktrees.cursor, "at the index the row moved to")
@@ -378,7 +424,11 @@ func TestEscapeLeavesTheTabsAndKeepsTheSort(t *testing.T) {
 	m := sortedWorktreesModel()
 
 	turned := send(t, send(t, send(t, send(t, m, "f"), "shift+tab"), "shift+tab"), "k")
-	require.Equal(t, tabsState{chosen: "last-accessed", direction: tabUp, focused: true}, turned.worktrees.sort)
+	require.Equal(t, tabsState{
+		chosen:    "last-accessed",
+		direction: tabUp,
+		focused:   true,
+	}, turned.worktrees.sort)
 	require.Equal(t, 5, turned.worktrees.cursor, "the sort has moved the row")
 	order := xslice.Map(turned.worktrees.rows(turned.shared()), worktreeRow.key)
 
@@ -502,8 +552,12 @@ func TestWorktreesScreenGolden(t *testing.T) {
 			state: tabsState{},
 		},
 		{
-			name:  "worktrees-sort-strip-focused",
-			state: tabsState{chosen: "last-accessed", direction: tabUp, focused: true},
+			name: "worktrees-sort-strip-focused",
+			state: tabsState{
+				chosen:    "last-accessed",
+				direction: tabUp,
+				focused:   true,
+			},
 		},
 		{
 			name:  "worktrees-sort-strip-flat",
@@ -571,7 +625,11 @@ func TestEveryTabbedScreenTakesTheStrip(t *testing.T) {
 			assert.False(t, focused.isListFocused())
 
 			turned := send(t, send(t, send(t, focused, "tab"), "j"), "k")
-			assert.Equal(t, tabsState{chosen: tt.second, direction: tabUp, focused: true}, *tt.state(&turned))
+			assert.Equal(t, tabsState{
+				chosen:    tt.second,
+				direction: tabUp,
+				focused:   true,
+			}, *tt.state(&turned))
 			assert.Contains(t, turned.active().view(turned.shared()), "↑ "+tt.second)
 
 			left := send(t, turned, "esc")
@@ -610,7 +668,11 @@ func TestAgentsAndArchiveScreenGolden(t *testing.T) {
 		{
 			name:   "archive-sort-strip-focused",
 			screen: screenArchive,
-			state:  tabsState{chosen: "name", direction: tabUp, focused: true},
+			state: tabsState{
+				chosen:    "name",
+				direction: tabUp,
+				focused:   true,
+			},
 		},
 		{
 			name:   "agents-sort-strip-flat",

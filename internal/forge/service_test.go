@@ -283,7 +283,11 @@ func TestResolveAPIURL(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := ConnectParams{Kind: tt.kind, Host: tt.host, APIURL: tt.given}.ResolveAPIURL()
+			got, err := ConnectParams{
+				Kind:   tt.kind,
+				Host:   tt.host,
+				APIURL: tt.given,
+			}.ResolveAPIURL()
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
 

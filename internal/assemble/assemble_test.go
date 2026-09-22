@@ -52,7 +52,11 @@ func workflow(base string) *workflowv1.Workflow {
 }
 
 func mail(id, to string, expiresIn time.Duration) *agentv1.Mail {
-	return &agentv1.Mail{Id: id, ToAgentId: to, ExpiresAt: stamp(expiresIn)}
+	return &agentv1.Mail{
+		Id:        id,
+		ToAgentId: to,
+		ExpiresAt: stamp(expiresIn),
+	}
 }
 
 type pullRequest struct {
@@ -116,10 +120,36 @@ func currentStanding(p pullRequest) *agentv1.PullRequestStanding {
 func TestAgentRows(t *testing.T) {
 	t.Parallel()
 
-	onBranch := pullRequest{id: "p1", headRepo: repo, branch: "agent/" + newer, number: 1, openedAgo: time.Hour}
-	oldest := pullRequest{id: "p1", headRepo: repo, branch: "agent/" + newer, number: 1, openedAgo: 3 * time.Hour, merged: true}
-	open := pullRequest{id: "p2", headRepo: repo, branch: "agent/" + newer, number: 2, openedAgo: 2 * time.Hour}
-	latest := pullRequest{id: "p3", headRepo: repo, branch: "agent/" + newer, number: 3, openedAgo: time.Hour, merged: true}
+	onBranch := pullRequest{
+		id:        "p1",
+		headRepo:  repo,
+		branch:    "agent/" + newer,
+		number:    1,
+		openedAgo: time.Hour,
+	}
+	oldest := pullRequest{
+		id:        "p1",
+		headRepo:  repo,
+		branch:    "agent/" + newer,
+		number:    1,
+		openedAgo: 3 * time.Hour,
+		merged:    true,
+	}
+	open := pullRequest{
+		id:        "p2",
+		headRepo:  repo,
+		branch:    "agent/" + newer,
+		number:    2,
+		openedAgo: 2 * time.Hour,
+	}
+	latest := pullRequest{
+		id:        "p3",
+		headRepo:  repo,
+		branch:    "agent/" + newer,
+		number:    3,
+		openedAgo: time.Hour,
+		merged:    true,
+	}
 
 	tests := []struct {
 		name  string
@@ -145,13 +175,29 @@ func TestAgentRows(t *testing.T) {
 			world: assemble.World{
 				Agents: map[string]*agentv1.Agent{newer: agent(newer)},
 				Marks: map[string]*agentv1.Mark{
-					"mark-a": {Id: "mark-a", Mark: "a", AgentId: xptr.Ptr(newer)},
-					"mark-w": {Id: "mark-w", Mark: "w", WorkflowId: xptr.Ptr(flowID)},
-					"mark-o": {Id: "mark-o", Mark: "o", AgentId: xptr.Ptr(older)},
+					"mark-a": {
+						Id:      "mark-a",
+						Mark:    "a",
+						AgentId: xptr.Ptr(newer),
+					},
+					"mark-w": {
+						Id:         "mark-w",
+						Mark:       "w",
+						WorkflowId: xptr.Ptr(flowID),
+					},
+					"mark-o": {
+						Id:      "mark-o",
+						Mark:    "o",
+						AgentId: xptr.Ptr(older),
+					},
 				},
 			},
 			want: []*agentv1.AgentRow{
-				{Agent: agent(newer), Mark: xptr.Ptr("a"), PullRequest: standing(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNREAD)},
+				{
+					Agent:       agent(newer),
+					Mark:        xptr.Ptr("a"),
+					PullRequest: standing(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNREAD),
+				},
 			},
 		},
 		{
@@ -165,7 +211,11 @@ func TestAgentRows(t *testing.T) {
 			},
 			want: []*agentv1.AgentRow{
 				{Agent: agent(newer), PullRequest: standing(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNREAD)},
-				{Agent: agent(older), UnreadMail: true, PullRequest: standing(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNREAD)},
+				{
+					Agent:       agent(older),
+					UnreadMail:  true,
+					PullRequest: standing(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNREAD),
+				},
 			},
 		},
 		{
@@ -201,9 +251,27 @@ func TestAgentRows(t *testing.T) {
 			world: assemble.World{
 				Agents: map[string]*agentv1.Agent{newer: agent(newer, read)},
 				PullRequests: pullRequests(
-					pullRequest{id: "p1", headRepo: fork, branch: "agent/" + newer, number: 1, openedAgo: time.Hour},
-					pullRequest{id: "p2", headRepo: repo, branch: "agent/" + older, number: 2, openedAgo: time.Hour},
-					pullRequest{id: "p3", headRepo: repo, branch: "feature", number: 3, openedAgo: time.Hour},
+					pullRequest{
+						id:        "p1",
+						headRepo:  fork,
+						branch:    "agent/" + newer,
+						number:    1,
+						openedAgo: time.Hour,
+					},
+					pullRequest{
+						id:        "p2",
+						headRepo:  repo,
+						branch:    "agent/" + older,
+						number:    2,
+						openedAgo: time.Hour,
+					},
+					pullRequest{
+						id:        "p3",
+						headRepo:  repo,
+						branch:    "feature",
+						number:    3,
+						openedAgo: time.Hour,
+					},
 				),
 			},
 			want: []*agentv1.AgentRow{
@@ -213,9 +281,15 @@ func TestAgentRows(t *testing.T) {
 		{
 			name: "an agent on its workflow's base branch has no pull requests",
 			world: assemble.World{
-				Agents:       map[string]*agentv1.Agent{newer: agent(newer, read, func(a *agentv1.Agent) { a.Branch = xptr.Ptr("main") })},
-				Workflows:    map[string]*workflowv1.Workflow{flowID: workflow("main")},
-				PullRequests: pullRequests(pullRequest{id: "p1", headRepo: repo, branch: "main", number: 1, openedAgo: time.Hour}),
+				Agents:    map[string]*agentv1.Agent{newer: agent(newer, read, func(a *agentv1.Agent) { a.Branch = xptr.Ptr("main") })},
+				Workflows: map[string]*workflowv1.Workflow{flowID: workflow("main")},
+				PullRequests: pullRequests(pullRequest{
+					id:        "p1",
+					headRepo:  repo,
+					branch:    "main",
+					number:    1,
+					openedAgo: time.Hour,
+				}),
 			},
 			want: []*agentv1.AgentRow{
 				{
@@ -266,8 +340,16 @@ func TestMarks(t *testing.T) {
 	t.Parallel()
 
 	world := assemble.World{Marks: map[string]*agentv1.Mark{
-		"mark-a": {Id: "mark-a", Mark: "a", AgentId: xptr.Ptr(newer)},
-		"mark-w": {Id: "mark-w", Mark: "w", WorkflowId: xptr.Ptr(flowID)},
+		"mark-a": {
+			Id:      "mark-a",
+			Mark:    "a",
+			AgentId: xptr.Ptr(newer),
+		},
+		"mark-w": {
+			Id:         "mark-w",
+			Mark:       "w",
+			WorkflowId: xptr.Ptr(flowID),
+		},
 		"mark-x": {Id: "mark-x", Mark: "x"},
 	}}
 
@@ -294,7 +376,11 @@ func TestApplyOrdering(t *testing.T) {
 
 	var world assemble.World
 
-	world.Apply(put(&watchv1.Row{Row: &watchv1.Row_Mark{Mark: &agentv1.Mark{Id: "mark-a", Mark: "a", AgentId: xptr.Ptr(newer)}}}))
+	world.Apply(put(&watchv1.Row{Row: &watchv1.Row_Mark{Mark: &agentv1.Mark{
+		Id:      "mark-a",
+		Mark:    "a",
+		AgentId: xptr.Ptr(newer),
+	}}}))
 	world.Apply(put(&watchv1.Row{Row: &watchv1.Row_Mail{Mail: mail("m1", newer, time.Minute)}}))
 	assert.Empty(t, assemble.AgentRows(world, now), "a mark and a mail whose agent is not held draw nothing")
 

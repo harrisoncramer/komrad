@@ -34,10 +34,26 @@ func basesEnv(bases []WorkflowBase, readErr error, held map[string]bool) Env {
 // migration backfilled as main on a repository that never had one is named, and nothing else is.
 func TestBasesCheckNamesTheWorkflowWhoseCloneLacksItsBase(t *testing.T) {
 	bases := []WorkflowBase{
-		{Name: "backend", Cwd: "/repo/backend", Base: "main"},
-		{Name: "docs", Cwd: "/repo/docs", Base: "trunk"},
-		{Name: "notes", Cwd: "/not/a/repo", Base: "main"},
-		{Name: "plain", Cwd: "", Base: "main"},
+		{
+			Name: "backend",
+			Cwd:  "/repo/backend",
+			Base: "main",
+		},
+		{
+			Name: "docs",
+			Cwd:  "/repo/docs",
+			Base: "trunk",
+		},
+		{
+			Name: "notes",
+			Cwd:  "/not/a/repo",
+			Base: "main",
+		},
+		{
+			Name: "plain",
+			Cwd:  "",
+			Base: "main",
+		},
 	}
 
 	result := newBasesCheck().Run(t.Context(), basesEnv(bases, nil, map[string]bool{"main": true}))
@@ -52,8 +68,16 @@ func TestBasesCheckNamesTheWorkflowWhoseCloneLacksItsBase(t *testing.T) {
 // workflows whose cwd is a repository.
 func TestBasesCheckPassesWhenEveryCloneHoldsItsBase(t *testing.T) {
 	bases := []WorkflowBase{
-		{Name: "backend", Cwd: "/repo/backend", Base: "main"},
-		{Name: "notes", Cwd: "/not/a/repo", Base: "main"},
+		{
+			Name: "backend",
+			Cwd:  "/repo/backend",
+			Base: "main",
+		},
+		{
+			Name: "notes",
+			Cwd:  "/not/a/repo",
+			Base: "main",
+		},
 	}
 
 	result := newBasesCheck().Run(t.Context(), basesEnv(bases, nil, map[string]bool{"main": true}))

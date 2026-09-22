@@ -43,7 +43,13 @@ func newInstance(t *testing.T) (*instance, string) {
 	_, err = inner.run(ctx, "set-option", "-g", "@weave_panel_build", "test")
 	require.NoError(t, err)
 
-	recorded := &instance{inner: inner, outer: outer, session: "weave", cols: 80, rows: 24}
+	recorded := &instance{
+		inner:   inner,
+		outer:   outer,
+		session: "weave",
+		cols:    80,
+		rows:    24,
+	}
 
 	_, err = recorded.requirePanel(ctx)
 	require.NoError(t, err)

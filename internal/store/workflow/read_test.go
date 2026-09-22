@@ -148,7 +148,11 @@ func TestGetIncludingArchived(t *testing.T) {
 
 			id := missingID
 			if tt.create {
-				created, err := st.Create(ctx, Config{Name: "backend", Cwd: "/repo", Worktree: WorktreeConfig{BaseBranch: "main"}})
+				created, err := st.Create(ctx, Config{
+					Name:     "backend",
+					Cwd:      "/repo",
+					Worktree: WorktreeConfig{BaseBranch: "main"},
+				})
 				require.NoError(t, err)
 				id = created.ID
 			}
@@ -186,9 +190,17 @@ func TestListByIDSpansTheArchive(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 
-	live, err := st.Create(ctx, Config{Name: "live", Cwd: "/repo", Worktree: WorktreeConfig{BaseBranch: "main"}})
+	live, err := st.Create(ctx, Config{
+		Name:     "live",
+		Cwd:      "/repo",
+		Worktree: WorktreeConfig{BaseBranch: "main"},
+	})
 	require.NoError(t, err)
-	archived, err := st.Create(ctx, Config{Name: "archived", Cwd: "/repo", Worktree: WorktreeConfig{BaseBranch: "trunk"}})
+	archived, err := st.Create(ctx, Config{
+		Name:     "archived",
+		Cwd:      "/repo",
+		Worktree: WorktreeConfig{BaseBranch: "trunk"},
+	})
 	require.NoError(t, err)
 	require.NoError(t, st.Archive(ctx, archived.ID))
 

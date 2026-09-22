@@ -100,7 +100,11 @@ func readWorkflowBases(ctx context.Context, url string) ([]WorkflowBase, error) 
 	}
 
 	return xslice.Map(workflows, func(workflow workflowstore.Workflow) WorkflowBase {
-		return WorkflowBase{Name: workflow.Name, Cwd: workflow.Cwd, Base: workflow.Worktree.BaseBranch}
+		return WorkflowBase{
+			Name: workflow.Name,
+			Cwd:  workflow.Cwd,
+			Base: workflow.Worktree.BaseBranch,
+		}
 	}), nil
 }
 

@@ -127,7 +127,11 @@ func parseCommits(out string) ([]Commit, error) {
 			return nil, fmt.Errorf("failed to read when %s was committed: %w", fields[0], err)
 		}
 
-		commits = append(commits, Commit{SHA: fields[0], Subject: fields[1], CommittedAt: at})
+		commits = append(commits, Commit{
+			SHA:         fields[0],
+			Subject:     fields[1],
+			CommittedAt: at,
+		})
 	}
 
 	return commits, nil

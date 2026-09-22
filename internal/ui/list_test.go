@@ -290,14 +290,22 @@ func TestScreensFitATightPane(t *testing.T) {
 			name:  "with a message in the stack",
 			width: 80,
 			prepare: func(m *model) {
-				m.pushMessage(message{kind: messageError, summary: "boom", detail: "it broke"})
+				m.pushMessage(message{
+					kind:    messageError,
+					summary: "boom",
+					detail:  "it broke",
+				})
 			},
 		},
 		{
 			name:  "with the region holding a message",
 			width: 80,
 			prepare: func(m *model) {
-				m.pushMessage(message{kind: messageError, summary: "boom", detail: "it broke"})
+				m.pushMessage(message{
+					kind:    messageError,
+					summary: "boom",
+					detail:  "it broke",
+				})
 				m.messages.focused = true
 			},
 		},

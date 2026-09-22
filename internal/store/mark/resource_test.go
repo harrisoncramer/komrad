@@ -33,8 +33,16 @@ func TestListByKeyIsTheWatchedSet(t *testing.T) {
 	listed, err := f.ListByKey(ctx, append(slices.Clone(ids), "00000000-0000-0000-0000-000000000000"))
 	require.NoError(t, err)
 	assert.Equal(t, []Mark{
-		{ID: ids[0], Mark: "a", AgentID: &agent},
-		{ID: ids[1], Mark: "b", WorkflowID: &flow},
+		{
+			ID:      ids[0],
+			Mark:    "a",
+			AgentID: &agent,
+		},
+		{
+			ID:         ids[1],
+			Mark:       "b",
+			WorkflowID: &flow,
+		},
 	}, listed, "an id nobody holds is left out")
 
 	none, err := f.ListByKey(ctx, nil)

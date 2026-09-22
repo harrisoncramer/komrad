@@ -130,10 +130,19 @@ func TestReadAnswersARowOrATombstoneForEveryTouchedKey(t *testing.T) {
 	stores := newStores()
 	stores.agents.put(agentRow("a1"))
 	stores.workflows.put(workflowstore.Workflow{ID: "w1", Name: "backend"})
-	stores.marks.put(markstore.Mark{ID: "w", Mark: "w", WorkflowID: xptr.Ptr("w1")})
+	stores.marks.put(markstore.Mark{
+		ID:         "w",
+		Mark:       "w",
+		WorkflowID: xptr.Ptr("w1"),
+	})
 	stores.mail.put(mailstore.Mail{ID: "m1", ToAgentID: "a1"})
 	stores.pullRequests.put(pullrequeststore.PullRequest{ID: "p1", Number: 7})
-	stores.schedules.put(schedulestore.Schedule{ID: "s1", Name: "nightly", Cron: "0 2 * * *", Enabled: true})
+	stores.schedules.put(schedulestore.Schedule{
+		ID:      "s1",
+		Name:    "nightly",
+		Cron:    "0 2 * * *",
+		Enabled: true,
+	})
 
 	changes, err := newRows(stores).Read(t.Context(), Touched{
 		watchv1.Resource_RESOURCE_AGENT:        []string{"a1", "a2"},

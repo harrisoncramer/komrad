@@ -119,7 +119,11 @@ func TestDeletingClaimHidesTheRow(t *testing.T) {
 			parent, err := f.Get(ctx, "author")
 			require.NoError(t, err)
 			require.NotNil(t, parent)
-			require.NoError(t, f.Create(ctx, Agent{Name: "reviewer", ParentAgentID: &parent.ID, State: StateIdle}))
+			require.NoError(t, f.Create(ctx, Agent{
+				Name:          "reviewer",
+				ParentAgentID: &parent.ID,
+				State:         StateIdle,
+			}))
 			child, err := f.Get(ctx, "reviewer")
 			require.NoError(t, err)
 			require.NotNil(t, child)

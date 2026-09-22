@@ -76,11 +76,9 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	broker := watch.NewBroker(watch.NewBrokerParams{Logger: params.Logger})
 
 	srv := &Server{
 		Pool:          st.pool,
-		Watch:         broker,
 		logger:        params.Logger,
 		stopRequested: make(chan struct{}, 1),
 	}
@@ -101,6 +99,14 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 	}
 	srv.Delivery = svc.delivery
 	srv.closers = append(srv.closers, svc.review.Close)
+
+	broker := watch.NewBroker(watch.NewBrokerParams{
+		Logger: params.Logger,
+		Pool:   st.pool.GetRawPool(),
+		Rows:   svc.watchRows,
+	})
+	srv.Watch = broker
+	srv.closers = append(srv.closers, broker.Close)
 
 	if err := db.MigrateRiver(ctx, st.pool.GetRawPool()); err != nil {
 		return nil, err
@@ -160,10 +166,9 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 		Periodic: srv.Periodic,
 	})
 
-	if err := broker.Start(st.pool.GetRawPool(), svc.watchRows); err != nil {
+	if err := broker.Start(); err != nil {
 		return nil, err
 	}
-	srv.closers = append(srv.closers, broker.Close)
 
 	built = true
 

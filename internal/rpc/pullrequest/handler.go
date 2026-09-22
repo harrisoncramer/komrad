@@ -81,6 +81,10 @@ func (p pullRequestPage) Cursor() (pullrequeststore.Cursor, error) {
 func renderPullRequestPage(stored pullrequeststore.PullRequest) pullRequestPage {
 	return pullRequestPage{
 		PullRequest: render.PullRequest(stored),
-		cursor:      pullrequeststore.Cursor{Finished: stored.IsFinished(), OpenedAt: stored.OpenedAt, ID: stored.ID},
+		cursor: pullrequeststore.Cursor{
+			Finished: stored.IsFinished(),
+			OpenedAt: stored.OpenedAt,
+			ID:       stored.ID,
+		},
 	}
 }

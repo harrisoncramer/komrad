@@ -122,7 +122,11 @@ func (r *Rows) Read(ctx context.Context, touched Touched) ([]Change, error) {
 		}
 
 		changes = append(changes, xslice.Map(keys, func(key string) Change {
-			return Change{Resource: res, Key: key, Row: held[key]}
+			return Change{
+				Resource: res,
+				Key:      key,
+				Row:      held[key],
+			}
 		})...)
 	}
 

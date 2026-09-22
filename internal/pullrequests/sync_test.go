@@ -1232,7 +1232,11 @@ func TestSyncReadsTheChecksUntilTheyLand(t *testing.T) {
 	pushed.HeadSHA = "def"
 	f.forge.changed[""] = &forge.Page{PullRequests: []forge.PullRequest{pushed}}
 	f.forge.updated[""] = &forge.Page{PullRequests: []forge.PullRequest{pushed}}
-	f.forge.standings[1] = forge.Standing{Decision: forge.ReviewDecisionApproved, Checks: forge.ChecksFailing, HeadSHA: "def"}
+	f.forge.standings[1] = forge.Standing{
+		Decision: forge.ReviewDecisionApproved,
+		Checks:   forge.ChecksFailing,
+		HeadSHA:  "def",
+	}
 	f.pass(t, syncNow.Add(time.Hour+time.Minute))
 	assert.Equal(t, []string{"standings:1"}, f.standings(), "a push moves the head, so the checks are read for it")
 	stored = f.stored(t, "PR_1")
@@ -1278,13 +1282,21 @@ func TestSyncReadsMergeabilityAgainWhileTheForgeComputesIt(t *testing.T) {
 	f := newSyncFixture(t)
 	f.agentOn(t, "a", "agent/x")
 	f.forge.updated[""] = &forge.Page{PullRequests: []forge.PullRequest{pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Minute))}}
-	f.forge.standings[1] = forge.Standing{Decision: forge.ReviewDecisionApproved, Checks: forge.ChecksPassing, Mergeability: scriptedMergeabilityUnknown}
+	f.forge.standings[1] = forge.Standing{
+		Decision:     forge.ReviewDecisionApproved,
+		Checks:       forge.ChecksPassing,
+		Mergeability: scriptedMergeabilityUnknown,
+	}
 
 	f.sync(t)
 
 	assert.Nil(t, f.stored(t, "PR_1").Mergeability)
 
-	f.forge.standings[1] = forge.Standing{Decision: forge.ReviewDecisionApproved, Checks: forge.ChecksPassing, Mergeability: forge.MergeabilityClean}
+	f.forge.standings[1] = forge.Standing{
+		Decision:     forge.ReviewDecisionApproved,
+		Checks:       forge.ChecksPassing,
+		Mergeability: forge.MergeabilityClean,
+	}
 	f.pass(t, syncNow.Add(2*time.Minute))
 	assert.Equal(t, []string{"standings:1"}, f.standings(), "an uncomputed mergeability is asked about again")
 	stored := f.stored(t, "PR_1")
@@ -1294,7 +1306,11 @@ func TestSyncReadsMergeabilityAgainWhileTheForgeComputesIt(t *testing.T) {
 	f.pass(t, syncNow.Add(4*time.Minute))
 	assert.Empty(t, f.standings(), "a computed answer is trusted")
 
-	f.forge.standings[1] = forge.Standing{Decision: forge.ReviewDecisionApproved, Checks: forge.ChecksPassing, Mergeability: forge.MergeabilityBehind}
+	f.forge.standings[1] = forge.Standing{
+		Decision:     forge.ReviewDecisionApproved,
+		Checks:       forge.ChecksPassing,
+		Mergeability: forge.MergeabilityBehind,
+	}
 	f.pass(t, syncNow.Add(13*time.Minute))
 	assert.Equal(t, []string{"standings:1"}, f.standings(), "the slow tier reads a settled row again")
 	assert.Equal(t, forge.MergeabilityBehind, *f.stored(t, "PR_1").Mergeability, "a base that moved under the branch is seen without the branch changing")

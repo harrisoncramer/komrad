@@ -42,8 +42,16 @@ func readWorktree(now time.Time) worktreeInspection {
 		landed:     1,
 		sequencing: true,
 		commits: []worktreeCommit{
-			{sha: "87a3bcc98c47", subject: "fix(view): drop the column", committedAt: now.Add(-2 * time.Hour)},
-			{sha: "1234567890ab", subject: "feat(ui): a thing", committedAt: now.Add(-3 * time.Hour)},
+			{
+				sha:         "87a3bcc98c47",
+				subject:     "fix(view): drop the column",
+				committedAt: now.Add(-2 * time.Hour),
+			},
+			{
+				sha:         "1234567890ab",
+				subject:     "feat(ui): a thing",
+				committedAt: now.Add(-3 * time.Hour),
+			},
 		},
 	}
 }
@@ -118,7 +126,11 @@ func TestAgentRecordOnAnUnreadableWorktree(t *testing.T) {
 // TestWorktreeHistoryFieldsCutTheLists covers the paths and the commits past the first ten
 // folding into one row that counts the rest.
 func TestWorktreeHistoryFieldsCutTheLists(t *testing.T) {
-	read := worktreeInspection{answered: true, item: worktreeItem{readable: true}, baseRef: "origin/main"}
+	read := worktreeInspection{
+		answered: true,
+		item:     worktreeItem{readable: true},
+		baseRef:  "origin/main",
+	}
 	for i := range 12 {
 		read.untracked = append(read.untracked, fmt.Sprintf("file%d", i))
 		read.commits = append(read.commits, worktreeCommit{sha: fmt.Sprintf("%012d", i), subject: "a commit"})
@@ -142,7 +154,11 @@ func (r *recordingWorktreeReads) GetWorktree(_ context.Context, req *connect.Req
 	r.asked = append(r.asked, req.Msg.GetDir())
 
 	return connect.NewResponse(&worktreev1.GetWorktreeResponse{
-		Worktree:  &worktreev1.Worktree{Dir: req.Msg.GetDir(), Readable: true, Branch: "agent/x"},
+		Worktree: &worktreev1.Worktree{
+			Dir:      req.Msg.GetDir(),
+			Readable: true,
+			Branch:   "agent/x",
+		},
 		SizeBytes: 2048,
 		Modified:  []string{"a.go"},
 		BaseRef:   "origin/main",
@@ -443,9 +459,22 @@ func TestFocusedRecordStaysThroughItsSearch(t *testing.T) {
 		width, height int
 		expanded      bool
 	}{
-		{name: "a pane the share only just fits", width: 80, height: 13},
-		{name: "one row taller", width: 80, height: 14},
-		{name: "a narrow pane with the legend expanded", width: 30, height: 25, expanded: true},
+		{
+			name:   "a pane the share only just fits",
+			width:  80,
+			height: 13,
+		},
+		{
+			name:   "one row taller",
+			width:  80,
+			height: 14,
+		},
+		{
+			name:     "a narrow pane with the legend expanded",
+			width:    30,
+			height:   25,
+			expanded: true,
+		},
 	}
 
 	for _, tt := range tests {

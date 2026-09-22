@@ -266,7 +266,11 @@ func TestGetReadsOneDirectory(t *testing.T) {
 	dir := f.cut(t, "aaaa")
 	f.cut(t, "bbbb")
 	f.own("aaaa", "first", nil)
-	f.sizes.stored[dir] = worktreestore.Size{Dir: dir, Bytes: 4096, MeasuredAt: f.now}
+	f.sizes.stored[dir] = worktreestore.Size{
+		Dir:        dir,
+		Bytes:      4096,
+		MeasuredAt: f.now,
+	}
 
 	f.lister = NewLister(NewListerParams{
 		SharedDir: func() (string, error) { return f.shared + string(filepath.Separator), nil },

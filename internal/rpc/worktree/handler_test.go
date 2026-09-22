@@ -88,7 +88,11 @@ func listed() worktrees.Worktree {
 			ArchivedAt: &archived,
 			Adopted:    true,
 		},
-		Occupants: []worktrees.Agent{{ID: "bbbb", Name: "first-reviewer", State: agentstore.StateThinking}},
+		Occupants: []worktrees.Agent{{
+			ID:    "bbbb",
+			Name:  "first-reviewer",
+			State: agentstore.StateThinking,
+		}},
 		Size: &worktreestore.Size{
 			Dir:        "/trees/aaaa",
 			Bytes:      49 * 1024 * 1024,
@@ -239,9 +243,13 @@ func TestGetWorktree(t *testing.T) {
 
 	at := time.Date(2026, 9, 19, 11, 0, 0, 0, time.UTC)
 	fake := &fakeWorktrees{inspection: worktrees.Inspection{
-		Worktree:           listed(),
-		Bytes:              42,
-		Entries:            []worktrees.Entry{{Path: "local", Bytes: 40, Dir: true}, {Path: "go.mod", Bytes: 2}},
+		Worktree: listed(),
+		Bytes:    42,
+		Entries: []worktrees.Entry{{
+			Path:  "local",
+			Bytes: 40,
+			Dir:   true,
+		}, {Path: "go.mod", Bytes: 2}},
 		Changes:            git.Changes{Modified: []string{"a.go"}, Untracked: []string{"b.txt"}},
 		BaseRef:            "origin/main",
 		Ahead:              2,
@@ -249,7 +257,11 @@ func TestGetWorktree(t *testing.T) {
 		Landed:             1,
 		SequenceInProgress: true,
 		KeepsBranch:        true,
-		Commits:            []git.Commit{{SHA: "abc", Subject: "own work", CommittedAt: at}},
+		Commits: []git.Commit{{
+			SHA:         "abc",
+			Subject:     "own work",
+			CommittedAt: at,
+		}},
 	}}
 
 	resp, err := newService(fake).GetWorktree(t.Context(), connect.NewRequest(&worktreev1.GetWorktreeRequest{Dir: "/trees/aaaa", Fetch: true}))

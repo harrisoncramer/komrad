@@ -523,7 +523,11 @@ var _ drawer = (*model)(nil)
 
 // listPane is the column a list is drawn in this frame and how its cursor stands.
 func (m model) listPane(width int) listPane {
-	return listPane{width: width, caret: m.caretOf(sectionList), blinkedOut: m.rowCursor.Blink}
+	return listPane{
+		width:      width,
+		caret:      m.caretOf(sectionList),
+		blinkedOut: m.rowCursor.Blink,
+	}
 }
 
 func (m model) columnListView(params screenListParams) string {

@@ -79,7 +79,11 @@ func TestFocusPaneIsEmptyOnceTheStageShowsSomethingElse(t *testing.T) {
 // TestRemoteGuestIsAttachedAgainOnceItsViewerDies covers the ssh in the stage dropping while the
 // cursor stays on the same agent, which takes the stage pane with it.
 func TestRemoteGuestIsAttachedAgainOnceItsViewerDies(t *testing.T) {
-	tmux := &recordingTmux{width: 80, height: 40, deadPanes: map[string]bool{}}
+	tmux := &recordingTmux{
+		width:     80,
+		height:    40,
+		deadPanes: map[string]bool{},
+	}
 	frame := New(tmux, config.DefaultLayout(), WithEngine(remoteEngine()))
 	frame.Attach("%1")
 	frame.ShowGuest("%7")

@@ -86,10 +86,20 @@ func TestEngineClientReadsWhatTheLocalClientReads(t *testing.T) {
 	remote, _ := shellEngine(t)
 	engineClient := NewEngineClient(remote)
 
-	patch, err := engineClient.Diff(t.Context(), DiffParams{Dir: root, FromSHA: base, ToSHA: head, Exclude: []string{"proto/gen"}})
+	patch, err := engineClient.Diff(t.Context(), DiffParams{
+		Dir:     root,
+		FromSHA: base,
+		ToSHA:   head,
+		Exclude: []string{"proto/gen"},
+	})
 	require.NoError(t, err)
 
-	local, err := client.Diff(t.Context(), DiffParams{Dir: root, FromSHA: base, ToSHA: head, Exclude: []string{"proto/gen"}})
+	local, err := client.Diff(t.Context(), DiffParams{
+		Dir:     root,
+		FromSHA: base,
+		ToSHA:   head,
+		Exclude: []string{"proto/gen"},
+	})
 	require.NoError(t, err)
 
 	assert.Equal(t, string(local), string(patch))
@@ -107,7 +117,11 @@ func TestEngineClientReadsWhatTheLocalClientReads(t *testing.T) {
 		{SHA: head, Path: "proto/gen/api.pb.go"}: []byte("package gen\n\nvar moved = 1\n"),
 	}, files)
 
-	changed, err := engineClient.CountChangedFiles(t.Context(), CountChangedFilesParams{Dir: root, FromSHA: base, ToSHA: head})
+	changed, err := engineClient.CountChangedFiles(t.Context(), CountChangedFilesParams{
+		Dir:     root,
+		FromSHA: base,
+		ToSHA:   head,
+	})
 	require.NoError(t, err)
 	assert.Equal(t, 2, changed)
 
@@ -126,11 +140,20 @@ func TestEngineClientReadsWhatTheLocalClientReads(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, want, tree)
 
-	mappings, err := engineClient.MapRanges(t.Context(), MapRangesParams{Dir: root, FromSHA: base, ToSHA: head})
+	mappings, err := engineClient.MapRanges(t.Context(), MapRangesParams{
+		Dir:     root,
+		FromSHA: base,
+		ToSHA:   head,
+	})
 	require.NoError(t, err)
 	assert.Len(t, mappings, 2)
 
-	replayed, err := engineClient.Replay(t.Context(), ReplayParams{Dir: root, FromBase: base, OntoBase: base, SnapshotSHA: head})
+	replayed, err := engineClient.Replay(t.Context(), ReplayParams{
+		Dir:         root,
+		FromBase:    base,
+		OntoBase:    base,
+		SnapshotSHA: head,
+	})
 	require.NoError(t, err)
 	assert.Equal(t, want, replayed.Tree)
 	assert.Empty(t, replayed.Conflicts)

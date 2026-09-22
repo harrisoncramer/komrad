@@ -416,8 +416,16 @@ func TestListStaleStandingsAnswersOpenRowsOnAgentBranches(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, h.SetStanding(ctx, stored.ID, standing, now))
 	}
-	set("PR_2", forge.Standing{Decision: forge.ReviewDecisionApproved, Checks: forge.ChecksPassing, HeadSHA: "abc"})
-	set("PR_3", forge.Standing{Decision: forge.ReviewDecisionApproved, Checks: forge.ChecksPassing, HeadSHA: "abc"})
+	set("PR_2", forge.Standing{
+		Decision: forge.ReviewDecisionApproved,
+		Checks:   forge.ChecksPassing,
+		HeadSHA:  "abc",
+	})
+	set("PR_3", forge.Standing{
+		Decision: forge.ReviewDecisionApproved,
+		Checks:   forge.ChecksPassing,
+		HeadSHA:  "abc",
+	})
 	set("PR_9", forge.Standing{Checks: forge.ChecksPassing, HeadSHA: "before-the-push"})
 	set("PR_10", forge.Standing{Checks: forge.ChecksPending, HeadSHA: "abc"})
 	set("PR_11", forge.Standing{Checks: forge.ChecksFailing, HeadSHA: "abc"})
@@ -460,7 +468,12 @@ func TestSetStandingStampsTheRead(t *testing.T) {
 	written, err := h.Upsert(ctx, openPullRequest("PR_1", 1, "agent/x"))
 	require.NoError(t, err)
 
-	require.NoError(t, h.SetStanding(ctx, written.ID, forge.Standing{Decision: forge.ReviewDecisionChangesRequested, Checks: forge.ChecksFailing, Mergeability: forge.MergeabilityUnstable, HeadSHA: "abc"}, readAt))
+	require.NoError(t, h.SetStanding(ctx, written.ID, forge.Standing{
+		Decision:     forge.ReviewDecisionChangesRequested,
+		Checks:       forge.ChecksFailing,
+		Mergeability: forge.MergeabilityUnstable,
+		HeadSHA:      "abc",
+	}, readAt))
 	stored, err := h.GetByIdentity(ctx, "github.com", "PR_1")
 	require.NoError(t, err)
 	require.NotNil(t, stored.ReviewDecision)

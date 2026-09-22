@@ -275,9 +275,13 @@ func TestUpdateWorkflowRefusesAnUnsafeWorktreePath(t *testing.T) {
 	require.NoError(t, err)
 
 	err = workflows.UpdateWorkflow(t.Context(), created.ID, workflowstore.Config{
-		Name:     "backend",
-		Cwd:      "/repo",
-		Worktree: workflowstore.WorktreeConfig{Enabled: true, BaseBranch: "main", SymlinkPaths: []string{"../elsewhere"}},
+		Name: "backend",
+		Cwd:  "/repo",
+		Worktree: workflowstore.WorktreeConfig{
+			Enabled:      true,
+			BaseBranch:   "main",
+			SymlinkPaths: []string{"../elsewhere"},
+		},
 	})
 	require.ErrorIs(t, err, ErrWorktreeUnsafePath)
 }

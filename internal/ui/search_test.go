@@ -88,8 +88,16 @@ func TestSearchResultsReachTheScreenThatIsUp(t *testing.T) {
 		screen   screen
 		wantHits int
 	}{
-		{name: "on the search", screen: screenSearch, wantHits: 2},
-		{name: "on the agents", screen: screenAgents, wantHits: 0},
+		{
+			name:     "on the search",
+			screen:   screenSearch,
+			wantHits: 2,
+		},
+		{
+			name:     "on the agents",
+			screen:   screenAgents,
+			wantHits: 0,
+		},
 	}
 
 	for _, tt := range tests {

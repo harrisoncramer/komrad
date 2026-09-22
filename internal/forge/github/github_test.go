@@ -644,10 +644,30 @@ func TestStandings(t *testing.T) {
 	standings, err := f.Standings(t.Context(), weave, []int{801, 802, 803, 1, 9999999})
 	require.NoError(t, err)
 	assert.Equal(t, map[int]forge.Standing{
-		801: {Decision: forge.ReviewDecisionChangesRequested, Checks: forge.ChecksFailing, Mergeability: forge.MergeabilityUnstable, HeadSHA: "1111111111111111111111111111111111111111"},
-		802: {Decision: forge.ReviewDecisionPending, Checks: forge.ChecksPending, Mergeability: forge.MergeabilityBlocked, HeadSHA: "2222222222222222222222222222222222222222"},
-		803: {Decision: forge.ReviewDecisionApproved, Checks: forge.ChecksPassing, Mergeability: forge.MergeabilityClean, HeadSHA: "3333333333333333333333333333333333333333"},
-		1:   {Decision: forge.ReviewDecisionNone, Checks: forge.ChecksNone, Mergeability: forge.MergeabilityUnknown, HeadSHA: "c744e226f1248223edd7aa77a7874aba2eec3b16"},
+		801: {
+			Decision:     forge.ReviewDecisionChangesRequested,
+			Checks:       forge.ChecksFailing,
+			Mergeability: forge.MergeabilityUnstable,
+			HeadSHA:      "1111111111111111111111111111111111111111",
+		},
+		802: {
+			Decision:     forge.ReviewDecisionPending,
+			Checks:       forge.ChecksPending,
+			Mergeability: forge.MergeabilityBlocked,
+			HeadSHA:      "2222222222222222222222222222222222222222",
+		},
+		803: {
+			Decision:     forge.ReviewDecisionApproved,
+			Checks:       forge.ChecksPassing,
+			Mergeability: forge.MergeabilityClean,
+			HeadSHA:      "3333333333333333333333333333333333333333",
+		},
+		1: {
+			Decision:     forge.ReviewDecisionNone,
+			Checks:       forge.ChecksNone,
+			Mergeability: forge.MergeabilityUnknown,
+			HeadSHA:      "c744e226f1248223edd7aa77a7874aba2eec3b16",
+		},
 	}, standings)
 
 	seen := fake.last(t)
@@ -667,13 +687,41 @@ func TestChecksOf(t *testing.T) {
 		rollup *rollupNode
 		want   forge.Checks
 	}{
-		{name: "success is passing", rollup: &rollupNode{State: "SUCCESS"}, want: forge.ChecksPassing},
-		{name: "failure is failing", rollup: &rollupNode{State: "FAILURE"}, want: forge.ChecksFailing},
-		{name: "error is failing", rollup: &rollupNode{State: "ERROR"}, want: forge.ChecksFailing},
-		{name: "pending is pending", rollup: &rollupNode{State: "PENDING"}, want: forge.ChecksPending},
-		{name: "expected is pending", rollup: &rollupNode{State: "EXPECTED"}, want: forge.ChecksPending},
-		{name: "no rollup is none", rollup: nil, want: forge.ChecksNone},
-		{name: "a state weave does not know is none", rollup: &rollupNode{State: "SOMETHING_NEW"}, want: forge.ChecksNone},
+		{
+			name:   "success is passing",
+			rollup: &rollupNode{State: "SUCCESS"},
+			want:   forge.ChecksPassing,
+		},
+		{
+			name:   "failure is failing",
+			rollup: &rollupNode{State: "FAILURE"},
+			want:   forge.ChecksFailing,
+		},
+		{
+			name:   "error is failing",
+			rollup: &rollupNode{State: "ERROR"},
+			want:   forge.ChecksFailing,
+		},
+		{
+			name:   "pending is pending",
+			rollup: &rollupNode{State: "PENDING"},
+			want:   forge.ChecksPending,
+		},
+		{
+			name:   "expected is pending",
+			rollup: &rollupNode{State: "EXPECTED"},
+			want:   forge.ChecksPending,
+		},
+		{
+			name:   "no rollup is none",
+			rollup: nil,
+			want:   forge.ChecksNone,
+		},
+		{
+			name:   "a state weave does not know is none",
+			rollup: &rollupNode{State: "SOMETHING_NEW"},
+			want:   forge.ChecksNone,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

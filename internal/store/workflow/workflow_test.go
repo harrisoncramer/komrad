@@ -84,7 +84,11 @@ func TestWorktreeToggleRoundTrips(t *testing.T) {
 	assert.True(t, created.Worktree.Enabled)
 	assert.Equal(t, "develop", created.Worktree.BaseBranch)
 
-	require.NoError(t, st.Update(ctx, created.ID, Config{Name: "backend", Cwd: "/repo", Worktree: WorktreeConfig{BaseBranch: "main"}}))
+	require.NoError(t, st.Update(ctx, created.ID, Config{
+		Name:     "backend",
+		Cwd:      "/repo",
+		Worktree: WorktreeConfig{BaseBranch: "main"},
+	}))
 
 	got, err := st.Get(ctx, created.ID)
 	require.NoError(t, err)

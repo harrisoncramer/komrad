@@ -47,8 +47,8 @@ func newPooled(t *testing.T) *listened {
 func (l *listened) listen(t *testing.T, stores *fakeStores) {
 	t.Helper()
 
-	l.broker = NewBroker(NewBrokerParams{})
-	require.NoError(t, l.broker.Start(l.pool, newRows(stores)))
+	l.broker = NewBroker(NewBrokerParams{Pool: l.pool, Rows: newRows(stores)})
+	require.NoError(t, l.broker.Start())
 	t.Cleanup(l.broker.Close)
 }
 

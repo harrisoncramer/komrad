@@ -19,12 +19,28 @@ type sortFixture struct {
 
 func sortFixtures() []sortFixture {
 	return []sortFixture{
-		{name: "d", value: 2, held: true},
+		{
+			name:  "d",
+			value: 2,
+			held:  true,
+		},
 		{name: "b", held: false},
-		{name: "c", value: 1, held: true},
-		{name: "e", value: 2, held: true},
+		{
+			name:  "c",
+			value: 1,
+			held:  true,
+		},
+		{
+			name:  "e",
+			value: 2,
+			held:  true,
+		},
 		{name: "a", held: false},
-		{name: "f", value: 3, held: true},
+		{
+			name:  "f",
+			value: 3,
+			held:  true,
+		},
 	}
 }
 
@@ -118,8 +134,16 @@ func TestSortRowsIsStable(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			rows := []sortFixture{
-				{name: "second", value: 1, held: true},
-				{name: "first", value: 1, held: true},
+				{
+					name:  "second",
+					value: 1,
+					held:  true,
+				},
+				{
+					name:  "first",
+					value: 1,
+					held:  true,
+				},
 				{name: "unheld-second"},
 				{name: "unheld-first"},
 			}

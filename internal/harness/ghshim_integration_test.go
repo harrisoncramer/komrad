@@ -34,9 +34,8 @@ type shimCase struct {
 	// handed.
 	gh string
 	// noGH leaves the machine with no gh but the stand-in itself.
-	noGH bool
-	args []string
-
+	noGH     bool
+	args     []string
 	wantExit int
 	// wantGHSaw is the token and arguments the gh beyond wrote down, empty for a gh never run.
 	wantGHSaw string

@@ -47,7 +47,11 @@ func TestReadyRefusesAPaneThatIsNotListening(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			terminal := &fakeTerminal{frame: tt.frame, inMode: tt.inMode, shell: tt.shell}
+			terminal := &fakeTerminal{
+				frame:  tt.frame,
+				inMode: tt.inMode,
+				shell:  tt.shell,
+			}
 			p := NewPane(NewPaneParams{Terminal: terminal, Harnesses: fakeHarnesses{harness: &fakeHarness{}}})
 
 			ready, err := p.Ready(t.Context(), target)

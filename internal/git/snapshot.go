@@ -448,7 +448,11 @@ func isOwnHead(ctx context.Context, root, base string) bool {
 
 // doesHoldWhole reports whether merging a commit into the base would change nothing of it.
 func doesHoldWhole(ctx context.Context, root, base, baseTree, sha string) (bool, error) { //nolint:revive // a params struct is the follow-up
-	merged, _, err := readMergedTree(ctx, local, readMergedTreeParams{Dir: root, Left: base, Right: sha})
+	merged, _, err := readMergedTree(ctx, local, readMergedTreeParams{
+		Dir:   root,
+		Left:  base,
+		Right: sha,
+	})
 	if err != nil {
 		return false, err
 	}
@@ -464,7 +468,12 @@ func isCleanOnto(ctx context.Context, root, base, baseTree, probe string) (bool,
 		return false, fmt.Errorf("failed to find where %q left %q: %w", root, base, err)
 	}
 
-	merged, _, err := readMergedTree(ctx, local, readMergedTreeParams{Dir: root, Left: base, Right: probe, MergeBase: mergeBase})
+	merged, _, err := readMergedTree(ctx, local, readMergedTreeParams{
+		Dir:       root,
+		Left:      base,
+		Right:     probe,
+		MergeBase: mergeBase,
+	})
 	if err != nil {
 		return false, err
 	}

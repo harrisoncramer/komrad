@@ -21,7 +21,13 @@ func TestListByKeyIsTheUnclaimedSet(t *testing.T) {
 	send := func(body string, deadline time.Duration) string {
 		t.Helper()
 
-		sent, err := st.Send(ctx, SendParams{FromAgentID: &sender, FromName: "sender", ToAgentID: recipient, Body: body, Deadline: deadline})
+		sent, err := st.Send(ctx, SendParams{
+			FromAgentID: &sender,
+			FromName:    "sender",
+			ToAgentID:   recipient,
+			Body:        body,
+			Deadline:    deadline,
+		})
 		require.NoError(t, err)
 
 		return sent.ID
@@ -64,7 +70,13 @@ func TestListUnclaimedToIsTheRecipientsUnclaimedSet(t *testing.T) {
 	send := func(to, body string) string {
 		t.Helper()
 
-		sent, err := st.Send(ctx, SendParams{FromAgentID: &sender, FromName: "sender", ToAgentID: to, Body: body, Deadline: time.Hour})
+		sent, err := st.Send(ctx, SendParams{
+			FromAgentID: &sender,
+			FromName:    "sender",
+			ToAgentID:   to,
+			Body:        body,
+			Deadline:    time.Hour,
+		})
 		require.NoError(t, err)
 
 		return sent.ID

@@ -100,12 +100,24 @@ func TestSnapshotReplacesTheListing(t *testing.T) {
 	m := watchedPanel()
 
 	m, _ = update(t, m, client.WatchBatch{snapshotEvent(
-		agentRowOf(&agentv1.Agent{Id: "01a", Name: "older", WorkflowId: "w1"}),
-		agentRowOf(&agentv1.Agent{Id: "01b", Name: "api-refactor", WorkflowId: "w1"}),
+		agentRowOf(&agentv1.Agent{
+			Id:         "01a",
+			Name:       "older",
+			WorkflowId: "w1",
+		}),
+		agentRowOf(&agentv1.Agent{
+			Id:         "01b",
+			Name:       "api-refactor",
+			WorkflowId: "w1",
+		}),
 		workflowRowOf(&workflowv1.Workflow{Id: "w2", Name: "beta"}),
 		workflowRowOf(&workflowv1.Workflow{Id: "w1", Name: "Alpha"}),
 		scheduleRowOf(&schedulev1.Schedule{Id: "s1"}),
-		markRowOf(&agentv1.Mark{Id: "mark-a", Mark: "a", AgentId: proto.String("01b")}),
+		markRowOf(&agentv1.Mark{
+			Id:      "mark-a",
+			Mark:    "a",
+			AgentId: proto.String("01b"),
+		}),
 		pullRequestRowOf("pr-1", "agent/x", 7),
 	)})
 
@@ -121,7 +133,11 @@ func TestSnapshotReplacesTheListing(t *testing.T) {
 	assert.Equal(t, "api-refactor", selected.Agent.Name)
 
 	m, _ = update(t, m, client.WatchBatch{snapshotEvent(
-		agentRowOf(&agentv1.Agent{Id: "01c", Name: "after-reconnect", WorkflowId: "w1"}),
+		agentRowOf(&agentv1.Agent{
+			Id:         "01c",
+			Name:       "after-reconnect",
+			WorkflowId: "w1",
+		}),
 	)})
 
 	assert.Equal(t, []string{"01c"}, agentIDs(m.listing.agents), "the next stream's snapshot replaces what the last one built")
@@ -142,7 +158,11 @@ func TestMarkBeforeItsAgentDrawsOnTheNextAssemble(t *testing.T) {
 		workflowRowOf(&workflowv1.Workflow{Id: "w1", Name: "api"}),
 	)})
 	m, _ = update(t, m, client.WatchBatch{
-		putEvent(markRowOf(&agentv1.Mark{Id: "mark-a", Mark: "a", AgentId: proto.String("01a")})),
+		putEvent(markRowOf(&agentv1.Mark{
+			Id:      "mark-a",
+			Mark:    "a",
+			AgentId: proto.String("01a"),
+		})),
 	})
 
 	assert.Empty(t, m.listing.agents, "the mark draws no row of its own")
@@ -150,7 +170,11 @@ func TestMarkBeforeItsAgentDrawsOnTheNextAssemble(t *testing.T) {
 	assert.False(t, ok, "and names nothing to jump to yet")
 
 	m, _ = update(t, m, client.WatchBatch{
-		putEvent(agentRowOf(&agentv1.Agent{Id: "01a", Name: "one", WorkflowId: "w1"})),
+		putEvent(agentRowOf(&agentv1.Agent{
+			Id:         "01a",
+			Name:       "one",
+			WorkflowId: "w1",
+		})),
 	})
 
 	rows := m.agents.snapshot(m.shared(), listPane{width: m.width}).Rows
@@ -165,10 +189,27 @@ func TestTombstoneDropsTheRowAndItsChildren(t *testing.T) {
 
 	m, _ = update(t, m, client.WatchBatch{snapshotEvent(
 		workflowRowOf(&workflowv1.Workflow{Id: "w1", Name: "api"}),
-		agentRowOf(&agentv1.Agent{Id: "01a", Name: "parent", WorkflowId: "w1"}),
-		agentRowOf(&agentv1.Agent{Id: "01b", Name: "child", WorkflowId: "w1", ParentAgentId: proto.String("01a")}),
-		agentRowOf(&agentv1.Agent{Id: "01c", Name: "other", WorkflowId: "w1"}),
-		markRowOf(&agentv1.Mark{Id: "mark-a", Mark: "a", AgentId: proto.String("01a")}),
+		agentRowOf(&agentv1.Agent{
+			Id:         "01a",
+			Name:       "parent",
+			WorkflowId: "w1",
+		}),
+		agentRowOf(&agentv1.Agent{
+			Id:            "01b",
+			Name:          "child",
+			WorkflowId:    "w1",
+			ParentAgentId: proto.String("01a"),
+		}),
+		agentRowOf(&agentv1.Agent{
+			Id:         "01c",
+			Name:       "other",
+			WorkflowId: "w1",
+		}),
+		markRowOf(&agentv1.Mark{
+			Id:      "mark-a",
+			Mark:    "a",
+			AgentId: proto.String("01a"),
+		}),
 	)})
 	require.Len(t, m.agents.rows(m.shared()), 4)
 
@@ -194,8 +235,16 @@ func TestUnclaimedMailExpiresByThePanelsClock(t *testing.T) {
 		workflowRowOf(&workflowv1.Workflow{Id: "w1", Name: "api"}),
 		agentRowOf(&agentv1.Agent{Id: "01a", WorkflowId: "w1"}),
 		agentRowOf(&agentv1.Agent{Id: "01b", WorkflowId: "w1"}),
-		mailRowOf(&agentv1.Mail{Id: "m1", ToAgentId: "01a", ExpiresAt: stamp(time.Now().Add(time.Hour))}),
-		mailRowOf(&agentv1.Mail{Id: "m2", ToAgentId: "01b", ExpiresAt: stamp(time.Now().Add(-time.Hour))}),
+		mailRowOf(&agentv1.Mail{
+			Id:        "m1",
+			ToAgentId: "01a",
+			ExpiresAt: stamp(time.Now().Add(time.Hour)),
+		}),
+		mailRowOf(&agentv1.Mail{
+			Id:        "m2",
+			ToAgentId: "01b",
+			ExpiresAt: stamp(time.Now().Add(-time.Hour)),
+		}),
 	)})
 
 	waiting, ok := m.listing.liveAgent("01a")
@@ -222,19 +271,43 @@ func TestEventsReplaceAndDropRows(t *testing.T) {
 
 	m, _ = update(t, m, client.WatchBatch{snapshotEvent(
 		workflowRowOf(&workflowv1.Workflow{Id: "w1", Name: "api"}),
-		agentRowOf(&agentv1.Agent{Id: "01a", Name: "one", WorkflowId: "w1"}),
-		agentRowOf(&agentv1.Agent{Id: "01b", Name: "two", WorkflowId: "w1"}),
-		markRowOf(&agentv1.Mark{Id: "mark-b", Mark: "b", AgentId: proto.String("01b")}),
+		agentRowOf(&agentv1.Agent{
+			Id:         "01a",
+			Name:       "one",
+			WorkflowId: "w1",
+		}),
+		agentRowOf(&agentv1.Agent{
+			Id:         "01b",
+			Name:       "two",
+			WorkflowId: "w1",
+		}),
+		markRowOf(&agentv1.Mark{
+			Id:      "mark-b",
+			Mark:    "b",
+			AgentId: proto.String("01b"),
+		}),
 	)})
 	m.agents.cursor = rowIndexOfAgentID(m.agents.rows(m.shared()), "01a")
 
 	m, _ = update(t, m, client.WatchBatch{
-		putEvent(agentRowOf(&agentv1.Agent{Id: "01a", Name: "renamed", WorkflowId: "w1"})),
+		putEvent(agentRowOf(&agentv1.Agent{
+			Id:         "01a",
+			Name:       "renamed",
+			WorkflowId: "w1",
+		})),
 		deletedEvent(watchv1.Resource_RESOURCE_AGENT, "01b"),
 		deletedEvent(watchv1.Resource_RESOURCE_MARK, "mark-b"),
-		putEvent(agentRowOf(&agentv1.Agent{Id: "01c", Name: "three", WorkflowId: "w1"})),
+		putEvent(agentRowOf(&agentv1.Agent{
+			Id:         "01c",
+			Name:       "three",
+			WorkflowId: "w1",
+		})),
 		putEvent(workflowRowOf(&workflowv1.Workflow{Id: "w0", Name: "aaa"})),
-		putEvent(markRowOf(&agentv1.Mark{Id: "mark-w", Mark: "w", WorkflowId: proto.String("w0")})),
+		putEvent(markRowOf(&agentv1.Mark{
+			Id:         "mark-w",
+			Mark:       "w",
+			WorkflowId: proto.String("w0"),
+		})),
 		putEvent(scheduleRowOf(&schedulev1.Schedule{Id: "s1"})),
 	})
 

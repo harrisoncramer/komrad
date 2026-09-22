@@ -486,7 +486,12 @@ func TestCwdSyncerSyncWritesAStandingOnlyWhenItMoved(t *testing.T) {
 
 	workflowID := seedWorkflow(t, st)
 	cwd := fakeCheckout(t)
-	require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{Name: "a", State: agentstore.StateIdle, WorkflowID: workflowID, Cwd: cwd}))
+	require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{
+		Name:       "a",
+		State:      agentstore.StateIdle,
+		WorkflowID: workflowID,
+		Cwd:        cwd,
+	}))
 	created, err := st.Agents.GetInWorkflow(ctx, workflowID, "a")
 	require.NoError(t, err)
 
@@ -494,11 +499,15 @@ func TestCwdSyncerSyncWritesAStandingOnlyWhenItMoved(t *testing.T) {
 	trees := fakeTrees{cwd: git.StandingSame}
 	agents := &countingAgents{cwdSetter: st.Agents}
 	syncer := NewCwdSyncer(NewCwdSyncerParams{
-		Agents:  agents,
-		Heads:   fakeHeads{},
-		Trees:   trees,
-		Tallies: fakeTallies{{AgentID: created.ID, Verdict: &approved, SnapshotSHA: "snapshot-one"}},
-		Bases:   fakeBases{},
+		Agents: agents,
+		Heads:  fakeHeads{},
+		Trees:  trees,
+		Tallies: fakeTallies{{
+			AgentID:     created.ID,
+			Verdict:     &approved,
+			SnapshotSHA: "snapshot-one",
+		}},
+		Bases: fakeBases{},
 	})
 
 	require.NoError(t, syncer.Sync(ctx))
@@ -582,7 +591,11 @@ func TestCwdSyncerSyncReadsWhereTheTreeStands(t *testing.T) {
 	approved := reviewstore.VerdictApproved
 	tallies := fakeTallies{}
 	for name, id := range ids {
-		tallies = append(tallies, reviewstore.Tally{AgentID: id, Verdict: &approved, SnapshotSHA: "snapshot-" + name})
+		tallies = append(tallies, reviewstore.Tally{
+			AgentID:     id,
+			Verdict:     &approved,
+			SnapshotSHA: "snapshot-" + name,
+		})
 	}
 	syncer := NewCwdSyncer(NewCwdSyncerParams{
 		Agents: st.Agents,
@@ -627,11 +640,15 @@ func TestCwdSyncerSyncKeepsAStandingReportedWithAnError(t *testing.T) {
 
 	approved := reviewstore.VerdictApproved
 	syncer := NewCwdSyncer(NewCwdSyncerParams{
-		Agents:  st.Agents,
-		Heads:   fakeHeads{},
-		Trees:   failingTrees{},
-		Bases:   fakeBases{},
-		Tallies: fakeTallies{{AgentID: created.ID, Verdict: &approved, SnapshotSHA: "snapshot-one"}},
+		Agents: st.Agents,
+		Heads:  fakeHeads{},
+		Trees:  failingTrees{},
+		Bases:  fakeBases{},
+		Tallies: fakeTallies{{
+			AgentID:     created.ID,
+			Verdict:     &approved,
+			SnapshotSHA: "snapshot-one",
+		}},
 	})
 
 	err = syncer.Sync(ctx)
@@ -658,10 +675,14 @@ func TestCwdSyncerSyncMeasuresAgainstTheWorkflowsBase(t *testing.T) {
 	approved := reviewstore.VerdictApproved
 	hashed := &recordingTrees{}
 	syncer := NewCwdSyncer(NewCwdSyncerParams{
-		Agents:  st.Agents,
-		Heads:   fakeHeads{},
-		Trees:   hashed,
-		Tallies: fakeTallies{{AgentID: agent.ID, Verdict: &approved, SnapshotSHA: "snapshot-one"}},
+		Agents: st.Agents,
+		Heads:  fakeHeads{},
+		Trees:  hashed,
+		Tallies: fakeTallies{{
+			AgentID:     agent.ID,
+			Verdict:     &approved,
+			SnapshotSHA: "snapshot-one",
+		}},
 		Bases: fakeBases{{
 			ID:       workflowID,
 			Worktree: workflowstore.WorktreeConfig{BaseBranch: "develop"},

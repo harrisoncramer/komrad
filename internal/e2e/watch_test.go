@@ -57,7 +57,14 @@ func TestTheWatchAndTheStoresAgree(t *testing.T) {
 	// Two workflows, one cutting worktrees from main, and a schedule in the first.
 	pipeline := st.SeedWorkflow(t, workflowstore.Config{Name: "pipeline", Context: "ship the pipeline"})
 	docs := st.SeedWorkflow(t, workflowstore.Config{Name: "docs"})
-	st.SeedSchedule(t, schedulestore.Config{Name: "nightly", Cron: "0 0 1 1 *", Timezone: "UTC", Prompt: "sweep", WorkflowID: pipeline.ID, Enabled: true})
+	st.SeedSchedule(t, schedulestore.Config{
+		Name:       "nightly",
+		Cron:       "0 0 1 1 *",
+		Timezone:   "UTC",
+		Prompt:     "sweep",
+		WorkflowID: pipeline.ID,
+		Enabled:    true,
+	})
 
 	// Agents on a branch with pull requests, on the base branch, on a read repository with no
 	// pull request, off any forge, and one archived and so out of the live set.
@@ -69,7 +76,11 @@ func TestTheWatchAndTheStoresAgree(t *testing.T) {
 	_, err := st.Agents.Archive(ctx, []string{gone.ID})
 	require.NoError(t, err)
 
-	_, err = st.Agents.SetMetadata(ctx, agentstore.SetMetadataParams{ID: api.ID, Key: "ticket", Value: xptr.Ptr("https://example.test/T-1")})
+	_, err = st.Agents.SetMetadata(ctx, agentstore.SetMetadataParams{
+		ID:    api.ID,
+		Key:   "ticket",
+		Value: xptr.Ptr("https://example.test/T-1"),
+	})
 	require.NoError(t, err)
 
 	// A mark on an agent and one on a workflow.
@@ -79,9 +90,19 @@ func TestTheWatchAndTheStoresAgree(t *testing.T) {
 	require.NoError(t, err)
 
 	// Mail waiting for one agent, and mail another has already claimed.
-	_, err = st.Mail.Send(ctx, mailstore.SendParams{FromName: "panel", ToAgentID: api.ID, Body: "waiting", Deadline: time.Hour})
+	_, err = st.Mail.Send(ctx, mailstore.SendParams{
+		FromName:  "panel",
+		ToAgentID: api.ID,
+		Body:      "waiting",
+		Deadline:  time.Hour,
+	})
 	require.NoError(t, err)
-	_, err = st.Mail.Send(ctx, mailstore.SendParams{FromName: "panel", ToAgentID: quiet.ID, Body: "claimed", Deadline: time.Hour})
+	_, err = st.Mail.Send(ctx, mailstore.SendParams{
+		FromName:  "panel",
+		ToAgentID: quiet.ID,
+		Body:      "claimed",
+		Deadline:  time.Hour,
+	})
 	require.NoError(t, err)
 	_, err = st.Mail.Claim(ctx, quiet.ID, 10)
 	require.NoError(t, err)
@@ -234,7 +255,12 @@ func viewFromRPCs(t *testing.T, instance *weavetest.Instance) view {
 func viewFromGets(t *testing.T, instance *weavetest.Instance, listed view) view {
 	t.Helper()
 
-	got := view{agents: map[string]*agentv1.AgentRow{}, marks: listed.marks, workflows: listed.workflows, schedules: listed.schedules}
+	got := view{
+		agents:    map[string]*agentv1.AgentRow{},
+		marks:     listed.marks,
+		workflows: listed.workflows,
+		schedules: listed.schedules,
+	}
 	for id := range listed.agents {
 		one, err := instance.Agents.GetAgent(t.Context(), connect.NewRequest(&agentv1.GetAgentRequest{Id: id}))
 		require.NoError(t, err)

@@ -350,11 +350,19 @@ func TestAnUnreadableBaseIsRefused(t *testing.T) {
 	snapshot := topicRound(t, root)
 	write(t, root, "later.go", "package main\n")
 
-	_, err := client.ReadStanding(t.Context(), ReadStandingParams{Dir: root, Base: "develop", SnapshotSHA: snapshot.SHA})
+	_, err := client.ReadStanding(t.Context(), ReadStandingParams{
+		Dir:         root,
+		Base:        "develop",
+		SnapshotSHA: snapshot.SHA,
+	})
 	require.ErrorIs(t, err, ErrBaseMissing)
 
 	for _, base := range []string{"", "HEAD"} {
-		_, err := client.ReadStanding(t.Context(), ReadStandingParams{Dir: root, Base: base, SnapshotSHA: snapshot.SHA})
+		_, err := client.ReadStanding(t.Context(), ReadStandingParams{
+			Dir:         root,
+			Base:        base,
+			SnapshotSHA: snapshot.SHA,
+		})
 		require.ErrorIs(t, err, ErrBaseMissing, "base %q", base)
 	}
 }
@@ -368,7 +376,11 @@ func TestABaseThatIsTheHeadCannotHoldTheRound(t *testing.T) {
 	run(t, root, "add", "-A")
 	run(t, root, "commit", "-m", "later")
 
-	standing, err := client.ReadStanding(t.Context(), ReadStandingParams{Dir: root, Base: "topic", SnapshotSHA: snapshot.SHA})
+	standing, err := client.ReadStanding(t.Context(), ReadStandingParams{
+		Dir:         root,
+		Base:        "topic",
+		SnapshotSHA: snapshot.SHA,
+	})
 	require.NoError(t, err)
 	assert.Equal(t, StandingMoved, standing)
 }
@@ -451,7 +463,11 @@ func TestAnEditedRoundThatLandedIsNotLanded(t *testing.T) {
 func standing(t *testing.T, root, sha string) Standing {
 	t.Helper()
 
-	standing, err := client.ReadStanding(t.Context(), ReadStandingParams{Dir: root, Base: "main", SnapshotSHA: sha})
+	standing, err := client.ReadStanding(t.Context(), ReadStandingParams{
+		Dir:         root,
+		Base:        "main",
+		SnapshotSHA: sha,
+	})
 	require.NoError(t, err)
 
 	return standing

@@ -11,8 +11,7 @@ import (
 
 // reviewDiff is the patch on screen and where the reader is standing in it.
 type reviewDiff struct {
-	view *diffview.View
-
+	view   *diffview.View
 	cursor int
 	pan    int
 	// top is the first row the pane is showing, held rather than derived from the cursor.

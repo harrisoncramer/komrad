@@ -74,7 +74,11 @@ func (m model) detailsRows(held details) []detailsRow {
 			continue
 		}
 
-		rows = append(rows, detailsRow{id: strconv.Itoa(i), field: field, text: text})
+		rows = append(rows, detailsRow{
+			id:    strconv.Itoa(i),
+			field: field,
+			text:  text,
+		})
 	}
 
 	return rows

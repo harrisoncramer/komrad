@@ -257,8 +257,12 @@ func TestArchiveRows(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := model{
-				keys:    config.DefaultKeybindings(),
-				listing: listing{workflows: tt.live, archivedAgents: archivedItems(tt.agents), archivedWorkflows: tt.archived},
+				keys: config.DefaultKeybindings(),
+				listing: listing{
+					workflows:         tt.live,
+					archivedAgents:    archivedItems(tt.agents),
+					archivedWorkflows: tt.archived,
+				},
 			}
 
 			assert.Equal(t, tt.wantRows, describeRows(m.archive.listRows(m.shared())))
@@ -814,7 +818,11 @@ func TestArchiveTabsKeepTheCursorOnItsRow(t *testing.T) {
 	require.Equal(t, "agent:alpha", m.archive.list().hovered(m.shared()))
 
 	tabbed := send(t, send(t, send(t, m, "f"), "tab"), "k")
-	assert.Equal(t, tabsState{chosen: "name", direction: tabUp, focused: true}, tabbed.archive.sort)
+	assert.Equal(t, tabsState{
+		chosen:    "name",
+		direction: tabUp,
+		focused:   true,
+	}, tabbed.archive.sort)
 	assert.Equal(t, "agent:alpha", tabbed.archive.list().hovered(tabbed.shared()))
 	assert.Equal(t, 1, tabbed.archive.cursor)
 

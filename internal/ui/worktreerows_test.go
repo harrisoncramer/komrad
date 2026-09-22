@@ -199,9 +199,13 @@ func TestWorktreeRowsFlatOrderTheWholeListing(t *testing.T) {
 			want:  []string{"tree:/trees/admin", "tree:/trees/live", "tree:/trees/archived", "tree:/trees/broken", "tree:/trees/orphan"},
 		},
 		{
-			name:  "size up is the smallest first with the unmeasured still last",
-			state: tabsState{chosen: "size", direction: tabUp, flat: true},
-			want:  []string{"tree:/trees/archived", "tree:/trees/live", "tree:/trees/admin", "tree:/trees/broken", "tree:/trees/orphan"},
+			name: "size up is the smallest first with the unmeasured still last",
+			state: tabsState{
+				chosen:    "size",
+				direction: tabUp,
+				flat:      true,
+			},
+			want: []string{"tree:/trees/archived", "tree:/trees/live", "tree:/trees/admin", "tree:/trees/broken", "tree:/trees/orphan"},
 		},
 		{
 			name:  "last-accessed down is the most recent first",
@@ -212,7 +216,11 @@ func TestWorktreeRowsFlatOrderTheWholeListing(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rows := worktreeRows(worktreeRowsParams{items: items, order: worktreesOrder(tt.state), flat: true})
+			rows := worktreeRows(worktreeRowsParams{
+				items: items,
+				order: worktreesOrder(tt.state),
+				flat:  true,
+			})
 
 			assert.Equal(t, tt.want, xslice.Map(rows, worktreeRow.key))
 			for _, row := range rows {
@@ -229,7 +237,11 @@ func TestWorktreesSnapshotDrawsFlatRowsAtTheHeadingIndent(t *testing.T) {
 	now := time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
 	items := measuredFixture(now)
 	snapshot := worktreesSnapshot(worktreesSnapshotParams{
-		rows:  worktreeRows(worktreeRowsParams{items: items, order: worktreesOrder(tabsState{}), flat: true}),
+		rows: worktreeRows(worktreeRowsParams{
+			items: items,
+			order: worktreesOrder(tabsState{}),
+			flat:  true,
+		}),
 		items: items,
 		flat:  true,
 		now:   now,

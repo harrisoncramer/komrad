@@ -36,8 +36,16 @@ func rowOf(t *testing.T, st *storetest.Stores, id string) rowstore.Row {
 func TestRowCarriesTheAgent(t *testing.T) {
 	st := storetest.Open(t)
 	ctx := t.Context()
-	alpha := st.SeedAgent(t, agentstore.Agent{Name: "alpha", Cwd: "/repo", Prompt: "go"})
-	_, err := st.Agents.SetMetadata(ctx, agentstore.SetMetadataParams{ID: alpha.ID, Key: "branch", Value: xptr.Ptr("agent/x")})
+	alpha := st.SeedAgent(t, agentstore.Agent{
+		Name:   "alpha",
+		Cwd:    "/repo",
+		Prompt: "go",
+	})
+	_, err := st.Agents.SetMetadata(ctx, agentstore.SetMetadataParams{
+		ID:    alpha.ID,
+		Key:   "branch",
+		Value: xptr.Ptr("agent/x"),
+	})
 	require.NoError(t, err)
 
 	row := rowOf(t, st, alpha.ID)
@@ -61,7 +69,11 @@ func TestFailedRun(t *testing.T) {
 	ctx := t.Context()
 	alpha := st.SeedAgent(t, agentstore.Agent{Name: "alpha"})
 
-	fine, err := st.Runs.Begin(ctx, runstore.BeginParams{AgentID: alpha.ID, Trigger: "post-launch", Script: "setup"})
+	fine, err := st.Runs.Begin(ctx, runstore.BeginParams{
+		AgentID: alpha.ID,
+		Trigger: "post-launch",
+		Script:  "setup",
+	})
 	require.NoError(t, err)
 	require.NoError(t, st.Runs.Finish(ctx, runstore.FinishParams{ID: fine, ExitCode: xptr.Ptr(int32(0))}))
 	assert.False(t, rowOf(t, st, alpha.ID).FailedRun, "a run that succeeded is nothing to read")
@@ -97,16 +109,28 @@ func TestLocalReview(t *testing.T) {
 	reviewer := st.SeedAgent(t, agentstore.Agent{Name: "reader", WorkflowID: agent.WorkflowID})
 
 	release := func(tree string, kind reviewstore.AuthorKind, verdict reviewstore.Verdict) {
-		round, err := reviews.CreateRound(ctx, reviewstore.CreateRoundParams{AgentID: agent.ID, BaseSHA: "base-" + tree, SnapshotSHA: "snapshot-" + tree})
+		round, err := reviews.CreateRound(ctx, reviewstore.CreateRoundParams{
+			AgentID:     agent.ID,
+			BaseSHA:     "base-" + tree,
+			SnapshotSHA: "snapshot-" + tree,
+		})
 		require.NoError(t, err)
 
-		params := reviewstore.OpenReviewParams{AgentID: agent.ID, RoundID: round.ID, AuthorKind: kind}
+		params := reviewstore.OpenReviewParams{
+			AgentID:    agent.ID,
+			RoundID:    round.ID,
+			AuthorKind: kind,
+		}
 		if kind == reviewstore.AuthorAgent {
 			params.AuthorAgentID = &reviewer.ID
 		}
 		review, err := reviews.OpenReview(ctx, params)
 		require.NoError(t, err)
-		_, err = reviews.ReleaseReview(ctx, reviewstore.ReleaseReviewParams{ID: review.ID, Verdict: verdict, Path: "/tmp/" + tree + ".md"})
+		_, err = reviews.ReleaseReview(ctx, reviewstore.ReleaseReviewParams{
+			ID:      review.ID,
+			Verdict: verdict,
+			Path:    "/tmp/" + tree + ".md",
+		})
 		require.NoError(t, err)
 	}
 
@@ -133,7 +157,11 @@ func TestRepositoryRead(t *testing.T) {
 	require.NoError(t, st.PullRequestSyncs.EnsureSync(ctx, fixture))
 	require.NoError(t, st.PullRequestSyncs.RecordSyncRequest(ctx, fixture))
 	listed := time.Date(2026, 9, 19, 10, 0, 0, 0, time.UTC)
-	require.NoError(t, st.PullRequestSyncs.StartSweep(ctx, pullrequeststore.StartSweepParams{RepositoryURL: fixture, Newest: listed, ListedAt: listed}))
+	require.NoError(t, st.PullRequestSyncs.StartSweep(ctx, pullrequeststore.StartSweepParams{
+		RepositoryURL: fixture,
+		Newest:        listed,
+		ListedAt:      listed,
+	}))
 	assert.False(t, rowOf(t, st, agent.ID).RepositoryRead, "a request alone, or a sweep in progress, is not a read")
 
 	require.NoError(t, st.PullRequestSyncs.CompleteSweep(ctx, fixture))

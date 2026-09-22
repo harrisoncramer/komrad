@@ -216,7 +216,11 @@ func (f *Forge) ListChanged(ctx context.Context, params forge.ListChangedParams)
 	result := &forge.Page{}
 	next := map[string]string{}
 	err := sendInBatches(ctx, paths, changedProjectsPerQuery, func(ctx context.Context, batch []string) (complexity, error) {
-		read, err := f.listChangedBatch(ctx, listChangedBatchParams{paths: batch, after: pending, since: params.Since})
+		read, err := f.listChangedBatch(ctx, listChangedBatchParams{
+			paths: batch,
+			after: pending,
+			since: params.Since,
+		})
 		if err != nil {
 			return complexity{}, err
 		}

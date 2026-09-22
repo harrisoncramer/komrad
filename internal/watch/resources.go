@@ -32,8 +32,7 @@ type Resource struct {
 	Message protoreflect.MessageDescriptor
 	// Projects is the tables rendered onto this one, whose writes move it.
 	Projects []Projection
-
-	bind func(Stores, func() time.Time) arm
+	bind     func(Stores, func() time.Time) arm
 }
 
 // Plural is the table's name in camel case.
@@ -82,7 +81,12 @@ func Resources() []Resource {
 				{Table: "agent_runs", Column: "agent_id"},
 				{Table: "reviews", Column: "agent_id"},
 				{Table: "review_rounds", Column: "agent_id"},
-				{Table: "pull_request_syncs", ParentMatch: "repository_url", Match: "repository_url", ParentMustBeNull: "archived_at"},
+				{
+					Table:            "pull_request_syncs",
+					ParentMatch:      "repository_url",
+					Match:            "repository_url",
+					ParentMustBeNull: "archived_at",
+				},
 			},
 		}),
 		newResource(newResourceParams[workflowstore.Workflow, *workflowv1.Workflow]{
@@ -97,8 +101,16 @@ func Resources() []Resource {
 			},
 			Projects: []Projection{
 				{Table: "workflow_hooks", Column: "workflow_id"},
-				{Table: "workflow_configs", ParentMatch: "workflow_config_id", Match: "id"},
-				{Table: "workflow_provisioner_configs", ParentMatch: "provisioner_config_id", Match: "id"},
+				{
+					Table:       "workflow_configs",
+					ParentMatch: "workflow_config_id",
+					Match:       "id",
+				},
+				{
+					Table:       "workflow_provisioner_configs",
+					ParentMatch: "provisioner_config_id",
+					Match:       "id",
+				},
 			},
 		}),
 		newResource(newResourceParams[schedulestore.Schedule, *schedulev1.Schedule]{

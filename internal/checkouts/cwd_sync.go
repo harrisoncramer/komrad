@@ -180,7 +180,11 @@ func (cs *CwdSyncer) lookAtAll(ctx context.Context, agents []agentstore.Agent, r
 }
 
 func (cs *CwdSyncer) look(ctx context.Context, agent agentstore.Agent, round, base string) cwdLook {
-	look := cwdLook{agent: agent, round: round, removed: isCwdRemoved(ctx, agent.Cwd)}
+	look := cwdLook{
+		agent:   agent,
+		round:   round,
+		removed: isCwdRemoved(ctx, agent.Cwd),
+	}
 
 	if !look.removed {
 		look.head = cs.readHead(ctx, agent.Cwd)
@@ -270,7 +274,11 @@ func (cs *CwdSyncer) readStanding(ctx context.Context, agent agentstore.Agent, r
 	ctx, cancel := context.WithTimeout(ctx, cwdLookTimeout)
 	defer cancel()
 
-	standing, err := cs.trees.ReadStanding(ctx, git.ReadStandingParams{Dir: agent.Cwd, Base: base, SnapshotSHA: round})
+	standing, err := cs.trees.ReadStanding(ctx, git.ReadStandingParams{
+		Dir:         agent.Cwd,
+		Base:        base,
+		SnapshotSHA: round,
+	})
 	if err != nil {
 		return standing, fmt.Errorf("failed to compare the tree of %q against its reviewed round: %w", agent.Name, err)
 	}

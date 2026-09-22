@@ -37,7 +37,11 @@ func TestProbeRanking(t *testing.T) {
 		pos    int
 	)
 	for page := range *probePages {
-		results, err := st.Search(ctx, SearchParams{Query: *probeQuery, Limit: 10, Cursor: cursor})
+		results, err := st.Search(ctx, SearchParams{
+			Query:  *probeQuery,
+			Limit:  10,
+			Cursor: cursor,
+		})
 		require.NoError(t, err)
 
 		t.Logf("page %d: %d matches, %d near", page+1, len(results.Matches), len(results.Near))

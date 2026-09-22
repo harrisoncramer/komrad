@@ -91,7 +91,11 @@ func TestPickerChoice(t *testing.T) {
 			keys: []string{"j", "enter"},
 			statuses: []Status{
 				{Build: "v1"},
-				{Build: "v0", Label: "mismatch", Refused: "the engine runs other code"},
+				{
+					Build:   "v0",
+					Label:   "mismatch",
+					Refused: "the engine runs other code",
+				},
 				{Build: "v1"},
 			},
 			wantChosen: -1,
@@ -142,9 +146,17 @@ func TestPickerView(t *testing.T) {
 	m := newModel(RunParams{Rows: pickerRows(), Self: "devel+abc"})
 	m.width = 100
 
-	next, _ := m.Update(probedMsg{index: 1, status: Status{Build: "v0.4.0 (8fe4a3b)", Label: "mismatch", Refused: "the engine runs other code"}})
+	next, _ := m.Update(probedMsg{index: 1, status: Status{
+		Build:   "v0.4.0 (8fe4a3b)",
+		Label:   "mismatch",
+		Refused: "the engine runs other code",
+	}})
 	m = next.(model)
-	next, _ = m.Update(probedMsg{index: 2, status: Status{Build: "not reachable", Label: "down", Refused: "ssh: connect timed out"}})
+	next, _ = m.Update(probedMsg{index: 2, status: Status{
+		Build:   "not reachable",
+		Label:   "down",
+		Refused: "ssh: connect timed out",
+	}})
 	m = next.(model)
 
 	view := strings.Join(strings.Fields(m.View()), " ")

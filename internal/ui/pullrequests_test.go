@@ -253,13 +253,23 @@ func TestArrivedAgentsListTheirPullRequests(t *testing.T) {
 
 	m, cmd := update(t, m, client.WatchBatch{snapshotEvent(
 		workflowRowOf(&workflowv1.Workflow{Id: "w1", Name: "api"}),
-		agentRowOf(&agentv1.Agent{Id: "a1", WorkflowId: "w1", RepositoryUrl: xptr.Ptr(repository), Branch: xptr.Ptr("agent/x")}),
+		agentRowOf(&agentv1.Agent{
+			Id:            "a1",
+			WorkflowId:    "w1",
+			RepositoryUrl: xptr.Ptr(repository),
+			Branch:        xptr.Ptr("agent/x"),
+		}),
 	)})
 	m = settle(t, m, cmd)
 	assert.Empty(t, forge.asked, "the snapshot carries the pull requests of the agents it carries")
 
 	m, cmd = update(t, m, client.WatchBatch{
-		putEvent(agentRowOf(&agentv1.Agent{Id: "a2", WorkflowId: "w1", RepositoryUrl: xptr.Ptr(repository), Branch: xptr.Ptr("agent/y")})),
+		putEvent(agentRowOf(&agentv1.Agent{
+			Id:            "a2",
+			WorkflowId:    "w1",
+			RepositoryUrl: xptr.Ptr(repository),
+			Branch:        xptr.Ptr("agent/y"),
+		})),
 	})
 	m = settle(t, m, cmd)
 	require.Equal(t, []string{repository + " agent/y"}, forge.asked, "an agent the world had not seen is asked for")
@@ -271,13 +281,24 @@ func TestArrivedAgentsListTheirPullRequests(t *testing.T) {
 	assert.Contains(t, m.agents.details(m.shared()).fields, recordField{"pull request", "#740 merged " + ageOf(t, "2026-09-20T10:00:00Z") + " ago"})
 
 	m, cmd = update(t, m, client.WatchBatch{
-		putEvent(agentRowOf(&agentv1.Agent{Id: "a2", Name: "renamed", WorkflowId: "w1", RepositoryUrl: xptr.Ptr(repository), Branch: xptr.Ptr("agent/y")})),
+		putEvent(agentRowOf(&agentv1.Agent{
+			Id:            "a2",
+			Name:          "renamed",
+			WorkflowId:    "w1",
+			RepositoryUrl: xptr.Ptr(repository),
+			Branch:        xptr.Ptr("agent/y"),
+		})),
 	})
 	m = settle(t, m, cmd)
 	assert.Len(t, forge.asked, 1, "an event that leaves the branch where it was asks for nothing")
 
 	m, cmd = update(t, m, client.WatchBatch{
-		putEvent(agentRowOf(&agentv1.Agent{Id: "a2", WorkflowId: "w1", RepositoryUrl: xptr.Ptr(repository), Branch: xptr.Ptr("agent/z")})),
+		putEvent(agentRowOf(&agentv1.Agent{
+			Id:            "a2",
+			WorkflowId:    "w1",
+			RepositoryUrl: xptr.Ptr(repository),
+			Branch:        xptr.Ptr("agent/z"),
+		})),
 	})
 	settle(t, m, cmd)
 	assert.Equal(t, []string{repository + " agent/y", repository + " agent/z"}, forge.asked, "a branch that moved is asked for again")
@@ -292,7 +313,13 @@ func TestPullRequestOnNobodysBranchIsHeldAndNotDrawn(t *testing.T) {
 
 	m, _ = update(t, m, client.WatchBatch{snapshotEvent(
 		workflowRowOf(&workflowv1.Workflow{Id: "w1", Name: "api"}),
-		agentRowOf(&agentv1.Agent{Id: "a1", WorkflowId: "w1", RepositoryUrl: xptr.Ptr(repository), Branch: xptr.Ptr("agent/x"), RepositoryRead: true}),
+		agentRowOf(&agentv1.Agent{
+			Id:             "a1",
+			WorkflowId:     "w1",
+			RepositoryUrl:  xptr.Ptr(repository),
+			Branch:         xptr.Ptr("agent/x"),
+			RepositoryRead: true,
+		}),
 	)})
 
 	m, _ = update(t, m, client.WatchBatch{putEvent(pullRequestRowOf("pr-1", "agent/other", 7))})
@@ -302,7 +329,12 @@ func TestPullRequestOnNobodysBranchIsHeldAndNotDrawn(t *testing.T) {
 	assert.Len(t, m.listing.world.PullRequests, 1, "the pull request is held for the agent that may arrive")
 
 	m, _ = update(t, m, client.WatchBatch{
-		putEvent(agentRowOf(&agentv1.Agent{Id: "a2", WorkflowId: "w1", RepositoryUrl: xptr.Ptr(repository), Branch: xptr.Ptr("agent/other")})),
+		putEvent(agentRowOf(&agentv1.Agent{
+			Id:            "a2",
+			WorkflowId:    "w1",
+			RepositoryUrl: xptr.Ptr(repository),
+			Branch:        xptr.Ptr("agent/other"),
+		})),
 	})
 
 	row, ok := m.listing.liveAgent("a2")
