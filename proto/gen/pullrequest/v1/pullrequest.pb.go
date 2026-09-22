@@ -660,7 +660,7 @@ var File_pullrequest_v1_pullrequest_proto protoreflect.FileDescriptor
 
 const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\n" +
-	" pullrequest/v1/pullrequest.proto\x12\x0epullrequest.v1\x1a\x1cannotation/v1/resource.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1epagination/v1/pagination.proto\"\xc6\x01\n" +
+	" pullrequest/v1/pullrequest.proto\x12\x0epullrequest.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1epagination/v1/pagination.proto\"\xc6\x01\n" +
 	"\x17ListPullRequestsRequest\x121\n" +
 	"\x0erepository_url\x18\x01 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x10R\rrepositoryUrl\x12)\n" +
@@ -669,7 +669,7 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\n" +
 	"pagination\x18\x03 \x01(\v2\x19.pagination.v1.PaginationH\x00R\n" +
 	"pagination\x88\x01\x01B\r\n" +
-	"\v_pagination\"\x9d\x06\n" +
+	"\v_pagination\"\x88\x06\n" +
 	"\vPullRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05forge\x18\x02 \x01(\tR\x05forge\x12\x1f\n" +
@@ -696,8 +696,7 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\tclosed_at\x18\x12 \x01(\tH\x01R\bclosedAt\x88\x01\x01\x12G\n" +
 	"\x0freview_decision\x18\x13 \x01(\x0e2\x1e.pullrequest.v1.ReviewDecisionR\x0ereviewDecision\x12.\n" +
 	"\x06checks\x18\x14 \x01(\x0e2\x16.pullrequest.v1.ChecksR\x06checks\x12@\n" +
-	"\fmergeability\x18\x15 \x01(\x0e2\x1c.pullrequest.v1.MergeabilityR\fmergeability:\x13\xa2\xb5\x18\x0f\n" +
-	"\rpull_requestsB\f\n" +
+	"\fmergeability\x18\x15 \x01(\x0e2\x1c.pullrequest.v1.MergeabilityR\fmergeabilityB\f\n" +
 	"\n" +
 	"_merged_atB\f\n" +
 	"\n" +

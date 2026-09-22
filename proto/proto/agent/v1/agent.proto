@@ -5,7 +5,6 @@ package agent.v1;
 import "agent/v1/mail.proto";
 import "agent/v1/review.proto";
 import "agent/v1/transcript.proto";
-import "annotation/v1/resource.proto";
 import "annotation/v1/tool.proto";
 import "buf/validate/validate.proto";
 import "google/protobuf/empty.proto";
@@ -49,34 +48,6 @@ enum AgentRole {
 }
 
 message Agent {
-  option (annotation.v1.resource) = {
-    table: "agents"
-    projects: [
-      {
-        table: "agent_metadata"
-        column: "agent_id"
-      },
-      {
-        table: "agent_runs"
-        column: "agent_id"
-      },
-      {
-        table: "reviews"
-        column: "agent_id"
-      },
-      {
-        table: "review_rounds"
-        column: "agent_id"
-      },
-      {
-        table: "pull_request_syncs"
-        lookup: "repository_url"
-        via: "repository_url"
-        where: "archived_at IS NULL"
-      }
-    ]
-  };
-
   // The handle every other call names this agent by, and what mail is addressed to.
   string id = 1;
   // What the panel lists it as, which is also its tmux window name at launch.
@@ -423,11 +394,6 @@ message RebaseWorktreeResponse {
 
 // Mark is one letter a person types to jump to a row, held by one agent or one workflow.
 message Mark {
-  option (annotation.v1.resource) = {
-    table: "marks"
-    key: "mark"
-  };
-
   // The letter.
   string mark = 1;
   // The agent it jumps to, unset when it is on a workflow.

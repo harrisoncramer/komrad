@@ -195,8 +195,6 @@ func TestSnapshotCarriesEveryWatchedSet(t *testing.T) {
 func TestArmsAreTheResources(t *testing.T) {
 	rows := newRows(newStores())
 
-	want := xslice.Map(AllResources(), func(r Resource) watchv1.Resource {
-		return watchv1.Resource(watchv1.Resource_value[r.EnumValue()])
-	})
+	want := xslice.Map(Resources(), func(r Resource) watchv1.Resource { return r.Enum })
 	assert.ElementsMatch(t, want, slices.Collect(maps.Keys(rows.arms)))
 }

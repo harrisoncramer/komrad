@@ -7,7 +7,6 @@ import (
 	"slices"
 	"time"
 
-	"weave/internal/rpc/render"
 	"weave/lib/xslice"
 	watchv1 "weave/proto/gen/watch/v1"
 
@@ -26,7 +25,7 @@ type reader[R any] interface {
 	ListByKey(ctx context.Context, keys []string) ([]R, error)
 }
 
-// NewRowsParams is what the row reader is built over.
+// NewRowsParams is the store each resource is read from.
 type NewRowsParams struct {
 	Agents       reader[rowstore.Row]
 	Workflows    reader[workflowstore.Workflow]
@@ -44,57 +43,23 @@ type Rows struct {
 	arms map[watchv1.Resource]arm
 }
 
-// NewRows builds the reader over the stores the six resources are read from.
+// NewRows builds the read-back over the stores the resources are read from.
 func NewRows(params NewRowsParams) *Rows {
-	now := params.Now
-	if now == nil {
-		now = time.Now
+	arms := map[watchv1.Resource]arm{}
+	for _, r := range resources(params) {
+		arms[r.Enum] = r.arm
 	}
 
-	return &Rows{arms: map[watchv1.Resource]arm{
-		watchv1.Resource_RESOURCE_AGENT: newArm(
-			params.Agents,
-			func(row rowstore.Row) string { return row.ID },
-			func(row rowstore.Row) *watchv1.Row {
-				return &watchv1.Row{Row: &watchv1.Row_Agent{Agent: render.Agent(row, render.AgentOptions{})}}
-			},
-		),
-		watchv1.Resource_RESOURCE_WORKFLOW: newArm(
-			params.Workflows,
-			func(row workflowstore.Workflow) string { return row.ID },
-			func(row workflowstore.Workflow) *watchv1.Row {
-				return &watchv1.Row{Row: &watchv1.Row_Workflow{Workflow: render.Workflow(row, render.WorkflowOptions{})}}
-			},
-		),
-		watchv1.Resource_RESOURCE_SCHEDULE: newArm(
-			params.Schedules,
-			func(row schedulestore.Schedule) string { return row.ID },
-			func(row schedulestore.Schedule) *watchv1.Row {
-				return &watchv1.Row{Row: &watchv1.Row_Schedule{Schedule: render.Schedule(row, now(), render.ScheduleOptions{})}}
-			},
-		),
-		watchv1.Resource_RESOURCE_MARK: newArm(
-			params.Marks,
-			func(row markstore.Mark) string { return row.Mark },
-			func(row markstore.Mark) *watchv1.Row {
-				return &watchv1.Row{Row: &watchv1.Row_Mark{Mark: render.Mark(row)}}
-			},
-		),
-		watchv1.Resource_RESOURCE_MAIL: newArm(
-			params.Mail,
-			func(row mailstore.Mail) string { return row.ID },
-			func(row mailstore.Mail) *watchv1.Row {
-				return &watchv1.Row{Row: &watchv1.Row_Mail{Mail: render.Mail(row)}}
-			},
-		),
-		watchv1.Resource_RESOURCE_PULL_REQUEST: newArm(
-			params.PullRequests,
-			func(row pullrequeststore.PullRequest) string { return row.ID },
-			func(row pullrequeststore.PullRequest) *watchv1.Row {
-				return &watchv1.Row{Row: &watchv1.Row_PullRequest{PullRequest: render.PullRequest(row)}}
-			},
-		),
-	}}
+	return &Rows{arms: arms}
+}
+
+// now is the clock a render reads.
+func (p NewRowsParams) now() time.Time {
+	if p.Now == nil {
+		return time.Now()
+	}
+
+	return p.Now()
 }
 
 // arm reads one resource: the rows its watched set holds among the given keys, and every row
@@ -156,7 +121,7 @@ func (r *Rows) Read(ctx context.Context, touched Touched) ([]Change, error) {
 	return changes, nil
 }
 
-// Snapshot renders every row the six watched sets hold, one resource after another.
+// Snapshot renders every row the watched sets hold, one resource after another.
 func (r *Rows) Snapshot(ctx context.Context) ([]Change, error) {
 	var changes []Change
 	for _, res := range slices.Sorted(maps.Keys(r.arms)) {

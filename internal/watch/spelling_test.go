@@ -6,28 +6,25 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestSpellings pins how a table and a message name are turned into the names the checks
-// look for.
-func TestSpellings(t *testing.T) {
+// TestPluralIsTheTableInCamelCase pins how a table's name is turned into the name the panel's
+// world holds its rows under.
+func TestPluralIsTheTableInCamelCase(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name   string
 		table  string
-		snaked string
-		camel  string
+		plural string
 	}{
-		{name: "PullRequest", table: "pull_requests", snaked: "pull_request", camel: "PullRequests"},
-		{name: "Mail", table: "mail", snaked: "mail", camel: "Mail"},
-		{name: "Agent", table: "agents", snaked: "agent", camel: "Agents"},
+		{table: "pull_requests", plural: "PullRequests"},
+		{table: "mail", plural: "Mail"},
+		{table: "agents", plural: "Agents"},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+		t.Run(tt.table, func(t *testing.T) {
 			t.Parallel()
 
-			assert.Equal(t, tt.snaked, snake(tt.name))
-			assert.Equal(t, tt.camel, camel(tt.table))
+			assert.Equal(t, tt.plural, Resource{Table: tt.table}.Plural())
 		})
 	}
 }

@@ -2,7 +2,6 @@ syntax = "proto3";
 
 package schedule.v1;
 
-import "annotation/v1/resource.proto";
 import "annotation/v1/tool.proto";
 import "buf/validate/validate.proto";
 import "google/protobuf/empty.proto";
@@ -14,8 +13,6 @@ import "view/v1/view.proto";
 option go_package = "weave/proto/gen/schedule/v1;schedulev1";
 
 message Schedule {
-  option (annotation.v1.resource) = {table: "schedules"};
-
   // The handle every other call names this schedule by.
   string id = 1;
   // What the panel lists it as.

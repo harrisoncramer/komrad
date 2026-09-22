@@ -8,6 +8,11 @@
 // watcher converges on the state anyway: a snapshot on connect and another after every break,
 // so a notification that never arrives costs a reread rather than correctness.
 //
+// resources.go is the one declaration of what the watch carries, in plain Go: the table each
+// resource is the rows of, the store it is read from, the renderer that draws it, the Row arm
+// it fills and the tables projected onto it. The migration that attaches a trigger to each of
+// those tables is generated from that list.
+//
 // The Broker holds one connection of its own on the watch channel, coalesces what it hears into
 // the pending set, reads those rows back and sends each Subscription the row or, for a key its
 // watched set no longer holds, a tombstone. Every Subscription is dropped when that connection

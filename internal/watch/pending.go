@@ -15,7 +15,7 @@ type Touched map[watchv1.Resource][]string
 
 // touch says the rows of a table with these keys may have moved.
 func (b *Broker) touch(table string, keys ...string) {
-	res, ok := resources[table]
+	res, ok := resourcesByTable[table]
 	if !ok {
 		b.logger.LogAttrs(context.Background(), slog.LevelWarn, "a notification named a table no resource is a row of", slog.String(logging.WatchTable, table))
 
