@@ -24,15 +24,31 @@ type listened struct {
 func newListened(t *testing.T, stores *fakeStores) *listened {
 	t.Helper()
 
+	l := newPooled(t)
+	l.listen(t, stores)
+
+	return l
+}
+
+// newPooled opens a pool on a database of the test's own, with nothing listening to it yet, so
+// a write made now raises a notification nobody hears.
+func newPooled(t *testing.T) *listened {
+	t.Helper()
+
 	pool, err := pgxpool.New(t.Context(), dbtest.URL(t))
 	require.NoError(t, err)
 	t.Cleanup(pool.Close)
 
-	broker := NewBroker(NewBrokerParams{})
-	require.NoError(t, broker.Start(pool, newRows(stores)))
-	t.Cleanup(broker.Close)
+	return &listened{pool: pool}
+}
 
-	return &listened{broker: broker, pool: pool}
+// listen puts the broker on the watch channel.
+func (l *listened) listen(t *testing.T, stores *fakeStores) {
+	t.Helper()
+
+	l.broker = NewBroker(NewBrokerParams{})
+	require.NoError(t, l.broker.Start(l.pool, newRows(stores)))
+	t.Cleanup(l.broker.Close)
 }
 
 // notify raises a payload on the watch channel the way a trigger would.
@@ -136,8 +152,11 @@ func (l *listened) exec(t *testing.T, sql string, args ...any) {
 // key, and a write to a table projected onto it reaches the watcher under the parent's key.
 func TestAWriteReachesTheWatchersUnderItsResourceKey(t *testing.T) {
 	stores := newStores()
-	l := newListened(t, stores)
+	l := newPooled(t)
+
+	// The seed is written before anything listens, so only the writes below raise anything.
 	agent := l.seedAgent(t)
+	l.listen(t, stores)
 
 	subscription, err := l.broker.Subscribe(t.Context())
 	require.NoError(t, err)
@@ -151,7 +170,7 @@ func TestAWriteReachesTheWatchersUnderItsResourceKey(t *testing.T) {
 	stores.agents.put(moved)
 	l.exec(t, `INSERT INTO agent_metadata (agent_id, key, value) VALUES ($1, 'branch', 'agent/x')`, agent)
 
-	event := receive(t, subscription)
-	assert.Equal(t, agent, event.Key, "a write to a projected table reaches the watcher under its parent's key")
-	assert.Equal(t, watchv1.Resource_RESOURCE_AGENT, event.Resource)
+	change := receive(t, subscription)
+	assert.Equal(t, agent, change.Key, "a write to a projected table reaches the watcher under its parent's key")
+	assert.Equal(t, watchv1.Resource_RESOURCE_AGENT, change.Resource)
 }
