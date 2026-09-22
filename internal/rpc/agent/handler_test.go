@@ -222,10 +222,10 @@ func TestGetAgent(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-			assert.Equal(t, "/tmp", got.Msg.GetAgent().GetCwd())
-			assert.Equal(t, agentv1.AgentState_AGENT_STATE_THINKING, got.Msg.GetAgent().GetState())
+			assert.Equal(t, "/tmp", got.Msg.GetAgent().GetAgent().GetCwd())
+			assert.Equal(t, agentv1.AgentState_AGENT_STATE_THINKING, got.Msg.GetAgent().GetAgent().GetState())
 
-			created := got.Msg.GetAgent().GetCreatedAt()
+			created := got.Msg.GetAgent().GetAgent().GetCreatedAt()
 			require.NotEmpty(t, created, "the creation time is emitted")
 			ts, err := time.Parse(time.RFC3339, created)
 			require.NoError(t, err, "as RFC 3339")
@@ -274,8 +274,8 @@ func TestListAgents(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, listed.Msg.GetAgents(), len(tt.seed))
 
-			for _, s := range listed.Msg.GetAgents() {
-				assert.Equal(t, tt.alive, s.GetAlive())
+			for _, row := range listed.Msg.GetAgents() {
+				assert.Equal(t, tt.alive, row.GetAgent().GetAlive())
 			}
 		})
 	}
@@ -322,8 +322,8 @@ func TestListAgentsReportsUnreadMail(t *testing.T) {
 	require.Len(t, listed.Msg.GetAgents(), 2)
 
 	unread := make(map[string]bool, 2)
-	for _, a := range listed.Msg.GetAgents() {
-		unread[a.GetId()] = a.GetUnreadMail()
+	for _, row := range listed.Msg.GetAgents() {
+		unread[row.GetAgent().GetId()] = row.GetUnreadMail()
 	}
 	assert.False(t, unread[alpha.ID], "alpha sent the mail, it did not receive any")
 	assert.True(t, unread[beta.ID], "beta has not read what alpha sent")
@@ -367,8 +367,8 @@ func TestListAgentsReportsAFailedRun(t *testing.T) {
 		require.Len(t, listed.Msg.GetAgents(), 2)
 
 		held := make(map[string]bool, 2)
-		for _, a := range listed.Msg.GetAgents() {
-			held[a.GetId()] = a.GetFailedRun()
+		for _, row := range listed.Msg.GetAgents() {
+			held[row.GetAgent().GetId()] = row.GetAgent().GetFailedRun()
 		}
 
 		return held
@@ -380,8 +380,8 @@ func TestListAgentsReportsAFailedRun(t *testing.T) {
 
 	got, err := svc.GetAgent(t.Context(), connect.NewRequest(&agentv1.GetAgentRequest{Id: beta.ID}))
 	require.NoError(t, err)
-	assert.True(t, got.Msg.GetAgent().GetFailedRun(), "the single lookup reads it the same way")
-	assert.Equal(t, int32(4), got.Msg.GetAgent().GetFailedRunLog(), "and names the run to open on")
+	assert.True(t, got.Msg.GetAgent().GetAgent().GetFailedRun(), "the single lookup reads it the same way")
+	assert.Equal(t, int32(4), got.Msg.GetAgent().GetAgent().GetFailedRunLog(), "and names the run to open on")
 
 	_, err = svc.MarkRunsRead(t.Context(), connect.NewRequest(&agentv1.MarkRunsReadRequest{Id: beta.ID}))
 	require.NoError(t, err)
@@ -452,7 +452,7 @@ func TestListAgentsIdempotencyKey(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, listed.Msg.GetAgents(), 1)
 
-			assert.Equal(t, tt.want, listed.Msg.GetAgents()[0].GetIdempotencyKey())
+			assert.Equal(t, tt.want, listed.Msg.GetAgents()[0].GetAgent().GetIdempotencyKey())
 		})
 	}
 }
@@ -498,12 +498,13 @@ func TestListAgentsArchived(t *testing.T) {
 			listed, err := svc.ListAgents(ctx, connect.NewRequest(&agentv1.ListAgentsRequest{Archived: tt.archived}))
 			require.NoError(t, err)
 
-			names := xslice.Map(listed.Msg.GetAgents(), func(agent *agentv1.Agent) string {
-				return agent.GetName()
+			names := xslice.Map(listed.Msg.GetAgents(), func(row *agentv1.AgentRow) string {
+				return row.GetAgent().GetName()
 			})
 			assert.Equal(t, tt.wantNames, names)
 
-			for _, agent := range listed.Msg.GetAgents() {
+			for _, row := range listed.Msg.GetAgents() {
+				agent := row.GetAgent()
 				if !tt.wantArchivedAt {
 					assert.Nil(t, agent.ArchivedAt, "a live agent carries no archive time")
 
@@ -636,7 +637,7 @@ func TestSetHidden(t *testing.T) {
 
 			got, err := svc.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: id}))
 			require.NoError(t, err)
-			assert.Equal(t, tt.hidden, got.Msg.GetAgent().GetHidden())
+			assert.Equal(t, tt.hidden, got.Msg.GetAgent().GetAgent().GetHidden())
 		})
 	}
 }
@@ -823,7 +824,7 @@ func TestSetMetadata(t *testing.T) {
 
 			got, err := svc.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: id}))
 			require.NoError(t, err)
-			assert.Equal(t, tt.wantStored, storedMetadata(got.Msg.GetAgent()))
+			assert.Equal(t, tt.wantStored, storedMetadata(got.Msg.GetAgent().GetAgent()))
 		})
 	}
 }
@@ -1002,7 +1003,7 @@ func TestRecordReportKeepsTheReasonWithoutEndingTheTurn(t *testing.T) {
 
 	reported, err := svc.GetAgent(t.Context(), connect.NewRequest(&agentv1.GetAgentRequest{Id: id}))
 	require.NoError(t, err)
-	assert.Equal(t, "Bash", reported.Msg.GetAgent().GetReportedReason())
+	assert.Equal(t, "Bash", reported.Msg.GetAgent().GetAgent().GetReportedReason())
 	assert.Empty(t, reconciler.recorded)
 	assert.Equal(t, []string{"Bash"}, reconciler.reasons)
 
@@ -1015,7 +1016,7 @@ func TestRecordReportKeepsTheReasonWithoutEndingTheTurn(t *testing.T) {
 
 	cleared, err := svc.GetAgent(t.Context(), connect.NewRequest(&agentv1.GetAgentRequest{Id: id}))
 	require.NoError(t, err)
-	assert.Empty(t, cleared.Msg.GetAgent().GetReportedReason(), "a turn ending leaves nothing to say the agent is doing")
+	assert.Empty(t, cleared.Msg.GetAgent().GetAgent().GetReportedReason(), "a turn ending leaves nothing to say the agent is doing")
 }
 
 // TestSendMail pins the code each way of addressing mail wrongly is answered with, and that a
@@ -2308,18 +2309,21 @@ func serviceWithLauncher(t *testing.T) (agentv1weave.AgentServiceAdapter, *store
 	})
 
 	return agentv1weave.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{
-		Agents:      st.Agents,
-		Rows:        rowReaderOver(st),
-		Writer:      rowWriterOver(st, &fakeReconciler{}),
-		Transcripts: st.Transcripts,
-		Mail:        mailer,
-		Review:      review,
-		Marks:       markService(st),
-		Creator:     launcher,
-		Adopter:     launcher,
-		Liveness:    launcher,
-		Lifecycle:   launcher,
-		Resumer:     launcher,
+		Agents:       st.Agents,
+		Rows:         rowReaderOver(st),
+		Writer:       rowWriterOver(st, &fakeReconciler{}),
+		Transcripts:  st.Transcripts,
+		Mail:         mailer,
+		Review:       review,
+		Marks:        markService(st),
+		Workflows:    st.Workflows,
+		Unclaimed:    st.Mail,
+		PullRequests: st.PullRequests,
+		Creator:      launcher,
+		Adopter:      launcher,
+		Liveness:     launcher,
+		Lifecycle:    launcher,
+		Resumer:      launcher,
 	})}, st, launcher
 }
 
@@ -2579,14 +2583,14 @@ func TestGetAgentKeepsTheWholePrompt(t *testing.T) {
 
 	got, err := svc.GetAgent(t.Context(), connect.NewRequest(&agentv1.GetAgentRequest{Id: seeded.ID}))
 	require.NoError(t, err)
-	assert.Equal(t, prompt, got.Msg.GetAgent().GetPrompt())
-	assert.False(t, got.Msg.GetAgent().GetPromptTruncated())
+	assert.Equal(t, prompt, got.Msg.GetAgent().GetAgent().GetPrompt())
+	assert.False(t, got.Msg.GetAgent().GetAgent().GetPromptTruncated())
 }
 
-func agentsByName(listed []*agentv1.Agent) map[string]*agentv1.Agent {
+func agentsByName(listed []*agentv1.AgentRow) map[string]*agentv1.Agent {
 	byName := make(map[string]*agentv1.Agent, len(listed))
-	for _, a := range listed {
-		byName[a.GetName()] = a
+	for _, row := range listed {
+		byName[row.GetAgent().GetName()] = row.GetAgent()
 	}
 
 	return byName

@@ -415,6 +415,73 @@ func (q *Queries) ListPullRequestsByKey(ctx context.Context, ids []string) ([]*P
 	return items, nil
 }
 
+const listPullRequestsOfAgents = `-- name: ListPullRequestsOfAgents :many
+SELECT
+    p.id, p.host, p.forge, p.provider_id, p.url, p.repository_url, p.head_repository_url, p.number, p.title, p.head_branch, p.head_sha, p.base_branch, p.base_sha, p.draft, p.state, p.opened_at, p.changed_at, p.merged_at, p.closed_at, p.first_seen_at, p.review_decision, p.decision_changed_at, p.checks, p.checks_sha, p.checks_read_at, p.mergeability
+FROM
+    pull_requests p
+WHERE
+    EXISTS (
+        SELECT
+            1
+        FROM
+            agents a
+        WHERE
+            a.id = ANY ($1::uuid[])
+            AND a.repository_url = p.repository_url
+            AND a.repository_url = p.head_repository_url
+            AND a.branch = p.head_branch)
+ORDER BY
+    p.id
+`
+
+func (q *Queries) ListPullRequestsOfAgents(ctx context.Context, ids []string) ([]*PullRequest, error) {
+	rows, err := q.db.Query(ctx, listPullRequestsOfAgents, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*PullRequest
+	for rows.Next() {
+		var i PullRequest
+		if err := rows.Scan(
+			&i.ID,
+			&i.Host,
+			&i.Forge,
+			&i.ProviderID,
+			&i.Url,
+			&i.RepositoryUrl,
+			&i.HeadRepositoryUrl,
+			&i.Number,
+			&i.Title,
+			&i.HeadBranch,
+			&i.HeadSha,
+			&i.BaseBranch,
+			&i.BaseSha,
+			&i.Draft,
+			&i.State,
+			&i.OpenedAt,
+			&i.ChangedAt,
+			&i.MergedAt,
+			&i.ClosedAt,
+			&i.FirstSeenAt,
+			&i.ReviewDecision,
+			&i.DecisionChangedAt,
+			&i.Checks,
+			&i.ChecksSha,
+			&i.ChecksReadAt,
+			&i.Mergeability,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPullRequestsPage = `-- name: ListPullRequestsPage :many
 SELECT
     p.id, p.host, p.forge, p.provider_id, p.url, p.repository_url, p.head_repository_url, p.number, p.title, p.head_branch, p.head_sha, p.base_branch, p.base_sha, p.draft, p.state, p.opened_at, p.changed_at, p.merged_at, p.closed_at, p.first_seen_at, p.review_decision, p.decision_changed_at, p.checks, p.checks_sha, p.checks_read_at, p.mergeability

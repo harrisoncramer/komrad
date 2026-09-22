@@ -829,8 +829,8 @@ func (x *ListAgentsRequest) GetView() v12.View {
 
 type ListAgentsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// One page of agents, most recently updated first.
-	Agents []*Agent `protobuf:"bytes,1,rep,name=agents,proto3" json:"agents,omitempty"`
+	// One page of agents, newest first, each with what is drawn beside it.
+	Agents []*AgentRow `protobuf:"bytes,1,rep,name=agents,proto3" json:"agents,omitempty"`
 	// Pass this back as the pagination cursor for the next page.
 	NextPageToken *string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3,oneof" json:"next_page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -867,7 +867,7 @@ func (*ListAgentsResponse) Descriptor() ([]byte, []int) {
 	return file_agent_v1_agent_proto_rawDescGZIP(), []int{5}
 }
 
-func (x *ListAgentsResponse) GetAgents() []*Agent {
+func (x *ListAgentsResponse) GetAgents() []*AgentRow {
 	if x != nil {
 		return x.Agents
 	}
@@ -1383,8 +1383,8 @@ func (x *GetAgentRequest) GetId() string {
 
 type GetAgentResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The agent, with its prompt whole rather than cut to its opening.
-	Agent         *Agent `protobuf:"bytes,1,opt,name=agent,proto3" json:"agent,omitempty"`
+	// The agent with what is drawn beside it, its prompt whole rather than cut to its opening.
+	Agent         *AgentRow `protobuf:"bytes,1,opt,name=agent,proto3" json:"agent,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1419,7 +1419,7 @@ func (*GetAgentResponse) Descriptor() ([]byte, []int) {
 	return file_agent_v1_agent_proto_rawDescGZIP(), []int{13}
 }
 
-func (x *GetAgentResponse) GetAgent() *Agent {
+func (x *GetAgentResponse) GetAgent() *AgentRow {
 	if x != nil {
 		return x.Agent
 	}
@@ -3046,9 +3046,9 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"pagination\x88\x01\x01\x12\x1a\n" +
 	"\barchived\x18\x02 \x01(\bR\barchived\x12+\n" +
 	"\x04view\x18\x03 \x01(\x0e2\r.view.v1.ViewB\b\xbaH\x05\x82\x01\x02\x10\x01R\x04viewB\r\n" +
-	"\v_pagination\"~\n" +
-	"\x12ListAgentsResponse\x12'\n" +
-	"\x06agents\x18\x01 \x03(\v2\x0f.agent.v1.AgentR\x06agents\x12+\n" +
+	"\v_pagination\"\x81\x01\n" +
+	"\x12ListAgentsResponse\x12*\n" +
+	"\x06agents\x18\x01 \x03(\v2\x12.agent.v1.AgentRowR\x06agents\x12+\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +
 	"\x10_next_page_token\"\xbf\x04\n" +
 	"\x12CreateAgentRequest\x12#\n" +
@@ -3099,9 +3099,9 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\rAdoptResponse\x12%\n" +
 	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\"*\n" +
 	"\x0fGetAgentRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"9\n" +
-	"\x10GetAgentResponse\x12%\n" +
-	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\"7\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"<\n" +
+	"\x10GetAgentResponse\x12(\n" +
+	"\x05agent\x18\x01 \x01(\v2\x12.agent.v1.AgentRowR\x05agent\"7\n" +
 	"\x11PlanRebaseRequest\x12\"\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"\x89\x02\n" +
 	"\x12PlanRebaseResponse\x12\x19\n" +
@@ -3403,11 +3403,11 @@ var file_agent_v1_agent_proto_depIdxs = []int32{
 	48, // 11: agent.v1.PullRequestStanding.mergeability:type_name -> pullrequest.v1.Mergeability
 	49, // 12: agent.v1.ListAgentsRequest.pagination:type_name -> pagination.v1.Pagination
 	50, // 13: agent.v1.ListAgentsRequest.view:type_name -> view.v1.View
-	2,  // 14: agent.v1.ListAgentsResponse.agents:type_name -> agent.v1.Agent
+	3,  // 14: agent.v1.ListAgentsResponse.agents:type_name -> agent.v1.AgentRow
 	2,  // 15: agent.v1.CreateAgentResponse.agent:type_name -> agent.v1.Agent
 	2,  // 16: agent.v1.RequestReviewResponse.reviewer:type_name -> agent.v1.Agent
 	2,  // 17: agent.v1.AdoptResponse.agent:type_name -> agent.v1.Agent
-	2,  // 18: agent.v1.GetAgentResponse.agent:type_name -> agent.v1.Agent
+	3,  // 18: agent.v1.GetAgentResponse.agent:type_name -> agent.v1.AgentRow
 	2,  // 19: agent.v1.StartOrchestratorResponse.agent:type_name -> agent.v1.Agent
 	22, // 20: agent.v1.ListMarksResponse.marks:type_name -> agent.v1.Mark
 	2,  // 21: agent.v1.RestoreAgentsResponse.agents:type_name -> agent.v1.Agent

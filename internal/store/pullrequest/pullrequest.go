@@ -215,6 +215,22 @@ func (s *PullRequestStore) ListForAgent(ctx context.Context, agentID string) ([]
 	return xslice.Map(rows, fromRow), nil
 }
 
+// ListForAgents is every pull request opened from the branch any of the given agents is on, in
+// its repository.
+func (s *PullRequestStore) ListForAgents(ctx context.Context, agentIDs []string) ([]PullRequest, error) {
+	storable := store.KeepIDs(agentIDs)
+	if len(storable) == 0 {
+		return nil, nil
+	}
+
+	rows, err := s.queries.ListPullRequestsOfAgents(ctx, storable)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the pull requests of %d agents: %w", len(storable), err)
+	}
+
+	return xslice.Map(rows, fromRow), nil
+}
+
 // ListOnLiveBranches is every pull request opened from a branch a live agent is on, in its
 // repository.
 func (s *PullRequestStore) ListOnLiveBranches(ctx context.Context) ([]PullRequest, error) {

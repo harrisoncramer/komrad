@@ -72,7 +72,7 @@ func TestAgentLifecycle(t *testing.T) {
 
 		got, err := instance.Agents.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: agent.GetId()}))
 		require.NoError(t, err)
-		assert.Equal(t, "login-race", got.Msg.GetAgent().GetName())
+		assert.Equal(t, "login-race", got.Msg.GetAgent().GetAgent().GetName())
 	})
 
 	t.Run("archiving takes the pane with it", func(t *testing.T) {
@@ -186,8 +186,8 @@ func names(t *testing.T, instance *weavetest.Instance, archived bool) []string {
 	}))
 	require.NoError(t, err)
 
-	found := xslice.Map(listed.Msg.GetAgents(), func(agent *agentv1.Agent) string {
-		return agent.GetName()
+	found := xslice.Map(listed.Msg.GetAgents(), func(row *agentv1.AgentRow) string {
+		return row.GetAgent().GetName()
 	})
 
 	return found

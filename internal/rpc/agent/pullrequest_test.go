@@ -63,8 +63,9 @@ func TestListedAgentsCarryWhereTheirPullRequestStands(t *testing.T) {
 	listed, err := svc.ListAgents(ctx, connect.NewRequest(&agentv1.ListAgentsRequest{}))
 	require.NoError(t, err)
 	standings := map[string]*agentv1.PullRequestStanding{}
-	for _, agent := range listed.Msg.GetAgents() {
-		standings[agent.GetId()] = agent.GetPullRequest()
+	for _, row := range listed.Msg.GetAgents() {
+		standings[row.GetAgent().GetId()] = row.GetPullRequest()
+		assert.Equal(t, row.GetAgent().GetPullRequest(), row.GetPullRequest(), "the assembler and the row's own query agree")
 	}
 
 	assert.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNREAD, standings[unread].GetState())
@@ -82,6 +83,8 @@ func TestListedAgentsCarryWhereTheirPullRequestStands(t *testing.T) {
 	got, err := svc.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: opened}))
 	require.NoError(t, err)
 	assert.Equal(t, int32(740), got.Msg.GetAgent().GetPullRequest().GetNumber(), "one agent carries the same standing as the listing")
+	require.Len(t, got.Msg.GetAgent().GetPullRequests(), 1, "and every pull request on its branch")
+	assert.Equal(t, written.ID, got.Msg.GetAgent().GetPullRequests()[0].GetId())
 }
 
 // seedAgentOn is a live agent whose checkout is on a branch of a repository.

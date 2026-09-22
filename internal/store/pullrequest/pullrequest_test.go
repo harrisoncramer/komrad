@@ -532,3 +532,31 @@ func TestListForAgentIsTheBranchNewestFirst(t *testing.T) {
 	_, err = h.ListForAgent(ctx, "not-an-id")
 	require.ErrorIs(t, err, store.ErrNotFound)
 }
+
+// TestListForAgentsIsEveryBranchWhateverTheBase covers the listing the assembler is fed: every
+// pull request from the given agents' branches in their repositories, the base branch rule
+// left to the assembler, and nothing for an id nobody holds.
+func TestListForAgentsIsEveryBranchWhateverTheBase(t *testing.T) {
+	h := open(t)
+	ctx := t.Context()
+
+	workflow := h.createWorkflow(t)
+	agent := h.createAgent(t, workflow, "a", weave, "agent/x")
+	onMain := h.createAgent(t, workflow, "on-main", weave, "main")
+	h.createAgent(t, workflow, "elsewhere", weave, "agent/y")
+
+	for _, params := range []UpsertParams{openPullRequest("PR_1", 1, "agent/x"), openPullRequest("PR_2", 2, "main"), openPullRequest("PR_3", 3, "agent/y")} {
+		params.URL = "https://github.com/harrisoncramer/weave/pull/" + params.ProviderID
+		_, err := h.Upsert(ctx, params)
+		require.NoError(t, err)
+	}
+
+	listed, err := h.ListForAgents(ctx, []string{agent, onMain, "not-an-id"})
+	require.NoError(t, err)
+	numbers := xslice.Map(listed, func(p PullRequest) int { return p.Number })
+	assert.ElementsMatch(t, []int{1, 2}, numbers)
+
+	none, err := h.ListForAgents(ctx, nil)
+	require.NoError(t, err)
+	assert.Empty(t, none)
+}

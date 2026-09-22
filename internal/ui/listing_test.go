@@ -446,11 +446,11 @@ func (archivedLists) ListAgents(_ context.Context, req *connect.Request[agentv1.
 	}
 
 	return connect.NewResponse(&agentv1.ListAgentsResponse{
-		Agents: []*agentv1.Agent{{
+		Agents: []*agentv1.AgentRow{{Agent: &agentv1.Agent{
 			Id:         "a1",
 			Name:       "payouts",
 			WorkflowId: "w1",
-		}},
+		}}},
 	}), nil
 }
 

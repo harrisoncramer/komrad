@@ -575,6 +575,72 @@ func (q *Queries) ListWorkflows(ctx context.Context) ([]*ListWorkflowsRow, error
 	return items, nil
 }
 
+const listWorkflowsByID = `-- name: ListWorkflowsByID :many
+SELECT
+    w.id, w.name, w.context, w.workflow_config_id, w.provisioner_config_id, w.archived_at, w.created_at, w.updated_at, w.deleting_at,
+    wc.id, wc.harness, wc.cwd, wc.flags, wc.created_at, wc.updated_at,
+    pc.id, pc.worktree_enabled, pc.worktree_base_branch, pc.worktree_copy_paths, pc.worktree_symlink_paths, pc.created_at, pc.updated_at, pc.worktree_diff_exclude, pc.worktree_dir
+FROM
+    workflows w
+    JOIN workflow_configs wc ON wc.id = w.workflow_config_id
+    JOIN workflow_provisioner_configs pc ON pc.id = w.provisioner_config_id
+WHERE
+    w.id = ANY ($1::uuid[])
+ORDER BY
+    w.id ASC
+`
+
+type ListWorkflowsByIDRow struct {
+	Workflow                  Workflow
+	WorkflowConfig            WorkflowConfig
+	WorkflowProvisionerConfig WorkflowProvisionerConfig
+}
+
+func (q *Queries) ListWorkflowsByID(ctx context.Context, ids []string) ([]*ListWorkflowsByIDRow, error) {
+	rows, err := q.db.Query(ctx, listWorkflowsByID, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*ListWorkflowsByIDRow
+	for rows.Next() {
+		var i ListWorkflowsByIDRow
+		if err := rows.Scan(
+			&i.Workflow.ID,
+			&i.Workflow.Name,
+			&i.Workflow.Context,
+			&i.Workflow.WorkflowConfigID,
+			&i.Workflow.ProvisionerConfigID,
+			&i.Workflow.ArchivedAt,
+			&i.Workflow.CreatedAt,
+			&i.Workflow.UpdatedAt,
+			&i.Workflow.DeletingAt,
+			&i.WorkflowConfig.ID,
+			&i.WorkflowConfig.Harness,
+			&i.WorkflowConfig.Cwd,
+			&i.WorkflowConfig.Flags,
+			&i.WorkflowConfig.CreatedAt,
+			&i.WorkflowConfig.UpdatedAt,
+			&i.WorkflowProvisionerConfig.ID,
+			&i.WorkflowProvisionerConfig.WorktreeEnabled,
+			&i.WorkflowProvisionerConfig.WorktreeBaseBranch,
+			&i.WorkflowProvisionerConfig.WorktreeCopyPaths,
+			&i.WorkflowProvisionerConfig.WorktreeSymlinkPaths,
+			&i.WorkflowProvisionerConfig.CreatedAt,
+			&i.WorkflowProvisionerConfig.UpdatedAt,
+			&i.WorkflowProvisionerConfig.WorktreeDiffExclude,
+			&i.WorkflowProvisionerConfig.WorktreeDir,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listWorkflowsPage = `-- name: ListWorkflowsPage :many
 SELECT
     w.id, w.name, w.context, w.workflow_config_id, w.provisioner_config_id, w.archived_at, w.created_at, w.updated_at, w.deleting_at,
