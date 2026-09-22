@@ -25,60 +25,60 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// RowKind is which listing a row is on.
-type RowKind int32
+// Resource is which table a row is of, one value per message carrying the resource option.
+type Resource int32
 
 const (
-	// No kind was set, which the service never sends.
-	RowKind_ROW_KIND_UNSPECIFIED RowKind = 0
-	// An agent on the live listing.
-	RowKind_ROW_KIND_AGENT RowKind = 1
-	// A workflow on the live listing.
-	RowKind_ROW_KIND_WORKFLOW RowKind = 2
-	// A schedule on the live listing.
-	RowKind_ROW_KIND_SCHEDULE RowKind = 3
+	// No resource was set, which the service never sends.
+	Resource_RESOURCE_UNSPECIFIED Resource = 0
+	// A row of agents.
+	Resource_RESOURCE_AGENT Resource = 1
+	// A row of workflows.
+	Resource_RESOURCE_WORKFLOW Resource = 2
+	// A row of schedules.
+	Resource_RESOURCE_SCHEDULE Resource = 3
 )
 
-// Enum value maps for RowKind.
+// Enum value maps for Resource.
 var (
-	RowKind_name = map[int32]string{
-		0: "ROW_KIND_UNSPECIFIED",
-		1: "ROW_KIND_AGENT",
-		2: "ROW_KIND_WORKFLOW",
-		3: "ROW_KIND_SCHEDULE",
+	Resource_name = map[int32]string{
+		0: "RESOURCE_UNSPECIFIED",
+		1: "RESOURCE_AGENT",
+		2: "RESOURCE_WORKFLOW",
+		3: "RESOURCE_SCHEDULE",
 	}
-	RowKind_value = map[string]int32{
-		"ROW_KIND_UNSPECIFIED": 0,
-		"ROW_KIND_AGENT":       1,
-		"ROW_KIND_WORKFLOW":    2,
-		"ROW_KIND_SCHEDULE":    3,
+	Resource_value = map[string]int32{
+		"RESOURCE_UNSPECIFIED": 0,
+		"RESOURCE_AGENT":       1,
+		"RESOURCE_WORKFLOW":    2,
+		"RESOURCE_SCHEDULE":    3,
 	}
 )
 
-func (x RowKind) Enum() *RowKind {
-	p := new(RowKind)
+func (x Resource) Enum() *Resource {
+	p := new(Resource)
 	*p = x
 	return p
 }
 
-func (x RowKind) String() string {
+func (x Resource) String() string {
 	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
 }
 
-func (RowKind) Descriptor() protoreflect.EnumDescriptor {
+func (Resource) Descriptor() protoreflect.EnumDescriptor {
 	return file_watch_v1_watch_proto_enumTypes[0].Descriptor()
 }
 
-func (RowKind) Type() protoreflect.EnumType {
+func (Resource) Type() protoreflect.EnumType {
 	return &file_watch_v1_watch_proto_enumTypes[0]
 }
 
-func (x RowKind) Number() protoreflect.EnumNumber {
+func (x Resource) Number() protoreflect.EnumNumber {
 	return protoreflect.EnumNumber(x)
 }
 
-// Deprecated: Use RowKind.Descriptor instead.
-func (RowKind) EnumDescriptor() ([]byte, []int) {
+// Deprecated: Use Resource.Descriptor instead.
+func (Resource) EnumDescriptor() ([]byte, []int) {
 	return file_watch_v1_watch_proto_rawDescGZIP(), []int{0}
 }
 
@@ -128,9 +128,7 @@ type WatchEvent struct {
 	// Types that are valid to be assigned to Event:
 	//
 	//	*WatchEvent_Snapshot
-	//	*WatchEvent_Agent
-	//	*WatchEvent_Workflow
-	//	*WatchEvent_Schedule
+	//	*WatchEvent_Put
 	//	*WatchEvent_Deleted
 	//	*WatchEvent_Heartbeat
 	Event         isWatchEvent_Event `protobuf_oneof:"event"`
@@ -184,28 +182,10 @@ func (x *WatchEvent) GetSnapshot() *Snapshot {
 	return nil
 }
 
-func (x *WatchEvent) GetAgent() *v1.Agent {
+func (x *WatchEvent) GetPut() *Row {
 	if x != nil {
-		if x, ok := x.Event.(*WatchEvent_Agent); ok {
-			return x.Agent
-		}
-	}
-	return nil
-}
-
-func (x *WatchEvent) GetWorkflow() *v11.Workflow {
-	if x != nil {
-		if x, ok := x.Event.(*WatchEvent_Workflow); ok {
-			return x.Workflow
-		}
-	}
-	return nil
-}
-
-func (x *WatchEvent) GetSchedule() *v12.Schedule {
-	if x != nil {
-		if x, ok := x.Event.(*WatchEvent_Schedule); ok {
-			return x.Schedule
+		if x, ok := x.Event.(*WatchEvent_Put); ok {
+			return x.Put
 		}
 	}
 	return nil
@@ -234,56 +214,38 @@ type isWatchEvent_Event interface {
 }
 
 type WatchEvent_Snapshot struct {
-	// Every row the listings hold, sent once as the stream opens.
+	// Every row the watched sets hold, sent once as the stream opens.
 	Snapshot *Snapshot `protobuf:"bytes,1,opt,name=snapshot,proto3,oneof"`
 }
 
-type WatchEvent_Agent struct {
-	// One agent row as ListAgents renders it.
-	Agent *v1.Agent `protobuf:"bytes,2,opt,name=agent,proto3,oneof"`
-}
-
-type WatchEvent_Workflow struct {
-	// One workflow as ListWorkflows renders it.
-	Workflow *v11.Workflow `protobuf:"bytes,3,opt,name=workflow,proto3,oneof"`
-}
-
-type WatchEvent_Schedule struct {
-	// One schedule as ListSchedules renders it.
-	Schedule *v12.Schedule `protobuf:"bytes,4,opt,name=schedule,proto3,oneof"`
+type WatchEvent_Put struct {
+	// One row as the panel should now hold it.
+	Put *Row `protobuf:"bytes,2,opt,name=put,proto3,oneof"`
 }
 
 type WatchEvent_Deleted struct {
-	// A row its listing no longer holds.
-	Deleted *Deleted `protobuf:"bytes,5,opt,name=deleted,proto3,oneof"`
+	// A row its watched set no longer holds.
+	Deleted *Deleted `protobuf:"bytes,3,opt,name=deleted,proto3,oneof"`
 }
 
 type WatchEvent_Heartbeat struct {
 	// Nothing has changed for a while, and the stream is still alive.
-	Heartbeat *Heartbeat `protobuf:"bytes,6,opt,name=heartbeat,proto3,oneof"`
+	Heartbeat *Heartbeat `protobuf:"bytes,4,opt,name=heartbeat,proto3,oneof"`
 }
 
 func (*WatchEvent_Snapshot) isWatchEvent_Event() {}
 
-func (*WatchEvent_Agent) isWatchEvent_Event() {}
-
-func (*WatchEvent_Workflow) isWatchEvent_Event() {}
-
-func (*WatchEvent_Schedule) isWatchEvent_Event() {}
+func (*WatchEvent_Put) isWatchEvent_Event() {}
 
 func (*WatchEvent_Deleted) isWatchEvent_Event() {}
 
 func (*WatchEvent_Heartbeat) isWatchEvent_Event() {}
 
-// Snapshot is the three listings whole, each in the order its list RPC answers.
+// Snapshot is every watched set whole, each in the order its list RPC answers.
 type Snapshot struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Every live agent as ListAgents renders it.
-	Agents []*v1.Agent `protobuf:"bytes,1,rep,name=agents,proto3" json:"agents,omitempty"`
-	// Every live workflow as ListWorkflows renders it.
-	Workflows []*v11.Workflow `protobuf:"bytes,2,rep,name=workflows,proto3" json:"workflows,omitempty"`
-	// Every schedule as ListSchedules renders it.
-	Schedules     []*v12.Schedule `protobuf:"bytes,3,rep,name=schedules,proto3" json:"schedules,omitempty"`
+	// Every row, one resource after another.
+	Rows          []*Row `protobuf:"bytes,1,rep,name=rows,proto3" json:"rows,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -318,42 +280,132 @@ func (*Snapshot) Descriptor() ([]byte, []int) {
 	return file_watch_v1_watch_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *Snapshot) GetAgents() []*v1.Agent {
+func (x *Snapshot) GetRows() []*Row {
 	if x != nil {
-		return x.Agents
+		return x.Rows
 	}
 	return nil
 }
 
-func (x *Snapshot) GetWorkflows() []*v11.Workflow {
+// Row is one row of a resource table, rendered the way its list RPC renders it.
+type Row struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Which resource the row is.
+	//
+	// Types that are valid to be assigned to Row:
+	//
+	//	*Row_Agent
+	//	*Row_Workflow
+	//	*Row_Schedule
+	Row           isRow_Row `protobuf_oneof:"row"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Row) Reset() {
+	*x = Row{}
+	mi := &file_watch_v1_watch_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Row) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Row) ProtoMessage() {}
+
+func (x *Row) ProtoReflect() protoreflect.Message {
+	mi := &file_watch_v1_watch_proto_msgTypes[3]
 	if x != nil {
-		return x.Workflows
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Row.ProtoReflect.Descriptor instead.
+func (*Row) Descriptor() ([]byte, []int) {
+	return file_watch_v1_watch_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *Row) GetRow() isRow_Row {
+	if x != nil {
+		return x.Row
 	}
 	return nil
 }
 
-func (x *Snapshot) GetSchedules() []*v12.Schedule {
+func (x *Row) GetAgent() *v1.Agent {
 	if x != nil {
-		return x.Schedules
+		if x, ok := x.Row.(*Row_Agent); ok {
+			return x.Agent
+		}
 	}
 	return nil
 }
 
-// Deleted names a row its listing no longer holds, whether it was removed, archived or claimed
-// for a delete.
+func (x *Row) GetWorkflow() *v11.Workflow {
+	if x != nil {
+		if x, ok := x.Row.(*Row_Workflow); ok {
+			return x.Workflow
+		}
+	}
+	return nil
+}
+
+func (x *Row) GetSchedule() *v12.Schedule {
+	if x != nil {
+		if x, ok := x.Row.(*Row_Schedule); ok {
+			return x.Schedule
+		}
+	}
+	return nil
+}
+
+type isRow_Row interface {
+	isRow_Row()
+}
+
+type Row_Agent struct {
+	// An agent as ListAgents renders it.
+	Agent *v1.Agent `protobuf:"bytes,1,opt,name=agent,proto3,oneof"`
+}
+
+type Row_Workflow struct {
+	// A workflow as ListWorkflows renders it.
+	Workflow *v11.Workflow `protobuf:"bytes,2,opt,name=workflow,proto3,oneof"`
+}
+
+type Row_Schedule struct {
+	// A schedule as ListSchedules renders it.
+	Schedule *v12.Schedule `protobuf:"bytes,3,opt,name=schedule,proto3,oneof"`
+}
+
+func (*Row_Agent) isRow_Row() {}
+
+func (*Row_Workflow) isRow_Row() {}
+
+func (*Row_Schedule) isRow_Row() {}
+
+// Deleted names a row its watched set no longer holds, whether it was removed, archived or
+// claimed for a delete.
 type Deleted struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Which listing the row was on.
-	Kind RowKind `protobuf:"varint,1,opt,name=kind,proto3,enum=watch.v1.RowKind" json:"kind,omitempty"`
-	// The id of the row.
-	Id            string `protobuf:"bytes,2,opt,name=id,proto3" json:"id,omitempty"`
+	// Which resource the row was of.
+	Resource Resource `protobuf:"varint,1,opt,name=resource,proto3,enum=watch.v1.Resource" json:"resource,omitempty"`
+	// The key of the row.
+	Key           string `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Deleted) Reset() {
 	*x = Deleted{}
-	mi := &file_watch_v1_watch_proto_msgTypes[3]
+	mi := &file_watch_v1_watch_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -365,7 +417,7 @@ func (x *Deleted) String() string {
 func (*Deleted) ProtoMessage() {}
 
 func (x *Deleted) ProtoReflect() protoreflect.Message {
-	mi := &file_watch_v1_watch_proto_msgTypes[3]
+	mi := &file_watch_v1_watch_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -378,19 +430,19 @@ func (x *Deleted) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Deleted.ProtoReflect.Descriptor instead.
 func (*Deleted) Descriptor() ([]byte, []int) {
-	return file_watch_v1_watch_proto_rawDescGZIP(), []int{3}
+	return file_watch_v1_watch_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *Deleted) GetKind() RowKind {
+func (x *Deleted) GetResource() Resource {
 	if x != nil {
-		return x.Kind
+		return x.Resource
 	}
-	return RowKind_ROW_KIND_UNSPECIFIED
+	return Resource_RESOURCE_UNSPECIFIED
 }
 
-func (x *Deleted) GetId() string {
+func (x *Deleted) GetKey() string {
 	if x != nil {
-		return x.Id
+		return x.Key
 	}
 	return ""
 }
@@ -404,7 +456,7 @@ type Heartbeat struct {
 
 func (x *Heartbeat) Reset() {
 	*x = Heartbeat{}
-	mi := &file_watch_v1_watch_proto_msgTypes[4]
+	mi := &file_watch_v1_watch_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -416,7 +468,7 @@ func (x *Heartbeat) String() string {
 func (*Heartbeat) ProtoMessage() {}
 
 func (x *Heartbeat) ProtoReflect() protoreflect.Message {
-	mi := &file_watch_v1_watch_proto_msgTypes[4]
+	mi := &file_watch_v1_watch_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -429,7 +481,7 @@ func (x *Heartbeat) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Heartbeat.ProtoReflect.Descriptor instead.
 func (*Heartbeat) Descriptor() ([]byte, []int) {
-	return file_watch_v1_watch_proto_rawDescGZIP(), []int{4}
+	return file_watch_v1_watch_proto_rawDescGZIP(), []int{5}
 }
 
 var File_watch_v1_watch_proto protoreflect.FileDescriptor
@@ -437,29 +489,30 @@ var File_watch_v1_watch_proto protoreflect.FileDescriptor
 const file_watch_v1_watch_proto_rawDesc = "" +
 	"\n" +
 	"\x14watch/v1/watch.proto\x12\bwatch.v1\x1a\x14agent/v1/agent.proto\x1a\x18annotation/v1/tool.proto\x1a\x1aschedule/v1/schedule.proto\x1a\x1aworkflow/v1/workflow.proto\"\x0e\n" +
-	"\fWatchRequest\"\xbe\x02\n" +
+	"\fWatchRequest\"\xce\x01\n" +
 	"\n" +
 	"WatchEvent\x120\n" +
-	"\bsnapshot\x18\x01 \x01(\v2\x12.watch.v1.SnapshotH\x00R\bsnapshot\x12'\n" +
-	"\x05agent\x18\x02 \x01(\v2\x0f.agent.v1.AgentH\x00R\x05agent\x123\n" +
-	"\bworkflow\x18\x03 \x01(\v2\x15.workflow.v1.WorkflowH\x00R\bworkflow\x123\n" +
-	"\bschedule\x18\x04 \x01(\v2\x15.schedule.v1.ScheduleH\x00R\bschedule\x12-\n" +
-	"\adeleted\x18\x05 \x01(\v2\x11.watch.v1.DeletedH\x00R\adeleted\x123\n" +
-	"\theartbeat\x18\x06 \x01(\v2\x13.watch.v1.HeartbeatH\x00R\theartbeatB\a\n" +
-	"\x05event\"\x9d\x01\n" +
-	"\bSnapshot\x12'\n" +
-	"\x06agents\x18\x01 \x03(\v2\x0f.agent.v1.AgentR\x06agents\x123\n" +
-	"\tworkflows\x18\x02 \x03(\v2\x15.workflow.v1.WorkflowR\tworkflows\x123\n" +
-	"\tschedules\x18\x03 \x03(\v2\x15.schedule.v1.ScheduleR\tschedules\"@\n" +
-	"\aDeleted\x12%\n" +
-	"\x04kind\x18\x01 \x01(\x0e2\x11.watch.v1.RowKindR\x04kind\x12\x0e\n" +
-	"\x02id\x18\x02 \x01(\tR\x02id\"\v\n" +
-	"\tHeartbeat*e\n" +
-	"\aRowKind\x12\x18\n" +
-	"\x14ROW_KIND_UNSPECIFIED\x10\x00\x12\x12\n" +
-	"\x0eROW_KIND_AGENT\x10\x01\x12\x15\n" +
-	"\x11ROW_KIND_WORKFLOW\x10\x02\x12\x15\n" +
-	"\x11ROW_KIND_SCHEDULE\x10\x032\x93\x01\n" +
+	"\bsnapshot\x18\x01 \x01(\v2\x12.watch.v1.SnapshotH\x00R\bsnapshot\x12!\n" +
+	"\x03put\x18\x02 \x01(\v2\r.watch.v1.RowH\x00R\x03put\x12-\n" +
+	"\adeleted\x18\x03 \x01(\v2\x11.watch.v1.DeletedH\x00R\adeleted\x123\n" +
+	"\theartbeat\x18\x04 \x01(\v2\x13.watch.v1.HeartbeatH\x00R\theartbeatB\a\n" +
+	"\x05event\"-\n" +
+	"\bSnapshot\x12!\n" +
+	"\x04rows\x18\x01 \x03(\v2\r.watch.v1.RowR\x04rows\"\x9f\x01\n" +
+	"\x03Row\x12'\n" +
+	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentH\x00R\x05agent\x123\n" +
+	"\bworkflow\x18\x02 \x01(\v2\x15.workflow.v1.WorkflowH\x00R\bworkflow\x123\n" +
+	"\bschedule\x18\x03 \x01(\v2\x15.schedule.v1.ScheduleH\x00R\bscheduleB\x05\n" +
+	"\x03row\"K\n" +
+	"\aDeleted\x12.\n" +
+	"\bresource\x18\x01 \x01(\x0e2\x12.watch.v1.ResourceR\bresource\x12\x10\n" +
+	"\x03key\x18\x02 \x01(\tR\x03key\"\v\n" +
+	"\tHeartbeat*f\n" +
+	"\bResource\x12\x18\n" +
+	"\x14RESOURCE_UNSPECIFIED\x10\x00\x12\x12\n" +
+	"\x0eRESOURCE_AGENT\x10\x01\x12\x15\n" +
+	"\x11RESOURCE_WORKFLOW\x10\x02\x12\x15\n" +
+	"\x11RESOURCE_SCHEDULE\x10\x032\x93\x01\n" +
 	"\fWatchService\x12\x82\x01\n" +
 	"\x05Watch\x12\x16.watch.v1.WatchRequest\x1a\x14.watch.v1.WatchEvent\"I\x9a\xb5\x18B:@a stream the panel holds open; a model or a script lists instead\x90\x02\x010\x01B\"Z weave/proto/gen/watch/v1;watchv1b\x06proto3"
 
@@ -476,36 +529,36 @@ func file_watch_v1_watch_proto_rawDescGZIP() []byte {
 }
 
 var file_watch_v1_watch_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_watch_v1_watch_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_watch_v1_watch_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_watch_v1_watch_proto_goTypes = []any{
-	(RowKind)(0),         // 0: watch.v1.RowKind
+	(Resource)(0),        // 0: watch.v1.Resource
 	(*WatchRequest)(nil), // 1: watch.v1.WatchRequest
 	(*WatchEvent)(nil),   // 2: watch.v1.WatchEvent
 	(*Snapshot)(nil),     // 3: watch.v1.Snapshot
-	(*Deleted)(nil),      // 4: watch.v1.Deleted
-	(*Heartbeat)(nil),    // 5: watch.v1.Heartbeat
-	(*v1.Agent)(nil),     // 6: agent.v1.Agent
-	(*v11.Workflow)(nil), // 7: workflow.v1.Workflow
-	(*v12.Schedule)(nil), // 8: schedule.v1.Schedule
+	(*Row)(nil),          // 4: watch.v1.Row
+	(*Deleted)(nil),      // 5: watch.v1.Deleted
+	(*Heartbeat)(nil),    // 6: watch.v1.Heartbeat
+	(*v1.Agent)(nil),     // 7: agent.v1.Agent
+	(*v11.Workflow)(nil), // 8: workflow.v1.Workflow
+	(*v12.Schedule)(nil), // 9: schedule.v1.Schedule
 }
 var file_watch_v1_watch_proto_depIdxs = []int32{
 	3,  // 0: watch.v1.WatchEvent.snapshot:type_name -> watch.v1.Snapshot
-	6,  // 1: watch.v1.WatchEvent.agent:type_name -> agent.v1.Agent
-	7,  // 2: watch.v1.WatchEvent.workflow:type_name -> workflow.v1.Workflow
-	8,  // 3: watch.v1.WatchEvent.schedule:type_name -> schedule.v1.Schedule
-	4,  // 4: watch.v1.WatchEvent.deleted:type_name -> watch.v1.Deleted
-	5,  // 5: watch.v1.WatchEvent.heartbeat:type_name -> watch.v1.Heartbeat
-	6,  // 6: watch.v1.Snapshot.agents:type_name -> agent.v1.Agent
-	7,  // 7: watch.v1.Snapshot.workflows:type_name -> workflow.v1.Workflow
-	8,  // 8: watch.v1.Snapshot.schedules:type_name -> schedule.v1.Schedule
-	0,  // 9: watch.v1.Deleted.kind:type_name -> watch.v1.RowKind
-	1,  // 10: watch.v1.WatchService.Watch:input_type -> watch.v1.WatchRequest
-	2,  // 11: watch.v1.WatchService.Watch:output_type -> watch.v1.WatchEvent
-	11, // [11:12] is the sub-list for method output_type
-	10, // [10:11] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	4,  // 1: watch.v1.WatchEvent.put:type_name -> watch.v1.Row
+	5,  // 2: watch.v1.WatchEvent.deleted:type_name -> watch.v1.Deleted
+	6,  // 3: watch.v1.WatchEvent.heartbeat:type_name -> watch.v1.Heartbeat
+	4,  // 4: watch.v1.Snapshot.rows:type_name -> watch.v1.Row
+	7,  // 5: watch.v1.Row.agent:type_name -> agent.v1.Agent
+	8,  // 6: watch.v1.Row.workflow:type_name -> workflow.v1.Workflow
+	9,  // 7: watch.v1.Row.schedule:type_name -> schedule.v1.Schedule
+	0,  // 8: watch.v1.Deleted.resource:type_name -> watch.v1.Resource
+	1,  // 9: watch.v1.WatchService.Watch:input_type -> watch.v1.WatchRequest
+	2,  // 10: watch.v1.WatchService.Watch:output_type -> watch.v1.WatchEvent
+	10, // [10:11] is the sub-list for method output_type
+	9,  // [9:10] is the sub-list for method input_type
+	9,  // [9:9] is the sub-list for extension type_name
+	9,  // [9:9] is the sub-list for extension extendee
+	0,  // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_watch_v1_watch_proto_init() }
@@ -515,11 +568,14 @@ func file_watch_v1_watch_proto_init() {
 	}
 	file_watch_v1_watch_proto_msgTypes[1].OneofWrappers = []any{
 		(*WatchEvent_Snapshot)(nil),
-		(*WatchEvent_Agent)(nil),
-		(*WatchEvent_Workflow)(nil),
-		(*WatchEvent_Schedule)(nil),
+		(*WatchEvent_Put)(nil),
 		(*WatchEvent_Deleted)(nil),
 		(*WatchEvent_Heartbeat)(nil),
+	}
+	file_watch_v1_watch_proto_msgTypes[3].OneofWrappers = []any{
+		(*Row_Agent)(nil),
+		(*Row_Workflow)(nil),
+		(*Row_Schedule)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -527,7 +583,7 @@ func file_watch_v1_watch_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_watch_v1_watch_proto_rawDesc), len(file_watch_v1_watch_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   5,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

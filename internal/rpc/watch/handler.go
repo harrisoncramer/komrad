@@ -3,12 +3,17 @@ package watch
 import (
 	"context"
 	"errors"
+	"slices"
 	"time"
 
 	"weave/internal/fail"
 	"weave/internal/rpcerr"
 	"weave/internal/watch"
+	"weave/lib/xslice"
+	agentv1 "weave/proto/gen/agent/v1"
+	schedulev1 "weave/proto/gen/schedule/v1"
 	watchv1 "weave/proto/gen/watch/v1"
+	workflowv1 "weave/proto/gen/workflow/v1"
 
 	"connectrpc.com/connect"
 )
@@ -89,11 +94,19 @@ func (h *Handler) Watch(ctx context.Context, _ *watchv1.WatchRequest, stream *co
 
 // renderSnapshot is the snapshot as the wire carries it.
 func renderSnapshot(snapshot watch.Snapshot) *watchv1.WatchEvent {
-	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Snapshot{Snapshot: &watchv1.Snapshot{
-		Agents:    snapshot.Agents,
-		Workflows: snapshot.Workflows,
-		Schedules: snapshot.Schedules,
-	}}}
+	rows := slices.Concat(
+		xslice.Map(snapshot.Agents, func(agent *agentv1.Agent) *watchv1.Row {
+			return &watchv1.Row{Row: &watchv1.Row_Agent{Agent: agent}}
+		}),
+		xslice.Map(snapshot.Workflows, func(workflow *workflowv1.Workflow) *watchv1.Row {
+			return &watchv1.Row{Row: &watchv1.Row_Workflow{Workflow: workflow}}
+		}),
+		xslice.Map(snapshot.Schedules, func(schedule *schedulev1.Schedule) *watchv1.Row {
+			return &watchv1.Row{Row: &watchv1.Row_Schedule{Schedule: schedule}}
+		}),
+	)
+
+	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Snapshot{Snapshot: &watchv1.Snapshot{Rows: rows}}}
 }
 
 // renderEvent is one event as the wire carries it.
@@ -102,28 +115,28 @@ func renderEvent(event watch.Event) *watchv1.WatchEvent {
 
 	switch {
 	case event.Agent != nil:
-		rendered.Event = &watchv1.WatchEvent_Agent{Agent: event.Agent}
+		rendered.Event = &watchv1.WatchEvent_Put{Put: &watchv1.Row{Row: &watchv1.Row_Agent{Agent: event.Agent}}}
 	case event.Workflow != nil:
-		rendered.Event = &watchv1.WatchEvent_Workflow{Workflow: event.Workflow}
+		rendered.Event = &watchv1.WatchEvent_Put{Put: &watchv1.Row{Row: &watchv1.Row_Workflow{Workflow: event.Workflow}}}
 	case event.Schedule != nil:
-		rendered.Event = &watchv1.WatchEvent_Schedule{Schedule: event.Schedule}
+		rendered.Event = &watchv1.WatchEvent_Put{Put: &watchv1.Row{Row: &watchv1.Row_Schedule{Schedule: event.Schedule}}}
 	default:
-		rendered.Event = &watchv1.WatchEvent_Deleted{Deleted: &watchv1.Deleted{Kind: renderKind(event.Kind), Id: event.ID}}
+		rendered.Event = &watchv1.WatchEvent_Deleted{Deleted: &watchv1.Deleted{Resource: renderResource(event.Kind), Key: event.ID}}
 	}
 
 	return rendered
 }
 
-// renderKind is a kind as the wire carries it.
-func renderKind(kind watch.Kind) watchv1.RowKind {
+// renderResource is a kind as the wire carries it.
+func renderResource(kind watch.Kind) watchv1.Resource {
 	switch kind {
 	case watch.KindAgent:
-		return watchv1.RowKind_ROW_KIND_AGENT
+		return watchv1.Resource_RESOURCE_AGENT
 	case watch.KindWorkflow:
-		return watchv1.RowKind_ROW_KIND_WORKFLOW
+		return watchv1.Resource_RESOURCE_WORKFLOW
 	case watch.KindSchedule:
-		return watchv1.RowKind_ROW_KIND_SCHEDULE
+		return watchv1.Resource_RESOURCE_SCHEDULE
 	}
 
-	return watchv1.RowKind_ROW_KIND_UNSPECIFIED
+	return watchv1.Resource_RESOURCE_UNSPECIFIED
 }

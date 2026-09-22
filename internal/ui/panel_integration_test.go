@@ -3,6 +3,7 @@
 package ui
 
 import (
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"weave/internal/client"
 	"weave/internal/ui/layout"
 	"weave/internal/weavetest"
+	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
 	schedulev1 "weave/proto/gen/schedule/v1"
 	viewv1 "weave/proto/gen/view/v1"
@@ -42,11 +44,11 @@ func listedFromService(t *testing.T, m model) model {
 	require.NoError(t, err)
 
 	m.applyWatch(client.WatchBatch{Events: []*watchv1.WatchEvent{
-		{Event: &watchv1.WatchEvent_Snapshot{Snapshot: &watchv1.Snapshot{
-			Agents:    agents.Msg.GetAgents(),
-			Workflows: workflows.Msg.GetWorkflows(),
-			Schedules: schedules.Msg.GetSchedules(),
-		}}},
+		{Event: &watchv1.WatchEvent_Snapshot{Snapshot: &watchv1.Snapshot{Rows: slices.Concat(
+			xslice.Map(agents.Msg.GetAgents(), agentRowOf),
+			xslice.Map(workflows.Msg.GetWorkflows(), workflowRowOf),
+			xslice.Map(schedules.Msg.GetSchedules(), scheduleRowOf),
+		)}}},
 	}})
 
 	return settle(t, m, m.listCmd())

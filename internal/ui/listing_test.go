@@ -100,7 +100,7 @@ func TestWriteLandsOnTheRowItMade(t *testing.T) {
 	assert.Equal(t, "new", selected.agent.Name, "and the cursor is on it")
 
 	got.applyWatch(client.WatchBatch{Events: []*watchv1.WatchEvent{
-		{Event: &watchv1.WatchEvent_Agent{Agent: &agentv1.Agent{Id: "a2", Name: "new", WorkflowId: "w1", Alive: proto.Bool(true)}}},
+		{Event: &watchv1.WatchEvent_Put{Put: &watchv1.Row{Row: &watchv1.Row_Agent{Agent: &agentv1.Agent{Id: "a2", Name: "new", WorkflowId: "w1", Alive: proto.Bool(true)}}}}},
 	}})
 
 	require.Len(t, got.listing.agents, 2)

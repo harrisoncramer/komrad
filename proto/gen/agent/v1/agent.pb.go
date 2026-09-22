@@ -2746,7 +2746,7 @@ var File_agent_v1_agent_proto protoreflect.FileDescriptor
 
 const file_agent_v1_agent_proto_rawDesc = "" +
 	"\n" +
-	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x13agent/v1/mail.proto\x1a\x15agent/v1/review.proto\x1a\x19agent/v1/transcript.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a pullrequest/v1/pullrequest.proto\x1a\x14rules/v1/rules.proto\x1a\x12view/v1/view.proto\"\x81\f\n" +
+	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x13agent/v1/mail.proto\x1a\x15agent/v1/review.proto\x1a\x19agent/v1/transcript.proto\x1a\x1cannotation/v1/resource.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a pullrequest/v1/pullrequest.proto\x1a\x14rules/v1/rules.proto\x1a\x12view/v1/view.proto\"\xc2\r\n" +
 	"\x05Agent\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x10\n" +
@@ -2791,7 +2791,16 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x14local_review_verdict\x18! \x01(\x0e2\x17.agent.v1.ReviewVerdictR\x12localReviewVerdict\x12H\n" +
 	"\x11local_review_tree\x18\" \x01(\x0e2\x1c.agent.v1.ReviewTreeStandingR\x0flocalReviewTree\x12\x17\n" +
 	"\aheld_at\x18# \x01(\tR\x06heldAt\x12@\n" +
-	"\fpull_request\x18& \x01(\v2\x1d.agent.v1.PullRequestStandingR\vpullRequestB\x0e\n" +
+	"\fpull_request\x18& \x01(\v2\x1d.agent.v1.PullRequestStandingR\vpullRequest:\xbe\x01\xa2\xb5\x18\xb9\x01\n" +
+	"\x06agents\x1a\n" +
+	"updated_at\x1a\rstate_seen_at\x1a\tnudged_at\x1a\rnudge_sent_at\"&\n" +
+	"\x0eagent_metadata\x12\bagent_id2\n" +
+	"updated_at\"\x16\n" +
+	"\n" +
+	"agent_runs\x12\bagent_id\"\x1f\n" +
+	"\areviews\x12\bagent_id2\n" +
+	"updated_at\"\x19\n" +
+	"\rreview_rounds\x12\bagent_idB\x0e\n" +
 	"\f_archived_atB\x0e\n" +
 	"\f_schedule_idB\b\n" +
 	"\x06_aliveB\a\n" +
