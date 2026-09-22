@@ -11,9 +11,10 @@ import (
 	"testing"
 	"time"
 
+	"weave/db"
+	"weave/internal/dbtest"
 	"weave/internal/interceptors"
 	"weave/internal/logging"
-	"weave/internal/store"
 	"weave/internal/watch"
 	agentv1 "weave/proto/gen/agent/v1"
 	watchv1 "weave/proto/gen/watch/v1"
@@ -21,6 +22,7 @@ import (
 	watchv1weave "weave/proto/gen/watch/v1/watchv1weave"
 
 	"connectrpc.com/connect"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -48,9 +50,11 @@ func (r scriptedReader) Snapshot(context.Context) (watch.Snapshot, error) {
 	return r.snapshot, r.snapshotErr
 }
 
-// served is a watch service on a test server, with the log it writes.
+// served is a watch service on a test server over a database of the test's own, with the log
+// it writes.
 type served struct {
 	broker *watch.Broker
+	pool   *pgxpool.Pool
 	client watchv1connect.WatchServiceClient
 	log    *bytes.Buffer
 }
@@ -58,8 +62,12 @@ type served struct {
 func serve(t *testing.T, reader watch.Reader, heartbeat time.Duration) *served {
 	t.Helper()
 
+	pool, err := pgxpool.New(t.Context(), dbtest.URL(t))
+	require.NoError(t, err)
+	t.Cleanup(pool.Close)
+
 	broker := watch.NewBroker(watch.NewBrokerParams{})
-	broker.Start(reader)
+	require.NoError(t, broker.Start(pool, reader))
 	t.Cleanup(broker.Close)
 
 	var out bytes.Buffer
@@ -76,9 +84,18 @@ func serve(t *testing.T, reader watch.Reader, heartbeat time.Duration) *served {
 
 	return &served{
 		broker: broker,
+		pool:   pool,
 		client: watchv1connect.NewWatchServiceClient(server.Client(), server.URL),
 		log:    &out,
 	}
+}
+
+// notify raises one payload on the watch channel the way a trigger would.
+func (s *served) notify(t *testing.T, payload string) {
+	t.Helper()
+
+	_, err := s.pool.Exec(t.Context(), "SELECT pg_notify($1, $2)", db.WatchChannel, payload)
+	require.NoError(t, err)
 }
 
 func receive(t *testing.T, stream *connect.ServerStreamForClient[watchv1.WatchEvent]) *watchv1.WatchEvent {
@@ -103,7 +120,8 @@ func TestWatchSendsTheSnapshotThenChanges(t *testing.T) {
 	require.Len(t, first.GetSnapshot().GetAgents(), 1)
 	assert.Equal(t, "a1", first.GetSnapshot().GetAgents()[0].GetId())
 
-	s.broker.Touch(store.TableAgents, "a2", "gone-a3")
+	s.notify(t, "agents a2")
+	s.notify(t, "agents gone-a3")
 
 	written := receive(t, stream)
 	assert.Equal(t, "a2", written.GetAgent().GetId())

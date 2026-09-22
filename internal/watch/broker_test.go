@@ -62,11 +62,14 @@ func (f *fakeReader) getReads() []Touched {
 	return append([]Touched(nil), f.reads...)
 }
 
+// newTestBroker builds a broker rendering through the reader, with no listener behind it and
+// watchers let in as if one were up.
 func newTestBroker(t *testing.T, reader *fakeReader) *Broker {
 	t.Helper()
 
 	broker := NewBroker(NewBrokerParams{})
-	broker.Start(reader)
+	broker.serve(reader)
+	broker.up(0)
 	t.Cleanup(broker.Close)
 
 	return broker
@@ -96,13 +99,13 @@ func TestTouchesPileUpBehindOneRead(t *testing.T) {
 	subscription, err := broker.Subscribe(t.Context())
 	require.NoError(t, err)
 
-	broker.Touch(store.TableAgents, "held")
+	broker.touch(store.TableAgents, "held")
 	require.Eventually(t, func() bool { return len(reader.getReads()) == 1 }, time.Second, time.Millisecond)
 
-	broker.Touch(store.TableAgents, "b", "a")
-	broker.Touch(store.TableAgents, "a")
-	broker.Touch(store.TableWorkflows, "w")
-	broker.Touch(store.TableSchedules, "s")
+	broker.touch(store.TableAgents, "b", "a")
+	broker.touch(store.TableAgents, "a")
+	broker.touch(store.TableWorkflows, "w")
+	broker.touch(store.TableSchedules, "s")
 	close(reader.held)
 
 	require.Equal(t, "held", receive(t, subscription).ID)
@@ -119,7 +122,7 @@ func TestNothingIsReadWithoutAWatcher(t *testing.T) {
 	reader := &fakeReader{}
 	broker := newTestBroker(t, reader)
 
-	broker.Touch(store.TableAgents, "a")
+	broker.touch(store.TableAgents, "a")
 	time.Sleep(settle)
 
 	require.Empty(t, reader.getReads())
@@ -135,7 +138,7 @@ func TestSubscriptionOpensWithTheSnapshot(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, first.Snapshot().Agents)
 
-	broker.Touch(store.TableAgents, "a")
+	broker.touch(store.TableAgents, "a")
 	require.Equal(t, "a", receive(t, first).ID)
 
 	reader.mu.Lock()
@@ -150,7 +153,7 @@ func TestSubscriptionOpensWithTheSnapshot(t *testing.T) {
 	require.Len(t, second.Snapshot().Agents, 1)
 	require.Len(t, second.Snapshot().Workflows, 1)
 
-	broker.Touch(store.TableAgents, "a")
+	broker.touch(store.TableAgents, "a")
 	require.Equal(t, "a", receive(t, first).ID)
 	require.Equal(t, "a", receive(t, second).ID)
 }
@@ -165,13 +168,13 @@ func TestATouchDuringTheSnapshotLandsAfterIt(t *testing.T) {
 	require.NoError(t, err)
 
 	// The render is held part way, and a second watcher subscribes behind it.
-	broker.Touch(store.TableAgents, "a")
+	broker.touch(store.TableAgents, "a")
 	require.Eventually(t, func() bool { return len(reader.getReads()) == 1 }, time.Second, time.Millisecond)
 
 	second, err := broker.Subscribe(t.Context())
 	require.NoError(t, err)
 
-	broker.Touch(store.TableAgents, "b")
+	broker.touch(store.TableAgents, "b")
 	close(reader.held)
 
 	require.Equal(t, "a", receive(t, first).ID)
@@ -195,7 +198,7 @@ func TestASlowWatcherIsDropped(t *testing.T) {
 		ids[i] = string(rune('a' + i))
 	}
 	for range subscriberBuffer/len(ids) + 2 {
-		broker.Touch(store.TableAgents, ids...)
+		broker.touch(store.TableAgents, ids...)
 		time.Sleep(settle)
 	}
 
@@ -218,7 +221,8 @@ func TestASlowWatcherIsDropped(t *testing.T) {
 func TestCloseEndsEverySubscription(t *testing.T) {
 	reader := &fakeReader{}
 	broker := NewBroker(NewBrokerParams{})
-	broker.Start(reader)
+	broker.serve(reader)
+	broker.up(0)
 
 	subscription, err := broker.Subscribe(t.Context())
 	require.NoError(t, err)
@@ -232,7 +236,7 @@ func TestCloseEndsEverySubscription(t *testing.T) {
 	_, err = broker.Subscribe(t.Context())
 	require.ErrorIs(t, err, ErrClosed)
 
-	broker.Touch(store.TableAgents, "a")
+	broker.touch(store.TableAgents, "a")
 	subscription.Close()
 }
 
@@ -245,14 +249,14 @@ func TestAFailedReadIsRetriedWithTheNextOne(t *testing.T) {
 	subscription, err := broker.Subscribe(t.Context())
 	require.NoError(t, err)
 
-	broker.Touch(store.TableAgents, "a")
+	broker.touch(store.TableAgents, "a")
 	require.Eventually(t, func() bool { return len(reader.getReads()) == 1 }, time.Second, time.Millisecond)
 
 	reader.mu.Lock()
 	reader.readErr = nil
 	reader.mu.Unlock()
 
-	broker.Touch(store.TableAgents, "b")
+	broker.touch(store.TableAgents, "b")
 	assert.Equal(t, "a", receive(t, subscription).ID, "the touch the failed read lost comes back")
 	assert.Equal(t, "b", receive(t, subscription).ID)
 	assert.Equal(t, Touched{Agents: []string{"a", "b"}}, reader.getReads()[1], "one read serves both")
@@ -273,18 +277,39 @@ func TestClosingASubscriptionEndsItsStream(t *testing.T) {
 	_, open := <-subscription.Events()
 	require.False(t, open)
 
-	broker.Touch(store.TableAgents, "a")
+	broker.touch(store.TableAgents, "a")
 	time.Sleep(settle)
 	require.Empty(t, reader.getReads(), "nothing is read once the last watcher has gone")
 }
 
-// TestABrokerNeverStartedStillCloses pins that a broker built and never started closes cleanly
-// and takes no watcher after.
+// TestABrokerNeverStartedStillCloses pins that a broker built and never started takes no
+// watcher, closes cleanly and takes none after.
 func TestABrokerNeverStartedStillCloses(t *testing.T) {
 	broker := NewBroker(NewBrokerParams{})
-	broker.Touch(store.TableAgents, "a")
-	broker.Close()
 
 	_, err := broker.Subscribe(t.Context())
+	require.ErrorIs(t, err, ErrNotListening)
+
+	broker.touch(store.TableAgents, "a")
+	broker.Close()
+
+	_, err = broker.Subscribe(t.Context())
 	require.ErrorIs(t, err, ErrClosed)
+}
+
+// TestHearReadsTheTableAndTheKey pins the payload a trigger raises being split at its one
+// space, with a table no listing is keyed by and a payload with no key both ignored.
+func TestHearReadsTheTableAndTheKey(t *testing.T) {
+	reader := &fakeReader{}
+	broker := newTestBroker(t, reader)
+
+	subscription, err := broker.Subscribe(t.Context())
+	require.NoError(t, err)
+
+	broker.hear("river_job 7")
+	broker.hear("agents")
+	broker.hear("agents a b")
+
+	require.Equal(t, "a b", receive(t, subscription).ID, "the key runs to the end of the payload")
+	require.Equal(t, []Touched{{Agents: []string{"a b"}}}, reader.getReads())
 }

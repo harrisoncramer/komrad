@@ -91,7 +91,9 @@ func (s *MailStore) Send(ctx context.Context, params SendParams) (*Mail, error) 
 	}
 
 	sent := mailFromRow(*row)
-	s.db.Touch(store.TableAgents, sent.ToAgentID)
+	if err := store.Notify(ctx, s.db, store.TableAgents, sent.ToAgentID); err != nil {
+		return nil, err
+	}
 
 	return &sent, nil
 }
@@ -157,7 +159,9 @@ func (s *MailStore) Claim(ctx context.Context, toAgentID string, limit int32) ([
 		return nil, fmt.Errorf("failed to claim the mail for agent %q: %w", toAgentID, err)
 	}
 
-	s.db.Touch(store.TableAgents, toAgentID)
+	if err := store.Notify(ctx, s.db, store.TableAgents, toAgentID); err != nil {
+		return nil, err
+	}
 
 	claimed := xslice.Map(rows, func(row *models.Mail) Mail {
 		return mailFromRow(*row)
@@ -242,9 +246,7 @@ func (s *MailStore) Delete(ctx context.Context, ids []string) error {
 		return fmt.Errorf("failed to delete %d mail: %w", len(storable), err)
 	}
 
-	s.db.Touch(store.TableAgents, recipients...)
-
-	return nil
+	return store.Notify(ctx, s.db, store.TableAgents, recipients...)
 }
 
 // CountExchanged is how much plain mail two agents have written to each other, in either
@@ -302,7 +304,9 @@ func (s *MailStore) ListExpired(ctx context.Context, toAgentID string) ([]Mail, 
 		return nil, fmt.Errorf("failed to report the expired mail for agent %q: %w", toAgentID, err)
 	}
 
-	s.db.Touch(store.TableAgents, toAgentID)
+	if err := store.Notify(ctx, s.db, store.TableAgents, toAgentID); err != nil {
+		return nil, err
+	}
 
 	return xslice.Map(rows, func(row *models.Mail) Mail {
 		return mailFromRow(*row)

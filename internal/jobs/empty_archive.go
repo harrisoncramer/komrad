@@ -4,8 +4,9 @@ import (
 	"context"
 
 	"weave/internal/jobs/internaljobs"
-	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
+
+	"github.com/jackc/pgx/v5"
 )
 
 type ArchiveSweep struct {
@@ -20,7 +21,7 @@ func NewArchiveSweep(queue *Enqueuer) *ArchiveSweep {
 // EmptyArchive claims every archived agent, and the archived workflows that leaves nothing
 // unclaimed in, and queues the sweep that deletes them in the same transaction.
 func (s *ArchiveSweep) EmptyArchive(ctx context.Context) error {
-	return s.queue.InsertTx(ctx, internaljobs.EmptyArchiveArgs{}, func(tx store.DBTX) error {
+	return s.queue.InsertTx(ctx, internaljobs.EmptyArchiveArgs{}, func(tx pgx.Tx) error {
 		return agentstore.NewAgentStore(tx).MarkArchivedDeleting(ctx)
 	})
 }

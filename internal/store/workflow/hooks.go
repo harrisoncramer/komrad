@@ -6,7 +6,6 @@ import (
 
 	"weave/config"
 	"weave/db/models"
-	"weave/internal/store"
 	"weave/lib/xslice"
 )
 
@@ -48,8 +47,6 @@ func (s *WorkflowStore) setHooks(ctx context.Context, workflowID string, hooks [
 			return fmt.Errorf("failed to add the %s hook %q to workflow %q: %w", hook.Event, hook.Script, workflowID, err)
 		}
 	}
-
-	s.db.Touch(store.TableWorkflows, workflowID)
 
 	return nil
 }

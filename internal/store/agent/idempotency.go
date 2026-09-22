@@ -37,7 +37,5 @@ func (s *AgentStore) ReleaseIdempotencyKey(ctx context.Context, key string) (boo
 		return false, fmt.Errorf("failed to release idempotency key %q: %w", key, err)
 	}
 
-	s.db.Touch(store.TableAgents, released...)
-
 	return len(released) > 0, nil
 }

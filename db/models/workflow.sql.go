@@ -9,35 +9,18 @@ import (
 	"context"
 )
 
-const clearAllWorkflowsDeleting = `-- name: ClearAllWorkflowsDeleting :many
+const clearAllWorkflowsDeleting = `-- name: ClearAllWorkflowsDeleting :exec
 UPDATE
     workflows
 SET
     deleting_at = NULL
 WHERE
     deleting_at IS NOT NULL
-RETURNING
-    id
 `
 
-func (q *Queries) ClearAllWorkflowsDeleting(ctx context.Context) ([]string, error) {
-	rows, err := q.db.Query(ctx, clearAllWorkflowsDeleting)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []string
-	for rows.Next() {
-		var id string
-		if err := rows.Scan(&id); err != nil {
-			return nil, err
-		}
-		items = append(items, id)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+func (q *Queries) ClearAllWorkflowsDeleting(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, clearAllWorkflowsDeleting)
+	return err
 }
 
 const deleteWorkflow = `-- name: DeleteWorkflow :one
@@ -380,38 +363,6 @@ func (q *Queries) ListHooksForWorkflows(ctx context.Context, workflowIds []strin
 			return nil, err
 		}
 		items = append(items, &i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listLiveAgentIDsInWorkflow = `-- name: ListLiveAgentIDsInWorkflow :many
-SELECT
-    id
-FROM
-    agents
-WHERE
-    workflow_id = $1
-    AND archived_at IS NULL
-ORDER BY
-    id
-`
-
-func (q *Queries) ListLiveAgentIDsInWorkflow(ctx context.Context, workflowID string) ([]string, error) {
-	rows, err := q.db.Query(ctx, listLiveAgentIDsInWorkflow, workflowID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []string
-	for rows.Next() {
-		var id string
-		if err := rows.Scan(&id); err != nil {
-			return nil, err
-		}
-		items = append(items, id)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

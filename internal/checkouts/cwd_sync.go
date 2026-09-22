@@ -1,7 +1,6 @@
 package checkouts
 
 import (
-	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -9,7 +8,6 @@ import (
 	"time"
 
 	"weave/internal/git"
-	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	reviewstore "weave/internal/store/review"
 	workflowstore "weave/internal/store/workflow"
@@ -54,8 +52,6 @@ type NewCwdSyncerParams struct {
 	Trees   standingReader
 	Tallies tallyLister
 	Bases   workflowLister
-	// Watch is told whose worktree standing moved, store.Discard when unset.
-	Watch store.Publisher
 }
 
 // CwdSyncer keeps what the panel shows of an agent's working directory in step with the
@@ -66,7 +62,6 @@ type CwdSyncer struct {
 	trees   standingReader
 	tallies tallyLister
 	bases   workflowLister
-	watch   store.Publisher
 }
 
 // NewCwdSyncer builds a syncer over the agent store.
@@ -77,7 +72,6 @@ func NewCwdSyncer(params NewCwdSyncerParams) *CwdSyncer {
 		trees:   params.Trees,
 		tallies: params.Tallies,
 		bases:   params.Bases,
-		watch:   cmp.Or(params.Watch, store.Discard),
 	}
 }
 
@@ -121,7 +115,6 @@ func (cs *CwdSyncer) Sync(ctx context.Context) error {
 		return err
 	}
 
-	var moved []string
 	var failures []error
 	for _, look := range looks {
 		if look.err != nil {
@@ -130,16 +123,10 @@ func (cs *CwdSyncer) Sync(ctx context.Context) error {
 		if err := cs.write(ctx, look); err != nil {
 			failures = append(failures, err)
 		}
-		written, err := cs.writeStanding(ctx, look)
-		if err != nil {
+		if err := cs.writeStanding(ctx, look); err != nil {
 			failures = append(failures, err)
 		}
-		if written {
-			moved = append(moved, look.agent.ID)
-		}
 	}
-
-	cs.watch.Touch(store.TableAgents, moved...)
 
 	return errors.Join(failures...)
 }
@@ -228,18 +215,18 @@ func (cs *CwdSyncer) write(ctx context.Context, look cwdLook) error {
 }
 
 // writeStanding records where the look found the worktree against its round, when the row says
-// otherwise, and reports whether it did.
-func (cs *CwdSyncer) writeStanding(ctx context.Context, look cwdLook) (bool, error) {
+// otherwise.
+func (cs *CwdSyncer) writeStanding(ctx context.Context, look cwdLook) error {
 	agent := look.agent
 	if agent.TreeStanding == look.standing && agent.TreeStandingSHA == look.round {
-		return false, nil
+		return nil
 	}
 
 	if err := cs.agents.SetTreeStanding(ctx, agent.ID, look.standing, look.round); err != nil {
-		return false, fmt.Errorf("failed to set the tree standing for %q: %w", agent.Name, err)
+		return fmt.Errorf("failed to set the tree standing for %q: %w", agent.Name, err)
 	}
 
-	return true, nil
+	return nil
 }
 
 func isCwdRemoved(ctx context.Context, dir string) bool {

@@ -22,7 +22,6 @@ import (
 	"weave/internal/scriptrun"
 	"weave/internal/scripts"
 	"weave/internal/transcripts"
-	"weave/internal/watch"
 	"weave/internal/worktrees"
 )
 
@@ -63,7 +62,7 @@ func BuiltinScriptsDir(cacheDir string) string {
 	return filepath.Join(cacheDir, "weave-builtin-scripts")
 }
 
-func buildServices(params NewServerParams, st *stores, broker *watch.Broker) (*services, error) {
+func buildServices(params NewServerParams, st *stores) (*services, error) {
 	loadConfig := func() (*config.Config, error) { return config.LoadStack(params.ConfigStack) }
 	gitClient := git.NewClient()
 
@@ -236,7 +235,6 @@ func buildServices(params NewServerParams, st *stores, broker *watch.Broker) (*s
 		Trees:   gitClient,
 		Tallies: st.review,
 		Bases:   st.workflows,
-		Watch:   broker,
 	})
 
 	transcriptSyncer := transcripts.NewTranscriptSyncer(transcripts.NewTranscriptSyncerParams{
@@ -263,7 +261,6 @@ func buildServices(params NewServerParams, st *stores, broker *watch.Broker) (*s
 		Panes:    params.Tmux,
 		Observer: paneChannel,
 		States:   st.agents,
-		Watch:    broker,
 	}).WithFrameRecorder(frames.NewRecorder(params.Env.FramesDir(), newFrameSettings(loadConfig).get))
 
 	rowReader := agents.NewRowReader(agents.NewRowReaderParams{Rows: st.rows})

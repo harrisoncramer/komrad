@@ -145,7 +145,7 @@ ORDER BY
     s.id DESC
 LIMIT @lim;
 
--- name: MarkAgentsDeleting :many
+-- name: MarkAgentsDeleting :exec
 WITH claimed AS (
     UPDATE
         agents
@@ -156,57 +156,35 @@ WITH claimed AS (
     AND deleting_at IS NULL
 RETURNING
     id,
-    workflow_id
-),
--- The archived agents this claim leaves behind, which keep their workflow.
-left_behind AS (
-    SELECT
-        a.workflow_id
-    FROM
-        agents a
-    WHERE
-        a.archived_at IS NOT NULL
-        AND a.deleting_at IS NULL
-        AND a.id NOT IN (
-            SELECT
-                id
-            FROM
-                claimed)
-),
-claimed_workflows AS (
-    UPDATE
-        workflows w
-    SET
-        deleting_at = NOW()
-    WHERE
-        w.archived_at IS NOT NULL
-        AND w.deleting_at IS NULL
-        AND w.id IN (
-            SELECT
-                workflow_id
-            FROM
-                claimed)
-            AND w.id NOT IN (
+    workflow_id)
+UPDATE
+    workflows w
+SET
+    deleting_at = NOW()
+WHERE
+    w.archived_at IS NOT NULL
+    AND w.deleting_at IS NULL
+    AND w.id IN (
+        SELECT
+            workflow_id
+        FROM
+            claimed)
+    AND NOT EXISTS (
+        SELECT
+            1
+        FROM
+            agents a
+        WHERE
+            a.workflow_id = w.id
+            AND a.archived_at IS NOT NULL
+            AND a.deleting_at IS NULL
+            AND a.id NOT IN (
                 SELECT
-                    workflow_id
+                    id
                 FROM
-                    left_behind)
-            RETURNING
-                w.id
-)
-    SELECT
-        claimed.id::uuid AS id,
-        'agent'::text AS kind
-    FROM
-        claimed
-    UNION ALL
-    SELECT
-        claimed_workflows.id::uuid AS id,
-        'workflow'::text AS kind
-    FROM
-        claimed_workflows;
+                    claimed));
 
--- name: MarkArchivedAgentsDeleting :many
+-- name: MarkArchivedAgentsDeleting :exec
 WITH claimed AS (
     UPDATE
         agents a
@@ -226,57 +204,35 @@ WITH claimed AS (
                 AND parent.state = 'failed_to_cleanup')
         RETURNING
             a.id,
-            a.workflow_id
-),
--- The archived agents this claim leaves behind, which keep their workflow.
-left_behind AS (
-    SELECT
-        a.workflow_id
-    FROM
-        agents a
-    WHERE
-        a.archived_at IS NOT NULL
-        AND a.deleting_at IS NULL
-        AND a.id NOT IN (
-            SELECT
-                id
-            FROM
-                claimed)
-),
-claimed_workflows AS (
-    UPDATE
-        workflows w
-    SET
-        deleting_at = NOW()
-    WHERE
-        w.archived_at IS NOT NULL
-        AND w.deleting_at IS NULL
-        AND w.id IN (
-            SELECT
-                workflow_id
-            FROM
-                claimed)
-            AND w.id NOT IN (
+            a.workflow_id)
+UPDATE
+    workflows w
+SET
+    deleting_at = NOW()
+WHERE
+    w.archived_at IS NOT NULL
+    AND w.deleting_at IS NULL
+    AND w.id IN (
+        SELECT
+            workflow_id
+        FROM
+            claimed)
+    AND NOT EXISTS (
+        SELECT
+            1
+        FROM
+            agents a
+        WHERE
+            a.workflow_id = w.id
+            AND a.archived_at IS NOT NULL
+            AND a.deleting_at IS NULL
+            AND a.id NOT IN (
                 SELECT
-                    workflow_id
+                    id
                 FROM
-                    left_behind)
-            RETURNING
-                w.id
-)
-    SELECT
-        claimed.id::uuid AS id,
-        'agent'::text AS kind
-    FROM
-        claimed
-    UNION ALL
-    SELECT
-        claimed_workflows.id::uuid AS id,
-        'workflow'::text AS kind
-    FROM
-        claimed_workflows;
+                    claimed));
 
--- name: MarkArchivedAgentsDeletingByID :many
+-- name: MarkArchivedAgentsDeletingByID :exec
 WITH claimed AS (
     UPDATE
         agents a
@@ -297,57 +253,35 @@ WITH claimed AS (
             AND parent.state = 'failed_to_cleanup')
     RETURNING
         a.id,
-        a.workflow_id
-),
--- The archived agents this claim leaves behind, which keep their workflow.
-left_behind AS (
-    SELECT
-        a.workflow_id
-    FROM
-        agents a
-    WHERE
-        a.archived_at IS NOT NULL
-        AND a.deleting_at IS NULL
-        AND a.id NOT IN (
-            SELECT
-                id
-            FROM
-                claimed)
-),
-claimed_workflows AS (
-    UPDATE
-        workflows w
-    SET
-        deleting_at = NOW()
-    WHERE
-        w.archived_at IS NOT NULL
-        AND w.deleting_at IS NULL
-        AND w.id IN (
-            SELECT
-                workflow_id
-            FROM
-                claimed)
-            AND w.id NOT IN (
+        a.workflow_id)
+UPDATE
+    workflows w
+SET
+    deleting_at = NOW()
+WHERE
+    w.archived_at IS NOT NULL
+    AND w.deleting_at IS NULL
+    AND w.id IN (
+        SELECT
+            workflow_id
+        FROM
+            claimed)
+    AND NOT EXISTS (
+        SELECT
+            1
+        FROM
+            agents a
+        WHERE
+            a.workflow_id = w.id
+            AND a.archived_at IS NOT NULL
+            AND a.deleting_at IS NULL
+            AND a.id NOT IN (
                 SELECT
-                    workflow_id
+                    id
                 FROM
-                    left_behind)
-            RETURNING
-                w.id
-)
-    SELECT
-        claimed.id::uuid AS id,
-        'agent'::text AS kind
-    FROM
-        claimed
-    UNION ALL
-    SELECT
-        claimed_workflows.id::uuid AS id,
-        'workflow'::text AS kind
-    FROM
-        claimed_workflows;
+                    claimed));
 
--- name: ClearAgentsDeleting :many
+-- name: ClearAgentsDeleting :exec
 WITH released AS (
     UPDATE
         agents
@@ -357,45 +291,26 @@ WITH released AS (
         OR parent_agent_id = ANY (@ids::uuid[]))
     AND deleting_at IS NOT NULL
 RETURNING
-    id,
-    workflow_id
-),
-released_workflows AS (
-    UPDATE
-        workflows
-    SET
-        deleting_at = NULL
-    WHERE
-        deleting_at IS NOT NULL
-        AND id IN (
-            SELECT
-                workflow_id
-            FROM
-                released)
-        RETURNING
-            id
-)
-SELECT
-    released.id::uuid AS id,
-    'agent'::text AS kind
-FROM
-    released
-UNION ALL
-SELECT
-    released_workflows.id::uuid AS id,
-    'workflow'::text AS kind
-FROM
-    released_workflows;
+    workflow_id)
+UPDATE
+    workflows
+SET
+    deleting_at = NULL
+WHERE
+    deleting_at IS NOT NULL
+    AND id IN (
+        SELECT
+            workflow_id
+        FROM
+            released);
 
--- name: ClearAllAgentsDeleting :many
+-- name: ClearAllAgentsDeleting :exec
 UPDATE
     agents
 SET
     deleting_at = NULL
 WHERE
-    deleting_at IS NOT NULL
-RETURNING
-    id;
+    deleting_at IS NOT NULL;
 
 -- name: ListAllAgents :many
 SELECT
@@ -710,7 +625,7 @@ WHERE
 ORDER BY
     id DESC;
 
--- name: MarkWorkflowAgentsRestored :many
+-- name: MarkWorkflowAgentsRestored :exec
 UPDATE
     agents
 SET
@@ -718,9 +633,7 @@ SET
     archived_at = NULL
 WHERE
     workflow_id = @workflow_id
-    AND archived_at IS NOT NULL
-RETURNING
-    id;
+    AND archived_at IS NOT NULL;
 
 -- name: ListArchivedWorkflowAgents :many
 SELECT

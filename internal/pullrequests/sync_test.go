@@ -191,7 +191,7 @@ func newSyncFixture(t *testing.T) *syncFixture {
 	t.Helper()
 	ctx := t.Context()
 
-	pool, err := store.Open(ctx, store.OpenParams{URL: dbtest.URL(t)})
+	pool, err := store.Open(ctx, dbtest.URL(t))
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = pool.Close() })
 

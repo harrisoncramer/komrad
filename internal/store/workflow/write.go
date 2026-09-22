@@ -49,7 +49,6 @@ func (s *WorkflowStore) Create(ctx context.Context, cfg Config) (*Workflow, erro
 	}
 
 	workflow := workflowFromRow(*row, *config, *provisioner, cfg.Hooks)
-	s.db.Touch(store.TableWorkflows, workflow.ID)
 
 	return &workflow, nil
 }
@@ -63,8 +62,6 @@ func (s *WorkflowStore) Rename(ctx context.Context, id, name string) error {
 	if err := s.queries.RenameWorkflow(ctx, models.RenameWorkflowParams{ID: id, Name: name}); err != nil {
 		return fmt.Errorf("failed to rename workflow %q: %w", id, err)
 	}
-
-	s.db.Touch(store.TableWorkflows, id)
 
 	return nil
 }
@@ -105,24 +102,7 @@ func (s *WorkflowStore) Update(ctx context.Context, id string, cfg Config) error
 		return fmt.Errorf("failed to update config for workflow %q: %w", id, err)
 	}
 
-	if err := s.setHooks(ctx, id, cfg.Hooks); err != nil {
-		return err
-	}
-
-	return s.touchWithAgents(ctx, id)
-}
-
-// touchWithAgents says a workflow and every live agent in it may look different now.
-func (s *WorkflowStore) touchWithAgents(ctx context.Context, id string) error {
-	agents, err := s.queries.ListLiveAgentIDsInWorkflow(ctx, id)
-	if err != nil {
-		return fmt.Errorf("failed to list the agents of workflow %q: %w", id, err)
-	}
-
-	s.db.Touch(store.TableWorkflows, id)
-	s.db.Touch(store.TableAgents, agents...)
-
-	return nil
+	return s.setHooks(ctx, id, cfg.Hooks)
 }
 
 // Delete permanently removes a workflow row along with the config rows it alone owns, and is
@@ -147,8 +127,6 @@ func (s *WorkflowStore) Delete(ctx context.Context, id string) error {
 	if err := s.queries.DeleteWorkflowProvisionerConfig(ctx, ids.ProvisionerConfigID); err != nil {
 		return fmt.Errorf("failed to delete the provisioner config for workflow %q: %w", id, err)
 	}
-
-	s.db.Touch(store.TableWorkflows, id)
 
 	return nil
 }

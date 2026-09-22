@@ -8,7 +8,6 @@ import (
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
-	"weave/internal/watchtest"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -589,15 +588,15 @@ const answerNotice = "weave: worker answered your review, read the threads with 
 
 type fixture struct {
 	*MailStore
+	url      string
 	agents   *agentstore.AgentStore
 	workflow string
-	touched  *watchtest.Recorder
 }
 
 func open(t *testing.T) *fixture {
 	t.Helper()
-	touched := watchtest.NewRecorder()
-	p, err := store.Open(t.Context(), store.OpenParams{URL: dbtest.URL(t), Publisher: touched})
+	url := dbtest.URL(t)
+	p, err := store.Open(t.Context(), url)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = p.Close() })
 
@@ -607,9 +606,9 @@ func open(t *testing.T) *fixture {
 
 	return &fixture{
 		MailStore: NewMailStore(p.GetDB()),
+		url:       url,
 		agents:    agentstore.NewAgentStore(p.GetDB()),
 		workflow:  created.ID,
-		touched:   touched,
 	}
 }
 

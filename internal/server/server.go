@@ -57,7 +57,7 @@ type Server struct {
 	Pool     *store.Pool
 	Delivery *mail.DeliveryService
 	Loops    []Loop
-	// Watch is told which rows every store changed, and streams them to the panels.
+	// Watch hears which rows the database changed, and streams them to the panels.
 	Watch         *watch.Broker
 	logger        *slog.Logger
 	stopRequested chan struct{}
@@ -72,11 +72,11 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 		return nil, err
 	}
 
-	broker := watch.NewBroker(watch.NewBrokerParams{Logger: params.Logger})
-	st, err := openStores(ctx, params.Env.DatabaseURL, broker)
+	st, err := openStores(ctx, params.Env.DatabaseURL)
 	if err != nil {
 		return nil, err
 	}
+	broker := watch.NewBroker(watch.NewBrokerParams{Logger: params.Logger})
 
 	srv := &Server{
 		Pool:          st.pool,
@@ -95,7 +95,7 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 		}
 	}()
 
-	svc, err := buildServices(params, st, broker)
+	svc, err := buildServices(params, st)
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +160,9 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 		Periodic: srv.Periodic,
 	})
 
-	broker.Start(svc.watchRows)
+	if err := broker.Start(st.pool.GetRawPool(), svc.watchRows); err != nil {
+		return nil, err
+	}
 	srv.closers = append(srv.closers, broker.Close)
 
 	built = true

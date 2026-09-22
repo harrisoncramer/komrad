@@ -9,7 +9,6 @@ import (
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
-	"weave/internal/watchtest"
 	"weave/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
@@ -23,28 +22,28 @@ const (
 
 type harness struct {
 	*PullRequestStore
+	url       string
 	pool      *store.Pool
 	syncs     *PullRequestSyncStore
 	agents    *agentstore.AgentStore
 	workflows *workflowstore.WorkflowStore
-	touched   *watchtest.Recorder
 }
 
 func open(t *testing.T) *harness {
 	t.Helper()
 
-	touched := watchtest.NewRecorder()
-	pool, err := store.Open(t.Context(), store.OpenParams{URL: dbtest.URL(t), Publisher: touched})
+	url := dbtest.URL(t)
+	pool, err := store.Open(t.Context(), url)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = pool.Close() })
 
 	return &harness{
 		PullRequestStore: NewPullRequestStore(pool.GetDB()),
+		url:              url,
 		syncs:            NewPullRequestSyncStore(pool.GetDB()),
 		pool:             pool,
 		agents:           agentstore.NewAgentStore(pool.GetDB()),
 		workflows:        workflowstore.NewWorkflowStore(pool.GetDB()),
-		touched:          touched,
 	}
 }
 

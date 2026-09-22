@@ -78,7 +78,7 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 	}
 
 	mux := http.NewServeMux()
-	queue := jobs.NewEnqueuer(params.Jobs, params.Stores.pool)
+	queue := jobs.NewEnqueuer(params.Jobs, params.Stores.pool.GetRawPool())
 	worktreeDelete := jobs.NewWorktreeDelete(queue)
 	mux.Handle(HealthPath, newHealthHandler(params.Stores.pool.GetRawPool()))
 	mux.Handle(StopPath, interceptors.NewLoggingHandler(params.Logger, newStopHandler(params.StopRequested)))
