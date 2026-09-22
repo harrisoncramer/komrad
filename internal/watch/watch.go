@@ -10,8 +10,8 @@
 //
 // resources.go is the one declaration of what the watch carries, in plain Go: the table each
 // resource is the rows of, the store it is read from, the renderer that draws it, the Row arm
-// it fills and the tables projected onto it. The Broker puts a trigger on each of those tables
-// as it starts, from that list.
+// it fills and the tables projected onto it. A generated migration puts a trigger on each table
+// from that list.
 //
 // The Broker holds one connection of its own on the watch channel, coalesces what it hears into
 // the pending set, reads those rows back and sends each Subscription the row or, for a key its

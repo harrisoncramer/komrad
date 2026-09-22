@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source "$MISE_CONFIG_ROOT/mise/tasks/_"
+
+if [ "$#" -ne 1 ]; then
+	echo "usage: mise run db:watch-migration <migration-name>" >&2
+	exit 2
+fi
+
+cd "$MISE_CONFIG_ROOT"
+go run ./internal/watch/gen/main.go "$1"

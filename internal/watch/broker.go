@@ -8,7 +8,6 @@ import (
 
 	"weave/internal/fail"
 	"weave/internal/logging"
-	notifystore "weave/internal/store/notify"
 	"weave/lib/xslice"
 	watchv1 "weave/proto/gen/watch/v1"
 
@@ -96,20 +95,12 @@ func NewBroker(params NewBrokerParams) *Broker {
 	}
 }
 
-// Start attaches the triggers, puts a connection from the pool on the watch channel and begins
-// rendering through the rows, the last two of which Close ends, failing when the triggers cannot
-// be attached or the database cannot be listened to.
+// Start puts a connection from the pool on the watch channel and begins rendering through the
+// rows, both of which Close ends.
 func (b *Broker) Start(pool *pgxpool.Pool, rows *Rows) error {
 	b.pool = pool
 
 	ctx, cancel := context.WithCancel(context.Background())
-	// The triggers go on before anything listens.
-	if err := ensureTriggers(ctx, notifystore.NewNotifyStore(pool)); err != nil {
-		cancel()
-
-		return err
-	}
-
 	conn, err := b.connect(ctx)
 	if err != nil {
 		cancel()

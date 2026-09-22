@@ -9,63 +9,6 @@ import (
 	"context"
 )
 
-const attachProjectionLookupTrigger = `-- name: AttachProjectionLookupTrigger :exec
-SELECT
-    attach_projection_lookup_trigger($1::text, $2::text, $3::text, $4::text, $5::text, $6::text)
-`
-
-type AttachProjectionLookupTriggerParams struct {
-	Target           string
-	Parent           string
-	ParentKey        string
-	ParentMatch      string
-	Match            string
-	ParentMustBeNull *string
-}
-
-func (q *Queries) AttachProjectionLookupTrigger(ctx context.Context, arg AttachProjectionLookupTriggerParams) error {
-	_, err := q.db.Exec(ctx, attachProjectionLookupTrigger,
-		arg.Target,
-		arg.Parent,
-		arg.ParentKey,
-		arg.ParentMatch,
-		arg.Match,
-		arg.ParentMustBeNull,
-	)
-	return err
-}
-
-const attachProjectionTrigger = `-- name: AttachProjectionTrigger :exec
-SELECT
-    attach_projection_trigger($1::text, $2::text, $3::text)
-`
-
-type AttachProjectionTriggerParams struct {
-	Target       string
-	Parent       string
-	ParentColumn string
-}
-
-func (q *Queries) AttachProjectionTrigger(ctx context.Context, arg AttachProjectionTriggerParams) error {
-	_, err := q.db.Exec(ctx, attachProjectionTrigger, arg.Target, arg.Parent, arg.ParentColumn)
-	return err
-}
-
-const attachWatchTrigger = `-- name: AttachWatchTrigger :exec
-SELECT
-    attach_watch_trigger($1::text, $2::text)
-`
-
-type AttachWatchTriggerParams struct {
-	Target    string
-	KeyColumn string
-}
-
-func (q *Queries) AttachWatchTrigger(ctx context.Context, arg AttachWatchTriggerParams) error {
-	_, err := q.db.Exec(ctx, attachWatchTrigger, arg.Target, arg.KeyColumn)
-	return err
-}
-
 const listenToWatchChannel = `-- name: ListenToWatchChannel :exec
 LISTEN weave_watch
 `
