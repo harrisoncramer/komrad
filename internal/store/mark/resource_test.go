@@ -1,6 +1,7 @@
 package mark
 
 import (
+	"slices"
 	"testing"
 
 	"weave/lib/xslice"
@@ -10,7 +11,7 @@ import (
 )
 
 // TestListByKeyIsTheWatchedSet pins the read-back to the watched set: every mark is held, so a
-// letter comes back while it is set and not once it is cleared.
+// mark comes back while it is set and not once it is cleared.
 func TestListByKeyIsTheWatchedSet(t *testing.T) {
 	ctx := t.Context()
 	f := open(t)
@@ -24,9 +25,17 @@ func TestListByKeyIsTheWatchedSet(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, marked)
 
-	listed, err := f.ListByKey(ctx, []string{"a", "b", "c"})
+	all, err := f.List(ctx)
 	require.NoError(t, err)
-	assert.Equal(t, []Mark{{Mark: "a", AgentID: &agent}, {Mark: "b", WorkflowID: &flow}}, listed, "a letter nobody holds is left out")
+	require.Len(t, all, 2)
+	ids := xslice.Map(all, func(mark Mark) string { return mark.ID })
+
+	listed, err := f.ListByKey(ctx, append(slices.Clone(ids), "00000000-0000-0000-0000-000000000000"))
+	require.NoError(t, err)
+	assert.Equal(t, []Mark{
+		{ID: ids[0], Mark: "a", AgentID: &agent},
+		{ID: ids[1], Mark: "b", WorkflowID: &flow},
+	}, listed, "an id nobody holds is left out")
 
 	none, err := f.ListByKey(ctx, nil)
 	require.NoError(t, err)
@@ -36,11 +45,11 @@ func TestListByKeyIsTheWatchedSet(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, cleared)
 
-	listed, err = f.ListByKey(ctx, []string{"a", "b"})
+	listed, err = f.ListByKey(ctx, ids)
 	require.NoError(t, err)
-	assert.Equal(t, []string{"b"}, xslice.Map(listed, func(mark Mark) string { return mark.Mark }), "a cleared letter is a tombstone")
+	assert.Equal(t, []string{"b"}, xslice.Map(listed, func(mark Mark) string { return mark.Mark }), "a cleared mark is a tombstone")
 
-	all, err := f.List(ctx)
+	all, err = f.List(ctx)
 	require.NoError(t, err)
 	assert.Equal(t, listed, all, "the listing is the whole watched set")
 }

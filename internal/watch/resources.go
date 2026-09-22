@@ -26,8 +26,6 @@ import (
 type Resource struct {
 	// Table is the Postgres table the rows are read from.
 	Table string
-	// Key is the column the row is keyed by, which a notification names it under.
-	Key string
 	// Enum is the value the wire sends the row under.
 	Enum watchv1.Resource
 	// Message is the proto message one row is drawn as.
@@ -74,13 +72,11 @@ var resourcesByTable = func() map[string]watchv1.Resource {
 func Resources() []Resource {
 	return []Resource{
 		newResource(newResourceParams[rowstore.Row, *agentv1.Agent]{
-			Enum:   watchv1.Resource_RESOURCE_AGENT,
-			Table:  "agents",
-			Key:    "id",
-			Store:  func(stores Stores) reader[rowstore.Row] { return stores.Agents },
-			RowKey: func(row rowstore.Row) string { return row.ID },
-			Draw:   func(row rowstore.Row) *agentv1.Agent { return render.Agent(row, render.AgentOptions{}) },
-			Wrap:   func(row *agentv1.Agent) *watchv1.Row { return &watchv1.Row{Row: &watchv1.Row_Agent{Agent: row}} },
+			Enum:  watchv1.Resource_RESOURCE_AGENT,
+			Table: "agents",
+			Store: func(stores Stores) reader[rowstore.Row] { return stores.Agents },
+			Draw:  func(row rowstore.Row) *agentv1.Agent { return render.Agent(row, render.AgentOptions{}) },
+			Wrap:  func(row *agentv1.Agent) *watchv1.Row { return &watchv1.Row{Row: &watchv1.Row_Agent{Agent: row}} },
 			Projects: []Projection{
 				{Table: "agent_metadata", Column: "agent_id"},
 				{Table: "agent_runs", Column: "agent_id"},
@@ -90,11 +86,9 @@ func Resources() []Resource {
 			},
 		}),
 		newResource(newResourceParams[workflowstore.Workflow, *workflowv1.Workflow]{
-			Enum:   watchv1.Resource_RESOURCE_WORKFLOW,
-			Table:  "workflows",
-			Key:    "id",
-			Store:  func(stores Stores) reader[workflowstore.Workflow] { return stores.Workflows },
-			RowKey: func(row workflowstore.Workflow) string { return row.ID },
+			Enum:  watchv1.Resource_RESOURCE_WORKFLOW,
+			Table: "workflows",
+			Store: func(stores Stores) reader[workflowstore.Workflow] { return stores.Workflows },
 			Draw: func(row workflowstore.Workflow) *workflowv1.Workflow {
 				return render.Workflow(row, render.WorkflowOptions{})
 			},
@@ -108,11 +102,9 @@ func Resources() []Resource {
 			},
 		}),
 		newResource(newResourceParams[schedulestore.Schedule, *schedulev1.Schedule]{
-			Enum:   watchv1.Resource_RESOURCE_SCHEDULE,
-			Table:  "schedules",
-			Key:    "id",
-			Store:  func(stores Stores) reader[schedulestore.Schedule] { return stores.Schedules },
-			RowKey: func(row schedulestore.Schedule) string { return row.ID },
+			Enum:  watchv1.Resource_RESOURCE_SCHEDULE,
+			Table: "schedules",
+			Store: func(stores Stores) reader[schedulestore.Schedule] { return stores.Schedules },
 			DrawAt: func(row schedulestore.Schedule, now time.Time) *schedulev1.Schedule {
 				return render.Schedule(row, now, render.ScheduleOptions{})
 			},
@@ -121,30 +113,24 @@ func Resources() []Resource {
 			},
 		}),
 		newResource(newResourceParams[markstore.Mark, *agentv1.Mark]{
-			Enum:   watchv1.Resource_RESOURCE_MARK,
-			Table:  "marks",
-			Key:    "mark",
-			Store:  func(stores Stores) reader[markstore.Mark] { return stores.Marks },
-			RowKey: func(row markstore.Mark) string { return row.Mark },
-			Draw:   render.Mark,
-			Wrap:   func(row *agentv1.Mark) *watchv1.Row { return &watchv1.Row{Row: &watchv1.Row_Mark{Mark: row}} },
+			Enum:  watchv1.Resource_RESOURCE_MARK,
+			Table: "marks",
+			Store: func(stores Stores) reader[markstore.Mark] { return stores.Marks },
+			Draw:  render.Mark,
+			Wrap:  func(row *agentv1.Mark) *watchv1.Row { return &watchv1.Row{Row: &watchv1.Row_Mark{Mark: row}} },
 		}),
 		newResource(newResourceParams[mailstore.Mail, *agentv1.Mail]{
-			Enum:   watchv1.Resource_RESOURCE_MAIL,
-			Table:  "mail",
-			Key:    "id",
-			Store:  func(stores Stores) reader[mailstore.Mail] { return stores.Mail },
-			RowKey: func(row mailstore.Mail) string { return row.ID },
-			Draw:   render.Mail,
-			Wrap:   func(row *agentv1.Mail) *watchv1.Row { return &watchv1.Row{Row: &watchv1.Row_Mail{Mail: row}} },
+			Enum:  watchv1.Resource_RESOURCE_MAIL,
+			Table: "mail",
+			Store: func(stores Stores) reader[mailstore.Mail] { return stores.Mail },
+			Draw:  render.Mail,
+			Wrap:  func(row *agentv1.Mail) *watchv1.Row { return &watchv1.Row{Row: &watchv1.Row_Mail{Mail: row}} },
 		}),
 		newResource(newResourceParams[pullrequeststore.PullRequest, *pullrequestv1.PullRequest]{
-			Enum:   watchv1.Resource_RESOURCE_PULL_REQUEST,
-			Table:  "pull_requests",
-			Key:    "id",
-			Store:  func(stores Stores) reader[pullrequeststore.PullRequest] { return stores.PullRequests },
-			RowKey: func(row pullrequeststore.PullRequest) string { return row.ID },
-			Draw:   render.PullRequest,
+			Enum:  watchv1.Resource_RESOURCE_PULL_REQUEST,
+			Table: "pull_requests",
+			Store: func(stores Stores) reader[pullrequeststore.PullRequest] { return stores.PullRequests },
+			Draw:  render.PullRequest,
 			Wrap: func(row *pullrequestv1.PullRequest) *watchv1.Row {
 				return &watchv1.Row{Row: &watchv1.Row_PullRequest{PullRequest: row}}
 			},
@@ -154,17 +140,13 @@ func Resources() []Resource {
 
 // newResourceParams declares one resource: R is the store row it is read as and M the proto
 // message it is drawn as.
-type newResourceParams[R any, M proto.Message] struct {
+type newResourceParams[R any, M message] struct {
 	// Enum is the value the wire sends the row under.
 	Enum watchv1.Resource
 	// Table is the Postgres table the rows are read from.
 	Table string
-	// Key is the column the row is keyed by.
-	Key string
 	// Store selects the reader for this resource.
 	Store func(Stores) reader[R]
-	// RowKey is the key column's value on a stored row.
-	RowKey func(R) string
 	// Draw renders one stored row the way the list RPCs do.
 	Draw func(R) M
 	// DrawAt renders a row that depends on the clock, in place of Draw.
@@ -175,14 +157,19 @@ type newResourceParams[R any, M proto.Message] struct {
 	Projects []Projection
 }
 
-// newResource is one entry of the list: the store its rows are read from, the key they are
-// held under, the renderer that draws them and the Row arm they fill.
-func newResource[R any, M proto.Message](params newResourceParams[R, M]) Resource {
+// message is a drawn row, which every resource keys by its id.
+type message interface {
+	proto.Message
+	GetId() string
+}
+
+// newResource is one entry of the list: the store its rows are read from, the renderer that
+// draws them and the Row arm they fill.
+func newResource[R any, M message](params newResourceParams[R, M]) Resource {
 	var message M
 
 	return Resource{
 		Table:    params.Table,
-		Key:      params.Key,
 		Enum:     params.Enum,
 		Message:  message.ProtoReflect().Descriptor(),
 		Projects: params.Projects,
@@ -192,8 +179,10 @@ func newResource[R any, M proto.Message](params newResourceParams[R, M]) Resourc
 				draw = func(row R) M { return params.DrawAt(row, now()) }
 			}
 
-			return newArm(params.Store(stores), params.RowKey, func(row R) *watchv1.Row {
-				return params.Wrap(draw(row))
+			return newArm(params.Store(stores), func(row R) (string, *watchv1.Row) {
+				drawn := draw(row)
+
+				return drawn.GetId(), params.Wrap(drawn)
 			})
 		},
 	}

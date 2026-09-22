@@ -23,7 +23,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 // fakeStore is one resource's store: every row its watched set holds, and the ones among the
@@ -98,7 +97,7 @@ func newStores() *fakeStores {
 		agents:       &fakeStore[rowstore.Row]{key: func(row rowstore.Row) string { return row.ID }},
 		workflows:    &fakeStore[workflowstore.Workflow]{key: func(row workflowstore.Workflow) string { return row.ID }},
 		schedules:    &fakeStore[schedulestore.Schedule]{key: func(row schedulestore.Schedule) string { return row.ID }},
-		marks:        &fakeStore[markstore.Mark]{key: func(row markstore.Mark) string { return row.Mark }},
+		marks:        &fakeStore[markstore.Mark]{key: func(row markstore.Mark) string { return row.ID }},
 		mail:         &fakeStore[mailstore.Mail]{key: func(row mailstore.Mail) string { return row.ID }},
 		pullRequests: &fakeStore[pullrequeststore.PullRequest]{key: func(row pullrequeststore.PullRequest) string { return row.ID }},
 	}
@@ -131,7 +130,7 @@ func TestReadAnswersARowOrATombstoneForEveryTouchedKey(t *testing.T) {
 	stores := newStores()
 	stores.agents.put(agentRow("a1"))
 	stores.workflows.put(workflowstore.Workflow{ID: "w1", Name: "backend"})
-	stores.marks.put(markstore.Mark{Mark: "w", WorkflowID: xptr.Ptr("w1")})
+	stores.marks.put(markstore.Mark{ID: "w", Mark: "w", WorkflowID: xptr.Ptr("w1")})
 	stores.mail.put(mailstore.Mail{ID: "m1", ToAgentID: "a1"})
 	stores.pullRequests.put(pullrequeststore.PullRequest{ID: "p1", Number: 7})
 	stores.schedules.put(schedulestore.Schedule{ID: "s1", Name: "nightly", Cron: "0 2 * * *", Enabled: true})
@@ -177,7 +176,7 @@ func TestSnapshotCarriesEveryWatchedSet(t *testing.T) {
 	stores.agents.put(agentRow("a0"), agentRow("a1"), agentRow("a2"))
 	stores.workflows.put(workflowstore.Workflow{ID: "w0", Name: "flow-0"}, workflowstore.Workflow{ID: "w1", Name: "flow-1"})
 	stores.schedules.put(schedulestore.Schedule{ID: "s0", Name: "nightly"})
-	stores.marks.put(markstore.Mark{Mark: "a"})
+	stores.marks.put(markstore.Mark{ID: "a", Mark: "a"})
 	stores.mail.put(mailstore.Mail{ID: "m0"})
 	stores.pullRequests.put(pullrequeststore.PullRequest{ID: "p0"})
 
@@ -207,7 +206,7 @@ func TestEveryResourceIsDeclaredWhole(t *testing.T) {
 	stores.agents.put(agentRow("k"))
 	stores.workflows.put(workflowstore.Workflow{ID: "k", Name: "flow"})
 	stores.schedules.put(schedulestore.Schedule{ID: "k", Name: "nightly"})
-	stores.marks.put(markstore.Mark{Mark: "k"})
+	stores.marks.put(markstore.Mark{ID: "k", Mark: "k"})
 	stores.mail.put(mailstore.Mail{ID: "k"})
 	stores.pullRequests.put(pullrequeststore.PullRequest{ID: "k"})
 
@@ -216,10 +215,8 @@ func TestEveryResourceIsDeclaredWhole(t *testing.T) {
 
 	for _, r := range declared {
 		t.Run(r.Table, func(t *testing.T) {
-			assert.NotEmpty(t, r.Key, "no key column")
 			assert.NotEqual(t, watchv1.Resource_RESOURCE_UNSPECIFIED, r.Enum, "no enum value")
 			require.NotNil(t, r.Message, "no message")
-			assert.NotNil(t, r.Message.Fields().ByName(protoreflect.Name(r.Key)), "the message has no %s field", r.Key)
 
 			bound := r.bind(storesFor(stores), fixedClock)
 			snapshot, err := drawn(t, r, func() ([]Change, error) { return bound.snapshot(t.Context()) })

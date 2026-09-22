@@ -1,4 +1,4 @@
-h1:nmp4dvpvpVNcLYbYOtQSnntyxJn7gyPKosbxcjdOTnc=
+h1:K+l6CL7SLjYxpmas7YBbf6YfDpVTqksYVYnx6sDOau0=
 20260727000000_initial.sql h1:ubkXyswrZOM0CuuAD9GtwEBRjcnCAl3KY6uamudWwuY=
 20260824163026_state_seen_at.sql h1:wPnZ5xyxQrLBegwX9PP0U6LRh91JcItKfcJz1cQKUU8=
 20260825032556_add_schedule_last_result.sql h1:CpH3A88qiOKXKKb1zefqQlqI/O8DxxNpZjrsQJZ8g5Q=
@@ -69,3 +69,6 @@ h1:nmp4dvpvpVNcLYbYOtQSnntyxJn7gyPKosbxcjdOTnc=
 20260922040000_watch_triggers.sql h1:8XtEQnsWdvwcwnM2FpmZxpJ+GeWD03BY81/bCEaHsq4=
 20260922180000_watch_trigger_guard.sql h1:lelcYYSdbvErv1NIHfGhh+9nxp+IWxbblpSVOnd0Fac=
 20260922200000_watch_attachments.sql h1:jwvRW0QaQivFOIOkTjf+wKYGB3qe3zcgHMnaUf1L/8I=
+20260922212617_marks_id.sql h1:gGPXUwFdf/VxzvAqsnlcc3LGuxAWwbLVByexazIxay8=
+20260922212700_watch_keyed_by_id.sql h1:uIPR4K2CrG5p6+5O1oPcKeeb7DdT7SQ0J29DBS7H/j4=
+20260922212749_watch_attachments_by_id.sql h1:ko5x6Qq8FCeLu356N+zNmzv8/VlZAMChsBqWVeE9SPs=

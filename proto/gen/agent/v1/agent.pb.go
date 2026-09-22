@@ -1808,7 +1808,9 @@ type Mark struct {
 	// The agent it jumps to, unset when it is on a workflow.
 	AgentId *string `protobuf:"bytes,2,opt,name=agent_id,json=agentId,proto3,oneof" json:"agent_id,omitempty"`
 	// The workflow it jumps to, unset when it is on an agent.
-	WorkflowId    *string `protobuf:"bytes,3,opt,name=workflow_id,json=workflowId,proto3,oneof" json:"workflow_id,omitempty"`
+	WorkflowId *string `protobuf:"bytes,3,opt,name=workflow_id,json=workflowId,proto3,oneof" json:"workflow_id,omitempty"`
+	// The mark's id.
+	Id            string `protobuf:"bytes,4,opt,name=id,proto3" json:"id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1860,6 +1862,13 @@ func (x *Mark) GetAgentId() string {
 func (x *Mark) GetWorkflowId() string {
 	if x != nil && x.WorkflowId != nil {
 		return *x.WorkflowId
+	}
+	return ""
+}
+
+func (x *Mark) GetId() string {
+	if x != nil {
+		return x.Id
 	}
 	return ""
 }
@@ -3082,12 +3091,13 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"conflicted\x12\x14\n" +
 	"\x05moved\x18\x06 \x01(\bR\x05moved\x12%\n" +
 	"\x0elanded_commits\x18\a \x01(\x05R\rlandedCommits\x12%\n" +
-	"\x0ereplay_commits\x18\b \x01(\x05R\rreplayCommits\"}\n" +
+	"\x0ereplay_commits\x18\b \x01(\x05R\rreplayCommits\"\x8d\x01\n" +
 	"\x04Mark\x12\x12\n" +
 	"\x04mark\x18\x01 \x01(\tR\x04mark\x12\x1e\n" +
 	"\bagent_id\x18\x02 \x01(\tH\x00R\aagentId\x88\x01\x01\x12$\n" +
 	"\vworkflow_id\x18\x03 \x01(\tH\x01R\n" +
-	"workflowId\x88\x01\x01B\v\n" +
+	"workflowId\x88\x01\x01\x12\x0e\n" +
+	"\x02id\x18\x04 \x01(\tR\x02idB\v\n" +
 	"\t_agent_idB\x0e\n" +
 	"\f_workflow_id\"9\n" +
 	"\x11ListMarksResponse\x12$\n" +

@@ -13,6 +13,7 @@ import (
 
 // Mark is one letter and the row it names, exactly one of which is set.
 type Mark struct {
+	ID         string
 	Mark       string
 	AgentID    *string
 	WorkflowID *string
@@ -37,15 +38,15 @@ func (s *MarkStore) List(ctx context.Context) ([]Mark, error) {
 	return xslice.Map(rows, fromRow), nil
 }
 
-// ListByKey reads whichever of the letters hold a mark.
-func (s *MarkStore) ListByKey(ctx context.Context, marks []string) ([]Mark, error) {
-	if len(marks) == 0 {
+// ListByKey reads whichever of the ids are still marks.
+func (s *MarkStore) ListByKey(ctx context.Context, ids []string) ([]Mark, error) {
+	if len(ids) == 0 {
 		return nil, nil
 	}
 
-	rows, err := s.queries.ListMarksByKey(ctx, marks)
+	rows, err := s.queries.ListMarksByKey(ctx, ids)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list %d marks: %w", len(marks), err)
+		return nil, fmt.Errorf("failed to list %d marks: %w", len(ids), err)
 	}
 
 	return xslice.Map(rows, fromRow), nil
@@ -53,6 +54,7 @@ func (s *MarkStore) ListByKey(ctx context.Context, marks []string) ([]Mark, erro
 
 func fromRow(row *models.Mark) Mark {
 	return Mark{
+		ID:         row.ID,
 		Mark:       row.Mark,
 		AgentID:    row.AgentID,
 		WorkflowID: row.WorkflowID,

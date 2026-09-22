@@ -133,17 +133,17 @@ func (q *Queries) InsertWorkflowMark(ctx context.Context, arg InsertWorkflowMark
 
 const listMarksByKey = `-- name: ListMarksByKey :many
 SELECT
-    mark, agent_id, workflow_id, created_at
+    mark, agent_id, workflow_id, created_at, id
 FROM
     marks
 WHERE
-    mark = ANY ($1::text[])
+    id = ANY ($1::uuid[])
 ORDER BY
     mark
 `
 
-func (q *Queries) ListMarksByKey(ctx context.Context, marks []string) ([]*Mark, error) {
-	rows, err := q.db.Query(ctx, listMarksByKey, marks)
+func (q *Queries) ListMarksByKey(ctx context.Context, ids []string) ([]*Mark, error) {
+	rows, err := q.db.Query(ctx, listMarksByKey, ids)
 	if err != nil {
 		return nil, err
 	}
@@ -156,6 +156,7 @@ func (q *Queries) ListMarksByKey(ctx context.Context, marks []string) ([]*Mark, 
 			&i.AgentID,
 			&i.WorkflowID,
 			&i.CreatedAt,
+			&i.ID,
 		); err != nil {
 			return nil, err
 		}
@@ -169,7 +170,7 @@ func (q *Queries) ListMarksByKey(ctx context.Context, marks []string) ([]*Mark, 
 
 const snapshotMarks = `-- name: SnapshotMarks :many
 SELECT
-    mark, agent_id, workflow_id, created_at
+    mark, agent_id, workflow_id, created_at, id
 FROM
     marks
 ORDER BY
@@ -190,6 +191,7 @@ func (q *Queries) SnapshotMarks(ctx context.Context) ([]*Mark, error) {
 			&i.AgentID,
 			&i.WorkflowID,
 			&i.CreatedAt,
+			&i.ID,
 		); err != nil {
 			return nil, err
 		}

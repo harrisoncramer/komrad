@@ -74,8 +74,8 @@ type arm struct {
 	snapshot func(ctx context.Context) ([]Change, error)
 }
 
-// newArm is one resource's arm over its store, its key and its renderer.
-func newArm[R any](store reader[R], key func(R) string, draw func(R) *watchv1.Row) arm {
+// newArm is one resource's arm over its store and its renderer.
+func newArm[R any](store reader[R], draw func(R) (string, *watchv1.Row)) arm {
 	return arm{
 		read: func(ctx context.Context, keys []string) (map[string]*watchv1.Row, error) {
 			rows, err := store.ListByKey(ctx, keys)
@@ -85,7 +85,8 @@ func newArm[R any](store reader[R], key func(R) string, draw func(R) *watchv1.Ro
 
 			held := make(map[string]*watchv1.Row, len(rows))
 			for _, row := range rows {
-				held[key(row)] = draw(row)
+				key, drawn := draw(row)
+				held[key] = drawn
 			}
 
 			return held, nil
@@ -97,7 +98,9 @@ func newArm[R any](store reader[R], key func(R) string, draw func(R) *watchv1.Ro
 			}
 
 			return xslice.Map(rows, func(row R) Change {
-				return Change{Key: key(row), Row: draw(row)}
+				key, drawn := draw(row)
+
+				return Change{Key: key, Row: drawn}
 			}), nil
 		},
 	}

@@ -64,7 +64,7 @@ func (w *World) Put(row *watchv1.Row) (arrived []string) {
 	case *watchv1.Row_Schedule:
 		w.Schedules[row.Schedule.GetId()] = row.Schedule
 	case *watchv1.Row_Mark:
-		w.Marks[row.Mark.GetMark()] = row.Mark
+		w.Marks[row.Mark.GetId()] = row.Mark
 	case *watchv1.Row_Mail:
 		w.Mail[row.Mail.GetId()] = row.Mail
 	case *watchv1.Row_PullRequest:

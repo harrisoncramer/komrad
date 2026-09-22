@@ -145,9 +145,9 @@ func TestAgentRows(t *testing.T) {
 			world: assemble.World{
 				Agents: map[string]*agentv1.Agent{newer: agent(newer)},
 				Marks: map[string]*agentv1.Mark{
-					"a": {Mark: "a", AgentId: xptr.Ptr(newer)},
-					"w": {Mark: "w", WorkflowId: xptr.Ptr(flowID)},
-					"o": {Mark: "o", AgentId: xptr.Ptr(older)},
+					"mark-a": {Id: "mark-a", Mark: "a", AgentId: xptr.Ptr(newer)},
+					"mark-w": {Id: "mark-w", Mark: "w", WorkflowId: xptr.Ptr(flowID)},
+					"mark-o": {Id: "mark-o", Mark: "o", AgentId: xptr.Ptr(older)},
 				},
 			},
 			want: []*agentv1.AgentRow{
@@ -266,9 +266,9 @@ func TestMarks(t *testing.T) {
 	t.Parallel()
 
 	world := assemble.World{Marks: map[string]*agentv1.Mark{
-		"a": {Mark: "a", AgentId: xptr.Ptr(newer)},
-		"w": {Mark: "w", WorkflowId: xptr.Ptr(flowID)},
-		"x": {Mark: "x"},
+		"mark-a": {Id: "mark-a", Mark: "a", AgentId: xptr.Ptr(newer)},
+		"mark-w": {Id: "mark-w", Mark: "w", WorkflowId: xptr.Ptr(flowID)},
+		"mark-x": {Id: "mark-x", Mark: "x"},
 	}}
 
 	assert.Equal(t, map[string]string{newer: "a", flowID: "w"}, assemble.Marks(world))
@@ -294,7 +294,7 @@ func TestApplyOrdering(t *testing.T) {
 
 	var world assemble.World
 
-	world.Apply(put(&watchv1.Row{Row: &watchv1.Row_Mark{Mark: &agentv1.Mark{Mark: "a", AgentId: xptr.Ptr(newer)}}}))
+	world.Apply(put(&watchv1.Row{Row: &watchv1.Row_Mark{Mark: &agentv1.Mark{Id: "mark-a", Mark: "a", AgentId: xptr.Ptr(newer)}}}))
 	world.Apply(put(&watchv1.Row{Row: &watchv1.Row_Mail{Mail: mail("m1", newer, time.Minute)}}))
 	assert.Empty(t, assemble.AgentRows(world, now), "a mark and a mail whose agent is not held draw nothing")
 
@@ -321,7 +321,7 @@ func TestApplyArrivals(t *testing.T) {
 	assert.Nil(t, world.Apply(put(agentRow(agent(newer)))), "the same agent again does not")
 	moved := agent(newer, func(a *agentv1.Agent) { a.Branch = xptr.Ptr("elsewhere") })
 	assert.Equal(t, []string{newer}, world.Apply(put(agentRow(moved))), "an agent whose branch moved arrives again")
-	assert.Nil(t, world.Apply(put(&watchv1.Row{Row: &watchv1.Row_Mark{Mark: &agentv1.Mark{Mark: "a"}}})), "no other row arrives")
+	assert.Nil(t, world.Apply(put(&watchv1.Row{Row: &watchv1.Row_Mark{Mark: &agentv1.Mark{Id: "mark-a", Mark: "a"}}})), "no other row arrives")
 
 	snapshot := &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Snapshot{Snapshot: &watchv1.Snapshot{
 		Rows: []*watchv1.Row{agentRow(agent(older))},

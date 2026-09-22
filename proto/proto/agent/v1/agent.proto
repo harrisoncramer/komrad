@@ -398,6 +398,8 @@ message Mark {
   optional string agent_id = 2;
   // The workflow it jumps to, unset when it is on an agent.
   optional string workflow_id = 3;
+  // The mark's id.
+  string id = 4;
 }
 
 message ListMarksResponse {

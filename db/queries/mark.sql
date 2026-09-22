@@ -12,7 +12,7 @@ SELECT
 FROM
     marks
 WHERE
-    mark = ANY (@marks::text[])
+    id = ANY (@ids::uuid[])
 ORDER BY
     mark;
 

@@ -389,6 +389,7 @@ type Mark struct {
 	AgentID    *string
 	WorkflowID *string
 	CreatedAt  time.Time
+	ID         string
 }
 
 // A pull request weave has read from a forge, one row per forge identity and none owned by an agent. Finished is derived: merged when merged_at is set, closed when closed_at is set and merged_at is not, open otherwise.

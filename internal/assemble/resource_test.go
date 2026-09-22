@@ -47,7 +47,7 @@ func TestWorldIsTheResources(t *testing.T) {
 			require.NotNil(t, member, "Row has no member for %s", string(r.Message.Name()))
 
 			row := messageType.New()
-			row.Set(row.Descriptor().Fields().ByName(protoreflect.Name(r.Key)), protoreflect.ValueOfString("k"))
+			row.Set(row.Descriptor().Fields().ByName("id"), protoreflect.ValueOfString("k"))
 			wire := &watchv1.Row{}
 			wire.ProtoReflect().Set(member, protoreflect.ValueOfMessage(row))
 

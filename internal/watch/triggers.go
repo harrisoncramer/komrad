@@ -19,7 +19,6 @@ func Triggers() []Trigger {
 			Name:     "watch_notify",
 			Table:    resource.Table,
 			Function: "watch_notify",
-			Args:     []string{resource.Key},
 		})
 
 		for _, projection := range resource.Projects {
@@ -29,7 +28,7 @@ func Triggers() []Trigger {
 				trigger.Args = []string{resource.Table, projection.Column}
 			} else {
 				trigger.Function = "watch_project_lookup"
-				trigger.Args = []string{resource.Table, resource.Key, projection.ParentMatch, projection.Match, projection.ParentMustBeNull}
+				trigger.Args = []string{resource.Table, projection.ParentMatch, projection.Match, projection.ParentMustBeNull}
 			}
 			triggers = append(triggers, trigger)
 		}
