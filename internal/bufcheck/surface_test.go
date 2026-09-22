@@ -40,12 +40,13 @@ func TestSurfaces(t *testing.T) {
 		},
 		Spec: bufcheck.Spec,
 		ExpectedAnnotations: []checktest.ExpectedAnnotation{
-			expect("Undeclared", undeclaredMessage("Undeclared"), 35, 35),
-			expect("ModelOnly", modelOnlyMessage("ModelOnly"), 36, 44),
-			expect("Nameless", namelessMessage("Nameless"), 45, 51),
-			expect("Wordless", wordlessMessage("Wordless"), 52, 58),
-			expect("Silent", silentMessage("Silent"), 59, 64),
-			expect("Apologetic", apologeticMessage("Apologetic"), 65, 73),
+			expect("Undeclared", undeclaredMessage("Undeclared"), 36, 36),
+			expect("ModelOnly", modelOnlyMessage("ModelOnly"), 37, 45),
+			expect("Nameless", namelessMessage("Nameless"), 46, 52),
+			expect("Wordless", wordlessMessage("Wordless"), 53, 59),
+			expect("Silent", silentMessage("Silent"), 60, 65),
+			expect("Apologetic", apologeticMessage("Apologetic"), 66, 75),
+			expect("Roleless", rolelessMessage("Roleless"), 76, 83),
 		},
 	}.Run(t)
 }
@@ -58,6 +59,13 @@ func endColumnOf(start, end int) int {
 	}
 
 	return 3
+}
+
+func rolelessMessage(method string) string {
+	return fmt.Sprintf(
+		"%q is offered as a tool without naming the roles it is served to. A tool list is the largest fixed cost in an agent's context, so every tool says which of ROLE_IMPLEMENTER, ROLE_REVIEWER and ROLE_ORCHESTRATOR it is for; name all three where it is for all three.",
+		method,
+	)
 }
 
 func undeclaredMessage(method string) string {

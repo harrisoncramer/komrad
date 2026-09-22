@@ -40,7 +40,7 @@ Agents use the tools to change things, as they allow writes, and the general SQL
 
 ## Who is served what
 
-Every tool declares which agent roles it is offered to, in the same `surfaces` annotation that says whether it reaches the CLI at all, and a tool naming no role is offered to all of them. The caller names itself on every request through `X-Weave-Agent-Id`, so the server reads its role and hands it that role's tools.
+Every tool declares which agent roles it is offered to, in the same `surfaces` annotation that says whether it reaches the CLI at all. Naming them is required rather than defaulted, and `buf lint` refuses a tool that leaves them out, so a tool added later is a decision about who carries it rather than a silent addition to everybody. The caller names itself on every request through `X-Weave-Agent-Id`, so the server reads its role and hands it that role's tools.
 
 A reviewer gets the tools for reading work and writing a review, and not `request_review`. An implementer gets the tools for getting its own work read and answering what comes back, and not the review-writing half or the panel's administration: workflows, schedules, rebases, worktrees, forges, and the agent lifecycle. An orchestrator gets everything but the review-writing half and `request_review`, since it writes no code and reviews nothing.
 

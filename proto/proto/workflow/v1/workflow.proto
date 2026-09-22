@@ -224,6 +224,11 @@ service WorkflowService {
       mcp: true
       name: "list_workflows"
       description: "List the workflows agents are grouped into, in alphabetical order, with each one\x27s shared context, the working directory and flags its agents start from, and the scripts hooked to moments in their agents\x27 lives. Archived workflows are excluded unless archived is set, which lists those and only those. Returns one page; pass the response\x27s nextPageToken back as pagination.cursor for the next. The summary this returns by default holds only the opening of each workflow\x27s context, marked by contextTruncated; get_workflow returns one whole, and view VIEW_FULL returns every context on the page."
+      roles: [
+        ROLE_IMPLEMENTER,
+        ROLE_REVIEWER,
+        ROLE_ORCHESTRATOR
+      ]
     };
   }
   rpc GetWorkflow(GetWorkflowRequest) returns (GetWorkflowResponse) {
@@ -233,6 +238,11 @@ service WorkflowService {
       mcp: true
       name: "get_workflow"
       description: "Fetch one workflow by id. Returns not_found if no workflow has that id."
+      roles: [
+        ROLE_IMPLEMENTER,
+        ROLE_REVIEWER,
+        ROLE_ORCHESTRATOR
+      ]
     };
   }
   rpc CreateWorkflow(CreateWorkflowRequest) returns (CreateWorkflowResponse) {
