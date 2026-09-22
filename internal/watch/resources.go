@@ -180,8 +180,8 @@ type newResourceParams[R any, M proto.Message] struct {
 	Projects []Projection
 }
 
-// newResource is one entry of the list, which does not compile without its store, its key, its
-// renderer and its Row arm.
+// newResource is one entry of the list: the store its rows are read from, the key they are
+// held under, the renderer that draws them and the Row arm they fill.
 func newResource[R any, M proto.Message](params newResourceParams[R, M]) Resource {
 	var message M
 

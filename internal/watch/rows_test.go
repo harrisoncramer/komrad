@@ -23,6 +23,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 // fakeStore is one resource's store: every row its watched set holds, and the ones among the
@@ -103,8 +104,8 @@ func newStores() *fakeStores {
 	}
 }
 
-func newRows(stores *fakeStores) *Rows {
-	return NewRows(NewRowsParams{
+func newRowsParams(stores *fakeStores) NewRowsParams {
+	return NewRowsParams{
 		Agents:       stores.agents,
 		Workflows:    stores.workflows,
 		Schedules:    stores.schedules,
@@ -112,7 +113,11 @@ func newRows(stores *fakeStores) *Rows {
 		Mail:         stores.mail,
 		PullRequests: stores.pullRequests,
 		Now:          func() time.Time { return time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC) },
-	})
+	}
+}
+
+func newRows(stores *fakeStores) *Rows {
+	return NewRows(newRowsParams(stores))
 }
 
 // TestReadAnswersARowOrATombstoneForEveryTouchedKey pins the read-back: a touched key the
@@ -188,6 +193,54 @@ func TestSnapshotCarriesEveryWatchedSet(t *testing.T) {
 	keys := xslice.Map(snapshot, func(change Change) string { return change.Key })
 	assert.Equal(t, []string{"a0", "a1", "a2", "w0", "w1", "s0", "a", "m0", "p0"}, keys)
 	assert.Equal(t, watchv1.Resource_RESOURCE_MARK, snapshot[6].Resource, "a snapshot row says which resource it is")
+}
+
+// TestEveryResourceIsDeclaredWhole pins what an entry of the list has to carry: its table, its
+// key, its enum and its message, and a store, a row key, a renderer and a Row arm that draw one
+// row from end to end.
+func TestEveryResourceIsDeclaredWhole(t *testing.T) {
+	stores := newStores()
+	stores.agents.put(agentRow("k"))
+	stores.workflows.put(workflowstore.Workflow{ID: "k", Name: "flow"})
+	stores.schedules.put(schedulestore.Schedule{ID: "k", Name: "nightly"})
+	stores.marks.put(markstore.Mark{Mark: "k"})
+	stores.mail.put(mailstore.Mail{ID: "k"})
+	stores.pullRequests.put(pullrequeststore.PullRequest{ID: "k"})
+
+	declared := resources(newRowsParams(stores))
+	require.NotEmpty(t, declared)
+
+	for _, r := range declared {
+		t.Run(r.Table, func(t *testing.T) {
+			assert.NotEmpty(t, r.Key, "no key column")
+			assert.NotEqual(t, watchv1.Resource_RESOURCE_UNSPECIFIED, r.Enum, "no enum value")
+			require.NotNil(t, r.Message, "no message")
+			assert.NotNil(t, r.Message.Fields().ByName(protoreflect.Name(r.Key)), "the message has no %s field", r.Key)
+
+			snapshot, err := drawn(t, r, func() ([]Change, error) { return r.arm.snapshot(t.Context()) })
+			require.NoError(t, err)
+			require.Len(t, snapshot, 1)
+			assert.Equal(t, "k", snapshot[0].Key, "no row key")
+			assert.NotNil(t, snapshot[0].Row.GetRow(), "no renderer, or no Row arm to wrap it in")
+
+			held, err := drawn(t, r, func() (map[string]*watchv1.Row, error) { return r.arm.read(t.Context(), []string{"k"}) })
+			require.NoError(t, err)
+			assert.NotNil(t, held["k"], "the read-back answers no row for the key")
+		})
+	}
+}
+
+// drawn runs one of a resource's arms, failing the test by table when the entry left a piece out.
+func drawn[T any](t *testing.T, r Resource, run func() (T, error)) (T, error) {
+	t.Helper()
+
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			t.Fatalf("%s declares no store, row key, renderer or Row arm: %v", r.Table, recovered)
+		}
+	}()
+
+	return run()
 }
 
 // TestArmsAreTheResources pins the read-back to the resource list: one arm per resource, and
