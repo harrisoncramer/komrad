@@ -78,7 +78,7 @@ const (
 	RoleOrchestrator Role = Role(models.AgentRoleOrchestrator)
 )
 
-// Roles is every role an agent may hold, which a new one belongs in.
+// Roles is every role an agent may hold.
 var Roles = []Role{RoleImplementer, RoleReviewer, RoleOrchestrator}
 
 // orDefault is the role an agent that names none is given.

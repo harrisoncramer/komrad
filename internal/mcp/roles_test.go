@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// toolsFor is the tools a caller holding the role is served, by name.
-func toolsFor(t *testing.T, role annotationv1.Role) map[string]bool {
+// getToolsFor returns the tools a caller holding the role is served.
+func getToolsFor(t *testing.T, role annotationv1.Role) map[string]bool {
 	t.Helper()
 
 	served := map[string]bool{}
@@ -24,8 +24,7 @@ func toolsFor(t *testing.T, role annotationv1.Role) map[string]bool {
 	return served
 }
 
-// TestUnspecifiedIsServedEverything checks that a caller weave cannot place, such as a person
-// who registered the server by hand, loses nothing.
+// TestUnspecifiedIsServedEverything checks that a caller weave cannot place loses nothing.
 func TestUnspecifiedIsServedEverything(t *testing.T) {
 	every := map[string]bool{}
 	for exposed := range rpcapi.GetMethods() {
@@ -34,5 +33,5 @@ func TestUnspecifiedIsServedEverything(t *testing.T) {
 		}
 	}
 
-	assert.Equal(t, every, toolsFor(t, annotationv1.Role_ROLE_UNSPECIFIED))
+	assert.Equal(t, every, getToolsFor(t, annotationv1.Role_ROLE_UNSPECIFIED))
 }

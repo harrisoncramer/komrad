@@ -10,8 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestEveryRoleIsMapped fails when a role reaches the MCP server with nothing to place it by,
-// which would quietly serve that role every tool rather than the ones it uses.
+// TestEveryRoleIsMapped fails when a role reaches the MCP server with nothing to place it by.
 func TestEveryRoleIsMapped(t *testing.T) {
 	assert.Len(t, toolRoles, len(agentstore.Roles))
 

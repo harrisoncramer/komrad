@@ -12,9 +12,9 @@ extend google.protobuf.MethodOptions {
   Surfaces surfaces = 50003;
 }
 
-// Role is what an agent was launched to do, which decides the tools it is served.
+// Role is what an agent was launched to do.
 enum Role {
-  // No role, which every tool is offered to.
+  // No role, which is offered every tool.
   ROLE_UNSPECIFIED = 0;
   // An agent that lands work on a branch of its own.
   ROLE_IMPLEMENTER = 1;
@@ -45,8 +45,7 @@ message Surfaces {
   // idempotency_level says.
   optional bool idempotent = 6;
 
-  // Which agent roles the MCP server offers the tool to, empty meaning all of them. The CLI is
-  // unaffected, since a person running a command holds no role.
+  // Which agent roles the MCP server offers the tool to, empty meaning all of them.
   repeated Role roles = 8;
 
   // Why a surface is left off, in a sentence, so the next reader is told rather than left to

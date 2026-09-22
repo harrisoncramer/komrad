@@ -20,9 +20,8 @@ var toolRoles = map[agentstore.Role]annotationv1.Role{
 	agentstore.RoleOrchestrator: annotationv1.Role_ROLE_ORCHESTRATOR,
 }
 
-// roleOf places an agent making an MCP call so it is served the tools for the job it holds,
-// falling back to every tool for one weave cannot read.
-func roleOf(agents *agentstore.AgentStore, logger *slog.Logger) mcp.RoleOf {
+// newRoleOf reads the role of an agent making an MCP call, unspecified for one it cannot read.
+func newRoleOf(agents *agentstore.AgentStore, logger *slog.Logger) mcp.RoleOf {
 	return func(ctx context.Context, agentID string) annotationv1.Role {
 		agent, err := agents.GetByID(ctx, agentID)
 		if err != nil {

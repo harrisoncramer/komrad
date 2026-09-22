@@ -8,7 +8,7 @@
 //
 // A tool's annotation also says which roles it is offered to, and the caller names itself on
 // every request, so a reviewer is served the tools for reading work and an implementer the
-// tools for writing it rather than both being handed the whole surface to carry.
+// tools for writing it.
 package mcp
 
 import (
@@ -24,7 +24,7 @@ import (
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// servedRoles is the roles a server is built for, one of which every caller is served.
+// servedRoles is the roles a server is built for.
 var servedRoles = []annotationv1.Role{
 	annotationv1.Role_ROLE_UNSPECIFIED,
 	annotationv1.Role_ROLE_IMPLEMENTER,
@@ -32,13 +32,13 @@ var servedRoles = []annotationv1.Role{
 	annotationv1.Role_ROLE_ORCHESTRATOR,
 }
 
-// RoleOf answers what the agent was launched to do, ROLE_UNSPECIFIED for one weave cannot place.
+// RoleOf answers what the agent was launched to do.
 type RoleOf func(ctx context.Context, agentID string) annotationv1.Role
 
 type NewHandlerParams struct {
 	DB      *pgxpool.Pool
 	BaseURL string
-	// RoleOf places the caller so it is served that role's tools, every tool when it is nil.
+	// RoleOf places the caller, serving every tool when it is nil.
 	RoleOf RoleOf
 }
 
@@ -49,14 +49,15 @@ func NewHandler(params NewHandlerParams) (http.Handler, error) {
 	for _, role := range servedRoles {
 		server, err := newServer(params, role)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to build the tool server for %s: %w", role, err)
 		}
+
 		servers[role] = server
 	}
 
 	return mcpsdk.NewStreamableHTTPHandler(
 		func(request *http.Request) *mcpsdk.Server {
-			server, ok := servers[callerRole(request, params.RoleOf)]
+			server, ok := servers[getCallerRole(request, params.RoleOf)]
 			if !ok {
 				return servers[annotationv1.Role_ROLE_UNSPECIFIED]
 			}
@@ -67,8 +68,8 @@ func NewHandler(params NewHandlerParams) (http.Handler, error) {
 	), nil
 }
 
-// callerRole places whoever is making the request, unspecified for one naming no agent.
-func callerRole(request *http.Request, roleOf RoleOf) annotationv1.Role {
+// getCallerRole reads the role of whoever is making the request.
+func getCallerRole(request *http.Request, roleOf RoleOf) annotationv1.Role {
 	agentID := caller.FromHeader(request.Header).AgentID
 	if roleOf == nil || agentID == "" {
 		return annotationv1.Role_ROLE_UNSPECIFIED

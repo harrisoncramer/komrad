@@ -22,11 +22,11 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Role is what an agent was launched to do, which decides the tools it is served.
+// Role is what an agent was launched to do.
 type Role int32
 
 const (
-	// No role, which every tool is offered to.
+	// No role, which is offered every tool.
 	Role_ROLE_UNSPECIFIED Role = 0
 	// An agent that lands work on a branch of its own.
 	Role_ROLE_IMPLEMENTER Role = 1
@@ -98,8 +98,7 @@ type Surfaces struct {
 	// Whether calling twice lands where calling once does, overriding what the method's
 	// idempotency_level says.
 	Idempotent *bool `protobuf:"varint,6,opt,name=idempotent,proto3,oneof" json:"idempotent,omitempty"`
-	// Which agent roles the MCP server offers the tool to, empty meaning all of them. The CLI is
-	// unaffected, since a person running a command holds no role.
+	// Which agent roles the MCP server offers the tool to, empty meaning all of them.
 	Roles []Role `protobuf:"varint,8,rep,packed,name=roles,proto3,enum=annotation.v1.Role" json:"roles,omitempty"`
 	// Why a surface is left off, in a sentence, so the next reader is told rather than left to
 	// work it out. Required when either surface is off.

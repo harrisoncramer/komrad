@@ -130,7 +130,7 @@ func IsIdempotent(method protoreflect.MethodDescriptor, surfaces *annotationv1.S
 }
 
 // ServesRole reports whether a tool is offered to a caller holding the role, true whenever
-// either of them names none.
+// either names none.
 func ServesRole(surfaces *annotationv1.Surfaces, role annotationv1.Role) bool {
 	declared := surfaces.GetRoles()
 	if len(declared) == 0 || role == annotationv1.Role_ROLE_UNSPECIFIED {
