@@ -37,7 +37,7 @@ type Handler struct {
 	heartbeatAfter time.Duration
 }
 
-// NewHandler builds the handler over the broker every store publishes into.
+// NewHandler builds the handler over the broker the database's notifications reach.
 func NewHandler(params NewHandlerParams) *Handler {
 	after := params.HeartbeatAfter
 	if after == 0 {

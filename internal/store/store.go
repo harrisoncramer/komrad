@@ -32,7 +32,7 @@ var ErrNoTransaction = fail.Internal("this connection cannot open a transaction"
 var ErrNoReadOnlyURL = fail.Internal(
 	"no read-only database url: set WEAVE_READONLY_DATABASE_URL, or a DATABASE_URL one can be derived from")
 
-// The tables the panel's listings are keyed by, which a touch names.
+// The tables the panel's listings are keyed by, which a notification names.
 const (
 	TableAgents    = "agents"
 	TableWorkflows = "workflows"
@@ -204,7 +204,8 @@ func (c conn) Begin(ctx context.Context) (*Tx, error) {
 	return begin(ctx, beginner, c.Publisher)
 }
 
-// GetRawPool returns the underlying pgx pool, which only River's driver should reach for.
+// GetRawPool returns the underlying pgx pool, which only River's driver and the watch's
+// listener reach for.
 func (p *Pool) GetRawPool() *pgxpool.Pool {
 	return p.pool
 }

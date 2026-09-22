@@ -160,7 +160,9 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 		Periodic: srv.Periodic,
 	})
 
-	broker.Start(svc.watchRows)
+	if err := broker.Start(st.pool.GetRawPool(), svc.watchRows); err != nil {
+		return nil, err
+	}
 	srv.closers = append(srv.closers, broker.Close)
 
 	built = true

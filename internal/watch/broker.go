@@ -14,6 +14,8 @@ import (
 	agentv1 "weave/proto/gen/agent/v1"
 	schedulev1 "weave/proto/gen/schedule/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // subscriberBuffer is how many live events a watcher may fall behind before it is dropped.
@@ -28,6 +30,10 @@ const retryAfter = time.Second
 // ErrClosed says the broker has stopped and takes no more watchers.
 var ErrClosed = fail.Precondition("the watch broker is closed")
 
+// ErrNotListening says the broker has no connection hearing the database, so a snapshot taken
+// now could miss a change.
+var ErrNotListening = fail.Precondition("the watch is not listening to the database")
+
 // Kind is which listing a row is on.
 type Kind int
 
@@ -37,7 +43,7 @@ const (
 	KindSchedule
 )
 
-// kinds is the listing each table a store names belongs to.
+// kinds is the listing each table a notification names belongs to.
 var kinds = map[string]Kind{
 	store.TableAgents:    KindAgent,
 	store.TableWorkflows: KindWorkflow,
@@ -82,42 +88,79 @@ type NewBrokerParams struct {
 	Logger *slog.Logger
 }
 
-// Broker takes touches from every store, reads the rows back and fans them out to every open
-// subscription.
+// Broker hears from the database which rows moved, reads them back and fans them out to every
+// open subscription.
 type Broker struct {
 	logger *slog.Logger
+	pool   *pgxpool.Pool
 	reader Reader
 
-	// pendingMu guards what has been touched and not yet read.
+	// pendingMu guards what has been heard and not yet read.
 	pendingMu sync.Mutex
 	pending   map[Kind]map[string]struct{}
 	// wake has room for one poke, which is all the loop needs to know.
 	wake chan struct{}
 
-	// mu guards the subscribers and whether the broker has closed.
+	// mu guards the subscribers, whether a listener is up and whether the broker has closed.
 	mu          sync.Mutex
 	subscribers map[*Subscription]struct{}
+	listening   bool
+	listenerPID uint32
 	closed      bool
+
+	// stop ends the listener, and stopped is closed once it has let its connection go.
+	stop    context.CancelFunc
+	stopped chan struct{}
 }
 
-// NewBroker builds the broker, which takes touches at once and renders none of them until
-// Start names what reads the rows back.
+// NewBroker builds the broker, which hears nothing and renders nothing until Start.
 func NewBroker(params NewBrokerParams) *Broker {
 	logger := params.Logger
 	if logger == nil {
 		logger = slog.New(slog.DiscardHandler)
 	}
 
+	// A broker never started has no listener to wait for.
+	stopped := make(chan struct{})
+	close(stopped)
+
 	return &Broker{
 		logger:      logger,
 		pending:     map[Kind]map[string]struct{}{},
 		wake:        make(chan struct{}, 1),
 		subscribers: map[*Subscription]struct{}{},
+		stop:        func() {},
+		stopped:     stopped,
 	}
 }
 
-// Start begins rendering through the reader, which Close ends.
-func (b *Broker) Start(reader Reader) {
+// Start puts a connection from the pool on the watch channel and begins rendering through the
+// reader, both of which Close ends, failing when the database cannot be listened to.
+func (b *Broker) Start(pool *pgxpool.Pool, reader Reader) error {
+	b.pool = pool
+
+	ctx, cancel := context.WithCancel(context.Background())
+	conn, err := b.connect(ctx)
+	if err != nil {
+		cancel()
+
+		return err
+	}
+
+	b.serve(reader)
+	b.stop = cancel
+	b.stopped = make(chan struct{})
+	go func() {
+		defer close(b.stopped)
+
+		b.listen(ctx, conn)
+	}()
+
+	return nil
+}
+
+// serve begins rendering what is heard through the reader.
+func (b *Broker) serve(reader Reader) {
 	b.reader = reader
 
 	go func() {
@@ -133,7 +176,7 @@ func (b *Broker) Start(reader Reader) {
 func (b *Broker) Touch(table string, ids ...string) {
 	kind, ok := kinds[table]
 	if !ok {
-		b.logger.LogAttrs(context.Background(), slog.LevelWarn, "a touch named a table no listing is keyed by", slog.String(logging.WatchTable, table))
+		b.logger.LogAttrs(context.Background(), slog.LevelWarn, "a notification named a table no listing is keyed by", slog.String(logging.WatchTable, table))
 
 		return
 	}
@@ -230,6 +273,9 @@ func (b *Broker) Subscribe(ctx context.Context) (*Subscription, error) {
 	if b.closed {
 		return nil, ErrClosed
 	}
+	if !b.listening {
+		return nil, ErrNotListening
+	}
 
 	// Nothing renders while the lock is held, so no change can land between the snapshot and the
 	// subscription's place in the fan-out.
@@ -267,13 +313,13 @@ func (b *Broker) drop(subscription *Subscription) {
 	close(subscription.events)
 }
 
-// Close ends every subscription and stops the render loop, dropping whatever was touched and
-// not yet rendered.
+// Close ends every subscription, lets the listener's connection go and stops the render loop,
+// dropping whatever was heard and not yet rendered.
 func (b *Broker) Close() {
 	b.mu.Lock()
-	defer b.mu.Unlock()
-
 	if b.closed {
+		b.mu.Unlock()
+
 		return
 	}
 	b.closed = true
@@ -281,6 +327,12 @@ func (b *Broker) Close() {
 	for subscription := range b.subscribers {
 		b.drop(subscription)
 	}
+	b.mu.Unlock()
+
+	// The listener closes its own connection, and takes the lock to say so, so it is waited for
+	// with the lock let go.
+	b.stop()
+	<-b.stopped
 
 	b.pendingMu.Lock()
 	b.pending = nil

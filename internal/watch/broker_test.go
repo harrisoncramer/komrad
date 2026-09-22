@@ -62,11 +62,14 @@ func (f *fakeReader) getReads() []Touched {
 	return append([]Touched(nil), f.reads...)
 }
 
+// newTestBroker builds a broker rendering through the reader, with no listener behind it and
+// watchers let in as if one were up.
 func newTestBroker(t *testing.T, reader *fakeReader) *Broker {
 	t.Helper()
 
 	broker := NewBroker(NewBrokerParams{})
-	broker.Start(reader)
+	broker.serve(reader)
+	broker.up(0)
 	t.Cleanup(broker.Close)
 
 	return broker
@@ -218,7 +221,8 @@ func TestASlowWatcherIsDropped(t *testing.T) {
 func TestCloseEndsEverySubscription(t *testing.T) {
 	reader := &fakeReader{}
 	broker := NewBroker(NewBrokerParams{})
-	broker.Start(reader)
+	broker.serve(reader)
+	broker.up(0)
 
 	subscription, err := broker.Subscribe(t.Context())
 	require.NoError(t, err)
@@ -278,13 +282,34 @@ func TestClosingASubscriptionEndsItsStream(t *testing.T) {
 	require.Empty(t, reader.getReads(), "nothing is read once the last watcher has gone")
 }
 
-// TestABrokerNeverStartedStillCloses pins that a broker built and never started closes cleanly
-// and takes no watcher after.
+// TestABrokerNeverStartedStillCloses pins that a broker built and never started takes no
+// watcher, closes cleanly and takes none after.
 func TestABrokerNeverStartedStillCloses(t *testing.T) {
 	broker := NewBroker(NewBrokerParams{})
+
+	_, err := broker.Subscribe(t.Context())
+	require.ErrorIs(t, err, ErrNotListening)
+
 	broker.Touch(store.TableAgents, "a")
 	broker.Close()
 
-	_, err := broker.Subscribe(t.Context())
+	_, err = broker.Subscribe(t.Context())
 	require.ErrorIs(t, err, ErrClosed)
+}
+
+// TestHearReadsTheTableAndTheKey pins the payload a trigger raises being split at its one
+// space, with a table no listing is keyed by and a payload with no key both ignored.
+func TestHearReadsTheTableAndTheKey(t *testing.T) {
+	reader := &fakeReader{}
+	broker := newTestBroker(t, reader)
+
+	subscription, err := broker.Subscribe(t.Context())
+	require.NoError(t, err)
+
+	broker.hear("river_job 7")
+	broker.hear("agents")
+	broker.hear("agents a b")
+
+	require.Equal(t, "a b", receive(t, subscription).ID, "the key runs to the end of the payload")
+	require.Equal(t, []Touched{{Agents: []string{"a b"}}}, reader.getReads())
 }
