@@ -226,8 +226,8 @@ func (s *MailStore) ListByID(ctx context.Context, ids []string) ([]Mail, error) 
 	}), nil
 }
 
-// ListUnclaimed is every piece of mail no recipient has taken yet, expired or not.
-func (s *MailStore) ListUnclaimed(ctx context.Context) ([]Mail, error) {
+// List is every piece of mail no recipient has taken yet, expired or not.
+func (s *MailStore) List(ctx context.Context) ([]Mail, error) {
 	rows, err := s.queries.SnapshotMail(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the unclaimed mail: %w", err)

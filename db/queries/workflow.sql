@@ -21,7 +21,7 @@ ORDER BY
     w.id ASC
 LIMIT @lim;
 
--- name: ListWorkflows :many
+-- name: SnapshotWorkflows :many
 SELECT
     sqlc.embed(w),
     sqlc.embed(wc),
@@ -32,12 +32,13 @@ FROM
     JOIN workflow_provisioner_configs pc ON pc.id = w.provisioner_config_id
 WHERE
     w.archived_at IS NULL
+    AND w.deleting_at IS NULL
 ORDER BY
     LOWER(w.name)
     COLLATE "C" ASC,
     w.id ASC;
 
--- name: ListLiveWorkflowsByID :many
+-- name: ListWorkflowsByKey :many
 SELECT
     sqlc.embed(w),
     sqlc.embed(wc),

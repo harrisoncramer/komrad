@@ -68,14 +68,14 @@ func NewScheduleStore(db store.DBTX) *ScheduleStore {
 	return &ScheduleStore{queries: models.New(db)}
 }
 
-// List returns every live schedule, newest first.
+// List returns every schedule the live listing holds, newest first.
 func (s *ScheduleStore) List(ctx context.Context) ([]Schedule, error) {
-	rows, err := s.queries.ListSchedules(ctx)
+	rows, err := s.queries.SnapshotSchedules(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list schedules: %w", err)
 	}
 
-	schedules := xslice.Map(rows, func(row *models.ListSchedulesRow) Schedule {
+	schedules := xslice.Map(rows, func(row *models.SnapshotSchedulesRow) Schedule {
 		return scheduleFromRow(row.Schedule)
 	})
 
@@ -105,19 +105,19 @@ func (s *ScheduleStore) ListPage(ctx context.Context, limit int64, cursor *Curso
 	return schedules, nil
 }
 
-// ListLiveByID returns the schedules among the given ids that the live listing holds.
-func (s *ScheduleStore) ListLiveByID(ctx context.Context, ids []string) ([]Schedule, error) {
+// ListByKey returns the schedules among the given ids that the live listing holds.
+func (s *ScheduleStore) ListByKey(ctx context.Context, ids []string) ([]Schedule, error) {
 	storable := store.KeepIDs(ids)
 	if len(storable) == 0 {
 		return nil, nil
 	}
 
-	rows, err := s.queries.ListLiveSchedulesByID(ctx, storable)
+	rows, err := s.queries.ListSchedulesByKey(ctx, storable)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get %d schedules: %w", len(storable), err)
 	}
 
-	return xslice.Map(rows, func(row *models.ListLiveSchedulesByIDRow) Schedule {
+	return xslice.Map(rows, func(row *models.ListSchedulesByKeyRow) Schedule {
 		return scheduleFromRow(row.Schedule)
 	}), nil
 }

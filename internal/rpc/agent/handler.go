@@ -40,11 +40,12 @@ type agentLiveness interface {
 	IsAgentRunning(agent agentstore.Agent) bool
 }
 
-// rowReader is what an agent's row says, read once for a page and once for one agent.
+// rowReader is what an agent's row says, read for a page, for the agents a write moved, and
+// for one agent.
 type rowReader interface {
-	ListRows(ctx context.Context, page rowstore.Page) ([]rowstore.Row, error)
-	ListRowsByID(ctx context.Context, ids []string) ([]rowstore.Row, error)
-	GetRow(ctx context.Context, id string) (*rowstore.Row, error)
+	ListPage(ctx context.Context, page rowstore.Page) ([]rowstore.Row, error)
+	ListByKey(ctx context.Context, ids []string) ([]rowstore.Row, error)
+	Get(ctx context.Context, id string) (*rowstore.Row, error)
 }
 
 type agentLifecycle interface {
@@ -263,7 +264,7 @@ func (s *Handler) ListAgents(ctx context.Context, req *agentv1.ListAgentsRequest
 		return nil, rpcerr.From(err, "failed to read the pagination")
 	}
 
-	rows, err := s.rows.ListRows(ctx, rowstore.Page{
+	rows, err := s.rows.ListPage(ctx, rowstore.Page{
 		Limit:    paginator.Limit(),
 		Cursor:   paginator.Cursor(),
 		Archived: req.GetArchived(),
@@ -290,7 +291,7 @@ func (s *Handler) ListAgents(ctx context.Context, req *agentv1.ListAgentsRequest
 
 // renderOneAgent reads one agent's row and renders it.
 func (s *Handler) renderOneAgent(ctx context.Context, id string) (*agentv1.Agent, *fail.Error) {
-	row, err := s.rows.GetRow(ctx, id)
+	row, err := s.rows.Get(ctx, id)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to get agent")
 	}
@@ -300,7 +301,7 @@ func (s *Handler) renderOneAgent(ctx context.Context, id string) (*agentv1.Agent
 
 // GetAgent returns one agent by id, archived or not, assembled with what is drawn beside it.
 func (s *Handler) GetAgent(ctx context.Context, req *agentv1.GetAgentRequest) (*agentv1.GetAgentResponse, *fail.Error) {
-	row, err := s.rows.GetRow(ctx, req.GetId())
+	row, err := s.rows.Get(ctx, req.GetId())
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to get agent")
 	}
@@ -483,7 +484,7 @@ func (s *Handler) RestoreAgents(ctx context.Context, req *agentv1.RestoreAgentsR
 		return nil, rpcerr.From(err, "failed to restore agents")
 	}
 
-	rows, err := s.rows.ListRowsByID(ctx, agentstore.IDs(restored))
+	rows, err := s.rows.ListByKey(ctx, agentstore.IDs(restored))
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to get the restored agents")
 	}

@@ -35,7 +35,7 @@ func TestListByKeyIsTheUnclaimedSet(t *testing.T) {
 	require.NoError(t, err)
 	assert.ElementsMatch(t, []string{waiting, expired}, ids(listed), "expiry is the reader's clock, not the set")
 
-	unclaimed, err := st.ListUnclaimed(ctx)
+	unclaimed, err := st.List(ctx)
 	require.NoError(t, err)
 	assert.ElementsMatch(t, []string{waiting, expired}, ids(unclaimed))
 

@@ -1,11 +1,12 @@
-// Package row reads what an agent's row in the panel says, the agent and the facts about it
-// that other stores hold, in one query.
+// Package row reads what an agent's row in the panel says: the agent, and the facts projected
+// onto it from the tables that are attributes of an agent.
 package row
 
 import (
 	"context"
 	"fmt"
 
+	"weave/db"
 	"weave/db/models"
 	"weave/internal/store"
 	"weave/lib/xptr"
@@ -51,72 +52,100 @@ func NewRowStore(db store.DBTX) *RowStore {
 
 // ListPage returns one page of live or archived rows, newest first.
 func (s *RowStore) ListPage(ctx context.Context, page Page) ([]Row, error) {
-	params := models.ListAgentRowsParams{Lim: int32(page.Limit), Archived: page.Archived}
+	params := models.ListAgentsPageParams{Lim: int32(page.Limit), Archived: page.Archived}
 	if page.Cursor != nil {
 		params.CursorID = &page.Cursor.ID
 	}
 
-	rows, err := s.queries.ListAgentRows(ctx, params)
+	rows, err := s.queries.ListAgentsPage(ctx, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list a page of agent rows: %w", err)
 	}
 
-	return s.hydrateMetadata(ctx, rows)
+	return s.hydrate(ctx, rows)
 }
 
-// ListByID returns the live and archived rows of the given agents, newest first.
-func (s *RowStore) ListByID(ctx context.Context, ids []string) ([]Row, error) {
-	return s.listByID(ctx, ids, false)
+// List returns the rows of every agent the live listing holds, newest first.
+func (s *RowStore) List(ctx context.Context) ([]Row, error) {
+	rows, err := s.queries.SnapshotAgents(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the live agent rows: %w", err)
+	}
+
+	return s.hydrate(ctx, rows)
 }
 
-// ListLiveByID returns the rows of the given agents that the live listing holds, newest first.
-func (s *RowStore) ListLiveByID(ctx context.Context, ids []string) ([]Row, error) {
-	return s.listByID(ctx, ids, true)
-}
-
-func (s *RowStore) listByID(ctx context.Context, ids []string, liveOnly bool) ([]Row, error) {
+// ListByKey returns the rows of the given agents that the live listing holds, newest first.
+func (s *RowStore) ListByKey(ctx context.Context, ids []string) ([]Row, error) {
 	storable := store.KeepIDs(ids)
 	if len(storable) == 0 {
 		return nil, nil
 	}
 
-	rows, err := s.queries.ListAgentRows(ctx, models.ListAgentRowsParams{Ids: storable, LiveOnly: liveOnly, Lim: int32(len(storable))})
+	rows, err := s.queries.ListAgentsByKey(ctx, storable)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get the rows of %d agents: %w", len(storable), err)
 	}
 
-	return s.hydrateMetadata(ctx, rows)
+	return s.hydrate(ctx, rows)
 }
 
-func (s *RowStore) hydrateMetadata(ctx context.Context, rows []*models.ListAgentRowsRow) ([]Row, error) {
-	listed := xslice.Map(rows, fromRow)
+// Get returns one agent's row, archived or not, or ErrNotFound when no agent has that id.
+func (s *RowStore) Get(ctx context.Context, id string) (*Row, error) {
+	if !store.IsID(id) {
+		return nil, store.ErrNotFound.Saying("no agent with id %q", id)
+	}
 
-	metadata, err := s.agents.ListMetadata(ctx, xslice.Map(listed, func(row Row) string { return row.ID }))
+	row, err := s.queries.GetAgentByID(ctx, id)
+	if db.IsNoRows(err) {
+		return nil, store.ErrNotFound.Saying("no agent with id %q", id)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get the row of agent %q: %w", id, err)
+	}
+
+	rows, err := s.hydrate(ctx, []*models.Agent{row})
 	if err != nil {
 		return nil, err
 	}
 
-	for i := range listed {
-		listed[i].Metadata = metadata[listed[i].ID]
-	}
-
-	return listed, nil
+	return &rows[0], nil
 }
 
-func fromRow(row *models.ListAgentRowsRow) Row {
-	listed := Row{
-		Agent:          agentstore.FromRow(row.Agent),
-		FailedRun:      row.FailedRun,
-		FailedRunLog:   row.FailedRunLog,
-		LocalRounds:    row.LocalRounds,
-		RepositoryRead: row.RepositoryRead,
+// hydrate reads the facts and the metadata projected onto each agent.
+func (s *RowStore) hydrate(ctx context.Context, agents []*models.Agent) ([]Row, error) {
+	if len(agents) == 0 {
+		return nil, nil
 	}
-	if row.LocalVerdict.Valid {
-		listed.LocalVerdict = xptr.Ptr(reviewstore.Verdict(row.LocalVerdict.ReviewVerdict))
+	ids := xslice.Map(agents, func(agent *models.Agent) string { return agent.ID })
+
+	facts, err := s.queries.ListAgentFacts(ctx, ids)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the facts of %d agents: %w", len(ids), err)
 	}
-	if row.LocalReviewSha != nil {
-		listed.LocalReviewSHA = *row.LocalReviewSha
+	factsByID := xslice.KeyBy(facts, func(facts *models.ListAgentFactsRow) string { return facts.ID })
+
+	metadata, err := s.agents.ListMetadata(ctx, ids)
+	if err != nil {
+		return nil, err
 	}
 
-	return listed
+	return xslice.Map(agents, func(agent *models.Agent) Row {
+		row := Row{Agent: agentstore.FromRow(*agent)}
+		row.Metadata = metadata[agent.ID]
+		if facts, ok := factsByID[agent.ID]; ok {
+			row.FailedRun = facts.FailedRun
+			row.FailedRunLog = facts.FailedRunLog
+			row.LocalRounds = facts.LocalRounds
+			row.RepositoryRead = facts.RepositoryRead
+			if facts.LocalVerdict.Valid {
+				row.LocalVerdict = xptr.Ptr(reviewstore.Verdict(facts.LocalVerdict.ReviewVerdict))
+			}
+			if facts.LocalReviewSha != nil {
+				row.LocalReviewSHA = *facts.LocalReviewSha
+			}
+		}
+
+		return row
+	}), nil
 }

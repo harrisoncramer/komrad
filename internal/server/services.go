@@ -32,7 +32,6 @@ type services struct {
 	review          *reviews.ReviewService
 	schedule        *schedules.ScheduleService
 	liveness        *agents.PaneLiveness
-	rows            *agents.RowReader
 	rowWriter       *agents.RowWriter
 	launch          *agents.LaunchService
 	resume          *agents.ResumeService
@@ -263,13 +262,10 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		States:   st.agents,
 	}).WithFrameRecorder(frames.NewRecorder(params.Env.FramesDir(), newFrameSettings(loadConfig).get))
 
-	rowReader := agents.NewRowReader(agents.NewRowReaderParams{Rows: st.rows})
-
 	return &services{
 		loadConfig: loadConfig,
-		rows:       rowReader,
 		watchRows: rpcwatch.NewRows(rpcwatch.NewRowsParams{
-			Agents:       rowReader,
+			Agents:       st.rows,
 			Workflows:    st.workflows,
 			Schedules:    st.schedules,
 			Marks:        st.marks,

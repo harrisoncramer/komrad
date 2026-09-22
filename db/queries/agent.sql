@@ -8,7 +8,43 @@ WHERE
 ORDER BY
     s.id DESC;
 
--- name: ListAgentRows :many
+-- name: ListAgentsPage :many
+SELECT
+    *
+FROM
+    agents s
+WHERE (@archived::boolean) =(s.archived_at IS NOT NULL)
+    AND s.deleting_at IS NULL
+    AND (sqlc.narg('cursor_id')::uuid IS NULL
+        OR s.id < sqlc.narg('cursor_id'))
+ORDER BY
+    s.id DESC
+LIMIT @lim;
+
+-- name: SnapshotAgents :many
+SELECT
+    *
+FROM
+    agents s
+WHERE
+    s.archived_at IS NULL
+    AND s.deleting_at IS NULL
+ORDER BY
+    s.id DESC;
+
+-- name: ListAgentsByKey :many
+SELECT
+    *
+FROM
+    agents s
+WHERE
+    s.id = ANY (@ids::uuid[])
+    AND s.archived_at IS NULL
+    AND s.deleting_at IS NULL
+ORDER BY
+    s.id DESC;
+
+-- name: ListAgentFacts :many
 WITH failed AS (
     SELECT DISTINCT ON (r.agent_id)
         r.agent_id,
@@ -16,7 +52,8 @@ WITH failed AS (
     FROM
         agent_runs r
     WHERE
-        r.failure <> ''
+        r.agent_id = ANY (@ids::uuid[])
+        AND r.failure <> ''
         AND r.viewed_at IS NULL
     ORDER BY
         r.agent_id,
@@ -30,7 +67,8 @@ tallied AS (
     FROM
         reviews v
     WHERE
-        v.released_at IS NOT NULL
+        v.agent_id = ANY (@ids::uuid[])
+        AND v.released_at IS NOT NULL
     GROUP BY
         v.agent_id
 ),
@@ -43,7 +81,8 @@ concluded AS (
         reviews v
         JOIN review_rounds n ON n.id = v.round_id
     WHERE
-        v.released_at IS NOT NULL
+        v.agent_id = ANY (@ids::uuid[])
+        AND v.released_at IS NOT NULL
         AND v.verdict IN ('approved', 'changes_requested')
     ORDER BY
         v.agent_id,
@@ -51,7 +90,7 @@ concluded AS (
         v.released_at DESC
 )
 SELECT
-    sqlc.embed(s),
+    s.id,
 (f.agent_id IS NOT NULL)::boolean AS failed_run,
     f.log_number AS failed_run_log,
     COALESCE(t.rounds, 0)::int AS local_rounds,
@@ -70,19 +109,8 @@ SELECT
     LEFT JOIN failed f ON f.agent_id = s.id
     LEFT JOIN tallied t ON t.agent_id = s.id
     LEFT JOIN concluded c ON c.agent_id = s.id
-WHERE (sqlc.narg('ids')::uuid[] IS NULL
-    OR s.id = ANY (sqlc.narg('ids')::uuid[]))
-AND (NOT @live_only::boolean
-    OR (s.archived_at IS NULL
-        AND s.deleting_at IS NULL))
-AND (sqlc.narg('ids')::uuid[] IS NOT NULL
-    OR ((@archived::boolean) =(s.archived_at IS NOT NULL)
-        AND s.deleting_at IS NULL
-        AND (sqlc.narg('cursor_id')::uuid IS NULL
-            OR s.id < sqlc.narg('cursor_id'))))
-ORDER BY
-    s.id DESC
-LIMIT @lim;
+WHERE
+    s.id = ANY (@ids::uuid[]);
 
 -- name: ListArchiveSweepPage :many
 SELECT

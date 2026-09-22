@@ -213,7 +213,7 @@ func reviewService(t *testing.T) (agentv1weave.AgentServiceAdapter, *storetest.S
 
 	return agentv1weave.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{
 		Agents:       st.Agents,
-		Rows:         rowReaderOver(st),
+		Rows:         st.Rows,
 		Mail:         mailer,
 		Review:       review,
 		Marks:        markService(st),

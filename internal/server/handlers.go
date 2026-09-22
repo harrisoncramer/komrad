@@ -85,7 +85,7 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 	mux.Handle(agentv1connect.NewAgentServiceHandler(
 		agentv1weave.AgentServiceAdapter{Impl: rpcagent.NewHandler(rpcagent.NewHandlerParams{
 			Agents:       params.Stores.agents,
-			Rows:         params.Services.rows,
+			Rows:         params.Stores.rows,
 			Writer:       params.Services.rowWriter,
 			Transcripts:  params.Stores.transcripts,
 			Mail:         params.Services.mail,

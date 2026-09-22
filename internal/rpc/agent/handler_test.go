@@ -1258,7 +1258,7 @@ func TestSendMailPastTheExchangeLimitIsResourceExhausted(t *testing.T) {
 	liveness := &fakeLauncher{}
 	svc := agentv1weave.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{
 		Agents:      st.Agents,
-		Rows:        rowReaderOver(st),
+		Rows:        st.Rows,
 		Transcripts: st.Transcripts,
 		Mail:        mailer,
 		Liveness:    liveness,
@@ -2310,7 +2310,7 @@ func serviceWithLauncher(t *testing.T) (agentv1weave.AgentServiceAdapter, *store
 
 	return agentv1weave.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{
 		Agents:       st.Agents,
-		Rows:         rowReaderOver(st),
+		Rows:         st.Rows,
 		Writer:       rowWriterOver(st, &fakeReconciler{}),
 		Transcripts:  st.Transcripts,
 		Mail:         mailer,
@@ -2337,11 +2337,6 @@ func rowWriterOver(st *storetest.Stores, reconciler *fakeReconciler) *agents.Row
 	}
 
 	return agents.NewRowWriter(params)
-}
-
-// rowReaderOver is the real thing over the test stores.
-func rowReaderOver(st *storetest.Stores) *agents.RowReader {
-	return agents.NewRowReader(agents.NewRowReaderParams{Rows: st.Rows})
 }
 
 // TestEmptyArchiveQueuesTheSweep covers the request coming back once the work is queued, and a
@@ -2534,7 +2529,7 @@ func TestRestoreAgentsRendersEveryAgent(t *testing.T) {
 		return agent.GetName()
 	})
 
-	assert.Equal(t, []string{"auth", "api"}, names)
+	assert.ElementsMatch(t, []string{"auth", "api"}, names)
 }
 
 // TestListAgentsSummarisesThePrompt covers the default view holding back the bulk of a page,
