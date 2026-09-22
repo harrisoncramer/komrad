@@ -86,33 +86,3 @@ BEGIN
 END;
 $$
 LANGUAGE plpgsql;
-
-SELECT
-    attach_watch_trigger('agents', 'id');
-
-SELECT
-    attach_watch_trigger('workflows', 'id');
-
-SELECT
-    attach_watch_trigger('schedules', 'id');
-
-SELECT
-    attach_projection_trigger('agent_metadata', 'agents', 'agent_id');
-
-SELECT
-    attach_projection_trigger('agent_runs', 'agents', 'agent_id');
-
-SELECT
-    attach_projection_trigger('reviews', 'agents', 'agent_id');
-
-SELECT
-    attach_projection_trigger('review_rounds', 'agents', 'agent_id');
-
-SELECT
-    attach_projection_trigger('workflow_hooks', 'workflows', 'workflow_id');
-
-SELECT
-    attach_projection_lookup_trigger('workflow_configs', 'workflows', 'id', 'workflow_config_id', 'id', NULL);
-
-SELECT
-    attach_projection_lookup_trigger('workflow_provisioner_configs', 'workflows', 'id', 'provisioner_config_id', 'id', NULL);
