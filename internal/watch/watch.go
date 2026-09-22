@@ -8,4 +8,11 @@
 // Subscription opens with a snapshot of every row, and every Subscription is dropped when the
 // listener's connection is lost, so a watcher's picture is never older than the last change it
 // could have heard.
+//
+// Four words are worth keeping apart. State is what is true now, and Postgres holds it. A
+// notification is Postgres saying a row moved, carrying the table and the key and nothing else,
+// ephemeral and never authoritative on its own. An event in the durable sense, an append-only
+// log that can be replayed, is what weave deliberately does not keep. Reconciliation is how a
+// watcher converges on the state anyway: a snapshot on connect and another after every break,
+// so a notification that never arrives costs a reread rather than correctness.
 package watch

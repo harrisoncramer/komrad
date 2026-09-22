@@ -58,6 +58,8 @@ The service holds one connection open to hear those announcements. It reads each
 
 The panel holds one such stream open for its whole life. The stream opens with the whole picture, every row of every resource the panel draws, and then carries one row or one tombstone at a time. If the stream breaks for any reason, the service's hearing included, the panel opens it again and starts from the whole picture, so nothing that happened in the gap is missed. The panel never asks whether anything has changed; it is told.
 
+In the usual vocabulary this is state with notification and reconciliation rather than an event system: the database holds what is true, an announcement only says to go and look and carries no authority of its own, nothing is kept as a replayable log of what happened, and a watcher that misses an announcement is put right by the next whole picture rather than left wrong.
+
 ## The combined row
 
 The row a screen draws for an agent is more than the agent: it carries the mark on it, whether mail is waiting for it, and the pull requests opened from its branch with the current one's standing. Those are read off the agent, its workflow, the marks, the unclaimed mail and the pull requests, and joining them is defined once, as one function over the rows a caller holds.
