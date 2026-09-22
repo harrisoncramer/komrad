@@ -5,6 +5,7 @@ package agent.v1;
 import "agent/v1/mail.proto";
 import "agent/v1/review.proto";
 import "agent/v1/transcript.proto";
+import "annotation/v1/resource.proto";
 import "annotation/v1/tool.proto";
 import "buf/validate/validate.proto";
 import "google/protobuf/empty.proto";
@@ -48,6 +49,36 @@ enum AgentRole {
 }
 
 message Agent {
+  option (annotation.v1.resource) = {
+    table: "agents"
+    ignores: [
+      "updated_at",
+      "state_seen_at",
+      "nudged_at",
+      "nudge_sent_at"
+    ]
+    projects: [
+      {
+        table: "agent_metadata"
+        column: "agent_id"
+        ignores: ["updated_at"]
+      },
+      {
+        table: "agent_runs"
+        column: "agent_id"
+      },
+      {
+        table: "reviews"
+        column: "agent_id"
+        ignores: ["updated_at"]
+      },
+      {
+        table: "review_rounds"
+        column: "agent_id"
+      }
+    ]
+  };
+
   // The handle every other call names this agent by, and what mail is addressed to.
   string id = 1;
   // What the panel lists it as, which is also its tmux window name at launch.

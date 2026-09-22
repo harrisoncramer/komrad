@@ -953,7 +953,7 @@ var File_workflow_v1_workflow_proto protoreflect.FileDescriptor
 
 const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\n" +
-	"\x1aworkflow/v1/workflow.proto\x12\vworkflow.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\x1a\x12view/v1/view.proto\"\x85\x03\n" +
+	"\x1aworkflow/v1/workflow.proto\x12\vworkflow.v1\x1a\x1cannotation/v1/resource.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\x1a\x12view/v1/view.proto\"\xc2\x04\n" +
 	"\bWorkflow\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x18\n" +
@@ -967,7 +967,14 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	" \x01(\v2\x1b.workflow.v1.WorktreeConfigR\bworktree\x12/\n" +
 	"\x05hooks\x18\f \x03(\v2\x19.workflow.v1.WorkflowHookR\x05hooks\x12\x17\n" +
 	"\x04mark\x18\r \x01(\tH\x01R\x04mark\x88\x01\x01\x12+\n" +
-	"\x11context_truncated\x18\x0e \x01(\bR\x10contextTruncatedB\x0e\n" +
+	"\x11context_truncated\x18\x0e \x01(\bR\x10contextTruncated:\xba\x01\xa2\xb5\x18\xb5\x01\n" +
+	"\tworkflows\x1a\n" +
+	"updated_at\"6\n" +
+	"\x10workflow_configs\x1a\x12workflow_config_id\"\x02id2\n" +
+	"updated_at\"E\n" +
+	"\x1cworkflow_provisioner_configs\x1a\x15provisioner_config_id\"\x02id2\n" +
+	"updated_at\"\x1d\n" +
+	"\x0eworkflow_hooks\x12\vworkflow_idB\x0e\n" +
 	"\f_archived_atB\a\n" +
 	"\x05_markJ\x04\b\a\x10\bJ\x04\b\b\x10\t\"W\n" +
 	"\fWorkflowHook\x12\x1f\n" +

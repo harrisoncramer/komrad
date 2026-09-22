@@ -28,6 +28,10 @@ const (
 	OneServiceRuleID = "SERVICE_ONE_PER_FILE"
 	// SurfacesRuleID is the rule requiring a method to say who reaches it, consistently.
 	SurfacesRuleID = "RPC_DECLARES_SURFACES"
+	// ResourceRuleID is the rule holding a resource option to its shape.
+	ResourceRuleID = "RESOURCE_NAMES_ITS_TABLE"
+	// RowsRuleID is the rule holding the watch's Row oneof to the resource option.
+	RowsRuleID = "WATCH_ROW_PER_RESOURCE"
 )
 
 var (
@@ -78,6 +82,20 @@ var (
 				Purpose: "Checks that a file declares at most one service.",
 				Type:    check.RuleTypeLint,
 				Handler: checkutil.NewServiceRuleHandler(checkOneService, checkutil.WithoutImports()),
+			},
+			{
+				ID:      ResourceRuleID,
+				Default: true,
+				Purpose: "Checks that a message carrying (annotation.v1.resource) names its table, and that each projection names its table and one way of finding the resource: a column holding its key, or a lookup with a via.",
+				Type:    check.RuleTypeLint,
+				Handler: checkutil.NewMessageRuleHandler(checkResource, checkutil.WithoutImports()),
+			},
+			{
+				ID:      RowsRuleID,
+				Default: true,
+				Purpose: "Checks that every arm of watch.v1.Row is a message carrying (annotation.v1.resource), that every message carrying it has an arm, and that a skipped field number is reserved.",
+				Type:    check.RuleTypeLint,
+				Handler: check.RuleHandlerFunc(checkRows),
 			},
 			{
 				ID:      TypesUniqueRuleID,

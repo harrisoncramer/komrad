@@ -106,23 +106,31 @@ func (l *listings) lostCount() int {
 }
 
 func agentEvent(id, name string) *watchv1.WatchEvent {
-	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Agent{Agent: &agentv1.Agent{Id: id, Name: name}}}
+	return putEvent(&watchv1.Row{Row: &watchv1.Row_Agent{Agent: &agentv1.Agent{Id: id, Name: name}}})
 }
 
 func workflowEvent(id, name string) *watchv1.WatchEvent {
-	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Workflow{Workflow: &workflowv1.Workflow{Id: id, Name: name}}}
+	return putEvent(&watchv1.Row{Row: &watchv1.Row_Workflow{Workflow: &workflowv1.Workflow{Id: id, Name: name}}})
 }
 
 func scheduleEvent(id string) *watchv1.WatchEvent {
-	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Schedule{Schedule: &schedulev1.Schedule{Id: id}}}
+	return putEvent(&watchv1.Row{Row: &watchv1.Row_Schedule{Schedule: &schedulev1.Schedule{Id: id}}})
 }
 
-func deletedEvent(kind watchv1.RowKind, id string) *watchv1.WatchEvent {
-	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Deleted{Deleted: &watchv1.Deleted{Kind: kind, Id: id}}}
+func putEvent(row *watchv1.Row) *watchv1.WatchEvent {
+	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Put{Put: row}}
+}
+
+func deletedEvent(resource watchv1.Resource, key string) *watchv1.WatchEvent {
+	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Deleted{Deleted: &watchv1.Deleted{Resource: resource, Key: key}}}
 }
 
 func snapshotEvent(agents ...*agentv1.Agent) *watchv1.WatchEvent {
-	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Snapshot{Snapshot: &watchv1.Snapshot{Agents: agents}}}
+	rows := xslice.Map(agents, func(agent *agentv1.Agent) *watchv1.Row {
+		return &watchv1.Row{Row: &watchv1.Row_Agent{Agent: agent}}
+	})
+
+	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Snapshot{Snapshot: &watchv1.Snapshot{Rows: rows}}}
 }
 
 func heartbeatEvent() *watchv1.WatchEvent {
@@ -168,14 +176,10 @@ func ids(events []*watchv1.WatchEvent) []string {
 		switch row := event.GetEvent().(type) {
 		case *watchv1.WatchEvent_Snapshot:
 			return "snapshot"
-		case *watchv1.WatchEvent_Agent:
-			return row.Agent.GetId()
-		case *watchv1.WatchEvent_Workflow:
-			return row.Workflow.GetId()
-		case *watchv1.WatchEvent_Schedule:
-			return row.Schedule.GetId()
+		case *watchv1.WatchEvent_Put:
+			return rowID(row.Put)
 		case *watchv1.WatchEvent_Deleted:
-			return row.Deleted.GetId()
+			return row.Deleted.GetKey()
 		case *watchv1.WatchEvent_Heartbeat, nil:
 		}
 
@@ -193,7 +197,7 @@ func TestWatchHandsOverEventsInBatches(t *testing.T) {
 		snapshotEvent(&agentv1.Agent{Id: "01a", Name: "one"}),
 		agentEvent("01a", "renamed"),
 		heartbeatEvent(),
-		deletedEvent(watchv1.RowKind_ROW_KIND_AGENT, "01b"),
+		deletedEvent(watchv1.Resource_RESOURCE_AGENT, "01b"),
 		scheduleEvent("s1"),
 		workflowEvent("w1", "Alpha"),
 	}}}
@@ -245,4 +249,19 @@ func TestWatchGivesUpOnASilentStream(t *testing.T) {
 	require.Eventually(t, func() bool { return got.lostCount() >= 1 }, time.Second, 5*time.Millisecond)
 	require.Eventually(t, func() bool { return scripted.timesOpened() >= 2 }, time.Second, 5*time.Millisecond)
 	require.Eventually(t, func() bool { return got.count() >= 2 }, time.Second, 5*time.Millisecond)
+}
+
+// rowID is the id of whichever resource a row is.
+func rowID(row *watchv1.Row) string {
+	switch row := row.GetRow().(type) {
+	case *watchv1.Row_Agent:
+		return row.Agent.GetId()
+	case *watchv1.Row_Workflow:
+		return row.Workflow.GetId()
+	case *watchv1.Row_Schedule:
+		return row.Schedule.GetId()
+	case nil:
+	}
+
+	return ""
 }

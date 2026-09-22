@@ -17,50 +17,55 @@ message WatchRequest {}
 message WatchEvent {
   // What moved.
   oneof event {
-    // Every row the listings hold, sent once as the stream opens.
+    // Every row the watched sets hold, sent once as the stream opens.
     Snapshot snapshot = 1;
-    // One agent row as ListAgents renders it.
-    agent.v1.Agent agent = 2;
-    // One workflow as ListWorkflows renders it.
-    workflow.v1.Workflow workflow = 3;
-    // One schedule as ListSchedules renders it.
-    schedule.v1.Schedule schedule = 4;
-    // A row its listing no longer holds.
-    Deleted deleted = 5;
+    // One row as the panel should now hold it.
+    Row put = 2;
+    // A row its watched set no longer holds.
+    Deleted deleted = 3;
     // Nothing has changed for a while, and the stream is still alive.
-    Heartbeat heartbeat = 6;
+    Heartbeat heartbeat = 4;
   }
 }
 
-// Snapshot is the three listings whole, each in the order its list RPC answers.
+// Snapshot is every watched set whole, each in the order its list RPC answers.
 message Snapshot {
-  // Every live agent as ListAgents renders it.
-  repeated agent.v1.Agent agents = 1;
-  // Every live workflow as ListWorkflows renders it.
-  repeated workflow.v1.Workflow workflows = 2;
-  // Every schedule as ListSchedules renders it.
-  repeated schedule.v1.Schedule schedules = 3;
+  // Every row, one resource after another.
+  repeated Row rows = 1;
 }
 
-// RowKind is which listing a row is on.
-enum RowKind {
-  // No kind was set, which the service never sends.
-  ROW_KIND_UNSPECIFIED = 0;
-  // An agent on the live listing.
-  ROW_KIND_AGENT = 1;
-  // A workflow on the live listing.
-  ROW_KIND_WORKFLOW = 2;
-  // A schedule on the live listing.
-  ROW_KIND_SCHEDULE = 3;
+// Row is one row of a resource table, rendered the way its list RPC renders it.
+message Row {
+  // Which resource the row is.
+  oneof row {
+    // An agent as ListAgents renders it.
+    agent.v1.Agent agent = 1;
+    // A workflow as ListWorkflows renders it.
+    workflow.v1.Workflow workflow = 2;
+    // A schedule as ListSchedules renders it.
+    schedule.v1.Schedule schedule = 3;
+  }
 }
 
-// Deleted names a row its listing no longer holds, whether it was removed, archived or claimed
-// for a delete.
+// Resource is which table a row is of, one value per message carrying the resource option.
+enum Resource {
+  // No resource was set, which the service never sends.
+  RESOURCE_UNSPECIFIED = 0;
+  // A row of agents.
+  RESOURCE_AGENT = 1;
+  // A row of workflows.
+  RESOURCE_WORKFLOW = 2;
+  // A row of schedules.
+  RESOURCE_SCHEDULE = 3;
+}
+
+// Deleted names a row its watched set no longer holds, whether it was removed, archived or
+// claimed for a delete.
 message Deleted {
-  // Which listing the row was on.
-  RowKind kind = 1;
-  // The id of the row.
-  string id = 2;
+  // Which resource the row was of.
+  Resource resource = 1;
+  // The key of the row.
+  string key = 2;
 }
 
 // Heartbeat says the stream is alive while nothing has changed.

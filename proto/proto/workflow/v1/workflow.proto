@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package workflow.v1;
 
+import "annotation/v1/resource.proto";
 import "annotation/v1/tool.proto";
 import "buf/validate/validate.proto";
 import "google/protobuf/empty.proto";
@@ -12,6 +13,29 @@ import "view/v1/view.proto";
 option go_package = "weave/proto/gen/workflow/v1;workflowv1";
 
 message Workflow {
+  option (annotation.v1.resource) = {
+    table: "workflows"
+    ignores: ["updated_at"]
+    projects: [
+      {
+        table: "workflow_configs"
+        lookup: "workflow_config_id"
+        via: "id"
+        ignores: ["updated_at"]
+      },
+      {
+        table: "workflow_provisioner_configs"
+        lookup: "provisioner_config_id"
+        via: "id"
+        ignores: ["updated_at"]
+      },
+      {
+        table: "workflow_hooks"
+        column: "workflow_id"
+      }
+    ]
+  };
+
   // The handle every other call names this workflow by.
   string id = 1;
   // What the panel groups its agents under.

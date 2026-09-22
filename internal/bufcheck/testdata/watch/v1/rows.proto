@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package watch.v1;
+
+import "resource/v1/resource.proto";
+
+message Row {
+  reserved 3;
+  oneof row {
+    resource.v1.Kept kept = 1;
+    resource.v1.Bare bare = 2;
+    resource.v1.Late late = 5;
+  }
+}

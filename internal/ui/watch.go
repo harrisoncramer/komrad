@@ -52,32 +52,35 @@ func (l *listing) apply(event *watchv1.WatchEvent) {
 	switch row := event.GetEvent().(type) {
 	case *watchv1.WatchEvent_Snapshot:
 		l.agents, l.workflows, l.schedules, l.marks = nil, nil, nil, nil
-		for _, agent := range row.Snapshot.GetAgents() {
-			l.putAgent(agent)
+		for _, row := range row.Snapshot.GetRows() {
+			l.put(row)
 		}
-		for _, workflow := range row.Snapshot.GetWorkflows() {
-			l.putWorkflow(workflow)
-		}
-		for _, schedule := range row.Snapshot.GetSchedules() {
-			l.putSchedule(schedule)
-		}
-	case *watchv1.WatchEvent_Agent:
-		l.putAgent(row.Agent)
-	case *watchv1.WatchEvent_Workflow:
-		l.putWorkflow(row.Workflow)
-	case *watchv1.WatchEvent_Schedule:
-		l.putSchedule(row.Schedule)
+	case *watchv1.WatchEvent_Put:
+		l.put(row.Put)
 	case *watchv1.WatchEvent_Deleted:
-		switch row.Deleted.GetKind() {
-		case watchv1.RowKind_ROW_KIND_AGENT:
-			l.dropAgent(row.Deleted.GetId())
-		case watchv1.RowKind_ROW_KIND_WORKFLOW:
-			l.dropWorkflow(row.Deleted.GetId())
-		case watchv1.RowKind_ROW_KIND_SCHEDULE:
-			l.dropSchedule(row.Deleted.GetId())
-		case watchv1.RowKind_ROW_KIND_UNSPECIFIED:
+		switch row.Deleted.GetResource() {
+		case watchv1.Resource_RESOURCE_AGENT:
+			l.dropAgent(row.Deleted.GetKey())
+		case watchv1.Resource_RESOURCE_WORKFLOW:
+			l.dropWorkflow(row.Deleted.GetKey())
+		case watchv1.Resource_RESOURCE_SCHEDULE:
+			l.dropSchedule(row.Deleted.GetKey())
+		case watchv1.Resource_RESOURCE_UNSPECIFIED:
 		}
 	case *watchv1.WatchEvent_Heartbeat, nil:
+	}
+}
+
+// put replaces the row of whichever listing the row is on.
+func (l *listing) put(row *watchv1.Row) {
+	switch row := row.GetRow().(type) {
+	case *watchv1.Row_Agent:
+		l.putAgent(row.Agent)
+	case *watchv1.Row_Workflow:
+		l.putWorkflow(row.Workflow)
+	case *watchv1.Row_Schedule:
+		l.putSchedule(row.Schedule)
+	case nil:
 	}
 }
 

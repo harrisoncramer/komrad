@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package resource.v1;
+
+import "annotation/v1/resource.proto";
+
+message Unrowed {
+  option (annotation.v1.resource) = {table: "unrowed"};
+  string id = 1;
+}
