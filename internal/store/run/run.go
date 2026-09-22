@@ -13,12 +13,11 @@ import (
 
 type RunStore struct {
 	queries *models.Queries
-	db      store.DBTX
 }
 
 // NewRunStore builds a run store over db, either the pool or a transaction.
 func NewRunStore(db store.DBTX) *RunStore {
-	return &RunStore{queries: models.New(db), db: db}
+	return &RunStore{queries: models.New(db)}
 }
 
 type BeginParams struct {
@@ -44,8 +43,6 @@ func (s *RunStore) Begin(ctx context.Context, params BeginParams) (string, error
 		return "", fmt.Errorf("failed to record a run of %q for agent %q: %w", params.Script, params.AgentID, err)
 	}
 
-	s.db.Touch(store.TableAgents, params.AgentID)
-
 	return id, nil
 }
 
@@ -61,16 +58,13 @@ func (s *RunStore) Finish(ctx context.Context, params FinishParams) error {
 		return nil
 	}
 
-	agents, err := s.queries.FinishAgentRun(ctx, models.FinishAgentRunParams{
+	if err := s.queries.FinishAgentRun(ctx, models.FinishAgentRunParams{
 		ID:       params.ID,
 		ExitCode: params.ExitCode,
 		Failure:  params.Failure,
-	})
-	if err != nil {
+	}); err != nil {
 		return fmt.Errorf("failed to close the record of run %q: %w", params.ID, err)
 	}
-
-	s.db.Touch(store.TableAgents, agents...)
 
 	return nil
 }
@@ -81,12 +75,9 @@ func (s *RunStore) Abandon(ctx context.Context, id string) error {
 		return nil
 	}
 
-	agents, err := s.queries.DeleteAgentRun(ctx, id)
-	if err != nil {
+	if err := s.queries.DeleteAgentRun(ctx, id); err != nil {
 		return fmt.Errorf("failed to drop the record of run %q: %w", id, err)
 	}
-
-	s.db.Touch(store.TableAgents, agents...)
 
 	return nil
 }
@@ -104,8 +95,6 @@ func (s *RunStore) Prune(ctx context.Context, agentID string, keep int) error {
 		return fmt.Errorf("failed to prune the runs of agent %q: %w", agentID, err)
 	}
 
-	s.db.Touch(store.TableAgents, agentID)
-
 	return nil
 }
 
@@ -118,8 +107,6 @@ func (s *RunStore) MarkRead(ctx context.Context, agentID string) error {
 	if err := s.queries.MarkAgentRunsRead(ctx, agentID); err != nil {
 		return fmt.Errorf("failed to claim the failed runs of agent %q: %w", agentID, err)
 	}
-
-	s.db.Touch(store.TableAgents, agentID)
 
 	return nil
 }

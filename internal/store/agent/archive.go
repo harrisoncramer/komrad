@@ -29,8 +29,6 @@ func (s *AgentStore) ArchiveIfUnchanged(ctx context.Context, params ArchiveIfUnc
 		return false, fmt.Errorf("failed to archive id %q: %w", params.ID, err)
 	}
 
-	s.db.Touch(store.TableAgents, params.ID)
-
 	return len(archived) > 0, nil
 }
 
@@ -49,12 +47,9 @@ func (s *AgentStore) Archive(ctx context.Context, ids []string) ([]AgentPane, er
 		return nil, fmt.Errorf("failed to archive %d agents: %w", len(storable), err)
 	}
 
-	panes := xslice.Map(archived, func(row *models.MarkAgentsArchivedRow) AgentPane {
+	return xslice.Map(archived, func(row *models.MarkAgentsArchivedRow) AgentPane {
 		return AgentPane{AgentID: row.ID, Pane: row.PaneID}
-	})
-	s.db.Touch(store.TableAgents, paneAgentIDs(panes)...)
-
-	return panes, nil
+	}), nil
 }
 
 // RestampArchived moves the stamp of agents that are already archived to now.
@@ -67,8 +62,6 @@ func (s *AgentStore) RestampArchived(ctx context.Context, ids []string) error {
 	if err := s.queries.RestampAgentsArchived(ctx, storable); err != nil {
 		return fmt.Errorf("failed to restamp %d archived agents: %w", len(storable), err)
 	}
-
-	s.db.Touch(store.TableAgents, storable...)
 
 	return nil
 }
@@ -84,8 +77,6 @@ func (s *AgentStore) Restore(ctx context.Context, ids []string) error {
 		return fmt.Errorf("failed to restore %d agents: %w", len(storable), err)
 	}
 
-	s.db.Touch(store.TableAgents, storable...)
-
 	return nil
 }
 
@@ -97,27 +88,16 @@ func (s *AgentStore) ArchiveWorkflowAgents(ctx context.Context, workflowID strin
 		return nil, fmt.Errorf("failed to archive agents of workflow %q: %w", workflowID, err)
 	}
 
-	panes := xslice.Map(archived, func(row *models.MarkWorkflowAgentsArchivedRow) AgentPane {
+	return xslice.Map(archived, func(row *models.MarkWorkflowAgentsArchivedRow) AgentPane {
 		return AgentPane{AgentID: row.ID, Pane: row.PaneID}
-	})
-	s.db.Touch(store.TableAgents, paneAgentIDs(panes)...)
-
-	return panes, nil
+	}), nil
 }
 
 // RestoreWorkflowAgents restores every archived agent in a workflow.
 func (s *AgentStore) RestoreWorkflowAgents(ctx context.Context, workflowID string) error {
-	restored, err := s.queries.MarkWorkflowAgentsRestored(ctx, workflowID)
-	if err != nil {
+	if err := s.queries.MarkWorkflowAgentsRestored(ctx, workflowID); err != nil {
 		return fmt.Errorf("failed to restore agents of workflow %q: %w", workflowID, err)
 	}
 
-	s.db.Touch(store.TableAgents, restored...)
-
 	return nil
-}
-
-// paneAgentIDs is the id of each agent named, in the order given.
-func paneAgentIDs(panes []AgentPane) []string {
-	return xslice.Map(panes, func(pane AgentPane) string { return pane.AgentID })
 }

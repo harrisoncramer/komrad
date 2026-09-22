@@ -99,13 +99,13 @@ func TestTouchesPileUpBehindOneRead(t *testing.T) {
 	subscription, err := broker.Subscribe(t.Context())
 	require.NoError(t, err)
 
-	broker.Touch(store.TableAgents, "held")
+	broker.touch(store.TableAgents, "held")
 	require.Eventually(t, func() bool { return len(reader.getReads()) == 1 }, time.Second, time.Millisecond)
 
-	broker.Touch(store.TableAgents, "b", "a")
-	broker.Touch(store.TableAgents, "a")
-	broker.Touch(store.TableWorkflows, "w")
-	broker.Touch(store.TableSchedules, "s")
+	broker.touch(store.TableAgents, "b", "a")
+	broker.touch(store.TableAgents, "a")
+	broker.touch(store.TableWorkflows, "w")
+	broker.touch(store.TableSchedules, "s")
 	close(reader.held)
 
 	require.Equal(t, "held", receive(t, subscription).ID)
@@ -122,7 +122,7 @@ func TestNothingIsReadWithoutAWatcher(t *testing.T) {
 	reader := &fakeReader{}
 	broker := newTestBroker(t, reader)
 
-	broker.Touch(store.TableAgents, "a")
+	broker.touch(store.TableAgents, "a")
 	time.Sleep(settle)
 
 	require.Empty(t, reader.getReads())
@@ -138,7 +138,7 @@ func TestSubscriptionOpensWithTheSnapshot(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, first.Snapshot().Agents)
 
-	broker.Touch(store.TableAgents, "a")
+	broker.touch(store.TableAgents, "a")
 	require.Equal(t, "a", receive(t, first).ID)
 
 	reader.mu.Lock()
@@ -153,7 +153,7 @@ func TestSubscriptionOpensWithTheSnapshot(t *testing.T) {
 	require.Len(t, second.Snapshot().Agents, 1)
 	require.Len(t, second.Snapshot().Workflows, 1)
 
-	broker.Touch(store.TableAgents, "a")
+	broker.touch(store.TableAgents, "a")
 	require.Equal(t, "a", receive(t, first).ID)
 	require.Equal(t, "a", receive(t, second).ID)
 }
@@ -168,13 +168,13 @@ func TestATouchDuringTheSnapshotLandsAfterIt(t *testing.T) {
 	require.NoError(t, err)
 
 	// The render is held part way, and a second watcher subscribes behind it.
-	broker.Touch(store.TableAgents, "a")
+	broker.touch(store.TableAgents, "a")
 	require.Eventually(t, func() bool { return len(reader.getReads()) == 1 }, time.Second, time.Millisecond)
 
 	second, err := broker.Subscribe(t.Context())
 	require.NoError(t, err)
 
-	broker.Touch(store.TableAgents, "b")
+	broker.touch(store.TableAgents, "b")
 	close(reader.held)
 
 	require.Equal(t, "a", receive(t, first).ID)
@@ -198,7 +198,7 @@ func TestASlowWatcherIsDropped(t *testing.T) {
 		ids[i] = string(rune('a' + i))
 	}
 	for range subscriberBuffer/len(ids) + 2 {
-		broker.Touch(store.TableAgents, ids...)
+		broker.touch(store.TableAgents, ids...)
 		time.Sleep(settle)
 	}
 
@@ -236,7 +236,7 @@ func TestCloseEndsEverySubscription(t *testing.T) {
 	_, err = broker.Subscribe(t.Context())
 	require.ErrorIs(t, err, ErrClosed)
 
-	broker.Touch(store.TableAgents, "a")
+	broker.touch(store.TableAgents, "a")
 	subscription.Close()
 }
 
@@ -249,14 +249,14 @@ func TestAFailedReadIsRetriedWithTheNextOne(t *testing.T) {
 	subscription, err := broker.Subscribe(t.Context())
 	require.NoError(t, err)
 
-	broker.Touch(store.TableAgents, "a")
+	broker.touch(store.TableAgents, "a")
 	require.Eventually(t, func() bool { return len(reader.getReads()) == 1 }, time.Second, time.Millisecond)
 
 	reader.mu.Lock()
 	reader.readErr = nil
 	reader.mu.Unlock()
 
-	broker.Touch(store.TableAgents, "b")
+	broker.touch(store.TableAgents, "b")
 	assert.Equal(t, "a", receive(t, subscription).ID, "the touch the failed read lost comes back")
 	assert.Equal(t, "b", receive(t, subscription).ID)
 	assert.Equal(t, Touched{Agents: []string{"a", "b"}}, reader.getReads()[1], "one read serves both")
@@ -277,7 +277,7 @@ func TestClosingASubscriptionEndsItsStream(t *testing.T) {
 	_, open := <-subscription.Events()
 	require.False(t, open)
 
-	broker.Touch(store.TableAgents, "a")
+	broker.touch(store.TableAgents, "a")
 	time.Sleep(settle)
 	require.Empty(t, reader.getReads(), "nothing is read once the last watcher has gone")
 }
@@ -290,7 +290,7 @@ func TestABrokerNeverStartedStillCloses(t *testing.T) {
 	_, err := broker.Subscribe(t.Context())
 	require.ErrorIs(t, err, ErrNotListening)
 
-	broker.Touch(store.TableAgents, "a")
+	broker.touch(store.TableAgents, "a")
 	broker.Close()
 
 	_, err = broker.Subscribe(t.Context())

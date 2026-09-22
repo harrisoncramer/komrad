@@ -25,8 +25,6 @@ func (s *AgentStore) ClaimNudge(ctx context.Context, id string, retryAfter time.
 		return false, fmt.Errorf("failed to claim the nudge for agent %q: %w", id, err)
 	}
 
-	s.db.Touch(store.TableAgents, id)
-
 	return len(claimed) > 0, nil
 }
 
@@ -40,8 +38,6 @@ func (s *AgentStore) SetNudgeSent(ctx context.Context, id string) error {
 	if err := s.queries.SetAgentNudgeSentByID(ctx, id); err != nil {
 		return fmt.Errorf("failed to record the nudge sent to agent %q: %w", id, err)
 	}
-
-	s.db.Touch(store.TableAgents, id)
 
 	return nil
 }
@@ -58,8 +54,6 @@ func (s *AgentStore) SetStateByID(ctx context.Context, id string, state State) e
 		return fmt.Errorf("failed to set state for id %q: %w", id, err)
 	}
 
-	s.db.Touch(store.TableAgents, id)
-
 	return nil
 }
 
@@ -73,8 +67,6 @@ func (s *AgentStore) SetTurnEnded(ctx context.Context, id string) error {
 	if err := s.queries.SetAgentTurnEndedByID(ctx, id); err != nil {
 		return fmt.Errorf("failed to set the turn end for id %q: %w", id, err)
 	}
-
-	s.db.Touch(store.TableAgents, id)
 
 	return nil
 }
@@ -91,8 +83,6 @@ func (s *AgentStore) SetReportedReason(ctx context.Context, id, reason string) e
 		return fmt.Errorf("failed to set the reported reason for id %q: %w", id, err)
 	}
 
-	s.db.Touch(store.TableAgents, id)
-
 	return nil
 }
 
@@ -108,8 +98,6 @@ func (s *AgentStore) MarkSettingUpIfLive(ctx context.Context, id string) (bool, 
 		return false, fmt.Errorf("failed to mark id %q as setting up: %w", id, err)
 	}
 
-	s.db.Touch(store.TableAgents, id)
-
 	return len(marked) > 0, nil
 }
 
@@ -124,8 +112,6 @@ func (s *AgentStore) MarkSettingUpIfFailedToCreate(ctx context.Context, id strin
 	if err != nil {
 		return false, fmt.Errorf("failed to mark id %q as setting up for retry: %w", id, err)
 	}
-
-	s.db.Touch(store.TableAgents, id)
 
 	return len(marked) > 0, nil
 }
@@ -159,8 +145,6 @@ func (s *AgentStore) SetCheckout(ctx context.Context, id string, params SetCheck
 		return fmt.Errorf("failed to set the checkout for id %q: %w", id, err)
 	}
 
-	s.db.Touch(store.TableAgents, id)
-
 	return nil
 }
 
@@ -175,8 +159,6 @@ func (s *AgentStore) SetSequenceInProgressByID(ctx context.Context, id string, i
 		return fmt.Errorf("failed to set sequence_in_progress for id %q: %w", id, err)
 	}
 
-	s.db.Touch(store.TableAgents, id)
-
 	return nil
 }
 
@@ -190,8 +172,6 @@ func (s *AgentStore) SetInterruptedAtByID(ctx context.Context, id string, at *ti
 	if err := s.queries.SetAgentInterruptedAtByID(ctx, models.SetAgentInterruptedAtByIDParams{ID: id, InterruptedAt: at}); err != nil {
 		return fmt.Errorf("failed to set interrupted_at for id %q: %w", id, err)
 	}
-
-	s.db.Touch(store.TableAgents, id)
 
 	return nil
 }
@@ -210,8 +190,6 @@ func (s *AgentStore) Hold(ctx context.Context, params HoldParams) (bool, error) 
 	if err != nil {
 		return false, fmt.Errorf("failed to hold agent %q: %w", params.ID, err)
 	}
-
-	s.db.Touch(store.TableAgents, params.ID)
 
 	return len(held) > 0, nil
 }
@@ -234,8 +212,6 @@ func (s *AgentStore) Release(ctx context.Context, id string) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to release agent %q: %w", id, err)
 	}
-
-	s.db.Touch(store.TableAgents, id)
 
 	return len(released) > 0, nil
 }
@@ -263,8 +239,6 @@ func (s *AgentStore) SetHarness(ctx context.Context, params SetHarnessParams) er
 		return fmt.Errorf("failed to set the harness for id %q: %w", params.ID, err)
 	}
 
-	s.db.Touch(store.TableAgents, params.ID)
-
 	return nil
 }
 
@@ -277,8 +251,6 @@ func (s *AgentStore) SetSessionID(ctx context.Context, id, sessionID string) err
 	if err := s.queries.SetAgentSessionID(ctx, models.SetAgentSessionIDParams{ID: id, SessionID: sessionID}); err != nil {
 		return fmt.Errorf("failed to set the session for id %q: %w", id, err)
 	}
-
-	s.db.Touch(store.TableAgents, id)
 
 	return nil
 }
@@ -293,8 +265,6 @@ func (s *AgentStore) SetAlive(ctx context.Context, ids []string, alive bool) err
 	if err := s.queries.SetAgentsAlive(ctx, models.SetAgentsAliveParams{Ids: storable, Alive: alive}); err != nil {
 		return fmt.Errorf("failed to set %d agents alive=%t: %w", len(storable), alive, err)
 	}
-
-	s.db.Touch(store.TableAgents, storable...)
 
 	return nil
 }
@@ -313,8 +283,6 @@ func (s *AgentStore) SetTreeStanding(ctx context.Context, id string, standing gi
 	}); err != nil {
 		return fmt.Errorf("failed to set the tree standing for id %q: %w", id, err)
 	}
-
-	s.db.Touch(store.TableAgents, id)
 
 	return nil
 }
@@ -344,8 +312,6 @@ func (s *AgentStore) ForgetPane(ctx context.Context, params ForgetPaneParams) (b
 	if err != nil {
 		return false, fmt.Errorf("failed to forget the pane for id %q: %w", params.ID, err)
 	}
-
-	s.db.Touch(store.TableAgents, params.ID)
 
 	return len(forgotten) > 0, nil
 }

@@ -12,6 +12,8 @@ import (
 	"weave/internal/git"
 	"weave/internal/store"
 	"weave/lib/xslice"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // StateSeenBound is how long a reading of an agent's state stands before it is unconfirmed.
@@ -184,7 +186,7 @@ func NewAgentStore(db store.DBTX) *AgentStore {
 }
 
 type txBeginner interface {
-	Begin(ctx context.Context) (*store.Tx, error)
+	Begin(ctx context.Context) (pgx.Tx, error)
 }
 
 // AgentPane names a pane and the agent that owns it.

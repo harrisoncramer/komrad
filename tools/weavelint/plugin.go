@@ -9,9 +9,9 @@
 // The sentinel, handler, one-line and comment rules read syntax alone, so for them a name is only a name: a package
 // aliased to errors reads as the standard library's, and one brought in by a dot import does not
 // read as anything at all. The secret rule needs to know a method's receiver, the conversion
-// rule where a result type is declared, the mapping rule what a loop ranges over and the touch
-// rule which sqlc query a call runs, so the plugin loads types for every package it runs over,
-// which the other linters in the pass already pay for.
+// rule where a result type is declared and the mapping rule what a loop ranges over, so the
+// plugin loads types for every package it runs over, which the other linters in the pass
+// already pay for.
 package weavelint
 
 import (
@@ -84,11 +84,6 @@ func (l *linter) BuildAnalyzers() ([]*analysis.Analyzer, error) {
 		return nil, err
 	}
 
-	touches, err := newStoreTouch(l.config.StoreTouch)
-	if err != nil {
-		return nil, err
-	}
-
 	return []*analysis.Analyzer{
 		sentinels,
 		inline,
@@ -101,7 +96,6 @@ func (l *linter) BuildAnalyzers() ([]*analysis.Analyzer, error) {
 		comments,
 		mappings,
 		constructors,
-		touches,
 	}, nil
 }
 

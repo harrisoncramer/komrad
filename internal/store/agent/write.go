@@ -44,8 +44,6 @@ func (s *AgentStore) Create(ctx context.Context, agent Agent) error {
 		return fmt.Errorf("failed to insert agent %q: %w", agent.Name, err)
 	}
 
-	s.db.Touch(store.TableAgents, agent.ID)
-
 	return nil
 }
 
@@ -63,8 +61,6 @@ func (s *AgentStore) Update(ctx context.Context, agent Agent) error {
 	}); err != nil {
 		return fmt.Errorf("failed to update agent %q: %w", agent.Name, err)
 	}
-
-	s.db.Touch(store.TableAgents, agent.ID)
 
 	return nil
 }
@@ -90,8 +86,6 @@ func (s *AgentStore) UpdateIfLive(ctx context.Context, agent Agent) (bool, error
 		return false, fmt.Errorf("failed to update agent %q: %w", agent.Name, err)
 	}
 
-	s.db.Touch(store.TableAgents, agent.ID)
-
 	return len(updated) > 0, nil
 }
 
@@ -107,12 +101,9 @@ func (s *AgentStore) Delete(ctx context.Context, ids []string) ([]AgentPane, err
 		return nil, fmt.Errorf("failed to delete %d agents: %w", len(storable), err)
 	}
 
-	panes := xslice.Map(deleted, func(row *models.DeleteAgentsByIDRow) AgentPane {
+	return xslice.Map(deleted, func(row *models.DeleteAgentsByIDRow) AgentPane {
 		return AgentPane{AgentID: row.ID, Pane: row.PaneID}
-	})
-	s.db.Touch(store.TableAgents, paneAgentIDs(panes)...)
-
-	return panes, nil
+	}), nil
 }
 
 // Rename changes an agent's display name and reports whether a row changed.
@@ -128,8 +119,6 @@ func (s *AgentStore) Rename(ctx context.Context, id, name string) (bool, error) 
 	if err != nil {
 		return false, fmt.Errorf("failed to rename agent %q: %w", id, err)
 	}
-
-	s.db.Touch(store.TableAgents, id)
 
 	return len(renamed) > 0, nil
 }

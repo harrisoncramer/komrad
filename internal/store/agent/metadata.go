@@ -86,8 +86,6 @@ func (s *AgentStore) SetMetadata(ctx context.Context, params SetMetadataParams) 
 			return false, fmt.Errorf("failed to clear metadata %q on agent %q: %w", params.Key, params.ID, err)
 		}
 
-		s.db.Touch(store.TableAgents, params.ID)
-
 		return len(deleted) > 0, nil
 	}
 
@@ -129,7 +127,6 @@ func (s *AgentStore) SetMetadata(ctx context.Context, params SetMetadataParams) 
 		return false, fmt.Errorf("failed to record metadata %q on agent %q: %w", params.Key, params.ID, err)
 	}
 
-	tx.Touch(store.TableAgents, params.ID)
 	if err := tx.Commit(ctx); err != nil {
 		return false, fmt.Errorf("failed to commit metadata for agent %q: %w", params.ID, err)
 	}

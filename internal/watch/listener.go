@@ -121,7 +121,7 @@ func (b *Broker) hear(payload string) {
 		return
 	}
 
-	b.Touch(table, key)
+	b.touch(table, key)
 }
 
 // up says the listener is on the channel, so watchers may open.

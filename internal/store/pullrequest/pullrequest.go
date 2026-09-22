@@ -179,7 +179,7 @@ func (s *PullRequestStore) Upsert(ctx context.Context, params UpsertParams) (*Ou
 		return nil, fmt.Errorf("failed to write pull request %s on %s: %w", params.ProviderID, params.Host, err)
 	}
 
-	if err := s.touchPullRequest(ctx, row.ID); err != nil {
+	if err := s.notifyPullRequest(ctx, row.ID); err != nil {
 		return nil, err
 	}
 
@@ -190,16 +190,14 @@ func (s *PullRequestStore) Upsert(ctx context.Context, params UpsertParams) (*Ou
 	}, nil
 }
 
-// touchPullRequest says every live agent on the pull request's branch may look different now.
-func (s *PullRequestStore) touchPullRequest(ctx context.Context, id string) error {
+// notifyPullRequest says every live agent on the pull request's branch may look different now.
+func (s *PullRequestStore) notifyPullRequest(ctx context.Context, id string) error {
 	ids, err := s.queries.ListLiveAgentsOfPullRequest(ctx, id)
 	if err != nil {
 		return fmt.Errorf("failed to list the agents on pull request %q: %w", id, err)
 	}
 
-	s.db.Touch(store.TableAgents, ids...)
-
-	return nil
+	return store.Notify(ctx, s.db, store.TableAgents, ids...)
 }
 
 // GetByIdentity is the pull request a forge host knows by an identifier, or ErrNotFound.
@@ -261,7 +259,7 @@ func (s *PullRequestStore) SetStanding(ctx context.Context, id string, standing 
 		return fmt.Errorf("failed to record the standing of pull request %s: %w", id, err)
 	}
 
-	return s.touchPullRequest(ctx, id)
+	return s.notifyPullRequest(ctx, id)
 }
 
 // Observe records every live agent beside every stored pull request opened from its branch in

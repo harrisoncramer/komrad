@@ -7,9 +7,10 @@ import (
 	"path/filepath"
 
 	"weave/internal/jobs/internaljobs"
-	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	"weave/lib/xslice"
+
+	"github.com/jackc/pgx/v5"
 )
 
 type WorktreeDelete struct {
@@ -24,7 +25,7 @@ func NewWorktreeDelete(queue *Enqueuer) *WorktreeDelete {
 // DeleteWorktrees claims the archived agents the directories were cut for and queues one
 // delete of the directories in the same transaction.
 func (d *WorktreeDelete) DeleteWorktrees(ctx context.Context, dirs []string) error {
-	return d.queue.InsertTx(ctx, internaljobs.DeleteWorktreesArgs{Dirs: dirs}, func(tx store.DBTX) error {
+	return d.queue.InsertTx(ctx, internaljobs.DeleteWorktreesArgs{Dirs: dirs}, func(tx pgx.Tx) error {
 		return agentstore.NewAgentStore(tx).MarkArchivedDeletingByID(ctx, xslice.Map(dirs, filepath.Base))
 	})
 }

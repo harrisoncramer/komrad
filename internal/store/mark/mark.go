@@ -58,19 +58,23 @@ func (s *MarkStore) ClearConflicts(ctx context.Context, mark string, target Targ
 	}
 
 	for _, row := range freed {
-		s.touch(Target{AgentID: row.AgentID, WorkflowID: row.WorkflowID})
+		if err := s.notify(ctx, Target{AgentID: row.AgentID, WorkflowID: row.WorkflowID}); err != nil {
+			return err
+		}
 	}
 
 	return nil
 }
 
-// touch says the row a target names moved.
-func (s *MarkStore) touch(target Target) {
+// notify says the row a target names moved.
+func (s *MarkStore) notify(ctx context.Context, target Target) error {
 	switch {
 	case target.AgentID != nil:
-		s.db.Touch(store.TableAgents, *target.AgentID)
+		return store.Notify(ctx, s.db, store.TableAgents, *target.AgentID)
 	case target.WorkflowID != nil:
-		s.db.Touch(store.TableWorkflows, *target.WorkflowID)
+		return store.Notify(ctx, s.db, store.TableWorkflows, *target.WorkflowID)
+	default:
+		return nil
 	}
 }
 
@@ -84,7 +88,9 @@ func (s *MarkStore) Clear(ctx context.Context, target Target) (bool, error) {
 		return false, fmt.Errorf("failed to clear the mark on %s: %w", target, err)
 	}
 
-	s.touch(target)
+	if err := s.notify(ctx, target); err != nil {
+		return false, err
+	}
 
 	return cleared > 0, nil
 }
@@ -104,7 +110,9 @@ func (s *MarkStore) Set(ctx context.Context, mark string, target Target) (bool, 
 		return false, fmt.Errorf("failed to put mark %q on %s: %w", mark, target, err)
 	}
 
-	s.touch(target)
+	if err := s.notify(ctx, target); err != nil {
+		return false, err
+	}
 
 	return marked > 0, nil
 }

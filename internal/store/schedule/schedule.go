@@ -61,12 +61,11 @@ type Config struct {
 
 type ScheduleStore struct {
 	queries *models.Queries
-	db      store.DBTX
 }
 
 // NewScheduleStore builds a schedule store over db, which is either the pool or a transaction.
 func NewScheduleStore(db store.DBTX) *ScheduleStore {
-	return &ScheduleStore{queries: models.New(db), db: db}
+	return &ScheduleStore{queries: models.New(db)}
 }
 
 // List returns every live schedule, newest first.
@@ -161,7 +160,6 @@ func (s *ScheduleStore) Create(ctx context.Context, cfg Config) (*Schedule, erro
 	}
 
 	schedule := scheduleFromRow(*row)
-	s.db.Touch(store.TableSchedules, schedule.ID)
 
 	return &schedule, nil
 }
@@ -189,8 +187,6 @@ func (s *ScheduleStore) Update(ctx context.Context, id string, cfg Config) error
 		return fmt.Errorf("failed to update schedule %q: %w", id, err)
 	}
 
-	s.db.Touch(store.TableSchedules, id)
-
 	return nil
 }
 
@@ -203,8 +199,6 @@ func (s *ScheduleStore) SetEnabled(ctx context.Context, id string, enabled bool)
 	if err := s.queries.SetScheduleEnabled(ctx, models.SetScheduleEnabledParams{ID: id, Enabled: enabled}); err != nil {
 		return fmt.Errorf("failed to set schedule %q enabled to %t: %w", id, enabled, err)
 	}
-
-	s.db.Touch(store.TableSchedules, id)
 
 	return nil
 }
@@ -229,8 +223,6 @@ func (s *ScheduleStore) RecordLaunchResult(ctx context.Context, id string, statu
 	}); err != nil {
 		return fmt.Errorf("failed to record the launch result for schedule %q: %w", id, err)
 	}
-
-	s.db.Touch(store.TableSchedules, id)
 
 	return nil
 }
@@ -258,8 +250,6 @@ func (s *ScheduleStore) Archive(ctx context.Context, id string) error {
 	if err := s.queries.MarkScheduleArchived(ctx, id); err != nil {
 		return fmt.Errorf("failed to archive schedule %q: %w", id, err)
 	}
-
-	s.db.Touch(store.TableSchedules, id)
 
 	return nil
 }
@@ -292,8 +282,6 @@ func (s *ScheduleStore) Delete(ctx context.Context, id string) error {
 	if err := s.queries.DeleteSchedule(ctx, id); err != nil {
 		return fmt.Errorf("failed to delete schedule %q: %w", id, err)
 	}
-
-	s.db.Touch(store.TableSchedules, id)
 
 	return nil
 }

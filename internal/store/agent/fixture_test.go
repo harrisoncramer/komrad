@@ -7,7 +7,6 @@ import (
 	"weave/internal/dbtest"
 	"weave/internal/store"
 	workflowstore "weave/internal/store/workflow"
-	"weave/internal/watchtest"
 
 	"github.com/stretchr/testify/require"
 )
@@ -18,7 +17,6 @@ type fixture struct {
 	pool            *store.Pool
 	workflows       *workflowstore.WorkflowStore
 	defaultWorkflow string
-	touched         *watchtest.Recorder
 }
 
 // Get reads an agent back by name out of the default workflow.
@@ -48,8 +46,7 @@ func (f *fixture) Create(ctx context.Context, agent Agent) error {
 
 func open(t *testing.T) *fixture {
 	t.Helper()
-	touched := watchtest.NewRecorder()
-	p := pool(t, touched)
+	p := pool(t)
 
 	workflows := workflowstore.NewWorkflowStore(p.GetDB())
 	created, err := workflows.Create(t.Context(), workflowstore.Config{Name: "default", Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"}})
@@ -61,13 +58,12 @@ func open(t *testing.T) *fixture {
 		pool:            p,
 		workflows:       workflows,
 		defaultWorkflow: created.ID,
-		touched:         touched,
 	}
 }
 
-func pool(t *testing.T, touched store.Publisher) *store.Pool {
+func pool(t *testing.T) *store.Pool {
 	t.Helper()
-	p, err := store.Open(t.Context(), store.OpenParams{URL: dbtest.URL(t), Publisher: touched})
+	p, err := store.Open(t.Context(), dbtest.URL(t))
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = p.Close() })
 

@@ -71,7 +71,6 @@ linters:
         # Cleanup that runs in a defer, where the caller has already returned and there is
         # nothing left to report the failure to.
         - (github.com/jackc/pgx/v5.Tx).Rollback
-        - (*weave/internal/store.Tx).Rollback
         - (*github.com/jackc/pgx/v5.Conn).Close
         - (*weave/internal/store.Pool).Close
         - (*os.File).Close
@@ -263,7 +262,7 @@ linters:
     custom:
       weavelint:
         type: module
-        description: Checks for this repo; a sentinel error must declare the kind of failure it is and be declared at package scope, a message wrapping another error opens with "failed to " or with the error itself, a connect handler must hand its strict half to the adapter rather than answering for itself, a forge Secret gives up its token only where it is sent or kept, an HTTP client is built by lib/xhttp, a declared function spans more than one line, a proto converter is named for its direction, a comment carries no justification clause, a loop that only maps a slice is xslice.Map, a constructor taking a params struct is New<T>(New<T>Params) declared as params, type, constructor, and a store write to a watched table is followed by a touch.
+        description: Checks for this repo; a sentinel error must declare the kind of failure it is and be declared at package scope, a message wrapping another error opens with "failed to " or with the error itself, a connect handler must hand its strict half to the adapter rather than answering for itself, a forge Secret gives up its token only where it is sent or kept, an HTTP client is built by lib/xhttp, a declared function spans more than one line, a proto converter is named for its direction, a comment carries no justification clause, a loop that only maps a slice is xslice.Map, and a constructor taking a params struct is New<T>(New<T>Params) declared as params, type, constructor.
         settings:
           sentinel_inline:
             skip: false
@@ -286,29 +285,6 @@ linters:
           constructor_shape:
             skip: false
             exclude: []
-          store_touch:
-            skip: false
-            # Unanchored regexps over the path lint was run from. The packages that write rows.
-            stores:
-              - ^internal/store/
-            # The sqlc query files, read to learn which table each query writes and which
-            # tables the listings read.
-            queries: db/queries
-            # The panel's three listings, keyed by their table, with the queries the watch's
-            # snapshot and read-back run for each. A write to any table those queries read
-            # has to touch the listing afterwards.
-            listings:
-              agents:
-                - ListAgentRows
-                - ListAgentMetadata
-              workflows:
-                - ListWorkflowsPage
-                - ListLiveWorkflowsByID
-                - ListHooksForWorkflows
-                - ListMarks
-              schedules:
-                - ListSchedulesPage
-                - ListLiveSchedulesByID
           single_append:
             skip: false
             # Unanchored regexps over the path lint was run from. The package that defines Map,
@@ -441,23 +417,15 @@ linters:
               - Send
               - Set
               - Start
-              - Touch
               - Unmark
               - Update
               - Upsert
               - Validate
             allow:
               - Close
-              - Commit
               - Config
-              - CopyFrom
               - Error
-              - Exec
               - InTx
-              - Query
-              - QueryRow
-              - Rollback
-              - Unwrap
               - MarshalJSON
               - MarshalText
               - Scan

@@ -26,59 +26,25 @@ func (q *Queries) CountOpenReviewComments(ctx context.Context, reviewID *string)
 	return count, err
 }
 
-const deleteOpenReviewsByAuthor = `-- name: DeleteOpenReviewsByAuthor :many
+const deleteOpenReviewsByAuthor = `-- name: DeleteOpenReviewsByAuthor :exec
 DELETE FROM reviews
 WHERE author_agent_id = ANY ($1::uuid[])
     AND released_at IS NULL
-RETURNING
-    agent_id
 `
 
-func (q *Queries) DeleteOpenReviewsByAuthor(ctx context.Context, authorAgentIds []string) ([]string, error) {
-	rows, err := q.db.Query(ctx, deleteOpenReviewsByAuthor, authorAgentIds)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []string
-	for rows.Next() {
-		var agent_id string
-		if err := rows.Scan(&agent_id); err != nil {
-			return nil, err
-		}
-		items = append(items, agent_id)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+func (q *Queries) DeleteOpenReviewsByAuthor(ctx context.Context, authorAgentIds []string) error {
+	_, err := q.db.Exec(ctx, deleteOpenReviewsByAuthor, authorAgentIds)
+	return err
 }
 
-const deleteReview = `-- name: DeleteReview :many
+const deleteReview = `-- name: DeleteReview :exec
 DELETE FROM reviews
 WHERE id = $1
-RETURNING
-    agent_id
 `
 
-func (q *Queries) DeleteReview(ctx context.Context, id string) ([]string, error) {
-	rows, err := q.db.Query(ctx, deleteReview, id)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []string
-	for rows.Next() {
-		var agent_id string
-		if err := rows.Scan(&agent_id); err != nil {
-			return nil, err
-		}
-		items = append(items, agent_id)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+func (q *Queries) DeleteReview(ctx context.Context, id string) error {
+	_, err := q.db.Exec(ctx, deleteReview, id)
+	return err
 }
 
 const getLastReleasedReview = `-- name: GetLastReleasedReview :one

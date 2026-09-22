@@ -12,7 +12,7 @@ VALUES (
 RETURNING
     id;
 
--- name: FinishAgentRun :many
+-- name: FinishAgentRun :exec
 UPDATE
     agent_runs
 SET
@@ -20,15 +20,11 @@ SET
     exit_code = sqlc.narg('exit_code'),
     failure = @failure
 WHERE
-    id = @id
-RETURNING
-    agent_id;
+    id = @id;
 
--- name: DeleteAgentRun :many
+-- name: DeleteAgentRun :exec
 DELETE FROM agent_runs
-WHERE id = @id
-RETURNING
-    agent_id;
+WHERE id = @id;
 
 -- name: PruneAgentRuns :exec
 WITH kept AS (

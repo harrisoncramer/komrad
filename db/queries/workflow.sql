@@ -198,15 +198,13 @@ SET
 WHERE
     id = @id;
 
--- name: ClearAllWorkflowsDeleting :many
+-- name: ClearAllWorkflowsDeleting :exec
 UPDATE
     workflows
 SET
     deleting_at = NULL
 WHERE
-    deleting_at IS NOT NULL
-RETURNING
-    id;
+    deleting_at IS NOT NULL;
 
 -- name: DeleteWorkflow :one
 DELETE FROM workflows
@@ -285,14 +283,3 @@ FROM
     JOIN workflow_provisioner_configs AS provisioners ON provisioners.id = workflows.provisioner_config_id
 WHERE
     BTRIM(provisioners.worktree_dir) <> '';
-
--- name: ListLiveAgentIDsInWorkflow :many
-SELECT
-    id
-FROM
-    agents
-WHERE
-    workflow_id = @workflow_id
-    AND archived_at IS NULL
-ORDER BY
-    id;

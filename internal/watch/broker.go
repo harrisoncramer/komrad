@@ -172,8 +172,8 @@ func (b *Broker) serve(reader Reader) {
 	}()
 }
 
-// Touch says the rows of a listing with these ids may have moved.
-func (b *Broker) Touch(table string, ids ...string) {
+// touch says the rows of a listing with these ids may have moved.
+func (b *Broker) touch(table string, ids ...string) {
 	kind, ok := kinds[table]
 	if !ok {
 		b.logger.LogAttrs(context.Background(), slog.LevelWarn, "a notification named a table no listing is keyed by", slog.String(logging.WatchTable, table))
@@ -259,9 +259,9 @@ func (b *Broker) take() Touched {
 
 // restore puts the ids a failed render took back for the next one.
 func (b *Broker) restore(touched Touched) {
-	b.Touch(store.TableAgents, touched.Agents...)
-	b.Touch(store.TableWorkflows, touched.Workflows...)
-	b.Touch(store.TableSchedules, touched.Schedules...)
+	b.touch(store.TableAgents, touched.Agents...)
+	b.touch(store.TableWorkflows, touched.Workflows...)
+	b.touch(store.TableSchedules, touched.Schedules...)
 }
 
 // Subscribe opens a subscription that starts with a snapshot of every row, then every change
