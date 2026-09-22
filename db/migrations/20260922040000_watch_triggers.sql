@@ -77,26 +77,27 @@ $$
 LANGUAGE plpgsql;
 
 -- attach_projection_trigger puts watch_project on a table whose rows are rendered onto a parent
--- row, the parent's key held in parent_column.
+-- row, the parent's key held in parent_column, named after the parent so a table can feed more
+-- than one.
 CREATE OR REPLACE FUNCTION attach_projection_trigger(target text, parent text, parent_column text, ignored text[])
     RETURNS void
     AS $$
 BEGIN
-    EXECUTE FORMAT('DROP TRIGGER IF EXISTS watch_project ON %I', target);
-    EXECUTE FORMAT('CREATE TRIGGER watch_project AFTER INSERT OR UPDATE OR DELETE ON %I FOR EACH ROW EXECUTE FUNCTION watch_project(%L, %L, %L)', target, parent, parent_column, ignored);
+    EXECUTE FORMAT('DROP TRIGGER IF EXISTS watch_project_%I ON %I', parent, target);
+    EXECUTE FORMAT('CREATE TRIGGER watch_project_%I AFTER INSERT OR UPDATE OR DELETE ON %I FOR EACH ROW EXECUTE FUNCTION watch_project(%L, %L, %L)', parent, target, parent, parent_column, ignored);
 END;
 $$
 LANGUAGE plpgsql;
 
 -- attach_projection_lookup_trigger puts watch_project_lookup on a table whose parents are the
 -- rows of parent whose parent_match column equals this table's match column, narrowed by an
--- extra WHERE when one is given.
+-- extra WHERE when one is given, named after the parent the same way.
 CREATE OR REPLACE FUNCTION attach_projection_lookup_trigger(target text, parent text, parent_key text, parent_match text, match text, ignored text[], extra_where text)
     RETURNS void
     AS $$
 BEGIN
-    EXECUTE FORMAT('DROP TRIGGER IF EXISTS watch_project ON %I', target);
-    EXECUTE FORMAT('CREATE TRIGGER watch_project AFTER INSERT OR UPDATE OR DELETE ON %I FOR EACH ROW EXECUTE FUNCTION watch_project_lookup(%L, %L, %L, %L, %L, %L)', target, parent, parent_key, parent_match, match, ignored, COALESCE(extra_where, 'true'));
+    EXECUTE FORMAT('DROP TRIGGER IF EXISTS watch_project_%I ON %I', parent, target);
+    EXECUTE FORMAT('CREATE TRIGGER watch_project_%I AFTER INSERT OR UPDATE OR DELETE ON %I FOR EACH ROW EXECUTE FUNCTION watch_project_lookup(%L, %L, %L, %L, %L, %L)', parent, target, parent, parent_key, parent_match, match, ignored, COALESCE(extra_where, 'true'));
 END;
 $$
 LANGUAGE plpgsql;
