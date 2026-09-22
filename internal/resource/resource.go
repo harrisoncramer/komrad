@@ -52,7 +52,7 @@ func All() []Resource {
 	protoregistry.GlobalFiles.RangeFiles(func(file protoreflect.FileDescriptor) bool {
 		messages := file.Messages()
 		for i := range messages.Len() {
-			if option := Of(messages.Get(i)); option != nil {
+			if option := of(messages.Get(i)); option != nil {
 				all = append(all, Resource{Message: messages.Get(i), Option: option})
 			}
 		}
@@ -67,8 +67,8 @@ func All() []Resource {
 	return all
 }
 
-// Of is the option a message carries, nil when it carries none.
-func Of(message protoreflect.MessageDescriptor) *annotationv1.Resource {
+// of is the option a message carries, nil when it carries none.
+func of(message protoreflect.MessageDescriptor) *annotationv1.Resource {
 	opts, ok := message.Options().(*descriptorpb.MessageOptions)
 	if !ok || !proto.HasExtension(opts, annotationv1.E_Resource) {
 		return nil
