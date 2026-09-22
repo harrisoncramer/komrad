@@ -439,7 +439,7 @@ func forwardServiceOver(st *storetest.Stores, maxExchange int, liveness *fakeLau
 
 	return agentv1weave.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{
 		Agents:      st.Agents,
-		Rows:        rowReaderOver(st),
+		Rows:        st.Rows,
 		Transcripts: st.Transcripts,
 		Mail:        mailer,
 		Liveness:    liveness,

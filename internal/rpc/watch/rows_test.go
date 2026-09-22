@@ -25,108 +25,43 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// fakeStore is one resource's store: every row its watched set holds, and the ones among the
+// keys asked.
+type fakeStore[R any] struct {
+	rows []R
+	key  func(R) string
+}
+
+func (f *fakeStore[R]) List(context.Context) ([]R, error) {
+	return f.rows, nil
+}
+
+func (f *fakeStore[R]) ListByKey(_ context.Context, keys []string) ([]R, error) {
+	return xslice.Filter(f.rows, func(row R) bool { return slices.Contains(keys, f.key(row)) }), nil
+}
+
+// fakeStores is every resource's store.
 type fakeStores struct {
 	agents       []rowstore.Row
 	workflows    []workflowstore.Workflow
+	schedules    []schedulestore.Schedule
 	marks        []markstore.Mark
 	mail         []mailstore.Mail
 	pullRequests []pullrequeststore.PullRequest
-}
-
-func (f *fakeStores) ListRows(_ context.Context, page rowstore.Page) ([]rowstore.Row, error) {
-	return pageOf(f.agents, page.Cursor == nil, func(row rowstore.Row) bool { return page.Cursor != nil && row.ID == page.Cursor.ID }, int(page.Limit)), nil
-}
-
-func (f *fakeStores) ListLiveRowsByID(_ context.Context, ids []string) ([]rowstore.Row, error) {
-	return xslice.Filter(f.agents, func(row rowstore.Row) bool { return slices.Contains(ids, row.ID) }), nil
-}
-
-func (f *fakeStores) ListPage(_ context.Context, limit int64, cursor *workflowstore.Cursor, _ bool) ([]workflowstore.Workflow, error) {
-	return pageOf(f.workflows, cursor == nil, func(row workflowstore.Workflow) bool { return cursor != nil && row.ID == cursor.ID }, int(limit)), nil
-}
-
-func (f *fakeStores) ListLiveByID(_ context.Context, ids []string) ([]workflowstore.Workflow, error) {
-	return xslice.Filter(f.workflows, func(row workflowstore.Workflow) bool { return slices.Contains(ids, row.ID) }), nil
-}
-
-func (f *fakeStores) List(context.Context) ([]markstore.Mark, error) {
-	return f.marks, nil
-}
-
-func (f *fakeStores) ListByKey(_ context.Context, marks []string) ([]markstore.Mark, error) {
-	return xslice.Filter(f.marks, func(row markstore.Mark) bool { return slices.Contains(marks, row.Mark) }), nil
-}
-
-// fakeMail is the mail store on its own.
-type fakeMail struct {
-	mail []mailstore.Mail
-}
-
-func (f *fakeMail) ListUnclaimed(context.Context) ([]mailstore.Mail, error) {
-	return f.mail, nil
-}
-
-func (f *fakeMail) ListByKey(_ context.Context, ids []string) ([]mailstore.Mail, error) {
-	return xslice.Filter(f.mail, func(row mailstore.Mail) bool { return slices.Contains(ids, row.ID) }), nil
-}
-
-// fakePullRequests is the pull request store on its own.
-type fakePullRequests struct {
-	pullRequests []pullrequeststore.PullRequest
-}
-
-func (f *fakePullRequests) ListOnLiveBranches(context.Context) ([]pullrequeststore.PullRequest, error) {
-	return f.pullRequests, nil
-}
-
-func (f *fakePullRequests) ListByKey(_ context.Context, ids []string) ([]pullrequeststore.PullRequest, error) {
-	return xslice.Filter(f.pullRequests, func(row pullrequeststore.PullRequest) bool { return slices.Contains(ids, row.ID) }), nil
-}
-
-// fakeSchedules is the schedule store on its own.
-type fakeSchedules struct {
-	schedules []schedulestore.Schedule
-}
-
-func (f *fakeSchedules) ListPage(_ context.Context, limit int64, cursor *schedulestore.Cursor) ([]schedulestore.Schedule, error) {
-	return pageOf(f.schedules, cursor == nil, func(row schedulestore.Schedule) bool { return cursor != nil && row.ID == cursor.ID }, int(limit)), nil
-}
-
-func (f *fakeSchedules) ListLiveByID(_ context.Context, ids []string) ([]schedulestore.Schedule, error) {
-	return xslice.Filter(f.schedules, func(row schedulestore.Schedule) bool { return slices.Contains(ids, row.ID) }), nil
-}
-
-// pageOf is one page of rows after the cursor row, the first page when there is no cursor.
-func pageOf[R any](rows []R, first bool, isCursor func(R) bool, limit int) []R {
-	start := 0
-	if !first {
-		for i, row := range rows {
-			if isCursor(row) {
-				start = i + 1
-			}
-		}
-	}
-
-	page := rows[start:]
-	if len(page) > limit {
-		page = page[:limit]
-	}
-
-	return page
 }
 
 func agentRow(id string) rowstore.Row {
 	return rowstore.Row{Agent: agentstore.Agent{ID: id, Name: "agent-" + id}}
 }
 
-func newRows(stores *fakeStores, schedules *fakeSchedules) *Rows {
+func newRows(stores *fakeStores) *Rows {
 	return NewRows(NewRowsParams{
-		Agents:       stores,
-		Workflows:    stores,
-		Schedules:    schedules,
-		Marks:        stores,
-		Mail:         &fakeMail{mail: stores.mail},
-		PullRequests: &fakePullRequests{pullRequests: stores.pullRequests},
+		Agents:       &fakeStore[rowstore.Row]{rows: stores.agents, key: func(row rowstore.Row) string { return row.ID }},
+		Workflows:    &fakeStore[workflowstore.Workflow]{rows: stores.workflows, key: func(row workflowstore.Workflow) string { return row.ID }},
+		Schedules:    &fakeStore[schedulestore.Schedule]{rows: stores.schedules, key: func(row schedulestore.Schedule) string { return row.ID }},
+		Marks:        &fakeStore[markstore.Mark]{rows: stores.marks, key: func(row markstore.Mark) string { return row.Mark }},
+		Mail:         &fakeStore[mailstore.Mail]{rows: stores.mail, key: func(row mailstore.Mail) string { return row.ID }},
+		PullRequests: &fakeStore[pullrequeststore.PullRequest]{rows: stores.pullRequests, key: func(row pullrequeststore.PullRequest) string { return row.ID }},
 		Now:          func() time.Time { return time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC) },
 	})
 }
@@ -141,10 +76,10 @@ func TestReadAnswersARowOrATombstoneForEveryTouchedKey(t *testing.T) {
 		marks:        []markstore.Mark{{Mark: "w", WorkflowID: &[]string{"w1"}[0]}},
 		mail:         []mailstore.Mail{{ID: "m1", ToAgentID: "a1"}},
 		pullRequests: []pullrequeststore.PullRequest{{ID: "p1", Number: 7}},
+		schedules:    []schedulestore.Schedule{{ID: "s1", Name: "nightly", Cron: "0 2 * * *", Enabled: true}},
 	}
-	schedules := &fakeSchedules{schedules: []schedulestore.Schedule{{ID: "s1", Name: "nightly", Cron: "0 2 * * *", Enabled: true}}}
 
-	events, err := newRows(stores, schedules).Read(t.Context(), watch.Touched{
+	events, err := newRows(stores).Read(t.Context(), watch.Touched{
 		watch.KindAgent:       []string{"a1", "a2"},
 		watch.KindWorkflow:    []string{"w1", "w2"},
 		watch.KindSchedule:    []string{"s1", "s2"},
@@ -173,40 +108,41 @@ func TestReadAnswersARowOrATombstoneForEveryTouchedKey(t *testing.T) {
 
 // TestReadOfNothingReadsNothing pins that an empty touch costs no query.
 func TestReadOfNothingReadsNothing(t *testing.T) {
-	events, err := newRows(&fakeStores{}, &fakeSchedules{}).Read(t.Context(), watch.Touched{})
+	events, err := newRows(&fakeStores{}).Read(t.Context(), watch.Touched{})
 	require.NoError(t, err)
 	assert.Empty(t, events)
 }
 
-// TestSnapshotWalksEveryWatchedSetToTheEnd pins that a snapshot pages each listing past its
-// first page and carries every kind of row, one resource after another.
-func TestSnapshotWalksEveryWatchedSetToTheEnd(t *testing.T) {
+// TestSnapshotCarriesEveryWatchedSet pins that a snapshot carries every row of every kind, one
+// resource after another.
+func TestSnapshotCarriesEveryWatchedSet(t *testing.T) {
 	stores := &fakeStores{
+		agents:       []rowstore.Row{agentRow("a0"), agentRow("a1"), agentRow("a2")},
+		workflows:    []workflowstore.Workflow{{ID: "w0", Name: "flow-0"}, {ID: "w1", Name: "flow-1"}},
+		schedules:    []schedulestore.Schedule{{ID: "s0", Name: "nightly"}},
 		marks:        []markstore.Mark{{Mark: "a"}},
 		mail:         []mailstore.Mail{{ID: "m0"}},
 		pullRequests: []pullrequeststore.PullRequest{{ID: "p0"}},
 	}
-	for i := range snapshotPage + 3 {
-		stores.agents = append(stores.agents, agentRow(fmt.Sprintf("a%d", i)))
-	}
-	for i := range 2 {
-		stores.workflows = append(stores.workflows, workflowstore.Workflow{ID: fmt.Sprintf("w%d", i), Name: fmt.Sprintf("flow-%d", i)})
-	}
-	schedules := &fakeSchedules{schedules: []schedulestore.Schedule{{ID: "s0", Name: "nightly"}}}
 
-	snapshot, err := newRows(stores, schedules).Snapshot(t.Context())
+	snapshot, err := newRows(stores).Snapshot(t.Context())
 	require.NoError(t, err)
-	require.Len(t, snapshot, snapshotPage+3+2+1+1+1+1)
 
 	kinds := xslice.Map(snapshot, func(row *watchv1.Row) string { return fmt.Sprintf("%T", row.GetRow()) })
-	assert.Equal(t, snapshotPage+3, xslice.Count(kinds, func(kind string) bool { return kind == "*watchv1.Row_Agent" }))
-	assert.Equal(t, []string{"*watchv1.Row_Workflow", "*watchv1.Row_Workflow", "*watchv1.Row_Schedule", "*watchv1.Row_Mark", "*watchv1.Row_Mail", "*watchv1.Row_PullRequest"}, kinds[snapshotPage+3:])
+	assert.Equal(t, []string{
+		"*watchv1.Row_Agent", "*watchv1.Row_Agent", "*watchv1.Row_Agent",
+		"*watchv1.Row_Workflow", "*watchv1.Row_Workflow",
+		"*watchv1.Row_Schedule",
+		"*watchv1.Row_Mark",
+		"*watchv1.Row_Mail",
+		"*watchv1.Row_PullRequest",
+	}, kinds)
 }
 
 // TestArmsAreTheResources pins the read-back to the resource option: one arm per annotated
 // table, and nothing else.
 func TestArmsAreTheResources(t *testing.T) {
-	rows := newRows(&fakeStores{}, &fakeSchedules{})
+	rows := newRows(&fakeStores{})
 
 	want := xslice.Map(resource.All(), func(r resource.Resource) watch.Kind {
 		return watch.Kind(watchv1.Resource_value[r.EnumValue()])

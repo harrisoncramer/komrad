@@ -50,15 +50,14 @@ func open(t *testing.T) *fixture {
 func (f *fixture) failedRun(t *testing.T, agentID string) *int32 {
 	t.Helper()
 
-	rows, err := f.rows.ListByID(t.Context(), []string{agentID})
+	row, err := f.rows.Get(t.Context(), agentID)
 	require.NoError(t, err)
-	require.Len(t, rows, 1)
-	if !rows[0].FailedRun {
+	if !row.FailedRun {
 		return nil
 	}
-	require.NotNil(t, rows[0].FailedRunLog, "the mark carries the run to open on")
+	require.NotNil(t, row.FailedRunLog, "the mark carries the run to open on")
 
-	return rows[0].FailedRunLog
+	return row.FailedRunLog
 }
 
 func (f *fixture) seedAgent(t *testing.T) string {

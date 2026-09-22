@@ -25,20 +25,6 @@ var (
 	funcName  = regexp.MustCompile(`(?m)^func (\w+)\(`)
 )
 
-// standIn is the pair of queries answering for a resource until they are renamed.
-type standIn struct {
-	byKey    string
-	snapshot string
-}
-
-// standIns is each resource whose queries are still under their old names, dropped from here
-// as each is renamed.
-var standIns = map[string]standIn{
-	"agents":    {byKey: "ListAgentRows", snapshot: "ListAgentRows"},
-	"workflows": {byKey: "ListLiveWorkflowsByID", snapshot: "ListWorkflowsPage"},
-	"schedules": {byKey: "ListLiveSchedulesByID", snapshot: "ListSchedulesPage"},
-}
-
 func main() {
 	if err := run(".", os.Stdout); err != nil {
 		fmt.Fprintln(os.Stderr, "check-resources:", err)
@@ -57,31 +43,12 @@ func run(root string, out io.Writer) error {
 		return err
 	}
 
-	var (
-		problems []error
-		notes    []string
-		declared = map[string]bool{}
-	)
+	var problems []error
 	for _, r := range resource.All() {
 		table := r.Option.GetTable()
-		declared[table] = true
-		byKey, snapshot := "List"+r.Plural()+"ByKey", "Snapshot"+r.Plural()
-
-		stand, standing := standIns[table]
-		if standing && (queries[byKey] || queries[snapshot]) {
-			problems = append(problems, fmt.Errorf("%s has %s or %s now, so its stand-in is done: drop it from standIns in cmd/check-resources", table, byKey, snapshot))
-		}
-
-		for _, query := range [][2]string{{byKey, stand.byKey}, {snapshot, stand.snapshot}} {
-			want, have := query[0], query[1]
-			switch {
-			case queries[want]:
-			case standing && queries[have]:
-				notes = append(notes, fmt.Sprintf("%s reads through %s until it is renamed %s", table, have, want))
-			case standing:
-				problems = append(problems, fmt.Errorf("%s has no %s under %s, and %s, which stands in until it is renamed, is gone too", table, want, queriesDir, have))
-			default:
-				problems = append(problems, fmt.Errorf("%s has no %s under %s", table, want, queriesDir))
+		for _, query := range []string{"List" + r.Plural() + "ByKey", "Snapshot" + r.Plural()} {
+			if !queries[query] {
+				problems = append(problems, fmt.Errorf("%s has no %s under %s", table, query, queriesDir))
 			}
 		}
 
@@ -90,18 +57,11 @@ func run(root string, out io.Writer) error {
 		}
 	}
 
-	for table := range standIns {
-		if !declared[table] {
-			problems = append(problems, fmt.Errorf("standIns in cmd/check-resources names %s, which no message declares as its table", table))
-		}
-	}
-
 	if len(problems) > 0 {
 		return errors.Join(problems...)
 	}
 
-	notes = append(notes, "every resource has its queries and its renderer")
-	_, err = fmt.Fprintln(out, strings.Join(notes, "\n"))
+	_, err = fmt.Fprintln(out, "every resource has its queries and its renderer")
 
 	return err
 }

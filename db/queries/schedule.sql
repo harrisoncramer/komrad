@@ -11,7 +11,7 @@ ORDER BY
     s.id DESC
 LIMIT @lim;
 
--- name: ListSchedules :many
+-- name: SnapshotSchedules :many
 SELECT
     sqlc.embed(s)
 FROM
@@ -21,7 +21,7 @@ WHERE
 ORDER BY
     s.id DESC;
 
--- name: ListLiveSchedulesByID :many
+-- name: ListSchedulesByKey :many
 SELECT
     sqlc.embed(s)
 FROM

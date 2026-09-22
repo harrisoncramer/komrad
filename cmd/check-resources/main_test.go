@@ -11,7 +11,7 @@ import (
 )
 
 // TestRunAgainstTheRepository pins that the checked-in queries and renderers satisfy every
-// resource, through the stand-ins where a query is still under its old name.
+// resource.
 func TestRunAgainstTheRepository(t *testing.T) {
 	t.Parallel()
 
@@ -33,8 +33,9 @@ func TestRunNamesWhatIsMissing(t *testing.T) {
 	err := run(root, &bytes.Buffer{})
 	require.Error(t, err)
 
-	require.ErrorContains(t, err, "agents has ListAgentsByKey or SnapshotAgents now, so its stand-in is done")
-	require.ErrorContains(t, err, "agents has no SnapshotAgents under db/queries, and ListAgentRows, which stands in until it is renamed, is gone too")
+	assert.NotContains(t, err.Error(), "agents has no ListAgentsByKey")
+	require.ErrorContains(t, err, "agents has no SnapshotAgents under db/queries")
 	require.ErrorContains(t, err, "agents has no Agent under internal/rpc/render")
-	require.ErrorContains(t, err, "schedules has no ListSchedulesByKey under db/queries, and ListLiveSchedulesByID, which stands in until it is renamed, is gone too")
+	require.ErrorContains(t, err, "schedules has no ListSchedulesByKey under db/queries")
+	require.ErrorContains(t, err, "pull_requests has no PullRequest under internal/rpc/render")
 }

@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"weave/internal/store"
 	"weave/internal/storetest"
 	"weave/lib/xptr"
 	"weave/lib/xslice"
@@ -20,15 +21,14 @@ import (
 
 const fixture = "https://github.com/harrisoncramer/weave-forge-fixture"
 
-// rowOf reads one agent's row back through the by-id listing.
+// rowOf reads one agent's row back.
 func rowOf(t *testing.T, st *storetest.Stores, id string) rowstore.Row {
 	t.Helper()
 
-	rows, err := st.Rows.ListByID(t.Context(), []string{id})
+	row, err := st.Rows.Get(t.Context(), id)
 	require.NoError(t, err)
-	require.Len(t, rows, 1)
 
-	return rows[0]
+	return *row
 }
 
 // TestRowCarriesTheAgent pins that the row is the agent as stored, metadata included, with
@@ -178,23 +178,52 @@ func TestListPage(t *testing.T) {
 	assert.Equal(t, archived.ID, old[0].ID)
 }
 
-// TestListByID pins the by-id read: archived rows answer too, an id nothing holds is left
-// out, and one that could not be an id at all does not fail the read.
-func TestListByID(t *testing.T) {
+// TestListByKey pins the watched set: the live rows among the given ids answer, an archived one,
+// one a delete has claimed and an id nothing holds are left out, and one that could not be an
+// id at all does not fail the read.
+func TestListByKey(t *testing.T) {
 	st := storetest.Open(t)
 	ctx := t.Context()
-	live := st.SeedAgent(t, agentstore.Agent{Name: "live"})
+	first := st.SeedAgent(t, agentstore.Agent{Name: "first"})
+	second := st.SeedAgent(t, agentstore.Agent{Name: "second"})
+	archived := st.SeedAgent(t, agentstore.Agent{Name: "archived"})
+	deleting := st.SeedAgent(t, agentstore.Agent{Name: "deleting"})
+	_, err := st.Agents.Archive(ctx, []string{archived.ID})
+	require.NoError(t, err)
+	require.NoError(t, st.Agents.MarkDeleting(ctx, []string{deleting.ID}))
+
+	rows, err := st.Rows.ListByKey(ctx, []string{first.ID, second.ID, archived.ID, deleting.ID, "00000000-0000-0000-0000-000000000000", "not-an-id"})
+	require.NoError(t, err)
+	require.Len(t, rows, 2)
+	assert.Equal(t, second.ID, rows[0].ID)
+	assert.Equal(t, first.ID, rows[1].ID)
+
+	rows, err = st.Rows.ListByKey(ctx, []string{"not-an-id"})
+	require.NoError(t, err)
+	assert.Empty(t, rows)
+
+	live, err := st.Rows.List(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, []string{second.ID, first.ID}, xslice.Map(live, func(row rowstore.Row) string { return row.ID }), "the whole watched set reads the same way")
+}
+
+// TestGet pins the one-row read: an archived row answers, and an id nothing holds, or that
+// could not be an id at all, is not found.
+func TestGet(t *testing.T) {
+	st := storetest.Open(t)
+	ctx := t.Context()
 	archived := st.SeedAgent(t, agentstore.Agent{Name: "archived"})
 	_, err := st.Agents.Archive(ctx, []string{archived.ID})
 	require.NoError(t, err)
 
-	rows, err := st.Rows.ListByID(ctx, []string{live.ID, archived.ID, "00000000-0000-0000-0000-000000000000", "not-an-id"})
+	row, err := st.Rows.Get(ctx, archived.ID)
 	require.NoError(t, err)
-	require.Len(t, rows, 2)
-	assert.Equal(t, archived.ID, rows[0].ID)
-	assert.Equal(t, live.ID, rows[1].ID)
+	assert.Equal(t, "archived", row.Name)
+	assert.NotNil(t, row.ArchivedAt)
 
-	rows, err = st.Rows.ListByID(ctx, []string{"not-an-id"})
-	require.NoError(t, err)
-	assert.Empty(t, rows)
+	_, err = st.Rows.Get(ctx, "00000000-0000-0000-0000-000000000000")
+	require.ErrorIs(t, err, store.ErrNotFound)
+
+	_, err = st.Rows.Get(ctx, "not-an-id")
+	require.ErrorIs(t, err, store.ErrNotFound)
 }

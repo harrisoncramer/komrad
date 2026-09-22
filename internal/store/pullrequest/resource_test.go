@@ -36,7 +36,7 @@ func TestListByKeyIsTheParentLiveSet(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []string{held.ID}, ids(listed), "a branch nobody is on and a fork's branch are tombstones")
 
-	snapshot, err := h.ListOnLiveBranches(ctx)
+	snapshot, err := h.List(ctx)
 	require.NoError(t, err)
 	assert.Equal(t, []string{held.ID}, ids(snapshot))
 
