@@ -33,8 +33,9 @@ type StoreTouchConfig struct {
 	Stores []string `json:"stores"`
 	// Queries is the directory holding the sqlc query files, relative to where lint runs.
 	Queries string `json:"queries"`
-	// Tables is every table a watched listing is drawn from.
-	Tables []string `json:"tables"`
+	// Listings is each listing the panel watches, keyed by its table, naming the sqlc queries
+	// that read it.
+	Listings map[string][]string `json:"listings"`
 }
 
 // SingleAppendConfig settles where the mapping loop rule applies.

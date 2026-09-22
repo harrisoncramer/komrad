@@ -5,9 +5,11 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
+	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 
@@ -16,7 +18,7 @@ import (
 	"golang.org/x/tools/go/analysis"
 )
 
-const storeTouchDoc = "Checks that a store function which writes a table the panel's listings are drawn from " +
+const storeTouchDoc = "Checks that a store function which writes a table the panel's listings read " +
 	"touches the watch afterwards, so a row cannot change without the panel being told."
 
 // modelsPackage is where sqlc writes the query methods.
@@ -39,12 +41,7 @@ func newStoreTouch(settings config.StoreTouchConfig) (*analysis.Analyzer, error)
 		return nil, err
 	}
 
-	watched := make(map[string]struct{}, len(settings.Tables))
-	for _, table := range settings.Tables {
-		watched[table] = struct{}{}
-	}
-
-	queries := &queryWrites{dir: settings.Queries}
+	queries := &queryFiles{dir: settings.Queries, listings: settings.Listings}
 
 	return &analysis.Analyzer{
 		Name: "store_touch",
@@ -59,12 +56,12 @@ func newStoreTouch(settings config.StoreTouchConfig) (*analysis.Analyzer, error)
 					continue
 				}
 
-				writes, err := queries.load()
+				loaded, err := queries.load()
 				if err != nil {
 					return nil, err
 				}
 
-				reportUntouched(pass, file, writes, watched)
+				reportUntouched(pass, file, loaded.writes, loaded.watched)
 			}
 
 			return nil, nil
@@ -74,7 +71,7 @@ func newStoreTouch(settings config.StoreTouchConfig) (*analysis.Analyzer, error)
 
 // reportUntouched reports every function that calls a query writing a watched table with no
 // touch after it.
-func reportUntouched(pass *analysis.Pass, file *ast.File, writes map[string][]string, watched map[string]struct{}) {
+func reportUntouched(pass *analysis.Pass, file *ast.File, writes map[string][]string, watched map[string][]string) {
 	for _, decl := range file.Decls {
 		function, ok := decl.(*ast.FuncDecl)
 		if !ok || function.Body == nil {
@@ -171,46 +168,74 @@ func queryName(pass *analysis.Pass, call *ast.CallExpr) (string, bool) {
 	return method.Name(), true
 }
 
-// queryWrites is the table each sqlc query writes, read from the query files once.
-type queryWrites struct {
-	dir    string
-	once   sync.Once
-	byName map[string][]string
-	err    error
+// queryFiles is what the rule learns from the sqlc query files, read once: the tables each
+// query writes, and the tables the listings read.
+type queryFiles struct {
+	dir      string
+	listings map[string][]string
+	once     sync.Once
+	loaded   loadedQueries
+	err      error
+}
+
+// loadedQueries is the tables each query writes and, for each table a listing reads, which
+// listings read it.
+type loadedQueries struct {
+	writes  map[string][]string
+	watched map[string][]string
 }
 
 // load reads the query files the first time it is asked, and answers the same thereafter.
-func (q *queryWrites) load() (map[string][]string, error) {
+func (q *queryFiles) load() (loadedQueries, error) {
 	q.once.Do(func() {
-		q.byName, q.err = readQueryWrites(q.dir)
+		q.loaded, q.err = readQueries(q.dir, q.listings)
 	})
 
-	return q.byName, q.err
+	return q.loaded, q.err
 }
 
-// readQueryWrites maps each named query in the directory's sql files to the tables it writes.
-func readQueryWrites(dir string) (map[string][]string, error) {
+// readQueries reads every named query under the directory, noting the tables each writes, and
+// works out from the listing queries which tables the listings read.
+func readQueries(dir string, listings map[string][]string) (loadedQueries, error) {
 	files, err := filepath.Glob(filepath.Join(dir, "*.sql"))
 	if err != nil {
-		return nil, fmt.Errorf("failed to list the query files under %q: %w", dir, err)
+		return loadedQueries{}, fmt.Errorf("failed to list the query files under %q: %w", dir, err)
 	}
 	if len(files) == 0 {
-		return nil, fmt.Errorf("failed to find any sqlc query files under %q", dir)
+		return loadedQueries{}, fmt.Errorf("failed to find any sqlc query files under %q", dir)
 	}
 
-	writes := map[string][]string{}
+	bodies := map[string]string{}
 	for _, file := range files {
 		text, err := os.ReadFile(file)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read the query file %q: %w", file, err)
+			return loadedQueries{}, fmt.Errorf("failed to read the query file %q: %w", file, err)
 		}
 
-		for name, body := range splitQueries(string(text)) {
-			writes[name] = writtenTables(body)
+		maps.Copy(bodies, splitQueries(string(text)))
+	}
+
+	loaded := loadedQueries{writes: make(map[string][]string, len(bodies)), watched: map[string][]string{}}
+	for name, body := range bodies {
+		loaded.writes[name] = writtenTables(body)
+	}
+
+	for _, listing := range slices.Sorted(maps.Keys(listings)) {
+		for _, name := range listings[listing] {
+			body, ok := bodies[name]
+			if !ok {
+				return loadedQueries{}, fmt.Errorf("listing %q names query %q, which no file under %q holds", listing, name, dir)
+			}
+
+			for _, table := range readTables(body) {
+				if !slices.Contains(loaded.watched[table], listing) {
+					loaded.watched[table] = append(loaded.watched[table], listing)
+				}
+			}
 		}
 	}
 
-	return writes, nil
+	return loaded, nil
 }
 
 // splitQueries cuts a query file into its named statements.
@@ -254,6 +279,44 @@ func writtenTables(statement string) []string {
 
 			tables = append(tables, tableName(words[i+1]))
 		}
+	}
+
+	return tables
+}
+
+// readTables is every table a statement selects FROM or JOINs, the statement's own CTEs aside.
+func readTables(statement string) []string {
+	words := strings.Fields(statement)
+
+	ctes := map[string]bool{}
+	for i := 1; i+1 < len(words); i++ {
+		if strings.EqualFold(words[i], "AS") && strings.HasPrefix(words[i+1], "(") {
+			ctes[tableName(strings.TrimPrefix(words[i-1], ","))] = true
+		}
+	}
+
+	var tables []string
+	for i, word := range words {
+		if i+1 >= len(words) {
+			break
+		}
+
+		upper := strings.ToUpper(word)
+		if upper != "FROM" && upper != "JOIN" {
+			continue
+		}
+
+		next := words[i+1]
+		if strings.HasPrefix(next, "(") {
+			continue
+		}
+
+		table := tableName(next)
+		if ctes[table] || slices.Contains(tables, table) {
+			continue
+		}
+
+		tables = append(tables, table)
 	}
 
 	return tables

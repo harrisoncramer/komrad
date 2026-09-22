@@ -13,3 +13,34 @@ ON CONFLICT (dir)
 -- name: InsertWorkflowHook :exec
 INSERT INTO workflow_hooks(workflow_id)
     VALUES (@id);
+
+-- name: ListAgentRows :many
+WITH marked AS (
+    SELECT
+        agent_id
+    FROM
+        marks
+)
+SELECT
+    a.id
+FROM
+    agents a
+    LEFT JOIN marked k ON k.agent_id = a.id
+    LEFT JOIN (
+        SELECT
+            1) x ON TRUE
+WHERE
+    EXISTS (
+        SELECT
+            1
+        FROM
+            marks m
+        WHERE
+            m.agent_id = a.id);
+
+-- name: ListWorkflowRows :many
+SELECT
+    w.id
+FROM
+    workflows w
+    JOIN workflow_hooks h ON h.workflow_id = w.id;

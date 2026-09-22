@@ -291,24 +291,24 @@ linters:
             # Unanchored regexps over the path lint was run from. The packages that write rows.
             stores:
               - ^internal/store/
-            # The sqlc query files, read to learn which table each query writes.
+            # The sqlc query files, read to learn which table each query writes and which
+            # tables the listings read.
             queries: db/queries
-            # Every table one of the panel's three listings is drawn from.
-            tables:
-              - agents
-              - agent_metadata
-              - agent_runs
-              - marks
-              - mail
-              - reviews
-              - review_rounds
-              - pull_requests
-              - pull_request_syncs
-              - workflows
-              - workflow_configs
-              - workflow_provisioner_configs
-              - workflow_hooks
-              - schedules
+            # The panel's three listings, keyed by their table, with the queries the watch's
+            # snapshot and read-back run for each. A write to any table those queries read
+            # has to touch the listing afterwards.
+            listings:
+              agents:
+                - ListAgentRows
+                - ListAgentMetadata
+              workflows:
+                - ListWorkflowsPage
+                - ListLiveWorkflowsByID
+                - ListHooksForWorkflows
+                - ListMarks
+              schedules:
+                - ListSchedulesPage
+                - ListLiveSchedulesByID
           single_append:
             skip: false
             # Unanchored regexps over the path lint was run from. The package that defines Map,
