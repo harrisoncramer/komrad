@@ -82,12 +82,6 @@ table "reviews" {
     type    = uuid
     comment = "The agent giving the review, null when a person is giving it. Do not read null as meaning a person, because author_kind is what says that. Deleting the reviewing agent clears this column rather than deleting the review. Reviewer agents are deleted as a matter of course, and the agent they reviewed is still working from what they said."
   }
-  column "body" {
-    null    = false
-    type    = text
-    default = ""
-    comment = "What the reviewer said about the change as a whole rather than about any one line, empty when they said nothing. It goes at the top of the released review file, above the line comments, because it is what the agent should read first."
-  }
   column "verdict" {
     null    = true
     type    = enum.review_verdict
@@ -118,6 +112,12 @@ table "reviews" {
     null    = false
     type    = timestamptz
     default = sql("now()")
+  }
+  column "body" {
+    null    = false
+    type    = text
+    default = ""
+    comment = "What the reviewer said about the change as a whole rather than about any one line, empty when they said nothing. It goes at the top of the released review file, above the line comments, because it is what the agent should read first."
   }
   primary_key {
     columns = [column.id]
@@ -180,21 +180,6 @@ table "review_threads" {
     type    = uuid
     comment = "The agent being reviewed. The review already says this and neither value ever changes. It is repeated here because almost every read of threads is by agent."
   }
-  column "review_id" {
-    null = false
-    type = uuid
-  }
-  column "round_id" {
-    null    = false
-    type    = uuid
-    comment = "The round this thread's line numbers were measured against. It is not read through the review, because a review stays open across several rounds and would name the wrong one."
-  }
-  column "base_sha" {
-    null    = false
-    type    = text
-    default = ""
-    comment = "The commit the old side of this thread's line numbers was read against. For a thread written on the whole change that is the round's own base. For a thread written while the diff was narrowed to one round it is the earlier round's snapshot."
-  }
   column "file_path" {
     null    = false
     type    = text
@@ -230,30 +215,10 @@ table "review_threads" {
     default = sql("'{}'::text[]")
     comment = "The diff lines the thread was written against. They still say what the thread was about after the agent has rewritten that code. A later round is searched for these lines to decide whether the thread has gone outdated."
   }
-  column "last_agent_activity_at" {
-    null    = true
-    type    = timestamptz
-    comment = "When the agent last wrote or rewrote a message here, null until it has written one. It is a column rather than something read off the messages. An agent that rewrites its own reply is activity the person reviewing has not seen, and comparing against the message's created_at would miss that."
-  }
   column "human_read_at" {
     null    = true
     type    = timestamptz
     comment = "When the person reviewing last read this thread. It is copied from last_agent_activity_at rather than taken from the clock, so a reply written while they were reading is not marked read without having been shown."
-  }
-  column "resolved_at" {
-    null    = true
-    type    = timestamptz
-    comment = "When this thread was settled, null while it is still owed an answer."
-  }
-  column "resolved_by_kind" {
-    null    = true
-    type    = enum.review_author_kind
-    comment = "Whether a person or an agent settled this thread, null while nobody has. Two parties can settle one: the agent that wrote the comment, saying the answer was good enough, and the person, who may settle anything including a thread whose author is gone."
-  }
-  column "resolved_by_agent_id" {
-    null    = true
-    type    = uuid
-    comment = "The agent that settled this thread, null when a person did or when nobody has. Do not read null as meaning a person, because resolved_by_kind is what says that. Deleting that agent clears this column rather than the settling."
   }
   column "created_at" {
     null    = false
@@ -264,6 +229,41 @@ table "review_threads" {
     null    = false
     type    = timestamptz
     default = sql("now()")
+  }
+  column "last_agent_activity_at" {
+    null    = true
+    type    = timestamptz
+    comment = "When the agent last wrote or rewrote a message here, null until it has written one. It is a column rather than something read off the messages. An agent that rewrites its own reply is activity the person reviewing has not seen, and comparing against the message's created_at would miss that."
+  }
+  column "resolved_at" {
+    null    = true
+    type    = timestamptz
+    comment = "When this thread was settled, null while it is still owed an answer."
+  }
+  column "review_id" {
+    null = false
+    type = uuid
+  }
+  column "round_id" {
+    null    = false
+    type    = uuid
+    comment = "The round this thread's line numbers were measured against. It is not read through the review, because a review stays open across several rounds and would name the wrong one."
+  }
+  column "base_sha" {
+    null    = false
+    type    = text
+    default = ""
+    comment = "The commit the old side of this thread's line numbers was read against. For a thread written on the whole change that is the round's own base. For a thread written while the diff was narrowed to one round it is the earlier round's snapshot."
+  }
+  column "resolved_by_kind" {
+    null    = true
+    type    = enum.review_author_kind
+    comment = "Whether a person or an agent settled this thread, null while nobody has. Two parties can settle one: the agent that wrote the comment, saying the answer was good enough, and the person, who may settle anything including a thread whose author is gone."
+  }
+  column "resolved_by_agent_id" {
+    null    = true
+    type    = uuid
+    comment = "The agent that settled this thread, null when a person did or when nobody has. Do not read null as meaning a person, because resolved_by_kind is what says that. Deleting that agent clears this column rather than the settling."
   }
   primary_key {
     columns = [column.id]
@@ -312,11 +312,6 @@ table "review_messages" {
     null = false
     type = uuid
   }
-  column "review_id" {
-    null    = true
-    type    = uuid
-    comment = "The review this message was released with, null for an answer from the agent. An answer belongs to no batch and reaches the reviewer as soon as it is written."
-  }
   column "author_kind" {
     null    = false
     type    = enum.review_author_kind
@@ -332,12 +327,6 @@ table "review_messages" {
     type    = text
     comment = "What was written, as markdown."
   }
-  column "suggestion" {
-    null    = false
-    type    = sql("text[]")
-    default = sql("'{}'::text[]")
-    comment = "Replacement lines the reviewer is proposing for the range the thread is pinned to, empty on an ordinary comment. The agent applies them as written rather than treating them as a description of what to do."
-  }
   column "created_at" {
     null    = false
     type    = timestamptz
@@ -347,6 +336,17 @@ table "review_messages" {
     null    = false
     type    = timestamptz
     default = sql("now()")
+  }
+  column "review_id" {
+    null    = true
+    type    = uuid
+    comment = "The review this message was released with, null for an answer from the agent. An answer belongs to no batch and reaches the reviewer as soon as it is written."
+  }
+  column "suggestion" {
+    null    = false
+    type    = sql("text[]")
+    default = sql("'{}'::text[]")
+    comment = "Replacement lines the reviewer is proposing for the range the thread is pinned to, empty on an ordinary comment. The agent applies them as written rather than treating them as a description of what to do."
   }
   primary_key {
     columns = [column.id]
@@ -380,24 +380,24 @@ table "review_messages" {
 table "review_viewed_files" {
   schema  = schema.public
   comment = "One file of an agent's diff the person reviewing has read, and the shape that file had when they read it."
-  column "agent_id" {
-    null = false
-    type = uuid
-  }
   column "file_path" {
     null    = false
     type    = text
     comment = "The file that was read, named the way the diff names it: relative to the repository root, where the change left it if it moved it."
   }
-  column "fingerprint" {
-    null    = false
-    type    = text
-    comment = "A hash of the file's own slice of the patch as it stood when it was read. The panel hashes the file again on every load and shows it as unread once the two disagree, which is what makes an agent writing to the file undo the mark. It is the diff that is hashed rather than the file, since the hunks change when the base moves under a file nothing has touched."
-  }
   column "viewed_at" {
     null    = false
     type    = timestamptz
     default = sql("now()")
+  }
+  column "agent_id" {
+    null = false
+    type = uuid
+  }
+  column "fingerprint" {
+    null    = false
+    type    = text
+    comment = "A hash of the file's own slice of the patch as it stood when it was read. The panel hashes the file again on every load and shows it as unread once the two disagree, which is what makes an agent writing to the file undo the mark. It is the diff that is hashed rather than the file, since the hunks change when the base moves under a file nothing has touched."
   }
   primary_key {
     columns = [column.agent_id, column.file_path]

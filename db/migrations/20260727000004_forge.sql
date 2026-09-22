@@ -1,48 +1,68 @@
--- Modify "forge_connections" table
-ALTER TABLE "forge_connections" ADD COLUMN "throttled_until" timestamptz NULL;
--- Set comment to column: "throttled_until" on table: "forge_connections"
-COMMENT ON COLUMN "forge_connections"."throttled_until" IS 'When the forge said this credential''s rate limit resets, after a refusal or a response whose remaining budget was zero. The pull request sync makes no request through the connection until it passes.';
 -- Create "branch_scans" table
 CREATE TABLE "branch_scans" (
   "repository_url" text NOT NULL,
   "branch" text NOT NULL,
-  "next_page" integer NOT NULL DEFAULT 1,
+  "next_cursor" text NOT NULL DEFAULT '',
   "completed_at" timestamptz NULL,
   PRIMARY KEY ("repository_url", "branch")
 );
 -- Set comment to table: "branch_scans"
 COMMENT ON TABLE "branch_scans" IS 'A branch weave has listed the pull requests of on purpose, once, which is what finds a pull request older than the sync''s horizon on a branch an agent adopted.';
--- Set comment to column: "next_page" on table: "branch_scans"
-COMMENT ON COLUMN "branch_scans"."next_page" IS 'The next page not yet written.';
+-- Set comment to column: "next_cursor" on table: "branch_scans"
+COMMENT ON COLUMN "branch_scans"."next_cursor" IS 'Where the listing reads its next page from, empty for the first.';
 -- Set comment to column: "completed_at" on table: "branch_scans"
 COMMENT ON COLUMN "branch_scans"."completed_at" IS 'When the listing answered its last page, after which the branch is never scanned again.';
+-- Create "forge_connections" table
+CREATE TABLE "forge_connections" (
+  "id" uuid NOT NULL DEFAULT uuidv7(),
+  "kind" text NOT NULL,
+  "host" text NOT NULL,
+  "api_url" text NOT NULL DEFAULT '',
+  "method" text NOT NULL,
+  "login" text NOT NULL,
+  "verified_at" timestamptz NULL,
+  "created_at" timestamptz NOT NULL DEFAULT now(),
+  "throttled_until" timestamptz NULL,
+  PRIMARY KEY ("id"),
+  CONSTRAINT "forge_connections_host_key" UNIQUE ("host")
+);
+-- Set comment to table: "forge_connections"
+COMMENT ON TABLE "forge_connections" IS 'A forge weave has been connected to, one row per host, holding who the credential was verified as. The credential itself is a file under weave''s state directory rather than a column.';
+-- Set comment to column: "kind" on table: "forge_connections"
+COMMENT ON COLUMN "forge_connections"."kind" IS 'Which forge the host runs: github or gitlab.';
+-- Set comment to column: "host" on table: "forge_connections"
+COMMENT ON COLUMN "forge_connections"."host" IS 'The host agents'' remotes name, such as github.com or ghe.example.com. It is unique because one machine acts as one identity on one forge.';
+-- Set comment to column: "api_url" on table: "forge_connections"
+COMMENT ON COLUMN "forge_connections"."api_url" IS 'Where the forge answers API calls when it is not the public one, such as https://ghe.example.com/api/v3. Empty for github.com and gitlab.com.';
+-- Set comment to column: "method" on table: "forge_connections"
+COMMENT ON COLUMN "forge_connections"."method" IS 'How the credential was obtained: token for one a person supplied, github_app for one minted from the engine''s App.';
+-- Set comment to column: "login" on table: "forge_connections"
+COMMENT ON COLUMN "forge_connections"."login" IS 'Who the forge said the credential belongs to when it was verified, a user login or an App slug.';
+-- Set comment to column: "verified_at" on table: "forge_connections"
+COMMENT ON COLUMN "forge_connections"."verified_at" IS 'When the forge last confirmed the credential. Cleared when the forge refuses it, so the row says the connection needs remaking.';
+-- Set comment to column: "throttled_until" on table: "forge_connections"
+COMMENT ON COLUMN "forge_connections"."throttled_until" IS 'When the forge said this credential''s rate limit resets, after a refusal or a response whose remaining budget was zero. The pull request sync makes no request through the connection until it passes.';
 -- Create "pull_request_syncs" table
 CREATE TABLE "pull_request_syncs" (
   "repository_url" text NOT NULL,
   "updated_through" timestamptz NULL,
-  "etag" text NOT NULL DEFAULT '',
-  "validated_at" timestamptz NULL,
-  "sweep_next_page" integer NULL,
+  "listed_at" timestamptz NULL,
+  "sweep_cursor" text NULL,
   "sweep_newest" timestamptz NULL,
-  "sweep_etag" text NULL,
   "read_at" timestamptz NULL,
   "calls" integer NOT NULL DEFAULT 0,
   PRIMARY KEY ("repository_url")
 );
 -- Set comment to table: "pull_request_syncs"
-COMMENT ON TABLE "pull_request_syncs" IS 'Where the pull request sync is for one repository: the high-water mark of the last completed sweep, the sweep in progress if one is, and what the last pass cost.';
+COMMENT ON TABLE "pull_request_syncs" IS 'Where the pull request sync is for one repository: the high-water mark the changes have been read through, the first sweep in progress if one is, and what the last pass cost.';
 -- Set comment to column: "updated_through" on table: "pull_request_syncs"
-COMMENT ON COLUMN "pull_request_syncs"."updated_through" IS 'The newest forge updated_at the last completed sweep covered. Null until one has.';
--- Set comment to column: "etag" on table: "pull_request_syncs"
-COMMENT ON COLUMN "pull_request_syncs"."etag" IS 'The ETag page one answered on the last completed sweep, for the exact query the sync trusts. Empty for a forge that sends none.';
--- Set comment to column: "validated_at" on table: "pull_request_syncs"
-COMMENT ON COLUMN "pull_request_syncs"."validated_at" IS 'The last time page one was read without an ETag and answered with a body, which is the clock for the hourly unconditional re-read. A 304 does not touch it.';
--- Set comment to column: "sweep_next_page" on table: "pull_request_syncs"
-COMMENT ON COLUMN "pull_request_syncs"."sweep_next_page" IS 'The next page a sweep in progress has not yet written, null between sweeps.';
+COMMENT ON COLUMN "pull_request_syncs"."updated_through" IS 'The newest forge updated_at the changes have been read through, by the first sweep and then by every search since. Null until the first sweep has completed.';
+-- Set comment to column: "listed_at" on table: "pull_request_syncs"
+COMMENT ON COLUMN "pull_request_syncs"."listed_at" IS 'The last time page one of the repository''s own listing was read and written, which is the clock for the hourly listing behind the search.';
+-- Set comment to column: "sweep_cursor" on table: "pull_request_syncs"
+COMMENT ON COLUMN "pull_request_syncs"."sweep_cursor" IS 'Where the first sweep in progress reads its next page from, empty for page one and null between sweeps.';
 -- Set comment to column: "sweep_newest" on table: "pull_request_syncs"
-COMMENT ON COLUMN "pull_request_syncs"."sweep_newest" IS 'The updated_at of the first pull request on page one of the sweep in progress, which becomes updated_through when it completes.';
--- Set comment to column: "sweep_etag" on table: "pull_request_syncs"
-COMMENT ON COLUMN "pull_request_syncs"."sweep_etag" IS 'The ETag page one answered for the sweep in progress, promoted to etag when it completes.';
+COMMENT ON COLUMN "pull_request_syncs"."sweep_newest" IS 'The moment the sweep in progress covers up to, when its page one was read or the newest row''s stamp when the forge''s clock is ahead, which becomes updated_through when it completes.';
 -- Set comment to column: "read_at" on table: "pull_request_syncs"
 COMMENT ON COLUMN "pull_request_syncs"."read_at" IS 'The last time any request was made for this repository, whatever it answered.';
 -- Set comment to column: "calls" on table: "pull_request_syncs"
@@ -69,6 +89,12 @@ CREATE TABLE "pull_requests" (
   "merged_at" timestamptz NULL,
   "closed_at" timestamptz NULL,
   "first_seen_at" timestamptz NOT NULL DEFAULT now(),
+  "review_decision" text NULL,
+  "decision_changed_at" timestamptz NULL,
+  "checks" text NULL,
+  "checks_sha" text NULL,
+  "checks_read_at" timestamptz NULL,
+  "mergeability" text NULL,
   PRIMARY KEY ("id"),
   CONSTRAINT "pull_requests_host_provider_id_key" UNIQUE ("host", "provider_id"),
   CONSTRAINT "pull_requests_url_key" UNIQUE ("url")
@@ -94,13 +120,25 @@ COMMENT ON COLUMN "pull_requests"."head_repository_url" IS 'The canonical URL of
 -- Set comment to column: "number" on table: "pull_requests"
 COMMENT ON COLUMN "pull_requests"."number" IS 'The per-repository number a person sees: GitHub''s number, GitLab''s iid.';
 -- Set comment to column: "state" on table: "pull_requests"
-COMMENT ON COLUMN "pull_requests"."state" IS 'The forge''s own word for where it stands, kept verbatim as a cross-check on the timestamps.';
--- Set comment to column: "created_at" on table: "pull_requests"
+COMMENT ON COLUMN "pull_requests"."state" IS 'Where the forge says it stands, as OPEN, CLOSED or MERGED, a cross-check on the timestamps.';
+-- Set comment to column: "opened_at" on table: "pull_requests"
 COMMENT ON COLUMN "pull_requests"."opened_at" IS 'When the forge says it was opened, which is what orders the pull requests on one branch.';
--- Set comment to column: "updated_at" on table: "pull_requests"
+-- Set comment to column: "changed_at" on table: "pull_requests"
 COMMENT ON COLUMN "pull_requests"."changed_at" IS 'The forge''s own last-change stamp, which is what the sync pages by. It is the forge''s clock and not weave''s, so it is not named updated_at and carries no trigger.';
 -- Set comment to column: "first_seen_at" on table: "pull_requests"
 COMMENT ON COLUMN "pull_requests"."first_seen_at" IS 'When weave first inserted the row.';
+-- Set comment to column: "review_decision" on table: "pull_requests"
+COMMENT ON COLUMN "pull_requests"."review_decision" IS 'Where the forge says the reviews stand, in weave''s own words: pending, approved or changes_requested, null while it has said nothing.';
+-- Set comment to column: "decision_changed_at" on table: "pull_requests"
+COMMENT ON COLUMN "pull_requests"."decision_changed_at" IS 'The changed_at the review decision was read for, stale once changed_at has moved past it.';
+-- Set comment to column: "checks" on table: "pull_requests"
+COMMENT ON COLUMN "pull_requests"."checks" IS 'Where the forge says the checks on the head commit stand, in weave''s own words: pending, passing or failing, null while it reports none. A check finishing does not move changed_at, so the checks are kept fresh by checks_sha and checks_read_at rather than by the change stamp.';
+-- Set comment to column: "checks_sha" on table: "pull_requests"
+COMMENT ON COLUMN "pull_requests"."checks_sha" IS 'The head commit the checks were read for, stale once head_sha has moved past it.';
+-- Set comment to column: "checks_read_at" on table: "pull_requests"
+COMMENT ON COLUMN "pull_requests"."checks_read_at" IS 'When the checks and mergeability were last read, which is what paces every re-read.';
+-- Set comment to column: "mergeability" on table: "pull_requests"
+COMMENT ON COLUMN "pull_requests"."mergeability" IS 'Where the forge says the pull request stands against its base and its branch rules, in weave''s own words: clean, unstable, blocked, behind or conflicting, null while the forge has not computed it. Read with the checks and kept fresh the same way.';
 -- Create "agent_pull_requests" table
 CREATE TABLE "agent_pull_requests" (
   "agent_id" uuid NOT NULL,

@@ -67,22 +67,12 @@ table "workflow_provisioner_configs" {
     type    = text
     comment = "The branch worktrees are cut from and every agent's work is measured against, never blank."
   }
-  column "worktree_dir" {
-    null    = false
-    type    = text
-    default = ""
-  }
   column "worktree_copy_paths" {
     null    = false
     type    = sql("text[]")
     default = sql("'{}'")
   }
   column "worktree_symlink_paths" {
-    null    = false
-    type    = sql("text[]")
-    default = sql("'{}'")
-  }
-  column "worktree_diff_exclude" {
     null    = false
     type    = sql("text[]")
     default = sql("'{}'")
@@ -96,6 +86,16 @@ table "workflow_provisioner_configs" {
     null    = false
     type    = timestamptz
     default = sql("now()")
+  }
+  column "worktree_diff_exclude" {
+    null    = false
+    type    = sql("text[]")
+    default = sql("'{}'")
+  }
+  column "worktree_dir" {
+    null    = false
+    type    = text
+    default = ""
   }
   primary_key {
     columns = [column.id]
@@ -177,11 +177,6 @@ table "workflows" {
     null = true
     type = timestamptz
   }
-  column "deleting_at" {
-    null    = true
-    type    = timestamptz
-    comment = "When a delete claimed the workflow, which happens when a delete claims the agents inside it. A claimed workflow is left out of the archive until the last of those agents goes and takes the row with it, and an agent whose delete fails gives the workflow back as it comes back itself."
-  }
   column "created_at" {
     null    = false
     type    = timestamptz
@@ -191,6 +186,11 @@ table "workflows" {
     null    = false
     type    = timestamptz
     default = sql("now()")
+  }
+  column "deleting_at" {
+    null    = true
+    type    = timestamptz
+    comment = "When a delete claimed the workflow, which happens when a delete claims the agents inside it. A claimed workflow is left out of the archive until the last of those agents goes and takes the row with it, and an agent whose delete fails gives the workflow back as it comes back itself."
   }
   primary_key {
     columns = [column.id]
@@ -453,10 +453,6 @@ table "agents" {
     type    = text
     default = ""
   }
-  column "provision_enabled" {
-    null = true
-    type = boolean
-  }
   column "prompt" {
     null    = false
     type    = text
@@ -466,12 +462,6 @@ table "agents" {
     null    = false
     type    = text
     default = ""
-  }
-  column "role" {
-    null    = false
-    type    = enum.agent_role
-    default = "implementer"
-    comment = "What the agent was launched to do. It decides which review briefing the agent is given. A reviewer reads the work of the agent it is a child of and never writes any code of its own."
   }
   column "state" {
     null    = false
@@ -483,21 +473,6 @@ table "agents" {
     null    = false
     type    = timestamptz
     default = sql("now()")
-  }
-  column "state_seen_at" {
-    null    = false
-    type    = timestamptz
-    default = sql("now()")
-  }
-  column "turn_ended_at" {
-    null = true
-    type = timestamptz
-  }
-  column "reported_reason" {
-    null    = false
-    type    = text
-    default = ""
-    comment = "What the agent's own CLI last said it was doing. It only decorates the state read off the terminal and never sets that state. It is cleared whenever the state changes and when a turn ends, so an empty value means there is nothing to say."
   }
   column "harness" {
     null    = false
@@ -525,18 +500,9 @@ table "agents" {
     null = true
     type = uuid
   }
-  column "parent_agent_id" {
-    null = true
-    type = uuid
-  }
   column "archived_at" {
     null = true
     type = timestamptz
-  }
-  column "deleting_at" {
-    null    = true
-    type    = timestamptz
-    comment = "When a delete claimed the row. A claimed row is left out of every listing until the delete either removes it or fails, and a failure clears the claim as it records itself. The server clears every claim when it starts, since nothing survives a restart to finish one."
   }
   column "is_hidden" {
     null    = false
@@ -547,38 +513,62 @@ table "agents" {
     null = true
     type = timestamptz
   }
-  column "nudge_sent_at" {
-    null = true
-    type = timestamptz
-  }
   column "branch" {
     null = true
     type = text
-  }
-  column "repository_url" {
-    null    = true
-    type    = text
-    comment = "The canonical web address of the repository the agent's checkout pushes to, such as https://github.com/harrisoncramer/weave. Null when the checkout is gone or its origin is not a forge. The cwd syncer rewrites it on the same pass that rewrites branch."
-  }
-  column "adopted_branch" {
-    null    = false
-    type    = text
-    default = ""
   }
   column "worktree_removed" {
     null    = false
     type    = boolean
     default = false
   }
-  column "sequence_in_progress" {
+  column "created_at" {
     null    = false
-    type    = boolean
-    default = false
-    comment = "Whether a merge, a rebase or a cherry-pick is part-way through the agent's checkout and waiting on somebody. Weave reads the checkout every few seconds and writes what it found here, so settling the sequence by hand clears this on its own."
+    type    = timestamptz
+    default = sql("now()")
+  }
+  column "updated_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+  column "state_seen_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
   }
   column "interrupted_at" {
     null = true
     type = timestamptz
+  }
+  column "adopted_branch" {
+    null    = false
+    type    = text
+    default = ""
+  }
+  column "parent_agent_id" {
+    null = true
+    type = uuid
+  }
+  column "turn_ended_at" {
+    null = true
+    type = timestamptz
+  }
+  column "provision_enabled" {
+    null = true
+    type = boolean
+  }
+  column "reported_reason" {
+    null    = false
+    type    = text
+    default = ""
+    comment = "What the agent's own CLI last said it was doing. It only decorates the state read off the terminal and never sets that state. It is cleared whenever the state changes and when a turn ends, so an empty value means there is nothing to say."
+  }
+  column "role" {
+    null    = false
+    type    = enum.agent_role
+    default = "implementer"
+    comment = "What the agent was launched to do. It decides which review briefing the agent is given. A reviewer reads the work of the agent it is a child of and never writes any code of its own."
   }
   column "held_at" {
     null    = true
@@ -590,6 +580,26 @@ table "agents" {
     type    = boolean
     default = false
     comment = "Whether the hold cut a turn that was still running, which is what decides whether letting go has to type the agent back into motion or merely stop holding it."
+  }
+  column "nudge_sent_at" {
+    null = true
+    type = timestamptz
+  }
+  column "sequence_in_progress" {
+    null    = false
+    type    = boolean
+    default = false
+    comment = "Whether a merge, a rebase or a cherry-pick is part-way through the agent's checkout and waiting on somebody. Weave reads the checkout every few seconds and writes what it found here, so settling the sequence by hand clears this on its own."
+  }
+  column "repository_url" {
+    null    = true
+    type    = text
+    comment = "The canonical web address of the repository the agent's checkout pushes to, such as https://github.com/harrisoncramer/weave. Null when the checkout is gone or its origin is not a forge. The cwd syncer rewrites it on the same pass that rewrites branch."
+  }
+  column "deleting_at" {
+    null    = true
+    type    = timestamptz
+    comment = "When a delete claimed the row. A claimed row is left out of every listing until the delete either removes it or fails, and a failure clears the claim as it records itself. The server clears every claim when it starts, since nothing survives a restart to finish one."
   }
   column "alive" {
     null    = false
@@ -608,16 +618,6 @@ table "agents" {
     type    = text
     default = ""
     comment = "The round the standing was measured against."
-  }
-  column "created_at" {
-    null    = false
-    type    = timestamptz
-    default = sql("now()")
-  }
-  column "updated_at" {
-    null    = false
-    type    = timestamptz
-    default = sql("now()")
   }
   primary_key {
     columns = [column.id]
@@ -675,11 +675,6 @@ table "agents" {
 table "marks" {
   schema  = schema.public
   comment = "A letter a person types to jump to one row. Each letter belongs to a single agent or a single workflow, so it always names one place."
-  column "id" {
-    null    = false
-    type    = uuid
-    default = sql("uuidv7()")
-  }
   column "mark" {
     null = false
     type = text
@@ -696,6 +691,11 @@ table "marks" {
     null    = false
     type    = timestamptz
     default = sql("now()")
+  }
+  column "id" {
+    null    = false
+    type    = uuid
+    default = sql("uuidv7()")
   }
   primary_key {
     columns = [column.id]
