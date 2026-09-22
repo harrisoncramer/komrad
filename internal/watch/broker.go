@@ -59,11 +59,9 @@ type Broker struct {
 	// wake has room for one poke, which is all the loop needs to know.
 	wake chan struct{}
 
-	// mu guards the subscribers, the rows last sent, whether a listener is up and whether the
-	// broker has closed.
+	// mu guards the subscribers, whether a listener is up and whether the broker has closed.
 	mu          sync.Mutex
 	subscribers map[*Subscription]struct{}
-	sent        map[watchv1.Resource]map[string]*watchv1.Row
 	listening   bool
 	closed      bool
 
@@ -89,7 +87,6 @@ func NewBroker(params NewBrokerParams) *Broker {
 		unknown:     map[string]struct{}{},
 		wake:        make(chan struct{}, 1),
 		subscribers: map[*Subscription]struct{}{},
-		sent:        map[watchv1.Resource]map[string]*watchv1.Row{},
 		stop:        func() {},
 		stopped:     stopped,
 	}
@@ -160,52 +157,16 @@ func (b *Broker) render() bool {
 	defer b.mu.Unlock()
 
 	for _, change := range changes {
-		if !b.moved(change) {
-			continue
-		}
-
 		for subscription := range b.subscribers {
+			if !subscription.move(change) {
+				continue
+			}
+
 			b.send(ctx, subscription, change)
 		}
 	}
 
 	return true
-}
-
-// moved reports whether a change says anything the last one for its key did not, recording it
-// as the row the stream now holds.
-func (b *Broker) moved(change Change) bool {
-	held := b.sent[change.Resource]
-
-	if change.Row == nil {
-		delete(held, change.Key)
-
-		return true
-	}
-	if proto.Equal(held[change.Key], change.Row) {
-		return false
-	}
-
-	if held == nil {
-		held = map[string]*watchv1.Row{}
-		b.sent[change.Resource] = held
-	}
-	held[change.Key] = change.Row
-
-	return true
-}
-
-// reseed makes a snapshot the rows the stream holds.
-func (b *Broker) reseed(snapshot []Change) {
-	b.sent = map[watchv1.Resource]map[string]*watchv1.Row{}
-	for _, change := range snapshot {
-		held := b.sent[change.Resource]
-		if held == nil {
-			held = map[string]*watchv1.Row{}
-			b.sent[change.Resource] = held
-		}
-		held[change.Key] = change.Row
-	}
 }
 
 // Subscribe opens a subscription that starts with a snapshot of every row, then every change
@@ -230,17 +191,14 @@ func (b *Broker) Subscribe(ctx context.Context) (*Subscription, error) {
 	if err != nil {
 		return nil, err
 	}
-	// Explainer: only the first watcher reseeds. While one is open the memory is already what
-	// went out, and a later snapshot can be newer than a render still in flight. Seeding from
-	// that snapshot would make the render's row compare equal and be dropped, so the watchers
-	// already on the stream would never receive it, with no notification left pending to correct
-	// them.
-	if len(b.subscribers) == 0 {
-		b.reseed(snapshot)
-	}
 
 	rows := xslice.Map(snapshot, func(change Change) *watchv1.Row { return change.Row })
-	subscription := &Subscription{broker: b, changes: make(chan Change, subscriberBuffer), snapshot: rows}
+	subscription := &Subscription{
+		broker:   b,
+		changes:  make(chan Change, subscriberBuffer),
+		snapshot: rows,
+		sent:     rowsByResource(snapshot),
+	}
 	b.subscribers[subscription] = struct{}{}
 
 	return subscription, nil
@@ -264,12 +222,6 @@ func (b *Broker) drop(subscription *Subscription) {
 
 	delete(b.subscribers, subscription)
 	close(subscription.changes)
-
-	// Nothing holds the stream's rows once nobody is on it, and the next watcher reseeds from
-	// its own snapshot.
-	if len(b.subscribers) == 0 {
-		clear(b.sent)
-	}
 }
 
 // Close ends every subscription, lets the listener's connection go and stops the render loop,
@@ -304,6 +256,41 @@ type Subscription struct {
 	broker   *Broker
 	changes  chan Change
 	snapshot []*watchv1.Row
+	sent     map[watchv1.Resource]map[string]*watchv1.Row
+}
+
+func rowsByResource(snapshot []Change) map[watchv1.Resource]map[string]*watchv1.Row {
+	held := map[watchv1.Resource]map[string]*watchv1.Row{}
+	for _, change := range snapshot {
+		rows := held[change.Resource]
+		if rows == nil {
+			rows = map[string]*watchv1.Row{}
+			held[change.Resource] = rows
+		}
+		rows[change.Key] = change.Row
+	}
+
+	return held
+}
+
+func (s *Subscription) move(change Change) bool {
+	held := s.sent[change.Resource]
+	if change.Row == nil {
+		delete(held, change.Key)
+
+		return true
+	}
+	if proto.Equal(held[change.Key], change.Row) {
+		return false
+	}
+
+	if held == nil {
+		held = map[string]*watchv1.Row{}
+		s.sent[change.Resource] = held
+	}
+	held[change.Key] = change.Row
+
+	return true
 }
 
 // Snapshot is every row the watched sets held as the subscription opened.

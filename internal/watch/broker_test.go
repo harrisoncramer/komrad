@@ -113,9 +113,9 @@ func TestSubscriptionOpensWithTheSnapshot(t *testing.T) {
 	assert.Equal(t, "a", receive(t, second).Key)
 }
 
-// TestATouchDuringTheSnapshotLandsAfterIt pins the ordering a snapshot relies on: a touch
-// pending while a watcher subscribes renders after its snapshot and reaches it.
-func TestATouchDuringTheSnapshotLandsAfterIt(t *testing.T) {
+// TestATouchDuringTheSnapshotOnlyReachesWatchersWhoseSnapshotPredatesIt pins that each watcher
+// deduplicates against its own snapshot.
+func TestATouchDuringTheSnapshotOnlyReachesWatchersWhoseSnapshotPredatesIt(t *testing.T) {
 	stores := newStores()
 	stores.agents.held = make(chan struct{})
 	broker := newTestBroker(t, stores)
@@ -131,14 +131,14 @@ func TestATouchDuringTheSnapshotLandsAfterIt(t *testing.T) {
 
 	second, err := broker.Subscribe(t.Context())
 	require.NoError(t, err)
+	require.Len(t, second.Snapshot(), 2)
 
 	broker.touch("agents", "b")
 	close(stores.agents.held)
 
 	assert.Equal(t, "a", receive(t, first).Key)
-	assert.Equal(t, "a", receive(t, second).Key, "a render in flight as a watcher subscribes reaches it")
 	assert.Equal(t, "b", receive(t, first).Key)
-	assert.Equal(t, "b", receive(t, second).Key)
+	assert.Empty(t, drain(second), "the second watcher already received both rows in its snapshot")
 }
 
 // TestASlowWatcherIsDropped pins that a watcher that stops reading is closed rather than

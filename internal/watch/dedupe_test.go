@@ -122,9 +122,7 @@ func TestATombstoneAlwaysSends(t *testing.T) {
 	require.Len(t, changes, 1)
 	assert.Nil(t, changes[0].Row)
 
-	broker.mu.Lock()
-	held := broker.sent[changes[0].Resource]
-	broker.mu.Unlock()
+	held := subscription.sent[changes[0].Resource]
 	assert.NotContains(t, held, "a", "a key that has left the listing is not remembered")
 
 	// The row comes back, and is sent although it is the row the watcher last saw.
