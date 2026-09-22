@@ -3,14 +3,19 @@
 package ui
 
 import (
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
 	"weave/config"
+	"weave/internal/client"
 	"weave/internal/ui/layout"
 	"weave/internal/weavetest"
+	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
+	schedulev1 "weave/proto/gen/schedule/v1"
+	watchv1 "weave/proto/gen/watch/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
 
 	"connectrpc.com/connect"
@@ -22,6 +27,37 @@ import (
 )
 
 const panelSession = "shown"
+
+// listedFromService seeds the panel from the list RPCs the way the watch's snapshot would, and
+// reads whatever the screen that is up lists on its own.
+func listedFromService(t *testing.T, m model) model {
+	t.Helper()
+
+	ctx := t.Context()
+
+	agents, err := client.ListAllAgents(ctx, m.api.agents)
+	require.NoError(t, err)
+	workflows, err := client.ListAllWorkflows(ctx, m.api.workflows)
+	require.NoError(t, err)
+	schedules, err := client.ListAllSchedules(ctx, m.api.schedules)
+	require.NoError(t, err)
+
+	events := slices.Concat(
+		xslice.Map(agents, func(agent *agentv1.Agent) *watchv1.WatchEvent {
+			return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Agent{Agent: agent}}
+		}),
+		xslice.Map(workflows, func(workflow *workflowv1.Workflow) *watchv1.WatchEvent {
+			return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Workflow{Workflow: workflow}}
+		}),
+		xslice.Map(schedules, func(schedule *schedulev1.Schedule) *watchv1.WatchEvent {
+			return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Schedule{Schedule: schedule}}
+		}),
+	)
+
+	m.applyWatch(client.WatchBatch{Snapshot: true, Events: events})
+
+	return settle(t, m, m.listCmd())
+}
 
 // TestPanelArchivesThroughTheService takes the archive key all the way to the database.
 func TestPanelArchivesThroughTheService(t *testing.T) {
@@ -60,7 +96,7 @@ func TestPanelArchivesThroughTheService(t *testing.T) {
 		screen: screenAgents,
 	}
 
-	shown = settle(t, shown, shown.refreshCmd())
+	shown = listedFromService(t, shown)
 	require.Equal(t, []string{"header:backend", "agent:login"}, describeRows(shown.agents.rows(shown.shared())))
 
 	shown.agents.cursor = 1
@@ -84,7 +120,7 @@ func TestPanelArchivesThroughTheService(t *testing.T) {
 
 	assert.Empty(t, instance.GetOwnedPane(agent.GetId()), "archiving from the shown stops what was running")
 
-	shown = settle(t, shown, shown.refreshCmd())
+	shown = listedFromService(t, shown)
 	assert.Equal(t, []string{"header:backend"}, describeRows(shown.agents.rows(shown.shared())),
 		"and the row goes off the shown's own list, leaving the folder it was in")
 }
@@ -96,7 +132,7 @@ func TestStagedAgentExitsOnItsOwn(t *testing.T) {
 	stagePane := staged.shown.frame.Pane(layout.RegionStage)
 
 	staged.shown.tmux.KillPane(staged.agentPane)
-	staged.shown = settle(t, staged.shown, staged.shown.refreshCmd())
+	staged.shown = listedFromService(t, staged.shown)
 
 	assert.False(t, staged.shown.tmux.IsPaneAlive(stagePane), "the pane left in the agent's window is not left running")
 	assert.Equal(t,
@@ -133,7 +169,7 @@ func TestArchivingAWorkflowSendsItsPanesBack(t *testing.T) {
 	shown, ok = confirmed.(model)
 	require.True(t, ok)
 	shown = settle(t, shown, cmd)
-	shown = settle(t, shown, shown.refreshCmd())
+	shown = listedFromService(t, shown)
 
 	assert.Empty(t, shown.frame.GuestPane(), "the archived agent's pane is not left standing in the shown")
 	require.True(t, shown.tmux.IsPaneAlive(stagePane), "the shown's own stage pane outlives the archive")
@@ -191,7 +227,7 @@ func newStagedPanel(t *testing.T) *stagedPanel {
 		screen: screenAgents,
 	}
 
-	shown = settle(t, shown, shown.refreshCmd())
+	shown = listedFromService(t, shown)
 	require.Equal(t, []string{"header:backend", "agent:login"}, describeRows(shown.agents.rows(shown.shared())))
 
 	shown.agents.cursor = 1
@@ -260,7 +296,7 @@ func TestPanelKeepsTheWindowLeavingARunningAgent(t *testing.T) {
 	shown.width, shown.height = 200, 40
 	shown.frame.Attach(sidebar)
 
-	shown = settle(t, shown, shown.refreshCmd())
+	shown = listedFromService(t, shown)
 	require.Equal(t, []string{"header:backend", "agent:login"}, describeRows(shown.agents.rows(shown.shared())))
 
 	zoomed := func() string {
@@ -319,7 +355,7 @@ func TestPanelIsTheSizeOfThePaneItWasGiven(t *testing.T) {
 		drawn:  &lastFrame{},
 	}
 	shown.frame.Attach(sidebar)
-	shown = settle(t, shown, shown.refreshCmd())
+	shown = listedFromService(t, shown)
 	require.Equal(t, []string{"header:backend", "agent:login"}, describeRows(shown.agents.rows(shown.shared())))
 
 	// The one report the panel gets for free.

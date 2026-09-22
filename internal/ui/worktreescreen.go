@@ -19,7 +19,7 @@ import (
 const entriesShown = 10
 
 // enter lands on the directory of the agent the target names, remembering it as the focus for
-// the listing the refresh brings back.
+// the listing on its way.
 func (w *worktreesScreen) enter(h host, s panelShared, target screenTarget) tea.Cmd {
 	if target.agentID != "" {
 		w.focus = target.agentID
@@ -30,7 +30,7 @@ func (w *worktreesScreen) enter(h host, s panelShared, target screenTarget) tea.
 
 	w.stage(h, s)
 
-	return h.refreshCmd()
+	return h.listCmd()
 }
 
 func (w *worktreesScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {

@@ -100,9 +100,9 @@ func TestSharedIsTheRootAsAScreenSeesIt(t *testing.T) {
 	}, shared.chrome)
 }
 
-// TestEveryListingScreenSurvivesARefresh drives the pass applyRefresh runs once a second against
-// each screen the listing feeds.
-func TestEveryListingScreenSurvivesARefresh(t *testing.T) {
+// TestEveryListingScreenSurvivesAListing drives a listing landing against each screen the
+// listing feeds.
+func TestEveryListingScreenSurvivesAListing(t *testing.T) {
 	for s := screenAgents; s <= screenWorktrees; s++ {
 		tmux := &recordingTmux{width: 200, height: 40}
 		m := infoModel(tmux)
@@ -114,10 +114,10 @@ func TestEveryListingScreenSurvivesARefresh(t *testing.T) {
 		m.frame.Attach("%0")
 		m.enterScreen(s)
 
-		m.applyRefresh(refreshResult{})
+		m.withListing(func(*listing) {})
 
 		assert.Equal(t, s, m.screen, "screen %d left the screen it was on", s)
-		assert.NotEmpty(t, m.View(), "screen %d draws nothing after a pass", s)
+		assert.NotEmpty(t, m.View(), "screen %d draws nothing after a listing", s)
 	}
 }
 

@@ -6,12 +6,14 @@ import (
 	"testing"
 
 	"weave/config"
+	"weave/internal/client"
 	"weave/internal/errui"
 	"weave/internal/ui/layout"
 	"weave/internal/ui/panel"
 	"weave/lib/xslice"
 	hookv1 "weave/proto/gen/hook/v1"
 	"weave/proto/gen/hook/v1/hookv1connect"
+	watchv1 "weave/proto/gen/watch/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
 	"weave/proto/gen/workflow/v1/workflowv1connect"
 
@@ -238,7 +240,7 @@ func TestFailedWorkflowListKeepsTheTree(t *testing.T) {
 		listing: listing{workflows: []panel.Workflow{{ID: "w1", Name: "api"}, {ID: "w2", Name: "web"}}},
 	}
 
-	m.applyRefresh(refreshResult{workflowsErr: errors.New("connection reset")})
+	m.applyWatchLost(watchLostMsg{err: errors.New("connection reset")})
 
 	assert.Len(t, m.listing.workflows, 2, "the tree already on screen is kept")
 	require.Error(t, m.unreachable, "and the panel says the server is not answering")
@@ -284,7 +286,7 @@ func TestApplyWorkflows(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m := model{listing: listing{workflows: tt.current}}
 
-			m.applyWorkflows(tt.fresh)
+			m.listing.workflows = tt.fresh
 
 			names := xslice.Map(m.listing.workflows, func(w panel.Workflow) string {
 				return w.Name
@@ -323,15 +325,13 @@ func TestRefreshDrawsAnEditedWorkflowContext(t *testing.T) {
 
 	staged := len(tmux.respawns)
 
-	fresh := refreshResult{
-		workflows: []panel.Workflow{
-			{
-				ID:      "w1",
-				Name:    "api",
-				Context: "new notes",
-			},
-		},
-	}
+	fresh := client.WatchBatch{Events: []*watchv1.WatchEvent{
+		{Event: &watchv1.WatchEvent_Workflow{Workflow: &workflowv1.Workflow{
+			Id:      "w1",
+			Name:    "api",
+			Context: "new notes",
+		}}},
+	}}
 	updated, _ := m.Update(fresh)
 	m, ok := updated.(model)
 	require.True(t, ok)

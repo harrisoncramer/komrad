@@ -200,7 +200,7 @@ func TestDetailsKeysActOnTheFieldOnScreen(t *testing.T) {
 	down := send(t, send(t, send(t, focused, "j"), "j"), "j")
 	require.Equal(t, 3, down.details.cursor)
 
-	down.applyRefresh(refreshResult{workflows: down.listing.workflows})
+	applyListing(&down, nil, down.listing.workflows, nil)
 
 	held := down.hoveredDetails()
 	require.Equal(t, "w1", held.id, "the workflow header took the archived agent's place")

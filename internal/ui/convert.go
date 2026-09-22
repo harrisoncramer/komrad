@@ -210,30 +210,6 @@ func scheduleFrom(s *schedulev1.Schedule) panel.Schedule {
 	return schedule
 }
 
-// marksFromAgents is the letter each agent answers to, keyed by the row it is drawn as.
-func marksFromAgents(listed []*agentv1.Agent) map[string]string {
-	marks := make(map[string]string, len(listed))
-	for _, agent := range listed {
-		if agent.Mark != nil {
-			marks[agentRowKey(agent.GetId())] = agent.GetMark()
-		}
-	}
-
-	return marks
-}
-
-// marksFromWorkflows is the same for the workflow headers, which answer to the same letters.
-func marksFromWorkflows(listed []*workflowv1.Workflow) map[string]string {
-	marks := make(map[string]string, len(listed))
-	for _, workflow := range listed {
-		if workflow.Mark != nil {
-			marks[workflowRowKey(workflow.GetId())] = workflow.GetMark()
-		}
-	}
-
-	return marks
-}
-
 func worktreeItemsFrom(listed *worktreev1.ListWorktreesResponse) []worktreeItem {
 	return xslice.Map(listed.GetWorktrees(), worktreeItemFrom)
 }

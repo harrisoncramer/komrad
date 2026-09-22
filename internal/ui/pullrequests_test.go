@@ -336,7 +336,7 @@ func TestAgentsLeavingTheListingDropTheirPullRequests(t *testing.T) {
 	m.pullRequests.apply(agentPullRequestsListedMsg{agentID: "gone", listed: agentPullRequests{answered: true}})
 	m.pullRequests.apply(agentPullRequestsListedMsg{agentID: "kept", listed: agentPullRequests{answered: true}})
 
-	m.applyAgents([]agentItem{{agent: panel.Agent{ID: "kept"}}})
+	applyListing(&m, []agentItem{{agent: panel.Agent{ID: "kept"}}}, m.listing.workflows, nil)
 
 	_, gone := m.pullRequests.listed["gone"]
 	_, kept := m.pullRequests.listed["kept"]

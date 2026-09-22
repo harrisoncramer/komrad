@@ -389,7 +389,7 @@ func TestApplySchedules(t *testing.T) {
 			m.listing.schedules = tt.start
 			m.schedules.cursor = tt.cursor
 
-			m.applySchedules(tt.fresh)
+			applyListing(&m, nil, m.listing.workflows, tt.fresh)
 
 			assert.Equal(t, tt.wantCursor, m.schedules.cursor)
 			assert.Len(t, m.listing.schedules, len(tt.fresh))
@@ -648,7 +648,7 @@ func TestScheduleFormTakesNewWorkflows(t *testing.T) {
 	settle(t, edit, edit.form.form.NextField())
 	require.Equal(t, "cron", edit.form.form.GetFocusedField().GetKey())
 
-	cmd := edit.applyRefresh(refreshResult{workflows: []panel.Workflow{
+	cmd := applyListing(&edit, edit.listing.agents, []panel.Workflow{
 		{
 			ID:   "w1",
 			Name: "api",
@@ -659,7 +659,7 @@ func TestScheduleFormTakesNewWorkflows(t *testing.T) {
 			Name: "brandnew",
 			Cwd:  "/work/new",
 		},
-	}})
+	}, edit.listing.schedules)
 	settle(t, edit, cmd)
 	edit.form.form.Update(tea.WindowSizeMsg{Width: 80, Height: 40})
 
@@ -684,13 +684,13 @@ func TestScheduleFormKeepsAWorkflowThatIsGone(t *testing.T) {
 	edit := m
 	edit.form.form.Update(tea.WindowSizeMsg{Width: 80, Height: 40})
 
-	cmd := edit.applyRefresh(refreshResult{workflows: []panel.Workflow{
+	cmd := applyListing(&edit, edit.listing.agents, []panel.Workflow{
 		{
 			ID:   "w2",
 			Name: "other",
 			Cwd:  "/work/other",
 		},
-	}})
+	}, edit.listing.schedules)
 	settle(t, edit, cmd)
 	edit.form.form.Update(tea.WindowSizeMsg{Width: 80, Height: 40})
 

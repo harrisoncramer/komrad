@@ -1,7 +1,7 @@
 package ui
 
 import (
-	"maps"
+	"cmp"
 	"slices"
 	"strings"
 
@@ -10,6 +10,8 @@ import (
 	"weave/internal/ui/panel"
 	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
+	schedulev1 "weave/proto/gen/schedule/v1"
+	workflowv1 "weave/proto/gen/workflow/v1"
 )
 
 // agentsScreen is the agents screen: the cursor in the tree of workflows and agents, how they
@@ -480,26 +482,75 @@ func (l listing) hasWorkflow(id string) bool {
 	return slices.ContainsFunc(l.workflows, func(w panel.Workflow) bool { return w.ID == id })
 }
 
-func (m *model) applyWorkflows(fresh []panel.Workflow) {
-	m.listing.workflows = fresh
+// putAgent files a row where the listing orders it, newest first, over the one it replaces.
+func (l *listing) putAgent(agent *agentv1.Agent) {
+	item := agentItemsFrom([]*agentv1.Agent{agent})[0]
+	l.agents = putRow(l.agents, item, func(i agentItem) string { return i.agent.ID }, func(a, b agentItem) int {
+		return strings.Compare(b.agent.ID, a.agent.ID)
+	})
+	l.setMark(agentRowKey(agent.GetId()), agent.Mark)
 }
 
-func (m *model) applyAgents(fresh []agentItem) {
-	m.listing.agents = fresh
-	m.forgetUnlistedPullRequests()
+// putWorkflow files a workflow where the listing orders it, by name, over the one it replaces.
+func (l *listing) putWorkflow(workflow *workflowv1.Workflow) {
+	l.workflows = putRow(l.workflows, workflowFrom(workflow), func(w panel.Workflow) string { return w.ID }, func(a, b panel.Workflow) int {
+		return cmp.Or(strings.Compare(strings.ToLower(a.Name), strings.ToLower(b.Name)), strings.Compare(a.ID, b.ID))
+	})
+	l.setMark(workflowRowKey(workflow.GetId()), workflow.Mark)
+}
+
+// putSchedule files a schedule where the listing orders it, newest first, over the one it
+// replaces.
+func (l *listing) putSchedule(schedule *schedulev1.Schedule) {
+	item := scheduleItemsFrom([]*schedulev1.Schedule{schedule})[0]
+	l.schedules = putRow(l.schedules, item, func(i scheduleItem) string { return i.schedule.ID }, func(a, b scheduleItem) int {
+		return strings.Compare(b.schedule.ID, a.schedule.ID)
+	})
+}
+
+func (l *listing) dropAgent(id string) {
+	l.agents = slices.DeleteFunc(l.agents, func(item agentItem) bool { return item.agent.ID == id })
+	delete(l.marks, agentRowKey(id))
+}
+
+func (l *listing) dropWorkflow(id string) {
+	l.workflows = slices.DeleteFunc(l.workflows, func(w panel.Workflow) bool { return w.ID == id })
+	delete(l.marks, workflowRowKey(id))
+}
+
+func (l *listing) dropSchedule(id string) {
+	l.schedules = slices.DeleteFunc(l.schedules, func(item scheduleItem) bool { return item.schedule.ID == id })
+}
+
+func (l *listing) setMark(key string, mark *string) {
+	if mark == nil {
+		delete(l.marks, key)
+
+		return
+	}
+	if l.marks == nil {
+		l.marks = map[string]string{}
+	}
+
+	l.marks[key] = *mark
+}
+
+// putRow replaces the row sharing the new one's id, or inserts it where the order puts it.
+func putRow[T any](rows []T, row T, id func(T) string, order func(a, b T) int) []T {
+	if i := slices.IndexFunc(rows, func(r T) bool { return id(r) == id(row) }); i >= 0 {
+		rows[i] = row
+
+		return rows
+	}
+
+	at, _ := slices.BinarySearchFunc(rows, row, order)
+
+	return slices.Insert(rows, at, row)
 }
 
 // forgetUnlistedPullRequests drops the pull requests answered for agents neither listing holds.
 func (m *model) forgetUnlistedPullRequests() {
 	m.pullRequests.forgetUnlisted(slices.Concat(m.listing.agents, m.listing.archivedAgents))
-}
-
-// applyMarks takes the letters off both listings at once.
-func (m *model) applyMarks(onAgents, onWorkflows map[string]string) {
-	marks := make(map[string]string, len(onAgents)+len(onWorkflows))
-	maps.Copy(marks, onAgents)
-	maps.Copy(marks, onWorkflows)
-	m.listing.marks = marks
 }
 
 // apply takes a fresh listing, keeping the cursor on the row named.

@@ -13,7 +13,7 @@ model.go holds the state. One struct, with a field per screen for the rows it dr
 its cursor sits, plus the concerns the screens share.
 
 update.go takes messages in and routes each one to whatever owns it. A keypress goes to the
-screen that currently has the keys, a finished listing goes to the refresh, a window resize
+screen that currently has the keys, a batch off the watch goes to the listing, a window resize
 is recorded and then falls through, since an open form lays itself out from the same message.
 
 view.go writes strings out. It draws the takeover screens first, then any chrome, then the
@@ -22,7 +22,7 @@ active screen.
 screens.go is what the three of them dispatch through. Each screen is a type of its own,
 agentsScreen and the rest, holding its state and implementing screenModel: update takes every
 message the root did not claim, view draws the screen, enter lands it on a target, needs says
-what the refresh fetches for it, and takesEveryKey says whether the screen is being typed at.
+what the tick lists for it, and takesEveryKey says whether the screen is being typed at.
 A screen also implements whichever of the facets it draws: detailed for a record under its
 list, filtered for a search over it, tabbed for a strip over it, columned for a block beside it,
 and staged for a row it puts on the stage. The root holds the six screens by value and
@@ -32,8 +32,8 @@ which facets each implements. Every method on a screen takes host, the short int
 a screen may ask the root to do, and panelShared, the read-only value of what the root holds;
 a screen changes screens through host.enter and never by writing into another screen, and a
 value of panelShared is dead after any host call. The root's own state is what routeAsyncMessage
-still switches on: the refresh, the write result, the ticks, focus and blur, the inspections and
-the pull requests two screens read.
+still switches on: the watch, the archive and worktree listings, the write result, the ticks,
+focus and blur, the inspections and the pull requests two screens read.
 
 The agents screen is the root's twin, and the line between them is drawn by who owns the
 state. The stage, the warm-up and the write result's landing are the root's, since a pane on
@@ -51,9 +51,10 @@ Everything else in the package is one of those three for one screen.
 The state divides into four kinds, and knowing which is which is most of understanding this
 package.
 
-The listing is what the last refresh brought back, the agents and workflows. It belongs to
-the panel rather than to any one screen, because the schedule form and the archive both draw
-the workflows the agents list happens to have fetched.
+The listing is what the watch has delivered, the agents, workflows and schedules, with the
+archive and the worktrees beside them while a screen that draws them is up. It belongs to the
+panel rather than to any one screen, because the schedule form and the archive both draw the
+workflows the agents list is drawn from.
 
 Per-screen state is the rest of what a screen draws: its cursor, and whatever it has loaded
 that nothing else reads. agentsScreen, schedulesScreen, archiveScreen, searchScreen,
@@ -76,31 +77,25 @@ the keybindings, the dimensions of its own pane.
 
 ## How data arrives
 
-The panel is told, and it also asks. It holds the service's watch stream open for its whole
-life: the stream opens with a snapshot of the agents, workflows and schedules, then carries one
-row per change, and the client in internal/client keeps the three listings up to date from it
-and hands them over, whole, as the same message a poll produces. A stream that closes or goes
-quiet is opened again and the next snapshot replaces what the last stream built. A tick fires
-every second regardless, and it lists everything on every tick until the watch has delivered,
-every fifteen seconds while it does, and on every tick on a screen whose listing the watch does
-not carry, which the archive and the worktrees are. Where a poll disagrees with what the watch
-had built it says so at debug level. Nothing about an agent is discovered here: the service
-watches the panes and writes what it saw, and the panel takes rows like any other client.
+The panel is told. It holds the service's watch stream open for its whole life: the stream
+opens with a snapshot of the agents, workflows and schedules, then carries one row per change,
+and the client in internal/client hands the events over in batches a few tens of milliseconds
+wide. The panel replaces or drops each row by id, in the order the list RPCs answer, and never
+lists those three itself. A stream that closes or goes quiet is reported as the server gone and
+opened again, and the next snapshot replaces what the last stream built. Nothing about an agent
+is discovered here: the service watches the panes and writes what it saw, and the panel takes
+rows like any other client.
 
-Two stamps keep that from fighting with what the user is doing. Each write bumps an epoch,
-and a polled listing carries the epoch it was requested under: a poll that read the store
-before a write landed is dropped whole rather than putting the write's effect back on screen.
-Each listing the watch delivers bumps a stamp of its own, and a poll sent before it is stale
-only on the listings the watch carries: its agents, workflows and schedules are left, and its
-archive and worktrees, which ride no stream, are still applied.
+Two listings ride no stream. The archive and the worktree directories are read when a screen
+that draws them is entered and on every tick while it is up, and are left alone otherwise.
 
 A write that makes a row answers with it, and the panel puts that row into the listing and the
-cursor onto it as the write lands, rather than waiting for a listing to carry it. The watch's
-next listing takes the row over.
+cursor onto it as the write lands, rather than waiting for the stream to carry it. The event
+for that row lands over it.
 
-Cursors are read off the trees still on screen before new rows are applied, then placed again
-by the row they were on rather than the index that row happened to be drawn at. Either
-listing can add or drop rows above a cursor.
+Cursors are read off the trees still on screen before rows are changed under them, then placed
+again by the row they were on rather than the index that row happened to be drawn at. A batch
+can add or drop rows above a cursor.
 
 ## How a keypress becomes a change
 
@@ -162,7 +157,7 @@ record, the messages and the legend. The review composes its own frame through t
 and the editor it opens on the stage goes through host.
 
 Shared concerns: api.go, actions.go, column.go, details.go, document.go, filter.go, forms.go,
-help.go, info.go, logs.go, refresh.go, keys.go, clipboard.go, report.go, convert.go.
+help.go, info.go, logs.go, listing.go, keys.go, clipboard.go, report.go, convert.go.
 
 Presentation that still knows what it is drawing: content.go, markdown.go, style.go,
 document.go. style.go is the marks a row wears for an agent's state, and document.go is the

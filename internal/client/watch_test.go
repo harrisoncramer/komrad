@@ -66,15 +66,15 @@ func (s *scriptedWatch) timesOpened() int {
 // listings gathers what a watch hands over, in order.
 type listings struct {
 	mu   sync.Mutex
-	got  []WatchListing
+	got  []WatchBatch
 	lost []error
 }
 
-func (l *listings) take(listing WatchListing) {
+func (l *listings) take(batch WatchBatch) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	l.got = append(l.got, listing)
+	l.got = append(l.got, batch)
 }
 
 func (l *listings) lose(err error) {
@@ -91,7 +91,7 @@ func (l *listings) count() int {
 	return len(l.got)
 }
 
-func (l *listings) at(i int) WatchListing {
+func (l *listings) at(i int) WatchBatch {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -140,7 +140,7 @@ func watchOver(t *testing.T, scripted *scriptedWatch, params WatchParams) *listi
 
 	got := &listings{}
 	params.Open = OpenWatch(watchv1connect.NewWatchServiceClient(server.Client(), server.URL))
-	params.OnListing = got.take
+	params.OnBatch = got.take
 	params.OnLost = got.lose
 	params.Retry = 10 * time.Millisecond
 	params.MaxRetry = 10 * time.Millisecond
@@ -162,19 +162,33 @@ func watchOver(t *testing.T, scripted *scriptedWatch, params WatchParams) *listi
 	return got
 }
 
-func ids(agents []*agentv1.Agent) []string {
-	return xslice.Map(agents, func(agent *agentv1.Agent) string { return agent.GetId() })
+// ids is the row or tombstone id each event names.
+func ids(events []*watchv1.WatchEvent) []string {
+	return xslice.Map(events, func(event *watchv1.WatchEvent) string {
+		switch row := event.GetEvent().(type) {
+		case *watchv1.WatchEvent_Agent:
+			return row.Agent.GetId()
+		case *watchv1.WatchEvent_Workflow:
+			return row.Workflow.GetId()
+		case *watchv1.WatchEvent_Schedule:
+			return row.Schedule.GetId()
+		case *watchv1.WatchEvent_Deleted:
+			return row.Deleted.GetId()
+		case *watchv1.WatchEvent_Synced, *watchv1.WatchEvent_Heartbeat, nil:
+		}
+
+		return ""
+	})
 }
 
 // TestWatchHandsOverTheSnapshotOnceSynced covers the opening of a stream: the rows before
-// Synced are held back and go out as one listing, ordered the way the list RPCs order them.
+// Synced are held back and go out as one batch marked as the snapshot.
 func TestWatchHandsOverTheSnapshotOnceSynced(t *testing.T) {
 	t.Parallel()
 
 	scripted := &scriptedWatch{holdLast: true, streams: [][]*watchv1.WatchEvent{{
 		agentEvent(1, "01a", "older"),
 		agentEvent(1, "01b", "newer"),
-		workflowEvent(1, "w2", "beta"),
 		workflowEvent(1, "w1", "Alpha"),
 		scheduleEvent(1, "s1"),
 		syncedEvent(1),
@@ -184,22 +198,19 @@ func TestWatchHandsOverTheSnapshotOnceSynced(t *testing.T) {
 
 	require.Eventually(t, func() bool { return got.count() == 1 }, time.Second, 5*time.Millisecond)
 
-	listing := got.at(0)
-	assert.Equal(t, []string{"01b", "01a"}, ids(listing.Agents), "agents newest first")
-	require.Len(t, listing.Workflows, 2)
-	assert.Equal(t, "w1", listing.Workflows[0].GetId(), "workflows by name, case aside")
-	require.Len(t, listing.Schedules, 1)
+	batch := got.at(0)
+	assert.True(t, batch.Snapshot)
+	assert.Equal(t, []string{"01a", "01b", "w1", "s1"}, ids(batch.Events), "every row before Synced, in order")
 	assert.Equal(t, 0, got.lostCount())
 }
 
-// TestWatchAppliesChangesAfterSynced covers the live half: a row event replaces the row it
-// names, a tombstone drops it, and a burst goes out as one listing.
+// TestWatchAppliesChangesAfterSynced covers the live half: a burst of changes goes out as one
+// batch, in order, and a heartbeat is not a change.
 func TestWatchAppliesChangesAfterSynced(t *testing.T) {
 	t.Parallel()
 
 	scripted := &scriptedWatch{holdLast: true, streams: [][]*watchv1.WatchEvent{{
 		agentEvent(1, "01a", "one"),
-		agentEvent(1, "01b", "two"),
 		syncedEvent(1),
 		heartbeatEvent(1),
 		agentEvent(2, "01a", "renamed"),
@@ -211,11 +222,10 @@ func TestWatchAppliesChangesAfterSynced(t *testing.T) {
 
 	require.Eventually(t, func() bool { return got.count() == 2 }, time.Second, 5*time.Millisecond)
 
-	listing := got.at(1)
-	assert.Equal(t, []string{"01c", "01a"}, ids(listing.Agents))
-	assert.Equal(t, "renamed", listing.Agents[1].GetName())
+	batch := got.at(1)
+	assert.False(t, batch.Snapshot)
+	assert.Equal(t, []string{"01a", "01b", "01c"}, ids(batch.Events))
 
-	// The burst was one listing, and a heartbeat is not a change.
 	time.Sleep(100 * time.Millisecond)
 	assert.Equal(t, 2, got.count())
 }
@@ -235,8 +245,9 @@ func TestWatchReopensAfterAClose(t *testing.T) {
 
 	require.Eventually(t, func() bool { return got.count() == 2 }, time.Second, 5*time.Millisecond)
 
-	assert.Equal(t, []string{"01a"}, ids(got.at(0).Agents))
-	assert.Equal(t, []string{"01b"}, ids(got.at(1).Agents), "the row the first stream held is gone")
+	assert.Equal(t, []string{"01a"}, ids(got.at(0).Events))
+	assert.True(t, got.at(1).Snapshot, "the next stream opens with a snapshot of its own")
+	assert.Equal(t, []string{"01b"}, ids(got.at(1).Events))
 	assert.Equal(t, 1, got.lostCount())
 	assert.Equal(t, 2, scripted.timesOpened())
 }

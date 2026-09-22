@@ -19,16 +19,16 @@ import (
 )
 
 const (
-	refreshInterval = time.Second
-	agentsTimeout   = 2 * time.Second
+	tickInterval  = time.Second
+	agentsTimeout = 2 * time.Second
 )
 
-type refreshTickMsg struct {
+type tickMsg struct {
 	at time.Time
 }
 
-func refreshTick() tea.Cmd {
-	return tea.Tick(refreshInterval, func(at time.Time) tea.Msg { return refreshTickMsg{at: at} })
+func tick() tea.Cmd {
+	return tea.Tick(tickInterval, func(at time.Time) tea.Msg { return tickMsg{at: at} })
 }
 
 // viewedDwell is how long a failed run's log has to be on screen before the panel counts it as read.
@@ -40,18 +40,8 @@ type hoverState struct {
 	since   time.Time
 }
 
-type refreshResult struct {
-	epoch int
-	// watched says the watch built this listing rather than the poll, and watchedEpoch which
-	// of the watch's listings a poll was sent after.
-	watched              bool
-	watchedEpoch         int
-	agents               []agentItem
-	agentsErr            error
-	workflows            []panel.Workflow
-	workflowsErr         error
-	schedules            []scheduleItem
-	schedulesErr         error
+// listedMsg is the listings the watch does not carry, read for the screen that draws them.
+type listedMsg struct {
 	archived             []agentItem
 	archivedErr          error
 	archivedWorkflows    []panel.Workflow
@@ -60,40 +50,28 @@ type refreshResult struct {
 	worktrees            []worktreeItem
 	worktreesErr         error
 	worktreesListed      bool
-	agentMarks           map[string]string
-	workflowMarks        map[string]string
 }
 
-func (m model) refreshCmd() tea.Cmd {
+// listCmd reads the archive and the worktree directories when the screen that is up draws
+// them, and nothing otherwise.
+func (m model) listCmd() tea.Cmd {
 	needs := m.active().needs()
-	clients, epoch, watchedEpoch, withArchive, withWorktrees := m.api, m.epoch, m.watchedEpoch, needs.archive, needs.worktrees
+	if !needs.archive && !needs.worktrees {
+		return nil
+	}
+
+	clients, withArchive, withWorktrees := m.api, needs.archive, needs.worktrees
 
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), agentsTimeout)
 		defer cancel()
 
-		result := refreshResult{
-			epoch:           epoch,
-			watchedEpoch:    watchedEpoch,
+		result := listedMsg{
 			archivedListed:  withArchive,
 			worktreesListed: withWorktrees,
 		}
 
 		var wg sync.WaitGroup
-		wg.Go(func() {
-			listed, err := client.ListAllAgents(ctx, clients.agents)
-			result.agents, result.agentsErr = agentItemsFrom(listed), err
-			result.agentMarks = marksFromAgents(listed)
-		})
-		wg.Go(func() {
-			listed, err := client.ListAllWorkflows(ctx, clients.workflows)
-			result.workflows, result.workflowsErr = workflowsFrom(listed), err
-			result.workflowMarks = marksFromWorkflows(listed)
-		})
-		wg.Go(func() {
-			listed, err := client.ListAllSchedules(ctx, clients.schedules)
-			result.schedules, result.schedulesErr = scheduleItemsFrom(listed), err
-		})
 		if withArchive {
 			wg.Go(func() {
 				listed, err := client.ListAllArchivedAgents(ctx, clients.agents)
@@ -119,7 +97,7 @@ func (m model) refreshCmd() tea.Cmd {
 	}
 }
 
-// reportUnreachable says the server has stopped answering on the pass that finds it gone.
+// reportUnreachable says the server has stopped answering the first time it is found gone.
 func (m *model) reportUnreachable(err error) {
 	was := m.unreachable
 	m.unreachable = err
@@ -151,41 +129,11 @@ func (m *model) unreachableHint() string {
 	return "Start it with: weave serve"
 }
 
-func (m *model) applyRefresh(result refreshResult) tea.Cmd {
-	if result.epoch < m.epoch {
-		return nil
-	}
-
+func (m *model) applyListed(result listedMsg) tea.Cmd {
 	m.reportUnreachable(result.err())
 
-	treeRow := m.agents.list().hovered(m.shared())
 	archiveRow := m.archive.list().hovered(m.shared())
 	worktreeRow := m.worktrees.list().hovered(m.shared())
-	searchRow := m.search.list().hovered(m.shared())
-
-	before := m.listing
-
-	// A poll sent before the watch last delivered is stale on the listings the watch carries and
-	// current on the ones it does not.
-	if result.watchedEpoch >= m.watchedEpoch {
-		if result.workflowsErr == nil {
-			m.applyWorkflows(result.workflows)
-		}
-		if result.agentsErr == nil {
-			m.applyAgents(result.agents)
-		}
-		if result.workflowsErr == nil && result.agentsErr == nil {
-			m.applyMarks(result.agentMarks, result.workflowMarks)
-		}
-		if result.workflowsErr == nil || result.agentsErr == nil {
-			m.agents.apply(m.shared(), treeRow)
-		}
-		if result.schedulesErr == nil {
-			m.applySchedules(result.schedules)
-		}
-	}
-
-	m.sizeAgentWindows()
 
 	if result.archivedListed && result.archivedErr == nil && result.archivedWorkflowsErr == nil {
 		m.applyArchive(result.archived, result.archivedWorkflows, archiveRow)
@@ -194,9 +142,28 @@ func (m *model) applyRefresh(result refreshResult) tea.Cmd {
 		m.applyWorktrees(result.worktrees, worktreeRow)
 	}
 
+	return m.afterListing()
+}
+
+// withListing changes the listing the screens draw from and puts each cursor back where it was.
+func (m *model) withListing(change func(*listing)) tea.Cmd {
+	treeRow := m.agents.list().hovered(m.shared())
+	scheduleRow := m.schedules.list().hovered(m.shared())
+	archiveRow := m.archive.list().hovered(m.shared())
+	worktreeRow := m.worktrees.list().hovered(m.shared())
+	searchRow := m.search.list().hovered(m.shared())
+
+	before := m.listing
+	change(&m.listing)
+
+	m.agents.apply(m.shared(), treeRow)
+	m.schedules.apply(m, m.shared(), scheduleRow)
+	m.archive.place(m.shared(), archiveRow)
+	m.worktrees.place(m.shared(), worktreeRow)
+	m.forgetUnlistedPullRequests()
+	m.sizeAgentWindows()
+
 	preview := m.search.place(m.shared(), searchRow)
-	inspect := tea.Batch(m.inspectHoveredWorktreeCmd(), m.inspectAgentWorktreeCmd(time.Now()))
-	pullRequests := m.listHoveredPullRequestsCmd()
 
 	// A form draws its options from the listing it was built over, so it is drawn again when
 	// that listing moves under it.
@@ -205,23 +172,25 @@ func (m *model) applyRefresh(result refreshResult) tea.Cmd {
 		redrawn = m.redrawOpenForm()
 	}
 
+	return tea.Batch(preview, redrawn, m.afterListing())
+}
+
+// afterListing asks for what the hovered rows are owed and stages the screen over them.
+func (m *model) afterListing() tea.Cmd {
+	inspect := tea.Batch(m.inspectHoveredWorktreeCmd(), m.inspectAgentWorktreeCmd(time.Now()))
+	pullRequests := m.listHoveredPullRequestsCmd()
+
 	// A screen that draws what it holds beside its own list stages nothing at all.
 	active := m.active()
 	if s, ok := active.(staged); ok && active.needs().fromListing && !m.form.isActive() {
 		s.stage(m, m.shared())
 	}
 
-	return tea.Batch(preview, redrawn, inspect, pullRequests)
+	return tea.Batch(inspect, pullRequests)
 }
 
-func (r refreshResult) err() error {
+func (r listedMsg) err() error {
 	switch {
-	case r.agentsErr != nil:
-		return r.agentsErr
-	case r.workflowsErr != nil:
-		return r.workflowsErr
-	case r.schedulesErr != nil:
-		return r.schedulesErr
 	case r.archivedErr != nil:
 		return r.archivedErr
 	case r.archivedWorkflowsErr != nil:
@@ -235,8 +204,8 @@ type writeResult struct {
 	summary string
 	err     error
 	written *written
-	// epoch is the write this result belongs to.
-	epoch int
+	// write is which write this result belongs to.
+	write int
 	// released is the agent a landed release let go.
 	released *released
 	// queued is what to say once a write that queues a background job has landed.
@@ -343,13 +312,13 @@ func (m model) markRunsReadCmd(id string) tea.Cmd {
 
 func (m *model) writeCmd(summary string, write func(api) error) tea.Cmd {
 	clients := m.api
-	epoch := m.beginWrite()
+	id := m.beginWrite()
 
 	return func() tea.Msg {
 		return writeResult{
 			summary: summary,
 			err:     write(clients),
-			epoch:   epoch,
+			write:   id,
 		}
 	}
 }
@@ -448,11 +417,10 @@ func stampRelease(cmd tea.Cmd, let released) tea.Cmd {
 	}
 }
 
-// rowWriteCmd sends a write whose landing takes the panel to the row it made, stamped with the
-// epoch so a held form knows whether the landing is the one it is waiting on.
+// rowWriteCmd sends a write whose landing takes the panel to the row it made.
 func (m *model) rowWriteCmd(summary string, write func(api) (written, error)) tea.Cmd {
 	clients := m.api
-	epoch := m.beginWrite()
+	id := m.beginWrite()
 
 	return func() tea.Msg {
 		row, err := write(clients)
@@ -460,14 +428,14 @@ func (m *model) rowWriteCmd(summary string, write func(api) (written, error)) te
 			return writeResult{
 				summary: summary,
 				err:     err,
-				epoch:   epoch,
+				write:   id,
 			}
 		}
 
 		return writeResult{
 			summary: summary,
 			written: &row,
-			epoch:   epoch,
+			write:   id,
 		}
 	}
 }
@@ -549,21 +517,17 @@ func (m *model) createWorkflowCmd(cfg panel.WorkflowConfig) tea.Cmd {
 	})
 }
 
-// beginWrite counts a write out and answers with the epoch it belongs to, which tells a landing
-// result apart from one an earlier submit is still waiting on.
+// beginWrite counts a write out and answers with its number, which tells a landing result
+// apart from one an earlier submit is still waiting on.
 func (m *model) beginWrite() int {
-	m.epoch++
+	m.writes++
 	m.pending++
 
-	return m.epoch
+	return m.writes
 }
 
 func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 	m.pending--
-
-	// A poll that read the store before the write landed answers for a world the write has
-	// changed.
-	m.epoch++
 
 	m.report(result.summary, result.err)
 
@@ -579,8 +543,8 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	_, walkedAway := m.detached[result.epoch]
-	delete(m.detached, result.epoch)
+	_, walkedAway := m.detached[result.write]
+	delete(m.detached, result.write)
 
 	if result.written != nil && !walkedAway {
 		m.enterScreen(screenAgents)
@@ -600,7 +564,7 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	if m.held.owns(result.epoch) {
+	if m.held.owns(result.write) {
 		// A form taken down now would leave the panel drawn over the whole window until the pane
 		// it made turns up, so it is left standing and closed by the reveal instead.
 		if result.err == nil && m.warm.pending != "" {
@@ -631,13 +595,10 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 // and the cursor on it.
 func (m *model) landOn(row written) {
 	if row.workflow != nil && !m.listing.hasWorkflow(row.workflow.GetId()) {
-		m.listing.workflows = append(m.listing.workflows, workflowFrom(row.workflow))
-		slices.SortStableFunc(m.listing.workflows, func(a, b panel.Workflow) int {
-			return strings.Compare(strings.ToLower(a.Name), strings.ToLower(b.Name))
-		})
+		m.listing.putWorkflow(row.workflow)
 	}
 	if row.agent != nil && !m.listing.hasAgent(row.agent.GetId()) {
-		m.listing.agents = slices.Concat(agentItemsFrom([]*agentv1.Agent{row.agent}), m.listing.agents)
+		m.listing.putAgent(row.agent)
 		m.sizeAgentWindows()
 	}
 

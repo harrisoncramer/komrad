@@ -2,7 +2,7 @@
 // database connection and knows nothing the service has not told it.
 //
 // It is a client like any other. A keypress becomes an RPC, and the panel learns what came of
-// it on its next refresh rather than by changing its own state first, so what is on screen is
+// it from the watch stream rather than by changing its own state first, so what is on screen is
 // what the service last said was true. It is the largest package in the tree and README.md in
 // this directory is the map of it.
 package ui
@@ -13,7 +13,6 @@ import (
 	"os"
 	"strings"
 	"sync"
-	"time"
 
 	"weave/config"
 	"weave/internal/browser"
@@ -58,7 +57,7 @@ func Run(ctx context.Context, deps Deps) error {
 		watching, stop := context.WithCancel(ctx)
 		defer stop()
 
-		go watchListings(watching, deps.Watch, post)
+		go watchRows(watching, deps.Watch, post)
 	}
 
 	if _, err := program.Run(); err != nil {
@@ -215,15 +214,10 @@ type model struct {
 	frame         *layout.Frame
 	settings      PanelSettings
 	unreachable   error
-	// epoch counts the writes sent and landed, and watchedEpoch the listings the watch delivered.
-	epoch        int
-	watchedEpoch int
+	// writes counts the writes sent, and a write's own count is what its landing answers to.
+	writes int
 	// pending is the writes in flight.
-	pending int
-	// watching says the watch has delivered a listing and the stream behind it is still open.
-	watching bool
-	// polledAt is when the tick last listed everything.
-	polledAt        time.Time
+	pending         int
 	configErr       error
 	startupErr      error
 	startupFindings []errui.Finding

@@ -871,7 +871,7 @@ func TestArchiveIsListedSeparatelyFromTheAgents(t *testing.T) {
 	require.Len(t, got.listing.archivedWorkflows, 1)
 	assert.NotNil(t, got.listing.archivedWorkflows[0].ArchivedAt, "an archived folder carries when it was put away")
 	assert.Empty(t, got.listing.agents, "the tree's rows are not what the archive listed")
-	assert.Empty(t, got.listing.workflows, "and the archived folder is not one of the tree's")
+	assert.False(t, got.listing.hasWorkflow("w9"), "and the archived folder is not one of the tree's")
 }
 
 func archiveModel(agents agentv1connect.AgentServiceClient, workflows workflowv1connect.WorkflowServiceClient, keys config.Keybindings) model {

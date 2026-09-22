@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"weave/config"
+	"weave/internal/ui/layout"
 	"weave/internal/ui/panel"
 	"weave/lib/xslice"
 
@@ -96,13 +97,12 @@ func TestApplyAgents(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m := model{
 				screen:  screenAgents,
+				frame:   layout.New(&recordingTmux{}, config.DefaultLayout()),
 				listing: listing{workflows: []panel.Workflow{{ID: testWorkflowID, Name: "backend"}}, agents: tt.start}, agents: agentsScreen{rowCursor: rowCursor{cursor: tt.cursor}, placed: true},
 				keys: config.DefaultKeybindings(),
 			}
 
-			was := rowKeyAt(m.agents.rows(m.shared()), m.agents.cursor)
-			m.applyAgents(tt.fresh)
-			m.agents.apply(m.shared(), was)
+			applyListing(&m, tt.fresh, m.listing.workflows, nil)
 
 			assert.Equal(t, screenAgents, m.screen, "the panel stays where it was")
 			assert.Len(t, m.listing.agents, tt.wantLen)
@@ -131,6 +131,7 @@ func TestApplyAgents(t *testing.T) {
 func TestPlaceTreeCursorSkipsHeaderAfterAgentRemoved(t *testing.T) {
 	m := model{
 		screen: screenAgents,
+		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
 		listing: listing{
 			workflows: []panel.Workflow{
 				{ID: "w1", Name: "backend"},
@@ -161,7 +162,7 @@ func TestPlaceTreeCursorSkipsHeaderAfterAgentRemoved(t *testing.T) {
 	was := rowKeyAt(m.agents.rows(m.shared()), m.agents.cursor)
 	require.Equal(t, "agent:a1", was)
 
-	m.applyAgents([]agentItem{
+	applyListing(&m, []agentItem{
 		{agent: panel.Agent{
 			ID:         "a2",
 			Name:       "a2",
@@ -172,8 +173,7 @@ func TestPlaceTreeCursorSkipsHeaderAfterAgentRemoved(t *testing.T) {
 			Name:       "a3",
 			WorkflowID: "w2",
 		}},
-	})
-	m.agents.apply(m.shared(), was)
+	}, m.listing.workflows, nil)
 
 	selected, ok := m.agents.selectedAgent(m.shared())
 	require.True(t, ok, "the cursor lands on an agent, not the next workflow's header")

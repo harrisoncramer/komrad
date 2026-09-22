@@ -41,10 +41,10 @@ func rebuiltPanel(binary BinaryWatcher) (model, *recordingTmux) {
 	return m, tmux
 }
 
-func tick(t *testing.T, m model) (model, tea.Cmd) {
+func ticked(t *testing.T, m model) (model, tea.Cmd) {
 	t.Helper()
 
-	next, cmd := m.Update(refreshTickMsg{at: time.Now()})
+	next, cmd := m.Update(tickMsg{at: time.Now()})
 
 	ticked, ok := next.(model)
 	require.True(t, ok)
@@ -59,14 +59,14 @@ func TestRebuiltPanelPutsUpTheStartupScreen(t *testing.T) {
 	binary := &fakeBinary{}
 	m, tmux := rebuiltPanel(binary)
 
-	m, cmd := tick(t, m)
+	m, cmd := ticked(t, m)
 	require.NotNil(t, cmd, "an unchanged binary leaves the refresh loop running")
 	require.NoError(t, m.fatal())
 	assert.Equal(t, 1, binary.asked, "the file is looked at once per refresh")
 
 	binary.replaced = true
 
-	m, cmd = tick(t, m)
+	m, cmd = ticked(t, m)
 	assert.Nil(t, cmd, "the refresh loop stops")
 	require.ErrorIs(t, m.fatal(), errui.ErrRebuilt)
 	assert.Empty(t, m.frame.GuestPane(), "the agent's pane goes back to its own window")
@@ -114,7 +114,7 @@ func TestRebuiltPanelWaitsForWhatIsInFlight(t *testing.T) {
 			m, _ := rebuiltPanel(binary)
 			tt.busy(&m)
 
-			m, cmd := tick(t, m)
+			m, cmd := ticked(t, m)
 			require.NotNil(t, cmd, "the refresh loop keeps running")
 			require.NoError(t, m.fatal())
 			assert.Equal(t, "%9", m.frame.GuestPane(), "the window is kept")
@@ -127,7 +127,7 @@ func TestRebuiltPanelWaitsForWhatIsInFlight(t *testing.T) {
 func TestPanelWithoutABinaryToWatchStaysUp(t *testing.T) {
 	m, _ := rebuiltPanel(nil)
 
-	m, cmd := tick(t, m)
+	m, cmd := ticked(t, m)
 	require.NotNil(t, cmd)
 	assert.NoError(t, m.fatal())
 }

@@ -1375,7 +1375,7 @@ func TestAnEarlierWriteLeavesALaterHoldAlone(t *testing.T) {
 	submitted, _ := m.answerForm()
 	m = asModel(t, submitted)
 
-	escaped := m.epoch
+	escaped := m.writes
 
 	detached, _ := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
 	m = asModel(t, detached)
@@ -1390,12 +1390,12 @@ func TestAnEarlierWriteLeavesALaterHoldAlone(t *testing.T) {
 	m = asModel(t, submitted)
 
 	require.True(t, m.held.active)
-	require.NotEqual(t, escaped, m.held.epoch, "the two submits are told apart by their own epochs")
+	require.NotEqual(t, escaped, m.held.write, "the two submits are told apart by their own numbers")
 
 	landed, _ := m.applyWrite(writeResult{
 		summary: "Could not start the agent",
 		written: &written{row: agentRowKey("new"), agent: &agentv1.Agent{Id: "new", WorkflowId: workflow.ID}},
-		epoch:   escaped,
+		write:   escaped,
 	})
 	got := asModel(t, landed)
 

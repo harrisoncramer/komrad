@@ -9,10 +9,12 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"weave/config"
+	"weave/internal/client"
 	"weave/internal/ui/layout"
 	"weave/internal/ui/panel"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
+	watchv1 "weave/proto/gen/watch/v1"
 
 	"connectrpc.com/connect"
 	tea "github.com/charmbracelet/bubbletea"
@@ -236,19 +238,19 @@ func TestMessagesYieldToTakeoverScreens(t *testing.T) {
 	}
 }
 
-// TestUnreachableReportsOnce covers the server going away being said in the region, on the pass
-// that finds it gone and not on every refresh after it.
+// TestUnreachableReportsOnce covers the server going away being said in the region when the
+// stream is lost, and not again on every reopen that fails.
 func TestUnreachableReportsOnce(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	m.height, m.width = 40, 60
 	m.settings.Addr = "127.0.0.1:8787"
 
-	m.applyRefresh(refreshResult{agentsErr: errors.New("connection refused")})
+	m.applyWatchLost(watchLostMsg{err: errors.New("connection refused")})
 	require.Len(t, m.messages.items, 1)
 	assert.Contains(t, m.messages.items[0].summary, "Cannot reach the server")
 	assert.Contains(t, m.messages.items[0].detail, "127.0.0.1:8787")
 
-	m.applyRefresh(refreshResult{agentsErr: errors.New("connection refused")})
+	m.applyWatchLost(watchLostMsg{err: errors.New("connection refused")})
 	assert.Len(t, m.messages.items, 1, "a server still down says nothing more")
 
 	assert.Contains(t, ansi.Strip(m.View()), "Cannot reach the server")
@@ -319,7 +321,7 @@ func TestConfigErrorView(t *testing.T) {
 func TestConfigErrorScreenIsTerminal(t *testing.T) {
 	m := model{configErr: errors.New("failed to parse config: bad")}
 
-	assert.Nil(t, m.Init(), "no poll is started behind the error screen")
+	assert.Nil(t, m.Init(), "no tick is started behind the error screen")
 
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
 	require.NotNil(t, cmd, "any key dismisses the screen")
@@ -384,7 +386,7 @@ func TestStartupErrorView(t *testing.T) {
 func TestStartupErrorScreenIsTerminal(t *testing.T) {
 	m := model{startupErr: errors.New("the agent server stopped during startup")}
 
-	assert.Nil(t, m.Init(), "no poll is started behind the error screen")
+	assert.Nil(t, m.Init(), "no tick is started behind the error screen")
 
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
 	require.NotNil(t, cmd, "any key dismisses the screen")
@@ -397,21 +399,23 @@ func TestUnreachableView(t *testing.T) {
 	m.height, m.width = 40, 80
 	m.settings.Addr = "127.0.0.1:8787"
 
-	down, _ := m.Update(refreshResult{agentsErr: errors.New("dial tcp 127.0.0.1:8787: connect: connection refused")})
+	down, _ := m.Update(watchLostMsg{err: errors.New("dial tcp 127.0.0.1:8787: connect: connection refused")})
 	m, ok := down.(model)
 	require.True(t, ok)
 
 	assert.Contains(t, ansi.Strip(m.View()), "Cannot reach", "the failure is reported in the region")
 	assert.NotContains(t, ansi.Strip(m.View()), "The panel could not list your agents", "and no screen is taken over")
 
-	back, _ := m.Update(refreshResult{agents: []agentItem{{agent: panel.Agent{Name: "back", State: panel.StateIdle}}}})
+	back, _ := m.Update(client.WatchBatch{Snapshot: true, Events: []*watchv1.WatchEvent{
+		{Event: &watchv1.WatchEvent_Agent{Agent: &agentv1.Agent{Id: "a1", Name: "back", State: agentv1.AgentState_AGENT_STATE_IDLE}}},
+	}})
 	m, ok = back.(model)
 	require.True(t, ok)
 
 	require.NoError(t, m.unreachable)
 	assert.Len(t, m.messages.items, 1, "the message stays until it is dismissed")
 
-	again, _ := m.Update(refreshResult{agentsErr: errors.New("connection refused")})
+	again, _ := m.Update(watchLostMsg{err: errors.New("connection refused")})
 	m, ok = again.(model)
 	require.True(t, ok)
 

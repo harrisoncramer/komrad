@@ -183,11 +183,11 @@ func TestAHandMovedPaneCorrectsTheFrame(t *testing.T) {
 	assert.False(t, m.frame.IsSolo(), "the frame is told what tmux did rather than assuming")
 	assert.Equal(t, m.width, m.paneWidth(), "so the list is drawn in the share of the frame it has")
 
-	// The panel wants the window on this row, so it takes it back on the next pass.
+	// The panel wants the window on this row, so it takes it back on the next listing.
 	tmux.keysElsewhere = false
-	m.applyRefresh(refreshResult{})
+	applyListing(&m, nil, m.listing.workflows, nil)
 
-	assert.True(t, m.frame.IsSolo(), "and takes it back on the next pass, since it wants it here")
+	assert.True(t, m.frame.IsSolo(), "and takes it back on the next listing, since it wants it here")
 }
 
 // TestAnUnfocusedTerminalKeepsTheWindow covers the other thing a focus report means, which is

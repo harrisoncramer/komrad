@@ -23,8 +23,8 @@ type archiveScreen struct {
 	rows []agentRow
 }
 
-// enter lands on the agent the target names, remembering it as the focus for the listing the
-// refresh brings back.
+// enter lands on the agent the target names, remembering it as the focus for the listing on
+// its way.
 func (a *archiveScreen) enter(h host, s panelShared, target screenTarget) tea.Cmd {
 	if target.agentID != "" {
 		a.focus = target.agentID
@@ -35,7 +35,7 @@ func (a *archiveScreen) enter(h host, s panelShared, target screenTarget) tea.Cm
 
 	a.stage(h, s)
 
-	return h.refreshCmd()
+	return h.listCmd()
 }
 
 func (a *archiveScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
@@ -151,19 +151,22 @@ func (m *model) applyArchive(agents []agentItem, workflows []panel.Workflow, hov
 // apply takes a fresh listing, keeping the cursor on the row it was on, or on the agent the
 // screen was opened for.
 func (a *archiveScreen) apply(s panelShared, hovered string) {
-	rows := a.listRows(s)
-	a.selected = a.selected.pruned(refsOf(rows))
-
 	focus := a.focus
 	a.focus = ""
 
-	idx := -1
-	if focus != "" {
-		idx = rowIndexOfAgentID(rows, focus)
+	if idx := rowIndexOfAgentID(a.listRows(s), focus); idx >= 0 {
+		hovered = agentRowKey(focus)
 	}
-	if idx < 0 {
-		idx = rowIndexOfKey(rows, hovered)
-	}
+
+	a.place(s, hovered)
+}
+
+// place keeps the cursor on the row it was on as the rows under it change.
+func (a *archiveScreen) place(s panelShared, hovered string) {
+	rows := a.listRows(s)
+	a.selected = a.selected.pruned(refsOf(rows))
+
+	idx := rowIndexOfKey(rows, hovered)
 	if idx < 0 {
 		idx = clampCursor(a.cursor, len(rows))
 	}

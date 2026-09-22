@@ -1468,13 +1468,13 @@ func TestSearchCursorSurvivesARefresh(t *testing.T) {
 	t.Run("an agent whose name says the query joining the listing", func(t *testing.T) {
 		m := sectioned()
 
-		cmd := m.applyRefresh(refreshResult{agents: append([]agentItem{
+		cmd := applyListing(&m, append([]agentItem{
 			{agent: panel.Agent{
 				ID:         "a4",
 				Name:       "billing-two",
 				WorkflowID: "w1",
 			}},
-		}, m.listing.agents...)})
+		}, m.listing.agents...), m.listing.workflows, nil)
 
 		agent, ok := m.search.hoveredAgent(m.shared())
 		require.True(t, ok)
@@ -1486,7 +1486,7 @@ func TestSearchCursorSurvivesARefresh(t *testing.T) {
 		m := sectioned()
 		m.search.cursor = 0
 
-		cmd := m.applyRefresh(refreshResult{})
+		cmd := applyListing(&m, nil, m.listing.workflows, nil)
 
 		agent, ok := m.search.hoveredAgent(m.shared())
 		require.True(t, ok, "a row still wears the cursor")

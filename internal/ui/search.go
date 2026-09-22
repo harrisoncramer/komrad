@@ -197,7 +197,7 @@ type previewResult struct {
 func (w *searchScreen) enter(h host, _ panelShared, _ screenTarget) tea.Cmd {
 	*w = searchScreen{typing: true}
 
-	return h.refreshCmd()
+	return h.listCmd()
 }
 
 func debounceSearchCmd(query string) tea.Cmd {

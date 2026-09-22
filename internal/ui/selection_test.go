@@ -232,12 +232,11 @@ func TestPruneSelection(t *testing.T) {
 		m.agents.placed = true
 		m.agents.selected = selectAgents([]string{"a1", "a4"}...)
 
-		m.applyAgents([]agentItem{{agent: panel.Agent{
+		applyListing(&m, []agentItem{{agent: panel.Agent{
 			ID:         "a4",
 			Name:       "ui",
 			WorkflowID: "w2",
-		}}})
-		m.agents.apply(m.shared(), "")
+		}}}, m.listing.workflows, nil)
 
 		assert.Equal(t, []string{"a4"}, selectedIDs(m.agents.selected))
 	})

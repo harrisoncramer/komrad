@@ -5,16 +5,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"maps"
-	"slices"
-	"strings"
 	"time"
 
-	agentv1 "weave/proto/gen/agent/v1"
-	schedulev1 "weave/proto/gen/schedule/v1"
 	watchv1 "weave/proto/gen/watch/v1"
 	"weave/proto/gen/watch/v1/watchv1connect"
-	workflowv1 "weave/proto/gen/workflow/v1"
 
 	"connectrpc.com/connect"
 )
@@ -31,12 +25,11 @@ const (
 	WatchMaxRetry = 15 * time.Second
 )
 
-// WatchListing is the three live listings as the watch has built them, each in the order its
-// list RPC answers.
-type WatchListing struct {
-	Agents    []*agentv1.Agent
-	Workflows []*workflowv1.Workflow
-	Schedules []*schedulev1.Schedule
+// WatchBatch is the events one stream delivered together, in the order they arrived: a
+// snapshot is everything a stream sent before Synced and replaces whatever came before it.
+type WatchBatch struct {
+	Snapshot bool
+	Events   []*watchv1.WatchEvent
 }
 
 // WatchStream is one open watch, which the stream a connect client answers with is.
@@ -51,9 +44,8 @@ type WatchStream interface {
 type WatchParams struct {
 	// Open starts one stream.
 	Open func(ctx context.Context) (WatchStream, error)
-	// OnListing is handed the listing once the snapshot is complete and after each batch of
-	// changes.
-	OnListing func(WatchListing)
+	// OnBatch is handed the snapshot once it is complete and each batch of changes after it.
+	OnBatch func(WatchBatch)
 	// OnLost is told a stream has ended, with the error that ended it or nil for a close the
 	// service chose, before the next one is opened.
 	OnLost func(error)
@@ -76,8 +68,7 @@ func OpenWatch(watches watchv1connect.WatchServiceClient) func(ctx context.Conte
 	}
 }
 
-// Watch holds a watch open for the life of ctx, opening a fresh one after every close and
-// building the listing again from the snapshot each one starts with.
+// Watch holds a watch open for the life of ctx, opening a fresh one after every close.
 func Watch(ctx context.Context, params WatchParams) {
 	params = params.withDefaults()
 	wait := params.Retry
@@ -151,11 +142,7 @@ func watchOnce(ctx context.Context, params WatchParams) (bool, error) {
 		ended <- stream.Err()
 	}()
 
-	held := watchHeld{
-		agents:    map[string]*agentv1.Agent{},
-		workflows: map[string]*workflowv1.Workflow{},
-		schedules: map[string]*schedulev1.Schedule{},
-	}
+	var batch []*watchv1.WatchEvent
 
 	silence := time.NewTimer(params.Silence)
 	defer silence.Stop()
@@ -176,7 +163,8 @@ func watchOnce(ctx context.Context, params WatchParams) (bool, error) {
 		case <-flush:
 			flush = nil
 
-			params.OnListing(held.listing())
+			params.OnBatch(WatchBatch{Events: batch})
+			batch = nil
 		case event := <-events:
 			if !silence.Stop() {
 				<-silence.C
@@ -190,66 +178,15 @@ func watchOnce(ctx context.Context, params WatchParams) (bool, error) {
 				synced = true
 				flush = nil
 
-				params.OnListing(held.listing())
+				params.OnBatch(WatchBatch{Snapshot: true, Events: batch})
+				batch = nil
 			case *watchv1.WatchEvent_Agent, *watchv1.WatchEvent_Workflow, *watchv1.WatchEvent_Schedule, *watchv1.WatchEvent_Deleted:
-				held.apply(event)
+				batch = append(batch, event)
 
 				if synced && flush == nil {
 					flush = time.After(params.Coalesce)
 				}
 			}
 		}
-	}
-}
-
-// watchHeld is the rows one stream has delivered, by id.
-type watchHeld struct {
-	agents    map[string]*agentv1.Agent
-	workflows map[string]*workflowv1.Workflow
-	schedules map[string]*schedulev1.Schedule
-}
-
-func (h watchHeld) apply(event *watchv1.WatchEvent) {
-	switch row := event.GetEvent().(type) {
-	case *watchv1.WatchEvent_Agent:
-		h.agents[row.Agent.GetId()] = row.Agent
-	case *watchv1.WatchEvent_Workflow:
-		h.workflows[row.Workflow.GetId()] = row.Workflow
-	case *watchv1.WatchEvent_Schedule:
-		h.schedules[row.Schedule.GetId()] = row.Schedule
-	case *watchv1.WatchEvent_Deleted:
-		h.drop(row.Deleted)
-	case *watchv1.WatchEvent_Synced, *watchv1.WatchEvent_Heartbeat, nil:
-	}
-}
-
-func (h watchHeld) drop(deleted *watchv1.Deleted) {
-	switch deleted.GetKind() {
-	case watchv1.RowKind_ROW_KIND_AGENT:
-		delete(h.agents, deleted.GetId())
-	case watchv1.RowKind_ROW_KIND_WORKFLOW:
-		delete(h.workflows, deleted.GetId())
-	case watchv1.RowKind_ROW_KIND_SCHEDULE:
-		delete(h.schedules, deleted.GetId())
-	case watchv1.RowKind_ROW_KIND_UNSPECIFIED:
-	}
-}
-
-// listing is the rows in the order the list RPCs answer: agents and schedules newest first,
-// workflows by name.
-func (h watchHeld) listing() WatchListing {
-	return WatchListing{
-		Agents: slices.SortedFunc(maps.Values(h.agents), func(a, b *agentv1.Agent) int {
-			return strings.Compare(b.GetId(), a.GetId())
-		}),
-		Workflows: slices.SortedFunc(maps.Values(h.workflows), func(a, b *workflowv1.Workflow) int {
-			return cmp.Or(
-				strings.Compare(strings.ToLower(a.GetName()), strings.ToLower(b.GetName())),
-				strings.Compare(a.GetId(), b.GetId()),
-			)
-		}),
-		Schedules: slices.SortedFunc(maps.Values(h.schedules), func(a, b *schedulev1.Schedule) int {
-			return strings.Compare(b.GetId(), a.GetId())
-		}),
 	}
 }

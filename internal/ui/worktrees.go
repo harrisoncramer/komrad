@@ -113,16 +113,23 @@ type worktreesScreen struct {
 func (w *worktreesScreen) apply(s panelShared, items []worktreeItem, hovered string) {
 	w.items = items
 
-	rows := w.rows(s)
-	w.selected = w.selected.pruned(worktreeRefs(rows))
-
 	focus := w.focus
 	w.focus = ""
 
-	idx := rowIndexOfWorktreeAgent(rows, focus)
-	if idx < 0 {
-		idx = rowIndexOfKey(rows, hovered)
+	rows := w.rows(s)
+	if idx := rowIndexOfWorktreeAgent(rows, focus); idx >= 0 {
+		hovered = rows[idx].key()
 	}
+
+	w.place(s, hovered)
+}
+
+// place keeps the cursor on the row it was on as the rows under it change.
+func (w *worktreesScreen) place(s panelShared, hovered string) {
+	rows := w.rows(s)
+	w.selected = w.selected.pruned(worktreeRefs(rows))
+
+	idx := rowIndexOfKey(rows, hovered)
 	if idx < 0 {
 		idx = clampCursor(w.cursor, len(rows))
 	}

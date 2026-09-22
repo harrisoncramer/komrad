@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"weave/config"
+	"weave/internal/client"
 	"weave/internal/engine"
 	"weave/internal/ui/layout"
 	"weave/internal/ui/panel"
@@ -13,6 +14,7 @@ import (
 	"weave/proto/gen/agent/v1/agentv1connect"
 	schedulev1 "weave/proto/gen/schedule/v1"
 	"weave/proto/gen/schedule/v1/schedulev1connect"
+	watchv1 "weave/proto/gen/watch/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
 	"weave/proto/gen/workflow/v1/workflowv1connect"
 	worktreev1 "weave/proto/gen/worktree/v1"
@@ -22,6 +24,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -30,7 +33,7 @@ func settle(t *testing.T, m model, cmd tea.Cmd) model {
 
 	for _, msg := range produced(cmd) {
 		switch msg.(type) {
-		case writeResult, refreshResult:
+		case writeResult, listedMsg, client.WatchBatch:
 		default:
 			continue
 		}
@@ -42,6 +45,13 @@ func settle(t *testing.T, m model, cmd tea.Cmd) model {
 	}
 
 	return m
+}
+
+// applyListing hands the model the three live listings the way a watch snapshot does.
+func applyListing(m *model, agents []agentItem, workflows []panel.Workflow, schedules []scheduleItem) tea.Cmd {
+	return m.withListing(func(l *listing) {
+		l.agents, l.workflows, l.schedules = agents, workflows, schedules
+	})
 }
 
 func produced(cmd tea.Cmd) []tea.Msg {
@@ -62,48 +72,6 @@ func produced(cmd tea.Cmd) []tea.Msg {
 	default:
 		return []tea.Msg{msg}
 	}
-}
-
-// TestRefreshAppliesWhatAnswered covers a pass where one listing failed, which still takes
-// the rows that did come back rather than throwing the whole pass away.
-func TestRefreshAppliesWhatAnswered(t *testing.T) {
-	m := model{
-		frame:   layout.New(&recordingTmux{}, config.DefaultLayout()),
-		keys:    config.DefaultKeybindings(),
-		screen:  screenAgents,
-		listing: listing{workflows: []panel.Workflow{{ID: "w1", Name: "api"}}},
-	}
-
-	m.applyRefresh(refreshResult{
-		agents:       []agentItem{{agent: panel.Agent{Name: "api-refactor", WorkflowID: "w1"}}},
-		workflowsErr: errors.New("connection reset"),
-	})
-
-	assert.Len(t, m.listing.agents, 1, "the listing that answered is taken")
-	require.Len(t, m.listing.workflows, 1, "the one that did not keeps the rows it had")
-	assert.Equal(t, "api", m.listing.workflows[0].Name)
-	require.Error(t, m.unreachable, "and the panel says the server is not answering")
-}
-
-// TestStaleRefreshIsDropped covers a pass that read the store just before a keypress wrote
-// to it and landed just after, which would put the old row back.
-func TestStaleRefreshIsDropped(t *testing.T) {
-	m := model{
-		frame:   layout.New(&recordingTmux{}, config.DefaultLayout()),
-		keys:    config.DefaultKeybindings(),
-		screen:  screenAgents,
-		listing: listing{workflows: []panel.Workflow{{ID: "w1", Name: "api"}}},
-	}
-
-	inFlight := refreshResult{
-		epoch:  m.epoch,
-		agents: []agentItem{{agent: panel.Agent{Name: "hidden-since", WorkflowID: "w1"}}},
-	}
-	m.beginWrite()
-
-	m.applyRefresh(inFlight)
-
-	assert.Empty(t, m.listing.agents, "a pass from before the write is not what the panel shows after it")
 }
 
 // TestWriteLandsOnTheRowItMade covers a create landing: the row the write answered with goes
@@ -131,18 +99,14 @@ func TestWriteLandsOnTheRowItMade(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, "new", selected.agent.Name, "and the cursor is on it")
 
-	got.applyRefresh(refreshResult{
-		epoch:     got.epoch,
-		workflows: got.listing.workflows,
-		agents: []agentItem{
-			{agent: panel.Agent{ID: "a2", Name: "new", WorkflowID: "w1"}, alive: true},
-			{agent: panel.Agent{ID: "a1", Name: "old", WorkflowID: "w1"}},
-		},
-	})
+	got.applyWatch(client.WatchBatch{Events: []*watchv1.WatchEvent{
+		{Event: &watchv1.WatchEvent_Agent{Agent: &agentv1.Agent{Id: "a2", Name: "new", WorkflowId: "w1", Alive: proto.Bool(true)}}},
+	}})
 
+	require.Len(t, got.listing.agents, 2)
 	selected, ok = got.agents.selectedAgent(got.shared())
 	require.True(t, ok)
-	assert.Equal(t, "new", selected.agent.Name, "the listing that carries the row leaves the cursor on it")
+	assert.Equal(t, "new", selected.agent.Name, "the event that carries the row leaves the cursor on it")
 	assert.True(t, selected.alive, "and takes the row over")
 }
 
@@ -192,29 +156,6 @@ func TestWriteLeavesARowTheWatchAlreadyDelivered(t *testing.T) {
 	assert.True(t, got.listing.agents[0].alive)
 }
 
-// TestPollFromBeforeAWriteLandedIsDropped covers a poll sent while a write was in flight and
-// landing after it, which read rows the write has since replaced.
-func TestPollFromBeforeAWriteLandedIsDropped(t *testing.T) {
-	m := model{
-		frame:   layout.New(&recordingTmux{}, config.DefaultLayout()),
-		keys:    config.DefaultKeybindings(),
-		screen:  screenAgents,
-		listing: listing{workflows: []panel.Workflow{{ID: "w1", Name: "api"}}},
-	}
-
-	m.beginWrite()
-	inFlight := refreshResult{
-		epoch:  m.epoch,
-		agents: []agentItem{{agent: panel.Agent{Name: "archived-since", WorkflowID: "w1"}}},
-	}
-
-	landed, _ := m.applyWrite(writeResult{})
-	got := asModel(t, landed)
-	got.applyRefresh(inFlight)
-
-	assert.Empty(t, got.listing.agents)
-}
-
 // TestFirstListingLandsOnTheFirstAgent covers the cursor being placed by the first pass.
 func TestFirstListingLandsOnTheFirstAgent(t *testing.T) {
 	m := model{
@@ -224,18 +165,15 @@ func TestFirstListingLandsOnTheFirstAgent(t *testing.T) {
 		listing: listing{workflows: []panel.Workflow{{ID: "w1", Name: "api"}}},
 	}
 
-	m.applyRefresh(refreshResult{
-		workflows: []panel.Workflow{{ID: "w1", Name: "api"}},
-		agents:    []agentItem{{agent: panel.Agent{Name: "api-refactor", WorkflowID: "w1"}}},
-	})
+	applyListing(&m, []agentItem{{agent: panel.Agent{Name: "api-refactor", WorkflowID: "w1"}}}, []panel.Workflow{{ID: "w1", Name: "api"}}, nil)
 
 	selected, ok := m.agents.selectedAgent(m.shared())
 	require.True(t, ok, "the cursor is on an agent rather than on the folder above it")
 	assert.Equal(t, "api-refactor", selected.agent.Name)
 }
 
-// TestCreatedAgentReceivesFocus covers the id of a created agent surviving until the listing
-// that holds its row arrives.
+// TestCreatedAgentReceivesFocus covers the cursor landing on a created agent and staying there
+// once the watch delivers its row.
 func TestCreatedAgentReceivesFocus(t *testing.T) {
 	agents := &formRecorder{}
 	tmux := &recordingTmux{}
@@ -269,22 +207,18 @@ func TestCreatedAgentReceivesFocus(t *testing.T) {
 		}
 	}
 
-	m.applyRefresh(refreshResult{
-		epoch:     m.epoch,
-		workflows: m.listing.workflows,
-		agents: []agentItem{
-			{agent: panel.Agent{
-				ID:         "old",
-				Name:       "api-refactor",
-				WorkflowID: "w1",
-			}},
-			{agent: panel.Agent{
-				ID:         "new",
-				Name:       "api-tests",
-				WorkflowID: "w1",
-			}},
-		},
-	})
+	applyListing(&m, []agentItem{
+		{agent: panel.Agent{
+			ID:         "old",
+			Name:       "api-refactor",
+			WorkflowID: "w1",
+		}},
+		{agent: panel.Agent{
+			ID:         "new",
+			Name:       "api-tests",
+			WorkflowID: "w1",
+		}},
+	}, m.listing.workflows, nil)
 
 	selected, ok := m.agents.selectedAgent(m.shared())
 	require.True(t, ok)
@@ -340,22 +274,19 @@ func TestCreatedWorkflowReceivesFocus(t *testing.T) {
 		}
 	}
 
-	m.applyRefresh(refreshResult{
-		epoch: m.epoch,
-		workflows: []panel.Workflow{
-			{ID: "w1", Name: "api"},
-			{ID: "new", Name: "web"},
-		},
-	})
+	applyListing(&m, nil, []panel.Workflow{
+		{ID: "w1", Name: "api"},
+		{ID: "new", Name: "web"},
+	}, nil)
 
 	hovered, ok := m.agents.hoveredWorkflow(m.shared())
 	require.True(t, ok, "the cursor is on a folder header")
 	assert.Equal(t, "new", hovered.ID)
 }
 
-// TestCursorHoldsItsFolderAcrossARefresh covers a folder archived from somewhere else, after
+// TestCursorHoldsItsFolderAcrossAListing covers a folder archived from somewhere else, after
 // which the cursor follows the folder it names rather than the index it was drawn at.
-func TestCursorHoldsItsFolderAcrossARefresh(t *testing.T) {
+func TestCursorHoldsItsFolderAcrossAListing(t *testing.T) {
 	m := model{
 		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
 		keys:   config.DefaultKeybindings(),
@@ -374,14 +305,11 @@ func TestCursorHoldsItsFolderAcrossARefresh(t *testing.T) {
 		}}, agents: agentsScreen{rowCursor: rowCursor{cursor: 2}, placed: true},
 	}
 
-	m.applyRefresh(refreshResult{
-		workflows: []panel.Workflow{{ID: "w2", Name: "infra"}},
-		agents: []agentItem{{agent: panel.Agent{
-			ID:         "a2",
-			Name:       "infra-audit",
-			WorkflowID: "w2",
-		}}},
-	})
+	applyListing(&m, []agentItem{{agent: panel.Agent{
+		ID:         "a2",
+		Name:       "infra-audit",
+		WorkflowID: "w2",
+	}}}, []panel.Workflow{{ID: "w2", Name: "infra"}}, nil)
 
 	hovered, ok := m.agents.hoveredWorkflow(m.shared())
 	require.True(t, ok, "the cursor is still on a folder rather than on the agent under it")
@@ -409,21 +337,18 @@ func TestCursorHoldsItsAgentWhenAFolderArrives(t *testing.T) {
 		}}, agents: agentsScreen{rowCursor: rowCursor{cursor: 2}, placed: true},
 	}
 
-	m.applyRefresh(refreshResult{
-		workflows: []panel.Workflow{{ID: "w1", Name: "api"}, {ID: "w2", Name: "infra"}},
-		agents: []agentItem{
-			{agent: panel.Agent{
-				ID:         "b1",
-				Name:       "infra-audit",
-				WorkflowID: "w2",
-			}},
-			{agent: panel.Agent{
-				ID:         "b2",
-				Name:       "infra-upgrade",
-				WorkflowID: "w2",
-			}},
-		},
-	})
+	applyListing(&m, []agentItem{
+		{agent: panel.Agent{
+			ID:         "b1",
+			Name:       "infra-audit",
+			WorkflowID: "w2",
+		}},
+		{agent: panel.Agent{
+			ID:         "b2",
+			Name:       "infra-upgrade",
+			WorkflowID: "w2",
+		}},
+	}, []panel.Workflow{{ID: "w1", Name: "api"}, {ID: "w2", Name: "infra"}}, nil)
 
 	selected, ok := m.agents.selectedAgent(m.shared())
 	require.True(t, ok, "the cursor is on an agent")
@@ -460,8 +385,8 @@ func TestArchiveCursorHoldsItsAgentWhenAFolderGoes(t *testing.T) {
 		archive: archiveScreen{rowCursor: rowCursor{cursor: 3}},
 	}
 
-	m.applyRefresh(refreshResult{
-		workflows:      []panel.Workflow{{ID: "w2", Name: "infra"}},
+	applyListing(&m, nil, []panel.Workflow{{ID: "w2", Name: "infra"}}, nil)
+	m.applyListed(listedMsg{
 		archivedListed: true,
 		archived: archivedItems([]panel.Agent{
 			{
@@ -483,7 +408,7 @@ func TestArchiveCursorHoldsItsAgentWhenAFolderGoes(t *testing.T) {
 }
 
 // TestSearchListsTheArchive covers the search screen naming archived agents, which it can only
-// do while the refresh is fetching them.
+// do while the screen is listing them.
 func TestSearchListsTheArchive(t *testing.T) {
 	lists := archivedLists{}
 
@@ -505,7 +430,7 @@ func TestSearchListsTheArchive(t *testing.T) {
 			},
 		}
 
-		m = settle(t, m, m.refreshCmd())
+		m = settle(t, m, m.listCmd())
 
 		assert.Len(t, m.listing.archivedAgents, tc.want, "screen %d holds the archived agents it asked for", tc.screen)
 	}
