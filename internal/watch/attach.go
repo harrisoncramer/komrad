@@ -54,17 +54,18 @@ func ensureProjection(ctx context.Context, store triggerEnsurer, r Resource, p P
 		ParentKey:   r.Key,
 		ParentMatch: p.ParentMatch,
 		Match:       p.Match,
-		Where:       narrowing(p.Where),
+		Unarchived:  unarchivedColumn(p.Unarchived),
 	}
 
 	return store.EnsureLookupTrigger(ctx, lookup)
 }
 
-// narrowing is a lookup's extra condition, absent when it has none.
-func narrowing(where string) *string {
-	if where == "" {
+// unarchivedColumn is the column a lookup's parents must have null, absent when it narrows to
+// no such column.
+func unarchivedColumn(column string) *string {
+	if column == "" {
 		return nil
 	}
 
-	return &where
+	return &column
 }

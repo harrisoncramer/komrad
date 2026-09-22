@@ -17,12 +17,29 @@ type Touched map[watchv1.Resource][]string
 func (b *Broker) touch(table string, keys ...string) {
 	res, ok := resourcesByTable[table]
 	if !ok {
-		b.logger.LogAttrs(context.Background(), slog.LevelWarn, "a notification named a table no resource is a row of", slog.String(logging.WatchTable, table))
+		b.reportUnknown(table)
 
 		return
 	}
 
 	b.touchResource(res, keys)
+}
+
+// reportUnknown says once that a table nothing reads is still announcing itself, which is what
+// a trigger left behind by a resource that has since gone looks like.
+func (b *Broker) reportUnknown(table string) {
+	b.pendingMu.Lock()
+	_, said := b.unknown[table]
+	if !said {
+		b.unknown[table] = struct{}{}
+	}
+	b.pendingMu.Unlock()
+
+	if said {
+		return
+	}
+
+	b.logger.LogAttrs(context.Background(), slog.LevelWarn, "a notification named a table no resource is a row of", slog.String(logging.WatchTable, table))
 }
 
 func (b *Broker) touchResource(res watchv1.Resource, keys []string) {

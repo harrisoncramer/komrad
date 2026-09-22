@@ -55,6 +55,8 @@ type Broker struct {
 	// pendingMu guards what has been heard and not yet read.
 	pendingMu sync.Mutex
 	pending   map[watchv1.Resource]map[string]struct{}
+	// unknown is the tables already reported as announcing rows nothing reads.
+	unknown map[string]struct{}
 	// wake has room for one poke, which is all the loop needs to know.
 	wake chan struct{}
 
@@ -85,6 +87,7 @@ func NewBroker(params NewBrokerParams) *Broker {
 	return &Broker{
 		logger:      logger,
 		pending:     map[watchv1.Resource]map[string]struct{}{},
+		unknown:     map[string]struct{}{},
 		wake:        make(chan struct{}, 1),
 		subscribers: map[*Subscription]struct{}{},
 		sent:        map[watchv1.Resource]map[string]*watchv1.Row{},

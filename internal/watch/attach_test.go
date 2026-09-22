@@ -69,7 +69,7 @@ func TestEveryTableTheWatchReadsGetsItsTrigger(t *testing.T) {
 			ParentKey:   "id",
 			ParentMatch: "repository_url",
 			Match:       "repository_url",
-			Where:       xptr.Ptr("archived_at IS NULL"),
+			Unarchived:  xptr.Ptr("archived_at"),
 		},
 		{
 			Table:       "workflow_configs",

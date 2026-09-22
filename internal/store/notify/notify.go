@@ -34,14 +34,15 @@ type Projection struct {
 }
 
 // Lookup is a table whose parents are the rows of Parent whose ParentMatch column equals this
-// table's Match column, narrowed by Where when it is given.
+// table's Match column, narrowed to the parents whose Unarchived column is null when one is
+// given.
 type Lookup struct {
 	Table       string
 	Parent      string
 	ParentKey   string
 	ParentMatch string
 	Match       string
-	Where       *string
+	Unarchived  *string
 }
 
 // EnsureResourceTrigger puts the notify trigger on a resource's own table, replacing one that
@@ -76,12 +77,12 @@ func (s *NotifyStore) EnsureProjectionTrigger(ctx context.Context, projection Pr
 // column.
 func (s *NotifyStore) EnsureLookupTrigger(ctx context.Context, lookup Lookup) error {
 	err := s.queries.AttachProjectionLookupTrigger(ctx, models.AttachProjectionLookupTriggerParams{
-		Target:      lookup.Table,
-		Parent:      lookup.Parent,
-		ParentKey:   lookup.ParentKey,
-		ParentMatch: lookup.ParentMatch,
-		Match:       lookup.Match,
-		ExtraWhere:  lookup.Where,
+		Target:           lookup.Table,
+		Parent:           lookup.Parent,
+		ParentKey:        lookup.ParentKey,
+		ParentMatch:      lookup.ParentMatch,
+		Match:            lookup.Match,
+		UnarchivedColumn: lookup.Unarchived,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to attach the %s lookup trigger to %s: %w", lookup.Parent, lookup.Table, err)

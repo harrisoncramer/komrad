@@ -15,12 +15,12 @@ SELECT
 `
 
 type AttachProjectionLookupTriggerParams struct {
-	Target      string
-	Parent      string
-	ParentKey   string
-	ParentMatch string
-	Match       string
-	ExtraWhere  *string
+	Target           string
+	Parent           string
+	ParentKey        string
+	ParentMatch      string
+	Match            string
+	UnarchivedColumn *string
 }
 
 func (q *Queries) AttachProjectionLookupTrigger(ctx context.Context, arg AttachProjectionLookupTriggerParams) error {
@@ -30,7 +30,7 @@ func (q *Queries) AttachProjectionLookupTrigger(ctx context.Context, arg AttachP
 		arg.ParentKey,
 		arg.ParentMatch,
 		arg.Match,
-		arg.ExtraWhere,
+		arg.UnarchivedColumn,
 	)
 	return err
 }

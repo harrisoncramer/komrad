@@ -52,7 +52,7 @@ Some facts an agent's row carries are learned from outside the database. Whether
 
 ## How a change reaches the panel
 
-The database publishes its own changes. A trigger on each resource table announces the table and the key of a row the moment the write that moved it commits, and a write that rolls back announces nothing. The tables that describe a resource without being one, an agent's metadata for instance, announce the resource they belong to. The trigger carries no opinion about whether the change is worth anyone's attention: every write announces. Which tables carry a trigger is declared once, in Go, beside the code that reads those rows back, and the migration that attaches them is generated from it.
+The database publishes its own changes. A trigger on each resource table announces the table and the key of a row the moment the write that moved it commits, and a write that rolls back announces nothing. The tables that describe a resource without being one, an agent's metadata for instance, announce the resource they belong to. The trigger carries no opinion about whether the change is worth anyone's attention: every write announces. Which tables carry a trigger is declared once, in Go, beside the code that reads those rows back, and the service puts the triggers on from that list when it starts.
 
 The service holds one connection open to hear those announcements. It reads each named row back fresh and sends it down every open watch stream, or sends a tombstone when the row has left the set the stream carries, as an archived agent or a claimed mail has. A row that reads back exactly as the stream last carried it is sent to nobody, so a column a loop stamps on a timer moves nothing on the screen.
 

@@ -146,14 +146,88 @@ func TestALostConnectionDropsEveryWatcher(t *testing.T) {
 func (l *listened) seedAgent(t *testing.T) string {
 	t.Helper()
 
-	workflow, config, provisioner, agent := uuid.NewString(), uuid.NewString(), uuid.NewString(), uuid.NewString()
-	l.exec(t, `INSERT INTO workflow_configs (id, harness, cwd, flags) VALUES ($1, 'claude', '/repo', '')`, config)
+	return l.seed(t).agent
+}
+
+// seeded is the rows a lookup projection has to find its way between.
+type seeded struct {
+	workflow   string
+	config     string
+	agent      string
+	repository string
+}
+
+// seed writes a workflow with its config and an agent in it, on a repository of its own.
+func (l *listened) seed(t *testing.T) seeded {
+	t.Helper()
+
+	rows := seeded{
+		workflow:   uuid.NewString(),
+		config:     uuid.NewString(),
+		agent:      uuid.NewString(),
+		repository: "https://example.test/" + uuid.NewString(),
+	}
+	provisioner := uuid.NewString()
+	l.exec(t, `INSERT INTO workflow_configs (id, harness, cwd, flags) VALUES ($1, 'claude', '/repo', '')`, rows.config)
 	l.exec(t, `INSERT INTO workflow_provisioner_configs (id, worktree_enabled, worktree_base_branch, worktree_dir, worktree_copy_paths, worktree_symlink_paths, worktree_diff_exclude)
 		VALUES ($1, false, 'main', '', '{}', '{}', '{}')`, provisioner)
-	l.exec(t, `INSERT INTO workflows (id, name, context, workflow_config_id, provisioner_config_id) VALUES ($1, 'flow', '', $2, $3)`, workflow, config, provisioner)
-	l.exec(t, `INSERT INTO agents (id, name, workflow_id, branch) VALUES ($1, 'agent', $2, 'agent/x')`, agent, workflow)
+	l.exec(t, `INSERT INTO workflows (id, name, context, workflow_config_id, provisioner_config_id) VALUES ($1, 'flow', '', $2, $3)`, rows.workflow, rows.config, provisioner)
+	l.exec(t, `INSERT INTO agents (id, name, workflow_id, branch, repository_url) VALUES ($1, 'agent', $2, 'agent/x', $3)`, rows.agent, rows.workflow, rows.repository)
 
-	return agent
+	return rows
+}
+
+// TestALookupProjectionReachesItsParents pins the two lookup projections against a real
+// database: a write to a table that holds no parent key reaches the watcher under the key of
+// the parent row that matches it.
+func TestALookupProjectionReachesItsParents(t *testing.T) {
+	stores := newStores()
+	l := newPooled(t)
+
+	// The seed is written before anything listens, so only the writes below raise anything.
+	rows := l.seed(t)
+	l.listen(t, stores)
+
+	subscription, err := l.broker.Subscribe(t.Context())
+	require.NoError(t, err)
+
+	// workflow_configs holds no workflow id: its parent is the workflow whose
+	// workflow_config_id is this row's id.
+	l.exec(t, `UPDATE workflow_configs SET flags = '--model opus' WHERE id = $1`, rows.config)
+
+	change := receive(t, subscription)
+	assert.Equal(t, watchv1.Resource_RESOURCE_WORKFLOW, change.Resource)
+	assert.Equal(t, rows.workflow, change.Key, "a workflow config reaches its workflow")
+
+	// pull_request_syncs holds no agent id: its parents are the live agents on its repository.
+	l.exec(t, `INSERT INTO pull_request_syncs (repository_url, updated_through) VALUES ($1, now())`, rows.repository)
+
+	change = receive(t, subscription)
+	assert.Equal(t, watchv1.Resource_RESOURCE_AGENT, change.Resource)
+	assert.Equal(t, rows.agent, change.Key, "a repository sync reaches the live agents on that repository")
+}
+
+// TestALookupProjectionSkipsAnArchivedParent pins the narrowing: an archived agent is not a
+// parent, so a sync on its repository reaches nobody.
+func TestALookupProjectionSkipsAnArchivedParent(t *testing.T) {
+	stores := newStores()
+	l := newPooled(t)
+
+	rows := l.seed(t)
+	l.exec(t, `UPDATE agents SET archived_at = now() WHERE id = $1`, rows.agent)
+	l.listen(t, stores)
+
+	subscription, err := l.broker.Subscribe(t.Context())
+	require.NoError(t, err)
+
+	l.exec(t, `INSERT INTO pull_request_syncs (repository_url, updated_through) VALUES ($1, now())`, rows.repository)
+	// A write that reaches no parent raises nothing, so the workflow write is what proves the
+	// stream is still live.
+	l.exec(t, `UPDATE workflow_configs SET flags = '--model opus' WHERE id = $1`, rows.config)
+
+	change := receive(t, subscription)
+	assert.Equal(t, watchv1.Resource_RESOURCE_WORKFLOW, change.Resource, "the archived agent's sync raised nothing")
+	assert.Equal(t, rows.workflow, change.Key)
 }
 
 func (l *listened) exec(t *testing.T, sql string, args ...any) {
