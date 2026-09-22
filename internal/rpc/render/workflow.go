@@ -39,8 +39,8 @@ type WorkflowOptions struct {
 	ContextHead int
 }
 
-// Workflow draws one workflow as the wire carries it, with the mark on its header.
-func Workflow(w workflowstore.Workflow, mark *string, options WorkflowOptions) *workflowv1.Workflow {
+// Workflow draws one workflow as the wire carries it.
+func Workflow(w workflowstore.Workflow, options WorkflowOptions) *workflowv1.Workflow {
 	sharedContext, contextTruncated := w.Context, false
 	if options.ContextHead > 0 {
 		sharedContext, contextTruncated = xstr.Head(w.Context, options.ContextHead)
@@ -53,7 +53,6 @@ func Workflow(w workflowstore.Workflow, mark *string, options WorkflowOptions) *
 		Harness:          w.Harness,
 		Cwd:              w.Cwd,
 		Flags:            w.Flags,
-		Mark:             mark,
 		ArchivedAt:       dates.StampPtr(w.ArchivedAt),
 		ContextTruncated: contextTruncated,
 		Worktree:         WorktreeConfigToProto(w.Worktree),

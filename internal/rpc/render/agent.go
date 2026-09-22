@@ -13,7 +13,6 @@ import (
 	reviewstore "weave/internal/store/review"
 	rowstore "weave/internal/store/row"
 	agentv1 "weave/proto/gen/agent/v1"
-	pullrequestv1 "weave/proto/gen/pullrequest/v1"
 )
 
 // AgentOptions is how much of an agent is drawn.
@@ -53,8 +52,6 @@ func Agent(row rowstore.Row, options AgentOptions) *agentv1.Agent {
 		ReportedReason:     stored.ReportedReason,
 		ArchivedAt:         dates.StampPtr(stored.ArchivedAt),
 		Alive:              xptr.Ptr(stored.Alive),
-		UnreadMail:         row.UnreadMail,
-		Mark:               row.Mark,
 		Hidden:             stored.Hidden,
 		Metadata:           metadata,
 		IdempotencyKey:     stored.IdempotencyKey,
@@ -68,9 +65,11 @@ func Agent(row rowstore.Row, options AgentOptions) *agentv1.Agent {
 		FailedRunLog:       row.FailedRunLog,
 		LocalReviewRounds:  row.LocalRounds,
 		LocalReviewVerdict: localVerdictOf(row.LocalVerdict),
+		LocalReviewSha:     row.LocalReviewSHA,
 		LocalReviewTree:    standingOf(localTreeOf(row)),
+		TreeStanding:       standingOf(stored.TreeStanding),
+		TreeStandingSha:    stored.TreeStandingSHA,
 		HeldAt:             heldStamp(stored.HeldAt),
-		PullRequest:        pullRequestStandingOf(row),
 		RepositoryRead:     row.RepositoryRead,
 	}
 }
@@ -99,33 +98,10 @@ func localVerdictOf(verdict *reviewstore.Verdict) agentv1.ReviewVerdict {
 	return ReviewVerdictOf(*verdict)
 }
 
-// pullRequestStandingOf is where the agent's pull request stands as the wire carries it:
-// unread until the sync has looked at the repository, none when it has and found nothing on
-// the branch, else the current one and its state.
-func pullRequestStandingOf(row rowstore.Row) *agentv1.PullRequestStanding {
-	if row.PullRequest == nil {
-		state := pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNREAD
-		if row.RepositoryRead {
-			state = pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE
-		}
-
-		return &agentv1.PullRequestStanding{State: state}
-	}
-
-	return &agentv1.PullRequestStanding{
-		State:        PullRequestStateOf(*row.PullRequest),
-		Number:       xptr.Ptr(int32(row.PullRequest.Number)),
-		Url:          xptr.Ptr(row.PullRequest.URL),
-		Title:        xptr.Ptr(row.PullRequest.Title),
-		Checks:       ChecksOf(row.PullRequest.Checks),
-		Mergeability: MergeabilityOf(row.PullRequest.Mergeability),
-	}
-}
-
 // localTreeOf is where the worktree stands against the round the local verdict was given on,
 // unmoved while the standing was measured against any other round.
 func localTreeOf(row rowstore.Row) git.Standing {
-	if row.TreeStandingSHA != row.LocalSnapshotSHA {
+	if row.TreeStandingSHA != row.LocalReviewSHA {
 		return git.StandingSame
 	}
 

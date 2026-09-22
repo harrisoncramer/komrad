@@ -60,8 +60,6 @@ message Workflow {
   reserved 7, 8;
   // Scripts hung on moments in its agents' lives, one per moment.
   repeated WorkflowHook hooks = 12;
-  // The letter a person addresses this workflow by in the panel, if it holds one.
-  optional string mark = 13;
   // Whether context holds only its opening, which a summary listing returns.
   bool context_truncated = 14;
 }

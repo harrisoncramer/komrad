@@ -7,34 +7,27 @@ import (
 	"fmt"
 
 	"weave/db/models"
-	"weave/internal/forge"
 	"weave/internal/store"
 	"weave/lib/xptr"
 	"weave/lib/xslice"
 
 	agentstore "weave/internal/store/agent"
-	pullrequeststore "weave/internal/store/pullrequest"
 	reviewstore "weave/internal/store/review"
 )
 
 // Row is an agent with the facts about it that live beside its row rather than on it.
 type Row struct {
 	agentstore.Agent
-	UnreadMail bool
-	FailedRun  bool
+	FailedRun bool
 	// FailedRunLog is the log the unread failure went to.
 	FailedRunLog *int32
-	// Mark is the letter a person types to jump to this row.
-	Mark *string
 	// LocalRounds is how many rounds of local review the agent's own work has been through.
 	LocalRounds int32
 	// LocalVerdict is what the last released local review concluded, nil when none has
 	// concluded anything.
 	LocalVerdict *reviewstore.Verdict
-	// LocalSnapshotSHA is the round that verdict was given on, empty when there is none.
-	LocalSnapshotSHA string
-	// PullRequest is the one the row stands for, nil when none was opened from the branch.
-	PullRequest *pullrequeststore.Summary
+	// LocalReviewSHA is the round that verdict was given on, empty when there is none.
+	LocalReviewSHA string
 	// RepositoryRead says the sync has read the agent's repository at least once.
 	RepositoryRead bool
 }
@@ -113,34 +106,16 @@ func (s *RowStore) hydrateMetadata(ctx context.Context, rows []*models.ListAgent
 func fromRow(row *models.ListAgentRowsRow) Row {
 	listed := Row{
 		Agent:          agentstore.FromRow(row.Agent),
-		UnreadMail:     row.UnreadMail,
 		FailedRun:      row.FailedRun,
 		FailedRunLog:   row.FailedRunLog,
-		Mark:           row.Mark,
 		LocalRounds:    row.LocalRounds,
 		RepositoryRead: row.RepositoryRead,
 	}
 	if row.LocalVerdict.Valid {
 		listed.LocalVerdict = xptr.Ptr(reviewstore.Verdict(row.LocalVerdict.ReviewVerdict))
 	}
-	if row.LocalSnapshotSha != nil {
-		listed.LocalSnapshotSHA = *row.LocalSnapshotSha
-	}
-	// A number means the branch has a pull request.
-	if row.PullRequestNumber != nil {
-		listed.PullRequest = &pullrequeststore.Summary{
-			Number:   int(*row.PullRequestNumber),
-			URL:      *row.PullRequestUrl,
-			Title:    *row.PullRequestTitle,
-			Draft:    *row.PullRequestDraft,
-			MergedAt: row.PullRequestMergedAt,
-			ClosedAt: row.PullRequestClosedAt,
-		}
-		if row.PullRequestReviewDecision != nil {
-			listed.PullRequest.ReviewDecision = xptr.Ptr(forge.ReviewDecision(*row.PullRequestReviewDecision))
-		}
-		listed.PullRequest.Checks = pullrequeststore.StoredChecks(row.PullRequestChecks)
-		listed.PullRequest.Mergeability = pullrequeststore.StoredMergeability(row.PullRequestMergeability)
+	if row.LocalReviewSha != nil {
+		listed.LocalReviewSHA = *row.LocalReviewSha
 	}
 
 	return listed

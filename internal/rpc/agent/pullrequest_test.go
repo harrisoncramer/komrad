@@ -18,10 +18,10 @@ import (
 
 const weaveRepository = "https://github.com/harrisoncramer/weave"
 
-// TestListedAgentsCarryWhereTheirPullRequestStands pins the standing the listing gathers from
-// the sync's tables: unread until the repository has been read, none once it has and the branch
-// holds nothing, and otherwise the current pull request with its state, number, address and
-// title.
+// TestListedAgentsCarryWhereTheirPullRequestStands pins the standing the assembler draws from
+// the bare row and the pull requests beside it: unread until the repository has been read, none
+// once it has and the branch holds nothing, and otherwise the current pull request with its
+// state, number, address and title.
 func TestListedAgentsCarryWhereTheirPullRequestStands(t *testing.T) {
 	svc, st := service(t)
 	ctx := t.Context()
@@ -63,16 +63,19 @@ func TestListedAgentsCarryWhereTheirPullRequestStands(t *testing.T) {
 	listed, err := svc.ListAgents(ctx, connect.NewRequest(&agentv1.ListAgentsRequest{}))
 	require.NoError(t, err)
 	standings := map[string]*agentv1.PullRequestStanding{}
+	read := map[string]bool{}
 	for _, row := range listed.Msg.GetAgents() {
 		standings[row.GetAgent().GetId()] = row.GetPullRequest()
-		assert.Equal(t, row.GetAgent().GetPullRequest(), row.GetPullRequest(), "the assembler and the row's own query agree")
+		read[row.GetAgent().GetId()] = row.GetAgent().GetRepositoryRead()
 	}
 
 	assert.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNREAD, standings[unread].GetState())
 	assert.Nil(t, standings[unread].Number)
+	assert.False(t, read[unread], "the bare row says the repository has not been read")
 	assert.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNREAD, standings[local.ID].GetState(), "a checkout off any forge is never read")
 	assert.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE, standings[none].GetState())
 	assert.Nil(t, standings[none].Url)
+	assert.True(t, read[none], "the bare row says the repository was read and the branch holds nothing")
 
 	current := standings[opened]
 	assert.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED, current.GetState())

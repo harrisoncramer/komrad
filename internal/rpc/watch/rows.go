@@ -81,22 +81,6 @@ func NewRows(params NewRowsParams) *Rows {
 		now = time.Now
 	}
 
-	workflowMarks := func(ctx context.Context) (map[string]*string, error) {
-		marks, err := params.Marks.List(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("failed to list the marks: %w", err)
-		}
-
-		byWorkflow := map[string]*string{}
-		for _, mark := range marks {
-			if mark.WorkflowID != nil {
-				byWorkflow[*mark.WorkflowID] = &mark.Mark
-			}
-		}
-
-		return byWorkflow, nil
-	}
-
 	return &Rows{arms: map[watch.Kind]arm{
 		watch.KindAgent: newArm(
 			params.Agents.ListLiveRowsByID,
@@ -116,16 +100,9 @@ func NewRows(params NewRowsParams) *Rows {
 				return &workflowstore.Cursor{Name: row.Name, ID: row.ID}
 			}),
 			func(row workflowstore.Workflow) string { return row.ID },
-			func(ctx context.Context, rows []workflowstore.Workflow) ([]*watchv1.Row, error) {
-				marks, err := workflowMarks(ctx)
-				if err != nil {
-					return nil, err
-				}
-
-				return xslice.Map(rows, func(row workflowstore.Workflow) *watchv1.Row {
-					return &watchv1.Row{Row: &watchv1.Row_Workflow{Workflow: render.Workflow(row, marks[row.ID], render.WorkflowOptions{})}}
-				}), nil
-			},
+			each(func(row workflowstore.Workflow) *watchv1.Row {
+				return &watchv1.Row{Row: &watchv1.Row_Workflow{Workflow: render.Workflow(row, render.WorkflowOptions{})}}
+			}),
 		),
 		watch.KindSchedule: newArm(
 			params.Schedules.ListLiveByID,

@@ -63,39 +63,6 @@ type PullRequest struct {
 	ChecksReadAt *time.Time
 }
 
-// Summary is what a row about a pull request shows: how to open it and where it stands.
-type Summary struct {
-	Number int
-	URL    string
-	Title  string
-	Draft  bool
-	// MergedAt and ClosedAt are the forge's stamps, which decide whether it is finished.
-	MergedAt *time.Time
-	ClosedAt *time.Time
-	// ReviewDecision is where the forge says the reviews stand, nil while it has said nothing.
-	ReviewDecision *forge.ReviewDecision
-	// Checks is where the forge says the checks on the head stand, nil while it reports none.
-	Checks *forge.Checks
-	// Mergeability is where the forge says it stands against its base and rules, nil while the
-	// forge has not computed it.
-	Mergeability *forge.Mergeability
-}
-
-// GetSummary is the pull request as a row shows it.
-func (p PullRequest) GetSummary() Summary {
-	return Summary{
-		Number:         p.Number,
-		URL:            p.URL,
-		Title:          p.Title,
-		Draft:          p.Draft,
-		MergedAt:       p.MergedAt,
-		ClosedAt:       p.ClosedAt,
-		ReviewDecision: p.ReviewDecision,
-		Checks:         p.Checks,
-		Mergeability:   p.Mergeability,
-	}
-}
-
 // IsFinished says whether the pull request merged or closed.
 func (p PullRequest) IsFinished() bool {
 	return p.MergedAt != nil || p.ClosedAt != nil

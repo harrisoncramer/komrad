@@ -109,7 +109,6 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 			Impl: rpcworkflow.NewHandler(rpcworkflow.NewHandlerParams{
 				Lister:    params.Stores.workflows,
 				Workflows: params.Services.workflow,
-				Marks:     params.Services.marks,
 			}),
 		}, options...))
 	mux.Handle(schedulev1connect.NewScheduleServiceHandler(

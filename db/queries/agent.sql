@@ -49,85 +49,37 @@ concluded AS (
         v.agent_id,
         n.ordinal DESC,
         v.released_at DESC
-),
-opened AS (
-    SELECT DISTINCT ON (a.id)
-        a.id AS agent_id,
-        p.number,
-        p.url,
-        p.title,
-        p.draft,
-        p.merged_at,
-        p.closed_at,
-        p.review_decision,
-        p.checks,
-        p.mergeability
-    FROM
-        agents a
-        JOIN pull_requests p ON p.repository_url = a.repository_url
-            AND p.head_repository_url = a.repository_url
-            AND p.head_branch = a.branch
-        JOIN workflows w ON w.id = a.workflow_id
-        LEFT JOIN workflow_provisioner_configs c ON c.id = w.provisioner_config_id
-    WHERE
-        c.worktree_base_branch IS NULL
-        OR a.branch <> c.worktree_base_branch
-    ORDER BY
-        a.id,
-        COALESCE(p.merged_at, p.closed_at) IS NOT NULL,
-        p.opened_at DESC
 )
 SELECT
     sqlc.embed(s),
+(f.agent_id IS NOT NULL)::boolean AS failed_run,
+    f.log_number AS failed_run_log,
+    COALESCE(t.rounds, 0)::int AS local_rounds,
+    c.verdict AS local_verdict,
+    c.snapshot_sha AS local_review_sha,
     EXISTS (
         SELECT
             1
         FROM
-            mail m
+            pull_request_syncs y
         WHERE
-            m.to_agent_id = s.id
-            AND m.claimed_at IS NULL
-            AND m.expires_at > NOW())::boolean AS unread_mail,
-(f.agent_id IS NOT NULL)::boolean AS failed_run,
-        f.log_number AS failed_run_log,
-        k.mark,
-        COALESCE(t.rounds, 0)::int AS local_rounds,
-        c.verdict AS local_verdict,
-        c.snapshot_sha AS local_snapshot_sha,
-        p.number AS pull_request_number,
-        p.url AS pull_request_url,
-        p.title AS pull_request_title,
-        p.draft AS pull_request_draft,
-        p.merged_at AS pull_request_merged_at,
-        p.closed_at AS pull_request_closed_at,
-        p.review_decision AS pull_request_review_decision,
-        p.checks AS pull_request_checks,
-        p.mergeability AS pull_request_mergeability,
-        EXISTS (
-            SELECT
-                1
-            FROM
-                pull_request_syncs y
-            WHERE
-                y.repository_url = s.repository_url
-                AND y.updated_through IS NOT NULL)::boolean AS repository_read
-        FROM
-            agents s
-        LEFT JOIN failed f ON f.agent_id = s.id
-        LEFT JOIN marks k ON k.agent_id = s.id
-        LEFT JOIN tallied t ON t.agent_id = s.id
-        LEFT JOIN concluded c ON c.agent_id = s.id
-        LEFT JOIN opened p ON p.agent_id = s.id
-    WHERE (sqlc.narg('ids')::uuid[] IS NULL
-        OR s.id = ANY (sqlc.narg('ids')::uuid[]))
-    AND (NOT @live_only::boolean
-        OR (s.archived_at IS NULL
-            AND s.deleting_at IS NULL))
-    AND (sqlc.narg('ids')::uuid[] IS NOT NULL
-        OR ((@archived::boolean) =(s.archived_at IS NOT NULL)
-            AND s.deleting_at IS NULL
-            AND (sqlc.narg('cursor_id')::uuid IS NULL
-                OR s.id < sqlc.narg('cursor_id'))))
+            y.repository_url = s.repository_url
+            AND y.updated_through IS NOT NULL)::boolean AS repository_read
+    FROM
+        agents s
+    LEFT JOIN failed f ON f.agent_id = s.id
+    LEFT JOIN tallied t ON t.agent_id = s.id
+    LEFT JOIN concluded c ON c.agent_id = s.id
+WHERE (sqlc.narg('ids')::uuid[] IS NULL
+    OR s.id = ANY (sqlc.narg('ids')::uuid[]))
+AND (NOT @live_only::boolean
+    OR (s.archived_at IS NULL
+        AND s.deleting_at IS NULL))
+AND (sqlc.narg('ids')::uuid[] IS NOT NULL
+    OR ((@archived::boolean) =(s.archived_at IS NOT NULL)
+        AND s.deleting_at IS NULL
+        AND (sqlc.narg('cursor_id')::uuid IS NULL
+            OR s.id < sqlc.narg('cursor_id'))))
 ORDER BY
     s.id DESC
 LIMIT @lim;

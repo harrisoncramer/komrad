@@ -164,7 +164,6 @@ func TestReadAnswersARowOrATombstoneForEveryTouchedKey(t *testing.T) {
 
 	assert.Equal(t, "agent-a1", events[0].Row.GetAgent().GetName())
 	assert.Equal(t, "backend", events[2].Row.GetWorkflow().GetName())
-	assert.Equal(t, "w", events[2].Row.GetWorkflow().GetMark(), "the workflow row carries its mark")
 	assert.Equal(t, "nightly", events[4].Row.GetSchedule().GetName())
 	assert.NotNil(t, events[4].Row.GetSchedule().GetNextRunAt(), "the next run is worked out from the clock")
 	assert.Equal(t, "w1", events[6].Row.GetMark().GetWorkflowId())
