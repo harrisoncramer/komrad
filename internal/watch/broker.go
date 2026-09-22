@@ -227,8 +227,11 @@ func (b *Broker) Subscribe(ctx context.Context) (*Subscription, error) {
 	if err != nil {
 		return nil, err
 	}
-	// Only the first watcher reseeds: while one is open the memory is already what went out, and
-	// a later snapshot can be newer than a render still in flight.
+	// Explainer: only the first watcher reseeds. While one is open the memory is already what
+	// went out, and a later snapshot can be newer than a render still in flight. Seeding from
+	// that snapshot would make the render's row compare equal and be dropped, so the watchers
+	// already on the stream would never receive it, with no notification left pending to correct
+	// them.
 	if len(b.subscribers) == 0 {
 		b.reseed(snapshot)
 	}
