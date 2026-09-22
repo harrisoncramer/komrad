@@ -85,7 +85,7 @@ func TestListingArrivesFromEitherTrigger(t *testing.T) {
 // write bumped the epoch, which is fresher than any poll and so is taken.
 func TestWatchedListingIsNotDroppedAsStale(t *testing.T) {
 	m := watchedPanel()
-	m.epoch, m.polledEpoch = 4, 4
+	m.epoch = 4
 
 	m, _ = update(t, m, watchedResultFrom(client.WatchListing{
 		Agents: []*agentv1.Agent{{Id: "a1", Name: "api-refactor"}},
@@ -94,10 +94,27 @@ func TestWatchedListingIsNotDroppedAsStale(t *testing.T) {
 	assert.Len(t, m.listing.agents, 1)
 }
 
-// TestWatchedListingWaitsOutAWrite covers the watch standing down from a write until the poll
-// the write asks for has landed, so a listing built before the write committed cannot take the
-// landing the row is owed.
-func TestWatchedListingWaitsOutAWrite(t *testing.T) {
+// TestWatchedListingOutranksAPollOnItsWay covers a poll sent before the watch delivered and
+// landing after it, which would put back rows the stream has since replaced.
+func TestWatchedListingOutranksAPollOnItsWay(t *testing.T) {
+	m := watchedPanel()
+
+	polled := refreshResult{
+		epoch:  m.epoch,
+		agents: []agentItem{{agent: panel.Agent{ID: "a1", Name: "before"}}},
+	}
+
+	m, _ = update(t, m, watchedResultFrom(client.WatchListing{
+		Agents: []*agentv1.Agent{{Id: "a1", Name: "after"}},
+	}))
+	m, _ = update(t, m, polled)
+
+	assert.Equal(t, "after", m.listing.agents[0].agent.Name, "the poll that read the store first is dropped")
+}
+
+// TestWatchedListingLandsUnderAWrite covers the watch delivering while a write is in flight,
+// which is taken as it comes rather than held back for a poll.
+func TestWatchedListingLandsUnderAWrite(t *testing.T) {
 	m := watchedPanel()
 	watched := watchedResultFrom(client.WatchListing{
 		Agents: []*agentv1.Agent{{Id: "a1", Name: "api-refactor"}},
@@ -106,19 +123,12 @@ func TestWatchedListingWaitsOutAWrite(t *testing.T) {
 	write := m.writeCmd("Could not write", func(api) error { return nil })
 
 	m, _ = update(t, m, watched)
-	assert.Empty(t, m.listing.agents, "a listing arriving under a write is left for the poll the write asks for")
-	assert.False(t, m.watching)
+	assert.Len(t, m.listing.agents, 1, "a listing arriving under a write is applied")
+	assert.True(t, m.watching)
 
 	m = settle(t, m, write)
 	require.Zero(t, m.pending)
-
-	m, _ = update(t, m, watched)
-	assert.Empty(t, m.listing.agents, "and one arriving after the write landed waits for that poll too")
-
-	m, _ = update(t, m, refreshResult{epoch: m.epoch})
-	m, _ = update(t, m, watched)
-	assert.Len(t, m.listing.agents, 1, "once the write's own listing is in, the watch is taken again")
-	assert.True(t, m.watching)
+	assert.Len(t, m.listing.agents, 1)
 }
 
 // TestTickPollsSlowlyWhileTheWatchDelivers covers the poll as the safety net: every second

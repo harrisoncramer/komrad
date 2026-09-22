@@ -318,21 +318,14 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 
 		return m, nil, true
 	case refreshResult:
-		// A listing the watch built stands down from a write until the listing that write asks for
-		// has landed, and is otherwise stamped with the epoch it lands under.
+		// A listing the watch built is as fresh as the last event on the stream, so it is taken
+		// over any poll still on its way.
 		if msg.watched {
-			if m.pending > 0 || m.polledEpoch < m.epoch {
-				return m, nil, true
-			}
-
 			m.watching = true
+			m.epoch++
 			msg.epoch = m.epoch
-		} else if msg.epoch >= m.epoch {
-			m.polledEpoch = msg.epoch
-
-			if m.watching {
-				logDrift(m.listing, msg)
-			}
+		} else if m.watching && msg.epoch >= m.epoch {
+			logDrift(m.listing, msg)
 		}
 
 		cmd := m.applyRefresh(msg)

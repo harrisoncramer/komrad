@@ -87,17 +87,14 @@ not carry, which the archive and the worktrees are. Where a poll disagrees with 
 had built it says so at debug level. Nothing about an agent is discovered here: the service
 watches the panes and writes what it saw, and the panel takes rows like any other client.
 
-Two guards keep that from fighting with what the user is doing.
+One guard keeps that from fighting with what the user is doing. Each write, and each listing
+the watch delivers, bumps an epoch, and a polled listing carries the epoch it was requested
+under. A poll that read the store before a write landed, or before the watch delivered, is
+dropped whole rather than putting back rows that have since moved.
 
-Each write bumps an epoch, and a polled listing carries the epoch it was requested under. A
-pass that read the store before a write landed is dropped whole rather than putting the
-write's effect back on screen. A listing the watch built is as fresh as the last event on the
-stream, so it takes the epoch it lands under instead.
-
-While any write is in flight the poll stands down, since it would read rows the write is about
-to replace, and a write re-lists as it lands anyway. The watch's listings are left unapplied
-from the write until that re-list has landed, since one built before the write committed can
-arrive after the write's own result.
+A write that makes a row answers with it, and the panel puts that row into the listing and the
+cursor onto it as the write lands, rather than waiting for a listing to carry it. The watch's
+next listing takes the row over.
 
 Cursors are read off the trees still on screen before new rows are applied, then placed again
 by the row they were on rather than the index that row happened to be drawn at. Either
@@ -108,9 +105,9 @@ listing can add or drop rows above a cursor.
 The user presses a key. update.go routes it to the screen holding the keys, which turns it
 into a command that calls the service through api.go. Nothing on screen changes yet.
 
-The command runs off the render loop and comes back as a message. On success the panel
-re-lists, so what appears is what the service stored rather than what the panel assumed. On
-a refusal the message goes into the region under the record and nothing else moves, which is
+The command runs off the render loop and comes back as a message. On success the watch
+delivers the rows the write moved, so what appears is what the service stored rather than what
+the panel assumed. On a refusal the message goes into the region under the record and nothing else moves, which is
 what makes a refused delete different from a keypress that never registered: the row is still
 there either way.
 

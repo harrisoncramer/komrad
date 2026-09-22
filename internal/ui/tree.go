@@ -472,6 +472,14 @@ func (l listing) workflowName(id string) string {
 	return label.Dash
 }
 
+func (l listing) hasAgent(id string) bool {
+	return slices.ContainsFunc(l.agents, func(item agentItem) bool { return item.agent.ID == id })
+}
+
+func (l listing) hasWorkflow(id string) bool {
+	return slices.ContainsFunc(l.workflows, func(w panel.Workflow) bool { return w.ID == id })
+}
+
 func (m *model) applyWorkflows(fresh []panel.Workflow) {
 	m.listing.workflows = fresh
 }
@@ -494,12 +502,8 @@ func (m *model) applyMarks(onAgents, onWorkflows map[string]string) {
 	m.listing.marks = marks
 }
 
-// apply takes a fresh listing, keeping the cursor on the row it was on, or on the row a write
-// asked it to land on.
+// apply takes a fresh listing, keeping the cursor on the row named.
 func (a *agentsScreen) apply(s panelShared, selected string) {
-	focus := a.focus
-	a.focus = ""
-
 	placed := a.placed
 	if !placed {
 		selected = ""
@@ -507,12 +511,7 @@ func (a *agentsScreen) apply(s panelShared, selected string) {
 
 	rows := a.rows(s)
 
-	idx := rowIndexOfKey(rows, selected)
-	if focus != "" {
-		idx = rowIndexOfKey(rows, focus)
-	}
-
-	switch {
+	switch idx := rowIndexOfKey(rows, selected); {
 	case idx >= 0:
 		a.cursor = idx
 	case !placed:
@@ -528,11 +527,6 @@ func (a *agentsScreen) apply(s panelShared, selected string) {
 
 	a.placed = true
 	a.selected = a.selected.pruned(refsOf(a.rows(s)))
-}
-
-// focusOn remembers the row the next listing lands the cursor on.
-func (a *agentsScreen) focusOn(row string) {
-	a.focus = row
 }
 
 type listing struct {

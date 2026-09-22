@@ -21,13 +21,12 @@ func warmupTick() tea.Cmd {
 
 // warmupState is what the panel knows about panes whose harness may not have started yet: the
 // ones it has confirmed, the ones it is still waiting on, and the pane a create is holding the
-// stage for while the cursor catches up to the row.
+// stage for.
 type warmupState struct {
-	ready   map[string]bool
-	since   map[string]time.Time
-	polling bool
-	pending string
-	// pendingHarness is read off the write rather than a listing.
+	ready          map[string]bool
+	since          map[string]time.Time
+	polling        bool
+	pending        string
 	pendingHarness string
 	// closesForm says the create's own form is still up behind the wait, so the reveal takes it
 	// down in the same change.
@@ -64,7 +63,6 @@ func (m *model) isPaneWarm(pane, harnessID string) bool {
 	since, waiting := m.warm.since[pane]
 	if !waiting {
 		m.warm.since[pane] = time.Now()
-		m.sizeWarmingWindow(pane)
 
 		return false
 	}
@@ -112,26 +110,6 @@ func (m *model) isPaneStageable(pane, harnessID string) bool {
 func (w *warmupState) markWarm(pane string) {
 	w.ready[pane] = true
 	delete(w.since, pane)
-}
-
-// sizeWarmingWindow puts a pane's own window at the size of the slot it is about to be shown in,
-// ahead of the periodic sizing pass, which does not reach it until the agent turns up in a
-// listing.
-func (m *model) sizeWarmingWindow(pane string) {
-	if m.frame.IsRemote() {
-		return
-	}
-
-	// A guest is standing in the panel's own window, so resizing its window would resize the
-	// terminal weave is drawn in and take the whole layout down with it.
-	if pane == m.frame.GuestPane() {
-		return
-	}
-
-	width, height := m.frame.StageCols(), m.height
-	if width > 0 && height > 0 {
-		m.tmux.ResizeWindow(pane, width, height)
-	}
 }
 
 // hold remembers the pane a write wants shown once its harness is up.
@@ -201,7 +179,7 @@ func (m model) revealCreated(pane string, focus bool) (model, tea.Cmd) {
 			m = next
 		}
 
-		cmd = tea.Batch(closing, m.refreshCmd())
+		cmd = closing
 	}
 
 	m.frame.Solo(false)

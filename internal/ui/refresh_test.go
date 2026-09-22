@@ -106,22 +106,113 @@ func TestStaleRefreshIsDropped(t *testing.T) {
 	assert.Empty(t, m.listing.agents, "a pass from before the write is not what the panel shows after it")
 }
 
-// TestWriteStandsTheRefreshDown covers the other half of that race, where the tick skips a
-// pass while a write is on its way and the write asks for one as it lands.
-func TestWriteStandsTheRefreshDown(t *testing.T) {
-	m := model{api: api{
-		agents:    emptyLists{},
-		workflows: emptyLists{},
-		schedules: emptyLists{},
-	}}
+// TestWriteLandsOnTheRowItMade covers a create landing: the row the write answered with goes
+// into the listing before the watch has delivered it, and the cursor onto it.
+func TestWriteLandsOnTheRowItMade(t *testing.T) {
+	m := model{
+		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
+		keys:   config.DefaultKeybindings(),
+		screen: screenAgents,
+		listing: listing{
+			workflows: []panel.Workflow{{ID: "w1", Name: "api"}},
+			agents:    []agentItem{{agent: panel.Agent{ID: "a1", Name: "old", WorkflowID: "w1"}}},
+		},
+	}
+	m.agents.apply(m.shared(), "")
 
-	require.NotNil(t, m.refreshCmd(), "an idle panel lists on the tick")
+	landed, _ := m.applyWrite(writeResult{written: &written{
+		row:   agentRowKey("a2"),
+		agent: &agentv1.Agent{Id: "a2", Name: "new", WorkflowId: "w1"},
+	}})
+	got := asModel(t, landed)
 
-	write := m.writeCmd("Could not write", func(api) error { return nil })
-	assert.Nil(t, m.refreshCmd(), "one with a write in flight waits for it")
+	require.True(t, got.listing.hasAgent("a2"), "the row is on screen the moment the write lands")
+	selected, ok := got.agents.selectedAgent(got.shared())
+	require.True(t, ok)
+	assert.Equal(t, "new", selected.agent.Name, "and the cursor is on it")
 
-	settled := settle(t, m, write)
-	assert.NotNil(t, settled.refreshCmd(), "and lists again once it has landed")
+	got.applyRefresh(refreshResult{
+		epoch:     got.epoch,
+		workflows: got.listing.workflows,
+		agents: []agentItem{
+			{agent: panel.Agent{ID: "a2", Name: "new", WorkflowID: "w1"}, alive: true},
+			{agent: panel.Agent{ID: "a1", Name: "old", WorkflowID: "w1"}},
+		},
+	})
+
+	selected, ok = got.agents.selectedAgent(got.shared())
+	require.True(t, ok)
+	assert.Equal(t, "new", selected.agent.Name, "the listing that carries the row leaves the cursor on it")
+	assert.True(t, selected.alive, "and takes the row over")
+}
+
+// TestWriteLandsOnTheWorkflowItMade covers a workflow create, whose header is drawn from the
+// workflow the write answered with.
+func TestWriteLandsOnTheWorkflowItMade(t *testing.T) {
+	m := model{
+		frame:   layout.New(&recordingTmux{}, config.DefaultLayout()),
+		keys:    config.DefaultKeybindings(),
+		screen:  screenAgents,
+		listing: listing{workflows: []panel.Workflow{{ID: "w1", Name: "zeta"}}},
+	}
+	m.agents.apply(m.shared(), "")
+
+	landed, _ := m.applyWrite(writeResult{written: &written{
+		row:      workflowRowKey("w2"),
+		workflow: &workflowv1.Workflow{Id: "w2", Name: "api"},
+	}})
+	got := asModel(t, landed)
+
+	require.Len(t, got.listing.workflows, 2)
+	assert.Equal(t, "api", got.listing.workflows[0].Name, "the workflow is filed where the listing would file it")
+	assert.Equal(t, workflowRowKey("w2"), rowKeyAt(got.agents.rows(got.shared()), got.agents.cursor))
+}
+
+// TestWriteLeavesARowTheWatchAlreadyDelivered covers the write's answer arriving after the
+// watch has already put the row on screen, which is left as the watch rendered it.
+func TestWriteLeavesARowTheWatchAlreadyDelivered(t *testing.T) {
+	m := model{
+		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
+		keys:   config.DefaultKeybindings(),
+		screen: screenAgents,
+		listing: listing{
+			workflows: []panel.Workflow{{ID: "w1", Name: "api"}},
+			agents:    []agentItem{{agent: panel.Agent{ID: "a2", Name: "new", WorkflowID: "w1"}, alive: true}},
+		},
+	}
+	m.agents.apply(m.shared(), "")
+
+	landed, _ := m.applyWrite(writeResult{written: &written{
+		row:   agentRowKey("a2"),
+		agent: &agentv1.Agent{Id: "a2", Name: "new", WorkflowId: "w1"},
+	}})
+	got := asModel(t, landed)
+
+	require.Len(t, got.listing.agents, 1)
+	assert.True(t, got.listing.agents[0].alive)
+}
+
+// TestPollFromBeforeAWriteLandedIsDropped covers a poll sent while a write was in flight and
+// landing after it, which read rows the write has since replaced.
+func TestPollFromBeforeAWriteLandedIsDropped(t *testing.T) {
+	m := model{
+		frame:   layout.New(&recordingTmux{}, config.DefaultLayout()),
+		keys:    config.DefaultKeybindings(),
+		screen:  screenAgents,
+		listing: listing{workflows: []panel.Workflow{{ID: "w1", Name: "api"}}},
+	}
+
+	m.beginWrite()
+	inFlight := refreshResult{
+		epoch:  m.epoch,
+		agents: []agentItem{{agent: panel.Agent{Name: "archived-since", WorkflowID: "w1"}}},
+	}
+
+	landed, _ := m.applyWrite(writeResult{})
+	got := asModel(t, landed)
+	got.applyRefresh(inFlight)
+
+	assert.Empty(t, got.listing.agents)
 }
 
 // TestFirstListingLandsOnTheFirstAgent covers the cursor being placed by the first pass.

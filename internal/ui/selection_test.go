@@ -339,7 +339,7 @@ func TestArchiveSelection(t *testing.T) {
 	t.Run("delete opens the prompt on the whole selection", func(t *testing.T) {
 		agents := &fakeArchiveAgents{}
 		m := archiveSelectionTree()
-		m.api = api{agents: agents}
+		m.api = api{agents: agents, workflows: emptyLists{}, schedules: emptyLists{}}
 		m.archive.cursor = 3
 		m.archive.selected = selectAgents([]string{"a1", "a2"}...)
 
