@@ -13,8 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// writeScript puts an executable shell script on disk and answers its path.
-func writeScript(t *testing.T, path, body string) string {
+// writeFakeBinary puts an executable shell script on disk and answers its path.
+func writeFakeBinary(t *testing.T, path, body string) string {
 	t.Helper()
 
 	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
@@ -62,7 +62,7 @@ func runCase(t *testing.T, tt shimCase) shimRun {
 	asked := filepath.Join(root, "asked")
 	saw := filepath.Join(root, "saw")
 
-	weave := writeScript(t, filepath.Join(root, "weave"), "echo \"$@\" >"+asked+"\n"+tt.weave)
+	weave := writeFakeBinary(t, filepath.Join(root, "weave"), "echo \"$@\" >"+asked+"\n"+tt.weave)
 
 	beyond := filepath.Join(root, "beyond")
 	require.NoError(t, os.MkdirAll(beyond, 0o755))
@@ -71,7 +71,7 @@ func runCase(t *testing.T, tt shimCase) shimRun {
 		ghBody = "echo \"$GH_TOKEN $*\" >" + saw + "\n"
 	}
 	if !tt.noGH {
-		writeScript(t, filepath.Join(beyond, "gh"), ghBody)
+		writeFakeBinary(t, filepath.Join(beyond, "gh"), ghBody)
 	}
 
 	dir, err := WriteGHShim(cache, weave)
@@ -122,7 +122,8 @@ func TestGHShimHandsTheTokenToTheRealBinary(t *testing.T) {
 
 	assert.Equal(t, 0, run.exitCode)
 	assert.Equal(t, "ghs_minted pr create --title a change", run.ghSaw)
-	assert.Equal(t, "github token --checkout "+run.dir, run.askedFor, "the checkout it was run in decides whether weave answers")
+	assert.Equal(t, "github token --checkout "+run.dir+" --if-configured", run.askedFor,
+		"the checkout it was run in decides whether weave answers")
 	assert.NotContains(t, run.stdout, "ghs_minted", "the token is handed over rather than printed")
 }
 
@@ -172,4 +173,28 @@ func TestGHShimOnAMachineWithNoGH(t *testing.T) {
 	assert.Equal(t, 127, run.exitCode)
 	assert.Contains(t, run.stderr, "gh is not installed")
 	assert.Empty(t, run.askedFor, "nothing is minted for a call that cannot happen")
+}
+
+// TestGHShimFallsThroughOnAMachineWithNoApp covers a laptop or a box logged in by hand, where
+// weave names no App and gh keeps the credential it already had.
+func TestGHShimFallsThroughOnAMachineWithNoApp(t *testing.T) {
+	run := runCase(t, shimCase{weave: "exit 0\n", args: []string{"pr", "list"}})
+
+	assert.Equal(t, 0, run.exitCode)
+	assert.Equal(t, "pr list", run.ghSaw, "gh runs with the environment it would have had")
+	assert.Equal(t, "github token --checkout "+run.dir+" --if-configured", run.askedFor)
+}
+
+// TestGHShimLeavesAGitHubTokenAlone covers the other variable gh reads, which the stand-in
+// passes through the same way.
+func TestGHShimLeavesAGitHubTokenAlone(t *testing.T) {
+	run := runCase(t, shimCase{
+		env:   []string{"GITHUB_TOKEN=ghp_theirs"},
+		weave: "echo ghs_minted\n",
+		args:  []string{"pr", "list"},
+	})
+
+	assert.Equal(t, 0, run.exitCode)
+	assert.Equal(t, "pr list", run.ghSaw, "gh reads GITHUB_TOKEN itself, and GH_TOKEN was never set")
+	assert.Empty(t, run.askedFor, "weave is not asked for a token nobody needs")
 }

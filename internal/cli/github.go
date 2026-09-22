@@ -44,7 +44,10 @@ Set the App id, the installation id and the path to the key under ` + "`[github_
 }
 
 func githubTokenCmd(state *app) *cobra.Command {
-	var checkout string
+	var (
+		checkout     string
+		ifConfigured bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "token",
@@ -57,11 +60,20 @@ and the installation id all agree. Any other answer says which one does not.
 The stand-in weave puts ahead of an agent's PATH as gh runs this for every call, so
 a tool weave hands the token to never holds a stale one. --checkout is how that
 stand-in says which tree it was run in, and refuses a tree whose origin is on a host
-the App does not reach.`,
+the App does not reach. --if-configured prints nothing and succeeds on a machine
+that names no App, which leaves gh the credential the machine was logged in with.`,
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			configured, err := githubAppConfigured(state)
+			if err != nil {
+				return err
+			}
+			if !configured && ifConfigured {
+				return nil
+			}
+
 			if err := requireGitHubCheckout(cmd.Context(), checkout); err != nil {
 				return err
 			}
@@ -78,8 +90,19 @@ the App does not reach.`,
 	}
 
 	cmd.Flags().StringVar(&checkout, "checkout", "", "refuse unless this checkout's origin is a repository on github.com")
+	cmd.Flags().BoolVar(&ifConfigured, "if-configured", false, "print nothing and succeed when the config names no app")
 
 	return cmd
+}
+
+// githubAppConfigured says whether the config names an App to mint from.
+func githubAppConfigured(state *app) (bool, error) {
+	current, err := githubApp(state)
+	if err != nil {
+		return false, err
+	}
+
+	return current.IsConfigured(), nil
 }
 
 // githubHost is the one host an App minted from the config reaches.

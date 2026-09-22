@@ -10,8 +10,7 @@ import (
 // an agent's PATH.
 const ToolsDirName = "weave-agent-tools"
 
-// ghShim is the stand-in an agent reaches as gh, which mints a token for the one call rather
-// than leaving one in the pane to go stale.
+// ghShim is the stand-in an agent reaches as gh.
 const ghShim = `#!/bin/sh
 # Weave's stand-in for gh. GitHub's CLI reads its credential from the environment and has no
 # credential helper, so this hands it a token minted for this call alone.
@@ -38,8 +37,11 @@ if [ -n "${GH_TOKEN:-}" ] || [ -n "${GITHUB_TOKEN:-}" ]; then
 	exec "$real" "$@"
 fi
 
-GH_TOKEN=$("$weave" github token --checkout "$(pwd)") || exit 1
-export GH_TOKEN
+token=$("$weave" github token --checkout "$(pwd)" --if-configured) || exit 1
+if [ -n "$token" ]; then
+	export GH_TOKEN="$token"
+fi
+
 exec "$real" "$@"
 `
 
@@ -56,10 +58,40 @@ func WriteGHShim(cacheDir, weaveBinary string) (string, error) {
 	}
 
 	path := filepath.Join(dir, "gh")
-	body := fmt.Sprintf(ghShim, QuoteArg(dir), QuoteArg(weaveBinary))
-	if err := os.WriteFile(path, []byte(body), 0o755); err != nil { //nolint:gosec // a stand-in on PATH is run, not read
-		return "", fmt.Errorf("failed to write %q: %w", path, err)
+	if err := writeScript(path, fmt.Sprintf(ghShim, QuoteArg(dir), QuoteArg(weaveBinary))); err != nil {
+		return "", err
 	}
 
 	return dir, nil
+}
+
+// writeScript puts a script where a shell can run it, through a file of its own renamed over
+// the target.
+func writeScript(path, body string) error {
+	// A launch rewrites the stand-in while another agent may be part-way through running it, and
+	// a shell reads a script as it goes, so the old inode has to stay whole until it is done.
+	temporary, err := os.CreateTemp(filepath.Dir(path), ".gh-*")
+	if err != nil {
+		return fmt.Errorf("failed to write %q: %w", path, err)
+	}
+
+	defer func() { _ = os.Remove(temporary.Name()) }() //nolint:errcheck // gone already on success
+
+	if _, err := temporary.WriteString(body); err != nil {
+		_ = temporary.Close()
+
+		return fmt.Errorf("failed to write %q: %w", path, err)
+	}
+
+	if err := temporary.Chmod(0o755); err != nil { //nolint:gosec // a stand-in on PATH is run, not read
+		_ = temporary.Close()
+
+		return fmt.Errorf("failed to write %q: %w", path, err)
+	}
+
+	if err := temporary.Close(); err != nil {
+		return fmt.Errorf("failed to write %q: %w", path, err)
+	}
+
+	return os.Rename(temporary.Name(), path)
 }
