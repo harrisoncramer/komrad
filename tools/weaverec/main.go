@@ -241,7 +241,7 @@ func perform(ctx context.Context, recorded *instance, current step) error {
 	case stepKey:
 		return recorded.sendKeys(ctx, strings.Fields(current.arg)...)
 	case stepType:
-		return recorded.sendKeys(ctx, "-l", current.arg)
+		return recorded.typeText(ctx, current.arg)
 	case stepSleep:
 		return sleep(ctx, current.pause)
 	case stepWait:

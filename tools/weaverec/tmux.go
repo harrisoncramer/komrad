@@ -185,9 +185,65 @@ func (i *instance) sendKeys(ctx context.Context, keys ...string) error {
 		return err
 	}
 
-	_, err := i.inner.run(ctx, append([]string{"send-keys", "-K", "-c", i.windows[0].client}, keys...)...)
+	bound, err := i.rootKeys(ctx)
+	if err != nil {
+		return err
+	}
+
+	client := i.windows[0].client
+
+	for _, key := range keys {
+		args := []string{"send-keys", "-t", client, key}
+		if bound[key] {
+			args = []string{"send-keys", "-K", "-c", client, key}
+		}
+
+		if _, err := i.inner.run(ctx, args...); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (i *instance) typeText(ctx context.Context, text string) error {
+	if err := i.syncWindow(ctx); err != nil {
+		return err
+	}
+
+	_, err := i.inner.run(ctx, "send-keys", "-t", i.windows[0].client, "-l", text)
 
 	return err
+}
+
+func (i *instance) rootKeys(ctx context.Context) (map[string]bool, error) {
+	listed, err := i.inner.run(ctx, "list-keys", "-T", "root")
+	if err != nil {
+		return nil, err
+	}
+
+	bound := map[string]bool{}
+
+	for line := range strings.SplitSeq(listed, "\n") {
+		fields := strings.Fields(line)
+		for n, field := range fields {
+			if field == "-T" && n+2 < len(fields) {
+				bound[unquoteKey(fields[n+2])] = true
+
+				break
+			}
+		}
+	}
+
+	return bound, nil
+}
+
+func unquoteKey(key string) string {
+	if len(key) >= 2 && (key[0] == '"' || key[0] == '\'') && key[len(key)-1] == key[0] {
+		key = key[1 : len(key)-1]
+	}
+
+	return strings.TrimPrefix(key, "\\")
 }
 
 func (i *instance) capture(ctx context.Context, withEscapes bool) ([]string, error) {
