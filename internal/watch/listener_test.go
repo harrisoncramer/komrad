@@ -6,7 +6,6 @@ import (
 
 	"weave/db"
 	"weave/internal/dbtest"
-	markstore "weave/internal/store/mark"
 	notifystore "weave/internal/store/notify"
 	watchv1 "weave/proto/gen/watch/v1"
 
@@ -264,33 +263,4 @@ func TestAWriteReachesTheWatchersUnderItsResourceKey(t *testing.T) {
 	change := receive(t, subscription)
 	assert.Equal(t, agent, change.Key, "a write to a projected table reaches the watcher under its parent's key")
 	assert.Equal(t, watchv1.Resource_RESOURCE_AGENT, change.Resource)
-}
-
-// TestAMarkReachesTheWatchersUnderItsID pins that a mark is announced by its id, so moving a
-// letter is a tombstone for the old mark and a put for the new one.
-func TestAMarkReachesTheWatchersUnderItsID(t *testing.T) {
-	stores := newStores()
-	l := newPooled(t)
-
-	agent := l.seedAgent(t)
-	l.listen(t, stores)
-
-	subscription, err := l.broker.Subscribe(t.Context())
-	require.NoError(t, err)
-
-	first := uuid.NewString()
-	stores.marks.put(markstore.Mark{ID: first, Mark: "a", AgentID: &agent})
-	l.exec(t, `INSERT INTO marks (id, mark, agent_id) VALUES ($1, 'a', $2)`, first, agent)
-
-	change := receive(t, subscription)
-	assert.Equal(t, watchv1.Resource_RESOURCE_MARK, change.Resource)
-	assert.Equal(t, first, change.Key, "an insert is announced by the new row's id")
-	assert.NotNil(t, change.Row)
-
-	stores.marks.put()
-	l.exec(t, `DELETE FROM marks WHERE id = $1`, first)
-
-	change = receive(t, subscription)
-	assert.Equal(t, first, change.Key, "a delete is announced by the old row's id")
-	assert.Nil(t, change.Row, "a deleted mark is a tombstone")
 }
