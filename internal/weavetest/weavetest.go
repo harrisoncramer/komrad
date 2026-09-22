@@ -50,6 +50,7 @@ import (
 	"weave/proto/gen/log/v1/logv1connect"
 	"weave/proto/gen/pullrequest/v1/pullrequestv1connect"
 	"weave/proto/gen/schedule/v1/schedulev1connect"
+	"weave/proto/gen/watch/v1/watchv1connect"
 	"weave/proto/gen/workflow/v1/workflowv1connect"
 	"weave/proto/gen/worktree/v1/worktreev1connect"
 
@@ -71,6 +72,7 @@ type Instance struct {
 	PullRequests pullrequestv1connect.PullRequestServiceClient
 	Worktrees    worktreev1connect.WorktreeServiceClient
 	Config       configv1connect.ConfigServiceClient
+	Watches      watchv1connect.WatchServiceClient
 	Harness      *harnesstest.Harness
 	Tmux         *tmuxtest.Server
 	Stores       *storetest.Stores
@@ -207,6 +209,7 @@ func Start(t *testing.T, p Params) *Instance {
 		PullRequests: pullrequestv1connect.NewPullRequestServiceClient(client, url),
 		Worktrees:    worktreev1connect.NewWorktreeServiceClient(client, url),
 		Config:       configv1connect.NewConfigServiceClient(client, url),
+		Watches:      watchv1connect.NewWatchServiceClient(client, url),
 		Harness:      fake,
 		Tmux:         tmuxServer,
 		Stores:       stores,
