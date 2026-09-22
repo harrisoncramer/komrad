@@ -278,9 +278,10 @@ func rowsByResource(snapshot []Change) map[watchv1.Resource]map[string]*watchv1.
 func (s *Subscription) move(change Change) bool {
 	held := s.sent[change.Resource]
 	if change.Row == nil {
+		_, had := held[change.Key]
 		delete(held, change.Key)
 
-		return true
+		return had
 	}
 	if proto.Equal(held[change.Key], change.Row) {
 		return false

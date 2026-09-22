@@ -109,15 +109,19 @@ func TestARowTouchedTenTimesInOnePassSendsOnce(t *testing.T) {
 	assert.Equal(t, "renamed", changes[0].Row.GetAgent().GetName())
 }
 
-// TestATombstoneAlwaysSends pins that a key leaving the watched set goes out however it was
-// last rendered, and drops what the broker remembered of it.
-func TestATombstoneAlwaysSends(t *testing.T) {
+// TestATombstoneSendsOnlyForAHeldRow pins that a key leaving the watched set goes out however it
+// was last rendered, drops what the broker remembered of it, and that a key the watcher never
+// held sends nothing.
+func TestATombstoneSendsOnlyForAHeldRow(t *testing.T) {
 	stores := newStores()
 	stores.agents.put(agentRow("a"))
 	broker := newTestBroker(t, stores)
 
 	subscription, err := broker.Subscribe(t.Context())
 	require.NoError(t, err)
+
+	broker.touch("agents", "never")
+	assert.Empty(t, drain(subscription), "a key the watcher never held sends no tombstone")
 
 	stores.agents.put()
 	broker.touch("agents", "a")

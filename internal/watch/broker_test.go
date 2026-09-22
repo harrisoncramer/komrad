@@ -65,12 +65,12 @@ func TestTouchesPileUpBehindOneRead(t *testing.T) {
 	close(stores.agents.held)
 
 	require.Equal(t, "held", receive(t, subscription).Key)
-	changes := []Change{receive(t, subscription), receive(t, subscription), receive(t, subscription), receive(t, subscription)}
+	changes := []Change{receive(t, subscription), receive(t, subscription)}
 
 	assert.Equal(t, [][]string{{"held"}, {"a", "b"}}, stores.agents.reads(), "the touches behind the held read are one read")
-	assert.Equal(t, []string{"a", "b", "w", "s"}, []string{changes[0].Key, changes[1].Key, changes[2].Key, changes[3].Key})
+	assert.Equal(t, []string{"a", "b"}, []string{changes[0].Key, changes[1].Key})
 	assert.NotNil(t, changes[0].Row)
-	assert.Nil(t, changes[2].Row, "a key the store no longer holds is a tombstone")
+	assert.Empty(t, drain(subscription), "a key the watcher never held sends no tombstone")
 }
 
 // TestNothingIsReadWithoutAWatcher pins that the broker costs nothing while nobody watches.
