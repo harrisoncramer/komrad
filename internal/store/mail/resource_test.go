@@ -11,7 +11,7 @@ import (
 )
 
 // TestListByKeyIsTheUnclaimedSet pins the read-back to the watched set: a piece of mail comes
-// back while nobody has claimed it, expired or not, and not once its recipient has taken it.
+// back while nobody has claimed it and it has not expired, and not once its recipient has taken it.
 func TestListByKeyIsTheUnclaimedSet(t *testing.T) {
 	ctx := t.Context()
 	st := open(t)
@@ -39,11 +39,11 @@ func TestListByKeyIsTheUnclaimedSet(t *testing.T) {
 
 	listed, err := st.ListByKey(ctx, []string{waiting, expired, "not-an-id"})
 	require.NoError(t, err)
-	assert.ElementsMatch(t, []string{waiting, expired}, ids(listed), "expiry is the reader's clock, not the set")
+	assert.Equal(t, []string{waiting}, ids(listed), "an expired piece is a tombstone")
 
 	unclaimed, err := st.List(ctx)
 	require.NoError(t, err)
-	assert.ElementsMatch(t, []string{waiting, expired}, ids(unclaimed))
+	assert.Equal(t, []string{waiting}, ids(unclaimed))
 
 	claimed, err := st.Claim(ctx, recipient, 10)
 	require.NoError(t, err)
@@ -51,7 +51,7 @@ func TestListByKeyIsTheUnclaimedSet(t *testing.T) {
 
 	listed, err = st.ListByKey(ctx, []string{waiting, expired})
 	require.NoError(t, err)
-	assert.Equal(t, []string{expired}, ids(listed), "a claimed piece is a tombstone")
+	assert.Empty(t, ids(listed), "a claimed piece is a tombstone")
 
 	none, err := st.ListByKey(ctx, nil)
 	require.NoError(t, err)
