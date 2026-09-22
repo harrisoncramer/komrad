@@ -28,7 +28,7 @@ type fakeReader struct {
 	held chan struct{}
 }
 
-func (f *fakeReader) Read(_ context.Context, touched Touched) ([]Event, error) {
+func (f *fakeReader) Read(_ context.Context, touched Touched) ([]Change, error) {
 	f.mu.Lock()
 	held, readErr := f.held, f.readErr
 	f.reads = append(f.reads, touched)
@@ -41,13 +41,13 @@ func (f *fakeReader) Read(_ context.Context, touched Touched) ([]Event, error) {
 		return nil, readErr
 	}
 
-	events := xslice.Map(touched[watchv1.Resource_RESOURCE_AGENT], func(id string) Event {
-		return Event{Resource: watchv1.Resource_RESOURCE_AGENT, Key: id, Row: &watchv1.Row{Row: &watchv1.Row_Agent{Agent: &agentv1.Agent{Id: id}}}}
+	changes := xslice.Map(touched[watchv1.Resource_RESOURCE_AGENT], func(id string) Change {
+		return Change{Resource: watchv1.Resource_RESOURCE_AGENT, Key: id, Row: &watchv1.Row{Row: &watchv1.Row_Agent{Agent: &agentv1.Agent{Id: id}}}}
 	})
-	events = append(events, xslice.Map(touched[watchv1.Resource_RESOURCE_WORKFLOW], func(id string) Event { return Event{Resource: watchv1.Resource_RESOURCE_WORKFLOW, Key: id} })...)
-	events = append(events, xslice.Map(touched[watchv1.Resource_RESOURCE_SCHEDULE], func(id string) Event { return Event{Resource: watchv1.Resource_RESOURCE_SCHEDULE, Key: id} })...)
+	changes = append(changes, xslice.Map(touched[watchv1.Resource_RESOURCE_WORKFLOW], func(id string) Change { return Change{Resource: watchv1.Resource_RESOURCE_WORKFLOW, Key: id} })...)
+	changes = append(changes, xslice.Map(touched[watchv1.Resource_RESOURCE_SCHEDULE], func(id string) Change { return Change{Resource: watchv1.Resource_RESOURCE_SCHEDULE, Key: id} })...)
 
-	return events, nil
+	return changes, nil
 }
 
 func (f *fakeReader) Snapshot(context.Context) ([]*watchv1.Row, error) {
@@ -77,18 +77,18 @@ func newTestBroker(t *testing.T, reader *fakeReader) *Broker {
 	return broker
 }
 
-func receive(t *testing.T, subscription *Subscription) Event {
+func receive(t *testing.T, subscription *Subscription) Change {
 	t.Helper()
 
 	select {
-	case event, open := <-subscription.Events():
+	case change, open := <-subscription.Changes():
 		require.True(t, open, "the subscription closed")
 
-		return event
+		return change
 	case <-time.After(2 * time.Second):
-		t.Fatal("no event arrived")
+		t.Fatal("no change arrived")
 
-		return Event{}
+		return Change{}
 	}
 }
 
@@ -111,12 +111,12 @@ func TestTouchesPileUpBehindOneRead(t *testing.T) {
 	close(reader.held)
 
 	require.Equal(t, "held", receive(t, subscription).Key)
-	events := []Event{receive(t, subscription), receive(t, subscription), receive(t, subscription), receive(t, subscription)}
+	changes := []Change{receive(t, subscription), receive(t, subscription), receive(t, subscription), receive(t, subscription)}
 
 	require.Equal(t, Touched{watchv1.Resource_RESOURCE_AGENT: []string{"a", "b"}, watchv1.Resource_RESOURCE_WORKFLOW: []string{"w"}, watchv1.Resource_RESOURCE_SCHEDULE: []string{"s"}}, reader.getReads()[1])
-	require.Equal(t, []string{"a", "b", "w", "s"}, []string{events[0].Key, events[1].Key, events[2].Key, events[3].Key})
-	require.NotNil(t, events[0].Row)
-	require.Nil(t, events[2].Row, "a row the reader did not render is a tombstone")
+	require.Equal(t, []string{"a", "b", "w", "s"}, []string{changes[0].Key, changes[1].Key, changes[2].Key, changes[3].Key})
+	require.NotNil(t, changes[0].Row)
+	require.Nil(t, changes[2].Row, "a row the reader did not render is a tombstone")
 }
 
 // TestNothingIsReadWithoutAWatcher pins that the broker costs nothing while nobody watches.
@@ -193,7 +193,7 @@ func TestASlowWatcherIsDropped(t *testing.T) {
 	subscription, err := broker.Subscribe(t.Context())
 	require.NoError(t, err)
 
-	// Each round renders one event per letter, and nobody reads them.
+	// Each round renders one change per letter, and nobody reads them.
 	ids := make([]string, 26)
 	for i := range ids {
 		ids[i] = string(rune('a' + i))
@@ -206,7 +206,7 @@ func TestASlowWatcherIsDropped(t *testing.T) {
 	require.Eventually(t, func() bool {
 		for {
 			select {
-			case _, open := <-subscription.Events():
+			case _, open := <-subscription.Changes():
 				if !open {
 					return true
 				}
@@ -231,7 +231,7 @@ func TestCloseEndsEverySubscription(t *testing.T) {
 	broker.Close()
 	broker.Close()
 
-	_, open := <-subscription.Events()
+	_, open := <-subscription.Changes()
 	require.False(t, open)
 
 	_, err = broker.Subscribe(t.Context())
@@ -275,7 +275,7 @@ func TestClosingASubscriptionEndsItsStream(t *testing.T) {
 	subscription.Close()
 	subscription.Close()
 
-	_, open := <-subscription.Events()
+	_, open := <-subscription.Changes()
 	require.False(t, open)
 
 	broker.touch("agents", "a")

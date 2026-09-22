@@ -28,19 +28,19 @@ type World struct {
 	PullRequests map[string]*pullrequestv1.PullRequest
 }
 
-// Apply puts or drops the row one event names, and reports the agents whose key or branch it
+// Apply puts or drops the row one message names, and reports the agents whose key or branch it
 // had not seen.
-func (w *World) Apply(event *watchv1.WatchEvent) (arrived []string) {
-	switch event := event.GetEvent().(type) {
+func (w *World) Apply(msg *watchv1.WatchEvent) (arrived []string) {
+	switch msg := msg.GetEvent().(type) {
 	case *watchv1.WatchEvent_Snapshot:
 		*w = World{}
-		for _, row := range event.Snapshot.GetRows() {
+		for _, row := range msg.Snapshot.GetRows() {
 			w.Put(row)
 		}
 	case *watchv1.WatchEvent_Put:
-		return w.Put(event.Put)
+		return w.Put(msg.Put)
 	case *watchv1.WatchEvent_Deleted:
-		w.drop(event.Deleted)
+		w.drop(msg.Deleted)
 	case *watchv1.WatchEvent_Heartbeat, nil:
 	}
 

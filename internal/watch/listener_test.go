@@ -66,9 +66,9 @@ func TestANotificationReachesTheWatchers(t *testing.T) {
 	require.NoError(t, err)
 
 	l.notify(t, "agents a")
-	event := receive(t, subscription)
-	require.Equal(t, "a", event.Key)
-	require.NotNil(t, event.Row.GetAgent())
+	change := receive(t, subscription)
+	require.Equal(t, "a", change.Key)
+	require.NotNil(t, change.Row.GetAgent())
 }
 
 // TestALostConnectionDropsEveryWatcher pins the answer to a connection going: every
@@ -83,7 +83,7 @@ func TestALostConnectionDropsEveryWatcher(t *testing.T) {
 	l.killListener(t)
 
 	select {
-	case _, open := <-subscription.Events():
+	case _, open := <-subscription.Changes():
 		require.False(t, open, "the subscription closes with the connection")
 	case <-time.After(5 * time.Second):
 		t.Fatal("the subscription outlived the connection")

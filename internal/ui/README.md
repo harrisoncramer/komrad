@@ -81,7 +81,7 @@ the keybindings, the dimensions of its own pane.
 The panel is told. It holds the service's watch stream open for its whole life: the stream
 opens with a snapshot of every resource the panel draws, agents, workflows, schedules, marks,
 unclaimed mail and the pull requests on live agents' branches, then carries one row per
-change, and the client in internal/client hands the events over in batches a few tens of
+change, and the client in internal/client hands the changes over in batches a few tens of
 milliseconds wide. Each row goes into the World in internal/assemble, one map per kind, or
 comes out of it on a tombstone, and the rows the screens draw are assembled again from those
 maps after every batch by assemble.AgentRows, the one function that says how an agent's row is
@@ -96,14 +96,14 @@ client.
 One thing is listed on arrival. The stream carries a pull request only once a live agent is on
 its branch, so when an agent the panel had not seen arrives, or one it holds moves to another
 branch, the panel asks once for the pull requests stored for that branch and puts them in the
-map, where the events land over them by key.
+map, where later changes land over them by key.
 
 Two listings ride no stream. The archive and the worktree directories are read when a screen
 that draws them is entered and on every tick while it is up, and are left alone otherwise.
 
 A write that makes a row answers with it, and the panel puts that row into the listing and the
-cursor onto it as the write lands, rather than waiting for the stream to carry it. The event
-for that row lands over it.
+cursor onto it as the write lands, rather than waiting for the stream to carry it. The stream's
+own copy of that row lands over it.
 
 Cursors are read off the trees still on screen before rows are changed under them, then placed
 again by the row they were on rather than the index that row happened to be drawn at. A batch
