@@ -81,22 +81,6 @@ func NewRows(params NewRowsParams) *Rows {
 		now = time.Now
 	}
 
-	workflowMarks := func(ctx context.Context) (map[string]*string, error) {
-		marks, err := params.Marks.List(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("failed to list the marks: %w", err)
-		}
-
-		byWorkflow := map[string]*string{}
-		for _, mark := range marks {
-			if mark.WorkflowID != nil {
-				byWorkflow[*mark.WorkflowID] = &mark.Mark
-			}
-		}
-
-		return byWorkflow, nil
-	}
-
 	return &Rows{arms: map[watch.Kind]arm{
 		watch.KindAgent: newArm(
 			params.Agents.ListLiveRowsByID,
@@ -104,9 +88,9 @@ func NewRows(params NewRowsParams) *Rows {
 				return params.Agents.ListRows(ctx, rowstore.Page{Limit: snapshotPage, Cursor: cursor})
 			}, func(row rowstore.Row) *agentstore.Cursor { return &agentstore.Cursor{ID: row.ID} }),
 			func(row rowstore.Row) string { return row.ID },
-			each(func(row rowstore.Row) *watchv1.Row {
+			func(row rowstore.Row) *watchv1.Row {
 				return &watchv1.Row{Row: &watchv1.Row_Agent{Agent: render.Agent(row, render.AgentOptions{})}}
-			}),
+			},
 		),
 		watch.KindWorkflow: newArm(
 			params.Workflows.ListLiveByID,
@@ -116,15 +100,8 @@ func NewRows(params NewRowsParams) *Rows {
 				return &workflowstore.Cursor{Name: row.Name, ID: row.ID}
 			}),
 			func(row workflowstore.Workflow) string { return row.ID },
-			func(ctx context.Context, rows []workflowstore.Workflow) ([]*watchv1.Row, error) {
-				marks, err := workflowMarks(ctx)
-				if err != nil {
-					return nil, err
-				}
-
-				return xslice.Map(rows, func(row workflowstore.Workflow) *watchv1.Row {
-					return &watchv1.Row{Row: &watchv1.Row_Workflow{Workflow: render.Workflow(row, marks[row.ID], render.WorkflowOptions{})}}
-				}), nil
+			func(row workflowstore.Workflow) *watchv1.Row {
+				return &watchv1.Row{Row: &watchv1.Row_Workflow{Workflow: render.Workflow(row, render.WorkflowOptions{})}}
 			},
 		),
 		watch.KindSchedule: newArm(
@@ -133,33 +110,33 @@ func NewRows(params NewRowsParams) *Rows {
 				return params.Schedules.ListPage(ctx, snapshotPage, cursor)
 			}, func(row schedulestore.Schedule) *schedulestore.Cursor { return &schedulestore.Cursor{ID: row.ID} }),
 			func(row schedulestore.Schedule) string { return row.ID },
-			each(func(row schedulestore.Schedule) *watchv1.Row {
+			func(row schedulestore.Schedule) *watchv1.Row {
 				return &watchv1.Row{Row: &watchv1.Row_Schedule{Schedule: render.Schedule(row, now(), render.ScheduleOptions{})}}
-			}),
+			},
 		),
 		watch.KindMark: newArm(
 			params.Marks.ListByKey,
 			params.Marks.List,
 			func(row markstore.Mark) string { return row.Mark },
-			each(func(row markstore.Mark) *watchv1.Row {
+			func(row markstore.Mark) *watchv1.Row {
 				return &watchv1.Row{Row: &watchv1.Row_Mark{Mark: render.Mark(row)}}
-			}),
+			},
 		),
 		watch.KindMail: newArm(
 			params.Mail.ListByKey,
 			params.Mail.ListUnclaimed,
 			func(row mailstore.Mail) string { return row.ID },
-			each(func(row mailstore.Mail) *watchv1.Row {
+			func(row mailstore.Mail) *watchv1.Row {
 				return &watchv1.Row{Row: &watchv1.Row_Mail{Mail: render.Mail(row)}}
-			}),
+			},
 		),
 		watch.KindPullRequest: newArm(
 			params.PullRequests.ListByKey,
 			params.PullRequests.ListOnLiveBranches,
 			func(row pullrequeststore.PullRequest) string { return row.ID },
-			each(func(row pullrequeststore.PullRequest) *watchv1.Row {
+			func(row pullrequeststore.PullRequest) *watchv1.Row {
 				return &watchv1.Row{Row: &watchv1.Row_PullRequest{PullRequest: render.PullRequest(row)}}
-			}),
+			},
 		),
 	}}
 }
@@ -171,13 +148,12 @@ type arm struct {
 	snapshot func(ctx context.Context) ([]*watchv1.Row, error)
 }
 
-// newArm is one resource's arm over its by-key read, its whole read, its key and its renderer,
-// which draws a batch of rows at once.
+// newArm is one resource's arm over its by-key read, its whole read, its key and its renderer.
 func newArm[R any](
 	byKey func(ctx context.Context, keys []string) ([]R, error),
 	all func(ctx context.Context) ([]R, error),
 	key func(R) string,
-	draw func(ctx context.Context, rows []R) ([]*watchv1.Row, error),
+	draw func(R) *watchv1.Row,
 ) arm {
 	return arm{
 		read: func(ctx context.Context, keys []string) (map[string]*watchv1.Row, error) {
@@ -185,14 +161,10 @@ func newArm[R any](
 			if err != nil {
 				return nil, err
 			}
-			drawn, err := draw(ctx, rows)
-			if err != nil {
-				return nil, err
-			}
 
 			held := make(map[string]*watchv1.Row, len(rows))
-			for i, row := range rows {
-				held[key(row)] = drawn[i]
+			for _, row := range rows {
+				held[key(row)] = draw(row)
 			}
 
 			return held, nil
@@ -203,15 +175,8 @@ func newArm[R any](
 				return nil, err
 			}
 
-			return draw(ctx, rows)
+			return xslice.Map(rows, draw), nil
 		},
-	}
-}
-
-// each lifts a renderer of one row to a batch.
-func each[R any](draw func(R) *watchv1.Row) func(ctx context.Context, rows []R) ([]*watchv1.Row, error) {
-	return func(_ context.Context, rows []R) ([]*watchv1.Row, error) {
-		return xslice.Map(rows, draw), nil
 	}
 }
 

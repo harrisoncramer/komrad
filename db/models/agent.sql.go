@@ -839,85 +839,37 @@ concluded AS (
         v.agent_id,
         n.ordinal DESC,
         v.released_at DESC
-),
-opened AS (
-    SELECT DISTINCT ON (a.id)
-        a.id AS agent_id,
-        p.number,
-        p.url,
-        p.title,
-        p.draft,
-        p.merged_at,
-        p.closed_at,
-        p.review_decision,
-        p.checks,
-        p.mergeability
-    FROM
-        agents a
-        JOIN pull_requests p ON p.repository_url = a.repository_url
-            AND p.head_repository_url = a.repository_url
-            AND p.head_branch = a.branch
-        JOIN workflows w ON w.id = a.workflow_id
-        LEFT JOIN workflow_provisioner_configs c ON c.id = w.provisioner_config_id
-    WHERE
-        c.worktree_base_branch IS NULL
-        OR a.branch <> c.worktree_base_branch
-    ORDER BY
-        a.id,
-        COALESCE(p.merged_at, p.closed_at) IS NOT NULL,
-        p.opened_at DESC
 )
 SELECT
     s.id, s.name, s.cwd, s.flags, s.prompt, s.pane_id, s.state, s.state_changed_at, s.harness, s.session_id, s.workflow_id, s.schedule_id, s.idempotency_key, s.spawned_by_agent_id, s.archived_at, s.is_hidden, s.nudged_at, s.branch, s.worktree_removed, s.created_at, s.updated_at, s.state_seen_at, s.interrupted_at, s.adopted_branch, s.parent_agent_id, s.turn_ended_at, s.provision_enabled, s.reported_reason, s.role, s.held_at, s.held_mid_turn, s.nudge_sent_at, s.sequence_in_progress, s.repository_url, s.deleting_at, s.alive, s.tree_standing, s.tree_standing_sha,
+(f.agent_id IS NOT NULL)::boolean AS failed_run,
+    f.log_number AS failed_run_log,
+    COALESCE(t.rounds, 0)::int AS local_rounds,
+    c.verdict AS local_verdict,
+    c.snapshot_sha AS local_review_sha,
     EXISTS (
         SELECT
             1
         FROM
-            mail m
+            pull_request_syncs y
         WHERE
-            m.to_agent_id = s.id
-            AND m.claimed_at IS NULL
-            AND m.expires_at > NOW())::boolean AS unread_mail,
-(f.agent_id IS NOT NULL)::boolean AS failed_run,
-        f.log_number AS failed_run_log,
-        k.mark,
-        COALESCE(t.rounds, 0)::int AS local_rounds,
-        c.verdict AS local_verdict,
-        c.snapshot_sha AS local_snapshot_sha,
-        p.number AS pull_request_number,
-        p.url AS pull_request_url,
-        p.title AS pull_request_title,
-        p.draft AS pull_request_draft,
-        p.merged_at AS pull_request_merged_at,
-        p.closed_at AS pull_request_closed_at,
-        p.review_decision AS pull_request_review_decision,
-        p.checks AS pull_request_checks,
-        p.mergeability AS pull_request_mergeability,
-        EXISTS (
-            SELECT
-                1
-            FROM
-                pull_request_syncs y
-            WHERE
-                y.repository_url = s.repository_url
-                AND y.updated_through IS NOT NULL)::boolean AS repository_read
-        FROM
-            agents s
-        LEFT JOIN failed f ON f.agent_id = s.id
-        LEFT JOIN marks k ON k.agent_id = s.id
-        LEFT JOIN tallied t ON t.agent_id = s.id
-        LEFT JOIN concluded c ON c.agent_id = s.id
-        LEFT JOIN opened p ON p.agent_id = s.id
-    WHERE ($1::uuid[] IS NULL
-        OR s.id = ANY ($1::uuid[]))
-    AND (NOT $2::boolean
-        OR (s.archived_at IS NULL
-            AND s.deleting_at IS NULL))
-    AND ($1::uuid[] IS NOT NULL
-        OR (($3::boolean) =(s.archived_at IS NOT NULL)
-            AND s.deleting_at IS NULL
-            AND ($4::uuid IS NULL
-                OR s.id < $4)))
+            y.repository_url = s.repository_url
+            AND y.updated_through IS NOT NULL)::boolean AS repository_read
+    FROM
+        agents s
+    LEFT JOIN failed f ON f.agent_id = s.id
+    LEFT JOIN tallied t ON t.agent_id = s.id
+    LEFT JOIN concluded c ON c.agent_id = s.id
+WHERE ($1::uuid[] IS NULL
+    OR s.id = ANY ($1::uuid[]))
+AND (NOT $2::boolean
+    OR (s.archived_at IS NULL
+        AND s.deleting_at IS NULL))
+AND ($1::uuid[] IS NOT NULL
+    OR (($3::boolean) =(s.archived_at IS NOT NULL)
+        AND s.deleting_at IS NULL
+        AND ($4::uuid IS NULL
+            OR s.id < $4)))
 ORDER BY
     s.id DESC
 LIMIT $5
@@ -932,24 +884,13 @@ type ListAgentRowsParams struct {
 }
 
 type ListAgentRowsRow struct {
-	Agent                     Agent
-	UnreadMail                bool
-	FailedRun                 bool
-	FailedRunLog              *int32
-	Mark                      *string
-	LocalRounds               int32
-	LocalVerdict              NullReviewVerdict
-	LocalSnapshotSha          *string
-	PullRequestNumber         *int32
-	PullRequestUrl            *string
-	PullRequestTitle          *string
-	PullRequestDraft          *bool
-	PullRequestMergedAt       *time.Time
-	PullRequestClosedAt       *time.Time
-	PullRequestReviewDecision *string
-	PullRequestChecks         *string
-	PullRequestMergeability   *string
-	RepositoryRead            bool
+	Agent          Agent
+	FailedRun      bool
+	FailedRunLog   *int32
+	LocalRounds    int32
+	LocalVerdict   NullReviewVerdict
+	LocalReviewSha *string
+	RepositoryRead bool
 }
 
 func (q *Queries) ListAgentRows(ctx context.Context, arg ListAgentRowsParams) ([]*ListAgentRowsRow, error) {
@@ -1006,22 +947,11 @@ func (q *Queries) ListAgentRows(ctx context.Context, arg ListAgentRowsParams) ([
 			&i.Agent.Alive,
 			&i.Agent.TreeStanding,
 			&i.Agent.TreeStandingSha,
-			&i.UnreadMail,
 			&i.FailedRun,
 			&i.FailedRunLog,
-			&i.Mark,
 			&i.LocalRounds,
 			&i.LocalVerdict,
-			&i.LocalSnapshotSha,
-			&i.PullRequestNumber,
-			&i.PullRequestUrl,
-			&i.PullRequestTitle,
-			&i.PullRequestDraft,
-			&i.PullRequestMergedAt,
-			&i.PullRequestClosedAt,
-			&i.PullRequestReviewDecision,
-			&i.PullRequestChecks,
-			&i.PullRequestMergeability,
+			&i.LocalReviewSha,
 			&i.RepositoryRead,
 		); err != nil {
 			return nil, err

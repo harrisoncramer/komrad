@@ -85,7 +85,7 @@ func (s *Handler) world(ctx context.Context, rows []rowstore.Row, opts ...agentO
 	return assemble.World{
 		Agents: xslice.KeyBy(agents, func(a *agentv1.Agent) string { return a.GetId() }),
 		Workflows: xslice.KeyBy(xslice.Map(workflows, func(w workflowstore.Workflow) *workflowv1.Workflow {
-			return render.Workflow(w, nil, render.WorkflowOptions{})
+			return render.Workflow(w, render.WorkflowOptions{})
 		}), func(w *workflowv1.Workflow) string { return w.GetId() }),
 		Marks: xslice.KeyBy(xslice.Map(marks, render.Mark), func(m *agentv1.Mark) string { return m.GetMark() }),
 		Mail:  xslice.KeyBy(xslice.Map(mail, render.Mail), func(m *agentv1.Mail) string { return m.GetId() }),

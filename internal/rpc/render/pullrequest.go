@@ -23,7 +23,7 @@ func PullRequest(stored pullrequeststore.PullRequest) *pullrequestv1.PullRequest
 		BaseBranch:        stored.BaseBranch,
 		BaseSha:           stored.BaseSHA,
 		Draft:             stored.Draft,
-		State:             PullRequestStateOf(stored.GetSummary()),
+		State:             PullRequestStateOf(stored),
 		OpenedAt:          dates.Stamp(stored.OpenedAt),
 		ChangedAt:         dates.Stamp(stored.ChangedAt),
 		MergedAt:          dates.StampPtr(stored.MergedAt),
@@ -38,7 +38,7 @@ func PullRequest(stored pullrequeststore.PullRequest) *pullrequestv1.PullRequest
 // first, then draft, then a failing check, then a conflict with the base, then a change request,
 // then the forge's own word on whether it would merge it now, with an approval held at waiting
 // until that word is clean.
-func PullRequestStateOf(pullRequest pullrequeststore.Summary) pullrequestv1.PullRequestState {
+func PullRequestStateOf(pullRequest pullrequeststore.PullRequest) pullrequestv1.PullRequestState {
 	checks := forge.ChecksNone
 	if pullRequest.Checks != nil {
 		checks = *pullRequest.Checks

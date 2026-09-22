@@ -39,14 +39,14 @@ func workflowViewOptions(view viewv1.View) []workflowOption {
 	return []workflowOption{withContextHead(render.SummaryHead)}
 }
 
-func renderWorkflow(w workflowstore.Workflow, mark *string, opts ...workflowOption) workflow {
+func renderWorkflow(w workflowstore.Workflow, opts ...workflowOption) workflow {
 	options := workflowOptions{}
 	for _, opt := range opts {
 		opt(&options)
 	}
 
 	return workflow{
-		Workflow: render.Workflow(w, mark, render.WorkflowOptions{ContextHead: options.contextHead}),
+		Workflow: render.Workflow(w, render.WorkflowOptions{ContextHead: options.contextHead}),
 		cursor:   workflowstore.Cursor{Name: w.Name, ID: w.ID},
 	}
 }

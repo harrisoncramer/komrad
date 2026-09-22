@@ -163,7 +163,7 @@ func renderAgentPullRequest(pullRequest pullrequeststore.PullRequest, current bo
 		Number:       int32(pullRequest.Number),
 		Url:          pullRequest.URL,
 		Title:        pullRequest.Title,
-		State:        render.PullRequestStateOf(pullRequest.GetSummary()),
+		State:        render.PullRequestStateOf(pullRequest),
 		Checks:       render.ChecksOf(pullRequest.Checks),
 		Mergeability: render.MergeabilityOf(pullRequest.Mergeability),
 		Current:      current,

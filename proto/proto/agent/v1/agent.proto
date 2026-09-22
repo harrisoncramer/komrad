@@ -136,10 +136,6 @@ message Agent {
   optional string schedule_id = 12;
   // Whether its pane is still there, which a dormant agent's is not.
   optional bool alive = 11;
-  // Whether mail is waiting that it has not taken.
-  bool unread_mail = 21;
-  // The letter a person jumps to it by in the panel, if it holds one.
-  optional string mark = 14;
   // Whether the panel draws a row for it, which changes nothing about the agent itself.
   bool hidden = 15;
   // Facts it has recorded about its own work, such as the ticket it is implementing.
@@ -180,12 +176,16 @@ message Agent {
   // What the last released local review concluded about the agent's own work, UNSPECIFIED
   // when none has concluded anything.
   ReviewVerdict local_review_verdict = 33;
+  // The round that verdict was given on, empty when there is none.
+  string local_review_sha = 40;
   // Where the agent's worktree stands against the round that verdict was given on.
   ReviewTreeStanding local_review_tree = 34;
+  // Where the cwd sync last measured its worktree, against the round tree_standing_sha names.
+  ReviewTreeStanding tree_standing = 41;
+  // The round tree_standing was measured against, empty while none was.
+  string tree_standing_sha = 42;
   // When a person stopped this agent and took its worktree, empty while nobody is holding it.
   string held_at = 35;
-  // Where the pull request opened from its branch stands.
-  PullRequestStanding pull_request = 38;
   // Whether the pull request sync has swept its repository.
   bool repository_read = 39;
 }

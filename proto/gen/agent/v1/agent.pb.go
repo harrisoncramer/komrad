@@ -188,10 +188,6 @@ type Agent struct {
 	ScheduleId *string `protobuf:"bytes,12,opt,name=schedule_id,json=scheduleId,proto3,oneof" json:"schedule_id,omitempty"`
 	// Whether its pane is still there, which a dormant agent's is not.
 	Alive *bool `protobuf:"varint,11,opt,name=alive,proto3,oneof" json:"alive,omitempty"`
-	// Whether mail is waiting that it has not taken.
-	UnreadMail bool `protobuf:"varint,21,opt,name=unread_mail,json=unreadMail,proto3" json:"unread_mail,omitempty"`
-	// The letter a person jumps to it by in the panel, if it holds one.
-	Mark *string `protobuf:"bytes,14,opt,name=mark,proto3,oneof" json:"mark,omitempty"`
 	// Whether the panel draws a row for it, which changes nothing about the agent itself.
 	Hidden bool `protobuf:"varint,15,opt,name=hidden,proto3" json:"hidden,omitempty"`
 	// Facts it has recorded about its own work, such as the ticket it is implementing.
@@ -232,12 +228,16 @@ type Agent struct {
 	// What the last released local review concluded about the agent's own work, UNSPECIFIED
 	// when none has concluded anything.
 	LocalReviewVerdict ReviewVerdict `protobuf:"varint,33,opt,name=local_review_verdict,json=localReviewVerdict,proto3,enum=agent.v1.ReviewVerdict" json:"local_review_verdict,omitempty"`
+	// The round that verdict was given on, empty when there is none.
+	LocalReviewSha string `protobuf:"bytes,40,opt,name=local_review_sha,json=localReviewSha,proto3" json:"local_review_sha,omitempty"`
 	// Where the agent's worktree stands against the round that verdict was given on.
 	LocalReviewTree ReviewTreeStanding `protobuf:"varint,34,opt,name=local_review_tree,json=localReviewTree,proto3,enum=agent.v1.ReviewTreeStanding" json:"local_review_tree,omitempty"`
+	// Where the cwd sync last measured its worktree, against the round tree_standing_sha names.
+	TreeStanding ReviewTreeStanding `protobuf:"varint,41,opt,name=tree_standing,json=treeStanding,proto3,enum=agent.v1.ReviewTreeStanding" json:"tree_standing,omitempty"`
+	// The round tree_standing was measured against, empty while none was.
+	TreeStandingSha string `protobuf:"bytes,42,opt,name=tree_standing_sha,json=treeStandingSha,proto3" json:"tree_standing_sha,omitempty"`
 	// When a person stopped this agent and took its worktree, empty while nobody is holding it.
 	HeldAt string `protobuf:"bytes,35,opt,name=held_at,json=heldAt,proto3" json:"held_at,omitempty"`
-	// Where the pull request opened from its branch stands.
-	PullRequest *PullRequestStanding `protobuf:"bytes,38,opt,name=pull_request,json=pullRequest,proto3" json:"pull_request,omitempty"`
 	// Whether the pull request sync has swept its repository.
 	RepositoryRead bool `protobuf:"varint,39,opt,name=repository_read,json=repositoryRead,proto3" json:"repository_read,omitempty"`
 	unknownFields  protoimpl.UnknownFields
@@ -372,20 +372,6 @@ func (x *Agent) GetAlive() bool {
 	return false
 }
 
-func (x *Agent) GetUnreadMail() bool {
-	if x != nil {
-		return x.UnreadMail
-	}
-	return false
-}
-
-func (x *Agent) GetMark() string {
-	if x != nil && x.Mark != nil {
-		return *x.Mark
-	}
-	return ""
-}
-
 func (x *Agent) GetHidden() bool {
 	if x != nil {
 		return x.Hidden
@@ -505,6 +491,13 @@ func (x *Agent) GetLocalReviewVerdict() ReviewVerdict {
 	return ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED
 }
 
+func (x *Agent) GetLocalReviewSha() string {
+	if x != nil {
+		return x.LocalReviewSha
+	}
+	return ""
+}
+
 func (x *Agent) GetLocalReviewTree() ReviewTreeStanding {
 	if x != nil {
 		return x.LocalReviewTree
@@ -512,18 +505,25 @@ func (x *Agent) GetLocalReviewTree() ReviewTreeStanding {
 	return ReviewTreeStanding_REVIEW_TREE_STANDING_UNSPECIFIED
 }
 
+func (x *Agent) GetTreeStanding() ReviewTreeStanding {
+	if x != nil {
+		return x.TreeStanding
+	}
+	return ReviewTreeStanding_REVIEW_TREE_STANDING_UNSPECIFIED
+}
+
+func (x *Agent) GetTreeStandingSha() string {
+	if x != nil {
+		return x.TreeStandingSha
+	}
+	return ""
+}
+
 func (x *Agent) GetHeldAt() string {
 	if x != nil {
 		return x.HeldAt
 	}
 	return ""
-}
-
-func (x *Agent) GetPullRequest() *PullRequestStanding {
-	if x != nil {
-		return x.PullRequest
-	}
-	return nil
 }
 
 func (x *Agent) GetRepositoryRead() bool {
@@ -2947,7 +2947,7 @@ var File_agent_v1_agent_proto protoreflect.FileDescriptor
 
 const file_agent_v1_agent_proto_rawDesc = "" +
 	"\n" +
-	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x13agent/v1/mail.proto\x1a\x15agent/v1/review.proto\x1a\x19agent/v1/transcript.proto\x1a\x1cannotation/v1/resource.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a pullrequest/v1/pullrequest.proto\x1a\x14rules/v1/rules.proto\x1a\x12view/v1/view.proto\"\xed\x0f\n" +
+	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x13agent/v1/mail.proto\x1a\x15agent/v1/review.proto\x1a\x19agent/v1/transcript.proto\x1a\x1cannotation/v1/resource.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a pullrequest/v1/pullrequest.proto\x1a\x14rules/v1/rules.proto\x1a\x12view/v1/view.proto\"\x81\x10\n" +
 	"\x05Agent\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x10\n" +
@@ -2968,31 +2968,30 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"archivedAt\x88\x01\x01\x12$\n" +
 	"\vschedule_id\x18\f \x01(\tH\x01R\n" +
 	"scheduleId\x88\x01\x01\x12\x19\n" +
-	"\x05alive\x18\v \x01(\bH\x02R\x05alive\x88\x01\x01\x12\x1f\n" +
-	"\vunread_mail\x18\x15 \x01(\bR\n" +
-	"unreadMail\x12\x17\n" +
-	"\x04mark\x18\x0e \x01(\tH\x03R\x04mark\x88\x01\x01\x12\x16\n" +
+	"\x05alive\x18\v \x01(\bH\x02R\x05alive\x88\x01\x01\x12\x16\n" +
 	"\x06hidden\x18\x0f \x01(\bR\x06hidden\x123\n" +
 	"\bmetadata\x18\x10 \x03(\v2\x17.agent.v1.AgentMetadataR\bmetadata\x12,\n" +
-	"\x0fidempotency_key\x18\x11 \x01(\tH\x04R\x0eidempotencyKey\x88\x01\x01\x122\n" +
-	"\x13spawned_by_agent_id\x18\x14 \x01(\tH\x05R\x10spawnedByAgentId\x88\x01\x01\x12+\n" +
-	"\x0fparent_agent_id\x18\x1a \x01(\tH\x06R\rparentAgentId\x88\x01\x01\x12\x1b\n" +
-	"\x06branch\x18\x16 \x01(\tH\aR\x06branch\x88\x01\x01\x12*\n" +
-	"\x0erepository_url\x18% \x01(\tH\bR\rrepositoryUrl\x88\x01\x01\x12)\n" +
+	"\x0fidempotency_key\x18\x11 \x01(\tH\x03R\x0eidempotencyKey\x88\x01\x01\x122\n" +
+	"\x13spawned_by_agent_id\x18\x14 \x01(\tH\x04R\x10spawnedByAgentId\x88\x01\x01\x12+\n" +
+	"\x0fparent_agent_id\x18\x1a \x01(\tH\x05R\rparentAgentId\x88\x01\x01\x12\x1b\n" +
+	"\x06branch\x18\x16 \x01(\tH\x06R\x06branch\x88\x01\x01\x12*\n" +
+	"\x0erepository_url\x18% \x01(\tH\aR\rrepositoryUrl\x88\x01\x01\x12)\n" +
 	"\x10worktree_removed\x18\x17 \x01(\bR\x0fworktreeRemoved\x120\n" +
 	"\x14sequence_in_progress\x18$ \x01(\bR\x12sequenceInProgress\x12\x1d\n" +
 	"\n" +
 	"failed_run\x18\x1b \x01(\bR\tfailedRun\x12)\n" +
-	"\x0efailed_run_log\x18\x1c \x01(\x05H\tR\ffailedRunLog\x88\x01\x01\x12(\n" +
+	"\x0efailed_run_log\x18\x1c \x01(\x05H\bR\ffailedRunLog\x88\x01\x01\x12(\n" +
 	"\x10state_changed_at\x18\x19 \x01(\tR\x0estateChangedAt\x12'\n" +
 	"\x0freported_reason\x18\x1d \x01(\tR\x0ereportedReason\x12'\n" +
 	"\x04role\x18\x1e \x01(\x0e2\x13.agent.v1.AgentRoleR\x04role\x12.\n" +
 	"\x13local_review_rounds\x18\x1f \x01(\x05R\x11localReviewRounds\x12)\n" +
 	"\x10prompt_truncated\x18  \x01(\bR\x0fpromptTruncated\x12I\n" +
-	"\x14local_review_verdict\x18! \x01(\x0e2\x17.agent.v1.ReviewVerdictR\x12localReviewVerdict\x12H\n" +
-	"\x11local_review_tree\x18\" \x01(\x0e2\x1c.agent.v1.ReviewTreeStandingR\x0flocalReviewTree\x12\x17\n" +
-	"\aheld_at\x18# \x01(\tR\x06heldAt\x12@\n" +
-	"\fpull_request\x18& \x01(\v2\x1d.agent.v1.PullRequestStandingR\vpullRequest\x12'\n" +
+	"\x14local_review_verdict\x18! \x01(\x0e2\x17.agent.v1.ReviewVerdictR\x12localReviewVerdict\x12(\n" +
+	"\x10local_review_sha\x18( \x01(\tR\x0elocalReviewSha\x12H\n" +
+	"\x11local_review_tree\x18\" \x01(\x0e2\x1c.agent.v1.ReviewTreeStandingR\x0flocalReviewTree\x12A\n" +
+	"\rtree_standing\x18) \x01(\x0e2\x1c.agent.v1.ReviewTreeStandingR\ftreeStanding\x12*\n" +
+	"\x11tree_standing_sha\x18* \x01(\tR\x0ftreeStandingSha\x12\x17\n" +
+	"\aheld_at\x18# \x01(\tR\x06heldAt\x12'\n" +
 	"\x0frepository_read\x18' \x01(\bR\x0erepositoryRead:\xc0\x03\xa2\xb5\x18\xbb\x03\n" +
 	"\x06agents\x1a\n" +
 	"updated_at\x1a\rstate_seen_at\x1a\tnudged_at\x1a\rnudge_sent_at\"&\n" +
@@ -3010,8 +3009,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x12pull_request_syncs\x1a\x0erepository_url\"\x0erepository_url*\x13archived_at IS NULL2\aread_at2\x05calls2\tlisted_at2\fsweep_cursor2\fsweep_newestB\x0e\n" +
 	"\f_archived_atB\x0e\n" +
 	"\f_schedule_idB\b\n" +
-	"\x06_aliveB\a\n" +
-	"\x05_markB\x12\n" +
+	"\x06_aliveB\x12\n" +
 	"\x10_idempotency_keyB\x16\n" +
 	"\x14_spawned_by_agent_idB\x12\n" +
 	"\x10_parent_agent_idB\t\n" +
@@ -3393,7 +3391,7 @@ var file_agent_v1_agent_proto_depIdxs = []int32{
 	1,  // 2: agent.v1.Agent.role:type_name -> agent.v1.AgentRole
 	43, // 3: agent.v1.Agent.local_review_verdict:type_name -> agent.v1.ReviewVerdict
 	44, // 4: agent.v1.Agent.local_review_tree:type_name -> agent.v1.ReviewTreeStanding
-	4,  // 5: agent.v1.Agent.pull_request:type_name -> agent.v1.PullRequestStanding
+	44, // 5: agent.v1.Agent.tree_standing:type_name -> agent.v1.ReviewTreeStanding
 	2,  // 6: agent.v1.AgentRow.agent:type_name -> agent.v1.Agent
 	4,  // 7: agent.v1.AgentRow.pull_request:type_name -> agent.v1.PullRequestStanding
 	45, // 8: agent.v1.AgentRow.pull_requests:type_name -> pullrequest.v1.PullRequest

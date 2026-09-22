@@ -4,28 +4,21 @@ import (
 	"testing"
 	"time"
 
-	"weave/internal/forge"
 	"weave/internal/storetest"
 	"weave/lib/xptr"
 	"weave/lib/xslice"
 
 	agentstore "weave/internal/store/agent"
-	mailstore "weave/internal/store/mail"
-	markstore "weave/internal/store/mark"
 	pullrequeststore "weave/internal/store/pullrequest"
 	reviewstore "weave/internal/store/review"
 	rowstore "weave/internal/store/row"
 	runstore "weave/internal/store/run"
-	workflowstore "weave/internal/store/workflow"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-const (
-	weave   = "https://github.com/harrisoncramer/weave"
-	fixture = "https://github.com/harrisoncramer/weave-forge-fixture"
-)
+const fixture = "https://github.com/harrisoncramer/weave-forge-fixture"
 
 // rowOf reads one agent's row back through the by-id listing.
 func rowOf(t *testing.T, st *storetest.Stores, id string) rowstore.Row {
@@ -53,47 +46,12 @@ func TestRowCarriesTheAgent(t *testing.T) {
 	assert.Equal(t, "/repo", row.Cwd)
 	assert.Equal(t, "go", row.Prompt)
 	assert.Equal(t, []agentstore.Metadata{{Key: "branch", Value: "agent/x"}}, row.Metadata)
-	assert.False(t, row.UnreadMail)
 	assert.False(t, row.FailedRun)
 	assert.Nil(t, row.FailedRunLog)
-	assert.Nil(t, row.Mark)
 	assert.Zero(t, row.LocalRounds)
 	assert.Nil(t, row.LocalVerdict)
-	assert.Empty(t, row.LocalSnapshotSHA)
-	assert.Nil(t, row.PullRequest)
+	assert.Empty(t, row.LocalReviewSHA)
 	assert.False(t, row.RepositoryRead)
-}
-
-// TestUnreadMail pins what makes a mailbox unread: mail still waiting to be claimed, and neither
-// mail already taken nor mail nobody can read any more.
-func TestUnreadMail(t *testing.T) {
-	tests := []struct {
-		name     string
-		deadline time.Duration
-		claim    bool
-		want     bool
-	}{
-		{name: "live unclaimed mail", deadline: time.Hour, want: true},
-		{name: "claimed mail", deadline: time.Hour, claim: true, want: false},
-		{name: "expired mail", deadline: -time.Minute, want: false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			st := storetest.Open(t)
-			ctx := t.Context()
-			recipient := st.SeedAgent(t, agentstore.Agent{Name: "recipient"})
-
-			_, err := st.Mail.Send(ctx, mailstore.SendParams{ToAgentID: recipient.ID, Body: "hello", Deadline: tt.deadline})
-			require.NoError(t, err)
-			if tt.claim {
-				_, err = st.Mail.Claim(ctx, recipient.ID, 10)
-				require.NoError(t, err)
-			}
-
-			assert.Equal(t, tt.want, rowOf(t, st, recipient.ID).UnreadMail)
-		})
-	}
 }
 
 // TestFailedRun pins the mark a failed script puts on a row: it names the run that failed last,
@@ -128,22 +86,6 @@ func TestFailedRun(t *testing.T) {
 	assert.False(t, rowOf(t, st, alpha.ID).FailedRun, "reading it clears the mark")
 }
 
-// TestMark pins that the letter on an agent's row is carried, and a workflow's letter is not.
-func TestMark(t *testing.T) {
-	st := storetest.Open(t)
-	ctx := t.Context()
-	alpha := st.SeedAgent(t, agentstore.Agent{Name: "alpha"})
-	beta := st.SeedAgent(t, agentstore.Agent{Name: "beta"})
-
-	_, err := st.Marks.Set(ctx, "a", markstore.OnAgent(alpha.ID))
-	require.NoError(t, err)
-	_, err = st.Marks.Set(ctx, "w", markstore.OnWorkflow(beta.WorkflowID))
-	require.NoError(t, err)
-
-	assert.Equal(t, xptr.Ptr("a"), rowOf(t, st, alpha.ID).Mark)
-	assert.Nil(t, rowOf(t, st, beta.ID).Mark)
-}
-
 // TestLocalReview pins the loop the row draws: released rounds are counted against the agent
 // whose work went round, the last conclusion stands with the round it was given on, and a
 // comment concludes nothing.
@@ -175,69 +117,9 @@ func TestLocalReview(t *testing.T) {
 	row := rowOf(t, st, agent.ID)
 	assert.Equal(t, int32(3), row.LocalRounds)
 	assert.Equal(t, xptr.Ptr(reviewstore.VerdictApproved), row.LocalVerdict)
-	assert.Equal(t, "snapshot-two", row.LocalSnapshotSHA, "the comment on the third round leaves the approval and its round standing")
+	assert.Equal(t, "snapshot-two", row.LocalReviewSHA, "the comment on the third round leaves the approval and its round standing")
 
 	assert.Zero(t, rowOf(t, st, reviewer.ID).LocalRounds, "the reviewer holds no diff of its own to have gone round")
-}
-
-// TestPullRequest pins which pull request a row stands for: the newest unfinished one on the
-// agent's branch beats a newer finished one, a branch holding only finished ones gets the newest
-// of those, a fork's and the base branch's are left out, and an archived agent keeps its own.
-func TestPullRequest(t *testing.T) {
-	st := storetest.Open(t)
-	ctx := t.Context()
-	workflow := st.SeedWorkflow(t, workflowstore.Config{
-		Name:     "weave",
-		Worktree: workflowstore.WorktreeConfig{Enabled: true, BaseBranch: "main"},
-	})
-	onBranch := func(name, branch string) *agentstore.Agent {
-		agent := st.SeedAgent(t, agentstore.Agent{Name: name, WorkflowID: workflow.ID})
-		require.NoError(t, st.Agents.SetCheckout(ctx, agent.ID, agentstore.SetCheckoutParams{RepositoryURL: xptr.Ptr(weave), Branch: &branch}))
-
-		return agent
-	}
-	unfinished := onBranch("unfinished", "agent/x")
-	finished := onBranch("finished", "agent/y")
-	none := onBranch("none", "agent/z")
-	onMain := onBranch("on-main", "main")
-	archived := onBranch("archived", "agent/w")
-	_, err := st.Agents.Archive(ctx, []string{archived.ID})
-	require.NoError(t, err)
-
-	older := openPullRequest("PR_1", 1, "agent/x")
-	newerMerged := finishedPullRequest("PR_2", 2, "agent/x")
-	newerMerged.OpenedAt = older.OpenedAt.Add(time.Hour)
-	oldMerged := finishedPullRequest("PR_3", 3, "agent/y")
-	newMerged := finishedPullRequest("PR_4", 4, "agent/y")
-	newMerged.OpenedAt = oldMerged.OpenedAt.Add(time.Hour)
-	fork := openPullRequest("PR_6", 6, "agent/z")
-	fork.HeadRepositoryURL = "https://github.com/someone/weave"
-	for _, params := range []pullrequeststore.UpsertParams{older, newerMerged, oldMerged, newMerged, openPullRequest("PR_5", 5, "main"), fork, openPullRequest("PR_7", 7, "agent/w")} {
-		_, err := st.PullRequests.Upsert(ctx, params)
-		require.NoError(t, err)
-	}
-	approved, err := st.PullRequests.Upsert(ctx, older)
-	require.NoError(t, err)
-	require.NoError(t, st.PullRequests.SetStanding(ctx, approved.ID, forge.Standing{Decision: forge.ReviewDecisionApproved, Mergeability: forge.MergeabilityClean}, time.Now()))
-
-	assert.Equal(t, &pullrequeststore.Summary{
-		Number:         1,
-		URL:            "https://github.com/harrisoncramer/weave/pull/PR_1",
-		Title:          "one",
-		ReviewDecision: xptr.Ptr(forge.ReviewDecisionApproved),
-		Mergeability:   xptr.Ptr(forge.MergeabilityClean),
-	}, rowOf(t, st, unfinished.ID).PullRequest)
-
-	current := rowOf(t, st, finished.ID).PullRequest
-	require.NotNil(t, current)
-	assert.Equal(t, 4, current.Number)
-	assert.NotNil(t, current.MergedAt)
-
-	assert.Nil(t, rowOf(t, st, none.ID).PullRequest, "a fork's pull request is not the agent's")
-	assert.Nil(t, rowOf(t, st, onMain.ID).PullRequest, "the base branch's pull requests are nobody's")
-	kept := rowOf(t, st, archived.ID).PullRequest
-	require.NotNil(t, kept)
-	assert.Equal(t, 7, kept.Number)
 }
 
 // TestRepositoryRead pins the flag that tells an unread repository from one whose first sweep
@@ -315,37 +197,4 @@ func TestListByID(t *testing.T) {
 	rows, err = st.Rows.ListByID(ctx, []string{"not-an-id"})
 	require.NoError(t, err)
 	assert.Empty(t, rows)
-}
-
-func openPullRequest(providerID string, number int, branch string) pullrequeststore.UpsertParams {
-	opened := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
-
-	return pullrequeststore.UpsertParams{
-		Host:              "github.com",
-		Forge:             "github",
-		ProviderID:        providerID,
-		URL:               "https://github.com/harrisoncramer/weave/pull/" + providerID,
-		RepositoryURL:     weave,
-		HeadRepositoryURL: weave,
-		Number:            number,
-		Title:             "one",
-		HeadBranch:        branch,
-		HeadSHA:           "abc",
-		BaseBranch:        "main",
-		BaseSHA:           "def",
-		State:             "OPEN",
-		OpenedAt:          opened,
-		ChangedAt:         opened.Add(time.Hour),
-	}
-}
-
-func finishedPullRequest(providerID string, number int, branch string) pullrequeststore.UpsertParams {
-	params := openPullRequest(providerID, number, branch)
-	mergedAt := params.ChangedAt.Add(time.Hour)
-	params.MergedAt = &mergedAt
-	params.ClosedAt = &mergedAt
-	params.State = "MERGED"
-	params.ChangedAt = mergedAt
-
-	return params
 }
