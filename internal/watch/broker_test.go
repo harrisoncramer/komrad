@@ -71,7 +71,7 @@ func newTestBroker(t *testing.T, reader *fakeReader) *Broker {
 
 	broker := NewBroker(NewBrokerParams{})
 	broker.serve(reader)
-	broker.up(0)
+	broker.up()
 	t.Cleanup(broker.Close)
 
 	return broker
@@ -223,7 +223,7 @@ func TestCloseEndsEverySubscription(t *testing.T) {
 	reader := &fakeReader{}
 	broker := NewBroker(NewBrokerParams{})
 	broker.serve(reader)
-	broker.up(0)
+	broker.up()
 
 	subscription, err := broker.Subscribe(t.Context())
 	require.NoError(t, err)

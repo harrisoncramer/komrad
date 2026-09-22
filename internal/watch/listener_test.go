@@ -40,15 +40,20 @@ func (l *listened) notify(t *testing.T, payload string) {
 	require.NoError(t, err)
 }
 
-// killListener ends the listener's connection from the server's side.
+// killListener ends the listener's connection from the server's side, finding it as the
+// backend on this test's own database whose last statement was the LISTEN.
 func (l *listened) killListener(t *testing.T) {
 	t.Helper()
 
-	l.broker.mu.Lock()
-	pid := l.broker.listenerPID
-	l.broker.mu.Unlock()
-
-	_, err := l.pool.Exec(t.Context(), "SELECT pg_terminate_backend($1)", int32(pid)) //nolint:gosec // a backend pid fits
+	_, err := l.pool.Exec(t.Context(), `
+		SELECT
+			pg_terminate_backend(pid)
+		FROM
+			pg_stat_activity
+		WHERE
+			datname = current_database()
+			AND pid <> pg_backend_pid()
+			AND query = 'LISTEN ' || $1`, db.WatchChannel)
 	require.NoError(t, err)
 }
 

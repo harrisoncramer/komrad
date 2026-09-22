@@ -88,7 +88,6 @@ type Broker struct {
 	mu          sync.Mutex
 	subscribers map[*Subscription]struct{}
 	listening   bool
-	listenerPID uint32
 	closed      bool
 
 	// stop ends the listener, and stopped is closed once it has let its connection go.
