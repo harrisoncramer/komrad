@@ -60,8 +60,7 @@ type NewCwdSyncerParams struct {
 	Trees   standingReader
 	Tallies tallyLister
 	Bases   workflowLister
-	// Watch is told whose worktree standing moved, which no write records, store.Discard when
-	// unset.
+	// Watch is told whose worktree standing moved, store.Discard when unset.
 	Watch store.Publisher
 }
 

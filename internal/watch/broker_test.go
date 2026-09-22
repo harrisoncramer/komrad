@@ -11,6 +11,7 @@ import (
 	agentv1 "weave/proto/gen/agent/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -260,9 +261,9 @@ func TestCloseEndsEverySubscription(t *testing.T) {
 	subscription.Close()
 }
 
-// TestAFailedReadIsDroppedAndTheNextOneServed pins that a read that fails costs those touches
-// and nothing else.
-func TestAFailedReadIsDroppedAndTheNextOneServed(t *testing.T) {
+// TestAFailedReadIsRetriedWithTheNextOne pins that a read that fails keeps its touches for the
+// next render, which reads them again beside whatever was touched since.
+func TestAFailedReadIsRetriedWithTheNextOne(t *testing.T) {
 	reader := &fakeReader{readErr: errors.New("boom")}
 	broker := newTestBroker(t, reader)
 
@@ -278,7 +279,9 @@ func TestAFailedReadIsDroppedAndTheNextOneServed(t *testing.T) {
 	reader.mu.Unlock()
 
 	broker.TouchAgents("b")
-	require.Equal(t, "b", receive(t, subscription).ID)
+	assert.Equal(t, "a", receive(t, subscription).ID, "the touch the failed read lost comes back")
+	assert.Equal(t, "b", receive(t, subscription).ID)
+	assert.Equal(t, Touched{Agents: []string{"a", "b"}}, reader.getReads()[1], "one read serves both")
 }
 
 // TestClosingASubscriptionEndsItsStream pins that a watcher leaving closes its stream and, as

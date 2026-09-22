@@ -51,8 +51,8 @@ type NewRowsParams struct {
 	Now func() time.Time
 }
 
-// Rows renders the rows the broker names the way the list RPCs do, through each listing's own
-// visibility rule, so an id the listing no longer holds comes back as a tombstone.
+// Rows renders the rows the broker names the way the list RPCs do, a tombstone for an id the
+// listing no longer holds.
 type Rows struct {
 	agents    agentRowReader
 	workflows workflowReader

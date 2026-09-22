@@ -39,7 +39,7 @@ type NewReconcilerParams struct {
 	Panes    paneKiller
 	Observer harness.Observer
 	States   agentStateReadWriter
-	// Watch is told whose pane came or went, which no write records, store.Discard when unset.
+	// Watch is told whose pane came or went, store.Discard when unset.
 	Watch store.Publisher
 }
 
