@@ -141,6 +141,35 @@ func TestATouchDuringTheSnapshotOnlyReachesWatchersWhoseSnapshotPredatesIt(t *te
 	assert.Empty(t, drain(second), "the second watcher already received both rows in its snapshot")
 }
 
+// TestARenderReadBeforeASnapshotSkipsItsWatcher pins that a read taken before a watcher
+// subscribed never reaches it.
+func TestARenderReadBeforeASnapshotSkipsItsWatcher(t *testing.T) {
+	stores := newStores()
+	stores.agents.held = make(chan struct{})
+	broker := newTestBroker(t, stores)
+
+	first, err := broker.Subscribe(t.Context())
+	require.NoError(t, err)
+
+	stores.agents.put(agentRow("a"))
+	broker.touch("agents", "a")
+	require.Eventually(t, func() bool { return len(stores.agents.reads()) == 1 }, time.Second, time.Millisecond)
+
+	renamed := agentRow("a")
+	renamed.Name = "renamed"
+	stores.agents.put(renamed)
+
+	second, err := broker.Subscribe(t.Context())
+	require.NoError(t, err)
+	require.Len(t, second.Snapshot(), 1)
+	require.Equal(t, "renamed", second.Snapshot()[0].GetAgent().GetName())
+
+	close(stores.agents.held)
+
+	assert.Equal(t, "agent-a", receive(t, first).Row.GetAgent().GetName())
+	assert.Empty(t, drain(second), "the stale read predates the second watcher's snapshot")
+}
+
 // TestASlowWatcherIsDropped pins that a watcher that stops reading is closed rather than
 // holding the render loop.
 func TestASlowWatcherIsDropped(t *testing.T) {

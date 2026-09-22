@@ -59,9 +59,11 @@ type Broker struct {
 	// wake has room for one poke, which is all the loop needs to know.
 	wake chan struct{}
 
-	// mu guards the subscribers, whether a listener is up and whether the broker has closed.
+	// mu guards the subscribers, the render generation, whether a listener is up and whether the
+	// broker has closed.
 	mu          sync.Mutex
 	subscribers map[*Subscription]struct{}
+	generation  uint64
 	listening   bool
 	closed      bool
 
@@ -136,6 +138,8 @@ func (b *Broker) render() bool {
 	touched := b.take()
 
 	b.mu.Lock()
+	b.generation++
+	generation := b.generation
 	watched := len(b.subscribers) > 0
 	b.mu.Unlock()
 	if !watched {
@@ -158,7 +162,7 @@ func (b *Broker) render() bool {
 
 	for _, change := range changes {
 		for subscription := range b.subscribers {
-			if !subscription.move(change) {
+			if subscription.generation >= generation || !subscription.move(change) {
 				continue
 			}
 
@@ -182,8 +186,6 @@ func (b *Broker) Subscribe(ctx context.Context) (*Subscription, error) {
 		return nil, ErrNotListening
 	}
 
-	// Nothing renders while the lock is held, so no change can land between the snapshot and the
-	// subscription's place in the fan-out.
 	readCtx, cancel := context.WithTimeout(ctx, readTimeout)
 	defer cancel()
 
@@ -194,10 +196,11 @@ func (b *Broker) Subscribe(ctx context.Context) (*Subscription, error) {
 
 	rows := xslice.Map(snapshot, func(change Change) *watchv1.Row { return change.Row })
 	subscription := &Subscription{
-		broker:   b,
-		changes:  make(chan Change, subscriberBuffer),
-		snapshot: rows,
-		sent:     rowsByResource(snapshot),
+		broker:     b,
+		changes:    make(chan Change, subscriberBuffer),
+		snapshot:   rows,
+		sent:       rowsByResource(snapshot),
+		generation: b.generation,
 	}
 	b.subscribers[subscription] = struct{}{}
 
@@ -257,6 +260,8 @@ type Subscription struct {
 	changes  chan Change
 	snapshot []*watchv1.Row
 	sent     map[watchv1.Resource]map[string]*watchv1.Row
+	// generation is the last render begun before the snapshot, whose read may predate it.
+	generation uint64
 }
 
 func rowsByResource(snapshot []Change) map[watchv1.Resource]map[string]*watchv1.Row {
