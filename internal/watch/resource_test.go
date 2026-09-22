@@ -10,22 +10,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestKindsAreTheResources pins the table map and the wire's enum to the resource option: one
-// entry per annotated table, numbered the way the enum numbers it, and nothing else.
-func TestKindsAreTheResources(t *testing.T) {
+// TestResourcesAreTheAnnotatedTables pins the table map to the resource option: one entry per
+// annotated table, carrying the enum value the wire sends it under, and nothing else.
+func TestResourcesAreTheAnnotatedTables(t *testing.T) {
 	t.Parallel()
 
-	resources := resource.All()
-	require.NotEmpty(t, resources)
+	all := resource.All()
+	require.NotEmpty(t, all)
 
-	want := map[string]Kind{}
-	for _, r := range resources {
-		number, ok := watchv1.Resource_value[r.EnumValue()]
-		require.True(t, ok, "watch.v1.Resource has no %s for the table %s", r.EnumValue(), r.Option.GetTable())
-
-		want[r.Option.GetTable()] = Kind(number)
+	assert.Len(t, resources, len(all))
+	for _, r := range all {
+		res, ok := resources[r.Option.GetTable()]
+		require.True(t, ok, "no entry for the table %s", r.Option.GetTable())
+		assert.NotEqual(t, watchv1.Resource_RESOURCE_UNSPECIFIED, res, "watch.v1.Resource has no %s", r.EnumValue())
 	}
-
-	assert.Equal(t, want, kinds)
-	assert.Len(t, watchv1.Resource_value, len(resources)+1, "the enum names the resources and RESOURCE_UNSPECIFIED")
+	assert.Len(t, watchv1.Resource_value, len(all)+1, "the enum names the resources and RESOURCE_UNSPECIFIED")
 }

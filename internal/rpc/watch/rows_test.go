@@ -80,12 +80,12 @@ func TestReadAnswersARowOrATombstoneForEveryTouchedKey(t *testing.T) {
 	}
 
 	events, err := newRows(stores).Read(t.Context(), watch.Touched{
-		watch.KindAgent:       []string{"a1", "a2"},
-		watch.KindWorkflow:    []string{"w1", "w2"},
-		watch.KindSchedule:    []string{"s1", "s2"},
-		watch.KindMark:        []string{"w", "x"},
-		watch.KindMail:        []string{"m1", "m2"},
-		watch.KindPullRequest: []string{"p1", "p2"},
+		watchv1.Resource_RESOURCE_AGENT:        []string{"a1", "a2"},
+		watchv1.Resource_RESOURCE_WORKFLOW:     []string{"w1", "w2"},
+		watchv1.Resource_RESOURCE_SCHEDULE:     []string{"s1", "s2"},
+		watchv1.Resource_RESOURCE_MARK:         []string{"w", "x"},
+		watchv1.Resource_RESOURCE_MAIL:         []string{"m1", "m2"},
+		watchv1.Resource_RESOURCE_PULL_REQUEST: []string{"p1", "p2"},
 	})
 	require.NoError(t, err)
 	require.Len(t, events, 12)
@@ -94,7 +94,7 @@ func TestReadAnswersARowOrATombstoneForEveryTouchedKey(t *testing.T) {
 	assert.Equal(t, []string{"a1", "a2", "w1", "w2", "s1", "s2", "w", "x", "m1", "m2", "p1", "p2"}, keys)
 	for i := 1; i < len(events); i += 2 {
 		assert.Nil(t, events[i].Row, "%s is a tombstone", events[i].Key)
-		assert.Equal(t, events[i-1].Kind, events[i].Kind)
+		assert.Equal(t, events[i-1].Resource, events[i].Resource)
 	}
 
 	assert.Equal(t, "agent-a1", events[0].Row.GetAgent().GetName())
@@ -144,8 +144,8 @@ func TestSnapshotCarriesEveryWatchedSet(t *testing.T) {
 func TestArmsAreTheResources(t *testing.T) {
 	rows := newRows(&fakeStores{})
 
-	want := xslice.Map(resource.All(), func(r resource.Resource) watch.Kind {
-		return watch.Kind(watchv1.Resource_value[r.EnumValue()])
+	want := xslice.Map(resource.All(), func(r resource.Resource) watchv1.Resource {
+		return watchv1.Resource(watchv1.Resource_value[r.EnumValue()])
 	})
 	assert.ElementsMatch(t, want, slices.Collect(maps.Keys(rows.arms)))
 }

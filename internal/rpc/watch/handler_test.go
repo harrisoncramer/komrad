@@ -34,13 +34,13 @@ type scriptedReader struct {
 
 func (r scriptedReader) Read(_ context.Context, touched watch.Touched) ([]watch.Event, error) {
 	var events []watch.Event
-	for _, id := range touched[watch.KindAgent] {
+	for _, id := range touched[watchv1.Resource_RESOURCE_AGENT] {
 		if strings.HasPrefix(id, "gone-") {
-			events = append(events, watch.Event{Kind: watch.KindAgent, Key: id})
+			events = append(events, watch.Event{Resource: watchv1.Resource_RESOURCE_AGENT, Key: id})
 
 			continue
 		}
-		events = append(events, watch.Event{Kind: watch.KindAgent, Key: id, Row: &watchv1.Row{Row: &watchv1.Row_Agent{Agent: &agentv1.Agent{Id: id}}}})
+		events = append(events, watch.Event{Resource: watchv1.Resource_RESOURCE_AGENT, Key: id, Row: &watchv1.Row{Row: &watchv1.Row_Agent{Agent: &agentv1.Agent{Id: id}}}})
 	}
 
 	return events, nil

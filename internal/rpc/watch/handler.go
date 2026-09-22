@@ -95,28 +95,8 @@ func renderSnapshot(rows []*watchv1.Row) *watchv1.WatchEvent {
 // renderEvent is one event as the wire carries it.
 func renderEvent(event watch.Event) *watchv1.WatchEvent {
 	if event.Row == nil {
-		return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Deleted{Deleted: &watchv1.Deleted{Resource: renderResource(event.Kind), Key: event.Key}}}
+		return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Deleted{Deleted: &watchv1.Deleted{Resource: event.Resource, Key: event.Key}}}
 	}
 
 	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Put{Put: event.Row}}
-}
-
-// renderResource is a kind as the wire carries it.
-func renderResource(kind watch.Kind) watchv1.Resource {
-	switch kind {
-	case watch.KindAgent:
-		return watchv1.Resource_RESOURCE_AGENT
-	case watch.KindWorkflow:
-		return watchv1.Resource_RESOURCE_WORKFLOW
-	case watch.KindSchedule:
-		return watchv1.Resource_RESOURCE_SCHEDULE
-	case watch.KindMark:
-		return watchv1.Resource_RESOURCE_MARK
-	case watch.KindMail:
-		return watchv1.Resource_RESOURCE_MAIL
-	case watch.KindPullRequest:
-		return watchv1.Resource_RESOURCE_PULL_REQUEST
-	}
-
-	return watchv1.Resource_RESOURCE_UNSPECIFIED
 }
