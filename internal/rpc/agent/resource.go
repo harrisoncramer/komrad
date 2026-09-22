@@ -4,40 +4,18 @@ import (
 	"weave/internal/rpc/render"
 
 	mailstore "weave/internal/store/mail"
-	rowstore "weave/internal/store/row"
 	transcriptstore "weave/internal/store/transcript"
 	agentv1 "weave/proto/gen/agent/v1"
 	viewv1 "weave/proto/gen/view/v1"
 )
 
-// agentOptions is how much of an agent is drawn.
-type agentOptions struct {
-	promptHead int
-}
-
-type agentOption = render.LoadOption[agentOptions]
-
-// SetPromptHead sets how much of the prompt is drawn.
-func (o *agentOptions) SetPromptHead(limit int) {
-	o.promptHead = limit
-}
-
-// agentViewOptions turns the view a request asked for into rendering options.
-func agentViewOptions(view viewv1.View) []agentOption {
+// agentViewOptions is how much of an agent the view a request asked for draws.
+func agentViewOptions(view viewv1.View) render.AgentOptions {
 	if view == viewv1.View_VIEW_FULL {
-		return nil
+		return render.AgentOptions{}
 	}
 
-	return []agentOption{render.WithPromptHead[agentOptions](render.SummaryHead)}
-}
-
-func renderAgent(row rowstore.Row, opts ...agentOption) *agentv1.Agent {
-	options := agentOptions{}
-	for _, opt := range opts {
-		opt(&options)
-	}
-
-	return render.Agent(row, render.AgentOptions{PromptHead: options.promptHead})
+	return render.AgentOptions{PromptHead: render.SummaryHead}
 }
 
 type mailPage struct {

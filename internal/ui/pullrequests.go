@@ -50,7 +50,7 @@ func (m *model) applyPullRequestsListed(msg pullRequestsListedMsg) tea.Cmd {
 
 	return m.withListing(func(l *listing) {
 		for _, pullRequest := range msg.pullRequests {
-			l.world.Apply(put(&watchv1.Row{Row: &watchv1.Row_PullRequest{PullRequest: pullRequest}}))
+			l.world.Put(&watchv1.Row{Row: &watchv1.Row_PullRequest{PullRequest: pullRequest}})
 		}
 
 		l.assemble(time.Now())

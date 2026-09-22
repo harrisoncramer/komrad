@@ -3,12 +3,10 @@ package bufcheck
 import (
 	"context"
 
-	annotationv1 "weave/proto/gen/annotation/v1"
+	"weave/internal/resource"
 
 	"buf.build/go/bufplugin/check"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
-	"google.golang.org/protobuf/types/descriptorpb"
 )
 
 // rowMessage is the message whose oneof carries one arm per resource.
@@ -22,7 +20,7 @@ func checkResource(
 	_ check.Request,
 	message protoreflect.MessageDescriptor,
 ) error {
-	option := readResource(message)
+	option := resource.Of(message)
 	if option == nil {
 		return nil
 	}
@@ -78,16 +76,16 @@ func checkRows(_ context.Context, responseWriter check.ResponseWriter, request c
 			row = message
 		}
 
-		if readResource(message) != nil {
+		if resource.Of(message) != nil {
 			resources = append(resources, message)
 		}
 	}
 
 	if row == nil {
-		for _, resource := range resources {
+		for _, message := range resources {
 			responseWriter.AddAnnotation(
-				check.WithDescriptor(resource),
-				check.WithMessagef("%s carries (annotation.v1.resource) and there is no %s to carry it on the watch.", resource.FullName(), rowMessage),
+				check.WithDescriptor(message),
+				check.WithMessagef("%s carries (annotation.v1.resource) and there is no %s to carry it on the watch.", message.FullName(), rowMessage),
 			)
 		}
 
@@ -111,7 +109,7 @@ func checkRows(_ context.Context, responseWriter check.ResponseWriter, request c
 		arm := arms.Get(i)
 		highest = max(highest, arm.Number())
 
-		if arm.Kind() != protoreflect.MessageKind || readResource(arm.Message()) == nil {
+		if arm.Kind() != protoreflect.MessageKind || resource.Of(arm.Message()) == nil {
 			responseWriter.AddAnnotation(
 				check.WithDescriptor(arm),
 				check.WithMessagef("%q is an arm of %s and is not a message carrying (annotation.v1.resource), so nothing says which table it is a row of.", arm.Name(), rowMessage),
@@ -123,11 +121,11 @@ func checkRows(_ context.Context, responseWriter check.ResponseWriter, request c
 		carried[arm.Message().FullName()] = true
 	}
 
-	for _, resource := range resources {
-		if !carried[resource.FullName()] {
+	for _, message := range resources {
+		if !carried[message.FullName()] {
 			responseWriter.AddAnnotation(
-				check.WithDescriptor(resource),
-				check.WithMessagef("%s carries (annotation.v1.resource) for the table %q and %s has no arm for it, so the watch cannot carry its rows.", resource.FullName(), readResource(resource).GetTable(), rowMessage),
+				check.WithDescriptor(message),
+				check.WithMessagef("%s carries (annotation.v1.resource) for the table %q and %s has no arm for it, so the watch cannot carry its rows.", message.FullName(), resource.Of(message).GetTable(), rowMessage),
 			)
 		}
 	}
@@ -168,16 +166,4 @@ func walkMessages(messages protoreflect.MessageDescriptors, yield func(protorefl
 	}
 
 	return true
-}
-
-// readResource reads the option, nil when the message carries none.
-func readResource(message protoreflect.MessageDescriptor) *annotationv1.Resource {
-	opts, ok := message.Options().(*descriptorpb.MessageOptions)
-	if !ok || !proto.HasExtension(opts, annotationv1.E_Resource) {
-		return nil
-	}
-
-	resource, _ := proto.GetExtension(opts, annotationv1.E_Resource).(*annotationv1.Resource)
-
-	return resource
 }

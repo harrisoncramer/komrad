@@ -10,7 +10,7 @@ import (
 
 	"weave/internal/fail"
 	"weave/internal/logging"
-	"weave/internal/store"
+	"weave/internal/resource"
 	watchv1 "weave/proto/gen/watch/v1"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -32,46 +32,32 @@ var ErrClosed = fail.Precondition("the watch broker is closed")
 // now could miss a change.
 var ErrNotListening = fail.Precondition("the watch is not listening to the database")
 
-// Kind is which listing a row is on.
-type Kind int
+// resources is the resource each table a notification names is the rows of.
+var resources = resourcesByTable()
 
-const (
-	KindAgent Kind = iota + 1
-	KindWorkflow
-	KindSchedule
-	KindMark
-	KindMail
-	KindPullRequest
-)
-
-// String is the table the kind is the rows of.
-func (k Kind) String() string {
-	for table, kind := range kinds {
-		if kind == k {
-			return table
+// resourcesByTable reads the annotated resources into the table each one is keyed by on the
+// wire.
+func resourcesByTable() map[string]watchv1.Resource {
+	byTable := map[string]watchv1.Resource{}
+	for _, r := range resource.All() {
+		number, ok := watchv1.Resource_value[r.EnumValue()]
+		if !ok {
+			continue
 		}
+
+		byTable[r.Option.GetTable()] = watchv1.Resource(number)
 	}
 
-	return "unknown"
+	return byTable
 }
 
-// kinds is the listing each table a notification names belongs to.
-var kinds = map[string]Kind{
-	store.TableAgents:       KindAgent,
-	store.TableWorkflows:    KindWorkflow,
-	store.TableSchedules:    KindSchedule,
-	store.TableMarks:        KindMark,
-	store.TableMail:         KindMail,
-	store.TablePullRequests: KindPullRequest,
-}
-
-// Touched is the keys one render reads back, by kind, each kind's in order.
-type Touched map[Kind][]string
+// Touched is the keys one render reads back, by resource, each resource's in order.
+type Touched map[watchv1.Resource][]string
 
 // Event is one row as a watcher should now hold it, or a tombstone for one it should drop.
 type Event struct {
-	Kind Kind
-	Key  string
+	Resource watchv1.Resource
+	Key      string
 	// Row carries the row, and nil is a tombstone.
 	Row *watchv1.Row
 }
@@ -99,7 +85,7 @@ type Broker struct {
 
 	// pendingMu guards what has been heard and not yet read.
 	pendingMu sync.Mutex
-	pending   map[Kind]map[string]struct{}
+	pending   map[watchv1.Resource]map[string]struct{}
 	// wake has room for one poke, which is all the loop needs to know.
 	wake chan struct{}
 
@@ -107,7 +93,6 @@ type Broker struct {
 	mu          sync.Mutex
 	subscribers map[*Subscription]struct{}
 	listening   bool
-	listenerPID uint32
 	closed      bool
 
 	// stop ends the listener, and stopped is closed once it has let its connection go.
@@ -128,7 +113,7 @@ func NewBroker(params NewBrokerParams) *Broker {
 
 	return &Broker{
 		logger:      logger,
-		pending:     map[Kind]map[string]struct{}{},
+		pending:     map[watchv1.Resource]map[string]struct{}{},
 		wake:        make(chan struct{}, 1),
 		subscribers: map[*Subscription]struct{}{},
 		stop:        func() {},
@@ -176,17 +161,17 @@ func (b *Broker) serve(reader Reader) {
 
 // touch says the rows of a table with these keys may have moved.
 func (b *Broker) touch(table string, keys ...string) {
-	kind, ok := kinds[table]
+	res, ok := resources[table]
 	if !ok {
 		b.logger.LogAttrs(context.Background(), slog.LevelWarn, "a notification named a table no resource is a row of", slog.String(logging.WatchTable, table))
 
 		return
 	}
 
-	b.touchKind(kind, keys)
+	b.touchResource(res, keys)
 }
 
-func (b *Broker) touchKind(kind Kind, keys []string) {
+func (b *Broker) touchResource(res watchv1.Resource, keys []string) {
 	if len(keys) == 0 {
 		return
 	}
@@ -198,10 +183,10 @@ func (b *Broker) touchKind(kind Kind, keys []string) {
 		return
 	}
 
-	touched := b.pending[kind]
+	touched := b.pending[res]
 	if touched == nil {
 		touched = map[string]struct{}{}
-		b.pending[kind] = touched
+		b.pending[res] = touched
 	}
 	for _, key := range keys {
 		touched[key] = struct{}{}
@@ -249,14 +234,14 @@ func (b *Broker) render() bool {
 	return true
 }
 
-// take empties the pending set and returns it with each kind's keys in order.
+// take empties the pending set and returns it with each resource's keys in order.
 func (b *Broker) take() Touched {
 	b.pendingMu.Lock()
 	defer b.pendingMu.Unlock()
 
 	touched := Touched{}
-	for kind, keys := range b.pending {
-		touched[kind] = slices.Sorted(maps.Keys(keys))
+	for res, keys := range b.pending {
+		touched[res] = slices.Sorted(maps.Keys(keys))
 	}
 	clear(b.pending)
 
@@ -265,8 +250,8 @@ func (b *Broker) take() Touched {
 
 // restore puts the keys a failed render took back for the next one.
 func (b *Broker) restore(touched Touched) {
-	for kind, keys := range touched {
-		b.touchKind(kind, keys)
+	for res, keys := range touched {
+		b.touchResource(res, keys)
 	}
 }
 

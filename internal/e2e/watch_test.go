@@ -418,7 +418,7 @@ func receiveBatch(t *testing.T, batches <-chan client.WatchBatch) client.WatchBa
 }
 
 func applyBatch(world *assemble.World, batch client.WatchBatch) {
-	for _, event := range batch.Events {
+	for _, event := range batch {
 		world.Apply(event)
 	}
 }

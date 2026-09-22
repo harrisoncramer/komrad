@@ -78,7 +78,7 @@ func (b *Broker) connect(ctx context.Context) (*pgx.Conn, error) {
 
 		return nil, fmt.Errorf("failed to listen on %s: %w", db.WatchChannel, err)
 	}
-	b.up(conn.PgConn().PID())
+	b.up()
 
 	return conn, nil
 }
@@ -125,12 +125,11 @@ func (b *Broker) hear(payload string) {
 }
 
 // up says the listener is on the channel, so watchers may open.
-func (b *Broker) up(pid uint32) {
+func (b *Broker) up() {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
 	b.listening = true
-	b.listenerPID = pid
 }
 
 // lost says the listener's connection has gone and drops every watcher, whose snapshots are

@@ -160,18 +160,13 @@ message Agent {
   // What the last released local review concluded about the agent's own work, UNSPECIFIED
   // when none has concluded anything.
   ReviewVerdict local_review_verdict = 33;
-  // The round that verdict was given on, empty when there is none.
-  string local_review_sha = 40;
   // Where the agent's worktree stands against the round that verdict was given on.
   ReviewTreeStanding local_review_tree = 34;
-  // Where the cwd sync last measured its worktree, against the round tree_standing_sha names.
-  ReviewTreeStanding tree_standing = 41;
-  // The round tree_standing was measured against, empty while none was.
-  string tree_standing_sha = 42;
   // When a person stopped this agent and took its worktree, empty while nobody is holding it.
   string held_at = 35;
   // Whether the pull request sync has swept its repository.
   bool repository_read = 39;
+  reserved 40, 41, 42;
 }
 
 // AgentRow is an agent with what is drawn beside it: its mark, its waiting mail and the pull

@@ -26,9 +26,7 @@ const (
 )
 
 // WatchBatch is the events one stream delivered together, in the order they arrived.
-type WatchBatch struct {
-	Events []*watchv1.WatchEvent
-}
+type WatchBatch []*watchv1.WatchEvent
 
 // WatchStream is one open watch, which the stream a connect client answers with is.
 type WatchStream interface {
@@ -141,7 +139,7 @@ func watchOnce(ctx context.Context, params WatchParams) (bool, error) {
 	}()
 
 	var (
-		batch     []*watchv1.WatchEvent
+		batch     WatchBatch
 		delivered bool
 		flush     <-chan time.Time
 	)
@@ -153,7 +151,7 @@ func watchOnce(ctx context.Context, params WatchParams) (bool, error) {
 		}
 
 		delivered = true
-		params.OnBatch(WatchBatch{Events: batch})
+		params.OnBatch(batch)
 		batch, flush = nil, nil
 	}
 

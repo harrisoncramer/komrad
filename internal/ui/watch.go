@@ -40,7 +40,7 @@ func watchRows(ctx context.Context, watches watchv1connect.WatchServiceClient, p
 func (m *model) applyWatch(batch client.WatchBatch) tea.Cmd {
 	var arrived []string
 	listed := m.withListing(func(l *listing) {
-		for _, event := range batch.Events {
+		for _, event := range batch {
 			if _, snapshot := event.GetEvent().(*watchv1.WatchEvent_Snapshot); snapshot {
 				m.reportUnreachable(nil)
 			}
@@ -52,11 +52,6 @@ func (m *model) applyWatch(batch client.WatchBatch) tea.Cmd {
 	})
 
 	return tea.Batch(listed, m.listArrivedPullRequestsCmd(arrived))
-}
-
-// put is the event that carries one row.
-func put(row *watchv1.Row) *watchv1.WatchEvent {
-	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Put{Put: row}}
 }
 
 // applyWatchLost says the server is gone until the next stream's snapshot says otherwise.

@@ -31,16 +31,6 @@ var ErrNoReadOnlyURL = fail.Internal(
 
 type DBTX = models.DBTX
 
-// The resource tables, which a notification names.
-const (
-	TableAgents       = "agents"
-	TableWorkflows    = "workflows"
-	TableSchedules    = "schedules"
-	TableMarks        = "marks"
-	TableMail         = "mail"
-	TablePullRequests = "pull_requests"
-)
-
 type Pool struct {
 	pool *pgxpool.Pool
 }

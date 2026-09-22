@@ -206,7 +206,7 @@ func TestWatchHandsOverEventsInBatches(t *testing.T) {
 
 	require.Eventually(t, func() bool { return got.count() == 1 }, time.Second, 5*time.Millisecond)
 
-	assert.Equal(t, []string{"snapshot", "01a", "01b", "s1", "w1"}, ids(got.at(0).Events), "every event, in order, with the heartbeat left out")
+	assert.Equal(t, []string{"snapshot", "01a", "01b", "s1", "w1"}, ids(got.at(0)), "every event, in order, with the heartbeat left out")
 	assert.Equal(t, 0, got.lostCount())
 
 	time.Sleep(100 * time.Millisecond)
@@ -228,8 +228,8 @@ func TestWatchReopensAfterAClose(t *testing.T) {
 
 	require.Eventually(t, func() bool { return got.count() == 2 }, time.Second, 5*time.Millisecond)
 
-	assert.Equal(t, []string{"snapshot", "01a"}, ids(got.at(0).Events))
-	assert.Equal(t, []string{"snapshot", "01b"}, ids(got.at(1).Events), "the next stream opens with a snapshot of its own")
+	assert.Equal(t, []string{"snapshot", "01a"}, ids(got.at(0)))
+	assert.Equal(t, []string{"snapshot", "01b"}, ids(got.at(1)), "the next stream opens with a snapshot of its own")
 	assert.Equal(t, 1, got.lostCount())
 	assert.Equal(t, 2, scripted.timesOpened())
 }
