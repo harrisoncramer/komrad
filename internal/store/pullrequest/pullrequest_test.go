@@ -22,7 +22,6 @@ const (
 
 type harness struct {
 	*PullRequestStore
-	url       string
 	pool      *store.Pool
 	syncs     *PullRequestSyncStore
 	agents    *agentstore.AgentStore
@@ -32,14 +31,12 @@ type harness struct {
 func open(t *testing.T) *harness {
 	t.Helper()
 
-	url := dbtest.URL(t)
-	pool, err := store.Open(t.Context(), url)
+	pool, err := store.Open(t.Context(), dbtest.URL(t))
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = pool.Close() })
 
 	return &harness{
 		PullRequestStore: NewPullRequestStore(pool.GetDB()),
-		url:              url,
 		syncs:            NewPullRequestSyncStore(pool.GetDB()),
 		pool:             pool,
 		agents:           agentstore.NewAgentStore(pool.GetDB()),

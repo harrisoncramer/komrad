@@ -55,10 +55,12 @@ flags, and the response is the API's own JSON on stdout.
 * [weave rpc hold-agent](weave_rpc_hold-agent.md)	 - Stop an agent and hold it, which is what somebody does before editing the files that agent is working in.
 * [weave rpc list-agent-pull-requests](weave_rpc_list-agent-pull-requests.md)	 - List the pull requests opened from an agent's branch in its repository, newest opened first, each with where it stands: open, approved, changes requested, draft, merged or closed.
 * [weave rpc list-agents](weave_rpc_list-agents.md)	 - List the agents the panel tracks, live and dormant, with each one's name, state, working directory, flags, and workflow.
+* [weave rpc list-forge-pull-requests](weave_rpc_list-forge-pull-requests.md)	 - List a repository's pull requests through the forge connection for its host, a page at a time: every one opened from a branch when one is named, whatever its state, or the open ones when none is.
 * [weave rpc list-forges](weave_rpc_list-forges.md)	 - List the forges weave is connected to, one per host, with who weave acts as there and when the forge last confirmed it.
 * [weave rpc list-hooks](weave_rpc_list-hooks.md)	 - List the hooks the user has written, which are executable files in their hooks directory.
 * [weave rpc list-mail](weave_rpc_list-mail.md)	 - List the mail addressed to an agent, most recent first, without claiming any of it: unlike read_mail this never empties the mailbox.
-* [weave rpc list-pull-requests](weave_rpc_list-pull-requests.md)	 - List a repository's pull requests through the forge connection for its host, a page at a time: every one opened from a branch when one is named, whatever its state, or the open ones when none is.
+* [weave rpc list-marks](weave_rpc_list-marks.md)	 - List every mark, by letter, with the agent or the workflow each one jumps to.
+* [weave rpc list-pull-requests](weave_rpc_list-pull-requests.md)	 - List the pull requests weave has stored for a repository, a page at a time: every one opened from a branch when one is named, whatever its state, or every one stored for the repository when none is.
 * [weave rpc list-recent-traces](weave_rpc_list-recent-traces.md)	 - List the traces the service's log ends with, oldest first, each with when it started, what it was about and how many lines it holds.
 * [weave rpc list-review-rounds](weave_rpc_list-review-rounds.md)	 - Read the rounds taken of an agent, oldest first.
 * [weave rpc list-review-threads](weave_rpc_list-review-threads.md)	 - Read the review conversations pinned to the lines of a diff.

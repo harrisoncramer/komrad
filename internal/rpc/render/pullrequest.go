@@ -3,8 +3,36 @@ package render
 import (
 	"weave/internal/forge"
 	pullrequeststore "weave/internal/store/pullrequest"
+	"weave/lib/dates"
 	pullrequestv1 "weave/proto/gen/pullrequest/v1"
 )
+
+// PullRequest draws one stored pull request as the wire carries it.
+func PullRequest(stored pullrequeststore.PullRequest) *pullrequestv1.PullRequest {
+	return &pullrequestv1.PullRequest{
+		Id:                stored.ID,
+		Forge:             stored.Forge,
+		ProviderId:        stored.ProviderID,
+		Url:               stored.URL,
+		RepositoryUrl:     stored.RepositoryURL,
+		HeadRepositoryUrl: stored.HeadRepositoryURL,
+		Number:            int32(stored.Number),
+		Title:             stored.Title,
+		HeadBranch:        stored.HeadBranch,
+		HeadSha:           stored.HeadSHA,
+		BaseBranch:        stored.BaseBranch,
+		BaseSha:           stored.BaseSHA,
+		Draft:             stored.Draft,
+		State:             PullRequestStateOf(stored.GetSummary()),
+		OpenedAt:          dates.Stamp(stored.OpenedAt),
+		ChangedAt:         dates.Stamp(stored.ChangedAt),
+		MergedAt:          dates.StampPtr(stored.MergedAt),
+		ClosedAt:          dates.StampPtr(stored.ClosedAt),
+		ReviewDecision:    ReviewDecisionOf(stored.ReviewDecision),
+		Checks:            ChecksOf(stored.Checks),
+		Mergeability:      MergeabilityOf(stored.Mergeability),
+	}
+}
 
 // PullRequestStateOf decides where a stored pull request stands: finished by its two stamps
 // first, then draft, then a failing check, then a conflict with the base, then a change request,
@@ -44,6 +72,26 @@ func PullRequestStateOf(pullRequest pullrequeststore.Summary) pullrequestv1.Pull
 	}
 
 	return pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN
+}
+
+// ReviewDecisionOf is the stored review decision as the wire carries it, NONE for a row the
+// forge has said nothing about.
+func ReviewDecisionOf(decision *forge.ReviewDecision) pullrequestv1.ReviewDecision {
+	if decision == nil {
+		return pullrequestv1.ReviewDecision_REVIEW_DECISION_NONE
+	}
+
+	switch *decision {
+	case forge.ReviewDecisionPending:
+		return pullrequestv1.ReviewDecision_REVIEW_DECISION_PENDING
+	case forge.ReviewDecisionApproved:
+		return pullrequestv1.ReviewDecision_REVIEW_DECISION_APPROVED
+	case forge.ReviewDecisionChangesRequested:
+		return pullrequestv1.ReviewDecision_REVIEW_DECISION_CHANGES_REQUESTED
+	case forge.ReviewDecisionNone:
+	}
+
+	return pullrequestv1.ReviewDecision_REVIEW_DECISION_NONE
 }
 
 // ChecksOf is the stored checks as the wire carries them, NONE for a row the forge reports no

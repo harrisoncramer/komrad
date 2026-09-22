@@ -31,11 +31,14 @@ var ErrNoReadOnlyURL = fail.Internal(
 
 type DBTX = models.DBTX
 
-// The tables the panel's listings are keyed by, which a notification names.
+// The resource tables, which a notification names.
 const (
-	TableAgents    = "agents"
-	TableWorkflows = "workflows"
-	TableSchedules = "schedules"
+	TableAgents       = "agents"
+	TableWorkflows    = "workflows"
+	TableSchedules    = "schedules"
+	TableMarks        = "marks"
+	TableMail         = "mail"
+	TablePullRequests = "pull_requests"
 )
 
 type Pool struct {
@@ -177,21 +180,6 @@ func (p *Pool) InTx(ctx context.Context, fn func(DBTX) error) error {
 
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("failed to commit transaction: %w", err)
-	}
-
-	return nil
-}
-
-// Notify raises the watch notification for each key of a table, the way the table's trigger
-// would.
-func Notify(ctx context.Context, conn DBTX, table string, keys ...string) error {
-	if len(keys) == 0 {
-		return nil
-	}
-
-	err := models.New(conn).NotifyWatch(ctx, models.NotifyWatchParams{Channel: db.WatchChannel, TableName: table, Keys: keys})
-	if err != nil {
-		return fmt.Errorf("failed to notify the watch of %d %s rows: %w", len(keys), table, err)
 	}
 
 	return nil

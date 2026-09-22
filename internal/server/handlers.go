@@ -129,7 +129,6 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 	mux.Handle(pullrequestv1connect.NewPullRequestServiceHandler(
 		pullrequestv1weave.PullRequestServiceAdapter{
 			Impl: rpcpullrequest.NewHandler(rpcpullrequest.NewHandlerParams{
-				Forges:           params.Services.forge,
 				Agents:           params.Stores.agents,
 				PullRequests:     params.Stores.pullRequests,
 				PullRequestSyncs: params.Stores.pullRequestSyncs,

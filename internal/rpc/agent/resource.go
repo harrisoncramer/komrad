@@ -2,7 +2,6 @@ package agent
 
 import (
 	"weave/internal/rpc/render"
-	"weave/lib/dates"
 
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
@@ -55,34 +54,6 @@ func renderAgent(row rowstore.Row, opts ...agentOption) agent {
 	}
 }
 
-func renderMail(stored mailstore.Mail) *agentv1.Mail {
-	return &agentv1.Mail{
-		Id:          stored.ID,
-		FromAgentId: stored.FromAgentID,
-		FromName:    stored.FromName,
-		ToAgentId:   stored.ToAgentID,
-		Body:        stored.Body,
-		ReplyTo:     stored.ReplyTo,
-		CreatedAt:   dates.Stamp(stored.CreatedAt),
-		ClaimedAt:   dates.StampPtr(stored.ClaimedAt),
-		ExpiresAt:   dates.Stamp(stored.ExpiresAt),
-		Kind:        renderMailKind(stored.Kind),
-	}
-}
-
-func renderMailKind(kind mailstore.Kind) agentv1.MailKind {
-	switch kind {
-	case mailstore.KindPlain:
-		return agentv1.MailKind_MAIL_KIND_PLAIN
-	case mailstore.KindReviewActivity:
-		return agentv1.MailKind_MAIL_KIND_REVIEW_ACTIVITY
-	case mailstore.KindExchangeCapped:
-		return agentv1.MailKind_MAIL_KIND_EXCHANGE_CAPPED
-	}
-
-	return agentv1.MailKind_MAIL_KIND_UNSPECIFIED
-}
-
 type mailPage struct {
 	*agentv1.Mail
 	cursor mailstore.Cursor
@@ -94,7 +65,7 @@ func (m mailPage) Cursor() (mailstore.Cursor, error) {
 }
 
 func renderMailPage(stored mailstore.Mail) mailPage {
-	return mailPage{Mail: renderMail(stored), cursor: mailstore.Cursor{ID: stored.ID}}
+	return mailPage{Mail: render.Mail(stored), cursor: mailstore.Cursor{ID: stored.ID}}
 }
 
 // searchPage lets the paginator decode a search cursor, which locates a page of both

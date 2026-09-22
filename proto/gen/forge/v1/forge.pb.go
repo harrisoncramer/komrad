@@ -7,6 +7,7 @@
 package forgev1
 
 import (
+	_ "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
@@ -14,6 +15,7 @@ import (
 	sync "sync"
 	unsafe "unsafe"
 	_ "weave/proto/gen/annotation/v1"
+	v1 "weave/proto/gen/pagination/v1"
 )
 
 const (
@@ -466,11 +468,323 @@ func (x *ForgeCheck) GetProblemKind() string {
 	return ""
 }
 
+type ListForgePullRequestsRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The repository as a git remote spells it, such as git@github.com:owner/repo.git or
+	// https://github.com/owner/repo, whose host picks the forge connection.
+	RemoteUrl string `protobuf:"bytes,1,opt,name=remote_url,json=remoteUrl,proto3" json:"remote_url,omitempty"`
+	// The branch the pull requests were opened from, listed whatever their state; left empty,
+	// the repository's open pull requests are listed instead.
+	Branch string `protobuf:"bytes,2,opt,name=branch,proto3" json:"branch,omitempty"`
+	// Which page to read and how many to a page, twenty when unset and at most a hundred, which
+	// is what the forge will hand over in one call.
+	Pagination    *v1.Pagination `protobuf:"bytes,3,opt,name=pagination,proto3,oneof" json:"pagination,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListForgePullRequestsRequest) Reset() {
+	*x = ListForgePullRequestsRequest{}
+	mi := &file_forge_v1_forge_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListForgePullRequestsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListForgePullRequestsRequest) ProtoMessage() {}
+
+func (x *ListForgePullRequestsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_forge_v1_forge_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListForgePullRequestsRequest.ProtoReflect.Descriptor instead.
+func (*ListForgePullRequestsRequest) Descriptor() ([]byte, []int) {
+	return file_forge_v1_forge_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *ListForgePullRequestsRequest) GetRemoteUrl() string {
+	if x != nil {
+		return x.RemoteUrl
+	}
+	return ""
+}
+
+func (x *ListForgePullRequestsRequest) GetBranch() string {
+	if x != nil {
+		return x.Branch
+	}
+	return ""
+}
+
+func (x *ListForgePullRequestsRequest) GetPagination() *v1.Pagination {
+	if x != nil {
+		return x.Pagination
+	}
+	return nil
+}
+
+// ForgePullRequest is a pull request as the forge describes it, read live and stored nowhere.
+type ForgePullRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Which forge it lives on, such as github.
+	Forge string `protobuf:"bytes,1,opt,name=forge,proto3" json:"forge,omitempty"`
+	// The forge's own stable identifier, such as GitHub's node_id.
+	ProviderId string `protobuf:"bytes,2,opt,name=provider_id,json=providerId,proto3" json:"provider_id,omitempty"`
+	// The web address a person opens.
+	Url string `protobuf:"bytes,3,opt,name=url,proto3" json:"url,omitempty"`
+	// The canonical address of the repository it targets.
+	RepositoryUrl string `protobuf:"bytes,4,opt,name=repository_url,json=repositoryUrl,proto3" json:"repository_url,omitempty"`
+	// The canonical address of the repository its branch lives in, empty when the forge no
+	// longer has it.
+	HeadRepositoryUrl string `protobuf:"bytes,5,opt,name=head_repository_url,json=headRepositoryUrl,proto3" json:"head_repository_url,omitempty"`
+	// The number the forge shows a person, which is per repository.
+	Number int32 `protobuf:"varint,6,opt,name=number,proto3" json:"number,omitempty"`
+	// The title as the forge has it.
+	Title string `protobuf:"bytes,7,opt,name=title,proto3" json:"title,omitempty"`
+	// The branch the pull request was opened from.
+	HeadBranch string `protobuf:"bytes,8,opt,name=head_branch,json=headBranch,proto3" json:"head_branch,omitempty"`
+	// The commit at the tip of that branch when last read.
+	HeadSha string `protobuf:"bytes,9,opt,name=head_sha,json=headSha,proto3" json:"head_sha,omitempty"`
+	// The branch it targets.
+	BaseBranch string `protobuf:"bytes,10,opt,name=base_branch,json=baseBranch,proto3" json:"base_branch,omitempty"`
+	// The commit the target branch was at when last read.
+	BaseSha string `protobuf:"bytes,11,opt,name=base_sha,json=baseSha,proto3" json:"base_sha,omitempty"`
+	// Whether the forge marks it a draft.
+	Draft bool `protobuf:"varint,12,opt,name=draft,proto3" json:"draft,omitempty"`
+	// Where the forge says it stands, as OPEN, CLOSED or MERGED; read merged_at and closed_at for
+	// whether it is finished.
+	State string `protobuf:"bytes,13,opt,name=state,proto3" json:"state,omitempty"`
+	// When it was opened on the forge, in RFC 3339.
+	CreatedAt string `protobuf:"bytes,14,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// When the forge last saw it change, in RFC 3339.
+	UpdatedAt string `protobuf:"bytes,15,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	// When it merged, in RFC 3339, unset while it has not.
+	MergedAt *string `protobuf:"bytes,16,opt,name=merged_at,json=mergedAt,proto3,oneof" json:"merged_at,omitempty"`
+	// When it closed, in RFC 3339, unset while it is open; a merged one carries this too.
+	ClosedAt      *string `protobuf:"bytes,17,opt,name=closed_at,json=closedAt,proto3,oneof" json:"closed_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ForgePullRequest) Reset() {
+	*x = ForgePullRequest{}
+	mi := &file_forge_v1_forge_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ForgePullRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ForgePullRequest) ProtoMessage() {}
+
+func (x *ForgePullRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_forge_v1_forge_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ForgePullRequest.ProtoReflect.Descriptor instead.
+func (*ForgePullRequest) Descriptor() ([]byte, []int) {
+	return file_forge_v1_forge_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *ForgePullRequest) GetForge() string {
+	if x != nil {
+		return x.Forge
+	}
+	return ""
+}
+
+func (x *ForgePullRequest) GetProviderId() string {
+	if x != nil {
+		return x.ProviderId
+	}
+	return ""
+}
+
+func (x *ForgePullRequest) GetUrl() string {
+	if x != nil {
+		return x.Url
+	}
+	return ""
+}
+
+func (x *ForgePullRequest) GetRepositoryUrl() string {
+	if x != nil {
+		return x.RepositoryUrl
+	}
+	return ""
+}
+
+func (x *ForgePullRequest) GetHeadRepositoryUrl() string {
+	if x != nil {
+		return x.HeadRepositoryUrl
+	}
+	return ""
+}
+
+func (x *ForgePullRequest) GetNumber() int32 {
+	if x != nil {
+		return x.Number
+	}
+	return 0
+}
+
+func (x *ForgePullRequest) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+func (x *ForgePullRequest) GetHeadBranch() string {
+	if x != nil {
+		return x.HeadBranch
+	}
+	return ""
+}
+
+func (x *ForgePullRequest) GetHeadSha() string {
+	if x != nil {
+		return x.HeadSha
+	}
+	return ""
+}
+
+func (x *ForgePullRequest) GetBaseBranch() string {
+	if x != nil {
+		return x.BaseBranch
+	}
+	return ""
+}
+
+func (x *ForgePullRequest) GetBaseSha() string {
+	if x != nil {
+		return x.BaseSha
+	}
+	return ""
+}
+
+func (x *ForgePullRequest) GetDraft() bool {
+	if x != nil {
+		return x.Draft
+	}
+	return false
+}
+
+func (x *ForgePullRequest) GetState() string {
+	if x != nil {
+		return x.State
+	}
+	return ""
+}
+
+func (x *ForgePullRequest) GetCreatedAt() string {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return ""
+}
+
+func (x *ForgePullRequest) GetUpdatedAt() string {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return ""
+}
+
+func (x *ForgePullRequest) GetMergedAt() string {
+	if x != nil && x.MergedAt != nil {
+		return *x.MergedAt
+	}
+	return ""
+}
+
+func (x *ForgePullRequest) GetClosedAt() string {
+	if x != nil && x.ClosedAt != nil {
+		return *x.ClosedAt
+	}
+	return ""
+}
+
+type ListForgePullRequestsResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// One page of pull requests, as the forge orders them.
+	PullRequests []*ForgePullRequest `protobuf:"bytes,1,rep,name=pull_requests,json=pullRequests,proto3" json:"pull_requests,omitempty"`
+	// The token for the page after this one, unset on the last.
+	NextPageToken *string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3,oneof" json:"next_page_token,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListForgePullRequestsResponse) Reset() {
+	*x = ListForgePullRequestsResponse{}
+	mi := &file_forge_v1_forge_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListForgePullRequestsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListForgePullRequestsResponse) ProtoMessage() {}
+
+func (x *ListForgePullRequestsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_forge_v1_forge_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListForgePullRequestsResponse.ProtoReflect.Descriptor instead.
+func (*ListForgePullRequestsResponse) Descriptor() ([]byte, []int) {
+	return file_forge_v1_forge_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *ListForgePullRequestsResponse) GetPullRequests() []*ForgePullRequest {
+	if x != nil {
+		return x.PullRequests
+	}
+	return nil
+}
+
+func (x *ListForgePullRequestsResponse) GetNextPageToken() string {
+	if x != nil && x.NextPageToken != nil {
+		return *x.NextPageToken
+	}
+	return ""
+}
+
 var File_forge_v1_forge_proto protoreflect.FileDescriptor
 
 const file_forge_v1_forge_proto_rawDesc = "" +
 	"\n" +
-	"\x14forge/v1/forge.proto\x12\bforge.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bgoogle/protobuf/empty.proto\"\x82\x02\n" +
+	"\x14forge/v1/forge.proto\x12\bforge.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\"\x82\x02\n" +
 	"\x05Forge\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04kind\x18\x02 \x01(\tR\x04kind\x12\x12\n" +
@@ -502,12 +816,54 @@ const file_forge_v1_forge_proto_rawDesc = "" +
 	"ForgeCheck\x12%\n" +
 	"\x05forge\x18\x01 \x01(\v2\x0f.forge.v1.ForgeR\x05forge\x12\x18\n" +
 	"\aproblem\x18\x02 \x01(\tR\aproblem\x12!\n" +
-	"\fproblem_kind\x18\x03 \x01(\tR\vproblemKind2\xe8\t\n" +
+	"\fproblem_kind\x18\x03 \x01(\tR\vproblemKind\"\xba\x01\n" +
+	"\x1cListForgePullRequestsRequest\x12)\n" +
+	"\n" +
+	"remote_url\x18\x01 \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x10R\tremoteUrl\x12 \n" +
+	"\x06branch\x18\x02 \x01(\tB\b\xbaH\x05r\x03\x18\x80\x04R\x06branch\x12>\n" +
+	"\n" +
+	"pagination\x18\x03 \x01(\v2\x19.pagination.v1.PaginationH\x00R\n" +
+	"pagination\x88\x01\x01B\r\n" +
+	"\v_pagination\"\xa2\x04\n" +
+	"\x10ForgePullRequest\x12\x14\n" +
+	"\x05forge\x18\x01 \x01(\tR\x05forge\x12\x1f\n" +
+	"\vprovider_id\x18\x02 \x01(\tR\n" +
+	"providerId\x12\x10\n" +
+	"\x03url\x18\x03 \x01(\tR\x03url\x12%\n" +
+	"\x0erepository_url\x18\x04 \x01(\tR\rrepositoryUrl\x12.\n" +
+	"\x13head_repository_url\x18\x05 \x01(\tR\x11headRepositoryUrl\x12\x16\n" +
+	"\x06number\x18\x06 \x01(\x05R\x06number\x12\x14\n" +
+	"\x05title\x18\a \x01(\tR\x05title\x12\x1f\n" +
+	"\vhead_branch\x18\b \x01(\tR\n" +
+	"headBranch\x12\x19\n" +
+	"\bhead_sha\x18\t \x01(\tR\aheadSha\x12\x1f\n" +
+	"\vbase_branch\x18\n" +
+	" \x01(\tR\n" +
+	"baseBranch\x12\x19\n" +
+	"\bbase_sha\x18\v \x01(\tR\abaseSha\x12\x14\n" +
+	"\x05draft\x18\f \x01(\bR\x05draft\x12\x14\n" +
+	"\x05state\x18\r \x01(\tR\x05state\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\x0e \x01(\tR\tcreatedAt\x12\x1d\n" +
+	"\n" +
+	"updated_at\x18\x0f \x01(\tR\tupdatedAt\x12 \n" +
+	"\tmerged_at\x18\x10 \x01(\tH\x00R\bmergedAt\x88\x01\x01\x12 \n" +
+	"\tclosed_at\x18\x11 \x01(\tH\x01R\bclosedAt\x88\x01\x01B\f\n" +
+	"\n" +
+	"_merged_atB\f\n" +
+	"\n" +
+	"_closed_at\"\xa1\x01\n" +
+	"\x1dListForgePullRequestsResponse\x12?\n" +
+	"\rpull_requests\x18\x01 \x03(\v2\x1a.forge.v1.ForgePullRequestR\fpullRequests\x12+\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +
+	"\x10_next_page_token2\x92\x0f\n" +
 	"\fForgeService\x12\xd6\x02\n" +
 	"\fConnectForge\x12\x1d.forge.v1.ConnectForgeRequest\x1a\x1e.forge.v1.ConnectForgeResponse\"\x86\x02\x9a\xb5\x18\x81\x02:\xfe\x01weave forge connect is the one caller, reading the token from stdin or a file. A generated command would take it as an argument, which every process on the machine can read, and a model handed one would be holding a credential it has no business holding.\x12\xe8\x02\n" +
 	"\n" +
 	"ListForges\x12\x16.google.protobuf.Empty\x1a\x1c.forge.v1.ListForgesResponse\"\xa3\x02\x9a\xb5\x18\x9b\x02\b\x01\x10\x01\x1a\vlist_forges\"\x87\x02List the forges weave is connected to, one per host, with who weave acts as there and when the forge last confirmed it. The token itself is never returned. A connection is made by a person with weave forge connect and is what the pull request sweep reads through.\x90\x02\x01\x12\xb1\x02\n" +
-	"\vCheckForges\x12\x16.google.protobuf.Empty\x1a\x1d.forge.v1.CheckForgesResponse\"\xea\x01\x9a\xb5\x18\xe5\x01\b\x01\x10\x01\x1a\fcheck_forges\"\xce\x01Ask every connected forge whether its credential still works, the way its method allows, and record the answer on each connection. A refusal marks the connection as refused until a person connects it again.(\x00\x12\xdf\x01\n" +
+	"\vCheckForges\x12\x16.google.protobuf.Empty\x1a\x1d.forge.v1.CheckForgesResponse\"\xea\x01\x9a\xb5\x18\xe5\x01\b\x01\x10\x01\x1a\fcheck_forges\"\xce\x01Ask every connected forge whether its credential still works, the way its method allows, and record the answer on each connection. A refusal marks the connection as refused until a person connects it again.(\x00\x12\xa7\x05\n" +
+	"\x15ListForgePullRequests\x12&.forge.v1.ListForgePullRequestsRequest\x1a'.forge.v1.ListForgePullRequestsResponse\"\xbc\x04\x9a\xb5\x18\xb4\x04\b\x01\x10\x01\x1a\x18list_forge_pull_requests\"\x93\x04List a repository's pull requests through the forge connection for its host, a page at a time: every one opened from a branch when one is named, whatever its state, or the open ones when none is. Give the repository as a git remote spells it, and pass the next_page_token back as pagination.cursor for the next page. A repository the connection's credential cannot see is answered as not found, which is also what a repository that does not exist answers. This asks the forge itself; list_pull_requests reads what weave has stored.\x90\x02\x01\x12\xdf\x01\n" +
 	"\x0fDisconnectForge\x12 .forge.v1.DisconnectForgeRequest\x1a\x16.google.protobuf.Empty\"\x91\x01\x9a\xb5\x18\x8c\x01\b\x01\x1a\x10disconnect_forge\"8Forget a forge and the credential it was connected with.:<A person gave the credential and is the one to take it away.B\"Z weave/proto/gen/forge/v1;forgev1b\x06proto3"
 
 var (
@@ -522,35 +878,43 @@ func file_forge_v1_forge_proto_rawDescGZIP() []byte {
 	return file_forge_v1_forge_proto_rawDescData
 }
 
-var file_forge_v1_forge_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_forge_v1_forge_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_forge_v1_forge_proto_goTypes = []any{
-	(*Forge)(nil),                  // 0: forge.v1.Forge
-	(*ConnectForgeRequest)(nil),    // 1: forge.v1.ConnectForgeRequest
-	(*ConnectForgeResponse)(nil),   // 2: forge.v1.ConnectForgeResponse
-	(*ListForgesResponse)(nil),     // 3: forge.v1.ListForgesResponse
-	(*DisconnectForgeRequest)(nil), // 4: forge.v1.DisconnectForgeRequest
-	(*CheckForgesResponse)(nil),    // 5: forge.v1.CheckForgesResponse
-	(*ForgeCheck)(nil),             // 6: forge.v1.ForgeCheck
-	(*emptypb.Empty)(nil),          // 7: google.protobuf.Empty
+	(*Forge)(nil),                         // 0: forge.v1.Forge
+	(*ConnectForgeRequest)(nil),           // 1: forge.v1.ConnectForgeRequest
+	(*ConnectForgeResponse)(nil),          // 2: forge.v1.ConnectForgeResponse
+	(*ListForgesResponse)(nil),            // 3: forge.v1.ListForgesResponse
+	(*DisconnectForgeRequest)(nil),        // 4: forge.v1.DisconnectForgeRequest
+	(*CheckForgesResponse)(nil),           // 5: forge.v1.CheckForgesResponse
+	(*ForgeCheck)(nil),                    // 6: forge.v1.ForgeCheck
+	(*ListForgePullRequestsRequest)(nil),  // 7: forge.v1.ListForgePullRequestsRequest
+	(*ForgePullRequest)(nil),              // 8: forge.v1.ForgePullRequest
+	(*ListForgePullRequestsResponse)(nil), // 9: forge.v1.ListForgePullRequestsResponse
+	(*v1.Pagination)(nil),                 // 10: pagination.v1.Pagination
+	(*emptypb.Empty)(nil),                 // 11: google.protobuf.Empty
 }
 var file_forge_v1_forge_proto_depIdxs = []int32{
-	0, // 0: forge.v1.ConnectForgeResponse.forge:type_name -> forge.v1.Forge
-	0, // 1: forge.v1.ListForgesResponse.forges:type_name -> forge.v1.Forge
-	6, // 2: forge.v1.CheckForgesResponse.checks:type_name -> forge.v1.ForgeCheck
-	0, // 3: forge.v1.ForgeCheck.forge:type_name -> forge.v1.Forge
-	1, // 4: forge.v1.ForgeService.ConnectForge:input_type -> forge.v1.ConnectForgeRequest
-	7, // 5: forge.v1.ForgeService.ListForges:input_type -> google.protobuf.Empty
-	7, // 6: forge.v1.ForgeService.CheckForges:input_type -> google.protobuf.Empty
-	4, // 7: forge.v1.ForgeService.DisconnectForge:input_type -> forge.v1.DisconnectForgeRequest
-	2, // 8: forge.v1.ForgeService.ConnectForge:output_type -> forge.v1.ConnectForgeResponse
-	3, // 9: forge.v1.ForgeService.ListForges:output_type -> forge.v1.ListForgesResponse
-	5, // 10: forge.v1.ForgeService.CheckForges:output_type -> forge.v1.CheckForgesResponse
-	7, // 11: forge.v1.ForgeService.DisconnectForge:output_type -> google.protobuf.Empty
-	8, // [8:12] is the sub-list for method output_type
-	4, // [4:8] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	0,  // 0: forge.v1.ConnectForgeResponse.forge:type_name -> forge.v1.Forge
+	0,  // 1: forge.v1.ListForgesResponse.forges:type_name -> forge.v1.Forge
+	6,  // 2: forge.v1.CheckForgesResponse.checks:type_name -> forge.v1.ForgeCheck
+	0,  // 3: forge.v1.ForgeCheck.forge:type_name -> forge.v1.Forge
+	10, // 4: forge.v1.ListForgePullRequestsRequest.pagination:type_name -> pagination.v1.Pagination
+	8,  // 5: forge.v1.ListForgePullRequestsResponse.pull_requests:type_name -> forge.v1.ForgePullRequest
+	1,  // 6: forge.v1.ForgeService.ConnectForge:input_type -> forge.v1.ConnectForgeRequest
+	11, // 7: forge.v1.ForgeService.ListForges:input_type -> google.protobuf.Empty
+	11, // 8: forge.v1.ForgeService.CheckForges:input_type -> google.protobuf.Empty
+	7,  // 9: forge.v1.ForgeService.ListForgePullRequests:input_type -> forge.v1.ListForgePullRequestsRequest
+	4,  // 10: forge.v1.ForgeService.DisconnectForge:input_type -> forge.v1.DisconnectForgeRequest
+	2,  // 11: forge.v1.ForgeService.ConnectForge:output_type -> forge.v1.ConnectForgeResponse
+	3,  // 12: forge.v1.ForgeService.ListForges:output_type -> forge.v1.ListForgesResponse
+	5,  // 13: forge.v1.ForgeService.CheckForges:output_type -> forge.v1.CheckForgesResponse
+	9,  // 14: forge.v1.ForgeService.ListForgePullRequests:output_type -> forge.v1.ListForgePullRequestsResponse
+	11, // 15: forge.v1.ForgeService.DisconnectForge:output_type -> google.protobuf.Empty
+	11, // [11:16] is the sub-list for method output_type
+	6,  // [6:11] is the sub-list for method input_type
+	6,  // [6:6] is the sub-list for extension type_name
+	6,  // [6:6] is the sub-list for extension extendee
+	0,  // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_forge_v1_forge_proto_init() }
@@ -559,13 +923,16 @@ func file_forge_v1_forge_proto_init() {
 		return
 	}
 	file_forge_v1_forge_proto_msgTypes[0].OneofWrappers = []any{}
+	file_forge_v1_forge_proto_msgTypes[7].OneofWrappers = []any{}
+	file_forge_v1_forge_proto_msgTypes[8].OneofWrappers = []any{}
+	file_forge_v1_forge_proto_msgTypes[9].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_forge_v1_forge_proto_rawDesc), len(file_forge_v1_forge_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   7,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -144,12 +144,11 @@ type Observation struct {
 // PullRequestStore reads and writes pull requests and their observations.
 type PullRequestStore struct {
 	queries *models.Queries
-	db      store.DBTX
 }
 
 // NewPullRequestStore builds a pull request store over a pool or transaction.
 func NewPullRequestStore(db store.DBTX) *PullRequestStore {
-	return &PullRequestStore{queries: models.New(db), db: db}
+	return &PullRequestStore{queries: models.New(db)}
 }
 
 // Upsert writes a pull request on its identity, leaving a row whose forge-owned columns already
@@ -179,25 +178,11 @@ func (s *PullRequestStore) Upsert(ctx context.Context, params UpsertParams) (*Ou
 		return nil, fmt.Errorf("failed to write pull request %s on %s: %w", params.ProviderID, params.Host, err)
 	}
 
-	if err := s.notifyPullRequest(ctx, row.ID); err != nil {
-		return nil, err
-	}
-
 	return &Outcome{
 		ID:       row.ID,
 		Inserted: row.Inserted,
 		Changed:  row.Changed,
 	}, nil
-}
-
-// notifyPullRequest says every live agent on the pull request's branch may look different now.
-func (s *PullRequestStore) notifyPullRequest(ctx context.Context, id string) error {
-	ids, err := s.queries.ListLiveAgentsOfPullRequest(ctx, id)
-	if err != nil {
-		return fmt.Errorf("failed to list the agents on pull request %q: %w", id, err)
-	}
-
-	return store.Notify(ctx, s.db, store.TableAgents, ids...)
 }
 
 // GetByIdentity is the pull request a forge host knows by an identifier, or ErrNotFound.
@@ -225,6 +210,80 @@ func (s *PullRequestStore) ListForAgent(ctx context.Context, agentID string) ([]
 	rows, err := s.queries.ListAgentBranchPullRequests(ctx, agentID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the pull requests of agent %q: %w", agentID, err)
+	}
+
+	return xslice.Map(rows, fromRow), nil
+}
+
+// ListOnLiveBranches is every pull request opened from a branch a live agent is on, in its
+// repository.
+func (s *PullRequestStore) ListOnLiveBranches(ctx context.Context) ([]PullRequest, error) {
+	rows, err := s.queries.SnapshotPullRequests(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the pull requests on live branches: %w", err)
+	}
+
+	return xslice.Map(rows, fromRow), nil
+}
+
+// ListByKey returns whichever of the given ids hold a pull request opened from a branch a live
+// agent is on.
+func (s *PullRequestStore) ListByKey(ctx context.Context, ids []string) ([]PullRequest, error) {
+	storable := store.KeepIDs(ids)
+	if len(storable) == 0 {
+		return nil, nil
+	}
+
+	rows, err := s.queries.ListPullRequestsByKey(ctx, storable)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list %d pull requests: %w", len(storable), err)
+	}
+
+	return xslice.Map(rows, fromRow), nil
+}
+
+// Cursor is where a page of pull requests left off: whether the last was finished, when it
+// was opened and its id.
+type Cursor struct {
+	Finished bool      `json:"finished"`
+	OpenedAt time.Time `json:"opened_at"`
+	ID       string    `json:"id"`
+}
+
+// Validate refuses a cursor that names no row.
+func (c Cursor) Validate() error {
+	if !store.IsID(c.ID) {
+		return fmt.Errorf("cursor id %q is not an id", c.ID)
+	}
+
+	return nil
+}
+
+// ListPageParams narrows a page to one repository and, when set, one branch.
+type ListPageParams struct {
+	RepositoryURL string
+	HeadBranch    string
+	Limit         int32
+	Cursor        *Cursor
+}
+
+// ListPage is one page of a repository's stored pull requests, the unfinished ones first and
+// each group newest opened first.
+func (s *PullRequestStore) ListPage(ctx context.Context, params ListPageParams) ([]PullRequest, error) {
+	query := models.ListPullRequestsPageParams{
+		RepositoryUrl: params.RepositoryURL,
+		HeadBranch:    params.HeadBranch,
+		Lim:           params.Limit,
+	}
+	if params.Cursor != nil {
+		query.CursorID = &params.Cursor.ID
+		query.CursorFinished = params.Cursor.Finished
+		query.CursorOpenedAt = params.Cursor.OpenedAt
+	}
+
+	rows, err := s.queries.ListPullRequestsPage(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list a page of the pull requests of %s: %w", params.RepositoryURL, err)
 	}
 
 	return xslice.Map(rows, fromRow), nil
@@ -259,7 +318,7 @@ func (s *PullRequestStore) SetStanding(ctx context.Context, id string, standing 
 		return fmt.Errorf("failed to record the standing of pull request %s: %w", id, err)
 	}
 
-	return s.notifyPullRequest(ctx, id)
+	return nil
 }
 
 // Observe records every live agent beside every stored pull request opened from its branch in

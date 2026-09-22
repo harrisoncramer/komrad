@@ -48,12 +48,11 @@ type Mail struct {
 
 type MailStore struct {
 	queries *models.Queries
-	db      store.DBTX
 }
 
 // NewMailStore builds the mail store over a database handle or a transaction.
 func NewMailStore(db store.DBTX) *MailStore {
-	return &MailStore{queries: models.New(db), db: db}
+	return &MailStore{queries: models.New(db)}
 }
 
 type SendParams struct {
@@ -91,9 +90,6 @@ func (s *MailStore) Send(ctx context.Context, params SendParams) (*Mail, error) 
 	}
 
 	sent := mailFromRow(*row)
-	if err := store.Notify(ctx, s.db, store.TableAgents, sent.ToAgentID); err != nil {
-		return nil, err
-	}
 
 	return &sent, nil
 }
@@ -157,10 +153,6 @@ func (s *MailStore) Claim(ctx context.Context, toAgentID string, limit int32) ([
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to claim the mail for agent %q: %w", toAgentID, err)
-	}
-
-	if err := store.Notify(ctx, s.db, store.TableAgents, toAgentID); err != nil {
-		return nil, err
 	}
 
 	claimed := xslice.Map(rows, func(row *models.Mail) Mail {
@@ -234,6 +226,35 @@ func (s *MailStore) ListByID(ctx context.Context, ids []string) ([]Mail, error) 
 	}), nil
 }
 
+// ListUnclaimed is every piece of mail no recipient has taken yet, expired or not.
+func (s *MailStore) ListUnclaimed(ctx context.Context) ([]Mail, error) {
+	rows, err := s.queries.SnapshotMail(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the unclaimed mail: %w", err)
+	}
+
+	return xslice.Map(rows, func(row *models.Mail) Mail {
+		return mailFromRow(*row)
+	}), nil
+}
+
+// ListByKey returns whichever of the given ids hold mail no recipient has taken yet.
+func (s *MailStore) ListByKey(ctx context.Context, ids []string) ([]Mail, error) {
+	storable := store.KeepIDs(ids)
+	if len(storable) == 0 {
+		return nil, nil
+	}
+
+	rows, err := s.queries.ListMailByKey(ctx, storable)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list %d unclaimed mail: %w", len(storable), err)
+	}
+
+	return xslice.Map(rows, func(row *models.Mail) Mail {
+		return mailFromRow(*row)
+	}), nil
+}
+
 // Delete permanently removes mail by id without checking that every id holds any.
 func (s *MailStore) Delete(ctx context.Context, ids []string) error {
 	storable := store.KeepIDs(ids)
@@ -241,12 +262,11 @@ func (s *MailStore) Delete(ctx context.Context, ids []string) error {
 		return nil
 	}
 
-	recipients, err := s.queries.DeleteMailByID(ctx, storable)
-	if err != nil {
+	if err := s.queries.DeleteMailByID(ctx, storable); err != nil {
 		return fmt.Errorf("failed to delete %d mail: %w", len(storable), err)
 	}
 
-	return store.Notify(ctx, s.db, store.TableAgents, recipients...)
+	return nil
 }
 
 // CountExchanged is how much plain mail two agents have written to each other, in either
@@ -302,10 +322,6 @@ func (s *MailStore) ListExpired(ctx context.Context, toAgentID string) ([]Mail, 
 	rows, err := s.queries.ReportExpiredMail(ctx, toAgentID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to report the expired mail for agent %q: %w", toAgentID, err)
-	}
-
-	if err := store.Notify(ctx, s.db, store.TableAgents, toAgentID); err != nil {
-		return nil, err
 	}
 
 	return xslice.Map(rows, func(row *models.Mail) Mail {

@@ -387,27 +387,67 @@ WHERE
 ORDER BY
     p.opened_at DESC;
 
--- name: ListLiveAgentsOnRepositories :many
+-- name: SnapshotPullRequests :many
 SELECT
-    id
+    p.*
 FROM
-    agents
+    pull_requests p
 WHERE
-    archived_at IS NULL
-    AND repository_url = ANY (@urls::text[])
+    EXISTS (
+        SELECT
+            1
+        FROM
+            agents a
+        WHERE
+            a.archived_at IS NULL
+            AND a.deleting_at IS NULL
+            AND a.repository_url = p.repository_url
+            AND a.repository_url = p.head_repository_url
+            AND a.branch = p.head_branch)
 ORDER BY
-    id;
+    p.id;
 
--- name: ListLiveAgentsOfPullRequest :many
+-- name: ListPullRequestsByKey :many
 SELECT
-    a.id
+    p.*
 FROM
-    agents a
-    JOIN pull_requests p ON p.repository_url = a.repository_url
-        AND p.head_repository_url = a.repository_url
-        AND p.head_branch = a.branch
+    pull_requests p
 WHERE
-    p.id = @id
-    AND a.archived_at IS NULL
+    p.id = ANY (@ids::uuid[])
+    AND EXISTS (
+        SELECT
+            1
+        FROM
+            agents a
+        WHERE
+            a.archived_at IS NULL
+            AND a.deleting_at IS NULL
+            AND a.repository_url = p.repository_url
+            AND a.repository_url = p.head_repository_url
+            AND a.branch = p.head_branch)
 ORDER BY
-    a.id;
+    p.id;
+
+-- name: ListPullRequestsPage :many
+SELECT
+    p.*
+FROM
+    pull_requests p
+WHERE
+    p.repository_url = @repository_url
+    AND (@head_branch::text = ''
+        OR p.head_branch = @head_branch::text)
+    AND (sqlc.narg('cursor_id')::uuid IS NULL
+        OR ((p.merged_at IS NOT NULL
+                OR p.closed_at IS NOT NULL) > @cursor_finished::boolean)
+        OR ((p.merged_at IS NOT NULL
+                OR p.closed_at IS NOT NULL) = @cursor_finished::boolean
+            AND (p.opened_at < @cursor_opened_at::timestamptz
+                OR (p.opened_at = @cursor_opened_at::timestamptz
+                    AND p.id < sqlc.narg('cursor_id')))))
+ORDER BY
+    (p.merged_at IS NOT NULL
+        OR p.closed_at IS NOT NULL),
+    p.opened_at DESC,
+    p.id DESC
+LIMIT @lim;

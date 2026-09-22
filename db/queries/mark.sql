@@ -1,14 +1,22 @@
--- name: ListMarks :many
+-- name: SnapshotMarks :many
 SELECT
-    mark,
-    agent_id,
-    workflow_id
+    *
 FROM
     marks
 ORDER BY
     mark;
 
--- name: ClearMarkConflicts :many
+-- name: ListMarksByKey :many
+SELECT
+    *
+FROM
+    marks
+WHERE
+    mark = ANY (@marks::text[])
+ORDER BY
+    mark;
+
+-- name: ClearMarkConflicts :exec
 WITH target AS (
     SELECT
         sqlc.narg(agent_id)::uuid AS agent_id,
@@ -43,10 +51,7 @@ WHERE EXISTS (
         FROM live)
 AND (marks.mark = @mark
     OR marks.agent_id = target.agent_id
-    OR marks.workflow_id = target.workflow_id)
-RETURNING
-    marks.agent_id,
-    marks.workflow_id;
+    OR marks.workflow_id = target.workflow_id);
 
 -- name: DeleteMarkForTarget :execrows
 DELETE FROM marks

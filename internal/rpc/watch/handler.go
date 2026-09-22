@@ -136,6 +136,12 @@ func renderResource(kind watch.Kind) watchv1.Resource {
 		return watchv1.Resource_RESOURCE_WORKFLOW
 	case watch.KindSchedule:
 		return watchv1.Resource_RESOURCE_SCHEDULE
+	case watch.KindMark:
+		return watchv1.Resource_RESOURCE_MARK
+	case watch.KindMail:
+		return watchv1.Resource_RESOURCE_MAIL
+	case watch.KindPullRequest:
+		return watchv1.Resource_RESOURCE_PULL_REQUEST
 	}
 
 	return watchv1.Resource_RESOURCE_UNSPECIFIED

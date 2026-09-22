@@ -42,6 +42,9 @@ const (
 	// ForgeServiceCheckForgesProcedure is the fully-qualified name of the ForgeService's CheckForges
 	// RPC.
 	ForgeServiceCheckForgesProcedure = "/forge.v1.ForgeService/CheckForges"
+	// ForgeServiceListForgePullRequestsProcedure is the fully-qualified name of the ForgeService's
+	// ListForgePullRequests RPC.
+	ForgeServiceListForgePullRequestsProcedure = "/forge.v1.ForgeService/ListForgePullRequests"
 	// ForgeServiceDisconnectForgeProcedure is the fully-qualified name of the ForgeService's
 	// DisconnectForge RPC.
 	ForgeServiceDisconnectForgeProcedure = "/forge.v1.ForgeService/DisconnectForge"
@@ -52,6 +55,7 @@ type ForgeServiceClient interface {
 	ConnectForge(context.Context, *connect.Request[v1.ConnectForgeRequest]) (*connect.Response[v1.ConnectForgeResponse], error)
 	ListForges(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListForgesResponse], error)
 	CheckForges(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.CheckForgesResponse], error)
+	ListForgePullRequests(context.Context, *connect.Request[v1.ListForgePullRequestsRequest]) (*connect.Response[v1.ListForgePullRequestsResponse], error)
 	DisconnectForge(context.Context, *connect.Request[v1.DisconnectForgeRequest]) (*connect.Response[emptypb.Empty], error)
 }
 
@@ -85,6 +89,13 @@ func NewForgeServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(forgeServiceMethods.ByName("CheckForges")),
 			connect.WithClientOptions(opts...),
 		),
+		listForgePullRequests: connect.NewClient[v1.ListForgePullRequestsRequest, v1.ListForgePullRequestsResponse](
+			httpClient,
+			baseURL+ForgeServiceListForgePullRequestsProcedure,
+			connect.WithSchema(forgeServiceMethods.ByName("ListForgePullRequests")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
 		disconnectForge: connect.NewClient[v1.DisconnectForgeRequest, emptypb.Empty](
 			httpClient,
 			baseURL+ForgeServiceDisconnectForgeProcedure,
@@ -96,10 +107,11 @@ func NewForgeServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 
 // forgeServiceClient implements ForgeServiceClient.
 type forgeServiceClient struct {
-	connectForge    *connect.Client[v1.ConnectForgeRequest, v1.ConnectForgeResponse]
-	listForges      *connect.Client[emptypb.Empty, v1.ListForgesResponse]
-	checkForges     *connect.Client[emptypb.Empty, v1.CheckForgesResponse]
-	disconnectForge *connect.Client[v1.DisconnectForgeRequest, emptypb.Empty]
+	connectForge          *connect.Client[v1.ConnectForgeRequest, v1.ConnectForgeResponse]
+	listForges            *connect.Client[emptypb.Empty, v1.ListForgesResponse]
+	checkForges           *connect.Client[emptypb.Empty, v1.CheckForgesResponse]
+	listForgePullRequests *connect.Client[v1.ListForgePullRequestsRequest, v1.ListForgePullRequestsResponse]
+	disconnectForge       *connect.Client[v1.DisconnectForgeRequest, emptypb.Empty]
 }
 
 // ConnectForge calls forge.v1.ForgeService.ConnectForge.
@@ -117,6 +129,11 @@ func (c *forgeServiceClient) CheckForges(ctx context.Context, req *connect.Reque
 	return c.checkForges.CallUnary(ctx, req)
 }
 
+// ListForgePullRequests calls forge.v1.ForgeService.ListForgePullRequests.
+func (c *forgeServiceClient) ListForgePullRequests(ctx context.Context, req *connect.Request[v1.ListForgePullRequestsRequest]) (*connect.Response[v1.ListForgePullRequestsResponse], error) {
+	return c.listForgePullRequests.CallUnary(ctx, req)
+}
+
 // DisconnectForge calls forge.v1.ForgeService.DisconnectForge.
 func (c *forgeServiceClient) DisconnectForge(ctx context.Context, req *connect.Request[v1.DisconnectForgeRequest]) (*connect.Response[emptypb.Empty], error) {
 	return c.disconnectForge.CallUnary(ctx, req)
@@ -127,6 +144,7 @@ type ForgeServiceHandler interface {
 	ConnectForge(context.Context, *connect.Request[v1.ConnectForgeRequest]) (*connect.Response[v1.ConnectForgeResponse], error)
 	ListForges(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListForgesResponse], error)
 	CheckForges(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.CheckForgesResponse], error)
+	ListForgePullRequests(context.Context, *connect.Request[v1.ListForgePullRequestsRequest]) (*connect.Response[v1.ListForgePullRequestsResponse], error)
 	DisconnectForge(context.Context, *connect.Request[v1.DisconnectForgeRequest]) (*connect.Response[emptypb.Empty], error)
 }
 
@@ -156,6 +174,13 @@ func NewForgeServiceHandler(svc ForgeServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(forgeServiceMethods.ByName("CheckForges")),
 		connect.WithHandlerOptions(opts...),
 	)
+	forgeServiceListForgePullRequestsHandler := connect.NewUnaryHandler(
+		ForgeServiceListForgePullRequestsProcedure,
+		svc.ListForgePullRequests,
+		connect.WithSchema(forgeServiceMethods.ByName("ListForgePullRequests")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
 	forgeServiceDisconnectForgeHandler := connect.NewUnaryHandler(
 		ForgeServiceDisconnectForgeProcedure,
 		svc.DisconnectForge,
@@ -170,6 +195,8 @@ func NewForgeServiceHandler(svc ForgeServiceHandler, opts ...connect.HandlerOpti
 			forgeServiceListForgesHandler.ServeHTTP(w, r)
 		case ForgeServiceCheckForgesProcedure:
 			forgeServiceCheckForgesHandler.ServeHTTP(w, r)
+		case ForgeServiceListForgePullRequestsProcedure:
+			forgeServiceListForgePullRequestsHandler.ServeHTTP(w, r)
 		case ForgeServiceDisconnectForgeProcedure:
 			forgeServiceDisconnectForgeHandler.ServeHTTP(w, r)
 		default:
@@ -191,6 +218,10 @@ func (UnimplementedForgeServiceHandler) ListForges(context.Context, *connect.Req
 
 func (UnimplementedForgeServiceHandler) CheckForges(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.CheckForgesResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("forge.v1.ForgeService.CheckForges is not implemented"))
+}
+
+func (UnimplementedForgeServiceHandler) ListForgePullRequests(context.Context, *connect.Request[v1.ListForgePullRequestsRequest]) (*connect.Response[v1.ListForgePullRequestsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("forge.v1.ForgeService.ListForgePullRequests is not implemented"))
 }
 
 func (UnimplementedForgeServiceHandler) DisconnectForge(context.Context, *connect.Request[v1.DisconnectForgeRequest]) (*connect.Response[emptypb.Empty], error) {

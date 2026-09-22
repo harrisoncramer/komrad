@@ -9,7 +9,7 @@ import (
 	"context"
 )
 
-const clearMarkConflicts = `-- name: ClearMarkConflicts :many
+const clearMarkConflicts = `-- name: ClearMarkConflicts :exec
 WITH target AS (
     SELECT
         $2::uuid AS agent_id,
@@ -45,9 +45,6 @@ WHERE EXISTS (
 AND (marks.mark = $1
     OR marks.agent_id = target.agent_id
     OR marks.workflow_id = target.workflow_id)
-RETURNING
-    marks.agent_id,
-    marks.workflow_id
 `
 
 type ClearMarkConflictsParams struct {
@@ -56,29 +53,9 @@ type ClearMarkConflictsParams struct {
 	WorkflowID *string
 }
 
-type ClearMarkConflictsRow struct {
-	AgentID    *string
-	WorkflowID *string
-}
-
-func (q *Queries) ClearMarkConflicts(ctx context.Context, arg ClearMarkConflictsParams) ([]*ClearMarkConflictsRow, error) {
-	rows, err := q.db.Query(ctx, clearMarkConflicts, arg.Mark, arg.AgentID, arg.WorkflowID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []*ClearMarkConflictsRow
-	for rows.Next() {
-		var i ClearMarkConflictsRow
-		if err := rows.Scan(&i.AgentID, &i.WorkflowID); err != nil {
-			return nil, err
-		}
-		items = append(items, &i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+func (q *Queries) ClearMarkConflicts(ctx context.Context, arg ClearMarkConflictsParams) error {
+	_, err := q.db.Exec(ctx, clearMarkConflicts, arg.Mark, arg.AgentID, arg.WorkflowID)
+	return err
 }
 
 const deleteMarkForTarget = `-- name: DeleteMarkForTarget :execrows
@@ -154,33 +131,66 @@ func (q *Queries) InsertWorkflowMark(ctx context.Context, arg InsertWorkflowMark
 	return result.RowsAffected(), nil
 }
 
-const listMarks = `-- name: ListMarks :many
+const listMarksByKey = `-- name: ListMarksByKey :many
 SELECT
-    mark,
-    agent_id,
-    workflow_id
+    mark, agent_id, workflow_id, created_at
+FROM
+    marks
+WHERE
+    mark = ANY ($1::text[])
+ORDER BY
+    mark
+`
+
+func (q *Queries) ListMarksByKey(ctx context.Context, marks []string) ([]*Mark, error) {
+	rows, err := q.db.Query(ctx, listMarksByKey, marks)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*Mark
+	for rows.Next() {
+		var i Mark
+		if err := rows.Scan(
+			&i.Mark,
+			&i.AgentID,
+			&i.WorkflowID,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const snapshotMarks = `-- name: SnapshotMarks :many
+SELECT
+    mark, agent_id, workflow_id, created_at
 FROM
     marks
 ORDER BY
     mark
 `
 
-type ListMarksRow struct {
-	Mark       string
-	AgentID    *string
-	WorkflowID *string
-}
-
-func (q *Queries) ListMarks(ctx context.Context) ([]*ListMarksRow, error) {
-	rows, err := q.db.Query(ctx, listMarks)
+func (q *Queries) SnapshotMarks(ctx context.Context) ([]*Mark, error) {
+	rows, err := q.db.Query(ctx, snapshotMarks)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []*ListMarksRow
+	var items []*Mark
 	for rows.Next() {
-		var i ListMarksRow
-		if err := rows.Scan(&i.Mark, &i.AgentID, &i.WorkflowID); err != nil {
+		var i Mark
+		if err := rows.Scan(
+			&i.Mark,
+			&i.AgentID,
+			&i.WorkflowID,
+			&i.CreatedAt,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, &i)

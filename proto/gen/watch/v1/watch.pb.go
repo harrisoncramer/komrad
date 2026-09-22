@@ -14,6 +14,7 @@ import (
 	unsafe "unsafe"
 	v1 "weave/proto/gen/agent/v1"
 	_ "weave/proto/gen/annotation/v1"
+	v13 "weave/proto/gen/pullrequest/v1"
 	v12 "weave/proto/gen/schedule/v1"
 	v11 "weave/proto/gen/workflow/v1"
 )
@@ -37,6 +38,12 @@ const (
 	Resource_RESOURCE_WORKFLOW Resource = 2
 	// A row of schedules.
 	Resource_RESOURCE_SCHEDULE Resource = 3
+	// A row of marks.
+	Resource_RESOURCE_MARK Resource = 4
+	// A row of mail.
+	Resource_RESOURCE_MAIL Resource = 5
+	// A row of pull_requests.
+	Resource_RESOURCE_PULL_REQUEST Resource = 6
 )
 
 // Enum value maps for Resource.
@@ -46,12 +53,18 @@ var (
 		1: "RESOURCE_AGENT",
 		2: "RESOURCE_WORKFLOW",
 		3: "RESOURCE_SCHEDULE",
+		4: "RESOURCE_MARK",
+		5: "RESOURCE_MAIL",
+		6: "RESOURCE_PULL_REQUEST",
 	}
 	Resource_value = map[string]int32{
-		"RESOURCE_UNSPECIFIED": 0,
-		"RESOURCE_AGENT":       1,
-		"RESOURCE_WORKFLOW":    2,
-		"RESOURCE_SCHEDULE":    3,
+		"RESOURCE_UNSPECIFIED":  0,
+		"RESOURCE_AGENT":        1,
+		"RESOURCE_WORKFLOW":     2,
+		"RESOURCE_SCHEDULE":     3,
+		"RESOURCE_MARK":         4,
+		"RESOURCE_MAIL":         5,
+		"RESOURCE_PULL_REQUEST": 6,
 	}
 )
 
@@ -297,6 +310,9 @@ type Row struct {
 	//	*Row_Agent
 	//	*Row_Workflow
 	//	*Row_Schedule
+	//	*Row_Mark
+	//	*Row_Mail
+	//	*Row_PullRequest
 	Row           isRow_Row `protobuf_oneof:"row"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -366,6 +382,33 @@ func (x *Row) GetSchedule() *v12.Schedule {
 	return nil
 }
 
+func (x *Row) GetMark() *v1.Mark {
+	if x != nil {
+		if x, ok := x.Row.(*Row_Mark); ok {
+			return x.Mark
+		}
+	}
+	return nil
+}
+
+func (x *Row) GetMail() *v1.Mail {
+	if x != nil {
+		if x, ok := x.Row.(*Row_Mail); ok {
+			return x.Mail
+		}
+	}
+	return nil
+}
+
+func (x *Row) GetPullRequest() *v13.PullRequest {
+	if x != nil {
+		if x, ok := x.Row.(*Row_PullRequest); ok {
+			return x.PullRequest
+		}
+	}
+	return nil
+}
+
 type isRow_Row interface {
 	isRow_Row()
 }
@@ -385,11 +428,32 @@ type Row_Schedule struct {
 	Schedule *v12.Schedule `protobuf:"bytes,3,opt,name=schedule,proto3,oneof"`
 }
 
+type Row_Mark struct {
+	// A mark as ListMarks renders it.
+	Mark *v1.Mark `protobuf:"bytes,4,opt,name=mark,proto3,oneof"`
+}
+
+type Row_Mail struct {
+	// A piece of mail as ListMail renders it.
+	Mail *v1.Mail `protobuf:"bytes,5,opt,name=mail,proto3,oneof"`
+}
+
+type Row_PullRequest struct {
+	// A pull request as ListPullRequests renders it.
+	PullRequest *v13.PullRequest `protobuf:"bytes,6,opt,name=pull_request,json=pullRequest,proto3,oneof"`
+}
+
 func (*Row_Agent) isRow_Row() {}
 
 func (*Row_Workflow) isRow_Row() {}
 
 func (*Row_Schedule) isRow_Row() {}
+
+func (*Row_Mark) isRow_Row() {}
+
+func (*Row_Mail) isRow_Row() {}
+
+func (*Row_PullRequest) isRow_Row() {}
 
 // Deleted names a row its watched set no longer holds, whether it was removed, archived or
 // claimed for a delete.
@@ -488,7 +552,7 @@ var File_watch_v1_watch_proto protoreflect.FileDescriptor
 
 const file_watch_v1_watch_proto_rawDesc = "" +
 	"\n" +
-	"\x14watch/v1/watch.proto\x12\bwatch.v1\x1a\x14agent/v1/agent.proto\x1a\x18annotation/v1/tool.proto\x1a\x1aschedule/v1/schedule.proto\x1a\x1aworkflow/v1/workflow.proto\"\x0e\n" +
+	"\x14watch/v1/watch.proto\x12\bwatch.v1\x1a\x14agent/v1/agent.proto\x1a\x13agent/v1/mail.proto\x1a\x18annotation/v1/tool.proto\x1a pullrequest/v1/pullrequest.proto\x1a\x1aschedule/v1/schedule.proto\x1a\x1aworkflow/v1/workflow.proto\"\x0e\n" +
 	"\fWatchRequest\"\xce\x01\n" +
 	"\n" +
 	"WatchEvent\x120\n" +
@@ -498,21 +562,27 @@ const file_watch_v1_watch_proto_rawDesc = "" +
 	"\theartbeat\x18\x04 \x01(\v2\x13.watch.v1.HeartbeatH\x00R\theartbeatB\a\n" +
 	"\x05event\"-\n" +
 	"\bSnapshot\x12!\n" +
-	"\x04rows\x18\x01 \x03(\v2\r.watch.v1.RowR\x04rows\"\x9f\x01\n" +
+	"\x04rows\x18\x01 \x03(\v2\r.watch.v1.RowR\x04rows\"\xad\x02\n" +
 	"\x03Row\x12'\n" +
 	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentH\x00R\x05agent\x123\n" +
 	"\bworkflow\x18\x02 \x01(\v2\x15.workflow.v1.WorkflowH\x00R\bworkflow\x123\n" +
-	"\bschedule\x18\x03 \x01(\v2\x15.schedule.v1.ScheduleH\x00R\bscheduleB\x05\n" +
+	"\bschedule\x18\x03 \x01(\v2\x15.schedule.v1.ScheduleH\x00R\bschedule\x12$\n" +
+	"\x04mark\x18\x04 \x01(\v2\x0e.agent.v1.MarkH\x00R\x04mark\x12$\n" +
+	"\x04mail\x18\x05 \x01(\v2\x0e.agent.v1.MailH\x00R\x04mail\x12@\n" +
+	"\fpull_request\x18\x06 \x01(\v2\x1b.pullrequest.v1.PullRequestH\x00R\vpullRequestB\x05\n" +
 	"\x03row\"K\n" +
 	"\aDeleted\x12.\n" +
 	"\bresource\x18\x01 \x01(\x0e2\x12.watch.v1.ResourceR\bresource\x12\x10\n" +
 	"\x03key\x18\x02 \x01(\tR\x03key\"\v\n" +
-	"\tHeartbeat*f\n" +
+	"\tHeartbeat*\xa7\x01\n" +
 	"\bResource\x12\x18\n" +
 	"\x14RESOURCE_UNSPECIFIED\x10\x00\x12\x12\n" +
 	"\x0eRESOURCE_AGENT\x10\x01\x12\x15\n" +
 	"\x11RESOURCE_WORKFLOW\x10\x02\x12\x15\n" +
-	"\x11RESOURCE_SCHEDULE\x10\x032\x93\x01\n" +
+	"\x11RESOURCE_SCHEDULE\x10\x03\x12\x11\n" +
+	"\rRESOURCE_MARK\x10\x04\x12\x11\n" +
+	"\rRESOURCE_MAIL\x10\x05\x12\x19\n" +
+	"\x15RESOURCE_PULL_REQUEST\x10\x062\x93\x01\n" +
 	"\fWatchService\x12\x82\x01\n" +
 	"\x05Watch\x12\x16.watch.v1.WatchRequest\x1a\x14.watch.v1.WatchEvent\"I\x9a\xb5\x18B:@a stream the panel holds open; a model or a script lists instead\x90\x02\x010\x01B\"Z weave/proto/gen/watch/v1;watchv1b\x06proto3"
 
@@ -531,16 +601,19 @@ func file_watch_v1_watch_proto_rawDescGZIP() []byte {
 var file_watch_v1_watch_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_watch_v1_watch_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_watch_v1_watch_proto_goTypes = []any{
-	(Resource)(0),        // 0: watch.v1.Resource
-	(*WatchRequest)(nil), // 1: watch.v1.WatchRequest
-	(*WatchEvent)(nil),   // 2: watch.v1.WatchEvent
-	(*Snapshot)(nil),     // 3: watch.v1.Snapshot
-	(*Row)(nil),          // 4: watch.v1.Row
-	(*Deleted)(nil),      // 5: watch.v1.Deleted
-	(*Heartbeat)(nil),    // 6: watch.v1.Heartbeat
-	(*v1.Agent)(nil),     // 7: agent.v1.Agent
-	(*v11.Workflow)(nil), // 8: workflow.v1.Workflow
-	(*v12.Schedule)(nil), // 9: schedule.v1.Schedule
+	(Resource)(0),           // 0: watch.v1.Resource
+	(*WatchRequest)(nil),    // 1: watch.v1.WatchRequest
+	(*WatchEvent)(nil),      // 2: watch.v1.WatchEvent
+	(*Snapshot)(nil),        // 3: watch.v1.Snapshot
+	(*Row)(nil),             // 4: watch.v1.Row
+	(*Deleted)(nil),         // 5: watch.v1.Deleted
+	(*Heartbeat)(nil),       // 6: watch.v1.Heartbeat
+	(*v1.Agent)(nil),        // 7: agent.v1.Agent
+	(*v11.Workflow)(nil),    // 8: workflow.v1.Workflow
+	(*v12.Schedule)(nil),    // 9: schedule.v1.Schedule
+	(*v1.Mark)(nil),         // 10: agent.v1.Mark
+	(*v1.Mail)(nil),         // 11: agent.v1.Mail
+	(*v13.PullRequest)(nil), // 12: pullrequest.v1.PullRequest
 }
 var file_watch_v1_watch_proto_depIdxs = []int32{
 	3,  // 0: watch.v1.WatchEvent.snapshot:type_name -> watch.v1.Snapshot
@@ -551,14 +624,17 @@ var file_watch_v1_watch_proto_depIdxs = []int32{
 	7,  // 5: watch.v1.Row.agent:type_name -> agent.v1.Agent
 	8,  // 6: watch.v1.Row.workflow:type_name -> workflow.v1.Workflow
 	9,  // 7: watch.v1.Row.schedule:type_name -> schedule.v1.Schedule
-	0,  // 8: watch.v1.Deleted.resource:type_name -> watch.v1.Resource
-	1,  // 9: watch.v1.WatchService.Watch:input_type -> watch.v1.WatchRequest
-	2,  // 10: watch.v1.WatchService.Watch:output_type -> watch.v1.WatchEvent
-	10, // [10:11] is the sub-list for method output_type
-	9,  // [9:10] is the sub-list for method input_type
-	9,  // [9:9] is the sub-list for extension type_name
-	9,  // [9:9] is the sub-list for extension extendee
-	0,  // [0:9] is the sub-list for field type_name
+	10, // 8: watch.v1.Row.mark:type_name -> agent.v1.Mark
+	11, // 9: watch.v1.Row.mail:type_name -> agent.v1.Mail
+	12, // 10: watch.v1.Row.pull_request:type_name -> pullrequest.v1.PullRequest
+	0,  // 11: watch.v1.Deleted.resource:type_name -> watch.v1.Resource
+	1,  // 12: watch.v1.WatchService.Watch:input_type -> watch.v1.WatchRequest
+	2,  // 13: watch.v1.WatchService.Watch:output_type -> watch.v1.WatchEvent
+	13, // [13:14] is the sub-list for method output_type
+	12, // [12:13] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_watch_v1_watch_proto_init() }
@@ -576,6 +652,9 @@ func file_watch_v1_watch_proto_init() {
 		(*Row_Agent)(nil),
 		(*Row_Workflow)(nil),
 		(*Row_Schedule)(nil),
+		(*Row_Mark)(nil),
+		(*Row_Mail)(nil),
+		(*Row_PullRequest)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{

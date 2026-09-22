@@ -75,6 +75,35 @@ message Agent {
       {
         table: "review_rounds"
         column: "agent_id"
+      },
+      {
+        table: "marks"
+        column: "agent_id"
+      },
+      {
+        table: "mail"
+        column: "to_agent_id"
+        ignores: ["updated_at"]
+      },
+      {
+        table: "pull_requests"
+        lookup: "branch"
+        via: "head_branch"
+        where: "archived_at IS NULL"
+        ignores: ["checks_read_at"]
+      },
+      {
+        table: "pull_request_syncs"
+        lookup: "repository_url"
+        via: "repository_url"
+        where: "archived_at IS NULL"
+        ignores: [
+          "read_at",
+          "calls",
+          "listed_at",
+          "sweep_cursor",
+          "sweep_newest"
+        ]
       }
     ]
   };
@@ -411,6 +440,26 @@ message RebaseWorktreeResponse {
   int32 replay_commits = 8;
 }
 
+// Mark is one letter a person types to jump to a row, held by one agent or one workflow.
+message Mark {
+  option (annotation.v1.resource) = {
+    table: "marks"
+    key: "mark"
+  };
+
+  // The letter.
+  string mark = 1;
+  // The agent it jumps to, unset when it is on a workflow.
+  optional string agent_id = 2;
+  // The workflow it jumps to, unset when it is on an agent.
+  optional string workflow_id = 3;
+}
+
+message ListMarksResponse {
+  // Every mark, by letter.
+  repeated Mark marks = 1;
+}
+
 message SetMarkRequest {
   // The row the letter goes on, which is an agent or a workflow and never both.
   oneof target {
@@ -658,6 +707,15 @@ service AgentService {
       name: "adopt"
       description: "Put an agent on work that already exists, naming the branch it is on. A pull request URL or number is refused as invalid_argument, so read the branch off it and name that. The workflow decides the repository, and it has to be one whose agents get a worktree of their own. Weave works out where the agent runs: a worktree on that branch when nothing holds it, or the checkout already holding it when a human made one by hand. The branch is the human's, so nothing here creates it, resets it, or deletes it afterwards. A branch that already has an agent on it is refused as already_exists naming that agent, since git could not check it out twice anyway, so read the refusal rather than retrying. Each call otherwise spawns another agent, and only a repeat carrying the same idempotency_key is answered with the agent it already launched."
       destructive: false
+    };
+  }
+  rpc ListMarks(google.protobuf.Empty) returns (ListMarksResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: true
+      name: "list_marks"
+      description: "List every mark, by letter, with the agent or the workflow each one jumps to. A mark is the shorthand a person types in the panel to reach a row, and a letter belongs to one row at a time."
     };
   }
   rpc SetMark(SetMarkRequest) returns (google.protobuf.Empty) {

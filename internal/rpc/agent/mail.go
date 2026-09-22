@@ -7,6 +7,7 @@ import (
 	"weave/internal/caller"
 	"weave/internal/fail"
 	"weave/internal/mail"
+	"weave/internal/rpc/render"
 	"weave/internal/rpcerr"
 	"weave/lib/pagination"
 	"weave/lib/xptr"
@@ -50,7 +51,7 @@ func (s *Handler) SendMail(ctx context.Context, req *agentv1.SendMailRequest) (*
 	}
 
 	return &agentv1.SendMailResponse{
-		Mail:    renderMail(*sent),
+		Mail:    render.Mail(*sent),
 		Warning: s.buildDormantWarning(*recipient),
 	}, nil
 }
@@ -78,7 +79,7 @@ func (s *Handler) ReadMail(ctx context.Context, req *agentv1.ReadMailRequest) (*
 	}
 
 	return &agentv1.ReadMailResponse{
-		Mail: xslice.Map(claimed, renderMail),
+		Mail: xslice.Map(claimed, render.Mail),
 	}, nil
 }
 

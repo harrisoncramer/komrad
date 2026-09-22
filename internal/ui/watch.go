@@ -65,7 +65,10 @@ func (l *listing) apply(event *watchv1.WatchEvent) {
 			l.dropWorkflow(row.Deleted.GetKey())
 		case watchv1.Resource_RESOURCE_SCHEDULE:
 			l.dropSchedule(row.Deleted.GetKey())
-		case watchv1.Resource_RESOURCE_UNSPECIFIED:
+		case watchv1.Resource_RESOURCE_UNSPECIFIED,
+			watchv1.Resource_RESOURCE_MARK,
+			watchv1.Resource_RESOURCE_MAIL,
+			watchv1.Resource_RESOURCE_PULL_REQUEST:
 		}
 	case *watchv1.WatchEvent_Heartbeat, nil:
 	}
@@ -80,7 +83,7 @@ func (l *listing) put(row *watchv1.Row) {
 		l.putWorkflow(row.Workflow)
 	case *watchv1.Row_Schedule:
 		l.putSchedule(row.Schedule)
-	case nil:
+	case *watchv1.Row_Mark, *watchv1.Row_Mail, *watchv1.Row_PullRequest, nil:
 	}
 }
 

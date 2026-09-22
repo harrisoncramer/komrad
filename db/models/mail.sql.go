@@ -120,31 +120,14 @@ func (q *Queries) CountPendingMail(ctx context.Context, toAgentID string) (int64
 	return count, err
 }
 
-const deleteMailByID = `-- name: DeleteMailByID :many
+const deleteMailByID = `-- name: DeleteMailByID :exec
 DELETE FROM mail
 WHERE id = ANY ($1::uuid[])
-RETURNING
-    to_agent_id
 `
 
-func (q *Queries) DeleteMailByID(ctx context.Context, ids []string) ([]string, error) {
-	rows, err := q.db.Query(ctx, deleteMailByID, ids)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []string
-	for rows.Next() {
-		var to_agent_id string
-		if err := rows.Scan(&to_agent_id); err != nil {
-			return nil, err
-		}
-		items = append(items, to_agent_id)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+func (q *Queries) DeleteMailByID(ctx context.Context, ids []string) error {
+	_, err := q.db.Exec(ctx, deleteMailByID, ids)
+	return err
 }
 
 const getMail = `-- name: GetMail :one
@@ -295,6 +278,52 @@ WHERE
 
 func (q *Queries) ListMailByID(ctx context.Context, ids []string) ([]*Mail, error) {
 	rows, err := q.db.Query(ctx, listMailByID, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*Mail
+	for rows.Next() {
+		var i Mail
+		if err := rows.Scan(
+			&i.ID,
+			&i.FromAgentID,
+			&i.FromName,
+			&i.ToAgentID,
+			&i.Body,
+			&i.ReplyTo,
+			&i.ClaimedAt,
+			&i.ReportedAt,
+			&i.ExpiresAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Kind,
+			&i.AboutAgentID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listMailByKey = `-- name: ListMailByKey :many
+SELECT
+    id, from_agent_id, from_name, to_agent_id, body, reply_to, claimed_at, reported_at, expires_at, created_at, updated_at, kind, about_agent_id
+FROM
+    mail m
+WHERE
+    m.id = ANY ($1::uuid[])
+    AND m.claimed_at IS NULL
+ORDER BY
+    m.id
+`
+
+func (q *Queries) ListMailByKey(ctx context.Context, ids []string) ([]*Mail, error) {
+	rows, err := q.db.Query(ctx, listMailByKey, ids)
 	if err != nil {
 		return nil, err
 	}
@@ -497,6 +526,51 @@ WHERE
 
 func (q *Queries) ReportExpiredMail(ctx context.Context, toAgentID string) ([]*Mail, error) {
 	rows, err := q.db.Query(ctx, reportExpiredMail, toAgentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*Mail
+	for rows.Next() {
+		var i Mail
+		if err := rows.Scan(
+			&i.ID,
+			&i.FromAgentID,
+			&i.FromName,
+			&i.ToAgentID,
+			&i.Body,
+			&i.ReplyTo,
+			&i.ClaimedAt,
+			&i.ReportedAt,
+			&i.ExpiresAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Kind,
+			&i.AboutAgentID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const snapshotMail = `-- name: SnapshotMail :many
+SELECT
+    id, from_agent_id, from_name, to_agent_id, body, reply_to, claimed_at, reported_at, expires_at, created_at, updated_at, kind, about_agent_id
+FROM
+    mail m
+WHERE
+    m.claimed_at IS NULL
+ORDER BY
+    m.id
+`
+
+func (q *Queries) SnapshotMail(ctx context.Context) ([]*Mail, error) {
+	rows, err := q.db.Query(ctx, snapshotMail)
 	if err != nil {
 		return nil, err
 	}

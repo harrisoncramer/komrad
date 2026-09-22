@@ -588,15 +588,13 @@ const answerNotice = "weave: worker answered your review, read the threads with 
 
 type fixture struct {
 	*MailStore
-	url      string
 	agents   *agentstore.AgentStore
 	workflow string
 }
 
 func open(t *testing.T) *fixture {
 	t.Helper()
-	url := dbtest.URL(t)
-	p, err := store.Open(t.Context(), url)
+	p, err := store.Open(t.Context(), dbtest.URL(t))
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = p.Close() })
 
@@ -606,7 +604,6 @@ func open(t *testing.T) *fixture {
 
 	return &fixture{
 		MailStore: NewMailStore(p.GetDB()),
-		url:       url,
 		agents:    agentstore.NewAgentStore(p.GetDB()),
 		workflow:  created.ID,
 	}
