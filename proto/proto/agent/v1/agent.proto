@@ -186,6 +186,24 @@ message Agent {
   string held_at = 35;
   // Where the pull request opened from its branch stands.
   PullRequestStanding pull_request = 38;
+  // Whether the pull request sync has swept its repository, which is what tells an agent with
+  // no pull request from one whose repository has not been read.
+  bool repository_read = 39;
+}
+
+// AgentRow is an agent with what is drawn beside it: its mark, its waiting mail and the pull
+// requests on its branch, assembled from those resources.
+message AgentRow {
+  // The agent itself.
+  Agent agent = 1;
+  // The letter a person jumps to it by in the panel, if it holds one.
+  optional string mark = 2;
+  // Whether mail is waiting that it has not taken.
+  bool unread_mail = 3;
+  // Where the pull request opened from its branch stands.
+  PullRequestStanding pull_request = 4;
+  // Every pull request opened from its branch, the current one first.
+  repeated pullrequest.v1.PullRequest pull_requests = 5;
 }
 
 message PullRequestStanding {
