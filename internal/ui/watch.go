@@ -40,7 +40,7 @@ func watchRows(ctx context.Context, watches watchv1connect.WatchServiceClient, p
 func (m *model) applyWatch(batch client.WatchBatch) tea.Cmd {
 	var arrived []string
 	listed := m.withListing(func(l *listing) {
-		for _, event := range batch.Events {
+		for _, event := range batch {
 			if _, snapshot := event.GetEvent().(*watchv1.WatchEvent_Snapshot); snapshot {
 				m.reportUnreachable(nil)
 			}

@@ -43,13 +43,13 @@ func listedFromService(t *testing.T, m model) model {
 	schedules, err := m.api.schedules.ListSchedules(ctx, connect.NewRequest(&schedulev1.ListSchedulesRequest{View: viewv1.View_VIEW_FULL}))
 	require.NoError(t, err)
 
-	m.applyWatch(client.WatchBatch{Events: []*watchv1.WatchEvent{
+	m.applyWatch(client.WatchBatch{
 		{Event: &watchv1.WatchEvent_Snapshot{Snapshot: &watchv1.Snapshot{Rows: slices.Concat(
 			xslice.Map(agents.Msg.GetAgents(), func(row *agentv1.AgentRow) *watchv1.Row { return agentRowOf(row.GetAgent()) }),
 			xslice.Map(workflows.Msg.GetWorkflows(), workflowRowOf),
 			xslice.Map(schedules.Msg.GetSchedules(), scheduleRowOf),
 		)}}},
-	}})
+	})
 
 	return settle(t, m, m.listCmd())
 }

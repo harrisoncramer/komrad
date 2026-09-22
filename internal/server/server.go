@@ -170,11 +170,6 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 	return srv, nil
 }
 
-// CloseWatch ends every watch stream.
-func (s *Server) CloseWatch() {
-	s.Watch.Close()
-}
-
 // mailConfig reads the mail settings fresh on every send, and fails rather than falling back to
 // defaults.
 type mailConfig func() (*config.Config, error)

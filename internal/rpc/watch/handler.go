@@ -19,13 +19,9 @@ const HeartbeatAfter = 15 * time.Second
 // ErrWatchClosed is a watch asked for while the service is stopping.
 var ErrWatchClosed = fail.Precondition("the service is stopping, so no watch can be opened")
 
-type subscriber interface {
-	Subscribe(ctx context.Context) (*watch.Subscription, error)
-}
-
 // NewHandlerParams is what the handler is built over.
 type NewHandlerParams struct {
-	Broker subscriber
+	Broker *watch.Broker
 	// HeartbeatAfter overrides how long a stream stays silent before a heartbeat, HeartbeatAfter
 	// when zero.
 	HeartbeatAfter time.Duration
@@ -33,7 +29,7 @@ type NewHandlerParams struct {
 
 // Handler serves the watch stream off the broker.
 type Handler struct {
-	broker         subscriber
+	broker         *watch.Broker
 	heartbeatAfter time.Duration
 }
 
