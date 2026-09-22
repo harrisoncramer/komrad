@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"weave/internal/assemble"
-	"weave/internal/resource"
+	"weave/internal/watch"
 	watchv1 "weave/proto/gen/watch/v1"
 
 	"github.com/stretchr/testify/assert"
@@ -20,7 +20,7 @@ import (
 func TestWorldIsTheResources(t *testing.T) {
 	t.Parallel()
 
-	resources := resource.All()
+	resources := watch.AllResources()
 	require.NotEmpty(t, resources)
 	assert.Equal(t, len(resources), reflect.TypeFor[assemble.World]().NumField(), "World has a map per resource")
 

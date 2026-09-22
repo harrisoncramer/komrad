@@ -1,5 +1,3 @@
-// Package watch serves the stream of row changes the panel holds open, and renders the rows the
-// broker reads back for it.
 package watch
 
 import (
@@ -10,7 +8,6 @@ import (
 	"time"
 
 	"weave/internal/rpc/render"
-	"weave/internal/watch"
 	"weave/lib/xslice"
 	watchv1 "weave/proto/gen/watch/v1"
 
@@ -41,8 +38,8 @@ type NewRowsParams struct {
 	Now func() time.Time
 }
 
-// Rows renders the rows the broker names the way the list RPCs do, a tombstone for a key the
-// watched set no longer holds, with one arm per resource.
+// Rows renders the rows a notification names the way the list RPCs do, a tombstone for a key
+// the watched set no longer holds, with one arm per resource.
 type Rows struct {
 	arms map[watchv1.Resource]arm
 }
@@ -104,7 +101,7 @@ func NewRows(params NewRowsParams) *Rows {
 // it holds.
 type arm struct {
 	read     func(ctx context.Context, keys []string) (map[string]*watchv1.Row, error)
-	snapshot func(ctx context.Context) ([]*watchv1.Row, error)
+	snapshot func(ctx context.Context) ([]Change, error)
 }
 
 // newArm is one resource's arm over its store, its key and its renderer.
@@ -123,21 +120,23 @@ func newArm[R any](store reader[R], key func(R) string, draw func(R) *watchv1.Ro
 
 			return held, nil
 		},
-		snapshot: func(ctx context.Context) ([]*watchv1.Row, error) {
+		snapshot: func(ctx context.Context) ([]Change, error) {
 			rows, err := store.List(ctx)
 			if err != nil {
 				return nil, err
 			}
 
-			return xslice.Map(rows, draw), nil
+			return xslice.Map(rows, func(row R) Change {
+				return Change{Key: key(row), Row: draw(row)}
+			}), nil
 		},
 	}
 }
 
 // Read renders each touched key as its row, or as a tombstone when its watched set no longer
 // holds it, resource by resource.
-func (r *Rows) Read(ctx context.Context, touched watch.Touched) ([]watch.Change, error) {
-	var changes []watch.Change
+func (r *Rows) Read(ctx context.Context, touched Touched) ([]Change, error) {
+	var changes []Change
 	for _, res := range slices.Sorted(maps.Keys(touched)) {
 		keys := touched[res]
 		if len(keys) == 0 {
@@ -149,8 +148,8 @@ func (r *Rows) Read(ctx context.Context, touched watch.Touched) ([]watch.Change,
 			return nil, err
 		}
 
-		changes = append(changes, xslice.Map(keys, func(key string) watch.Change {
-			return watch.Change{Resource: res, Key: key, Row: held[key]}
+		changes = append(changes, xslice.Map(keys, func(key string) Change {
+			return Change{Resource: res, Key: key, Row: held[key]}
 		})...)
 	}
 
@@ -158,15 +157,19 @@ func (r *Rows) Read(ctx context.Context, touched watch.Touched) ([]watch.Change,
 }
 
 // Snapshot renders every row the six watched sets hold, one resource after another.
-func (r *Rows) Snapshot(ctx context.Context) ([]*watchv1.Row, error) {
-	var rows []*watchv1.Row
+func (r *Rows) Snapshot(ctx context.Context) ([]Change, error) {
+	var changes []Change
 	for _, res := range slices.Sorted(maps.Keys(r.arms)) {
 		drawn, err := r.arms[res].snapshot(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to snapshot %s: %w", res, err)
 		}
-		rows = append(rows, drawn...)
+
+		for _, change := range drawn {
+			change.Resource = res
+			changes = append(changes, change)
+		}
 	}
 
-	return rows, nil
+	return changes, nil
 }

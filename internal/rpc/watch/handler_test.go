@@ -16,8 +16,16 @@ import (
 	"weave/internal/interceptors"
 	"weave/internal/logging"
 	"weave/internal/watch"
-	agentv1 "weave/proto/gen/agent/v1"
+	"weave/lib/xslice"
 	watchv1 "weave/proto/gen/watch/v1"
+
+	agentstore "weave/internal/store/agent"
+	mailstore "weave/internal/store/mail"
+	markstore "weave/internal/store/mark"
+	pullrequeststore "weave/internal/store/pullrequest"
+	rowstore "weave/internal/store/row"
+	schedulestore "weave/internal/store/schedule"
+	workflowstore "weave/internal/store/workflow"
 	"weave/proto/gen/watch/v1/watchv1connect"
 	watchv1weave "weave/proto/gen/watch/v1/watchv1weave"
 
@@ -27,27 +35,46 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type scriptedReader struct {
-	snapshot    []*watchv1.Row
-	snapshotErr error
+// agentStore answers for whichever agents a test names, and for none of the other resources,
+// a key prefixed gone- being one that has left the listing.
+type agentStore struct {
+	ids     []string
+	listErr error
 }
 
-func (r scriptedReader) Read(_ context.Context, touched watch.Touched) ([]watch.Change, error) {
-	var changes []watch.Change
-	for _, id := range touched[watchv1.Resource_RESOURCE_AGENT] {
-		if strings.HasPrefix(id, "gone-") {
-			changes = append(changes, watch.Change{Resource: watchv1.Resource_RESOURCE_AGENT, Key: id})
-
-			continue
-		}
-		changes = append(changes, watch.Change{Resource: watchv1.Resource_RESOURCE_AGENT, Key: id, Row: &watchv1.Row{Row: &watchv1.Row_Agent{Agent: &agentv1.Agent{Id: id}}}})
+func (s agentStore) List(context.Context) ([]rowstore.Row, error) {
+	if s.listErr != nil {
+		return nil, s.listErr
 	}
 
-	return changes, nil
+	return xslice.Map(s.ids, func(id string) rowstore.Row {
+		return rowstore.Row{Agent: agentstore.Agent{ID: id}}
+	}), nil
 }
 
-func (r scriptedReader) Snapshot(context.Context) ([]*watchv1.Row, error) {
-	return r.snapshot, r.snapshotErr
+func (s agentStore) ListByKey(ctx context.Context, keys []string) ([]rowstore.Row, error) {
+	kept := xslice.Filter(keys, func(key string) bool { return !strings.HasPrefix(key, "gone-") })
+
+	return agentStore{ids: kept}.List(ctx)
+}
+
+// emptyStore is a resource no test here writes to.
+type emptyStore[R any] struct{}
+
+func (emptyStore[R]) List(context.Context) ([]R, error) { return nil, nil }
+
+func (emptyStore[R]) ListByKey(context.Context, []string) ([]R, error) { return nil, nil }
+
+// newRows is the read-back the broker renders through, over the agents a test names.
+func newRows(agents agentStore) *watch.Rows {
+	return watch.NewRows(watch.NewRowsParams{
+		Agents:       agents,
+		Workflows:    emptyStore[workflowstore.Workflow]{},
+		Schedules:    emptyStore[schedulestore.Schedule]{},
+		Marks:        emptyStore[markstore.Mark]{},
+		Mail:         emptyStore[mailstore.Mail]{},
+		PullRequests: emptyStore[pullrequeststore.PullRequest]{},
+	})
 }
 
 // served is a watch service on a test server over a database of the test's own, with the log
@@ -59,7 +86,7 @@ type served struct {
 	log    *bytes.Buffer
 }
 
-func serve(t *testing.T, reader watch.Reader, heartbeat time.Duration) *served {
+func serve(t *testing.T, agents agentStore, heartbeat time.Duration) *served {
 	t.Helper()
 
 	pool, err := pgxpool.New(t.Context(), dbtest.URL(t))
@@ -67,7 +94,7 @@ func serve(t *testing.T, reader watch.Reader, heartbeat time.Duration) *served {
 	t.Cleanup(pool.Close)
 
 	broker := watch.NewBroker(watch.NewBrokerParams{})
-	require.NoError(t, broker.Start(pool, reader))
+	require.NoError(t, broker.Start(pool, newRows(agents)))
 	t.Cleanup(broker.Close)
 
 	var out bytes.Buffer
@@ -109,9 +136,7 @@ func receive(t *testing.T, stream *connect.ServerStreamForClient[watchv1.WatchEv
 // TestWatchSendsTheSnapshotThenChanges pins the shape of the stream end to end, through the
 // generated adapter and both interceptors.
 func TestWatchSendsTheSnapshotThenChanges(t *testing.T) {
-	s := serve(t, scriptedReader{snapshot: []*watchv1.Row{
-		{Row: &watchv1.Row_Agent{Agent: &agentv1.Agent{Id: "a1"}}},
-	}}, time.Hour)
+	s := serve(t, agentStore{ids: []string{"a1"}}, time.Hour)
 
 	stream, err := s.client.Watch(t.Context(), connect.NewRequest(&watchv1.WatchRequest{}))
 	require.NoError(t, err)
@@ -135,7 +160,7 @@ func TestWatchSendsTheSnapshotThenChanges(t *testing.T) {
 
 // TestWatchHeartbeatsWhileNothingChanges pins the heartbeat.
 func TestWatchHeartbeatsWhileNothingChanges(t *testing.T) {
-	s := serve(t, scriptedReader{}, 10*time.Millisecond)
+	s := serve(t, agentStore{}, 10*time.Millisecond)
 
 	stream, err := s.client.Watch(t.Context(), connect.NewRequest(&watchv1.WatchRequest{}))
 	require.NoError(t, err)
@@ -150,7 +175,7 @@ func TestWatchHeartbeatsWhileNothingChanges(t *testing.T) {
 // TestWatchEndsWhenTheBrokerCloses pins that stopping the service ends the stream cleanly, and
 // that the close is logged with what the stream sent.
 func TestWatchEndsWhenTheBrokerCloses(t *testing.T) {
-	s := serve(t, scriptedReader{}, time.Hour)
+	s := serve(t, agentStore{}, time.Hour)
 
 	stream, err := s.client.Watch(t.Context(), connect.NewRequest(&watchv1.WatchRequest{}))
 	require.NoError(t, err)
@@ -168,7 +193,7 @@ func TestWatchEndsWhenTheBrokerCloses(t *testing.T) {
 
 // TestWatchRefusedOnceTheBrokerIsClosed pins the refusal a watch gets while the service stops.
 func TestWatchRefusedOnceTheBrokerIsClosed(t *testing.T) {
-	s := serve(t, scriptedReader{}, time.Hour)
+	s := serve(t, agentStore{}, time.Hour)
 	s.broker.Close()
 
 	stream, err := s.client.Watch(t.Context(), connect.NewRequest(&watchv1.WatchRequest{}))
@@ -181,7 +206,7 @@ func TestWatchRefusedOnceTheBrokerIsClosed(t *testing.T) {
 // TestWatchRefusedWhenTheSnapshotFails pins that a snapshot the store could not answer is a
 // failure of its own kind rather than the service stopping.
 func TestWatchRefusedWhenTheSnapshotFails(t *testing.T) {
-	s := serve(t, scriptedReader{snapshotErr: errors.New("no database")}, time.Hour)
+	s := serve(t, agentStore{listErr: errors.New("no database")}, time.Hour)
 
 	stream, err := s.client.Watch(t.Context(), connect.NewRequest(&watchv1.WatchRequest{}))
 	require.NoError(t, err)

@@ -1,19 +1,36 @@
-// Package resource reads the resource option off weave's own proto descriptors, which is the
-// one list of the tables the watch carries.
-package resource
+package watch
 
 import (
 	"slices"
 	"strings"
 
 	annotationv1 "weave/proto/gen/annotation/v1"
-	_ "weave/proto/gen/watch/v1" // registers every resource message, each being an arm of Row
+	watchv1 "weave/proto/gen/watch/v1"
 
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
 	"google.golang.org/protobuf/types/descriptorpb"
 )
+
+// resources is the resource each table a notification names is the rows of.
+var resources = resourcesByTable()
+
+// resourcesByTable reads the annotated resources into the table each one is keyed by on the
+// wire.
+func resourcesByTable() map[string]watchv1.Resource {
+	byTable := map[string]watchv1.Resource{}
+	for _, r := range AllResources() {
+		number, ok := watchv1.Resource_value[r.EnumValue()]
+		if !ok {
+			continue
+		}
+
+		byTable[r.Option.GetTable()] = watchv1.Resource(number)
+	}
+
+	return byTable
+}
 
 // Resource is one message declared as a row of a table.
 type Resource struct {
@@ -45,14 +62,14 @@ func (r Resource) EnumValue() string {
 	return "RESOURCE_" + strings.ToUpper(snake(r.Name()))
 }
 
-// All is every message carrying the option, by table.
-func All() []Resource {
+// AllResources is every message carrying the option, ordered by table.
+func AllResources() []Resource {
 	var all []Resource
 
 	protoregistry.GlobalFiles.RangeFiles(func(file protoreflect.FileDescriptor) bool {
 		messages := file.Messages()
 		for i := range messages.Len() {
-			if option := of(messages.Get(i)); option != nil {
+			if option := optionOf(messages.Get(i)); option != nil {
 				all = append(all, Resource{Message: messages.Get(i), Option: option})
 			}
 		}
@@ -67,8 +84,8 @@ func All() []Resource {
 	return all
 }
 
-// of is the option a message carries, nil when it carries none.
-func of(message protoreflect.MessageDescriptor) *annotationv1.Resource {
+// optionOf is the option a message carries, nil when it carries none.
+func optionOf(message protoreflect.MessageDescriptor) *annotationv1.Resource {
 	opts, ok := message.Options().(*descriptorpb.MessageOptions)
 	if !ok || !proto.HasExtension(opts, annotationv1.E_Resource) {
 		return nil

@@ -1,3 +1,4 @@
+// Package watch is the ConnectRPC transport over the watch coordinator.
 package watch
 
 import (

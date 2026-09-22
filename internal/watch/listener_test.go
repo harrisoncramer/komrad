@@ -18,7 +18,7 @@ type listened struct {
 	pool   *pgxpool.Pool
 }
 
-func newListened(t *testing.T, reader *fakeReader) *listened {
+func newListened(t *testing.T, stores *fakeStores) *listened {
 	t.Helper()
 
 	pool, err := pgxpool.New(t.Context(), dbtest.URL(t))
@@ -26,7 +26,7 @@ func newListened(t *testing.T, reader *fakeReader) *listened {
 	t.Cleanup(pool.Close)
 
 	broker := NewBroker(NewBrokerParams{})
-	require.NoError(t, broker.Start(pool, reader))
+	require.NoError(t, broker.Start(pool, newRows(stores)))
 	t.Cleanup(broker.Close)
 
 	return &listened{broker: broker, pool: pool}
@@ -60,11 +60,13 @@ func (l *listened) killListener(t *testing.T) {
 // TestANotificationReachesTheWatchers pins the listener end to end: a notification raised in
 // the database is read back and reaches a subscription as its row.
 func TestANotificationReachesTheWatchers(t *testing.T) {
-	l := newListened(t, &fakeReader{})
+	stores := newStores()
+	l := newListened(t, stores)
 
 	subscription, err := l.broker.Subscribe(t.Context())
 	require.NoError(t, err)
 
+	stores.agents.put(agentRow("a"))
 	l.notify(t, "agents a")
 	change := receive(t, subscription)
 	require.Equal(t, "a", change.Key)
@@ -75,7 +77,8 @@ func TestANotificationReachesTheWatchers(t *testing.T) {
 // subscription is closed, none opens until the listener is back, and the one that opens then
 // hears what is raised after.
 func TestALostConnectionDropsEveryWatcher(t *testing.T) {
-	l := newListened(t, &fakeReader{})
+	stores := newStores()
+	l := newListened(t, stores)
 
 	subscription, err := l.broker.Subscribe(t.Context())
 	require.NoError(t, err)
@@ -99,6 +102,7 @@ func TestALostConnectionDropsEveryWatcher(t *testing.T) {
 		return err == nil
 	}, 5*time.Second, 10*time.Millisecond, "the listener dials again")
 
+	stores.agents.put(agentRow("b"))
 	l.notify(t, "agents b")
 	require.Equal(t, "b", receive(t, again).Key)
 }

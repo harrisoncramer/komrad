@@ -17,11 +17,11 @@ import (
 	"weave/internal/marks"
 	"weave/internal/pullrequests"
 	"weave/internal/reviews"
-	rpcwatch "weave/internal/rpc/watch"
 	"weave/internal/schedules"
 	"weave/internal/scriptrun"
 	"weave/internal/scripts"
 	"weave/internal/transcripts"
+	"weave/internal/watch"
 	"weave/internal/worktrees"
 )
 
@@ -52,7 +52,7 @@ type services struct {
 	inspector       *worktrees.Inspector
 	remover         *worktrees.Remover
 	measurer        *worktrees.Measurer
-	watchRows       *rpcwatch.Rows
+	watchRows       *watch.Rows
 }
 
 // BuiltinScriptsDir is where the scripts weave ships are installed under a cache directory,
@@ -264,7 +264,7 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 
 	return &services{
 		loadConfig: loadConfig,
-		watchRows: rpcwatch.NewRows(rpcwatch.NewRowsParams{
+		watchRows: watch.NewRows(watch.NewRowsParams{
 			Agents:       st.rows,
 			Workflows:    st.workflows,
 			Schedules:    st.schedules,

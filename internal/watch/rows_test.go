@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"sync"
 	"testing"
 	"time"
 
-	"weave/internal/resource"
-	"weave/internal/watch"
+	"weave/lib/xptr"
 	"weave/lib/xslice"
 	watchv1 "weave/proto/gen/watch/v1"
 
@@ -28,40 +28,89 @@ import (
 // fakeStore is one resource's store: every row its watched set holds, and the ones among the
 // keys asked.
 type fakeStore[R any] struct {
+	mu   sync.Mutex
 	rows []R
 	key  func(R) string
+	// calls is the keys of each read-back, in order.
+	calls [][]string
+	// held blocks a read-back while it is set, so a test can pile touches up behind one render.
+	held chan struct{}
+	err  error
 }
 
 func (f *fakeStore[R]) List(context.Context) ([]R, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
 	return f.rows, nil
 }
 
 func (f *fakeStore[R]) ListByKey(_ context.Context, keys []string) ([]R, error) {
-	return xslice.Filter(f.rows, func(row R) bool { return slices.Contains(keys, f.key(row)) }), nil
+	f.mu.Lock()
+	f.calls = append(f.calls, keys)
+	held, err := f.held, f.err
+	rows := slices.Clone(f.rows)
+	f.mu.Unlock()
+
+	if held != nil {
+		<-held
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return xslice.Filter(rows, func(row R) bool { return slices.Contains(keys, f.key(row)) }), nil
+}
+
+// reads is the keys of every read-back so far.
+func (f *fakeStore[R]) reads() [][]string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return slices.Clone(f.calls)
+}
+
+// put writes a row the next read-back answers with.
+func (f *fakeStore[R]) put(rows ...R) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	f.rows = rows
 }
 
 // fakeStores is every resource's store.
 type fakeStores struct {
-	agents       []rowstore.Row
-	workflows    []workflowstore.Workflow
-	schedules    []schedulestore.Schedule
-	marks        []markstore.Mark
-	mail         []mailstore.Mail
-	pullRequests []pullrequeststore.PullRequest
+	agents       *fakeStore[rowstore.Row]
+	workflows    *fakeStore[workflowstore.Workflow]
+	schedules    *fakeStore[schedulestore.Schedule]
+	marks        *fakeStore[markstore.Mark]
+	mail         *fakeStore[mailstore.Mail]
+	pullRequests *fakeStore[pullrequeststore.PullRequest]
 }
 
 func agentRow(id string) rowstore.Row {
 	return rowstore.Row{Agent: agentstore.Agent{ID: id, Name: "agent-" + id}}
 }
 
+func newStores() *fakeStores {
+	return &fakeStores{
+		agents:       &fakeStore[rowstore.Row]{key: func(row rowstore.Row) string { return row.ID }},
+		workflows:    &fakeStore[workflowstore.Workflow]{key: func(row workflowstore.Workflow) string { return row.ID }},
+		schedules:    &fakeStore[schedulestore.Schedule]{key: func(row schedulestore.Schedule) string { return row.ID }},
+		marks:        &fakeStore[markstore.Mark]{key: func(row markstore.Mark) string { return row.Mark }},
+		mail:         &fakeStore[mailstore.Mail]{key: func(row mailstore.Mail) string { return row.ID }},
+		pullRequests: &fakeStore[pullrequeststore.PullRequest]{key: func(row pullrequeststore.PullRequest) string { return row.ID }},
+	}
+}
+
 func newRows(stores *fakeStores) *Rows {
 	return NewRows(NewRowsParams{
-		Agents:       &fakeStore[rowstore.Row]{rows: stores.agents, key: func(row rowstore.Row) string { return row.ID }},
-		Workflows:    &fakeStore[workflowstore.Workflow]{rows: stores.workflows, key: func(row workflowstore.Workflow) string { return row.ID }},
-		Schedules:    &fakeStore[schedulestore.Schedule]{rows: stores.schedules, key: func(row schedulestore.Schedule) string { return row.ID }},
-		Marks:        &fakeStore[markstore.Mark]{rows: stores.marks, key: func(row markstore.Mark) string { return row.Mark }},
-		Mail:         &fakeStore[mailstore.Mail]{rows: stores.mail, key: func(row mailstore.Mail) string { return row.ID }},
-		PullRequests: &fakeStore[pullrequeststore.PullRequest]{rows: stores.pullRequests, key: func(row pullrequeststore.PullRequest) string { return row.ID }},
+		Agents:       stores.agents,
+		Workflows:    stores.workflows,
+		Schedules:    stores.schedules,
+		Marks:        stores.marks,
+		Mail:         stores.mail,
+		PullRequests: stores.pullRequests,
 		Now:          func() time.Time { return time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC) },
 	})
 }
@@ -70,16 +119,15 @@ func newRows(stores *fakeStores) *Rows {
 // watched set holds comes back as its row and one it does not as a tombstone, kind by kind
 // and in the order asked.
 func TestReadAnswersARowOrATombstoneForEveryTouchedKey(t *testing.T) {
-	stores := &fakeStores{
-		agents:       []rowstore.Row{agentRow("a1")},
-		workflows:    []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
-		marks:        []markstore.Mark{{Mark: "w", WorkflowID: &[]string{"w1"}[0]}},
-		mail:         []mailstore.Mail{{ID: "m1", ToAgentID: "a1"}},
-		pullRequests: []pullrequeststore.PullRequest{{ID: "p1", Number: 7}},
-		schedules:    []schedulestore.Schedule{{ID: "s1", Name: "nightly", Cron: "0 2 * * *", Enabled: true}},
-	}
+	stores := newStores()
+	stores.agents.put(agentRow("a1"))
+	stores.workflows.put(workflowstore.Workflow{ID: "w1", Name: "backend"})
+	stores.marks.put(markstore.Mark{Mark: "w", WorkflowID: xptr.Ptr("w1")})
+	stores.mail.put(mailstore.Mail{ID: "m1", ToAgentID: "a1"})
+	stores.pullRequests.put(pullrequeststore.PullRequest{ID: "p1", Number: 7})
+	stores.schedules.put(schedulestore.Schedule{ID: "s1", Name: "nightly", Cron: "0 2 * * *", Enabled: true})
 
-	changes, err := newRows(stores).Read(t.Context(), watch.Touched{
+	changes, err := newRows(stores).Read(t.Context(), Touched{
 		watchv1.Resource_RESOURCE_AGENT:        []string{"a1", "a2"},
 		watchv1.Resource_RESOURCE_WORKFLOW:     []string{"w1", "w2"},
 		watchv1.Resource_RESOURCE_SCHEDULE:     []string{"s1", "s2"},
@@ -90,7 +138,7 @@ func TestReadAnswersARowOrATombstoneForEveryTouchedKey(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, changes, 12)
 
-	keys := xslice.Map(changes, func(change watch.Change) string { return change.Key })
+	keys := xslice.Map(changes, func(change Change) string { return change.Key })
 	assert.Equal(t, []string{"a1", "a2", "w1", "w2", "s1", "s2", "w", "x", "m1", "m2", "p1", "p2"}, keys)
 	for i := 1; i < len(changes); i += 2 {
 		assert.Nil(t, changes[i].Row, "%s is a tombstone", changes[i].Key)
@@ -108,7 +156,7 @@ func TestReadAnswersARowOrATombstoneForEveryTouchedKey(t *testing.T) {
 
 // TestReadOfNothingReadsNothing pins that an empty touch costs no query.
 func TestReadOfNothingReadsNothing(t *testing.T) {
-	changes, err := newRows(&fakeStores{}).Read(t.Context(), watch.Touched{})
+	changes, err := newRows(newStores()).Read(t.Context(), Touched{})
 	require.NoError(t, err)
 	assert.Empty(t, changes)
 }
@@ -116,19 +164,18 @@ func TestReadOfNothingReadsNothing(t *testing.T) {
 // TestSnapshotCarriesEveryWatchedSet pins that a snapshot carries every row of every kind, one
 // resource after another.
 func TestSnapshotCarriesEveryWatchedSet(t *testing.T) {
-	stores := &fakeStores{
-		agents:       []rowstore.Row{agentRow("a0"), agentRow("a1"), agentRow("a2")},
-		workflows:    []workflowstore.Workflow{{ID: "w0", Name: "flow-0"}, {ID: "w1", Name: "flow-1"}},
-		schedules:    []schedulestore.Schedule{{ID: "s0", Name: "nightly"}},
-		marks:        []markstore.Mark{{Mark: "a"}},
-		mail:         []mailstore.Mail{{ID: "m0"}},
-		pullRequests: []pullrequeststore.PullRequest{{ID: "p0"}},
-	}
+	stores := newStores()
+	stores.agents.put(agentRow("a0"), agentRow("a1"), agentRow("a2"))
+	stores.workflows.put(workflowstore.Workflow{ID: "w0", Name: "flow-0"}, workflowstore.Workflow{ID: "w1", Name: "flow-1"})
+	stores.schedules.put(schedulestore.Schedule{ID: "s0", Name: "nightly"})
+	stores.marks.put(markstore.Mark{Mark: "a"})
+	stores.mail.put(mailstore.Mail{ID: "m0"})
+	stores.pullRequests.put(pullrequeststore.PullRequest{ID: "p0"})
 
 	snapshot, err := newRows(stores).Snapshot(t.Context())
 	require.NoError(t, err)
 
-	kinds := xslice.Map(snapshot, func(row *watchv1.Row) string { return fmt.Sprintf("%T", row.GetRow()) })
+	kinds := xslice.Map(snapshot, func(change Change) string { return fmt.Sprintf("%T", change.Row.GetRow()) })
 	assert.Equal(t, []string{
 		"*watchv1.Row_Agent", "*watchv1.Row_Agent", "*watchv1.Row_Agent",
 		"*watchv1.Row_Workflow", "*watchv1.Row_Workflow",
@@ -137,14 +184,18 @@ func TestSnapshotCarriesEveryWatchedSet(t *testing.T) {
 		"*watchv1.Row_Mail",
 		"*watchv1.Row_PullRequest",
 	}, kinds)
+
+	keys := xslice.Map(snapshot, func(change Change) string { return change.Key })
+	assert.Equal(t, []string{"a0", "a1", "a2", "w0", "w1", "s0", "a", "m0", "p0"}, keys)
+	assert.Equal(t, watchv1.Resource_RESOURCE_MARK, snapshot[6].Resource, "a snapshot row says which resource it is")
 }
 
 // TestArmsAreTheResources pins the read-back to the resource option: one arm per annotated
 // table, and nothing else.
 func TestArmsAreTheResources(t *testing.T) {
-	rows := newRows(&fakeStores{})
+	rows := newRows(newStores())
 
-	want := xslice.Map(resource.All(), func(r resource.Resource) watchv1.Resource {
+	want := xslice.Map(AllResources(), func(r Resource) watchv1.Resource {
 		return watchv1.Resource(watchv1.Resource_value[r.EnumValue()])
 	})
 	assert.ElementsMatch(t, want, slices.Collect(maps.Keys(rows.arms)))
