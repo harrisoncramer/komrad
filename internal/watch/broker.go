@@ -348,7 +348,7 @@ func (s *Subscription) Changes() <-chan Change {
 	return s.changes
 }
 
-// Close ends the subscription, after which Events drains and closes.
+// Close ends the subscription, after which Changes drains and closes.
 func (s *Subscription) Close() {
 	s.broker.mu.Lock()
 	defer s.broker.mu.Unlock()
