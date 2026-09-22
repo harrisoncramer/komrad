@@ -3,17 +3,16 @@ package watch
 import (
 	"context"
 	"log/slog"
-	"maps"
-	"slices"
 	"sync"
 	"time"
 
 	"weave/internal/fail"
 	"weave/internal/logging"
-	"weave/internal/resource"
+	"weave/lib/xslice"
 	watchv1 "weave/proto/gen/watch/v1"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"google.golang.org/protobuf/proto"
 )
 
 // subscriberBuffer is how many live changes a watcher may fall behind before it is dropped.
@@ -32,43 +31,12 @@ var ErrClosed = fail.Precondition("the watch broker is closed")
 // now could miss a change.
 var ErrNotListening = fail.Precondition("the watch is not listening to the database")
 
-// resources is the resource each table a notification names is the rows of.
-var resources = resourcesByTable()
-
-// resourcesByTable reads the annotated resources into the table each one is keyed by on the
-// wire.
-func resourcesByTable() map[string]watchv1.Resource {
-	byTable := map[string]watchv1.Resource{}
-	for _, r := range resource.All() {
-		number, ok := watchv1.Resource_value[r.EnumValue()]
-		if !ok {
-			continue
-		}
-
-		byTable[r.Option.GetTable()] = watchv1.Resource(number)
-	}
-
-	return byTable
-}
-
-// Touched is the keys one render reads back, by resource, each resource's in order.
-type Touched map[watchv1.Resource][]string
-
 // Change is one row as a watcher should now hold it, or a tombstone for one it should drop.
 type Change struct {
 	Resource watchv1.Resource
 	Key      string
 	// Row carries the row, and nil is a tombstone.
 	Row *watchv1.Row
-}
-
-// Reader reads the rows a render names back, and every row for a snapshot.
-type Reader interface {
-	// Read renders each touched key as its row, or as a tombstone when its watched set no
-	// longer holds it.
-	Read(ctx context.Context, touched Touched) ([]Change, error)
-	// Snapshot renders every row the watched sets hold.
-	Snapshot(ctx context.Context) ([]*watchv1.Row, error)
 }
 
 // NewBrokerParams is what a broker is built over.
@@ -81,7 +49,7 @@ type NewBrokerParams struct {
 type Broker struct {
 	logger *slog.Logger
 	pool   *pgxpool.Pool
-	reader Reader
+	rows   *Rows
 
 	// pendingMu guards what has been heard and not yet read.
 	pendingMu sync.Mutex
@@ -89,9 +57,11 @@ type Broker struct {
 	// wake has room for one poke, which is all the loop needs to know.
 	wake chan struct{}
 
-	// mu guards the subscribers, whether a listener is up and whether the broker has closed.
+	// mu guards the subscribers, the rows last sent, whether a listener is up and whether the
+	// broker has closed.
 	mu          sync.Mutex
 	subscribers map[*Subscription]struct{}
+	sent        map[watchv1.Resource]map[string]*watchv1.Row
 	listening   bool
 	closed      bool
 
@@ -116,14 +86,15 @@ func NewBroker(params NewBrokerParams) *Broker {
 		pending:     map[watchv1.Resource]map[string]struct{}{},
 		wake:        make(chan struct{}, 1),
 		subscribers: map[*Subscription]struct{}{},
+		sent:        map[watchv1.Resource]map[string]*watchv1.Row{},
 		stop:        func() {},
 		stopped:     stopped,
 	}
 }
 
 // Start puts a connection from the pool on the watch channel and begins rendering through the
-// reader, both of which Close ends, failing when the database cannot be listened to.
-func (b *Broker) Start(pool *pgxpool.Pool, reader Reader) error {
+// rows, both of which Close ends, failing when the database cannot be listened to.
+func (b *Broker) Start(pool *pgxpool.Pool, rows *Rows) error {
 	b.pool = pool
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -134,7 +105,7 @@ func (b *Broker) Start(pool *pgxpool.Pool, reader Reader) error {
 		return err
 	}
 
-	b.serve(reader)
+	b.serve(rows)
 	b.stop = cancel
 	b.stopped = make(chan struct{})
 	go func() {
@@ -146,9 +117,9 @@ func (b *Broker) Start(pool *pgxpool.Pool, reader Reader) error {
 	return nil
 }
 
-// serve begins rendering what is heard through the reader.
-func (b *Broker) serve(reader Reader) {
-	b.reader = reader
+// serve begins rendering what is heard through the rows.
+func (b *Broker) serve(rows *Rows) {
+	b.rows = rows
 
 	go func() {
 		for range b.wake {
@@ -159,48 +130,8 @@ func (b *Broker) serve(reader Reader) {
 	}()
 }
 
-// touch says the rows of a table with these keys may have moved.
-func (b *Broker) touch(table string, keys ...string) {
-	res, ok := resources[table]
-	if !ok {
-		b.logger.LogAttrs(context.Background(), slog.LevelWarn, "a notification named a table no resource is a row of", slog.String(logging.WatchTable, table))
-
-		return
-	}
-
-	b.touchResource(res, keys)
-}
-
-func (b *Broker) touchResource(res watchv1.Resource, keys []string) {
-	if len(keys) == 0 {
-		return
-	}
-
-	b.pendingMu.Lock()
-	defer b.pendingMu.Unlock()
-
-	if b.pending == nil {
-		return
-	}
-
-	touched := b.pending[res]
-	if touched == nil {
-		touched = map[string]struct{}{}
-		b.pending[res] = touched
-	}
-	for _, key := range keys {
-		touched[key] = struct{}{}
-	}
-
-	// Poke the loop unless it has an unread poke.
-	select {
-	case b.wake <- struct{}{}:
-	default:
-	}
-}
-
-// render reads back everything touched since the last one and sends it to every subscriber,
-// reporting false when the read failed and the ids are back in the pending set.
+// render reads back everything touched since the last one and sends what moved to every
+// subscriber, reporting false when the read failed and the ids are back in the pending set.
 func (b *Broker) render() bool {
 	touched := b.take()
 
@@ -214,7 +145,7 @@ func (b *Broker) render() bool {
 	ctx, cancel := context.WithTimeout(context.Background(), readTimeout)
 	defer cancel()
 
-	changes, err := b.reader.Read(ctx, touched)
+	changes, err := b.rows.Read(ctx, touched)
 	if err != nil {
 		b.logger.LogAttrs(ctx, slog.LevelError, "failed to read the rows a change touched", logging.Err(err)...)
 		b.restore(touched)
@@ -226,6 +157,10 @@ func (b *Broker) render() bool {
 	defer b.mu.Unlock()
 
 	for _, change := range changes {
+		if !b.moved(change) {
+			continue
+		}
+
 		for subscription := range b.subscribers {
 			b.send(ctx, subscription, change)
 		}
@@ -234,24 +169,39 @@ func (b *Broker) render() bool {
 	return true
 }
 
-// take empties the pending set and returns it with each resource's keys in order.
-func (b *Broker) take() Touched {
-	b.pendingMu.Lock()
-	defer b.pendingMu.Unlock()
+// moved reports whether a change says anything the last one for its key did not, recording it
+// as the row the stream now holds.
+func (b *Broker) moved(change Change) bool {
+	held := b.sent[change.Resource]
 
-	touched := Touched{}
-	for res, keys := range b.pending {
-		touched[res] = slices.Sorted(maps.Keys(keys))
+	if change.Row == nil {
+		delete(held, change.Key)
+
+		return true
 	}
-	clear(b.pending)
+	if proto.Equal(held[change.Key], change.Row) {
+		return false
+	}
 
-	return touched
+	if held == nil {
+		held = map[string]*watchv1.Row{}
+		b.sent[change.Resource] = held
+	}
+	held[change.Key] = change.Row
+
+	return true
 }
 
-// restore puts the keys a failed render took back for the next one.
-func (b *Broker) restore(touched Touched) {
-	for res, keys := range touched {
-		b.touchResource(res, keys)
+// reseed makes a snapshot the rows the stream holds.
+func (b *Broker) reseed(snapshot []Change) {
+	b.sent = map[watchv1.Resource]map[string]*watchv1.Row{}
+	for _, change := range snapshot {
+		held := b.sent[change.Resource]
+		if held == nil {
+			held = map[string]*watchv1.Row{}
+			b.sent[change.Resource] = held
+		}
+		held[change.Key] = change.Row
 	}
 }
 
@@ -273,12 +223,18 @@ func (b *Broker) Subscribe(ctx context.Context) (*Subscription, error) {
 	readCtx, cancel := context.WithTimeout(ctx, readTimeout)
 	defer cancel()
 
-	snapshot, err := b.reader.Snapshot(readCtx)
+	snapshot, err := b.rows.Snapshot(readCtx)
 	if err != nil {
 		return nil, err
 	}
+	// Only the first watcher reseeds: while one is open the memory is already what went out, and
+	// a later snapshot can be newer than a render still in flight.
+	if len(b.subscribers) == 0 {
+		b.reseed(snapshot)
+	}
 
-	subscription := &Subscription{broker: b, changes: make(chan Change, subscriberBuffer), snapshot: snapshot}
+	rows := xslice.Map(snapshot, func(change Change) *watchv1.Row { return change.Row })
+	subscription := &Subscription{broker: b, changes: make(chan Change, subscriberBuffer), snapshot: rows}
 	b.subscribers[subscription] = struct{}{}
 
 	return subscription, nil
@@ -302,6 +258,12 @@ func (b *Broker) drop(subscription *Subscription) {
 
 	delete(b.subscribers, subscription)
 	close(subscription.changes)
+
+	// Nothing holds the stream's rows once nobody is on it, and the next watcher reseeds from
+	// its own snapshot.
+	if len(b.subscribers) == 0 {
+		clear(b.sent)
+	}
 }
 
 // Close ends every subscription, lets the listener's connection go and stops the render loop,

@@ -735,7 +735,7 @@ var File_schedule_v1_schedule_proto protoreflect.FileDescriptor
 
 const file_schedule_v1_schedule_proto_rawDesc = "" +
 	"\n" +
-	"\x1aschedule/v1/schedule.proto\x12\vschedule.v1\x1a\x1cannotation/v1/resource.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\x1a\x12view/v1/view.proto\"\xa3\x04\n" +
+	"\x1aschedule/v1/schedule.proto\x12\vschedule.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\x1a\x12view/v1/view.proto\"\x86\x04\n" +
 	"\bSchedule\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
@@ -752,9 +752,7 @@ const file_schedule_v1_schedule_proto_rawDesc = "" +
 	"\x12last_result_status\x18\v \x01(\tR\x10lastResultStatus\x12.\n" +
 	"\x13last_result_message\x18\f \x01(\tR\x11lastResultMessage\x12E\n" +
 	"\x0elast_result_at\x18\r \x01(\v2\x1a.google.protobuf.TimestampH\x01R\flastResultAt\x88\x01\x01\x12)\n" +
-	"\x10prompt_truncated\x18\x0e \x01(\bR\x0fpromptTruncated:\x1b\xa2\xb5\x18\x17\n" +
-	"\tschedules\x1a\n" +
-	"updated_atB\x0e\n" +
+	"\x10prompt_truncated\x18\x0e \x01(\bR\x0fpromptTruncatedB\x0e\n" +
 	"\f_next_run_atB\x11\n" +
 	"\x0f_last_result_at\"\x92\x01\n" +
 	"\x14ListSchedulesRequest\x12>\n" +

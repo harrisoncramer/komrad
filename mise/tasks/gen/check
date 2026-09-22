@@ -6,7 +6,7 @@ set -euo pipefail
 usage() {
 	echo "Usage: mise run gen:check"
 	echo
-	echo "Reruns the sqlc, buf, config, and command reference generators and fails"
+	echo "Reruns the sqlc, buf, config, command reference and trigger generators and fails"
 	echo "if any of their committed output changed. Skips the comparison when those"
 	echo "paths already differ from HEAD, since then a difference says nothing about"
 	echo "whether the generators are in sync."
@@ -23,7 +23,7 @@ done
 
 cd "$MISE_CONFIG_ROOT"
 
-GENERATED=(config.toml db/models proto/gen docs/reference)
+GENERATED=(config.toml db/migrations/20260922050000_watch_attachments.sql db/models proto/gen docs/reference)
 
 generated_changes() {
 	git status --porcelain -- "${GENERATED[@]}"
@@ -39,6 +39,7 @@ mise run db:sqlc
 mise run proto:generate
 mise run gen:config
 mise run gen:docs
+mise run gen:triggers
 
 if [ -n "$(generated_changes)" ]; then
 	echo "generated files are out of date; commit the regenerated output:" >&2

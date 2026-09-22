@@ -2,7 +2,6 @@ syntax = "proto3";
 
 package agent.v1;
 
-import "annotation/v1/resource.proto";
 import "buf/validate/validate.proto";
 import "pagination/v1/pagination.proto";
 
@@ -31,11 +30,6 @@ enum MailDirection {
 }
 
 message Mail {
-  option (annotation.v1.resource) = {
-    table: "mail"
-    ignores: ["updated_at"]
-  };
-
   // Set this as reply_to on an answer so the two read as a thread.
   string id = 1;
   // Which agent sent it, unset when weave sent it itself.

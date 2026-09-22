@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"weave/internal/assemble"
-	"weave/internal/resource"
+	"weave/internal/watch"
 	watchv1 "weave/proto/gen/watch/v1"
 
 	"github.com/stretchr/testify/assert"
@@ -20,7 +20,7 @@ import (
 func TestWorldIsTheResources(t *testing.T) {
 	t.Parallel()
 
-	resources := resource.All()
+	resources := watch.Resources()
 	require.NotEmpty(t, resources)
 	assert.Equal(t, len(resources), reflect.TypeFor[assemble.World]().NumField(), "World has a map per resource")
 
@@ -28,7 +28,7 @@ func TestWorldIsTheResources(t *testing.T) {
 	assert.Equal(t, len(resources), members.Len(), "Row has a member per resource")
 
 	for _, r := range resources {
-		t.Run(r.Option.GetTable(), func(t *testing.T) {
+		t.Run(r.Table, func(t *testing.T) {
 			t.Parallel()
 
 			messageType, err := protoregistry.GlobalTypes.FindMessageByName(r.Message.FullName())
@@ -44,23 +44,21 @@ func TestWorldIsTheResources(t *testing.T) {
 					member = members.Get(i)
 				}
 			}
-			require.NotNil(t, member, "Row has no member for %s", r.Name())
+			require.NotNil(t, member, "Row has no member for %s", string(r.Message.Name()))
 
 			row := messageType.New()
-			row.Set(row.Descriptor().Fields().ByName(protoreflect.Name(r.Key())), protoreflect.ValueOfString("k"))
+			row.Set(row.Descriptor().Fields().ByName(protoreflect.Name(r.Key)), protoreflect.ValueOfString("k"))
 			wire := &watchv1.Row{}
 			wire.ProtoReflect().Set(member, protoreflect.ValueOfMessage(row))
 
 			var world assemble.World
 			world.Apply(&watchv1.WatchEvent{Event: &watchv1.WatchEvent_Put{Put: wire}})
 			held := reflect.ValueOf(world).FieldByName(r.Plural())
-			assert.True(t, held.MapIndex(reflect.ValueOf("k")).IsValid(), "Apply does not put a %s by its key", r.Name())
+			assert.True(t, held.MapIndex(reflect.ValueOf("k")).IsValid(), "Apply does not put a %s by its key", string(r.Message.Name()))
 
-			enum, ok := watchv1.Resource_value[r.EnumValue()]
-			require.True(t, ok)
-			world.Apply(&watchv1.WatchEvent{Event: &watchv1.WatchEvent_Deleted{Deleted: &watchv1.Deleted{Resource: watchv1.Resource(enum), Key: "k"}}})
+			world.Apply(&watchv1.WatchEvent{Event: &watchv1.WatchEvent_Deleted{Deleted: &watchv1.Deleted{Resource: r.Enum, Key: "k"}}})
 			held = reflect.ValueOf(world).FieldByName(r.Plural())
-			assert.False(t, held.MapIndex(reflect.ValueOf("k")).IsValid(), "Apply does not drop a %s by its key", r.Name())
+			assert.False(t, held.MapIndex(reflect.ValueOf("k")).IsValid(), "Apply does not drop a %s by its key", string(r.Message.Name()))
 		})
 	}
 }
