@@ -9,6 +9,7 @@ package watchv1
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -95,43 +96,6 @@ func (Resource) EnumDescriptor() ([]byte, []int) {
 	return file_watch_v1_watch_proto_rawDescGZIP(), []int{0}
 }
 
-// WatchRequest opens the stream, and asks for nothing in particular.
-type WatchRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *WatchRequest) Reset() {
-	*x = WatchRequest{}
-	mi := &file_watch_v1_watch_proto_msgTypes[0]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *WatchRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*WatchRequest) ProtoMessage() {}
-
-func (x *WatchRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_watch_v1_watch_proto_msgTypes[0]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use WatchRequest.ProtoReflect.Descriptor instead.
-func (*WatchRequest) Descriptor() ([]byte, []int) {
-	return file_watch_v1_watch_proto_rawDescGZIP(), []int{0}
-}
-
 // WatchEvent is the snapshot a stream opens with, one row as the panel should now hold it, a
 // tombstone for one it should drop, or a heartbeat.
 type WatchEvent struct {
@@ -151,7 +115,7 @@ type WatchEvent struct {
 
 func (x *WatchEvent) Reset() {
 	*x = WatchEvent{}
-	mi := &file_watch_v1_watch_proto_msgTypes[1]
+	mi := &file_watch_v1_watch_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -163,7 +127,7 @@ func (x *WatchEvent) String() string {
 func (*WatchEvent) ProtoMessage() {}
 
 func (x *WatchEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_watch_v1_watch_proto_msgTypes[1]
+	mi := &file_watch_v1_watch_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -176,7 +140,7 @@ func (x *WatchEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WatchEvent.ProtoReflect.Descriptor instead.
 func (*WatchEvent) Descriptor() ([]byte, []int) {
-	return file_watch_v1_watch_proto_rawDescGZIP(), []int{1}
+	return file_watch_v1_watch_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *WatchEvent) GetEvent() isWatchEvent_Event {
@@ -213,7 +177,7 @@ func (x *WatchEvent) GetDeleted() *Deleted {
 	return nil
 }
 
-func (x *WatchEvent) GetHeartbeat() *Heartbeat {
+func (x *WatchEvent) GetHeartbeat() *emptypb.Empty {
 	if x != nil {
 		if x, ok := x.Event.(*WatchEvent_Heartbeat); ok {
 			return x.Heartbeat
@@ -243,7 +207,7 @@ type WatchEvent_Deleted struct {
 
 type WatchEvent_Heartbeat struct {
 	// Nothing has changed for a while, and the stream is still alive.
-	Heartbeat *Heartbeat `protobuf:"bytes,4,opt,name=heartbeat,proto3,oneof"`
+	Heartbeat *emptypb.Empty `protobuf:"bytes,4,opt,name=heartbeat,proto3,oneof"`
 }
 
 func (*WatchEvent_Snapshot) isWatchEvent_Event() {}
@@ -265,7 +229,7 @@ type Snapshot struct {
 
 func (x *Snapshot) Reset() {
 	*x = Snapshot{}
-	mi := &file_watch_v1_watch_proto_msgTypes[2]
+	mi := &file_watch_v1_watch_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -277,7 +241,7 @@ func (x *Snapshot) String() string {
 func (*Snapshot) ProtoMessage() {}
 
 func (x *Snapshot) ProtoReflect() protoreflect.Message {
-	mi := &file_watch_v1_watch_proto_msgTypes[2]
+	mi := &file_watch_v1_watch_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -290,7 +254,7 @@ func (x *Snapshot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Snapshot.ProtoReflect.Descriptor instead.
 func (*Snapshot) Descriptor() ([]byte, []int) {
-	return file_watch_v1_watch_proto_rawDescGZIP(), []int{2}
+	return file_watch_v1_watch_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *Snapshot) GetRows() []*Row {
@@ -320,7 +284,7 @@ type Row struct {
 
 func (x *Row) Reset() {
 	*x = Row{}
-	mi := &file_watch_v1_watch_proto_msgTypes[3]
+	mi := &file_watch_v1_watch_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -332,7 +296,7 @@ func (x *Row) String() string {
 func (*Row) ProtoMessage() {}
 
 func (x *Row) ProtoReflect() protoreflect.Message {
-	mi := &file_watch_v1_watch_proto_msgTypes[3]
+	mi := &file_watch_v1_watch_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -345,7 +309,7 @@ func (x *Row) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Row.ProtoReflect.Descriptor instead.
 func (*Row) Descriptor() ([]byte, []int) {
-	return file_watch_v1_watch_proto_rawDescGZIP(), []int{3}
+	return file_watch_v1_watch_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *Row) GetRow() isRow_Row {
@@ -469,7 +433,7 @@ type Deleted struct {
 
 func (x *Deleted) Reset() {
 	*x = Deleted{}
-	mi := &file_watch_v1_watch_proto_msgTypes[4]
+	mi := &file_watch_v1_watch_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -481,7 +445,7 @@ func (x *Deleted) String() string {
 func (*Deleted) ProtoMessage() {}
 
 func (x *Deleted) ProtoReflect() protoreflect.Message {
-	mi := &file_watch_v1_watch_proto_msgTypes[4]
+	mi := &file_watch_v1_watch_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -494,7 +458,7 @@ func (x *Deleted) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Deleted.ProtoReflect.Descriptor instead.
 func (*Deleted) Descriptor() ([]byte, []int) {
-	return file_watch_v1_watch_proto_rawDescGZIP(), []int{4}
+	return file_watch_v1_watch_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *Deleted) GetResource() Resource {
@@ -511,55 +475,17 @@ func (x *Deleted) GetKey() string {
 	return ""
 }
 
-// Heartbeat says the stream is alive while nothing has changed.
-type Heartbeat struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *Heartbeat) Reset() {
-	*x = Heartbeat{}
-	mi := &file_watch_v1_watch_proto_msgTypes[5]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *Heartbeat) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*Heartbeat) ProtoMessage() {}
-
-func (x *Heartbeat) ProtoReflect() protoreflect.Message {
-	mi := &file_watch_v1_watch_proto_msgTypes[5]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use Heartbeat.ProtoReflect.Descriptor instead.
-func (*Heartbeat) Descriptor() ([]byte, []int) {
-	return file_watch_v1_watch_proto_rawDescGZIP(), []int{5}
-}
-
 var File_watch_v1_watch_proto protoreflect.FileDescriptor
 
 const file_watch_v1_watch_proto_rawDesc = "" +
 	"\n" +
-	"\x14watch/v1/watch.proto\x12\bwatch.v1\x1a\x14agent/v1/agent.proto\x1a\x13agent/v1/mail.proto\x1a\x18annotation/v1/tool.proto\x1a pullrequest/v1/pullrequest.proto\x1a\x1aschedule/v1/schedule.proto\x1a\x1aworkflow/v1/workflow.proto\"\x0e\n" +
-	"\fWatchRequest\"\xce\x01\n" +
+	"\x14watch/v1/watch.proto\x12\bwatch.v1\x1a\x14agent/v1/agent.proto\x1a\x13agent/v1/mail.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a pullrequest/v1/pullrequest.proto\x1a\x1aschedule/v1/schedule.proto\x1a\x1aworkflow/v1/workflow.proto\"\xd1\x01\n" +
 	"\n" +
 	"WatchEvent\x120\n" +
 	"\bsnapshot\x18\x01 \x01(\v2\x12.watch.v1.SnapshotH\x00R\bsnapshot\x12!\n" +
 	"\x03put\x18\x02 \x01(\v2\r.watch.v1.RowH\x00R\x03put\x12-\n" +
-	"\adeleted\x18\x03 \x01(\v2\x11.watch.v1.DeletedH\x00R\adeleted\x123\n" +
-	"\theartbeat\x18\x04 \x01(\v2\x13.watch.v1.HeartbeatH\x00R\theartbeatB\a\n" +
+	"\adeleted\x18\x03 \x01(\v2\x11.watch.v1.DeletedH\x00R\adeleted\x126\n" +
+	"\theartbeat\x18\x04 \x01(\v2\x16.google.protobuf.EmptyH\x00R\theartbeatB\a\n" +
 	"\x05event\"-\n" +
 	"\bSnapshot\x12!\n" +
 	"\x04rows\x18\x01 \x03(\v2\r.watch.v1.RowR\x04rows\"\xad\x02\n" +
@@ -573,8 +499,7 @@ const file_watch_v1_watch_proto_rawDesc = "" +
 	"\x03row\"K\n" +
 	"\aDeleted\x12.\n" +
 	"\bresource\x18\x01 \x01(\x0e2\x12.watch.v1.ResourceR\bresource\x12\x10\n" +
-	"\x03key\x18\x02 \x01(\tR\x03key\"\v\n" +
-	"\tHeartbeat*\xa7\x01\n" +
+	"\x03key\x18\x02 \x01(\tR\x03key*\xa7\x01\n" +
 	"\bResource\x12\x18\n" +
 	"\x14RESOURCE_UNSPECIFIED\x10\x00\x12\x12\n" +
 	"\x0eRESOURCE_AGENT\x10\x01\x12\x15\n" +
@@ -584,7 +509,7 @@ const file_watch_v1_watch_proto_rawDesc = "" +
 	"\rRESOURCE_MAIL\x10\x05\x12\x19\n" +
 	"\x15RESOURCE_PULL_REQUEST\x10\x062\x93\x01\n" +
 	"\fWatchService\x12\x82\x01\n" +
-	"\x05Watch\x12\x16.watch.v1.WatchRequest\x1a\x14.watch.v1.WatchEvent\"I\x9a\xb5\x18B:@a stream the panel holds open; a model or a script lists instead\x90\x02\x010\x01B\"Z weave/proto/gen/watch/v1;watchv1b\x06proto3"
+	"\x05Watch\x12\x16.google.protobuf.Empty\x1a\x14.watch.v1.WatchEvent\"I\x9a\xb5\x18B:@a stream the panel holds open; a model or a script lists instead\x90\x02\x010\x01B\"Z weave/proto/gen/watch/v1;watchv1b\x06proto3"
 
 var (
 	file_watch_v1_watch_proto_rawDescOnce sync.Once
@@ -599,37 +524,36 @@ func file_watch_v1_watch_proto_rawDescGZIP() []byte {
 }
 
 var file_watch_v1_watch_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_watch_v1_watch_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_watch_v1_watch_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_watch_v1_watch_proto_goTypes = []any{
 	(Resource)(0),           // 0: watch.v1.Resource
-	(*WatchRequest)(nil),    // 1: watch.v1.WatchRequest
-	(*WatchEvent)(nil),      // 2: watch.v1.WatchEvent
-	(*Snapshot)(nil),        // 3: watch.v1.Snapshot
-	(*Row)(nil),             // 4: watch.v1.Row
-	(*Deleted)(nil),         // 5: watch.v1.Deleted
-	(*Heartbeat)(nil),       // 6: watch.v1.Heartbeat
-	(*v1.Agent)(nil),        // 7: agent.v1.Agent
-	(*v11.Workflow)(nil),    // 8: workflow.v1.Workflow
-	(*v12.Schedule)(nil),    // 9: schedule.v1.Schedule
-	(*v1.Mark)(nil),         // 10: agent.v1.Mark
-	(*v1.Mail)(nil),         // 11: agent.v1.Mail
-	(*v13.PullRequest)(nil), // 12: pullrequest.v1.PullRequest
+	(*WatchEvent)(nil),      // 1: watch.v1.WatchEvent
+	(*Snapshot)(nil),        // 2: watch.v1.Snapshot
+	(*Row)(nil),             // 3: watch.v1.Row
+	(*Deleted)(nil),         // 4: watch.v1.Deleted
+	(*emptypb.Empty)(nil),   // 5: google.protobuf.Empty
+	(*v1.Agent)(nil),        // 6: agent.v1.Agent
+	(*v11.Workflow)(nil),    // 7: workflow.v1.Workflow
+	(*v12.Schedule)(nil),    // 8: schedule.v1.Schedule
+	(*v1.Mark)(nil),         // 9: agent.v1.Mark
+	(*v1.Mail)(nil),         // 10: agent.v1.Mail
+	(*v13.PullRequest)(nil), // 11: pullrequest.v1.PullRequest
 }
 var file_watch_v1_watch_proto_depIdxs = []int32{
-	3,  // 0: watch.v1.WatchEvent.snapshot:type_name -> watch.v1.Snapshot
-	4,  // 1: watch.v1.WatchEvent.put:type_name -> watch.v1.Row
-	5,  // 2: watch.v1.WatchEvent.deleted:type_name -> watch.v1.Deleted
-	6,  // 3: watch.v1.WatchEvent.heartbeat:type_name -> watch.v1.Heartbeat
-	4,  // 4: watch.v1.Snapshot.rows:type_name -> watch.v1.Row
-	7,  // 5: watch.v1.Row.agent:type_name -> agent.v1.Agent
-	8,  // 6: watch.v1.Row.workflow:type_name -> workflow.v1.Workflow
-	9,  // 7: watch.v1.Row.schedule:type_name -> schedule.v1.Schedule
-	10, // 8: watch.v1.Row.mark:type_name -> agent.v1.Mark
-	11, // 9: watch.v1.Row.mail:type_name -> agent.v1.Mail
-	12, // 10: watch.v1.Row.pull_request:type_name -> pullrequest.v1.PullRequest
+	2,  // 0: watch.v1.WatchEvent.snapshot:type_name -> watch.v1.Snapshot
+	3,  // 1: watch.v1.WatchEvent.put:type_name -> watch.v1.Row
+	4,  // 2: watch.v1.WatchEvent.deleted:type_name -> watch.v1.Deleted
+	5,  // 3: watch.v1.WatchEvent.heartbeat:type_name -> google.protobuf.Empty
+	3,  // 4: watch.v1.Snapshot.rows:type_name -> watch.v1.Row
+	6,  // 5: watch.v1.Row.agent:type_name -> agent.v1.Agent
+	7,  // 6: watch.v1.Row.workflow:type_name -> workflow.v1.Workflow
+	8,  // 7: watch.v1.Row.schedule:type_name -> schedule.v1.Schedule
+	9,  // 8: watch.v1.Row.mark:type_name -> agent.v1.Mark
+	10, // 9: watch.v1.Row.mail:type_name -> agent.v1.Mail
+	11, // 10: watch.v1.Row.pull_request:type_name -> pullrequest.v1.PullRequest
 	0,  // 11: watch.v1.Deleted.resource:type_name -> watch.v1.Resource
-	1,  // 12: watch.v1.WatchService.Watch:input_type -> watch.v1.WatchRequest
-	2,  // 13: watch.v1.WatchService.Watch:output_type -> watch.v1.WatchEvent
+	5,  // 12: watch.v1.WatchService.Watch:input_type -> google.protobuf.Empty
+	1,  // 13: watch.v1.WatchService.Watch:output_type -> watch.v1.WatchEvent
 	13, // [13:14] is the sub-list for method output_type
 	12, // [12:13] is the sub-list for method input_type
 	12, // [12:12] is the sub-list for extension type_name
@@ -642,13 +566,13 @@ func file_watch_v1_watch_proto_init() {
 	if File_watch_v1_watch_proto != nil {
 		return
 	}
-	file_watch_v1_watch_proto_msgTypes[1].OneofWrappers = []any{
+	file_watch_v1_watch_proto_msgTypes[0].OneofWrappers = []any{
 		(*WatchEvent_Snapshot)(nil),
 		(*WatchEvent_Put)(nil),
 		(*WatchEvent_Deleted)(nil),
 		(*WatchEvent_Heartbeat)(nil),
 	}
-	file_watch_v1_watch_proto_msgTypes[3].OneofWrappers = []any{
+	file_watch_v1_watch_proto_msgTypes[2].OneofWrappers = []any{
 		(*Row_Agent)(nil),
 		(*Row_Workflow)(nil),
 		(*Row_Schedule)(nil),
@@ -662,7 +586,7 @@ func file_watch_v1_watch_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_watch_v1_watch_proto_rawDesc), len(file_watch_v1_watch_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   6,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

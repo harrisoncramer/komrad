@@ -8,6 +8,7 @@ import (
 	connect "connectrpc.com/connect"
 	context "context"
 	errors "errors"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	http "net/http"
 	strings "strings"
 	v1 "weave/proto/gen/watch/v1"
@@ -41,7 +42,7 @@ const (
 type WatchServiceClient interface {
 	// Watch sends a snapshot of every row the watched sets hold, then one event per change for
 	// as long as the stream is open, with a heartbeat when nothing has changed for a while.
-	Watch(context.Context, *connect.Request[v1.WatchRequest]) (*connect.ServerStreamForClient[v1.WatchEvent], error)
+	Watch(context.Context, *connect.Request[emptypb.Empty]) (*connect.ServerStreamForClient[v1.WatchEvent], error)
 }
 
 // NewWatchServiceClient constructs a client for the watch.v1.WatchService service. By default, it
@@ -55,7 +56,7 @@ func NewWatchServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 	baseURL = strings.TrimRight(baseURL, "/")
 	watchServiceMethods := v1.File_watch_v1_watch_proto.Services().ByName("WatchService").Methods()
 	return &watchServiceClient{
-		watch: connect.NewClient[v1.WatchRequest, v1.WatchEvent](
+		watch: connect.NewClient[emptypb.Empty, v1.WatchEvent](
 			httpClient,
 			baseURL+WatchServiceWatchProcedure,
 			connect.WithSchema(watchServiceMethods.ByName("Watch")),
@@ -67,11 +68,11 @@ func NewWatchServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 
 // watchServiceClient implements WatchServiceClient.
 type watchServiceClient struct {
-	watch *connect.Client[v1.WatchRequest, v1.WatchEvent]
+	watch *connect.Client[emptypb.Empty, v1.WatchEvent]
 }
 
 // Watch calls watch.v1.WatchService.Watch.
-func (c *watchServiceClient) Watch(ctx context.Context, req *connect.Request[v1.WatchRequest]) (*connect.ServerStreamForClient[v1.WatchEvent], error) {
+func (c *watchServiceClient) Watch(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.ServerStreamForClient[v1.WatchEvent], error) {
 	return c.watch.CallServerStream(ctx, req)
 }
 
@@ -79,7 +80,7 @@ func (c *watchServiceClient) Watch(ctx context.Context, req *connect.Request[v1.
 type WatchServiceHandler interface {
 	// Watch sends a snapshot of every row the watched sets hold, then one event per change for
 	// as long as the stream is open, with a heartbeat when nothing has changed for a while.
-	Watch(context.Context, *connect.Request[v1.WatchRequest], *connect.ServerStream[v1.WatchEvent]) error
+	Watch(context.Context, *connect.Request[emptypb.Empty], *connect.ServerStream[v1.WatchEvent]) error
 }
 
 // NewWatchServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -109,6 +110,6 @@ func NewWatchServiceHandler(svc WatchServiceHandler, opts ...connect.HandlerOpti
 // UnimplementedWatchServiceHandler returns CodeUnimplemented from all methods.
 type UnimplementedWatchServiceHandler struct{}
 
-func (UnimplementedWatchServiceHandler) Watch(context.Context, *connect.Request[v1.WatchRequest], *connect.ServerStream[v1.WatchEvent]) error {
+func (UnimplementedWatchServiceHandler) Watch(context.Context, *connect.Request[emptypb.Empty], *connect.ServerStream[v1.WatchEvent]) error {
 	return connect.NewError(connect.CodeUnimplemented, errors.New("watch.v1.WatchService.Watch is not implemented"))
 }

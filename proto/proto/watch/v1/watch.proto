@@ -5,14 +5,12 @@ package watch.v1;
 import "agent/v1/agent.proto";
 import "agent/v1/mail.proto";
 import "annotation/v1/tool.proto";
+import "google/protobuf/empty.proto";
 import "pullrequest/v1/pullrequest.proto";
 import "schedule/v1/schedule.proto";
 import "workflow/v1/workflow.proto";
 
 option go_package = "weave/proto/gen/watch/v1;watchv1";
-
-// WatchRequest opens the stream, and asks for nothing in particular.
-message WatchRequest {}
 
 // WatchEvent is the snapshot a stream opens with, one row as the panel should now hold it, a
 // tombstone for one it should drop, or a heartbeat.
@@ -26,7 +24,7 @@ message WatchEvent {
     // A row its watched set no longer holds.
     Deleted deleted = 3;
     // Nothing has changed for a while, and the stream is still alive.
-    Heartbeat heartbeat = 4;
+    google.protobuf.Empty heartbeat = 4;
   }
 }
 
@@ -82,14 +80,11 @@ message Deleted {
   string key = 2;
 }
 
-// Heartbeat says the stream is alive while nothing has changed.
-message Heartbeat {}
-
 // WatchService streams every change to the rows the panel draws.
 service WatchService {
   // Watch sends a snapshot of every row the watched sets hold, then one event per change for
   // as long as the stream is open, with a heartbeat when nothing has changed for a while.
-  rpc Watch(WatchRequest) returns (stream WatchEvent) {
+  rpc Watch(google.protobuf.Empty) returns (stream WatchEvent) {
     option idempotency_level = NO_SIDE_EFFECTS;
     option (annotation.v1.surfaces) = {
       cli: false

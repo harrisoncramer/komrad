@@ -11,6 +11,7 @@ import (
 	"weave/proto/gen/watch/v1/watchv1connect"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 const (
@@ -55,7 +56,7 @@ type WatchParams struct {
 // OpenWatch is the Open a connect client answers.
 func OpenWatch(watches watchv1connect.WatchServiceClient) func(ctx context.Context) (WatchStream, error) {
 	return func(ctx context.Context) (WatchStream, error) {
-		stream, err := watches.Watch(ctx, connect.NewRequest(&watchv1.WatchRequest{}))
+		stream, err := watches.Watch(ctx, connect.NewRequest(&emptypb.Empty{}))
 		if err != nil {
 			return nil, fmt.Errorf("failed to open the watch: %w", err)
 		}

@@ -19,6 +19,7 @@ import (
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // scriptedWatch serves one scripted stream per connection, closing each once its events are
@@ -31,7 +32,7 @@ type scriptedWatch struct {
 	holdLast bool
 }
 
-func (s *scriptedWatch) Watch(ctx context.Context, _ *connect.Request[watchv1.WatchRequest], stream *connect.ServerStream[watchv1.WatchEvent]) error {
+func (s *scriptedWatch) Watch(ctx context.Context, _ *connect.Request[emptypb.Empty], stream *connect.ServerStream[watchv1.WatchEvent]) error {
 	s.mu.Lock()
 	at := s.opened
 	s.opened++
@@ -134,7 +135,7 @@ func snapshotEvent(agents ...*agentv1.Agent) *watchv1.WatchEvent {
 }
 
 func heartbeatEvent() *watchv1.WatchEvent {
-	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Heartbeat{Heartbeat: &watchv1.Heartbeat{}}}
+	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Heartbeat{Heartbeat: &emptypb.Empty{}}}
 }
 
 // watchOver runs a watch against the scripted service until the test ends.

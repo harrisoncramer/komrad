@@ -12,6 +12,7 @@ import (
 	watchv1 "weave/proto/gen/watch/v1"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // HeartbeatAfter is how long a stream stays silent before a heartbeat goes out.
@@ -46,7 +47,7 @@ func NewHandler(params NewHandlerParams) *Handler {
 
 // Watch sends the snapshot, then every change until the caller goes away or the
 // broker closes the subscription, with a heartbeat whenever nothing has been sent for a while.
-func (h *Handler) Watch(ctx context.Context, _ *watchv1.WatchRequest, stream *connect.ServerStream[watchv1.WatchEvent]) *fail.Error {
+func (h *Handler) Watch(ctx context.Context, _ *emptypb.Empty, stream *connect.ServerStream[watchv1.WatchEvent]) *fail.Error {
 	subscription, err := h.broker.Subscribe(ctx)
 	if errors.Is(err, watch.ErrClosed) {
 		return ErrWatchClosed
@@ -75,7 +76,7 @@ func (h *Handler) Watch(ctx context.Context, _ *watchv1.WatchRequest, stream *co
 				return nil
 			}
 		case <-heartbeat.C:
-			if err := stream.Send(&watchv1.WatchEvent{Event: &watchv1.WatchEvent_Heartbeat{Heartbeat: &watchv1.Heartbeat{}}}); err != nil {
+			if err := stream.Send(&watchv1.WatchEvent{Event: &watchv1.WatchEvent_Heartbeat{Heartbeat: &emptypb.Empty{}}}); err != nil {
 				return nil
 			}
 		}

@@ -33,6 +33,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // agentStore answers for whichever agents a test names, and for none of the other resources,
@@ -138,7 +139,7 @@ func receive(t *testing.T, stream *connect.ServerStreamForClient[watchv1.WatchEv
 func TestWatchSendsTheSnapshotThenChanges(t *testing.T) {
 	s := serve(t, agentStore{ids: []string{"a1"}}, time.Hour)
 
-	stream, err := s.client.Watch(t.Context(), connect.NewRequest(&watchv1.WatchRequest{}))
+	stream, err := s.client.Watch(t.Context(), connect.NewRequest(&emptypb.Empty{}))
 	require.NoError(t, err)
 
 	first := receive(t, stream)
@@ -162,7 +163,7 @@ func TestWatchSendsTheSnapshotThenChanges(t *testing.T) {
 func TestWatchHeartbeatsWhileNothingChanges(t *testing.T) {
 	s := serve(t, agentStore{}, 10*time.Millisecond)
 
-	stream, err := s.client.Watch(t.Context(), connect.NewRequest(&watchv1.WatchRequest{}))
+	stream, err := s.client.Watch(t.Context(), connect.NewRequest(&emptypb.Empty{}))
 	require.NoError(t, err)
 
 	assert.NotNil(t, receive(t, stream).GetSnapshot())
@@ -177,7 +178,7 @@ func TestWatchHeartbeatsWhileNothingChanges(t *testing.T) {
 func TestWatchEndsWhenTheBrokerCloses(t *testing.T) {
 	s := serve(t, agentStore{}, time.Hour)
 
-	stream, err := s.client.Watch(t.Context(), connect.NewRequest(&watchv1.WatchRequest{}))
+	stream, err := s.client.Watch(t.Context(), connect.NewRequest(&emptypb.Empty{}))
 	require.NoError(t, err)
 	assert.NotNil(t, receive(t, stream).GetSnapshot())
 
@@ -196,7 +197,7 @@ func TestWatchRefusedOnceTheBrokerIsClosed(t *testing.T) {
 	s := serve(t, agentStore{}, time.Hour)
 	s.broker.Close()
 
-	stream, err := s.client.Watch(t.Context(), connect.NewRequest(&watchv1.WatchRequest{}))
+	stream, err := s.client.Watch(t.Context(), connect.NewRequest(&emptypb.Empty{}))
 	require.NoError(t, err)
 
 	assert.False(t, stream.Receive())
@@ -208,7 +209,7 @@ func TestWatchRefusedOnceTheBrokerIsClosed(t *testing.T) {
 func TestWatchRefusedWhenTheSnapshotFails(t *testing.T) {
 	s := serve(t, agentStore{listErr: errors.New("no database")}, time.Hour)
 
-	stream, err := s.client.Watch(t.Context(), connect.NewRequest(&watchv1.WatchRequest{}))
+	stream, err := s.client.Watch(t.Context(), connect.NewRequest(&emptypb.Empty{}))
 	require.NoError(t, err)
 
 	assert.False(t, stream.Receive())

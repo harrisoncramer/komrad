@@ -7,6 +7,7 @@ package watchv1weave
 import (
 	connect "connectrpc.com/connect"
 	context "context"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	fail "weave/internal/fail"
 	rpcerr "weave/internal/rpcerr"
 	v1 "weave/proto/gen/watch/v1"
@@ -15,7 +16,7 @@ import (
 // WatchServiceImpl is the half of WatchService a person writes, whose failures carry the kind
 // of failure they are rather than leaving it to be decided later.
 type WatchServiceImpl interface {
-	Watch(context.Context, *v1.WatchRequest, *connect.ServerStream[v1.WatchEvent]) *fail.Error
+	Watch(context.Context, *emptypb.Empty, *connect.ServerStream[v1.WatchEvent]) *fail.Error
 }
 
 // WatchServiceAdapter carries what the implementation returned across to the signature
@@ -25,6 +26,6 @@ type WatchServiceAdapter struct {
 }
 
 // Watch serves the stream as connect opens it.
-func (a WatchServiceAdapter) Watch(ctx context.Context, req *connect.Request[v1.WatchRequest], stream *connect.ServerStream[v1.WatchEvent]) error {
+func (a WatchServiceAdapter) Watch(ctx context.Context, req *connect.Request[emptypb.Empty], stream *connect.ServerStream[v1.WatchEvent]) error {
 	return rpcerr.AnswerStream(a.Impl.Watch(ctx, req.Msg, stream))
 }
