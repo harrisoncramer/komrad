@@ -23,7 +23,7 @@ done
 
 cd "$MISE_CONFIG_ROOT"
 
-GENERATED=(config.toml db/migrations db/models proto/gen docs/reference)
+GENERATED=(config.toml db/migrations/20260922050000_watch_attachments.sql db/models proto/gen docs/reference)
 
 generated_changes() {
 	git status --porcelain -- "${GENERATED[@]}"
