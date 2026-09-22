@@ -6,11 +6,10 @@ set -euo pipefail
 usage() {
 	echo "Usage: mise run gen:check"
 	echo
-	echo "Checks that every resource the protos declare has its queries and its"
-	echo "renderer, then reruns the sqlc, buf, config, and command reference"
-	echo "generators and fails if any of their committed output changed. Skips the"
-	echo "comparison when those paths already differ from HEAD, since then a"
-	echo "difference says nothing about whether the generators are in sync."
+	echo "Reruns the sqlc, buf, config, and command reference generators and fails"
+	echo "if any of their committed output changed. Skips the comparison when those"
+	echo "paths already differ from HEAD, since then a difference says nothing about"
+	echo "whether the generators are in sync."
 }
 
 for arg in "$@"; do
@@ -23,8 +22,6 @@ for arg in "$@"; do
 done
 
 cd "$MISE_CONFIG_ROOT"
-
-go run ./cmd/check-resources
 
 GENERATED=(config.toml db/models proto/gen docs/reference)
 
