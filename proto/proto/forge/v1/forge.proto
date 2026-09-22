@@ -88,6 +88,7 @@ service ForgeService {
       mcp: true
       name: "list_forges"
       description: "List the forges weave is connected to, one per host, with who weave acts as there and when the forge last confirmed it. The token itself is never returned. A connection is made by a person with weave forge connect and is what the pull request sweep reads through."
+      roles: [ROLE_ORCHESTRATOR]
     };
   }
   rpc CheckForges(google.protobuf.Empty) returns (CheckForgesResponse) {
@@ -97,6 +98,7 @@ service ForgeService {
       name: "check_forges"
       description: "Ask every connected forge whether its credential still works, the way its method allows, and record the answer on each connection. A refusal marks the connection as refused until a person connects it again."
       destructive: false
+      roles: [ROLE_ORCHESTRATOR]
     };
   }
   rpc DisconnectForge(DisconnectForgeRequest) returns (google.protobuf.Empty) {

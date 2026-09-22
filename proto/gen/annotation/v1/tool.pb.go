@@ -22,6 +22,63 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// Role is what an agent was launched to do, which decides the tools it is served.
+type Role int32
+
+const (
+	// No role, which every tool is offered to.
+	Role_ROLE_UNSPECIFIED Role = 0
+	// An agent that lands work on a branch of its own.
+	Role_ROLE_IMPLEMENTER Role = 1
+	// A child that reads another agent's work and gives a review.
+	Role_ROLE_REVIEWER Role = 2
+	// The agent drawn on a workflow's own row that hands work out.
+	Role_ROLE_ORCHESTRATOR Role = 3
+)
+
+// Enum value maps for Role.
+var (
+	Role_name = map[int32]string{
+		0: "ROLE_UNSPECIFIED",
+		1: "ROLE_IMPLEMENTER",
+		2: "ROLE_REVIEWER",
+		3: "ROLE_ORCHESTRATOR",
+	}
+	Role_value = map[string]int32{
+		"ROLE_UNSPECIFIED":  0,
+		"ROLE_IMPLEMENTER":  1,
+		"ROLE_REVIEWER":     2,
+		"ROLE_ORCHESTRATOR": 3,
+	}
+)
+
+func (x Role) Enum() *Role {
+	p := new(Role)
+	*p = x
+	return p
+}
+
+func (x Role) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (Role) Descriptor() protoreflect.EnumDescriptor {
+	return file_annotation_v1_tool_proto_enumTypes[0].Descriptor()
+}
+
+func (Role) Type() protoreflect.EnumType {
+	return &file_annotation_v1_tool_proto_enumTypes[0]
+}
+
+func (x Role) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use Role.Descriptor instead.
+func (Role) EnumDescriptor() ([]byte, []int) {
+	return file_annotation_v1_tool_proto_rawDescGZIP(), []int{0}
+}
+
 type Surfaces struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Whether weave rpc gets a subcommand for the method, which is what a script runs.
@@ -41,6 +98,9 @@ type Surfaces struct {
 	// Whether calling twice lands where calling once does, overriding what the method's
 	// idempotency_level says.
 	Idempotent *bool `protobuf:"varint,6,opt,name=idempotent,proto3,oneof" json:"idempotent,omitempty"`
+	// Which agent roles the MCP server offers the tool to, empty meaning all of them. The CLI is
+	// unaffected, since a person running a command holds no role.
+	Roles []Role `protobuf:"varint,8,rep,packed,name=roles,proto3,enum=annotation.v1.Role" json:"roles,omitempty"`
 	// Why a surface is left off, in a sentence, so the next reader is told rather than left to
 	// work it out. Required when either surface is off.
 	Reason        string `protobuf:"bytes,7,opt,name=reason,proto3" json:"reason,omitempty"`
@@ -120,6 +180,13 @@ func (x *Surfaces) GetIdempotent() bool {
 	return false
 }
 
+func (x *Surfaces) GetRoles() []Role {
+	if x != nil {
+		return x.Roles
+	}
+	return nil
+}
+
 func (x *Surfaces) GetReason() string {
 	if x != nil {
 		return x.Reason
@@ -151,7 +218,7 @@ var File_annotation_v1_tool_proto protoreflect.FileDescriptor
 
 const file_annotation_v1_tool_proto_rawDesc = "" +
 	"\n" +
-	"\x18annotation/v1/tool.proto\x12\rannotation.v1\x1a google/protobuf/descriptor.proto\"\xe7\x01\n" +
+	"\x18annotation/v1/tool.proto\x12\rannotation.v1\x1a google/protobuf/descriptor.proto\"\x92\x02\n" +
 	"\bSurfaces\x12\x10\n" +
 	"\x03cli\x18\x01 \x01(\bR\x03cli\x12\x10\n" +
 	"\x03mcp\x18\x02 \x01(\bR\x03mcp\x12\x12\n" +
@@ -160,10 +227,16 @@ const file_annotation_v1_tool_proto_rawDesc = "" +
 	"\vdestructive\x18\x05 \x01(\bH\x00R\vdestructive\x88\x01\x01\x12#\n" +
 	"\n" +
 	"idempotent\x18\x06 \x01(\bH\x01R\n" +
-	"idempotent\x88\x01\x01\x12\x16\n" +
+	"idempotent\x88\x01\x01\x12)\n" +
+	"\x05roles\x18\b \x03(\x0e2\x13.annotation.v1.RoleR\x05roles\x12\x16\n" +
 	"\x06reason\x18\a \x01(\tR\x06reasonB\x0e\n" +
 	"\f_destructiveB\r\n" +
-	"\v_idempotent:U\n" +
+	"\v_idempotent*\\\n" +
+	"\x04Role\x12\x14\n" +
+	"\x10ROLE_UNSPECIFIED\x10\x00\x12\x14\n" +
+	"\x10ROLE_IMPLEMENTER\x10\x01\x12\x11\n" +
+	"\rROLE_REVIEWER\x10\x02\x12\x15\n" +
+	"\x11ROLE_ORCHESTRATOR\x10\x03:U\n" +
 	"\bsurfaces\x12\x1e.google.protobuf.MethodOptions\x18ӆ\x03 \x01(\v2\x17.annotation.v1.SurfacesR\bsurfacesB,Z*weave/proto/gen/annotation/v1;annotationv1b\x06proto3"
 
 var (
@@ -178,19 +251,22 @@ func file_annotation_v1_tool_proto_rawDescGZIP() []byte {
 	return file_annotation_v1_tool_proto_rawDescData
 }
 
+var file_annotation_v1_tool_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_annotation_v1_tool_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_annotation_v1_tool_proto_goTypes = []any{
-	(*Surfaces)(nil),                   // 0: annotation.v1.Surfaces
-	(*descriptorpb.MethodOptions)(nil), // 1: google.protobuf.MethodOptions
+	(Role)(0),                          // 0: annotation.v1.Role
+	(*Surfaces)(nil),                   // 1: annotation.v1.Surfaces
+	(*descriptorpb.MethodOptions)(nil), // 2: google.protobuf.MethodOptions
 }
 var file_annotation_v1_tool_proto_depIdxs = []int32{
-	1, // 0: annotation.v1.surfaces:extendee -> google.protobuf.MethodOptions
-	0, // 1: annotation.v1.surfaces:type_name -> annotation.v1.Surfaces
-	2, // [2:2] is the sub-list for method output_type
-	2, // [2:2] is the sub-list for method input_type
-	1, // [1:2] is the sub-list for extension type_name
-	0, // [0:1] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	0, // 0: annotation.v1.Surfaces.roles:type_name -> annotation.v1.Role
+	2, // 1: annotation.v1.surfaces:extendee -> google.protobuf.MethodOptions
+	1, // 2: annotation.v1.surfaces:type_name -> annotation.v1.Surfaces
+	3, // [3:3] is the sub-list for method output_type
+	3, // [3:3] is the sub-list for method input_type
+	2, // [2:3] is the sub-list for extension type_name
+	1, // [1:2] is the sub-list for extension extendee
+	0, // [0:1] is the sub-list for field type_name
 }
 
 func init() { file_annotation_v1_tool_proto_init() }
@@ -204,13 +280,14 @@ func file_annotation_v1_tool_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_annotation_v1_tool_proto_rawDesc), len(file_annotation_v1_tool_proto_rawDesc)),
-			NumEnums:      0,
+			NumEnums:      1,
 			NumMessages:   1,
 			NumExtensions: 1,
 			NumServices:   0,
 		},
 		GoTypes:           file_annotation_v1_tool_proto_goTypes,
 		DependencyIndexes: file_annotation_v1_tool_proto_depIdxs,
+		EnumInfos:         file_annotation_v1_tool_proto_enumTypes,
 		MessageInfos:      file_annotation_v1_tool_proto_msgTypes,
 		ExtensionInfos:    file_annotation_v1_tool_proto_extTypes,
 	}.Build()

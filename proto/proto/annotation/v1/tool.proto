@@ -12,6 +12,18 @@ extend google.protobuf.MethodOptions {
   Surfaces surfaces = 50003;
 }
 
+// Role is what an agent was launched to do, which decides the tools it is served.
+enum Role {
+  // No role, which every tool is offered to.
+  ROLE_UNSPECIFIED = 0;
+  // An agent that lands work on a branch of its own.
+  ROLE_IMPLEMENTER = 1;
+  // A child that reads another agent's work and gives a review.
+  ROLE_REVIEWER = 2;
+  // The agent drawn on a workflow's own row that hands work out.
+  ROLE_ORCHESTRATOR = 3;
+}
+
 message Surfaces {
   // Whether weave rpc gets a subcommand for the method, which is what a script runs.
   bool cli = 1;
@@ -32,6 +44,10 @@ message Surfaces {
   // Whether calling twice lands where calling once does, overriding what the method's
   // idempotency_level says.
   optional bool idempotent = 6;
+
+  // Which agent roles the MCP server offers the tool to, empty meaning all of them. The CLI is
+  // unaffected, since a person running a command holds no role.
+  repeated Role roles = 8;
 
   // Why a surface is left off, in a sentence, so the next reader is told rather than left to
   // work it out. Required when either surface is off.
