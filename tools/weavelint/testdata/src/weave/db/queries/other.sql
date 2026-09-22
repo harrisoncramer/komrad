@@ -44,4 +44,10 @@ SELECT
 FROM
     workflows w
     JOIN workflow_hooks h ON h.workflow_id = w.id
-    LEFT JOIN marks k ON k.workflow_id = w.id;
+    LEFT JOIN marks k ON k.workflow_id = w.id
+WHERE
+    w.id IN (
+        SELECT
+            workflow_id
+        FROM
+            schedules);

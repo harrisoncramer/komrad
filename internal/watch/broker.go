@@ -61,11 +61,6 @@ type Event struct {
 	Schedule *schedulev1.Schedule
 }
 
-// IsTombstone reports whether the event says the row is gone from its listing.
-func (e Event) IsTombstone() bool {
-	return e.Agent == nil && e.Workflow == nil && e.Schedule == nil
-}
-
 // Snapshot is every row the three listings hold.
 type Snapshot struct {
 	Agents    []*agentv1.Agent
@@ -232,7 +227,7 @@ func (b *Broker) Subscribe(ctx context.Context) (*Subscription, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	if b.closed || b.reader == nil {
+	if b.closed {
 		return nil, ErrClosed
 	}
 

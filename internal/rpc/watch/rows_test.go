@@ -114,19 +114,19 @@ func TestReadAnswersARowOrATombstoneForEveryTouchedID(t *testing.T) {
 
 	assert.Equal(t, watch.KindAgent, events[0].Kind)
 	assert.Equal(t, "agent-a1", events[0].Agent.GetName())
-	assert.True(t, events[1].IsTombstone())
+	assert.Nil(t, events[1].Agent)
 	assert.Equal(t, "a2", events[1].ID)
 
 	assert.Equal(t, watch.KindWorkflow, events[2].Kind)
 	assert.Equal(t, "backend", events[2].Workflow.GetName())
 	assert.Equal(t, "w", events[2].Workflow.GetMark(), "the workflow row carries its mark")
-	assert.True(t, events[3].IsTombstone())
+	assert.Nil(t, events[3].Workflow)
 	assert.Equal(t, watch.KindWorkflow, events[3].Kind)
 
 	assert.Equal(t, watch.KindSchedule, events[4].Kind)
 	assert.Equal(t, "nightly", events[4].Schedule.GetName())
 	assert.NotNil(t, events[4].Schedule.GetNextRunAt(), "the next run is worked out from the clock")
-	assert.True(t, events[5].IsTombstone())
+	assert.Nil(t, events[5].Schedule)
 	assert.Equal(t, watch.KindSchedule, events[5].Kind)
 }
 

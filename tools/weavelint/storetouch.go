@@ -363,7 +363,7 @@ func isUpdateQualifier(word string) bool {
 
 // tableName is a table as the statement names it, without the column list that may follow.
 func tableName(word string) string {
-	if cut := strings.IndexAny(word, "(;"); cut >= 0 {
+	if cut := strings.IndexAny(word, "();"); cut >= 0 {
 		word = word[:cut]
 	}
 

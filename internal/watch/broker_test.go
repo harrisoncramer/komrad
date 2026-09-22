@@ -111,7 +111,7 @@ func TestTouchesPileUpBehindOneRead(t *testing.T) {
 	require.Equal(t, Touched{Agents: []string{"a", "b"}, Workflows: []string{"w"}, Schedules: []string{"s"}}, reader.getReads()[1])
 	require.Equal(t, []string{"a", "b", "w", "s"}, []string{events[0].ID, events[1].ID, events[2].ID, events[3].ID})
 	require.NotNil(t, events[0].Agent)
-	require.True(t, events[2].IsTombstone(), "a row the reader did not render is a tombstone")
+	require.Nil(t, events[2].Workflow, "a row the reader did not render is a tombstone")
 }
 
 // TestNothingIsReadWithoutAWatcher pins that the broker costs nothing while nobody watches.
@@ -279,16 +279,12 @@ func TestClosingASubscriptionEndsItsStream(t *testing.T) {
 }
 
 // TestABrokerNeverStartedStillCloses pins that a broker built and never started closes cleanly
-// and takes no watcher before or after.
+// and takes no watcher after.
 func TestABrokerNeverStartedStillCloses(t *testing.T) {
 	broker := NewBroker(NewBrokerParams{})
 	broker.Touch(store.TableAgents, "a")
-
-	_, err := broker.Subscribe(t.Context())
-	require.ErrorIs(t, err, ErrClosed)
-
 	broker.Close()
 
-	_, err = broker.Subscribe(t.Context())
+	_, err := broker.Subscribe(t.Context())
 	require.ErrorIs(t, err, ErrClosed)
 }

@@ -64,7 +64,7 @@ func TestStoreTouchSkip(t *testing.T) {
 }
 
 // TestReadTables covers the tables a listing query reads: FROM and JOIN name them, a CTE and a
-// subquery do not, and a table read twice is named once.
+// subquery do not, a table read twice is named once, and one glued to a closing paren is read.
 func TestReadTables(t *testing.T) {
 	loaded, err := readQueries(filepath.Join(analysistest.TestData(), "src", "weave", "db", "queries"), testListings)
 	if err != nil {
@@ -74,6 +74,7 @@ func TestReadTables(t *testing.T) {
 	want := map[string][]string{
 		"agents":         {"agents"},
 		"marks":          {"agents", "workflows"},
+		"schedules":      {"workflows"},
 		"workflows":      {"workflows"},
 		"workflow_hooks": {"workflows"},
 	}
