@@ -31,6 +31,7 @@ const (
 	TargetAgentID          = "weave.target_agent.id"
 	LifecycleAction        = "weave.lifecycle.action"
 	AgentState             = "weave.agent.state"
+	AgentAlive             = "weave.agent.alive"
 	UnrecognizedFrameCount = "weave.agent.unrecognized_frame_count"
 	MCPTool                = "mcp.tool.name"
 	ScriptName             = "weave.script.name"

@@ -41,9 +41,9 @@ type agentLiveness interface {
 
 // rowReader is what an agent's row says, read once for a page and once for one agent.
 type rowReader interface {
-	ListRows(ctx context.Context, page rowstore.Page) ([]agents.Row, error)
-	ListRowsByID(ctx context.Context, ids []string) ([]agents.Row, error)
-	GetRow(ctx context.Context, id string) (*agents.Row, error)
+	ListRows(ctx context.Context, page rowstore.Page) ([]rowstore.Row, error)
+	ListRowsByID(ctx context.Context, ids []string) ([]rowstore.Row, error)
+	GetRow(ctx context.Context, id string) (*rowstore.Row, error)
 }
 
 type agentLifecycle interface {
@@ -262,7 +262,7 @@ func (s *Handler) ListAgents(ctx context.Context, req *agentv1.ListAgentsRequest
 	}
 
 	view := agentViewOptions(req.GetView())
-	resources := xslice.Map(rows, func(row agents.Row) agent { return renderAgent(row, view...) })
+	resources := xslice.Map(rows, func(row rowstore.Row) agent { return renderAgent(row, view...) })
 
 	next, err := paginator.NextToken(resources)
 	if err != nil {
@@ -461,7 +461,7 @@ func (s *Handler) RestoreAgents(ctx context.Context, req *agentv1.RestoreAgentsR
 	}
 
 	return &agentv1.RestoreAgentsResponse{
-		Agents: xslice.Map(rows, func(row agents.Row) *agentv1.Agent { return renderAgent(row).Agent }),
+		Agents: xslice.Map(rows, func(row rowstore.Row) *agentv1.Agent { return renderAgent(row).Agent }),
 	}, nil
 }
 

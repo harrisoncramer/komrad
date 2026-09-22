@@ -513,6 +513,7 @@ INSERT INTO agents(
     flags,
     prompt,
     pane_id,
+    alive,
     state,
     harness,
     session_id,
@@ -532,6 +533,7 @@ VALUES (
     @flags,
     @prompt,
     @pane_id,
+    @pane_id <> '',
     @state,
     @harness,
     @session_id,
@@ -575,6 +577,7 @@ SET
     flags = @flags,
     prompt = @prompt,
     pane_id = @pane_id,
+    alive = @pane_id <> '',
     state = @state,
     state_changed_at = CASE WHEN state IS DISTINCT FROM @state THEN
         NOW()
@@ -598,6 +601,7 @@ SET
     flags = @flags,
     prompt = @prompt,
     pane_id = @pane_id,
+    alive = @pane_id <> '',
     state = @state,
     state_changed_at = CASE WHEN state IS DISTINCT FROM @state THEN
         NOW()
@@ -642,6 +646,7 @@ UPDATE
 SET
     archived_at = NOW(),
     pane_id = '',
+    alive = FALSE,
     state = CASE WHEN prior.unsettled THEN
         'idle'
     ELSE
@@ -896,6 +901,7 @@ UPDATE
     agents
 SET
     pane_id = '',
+    alive = FALSE,
     interrupted_at = COALESCE(sqlc.narg('interrupted_at'), interrupted_at)
 WHERE
     id = @id
@@ -903,6 +909,23 @@ WHERE
     AND updated_at = @updated_at
 RETURNING
     id;
+
+-- name: SetAgentsAlive :exec
+UPDATE
+    agents
+SET
+    alive = @alive
+WHERE
+    id = ANY (@ids::uuid[]);
+
+-- name: SetAgentTreeStanding :exec
+UPDATE
+    agents
+SET
+    tree_standing = @tree_standing,
+    tree_standing_sha = @tree_standing_sha
+WHERE
+    id = @id;
 
 -- name: SetAgentHidden :many
 UPDATE
@@ -1015,6 +1038,7 @@ UPDATE
 SET
     archived_at = NOW(),
     pane_id = '',
+    alive = FALSE,
     state = CASE WHEN prior.unsettled THEN
         'idle'
     ELSE
@@ -1074,6 +1098,7 @@ UPDATE
 SET
     archived_at = NOW(),
     pane_id = '',
+    alive = FALSE,
     state = CASE WHEN prior.unsettled THEN
         'idle'
     ELSE

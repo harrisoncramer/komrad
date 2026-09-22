@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"weave/internal/agents"
 	"weave/internal/watch"
 	"weave/lib/xslice"
 
@@ -22,17 +21,17 @@ import (
 )
 
 type fakeStores struct {
-	agents    []agents.Row
+	agents    []rowstore.Row
 	workflows []workflowstore.Workflow
 	marks     []markstore.Mark
 }
 
-func (f *fakeStores) ListRows(_ context.Context, page rowstore.Page) ([]agents.Row, error) {
-	return pageOf(f.agents, page.Cursor == nil, func(row agents.Row) bool { return page.Cursor != nil && row.ID == page.Cursor.ID }, int(page.Limit)), nil
+func (f *fakeStores) ListRows(_ context.Context, page rowstore.Page) ([]rowstore.Row, error) {
+	return pageOf(f.agents, page.Cursor == nil, func(row rowstore.Row) bool { return page.Cursor != nil && row.ID == page.Cursor.ID }, int(page.Limit)), nil
 }
 
-func (f *fakeStores) ListLiveRowsByID(_ context.Context, ids []string) ([]agents.Row, error) {
-	return xslice.Filter(f.agents, func(row agents.Row) bool { return slices.Contains(ids, row.ID) }), nil
+func (f *fakeStores) ListLiveRowsByID(_ context.Context, ids []string) ([]rowstore.Row, error) {
+	return xslice.Filter(f.agents, func(row rowstore.Row) bool { return slices.Contains(ids, row.ID) }), nil
 }
 
 func (f *fakeStores) ListPage(_ context.Context, limit int64, cursor *workflowstore.Cursor, _ bool) ([]workflowstore.Workflow, error) {
@@ -79,8 +78,8 @@ func pageOf[R any](rows []R, first bool, isCursor func(R) bool, limit int) []R {
 	return page
 }
 
-func agentRow(id string) agents.Row {
-	return agents.Row{Row: rowstore.Row{Agent: agentstore.Agent{ID: id, Name: "agent-" + id}}}
+func agentRow(id string) rowstore.Row {
+	return rowstore.Row{Agent: agentstore.Agent{ID: id, Name: "agent-" + id}}
 }
 
 func newRows(stores *fakeStores, schedules *fakeSchedules) *Rows {
@@ -98,7 +97,7 @@ func newRows(stores *fakeStores, schedules *fakeSchedules) *Rows {
 func TestReadAnswersARowOrATombstoneForEveryTouchedID(t *testing.T) {
 	mark := "w"
 	stores := &fakeStores{
-		agents:    []agents.Row{agentRow("a1")},
+		agents:    []rowstore.Row{agentRow("a1")},
 		workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
 		marks:     []markstore.Mark{{Mark: mark, WorkflowID: &[]string{"w1"}[0]}},
 	}

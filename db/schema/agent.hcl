@@ -591,6 +591,24 @@ table "agents" {
     default = false
     comment = "Whether the hold cut a turn that was still running, which is what decides whether letting go has to type the agent back into motion or merely stop holding it."
   }
+  column "alive" {
+    null    = false
+    type    = boolean
+    default = false
+    comment = "Whether the agent still owns the pane its row names."
+  }
+  column "tree_standing" {
+    null    = false
+    type    = text
+    default = ""
+    comment = "Where the worktree stands against the round its last verdict was given on, empty while it still hashes to it."
+  }
+  column "tree_standing_sha" {
+    null    = false
+    type    = text
+    default = ""
+    comment = "The round the standing was measured against."
+  }
   column "created_at" {
     null    = false
     type    = timestamptz

@@ -31,6 +31,7 @@ type agentStateReadWriter interface {
 	SetTurnEnded(ctx context.Context, id string) error
 	ForgetPane(ctx context.Context, params agentstore.ForgetPaneParams) (bool, error)
 	SetMetadata(ctx context.Context, params agentstore.SetMetadataParams) (bool, error)
+	SetAlive(ctx context.Context, ids []string, alive bool) error
 }
 
 // NewReconcilerParams is what a Reconciler is built over: a tmux probe for who owns a pane,
@@ -52,10 +53,9 @@ type Reconciler struct {
 	frames   frameRecorder
 	watch    store.Publisher
 
-	// unrecognizedTotal and alive are only ever touched by the reconcile pass, so they need
-	// none of the locking the tally below does.
+	// unrecognizedTotal is only ever touched by the reconcile pass, so it needs none of the
+	// locking the tally below does.
 	unrecognizedTotal int
-	alive             map[string]bool
 	tally             *tally
 }
 
@@ -66,7 +66,6 @@ func NewReconciler(params NewReconcilerParams) *Reconciler {
 		observer: params.Observer,
 		store:    params.States,
 		watch:    cmp.Or(params.Watch, store.Discard),
-		alive:    map[string]bool{},
 		tally:    newTally(),
 	}
 }
@@ -104,15 +103,22 @@ func (r *Reconciler) Reconcile(ctx context.Context) error {
 	}
 
 	known := make(map[string]struct{}, len(agents))
-	alive := make(map[string]bool, len(agents))
+	var came, went []string
 	for _, agent := range agents {
 		known[agent.ID] = struct{}{}
 		pane, inListing := panes[agent.Pane]
-		alive[agent.ID] = isPaneOwnedBy(pane.Owner, agent.ID)
+		switch alive := isPaneOwnedBy(pane.Owner, agent.ID); {
+		case alive && !agent.Alive:
+			came = append(came, agent.ID)
+		case !alive && agent.Alive:
+			went = append(went, agent.ID)
+		}
 		r.reconcileAgent(ctx, agent, pane, inListing)
 	}
 
-	r.touchLivenessFlips(alive)
+	r.setAlive(ctx, came, true)
+	r.setAlive(ctx, went, false)
+	r.watch.Touch(store.TableAgents, append(came, went...)...)
 	r.tally.prune(known)
 	if r.frames != nil {
 		r.frames.Forget(known)
@@ -121,17 +127,16 @@ func (r *Reconciler) Reconcile(ctx context.Context) error {
 	return nil
 }
 
-// touchLivenessFlips says which agents' panes came or went since the last pass.
-func (r *Reconciler) touchLivenessFlips(alive map[string]bool) {
-	var flipped []string
-	for id, running := range alive {
-		if was, seen := r.alive[id]; seen && was != running {
-			flipped = append(flipped, id)
-		}
+// setAlive writes the liveness of the agents whose row the pane truth disagreed with.
+func (r *Reconciler) setAlive(ctx context.Context, ids []string, alive bool) {
+	if len(ids) == 0 {
+		return
 	}
-	r.alive = alive
 
-	r.watch.Touch(store.TableAgents, flipped...)
+	if err := r.store.SetAlive(ctx, ids, alive); err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to record whose panes came or went",
+			append([]slog.Attr{slog.Bool(logging.AgentAlive, alive)}, logging.Err(err)...)...)
+	}
 }
 
 func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent, pane tmux.PaneStatus, inListing bool) {

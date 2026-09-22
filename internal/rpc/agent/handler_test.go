@@ -14,7 +14,6 @@ import (
 	"weave/config"
 	"weave/internal/agents"
 	"weave/internal/caller"
-	"weave/internal/git"
 	"weave/internal/logging"
 	"weave/internal/logtest"
 	"weave/internal/mail"
@@ -235,11 +234,12 @@ func TestGetAgent(t *testing.T) {
 	}
 }
 
-// TestListAgents covers the listing and its liveness flag.
+// TestListAgents covers the listing and its liveness flag, which is the row's own.
 func TestListAgents(t *testing.T) {
 	tests := []struct {
 		name  string
 		seed  []string
+		pane  string
 		alive bool
 	}{
 		{
@@ -253,19 +253,19 @@ func TestListAgents(t *testing.T) {
 		{
 			name:  "a live agent is flagged alive",
 			seed:  []string{"alpha", "beta"},
+			pane:  "%1",
 			alive: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc, st, launcher := serviceWithLauncher(t)
-			launcher.alive = tt.alive
+			svc, st := service(t)
 
 			for _, name := range tt.seed {
 				st.SeedAgent(t, agentstore.Agent{
 					Name:  name,
-					Pane:  "%1",
+					Pane:  tt.pane,
 					State: agentstore.StateThinking,
 				})
 			}
@@ -277,16 +277,13 @@ func TestListAgents(t *testing.T) {
 			for _, s := range listed.Msg.GetAgents() {
 				assert.Equal(t, tt.alive, s.GetAlive())
 			}
-
-			assert.Equal(t, 1, launcher.runningCalls, "liveness is read once for the page, not once per agent")
 		})
 	}
 }
 
 // TestGetAgentWritesAliveFalse covers a dormant agent's liveness on the wire.
 func TestGetAgentWritesAliveFalse(t *testing.T) {
-	svc, st, launcher := serviceWithLauncher(t)
-	launcher.alive = false
+	svc, st := service(t)
 	dormant := st.SeedAgent(t, agentstore.Agent{
 		Name:  "alpha",
 		State: agentstore.StateIdle,
@@ -1231,7 +1228,7 @@ func TestSendMailPastTheExchangeLimitIsResourceExhausted(t *testing.T) {
 	liveness := &fakeLauncher{}
 	svc := agentv1weave.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{
 		Agents:      st.Agents,
-		Rows:        rowReaderOver(st, liveness, fakeTrees{}),
+		Rows:        rowReaderOver(st),
 		Transcripts: st.Transcripts,
 		Mail:        mailer,
 		Liveness:    liveness,
@@ -2123,7 +2120,6 @@ type fakeLauncher struct {
 	restoreErr     error
 	resumed        []string
 	resumeErr      error
-	runningCalls   int
 	reviewed       agents.RequestReviewParams
 	guidance       string
 }
@@ -2171,19 +2167,6 @@ func (f *fakeLauncher) Adopt(_ context.Context, p agents.AdoptParams) (*agentsto
 
 // IsAgentRunning answers for the fake's agents, which are live exactly when the test says so.
 func (f *fakeLauncher) IsAgentRunning(agentstore.Agent) bool { return f.alive }
-
-// GetRunningAgents answers a whole listing the same way, recording the call so a test can
-// hold a listing to one lookup rather than one per agent.
-func (f *fakeLauncher) GetRunningAgents(_ context.Context, agents []agentstore.Agent) map[string]bool {
-	f.runningCalls++
-
-	running := make(map[string]bool, len(agents))
-	for _, agent := range agents {
-		running[agent.ID] = f.alive
-	}
-
-	return running
-}
 
 func (f *fakeLauncher) DeleteAgents(_ context.Context, ids []string) error {
 	f.deleted = append(f.deleted, ids...)
@@ -2297,7 +2280,7 @@ func serviceWithLauncher(t *testing.T) (agentv1weave.AgentServiceAdapter, *store
 
 	return agentv1weave.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{
 		Agents:      st.Agents,
-		Rows:        rowReaderOver(st, launcher, fakeTrees{}),
+		Rows:        rowReaderOver(st),
 		Writer:      rowWriterOver(st, &fakeReconciler{}),
 		Transcripts: st.Transcripts,
 		Mail:        mailer,
@@ -2323,31 +2306,9 @@ func rowWriterOver(st *storetest.Stores, reconciler *fakeReconciler) *agents.Row
 	return agents.NewRowWriter(params)
 }
 
-// rowReaderOver is the real thing over the test stores, with the fakes standing in for tmux and
-// the cwd sync.
-func rowReaderOver(st *storetest.Stores, liveness *fakeLauncher, trees fakeTrees) *agents.RowReader {
-	return agents.NewRowReader(agents.NewRowReaderParams{
-		Rows:     st.Rows,
-		Liveness: liveness,
-		Trees:    trees,
-	})
-}
-
-// fakeTrees is where each agent's worktree stands against the one round it was compared to,
-// and unmoved against any other.
-type fakeTrees map[string]standingAt
-
-type standingAt struct {
-	snapshotSHA string
-	standing    git.Standing
-}
-
-func (f fakeTrees) GetStanding(agentID, snapshotSHA string) git.Standing {
-	if at, ok := f[agentID]; ok && at.snapshotSHA == snapshotSHA {
-		return at.standing
-	}
-
-	return git.StandingSame
+// rowReaderOver is the real thing over the test stores.
+func rowReaderOver(st *storetest.Stores) *agents.RowReader {
+	return agents.NewRowReader(agents.NewRowReaderParams{Rows: st.Rows})
 }
 
 // TestEmptyArchiveQueuesTheSweep covers the request coming back once the work is queued, and a
@@ -2541,7 +2502,6 @@ func TestRestoreAgentsRendersEveryAgent(t *testing.T) {
 	})
 
 	assert.Equal(t, []string{"auth", "api"}, names)
-	assert.Equal(t, 1, launcher.runningCalls, "liveness is read once for the batch, not once per agent")
 }
 
 // TestListAgentsSummarisesThePrompt covers the default view holding back the bulk of a page,

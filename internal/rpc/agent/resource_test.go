@@ -4,7 +4,6 @@ import (
 	"testing"
 	"time"
 
-	"weave/internal/agents"
 	agentstore "weave/internal/store/agent"
 	rowstore "weave/internal/store/row"
 	"weave/lib/xptr"
@@ -50,6 +49,6 @@ func TestRenderAgentWithoutAStateChange(t *testing.T) {
 }
 
 // rowOf is an agent's row with nothing beside it.
-func rowOf(stored agentstore.Agent) agents.Row {
-	return agents.Row{Row: rowstore.Row{Agent: stored}}
+func rowOf(stored agentstore.Agent) rowstore.Row {
+	return rowstore.Row{Agent: stored}
 }
