@@ -40,7 +40,12 @@ var resources = resourcesByTable()
 func resourcesByTable() map[string]watchv1.Resource {
 	byTable := map[string]watchv1.Resource{}
 	for _, r := range resource.All() {
-		byTable[r.Option.GetTable()] = watchv1.Resource(watchv1.Resource_value[r.EnumValue()])
+		number, ok := watchv1.Resource_value[r.EnumValue()]
+		if !ok {
+			continue
+		}
+
+		byTable[r.Option.GetTable()] = watchv1.Resource(number)
 	}
 
 	return byTable
