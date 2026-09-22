@@ -82,10 +82,11 @@ The panel is told. It holds the service's watch stream open for its whole life: 
 opens with a snapshot of every resource the panel draws, agents, workflows, schedules, marks,
 unclaimed mail and the pull requests on live agents' branches, then carries one row per
 change, and the client in internal/client hands the events over in batches a few tens of
-milliseconds wide. Each row goes into the map for its kind, or comes out of it on a tombstone,
-and the rows the screens draw are assembled again from the maps after every batch by
-internal/assemble, the one place that says how an agent's row is joined to its mark, its mail
-and its pull requests. The stream promises no order between resources, so a mark or a pull
+milliseconds wide. Each row goes into the World in internal/assemble, one map per kind, or
+comes out of it on a tombstone, and the rows the screens draw are assembled again from those
+maps after every batch by assemble.AgentRows, the one function that says how an agent's row is
+joined to its mark, its mail and its pull requests, which the agent handler calls too for
+list_agents. The stream promises no order between resources, so a mark or a pull
 request may arrive before the agent it is for: it is held and drawn once the agent is. A
 stream that closes or goes quiet is reported as the server gone and opened again, and the next
 snapshot replaces what the last stream built. Nothing about an agent is discovered here: the

@@ -38,15 +38,35 @@ The outermost layer is the API handlers, the MCP server, and the CLI. These pars
 
 The next layer is the services, one per domain: agents, mail, marks, schedules, transcripts, pull requests, reviews, checkouts, scripts, worktrees, and forges. The business logic lives here. A handler does nothing but translate a request into a call on the service for its domain.
 
-The stores hold the data, again one per domain, and own the database transactions. A store that writes a row one of the panel's listings is drawn from tells the watch broker which rows it changed, once the change can be read: at once outside a transaction, and after the commit inside one. A lint rule holds every such write to that.
+The stores hold the data, again one per domain, and own the database transactions. A store reads and writes the rows of its own resource and nothing else. It says nothing about publishing, because the database does that on its own, described below.
 
 Separately, adapters stand in front of the things weave does not own: tmux, the agent CLIs, and the scripts it runs. Each one is a seam. The harness adapter, for instance, is where the difference between Claude and Codex is kept, so nothing above it knows which CLI an agent runs.
 
-## Postgres
+## Rows are resources
 
-State for weave is kept in Postgres. Every agent, workflow, schedule, and message is a row, and anything that must survive a restart is written there.
+State for weave is kept in Postgres, and anything that must survive a restart is written there.
 
-In order to reconcile state into tmux from the database, the server runs refresh (polling) loops.
+Everything the panel draws is a row of one table. An agent is its row in the agents table, with a few facts about it read from the tables that describe it and nothing else: its metadata, its latest unread failure, where its local review stands. A workflow is its row with its configuration. A mark, a piece of mail, a pull request and a schedule are each rows of their own table. These are the resources, and every read in the API answers one of them: a get answers one row, a list answers rows of one kind, and neither joins anything to them.
+
+Some facts an agent's row carries are learned from outside the database. Whether its pane is alive is read from tmux, and where its worktree stands against the base is read from git. The loops that learn them write them onto the row like any other column, so the row is the whole record and nothing about an agent lives only in a process's memory.
+
+## How a change reaches the panel
+
+The database publishes its own changes. A trigger on each resource table announces the table and the key of a row the moment the write that moved it commits, and a write that rolls back announces nothing. The tables that describe a resource without being one, an agent's metadata for instance, announce the resource they belong to. A column a loop stamps on a timer that nobody draws is left out, so a stamp moves nothing on the screen.
+
+The service holds one connection open to hear those announcements. It reads each named row back fresh and sends it down every open watch stream, or sends a tombstone when the row has left the set the stream carries, as an archived agent or a claimed mail has.
+
+The panel holds one such stream open for its whole life. The stream opens with the whole picture, every row of every resource the panel draws, and then carries one row or one tombstone at a time. If the stream breaks for any reason, the service's hearing included, the panel opens it again and starts from the whole picture, so nothing that happened in the gap is missed. The panel never asks whether anything has changed; it is told.
+
+## The combined row
+
+The row a screen draws for an agent is more than the agent: it carries the mark on it, whether mail is waiting for it, and the pull requests opened from its branch with the current one's standing. Those come from four resources, and joining them is defined once, as one function over the rows a caller holds.
+
+The panel calls that function over the rows the stream has delivered, after every batch. The service calls the same function when a model or a script asks for agents over [MCP](mcp.md) or the CLI, so `list_agents` answers what the panel shows and there is no second way of putting the row together. A write's response carries only the row it wrote.
+
+## The loops
+
+The server runs a few loops that reconcile what the database says with what tmux and the forge say. Each one writes what it learns onto the rows, and the trigger publishes it.
 
 The reconcile loop runs every two seconds. This loop is responsible for reconciling the state of the agent with the view in the manager panel. For instance, the agent's "thinking" state is determined based on the presence of text in the render window that looks like thinking text, not based on stop, start or other hooks, which are unreliable.
 
@@ -68,6 +88,6 @@ The handler then translates that request into a call on the agents service, whic
 
 The store then writes the rows, inside one transaction if more than one domain is involved. The service also kills the panes through the tmux adapter.
 
-The service publishes the rows it moved, and the panel, which holds a watch stream open, replaces them in the listing it draws from. If the call failed, the error is reported on the panel's screen and nothing was written.
+When the transaction commits, the database announces the rows it moved. The service reads them back, finds them gone from the live set, and sends the panel a tombstone for each, and the panel drops them from the picture it draws. If the call failed, the error is reported on the panel's screen and nothing was written.
 
 The process is similar for an agent doing the same thing: the call may come over MCP, but eventually it still reaches the same validators, services logic, and database transaction code.
