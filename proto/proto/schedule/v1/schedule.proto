@@ -14,10 +14,7 @@ import "view/v1/view.proto";
 option go_package = "weave/proto/gen/schedule/v1;schedulev1";
 
 message Schedule {
-  option (annotation.v1.resource) = {
-    table: "schedules"
-    ignores: ["updated_at"]
-  };
+  option (annotation.v1.resource) = {table: "schedules"};
 
   // The handle every other call names this schedule by.
   string id = 1;

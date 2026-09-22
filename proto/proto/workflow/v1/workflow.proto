@@ -15,19 +15,16 @@ option go_package = "weave/proto/gen/workflow/v1;workflowv1";
 message Workflow {
   option (annotation.v1.resource) = {
     table: "workflows"
-    ignores: ["updated_at"]
     projects: [
       {
         table: "workflow_configs"
         lookup: "workflow_config_id"
         via: "id"
-        ignores: ["updated_at"]
       },
       {
         table: "workflow_provisioner_configs"
         lookup: "provisioner_config_id"
         via: "id"
-        ignores: ["updated_at"]
       },
       {
         table: "workflow_hooks"

@@ -51,17 +51,10 @@ enum AgentRole {
 message Agent {
   option (annotation.v1.resource) = {
     table: "agents"
-    ignores: [
-      "updated_at",
-      "state_seen_at",
-      "nudged_at",
-      "nudge_sent_at"
-    ]
     projects: [
       {
         table: "agent_metadata"
         column: "agent_id"
-        ignores: ["updated_at"]
       },
       {
         table: "agent_runs"
@@ -70,7 +63,6 @@ message Agent {
       {
         table: "reviews"
         column: "agent_id"
-        ignores: ["updated_at"]
       },
       {
         table: "review_rounds"
@@ -81,13 +73,6 @@ message Agent {
         lookup: "repository_url"
         via: "repository_url"
         where: "archived_at IS NULL"
-        ignores: [
-          "read_at",
-          "calls",
-          "listed_at",
-          "sweep_cursor",
-          "sweep_newest"
-        ]
       }
     ]
   };

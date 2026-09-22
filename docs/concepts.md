@@ -52,9 +52,11 @@ Some facts an agent's row carries are learned from outside the database. Whether
 
 ## How a change reaches the panel
 
-The database publishes its own changes. A trigger on each resource table announces the table and the key of a row the moment the write that moved it commits, and a write that rolls back announces nothing. The tables that describe a resource without being one, an agent's metadata for instance, announce the resource they belong to. A column a loop stamps on a timer that nobody draws is left out, so a stamp moves nothing on the screen.
+The database publishes its own changes. A trigger on each resource table announces the table and the key of a row the moment the write that moved it commits, and a write that rolls back announces nothing. The tables that describe a resource without being one, an agent's metadata for instance, announce the resource they belong to. The trigger carries no opinion about whether the change is worth anyone's attention: every write announces.
 
-The service holds one connection open to hear those announcements. It reads each named row back fresh and sends it down every open watch stream, or sends a tombstone when the row has left the set the stream carries, as an archived agent or a claimed mail has.
+The service holds one connection open to hear those announcements. It reads each named row back fresh and sends it down every open watch stream, or sends a tombstone when the row has left the set the stream carries, as an archived agent or a claimed mail has. A row that reads back exactly as the stream last carried it is sent to nobody, so a column a loop stamps on a timer moves nothing on the screen.
+
+An announcement is an interrupt rather than a record. It carries no payload beyond the key, nothing durable is kept, and one that is lost costs a relist and never correctness, because every stream opens and reopens with the whole picture.
 
 The panel holds one such stream open for its whole life. The stream opens with the whole picture, every row of every resource the panel draws, and then carries one row or one tombstone at a time. If the stream breaks for any reason, the service's hearing included, the panel opens it again and starts from the whole picture, so nothing that happened in the gap is missed. The panel never asks whether anything has changed; it is told.
 

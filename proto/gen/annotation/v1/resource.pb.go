@@ -28,10 +28,8 @@ type Resource struct {
 	Table string `protobuf:"bytes,1,opt,name=table,proto3" json:"table,omitempty"`
 	// The column the row is keyed by, "id" when empty.
 	Key string `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
-	// Columns a loop stamps that no reader draws, so a write to them alone moves nothing.
-	Ignores []string `protobuf:"bytes,3,rep,name=ignores,proto3" json:"ignores,omitempty"`
 	// Tables whose rows are rendered onto this one, and whose writes move it.
-	Projects      []*Projection `protobuf:"bytes,4,rep,name=projects,proto3" json:"projects,omitempty"`
+	Projects      []*Projection `protobuf:"bytes,3,rep,name=projects,proto3" json:"projects,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -80,13 +78,6 @@ func (x *Resource) GetKey() string {
 	return ""
 }
 
-func (x *Resource) GetIgnores() []string {
-	if x != nil {
-		return x.Ignores
-	}
-	return nil
-}
-
 func (x *Resource) GetProjects() []*Projection {
 	if x != nil {
 		return x.Projects
@@ -108,9 +99,7 @@ type Projection struct {
 	// The column on the projected row that lookup is matched against.
 	Via string `protobuf:"bytes,4,opt,name=via,proto3" json:"via,omitempty"`
 	// A condition on the resource's table narrowing the lookup, such as archived_at IS NULL.
-	Where string `protobuf:"bytes,5,opt,name=where,proto3" json:"where,omitempty"`
-	// Columns a loop stamps that no reader draws.
-	Ignores       []string `protobuf:"bytes,6,rep,name=ignores,proto3" json:"ignores,omitempty"`
+	Where         string `protobuf:"bytes,5,opt,name=where,proto3" json:"where,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -180,13 +169,6 @@ func (x *Projection) GetWhere() string {
 	return ""
 }
 
-func (x *Projection) GetIgnores() []string {
-	if x != nil {
-		return x.Ignores
-	}
-	return nil
-}
-
 var file_annotation_v1_resource_proto_extTypes = []protoimpl.ExtensionInfo{
 	{
 		ExtendedType:  (*descriptorpb.MessageOptions)(nil),
@@ -210,20 +192,18 @@ var File_annotation_v1_resource_proto protoreflect.FileDescriptor
 
 const file_annotation_v1_resource_proto_rawDesc = "" +
 	"\n" +
-	"\x1cannotation/v1/resource.proto\x12\rannotation.v1\x1a google/protobuf/descriptor.proto\"\x83\x01\n" +
+	"\x1cannotation/v1/resource.proto\x12\rannotation.v1\x1a google/protobuf/descriptor.proto\"i\n" +
 	"\bResource\x12\x14\n" +
 	"\x05table\x18\x01 \x01(\tR\x05table\x12\x10\n" +
-	"\x03key\x18\x02 \x01(\tR\x03key\x12\x18\n" +
-	"\aignores\x18\x03 \x03(\tR\aignores\x125\n" +
-	"\bprojects\x18\x04 \x03(\v2\x19.annotation.v1.ProjectionR\bprojects\"\x94\x01\n" +
+	"\x03key\x18\x02 \x01(\tR\x03key\x125\n" +
+	"\bprojects\x18\x03 \x03(\v2\x19.annotation.v1.ProjectionR\bprojects\"z\n" +
 	"\n" +
 	"Projection\x12\x14\n" +
 	"\x05table\x18\x01 \x01(\tR\x05table\x12\x16\n" +
 	"\x06column\x18\x02 \x01(\tR\x06column\x12\x16\n" +
 	"\x06lookup\x18\x03 \x01(\tR\x06lookup\x12\x10\n" +
 	"\x03via\x18\x04 \x01(\tR\x03via\x12\x14\n" +
-	"\x05where\x18\x05 \x01(\tR\x05where\x12\x18\n" +
-	"\aignores\x18\x06 \x03(\tR\aignores:V\n" +
+	"\x05where\x18\x05 \x01(\tR\x05where:V\n" +
 	"\bresource\x12\x1f.google.protobuf.MessageOptions\x18Ԇ\x03 \x01(\v2\x17.annotation.v1.ResourceR\bresourceB,Z*weave/proto/gen/annotation/v1;annotationv1b\x06proto3"
 
 var (

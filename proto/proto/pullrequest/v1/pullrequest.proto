@@ -24,10 +24,7 @@ message ListPullRequestsRequest {
 }
 
 message PullRequest {
-  option (annotation.v1.resource) = {
-    table: "pull_requests"
-    ignores: ["checks_read_at"]
-  };
+  option (annotation.v1.resource) = {table: "pull_requests"};
 
   // The handle weave keys the row by.
   string id = 1;
