@@ -24,25 +24,25 @@ func familyTree() model {
 		width: 60,
 		listing: listing{
 			workflows: []panel.Workflow{{ID: "w1", Name: "weave"}},
-			agents: []agentItem{
-				{agent: panel.Agent{
+			agents: []panel.AgentRow{
+				{Agent: panel.Agent{
 					ID:         "a1",
 					Name:       "author",
 					WorkflowID: "w1",
 					Cwd:        "/tmp/tree",
 				}},
-				{agent: panel.Agent{
+				{Agent: panel.Agent{
 					ID:         "a2",
 					Name:       "fix-gutter",
 					WorkflowID: "w1",
 				}},
-				{agent: panel.Agent{
+				{Agent: panel.Agent{
 					ID:            "a3",
 					Name:          "reviewer",
 					WorkflowID:    "w1",
 					ParentAgentID: xptr.Ptr("a1"),
 				}},
-				{agent: panel.Agent{
+				{Agent: panel.Agent{
 					ID:            "a4",
 					Name:          "test-runner",
 					WorkflowID:    "w1",
@@ -76,7 +76,7 @@ func TestChildRowsFollowTheirParent(t *testing.T) {
 // TestHiddenParentTakesItsChildren pins that hiding a parent hides the rows under it.
 func TestHiddenParentTakesItsChildren(t *testing.T) {
 	m := familyTree()
-	m.listing.agents[0].agent.Hidden = true
+	m.listing.agents[0].Agent.Hidden = true
 
 	rows := m.agents.rows(m.shared())
 	assert.Equal(t, []string{"header:weave", "agent:fix-gutter"}, describeRows(rows))
@@ -113,8 +113,8 @@ func TestChildIsNotRebaseable(t *testing.T) {
 	m := familyTree()
 	m.listing.workflows[0].Worktree = panel.WorktreeConfig{Enabled: true}
 
-	assert.True(t, m.listing.isRebaseable(m.listing.agents[0].agent), "the parent's own worktree is weave's to move")
-	assert.False(t, m.listing.isRebaseable(m.listing.agents[2].agent))
+	assert.True(t, m.listing.isRebaseable(m.listing.agents[0].Agent), "the parent's own worktree is weave's to move")
+	assert.False(t, m.listing.isRebaseable(m.listing.agents[2].Agent))
 }
 
 // TestChildDetailsLeadWithTheParent pins the details naming the parent a child belongs to.
@@ -211,7 +211,7 @@ func TestUnnamedChildrenReadsTheArchivesOwnRows(t *testing.T) {
 // submit the service could only refuse.
 func TestChildKeyOnAChildIsRefused(t *testing.T) {
 	m := familyTree()
-	child := m.listing.agents[2].agent
+	child := m.listing.agents[2].Agent
 
 	next, _ := m.openNewChild(child)
 	refused, ok := next.(model)
@@ -225,7 +225,7 @@ func TestChildKeyOnAChildIsRefused(t *testing.T) {
 // than on the workflow.
 func TestHiddenChildCountsOnItsParent(t *testing.T) {
 	m := familyTree()
-	m.listing.agents[2].agent.Hidden = true
+	m.listing.agents[2].Agent.Hidden = true
 
 	rows := m.agents.rows(m.shared())
 	assert.Equal(t, []string{

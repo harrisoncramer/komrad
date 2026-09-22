@@ -100,9 +100,9 @@ func TestSharedIsTheRootAsAScreenSeesIt(t *testing.T) {
 	}, shared.chrome)
 }
 
-// TestEveryListingScreenSurvivesARefresh drives the pass applyRefresh runs once a second against
-// each screen the listing feeds.
-func TestEveryListingScreenSurvivesARefresh(t *testing.T) {
+// TestEveryListingScreenSurvivesAListing drives a listing landing against each screen the
+// listing feeds.
+func TestEveryListingScreenSurvivesAListing(t *testing.T) {
 	for s := screenAgents; s <= screenWorktrees; s++ {
 		tmux := &recordingTmux{width: 200, height: 40}
 		m := infoModel(tmux)
@@ -114,10 +114,10 @@ func TestEveryListingScreenSurvivesARefresh(t *testing.T) {
 		m.frame.Attach("%0")
 		m.enterScreen(s)
 
-		m.applyRefresh(refreshResult{})
+		m.withListing(func(*listing) {})
 
 		assert.Equal(t, s, m.screen, "screen %d left the screen it was on", s)
-		assert.NotEmpty(t, m.View(), "screen %d draws nothing after a pass", s)
+		assert.NotEmpty(t, m.View(), "screen %d draws nothing after a listing", s)
 	}
 }
 
@@ -186,7 +186,7 @@ func TestALongNameIsCutWithAnEllipsis(t *testing.T) {
 		m.width, m.height = 80, 40
 		m.listing.workflows[0].Name = long
 		m.agents.showHidden = false
-		m.listing.agents[0].agent.Hidden = true
+		m.listing.agents[0].Agent.Hidden = true
 
 		header := rowWith(t, m.agentsListView(), long[:10])
 		assert.Contains(t, header, "…", "the name says it was cut")
@@ -238,8 +238,8 @@ func longNamedModel(t *testing.T) model {
 	m.listing.workflows[0].Name = long
 	m.listing.archivedWorkflows = m.listing.workflows
 	m.listing.schedules[0].schedule.Name = long
-	m.listing.agents = append([]agentItem{{
-		agent: panel.Agent{
+	m.listing.agents = append([]panel.AgentRow{{
+		Agent: panel.Agent{
 			ID:         "zz",
 			Name:       long,
 			WorkflowID: "w1",
@@ -266,14 +266,14 @@ func crowdedModel(t *testing.T) model {
 
 	for i := range 40 {
 		name := fmt.Sprintf("an-agent-with-a-long-name-%d", i)
-		m.listing.agents = append(m.listing.agents, agentItem{
-			agent: panel.Agent{
+		m.listing.agents = append(m.listing.agents, panel.AgentRow{
+			Agent: panel.Agent{
 				ID:         fmt.Sprintf("a%d", i),
 				Name:       name,
 				WorkflowID: "w1",
 			},
 		})
-		m.listing.archivedAgents = append(m.listing.archivedAgents, agentItem{agent: panel.Agent{
+		m.listing.archivedAgents = append(m.listing.archivedAgents, panel.AgentRow{Agent: panel.Agent{
 			ID:         fmt.Sprintf("r%d", i),
 			Name:       name,
 			WorkflowID: "w1",

@@ -189,13 +189,6 @@ func TestGetReviewHandsTheAgentOneReleaseWhole(t *testing.T) {
 func reviewService(t *testing.T) (agentv1weave.AgentServiceAdapter, *storetest.Stores, *reviewstore.ReviewStore) {
 	t.Helper()
 
-	return reviewServiceOver(t, fakeTrees{})
-}
-
-// reviewServiceOver is the service over a git that answers the given standings.
-func reviewServiceOver(t *testing.T, trees fakeTrees) (agentv1weave.AgentServiceAdapter, *storetest.Stores, *reviewstore.ReviewStore) {
-	t.Helper()
-
 	st := storetest.Open(t)
 	rounds := reviewstore.NewReviewStore(st.Pool.GetDB())
 	mailer := mail.NewMailService(mail.NewMailServiceParams{
@@ -219,12 +212,15 @@ func reviewServiceOver(t *testing.T, trees fakeTrees) (agentv1weave.AgentService
 	liveness := &fakeLauncher{}
 
 	return agentv1weave.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{
-		Agents:   st.Agents,
-		Rows:     rowReaderOver(st, liveness, trees),
-		Mail:     mailer,
-		Review:   review,
-		Marks:    markService(st),
-		Liveness: liveness,
+		Agents:       st.Agents,
+		Rows:         st.Rows,
+		Mail:         mailer,
+		Review:       review,
+		Marks:        markService(st),
+		Workflows:    st.Workflows,
+		Unclaimed:    st.Mail,
+		PullRequests: st.PullRequests,
+		Liveness:     liveness,
 	})}, st, rounds
 }
 
@@ -244,11 +240,10 @@ func (fakeSnapshotter) ReadFileLines(context.Context, string, string, string) ([
 	return nil, nil
 }
 
-// TestListedAgentsCarryWhereTheirTreeStands pins that the standing the cwd pass found against
+// TestListedAgentsCarryWhereTheirTreeStands pins that the standing the cwd pass wrote against
 // the round of the last verdict rides the row.
 func TestListedAgentsCarryWhereTheirTreeStands(t *testing.T) {
-	trees := fakeTrees{}
-	svc, st, _ := reviewServiceOver(t, trees)
+	svc, st, _ := reviewService(t)
 	worker := st.SeedAgent(t, agentstore.Agent{
 		Name:  "worker",
 		Cwd:   "/repo",
@@ -261,7 +256,7 @@ func TestListedAgentsCarryWhereTheirTreeStands(t *testing.T) {
 		Role:          agentstore.RoleReviewer,
 		ParentAgentID: &worker.ID,
 	})
-	trees[worker.ID] = standingAt{snapshotSHA: "snapshot-sha", standing: git.StandingLandedMoved}
+	require.NoError(t, st.Agents.SetTreeStanding(t.Context(), worker.ID, git.StandingLandedMoved, "snapshot-sha"))
 
 	asReviewer := caller.With(t.Context(), caller.Caller{AgentID: reviewer.ID})
 	_, err := svc.OpenReviewRound(asReviewer, connect.NewRequest(&agentv1.OpenReviewRoundRequest{
@@ -273,8 +268,8 @@ func TestListedAgentsCarryWhereTheirTreeStands(t *testing.T) {
 		listed, err := svc.ListAgents(t.Context(), connect.NewRequest(&agentv1.ListAgentsRequest{}))
 		require.NoError(t, err)
 
-		for _, agent := range listed.Msg.GetAgents() {
-			if agent.GetName() == "worker" {
+		for _, row := range listed.Msg.GetAgents() {
+			if agent := row.GetAgent(); agent.GetName() == "worker" {
 				return agent.GetLocalReviewTree()
 			}
 		}
@@ -333,8 +328,8 @@ func TestListedAgentsCarryTheirReviewRounds(t *testing.T) {
 		require.NoError(t, err)
 
 		rounds := make(map[string]int32, len(listed.Msg.GetAgents()))
-		for _, agent := range listed.Msg.GetAgents() {
-			rounds[agent.GetName()] = agent.GetLocalReviewRounds()
+		for _, row := range listed.Msg.GetAgents() {
+			rounds[row.GetAgent().GetName()] = row.GetAgent().GetLocalReviewRounds()
 		}
 
 		return rounds

@@ -29,6 +29,7 @@ type agentStateReadWriter interface {
 	SetTurnEnded(ctx context.Context, id string) error
 	ForgetPane(ctx context.Context, params agentstore.ForgetPaneParams) (bool, error)
 	SetMetadata(ctx context.Context, params agentstore.SetMetadataParams) (bool, error)
+	SetAlive(ctx context.Context, ids []string, alive bool) error
 }
 
 // NewReconcilerParams is what a Reconciler is built over: a tmux probe for who owns a pane,
@@ -96,18 +97,39 @@ func (r *Reconciler) Reconcile(ctx context.Context) error {
 	}
 
 	known := make(map[string]struct{}, len(agents))
+	var came, went []string
 	for _, agent := range agents {
 		known[agent.ID] = struct{}{}
 		pane, inListing := panes[agent.Pane]
+		switch alive := isPaneOwnedBy(pane.Owner, agent.ID); {
+		case alive && !agent.Alive:
+			came = append(came, agent.ID)
+		case !alive && agent.Alive:
+			went = append(went, agent.ID)
+		}
 		r.reconcileAgent(ctx, agent, pane, inListing)
 	}
 
+	r.setAlive(ctx, came, true)
+	r.setAlive(ctx, went, false)
 	r.tally.prune(known)
 	if r.frames != nil {
 		r.frames.Forget(known)
 	}
 
 	return nil
+}
+
+// setAlive writes the liveness of the agents whose row the pane truth disagreed with.
+func (r *Reconciler) setAlive(ctx context.Context, ids []string, alive bool) {
+	if len(ids) == 0 {
+		return
+	}
+
+	if err := r.store.SetAlive(ctx, ids, alive); err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to record whose panes came or went",
+			append([]slog.Attr{slog.Bool(logging.AgentAlive, alive)}, logging.Err(err)...)...)
+	}
 }
 
 func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent, pane tmux.PaneStatus, inListing bool) {

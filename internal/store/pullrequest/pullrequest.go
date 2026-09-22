@@ -63,39 +63,6 @@ type PullRequest struct {
 	ChecksReadAt *time.Time
 }
 
-// Summary is what a row about a pull request shows: how to open it and where it stands.
-type Summary struct {
-	Number int
-	URL    string
-	Title  string
-	Draft  bool
-	// MergedAt and ClosedAt are the forge's stamps, which decide whether it is finished.
-	MergedAt *time.Time
-	ClosedAt *time.Time
-	// ReviewDecision is where the forge says the reviews stand, nil while it has said nothing.
-	ReviewDecision *forge.ReviewDecision
-	// Checks is where the forge says the checks on the head stand, nil while it reports none.
-	Checks *forge.Checks
-	// Mergeability is where the forge says it stands against its base and rules, nil while the
-	// forge has not computed it.
-	Mergeability *forge.Mergeability
-}
-
-// GetSummary is the pull request as a row shows it.
-func (p PullRequest) GetSummary() Summary {
-	return Summary{
-		Number:         p.Number,
-		URL:            p.URL,
-		Title:          p.Title,
-		Draft:          p.Draft,
-		MergedAt:       p.MergedAt,
-		ClosedAt:       p.ClosedAt,
-		ReviewDecision: p.ReviewDecision,
-		Checks:         p.Checks,
-		Mergeability:   p.Mergeability,
-	}
-}
-
 // IsFinished says whether the pull request merged or closed.
 func (p PullRequest) IsFinished() bool {
 	return p.MergedAt != nil || p.ClosedAt != nil
@@ -200,16 +167,90 @@ func (s *PullRequestStore) GetByIdentity(ctx context.Context, host, providerID s
 	return &pullRequest, nil
 }
 
-// ListForAgent is every pull request opened from an agent's branch in its repository, newest
-// opened first, on the same terms the agent's row is attributed by.
-func (s *PullRequestStore) ListForAgent(ctx context.Context, agentID string) ([]PullRequest, error) {
-	if !store.IsID(agentID) {
-		return nil, store.ErrNotFound.Saying("no agent with id %q", agentID)
+// ListForAgents is every pull request opened from the branch any of the given agents is on, in
+// its repository.
+func (s *PullRequestStore) ListForAgents(ctx context.Context, agentIDs []string) ([]PullRequest, error) {
+	storable := store.KeepIDs(agentIDs)
+	if len(storable) == 0 {
+		return nil, nil
 	}
 
-	rows, err := s.queries.ListAgentBranchPullRequests(ctx, agentID)
+	rows, err := s.queries.ListPullRequestsOfAgents(ctx, storable)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list the pull requests of agent %q: %w", agentID, err)
+		return nil, fmt.Errorf("failed to list the pull requests of %d agents: %w", len(storable), err)
+	}
+
+	return xslice.Map(rows, fromRow), nil
+}
+
+// List is every pull request opened from a branch a live agent is on, in its repository.
+func (s *PullRequestStore) List(ctx context.Context) ([]PullRequest, error) {
+	rows, err := s.queries.SnapshotPullRequests(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the pull requests on live branches: %w", err)
+	}
+
+	return xslice.Map(rows, fromRow), nil
+}
+
+// ListByKey returns whichever of the given ids hold a pull request opened from a branch a live
+// agent is on.
+func (s *PullRequestStore) ListByKey(ctx context.Context, ids []string) ([]PullRequest, error) {
+	storable := store.KeepIDs(ids)
+	if len(storable) == 0 {
+		return nil, nil
+	}
+
+	rows, err := s.queries.ListPullRequestsByKey(ctx, storable)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list %d pull requests: %w", len(storable), err)
+	}
+
+	return xslice.Map(rows, fromRow), nil
+}
+
+// Cursor is where a page of pull requests left off: whether the last was finished, when it
+// was opened and its id.
+type Cursor struct {
+	Finished bool      `json:"finished"`
+	OpenedAt time.Time `json:"opened_at"`
+	ID       string    `json:"id"`
+}
+
+// Validate refuses a cursor that names no row.
+func (c Cursor) Validate() error {
+	if !store.IsID(c.ID) {
+		return fmt.Errorf("cursor id %q is not an id", c.ID)
+	}
+
+	return nil
+}
+
+// ListPageParams narrows a page to one repository and, when set, one branch.
+type ListPageParams struct {
+	RepositoryURL string
+	HeadBranch    string
+	Limit         int32
+	Cursor        *Cursor
+}
+
+// ListPage is one page of a repository's stored pull requests, the unfinished ones first and
+// each group newest opened first.
+func (s *PullRequestStore) ListPage(ctx context.Context, params ListPageParams) ([]PullRequest, error) {
+	query := models.ListPullRequestsPageParams{
+		RepositoryUrl: params.RepositoryURL,
+		HeadBranch:    params.HeadBranch,
+		Lim:           params.Limit,
+	}
+	if params.Cursor != nil {
+		query.CursorID = &params.Cursor.ID
+		query.CursorFinished = params.Cursor.Finished
+		query.CursorOpenedAt = params.Cursor.OpenedAt
+	}
+
+	rows, err := s.queries.ListPullRequestsPage(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list a page of the pull requests of %s: %w", params.RepositoryURL, err)
 	}
 
 	return xslice.Map(rows, fromRow), nil

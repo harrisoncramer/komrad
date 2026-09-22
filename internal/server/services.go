@@ -21,6 +21,7 @@ import (
 	"weave/internal/scriptrun"
 	"weave/internal/scripts"
 	"weave/internal/transcripts"
+	"weave/internal/watch"
 	"weave/internal/worktrees"
 )
 
@@ -31,7 +32,6 @@ type services struct {
 	review          *reviews.ReviewService
 	schedule        *schedules.ScheduleService
 	liveness        *agents.PaneLiveness
-	rows            *agents.RowReader
 	rowWriter       *agents.RowWriter
 	launch          *agents.LaunchService
 	resume          *agents.ResumeService
@@ -52,6 +52,7 @@ type services struct {
 	inspector       *worktrees.Inspector
 	remover         *worktrees.Remover
 	measurer        *worktrees.Measurer
+	watchRows       *watch.Rows
 }
 
 // BuiltinScriptsDir is where the scripts weave ships are installed under a cache directory,
@@ -263,11 +264,14 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 
 	return &services{
 		loadConfig: loadConfig,
-		rows: agents.NewRowReader(agents.NewRowReaderParams{
-			Rows:     st.rows,
-			Liveness: paneLiveness,
-			Trees:    cwdSyncer,
-		}),
+		watchRows: watch.NewRows(watch.NewRowsParams{Stores: watch.Stores{
+			Agents:       st.rows,
+			Workflows:    st.workflows,
+			Schedules:    st.schedules,
+			Marks:        st.marks,
+			Mail:         st.mail,
+			PullRequests: st.pullRequests,
+		}}),
 		rowWriter: agents.NewRowWriter(agents.NewRowWriterParams{
 			Agents:     st.agents,
 			Runs:       st.runs,

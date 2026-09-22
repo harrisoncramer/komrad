@@ -19,6 +19,7 @@ type ForgeServiceImpl interface {
 	ConnectForge(context.Context, *v1.ConnectForgeRequest) (*v1.ConnectForgeResponse, *fail.Error)
 	ListForges(context.Context, *emptypb.Empty) (*v1.ListForgesResponse, *fail.Error)
 	CheckForges(context.Context, *emptypb.Empty) (*v1.CheckForgesResponse, *fail.Error)
+	ListForgePullRequests(context.Context, *v1.ListForgePullRequestsRequest) (*v1.ListForgePullRequestsResponse, *fail.Error)
 	DisconnectForge(context.Context, *v1.DisconnectForgeRequest) (*emptypb.Empty, *fail.Error)
 }
 
@@ -41,6 +42,11 @@ func (a ForgeServiceAdapter) ListForges(ctx context.Context, req *connect.Reques
 // CheckForges answers the request as connect serves it.
 func (a ForgeServiceAdapter) CheckForges(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[v1.CheckForgesResponse], error) {
 	return rpcerr.Answer(a.Impl.CheckForges(ctx, req.Msg))
+}
+
+// ListForgePullRequests answers the request as connect serves it.
+func (a ForgeServiceAdapter) ListForgePullRequests(ctx context.Context, req *connect.Request[v1.ListForgePullRequestsRequest]) (*connect.Response[v1.ListForgePullRequestsResponse], error) {
+	return rpcerr.Answer(a.Impl.ListForgePullRequests(ctx, req.Msg))
 }
 
 // DisconnectForge answers the request as connect serves it.

@@ -370,19 +370,86 @@ SET
 WHERE
     id = @id;
 
--- name: ListAgentBranchPullRequests :many
+-- name: ListPullRequestsOfAgents :many
 SELECT
     p.*
 FROM
-    agents a
-    JOIN pull_requests p ON p.repository_url = a.repository_url
-        AND p.head_repository_url = a.repository_url
-        AND p.head_branch = a.branch
-    JOIN workflows w ON w.id = a.workflow_id
-    LEFT JOIN workflow_provisioner_configs c ON c.id = w.provisioner_config_id
+    pull_requests p
 WHERE
-    a.id = @agent_id
-    AND (c.worktree_base_branch IS NULL
-        OR a.branch <> c.worktree_base_branch)
+    EXISTS (
+        SELECT
+            1
+        FROM
+            agents a
+        WHERE
+            a.id = ANY (@ids::uuid[])
+            AND a.repository_url = p.repository_url
+            AND a.repository_url = p.head_repository_url
+            AND a.branch = p.head_branch)
 ORDER BY
-    p.opened_at DESC;
+    p.id;
+
+-- name: SnapshotPullRequests :many
+SELECT
+    p.*
+FROM
+    pull_requests p
+WHERE
+    EXISTS (
+        SELECT
+            1
+        FROM
+            agents a
+        WHERE
+            a.archived_at IS NULL
+            AND a.deleting_at IS NULL
+            AND a.repository_url = p.repository_url
+            AND a.repository_url = p.head_repository_url
+            AND a.branch = p.head_branch)
+ORDER BY
+    p.id;
+
+-- name: ListPullRequestsByKey :many
+SELECT
+    p.*
+FROM
+    pull_requests p
+WHERE
+    p.id = ANY (@ids::uuid[])
+    AND EXISTS (
+        SELECT
+            1
+        FROM
+            agents a
+        WHERE
+            a.archived_at IS NULL
+            AND a.deleting_at IS NULL
+            AND a.repository_url = p.repository_url
+            AND a.repository_url = p.head_repository_url
+            AND a.branch = p.head_branch)
+ORDER BY
+    p.id;
+
+-- name: ListPullRequestsPage :many
+SELECT
+    p.*
+FROM
+    pull_requests p
+WHERE
+    p.repository_url = @repository_url
+    AND (@head_branch::text = ''
+        OR p.head_branch = @head_branch::text)
+    AND (sqlc.narg('cursor_id')::uuid IS NULL
+        OR ((p.merged_at IS NOT NULL
+                OR p.closed_at IS NOT NULL) > @cursor_finished::boolean)
+        OR ((p.merged_at IS NOT NULL
+                OR p.closed_at IS NOT NULL) = @cursor_finished::boolean
+            AND (p.opened_at < @cursor_opened_at::timestamptz
+                OR (p.opened_at = @cursor_opened_at::timestamptz
+                    AND p.id < sqlc.narg('cursor_id')))))
+ORDER BY
+    (p.merged_at IS NOT NULL
+        OR p.closed_at IS NOT NULL),
+    p.opened_at DESC,
+    p.id DESC
+LIMIT @lim;

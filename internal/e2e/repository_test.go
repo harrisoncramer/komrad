@@ -45,21 +45,21 @@ func TestCwdSyncRecordsTheRepository(t *testing.T) {
 
 	synced, err := instance.Agents.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: agentID}))
 	require.NoError(t, err)
-	assert.Equal(t, "https://github.com/harrisoncramer/weave", synced.Msg.GetAgent().GetRepositoryUrl())
-	assert.NotEmpty(t, synced.Msg.GetAgent().GetBranch())
+	assert.Equal(t, "https://github.com/harrisoncramer/weave", synced.Msg.GetAgent().GetAgent().GetRepositoryUrl())
+	assert.NotEmpty(t, synced.Msg.GetAgent().GetAgent().GetBranch())
 
 	runGitIn(t, repo, "remote", "set-url", "origin", "https://gitlab.com/group/subgroup/repo.git")
 	instance.SyncCwds()
 
 	moved, err := instance.Agents.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: agentID}))
 	require.NoError(t, err)
-	assert.Equal(t, "https://gitlab.com/group/subgroup/repo", moved.Msg.GetAgent().GetRepositoryUrl())
+	assert.Equal(t, "https://gitlab.com/group/subgroup/repo", moved.Msg.GetAgent().GetAgent().GetRepositoryUrl())
 
 	runGitIn(t, repo, "remote", "set-url", "origin", t.TempDir())
 	instance.SyncCwds()
 
 	cleared, err := instance.Agents.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: agentID}))
 	require.NoError(t, err)
-	assert.Nil(t, cleared.Msg.GetAgent().RepositoryUrl)
-	assert.NotEmpty(t, cleared.Msg.GetAgent().GetBranch())
+	assert.Nil(t, cleared.Msg.GetAgent().GetAgent().RepositoryUrl)
+	assert.NotEmpty(t, cleared.Msg.GetAgent().GetAgent().GetBranch())
 }

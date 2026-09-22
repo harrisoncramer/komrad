@@ -13,7 +13,7 @@ model.go holds the state. One struct, with a field per screen for the rows it dr
 its cursor sits, plus the concerns the screens share.
 
 update.go takes messages in and routes each one to whatever owns it. A keypress goes to the
-screen that currently has the keys, a finished listing goes to the refresh, a window resize
+screen that currently has the keys, a batch off the watch goes to the listing, a window resize
 is recorded and then falls through, since an open form lays itself out from the same message.
 
 view.go writes strings out. It draws the takeover screens first, then any chrome, then the
@@ -22,7 +22,7 @@ active screen.
 screens.go is what the three of them dispatch through. Each screen is a type of its own,
 agentsScreen and the rest, holding its state and implementing screenModel: update takes every
 message the root did not claim, view draws the screen, enter lands it on a target, needs says
-what the refresh fetches for it, and takesEveryKey says whether the screen is being typed at.
+what the tick lists for it, and takesEveryKey says whether the screen is being typed at.
 A screen also implements whichever of the facets it draws: detailed for a record under its
 list, filtered for a search over it, tabbed for a strip over it, columned for a block beside it,
 and staged for a row it puts on the stage. The root holds the six screens by value and
@@ -32,8 +32,8 @@ which facets each implements. Every method on a screen takes host, the short int
 a screen may ask the root to do, and panelShared, the read-only value of what the root holds;
 a screen changes screens through host.enter and never by writing into another screen, and a
 value of panelShared is dead after any host call. The root's own state is what routeAsyncMessage
-still switches on: the refresh, the write result, the ticks, focus and blur, the inspections and
-the pull requests two screens read.
+still switches on: the watch, the archive and worktree listings, the write result, the ticks,
+focus and blur, and the inspections.
 
 The agents screen is the root's twin, and the line between them is drawn by who owns the
 state. The stage, the warm-up and the write result's landing are the root's, since a pane on
@@ -51,9 +51,11 @@ Everything else in the package is one of those three for one screen.
 The state divides into four kinds, and knowing which is which is most of understanding this
 package.
 
-The listing is what the last refresh brought back, the agents and workflows. It belongs to
-the panel rather than to any one screen, because the schedule form and the archive both draw
-the workflows the agents list happens to have fetched.
+The listing is what the watch has delivered, held as one map per resource, and the rows
+assembled from those maps: the agents with their marks, mail and pull requests, the workflows
+and the schedules, with the archive and the worktrees beside them while a screen that draws
+them is up. It belongs to the panel rather than to any one screen, because the schedule form
+and the archive both draw the workflows the agents list is drawn from.
 
 Per-screen state is the rest of what a screen draws: its cursor, and whatever it has loaded
 that nothing else reads. agentsScreen, schedulesScreen, archiveScreen, searchScreen,
@@ -76,32 +78,45 @@ the keybindings, the dimensions of its own pane.
 
 ## How data arrives
 
-The panel polls. Every second a refresh fires, lists agents, workflows, and schedules
-concurrently, and hands the results back as one message. Nothing pushes to the panel and
-nothing about an agent is discovered here: the service watches the panes and writes what it
-saw, and the panel reads rows like any other client.
+The panel is told. It holds the service's watch stream open for its whole life: the stream
+opens with a snapshot of every resource the panel draws, agents, workflows, schedules, marks,
+unclaimed mail and the pull requests on live agents' branches, then carries one row per
+change, and the client in internal/client hands the changes over in batches a few tens of
+milliseconds wide. Each row goes into the World in internal/assemble, one map per kind, or
+comes out of it on a tombstone, and the rows the screens draw are assembled again from those
+maps after every batch by assemble.AgentRows, the one function that says how an agent's row is
+joined to its mark, its mail and its pull requests, which the agent handler calls too for
+list_agents. The stream promises no order between resources, so a mark or a pull
+request may arrive before the agent it is for: it is held and drawn once the agent is. A
+stream that closes or goes quiet is reported as the server gone and opened again, and the next
+snapshot replaces what the last stream built. Nothing about an agent is discovered here: the
+service watches the panes and writes what it saw, and the panel takes rows like any other
+client.
 
-Two guards keep that from fighting with what the user is doing.
+One thing is listed on arrival. The stream carries a pull request only once a live agent is on
+its branch, so when an agent the panel had not seen arrives, or one it holds moves to another
+branch, the panel asks once for the pull requests stored for that branch and puts them in the
+map, where later changes land over them by key.
 
-Each write bumps an epoch, and a listing carries the epoch it was requested under. A pass
-that read the store before a write landed is dropped whole rather than putting the write's
-effect back on screen.
+Two listings ride no stream. The archive and the worktree directories are read when a screen
+that draws them is entered and on every tick while it is up, and are left alone otherwise.
 
-While any write is in flight the periodic refresh stands down, since it would read rows the
-write is about to replace, and a write re-lists as it lands anyway.
+A write that makes a row answers with it, and the panel puts that row into the listing and the
+cursor onto it as the write lands, rather than waiting for the stream to carry it. The stream's
+own copy of that row lands over it.
 
-Cursors are read off the trees still on screen before new rows are applied, then placed again
-by the row they were on rather than the index that row happened to be drawn at. Either
-listing can add or drop rows above a cursor.
+Cursors are read off the trees still on screen before rows are changed under them, then placed
+again by the row they were on rather than the index that row happened to be drawn at. A batch
+can add or drop rows above a cursor.
 
 ## How a keypress becomes a change
 
 The user presses a key. update.go routes it to the screen holding the keys, which turns it
 into a command that calls the service through api.go. Nothing on screen changes yet.
 
-The command runs off the render loop and comes back as a message. On success the panel
-re-lists, so what appears is what the service stored rather than what the panel assumed. On
-a refusal the message goes into the region under the record and nothing else moves, which is
+The command runs off the render loop and comes back as a message. On success the watch
+delivers the rows the write moved, so what appears is what the service stored rather than what
+the panel assumed. On a refusal the message goes into the region under the record and nothing else moves, which is
 what makes a refused delete different from a keypress that never registered: the row is still
 there either way.
 
@@ -154,7 +169,7 @@ record, the messages and the legend. The review composes its own frame through t
 and the editor it opens on the stage goes through host.
 
 Shared concerns: api.go, actions.go, column.go, details.go, document.go, filter.go, forms.go,
-help.go, info.go, logs.go, refresh.go, keys.go, clipboard.go, report.go, convert.go.
+help.go, info.go, logs.go, listing.go, keys.go, clipboard.go, report.go, convert.go.
 
 Presentation that still knows what it is drawing: content.go, markdown.go, style.go,
 document.go. style.go is the marks a row wears for an agent's state, and document.go is the
@@ -163,8 +178,9 @@ model methods that measure a pane before handing the drawing on.
 The frame is its own package, internal/ui/layout, which owns the panes the panel lays out
 around itself and is the only thing here that talks to tmux.
 
-The records are another, internal/ui/panel: an agent, a workflow and a schedule as the panel
-keeps them, which is the fields the wire carries and nothing more. convert.go reads each proto
+The records are another, internal/ui/panel: an agent and its assembled row, a workflow, a
+schedule and a pull request as the panel keeps them, which is the fields the wire carries and
+nothing more. convert.go reads each proto
 into one of them once, and nothing here imports the store's rows. depguard denies the panel the
 store and the handlers' helpers so the panel binary links neither pgx nor river.
 

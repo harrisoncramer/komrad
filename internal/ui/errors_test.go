@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"weave/config"
+	"weave/internal/client"
 	"weave/internal/ui/layout"
 	"weave/internal/ui/panel"
 	agentv1 "weave/proto/gen/agent/v1"
@@ -71,7 +72,7 @@ func TestRefusedWriteIsReported(t *testing.T) {
 		screen: screenAgents,
 		listing: listing{
 			workflows: []panel.Workflow{{ID: "w1", Name: "backend"}},
-			agents:    []agentItem{{agent: agent, alive: false}},
+			agents:    []panel.AgentRow{{Agent: agent, Alive: false}},
 		},
 	}
 	m.agents.cursor = firstAgentRowIndex(m.agents.rows(m.shared()))
@@ -107,11 +108,11 @@ func TestRefusedResumeIsReported(t *testing.T) {
 		screen: screenAgents,
 		listing: listing{
 			workflows: []panel.Workflow{{ID: "w1", Name: "backend"}},
-			agents: []agentItem{{agent: panel.Agent{
+			agents: []panel.AgentRow{{Agent: panel.Agent{
 				Name:       "api-refactor",
 				State:      panel.StateIdle,
 				WorkflowID: "w1",
-			}, alive: false}},
+			}, Alive: false}},
 		},
 	}
 	m.agents.cursor = firstAgentRowIndex(m.agents.rows(m.shared()))
@@ -165,9 +166,9 @@ func TestSuccessfulWriteReportsNothing(t *testing.T) {
 		screen: screenAgents,
 		listing: listing{
 			workflows: []panel.Workflow{{ID: "w1", Name: "backend"}},
-			agents: []agentItem{
+			agents: []panel.AgentRow{
 				{
-					agent: panel.Agent{
+					Agent: panel.Agent{
 						Name:       "api-refactor",
 						State:      panel.StateIdle,
 						WorkflowID: "w1",
@@ -204,7 +205,7 @@ func TestMessageDrawsInTheRegion(t *testing.T) {
 	assert.Contains(t, view, "Could not archive agent")
 	assert.Contains(t, view, "already archived")
 	assert.Contains(t, view, "to read", "the way into the whole message is said")
-	assert.Contains(t, view, m.listing.agents[0].agent.Name, "the list is still on screen above the region")
+	assert.Contains(t, view, m.listing.agents[0].Agent.Name, "the list is still on screen above the region")
 }
 
 // TestMessagesYieldToTakeoverScreens pins a takeover screen coming before the message region.
@@ -236,19 +237,19 @@ func TestMessagesYieldToTakeoverScreens(t *testing.T) {
 	}
 }
 
-// TestUnreachableReportsOnce covers the server going away being said in the region, on the pass
-// that finds it gone and not on every refresh after it.
+// TestUnreachableReportsOnce covers the server going away being said in the region when the
+// stream is lost, and not again on every reopen that fails.
 func TestUnreachableReportsOnce(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	m.height, m.width = 40, 60
 	m.settings.Addr = "127.0.0.1:8787"
 
-	m.applyRefresh(refreshResult{agentsErr: errors.New("connection refused")})
+	m.applyWatchLost(watchLostMsg{err: errors.New("connection refused")})
 	require.Len(t, m.messages.items, 1)
 	assert.Contains(t, m.messages.items[0].summary, "Cannot reach the server")
 	assert.Contains(t, m.messages.items[0].detail, "127.0.0.1:8787")
 
-	m.applyRefresh(refreshResult{agentsErr: errors.New("connection refused")})
+	m.applyWatchLost(watchLostMsg{err: errors.New("connection refused")})
 	assert.Len(t, m.messages.items, 1, "a server still down says nothing more")
 
 	assert.Contains(t, ansi.Strip(m.View()), "Cannot reach the server")
@@ -300,7 +301,7 @@ func TestConfigErrorView(t *testing.T) {
 				configErr:   errors.New("failed to parse config /home/u/.config/weave/config.toml: keybindings.list is not a setting; [keybindings] takes agents, archive, filter, form, help, nav, schedules, selection, workflows"),
 				unreachable: tt.unreachable,
 				settings:    PanelSettings{Addr: "127.0.0.1:8787"},
-				listing:     listing{agents: []agentItem{{agent: panel.Agent{Name: "should-not-render", State: panel.StateIdle}}}},
+				listing:     listing{agents: []panel.AgentRow{{Agent: panel.Agent{Name: "should-not-render", State: panel.StateIdle}}}},
 			}
 
 			view := strings.Join(strings.Fields(m.View()), " ")
@@ -319,7 +320,7 @@ func TestConfigErrorView(t *testing.T) {
 func TestConfigErrorScreenIsTerminal(t *testing.T) {
 	m := model{configErr: errors.New("failed to parse config: bad")}
 
-	assert.Nil(t, m.Init(), "no poll is started behind the error screen")
+	assert.Nil(t, m.Init(), "no tick is started behind the error screen")
 
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
 	require.NotNil(t, cmd, "any key dismisses the screen")
@@ -365,7 +366,7 @@ func TestStartupErrorView(t *testing.T) {
 				startupErr:  errors.New("the agent server stopped during startup: failed to reach db: connection refused"),
 				unreachable: tt.unreachable,
 				settings:    PanelSettings{Addr: "127.0.0.1:8787"},
-				listing:     listing{agents: []agentItem{{agent: panel.Agent{Name: "should-not-render", State: panel.StateIdle}}}},
+				listing:     listing{agents: []panel.AgentRow{{Agent: panel.Agent{Name: "should-not-render", State: panel.StateIdle}}}},
 			}
 
 			view := strings.Join(strings.Fields(m.View()), " ")
@@ -384,7 +385,7 @@ func TestStartupErrorView(t *testing.T) {
 func TestStartupErrorScreenIsTerminal(t *testing.T) {
 	m := model{startupErr: errors.New("the agent server stopped during startup")}
 
-	assert.Nil(t, m.Init(), "no poll is started behind the error screen")
+	assert.Nil(t, m.Init(), "no tick is started behind the error screen")
 
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
 	require.NotNil(t, cmd, "any key dismisses the screen")
@@ -397,21 +398,23 @@ func TestUnreachableView(t *testing.T) {
 	m.height, m.width = 40, 80
 	m.settings.Addr = "127.0.0.1:8787"
 
-	down, _ := m.Update(refreshResult{agentsErr: errors.New("dial tcp 127.0.0.1:8787: connect: connection refused")})
+	down, _ := m.Update(watchLostMsg{err: errors.New("dial tcp 127.0.0.1:8787: connect: connection refused")})
 	m, ok := down.(model)
 	require.True(t, ok)
 
 	assert.Contains(t, ansi.Strip(m.View()), "Cannot reach", "the failure is reported in the region")
 	assert.NotContains(t, ansi.Strip(m.View()), "The panel could not list your agents", "and no screen is taken over")
 
-	back, _ := m.Update(refreshResult{agents: []agentItem{{agent: panel.Agent{Name: "back", State: panel.StateIdle}}}})
+	back, _ := m.Update(client.WatchBatch{
+		snapshotEvent(agentRowOf(&agentv1.Agent{Id: "a1", Name: "back", State: agentv1.AgentState_AGENT_STATE_IDLE})),
+	})
 	m, ok = back.(model)
 	require.True(t, ok)
 
 	require.NoError(t, m.unreachable)
 	assert.Len(t, m.messages.items, 1, "the message stays until it is dismissed")
 
-	again, _ := m.Update(refreshResult{agentsErr: errors.New("connection refused")})
+	again, _ := m.Update(watchLostMsg{err: errors.New("connection refused")})
 	m, ok = again.(model)
 	require.True(t, ok)
 
@@ -433,11 +436,11 @@ func TestRefusedPauseIsReported(t *testing.T) {
 		screen: screenAgents,
 		listing: listing{
 			workflows: []panel.Workflow{{ID: "w1", Name: "backend"}},
-			agents: []agentItem{{agent: panel.Agent{
+			agents: []panel.AgentRow{{Agent: panel.Agent{
 				Name:       "telescope",
 				State:      panel.StateThinking,
 				WorkflowID: "w1",
-			}, alive: true}},
+			}, Alive: true}},
 		},
 	}
 	m.agents.cursor = firstAgentRowIndex(m.agents.rows(m.shared()))

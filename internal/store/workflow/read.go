@@ -22,9 +22,9 @@ func (s *WorkflowStore) ListWorktreeDirs(ctx context.Context) ([]string, error) 
 	return dirs, nil
 }
 
-// List returns every live workflow, by name.
+// List returns every workflow the live listing holds, by name.
 func (s *WorkflowStore) List(ctx context.Context) ([]Workflow, error) {
-	rows, err := s.queries.ListWorkflows(ctx)
+	rows, err := s.queries.SnapshotWorkflows(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list workflows: %w", err)
 	}
@@ -34,7 +34,7 @@ func (s *WorkflowStore) List(ctx context.Context) ([]Workflow, error) {
 		return nil, err
 	}
 
-	return xslice.Map(rows, func(row *models.ListWorkflowsRow) Workflow {
+	return xslice.Map(rows, func(row *models.SnapshotWorkflowsRow) Workflow {
 		return workflowFromRow(row.Workflow, row.WorkflowConfig, row.WorkflowProvisionerConfig, hooks[row.Workflow.ID])
 	}), nil
 }
@@ -84,6 +84,51 @@ func (s *WorkflowStore) ListPage(ctx context.Context, limit int64, cursor *Curso
 	}
 
 	return xslice.Map(rows, func(row *models.ListWorkflowsPageRow) Workflow {
+		return workflowFromRow(row.Workflow, row.WorkflowConfig, row.WorkflowProvisionerConfig, hooks[row.Workflow.ID])
+	}), nil
+}
+
+// ListByKey returns the workflows among the given ids that the live listing holds, with their
+// hooks.
+func (s *WorkflowStore) ListByKey(ctx context.Context, ids []string) ([]Workflow, error) {
+	storable := store.KeepIDs(ids)
+	if len(storable) == 0 {
+		return nil, nil
+	}
+
+	rows, err := s.queries.ListWorkflowsByKey(ctx, storable)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get %d workflows: %w", len(storable), err)
+	}
+
+	hooks, err := s.hooksForWorkflows(ctx, xslice.Map(rows, func(row *models.ListWorkflowsByKeyRow) string { return row.Workflow.ID }))
+	if err != nil {
+		return nil, err
+	}
+
+	return xslice.Map(rows, func(row *models.ListWorkflowsByKeyRow) Workflow {
+		return workflowFromRow(row.Workflow, row.WorkflowConfig, row.WorkflowProvisionerConfig, hooks[row.Workflow.ID])
+	}), nil
+}
+
+// ListByID returns the workflows among the given ids, archived or not, with their hooks.
+func (s *WorkflowStore) ListByID(ctx context.Context, ids []string) ([]Workflow, error) {
+	storable := store.KeepIDs(ids)
+	if len(storable) == 0 {
+		return nil, nil
+	}
+
+	rows, err := s.queries.ListWorkflowsByID(ctx, storable)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get %d workflows: %w", len(storable), err)
+	}
+
+	hooks, err := s.hooksForWorkflows(ctx, xslice.Map(rows, func(row *models.ListWorkflowsByIDRow) string { return row.Workflow.ID }))
+	if err != nil {
+		return nil, err
+	}
+
+	return xslice.Map(rows, func(row *models.ListWorkflowsByIDRow) Workflow {
 		return workflowFromRow(row.Workflow, row.WorkflowConfig, row.WorkflowProvisionerConfig, hooks[row.Workflow.ID])
 	}), nil
 }

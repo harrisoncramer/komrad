@@ -20,7 +20,7 @@ func TestAgentsViewRowWidthIsStableRegardlessOfBranch(t *testing.T) {
 	withBranch := model{
 		frame: layout.New(&recordingTmux{}, config.DefaultLayout()),
 		keys:  config.DefaultKeybindings(),
-		listing: listing{workflows: []panel.Workflow{{ID: "w1", Name: "acmecorp"}}, agents: []agentItem{{agent: panel.Agent{
+		listing: listing{workflows: []panel.Workflow{{ID: "w1", Name: "acmecorp"}}, agents: []panel.AgentRow{{Agent: panel.Agent{
 			ID:         "a1",
 			Name:       "worker",
 			WorkflowID: "w1",
@@ -28,7 +28,7 @@ func TestAgentsViewRowWidthIsStableRegardlessOfBranch(t *testing.T) {
 		}}}},
 	}
 	withoutBranch := withBranch
-	withoutBranch.listing.agents = []agentItem{{agent: panel.Agent{
+	withoutBranch.listing.agents = []panel.AgentRow{{Agent: panel.Agent{
 		ID:         "a1",
 		Name:       "worker",
 		WorkflowID: "w1",

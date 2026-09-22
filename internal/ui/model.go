@@ -2,7 +2,7 @@
 // database connection and knows nothing the service has not told it.
 //
 // It is a client like any other. A keypress becomes an RPC, and the panel learns what came of
-// it on its next refresh rather than by changing its own state first, so what is on screen is
+// it from the watch stream rather than by changing its own state first, so what is on screen is
 // what the service last said was true. It is the largest package in the tree and README.md in
 // this directory is the map of it.
 package ui
@@ -25,6 +25,7 @@ import (
 	"weave/proto/gen/hook/v1/hookv1connect"
 	"weave/proto/gen/pullrequest/v1/pullrequestv1connect"
 	schedulev1connect "weave/proto/gen/schedule/v1/schedulev1connect"
+	"weave/proto/gen/watch/v1/watchv1connect"
 	"weave/proto/gen/workflow/v1/workflowv1connect"
 	"weave/proto/gen/worktree/v1/worktreev1connect"
 
@@ -34,7 +35,7 @@ import (
 )
 
 // Run launches the panel and blocks for the life of the persistent manager tmux session.
-func Run(deps Deps) error {
+func Run(ctx context.Context, deps Deps) error {
 	// Asking writes an OSC query to the tty and blocks on the reply with no deadline, so the
 	// answer is settled and pinned here before bubbletea owns the input and reads that reply.
 	isDark := lipgloss.HasDarkBackground()
@@ -45,11 +46,19 @@ func Run(deps Deps) error {
 	// it runs can reach it.
 	post := newPostbox()
 
-	program := tea.NewProgram(newModel(deps, isDark, post), tea.WithAltScreen(), tea.WithReportFocus())
+	m := newModel(deps, isDark, post)
+	program := tea.NewProgram(m, tea.WithAltScreen(), tea.WithReportFocus())
 	post.attach(program)
 
 	defer post.close()
 	defer deps.PopupWindow.ReleaseFocusKey()
+
+	if deps.Watch != nil && m.fatal() == nil {
+		watching, stop := context.WithCancel(ctx)
+		defer stop()
+
+		go watchRows(watching, deps.Watch, post)
+	}
 
 	if _, err := program.Run(); err != nil {
 		return fmt.Errorf("failed to run panel: %w", err)
@@ -101,6 +110,11 @@ func (p *postbox) resize(width, height int) {
 	case p.wake <- struct{}{}:
 	default:
 	}
+}
+
+// send hands the program a message from off its own loop.
+func (p *postbox) send(msg tea.Msg) {
+	p.program.Send(msg)
 }
 
 // deliver hands the newest size to the program, off the update the size was read in, which would
@@ -178,6 +192,7 @@ type Deps struct {
 	Hooks           hookv1connect.HookServiceClient
 	Worktrees       worktreev1connect.WorktreeServiceClient
 	PullRequests    pullrequestv1connect.PullRequestServiceClient
+	Watch           watchv1connect.WatchServiceClient
 	Keys            config.Keybindings
 	Layout          config.Layout
 	Engine          engine.Remote
@@ -189,17 +204,19 @@ type Deps struct {
 }
 
 type model struct {
-	popup           *PopupWindow
-	api             api
-	tmux            uiTmux
-	git             ReviewGit
-	browser         browser.Opener
-	harnessFrames   harnessFrameReader
-	binary          BinaryWatcher
-	frame           *layout.Frame
-	settings        PanelSettings
-	unreachable     error
-	epoch           int
+	popup         *PopupWindow
+	api           api
+	tmux          uiTmux
+	git           ReviewGit
+	browser       browser.Opener
+	harnessFrames harnessFrameReader
+	binary        BinaryWatcher
+	frame         *layout.Frame
+	settings      PanelSettings
+	unreachable   error
+	// writes counts the writes sent, and a write's own count is what its landing answers to.
+	writes int
+	// pending is the writes in flight.
 	pending         int
 	configErr       error
 	startupErr      error
@@ -222,14 +239,13 @@ type model struct {
 	archive       archiveScreen
 	worktrees     worktreesScreen
 	// inspections is what the service answered for each worktree directory.
-	inspections  map[string]worktreeInspection
-	pullRequests pullRequestsState
-	search       searchScreen
-	review       reviewScreen
-	filter       filterState
-	rowCursor    cursor.Model
-	form         formState
-	held         heldWrite
+	inspections map[string]worktreeInspection
+	search      searchScreen
+	review      reviewScreen
+	filter      filterState
+	rowCursor   cursor.Model
+	form        formState
+	held        heldWrite
 	// detached holds the writes a person escaped out of, which land without taking the screen to
 	// what they made.
 	detached map[int]struct{}

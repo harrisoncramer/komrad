@@ -1,9 +1,133 @@
 package render
 
 import (
+	"time"
+
+	"weave/internal/git"
+	"weave/lib/dates"
+	"weave/lib/xptr"
+	"weave/lib/xslice"
+	"weave/lib/xstr"
+
 	agentstore "weave/internal/store/agent"
+	reviewstore "weave/internal/store/review"
+	rowstore "weave/internal/store/row"
 	agentv1 "weave/proto/gen/agent/v1"
 )
+
+// AgentOptions is how much of an agent is drawn.
+type AgentOptions struct {
+	// PromptHead draws the opening of the prompt rather than the whole of it when set.
+	PromptHead int
+}
+
+// Agent draws one agent's row as the wire carries it.
+func Agent(row rowstore.Row, options AgentOptions) *agentv1.Agent {
+	stored := row.Agent
+	metadata := xslice.Map(stored.Metadata, func(entry agentstore.Metadata) *agentv1.AgentMetadata {
+		return &agentv1.AgentMetadata{Key: entry.Key, Value: entry.Value}
+	})
+
+	prompt, promptTruncated := stored.Prompt, false
+	if options.PromptHead > 0 {
+		prompt, promptTruncated = xstr.Head(stored.Prompt, options.PromptHead)
+	}
+
+	return &agentv1.Agent{
+		Id:                 stored.ID,
+		Name:               stored.Name,
+		Cwd:                stored.Cwd,
+		Flags:              stored.Flags,
+		Prompt:             prompt,
+		PromptTruncated:    promptTruncated,
+		PaneId:             stored.Pane,
+		State:              AgentStateOf(stored.State),
+		Role:               AgentRoleOf(stored.Role),
+		SessionId:          stored.SessionID,
+		Harness:            stored.Harness,
+		WorkflowId:         stored.WorkflowID,
+		ScheduleId:         stored.ScheduleID,
+		CreatedAt:          dates.Stamp(stored.CreatedAt),
+		StateChangedAt:     dates.Stamp(stored.StateChangedAt),
+		ReportedReason:     stored.ReportedReason,
+		ArchivedAt:         dates.StampPtr(stored.ArchivedAt),
+		Alive:              xptr.Ptr(stored.Alive),
+		Hidden:             stored.Hidden,
+		Metadata:           metadata,
+		IdempotencyKey:     stored.IdempotencyKey,
+		SpawnedByAgentId:   stored.SpawnedByAgentID,
+		ParentAgentId:      stored.ParentAgentID,
+		Branch:             stored.Branch,
+		RepositoryUrl:      stored.RepositoryURL,
+		WorktreeRemoved:    stored.WorktreeRemoved,
+		SequenceInProgress: stored.SequenceInProgress,
+		FailedRun:          row.FailedRun,
+		FailedRunLog:       row.FailedRunLog,
+		LocalReviewRounds:  row.LocalRounds,
+		LocalReviewVerdict: localVerdictOf(row.LocalVerdict),
+		LocalReviewTree:    standingOf(localTreeOf(row)),
+		HeldAt:             heldStamp(stored.HeldAt),
+		RepositoryRead:     row.RepositoryRead,
+	}
+}
+
+// ReviewVerdictOf is a verdict as the wire carries it.
+func ReviewVerdictOf(verdict reviewstore.Verdict) agentv1.ReviewVerdict {
+	switch verdict {
+	case reviewstore.VerdictApproved:
+		return agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED
+	case reviewstore.VerdictChangesRequested:
+		return agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED
+	case reviewstore.VerdictCommented:
+		return agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED
+	default:
+		return agentv1.ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED
+	}
+}
+
+// localVerdictOf is the last local conclusion as the wire carries it, UNSPECIFIED when there is
+// none.
+func localVerdictOf(verdict *reviewstore.Verdict) agentv1.ReviewVerdict {
+	if verdict == nil {
+		return agentv1.ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED
+	}
+
+	return ReviewVerdictOf(*verdict)
+}
+
+// localTreeOf is where the worktree stands against the round the local verdict was given on,
+// unmoved while the standing was measured against any other round.
+func localTreeOf(row rowstore.Row) git.Standing {
+	if row.TreeStandingSHA != row.LocalReviewSHA {
+		return git.StandingSame
+	}
+
+	return row.TreeStanding
+}
+
+// standingOf is a standing as the wire carries it.
+func standingOf(standing git.Standing) agentv1.ReviewTreeStanding {
+	switch standing {
+	case git.StandingMoved:
+		return agentv1.ReviewTreeStanding_REVIEW_TREE_STANDING_MOVED
+	case git.StandingLanded:
+		return agentv1.ReviewTreeStanding_REVIEW_TREE_STANDING_LANDED
+	case git.StandingLandedMoved:
+		return agentv1.ReviewTreeStanding_REVIEW_TREE_STANDING_LANDED_MOVED
+	case git.StandingSame:
+	}
+
+	return agentv1.ReviewTreeStanding_REVIEW_TREE_STANDING_UNSPECIFIED
+}
+
+// heldStamp is when a person took the agent's worktree, empty while nobody has.
+func heldStamp(at *time.Time) string {
+	if at == nil {
+		return ""
+	}
+
+	return dates.Stamp(*at)
+}
 
 // AgentStateOf is a stored state as the wire carries it.
 func AgentStateOf(state agentstore.State) agentv1.AgentState {

@@ -25,8 +25,8 @@ func agentsListModel() model {
 		height: 40,
 		listing: listing{
 			workflows: []panel.Workflow{{ID: "w1", Name: "weave"}},
-			agents: []agentItem{{
-				agent: panel.Agent{
+			agents: []panel.AgentRow{{
+				Agent: panel.Agent{
 					ID:         "a1",
 					Name:       "worker",
 					WorkflowID: "w1",
@@ -59,9 +59,9 @@ func TestAgentsListOnAnEmptyPanel(t *testing.T) {
 // longListModel is a panel holding one workflow with more agents under it than its pane has
 // room for, the cursor standing on the row named.
 func longListModel(cursor int) model {
-	agents := make([]agentItem, 0, 40)
+	agents := make([]panel.AgentRow, 0, 40)
 	for i := range 40 {
-		agents = append(agents, agentItem{agent: panel.Agent{
+		agents = append(agents, panel.AgentRow{Agent: panel.Agent{
 			ID:         fmt.Sprintf("a%02d", i),
 			Name:       fmt.Sprintf("agent-%02d", i),
 			WorkflowID: "w1",

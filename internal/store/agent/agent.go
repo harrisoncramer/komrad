@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"weave/db/models"
+	"weave/internal/git"
 	"weave/internal/store"
 	"weave/lib/xslice"
 
@@ -152,6 +153,12 @@ type Agent struct {
 	HeldAt *time.Time
 	// HeldMidTurn says the hold cut a turn that was still running.
 	HeldMidTurn bool
+
+	// Alive is whether the agent still owns the pane its row names.
+	Alive bool
+	// TreeStanding is where the worktree stands against the round TreeStandingSHA names.
+	TreeStanding    git.Standing
+	TreeStandingSHA string
 }
 
 // IsStateUnconfirmed reports whether the agent's state was last read longer ago than the bound.
@@ -234,5 +241,8 @@ func FromRow(agent models.Agent) Agent {
 		SequenceInProgress: agent.SequenceInProgress,
 		HeldAt:             agent.HeldAt,
 		HeldMidTurn:        agent.HeldMidTurn,
+		Alive:              agent.Alive,
+		TreeStanding:       git.Standing(agent.TreeStanding),
+		TreeStandingSHA:    agent.TreeStandingSha,
 	}
 }

@@ -12,6 +12,7 @@ import (
 	"weave/config"
 	"weave/internal/ui/layout"
 	"weave/internal/ui/paint"
+	"weave/internal/ui/paint/label"
 	"weave/internal/ui/panel"
 	"weave/internal/view"
 	"weave/lib/xptr"
@@ -154,7 +155,7 @@ func TestArchiveKeys(t *testing.T) {
 			m := archiveModel(agents, workflows, keys)
 			m.archive.cursor = tt.cursor
 			if tt.state != "" {
-				m.listing.archivedAgents[0].agent.State = tt.state
+				m.listing.archivedAgents[0].Agent.State = tt.state
 			}
 			if tt.archivedFolder {
 				m.listing.workflows = nil
@@ -310,7 +311,7 @@ func TestArchiveHelpSplitsOnTheRow(t *testing.T) {
 			m.archive.cursor = tt.cursor
 			m.helpExpanded = true
 			if tt.neverViable {
-				m.listing.archivedAgents[0].agent.State = panel.StateFailedToCreate
+				m.listing.archivedAgents[0].Agent.State = panel.StateFailedToCreate
 			}
 			if tt.archived {
 				m.listing.workflows = nil
@@ -677,7 +678,7 @@ func TestArchiveDrawsWhyADeleteLeftARowBehind(t *testing.T) {
 		Metadata:   []panel.Metadata{{Key: failureReasonKey, Value: "the worktree is dirty"}},
 	}})
 
-	drawn := archiveDocument(m.shared(), m.listing.archivedAgents[0].agent)
+	drawn := archiveDocument(m.shared(), m.listing.archivedAgents[0].Agent)
 
 	assert.Contains(t, drawn, "teardown failed")
 	assert.Contains(t, drawn, "the worktree is dirty")
@@ -691,8 +692,8 @@ func TestArchiveDrawsTheAgentsRecord(t *testing.T) {
 	archivedAt := time.Date(2026, time.July, 30, 9, 0, 0, 0, time.UTC)
 	m := archiveModel(&fakeArchiveAgents{}, &fakeArchiveWorkflows{}, config.DefaultKeybindings())
 	m.width, m.height = 200, 40
-	m.listing.archivedAgents = []agentItem{{
-		agent: panel.Agent{
+	m.listing.archivedAgents = []panel.AgentRow{{
+		Agent: panel.Agent{
 			ID:         "a1",
 			Name:       "api-refactor",
 			WorkflowID: "w1",
@@ -700,13 +701,20 @@ func TestArchiveDrawsTheAgentsRecord(t *testing.T) {
 			Branch:     xptr.Ptr("agent/a1"),
 			ArchivedAt: &archivedAt,
 		},
-		localVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED,
-		pullRequest: pullRequestStanding{
-			state:  pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED,
-			number: 42,
-			url:    "https://github.com/harrisoncramer/weave/pull/42",
-			title:  "feat: the thing",
+		LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED,
+		PullRequest: panel.PullRequestStanding{
+			State:  pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED,
+			Number: 42,
+			URL:    "https://github.com/harrisoncramer/weave/pull/42",
+			Title:  "feat: the thing",
 		},
+		PullRequests: []panel.PullRequest{{
+			Number:   42,
+			State:    pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED,
+			OpenedAt: archivedAt.Add(-time.Hour),
+			MergedAt: &archivedAt,
+			ClosedAt: &archivedAt,
+		}},
 	}}
 
 	rows := m.archive.snapshot(m.shared(), listPane{width: m.width}).Rows
@@ -717,34 +725,12 @@ func TestArchiveDrawsTheAgentsRecord(t *testing.T) {
 
 	got := m.archive.details(m.shared())
 	assert.Contains(t, got.fields, recordField{branchFieldKey, "agent/a1"})
-	assert.Contains(t, got.fields, recordField{pullRequestFieldKey, "#42 merged"})
+	assert.Contains(t, got.fields, recordField{pullRequestFieldKey, "#42 merged " + label.Age(archivedAt) + " ago"})
 	labels := xslice.Map(got.fields, func(field recordField) string { return field.label })
 	assert.Contains(t, labels, "archived", "the record says when it was put away")
 	assert.Less(t, slices.Index(labels, "created"), slices.Index(labels, "archived"))
 	texts := xslice.Map(got.notices, func(n notice) string { return n.text })
 	assert.Contains(t, texts, archivedApprovedNotice)
-}
-
-// TestArchiveAsksForTheRecordAfterTheRest covers a move in the archive staging the row at once
-// and asking for its pull requests only once the cursor has rested.
-func TestArchiveAsksForTheRecordAfterTheRest(t *testing.T) {
-	client := &recordingPullRequests{}
-	m := archiveModel(&fakeArchiveAgents{}, &fakeArchiveWorkflows{}, config.DefaultKeybindings())
-	m.api.pullRequests = client
-	m.width, m.height = 200, 40
-	m.listing.archivedAgents[0].agent.Branch = xptr.Ptr("agent/x")
-	m.listing.archivedAgents[0].pullRequest = pullRequestStanding{state: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED, number: 740}
-	m.archive.cursor = 0
-
-	cmd := m.archive.list().move(&m, m.shared(), 1)
-	moved := m
-	require.NotNil(t, cmd, "a move schedules a rest")
-	assert.Equal(t, 1, moved.archive.cursor)
-	assert.False(t, moved.pullRequests.listed["a1"].pending, "nothing is asked for while the cursor is moving")
-
-	ask := moved.applyStageTick(stageTickMsg{move: moved.staging})
-	require.NotNil(t, ask, "the rest asks for the hovered agent")
-	assert.True(t, moved.pullRequests.listed["a1"].pending)
 }
 
 // archiveSortModel is the archive over one workflow holding an agent archived at nine, one at
@@ -867,11 +853,11 @@ func TestArchiveIsListedSeparatelyFromTheAgents(t *testing.T) {
 	assert.Contains(t, agents.listedArchived, true, "the archive is asked for by the pass the screen starts")
 	assert.Contains(t, workflows.listed, true, "and so are the folders it draws over them")
 	require.Len(t, got.listing.archivedAgents, 1)
-	assert.Equal(t, "api-refactor", got.listing.archivedAgents[0].agent.Name)
+	assert.Equal(t, "api-refactor", got.listing.archivedAgents[0].Agent.Name)
 	require.Len(t, got.listing.archivedWorkflows, 1)
 	assert.NotNil(t, got.listing.archivedWorkflows[0].ArchivedAt, "an archived folder carries when it was put away")
 	assert.Empty(t, got.listing.agents, "the tree's rows are not what the archive listed")
-	assert.Empty(t, got.listing.workflows, "and the archived folder is not one of the tree's")
+	assert.Equal(t, []string{"w1"}, xslice.Map(got.listing.workflows, func(w panel.Workflow) string { return w.ID }), "and the archived folder is not one of the tree's")
 }
 
 func archiveModel(agents agentv1connect.AgentServiceClient, workflows workflowv1connect.WorkflowServiceClient, keys config.Keybindings) model {
@@ -972,7 +958,7 @@ func (f *fakeArchiveAgents) ListAgents(_ context.Context, req *connect.Request[a
 	}
 
 	return connect.NewResponse(&agentv1.ListAgentsResponse{
-		Agents: []*agentv1.Agent{{Id: "a1", Name: "api-refactor"}},
+		Agents: []*agentv1.AgentRow{{Agent: &agentv1.Agent{Id: "a1", Name: "api-refactor"}}},
 	}), nil
 }
 
@@ -1083,12 +1069,12 @@ func TestArchiveHandsTheWindowBack(t *testing.T) {
 
 	// A live agent's own pane is what stands beside the list there, so the panel gives the window
 	// back on the way to a row that has one.
-	m.listing.agents = []agentItem{{agent: panel.Agent{
+	m.listing.agents = []panel.AgentRow{{Agent: panel.Agent{
 		ID:         "a1",
 		Name:       "auth",
 		Pane:       "%9",
 		WorkflowID: "w1",
-	}, alive: true}}
+	}, Alive: true}}
 	m.agents.cursor = 1
 
 	left, _ := m.routeScreenMessage(keyMsg("esc"))
@@ -1272,8 +1258,8 @@ func TestArchiveDrawsTheQuietBarExceptWhereADeleteFailed(t *testing.T) {
 }
 
 // archivedItems is the archive listing built over bare agents.
-func archivedItems(agents []panel.Agent) []agentItem {
-	return xslice.Map(agents, func(agent panel.Agent) agentItem { return agentItem{agent: agent} })
+func archivedItems(agents []panel.Agent) []panel.AgentRow {
+	return xslice.Map(agents, func(agent panel.Agent) panel.AgentRow { return panel.AgentRow{Agent: agent} })
 }
 
 // archiveHelp is the archive legend as the frame draws it.

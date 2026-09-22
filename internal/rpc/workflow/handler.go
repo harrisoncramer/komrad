@@ -12,7 +12,6 @@ import (
 	"weave/lib/xslice"
 	workflowv1 "weave/proto/gen/workflow/v1"
 
-	markstore "weave/internal/store/mark"
 	workflowstore "weave/internal/store/workflow"
 
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -27,12 +26,6 @@ type workflowReadWriter interface {
 	DeleteWorkflow(ctx context.Context, id string) error
 }
 
-// markReader is the letters a person addresses rows by, which a workflow carries so the panel
-// can draw one on its header.
-type markReader interface {
-	ListMarks(ctx context.Context) ([]markstore.Mark, error)
-}
-
 type workflowLister interface {
 	ListPage(ctx context.Context, limit int64, cursor *workflowstore.Cursor, archived bool) ([]workflowstore.Workflow, error)
 }
@@ -40,22 +33,19 @@ type workflowLister interface {
 type NewHandlerParams struct {
 	Lister    workflowLister
 	Workflows workflowReadWriter
-	Marks     markReader
 }
 
 type Handler struct {
 	lister    workflowLister
 	workflows workflowReadWriter
-	marks     markReader
 }
 
-// NewHandler constructs the handler from the store it lists through, the service that owns the
-// rules, and the marks a workflow header draws.
+// NewHandler constructs the handler from the store it lists through and the service that owns
+// the rules.
 func NewHandler(params NewHandlerParams) *Handler {
 	return &Handler{
 		lister:    params.Lister,
 		workflows: params.Workflows,
-		marks:     params.Marks,
 	}
 }
 
@@ -71,13 +61,8 @@ func (s *Handler) ListWorkflows(ctx context.Context, req *workflowv1.ListWorkflo
 		return nil, rpcerr.From(err, "failed to list workflows")
 	}
 
-	marks, failure := s.marksByWorkflow(ctx)
-	if failure != nil {
-		return nil, failure
-	}
-
 	view := workflowViewOptions(req.GetView())
-	resources := xslice.Map(stored, func(w workflowstore.Workflow) workflow { return renderWorkflow(w, marks[w.ID], view...) })
+	resources := xslice.Map(stored, func(w workflowstore.Workflow) workflow { return renderWorkflow(w, view...) })
 
 	next, err := paginator.NextToken(resources)
 	if err != nil {
@@ -97,12 +82,7 @@ func (s *Handler) GetWorkflow(ctx context.Context, req *workflowv1.GetWorkflowRe
 		return nil, rpcerr.From(err, "failed to get workflow")
 	}
 
-	mark, failure := s.markOf(ctx, found.ID)
-	if failure != nil {
-		return nil, failure
-	}
-
-	return &workflowv1.GetWorkflowResponse{Workflow: renderWorkflow(*found, mark).Workflow}, nil
+	return &workflowv1.GetWorkflowResponse{Workflow: renderWorkflow(*found).Workflow}, nil
 }
 
 // CreateWorkflow adds a workflow and returns it as stored.
@@ -120,7 +100,7 @@ func (s *Handler) CreateWorkflow(ctx context.Context, req *workflowv1.CreateWork
 		return nil, rpcerr.From(err, "failed to create workflow")
 	}
 
-	return &workflowv1.CreateWorkflowResponse{Workflow: renderWorkflow(*created, nil).Workflow}, nil
+	return &workflowv1.CreateWorkflowResponse{Workflow: renderWorkflow(*created).Workflow}, nil
 }
 
 // UpdateWorkflow replaces a workflow's editable fields.
@@ -163,7 +143,7 @@ func (s *Handler) RestoreWorkflow(ctx context.Context, req *workflowv1.RestoreWo
 		return nil, rpcerr.From(err, "failed to restore workflow")
 	}
 
-	return &workflowv1.RestoreWorkflowResponse{Workflow: renderWorkflow(*restored, nil).Workflow}, nil
+	return &workflowv1.RestoreWorkflowResponse{Workflow: renderWorkflow(*restored).Workflow}, nil
 }
 
 // DeleteWorkflow permanently removes an archived workflow, the archived agents still inside
@@ -174,31 +154,4 @@ func (s *Handler) DeleteWorkflow(ctx context.Context, req *workflowv1.DeleteWork
 	}
 
 	return &emptypb.Empty{}, nil
-}
-
-// marksByWorkflow is the letter each workflow answers to, keyed by its id.
-func (s *Handler) marksByWorkflow(ctx context.Context) (map[string]*string, *fail.Error) {
-	listed, err := s.marks.ListMarks(ctx)
-	if err != nil {
-		return nil, rpcerr.From(err, "failed to list the marks")
-	}
-
-	by := make(map[string]*string, len(listed))
-	for _, mark := range listed {
-		if mark.WorkflowID != nil {
-			by[*mark.WorkflowID] = &mark.Mark
-		}
-	}
-
-	return by, nil
-}
-
-// markOf is the letter one workflow answers to, or nothing when it holds none.
-func (s *Handler) markOf(ctx context.Context, id string) (*string, *fail.Error) {
-	by, failure := s.marksByWorkflow(ctx)
-	if failure != nil {
-		return nil, failure
-	}
-
-	return by[id], nil
 }

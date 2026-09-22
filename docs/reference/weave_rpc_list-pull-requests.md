@@ -1,10 +1,10 @@
 ## weave rpc list-pull-requests
 
-List a repository's pull requests through the forge connection for its host, a page at a time: every one opened from a branch when one is named, whatever its state, or the open ones when none is.
+List the pull requests weave has stored for a repository, a page at a time: every one opened from a branch when one is named, whatever its state, or every one stored for the repository when none is.
 
 ### Synopsis
 
-List a repository's pull requests through the forge connection for its host, a page at a time: every one opened from a branch when one is named, whatever its state, or the open ones when none is. Give the repository as a git remote spells it, and pass the next_page_token back as pagination.cursor for the next page. A repository the connection's credential cannot see is answered as not found, which is also what a repository that does not exist answers.
+List the pull requests weave has stored for a repository, a page at a time: every one opened from a branch when one is named, whatever its state, or every one stored for the repository when none is. The unfinished ones come first and each group is newest opened first, so the first answered for a branch is the one an agent's row on that branch stands for. Give the repository as a git remote spells it or as its canonical address, and pass the next_page_token back as pagination.cursor for the next page. This reads what the pull request sync has stored rather than asking the forge, so a repository no live agent sits on may be behind or empty; list_forge_pull_requests asks the forge itself.
 
 ```
 weave rpc list-pull-requests [flags]
@@ -13,12 +13,12 @@ weave rpc list-pull-requests [flags]
 ### Options
 
 ```
-      --branch string              string, at most 512 characters
       --compact                    print the response on one line
+      --head-branch string         string, at most 512 characters
   -h, --help                       help for list-pull-requests
       --pagination.cursor string   string, at most 2048 characters
       --pagination.limit int32     int32
-      --remote-url string          string, required, at most 2048 characters
+      --repository-url string      string, required, at most 2048 characters
       --request-json string        the whole request as JSON, which the flags above are laid over
       --timeout duration           how long to wait for the call (default 30s)
 ```

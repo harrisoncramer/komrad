@@ -161,7 +161,7 @@ func (m model) holdsWindow() bool {
 func (m *model) reconcileSolo() {
 	// Compared here rather than inside Frame.Solo, which Attach calls with the field already
 	// false on purpose to clear a zoom a dead panel left behind: the frame answers from what it
-	// holds, while Solo asks tmux with a subprocess, and this runs on every refresh tick and
+	// holds, while Solo asks tmux with a subprocess, and this runs on every listing change and
 	// every cursor move.
 	want := m.holdsWindow() && m.info.kind == infoNothing
 	if want == m.frame.IsSolo() {

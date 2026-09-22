@@ -381,7 +381,7 @@ func TestFilterCursor(t *testing.T) {
 
 			rows := got.agents.rows(got.shared())
 			require.Less(t, got.agents.cursor, len(rows))
-			assert.Equal(t, tt.want, rows[got.agents.cursor].item.agent.Name)
+			assert.Equal(t, tt.want, rows[got.agents.cursor].item.Agent.Name)
 		})
 	}
 }
@@ -536,13 +536,13 @@ func filterModel() model {
 		frame:  layout.New(tmux, config.DefaultLayout()),
 		keys:   config.DefaultKeybindings(),
 		screen: screenAgents,
-		listing: listing{workflows: []panel.Workflow{workflow}, agents: []agentItem{
-			{agent: panel.Agent{
+		listing: listing{workflows: []panel.Workflow{workflow}, agents: []panel.AgentRow{
+			{Agent: panel.Agent{
 				ID:         "a1",
 				Name:       "billing",
 				WorkflowID: "w1",
 			}},
-			{agent: panel.Agent{
+			{Agent: panel.Agent{
 				ID:         "a2",
 				Name:       "payouts",
 				WorkflowID: "w1",
@@ -559,7 +559,7 @@ func rowNames(rows []agentRow) []string {
 			continue
 		}
 
-		names = append(names, r.item.agent.Name)
+		names = append(names, r.item.Agent.Name)
 	}
 
 	return names

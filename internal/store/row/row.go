@@ -1,40 +1,34 @@
-// Package row reads what an agent's row in the panel says, the agent and the facts about it
-// that other stores hold, in one query.
+// Package row reads what an agent's row in the panel says: the agent, and the facts projected
+// onto it from the tables that are attributes of an agent.
 package row
 
 import (
 	"context"
 	"fmt"
 
+	"weave/db"
 	"weave/db/models"
-	"weave/internal/forge"
 	"weave/internal/store"
 	"weave/lib/xptr"
 	"weave/lib/xslice"
 
 	agentstore "weave/internal/store/agent"
-	pullrequeststore "weave/internal/store/pullrequest"
 	reviewstore "weave/internal/store/review"
 )
 
 // Row is an agent with the facts about it that live beside its row rather than on it.
 type Row struct {
 	agentstore.Agent
-	UnreadMail bool
-	FailedRun  bool
+	FailedRun bool
 	// FailedRunLog is the log the unread failure went to.
 	FailedRunLog *int32
-	// Mark is the letter a person types to jump to this row.
-	Mark *string
 	// LocalRounds is how many rounds of local review the agent's own work has been through.
 	LocalRounds int32
 	// LocalVerdict is what the last released local review concluded, nil when none has
 	// concluded anything.
 	LocalVerdict *reviewstore.Verdict
-	// LocalSnapshotSHA is the round that verdict was given on, empty when there is none.
-	LocalSnapshotSHA string
-	// PullRequest is the one the row stands for, nil when none was opened from the branch.
-	PullRequest *pullrequeststore.Summary
+	// LocalReviewSHA is the round that verdict was given on, empty when there is none.
+	LocalReviewSHA string
 	// RepositoryRead says the sync has read the agent's repository at least once.
 	RepositoryRead bool
 }
@@ -58,81 +52,100 @@ func NewRowStore(db store.DBTX) *RowStore {
 
 // ListPage returns one page of live or archived rows, newest first.
 func (s *RowStore) ListPage(ctx context.Context, page Page) ([]Row, error) {
-	params := models.ListAgentRowsParams{Lim: int32(page.Limit), Archived: page.Archived}
+	params := models.ListAgentsPageParams{Lim: int32(page.Limit), Archived: page.Archived}
 	if page.Cursor != nil {
 		params.CursorID = &page.Cursor.ID
 	}
 
-	rows, err := s.queries.ListAgentRows(ctx, params)
+	rows, err := s.queries.ListAgentsPage(ctx, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list a page of agent rows: %w", err)
 	}
 
-	return s.hydrateMetadata(ctx, rows)
+	return s.hydrate(ctx, rows)
 }
 
-// ListByID returns the live and archived rows of the given agents, newest first.
-func (s *RowStore) ListByID(ctx context.Context, ids []string) ([]Row, error) {
+// List returns the rows of every agent the live listing holds, newest first.
+func (s *RowStore) List(ctx context.Context) ([]Row, error) {
+	rows, err := s.queries.SnapshotAgents(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the live agent rows: %w", err)
+	}
+
+	return s.hydrate(ctx, rows)
+}
+
+// ListByKey returns the rows of the given agents that the live listing holds, newest first.
+func (s *RowStore) ListByKey(ctx context.Context, ids []string) ([]Row, error) {
 	storable := store.KeepIDs(ids)
 	if len(storable) == 0 {
 		return nil, nil
 	}
 
-	rows, err := s.queries.ListAgentRows(ctx, models.ListAgentRowsParams{Ids: storable, Lim: int32(len(storable))})
+	rows, err := s.queries.ListAgentsByKey(ctx, storable)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get the rows of %d agents: %w", len(storable), err)
 	}
 
-	return s.hydrateMetadata(ctx, rows)
+	return s.hydrate(ctx, rows)
 }
 
-func (s *RowStore) hydrateMetadata(ctx context.Context, rows []*models.ListAgentRowsRow) ([]Row, error) {
-	listed := xslice.Map(rows, fromRow)
+// Get returns one agent's row, archived or not, or ErrNotFound when no agent has that id.
+func (s *RowStore) Get(ctx context.Context, id string) (*Row, error) {
+	if !store.IsID(id) {
+		return nil, store.ErrNotFound.Saying("no agent with id %q", id)
+	}
 
-	metadata, err := s.agents.ListMetadata(ctx, xslice.Map(listed, func(row Row) string { return row.ID }))
+	row, err := s.queries.GetAgentByID(ctx, id)
+	if db.IsNoRows(err) {
+		return nil, store.ErrNotFound.Saying("no agent with id %q", id)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get the row of agent %q: %w", id, err)
+	}
+
+	rows, err := s.hydrate(ctx, []*models.Agent{row})
 	if err != nil {
 		return nil, err
 	}
 
-	for i := range listed {
-		listed[i].Metadata = metadata[listed[i].ID]
-	}
-
-	return listed, nil
+	return &rows[0], nil
 }
 
-func fromRow(row *models.ListAgentRowsRow) Row {
-	listed := Row{
-		Agent:          agentstore.FromRow(row.Agent),
-		UnreadMail:     row.UnreadMail,
-		FailedRun:      row.FailedRun,
-		FailedRunLog:   row.FailedRunLog,
-		Mark:           row.Mark,
-		LocalRounds:    row.LocalRounds,
-		RepositoryRead: row.RepositoryRead,
+// hydrate reads the facts and the metadata projected onto each agent.
+func (s *RowStore) hydrate(ctx context.Context, agents []*models.Agent) ([]Row, error) {
+	if len(agents) == 0 {
+		return nil, nil
 	}
-	if row.LocalVerdict.Valid {
-		listed.LocalVerdict = xptr.Ptr(reviewstore.Verdict(row.LocalVerdict.ReviewVerdict))
+	ids := xslice.Map(agents, func(agent *models.Agent) string { return agent.ID })
+
+	facts, err := s.queries.ListAgentFacts(ctx, ids)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the facts of %d agents: %w", len(ids), err)
 	}
-	if row.LocalSnapshotSha != nil {
-		listed.LocalSnapshotSHA = *row.LocalSnapshotSha
-	}
-	// A number means the branch has a pull request.
-	if row.PullRequestNumber != nil {
-		listed.PullRequest = &pullrequeststore.Summary{
-			Number:   int(*row.PullRequestNumber),
-			URL:      *row.PullRequestUrl,
-			Title:    *row.PullRequestTitle,
-			Draft:    *row.PullRequestDraft,
-			MergedAt: row.PullRequestMergedAt,
-			ClosedAt: row.PullRequestClosedAt,
-		}
-		if row.PullRequestReviewDecision != nil {
-			listed.PullRequest.ReviewDecision = xptr.Ptr(forge.ReviewDecision(*row.PullRequestReviewDecision))
-		}
-		listed.PullRequest.Checks = pullrequeststore.StoredChecks(row.PullRequestChecks)
-		listed.PullRequest.Mergeability = pullrequeststore.StoredMergeability(row.PullRequestMergeability)
+	factsByID := xslice.KeyBy(facts, func(facts *models.ListAgentFactsRow) string { return facts.ID })
+
+	metadata, err := s.agents.ListMetadata(ctx, ids)
+	if err != nil {
+		return nil, err
 	}
 
-	return listed
+	return xslice.Map(agents, func(agent *models.Agent) Row {
+		row := Row{Agent: agentstore.FromRow(*agent)}
+		row.Metadata = metadata[agent.ID]
+		if facts, ok := factsByID[agent.ID]; ok {
+			row.FailedRun = facts.FailedRun
+			row.FailedRunLog = facts.FailedRunLog
+			row.LocalRounds = facts.LocalRounds
+			row.RepositoryRead = facts.RepositoryRead
+			if facts.LocalVerdict.Valid {
+				row.LocalVerdict = xptr.Ptr(reviewstore.Verdict(facts.LocalVerdict.ReviewVerdict))
+			}
+			if facts.LocalReviewSha != nil {
+				row.LocalReviewSHA = *facts.LocalReviewSha
+			}
+		}
+
+		return row
+	}), nil
 }

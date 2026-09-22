@@ -4,7 +4,9 @@ package panel
 import (
 	"time"
 
+	"weave/internal/git"
 	"weave/lib/xslice"
+	agentv1 "weave/proto/gen/agent/v1"
 )
 
 // State is what an agent is doing.
@@ -82,6 +84,26 @@ type Agent struct {
 	SequenceInProgress bool
 	// HeldAt is when a person stopped this agent and took its worktree, nil while nobody holds it.
 	HeldAt *time.Time
+}
+
+// AgentRow is an agent as the listing draws it: the agent, whether its pane is alive, the mail
+// waiting for it, its unread failure, its local review and the pull requests on its branch.
+type AgentRow struct {
+	Agent      Agent
+	Alive      bool
+	UnreadMail bool
+	FailedRun  bool
+	// FailedRunLog is the run its unread failure was written to.
+	FailedRunLog *int32
+	// LocalVerdict is what the last released local review concluded about this agent's work,
+	// UNSPECIFIED when none has concluded anything.
+	LocalVerdict agentv1.ReviewVerdict
+	// LocalTree is where the worktree stands against the round that verdict was given on.
+	LocalTree git.Standing
+	// PullRequest is where the pull request opened from its branch stands.
+	PullRequest PullRequestStanding
+	// PullRequests is every pull request opened from its branch, the current one first.
+	PullRequests []PullRequest
 }
 
 // IDs is the id of each agent, in the order they were given.

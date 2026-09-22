@@ -83,51 +83,50 @@ func roleFrom(role agentv1.AgentRole) panel.Role {
 	return ""
 }
 
-func agentItemsFrom(listed []*agentv1.Agent) []agentItem {
-	return xslice.Map(listed, func(agent *agentv1.Agent) agentItem {
-		return agentItem{
-			agent:        agentFrom(agent),
-			alive:        agent.GetAlive(),
-			unreadMail:   agent.GetUnreadMail(),
-			failedRun:    agent.GetFailedRun(),
-			failedRunLog: agent.FailedRunLog,
-			localVerdict: agent.GetLocalReviewVerdict(),
-			localTree:    standingFrom(agent.GetLocalReviewTree()),
-			pullRequest:  pullRequestStandingFrom(agent.GetPullRequest()),
-		}
-	})
+// agentRowsFrom is a listing of assembled rows as the panel keeps them.
+func agentRowsFrom(listed []*agentv1.AgentRow) []panel.AgentRow {
+	return xslice.Map(listed, agentRowFrom)
 }
 
-// pullRequestStandingFrom is the standing as the wire carries it.
-func pullRequestStandingFrom(standing *agentv1.PullRequestStanding) pullRequestStanding {
-	return pullRequestStanding{
-		state:        standing.GetState(),
-		checks:       standing.GetChecks(),
-		mergeability: standing.GetMergeability(),
-		number:       standing.GetNumber(),
-		url:          standing.GetUrl(),
-		title:        standing.GetTitle(),
+func agentRowFrom(row *agentv1.AgentRow) panel.AgentRow {
+	agent := row.GetAgent()
+
+	return panel.AgentRow{
+		Agent:        agentFrom(agent),
+		Alive:        agent.GetAlive(),
+		UnreadMail:   row.GetUnreadMail(),
+		FailedRun:    agent.GetFailedRun(),
+		FailedRunLog: agent.FailedRunLog,
+		LocalVerdict: agent.GetLocalReviewVerdict(),
+		LocalTree:    standingFrom(agent.GetLocalReviewTree()),
+		PullRequest:  pullRequestStandingFrom(row.GetPullRequest()),
+		PullRequests: xslice.Map(row.GetPullRequests(), pullRequestFrom),
 	}
 }
 
-func agentPullRequestsFrom(listed *pullrequestv1.ListAgentPullRequestsResponse) agentPullRequests {
-	return agentPullRequests{
-		answered: true,
-		readAt:   dates.ParsePtr(listed.GetRepositoryReadAt()),
-		items: xslice.Map(listed.GetPullRequests(), func(pullRequest *pullrequestv1.AgentPullRequest) agentPullRequest {
-			return agentPullRequest{
-				number:       pullRequest.GetNumber(),
-				url:          pullRequest.GetUrl(),
-				title:        pullRequest.GetTitle(),
-				state:        pullRequest.GetState(),
-				checks:       pullRequest.GetChecks(),
-				mergeability: pullRequest.GetMergeability(),
-				current:      pullRequest.GetCurrent(),
-				openedAt:     dates.Parse(pullRequest.GetOpenedAt()),
-				mergedAt:     dates.ParsePtr(pullRequest.GetMergedAt()),
-				closedAt:     dates.ParsePtr(pullRequest.GetClosedAt()),
-			}
-		}),
+// pullRequestStandingFrom is the standing as the wire carries it.
+func pullRequestStandingFrom(standing *agentv1.PullRequestStanding) panel.PullRequestStanding {
+	return panel.PullRequestStanding{
+		State:        standing.GetState(),
+		Checks:       standing.GetChecks(),
+		Mergeability: standing.GetMergeability(),
+		Number:       standing.GetNumber(),
+		URL:          standing.GetUrl(),
+		Title:        standing.GetTitle(),
+	}
+}
+
+func pullRequestFrom(pullRequest *pullrequestv1.PullRequest) panel.PullRequest {
+	return panel.PullRequest{
+		Number:       pullRequest.GetNumber(),
+		URL:          pullRequest.GetUrl(),
+		Title:        pullRequest.GetTitle(),
+		State:        pullRequest.GetState(),
+		Checks:       pullRequest.GetChecks(),
+		Mergeability: pullRequest.GetMergeability(),
+		OpenedAt:     dates.Parse(pullRequest.GetOpenedAt()),
+		MergedAt:     dates.ParsePtr(pullRequest.GetMergedAt()),
+		ClosedAt:     dates.ParsePtr(pullRequest.GetClosedAt()),
 	}
 }
 
@@ -208,30 +207,6 @@ func scheduleFrom(s *schedulev1.Schedule) panel.Schedule {
 	}
 
 	return schedule
-}
-
-// marksFromAgents is the letter each agent answers to, keyed by the row it is drawn as.
-func marksFromAgents(listed []*agentv1.Agent) map[string]string {
-	marks := make(map[string]string, len(listed))
-	for _, agent := range listed {
-		if agent.Mark != nil {
-			marks[agentRowKey(agent.GetId())] = agent.GetMark()
-		}
-	}
-
-	return marks
-}
-
-// marksFromWorkflows is the same for the workflow headers, which answer to the same letters.
-func marksFromWorkflows(listed []*workflowv1.Workflow) map[string]string {
-	marks := make(map[string]string, len(listed))
-	for _, workflow := range listed {
-		if workflow.Mark != nil {
-			marks[workflowRowKey(workflow.GetId())] = workflow.GetMark()
-		}
-	}
-
-	return marks
 }
 
 func worktreeItemsFrom(listed *worktreev1.ListWorktreesResponse) []worktreeItem {

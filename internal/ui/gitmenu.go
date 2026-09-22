@@ -29,12 +29,12 @@ var (
 )
 
 // openGitMenu draws the git actions beside the list, for the agent the cursor is on.
-func openGitMenu(h host, s panelShared, item agentItem) tea.Cmd {
-	agent := item.agent
+func openGitMenu(h host, s panelShared, item panel.AgentRow) tea.Cmd {
+	agent := item.Agent
 	form, choice := gitMenuForm(gitMenu{
 		name:           agent.Name,
 		rebaseable:     s.listing.isRebaseable(agent),
-		hasPullRequest: item.pullRequest.url != "",
+		hasPullRequest: item.PullRequest.URL != "",
 	}, s.keys.Git, formKeys())
 
 	agentID := agent.ID
@@ -145,7 +145,7 @@ func (m model) runGitChoice(agentID string, choice gitChoice) (model, tea.Cmd) {
 		return m, nil
 	}
 
-	agent := item.agent
+	agent := item.Agent
 
 	switch choice {
 	case gitChoiceRebase:

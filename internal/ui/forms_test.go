@@ -755,7 +755,6 @@ func TestConfirmingArchiveTracksTheWriteAsPending(t *testing.T) {
 	got := asModel(t, submitted)
 
 	assert.Positive(t, got.pending, "the in-flight write is tracked on the model that comes back")
-	assert.Nil(t, got.refreshCmd(), "a refresh mid-write is held off rather than racing it")
 	require.NotNil(t, cmd)
 }
 
@@ -1352,13 +1351,12 @@ func TestEscDetachesFromAHeldForm(t *testing.T) {
 	assert.False(t, m.held.active, "the panel takes keys again")
 	assert.False(t, m.form.isActive(), "and the form it was holding is gone")
 
-	m.agents.focus = agentRowKey("somewhere-else")
-
 	got := settle(t, m, cmd)
 
 	assert.Empty(t, got.messages.items)
 	require.NotNil(t, sent.createdAgent, "the create the form was submitted for still ran")
-	assert.Equal(t, agentRowKey("somewhere-else"), got.agents.focus, "and it lands without taking the cursor back")
+	_, held := got.listing.liveAgent("new")
+	assert.False(t, held, "and it lands without taking the cursor to the agent it made")
 }
 
 // TestAnEarlierWriteLeavesALaterHoldAlone covers escaping a slow create and submitting another:
@@ -1378,7 +1376,7 @@ func TestAnEarlierWriteLeavesALaterHoldAlone(t *testing.T) {
 	submitted, _ := m.answerForm()
 	m = asModel(t, submitted)
 
-	escaped := m.epoch
+	escaped := m.writes
 
 	detached, _ := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
 	m = asModel(t, detached)
@@ -1393,18 +1391,19 @@ func TestAnEarlierWriteLeavesALaterHoldAlone(t *testing.T) {
 	m = asModel(t, submitted)
 
 	require.True(t, m.held.active)
-	require.NotEqual(t, escaped, m.held.epoch, "the two submits are told apart by their own epochs")
+	require.NotEqual(t, escaped, m.held.write, "the two submits are told apart by their own numbers")
 
 	landed, _ := m.applyWrite(writeResult{
 		summary: "Could not start the agent",
-		written: &written{row: agentRowKey("new")},
-		epoch:   escaped,
+		written: &written{row: agentRowKey("new"), agent: &agentv1.Agent{Id: "new", WorkflowId: workflow.ID}},
+		write:   escaped,
 	})
 	got := asModel(t, landed)
 
 	assert.True(t, got.held.active, "the escaped create landing leaves the second form held")
 	assert.True(t, got.form.isActive())
-	assert.Empty(t, got.agents.focus, "and an escaped create takes nobody to the agent it made")
+	_, held := got.listing.liveAgent("new")
+	assert.False(t, held, "and an escaped create takes nobody to the agent it made")
 }
 
 // TestSubmittingNoticeCountsUp pins that a held form's notice stands still while the write is

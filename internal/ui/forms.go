@@ -143,12 +143,12 @@ const submittingLines = 1
 type heldWrite struct {
 	active bool
 	since  time.Time
-	epoch  int
+	write  int
 }
 
 // owns reports whether a landing write is the one the form on screen is waiting on.
-func (h heldWrite) owns(epoch int) bool {
-	return h.active && h.epoch == epoch
+func (h heldWrite) owns(write int) bool {
+	return h.active && h.write == write
 }
 
 // formBox is the room a form has on screen.
@@ -258,7 +258,7 @@ func (m *model) holdForm() tea.Cmd {
 	m.held = heldWrite{
 		active: true,
 		since:  time.Now(),
-		epoch:  m.epoch,
+		write:  m.writes,
 	}
 
 	if m.form.isActive() && m.form.form.State == huh.StateCompleted {
@@ -298,11 +298,11 @@ func (m *model) rebuildForm() tea.Cmd {
 // detachForm gives the keyboard back while the write the form was held for runs on, and
 // remembers which write that was.
 func (m model) detachForm() (tea.Model, tea.Cmd) {
-	if m.held.epoch != 0 {
+	if m.held.write != 0 {
 		if m.detached == nil {
 			m.detached = map[int]struct{}{}
 		}
-		m.detached[m.held.epoch] = struct{}{}
+		m.detached[m.held.write] = struct{}{}
 	}
 
 	return m.closeForm()

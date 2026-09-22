@@ -21,7 +21,7 @@ import (
 
 // noticeRow is one agent as the list would hold it, under a workflow that cuts each agent its
 // own checkout.
-func noticeRow(item agentItem) agentRow {
+func noticeRow(item panel.AgentRow) agentRow {
 	return agentRow{
 		item:     item,
 		workflow: panel.Workflow{Worktree: panel.WorktreeConfig{Enabled: true}},
@@ -33,7 +33,7 @@ func noticeRow(item agentItem) agentRow {
 func TestNoticesSpellOutTheMarksOnTheRow(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	m.width = 80
-	m.listing.agents[0].agent.WorktreeRemoved = true
+	m.listing.agents[0].Agent.WorktreeRemoved = true
 
 	drawn := m.detailsView()
 
@@ -41,7 +41,7 @@ func TestNoticesSpellOutTheMarksOnTheRow(t *testing.T) {
 	assert.Contains(t, drawn, worktreeRemovedNotice)
 	assert.Contains(t, drawn, "directory", "the fields are still drawn under the notices")
 
-	m.listing.agents[0].agent.WorktreeRemoved = false
+	m.listing.agents[0].Agent.WorktreeRemoved = false
 
 	assert.NotContains(t, m.detailsView(), worktreeRemovedNotice, "a mark the row is not carrying says nothing")
 }
@@ -68,10 +68,10 @@ func TestArchivedNoticesClaimOnlyTheVerdict(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			item := agentItem{
-				agent:        panel.Agent{ArchivedAt: xptr.Ptr(time.Now())},
-				localVerdict: tt.verdict,
-				localTree:    git.StandingMoved,
+			item := panel.AgentRow{
+				Agent:        panel.Agent{ArchivedAt: xptr.Ptr(time.Now())},
+				LocalVerdict: tt.verdict,
+				LocalTree:    git.StandingMoved,
 			}
 
 			texts := xslice.Map(agentNotices(noticeRow(item)), func(n notice) string { return n.text })
@@ -84,16 +84,16 @@ func TestArchivedNoticesClaimOnlyTheVerdict(t *testing.T) {
 func TestNoticesCoverEveryOptionalMark(t *testing.T) {
 	tests := []struct {
 		name string
-		item agentItem
+		item panel.AgentRow
 		want string
 	}{
-		{"a failed create", agentItem{agent: panel.Agent{State: panel.StateFailedToCreate}}, failedToCreateNotice},
-		{"a failed cleanup", agentItem{agent: panel.Agent{State: panel.StateFailedToCleanup}}, failedToCleanupNotice},
-		{"a removed worktree", agentItem{agent: panel.Agent{WorktreeRemoved: true}}, worktreeRemovedNotice},
-		{"a stopped rebase", agentItem{agent: panel.Agent{SequenceInProgress: true}}, sequenceNotice},
-		{"a hidden row", agentItem{agent: panel.Agent{Hidden: true}}, hiddenNotice},
-		{"mail waiting", agentItem{unreadMail: true}, unreadMailNotice},
-		{"a failed script", agentItem{failedRun: true}, failedRunNotice},
+		{"a failed create", panel.AgentRow{Agent: panel.Agent{State: panel.StateFailedToCreate}}, failedToCreateNotice},
+		{"a failed cleanup", panel.AgentRow{Agent: panel.Agent{State: panel.StateFailedToCleanup}}, failedToCleanupNotice},
+		{"a removed worktree", panel.AgentRow{Agent: panel.Agent{WorktreeRemoved: true}}, worktreeRemovedNotice},
+		{"a stopped rebase", panel.AgentRow{Agent: panel.Agent{SequenceInProgress: true}}, sequenceNotice},
+		{"a hidden row", panel.AgentRow{Agent: panel.Agent{Hidden: true}}, hiddenNotice},
+		{"mail waiting", panel.AgentRow{UnreadMail: true}, unreadMailNotice},
+		{"a failed script", panel.AgentRow{FailedRun: true}, failedRunNotice},
 	}
 
 	for _, tt := range tests {
@@ -105,20 +105,20 @@ func TestNoticesCoverEveryOptionalMark(t *testing.T) {
 		})
 	}
 
-	assert.Empty(t, agentNotices(noticeRow(agentItem{alive: true})), "an agent carrying nothing has nothing to say")
+	assert.Empty(t, agentNotices(noticeRow(panel.AgentRow{Alive: true})), "an agent carrying nothing has nothing to say")
 }
 
 // TestNoticesAreOrderedByUrgency covers what a short pane gives up: the marks a person would
 // act on are drawn first, so the ones dropped from the tail are the ones nobody needed spelled out.
 func TestNoticesAreOrderedByUrgency(t *testing.T) {
-	item := agentItem{
-		agent: panel.Agent{
+	item := panel.AgentRow{
+		Agent: panel.Agent{
 			State:           panel.StateFailedToCleanup,
 			WorktreeRemoved: true,
 			Hidden:          true,
 		},
-		unreadMail: true,
-		failedRun:  true,
+		UnreadMail: true,
+		FailedRun:  true,
 	}
 
 	texts := xslice.Map(agentNotices(noticeRow(item)), func(n notice) string {
@@ -137,7 +137,7 @@ func TestNoticesAreOrderedByUrgency(t *testing.T) {
 // TestAFailedCreateSaysWhereItsWorktreeWent covers the pair a failed setup draws: the failure
 // itself, and the directory that was made for it and taken away again on the way out.
 func TestAFailedCreateSaysWhereItsWorktreeWent(t *testing.T) {
-	item := agentItem{agent: panel.Agent{State: panel.StateFailedToCreate, WorktreeRemoved: true}}
+	item := panel.AgentRow{Agent: panel.Agent{State: panel.StateFailedToCreate, WorktreeRemoved: true}}
 
 	notices := agentNotices(noticeRow(item))
 
@@ -150,17 +150,17 @@ func TestAFailedCreateSaysWhereItsWorktreeWent(t *testing.T) {
 // takes its glyph and its tone from the very cell the rebuilt row draws, so the two cannot say
 // different things about one fact.
 func TestNoticesWearTheGlyphTheRowDraws(t *testing.T) {
-	item := agentItem{
-		agent: panel.Agent{
+	item := panel.AgentRow{
+		Agent: panel.Agent{
 			State:              panel.StateWaiting,
 			SequenceInProgress: true,
 			HeldAt:             xptr.Ptr(time.Now()),
 		},
-		alive:        true,
-		unreadMail:   true,
-		failedRun:    true,
-		localVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
-		localTree:    git.StandingMoved,
+		Alive:        true,
+		UnreadMail:   true,
+		FailedRun:    true,
+		LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
+		LocalTree:    git.StandingMoved,
 	}
 
 	line := view.Prepare(view.Snapshot{Rows: []view.Row{snapshotRow(noticeRow(item), snapshotParams{})}}).Lines[0]
@@ -192,9 +192,9 @@ func TestNoticesKeepTheRecordsHeight(t *testing.T) {
 
 	plain := strings.Count(m.detailsView(), "\n")
 
-	m.listing.agents[0].agent.WorktreeRemoved = true
-	m.listing.agents[0].unreadMail = true
-	m.listing.agents[0].failedRun = true
+	m.listing.agents[0].Agent.WorktreeRemoved = true
+	m.listing.agents[0].UnreadMail = true
+	m.listing.agents[0].FailedRun = true
 
 	flagged := m.detailsView()
 
@@ -208,9 +208,9 @@ func TestNoticesKeepTheRecordsHeight(t *testing.T) {
 func TestNoticesGiveUpBeforeTheFields(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	m.height, m.width = 13, 40
-	m.listing.agents[0].agent.WorktreeRemoved = true
-	m.listing.agents[0].unreadMail = true
-	m.listing.agents[0].failedRun = true
+	m.listing.agents[0].Agent.WorktreeRemoved = true
+	m.listing.agents[0].UnreadMail = true
+	m.listing.agents[0].FailedRun = true
 
 	drawn := m.detailsView()
 
@@ -224,7 +224,7 @@ func TestNoticesGiveUpBeforeTheFields(t *testing.T) {
 func TestNoticesCutTheFirstOneShort(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	m.height, m.width = 13, 24
-	m.listing.agents[0].failedRun = true
+	m.listing.agents[0].FailedRun = true
 
 	drawn := m.detailsView()
 
@@ -238,8 +238,8 @@ func TestNoticesStayInsideTheColumn(t *testing.T) {
 	for width := 16; width <= 120; width++ {
 		m := detailsModel(&recordingTmux{})
 		m.height, m.width = 16, width
-		m.listing.agents[0].failedRun = true
-		m.listing.agents[0].unreadMail = true
+		m.listing.agents[0].FailedRun = true
+		m.listing.agents[0].UnreadMail = true
 
 		for _, line := range strings.Split(m.detailsView(), "\n") {
 			assert.LessOrEqual(t, lipgloss.Width(line), width, "a notice ran past the column at width %d", width)
@@ -252,7 +252,7 @@ func TestNoticesStayInsideTheColumn(t *testing.T) {
 func TestNoticesLeaveRoomToCountTheFields(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	m.height, m.width = 20, 40
-	m.listing.agents[0].failedRun = true
+	m.listing.agents[0].FailedRun = true
 
 	drawn := m.detailsView()
 
@@ -268,8 +268,8 @@ func TestNoticesAlignAndFitTheColumn(t *testing.T) {
 	m.height, m.width = 40, 60
 
 	// A bar notice and an Octicon notice, stacked.
-	m.listing.agents[0].agent.State = panel.StateFailedToCleanup
-	m.listing.agents[0].agent.WorktreeRemoved = true
+	m.listing.agents[0].Agent.State = panel.StateFailedToCleanup
+	m.listing.agents[0].Agent.WorktreeRemoved = true
 
 	drawn := m.detailsNotices(m.hoveredDetails(), m.detailsLines()-3)
 	require.Len(t, drawn, 2, "a bar and an octicon")
@@ -290,7 +290,7 @@ func TestNoticesAlignAndFitTheColumn(t *testing.T) {
 	// A wrapped notice's continuation lines have to land in that same column.
 	long := detailsModel(&recordingTmux{})
 	long.height, long.width = 40, 34
-	long.listing.agents[0].agent.HeldAt = xptr.Ptr(time.Unix(0, 0))
+	long.listing.agents[0].Agent.HeldAt = xptr.Ptr(time.Unix(0, 0))
 
 	wrapped := long.detailsNotices(long.hoveredDetails(), long.detailsLines()-3)
 	require.Greater(t, len(wrapped), 1, "the pause sentence has to wrap at this width")
@@ -304,8 +304,8 @@ func TestNoticesAlignAndFitTheColumn(t *testing.T) {
 	for width := 20; width <= 120; width++ {
 		m := detailsModel(&recordingTmux{})
 		m.height, m.width = 16, width
-		m.listing.agents[0].unreadMail = true
-		m.listing.agents[0].failedRun = true
+		m.listing.agents[0].UnreadMail = true
+		m.listing.agents[0].FailedRun = true
 
 		for _, line := range m.detailsNotices(m.hoveredDetails(), m.detailsLines()-3) {
 			assert.LessOrEqual(t, lipgloss.Width(ansi.Strip(line)), width,
@@ -345,7 +345,7 @@ func TestEveryReviewStateIsSpokenForOrSilent(t *testing.T) {
 // TestEveryStateTheBarDrawsBrokenHasASentence covers the one status the record speaks for.
 func TestEveryStateTheBarDrawsBrokenHasASentence(t *testing.T) {
 	for _, state := range []panel.State{panel.StateFailedToCreate, panel.StateFailedToCleanup} {
-		item := agentItem{agent: panel.Agent{State: state}}
+		item := panel.AgentRow{Agent: panel.Agent{State: state}}
 
 		require.Equal(t, view.StatusBroken, snapshotStatus(item), "state %q no longer draws a broken bar", state)
 		assert.NotEmpty(t, failureSaid[state], "state %q draws a broken bar with no sentence", state)
@@ -355,7 +355,7 @@ func TestEveryStateTheBarDrawsBrokenHasASentence(t *testing.T) {
 // TestAStoppedRowKeepsItsBarAndSaysNothing covers a row whose process has gone: its bar is the
 // quiet one, its name greys, and the record has nothing to add.
 func TestAStoppedRowKeepsItsBarAndSaysNothing(t *testing.T) {
-	stopped := agentItem{agent: panel.Agent{State: panel.StateIdle}}
+	stopped := panel.AgentRow{Agent: panel.Agent{State: panel.StateIdle}}
 	row := snapshotRow(noticeRow(stopped), snapshotParams{})
 
 	require.Equal(t, view.ProcessStopped, row.Process, "an agent whose pane has gone reads as stopped")
@@ -364,7 +364,7 @@ func TestAStoppedRowKeepsItsBarAndSaysNothing(t *testing.T) {
 		"its name is what says the process has gone")
 	assert.Empty(t, noticeTexts(agentNotices(noticeRow(stopped))), "the record says nothing about it")
 
-	failed := agentItem{agent: panel.Agent{State: panel.StateFailedToCreate}}
+	failed := panel.AgentRow{Agent: panel.Agent{State: panel.StateFailedToCreate}}
 
 	require.Equal(t, view.ProcessAlive, snapshotRow(noticeRow(failed), snapshotParams{}).Process,
 		"a failed create is not a stopped process")
@@ -378,7 +378,7 @@ func TestNoticesReportAPlainWorkflowsDirectory(t *testing.T) {
 	plain := func(agent panel.Agent) agentRow {
 		return agentRow{
 			workflow: panel.Workflow{ID: "w1", Name: "weave"},
-			item:     agentItem{alive: true, agent: agent},
+			item:     panel.AgentRow{Alive: true, Agent: agent},
 		}
 	}
 
@@ -400,7 +400,7 @@ func TestNoticesReportAPlainWorkflowsDirectory(t *testing.T) {
 		Name: "worker",
 		Cwd:  "/tmp/somewhere",
 	})
-	reviewed.item.localVerdict = agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED
+	reviewed.item.LocalVerdict = agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED
 
 	assert.Equal(t, []string{worktreeRemovedNotice}, noticeTexts(agentNotices(gone)))
 	assert.Equal(t, []string{sequenceNotice}, noticeTexts(agentNotices(rebasing)))
@@ -413,7 +413,7 @@ func TestNoticesReportAPlainWorkflowsDirectory(t *testing.T) {
 		WorktreeRemoved: true,
 	})
 	child.child = true
-	child.item.agent.ParentAgentID = xptr.Ptr("a1")
+	child.item.Agent.ParentAgentID = xptr.Ptr("a1")
 
 	assert.Empty(t, noticeTexts(agentNotices(child)), "its parent's row already says it")
 }

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"weave/db/models"
+	"weave/internal/git"
 	"weave/internal/store"
 )
 
@@ -249,6 +250,38 @@ func (s *AgentStore) SetSessionID(ctx context.Context, id, sessionID string) err
 
 	if err := s.queries.SetAgentSessionID(ctx, models.SetAgentSessionIDParams{ID: id, SessionID: sessionID}); err != nil {
 		return fmt.Errorf("failed to set the session for id %q: %w", id, err)
+	}
+
+	return nil
+}
+
+// SetAlive records whether each of the given agents still owns its pane.
+func (s *AgentStore) SetAlive(ctx context.Context, ids []string, alive bool) error {
+	storable := store.KeepIDs(ids)
+	if len(storable) == 0 {
+		return nil
+	}
+
+	if err := s.queries.SetAgentsAlive(ctx, models.SetAgentsAliveParams{Ids: storable, Alive: alive}); err != nil {
+		return fmt.Errorf("failed to set %d agents alive=%t: %w", len(storable), alive, err)
+	}
+
+	return nil
+}
+
+// SetTreeStanding records where an agent's worktree stands against the round it was measured
+// against.
+func (s *AgentStore) SetTreeStanding(ctx context.Context, id string, standing git.Standing, snapshotSHA string) error {
+	if !store.IsID(id) {
+		return store.ErrNotFound.Saying("no agent with id %q", id)
+	}
+
+	if err := s.queries.SetAgentTreeStanding(ctx, models.SetAgentTreeStandingParams{
+		ID:              id,
+		TreeStanding:    string(standing),
+		TreeStandingSha: snapshotSHA,
+	}); err != nil {
+		return fmt.Errorf("failed to set the tree standing for id %q: %w", id, err)
 	}
 
 	return nil

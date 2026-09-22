@@ -522,7 +522,7 @@ func TestJumpToSearchHit(t *testing.T) {
 			}
 			m.screen = screenSearch
 			m.search = searchScreen{query: "ledger", turns: []searchHit{tt.hit}}
-			m.listing.agents[1].agent.Hidden = tt.hidden
+			m.listing.agents[1].Agent.Hidden = tt.hidden
 			m.listing.archivedAgents = archivedItems([]panel.Agent{{
 				ID:         "a3",
 				Name:       "old-work",
@@ -544,7 +544,7 @@ func TestJumpToSearchHit(t *testing.T) {
 			}
 
 			require.Less(t, cursor, len(rows))
-			assert.Equal(t, tt.wantCursor, rows[cursor].item.agent.Name)
+			assert.Equal(t, tt.wantCursor, rows[cursor].item.Agent.Name)
 		})
 	}
 }
@@ -799,17 +799,17 @@ func TestSearchRowCarriesTheAgent(t *testing.T) {
 	m.screen = screenSearch
 	m.width = 80
 	m.search = searchScreen{query: "ledger"}
-	m.listing.marks = map[string]string{agentRowKey("a1"): marked}
-	m.listing.agents = []agentItem{
+	m.listing.marks = map[string]string{"a1": marked}
+	m.listing.agents = []panel.AgentRow{
 		{
-			agent: panel.Agent{
+			Agent: panel.Agent{
 				ID:         "a1",
 				Name:       "billing",
 				WorkflowID: "w1",
 				State:      panel.StateThinking,
 			},
-			alive:      true,
-			unreadMail: true,
+			Alive:      true,
+			UnreadMail: true,
 		},
 	}
 	m.listing.archivedAgents = archivedItems([]panel.Agent{
@@ -867,14 +867,14 @@ func TestSearchTellsAHiddenHitFromAnArchivedOne(t *testing.T) {
 	m.screen = screenSearch
 	m.width = 80
 	m.search = searchScreen{query: "ledger"}
-	m.listing.agents = []agentItem{
-		{agent: panel.Agent{
+	m.listing.agents = []panel.AgentRow{
+		{Agent: panel.Agent{
 			ID:         "a1",
 			Name:       "running",
 			WorkflowID: "w1",
 			Hidden:     true,
-		}, alive: true},
-		{agent: panel.Agent{
+		}, Alive: true},
+		{Agent: panel.Agent{
 			ID:         "a2",
 			Name:       "dormant",
 			WorkflowID: "w1",
@@ -947,8 +947,8 @@ func treeOwned(row view.Row) view.Row {
 // TestSearchRowSaysWhatTheAgentsListSays pins one agent read by both screens saying the same
 // thing, every field the helper above does not blank being compared.
 func TestSearchRowSaysWhatTheAgentsListSays(t *testing.T) {
-	item := agentItem{
-		agent: panel.Agent{
+	item := panel.AgentRow{
+		Agent: panel.Agent{
 			ID:         "a1",
 			Name:       "ledger",
 			WorkflowID: "w1",
@@ -957,15 +957,15 @@ func TestSearchRowSaysWhatTheAgentsListSays(t *testing.T) {
 			HeldAt:     xptr.Ptr(time.Now()),
 			ScheduleID: xptr.Ptr("s1"),
 		},
-		alive:      true,
-		unreadMail: true,
-		failedRun:  true,
+		Alive:      true,
+		UnreadMail: true,
+		FailedRun:  true,
 	}
 
 	m := filterModel()
 	m.screen = screenSearch
 	m.search = searchScreen{query: "ledger"}
-	m.listing.agents = []agentItem{item}
+	m.listing.agents = []panel.AgentRow{item}
 
 	hit := m.search.agentRow(m.shared(), searchAgent{id: "a1", name: "ledger"}, nil)
 	tree := snapshotRow(agentRow{item: item}, snapshotParams{})
@@ -997,7 +997,7 @@ func TestArchivedAgentsSayTheSameOnBothScreens(t *testing.T) {
 			m.search = searchScreen{query: "payouts"}
 			m.listing.archivedAgents = archivedItems([]panel.Agent{agent})
 
-			archive := view.StatusCell(snapshotRow(agentRow{item: agentItem{agent: agent}}, snapshotParams{}))
+			archive := view.StatusCell(snapshotRow(agentRow{item: panel.AgentRow{Agent: agent}}, snapshotParams{}))
 			search := view.StatusCell(m.search.agentRow(m.shared(), searchAgent{
 				id:       "a2",
 				name:     "payouts",
@@ -1086,13 +1086,13 @@ func TestSearchNamesAnAgentMatchedTwiceOnce(t *testing.T) {
 	m.screen = screenSearch
 	m.width = 80
 	m.search = searchScreen{query: "billing"}
-	m.listing.agents = []agentItem{{
-		agent: panel.Agent{
+	m.listing.agents = []panel.AgentRow{{
+		Agent: panel.Agent{
 			ID:         "a1",
 			Name:       "billing",
 			WorkflowID: "w1",
 		},
-		alive: true,
+		Alive: true,
 	}}
 
 	m.search.apply(&m, m.shared(), searchResult{
@@ -1238,8 +1238,8 @@ func TestJumpLeavesTheSearchBehind(t *testing.T) {
 				schedules: emptyLists{},
 			}
 			m.screen = screenSearch
-			m.listing.agents[1].alive = true
-			m.listing.agents[1].agent.Pane = "%9"
+			m.listing.agents[1].Alive = true
+			m.listing.agents[1].Agent.Pane = "%9"
 			m.listing.archivedAgents = archivedItems([]panel.Agent{{
 				ID:         "a3",
 				Name:       "old-work",
@@ -1277,8 +1277,8 @@ func TestJumpDropsALatePreview(t *testing.T) {
 		schedules: emptyLists{},
 	}
 	m.screen = screenSearch
-	m.listing.agents[1].alive = true
-	m.listing.agents[1].agent.Pane = "%9"
+	m.listing.agents[1].Alive = true
+	m.listing.agents[1].Agent.Pane = "%9"
 	m.search = searchScreen{
 		query: "ledger",
 		turns: []searchHit{{
@@ -1468,13 +1468,13 @@ func TestSearchCursorSurvivesARefresh(t *testing.T) {
 	t.Run("an agent whose name says the query joining the listing", func(t *testing.T) {
 		m := sectioned()
 
-		cmd := m.applyRefresh(refreshResult{agents: append([]agentItem{
-			{agent: panel.Agent{
+		cmd := applyListing(&m, append([]panel.AgentRow{
+			{Agent: panel.Agent{
 				ID:         "a4",
 				Name:       "billing-two",
 				WorkflowID: "w1",
 			}},
-		}, m.listing.agents...)})
+		}, m.listing.agents...), m.listing.workflows, nil)
 
 		agent, ok := m.search.hoveredAgent(m.shared())
 		require.True(t, ok)
@@ -1486,7 +1486,7 @@ func TestSearchCursorSurvivesARefresh(t *testing.T) {
 		m := sectioned()
 		m.search.cursor = 0
 
-		cmd := m.applyRefresh(refreshResult{})
+		cmd := applyListing(&m, nil, m.listing.workflows, nil)
 
 		agent, ok := m.search.hoveredAgent(m.shared())
 		require.True(t, ok, "a row still wears the cursor")

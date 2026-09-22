@@ -12,6 +12,7 @@ import (
 	"weave/internal/caller"
 	"weave/internal/fail"
 	"weave/internal/logging"
+	"weave/internal/rpc/render"
 	"weave/internal/rpcerr"
 	"weave/internal/store"
 	"weave/lib/pagination"
@@ -39,11 +40,12 @@ type agentLiveness interface {
 	IsAgentRunning(agent agentstore.Agent) bool
 }
 
-// rowReader is what an agent's row says, read once for a page and once for one agent.
+// rowReader is what an agent's row says, read for a page, for the agents a write moved, and
+// for one agent.
 type rowReader interface {
-	ListRows(ctx context.Context, page rowstore.Page) ([]agents.Row, error)
-	ListRowsByID(ctx context.Context, ids []string) ([]agents.Row, error)
-	GetRow(ctx context.Context, id string) (*agents.Row, error)
+	ListPage(ctx context.Context, page rowstore.Page) ([]rowstore.Row, error)
+	ListByKey(ctx context.Context, ids []string) ([]rowstore.Row, error)
+	Get(ctx context.Context, id string) (*rowstore.Row, error)
 }
 
 type agentLifecycle interface {
@@ -102,6 +104,9 @@ type NewHandlerParams struct {
 	Archive      archiveEmptier
 	Review       reviewConversation
 	Marks        markReadWriter
+	Workflows    workflowReader
+	Unclaimed    unclaimedMailReader
+	PullRequests pullRequestReader
 	Rebaser      worktreeRebaser
 	Orchestrator orchestratorStarter
 	Clock        func() time.Time
@@ -122,6 +127,9 @@ type Handler struct {
 	archive      archiveEmptier
 	review       reviewConversation
 	marks        markReadWriter
+	workflows    workflowReader
+	unclaimed    unclaimedMailReader
+	pullRequests pullRequestReader
 	rebaser      worktreeRebaser
 	orchestrator orchestratorStarter
 	now          func() time.Time
@@ -150,6 +158,9 @@ func NewHandler(params NewHandlerParams) *Handler {
 		archive:      params.Archive,
 		review:       params.Review,
 		marks:        params.Marks,
+		workflows:    params.Workflows,
+		unclaimed:    params.Unclaimed,
+		pullRequests: params.PullRequests,
 		rebaser:      params.Rebaser,
 		orchestrator: params.Orchestrator,
 		now:          now,
@@ -245,14 +256,15 @@ func (s *Handler) Adopt(ctx context.Context, req *agentv1.AdoptRequest) (*agentv
 	return &agentv1.AdoptResponse{Agent: rendered}, nil
 }
 
-// ListAgents returns one page of stored agents, newest first.
+// ListAgents returns one page of stored agents, newest first, each assembled with what is
+// drawn beside it.
 func (s *Handler) ListAgents(ctx context.Context, req *agentv1.ListAgentsRequest) (*agentv1.ListAgentsResponse, *fail.Error) {
-	paginator, err := pagination.New[agentstore.Cursor, agent](req.GetPagination())
+	paginator, err := pagination.New[agentstore.Cursor, agentRow](req.GetPagination())
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to read the pagination")
 	}
 
-	rows, err := s.rows.ListRows(ctx, rowstore.Page{
+	rows, err := s.rows.ListPage(ctx, rowstore.Page{
 		Limit:    paginator.Limit(),
 		Cursor:   paginator.Cursor(),
 		Archived: req.GetArchived(),
@@ -261,8 +273,10 @@ func (s *Handler) ListAgents(ctx context.Context, req *agentv1.ListAgentsRequest
 		return nil, rpcerr.From(err, "failed to list agents")
 	}
 
-	view := agentViewOptions(req.GetView())
-	resources := xslice.Map(rows, func(row agents.Row) agent { return renderAgent(row, view...) })
+	resources, failure := s.assembleRows(ctx, rows, agentViewOptions(req.GetView()))
+	if failure != nil {
+		return nil, failure
+	}
 
 	next, err := paginator.NextToken(resources)
 	if err != nil {
@@ -270,29 +284,44 @@ func (s *Handler) ListAgents(ctx context.Context, req *agentv1.ListAgentsRequest
 	}
 
 	response := &agentv1.ListAgentsResponse{NextPageToken: next}
-	response.Agents = xslice.Map(resources, func(resource agent) *agentv1.Agent { return resource.Agent })
+	response.Agents = xslice.Map(resources, func(resource agentRow) *agentv1.AgentRow { return resource.AgentRow })
 
 	return response, nil
 }
 
 // renderOneAgent reads one agent's row and renders it.
 func (s *Handler) renderOneAgent(ctx context.Context, id string) (*agentv1.Agent, *fail.Error) {
-	row, err := s.rows.GetRow(ctx, id)
+	row, err := s.rows.Get(ctx, id)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to get agent")
 	}
 
-	return renderAgent(*row).Agent, nil
+	return render.Agent(*row, render.AgentOptions{}), nil
 }
 
-// GetAgent returns one agent by id, archived or not.
+// GetAgent returns one agent by id, archived or not, assembled with what is drawn beside it.
 func (s *Handler) GetAgent(ctx context.Context, req *agentv1.GetAgentRequest) (*agentv1.GetAgentResponse, *fail.Error) {
-	rendered, failure := s.renderOneAgent(ctx, req.GetId())
+	row, err := s.rows.Get(ctx, req.GetId())
+	if err != nil {
+		return nil, rpcerr.From(err, "failed to get agent")
+	}
+
+	resources, failure := s.assembleRows(ctx, []rowstore.Row{*row}, render.AgentOptions{})
 	if failure != nil {
 		return nil, failure
 	}
 
-	return &agentv1.GetAgentResponse{Agent: rendered}, nil
+	return &agentv1.GetAgentResponse{Agent: resources[0].AgentRow}, nil
+}
+
+// ListMarks is every mark, by letter.
+func (s *Handler) ListMarks(ctx context.Context, _ *emptypb.Empty) (*agentv1.ListMarksResponse, *fail.Error) {
+	marks, err := s.marks.ListMarks(ctx)
+	if err != nil {
+		return nil, rpcerr.From(err, "failed to list the marks")
+	}
+
+	return &agentv1.ListMarksResponse{Marks: xslice.Map(marks, render.Mark)}, nil
 }
 
 // SetMark puts a letter on an agent or a workflow, taking it off whichever row held it, and
@@ -455,13 +484,13 @@ func (s *Handler) RestoreAgents(ctx context.Context, req *agentv1.RestoreAgentsR
 		return nil, rpcerr.From(err, "failed to restore agents")
 	}
 
-	rows, err := s.rows.ListRowsByID(ctx, agentstore.IDs(restored))
+	rows, err := s.rows.ListByKey(ctx, agentstore.IDs(restored))
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to get the restored agents")
 	}
 
 	return &agentv1.RestoreAgentsResponse{
-		Agents: xslice.Map(rows, func(row agents.Row) *agentv1.Agent { return renderAgent(row).Agent }),
+		Agents: xslice.Map(rows, func(row rowstore.Row) *agentv1.Agent { return render.Agent(row, render.AgentOptions{}) }),
 	}, nil
 }
 

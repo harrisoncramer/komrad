@@ -144,7 +144,8 @@ func (p *Pool) GetDB() DBTX {
 	return p.pool
 }
 
-// GetRawPool returns the underlying pgx pool, which only River's driver should reach for.
+// GetRawPool returns the underlying pgx pool, which only River's driver and the watch's
+// listener reach for.
 func (p *Pool) GetRawPool() *pgxpool.Pool {
 	return p.pool
 }

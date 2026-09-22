@@ -36,15 +36,11 @@ const (
 	// PullRequestServiceListPullRequestsProcedure is the fully-qualified name of the
 	// PullRequestService's ListPullRequests RPC.
 	PullRequestServiceListPullRequestsProcedure = "/pullrequest.v1.PullRequestService/ListPullRequests"
-	// PullRequestServiceListAgentPullRequestsProcedure is the fully-qualified name of the
-	// PullRequestService's ListAgentPullRequests RPC.
-	PullRequestServiceListAgentPullRequestsProcedure = "/pullrequest.v1.PullRequestService/ListAgentPullRequests"
 )
 
 // PullRequestServiceClient is a client for the pullrequest.v1.PullRequestService service.
 type PullRequestServiceClient interface {
 	ListPullRequests(context.Context, *connect.Request[v1.ListPullRequestsRequest]) (*connect.Response[v1.ListPullRequestsResponse], error)
-	ListAgentPullRequests(context.Context, *connect.Request[v1.ListAgentPullRequestsRequest]) (*connect.Response[v1.ListAgentPullRequestsResponse], error)
 }
 
 // NewPullRequestServiceClient constructs a client for the pullrequest.v1.PullRequestService
@@ -65,20 +61,12 @@ func NewPullRequestServiceClient(httpClient connect.HTTPClient, baseURL string, 
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
-		listAgentPullRequests: connect.NewClient[v1.ListAgentPullRequestsRequest, v1.ListAgentPullRequestsResponse](
-			httpClient,
-			baseURL+PullRequestServiceListAgentPullRequestsProcedure,
-			connect.WithSchema(pullRequestServiceMethods.ByName("ListAgentPullRequests")),
-			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
-			connect.WithClientOptions(opts...),
-		),
 	}
 }
 
 // pullRequestServiceClient implements PullRequestServiceClient.
 type pullRequestServiceClient struct {
-	listPullRequests      *connect.Client[v1.ListPullRequestsRequest, v1.ListPullRequestsResponse]
-	listAgentPullRequests *connect.Client[v1.ListAgentPullRequestsRequest, v1.ListAgentPullRequestsResponse]
+	listPullRequests *connect.Client[v1.ListPullRequestsRequest, v1.ListPullRequestsResponse]
 }
 
 // ListPullRequests calls pullrequest.v1.PullRequestService.ListPullRequests.
@@ -86,15 +74,9 @@ func (c *pullRequestServiceClient) ListPullRequests(ctx context.Context, req *co
 	return c.listPullRequests.CallUnary(ctx, req)
 }
 
-// ListAgentPullRequests calls pullrequest.v1.PullRequestService.ListAgentPullRequests.
-func (c *pullRequestServiceClient) ListAgentPullRequests(ctx context.Context, req *connect.Request[v1.ListAgentPullRequestsRequest]) (*connect.Response[v1.ListAgentPullRequestsResponse], error) {
-	return c.listAgentPullRequests.CallUnary(ctx, req)
-}
-
 // PullRequestServiceHandler is an implementation of the pullrequest.v1.PullRequestService service.
 type PullRequestServiceHandler interface {
 	ListPullRequests(context.Context, *connect.Request[v1.ListPullRequestsRequest]) (*connect.Response[v1.ListPullRequestsResponse], error)
-	ListAgentPullRequests(context.Context, *connect.Request[v1.ListAgentPullRequestsRequest]) (*connect.Response[v1.ListAgentPullRequestsResponse], error)
 }
 
 // NewPullRequestServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -111,19 +93,10 @@ func NewPullRequestServiceHandler(svc PullRequestServiceHandler, opts ...connect
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
-	pullRequestServiceListAgentPullRequestsHandler := connect.NewUnaryHandler(
-		PullRequestServiceListAgentPullRequestsProcedure,
-		svc.ListAgentPullRequests,
-		connect.WithSchema(pullRequestServiceMethods.ByName("ListAgentPullRequests")),
-		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
-		connect.WithHandlerOptions(opts...),
-	)
 	return "/pullrequest.v1.PullRequestService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case PullRequestServiceListPullRequestsProcedure:
 			pullRequestServiceListPullRequestsHandler.ServeHTTP(w, r)
-		case PullRequestServiceListAgentPullRequestsProcedure:
-			pullRequestServiceListAgentPullRequestsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -135,8 +108,4 @@ type UnimplementedPullRequestServiceHandler struct{}
 
 func (UnimplementedPullRequestServiceHandler) ListPullRequests(context.Context, *connect.Request[v1.ListPullRequestsRequest]) (*connect.Response[v1.ListPullRequestsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("pullrequest.v1.PullRequestService.ListPullRequests is not implemented"))
-}
-
-func (UnimplementedPullRequestServiceHandler) ListAgentPullRequests(context.Context, *connect.Request[v1.ListAgentPullRequestsRequest]) (*connect.Response[v1.ListAgentPullRequestsResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("pullrequest.v1.PullRequestService.ListAgentPullRequests is not implemented"))
 }

@@ -90,7 +90,7 @@ func TestAgentsGiveTheWindowToARunningAgent(t *testing.T) {
 func TestAgentsSayWhyADormantAgentHasNoPane(t *testing.T) {
 	tmux := &recordingTmux{}
 	m := sizedTo(infoModel(tmux), tmux)
-	m.listing.agents = []agentItem{{agent: panel.Agent{
+	m.listing.agents = []panel.AgentRow{{Agent: panel.Agent{
 		ID:         "a1",
 		Name:       "auth",
 		WorkflowID: "w1",
@@ -183,11 +183,11 @@ func TestAHandMovedPaneCorrectsTheFrame(t *testing.T) {
 	assert.False(t, m.frame.IsSolo(), "the frame is told what tmux did rather than assuming")
 	assert.Equal(t, m.width, m.paneWidth(), "so the list is drawn in the share of the frame it has")
 
-	// The panel wants the window on this row, so it takes it back on the next pass.
+	// The panel wants the window on this row, so it takes it back on the next listing.
 	tmux.keysElsewhere = false
-	m.applyRefresh(refreshResult{})
+	applyListing(&m, nil, m.listing.workflows, nil)
 
-	assert.True(t, m.frame.IsSolo(), "and takes it back on the next pass, since it wants it here")
+	assert.True(t, m.frame.IsSolo(), "and takes it back on the next listing, since it wants it here")
 }
 
 // TestAnUnfocusedTerminalKeepsTheWindow covers the other thing a focus report means, which is
@@ -378,7 +378,7 @@ func TestADraggedDividerIsDrawnWhereItIs(t *testing.T) {
 func TestAgentWindowsAreTheSizeOfTheStage(t *testing.T) {
 	tmux := &recordingTmux{}
 	m := sizedTo(infoModel(tmux), tmux)
-	m.listing.agents = append(m.listing.agents, agentItem{agent: panel.Agent{
+	m.listing.agents = append(m.listing.agents, panel.AgentRow{Agent: panel.Agent{
 		ID:         "a2",
 		Name:       "dormant",
 		WorkflowID: "w1",
@@ -488,7 +488,7 @@ func TestASplitAgentsListIsLaidOutAgainstItsOwnColumn(t *testing.T) {
 	withColor(t)
 
 	m, _ := paneless(t)
-	m.listing.agents = []agentItem{{agent: panel.Agent{
+	m.listing.agents = []panel.AgentRow{{Agent: panel.Agent{
 		ID:         "a1",
 		Name:       strings.Repeat("long-agent-name-", 6),
 		WorkflowID: "w1",

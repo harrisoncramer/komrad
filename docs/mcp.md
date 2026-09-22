@@ -38,6 +38,8 @@ The other half is the panel's own RPCs as tools. Each call goes back out over lo
 
 Agents use the tools to change things, as they allow writes, and the general SQL engine when the question is an aggregate or a join: how many agents in each workflow are still thinking, which of my children recorded a pull request URL, and so forth.
 
+A tool that lists or fetches agents, workflows, schedules, marks, mail or pull requests answers rows of that one kind and joins nothing to them. The one exception is what `list_agents` and `get_agent` answer, which is the agent with what the panel draws beside it: its mark, whether mail is waiting for it, and the pull requests opened from its branch with the current one's standing. That row is put together the same way the panel puts it together, so a model gets in one call what the panel shows, and a write's response carries the bare agent it wrote.
+
 ## Who is served what
 
 Every tool declares which agent roles it is offered to, in the same `surfaces` annotation that says whether it reaches the CLI at all. Naming them is required rather than defaulted, and `buf lint` refuses a tool that leaves them out, so a tool added later is a decision about who carries it rather than a silent addition to everybody. The caller names itself on every request through `X-Weave-Agent-Id`, so the server reads its role and hands it that role's tools.

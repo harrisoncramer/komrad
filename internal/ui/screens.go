@@ -42,7 +42,7 @@ type screenModel interface {
 	// view draws the screen into the panel's own pane.
 	view(s panelShared) string
 
-	// needs is what the refresh has to fetch for the screen.
+	// needs is what the tick lists for the screen.
 	needs() screenNeeds
 
 	// enter lands the cursor on the target where the target is on screen, and puts the stage
@@ -59,15 +59,15 @@ type screenTarget struct {
 	agentID string
 }
 
-// screenNeeds is what the refresh fetches for a screen.
+// screenNeeds is what the tick lists for a screen.
 type screenNeeds struct {
-	// fromListing is whether the refresh's own results are what the screen draws.
+	// fromListing is whether the watch's listings are what the screen draws.
 	fromListing bool
 
-	// archive is whether the refresh has to list the archived agents too.
+	// archive is whether the archived agents are listed for the screen.
 	archive bool
 
-	// worktrees is whether the refresh has to list the worktree directories too.
+	// worktrees is whether the worktree directories are listed for the screen.
 	worktrees bool
 }
 
@@ -157,7 +157,7 @@ func (m *model) screenOf(s screen) screenModel {
 
 // host is what a screen asks of the root in the same turn.
 type host interface {
-	// A write bumps the epoch and lands its result as a message every screen's writes share.
+	// A write lands its result as a message every screen's writes share.
 	writeCmd(summary string, write func(api) error) tea.Cmd
 	rowWriteCmd(summary string, write func(api) (written, error)) tea.Cmd
 	openingWriteCmd(summary string, write func(api) (*agentv1.Agent, error)) tea.Cmd
@@ -167,10 +167,10 @@ type host interface {
 	report(summary string, err error)
 	reportBrief(summary, detail string)
 
-	// The form, the popup, the screen that is up and the refresh are the root's.
+	// The form, the popup, the screen that is up and the archive and worktree listings are the root's.
 	openForm(f formState) tea.Cmd
 	enter(next screen, target screenTarget) tea.Cmd
-	refreshCmd() tea.Cmd
+	listCmd() tea.Cmd
 	hide() tea.Cmd
 
 	// The stage is the root's, and every list screen waits for its cursor to rest before staging.
@@ -252,7 +252,7 @@ func (m *model) enter(next screen, target screenTarget) tea.Cmd {
 			return nil
 		}
 
-		return m.enterReview(item.agent)
+		return m.enterReview(item.Agent)
 	}
 
 	m.enterScreen(next)
@@ -279,9 +279,6 @@ type panelShared struct {
 
 	// inspections is what the service has answered for each worktree directory.
 	inspections map[string]worktreeInspection
-
-	// pullRequests is what the service has answered for each agent's branch.
-	pullRequests pullRequestsState
 
 	// runLogsDir is the directory the run logs are written under.
 	runLogsDir string
@@ -329,11 +326,10 @@ func (m *model) unmeasured() panelShared {
 			form:         m.form,
 			helpExpanded: m.helpExpanded,
 		},
-		inspections:  m.inspections,
-		pullRequests: m.pullRequests,
-		runLogsDir:   m.settings.RunLogsDir,
-		editor:       m.settings.Editor,
-		isDark:       m.isDark,
-		draw:         m,
+		inspections: m.inspections,
+		runLogsDir:  m.settings.RunLogsDir,
+		editor:      m.settings.Editor,
+		isDark:      m.isDark,
+		draw:        m,
 	}
 }

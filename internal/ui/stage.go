@@ -8,22 +8,20 @@ import (
 	"weave/internal/ui/panel"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"google.golang.org/protobuf/proto"
 )
 
 // releasePanes swaps the given agents' panes out of the stage and marks them locally as no
 // longer alive.
 func (m *model) releasePanes(agents []panel.Agent) {
-	released := make(map[string]bool, len(agents))
 	for _, agent := range agents {
 		m.frame.ReleaseGuest(agent.Pane)
-		released[agent.ID] = true
-	}
-
-	for i, item := range m.listing.agents {
-		if released[item.agent.ID] {
-			m.listing.agents[i].alive = false
+		if held, ok := m.listing.world.Agents[agent.ID]; ok {
+			held.Alive = proto.Bool(false)
 		}
 	}
+
+	m.listing.assemble(time.Now())
 }
 
 // stageDelay is how long a cursor has to rest before the panes are moved to what it is standing
@@ -60,7 +58,7 @@ func (m *model) applyStageTick(msg stageTickMsg) tea.Cmd {
 		m.stageSelection()
 	}
 
-	return tea.Batch(m.listPullRequestsCmd(), m.inspectAgentWorktreeCmd(time.Now()))
+	return m.inspectAgentWorktreeCmd(time.Now())
 }
 
 // sizeAgentWindows keeps every agent's own window at the size of the pane it is shown in.
@@ -82,7 +80,7 @@ func (m *model) sizeAgentWindows() {
 	guest := m.frame.GuestPane()
 
 	for _, item := range m.listing.agents {
-		pane := item.agent.Pane
+		pane := item.Agent.Pane
 
 		// The guest is standing in the panel's own window, so resizing its window would resize the
 		// terminal weave is drawn in.
@@ -106,9 +104,9 @@ func (m *model) stageSelection() {
 	staged, ok := m.agents.hoveredPane(s)
 
 	switch {
-	case ok && m.isPaneStageable(staged.agent.Pane, staged.agent.Harness):
-		m.sizeGuestWindow(staged.agent.Pane)
-		m.frame.ShowGuest(staged.agent.Pane)
+	case ok && m.isPaneStageable(staged.Agent.Pane, staged.Agent.Harness):
+		m.sizeGuestWindow(staged.Agent.Pane)
+		m.frame.ShowGuest(staged.Agent.Pane)
 	case m.frame.IsSolo() && m.isGuestLive():
 	default:
 		m.frame.Show(layout.RegionStage, newBlankContent())
@@ -157,8 +155,8 @@ func (m model) isGuestLive() bool {
 	}
 
 	for _, item := range m.listing.agents {
-		if item.agent.Pane == guest {
-			return item.alive
+		if item.Agent.Pane == guest {
+			return item.Alive
 		}
 	}
 

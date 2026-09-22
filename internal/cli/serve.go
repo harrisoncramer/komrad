@@ -214,6 +214,7 @@ func serve(ctx context.Context, params serveParams) error {
 	drain, cancelDrain := context.WithTimeout(context.WithoutCancel(ctx), httpDrainTimeout)
 	defer cancelDrain()
 
+	server.Watch.Close()
 	if err := httpServer.Shutdown(drain); err != nil {
 		logger.LogAttrs(ctx, slog.LevelError, "the server would not shut down cleanly", logging.Err(err)...)
 	}

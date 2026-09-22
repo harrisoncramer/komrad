@@ -13,6 +13,7 @@ import (
 
 // Mark is one letter and the row it names, exactly one of which is set.
 type Mark struct {
+	ID         string
 	Mark       string
 	AgentID    *string
 	WorkflowID *string
@@ -27,22 +28,37 @@ func NewMarkStore(db store.DBTX) *MarkStore {
 	return &MarkStore{queries: models.New(db)}
 }
 
-// List reads every mark.
+// List reads every mark, by letter.
 func (s *MarkStore) List(ctx context.Context) ([]Mark, error) {
-	rows, err := s.queries.ListMarks(ctx)
+	rows, err := s.queries.SnapshotMarks(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list marks: %w", err)
 	}
 
-	marks := xslice.Map(rows, func(row *models.ListMarksRow) Mark {
-		return Mark{
-			Mark:       row.Mark,
-			AgentID:    row.AgentID,
-			WorkflowID: row.WorkflowID,
-		}
-	})
+	return xslice.Map(rows, fromRow), nil
+}
 
-	return marks, nil
+// ListByKey reads whichever of the ids are still marks.
+func (s *MarkStore) ListByKey(ctx context.Context, ids []string) ([]Mark, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+
+	rows, err := s.queries.ListMarksByKey(ctx, ids)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list %d marks: %w", len(ids), err)
+	}
+
+	return xslice.Map(rows, fromRow), nil
+}
+
+func fromRow(row *models.Mark) Mark {
+	return Mark{
+		ID:         row.ID,
+		Mark:       row.Mark,
+		AgentID:    row.AgentID,
+		WorkflowID: row.WorkflowID,
+	}
 }
 
 // ClearConflicts frees the letter and whatever the row already answered to.

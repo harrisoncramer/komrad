@@ -90,7 +90,7 @@ Agents can be instructed to record their own work as metadata via the MCP, such 
 set -eu
 
 agent=$(weave rpc get-agent --id "$WEAVE_AGENT_ID" --compact)
-url=$(printf '%s' "$agent" | jq -r '[.agent.metadata[]? | select(.key == "ticket") | .value] | first // ""')
+url=$(printf '%s' "$agent" | jq -r '[.agent.agent.metadata[]? | select(.key == "ticket") | .value] | first // ""')
 
 exec open "$url"
 ```

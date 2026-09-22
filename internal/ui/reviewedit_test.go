@@ -78,7 +78,7 @@ func TestEditorOpensAtTheRepositoryRoot(t *testing.T) {
 	dir := reviewRepo(t)
 	m, tmux := reviewModel(t, &fakeReviewAgents{}, dir)
 	m.settings.Editor = "vi"
-	m.listing.agents[0].agent.Cwd = filepath.Join(dir, "cmd", "greet")
+	m.listing.agents[0].Agent.Cwd = filepath.Join(dir, "cmd", "greet")
 
 	m = openReview(t, m)
 	require.NotNil(t, m.review.diff.view)

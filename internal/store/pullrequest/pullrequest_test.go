@@ -496,39 +496,30 @@ func TestSetStandingStampsTheRead(t *testing.T) {
 	assert.True(t, stored.DecisionChangedAt.Equal(changed.ChangedAt), "the same decision for a later change is still a read")
 }
 
-// TestListForAgentIsTheBranchNewestFirst covers the listing the details pane reads: every pull
-// request from the agent's branch on the terms its row is attributed by, newest opened first,
-// and none for an agent on the workflow's base branch or one nobody holds.
-func TestListForAgentIsTheBranchNewestFirst(t *testing.T) {
+// TestListForAgentsIsEveryBranchWhateverTheBase covers the listing the assembler is fed: every
+// pull request from the given agents' branches in their repositories, the base branch rule
+// left to the assembler, and nothing for an id nobody holds.
+func TestListForAgentsIsEveryBranchWhateverTheBase(t *testing.T) {
 	h := open(t)
 	ctx := t.Context()
 
 	workflow := h.createWorkflow(t)
 	agent := h.createAgent(t, workflow, "a", weave, "agent/x")
 	onMain := h.createAgent(t, workflow, "on-main", weave, "main")
+	h.createAgent(t, workflow, "elsewhere", weave, "agent/y")
 
-	first := openPullRequest("PR_1", 1, "agent/x")
-	second := finishedPullRequest("PR_2", 2, "agent/x")
-	second.OpenedAt = first.OpenedAt.Add(time.Hour)
-	fork := openPullRequest("PR_3", 3, "agent/x")
-	fork.HeadRepositoryURL = "https://github.com/someone/weave"
-	fromMain := openPullRequest("PR_4", 4, "main")
-	for _, params := range []UpsertParams{first, second, fork, fromMain} {
+	for _, params := range []UpsertParams{openPullRequest("PR_1", 1, "agent/x"), openPullRequest("PR_2", 2, "main"), openPullRequest("PR_3", 3, "agent/y")} {
 		params.URL = "https://github.com/harrisoncramer/weave/pull/" + params.ProviderID
 		_, err := h.Upsert(ctx, params)
 		require.NoError(t, err)
 	}
 
-	listed, err := h.ListForAgent(ctx, agent)
+	listed, err := h.ListForAgents(ctx, []string{agent, onMain, "not-an-id"})
 	require.NoError(t, err)
-	require.Len(t, listed, 2)
-	assert.Equal(t, 2, listed[0].Number)
-	assert.Equal(t, 1, listed[1].Number)
+	numbers := xslice.Map(listed, func(p PullRequest) int { return p.Number })
+	assert.ElementsMatch(t, []int{1, 2}, numbers)
 
-	none, err := h.ListForAgent(ctx, onMain)
+	none, err := h.ListForAgents(ctx, nil)
 	require.NoError(t, err)
 	assert.Empty(t, none)
-
-	_, err = h.ListForAgent(ctx, "not-an-id")
-	require.ErrorIs(t, err, store.ErrNotFound)
 }

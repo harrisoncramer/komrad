@@ -21,6 +21,7 @@ import (
 // fakeForges answers as a forge service with one connection, remembering what it was told.
 type fakeForges struct {
 	connection *forgestore.Connection
+	forge      forge.Forge
 	checkErr   error
 	held       bool
 	connected  forge.ConnectParams
@@ -71,6 +72,16 @@ func (f *fakeForges) SetVerifiedAt(_ context.Context, _ string, at *time.Time) e
 
 	return nil
 }
+
+func (f *fakeForges) ConnectionFor(_ context.Context, host string) (*forgestore.Connection, error) {
+	if f.connection == nil || f.connection.Host != host {
+		return nil, store.ErrNotFound.Saying("%s is not connected", host)
+	}
+
+	return f.connection, nil
+}
+
+func (f *fakeForges) ForConnection(forgestore.Connection) (forge.Forge, error) { return f.forge, nil }
 
 func connected() *forgestore.Connection {
 	at := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)

@@ -6,7 +6,7 @@ set -euo pipefail
 usage() {
 	echo "Usage: mise run gen:check"
 	echo
-	echo "Reruns the sqlc, buf, config, and command reference generators, then fails"
+	echo "Reruns the sqlc, buf, config, command reference and trigger generators and fails"
 	echo "if any of their committed output changed. Skips the comparison when those"
 	echo "paths already differ from HEAD, since then a difference says nothing about"
 	echo "whether the generators are in sync."

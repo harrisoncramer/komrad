@@ -51,13 +51,13 @@ func heldModel(agents agentv1connect.AgentServiceClient, held *time.Time) model 
 		screen: screenAgents,
 		listing: listing{
 			workflows: []panel.Workflow{{ID: "w1", Name: "backend"}},
-			agents: []agentItem{{agent: panel.Agent{
+			agents: []panel.AgentRow{{Agent: panel.Agent{
 				ID:         "a1",
 				Name:       "telescope",
 				State:      panel.StateThinking,
 				WorkflowID: "w1",
 				HeldAt:     held,
-			}, alive: true}},
+			}, Alive: true}},
 		},
 	}
 	m.agents.cursor = firstAgentRowIndex(m.agents.rows(m.shared()))
@@ -117,8 +117,8 @@ func TestOpenKeyDoesNothingForHeldAgent(t *testing.T) {
 				ID:   "w1",
 				Name: "backend",
 			}},
-			agents: []agentItem{{
-				agent: panel.Agent{
+			agents: []panel.AgentRow{{
+				Agent: panel.Agent{
 					ID:         "a1",
 					Name:       "telescope",
 					State:      panel.StateThinking,
@@ -126,7 +126,7 @@ func TestOpenKeyDoesNothingForHeldAgent(t *testing.T) {
 					Pane:       "%9",
 					HeldAt:     &at,
 				},
-				alive: true,
+				Alive: true,
 			}},
 		},
 	}
@@ -155,17 +155,17 @@ func TestHeldAgentShowsDocNotPane(t *testing.T) {
 func TestAPausedRowSaysWhichThingIsTrue(t *testing.T) {
 	at := time.Now()
 
-	held := func(state panel.State) agentItem {
-		return agentItem{agent: panel.Agent{
+	held := func(state panel.State) panel.AgentRow {
+		return panel.AgentRow{Agent: panel.Agent{
 			Name:   "telescope",
 			State:  state,
 			HeldAt: &at,
-		}, alive: true}
+		}, Alive: true}
 	}
 
 	tests := []struct {
 		name  string
-		item  agentItem
+		item  panel.AgentRow
 		wants string
 	}{
 		{

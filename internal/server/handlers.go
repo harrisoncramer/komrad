@@ -17,9 +17,11 @@ import (
 	rpclog "weave/internal/rpc/log"
 	rpcpullrequest "weave/internal/rpc/pullrequest"
 	rpcschedule "weave/internal/rpc/schedule"
+	rpcwatch "weave/internal/rpc/watch"
 	rpcworkflow "weave/internal/rpc/workflow"
 	rpcworktree "weave/internal/rpc/worktree"
 	"weave/internal/rpccodec"
+	"weave/internal/watch"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	agentv1weave "weave/proto/gen/agent/v1/agentv1weave"
 	"weave/proto/gen/config/v1/configv1connect"
@@ -36,6 +38,8 @@ import (
 	pullrequestv1weave "weave/proto/gen/pullrequest/v1/pullrequestv1weave"
 	"weave/proto/gen/schedule/v1/schedulev1connect"
 	schedulev1weave "weave/proto/gen/schedule/v1/schedulev1weave"
+	"weave/proto/gen/watch/v1/watchv1connect"
+	watchv1weave "weave/proto/gen/watch/v1/watchv1weave"
 	"weave/proto/gen/workflow/v1/workflowv1connect"
 	workflowv1weave "weave/proto/gen/workflow/v1/workflowv1weave"
 	"weave/proto/gen/worktree/v1/worktreev1connect"
@@ -58,6 +62,7 @@ type newMuxParams struct {
 	LogPath       string
 	// Doctor is this machine as the doctor's checks see it.
 	Doctor doctor.Settings
+	Watch  *watch.Broker
 }
 
 func newMux(params newMuxParams) (*http.ServeMux, error) {
@@ -80,7 +85,7 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 	mux.Handle(agentv1connect.NewAgentServiceHandler(
 		agentv1weave.AgentServiceAdapter{Impl: rpcagent.NewHandler(rpcagent.NewHandlerParams{
 			Agents:       params.Stores.agents,
-			Rows:         params.Services.rows,
+			Rows:         params.Stores.rows,
 			Writer:       params.Services.rowWriter,
 			Transcripts:  params.Stores.transcripts,
 			Mail:         params.Services.mail,
@@ -93,6 +98,9 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 			Archive:      jobs.NewArchiveSweep(queue),
 			Review:       params.Services.review,
 			Marks:        params.Services.marks,
+			Workflows:    params.Stores.workflows,
+			Unclaimed:    params.Stores.mail,
+			PullRequests: params.Stores.pullRequests,
 			Rebaser:      params.Services.rebase,
 			Orchestrator: params.Services.orchestrator,
 		})}, options...))
@@ -101,7 +109,6 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 			Impl: rpcworkflow.NewHandler(rpcworkflow.NewHandlerParams{
 				Lister:    params.Stores.workflows,
 				Workflows: params.Services.workflow,
-				Marks:     params.Services.marks,
 			}),
 		}, options...))
 	mux.Handle(schedulev1connect.NewScheduleServiceHandler(
@@ -123,12 +130,7 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 		}, options...))
 	mux.Handle(pullrequestv1connect.NewPullRequestServiceHandler(
 		pullrequestv1weave.PullRequestServiceAdapter{
-			Impl: rpcpullrequest.NewHandler(rpcpullrequest.NewHandlerParams{
-				Forges:           params.Services.forge,
-				Agents:           params.Stores.agents,
-				PullRequests:     params.Stores.pullRequests,
-				PullRequestSyncs: params.Stores.pullRequestSyncs,
-			}),
+			Impl: rpcpullrequest.NewHandler(rpcpullrequest.NewHandlerParams{PullRequests: params.Stores.pullRequests}),
 		}, options...))
 	mux.Handle(worktreev1connect.NewWorktreeServiceHandler(
 		worktreev1weave.WorktreeServiceAdapter{
@@ -139,6 +141,10 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 				Deleter:   worktreeDelete,
 				Claimed:   worktreeDelete,
 			}),
+		}, options...))
+	mux.Handle(watchv1connect.NewWatchServiceHandler(
+		watchv1weave.WatchServiceAdapter{
+			Impl: rpcwatch.NewHandler(rpcwatch.NewHandlerParams{Broker: params.Watch}),
 		}, options...))
 	mux.Handle(logv1connect.NewLogServiceHandler(
 		logv1weave.LogServiceAdapter{

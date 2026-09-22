@@ -14,7 +14,6 @@ import (
 	"weave/config"
 	"weave/internal/agents"
 	"weave/internal/caller"
-	"weave/internal/git"
 	"weave/internal/logging"
 	"weave/internal/logtest"
 	"weave/internal/mail"
@@ -223,10 +222,10 @@ func TestGetAgent(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-			assert.Equal(t, "/tmp", got.Msg.GetAgent().GetCwd())
-			assert.Equal(t, agentv1.AgentState_AGENT_STATE_THINKING, got.Msg.GetAgent().GetState())
+			assert.Equal(t, "/tmp", got.Msg.GetAgent().GetAgent().GetCwd())
+			assert.Equal(t, agentv1.AgentState_AGENT_STATE_THINKING, got.Msg.GetAgent().GetAgent().GetState())
 
-			created := got.Msg.GetAgent().GetCreatedAt()
+			created := got.Msg.GetAgent().GetAgent().GetCreatedAt()
 			require.NotEmpty(t, created, "the creation time is emitted")
 			ts, err := time.Parse(time.RFC3339, created)
 			require.NoError(t, err, "as RFC 3339")
@@ -235,11 +234,12 @@ func TestGetAgent(t *testing.T) {
 	}
 }
 
-// TestListAgents covers the listing and its liveness flag.
+// TestListAgents covers the listing and its liveness flag, which is the row's own.
 func TestListAgents(t *testing.T) {
 	tests := []struct {
 		name  string
 		seed  []string
+		pane  string
 		alive bool
 	}{
 		{
@@ -253,19 +253,19 @@ func TestListAgents(t *testing.T) {
 		{
 			name:  "a live agent is flagged alive",
 			seed:  []string{"alpha", "beta"},
+			pane:  "%1",
 			alive: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc, st, launcher := serviceWithLauncher(t)
-			launcher.alive = tt.alive
+			svc, st := service(t)
 
 			for _, name := range tt.seed {
 				st.SeedAgent(t, agentstore.Agent{
 					Name:  name,
-					Pane:  "%1",
+					Pane:  tt.pane,
 					State: agentstore.StateThinking,
 				})
 			}
@@ -274,19 +274,16 @@ func TestListAgents(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, listed.Msg.GetAgents(), len(tt.seed))
 
-			for _, s := range listed.Msg.GetAgents() {
-				assert.Equal(t, tt.alive, s.GetAlive())
+			for _, row := range listed.Msg.GetAgents() {
+				assert.Equal(t, tt.alive, row.GetAgent().GetAlive())
 			}
-
-			assert.Equal(t, 1, launcher.runningCalls, "liveness is read once for the page, not once per agent")
 		})
 	}
 }
 
 // TestGetAgentWritesAliveFalse covers a dormant agent's liveness on the wire.
 func TestGetAgentWritesAliveFalse(t *testing.T) {
-	svc, st, launcher := serviceWithLauncher(t)
-	launcher.alive = false
+	svc, st := service(t)
 	dormant := st.SeedAgent(t, agentstore.Agent{
 		Name:  "alpha",
 		State: agentstore.StateIdle,
@@ -325,8 +322,8 @@ func TestListAgentsReportsUnreadMail(t *testing.T) {
 	require.Len(t, listed.Msg.GetAgents(), 2)
 
 	unread := make(map[string]bool, 2)
-	for _, a := range listed.Msg.GetAgents() {
-		unread[a.GetId()] = a.GetUnreadMail()
+	for _, row := range listed.Msg.GetAgents() {
+		unread[row.GetAgent().GetId()] = row.GetUnreadMail()
 	}
 	assert.False(t, unread[alpha.ID], "alpha sent the mail, it did not receive any")
 	assert.True(t, unread[beta.ID], "beta has not read what alpha sent")
@@ -370,8 +367,8 @@ func TestListAgentsReportsAFailedRun(t *testing.T) {
 		require.Len(t, listed.Msg.GetAgents(), 2)
 
 		held := make(map[string]bool, 2)
-		for _, a := range listed.Msg.GetAgents() {
-			held[a.GetId()] = a.GetFailedRun()
+		for _, row := range listed.Msg.GetAgents() {
+			held[row.GetAgent().GetId()] = row.GetAgent().GetFailedRun()
 		}
 
 		return held
@@ -383,8 +380,8 @@ func TestListAgentsReportsAFailedRun(t *testing.T) {
 
 	got, err := svc.GetAgent(t.Context(), connect.NewRequest(&agentv1.GetAgentRequest{Id: beta.ID}))
 	require.NoError(t, err)
-	assert.True(t, got.Msg.GetAgent().GetFailedRun(), "the single lookup reads it the same way")
-	assert.Equal(t, int32(4), got.Msg.GetAgent().GetFailedRunLog(), "and names the run to open on")
+	assert.True(t, got.Msg.GetAgent().GetAgent().GetFailedRun(), "the single lookup reads it the same way")
+	assert.Equal(t, int32(4), got.Msg.GetAgent().GetAgent().GetFailedRunLog(), "and names the run to open on")
 
 	_, err = svc.MarkRunsRead(t.Context(), connect.NewRequest(&agentv1.MarkRunsReadRequest{Id: beta.ID}))
 	require.NoError(t, err)
@@ -455,7 +452,7 @@ func TestListAgentsIdempotencyKey(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, listed.Msg.GetAgents(), 1)
 
-			assert.Equal(t, tt.want, listed.Msg.GetAgents()[0].GetIdempotencyKey())
+			assert.Equal(t, tt.want, listed.Msg.GetAgents()[0].GetAgent().GetIdempotencyKey())
 		})
 	}
 }
@@ -501,12 +498,13 @@ func TestListAgentsArchived(t *testing.T) {
 			listed, err := svc.ListAgents(ctx, connect.NewRequest(&agentv1.ListAgentsRequest{Archived: tt.archived}))
 			require.NoError(t, err)
 
-			names := xslice.Map(listed.Msg.GetAgents(), func(agent *agentv1.Agent) string {
-				return agent.GetName()
+			names := xslice.Map(listed.Msg.GetAgents(), func(row *agentv1.AgentRow) string {
+				return row.GetAgent().GetName()
 			})
 			assert.Equal(t, tt.wantNames, names)
 
-			for _, agent := range listed.Msg.GetAgents() {
+			for _, row := range listed.Msg.GetAgents() {
+				agent := row.GetAgent()
 				if !tt.wantArchivedAt {
 					assert.Nil(t, agent.ArchivedAt, "a live agent carries no archive time")
 
@@ -639,7 +637,7 @@ func TestSetHidden(t *testing.T) {
 
 			got, err := svc.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: id}))
 			require.NoError(t, err)
-			assert.Equal(t, tt.hidden, got.Msg.GetAgent().GetHidden())
+			assert.Equal(t, tt.hidden, got.Msg.GetAgent().GetAgent().GetHidden())
 		})
 	}
 }
@@ -715,6 +713,35 @@ func TestSetMark(t *testing.T) {
 		require.NoError(t, err)
 		assert.Nil(t, got.Msg.GetAgent().Mark)
 	})
+}
+
+// TestListMarks covers the listing: every letter, by letter, each naming the one row it jumps
+// to.
+func TestListMarks(t *testing.T) {
+	svc, st := service(t)
+	ctx := t.Context()
+	held := st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateThinking})
+
+	_, err := svc.SetMark(ctx, connect.NewRequest(&agentv1.SetMarkRequest{
+		Target: &agentv1.SetMarkRequest_WorkflowId{WorkflowId: held.WorkflowID},
+		Mark:   xptr.Ptr("b"),
+	}))
+	require.NoError(t, err)
+	_, err = svc.SetMark(ctx, connect.NewRequest(&agentv1.SetMarkRequest{
+		Target: &agentv1.SetMarkRequest_AgentId{AgentId: held.ID},
+		Mark:   xptr.Ptr("a"),
+	}))
+	require.NoError(t, err)
+
+	listed, err := svc.ListMarks(ctx, connect.NewRequest(&emptypb.Empty{}))
+	require.NoError(t, err)
+	require.Len(t, listed.Msg.GetMarks(), 2)
+	assert.Equal(t, "a", listed.Msg.GetMarks()[0].GetMark())
+	assert.Equal(t, held.ID, listed.Msg.GetMarks()[0].GetAgentId())
+	assert.Nil(t, listed.Msg.GetMarks()[0].WorkflowId)
+	assert.Equal(t, "b", listed.Msg.GetMarks()[1].GetMark())
+	assert.Equal(t, held.WorkflowID, listed.Msg.GetMarks()[1].GetWorkflowId())
+	assert.Nil(t, listed.Msg.GetMarks()[1].AgentId)
 }
 
 // TestSetMetadata covers an agent recording a fact about its own work and reading it back off the
@@ -797,7 +824,7 @@ func TestSetMetadata(t *testing.T) {
 
 			got, err := svc.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: id}))
 			require.NoError(t, err)
-			assert.Equal(t, tt.wantStored, storedMetadata(got.Msg.GetAgent()))
+			assert.Equal(t, tt.wantStored, storedMetadata(got.Msg.GetAgent().GetAgent()))
 		})
 	}
 }
@@ -976,7 +1003,7 @@ func TestRecordReportKeepsTheReasonWithoutEndingTheTurn(t *testing.T) {
 
 	reported, err := svc.GetAgent(t.Context(), connect.NewRequest(&agentv1.GetAgentRequest{Id: id}))
 	require.NoError(t, err)
-	assert.Equal(t, "Bash", reported.Msg.GetAgent().GetReportedReason())
+	assert.Equal(t, "Bash", reported.Msg.GetAgent().GetAgent().GetReportedReason())
 	assert.Empty(t, reconciler.recorded)
 	assert.Equal(t, []string{"Bash"}, reconciler.reasons)
 
@@ -989,7 +1016,7 @@ func TestRecordReportKeepsTheReasonWithoutEndingTheTurn(t *testing.T) {
 
 	cleared, err := svc.GetAgent(t.Context(), connect.NewRequest(&agentv1.GetAgentRequest{Id: id}))
 	require.NoError(t, err)
-	assert.Empty(t, cleared.Msg.GetAgent().GetReportedReason(), "a turn ending leaves nothing to say the agent is doing")
+	assert.Empty(t, cleared.Msg.GetAgent().GetAgent().GetReportedReason(), "a turn ending leaves nothing to say the agent is doing")
 }
 
 // TestSendMail pins the code each way of addressing mail wrongly is answered with, and that a
@@ -1231,7 +1258,7 @@ func TestSendMailPastTheExchangeLimitIsResourceExhausted(t *testing.T) {
 	liveness := &fakeLauncher{}
 	svc := agentv1weave.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{
 		Agents:      st.Agents,
-		Rows:        rowReaderOver(st, liveness, fakeTrees{}),
+		Rows:        st.Rows,
 		Transcripts: st.Transcripts,
 		Mail:        mailer,
 		Liveness:    liveness,
@@ -2123,7 +2150,6 @@ type fakeLauncher struct {
 	restoreErr     error
 	resumed        []string
 	resumeErr      error
-	runningCalls   int
 	reviewed       agents.RequestReviewParams
 	guidance       string
 }
@@ -2171,19 +2197,6 @@ func (f *fakeLauncher) Adopt(_ context.Context, p agents.AdoptParams) (*agentsto
 
 // IsAgentRunning answers for the fake's agents, which are live exactly when the test says so.
 func (f *fakeLauncher) IsAgentRunning(agentstore.Agent) bool { return f.alive }
-
-// GetRunningAgents answers a whole listing the same way, recording the call so a test can
-// hold a listing to one lookup rather than one per agent.
-func (f *fakeLauncher) GetRunningAgents(_ context.Context, agents []agentstore.Agent) map[string]bool {
-	f.runningCalls++
-
-	running := make(map[string]bool, len(agents))
-	for _, agent := range agents {
-		running[agent.ID] = f.alive
-	}
-
-	return running
-}
 
 func (f *fakeLauncher) DeleteAgents(_ context.Context, ids []string) error {
 	f.deleted = append(f.deleted, ids...)
@@ -2296,18 +2309,21 @@ func serviceWithLauncher(t *testing.T) (agentv1weave.AgentServiceAdapter, *store
 	})
 
 	return agentv1weave.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{
-		Agents:      st.Agents,
-		Rows:        rowReaderOver(st, launcher, fakeTrees{}),
-		Writer:      rowWriterOver(st, &fakeReconciler{}),
-		Transcripts: st.Transcripts,
-		Mail:        mailer,
-		Review:      review,
-		Marks:       markService(st),
-		Creator:     launcher,
-		Adopter:     launcher,
-		Liveness:    launcher,
-		Lifecycle:   launcher,
-		Resumer:     launcher,
+		Agents:       st.Agents,
+		Rows:         st.Rows,
+		Writer:       rowWriterOver(st, &fakeReconciler{}),
+		Transcripts:  st.Transcripts,
+		Mail:         mailer,
+		Review:       review,
+		Marks:        markService(st),
+		Workflows:    st.Workflows,
+		Unclaimed:    st.Mail,
+		PullRequests: st.PullRequests,
+		Creator:      launcher,
+		Adopter:      launcher,
+		Liveness:     launcher,
+		Lifecycle:    launcher,
+		Resumer:      launcher,
 	})}, st, launcher
 }
 
@@ -2321,33 +2337,6 @@ func rowWriterOver(st *storetest.Stores, reconciler *fakeReconciler) *agents.Row
 	}
 
 	return agents.NewRowWriter(params)
-}
-
-// rowReaderOver is the real thing over the test stores, with the fakes standing in for tmux and
-// the cwd sync.
-func rowReaderOver(st *storetest.Stores, liveness *fakeLauncher, trees fakeTrees) *agents.RowReader {
-	return agents.NewRowReader(agents.NewRowReaderParams{
-		Rows:     st.Rows,
-		Liveness: liveness,
-		Trees:    trees,
-	})
-}
-
-// fakeTrees is where each agent's worktree stands against the one round it was compared to,
-// and unmoved against any other.
-type fakeTrees map[string]standingAt
-
-type standingAt struct {
-	snapshotSHA string
-	standing    git.Standing
-}
-
-func (f fakeTrees) GetStanding(agentID, snapshotSHA string) git.Standing {
-	if at, ok := f[agentID]; ok && at.snapshotSHA == snapshotSHA {
-		return at.standing
-	}
-
-	return git.StandingSame
 }
 
 // TestEmptyArchiveQueuesTheSweep covers the request coming back once the work is queued, and a
@@ -2540,8 +2529,7 @@ func TestRestoreAgentsRendersEveryAgent(t *testing.T) {
 		return agent.GetName()
 	})
 
-	assert.Equal(t, []string{"auth", "api"}, names)
-	assert.Equal(t, 1, launcher.runningCalls, "liveness is read once for the batch, not once per agent")
+	assert.ElementsMatch(t, []string{"auth", "api"}, names)
 }
 
 // TestListAgentsSummarisesThePrompt covers the default view holding back the bulk of a page,
@@ -2590,14 +2578,14 @@ func TestGetAgentKeepsTheWholePrompt(t *testing.T) {
 
 	got, err := svc.GetAgent(t.Context(), connect.NewRequest(&agentv1.GetAgentRequest{Id: seeded.ID}))
 	require.NoError(t, err)
-	assert.Equal(t, prompt, got.Msg.GetAgent().GetPrompt())
-	assert.False(t, got.Msg.GetAgent().GetPromptTruncated())
+	assert.Equal(t, prompt, got.Msg.GetAgent().GetAgent().GetPrompt())
+	assert.False(t, got.Msg.GetAgent().GetAgent().GetPromptTruncated())
 }
 
-func agentsByName(listed []*agentv1.Agent) map[string]*agentv1.Agent {
+func agentsByName(listed []*agentv1.AgentRow) map[string]*agentv1.Agent {
 	byName := make(map[string]*agentv1.Agent, len(listed))
-	for _, a := range listed {
-		byName[a.GetName()] = a
+	for _, row := range listed {
+		byName[row.GetAgent().GetName()] = row.GetAgent()
 	}
 
 	return byName

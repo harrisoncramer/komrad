@@ -209,71 +209,6 @@ func (q *Queries) GetPullRequestSync(ctx context.Context, repositoryUrl string) 
 	return &i, err
 }
 
-const listAgentBranchPullRequests = `-- name: ListAgentBranchPullRequests :many
-SELECT
-    p.id, p.host, p.forge, p.provider_id, p.url, p.repository_url, p.head_repository_url, p.number, p.title, p.head_branch, p.head_sha, p.base_branch, p.base_sha, p.draft, p.state, p.opened_at, p.changed_at, p.merged_at, p.closed_at, p.first_seen_at, p.review_decision, p.decision_changed_at, p.checks, p.checks_sha, p.checks_read_at, p.mergeability
-FROM
-    agents a
-    JOIN pull_requests p ON p.repository_url = a.repository_url
-        AND p.head_repository_url = a.repository_url
-        AND p.head_branch = a.branch
-    JOIN workflows w ON w.id = a.workflow_id
-    LEFT JOIN workflow_provisioner_configs c ON c.id = w.provisioner_config_id
-WHERE
-    a.id = $1
-    AND (c.worktree_base_branch IS NULL
-        OR a.branch <> c.worktree_base_branch)
-ORDER BY
-    p.opened_at DESC
-`
-
-func (q *Queries) ListAgentBranchPullRequests(ctx context.Context, agentID string) ([]*PullRequest, error) {
-	rows, err := q.db.Query(ctx, listAgentBranchPullRequests, agentID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []*PullRequest
-	for rows.Next() {
-		var i PullRequest
-		if err := rows.Scan(
-			&i.ID,
-			&i.Host,
-			&i.Forge,
-			&i.ProviderID,
-			&i.Url,
-			&i.RepositoryUrl,
-			&i.HeadRepositoryUrl,
-			&i.Number,
-			&i.Title,
-			&i.HeadBranch,
-			&i.HeadSha,
-			&i.BaseBranch,
-			&i.BaseSha,
-			&i.Draft,
-			&i.State,
-			&i.OpenedAt,
-			&i.ChangedAt,
-			&i.MergedAt,
-			&i.ClosedAt,
-			&i.FirstSeenAt,
-			&i.ReviewDecision,
-			&i.DecisionChangedAt,
-			&i.Checks,
-			&i.ChecksSha,
-			&i.ChecksReadAt,
-			&i.Mergeability,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, &i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listAgentPullRequests = `-- name: ListAgentPullRequests :many
 SELECT
     o.agent_id,
@@ -339,6 +274,230 @@ func (q *Queries) ListLiveRepositories(ctx context.Context) ([]*string, error) {
 			return nil, err
 		}
 		items = append(items, repository_url)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPullRequestsByKey = `-- name: ListPullRequestsByKey :many
+SELECT
+    p.id, p.host, p.forge, p.provider_id, p.url, p.repository_url, p.head_repository_url, p.number, p.title, p.head_branch, p.head_sha, p.base_branch, p.base_sha, p.draft, p.state, p.opened_at, p.changed_at, p.merged_at, p.closed_at, p.first_seen_at, p.review_decision, p.decision_changed_at, p.checks, p.checks_sha, p.checks_read_at, p.mergeability
+FROM
+    pull_requests p
+WHERE
+    p.id = ANY ($1::uuid[])
+    AND EXISTS (
+        SELECT
+            1
+        FROM
+            agents a
+        WHERE
+            a.archived_at IS NULL
+            AND a.deleting_at IS NULL
+            AND a.repository_url = p.repository_url
+            AND a.repository_url = p.head_repository_url
+            AND a.branch = p.head_branch)
+ORDER BY
+    p.id
+`
+
+func (q *Queries) ListPullRequestsByKey(ctx context.Context, ids []string) ([]*PullRequest, error) {
+	rows, err := q.db.Query(ctx, listPullRequestsByKey, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*PullRequest
+	for rows.Next() {
+		var i PullRequest
+		if err := rows.Scan(
+			&i.ID,
+			&i.Host,
+			&i.Forge,
+			&i.ProviderID,
+			&i.Url,
+			&i.RepositoryUrl,
+			&i.HeadRepositoryUrl,
+			&i.Number,
+			&i.Title,
+			&i.HeadBranch,
+			&i.HeadSha,
+			&i.BaseBranch,
+			&i.BaseSha,
+			&i.Draft,
+			&i.State,
+			&i.OpenedAt,
+			&i.ChangedAt,
+			&i.MergedAt,
+			&i.ClosedAt,
+			&i.FirstSeenAt,
+			&i.ReviewDecision,
+			&i.DecisionChangedAt,
+			&i.Checks,
+			&i.ChecksSha,
+			&i.ChecksReadAt,
+			&i.Mergeability,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPullRequestsOfAgents = `-- name: ListPullRequestsOfAgents :many
+SELECT
+    p.id, p.host, p.forge, p.provider_id, p.url, p.repository_url, p.head_repository_url, p.number, p.title, p.head_branch, p.head_sha, p.base_branch, p.base_sha, p.draft, p.state, p.opened_at, p.changed_at, p.merged_at, p.closed_at, p.first_seen_at, p.review_decision, p.decision_changed_at, p.checks, p.checks_sha, p.checks_read_at, p.mergeability
+FROM
+    pull_requests p
+WHERE
+    EXISTS (
+        SELECT
+            1
+        FROM
+            agents a
+        WHERE
+            a.id = ANY ($1::uuid[])
+            AND a.repository_url = p.repository_url
+            AND a.repository_url = p.head_repository_url
+            AND a.branch = p.head_branch)
+ORDER BY
+    p.id
+`
+
+func (q *Queries) ListPullRequestsOfAgents(ctx context.Context, ids []string) ([]*PullRequest, error) {
+	rows, err := q.db.Query(ctx, listPullRequestsOfAgents, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*PullRequest
+	for rows.Next() {
+		var i PullRequest
+		if err := rows.Scan(
+			&i.ID,
+			&i.Host,
+			&i.Forge,
+			&i.ProviderID,
+			&i.Url,
+			&i.RepositoryUrl,
+			&i.HeadRepositoryUrl,
+			&i.Number,
+			&i.Title,
+			&i.HeadBranch,
+			&i.HeadSha,
+			&i.BaseBranch,
+			&i.BaseSha,
+			&i.Draft,
+			&i.State,
+			&i.OpenedAt,
+			&i.ChangedAt,
+			&i.MergedAt,
+			&i.ClosedAt,
+			&i.FirstSeenAt,
+			&i.ReviewDecision,
+			&i.DecisionChangedAt,
+			&i.Checks,
+			&i.ChecksSha,
+			&i.ChecksReadAt,
+			&i.Mergeability,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPullRequestsPage = `-- name: ListPullRequestsPage :many
+SELECT
+    p.id, p.host, p.forge, p.provider_id, p.url, p.repository_url, p.head_repository_url, p.number, p.title, p.head_branch, p.head_sha, p.base_branch, p.base_sha, p.draft, p.state, p.opened_at, p.changed_at, p.merged_at, p.closed_at, p.first_seen_at, p.review_decision, p.decision_changed_at, p.checks, p.checks_sha, p.checks_read_at, p.mergeability
+FROM
+    pull_requests p
+WHERE
+    p.repository_url = $1
+    AND ($2::text = ''
+        OR p.head_branch = $2::text)
+    AND ($3::uuid IS NULL
+        OR ((p.merged_at IS NOT NULL
+                OR p.closed_at IS NOT NULL) > $4::boolean)
+        OR ((p.merged_at IS NOT NULL
+                OR p.closed_at IS NOT NULL) = $4::boolean
+            AND (p.opened_at < $5::timestamptz
+                OR (p.opened_at = $5::timestamptz
+                    AND p.id < $3))))
+ORDER BY
+    (p.merged_at IS NOT NULL
+        OR p.closed_at IS NOT NULL),
+    p.opened_at DESC,
+    p.id DESC
+LIMIT $6
+`
+
+type ListPullRequestsPageParams struct {
+	RepositoryUrl  string
+	HeadBranch     string
+	CursorID       *string
+	CursorFinished bool
+	CursorOpenedAt time.Time
+	Lim            int32
+}
+
+func (q *Queries) ListPullRequestsPage(ctx context.Context, arg ListPullRequestsPageParams) ([]*PullRequest, error) {
+	rows, err := q.db.Query(ctx, listPullRequestsPage,
+		arg.RepositoryUrl,
+		arg.HeadBranch,
+		arg.CursorID,
+		arg.CursorFinished,
+		arg.CursorOpenedAt,
+		arg.Lim,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*PullRequest
+	for rows.Next() {
+		var i PullRequest
+		if err := rows.Scan(
+			&i.ID,
+			&i.Host,
+			&i.Forge,
+			&i.ProviderID,
+			&i.Url,
+			&i.RepositoryUrl,
+			&i.HeadRepositoryUrl,
+			&i.Number,
+			&i.Title,
+			&i.HeadBranch,
+			&i.HeadSha,
+			&i.BaseBranch,
+			&i.BaseSha,
+			&i.Draft,
+			&i.State,
+			&i.OpenedAt,
+			&i.ChangedAt,
+			&i.MergedAt,
+			&i.ClosedAt,
+			&i.FirstSeenAt,
+			&i.ReviewDecision,
+			&i.DecisionChangedAt,
+			&i.Checks,
+			&i.ChecksSha,
+			&i.ChecksReadAt,
+			&i.Mergeability,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -640,6 +799,74 @@ func (q *Queries) SetStanding(ctx context.Context, arg SetStandingParams) error 
 		arg.ID,
 	)
 	return err
+}
+
+const snapshotPullRequests = `-- name: SnapshotPullRequests :many
+SELECT
+    p.id, p.host, p.forge, p.provider_id, p.url, p.repository_url, p.head_repository_url, p.number, p.title, p.head_branch, p.head_sha, p.base_branch, p.base_sha, p.draft, p.state, p.opened_at, p.changed_at, p.merged_at, p.closed_at, p.first_seen_at, p.review_decision, p.decision_changed_at, p.checks, p.checks_sha, p.checks_read_at, p.mergeability
+FROM
+    pull_requests p
+WHERE
+    EXISTS (
+        SELECT
+            1
+        FROM
+            agents a
+        WHERE
+            a.archived_at IS NULL
+            AND a.deleting_at IS NULL
+            AND a.repository_url = p.repository_url
+            AND a.repository_url = p.head_repository_url
+            AND a.branch = p.head_branch)
+ORDER BY
+    p.id
+`
+
+func (q *Queries) SnapshotPullRequests(ctx context.Context) ([]*PullRequest, error) {
+	rows, err := q.db.Query(ctx, snapshotPullRequests)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*PullRequest
+	for rows.Next() {
+		var i PullRequest
+		if err := rows.Scan(
+			&i.ID,
+			&i.Host,
+			&i.Forge,
+			&i.ProviderID,
+			&i.Url,
+			&i.RepositoryUrl,
+			&i.HeadRepositoryUrl,
+			&i.Number,
+			&i.Title,
+			&i.HeadBranch,
+			&i.HeadSha,
+			&i.BaseBranch,
+			&i.BaseSha,
+			&i.Draft,
+			&i.State,
+			&i.OpenedAt,
+			&i.ChangedAt,
+			&i.MergedAt,
+			&i.ClosedAt,
+			&i.FirstSeenAt,
+			&i.ReviewDecision,
+			&i.DecisionChangedAt,
+			&i.Checks,
+			&i.ChecksSha,
+			&i.ChecksReadAt,
+			&i.Mergeability,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const startPullRequestSweep = `-- name: StartPullRequestSweep :exec

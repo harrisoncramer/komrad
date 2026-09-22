@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"weave/config"
+	"weave/internal/ui/layout"
 	"weave/internal/ui/panel"
 	"weave/lib/xslice"
 
@@ -59,9 +60,9 @@ func TestClampCursor(t *testing.T) {
 func TestApplyAgents(t *testing.T) {
 	tests := []struct {
 		name       string
-		start      []agentItem
+		start      []panel.AgentRow
 		cursor     int
-		fresh      []agentItem
+		fresh      []panel.AgentRow
 		wantLen    int
 		wantCursor string
 		wantOrder  []string
@@ -96,13 +97,12 @@ func TestApplyAgents(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m := model{
 				screen:  screenAgents,
+				frame:   layout.New(&recordingTmux{}, config.DefaultLayout()),
 				listing: listing{workflows: []panel.Workflow{{ID: testWorkflowID, Name: "backend"}}, agents: tt.start}, agents: agentsScreen{rowCursor: rowCursor{cursor: tt.cursor}, placed: true},
 				keys: config.DefaultKeybindings(),
 			}
 
-			was := rowKeyAt(m.agents.rows(m.shared()), m.agents.cursor)
-			m.applyAgents(tt.fresh)
-			m.agents.apply(m.shared(), was)
+			applyListing(&m, tt.fresh, m.listing.workflows, nil)
 
 			assert.Equal(t, screenAgents, m.screen, "the panel stays where it was")
 			assert.Len(t, m.listing.agents, tt.wantLen)
@@ -116,10 +116,10 @@ func TestApplyAgents(t *testing.T) {
 
 			selected, ok := m.agents.selectedAgent(m.shared())
 			require.True(t, ok, "the cursor is on an agent")
-			assert.Equal(t, tt.wantCursor, selected.agent.Name)
+			assert.Equal(t, tt.wantCursor, selected.Agent.Name)
 
-			names := xslice.Map(m.listing.agents, func(agent agentItem) string {
-				return agent.agent.Name
+			names := xslice.Map(m.listing.agents, func(agent panel.AgentRow) string {
+				return agent.Agent.Name
 			})
 			assert.Equal(t, tt.wantOrder, names)
 		})
@@ -131,23 +131,24 @@ func TestApplyAgents(t *testing.T) {
 func TestPlaceTreeCursorSkipsHeaderAfterAgentRemoved(t *testing.T) {
 	m := model{
 		screen: screenAgents,
+		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
 		listing: listing{
 			workflows: []panel.Workflow{
 				{ID: "w1", Name: "backend"},
 				{ID: "w2", Name: "frontend"},
 			},
-			agents: []agentItem{
-				{agent: panel.Agent{
+			agents: []panel.AgentRow{
+				{Agent: panel.Agent{
 					ID:         "a1",
 					Name:       "a1",
 					WorkflowID: "w1",
 				}},
-				{agent: panel.Agent{
+				{Agent: panel.Agent{
 					ID:         "a2",
 					Name:       "a2",
 					WorkflowID: "w2",
 				}},
-				{agent: panel.Agent{
+				{Agent: panel.Agent{
 					ID:         "a3",
 					Name:       "a3",
 					WorkflowID: "w2",
@@ -161,30 +162,29 @@ func TestPlaceTreeCursorSkipsHeaderAfterAgentRemoved(t *testing.T) {
 	was := rowKeyAt(m.agents.rows(m.shared()), m.agents.cursor)
 	require.Equal(t, "agent:a1", was)
 
-	m.applyAgents([]agentItem{
-		{agent: panel.Agent{
+	applyListing(&m, []panel.AgentRow{
+		{Agent: panel.Agent{
 			ID:         "a2",
 			Name:       "a2",
 			WorkflowID: "w2",
 		}},
-		{agent: panel.Agent{
+		{Agent: panel.Agent{
 			ID:         "a3",
 			Name:       "a3",
 			WorkflowID: "w2",
 		}},
-	})
-	m.agents.apply(m.shared(), was)
+	}, m.listing.workflows, nil)
 
 	selected, ok := m.agents.selectedAgent(m.shared())
 	require.True(t, ok, "the cursor lands on an agent, not the next workflow's header")
-	assert.Equal(t, "a2", selected.agent.Name)
+	assert.Equal(t, "a2", selected.Agent.Name)
 }
 
 const testWorkflowID = "w1"
 
-func items(names ...string) []agentItem {
-	out := xslice.Map(names, func(name string) agentItem {
-		return agentItem{agent: panel.Agent{
+func items(names ...string) []panel.AgentRow {
+	out := xslice.Map(names, func(name string) panel.AgentRow {
+		return panel.AgentRow{Agent: panel.Agent{
 			ID:         name,
 			Name:       name,
 			WorkflowID: testWorkflowID,

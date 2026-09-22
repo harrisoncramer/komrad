@@ -89,7 +89,7 @@ func (s *MailStore) Send(ctx context.Context, params SendParams) (*Mail, error) 
 		return nil, fmt.Errorf("failed to send mail to agent %q: %w", params.ToAgentID, err)
 	}
 
-	sent := mailFromRow(*row)
+	sent := fromRow(row)
 
 	return &sent, nil
 }
@@ -113,7 +113,7 @@ func (s *MailStore) GetPendingOfKind(ctx context.Context, toAgentID string, kind
 		return nil, fmt.Errorf("failed to read the unread %q notice of agent %q: %w", kind, toAgentID, err)
 	}
 
-	held := mailFromRow(*row)
+	held := fromRow(row)
 
 	return &held, nil
 }
@@ -136,7 +136,7 @@ func (s *MailStore) GetByID(ctx context.Context, id string) (*Mail, error) {
 		return nil, fmt.Errorf("failed to get mail %q: %w", id, err)
 	}
 
-	got := mailFromRow(*row)
+	got := fromRow(row)
 
 	return &got, nil
 }
@@ -155,9 +155,7 @@ func (s *MailStore) Claim(ctx context.Context, toAgentID string, limit int32) ([
 		return nil, fmt.Errorf("failed to claim the mail for agent %q: %w", toAgentID, err)
 	}
 
-	claimed := xslice.Map(rows, func(row *models.Mail) Mail {
-		return mailFromRow(*row)
-	})
+	claimed := xslice.Map(rows, fromRow)
 
 	slices.SortFunc(claimed, func(a, b Mail) int {
 		return strings.Compare(a.ID, b.ID)
@@ -183,9 +181,7 @@ func (s *MailStore) ListPage(ctx context.Context, toAgentID string, limit int32,
 		return nil, fmt.Errorf("failed to list a page of mail for agent %q: %w", toAgentID, err)
 	}
 
-	return xslice.Map(rows, func(row *models.Mail) Mail {
-		return mailFromRow(*row)
-	}), nil
+	return xslice.Map(rows, fromRow), nil
 }
 
 // ListSentPage returns one page of the mail an agent sent, newest first.
@@ -204,9 +200,7 @@ func (s *MailStore) ListSentPage(ctx context.Context, fromAgentID string, limit 
 		return nil, fmt.Errorf("failed to list a page of the mail agent %q sent: %w", fromAgentID, err)
 	}
 
-	return xslice.Map(rows, func(row *models.Mail) Mail {
-		return mailFromRow(*row)
-	}), nil
+	return xslice.Map(rows, fromRow), nil
 }
 
 // ListByID returns whichever of the given ids hold mail.
@@ -221,9 +215,48 @@ func (s *MailStore) ListByID(ctx context.Context, ids []string) ([]Mail, error) 
 		return nil, fmt.Errorf("failed to get %d mail: %w", len(storable), err)
 	}
 
-	return xslice.Map(rows, func(row *models.Mail) Mail {
-		return mailFromRow(*row)
-	}), nil
+	return xslice.Map(rows, fromRow), nil
+}
+
+// List is every piece of mail no recipient has taken yet, expired or not.
+func (s *MailStore) List(ctx context.Context) ([]Mail, error) {
+	rows, err := s.queries.SnapshotMail(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the unclaimed mail: %w", err)
+	}
+
+	return xslice.Map(rows, fromRow), nil
+}
+
+// ListByKey returns whichever of the given ids hold mail no recipient has taken yet.
+func (s *MailStore) ListByKey(ctx context.Context, ids []string) ([]Mail, error) {
+	storable := store.KeepIDs(ids)
+	if len(storable) == 0 {
+		return nil, nil
+	}
+
+	rows, err := s.queries.ListMailByKey(ctx, storable)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list %d unclaimed mail: %w", len(storable), err)
+	}
+
+	return xslice.Map(rows, fromRow), nil
+}
+
+// ListUnclaimedTo returns the mail addressed to any of the given agents that no recipient has
+// taken yet.
+func (s *MailStore) ListUnclaimedTo(ctx context.Context, agentIDs []string) ([]Mail, error) {
+	storable := store.KeepIDs(agentIDs)
+	if len(storable) == 0 {
+		return nil, nil
+	}
+
+	rows, err := s.queries.ListUnclaimedMailTo(ctx, storable)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the unclaimed mail to %d agents: %w", len(storable), err)
+	}
+
+	return xslice.Map(rows, fromRow), nil
 }
 
 // Delete permanently removes mail by id without checking that every id holds any.
@@ -295,12 +328,10 @@ func (s *MailStore) ListExpired(ctx context.Context, toAgentID string) ([]Mail, 
 		return nil, fmt.Errorf("failed to report the expired mail for agent %q: %w", toAgentID, err)
 	}
 
-	return xslice.Map(rows, func(row *models.Mail) Mail {
-		return mailFromRow(*row)
-	}), nil
+	return xslice.Map(rows, fromRow), nil
 }
 
-func mailFromRow(row models.Mail) Mail {
+func fromRow(row *models.Mail) Mail {
 	return Mail{
 		ID:           row.ID,
 		FromAgentID:  row.FromAgentID,

@@ -591,6 +591,24 @@ table "agents" {
     default = false
     comment = "Whether the hold cut a turn that was still running, which is what decides whether letting go has to type the agent back into motion or merely stop holding it."
   }
+  column "alive" {
+    null    = false
+    type    = boolean
+    default = false
+    comment = "Whether the agent still owns the pane its row names."
+  }
+  column "tree_standing" {
+    null    = false
+    type    = text
+    default = ""
+    comment = "Where the worktree stands against the round its last verdict was given on, empty while it still hashes to it."
+  }
+  column "tree_standing_sha" {
+    null    = false
+    type    = text
+    default = ""
+    comment = "The round the standing was measured against."
+  }
   column "created_at" {
     null    = false
     type    = timestamptz
@@ -657,6 +675,11 @@ table "agents" {
 table "marks" {
   schema  = schema.public
   comment = "A letter a person types to jump to one row. Each letter belongs to a single agent or a single workflow, so it always names one place."
+  column "id" {
+    null    = false
+    type    = uuid
+    default = sql("uuidv7()")
+  }
   column "mark" {
     null = false
     type = text
@@ -675,7 +698,7 @@ table "marks" {
     default = sql("now()")
   }
   primary_key {
-    columns = [column.mark]
+    columns = [column.id]
   }
   foreign_key "marks_agent_id_fkey" {
     columns     = [column.agent_id]
@@ -688,6 +711,10 @@ table "marks" {
     ref_columns = [table.workflows.column.id]
     on_delete   = CASCADE
     on_update   = NO_ACTION
+  }
+  index "marks_mark" {
+    unique  = true
+    columns = [column.mark]
   }
   index "marks_agent_id" {
     unique  = true

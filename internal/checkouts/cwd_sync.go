@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"sync"
 	"time"
 
 	"weave/internal/git"
@@ -26,6 +25,7 @@ const cwdLookWorkers = 8
 type cwdSetter interface {
 	List(ctx context.Context) ([]agentstore.Agent, error)
 	SetCheckout(ctx context.Context, id string, params agentstore.SetCheckoutParams) error
+	SetTreeStanding(ctx context.Context, id string, standing git.Standing, snapshotSHA string) error
 }
 
 // headReader reads a checkout's HEAD.
@@ -45,12 +45,6 @@ type tallyLister interface {
 	ListTallies(ctx context.Context) ([]reviewstore.Tally, error)
 }
 
-// roundStanding is where one pass found an agent's worktree against the round it compared it to.
-type roundStanding struct {
-	snapshotSHA string
-	standing    git.Standing
-}
-
 // NewCwdSyncerParams is what a cwd syncer is built over.
 type NewCwdSyncerParams struct {
 	Agents  cwdSetter
@@ -63,46 +57,33 @@ type NewCwdSyncerParams struct {
 // CwdSyncer keeps what the panel shows of an agent's working directory in step with the
 // directory itself.
 type CwdSyncer struct {
-	agents    cwdSetter
-	heads     headReader
-	trees     standingReader
-	tallies   tallyLister
-	bases     workflowLister
-	mu        sync.Mutex
-	standings map[string]roundStanding
+	agents  cwdSetter
+	heads   headReader
+	trees   standingReader
+	tallies tallyLister
+	bases   workflowLister
 }
 
 // NewCwdSyncer builds a syncer over the agent store.
 func NewCwdSyncer(params NewCwdSyncerParams) *CwdSyncer {
 	return &CwdSyncer{
-		agents:    params.Agents,
-		heads:     params.Heads,
-		trees:     params.Trees,
-		tallies:   params.Tallies,
-		bases:     params.Bases,
-		standings: map[string]roundStanding{},
+		agents:  params.Agents,
+		heads:   params.Heads,
+		trees:   params.Trees,
+		tallies: params.Tallies,
+		bases:   params.Bases,
 	}
 }
 
 // cwdLook is what one pass found at an agent's directory.
 type cwdLook struct {
-	agent    agentstore.Agent
-	removed  bool
-	head     git.HeadState
+	agent   agentstore.Agent
+	removed bool
+	head    git.HeadState
+	// round is the snapshot the worktree was measured against, empty when no verdict names one.
+	round    string
 	standing git.Standing
 	err      error
-}
-
-// GetStanding is where the last pass found an agent's worktree against the given round.
-func (cs *CwdSyncer) GetStanding(agentID, snapshotSHA string) git.Standing {
-	cs.mu.Lock()
-	defer cs.mu.Unlock()
-
-	if found, ok := cs.standings[agentID]; ok && snapshotSHA != "" && found.snapshotSHA == snapshotSHA {
-		return found.standing
-	}
-
-	return git.StandingSame
 }
 
 // Sync looks at every live agent's cwd once and writes what changed, clearing the branch and
@@ -134,23 +115,18 @@ func (cs *CwdSyncer) Sync(ctx context.Context) error {
 		return err
 	}
 
-	standings := map[string]roundStanding{}
 	var failures []error
 	for _, look := range looks {
-		if round := rounds[look.agent.ID]; round != "" {
-			standings[look.agent.ID] = roundStanding{snapshotSHA: round, standing: look.standing}
-		}
 		if look.err != nil {
 			failures = append(failures, look.err)
 		}
 		if err := cs.write(ctx, look); err != nil {
 			failures = append(failures, err)
 		}
+		if err := cs.writeStanding(ctx, look); err != nil {
+			failures = append(failures, err)
+		}
 	}
-
-	cs.mu.Lock()
-	cs.standings = standings
-	cs.mu.Unlock()
 
 	return errors.Join(failures...)
 }
@@ -204,7 +180,7 @@ func (cs *CwdSyncer) lookAtAll(ctx context.Context, agents []agentstore.Agent, r
 }
 
 func (cs *CwdSyncer) look(ctx context.Context, agent agentstore.Agent, round, base string) cwdLook {
-	look := cwdLook{agent: agent, removed: isCwdRemoved(ctx, agent.Cwd)}
+	look := cwdLook{agent: agent, round: round, removed: isCwdRemoved(ctx, agent.Cwd)}
 
 	if !look.removed {
 		look.head = cs.readHead(ctx, agent.Cwd)
@@ -233,6 +209,21 @@ func (cs *CwdSyncer) write(ctx context.Context, look cwdLook) error {
 
 	if err := cs.agents.SetCheckout(ctx, agent.ID, checkout); err != nil {
 		return fmt.Errorf("failed to set the checkout for %q: %w", agent.Name, err)
+	}
+
+	return nil
+}
+
+// writeStanding records where the look found the worktree against its round, when the row says
+// otherwise.
+func (cs *CwdSyncer) writeStanding(ctx context.Context, look cwdLook) error {
+	agent := look.agent
+	if agent.TreeStanding == look.standing && agent.TreeStandingSHA == look.round {
+		return nil
+	}
+
+	if err := cs.agents.SetTreeStanding(ctx, agent.ID, look.standing, look.round); err != nil {
+		return fmt.Errorf("failed to set the tree standing for %q: %w", agent.Name, err)
 	}
 
 	return nil

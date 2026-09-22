@@ -37,7 +37,7 @@ weave pr list git@github.com:owner/repo.git some-branch
 
 Give the repository the way a git remote spells it, since the host is what picks the connection. Without a branch, this lists the repository's open pull requests. With one, it lists every pull request opened from that branch whatever its state, which is the question the pull request sweep will ask.
 
-The forge answers a hundred at a time, so the endpoint pages: `list_pull_requests` takes a limit of at most a hundred, twenty when unset, and answers a `next_page_token` to pass back as the cursor. The command follows every page itself.
+The forge answers a hundred at a time, so the endpoint pages: `list_forge_pull_requests` takes a limit of at most a hundred, twenty when unset, and answers a `next_page_token` to pass back as the cursor. The command follows every page itself. That read asks the forge; `list_pull_requests` answers from what the sync below has stored, ordered so the first pull request on a branch is the one its agent's row stands for.
 
 A repository the credential cannot see answers not found, the same as one that does not exist, since the forge does not tell the two apart.
 

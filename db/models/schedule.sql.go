@@ -134,30 +134,31 @@ func (q *Queries) InsertSchedule(ctx context.Context, arg InsertScheduleParams) 
 	return &i, err
 }
 
-const listSchedules = `-- name: ListSchedules :many
+const listSchedulesByKey = `-- name: ListSchedulesByKey :many
 SELECT
     s.id, s.name, s.cron, s.timezone, s.enabled, s.hide_agents, s.prompt, s.workflow_id, s.archived_at, s.created_at, s.updated_at, s.last_result_status, s.last_result_message, s.last_result_at
 FROM
     schedules s
 WHERE
-    s.archived_at IS NULL
+    s.id = ANY ($1::uuid[])
+    AND s.archived_at IS NULL
 ORDER BY
     s.id DESC
 `
 
-type ListSchedulesRow struct {
+type ListSchedulesByKeyRow struct {
 	Schedule Schedule
 }
 
-func (q *Queries) ListSchedules(ctx context.Context) ([]*ListSchedulesRow, error) {
-	rows, err := q.db.Query(ctx, listSchedules)
+func (q *Queries) ListSchedulesByKey(ctx context.Context, ids []string) ([]*ListSchedulesByKeyRow, error) {
+	rows, err := q.db.Query(ctx, listSchedulesByKey, ids)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []*ListSchedulesRow
+	var items []*ListSchedulesByKeyRow
 	for rows.Next() {
-		var i ListSchedulesRow
+		var i ListSchedulesByKeyRow
 		if err := rows.Scan(
 			&i.Schedule.ID,
 			&i.Schedule.Name,
@@ -348,6 +349,56 @@ type SetScheduleEnabledParams struct {
 func (q *Queries) SetScheduleEnabled(ctx context.Context, arg SetScheduleEnabledParams) error {
 	_, err := q.db.Exec(ctx, setScheduleEnabled, arg.Enabled, arg.ID)
 	return err
+}
+
+const snapshotSchedules = `-- name: SnapshotSchedules :many
+SELECT
+    s.id, s.name, s.cron, s.timezone, s.enabled, s.hide_agents, s.prompt, s.workflow_id, s.archived_at, s.created_at, s.updated_at, s.last_result_status, s.last_result_message, s.last_result_at
+FROM
+    schedules s
+WHERE
+    s.archived_at IS NULL
+ORDER BY
+    s.id DESC
+`
+
+type SnapshotSchedulesRow struct {
+	Schedule Schedule
+}
+
+func (q *Queries) SnapshotSchedules(ctx context.Context) ([]*SnapshotSchedulesRow, error) {
+	rows, err := q.db.Query(ctx, snapshotSchedules)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*SnapshotSchedulesRow
+	for rows.Next() {
+		var i SnapshotSchedulesRow
+		if err := rows.Scan(
+			&i.Schedule.ID,
+			&i.Schedule.Name,
+			&i.Schedule.Cron,
+			&i.Schedule.Timezone,
+			&i.Schedule.Enabled,
+			&i.Schedule.HideAgents,
+			&i.Schedule.Prompt,
+			&i.Schedule.WorkflowID,
+			&i.Schedule.ArchivedAt,
+			&i.Schedule.CreatedAt,
+			&i.Schedule.UpdatedAt,
+			&i.Schedule.LastResultStatus,
+			&i.Schedule.LastResultMessage,
+			&i.Schedule.LastResultAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const updateSchedule = `-- name: UpdateSchedule :exec

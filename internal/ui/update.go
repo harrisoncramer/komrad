@@ -4,6 +4,8 @@ import (
 	"log/slog"
 	"time"
 
+	"weave/internal/client"
+
 	"github.com/charmbracelet/bubbles/cursor"
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -23,8 +25,7 @@ func (m model) fatal() error {
 	return m.startupErr
 }
 
-// Init starts the refresh loop that fills the panel in and keeps it current, unless startup
-// failed and there is no list to refresh.
+// Init starts the tick, unless startup failed and there is nothing to keep current.
 func (m model) Init() tea.Cmd {
 	if m.fatal() != nil {
 		return nil
@@ -32,7 +33,7 @@ func (m model) Init() tea.Cmd {
 
 	m.holdFocusKey()
 
-	return tea.Batch(refreshTick(), m.refreshCmd(), cursor.Blink)
+	return tea.Batch(tick(), m.listCmd(), cursor.Blink)
 }
 
 // Update routes a message to the screen that owns it, and keeps the row cursor blinking.
@@ -263,8 +264,7 @@ func (m model) routeScreenMessage(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 	switch msg := msg.(type) {
-	case refreshTickMsg:
-
+	case tickMsg:
 		m.awaitingSize = false
 		next, readRuns := m.dwellRunsRead(msg.at)
 		reviewing := next.refreshReviewCmd(msg.at)
@@ -275,7 +275,7 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 			return next, nil, true
 		}
 
-		return next, tea.Batch(next.refreshCmd(), refreshTick(), reviewing, readRuns, edited), true
+		return next, tea.Batch(next.listCmd(), tick(), reviewing, readRuns, edited), true
 	case tea.BlurMsg:
 		m.blurred = true
 		m.syncKeys()
@@ -303,16 +303,24 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		m.applyWorktreeInspection(msg)
 
 		return m, nil, true
-	case agentPullRequestsListedMsg:
-		m.pullRequests.apply(msg)
+	case pullRequestsListedMsg:
+		cmd := m.applyPullRequestsListed(msg)
 
-		return m, nil, true
+		return m, cmd, true
 	case urlOpenedMsg:
 		m.applyURLOpened(msg)
 
 		return m, nil, true
-	case refreshResult:
-		cmd := m.applyRefresh(msg)
+	case client.WatchBatch:
+		cmd := m.applyWatch(msg)
+
+		return m, cmd, true
+	case watchLostMsg:
+		m.applyWatchLost(msg)
+
+		return m, nil, true
+	case listedMsg:
+		cmd := m.applyListed(msg)
 
 		return m, cmd, true
 	case writeResult:

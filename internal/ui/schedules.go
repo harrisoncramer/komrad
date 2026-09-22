@@ -225,13 +225,6 @@ func (w *schedulesScreen) archiveConfirm(h host, s panelShared) tea.Cmd {
 	})
 }
 
-// applySchedules hands the screen a fresh listing.
-func (m *model) applySchedules(fresh []scheduleItem) {
-	hovered := m.schedules.list().hovered(m.shared())
-	m.listing.schedules = fresh
-	m.schedules.apply(m, m.shared(), hovered)
-}
-
 func (w *schedulesScreen) view(s panelShared) string {
 	w.rows = w.buildRows(s)
 	defer func() { w.rows = nil }()

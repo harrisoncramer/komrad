@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"weave/internal/client"
 	"weave/internal/ui/panel"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
@@ -486,13 +487,14 @@ func (a api) deleteWorktrees(dirs []string) error {
 	})
 }
 
-func (a api) listAgentPullRequests(agentID string) (*pullrequestv1.ListAgentPullRequestsResponse, error) {
-	return call(requestTimeout, func(ctx context.Context) (*pullrequestv1.ListAgentPullRequestsResponse, error) {
-		resp, err := a.pullRequests.ListAgentPullRequests(ctx, connect.NewRequest(&pullrequestv1.ListAgentPullRequestsRequest{AgentId: agentID}))
+// listPullRequests reads every pull request the service has stored for a branch.
+func (a api) listPullRequests(repositoryURL, branch string) ([]*pullrequestv1.PullRequest, error) {
+	return call(requestTimeout, func(ctx context.Context) ([]*pullrequestv1.PullRequest, error) {
+		listed, err := client.ListAllPullRequests(ctx, a.pullRequests, repositoryURL, branch)
 		if err != nil {
-			return nil, fmt.Errorf("failed to list the pull requests of agent %q: %w", agentID, err)
+			return nil, fmt.Errorf("failed to list the pull requests of %s on %q: %w", repositoryURL, branch, err)
 		}
 
-		return resp.Msg, nil
+		return listed, nil
 	})
 }
