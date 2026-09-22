@@ -83,10 +83,7 @@ message Agent {
       {
         table: "mail"
         column: "to_agent_id"
-        ignores: [
-          "updated_at",
-          "reported_at"
-        ]
+        ignores: ["updated_at"]
       },
       {
         table: "pull_requests"

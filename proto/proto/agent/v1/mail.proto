@@ -33,10 +33,7 @@ enum MailDirection {
 message Mail {
   option (annotation.v1.resource) = {
     table: "mail"
-    ignores: [
-      "updated_at",
-      "reported_at"
-    ]
+    ignores: ["updated_at"]
   };
 
   // Set this as reply_to on an answer so the two read as a thread.

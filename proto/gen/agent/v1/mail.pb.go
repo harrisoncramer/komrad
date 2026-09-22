@@ -807,7 +807,7 @@ var File_agent_v1_mail_proto protoreflect.FileDescriptor
 
 const file_agent_v1_mail_proto_rawDesc = "" +
 	"\n" +
-	"\x13agent/v1/mail.proto\x12\bagent.v1\x1a\x1cannotation/v1/resource.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1epagination/v1/pagination.proto\"\x8d\x03\n" +
+	"\x13agent/v1/mail.proto\x12\bagent.v1\x1a\x1cannotation/v1/resource.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1epagination/v1/pagination.proto\"\x80\x03\n" +
 	"\x04Mail\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12'\n" +
 	"\rfrom_agent_id\x18\x02 \x01(\tH\x00R\vfromAgentId\x88\x01\x01\x12\x1b\n" +
@@ -822,9 +822,9 @@ const file_agent_v1_mail_proto_rawDesc = "" +
 	"\n" +
 	"expires_at\x18\t \x01(\tR\texpiresAt\x12&\n" +
 	"\x04kind\x18\n" +
-	" \x01(\x0e2\x12.agent.v1.MailKindR\x04kind:#\xa2\xb5\x18\x1f\n" +
+	" \x01(\x0e2\x12.agent.v1.MailKindR\x04kind:\x16\xa2\xb5\x18\x12\n" +
 	"\x04mail\x1a\n" +
-	"updated_at\x1a\vreported_atB\x10\n" +
+	"updated_atB\x10\n" +
 	"\x0e_from_agent_idB\v\n" +
 	"\t_reply_toB\r\n" +
 	"\v_claimed_at\"\x80\x01\n" +

@@ -281,8 +281,8 @@ func TestARowWithItsOwnKeyAlsoRaisesItsParents(t *testing.T) {
 }
 
 // TestAResourceStampAloneRaisesNothing pins the ignored columns on the tables added here: a
-// mail's report stamp, a pull request's check read stamp and a sync's request stamps move no
-// row.
+// pull request's check read stamp and a sync's request stamps move no row, while a mail's
+// report stamp, the one write at expiry, moves the mail and its recipient.
 func TestAResourceStampAloneRaisesNothing(t *testing.T) {
 	t.Parallel()
 
@@ -298,10 +298,11 @@ func TestAResourceStampAloneRaisesNothing(t *testing.T) {
 		w.notifications.Next(t)
 	}
 
-	w.exec(t, `UPDATE mail SET reported_at = now(), updated_at = now() WHERE id = $1`, mail)
+	w.exec(t, `UPDATE mail SET updated_at = now() WHERE id = $1`, mail)
 	w.exec(t, `UPDATE pull_requests SET checks_read_at = now() WHERE id = $1`, pullRequest)
 	w.exec(t, `UPDATE pull_request_syncs SET read_at = now(), calls = calls + 1, listed_at = now(), sweep_cursor = '', sweep_newest = now() WHERE repository_url = 'https://github.com/o/r'`)
-	w.exec(t, `UPDATE schedules SET prompt = 'go' WHERE id = $1`, w.schedule)
+	w.exec(t, `UPDATE mail SET reported_at = now() WHERE id = $1`, mail)
 
-	assert.Equal(t, "schedules "+w.schedule, w.notifications.Next(t))
+	assert.Equal(t, "mail "+mail, w.notifications.Next(t))
+	assert.Equal(t, "agents "+w.agent, w.notifications.Next(t))
 }
