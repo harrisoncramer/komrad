@@ -124,7 +124,7 @@ func pullRequestStandingOf(row rowstore.Row) *agentv1.PullRequestStanding {
 // localTreeOf is where the worktree stands against the round the local verdict was given on,
 // unmoved while the standing was measured against any other round.
 func localTreeOf(row rowstore.Row) git.Standing {
-	if row.LocalSnapshotSHA == "" || row.TreeStandingSHA != row.LocalSnapshotSHA {
+	if row.TreeStandingSHA != row.LocalSnapshotSHA {
 		return git.StandingSame
 	}
 
