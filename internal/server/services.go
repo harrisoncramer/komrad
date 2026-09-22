@@ -266,11 +266,7 @@ func buildServices(params NewServerParams, st *stores, broker *watch.Broker) (*s
 		Watch:    broker,
 	}).WithFrameRecorder(frames.NewRecorder(params.Env.FramesDir(), newFrameSettings(loadConfig).get))
 
-	rowReader := agents.NewRowReader(agents.NewRowReaderParams{
-		Rows:     st.rows,
-		Liveness: paneLiveness,
-		Trees:    cwdSyncer,
-	})
+	rowReader := agents.NewRowReader(agents.NewRowReaderParams{Rows: st.rows})
 
 	return &services{
 		loadConfig: loadConfig,

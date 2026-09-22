@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"time"
 
-	"weave/internal/agents"
 	"weave/internal/rpc/render"
 	"weave/internal/watch"
 	"weave/lib/xslice"
@@ -26,8 +25,8 @@ import (
 const snapshotPage = 500
 
 type agentRowReader interface {
-	ListRows(ctx context.Context, page rowstore.Page) ([]agents.Row, error)
-	ListLiveRowsByID(ctx context.Context, ids []string) ([]agents.Row, error)
+	ListRows(ctx context.Context, page rowstore.Page) ([]rowstore.Row, error)
+	ListLiveRowsByID(ctx context.Context, ids []string) ([]rowstore.Row, error)
 }
 
 type workflowReader interface {
@@ -90,7 +89,7 @@ func (r *Rows) Read(ctx context.Context, touched watch.Touched) ([]watch.Event, 
 		if err != nil {
 			return nil, err
 		}
-		byID := xslice.KeyBy(rows, func(row agents.Row) string { return row.ID })
+		byID := xslice.KeyBy(rows, func(row rowstore.Row) string { return row.ID })
 		events = append(events, settle(watch.KindAgent, touched.Agents, byID, renderAgentEvent)...)
 	}
 
@@ -134,7 +133,7 @@ func (r *Rows) Snapshot(ctx context.Context) (watch.Snapshot, error) {
 		if err != nil {
 			return watch.Snapshot{}, fmt.Errorf("failed to snapshot the agents: %w", err)
 		}
-		snapshot.Agents = append(snapshot.Agents, xslice.Map(rows, func(row agents.Row) *agentv1.Agent { return render.Agent(row, render.AgentOptions{}) })...)
+		snapshot.Agents = append(snapshot.Agents, xslice.Map(rows, func(row rowstore.Row) *agentv1.Agent { return render.Agent(row, render.AgentOptions{}) })...)
 		if len(rows) < snapshotPage {
 			break
 		}
@@ -208,7 +207,7 @@ func settle[R any](kind watch.Kind, ids []string, byID map[string]R, render func
 	})
 }
 
-func renderAgentEvent(row agents.Row) watch.Event {
+func renderAgentEvent(row rowstore.Row) watch.Event {
 	return watch.Event{Kind: watch.KindAgent, ID: row.ID, Agent: render.Agent(row, render.AgentOptions{})}
 }
 

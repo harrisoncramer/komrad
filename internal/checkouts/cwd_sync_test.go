@@ -450,6 +450,75 @@ func (f fakeTrees) ReadStanding(_ context.Context, params git.ReadStandingParams
 	return standing, nil
 }
 
+// standingOn is the standing the row records against the given round, and unmoved against any
+// other.
+func standingOn(t *testing.T, st *storetest.Stores, id, round string) git.Standing {
+	t.Helper()
+
+	agent, err := st.Agents.GetByID(t.Context(), id)
+	require.NoError(t, err)
+	require.NotNil(t, agent)
+	if agent.TreeStandingSHA != round {
+		return git.StandingSame
+	}
+
+	return agent.TreeStanding
+}
+
+// countingAgents is the agent store with its standing writes counted.
+type countingAgents struct {
+	cwdSetter
+	standingWrites int
+}
+
+func (c *countingAgents) SetTreeStanding(ctx context.Context, id string, standing git.Standing, snapshotSHA string) error {
+	c.standingWrites++
+
+	return c.cwdSetter.SetTreeStanding(ctx, id, standing, snapshotSHA)
+}
+
+// TestCwdSyncerSyncWritesAStandingOnlyWhenItMoved pins that a pass writes the standing it
+// found only where the row says otherwise, so a pass that finds every tree where the last one
+// did writes nothing.
+func TestCwdSyncerSyncWritesAStandingOnlyWhenItMoved(t *testing.T) {
+	st := storetest.Open(t)
+	ctx := t.Context()
+
+	workflowID := seedWorkflow(t, st)
+	cwd := fakeCheckout(t)
+	require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{Name: "a", State: agentstore.StateIdle, WorkflowID: workflowID, Cwd: cwd}))
+	created, err := st.Agents.GetInWorkflow(ctx, workflowID, "a")
+	require.NoError(t, err)
+
+	approved := reviewstore.VerdictApproved
+	trees := fakeTrees{cwd: git.StandingSame}
+	agents := &countingAgents{cwdSetter: st.Agents}
+	syncer := NewCwdSyncer(NewCwdSyncerParams{
+		Agents:  agents,
+		Heads:   fakeHeads{},
+		Trees:   trees,
+		Tallies: fakeTallies{{AgentID: created.ID, Verdict: &approved, SnapshotSHA: "snapshot-one"}},
+		Bases:   fakeBases{},
+	})
+
+	require.NoError(t, syncer.Sync(ctx))
+	assert.Equal(t, 1, agents.standingWrites, "the first pass records the round the tree was measured against")
+	assert.Equal(t, "snapshot-one", func() string {
+		agent, err := st.Agents.GetByID(ctx, created.ID)
+		require.NoError(t, err)
+
+		return agent.TreeStandingSHA
+	}())
+
+	require.NoError(t, syncer.Sync(ctx))
+	assert.Equal(t, 1, agents.standingWrites, "a pass that finds the tree where it was writes nothing")
+
+	trees[cwd] = git.StandingMoved
+	require.NoError(t, syncer.Sync(ctx))
+	assert.Equal(t, 2, agents.standingWrites, "a tree that moved against its round is written")
+	assert.Equal(t, git.StandingMoved, standingOn(t, st, created.ID, "snapshot-one"))
+}
+
 // failingTrees is a git that knows the tree moved but could not finish the landed question.
 type failingTrees struct{}
 
@@ -528,15 +597,15 @@ func TestCwdSyncerSyncReadsWhereTheTreeStands(t *testing.T) {
 		Bases:   fakeBases{},
 	})
 
-	assert.Equal(t, git.StandingSame, syncer.GetStanding(ids["edited"], "snapshot-edited"), "nothing is known before the first pass")
+	assert.Equal(t, git.StandingSame, standingOn(t, st, ids["edited"], "snapshot-edited"), "nothing is recorded before the first pass")
 
 	require.NoError(t, syncer.Sync(ctx))
 
-	assert.Equal(t, git.StandingMoved, syncer.GetStanding(ids["edited"], "snapshot-edited"))
-	assert.Equal(t, git.StandingSame, syncer.GetStanding(ids["untouched"], "snapshot-untouched"))
-	assert.Equal(t, git.StandingLanded, syncer.GetStanding(ids["landed"], "snapshot-landed"))
-	assert.Equal(t, git.StandingLandedMoved, syncer.GetStanding(ids["landed-edited"], "snapshot-landed-edited"))
-	assert.Equal(t, git.StandingSame, syncer.GetStanding(ids["edited"], "snapshot-newer"),
+	assert.Equal(t, git.StandingMoved, standingOn(t, st, ids["edited"], "snapshot-edited"))
+	assert.Equal(t, git.StandingSame, standingOn(t, st, ids["untouched"], "snapshot-untouched"))
+	assert.Equal(t, git.StandingLanded, standingOn(t, st, ids["landed"], "snapshot-landed"))
+	assert.Equal(t, git.StandingLandedMoved, standingOn(t, st, ids["landed-edited"], "snapshot-landed-edited"))
+	assert.Equal(t, git.StandingSame, standingOn(t, st, ids["edited"], "snapshot-newer"),
 		"a verdict on a round the pass has not compared against is not one the tree moved from")
 }
 
@@ -567,7 +636,7 @@ func TestCwdSyncerSyncKeepsAStandingReportedWithAnError(t *testing.T) {
 
 	err = syncer.Sync(ctx)
 	require.Error(t, err)
-	assert.Equal(t, git.StandingMoved, syncer.GetStanding(created.ID, "snapshot-one"))
+	assert.Equal(t, git.StandingMoved, standingOn(t, st, created.ID, "snapshot-one"))
 }
 
 // TestCwdSyncerSyncMeasuresAgainstTheWorkflowsBase pins that the landed question is asked of
@@ -657,8 +726,8 @@ func TestCwdSyncerSyncHashesOnlyAReviewedTree(t *testing.T) {
 	require.NoError(t, syncer.Sync(ctx))
 
 	assert.Equal(t, []string{reviewed}, hashed.dirs)
-	assert.Equal(t, git.StandingMoved, syncer.GetStanding(reviewedAgent.ID, "snapshot-one"))
-	assert.Equal(t, git.StandingSame, syncer.GetStanding(removedAgent.ID, "snapshot-three"))
+	assert.Equal(t, git.StandingMoved, standingOn(t, st, reviewedAgent.ID, "snapshot-one"))
+	assert.Equal(t, git.StandingSame, standingOn(t, st, removedAgent.ID, "snapshot-three"))
 }
 
 // TestCwdSyncerSyncForgetsAMoveTheNextPassDoesNotSee pins that each pass replaces the last:
@@ -693,11 +762,11 @@ func TestCwdSyncerSyncForgetsAMoveTheNextPassDoesNotSee(t *testing.T) {
 	})
 
 	require.NoError(t, syncer.Sync(ctx))
-	require.Equal(t, git.StandingMoved, syncer.GetStanding(created.ID, "snapshot-one"))
+	require.Equal(t, git.StandingMoved, standingOn(t, st, created.ID, "snapshot-one"))
 
 	trees[cwd] = git.StandingSame
 	require.NoError(t, syncer.Sync(ctx))
-	assert.Equal(t, git.StandingSame, syncer.GetStanding(created.ID, "snapshot-one"))
+	assert.Equal(t, git.StandingSame, standingOn(t, st, created.ID, "snapshot-one"))
 }
 
 // TestCwdSyncerSyncReportsAProbeItCouldNotMake pins that a tree the pass cannot hash is said
@@ -733,5 +802,5 @@ func TestCwdSyncerSyncReportsAProbeItCouldNotMake(t *testing.T) {
 	err = syncer.Sync(ctx)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), `failed to compare the tree of "a"`)
-	assert.Equal(t, git.StandingSame, syncer.GetStanding(created.ID, "snapshot-one"))
+	assert.Equal(t, git.StandingSame, standingOn(t, st, created.ID, "snapshot-one"))
 }

@@ -1,8 +1,6 @@
 package agents
 
 import (
-	"context"
-
 	agentstore "weave/internal/store/agent"
 )
 
@@ -20,9 +18,4 @@ func NewPaneLiveness(panes paneOwnerReader) *PaneLiveness {
 // IsAgentRunning reports whether the agent still owns its recorded pane.
 func (l *PaneLiveness) IsAgentRunning(agent agentstore.Agent) bool {
 	return isPaneOwnedBy(l.tmux.GetPaneOwner(agent.Pane), agent.ID)
-}
-
-// GetRunningAgents returns agent liveness keyed by agent ID.
-func (l *PaneLiveness) GetRunningAgents(ctx context.Context, agents []agentstore.Agent) map[string]bool {
-	return getRunningAgents(ctx, l.tmux, agents)
 }

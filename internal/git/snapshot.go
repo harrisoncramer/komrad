@@ -372,17 +372,17 @@ func getTree(ctx context.Context, on runner, dir, sha string) (string, error) {
 }
 
 // Standing is where a worktree stands against a ref.
-type Standing int
+type Standing string
 
 const (
-	// StandingSame is a worktree that still hashes to the ref.
-	StandingSame Standing = iota
+	// StandingSame is a worktree that still hashes to the ref, the zero standing.
+	StandingSame Standing = ""
 	// StandingMoved is a worktree that differs from a ref the base does not hold.
-	StandingMoved
+	StandingMoved Standing = "moved"
 	// StandingLanded is a worktree carrying nothing beyond a base that holds the ref whole.
-	StandingLanded
+	StandingLanded Standing = "landed"
 	// StandingLandedMoved is a worktree carrying new work over a base that holds the ref whole.
-	StandingLandedMoved
+	StandingLandedMoved Standing = "landed_moved"
 )
 
 // ReadStandingParams names the worktree, the base it is measured against, and the ref.

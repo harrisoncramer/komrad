@@ -1,12 +1,12 @@
 package agent
 
 import (
-	"weave/internal/agents"
 	"weave/internal/rpc/render"
 	"weave/lib/dates"
 
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
+	rowstore "weave/internal/store/row"
 	transcriptstore "weave/internal/store/transcript"
 	agentv1 "weave/proto/gen/agent/v1"
 	viewv1 "weave/proto/gen/view/v1"
@@ -43,7 +43,7 @@ func agentViewOptions(view viewv1.View) []agentOption {
 	return []agentOption{render.WithPromptHead[agentOptions](render.SummaryHead)}
 }
 
-func renderAgent(row agents.Row, opts ...agentOption) agent {
+func renderAgent(row rowstore.Row, opts ...agentOption) agent {
 	options := agentOptions{}
 	for _, opt := range opts {
 		opt(&options)

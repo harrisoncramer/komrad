@@ -3,7 +3,6 @@ package render
 import (
 	"time"
 
-	"weave/internal/agents"
 	"weave/internal/git"
 	"weave/lib/dates"
 	"weave/lib/xptr"
@@ -12,6 +11,7 @@ import (
 
 	agentstore "weave/internal/store/agent"
 	reviewstore "weave/internal/store/review"
+	rowstore "weave/internal/store/row"
 	agentv1 "weave/proto/gen/agent/v1"
 	pullrequestv1 "weave/proto/gen/pullrequest/v1"
 )
@@ -23,7 +23,7 @@ type AgentOptions struct {
 }
 
 // Agent draws one agent's row as the wire carries it.
-func Agent(row agents.Row, options AgentOptions) *agentv1.Agent {
+func Agent(row rowstore.Row, options AgentOptions) *agentv1.Agent {
 	stored := row.Agent
 	metadata := xslice.Map(stored.Metadata, func(entry agentstore.Metadata) *agentv1.AgentMetadata {
 		return &agentv1.AgentMetadata{Key: entry.Key, Value: entry.Value}
@@ -52,7 +52,7 @@ func Agent(row agents.Row, options AgentOptions) *agentv1.Agent {
 		StateChangedAt:     dates.Stamp(stored.StateChangedAt),
 		ReportedReason:     stored.ReportedReason,
 		ArchivedAt:         dates.StampPtr(stored.ArchivedAt),
-		Alive:              xptr.Ptr(row.Alive),
+		Alive:              xptr.Ptr(stored.Alive),
 		UnreadMail:         row.UnreadMail,
 		Mark:               row.Mark,
 		Hidden:             stored.Hidden,
@@ -68,7 +68,7 @@ func Agent(row agents.Row, options AgentOptions) *agentv1.Agent {
 		FailedRunLog:       row.FailedRunLog,
 		LocalReviewRounds:  row.LocalRounds,
 		LocalReviewVerdict: localVerdictOf(row.LocalVerdict),
-		LocalReviewTree:    standingOf(row.LocalTree),
+		LocalReviewTree:    standingOf(localTreeOf(row)),
 		HeldAt:             heldStamp(stored.HeldAt),
 		PullRequest:        pullRequestStandingOf(row),
 	}
@@ -101,7 +101,7 @@ func localVerdictOf(verdict *reviewstore.Verdict) agentv1.ReviewVerdict {
 // pullRequestStandingOf is where the agent's pull request stands as the wire carries it:
 // unread until the sync has looked at the repository, none when it has and found nothing on
 // the branch, else the current one and its state.
-func pullRequestStandingOf(row agents.Row) *agentv1.PullRequestStanding {
+func pullRequestStandingOf(row rowstore.Row) *agentv1.PullRequestStanding {
 	if row.PullRequest == nil {
 		state := pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNREAD
 		if row.RepositoryRead {
@@ -119,6 +119,16 @@ func pullRequestStandingOf(row agents.Row) *agentv1.PullRequestStanding {
 		Checks:       ChecksOf(row.PullRequest.Checks),
 		Mergeability: MergeabilityOf(row.PullRequest.Mergeability),
 	}
+}
+
+// localTreeOf is where the worktree stands against the round the local verdict was given on,
+// unmoved while the standing was measured against any other round.
+func localTreeOf(row rowstore.Row) git.Standing {
+	if row.TreeStandingSHA != row.LocalSnapshotSHA {
+		return git.StandingSame
+	}
+
+	return row.TreeStanding
 }
 
 // standingOf is a standing as the wire carries it.

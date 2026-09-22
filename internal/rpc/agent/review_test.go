@@ -189,13 +189,6 @@ func TestGetReviewHandsTheAgentOneReleaseWhole(t *testing.T) {
 func reviewService(t *testing.T) (agentv1weave.AgentServiceAdapter, *storetest.Stores, *reviewstore.ReviewStore) {
 	t.Helper()
 
-	return reviewServiceOver(t, fakeTrees{})
-}
-
-// reviewServiceOver is the service over a git that answers the given standings.
-func reviewServiceOver(t *testing.T, trees fakeTrees) (agentv1weave.AgentServiceAdapter, *storetest.Stores, *reviewstore.ReviewStore) {
-	t.Helper()
-
 	st := storetest.Open(t)
 	rounds := reviewstore.NewReviewStore(st.Pool.GetDB())
 	mailer := mail.NewMailService(mail.NewMailServiceParams{
@@ -220,7 +213,7 @@ func reviewServiceOver(t *testing.T, trees fakeTrees) (agentv1weave.AgentService
 
 	return agentv1weave.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{
 		Agents:   st.Agents,
-		Rows:     rowReaderOver(st, liveness, trees),
+		Rows:     rowReaderOver(st),
 		Mail:     mailer,
 		Review:   review,
 		Marks:    markService(st),
@@ -244,11 +237,10 @@ func (fakeSnapshotter) ReadFileLines(context.Context, string, string, string) ([
 	return nil, nil
 }
 
-// TestListedAgentsCarryWhereTheirTreeStands pins that the standing the cwd pass found against
+// TestListedAgentsCarryWhereTheirTreeStands pins that the standing the cwd pass wrote against
 // the round of the last verdict rides the row.
 func TestListedAgentsCarryWhereTheirTreeStands(t *testing.T) {
-	trees := fakeTrees{}
-	svc, st, _ := reviewServiceOver(t, trees)
+	svc, st, _ := reviewService(t)
 	worker := st.SeedAgent(t, agentstore.Agent{
 		Name:  "worker",
 		Cwd:   "/repo",
@@ -261,7 +253,7 @@ func TestListedAgentsCarryWhereTheirTreeStands(t *testing.T) {
 		Role:          agentstore.RoleReviewer,
 		ParentAgentID: &worker.ID,
 	})
-	trees[worker.ID] = standingAt{snapshotSHA: "snapshot-sha", standing: git.StandingLandedMoved}
+	require.NoError(t, st.Agents.SetTreeStanding(t.Context(), worker.ID, git.StandingLandedMoved, "snapshot-sha"))
 
 	asReviewer := caller.With(t.Context(), caller.Caller{AgentID: reviewer.ID})
 	_, err := svc.OpenReviewRound(asReviewer, connect.NewRequest(&agentv1.OpenReviewRoundRequest{
