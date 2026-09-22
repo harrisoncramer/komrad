@@ -68,8 +68,11 @@ func WriteGHShim(cacheDir, weaveBinary string) (string, error) {
 // writeScript puts a script where a shell can run it, through a file of its own renamed over
 // the target.
 func writeScript(path, body string) error {
-	// A launch rewrites the stand-in while another agent may be part-way through running it, and
-	// a shell reads a script as it goes, so the old inode has to stay whole until it is done.
+	// Explainer: every agent shares this one path and each launch rewrites it. A shell reads a
+	// script as it runs, a line at a time, and takes no copy of it first. Writing over the file
+	// in place would therefore hand a gh already running in another agent the second half of a
+	// script it did not start. Renaming a finished file over the target puts a new inode there.
+	// The running invocation keeps the old one until it exits.
 	temporary, err := os.CreateTemp(filepath.Dir(path), ".gh-*")
 	if err != nil {
 		return fmt.Errorf("failed to write %q: %w", path, err)
@@ -93,5 +96,9 @@ func writeScript(path, body string) error {
 		return fmt.Errorf("failed to write %q: %w", path, err)
 	}
 
-	return os.Rename(temporary.Name(), path)
+	if err := os.Rename(temporary.Name(), path); err != nil {
+		return fmt.Errorf("failed to write %q: %w", path, err)
+	}
+
+	return nil
 }

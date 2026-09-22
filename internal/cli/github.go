@@ -19,6 +19,12 @@ import (
 
 const githubTokenTimeout = 20 * time.Second
 
+// githubHost is the one host an App minted from the config reaches.
+const githubHost = "github.com"
+
+// errNotGitHubCheckout says a checkout's origin is on a host weave holds no App for.
+var errNotGitHubCheckout = fail.Precondition("the checkout's origin is not on github.com")
+
 func githubCmd(state *app) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "github",
@@ -66,7 +72,7 @@ that names no App, which leaves gh the credential the machine was logged in with
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			configured, err := githubAppConfigured(state)
+			configured, err := isGitHubAppConfigured(state)
 			if err != nil {
 				return err
 			}
@@ -95,8 +101,8 @@ that names no App, which leaves gh the credential the machine was logged in with
 	return cmd
 }
 
-// githubAppConfigured says whether the config names an App to mint from.
-func githubAppConfigured(state *app) (bool, error) {
+// isGitHubAppConfigured says whether the config names an App to mint from.
+func isGitHubAppConfigured(state *app) (bool, error) {
 	current, err := githubApp(state)
 	if err != nil {
 		return false, err
@@ -104,12 +110,6 @@ func githubAppConfigured(state *app) (bool, error) {
 
 	return current.IsConfigured(), nil
 }
-
-// githubHost is the one host an App minted from the config reaches.
-const githubHost = "github.com"
-
-// errNotGitHubCheckout says a checkout's origin is on a host weave holds no App for.
-var errNotGitHubCheckout = fail.Precondition("the checkout's origin is not on github.com")
 
 // requireGitHubCheckout refuses a checkout whose origin names another forge, and answers for
 // one that names no origin at all.

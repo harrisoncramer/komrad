@@ -167,7 +167,7 @@ func (l *Launcher) toolsDir() string {
 	dir, err := harness.WriteGHShim(l.cacheDir, l.binPath)
 	if err != nil {
 		//nolint:sloglint // as in the standing context, there is no context here to carry a logger on
-		slog.Default().Warn("gh could not be given a stand-in, so this agent reaches github with no credential",
+		slog.Default().Warn("gh could not be given a stand-in, so this agent reaches github as the machine is logged in",
 			logging.Attrs(logging.Err(err))...)
 
 		return ""
