@@ -3,7 +3,6 @@ package watch
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"weave/internal/fail"
@@ -17,9 +16,6 @@ import (
 
 // HeartbeatAfter is how long a stream stays silent before a heartbeat goes out.
 const HeartbeatAfter = 15 * time.Second
-
-// ErrWatchClosed is a watch asked for while the service is stopping.
-var ErrWatchClosed = fail.Precondition("the service is stopping, so no watch can be opened")
 
 // NewHandlerParams is what the handler is built over.
 type NewHandlerParams struct {
@@ -49,9 +45,6 @@ func NewHandler(params NewHandlerParams) *Handler {
 // broker closes the subscription, with a heartbeat whenever nothing has been sent for a while.
 func (h *Handler) Watch(ctx context.Context, _ *emptypb.Empty, stream *connect.ServerStream[watchv1.WatchEvent]) *fail.Error {
 	subscription, err := h.broker.Subscribe(ctx)
-	if errors.Is(err, watch.ErrClosed) {
-		return ErrWatchClosed
-	}
 	if err != nil {
 		return rpcerr.From(err, "failed to open the watch")
 	}
