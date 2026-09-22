@@ -1,10 +1,18 @@
--- name: ListMarks :many
+-- name: SnapshotMarks :many
 SELECT
-    mark,
-    agent_id,
-    workflow_id
+    *
 FROM
     marks
+ORDER BY
+    mark;
+
+-- name: ListMarksByKey :many
+SELECT
+    *
+FROM
+    marks
+WHERE
+    mark = ANY (@marks::text[])
 ORDER BY
     mark;
 

@@ -8,7 +8,6 @@ import (
 
 	"weave/internal/weavetest"
 	forgev1 "weave/proto/gen/forge/v1"
-	pullrequestv1 "weave/proto/gen/pullrequest/v1"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
@@ -52,7 +51,7 @@ func TestForgeConnectsThroughTheService(t *testing.T) {
 	require.Len(t, checked.Msg.GetChecks(), 1)
 	assert.Empty(t, checked.Msg.GetChecks()[0].GetProblem())
 
-	pullRequests, err := instance.PullRequests.ListPullRequests(ctx, connect.NewRequest(&pullrequestv1.ListPullRequestsRequest{
+	pullRequests, err := instance.Forges.ListForgePullRequests(ctx, connect.NewRequest(&forgev1.ListForgePullRequestsRequest{
 		RemoteUrl: "git@github.com:harrisoncramer/weave-forge-fixture.git",
 		Branch:    "fixture/open",
 	}))
@@ -61,7 +60,7 @@ func TestForgeConnectsThroughTheService(t *testing.T) {
 	assert.Equal(t, int32(1), pullRequests.Msg.GetPullRequests()[0].GetNumber())
 	assert.Nil(t, pullRequests.Msg.GetPullRequests()[0].MergedAt)
 
-	_, err = instance.PullRequests.ListPullRequests(ctx, connect.NewRequest(&pullrequestv1.ListPullRequestsRequest{
+	_, err = instance.Forges.ListForgePullRequests(ctx, connect.NewRequest(&forgev1.ListForgePullRequestsRequest{
 		RemoteUrl: "git@gitlab.com:harrisoncramer/nothing.git",
 		Branch:    "main",
 	}))

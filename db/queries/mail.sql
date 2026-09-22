@@ -130,6 +130,27 @@ FROM
 WHERE
     m.id = ANY (@ids::uuid[]);
 
+-- name: SnapshotMail :many
+SELECT
+    *
+FROM
+    mail m
+WHERE
+    m.claimed_at IS NULL
+ORDER BY
+    m.id;
+
+-- name: ListMailByKey :many
+SELECT
+    *
+FROM
+    mail m
+WHERE
+    m.id = ANY (@ids::uuid[])
+    AND m.claimed_at IS NULL
+ORDER BY
+    m.id;
+
 -- name: DeleteMailByID :many
 DELETE FROM mail
 WHERE id = ANY (@ids::uuid[])

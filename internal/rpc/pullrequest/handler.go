@@ -1,19 +1,16 @@
-// Package pullrequest serves the pull requests weave reads through its forge connections.
+// Package pullrequest serves the pull requests weave has stored from its forges.
 package pullrequest
 
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"weave/internal/fail"
-	"weave/internal/forge"
 	"weave/internal/git"
 	"weave/internal/rpc/render"
 	"weave/internal/rpcerr"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
-	forgestore "weave/internal/store/forge"
 	pullrequeststore "weave/internal/store/pullrequest"
 	"weave/lib/dates"
 	"weave/lib/pagination"
@@ -21,19 +18,13 @@ import (
 	pullrequestv1 "weave/proto/gen/pullrequest/v1"
 )
 
-// forgeFinder is what the handler asks of the forge service: the connection a host has, and
-// the forge to speak to as it.
-type forgeFinder interface {
-	ConnectionFor(ctx context.Context, host string) (*forgestore.Connection, error)
-	ForConnection(connection forgestore.Connection) (forge.Forge, error)
-}
-
 type agentGetter interface {
 	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
 }
 
 // storedPullRequestReader is what the handler reads of what the sync has stored.
 type storedPullRequestReader interface {
+	ListPage(ctx context.Context, params pullrequeststore.ListPageParams) ([]pullrequeststore.PullRequest, error)
 	ListForAgent(ctx context.Context, agentID string) ([]pullrequeststore.PullRequest, error)
 }
 
@@ -43,96 +34,77 @@ type syncReader interface {
 }
 
 type NewHandlerParams struct {
-	Forges           forgeFinder
 	Agents           agentGetter
 	PullRequests     storedPullRequestReader
 	PullRequestSyncs syncReader
 }
 
 type Handler struct {
-	forges       forgeFinder
 	agents       agentGetter
 	pullRequests storedPullRequestReader
 	syncs        syncReader
 }
 
-// NewHandler constructs the handler over the forge service and the stores.
+// NewHandler constructs the handler over the stores.
 func NewHandler(params NewHandlerParams) *Handler {
 	return &Handler{
-		forges:       params.Forges,
 		agents:       params.Agents,
 		pullRequests: params.PullRequests,
 		syncs:        params.PullRequestSyncs,
 	}
 }
 
-// pageCursor is where a listing left off, the forge's cursor for the next page and the size
-// the pages before it were cut at.
-type pageCursor struct {
-	Cursor  string `json:"cursor"`
-	PerPage int    `json:"per_page"`
-}
-
-// Validate refuses a page nobody could have been handed.
-func (c pageCursor) Validate() error {
-	if c.Cursor == "" {
-		return fmt.Errorf("a page token names no cursor")
-	}
-	if c.PerPage < 1 {
-		return fmt.Errorf("%d to a page is no page", c.PerPage)
-	}
-
-	return nil
-}
-
-// ListPullRequests is one page of a repository's pull requests, read through the connection
-// for the repository's host.
+// ListPullRequests is one page of a repository's stored pull requests, the unfinished ones
+// first and each group newest opened first.
 func (s *Handler) ListPullRequests(ctx context.Context, req *pullrequestv1.ListPullRequestsRequest) (*pullrequestv1.ListPullRequestsResponse, *fail.Error) {
-	repo, err := git.ParseRemoteURL(req.GetRemoteUrl())
+	repo, err := git.ParseRemoteURL(req.GetRepositoryUrl())
 	if err != nil {
-		return nil, rpcerr.From(err, "failed to read the remote")
+		return nil, rpcerr.From(err, "failed to read the repository")
 	}
 
-	window := pageCursor{PerPage: int(pagination.Bound(req.GetPagination().GetLimit()))}
-	if cursor, err := pagination.Decode[pageCursor](req.GetPagination().GetCursor()); err != nil {
-		return nil, rpcerr.From(err, "failed to read the page token")
-	} else if cursor != nil {
-		window = *cursor
-	}
-
-	connection, err := s.forges.ConnectionFor(ctx, repo.Host)
+	paginator, err := pagination.New[pullrequeststore.Cursor, pullRequestPage](req.GetPagination())
 	if err != nil {
-		return nil, rpcerr.From(err, "failed to find the forge for the remote")
+		return nil, rpcerr.From(err, "failed to read the pagination")
 	}
 
-	f, err := s.forges.ForConnection(*connection)
-	if err != nil {
-		return nil, rpcerr.From(err, "failed to build the forge")
-	}
-
-	listed, err := f.List(ctx, forge.ListParams{
-		Repo:    repo,
-		Branch:  req.GetBranch(),
-		Cursor:  window.Cursor,
-		PerPage: window.PerPage,
+	listed, err := s.pullRequests.ListPage(ctx, pullrequeststore.ListPageParams{
+		RepositoryURL: repo.Canonical(),
+		HeadBranch:    req.GetHeadBranch(),
+		Limit:         int32(paginator.Limit()),
+		Cursor:        paginator.Cursor(),
 	})
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to list the pull requests")
 	}
 
-	resources := xslice.Map(listed.PullRequests, renderPullRequest)
+	resources := xslice.Map(listed, renderPullRequestPage)
 
-	response := &pullrequestv1.ListPullRequestsResponse{PullRequests: resources}
-	if listed.HasMore {
-		next, err := pagination.Token(pageCursor{Cursor: listed.Cursor, PerPage: window.PerPage})
-		if err != nil {
-			return nil, rpcerr.From(err, "failed to build the next page token")
-		}
-
-		response.NextPageToken = next
+	next, err := paginator.NextToken(resources)
+	if err != nil {
+		return nil, rpcerr.From(err, "failed to build the next page token")
 	}
 
-	return response, nil
+	return &pullrequestv1.ListPullRequestsResponse{
+		PullRequests:  xslice.Map(resources, func(resource pullRequestPage) *pullrequestv1.PullRequest { return resource.PullRequest }),
+		NextPageToken: next,
+	}, nil
+}
+
+type pullRequestPage struct {
+	*pullrequestv1.PullRequest
+	cursor pullrequeststore.Cursor
+}
+
+// Cursor returns the keyset cursor locating this pull request.
+func (p pullRequestPage) Cursor() (pullrequeststore.Cursor, error) {
+	return p.cursor, nil
+}
+
+func renderPullRequestPage(stored pullrequeststore.PullRequest) pullRequestPage {
+	return pullRequestPage{
+		PullRequest: render.PullRequest(stored),
+		cursor:      pullrequeststore.Cursor{Finished: stored.IsFinished(), OpenedAt: stored.OpenedAt, ID: stored.ID},
+	}
 }
 
 // ListAgentPullRequests is every stored pull request opened from an agent's branch, newest
@@ -198,32 +170,5 @@ func renderAgentPullRequest(pullRequest pullrequeststore.PullRequest, current bo
 		OpenedAt:     dates.Stamp(pullRequest.OpenedAt),
 		MergedAt:     dates.StampPtr(pullRequest.MergedAt),
 		ClosedAt:     dates.StampPtr(pullRequest.ClosedAt),
-	}
-}
-
-func renderPullRequest(pullRequest forge.PullRequest) *pullrequestv1.PullRequest {
-	head := ""
-	if !pullRequest.Head.IsZero() {
-		head = pullRequest.Head.Canonical()
-	}
-
-	return &pullrequestv1.PullRequest{
-		Forge:             pullRequest.Forge,
-		ProviderId:        pullRequest.ProviderID,
-		Url:               pullRequest.URL,
-		RepositoryUrl:     pullRequest.Repository.Canonical(),
-		HeadRepositoryUrl: head,
-		Number:            int32(pullRequest.Number),
-		Title:             pullRequest.Title,
-		HeadBranch:        pullRequest.HeadBranch,
-		HeadSha:           pullRequest.HeadSHA,
-		BaseBranch:        pullRequest.BaseBranch,
-		BaseSha:           pullRequest.BaseSHA,
-		Draft:             pullRequest.Draft,
-		State:             pullRequest.State,
-		CreatedAt:         dates.Stamp(pullRequest.CreatedAt),
-		UpdatedAt:         dates.Stamp(pullRequest.UpdatedAt),
-		MergedAt:          dates.StampPtr(pullRequest.MergedAt),
-		ClosedAt:          dates.StampPtr(pullRequest.ClosedAt),
 	}
 }

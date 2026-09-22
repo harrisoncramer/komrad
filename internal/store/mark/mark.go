@@ -28,22 +28,36 @@ func NewMarkStore(db store.DBTX) *MarkStore {
 	return &MarkStore{queries: models.New(db), db: db}
 }
 
-// List reads every mark.
+// List reads every mark, by letter.
 func (s *MarkStore) List(ctx context.Context) ([]Mark, error) {
-	rows, err := s.queries.ListMarks(ctx)
+	rows, err := s.queries.SnapshotMarks(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list marks: %w", err)
 	}
 
-	marks := xslice.Map(rows, func(row *models.ListMarksRow) Mark {
-		return Mark{
-			Mark:       row.Mark,
-			AgentID:    row.AgentID,
-			WorkflowID: row.WorkflowID,
-		}
-	})
+	return xslice.Map(rows, fromRow), nil
+}
 
-	return marks, nil
+// ListByKey reads whichever of the letters hold a mark.
+func (s *MarkStore) ListByKey(ctx context.Context, marks []string) ([]Mark, error) {
+	if len(marks) == 0 {
+		return nil, nil
+	}
+
+	rows, err := s.queries.ListMarksByKey(ctx, marks)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list %d marks: %w", len(marks), err)
+	}
+
+	return xslice.Map(rows, fromRow), nil
+}
+
+func fromRow(row *models.Mark) Mark {
+	return Mark{
+		Mark:       row.Mark,
+		AgentID:    row.AgentID,
+		WorkflowID: row.WorkflowID,
+	}
 }
 
 // ClearConflicts frees the letter and whatever the row already answered to.

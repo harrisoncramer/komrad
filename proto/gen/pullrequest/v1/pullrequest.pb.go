@@ -187,6 +187,67 @@ func (Mergeability) EnumDescriptor() ([]byte, []int) {
 	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{1}
 }
 
+// ReviewDecision is where a forge says a pull request's reviews stand.
+type ReviewDecision int32
+
+const (
+	// The reviews have not been read.
+	ReviewDecision_REVIEW_DECISION_UNSPECIFIED ReviewDecision = 0
+	// The forge has said nothing about the reviews.
+	ReviewDecision_REVIEW_DECISION_NONE ReviewDecision = 1
+	// A review the forge requires that nobody has given.
+	ReviewDecision_REVIEW_DECISION_PENDING ReviewDecision = 2
+	// The forge counts the pull request as approved.
+	ReviewDecision_REVIEW_DECISION_APPROVED ReviewDecision = 3
+	// A reviewer is asking for changes.
+	ReviewDecision_REVIEW_DECISION_CHANGES_REQUESTED ReviewDecision = 4
+)
+
+// Enum value maps for ReviewDecision.
+var (
+	ReviewDecision_name = map[int32]string{
+		0: "REVIEW_DECISION_UNSPECIFIED",
+		1: "REVIEW_DECISION_NONE",
+		2: "REVIEW_DECISION_PENDING",
+		3: "REVIEW_DECISION_APPROVED",
+		4: "REVIEW_DECISION_CHANGES_REQUESTED",
+	}
+	ReviewDecision_value = map[string]int32{
+		"REVIEW_DECISION_UNSPECIFIED":       0,
+		"REVIEW_DECISION_NONE":              1,
+		"REVIEW_DECISION_PENDING":           2,
+		"REVIEW_DECISION_APPROVED":          3,
+		"REVIEW_DECISION_CHANGES_REQUESTED": 4,
+	}
+)
+
+func (x ReviewDecision) Enum() *ReviewDecision {
+	p := new(ReviewDecision)
+	*p = x
+	return p
+}
+
+func (x ReviewDecision) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ReviewDecision) Descriptor() protoreflect.EnumDescriptor {
+	return file_pullrequest_v1_pullrequest_proto_enumTypes[2].Descriptor()
+}
+
+func (ReviewDecision) Type() protoreflect.EnumType {
+	return &file_pullrequest_v1_pullrequest_proto_enumTypes[2]
+}
+
+func (x ReviewDecision) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ReviewDecision.Descriptor instead.
+func (ReviewDecision) EnumDescriptor() ([]byte, []int) {
+	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{2}
+}
+
 // Checks is where the checks on a pull request's head commit stand, as the forge last reported
 // them.
 type Checks int32
@@ -233,11 +294,11 @@ func (x Checks) String() string {
 }
 
 func (Checks) Descriptor() protoreflect.EnumDescriptor {
-	return file_pullrequest_v1_pullrequest_proto_enumTypes[2].Descriptor()
+	return file_pullrequest_v1_pullrequest_proto_enumTypes[3].Descriptor()
 }
 
 func (Checks) Type() protoreflect.EnumType {
-	return &file_pullrequest_v1_pullrequest_proto_enumTypes[2]
+	return &file_pullrequest_v1_pullrequest_proto_enumTypes[3]
 }
 
 func (x Checks) Number() protoreflect.EnumNumber {
@@ -246,19 +307,18 @@ func (x Checks) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use Checks.Descriptor instead.
 func (Checks) EnumDescriptor() ([]byte, []int) {
-	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{2}
+	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{3}
 }
 
 type ListPullRequestsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The repository as a git remote spells it, such as git@github.com:owner/repo.git or
-	// https://github.com/owner/repo, whose host picks the forge connection.
-	RemoteUrl string `protobuf:"bytes,1,opt,name=remote_url,json=remoteUrl,proto3" json:"remote_url,omitempty"`
-	// The branch the pull requests were opened from, listed whatever their state; left empty,
-	// the repository's open pull requests are listed instead.
-	Branch string `protobuf:"bytes,2,opt,name=branch,proto3" json:"branch,omitempty"`
-	// Which page to read and how many to a page, twenty when unset and at most a hundred, which
-	// is what the forge will hand over in one call.
+	// The repository the pull requests target, as a git remote spells it or as the canonical
+	// address weave stores.
+	RepositoryUrl string `protobuf:"bytes,1,opt,name=repository_url,json=repositoryUrl,proto3" json:"repository_url,omitempty"`
+	// The branch the pull requests were opened from; left empty, every pull request stored for
+	// the repository is listed.
+	HeadBranch string `protobuf:"bytes,2,opt,name=head_branch,json=headBranch,proto3" json:"head_branch,omitempty"`
+	// Which page to read and how many to a page, twenty when unset and at most a hundred.
 	Pagination    *v1.Pagination `protobuf:"bytes,3,opt,name=pagination,proto3,oneof" json:"pagination,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -294,16 +354,16 @@ func (*ListPullRequestsRequest) Descriptor() ([]byte, []int) {
 	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *ListPullRequestsRequest) GetRemoteUrl() string {
+func (x *ListPullRequestsRequest) GetRepositoryUrl() string {
 	if x != nil {
-		return x.RemoteUrl
+		return x.RepositoryUrl
 	}
 	return ""
 }
 
-func (x *ListPullRequestsRequest) GetBranch() string {
+func (x *ListPullRequestsRequest) GetHeadBranch() string {
 	if x != nil {
-		return x.Branch
+		return x.HeadBranch
 	}
 	return ""
 }
@@ -317,42 +377,49 @@ func (x *ListPullRequestsRequest) GetPagination() *v1.Pagination {
 
 type PullRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
+	// The handle weave keys the row by.
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	// Which forge it lives on, such as github.
-	Forge string `protobuf:"bytes,1,opt,name=forge,proto3" json:"forge,omitempty"`
+	Forge string `protobuf:"bytes,2,opt,name=forge,proto3" json:"forge,omitempty"`
 	// The forge's own stable identifier, such as GitHub's node_id.
-	ProviderId string `protobuf:"bytes,2,opt,name=provider_id,json=providerId,proto3" json:"provider_id,omitempty"`
+	ProviderId string `protobuf:"bytes,3,opt,name=provider_id,json=providerId,proto3" json:"provider_id,omitempty"`
 	// The web address a person opens.
-	Url string `protobuf:"bytes,3,opt,name=url,proto3" json:"url,omitempty"`
+	Url string `protobuf:"bytes,4,opt,name=url,proto3" json:"url,omitempty"`
 	// The canonical address of the repository it targets.
-	RepositoryUrl string `protobuf:"bytes,4,opt,name=repository_url,json=repositoryUrl,proto3" json:"repository_url,omitempty"`
+	RepositoryUrl string `protobuf:"bytes,5,opt,name=repository_url,json=repositoryUrl,proto3" json:"repository_url,omitempty"`
 	// The canonical address of the repository its branch lives in, empty when the forge no
 	// longer has it.
-	HeadRepositoryUrl string `protobuf:"bytes,5,opt,name=head_repository_url,json=headRepositoryUrl,proto3" json:"head_repository_url,omitempty"`
+	HeadRepositoryUrl string `protobuf:"bytes,6,opt,name=head_repository_url,json=headRepositoryUrl,proto3" json:"head_repository_url,omitempty"`
 	// The number the forge shows a person, which is per repository.
-	Number int32 `protobuf:"varint,6,opt,name=number,proto3" json:"number,omitempty"`
+	Number int32 `protobuf:"varint,7,opt,name=number,proto3" json:"number,omitempty"`
 	// The title as the forge has it.
-	Title string `protobuf:"bytes,7,opt,name=title,proto3" json:"title,omitempty"`
+	Title string `protobuf:"bytes,8,opt,name=title,proto3" json:"title,omitempty"`
 	// The branch the pull request was opened from.
-	HeadBranch string `protobuf:"bytes,8,opt,name=head_branch,json=headBranch,proto3" json:"head_branch,omitempty"`
+	HeadBranch string `protobuf:"bytes,9,opt,name=head_branch,json=headBranch,proto3" json:"head_branch,omitempty"`
 	// The commit at the tip of that branch when last read.
-	HeadSha string `protobuf:"bytes,9,opt,name=head_sha,json=headSha,proto3" json:"head_sha,omitempty"`
+	HeadSha string `protobuf:"bytes,10,opt,name=head_sha,json=headSha,proto3" json:"head_sha,omitempty"`
 	// The branch it targets.
-	BaseBranch string `protobuf:"bytes,10,opt,name=base_branch,json=baseBranch,proto3" json:"base_branch,omitempty"`
+	BaseBranch string `protobuf:"bytes,11,opt,name=base_branch,json=baseBranch,proto3" json:"base_branch,omitempty"`
 	// The commit the target branch was at when last read.
-	BaseSha string `protobuf:"bytes,11,opt,name=base_sha,json=baseSha,proto3" json:"base_sha,omitempty"`
+	BaseSha string `protobuf:"bytes,12,opt,name=base_sha,json=baseSha,proto3" json:"base_sha,omitempty"`
 	// Whether the forge marks it a draft.
-	Draft bool `protobuf:"varint,12,opt,name=draft,proto3" json:"draft,omitempty"`
-	// Where the forge says it stands, as OPEN, CLOSED or MERGED; read merged_at and closed_at for
-	// whether it is finished.
-	State string `protobuf:"bytes,13,opt,name=state,proto3" json:"state,omitempty"`
+	Draft bool `protobuf:"varint,13,opt,name=draft,proto3" json:"draft,omitempty"`
+	// Where it stands, decided from the stored row.
+	State PullRequestState `protobuf:"varint,14,opt,name=state,proto3,enum=pullrequest.v1.PullRequestState" json:"state,omitempty"`
 	// When it was opened on the forge, in RFC 3339.
-	CreatedAt string `protobuf:"bytes,14,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	OpenedAt string `protobuf:"bytes,15,opt,name=opened_at,json=openedAt,proto3" json:"opened_at,omitempty"`
 	// When the forge last saw it change, in RFC 3339.
-	UpdatedAt string `protobuf:"bytes,15,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	ChangedAt string `protobuf:"bytes,16,opt,name=changed_at,json=changedAt,proto3" json:"changed_at,omitempty"`
 	// When it merged, in RFC 3339, unset while it has not.
-	MergedAt *string `protobuf:"bytes,16,opt,name=merged_at,json=mergedAt,proto3,oneof" json:"merged_at,omitempty"`
+	MergedAt *string `protobuf:"bytes,17,opt,name=merged_at,json=mergedAt,proto3,oneof" json:"merged_at,omitempty"`
 	// When it closed, in RFC 3339, unset while it is open; a merged one carries this too.
-	ClosedAt      *string `protobuf:"bytes,17,opt,name=closed_at,json=closedAt,proto3,oneof" json:"closed_at,omitempty"`
+	ClosedAt *string `protobuf:"bytes,18,opt,name=closed_at,json=closedAt,proto3,oneof" json:"closed_at,omitempty"`
+	// Where the forge says the reviews stand.
+	ReviewDecision ReviewDecision `protobuf:"varint,19,opt,name=review_decision,json=reviewDecision,proto3,enum=pullrequest.v1.ReviewDecision" json:"review_decision,omitempty"`
+	// Where the checks on its head stand.
+	Checks Checks `protobuf:"varint,20,opt,name=checks,proto3,enum=pullrequest.v1.Checks" json:"checks,omitempty"`
+	// Where the forge says it stands against its base and rules.
+	Mergeability  Mergeability `protobuf:"varint,21,opt,name=mergeability,proto3,enum=pullrequest.v1.Mergeability" json:"mergeability,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -385,6 +452,13 @@ func (x *PullRequest) ProtoReflect() protoreflect.Message {
 // Deprecated: Use PullRequest.ProtoReflect.Descriptor instead.
 func (*PullRequest) Descriptor() ([]byte, []int) {
 	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *PullRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
 }
 
 func (x *PullRequest) GetForge() string {
@@ -471,23 +545,23 @@ func (x *PullRequest) GetDraft() bool {
 	return false
 }
 
-func (x *PullRequest) GetState() string {
+func (x *PullRequest) GetState() PullRequestState {
 	if x != nil {
 		return x.State
 	}
-	return ""
+	return PullRequestState_PULL_REQUEST_STATE_UNSPECIFIED
 }
 
-func (x *PullRequest) GetCreatedAt() string {
+func (x *PullRequest) GetOpenedAt() string {
 	if x != nil {
-		return x.CreatedAt
+		return x.OpenedAt
 	}
 	return ""
 }
 
-func (x *PullRequest) GetUpdatedAt() string {
+func (x *PullRequest) GetChangedAt() string {
 	if x != nil {
-		return x.UpdatedAt
+		return x.ChangedAt
 	}
 	return ""
 }
@@ -506,9 +580,31 @@ func (x *PullRequest) GetClosedAt() string {
 	return ""
 }
 
+func (x *PullRequest) GetReviewDecision() ReviewDecision {
+	if x != nil {
+		return x.ReviewDecision
+	}
+	return ReviewDecision_REVIEW_DECISION_UNSPECIFIED
+}
+
+func (x *PullRequest) GetChecks() Checks {
+	if x != nil {
+		return x.Checks
+	}
+	return Checks_CHECKS_UNSPECIFIED
+}
+
+func (x *PullRequest) GetMergeability() Mergeability {
+	if x != nil {
+		return x.Mergeability
+	}
+	return Mergeability_MERGEABILITY_UNSPECIFIED
+}
+
 type ListPullRequestsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// One page of pull requests, as the forge orders them.
+	// One page of pull requests, the unfinished ones first and each group newest opened first,
+	// so the first is the one an agent's row on the branch stands for.
 	PullRequests []*PullRequest `protobuf:"bytes,1,rep,name=pull_requests,json=pullRequests,proto3" json:"pull_requests,omitempty"`
 	// The token for the page after this one, unset on the last.
 	NextPageToken *string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3,oneof" json:"next_page_token,omitempty"`
@@ -792,40 +888,43 @@ var File_pullrequest_v1_pullrequest_proto protoreflect.FileDescriptor
 
 const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\n" +
-	" pullrequest/v1/pullrequest.proto\x12\x0epullrequest.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1epagination/v1/pagination.proto\"\xb5\x01\n" +
-	"\x17ListPullRequestsRequest\x12)\n" +
-	"\n" +
-	"remote_url\x18\x01 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\x80\x10R\tremoteUrl\x12 \n" +
-	"\x06branch\x18\x02 \x01(\tB\b\xbaH\x05r\x03\x18\x80\x04R\x06branch\x12>\n" +
+	" pullrequest/v1/pullrequest.proto\x12\x0epullrequest.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1epagination/v1/pagination.proto\"\xc6\x01\n" +
+	"\x17ListPullRequestsRequest\x121\n" +
+	"\x0erepository_url\x18\x01 \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x10R\rrepositoryUrl\x12)\n" +
+	"\vhead_branch\x18\x02 \x01(\tB\b\xbaH\x05r\x03\x18\x80\x04R\n" +
+	"headBranch\x12>\n" +
 	"\n" +
 	"pagination\x18\x03 \x01(\v2\x19.pagination.v1.PaginationH\x00R\n" +
 	"pagination\x88\x01\x01B\r\n" +
-	"\v_pagination\"\x9d\x04\n" +
-	"\vPullRequest\x12\x14\n" +
-	"\x05forge\x18\x01 \x01(\tR\x05forge\x12\x1f\n" +
-	"\vprovider_id\x18\x02 \x01(\tR\n" +
+	"\v_pagination\"\x88\x06\n" +
+	"\vPullRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
+	"\x05forge\x18\x02 \x01(\tR\x05forge\x12\x1f\n" +
+	"\vprovider_id\x18\x03 \x01(\tR\n" +
 	"providerId\x12\x10\n" +
-	"\x03url\x18\x03 \x01(\tR\x03url\x12%\n" +
-	"\x0erepository_url\x18\x04 \x01(\tR\rrepositoryUrl\x12.\n" +
-	"\x13head_repository_url\x18\x05 \x01(\tR\x11headRepositoryUrl\x12\x16\n" +
-	"\x06number\x18\x06 \x01(\x05R\x06number\x12\x14\n" +
-	"\x05title\x18\a \x01(\tR\x05title\x12\x1f\n" +
-	"\vhead_branch\x18\b \x01(\tR\n" +
+	"\x03url\x18\x04 \x01(\tR\x03url\x12%\n" +
+	"\x0erepository_url\x18\x05 \x01(\tR\rrepositoryUrl\x12.\n" +
+	"\x13head_repository_url\x18\x06 \x01(\tR\x11headRepositoryUrl\x12\x16\n" +
+	"\x06number\x18\a \x01(\x05R\x06number\x12\x14\n" +
+	"\x05title\x18\b \x01(\tR\x05title\x12\x1f\n" +
+	"\vhead_branch\x18\t \x01(\tR\n" +
 	"headBranch\x12\x19\n" +
-	"\bhead_sha\x18\t \x01(\tR\aheadSha\x12\x1f\n" +
-	"\vbase_branch\x18\n" +
-	" \x01(\tR\n" +
+	"\bhead_sha\x18\n" +
+	" \x01(\tR\aheadSha\x12\x1f\n" +
+	"\vbase_branch\x18\v \x01(\tR\n" +
 	"baseBranch\x12\x19\n" +
-	"\bbase_sha\x18\v \x01(\tR\abaseSha\x12\x14\n" +
-	"\x05draft\x18\f \x01(\bR\x05draft\x12\x14\n" +
-	"\x05state\x18\r \x01(\tR\x05state\x12\x1d\n" +
+	"\bbase_sha\x18\f \x01(\tR\abaseSha\x12\x14\n" +
+	"\x05draft\x18\r \x01(\bR\x05draft\x126\n" +
+	"\x05state\x18\x0e \x01(\x0e2 .pullrequest.v1.PullRequestStateR\x05state\x12\x1b\n" +
+	"\topened_at\x18\x0f \x01(\tR\bopenedAt\x12\x1d\n" +
 	"\n" +
-	"created_at\x18\x0e \x01(\tR\tcreatedAt\x12\x1d\n" +
-	"\n" +
-	"updated_at\x18\x0f \x01(\tR\tupdatedAt\x12 \n" +
-	"\tmerged_at\x18\x10 \x01(\tH\x00R\bmergedAt\x88\x01\x01\x12 \n" +
-	"\tclosed_at\x18\x11 \x01(\tH\x01R\bclosedAt\x88\x01\x01B\f\n" +
+	"changed_at\x18\x10 \x01(\tR\tchangedAt\x12 \n" +
+	"\tmerged_at\x18\x11 \x01(\tH\x00R\bmergedAt\x88\x01\x01\x12 \n" +
+	"\tclosed_at\x18\x12 \x01(\tH\x01R\bclosedAt\x88\x01\x01\x12G\n" +
+	"\x0freview_decision\x18\x13 \x01(\x0e2\x1e.pullrequest.v1.ReviewDecisionR\x0ereviewDecision\x12.\n" +
+	"\x06checks\x18\x14 \x01(\x0e2\x16.pullrequest.v1.ChecksR\x06checks\x12@\n" +
+	"\fmergeability\x18\x15 \x01(\x0e2\x1c.pullrequest.v1.MergeabilityR\fmergeabilityB\f\n" +
 	"\n" +
 	"_merged_atB\f\n" +
 	"\n" +
@@ -877,16 +976,21 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\x15MERGEABILITY_UNSTABLE\x10\x03\x12\x18\n" +
 	"\x14MERGEABILITY_BLOCKED\x10\x04\x12\x17\n" +
 	"\x13MERGEABILITY_BEHIND\x10\x05\x12\x1c\n" +
-	"\x18MERGEABILITY_CONFLICTING\x10\x06*m\n" +
+	"\x18MERGEABILITY_CONFLICTING\x10\x06*\xad\x01\n" +
+	"\x0eReviewDecision\x12\x1f\n" +
+	"\x1bREVIEW_DECISION_UNSPECIFIED\x10\x00\x12\x18\n" +
+	"\x14REVIEW_DECISION_NONE\x10\x01\x12\x1b\n" +
+	"\x17REVIEW_DECISION_PENDING\x10\x02\x12\x1c\n" +
+	"\x18REVIEW_DECISION_APPROVED\x10\x03\x12%\n" +
+	"!REVIEW_DECISION_CHANGES_REQUESTED\x10\x04*m\n" +
 	"\x06Checks\x12\x16\n" +
 	"\x12CHECKS_UNSPECIFIED\x10\x00\x12\x0f\n" +
 	"\vCHECKS_NONE\x10\x01\x12\x12\n" +
 	"\x0eCHECKS_PENDING\x10\x02\x12\x12\n" +
 	"\x0eCHECKS_PASSING\x10\x03\x12\x12\n" +
-	"\x0eCHECKS_FAILING\x10\x042\x9f\n" +
-	"\n" +
-	"\x12PullRequestService\x12\xd2\x04\n" +
-	"\x10ListPullRequests\x12'.pullrequest.v1.ListPullRequestsRequest\x1a(.pullrequest.v1.ListPullRequestsResponse\"\xea\x03\x9a\xb5\x18\xe2\x03\b\x01\x10\x01\x1a\x12list_pull_requests\"\xc7\x03List a repository's pull requests through the forge connection for its host, a page at a time: every one opened from a branch when one is named, whatever its state, or the open ones when none is. Give the repository as a git remote spells it, and pass the next_page_token back as pagination.cursor for the next page. A repository the connection's credential cannot see is answered as not found, which is also what a repository that does not exist answers.\x90\x02\x01\x12\xb3\x05\n" +
+	"\x0eCHECKS_FAILING\x10\x042\x8e\f\n" +
+	"\x12PullRequestService\x12\xc1\x06\n" +
+	"\x10ListPullRequests\x12'.pullrequest.v1.ListPullRequestsRequest\x1a(.pullrequest.v1.ListPullRequestsResponse\"\xd9\x05\x9a\xb5\x18\xd1\x05\b\x01\x10\x01\x1a\x12list_pull_requests\"\xb6\x05List the pull requests weave has stored for a repository, a page at a time: every one opened from a branch when one is named, whatever its state, or every one stored for the repository when none is. The unfinished ones come first and each group is newest opened first, so the first answered for a branch is the one an agent's row on that branch stands for. Give the repository as a git remote spells it or as its canonical address, and pass the next_page_token back as pagination.cursor for the next page. This reads what the pull request sync has stored rather than asking the forge, so a repository no live agent sits on may be behind or empty; list_forge_pull_requests asks the forge itself.\x90\x02\x01\x12\xb3\x05\n" +
 	"\x15ListAgentPullRequests\x12,.pullrequest.v1.ListAgentPullRequestsRequest\x1a-.pullrequest.v1.ListAgentPullRequestsResponse\"\xbc\x04\x9a\xb5\x18\xb4\x04\b\x01\x10\x01\x1a\x18list_agent_pull_requests\"\x93\x04List the pull requests opened from an agent's branch in its repository, newest opened first, each with where it stands: open, approved, changes requested, draft, merged or closed. The one marked current is what the agent's row in the panel shows. This reads what the pull request sync has stored rather than asking the forge, so repository_read_at says how fresh it is, and an unset repository_read_at means the repository's first sweep has not completed. An agent whose checkout is not on a forge repository answers an empty list.\x90\x02\x01B.Z,weave/proto/gen/pullrequest/v1;pullrequestv1b\x06proto3"
 
 var (
@@ -901,36 +1005,41 @@ func file_pullrequest_v1_pullrequest_proto_rawDescGZIP() []byte {
 	return file_pullrequest_v1_pullrequest_proto_rawDescData
 }
 
-var file_pullrequest_v1_pullrequest_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_pullrequest_v1_pullrequest_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
 var file_pullrequest_v1_pullrequest_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_pullrequest_v1_pullrequest_proto_goTypes = []any{
 	(PullRequestState)(0),                 // 0: pullrequest.v1.PullRequestState
 	(Mergeability)(0),                     // 1: pullrequest.v1.Mergeability
-	(Checks)(0),                           // 2: pullrequest.v1.Checks
-	(*ListPullRequestsRequest)(nil),       // 3: pullrequest.v1.ListPullRequestsRequest
-	(*PullRequest)(nil),                   // 4: pullrequest.v1.PullRequest
-	(*ListPullRequestsResponse)(nil),      // 5: pullrequest.v1.ListPullRequestsResponse
-	(*ListAgentPullRequestsRequest)(nil),  // 6: pullrequest.v1.ListAgentPullRequestsRequest
-	(*AgentPullRequest)(nil),              // 7: pullrequest.v1.AgentPullRequest
-	(*ListAgentPullRequestsResponse)(nil), // 8: pullrequest.v1.ListAgentPullRequestsResponse
-	(*v1.Pagination)(nil),                 // 9: pagination.v1.Pagination
+	(ReviewDecision)(0),                   // 2: pullrequest.v1.ReviewDecision
+	(Checks)(0),                           // 3: pullrequest.v1.Checks
+	(*ListPullRequestsRequest)(nil),       // 4: pullrequest.v1.ListPullRequestsRequest
+	(*PullRequest)(nil),                   // 5: pullrequest.v1.PullRequest
+	(*ListPullRequestsResponse)(nil),      // 6: pullrequest.v1.ListPullRequestsResponse
+	(*ListAgentPullRequestsRequest)(nil),  // 7: pullrequest.v1.ListAgentPullRequestsRequest
+	(*AgentPullRequest)(nil),              // 8: pullrequest.v1.AgentPullRequest
+	(*ListAgentPullRequestsResponse)(nil), // 9: pullrequest.v1.ListAgentPullRequestsResponse
+	(*v1.Pagination)(nil),                 // 10: pagination.v1.Pagination
 }
 var file_pullrequest_v1_pullrequest_proto_depIdxs = []int32{
-	9, // 0: pullrequest.v1.ListPullRequestsRequest.pagination:type_name -> pagination.v1.Pagination
-	4, // 1: pullrequest.v1.ListPullRequestsResponse.pull_requests:type_name -> pullrequest.v1.PullRequest
-	0, // 2: pullrequest.v1.AgentPullRequest.state:type_name -> pullrequest.v1.PullRequestState
-	2, // 3: pullrequest.v1.AgentPullRequest.checks:type_name -> pullrequest.v1.Checks
-	1, // 4: pullrequest.v1.AgentPullRequest.mergeability:type_name -> pullrequest.v1.Mergeability
-	7, // 5: pullrequest.v1.ListAgentPullRequestsResponse.pull_requests:type_name -> pullrequest.v1.AgentPullRequest
-	3, // 6: pullrequest.v1.PullRequestService.ListPullRequests:input_type -> pullrequest.v1.ListPullRequestsRequest
-	6, // 7: pullrequest.v1.PullRequestService.ListAgentPullRequests:input_type -> pullrequest.v1.ListAgentPullRequestsRequest
-	5, // 8: pullrequest.v1.PullRequestService.ListPullRequests:output_type -> pullrequest.v1.ListPullRequestsResponse
-	8, // 9: pullrequest.v1.PullRequestService.ListAgentPullRequests:output_type -> pullrequest.v1.ListAgentPullRequestsResponse
-	8, // [8:10] is the sub-list for method output_type
-	6, // [6:8] is the sub-list for method input_type
-	6, // [6:6] is the sub-list for extension type_name
-	6, // [6:6] is the sub-list for extension extendee
-	0, // [0:6] is the sub-list for field type_name
+	10, // 0: pullrequest.v1.ListPullRequestsRequest.pagination:type_name -> pagination.v1.Pagination
+	0,  // 1: pullrequest.v1.PullRequest.state:type_name -> pullrequest.v1.PullRequestState
+	2,  // 2: pullrequest.v1.PullRequest.review_decision:type_name -> pullrequest.v1.ReviewDecision
+	3,  // 3: pullrequest.v1.PullRequest.checks:type_name -> pullrequest.v1.Checks
+	1,  // 4: pullrequest.v1.PullRequest.mergeability:type_name -> pullrequest.v1.Mergeability
+	5,  // 5: pullrequest.v1.ListPullRequestsResponse.pull_requests:type_name -> pullrequest.v1.PullRequest
+	0,  // 6: pullrequest.v1.AgentPullRequest.state:type_name -> pullrequest.v1.PullRequestState
+	3,  // 7: pullrequest.v1.AgentPullRequest.checks:type_name -> pullrequest.v1.Checks
+	1,  // 8: pullrequest.v1.AgentPullRequest.mergeability:type_name -> pullrequest.v1.Mergeability
+	8,  // 9: pullrequest.v1.ListAgentPullRequestsResponse.pull_requests:type_name -> pullrequest.v1.AgentPullRequest
+	4,  // 10: pullrequest.v1.PullRequestService.ListPullRequests:input_type -> pullrequest.v1.ListPullRequestsRequest
+	7,  // 11: pullrequest.v1.PullRequestService.ListAgentPullRequests:input_type -> pullrequest.v1.ListAgentPullRequestsRequest
+	6,  // 12: pullrequest.v1.PullRequestService.ListPullRequests:output_type -> pullrequest.v1.ListPullRequestsResponse
+	9,  // 13: pullrequest.v1.PullRequestService.ListAgentPullRequests:output_type -> pullrequest.v1.ListAgentPullRequestsResponse
+	12, // [12:14] is the sub-list for method output_type
+	10, // [10:12] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_pullrequest_v1_pullrequest_proto_init() }
@@ -948,7 +1057,7 @@ func file_pullrequest_v1_pullrequest_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pullrequest_v1_pullrequest_proto_rawDesc), len(file_pullrequest_v1_pullrequest_proto_rawDesc)),
-			NumEnums:      3,
+			NumEnums:      4,
 			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   1,

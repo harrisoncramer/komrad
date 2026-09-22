@@ -7,8 +7,8 @@ import (
 	"weave/internal/client"
 	"weave/lib/xhttp"
 	"weave/lib/xslice"
-	pullrequestv1 "weave/proto/gen/pullrequest/v1"
-	"weave/proto/gen/pullrequest/v1/pullrequestv1connect"
+	forgev1 "weave/proto/gen/forge/v1"
+	"weave/proto/gen/forge/v1/forgev1connect"
 
 	"github.com/spf13/cobra"
 )
@@ -56,7 +56,7 @@ without access to a private repository shows up.`,
 					branch = args[1]
 				}
 
-				pullRequests, err := client.ListAllPullRequests(ctx, pullrequestv1connect.NewPullRequestServiceClient(xhttp.NewClient(apiCallTimeout), base), args[0], branch)
+				pullRequests, err := client.ListAllForgePullRequests(ctx, forgev1connect.NewForgeServiceClient(xhttp.NewClient(apiCallTimeout), base), args[0], branch)
 				if err != nil {
 					return err
 				}
@@ -73,12 +73,12 @@ without access to a private repository shows up.`,
 	}
 }
 
-func pullRequestRow(pullRequest *pullrequestv1.PullRequest) []string {
+func pullRequestRow(pullRequest *forgev1.ForgePullRequest) []string {
 	return []string{strconv.FormatInt(int64(pullRequest.GetNumber()), 10), stateOf(pullRequest), pullRequest.GetTitle(), pullRequest.GetUrl()}
 }
 
 // stateOf is the one word for where a pull request stands.
-func stateOf(pullRequest *pullrequestv1.PullRequest) string {
+func stateOf(pullRequest *forgev1.ForgePullRequest) string {
 	switch {
 	case pullRequest.MergedAt != nil:
 		return "merged"

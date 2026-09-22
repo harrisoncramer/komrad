@@ -12,6 +12,7 @@ import (
 	"weave/internal/caller"
 	"weave/internal/fail"
 	"weave/internal/logging"
+	"weave/internal/rpc/render"
 	"weave/internal/rpcerr"
 	"weave/internal/store"
 	"weave/lib/pagination"
@@ -293,6 +294,16 @@ func (s *Handler) GetAgent(ctx context.Context, req *agentv1.GetAgentRequest) (*
 	}
 
 	return &agentv1.GetAgentResponse{Agent: rendered}, nil
+}
+
+// ListMarks is every mark, by letter.
+func (s *Handler) ListMarks(ctx context.Context, _ *emptypb.Empty) (*agentv1.ListMarksResponse, *fail.Error) {
+	marks, err := s.marks.ListMarks(ctx)
+	if err != nil {
+		return nil, rpcerr.From(err, "failed to list the marks")
+	}
+
+	return &agentv1.ListMarksResponse{Marks: xslice.Map(marks, render.Mark)}, nil
 }
 
 // SetMark puts a letter on an agent or a workflow, taking it off whichever row held it, and

@@ -9,61 +9,68 @@ import "pagination/v1/pagination.proto";
 option go_package = "weave/proto/gen/pullrequest/v1;pullrequestv1";
 
 message ListPullRequestsRequest {
-  // The repository as a git remote spells it, such as git@github.com:owner/repo.git or
-  // https://github.com/owner/repo, whose host picks the forge connection.
-  string remote_url = 1 [(buf.validate.field).string = {
+  // The repository the pull requests target, as a git remote spells it or as the canonical
+  // address weave stores.
+  string repository_url = 1 [(buf.validate.field).string = {
     min_len: 1
     max_len: 2048
   }];
-  // The branch the pull requests were opened from, listed whatever their state; left empty,
-  // the repository's open pull requests are listed instead.
-  string branch = 2 [(buf.validate.field).string = {max_len: 512}];
-  // Which page to read and how many to a page, twenty when unset and at most a hundred, which
-  // is what the forge will hand over in one call.
+  // The branch the pull requests were opened from; left empty, every pull request stored for
+  // the repository is listed.
+  string head_branch = 2 [(buf.validate.field).string = {max_len: 512}];
+  // Which page to read and how many to a page, twenty when unset and at most a hundred.
   optional pagination.v1.Pagination pagination = 3;
 }
 
 message PullRequest {
+  // The handle weave keys the row by.
+  string id = 1;
   // Which forge it lives on, such as github.
-  string forge = 1;
+  string forge = 2;
   // The forge's own stable identifier, such as GitHub's node_id.
-  string provider_id = 2;
+  string provider_id = 3;
   // The web address a person opens.
-  string url = 3;
+  string url = 4;
   // The canonical address of the repository it targets.
-  string repository_url = 4;
+  string repository_url = 5;
   // The canonical address of the repository its branch lives in, empty when the forge no
   // longer has it.
-  string head_repository_url = 5;
+  string head_repository_url = 6;
   // The number the forge shows a person, which is per repository.
-  int32 number = 6;
+  int32 number = 7;
   // The title as the forge has it.
-  string title = 7;
+  string title = 8;
   // The branch the pull request was opened from.
-  string head_branch = 8;
+  string head_branch = 9;
   // The commit at the tip of that branch when last read.
-  string head_sha = 9;
+  string head_sha = 10;
   // The branch it targets.
-  string base_branch = 10;
+  string base_branch = 11;
   // The commit the target branch was at when last read.
-  string base_sha = 11;
+  string base_sha = 12;
   // Whether the forge marks it a draft.
-  bool draft = 12;
-  // Where the forge says it stands, as OPEN, CLOSED or MERGED; read merged_at and closed_at for
-  // whether it is finished.
-  string state = 13;
+  bool draft = 13;
+  // Where it stands, decided from the stored row.
+  PullRequestState state = 14;
   // When it was opened on the forge, in RFC 3339.
-  string created_at = 14;
+  string opened_at = 15;
   // When the forge last saw it change, in RFC 3339.
-  string updated_at = 15;
+  string changed_at = 16;
   // When it merged, in RFC 3339, unset while it has not.
-  optional string merged_at = 16;
+  optional string merged_at = 17;
   // When it closed, in RFC 3339, unset while it is open; a merged one carries this too.
-  optional string closed_at = 17;
+  optional string closed_at = 18;
+  // Where the forge says the reviews stand.
+  ReviewDecision review_decision = 19;
+  // Where the checks on its head stand.
+  Checks checks = 20;
+  // Where the forge says it stands against its base and rules.
+  Mergeability mergeability = 21;
 }
 
 message ListPullRequestsResponse {
-  // One page of pull requests, as the forge orders them.
+  // One page of pull requests, the unfinished ones first and each group newest opened first,
+  // so the first is the one an agent's row on the branch stands for.
   repeated PullRequest pull_requests = 1;
   // The token for the page after this one, unset on the last.
   optional string next_page_token = 2;
@@ -120,6 +127,20 @@ enum Mergeability {
   MERGEABILITY_CONFLICTING = 6;
 }
 
+// ReviewDecision is where a forge says a pull request's reviews stand.
+enum ReviewDecision {
+  // The reviews have not been read.
+  REVIEW_DECISION_UNSPECIFIED = 0;
+  // The forge has said nothing about the reviews.
+  REVIEW_DECISION_NONE = 1;
+  // A review the forge requires that nobody has given.
+  REVIEW_DECISION_PENDING = 2;
+  // The forge counts the pull request as approved.
+  REVIEW_DECISION_APPROVED = 3;
+  // A reviewer is asking for changes.
+  REVIEW_DECISION_CHANGES_REQUESTED = 4;
+}
+
 // Checks is where the checks on a pull request's head commit stand, as the forge last reported
 // them.
 enum Checks {
@@ -173,7 +194,7 @@ message ListAgentPullRequestsResponse {
   optional string repository_read_at = 2;
 }
 
-// PullRequestService reads pull requests through the forge connections weave holds.
+// PullRequestService reads the pull requests weave has stored from its forges.
 service PullRequestService {
   rpc ListPullRequests(ListPullRequestsRequest) returns (ListPullRequestsResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
@@ -181,7 +202,7 @@ service PullRequestService {
       cli: true
       mcp: true
       name: "list_pull_requests"
-      description: "List a repository's pull requests through the forge connection for its host, a page at a time: every one opened from a branch when one is named, whatever its state, or the open ones when none is. Give the repository as a git remote spells it, and pass the next_page_token back as pagination.cursor for the next page. A repository the connection's credential cannot see is answered as not found, which is also what a repository that does not exist answers."
+      description: "List the pull requests weave has stored for a repository, a page at a time: every one opened from a branch when one is named, whatever its state, or every one stored for the repository when none is. The unfinished ones come first and each group is newest opened first, so the first answered for a branch is the one an agent's row on that branch stands for. Give the repository as a git remote spells it or as its canonical address, and pass the next_page_token back as pagination.cursor for the next page. This reads what the pull request sync has stored rather than asking the forge, so a repository no live agent sits on may be behind or empty; list_forge_pull_requests asks the forge itself."
     };
   }
   rpc ListAgentPullRequests(ListAgentPullRequestsRequest) returns (ListAgentPullRequestsResponse) {

@@ -714,6 +714,35 @@ func TestSetMark(t *testing.T) {
 	})
 }
 
+// TestListMarks covers the listing: every letter, by letter, each naming the one row it jumps
+// to.
+func TestListMarks(t *testing.T) {
+	svc, st := service(t)
+	ctx := t.Context()
+	held := st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateThinking})
+
+	_, err := svc.SetMark(ctx, connect.NewRequest(&agentv1.SetMarkRequest{
+		Target: &agentv1.SetMarkRequest_WorkflowId{WorkflowId: held.WorkflowID},
+		Mark:   xptr.Ptr("b"),
+	}))
+	require.NoError(t, err)
+	_, err = svc.SetMark(ctx, connect.NewRequest(&agentv1.SetMarkRequest{
+		Target: &agentv1.SetMarkRequest_AgentId{AgentId: held.ID},
+		Mark:   xptr.Ptr("a"),
+	}))
+	require.NoError(t, err)
+
+	listed, err := svc.ListMarks(ctx, connect.NewRequest(&emptypb.Empty{}))
+	require.NoError(t, err)
+	require.Len(t, listed.Msg.GetMarks(), 2)
+	assert.Equal(t, "a", listed.Msg.GetMarks()[0].GetMark())
+	assert.Equal(t, held.ID, listed.Msg.GetMarks()[0].GetAgentId())
+	assert.Nil(t, listed.Msg.GetMarks()[0].WorkflowId)
+	assert.Equal(t, "b", listed.Msg.GetMarks()[1].GetMark())
+	assert.Equal(t, held.WorkflowID, listed.Msg.GetMarks()[1].GetWorkflowId())
+	assert.Nil(t, listed.Msg.GetMarks()[1].AgentId)
+}
+
 // TestSetMetadata covers an agent recording a fact about its own work and reading it back off the
 // resource.
 func TestSetMetadata(t *testing.T) {

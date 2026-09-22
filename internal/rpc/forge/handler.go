@@ -1,4 +1,5 @@
-// Package forge serves the connections weave holds to the services pull requests live on.
+// Package forge serves the connections weave holds to the services pull requests live on, and
+// reads pull requests through them.
 package forge
 
 import (
@@ -16,7 +17,8 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// connector is what the handler asks of the forge service.
+// connector is what the handler asks of the forge service: the connections, and the forge to
+// speak to as one of them.
 type connector interface {
 	Connect(ctx context.Context, params forge.ConnectParams) (*forgestore.Connection, error)
 	List(ctx context.Context) ([]forgestore.Connection, error)
@@ -24,6 +26,8 @@ type connector interface {
 	Check(ctx context.Context, connection forgestore.Connection) (string, error)
 	HasCredential(ctx context.Context, connection forgestore.Connection) (bool, error)
 	SetVerifiedAt(ctx context.Context, id string, at *time.Time) error
+	ConnectionFor(ctx context.Context, host string) (*forgestore.Connection, error)
+	ForConnection(connection forgestore.Connection) (forge.Forge, error)
 }
 
 type Handler struct {
