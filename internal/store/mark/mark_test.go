@@ -16,7 +16,6 @@ import (
 
 type fixture struct {
 	*MarkStore
-	url       string
 	agents    *agentstore.AgentStore
 	workflows *workflowstore.WorkflowStore
 	workflow  string
@@ -25,8 +24,7 @@ type fixture struct {
 func open(t *testing.T) *fixture {
 	t.Helper()
 
-	url := dbtest.URL(t)
-	pool, err := store.Open(t.Context(), url)
+	pool, err := store.Open(t.Context(), dbtest.URL(t))
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = pool.Close() })
 
@@ -36,7 +34,6 @@ func open(t *testing.T) *fixture {
 
 	return &fixture{
 		MarkStore: NewMarkStore(pool.GetDB()),
-		url:       url,
 		agents:    agentstore.NewAgentStore(pool.GetDB()),
 		workflows: workflows,
 		workflow:  created.ID,

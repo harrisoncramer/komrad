@@ -182,21 +182,6 @@ func (p *Pool) InTx(ctx context.Context, fn func(DBTX) error) error {
 	return nil
 }
 
-// Notify raises the watch notification for each key of a table, the way the table's trigger
-// would.
-func Notify(ctx context.Context, conn DBTX, table string, keys ...string) error {
-	if len(keys) == 0 {
-		return nil
-	}
-
-	err := models.New(conn).NotifyWatch(ctx, models.NotifyWatchParams{Channel: db.WatchChannel, TableName: table, Keys: keys})
-	if err != nil {
-		return fmt.Errorf("failed to notify the watch of %d %s rows: %w", len(keys), table, err)
-	}
-
-	return nil
-}
-
 // IsID reports whether a string could be one of the ids these stores hand out.
 func IsID(id string) bool {
 	_, err := uuid.Parse(id)

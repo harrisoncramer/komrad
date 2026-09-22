@@ -151,11 +151,9 @@ WHERE
 ORDER BY
     m.id;
 
--- name: DeleteMailByID :many
+-- name: DeleteMailByID :exec
 DELETE FROM mail
-WHERE id = ANY (@ids::uuid[])
-RETURNING
-    to_agent_id;
+WHERE id = ANY (@ids::uuid[]);
 
 -- name: ListMailboxesWithPendingMail :many
 SELECT DISTINCT

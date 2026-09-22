@@ -144,12 +144,11 @@ type Observation struct {
 // PullRequestStore reads and writes pull requests and their observations.
 type PullRequestStore struct {
 	queries *models.Queries
-	db      store.DBTX
 }
 
 // NewPullRequestStore builds a pull request store over a pool or transaction.
 func NewPullRequestStore(db store.DBTX) *PullRequestStore {
-	return &PullRequestStore{queries: models.New(db), db: db}
+	return &PullRequestStore{queries: models.New(db)}
 }
 
 // Upsert writes a pull request on its identity, leaving a row whose forge-owned columns already
@@ -179,25 +178,11 @@ func (s *PullRequestStore) Upsert(ctx context.Context, params UpsertParams) (*Ou
 		return nil, fmt.Errorf("failed to write pull request %s on %s: %w", params.ProviderID, params.Host, err)
 	}
 
-	if err := s.notifyPullRequest(ctx, row.ID); err != nil {
-		return nil, err
-	}
-
 	return &Outcome{
 		ID:       row.ID,
 		Inserted: row.Inserted,
 		Changed:  row.Changed,
 	}, nil
-}
-
-// notifyPullRequest says every live agent on the pull request's branch may look different now.
-func (s *PullRequestStore) notifyPullRequest(ctx context.Context, id string) error {
-	ids, err := s.queries.ListLiveAgentsOfPullRequest(ctx, id)
-	if err != nil {
-		return fmt.Errorf("failed to list the agents on pull request %q: %w", id, err)
-	}
-
-	return store.Notify(ctx, s.db, store.TableAgents, ids...)
 }
 
 // GetByIdentity is the pull request a forge host knows by an identifier, or ErrNotFound.
@@ -333,7 +318,7 @@ func (s *PullRequestStore) SetStanding(ctx context.Context, id string, standing 
 		return fmt.Errorf("failed to record the standing of pull request %s: %w", id, err)
 	}
 
-	return s.notifyPullRequest(ctx, id)
+	return nil
 }
 
 // Observe records every live agent beside every stored pull request opened from its branch in

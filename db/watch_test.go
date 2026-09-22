@@ -209,3 +209,99 @@ func TestOneTransactionRaisesOnceForOneRow(t *testing.T) {
 	assert.Equal(t, "agents "+w.agent, w.notifications.Next(t))
 	assert.Equal(t, "schedules "+w.schedule, w.notifications.Next(t))
 }
+
+// TestARowWithItsOwnKeyAlsoRaisesItsParents pins the tables that are resources of their own
+// and, while the composite agent and workflow rows carry them, projections too: a mark, a piece
+// of mail and a pull request each raise their own key and then the parent rows they are drawn
+// on, and a repository sync raises the live agents in the repository.
+func TestARowWithItsOwnKeyAlsoRaisesItsParents(t *testing.T) {
+	t.Parallel()
+
+	w := openWatched(t)
+	mail := uuid.NewString()
+	pullRequest := uuid.NewString()
+	w.exec(t, `UPDATE agents SET repository_url = 'https://github.com/o/r', branch = 'agent/x' WHERE id = $1`, w.agent)
+	assert.Equal(t, "agents "+w.agent, w.notifications.Next(t))
+
+	tests := []struct {
+		name  string
+		write string
+		args  []any
+		want  []string
+	}{
+		{
+			name:  "a mark on an agent",
+			write: `INSERT INTO marks (mark, agent_id) VALUES ('a', $1)`,
+			args:  []any{w.agent},
+			want:  []string{"marks a", "agents " + w.agent},
+		},
+		{
+			name:  "a mark on a workflow",
+			write: `INSERT INTO marks (mark, workflow_id) VALUES ('b', $1)`,
+			args:  []any{w.workflow},
+			want:  []string{"marks b", "workflows " + w.workflow},
+		},
+		{
+			name:  "a mark cleared",
+			write: `DELETE FROM marks WHERE mark = 'a'`,
+			want:  []string{"marks a", "agents " + w.agent},
+		},
+		{
+			name:  "mail sent",
+			write: `INSERT INTO mail (id, from_name, to_agent_id, body, kind, expires_at) VALUES ($1, 'weave', $2, 'hello', 'plain', now() + interval '1 hour')`,
+			args:  []any{mail, w.agent},
+			want:  []string{"mail " + mail, "agents " + w.agent},
+		},
+		{
+			name:  "mail claimed",
+			write: `UPDATE mail SET claimed_at = now() WHERE id = $1`,
+			args:  []any{mail},
+			want:  []string{"mail " + mail, "agents " + w.agent},
+		},
+		{
+			name: "a pull request on a live agent's branch",
+			write: `INSERT INTO pull_requests (id, host, forge, provider_id, url, repository_url, head_repository_url, number, title, head_branch, head_sha, base_branch, base_sha, draft, state, opened_at, changed_at)
+				VALUES ($1, 'github.com', 'github', 'PR_1', 'https://github.com/o/r/pull/1', 'https://github.com/o/r', 'https://github.com/o/r', 1, 'one', 'agent/x', 'abc', 'main', 'def', false, 'OPEN', now(), now())`,
+			args: []any{pullRequest},
+			want: []string{"pull_requests " + pullRequest, "agents " + w.agent},
+		},
+		{
+			name:  "a repository sync moving its high-water mark",
+			write: `INSERT INTO pull_request_syncs (repository_url, updated_through) VALUES ('https://github.com/o/r', now())`,
+			want:  []string{"agents " + w.agent},
+		},
+	}
+
+	for _, tt := range tests {
+		w.exec(t, tt.write, tt.args...)
+		for _, want := range tt.want {
+			assert.Equal(t, want, w.notifications.Next(t), tt.name)
+		}
+	}
+}
+
+// TestAResourceStampAloneRaisesNothing pins the ignored columns on the tables added here: a
+// mail's report stamp, a pull request's check read stamp and a sync's request stamps move no
+// row.
+func TestAResourceStampAloneRaisesNothing(t *testing.T) {
+	t.Parallel()
+
+	w := openWatched(t)
+	mail := uuid.NewString()
+	pullRequest := uuid.NewString()
+	w.exec(t, `UPDATE agents SET repository_url = 'https://github.com/o/r', branch = 'agent/x' WHERE id = $1`, w.agent)
+	w.exec(t, `INSERT INTO mail (id, from_name, to_agent_id, body, kind, expires_at) VALUES ($1, 'weave', $2, 'hello', 'plain', now())`, mail, w.agent)
+	w.exec(t, `INSERT INTO pull_requests (id, host, forge, provider_id, url, repository_url, head_repository_url, number, title, head_branch, head_sha, base_branch, base_sha, draft, state, opened_at, changed_at)
+		VALUES ($1, 'github.com', 'github', 'PR_1', 'https://github.com/o/r/pull/1', 'https://github.com/o/r', 'https://github.com/o/r', 1, 'one', 'agent/x', 'abc', 'main', 'def', false, 'OPEN', now(), now())`, pullRequest)
+	w.exec(t, `INSERT INTO pull_request_syncs (repository_url) VALUES ('https://github.com/o/r')`)
+	for range 6 {
+		w.notifications.Next(t)
+	}
+
+	w.exec(t, `UPDATE mail SET reported_at = now(), updated_at = now() WHERE id = $1`, mail)
+	w.exec(t, `UPDATE pull_requests SET checks_read_at = now() WHERE id = $1`, pullRequest)
+	w.exec(t, `UPDATE pull_request_syncs SET read_at = now(), calls = calls + 1, listed_at = now(), sweep_cursor = '', sweep_newest = now() WHERE repository_url = 'https://github.com/o/r'`)
+	w.exec(t, `UPDATE schedules SET prompt = 'go' WHERE id = $1`, w.schedule)
+
+	assert.Equal(t, "schedules "+w.schedule, w.notifications.Next(t))
+}

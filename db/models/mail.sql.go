@@ -120,31 +120,14 @@ func (q *Queries) CountPendingMail(ctx context.Context, toAgentID string) (int64
 	return count, err
 }
 
-const deleteMailByID = `-- name: DeleteMailByID :many
+const deleteMailByID = `-- name: DeleteMailByID :exec
 DELETE FROM mail
 WHERE id = ANY ($1::uuid[])
-RETURNING
-    to_agent_id
 `
 
-func (q *Queries) DeleteMailByID(ctx context.Context, ids []string) ([]string, error) {
-	rows, err := q.db.Query(ctx, deleteMailByID, ids)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []string
-	for rows.Next() {
-		var to_agent_id string
-		if err := rows.Scan(&to_agent_id); err != nil {
-			return nil, err
-		}
-		items = append(items, to_agent_id)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+func (q *Queries) DeleteMailByID(ctx context.Context, ids []string) error {
+	_, err := q.db.Exec(ctx, deleteMailByID, ids)
+	return err
 }
 
 const getMail = `-- name: GetMail :one

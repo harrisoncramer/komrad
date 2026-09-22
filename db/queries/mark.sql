@@ -16,7 +16,7 @@ WHERE
 ORDER BY
     mark;
 
--- name: ClearMarkConflicts :many
+-- name: ClearMarkConflicts :exec
 WITH target AS (
     SELECT
         sqlc.narg(agent_id)::uuid AS agent_id,
@@ -51,10 +51,7 @@ WHERE EXISTS (
         FROM live)
 AND (marks.mark = @mark
     OR marks.agent_id = target.agent_id
-    OR marks.workflow_id = target.workflow_id)
-RETURNING
-    marks.agent_id,
-    marks.workflow_id;
+    OR marks.workflow_id = target.workflow_id);
 
 -- name: DeleteMarkForTarget :execrows
 DELETE FROM marks

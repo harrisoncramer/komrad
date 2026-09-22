@@ -20,12 +20,11 @@ type Mark struct {
 
 type MarkStore struct {
 	queries *models.Queries
-	db      store.DBTX
 }
 
 // NewMarkStore builds a mark store over a pool or transaction.
 func NewMarkStore(db store.DBTX) *MarkStore {
-	return &MarkStore{queries: models.New(db), db: db}
+	return &MarkStore{queries: models.New(db)}
 }
 
 // List reads every mark, by letter.
@@ -62,7 +61,7 @@ func fromRow(row *models.Mark) Mark {
 
 // ClearConflicts frees the letter and whatever the row already answered to.
 func (s *MarkStore) ClearConflicts(ctx context.Context, mark string, target Target) error {
-	freed, err := s.queries.ClearMarkConflicts(ctx, models.ClearMarkConflictsParams{
+	err := s.queries.ClearMarkConflicts(ctx, models.ClearMarkConflictsParams{
 		Mark:       mark,
 		AgentID:    target.AgentID,
 		WorkflowID: target.WorkflowID,
@@ -71,25 +70,7 @@ func (s *MarkStore) ClearConflicts(ctx context.Context, mark string, target Targ
 		return fmt.Errorf("failed to clear mark %q: %w", mark, err)
 	}
 
-	for _, row := range freed {
-		if err := s.notify(ctx, Target{AgentID: row.AgentID, WorkflowID: row.WorkflowID}); err != nil {
-			return err
-		}
-	}
-
 	return nil
-}
-
-// notify says the row a target names moved.
-func (s *MarkStore) notify(ctx context.Context, target Target) error {
-	switch {
-	case target.AgentID != nil:
-		return store.Notify(ctx, s.db, store.TableAgents, *target.AgentID)
-	case target.WorkflowID != nil:
-		return store.Notify(ctx, s.db, store.TableWorkflows, *target.WorkflowID)
-	default:
-		return nil
-	}
 }
 
 // Clear takes whatever letter a row answers to off it, and reports whether it held one.
@@ -100,10 +81,6 @@ func (s *MarkStore) Clear(ctx context.Context, target Target) (bool, error) {
 	})
 	if err != nil {
 		return false, fmt.Errorf("failed to clear the mark on %s: %w", target, err)
-	}
-
-	if err := s.notify(ctx, target); err != nil {
-		return false, err
 	}
 
 	return cleared > 0, nil
@@ -122,10 +99,6 @@ func (s *MarkStore) Set(ctx context.Context, mark string, target Target) (bool, 
 	}
 	if err != nil {
 		return false, fmt.Errorf("failed to put mark %q on %s: %w", mark, target, err)
-	}
-
-	if err := s.notify(ctx, target); err != nil {
-		return false, err
 	}
 
 	return marked > 0, nil
