@@ -11,9 +11,7 @@ import (
 	"weave/internal/fail"
 	"weave/internal/logging"
 	"weave/internal/store"
-	agentv1 "weave/proto/gen/agent/v1"
-	schedulev1 "weave/proto/gen/schedule/v1"
-	workflowv1 "weave/proto/gen/workflow/v1"
+	watchv1 "weave/proto/gen/watch/v1"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -46,6 +44,17 @@ const (
 	KindPullRequest
 )
 
+// String is the table the kind is the rows of.
+func (k Kind) String() string {
+	for table, kind := range kinds {
+		if kind == k {
+			return table
+		}
+	}
+
+	return "unknown"
+}
+
 // kinds is the listing each table a notification names belongs to.
 var kinds = map[string]Kind{
 	store.TableAgents:       KindAgent,
@@ -56,37 +65,24 @@ var kinds = map[string]Kind{
 	store.TablePullRequests: KindPullRequest,
 }
 
-// Touched is the ids one render reads back, by kind.
-type Touched struct {
-	Agents    []string
-	Workflows []string
-	Schedules []string
-}
+// Touched is the keys one render reads back, by kind, each kind's in order.
+type Touched map[Kind][]string
 
 // Event is one row as a watcher should now hold it, or a tombstone for one it should drop.
 type Event struct {
 	Kind Kind
-	ID   string
-	// Agent, Workflow and Schedule carry the row, and all three nil is a tombstone.
-	Agent    *agentv1.Agent
-	Workflow *workflowv1.Workflow
-	Schedule *schedulev1.Schedule
-}
-
-// Snapshot is every row the three listings hold.
-type Snapshot struct {
-	Agents    []*agentv1.Agent
-	Workflows []*workflowv1.Workflow
-	Schedules []*schedulev1.Schedule
+	Key  string
+	// Row carries the row, and nil is a tombstone.
+	Row *watchv1.Row
 }
 
 // Reader reads the rows a render names back, and every row for a snapshot.
 type Reader interface {
-	// Read renders each touched id as its row, or as a tombstone when its listing no longer
-	// holds it.
+	// Read renders each touched key as its row, or as a tombstone when its watched set no
+	// longer holds it.
 	Read(ctx context.Context, touched Touched) ([]Event, error)
-	// Snapshot renders every row the listings hold.
-	Snapshot(ctx context.Context) (Snapshot, error)
+	// Snapshot renders every row the watched sets hold.
+	Snapshot(ctx context.Context) ([]*watchv1.Row, error)
 }
 
 // NewBrokerParams is what a broker is built over.
@@ -178,15 +174,20 @@ func (b *Broker) serve(reader Reader) {
 	}()
 }
 
-// touch says the rows of a listing with these ids may have moved.
-func (b *Broker) touch(table string, ids ...string) {
+// touch says the rows of a table with these keys may have moved.
+func (b *Broker) touch(table string, keys ...string) {
 	kind, ok := kinds[table]
 	if !ok {
-		b.logger.LogAttrs(context.Background(), slog.LevelWarn, "a notification named a table no listing is keyed by", slog.String(logging.WatchTable, table))
+		b.logger.LogAttrs(context.Background(), slog.LevelWarn, "a notification named a table no resource is a row of", slog.String(logging.WatchTable, table))
 
 		return
 	}
-	if len(ids) == 0 {
+
+	b.touchKind(kind, keys)
+}
+
+func (b *Broker) touchKind(kind Kind, keys []string) {
+	if len(keys) == 0 {
 		return
 	}
 
@@ -202,8 +203,8 @@ func (b *Broker) touch(table string, ids ...string) {
 		touched = map[string]struct{}{}
 		b.pending[kind] = touched
 	}
-	for _, id := range ids {
-		touched[id] = struct{}{}
+	for _, key := range keys {
+		touched[key] = struct{}{}
 	}
 
 	// Poke the loop unless it has an unread poke.
@@ -248,26 +249,25 @@ func (b *Broker) render() bool {
 	return true
 }
 
-// take empties the touched set and returns it with each kind's ids in order.
+// take empties the pending set and returns it with each kind's keys in order.
 func (b *Broker) take() Touched {
 	b.pendingMu.Lock()
 	defer b.pendingMu.Unlock()
 
-	touched := Touched{
-		Agents:    slices.Sorted(maps.Keys(b.pending[KindAgent])),
-		Workflows: slices.Sorted(maps.Keys(b.pending[KindWorkflow])),
-		Schedules: slices.Sorted(maps.Keys(b.pending[KindSchedule])),
+	touched := Touched{}
+	for kind, keys := range b.pending {
+		touched[kind] = slices.Sorted(maps.Keys(keys))
 	}
 	clear(b.pending)
 
 	return touched
 }
 
-// restore puts the ids a failed render took back for the next one.
+// restore puts the keys a failed render took back for the next one.
 func (b *Broker) restore(touched Touched) {
-	b.touch(store.TableAgents, touched.Agents...)
-	b.touch(store.TableWorkflows, touched.Workflows...)
-	b.touch(store.TableSchedules, touched.Schedules...)
+	for kind, keys := range touched {
+		b.touchKind(kind, keys)
+	}
 }
 
 // Subscribe opens a subscription that starts with a snapshot of every row, then every change
@@ -350,11 +350,11 @@ func (b *Broker) Close() {
 type Subscription struct {
 	broker   *Broker
 	events   chan Event
-	snapshot Snapshot
+	snapshot []*watchv1.Row
 }
 
-// Snapshot is every row the listings held as the subscription opened.
-func (s *Subscription) Snapshot() Snapshot {
+// Snapshot is every row the watched sets held as the subscription opened.
+func (s *Subscription) Snapshot() []*watchv1.Row {
 	return s.snapshot
 }
 

@@ -3,17 +3,12 @@ package watch
 import (
 	"context"
 	"errors"
-	"slices"
 	"time"
 
 	"weave/internal/fail"
 	"weave/internal/rpcerr"
 	"weave/internal/watch"
-	"weave/lib/xslice"
-	agentv1 "weave/proto/gen/agent/v1"
-	schedulev1 "weave/proto/gen/schedule/v1"
 	watchv1 "weave/proto/gen/watch/v1"
-	workflowv1 "weave/proto/gen/workflow/v1"
 
 	"connectrpc.com/connect"
 )
@@ -93,38 +88,17 @@ func (h *Handler) Watch(ctx context.Context, _ *watchv1.WatchRequest, stream *co
 }
 
 // renderSnapshot is the snapshot as the wire carries it.
-func renderSnapshot(snapshot watch.Snapshot) *watchv1.WatchEvent {
-	rows := slices.Concat(
-		xslice.Map(snapshot.Agents, func(agent *agentv1.Agent) *watchv1.Row {
-			return &watchv1.Row{Row: &watchv1.Row_Agent{Agent: agent}}
-		}),
-		xslice.Map(snapshot.Workflows, func(workflow *workflowv1.Workflow) *watchv1.Row {
-			return &watchv1.Row{Row: &watchv1.Row_Workflow{Workflow: workflow}}
-		}),
-		xslice.Map(snapshot.Schedules, func(schedule *schedulev1.Schedule) *watchv1.Row {
-			return &watchv1.Row{Row: &watchv1.Row_Schedule{Schedule: schedule}}
-		}),
-	)
-
+func renderSnapshot(rows []*watchv1.Row) *watchv1.WatchEvent {
 	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Snapshot{Snapshot: &watchv1.Snapshot{Rows: rows}}}
 }
 
 // renderEvent is one event as the wire carries it.
 func renderEvent(event watch.Event) *watchv1.WatchEvent {
-	rendered := &watchv1.WatchEvent{}
-
-	switch {
-	case event.Agent != nil:
-		rendered.Event = &watchv1.WatchEvent_Put{Put: &watchv1.Row{Row: &watchv1.Row_Agent{Agent: event.Agent}}}
-	case event.Workflow != nil:
-		rendered.Event = &watchv1.WatchEvent_Put{Put: &watchv1.Row{Row: &watchv1.Row_Workflow{Workflow: event.Workflow}}}
-	case event.Schedule != nil:
-		rendered.Event = &watchv1.WatchEvent_Put{Put: &watchv1.Row{Row: &watchv1.Row_Schedule{Schedule: event.Schedule}}}
-	default:
-		rendered.Event = &watchv1.WatchEvent_Deleted{Deleted: &watchv1.Deleted{Resource: renderResource(event.Kind), Key: event.ID}}
+	if event.Row == nil {
+		return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Deleted{Deleted: &watchv1.Deleted{Resource: renderResource(event.Kind), Key: event.Key}}}
 	}
 
-	return rendered
+	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Put{Put: event.Row}}
 }
 
 // renderResource is a kind as the wire carries it.
