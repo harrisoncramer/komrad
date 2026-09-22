@@ -62,7 +62,7 @@ func TestTheWatchAndTheStoresAgree(t *testing.T) {
 	// Agents on a branch with pull requests, on the base branch, on a read repository with no
 	// pull request, off any forge, and one archived and so out of the live set.
 	api := agentOn(t, st, pipeline.ID, "api", watchedRepository, "agent/api")
-	agentOn(t, st, pipeline.ID, "base", watchedRepository, "main")
+	base := agentOn(t, st, pipeline.ID, "base", watchedRepository, "main")
 	quiet := agentOn(t, st, docs.ID, "quiet", watchedRepository, "agent/quiet")
 	st.SeedAgent(t, agentstore.Agent{Name: "local", WorkflowID: docs.ID})
 	gone := st.SeedAgent(t, agentstore.Agent{Name: "gone", WorkflowID: docs.ID})
@@ -87,7 +87,7 @@ func TestTheWatchAndTheStoresAgree(t *testing.T) {
 	require.NoError(t, err)
 
 	// The repository has been swept, with two pull requests on api's branch, the older one
-	// merged, and one on a branch no live agent is on.
+	// merged, one on a branch no live agent is on, and one on the base branch itself.
 	require.NoError(t, st.PullRequestSyncs.EnsureSync(ctx, watchedRepository))
 	require.NoError(t, st.PullRequestSyncs.StartSweep(ctx, pullrequeststore.StartSweepParams{
 		RepositoryURL: watchedRepository,
@@ -98,6 +98,21 @@ func TestTheWatchAndTheStoresAgree(t *testing.T) {
 	openPR := upsertPullRequest(t, st, 2, "agent/api", nil)
 	upsertPullRequest(t, st, 1, "agent/api", xptr.Ptr(time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC)))
 	upsertPullRequest(t, st, 3, "agent/nobody", nil)
+	upsertPullRequest(t, st, 4, "main", nil)
+
+	// The stores draw the fixture, so agreement below is over rows that hold something.
+	seeded := viewOf(worldFromStores(t, st), time.Now())
+	require.Equal(t, "a", seeded.agents[api.ID].GetMark())
+	require.True(t, seeded.agents[api.ID].GetUnreadMail())
+	require.Len(t, seeded.agents[api.ID].GetPullRequests(), 2)
+	require.Equal(t, int32(2), seeded.agents[api.ID].GetPullRequest().GetNumber(), "the open pull request is current")
+	require.Equal(t, "ticket", seeded.agents[api.ID].GetAgent().GetMetadata()[0].GetKey())
+	require.Empty(t, seeded.agents[base.ID].GetPullRequests(), "a pull request on the base branch is nobody's")
+	require.False(t, seeded.agents[quiet.ID].GetUnreadMail())
+	require.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE, seeded.agents[quiet.ID].GetPullRequest().GetState())
+	require.Equal(t, "d", seeded.marks[docs.ID])
+	require.NotContains(t, seeded.agents, gone.ID)
+	require.Len(t, seeded.schedules, 1)
 
 	// The stream opens with the snapshot, applied the way the panel applies it.
 	batches := openWatch(t, instance)
