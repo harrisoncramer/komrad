@@ -54,11 +54,6 @@ func (m *model) applyWatch(batch client.WatchBatch) tea.Cmd {
 	return tea.Batch(listed, m.listArrivedPullRequestsCmd(arrived))
 }
 
-// put is the event that carries one row.
-func put(row *watchv1.Row) *watchv1.WatchEvent {
-	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Put{Put: row}}
-}
-
 // applyWatchLost says the server is gone until the next stream's snapshot says otherwise.
 func (m *model) applyWatchLost(msg watchLostMsg) {
 	err := msg.err

@@ -598,10 +598,10 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 func (m *model) landOn(row written) tea.Cmd {
 	var arrived []string
 	if row.workflow != nil && m.listing.world.Workflows[row.workflow.GetId()] == nil {
-		m.listing.world.Apply(put(&watchv1.Row{Row: &watchv1.Row_Workflow{Workflow: row.workflow}}))
+		m.listing.world.Put(&watchv1.Row{Row: &watchv1.Row_Workflow{Workflow: row.workflow}})
 	}
 	if row.agent != nil && m.listing.world.Agents[row.agent.GetId()] == nil {
-		arrived = m.listing.world.Apply(put(&watchv1.Row{Row: &watchv1.Row_Agent{Agent: row.agent}}))
+		arrived = m.listing.world.Put(&watchv1.Row{Row: &watchv1.Row_Agent{Agent: row.agent}})
 	}
 
 	m.listing.assemble(time.Now())

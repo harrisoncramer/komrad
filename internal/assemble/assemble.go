@@ -35,10 +35,10 @@ func (w *World) Apply(event *watchv1.WatchEvent) (arrived []string) {
 	case *watchv1.WatchEvent_Snapshot:
 		*w = World{}
 		for _, row := range event.Snapshot.GetRows() {
-			w.put(row)
+			w.Put(row)
 		}
 	case *watchv1.WatchEvent_Put:
-		return w.put(event.Put)
+		return w.Put(event.Put)
 	case *watchv1.WatchEvent_Deleted:
 		w.drop(event.Deleted)
 	case *watchv1.WatchEvent_Heartbeat, nil:
@@ -47,24 +47,26 @@ func (w *World) Apply(event *watchv1.WatchEvent) (arrived []string) {
 	return nil
 }
 
-func (w *World) put(row *watchv1.Row) (arrived []string) {
+// Put holds one row, reporting the agent when it is one whose key or branch the world had not
+// seen.
+func (w *World) Put(row *watchv1.Row) (arrived []string) {
 	switch row := row.GetRow().(type) {
 	case *watchv1.Row_Agent:
 		held, ok := w.Agents[row.Agent.GetId()]
-		put(&w.Agents, row.Agent.GetId(), row.Agent)
+		hold(&w.Agents, row.Agent.GetId(), row.Agent)
 		if !ok || held.GetRepositoryUrl() != row.Agent.GetRepositoryUrl() || held.GetBranch() != row.Agent.GetBranch() {
 			return []string{row.Agent.GetId()}
 		}
 	case *watchv1.Row_Workflow:
-		put(&w.Workflows, row.Workflow.GetId(), row.Workflow)
+		hold(&w.Workflows, row.Workflow.GetId(), row.Workflow)
 	case *watchv1.Row_Schedule:
-		put(&w.Schedules, row.Schedule.GetId(), row.Schedule)
+		hold(&w.Schedules, row.Schedule.GetId(), row.Schedule)
 	case *watchv1.Row_Mark:
-		put(&w.Marks, row.Mark.GetMark(), row.Mark)
+		hold(&w.Marks, row.Mark.GetMark(), row.Mark)
 	case *watchv1.Row_Mail:
-		put(&w.Mail, row.Mail.GetId(), row.Mail)
+		hold(&w.Mail, row.Mail.GetId(), row.Mail)
 	case *watchv1.Row_PullRequest:
-		put(&w.PullRequests, row.PullRequest.GetId(), row.PullRequest)
+		hold(&w.PullRequests, row.PullRequest.GetId(), row.PullRequest)
 	case nil:
 	}
 
@@ -90,7 +92,8 @@ func (w *World) drop(deleted *watchv1.Deleted) {
 	}
 }
 
-func put[T any](held *map[string]T, key string, row T) {
+// hold writes one row into the map it belongs to, making that map on the first row.
+func hold[T any](held *map[string]T, key string, row T) {
 	if *held == nil {
 		*held = map[string]T{}
 	}
