@@ -33,16 +33,28 @@ type shimRun struct {
 	ghSaw    string
 }
 
+// shimCase is one way of standing the pieces up: the environment the stand-in is run with,
+// what weave answers, what the gh beyond it does, and the arguments.
+type shimCase struct {
+	env   []string
+	weave string
+	// gh is the body of the binary beyond the stand-in, an empty one writing down what it was
+	// handed.
+	gh string
+	// noGH leaves the machine with no gh but the stand-in itself.
+	noGH bool
+	args []string
+}
+
 // runShim writes the stand-in with a weave that answers as the body says, a gh beyond it, and
 // runs it.
 func runShim(t *testing.T, weaveBody string, args ...string) shimRun {
 	t.Helper()
 
-	return runShimWith(t, nil, weaveBody, args...)
+	return runCase(t, shimCase{weave: weaveBody, args: args})
 }
 
-// runShimWith is runShim with more of an environment than the PATH the stand-in needs.
-func runShimWith(t *testing.T, env []string, weaveBody string, args ...string) shimRun {
+func runCase(t *testing.T, tt shimCase) shimRun {
 	t.Helper()
 
 	root := t.TempDir()
@@ -50,9 +62,17 @@ func runShimWith(t *testing.T, env []string, weaveBody string, args ...string) s
 	asked := filepath.Join(root, "asked")
 	saw := filepath.Join(root, "saw")
 
-	weave := writeScript(t, filepath.Join(root, "weave"), "echo \"$@\" >"+asked+"\n"+weaveBody)
+	weave := writeScript(t, filepath.Join(root, "weave"), "echo \"$@\" >"+asked+"\n"+tt.weave)
+
 	beyond := filepath.Join(root, "beyond")
-	writeScript(t, filepath.Join(beyond, "gh"), "echo \"$GH_TOKEN $*\" >"+saw+"\n")
+	require.NoError(t, os.MkdirAll(beyond, 0o755))
+	ghBody := tt.gh
+	if ghBody == "" {
+		ghBody = "echo \"$GH_TOKEN $*\" >" + saw + "\n"
+	}
+	if !tt.noGH {
+		writeScript(t, filepath.Join(beyond, "gh"), ghBody)
+	}
 
 	dir, err := WriteGHShim(cache, weave)
 	require.NoError(t, err)
@@ -61,9 +81,9 @@ func runShimWith(t *testing.T, env []string, weaveBody string, args ...string) s
 	work := filepath.Join(root, "work")
 	require.NoError(t, os.MkdirAll(work, 0o755))
 
-	cmd := exec.Command(filepath.Join(dir, "gh"), args...) //nolint:gosec // the stand-in this test wrote
+	cmd := exec.Command(filepath.Join(dir, "gh"), tt.args...) //nolint:gosec // the stand-in this test wrote
 	cmd.Dir = work
-	cmd.Env = append([]string{"PATH=" + dir + ":" + beyond, "HOME=" + root}, env...)
+	cmd.Env = append([]string{"PATH=" + dir + ":" + beyond, "HOME=" + root}, tt.env...)
 
 	var stdout, stderr strings.Builder
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
@@ -119,9 +139,37 @@ func TestGHShimRefusesWhenWeaveWillNotMint(t *testing.T) {
 // TestGHShimLeavesATokenSomebodyElseSetAlone covers a person or a harness that put a
 // credential of its own in the environment, which the stand-in does not overwrite.
 func TestGHShimLeavesATokenSomebodyElseSetAlone(t *testing.T) {
-	run := runShimWith(t, []string{"GH_TOKEN=ghp_mine"}, "echo ghs_minted\n", "pr", "list")
+	run := runCase(t, shimCase{
+		env:   []string{"GH_TOKEN=ghp_mine"},
+		weave: "echo ghs_minted\n",
+		args:  []string{"pr", "list"},
+	})
 
 	assert.Equal(t, 0, run.exitCode)
 	assert.Equal(t, "ghp_mine pr list", run.ghSaw)
 	assert.Empty(t, run.askedFor, "weave is not asked for a token nobody needs")
+}
+
+// TestGHShimIsTheRealBinaryOnceItHasTheToken covers what an agent reads back from gh: the
+// exit code and both streams are the real binary's, the stand-in having exec'd itself away.
+func TestGHShimIsTheRealBinaryOnceItHasTheToken(t *testing.T) {
+	run := runCase(t, shimCase{
+		weave: "echo ghs_minted\n",
+		gh:    "echo 'all checks passing'\necho 'a warning' >&2\nexit 3\n",
+		args:  []string{"pr", "checks"},
+	})
+
+	assert.Equal(t, 3, run.exitCode)
+	assert.Equal(t, "all checks passing\n", run.stdout)
+	assert.Equal(t, "a warning\n", run.stderr)
+}
+
+// TestGHShimOnAMachineWithNoGH covers the stand-in being the only gh there is, which says so
+// rather than leaving an agent to read a failure from a shell.
+func TestGHShimOnAMachineWithNoGH(t *testing.T) {
+	run := runCase(t, shimCase{weave: "echo ghs_minted\n", noGH: true, args: []string{"pr", "create"}})
+
+	assert.Equal(t, 127, run.exitCode)
+	assert.Contains(t, run.stderr, "gh is not installed")
+	assert.Empty(t, run.askedFor, "nothing is minted for a call that cannot happen")
 }
