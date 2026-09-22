@@ -26,7 +26,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Resource is which table a row is of, one value per message carrying the resource option.
+// Resource is which table a row is of, one value per member of Row.
 type Resource int32
 
 const (

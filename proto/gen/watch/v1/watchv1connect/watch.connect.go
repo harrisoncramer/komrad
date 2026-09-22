@@ -39,9 +39,8 @@ const (
 
 // WatchServiceClient is a client for the watch.v1.WatchService service.
 type WatchServiceClient interface {
-	// Watch sends a snapshot of every agent, workflow and schedule the live listings hold, then
-	// one event per change for as long as the stream is open, with a heartbeat when nothing has
-	// changed for a while.
+	// Watch sends a snapshot of every row the watched sets hold, then one event per change for
+	// as long as the stream is open, with a heartbeat when nothing has changed for a while.
 	Watch(context.Context, *connect.Request[v1.WatchRequest]) (*connect.ServerStreamForClient[v1.WatchEvent], error)
 }
 
@@ -78,9 +77,8 @@ func (c *watchServiceClient) Watch(ctx context.Context, req *connect.Request[v1.
 
 // WatchServiceHandler is an implementation of the watch.v1.WatchService service.
 type WatchServiceHandler interface {
-	// Watch sends a snapshot of every agent, workflow and schedule the live listings hold, then
-	// one event per change for as long as the stream is open, with a heartbeat when nothing has
-	// changed for a while.
+	// Watch sends a snapshot of every row the watched sets hold, then one event per change for
+	// as long as the stream is open, with a heartbeat when nothing has changed for a while.
 	Watch(context.Context, *connect.Request[v1.WatchRequest], *connect.ServerStream[v1.WatchEvent]) error
 }
 

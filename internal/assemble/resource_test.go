@@ -14,9 +14,9 @@ import (
 	"google.golang.org/protobuf/reflect/protoregistry"
 )
 
-// TestWorldIsTheResources pins the world to the resource option: one map per annotated
-// message, named after its table and holding that message, and nothing else; and one arm of
-// Apply per member of Row, putting by the resource's key and dropping by its enum value.
+// TestWorldIsTheResources pins the world to the resource list: one map per resource, named
+// after its table and holding its message, and nothing else; and one arm of Apply per member of
+// Row, putting by the resource's key and dropping by its enum value.
 func TestWorldIsTheResources(t *testing.T) {
 	t.Parallel()
 

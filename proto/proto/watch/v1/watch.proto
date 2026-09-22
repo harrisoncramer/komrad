@@ -55,7 +55,7 @@ message Row {
   }
 }
 
-// Resource is which table a row is of, one value per message carrying the resource option.
+// Resource is which table a row is of, one value per member of Row.
 enum Resource {
   // No resource was set, which the service never sends.
   RESOURCE_UNSPECIFIED = 0;
@@ -87,9 +87,8 @@ message Heartbeat {}
 
 // WatchService streams every change to the rows the panel draws.
 service WatchService {
-  // Watch sends a snapshot of every agent, workflow and schedule the live listings hold, then
-  // one event per change for as long as the stream is open, with a heartbeat when nothing has
-  // changed for a while.
+  // Watch sends a snapshot of every row the watched sets hold, then one event per change for
+  // as long as the stream is open, with a heartbeat when nothing has changed for a while.
   rpc Watch(WatchRequest) returns (stream WatchEvent) {
     option idempotency_level = NO_SIDE_EFFECTS;
     option (annotation.v1.surfaces) = {

@@ -190,8 +190,8 @@ func TestSnapshotCarriesEveryWatchedSet(t *testing.T) {
 	assert.Equal(t, watchv1.Resource_RESOURCE_MARK, snapshot[6].Resource, "a snapshot row says which resource it is")
 }
 
-// TestArmsAreTheResources pins the read-back to the resource option: one arm per annotated
-// table, and nothing else.
+// TestArmsAreTheResources pins the read-back to the resource list: one arm per resource, and
+// nothing else.
 func TestArmsAreTheResources(t *testing.T) {
 	rows := newRows(newStores())
 
