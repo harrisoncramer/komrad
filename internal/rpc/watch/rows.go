@@ -11,6 +11,9 @@ import (
 	"weave/internal/rpc/render"
 	"weave/internal/watch"
 	"weave/lib/xslice"
+	agentv1 "weave/proto/gen/agent/v1"
+	schedulev1 "weave/proto/gen/schedule/v1"
+	workflowv1 "weave/proto/gen/workflow/v1"
 
 	agentstore "weave/internal/store/agent"
 	markstore "weave/internal/store/mark"
@@ -121,17 +124,17 @@ func (r *Rows) Read(ctx context.Context, touched watch.Touched) ([]watch.Event, 
 	return events, nil
 }
 
-// Snapshot renders every row the three listings hold, agents first.
-func (r *Rows) Snapshot(ctx context.Context) ([]watch.Event, error) {
-	var events []watch.Event
+// Snapshot renders every row the three listings hold.
+func (r *Rows) Snapshot(ctx context.Context) (watch.Snapshot, error) {
+	var snapshot watch.Snapshot
 
 	var agentCursor *agentstore.Cursor
 	for {
 		rows, err := r.agents.ListRows(ctx, rowstore.Page{Limit: snapshotPage, Cursor: agentCursor})
 		if err != nil {
-			return nil, fmt.Errorf("failed to snapshot the agents: %w", err)
+			return watch.Snapshot{}, fmt.Errorf("failed to snapshot the agents: %w", err)
 		}
-		events = append(events, xslice.Map(rows, renderAgentEvent)...)
+		snapshot.Agents = append(snapshot.Agents, xslice.Map(rows, func(row agents.Row) *agentv1.Agent { return render.Agent(row, render.AgentOptions{}) })...)
 		if len(rows) < snapshotPage {
 			break
 		}
@@ -140,15 +143,17 @@ func (r *Rows) Snapshot(ctx context.Context) ([]watch.Event, error) {
 
 	marks, err := r.marksByWorkflow(ctx)
 	if err != nil {
-		return nil, err
+		return watch.Snapshot{}, err
 	}
 	var workflowCursor *workflowstore.Cursor
 	for {
 		rows, err := r.workflows.ListPage(ctx, snapshotPage, workflowCursor, false)
 		if err != nil {
-			return nil, fmt.Errorf("failed to snapshot the workflows: %w", err)
+			return watch.Snapshot{}, fmt.Errorf("failed to snapshot the workflows: %w", err)
 		}
-		events = append(events, xslice.Map(rows, func(row workflowstore.Workflow) watch.Event { return renderWorkflowEvent(row, marks[row.ID]) })...)
+		snapshot.Workflows = append(snapshot.Workflows, xslice.Map(rows, func(row workflowstore.Workflow) *workflowv1.Workflow {
+			return render.Workflow(row, marks[row.ID], render.WorkflowOptions{})
+		})...)
 		if len(rows) < snapshotPage {
 			break
 		}
@@ -161,16 +166,18 @@ func (r *Rows) Snapshot(ctx context.Context) ([]watch.Event, error) {
 	for {
 		rows, err := r.schedules.ListPage(ctx, snapshotPage, scheduleCursor)
 		if err != nil {
-			return nil, fmt.Errorf("failed to snapshot the schedules: %w", err)
+			return watch.Snapshot{}, fmt.Errorf("failed to snapshot the schedules: %w", err)
 		}
-		events = append(events, xslice.Map(rows, func(row schedulestore.Schedule) watch.Event { return renderScheduleEvent(row, now) })...)
+		snapshot.Schedules = append(snapshot.Schedules, xslice.Map(rows, func(row schedulestore.Schedule) *schedulev1.Schedule {
+			return render.Schedule(row, now, render.ScheduleOptions{})
+		})...)
 		if len(rows) < snapshotPage {
 			break
 		}
 		scheduleCursor = &schedulestore.Cursor{ID: rows[len(rows)-1].ID}
 	}
 
-	return events, nil
+	return snapshot, nil
 }
 
 func (r *Rows) marksByWorkflow(ctx context.Context) (map[string]*string, error) {

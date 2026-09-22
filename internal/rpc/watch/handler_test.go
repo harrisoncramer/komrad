@@ -26,7 +26,7 @@ import (
 )
 
 type scriptedReader struct {
-	snapshot    []watch.Event
+	snapshot    watch.Snapshot
 	snapshotErr error
 }
 
@@ -44,7 +44,7 @@ func (r scriptedReader) Read(_ context.Context, touched watch.Touched) ([]watch.
 	return events, nil
 }
 
-func (r scriptedReader) Snapshot(context.Context) ([]watch.Event, error) {
+func (r scriptedReader) Snapshot(context.Context) (watch.Snapshot, error) {
 	return r.snapshot, r.snapshotErr
 }
 
@@ -58,7 +58,7 @@ type served struct {
 func serve(t *testing.T, reader watch.Reader, heartbeat time.Duration) *served {
 	t.Helper()
 
-	broker := watch.NewBroker(watch.NewBrokerParams{Coalesce: 5 * time.Millisecond})
+	broker := watch.NewBroker(watch.NewBrokerParams{})
 	broker.Start(reader)
 	t.Cleanup(broker.Close)
 
@@ -89,43 +89,40 @@ func receive(t *testing.T, stream *connect.ServerStreamForClient[watchv1.WatchEv
 	return stream.Msg()
 }
 
-// TestWatchSendsTheSnapshotThenSyncedThenChanges pins the shape of the stream end to end,
-// through the generated adapter and both interceptors.
-func TestWatchSendsTheSnapshotThenSyncedThenChanges(t *testing.T) {
-	s := serve(t, scriptedReader{snapshot: []watch.Event{
-		{Kind: watch.KindAgent, ID: "a1", Agent: &agentv1.Agent{Id: "a1"}},
+// TestWatchSendsTheSnapshotThenChanges pins the shape of the stream end to end, through the
+// generated adapter and both interceptors.
+func TestWatchSendsTheSnapshotThenChanges(t *testing.T) {
+	s := serve(t, scriptedReader{snapshot: watch.Snapshot{
+		Agents: []*agentv1.Agent{{Id: "a1"}},
 	}}, time.Hour)
 
 	stream, err := s.client.Watch(t.Context(), connect.NewRequest(&watchv1.WatchRequest{}))
 	require.NoError(t, err)
 
 	first := receive(t, stream)
-	assert.Equal(t, "a1", first.GetAgent().GetId())
-	assert.Zero(t, first.GetSeq(), "nothing has rendered yet")
-	assert.NotNil(t, receive(t, stream).GetSynced())
+	require.Len(t, first.GetSnapshot().GetAgents(), 1)
+	assert.Equal(t, "a1", first.GetSnapshot().GetAgents()[0].GetId())
 
 	s.broker.Touch(store.TableAgents, "a2", "gone-a3")
 
 	written := receive(t, stream)
 	assert.Equal(t, "a2", written.GetAgent().GetId())
-	assert.Equal(t, uint64(1), written.GetSeq())
 
 	deleted := receive(t, stream)
 	assert.Equal(t, watchv1.RowKind_ROW_KIND_AGENT, deleted.GetDeleted().GetKind())
 	assert.Equal(t, "gone-a3", deleted.GetDeleted().GetId())
-	assert.Equal(t, uint64(2), deleted.GetSeq())
 
 	require.NoError(t, stream.Close())
 }
 
-// TestWatchHeartbeatsWhileNothingChanges pins the heartbeat, and that it does not carry a seq.
+// TestWatchHeartbeatsWhileNothingChanges pins the heartbeat.
 func TestWatchHeartbeatsWhileNothingChanges(t *testing.T) {
 	s := serve(t, scriptedReader{}, 10*time.Millisecond)
 
 	stream, err := s.client.Watch(t.Context(), connect.NewRequest(&watchv1.WatchRequest{}))
 	require.NoError(t, err)
 
-	assert.NotNil(t, receive(t, stream).GetSynced())
+	assert.NotNil(t, receive(t, stream).GetSnapshot())
 	assert.NotNil(t, receive(t, stream).GetHeartbeat())
 	assert.NotNil(t, receive(t, stream).GetHeartbeat())
 
@@ -139,7 +136,7 @@ func TestWatchEndsWhenTheBrokerCloses(t *testing.T) {
 
 	stream, err := s.client.Watch(t.Context(), connect.NewRequest(&watchv1.WatchRequest{}))
 	require.NoError(t, err)
-	assert.NotNil(t, receive(t, stream).GetSynced())
+	assert.NotNil(t, receive(t, stream).GetSnapshot())
 
 	s.broker.Close()
 

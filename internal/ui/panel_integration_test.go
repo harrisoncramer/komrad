@@ -3,7 +3,6 @@
 package ui
 
 import (
-	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -12,7 +11,6 @@ import (
 	"weave/internal/client"
 	"weave/internal/ui/layout"
 	"weave/internal/weavetest"
-	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
 	schedulev1 "weave/proto/gen/schedule/v1"
 	viewv1 "weave/proto/gen/view/v1"
@@ -43,19 +41,13 @@ func listedFromService(t *testing.T, m model) model {
 	schedules, err := m.api.schedules.ListSchedules(ctx, connect.NewRequest(&schedulev1.ListSchedulesRequest{View: viewv1.View_VIEW_FULL}))
 	require.NoError(t, err)
 
-	events := slices.Concat(
-		xslice.Map(agents.Msg.GetAgents(), func(agent *agentv1.Agent) *watchv1.WatchEvent {
-			return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Agent{Agent: agent}}
-		}),
-		xslice.Map(workflows.Msg.GetWorkflows(), func(workflow *workflowv1.Workflow) *watchv1.WatchEvent {
-			return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Workflow{Workflow: workflow}}
-		}),
-		xslice.Map(schedules.Msg.GetSchedules(), func(schedule *schedulev1.Schedule) *watchv1.WatchEvent {
-			return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Schedule{Schedule: schedule}}
-		}),
-	)
-
-	m.applyWatch(client.WatchBatch{Snapshot: true, Events: events})
+	m.applyWatch(client.WatchBatch{Events: []*watchv1.WatchEvent{
+		{Event: &watchv1.WatchEvent_Snapshot{Snapshot: &watchv1.Snapshot{
+			Agents:    agents.Msg.GetAgents(),
+			Workflows: workflows.Msg.GetWorkflows(),
+			Schedules: schedules.Msg.GetSchedules(),
+		}}},
+	}})
 
 	return settle(t, m, m.listCmd())
 }

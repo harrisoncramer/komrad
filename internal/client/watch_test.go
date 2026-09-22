@@ -105,28 +105,28 @@ func (l *listings) lostCount() int {
 	return len(l.lost)
 }
 
-func agentEvent(seq uint64, id, name string) *watchv1.WatchEvent {
-	return &watchv1.WatchEvent{Seq: seq, Event: &watchv1.WatchEvent_Agent{Agent: &agentv1.Agent{Id: id, Name: name}}}
+func agentEvent(id, name string) *watchv1.WatchEvent {
+	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Agent{Agent: &agentv1.Agent{Id: id, Name: name}}}
 }
 
-func workflowEvent(seq uint64, id, name string) *watchv1.WatchEvent {
-	return &watchv1.WatchEvent{Seq: seq, Event: &watchv1.WatchEvent_Workflow{Workflow: &workflowv1.Workflow{Id: id, Name: name}}}
+func workflowEvent(id, name string) *watchv1.WatchEvent {
+	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Workflow{Workflow: &workflowv1.Workflow{Id: id, Name: name}}}
 }
 
-func scheduleEvent(seq uint64, id string) *watchv1.WatchEvent {
-	return &watchv1.WatchEvent{Seq: seq, Event: &watchv1.WatchEvent_Schedule{Schedule: &schedulev1.Schedule{Id: id}}}
+func scheduleEvent(id string) *watchv1.WatchEvent {
+	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Schedule{Schedule: &schedulev1.Schedule{Id: id}}}
 }
 
-func deletedEvent(seq uint64, kind watchv1.RowKind, id string) *watchv1.WatchEvent {
-	return &watchv1.WatchEvent{Seq: seq, Event: &watchv1.WatchEvent_Deleted{Deleted: &watchv1.Deleted{Kind: kind, Id: id}}}
+func deletedEvent(kind watchv1.RowKind, id string) *watchv1.WatchEvent {
+	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Deleted{Deleted: &watchv1.Deleted{Kind: kind, Id: id}}}
 }
 
-func syncedEvent(seq uint64) *watchv1.WatchEvent {
-	return &watchv1.WatchEvent{Seq: seq, Event: &watchv1.WatchEvent_Synced{Synced: &watchv1.Synced{}}}
+func snapshotEvent(agents ...*agentv1.Agent) *watchv1.WatchEvent {
+	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Snapshot{Snapshot: &watchv1.Snapshot{Agents: agents}}}
 }
 
-func heartbeatEvent(seq uint64) *watchv1.WatchEvent {
-	return &watchv1.WatchEvent{Seq: seq, Event: &watchv1.WatchEvent_Heartbeat{Heartbeat: &watchv1.Heartbeat{}}}
+func heartbeatEvent() *watchv1.WatchEvent {
+	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Heartbeat{Heartbeat: &watchv1.Heartbeat{}}}
 }
 
 // watchOver runs a watch against the scripted service until the test ends.
@@ -166,6 +166,8 @@ func watchOver(t *testing.T, scripted *scriptedWatch, params WatchParams) *listi
 func ids(events []*watchv1.WatchEvent) []string {
 	return xslice.Map(events, func(event *watchv1.WatchEvent) string {
 		switch row := event.GetEvent().(type) {
+		case *watchv1.WatchEvent_Snapshot:
+			return "snapshot"
 		case *watchv1.WatchEvent_Agent:
 			return row.Agent.GetId()
 		case *watchv1.WatchEvent_Workflow:
@@ -174,60 +176,37 @@ func ids(events []*watchv1.WatchEvent) []string {
 			return row.Schedule.GetId()
 		case *watchv1.WatchEvent_Deleted:
 			return row.Deleted.GetId()
-		case *watchv1.WatchEvent_Synced, *watchv1.WatchEvent_Heartbeat, nil:
+		case *watchv1.WatchEvent_Heartbeat, nil:
 		}
 
 		return ""
 	})
 }
 
-// TestWatchHandsOverTheSnapshotOnceSynced covers the opening of a stream: the rows before
-// Synced are held back and go out as one batch marked as the snapshot.
-func TestWatchHandsOverTheSnapshotOnceSynced(t *testing.T) {
+// TestWatchHandsOverEventsInBatches covers the stream from its opening: the snapshot and the
+// changes on its heels go out as one batch, a later burst as another, and a heartbeat is not
+// a change.
+func TestWatchHandsOverEventsInBatches(t *testing.T) {
 	t.Parallel()
 
 	scripted := &scriptedWatch{holdLast: true, streams: [][]*watchv1.WatchEvent{{
-		agentEvent(1, "01a", "older"),
-		agentEvent(1, "01b", "newer"),
-		workflowEvent(1, "w1", "Alpha"),
-		scheduleEvent(1, "s1"),
-		syncedEvent(1),
-	}}}
-
-	got := watchOver(t, scripted, WatchParams{})
-
-	require.Eventually(t, func() bool { return got.count() == 1 }, time.Second, 5*time.Millisecond)
-
-	batch := got.at(0)
-	assert.True(t, batch.Snapshot)
-	assert.Equal(t, []string{"01a", "01b", "w1", "s1"}, ids(batch.Events), "every row before Synced, in order")
-	assert.Equal(t, 0, got.lostCount())
-}
-
-// TestWatchAppliesChangesAfterSynced covers the live half: a burst of changes goes out as one
-// batch, in order, and a heartbeat is not a change.
-func TestWatchAppliesChangesAfterSynced(t *testing.T) {
-	t.Parallel()
-
-	scripted := &scriptedWatch{holdLast: true, streams: [][]*watchv1.WatchEvent{{
-		agentEvent(1, "01a", "one"),
-		syncedEvent(1),
-		heartbeatEvent(1),
-		agentEvent(2, "01a", "renamed"),
-		deletedEvent(3, watchv1.RowKind_ROW_KIND_AGENT, "01b"),
-		agentEvent(4, "01c", "three"),
+		snapshotEvent(&agentv1.Agent{Id: "01a", Name: "one"}),
+		agentEvent("01a", "renamed"),
+		heartbeatEvent(),
+		deletedEvent(watchv1.RowKind_ROW_KIND_AGENT, "01b"),
+		scheduleEvent("s1"),
+		workflowEvent("w1", "Alpha"),
 	}}}
 
 	got := watchOver(t, scripted, WatchParams{Coalesce: 50 * time.Millisecond})
 
-	require.Eventually(t, func() bool { return got.count() == 2 }, time.Second, 5*time.Millisecond)
+	require.Eventually(t, func() bool { return got.count() == 1 }, time.Second, 5*time.Millisecond)
 
-	batch := got.at(1)
-	assert.False(t, batch.Snapshot)
-	assert.Equal(t, []string{"01a", "01b", "01c"}, ids(batch.Events))
+	assert.Equal(t, []string{"snapshot", "01a", "01b", "s1", "w1"}, ids(got.at(0).Events), "every event, in order, with the heartbeat left out")
+	assert.Equal(t, 0, got.lostCount())
 
 	time.Sleep(100 * time.Millisecond)
-	assert.Equal(t, 2, got.count())
+	assert.Equal(t, 1, got.count())
 }
 
 // TestWatchReopensAfterAClose covers a stream the service closed, which is what a slow
@@ -237,17 +216,16 @@ func TestWatchReopensAfterAClose(t *testing.T) {
 	t.Parallel()
 
 	scripted := &scriptedWatch{holdLast: true, streams: [][]*watchv1.WatchEvent{
-		{agentEvent(1, "01a", "one"), syncedEvent(1)},
-		{agentEvent(7, "01b", "two"), syncedEvent(7)},
+		{snapshotEvent(), agentEvent("01a", "one")},
+		{snapshotEvent(), agentEvent("01b", "two")},
 	}}
 
 	got := watchOver(t, scripted, WatchParams{})
 
 	require.Eventually(t, func() bool { return got.count() == 2 }, time.Second, 5*time.Millisecond)
 
-	assert.Equal(t, []string{"01a"}, ids(got.at(0).Events))
-	assert.True(t, got.at(1).Snapshot, "the next stream opens with a snapshot of its own")
-	assert.Equal(t, []string{"01b"}, ids(got.at(1).Events))
+	assert.Equal(t, []string{"snapshot", "01a"}, ids(got.at(0).Events))
+	assert.Equal(t, []string{"snapshot", "01b"}, ids(got.at(1).Events), "the next stream opens with a snapshot of its own")
 	assert.Equal(t, 1, got.lostCount())
 	assert.Equal(t, 2, scripted.timesOpened())
 }
@@ -258,8 +236,8 @@ func TestWatchGivesUpOnASilentStream(t *testing.T) {
 	t.Parallel()
 
 	scripted := &scriptedWatch{holdLast: true, streams: [][]*watchv1.WatchEvent{
-		{agentEvent(1, "01a", "one"), syncedEvent(1)},
-		{agentEvent(2, "01a", "one"), syncedEvent(2)},
+		{snapshotEvent()},
+		{snapshotEvent()},
 	}}
 
 	got := watchOver(t, scripted, WatchParams{Silence: 50 * time.Millisecond})

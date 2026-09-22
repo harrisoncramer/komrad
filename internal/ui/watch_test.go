@@ -57,6 +57,10 @@ func scheduleEvent(schedule *schedulev1.Schedule) *watchv1.WatchEvent {
 	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Schedule{Schedule: schedule}}
 }
 
+func snapshotEvent(snapshot *watchv1.Snapshot) *watchv1.WatchEvent {
+	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Snapshot{Snapshot: snapshot}}
+}
+
 func deletedEvent(kind watchv1.RowKind, id string) *watchv1.WatchEvent {
 	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Deleted{Deleted: &watchv1.Deleted{Kind: kind, Id: id}}}
 }
@@ -76,19 +80,20 @@ func hasListed(cmd tea.Cmd) bool {
 	return false
 }
 
-// TestSnapshotReplacesTheListing covers the opening of a stream: every row before Synced lands
-// in the order the list RPCs answer, and the cursor is placed the way the first listing places
+// TestSnapshotReplacesTheListing covers the opening of a stream: the snapshot's rows land in
+// the order the list RPCs answer, and the cursor is placed the way the first listing places
 // it.
 func TestSnapshotReplacesTheListing(t *testing.T) {
 	m := watchedPanel()
 
-	m, _ = update(t, m, client.WatchBatch{Snapshot: true, Events: []*watchv1.WatchEvent{
-		agentEvent(&agentv1.Agent{Id: "01a", Name: "older", WorkflowId: "w1"}),
-		agentEvent(&agentv1.Agent{Id: "01b", Name: "api-refactor", WorkflowId: "w1", Mark: proto.String("a")}),
-		workflowEvent(&workflowv1.Workflow{Id: "w2", Name: "beta"}),
-		workflowEvent(&workflowv1.Workflow{Id: "w1", Name: "Alpha"}),
-		scheduleEvent(&schedulev1.Schedule{Id: "s1"}),
-	}})
+	m, _ = update(t, m, client.WatchBatch{Events: []*watchv1.WatchEvent{snapshotEvent(&watchv1.Snapshot{
+		Agents: []*agentv1.Agent{
+			{Id: "01a", Name: "older", WorkflowId: "w1"},
+			{Id: "01b", Name: "api-refactor", WorkflowId: "w1", Mark: proto.String("a")},
+		},
+		Workflows: []*workflowv1.Workflow{{Id: "w2", Name: "beta"}, {Id: "w1", Name: "Alpha"}},
+		Schedules: []*schedulev1.Schedule{{Id: "s1"}},
+	})}})
 
 	assert.Equal(t, []string{"01b", "01a"}, agentIDs(m.listing.agents), "agents newest first")
 	require.Len(t, m.listing.workflows, 2)
@@ -100,9 +105,9 @@ func TestSnapshotReplacesTheListing(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, "api-refactor", selected.agent.Name)
 
-	m, _ = update(t, m, client.WatchBatch{Snapshot: true, Events: []*watchv1.WatchEvent{
-		agentEvent(&agentv1.Agent{Id: "01c", Name: "after-reconnect", WorkflowId: "w1"}),
-	}})
+	m, _ = update(t, m, client.WatchBatch{Events: []*watchv1.WatchEvent{snapshotEvent(&watchv1.Snapshot{
+		Agents: []*agentv1.Agent{{Id: "01c", Name: "after-reconnect", WorkflowId: "w1"}},
+	})}})
 
 	assert.Equal(t, []string{"01c"}, agentIDs(m.listing.agents), "the next stream's snapshot replaces what the last one built")
 	assert.Empty(t, m.listing.marks)
@@ -114,11 +119,13 @@ func TestSnapshotReplacesTheListing(t *testing.T) {
 func TestEventsReplaceAndDropRows(t *testing.T) {
 	m := watchedPanel()
 
-	m, _ = update(t, m, client.WatchBatch{Snapshot: true, Events: []*watchv1.WatchEvent{
-		workflowEvent(&workflowv1.Workflow{Id: "w1", Name: "api"}),
-		agentEvent(&agentv1.Agent{Id: "01a", Name: "one", WorkflowId: "w1"}),
-		agentEvent(&agentv1.Agent{Id: "01b", Name: "two", WorkflowId: "w1", Mark: proto.String("b")}),
-	}})
+	m, _ = update(t, m, client.WatchBatch{Events: []*watchv1.WatchEvent{snapshotEvent(&watchv1.Snapshot{
+		Workflows: []*workflowv1.Workflow{{Id: "w1", Name: "api"}},
+		Agents: []*agentv1.Agent{
+			{Id: "01a", Name: "one", WorkflowId: "w1"},
+			{Id: "01b", Name: "two", WorkflowId: "w1", Mark: proto.String("b")},
+		},
+	})}})
 	m.agents.cursor = rowIndexOfAgentID(m.agents.rows(m.shared()), "01a")
 
 	m, _ = update(t, m, client.WatchBatch{Events: []*watchv1.WatchEvent{
@@ -155,10 +162,9 @@ func TestEventsReplaceAndDropRows(t *testing.T) {
 func TestRenamedWorkflowMovesToItsPlace(t *testing.T) {
 	m := watchedPanel()
 
-	m, _ = update(t, m, client.WatchBatch{Snapshot: true, Events: []*watchv1.WatchEvent{
-		workflowEvent(&workflowv1.Workflow{Id: "w1", Name: "api"}),
-		workflowEvent(&workflowv1.Workflow{Id: "w2", Name: "web"}),
-	}})
+	m, _ = update(t, m, client.WatchBatch{Events: []*watchv1.WatchEvent{snapshotEvent(&watchv1.Snapshot{
+		Workflows: []*workflowv1.Workflow{{Id: "w1", Name: "api"}, {Id: "w2", Name: "web"}},
+	})}})
 	before := slices.Clone(m.listing.workflows)
 
 	m.applyWatch(client.WatchBatch{Events: []*watchv1.WatchEvent{
@@ -182,7 +188,7 @@ func TestLostStreamIsReportedUntilTheNextSnapshot(t *testing.T) {
 	m, _ = update(t, m, watchLostMsg{})
 	assert.Len(t, m.messages.items, 1, "a stream that keeps failing to open says nothing more")
 
-	m, _ = update(t, m, client.WatchBatch{Snapshot: true})
+	m, _ = update(t, m, client.WatchBatch{Events: []*watchv1.WatchEvent{snapshotEvent(&watchv1.Snapshot{})}})
 	require.NoError(t, m.unreachable)
 
 	m, _ = update(t, m, watchLostMsg{})

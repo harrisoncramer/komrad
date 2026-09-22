@@ -47,7 +47,7 @@ func NewHandler(params NewHandlerParams) *Handler {
 	return &Handler{broker: params.Broker, heartbeatAfter: after}
 }
 
-// Watch sends the snapshot, then Synced, then every change until the caller goes away or the
+// Watch sends the snapshot, then every change until the caller goes away or the
 // broker closes the subscription, with a heartbeat whenever nothing has been sent for a while.
 func (h *Handler) Watch(ctx context.Context, _ *watchv1.WatchRequest, stream *connect.ServerStream[watchv1.WatchEvent]) *fail.Error {
 	subscription, err := h.broker.Subscribe(ctx)
@@ -58,6 +58,10 @@ func (h *Handler) Watch(ctx context.Context, _ *watchv1.WatchRequest, stream *co
 		return rpcerr.From(err, "failed to open the watch")
 	}
 	defer subscription.Close()
+
+	if err := stream.Send(renderSnapshot(subscription.Snapshot())); err != nil {
+		return nil
+	}
 
 	heartbeat := time.NewTimer(h.heartbeatAfter)
 	defer heartbeat.Stop()
@@ -83,13 +87,20 @@ func (h *Handler) Watch(ctx context.Context, _ *watchv1.WatchRequest, stream *co
 	}
 }
 
+// renderSnapshot is the snapshot as the wire carries it.
+func renderSnapshot(snapshot watch.Snapshot) *watchv1.WatchEvent {
+	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Snapshot{Snapshot: &watchv1.Snapshot{
+		Agents:    snapshot.Agents,
+		Workflows: snapshot.Workflows,
+		Schedules: snapshot.Schedules,
+	}}}
+}
+
 // renderEvent is one event as the wire carries it.
 func renderEvent(event watch.Event) *watchv1.WatchEvent {
-	rendered := &watchv1.WatchEvent{Seq: event.Seq}
+	rendered := &watchv1.WatchEvent{}
 
 	switch {
-	case event.Synced:
-		rendered.Event = &watchv1.WatchEvent_Synced{Synced: &watchv1.Synced{}}
 	case event.Agent != nil:
 		rendered.Event = &watchv1.WatchEvent_Agent{Agent: event.Agent}
 	case event.Workflow != nil:

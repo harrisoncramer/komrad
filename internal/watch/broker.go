@@ -16,16 +16,13 @@ import (
 	workflowv1 "weave/proto/gen/workflow/v1"
 )
 
-// DefaultCoalesce is how long touches are gathered before one render reads them all back.
-const DefaultCoalesce = 50 * time.Millisecond
-
 // subscriberBuffer is how many live events a watcher may fall behind before it is dropped.
 const subscriberBuffer = 1024
 
 // readTimeout is how long one read-back or snapshot may take.
 const readTimeout = 10 * time.Second
 
-// retryAfter is how long a render that failed to read waits before the next one tries again.
+// retryAfter is how long a render that failed to read waits before the next one.
 const retryAfter = time.Second
 
 // ErrClosed says the broker has stopped and takes no more watchers.
@@ -40,6 +37,13 @@ const (
 	KindSchedule
 )
 
+// kinds is the listing each table a store names belongs to.
+var kinds = map[string]Kind{
+	store.TableAgents:    KindAgent,
+	store.TableWorkflows: KindWorkflow,
+	store.TableSchedules: KindSchedule,
+}
+
 // Touched is the ids one render reads back, by kind.
 type Touched struct {
 	Agents    []string
@@ -47,23 +51,26 @@ type Touched struct {
 	Schedules []string
 }
 
-// Event is one row as a watcher should now hold it, a tombstone for one it should drop, or the
-// mark that a snapshot is complete.
+// Event is one row as a watcher should now hold it, or a tombstone for one it should drop.
 type Event struct {
-	Seq  uint64
 	Kind Kind
 	ID   string
-	// Agent, Workflow and Schedule carry the row, and all three nil on a row event is a tombstone.
+	// Agent, Workflow and Schedule carry the row, and all three nil is a tombstone.
 	Agent    *agentv1.Agent
 	Workflow *workflowv1.Workflow
 	Schedule *schedulev1.Schedule
-	// Synced says the snapshot is complete and live events follow.
-	Synced bool
 }
 
 // IsTombstone reports whether the event says the row is gone from its listing.
 func (e Event) IsTombstone() bool {
-	return !e.Synced && e.Agent == nil && e.Workflow == nil && e.Schedule == nil
+	return e.Agent == nil && e.Workflow == nil && e.Schedule == nil
+}
+
+// Snapshot is every row the three listings hold.
+type Snapshot struct {
+	Agents    []*agentv1.Agent
+	Workflows []*workflowv1.Workflow
+	Schedules []*schedulev1.Schedule
 }
 
 // Reader reads the rows a render names back, and every row for a snapshot.
@@ -72,85 +79,59 @@ type Reader interface {
 	// holds it.
 	Read(ctx context.Context, touched Touched) ([]Event, error)
 	// Snapshot renders every row the listings hold.
-	Snapshot(ctx context.Context) ([]Event, error)
+	Snapshot(ctx context.Context) (Snapshot, error)
 }
 
 // NewBrokerParams is what a broker is built over.
 type NewBrokerParams struct {
 	Logger *slog.Logger
-	// Coalesce is how long touches are gathered before a render, DefaultCoalesce when zero.
-	Coalesce time.Duration
 }
 
-// Broker takes touches from every writer, coalesces them, reads the rows back and fans them out
-// to every open subscription.
+// Broker takes touches from every store, reads the rows back and fans them out to every open
+// subscription.
 type Broker struct {
-	reader   Reader
-	logger   *slog.Logger
-	coalesce time.Duration
+	logger *slog.Logger
+	reader Reader
 
-	mu      sync.Mutex
-	pending map[Kind]map[string]struct{}
+	// pendingMu guards what has been touched and not yet read.
+	pendingMu sync.Mutex
+	pending   map[Kind]map[string]struct{}
+	// wake has room for one poke, which is all the loop needs to know.
+	wake chan struct{}
 
-	wake         chan struct{}
-	subscribes   chan subscribeRequest
-	unsubscribes chan *Subscription
-	stop         chan struct{}
-	stopped      chan struct{}
-	closeOnce    sync.Once
-
-	// seq and subscribers belong to the render goroutine alone.
-	seq         uint64
+	// mu guards the subscribers and whether the broker has closed.
+	mu          sync.Mutex
 	subscribers map[*Subscription]struct{}
+	closed      bool
 }
 
 // NewBroker builds the broker, which takes touches at once and renders none of them until
 // Start names what reads the rows back.
 func NewBroker(params NewBrokerParams) *Broker {
-	coalesce := params.Coalesce
-	if coalesce == 0 {
-		coalesce = DefaultCoalesce
-	}
-
 	logger := params.Logger
 	if logger == nil {
 		logger = slog.New(slog.DiscardHandler)
 	}
 
 	return &Broker{
-		logger:       logger,
-		coalesce:     coalesce,
-		pending:      map[Kind]map[string]struct{}{},
-		wake:         make(chan struct{}, 1),
-		subscribes:   make(chan subscribeRequest),
-		unsubscribes: make(chan *Subscription),
-		stop:         make(chan struct{}),
-		stopped:      make(chan struct{}),
-		subscribers:  map[*Subscription]struct{}{},
+		logger:      logger,
+		pending:     map[Kind]map[string]struct{}{},
+		wake:        make(chan struct{}, 1),
+		subscribers: map[*Subscription]struct{}{},
 	}
-}
-
-type subscribeRequest struct {
-	reply chan subscribeReply
-}
-
-type subscribeReply struct {
-	subscription *Subscription
-	err          error
 }
 
 // Start begins rendering through the reader, which Close ends.
 func (b *Broker) Start(reader Reader) {
 	b.reader = reader
 
-	go b.run()
-}
-
-// kinds is the listing each table a store names belongs to.
-var kinds = map[string]Kind{
-	store.TableAgents:    KindAgent,
-	store.TableWorkflows: KindWorkflow,
-	store.TableSchedules: KindSchedule,
+	go func() {
+		for range b.wake {
+			if !b.render() {
+				time.Sleep(retryAfter)
+			}
+		}
+	}()
 }
 
 // Touch says the rows of a listing with these ids may have moved.
@@ -161,17 +142,16 @@ func (b *Broker) Touch(table string, ids ...string) {
 
 		return
 	}
-
-	b.touch(kind, ids)
-}
-
-func (b *Broker) touch(kind Kind, ids []string) {
 	if len(ids) == 0 {
 		return
 	}
 
-	b.mu.Lock()
-	defer b.mu.Unlock()
+	b.pendingMu.Lock()
+	defer b.pendingMu.Unlock()
+
+	if b.pending == nil {
+		return
+	}
 
 	touched := b.pending[kind]
 	if touched == nil {
@@ -182,16 +162,52 @@ func (b *Broker) touch(kind Kind, ids []string) {
 		touched[id] = struct{}{}
 	}
 
+	// Poke the loop unless it has an unread poke.
 	select {
 	case b.wake <- struct{}{}:
 	default:
 	}
 }
 
-// takePending empties the touched set and returns it with each kind's ids in order.
-func (b *Broker) takePending() Touched {
+// render reads back everything touched since the last one and sends it to every subscriber,
+// reporting false when the read failed and the ids are back in the pending set.
+func (b *Broker) render() bool {
+	touched := b.take()
+
+	b.mu.Lock()
+	watched := len(b.subscribers) > 0
+	b.mu.Unlock()
+	if !watched {
+		return true
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), readTimeout)
+	defer cancel()
+
+	events, err := b.reader.Read(ctx, touched)
+	if err != nil {
+		b.logger.LogAttrs(ctx, slog.LevelError, "failed to read the rows a change touched", logging.Err(err)...)
+		b.restore(touched)
+
+		return false
+	}
+
 	b.mu.Lock()
 	defer b.mu.Unlock()
+
+	for _, event := range events {
+		for subscription := range b.subscribers {
+			b.send(ctx, subscription, event)
+		}
+	}
+
+	return true
+}
+
+// take empties the touched set and returns it with each kind's ids in order.
+func (b *Broker) take() Touched {
+	b.pendingMu.Lock()
+	defer b.pendingMu.Unlock()
 
 	touched := Touched{
 		Agents:    slices.Sorted(maps.Keys(b.pending[KindAgent])),
@@ -203,141 +219,37 @@ func (b *Broker) takePending() Touched {
 	return touched
 }
 
-// Subscribe opens a subscription that starts with a snapshot of every row, then Synced, then
-// every change for as long as it stays open, giving up when ctx ends before the snapshot is
-// taken.
-func (b *Broker) Subscribe(ctx context.Context) (*Subscription, error) {
-	req := subscribeRequest{reply: make(chan subscribeReply, 1)}
-
-	select {
-	case b.subscribes <- req:
-	case <-b.stopped:
-		return nil, ErrClosed
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	}
-
-	select {
-	case reply := <-req.reply:
-		return reply.subscription, reply.err
-	case <-b.stopped:
-		return nil, ErrClosed
-	}
-}
-
-// Close ends every subscription and stops the render goroutine, dropping whatever was touched
-// and not yet rendered.
-func (b *Broker) Close() {
-	b.closeOnce.Do(func() {
-		close(b.stop)
-		if b.reader == nil {
-			close(b.stopped)
-		}
-	})
-	<-b.stopped
-}
-
-func (b *Broker) run() {
-	ctx := context.Background()
-	defer close(b.stopped)
-	defer logging.LogAndRepanic(ctx)
-
-	var window <-chan time.Time
-	for {
-		select {
-		case <-b.wake:
-			if window == nil {
-				window = time.After(b.coalesce)
-			}
-		case <-window:
-			window = nil
-			if !b.render(ctx) {
-				window = time.After(retryAfter)
-			}
-		case req := <-b.subscribes:
-			req.reply <- b.subscribe(ctx)
-		case subscription := <-b.unsubscribes:
-			b.drop(subscription)
-		case <-b.stop:
-			for subscription := range b.subscribers {
-				b.drop(subscription)
-			}
-
-			return
-		}
-	}
-}
-
-// render reads back everything touched since the last one and sends it to every subscriber,
-// reporting false when the read failed and the ids are back in the pending set.
-func (b *Broker) render(ctx context.Context) bool {
-	touched := b.takePending()
-	if len(b.subscribers) == 0 {
-		return true
-	}
-
-	readCtx, cancel := context.WithTimeout(ctx, readTimeout)
-	defer cancel()
-
-	events, err := b.reader.Read(readCtx, touched)
-	if err != nil {
-		b.logger.LogAttrs(ctx, slog.LevelError, "failed to read the rows a change touched", logging.Err(err)...)
-		b.restore(touched)
-
-		return false
-	}
-
-	for _, event := range events {
-		b.seq++
-		event.Seq = b.seq
-		for subscription := range b.subscribers {
-			b.send(ctx, subscription, event)
-		}
-	}
-
-	return true
-}
-
-// restore puts the ids a failed render took back into the pending set for the next one.
+// restore puts the ids a failed render took back for the next one.
 func (b *Broker) restore(touched Touched) {
+	b.Touch(store.TableAgents, touched.Agents...)
+	b.Touch(store.TableWorkflows, touched.Workflows...)
+	b.Touch(store.TableSchedules, touched.Schedules...)
+}
+
+// Subscribe opens a subscription that starts with a snapshot of every row, then every change
+// for as long as it stays open.
+func (b *Broker) Subscribe(ctx context.Context) (*Subscription, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	for kind, ids := range map[Kind][]string{KindAgent: touched.Agents, KindWorkflow: touched.Workflows, KindSchedule: touched.Schedules} {
-		for _, id := range ids {
-			pending := b.pending[kind]
-			if pending == nil {
-				pending = map[string]struct{}{}
-				b.pending[kind] = pending
-			}
-			pending[id] = struct{}{}
-		}
+	if b.closed || b.reader == nil {
+		return nil, ErrClosed
 	}
-}
 
-// subscribe registers a watcher and hands it the snapshot, stamped with the seq of the last
-// render.
-func (b *Broker) subscribe(ctx context.Context) subscribeReply {
+	// Nothing renders while the lock is held, so no change can land between the snapshot and the
+	// subscription's place in the fan-out.
 	readCtx, cancel := context.WithTimeout(ctx, readTimeout)
 	defer cancel()
 
-	rows, err := b.reader.Snapshot(readCtx)
+	snapshot, err := b.reader.Snapshot(readCtx)
 	if err != nil {
-		return subscribeReply{err: err}
+		return nil, err
 	}
 
-	subscription := &Subscription{
-		broker: b,
-		events: make(chan Event, len(rows)+1+subscriberBuffer),
-	}
-	for _, event := range rows {
-		event.Seq = b.seq
-		subscription.events <- event
-	}
-	subscription.events <- Event{Seq: b.seq, Synced: true}
+	subscription := &Subscription{broker: b, events: make(chan Event, subscriberBuffer), snapshot: snapshot}
 	b.subscribers[subscription] = struct{}{}
 
-	return subscribeReply{subscription: subscription}
+	return subscription, nil
 }
 
 // send hands one event to a subscriber, dropping the subscriber when it has fallen too far
@@ -360,24 +272,48 @@ func (b *Broker) drop(subscription *Subscription) {
 	close(subscription.events)
 }
 
-// Subscription is one watcher's stream of events.
-type Subscription struct {
-	broker *Broker
-	events chan Event
-	once   sync.Once
+// Close ends every subscription and stops the render loop, dropping whatever was touched and
+// not yet rendered.
+func (b *Broker) Close() {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	if b.closed {
+		return
+	}
+	b.closed = true
+
+	for subscription := range b.subscribers {
+		b.drop(subscription)
+	}
+
+	b.pendingMu.Lock()
+	b.pending = nil
+	close(b.wake)
+	b.pendingMu.Unlock()
 }
 
-// Events is the stream, closed once the subscription ends.
+// Subscription is one watcher: the snapshot it opened with, and the stream of changes after it.
+type Subscription struct {
+	broker   *Broker
+	events   chan Event
+	snapshot Snapshot
+}
+
+// Snapshot is every row the listings held as the subscription opened.
+func (s *Subscription) Snapshot() Snapshot {
+	return s.snapshot
+}
+
+// Events is the stream of changes since the snapshot, closed once the subscription ends.
 func (s *Subscription) Events() <-chan Event {
 	return s.events
 }
 
 // Close ends the subscription, after which Events drains and closes.
 func (s *Subscription) Close() {
-	s.once.Do(func() {
-		select {
-		case s.broker.unsubscribes <- s:
-		case <-s.broker.stopped:
-		}
-	})
+	s.broker.mu.Lock()
+	defer s.broker.mu.Unlock()
+
+	s.broker.drop(s)
 }

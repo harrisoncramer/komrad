@@ -16,12 +16,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const testCoalesce = 5 * time.Millisecond
+// settle is long enough for the loop to have rendered whatever was touched.
+const settle = 20 * time.Millisecond
 
 type fakeReader struct {
 	mu       sync.Mutex
 	reads    []Touched
-	snapshot []Event
+	snapshot Snapshot
 	readErr  error
 	// held blocks Read while it is set, so a test can pile touches up behind one render.
 	held chan struct{}
@@ -47,7 +48,7 @@ func (f *fakeReader) Read(_ context.Context, touched Touched) ([]Event, error) {
 	return events, nil
 }
 
-func (f *fakeReader) Snapshot(context.Context) ([]Event, error) {
+func (f *fakeReader) Snapshot(context.Context) (Snapshot, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -64,7 +65,7 @@ func (f *fakeReader) getReads() []Touched {
 func newTestBroker(t *testing.T, reader *fakeReader) *Broker {
 	t.Helper()
 
-	broker := NewBroker(NewBrokerParams{Coalesce: testCoalesce})
+	broker := NewBroker(NewBrokerParams{})
 	broker.Start(reader)
 	t.Cleanup(broker.Close)
 
@@ -86,41 +87,29 @@ func receive(t *testing.T, subscription *Subscription) Event {
 	}
 }
 
-func drainSnapshot(t *testing.T, subscription *Subscription) []Event {
-	t.Helper()
-
-	var rows []Event
-	for {
-		event := receive(t, subscription)
-		if event.Synced {
-			return rows
-		}
-		rows = append(rows, event)
-	}
-}
-
-// TestTouchesCoalesceIntoOneRead pins that touches within the window are one read of the
-// deduplicated ids, each event stamped with the next seq.
-func TestTouchesCoalesceIntoOneRead(t *testing.T) {
-	reader := &fakeReader{}
+// TestTouchesPileUpBehindOneRead pins that touches made while a render is reading are one
+// read of the deduplicated ids once it is done.
+func TestTouchesPileUpBehindOneRead(t *testing.T) {
+	reader := &fakeReader{held: make(chan struct{})}
 	broker := newTestBroker(t, reader)
 
 	subscription, err := broker.Subscribe(t.Context())
 	require.NoError(t, err)
-	require.Empty(t, drainSnapshot(t, subscription))
+
+	broker.Touch(store.TableAgents, "held")
+	require.Eventually(t, func() bool { return len(reader.getReads()) == 1 }, time.Second, time.Millisecond)
 
 	broker.Touch(store.TableAgents, "b", "a")
 	broker.Touch(store.TableAgents, "a")
 	broker.Touch(store.TableWorkflows, "w")
 	broker.Touch(store.TableSchedules, "s")
+	close(reader.held)
 
+	require.Equal(t, "held", receive(t, subscription).ID)
 	events := []Event{receive(t, subscription), receive(t, subscription), receive(t, subscription), receive(t, subscription)}
 
-	require.Equal(t, []Touched{{Agents: []string{"a", "b"}, Workflows: []string{"w"}, Schedules: []string{"s"}}}, reader.getReads())
+	require.Equal(t, Touched{Agents: []string{"a", "b"}, Workflows: []string{"w"}, Schedules: []string{"s"}}, reader.getReads()[1])
 	require.Equal(t, []string{"a", "b", "w", "s"}, []string{events[0].ID, events[1].ID, events[2].ID, events[3].ID})
-	for i, event := range events {
-		require.Equal(t, uint64(i+1), event.Seq, "the seq counts up one per event")
-	}
 	require.NotNil(t, events[0].Agent)
 	require.True(t, events[2].IsTombstone(), "a row the reader did not render is a tombstone")
 }
@@ -131,43 +120,39 @@ func TestNothingIsReadWithoutAWatcher(t *testing.T) {
 	broker := newTestBroker(t, reader)
 
 	broker.Touch(store.TableAgents, "a")
-	time.Sleep(10 * testCoalesce)
+	time.Sleep(settle)
 
 	require.Empty(t, reader.getReads())
 }
 
-// TestSnapshotCarriesTheLastSeqAndLiveEventsFollow pins the stamp on a snapshot row and that
-// a render after it reaches every watcher with a higher seq.
-func TestSnapshotCarriesTheLastSeqAndLiveEventsFollow(t *testing.T) {
+// TestSubscriptionOpensWithTheSnapshot pins that a watcher gets the rows as they stood when it
+// subscribed, and every change after.
+func TestSubscriptionOpensWithTheSnapshot(t *testing.T) {
 	reader := &fakeReader{}
 	broker := newTestBroker(t, reader)
 
 	first, err := broker.Subscribe(t.Context())
 	require.NoError(t, err)
-	require.Empty(t, drainSnapshot(t, first))
+	require.Empty(t, first.Snapshot().Agents)
 
 	broker.Touch(store.TableAgents, "a")
-	require.Equal(t, uint64(1), receive(t, first).Seq)
+	require.Equal(t, "a", receive(t, first).ID)
 
 	reader.mu.Lock()
-	reader.snapshot = []Event{
-		{Kind: KindAgent, ID: "a", Agent: &agentv1.Agent{Id: "a"}},
-		{Kind: KindWorkflow, ID: "w", Workflow: &workflowv1.Workflow{Id: "w"}},
+	reader.snapshot = Snapshot{
+		Agents:    []*agentv1.Agent{{Id: "a"}},
+		Workflows: []*workflowv1.Workflow{{Id: "w"}},
 	}
 	reader.mu.Unlock()
 
 	second, err := broker.Subscribe(t.Context())
 	require.NoError(t, err)
-
-	rows := drainSnapshot(t, second)
-	require.Len(t, rows, 2)
-	for _, row := range rows {
-		require.Equal(t, uint64(1), row.Seq, "a snapshot row carries the seq of the last render")
-	}
+	require.Len(t, second.Snapshot().Agents, 1)
+	require.Len(t, second.Snapshot().Workflows, 1)
 
 	broker.Touch(store.TableAgents, "a")
-	require.Equal(t, uint64(2), receive(t, first).Seq)
-	require.Equal(t, uint64(2), receive(t, second).Seq)
+	require.Equal(t, "a", receive(t, first).ID)
+	require.Equal(t, "a", receive(t, second).ID)
 }
 
 // TestATouchDuringTheSnapshotLandsAfterIt pins the ordering a snapshot relies on: a touch
@@ -178,35 +163,25 @@ func TestATouchDuringTheSnapshotLandsAfterIt(t *testing.T) {
 
 	first, err := broker.Subscribe(t.Context())
 	require.NoError(t, err)
-	require.Empty(t, drainSnapshot(t, first))
 
 	// The render is held part way, and a second watcher subscribes behind it.
 	broker.Touch(store.TableAgents, "a")
 	require.Eventually(t, func() bool { return len(reader.getReads()) == 1 }, time.Second, time.Millisecond)
 
-	subscribed := make(chan *Subscription, 1)
-	go func() {
-		second, err := broker.Subscribe(t.Context())
-		if err != nil {
-			panic(err)
-		}
-		subscribed <- second
-	}()
+	second, err := broker.Subscribe(t.Context())
+	require.NoError(t, err)
 
 	broker.Touch(store.TableAgents, "b")
 	close(reader.held)
 
 	require.Equal(t, "a", receive(t, first).ID)
-	second := <-subscribed
-	require.Empty(t, drainSnapshot(t, second))
-
-	// The touch that was pending when the second watcher subscribed reaches both.
+	require.Equal(t, "a", receive(t, second).ID, "a render in flight as a watcher subscribes reaches it")
 	require.Equal(t, "b", receive(t, first).ID)
 	require.Equal(t, "b", receive(t, second).ID)
 }
 
 // TestASlowWatcherIsDropped pins that a watcher that stops reading is closed rather than
-// holding the render goroutine.
+// holding the render loop.
 func TestASlowWatcherIsDropped(t *testing.T) {
 	reader := &fakeReader{}
 	broker := newTestBroker(t, reader)
@@ -221,7 +196,7 @@ func TestASlowWatcherIsDropped(t *testing.T) {
 	}
 	for range subscriberBuffer/len(ids) + 2 {
 		broker.Touch(store.TableAgents, ids...)
-		time.Sleep(2 * testCoalesce)
+		time.Sleep(settle)
 	}
 
 	require.Eventually(t, func() bool {
@@ -235,19 +210,18 @@ func TestASlowWatcherIsDropped(t *testing.T) {
 				return false
 			}
 		}
-	}, 2*time.Second, testCoalesce, "the stream closes once the watcher has fallen too far behind")
+	}, 2*time.Second, settle, "the stream closes once the watcher has fallen too far behind")
 }
 
 // TestCloseEndsEverySubscription pins that closing the broker closes every stream and refuses
-// new watchers, and that closing twice is safe.
+// new watchers, and that closing twice and touching afterwards are safe.
 func TestCloseEndsEverySubscription(t *testing.T) {
 	reader := &fakeReader{}
-	broker := NewBroker(NewBrokerParams{Coalesce: testCoalesce})
+	broker := NewBroker(NewBrokerParams{})
 	broker.Start(reader)
 
 	subscription, err := broker.Subscribe(t.Context())
 	require.NoError(t, err)
-	require.Empty(t, drainSnapshot(t, subscription))
 
 	broker.Close()
 	broker.Close()
@@ -270,7 +244,6 @@ func TestAFailedReadIsRetriedWithTheNextOne(t *testing.T) {
 
 	subscription, err := broker.Subscribe(t.Context())
 	require.NoError(t, err)
-	require.Empty(t, drainSnapshot(t, subscription))
 
 	broker.Touch(store.TableAgents, "a")
 	require.Eventually(t, func() bool { return len(reader.getReads()) == 1 }, time.Second, time.Millisecond)
@@ -293,7 +266,6 @@ func TestClosingASubscriptionEndsItsStream(t *testing.T) {
 
 	subscription, err := broker.Subscribe(t.Context())
 	require.NoError(t, err)
-	require.Empty(t, drainSnapshot(t, subscription))
 
 	subscription.Close()
 	subscription.Close()
@@ -302,16 +274,21 @@ func TestClosingASubscriptionEndsItsStream(t *testing.T) {
 	require.False(t, open)
 
 	broker.Touch(store.TableAgents, "a")
-	time.Sleep(4 * testCoalesce)
+	time.Sleep(settle)
 	require.Empty(t, reader.getReads(), "nothing is read once the last watcher has gone")
 }
 
-// TestABrokerNeverStartedStillCloses pins that a broker built and never started closes cleanly.
+// TestABrokerNeverStartedStillCloses pins that a broker built and never started closes cleanly
+// and takes no watcher before or after.
 func TestABrokerNeverStartedStillCloses(t *testing.T) {
 	broker := NewBroker(NewBrokerParams{})
 	broker.Touch(store.TableAgents, "a")
-	broker.Close()
 
 	_, err := broker.Subscribe(t.Context())
+	require.ErrorIs(t, err, ErrClosed)
+
+	broker.Close()
+
+	_, err = broker.Subscribe(t.Context())
 	require.ErrorIs(t, err, ErrClosed)
 }

@@ -149,13 +149,10 @@ func TestSnapshotWalksEveryListingToTheEnd(t *testing.T) {
 	}
 	schedules := &fakeSchedules{schedules: []schedulestore.Schedule{{ID: "s0", Name: "nightly"}}}
 
-	events, err := newRows(stores, schedules).Snapshot(t.Context())
+	snapshot, err := newRows(stores, schedules).Snapshot(t.Context())
 	require.NoError(t, err)
 
-	kinds := map[watch.Kind]int{}
-	for _, event := range events {
-		kinds[event.Kind]++
-		assert.False(t, event.IsTombstone(), "a snapshot carries rows and nothing else")
-	}
-	assert.Equal(t, map[watch.Kind]int{watch.KindAgent: snapshotPage + 3, watch.KindWorkflow: 2, watch.KindSchedule: 1}, kinds)
+	assert.Len(t, snapshot.Agents, snapshotPage+3)
+	assert.Len(t, snapshot.Workflows, 2)
+	assert.Len(t, snapshot.Schedules, 1)
 }

@@ -35,18 +35,14 @@ func watchRows(ctx context.Context, watches watchv1connect.WatchServiceClient, p
 }
 
 // applyWatch takes a batch off the stream: a snapshot replaces the three listings, and every
-// other batch replaces or drops the rows it names.
+// other event replaces or drops the row it names.
 func (m *model) applyWatch(batch client.WatchBatch) tea.Cmd {
-	if batch.Snapshot {
-		m.reportUnreachable(nil)
-	}
-
 	return m.withListing(func(l *listing) {
-		if batch.Snapshot {
-			l.agents, l.workflows, l.schedules, l.marks = nil, nil, nil, nil
-		}
-
 		for _, event := range batch.Events {
+			if _, snapshot := event.GetEvent().(*watchv1.WatchEvent_Snapshot); snapshot {
+				m.reportUnreachable(nil)
+			}
+
 			l.apply(event)
 		}
 	})
@@ -54,6 +50,17 @@ func (m *model) applyWatch(batch client.WatchBatch) tea.Cmd {
 
 func (l *listing) apply(event *watchv1.WatchEvent) {
 	switch row := event.GetEvent().(type) {
+	case *watchv1.WatchEvent_Snapshot:
+		l.agents, l.workflows, l.schedules, l.marks = nil, nil, nil, nil
+		for _, agent := range row.Snapshot.GetAgents() {
+			l.putAgent(agent)
+		}
+		for _, workflow := range row.Snapshot.GetWorkflows() {
+			l.putWorkflow(workflow)
+		}
+		for _, schedule := range row.Snapshot.GetSchedules() {
+			l.putSchedule(schedule)
+		}
 	case *watchv1.WatchEvent_Agent:
 		l.putAgent(row.Agent)
 	case *watchv1.WatchEvent_Workflow:
@@ -70,7 +77,7 @@ func (l *listing) apply(event *watchv1.WatchEvent) {
 			l.dropSchedule(row.Deleted.GetId())
 		case watchv1.RowKind_ROW_KIND_UNSPECIFIED:
 		}
-	case *watchv1.WatchEvent_Synced, *watchv1.WatchEvent_Heartbeat, nil:
+	case *watchv1.WatchEvent_Heartbeat, nil:
 	}
 }
 

@@ -25,11 +25,9 @@ const (
 	WatchMaxRetry = 15 * time.Second
 )
 
-// WatchBatch is the events one stream delivered together, in the order they arrived: a
-// snapshot is everything a stream sent before Synced and replaces whatever came before it.
+// WatchBatch is the events one stream delivered together, in the order they arrived.
 type WatchBatch struct {
-	Snapshot bool
-	Events   []*watchv1.WatchEvent
+	Events []*watchv1.WatchEvent
 }
 
 // WatchStream is one open watch, which the stream a connect client answers with is.
@@ -44,7 +42,7 @@ type WatchStream interface {
 type WatchParams struct {
 	// Open starts one stream.
 	Open func(ctx context.Context) (WatchStream, error)
-	// OnBatch is handed the snapshot once it is complete and each batch of changes after it.
+	// OnBatch is handed each batch of events, the first of a stream opening with its snapshot.
 	OnBatch func(WatchBatch)
 	// OnLost is told a stream has ended, with the error that ended it or nil for a close the
 	// service chose, before the next one is opened.
@@ -74,14 +72,14 @@ func Watch(ctx context.Context, params WatchParams) {
 	wait := params.Retry
 
 	for {
-		synced, err := watchOnce(ctx, params)
+		delivered, err := watchOnce(ctx, params)
 		if ctx.Err() != nil {
 			return
 		}
 
 		params.OnLost(err)
 
-		if synced {
+		if delivered {
 			wait = params.Retry
 		}
 
@@ -108,8 +106,8 @@ func (p WatchParams) withDefaults() WatchParams {
 	return p
 }
 
-// watchOnce reads one stream to its end and answers with whether it reached Synced and what
-// ended it.
+// watchOnce reads one stream to its end and answers with whether it delivered anything and
+// what ended it.
 func watchOnce(ctx context.Context, params WatchParams) (bool, error) {
 	ctx, cancel := context.WithCancel(ctx)
 
@@ -142,29 +140,40 @@ func watchOnce(ctx context.Context, params WatchParams) (bool, error) {
 		ended <- stream.Err()
 	}()
 
-	var batch []*watchv1.WatchEvent
+	var (
+		batch     []*watchv1.WatchEvent
+		delivered bool
+		flush     <-chan time.Time
+	)
+
+	// A stream that ends inside the window still hands over what it delivered.
+	hand := func() {
+		if len(batch) == 0 {
+			return
+		}
+
+		delivered = true
+		params.OnBatch(WatchBatch{Events: batch})
+		batch, flush = nil, nil
+	}
 
 	silence := time.NewTimer(params.Silence)
 	defer silence.Stop()
 
-	var (
-		synced bool
-		flush  <-chan time.Time
-	)
-
 	for {
 		select {
 		case <-ctx.Done():
-			return synced, ctx.Err()
+			return delivered, ctx.Err()
 		case err := <-ended:
-			return synced, err
-		case <-silence.C:
-			return synced, errors.New("the watch said nothing for " + params.Silence.String())
-		case <-flush:
-			flush = nil
+			hand()
 
-			params.OnBatch(WatchBatch{Events: batch})
-			batch = nil
+			return delivered, err
+		case <-silence.C:
+			hand()
+
+			return delivered, errors.New("the watch said nothing for " + params.Silence.String())
+		case <-flush:
+			hand()
 		case event := <-events:
 			if !silence.Stop() {
 				<-silence.C
@@ -172,20 +181,14 @@ func watchOnce(ctx context.Context, params WatchParams) (bool, error) {
 
 			silence.Reset(params.Silence)
 
-			switch event.GetEvent().(type) {
-			case *watchv1.WatchEvent_Heartbeat, nil:
-			case *watchv1.WatchEvent_Synced:
-				synced = true
-				flush = nil
+			if _, heartbeat := event.GetEvent().(*watchv1.WatchEvent_Heartbeat); heartbeat || event.GetEvent() == nil {
+				continue
+			}
 
-				params.OnBatch(WatchBatch{Snapshot: true, Events: batch})
-				batch = nil
-			case *watchv1.WatchEvent_Agent, *watchv1.WatchEvent_Workflow, *watchv1.WatchEvent_Schedule, *watchv1.WatchEvent_Deleted:
-				batch = append(batch, event)
+			batch = append(batch, event)
 
-				if synced && flush == nil {
-					flush = time.After(params.Coalesce)
-				}
+			if flush == nil {
+				flush = time.After(params.Coalesce)
 			}
 		}
 	}
