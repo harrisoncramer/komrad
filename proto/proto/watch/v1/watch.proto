@@ -3,7 +3,9 @@ syntax = "proto3";
 package watch.v1;
 
 import "agent/v1/agent.proto";
+import "agent/v1/mail.proto";
 import "annotation/v1/tool.proto";
+import "pullrequest/v1/pullrequest.proto";
 import "schedule/v1/schedule.proto";
 import "workflow/v1/workflow.proto";
 
@@ -44,6 +46,12 @@ message Row {
     workflow.v1.Workflow workflow = 2;
     // A schedule as ListSchedules renders it.
     schedule.v1.Schedule schedule = 3;
+    // A mark as ListMarks renders it.
+    agent.v1.Mark mark = 4;
+    // A piece of mail as ListMail renders it.
+    agent.v1.Mail mail = 5;
+    // A pull request as ListPullRequests renders it.
+    pullrequest.v1.PullRequest pull_request = 6;
   }
 }
 
@@ -57,6 +65,12 @@ enum Resource {
   RESOURCE_WORKFLOW = 2;
   // A row of schedules.
   RESOURCE_SCHEDULE = 3;
+  // A row of marks.
+  RESOURCE_MARK = 4;
+  // A row of mail.
+  RESOURCE_MAIL = 5;
+  // A row of pull_requests.
+  RESOURCE_PULL_REQUEST = 6;
 }
 
 // Deleted names a row its watched set no longer holds, whether it was removed, archived or

@@ -75,6 +75,38 @@ message Agent {
       {
         table: "review_rounds"
         column: "agent_id"
+      },
+      {
+        table: "marks"
+        column: "agent_id"
+      },
+      {
+        table: "mail"
+        column: "to_agent_id"
+        ignores: [
+          "updated_at",
+          "reported_at"
+        ]
+      },
+      {
+        table: "pull_requests"
+        lookup: "branch"
+        via: "head_branch"
+        where: "archived_at IS NULL"
+        ignores: ["checks_read_at"]
+      },
+      {
+        table: "pull_request_syncs"
+        lookup: "repository_url"
+        via: "repository_url"
+        where: "archived_at IS NULL"
+        ignores: [
+          "read_at",
+          "calls",
+          "listed_at",
+          "sweep_cursor",
+          "sweep_newest"
+        ]
       }
     ]
   };
@@ -413,6 +445,11 @@ message RebaseWorktreeResponse {
 
 // Mark is one letter a person types to jump to a row, held by one agent or one workflow.
 message Mark {
+  option (annotation.v1.resource) = {
+    table: "marks"
+    key: "mark"
+  };
+
   // The letter.
   string mark = 1;
   // The agent it jumps to, unset when it is on a workflow.

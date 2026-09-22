@@ -31,11 +31,14 @@ var ErrNoReadOnlyURL = fail.Internal(
 
 type DBTX = models.DBTX
 
-// The tables the panel's listings are keyed by, which a notification names.
+// The resource tables, which a notification names.
 const (
-	TableAgents    = "agents"
-	TableWorkflows = "workflows"
-	TableSchedules = "schedules"
+	TableAgents       = "agents"
+	TableWorkflows    = "workflows"
+	TableSchedules    = "schedules"
+	TableMarks        = "marks"
+	TableMail         = "mail"
+	TablePullRequests = "pull_requests"
 )
 
 type Pool struct {

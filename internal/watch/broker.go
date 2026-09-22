@@ -41,13 +41,19 @@ const (
 	KindAgent Kind = iota + 1
 	KindWorkflow
 	KindSchedule
+	KindMark
+	KindMail
+	KindPullRequest
 )
 
 // kinds is the listing each table a notification names belongs to.
 var kinds = map[string]Kind{
-	store.TableAgents:    KindAgent,
-	store.TableWorkflows: KindWorkflow,
-	store.TableSchedules: KindSchedule,
+	store.TableAgents:       KindAgent,
+	store.TableWorkflows:    KindWorkflow,
+	store.TableSchedules:    KindSchedule,
+	store.TableMarks:        KindMark,
+	store.TableMail:         KindMail,
+	store.TablePullRequests: KindPullRequest,
 }
 
 // Touched is the ids one render reads back, by kind.

@@ -2855,7 +2855,7 @@ var File_agent_v1_agent_proto protoreflect.FileDescriptor
 
 const file_agent_v1_agent_proto_rawDesc = "" +
 	"\n" +
-	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x13agent/v1/mail.proto\x1a\x15agent/v1/review.proto\x1a\x19agent/v1/transcript.proto\x1a\x1cannotation/v1/resource.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a pullrequest/v1/pullrequest.proto\x1a\x14rules/v1/rules.proto\x1a\x12view/v1/view.proto\"\xc2\r\n" +
+	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x13agent/v1/mail.proto\x1a\x15agent/v1/review.proto\x1a\x19agent/v1/transcript.proto\x1a\x1cannotation/v1/resource.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a pullrequest/v1/pullrequest.proto\x1a\x14rules/v1/rules.proto\x1a\x12view/v1/view.proto\"\xd1\x0f\n" +
 	"\x05Agent\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x10\n" +
@@ -2900,7 +2900,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x14local_review_verdict\x18! \x01(\x0e2\x17.agent.v1.ReviewVerdictR\x12localReviewVerdict\x12H\n" +
 	"\x11local_review_tree\x18\" \x01(\x0e2\x1c.agent.v1.ReviewTreeStandingR\x0flocalReviewTree\x12\x17\n" +
 	"\aheld_at\x18# \x01(\tR\x06heldAt\x12@\n" +
-	"\fpull_request\x18& \x01(\v2\x1d.agent.v1.PullRequestStandingR\vpullRequest:\xbe\x01\xa2\xb5\x18\xb9\x01\n" +
+	"\fpull_request\x18& \x01(\v2\x1d.agent.v1.PullRequestStandingR\vpullRequest:\xcd\x03\xa2\xb5\x18\xc8\x03\n" +
 	"\x06agents\x1a\n" +
 	"updated_at\x1a\rstate_seen_at\x1a\tnudged_at\x1a\rnudge_sent_at\"&\n" +
 	"\x0eagent_metadata\x12\bagent_id2\n" +
@@ -2909,7 +2909,12 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"agent_runs\x12\bagent_id\"\x1f\n" +
 	"\areviews\x12\bagent_id2\n" +
 	"updated_at\"\x19\n" +
-	"\rreview_rounds\x12\bagent_idB\x0e\n" +
+	"\rreview_rounds\x12\bagent_id\"\x11\n" +
+	"\x05marks\x12\bagent_id\",\n" +
+	"\x04mail\x12\vto_agent_id2\n" +
+	"updated_at2\vreported_at\"I\n" +
+	"\rpull_requests\x1a\x06branch\"\vhead_branch*\x13archived_at IS NULL2\x0echecks_read_at\"\x80\x01\n" +
+	"\x12pull_request_syncs\x1a\x0erepository_url\"\x0erepository_url*\x13archived_at IS NULL2\aread_at2\x05calls2\tlisted_at2\fsweep_cursor2\fsweep_newestB\x0e\n" +
 	"\f_archived_atB\x0e\n" +
 	"\f_schedule_idB\b\n" +
 	"\x06_aliveB\a\n" +
@@ -3023,12 +3028,13 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"conflicted\x12\x14\n" +
 	"\x05moved\x18\x06 \x01(\bR\x05moved\x12%\n" +
 	"\x0elanded_commits\x18\a \x01(\x05R\rlandedCommits\x12%\n" +
-	"\x0ereplay_commits\x18\b \x01(\x05R\rreplayCommits\"}\n" +
+	"\x0ereplay_commits\x18\b \x01(\x05R\rreplayCommits\"\x90\x01\n" +
 	"\x04Mark\x12\x12\n" +
 	"\x04mark\x18\x01 \x01(\tR\x04mark\x12\x1e\n" +
 	"\bagent_id\x18\x02 \x01(\tH\x00R\aagentId\x88\x01\x01\x12$\n" +
 	"\vworkflow_id\x18\x03 \x01(\tH\x01R\n" +
-	"workflowId\x88\x01\x01B\v\n" +
+	"workflowId\x88\x01\x01:\x11\xa2\xb5\x18\r\n" +
+	"\x05marks\x12\x04markB\v\n" +
 	"\t_agent_idB\x0e\n" +
 	"\f_workflow_id\"9\n" +
 	"\x11ListMarksResponse\x12$\n" +

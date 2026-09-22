@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package pullrequest.v1;
 
+import "annotation/v1/resource.proto";
 import "annotation/v1/tool.proto";
 import "buf/validate/validate.proto";
 import "pagination/v1/pagination.proto";
@@ -23,6 +24,11 @@ message ListPullRequestsRequest {
 }
 
 message PullRequest {
+  option (annotation.v1.resource) = {
+    table: "pull_requests"
+    ignores: ["checks_read_at"]
+  };
+
   // The handle weave keys the row by.
   string id = 1;
   // Which forge it lives on, such as github.
