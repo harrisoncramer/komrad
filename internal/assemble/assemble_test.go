@@ -327,7 +327,8 @@ func TestApplyArrivals(t *testing.T) {
 		Rows: []*watchv1.Row{agentRow(agent(older))},
 	}}}
 	assert.Nil(t, world.Apply(snapshot), "a snapshot carries its pull requests, so nothing arrives")
-	assert.Equal(t, assemble.World{Agents: map[string]*agentv1.Agent{older: agent(older)}}, world, "a snapshot replaces the world")
+	assert.Equal(t, map[string]*agentv1.Agent{older: agent(older)}, world.Agents, "a snapshot replaces the world")
+	assert.Empty(t, world.Marks, "a snapshot keeps no row it does not carry")
 
 	assert.Nil(t, world.Apply(&watchv1.WatchEvent{Event: &watchv1.WatchEvent_Heartbeat{}}))
 	assert.Nil(t, world.Apply(nil))

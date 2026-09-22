@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"weave/lib/dates"
-	"weave/lib/xmap"
 	"weave/lib/xptr"
 
 	agentv1 "weave/proto/gen/agent/v1"
@@ -51,27 +50,50 @@ func (w *World) Apply(msg *watchv1.WatchEvent) (arrived []string) {
 // Put holds one row, reporting the agent when it is one whose key or branch the world had not
 // seen.
 func (w *World) Put(row *watchv1.Row) (arrived []string) {
+	w.ensureMaps()
+
 	switch row := row.GetRow().(type) {
 	case *watchv1.Row_Agent:
 		held, ok := w.Agents[row.Agent.GetId()]
-		xmap.Set(&w.Agents, row.Agent.GetId(), row.Agent)
+		w.Agents[row.Agent.GetId()] = row.Agent
 		if !ok || held.GetRepositoryUrl() != row.Agent.GetRepositoryUrl() || held.GetBranch() != row.Agent.GetBranch() {
 			return []string{row.Agent.GetId()}
 		}
 	case *watchv1.Row_Workflow:
-		xmap.Set(&w.Workflows, row.Workflow.GetId(), row.Workflow)
+		w.Workflows[row.Workflow.GetId()] = row.Workflow
 	case *watchv1.Row_Schedule:
-		xmap.Set(&w.Schedules, row.Schedule.GetId(), row.Schedule)
+		w.Schedules[row.Schedule.GetId()] = row.Schedule
 	case *watchv1.Row_Mark:
-		xmap.Set(&w.Marks, row.Mark.GetMark(), row.Mark)
+		w.Marks[row.Mark.GetMark()] = row.Mark
 	case *watchv1.Row_Mail:
-		xmap.Set(&w.Mail, row.Mail.GetId(), row.Mail)
+		w.Mail[row.Mail.GetId()] = row.Mail
 	case *watchv1.Row_PullRequest:
-		xmap.Set(&w.PullRequests, row.PullRequest.GetId(), row.PullRequest)
+		w.PullRequests[row.PullRequest.GetId()] = row.PullRequest
 	case nil:
 	}
 
 	return nil
+}
+
+func (w *World) ensureMaps() {
+	if w.Agents == nil {
+		w.Agents = map[string]*agentv1.Agent{}
+	}
+	if w.Workflows == nil {
+		w.Workflows = map[string]*workflowv1.Workflow{}
+	}
+	if w.Schedules == nil {
+		w.Schedules = map[string]*schedulev1.Schedule{}
+	}
+	if w.Marks == nil {
+		w.Marks = map[string]*agentv1.Mark{}
+	}
+	if w.Mail == nil {
+		w.Mail = map[string]*agentv1.Mail{}
+	}
+	if w.PullRequests == nil {
+		w.PullRequests = map[string]*pullrequestv1.PullRequest{}
+	}
 }
 
 func (w *World) drop(deleted *watchv1.Deleted) {
