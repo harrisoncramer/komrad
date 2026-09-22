@@ -7,8 +7,10 @@ import (
 	"strings"
 	"time"
 
+	"weave/internal/fail"
 	"weave/internal/forge"
 	"weave/internal/forge/forges"
+	"weave/internal/git"
 	githubapp "weave/internal/github/app"
 	"weave/lib/xhttp"
 
@@ -42,17 +44,28 @@ Set the App id, the installation id and the path to the key under ` + "`[github_
 }
 
 func githubTokenCmd(state *app) *cobra.Command {
-	return &cobra.Command{
+	var checkout string
+
+	cmd := &cobra.Command{
 		Use:   "token",
 		Short: "Print an installation token, minting one if the cached one is spent",
 		Long: `Print an installation token.
 
 Run this to check the App is set up. A token starting ghs_ means the key, the App id
-and the installation id all agree. Any other answer says which one does not.`,
+and the installation id all agree. Any other answer says which one does not.
+
+The stand-in weave puts ahead of an agent's PATH as gh runs this for every call, so
+a tool weave hands the token to never holds a stale one. --checkout is how that
+stand-in says which tree it was run in, and refuses a tree whose origin is on a host
+the App does not reach.`,
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if err := requireGitHubCheckout(cmd.Context(), checkout); err != nil {
+				return err
+			}
+
 			token, err := githubToken(cmd.Context(), state)
 			if err != nil {
 				return err
@@ -63,6 +76,42 @@ and the installation id all agree. Any other answer says which one does not.`,
 			return nil
 		},
 	}
+
+	cmd.Flags().StringVar(&checkout, "checkout", "", "refuse unless this checkout's origin is a repository on github.com")
+
+	return cmd
+}
+
+// githubHost is the one host an App minted from the config reaches.
+const githubHost = "github.com"
+
+// errNotGitHubCheckout says a checkout's origin is on a host weave holds no App for.
+var errNotGitHubCheckout = fail.Precondition("the checkout's origin is not on github.com")
+
+// requireGitHubCheckout refuses a checkout whose origin names another forge, and answers for
+// one that names no origin at all.
+func requireGitHubCheckout(ctx context.Context, dir string) error {
+	if strings.TrimSpace(dir) == "" {
+		return nil
+	}
+
+	raw, err := git.Run(ctx, dir, "config", "--get", "remote.origin.url")
+	if err != nil {
+		return nil
+	}
+
+	return requireGitHubRemote(raw)
+}
+
+func requireGitHubRemote(raw string) error {
+	remote, err := git.ParseRemoteURL(raw)
+	if err != nil || remote.Host == githubHost {
+		return nil
+	}
+
+	return errNotGitHubCheckout.Saying(
+		"%s is on %s, and weave holds a GitHub App and nothing else, so it has no credential for that forge",
+		remote.Path, remote.Host)
 }
 
 func githubCredentialCmd(state *app) *cobra.Command {

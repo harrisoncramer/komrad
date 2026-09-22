@@ -51,6 +51,14 @@ The token itself is kept on disk at `~/.local/state/weave/forge/<connection id>`
 
 Log lines and errors print the token masked.
 
+## What an agent pushes and opens pull requests with
+
+An agent never holds a credential of its own. Git asks a credential helper every time it needs a password, so a machine configured the way [administering the engine](engine-admin.md) describes answers `weave github credential` and hands git a token that dies within the hour. The `gh` command cannot ask: it reads `GH_TOKEN` from its environment at startup and has no helper hook, so before this an agent could push but could not open the pull request it had just pushed, and had to hand that to whoever spawned it.
+
+So weave writes a stand-in for `gh` into `weave-agent-tools` under its cache directory and puts that directory ahead of the PATH every agent is launched with. The stand-in runs `weave github token --checkout "$(pwd)"`, puts the answer in the environment of that one `gh` process, and execs the real binary. Nothing is exported into the pane, so no token reaches a frame capture or a transcript, and no call ever runs on a token minted more than a few minutes earlier.
+
+It refuses rather than falling back. A machine with no App configured, or a checkout whose origin is on a forge the App does not reach, gets weave's own refusal on stderr and a non-zero exit, so an agent finds out that it cannot open a pull request rather than reading an unauthenticated `gh`'s complaint. A `GH_TOKEN` or `GITHUB_TOKEN` already in the environment is left alone and used as it stands.
+
 ## Local Security Posture
 
 For a personal laptop, weave's default security model is identical to tools like the GitHub CLI, which also keeps the same token in `~/.config/gh/hosts.yml` for instance, or SSH keys that live in the `~/.ssh` directory.

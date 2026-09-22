@@ -140,7 +140,7 @@ weave github token
 
 That prints a token starting `ghs_`. If it errors, the secret name, the App id or the installation id is wrong.
 
-Git gets this token by asking weave every time it needs one, so nothing is stored. The `gh` command cannot ask, because it only reads a token from its own environment at startup. So the image puts a small wrapper ahead of `gh` on the path which fetches a fresh token and then runs the real one. An agent does not have to know about any of this.
+Git gets this token by asking weave every time it needs one, so nothing is stored. The `gh` command cannot ask, because it only reads a token from its own environment at startup. So weave puts a stand-in for `gh` ahead of the PATH it launches every agent with, which fetches a fresh token and then runs the real one, described in [forges](forges.md#what-an-agent-pushes-and-opens-pull-requests-with). An agent does not have to know about any of this.
 
 Then connect the engine's forge through the App, which can be done from the laptop:
 

@@ -9,6 +9,11 @@ Print an installation token.
 Run this to check the App is set up. A token starting ghs_ means the key, the App id
 and the installation id all agree. Any other answer says which one does not.
 
+The stand-in weave puts ahead of an agent's PATH as gh runs this for every call, so
+a tool weave hands the token to never holds a stale one. --checkout is how that
+stand-in says which tree it was run in, and refuses a tree whose origin is on a host
+the App does not reach.
+
 ```
 weave github token [flags]
 ```
@@ -16,7 +21,8 @@ weave github token [flags]
 ### Options
 
 ```
-  -h, --help   help for token
+      --checkout string   refuse unless this checkout's origin is a repository on github.com
+  -h, --help              help for token
 ```
 
 ### Options inherited from parent commands
