@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"weave/internal/harness"
 	agentstore "weave/internal/store/agent"
 
 	"github.com/stretchr/testify/assert"
@@ -518,4 +519,40 @@ func TestContextBriefing(t *testing.T) {
 				"the framing sits immediately before the block it frames")
 		})
 	}
+}
+
+// TestLaunchGivesTheAgentAStandInForGH covers the tools directory reaching the harness, which
+// is how gh is handed a credential the agent never holds itself.
+func TestLaunchGivesTheAgentAStandInForGH(t *testing.T) {
+	cache := t.TempDir()
+	h := &fakeHarness{}
+	launcher := NewLauncher(NewLauncherParams{
+		Tmux:     newFakeTmux(),
+		Addr:     "127.0.0.1:9999",
+		CacheDir: cache,
+		BinPath:  "/usr/local/bin/weave",
+	})
+
+	require.NoError(t, launcher.launch(h, launchParams{Pane: "pane"}))
+
+	require.Len(t, h.launches, 1)
+	tools := h.launches[0].ToolsDir
+	assert.Equal(t, filepath.Join(cache, harness.ToolsDirName), tools)
+
+	body, err := os.ReadFile(filepath.Join(tools, "gh"))
+	require.NoError(t, err)
+	assert.Contains(t, string(body), "'/usr/local/bin/weave'")
+	assert.NotContains(t, string(body), "ghs_", "the stand-in holds no token of its own")
+}
+
+// TestLaunchWithoutAWeaveBinaryGivesNoStandIn covers a launcher that cannot name weave, whose
+// agent reaches github the way it always did rather than through a stand-in that cannot mint.
+func TestLaunchWithoutAWeaveBinaryGivesNoStandIn(t *testing.T) {
+	h := &fakeHarness{}
+	launcher := NewLauncher(NewLauncherParams{Tmux: newFakeTmux(), CacheDir: t.TempDir()})
+
+	require.NoError(t, launcher.launch(h, launchParams{Pane: "pane"}))
+
+	require.Len(t, h.launches, 1)
+	assert.Empty(t, h.launches[0].ToolsDir)
 }

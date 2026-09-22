@@ -27,7 +27,7 @@ done
 
 cd "$MISE_CONFIG_ROOT"
 
-MODULES=(. tools/weavelint tools/weavepkg)
+MODULES=(. tools/weavelint tools/weavepkg tools/weaverec)
 
 CONFIG="$MISE_CONFIG_ROOT/.golangci.yaml"
 BIN_PATH="$MISE_CONFIG_ROOT/local/custom-gcl"

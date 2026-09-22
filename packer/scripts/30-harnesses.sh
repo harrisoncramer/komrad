@@ -13,5 +13,3 @@ echo "deb [arch=arm64 signed-by=/etc/apt/keyrings/githubcli.gpg] https://cli.git
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
 apt-get install -y gh
-
-install -m 0755 /tmp/files/weave-gh /usr/local/bin/gh

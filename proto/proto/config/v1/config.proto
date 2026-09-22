@@ -29,6 +29,7 @@ service ConfigService {
       mcp: true
       name: "get_config"
       description: "Read the panel's configuration as it is currently in force, keyed the same way the user's config file is. Covers the default flags every new agent inherits and the keybindings for each of the panel's screens. Anything the user left out of their file reads back as the built-in default. A configError in the response means their file would not parse, in which case the configuration returned is the defaults the panel is running on instead. The version is the build the server answering you is running, which is worth quoting in a bug report about behaviour that makes no sense."
+      roles: [ROLE_ORCHESTRATOR]
     };
   }
 }

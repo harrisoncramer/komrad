@@ -108,7 +108,7 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		CacheDir:    params.Env.CacheDir,
 		LogPath:     params.Env.LogPath(),
 		ContextPath: params.ContextPath,
-		HookCommand: params.HookCommand,
+		BinPath:     params.HookCommand,
 	})
 	paneLiveness := agents.NewPaneLiveness(params.Tmux)
 	paneChannel := pane.NewPane(pane.NewPaneParams{Terminal: params.Tmux, Harnesses: params.Harnesses})

@@ -738,9 +738,9 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\vCHECKS_NONE\x10\x01\x12\x12\n" +
 	"\x0eCHECKS_PENDING\x10\x02\x12\x12\n" +
 	"\x0eCHECKS_PASSING\x10\x03\x12\x12\n" +
-	"\x0eCHECKS_FAILING\x10\x042\xd8\x06\n" +
-	"\x12PullRequestService\x12\xc1\x06\n" +
-	"\x10ListPullRequests\x12'.pullrequest.v1.ListPullRequestsRequest\x1a(.pullrequest.v1.ListPullRequestsResponse\"\xd9\x05\x9a\xb5\x18\xd1\x05\b\x01\x10\x01\x1a\x12list_pull_requests\"\xb6\x05List the pull requests weave has stored for a repository, a page at a time: every one opened from a branch when one is named, whatever its state, or every one stored for the repository when none is. The unfinished ones come first and each group is newest opened first, so the first answered for a branch is the one an agent's row on that branch stands for. Give the repository as a git remote spells it or as its canonical address, and pass the next_page_token back as pagination.cursor for the next page. This reads what the pull request sync has stored rather than asking the forge, so a repository no live agent sits on may be behind or empty; list_forge_pull_requests asks the forge itself.\x90\x02\x01B.Z,weave/proto/gen/pullrequest/v1;pullrequestv1b\x06proto3"
+	"\x0eCHECKS_FAILING\x10\x042\xdc\x06\n" +
+	"\x12PullRequestService\x12\xc5\x06\n" +
+	"\x10ListPullRequests\x12'.pullrequest.v1.ListPullRequestsRequest\x1a(.pullrequest.v1.ListPullRequestsResponse\"\xdd\x05\x9a\xb5\x18\xd5\x05\b\x01\x10\x01\x1a\x12list_pull_requests\"\xb6\x05List the pull requests weave has stored for a repository, a page at a time: every one opened from a branch when one is named, whatever its state, or every one stored for the repository when none is. The unfinished ones come first and each group is newest opened first, so the first answered for a branch is the one an agent's row on that branch stands for. Give the repository as a git remote spells it or as its canonical address, and pass the next_page_token back as pagination.cursor for the next page. This reads what the pull request sync has stored rather than asking the forge, so a repository no live agent sits on may be behind or empty; list_forge_pull_requests asks the forge itself.B\x02\x01\x03\x90\x02\x01B.Z,weave/proto/gen/pullrequest/v1;pullrequestv1b\x06proto3"
 
 var (
 	file_pullrequest_v1_pullrequest_proto_rawDescOnce sync.Once

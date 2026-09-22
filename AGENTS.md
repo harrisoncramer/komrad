@@ -12,3 +12,10 @@ tmux socket.
 
 Never run `mise run docker:up`, `mise run db:apply`, `mise run restart`, or a bare `weave`
 command from a worktree without it.
+
+A change to what the panel draws wants a recording on its pull request, which the throwaway
+instance makes from a script of keypresses under `recordings/`:
+
+    MISE_ENV=test mise run record recordings/tour.rec
+
+The record-weave skill under `.claude/skills` says how to write the script and attach the gif.
