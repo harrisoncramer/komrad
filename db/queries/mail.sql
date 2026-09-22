@@ -137,6 +137,7 @@ FROM
     mail m
 WHERE
     m.claimed_at IS NULL
+    AND m.expires_at > NOW()
 ORDER BY
     m.id;
 
@@ -159,6 +160,7 @@ FROM
 WHERE
     m.id = ANY (@ids::uuid[])
     AND m.claimed_at IS NULL
+    AND m.expires_at > NOW()
 ORDER BY
     m.id;
 
