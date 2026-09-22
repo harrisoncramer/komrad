@@ -32,18 +32,18 @@ type scriptedReader struct {
 	snapshotErr error
 }
 
-func (r scriptedReader) Read(_ context.Context, touched watch.Touched) ([]watch.Event, error) {
-	var events []watch.Event
+func (r scriptedReader) Read(_ context.Context, touched watch.Touched) ([]watch.Change, error) {
+	var changes []watch.Change
 	for _, id := range touched[watchv1.Resource_RESOURCE_AGENT] {
 		if strings.HasPrefix(id, "gone-") {
-			events = append(events, watch.Event{Resource: watchv1.Resource_RESOURCE_AGENT, Key: id})
+			changes = append(changes, watch.Change{Resource: watchv1.Resource_RESOURCE_AGENT, Key: id})
 
 			continue
 		}
-		events = append(events, watch.Event{Resource: watchv1.Resource_RESOURCE_AGENT, Key: id, Row: &watchv1.Row{Row: &watchv1.Row_Agent{Agent: &agentv1.Agent{Id: id}}}})
+		changes = append(changes, watch.Change{Resource: watchv1.Resource_RESOURCE_AGENT, Key: id, Row: &watchv1.Row{Row: &watchv1.Row_Agent{Agent: &agentv1.Agent{Id: id}}}})
 	}
 
-	return events, nil
+	return changes, nil
 }
 
 func (r scriptedReader) Snapshot(context.Context) ([]*watchv1.Row, error) {

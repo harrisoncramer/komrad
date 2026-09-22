@@ -66,11 +66,11 @@ func (h *Handler) Watch(ctx context.Context, _ *watchv1.WatchRequest, stream *co
 		select {
 		case <-ctx.Done():
 			return nil
-		case event, open := <-subscription.Events():
+		case change, open := <-subscription.Changes():
 			if !open {
 				return nil
 			}
-			if err := stream.Send(renderEvent(event)); err != nil {
+			if err := stream.Send(renderChange(change)); err != nil {
 				return nil
 			}
 		case <-heartbeat.C:
@@ -88,11 +88,11 @@ func renderSnapshot(rows []*watchv1.Row) *watchv1.WatchEvent {
 	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Snapshot{Snapshot: &watchv1.Snapshot{Rows: rows}}}
 }
 
-// renderEvent is one event as the wire carries it.
-func renderEvent(event watch.Event) *watchv1.WatchEvent {
-	if event.Row == nil {
-		return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Deleted{Deleted: &watchv1.Deleted{Resource: event.Resource, Key: event.Key}}}
+// renderChange is one change as the wire carries it.
+func renderChange(change watch.Change) *watchv1.WatchEvent {
+	if change.Row == nil {
+		return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Deleted{Deleted: &watchv1.Deleted{Resource: change.Resource, Key: change.Key}}}
 	}
 
-	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Put{Put: event.Row}}
+	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Put{Put: change.Row}}
 }

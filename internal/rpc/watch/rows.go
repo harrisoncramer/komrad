@@ -136,8 +136,8 @@ func newArm[R any](store reader[R], key func(R) string, draw func(R) *watchv1.Ro
 
 // Read renders each touched key as its row, or as a tombstone when its watched set no longer
 // holds it, resource by resource.
-func (r *Rows) Read(ctx context.Context, touched watch.Touched) ([]watch.Event, error) {
-	var events []watch.Event
+func (r *Rows) Read(ctx context.Context, touched watch.Touched) ([]watch.Change, error) {
+	var changes []watch.Change
 	for _, res := range slices.Sorted(maps.Keys(touched)) {
 		keys := touched[res]
 		if len(keys) == 0 {
@@ -149,12 +149,12 @@ func (r *Rows) Read(ctx context.Context, touched watch.Touched) ([]watch.Event, 
 			return nil, err
 		}
 
-		events = append(events, xslice.Map(keys, func(key string) watch.Event {
-			return watch.Event{Resource: res, Key: key, Row: held[key]}
+		changes = append(changes, xslice.Map(keys, func(key string) watch.Change {
+			return watch.Change{Resource: res, Key: key, Row: held[key]}
 		})...)
 	}
 
-	return events, nil
+	return changes, nil
 }
 
 // Snapshot renders every row the six watched sets hold, one resource after another.

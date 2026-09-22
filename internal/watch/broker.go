@@ -16,7 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// subscriberBuffer is how many live events a watcher may fall behind before it is dropped.
+// subscriberBuffer is how many live changes a watcher may fall behind before it is dropped.
 const subscriberBuffer = 1024
 
 // readTimeout is how long one read-back or snapshot may take.
@@ -54,8 +54,8 @@ func resourcesByTable() map[string]watchv1.Resource {
 // Touched is the keys one render reads back, by resource, each resource's in order.
 type Touched map[watchv1.Resource][]string
 
-// Event is one row as a watcher should now hold it, or a tombstone for one it should drop.
-type Event struct {
+// Change is one row as a watcher should now hold it, or a tombstone for one it should drop.
+type Change struct {
 	Resource watchv1.Resource
 	Key      string
 	// Row carries the row, and nil is a tombstone.
@@ -66,7 +66,7 @@ type Event struct {
 type Reader interface {
 	// Read renders each touched key as its row, or as a tombstone when its watched set no
 	// longer holds it.
-	Read(ctx context.Context, touched Touched) ([]Event, error)
+	Read(ctx context.Context, touched Touched) ([]Change, error)
 	// Snapshot renders every row the watched sets hold.
 	Snapshot(ctx context.Context) ([]*watchv1.Row, error)
 }
@@ -214,7 +214,7 @@ func (b *Broker) render() bool {
 	ctx, cancel := context.WithTimeout(context.Background(), readTimeout)
 	defer cancel()
 
-	events, err := b.reader.Read(ctx, touched)
+	changes, err := b.reader.Read(ctx, touched)
 	if err != nil {
 		b.logger.LogAttrs(ctx, slog.LevelError, "failed to read the rows a change touched", logging.Err(err)...)
 		b.restore(touched)
@@ -225,9 +225,9 @@ func (b *Broker) render() bool {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	for _, event := range events {
+	for _, change := range changes {
 		for subscription := range b.subscribers {
-			b.send(ctx, subscription, event)
+			b.send(ctx, subscription, change)
 		}
 	}
 
@@ -278,17 +278,17 @@ func (b *Broker) Subscribe(ctx context.Context) (*Subscription, error) {
 		return nil, err
 	}
 
-	subscription := &Subscription{broker: b, events: make(chan Event, subscriberBuffer), snapshot: snapshot}
+	subscription := &Subscription{broker: b, changes: make(chan Change, subscriberBuffer), snapshot: snapshot}
 	b.subscribers[subscription] = struct{}{}
 
 	return subscription, nil
 }
 
-// send hands one event to a subscriber, dropping the subscriber when it has fallen too far
+// send hands one change to a subscriber, dropping the subscriber when it has fallen too far
 // behind to take it.
-func (b *Broker) send(ctx context.Context, subscription *Subscription, event Event) {
+func (b *Broker) send(ctx context.Context, subscription *Subscription, change Change) {
 	select {
-	case subscription.events <- event:
+	case subscription.changes <- change:
 	default:
 		b.logger.LogAttrs(ctx, slog.LevelWarn, "dropped a watcher that fell behind the stream")
 		b.drop(subscription)
@@ -301,7 +301,7 @@ func (b *Broker) drop(subscription *Subscription) {
 	}
 
 	delete(b.subscribers, subscription)
-	close(subscription.events)
+	close(subscription.changes)
 }
 
 // Close ends every subscription, lets the listener's connection go and stops the render loop,
@@ -334,7 +334,7 @@ func (b *Broker) Close() {
 // Subscription is one watcher: the snapshot it opened with, and the stream of changes after it.
 type Subscription struct {
 	broker   *Broker
-	events   chan Event
+	changes  chan Change
 	snapshot []*watchv1.Row
 }
 
@@ -343,9 +343,9 @@ func (s *Subscription) Snapshot() []*watchv1.Row {
 	return s.snapshot
 }
 
-// Events is the stream of changes since the snapshot, closed once the subscription ends.
-func (s *Subscription) Events() <-chan Event {
-	return s.events
+// Changes is the stream of changes since the snapshot, closed once the subscription ends.
+func (s *Subscription) Changes() <-chan Change {
+	return s.changes
 }
 
 // Close ends the subscription, after which Events drains and closes.

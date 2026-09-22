@@ -79,7 +79,7 @@ func TestReadAnswersARowOrATombstoneForEveryTouchedKey(t *testing.T) {
 		schedules:    []schedulestore.Schedule{{ID: "s1", Name: "nightly", Cron: "0 2 * * *", Enabled: true}},
 	}
 
-	events, err := newRows(stores).Read(t.Context(), watch.Touched{
+	changes, err := newRows(stores).Read(t.Context(), watch.Touched{
 		watchv1.Resource_RESOURCE_AGENT:        []string{"a1", "a2"},
 		watchv1.Resource_RESOURCE_WORKFLOW:     []string{"w1", "w2"},
 		watchv1.Resource_RESOURCE_SCHEDULE:     []string{"s1", "s2"},
@@ -88,29 +88,29 @@ func TestReadAnswersARowOrATombstoneForEveryTouchedKey(t *testing.T) {
 		watchv1.Resource_RESOURCE_PULL_REQUEST: []string{"p1", "p2"},
 	})
 	require.NoError(t, err)
-	require.Len(t, events, 12)
+	require.Len(t, changes, 12)
 
-	keys := xslice.Map(events, func(event watch.Event) string { return event.Key })
+	keys := xslice.Map(changes, func(change watch.Change) string { return change.Key })
 	assert.Equal(t, []string{"a1", "a2", "w1", "w2", "s1", "s2", "w", "x", "m1", "m2", "p1", "p2"}, keys)
-	for i := 1; i < len(events); i += 2 {
-		assert.Nil(t, events[i].Row, "%s is a tombstone", events[i].Key)
-		assert.Equal(t, events[i-1].Resource, events[i].Resource)
+	for i := 1; i < len(changes); i += 2 {
+		assert.Nil(t, changes[i].Row, "%s is a tombstone", changes[i].Key)
+		assert.Equal(t, changes[i-1].Resource, changes[i].Resource)
 	}
 
-	assert.Equal(t, "agent-a1", events[0].Row.GetAgent().GetName())
-	assert.Equal(t, "backend", events[2].Row.GetWorkflow().GetName())
-	assert.Equal(t, "nightly", events[4].Row.GetSchedule().GetName())
-	assert.NotNil(t, events[4].Row.GetSchedule().GetNextRunAt(), "the next run is worked out from the clock")
-	assert.Equal(t, "w1", events[6].Row.GetMark().GetWorkflowId())
-	assert.Equal(t, "a1", events[8].Row.GetMail().GetToAgentId())
-	assert.Equal(t, int32(7), events[10].Row.GetPullRequest().GetNumber())
+	assert.Equal(t, "agent-a1", changes[0].Row.GetAgent().GetName())
+	assert.Equal(t, "backend", changes[2].Row.GetWorkflow().GetName())
+	assert.Equal(t, "nightly", changes[4].Row.GetSchedule().GetName())
+	assert.NotNil(t, changes[4].Row.GetSchedule().GetNextRunAt(), "the next run is worked out from the clock")
+	assert.Equal(t, "w1", changes[6].Row.GetMark().GetWorkflowId())
+	assert.Equal(t, "a1", changes[8].Row.GetMail().GetToAgentId())
+	assert.Equal(t, int32(7), changes[10].Row.GetPullRequest().GetNumber())
 }
 
 // TestReadOfNothingReadsNothing pins that an empty touch costs no query.
 func TestReadOfNothingReadsNothing(t *testing.T) {
-	events, err := newRows(&fakeStores{}).Read(t.Context(), watch.Touched{})
+	changes, err := newRows(&fakeStores{}).Read(t.Context(), watch.Touched{})
 	require.NoError(t, err)
-	assert.Empty(t, events)
+	assert.Empty(t, changes)
 }
 
 // TestSnapshotCarriesEveryWatchedSet pins that a snapshot carries every row of every kind, one
