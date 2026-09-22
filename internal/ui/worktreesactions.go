@@ -196,7 +196,7 @@ func (w *worktreesScreen) deleteHovered(h host, s panelShared, _ string) tea.Cmd
 	switch row.item.fate {
 	case fateLive:
 		if item, ok := s.listing.liveAgent(row.item.agent.id); ok {
-			return confirmArchiveAgents(h, s.listing.liveAgents(), []panel.Agent{item.agent})
+			return confirmArchiveAgents(h, s.listing.liveAgents(), []panel.Agent{item.Agent})
 		}
 	case fateArchived:
 		return confirmDeleteWorktrees(h, s, worktreeDeletion{agents: []worktreeItem{row.item}})

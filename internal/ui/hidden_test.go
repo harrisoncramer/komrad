@@ -20,25 +20,25 @@ func hiddenTree() model {
 		listing: listing{workflows: []panel.Workflow{
 			{ID: "w1", Name: "backend"},
 			{ID: "w2", Name: "frontend"},
-		}, agents: []agentItem{
-			{agent: panel.Agent{
+		}, agents: []panel.AgentRow{
+			{Agent: panel.Agent{
 				ID:         "a1",
 				Name:       "auth",
 				WorkflowID: "w1",
 			}},
-			{agent: panel.Agent{
+			{Agent: panel.Agent{
 				ID:         "a2",
 				Name:       "chore",
 				WorkflowID: "w1",
 				Hidden:     true,
 			}},
-			{agent: panel.Agent{
+			{Agent: panel.Agent{
 				ID:         "a3",
 				Name:       "sweep",
 				WorkflowID: "w1",
 				Hidden:     true,
 			}},
-			{agent: panel.Agent{
+			{Agent: panel.Agent{
 				ID:         "a4",
 				Name:       "ui",
 				WorkflowID: "w2",
@@ -103,7 +103,7 @@ func TestToggleHiddenAgentsKeepsTheCursor(t *testing.T) {
 
 	hovered, ok := revealed.agents.selectedAgent(revealed.shared())
 	require.True(t, ok)
-	assert.Equal(t, "ui", hovered.agent.Name)
+	assert.Equal(t, "ui", hovered.Agent.Name)
 }
 
 // TestHiddenHelpIsOneLine pins the two hidden keys sharing a line on an agent and only the

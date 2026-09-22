@@ -33,7 +33,7 @@ func settle(t *testing.T, m model, cmd tea.Cmd) model {
 
 	for _, msg := range produced(cmd) {
 		switch msg.(type) {
-		case writeResult, listedMsg, client.WatchBatch:
+		case writeResult, listedMsg, client.WatchBatch, pullRequestsListedMsg:
 		default:
 			continue
 		}
@@ -48,7 +48,7 @@ func settle(t *testing.T, m model, cmd tea.Cmd) model {
 }
 
 // applyListing hands the model the three live listings the way a watch snapshot does.
-func applyListing(m *model, agents []agentItem, workflows []panel.Workflow, schedules []scheduleItem) tea.Cmd {
+func applyListing(m *model, agents []panel.AgentRow, workflows []panel.Workflow, schedules []scheduleItem) tea.Cmd {
 	return m.withListing(func(l *listing) {
 		l.agents, l.workflows, l.schedules = agents, workflows, schedules
 	})
@@ -77,16 +77,11 @@ func produced(cmd tea.Cmd) []tea.Msg {
 // TestWriteLandsOnTheRowItMade covers a create landing: the row the write answered with goes
 // into the listing before the watch has delivered it, and the cursor onto it.
 func TestWriteLandsOnTheRowItMade(t *testing.T) {
-	m := model{
-		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
-		keys:   config.DefaultKeybindings(),
-		screen: screenAgents,
-		listing: listing{
-			workflows: []panel.Workflow{{ID: "w1", Name: "api"}},
-			agents:    []agentItem{{agent: panel.Agent{ID: "a1", Name: "old", WorkflowID: "w1"}}},
-		},
-	}
-	m.agents.apply(m.shared(), "")
+	m := watchedPanel()
+	m.applyWatch(client.WatchBatch{Events: []*watchv1.WatchEvent{snapshotEvent(
+		workflowRowOf(&workflowv1.Workflow{Id: "w1", Name: "api"}),
+		agentRowOf(&agentv1.Agent{Id: "a1", Name: "old", WorkflowId: "w1"}),
+	)}})
 
 	landed, _ := m.applyWrite(writeResult{written: &written{
 		row:   agentRowKey("a2"),
@@ -94,10 +89,11 @@ func TestWriteLandsOnTheRowItMade(t *testing.T) {
 	}})
 	got := asModel(t, landed)
 
-	require.True(t, got.listing.hasAgent("a2"), "the row is on screen the moment the write lands")
+	_, held := got.listing.liveAgent("a2")
+	require.True(t, held, "the row is on screen the moment the write lands")
 	selected, ok := got.agents.selectedAgent(got.shared())
 	require.True(t, ok)
-	assert.Equal(t, "new", selected.agent.Name, "and the cursor is on it")
+	assert.Equal(t, "new", selected.Agent.Name, "and the cursor is on it")
 
 	got.applyWatch(client.WatchBatch{Events: []*watchv1.WatchEvent{
 		{Event: &watchv1.WatchEvent_Put{Put: &watchv1.Row{Row: &watchv1.Row_Agent{Agent: &agentv1.Agent{Id: "a2", Name: "new", WorkflowId: "w1", Alive: proto.Bool(true)}}}}},
@@ -106,20 +102,17 @@ func TestWriteLandsOnTheRowItMade(t *testing.T) {
 	require.Len(t, got.listing.agents, 2)
 	selected, ok = got.agents.selectedAgent(got.shared())
 	require.True(t, ok)
-	assert.Equal(t, "new", selected.agent.Name, "the event that carries the row leaves the cursor on it")
-	assert.True(t, selected.alive, "and takes the row over")
+	assert.Equal(t, "new", selected.Agent.Name, "the event that carries the row leaves the cursor on it")
+	assert.True(t, selected.Alive, "and takes the row over")
 }
 
 // TestWriteLandsOnTheWorkflowItMade covers a workflow create, whose header is drawn from the
 // workflow the write answered with.
 func TestWriteLandsOnTheWorkflowItMade(t *testing.T) {
-	m := model{
-		frame:   layout.New(&recordingTmux{}, config.DefaultLayout()),
-		keys:    config.DefaultKeybindings(),
-		screen:  screenAgents,
-		listing: listing{workflows: []panel.Workflow{{ID: "w1", Name: "zeta"}}},
-	}
-	m.agents.apply(m.shared(), "")
+	m := watchedPanel()
+	m.applyWatch(client.WatchBatch{Events: []*watchv1.WatchEvent{snapshotEvent(
+		workflowRowOf(&workflowv1.Workflow{Id: "w1", Name: "zeta"}),
+	)}})
 
 	landed, _ := m.applyWrite(writeResult{written: &written{
 		row:      workflowRowKey("w2"),
@@ -135,16 +128,11 @@ func TestWriteLandsOnTheWorkflowItMade(t *testing.T) {
 // TestWriteLeavesARowTheWatchAlreadyDelivered covers the write's answer arriving after the
 // watch has already put the row on screen, which is left as the watch rendered it.
 func TestWriteLeavesARowTheWatchAlreadyDelivered(t *testing.T) {
-	m := model{
-		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
-		keys:   config.DefaultKeybindings(),
-		screen: screenAgents,
-		listing: listing{
-			workflows: []panel.Workflow{{ID: "w1", Name: "api"}},
-			agents:    []agentItem{{agent: panel.Agent{ID: "a2", Name: "new", WorkflowID: "w1"}, alive: true}},
-		},
-	}
-	m.agents.apply(m.shared(), "")
+	m := watchedPanel()
+	m.applyWatch(client.WatchBatch{Events: []*watchv1.WatchEvent{snapshotEvent(
+		workflowRowOf(&workflowv1.Workflow{Id: "w1", Name: "api"}),
+		agentRowOf(&agentv1.Agent{Id: "a2", Name: "new", WorkflowId: "w1", Alive: proto.Bool(true)}),
+	)}})
 
 	landed, _ := m.applyWrite(writeResult{written: &written{
 		row:   agentRowKey("a2"),
@@ -153,7 +141,7 @@ func TestWriteLeavesARowTheWatchAlreadyDelivered(t *testing.T) {
 	got := asModel(t, landed)
 
 	require.Len(t, got.listing.agents, 1)
-	assert.True(t, got.listing.agents[0].alive)
+	assert.True(t, got.listing.agents[0].Alive)
 }
 
 // TestFirstListingLandsOnTheFirstAgent covers the cursor being placed by the first pass.
@@ -165,11 +153,11 @@ func TestFirstListingLandsOnTheFirstAgent(t *testing.T) {
 		listing: listing{workflows: []panel.Workflow{{ID: "w1", Name: "api"}}},
 	}
 
-	applyListing(&m, []agentItem{{agent: panel.Agent{Name: "api-refactor", WorkflowID: "w1"}}}, []panel.Workflow{{ID: "w1", Name: "api"}}, nil)
+	applyListing(&m, []panel.AgentRow{{Agent: panel.Agent{Name: "api-refactor", WorkflowID: "w1"}}}, []panel.Workflow{{ID: "w1", Name: "api"}}, nil)
 
 	selected, ok := m.agents.selectedAgent(m.shared())
 	require.True(t, ok, "the cursor is on an agent rather than on the folder above it")
-	assert.Equal(t, "api-refactor", selected.agent.Name)
+	assert.Equal(t, "api-refactor", selected.Agent.Name)
 }
 
 // TestCreatedAgentReceivesFocus covers the cursor landing on a created agent and staying there
@@ -183,10 +171,12 @@ func TestCreatedAgentReceivesFocus(t *testing.T) {
 		frame:  layout.New(tmux, config.DefaultLayout()),
 		keys:   config.DefaultKeybindings(),
 		screen: screenAgents,
-		listing: listing{workflows: []panel.Workflow{{ID: "w1", Name: "api"}}, agents: []agentItem{{agent: panel.Agent{
-			ID: "old", Name: "api-refactor", WorkflowID: "w1",
-		}}}}, agents: agentsScreen{rowCursor: rowCursor{cursor: 1}, placed: true},
+		agents: agentsScreen{rowCursor: rowCursor{cursor: 1}, placed: true},
 	}
+	m.applyWatch(client.WatchBatch{Events: []*watchv1.WatchEvent{snapshotEvent(
+		workflowRowOf(&workflowv1.Workflow{Id: "w1", Name: "api"}),
+		agentRowOf(&agentv1.Agent{Id: "old", Name: "api-refactor", WorkflowId: "w1"}),
+	)}})
 
 	workflow := m.listing.workflows[0]
 
@@ -207,22 +197,13 @@ func TestCreatedAgentReceivesFocus(t *testing.T) {
 		}
 	}
 
-	applyListing(&m, []agentItem{
-		{agent: panel.Agent{
-			ID:         "old",
-			Name:       "api-refactor",
-			WorkflowID: "w1",
-		}},
-		{agent: panel.Agent{
-			ID:         "new",
-			Name:       "api-tests",
-			WorkflowID: "w1",
-		}},
-	}, m.listing.workflows, nil)
+	m.applyWatch(client.WatchBatch{Events: []*watchv1.WatchEvent{
+		putEvent(agentRowOf(&agentv1.Agent{Id: "new", Name: "api-tests", WorkflowId: "w1"})),
+	}})
 
 	selected, ok := m.agents.selectedAgent(m.shared())
 	require.True(t, ok)
-	assert.Equal(t, "new", selected.agent.ID)
+	assert.Equal(t, "new", selected.Agent.ID)
 }
 
 // TestUnrelatedWriteLeavesTheInfoPaneAlone covers a rename or an archive landing while a log
@@ -291,13 +272,13 @@ func TestCursorHoldsItsFolderAcrossAListing(t *testing.T) {
 		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
 		keys:   config.DefaultKeybindings(),
 		screen: screenAgents,
-		listing: listing{workflows: []panel.Workflow{{ID: "w1", Name: "api"}, {ID: "w2", Name: "infra"}}, agents: []agentItem{
-			{agent: panel.Agent{
+		listing: listing{workflows: []panel.Workflow{{ID: "w1", Name: "api"}, {ID: "w2", Name: "infra"}}, agents: []panel.AgentRow{
+			{Agent: panel.Agent{
 				ID:         "a1",
 				Name:       "api-refactor",
 				WorkflowID: "w1",
 			}},
-			{agent: panel.Agent{
+			{Agent: panel.Agent{
 				ID:         "a2",
 				Name:       "infra-audit",
 				WorkflowID: "w2",
@@ -305,7 +286,7 @@ func TestCursorHoldsItsFolderAcrossAListing(t *testing.T) {
 		}}, agents: agentsScreen{rowCursor: rowCursor{cursor: 2}, placed: true},
 	}
 
-	applyListing(&m, []agentItem{{agent: panel.Agent{
+	applyListing(&m, []panel.AgentRow{{Agent: panel.Agent{
 		ID:         "a2",
 		Name:       "infra-audit",
 		WorkflowID: "w2",
@@ -323,13 +304,13 @@ func TestCursorHoldsItsAgentWhenAFolderArrives(t *testing.T) {
 		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
 		keys:   config.DefaultKeybindings(),
 		screen: screenAgents,
-		listing: listing{workflows: []panel.Workflow{{ID: "w2", Name: "infra"}}, agents: []agentItem{
-			{agent: panel.Agent{
+		listing: listing{workflows: []panel.Workflow{{ID: "w2", Name: "infra"}}, agents: []panel.AgentRow{
+			{Agent: panel.Agent{
 				ID:         "b1",
 				Name:       "infra-audit",
 				WorkflowID: "w2",
 			}},
-			{agent: panel.Agent{
+			{Agent: panel.Agent{
 				ID:         "b2",
 				Name:       "infra-upgrade",
 				WorkflowID: "w2",
@@ -337,13 +318,13 @@ func TestCursorHoldsItsAgentWhenAFolderArrives(t *testing.T) {
 		}}, agents: agentsScreen{rowCursor: rowCursor{cursor: 2}, placed: true},
 	}
 
-	applyListing(&m, []agentItem{
-		{agent: panel.Agent{
+	applyListing(&m, []panel.AgentRow{
+		{Agent: panel.Agent{
 			ID:         "b1",
 			Name:       "infra-audit",
 			WorkflowID: "w2",
 		}},
-		{agent: panel.Agent{
+		{Agent: panel.Agent{
 			ID:         "b2",
 			Name:       "infra-upgrade",
 			WorkflowID: "w2",
@@ -352,7 +333,7 @@ func TestCursorHoldsItsAgentWhenAFolderArrives(t *testing.T) {
 
 	selected, ok := m.agents.selectedAgent(m.shared())
 	require.True(t, ok, "the cursor is on an agent")
-	assert.Equal(t, "infra-upgrade", selected.agent.Name)
+	assert.Equal(t, "infra-upgrade", selected.Agent.Name)
 }
 
 // TestArchiveCursorHoldsItsAgentWhenAFolderGoes covers the same shape on the archive, whose

@@ -18,8 +18,8 @@ func terminalModel(t *testing.T, tmux *recordingTmux) (model, string) {
 
 	dir := t.TempDir()
 	m := infoModel(tmux)
-	m.listing.agents[0].agent.ID = "a1"
-	m.listing.agents[0].agent.Cwd = dir
+	m.listing.agents[0].Agent.ID = "a1"
+	m.listing.agents[0].Agent.Cwd = dir
 
 	return m, dir
 }
@@ -106,7 +106,7 @@ func TestTerminalStaysPutAsTheCursorMoves(t *testing.T) {
 	m, first := terminalModel(t, tmux)
 
 	second := t.TempDir()
-	m.listing.agents = append(m.listing.agents, agentItem{agent: panel.Agent{
+	m.listing.agents = append(m.listing.agents, panel.AgentRow{Agent: panel.Agent{
 		ID:         "a2",
 		Name:       "billing",
 		Cwd:        second,
@@ -131,7 +131,7 @@ func TestTerminalMovesWhenAskedOnAnotherAgent(t *testing.T) {
 	m, first := terminalModel(t, tmux)
 
 	second := t.TempDir()
-	m.listing.agents = append(m.listing.agents, agentItem{agent: panel.Agent{
+	m.listing.agents = append(m.listing.agents, panel.AgentRow{Agent: panel.Agent{
 		ID:         "a2",
 		Name:       "billing",
 		Cwd:        second,
@@ -159,7 +159,7 @@ func TestTerminalStaysPutOnASiblingSharingTheDirectory(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, dir := terminalModel(t, tmux)
 
-	m.listing.agents = append(m.listing.agents, agentItem{agent: panel.Agent{
+	m.listing.agents = append(m.listing.agents, panel.AgentRow{Agent: panel.Agent{
 		ID:         "a2",
 		Name:       "billing",
 		Cwd:        dir,
@@ -209,7 +209,7 @@ func TestTerminalRefusesToMoveToAMissingWorktree(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, dir := terminalModel(t, tmux)
 
-	m.listing.agents = append(m.listing.agents, agentItem{agent: panel.Agent{
+	m.listing.agents = append(m.listing.agents, panel.AgentRow{Agent: panel.Agent{
 		ID:         "a2",
 		Name:       "billing",
 		Cwd:        "/no/such/worktree",
@@ -251,7 +251,7 @@ func TestTerminalSurvivesTheRestaging(t *testing.T) {
 func TestTerminalRefusesAMissingDirectory(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, _ := terminalModel(t, tmux)
-	m.listing.agents[0].agent.Cwd = "/no/such/worktree"
+	m.listing.agents[0].Agent.Cwd = "/no/such/worktree"
 
 	shown := pressTerminal(t, m)
 
@@ -281,7 +281,7 @@ func TestTerminalOnARemoteEngineOpensTheShellOverTheTransport(t *testing.T) {
 	m, _ := terminalModel(t, tmux)
 	m.frame = layout.New(tmux, config.DefaultLayout(), layout.WithEngine(engine.Remote{Destination: "ubuntu@engine"}))
 	m.frame.Attach("%0")
-	m.listing.agents[0].agent.Cwd = "/var/lib/weave/worktrees/01a0c466"
+	m.listing.agents[0].Agent.Cwd = "/var/lib/weave/worktrees/01a0c466"
 
 	shown := pressTerminal(t, m)
 
@@ -303,7 +303,7 @@ func TestTerminalOnARemoteEngineRefusesAnAgentWithNoDirectory(t *testing.T) {
 	m, _ := terminalModel(t, tmux)
 	m.frame = layout.New(tmux, config.DefaultLayout(), layout.WithEngine(engine.Remote{Destination: "ubuntu@engine"}))
 	m.frame.Attach("%0")
-	m.listing.agents[0].agent.Cwd = ""
+	m.listing.agents[0].Agent.Cwd = ""
 
 	shown := pressTerminal(t, m)
 

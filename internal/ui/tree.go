@@ -2,16 +2,15 @@ package ui
 
 import (
 	"cmp"
+	"maps"
 	"slices"
 	"strings"
+	"time"
 
-	"weave/internal/git"
+	"weave/internal/assemble"
 	"weave/internal/ui/paint/label"
 	"weave/internal/ui/panel"
 	"weave/lib/xslice"
-	agentv1 "weave/proto/gen/agent/v1"
-	schedulev1 "weave/proto/gen/schedule/v1"
-	workflowv1 "weave/proto/gen/workflow/v1"
 )
 
 // agentsScreen is the agents screen: the cursor in the tree of workflows and agents, how they
@@ -28,7 +27,7 @@ type agentsScreen struct {
 
 type agentRow struct {
 	header bool
-	item   agentItem
+	item   panel.AgentRow
 	// hiddenCount is the rows this one stands in for: a workflow header counts the hidden agents
 	// under it, and a parent counts its own hidden children.
 	hiddenCount int
@@ -37,15 +36,15 @@ type agentRow struct {
 	// an indent and nothing else.
 	child bool
 	// orchestrator is the agent a workflow header stands in for, unset on every other row.
-	orchestrator *agentItem
+	orchestrator *panel.AgentRow
 }
 
 // paneItem is the agent whose pane this row shows, which for a workflow header is the
 // orchestrator standing behind it.
-func (r agentRow) paneItem() (agentItem, bool) {
+func (r agentRow) paneItem() (panel.AgentRow, bool) {
 	if r.header {
 		if r.orchestrator == nil {
-			return agentItem{}, false
+			return panel.AgentRow{}, false
 		}
 
 		return *r.orchestrator, true
@@ -56,7 +55,7 @@ func (r agentRow) paneItem() (agentItem, bool) {
 
 type treeRowsParams struct {
 	workflows []panel.Workflow
-	agents    []agentItem
+	agents    []panel.AgentRow
 	// showHidden draws the agents a person has hidden alongside the rest.
 	showHidden bool
 	// foldOrchestrators draws a workflow's orchestrator on the workflow's own row rather than
@@ -74,23 +73,23 @@ type family struct {
 
 // isFolded reports whether an agent is drawn on its workflow's own row rather than on one of its
 // own.
-func isFolded(params treeRowsParams, it agentItem) bool {
-	return params.foldOrchestrators && it.agent.Role == panel.RoleOrchestrator
+func isFolded(params treeRowsParams, it panel.AgentRow) bool {
+	return params.foldOrchestrators && it.Agent.Role == panel.RoleOrchestrator
 }
 
 func treeRows(params treeRowsParams) []agentRow {
 	workflows, agents := params.workflows, params.agents
 
-	children := make(map[string][]agentItem)
+	children := make(map[string][]panel.AgentRow)
 	drawsRow := make(map[string]bool, len(agents))
-	orchestrators := make(map[string]agentItem)
+	orchestrators := make(map[string]panel.AgentRow)
 	for _, it := range agents {
-		drawsRow[it.agent.ID] = !isFolded(params, it)
-		if it.agent.ParentAgentID != nil {
-			children[*it.agent.ParentAgentID] = append(children[*it.agent.ParentAgentID], it)
+		drawsRow[it.Agent.ID] = !isFolded(params, it)
+		if it.Agent.ParentAgentID != nil {
+			children[*it.Agent.ParentAgentID] = append(children[*it.Agent.ParentAgentID], it)
 		}
 		if isFolded(params, it) {
-			orchestrators[it.agent.WorkflowID] = it
+			orchestrators[it.Agent.WorkflowID] = it
 		}
 	}
 
@@ -105,13 +104,13 @@ func treeRows(params treeRowsParams) []agentRow {
 
 		// A child is drawn where its parent is, and one whose parent draws no row has nowhere to
 		// be indented under, so it stands on its own rather than going missing.
-		if it.agent.ParentAgentID != nil && drawsRow[*it.agent.ParentAgentID] {
+		if it.Agent.ParentAgentID != nil && drawsRow[*it.Agent.ParentAgentID] {
 			continue
 		}
 
-		workflowID := it.agent.WorkflowID
-		members := append([]agentItem{it}, children[it.agent.ID]...)
-		if it.agent.Hidden {
+		workflowID := it.Agent.WorkflowID
+		members := append([]panel.AgentRow{it}, children[it.Agent.ID]...)
+		if it.Agent.Hidden {
 			// Hiding the head takes the rows under it too, so the whole family stands in the
 			// workflow's own count.
 			hiddenCounts[workflowID] += len(members)
@@ -124,7 +123,7 @@ func treeRows(params treeRowsParams) []agentRow {
 		for _, member := range members {
 			// A hidden child leaves its count on the parent drawn above it rather than on the
 			// workflow.
-			if member.agent.Hidden && member.agent.ID != it.agent.ID {
+			if member.Agent.Hidden && member.Agent.ID != it.Agent.ID {
 				rows[0].hiddenCount++
 				if !params.showHidden {
 					continue
@@ -135,7 +134,7 @@ func treeRows(params treeRowsParams) []agentRow {
 				item: member,
 				// The indent says which row a child hangs off, so one standing at the head of
 				// its own family hangs off nothing.
-				child: member.agent.ID != it.agent.ID,
+				child: member.Agent.ID != it.Agent.ID,
 			})
 		}
 		families = append(families, family{workflowID: workflowID, rows: rows})
@@ -182,19 +181,19 @@ func treeRows(params treeRowsParams) []agentRow {
 }
 
 // agentSorts is every column the agents list can be ordered by.
-var agentSorts = []sortColumn[agentItem]{
+var agentSorts = []sortColumn[panel.AgentRow]{
 	{
 		id:    "created",
 		label: "created",
-		compare: func(a, b agentItem) int {
-			return a.agent.CreatedAt.Compare(b.agent.CreatedAt)
+		compare: func(a, b panel.AgentRow) int {
+			return a.Agent.CreatedAt.Compare(b.Agent.CreatedAt)
 		},
 	},
 	{
 		id:    "activity",
 		label: "activity",
-		compare: func(a, b agentItem) int {
-			return a.agent.StateChangedAt.Compare(b.agent.StateChangedAt)
+		compare: func(a, b panel.AgentRow) int {
+			return a.Agent.StateChangedAt.Compare(b.Agent.StateChangedAt)
 		},
 	},
 	{
@@ -204,19 +203,19 @@ var agentSorts = []sortColumn[agentItem]{
 	},
 }
 
-func byAgentName(a, b agentItem) int {
-	return strings.Compare(strings.ToLower(a.agent.Name), strings.ToLower(b.agent.Name))
+func byAgentName(a, b panel.AgentRow) int {
+	return strings.Compare(strings.ToLower(a.Agent.Name), strings.ToLower(b.Agent.Name))
 }
 
 // sortedAgents is the listing in the order given, the newest agent settling a tie.
-func sortedAgents(items []agentItem, columns []sortColumn[agentItem], order sortOrder) []agentItem {
+func sortedAgents(items []panel.AgentRow, columns []sortColumn[panel.AgentRow], order sortOrder) []panel.AgentRow {
 	sorted := slices.Clone(items)
-	sortRows(sortRowsParams[agentItem]{
+	sortRows(sortRowsParams[panel.AgentRow]{
 		rows:    sorted,
 		columns: columns,
 		order:   order,
-		tiebreak: func(a, b agentItem) int {
-			return b.agent.CreatedAt.Compare(a.agent.CreatedAt)
+		tiebreak: func(a, b panel.AgentRow) int {
+			return b.Agent.CreatedAt.Compare(a.Agent.CreatedAt)
 		},
 	})
 
@@ -257,10 +256,10 @@ func (a *agentsScreen) hoveredRow(s panelShared) (agentRow, bool) {
 }
 
 // selectedAgent is the agent the cursor is on, and none on a workflow.
-func (a *agentsScreen) selectedAgent(s panelShared) (agentItem, bool) {
+func (a *agentsScreen) selectedAgent(s panelShared) (panel.AgentRow, bool) {
 	row, ok := a.hoveredRow(s)
 	if !ok || row.header {
-		return agentItem{}, false
+		return panel.AgentRow{}, false
 	}
 
 	return row.item, true
@@ -272,15 +271,15 @@ func (a *agentsScreen) hoveredWorkflow(s panelShared) (panel.Workflow, bool) {
 
 // hoveredPane is the agent whose pane the row under the cursor shows, and none where that row
 // has no pane worth putting in the window.
-func (a *agentsScreen) hoveredPane(s panelShared) (agentItem, bool) {
+func (a *agentsScreen) hoveredPane(s panelShared) (panel.AgentRow, bool) {
 	r, ok := a.hoveredRow(s)
 	if !ok {
-		return agentItem{}, false
+		return panel.AgentRow{}, false
 	}
 
 	item, held := r.paneItem()
 	if !held || !hasPane(item) {
-		return agentItem{}, false
+		return panel.AgentRow{}, false
 	}
 
 	return item, true
@@ -305,7 +304,7 @@ func (a *agentsScreen) hoveredAgentID(s panelShared) string {
 		return ""
 	}
 
-	return item.agent.ID
+	return item.Agent.ID
 }
 
 func hoveredHeader(rows []agentRow, cursor int) (panel.Workflow, bool) {
@@ -361,7 +360,7 @@ func nearestAgentRowIndex(rows []agentRow, idx int) int {
 func rowIndexOfAgentID(rows []agentRow, id string) int {
 	for i, r := range rows {
 		item, held := r.paneItem()
-		if held && item.agent.ID == id {
+		if held && item.Agent.ID == id {
 			return i
 		}
 	}
@@ -374,11 +373,20 @@ func rowKey(row agentRow) string {
 		return workflowRowKey(row.workflow.ID)
 	}
 
-	return agentRowKey(row.item.agent.ID)
+	return agentRowKey(row.item.Agent.ID)
 }
 
 func agentRowKey(id string) string {
 	return "agent:" + id
+}
+
+// rowID is the id of what a row stands for: the workflow of a header, else the agent.
+func rowID(row agentRow) string {
+	if row.header {
+		return row.workflow.ID
+	}
+
+	return row.item.Agent.ID
 }
 
 const workflowRowPrefix = "workflow:"
@@ -407,56 +415,40 @@ func unnamedChildren(pool, named []panel.Agent) int {
 // liveAgents is the listing as bare rows, for what counts over the agents a screen is showing
 // rather than over the marks beside them.
 func (l listing) liveAgents() []panel.Agent {
-	return xslice.Map(l.agents, func(it agentItem) panel.Agent { return it.agent })
+	return xslice.Map(l.agents, func(it panel.AgentRow) panel.Agent { return it.Agent })
 }
 
 func (l listing) agentCount(workflowID string) int {
-	return xslice.Count(l.agents, func(it agentItem) bool {
-		return it.agent.WorkflowID == workflowID && it.agent.Role != panel.RoleOrchestrator
+	return xslice.Count(l.agents, func(it panel.AgentRow) bool {
+		return it.Agent.WorkflowID == workflowID && it.Agent.Role != panel.RoleOrchestrator
 	})
-}
-
-type agentItem struct {
-	agent      panel.Agent
-	alive      bool
-	unreadMail bool
-	failedRun  bool
-	// failedRunLog is the run its unread failure was written to, so the pane opens on that one.
-	failedRunLog *int32
-	// localVerdict is what the last released local review concluded about this agent's work,
-	// UNSPECIFIED when none has concluded anything.
-	localVerdict agentv1.ReviewVerdict
-	// localTree is where the worktree stands against the round that verdict was given on.
-	localTree git.Standing
-	// pullRequest is where the pull request opened from its branch stands.
-	pullRequest pullRequestStanding
 }
 
 // displayState is the state a row wears, idle once the pane has gone even though the store
 // still holds whatever the agent stopped in.
-func displayState(item agentItem) panel.State {
-	state := item.agent.State
-	if !item.alive && state.DoesPaneDecide() {
+func displayState(item panel.AgentRow) panel.State {
+	state := item.Agent.State
+	if !item.Alive && state.DoesPaneDecide() {
 		return panel.StateIdle
 	}
 
 	return state
 }
 
-func (l listing) liveAgent(id string) (agentItem, bool) {
+func (l listing) liveAgent(id string) (panel.AgentRow, bool) {
 	for _, item := range l.agents {
-		if item.agent.ID == id {
+		if item.Agent.ID == id {
 			return item, true
 		}
 	}
 
-	return agentItem{}, false
+	return panel.AgentRow{}, false
 }
 
 func (l listing) archivedAgent(id string) (panel.Agent, bool) {
 	for _, item := range l.archivedAgents {
-		if item.agent.ID == id {
-			return item.agent, true
+		if item.Agent.ID == id {
+			return item.Agent, true
 		}
 	}
 
@@ -472,82 +464,6 @@ func (l listing) workflowName(id string) string {
 	}
 
 	return label.Dash
-}
-
-func (l listing) hasAgent(id string) bool {
-	return slices.ContainsFunc(l.agents, func(item agentItem) bool { return item.agent.ID == id })
-}
-
-func (l listing) hasWorkflow(id string) bool {
-	return slices.ContainsFunc(l.workflows, func(w panel.Workflow) bool { return w.ID == id })
-}
-
-// putAgent files a row where the listing orders it, newest first, over the one it replaces.
-func (l *listing) putAgent(agent *agentv1.Agent) {
-	item := agentItemsFrom([]*agentv1.Agent{agent})[0]
-	l.agents = putRow(l.agents, item, func(i agentItem) string { return i.agent.ID }, func(a, b agentItem) int {
-		return strings.Compare(b.agent.ID, a.agent.ID)
-	})
-	l.setMark(agentRowKey(agent.GetId()), agent.Mark)
-}
-
-// putWorkflow files a workflow where the listing orders it, by name, over the one it replaces.
-func (l *listing) putWorkflow(workflow *workflowv1.Workflow) {
-	l.workflows = putRow(l.workflows, workflowFrom(workflow), func(w panel.Workflow) string { return w.ID }, func(a, b panel.Workflow) int {
-		return cmp.Or(strings.Compare(strings.ToLower(a.Name), strings.ToLower(b.Name)), strings.Compare(a.ID, b.ID))
-	})
-	l.setMark(workflowRowKey(workflow.GetId()), workflow.Mark)
-}
-
-// putSchedule files a schedule where the listing orders it, newest first, over the one it
-// replaces.
-func (l *listing) putSchedule(schedule *schedulev1.Schedule) {
-	item := scheduleItemsFrom([]*schedulev1.Schedule{schedule})[0]
-	l.schedules = putRow(l.schedules, item, func(i scheduleItem) string { return i.schedule.ID }, func(a, b scheduleItem) int {
-		return strings.Compare(b.schedule.ID, a.schedule.ID)
-	})
-}
-
-func (l *listing) dropAgent(id string) {
-	l.agents = slices.DeleteFunc(l.agents, func(item agentItem) bool { return item.agent.ID == id })
-	delete(l.marks, agentRowKey(id))
-}
-
-func (l *listing) dropWorkflow(id string) {
-	l.workflows = slices.DeleteFunc(l.workflows, func(w panel.Workflow) bool { return w.ID == id })
-	delete(l.marks, workflowRowKey(id))
-}
-
-func (l *listing) dropSchedule(id string) {
-	l.schedules = slices.DeleteFunc(l.schedules, func(item scheduleItem) bool { return item.schedule.ID == id })
-}
-
-func (l *listing) setMark(key string, mark *string) {
-	if mark == nil {
-		delete(l.marks, key)
-
-		return
-	}
-	if l.marks == nil {
-		l.marks = map[string]string{}
-	}
-
-	l.marks[key] = *mark
-}
-
-// putRow takes out the row sharing the new one's id and inserts the new one where the order
-// puts it.
-func putRow[T any](rows []T, row T, id func(T) string, order func(a, b T) int) []T {
-	rows = slices.DeleteFunc(slices.Clone(rows), func(r T) bool { return id(r) == id(row) })
-
-	at, _ := slices.BinarySearchFunc(rows, row, order)
-
-	return slices.Insert(rows, at, row)
-}
-
-// forgetUnlistedPullRequests drops the pull requests answered for agents neither listing holds.
-func (m *model) forgetUnlistedPullRequests() {
-	m.pullRequests.forgetUnlisted(slices.Concat(m.listing.agents, m.listing.archivedAgents))
 }
 
 // apply takes a fresh listing, keeping the cursor on the row named.
@@ -577,20 +493,36 @@ func (a *agentsScreen) apply(s panelShared, selected string) {
 	a.selected = a.selected.pruned(refsOf(a.rows(s)))
 }
 
+// listing is what the screens draw: the resources the watch has delivered, and the rows
+// assembled from them, with the archive beside them while a screen that draws it is up.
 type listing struct {
-	agents            []agentItem
+	world             assemble.World
+	agents            []panel.AgentRow
 	workflows         []panel.Workflow
-	archivedAgents    []agentItem
+	archivedAgents    []panel.AgentRow
 	archivedWorkflows []panel.Workflow
 	schedules         []scheduleItem
-	// marks are the letters a person types to jump to rows, keyed by the row key each names.
+	// marks are the letters a person types to jump to rows, keyed by the id of the agent or
+	// workflow each is on.
 	marks map[string]string
+}
+
+// assemble draws the three listings and the marks from the world as it stands now.
+func (l *listing) assemble(now time.Time) {
+	l.agents = agentRowsFrom(assemble.AgentRows(l.world, now))
+	l.workflows = workflowsFrom(slices.Collect(maps.Values(l.world.Workflows)))
+	slices.SortFunc(l.workflows, func(a, b panel.Workflow) int {
+		return cmp.Or(strings.Compare(strings.ToLower(a.Name), strings.ToLower(b.Name)), strings.Compare(a.ID, b.ID))
+	})
+	l.schedules = scheduleItemsFrom(slices.Collect(maps.Values(l.world.Schedules)))
+	slices.SortFunc(l.schedules, func(a, b scheduleItem) int { return strings.Compare(b.schedule.ID, a.schedule.ID) })
+	l.marks = assemble.Marks(l.world)
 }
 
 // revealAgent puts the cursor on an agent, showing the hidden rows when it is one of them.
 func (a *agentsScreen) revealAgent(s panelShared, id string) {
 	for _, item := range s.listing.agents {
-		if item.agent.ID == id && item.agent.Hidden {
+		if item.Agent.ID == id && item.Agent.Hidden {
 			a.showHidden = true
 		}
 	}

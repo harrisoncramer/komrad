@@ -7,184 +7,71 @@ import (
 	"time"
 
 	"weave/internal/ui/paint/label"
+	"weave/internal/ui/panel"
+	"weave/lib/xslice"
 	pullrequestv1 "weave/proto/gen/pullrequest/v1"
+	watchv1 "weave/proto/gen/watch/v1"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// pullRequestStanding is where the pull request opened from an agent's branch stands, as the
-// listing carries it: the state, the checks on its head, its mergeability, and the current
-// one's number, address and title when there is one.
-type pullRequestStanding struct {
-	state        pullrequestv1.PullRequestState
-	checks       pullrequestv1.Checks
-	mergeability pullrequestv1.Mergeability
-	number       int32
-	url          string
-	title        string
+// pullRequestsListedMsg is the pull requests on the branch of an agent that arrived.
+type pullRequestsListedMsg struct {
+	pullRequests []*pullrequestv1.PullRequest
+	err          error
 }
 
-// agentPullRequest is one pull request opened from an agent's branch as the record lists it.
-type agentPullRequest struct {
-	number       int32
-	url          string
-	title        string
-	state        pullrequestv1.PullRequestState
-	checks       pullrequestv1.Checks
-	mergeability pullrequestv1.Mergeability
-	current      bool
-	openedAt     time.Time
-	mergedAt     *time.Time
-	closedAt     *time.Time
-}
+// listArrivedPullRequestsCmd asks for the pull requests on the branch of each agent the world
+// had not seen there.
+func (m *model) listArrivedPullRequestsCmd(arrived []string) tea.Cmd {
+	clients := m.api
 
-// agentPullRequests is what list_agent_pull_requests answered for one agent.
-type agentPullRequests struct {
-	// pending says a fresh answer is on its way, and answered that one has come at all.
-	pending  bool
-	answered bool
-	// standing is what the listing said when the answer was asked for.
-	standing pullRequestStanding
-	readAt   *time.Time
-	items    []agentPullRequest
-	err      error
-}
-
-type pullRequestsState struct {
-	// listed is what the service answered for each agent, kept while the agent is listed.
-	listed map[string]agentPullRequests
-}
-
-// agentPullRequestsListedMsg is one agent's pull requests come back.
-type agentPullRequestsListedMsg struct {
-	agentID string
-	listed  agentPullRequests
-}
-
-// listPullRequestsCmd asks the service for the hovered agent's pull requests, answered under the
-// agent's own id, and asks nothing while an answer for it is still on its way.
-func (m *model) listPullRequestsCmd() tea.Cmd {
-	item, ok := m.hoveredRecordAgent()
-	if !ok {
-		return nil
-	}
-	listed := m.pullRequests.listed[item.agent.ID]
-	if listed.pending {
-		return nil
-	}
-
-	listed.pending = true
-	listed.standing = item.pullRequest
-	m.pullRequests.apply(agentPullRequestsListedMsg{agentID: item.agent.ID, listed: listed})
-	clients, agentID, standing := m.api, item.agent.ID, item.pullRequest
-
-	return func() tea.Msg {
-		read, err := clients.listAgentPullRequests(agentID)
-		if err != nil {
-			return agentPullRequestsListedMsg{agentID: agentID, listed: agentPullRequests{
-				answered: true,
-				standing: standing,
-				err:      err,
-			}}
-		}
-
-		listed := agentPullRequestsFrom(read)
-		listed.standing = standing
-
-		return agentPullRequestsListedMsg{agentID: agentID, listed: listed}
-	}
-}
-
-// listHoveredPullRequestsCmd asks for the hovered agent's pull requests where nothing has been
-// asked for it yet, or where its row's standing has moved since the answer.
-func (m *model) listHoveredPullRequestsCmd() tea.Cmd {
-	item, ok := m.hoveredRecordAgent()
-	if !ok {
-		return nil
-	}
-	if listed, asked := m.pullRequests.listed[item.agent.ID]; asked && listed.standing == item.pullRequest {
-		return nil
-	}
-
-	return m.listPullRequestsCmd()
-}
-
-// hoveredRecordAgent is the agent the record under the agents list or the archive is about, and
-// none on any other screen or row.
-func (m model) hoveredRecordAgent() (agentItem, bool) {
-	var row agentRow
-	var ok bool
-	switch m.screen {
-	case screenAgents:
-		row, ok = m.agents.hoveredRow(m.shared())
-	case screenArchive:
-		row, ok = rowAt(m.archive.listRows(m.shared()), m.archive.cursor)
-	case screenSchedules, screenSearch, screenReview, screenWorktrees:
-		return agentItem{}, false
-	}
-	if !ok || row.header {
-		return agentItem{}, false
-	}
-
-	return row.item, true
-}
-
-func (p *pullRequestsState) apply(msg agentPullRequestsListedMsg) {
-	if p.listed == nil {
-		p.listed = map[string]agentPullRequests{}
-	}
-
-	p.listed[msg.agentID] = msg.listed
-}
-
-// forgetUnlisted drops what was answered for agents the listing no longer holds.
-func (p *pullRequestsState) forgetUnlisted(fresh []agentItem) {
-	listedIDs := make(map[string]bool, len(fresh))
-	for _, item := range fresh {
-		listedIDs[item.agent.ID] = true
-	}
-	for agentID := range p.listed {
-		if !listedIDs[agentID] {
-			delete(p.listed, agentID)
-		}
-	}
-}
-
-// pullRequestFields are the record's rows for the branch's pull requests: the current one, and
-// the rest when there are any, drawn from the listing's standing until the service has answered
-// with the whole branch.
-func pullRequestFields(standing pullRequestStanding, listed agentPullRequests) []recordField {
-	switch standing.state {
-	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNSPECIFIED, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNREAD:
-		return []recordField{{pullRequestFieldKey, "not read yet"}}
-	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE:
-		return []recordField{{pullRequestFieldKey, "none from this branch"}}
-	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
-		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED,
-		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED,
-		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_DRAFT,
-		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED,
-		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CLOSED,
-		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING,
-		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CONFLICTING,
-		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING:
-	}
-
-	if !listed.answered || listed.err != nil || len(listed.items) == 0 {
-		return []recordField{{pullRequestFieldKey, fmt.Sprintf("#%d %s", standing.number, pullRequestWords(standing.state, standing.checks, standing.mergeability))}}
-	}
-
-	fields := make([]recordField, 0, 2)
-	var rest []string
-	for _, pullRequest := range listed.items {
-		if pullRequest.current {
-			fields = append(fields, recordField{pullRequestFieldKey, currentPullRequestField(pullRequest)})
-
+	var cmds []tea.Cmd
+	for _, id := range arrived {
+		agent := m.listing.world.Agents[id]
+		repository, branch := agent.GetRepositoryUrl(), agent.GetBranch()
+		if repository == "" || branch == "" {
 			continue
 		}
 
-		rest = append(rest, fmt.Sprintf("#%d %s", pullRequest.number, pullRequestWords(pullRequest.state, pullRequest.checks, pullRequest.mergeability)))
+		cmds = append(cmds, func() tea.Msg {
+			listed, err := clients.listPullRequests(repository, branch)
+
+			return pullRequestsListedMsg{pullRequests: listed, err: err}
+		})
 	}
+
+	return tea.Batch(cmds...)
+}
+
+// applyPullRequestsListed puts the pull requests answered for a branch into the world.
+func (m *model) applyPullRequestsListed(msg pullRequestsListedMsg) tea.Cmd {
+	m.report("Could not list the pull requests", msg.err)
+
+	return m.withListing(func(l *listing) {
+		for _, pullRequest := range msg.pullRequests {
+			l.world.Apply(put(&watchv1.Row{Row: &watchv1.Row_PullRequest{PullRequest: pullRequest}}))
+		}
+
+		l.assemble(time.Now())
+	})
+}
+
+// pullRequestFields are the record's rows for the branch's pull requests: why there is none,
+// or the current one and then the rest when there are any.
+func pullRequestFields(standing panel.PullRequestStanding, pullRequests []panel.PullRequest) []recordField {
+	if len(pullRequests) == 0 {
+		if standing.State == pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE {
+			return []recordField{{pullRequestFieldKey, "none from this branch"}}
+		}
+
+		return []recordField{{pullRequestFieldKey, "not read yet"}}
+	}
+
+	fields := []recordField{{pullRequestFieldKey, currentPullRequestField(pullRequests[0])}}
+	rest := xslice.Map(pullRequests[1:], func(pullRequest panel.PullRequest) string {
+		return fmt.Sprintf("#%d %s", pullRequest.Number, pullRequestWords(pullRequest.State, pullRequest.Checks, pullRequest.Mergeability))
+	})
 	if len(rest) > 0 {
 		fields = append(fields, recordField{"pull requests", strings.Join(rest, ", ")})
 	}
@@ -194,16 +81,16 @@ func pullRequestFields(standing pullRequestStanding, listed agentPullRequests) [
 
 // currentPullRequestField is the current pull request with how long ago it reached where it
 // stands: when it finished for a finished one, when it was opened otherwise.
-func currentPullRequestField(pullRequest agentPullRequest) string {
-	word := pullRequestWords(pullRequest.state, pullRequest.checks, pullRequest.mergeability)
+func currentPullRequestField(pullRequest panel.PullRequest) string {
+	word := pullRequestWords(pullRequest.State, pullRequest.Checks, pullRequest.Mergeability)
 	switch {
-	case pullRequest.mergedAt != nil:
-		return fmt.Sprintf("#%d %s %s ago", pullRequest.number, word, label.Age(*pullRequest.mergedAt))
-	case pullRequest.closedAt != nil:
-		return fmt.Sprintf("#%d %s %s ago", pullRequest.number, word, label.Age(*pullRequest.closedAt))
+	case pullRequest.MergedAt != nil:
+		return fmt.Sprintf("#%d %s %s ago", pullRequest.Number, word, label.Age(*pullRequest.MergedAt))
+	case pullRequest.ClosedAt != nil:
+		return fmt.Sprintf("#%d %s %s ago", pullRequest.Number, word, label.Age(*pullRequest.ClosedAt))
 	}
 
-	return fmt.Sprintf("#%d %s, opened %s ago", pullRequest.number, word, label.Age(pullRequest.openedAt))
+	return fmt.Sprintf("#%d %s, opened %s ago", pullRequest.Number, word, label.Age(pullRequest.OpenedAt))
 }
 
 // pullRequestFieldKey labels the pull request an agent's row stands for.
@@ -276,19 +163,19 @@ func pullRequestStateWord(state pullrequestv1.PullRequestState) string {
 
 // openPullRequest hands the agent's current pull request to the browser, or says why there is
 // none to open.
-func (m model) openPullRequest(item agentItem) (model, tea.Cmd) {
-	standing := item.pullRequest
-	if standing.url == "" {
+func (m model) openPullRequest(item panel.AgentRow) (model, tea.Cmd) {
+	standing := item.PullRequest
+	if standing.URL == "" {
 		refusal := errPullRequestsUnread
-		if standing.state == pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE {
+		if standing.State == pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE {
 			refusal = errNoPullRequest
 		}
-		m.report("Could not open the pull request of "+item.agent.Name, refusal)
+		m.report("Could not open the pull request of "+item.Agent.Name, refusal)
 
 		return m, nil
 	}
 
-	return m, m.openURLCmd(standing.url)
+	return m, m.openURLCmd(standing.URL)
 }
 
 // urlOpenedMsg is the browser having been asked to open an address.

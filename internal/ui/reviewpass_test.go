@@ -96,8 +96,8 @@ func TestAPauseTheReaderTookThemselvesIsNotThePassToLetGo(t *testing.T) {
 
 	at := time.Now()
 	for i, item := range m.listing.agents {
-		if item.agent.ID == m.review.agentID {
-			m.listing.agents[i].agent.HeldAt = &at
+		if item.Agent.ID == m.review.agentID {
+			m.listing.agents[i].Agent.HeldAt = &at
 		}
 	}
 
@@ -123,8 +123,8 @@ func TestAnEditOnADormantAgentPausesNothing(t *testing.T) {
 	m = openReview(t, m)
 
 	for i, item := range m.listing.agents {
-		if item.agent.ID == m.review.agentID {
-			m.listing.agents[i].alive = false
+		if item.Agent.ID == m.review.agentID {
+			m.listing.agents[i].Alive = false
 		}
 	}
 
@@ -253,8 +253,8 @@ func TestAReadersOwnPauseKeepsTheFilesForWhoeverLetsItGo(t *testing.T) {
 
 	at := time.Now()
 	for i, item := range m.listing.agents {
-		if item.agent.ID == m.review.agentID {
-			m.listing.agents[i].agent.HeldAt = &at
+		if item.Agent.ID == m.review.agentID {
+			m.listing.agents[i].Agent.HeldAt = &at
 		}
 	}
 
@@ -266,10 +266,10 @@ func TestAReadersOwnPauseKeepsTheFilesForWhoeverLetsItGo(t *testing.T) {
 
 	m.review.leaveWriting(&m, m.shared())
 
-	held, ok := m.review.agentItem(m.shared())
+	held, ok := m.review.agentRow(m.shared())
 	require.True(t, ok)
 
-	cmd := pauseAgent(&m, held.agent)
+	cmd := pauseAgent(&m, held.Agent)
 	runReviewCmd(t, cmd)
 
 	require.NotNil(t, agents.letGo, "the pause the reader took is theirs to let go")
@@ -287,8 +287,8 @@ func TestADroppedPassKeepsTheFilesForAReadersOwnPause(t *testing.T) {
 
 	at := time.Now()
 	for i, item := range m.listing.agents {
-		if item.agent.ID == m.review.agentID {
-			m.listing.agents[i].agent.HeldAt = &at
+		if item.Agent.ID == m.review.agentID {
+			m.listing.agents[i].Agent.HeldAt = &at
 		}
 	}
 
@@ -297,13 +297,13 @@ func TestADroppedPassKeepsTheFilesForAReadersOwnPause(t *testing.T) {
 	m.review.closeEdit(&m, m.shared())
 
 	agentID := m.review.agentID
-	held, ok := m.review.agentItem(m.shared())
+	held, ok := m.review.agentRow(m.shared())
 	require.True(t, ok)
 
 	letGo := m.review.abandon(&m, m.shared(), errors.New("the worktree could not be read"))
 	assert.Nil(t, letGo, "a pause the reader took is not the pass's to let go")
 
-	cmd := pauseAgent(&m, held.agent)
+	cmd := pauseAgent(&m, held.Agent)
 	runReviewCmd(t, cmd)
 
 	require.NotNil(t, agents.letGo)

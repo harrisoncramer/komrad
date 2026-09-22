@@ -234,7 +234,7 @@ type worktreesSnapshotParams struct {
 	selected selection
 	focused  string
 	// live are the agents the agents listing holds, whose marks a row with one of them draws.
-	live []agentItem
+	live []panel.AgentRow
 	// flat draws every directory at the heading indent.
 	flat          bool
 	caret         view.Caret
@@ -246,7 +246,7 @@ type worktreesSnapshotParams struct {
 
 // worktreesSnapshot reads the rows into the plain data the list draws itself from.
 func worktreesSnapshot(params worktreesSnapshotParams) view.Snapshot {
-	live := xslice.KeyBy(params.live, func(item agentItem) string { return item.agent.ID })
+	live := xslice.KeyBy(params.live, func(item panel.AgentRow) string { return item.Agent.ID })
 
 	rows := make([]view.Row, 0, len(params.rows))
 	for _, r := range params.rows {
@@ -289,10 +289,10 @@ func worktreesSnapshot(params worktreesSnapshotParams) view.Snapshot {
 }
 
 // worktreeAgentFacts is what a row says about the agent behind it.
-func worktreeAgentFacts(row view.Row, agent worktreeAgent, live map[string]agentItem) view.Row {
+func worktreeAgentFacts(row view.Row, agent worktreeAgent, live map[string]panel.AgentRow) view.Row {
 	item, ok := live[agent.id]
 	if !ok {
-		item = agentItem{agent: panel.Agent{
+		item = panel.AgentRow{Agent: panel.Agent{
 			ID:         agent.id,
 			Name:       agent.name,
 			State:      agent.state,

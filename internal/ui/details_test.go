@@ -21,9 +21,9 @@ func detailsModel(tmux *recordingTmux) model {
 	m := infoModel(tmux)
 	m.height, m.width = 24, 40
 	m.clip = &fakeClipboard{}
-	m.listing.agents[0].agent.ID = "a1"
-	m.listing.agents[0].agent.SessionID = "abc"
-	m.listing.agents[0].agent.Metadata = []panel.Metadata{
+	m.listing.agents[0].Agent.ID = "a1"
+	m.listing.agents[0].Agent.SessionID = "abc"
+	m.listing.agents[0].Agent.Metadata = []panel.Metadata{
 		{Key: "pr", Value: "https://github.com/o/r/pull/312"},
 	}
 
@@ -46,11 +46,11 @@ func send(t *testing.T, m model, key string) model {
 func TestDetailsDrawTheHoveredRow(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 
-	m.listing.agents[0].agent.Metadata = append([]panel.Metadata{
+	m.listing.agents[0].Agent.Metadata = append([]panel.Metadata{
 		{Key: "branch", Value: "harry/details-height"},
 		{Key: "issue", Value: "WEAVE-1"},
 		{Key: "summary", Value: "gave the record two more lines"},
-	}, m.listing.agents[0].agent.Metadata...)
+	}, m.listing.agents[0].Agent.Metadata...)
 
 	view := m.detailsView()
 
@@ -449,15 +449,15 @@ func TestAgentFields(t *testing.T) {
 
 func strandedModel() model {
 	m := detailsModel(&recordingTmux{})
-	m.listing.agents = append(m.listing.agents, agentItem{
-		agent: panel.Agent{
+	m.listing.agents = append(m.listing.agents, panel.AgentRow{
+		Agent: panel.Agent{
 			ID:         "a2",
 			Name:       "billing",
 			Pane:       "%10",
 			Cwd:        "/repo",
 			WorkflowID: "w1",
 		},
-		alive: true,
+		Alive: true,
 	})
 
 	return m
@@ -622,7 +622,7 @@ func TestDetailsScrollPastTheLinesItHas(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	m.height, m.detailsHeight = 60, config.DefaultDetailsHeight
 	for i := range 12 {
-		m.listing.agents[0].agent.Metadata = append(m.listing.agents[0].agent.Metadata, panel.Metadata{
+		m.listing.agents[0].Agent.Metadata = append(m.listing.agents[0].Agent.Metadata, panel.Metadata{
 			Key:   fmt.Sprintf("key%d", i),
 			Value: fmt.Sprintf("value%d", i),
 		})

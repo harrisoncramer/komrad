@@ -154,7 +154,7 @@ func helpModel() model {
 		frame:   layout.New(&recordingTmux{}, config.DefaultLayout()),
 		height:  40,
 		width:   46,
-		listing: listing{workflows: []panel.Workflow{{ID: "w1", Name: "everything"}}, agents: []agentItem{{agent: panel.Agent{Name: "api-refactor", WorkflowID: "w1"}}}}, agents: agentsScreen{rowCursor: rowCursor{cursor: 1}},
+		listing: listing{workflows: []panel.Workflow{{ID: "w1", Name: "everything"}}, agents: []panel.AgentRow{{Agent: panel.Agent{Name: "api-refactor", WorkflowID: "w1"}}}}, agents: agentsScreen{rowCursor: rowCursor{cursor: 1}},
 	}
 }
 
@@ -309,7 +309,7 @@ func TestAPausedRowsLegendStillDraws(t *testing.T) {
 	for width := 5; width <= 90; width++ {
 		for _, expanded := range []bool{false, true} {
 			m := helpModel()
-			m.listing.agents[0].agent.HeldAt = &at
+			m.listing.agents[0].Agent.HeldAt = &at
 			m.helpExpanded = expanded
 			m = m.measuredAt(width)
 

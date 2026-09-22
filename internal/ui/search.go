@@ -11,6 +11,7 @@ import (
 	"weave/config"
 	"weave/internal/client"
 	"weave/internal/ui/paint"
+	"weave/internal/ui/panel"
 	"weave/internal/view"
 	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
@@ -330,15 +331,15 @@ func (w *searchScreen) buildAgents(s panelShared) []searchAgent {
 	}
 
 	for _, item := range s.listing.agents {
-		if doesNameSay(item.agent.Name, query) {
-			add(searchAgent{id: item.agent.ID, name: item.agent.Name})
+		if doesNameSay(item.Agent.Name, query) {
+			add(searchAgent{id: item.Agent.ID, name: item.Agent.Name})
 		}
 	}
 	for _, item := range s.listing.archivedAgents {
-		if doesNameSay(item.agent.Name, query) {
+		if doesNameSay(item.Agent.Name, query) {
 			add(searchAgent{
-				id:       item.agent.ID,
-				name:     item.agent.Name,
+				id:       item.Agent.ID,
+				name:     item.Agent.Name,
 				archived: true,
 			})
 		}
@@ -558,13 +559,13 @@ func (h searchHit) spans(content string) []paint.Span {
 }
 
 // agentRow reads one agent the search found into the row the agents list draws.
-func (w *searchScreen) agentRow(s panelShared, agent searchAgent, archived map[string]agentItem) view.Row {
+func (w *searchScreen) agentRow(s panelShared, agent searchAgent, archived map[string]panel.AgentRow) view.Row {
 	row := view.Row{
 		Key:     agent.id,
 		Kind:    view.KindResult,
 		Name:    agent.name,
 		Matches: nameMatches(agent.name, w.query),
-		Mark:    s.listing.marks[agentRowKey(agent.id)],
+		Mark:    s.listing.marks[agent.id],
 		Process: view.ProcessNone,
 	}
 
@@ -625,7 +626,7 @@ func flattenSnippet(snippet string) (string, []view.Span) {
 }
 
 // archivedSearchRow is a result on an archived agent.
-func archivedSearchRow(row view.Row, id string, archived map[string]agentItem) view.Row {
+func archivedSearchRow(row view.Row, id string, archived map[string]panel.AgentRow) view.Row {
 	row.Process = view.ProcessStopped
 
 	if item, ok := archived[id]; ok {

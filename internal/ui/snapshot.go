@@ -58,7 +58,7 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 	key := rowKey(r)
 	row := view.Row{
 		Key:         key,
-		Mark:        params.marks[key],
+		Mark:        params.marks[rowID(r)],
 		HiddenCount: standingIn(r.hiddenCount, params.showHidden),
 	}
 
@@ -86,9 +86,9 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 	item := r.item
 	row = agentFacts(row, item)
 	row.Kind = snapshotKind(r, params.flat)
-	row.Name = item.agent.Name
-	row.Matches = matchesIn(params.matcher, item.agent.Name)
-	row.Repo = snapshotRepo(item.agent)
+	row.Name = item.Agent.Name
+	row.Matches = matchesIn(params.matcher, item.Agent.Name)
+	row.Repo = snapshotRepo(item.Agent)
 	row.Review = snapshotReview(item)
 	row.Forge = snapshotForge(item)
 	row.Selected = params.selected.has(key)
@@ -97,16 +97,16 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 }
 
 // agentFacts is everything a row says about the agent standing behind it.
-func agentFacts(row view.Row, item agentItem) view.Row {
+func agentFacts(row view.Row, item panel.AgentRow) view.Row {
 	row.Status = snapshotStatus(item)
 	row.Process = snapshotProcess(item)
-	row.Archived = item.agent.ArchivedAt != nil
-	row.Hidden = item.agent.Hidden && !row.Archived
-	row.Held = item.agent.HeldAt != nil
+	row.Archived = item.Agent.ArchivedAt != nil
+	row.Hidden = item.Agent.Hidden && !row.Archived
+	row.Held = item.Agent.HeldAt != nil
 	row.HeldWorking = row.Held && isHeldWorking(item)
-	row.UnreadMail = item.unreadMail
-	row.FailedRun = item.failedRun
-	row.Scheduled = item.agent.ScheduleID != nil
+	row.UnreadMail = item.UnreadMail
+	row.FailedRun = item.FailedRun
+	row.Scheduled = item.Agent.ScheduleID != nil
 
 	return row
 }
@@ -134,10 +134,10 @@ func snapshotKind(r agentRow, flat bool) view.RowKind {
 
 // snapshotStatus is what an agent is doing this second, read off the state the row wears rather
 // than the one the store holds, so an agent whose pane has gone reads as idle.
-func snapshotStatus(item agentItem) view.Status {
+func snapshotStatus(item panel.AgentRow) view.Status {
 	// A pause is something a person did rather than something the agent is doing, so it wants
 	// that person however the agent was left.
-	if item.agent.HeldAt != nil {
+	if item.Agent.HeldAt != nil {
 		return view.StatusWaiting
 	}
 
@@ -174,12 +174,12 @@ func matchesIn(matcher *regexp.Regexp, name string) []view.Span {
 }
 
 // isHeldWorking reports whether an agent somebody paused is working anyway.
-func isHeldWorking(item agentItem) bool {
-	if !item.alive {
+func isHeldWorking(item panel.AgentRow) bool {
+	if !item.Alive {
 		return false
 	}
 
-	switch item.agent.State {
+	switch item.Agent.State {
 	case panel.StateThinking, panel.StateWaiting:
 		return true
 	case panel.StateIdle, panel.StateUncertain, panel.StateSettingUp,
@@ -192,8 +192,8 @@ func isHeldWorking(item agentItem) bool {
 
 // snapshotProcess reports whether anything is running behind a row, which the state it wears
 // cannot say since an agent whose pane has gone wears the same idle as one sitting quiet.
-func snapshotProcess(item agentItem) view.Process {
-	if !item.alive && item.agent.State.DoesPaneDecide() {
+func snapshotProcess(item panel.AgentRow) view.Process {
+	if !item.Alive && item.Agent.State.DoesPaneDecide() {
 		return view.ProcessStopped
 	}
 
@@ -215,13 +215,13 @@ func snapshotRepo(agent panel.Agent) view.Repo {
 
 // snapshotReview is where the tree on disk stands with the local review of an agent's work, the
 // last conclusion released and whether the worktree still matches the round it was given on.
-func snapshotReview(item agentItem) view.Review {
-	tree := item.localTree
-	if item.agent.ArchivedAt != nil {
+func snapshotReview(item panel.AgentRow) view.Review {
+	tree := item.LocalTree
+	if item.Agent.ArchivedAt != nil {
 		tree = git.StandingSame
 	}
 
-	switch item.localVerdict {
+	switch item.LocalVerdict {
 	case agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED:
 		switch tree {
 		case git.StandingMoved:
@@ -254,8 +254,8 @@ func snapshotReview(item agentItem) view.Review {
 
 // snapshotForge is where the pull request opened from an agent's branch stands, as the forge
 // column draws it.
-func snapshotForge(item agentItem) view.Forge {
-	switch item.pullRequest.state {
+func snapshotForge(item panel.AgentRow) view.Forge {
+	switch item.PullRequest.State {
 	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE:
 		return view.ForgeNone
 	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN:

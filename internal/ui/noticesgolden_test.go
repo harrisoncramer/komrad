@@ -29,28 +29,28 @@ func TestNoticeBlockGolden(t *testing.T) {
 
 	tests := []struct {
 		name string
-		item func(*agentItem)
+		item func(*panel.AgentRow)
 	}{
 		{
 			name: "marks-beside-the-name",
-			item: func(item *agentItem) {
-				item.unreadMail = true
-				item.failedRun = true
-				item.agent.HeldAt = xptr.Ptr(time.Unix(0, 0))
+			item: func(item *panel.AgentRow) {
+				item.UnreadMail = true
+				item.FailedRun = true
+				item.Agent.HeldAt = xptr.Ptr(time.Unix(0, 0))
 			},
 		},
 		{
 			name: "column-facts",
-			item: func(item *agentItem) {
-				item.agent.SequenceInProgress = true
-				item.localVerdict = agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED
+			item: func(item *panel.AgentRow) {
+				item.Agent.SequenceInProgress = true
+				item.LocalVerdict = agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED
 			},
 		},
 		{
 			name: "a-failed-create",
-			item: func(item *agentItem) {
-				item.agent.State = panel.StateFailedToCreate
-				item.agent.WorktreeRemoved = true
+			item: func(item *panel.AgentRow) {
+				item.Agent.State = panel.StateFailedToCreate
+				item.Agent.WorktreeRemoved = true
 			},
 		},
 	}

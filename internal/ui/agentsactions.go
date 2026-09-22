@@ -142,19 +142,19 @@ func (a *agentsScreen) rowActions() []screenAction {
 			id:   actionAgentPause,
 			keys: func(k config.Keybindings) []string { return k.Agents.Pause },
 			when: a.isHoveringAgent,
-			run:  a.onHoveredAgent(func(h host, item agentItem) tea.Cmd { return pauseAgent(h, item.agent) }),
+			run:  a.onHoveredAgent(func(h host, item panel.AgentRow) tea.Cmd { return pauseAgent(h, item.Agent) }),
 		},
 		{
 			id:   actionAgentReleaseSilently,
 			keys: func(k config.Keybindings) []string { return k.Agents.ReleaseSilently },
 			when: a.isHeldAgent,
-			run:  a.onHoveredAgent(func(h host, item agentItem) tea.Cmd { return releaseInSilenceConfirm(h, item.agent) }),
+			run:  a.onHoveredAgent(func(h host, item panel.AgentRow) tea.Cmd { return releaseInSilenceConfirm(h, item.Agent) }),
 		},
 		{
 			id:   actionAgentHide,
 			keys: func(k config.Keybindings) []string { return k.Agents.Hide },
 			when: a.isHoveringAgent,
-			run:  a.onHoveredAgent(func(h host, item agentItem) tea.Cmd { return hideAgent(h, item.agent) }),
+			run:  a.onHoveredAgent(func(h host, item panel.AgentRow) tea.Cmd { return hideAgent(h, item.Agent) }),
 		},
 		{
 			id:   actionGitMenu,
@@ -166,34 +166,34 @@ func (a *agentsScreen) rowActions() []screenAction {
 			id:   actionAgentReview,
 			keys: func(k config.Keybindings) []string { return k.Agents.Review },
 			when: a.isHoveringAgent,
-			run: a.onHoveredAgent(func(h host, item agentItem) tea.Cmd {
-				return h.enter(screenReview, screenTarget{agentID: item.agent.ID})
+			run: a.onHoveredAgent(func(h host, item panel.AgentRow) tea.Cmd {
+				return h.enter(screenReview, screenTarget{agentID: item.Agent.ID})
 			}),
 		},
 		{
 			id:   actionAgentChild,
 			keys: func(k config.Keybindings) []string { return k.Agents.Child },
 			when: a.isHoveringAgent,
-			run:  a.onHoveredAgent(func(h host, item agentItem) tea.Cmd { return openNewChild(h, item.agent) }),
+			run:  a.onHoveredAgent(func(h host, item panel.AgentRow) tea.Cmd { return openNewChild(h, item.Agent) }),
 		},
 		{
 			id:   actionAgentRename,
 			keys: func(k config.Keybindings) []string { return k.Agents.Rename },
 			when: a.isHoveringAgent,
-			run:  a.onHoveredAgent(func(h host, item agentItem) tea.Cmd { return openRename(h, item.agent) }),
+			run:  a.onHoveredAgent(func(h host, item panel.AgentRow) tea.Cmd { return openRename(h, item.Agent) }),
 		},
 		{
 			id:   actionAgentRetry,
 			keys: func(k config.Keybindings) []string { return k.Agents.Retry },
 			when: a.isRetryableAgent,
-			run:  a.onHoveredAgent(func(h host, item agentItem) tea.Cmd { return openRetryForm(h, item.agent) }),
+			run:  a.onHoveredAgent(func(h host, item panel.AgentRow) tea.Cmd { return openRetryForm(h, item.Agent) }),
 		},
 		{
 			id:   actionAgentArchive,
 			keys: func(k config.Keybindings) []string { return k.Agents.Archive },
 			when: a.isHoveringAgent,
-			run: a.onHoveredAgentIn(func(h host, s panelShared, item agentItem) tea.Cmd {
-				return confirmArchiveAgents(h, s.listing.liveAgents(), []panel.Agent{item.agent})
+			run: a.onHoveredAgentIn(func(h host, s panelShared, item panel.AgentRow) tea.Cmd {
+				return confirmArchiveAgents(h, s.listing.liveAgents(), []panel.Agent{item.Agent})
 			}),
 		},
 	}
@@ -219,13 +219,13 @@ func (a *agentsScreen) isHoveringAgent(s panelShared) bool {
 func (a *agentsScreen) isHeldAgent(s panelShared) bool {
 	item, ok := a.selectedAgent(s)
 
-	return a.isHoveringAgent(s) && ok && item.agent.HeldAt != nil
+	return a.isHoveringAgent(s) && ok && item.Agent.HeldAt != nil
 }
 
 func (a *agentsScreen) isRetryableAgent(s panelShared) bool {
 	item, ok := a.selectedAgent(s)
 
-	return a.isHoveringAgent(s) && ok && item.agent.State == panel.StateFailedToCreate
+	return a.isHoveringAgent(s) && ok && item.Agent.State == panel.StateFailedToCreate
 }
 
 // onHoveredWorkflow hands an arm the workflow under the cursor.
@@ -246,12 +246,12 @@ func (a *agentsScreen) onHoveredWorkflowIn(fn func(host, panelShared, panel.Work
 }
 
 // onHoveredAgent hands an arm the agent under the cursor.
-func (a *agentsScreen) onHoveredAgent(fn func(host, agentItem) tea.Cmd) func(host, panelShared, string) tea.Cmd {
-	return a.onHoveredAgentIn(func(h host, _ panelShared, item agentItem) tea.Cmd { return fn(h, item) })
+func (a *agentsScreen) onHoveredAgent(fn func(host, panel.AgentRow) tea.Cmd) func(host, panelShared, string) tea.Cmd {
+	return a.onHoveredAgentIn(func(h host, _ panelShared, item panel.AgentRow) tea.Cmd { return fn(h, item) })
 }
 
 // onHoveredAgentIn hands an arm the agent under the cursor and the listing it stands in.
-func (a *agentsScreen) onHoveredAgentIn(fn func(host, panelShared, agentItem) tea.Cmd) func(host, panelShared, string) tea.Cmd {
+func (a *agentsScreen) onHoveredAgentIn(fn func(host, panelShared, panel.AgentRow) tea.Cmd) func(host, panelShared, string) tea.Cmd {
 	return func(h host, s panelShared, _ string) tea.Cmd {
 		item, ok := a.selectedAgent(s)
 		if !ok {
@@ -426,7 +426,7 @@ func (a *agentsScreen) showHiddenDesc() string {
 
 // pauseDesc names the pause key for what pressing it would do to the row under the cursor.
 func (a *agentsScreen) pauseDesc(s panelShared) string {
-	if item, ok := a.selectedAgent(s); ok && item.agent.HeldAt != nil {
+	if item, ok := a.selectedAgent(s); ok && item.Agent.HeldAt != nil {
 		return "unpause it"
 	}
 
@@ -435,7 +435,7 @@ func (a *agentsScreen) pauseDesc(s panelShared) string {
 
 func (a *agentsScreen) hideDesc(s panelShared) string {
 	hide := "hide"
-	if item, ok := a.selectedAgent(s); ok && item.agent.Hidden {
+	if item, ok := a.selectedAgent(s); ok && item.Agent.Hidden {
 		hide = "unhide"
 	}
 

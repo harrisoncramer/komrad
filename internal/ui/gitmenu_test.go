@@ -73,7 +73,7 @@ func TestGitMenuSaysWhyAnEntryWouldDoNothing(t *testing.T) {
 	tests := []struct {
 		name     string
 		pressed  string
-		standing pullRequestStanding
+		standing panel.PullRequestStanding
 		want     string
 	}{
 		{
@@ -84,13 +84,13 @@ func TestGitMenuSaysWhyAnEntryWouldDoNothing(t *testing.T) {
 		{
 			name:     "the pull request of a repository not read yet",
 			pressed:  "o",
-			standing: pullRequestStanding{state: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNREAD},
+			standing: panel.PullRequestStanding{State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNREAD},
 			want:     errPullRequestsUnread.Error(),
 		},
 		{
 			name:     "the pull request of a branch with none",
 			pressed:  "o",
-			standing: pullRequestStanding{state: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE},
+			standing: panel.PullRequestStanding{State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE},
 			want:     errNoPullRequest.Error(),
 		},
 	}
@@ -99,7 +99,7 @@ func TestGitMenuSaysWhyAnEntryWouldDoNothing(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m := gitModel(t)
 			m.listing.workflows[0].Worktree.Enabled = false
-			m.listing.agents[0].pullRequest = tt.standing
+			m.listing.agents[0].PullRequest = tt.standing
 
 			opened := routeKey(t, m, "b")
 			require.Equal(t, formGit, opened.form.kind)
@@ -136,10 +136,10 @@ func TestGitMenuOpensTheCurrentPullRequest(t *testing.T) {
 			opener := &recordingOpener{err: tt.refuse}
 			m := gitModel(t)
 			m.browser = opener
-			m.listing.agents[0].pullRequest = pullRequestStanding{
-				state:  pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED,
-				number: 740,
-				url:    "https://github.com/harrisoncramer/weave/pull/740",
+			m.listing.agents[0].PullRequest = panel.PullRequestStanding{
+				State:  pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED,
+				Number: 740,
+				URL:    "https://github.com/harrisoncramer/weave/pull/740",
 			}
 
 			opened := routeKey(t, m, "b")

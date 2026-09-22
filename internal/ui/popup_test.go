@@ -440,8 +440,8 @@ func FocusKeyModel(binds *bindingTmux) model {
 	m.popup = NewPopupWindow(binds, "weave")
 	m.settings.Pane = "%3"
 	for i := range m.listing.agents {
-		m.listing.agents[i].alive = true
-		m.listing.agents[i].agent.Pane = "%9"
+		m.listing.agents[i].Alive = true
+		m.listing.agents[i].Agent.Pane = "%9"
 	}
 
 	m.frame.Attach("%3")
@@ -458,7 +458,7 @@ func TestFocusKeyGivenBackByAForm(t *testing.T) {
 
 	m.holdFocusKey()
 
-	opened := m.openRename(m.listing.agents[0].agent)
+	opened := m.openRename(m.listing.agents[0].Agent)
 	m = asModel(t, opened)
 	m.holdFocusKey()
 

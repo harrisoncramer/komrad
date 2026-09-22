@@ -80,14 +80,12 @@ func workflowProse(w panel.Workflow) string {
 // agentFieldsParams is an agent and what the record says about it that is not on its row: the
 // names of what launched it and what it hangs off, and the pull requests from its branch.
 type agentFieldsParams struct {
-	agent    panel.Agent
-	schedule string
-	parent   string
-	workflow string
-	standing pullRequestStanding
-	// listed is what the service has answered about the branch's pull requests, unanswered
-	// while it has not.
-	listed agentPullRequests
+	agent        panel.Agent
+	schedule     string
+	parent       string
+	workflow     string
+	standing     panel.PullRequestStanding
+	pullRequests []panel.PullRequest
 	// worktree is what the service has answered about the agent's directory, and read says
 	// whether it has answered that the directory is a worktree at all.
 	worktree worktreeInspection
@@ -118,7 +116,7 @@ func agentFields(params agentFieldsParams) []recordField {
 	readBranch := agent.Branch != nil
 	if readBranch {
 		fields = append(fields, recordField{branchFieldKey, *agent.Branch})
-		fields = append(fields, pullRequestFields(params.standing, params.listed)...)
+		fields = append(fields, pullRequestFields(params.standing, params.pullRequests)...)
 	}
 	if params.read {
 		fields = append(fields, worktreeStandingFields(params.worktree, params.now)...)

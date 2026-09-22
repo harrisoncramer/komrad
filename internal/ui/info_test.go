@@ -289,13 +289,13 @@ func infoModel(tmux *recordingTmux) model {
 			ID:       "w1",
 			Name:     "backend",
 			Worktree: panel.WorktreeConfig{Enabled: true},
-		}}, agents: []agentItem{
-			{agent: panel.Agent{
+		}}, agents: []panel.AgentRow{
+			{Agent: panel.Agent{
 				Name:       "auth",
 				Pane:       "%9",
 				Cwd:        "/repo",
 				WorkflowID: "w1",
-			}, alive: true},
+			}, Alive: true},
 		}}, agents: agentsScreen{rowCursor: rowCursor{cursor: 1}},
 	}
 }

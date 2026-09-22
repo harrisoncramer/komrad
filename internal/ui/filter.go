@@ -318,7 +318,7 @@ func agentRowName(row agentRow) string {
 		return row.workflow.Name
 	}
 
-	return row.item.agent.Name
+	return row.item.Agent.Name
 }
 
 // agentRowDepth is how far a row of the tree is indented: a header, an agent under it, or a

@@ -158,7 +158,7 @@ func chosenAgents(sel selection, rows []agentRow) []panel.Agent {
 		return !row.header && sel.has(rowKey(row))
 	})
 
-	return xslice.Map(chosen, func(row agentRow) panel.Agent { return row.item.agent })
+	return xslice.Map(chosen, func(row agentRow) panel.Agent { return row.item.Agent })
 }
 
 func describeAgents(agents []panel.Agent) string {

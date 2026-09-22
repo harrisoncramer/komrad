@@ -66,15 +66,15 @@ func (a *archiveScreen) list() screenList[agentRow] {
 }
 
 // archiveSorts is every column the archive can be ordered by.
-var archiveSorts = []sortColumn[agentItem]{
+var archiveSorts = []sortColumn[panel.AgentRow]{
 	{
 		id:    "archived",
 		label: "archived",
-		has: func(item agentItem) bool {
-			return item.agent.ArchivedAt != nil
+		has: func(item panel.AgentRow) bool {
+			return item.Agent.ArchivedAt != nil
 		},
-		compare: func(a, b agentItem) int {
-			return a.agent.ArchivedAt.Compare(*b.agent.ArchivedAt)
+		compare: func(a, b panel.AgentRow) int {
+			return a.Agent.ArchivedAt.Compare(*b.Agent.ArchivedAt)
 		},
 	},
 	{
@@ -108,7 +108,7 @@ func (a *archiveScreen) buildRows(s panelShared) []agentRow {
 // archiveHeaders is every workflow the archive draws a folder for: the archived ones, and the
 // live ones still holding an archived agent.
 func archiveHeaders(l listing) []panel.Workflow {
-	holding := xslice.KeyBy(l.archivedAgents, func(item agentItem) string { return item.agent.WorkflowID })
+	holding := xslice.KeyBy(l.archivedAgents, func(item panel.AgentRow) string { return item.Agent.WorkflowID })
 	archived := xslice.KeyBy(l.archivedWorkflows, func(w panel.Workflow) string { return w.ID })
 
 	headers := slices.Clone(l.archivedWorkflows)
@@ -126,24 +126,22 @@ func archiveHeaders(l listing) []panel.Workflow {
 	return headers
 }
 
-func archivedByID(items []agentItem) map[string]agentItem {
-	return xslice.KeyBy(items, func(item agentItem) string { return item.agent.ID })
+func archivedByID(items []panel.AgentRow) map[string]panel.AgentRow {
+	return xslice.KeyBy(items, func(item panel.AgentRow) string { return item.Agent.ID })
 }
 
 // archivedAgentsOf is the archive listing as bare rows.
 func archivedAgentsOf(l listing) []panel.Agent {
-	return xslice.Map(l.archivedAgents, func(item agentItem) panel.Agent { return item.agent })
+	return xslice.Map(l.archivedAgents, func(item panel.AgentRow) panel.Agent { return item.Agent })
 }
 
 func (l listing) archivedCount(workflowID string) int {
-	return xslice.Count(l.archivedAgents, func(item agentItem) bool { return item.agent.WorkflowID == workflowID })
+	return xslice.Count(l.archivedAgents, func(item panel.AgentRow) bool { return item.Agent.WorkflowID == workflowID })
 }
 
-// applyArchive hands the screen a fresh listing and forgets what was answered for agents that
-// have left it.
-func (m *model) applyArchive(agents []agentItem, workflows []panel.Workflow, hovered string) {
+// applyArchive hands the screen a fresh listing.
+func (m *model) applyArchive(agents []panel.AgentRow, workflows []panel.Workflow, hovered string) {
 	m.listing.archivedAgents, m.listing.archivedWorkflows = agents, workflows
-	m.forgetUnlistedPullRequests()
 
 	m.archive.apply(m.shared(), hovered)
 }
@@ -181,7 +179,7 @@ func (a *archiveScreen) hoveredAgent(s panelShared) (panel.Agent, bool) {
 		return panel.Agent{}, false
 	}
 
-	return row.item.agent, true
+	return row.item.Agent, true
 }
 
 // hoveredWorkflow is the archived workflow the cursor is on, and none on an agent or on the
@@ -335,7 +333,7 @@ func (a *archiveScreen) details(s panelShared) details {
 	}
 
 	return details{
-		id:      r.item.agent.ID,
+		id:      r.item.Agent.ID,
 		notices: agentNotices(r),
 		fields:  agentDetailFields(s, r.item),
 	}
@@ -355,7 +353,7 @@ func (a *archiveScreen) doc(s panelShared) string {
 	case r.header:
 		return workflowContextMarkdown(r.workflow)
 	default:
-		return archiveDocument(s, r.item.agent)
+		return archiveDocument(s, r.item.Agent)
 	}
 }
 

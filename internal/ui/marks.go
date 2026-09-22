@@ -74,11 +74,10 @@ func (a *agentsScreen) setMark(h host, s panelShared, letter string) tea.Cmd {
 		return nil
 	}
 
-	key := rowKey(row)
 	target := markTarget(row)
 	failure := fmt.Sprintf("Could not mark %s", describeRow(row))
 
-	if s.listing.marks[key] == letter {
+	if s.listing.marks[rowID(row)] == letter {
 		return h.writeCmd(failure, func(c api) error { return c.clearMark(target) })
 	}
 
@@ -92,7 +91,7 @@ func markTarget(row agentRow) markTargetRef {
 		return markTargetRef{workflowID: row.workflow.ID}
 	}
 
-	return markTargetRef{agentID: row.item.agent.ID}
+	return markTargetRef{agentID: row.item.Agent.ID}
 }
 
 type markTargetRef struct {
@@ -105,7 +104,7 @@ func describeRow(row agentRow) string {
 		return fmt.Sprintf("workflow %q", row.workflow.Name)
 	}
 
-	return fmt.Sprintf("agent %q", row.item.agent.Name)
+	return fmt.Sprintf("agent %q", row.item.Agent.Name)
 }
 
 func (a *agentsScreen) jumpMark(h host, s panelShared, letter string) tea.Cmd {
@@ -150,14 +149,14 @@ func (a *agentsScreen) jumpMarkBack(h host, s panelShared) tea.Cmd {
 // letter briefly on two rows between passes picks the same one every time.
 func markedRow(l listing, letter string) (string, bool) {
 	for _, item := range l.agents {
-		if key := agentRowKey(item.agent.ID); l.marks[key] == letter {
-			return key, true
+		if l.marks[item.Agent.ID] == letter {
+			return agentRowKey(item.Agent.ID), true
 		}
 	}
 
 	for _, workflow := range l.workflows {
-		if key := workflowRowKey(workflow.ID); l.marks[key] == letter {
-			return key, true
+		if l.marks[workflow.ID] == letter {
+			return workflowRowKey(workflow.ID), true
 		}
 	}
 

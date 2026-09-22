@@ -38,9 +38,9 @@ func worktreesModel() model {
 		detailsHeight: config.DefaultDetailsHeight,
 		listing: listing{
 			workflows: []panel.Workflow{{ID: "w1", Name: "weave"}},
-			agents: []agentItem{
+			agents: []panel.AgentRow{
 				{
-					agent: panel.Agent{
+					Agent: panel.Agent{
 						ID:         "live",
 						Name:       "worktree-view",
 						WorkflowID: "w1",
@@ -48,17 +48,17 @@ func worktreesModel() model {
 						State:      panel.StateThinking,
 						Cwd:        "/trees/live",
 					},
-					alive: true,
+					Alive: true,
 				},
 				{
-					agent: panel.Agent{
+					Agent: panel.Agent{
 						ID:         "occ",
 						Name:       "review-607",
 						WorkflowID: "w1",
 						Harness:    "claude",
 						Cwd:        "/trees/live",
 					},
-					alive: true,
+					Alive: true,
 				},
 			},
 			archivedAgents: archivedItems([]panel.Agent{
@@ -676,7 +676,7 @@ func TestWorktreesScreenHoldsTheWindow(t *testing.T) {
 	m.screen = screenAgents
 	m.tmux, m.frame = tmux, layout.New(tmux, config.DefaultLayout())
 	m = sizedTo(m, tmux)
-	m.listing.agents[0].agent.Pane = "%7"
+	m.listing.agents[0].Agent.Pane = "%7"
 
 	m.enter(screenWorktrees, screenTarget{agentID: "live"})
 

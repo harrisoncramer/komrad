@@ -73,7 +73,7 @@ func TestRefusedWriteIsReported(t *testing.T) {
 		screen: screenAgents,
 		listing: listing{
 			workflows: []panel.Workflow{{ID: "w1", Name: "backend"}},
-			agents:    []agentItem{{agent: agent, alive: false}},
+			agents:    []panel.AgentRow{{Agent: agent, Alive: false}},
 		},
 	}
 	m.agents.cursor = firstAgentRowIndex(m.agents.rows(m.shared()))
@@ -109,11 +109,11 @@ func TestRefusedResumeIsReported(t *testing.T) {
 		screen: screenAgents,
 		listing: listing{
 			workflows: []panel.Workflow{{ID: "w1", Name: "backend"}},
-			agents: []agentItem{{agent: panel.Agent{
+			agents: []panel.AgentRow{{Agent: panel.Agent{
 				Name:       "api-refactor",
 				State:      panel.StateIdle,
 				WorkflowID: "w1",
-			}, alive: false}},
+			}, Alive: false}},
 		},
 	}
 	m.agents.cursor = firstAgentRowIndex(m.agents.rows(m.shared()))
@@ -167,9 +167,9 @@ func TestSuccessfulWriteReportsNothing(t *testing.T) {
 		screen: screenAgents,
 		listing: listing{
 			workflows: []panel.Workflow{{ID: "w1", Name: "backend"}},
-			agents: []agentItem{
+			agents: []panel.AgentRow{
 				{
-					agent: panel.Agent{
+					Agent: panel.Agent{
 						Name:       "api-refactor",
 						State:      panel.StateIdle,
 						WorkflowID: "w1",
@@ -206,7 +206,7 @@ func TestMessageDrawsInTheRegion(t *testing.T) {
 	assert.Contains(t, view, "Could not archive agent")
 	assert.Contains(t, view, "already archived")
 	assert.Contains(t, view, "to read", "the way into the whole message is said")
-	assert.Contains(t, view, m.listing.agents[0].agent.Name, "the list is still on screen above the region")
+	assert.Contains(t, view, m.listing.agents[0].Agent.Name, "the list is still on screen above the region")
 }
 
 // TestMessagesYieldToTakeoverScreens pins a takeover screen coming before the message region.
@@ -302,7 +302,7 @@ func TestConfigErrorView(t *testing.T) {
 				configErr:   errors.New("failed to parse config /home/u/.config/weave/config.toml: keybindings.list is not a setting; [keybindings] takes agents, archive, filter, form, help, nav, schedules, selection, workflows"),
 				unreachable: tt.unreachable,
 				settings:    PanelSettings{Addr: "127.0.0.1:8787"},
-				listing:     listing{agents: []agentItem{{agent: panel.Agent{Name: "should-not-render", State: panel.StateIdle}}}},
+				listing:     listing{agents: []panel.AgentRow{{Agent: panel.Agent{Name: "should-not-render", State: panel.StateIdle}}}},
 			}
 
 			view := strings.Join(strings.Fields(m.View()), " ")
@@ -367,7 +367,7 @@ func TestStartupErrorView(t *testing.T) {
 				startupErr:  errors.New("the agent server stopped during startup: failed to reach db: connection refused"),
 				unreachable: tt.unreachable,
 				settings:    PanelSettings{Addr: "127.0.0.1:8787"},
-				listing:     listing{agents: []agentItem{{agent: panel.Agent{Name: "should-not-render", State: panel.StateIdle}}}},
+				listing:     listing{agents: []panel.AgentRow{{Agent: panel.Agent{Name: "should-not-render", State: panel.StateIdle}}}},
 			}
 
 			view := strings.Join(strings.Fields(m.View()), " ")
@@ -437,11 +437,11 @@ func TestRefusedPauseIsReported(t *testing.T) {
 		screen: screenAgents,
 		listing: listing{
 			workflows: []panel.Workflow{{ID: "w1", Name: "backend"}},
-			agents: []agentItem{{agent: panel.Agent{
+			agents: []panel.AgentRow{{Agent: panel.Agent{
 				Name:       "telescope",
 				State:      panel.StateThinking,
 				WorkflowID: "w1",
-			}, alive: true}},
+			}, Alive: true}},
 		},
 	}
 	m.agents.cursor = firstAgentRowIndex(m.agents.rows(m.shared()))

@@ -303,10 +303,10 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		m.applyWorktreeInspection(msg)
 
 		return m, nil, true
-	case agentPullRequestsListedMsg:
-		m.pullRequests.apply(msg)
+	case pullRequestsListedMsg:
+		cmd := m.applyPullRequestsListed(msg)
 
-		return m, nil, true
+		return m, cmd, true
 	case urlOpenedMsg:
 		m.applyURLOpened(msg)
 

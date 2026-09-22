@@ -239,14 +239,13 @@ type model struct {
 	archive       archiveScreen
 	worktrees     worktreesScreen
 	// inspections is what the service answered for each worktree directory.
-	inspections  map[string]worktreeInspection
-	pullRequests pullRequestsState
-	search       searchScreen
-	review       reviewScreen
-	filter       filterState
-	rowCursor    cursor.Model
-	form         formState
-	held         heldWrite
+	inspections map[string]worktreeInspection
+	search      searchScreen
+	review      reviewScreen
+	filter      filterState
+	rowCursor   cursor.Model
+	form        formState
+	held        heldWrite
 	// detached holds the writes a person escaped out of, which land without taking the screen to
 	// what they made.
 	detached map[int]struct{}

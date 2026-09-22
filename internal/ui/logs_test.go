@@ -23,7 +23,7 @@ func logsModel(t *testing.T, tmux *recordingTmux) (model, string) {
 	m := infoModel(tmux)
 	m.settings.LogPath = path
 	m.settings.RunLogsDir = t.TempDir()
-	m.listing.agents[0].agent.ID = "a1"
+	m.listing.agents[0].Agent.ID = "a1"
 
 	return m, path
 }
@@ -410,7 +410,7 @@ func TestAgentLogContentKeyFollowsTheAgent(t *testing.T) {
 
 	first := m.agentLogContent().Key
 
-	m.listing.agents[0].agent.ID = "a2"
+	m.listing.agents[0].Agent.ID = "a2"
 	second := m.agentLogContent().Key
 
 	assert.NotEqual(t, first, second)
@@ -421,12 +421,12 @@ func TestAgentLogContentKeyFollowsTheAgent(t *testing.T) {
 func TestAgentLogRespawnsOnACursorMove(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, _ := logsModel(t, tmux)
-	m.listing.agents = append(m.listing.agents, agentItem{agent: panel.Agent{
+	m.listing.agents = append(m.listing.agents, panel.AgentRow{Agent: panel.Agent{
 		ID:         "a2",
 		Name:       "billing",
 		Pane:       "%8",
 		WorkflowID: "w1",
-	}, alive: true})
+	}, Alive: true})
 
 	m.claimInfo(infoAgentLog, "")
 	m.stageInfo()

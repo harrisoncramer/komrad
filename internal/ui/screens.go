@@ -252,7 +252,7 @@ func (m *model) enter(next screen, target screenTarget) tea.Cmd {
 			return nil
 		}
 
-		return m.enterReview(item.agent)
+		return m.enterReview(item.Agent)
 	}
 
 	m.enterScreen(next)
@@ -279,9 +279,6 @@ type panelShared struct {
 
 	// inspections is what the service has answered for each worktree directory.
 	inspections map[string]worktreeInspection
-
-	// pullRequests is what the service has answered for each agent's branch.
-	pullRequests pullRequestsState
 
 	// runLogsDir is the directory the run logs are written under.
 	runLogsDir string
@@ -329,11 +326,10 @@ func (m *model) unmeasured() panelShared {
 			form:         m.form,
 			helpExpanded: m.helpExpanded,
 		},
-		inspections:  m.inspections,
-		pullRequests: m.pullRequests,
-		runLogsDir:   m.settings.RunLogsDir,
-		editor:       m.settings.Editor,
-		isDark:       m.isDark,
-		draw:         m,
+		inspections: m.inspections,
+		runLogsDir:  m.settings.RunLogsDir,
+		editor:      m.settings.Editor,
+		isDark:      m.isDark,
+		draw:        m,
 	}
 }
