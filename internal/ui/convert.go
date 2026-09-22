@@ -89,8 +89,7 @@ func agentItemsFrom(listed []*agentv1.Agent) []agentItem {
 	})
 }
 
-// agentRowsFrom is a listing of assembled rows as the panel keeps them, the mail and the pull
-// request read off the row rather than the agent.
+// agentRowsFrom is a listing of assembled rows as the panel keeps them.
 func agentRowsFrom(listed []*agentv1.AgentRow) []agentItem {
 	return xslice.Map(listed, func(row *agentv1.AgentRow) agentItem {
 		return agentItemFrom(row.GetAgent(), row.GetUnreadMail(), row.GetPullRequest())

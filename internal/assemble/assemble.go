@@ -144,7 +144,7 @@ func Marks(w World) map[string]string {
 	return marks
 }
 
-// branch is where a pull request was opened from, which is what ties it to an agent.
+// branch is where a pull request was opened from.
 type branch struct {
 	repository     string
 	headRepository string
@@ -167,7 +167,7 @@ func branchOf(w World, agent *agentv1.Agent) branch {
 }
 
 // pullRequestsByBranch indexes the pull requests by the branch they were opened from, each
-// branch's unfinished first and then newest opened first, so the first is the current one.
+// branch's current one first.
 func pullRequestsByBranch(pullRequests map[string]*pullrequestv1.PullRequest) map[branch][]*pullrequestv1.PullRequest {
 	onBranch := map[branch][]*pullrequestv1.PullRequest{}
 	for _, pullRequest := range pullRequests {

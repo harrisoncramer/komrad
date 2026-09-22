@@ -495,6 +495,52 @@ func (q *Queries) ListMailboxesWithPendingMail(ctx context.Context) ([]string, e
 	return items, nil
 }
 
+const listUnclaimedMailTo = `-- name: ListUnclaimedMailTo :many
+SELECT
+    id, from_agent_id, from_name, to_agent_id, body, reply_to, claimed_at, reported_at, expires_at, created_at, updated_at, kind, about_agent_id
+FROM
+    mail m
+WHERE
+    m.to_agent_id = ANY ($1::uuid[])
+    AND m.claimed_at IS NULL
+ORDER BY
+    m.id
+`
+
+func (q *Queries) ListUnclaimedMailTo(ctx context.Context, agentIds []string) ([]*Mail, error) {
+	rows, err := q.db.Query(ctx, listUnclaimedMailTo, agentIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*Mail
+	for rows.Next() {
+		var i Mail
+		if err := rows.Scan(
+			&i.ID,
+			&i.FromAgentID,
+			&i.FromName,
+			&i.ToAgentID,
+			&i.Body,
+			&i.ReplyTo,
+			&i.ClaimedAt,
+			&i.ReportedAt,
+			&i.ExpiresAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Kind,
+			&i.AboutAgentID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const reportExpiredMail = `-- name: ReportExpiredMail :many
 WITH unreported AS (
     SELECT

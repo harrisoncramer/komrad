@@ -238,8 +238,7 @@ type Agent struct {
 	HeldAt string `protobuf:"bytes,35,opt,name=held_at,json=heldAt,proto3" json:"held_at,omitempty"`
 	// Where the pull request opened from its branch stands.
 	PullRequest *PullRequestStanding `protobuf:"bytes,38,opt,name=pull_request,json=pullRequest,proto3" json:"pull_request,omitempty"`
-	// Whether the pull request sync has swept its repository, which is what tells an agent with
-	// no pull request from one whose repository has not been read.
+	// Whether the pull request sync has swept its repository.
 	RepositoryRead bool `protobuf:"varint,39,opt,name=repository_read,json=repositoryRead,proto3" json:"repository_read,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache

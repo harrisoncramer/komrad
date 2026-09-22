@@ -24,7 +24,7 @@ type workflowReader interface {
 }
 
 type unclaimedMailReader interface {
-	ListUnclaimed(ctx context.Context) ([]mailstore.Mail, error)
+	ListUnclaimedTo(ctx context.Context, agentIDs []string) ([]mailstore.Mail, error)
 }
 
 type pullRequestReader interface {
@@ -43,7 +43,7 @@ func (r agentRow) Cursor() (agentstore.Cursor, error) {
 }
 
 // assembleRows draws the rows of a page of agents: the agents themselves and, read beside
-// them, every mark, the unclaimed mail, the pull requests on their branches and their
+// them, every mark, the unclaimed mail to them, the pull requests on their branches and their
 // workflows, joined by the assembler.
 func (s *Handler) assembleRows(ctx context.Context, rows []rowstore.Row, opts ...agentOption) ([]agentRow, *fail.Error) {
 	world, failure := s.world(ctx, rows, opts...)
@@ -65,7 +65,7 @@ func (s *Handler) world(ctx context.Context, rows []rowstore.Row, opts ...agentO
 		return assemble.World{}, rpcerr.From(err, "failed to list the marks")
 	}
 
-	mail, err := s.unclaimed.ListUnclaimed(ctx)
+	mail, err := s.unclaimed.ListUnclaimedTo(ctx, agentIDs)
 	if err != nil {
 		return assemble.World{}, rpcerr.From(err, "failed to list the unclaimed mail")
 	}
