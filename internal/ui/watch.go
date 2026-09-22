@@ -2,7 +2,6 @@ package ui
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"time"
 
@@ -13,9 +12,6 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 )
-
-// errWatchClosed is what a stream the service closed on its own is reported as.
-var errWatchClosed = errors.New("the watch stream closed")
 
 // watchLostMsg says the stream has ended and is being opened again.
 type watchLostMsg struct {
@@ -54,12 +50,12 @@ func (m *model) applyWatch(batch client.WatchBatch) tea.Cmd {
 	return tea.Batch(listed, m.listArrivedPullRequestsCmd(arrived))
 }
 
-// applyWatchLost says the server is gone until the next stream's snapshot says otherwise.
+// applyWatchLost says the server is gone until the next stream's snapshot says otherwise, and
+// says nothing of a close the service chose, which the reopen follows.
 func (m *model) applyWatchLost(msg watchLostMsg) {
-	err := msg.err
-	if err == nil {
-		err = errWatchClosed
+	if msg.err == nil {
+		return
 	}
 
-	m.reportUnreachable(err)
+	m.reportUnreachable(msg.err)
 }

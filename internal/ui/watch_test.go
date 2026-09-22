@@ -362,15 +362,15 @@ func TestLostStreamIsReportedUntilTheNextSnapshot(t *testing.T) {
 	require.Error(t, m.unreachable)
 	require.Len(t, m.messages.items, 1)
 
-	m, _ = update(t, m, watchLostMsg{})
+	m, _ = update(t, m, watchLostMsg{err: errors.New("connection refused")})
 	assert.Len(t, m.messages.items, 1, "a stream that keeps failing to open says nothing more")
 
 	m, _ = update(t, m, client.WatchBatch{snapshotEvent()})
 	require.NoError(t, m.unreachable)
 
 	m, _ = update(t, m, watchLostMsg{})
-	require.ErrorIs(t, m.unreachable, errWatchClosed, "a close with no error is still the server gone")
-	assert.Len(t, m.messages.items, 2)
+	require.NoError(t, m.unreachable, "a close the service chose is reopened without a word")
+	assert.Len(t, m.messages.items, 1)
 }
 
 // TestTickListsOnlyWhatTheWatchLacks covers the archive screen, whose listing rides no stream,
