@@ -296,7 +296,7 @@ func (s *PullRequestSyncStore) touchRepositories(ctx context.Context, urls ...st
 		return fmt.Errorf("failed to list the agents on %d repositories: %w", len(urls), err)
 	}
 
-	s.db.TouchAgents(ids...)
+	s.db.Touch(store.TableAgents, ids...)
 
 	return nil
 }

@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"weave/internal/store"
 	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
@@ -108,10 +109,10 @@ func TestTouchesCoalesceIntoOneRead(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, drainSnapshot(t, subscription))
 
-	broker.TouchAgents("b", "a")
-	broker.TouchAgents("a")
-	broker.TouchWorkflows("w")
-	broker.TouchSchedules("s")
+	broker.Touch(store.TableAgents, "b", "a")
+	broker.Touch(store.TableAgents, "a")
+	broker.Touch(store.TableWorkflows, "w")
+	broker.Touch(store.TableSchedules, "s")
 
 	events := []Event{receive(t, subscription), receive(t, subscription), receive(t, subscription), receive(t, subscription)}
 
@@ -129,7 +130,7 @@ func TestNothingIsReadWithoutAWatcher(t *testing.T) {
 	reader := &fakeReader{}
 	broker := newTestBroker(t, reader)
 
-	broker.TouchAgents("a")
+	broker.Touch(store.TableAgents, "a")
 	time.Sleep(10 * testCoalesce)
 
 	require.Empty(t, reader.getReads())
@@ -145,7 +146,7 @@ func TestSnapshotCarriesTheLastSeqAndLiveEventsFollow(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, drainSnapshot(t, first))
 
-	broker.TouchAgents("a")
+	broker.Touch(store.TableAgents, "a")
 	require.Equal(t, uint64(1), receive(t, first).Seq)
 
 	reader.mu.Lock()
@@ -164,7 +165,7 @@ func TestSnapshotCarriesTheLastSeqAndLiveEventsFollow(t *testing.T) {
 		require.Equal(t, uint64(1), row.Seq, "a snapshot row carries the seq of the last render")
 	}
 
-	broker.TouchAgents("a")
+	broker.Touch(store.TableAgents, "a")
 	require.Equal(t, uint64(2), receive(t, first).Seq)
 	require.Equal(t, uint64(2), receive(t, second).Seq)
 }
@@ -180,7 +181,7 @@ func TestATouchDuringTheSnapshotLandsAfterIt(t *testing.T) {
 	require.Empty(t, drainSnapshot(t, first))
 
 	// The render is held part way, and a second watcher subscribes behind it.
-	broker.TouchAgents("a")
+	broker.Touch(store.TableAgents, "a")
 	require.Eventually(t, func() bool { return len(reader.getReads()) == 1 }, time.Second, time.Millisecond)
 
 	subscribed := make(chan *Subscription, 1)
@@ -192,7 +193,7 @@ func TestATouchDuringTheSnapshotLandsAfterIt(t *testing.T) {
 		subscribed <- second
 	}()
 
-	broker.TouchAgents("b")
+	broker.Touch(store.TableAgents, "b")
 	close(reader.held)
 
 	require.Equal(t, "a", receive(t, first).ID)
@@ -219,7 +220,7 @@ func TestASlowWatcherIsDropped(t *testing.T) {
 		ids[i] = string(rune('a' + i))
 	}
 	for range subscriberBuffer/len(ids) + 2 {
-		broker.TouchAgents(ids...)
+		broker.Touch(store.TableAgents, ids...)
 		time.Sleep(2 * testCoalesce)
 	}
 
@@ -257,7 +258,7 @@ func TestCloseEndsEverySubscription(t *testing.T) {
 	_, err = broker.Subscribe(t.Context())
 	require.ErrorIs(t, err, ErrClosed)
 
-	broker.TouchAgents("a")
+	broker.Touch(store.TableAgents, "a")
 	subscription.Close()
 }
 
@@ -271,14 +272,14 @@ func TestAFailedReadIsRetriedWithTheNextOne(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, drainSnapshot(t, subscription))
 
-	broker.TouchAgents("a")
+	broker.Touch(store.TableAgents, "a")
 	require.Eventually(t, func() bool { return len(reader.getReads()) == 1 }, time.Second, time.Millisecond)
 
 	reader.mu.Lock()
 	reader.readErr = nil
 	reader.mu.Unlock()
 
-	broker.TouchAgents("b")
+	broker.Touch(store.TableAgents, "b")
 	assert.Equal(t, "a", receive(t, subscription).ID, "the touch the failed read lost comes back")
 	assert.Equal(t, "b", receive(t, subscription).ID)
 	assert.Equal(t, Touched{Agents: []string{"a", "b"}}, reader.getReads()[1], "one read serves both")
@@ -300,7 +301,7 @@ func TestClosingASubscriptionEndsItsStream(t *testing.T) {
 	_, open := <-subscription.Events()
 	require.False(t, open)
 
-	broker.TouchAgents("a")
+	broker.Touch(store.TableAgents, "a")
 	time.Sleep(4 * testCoalesce)
 	require.Empty(t, reader.getReads(), "nothing is read once the last watcher has gone")
 }
@@ -308,7 +309,7 @@ func TestClosingASubscriptionEndsItsStream(t *testing.T) {
 // TestABrokerNeverStartedStillCloses pins that a broker built and never started closes cleanly.
 func TestABrokerNeverStartedStillCloses(t *testing.T) {
 	broker := NewBroker(NewBrokerParams{})
-	broker.TouchAgents("a")
+	broker.Touch(store.TableAgents, "a")
 	broker.Close()
 
 	_, err := broker.Subscribe(t.Context())

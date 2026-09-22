@@ -3,6 +3,7 @@ package weavelint
 import (
 	"fmt"
 	"go/ast"
+	"go/constant"
 	"go/token"
 	"go/types"
 	"maps"
@@ -69,8 +70,8 @@ func newStoreTouch(settings config.StoreTouchConfig) (*analysis.Analyzer, error)
 	}, nil
 }
 
-// reportUntouched reports every function that calls a query writing a watched table with no
-// touch after it.
+// reportUntouched reports every function that calls a query writing a table a listing reads
+// with no touch of a listing that reads it after the write.
 func reportUntouched(pass *analysis.Pass, file *ast.File, writes map[string][]string, watched map[string][]string) {
 	for _, decl := range file.Decls {
 		function, ok := decl.(*ast.FuncDecl)
@@ -78,7 +79,7 @@ func reportUntouched(pass *analysis.Pass, file *ast.File, writes map[string][]st
 			continue
 		}
 
-		var lastTouch token.Pos
+		var touches []touch
 		var firstWrite *ast.CallExpr
 		var firstTable string
 		ast.Inspect(function.Body, func(node ast.Node) bool {
@@ -88,7 +89,7 @@ func reportUntouched(pass *analysis.Pass, file *ast.File, writes map[string][]st
 			}
 
 			if isTouch(call) {
-				lastTouch = call.Pos()
+				touches = append(touches, touch{pos: call.Pos(), listing: touchedListing(pass, call)})
 
 				return true
 			}
@@ -113,14 +114,44 @@ func reportUntouched(pass *analysis.Pass, file *ast.File, writes map[string][]st
 			return true
 		})
 
-		if firstWrite == nil || lastTouch > firstWrite.Pos() {
+		if firstWrite == nil || isTouchedAfter(touches, firstWrite.Pos(), watched[firstTable]) {
 			continue
 		}
 
 		pass.Reportf(function.Pos(),
-			"%s writes %s and never touches the watch afterwards: the rows it changed stay stale on the panel",
-			function.Name.Name, firstTable)
+			"%s writes %s and never touches the %s listing afterwards: the rows it changed stay stale on the panel",
+			function.Name.Name, firstTable, strings.Join(watched[firstTable], " or "))
 	}
+}
+
+// touch is one call named as a touch and the listing it names, empty for a helper that names
+// none.
+type touch struct {
+	pos     token.Pos
+	listing string
+}
+
+// isTouchedAfter says whether a touch after the position names one of the listings, or names
+// none.
+func isTouchedAfter(touches []touch, after token.Pos, listings []string) bool {
+	return slices.ContainsFunc(touches, func(t touch) bool {
+		return t.pos > after && (t.listing == "" || slices.Contains(listings, t.listing))
+	})
+}
+
+// touchedListing is the listing a touch names in its first argument, when that is a constant
+// string, and empty otherwise.
+func touchedListing(pass *analysis.Pass, call *ast.CallExpr) string {
+	if len(call.Args) == 0 {
+		return ""
+	}
+
+	value, ok := pass.TypesInfo.Types[call.Args[0]]
+	if !ok || value.Value == nil || value.Value.Kind() != constant.String {
+		return ""
+	}
+
+	return constant.StringVal(value.Value)
 }
 
 // isTouch says whether a call is named as a touch, on whatever holds it.

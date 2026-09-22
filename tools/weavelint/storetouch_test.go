@@ -20,11 +20,12 @@ var testListings = map[string][]string{
 }
 
 // TestStoreTouch covers a store over the tables the listings read: a write followed by a touch
-// passes, through the handle or through a helper named touch, a write with none or with the
-// touch before it is a finding, a write through a CTE is read through to the table it changes,
-// a query built from models.New is a query all the same, and a read locked FOR UPDATE, a
-// conflict arm's DO UPDATE and a write to a table no listing reads are not writes the rule is
-// about.
+// naming a listing that reads the table passes, through the handle or through a helper named
+// touch, a write with none, with the touch before it, or with a touch naming a listing that
+// does not read the table is a finding, a table two listings read is settled by a touch of
+// either, a write through a CTE is read through to the table it changes, a query built from
+// models.New is a query all the same, and a read locked FOR UPDATE, a conflict arm's DO UPDATE
+// and a write to a table no listing reads are not writes the rule is about.
 func TestStoreTouch(t *testing.T) {
 	analyzer, err := newStoreTouch(config.StoreTouchConfig{
 		Stores:   []string{`internal/store/`},
@@ -72,7 +73,7 @@ func TestReadTables(t *testing.T) {
 
 	want := map[string][]string{
 		"agents":         {"agents"},
-		"marks":          {"agents"},
+		"marks":          {"agents", "workflows"},
 		"workflows":      {"workflows"},
 		"workflow_hooks": {"workflows"},
 	}

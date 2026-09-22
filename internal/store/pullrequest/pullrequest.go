@@ -197,7 +197,7 @@ func (s *PullRequestStore) touchPullRequest(ctx context.Context, id string) erro
 		return fmt.Errorf("failed to list the agents on pull request %q: %w", id, err)
 	}
 
-	s.db.TouchAgents(ids...)
+	s.db.Touch(store.TableAgents, ids...)
 
 	return nil
 }

@@ -49,7 +49,7 @@ func (s *WorkflowStore) Create(ctx context.Context, cfg Config) (*Workflow, erro
 	}
 
 	workflow := workflowFromRow(*row, *config, *provisioner, cfg.Hooks)
-	s.db.TouchWorkflows(workflow.ID)
+	s.db.Touch(store.TableWorkflows, workflow.ID)
 
 	return &workflow, nil
 }
@@ -64,7 +64,7 @@ func (s *WorkflowStore) Rename(ctx context.Context, id, name string) error {
 		return fmt.Errorf("failed to rename workflow %q: %w", id, err)
 	}
 
-	s.db.TouchWorkflows(id)
+	s.db.Touch(store.TableWorkflows, id)
 
 	return nil
 }
@@ -119,8 +119,8 @@ func (s *WorkflowStore) touchWithAgents(ctx context.Context, id string) error {
 		return fmt.Errorf("failed to list the agents of workflow %q: %w", id, err)
 	}
 
-	s.db.TouchWorkflows(id)
-	s.db.TouchAgents(agents...)
+	s.db.Touch(store.TableWorkflows, id)
+	s.db.Touch(store.TableAgents, agents...)
 
 	return nil
 }
@@ -148,7 +148,7 @@ func (s *WorkflowStore) Delete(ctx context.Context, id string) error {
 		return fmt.Errorf("failed to delete the provisioner config for workflow %q: %w", id, err)
 	}
 
-	s.db.TouchWorkflows(id)
+	s.db.Touch(store.TableWorkflows, id)
 
 	return nil
 }

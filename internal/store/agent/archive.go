@@ -29,7 +29,7 @@ func (s *AgentStore) ArchiveIfUnchanged(ctx context.Context, params ArchiveIfUnc
 		return false, fmt.Errorf("failed to archive id %q: %w", params.ID, err)
 	}
 
-	s.db.TouchAgents(params.ID)
+	s.db.Touch(store.TableAgents, params.ID)
 
 	return len(archived) > 0, nil
 }
@@ -52,7 +52,7 @@ func (s *AgentStore) Archive(ctx context.Context, ids []string) ([]AgentPane, er
 	panes := xslice.Map(archived, func(row *models.MarkAgentsArchivedRow) AgentPane {
 		return AgentPane{AgentID: row.ID, Pane: row.PaneID}
 	})
-	s.db.TouchAgents(paneAgentIDs(panes)...)
+	s.db.Touch(store.TableAgents, paneAgentIDs(panes)...)
 
 	return panes, nil
 }
@@ -68,7 +68,7 @@ func (s *AgentStore) RestampArchived(ctx context.Context, ids []string) error {
 		return fmt.Errorf("failed to restamp %d archived agents: %w", len(storable), err)
 	}
 
-	s.db.TouchAgents(storable...)
+	s.db.Touch(store.TableAgents, storable...)
 
 	return nil
 }
@@ -84,7 +84,7 @@ func (s *AgentStore) Restore(ctx context.Context, ids []string) error {
 		return fmt.Errorf("failed to restore %d agents: %w", len(storable), err)
 	}
 
-	s.db.TouchAgents(storable...)
+	s.db.Touch(store.TableAgents, storable...)
 
 	return nil
 }
@@ -100,7 +100,7 @@ func (s *AgentStore) ArchiveWorkflowAgents(ctx context.Context, workflowID strin
 	panes := xslice.Map(archived, func(row *models.MarkWorkflowAgentsArchivedRow) AgentPane {
 		return AgentPane{AgentID: row.ID, Pane: row.PaneID}
 	})
-	s.db.TouchAgents(paneAgentIDs(panes)...)
+	s.db.Touch(store.TableAgents, paneAgentIDs(panes)...)
 
 	return panes, nil
 }
@@ -112,7 +112,7 @@ func (s *AgentStore) RestoreWorkflowAgents(ctx context.Context, workflowID strin
 		return fmt.Errorf("failed to restore agents of workflow %q: %w", workflowID, err)
 	}
 
-	s.db.TouchAgents(restored...)
+	s.db.Touch(store.TableAgents, restored...)
 
 	return nil
 }

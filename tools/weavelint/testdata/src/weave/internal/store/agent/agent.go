@@ -6,10 +6,14 @@ import (
 	"weave/db/models"
 )
 
+const (
+	TableAgents    = "agents"
+	TableWorkflows = "workflows"
+)
+
 type DB interface {
 	models.DBTX
-	TouchAgents(ids ...string)
-	TouchWorkflows(ids ...string)
+	Touch(table string, ids ...string)
 }
 
 type Store struct {
@@ -22,17 +26,17 @@ func (s *Store) SetState(ctx context.Context, id string) error {
 		return err
 	}
 
-	s.db.TouchAgents(id)
+	s.db.Touch(TableAgents, id)
 
 	return nil
 }
 
-func (s *Store) SetStateQuietly(ctx context.Context, id string) error { // want `SetStateQuietly writes agents and never touches the watch afterwards: the rows it changed stay stale on the panel`
+func (s *Store) SetStateQuietly(ctx context.Context, id string) error { // want `SetStateQuietly writes agents and never touches the agents listing afterwards: the rows it changed stay stale on the panel`
 	return s.queries.SetAgentStateByID(ctx, id)
 }
 
-func (s *Store) TouchFirst(ctx context.Context, id string) error { // want `TouchFirst writes agents and never touches the watch afterwards: the rows it changed stay stale on the panel`
-	s.db.TouchAgents(id)
+func (s *Store) TouchFirst(ctx context.Context, id string) error { // want `TouchFirst writes agents and never touches the agents listing afterwards: the rows it changed stay stale on the panel`
+	s.db.Touch(TableAgents, id)
 
 	return s.queries.SetAgentStateByID(ctx, id)
 }
@@ -43,12 +47,12 @@ func (s *Store) Archive(ctx context.Context, ids []string) error {
 		return err
 	}
 
-	s.db.TouchAgents(archived...)
+	s.db.Touch(TableAgents, archived...)
 
 	return nil
 }
 
-func (s *Store) ClearMark(ctx context.Context, id string) error { // want `ClearMark writes marks and never touches the watch afterwards: the rows it changed stay stale on the panel`
+func (s *Store) ClearMark(ctx context.Context, id string) error { // want `ClearMark writes marks and never touches the agents or workflows listing afterwards: the rows it changed stay stale on the panel`
 	_, err := s.queries.DeleteMarkForTarget(ctx, id)
 
 	return err
@@ -71,12 +75,12 @@ func (s *Store) Hook(ctx context.Context, id string) error {
 		return err
 	}
 
-	s.db.TouchWorkflows(id)
+	s.db.Touch(TableWorkflows, id)
 
 	return nil
 }
 
-func (s *Store) HookQuietly(ctx context.Context, id string) error { // want `HookQuietly writes workflow_hooks and never touches the watch afterwards: the rows it changed stay stale on the panel`
+func (s *Store) HookQuietly(ctx context.Context, id string) error { // want `HookQuietly writes workflow_hooks and never touches the workflows listing afterwards: the rows it changed stay stale on the panel`
 	return models.New(nil).InsertWorkflowHook(ctx, id)
 }
 
@@ -92,5 +96,25 @@ func (s *Store) ArchiveThroughHelper(ctx context.Context, ids []string) error {
 }
 
 func (s *Store) touchArchived(ids []string) {
-	s.db.TouchAgents(ids...)
+	s.db.Touch("agents", ids...)
+}
+
+func (s *Store) HookTouchingTheWrongListing(ctx context.Context, id string) error { // want `HookTouchingTheWrongListing writes workflow_hooks and never touches the workflows listing afterwards: the rows it changed stay stale on the panel`
+	if err := s.queries.InsertWorkflowHook(ctx, id); err != nil {
+		return err
+	}
+
+	s.db.Touch(TableAgents, id)
+
+	return nil
+}
+
+func (s *Store) ClearMarkOfEither(ctx context.Context, id string) error {
+	if _, err := s.queries.DeleteMarkForTarget(ctx, id); err != nil {
+		return err
+	}
+
+	s.db.Touch(TableWorkflows, id)
+
+	return nil
 }

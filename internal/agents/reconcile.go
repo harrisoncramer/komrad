@@ -131,7 +131,7 @@ func (r *Reconciler) touchLivenessFlips(alive map[string]bool) {
 	}
 	r.alive = alive
 
-	r.watch.TouchAgents(flipped...)
+	r.watch.Touch(store.TableAgents, flipped...)
 }
 
 func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent, pane tmux.PaneStatus, inListing bool) {

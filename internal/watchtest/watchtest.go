@@ -6,65 +6,45 @@ import (
 	"sync"
 )
 
-// Recorder keeps every id touched, by kind, in the order it was touched.
+// Recorder keeps every id touched, by table, in the order it was touched.
 type Recorder struct {
-	mu        sync.Mutex
-	agents    []string
-	workflows []string
-	schedules []string
+	mu      sync.Mutex
+	touched map[string][]string
 }
 
 // NewRecorder builds a recorder holding nothing.
 func NewRecorder() *Recorder {
-	return &Recorder{}
+	return &Recorder{touched: map[string][]string{}}
 }
 
-// TouchAgents records the agent ids.
-func (r *Recorder) TouchAgents(ids ...string) {
+// Touch records the ids under their table.
+func (r *Recorder) Touch(table string, ids ...string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	r.agents = append(r.agents, ids...)
-}
-
-// TouchWorkflows records the workflow ids.
-func (r *Recorder) TouchWorkflows(ids ...string) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	r.workflows = append(r.workflows, ids...)
-}
-
-// TouchSchedules records the schedule ids.
-func (r *Recorder) TouchSchedules(ids ...string) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	r.schedules = append(r.schedules, ids...)
+	r.touched[table] = append(r.touched[table], ids...)
 }
 
 // Agents is every agent id touched so far.
 func (r *Recorder) Agents() []string {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	return slices.Clone(r.agents)
+	return r.of("agents")
 }
 
 // Workflows is every workflow id touched so far.
 func (r *Recorder) Workflows() []string {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	return slices.Clone(r.workflows)
+	return r.of("workflows")
 }
 
 // Schedules is every schedule id touched so far.
 func (r *Recorder) Schedules() []string {
+	return r.of("schedules")
+}
+
+func (r *Recorder) of(table string) []string {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	return slices.Clone(r.schedules)
+	return slices.Clone(r.touched[table])
 }
 
 // Reset forgets everything touched so far.
@@ -72,5 +52,5 @@ func (r *Recorder) Reset() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	r.agents, r.workflows, r.schedules = nil, nil, nil
+	clear(r.touched)
 }

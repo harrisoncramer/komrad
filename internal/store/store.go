@@ -32,11 +32,16 @@ var ErrNoTransaction = fail.Internal("this connection cannot open a transaction"
 var ErrNoReadOnlyURL = fail.Internal(
 	"no read-only database url: set WEAVE_READONLY_DATABASE_URL, or a DATABASE_URL one can be derived from")
 
-// Publisher is told which rows a statement changed once the change can be read.
+// The tables the panel's listings are keyed by, which a touch names.
+const (
+	TableAgents    = "agents"
+	TableWorkflows = "workflows"
+	TableSchedules = "schedules"
+)
+
+// Publisher is told which rows of a listing a statement changed once the change can be read.
 type Publisher interface {
-	TouchAgents(ids ...string)
-	TouchWorkflows(ids ...string)
-	TouchSchedules(ids ...string)
+	Touch(table string, ids ...string)
 }
 
 // DBTX is what a domain store runs its statements on and tells which rows they changed.
@@ -50,11 +55,7 @@ var Discard Publisher = discard{}
 
 type discard struct{}
 
-func (discard) TouchAgents(...string) {}
-
-func (discard) TouchWorkflows(...string) {}
-
-func (discard) TouchSchedules(...string) {}
+func (discard) Touch(string, ...string) {}
 
 // OpenParams is what a pool is opened with.
 type OpenParams struct {

@@ -19,9 +19,7 @@ type txBeginner interface {
 type Tx struct {
 	tx        pgx.Tx
 	publisher Publisher
-	agents    []string
-	workflows []string
-	schedules []string
+	touched   map[string][]string
 }
 
 func begin(ctx context.Context, db txBeginner, publisher Publisher) (*Tx, error) {
@@ -53,19 +51,16 @@ func (t *Tx) CopyFrom(ctx context.Context, table pgx.Identifier, columns []strin
 	return t.tx.CopyFrom(ctx, table, columns, rows)
 }
 
-// TouchAgents holds the agent ids for the commit.
-func (t *Tx) TouchAgents(ids ...string) {
-	t.agents = append(t.agents, ids...)
-}
+// Touch holds the ids for the commit.
+func (t *Tx) Touch(table string, ids ...string) {
+	if len(ids) == 0 {
+		return
+	}
+	if t.touched == nil {
+		t.touched = map[string][]string{}
+	}
 
-// TouchWorkflows holds the workflow ids for the commit.
-func (t *Tx) TouchWorkflows(ids ...string) {
-	t.workflows = append(t.workflows, ids...)
-}
-
-// TouchSchedules holds the schedule ids for the commit.
-func (t *Tx) TouchSchedules(ids ...string) {
-	t.schedules = append(t.schedules, ids...)
+	t.touched[table] = append(t.touched[table], ids...)
 }
 
 // Begin opens a nested transaction whose touches are handed to this one when it commits.
@@ -84,14 +79,8 @@ func (t *Tx) Commit(ctx context.Context) error {
 		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
-	if len(t.agents) > 0 {
-		t.publisher.TouchAgents(t.agents...)
-	}
-	if len(t.workflows) > 0 {
-		t.publisher.TouchWorkflows(t.workflows...)
-	}
-	if len(t.schedules) > 0 {
-		t.publisher.TouchSchedules(t.schedules...)
+	for table, ids := range t.touched {
+		t.publisher.Touch(table, ids...)
 	}
 
 	return nil

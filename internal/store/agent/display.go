@@ -19,7 +19,7 @@ func (s *AgentStore) SetHidden(ctx context.Context, id string, hidden bool) (boo
 		return false, fmt.Errorf("failed to hide agent %q: %w", id, err)
 	}
 
-	s.db.TouchAgents(id)
+	s.db.Touch(store.TableAgents, id)
 
 	return len(updated) > 0, nil
 }

@@ -31,8 +31,8 @@ func (s *AgentStore) touchClaimed(rows []claimed) {
 		agents = append(agents, row.ID)
 	}
 
-	s.db.TouchAgents(agents...)
-	s.db.TouchWorkflows(workflows...)
+	s.db.Touch(store.TableAgents, agents...)
+	s.db.Touch(store.TableWorkflows, workflows...)
 }
 
 // MarkDeleting claims agents and their children for a delete, and with them any archived
@@ -108,7 +108,7 @@ func (s *AgentStore) ClearAllDeleting(ctx context.Context) error {
 		return fmt.Errorf("failed to release every agent from a delete: %w", err)
 	}
 
-	s.db.TouchAgents(released...)
+	s.db.Touch(store.TableAgents, released...)
 
 	return nil
 }

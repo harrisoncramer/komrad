@@ -29,9 +29,9 @@ func TestPoolHandleTouchesAtOnce(t *testing.T) {
 
 	pool, touched := openWatched(t)
 
-	pool.GetDB().TouchAgents("a1", "a2")
-	pool.GetDB().TouchWorkflows("w1")
-	pool.GetDB().TouchSchedules("s1")
+	pool.GetDB().Touch(TableAgents, "a1", "a2")
+	pool.GetDB().Touch(TableWorkflows, "w1")
+	pool.GetDB().Touch(TableSchedules, "s1")
 
 	assert.Equal(t, []string{"a1", "a2"}, touched.Agents())
 	assert.Equal(t, []string{"w1"}, touched.Workflows())
@@ -48,8 +48,8 @@ func TestTxTouchesOnCommit(t *testing.T) {
 
 	tx, err := pool.Begin(ctx)
 	require.NoError(t, err)
-	tx.TouchAgents("a1")
-	tx.TouchWorkflows("w1")
+	tx.Touch(TableAgents, "a1")
+	tx.Touch(TableWorkflows, "w1")
 	assert.Empty(t, touched.Agents(), "an open transaction has told nobody")
 
 	require.NoError(t, tx.Commit(ctx))
@@ -59,7 +59,7 @@ func TestTxTouchesOnCommit(t *testing.T) {
 	touched.Reset()
 	dropped, err := pool.Begin(ctx)
 	require.NoError(t, err)
-	dropped.TouchAgents("a2")
+	dropped.Touch(TableAgents, "a2")
 	require.NoError(t, dropped.Rollback(ctx))
 	assert.Empty(t, touched.Agents(), "a rolled-back transaction drops its touches")
 }
@@ -73,7 +73,7 @@ func TestInTxTouchesAfterCommit(t *testing.T) {
 	pool, touched := openWatched(t)
 
 	require.NoError(t, pool.InTx(ctx, func(db DBTX) error {
-		db.TouchSchedules("s1")
+		db.Touch(TableSchedules, "s1")
 		assert.Empty(t, touched.Schedules(), "the touch waits for the commit")
 
 		return nil
@@ -82,7 +82,7 @@ func TestInTxTouchesAfterCommit(t *testing.T) {
 
 	failed := errors.New("no")
 	err := pool.InTx(ctx, func(db DBTX) error {
-		db.TouchSchedules("s2")
+		db.Touch(TableSchedules, "s2")
 
 		return failed
 	})
@@ -102,7 +102,7 @@ func TestNestedTxTouchesReachTheOuterCommit(t *testing.T) {
 	require.NoError(t, err)
 	inner, err := outer.Begin(ctx)
 	require.NoError(t, err)
-	inner.TouchAgents("a1")
+	inner.Touch(TableAgents, "a1")
 	require.NoError(t, inner.Commit(ctx))
 	assert.Empty(t, touched.Agents(), "the inner commit hands the touch to the outer transaction")
 
@@ -118,6 +118,6 @@ func TestUnwatchedTellsNobody(t *testing.T) {
 	pool, touched := openWatched(t)
 
 	db := Unwatched(pool.GetRawPool())
-	db.TouchAgents("a1")
+	db.Touch(TableAgents, "a1")
 	assert.Empty(t, touched.Agents())
 }

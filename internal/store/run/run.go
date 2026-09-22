@@ -44,7 +44,7 @@ func (s *RunStore) Begin(ctx context.Context, params BeginParams) (string, error
 		return "", fmt.Errorf("failed to record a run of %q for agent %q: %w", params.Script, params.AgentID, err)
 	}
 
-	s.db.TouchAgents(params.AgentID)
+	s.db.Touch(store.TableAgents, params.AgentID)
 
 	return id, nil
 }
@@ -70,7 +70,7 @@ func (s *RunStore) Finish(ctx context.Context, params FinishParams) error {
 		return fmt.Errorf("failed to close the record of run %q: %w", params.ID, err)
 	}
 
-	s.db.TouchAgents(agents...)
+	s.db.Touch(store.TableAgents, agents...)
 
 	return nil
 }
@@ -86,7 +86,7 @@ func (s *RunStore) Abandon(ctx context.Context, id string) error {
 		return fmt.Errorf("failed to drop the record of run %q: %w", id, err)
 	}
 
-	s.db.TouchAgents(agents...)
+	s.db.Touch(store.TableAgents, agents...)
 
 	return nil
 }
@@ -104,7 +104,7 @@ func (s *RunStore) Prune(ctx context.Context, agentID string, keep int) error {
 		return fmt.Errorf("failed to prune the runs of agent %q: %w", agentID, err)
 	}
 
-	s.db.TouchAgents(agentID)
+	s.db.Touch(store.TableAgents, agentID)
 
 	return nil
 }
@@ -119,7 +119,7 @@ func (s *RunStore) MarkRead(ctx context.Context, agentID string) error {
 		return fmt.Errorf("failed to claim the failed runs of agent %q: %w", agentID, err)
 	}
 
-	s.db.TouchAgents(agentID)
+	s.db.Touch(store.TableAgents, agentID)
 
 	return nil
 }

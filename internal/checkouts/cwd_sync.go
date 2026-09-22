@@ -159,7 +159,7 @@ func (cs *CwdSyncer) Sync(ctx context.Context) error {
 	cs.standings = standings
 	cs.mu.Unlock()
 
-	cs.watch.TouchAgents(moved...)
+	cs.watch.Touch(store.TableAgents, moved...)
 
 	return errors.Join(failures...)
 }

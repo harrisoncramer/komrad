@@ -10,6 +10,7 @@ import (
 
 	"weave/internal/fail"
 	"weave/internal/logging"
+	"weave/internal/store"
 	agentv1 "weave/proto/gen/agent/v1"
 	schedulev1 "weave/proto/gen/schedule/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
@@ -145,19 +146,23 @@ func (b *Broker) Start(reader Reader) {
 	go b.run()
 }
 
-// TouchAgents says the agents with these ids may have moved.
-func (b *Broker) TouchAgents(ids ...string) {
-	b.touch(KindAgent, ids)
+// kinds is the listing each table a store names belongs to.
+var kinds = map[string]Kind{
+	store.TableAgents:    KindAgent,
+	store.TableWorkflows: KindWorkflow,
+	store.TableSchedules: KindSchedule,
 }
 
-// TouchWorkflows says the workflows with these ids may have moved.
-func (b *Broker) TouchWorkflows(ids ...string) {
-	b.touch(KindWorkflow, ids)
-}
+// Touch says the rows of a listing with these ids may have moved.
+func (b *Broker) Touch(table string, ids ...string) {
+	kind, ok := kinds[table]
+	if !ok {
+		b.logger.LogAttrs(context.Background(), slog.LevelWarn, "a touch named a table no listing is keyed by", slog.String(logging.WatchTable, table))
 
-// TouchSchedules says the schedules with these ids may have moved.
-func (b *Broker) TouchSchedules(ids ...string) {
-	b.touch(KindSchedule, ids)
+		return
+	}
+
+	b.touch(kind, ids)
 }
 
 func (b *Broker) touch(kind Kind, ids []string) {

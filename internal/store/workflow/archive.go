@@ -18,7 +18,7 @@ func (s *WorkflowStore) Archive(ctx context.Context, id string) error {
 		return fmt.Errorf("failed to archive workflow %q: %w", id, err)
 	}
 
-	s.db.TouchWorkflows(id)
+	s.db.Touch(store.TableWorkflows, id)
 
 	return nil
 }
@@ -33,7 +33,7 @@ func (s *WorkflowStore) Restore(ctx context.Context, id string) error {
 		return fmt.Errorf("failed to restore workflow %q: %w", id, err)
 	}
 
-	s.db.TouchWorkflows(id)
+	s.db.Touch(store.TableWorkflows, id)
 
 	return nil
 }

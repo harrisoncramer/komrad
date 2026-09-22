@@ -68,9 +68,9 @@ func (s *MarkStore) ClearConflicts(ctx context.Context, mark string, target Targ
 func (s *MarkStore) touch(target Target) {
 	switch {
 	case target.AgentID != nil:
-		s.db.TouchAgents(*target.AgentID)
+		s.db.Touch(store.TableAgents, *target.AgentID)
 	case target.WorkflowID != nil:
-		s.db.TouchWorkflows(*target.WorkflowID)
+		s.db.Touch(store.TableWorkflows, *target.WorkflowID)
 	}
 }
 

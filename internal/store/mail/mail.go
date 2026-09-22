@@ -91,7 +91,7 @@ func (s *MailStore) Send(ctx context.Context, params SendParams) (*Mail, error) 
 	}
 
 	sent := mailFromRow(*row)
-	s.db.TouchAgents(sent.ToAgentID)
+	s.db.Touch(store.TableAgents, sent.ToAgentID)
 
 	return &sent, nil
 }
@@ -157,7 +157,7 @@ func (s *MailStore) Claim(ctx context.Context, toAgentID string, limit int32) ([
 		return nil, fmt.Errorf("failed to claim the mail for agent %q: %w", toAgentID, err)
 	}
 
-	s.db.TouchAgents(toAgentID)
+	s.db.Touch(store.TableAgents, toAgentID)
 
 	claimed := xslice.Map(rows, func(row *models.Mail) Mail {
 		return mailFromRow(*row)
@@ -242,7 +242,7 @@ func (s *MailStore) Delete(ctx context.Context, ids []string) error {
 		return fmt.Errorf("failed to delete %d mail: %w", len(storable), err)
 	}
 
-	s.db.TouchAgents(recipients...)
+	s.db.Touch(store.TableAgents, recipients...)
 
 	return nil
 }
@@ -302,7 +302,7 @@ func (s *MailStore) ListExpired(ctx context.Context, toAgentID string) ([]Mail, 
 		return nil, fmt.Errorf("failed to report the expired mail for agent %q: %w", toAgentID, err)
 	}
 
-	s.db.TouchAgents(toAgentID)
+	s.db.Touch(store.TableAgents, toAgentID)
 
 	return xslice.Map(rows, func(row *models.Mail) Mail {
 		return mailFromRow(*row)

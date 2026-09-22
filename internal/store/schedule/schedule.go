@@ -161,7 +161,7 @@ func (s *ScheduleStore) Create(ctx context.Context, cfg Config) (*Schedule, erro
 	}
 
 	schedule := scheduleFromRow(*row)
-	s.db.TouchSchedules(schedule.ID)
+	s.db.Touch(store.TableSchedules, schedule.ID)
 
 	return &schedule, nil
 }
@@ -189,7 +189,7 @@ func (s *ScheduleStore) Update(ctx context.Context, id string, cfg Config) error
 		return fmt.Errorf("failed to update schedule %q: %w", id, err)
 	}
 
-	s.db.TouchSchedules(id)
+	s.db.Touch(store.TableSchedules, id)
 
 	return nil
 }
@@ -204,7 +204,7 @@ func (s *ScheduleStore) SetEnabled(ctx context.Context, id string, enabled bool)
 		return fmt.Errorf("failed to set schedule %q enabled to %t: %w", id, enabled, err)
 	}
 
-	s.db.TouchSchedules(id)
+	s.db.Touch(store.TableSchedules, id)
 
 	return nil
 }
@@ -230,7 +230,7 @@ func (s *ScheduleStore) RecordLaunchResult(ctx context.Context, id string, statu
 		return fmt.Errorf("failed to record the launch result for schedule %q: %w", id, err)
 	}
 
-	s.db.TouchSchedules(id)
+	s.db.Touch(store.TableSchedules, id)
 
 	return nil
 }
@@ -259,7 +259,7 @@ func (s *ScheduleStore) Archive(ctx context.Context, id string) error {
 		return fmt.Errorf("failed to archive schedule %q: %w", id, err)
 	}
 
-	s.db.TouchSchedules(id)
+	s.db.Touch(store.TableSchedules, id)
 
 	return nil
 }
@@ -293,7 +293,7 @@ func (s *ScheduleStore) Delete(ctx context.Context, id string) error {
 		return fmt.Errorf("failed to delete schedule %q: %w", id, err)
 	}
 
-	s.db.TouchSchedules(id)
+	s.db.Touch(store.TableSchedules, id)
 
 	return nil
 }

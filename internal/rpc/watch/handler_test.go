@@ -13,6 +13,7 @@ import (
 
 	"weave/internal/interceptors"
 	"weave/internal/logging"
+	"weave/internal/store"
 	"weave/internal/watch"
 	agentv1 "weave/proto/gen/agent/v1"
 	watchv1 "weave/proto/gen/watch/v1"
@@ -103,7 +104,7 @@ func TestWatchSendsTheSnapshotThenSyncedThenChanges(t *testing.T) {
 	assert.Zero(t, first.GetSeq(), "nothing has rendered yet")
 	assert.NotNil(t, receive(t, stream).GetSynced())
 
-	s.broker.TouchAgents("a2", "gone-a3")
+	s.broker.Touch(store.TableAgents, "a2", "gone-a3")
 
 	written := receive(t, stream)
 	assert.Equal(t, "a2", written.GetAgent().GetId())
