@@ -35,7 +35,7 @@ type Resource struct {
 	// Projects is the tables rendered onto this one, whose writes move it.
 	Projects []Projection
 
-	arm arm
+	bind func(Stores, func() time.Time) arm
 }
 
 // Plural is the table's name in camel case.
@@ -72,18 +72,12 @@ var resourcesByTable = func() map[string]watchv1.Resource {
 
 // Resources is every table the watch carries the rows of.
 func Resources() []Resource {
-	return getResources(Stores{}, time.Now)
-}
-
-// getResources is the one declaration of what the watch carries: the table each resource is
-// the rows of, how a row is read back and drawn, and the tables whose writes move it.
-func getResources(stores Stores, now func() time.Time) []Resource {
 	return []Resource{
 		newResource(newResourceParams[rowstore.Row, *agentv1.Agent]{
 			Enum:   watchv1.Resource_RESOURCE_AGENT,
 			Table:  "agents",
 			Key:    "id",
-			Store:  stores.Agents,
+			Store:  func(stores Stores) reader[rowstore.Row] { return stores.Agents },
 			RowKey: func(row rowstore.Row) string { return row.ID },
 			Draw:   func(row rowstore.Row) *agentv1.Agent { return render.Agent(row, render.AgentOptions{}) },
 			Wrap:   func(row *agentv1.Agent) *watchv1.Row { return &watchv1.Row{Row: &watchv1.Row_Agent{Agent: row}} },
@@ -99,7 +93,7 @@ func getResources(stores Stores, now func() time.Time) []Resource {
 			Enum:   watchv1.Resource_RESOURCE_WORKFLOW,
 			Table:  "workflows",
 			Key:    "id",
-			Store:  stores.Workflows,
+			Store:  func(stores Stores) reader[workflowstore.Workflow] { return stores.Workflows },
 			RowKey: func(row workflowstore.Workflow) string { return row.ID },
 			Draw: func(row workflowstore.Workflow) *workflowv1.Workflow {
 				return render.Workflow(row, render.WorkflowOptions{})
@@ -117,10 +111,10 @@ func getResources(stores Stores, now func() time.Time) []Resource {
 			Enum:   watchv1.Resource_RESOURCE_SCHEDULE,
 			Table:  "schedules",
 			Key:    "id",
-			Store:  stores.Schedules,
+			Store:  func(stores Stores) reader[schedulestore.Schedule] { return stores.Schedules },
 			RowKey: func(row schedulestore.Schedule) string { return row.ID },
-			Draw: func(row schedulestore.Schedule) *schedulev1.Schedule {
-				return render.Schedule(row, now(), render.ScheduleOptions{})
+			DrawAt: func(row schedulestore.Schedule, now time.Time) *schedulev1.Schedule {
+				return render.Schedule(row, now, render.ScheduleOptions{})
 			},
 			Wrap: func(row *schedulev1.Schedule) *watchv1.Row {
 				return &watchv1.Row{Row: &watchv1.Row_Schedule{Schedule: row}}
@@ -130,7 +124,7 @@ func getResources(stores Stores, now func() time.Time) []Resource {
 			Enum:   watchv1.Resource_RESOURCE_MARK,
 			Table:  "marks",
 			Key:    "mark",
-			Store:  stores.Marks,
+			Store:  func(stores Stores) reader[markstore.Mark] { return stores.Marks },
 			RowKey: func(row markstore.Mark) string { return row.Mark },
 			Draw:   render.Mark,
 			Wrap:   func(row *agentv1.Mark) *watchv1.Row { return &watchv1.Row{Row: &watchv1.Row_Mark{Mark: row}} },
@@ -139,7 +133,7 @@ func getResources(stores Stores, now func() time.Time) []Resource {
 			Enum:   watchv1.Resource_RESOURCE_MAIL,
 			Table:  "mail",
 			Key:    "id",
-			Store:  stores.Mail,
+			Store:  func(stores Stores) reader[mailstore.Mail] { return stores.Mail },
 			RowKey: func(row mailstore.Mail) string { return row.ID },
 			Draw:   render.Mail,
 			Wrap:   func(row *agentv1.Mail) *watchv1.Row { return &watchv1.Row{Row: &watchv1.Row_Mail{Mail: row}} },
@@ -148,7 +142,7 @@ func getResources(stores Stores, now func() time.Time) []Resource {
 			Enum:   watchv1.Resource_RESOURCE_PULL_REQUEST,
 			Table:  "pull_requests",
 			Key:    "id",
-			Store:  stores.PullRequests,
+			Store:  func(stores Stores) reader[pullrequeststore.PullRequest] { return stores.PullRequests },
 			RowKey: func(row pullrequeststore.PullRequest) string { return row.ID },
 			Draw:   render.PullRequest,
 			Wrap: func(row *pullrequestv1.PullRequest) *watchv1.Row {
@@ -167,12 +161,14 @@ type newResourceParams[R any, M proto.Message] struct {
 	Table string
 	// Key is the column the row is keyed by.
 	Key string
-	// Store reads the rows, every one for a snapshot and by key for a read-back.
-	Store reader[R]
+	// Store selects the reader for this resource.
+	Store func(Stores) reader[R]
 	// RowKey is the key column's value on a stored row.
 	RowKey func(R) string
 	// Draw renders one stored row the way the list RPCs do.
 	Draw func(R) M
+	// DrawAt renders a row that depends on the clock, in place of Draw.
+	DrawAt func(R, time.Time) M
 	// Wrap puts a drawn row in the Row arm this resource fills.
 	Wrap func(M) *watchv1.Row
 	// Projects is the tables rendered onto this one, whose writes move it.
@@ -190,7 +186,16 @@ func newResource[R any, M proto.Message](params newResourceParams[R, M]) Resourc
 		Enum:     params.Enum,
 		Message:  message.ProtoReflect().Descriptor(),
 		Projects: params.Projects,
-		arm:      newArm(params.Store, params.RowKey, func(row R) *watchv1.Row { return params.Wrap(params.Draw(row)) }),
+		bind: func(stores Stores, now func() time.Time) arm {
+			draw := params.Draw
+			if params.DrawAt != nil {
+				draw = func(row R) M { return params.DrawAt(row, now()) }
+			}
+
+			return newArm(params.Store(stores), params.RowKey, func(row R) *watchv1.Row {
+				return params.Wrap(draw(row))
+			})
+		},
 	}
 }
 

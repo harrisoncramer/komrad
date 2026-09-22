@@ -51,8 +51,8 @@ type Rows struct {
 // NewRows builds the read-back over the stores the resources are read from.
 func NewRows(params NewRowsParams) *Rows {
 	arms := map[watchv1.Resource]arm{}
-	for _, r := range getResources(params.Stores, params.now) {
-		arms[r.Enum] = r.arm
+	for _, r := range Resources() {
+		arms[r.Enum] = r.bind(params.Stores, params.now)
 	}
 
 	return &Rows{arms: arms}

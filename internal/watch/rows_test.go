@@ -211,7 +211,7 @@ func TestEveryResourceIsDeclaredWhole(t *testing.T) {
 	stores.mail.put(mailstore.Mail{ID: "k"})
 	stores.pullRequests.put(pullrequeststore.PullRequest{ID: "k"})
 
-	declared := getResources(storesFor(stores), fixedClock)
+	declared := Resources()
 	require.NotEmpty(t, declared)
 
 	for _, r := range declared {
@@ -221,13 +221,14 @@ func TestEveryResourceIsDeclaredWhole(t *testing.T) {
 			require.NotNil(t, r.Message, "no message")
 			assert.NotNil(t, r.Message.Fields().ByName(protoreflect.Name(r.Key)), "the message has no %s field", r.Key)
 
-			snapshot, err := drawn(t, r, func() ([]Change, error) { return r.arm.snapshot(t.Context()) })
+			bound := r.bind(storesFor(stores), fixedClock)
+			snapshot, err := drawn(t, r, func() ([]Change, error) { return bound.snapshot(t.Context()) })
 			require.NoError(t, err)
 			require.Len(t, snapshot, 1)
 			assert.Equal(t, "k", snapshot[0].Key, "no row key")
 			assert.NotNil(t, snapshot[0].Row.GetRow(), "no renderer, or no Row arm to wrap it in")
 
-			held, err := drawn(t, r, func() (map[string]*watchv1.Row, error) { return r.arm.read(t.Context(), []string{"k"}) })
+			held, err := drawn(t, r, func() (map[string]*watchv1.Row, error) { return bound.read(t.Context(), []string{"k"}) })
 			require.NoError(t, err)
 			assert.NotNil(t, held["k"], "the read-back answers no row for the key")
 		})
