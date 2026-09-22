@@ -21,8 +21,8 @@ CREATE TABLE "forge_connections" (
   "method" text NOT NULL,
   "login" text NOT NULL,
   "verified_at" timestamptz NULL,
-  "throttled_until" timestamptz NULL,
   "created_at" timestamptz NOT NULL DEFAULT now(),
+  "throttled_until" timestamptz NULL,
   PRIMARY KEY ("id"),
   CONSTRAINT "forge_connections_host_key" UNIQUE ("host")
 );

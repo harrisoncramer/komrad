@@ -30,13 +30,13 @@ CREATE TABLE "reviews" (
   "round_id" uuid NOT NULL,
   "author_kind" "review_author_kind" NOT NULL,
   "author_agent_id" uuid NULL,
-  "body" text NOT NULL DEFAULT '',
   "verdict" "review_verdict" NULL,
   "released_at" timestamptz NULL,
   "path" text NOT NULL DEFAULT '',
   "doorbell_mail_id" uuid NULL,
   "created_at" timestamptz NOT NULL DEFAULT now(),
   "updated_at" timestamptz NOT NULL DEFAULT now(),
+  "body" text NOT NULL DEFAULT '',
   PRIMARY KEY ("id"),
   CONSTRAINT "reviews_agent_id_fkey" FOREIGN KEY ("agent_id") REFERENCES "agents" ("id") ON UPDATE NO ACTION ON DELETE CASCADE,
   CONSTRAINT "reviews_author_agent_id_fkey" FOREIGN KEY ("author_agent_id") REFERENCES "agents" ("id") ON UPDATE NO ACTION ON DELETE SET NULL,
@@ -59,8 +59,6 @@ COMMENT ON COLUMN "reviews"."agent_id" IS 'The agent being reviewed. The round a
 COMMENT ON COLUMN "reviews"."author_kind" IS 'Whether a person or an agent is giving the review.';
 -- Set comment to column: "author_agent_id" on table: "reviews"
 COMMENT ON COLUMN "reviews"."author_agent_id" IS 'The agent giving the review, null when a person is giving it. Do not read null as meaning a person, because author_kind is what says that. Deleting the reviewing agent clears this column rather than deleting the review. Reviewer agents are deleted as a matter of course, and the agent they reviewed is still working from what they said.';
--- Set comment to column: "body" on table: "reviews"
-COMMENT ON COLUMN "reviews"."body" IS 'What the reviewer said about the change as a whole rather than about any one line, empty when they said nothing. It goes at the top of the released review file, above the line comments, because it is what the agent should read first.';
 -- Set comment to column: "verdict" on table: "reviews"
 COMMENT ON COLUMN "reviews"."verdict" IS 'What the reviewer concluded, null while the review is still open. It is how the agent learns whether the work is done, and only an approval lets it open a pull request.';
 -- Set comment to column: "released_at" on table: "reviews"
@@ -69,6 +67,8 @@ COMMENT ON COLUMN "reviews"."released_at" IS 'When the review was released, null
 COMMENT ON COLUMN "reviews"."path" IS 'The absolute path of the file the released review was written to, empty while the review is still open. The file lives in weave''s own state directory rather than in the agent''s checkout.';
 -- Set comment to column: "doorbell_mail_id" on table: "reviews"
 COMMENT ON COLUMN "reviews"."doorbell_mail_id" IS 'The mail that told the agent a review was waiting. Deleting that mail clears this column rather than deleting the review, so a review whose notice was thrown away reads as undelivered.';
+-- Set comment to column: "body" on table: "reviews"
+COMMENT ON COLUMN "reviews"."body" IS 'What the reviewer said about the change as a whole rather than about any one line, empty when they said nothing. It goes at the top of the released review file, above the line comments, because it is what the agent should read first.';
 -- Set comment to index: "reviews_doorbell_mail_id" on table: "reviews"
 COMMENT ON INDEX "reviews_doorbell_mail_id" IS 'Finds the review a piece of mail was the notice for. Deleting that mail walks this index.';
 -- Set comment to index: "reviews_open_agent" on table: "reviews"
@@ -79,22 +79,22 @@ COMMENT ON INDEX "reviews_open_human" IS 'Holds the person to one unreleased rev
 CREATE TABLE "review_threads" (
   "id" uuid NOT NULL DEFAULT uuidv7(),
   "agent_id" uuid NOT NULL,
-  "review_id" uuid NOT NULL,
-  "round_id" uuid NOT NULL,
-  "base_sha" text NOT NULL DEFAULT '',
   "file_path" text NOT NULL,
   "old_start" integer NOT NULL DEFAULT 0,
   "old_end" integer NOT NULL DEFAULT 0,
   "new_start" integer NOT NULL DEFAULT 0,
   "new_end" integer NOT NULL DEFAULT 0,
   "quoted_lines" text[] NOT NULL DEFAULT '{}',
-  "last_agent_activity_at" timestamptz NULL,
   "human_read_at" timestamptz NULL,
-  "resolved_at" timestamptz NULL,
-  "resolved_by_kind" "review_author_kind" NULL,
-  "resolved_by_agent_id" uuid NULL,
   "created_at" timestamptz NOT NULL DEFAULT now(),
   "updated_at" timestamptz NOT NULL DEFAULT now(),
+  "last_agent_activity_at" timestamptz NULL,
+  "resolved_at" timestamptz NULL,
+  "review_id" uuid NOT NULL,
+  "round_id" uuid NOT NULL,
+  "base_sha" text NOT NULL DEFAULT '',
+  "resolved_by_kind" "review_author_kind" NULL,
+  "resolved_by_agent_id" uuid NULL,
   PRIMARY KEY ("id"),
   CONSTRAINT "review_threads_agent_id_fkey" FOREIGN KEY ("agent_id") REFERENCES "agents" ("id") ON UPDATE NO ACTION ON DELETE CASCADE,
   CONSTRAINT "review_threads_resolved_by_agent_id_fkey" FOREIGN KEY ("resolved_by_agent_id") REFERENCES "agents" ("id") ON UPDATE NO ACTION ON DELETE SET NULL,
@@ -109,10 +109,6 @@ CREATE INDEX "review_threads_review_id" ON "review_threads" ("review_id", "id");
 COMMENT ON TABLE "review_threads" IS 'One conversation pinned to a file and a line range in the round its review was given against.';
 -- Set comment to column: "agent_id" on table: "review_threads"
 COMMENT ON COLUMN "review_threads"."agent_id" IS 'The agent being reviewed. The review already says this and neither value ever changes. It is repeated here because almost every read of threads is by agent.';
--- Set comment to column: "round_id" on table: "review_threads"
-COMMENT ON COLUMN "review_threads"."round_id" IS 'The round this thread''s line numbers were measured against. It is not read through the review, because a review stays open across several rounds and would name the wrong one.';
--- Set comment to column: "base_sha" on table: "review_threads"
-COMMENT ON COLUMN "review_threads"."base_sha" IS 'The commit the old side of this thread''s line numbers was read against. For a thread written on the whole change that is the round''s own base. For a thread written while the diff was narrowed to one round it is the earlier round''s snapshot.';
 -- Set comment to column: "file_path" on table: "review_threads"
 COMMENT ON COLUMN "review_threads"."file_path" IS 'The file the thread is pinned to, named the way the diff names it. That is a path relative to the repository root, and where the change left the file if it moved it.';
 -- Set comment to column: "old_start" on table: "review_threads"
@@ -125,12 +121,16 @@ COMMENT ON COLUMN "review_threads"."new_start" IS 'First line of the range on th
 COMMENT ON COLUMN "review_threads"."new_end" IS 'Last line of the range on the new side. It equals new_start for a thread on a single line.';
 -- Set comment to column: "quoted_lines" on table: "review_threads"
 COMMENT ON COLUMN "review_threads"."quoted_lines" IS 'The diff lines the thread was written against. They still say what the thread was about after the agent has rewritten that code. A later round is searched for these lines to decide whether the thread has gone outdated.';
--- Set comment to column: "last_agent_activity_at" on table: "review_threads"
-COMMENT ON COLUMN "review_threads"."last_agent_activity_at" IS 'When the agent last wrote or rewrote a message here, null until it has written one. It is a column rather than something read off the messages. An agent that rewrites its own reply is activity the person reviewing has not seen, and comparing against the message''s created_at would miss that.';
 -- Set comment to column: "human_read_at" on table: "review_threads"
 COMMENT ON COLUMN "review_threads"."human_read_at" IS 'When the person reviewing last read this thread. It is copied from last_agent_activity_at rather than taken from the clock, so a reply written while they were reading is not marked read without having been shown.';
+-- Set comment to column: "last_agent_activity_at" on table: "review_threads"
+COMMENT ON COLUMN "review_threads"."last_agent_activity_at" IS 'When the agent last wrote or rewrote a message here, null until it has written one. It is a column rather than something read off the messages. An agent that rewrites its own reply is activity the person reviewing has not seen, and comparing against the message''s created_at would miss that.';
 -- Set comment to column: "resolved_at" on table: "review_threads"
 COMMENT ON COLUMN "review_threads"."resolved_at" IS 'When this thread was settled, null while it is still owed an answer.';
+-- Set comment to column: "round_id" on table: "review_threads"
+COMMENT ON COLUMN "review_threads"."round_id" IS 'The round this thread''s line numbers were measured against. It is not read through the review, because a review stays open across several rounds and would name the wrong one.';
+-- Set comment to column: "base_sha" on table: "review_threads"
+COMMENT ON COLUMN "review_threads"."base_sha" IS 'The commit the old side of this thread''s line numbers was read against. For a thread written on the whole change that is the round''s own base. For a thread written while the diff was narrowed to one round it is the earlier round''s snapshot.';
 -- Set comment to column: "resolved_by_kind" on table: "review_threads"
 COMMENT ON COLUMN "review_threads"."resolved_by_kind" IS 'Whether a person or an agent settled this thread, null while nobody has. Two parties can settle one: the agent that wrote the comment, saying the answer was good enough, and the person, who may settle anything including a thread whose author is gone.';
 -- Set comment to column: "resolved_by_agent_id" on table: "review_threads"
@@ -139,13 +139,13 @@ COMMENT ON COLUMN "review_threads"."resolved_by_agent_id" IS 'The agent that set
 CREATE TABLE "review_messages" (
   "id" uuid NOT NULL DEFAULT uuidv7(),
   "thread_id" uuid NOT NULL,
-  "review_id" uuid NULL,
   "author_kind" "review_author_kind" NOT NULL,
   "author_agent_id" uuid NULL,
   "body" text NOT NULL,
-  "suggestion" text[] NOT NULL DEFAULT '{}',
   "created_at" timestamptz NOT NULL DEFAULT now(),
   "updated_at" timestamptz NOT NULL DEFAULT now(),
+  "review_id" uuid NULL,
+  "suggestion" text[] NOT NULL DEFAULT '{}',
   PRIMARY KEY ("id"),
   CONSTRAINT "review_messages_author_agent_id_fkey" FOREIGN KEY ("author_agent_id") REFERENCES "agents" ("id") ON UPDATE NO ACTION ON DELETE SET NULL,
   CONSTRAINT "review_messages_review_id_fkey" FOREIGN KEY ("review_id") REFERENCES "reviews" ("id") ON UPDATE NO ACTION ON DELETE SET NULL,
@@ -157,22 +157,22 @@ CREATE INDEX "review_messages_review_id" ON "review_messages" ("review_id");
 CREATE INDEX "review_messages_thread_id" ON "review_messages" ("thread_id", "id");
 -- Set comment to table: "review_messages"
 COMMENT ON TABLE "review_messages" IS 'One message in a review thread, written either by the reviewer or by the agent answering them.';
--- Set comment to column: "review_id" on table: "review_messages"
-COMMENT ON COLUMN "review_messages"."review_id" IS 'The review this message was released with, null for an answer from the agent. An answer belongs to no batch and reaches the reviewer as soon as it is written.';
 -- Set comment to column: "author_kind" on table: "review_messages"
 COMMENT ON COLUMN "review_messages"."author_kind" IS 'Whether a person or an agent wrote the message.';
 -- Set comment to column: "author_agent_id" on table: "review_messages"
 COMMENT ON COLUMN "review_messages"."author_agent_id" IS 'The agent that wrote this message, null when a person wrote it or when that agent has since been deleted.';
 -- Set comment to column: "body" on table: "review_messages"
 COMMENT ON COLUMN "review_messages"."body" IS 'What was written, as markdown.';
+-- Set comment to column: "review_id" on table: "review_messages"
+COMMENT ON COLUMN "review_messages"."review_id" IS 'The review this message was released with, null for an answer from the agent. An answer belongs to no batch and reaches the reviewer as soon as it is written.';
 -- Set comment to column: "suggestion" on table: "review_messages"
 COMMENT ON COLUMN "review_messages"."suggestion" IS 'Replacement lines the reviewer is proposing for the range the thread is pinned to, empty on an ordinary comment. The agent applies them as written rather than treating them as a description of what to do.';
 -- Create "review_viewed_files" table
 CREATE TABLE "review_viewed_files" (
-  "agent_id" uuid NOT NULL,
   "file_path" text NOT NULL,
-  "fingerprint" text NOT NULL,
   "viewed_at" timestamptz NOT NULL DEFAULT now(),
+  "agent_id" uuid NOT NULL,
+  "fingerprint" text NOT NULL,
   PRIMARY KEY ("agent_id", "file_path"),
   CONSTRAINT "review_viewed_files_agent_id_fkey" FOREIGN KEY ("agent_id") REFERENCES "agents" ("id") ON UPDATE NO ACTION ON DELETE CASCADE
 );

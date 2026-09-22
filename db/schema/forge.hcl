@@ -37,15 +37,15 @@ table "forge_connections" {
     type    = timestamptz
     comment = "When the forge last confirmed the credential. Cleared when the forge refuses it, so the row says the connection needs remaking."
   }
-  column "throttled_until" {
-    null    = true
-    type    = timestamptz
-    comment = "When the forge said this credential's rate limit resets, after a refusal or a response whose remaining budget was zero. The pull request sync makes no request through the connection until it passes."
-  }
   column "created_at" {
     null    = false
     type    = timestamptz
     default = sql("now()")
+  }
+  column "throttled_until" {
+    null    = true
+    type    = timestamptz
+    comment = "When the forge said this credential's rate limit resets, after a refusal or a response whose remaining budget was zero. The pull request sync makes no request through the connection until it passes."
   }
   primary_key {
     columns = [column.id]

@@ -7,12 +7,12 @@ CREATE TABLE "workflow_provisioner_configs" (
   "id" uuid NOT NULL DEFAULT uuidv7(),
   "worktree_enabled" boolean NOT NULL DEFAULT false,
   "worktree_base_branch" text NOT NULL,
-  "worktree_dir" text NOT NULL DEFAULT '',
   "worktree_copy_paths" text[] NOT NULL DEFAULT '{}',
   "worktree_symlink_paths" text[] NOT NULL DEFAULT '{}',
-  "worktree_diff_exclude" text[] NOT NULL DEFAULT '{}',
   "created_at" timestamptz NOT NULL DEFAULT now(),
   "updated_at" timestamptz NOT NULL DEFAULT now(),
+  "worktree_diff_exclude" text[] NOT NULL DEFAULT '{}',
+  "worktree_dir" text NOT NULL DEFAULT '',
   PRIMARY KEY ("id"),
   CONSTRAINT "worktree_base_branch_named" CHECK (worktree_base_branch <> ''::text)
 );
@@ -56,9 +56,9 @@ CREATE TABLE "workflows" (
   "workflow_config_id" uuid NOT NULL,
   "provisioner_config_id" uuid NOT NULL,
   "archived_at" timestamptz NULL,
-  "deleting_at" timestamptz NULL,
   "created_at" timestamptz NOT NULL DEFAULT now(),
   "updated_at" timestamptz NOT NULL DEFAULT now(),
+  "deleting_at" timestamptz NULL,
   PRIMARY KEY ("id"),
   CONSTRAINT "workflows_provisioner_config_id_fkey" FOREIGN KEY ("provisioner_config_id") REFERENCES "workflow_provisioner_configs" ("id") ON UPDATE NO ACTION ON DELETE RESTRICT,
   CONSTRAINT "workflows_workflow_config_id_fkey" FOREIGN KEY ("workflow_config_id") REFERENCES "workflow_configs" ("id") ON UPDATE NO ACTION ON DELETE RESTRICT
@@ -81,12 +81,12 @@ CREATE TABLE "schedules" (
   "hide_agents" boolean NOT NULL DEFAULT false,
   "prompt" text NOT NULL DEFAULT '',
   "workflow_id" uuid NOT NULL,
-  "last_result_status" text NULL,
-  "last_result_message" text NULL,
-  "last_result_at" timestamptz NULL,
   "archived_at" timestamptz NULL,
   "created_at" timestamptz NOT NULL DEFAULT now(),
   "updated_at" timestamptz NOT NULL DEFAULT now(),
+  "last_result_status" text NULL,
+  "last_result_message" text NULL,
+  "last_result_at" timestamptz NULL,
   PRIMARY KEY ("id"),
   CONSTRAINT "schedules_workflow_id_fkey" FOREIGN KEY ("workflow_id") REFERENCES "workflows" ("id") ON UPDATE NO ACTION ON DELETE RESTRICT
 );
@@ -102,40 +102,40 @@ CREATE TABLE "agents" (
   "name" text NOT NULL,
   "cwd" text NOT NULL DEFAULT '',
   "flags" text NOT NULL DEFAULT '',
-  "provision_enabled" boolean NULL,
   "prompt" text NOT NULL DEFAULT '',
   "pane_id" text NOT NULL DEFAULT '',
-  "role" "agent_role" NOT NULL DEFAULT 'implementer',
   "state" "agent_state" NOT NULL DEFAULT 'idle',
   "state_changed_at" timestamptz NOT NULL DEFAULT now(),
-  "state_seen_at" timestamptz NOT NULL DEFAULT now(),
-  "turn_ended_at" timestamptz NULL,
-  "reported_reason" text NOT NULL DEFAULT '',
   "harness" text NOT NULL DEFAULT 'claude',
   "session_id" text NOT NULL DEFAULT '',
   "workflow_id" uuid NOT NULL,
   "schedule_id" uuid NULL,
   "idempotency_key" text NULL,
   "spawned_by_agent_id" uuid NULL,
-  "parent_agent_id" uuid NULL,
   "archived_at" timestamptz NULL,
-  "deleting_at" timestamptz NULL,
   "is_hidden" boolean NOT NULL DEFAULT false,
   "nudged_at" timestamptz NULL,
-  "nudge_sent_at" timestamptz NULL,
   "branch" text NULL,
-  "repository_url" text NULL,
-  "adopted_branch" text NOT NULL DEFAULT '',
   "worktree_removed" boolean NOT NULL DEFAULT false,
-  "sequence_in_progress" boolean NOT NULL DEFAULT false,
+  "created_at" timestamptz NOT NULL DEFAULT now(),
+  "updated_at" timestamptz NOT NULL DEFAULT now(),
+  "state_seen_at" timestamptz NOT NULL DEFAULT now(),
   "interrupted_at" timestamptz NULL,
+  "adopted_branch" text NOT NULL DEFAULT '',
+  "parent_agent_id" uuid NULL,
+  "turn_ended_at" timestamptz NULL,
+  "provision_enabled" boolean NULL,
+  "reported_reason" text NOT NULL DEFAULT '',
+  "role" "agent_role" NOT NULL DEFAULT 'implementer',
   "held_at" timestamptz NULL,
   "held_mid_turn" boolean NOT NULL DEFAULT false,
+  "nudge_sent_at" timestamptz NULL,
+  "sequence_in_progress" boolean NOT NULL DEFAULT false,
+  "repository_url" text NULL,
+  "deleting_at" timestamptz NULL,
   "alive" boolean NOT NULL DEFAULT false,
   "tree_standing" text NOT NULL DEFAULT '',
   "tree_standing_sha" text NOT NULL DEFAULT '',
-  "created_at" timestamptz NOT NULL DEFAULT now(),
-  "updated_at" timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY ("id"),
   CONSTRAINT "agents_parent_agent_id_fkey" FOREIGN KEY ("parent_agent_id") REFERENCES "agents" ("id") ON UPDATE NO ACTION ON DELETE CASCADE,
   CONSTRAINT "agents_schedule_id_fkey" FOREIGN KEY ("schedule_id") REFERENCES "schedules" ("id") ON UPDATE NO ACTION ON DELETE RESTRICT,
@@ -156,22 +156,22 @@ CREATE INDEX "agents_workflow_id" ON "agents" ("workflow_id");
 CREATE UNIQUE INDEX "agents_workflow_orchestrator" ON "agents" ("workflow_id") WHERE (role = 'orchestrator'::agent_role);
 -- Set comment to table: "agents"
 COMMENT ON TABLE "agents" IS 'One background agent, holding everything needed to start it again.';
--- Set comment to column: "role" on table: "agents"
-COMMENT ON COLUMN "agents"."role" IS 'What the agent was launched to do. It decides which review briefing the agent is given. A reviewer reads the work of the agent it is a child of and never writes any code of its own.';
 -- Set comment to column: "state" on table: "agents"
 COMMENT ON COLUMN "agents"."state" IS 'What the agent is doing. Weave captures the agent''s terminal every couple of seconds and writes here what it read there. Uncertain means the terminal was captured but could not be understood. The setup and failure values never come from reading a terminal, so something else sets those.';
 -- Set comment to column: "reported_reason" on table: "agents"
 COMMENT ON COLUMN "agents"."reported_reason" IS 'What the agent''s own CLI last said it was doing. It only decorates the state read off the terminal and never sets that state. It is cleared whenever the state changes and when a turn ends, so an empty value means there is nothing to say.';
--- Set comment to column: "deleting_at" on table: "agents"
-COMMENT ON COLUMN "agents"."deleting_at" IS 'When a delete claimed the row. A claimed row is left out of every listing until the delete either removes it or fails, and a failure clears the claim as it records itself. The server clears every claim when it starts, since nothing survives a restart to finish one.';
--- Set comment to column: "repository_url" on table: "agents"
-COMMENT ON COLUMN "agents"."repository_url" IS 'The canonical web address of the repository the agent''s checkout pushes to, such as https://github.com/harrisoncramer/weave. Null when the checkout is gone or its origin is not a forge. The cwd syncer rewrites it on the same pass that rewrites branch.';
--- Set comment to column: "sequence_in_progress" on table: "agents"
-COMMENT ON COLUMN "agents"."sequence_in_progress" IS 'Whether a merge, a rebase or a cherry-pick is part-way through the agent''s checkout and waiting on somebody. Weave reads the checkout every few seconds and writes what it found here, so settling the sequence by hand clears this on its own.';
+-- Set comment to column: "role" on table: "agents"
+COMMENT ON COLUMN "agents"."role" IS 'What the agent was launched to do. It decides which review briefing the agent is given. A reviewer reads the work of the agent it is a child of and never writes any code of its own.';
 -- Set comment to column: "held_at" on table: "agents"
 COMMENT ON COLUMN "agents"."held_at" IS 'When a person stopped this agent and took the tree, null while nobody is holding it. Held is not a state, since the states are decided by reading the pane and would overwrite it.';
 -- Set comment to column: "held_mid_turn" on table: "agents"
 COMMENT ON COLUMN "agents"."held_mid_turn" IS 'Whether the hold cut a turn that was still running, which is what decides whether letting go has to type the agent back into motion or merely stop holding it.';
+-- Set comment to column: "sequence_in_progress" on table: "agents"
+COMMENT ON COLUMN "agents"."sequence_in_progress" IS 'Whether a merge, a rebase or a cherry-pick is part-way through the agent''s checkout and waiting on somebody. Weave reads the checkout every few seconds and writes what it found here, so settling the sequence by hand clears this on its own.';
+-- Set comment to column: "repository_url" on table: "agents"
+COMMENT ON COLUMN "agents"."repository_url" IS 'The canonical web address of the repository the agent''s checkout pushes to, such as https://github.com/harrisoncramer/weave. Null when the checkout is gone or its origin is not a forge. The cwd syncer rewrites it on the same pass that rewrites branch.';
+-- Set comment to column: "deleting_at" on table: "agents"
+COMMENT ON COLUMN "agents"."deleting_at" IS 'When a delete claimed the row. A claimed row is left out of every listing until the delete either removes it or fails, and a failure clears the claim as it records itself. The server clears every claim when it starts, since nothing survives a restart to finish one.';
 -- Set comment to column: "alive" on table: "agents"
 COMMENT ON COLUMN "agents"."alive" IS 'Whether the agent still owns the pane its row names.';
 -- Set comment to column: "tree_standing" on table: "agents"
@@ -248,11 +248,11 @@ CREATE INDEX "agent_transcript_chunks_tsv" ON "agent_transcript_chunks" USING GI
 COMMENT ON TABLE "agent_transcript_chunks" IS 'One turn of an agent''s conversation, indexed so it can be searched by word.';
 -- Create "marks" table
 CREATE TABLE "marks" (
-  "id" uuid NOT NULL DEFAULT uuidv7(),
   "mark" text NOT NULL,
   "agent_id" uuid NULL,
   "workflow_id" uuid NULL,
   "created_at" timestamptz NOT NULL DEFAULT now(),
+  "id" uuid NOT NULL DEFAULT uuidv7(),
   PRIMARY KEY ("id"),
   CONSTRAINT "marks_agent_id_fkey" FOREIGN KEY ("agent_id") REFERENCES "agents" ("id") ON UPDATE NO ACTION ON DELETE CASCADE,
   CONSTRAINT "marks_workflow_id_fkey" FOREIGN KEY ("workflow_id") REFERENCES "workflows" ("id") ON UPDATE NO ACTION ON DELETE CASCADE,
