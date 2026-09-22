@@ -210,11 +210,11 @@ func TestOneTransactionRaisesOnceForOneRow(t *testing.T) {
 	assert.Equal(t, "schedules "+w.schedule, w.notifications.Next(t))
 }
 
-// TestARowWithItsOwnKeyAlsoRaisesItsParents pins the tables that are resources of their own
-// and, while the composite agent and workflow rows carry them, projections too: a mark, a piece
-// of mail and a pull request each raise their own key and then the parent rows they are drawn
-// on, and a repository sync raises the live agents in the repository.
-func TestARowWithItsOwnKeyAlsoRaisesItsParents(t *testing.T) {
+// TestAResourceRaisesItsOwnKeyAlone pins the tables that are resources of their own: a mark, a
+// piece of mail and a pull request each raise their own key and nothing for the agent or
+// workflow they are drawn beside, while a repository sync raises the live agents in the
+// repository.
+func TestAResourceRaisesItsOwnKeyAlone(t *testing.T) {
 	t.Parallel()
 
 	w := openWatched(t)
@@ -227,62 +227,66 @@ func TestARowWithItsOwnKeyAlsoRaisesItsParents(t *testing.T) {
 		name  string
 		write string
 		args  []any
-		want  []string
+		want  string
 	}{
 		{
 			name:  "a mark on an agent",
 			write: `INSERT INTO marks (mark, agent_id) VALUES ('a', $1)`,
 			args:  []any{w.agent},
-			want:  []string{"marks a", "agents " + w.agent},
+			want:  "marks a",
 		},
 		{
 			name:  "a mark on a workflow",
 			write: `INSERT INTO marks (mark, workflow_id) VALUES ('b', $1)`,
 			args:  []any{w.workflow},
-			want:  []string{"marks b", "workflows " + w.workflow},
+			want:  "marks b",
 		},
 		{
 			name:  "a mark cleared",
 			write: `DELETE FROM marks WHERE mark = 'a'`,
-			want:  []string{"marks a", "agents " + w.agent},
+			want:  "marks a",
 		},
 		{
 			name:  "mail sent",
 			write: `INSERT INTO mail (id, from_name, to_agent_id, body, kind, expires_at) VALUES ($1, 'weave', $2, 'hello', 'plain', now() + interval '1 hour')`,
 			args:  []any{mail, w.agent},
-			want:  []string{"mail " + mail, "agents " + w.agent},
+			want:  "mail " + mail,
 		},
 		{
 			name:  "mail claimed",
 			write: `UPDATE mail SET claimed_at = now() WHERE id = $1`,
 			args:  []any{mail},
-			want:  []string{"mail " + mail, "agents " + w.agent},
+			want:  "mail " + mail,
 		},
 		{
 			name: "a pull request on a live agent's branch",
 			write: `INSERT INTO pull_requests (id, host, forge, provider_id, url, repository_url, head_repository_url, number, title, head_branch, head_sha, base_branch, base_sha, draft, state, opened_at, changed_at)
 				VALUES ($1, 'github.com', 'github', 'PR_1', 'https://github.com/o/r/pull/1', 'https://github.com/o/r', 'https://github.com/o/r', 1, 'one', 'agent/x', 'abc', 'main', 'def', false, 'OPEN', now(), now())`,
 			args: []any{pullRequest},
-			want: []string{"pull_requests " + pullRequest, "agents " + w.agent},
+			want: "pull_requests " + pullRequest,
 		},
 		{
 			name:  "a repository sync moving its high-water mark",
 			write: `INSERT INTO pull_request_syncs (repository_url, updated_through) VALUES ('https://github.com/o/r', now())`,
-			want:  []string{"agents " + w.agent},
+			want:  "agents " + w.agent,
+		},
+		{
+			name:  "a schedule update, which is the next thing heard",
+			write: `UPDATE schedules SET prompt = 'go' WHERE id = $1`,
+			args:  []any{w.schedule},
+			want:  "schedules " + w.schedule,
 		},
 	}
 
 	for _, tt := range tests {
 		w.exec(t, tt.write, tt.args...)
-		for _, want := range tt.want {
-			assert.Equal(t, want, w.notifications.Next(t), tt.name)
-		}
+		assert.Equal(t, tt.want, w.notifications.Next(t), tt.name)
 	}
 }
 
 // TestAResourceStampAloneRaisesNothing pins the ignored columns on the tables added here: a
 // pull request's check read stamp and a sync's request stamps move no row, while a mail's
-// report stamp, the one write at expiry, moves the mail and its recipient.
+// report stamp, the one write at expiry, moves the mail.
 func TestAResourceStampAloneRaisesNothing(t *testing.T) {
 	t.Parallel()
 
@@ -294,7 +298,7 @@ func TestAResourceStampAloneRaisesNothing(t *testing.T) {
 	w.exec(t, `INSERT INTO pull_requests (id, host, forge, provider_id, url, repository_url, head_repository_url, number, title, head_branch, head_sha, base_branch, base_sha, draft, state, opened_at, changed_at)
 		VALUES ($1, 'github.com', 'github', 'PR_1', 'https://github.com/o/r/pull/1', 'https://github.com/o/r', 'https://github.com/o/r', 1, 'one', 'agent/x', 'abc', 'main', 'def', false, 'OPEN', now(), now())`, pullRequest)
 	w.exec(t, `INSERT INTO pull_request_syncs (repository_url) VALUES ('https://github.com/o/r')`)
-	for range 6 {
+	for range 4 {
 		w.notifications.Next(t)
 	}
 
@@ -304,5 +308,4 @@ func TestAResourceStampAloneRaisesNothing(t *testing.T) {
 	w.exec(t, `UPDATE mail SET reported_at = now() WHERE id = $1`, mail)
 
 	assert.Equal(t, "mail "+mail, w.notifications.Next(t))
-	assert.Equal(t, "agents "+w.agent, w.notifications.Next(t))
 }

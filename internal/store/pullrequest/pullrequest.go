@@ -167,21 +167,6 @@ func (s *PullRequestStore) GetByIdentity(ctx context.Context, host, providerID s
 	return &pullRequest, nil
 }
 
-// ListForAgent is every pull request opened from an agent's branch in its repository, newest
-// opened first, on the same terms the agent's row is attributed by.
-func (s *PullRequestStore) ListForAgent(ctx context.Context, agentID string) ([]PullRequest, error) {
-	if !store.IsID(agentID) {
-		return nil, store.ErrNotFound.Saying("no agent with id %q", agentID)
-	}
-
-	rows, err := s.queries.ListAgentBranchPullRequests(ctx, agentID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list the pull requests of agent %q: %w", agentID, err)
-	}
-
-	return xslice.Map(rows, fromRow), nil
-}
-
 // ListForAgents is every pull request opened from the branch any of the given agents is on, in
 // its repository.
 func (s *PullRequestStore) ListForAgents(ctx context.Context, agentIDs []string) ([]PullRequest, error) {

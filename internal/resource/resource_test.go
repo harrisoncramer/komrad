@@ -30,5 +30,5 @@ func TestAllReadsEveryAnnotatedMessage(t *testing.T) {
 	assert.Equal(t, "RESOURCE_AGENT", agent.EnumValue())
 	assert.Equal(t, "id", agent.Key(), "the key is id when the option leaves it out")
 	assert.Equal(t, []string{"updated_at", "state_seen_at", "nudged_at", "nudge_sent_at"}, agent.Option.GetIgnores())
-	assert.Len(t, agent.Option.GetProjects(), 8)
+	assert.Len(t, agent.Option.GetProjects(), 5)
 }

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"weave/internal/resource"
+	"weave/internal/rpc/render"
 	"weave/internal/watch"
 	"weave/lib/xslice"
 	watchv1 "weave/proto/gen/watch/v1"
@@ -23,6 +24,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 )
 
 type fakeStores struct {
@@ -169,6 +171,25 @@ func TestReadAnswersARowOrATombstoneForEveryTouchedKey(t *testing.T) {
 	assert.Equal(t, "w1", events[6].Row.GetMark().GetWorkflowId())
 	assert.Equal(t, "a1", events[8].Row.GetMail().GetToAgentId())
 	assert.Equal(t, int32(7), events[10].Row.GetPullRequest().GetNumber())
+}
+
+// TestTheAgentEventIsTheAgent pins the agent arm to the resource: the row it carries is the
+// agent as the renderer draws it from its own store row, with nothing assembled beside it.
+func TestTheAgentEventIsTheAgent(t *testing.T) {
+	row := agentRow("a1")
+	row.Metadata = []agentstore.Metadata{{Key: "ticket", Value: "W-1"}}
+	stores := &fakeStores{
+		agents:       []rowstore.Row{row},
+		marks:        []markstore.Mark{{Mark: "a", AgentID: &[]string{"a1"}[0]}},
+		mail:         []mailstore.Mail{{ID: "m1", ToAgentID: "a1"}},
+		pullRequests: []pullrequeststore.PullRequest{{ID: "p1", Number: 7}},
+	}
+
+	events, err := newRows(stores, &fakeSchedules{}).Read(t.Context(), watch.Touched{watch.KindAgent: []string{"a1"}})
+	require.NoError(t, err)
+	require.Len(t, events, 1)
+
+	assert.True(t, proto.Equal(render.Agent(row, render.AgentOptions{}), events[0].Row.GetAgent()))
 }
 
 // TestReadOfNothingReadsNothing pins that an empty touch costs no query.

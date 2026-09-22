@@ -77,22 +77,6 @@ message Agent {
         column: "agent_id"
       },
       {
-        table: "marks"
-        column: "agent_id"
-      },
-      {
-        table: "mail"
-        column: "to_agent_id"
-        ignores: ["updated_at"]
-      },
-      {
-        table: "pull_requests"
-        lookup: "branch"
-        via: "head_branch"
-        where: "archived_at IS NULL"
-        ignores: ["checks_read_at"]
-      },
-      {
         table: "pull_request_syncs"
         lookup: "repository_url"
         via: "repository_url"

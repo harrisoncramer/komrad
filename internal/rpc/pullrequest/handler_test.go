@@ -6,7 +6,6 @@ import (
 
 	"weave/internal/forge"
 	"weave/internal/git"
-	agentstore "weave/internal/store/agent"
 	pullrequeststore "weave/internal/store/pullrequest"
 	"weave/internal/storetest"
 	"weave/lib/xptr"
@@ -28,11 +27,7 @@ func TestListPullRequests(t *testing.T) {
 
 	st := storetest.Open(t)
 	ctx := t.Context()
-	service := pullrequestv1weave.PullRequestServiceAdapter{Impl: NewHandler(NewHandlerParams{
-		Agents:           st.Agents,
-		PullRequests:     st.PullRequests,
-		PullRequestSyncs: st.PullRequestSyncs,
-	})}
+	service := pullrequestv1weave.PullRequestServiceAdapter{Impl: NewHandler(NewHandlerParams{PullRequests: st.PullRequests})}
 
 	opened := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
 	mergedAt := opened.Add(3 * time.Hour)
@@ -90,7 +85,7 @@ func TestListPullRequestsRefusals(t *testing.T) {
 	t.Parallel()
 
 	st := storetest.Open(t)
-	service := NewHandler(NewHandlerParams{Agents: st.Agents, PullRequests: st.PullRequests, PullRequestSyncs: st.PullRequestSyncs})
+	service := NewHandler(NewHandlerParams{PullRequests: st.PullRequests})
 
 	_, failure := service.ListPullRequests(t.Context(), &pullrequestv1.ListPullRequestsRequest{RepositoryUrl: "/local/path"})
 	require.NotNil(t, failure)
@@ -104,186 +99,7 @@ func TestListPullRequestsRefusals(t *testing.T) {
 	assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(failure))
 }
 
-// TestListAgentPullRequests covers the stored listing: an agent nobody holds, one whose
-// checkout is not on a forge repository, one whose repository has not been read, and one whose
-// branch holds several, newest opened first with the current one marked and each state decided.
-func TestListAgentPullRequests(t *testing.T) {
-	t.Parallel()
-
-	opened := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
-
-	tests := []struct {
-		name        string
-		seed        func(t *testing.T, st *storetest.Stores) string
-		wantCode    connect.Code
-		wantRead    bool
-		wantNumbers []int
-		wantCurrent int
-		wantStates  []pullrequestv1.PullRequestState
-	}{
-		{
-			name: "an id nobody holds",
-			seed: func(*testing.T, *storetest.Stores) string {
-				return "00000000-0000-0000-0000-000000000000"
-			},
-			wantCode: connect.CodeNotFound,
-		},
-		{
-			name: "a checkout that is not on a forge repository lists nothing",
-			seed: func(t *testing.T, st *storetest.Stores) string {
-				t.Helper()
-
-				return st.SeedAgent(t, agentstore.Agent{Name: "local"}).ID
-			},
-		},
-		{
-			name: "a repository the sync has not read lists nothing and no read stamp",
-			seed: func(t *testing.T, st *storetest.Stores) string {
-				t.Helper()
-
-				return seedAgentOn(t, st, "unread", "agent/x")
-			},
-		},
-		{
-			name: "a repository asked about but never swept has no read stamp",
-			seed: func(t *testing.T, st *storetest.Stores) string {
-				t.Helper()
-				ctx := t.Context()
-
-				id := seedAgentOn(t, st, "missing", "agent/missing")
-				require.NoError(t, st.PullRequestSyncs.EnsureSync(ctx, weaveRepository))
-				require.NoError(t, st.PullRequestSyncs.RecordSyncRequest(ctx, weaveRepository))
-
-				return id
-			},
-		},
-		{
-			name: "the branch's pull requests, newest opened first, with the current one marked",
-			seed: func(t *testing.T, st *storetest.Stores) string {
-				t.Helper()
-				ctx := t.Context()
-
-				id := seedAgentOn(t, st, "on-branch", "agent/x")
-				require.NoError(t, st.PullRequestSyncs.EnsureSync(ctx, weaveRepository))
-				require.NoError(t, st.PullRequestSyncs.RecordSyncRequest(ctx, weaveRepository))
-				require.NoError(t, st.PullRequestSyncs.StartSweep(ctx, pullrequeststore.StartSweepParams{
-					RepositoryURL: weaveRepository,
-					Newest:        opened,
-					ListedAt:      opened,
-				}))
-				require.NoError(t, st.PullRequestSyncs.CompleteSweep(ctx, weaveRepository))
-
-				mergedAt := opened.Add(2 * time.Hour)
-				for _, params := range []pullrequeststore.UpsertParams{
-					storedPullRequest("PR_1", 1, opened, nil),
-					storedPullRequest("PR_2", 2, opened.Add(time.Hour), nil),
-					storedPullRequest("PR_3", 3, opened.Add(2*time.Hour), &mergedAt),
-				} {
-					_, err := st.PullRequests.Upsert(ctx, params)
-					require.NoError(t, err)
-				}
-				approved, err := st.PullRequests.GetByIdentity(ctx, "github.com", "PR_2")
-				require.NoError(t, err)
-				require.NoError(t, st.PullRequests.SetStanding(ctx, approved.ID, forge.Standing{Decision: forge.ReviewDecisionApproved, Mergeability: forge.MergeabilityClean}, time.Now()))
-
-				return id
-			},
-			wantRead:    true,
-			wantNumbers: []int{3, 2, 1},
-			wantCurrent: 2,
-			wantStates: []pullrequestv1.PullRequestState{
-				pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED,
-				pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED,
-				pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			st := storetest.Open(t)
-			service := pullrequestv1weave.PullRequestServiceAdapter{Impl: NewHandler(NewHandlerParams{
-				Agents:           st.Agents,
-				PullRequests:     st.PullRequests,
-				PullRequestSyncs: st.PullRequestSyncs,
-			})}
-			id := tt.seed(t, st)
-
-			resp, err := service.ListAgentPullRequests(t.Context(), connect.NewRequest(&pullrequestv1.ListAgentPullRequestsRequest{AgentId: id}))
-			if tt.wantCode != 0 {
-				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
-
-				return
-			}
-
-			require.NoError(t, err)
-			assert.Equal(t, tt.wantRead, resp.Msg.RepositoryReadAt != nil)
-
-			var numbers []int
-			var states []pullrequestv1.PullRequestState
-			current := 0
-			for _, pullRequest := range resp.Msg.GetPullRequests() {
-				numbers = append(numbers, int(pullRequest.GetNumber()))
-				states = append(states, pullRequest.GetState())
-				if pullRequest.GetCurrent() {
-					current = int(pullRequest.GetNumber())
-				}
-			}
-			assert.Equal(t, tt.wantNumbers, numbers)
-			assert.Equal(t, tt.wantStates, states)
-			assert.Equal(t, tt.wantCurrent, current, "the newest unfinished is current over a newer merged one")
-		})
-	}
-}
-
-// TestListAgentPullRequestsFallsBackToTheNewestFinished covers a branch holding only finished
-// pull requests, where the newest opened of them is current.
-func TestListAgentPullRequestsFallsBackToTheNewestFinished(t *testing.T) {
-	t.Parallel()
-
-	st := storetest.Open(t)
-	ctx := t.Context()
-	service := pullrequestv1weave.PullRequestServiceAdapter{Impl: NewHandler(NewHandlerParams{
-		Agents:           st.Agents,
-		PullRequests:     st.PullRequests,
-		PullRequestSyncs: st.PullRequestSyncs,
-	})}
-	id := seedAgentOn(t, st, "finished", "agent/x")
-
-	opened := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
-	closedAt := opened.Add(3 * time.Hour)
-	for _, params := range []pullrequeststore.UpsertParams{
-		storedPullRequest("PR_1", 1, opened, &closedAt),
-		storedPullRequest("PR_2", 2, opened.Add(time.Hour), &closedAt),
-	} {
-		_, err := st.PullRequests.Upsert(ctx, params)
-		require.NoError(t, err)
-	}
-
-	resp, err := service.ListAgentPullRequests(ctx, connect.NewRequest(&pullrequestv1.ListAgentPullRequestsRequest{AgentId: id}))
-	require.NoError(t, err)
-	require.Len(t, resp.Msg.GetPullRequests(), 2)
-	assert.True(t, resp.Msg.GetPullRequests()[0].GetCurrent())
-	assert.Equal(t, int32(2), resp.Msg.GetPullRequests()[0].GetNumber())
-	assert.False(t, resp.Msg.GetPullRequests()[1].GetCurrent())
-	assert.Nil(t, resp.Msg.RepositoryReadAt)
-}
-
 const weaveRepository = "https://github.com/harrisoncramer/weave"
-
-// seedAgentOn is a live agent on a branch of the weave repository.
-func seedAgentOn(t *testing.T, st *storetest.Stores, name, branch string) string {
-	t.Helper()
-	ctx := t.Context()
-
-	id := st.SeedAgent(t, agentstore.Agent{Name: name}).ID
-	repository := weaveRepository
-	require.NoError(t, st.Agents.SetCheckout(ctx, id, agentstore.SetCheckoutParams{RepositoryURL: &repository, Branch: &branch}))
-
-	return id
-}
 
 // storedPullRequest is a pull request from agent/x of the weave repository, merged when a
 // stamp is given.

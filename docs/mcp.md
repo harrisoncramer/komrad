@@ -38,6 +38,8 @@ The other half is the panel's own RPCs as tools. Each call goes back out over lo
 
 Agents use the tools to change things, as they allow writes, and the general SQL engine when the question is an aggregate or a join: how many agents in each workflow are still thinking, which of my children recorded a pull request URL, and so forth.
 
+A read answers one kind of thing: an agent, a workflow, a schedule, a mark, a piece of mail or a pull request, each as its own row. The one exception is what `list_agents` and `get_agent` answer, which is the agent with what the panel draws beside it: its mark, whether mail is waiting for it, and the pull requests opened from its branch with the current one's standing. That row is put together the same way the panel puts it together, so a model gets in one call what the panel shows, and a write's response carries the bare agent it wrote.
+
 ## The read-only role
 
 The `query` tool connects as a least-privilege Postgres role, `weave_readonly` on the same database weave writes to.

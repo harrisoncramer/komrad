@@ -162,44 +162,6 @@ enum Checks {
   CHECKS_FAILING = 4;
 }
 
-message ListAgentPullRequestsRequest {
-  // Which agent's branch to list the pull requests of.
-  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
-}
-
-message AgentPullRequest {
-  // The number the forge shows a person, which is per repository.
-  int32 number = 1;
-  // The web address a person opens.
-  string url = 2;
-  // The title as the forge has it.
-  string title = 3;
-  // Where it stands, decided from the stored row.
-  PullRequestState state = 4;
-  // Where the checks on its head stand.
-  Checks checks = 9;
-  // Where the forge says it stands against its base and rules.
-  Mergeability mergeability = 10;
-  // Whether this is the one the agent's row stands for: the newest opened that is not finished,
-  // else the newest opened of the finished.
-  bool current = 5;
-  // When it was opened on the forge, in RFC 3339.
-  string opened_at = 6;
-  // When it merged, in RFC 3339, unset while it has not.
-  optional string merged_at = 7;
-  // When it closed, in RFC 3339, unset while it is open; a merged one carries this too.
-  optional string closed_at = 8;
-}
-
-message ListAgentPullRequestsResponse {
-  // Every pull request opened from the agent's branch in its repository, newest opened first,
-  // read from what the sync has stored rather than from the forge.
-  repeated AgentPullRequest pull_requests = 1;
-  // When the sync last made a request for the repository, in RFC 3339, unset until its first
-  // sweep has completed.
-  optional string repository_read_at = 2;
-}
-
 // PullRequestService reads the pull requests weave has stored from its forges.
 service PullRequestService {
   rpc ListPullRequests(ListPullRequestsRequest) returns (ListPullRequestsResponse) {
@@ -209,15 +171,6 @@ service PullRequestService {
       mcp: true
       name: "list_pull_requests"
       description: "List the pull requests weave has stored for a repository, a page at a time: every one opened from a branch when one is named, whatever its state, or every one stored for the repository when none is. The unfinished ones come first and each group is newest opened first, so the first answered for a branch is the one an agent's row on that branch stands for. Give the repository as a git remote spells it or as its canonical address, and pass the next_page_token back as pagination.cursor for the next page. This reads what the pull request sync has stored rather than asking the forge, so a repository no live agent sits on may be behind or empty; list_forge_pull_requests asks the forge itself."
-    };
-  }
-  rpc ListAgentPullRequests(ListAgentPullRequestsRequest) returns (ListAgentPullRequestsResponse) {
-    option idempotency_level = NO_SIDE_EFFECTS;
-    option (annotation.v1.surfaces) = {
-      cli: true
-      mcp: true
-      name: "list_agent_pull_requests"
-      description: "List the pull requests opened from an agent's branch in its repository, newest opened first, each with where it stands: open, approved, changes requested, draft, merged or closed. The one marked current is what the agent's row in the panel shows. This reads what the pull request sync has stored rather than asking the forge, so repository_read_at says how fresh it is, and an unset repository_read_at means the repository's first sweep has not completed. An agent whose checkout is not on a forge repository answers an empty list."
     };
   }
 }
