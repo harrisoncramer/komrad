@@ -1,6 +1,6 @@
 // Package watch tells whoever is watching the panel's rows which ones moved.
 //
-// The schema's triggers, watch_notify on each resource table and watch_project and
+// The schema's trigger functions, watch_notify on each resource table and watch_project and
 // watch_project_lookup on the tables projected onto one, raise the table and the key of a row
 // that moved, delivered once the write has committed. The Broker's listener hears them on one
 // connection of its own, coalesces them, reads the rows back through its Reader, and sends each

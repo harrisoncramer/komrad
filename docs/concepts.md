@@ -48,7 +48,7 @@ State for weave is kept in Postgres, and anything that must survive a restart is
 
 Everything the panel draws is a row of one table. An agent is its row in the agents table, with a few facts about it read from the tables that describe it and nothing else: its metadata, its latest unread failure, where its local review stands. A workflow is its row with its configuration. A mark, a piece of mail, a pull request and a schedule are each rows of their own table. These are the resources, and every read in the API answers one of them: a get answers one row, a list answers rows of one kind, and neither joins anything to them.
 
-Some facts an agent's row carries are learned from outside the database. Whether its pane is alive is read from tmux, and where its worktree stands against the base is read from git. The loops that learn them write them onto the row like any other column, so the row is the whole record and nothing about an agent lives only in a process's memory.
+Some facts an agent's row carries are learned from outside the database. Whether its pane is alive is read from tmux, and whether its worktree has moved since its last review is read from git. The loops that learn them write them onto the row like any other column, so the row is the whole record and nothing about an agent lives only in a process's memory.
 
 ## How a change reaches the panel
 
@@ -60,13 +60,13 @@ The panel holds one such stream open for its whole life. The stream opens with t
 
 ## The combined row
 
-The row a screen draws for an agent is more than the agent: it carries the mark on it, whether mail is waiting for it, and the pull requests opened from its branch with the current one's standing. Those come from four resources, and joining them is defined once, as one function over the rows a caller holds.
+The row a screen draws for an agent is more than the agent: it carries the mark on it, whether mail is waiting for it, and the pull requests opened from its branch with the current one's standing. Those are read off the agent, its workflow, the marks, the unclaimed mail and the pull requests, and joining them is defined once, as one function over the rows a caller holds.
 
 The panel calls that function over the rows the stream has delivered, after every batch. The service calls the same function when a model or a script asks for agents over [MCP](mcp.md) or the CLI, so `list_agents` answers what the panel shows and there is no second way of putting the row together. A write's response carries only the row it wrote.
 
 ## The loops
 
-The server runs a few loops that reconcile what the database says with what tmux and the forge say. Each one writes what it learns onto the rows, and the trigger publishes it.
+The server runs a few loops that reconcile what the database says with what tmux says.
 
 The reconcile loop runs every two seconds. This loop is responsible for reconciling the state of the agent with the view in the manager panel. For instance, the agent's "thinking" state is determined based on the presence of text in the render window that looks like thinking text, not based on stop, start or other hooks, which are unreliable.
 
