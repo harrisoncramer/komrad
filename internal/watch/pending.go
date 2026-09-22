@@ -25,8 +25,7 @@ func (b *Broker) touch(table string, keys ...string) {
 	b.touchResource(res, keys)
 }
 
-// reportUnknown says once that a table nothing reads is still announcing itself, which is what
-// a trigger left behind by a resource that has since gone looks like.
+// reportUnknown says once that a table nothing reads is still announcing itself.
 func (b *Broker) reportUnknown(table string) {
 	b.pendingMu.Lock()
 	_, said := b.unknown[table]

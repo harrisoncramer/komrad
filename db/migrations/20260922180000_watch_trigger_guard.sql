@@ -56,8 +56,7 @@ BEGIN
     IF watch_trigger_is_current(target, 'watch_notify', 'watch_notify', ARRAY[key_column]) THEN
         RETURN;
     END IF;
-    -- Creating a trigger locks the table, so a boot waiting behind a long transaction gives up
-    -- rather than holding every later reader behind it.
+    -- Creating a trigger locks the table.
     SET LOCAL lock_timeout = '5s';
     EXECUTE FORMAT('DROP TRIGGER IF EXISTS watch_notify ON %I', target);
     EXECUTE FORMAT('CREATE TRIGGER watch_notify AFTER INSERT OR UPDATE OR DELETE ON %I FOR EACH ROW EXECUTE FUNCTION watch_notify(%L)', target, key_column);
@@ -84,19 +83,17 @@ END;
 $$
 LANGUAGE plpgsql;
 
--- The narrowing is a column of the parent that must be null rather than a predicate, so no SQL
--- text crosses from the caller.
 DROP FUNCTION IF EXISTS attach_projection_lookup_trigger(text, text, text, text, text, text);
 
 -- attach_projection_lookup_trigger puts watch_project_lookup on a table whose parents are the
 -- rows of parent whose parent_match column equals this table's match column, narrowed to the
--- parents whose unarchived_column is null when one is given.
-CREATE OR REPLACE FUNCTION attach_projection_lookup_trigger(target text, parent text, parent_key text, parent_match text, match text, unarchived_column text)
+-- parents whose parent_must_be_null is null when one is given.
+CREATE OR REPLACE FUNCTION attach_projection_lookup_trigger(target text, parent text, parent_key text, parent_match text, match text, parent_must_be_null text)
     RETURNS void
     AS $$
 DECLARE
     trigger_name text := 'watch_project_' || parent;
-    narrowing text := COALESCE(unarchived_column, '');
+    narrowing text := COALESCE(parent_must_be_null, '');
 BEGIN
     IF watch_trigger_is_current(target, trigger_name, 'watch_project_lookup', ARRAY[parent, parent_key, parent_match, match, narrowing]) THEN
         RETURN;
@@ -107,3 +104,22 @@ BEGIN
 END;
 $$
 LANGUAGE plpgsql;
+
+-- Drops the lookup triggers attached in the old form.
+DO $$
+DECLARE
+    stale record;
+BEGIN
+    FOR stale IN
+    SELECT
+        tgname,
+        tgrelid::regclass AS target
+    FROM
+        pg_trigger
+    WHERE
+        NOT tgisinternal
+        AND tgfoid = 'watch_project_lookup'::regproc LOOP
+            EXECUTE FORMAT('DROP TRIGGER IF EXISTS %I ON %s', stale.tgname, stale.target);
+        END LOOP;
+END
+$$;

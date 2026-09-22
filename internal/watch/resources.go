@@ -55,9 +55,9 @@ type Projection struct {
 	ParentMatch string
 	// Match is the column on the projected row that ParentMatch is matched against.
 	Match string
-	// Unarchived is a column of the resource's table that must be null for the row to count,
-	// which is how a projection reaches the live parents alone.
-	Unarchived string
+	// ParentMustBeNull is a column of the resource's table that has to be null for the row to
+	// count as a parent.
+	ParentMustBeNull string
 }
 
 // resourcesByTable is the resource each table a notification names is the rows of.
@@ -92,7 +92,7 @@ func getResources(stores Stores, now func() time.Time) []Resource {
 				{Table: "agent_runs", Column: "agent_id"},
 				{Table: "reviews", Column: "agent_id"},
 				{Table: "review_rounds", Column: "agent_id"},
-				{Table: "pull_request_syncs", ParentMatch: "repository_url", Match: "repository_url", Unarchived: "archived_at"},
+				{Table: "pull_request_syncs", ParentMatch: "repository_url", Match: "repository_url", ParentMustBeNull: "archived_at"},
 			},
 		}),
 		newResource(newResourceParams[workflowstore.Workflow, *workflowv1.Workflow]{

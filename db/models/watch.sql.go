@@ -20,7 +20,7 @@ type AttachProjectionLookupTriggerParams struct {
 	ParentKey        string
 	ParentMatch      string
 	Match            string
-	UnarchivedColumn *string
+	ParentMustBeNull *string
 }
 
 func (q *Queries) AttachProjectionLookupTrigger(ctx context.Context, arg AttachProjectionLookupTriggerParams) error {
@@ -30,7 +30,7 @@ func (q *Queries) AttachProjectionLookupTrigger(ctx context.Context, arg AttachP
 		arg.ParentKey,
 		arg.ParentMatch,
 		arg.Match,
-		arg.UnarchivedColumn,
+		arg.ParentMustBeNull,
 	)
 	return err
 }

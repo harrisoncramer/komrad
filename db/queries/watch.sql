@@ -8,7 +8,7 @@ SELECT
 
 -- name: AttachProjectionLookupTrigger :exec
 SELECT
-    attach_projection_lookup_trigger(@target::text, @parent::text, @parent_key::text, @parent_match::text, @match::text, sqlc.narg(unarchived_column)::text);
+    attach_projection_lookup_trigger(@target::text, @parent::text, @parent_key::text, @parent_match::text, @match::text, sqlc.narg(parent_must_be_null)::text);
 
 -- name: ListenToWatchChannel :exec
 LISTEN weave_watch;

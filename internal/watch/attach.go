@@ -49,20 +49,20 @@ func ensureProjection(ctx context.Context, store triggerEnsurer, r Resource, p P
 	}
 
 	lookup := notifystore.Lookup{
-		Table:       p.Table,
-		Parent:      r.Table,
-		ParentKey:   r.Key,
-		ParentMatch: p.ParentMatch,
-		Match:       p.Match,
-		Unarchived:  unarchivedColumn(p.Unarchived),
+		Table:            p.Table,
+		Parent:           r.Table,
+		ParentKey:        r.Key,
+		ParentMatch:      p.ParentMatch,
+		Match:            p.Match,
+		ParentMustBeNull: nullColumn(p.ParentMustBeNull),
 	}
 
 	return store.EnsureLookupTrigger(ctx, lookup)
 }
 
-// unarchivedColumn is the column a lookup's parents must have null, absent when it narrows to
-// no such column.
-func unarchivedColumn(column string) *string {
+// nullColumn is the column a lookup's parents must have null, absent when it narrows to no
+// such column.
+func nullColumn(column string) *string {
 	if column == "" {
 		return nil
 	}

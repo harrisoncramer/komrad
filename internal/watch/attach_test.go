@@ -64,12 +64,12 @@ func TestEveryTableTheWatchReadsGetsItsTrigger(t *testing.T) {
 
 	assert.Equal(t, []notifystore.Lookup{
 		{
-			Table:       "pull_request_syncs",
-			Parent:      "agents",
-			ParentKey:   "id",
-			ParentMatch: "repository_url",
-			Match:       "repository_url",
-			Unarchived:  xptr.Ptr("archived_at"),
+			Table:            "pull_request_syncs",
+			Parent:           "agents",
+			ParentKey:        "id",
+			ParentMatch:      "repository_url",
+			Match:            "repository_url",
+			ParentMustBeNull: xptr.Ptr("archived_at"),
 		},
 		{
 			Table:       "workflow_configs",
