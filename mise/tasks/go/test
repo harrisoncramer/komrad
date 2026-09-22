@@ -64,7 +64,7 @@ cd "$MISE_CONFIG_ROOT"
 # The tools are modules of their own, so the suite below does not see them. They run
 # first because a red suite under set -e would otherwise mean they never run at all.
 for TOOL in weavelint weavepkg weaverec; do
-	(cd "$MISE_CONFIG_ROOT/tools/$TOOL" && gotestsum --format pkgname --format-hide-empty-pkg -- ./...)
+	(cd "$MISE_CONFIG_ROOT/tools/$TOOL" && gotestsum --format pkgname --format-hide-empty-pkg -- "${TAGS[@]}" ./...)
 done
 
 gotestsum --format pkgname --format-hide-empty-pkg -- "${TAGS[@]}" ./...

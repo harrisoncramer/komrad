@@ -40,11 +40,11 @@ next push. One step per line; blank lines and `#` comments are skipped.
     sleep 500ms
     key Escape
 
-`key` presses tmux key names, so `Enter`, `Escape`, `C-c`, `Space` and `j` all work, and the
-keys go through tmux's key tables the way a keyboard's do, so the panel's `C-a` focus key moves
-focus in a recording too. `type` sends its text as typed. `sleep` waits. `wait` polls every
-window until one shows the text, giving up after thirty seconds. The keys the panel answers to
-are in `config.toml` under `[keybindings]`.
+`key` presses tmux key names, so `Enter`, `Escape`, `C-c`, `Space` and `j` all work. A key the
+instance binds in its root table, such as the panel's `C-a` focus key, runs its binding the way
+it would from a keyboard, and any other key goes to the pane. `type` sends its text to the pane
+as typed. `sleep` waits. `wait` polls every window until one shows the text, giving up after
+thirty seconds. The keys the panel answers to are in `config.toml` under `[keybindings]`.
 
 ## Record
 
