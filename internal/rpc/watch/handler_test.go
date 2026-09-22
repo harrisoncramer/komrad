@@ -28,25 +28,25 @@ import (
 )
 
 type scriptedReader struct {
-	snapshot    watch.Snapshot
+	snapshot    []*watchv1.Row
 	snapshotErr error
 }
 
 func (r scriptedReader) Read(_ context.Context, touched watch.Touched) ([]watch.Event, error) {
 	var events []watch.Event
-	for _, id := range touched.Agents {
+	for _, id := range touched[watch.KindAgent] {
 		if strings.HasPrefix(id, "gone-") {
-			events = append(events, watch.Event{Kind: watch.KindAgent, ID: id})
+			events = append(events, watch.Event{Kind: watch.KindAgent, Key: id})
 
 			continue
 		}
-		events = append(events, watch.Event{Kind: watch.KindAgent, ID: id, Agent: &agentv1.Agent{Id: id}})
+		events = append(events, watch.Event{Kind: watch.KindAgent, Key: id, Row: &watchv1.Row{Row: &watchv1.Row_Agent{Agent: &agentv1.Agent{Id: id}}}})
 	}
 
 	return events, nil
 }
 
-func (r scriptedReader) Snapshot(context.Context) (watch.Snapshot, error) {
+func (r scriptedReader) Snapshot(context.Context) ([]*watchv1.Row, error) {
 	return r.snapshot, r.snapshotErr
 }
 
@@ -109,8 +109,8 @@ func receive(t *testing.T, stream *connect.ServerStreamForClient[watchv1.WatchEv
 // TestWatchSendsTheSnapshotThenChanges pins the shape of the stream end to end, through the
 // generated adapter and both interceptors.
 func TestWatchSendsTheSnapshotThenChanges(t *testing.T) {
-	s := serve(t, scriptedReader{snapshot: watch.Snapshot{
-		Agents: []*agentv1.Agent{{Id: "a1"}},
+	s := serve(t, scriptedReader{snapshot: []*watchv1.Row{
+		{Row: &watchv1.Row_Agent{Agent: &agentv1.Agent{Id: "a1"}}},
 	}}, time.Hour)
 
 	stream, err := s.client.Watch(t.Context(), connect.NewRequest(&watchv1.WatchRequest{}))

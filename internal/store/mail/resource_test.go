@@ -51,3 +51,37 @@ func TestListByKeyIsTheUnclaimedSet(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, none)
 }
+
+// TestListUnclaimedToIsTheRecipientsUnclaimedSet pins the read a page of agents is assembled
+// from: the unclaimed mail to the named agents, claimed and other recipients' mail left out.
+func TestListUnclaimedToIsTheRecipientsUnclaimedSet(t *testing.T) {
+	ctx := t.Context()
+	st := open(t)
+	sender := seedAgent(t, st, "sender")
+	one := seedAgent(t, st, "one")
+	other := seedAgent(t, st, "other")
+
+	send := func(to, body string) string {
+		t.Helper()
+
+		sent, err := st.Send(ctx, SendParams{FromAgentID: &sender, FromName: "sender", ToAgentID: to, Body: body, Deadline: time.Hour})
+		require.NoError(t, err)
+
+		return sent.ID
+	}
+	first := send(one, "first")
+	second := send(one, "second")
+	send(other, "elsewhere")
+
+	claimed, err := st.Claim(ctx, one, 1)
+	require.NoError(t, err)
+	require.Equal(t, []string{first}, xslice.Map(claimed, func(m Mail) string { return m.ID }), "the oldest is taken first")
+
+	listed, err := st.ListUnclaimedTo(ctx, []string{one, "not-an-id"})
+	require.NoError(t, err)
+	assert.Equal(t, []string{second}, xslice.Map(listed, func(m Mail) string { return m.ID }))
+
+	none, err := st.ListUnclaimedTo(ctx, nil)
+	require.NoError(t, err)
+	assert.Empty(t, none)
+}

@@ -62,8 +62,8 @@ func TestANotificationReachesTheWatchers(t *testing.T) {
 
 	l.notify(t, "agents a")
 	event := receive(t, subscription)
-	require.Equal(t, "a", event.ID)
-	require.NotNil(t, event.Agent)
+	require.Equal(t, "a", event.Key)
+	require.NotNil(t, event.Row.GetAgent())
 }
 
 // TestALostConnectionDropsEveryWatcher pins the answer to a connection going: every
@@ -95,5 +95,5 @@ func TestALostConnectionDropsEveryWatcher(t *testing.T) {
 	}, 5*time.Second, 10*time.Millisecond, "the listener dials again")
 
 	l.notify(t, "agents b")
-	require.Equal(t, "b", receive(t, again).ID)
+	require.Equal(t, "b", receive(t, again).Key)
 }

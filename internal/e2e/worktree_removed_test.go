@@ -40,13 +40,14 @@ func TestWorktreeRemovedReachesTheCaller(t *testing.T) {
 
 	fetched, err := instance.Agents.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: agentID}))
 	require.NoError(t, err)
-	assert.True(t, fetched.Msg.GetAgent().GetWorktreeRemoved())
+	assert.True(t, fetched.Msg.GetAgent().GetAgent().GetWorktreeRemoved())
 
 	listed, err := instance.Agents.ListAgents(ctx, connect.NewRequest(&agentv1.ListAgentsRequest{}))
 	require.NoError(t, err)
 
 	found := false
-	for _, agent := range listed.Msg.GetAgents() {
+	for _, row := range listed.Msg.GetAgents() {
+		agent := row.GetAgent()
 		if agent.GetId() == agentID {
 			found = true
 

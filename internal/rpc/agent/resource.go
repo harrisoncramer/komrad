@@ -3,23 +3,12 @@ package agent
 import (
 	"weave/internal/rpc/render"
 
-	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
 	rowstore "weave/internal/store/row"
 	transcriptstore "weave/internal/store/transcript"
 	agentv1 "weave/proto/gen/agent/v1"
 	viewv1 "weave/proto/gen/view/v1"
 )
-
-type agent struct {
-	*agentv1.Agent
-	cursor agentstore.Cursor
-}
-
-// Cursor returns the keyset cursor locating this agent.
-func (s agent) Cursor() (agentstore.Cursor, error) {
-	return s.cursor, nil
-}
 
 // agentOptions is how much of an agent is drawn.
 type agentOptions struct {
@@ -42,16 +31,13 @@ func agentViewOptions(view viewv1.View) []agentOption {
 	return []agentOption{render.WithPromptHead[agentOptions](render.SummaryHead)}
 }
 
-func renderAgent(row rowstore.Row, opts ...agentOption) agent {
+func renderAgent(row rowstore.Row, opts ...agentOption) *agentv1.Agent {
 	options := agentOptions{}
 	for _, opt := range opts {
 		opt(&options)
 	}
 
-	return agent{
-		Agent:  render.Agent(row, render.AgentOptions{PromptHead: options.promptHead}),
-		cursor: agentstore.Cursor{ID: row.ID},
-	}
+	return render.Agent(row, render.AgentOptions{PromptHead: options.promptHead})
 }
 
 type mailPage struct {

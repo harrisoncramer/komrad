@@ -387,6 +387,25 @@ WHERE
 ORDER BY
     p.opened_at DESC;
 
+-- name: ListPullRequestsOfAgents :many
+SELECT
+    p.*
+FROM
+    pull_requests p
+WHERE
+    EXISTS (
+        SELECT
+            1
+        FROM
+            agents a
+        WHERE
+            a.id = ANY (@ids::uuid[])
+            AND a.repository_url = p.repository_url
+            AND a.repository_url = p.head_repository_url
+            AND a.branch = p.head_branch)
+ORDER BY
+    p.id;
+
 -- name: SnapshotPullRequests :many
 SELECT
     p.*

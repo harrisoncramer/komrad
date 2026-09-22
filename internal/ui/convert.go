@@ -85,17 +85,28 @@ func roleFrom(role agentv1.AgentRole) panel.Role {
 
 func agentItemsFrom(listed []*agentv1.Agent) []agentItem {
 	return xslice.Map(listed, func(agent *agentv1.Agent) agentItem {
-		return agentItem{
-			agent:        agentFrom(agent),
-			alive:        agent.GetAlive(),
-			unreadMail:   agent.GetUnreadMail(),
-			failedRun:    agent.GetFailedRun(),
-			failedRunLog: agent.FailedRunLog,
-			localVerdict: agent.GetLocalReviewVerdict(),
-			localTree:    standingFrom(agent.GetLocalReviewTree()),
-			pullRequest:  pullRequestStandingFrom(agent.GetPullRequest()),
-		}
+		return agentItemFrom(agent, agent.GetUnreadMail(), agent.GetPullRequest())
 	})
+}
+
+// agentRowsFrom is a listing of assembled rows as the panel keeps them.
+func agentRowsFrom(listed []*agentv1.AgentRow) []agentItem {
+	return xslice.Map(listed, func(row *agentv1.AgentRow) agentItem {
+		return agentItemFrom(row.GetAgent(), row.GetUnreadMail(), row.GetPullRequest())
+	})
+}
+
+func agentItemFrom(agent *agentv1.Agent, unreadMail bool, pullRequest *agentv1.PullRequestStanding) agentItem {
+	return agentItem{
+		agent:        agentFrom(agent),
+		alive:        agent.GetAlive(),
+		unreadMail:   unreadMail,
+		failedRun:    agent.GetFailedRun(),
+		failedRunLog: agent.FailedRunLog,
+		localVerdict: agent.GetLocalReviewVerdict(),
+		localTree:    standingFrom(agent.GetLocalReviewTree()),
+		pullRequest:  pullRequestStandingFrom(pullRequest),
+	}
 }
 
 // pullRequestStandingFrom is the standing as the wire carries it.

@@ -45,7 +45,7 @@ func listedFromService(t *testing.T, m model) model {
 
 	m.applyWatch(client.WatchBatch{Events: []*watchv1.WatchEvent{
 		{Event: &watchv1.WatchEvent_Snapshot{Snapshot: &watchv1.Snapshot{Rows: slices.Concat(
-			xslice.Map(agents.Msg.GetAgents(), agentRowOf),
+			xslice.Map(agents.Msg.GetAgents(), func(row *agentv1.AgentRow) *watchv1.Row { return agentRowOf(row.GetAgent()) }),
 			xslice.Map(workflows.Msg.GetWorkflows(), workflowRowOf),
 			xslice.Map(schedules.Msg.GetSchedules(), scheduleRowOf),
 		)}}},
@@ -111,7 +111,7 @@ func TestPanelArchivesThroughTheService(t *testing.T) {
 	listed, err := instance.Agents.ListAgents(ctx, connect.NewRequest(&agentv1.ListAgentsRequest{Archived: true}))
 	require.NoError(t, err)
 	require.Len(t, listed.Msg.GetAgents(), 1)
-	assert.Equal(t, agent.GetId(), listed.Msg.GetAgents()[0].GetId())
+	assert.Equal(t, agent.GetId(), listed.Msg.GetAgents()[0].GetAgent().GetId())
 
 	assert.Empty(t, instance.GetOwnedPane(agent.GetId()), "archiving from the shown stops what was running")
 

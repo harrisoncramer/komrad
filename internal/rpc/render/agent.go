@@ -71,6 +71,7 @@ func Agent(row rowstore.Row, options AgentOptions) *agentv1.Agent {
 		LocalReviewTree:    standingOf(localTreeOf(row)),
 		HeldAt:             heldStamp(stored.HeldAt),
 		PullRequest:        pullRequestStandingOf(row),
+		RepositoryRead:     row.RepositoryRead,
 	}
 }
 

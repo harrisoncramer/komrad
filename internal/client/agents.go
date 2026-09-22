@@ -13,8 +13,8 @@ import (
 
 // ListAllArchivedAgents returns every archived agent, following the page tokens until the
 // listing is exhausted.
-func ListAllArchivedAgents(ctx context.Context, agents agentv1connect.AgentServiceClient) ([]*agentv1.Agent, error) {
-	return listAll(ctx, func(ctx context.Context, page *paginationv1.Pagination) ([]*agentv1.Agent, string, error) {
+func ListAllArchivedAgents(ctx context.Context, agents agentv1connect.AgentServiceClient) ([]*agentv1.AgentRow, error) {
+	return listAll(ctx, func(ctx context.Context, page *paginationv1.Pagination) ([]*agentv1.AgentRow, string, error) {
 		resp, err := agents.ListAgents(ctx, connect.NewRequest(&agentv1.ListAgentsRequest{
 			Pagination: page,
 			Archived:   true,

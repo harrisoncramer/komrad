@@ -10,6 +10,7 @@ import (
 	"weave/internal/store"
 	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
+	watchv1 "weave/proto/gen/watch/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
 
 	"github.com/stretchr/testify/assert"
@@ -22,7 +23,7 @@ const settle = 20 * time.Millisecond
 type fakeReader struct {
 	mu       sync.Mutex
 	reads    []Touched
-	snapshot Snapshot
+	snapshot []*watchv1.Row
 	readErr  error
 	// held blocks Read while it is set, so a test can pile touches up behind one render.
 	held chan struct{}
@@ -41,14 +42,16 @@ func (f *fakeReader) Read(_ context.Context, touched Touched) ([]Event, error) {
 		return nil, readErr
 	}
 
-	events := xslice.Map(touched.Agents, func(id string) Event { return Event{Kind: KindAgent, ID: id, Agent: &agentv1.Agent{Id: id}} })
-	events = append(events, xslice.Map(touched.Workflows, func(id string) Event { return Event{Kind: KindWorkflow, ID: id} })...)
-	events = append(events, xslice.Map(touched.Schedules, func(id string) Event { return Event{Kind: KindSchedule, ID: id} })...)
+	events := xslice.Map(touched[KindAgent], func(id string) Event {
+		return Event{Kind: KindAgent, Key: id, Row: &watchv1.Row{Row: &watchv1.Row_Agent{Agent: &agentv1.Agent{Id: id}}}}
+	})
+	events = append(events, xslice.Map(touched[KindWorkflow], func(id string) Event { return Event{Kind: KindWorkflow, Key: id} })...)
+	events = append(events, xslice.Map(touched[KindSchedule], func(id string) Event { return Event{Kind: KindSchedule, Key: id} })...)
 
 	return events, nil
 }
 
-func (f *fakeReader) Snapshot(context.Context) (Snapshot, error) {
+func (f *fakeReader) Snapshot(context.Context) ([]*watchv1.Row, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -108,13 +111,13 @@ func TestTouchesPileUpBehindOneRead(t *testing.T) {
 	broker.touch(store.TableSchedules, "s")
 	close(reader.held)
 
-	require.Equal(t, "held", receive(t, subscription).ID)
+	require.Equal(t, "held", receive(t, subscription).Key)
 	events := []Event{receive(t, subscription), receive(t, subscription), receive(t, subscription), receive(t, subscription)}
 
-	require.Equal(t, Touched{Agents: []string{"a", "b"}, Workflows: []string{"w"}, Schedules: []string{"s"}}, reader.getReads()[1])
-	require.Equal(t, []string{"a", "b", "w", "s"}, []string{events[0].ID, events[1].ID, events[2].ID, events[3].ID})
-	require.NotNil(t, events[0].Agent)
-	require.Nil(t, events[2].Workflow, "a row the reader did not render is a tombstone")
+	require.Equal(t, Touched{KindAgent: []string{"a", "b"}, KindWorkflow: []string{"w"}, KindSchedule: []string{"s"}}, reader.getReads()[1])
+	require.Equal(t, []string{"a", "b", "w", "s"}, []string{events[0].Key, events[1].Key, events[2].Key, events[3].Key})
+	require.NotNil(t, events[0].Row)
+	require.Nil(t, events[2].Row, "a row the reader did not render is a tombstone")
 }
 
 // TestNothingIsReadWithoutAWatcher pins that the broker costs nothing while nobody watches.
@@ -136,26 +139,25 @@ func TestSubscriptionOpensWithTheSnapshot(t *testing.T) {
 
 	first, err := broker.Subscribe(t.Context())
 	require.NoError(t, err)
-	require.Empty(t, first.Snapshot().Agents)
+	require.Empty(t, first.Snapshot())
 
 	broker.touch(store.TableAgents, "a")
-	require.Equal(t, "a", receive(t, first).ID)
+	require.Equal(t, "a", receive(t, first).Key)
 
 	reader.mu.Lock()
-	reader.snapshot = Snapshot{
-		Agents:    []*agentv1.Agent{{Id: "a"}},
-		Workflows: []*workflowv1.Workflow{{Id: "w"}},
+	reader.snapshot = []*watchv1.Row{
+		{Row: &watchv1.Row_Agent{Agent: &agentv1.Agent{Id: "a"}}},
+		{Row: &watchv1.Row_Workflow{Workflow: &workflowv1.Workflow{Id: "w"}}},
 	}
 	reader.mu.Unlock()
 
 	second, err := broker.Subscribe(t.Context())
 	require.NoError(t, err)
-	require.Len(t, second.Snapshot().Agents, 1)
-	require.Len(t, second.Snapshot().Workflows, 1)
+	require.Len(t, second.Snapshot(), 2)
 
 	broker.touch(store.TableAgents, "a")
-	require.Equal(t, "a", receive(t, first).ID)
-	require.Equal(t, "a", receive(t, second).ID)
+	require.Equal(t, "a", receive(t, first).Key)
+	require.Equal(t, "a", receive(t, second).Key)
 }
 
 // TestATouchDuringTheSnapshotLandsAfterIt pins the ordering a snapshot relies on: a touch
@@ -177,10 +179,10 @@ func TestATouchDuringTheSnapshotLandsAfterIt(t *testing.T) {
 	broker.touch(store.TableAgents, "b")
 	close(reader.held)
 
-	require.Equal(t, "a", receive(t, first).ID)
-	require.Equal(t, "a", receive(t, second).ID, "a render in flight as a watcher subscribes reaches it")
-	require.Equal(t, "b", receive(t, first).ID)
-	require.Equal(t, "b", receive(t, second).ID)
+	require.Equal(t, "a", receive(t, first).Key)
+	require.Equal(t, "a", receive(t, second).Key, "a render in flight as a watcher subscribes reaches it")
+	require.Equal(t, "b", receive(t, first).Key)
+	require.Equal(t, "b", receive(t, second).Key)
 }
 
 // TestASlowWatcherIsDropped pins that a watcher that stops reading is closed rather than
@@ -257,9 +259,9 @@ func TestAFailedReadIsRetriedWithTheNextOne(t *testing.T) {
 	reader.mu.Unlock()
 
 	broker.touch(store.TableAgents, "b")
-	assert.Equal(t, "a", receive(t, subscription).ID, "the touch the failed read lost comes back")
-	assert.Equal(t, "b", receive(t, subscription).ID)
-	assert.Equal(t, Touched{Agents: []string{"a", "b"}}, reader.getReads()[1], "one read serves both")
+	assert.Equal(t, "a", receive(t, subscription).Key, "the touch the failed read lost comes back")
+	assert.Equal(t, "b", receive(t, subscription).Key)
+	assert.Equal(t, Touched{KindAgent: []string{"a", "b"}}, reader.getReads()[1], "one read serves both")
 }
 
 // TestClosingASubscriptionEndsItsStream pins that a watcher leaving closes its stream and, as
@@ -310,6 +312,6 @@ func TestHearReadsTheTableAndTheKey(t *testing.T) {
 	broker.hear("agents")
 	broker.hear("agents a b")
 
-	require.Equal(t, "a b", receive(t, subscription).ID, "the key runs to the end of the payload")
-	require.Equal(t, []Touched{{Agents: []string{"a b"}}}, reader.getReads())
+	require.Equal(t, "a b", receive(t, subscription).Key, "the key runs to the end of the payload")
+	require.Equal(t, []Touched{{KindAgent: []string{"a b"}}}, reader.getReads())
 }

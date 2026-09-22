@@ -186,6 +186,23 @@ message Agent {
   string held_at = 35;
   // Where the pull request opened from its branch stands.
   PullRequestStanding pull_request = 38;
+  // Whether the pull request sync has swept its repository.
+  bool repository_read = 39;
+}
+
+// AgentRow is an agent with what is drawn beside it: its mark, its waiting mail and the pull
+// requests on its branch, assembled from those resources.
+message AgentRow {
+  // The agent itself.
+  Agent agent = 1;
+  // The letter a person jumps to it by in the panel, if it holds one.
+  optional string mark = 2;
+  // Whether mail is waiting that it has not taken.
+  bool unread_mail = 3;
+  // Where the pull request opened from its branch stands.
+  PullRequestStanding pull_request = 4;
+  // Every pull request opened from its branch, the current one first.
+  repeated pullrequest.v1.PullRequest pull_requests = 5;
 }
 
 message PullRequestStanding {
@@ -223,8 +240,8 @@ message ListAgentsRequest {
 }
 
 message ListAgentsResponse {
-  // One page of agents, most recently updated first.
-  repeated Agent agents = 1;
+  // One page of agents, newest first, each with what is drawn beside it.
+  repeated AgentRow agents = 1;
   // Pass this back as the pagination cursor for the next page.
   optional string next_page_token = 2;
 }
@@ -372,8 +389,8 @@ message GetAgentRequest {
 }
 
 message GetAgentResponse {
-  // The agent, with its prompt whole rather than cut to its opening.
-  Agent agent = 1;
+  // The agent with what is drawn beside it, its prompt whole rather than cut to its opening.
+  AgentRow agent = 1;
 }
 
 // PlanRebaseRequest asks what a rebase would do without doing it, which is what the

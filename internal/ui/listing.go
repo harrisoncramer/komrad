@@ -75,7 +75,7 @@ func (m model) listCmd() tea.Cmd {
 		if withArchive {
 			wg.Go(func() {
 				listed, err := client.ListAllArchivedAgents(ctx, clients.agents)
-				result.archived, result.archivedErr = agentItemsFrom(listed), err
+				result.archived, result.archivedErr = agentRowsFrom(listed), err
 			})
 			wg.Go(func() {
 				listed, err := client.ListAllArchivedWorkflows(ctx, clients.workflows)

@@ -269,10 +269,12 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		loadConfig: loadConfig,
 		rows:       rowReader,
 		watchRows: rpcwatch.NewRows(rpcwatch.NewRowsParams{
-			Agents:    rowReader,
-			Workflows: st.workflows,
-			Schedules: st.schedules,
-			Marks:     markService,
+			Agents:       rowReader,
+			Workflows:    st.workflows,
+			Schedules:    st.schedules,
+			Marks:        st.marks,
+			Mail:         st.mail,
+			PullRequests: st.pullRequests,
 		}),
 		rowWriter: agents.NewRowWriter(agents.NewRowWriterParams{
 			Agents:     st.agents,
