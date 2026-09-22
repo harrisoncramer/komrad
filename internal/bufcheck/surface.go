@@ -12,8 +12,8 @@ import (
 )
 
 // checkSurfaces holds every method to the one way of saying who reaches it: the annotation is
-// present, a tool never lacks a command, a surface that is on has a name and a description,
-// and a surface that is off has a reason.
+// present, a tool never lacks a command, a surface that is on has a name and a description, a
+// tool names the roles it is served to, and a surface that is off has a reason.
 func checkSurfaces(
 	_ context.Context,
 	responseWriter check.ResponseWriter,
@@ -58,6 +58,14 @@ func checkSurfaces(
 			check.WithDescriptor(method),
 			check.WithMessagef(
 				"%q is on a surface with no description. That string is the whole of what a model is told about the call and all the help the CLI prints, so without it the method reaches its callers as a name and nothing else.",
+				method.Name(),
+			),
+		)
+	case surfaces.GetMcp() && len(surfaces.GetRoles()) == 0:
+		responseWriter.AddAnnotation(
+			check.WithDescriptor(method),
+			check.WithMessagef(
+				"%q is offered as a tool without naming the roles it is served to. A tool list is the largest fixed cost in an agent's context, so every tool says which of ROLE_IMPLEMENTER, ROLE_REVIEWER and ROLE_ORCHESTRATOR it is for; name all three where it is for all three.",
 				method.Name(),
 			),
 		)

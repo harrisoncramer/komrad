@@ -9,6 +9,7 @@ package rpcapi
 
 import (
 	"iter"
+	"slices"
 
 	agentv1 "weave/proto/gen/agent/v1"
 	annotationv1 "weave/proto/gen/annotation/v1"
@@ -126,6 +127,16 @@ func IsIdempotent(method protoreflect.MethodDescriptor, surfaces *annotationv1.S
 	level := getIdempotencyLevel(method)
 
 	return level == descriptorpb.MethodOptions_IDEMPOTENT || level == descriptorpb.MethodOptions_NO_SIDE_EFFECTS
+}
+
+// ServesRole reports whether a tool is offered to a caller holding the role, every tool being
+// offered to a caller holding none.
+func ServesRole(surfaces *annotationv1.Surfaces, role annotationv1.Role) bool {
+	if role == annotationv1.Role_ROLE_UNSPECIFIED {
+		return true
+	}
+
+	return slices.Contains(surfaces.GetRoles(), role)
 }
 
 // EnumNames is what an enum's values are spelled with where a caller has to name one, leaving

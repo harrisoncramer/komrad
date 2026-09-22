@@ -38,6 +38,14 @@ The other half is the panel's own RPCs as tools. Each call goes back out over lo
 
 Agents use the tools to change things, as they allow writes, and the general SQL engine when the question is an aggregate or a join: how many agents in each workflow are still thinking, which of my children recorded a pull request URL, and so forth.
 
+## Who is served what
+
+Every tool declares which agent roles it is offered to, in the same `surfaces` annotation that says whether it reaches the CLI at all. Naming them is required rather than defaulted, and `buf lint` refuses a tool that leaves them out, so a tool added later is a decision about who carries it rather than a silent addition to everybody. The caller names itself on every request through `X-Weave-Agent-Id`, so the server reads its role and hands it that role's tools.
+
+A reviewer gets the tools for reading work and writing a review, and not `request_review`. An implementer gets the tools for getting its own work read and answering what comes back, and not the review-writing half or the panel's administration: workflows, schedules, rebases, worktrees, forges, and the agent lifecycle. An orchestrator gets everything but the review-writing half and `request_review`, since it writes no code and reviews nothing.
+
+The point is what a tool list costs. The whole surface is 62 tools and around 13,000 tokens, standing in every agent's context from its first turn; an implementer is served 22 of them and a reviewer 24, which is around 6,000. A caller weave cannot place, such as a person who registered the server by hand with `claude mcp add`, is served every tool, and none of this reaches `weave rpc`, where a person running a command holds no role.
+
 ## The read-only role
 
 The `query` tool connects as a least-privilege Postgres role, `weave_readonly` on the same database weave writes to.

@@ -27,14 +27,14 @@ type rpcTools struct {
 	client  *http.Client
 }
 
-func registerRPCTools(server *mcpsdk.Server, baseURL string) error {
+func registerRPCTools(server *mcpsdk.Server, baseURL string, role annotationv1.Role) error {
 	tools := &rpcTools{
 		baseURL: strings.TrimSuffix(baseURL, "/"),
 		client:  xhttp.NewClientOver(caller.Transport(xhttp.NewTransport()), callTimeout),
 	}
 
 	for exposed := range rpcapi.GetMethods() {
-		if !exposed.Surfaces.GetMcp() {
+		if !exposed.Surfaces.GetMcp() || !rpcapi.ServesRole(exposed.Surfaces, role) {
 			continue
 		}
 

@@ -78,6 +78,9 @@ const (
 	RoleOrchestrator Role = Role(models.AgentRoleOrchestrator)
 )
 
+// Roles is every role an agent may hold.
+var Roles = []Role{RoleImplementer, RoleReviewer, RoleOrchestrator}
+
 // orDefault is the role an agent that names none is given.
 func (r Role) orDefault() Role {
 	if r == "" {

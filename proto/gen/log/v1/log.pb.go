@@ -373,11 +373,11 @@ const file_log_v1_log_proto_rawDesc = "" +
 	"\x05limit\x18\x01 \x01(\x05B\n" +
 	"\xbaH\a\x1a\x05\x18\xc8\x01(\x00R\x05limit\"H\n" +
 	"\x18ListRecentTracesResponse\x12,\n" +
-	"\x06traces\x18\x01 \x03(\v2\x14.log.v1.TraceSummaryR\x06traces2\xa6\x06\n" +
+	"\x06traces\x18\x01 \x03(\v2\x14.log.v1.TraceSummaryR\x06traces2\xac\x06\n" +
 	"\n" +
-	"LogService\x12\xab\x03\n" +
-	"\vGetLogLines\x12\x1a.log.v1.GetLogLinesRequest\x1a\x1b.log.v1.GetLogLinesResponse\"\xe2\x02\x9a\xb5\x18\xda\x02\b\x01\x10\x01\x1a\rget_log_lines\"\xc4\x02Read every log line the service wrote under one trace id, in order. A trace id covers one request end to end or one pass of a background loop; the service answers it on any call that failed, and it is on every line in the log. This is how to find out what happened behind a failure, on whichever engine the call was made to.\x90\x02\x01\x12\xe9\x02\n" +
-	"\x10ListRecentTraces\x12\x1f.log.v1.ListRecentTracesRequest\x1a .log.v1.ListRecentTracesResponse\"\x91\x02\x9a\xb5\x18\x89\x02\b\x01\x10\x01\x1a\x12list_recent_traces\"\xee\x01List the traces the service's log ends with, oldest first, each with when it started, what it was about and how many lines it holds. Start here when you know what you did but not what it was called, then read its lines with get_log_lines.\x90\x02\x01B\x1eZ\x1cweave/proto/gen/log/v1;logv1b\x06proto3"
+	"LogService\x12\xae\x03\n" +
+	"\vGetLogLines\x12\x1a.log.v1.GetLogLinesRequest\x1a\x1b.log.v1.GetLogLinesResponse\"\xe5\x02\x9a\xb5\x18\xdd\x02\b\x01\x10\x01\x1a\rget_log_lines\"\xc4\x02Read every log line the service wrote under one trace id, in order. A trace id covers one request end to end or one pass of a background loop; the service answers it on any call that failed, and it is on every line in the log. This is how to find out what happened behind a failure, on whichever engine the call was made to.B\x01\x03\x90\x02\x01\x12\xec\x02\n" +
+	"\x10ListRecentTraces\x12\x1f.log.v1.ListRecentTracesRequest\x1a .log.v1.ListRecentTracesResponse\"\x94\x02\x9a\xb5\x18\x8c\x02\b\x01\x10\x01\x1a\x12list_recent_traces\"\xee\x01List the traces the service's log ends with, oldest first, each with when it started, what it was about and how many lines it holds. Start here when you know what you did but not what it was called, then read its lines with get_log_lines.B\x01\x03\x90\x02\x01B\x1eZ\x1cweave/proto/gen/log/v1;logv1b\x06proto3"
 
 var (
 	file_log_v1_log_proto_rawDescOnce sync.Once

@@ -65,6 +65,7 @@ service LogService {
       mcp: true
       name: "get_log_lines"
       description: "Read every log line the service wrote under one trace id, in order. A trace id covers one request end to end or one pass of a background loop; the service answers it on any call that failed, and it is on every line in the log. This is how to find out what happened behind a failure, on whichever engine the call was made to."
+      roles: [ROLE_ORCHESTRATOR]
     };
   }
   rpc ListRecentTraces(ListRecentTracesRequest) returns (ListRecentTracesResponse) {
@@ -74,6 +75,7 @@ service LogService {
       mcp: true
       name: "list_recent_traces"
       description: "List the traces the service's log ends with, oldest first, each with when it started, what it was about and how many lines it holds. Start here when you know what you did but not what it was called, then read its lines with get_log_lines."
+      roles: [ROLE_ORCHESTRATOR]
     };
   }
 }

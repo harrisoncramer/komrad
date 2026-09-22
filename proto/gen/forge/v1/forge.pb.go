@@ -502,12 +502,12 @@ const file_forge_v1_forge_proto_rawDesc = "" +
 	"ForgeCheck\x12%\n" +
 	"\x05forge\x18\x01 \x01(\v2\x0f.forge.v1.ForgeR\x05forge\x12\x18\n" +
 	"\aproblem\x18\x02 \x01(\tR\aproblem\x12!\n" +
-	"\fproblem_kind\x18\x03 \x01(\tR\vproblemKind2\xe8\t\n" +
+	"\fproblem_kind\x18\x03 \x01(\tR\vproblemKind2\xee\t\n" +
 	"\fForgeService\x12\xd6\x02\n" +
-	"\fConnectForge\x12\x1d.forge.v1.ConnectForgeRequest\x1a\x1e.forge.v1.ConnectForgeResponse\"\x86\x02\x9a\xb5\x18\x81\x02:\xfe\x01weave forge connect is the one caller, reading the token from stdin or a file. A generated command would take it as an argument, which every process on the machine can read, and a model handed one would be holding a credential it has no business holding.\x12\xe8\x02\n" +
+	"\fConnectForge\x12\x1d.forge.v1.ConnectForgeRequest\x1a\x1e.forge.v1.ConnectForgeResponse\"\x86\x02\x9a\xb5\x18\x81\x02:\xfe\x01weave forge connect is the one caller, reading the token from stdin or a file. A generated command would take it as an argument, which every process on the machine can read, and a model handed one would be holding a credential it has no business holding.\x12\xeb\x02\n" +
 	"\n" +
-	"ListForges\x12\x16.google.protobuf.Empty\x1a\x1c.forge.v1.ListForgesResponse\"\xa3\x02\x9a\xb5\x18\x9b\x02\b\x01\x10\x01\x1a\vlist_forges\"\x87\x02List the forges weave is connected to, one per host, with who weave acts as there and when the forge last confirmed it. The token itself is never returned. A connection is made by a person with weave forge connect and is what the pull request sweep reads through.\x90\x02\x01\x12\xb1\x02\n" +
-	"\vCheckForges\x12\x16.google.protobuf.Empty\x1a\x1d.forge.v1.CheckForgesResponse\"\xea\x01\x9a\xb5\x18\xe5\x01\b\x01\x10\x01\x1a\fcheck_forges\"\xce\x01Ask every connected forge whether its credential still works, the way its method allows, and record the answer on each connection. A refusal marks the connection as refused until a person connects it again.(\x00\x12\xdf\x01\n" +
+	"ListForges\x12\x16.google.protobuf.Empty\x1a\x1c.forge.v1.ListForgesResponse\"\xa6\x02\x9a\xb5\x18\x9e\x02\b\x01\x10\x01\x1a\vlist_forges\"\x87\x02List the forges weave is connected to, one per host, with who weave acts as there and when the forge last confirmed it. The token itself is never returned. A connection is made by a person with weave forge connect and is what the pull request sweep reads through.B\x01\x03\x90\x02\x01\x12\xb4\x02\n" +
+	"\vCheckForges\x12\x16.google.protobuf.Empty\x1a\x1d.forge.v1.CheckForgesResponse\"\xed\x01\x9a\xb5\x18\xe8\x01\b\x01\x10\x01\x1a\fcheck_forges\"\xce\x01Ask every connected forge whether its credential still works, the way its method allows, and record the answer on each connection. A refusal marks the connection as refused until a person connects it again.(\x00B\x01\x03\x12\xdf\x01\n" +
 	"\x0fDisconnectForge\x12 .forge.v1.DisconnectForgeRequest\x1a\x16.google.protobuf.Empty\"\x91\x01\x9a\xb5\x18\x8c\x01\b\x01\x1a\x10disconnect_forge\"8Forget a forge and the credential it was connected with.:<A person gave the credential and is the one to take it away.B\"Z weave/proto/gen/forge/v1;forgev1b\x06proto3"
 
 var (

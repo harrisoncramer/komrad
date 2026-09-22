@@ -15,6 +15,7 @@ service SurfaceService {
       mcp: true
       name: "everyone"
       description: "Reachable from a model and from a script."
+      roles: [ROLE_IMPLEMENTER, ROLE_REVIEWER, ROLE_ORCHESTRATOR]
     };
   }
   rpc ScriptOnly(Request) returns (Response) {
@@ -69,7 +70,16 @@ service SurfaceService {
       mcp: true
       name: "apologetic"
       description: "On every surface."
+      roles: [ROLE_IMPLEMENTER, ROLE_REVIEWER, ROLE_ORCHESTRATOR]
       reason: "Explains an omission that is not there."
+    };
+  }
+  rpc Roleless(Request) returns (Response) {
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: true
+      name: "roleless"
+      description: "A tool that does not say who carries it."
     };
   }
 }
