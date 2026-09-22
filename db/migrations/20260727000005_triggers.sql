@@ -1,23 +1,5 @@
-SET LOCAL lock_timeout = '5s';
-
-DO $$
-DECLARE
-    stale record;
-BEGIN
-    FOR stale IN
-    SELECT
-        tgname,
-        tgrelid::regclass AS target
-    FROM
-        pg_trigger
-    WHERE
-        NOT tgisinternal
-        AND tgfoid IN ('watch_notify'::regproc, 'watch_project'::regproc, 'watch_project_lookup'::regproc)
-        LOOP
-            EXECUTE FORMAT('DROP TRIGGER %I ON %s', stale.tgname, stale.target);
-        END LOOP;
-END;
-$$;
+SELECT
+    attach_updated_at_triggers();
 
 CREATE TRIGGER watch_notify AFTER INSERT OR UPDATE OR DELETE ON agents FOR EACH ROW EXECUTE FUNCTION watch_notify();
 CREATE TRIGGER watch_project_agents AFTER INSERT OR UPDATE OR DELETE ON agent_metadata FOR EACH ROW EXECUTE FUNCTION watch_project('agents', 'agent_id');
