@@ -218,10 +218,10 @@ func (*WatchEvent_Deleted) isWatchEvent_Event() {}
 
 func (*WatchEvent_Heartbeat) isWatchEvent_Event() {}
 
-// Snapshot is every watched set whole, each in the order its list RPC answers.
+// Snapshot is every watched set.
 type Snapshot struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Every row, one resource after another.
+	// Every row in the snapshot.
 	Rows          []*Row `protobuf:"bytes,1,rep,name=rows,proto3" json:"rows,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

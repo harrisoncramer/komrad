@@ -1,7 +1,6 @@
 package watch
 
 import (
-	"strings"
 	"time"
 
 	"weave/internal/rpc/render"
@@ -19,7 +18,6 @@ import (
 	workflowv1 "weave/proto/gen/workflow/v1"
 
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 // Resource is one table the watch carries the rows of.
@@ -28,16 +26,9 @@ type Resource struct {
 	Table string
 	// Enum is the value the wire sends the row under.
 	Enum watchv1.Resource
-	// Message is the proto message one row is drawn as.
-	Message protoreflect.MessageDescriptor
 	// Projects is the tables rendered onto this one, whose writes move it.
 	Projects []Projection
 	bind     func(Stores, func() time.Time) arm
-}
-
-// Plural is the table's name in camel case.
-func (r Resource) Plural() string {
-	return camel(r.Table)
 }
 
 // Projection is one table rendered onto a resource, and how a row of it finds the resource it
@@ -178,12 +169,9 @@ type message interface {
 // newResource is one entry of the list: the store its rows are read from, the renderer that
 // draws them and the Row arm they fill.
 func newResource[R any, M message](params newResourceParams[R, M]) Resource {
-	var message M
-
 	return Resource{
 		Table:    params.Table,
 		Enum:     params.Enum,
-		Message:  message.ProtoReflect().Descriptor(),
 		Projects: params.Projects,
 		bind: func(stores Stores, now func() time.Time) arm {
 			draw := params.Draw
@@ -198,18 +186,4 @@ func newResource[R any, M message](params newResourceParams[R, M]) Resource {
 			})
 		},
 	}
-}
-
-// camel turns pull_requests into PullRequests.
-func camel(table string) string {
-	var b strings.Builder
-	for word := range strings.SplitSeq(table, "_") {
-		if word == "" {
-			continue
-		}
-
-		b.WriteString(strings.ToUpper(word[:1]) + word[1:])
-	}
-
-	return b.String()
 }

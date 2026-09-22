@@ -57,7 +57,8 @@ func TestTouchesPileUpBehindOneRead(t *testing.T) {
 	broker.touch("agents", "held")
 	require.Eventually(t, func() bool { return len(stores.agents.reads()) == 1 }, time.Second, time.Millisecond)
 
-	broker.touch("agents", "b", "a")
+	broker.touch("agents", "b")
+	broker.touch("agents", "a")
 	broker.touch("agents", "a")
 	broker.touch("workflows", "w")
 	broker.touch("schedules", "s")
@@ -191,7 +192,9 @@ func TestASlowWatcherIsDropped(t *testing.T) {
 		}
 		stores.agents.put(rows...)
 
-		broker.touch("agents", ids...)
+		for _, id := range ids {
+			broker.touch("agents", id)
+		}
 		time.Sleep(settle)
 	}
 

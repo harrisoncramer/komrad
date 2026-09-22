@@ -10,11 +10,11 @@ import (
 	watchv1 "weave/proto/gen/watch/v1"
 )
 
-// Touched is the keys one render reads back, by resource, each resource's in order.
-type Touched map[watchv1.Resource][]string
+// touchedKeys is the keys one render reads back, by resource, each resource's in order.
+type touchedKeys map[watchv1.Resource][]string
 
-// touch says the rows of a table with these keys may have moved.
-func (b *Broker) touch(table string, keys ...string) {
+// touch says the row of a table with this key may have moved.
+func (b *Broker) touch(table, key string) {
 	res, ok := resourcesByTable[table]
 	if !ok {
 		b.reportUnknown(table)
@@ -22,7 +22,7 @@ func (b *Broker) touch(table string, keys ...string) {
 		return
 	}
 
-	b.touchResource(res, keys)
+	b.touchResource(res, []string{key})
 }
 
 // reportUnknown says once that a table nothing reads is still announcing itself.
@@ -42,10 +42,6 @@ func (b *Broker) reportUnknown(table string) {
 }
 
 func (b *Broker) touchResource(res watchv1.Resource, keys []string) {
-	if len(keys) == 0 {
-		return
-	}
-
 	b.pendingMu.Lock()
 	defer b.pendingMu.Unlock()
 
@@ -70,11 +66,11 @@ func (b *Broker) touchResource(res watchv1.Resource, keys []string) {
 }
 
 // take empties the pending set and returns it with each resource's keys in order.
-func (b *Broker) take() Touched {
+func (b *Broker) take() touchedKeys {
 	b.pendingMu.Lock()
 	defer b.pendingMu.Unlock()
 
-	touched := Touched{}
+	touched := touchedKeys{}
 	for res, keys := range b.pending {
 		touched[res] = slices.Sorted(maps.Keys(keys))
 	}
@@ -84,7 +80,7 @@ func (b *Broker) take() Touched {
 }
 
 // restore puts the keys a failed render took back for the next one.
-func (b *Broker) restore(touched Touched) {
+func (b *Broker) restore(touched touchedKeys) {
 	for res, keys := range touched {
 		b.touchResource(res, keys)
 	}

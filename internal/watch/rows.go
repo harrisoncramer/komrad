@@ -108,7 +108,7 @@ func newArm[R any](store reader[R], draw func(R) (string, *watchv1.Row)) arm {
 
 // Read renders each touched key as its row, or as a tombstone when its watched set no longer
 // holds it, resource by resource.
-func (r *Rows) Read(ctx context.Context, touched Touched) ([]Change, error) {
+func (r *Rows) Read(ctx context.Context, touched touchedKeys) ([]Change, error) {
 	var changes []Change
 	for _, res := range slices.Sorted(maps.Keys(touched)) {
 		keys := touched[res]

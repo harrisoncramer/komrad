@@ -144,7 +144,7 @@ func TestReadAnswersARowOrATombstoneForEveryTouchedKey(t *testing.T) {
 		Enabled: true,
 	})
 
-	changes, err := newRows(stores).Read(t.Context(), Touched{
+	changes, err := newRows(stores).Read(t.Context(), touchedKeys{
 		watchv1.Resource_RESOURCE_AGENT:        []string{"a1", "a2"},
 		watchv1.Resource_RESOURCE_WORKFLOW:     []string{"w1", "w2"},
 		watchv1.Resource_RESOURCE_SCHEDULE:     []string{"s1", "s2"},
@@ -173,7 +173,7 @@ func TestReadAnswersARowOrATombstoneForEveryTouchedKey(t *testing.T) {
 
 // TestReadOfNothingReadsNothing pins that an empty touch costs no query.
 func TestReadOfNothingReadsNothing(t *testing.T) {
-	changes, err := newRows(newStores()).Read(t.Context(), Touched{})
+	changes, err := newRows(newStores()).Read(t.Context(), touchedKeys{})
 	require.NoError(t, err)
 	assert.Empty(t, changes)
 }
@@ -225,7 +225,6 @@ func TestEveryResourceIsDeclaredWhole(t *testing.T) {
 	for _, r := range declared {
 		t.Run(r.Table, func(t *testing.T) {
 			assert.NotEqual(t, watchv1.Resource_RESOURCE_UNSPECIFIED, r.Enum, "no enum value")
-			require.NotNil(t, r.Message, "no message")
 
 			bound := r.bind(storesFor(stores), fixedClock)
 			snapshot, err := drawn(t, r, func() ([]Change, error) { return bound.snapshot(t.Context()) })

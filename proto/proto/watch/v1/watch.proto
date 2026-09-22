@@ -28,9 +28,9 @@ message WatchEvent {
   }
 }
 
-// Snapshot is every watched set whole, each in the order its list RPC answers.
+// Snapshot is every watched set.
 message Snapshot {
-  // Every row, one resource after another.
+  // Every row in the snapshot.
   repeated Row rows = 1;
 }
 
