@@ -15,15 +15,31 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestEveryResourceNamesItsKeyColumn pins that no resource leaves its trigger without a key to notify under.
-func TestEveryResourceNamesItsKeyColumn(t *testing.T) {
-	for _, resource := range All() {
-		assert.NotEmpty(t, resource.KeyColumn, "%s names no key column", resource.Table)
+// TestEveryDeclaredColumnIsInTheSchema pins that every column a resource names exists on its table.
+func TestEveryDeclaredColumnIsInTheSchema(t *testing.T) {
+	st, err := store.Open(t.Context(), dbtest.URL(t))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = st.Close() })
+
+	rows, err := st.GetRawPool().Query(t.Context(), `SELECT table_name::text || '.' || column_name::text FROM information_schema.columns WHERE table_schema = 'public'`)
+	require.NoError(t, err)
+	defer rows.Close()
+
+	migrated := map[string]bool{}
+	for rows.Next() {
+		var column string
+		require.NoError(t, rows.Scan(&column))
+		migrated[column] = true
+	}
+	require.NoError(t, rows.Err())
+
+	for _, column := range listDeclaredColumns(All()) {
+		assert.True(t, migrated[column], "%s is declared but not in the schema", column)
 	}
 }
 
 // TestTheMigratedTriggersAreTheDeclaredOnes pins that the schema carries exactly the triggers the
-// resources declare, so a resource changed without a watch migration fails here.
+// resources declare.
 func TestTheMigratedTriggersAreTheDeclaredOnes(t *testing.T) {
 	st, err := store.Open(t.Context(), dbtest.URL(t))
 	require.NoError(t, err)
@@ -67,4 +83,30 @@ func TestTheMigratedTriggersAreTheDeclaredOnes(t *testing.T) {
 
 func spellTrigger(trigger watch.Trigger) string {
 	return trigger.Table + "." + trigger.Name + " " + trigger.Function + "(" + strings.Join(trigger.Args, ", ") + ")"
+}
+
+func listDeclaredColumns(resources []watch.Resource) []string {
+	var columns []string
+	named := func(table, column string) {
+		if column != "" {
+			columns = append(columns, table+"."+column)
+		}
+	}
+	for _, resource := range resources {
+		named(resource.Table, resource.KeyColumn)
+		for _, ignored := range resource.IgnoredColumns {
+			named(resource.Table, ignored)
+		}
+		for _, feeder := range resource.Feeders {
+			named(feeder.Table, feeder.Column)
+			if lookup := feeder.Lookup; lookup != nil {
+				named(resource.Table, lookup.ParentColumn)
+				named(resource.Table, lookup.SkipParentsWith)
+				named(feeder.Table, lookup.ChildColumn)
+				named(feeder.Table, lookup.OnChangeOf)
+			}
+		}
+	}
+
+	return columns
 }
