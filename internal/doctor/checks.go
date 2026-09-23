@@ -33,6 +33,7 @@ func EngineChecks(settings Settings) []Check {
 		newDatabaseCheck(),
 		newBasesCheck(),
 		newSchemaCheck(),
+		newTenantCheck(),
 		newReadOnlyLoginCheck(),
 		newOrphanedWorktreesCheck(),
 	}

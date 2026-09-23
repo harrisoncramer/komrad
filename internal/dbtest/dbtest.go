@@ -6,6 +6,7 @@ import (
 	"context"
 	"testing"
 
+	"weave/config"
 	"weave/db"
 	"weave/internal/pgtest"
 
@@ -40,7 +41,7 @@ func Pool(t *testing.T) *pgxpool.Pool {
 
 	cfg, err := pgxpool.ParseConfig(URL(t))
 	require.NoError(t, err)
-	db.ScopeToTenant(cfg, db.DefaultTenantID)
+	db.ScopeToTenant(cfg, config.DefaultTenantID)
 
 	pool, err := pgxpool.NewWithConfig(t.Context(), cfg)
 	require.NoError(t, err)

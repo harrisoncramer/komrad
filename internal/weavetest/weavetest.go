@@ -150,6 +150,7 @@ func Start(t *testing.T, p Params) *Instance {
 	env := &config.Environment{
 		DatabaseURL:         stores.URL,
 		ReadOnlyDatabaseURL: stores.ReadOnlyURL,
+		TenantID:            config.DefaultTenantID,
 		Addr:                addr,
 		TmuxSocket:          tmuxServer.Socket(),
 		CacheDir:            cacheDir,
@@ -185,6 +186,7 @@ func Start(t *testing.T, p Params) *Instance {
 			Harnesses:           describedHarnesses,
 			DatabaseURL:         env.DatabaseURL,
 			ReadOnlyDatabaseURL: env.ReadOnlyDatabaseURL,
+			TenantID:            env.TenantID,
 			Addr:                addr,
 		},
 	})

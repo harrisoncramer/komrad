@@ -91,6 +91,7 @@ func TestChecksMakesEveryCheckOnce(t *testing.T) {
 		"database",
 		"bases",
 		"schema",
+		"tenant",
 		"readonly login",
 		"orphaned worktrees",
 		"claude",

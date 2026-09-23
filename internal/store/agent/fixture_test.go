@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"weave/config"
 	"weave/internal/dbtest"
 	"weave/internal/store"
 	workflowstore "weave/internal/store/workflow"
@@ -63,7 +64,7 @@ func open(t *testing.T) *fixture {
 
 func pool(t *testing.T) *store.Pool {
 	t.Helper()
-	p, err := store.Open(t.Context(), dbtest.URL(t))
+	p, err := store.Open(t.Context(), dbtest.URL(t), config.DefaultTenantID)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = p.Close() })
 

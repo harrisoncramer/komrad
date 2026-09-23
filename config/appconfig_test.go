@@ -18,6 +18,7 @@ func clearConnectionEnvironment(t *testing.T) {
 	for _, name := range []string{
 		"WEAVE_DATABASE_URL",
 		"WEAVE_READONLY_DATABASE_URL",
+		"WEAVE_TENANT_ID",
 		"WEAVE_ADDR",
 		"WEAVE_TMUX_SOCKET",
 		"WEAVE_CACHE_DIR",
@@ -646,6 +647,23 @@ func TestLoadConnectionPrecedence(t *testing.T) {
 
 	assert.Equal(t, "127.0.0.3:3", cfg.Connection.Addr)
 	assert.Equal(t, SourceEnvironment, report.Sources["addr"])
+}
+
+// TestLoadTakesTheTenantFromTheEnvironment pins WEAVE_TENANT_ID winning over the file, as every
+// other connection setting's variable does.
+func TestLoadTakesTheTenantFromTheEnvironment(t *testing.T) {
+	clearConnectionEnvironment(t)
+	path := filepath.Join(t.TempDir(), "config.toml")
+	require.NoError(t, os.WriteFile(path, []byte(
+		"[connection]\ntenant_id = \"01990000-0000-7000-8000-000000000001\"\n",
+	), 0o644))
+	t.Setenv("WEAVE_TENANT_ID", "01990000-0000-7000-8000-000000000002")
+
+	cfg, report, err := LoadWithReport(Stack{Paths: []string{path}})
+	require.NoError(t, err)
+
+	assert.Equal(t, "01990000-0000-7000-8000-000000000002", cfg.Connection.TenantID)
+	assert.Equal(t, SourceEnvironment, report.Sources["tenant_id"])
 }
 
 // TestLoadDerivesConnectionValuesAfterPrecedence pins that a derived value is worked out from

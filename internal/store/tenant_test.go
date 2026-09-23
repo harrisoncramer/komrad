@@ -3,7 +3,7 @@ package store
 import (
 	"testing"
 
-	"weave/db"
+	"weave/config"
 	"weave/db/models"
 	"weave/db/testmodels"
 	"weave/internal/dbtest"
@@ -34,10 +34,10 @@ func TestTenantStampedFromTheConnection(t *testing.T) {
 	ctx := t.Context()
 	pool := open(ctx, t)
 
-	config, err := models.New(pool.GetDB()).InsertWorkflowConfig(ctx, models.InsertWorkflowConfigParams{Harness: "claude"})
+	created, err := models.New(pool.GetDB()).InsertWorkflowConfig(ctx, models.InsertWorkflowConfigParams{Harness: "claude"})
 	require.NoError(t, err)
 
-	assert.Equal(t, db.DefaultTenantID, config.TenantID)
+	assert.Equal(t, config.DefaultTenantID, created.TenantID)
 }
 
 // TestUnscopedInsertRefused pins a connection that never set its tenant being unable to write.
@@ -55,4 +55,33 @@ func TestUnscopedInsertRefused(t *testing.T) {
 	require.ErrorAs(t, err, &pgErr)
 	assert.Equal(t, "23502", pgErr.Code)
 	assert.Equal(t, "tenant_id", pgErr.ColumnName)
+}
+
+// TestOpenRecordsItsTenant pins an engine with a tenant of its own being able to write on first
+// start, the tenant's row existing before any row points at it.
+func TestOpenRecordsItsTenant(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+	tenantID, err := NewID()
+	require.NoError(t, err)
+
+	pool, err := Open(ctx, dbtest.URL(t), tenantID)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = pool.Close() })
+
+	created, err := models.New(pool.GetDB()).InsertWorkflowConfig(ctx, models.InsertWorkflowConfigParams{Harness: "claude"})
+	require.NoError(t, err)
+
+	assert.Equal(t, tenantID, created.TenantID)
+}
+
+// TestOpenRefusesATenantThatIsNotAnID pins a malformed tenant failing before any connection is made.
+func TestOpenRefusesATenantThatIsNotAnID(t *testing.T) {
+	t.Parallel()
+
+	_, err := Open(t.Context(), dbtest.URL(t), "acme")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "tenant id")
 }

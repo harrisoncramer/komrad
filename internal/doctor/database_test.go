@@ -6,6 +6,8 @@ import (
 	"net"
 	"testing"
 
+	"weave/config"
+
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -258,7 +260,7 @@ func TestReadOnlyLoginCheck(t *testing.T) {
 // TestDatabaseChecksWaitOnTheDatabase covers that a Postgres nobody can reach is reported once
 // rather than as three failures.
 func TestDatabaseChecksWaitOnTheDatabase(t *testing.T) {
-	for _, name := range []string{"schema", "readonly login"} {
+	for _, name := range []string{"schema", "tenant", "readonly login"} {
 		var found bool
 		for _, check := range Checks(Settings{}) {
 			if check.Name == name {
@@ -267,5 +269,48 @@ func TestDatabaseChecksWaitOnTheDatabase(t *testing.T) {
 			}
 		}
 		require.True(t, found, "there is a check named %q", name)
+	}
+}
+
+// TestTenantCheck covers the default tenant only being a problem once another machine shares the database.
+func TestTenantCheck(t *testing.T) {
+	own := "01990000-0000-7000-8000-000000000001"
+
+	tests := []struct {
+		name     string
+		tenantID string
+		hosts    []string
+		hostsErr error
+		want     Status
+		wantCode string
+	}{
+		{name: "an engine with its own tenant", tenantID: own, hosts: []string{"elsewhere"}, want: StatusOK},
+		{name: "the default tenant alone on its database", tenantID: config.DefaultTenantID, want: StatusOK},
+		{
+			name: "the default tenant beside another machine", tenantID: config.DefaultTenantID,
+			hosts: []string{"elsewhere"}, want: StatusWarn, wantCode: "tenant_shared",
+		},
+		{
+			name: "the other machines unreadable", tenantID: config.DefaultTenantID,
+			hostsErr: errors.New("permission denied"), want: StatusWarn, wantCode: "tenant_hosts_unreadable",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			env := dbEnv(fakeSchema{}, nil, nil)
+			env.TenantID = tt.tenantID
+			env.ReadOtherHosts = func(context.Context, string) ([]string, error) { return tt.hosts, tt.hostsErr }
+
+			result := newTenantCheck().Run(t.Context(), env)
+
+			assert.Equal(t, tt.want, result.Status)
+			if tt.wantCode != "" {
+				assert.Equal(t, tt.wantCode, codeOf(result.Err))
+			}
+			if tt.hosts != nil && tt.want == StatusWarn {
+				assert.Contains(t, result.Err.Error(), "elsewhere")
+			}
+		})
 	}
 }

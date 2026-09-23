@@ -49,9 +49,10 @@ func (c IDCursor) Validate() error {
 	return nil
 }
 
-// Open connects to the Postgres at url and brings its schema up to date.
-func Open(ctx context.Context, url string) (*Pool, error) {
-	cfg, err := parseConfig(url)
+// Open connects to the Postgres at url as tenantID, brings its schema up to date, and records
+// the tenant.
+func Open(ctx context.Context, url, tenantID string) (*Pool, error) {
+	cfg, err := parseConfig(url, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -73,19 +74,24 @@ func Open(ctx context.Context, url string) (*Pool, error) {
 		return nil, fmt.Errorf("failed to migrate db: %w", err)
 	}
 
+	if err := models.New(pool).EnsureTenant(ctx, tenantID); err != nil {
+		pool.Close()
+		return nil, fmt.Errorf("failed to record tenant %s: %w", tenantID, err)
+	}
+
 	return &Pool{pool: pool}, nil
 }
 
 // OpenReadOnly opens a pool for reading only, for surfaces such as the MCP endpoint that
 // must never write.
-func OpenReadOnly(ctx context.Context, url string) (*pgxpool.Pool, error) {
+func OpenReadOnly(ctx context.Context, url, tenantID string) (*pgxpool.Pool, error) {
 	// It takes a url of its own because a read-only transaction stops writes and nothing
 	// else, so the role that url connects as decides everything a statement can read.
 	if url == "" {
 		return nil, ErrNoReadOnlyURL
 	}
 
-	cfg, err := parseConfig(url)
+	cfg, err := parseConfig(url, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -112,13 +118,17 @@ func OpenReadOnly(ctx context.Context, url string) (*pgxpool.Pool, error) {
 }
 
 // parseConfig reads url and names this process and its tenant on every connection made from it.
-func parseConfig(url string) (*pgxpool.Config, error) {
+func parseConfig(url, tenantID string) (*pgxpool.Config, error) {
+	if !IsID(tenantID) {
+		return nil, fmt.Errorf("tenant id %q is not a uuid", tenantID)
+	}
+
 	cfg, err := pgxpool.ParseConfig(url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse database url: %w", err)
 	}
 	cfg.ConnConfig.RuntimeParams["application_name"] = db.AppName()
-	db.ScopeToTenant(cfg, db.DefaultTenantID)
+	db.ScopeToTenant(cfg, tenantID)
 
 	return cfg, nil
 }

@@ -6,6 +6,7 @@ import (
 	"flag"
 	"strings"
 	"testing"
+	"weave/config"
 
 	"weave/internal/store"
 
@@ -26,7 +27,7 @@ func TestProbeRanking(t *testing.T) {
 	}
 
 	ctx := t.Context()
-	pool, err := store.OpenReadOnly(ctx, *probeURL)
+	pool, err := store.OpenReadOnly(ctx, *probeURL, config.DefaultTenantID)
 	require.NoError(t, err)
 	t.Cleanup(pool.Close)
 

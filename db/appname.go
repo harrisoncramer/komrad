@@ -16,15 +16,20 @@ const maxAppName = 63
 // AppName is the application_name every weave pool connects under, naming the process rather
 // than the build so a migration pass can tell which connections are its own.
 func AppName() string {
-	host, err := os.Hostname()
-	if err != nil {
-		host = "unknown"
-	}
-
-	name := fmt.Sprintf("%s/%s/%d", appNamePrefix, host, os.Getpid())
+	name := fmt.Sprintf("%s/%s/%d", appNamePrefix, AppHost(), os.Getpid())
 	if len(name) > maxAppName {
 		name = name[:maxAppName]
 	}
 
 	return name
+}
+
+// AppHost is the machine AppName names, as another weave reads it back out of pg_stat_activity.
+func AppHost() string {
+	host, err := os.Hostname()
+	if err != nil {
+		return "unknown"
+	}
+
+	return host
 }

@@ -3,6 +3,7 @@ package workflow
 import (
 	"testing"
 
+	"weave/config"
 	"weave/internal/dbtest"
 	"weave/internal/store"
 
@@ -14,7 +15,7 @@ const missingID = "00000000-0000-0000-0000-000000000000"
 func open(t *testing.T) *WorkflowStore {
 	t.Helper()
 
-	pool, err := store.Open(t.Context(), dbtest.URL(t))
+	pool, err := store.Open(t.Context(), dbtest.URL(t), config.DefaultTenantID)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = pool.Close() })
 

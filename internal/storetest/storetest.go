@@ -50,7 +50,7 @@ func Open(t *testing.T) *Stores {
 
 	dbURL := dbtest.URL(t)
 
-	pool, err := store.Open(t.Context(), dbURL)
+	pool, err := store.Open(t.Context(), dbURL, config.DefaultTenantID)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = pool.Close() })
 

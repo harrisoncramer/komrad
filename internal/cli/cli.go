@@ -201,6 +201,7 @@ func loadEnvironment(cfg *config.Config) (*config.Environment, error) {
 	return config.LoadEnvironment(config.Environment{
 		DatabaseURL:         cfg.Connection.DatabaseURL,
 		ReadOnlyDatabaseURL: cfg.Connection.ReadOnlyDatabaseURL,
+		TenantID:            cfg.Connection.TenantID,
 		Addr:                cfg.Connection.Addr,
 		TmuxSocket:          cfg.Connection.TmuxSocket,
 		CacheDir:            cfg.Connection.CacheDir,

@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"weave/config"
 	"weave/internal/dbtest"
 	"weave/internal/forge"
 	"weave/internal/git"
@@ -191,7 +192,7 @@ func newSyncFixture(t *testing.T) *syncFixture {
 	t.Helper()
 	ctx := t.Context()
 
-	pool, err := store.Open(ctx, dbtest.URL(t))
+	pool, err := store.Open(ctx, dbtest.URL(t), config.DefaultTenantID)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = pool.Close() })
 

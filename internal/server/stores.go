@@ -35,8 +35,8 @@ type stores struct {
 	sizes            *worktreestore.WorktreeStore
 }
 
-func openStores(ctx context.Context, databaseURL string) (*stores, error) {
-	pool, err := store.Open(ctx, databaseURL)
+func openStores(ctx context.Context, databaseURL, tenantID string) (*stores, error) {
+	pool, err := store.Open(ctx, databaseURL, tenantID)
 	if err != nil {
 		return nil, err
 	}

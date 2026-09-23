@@ -14,6 +14,7 @@ import (
 	"weave/internal/git"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
+	tenantstore "weave/internal/store/tenant"
 	workflowstore "weave/internal/store/workflow"
 	"weave/lib/xslice"
 
@@ -70,17 +71,31 @@ func openReadOnlyPool(ctx context.Context, url string) (*pgxpool.Pool, error) {
 	return pool, nil
 }
 
-func connectReadOnly(ctx context.Context, url string) error {
+func connectReadOnly(ctx context.Context, url, tenantID string) error {
 	ctx, cancel := context.WithTimeout(ctx, connectTimeout)
 	defer cancel()
 
-	pool, err := store.OpenReadOnly(ctx, url)
+	pool, err := store.OpenReadOnly(ctx, url, tenantID)
 	if err != nil {
 		return err
 	}
 	pool.Close()
 
 	return nil
+}
+
+// readOtherHosts names every machine but this one with a weave connected to the database.
+func readOtherHosts(ctx context.Context, url string) ([]string, error) {
+	pool, err := openReadOnlyPool(ctx, url)
+	if err != nil {
+		return nil, err
+	}
+	defer pool.Close()
+
+	ctx, cancel := context.WithTimeout(ctx, connectTimeout)
+	defer cancel()
+
+	return tenantstore.NewTenantStore(pool).ListOtherHosts(ctx)
 }
 
 // readWorkflowBases reads the directory and base branch of every live workflow.

@@ -116,12 +116,21 @@ func TestLoadRejectsAPortOutsideTheRange(t *testing.T) {
 // TestLoadTakesTheDefaultForAnEmptyConnection covers the settings an empty value used to survive
 // as, where an empty address listens on every interface on a port nothing else can predict.
 func TestLoadTakesTheDefaultForAnEmptyConnection(t *testing.T) {
-	cfg, err := loadStrict(t, "[connection]\naddr = \"\"\ndatabase_url = \"\"\ntmux_socket = \"\"\n")
+	cfg, err := loadStrict(t, "[connection]\naddr = \"\"\ndatabase_url = \"\"\ntmux_socket = \"\"\ntenant_id = \"\"\n")
 
 	require.NoError(t, err, "an empty value is how an unset setting reads, so it takes the default")
 	assert.Equal(t, DefaultAddr, cfg.Connection.Addr)
 	assert.Equal(t, DefaultDatabaseURL, cfg.Connection.DatabaseURL)
 	assert.Equal(t, DefaultTmuxSocket, cfg.Connection.TmuxSocket)
+	assert.Equal(t, DefaultTenantID, cfg.Connection.TenantID)
+}
+
+// TestLoadRejectsATenantIDThatIsNotAUUID covers the value every row the engine writes is stamped with.
+func TestLoadRejectsATenantIDThatIsNotAUUID(t *testing.T) {
+	_, err := loadStrict(t, "[connection]\ntenant_id = \"acme\"\n")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "connection.tenant_id")
 }
 
 // TestValidateAddrRefusesNothing covers the address arriving as a flag rather than a setting,

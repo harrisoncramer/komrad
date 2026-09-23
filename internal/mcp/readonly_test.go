@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"weave/config"
 	"weave/internal/store"
 	"weave/internal/storetest"
 
@@ -26,7 +27,7 @@ func openTools(t *testing.T) *dbTools {
 	})
 	st.SeedTranscript(t, agent.ID, "we should update the parser")
 
-	readOnly, err := store.OpenReadOnly(t.Context(), st.ReadOnlyURL)
+	readOnly, err := store.OpenReadOnly(t.Context(), st.ReadOnlyURL, config.DefaultTenantID)
 	require.NoError(t, err)
 	t.Cleanup(readOnly.Close)
 

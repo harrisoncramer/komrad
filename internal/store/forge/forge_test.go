@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"weave/config"
 	"weave/internal/dbtest"
 	"weave/internal/store"
 
@@ -14,7 +15,7 @@ import (
 func newStore(t *testing.T) *ForgeStore {
 	t.Helper()
 
-	pool, err := store.Open(t.Context(), dbtest.URL(t))
+	pool, err := store.Open(t.Context(), dbtest.URL(t), config.DefaultTenantID)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = pool.Close() })
 
