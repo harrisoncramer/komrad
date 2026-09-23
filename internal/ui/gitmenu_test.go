@@ -246,3 +246,35 @@ func TestGitMenuActsOnTheAgentItWasOpenedOn(t *testing.T) {
 	require.Len(t, picked.messages.items, 1)
 	assert.Contains(t, picked.messages.items[0].detail, errAgentGone.Error())
 }
+
+// TestNoPullRequestReason covers the menu's hint telling a branch that never had a pull request
+// from one that has moved past its last.
+func TestNoPullRequestReason(t *testing.T) {
+	none := panel.PullRequestStanding{State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE}
+
+	tests := []struct {
+		name string
+		item panel.AgentRow
+		want string
+	}{
+		{
+			name: "a branch nothing was opened from",
+			item: panel.AgentRow{PullRequest: none},
+			want: "none from this branch",
+		},
+		{
+			name: "a branch that has moved past its last pull request",
+			item: panel.AgentRow{
+				PullRequest:  none,
+				PullRequests: []panel.PullRequest{{Number: 740, State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED}},
+			},
+			want: "moved on since its last one",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, noPullRequestReason(tt.item))
+		})
+	}
+}

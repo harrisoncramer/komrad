@@ -7,6 +7,7 @@ import (
 	"weave/config"
 	"weave/internal/ui/paint"
 	"weave/internal/ui/panel"
+	pullrequestv1 "weave/proto/gen/pullrequest/v1"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
@@ -36,6 +37,7 @@ func openGitMenu(h host, s panelShared, item panel.AgentRow) tea.Cmd {
 		name:           agent.Name,
 		rebaseable:     s.listing.isRebaseable(agent),
 		hasPullRequest: item.PullRequest.URL != "",
+		noPullRequest:  noPullRequestReason(item),
 	}, s.keys.Git, formKeys())
 
 	agentID := agent.ID
@@ -54,6 +56,16 @@ type gitMenu struct {
 	name           string
 	rebaseable     bool
 	hasPullRequest bool
+	noPullRequest  string
+}
+
+// noPullRequestReason is why the menu has no pull request to open.
+func noPullRequestReason(item panel.AgentRow) string {
+	if item.PullRequest.State == pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE && len(item.PullRequests) > 0 {
+		return "moved on since its last one"
+	}
+
+	return "none from this branch"
 }
 
 func gitMenuForm(menu gitMenu, keys config.GitKeys, form config.FormKeys) (*huh.Form, *gitChoice) {
@@ -74,7 +86,7 @@ func gitMenuForm(menu gitMenu, keys config.GitKeys, form config.FormKeys) (*huh.
 			huh.NewOption(gitEntryLabel(gitEntry{
 				name:    "Open the pull request",
 				keys:    keys.OpenPullRequest,
-				refusal: "none from this branch",
+				refusal: menu.noPullRequest,
 				held:    menu.hasPullRequest,
 			}), gitChoiceOpenPullRequest),
 			huh.NewOption("Cancel", gitChoiceCancel),
