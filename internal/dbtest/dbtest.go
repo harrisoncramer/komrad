@@ -13,8 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TenantID is the tenant a test acts as.
-const TenantID = "01990000-0000-7000-8000-00000000beef"
+// TenantID is the tenant every migrated test database already holds.
+const TenantID = "00000000-0000-7000-8000-000000000001"
 
 // URL is a migrated database of this test's own, dropped when the test ends.
 func URL(t *testing.T) string {
