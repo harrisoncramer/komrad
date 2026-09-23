@@ -468,13 +468,51 @@ func (s *Handler) DeleteAgents(ctx context.Context, req *agentv1.DeleteAgentsReq
 	return &emptypb.Empty{}, nil
 }
 
+// ErrArchiveNotYours is what an agent that is not an orchestrator gets for naming an agent it did not spawn as a child.
+var ErrArchiveNotYours = fail.Denied("an agent may archive only its own children")
+
 // ArchiveAgents stops agents and hides them, keeping the records and transcripts.
 func (s *Handler) ArchiveAgents(ctx context.Context, req *agentv1.ArchiveAgentsRequest) (*emptypb.Empty, *fail.Error) {
+	if err := s.refuseArchivingOthers(ctx, req.GetIds()); err != nil {
+		return nil, rpcerr.From(err, "failed to archive agents")
+	}
+
 	if err := s.lifecycle.ArchiveAgents(ctx, req.GetIds()); err != nil {
 		return nil, rpcerr.From(err, "failed to archive agents")
 	}
 
 	return &emptypb.Empty{}, nil
+}
+
+// refuseArchivingOthers holds an agent other than an orchestrator to its own children, leaving the panel unrestricted.
+func (s *Handler) refuseArchivingOthers(ctx context.Context, ids []string) error {
+	from := caller.From(ctx).AgentID
+	if from == "" {
+		return nil
+	}
+
+	me, err := s.agents.GetByID(ctx, from)
+	if err != nil {
+		return err
+	}
+	if me.Role == agentstore.RoleOrchestrator {
+		return nil
+	}
+
+	for _, id := range ids {
+		target, err := s.agents.GetByID(ctx, id)
+		if errors.Is(err, store.ErrNotFound) {
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		if target.ParentAgentID == nil || *target.ParentAgentID != from {
+			return ErrArchiveNotYours.Saying("%s is not a child of %s", target.Name, me.Name)
+		}
+	}
+
+	return nil
 }
 
 // RestoreAgents takes agents out of the archive and returns them as stored, dormant.
