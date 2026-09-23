@@ -56,7 +56,21 @@ BEGIN
                     AND m.roleid <> login.group_name::regrole) THEN
             RAISE EXCEPTION '% is a member of a role other than %', login.role_name, login.group_name;
         END IF;
-            EXECUTE FORMAT('ALTER ROLE %I LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD %L VALID UNTIL %L', login.role_name, engine_password, 'infinity');
+            IF EXISTS (
+                SELECT
+                    1
+                FROM
+                    pg_roles
+                WHERE
+                    rolname = login.role_name
+                    AND (rolsuper
+                        OR rolbypassrls
+                        OR rolreplication
+                        OR rolcreaterole
+                        OR rolcreatedb)) THEN
+            RAISE EXCEPTION '% holds privileges an engine login must not have', login.role_name;
+        END IF;
+            EXECUTE FORMAT('ALTER ROLE %I LOGIN PASSWORD %L VALID UNTIL %L', login.role_name, engine_password, 'infinity');
             EXECUTE FORMAT('ALTER ROLE %I RESET ALL', login.role_name);
         ELSE
             EXECUTE FORMAT('CREATE ROLE %I LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD %L', login.role_name, engine_password);
@@ -78,6 +92,7 @@ BEGIN
             AND nspowner <> login_name::regrole) THEN
     RAISE EXCEPTION 'schema % already exists and belongs to another role', river_schema;
 END IF;
+    EXECUTE FORMAT('GRANT %I TO %I WITH INHERIT FALSE, SET TRUE', login_name, CURRENT_USER);
     EXECUTE FORMAT('CREATE SCHEMA IF NOT EXISTS %I AUTHORIZATION %I', river_schema, login_name);
 END
 $$;
