@@ -2,7 +2,6 @@ package ui
 
 import (
 	"strings"
-	"time"
 
 	"weave/internal/ui/diffview"
 	"weave/internal/ui/paint"
@@ -55,12 +54,8 @@ type reviewDiff struct {
 	// chapter is which of those is on screen, negative for the whole change.
 	chapter int
 
-	// moved is set once the agent has written something since the round on screen was taken.
-	moved bool
-	// diffPolling is set while a background probe of the worktree is in flight, and diffPolled is
-	// when the last one started.
-	diffPolling bool
-	diffPolled  time.Time
+	// tree is the worktree behind the diff as the last hash found it.
+	tree reviewTree
 }
 
 // reviewDiffFloor is the narrowest the diff is worth drawing at: the gutter and enough of a line

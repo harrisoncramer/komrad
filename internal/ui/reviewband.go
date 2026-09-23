@@ -73,7 +73,7 @@ func (r reviewScreen) deadView(s panelShared, width int) string {
 func (r reviewScreen) staleView(s panelShared) string {
 	// The editor holds the stage rather than the diff, and the move it reports is usually the
 	// reader's own writing, so there is nothing here worth a row.
-	if !r.diff.moved || r.diff.pinned || r.pass.atEditor {
+	if !r.diff.tree.moved || r.diff.pinned || r.pass.atEditor {
 		return "\n"
 	}
 
