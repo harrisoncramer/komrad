@@ -249,15 +249,25 @@ func TestASlowWatcherIsDropped(t *testing.T) {
 	subscription, err := broker.Subscribe(t.Context())
 	require.NoError(t, err)
 
-	// Each round renames the agent and waits for its read, so every round is a pass nobody reads.
+	// Each round renames the agent and waits for its pass to be queued, so every round is a pass
+	// nobody reads.
 	for round := range subscriberBuffer + 1 {
 		row := agentRow("a")
 		row.Name = fmt.Sprintf("agent-a-%d", round)
 		stores.agents.put(row)
 
 		broker.markPending("agents", "a")
-		require.Eventually(t, func() bool { return len(stores.agents.reads()) == round+1 }, time.Second, time.Microsecond)
+		require.Eventually(t, func() bool {
+			return len(subscription.changes) == min(round+1, subscriberBuffer)
+		}, time.Second, time.Microsecond)
 	}
+
+	require.Eventually(t, func() bool {
+		broker.mu.Lock()
+		defer broker.mu.Unlock()
+
+		return len(broker.subscribers) == 0
+	}, 2*time.Second, time.Millisecond, "the broker lets go of the watcher that fell too far behind")
 
 	require.Eventually(t, func() bool {
 		for {
