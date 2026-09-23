@@ -40,8 +40,8 @@ func commandsRun(t *testing.T, log string) []string {
 	return strings.Split(strings.TrimSpace(string(out)), "\n")
 }
 
-// TestEngineClientRefusesADirectoryTheEngineDoesNotHave covers the failure the panel used to show, now from the far side.
-func TestEngineClientRefusesADirectoryTheEngineDoesNotHave(t *testing.T) {
+// TestIntegrationEngineClientRefusesADirectoryTheEngineDoesNotHave covers the failure the panel used to show, now from the far side.
+func TestIntegrationEngineClientRefusesADirectoryTheEngineDoesNotHave(t *testing.T) {
 	t.Parallel()
 
 	remote, _ := shellEngine(t)
@@ -51,8 +51,8 @@ func TestEngineClientRefusesADirectoryTheEngineDoesNotHave(t *testing.T) {
 	require.Error(t, err)
 }
 
-// TestEngineClientRunsGitThroughTheTransport covers the command reaching the transport quoted, and not this machine.
-func TestEngineClientRunsGitThroughTheTransport(t *testing.T) {
+// TestIntegrationEngineClientRunsGitThroughTheTransport covers the command reaching the transport quoted, and not this machine.
+func TestIntegrationEngineClientRunsGitThroughTheTransport(t *testing.T) {
 	t.Parallel()
 
 	root := repo(t)
@@ -67,8 +67,8 @@ func TestEngineClientRunsGitThroughTheTransport(t *testing.T) {
 	assert.Equal(t, []string{"git -C '" + root + "' 'rev-parse' '--show-toplevel'"}, commandsRun(t, log))
 }
 
-// TestEngineClientReadsWhatTheLocalClientReads covers every read the review screen makes answering as the local client does.
-func TestEngineClientReadsWhatTheLocalClientReads(t *testing.T) {
+// TestIntegrationEngineClientReadsWhatTheLocalClientReads covers every read the review screen makes answering as the local client does.
+func TestIntegrationEngineClientReadsWhatTheLocalClientReads(t *testing.T) {
 	t.Parallel()
 
 	root := repo(t)
@@ -159,8 +159,8 @@ func TestEngineClientReadsWhatTheLocalClientReads(t *testing.T) {
 	assert.Empty(t, replayed.Conflicts)
 }
 
-// TestEngineClientProbesTheWorktreeAsTheLocalClientDoes covers the probe hashing untracked files in one round trip without touching the checkout.
-func TestEngineClientProbesTheWorktreeAsTheLocalClientDoes(t *testing.T) {
+// TestIntegrationEngineClientProbesTheWorktreeAsTheLocalClientDoes covers the probe hashing untracked files in one round trip without touching the checkout.
+func TestIntegrationEngineClientProbesTheWorktreeAsTheLocalClientDoes(t *testing.T) {
 	t.Parallel()
 
 	root := repo(t)
@@ -182,8 +182,8 @@ func TestEngineClientProbesTheWorktreeAsTheLocalClientDoes(t *testing.T) {
 	assert.Equal(t, "?? untracked.go", held)
 }
 
-// TestEngineClientProbeMovesWhenTheWorktreeDoes covers the poll behind the review telling a moved worktree from a still one.
-func TestEngineClientProbeMovesWhenTheWorktreeDoes(t *testing.T) {
+// TestIntegrationEngineClientProbeMovesWhenTheWorktreeDoes covers the poll behind the review telling a moved worktree from a still one.
+func TestIntegrationEngineClientProbeMovesWhenTheWorktreeDoes(t *testing.T) {
 	t.Parallel()
 
 	root := repo(t)
@@ -207,8 +207,8 @@ func TestEngineClientProbeMovesWhenTheWorktreeDoes(t *testing.T) {
 	assert.NotEqual(t, before, after)
 }
 
-// TestShellCommandQuotesEveryWord covers a path and an argument the far side's shell would otherwise split.
-func TestShellCommandQuotesEveryWord(t *testing.T) {
+// TestIntegrationShellCommandQuotesEveryWord covers a path and an argument the far side's shell would otherwise split.
+func TestIntegrationShellCommandQuotesEveryWord(t *testing.T) {
 	t.Parallel()
 
 	got := shellCommand("/var/lib/it's", []string{"show", "abc:a b.go"})
@@ -216,9 +216,9 @@ func TestShellCommandQuotesEveryWord(t *testing.T) {
 	assert.Equal(t, `git -C '/var/lib/it'\''s' 'show' 'abc:a b.go'`, got)
 }
 
-// TestEngineRunnerRefusesAnEnvironment covers a snapshot writer's environment never being carried
+// TestIntegrationEngineRunnerRefusesAnEnvironment covers a snapshot writer's environment never being carried
 // onto the engine.
-func TestEngineRunnerRefusesAnEnvironment(t *testing.T) {
+func TestIntegrationEngineRunnerRefusesAnEnvironment(t *testing.T) {
 	t.Parallel()
 
 	remote, log := shellEngine(t)

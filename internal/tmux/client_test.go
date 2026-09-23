@@ -15,9 +15,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestQueryCarriesStderr checks a failed tmux call names the command and carries tmux's own
+// TestIntegrationQueryCarriesStderr checks a failed tmux call names the command and carries tmux's own
 // complaint.
-func TestQueryCarriesStderr(t *testing.T) {
+func TestIntegrationQueryCarriesStderr(t *testing.T) {
 	_, lookErr := exec.LookPath("tmux")
 	require.NoError(t, lookErr)
 
@@ -29,9 +29,9 @@ func TestQueryCarriesStderr(t *testing.T) {
 	assert.Contains(t, err.Error(), "error connecting", "and tmux's own stderr comes through")
 }
 
-// TestQueryGivesUpOnWedgedTmux covers a tmux that never answers, which would otherwise stall
+// TestIntegrationQueryGivesUpOnWedgedTmux covers a tmux that never answers, which would otherwise stall
 // a whole reconcile pass with no word of why.
-func TestQueryGivesUpOnWedgedTmux(t *testing.T) {
+func TestIntegrationQueryGivesUpOnWedgedTmux(t *testing.T) {
 	tests := []struct {
 		name   string
 		script string
@@ -96,9 +96,9 @@ func captureDefaultLog(t *testing.T) *bytes.Buffer {
 	return &buf
 }
 
-// TestKillPaneIsQuietWhenThePaneIsAlreadyGone covers a delete and an archive racing the same
+// TestIntegrationKillPaneIsQuietWhenThePaneIsAlreadyGone covers a delete and an archive racing the same
 // pane, where the loser's kill-pane finds it gone and used to log a WARN.
-func TestKillPaneIsQuietWhenThePaneIsAlreadyGone(t *testing.T) {
+func TestIntegrationKillPaneIsQuietWhenThePaneIsAlreadyGone(t *testing.T) {
 	t.Setenv("PATH", fakeTmux(t, "#!/bin/sh\necho \"can't find pane: %13\" >&2\nexit 1\n"))
 	buf := captureDefaultLog(t)
 
@@ -107,9 +107,9 @@ func TestKillPaneIsQuietWhenThePaneIsAlreadyGone(t *testing.T) {
 	assert.Empty(t, buf.String(), "the pane being already gone is the wanted outcome, not a WARN")
 }
 
-// TestKillPaneStillWarnsOnARealFailure guards the quiet case above from swallowing a failure
+// TestIntegrationKillPaneStillWarnsOnARealFailure guards the quiet case above from swallowing a failure
 // that is not the pane being gone.
-func TestKillPaneStillWarnsOnARealFailure(t *testing.T) {
+func TestIntegrationKillPaneStillWarnsOnARealFailure(t *testing.T) {
 	t.Setenv("PATH", fakeTmux(t, "#!/bin/sh\necho 'error connecting to /tmp/tmux-501/weave (No such file or directory)' >&2\nexit 1\n"))
 	buf := captureDefaultLog(t)
 
@@ -118,8 +118,8 @@ func TestKillPaneStillWarnsOnARealFailure(t *testing.T) {
 	assert.Contains(t, buf.String(), "a tmux command failed", "a real failure is not silenced")
 }
 
-// TestIsRunningShellReadsMeasuredCommands pins the shell allowlist to what a pane actually reports.
-func TestIsRunningShellReadsMeasuredCommands(t *testing.T) {
+// TestIntegrationIsRunningShellReadsMeasuredCommands pins the shell allowlist to what a pane actually reports.
+func TestIntegrationIsRunningShellReadsMeasuredCommands(t *testing.T) {
 	shells := []string{"sh", "bash", "dash", "ash", "zsh", "ksh", "csh", "tcsh", "fish", "nu", "-zsh", "-bash", "-dash"}
 	for _, command := range shells {
 		assert.True(t, PaneStatus{Command: command}.IsRunningShell(), "%q is a shell", command)

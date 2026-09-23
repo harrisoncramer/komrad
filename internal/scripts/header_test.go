@@ -16,9 +16,9 @@ import (
 
 const fixtureDir = "testfiles"
 
-// TestReadHeader covers what a file is taken to declare about itself, with a last check that
+// TestIntegrationReadHeader covers what a file is taken to declare about itself, with a last check that
 // refuses a fixture no row names.
-func TestReadHeader(t *testing.T) {
+func TestIntegrationReadHeader(t *testing.T) {
 	tests := []struct {
 		name string
 		file string
@@ -139,14 +139,14 @@ func TestReadHeader(t *testing.T) {
 	assert.ElementsMatch(t, files, described, "every file in %s wants a row of its own", fixtureDir)
 }
 
-// TestReadHeaderUnreadable covers a file weave cannot open, which reads as no header rather than
+// TestIntegrationReadHeaderUnreadable covers a file weave cannot open, which reads as no header rather than
 // an error.
-func TestReadHeaderUnreadable(t *testing.T) {
+func TestIntegrationReadHeaderUnreadable(t *testing.T) {
 	assert.Equal(t, Header{}, readHeader(filepath.Join(t.TempDir(), "not-there")))
 }
 
-// TestHeaderTimeoutOr pins the timeout a script runs under.
-func TestHeaderTimeoutOr(t *testing.T) {
+// TestIntegrationHeaderTimeoutOr pins the timeout a script runs under.
+func TestIntegrationHeaderTimeoutOr(t *testing.T) {
 	tests := []struct {
 		name     string
 		header   Header

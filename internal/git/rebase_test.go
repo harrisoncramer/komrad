@@ -19,8 +19,8 @@ import (
 // client is the git these tests drive.
 var client = git.NewClient()
 
-// TestReadTreeStateIgnoresUntrackedFiles pins the fact the dirty refusal turns on.
-func TestReadTreeStateIgnoresUntrackedFiles(t *testing.T) {
+// TestIntegrationReadTreeStateIgnoresUntrackedFiles pins the fact the dirty refusal turns on.
+func TestIntegrationReadTreeStateIgnoresUntrackedFiles(t *testing.T) {
 	t.Parallel()
 
 	repo := newRepo(t)
@@ -34,8 +34,8 @@ func TestReadTreeStateIgnoresUntrackedFiles(t *testing.T) {
 	assert.Equal(t, "main", state.Branch)
 }
 
-// TestReadTreeStateSeesTrackedChanges covers the half that does block a rebase, staged or not.
-func TestReadTreeStateSeesTrackedChanges(t *testing.T) {
+// TestIntegrationReadTreeStateSeesTrackedChanges covers the half that does block a rebase, staged or not.
+func TestIntegrationReadTreeStateSeesTrackedChanges(t *testing.T) {
 	t.Parallel()
 
 	for _, tt := range []struct {
@@ -62,9 +62,9 @@ func TestReadTreeStateSeesTrackedChanges(t *testing.T) {
 	}
 }
 
-// TestReadTreeStateReportsADetachedHead covers the case where a rebase reports success while
+// TestIntegrationReadTreeStateReportsADetachedHead covers the case where a rebase reports success while
 // leaving the branch exactly where it was, so it has to be refused rather than run.
-func TestReadTreeStateReportsADetachedHead(t *testing.T) {
+func TestIntegrationReadTreeStateReportsADetachedHead(t *testing.T) {
 	t.Parallel()
 
 	repo := newRepo(t)
@@ -76,9 +76,9 @@ func TestReadTreeStateReportsADetachedHead(t *testing.T) {
 	assert.Empty(t, state.Branch)
 }
 
-// TestReadTreeStateReportsAStoppedSequence covers a checkout already part-way through
+// TestIntegrationReadTreeStateReportsAStoppedSequence covers a checkout already part-way through
 // something that owns the index, which a rebase cannot start over.
-func TestReadTreeStateReportsAStoppedSequence(t *testing.T) {
+func TestIntegrationReadTreeStateReportsAStoppedSequence(t *testing.T) {
 	t.Parallel()
 
 	repo := newRepo(t)
@@ -90,8 +90,8 @@ func TestReadTreeStateReportsAStoppedSequence(t *testing.T) {
 	assert.True(t, state.InProgress)
 }
 
-// TestRebaseMovesTheBranchOnto is the operation working, with the untracked file surviving it.
-func TestRebaseMovesTheBranchOnto(t *testing.T) {
+// TestIntegrationRebaseMovesTheBranchOnto is the operation working, with the untracked file surviving it.
+func TestIntegrationRebaseMovesTheBranchOnto(t *testing.T) {
 	t.Parallel()
 
 	repo := newRepo(t)
@@ -115,8 +115,8 @@ func TestRebaseMovesTheBranchOnto(t *testing.T) {
 	assert.Equal(t, "untracked", string(body), "the untracked file rode through the rebase")
 }
 
-// TestRebaseLeavesAConflictStopped pins that a conflicted rebase is reported and left where it is.
-func TestRebaseLeavesAConflictStopped(t *testing.T) {
+// TestIntegrationRebaseLeavesAConflictStopped pins that a conflicted rebase is reported and left where it is.
+func TestIntegrationRebaseLeavesAConflictStopped(t *testing.T) {
 	t.Parallel()
 
 	repo := newRepo(t)
@@ -137,8 +137,8 @@ func TestRebaseLeavesAConflictStopped(t *testing.T) {
 	assert.Empty(t, state.Branch, "a stopped rebase detaches the head, which blanks the branch")
 }
 
-// TestFetchBaseRefusesARepositoryWithNoOrigin pins the fetch failing before the base resolves.
-func TestFetchBaseRefusesARepositoryWithNoOrigin(t *testing.T) {
+// TestIntegrationFetchBaseRefusesARepositoryWithNoOrigin pins the fetch failing before the base resolves.
+func TestIntegrationFetchBaseRefusesARepositoryWithNoOrigin(t *testing.T) {
 	t.Parallel()
 
 	repo := newRepo(t)
@@ -147,9 +147,9 @@ func TestFetchBaseRefusesARepositoryWithNoOrigin(t *testing.T) {
 	require.Error(t, err)
 }
 
-// TestFetchBaseRefusesABaseOriginDoesNotHave covers a workflow naming a branch origin no longer
+// TestIntegrationFetchBaseRefusesABaseOriginDoesNotHave covers a workflow naming a branch origin no longer
 // has, which is reported as a missing base rather than measured against something else.
-func TestFetchBaseRefusesABaseOriginDoesNotHave(t *testing.T) {
+func TestIntegrationFetchBaseRefusesABaseOriginDoesNotHave(t *testing.T) {
 	t.Parallel()
 
 	_, clone := newClonePair(t)
@@ -162,9 +162,9 @@ func TestFetchBaseRefusesABaseOriginDoesNotHave(t *testing.T) {
 	require.ErrorIs(t, err, git.ErrBaseMissing, "a workflow naming no base is refused before anything is fetched")
 }
 
-// TestFetchBaseKeepsTheCloneCopyWhenTheFetchFails covers origin refusing a branch the clone
+// TestIntegrationFetchBaseKeepsTheCloneCopyWhenTheFetchFails covers origin refusing a branch the clone
 // still holds, where the fetch failure is the answer rather than a missing base.
-func TestFetchBaseKeepsTheCloneCopyWhenTheFetchFails(t *testing.T) {
+func TestIntegrationFetchBaseKeepsTheCloneCopyWhenTheFetchFails(t *testing.T) {
 	t.Parallel()
 
 	origin, clone := newClonePair(t)
@@ -176,9 +176,9 @@ func TestFetchBaseKeepsTheCloneCopyWhenTheFetchFails(t *testing.T) {
 	require.NotErrorIs(t, err, git.ErrBaseMissing, "the clone still holds origin/main")
 }
 
-// TestFetchBaseFetchesTheNamedBase pins the base being fetched by name rather than read from
+// TestIntegrationFetchBaseFetchesTheNamedBase pins the base being fetched by name rather than read from
 // the clone's cache.
-func TestFetchBaseFetchesTheNamedBase(t *testing.T) {
+func TestIntegrationFetchBaseFetchesTheNamedBase(t *testing.T) {
 	t.Parallel()
 
 	origin, clone := newClonePair(t)
@@ -196,9 +196,9 @@ func TestFetchBaseFetchesTheNamedBase(t *testing.T) {
 	assert.Equal(t, moved, sha, "the base was fetched rather than read from the clone's cache")
 }
 
-// TestReadTreeStateRefreshesTheIndex covers a file rewritten with identical content, whose
+// TestIntegrationReadTreeStateRefreshesTheIndex covers a file rewritten with identical content, whose
 // stale stat data makes diff-index read a clean tree as changed.
-func TestReadTreeStateRefreshesTheIndex(t *testing.T) {
+func TestIntegrationReadTreeStateRefreshesTheIndex(t *testing.T) {
 	t.Parallel()
 
 	repo := newRepo(t)
@@ -334,9 +334,9 @@ func commitFileAt(t *testing.T, repo, name, body, message, when string) string {
 	return out(t, repo, "rev-parse", "HEAD")
 }
 
-// TestPredictRebaseFindsTheCutoffOfASquashedBranch is the case this exists for, with the base
+// TestIntegrationPredictRebaseFindsTheCutoffOfASquashedBranch is the case this exists for, with the base
 // moved on by other work so the trees differ and only the content walk can see it.
-func TestPredictRebaseFindsTheCutoffOfASquashedBranch(t *testing.T) {
+func TestIntegrationPredictRebaseFindsTheCutoffOfASquashedBranch(t *testing.T) {
 	t.Parallel()
 
 	repo := newRepo(t)
@@ -358,9 +358,9 @@ func TestPredictRebaseFindsTheCutoffOfASquashedBranch(t *testing.T) {
 	assert.Equal(t, 1, prediction.Replay, "only the commit written after the merge is replayed")
 }
 
-// TestPredictRebaseCutoffIsTheTipWhenEverythingLanded covers the branch that wrote nothing after
+// TestIntegrationPredictRebaseCutoffIsTheTipWhenEverythingLanded covers the branch that wrote nothing after
 // its merge, where replaying nothing leaves it standing on the base.
-func TestPredictRebaseCutoffIsTheTipWhenEverythingLanded(t *testing.T) {
+func TestIntegrationPredictRebaseCutoffIsTheTipWhenEverythingLanded(t *testing.T) {
 	t.Parallel()
 
 	repo := newRepo(t)
@@ -387,8 +387,8 @@ func TestPredictRebaseCutoffIsTheTipWhenEverythingLanded(t *testing.T) {
 	assert.Zero(t, prediction.Replay)
 }
 
-// TestPredictRebaseFindsNoCutoffOnAnOrdinaryBranch pins the ordinary case finding nothing.
-func TestPredictRebaseFindsNoCutoffOnAnOrdinaryBranch(t *testing.T) {
+// TestIntegrationPredictRebaseFindsNoCutoffOnAnOrdinaryBranch pins the ordinary case finding nothing.
+func TestIntegrationPredictRebaseFindsNoCutoffOnAnOrdinaryBranch(t *testing.T) {
 	t.Parallel()
 
 	repo := newRepo(t)
@@ -404,9 +404,9 @@ func TestPredictRebaseFindsNoCutoffOnAnOrdinaryBranch(t *testing.T) {
 	assert.Equal(t, 1, prediction.Replay)
 }
 
-// TestPredictRebaseWalksRatherThanHalves pins the property that decides the implementation: a
+// TestIntegrationPredictRebaseWalksRatherThanHalves pins the property that decides the implementation: a
 // commit inside a landed run reads as not landed, so the predicate cannot be binary searched.
-func TestPredictRebaseWalksRatherThanHalves(t *testing.T) {
+func TestIntegrationPredictRebaseWalksRatherThanHalves(t *testing.T) {
 	t.Parallel()
 
 	repo := newRepo(t)
@@ -425,9 +425,9 @@ func TestPredictRebaseWalksRatherThanHalves(t *testing.T) {
 	assert.Equal(t, base, secondMerged, "while the tip of the landed run reads as landed")
 }
 
-// TestPredictRebaseRefusesABaseTheBranchAlreadyContains covers a branch that committed something
+// TestIntegrationPredictRebaseRefusesABaseTheBranchAlreadyContains covers a branch that committed something
 // and then reverted it, which holds the base's own tree with no merge having happened.
-func TestPredictRebaseRefusesABaseTheBranchAlreadyContains(t *testing.T) {
+func TestIntegrationPredictRebaseRefusesABaseTheBranchAlreadyContains(t *testing.T) {
 	t.Parallel()
 
 	repo := newRepo(t)
@@ -446,9 +446,9 @@ func TestPredictRebaseRefusesABaseTheBranchAlreadyContains(t *testing.T) {
 	assert.Equal(t, 2, prediction.Replay)
 }
 
-// TestPredictRebaseRefusesAnUnrelatedBase covers a base sharing no history, where every question
+// TestIntegrationPredictRebaseRefusesAnUnrelatedBase covers a base sharing no history, where every question
 // about what the two have in common answers wrongly rather than failing.
-func TestPredictRebaseRefusesAnUnrelatedBase(t *testing.T) {
+func TestIntegrationPredictRebaseRefusesAnUnrelatedBase(t *testing.T) {
 	t.Parallel()
 
 	repo := newRepo(t)
@@ -460,9 +460,9 @@ func TestPredictRebaseRefusesAnUnrelatedBase(t *testing.T) {
 	require.ErrorIs(t, err, git.ErrBaseUnrelated)
 }
 
-// TestReadTreeStateReportsAShallowClone covers a clone cut off from its own history, read
+// TestIntegrationReadTreeStateReportsAShallowClone covers a clone cut off from its own history, read
 // through a linked worktree because that is the only shape an agent ever runs in.
-func TestReadTreeStateReportsAShallowClone(t *testing.T) {
+func TestIntegrationReadTreeStateReportsAShallowClone(t *testing.T) {
 	t.Parallel()
 
 	origin := newRepo(t)
@@ -485,9 +485,9 @@ func TestReadTreeStateReportsAShallowClone(t *testing.T) {
 	assert.True(t, state.Shallow)
 }
 
-// TestReadTreeStateNamesPathsTheIndexIsHolding covers a path marked assume-unchanged, whose
+// TestIntegrationReadTreeStateNamesPathsTheIndexIsHolding covers a path marked assume-unchanged, whose
 // working copy nothing can read out and so nothing can put back.
-func TestReadTreeStateNamesPathsTheIndexIsHolding(t *testing.T) {
+func TestIntegrationReadTreeStateNamesPathsTheIndexIsHolding(t *testing.T) {
 	t.Parallel()
 
 	repo := newRepo(t)
@@ -499,9 +499,9 @@ func TestReadTreeStateNamesPathsTheIndexIsHolding(t *testing.T) {
 	assert.Equal(t, []string{"tracked.txt"}, state.HiddenPaths)
 }
 
-// TestRebaseOntoReplaysOnlyWhatFollowsTheCutoff is the operation the cutoff exists to feed,
+// TestIntegrationRebaseOntoReplaysOnlyWhatFollowsTheCutoff is the operation the cutoff exists to feed,
 // against the branch a plain rebase cannot settle.
-func TestRebaseOntoReplaysOnlyWhatFollowsTheCutoff(t *testing.T) {
+func TestIntegrationRebaseOntoReplaysOnlyWhatFollowsTheCutoff(t *testing.T) {
 	t.Parallel()
 
 	repo := newRepo(t)
@@ -526,9 +526,9 @@ func TestRebaseOntoReplaysOnlyWhatFollowsTheCutoff(t *testing.T) {
 	assert.Equal(t, "1", out(t, repo, "rev-list", "--count", "main..HEAD"), "one commit of its own remains")
 }
 
-// TestRebaseOntoRefusesWhatARebaseRefuses pins the guard a plain rebase has and reset does not,
+// TestIntegrationRebaseOntoRefusesWhatARebaseRefuses pins the guard a plain rebase has and reset does not,
 // which is what makes replaying safe against an agent still writing.
-func TestRebaseOntoRefusesWhatARebaseRefuses(t *testing.T) {
+func TestIntegrationRebaseOntoRefusesWhatARebaseRefuses(t *testing.T) {
 	t.Parallel()
 
 	repo := newRepo(t)
@@ -557,9 +557,9 @@ func readFile(t *testing.T, dir, name string) string {
 	return string(body)
 }
 
-// TestParkRecoversWhatAMoveDrops covers the two things nothing else recovers: the commits a
+// TestIntegrationParkRecoversWhatAMoveDrops covers the two things nothing else recovers: the commits a
 // replay from a cutoff drops on purpose, and the files that were never committed at all.
-func TestParkRecoversWhatAMoveDrops(t *testing.T) {
+func TestIntegrationParkRecoversWhatAMoveDrops(t *testing.T) {
 	t.Parallel()
 
 	repo := newRepo(t)
@@ -588,8 +588,8 @@ func TestParkRecoversWhatAMoveDrops(t *testing.T) {
 		"and so is a file that was never committed")
 }
 
-// TestParkLeavesTheCheckoutAlone pins the park being free of the agent's own state.
-func TestParkLeavesTheCheckoutAlone(t *testing.T) {
+// TestIntegrationParkLeavesTheCheckoutAlone pins the park being free of the agent's own state.
+func TestIntegrationParkLeavesTheCheckoutAlone(t *testing.T) {
 	t.Parallel()
 
 	repo := newRepo(t)
@@ -605,8 +605,8 @@ func TestParkLeavesTheCheckoutAlone(t *testing.T) {
 	assert.Equal(t, head, out(t, repo, "rev-parse", "HEAD"), "and the branch has not moved")
 }
 
-// TestReleaseRefsUnderKeepsOnlyTheCurrent covers the parks being collected.
-func TestReleaseRefsUnderKeepsOnlyTheCurrent(t *testing.T) {
+// TestIntegrationReleaseRefsUnderKeepsOnlyTheCurrent covers the parks being collected.
+func TestIntegrationReleaseRefsUnderKeepsOnlyTheCurrent(t *testing.T) {
 	t.Parallel()
 
 	repo := newRepo(t)
@@ -622,9 +622,9 @@ func TestReleaseRefsUnderKeepsOnlyTheCurrent(t *testing.T) {
 		"the current park stays and another agent's is untouched")
 }
 
-// TestPredictRebaseCountsWhatARebaseWouldReplay covers merge commits, which a rebase discards
+// TestIntegrationPredictRebaseCountsWhatARebaseWouldReplay covers merge commits, which a rebase discards
 // rather than replays, so counting positions in the commit list overstates the work.
-func TestPredictRebaseCountsWhatARebaseWouldReplay(t *testing.T) {
+func TestIntegrationPredictRebaseCountsWhatARebaseWouldReplay(t *testing.T) {
 	t.Parallel()
 
 	repo := newRepo(t)
@@ -643,9 +643,9 @@ func TestPredictRebaseCountsWhatARebaseWouldReplay(t *testing.T) {
 	assert.Equal(t, 1, prediction.Replay, "the merge is discarded rather than replayed")
 }
 
-// TestPredictRebaseCountsLandedOffTheGraph covers a side branch merged in, which sits before the
+// TestIntegrationPredictRebaseCountsLandedOffTheGraph covers a side branch merged in, which sits before the
 // cutoff in topological order while not being reachable from it.
-func TestPredictRebaseCountsLandedOffTheGraph(t *testing.T) {
+func TestIntegrationPredictRebaseCountsLandedOffTheGraph(t *testing.T) {
 	t.Parallel()
 
 	repo := newRepo(t)
@@ -675,9 +675,9 @@ func TestPredictRebaseCountsLandedOffTheGraph(t *testing.T) {
 	assert.Equal(t, 1, prediction.Replay, "the side commit is still the agent's own work")
 }
 
-// TestPredictRebaseCountsMergesAsLanded pins the landed count including merge commits, unlike the
+// TestIntegrationPredictRebaseCountsMergesAsLanded pins the landed count including merge commits, unlike the
 // replay count.
-func TestPredictRebaseCountsMergesAsLanded(t *testing.T) {
+func TestIntegrationPredictRebaseCountsMergesAsLanded(t *testing.T) {
 	t.Parallel()
 
 	repo := newRepo(t)
@@ -707,9 +707,9 @@ func TestPredictRebaseCountsMergesAsLanded(t *testing.T) {
 	assert.Equal(t, 3, prediction.Landed, "the merge counts among the commits leaving the branch")
 }
 
-// TestPredictRebaseCountsOnlyWhatWouldReplay covers a commit past the cutoff whose patch the
+// TestIntegrationPredictRebaseCountsOnlyWhatWouldReplay covers a commit past the cutoff whose patch the
 // base already holds, which git skips, so counting the commits after the cutoff overstates it.
-func TestPredictRebaseCountsOnlyWhatWouldReplay(t *testing.T) {
+func TestIntegrationPredictRebaseCountsOnlyWhatWouldReplay(t *testing.T) {
 	t.Parallel()
 
 	repo := newRepo(t)

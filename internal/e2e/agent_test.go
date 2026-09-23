@@ -18,9 +18,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestAgentLifecycle walks an agent from created to destroyed, asserting the pane alongside
+// TestIntegrationAgentLifecycle walks an agent from created to destroyed, asserting the pane alongside
 // the row since the two parting company leaves an agent nobody can reach.
-func TestAgentLifecycle(t *testing.T) {
+func TestIntegrationAgentLifecycle(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()
 
@@ -129,9 +129,9 @@ func TestAgentLifecycle(t *testing.T) {
 	})
 }
 
-// TestCreateAgentRecordsSpawnedBy covers the parent recorded when one agent creates another,
+// TestIntegrationCreateAgentRecordsSpawnedBy covers the parent recorded when one agent creates another,
 // which arrives in the caller header and is absent on every create the panel makes.
-func TestCreateAgentRecordsSpawnedBy(t *testing.T) {
+func TestIntegrationCreateAgentRecordsSpawnedBy(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()
 

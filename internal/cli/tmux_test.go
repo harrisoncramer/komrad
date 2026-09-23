@@ -11,9 +11,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestPanelKeySocket covers which tmux server the panel key is bound on, where inheriting it is
+// TestIntegrationPanelKeySocket covers which tmux server the panel key is bound on, where inheriting it is
 // the failure worth guarding.
-func TestPanelKeySocket(t *testing.T) {
+func TestIntegrationPanelKeySocket(t *testing.T) {
 	const managerPath = "/tmp/tmux-501/weave"
 
 	tests := []struct {

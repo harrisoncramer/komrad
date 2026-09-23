@@ -118,9 +118,9 @@ func freeAddr(t *testing.T) string {
 	return addr
 }
 
-// TestEnsureServerReportsWhyItDied covers that a server which exits during startup is reported
+// TestIntegrationEnsureServerReportsWhyItDied covers that a server which exits during startup is reported
 // with the reason it logged.
-func TestEnsureServerReportsWhyItDied(t *testing.T) {
+func TestIntegrationEnsureServerReportsWhyItDied(t *testing.T) {
 	logPath := filepath.Join(t.TempDir(), "serve.log")
 	self := fakeServe(t, "failed to reach db: connection refused")
 
@@ -134,10 +134,10 @@ func TestEnsureServerReportsWhyItDied(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to reach db: connection refused")
 }
 
-// TestEnsureServerIgnoresOlderLogLines covers that only what this server wrote is reported:
+// TestIntegrationEnsureServerIgnoresOlderLogLines covers that only what this server wrote is reported:
 // the log is appended to across every run, so the previous run's failure sits above the
 // current one and would otherwise be read as the reason.
-func TestEnsureServerIgnoresOlderLogLines(t *testing.T) {
+func TestIntegrationEnsureServerIgnoresOlderLogLines(t *testing.T) {
 	logPath := filepath.Join(t.TempDir(), "serve.log")
 	require.NoError(t, os.WriteFile(logPath, []byte("failed to migrate db: an older run\n"), 0o644))
 
@@ -154,9 +154,9 @@ func TestEnsureServerIgnoresOlderLogLines(t *testing.T) {
 	assert.NotContains(t, err.Error(), "an older run")
 }
 
-// TestEnsureServerWithoutAReason covers a server that dies saying nothing, where the error still
+// TestIntegrationEnsureServerWithoutAReason covers a server that dies saying nothing, where the error still
 // has to point at the log.
-func TestEnsureServerWithoutAReason(t *testing.T) {
+func TestIntegrationEnsureServerWithoutAReason(t *testing.T) {
 	logPath := filepath.Join(t.TempDir(), "serve.log")
 	self := fakeServe(t, "")
 
@@ -170,9 +170,9 @@ func TestEnsureServerWithoutAReason(t *testing.T) {
 	assert.Contains(t, err.Error(), logPath)
 }
 
-// TestEnsureServerWithAnUnwritableLog covers a log that cannot be opened, where nothing is
+// TestIntegrationEnsureServerWithAnUnwritableLog covers a log that cannot be opened, where nothing is
 // spawned and the reader is told which path failed.
-func TestEnsureServerWithAnUnwritableLog(t *testing.T) {
+func TestIntegrationEnsureServerWithAnUnwritableLog(t *testing.T) {
 	blocked := filepath.Join(t.TempDir(), "not-a-directory")
 	require.NoError(t, os.WriteFile(blocked, nil, 0o644))
 
@@ -188,10 +188,10 @@ func TestEnsureServerWithAnUnwritableLog(t *testing.T) {
 	assert.Contains(t, err.Error(), logPath, "the path that could not be opened is named")
 }
 
-// TestEnsureServerCarriesTheConfigPath covers the spawned server being told which config file
+// TestIntegrationEnsureServerCarriesTheConfigPath covers the spawned server being told which config file
 // to read: it loads the file for itself rather than being handed what this process parsed, so
 // a path left off here serves out of a different file than the one the caller named.
-func TestEnsureServerCarriesTheConfigPath(t *testing.T) {
+func TestIntegrationEnsureServerCarriesTheConfigPath(t *testing.T) {
 	tests := []struct {
 		name  string
 		stack config.Stack
@@ -237,10 +237,10 @@ func TestEnsureServerCarriesTheConfigPath(t *testing.T) {
 	}
 }
 
-// TestEnsureServerReusesItsOwnBuild covers that nothing is spawned when this build is already
+// TestIntegrationEnsureServerReusesItsOwnBuild covers that nothing is spawned when this build is already
 // serving, so opening a second panel does not start a second server; a database that is down
 // is still this build, so it is waited for rather than replaced.
-func TestEnsureServerReusesItsOwnBuild(t *testing.T) {
+func TestIntegrationEnsureServerReusesItsOwnBuild(t *testing.T) {
 	tests := []struct {
 		name   string
 		status int
@@ -276,8 +276,8 @@ func TestEnsureServerReusesItsOwnBuild(t *testing.T) {
 	}
 }
 
-// TestEnsureServerReplacesAnotherBuild covers the panel finding a server it cannot use.
-func TestEnsureServerReplacesAnotherBuild(t *testing.T) {
+// TestIntegrationEnsureServerReplacesAnotherBuild covers the panel finding a server it cannot use.
+func TestIntegrationEnsureServerReplacesAnotherBuild(t *testing.T) {
 	addr := fakeServer(t, fakeServerParams{
 		status:  http.StatusOK,
 		body:    healthJSON(t, "v0.0.0-20260701000000-0000000000ab"),
@@ -296,8 +296,8 @@ func TestEnsureServerReplacesAnotherBuild(t *testing.T) {
 		"the server that was there is stopped and a new one started over it")
 }
 
-// TestProbeServer covers what the panel decides on, where ready is more than a bound socket.
-func TestProbeServer(t *testing.T) {
+// TestIntegrationProbeServer covers what the panel decides on, where ready is more than a bound socket.
+func TestIntegrationProbeServer(t *testing.T) {
 	tests := []struct {
 		name   string
 		serve  bool
@@ -360,8 +360,8 @@ func TestProbeServer(t *testing.T) {
 	}
 }
 
-// TestRequireEngineBuild covers the panel's own check against a remote engine.
-func TestRequireEngineBuild(t *testing.T) {
+// TestIntegrationRequireEngineBuild covers the panel's own check against a remote engine.
+func TestIntegrationRequireEngineBuild(t *testing.T) {
 	const engineCommit = "4b1db3cfa7f3eb6f9f5f4de5b4ba5f5e12f5a0c1"
 
 	tests := []struct {

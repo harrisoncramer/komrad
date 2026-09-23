@@ -4,15 +4,14 @@ set -euo pipefail
 #MISE description="Run the Go tests, the unit ones or those plus the integration ones."
 
 usage() {
-	echo "Usage: mise run go:test [--kind unit|integration]"
+	echo "Usage: mise run go:test [--kind unit|integration|all]"
 	echo
 	echo "Runs both kinds by default. A test that drives a real git, a real tmux or a"
 	echo "real weave carries the integration build tag, so it is compiled out of a"
 	echo "unit run rather than skipped inside one."
 	echo
-	echo "An integration run compiles the tagged files in, which means it runs the"
-	echo "unit tests of those packages as well. Go has no way to run only what a tag"
-	echo "brought in."
+	echo "Every test in a tagged file is named TestIntegration, which is how an"
+	echo "integration run picks out only those and leaves the unit tests alone."
 	echo
 	echo "Which tests a pull request runs is decided in .github/workflows/ci.yml,"
 	echo "since that is where the files a branch changed are already known."
@@ -21,7 +20,7 @@ usage() {
 	echo "and db/models."
 }
 
-KIND="integration"
+KIND="all"
 
 while (($#)); do
 	case "$1" in
@@ -32,7 +31,7 @@ while (($#)); do
 	--kind)
 		KIND="${2:-}"
 		if [ -z "$KIND" ]; then
-			echo "go:test: --kind takes unit or integration" >&2
+			echo "go:test: --kind takes unit, integration or all" >&2
 			usage >&2
 			exit 1
 		fi
@@ -50,6 +49,9 @@ TAGS=()
 case "$KIND" in
 unit) ;;
 integration)
+	TAGS=(-tags integration -run '^TestIntegration')
+	;;
+all)
 	TAGS=(-tags integration)
 	;;
 *)

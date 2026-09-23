@@ -25,8 +25,8 @@ func capture(t *testing.T, root string, args ...string) string {
 	return strings.TrimSpace(string(out))
 }
 
-// TestTakeHoldsCommittedAndUncommittedWorkAlike pins what a round covers.
-func TestTakeHoldsCommittedAndUncommittedWorkAlike(t *testing.T) {
+// TestIntegrationTakeHoldsCommittedAndUncommittedWorkAlike pins what a round covers.
+func TestIntegrationTakeHoldsCommittedAndUncommittedWorkAlike(t *testing.T) {
 	root := repo(t)
 	run(t, root, "checkout", "-b", "agent/one")
 
@@ -65,9 +65,9 @@ func changed(patch *Patch) []string {
 	return found
 }
 
-// TestTakeIsHeldByItsRefAndReadableAfterTheWorktreeMovesOn is what a round is for: the patch reads
+// TestIntegrationTakeIsHeldByItsRefAndReadableAfterTheWorktreeMovesOn is what a round is for: the patch reads
 // the same however far the agent has moved on since.
-func TestTakeIsHeldByItsRefAndReadableAfterTheWorktreeMovesOn(t *testing.T) {
+func TestIntegrationTakeIsHeldByItsRefAndReadableAfterTheWorktreeMovesOn(t *testing.T) {
 	root := repo(t)
 	write(t, root, "kept.go", "package main\n\nfunc First() {}\n")
 
@@ -94,9 +94,9 @@ func TestTakeIsHeldByItsRefAndReadableAfterTheWorktreeMovesOn(t *testing.T) {
 	assert.Equal(t, snapshot.SHA, capture(t, root, "rev-parse", "refs/weave/rounds/three"))
 }
 
-// TestTakeIgnoresWhatGitIgnores pins that a snapshot obeys the repository's own ignores rather than
+// TestIntegrationTakeIgnoresWhatGitIgnores pins that a snapshot obeys the repository's own ignores rather than
 // staging everything on disk.
-func TestTakeIgnoresWhatGitIgnores(t *testing.T) {
+func TestIntegrationTakeIgnoresWhatGitIgnores(t *testing.T) {
 	root := repo(t)
 	write(t, root, ".gitignore", ".weave/\n")
 	write(t, root, ".weave/reviews/round-1.md", "a review\n")
@@ -118,8 +118,8 @@ func TestTakeIgnoresWhatGitIgnores(t *testing.T) {
 	assert.NotContains(t, changed(patch), ".weave/reviews/round-1.md")
 }
 
-// TestTakeExcludesNothingItself pins where the workflow's excludes are applied.
-func TestTakeExcludesNothingItself(t *testing.T) {
+// TestIntegrationTakeExcludesNothingItself pins where the workflow's excludes are applied.
+func TestIntegrationTakeExcludesNothingItself(t *testing.T) {
 	root := repo(t)
 	write(t, root, "proto/gen/api.pb.go", "package gen\n\nfunc Gen() {}\n")
 
@@ -146,9 +146,9 @@ func TestTakeExcludesNothingItself(t *testing.T) {
 	require.NotErrorIs(t, err, ErrNoChanges)
 }
 
-// TestLoadSaysNothingChangedOnlyWhenNothingDid pins the other half of that: a worktree that really
+// TestIntegrationLoadSaysNothingChangedOnlyWhenNothingDid pins the other half of that: a worktree that really
 // has not moved reads as nothing to review whether or not the workflow excludes anything.
-func TestLoadSaysNothingChangedOnlyWhenNothingDid(t *testing.T) {
+func TestIntegrationLoadSaysNothingChangedOnlyWhenNothingDid(t *testing.T) {
 	root := repo(t)
 
 	snapshot, err := gitClient.TakeSnapshot(t.Context(), git.TakeSnapshotParams{Dir: root, Base: "main"})

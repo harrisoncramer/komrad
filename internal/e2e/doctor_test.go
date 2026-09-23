@@ -13,9 +13,9 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// TestRunDoctorChecksTheServersOwnMachine covers what a doctor pointed at an engine reads back: the
+// TestIntegrationRunDoctorChecksTheServersOwnMachine covers what a doctor pointed at an engine reads back: the
 // service makes the checks about its machine with what it holds.
-func TestRunDoctorChecksTheServersOwnMachine(t *testing.T) {
+func TestIntegrationRunDoctorChecksTheServersOwnMachine(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 
 	resp, err := instance.Doctor.RunDoctor(t.Context(), connect.NewRequest(&emptypb.Empty{}))

@@ -9,9 +9,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestReadFilesReadsEverySideInOneCommand covers the sources of a whole patch coming back
+// TestIntegrationReadFilesReadsEverySideInOneCommand covers the sources of a whole patch coming back
 // keyed by commit and path, with a path the commit does not hold left out rather than failing.
-func TestReadFilesReadsEverySideInOneCommand(t *testing.T) {
+func TestIntegrationReadFilesReadsEverySideInOneCommand(t *testing.T) {
 	t.Parallel()
 
 	root := repo(t)
@@ -42,8 +42,8 @@ func TestReadFilesReadsEverySideInOneCommand(t *testing.T) {
 	}, files)
 }
 
-// TestReadFilesOfNothingRunsNothing covers a patch with no file to colour.
-func TestReadFilesOfNothingRunsNothing(t *testing.T) {
+// TestIntegrationReadFilesOfNothingRunsNothing covers a patch with no file to colour.
+func TestIntegrationReadFilesOfNothingRunsNothing(t *testing.T) {
 	t.Parallel()
 
 	files, err := client.ReadFiles(t.Context(), t.TempDir(), nil)
@@ -51,9 +51,9 @@ func TestReadFilesOfNothingRunsNothing(t *testing.T) {
 	assert.Empty(t, files)
 }
 
-// TestReadFilesRefusesADirectoryGitDoesNotHave covers the one failure that is git's rather than
+// TestIntegrationReadFilesRefusesADirectoryGitDoesNotHave covers the one failure that is git's rather than
 // a file's.
-func TestReadFilesRefusesADirectoryGitDoesNotHave(t *testing.T) {
+func TestIntegrationReadFilesRefusesADirectoryGitDoesNotHave(t *testing.T) {
 	t.Parallel()
 
 	_, err := client.ReadFiles(t.Context(), t.TempDir(), []FileRevision{{SHA: "HEAD", Path: "x"}})

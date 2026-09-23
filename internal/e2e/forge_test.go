@@ -19,11 +19,11 @@ import (
 // live test skips without one so the suite never needs the network.
 const forgeTokenEnv = "WEAVE_E2E_GITHUB_TOKEN"
 
-// TestForgeConnectsThroughTheService covers the path a person takes to connect a forge, with
+// TestIntegrationForgeConnectsThroughTheService covers the path a person takes to connect a forge, with
 // the service doing every part of it: the token goes in once, the connection lists with the
 // login GitHub answered, a check confirms it, a pull request is read through it, and
 // disconnecting takes it away.
-func TestForgeConnectsThroughTheService(t *testing.T) {
+func TestIntegrationForgeConnectsThroughTheService(t *testing.T) {
 	token := os.Getenv(forgeTokenEnv)
 	if token == "" {
 		t.Skipf("%s is not set", forgeTokenEnv)

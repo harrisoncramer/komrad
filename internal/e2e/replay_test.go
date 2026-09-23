@@ -131,11 +131,11 @@ func reviewAcrossARebase(t *testing.T, mainsGreet string, wantConflict bool) rou
 	}
 }
 
-// TestRoundsEitherSideOfARebaseReplayToTheAgentsOwnChange takes two rounds through the service
+// TestIntegrationRoundsEitherSideOfARebaseReplayToTheAgentsOwnChange takes two rounds through the service
 // and the rebase key and proves what the review screen draws between them: the first round
 // carried onto the moved base, diffed against the second, is the agent's own edit and nothing
 // the base brought with it.
-func TestRoundsEitherSideOfARebaseReplayToTheAgentsOwnChange(t *testing.T) {
+func TestIntegrationRoundsEitherSideOfARebaseReplayToTheAgentsOwnChange(t *testing.T) {
 	rounds := reviewAcrossARebase(t, "// main moved\n"+greetBefore, false)
 	client := git.NewClient()
 
@@ -178,9 +178,9 @@ func TestRoundsEitherSideOfARebaseReplayToTheAgentsOwnChange(t *testing.T) {
 	assert.Equal(t, []string{"", "func Again() {}"}, added, "the agent's own edit, with the base's line on neither side")
 }
 
-// TestRoundsEitherSideOfAConflictedRebaseNameThePath covers the agent resolving a real clash during
+// TestIntegrationRoundsEitherSideOfAConflictedRebaseNameThePath covers the agent resolving a real clash during
 // the rebase.
-func TestRoundsEitherSideOfAConflictedRebaseNameThePath(t *testing.T) {
+func TestIntegrationRoundsEitherSideOfAConflictedRebaseNameThePath(t *testing.T) {
 	rounds := reviewAcrossARebase(t, "package greet\n\nfunc Hello() {}\n\nfunc Main() {}\n", true)
 
 	replayed, err := git.NewClient().Replay(t.Context(), git.ReplayParams{

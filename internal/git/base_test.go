@@ -12,9 +12,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestResolveBaseReadsTheCloneAsItStands covers the three answers: origin's copy when the clone
+// TestIntegrationResolveBaseReadsTheCloneAsItStands covers the three answers: origin's copy when the clone
 // holds one, the local branch otherwise, and a refusal naming the branch when it has neither.
-func TestResolveBaseReadsTheCloneAsItStands(t *testing.T) {
+func TestIntegrationResolveBaseReadsTheCloneAsItStands(t *testing.T) {
 	t.Parallel()
 
 	_, clone := newClonePair(t)
@@ -50,9 +50,9 @@ func TestResolveBaseReadsTheCloneAsItStands(t *testing.T) {
 	assert.Contains(t, err.Error(), "trunk")
 }
 
-// TestDefaultBaseReadsTheCloneOnce covers what a workflow left without a base is given: what
+// TestIntegrationDefaultBaseReadsTheCloneOnce covers what a workflow left without a base is given: what
 // origin/HEAD names, else the branch the checkout is on, else main.
-func TestDefaultBaseReadsTheCloneOnce(t *testing.T) {
+func TestIntegrationDefaultBaseReadsTheCloneOnce(t *testing.T) {
 	t.Parallel()
 
 	_, clone := newClonePair(t)

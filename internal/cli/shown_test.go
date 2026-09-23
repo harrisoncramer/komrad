@@ -21,9 +21,9 @@ const (
 	pollForClient = 20 * time.Millisecond
 )
 
-// TestShownAnswersFromWhatIsOnScreen drives real tmux servers, with a client attached on one and
+// TestIntegrationShownAnswersFromWhatIsOnScreen drives real tmux servers, with a client attached on one and
 // the record of the press on another.
-func TestShownAnswersFromWhatIsOnScreen(t *testing.T) {
+func TestIntegrationShownAnswersFromWhatIsOnScreen(t *testing.T) {
 	managerSocket := throwawaySocket(t)
 	panelSession(t, managerSocket)
 
@@ -49,9 +49,9 @@ func TestShownAnswersFromWhatIsOnScreen(t *testing.T) {
 	_ = viewer.Wait()
 }
 
-// TestShownWithoutATmuxServer covers the key binding running somewhere weave cannot work out
+// TestIntegrationShownWithoutATmuxServer covers the key binding running somewhere weave cannot work out
 // which server pressed it, where saying hidden is what leaves the press with a popup.
-func TestShownWithoutATmuxServer(t *testing.T) {
+func TestIntegrationShownWithoutATmuxServer(t *testing.T) {
 	managerSocket := throwawaySocket(t)
 	panelSession(t, managerSocket)
 	attachViewer(t, managerSocket)
@@ -94,9 +94,9 @@ func attachViewer(t *testing.T, socket string) *exec.Cmd {
 	return viewer
 }
 
-// TestShownAndHideReachAnEnginesPanel covers the one key finding the engine's panel on screen
+// TestIntegrationShownAndHideReachAnEnginesPanel covers the one key finding the engine's panel on screen
 // rather than only this machine's, and hiding that one.
-func TestShownAndHideReachAnEnginesPanel(t *testing.T) {
+func TestIntegrationShownAndHideReachAnEnginesPanel(t *testing.T) {
 	localSocket := throwawaySocket(t)
 	panelSession(t, localSocket)
 

@@ -4,7 +4,7 @@ set -euo pipefail
 #MISE description="Run every check: shell, formatting, lint, and tests."
 
 usage() {
-	echo "Usage: mise run check [--kind unit|integration]"
+	echo "Usage: mise run check [--kind unit|integration|all]"
 	echo
 	echo "Runs the whole suite and reports which steps failed rather than stopping at"
 	echo "the first, so one run tells you everything that is wrong. The formatters are"
@@ -24,7 +24,7 @@ usage() {
 	echo "of a kind of test."
 }
 
-KIND="integration"
+KIND="all"
 while (($#)); do
 	case "$1" in
 	-h | --help)
@@ -34,7 +34,7 @@ while (($#)); do
 	--kind)
 		KIND="${2:-}"
 		if [ -z "$KIND" ]; then
-			echo "check: --kind takes unit or integration" >&2
+			echo "check: --kind takes unit, integration or all" >&2
 			usage >&2
 			exit 1
 		fi
@@ -49,7 +49,7 @@ while (($#)); do
 done
 
 case "$KIND" in
-unit | integration) ;;
+unit | integration | all) ;;
 *)
 	echo "check: no kind of test called $KIND" >&2
 	usage >&2

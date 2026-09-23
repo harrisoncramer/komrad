@@ -15,10 +15,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestCreateWorkflowFillsTheBaseFromTheClone covers a blank base being read off the clone once:
+// TestIntegrationCreateWorkflowFillsTheBaseFromTheClone covers a blank base being read off the clone once:
 // what origin/HEAD names when the clone has one, and the branch the checkout is on when it has
 // no origin, with the response carrying the name stored.
-func TestCreateWorkflowFillsTheBaseFromTheClone(t *testing.T) {
+func TestIntegrationCreateWorkflowFillsTheBaseFromTheClone(t *testing.T) {
 	hermeticGit(t)
 
 	tests := []struct {

@@ -18,9 +18,9 @@ type fakePanes struct {
 
 func (s fakePanes) CapturePane(string) string { return s.frame }
 
-// TestDoesFrameShowHarness covers a pane still at its shell reading as a harness that has yet to
+// TestIntegrationDoesFrameShowHarness covers a pane still at its shell reading as a harness that has yet to
 // draw, and a harness weave cannot look up being taken at its word instead.
-func TestDoesFrameShowHarness(t *testing.T) {
+func TestIntegrationDoesFrameShowHarness(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {

@@ -28,10 +28,10 @@ func realFrame(t *testing.T) (*Frame, *tmuxtest.Server, string) {
 	return frame, server, sidebar
 }
 
-// TestSidebarWidthFollowsADraggedDividerUnderTheWindow covers why the width is measured off the
+// TestIntegrationSidebarWidthFollowsADraggedDividerUnderTheWindow covers why the width is measured off the
 // stage rather than off the sidebar itself: a zoomed sidebar reports the whole window, so the
 // divider the user dragged is only readable from the pane beside it.
-func TestSidebarWidthFollowsADraggedDividerUnderTheWindow(t *testing.T) {
+func TestIntegrationSidebarWidthFollowsADraggedDividerUnderTheWindow(t *testing.T) {
 	frame, server, sidebar := realFrame(t)
 
 	total := paneWidth(t, server, sidebar) + paneWidth(t, server, frame.Pane(RegionStage)) + 1
@@ -53,8 +53,8 @@ func TestSidebarWidthFollowsADraggedDividerUnderTheWindow(t *testing.T) {
 	assert.Equal(t, 50, width, "and holding the window leaves the divider where it was")
 }
 
-// TestADeadStagePaneIsReplacedAtTheDraggedWidth keeps the dragged sidebar width.
-func TestADeadStagePaneIsReplacedAtTheDraggedWidth(t *testing.T) {
+// TestIntegrationADeadStagePaneIsReplacedAtTheDraggedWidth keeps the dragged sidebar width.
+func TestIntegrationADeadStagePaneIsReplacedAtTheDraggedWidth(t *testing.T) {
 	frame, server, sidebar := realFrame(t)
 
 	stage := frame.Pane(RegionStage)
@@ -83,9 +83,9 @@ func TestADeadStagePaneIsReplacedAtTheDraggedWidth(t *testing.T) {
 	assert.True(t, measured)
 }
 
-// TestAResizeWhileTheStagePaneIsDeadKeepsTheDivider covers the resize tmux delivers when the
+// TestIntegrationAResizeWhileTheStagePaneIsDeadKeepsTheDivider covers the resize tmux delivers when the
 // stage pane dies and its columns go to the sidebar.
-func TestAResizeWhileTheStagePaneIsDeadKeepsTheDivider(t *testing.T) {
+func TestIntegrationAResizeWhileTheStagePaneIsDeadKeepsTheDivider(t *testing.T) {
 	frame, server, sidebar := realFrame(t)
 
 	stage := frame.Pane(RegionStage)

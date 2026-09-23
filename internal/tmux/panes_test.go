@@ -15,8 +15,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestSplitsPlaceThePaneWhereTheyAreNamedFor pins which side each one opens on.
-func TestSplitsPlaceThePaneWhereTheyAreNamedFor(t *testing.T) {
+// TestIntegrationSplitsPlaceThePaneWhereTheyAreNamedFor pins which side each one opens on.
+func TestIntegrationSplitsPlaceThePaneWhereTheyAreNamedFor(t *testing.T) {
 	tests := []struct {
 		name  string
 		split func(*Client, string, string) string
@@ -91,8 +91,8 @@ func paneCorner(t *testing.T, c *Client, pane string) (left, top string) {
 	return l, tp
 }
 
-// TestSelectPaneMovesTheKeyboard pins the move that hands a pane the keys.
-func TestSelectPaneMovesTheKeyboard(t *testing.T) {
+// TestIntegrationSelectPaneMovesTheKeyboard pins the move that hands a pane the keys.
+func TestIntegrationSelectPaneMovesTheKeyboard(t *testing.T) {
 	client := testServer(t, "select")
 
 	first := paneAt(t, client, "select", 0)
@@ -107,9 +107,9 @@ func TestSelectPaneMovesTheKeyboard(t *testing.T) {
 	assert.False(t, wasFocused, "and the one that had them has given them up")
 }
 
-// TestPaneFocusAnswersForBothHalvesAtOnce pins the two facts one query carries, focus and zoom
+// TestIntegrationPaneFocusAnswersForBothHalvesAtOnce pins the two facts one query carries, focus and zoom
 // moving together under a key bound on the server.
-func TestPaneFocusAnswersForBothHalvesAtOnce(t *testing.T) {
+func TestIntegrationPaneFocusAnswersForBothHalvesAtOnce(t *testing.T) {
 	client := testServer(t, "focusask")
 
 	first := paneAt(t, client, "focusask", 0)
@@ -134,9 +134,9 @@ func TestPaneFocusAnswersForBothHalvesAtOnce(t *testing.T) {
 	assert.False(t, alsoZoomed, "the pane that is not active is not the one filling the window")
 }
 
-// TestPaneFocusOfNothingIsNotTheUsersPane pins the empty target, which tmux would otherwise
+// TestIntegrationPaneFocusOfNothingIsNotTheUsersPane pins the empty target, which tmux would otherwise
 // answer for whichever pane the person is looking at.
-func TestPaneFocusOfNothingIsNotTheUsersPane(t *testing.T) {
+func TestIntegrationPaneFocusOfNothingIsNotTheUsersPane(t *testing.T) {
 	client := testServer(t, "nopane")
 
 	focused, zoomed := client.GetPaneFocus("")
@@ -148,8 +148,8 @@ func TestPaneFocusOfNothingIsNotTheUsersPane(t *testing.T) {
 	assert.False(t, goneZoomed, "a pane that has gone is not the one holding the keys")
 }
 
-// TestResizePaneSetsTheWidthItWasGiven pins the resize the panel sizes its own column with.
-func TestResizePaneSetsTheWidthItWasGiven(t *testing.T) {
+// TestIntegrationResizePaneSetsTheWidthItWasGiven pins the resize the panel sizes its own column with.
+func TestIntegrationResizePaneSetsTheWidthItWasGiven(t *testing.T) {
 	client := testServer(t, "resize")
 
 	_, err := client.query("resize-window", "-t", "resize:", "-x", "120", "-y", "40")
@@ -172,9 +172,9 @@ func paneWidth(t *testing.T, c *Client, pane string) string {
 	return strings.TrimSpace(out)
 }
 
-// TestPaneMeasurementsAnswerZeroForAPaneThatIsNotThere pins the fallback the panel lays itself
+// TestIntegrationPaneMeasurementsAnswerZeroForAPaneThatIsNotThere pins the fallback the panel lays itself
 // out off.
-func TestPaneMeasurementsAnswerZeroForAPaneThatIsNotThere(t *testing.T) {
+func TestIntegrationPaneMeasurementsAnswerZeroForAPaneThatIsNotThere(t *testing.T) {
 	client := testServer(t, "measure")
 
 	_, err := client.query("resize-window", "-t", "measure:", "-x", "100", "-y", "30")
@@ -190,9 +190,9 @@ func TestPaneMeasurementsAnswerZeroForAPaneThatIsNotThere(t *testing.T) {
 	}
 }
 
-// TestWindowWidthIsUnmovedByASplitOrAZoom pins the number that tells a dragged divider apart
+// TestIntegrationWindowWidthIsUnmovedByASplitOrAZoom pins the number that tells a dragged divider apart
 // from a resized terminal.
-func TestWindowWidthIsUnmovedByASplitOrAZoom(t *testing.T) {
+func TestIntegrationWindowWidthIsUnmovedByASplitOrAZoom(t *testing.T) {
 	client := testServer(t, "windowwidth")
 
 	_, err := client.query("resize-window", "-t", "windowwidth:", "-x", "200", "-y", "40")
@@ -216,9 +216,9 @@ func TestWindowWidthIsUnmovedByASplitOrAZoom(t *testing.T) {
 	}
 }
 
-// TestResizeWindowRefusesASizeThatIsNotOne pins the guard, tmux reading a zero as a request to
+// TestIntegrationResizeWindowRefusesASizeThatIsNotOne pins the guard, tmux reading a zero as a request to
 // fit the window to its client.
-func TestResizeWindowRefusesASizeThatIsNotOne(t *testing.T) {
+func TestIntegrationResizeWindowRefusesASizeThatIsNotOne(t *testing.T) {
 	client := testServer(t, "resizewin")
 	pane := paneAt(t, client, "resizewin", 0)
 
@@ -235,8 +235,8 @@ func TestResizeWindowRefusesASizeThatIsNotOne(t *testing.T) {
 	assert.Equal(t, 100, client.GetPaneWidth(pane), "a window nobody named is not resized")
 }
 
-// TestPaneOwnerIsStamped pins the round trip the reconciler reads panes by.
-func TestPaneOwnerIsStamped(t *testing.T) {
+// TestIntegrationPaneOwnerIsStamped pins the round trip the reconciler reads panes by.
+func TestIntegrationPaneOwnerIsStamped(t *testing.T) {
 	client := testServer(t, "owner")
 	pane := paneAt(t, client, "owner", 0)
 
@@ -244,9 +244,9 @@ func TestPaneOwnerIsStamped(t *testing.T) {
 	assert.Equal(t, "agent-one", client.GetPaneOwner(pane))
 }
 
-// TestPaneRunningCLIReadsTheForegroundProgram pins what says the harness weave typed has started,
+// TestIntegrationPaneRunningCLIReadsTheForegroundProgram pins what says the harness weave typed has started,
 // which is the foreground of the pane's terminal rather than the process tmux launched.
-func TestPaneRunningCLIReadsTheForegroundProgram(t *testing.T) {
+func TestIntegrationPaneRunningCLIReadsTheForegroundProgram(t *testing.T) {
 	client := testServer(t, "running")
 	pane := paneAt(t, client, "running", 0)
 
@@ -265,17 +265,17 @@ func TestPaneRunningCLIReadsTheForegroundProgram(t *testing.T) {
 	}
 }
 
-// TestDefaultShellIsWhatAPaneWouldBeParsedBy pins the option the doctor refuses a login shell
+// TestIntegrationDefaultShellIsWhatAPaneWouldBeParsedBy pins the option the doctor refuses a login shell
 // weave cannot launch an agent under by.
-func TestDefaultShellIsWhatAPaneWouldBeParsedBy(t *testing.T) {
+func TestIntegrationDefaultShellIsWhatAPaneWouldBeParsedBy(t *testing.T) {
 	client := testServer(t, "shell")
 
 	assert.Equal(t, "/bin/sh", client.GetDefaultShell())
 }
 
-// TestDetachSessionLeavesThePaneProcessesRunning pins that hiding the manager stops at the
+// TestIntegrationDetachSessionLeavesThePaneProcessesRunning pins that hiding the manager stops at the
 // client.
-func TestDetachSessionLeavesThePaneProcessesRunning(t *testing.T) {
+func TestIntegrationDetachSessionLeavesThePaneProcessesRunning(t *testing.T) {
 	client := testServer(t, "detach")
 	pane := paneAt(t, client, "detach", 0)
 
@@ -288,10 +288,10 @@ func TestDetachSessionLeavesThePaneProcessesRunning(t *testing.T) {
 	assert.Contains(t, panes, pane, "the pane it was hiding is still there")
 }
 
-// TestClientPathFollowsTheCurrentWindow pins that a server no client is attached to still
+// TestIntegrationClientPathFollowsTheCurrentWindow pins that a server no client is attached to still
 // answers, with the current window's active pane rather than with nothing, so a caller cannot
 // tell the two apart and the panel roots a new terminal wherever that pane is.
-func TestClientPathFollowsTheCurrentWindow(t *testing.T) {
+func TestIntegrationClientPathFollowsTheCurrentWindow(t *testing.T) {
 	client := testServer(t, "clientpath")
 
 	dir := t.TempDir()
@@ -309,8 +309,8 @@ func TestClientPathFollowsTheCurrentWindow(t *testing.T) {
 	assert.Equal(t, want, got)
 }
 
-// TestRespawnPaneRunsTheCommandInPlace covers how an agent's CLI is started.
-func TestRespawnPaneRunsTheCommandInPlace(t *testing.T) {
+// TestIntegrationRespawnPaneRunsTheCommandInPlace covers how an agent's CLI is started.
+func TestIntegrationRespawnPaneRunsTheCommandInPlace(t *testing.T) {
 	client := testServer(t, "respawn")
 	pane := paneAt(t, client, "respawn", 0)
 	dir := t.TempDir()

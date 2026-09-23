@@ -15,9 +15,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestChildAgent walks a child from attached to archived through the API the panel and the MCP
+// TestIntegrationChildAgent walks a child from attached to archived through the API the panel and the MCP
 // tools both call.
-func TestChildAgent(t *testing.T) {
+func TestIntegrationChildAgent(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()
 

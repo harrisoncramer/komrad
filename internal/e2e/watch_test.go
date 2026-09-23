@@ -45,11 +45,11 @@ const (
 	agreeWithin       = 10 * time.Second
 )
 
-// TestTheWatchAndTheStoresAgree is the proof that the agent row has one definition: the world
+// TestIntegrationTheWatchAndTheStoresAgree is the proof that the agent row has one definition: the world
 // the panel fills off the watch, the world the agent handler reads from the stores, and what
 // the list and get RPCs answer all assemble to the same rows, and a change written after the
 // stream opened brings the watched world back to the stores through the events alone.
-func TestTheWatchAndTheStoresAgree(t *testing.T) {
+func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()
 	st := instance.Stores

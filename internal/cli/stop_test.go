@@ -14,18 +14,18 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestRequestStopOnNothing covers a stop aimed at an address nothing is serving: the work
+// TestIntegrationRequestStopOnNothing covers a stop aimed at an address nothing is serving: the work
 // is already done, so a reload carries on rather than failing.
-func TestRequestStopOnNothing(t *testing.T) {
+func TestIntegrationRequestStopOnNothing(t *testing.T) {
 	pid, err := requestStop(t.Context(), freeAddr(t))
 
 	require.NoError(t, err)
 	assert.Zero(t, pid, "there was nothing to stop")
 }
 
-// TestRequestStopReadsThePid covers the round trip against a server that answers the way serve
+// TestIntegrationRequestStopReadsThePid covers the round trip against a server that answers the way serve
 // does.
-func TestRequestStopReadsThePid(t *testing.T) {
+func TestIntegrationRequestStopReadsThePid(t *testing.T) {
 	addr := fakeServer(t, fakeServerParams{stopPid: os.Getpid()})
 
 	pid, err := requestStop(t.Context(), addr)
@@ -34,10 +34,10 @@ func TestRequestStopReadsThePid(t *testing.T) {
 	assert.Equal(t, os.Getpid(), pid)
 }
 
-// TestRequestStopOnAServerWithoutTheRoute covers a serve too old to know how to stop: it
+// TestIntegrationRequestStopOnAServerWithoutTheRoute covers a serve too old to know how to stop: it
 // is still running afterwards, so reporting success would have a reload respawn the panel
 // against the process it meant to replace.
-func TestRequestStopOnAServerWithoutTheRoute(t *testing.T) {
+func TestIntegrationRequestStopOnAServerWithoutTheRoute(t *testing.T) {
 	server := httptest.NewServer(http.NotFoundHandler())
 	defer server.Close()
 
@@ -47,19 +47,19 @@ func TestRequestStopOnAServerWithoutTheRoute(t *testing.T) {
 	assert.Contains(t, err.Error(), "would not stop")
 }
 
-// TestAwaitStoppedGivesUp covers a server that accepted the request and then carried on
+// TestIntegrationAwaitStoppedGivesUp covers a server that accepted the request and then carried on
 // running: the command says so rather than returning as though the reload can proceed.
-func TestAwaitStoppedGivesUp(t *testing.T) {
+func TestIntegrationAwaitStoppedGivesUp(t *testing.T) {
 	err := awaitStopped(os.Getpid(), 300*time.Millisecond)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "still running")
 }
 
-// TestAwaitStoppedWaitsForTheProcessRatherThanTheAddress is the point of watching a pid: the
+// TestIntegrationAwaitStoppedWaitsForTheProcessRatherThanTheAddress is the point of watching a pid: the
 // listener closes first, so a server partway through draining is already refusing
 // connections while its process is very much still there.
-func TestAwaitStoppedWaitsForTheProcessRatherThanTheAddress(t *testing.T) {
+func TestIntegrationAwaitStoppedWaitsForTheProcessRatherThanTheAddress(t *testing.T) {
 	sleeper := exec.Command("sleep", "30")
 	require.NoError(t, sleeper.Start())
 

@@ -21,10 +21,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestWorktreeAgentsAreCreatedConcurrently covers a worktree workflow fanned out over the
+// TestIntegrationWorktreeAgentsAreCreatedConcurrently covers a worktree workflow fanned out over the
 // API, where anything the provisioner writes to shared git config puts every create on one
 // lock.
-func TestWorktreeAgentsAreCreatedConcurrently(t *testing.T) {
+func TestIntegrationWorktreeAgentsAreCreatedConcurrently(t *testing.T) {
 	hermeticGit(t)
 
 	worktreesDir := t.TempDir()
@@ -81,9 +81,9 @@ func TestWorktreeAgentsAreCreatedConcurrently(t *testing.T) {
 	}
 }
 
-// TestWorktreeAgentsStayOutOfTheRealStateDirectory covers an instance given no worktrees
+// TestIntegrationWorktreeAgentsStayOutOfTheRealStateDirectory covers an instance given no worktrees
 // directory making its own rather than reaching for the running panel's.
-func TestWorktreeAgentsStayOutOfTheRealStateDirectory(t *testing.T) {
+func TestIntegrationWorktreeAgentsStayOutOfTheRealStateDirectory(t *testing.T) {
 	hermeticGit(t)
 
 	instance := weavetest.Start(t, weavetest.Params{})
@@ -106,9 +106,9 @@ func TestWorktreeAgentsStayOutOfTheRealStateDirectory(t *testing.T) {
 	assert.Equal(t, instance.WorktreesDir, filepath.Dir(agent.Msg.GetAgent().GetCwd()))
 }
 
-// TestWorktreeAgentCanPublishItsBranch covers the agent reaching for git push, which a branch
+// TestIntegrationWorktreeAgentCanPublishItsBranch covers the agent reaching for git push, which a branch
 // tracking the base it was cut from refuses outright.
-func TestWorktreeAgentCanPublishItsBranch(t *testing.T) {
+func TestIntegrationWorktreeAgentCanPublishItsBranch(t *testing.T) {
 	hermeticGit(t)
 
 	worktreesDir := t.TempDir()

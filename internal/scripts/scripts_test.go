@@ -15,9 +15,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestDiscover covers what the directory offers as a script, including a file that cannot be
+// TestIntegrationDiscover covers what the directory offers as a script, including a file that cannot be
 // run.
-func TestDiscover(t *testing.T) {
+func TestIntegrationDiscover(t *testing.T) {
 	dir := t.TempDir()
 	write(t, filepath.Join(dir, "open-pr"), 0o755)
 	write(t, filepath.Join(dir, "not-executable"), 0o644)
@@ -99,9 +99,9 @@ func TestDiscover(t *testing.T) {
 	assert.Equal(t, []string{"linked", "not-executable", "open-pr"}, names, "listed by name")
 }
 
-// TestDiscoverReadsWhatAFileDeclares covers the header arriving with the listing rather than
+// TestIntegrationDiscoverReadsWhatAFileDeclares covers the header arriving with the listing rather than
 // being read again later.
-func TestDiscoverReadsWhatAFileDeclares(t *testing.T) {
+func TestIntegrationDiscoverReadsWhatAFileDeclares(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "open-pr"), []byte(
 		"#!/bin/sh\n#WEAVE description=\"Open the pull request.\"\n#WEAVE timeout=\"45s\"\n",
@@ -116,19 +116,19 @@ func TestDiscoverReadsWhatAFileDeclares(t *testing.T) {
 	assert.Equal(t, Header{}, found[1].Header, "a file that declares nothing carries nothing")
 }
 
-// TestDiscoverMissingDirectory covers never having written one, where nothing is wrong so
+// TestIntegrationDiscoverMissingDirectory covers never having written one, where nothing is wrong so
 // nothing is reported.
-func TestDiscoverMissingDirectory(t *testing.T) {
+func TestIntegrationDiscoverMissingDirectory(t *testing.T) {
 	found, err := discover(filepath.Join(t.TempDir(), "never-created"))
 
 	require.NoError(t, err)
 	assert.Empty(t, found)
 }
 
-// TestRunPassesTheEnvironmentAndDirectory covers the contract a script is written
+// TestIntegrationRunPassesTheEnvironmentAndDirectory covers the contract a script is written
 // against: it runs in the directory it was given, with what it was told about the agent in
 // the environment, and inherits the rest of the environment around it.
-func TestRunPassesTheEnvironmentAndDirectory(t *testing.T) {
+func TestIntegrationRunPassesTheEnvironmentAndDirectory(t *testing.T) {
 	dir := t.TempDir()
 	out := filepath.Join(dir, "out")
 	script := filepath.Join(dir, "record")
@@ -155,9 +155,9 @@ func TestRunPassesTheEnvironmentAndDirectory(t *testing.T) {
 	assert.Contains(t, written, "from the panel", "the environment around it is inherited, not replaced")
 }
 
-// TestRunRefusesWhatItCannotStart covers the failures that would otherwise be
+// TestIntegrationRunRefusesWhatItCannotStart covers the failures that would otherwise be
 // indistinguishable from a keypress that did nothing at all.
-func TestRunRefusesWhatItCannotStart(t *testing.T) {
+func TestIntegrationRunRefusesWhatItCannotStart(t *testing.T) {
 	tests := []struct {
 		name     string
 		file     string
@@ -199,9 +199,9 @@ func TestRunRefusesWhatItCannotStart(t *testing.T) {
 	}
 }
 
-// TestRunRefusesAMissingDirectory covers an agent outliving its worktree, where the refusal has
+// TestIntegrationRunRefusesAMissingDirectory covers an agent outliving its worktree, where the refusal has
 // to name the directory since the exec failure underneath blames the script instead.
-func TestRunRefusesAMissingDirectory(t *testing.T) {
+func TestIntegrationRunRefusesAMissingDirectory(t *testing.T) {
 	dir := t.TempDir()
 	write(t, filepath.Join(dir, "open-pr"), 0o755)
 
@@ -217,9 +217,9 @@ func TestRunRefusesAMissingDirectory(t *testing.T) {
 	assert.Contains(t, err.Error(), gone, "the refusal names the directory, not the script")
 }
 
-// TestRunRefusesADirectoryThatIsAFile covers the same check meeting a path that exists and is
+// TestIntegrationRunRefusesADirectoryThatIsAFile covers the same check meeting a path that exists and is
 // not somewhere a process can be started, which fails at chdir the same way nothing there does.
-func TestRunRefusesADirectoryThatIsAFile(t *testing.T) {
+func TestIntegrationRunRefusesADirectoryThatIsAFile(t *testing.T) {
 	dir := t.TempDir()
 	write(t, filepath.Join(dir, "open-pr"), 0o755)
 
@@ -232,9 +232,9 @@ func TestRunRefusesADirectoryThatIsAFile(t *testing.T) {
 	require.ErrorIs(t, NewRunner().Run(RunParams{Script: found[0], Dir: notADir}), ErrDirMissing)
 }
 
-// TestRunReportsTheOutcome covers the whole of what a caller with nothing waiting on an
+// TestIntegrationRunReportsTheOutcome covers the whole of what a caller with nothing waiting on an
 // script can learn about it.
-func TestRunReportsTheOutcome(t *testing.T) {
+func TestIntegrationRunReportsTheOutcome(t *testing.T) {
 	tests := []struct {
 		name       string
 		contents   string
@@ -295,9 +295,9 @@ func TestRunReportsTheOutcome(t *testing.T) {
 	}
 }
 
-// TestRunCapturesStdoutToo covers the fire-and-forget path, where a script that fails through a
+// TestIntegrationRunCapturesStdoutToo covers the fire-and-forget path, where a script that fails through a
 // plain echo on stdout would otherwise leave its log empty.
-func TestRunCapturesStdoutToo(t *testing.T) {
+func TestIntegrationRunCapturesStdoutToo(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "chatty"), []byte(
 		"#!/bin/sh\necho an answer nobody asked for\n",
@@ -339,9 +339,9 @@ func await(t *testing.T, reported chan outcomeReport) outcomeReport {
 	}
 }
 
-// TestRunAndWaitReportsWhatTheScriptSaid covers the streams coming back apart, stdout being the
+// TestIntegrationRunAndWaitReportsWhatTheScriptSaid covers the streams coming back apart, stdout being the
 // script's answer and stderr what it told a person.
-func TestRunAndWaitReportsWhatTheScriptSaid(t *testing.T) {
+func TestIntegrationRunAndWaitReportsWhatTheScriptSaid(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "provision"), []byte(
 		"#!/bin/sh\necho progress >&2\nprintf '%s\\n' \"$WEAVE_TEST_ANSWER\"\n",
@@ -361,9 +361,9 @@ func TestRunAndWaitReportsWhatTheScriptSaid(t *testing.T) {
 	assert.Equal(t, "progress", strings.TrimSpace(string(result.Stderr)), "stderr stays separate from it")
 }
 
-// TestRunAndWaitRefusesANonZeroExit covers a script that started fine and then disagreed,
+// TestIntegrationRunAndWaitRefusesANonZeroExit covers a script that started fine and then disagreed,
 // whose result still comes back since its stderr is the only thing that says why.
-func TestRunAndWaitRefusesANonZeroExit(t *testing.T) {
+func TestIntegrationRunAndWaitRefusesANonZeroExit(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "install"), []byte(
 		"#!/bin/sh\necho 'no lockfile' >&2\nexit 3\n",
@@ -380,9 +380,9 @@ func TestRunAndWaitRefusesANonZeroExit(t *testing.T) {
 	assert.Equal(t, "no lockfile", strings.TrimSpace(string(result.Stderr)))
 }
 
-// TestRunAndWaitStopsAtTheDeadline covers a script that hangs, which without the deadline
+// TestIntegrationRunAndWaitStopsAtTheDeadline covers a script that hangs, which without the deadline
 // leaves the launch waiting on it forever.
-func TestRunAndWaitStopsAtTheDeadline(t *testing.T) {
+func TestIntegrationRunAndWaitStopsAtTheDeadline(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "hangs"), []byte(
 		"#!/bin/sh\nsleep 60\n",
@@ -402,9 +402,9 @@ func TestRunAndWaitStopsAtTheDeadline(t *testing.T) {
 	assert.Less(t, time.Since(started), 30*time.Second, "the script is killed rather than waited out")
 }
 
-// TestRunStopsAtItsOwnDeadline covers a timeout on a run nothing is waiting for, where what
+// TestIntegrationRunStopsAtItsOwnDeadline covers a timeout on a run nothing is waiting for, where what
 // happened reaches the outcome rather than a return value.
-func TestRunStopsAtItsOwnDeadline(t *testing.T) {
+func TestIntegrationRunStopsAtItsOwnDeadline(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "hangs"), []byte(
 		"#!/bin/sh\nsleep 60\n",
@@ -433,9 +433,9 @@ func TestRunStopsAtItsOwnDeadline(t *testing.T) {
 	}
 }
 
-// TestRunAndWaitStopsAtItsOwnDeadline covers an awaited run bounded by the timeout it was given
+// TestIntegrationRunAndWaitStopsAtItsOwnDeadline covers an awaited run bounded by the timeout it was given
 // rather than by the context it was handed.
-func TestRunAndWaitStopsAtItsOwnDeadline(t *testing.T) {
+func TestIntegrationRunAndWaitStopsAtItsOwnDeadline(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "hangs"), []byte(
 		"#!/bin/sh\nsleep 60\n",
@@ -457,9 +457,9 @@ func TestRunAndWaitStopsAtItsOwnDeadline(t *testing.T) {
 	assert.Less(t, time.Since(started), 30*time.Second, "the script is killed rather than waited out")
 }
 
-// TestRunAndWaitKeepsTheTailOfALoudScript covers the output cap, where the end of a failing
+// TestIntegrationRunAndWaitKeepsTheTailOfALoudScript covers the output cap, where the end of a failing
 // script is the part that says why.
-func TestRunAndWaitKeepsTheTailOfALoudScript(t *testing.T) {
+func TestIntegrationRunAndWaitKeepsTheTailOfALoudScript(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "loud"), []byte(
 		"#!/bin/sh\nawk 'BEGIN { for (i = 0; i < 20000; i++) print \"filler line\" }'\necho the-last-thing\n",
@@ -476,9 +476,9 @@ func TestRunAndWaitKeepsTheTailOfALoudScript(t *testing.T) {
 	assert.Contains(t, string(result.Stdout), "the-last-thing", "what is kept is the end, not the start")
 }
 
-// TestRunAndWaitAcceptsABackgroundChild pins that a script returning while a child of its own is
+// TestIntegrationRunAndWaitAcceptsABackgroundChild pins that a script returning while a child of its own is
 // still running is finished.
-func TestRunAndWaitAcceptsABackgroundChild(t *testing.T) {
+func TestIntegrationRunAndWaitAcceptsABackgroundChild(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "provision"), []byte(
 		"#!/bin/sh\nsleep 60 &\necho ready >&2\nexit 0\n",
@@ -499,9 +499,9 @@ func TestRunAndWaitAcceptsABackgroundChild(t *testing.T) {
 	assert.Equal(t, "ready", strings.TrimSpace(string(result.Stderr)), "what the script said still comes back")
 }
 
-// TestRunAndWaitRefusesWhatItCannotStart pins that a script that never started comes back as
+// TestIntegrationRunAndWaitRefusesWhatItCannotStart pins that a script that never started comes back as
 // not startable, naming which script it was.
-func TestRunAndWaitRefusesWhatItCannotStart(t *testing.T) {
+func TestIntegrationRunAndWaitRefusesWhatItCannotStart(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "bad-shebang"), []byte("#!/nope/sh\n"), 0o755))
 
@@ -516,9 +516,9 @@ func TestRunAndWaitRefusesWhatItCannotStart(t *testing.T) {
 	assert.Equal(t, -1, result.ExitCode, "a process that never ran has no status of its own")
 }
 
-// TestRunAndWaitRefusesBeforeItStarts covers the two guards that answer before there is a process
+// TestIntegrationRunAndWaitRefusesBeforeItStarts covers the two guards that answer before there is a process
 // at all, a bare Result reading as a clean exit.
-func TestRunAndWaitRefusesBeforeItStarts(t *testing.T) {
+func TestIntegrationRunAndWaitRefusesBeforeItStarts(t *testing.T) {
 	tests := []struct {
 		name    string
 		mode    os.FileMode
@@ -556,9 +556,9 @@ func TestRunAndWaitRefusesBeforeItStarts(t *testing.T) {
 	}
 }
 
-// TestRunAndWaitRefusesAContextAlreadyDone pins that a context cancelled before the call runs
+// TestIntegrationRunAndWaitRefusesAContextAlreadyDone pins that a context cancelled before the call runs
 // nothing at all.
-func TestRunAndWaitRefusesAContextAlreadyDone(t *testing.T) {
+func TestIntegrationRunAndWaitRefusesAContextAlreadyDone(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "provision"), []byte("#!/bin/sh\nexit 0\n"), 0o755))
 

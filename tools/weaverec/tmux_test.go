@@ -81,8 +81,8 @@ func waitForPane(t *testing.T, recorded *instance, pane, want string) {
 	t.Fatalf("pane %s never showed %q; last frame:\n%s", pane, want, last)
 }
 
-// TestSendKeysReachesThePane types into the panel and sees the text arrive in its pane.
-func TestSendKeysReachesThePane(t *testing.T) {
+// TestIntegrationSendKeysReachesThePane types into the panel and sees the text arrive in its pane.
+func TestIntegrationSendKeysReachesThePane(t *testing.T) {
 	t.Parallel()
 
 	recorded, pane := newInstance(t)
@@ -93,8 +93,8 @@ func TestSendKeysReachesThePane(t *testing.T) {
 	waitForPane(t, recorded, pane, "hello\n")
 }
 
-// TestSendKeysFiresARootBinding presses a key the root table binds and sees the binding run.
-func TestSendKeysFiresARootBinding(t *testing.T) {
+// TestIntegrationSendKeysFiresARootBinding presses a key the root table binds and sees the binding run.
+func TestIntegrationSendKeysFiresARootBinding(t *testing.T) {
 	t.Parallel()
 
 	recorded, pane := newInstance(t)
