@@ -100,8 +100,8 @@ func (r *reviewScreen) route(h host, s panelShared, msg tea.Msg) tea.Cmd {
 		r.applyRefreshed(h, s, msg)
 
 		return nil
-	case reviewTreeCheckedMsg:
-		return r.applyTreeChecked(s, msg)
+	case reviewWorktreeHashedMsg:
+		return r.applyWorktreeHashed(s, msg)
 	case messageEditedMsg:
 		r.applyMessageEdited(h, s, msg)
 

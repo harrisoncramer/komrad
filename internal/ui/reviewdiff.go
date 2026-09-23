@@ -54,8 +54,8 @@ type reviewDiff struct {
 	// chapter is which of those is on screen, negative for the whole change.
 	chapter int
 
-	// tree is the worktree behind the diff as the last hash found it.
-	tree reviewTree
+	// worktree is the agent's worktree as the last hash found it.
+	worktree reviewWorktree
 }
 
 // reviewDiffFloor is the narrowest the diff is worth drawing at: the gutter and enough of a line

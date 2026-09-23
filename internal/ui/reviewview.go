@@ -435,7 +435,7 @@ func (p reviewPass) backDesc() string {
 
 // reloadDesc says what the reload key would do.
 func (d reviewDiff) reloadDesc() string {
-	if d.tree.moved {
+	if d.worktree.moved {
 		return "catch up"
 	}
 

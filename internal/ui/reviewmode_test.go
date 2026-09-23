@@ -670,14 +670,14 @@ func TestWatchingHoldsTheDiffWhileTheAgentWrites(t *testing.T) {
 	setReviewAgentState(&m, panel.StateThinking)
 	assert.False(t, m.review.doesFollowLive(m.shared()), "a diff is not redrawn under a writer")
 
-	cmd := m.review.applyTreeChecked(m.shared(), reviewTreeCheckedMsg{agentID: m.review.agentID, moved: true})
+	cmd := m.review.applyWorktreeHashed(m.shared(), reviewWorktreeHashedMsg{agentID: m.review.agentID, moved: true})
 	assert.Nil(t, cmd, "so nothing is read again while it writes")
 	assert.Contains(t, m.review.staleSaid(m.shared()), "catches up when it stops")
 
 	setReviewAgentState(&m, panel.StateIdle)
 	require.True(t, m.review.doesFollowLive(m.shared()), "the end of a turn is where it catches up")
 
-	cmd = m.review.applyTreeChecked(m.shared(), reviewTreeCheckedMsg{agentID: m.review.agentID, moved: true})
+	cmd = m.review.applyWorktreeHashed(m.shared(), reviewWorktreeHashedMsg{agentID: m.review.agentID, moved: true})
 	assert.NotNil(t, cmd, "and that is one read rather than one every poll")
 }
 
