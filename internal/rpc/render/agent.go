@@ -68,6 +68,7 @@ func Agent(row rowstore.Row, options AgentOptions) *agentv1.Agent {
 		LocalReviewTree:    standingOf(localTreeOf(row)),
 		HeldAt:             heldStamp(stored.HeldAt),
 		RepositoryRead:     row.RepositoryRead,
+		ReviewVersion:      row.ReviewVersion,
 	}
 }
 

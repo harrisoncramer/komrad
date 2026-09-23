@@ -34,7 +34,7 @@ func refreshReview(t *testing.T, m model) model {
 
 	refreshed, ok := m.review.refreshThreadsCmd(m.shared())().(reviewRefreshedMsg)
 	require.True(t, ok)
-	m.review.applyRefreshed(m.shared(), refreshed)
+	m.review.applyRefreshed(&m, m.shared(), refreshed)
 
 	return m
 }

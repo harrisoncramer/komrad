@@ -78,7 +78,8 @@ func (r *reviewScreen) open(s panelShared, agent panel.Agent) tea.Cmd {
 		loading:   true,
 		// The whole change is what a review opens on, and it sits before the first round rather
 		// than on it, so the first press of the step key lands on the newest round.
-		diff: reviewDiff{chapter: -1},
+		diff:    reviewDiff{chapter: -1},
+		threads: reviewThreads{seen: reviewProbeOf(s.listing.world, agent.ID)},
 	}
 
 	return r.loadWholeCmd(s)

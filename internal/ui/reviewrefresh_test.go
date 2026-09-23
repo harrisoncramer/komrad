@@ -8,6 +8,7 @@ import (
 	"weave/internal/diff"
 	"weave/internal/ui/diffview"
 	agentv1 "weave/proto/gen/agent/v1"
+	watchv1 "weave/proto/gen/watch/v1"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
@@ -51,7 +52,7 @@ func TestReviewRefreshDrawsAnAnswer(t *testing.T) {
 
 	refreshed, ok := m.review.refreshThreadsCmd(m.shared())().(reviewRefreshedMsg)
 	require.True(t, ok)
-	m.review.applyRefreshed(m.shared(), refreshed)
+	m.review.applyRefreshed(&m, m.shared(), refreshed)
 
 	assert.Contains(t, ansi.Strip(m.review.view(m.shared())), "fixed it")
 }
@@ -73,7 +74,7 @@ func TestReviewRefreshDoesNothingWhenNothingWasSaid(t *testing.T) {
 
 	refreshed, ok := m.review.refreshThreadsCmd(m.shared())().(reviewRefreshedMsg)
 	require.True(t, ok)
-	m.review.applyRefreshed(m.shared(), refreshed)
+	m.review.applyRefreshed(&m, m.shared(), refreshed)
 
 	assert.Same(t, held[0], m.review.threads.list[0], "the same conversation is not pinned again")
 }
@@ -106,7 +107,7 @@ func TestReviewRefreshSeesDeliveryMoveWithoutAStamp(t *testing.T) {
 			require.Equal(t, sent[0].GetUpdatedAt(), moved[0].GetUpdatedAt(), "no row was written")
 			require.Len(t, moved[0].GetMessages(), len(sent[0].GetMessages()), "and none was added")
 
-			m.review.applyRefreshed(m.shared(), reviewRefreshedMsg{agentID: "a1", threads: moved})
+			m.review.applyRefreshed(&m, m.shared(), reviewRefreshedMsg{agentID: "a1", threads: moved})
 
 			assert.Same(t, moved[0], m.review.threads.list[0], "the move is taken")
 			assert.Contains(t, ansi.Strip(m.review.view(m.shared())), reviewDeliveryOf(tt.then).word)
@@ -132,22 +133,141 @@ func reviewComment(t *testing.T, m model, state agentv1.ReviewDeliveryState) []*
 	return threads
 }
 
-// TestReviewRefreshHoldsOneReadAtATime pins the guard: a slow read is not asked for again by
-// every tick that passes underneath it.
+// TestReviewRefreshHoldsOneReadAtATime pins the guard: a move seen while a read is in flight
+// is read once that read lands.
 func TestReviewRefreshHoldsOneReadAtATime(t *testing.T) {
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
 	m = openReview(t, m)
 
-	at := time.Now()
-	require.NotNil(t, m.refreshReviewCmd(at))
-	require.True(t, m.review.threads.polling)
+	moveReview(&m, "1")
+	require.NotNil(t, m.followReviewCmd())
+	require.True(t, m.review.threads.reading)
 
-	assert.Nil(t, m.refreshReviewCmd(at.Add(time.Second)), "nothing is asked for while a read is in flight")
+	moveReview(&m, "2")
+	assert.Nil(t, m.followReviewCmd(), "nothing more is asked for while a read is in flight")
 
-	m.review.applyRefreshed(m.shared(), reviewRefreshedMsg{agentID: "a1"})
-	assert.False(t, m.review.threads.polling)
-	assert.NotNil(t, m.refreshReviewCmd(at.Add(2*time.Second)), "and the tick after it lands asks again")
+	cmd := m.review.update(&m, m.shared(), reviewRefreshedMsg{agentID: "a1"})
+	assert.NotNil(t, cmd, "and the move it missed is read once it lands")
+	assert.True(t, m.review.threads.reading)
+}
+
+// moveReview puts the agent under review into the watched world with a new review version.
+func moveReview(m *model, version string) {
+	m.listing.world.Put(&watchv1.Row{Row: &watchv1.Row_Agent{Agent: &agentv1.Agent{Id: "a1", ReviewVersion: version}}})
+}
+
+// TestReviewRefreshWaitsForTheWatch pins that the conversation is read again only when the watch
+// has seen the review move.
+func TestReviewRefreshWaitsForTheWatch(t *testing.T) {
+	notice := func(id, to string) *watchv1.Row {
+		return &watchv1.Row{Row: &watchv1.Row_Mail{Mail: &agentv1.Mail{
+			Id:        id,
+			ToAgentId: to,
+			Kind:      agentv1.MailKind_MAIL_KIND_REVIEW_ACTIVITY,
+		}}}
+	}
+
+	tests := []struct {
+		name  string
+		held  []*watchv1.Row
+		move  func(m *model)
+		reads bool
+	}{
+		{
+			name:  "nothing moved",
+			move:  func(*model) {},
+			reads: false,
+		},
+		{
+			name:  "the review version moved",
+			move:  func(m *model) { moveReview(m, "2") },
+			reads: true,
+		},
+		{
+			name: "the agent claimed its review notice",
+			held: []*watchv1.Row{notice("n1", "a1")},
+			move: func(m *model) {
+				m.listing.world.Apply(&watchv1.WatchEvent{Event: &watchv1.WatchEvent_Deleted{Deleted: &watchv1.Deleted{
+					Resource: watchv1.Resource_RESOURCE_MAIL,
+					Key:      "n1",
+				}}})
+			},
+			reads: true,
+		},
+		{
+			name:  "another agent was sent a review notice",
+			move:  func(m *model) { m.listing.world.Put(notice("n2", "a2")) },
+			reads: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := reviewRepo(t)
+			m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+			moveReview(&m, "1")
+			for _, row := range tt.held {
+				m.listing.world.Put(row)
+			}
+			m = openReview(t, m)
+
+			tt.move(&m)
+			m.followReviewCmd()
+
+			assert.Equal(t, tt.reads, m.review.threads.reading)
+		})
+	}
+}
+
+// TestReviewRefreshIsNotTheTick pins that the tick never reads the conversation.
+func TestReviewRefreshIsNotTheTick(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	moveReview(&m, "1")
+	m.refreshReviewCmd(time.Now())
+
+	assert.False(t, m.review.threads.reading)
+}
+
+// TestReviewRefreshReportsAFailedRead pins that a failed read is said once and read again only
+// on the watch's next batch.
+func TestReviewRefreshReportsAFailedRead(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	moveReview(&m, "1")
+	require.NotNil(t, m.followReviewCmd())
+
+	cmd := m.review.update(&m, m.shared(), reviewRefreshedMsg{agentID: "a1", err: assert.AnError})
+
+	assert.NotEmpty(t, m.messages.items)
+	assert.Nil(t, cmd, "the failure is not read again straight away")
+	assert.False(t, m.review.threads.reading)
+	assert.NotNil(t, m.followReviewCmd(), "the next batch reads it again")
+}
+
+// TestReviewRefreshDrawsAHeldReadOnceInputCloses pins that a read landing while the reader types
+// is drawn after they stop, with nothing read again.
+func TestReviewRefreshDrawsAHeldReadOnceInputCloses(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+	threads := reviewReply(t, m)
+
+	m.review.threads.composing = true
+	m.review.update(&m, m.shared(), reviewRefreshedMsg{agentID: "a1", threads: threads})
+	require.NotContains(t, ansi.Strip(m.review.view(m.shared())), "fixed it")
+
+	m.review.threads.composing = false
+	m.review.update(&m, m.shared(), struct{}{})
+
+	assert.Contains(t, ansi.Strip(m.review.view(m.shared())), "fixed it")
+	assert.False(t, m.review.threads.reading)
 }
 
 // TestReviewRefreshStandsDownMidInput pins that the tick does not fire while the reader is
@@ -176,7 +296,7 @@ func TestReviewRefreshStandsDownMidInput(t *testing.T) {
 			tt.start(&m)
 
 			assert.Nil(t, m.refreshReviewCmd(time.Now()))
-			assert.False(t, m.review.threads.polling)
+			assert.False(t, m.review.threads.reading)
 			assert.False(t, m.review.diff.diffPolling)
 		})
 	}
@@ -199,7 +319,7 @@ func TestReviewRefreshLeavesTheComposerAlone(t *testing.T) {
 	cursor, top := m.review.diff.cursor, m.review.diff.top
 	tmux.sentKeys = nil
 
-	m.review.applyRefreshed(m.shared(), reviewRefreshedMsg{agentID: "a1", threads: threads})
+	m.review.applyRefreshed(&m, m.shared(), reviewRefreshedMsg{agentID: "a1", threads: threads})
 
 	assert.True(t, m.review.threads.composing, "the editor is still up")
 	assert.Equal(t, "half a thought", m.review.threads.editor.value(), "with what was typed into it")
@@ -207,10 +327,9 @@ func TestReviewRefreshLeavesTheComposerAlone(t *testing.T) {
 	assert.Equal(t, top, m.review.diff.top)
 	assert.Empty(t, tmux.sentKeys, "and the diff was not repainted under it")
 
-	// The probe is left where it was, so the tick after the composer closes finds this again.
 	m.review.threads.composing = false
 	m.review.threads.editor = reviewInput{}
-	m.review.applyRefreshed(m.shared(), reviewRefreshedMsg{agentID: "a1", threads: threads})
+	m.review.catchUp(m.shared())
 	assert.Contains(t, ansi.Strip(m.review.view(m.shared())), "fixed it")
 }
 
@@ -233,7 +352,7 @@ func TestReviewRefreshKeepsThePlace(t *testing.T) {
 	cursor, top, pan := m.review.diff.cursor, m.review.diff.top, m.review.diff.pan
 	pattern, matches := m.review.diff.filter.query, m.review.diff.view.MatchCount()
 
-	m.review.applyRefreshed(m.shared(), reviewRefreshedMsg{
+	m.review.applyRefreshed(&m, m.shared(), reviewRefreshedMsg{
 		agentID: "a1",
 		threads: reviewReply(t, m),
 	})
@@ -265,7 +384,7 @@ func TestReviewRefreshKeepsAFileNameSearch(t *testing.T) {
 	threads := reviewReply(t, m)
 	m.review.diff.cursor = header
 
-	m.review.applyRefreshed(m.shared(), reviewRefreshedMsg{agentID: "a1", threads: threads})
+	m.review.applyRefreshed(&m, m.shared(), reviewRefreshedMsg{agentID: "a1", threads: threads})
 
 	assert.Equal(t, header, m.review.diff.cursor)
 	assert.Contains(t, ansi.Strip(m.review.diff.matchCount()), "1 of 1",
@@ -316,18 +435,6 @@ func TestReviewReloadKeepsTheSearch(t *testing.T) {
 
 	_, jumped := m.review.diff.view.JumpMatch(m.review.diff.cursor, 1)
 	assert.True(t, jumped, "the search still has rows to step through")
-}
-
-// TestReviewRefreshSaysNothingWhenTheReadFails pins a failed read being swallowed.
-func TestReviewRefreshSaysNothingWhenTheReadFails(t *testing.T) {
-	dir := reviewRepo(t)
-	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
-	m = openReview(t, m)
-
-	m.review.applyRefreshed(m.shared(), reviewRefreshedMsg{agentID: "a1", err: assert.AnError})
-
-	assert.Empty(t, m.messages.items)
-	assert.False(t, m.review.threads.polling)
 }
 
 // TestReviewDiffPollCatchesUpOnceTheTurnIsOver covers what watching is for: the worktree is
@@ -487,13 +594,10 @@ func TestReviewDiffPollWaitsBetweenReads(t *testing.T) {
 	require.NotNil(t, m.refreshReviewCmd(at))
 	require.True(t, m.review.diff.diffPolling)
 
-	m.review.applyRefreshed(m.shared(), reviewRefreshedMsg{agentID: "a1"})
 	m.review.applyDiffPolled(m.shared(), reviewDiffPolledMsg{agentID: "a1"})
 
-	require.NotNil(t, m.refreshReviewCmd(at.Add(time.Second)))
-	assert.False(t, m.review.diff.diffPolling, "a tick a second later reads the conversation and not the worktree")
-
-	m.review.applyRefreshed(m.shared(), reviewRefreshedMsg{agentID: "a1"})
+	assert.Nil(t, m.refreshReviewCmd(at.Add(time.Second)), "a tick a second later reads nothing")
+	assert.False(t, m.review.diff.diffPolling)
 
 	require.NotNil(t, m.refreshReviewCmd(at.Add(reviewDiffPollInterval)))
 	assert.True(t, m.review.diff.diffPolling)
