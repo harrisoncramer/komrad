@@ -31,3 +31,13 @@ sql:
             go_type:
               type: "time.Time"
               pointer: true
+  - engine: "postgresql"
+    schema: "migrations"
+    queries: "testqueries"
+    gen:
+      go:
+        package: "testmodels"
+        out: "testmodels"
+        sql_package: "pgx/v5"
+        emit_pointers_for_null_types: true
+        emit_result_struct_pointers: true

@@ -46,7 +46,7 @@ if [ "$want" != "$got" ]; then
 fi
 
 failed=()
-for query in db/queries/*.sql; do
+for query in db/queries/*.sql db/testqueries/*.sql; do
 	formatted="$(pg_format --config "$CONF" - <"$query")"
 
 	if [ "$CHECK" = true ]; then
