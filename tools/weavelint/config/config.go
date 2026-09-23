@@ -11,7 +11,6 @@ type Config struct {
 	BareHTTP         BareHTTPConfig         `json:"bare_http"`
 	OnelineFunc      OnelineFuncConfig      `json:"oneline_func"`
 	ConversionName   ConversionNameConfig   `json:"conversion_name"`
-	CommentClause    CommentClauseConfig    `json:"comment_clause"`
 	SingleAppend     SingleAppendConfig     `json:"single_append"`
 	ConstructorShape ConstructorShapeConfig `json:"constructor_shape"`
 }
@@ -30,15 +29,6 @@ type SingleAppendConfig struct {
 	Skip bool `json:"skip"`
 	// Exclude is unanchored regexps over the file path, for the package that defines Map and
 	// the generated code nobody edits.
-	Exclude []string `json:"exclude"`
-}
-
-// CommentClauseConfig settles where the comment clause rule applies.
-type CommentClauseConfig struct {
-	// Skip turns the rule off.
-	Skip bool `json:"skip"`
-	// Exclude is unanchored regexps over the file path, for the one file whose doc comments
-	// are the prose of the generated config.
 	Exclude []string `json:"exclude"`
 }
 

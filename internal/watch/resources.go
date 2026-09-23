@@ -20,20 +20,24 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// Resource is one table the watch carries the rows of.
+// Resource is one table the watch keeps track of.
 type Resource struct {
 	// Table is the Postgres table the rows are read from.
 	Table string
 	// Enum is the value the wire sends the row under.
 	Enum watchv1.Resource
-	// Projects is the tables rendered onto this one, whose writes move it.
-	Projects []Projection
-	bind     func(Stores, func() time.Time) arm
+	// Subresources includes all of the subtables that are  for a given resource.
+	Subresources []Subresource
+	bind         func(Stores, func() time.Time) arm
 }
 
-// Projection is one table rendered onto a resource, and how a row of it finds the resource it
-// belongs to.
-type Projection struct {
+// Explainer: Some resources are drawn from more than one table. An agent as isn't only a row of agents. It also includes that agent's metadata, its runs, its reviews and review rounds, and its PR sync state.
+// A write to one of these child tables leaves the resource's own table alone, so the
+// resource's own trigger never fires. Each projection instead puts a trigger on its table that
+// notifies under the resource's table and key, and the broker reads the resource's row back as
+// if it had been written itself. For agents:
+
+type Subresource struct {
 	// Table is the projected table.
 	Table string
 	// Column is the column on the projected row holding the resource's key.
@@ -67,11 +71,23 @@ func Resources() []Resource {
 			Store: func(stores Stores) reader[rowstore.Row] { return stores.Agents },
 			Draw:  func(row rowstore.Row) *agentv1.Agent { return render.Agent(row, render.AgentOptions{}) },
 			Wrap:  func(row *agentv1.Agent) *watchv1.Row { return &watchv1.Row{Row: &watchv1.Row_Agent{Agent: row}} },
-			Projects: []Projection{
-				{Table: "agent_metadata", Column: "agent_id"},
-				{Table: "agent_runs", Column: "agent_id"},
-				{Table: "reviews", Column: "agent_id"},
-				{Table: "review_rounds", Column: "agent_id"},
+			Projects: []Subresource{
+				{
+					Table:  "agent_metadata",
+					Column: "agent_id",
+				},
+				{
+					Table:  "agent_runs",
+					Column: "agent_id",
+				},
+				{
+					Table:  "reviews",
+					Column: "agent_id",
+				},
+				{
+					Table:  "review_rounds",
+					Column: "agent_id",
+				},
 				{
 					Table:            "pull_request_syncs",
 					ParentMatch:      "repository_url",
@@ -90,7 +106,7 @@ func Resources() []Resource {
 			Wrap: func(row *workflowv1.Workflow) *watchv1.Row {
 				return &watchv1.Row{Row: &watchv1.Row_Workflow{Workflow: row}}
 			},
-			Projects: []Projection{
+			Projects: []Subresource{
 				{Table: "workflow_hooks", Column: "workflow_id"},
 				{
 					Table:       "workflow_configs",
@@ -157,7 +173,7 @@ type newResourceParams[R any, M message] struct {
 	// Wrap puts a drawn row in the Row arm this resource fills.
 	Wrap func(M) *watchv1.Row
 	// Projects is the tables rendered onto this one, whose writes move it.
-	Projects []Projection
+	Projects []Subresource
 }
 
 // message is a drawn row, which every resource keys by its id.
@@ -170,9 +186,9 @@ type message interface {
 // draws them and the Row arm they fill.
 func newResource[R any, M message](params newResourceParams[R, M]) Resource {
 	return Resource{
-		Table:    params.Table,
-		Enum:     params.Enum,
-		Projects: params.Projects,
+		Table:        params.Table,
+		Enum:         params.Enum,
+		Subresources: params.Projects,
 		bind: func(stores Stores, now func() time.Time) arm {
 			draw := params.Draw
 			if params.DrawAt != nil {

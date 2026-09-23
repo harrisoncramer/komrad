@@ -69,11 +69,6 @@ func (l *linter) BuildAnalyzers() ([]*analysis.Analyzer, error) {
 		return nil, err
 	}
 
-	comments, err := newCommentClause(l.config.CommentClause)
-	if err != nil {
-		return nil, err
-	}
-
 	mappings, err := newSingleAppend(l.config.SingleAppend)
 	if err != nil {
 		return nil, err
@@ -93,7 +88,6 @@ func (l *linter) BuildAnalyzers() ([]*analysis.Analyzer, error) {
 		bare,
 		newOnelineFunc(l.config.OnelineFunc),
 		conversions,
-		comments,
 		mappings,
 		constructors,
 	}, nil

@@ -21,7 +21,7 @@ func Triggers() []Trigger {
 			Function: "watch_notify",
 		})
 
-		for _, projection := range resource.Projects {
+		for _, projection := range resource.Subresources {
 			trigger := Trigger{Name: "watch_project_" + resource.Table, Table: projection.Table}
 			if projection.Column != "" {
 				trigger.Function = "watch_project"
