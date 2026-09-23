@@ -57,8 +57,7 @@ func TestUnscopedInsertRefused(t *testing.T) {
 	assert.Equal(t, "tenant_id", pgErr.ColumnName)
 }
 
-// TestOpenRecordsItsTenant pins an engine with a tenant of its own being able to write on first
-// start, the tenant's row existing before any row points at it.
+// TestOpenRecordsItsTenant pins an engine with a tenant of its own being able to write on first start.
 func TestOpenRecordsItsTenant(t *testing.T) {
 	t.Parallel()
 

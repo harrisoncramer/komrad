@@ -649,8 +649,7 @@ func TestLoadConnectionPrecedence(t *testing.T) {
 	assert.Equal(t, SourceEnvironment, report.Sources["addr"])
 }
 
-// TestLoadTakesTheTenantFromTheEnvironment pins WEAVE_TENANT_ID winning over the file, as every
-// other connection setting's variable does.
+// TestLoadTakesTheTenantFromTheEnvironment pins WEAVE_TENANT_ID winning over the file.
 func TestLoadTakesTheTenantFromTheEnvironment(t *testing.T) {
 	clearConnectionEnvironment(t)
 	path := filepath.Join(t.TempDir(), "config.toml")
