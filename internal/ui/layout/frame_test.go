@@ -1,6 +1,7 @@
 package layout
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 
@@ -435,6 +436,8 @@ func (t *recordingTmux) MovePanes(moves []panes.Move) {
 			t.SwapPanes(move.Pane, move.Other)
 		case panes.KindRespawn:
 			t.RespawnPane(move.Pane, move.Dir, move.Argv...)
+		case panes.KindResize:
+			t.ResizePane(move.Pane, strconv.Itoa(move.Width))
 		}
 	}
 }
@@ -649,4 +652,118 @@ func TestRestoreSplitLeavesAZoomedSidebarAlone(t *testing.T) {
 	frame.RestoreSplit()
 
 	assert.Empty(t, tmux.resizes, "nothing is resized while the sidebar holds the window")
+
+	frame.Solo(false)
+
+	assert.Equal(t, []string{frame.Pane(RegionSidebar) + " 16"}, tmux.resizes,
+		"and the split is put right once it lets the window go")
+}
+
+// TestRestoreSplitKeepsAChosenWidth covers a window that changed size after the divider was
+// dragged, which puts the sidebar back where it was dragged to rather than at the config.
+func TestRestoreSplitKeepsAChosenWidth(t *testing.T) {
+	tmux := &recordingTmux{width: 140, windowWidth: 200, height: 50}
+	frame := New(tmux, config.Layout{SidebarWidth: 16})
+	frame.Attach("%0")
+	frame.ShowGuest("%7")
+	frame.SyncSplit()
+
+	tmux.resizes = nil
+	frame.RestoreSplit()
+
+	assert.Equal(t, []string{frame.Pane(RegionSidebar) + " 59"}, tmux.resizes)
+}
+
+// TestFrameNudgeResizesTheSharedSplit covers a key moving the edge while tmux draws the divider.
+func TestFrameNudgeResizesTheSharedSplit(t *testing.T) {
+	tmux := &recordingTmux{width: 160, windowWidth: 200, height: 50}
+	frame := New(tmux, config.Layout{SidebarWidth: 40})
+	frame.Attach("%0")
+
+	tmux.resizes = nil
+	frame.Nudge(4)
+
+	assert.Equal(t, []string{"%0 43"}, tmux.resizes)
+
+	width, measured := frame.SidebarWidth(200)
+	assert.Equal(t, 43, width)
+	assert.True(t, measured)
+}
+
+// TestFrameNudgeWhileZoomedIsPaidOnUnzoom covers a key moving the edge the panel paints itself,
+// where a resize would unzoom the window and so waits for the zoom to be let go.
+func TestFrameNudgeWhileZoomedIsPaidOnUnzoom(t *testing.T) {
+	tmux := &recordingTmux{width: 160, windowWidth: 200, height: 50}
+	frame := New(tmux, config.Layout{SidebarWidth: 40})
+	frame.Attach("%0")
+	frame.Solo(true)
+
+	tmux.resizes = nil
+	frame.Nudge(-8)
+	frame.Nudge(-8)
+
+	assert.Empty(t, tmux.resizes, "nothing is resized under the zoom")
+
+	width, _ := frame.SidebarWidth(200)
+	assert.Equal(t, 23, width, "the painted split follows at once")
+
+	frame.SyncSplit()
+	width, _ = frame.SidebarWidth(200)
+	assert.Equal(t, 23, width, "and the stale pane under the zoom does not take it back")
+
+	frame.Solo(false)
+
+	assert.Equal(t, []string{"%0 23"}, tmux.resizes, "letting the zoom go sets the split")
+	assert.False(t, tmux.zoomed)
+}
+
+// TestFrameNudgeIsPaidWhenTmuxLetsTheZoomGo covers the zoom being dropped by tmux rather than by
+// the panel, which a sync finds.
+func TestFrameNudgeIsPaidWhenTmuxLetsTheZoomGo(t *testing.T) {
+	tmux := &recordingTmux{width: 160, windowWidth: 200, height: 50}
+	frame := New(tmux, config.Layout{SidebarWidth: 40})
+	frame.Attach("%0")
+	frame.Solo(true)
+	frame.Nudge(10)
+
+	tmux.resizes = nil
+	tmux.zoomed = false
+	frame.SyncKeys()
+
+	assert.Equal(t, []string{"%0 49"}, tmux.resizes)
+}
+
+// TestFrameNudgeLeavesBothHalvesAColumn covers a key pressed past either end of the window.
+func TestFrameNudgeLeavesBothHalvesAColumn(t *testing.T) {
+	tmux := &recordingTmux{width: 160, windowWidth: 200, height: 50}
+	frame := New(tmux, config.Layout{SidebarWidth: 40})
+	frame.Attach("%0")
+
+	frame.Nudge(-500)
+	width, _ := frame.SidebarWidth(200)
+	assert.Equal(t, 1, width)
+
+	frame.Nudge(500)
+	width, _ = frame.SidebarWidth(200)
+	assert.Equal(t, 198, width)
+}
+
+// TestAWindowTooNarrowForTheChosenWidthKeepsIt covers tmux clamping the sidebar into a window
+// narrower than the width chosen for it, which is not a choice.
+func TestAWindowTooNarrowForTheChosenWidthKeepsIt(t *testing.T) {
+	tmux := &recordingTmux{width: 149, windowWidth: 200, height: 50}
+	frame := New(tmux, config.Layout{SidebarWidth: 16})
+	frame.Attach("%0")
+	frame.SyncSplit()
+
+	// tmux leaves the stage its one-column minimum and gives the sidebar the rest.
+	tmux.windowWidth, tmux.width = 40, 1
+	frame.RestoreSplit()
+	frame.SyncSplit()
+
+	tmux.windowWidth, tmux.width = 200, 100
+	tmux.resizes = nil
+	frame.RestoreSplit()
+
+	assert.Equal(t, []string{"%0 50"}, tmux.resizes, "the width chosen before the window shrank")
 }

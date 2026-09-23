@@ -503,6 +503,7 @@ type drawer interface {
 	joinColumns(split columnSplit, sidebar, column string) string
 	renderHelp(k keyMap, above ...string) string
 	globalHelp() []key.Binding
+	fullGlobalHelp() []key.Binding
 	detailsBinding() key.Binding
 	listLines(chrome ...string) int
 	listPane(width int) listPane
@@ -563,12 +564,17 @@ func (m model) screenListView(params screenListParams) string {
 	return headedBlockView(header, window, lines, below)
 }
 
-// sidebarFitsDetails is whether the record fits under the head, judged with the keys on the
-// screen.
+// sidebarFitsDetails is whether the record fits under the head, judged against the taller of the
+// screen's legend and the record's own.
 func (m model) sidebarFitsDetails(help func(panelShared) keyMap, head string) bool {
 	m.details.focused = false
+	legend := m.renderHelp(help(m.shared()))
 
-	return m.spareLines(m.renderHelp(help(m.shared())), head) > m.detailsLines()+detailsChromeLines
+	if focused := m.renderHelp(m.detailsHelp()); strings.Count(focused, "\n") > strings.Count(legend, "\n") {
+		legend = focused
+	}
+
+	return m.spareLines(legend, head) > m.detailsLines()+detailsChromeLines
 }
 
 // sidebarDetailsRoom is the rows the sidebar has under the head and the legend it is drawing.
@@ -599,7 +605,7 @@ func (m model) listHelp(own keyMap) keyMap {
 				m.messagesBinding(),
 			},
 			m.infoPaneHelp(),
-			m.globalHelp(),
+			m.fullGlobalHelp(),
 		),
 	}
 }

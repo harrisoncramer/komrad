@@ -180,6 +180,7 @@ func TestLegendOrderIsPinned(t *testing.T) {
 				"C-u/C-d page",
 				"C-n/C-p scroll",
 				"? show help",
+				"{/} resize",
 			},
 		},
 	}

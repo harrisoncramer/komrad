@@ -87,7 +87,7 @@ func (r reviewScreen) help(s panelShared) keyMap {
 		full: slices.Concat(
 			own.full,
 			[]key.Binding{s.draw.detailsBinding()},
-			s.draw.globalHelp(),
+			s.draw.fullGlobalHelp(),
 		),
 	}
 }
@@ -108,7 +108,7 @@ func (r reviewScreen) threadHelp(s panelShared) keyMap {
 
 	return keyMap{
 		short: slices.Concat([]key.Binding{scroll, back, reply, settle}, s.draw.globalHelp()),
-		full:  slices.Concat([]key.Binding{scroll, ends, back, reply, settle, send}, s.draw.globalHelp()),
+		full:  slices.Concat([]key.Binding{scroll, ends, back, reply, settle, send}, s.draw.fullGlobalHelp()),
 	}
 }
 

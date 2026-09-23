@@ -750,7 +750,7 @@ func TestSchedulesLegendIsTheOneItDrewBeforeTheMove(t *testing.T) {
 				own.full,
 				[]key.Binding{m.detailsBinding(), m.messagesBinding()},
 				m.infoPaneHelp(),
-				m.globalHelp(),
+				m.fullGlobalHelp(),
 			),
 		}
 

@@ -159,6 +159,9 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m.routeScreenMessage(key)
 }
 
+// sidebarStep is how many columns one press of a sidebar key moves its edge.
+const sidebarStep = 4
+
 // resizeTo takes the panel to the size a window message reports.
 func (m model) resizeTo(size tea.WindowSizeMsg) model {
 	//nolint:sloglint // temporary trace, no context here to carry a logger on
@@ -187,6 +190,11 @@ func (m model) resizeTo(size tea.WindowSizeMsg) model {
 
 	m.windowCols = window
 
+	return m.relayout(rewrap)
+}
+
+// relayout sizes everything drawn off the split again, once the split has moved.
+func (m model) relayout(rewrap bool) model {
 	m.sizeAgentWindows()
 
 	// A field open in the review's sidebar is drawn in a column of this window rather than in the
@@ -200,6 +208,13 @@ func (m model) resizeTo(size tea.WindowSizeMsg) model {
 	return m
 }
 
+// nudgeSidebar moves the sidebar's edge by a number of columns.
+func (m model) nudgeSidebar(delta int) model {
+	m.frame.Nudge(delta)
+
+	return m.relayout(true)
+}
+
 // routeGlobalKey answers the keys the panel owns whatever screen is up, reporting whether it
 // took the press so the screen underneath gets whatever it left alone.
 func (m model) routeGlobalKey(key tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
@@ -207,6 +222,13 @@ func (m model) routeGlobalKey(key tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 		m.helpExpanded = !m.helpExpanded
 
 		return m, nil, true
+	}
+
+	switch {
+	case isBound(key.String(), m.keys.Sidebar.Narrow):
+		return m.nudgeSidebar(-sidebarStep), nil, true
+	case isBound(key.String(), m.keys.Sidebar.Widen):
+		return m.nudgeSidebar(sidebarStep), nil, true
 	}
 
 	// Whether these keys act is a policy about the keys rather than the geometry, and the two do

@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -109,6 +110,7 @@ func TestWorkflowFieldsWorktree(t *testing.T) {
 const panelViewer = "/dev/ttys004"
 
 type recordingTmux struct {
+	resizes     []string
 	path        string
 	swaps       int
 	windowSizes map[string]string
@@ -168,6 +170,8 @@ func (t *recordingTmux) MovePanes(moves []panes.Move) {
 			t.SwapPanes(move.Pane, move.Other)
 		case panes.KindRespawn:
 			t.RespawnPane(move.Pane, move.Dir, move.Argv...)
+		case panes.KindResize:
+			t.ResizePane(move.Pane, strconv.Itoa(move.Width))
 		}
 	}
 }
@@ -265,7 +269,10 @@ func (t *recordingTmux) ResizeWindow(pane string, width, height int) {
 
 func (t *recordingTmux) IsPaneRunningCLI(pane string) bool { return pane != "" }
 
-func (t *recordingTmux) ResizePane(string, string) { t.zoomed = false }
+func (t *recordingTmux) ResizePane(pane, width string) {
+	t.zoomed = false
+	t.resizes = append(t.resizes, pane+" "+width)
+}
 
 func (t *recordingTmux) RespawnPane(pane, dir string, argv ...string) {
 	t.respawns = append(t.respawns, strings.Join(argv, " "))

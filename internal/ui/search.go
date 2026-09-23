@@ -716,7 +716,7 @@ func (w *searchScreen) help(s panelShared) keyMap {
 
 	return keyMap{
 		short: slices.Concat(own.short, s.draw.globalHelp()),
-		full:  slices.Concat(own.full, s.draw.globalHelp()),
+		full:  slices.Concat(own.full, s.draw.fullGlobalHelp()),
 	}
 }
 

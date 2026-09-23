@@ -732,7 +732,7 @@ func TestWorktreesLegendIsTheOneItDrewBeforeTheMove(t *testing.T) {
 					m.detailsBinding(),
 					m.messagesBinding(),
 				},
-				m.globalHelp(),
+				m.fullGlobalHelp(),
 			),
 		}
 

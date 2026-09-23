@@ -403,9 +403,9 @@ func TestRemoteAgentWindowsAreLeftAlone(t *testing.T) {
 	assert.Empty(t, tmux.windowSizes, "no window on the panel's own server is touched")
 }
 
-// TestAWidenedWindowDropsADraggedDivider covers a terminal made wider after the divider was
-// dragged, where keeping the stage's columns hands every new column to the sidebar.
-func TestAWidenedWindowDropsADraggedDivider(t *testing.T) {
+// TestAWidenedWindowKeepsADraggedDivider covers a terminal made wider after the divider was
+// dragged, where tmux shares the new columns out between both panes.
+func TestAWidenedWindowKeepsADraggedDivider(t *testing.T) {
 	tmux := &recordingTmux{}
 	m := draggedTo(t, infoModel(tmux), tmux, 50, 149)
 
@@ -421,10 +421,9 @@ func TestAWidenedWindowDropsADraggedDivider(t *testing.T) {
 	sized, _ := m.route(tea.WindowSizeMsg{Width: 75, Height: 40})
 	m = asModel(t, sized)
 
-	width, measured := m.frame.SidebarWidth(300)
-	assert.False(t, measured, "a window that changed size is not one the divider was measured under")
-	assert.Equal(t, config.DefaultSidebarWidth, width, "so the configured width is used again")
-	assert.NotEqual(t, 150, width, "rather than every column the window gained")
+	width, _ := m.frame.SidebarWidth(300)
+	assert.Equal(t, 50, width, "the sidebar keeps the width it was dragged to")
+	assert.Contains(t, tmux.resizes, "%0 50", "and tmux is told so")
 }
 
 // TestADraggedDividerSurvivesTheSidebarTakingTheWindow covers moving to a screen the panel draws

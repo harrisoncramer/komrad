@@ -14,31 +14,31 @@ func TestNewSpecSizes(t *testing.T) {
 	tests := []struct {
 		name     string
 		layout   config.Layout
-		wantNav  string
+		wantNav  int
 		wantInfo string
 	}{
 		{
 			name:     "a layout naming nothing falls back to the defaults",
 			layout:   config.Layout{},
-			wantNav:  "30",
+			wantNav:  30,
 			wantInfo: "40%",
 		},
 		{
 			name:     "a width in columns is handed over as it is",
 			layout:   config.Layout{SidebarWidth: 50},
-			wantNav:  "50",
+			wantNav:  50,
 			wantInfo: "40%",
 		},
 		{
 			name:     "a height in rows is too",
 			layout:   config.Layout{InfoHeight: 12},
-			wantNav:  "30",
+			wantNav:  30,
 			wantInfo: "12",
 		},
 		{
 			name:     "a share of the stage rounds to a percent",
 			layout:   config.Layout{InfoHeight: 0.335},
-			wantNav:  "30",
+			wantNav:  30,
 			wantInfo: "34%",
 		},
 	}
@@ -47,7 +47,7 @@ func TestNewSpecSizes(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			spec := newSpec(tt.layout)
 
-			assert.Equal(t, tt.wantNav, spec.sidebarSize)
+			assert.Equal(t, tt.wantNav, spec.sidebarCols)
 			assert.Equal(t, tt.wantInfo, spec.infoSize)
 		})
 	}

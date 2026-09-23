@@ -63,7 +63,7 @@ func (m model) renderHelp(k keyMap, above ...string) string {
 }
 
 func (m model) doesLegendLeaveARow(legend string, above []string) bool {
-	if m.height <= 0 || len(above) == 0 {
+	if m.height <= 0 {
 		return true
 	}
 
@@ -209,6 +209,11 @@ func (m model) helpBinding() key.Binding {
 
 func (m model) globalHelp() []key.Binding {
 	return []key.Binding{m.helpBinding()}
+}
+
+// fullGlobalHelp is the expanded legend's share of the keys every screen answers.
+func (m model) fullGlobalHelp() []key.Binding {
+	return append(m.globalHelp(), binding(concatKeys(m.keys.Sidebar.Narrow, m.keys.Sidebar.Widen), "resize"))
 }
 
 func (m model) detailsBinding() key.Binding {

@@ -307,7 +307,7 @@ func (m model) detailsHelp() keyMap {
 
 	return keyMap{
 		short: slices.Concat(own.short, m.globalHelp()),
-		full:  slices.Concat(own.full, m.globalHelp()),
+		full:  slices.Concat(own.full, m.fullGlobalHelp()),
 	}
 }
 

@@ -2,6 +2,7 @@ package tmux
 
 import (
 	"log/slog"
+	"strconv"
 	"strings"
 
 	"weave/internal/logging"
@@ -56,6 +57,8 @@ func argsForMove(move panes.Move) [][]string {
 			append([]string{"respawn-pane", "-k", "-t", move.Pane, "-c", move.Dir}, move.Argv...),
 			{"clear-history", "-t", move.Pane},
 		}
+	case panes.KindResize:
+		return [][]string{{"resize-pane", "-t", move.Pane, "-x", strconv.Itoa(move.Width)}}
 	}
 
 	return nil
