@@ -11,7 +11,6 @@ type spec struct {
 	sidebarOnRight bool
 	// sidebarCols is the width the sidebar is first laid out at, in columns.
 	sidebarCols int
-	sidebarSize string
 	infoAbove   bool
 	infoSize    string
 }
@@ -30,7 +29,6 @@ func newSpec(layout config.Layout) spec {
 	return spec{
 		sidebarOnRight: layout.SidebarSide == config.SidebarSideRight,
 		sidebarCols:    cols,
-		sidebarSize:    strconv.Itoa(cols),
 		infoAbove:      layout.InfoSide == config.InfoSideAbove,
 		infoSize:       formatSize(info),
 	}

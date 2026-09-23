@@ -211,6 +211,11 @@ func (m model) globalHelp() []key.Binding {
 	return []key.Binding{m.helpBinding()}
 }
 
+// fullGlobalHelp is the expanded legend's share of the keys every screen answers.
+func (m model) fullGlobalHelp() []key.Binding {
+	return append(m.globalHelp(), binding(concatKeys(m.keys.Sidebar.Narrow, m.keys.Sidebar.Widen), "resize"))
+}
+
 func (m model) detailsBinding() key.Binding {
 	desc := "details"
 	if m.isDetailsFocused() {

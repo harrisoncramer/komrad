@@ -12,6 +12,7 @@ const (
 	KindZoom Kind = iota
 	KindSwap
 	KindRespawn
+	KindResize
 )
 
 // Move is one pane move: what to do, and to which panes.
@@ -27,6 +28,8 @@ type Move struct {
 	Argv []string
 	// Zoomed is the zoom a KindZoom move leaves the pane on.
 	Zoomed bool
+	// Width is the columns a KindResize move gives the pane.
+	Width int
 }
 
 // Zoom is the move that gives a pane the whole window, or hands the others their share back.
@@ -54,5 +57,14 @@ func Respawn(pane, dir string, argv ...string) Move {
 		Pane: pane,
 		Dir:  dir,
 		Argv: argv,
+	}
+}
+
+// Resize is the move that sets a pane's width in columns.
+func Resize(pane string, width int) Move {
+	return Move{
+		Kind:  KindResize,
+		Pane:  pane,
+		Width: width,
 	}
 }

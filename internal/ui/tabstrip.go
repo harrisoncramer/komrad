@@ -264,6 +264,6 @@ func (m model) tabsHelp() keyMap {
 
 	return keyMap{
 		short: []key.Binding{column, direction, back, m.helpBinding()},
-		full:  slices.Concat([]key.Binding{column, direction, back}, m.globalHelp()),
+		full:  slices.Concat([]key.Binding{column, direction, back}, m.fullGlobalHelp()),
 	}
 }

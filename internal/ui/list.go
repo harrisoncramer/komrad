@@ -503,6 +503,7 @@ type drawer interface {
 	joinColumns(split columnSplit, sidebar, column string) string
 	renderHelp(k keyMap, above ...string) string
 	globalHelp() []key.Binding
+	fullGlobalHelp() []key.Binding
 	detailsBinding() key.Binding
 	listLines(chrome ...string) int
 	listPane(width int) listPane
@@ -604,7 +605,7 @@ func (m model) listHelp(own keyMap) keyMap {
 				m.messagesBinding(),
 			},
 			m.infoPaneHelp(),
-			m.globalHelp(),
+			m.fullGlobalHelp(),
 		),
 	}
 }

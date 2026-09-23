@@ -160,7 +160,11 @@ func dispatchOrder(s screen, keys config.Keybindings) []dispatchArm {
 // globalArms are the keys the panel answers on one screen ahead of that screen's own table, in
 // the order it reads them.
 func globalArms(s screen, keys config.Keybindings) []dispatchArm {
-	arms := []dispatchArm{{describe: "the help toggle", keys: keys.Help.Toggle}}
+	arms := []dispatchArm{
+		{describe: "the help toggle", keys: keys.Help.Toggle},
+		{describe: "the sidebar narrowing", keys: keys.Sidebar.Narrow},
+		{describe: "the sidebar widening", keys: keys.Sidebar.Widen},
+	}
 
 	if s.opensInfoPane() {
 		arms = append(arms,

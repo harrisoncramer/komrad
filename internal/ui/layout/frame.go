@@ -27,6 +27,12 @@ type Frame struct {
 	// whole window while leaving the width of the pane beside it alone.
 	stageCols int
 
+	// cols is the width the sidebar was last settled at, by a drag or a nudge, zero until either.
+	cols int
+
+	// owed says the split under the zoom is behind cols.
+	owed bool
+
 	// pending is the pane moves of the change being worked out, sent together by Flush, and
 	// sent one at a time while nothing is collecting them.
 	pending    []panes.Move
@@ -287,6 +293,10 @@ func (f *Frame) Solo(on bool) {
 
 	f.solo = on
 
+	if !on {
+		defer f.payOwed()
+	}
+
 	// The pane beside the sidebar is covered or uncovered by this, and whatever painted it has
 	// long since exited, so what stands there is drawn again rather than left as it was.
 	f.forget(RegionStage)
@@ -307,6 +317,51 @@ func (f *Frame) SyncKeys() {
 	active, zoomed := f.tmux.GetPaneFocus(f.sidebar)
 	f.solo = zoomed
 	f.keys = active
+
+	if !zoomed {
+		f.payOwed()
+	}
+}
+
+// Nudge moves the sidebar's edge by a number of columns, wider for a positive one.
+func (f *Frame) Nudge(delta int) {
+	if f.sidebar == "" {
+		return
+	}
+
+	total := f.WindowCols()
+	if total < 3 {
+		return
+	}
+
+	current, _ := f.SidebarWidth(total)
+
+	width := min(max(current+delta, 1), total-2)
+	if width == current {
+		return
+	}
+
+	f.cols = width
+	f.stageCols = total - width - 1
+
+	// Resizing a pane in a zoomed window unzooms it.
+	if f.solo {
+		f.owed = true
+
+		return
+	}
+
+	f.move(panes.Resize(f.sidebar, width))
+}
+
+// payOwed puts the split under a zoom that has just been let go at the width chosen during it.
+func (f *Frame) payOwed() {
+	if !f.owed {
+		return
+	}
+
+	f.owed = false
+	f.move(panes.Resize(f.sidebar, f.chosenCols()))
 }
 
 // HasKeys reports whether the keyboard is on the panel's own pane rather than on a pane beside
@@ -331,6 +386,10 @@ func (f *Frame) SidebarWidth(total int) (int, bool) {
 		return width, true
 	}
 
+	if f.cols > 0 && total > 0 {
+		return min(f.cols, total), true
+	}
+
 	return f.spec.SidebarWidth(total), false
 }
 
@@ -351,8 +410,19 @@ func (f *Frame) WindowCols() int {
 // SyncSplit measures the divider between the sidebar and the pane beside it, so a sidebar drawn
 // over the whole window keeps the width the user has dragged the divider to.
 func (f *Frame) SyncSplit() {
-	if cols := f.tmux.GetPaneWidth(f.visibleStagePane()); cols > 0 {
-		f.stageCols = cols
+	if f.owed {
+		return
+	}
+
+	stage := f.tmux.GetPaneWidth(f.visibleStagePane())
+	if stage <= 0 {
+		return
+	}
+
+	f.stageCols = stage
+
+	if width := f.WindowCols() - stage - 1; width > 0 {
+		f.cols = width
 	}
 }
 
@@ -362,13 +432,17 @@ func (f *Frame) ForgetSplit() {
 	f.stageCols = 0
 }
 
-// RestoreSplit gives the sidebar its configured width again, which a window that changed size
-// needs because tmux shares the change out between the panes and a narrow sidebar loses nearly
-// all of it, down to a single column it never gets back.
+// RestoreSplit gives the sidebar its chosen width again.
 func (f *Frame) RestoreSplit() {
 	f.ForgetSplit()
 
-	if f.sidebar == "" || f.solo || !f.hasStage() {
+	if f.sidebar == "" || !f.hasStage() {
+		return
+	}
+
+	if f.solo {
+		f.owed = true
+
 		return
 	}
 
@@ -533,14 +607,16 @@ func (f *Frame) claimStage() {
 }
 
 func (f *Frame) restoredSidebar() (pane, width string) {
-	if f.stageCols == 0 {
-		return f.sidebar, f.spec.sidebarSize
+	return f.sidebar, strconv.Itoa(f.chosenCols())
+}
+
+// chosenCols is the width the sidebar is put back at, the configured one until anybody moves it.
+func (f *Frame) chosenCols() int {
+	if f.cols > 0 {
+		return f.cols
 	}
 
-	total := f.tmux.GetPaneWidth(f.sidebar) + f.tmux.GetPaneWidth(f.stage) + 1
-	sidebarWidth, _ := f.SidebarWidth(total)
-
-	return f.sidebar, strconv.Itoa(sidebarWidth)
+	return f.spec.sidebarCols
 }
 
 func (f *Frame) splitStage() string {
