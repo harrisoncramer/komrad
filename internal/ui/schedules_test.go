@@ -20,6 +20,7 @@ import (
 	"connectrpc.com/connect"
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -210,14 +211,15 @@ func plain(rendered string) string {
 
 var colourEscape = regexp.MustCompile("\x1b\\[[0-9;]*m")
 
-// TestScheduleMarkdown covers the document the stage pages beside the list: when the schedule next
-// fires, and the prompt each run is launched with.
-func TestScheduleMarkdown(t *testing.T) {
+// TestScheduleDocRows covers the document the stage pages beside the list: when the schedule next
+// fires, the runs River holds for it, and the prompt each run is launched with.
+func TestScheduleDocRows(t *testing.T) {
 	next := time.Date(2026, time.July, 28, 9, 0, 0, 0, time.Local)
 
 	tests := []struct {
 		name     string
 		item     scheduleItem
+		runs     scheduleRunsRead
 		wants    []string
 		notWants []string
 	}{
@@ -255,47 +257,56 @@ func TestScheduleMarkdown(t *testing.T) {
 			wants: []string{"quiet", "start hidden"},
 		},
 		{
-			name: "a schedule that has never fired says nothing about a result",
-			item: scheduleItem{
-				schedule: panel.Schedule{
-					Name:    "fresh",
-					Enabled: true,
-					Prompt:  "go",
-				},
-			},
-			notWants: []string{"last result"},
+			name:     "runs not yet read draw nothing in their place",
+			item:     scheduleItem{schedule: panel.Schedule{Name: "fresh", Enabled: true, Prompt: "go"}},
+			notWants: []string{"never fired", "could not read runs"},
 		},
 		{
-			name: "a status without a time does not render rather than guess one",
-			item: scheduleItem{
-				schedule: panel.Schedule{
-					Name:             "odd",
-					Enabled:          true,
-					Prompt:           "go",
-					LastResultStatus: "launched",
-				},
-			},
-			notWants: []string{"last result"},
+			name:  "a failed read says so rather than looking like no runs",
+			item:  scheduleItem{schedule: panel.Schedule{Name: "fresh", Enabled: true, Prompt: "go"}},
+			runs:  scheduleRunsRead{answered: true, err: errors.New("connection refused")},
+			wants: []string{"could not read runs", "connection refused"},
 		},
 		{
-			name: "a schedule that failed to launch shows what happened and why",
-			item: scheduleItem{
-				schedule: panel.Schedule{
-					Name:              "flaky",
-					Enabled:           true,
-					Prompt:            "go",
-					LastResultStatus:  "cannot_launch",
-					LastResultMessage: "bad directory",
-					LastResultAt:      &next,
+			name:  "a schedule that has never fired says so in one line",
+			item:  scheduleItem{schedule: panel.Schedule{Name: "fresh", Enabled: true, Prompt: "go"}},
+			runs:  scheduleRunsRead{answered: true},
+			wants: []string{"never fired", "go"},
+		},
+		{
+			name: "each run reads as its outcome, a skip giving its reason and a failure its error",
+			item: scheduleItem{schedule: panel.Schedule{Name: "flaky", Enabled: true, Prompt: "go"}},
+			runs: scheduleRunsRead{answered: true, runs: []panel.ScheduleRun{
+				{
+					ScheduledFor: next,
+					State:        schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_DISCARDED,
+					Attempt:      5,
+					MaxAttempts:  5,
+					Message:      "bad directory",
 				},
-			},
-			wants: []string{"last result", "cannot_launch", "bad directory"},
+				{
+					ScheduledFor: next.Add(-time.Hour),
+					State:        schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_CANCELLED,
+					Attempt:      1,
+					MaxAttempts:  5,
+					Message:      "schedule is paused",
+				},
+				{
+					ScheduledFor: next.Add(-2 * time.Hour),
+					State:        schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_COMPLETED,
+					Attempt:      2,
+					MaxAttempts:  5,
+					Message:      "an earlier attempt's error",
+				},
+			}},
+			wants:    []string{"07-28 09:00", "failed", "5/5 attempts", "bad directory", "skipped", "schedule is paused", "launched", "2 attempts"},
+			notWants: []string{"an earlier attempt's error"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rendered := scheduleMarkdown(tt.item)
+			rendered := ansi.Strip(strings.Join(scheduleDocRows(tt.item, tt.runs, 100), "\n"))
 
 			for _, want := range tt.wants {
 				assert.Contains(t, rendered, want)
@@ -521,8 +532,21 @@ func scheduleItems(names ...string) []scheduleItem {
 
 type fakeSchedules struct {
 	schedulev1connect.ScheduleServiceClient
-	err    error
-	writes int
+	err      error
+	writes   int
+	runReads int
+}
+
+func (f *fakeSchedules) ListScheduleRuns(context.Context, *connect.Request[schedulev1.ListScheduleRunsRequest]) (*connect.Response[schedulev1.ListScheduleRunsResponse], error) {
+	f.runReads++
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return connect.NewResponse(&schedulev1.ListScheduleRunsResponse{Runs: []*schedulev1.ScheduleRun{{
+		Id:    int64(f.runReads),
+		State: schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_COMPLETED,
+	}}}), nil
 }
 
 func (f *fakeSchedules) ListSchedules(context.Context, *connect.Request[schedulev1.ListSchedulesRequest]) (*connect.Response[schedulev1.ListSchedulesResponse], error) {

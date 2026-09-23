@@ -1,12 +1,11 @@
 // Package schedule stores the recurring launches: the cron expression, the workflow and prompt
-// each firing uses, and what happened the last time one fired.
+// each firing uses.
 package schedule
 
 import (
 	"context"
 	"fmt"
 	"time"
-	"unicode/utf8"
 
 	"weave/db"
 	"weave/db/models"
@@ -15,39 +14,42 @@ import (
 )
 
 type Schedule struct {
-	ID                string
-	Name              string
-	Cron              string
-	Timezone          string
-	Enabled           bool
-	HideAgents        bool
-	Prompt            string
-	WorkflowID        string
-	LastResultStatus  LaunchResultStatus
-	LastResultMessage string
-	LastResultAt      *time.Time
-	UpdatedAt         time.Time
+	ID         string
+	Name       string
+	Cron       string
+	Timezone   string
+	Enabled    bool
+	HideAgents bool
+	Prompt     string
+	WorkflowID string
+	UpdatedAt  time.Time
+	LatestRun  *Run
 }
 
-// LaunchResultStatus is what happened the last time a schedule fired, empty when it never has.
-type LaunchResultStatus string
+// RunState is where River holds a firing: waiting, working, or finished one of three ways.
+type RunState string
 
 const (
-	// LaunchResultScheduleNotFound: the schedule was deleted between the firing being queued
-	// and it running.
-	LaunchResultScheduleNotFound LaunchResultStatus = "schedule_not_found"
-	// LaunchResultSchedulePaused: the schedule was disabled by the time it ran.
-	LaunchResultSchedulePaused LaunchResultStatus = "schedule_paused"
-	// LaunchResultAlreadyRunning: the schedule's last agent was still live, so this firing
-	// was skipped rather than launching a second one.
-	LaunchResultAlreadyRunning LaunchResultStatus = "already_running"
-	// LaunchResultRetrying: the launch failed on an attempt that River will still retry.
-	LaunchResultRetrying LaunchResultStatus = "retrying"
-	// LaunchResultCannotLaunch: launching the agent failed for a reason retrying will not fix.
-	LaunchResultCannotLaunch LaunchResultStatus = "cannot_launch"
-	// LaunchResultLaunched: the agent launched.
-	LaunchResultLaunched LaunchResultStatus = "launched"
+	RunStateAvailable RunState = "available"
+	RunStatePending   RunState = "pending"
+	RunStateScheduled RunState = "scheduled"
+	RunStateRunning   RunState = "running"
+	RunStateRetryable RunState = "retryable"
+	RunStateCompleted RunState = "completed"
+	RunStateCancelled RunState = "cancelled"
+	RunStateDiscarded RunState = "discarded"
 )
+
+// Run is one firing of a schedule as River's job for it stands.
+type Run struct {
+	ID           int64
+	ScheduledFor time.Time
+	State        RunState
+	Attempt      int
+	MaxAttempts  int
+	FinalizedAt  *time.Time
+	Message      string
+}
 
 type Config struct {
 	Name       string
@@ -203,43 +205,6 @@ func (s *ScheduleStore) SetEnabled(ctx context.Context, id string, enabled bool)
 	return nil
 }
 
-// maxLaunchResultMessage caps how much of a launch failure's text is kept.
-const maxLaunchResultMessage = 500
-
-// RecordLaunchResult writes what happened the last time this schedule fired, overwriting
-// whatever the firing before it recorded.
-func (s *ScheduleStore) RecordLaunchResult(ctx context.Context, id string, status LaunchResultStatus, message string) error {
-	if !store.IsID(id) {
-		return nil
-	}
-
-	statusValue := string(status)
-	messageValue := truncateResultMessage(message)
-
-	if err := s.queries.RecordScheduleLaunchResult(ctx, models.RecordScheduleLaunchResultParams{
-		ID:                id,
-		LastResultStatus:  &statusValue,
-		LastResultMessage: &messageValue,
-	}); err != nil {
-		return fmt.Errorf("failed to record the launch result for schedule %q: %w", id, err)
-	}
-
-	return nil
-}
-
-func truncateResultMessage(message string) string {
-	if len(message) <= maxLaunchResultMessage {
-		return message
-	}
-
-	cut := message[:maxLaunchResultMessage]
-	for len(cut) > 0 && !utf8.ValidString(cut) {
-		cut = cut[:len(cut)-1]
-	}
-
-	return cut + "…"
-}
-
 // Archive hides a schedule from the panel without dropping the row, so the agents it launched
 // still point at the schedule that made them.
 func (s *ScheduleStore) Archive(ctx context.Context, id string) error {
@@ -301,28 +266,15 @@ func (s *ScheduleStore) CountLive(ctx context.Context, workflowID string) (int64
 }
 
 func scheduleFromRow(s models.Schedule) Schedule {
-	var status LaunchResultStatus
-	if s.LastResultStatus != nil {
-		status = LaunchResultStatus(*s.LastResultStatus)
-	}
-
-	var message string
-	if s.LastResultMessage != nil {
-		message = *s.LastResultMessage
-	}
-
 	return Schedule{
-		ID:                s.ID,
-		Name:              s.Name,
-		Cron:              s.Cron,
-		Timezone:          s.Timezone,
-		Enabled:           s.Enabled,
-		HideAgents:        s.HideAgents,
-		Prompt:            s.Prompt,
-		WorkflowID:        s.WorkflowID,
-		LastResultStatus:  status,
-		LastResultMessage: message,
-		LastResultAt:      s.LastResultAt,
-		UpdatedAt:         s.UpdatedAt,
+		ID:         s.ID,
+		Name:       s.Name,
+		Cron:       s.Cron,
+		Timezone:   s.Timezone,
+		Enabled:    s.Enabled,
+		HideAgents: s.HideAgents,
+		Prompt:     s.Prompt,
+		WorkflowID: s.WorkflowID,
+		UpdatedAt:  s.UpdatedAt,
 	}
 }

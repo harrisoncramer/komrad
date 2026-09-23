@@ -13,6 +13,7 @@ import (
 	"weave/internal/frames"
 	"weave/internal/git"
 	"weave/internal/harness/pane"
+	"weave/internal/jobs"
 	"weave/internal/mail"
 	"weave/internal/marks"
 	"weave/internal/pullrequests"
@@ -53,6 +54,7 @@ type services struct {
 	remover         *worktrees.Remover
 	measurer        *worktrees.Measurer
 	watchRows       *watch.Rows
+	runs            *jobs.RunLister
 }
 
 // BuiltinScriptsDir is where the scripts weave ships are installed under a cache directory,
@@ -262,12 +264,18 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		States:   st.agents,
 	}).WithFrameRecorder(frames.NewRecorder(params.Env.FramesDir(), newFrameSettings(loadConfig).get))
 
+	runs, err := jobs.NewRunLister(st.pool.GetRawPool(), st.pool.GetRiverSchema())
+	if err != nil {
+		return nil, err
+	}
+
 	return &services{
 		loadConfig: loadConfig,
+		runs:       runs,
 		watchRows: watch.NewRows(watch.NewRowsParams{Stores: watch.Stores{
 			Agents:       st.rows,
 			Workflows:    st.workflows,
-			Schedules:    st.schedules,
+			Schedules:    jobs.NewLatestRunReader(st.schedules, runs),
 			Marks:        st.marks,
 			Mail:         st.mail,
 			PullRequests: st.pullRequests,

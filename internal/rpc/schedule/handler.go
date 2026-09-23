@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"weave/internal/fail"
+	"weave/internal/rpc/render"
 	"weave/internal/rpcerr"
 	"weave/lib/pagination"
 	"weave/lib/xslice"
@@ -16,6 +17,8 @@ import (
 
 	"google.golang.org/protobuf/types/known/emptypb"
 )
+
+const defaultRunLimit = 20
 
 type scheduleReadWriter interface {
 	GetSchedule(ctx context.Context, id string) (*schedulestore.Schedule, error)
@@ -29,20 +32,31 @@ type scheduleLister interface {
 	ListPage(ctx context.Context, limit int64, cursor *schedulestore.Cursor) ([]schedulestore.Schedule, error)
 }
 
+type runLister interface {
+	List(ctx context.Context, scheduleID string, limit int) ([]schedulestore.Run, error)
+	AttachLatest(ctx context.Context, schedules []schedulestore.Schedule) ([]schedulestore.Schedule, error)
+}
+
 type NewHandlerParams struct {
 	Lister    scheduleLister
 	Schedules scheduleReadWriter
+	Runs      runLister
 }
 
 type Handler struct {
 	lister    scheduleLister
 	schedules scheduleReadWriter
+	runs      runLister
 }
 
-// NewHandler constructs the handler from the store it lists through and the service that owns
-// the rules.
+// NewHandler constructs the handler from the store it lists through, the service that owns
+// the rules, and River's record of the firings.
 func NewHandler(params NewHandlerParams) *Handler {
-	return &Handler{lister: params.Lister, schedules: params.Schedules}
+	return &Handler{
+		lister:    params.Lister,
+		schedules: params.Schedules,
+		runs:      params.Runs,
+	}
 }
 
 // ListSchedules returns one page of schedules, newest first.
@@ -55,6 +69,11 @@ func (s *Handler) ListSchedules(ctx context.Context, req *schedulev1.ListSchedul
 	page, err := s.lister.ListPage(ctx, paginator.Limit(), paginator.Cursor())
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to list schedules")
+	}
+
+	page, err = s.runs.AttachLatest(ctx, page)
+	if err != nil {
+		return nil, rpcerr.From(err, "failed to read the latest runs")
 	}
 
 	now := time.Now()
@@ -80,9 +99,33 @@ func (s *Handler) GetSchedule(ctx context.Context, req *schedulev1.GetScheduleRe
 		return nil, rpcerr.From(err, "failed to get schedule")
 	}
 
+	attached, err := s.runs.AttachLatest(ctx, []schedulestore.Schedule{*found})
+	if err != nil {
+		return nil, rpcerr.From(err, "failed to read the latest run")
+	}
+
 	return &schedulev1.GetScheduleResponse{
-		Schedule: renderSchedule(*found, time.Now()).Schedule,
+		Schedule: renderSchedule(attached[0], time.Now()).Schedule,
 	}, nil
+}
+
+// ListScheduleRuns returns a schedule's most recent firings, newest first.
+func (s *Handler) ListScheduleRuns(ctx context.Context, req *schedulev1.ListScheduleRunsRequest) (*schedulev1.ListScheduleRunsResponse, *fail.Error) {
+	if _, err := s.schedules.GetSchedule(ctx, req.GetId()); err != nil {
+		return nil, rpcerr.From(err, "failed to get schedule")
+	}
+
+	limit := int(req.GetLimit())
+	if limit == 0 {
+		limit = defaultRunLimit
+	}
+
+	runs, err := s.runs.List(ctx, req.GetId(), limit)
+	if err != nil {
+		return nil, rpcerr.From(err, "failed to list the schedule's runs")
+	}
+
+	return &schedulev1.ListScheduleRunsResponse{Runs: xslice.Map(runs, render.ScheduleRun)}, nil
 }
 
 // CreateSchedule records a recurring launch and returns it as stored.

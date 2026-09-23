@@ -336,6 +336,20 @@ func (a api) updateSchedule(id string, cfg panel.ScheduleConfig) error {
 	})
 }
 
+func (a api) listScheduleRuns(id string) ([]panel.ScheduleRun, error) {
+	return call(requestTimeout, func(ctx context.Context) ([]panel.ScheduleRun, error) {
+		resp, err := a.schedules.ListScheduleRuns(ctx, connect.NewRequest(&schedulev1.ListScheduleRunsRequest{
+			Id:    id,
+			Limit: scheduleRunsShown,
+		}))
+		if err != nil {
+			return nil, fmt.Errorf("failed to list the runs of schedule %q: %w", id, err)
+		}
+
+		return xslice.Map(resp.Msg.GetRuns(), scheduleRunFrom), nil
+	})
+}
+
 func (a api) setScheduleEnabled(id string, enabled bool) error {
 	return mutate(func(ctx context.Context) (any, error) {
 		return a.schedules.SetScheduleEnabled(ctx, connect.NewRequest(&schedulev1.SetScheduleEnabledRequest{

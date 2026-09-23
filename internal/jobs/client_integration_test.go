@@ -43,7 +43,6 @@ func newRiverClientWithStores(t *testing.T) (*river.Client[pgx.Tx], *storetest.S
 		Schema:    stores.Pool.GetRiverSchema(),
 		Pool:      stores.Pool.GetRawPool(),
 		Schedules: schedules,
-		Results:   schedules,
 		Launcher:  &fakeAgents{},
 		Deleter:   &fakeAgents{},
 		Archived:  &fakeArchive{},
@@ -385,7 +384,6 @@ func TestStopWaitsForALaunchInFlight(t *testing.T) {
 		Schema:    stores.Pool.GetRiverSchema(),
 		Pool:      stores.Pool.GetRawPool(),
 		Schedules: schedules,
-		Results:   schedules,
 		Launcher:  launcher,
 		Deleter:   &fakeAgents{},
 		Archived:  &fakeArchive{},
@@ -443,10 +441,6 @@ func (s *fakeSchedules) List(context.Context) ([]schedulestore.Schedule, error) 
 	}
 
 	return []schedulestore.Schedule{*s.schedule}, nil
-}
-
-func (s *fakeSchedules) RecordLaunchResult(context.Context, string, schedulestore.LaunchResultStatus, string) error {
-	return nil
 }
 
 type fakeAgents struct{}

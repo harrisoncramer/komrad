@@ -26,25 +26,52 @@ func Schedule(s schedulestore.Schedule, now time.Time, options ScheduleOptions) 
 	}
 
 	rendered := &schedulev1.Schedule{
-		Id:                s.ID,
-		Name:              s.Name,
-		Cron:              s.Cron,
-		Timezone:          s.Timezone,
-		Enabled:           s.Enabled,
-		HideAgents:        s.HideAgents,
-		Prompt:            prompt,
-		PromptTruncated:   promptTruncated,
-		WorkflowId:        s.WorkflowID,
-		LastResultStatus:  string(s.LastResultStatus),
-		LastResultMessage: s.LastResultMessage,
+		Id:              s.ID,
+		Name:            s.Name,
+		Cron:            s.Cron,
+		Timezone:        s.Timezone,
+		Enabled:         s.Enabled,
+		HideAgents:      s.HideAgents,
+		Prompt:          prompt,
+		PromptTruncated: promptTruncated,
+		WorkflowId:      s.WorkflowID,
 	}
 
 	if next := schedules.CalculateNextRun(s, now); !next.IsZero() {
 		rendered.NextRunAt = timestamppb.New(next)
 	}
 
-	if s.LastResultAt != nil {
-		rendered.LastResultAt = timestamppb.New(*s.LastResultAt)
+	if s.LatestRun != nil {
+		rendered.LatestRun = ScheduleRun(*s.LatestRun)
+	}
+
+	return rendered
+}
+
+var runStates = map[schedulestore.RunState]schedulev1.ScheduleRunState{
+	schedulestore.RunStateAvailable: schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_AVAILABLE,
+	schedulestore.RunStatePending:   schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_PENDING,
+	schedulestore.RunStateScheduled: schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_SCHEDULED,
+	schedulestore.RunStateRunning:   schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_RUNNING,
+	schedulestore.RunStateRetryable: schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_RETRYABLE,
+	schedulestore.RunStateCompleted: schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_COMPLETED,
+	schedulestore.RunStateCancelled: schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_CANCELLED,
+	schedulestore.RunStateDiscarded: schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_DISCARDED,
+}
+
+// ScheduleRun draws one firing as the wire carries it.
+func ScheduleRun(run schedulestore.Run) *schedulev1.ScheduleRun {
+	rendered := &schedulev1.ScheduleRun{
+		Id:           run.ID,
+		ScheduledFor: timestamppb.New(run.ScheduledFor),
+		State:        runStates[run.State],
+		Attempt:      int32(run.Attempt),
+		MaxAttempts:  int32(run.MaxAttempts),
+		Message:      run.Message,
+	}
+
+	if run.FinalizedAt != nil {
+		rendered.FinalizedAt = timestamppb.New(*run.FinalizedAt)
 	}
 
 	return rendered

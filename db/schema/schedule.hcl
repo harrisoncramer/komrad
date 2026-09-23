@@ -52,18 +52,6 @@ table "schedules" {
     type    = timestamptz
     default = sql("now()")
   }
-  column "last_result_status" {
-    null = true
-    type = text
-  }
-  column "last_result_message" {
-    null = true
-    type = text
-  }
-  column "last_result_at" {
-    null = true
-    type = timestamptz
-  }
   column "tenant_id" {
     null    = false
     type    = uuid

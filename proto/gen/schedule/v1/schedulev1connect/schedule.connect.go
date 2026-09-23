@@ -40,6 +40,9 @@ const (
 	// ScheduleServiceGetScheduleProcedure is the fully-qualified name of the ScheduleService's
 	// GetSchedule RPC.
 	ScheduleServiceGetScheduleProcedure = "/schedule.v1.ScheduleService/GetSchedule"
+	// ScheduleServiceListScheduleRunsProcedure is the fully-qualified name of the ScheduleService's
+	// ListScheduleRuns RPC.
+	ScheduleServiceListScheduleRunsProcedure = "/schedule.v1.ScheduleService/ListScheduleRuns"
 	// ScheduleServiceCreateScheduleProcedure is the fully-qualified name of the ScheduleService's
 	// CreateSchedule RPC.
 	ScheduleServiceCreateScheduleProcedure = "/schedule.v1.ScheduleService/CreateSchedule"
@@ -58,6 +61,7 @@ const (
 type ScheduleServiceClient interface {
 	ListSchedules(context.Context, *connect.Request[v1.ListSchedulesRequest]) (*connect.Response[v1.ListSchedulesResponse], error)
 	GetSchedule(context.Context, *connect.Request[v1.GetScheduleRequest]) (*connect.Response[v1.GetScheduleResponse], error)
+	ListScheduleRuns(context.Context, *connect.Request[v1.ListScheduleRunsRequest]) (*connect.Response[v1.ListScheduleRunsResponse], error)
 	CreateSchedule(context.Context, *connect.Request[v1.CreateScheduleRequest]) (*connect.Response[v1.CreateScheduleResponse], error)
 	UpdateSchedule(context.Context, *connect.Request[v1.UpdateScheduleRequest]) (*connect.Response[emptypb.Empty], error)
 	SetScheduleEnabled(context.Context, *connect.Request[v1.SetScheduleEnabledRequest]) (*connect.Response[emptypb.Empty], error)
@@ -86,6 +90,13 @@ func NewScheduleServiceClient(httpClient connect.HTTPClient, baseURL string, opt
 			httpClient,
 			baseURL+ScheduleServiceGetScheduleProcedure,
 			connect.WithSchema(scheduleServiceMethods.ByName("GetSchedule")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
+		listScheduleRuns: connect.NewClient[v1.ListScheduleRunsRequest, v1.ListScheduleRunsResponse](
+			httpClient,
+			baseURL+ScheduleServiceListScheduleRunsProcedure,
+			connect.WithSchema(scheduleServiceMethods.ByName("ListScheduleRuns")),
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
@@ -123,6 +134,7 @@ func NewScheduleServiceClient(httpClient connect.HTTPClient, baseURL string, opt
 type scheduleServiceClient struct {
 	listSchedules      *connect.Client[v1.ListSchedulesRequest, v1.ListSchedulesResponse]
 	getSchedule        *connect.Client[v1.GetScheduleRequest, v1.GetScheduleResponse]
+	listScheduleRuns   *connect.Client[v1.ListScheduleRunsRequest, v1.ListScheduleRunsResponse]
 	createSchedule     *connect.Client[v1.CreateScheduleRequest, v1.CreateScheduleResponse]
 	updateSchedule     *connect.Client[v1.UpdateScheduleRequest, emptypb.Empty]
 	setScheduleEnabled *connect.Client[v1.SetScheduleEnabledRequest, emptypb.Empty]
@@ -137,6 +149,11 @@ func (c *scheduleServiceClient) ListSchedules(ctx context.Context, req *connect.
 // GetSchedule calls schedule.v1.ScheduleService.GetSchedule.
 func (c *scheduleServiceClient) GetSchedule(ctx context.Context, req *connect.Request[v1.GetScheduleRequest]) (*connect.Response[v1.GetScheduleResponse], error) {
 	return c.getSchedule.CallUnary(ctx, req)
+}
+
+// ListScheduleRuns calls schedule.v1.ScheduleService.ListScheduleRuns.
+func (c *scheduleServiceClient) ListScheduleRuns(ctx context.Context, req *connect.Request[v1.ListScheduleRunsRequest]) (*connect.Response[v1.ListScheduleRunsResponse], error) {
+	return c.listScheduleRuns.CallUnary(ctx, req)
 }
 
 // CreateSchedule calls schedule.v1.ScheduleService.CreateSchedule.
@@ -163,6 +180,7 @@ func (c *scheduleServiceClient) ArchiveSchedule(ctx context.Context, req *connec
 type ScheduleServiceHandler interface {
 	ListSchedules(context.Context, *connect.Request[v1.ListSchedulesRequest]) (*connect.Response[v1.ListSchedulesResponse], error)
 	GetSchedule(context.Context, *connect.Request[v1.GetScheduleRequest]) (*connect.Response[v1.GetScheduleResponse], error)
+	ListScheduleRuns(context.Context, *connect.Request[v1.ListScheduleRunsRequest]) (*connect.Response[v1.ListScheduleRunsResponse], error)
 	CreateSchedule(context.Context, *connect.Request[v1.CreateScheduleRequest]) (*connect.Response[v1.CreateScheduleResponse], error)
 	UpdateSchedule(context.Context, *connect.Request[v1.UpdateScheduleRequest]) (*connect.Response[emptypb.Empty], error)
 	SetScheduleEnabled(context.Context, *connect.Request[v1.SetScheduleEnabledRequest]) (*connect.Response[emptypb.Empty], error)
@@ -187,6 +205,13 @@ func NewScheduleServiceHandler(svc ScheduleServiceHandler, opts ...connect.Handl
 		ScheduleServiceGetScheduleProcedure,
 		svc.GetSchedule,
 		connect.WithSchema(scheduleServiceMethods.ByName("GetSchedule")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
+	scheduleServiceListScheduleRunsHandler := connect.NewUnaryHandler(
+		ScheduleServiceListScheduleRunsProcedure,
+		svc.ListScheduleRuns,
+		connect.WithSchema(scheduleServiceMethods.ByName("ListScheduleRuns")),
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
@@ -223,6 +248,8 @@ func NewScheduleServiceHandler(svc ScheduleServiceHandler, opts ...connect.Handl
 			scheduleServiceListSchedulesHandler.ServeHTTP(w, r)
 		case ScheduleServiceGetScheduleProcedure:
 			scheduleServiceGetScheduleHandler.ServeHTTP(w, r)
+		case ScheduleServiceListScheduleRunsProcedure:
+			scheduleServiceListScheduleRunsHandler.ServeHTTP(w, r)
 		case ScheduleServiceCreateScheduleProcedure:
 			scheduleServiceCreateScheduleHandler.ServeHTTP(w, r)
 		case ScheduleServiceUpdateScheduleProcedure:
@@ -246,6 +273,10 @@ func (UnimplementedScheduleServiceHandler) ListSchedules(context.Context, *conne
 
 func (UnimplementedScheduleServiceHandler) GetSchedule(context.Context, *connect.Request[v1.GetScheduleRequest]) (*connect.Response[v1.GetScheduleResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("schedule.v1.ScheduleService.GetSchedule is not implemented"))
+}
+
+func (UnimplementedScheduleServiceHandler) ListScheduleRuns(context.Context, *connect.Request[v1.ListScheduleRunsRequest]) (*connect.Response[v1.ListScheduleRunsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("schedule.v1.ScheduleService.ListScheduleRuns is not implemented"))
 }
 
 func (UnimplementedScheduleServiceHandler) CreateSchedule(context.Context, *connect.Request[v1.CreateScheduleRequest]) (*connect.Response[v1.CreateScheduleResponse], error) {

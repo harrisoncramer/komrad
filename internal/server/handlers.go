@@ -116,6 +116,7 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 			Impl: rpcschedule.NewHandler(rpcschedule.NewHandlerParams{
 				Lister:    params.Stores.schedules,
 				Schedules: params.Services.schedule,
+				Runs:      params.Services.runs,
 			}),
 		}, options...))
 	mux.Handle(configv1connect.NewConfigServiceHandler(
