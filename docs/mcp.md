@@ -50,9 +50,9 @@ The point is what a tool list costs. The whole surface is 62 tools and around 13
 
 ## The read-only role
 
-The `query` tool connects as a least-privilege Postgres role, `weave_readonly` on the same database weave writes to.
+The `query` tool connects as the engine's read-only login, which `weave engine ensure` creates beside the one the engine writes with. It can only read, and Postgres shows it the engine's own rows and no other's, so a query cannot reach another engine's data however it is written.
 
-It's created by the `weave readonly-role` CLI tool, which reads the name and password out of the read-only URL. It needs the writable login to hold `CREATEROLE`. Without a working read-only login the service refuses to start.
+Without a working read-only login the service refuses to start.
 
 ## Who a call is from
 

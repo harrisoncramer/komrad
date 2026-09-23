@@ -71,6 +71,7 @@ VALUES (
     $3,
     $4)
 ON CONFLICT (
+    tenant_id,
     dir)
     DO UPDATE SET
         size_bytes = EXCLUDED.size_bytes,

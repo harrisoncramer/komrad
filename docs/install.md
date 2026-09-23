@@ -10,8 +10,10 @@ chmod +x ~/.local/bin/weave
 echo "run-shell 'weave tmux'" >>~/.tmux.conf
 tmux source-file ~/.tmux.conf
 
-export WEAVE_DATABASE_URL="postgres://weave:secret@localhost:5432/weave?sslmode=disable"
-weave readonly-role
+export WEAVE_OWNER_DATABASE_URL="postgres://weave:secret@localhost:5432/weave?sslmode=disable"
+weave migrate
+weave engine ensure laptop   # prints the database_url this engine connects with
+export WEAVE_DATABASE_URL="<the url it printed>"
 weave doctor
 ```
 
@@ -60,20 +62,24 @@ If you drive a remote engine, the two halves have to be the same build: the pane
 
 ## The database
 
-Weave needs an empty database and a read-only login beside it. Export `WEAVE_DATABASE_URL`, or put it in `~/.config/weave/config.toml`:
+Weave needs an empty database and a login that owns it. Several engines, each a weave on its own machine, can share one database, and each connects as a login of its own that Postgres maps to it, so no engine can read or write another's rows.
+
+The owner migrates and hands out those logins. `weave migrate` brings the schema up to date, and `weave engine ensure NAME` creates an engine, its login and a read-only login for its MCP tools, and prints the url the engine connects with. Both connect as `owner_database_url`, which falls back to `database_url`:
 
 ```toml
 [connection]
-database_url = "postgres://weave:secret@localhost:5432/weave?sslmode=disable"
+owner_database_url = "postgres://weave:secret@localhost:5432/weave?sslmode=disable"
+database_url       = "postgres://weave_engine_laptop:<password>@localhost:5432/weave?sslmode=disable"
 ```
 
-Weave migrates the schema on the way in, so an empty database is all you create. The built-in default is the checkout's docker-compose port, `localhost:5460`, so an installed binary needs this set.
+The service never migrates, and it refuses to start against a schema its build does not match or as a login that belongs to no engine. The built-in defaults are the checkout's docker-compose Postgres on `localhost:5460`, owned by `weave` and holding the `default` engine that `mise run docker:up` provisions, so an installed binary needs these set.
 
 ## Upgrading
 
-Download over the old binary, naming the release you want. Config, database, and tmux config are untouched. The running processes keep the build they started as, so replace them too:
+Download over the old binary, naming the release you want. Config, database, and tmux config are untouched. Migrate as the owner, then replace the running processes, which keep the build they started as:
 
 ```sh
+weave migrate
 weave stop && weave start
 tmux -L weave kill-server
 ```

@@ -1,14 +1,8 @@
--- name: EnsureTenant :exec
-WITH wanted AS (
-    SELECT
-        @id::uuid AS id)
-INSERT INTO tenants(
-    id,
-    name)
+-- name: GetCurrentEngine :one
 SELECT
     id,
-    id::text
+    name
 FROM
-    wanted
-ON CONFLICT (id)
-    DO NOTHING;
+    tenants
+WHERE
+    id = current_tenant();

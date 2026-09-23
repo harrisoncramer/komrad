@@ -18,10 +18,12 @@ WEAVE_CONFIG = "{{config_root}}/weave.test.toml"
 
 # Its own Postgres. The port is what docker-compose publishes and what the connection string
 # points at, and the compose project is named after the directory, so `docker:up` brings up a
-# container of its own rather than colliding on the other instance's. Clear an inherited
-# read-only URL so Viper falls through and derives it from this writable URL.
+# container of its own rather than colliding on the other instance's. The service connects as
+# the default engine's login, which `docker:up` provisions, and the owner migrates. Clear an
+# inherited read-only URL so Viper falls through and derives it from the engine's.
 DB_PORT = "5461"
-WEAVE_DATABASE_URL = "postgres://weave:weave@localhost:5461/weave?sslmode=disable"
+WEAVE_DATABASE_URL = "postgres://weave_engine_default:weave@localhost:5461/weave?sslmode=disable"
+WEAVE_OWNER_DATABASE_URL = "postgres://weave:weave@localhost:5461/weave?sslmode=disable"
 WEAVE_READONLY_DATABASE_URL = ""
 
 # Its own server, so both can run at once and neither adopts the other's.

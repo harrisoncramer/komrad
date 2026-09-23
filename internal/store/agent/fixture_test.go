@@ -63,7 +63,7 @@ func open(t *testing.T) *fixture {
 
 func pool(t *testing.T) *store.Pool {
 	t.Helper()
-	p, err := store.Open(t.Context(), dbtest.URL(t), dbtest.TenantID)
+	p, err := store.Open(t.Context(), dbtest.URL(t))
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = p.Close() })
 

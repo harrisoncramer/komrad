@@ -245,7 +245,6 @@ func (a *app) buildDoctorSettings() (doctor.Settings, error) {
 		Harnesses:           harnesses,
 		DatabaseURL:         a.env.DatabaseURL,
 		ReadOnlyDatabaseURL: a.env.ReadOnlyDatabaseURL,
-		GetTenantID:         a.env.GetTenantID,
 		Addr:                a.env.Addr,
 		FocusKey:            ui.FocusKey,
 		EngineIsRemote:      a.engine().IsRemote(),

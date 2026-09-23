@@ -67,11 +67,13 @@ table "schedules" {
   column "tenant_id" {
     null    = false
     type    = uuid
-    default = sql("(current_setting('weave.tenant'::text, true))::uuid")
-    comment = "The tenant that owns this row, filled from the connection's weave.tenant setting."
+    comment = "The engine that owns this row, stamped from the login that wrote it."
   }
   primary_key {
     columns = [column.id]
+  }
+  unique "schedules_tenant_id_id_key" {
+    columns = [column.tenant_id, column.id]
   }
   foreign_key "schedules_tenant_id_fkey" {
     columns     = [column.tenant_id]
@@ -80,14 +82,14 @@ table "schedules" {
     on_update   = NO_ACTION
   }
   foreign_key "schedules_workflow_id_fkey" {
-    columns     = [column.workflow_id]
-    ref_columns = [table.workflows.column.id]
+    columns     = [column.tenant_id, column.workflow_id]
+    ref_columns = [table.workflows.column.tenant_id, table.workflows.column.id]
     on_delete   = RESTRICT
     on_update   = NO_ACTION
   }
   index "schedules_name_active" {
     unique  = true
-    columns = [column.name]
+    columns = [column.tenant_id, column.name]
     where   = "archived_at IS NULL"
   }
   index "schedules_workflow_id" {

@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"weave/internal/dsn"
+	"weave/internal/store"
 
 	"github.com/jackc/pgx/v5/pgconn"
 )
@@ -42,6 +43,14 @@ var (
 	errSchemaUnreadable = &ProblemError{
 		Code:    "schema_unreadable",
 		Message: "the applied migrations could not be read",
+	}
+	errNotAnEngine = &ProblemError{
+		Code:    "not_an_engine",
+		Message: "the database url's login belongs to no engine",
+	}
+	errEngineUnreadable = &ProblemError{
+		Code:    "engine_unreadable",
+		Message: "which engine the database url's login belongs to could not be read",
 	}
 	errReadOnlyLoginShared = &ProblemError{
 		Code:    "readonly_login_shared",
@@ -100,13 +109,34 @@ func newSchemaCheck() Check {
 			}
 
 			if len(pending) > 0 {
-				return warn(
+				return fail(
 					fmt.Errorf("%w: %s not applied yet", errSchemaBehind, describeMigrationCount(len(pending))),
 					"",
+					"weave migrate, with owner_database_url naming the login that owns the schema",
 				)
 			}
 
 			return pass("up to date")
+		},
+	}
+}
+
+// newEngineCheck asserts database_url is a login that belongs to an engine.
+func newEngineCheck() Check {
+	return Check{
+		Name:        "engine",
+		Description: "an engine connects as a login of its own, which is what keeps its rows apart",
+		Needs:       []string{"database", "schema"},
+		Run: func(ctx context.Context, env Env) Result {
+			name, err := env.ReadEngine(ctx, env.DatabaseURL)
+			if errors.Is(err, store.ErrNotAnEngine) {
+				return fail(errNotAnEngine, dsn.Redact(env.DatabaseURL), "weave engine ensure NAME, then set database_url to the url it prints")
+			}
+			if err != nil {
+				return fail(fmt.Errorf("%w: %s", errEngineUnreadable, describeDatabaseReason(err)), dsn.Redact(env.DatabaseURL), "")
+			}
+
+			return pass(name)
 		},
 	}
 }
@@ -123,7 +153,7 @@ func newReadOnlyLoginCheck() Check {
 				return fail(
 					errReadOnlyLoginUnset,
 					"",
-					"set WEAVE_READONLY_DATABASE_URL to a postgres:// url, then run weave readonly-role",
+					"set WEAVE_READONLY_DATABASE_URL to the reader login weave engine ensure made",
 				)
 			}
 
@@ -131,7 +161,7 @@ func newReadOnlyLoginCheck() Check {
 				return fail(
 					errReadOnlyLoginShared,
 					dsn.Redact(env.ReadOnlyDatabaseURL),
-					"point WEAVE_READONLY_DATABASE_URL at its own login, then run weave readonly-role",
+					"point WEAVE_READONLY_DATABASE_URL at the reader login weave engine ensure made",
 				)
 			}
 
@@ -139,7 +169,7 @@ func newReadOnlyLoginCheck() Check {
 				return fail(
 					fmt.Errorf("%w: %s", errReadOnlyLoginUnusable, describeDatabaseReason(err)),
 					dsn.Redact(env.ReadOnlyDatabaseURL),
-					"weave readonly-role",
+					"weave engine ensure NAME, which resets the reader login's password to the engine's",
 				)
 			}
 

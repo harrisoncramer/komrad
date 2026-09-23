@@ -68,11 +68,13 @@ table "mail" {
   column "tenant_id" {
     null    = false
     type    = uuid
-    default = sql("(current_setting('weave.tenant'::text, true))::uuid")
-    comment = "The tenant that owns this row, filled from the connection's weave.tenant setting."
+    comment = "The engine that owns this row, stamped from the login that wrote it."
   }
   primary_key {
     columns = [column.id]
+  }
+  unique "mail_tenant_id_id_key" {
+    columns = [column.tenant_id, column.id]
   }
   foreign_key "mail_tenant_id_fkey" {
     columns     = [column.tenant_id]
@@ -81,20 +83,20 @@ table "mail" {
     on_update   = NO_ACTION
   }
   foreign_key "mail_from_agent_id_fkey" {
-    columns     = [column.from_agent_id]
-    ref_columns = [table.agents.column.id]
+    columns     = [column.tenant_id, column.from_agent_id]
+    ref_columns = [table.agents.column.tenant_id, table.agents.column.id]
     on_delete   = SET_NULL
     on_update   = NO_ACTION
   }
   foreign_key "mail_to_agent_id_fkey" {
-    columns     = [column.to_agent_id]
-    ref_columns = [table.agents.column.id]
+    columns     = [column.tenant_id, column.to_agent_id]
+    ref_columns = [table.agents.column.tenant_id, table.agents.column.id]
     on_delete   = CASCADE
     on_update   = NO_ACTION
   }
   foreign_key "mail_reply_to_fkey" {
-    columns     = [column.reply_to]
-    ref_columns = [table.mail.column.id]
+    columns     = [column.tenant_id, column.reply_to]
+    ref_columns = [table.mail.column.tenant_id, table.mail.column.id]
     on_delete   = SET_NULL
     on_update   = NO_ACTION
   }

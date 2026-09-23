@@ -43,11 +43,13 @@ table "review_rounds" {
   column "tenant_id" {
     null    = false
     type    = uuid
-    default = sql("(current_setting('weave.tenant'::text, true))::uuid")
-    comment = "The tenant that owns this row, filled from the connection's weave.tenant setting."
+    comment = "The engine that owns this row, stamped from the login that wrote it."
   }
   primary_key {
     columns = [column.id]
+  }
+  unique "review_rounds_tenant_id_id_key" {
+    columns = [column.tenant_id, column.id]
   }
   foreign_key "review_rounds_tenant_id_fkey" {
     columns     = [column.tenant_id]
@@ -56,8 +58,8 @@ table "review_rounds" {
     on_update   = NO_ACTION
   }
   foreign_key "review_rounds_agent_id_fkey" {
-    columns     = [column.agent_id]
-    ref_columns = [table.agents.column.id]
+    columns     = [column.tenant_id, column.agent_id]
+    ref_columns = [table.agents.column.tenant_id, table.agents.column.id]
     on_delete   = CASCADE
     on_update   = NO_ACTION
   }
@@ -134,11 +136,13 @@ table "reviews" {
   column "tenant_id" {
     null    = false
     type    = uuid
-    default = sql("(current_setting('weave.tenant'::text, true))::uuid")
-    comment = "The tenant that owns this row, filled from the connection's weave.tenant setting."
+    comment = "The engine that owns this row, stamped from the login that wrote it."
   }
   primary_key {
     columns = [column.id]
+  }
+  unique "reviews_tenant_id_id_key" {
+    columns = [column.tenant_id, column.id]
   }
   foreign_key "reviews_tenant_id_fkey" {
     columns     = [column.tenant_id]
@@ -147,26 +151,26 @@ table "reviews" {
     on_update   = NO_ACTION
   }
   foreign_key "reviews_agent_id_fkey" {
-    columns     = [column.agent_id]
-    ref_columns = [table.agents.column.id]
+    columns     = [column.tenant_id, column.agent_id]
+    ref_columns = [table.agents.column.tenant_id, table.agents.column.id]
     on_delete   = CASCADE
     on_update   = NO_ACTION
   }
   foreign_key "reviews_round_id_fkey" {
-    columns     = [column.round_id]
-    ref_columns = [table.review_rounds.column.id]
+    columns     = [column.tenant_id, column.round_id]
+    ref_columns = [table.review_rounds.column.tenant_id, table.review_rounds.column.id]
     on_delete   = CASCADE
     on_update   = NO_ACTION
   }
   foreign_key "reviews_author_agent_id_fkey" {
-    columns     = [column.author_agent_id]
-    ref_columns = [table.agents.column.id]
+    columns     = [column.tenant_id, column.author_agent_id]
+    ref_columns = [table.agents.column.tenant_id, table.agents.column.id]
     on_delete   = SET_NULL
     on_update   = NO_ACTION
   }
   foreign_key "reviews_doorbell_mail_id_fkey" {
-    columns     = [column.doorbell_mail_id]
-    ref_columns = [table.mail.column.id]
+    columns     = [column.tenant_id, column.doorbell_mail_id]
+    ref_columns = [table.mail.column.tenant_id, table.mail.column.id]
     on_delete   = SET_NULL
     on_update   = NO_ACTION
   }
@@ -292,11 +296,13 @@ table "review_threads" {
   column "tenant_id" {
     null    = false
     type    = uuid
-    default = sql("(current_setting('weave.tenant'::text, true))::uuid")
-    comment = "The tenant that owns this row, filled from the connection's weave.tenant setting."
+    comment = "The engine that owns this row, stamped from the login that wrote it."
   }
   primary_key {
     columns = [column.id]
+  }
+  unique "review_threads_tenant_id_id_key" {
+    columns = [column.tenant_id, column.id]
   }
   foreign_key "review_threads_tenant_id_fkey" {
     columns     = [column.tenant_id]
@@ -305,26 +311,26 @@ table "review_threads" {
     on_update   = NO_ACTION
   }
   foreign_key "review_threads_agent_id_fkey" {
-    columns     = [column.agent_id]
-    ref_columns = [table.agents.column.id]
+    columns     = [column.tenant_id, column.agent_id]
+    ref_columns = [table.agents.column.tenant_id, table.agents.column.id]
     on_delete   = CASCADE
     on_update   = NO_ACTION
   }
   foreign_key "review_threads_review_id_fkey" {
-    columns     = [column.review_id]
-    ref_columns = [table.reviews.column.id]
+    columns     = [column.tenant_id, column.review_id]
+    ref_columns = [table.reviews.column.tenant_id, table.reviews.column.id]
     on_delete   = CASCADE
     on_update   = NO_ACTION
   }
   foreign_key "review_threads_round_id_fkey" {
-    columns     = [column.round_id]
-    ref_columns = [table.review_rounds.column.id]
+    columns     = [column.tenant_id, column.round_id]
+    ref_columns = [table.review_rounds.column.tenant_id, table.review_rounds.column.id]
     on_delete   = CASCADE
     on_update   = NO_ACTION
   }
   foreign_key "review_threads_resolved_by_agent_id_fkey" {
-    columns     = [column.resolved_by_agent_id]
-    ref_columns = [table.agents.column.id]
+    columns     = [column.tenant_id, column.resolved_by_agent_id]
+    ref_columns = [table.agents.column.tenant_id, table.agents.column.id]
     on_delete   = SET_NULL
     on_update   = NO_ACTION
   }
@@ -387,8 +393,7 @@ table "review_messages" {
   column "tenant_id" {
     null    = false
     type    = uuid
-    default = sql("(current_setting('weave.tenant'::text, true))::uuid")
-    comment = "The tenant that owns this row, filled from the connection's weave.tenant setting."
+    comment = "The engine that owns this row, stamped from the login that wrote it."
   }
   primary_key {
     columns = [column.id]
@@ -400,20 +405,20 @@ table "review_messages" {
     on_update   = NO_ACTION
   }
   foreign_key "review_messages_thread_id_fkey" {
-    columns     = [column.thread_id]
-    ref_columns = [table.review_threads.column.id]
+    columns     = [column.tenant_id, column.thread_id]
+    ref_columns = [table.review_threads.column.tenant_id, table.review_threads.column.id]
     on_delete   = CASCADE
     on_update   = NO_ACTION
   }
   foreign_key "review_messages_review_id_fkey" {
-    columns     = [column.review_id]
-    ref_columns = [table.reviews.column.id]
+    columns     = [column.tenant_id, column.review_id]
+    ref_columns = [table.reviews.column.tenant_id, table.reviews.column.id]
     on_delete   = SET_NULL
     on_update   = NO_ACTION
   }
   foreign_key "review_messages_author_agent_id_fkey" {
-    columns     = [column.author_agent_id]
-    ref_columns = [table.agents.column.id]
+    columns     = [column.tenant_id, column.author_agent_id]
+    ref_columns = [table.agents.column.tenant_id, table.agents.column.id]
     on_delete   = SET_NULL
     on_update   = NO_ACTION
   }
@@ -450,8 +455,7 @@ table "review_viewed_files" {
   column "tenant_id" {
     null    = false
     type    = uuid
-    default = sql("(current_setting('weave.tenant'::text, true))::uuid")
-    comment = "The tenant that owns this row, filled from the connection's weave.tenant setting."
+    comment = "The engine that owns this row, stamped from the login that wrote it."
   }
   primary_key {
     columns = [column.agent_id, column.file_path]
@@ -463,8 +467,8 @@ table "review_viewed_files" {
     on_update   = NO_ACTION
   }
   foreign_key "review_viewed_files_agent_id_fkey" {
-    columns     = [column.agent_id]
-    ref_columns = [table.agents.column.id]
+    columns     = [column.tenant_id, column.agent_id]
+    ref_columns = [table.agents.column.tenant_id, table.agents.column.id]
     on_delete   = CASCADE
     on_update   = NO_ACTION
   }

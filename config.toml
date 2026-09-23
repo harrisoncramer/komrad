@@ -395,13 +395,16 @@ frame_history = 500
 
 # Which weave this is: the database, the address, the tmux socket, the cache.
 [connection]
-# The Postgres weave keeps every agent, workflow, schedule and transcript in.
-# Weave migrates the schema itself on the way in, so an empty database is enough.
-database_url          = "postgres://weave:weave@localhost:5460/weave?sslmode=disable"
+# The Postgres weave keeps every agent, workflow, schedule and transcript in, reached as
+# this engine's own login, which is what keeps its rows apart from every other engine's.
+# `weave engine ensure` creates the login and prints this url.
+database_url          = "postgres://weave_engine_default:weave@localhost:5460/weave?sslmode=disable"
+# The login that owns the schema, used only by `weave migrate` and `weave engine ensure`.
+# Left empty this is database_url, or the local owner while database_url is the default.
+owner_database_url    = ""
 # The least-privilege login the MCP query tools connect as.
-# Left empty this is database_url with the weave_readonly login in place of yours,
-# on the same server and the same database, so moving one moves both.
-# Set it when that login needs its own password or reaches the database another way.
+# Left empty this is database_url with the engine's reader login, which is its own login
+# with _reader on the end and the same password.
 readonly_database_url = ""
 # Where the background service listens, and where the panel, the CLI and the MCP
 # endpoint all reach it. Change it to run two weaves on one machine. It has to be a

@@ -31,7 +31,7 @@ type harness struct {
 func open(t *testing.T) *harness {
 	t.Helper()
 
-	pool, err := store.Open(t.Context(), dbtest.URL(t), dbtest.TenantID)
+	pool, err := store.Open(t.Context(), dbtest.URL(t))
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = pool.Close() })
 

@@ -104,7 +104,7 @@ func connect(t *testing.T) *admin {
 	if err != nil {
 		t.Fatalf("failed to load config for the test database: %v", err)
 	}
-	baseURL := cfg.Connection.DatabaseURL
+	baseURL := cfg.Connection.OwnerDatabaseURL
 
 	conn, err := pgx.Connect(t.Context(), replaceDatabase(baseURL, "postgres"))
 	if err != nil {

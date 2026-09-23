@@ -19,6 +19,8 @@ if ! "$weave" stop; then
 	pkill -f "weave serve --addr $addr" 2>/dev/null || true
 fi
 
+"$weave" migrate
+
 if ! "$weave" start; then
 	echo "warning: the server did not come up, so open the panel to see why" >&2
 	echo "killed $agents panes; the server is not running"

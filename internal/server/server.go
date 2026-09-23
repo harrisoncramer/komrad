@@ -69,12 +69,7 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 		return nil, err
 	}
 
-	tenantID, err := params.Env.EnsureTenantID()
-	if err != nil {
-		return nil, err
-	}
-
-	st, err := openStores(ctx, params.Env.DatabaseURL, tenantID)
+	st, err := openStores(ctx, params.Env.DatabaseURL)
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +105,7 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 	srv.Watch = broker
 	srv.closers = append(srv.closers, broker.Close)
 
-	if err := db.MigrateRiver(ctx, st.pool.GetRawPool()); err != nil {
+	if err := db.MigrateRiver(ctx, st.pool.GetRawPool(), st.pool.GetRiverSchema()); err != nil {
 		return nil, err
 	}
 
@@ -123,6 +118,7 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 
 	srv.Jobs, err = jobs.NewClient(jobs.NewClientParams{
 		Pool:      st.pool.GetRawPool(),
+		Schema:    st.pool.GetRiverSchema(),
 		Schedules: st.schedules,
 		Results:   st.schedules,
 		Launcher:  svc.launch,
@@ -139,7 +135,7 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 
 	// The MCP query tools connect through a least-privilege role, so their pool is opened
 	// apart from the one everything else writes through.
-	readOnly, err := store.OpenReadOnly(ctx, params.Env.ReadOnlyDatabaseURL, tenantID)
+	readOnly, err := store.OpenReadOnly(ctx, params.Env.ReadOnlyDatabaseURL)
 	if err != nil {
 		return nil, err
 	}

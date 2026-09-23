@@ -18,6 +18,7 @@ func clearConnectionEnvironment(t *testing.T) {
 	for _, name := range []string{
 		"WEAVE_DATABASE_URL",
 		"WEAVE_READONLY_DATABASE_URL",
+		"WEAVE_OWNER_DATABASE_URL",
 		"WEAVE_ADDR",
 		"WEAVE_TMUX_SOCKET",
 		"WEAVE_CACHE_DIR",
@@ -664,12 +665,28 @@ func TestLoadDerivesConnectionValuesAfterPrecedence(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t,
-		"postgres://weave_readonly:weave_readonly@db.internal:5432/panel?sslmode=require",
+		"postgres://weave_reader:secret@db.internal:5432/panel?sslmode=require",
 		cfg.Connection.ReadOnlyDatabaseURL,
 	)
 	assert.Equal(t, SourceDerived, report.Sources["readonly_database_url"])
+	assert.Equal(t, "postgres://weave:secret@db.internal:5432/panel?sslmode=require", cfg.Connection.OwnerDatabaseURL)
+	assert.Equal(t, SourceDerived, report.Sources["owner_database_url"])
 	assert.NotEmpty(t, cfg.Connection.CacheDir)
 	assert.Equal(t, SourceDerived, report.Sources["cache_dir"])
+}
+
+// TestLoadTakesTheLocalOwnerWithTheDefaultEngine pins weave migrate working on a checkout that sets nothing.
+func TestLoadTakesTheLocalOwnerWithTheDefaultEngine(t *testing.T) {
+	clearConnectionEnvironment(t)
+
+	path := filepath.Join(t.TempDir(), "config.toml")
+	require.NoError(t, os.WriteFile(path, nil, 0o644))
+
+	cfg, err := LoadStack(Stack{Paths: []string{path}})
+	require.NoError(t, err)
+
+	assert.Equal(t, DefaultDatabaseURL, cfg.Connection.DatabaseURL)
+	assert.Equal(t, DefaultOwnerDatabaseURL, cfg.Connection.OwnerDatabaseURL)
 }
 
 // TestLoadRefusesAnEmptyBinding pins the one collection an empty list cannot clear, a binding

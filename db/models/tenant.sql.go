@@ -9,23 +9,24 @@ import (
 	"context"
 )
 
-const ensureTenant = `-- name: EnsureTenant :exec
-WITH wanted AS (
-    SELECT
-        $1::uuid AS id)
-INSERT INTO tenants(
-    id,
-    name)
+const getCurrentEngine = `-- name: GetCurrentEngine :one
 SELECT
     id,
-    id::text
+    name
 FROM
-    wanted
-ON CONFLICT (id)
-    DO NOTHING
+    tenants
+WHERE
+    id = current_tenant()
 `
 
-func (q *Queries) EnsureTenant(ctx context.Context, id string) error {
-	_, err := q.db.Exec(ctx, ensureTenant, id)
-	return err
+type GetCurrentEngineRow struct {
+	ID   string
+	Name string
+}
+
+func (q *Queries) GetCurrentEngine(ctx context.Context) (*GetCurrentEngineRow, error) {
+	row := q.db.QueryRow(ctx, getCurrentEngine)
+	var i GetCurrentEngineRow
+	err := row.Scan(&i.ID, &i.Name)
+	return &i, err
 }

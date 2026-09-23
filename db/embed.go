@@ -30,9 +30,6 @@ import (
 //go:embed migrations/*.sql
 var migrationsFS embed.FS
 
-//go:embed readonly_role.sql
-var readOnlyRoleSQL string
-
 // migrateLock is the advisory lock key that stops two processes applying the same migration
 // twice, and it must never change.
 const migrateLock int64 = 7_240_115
@@ -91,6 +88,82 @@ func Pending(ctx context.Context, pool *pgxpool.Pool) ([]string, error) {
 	}
 
 	return getMigrationsToRun(ctx, pool, versions)
+}
+
+// ErrSchemaBehind is returned when the database is missing migrations this build carries.
+var ErrSchemaBehind = errors.New("the database is missing migrations this build carries; run weave migrate as the database owner")
+
+// ErrSchemaAhead is returned when the database holds migrations this build does not know.
+var ErrSchemaAhead = errors.New("the database holds migrations this build does not know; run the build that applied them")
+
+// CheckSchema refuses a database whose applied migrations are not exactly the ones this build carries.
+func CheckSchema(ctx context.Context, pool *pgxpool.Pool) error {
+	files, err := openMigrationFiles()
+	if err != nil {
+		return err
+	}
+
+	return checkSchema(ctx, pool, files)
+}
+
+func checkSchema(ctx context.Context, pool *pgxpool.Pool, files fs.FS) error {
+	versions, err := listMigrationVersions(files)
+	if err != nil {
+		return err
+	}
+
+	applied, err := listAppliedMigrations(ctx, pool)
+	if err != nil {
+		return err
+	}
+
+	known := make(map[string]bool, len(versions))
+	for _, version := range versions {
+		known[version] = true
+	}
+
+	if pending := xslice.Filter(versions, func(version string) bool { return !applied[version] }); len(pending) > 0 {
+		return fmt.Errorf("%w: %s", ErrSchemaBehind, strings.Join(pending, ", "))
+	}
+
+	var unknown []string
+	for version := range applied {
+		if !known[version] {
+			unknown = append(unknown, version)
+		}
+	}
+	if len(unknown) > 0 {
+		sort.Strings(unknown)
+
+		return fmt.Errorf("%w: %s", ErrSchemaAhead, strings.Join(unknown, ", "))
+	}
+
+	return nil
+}
+
+func listAppliedMigrations(ctx context.Context, q queryer) (map[string]bool, error) {
+	rows, err := q.Query(ctx, `SELECT version FROM schema_migrations`)
+	if isUndefinedTable(err) {
+		return map[string]bool{}, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to read applied migrations: %w", err)
+	}
+
+	versions, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	if isUndefinedTable(err) {
+		return map[string]bool{}, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to read applied migrations: %w", err)
+	}
+
+	applied := make(map[string]bool, len(versions))
+	for _, version := range versions {
+		applied[version] = true
+	}
+
+	return applied, nil
 }
 
 // isPending reports whether any migration has yet to run.

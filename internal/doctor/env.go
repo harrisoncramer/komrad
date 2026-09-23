@@ -27,6 +27,7 @@ type Env struct {
 	PingDatabase          func(ctx context.Context, url string) error
 	ReadPendingMigrations func(ctx context.Context, url string) ([]string, error)
 	ConnectReadOnly       func(ctx context.Context, url string) error
+	ReadEngine            func(ctx context.Context, url string) (string, error)
 	ReadWorktreeOwners    func(ctx context.Context, url string) (WorktreeOwners, error)
 	ReadWorkflowBases     func(ctx context.Context, url string) ([]WorkflowBase, error)
 	ResolveBase           func(ctx context.Context, dir, base string) (string, error)
@@ -69,7 +70,6 @@ type Settings struct {
 	Harnesses           []HarnessInfo
 	DatabaseURL         string
 	ReadOnlyDatabaseURL string
-	GetTenantID         func() (string, error)
 	Addr                string
 	// FocusKey is the key the panel binds in tmux's root table to take focus, which the
 	// keybindings check keeps free for it.
@@ -99,18 +99,12 @@ func NewEnv(settings Settings) Env {
 		ReadFile:              os.ReadFile,
 		PingDatabase:          pingDatabase,
 		ReadPendingMigrations: readPendingMigrations,
-		ConnectReadOnly: func(ctx context.Context, url string) error {
-			tenantID, err := settings.GetTenantID()
-			if err != nil {
-				return err
-			}
-
-			return connectReadOnly(ctx, url, tenantID)
-		},
-		ReadWorktreeOwners: readWorktreeOwners,
-		ReadWorkflowBases:  readWorkflowBases,
-		ResolveBase:        resolveWorkflowBase,
-		ReadTerminfo:       readTerminfo,
+		ConnectReadOnly:       connectReadOnly,
+		ReadEngine:            readEngine,
+		ReadWorktreeOwners:    readWorktreeOwners,
+		ReadWorkflowBases:     readWorkflowBases,
+		ResolveBase:           resolveWorkflowBase,
+		ReadTerminfo:          readTerminfo,
 	}
 }
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#MISE description="Start the local Postgres and apply migrations to it."
+#MISE description="Start the local Postgres, apply migrations, and give the default engine its logins."
 set -euo pipefail
 source "$MISE_CONFIG_ROOT/mise/tasks/_"
 
@@ -7,4 +7,4 @@ cd "$MISE_CONFIG_ROOT"
 docker compose up -d --wait db
 mise run db:apply
 
-mise run db:readonly-role
+WEAVE_ENGINE_PASSWORD=weave go run . engine ensure default >/dev/null

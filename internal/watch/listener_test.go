@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"weave/db"
+	"weave/db/testmodels"
 	"weave/internal/dbtest"
 	"weave/internal/store"
 	notifystore "weave/internal/store/notify"
@@ -38,12 +38,11 @@ func newListened(t *testing.T, stores *fakeStores) *listened {
 func newPooled(t *testing.T) *listened {
 	t.Helper()
 
-	st, err := store.Open(t.Context(), dbtest.URL(t), dbtest.TenantID)
+	st, err := store.Open(t.Context(), dbtest.URL(t))
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = st.Close() })
-	pool := st.GetRawPool()
 
-	return &listened{pool: pool}
+	return &listened{pool: st.GetRawPool()}
 }
 
 // listen puts the broker on the watch channel.
@@ -59,28 +58,18 @@ func (l *listened) listen(t *testing.T, stores *fakeStores) {
 func (l *listened) notify(t *testing.T, payload string) {
 	t.Helper()
 
-	_, err := l.pool.Exec(t.Context(), "SELECT pg_notify($1, $2)", db.WatchChannel, payload)
-	require.NoError(t, err)
+	require.NoError(t, testmodels.New(l.pool).NotifyWatch(t.Context(), payload))
 }
 
 // killListener ends the listener's connection from the server's side, finding it as the
-// backend on this test's own database whose last statement was the LISTEN.
+// backend on this test's own database whose last statement put it on the watch channel.
 func (l *listened) killListener(t *testing.T) {
 	t.Helper()
 
-	_, err := l.pool.Exec(t.Context(), `
-		SELECT
-			pg_terminate_backend(pid)
-		FROM
-			pg_stat_activity
-		WHERE
-			datname = current_database()
-			AND pid <> pg_backend_pid()
-			AND query LIKE '%LISTEN ' || $1 || '%'`, db.WatchChannel)
-	require.NoError(t, err)
+	require.NoError(t, testmodels.New(l.pool).TerminateWatchListeners(t.Context()))
 }
 
-// TestListenIsOnTheChannelTheTriggersRaise pins that the connection ends up on db.WatchChannel.
+// TestListenIsOnTheChannelTheTriggersRaise pins that the connection ends up on its engine's watch channel.
 func TestListenIsOnTheChannelTheTriggersRaise(t *testing.T) {
 	l := newPooled(t)
 
@@ -90,9 +79,12 @@ func TestListenIsOnTheChannelTheTriggersRaise(t *testing.T) {
 
 	require.NoError(t, notifystore.NewNotifyStore(conn).OpenWatchChannel(t.Context()))
 
-	var listening string
-	require.NoError(t, conn.QueryRow(t.Context(), "SELECT pg_listening_channels()").Scan(&listening))
-	assert.Equal(t, db.WatchChannel, listening)
+	channel, err := testmodels.New(conn).GetWatchChannel(t.Context())
+	require.NoError(t, err)
+
+	listening, err := testmodels.New(conn).ListListeningChannels(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, []string{channel}, listening)
 }
 
 // TestANotificationReachesTheWatchers pins the listener end to end: a notification raised in

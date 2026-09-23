@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"weave/db"
+	"weave/db/testmodels"
 	"weave/internal/dbtest"
 	"weave/internal/interceptors"
 	"weave/internal/logging"
@@ -91,7 +91,7 @@ type served struct {
 func serve(t *testing.T, agents agentStore, heartbeat time.Duration) *served {
 	t.Helper()
 
-	st, err := store.Open(t.Context(), dbtest.URL(t), dbtest.TenantID)
+	st, err := store.Open(t.Context(), dbtest.URL(t))
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = st.Close() })
 	pool := st.GetRawPool()
@@ -124,8 +124,7 @@ func serve(t *testing.T, agents agentStore, heartbeat time.Duration) *served {
 func (s *served) notify(t *testing.T, payload string) {
 	t.Helper()
 
-	_, err := s.pool.Exec(t.Context(), "SELECT pg_notify($1, $2)", db.WatchChannel, payload)
-	require.NoError(t, err)
+	require.NoError(t, testmodels.New(s.pool).NotifyWatch(t.Context(), payload))
 }
 
 func receive(t *testing.T, stream *connect.ServerStreamForClient[watchv1.WatchEvent]) *watchv1.WatchEvent {

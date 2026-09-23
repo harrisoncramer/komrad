@@ -6,6 +6,8 @@ import (
 	"net"
 	"testing"
 
+	"weave/internal/store"
+
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -33,6 +35,7 @@ func dbEnv(schema fakeSchema, connectErr, readOnlyErr error) Env {
 			return schema.pending, schema.err
 		},
 		ConnectReadOnly: func(context.Context, string) error { return readOnlyErr },
+		ReadEngine:      func(context.Context, string) (string, error) { return "laptop", nil },
 	}
 }
 
@@ -177,8 +180,9 @@ func TestSchemaCheck(t *testing.T) {
 		schema := fakeSchema{pending: []string{"20260727000000_initial.sql", "20260801000000_next.sql"}}
 		result := newSchemaCheck().Run(t.Context(), dbEnv(schema, nil, nil))
 
-		assert.Equal(t, StatusWarn, result.Status, "the service applies these itself on the way up")
+		assert.Equal(t, StatusFail, result.Status, "the service refuses a schema behind its build")
 		assert.Equal(t, "schema_behind", codeOf(result.Err))
+		assert.Contains(t, result.Fix, "weave migrate")
 		assert.Contains(t, result.Err.Error(), "2 migrations")
 	})
 
@@ -214,7 +218,7 @@ func TestReadOnlyLoginCheck(t *testing.T) {
 
 		assert.Equal(t, StatusFail, result.Status)
 		assert.Equal(t, "readonly_login_unusable", codeOf(result.Err))
-		assert.Equal(t, "weave readonly-role", result.Fix)
+		assert.Contains(t, result.Fix, "weave engine ensure")
 		assert.Contains(t, result.Err.Error(), "weave_readonly",
 			"the reason names the login, since that is what has to be created")
 	})
@@ -268,4 +272,25 @@ func TestDatabaseChecksWaitOnTheDatabase(t *testing.T) {
 		}
 		require.True(t, found, "there is a check named %q", name)
 	}
+}
+
+// TestEngineCheck covers a login that belongs to no engine being told how to get one.
+func TestEngineCheck(t *testing.T) {
+	t.Run("an engine login", func(t *testing.T) {
+		result := newEngineCheck().Run(t.Context(), dbEnv(fakeSchema{}, nil, nil))
+
+		assert.Equal(t, StatusOK, result.Status)
+		assert.Equal(t, "laptop", result.Detail)
+	})
+
+	t.Run("a login of no engine", func(t *testing.T) {
+		env := dbEnv(fakeSchema{}, nil, nil)
+		env.ReadEngine = func(context.Context, string) (string, error) { return "", store.ErrNotAnEngine }
+
+		result := newEngineCheck().Run(t.Context(), env)
+
+		assert.Equal(t, StatusFail, result.Status)
+		assert.Equal(t, "not_an_engine", codeOf(result.Err))
+		assert.Contains(t, result.Fix, "weave engine ensure")
+	})
 }

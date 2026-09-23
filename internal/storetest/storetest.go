@@ -5,11 +5,8 @@ package storetest
 import (
 	"context"
 	"fmt"
-	"net/url"
 	"testing"
 
-	"weave/config"
-	"weave/db"
 	"weave/internal/dbtest"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
@@ -23,7 +20,6 @@ import (
 	workflowstore "weave/internal/store/workflow"
 	"weave/lib/xslice"
 
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/stretchr/testify/require"
 )
 
@@ -48,15 +44,15 @@ type Stores struct {
 func Open(t *testing.T) *Stores {
 	t.Helper()
 
-	dbURL := dbtest.URL(t)
+	engine := dbtest.NewEngine(t, dbtest.New(t))
 
-	pool, err := store.Open(t.Context(), dbURL, dbtest.TenantID)
+	pool, err := store.Open(t.Context(), engine.URL)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = pool.Close() })
 
 	return &Stores{
-		URL:              dbURL,
-		ReadOnlyURL:      grantReadOnly(t, pool, dbURL),
+		URL:              engine.URL,
+		ReadOnlyURL:      engine.ReaderURL,
 		Pool:             pool,
 		Agents:           agentstore.NewAgentStore(pool.GetDB()),
 		Rows:             rowstore.NewRowStore(pool.GetDB()),
@@ -69,24 +65,6 @@ func Open(t *testing.T) *Stores {
 		PullRequests:     pullrequeststore.NewPullRequestStore(pool.GetDB()),
 		PullRequestSyncs: pullrequeststore.NewPullRequestSyncStore(pool.GetDB()),
 	}
-}
-
-func grantReadOnly(t *testing.T, pool *store.Pool, dbURL string) string {
-	t.Helper()
-
-	cfg, err := config.LoadStack(config.Stack{})
-	require.NoError(t, err)
-
-	readOnly, err := pgconn.ParseConfig(cfg.Connection.ReadOnlyDatabaseURL)
-	require.NoError(t, err)
-
-	require.NoError(t, db.GrantReadOnlyRole(t.Context(), pool.GetRawPool(), readOnly.User, readOnly.Password))
-
-	parsed, err := url.Parse(dbURL)
-	require.NoError(t, err)
-	parsed.User = url.UserPassword(readOnly.User, readOnly.Password)
-
-	return parsed.String()
 }
 
 // SeedAgent records an agent and returns it as stored, filing one with no workflow set under

@@ -24,7 +24,7 @@ type fixture struct {
 func open(t *testing.T) *fixture {
 	t.Helper()
 
-	pool, err := store.Open(t.Context(), dbtest.URL(t), dbtest.TenantID)
+	pool, err := store.Open(t.Context(), dbtest.URL(t))
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = pool.Close() })
 

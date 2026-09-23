@@ -115,7 +115,7 @@ func TestDeletingClaimHidesTheWorkflow(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			pool, err := store.Open(t.Context(), dbtest.URL(t), dbtest.TenantID)
+			pool, err := store.Open(t.Context(), dbtest.URL(t))
 			require.NoError(t, err)
 			t.Cleanup(func() { _ = pool.Close() })
 			f, agents := NewWorkflowStore(pool.GetDB()), agentstore.NewAgentStore(pool.GetDB())

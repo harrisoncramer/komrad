@@ -7,7 +7,7 @@ set -euo pipefail
 usage() {
 	echo "Usage: mise run remote:deploy [instance-id]"
 	echo
-	echo "Cross-compiles weave for the engine, installs it there, and restarts the service."
+	echo "Cross-compiles weave for the engine, installs it there, migrates as the owner, and restarts the service."
 	echo "A clean deploy carries this checkout's commit, which is what the panel compares"
 	echo "against, so a panel built from the same commit needs nothing further. A deploy"
 	echo "from a dirty tree names no commit, so it also builds a local binary at the same"
@@ -94,7 +94,7 @@ COMMAND_ID="$(aws ssm send-command \
 	--region "$REGION" \
 	--instance-ids "$INSTANCE" \
 	--document-name AWS-RunShellScript \
-	--parameters "commands=[\"set -e\",\"curl -fsSL -o /tmp/weave-new '$URL'\",\"install -m 0755 /tmp/weave-new /usr/local/bin/weave\",\"rm -f /tmp/weave-new\",\"systemctl restart weave.service\"]" \
+	--parameters "commands=[\"set -e\",\"curl -fsSL -o /tmp/weave-new '$URL'\",\"install -m 0755 /tmp/weave-new /usr/local/bin/weave\",\"rm -f /tmp/weave-new\",\"systemctl stop weave.service\",\"/usr/local/sbin/weave-database-credentials\",\"systemctl start weave.service\"]" \
 	--query Command.CommandId \
 	--output text)"
 

@@ -7,7 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	"weave/internal/dbtest"
 	"weave/internal/store"
 
 	"github.com/stretchr/testify/require"
@@ -27,7 +26,7 @@ func TestProbeRanking(t *testing.T) {
 	}
 
 	ctx := t.Context()
-	pool, err := store.OpenReadOnly(ctx, *probeURL, dbtest.TenantID)
+	pool, err := store.OpenReadOnly(ctx, *probeURL)
 	require.NoError(t, err)
 	t.Cleanup(pool.Close)
 

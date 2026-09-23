@@ -27,7 +27,6 @@ import (
 	"time"
 
 	"weave/config"
-	"weave/db"
 	"weave/internal/agents"
 	"weave/internal/caller"
 	"weave/internal/doctor"
@@ -185,7 +184,6 @@ func Start(t *testing.T, p Params) *Instance {
 			Harnesses:           describedHarnesses,
 			DatabaseURL:         env.DatabaseURL,
 			ReadOnlyDatabaseURL: env.ReadOnlyDatabaseURL,
-			GetTenantID:         env.GetTenantID,
 			Addr:                addr,
 		},
 	})
@@ -266,7 +264,7 @@ func (i *Instance) WorkQueue() {
 	require.Eventually(i.t, func() bool {
 		var unfinished int64
 		err := i.Stores.Pool.GetRawPool().QueryRow(i.t.Context(),
-			fmt.Sprintf("SELECT count(*) FROM %q.river_job WHERE finalized_at IS NULL", db.RiverSchema),
+			fmt.Sprintf("SELECT count(*) FROM %q.river_job WHERE finalized_at IS NULL", i.Stores.Pool.GetRiverSchema()),
 		).Scan(&unfinished)
 		require.NoError(i.t, err)
 

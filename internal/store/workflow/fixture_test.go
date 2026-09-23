@@ -14,7 +14,7 @@ const missingID = "00000000-0000-0000-0000-000000000000"
 func open(t *testing.T) *WorkflowStore {
 	t.Helper()
 
-	pool, err := store.Open(t.Context(), dbtest.URL(t), dbtest.TenantID)
+	pool, err := store.Open(t.Context(), dbtest.URL(t))
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = pool.Close() })
 
