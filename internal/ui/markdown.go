@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"weave/internal/ui/paint"
 	"weave/internal/ui/paint/label"
 	"weave/internal/ui/panel"
 )
@@ -198,15 +199,14 @@ func scheduleFields(sched panel.Schedule, workflow *panel.Workflow) []recordFiel
 	return append(fields, workflowConfigFields(*workflow)...)
 }
 
-func scheduleMarkdown(item scheduleItem) string {
+// scheduleDocRows is a schedule's document at a width: its name and next run, its firings, then
+// its prompt.
+func scheduleDocRows(item scheduleItem, runs scheduleRunsRead, width int) []string {
 	sched := item.schedule
 
 	notice := "_paused — will not run_"
 	if sched.Enabled {
 		notice = fmt.Sprintf("_next run %s_", label.OrDash(label.Friendly(item.nextRun)))
-	}
-	if result := lastResultNotice(sched); result != "" {
-		notice += "\n" + result
 	}
 
 	prose := "_no prompt set_"
@@ -214,25 +214,16 @@ func scheduleMarkdown(item scheduleItem) string {
 		prose = sched.Prompt
 	}
 
-	var footer string
 	if sched.HideAgents {
-		footer = "Its runs start hidden."
+		prose += "\n\nIts runs start hidden."
 	}
 
-	return renderDocument(sched.Name, notice, prose, footer)
-}
-
-func lastResultNotice(sched panel.Schedule) string {
-	if sched.LastResultStatus == "" || sched.LastResultAt == nil {
-		return ""
+	rows := paint.DocStyledRows(renderDocument(sched.Name, notice, "", ""), width, columnStyle())
+	if runRows := scheduleRunRows(runs, width); len(runRows) > 0 {
+		rows = append(append(rows, ""), runRows...)
 	}
 
-	notice := fmt.Sprintf("_last result %s: %s_", label.Friendly(*sched.LastResultAt), sched.LastResultStatus)
-	if sched.LastResultMessage != "" {
-		notice += ", " + sched.LastResultMessage
-	}
-
-	return notice
+	return append(rows, paint.DocStyledRows(prose+"\n", width, columnStyle())...)
 }
 
 const emptyArchiveMarkdown = "# Archive\n\n_nothing archived_\n\nAgents archived from the panel are kept here until you delete them.\n"

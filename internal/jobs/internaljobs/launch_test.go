@@ -13,14 +13,9 @@ import (
 	schedulestore "weave/internal/store/schedule"
 
 	"github.com/riverqueue/river"
-	"github.com/riverqueue/river/rivertype"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-// attempts is how many tries a job in these tests is given, which the worker treats the same
-// whatever number River hands it.
-const attempts = 5
 
 // TestLaunchAgentWorker covers a fired schedule cancelling when it is gone or paused, and
 // returning an error when the failure is one that might pass.
@@ -28,16 +23,14 @@ func TestLaunchAgentWorker(t *testing.T) {
 	occurrence := time.Date(2026, time.July, 28, 9, 0, 0, 0, time.UTC)
 
 	tests := []struct {
-		name             string
-		schedule         *schedulestore.Schedule
-		launchErr        error
-		wantCancel       bool
-		wantErr          bool
-		running          int64
-		attempt          int
-		maxAttempts      int
-		wantLaunched     bool
-		wantResultStatus schedulestore.LaunchResultStatus
+		name         string
+		schedule     *schedulestore.Schedule
+		launchErr    error
+		wantCancel   bool
+		wantErr      bool
+		running      int64
+		wantLaunched bool
+		wantReason   string
 	}{
 		{
 			name: "an armed schedule launches its agent",
@@ -47,27 +40,25 @@ func TestLaunchAgentWorker(t *testing.T) {
 				Prompt:  "check CI",
 				Enabled: true,
 			},
-			wantLaunched:     true,
-			wantResultStatus: schedulestore.LaunchResultLaunched,
+			wantLaunched: true,
 		},
 		{
 			// The launcher hands this back only for an agent that actually came up, a failed create
 			// having its key taken off it.
-			name: "an occurrence whose agent is already up records that rather than retrying",
+			name: "an occurrence whose agent is already up completes rather than retrying",
 			schedule: &schedulestore.Schedule{
 				ID:      "s1",
 				Name:    "morning-ci",
 				Prompt:  "check CI",
 				Enabled: true,
 			},
-			launchErr:        agents.ErrAlreadyLaunched,
-			wantLaunched:     true,
-			wantResultStatus: schedulestore.LaunchResultLaunched,
+			launchErr:    agents.ErrAlreadyLaunched,
+			wantLaunched: true,
 		},
 		{
-			name:             "a schedule deleted since the job was queued cancels",
-			wantCancel:       true,
-			wantResultStatus: schedulestore.LaunchResultScheduleNotFound,
+			name:       "a schedule deleted since the job was queued cancels",
+			wantCancel: true,
+			wantReason: "no longer exists",
 		},
 		{
 			name: "a schedule paused since the job was queued cancels",
@@ -76,8 +67,8 @@ func TestLaunchAgentWorker(t *testing.T) {
 				Name:   "morning-ci",
 				Prompt: "check CI",
 			},
-			wantCancel:       true,
-			wantResultStatus: schedulestore.LaunchResultSchedulePaused,
+			wantCancel: true,
+			wantReason: "is paused",
 		},
 		{
 			name: "a directory that cannot be opened cancels",
@@ -87,10 +78,10 @@ func TestLaunchAgentWorker(t *testing.T) {
 				Prompt:  "go",
 				Enabled: true,
 			},
-			launchErr:        agents.ErrBadDirectory,
-			wantCancel:       true,
-			wantLaunched:     true,
-			wantResultStatus: schedulestore.LaunchResultCannotLaunch,
+			launchErr:    agents.ErrBadDirectory,
+			wantCancel:   true,
+			wantLaunched: true,
+			wantReason:   agents.ErrBadDirectory.Error(),
 		},
 		{
 			name: "a provisioner that refuses cancels",
@@ -100,10 +91,10 @@ func TestLaunchAgentWorker(t *testing.T) {
 				Prompt:  "go",
 				Enabled: true,
 			},
-			launchErr:        agents.ErrProvisionFailed,
-			wantCancel:       true,
-			wantLaunched:     true,
-			wantResultStatus: schedulestore.LaunchResultCannotLaunch,
+			launchErr:    agents.ErrProvisionFailed,
+			wantCancel:   true,
+			wantLaunched: true,
+			wantReason:   agents.ErrProvisionFailed.Error(),
 		},
 		{
 			name: "a schedule whose last agent is still running skips this tick",
@@ -114,39 +105,22 @@ func TestLaunchAgentWorker(t *testing.T) {
 				WorkflowID: "w1",
 				Enabled:    true,
 			},
-			running:          1,
-			wantCancel:       true,
-			wantResultStatus: schedulestore.LaunchResultAlreadyRunning,
+			running:    1,
+			wantCancel: true,
+			wantReason: "still has 1 agent(s) running",
 		},
 		{
-			name: "a transient failure with attempts left is recorded as retrying, not terminal",
+			name: "a transient failure is left for River to retry",
 			schedule: &schedulestore.Schedule{
 				ID:      "s1",
 				Name:    "morning-ci",
 				Prompt:  "go",
 				Enabled: true,
 			},
-			launchErr:        errors.New("no server running"),
-			attempt:          1,
-			maxAttempts:      attempts,
-			wantErr:          true,
-			wantLaunched:     true,
-			wantResultStatus: schedulestore.LaunchResultRetrying,
-		},
-		{
-			name: "the same transient failure on the last attempt is recorded as terminal, not retrying",
-			schedule: &schedulestore.Schedule{
-				ID:      "s1",
-				Name:    "morning-ci",
-				Prompt:  "go",
-				Enabled: true,
-			},
-			launchErr:        errors.New("no server running"),
-			attempt:          attempts,
-			maxAttempts:      attempts,
-			wantErr:          true,
-			wantLaunched:     true,
-			wantResultStatus: schedulestore.LaunchResultCannotLaunch,
+			launchErr:    errors.New("no server running"),
+			wantErr:      true,
+			wantLaunched: true,
+			wantReason:   "no server running",
 		},
 	}
 
@@ -154,13 +128,10 @@ func TestLaunchAgentWorker(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			schedules := &fakeSchedules{schedule: tt.schedule}
 			launcher := &fakeLauncher{err: tt.launchErr}
-			worker := NewLaunchAgentWorker(schedules, launcher, &fakeRunning{count: tt.running}, schedules, nil)
+			worker := NewLaunchAgentWorker(schedules, launcher, &fakeRunning{count: tt.running})
 
 			job := &river.Job[LaunchAgentArgs]{
 				Args: LaunchAgentArgs{ScheduleID: "s1", ScheduledFor: occurrence},
-			}
-			if tt.maxAttempts != 0 {
-				job.JobRow = &rivertype.JobRow{Attempt: tt.attempt, MaxAttempts: tt.maxAttempts}
 			}
 
 			err := worker.Work(t.Context(), job)
@@ -178,9 +149,9 @@ func TestLaunchAgentWorker(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			require.Len(t, schedules.results, 1, "every finished firing records exactly one result")
-			assert.Equal(t, "s1", schedules.results[0].scheduleID)
-			assert.Equal(t, tt.wantResultStatus, schedules.results[0].status, "which of retrying or terminal this attempt count should record")
+			if tt.wantReason != "" {
+				assert.Contains(t, err.Error(), tt.wantReason, "the error River records on the job says why")
+			}
 		})
 	}
 }
@@ -232,7 +203,7 @@ func TestLaunchAgentParams(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			launcher := &fakeLauncher{}
 			schedules := &fakeSchedules{schedule: &tt.schedule}
-			worker := NewLaunchAgentWorker(schedules, launcher, &fakeRunning{}, schedules, nil)
+			worker := NewLaunchAgentWorker(schedules, launcher, &fakeRunning{})
 
 			require.NoError(t, worker.Work(t.Context(), &river.Job[LaunchAgentArgs]{
 				Args: LaunchAgentArgs{ScheduleID: tt.schedule.ID, ScheduledFor: occurrence},
@@ -313,13 +284,6 @@ func isCancel(err error) bool {
 
 type fakeSchedules struct {
 	schedule *schedulestore.Schedule
-	results  []recordedResult
-}
-
-type recordedResult struct {
-	scheduleID string
-	status     schedulestore.LaunchResultStatus
-	message    string
 }
 
 func (f *fakeSchedules) Get(_ context.Context, id string) (*schedulestore.Schedule, error) {
@@ -336,16 +300,6 @@ func (f *fakeSchedules) List(context.Context) ([]schedulestore.Schedule, error) 
 	}
 
 	return []schedulestore.Schedule{*f.schedule}, nil
-}
-
-func (f *fakeSchedules) RecordLaunchResult(_ context.Context, scheduleID string, status schedulestore.LaunchResultStatus, message string) error {
-	f.results = append(f.results, recordedResult{
-		scheduleID: scheduleID,
-		status:     status,
-		message:    message,
-	})
-
-	return nil
 }
 
 type fakeLauncher struct {

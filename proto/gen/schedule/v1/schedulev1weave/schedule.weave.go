@@ -18,6 +18,7 @@ import (
 type ScheduleServiceImpl interface {
 	ListSchedules(context.Context, *v1.ListSchedulesRequest) (*v1.ListSchedulesResponse, *fail.Error)
 	GetSchedule(context.Context, *v1.GetScheduleRequest) (*v1.GetScheduleResponse, *fail.Error)
+	ListScheduleRuns(context.Context, *v1.ListScheduleRunsRequest) (*v1.ListScheduleRunsResponse, *fail.Error)
 	CreateSchedule(context.Context, *v1.CreateScheduleRequest) (*v1.CreateScheduleResponse, *fail.Error)
 	UpdateSchedule(context.Context, *v1.UpdateScheduleRequest) (*emptypb.Empty, *fail.Error)
 	SetScheduleEnabled(context.Context, *v1.SetScheduleEnabledRequest) (*emptypb.Empty, *fail.Error)
@@ -38,6 +39,11 @@ func (a ScheduleServiceAdapter) ListSchedules(ctx context.Context, req *connect.
 // GetSchedule answers the request as connect serves it.
 func (a ScheduleServiceAdapter) GetSchedule(ctx context.Context, req *connect.Request[v1.GetScheduleRequest]) (*connect.Response[v1.GetScheduleResponse], error) {
 	return rpcerr.Answer(a.Impl.GetSchedule(ctx, req.Msg))
+}
+
+// ListScheduleRuns answers the request as connect serves it.
+func (a ScheduleServiceAdapter) ListScheduleRuns(ctx context.Context, req *connect.Request[v1.ListScheduleRunsRequest]) (*connect.Response[v1.ListScheduleRunsResponse], error) {
+	return rpcerr.Answer(a.Impl.ListScheduleRuns(ctx, req.Msg))
 }
 
 // CreateSchedule answers the request as connect serves it.

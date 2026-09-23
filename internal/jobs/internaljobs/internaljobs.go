@@ -36,7 +36,3 @@ type ArchivedAgentLister interface {
 type RunningAgentCounter interface {
 	CountLiveForSchedule(ctx context.Context, scheduleID string) (int64, error)
 }
-
-type LaunchResultRecorder interface {
-	RecordLaunchResult(ctx context.Context, scheduleID string, status schedulestore.LaunchResultStatus, message string) error
-}

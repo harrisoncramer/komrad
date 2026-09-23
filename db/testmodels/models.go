@@ -596,20 +596,17 @@ type ReviewViewedFile struct {
 
 // A recurring agent launch, holding when to fire and the prompt to launch with.
 type Schedule struct {
-	ID                pgtype.UUID
-	Name              string
-	Cron              string
-	Timezone          string
-	Enabled           bool
-	HideAgents        bool
-	Prompt            string
-	WorkflowID        pgtype.UUID
-	ArchivedAt        pgtype.Timestamptz
-	CreatedAt         pgtype.Timestamptz
-	UpdatedAt         pgtype.Timestamptz
-	LastResultStatus  *string
-	LastResultMessage *string
-	LastResultAt      pgtype.Timestamptz
+	ID         pgtype.UUID
+	Name       string
+	Cron       string
+	Timezone   string
+	Enabled    bool
+	HideAgents bool
+	Prompt     string
+	WorkflowID pgtype.UUID
+	ArchivedAt pgtype.Timestamptz
+	CreatedAt  pgtype.Timestamptz
+	UpdatedAt  pgtype.Timestamptz
 	// The engine that owns this row, stamped from the login that wrote it.
 	TenantID pgtype.UUID
 }

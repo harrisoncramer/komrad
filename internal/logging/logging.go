@@ -42,7 +42,6 @@ const (
 	ScriptStderr           = "weave.script.stderr"
 	RunID                  = "weave.run.id"
 	ScheduleID             = "weave.schedule.id"
-	LaunchResult           = "weave.schedule.launch_result"
 	FilePath               = "file.path"
 	TmuxCommands           = "weave.tmux.commands"
 	MailID                 = "weave.mail.id"

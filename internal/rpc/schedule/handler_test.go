@@ -7,6 +7,9 @@ import (
 
 	schedulev1weave "weave/proto/gen/schedule/v1/schedulev1weave"
 
+	"weave/db"
+	"weave/internal/jobs"
+	"weave/internal/jobs/internaljobs"
 	"weave/internal/rpc/render"
 	"weave/internal/schedules"
 	"weave/internal/storetest"
@@ -14,10 +17,11 @@ import (
 	schedulev1 "weave/proto/gen/schedule/v1"
 	viewv1 "weave/proto/gen/view/v1"
 
-	schedulestore "weave/internal/store/schedule"
 	workflowstore "weave/internal/store/workflow"
 
 	"connectrpc.com/connect"
+	"github.com/riverqueue/river"
+	"github.com/riverqueue/river/riverdriver/riverpgxv5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -225,27 +229,93 @@ func TestGetSchedule(t *testing.T) {
 	}
 }
 
-// TestGetScheduleLastResult covers that a schedule's last firing outcome reaches the RPC layer.
-func TestGetScheduleLastResult(t *testing.T) {
-	st := storetest.Open(t)
-	manager := schedules.NewScheduleService(schedules.NewScheduleServiceParams{Schedules: st.Schedules, Workflows: st.Workflows})
-	svc := schedulev1weave.ScheduleServiceAdapter{Impl: NewHandler(NewHandlerParams{Lister: st.Schedules, Schedules: manager})}
-	workflow := st.SeedWorkflow(t, workflowstore.Config{Name: "schedules"}).ID
+// TestListScheduleRuns covers a schedule's firings coming back newest first from River's own
+// record, and the newest one riding on the schedule.
+func TestListScheduleRuns(t *testing.T) {
+	tests := []struct {
+		name      string
+		id        string
+		fired     int
+		cancel    bool
+		limit     int32
+		wantCode  connect.Code
+		wantRuns  int
+		wantState schedulev1.ScheduleRunState
+	}{
+		{
+			name:     "an id nobody holds",
+			id:       missingID,
+			wantCode: connect.CodeNotFound,
+		},
+		{
+			name: "a schedule that has never fired has no runs",
+		},
+		{
+			name:      "a firing waiting for a worker is listed",
+			fired:     1,
+			wantRuns:  1,
+			wantState: schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_AVAILABLE,
+		},
+		{
+			name:      "a cancelled firing is listed as cancelled",
+			fired:     1,
+			cancel:    true,
+			wantRuns:  1,
+			wantState: schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_CANCELLED,
+		},
+		{
+			name:      "the limit caps how many come back",
+			fired:     3,
+			limit:     2,
+			wantRuns:  2,
+			wantState: schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_AVAILABLE,
+		},
+	}
 
-	id := createSchedule(t, svc, workflow, "morning-ci")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc, workflow, fire := runService(t)
+			id := createSchedule(t, svc, workflow, "morning-ci")
+			other := createSchedule(t, svc, workflow, "nightly")
+			fire(t, other, time.Date(2026, time.July, 1, 9, 0, 0, 0, time.UTC), false)
 
-	got, err := svc.GetSchedule(t.Context(), connect.NewRequest(&schedulev1.GetScheduleRequest{Id: id}))
-	require.NoError(t, err)
-	assert.Empty(t, got.Msg.GetSchedule().GetLastResultStatus(), "a schedule that has never fired carries no result")
-	assert.Nil(t, got.Msg.GetSchedule().GetLastResultAt())
+			first := time.Date(2026, time.July, 28, 9, 0, 0, 0, time.UTC)
+			for i := range tt.fired {
+				fire(t, id, first.Add(time.Duration(i)*time.Hour), tt.cancel)
+			}
 
-	require.NoError(t, st.Schedules.RecordLaunchResult(t.Context(), id, schedulestore.LaunchResultCannotLaunch, "bad directory"))
+			target := id
+			if tt.id != "" {
+				target = tt.id
+			}
 
-	got, err = svc.GetSchedule(t.Context(), connect.NewRequest(&schedulev1.GetScheduleRequest{Id: id}))
-	require.NoError(t, err)
-	assert.Equal(t, "cannot_launch", got.Msg.GetSchedule().GetLastResultStatus())
-	assert.Equal(t, "bad directory", got.Msg.GetSchedule().GetLastResultMessage())
-	require.NotNil(t, got.Msg.GetSchedule().GetLastResultAt())
+			got, err := svc.ListScheduleRuns(t.Context(), connect.NewRequest(&schedulev1.ListScheduleRunsRequest{Id: target, Limit: tt.limit}))
+			if tt.wantCode != 0 {
+				require.Error(t, err)
+				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
+
+				return
+			}
+
+			require.NoError(t, err)
+			runs := got.Msg.GetRuns()
+			require.Len(t, runs, tt.wantRuns, "only this schedule's firings are listed")
+
+			read, err := svc.GetSchedule(t.Context(), connect.NewRequest(&schedulev1.GetScheduleRequest{Id: id}))
+			require.NoError(t, err)
+
+			if tt.wantRuns == 0 {
+				assert.Nil(t, read.Msg.GetSchedule().GetLatestRun(), "a schedule that has never fired has no latest run")
+
+				return
+			}
+
+			newest := first.Add(time.Duration(tt.fired-1) * time.Hour)
+			assert.Equal(t, newest, runs[0].GetScheduledFor().AsTime(), "the newest firing comes first")
+			assert.Equal(t, tt.wantState, runs[0].GetState())
+			assert.Equal(t, runs[0].GetId(), read.Msg.GetSchedule().GetLatestRun().GetId(), "the schedule carries its newest firing")
+		})
+	}
 }
 
 // TestUpdateSchedule pins that every field is written on an update, and the code each refusal
@@ -511,10 +581,47 @@ func TestListSchedulesRefusesAMangledToken(t *testing.T) {
 func service(t *testing.T) (schedulev1weave.ScheduleServiceAdapter, string) {
 	t.Helper()
 
-	st := storetest.Open(t)
-	manager := schedules.NewScheduleService(schedules.NewScheduleServiceParams{Schedules: st.Schedules, Workflows: st.Workflows})
+	svc, workflow, _ := runService(t)
 
-	return schedulev1weave.ScheduleServiceAdapter{Impl: NewHandler(NewHandlerParams{Lister: st.Schedules, Schedules: manager})}, st.SeedWorkflow(t, workflowstore.Config{Name: "schedules"}).ID
+	return svc, workflow
+}
+
+// fireFunc records one firing of a schedule the way the scheduler does, cancelling it when told.
+type fireFunc func(t *testing.T, scheduleID string, scheduledFor time.Time, cancel bool)
+
+func runService(t *testing.T) (schedulev1weave.ScheduleServiceAdapter, string, fireFunc) {
+	t.Helper()
+
+	st := storetest.Open(t)
+	pool, schema := st.Pool.GetRawPool(), st.Pool.GetRiverSchema()
+	require.NoError(t, db.MigrateRiver(t.Context(), pool, schema))
+
+	runs, err := jobs.NewRunLister(pool, schema)
+	require.NoError(t, err)
+
+	inserter, err := river.NewClient(riverpgxv5.New(pool), &river.Config{Schema: schema})
+	require.NoError(t, err)
+
+	fire := func(t *testing.T, scheduleID string, scheduledFor time.Time, cancel bool) {
+		t.Helper()
+
+		inserted, err := inserter.Insert(t.Context(), internaljobs.LaunchAgentArgs{ScheduleID: scheduleID, ScheduledFor: scheduledFor}, nil)
+		require.NoError(t, err)
+
+		if cancel {
+			_, err := inserter.JobCancel(t.Context(), inserted.Job.ID)
+			require.NoError(t, err)
+		}
+	}
+
+	manager := schedules.NewScheduleService(schedules.NewScheduleServiceParams{Schedules: st.Schedules, Workflows: st.Workflows})
+	svc := schedulev1weave.ScheduleServiceAdapter{Impl: NewHandler(NewHandlerParams{
+		Lister:    st.Schedules,
+		Schedules: manager,
+		Runs:      runs,
+	})}
+
+	return svc, st.SeedWorkflow(t, workflowstore.Config{Name: "schedules"}).ID, fire
 }
 
 func createSchedule(t *testing.T, svc schedulev1weave.ScheduleServiceAdapter, workflow, name string) string {

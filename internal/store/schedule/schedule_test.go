@@ -1,7 +1,6 @@
 package schedule
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -352,113 +351,6 @@ func TestHideAgents(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, updated)
 	assert.False(t, updated.HideAgents, "an edit that turns it off is written")
-}
-
-// TestRecordLaunchResult covers what a firing writes and what a reader gets back.
-func TestRecordLaunchResult(t *testing.T) {
-	tests := []struct {
-		name        string
-		id          string
-		message     string
-		wantStatus  LaunchResultStatus
-		wantMessage string
-	}{
-		{
-			name: "an id nobody holds changes nothing",
-			id:   missingID,
-		},
-		{
-			name: "a malformed id is not a schedule",
-			id:   "not-an-id",
-		},
-		{
-			name:        "a message past the cap is truncated on the way in",
-			message:     strings.Repeat("x", maxLaunchResultMessage+100),
-			wantStatus:  LaunchResultCannotLaunch,
-			wantMessage: strings.Repeat("x", maxLaunchResultMessage) + "…",
-		},
-		{
-			name:        "the result is read back",
-			message:     "schedule \"nightly\" cannot launch: bad directory",
-			wantStatus:  LaunchResultCannotLaunch,
-			wantMessage: "schedule \"nightly\" cannot launch: bad directory",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			st := open(t)
-			ctx := t.Context()
-
-			created := seed(t, st, Config{
-				Name:   "nightly",
-				Cron:   "0 9 * * *",
-				Prompt: "go",
-			})
-
-			id := tt.id
-			if id == "" {
-				id = created.ID
-			}
-
-			require.NoError(t, st.RecordLaunchResult(ctx, id, LaunchResultCannotLaunch, tt.message))
-
-			got, err := st.Get(ctx, created.ID)
-			require.NoError(t, err)
-			require.NotNil(t, got)
-
-			if tt.wantStatus == "" {
-				assert.Empty(t, got.LastResultStatus)
-				assert.Nil(t, got.LastResultAt)
-
-				return
-			}
-
-			assert.Equal(t, tt.wantStatus, got.LastResultStatus)
-			assert.Equal(t, tt.wantMessage, got.LastResultMessage)
-			assert.NotNil(t, got.LastResultAt)
-		})
-	}
-}
-
-// TestRecordLaunchResultArchived covers that a schedule archived between the firing being
-// queued and the write landing does not have its record touched, matching the write's own
-// AND archived_at IS NULL guard used everywhere else on this table.
-func TestRecordLaunchResultArchived(t *testing.T) {
-	st := open(t)
-	ctx := t.Context()
-
-	created := seed(t, st, Config{
-		Name:   "nightly",
-		Cron:   "0 9 * * *",
-		Prompt: "go",
-	})
-	require.NoError(t, st.Archive(ctx, created.ID))
-
-	require.NoError(t, st.RecordLaunchResult(ctx, created.ID, LaunchResultCannotLaunch, "bad directory"))
-}
-
-// TestRecordLaunchResultOverwrites covers that the column is a last result rather than a
-// log: a second firing's outcome replaces the first's rather than sitting beside it.
-func TestRecordLaunchResultOverwrites(t *testing.T) {
-	st := open(t)
-	ctx := t.Context()
-
-	created := seed(t, st, Config{
-		Name:    "nightly",
-		Cron:    "0 9 * * *",
-		Prompt:  "go",
-		Enabled: true,
-	})
-
-	require.NoError(t, st.RecordLaunchResult(ctx, created.ID, LaunchResultCannotLaunch, "bad directory"))
-	require.NoError(t, st.RecordLaunchResult(ctx, created.ID, LaunchResultLaunched, ""))
-
-	got, err := st.Get(ctx, created.ID)
-	require.NoError(t, err)
-	require.NotNil(t, got)
-	assert.Equal(t, LaunchResultLaunched, got.LastResultStatus)
-	assert.Empty(t, got.LastResultMessage)
 }
 
 // TestList covers what the listing shows.

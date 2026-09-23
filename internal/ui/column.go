@@ -47,6 +47,10 @@ type columnSpec struct {
 	// its block itself.
 	doc func(model) string
 
+	// docRows draws the block's rows at a width in place of doc, for a document with rows markdown
+	// cannot style.
+	docRows func(model, int) []string
+
 	// holds reports whether the screen is drawing its own block at all, and is nil on a screen that
 	// always is.
 	holds func(model) bool
@@ -239,6 +243,12 @@ func (m model) columnDoc(split columnSplit) docWindow {
 	}
 
 	spec, ok := m.columnOf()
+	if ok && spec.docRows != nil {
+		return docWindow{
+			rows:    spec.docRows(m, split.column),
+			markers: true,
+		}
+	}
 	if !ok || spec.doc == nil {
 		return docWindow{}
 	}

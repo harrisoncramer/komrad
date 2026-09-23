@@ -29,10 +29,10 @@ func (i scheduleItem) key() string {
 }
 
 // enter lands the cursor once the root has put the screen up.
-func (w *schedulesScreen) enter(_ host, s panelShared, _ screenTarget) tea.Cmd {
+func (w *schedulesScreen) enter(h host, s panelShared, _ screenTarget) tea.Cmd {
 	w.cursor = clampCursor(w.cursor, len(w.listRows(s)))
 
-	return nil
+	return h.waitToStage()
 }
 
 func (w *schedulesScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
@@ -49,6 +49,7 @@ func (w *schedulesScreen) list() screenList[scheduleItem] {
 		cursor: func() *rowCursor { return &w.rowCursor },
 		rows:   w.listRows,
 		name:   func(item scheduleItem) string { return item.schedule.Name },
+		moved:  func(h host, _ panelShared) tea.Cmd { return h.waitToStage() },
 		quit:   func(k config.Keybindings) []string { return k.Schedules.Quit },
 		back:   func(k config.Keybindings) []string { return k.Schedules.Back },
 	}
@@ -92,15 +93,21 @@ func (w *schedulesScreen) details(s panelShared) details {
 	}
 }
 
-// doc is the markdown drawn beside the list: the notice for an empty list, or the schedule the
-// cursor is on.
-func (w *schedulesScreen) doc(s panelShared) string {
+// docRows is the document drawn beside the list at a width: the notice for an empty list, or
+// the schedule the cursor is on with the firings River holds for it between its next run and
+// its prompt.
+func (w *schedulesScreen) docRows(s panelShared, width int) []string {
 	item, ok := w.selected(s)
 	if !ok {
-		return noSchedulesMarkdown
+		return paint.DocStyledRows(noSchedulesMarkdown, width, columnStyle())
 	}
 
-	return scheduleMarkdown(item)
+	var runs scheduleRunsRead
+	if s.scheduleRuns.scheduleID == item.schedule.ID {
+		runs = s.scheduleRuns
+	}
+
+	return scheduleDocRows(item, runs, width)
 }
 
 func workflowByID(workflows []panel.Workflow, id string) *panel.Workflow {
@@ -310,6 +317,8 @@ func (w *schedulesScreen) filterRows(s panelShared) []filterRow {
 func (w *schedulesScreen) column() columnSpec {
 	return columnSpec{
 		floor: columnFloor,
-		doc:   func(m model) string { return m.schedules.doc(m.shared()) },
+		docRows: func(m model, width int) []string {
+			return m.schedules.docRows(m.shared(), width)
+		},
 	}
 }

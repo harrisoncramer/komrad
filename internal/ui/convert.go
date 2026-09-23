@@ -189,24 +189,40 @@ func scheduleItemsFrom(listed []*schedulev1.Schedule) []scheduleItem {
 
 func scheduleFrom(s *schedulev1.Schedule) panel.Schedule {
 	schedule := panel.Schedule{
-		ID:                s.GetId(),
-		Name:              s.GetName(),
-		Cron:              s.GetCron(),
-		Timezone:          s.GetTimezone(),
-		Enabled:           s.GetEnabled(),
-		HideAgents:        s.GetHideAgents(),
-		Prompt:            s.GetPrompt(),
-		WorkflowID:        s.GetWorkflowId(),
-		LastResultStatus:  s.GetLastResultStatus(),
-		LastResultMessage: s.GetLastResultMessage(),
+		ID:         s.GetId(),
+		Name:       s.GetName(),
+		Cron:       s.GetCron(),
+		Timezone:   s.GetTimezone(),
+		Enabled:    s.GetEnabled(),
+		HideAgents: s.GetHideAgents(),
+		Prompt:     s.GetPrompt(),
+		WorkflowID: s.GetWorkflowId(),
 	}
 
-	if at := s.GetLastResultAt(); at != nil {
-		lastResultAt := at.AsTime().Local()
-		schedule.LastResultAt = &lastResultAt
+	if latest := s.GetLatestRun(); latest != nil {
+		run := scheduleRunFrom(latest)
+		schedule.LatestRun = &run
 	}
 
 	return schedule
+}
+
+func scheduleRunFrom(r *schedulev1.ScheduleRun) panel.ScheduleRun {
+	run := panel.ScheduleRun{
+		ID:           r.GetId(),
+		ScheduledFor: r.GetScheduledFor().AsTime().Local(),
+		State:        r.GetState(),
+		Attempt:      int(r.GetAttempt()),
+		MaxAttempts:  int(r.GetMaxAttempts()),
+		Message:      r.GetMessage(),
+	}
+
+	if at := r.GetFinalizedAt(); at != nil {
+		finalizedAt := at.AsTime().Local()
+		run.FinalizedAt = &finalizedAt
+	}
+
+	return run
 }
 
 func worktreeItemsFrom(listed *worktreev1.ListWorktreesResponse) []worktreeItem {

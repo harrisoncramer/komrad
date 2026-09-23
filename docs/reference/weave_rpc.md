@@ -64,7 +64,8 @@ flags, and the response is the API's own JSON on stdout.
 * [weave rpc list-review-rounds](weave_rpc_list-review-rounds.md)	 - Read the rounds taken of an agent, oldest first.
 * [weave rpc list-review-threads](weave_rpc_list-review-threads.md)	 - Read the review conversations pinned to the lines of a diff.
 * [weave rpc list-reviews](weave_rpc_list-reviews.md)	 - Read every review released on an agent, in the order their rounds were taken, each with the verdict it carried.
-* [weave rpc list-schedules](weave_rpc_list-schedules.md)	 - List the recurring agent launches, most recently updated first, with each one's cron expression, prompt, workflow, next run time, and the outcome of its last firing.
+* [weave rpc list-schedule-runs](weave_rpc_list-schedule-runs.md)	 - List a schedule's most recent firings, newest first, each with the occurrence it stands for, its state, its attempt count, and why it was skipped or how it failed.
+* [weave rpc list-schedules](weave_rpc_list-schedules.md)	 - List the recurring agent launches, most recently updated first, with each one's cron expression, prompt, workflow, next run time, and its latest run.
 * [weave rpc list-workflows](weave_rpc_list-workflows.md)	 - List the workflows agents are grouped into, in alphabetical order, with each one's shared context, the working directory and flags its agents start from, and the scripts hooked to moments in their agents' lives.
 * [weave rpc list-worktrees](weave_rpc_list-worktrees.md)	 - List every worktree directory weave holds, under the configured worktrees directory and each workflow's own, with the repository it was cut from, its branch, whether git can still read it, the agent it was made for, the other agents working in it, the disk it takes as it was last measured, and when it was last active.
 * [weave rpc log](weave_rpc_log.md)	 - Write one line to weave's log, tagged to an agent.
