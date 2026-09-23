@@ -59,12 +59,12 @@ func TestReviewTreeCatchesUpOnceTheTurnIsOver(t *testing.T) {
 	})
 
 	cmd := m.review.checkTreeCmd(m.shared())
-	polled, ok := cmd().(reviewTreeCheckedMsg)
+	checked, ok := cmd().(reviewTreeCheckedMsg)
 	require.True(t, ok)
-	require.NoError(t, polled.err)
+	require.NoError(t, checked.err)
 
 	tmux.sentKeys = nil
-	caught := m.review.applyTreeChecked(m.shared(), polled)
+	caught := m.review.applyTreeChecked(m.shared(), checked)
 
 	require.True(t, m.review.diff.tree.moved)
 	require.NotNil(t, caught, "an idle agent's move is read again rather than offered")
@@ -90,11 +90,11 @@ func TestReviewTreeIgnoresAWorktreeThatHasNotMoved(t *testing.T) {
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
 	m = openReview(t, m)
 
-	polled, ok := m.review.checkTreeCmd(m.shared())().(reviewTreeCheckedMsg)
+	checked, ok := m.review.checkTreeCmd(m.shared())().(reviewTreeCheckedMsg)
 	require.True(t, ok)
-	require.NoError(t, polled.err)
+	require.NoError(t, checked.err)
 
-	m.review.applyTreeChecked(m.shared(), polled)
+	m.review.applyTreeChecked(m.shared(), checked)
 
 	assert.False(t, m.review.diff.tree.moved)
 	assert.NotContains(t, ansi.Strip(m.review.view(m.shared())), "the agent has written since")

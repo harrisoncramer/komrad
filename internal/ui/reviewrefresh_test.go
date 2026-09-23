@@ -422,9 +422,9 @@ func TestReviewReloadKeyOpensTheNextRound(t *testing.T) {
 		},
 	})
 
-	polled, ok := m.review.checkTreeCmd(m.shared())().(reviewTreeCheckedMsg)
+	checked, ok := m.review.checkTreeCmd(m.shared())().(reviewTreeCheckedMsg)
 	require.True(t, ok)
-	m.review.applyTreeChecked(m.shared(), polled)
+	m.review.applyTreeChecked(m.shared(), checked)
 	require.True(t, m.review.diff.tree.moved)
 
 	m.review.diff.cursor = m.review.diff.view.Move(m.review.diff.cursor, 1)

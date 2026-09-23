@@ -361,7 +361,7 @@ func (d *reviewDiff) load(msg reviewLoadedMsg, isDark bool) {
 	d.baseAt = msg.earlierAt
 	d.pinned = msg.pinned
 	d.chapters = msg.chapters
-	d.tree.moved = false
+	d.tree.caughtUp()
 	d.since = msg.since
 
 	// The files the reader opened out are the view's own, so a view built again over the patch

@@ -35,18 +35,26 @@ func (t reviewTree) isDue(now time.Time) bool {
 	return !t.checking && now.Sub(t.checkedAt) >= reviewTreeInterval
 }
 
+// start marks a hash as begun.
+func (t *reviewTree) start(now time.Time) {
+	t.checking = true
+	t.checkedAt = now
+}
+
+// caughtUp says the diff on screen is the worktree as it now stands.
+func (t *reviewTree) caughtUp() {
+	t.moved = false
+}
+
 // land takes a finished hash and reports whether the worktree has moved.
 func (t *reviewTree) land(msg reviewTreeCheckedMsg) bool {
 	t.checking = false
 
-	// A worktree emptied under an open review is a move like any other, so the bar offers to catch
-	// up and the reload is what finds nothing to show and backs out to the listing.
+	// A failed hash leaves moved as it was.
 	if msg.err != nil {
 		return false
 	}
 
-	// A worktree edited back to the round it was cut from is not a move, so the notice goes
-	// away rather than standing until the reader opens a round for nothing.
 	t.moved = msg.moved
 
 	return t.moved
@@ -59,8 +67,7 @@ func (r *reviewScreen) checkTree(s panelShared, now time.Time) tea.Cmd {
 		return nil
 	}
 
-	r.diff.tree.checking = true
-	r.diff.tree.checkedAt = now
+	r.diff.tree.start(now)
 
 	return r.checkTreeCmd(s)
 }
