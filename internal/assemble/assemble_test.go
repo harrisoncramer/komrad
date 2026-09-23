@@ -47,6 +47,10 @@ func agent(id string, set ...func(*agentv1.Agent)) *agentv1.Agent {
 
 func read(a *agentv1.Agent) { a.RepositoryRead = true }
 
+func at(sha string) func(*agentv1.Agent) {
+	return func(a *agentv1.Agent) { a.HeadSha = xptr.Ptr(sha) }
+}
+
 func workflow(base string) *workflowv1.Workflow {
 	return &workflowv1.Workflow{Id: flowID, Worktree: &workflowv1.WorktreeConfig{BaseBranch: base}}
 }
@@ -64,6 +68,7 @@ type pullRequest struct {
 	number               int32
 	openedAgo            time.Duration
 	merged               bool
+	closed               bool
 }
 
 func (p pullRequest) row() *pullrequestv1.PullRequest {
@@ -75,6 +80,7 @@ func (p pullRequest) row() *pullrequestv1.PullRequest {
 		Number:            p.number,
 		Url:               "https://github.com/owner/repo/pull/" + p.id,
 		Title:             "pr " + p.id,
+		HeadSha:           "sha-" + p.id,
 		OpenedAt:          stamp(-p.openedAgo),
 		State:             pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
 		Checks:            pullrequestv1.Checks_CHECKS_PASSING,
@@ -83,6 +89,10 @@ func (p pullRequest) row() *pullrequestv1.PullRequest {
 	if p.merged {
 		row.State = pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED
 		row.MergedAt = xptr.Ptr(stamp(-p.openedAgo + time.Hour))
+	}
+	if p.closed {
+		row.State = pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CLOSED
+		row.ClosedAt = xptr.Ptr(stamp(-p.openedAgo + time.Hour))
 	}
 
 	return row
@@ -149,6 +159,15 @@ func TestAgentRows(t *testing.T) {
 		number:    3,
 		openedAgo: time.Hour,
 		merged:    true,
+	}
+
+	closed := pullRequest{
+		id:        "p4",
+		headRepo:  repo,
+		branch:    "agent/" + newer,
+		number:    4,
+		openedAgo: time.Hour,
+		closed:    true,
 	}
 
 	tests := []struct {
@@ -243,6 +262,76 @@ func TestAgentRows(t *testing.T) {
 					Agent:        agent(newer),
 					PullRequest:  currentStanding(open),
 					PullRequests: []*pullrequestv1.PullRequest{open.row(), latest.row(), oldest.row()},
+				},
+			},
+		},
+		{
+			name: "a merged pull request stands while the checkout is still on its head",
+			world: assemble.World{
+				Agents:       map[string]*agentv1.Agent{newer: agent(newer, read, at("sha-p3"))},
+				PullRequests: pullRequests(latest),
+			},
+			want: []*agentv1.AgentRow{
+				{
+					Agent:        agent(newer, read, at("sha-p3")),
+					PullRequest:  currentStanding(latest),
+					PullRequests: []*pullrequestv1.PullRequest{latest.row()},
+				},
+			},
+		},
+		{
+			name: "a merged pull request is none once the checkout has moved off its head",
+			world: assemble.World{
+				Agents:       map[string]*agentv1.Agent{newer: agent(newer, read, at("elsewhere"))},
+				PullRequests: pullRequests(oldest, latest),
+			},
+			want: []*agentv1.AgentRow{
+				{
+					Agent:        agent(newer, read, at("elsewhere")),
+					PullRequest:  standing(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE),
+					PullRequests: []*pullrequestv1.PullRequest{latest.row(), oldest.row()},
+				},
+			},
+		},
+		{
+			name: "a closed pull request is none once the checkout has moved off its head",
+			world: assemble.World{
+				Agents:       map[string]*agentv1.Agent{newer: agent(newer, read, at("elsewhere"))},
+				PullRequests: pullRequests(closed),
+			},
+			want: []*agentv1.AgentRow{
+				{
+					Agent:        agent(newer, read, at("elsewhere")),
+					PullRequest:  standing(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE),
+					PullRequests: []*pullrequestv1.PullRequest{closed.row()},
+				},
+			},
+		},
+		{
+			name: "an open pull request stands whatever the checkout is on",
+			world: assemble.World{
+				Agents:       map[string]*agentv1.Agent{newer: agent(newer, read, at("elsewhere"))},
+				PullRequests: pullRequests(latest, open),
+			},
+			want: []*agentv1.AgentRow{
+				{
+					Agent:        agent(newer, read, at("elsewhere")),
+					PullRequest:  currentStanding(open),
+					PullRequests: []*pullrequestv1.PullRequest{open.row(), latest.row()},
+				},
+			},
+		},
+		{
+			name: "a merged pull request stands for a checkout whose head was never read",
+			world: assemble.World{
+				Agents:       map[string]*agentv1.Agent{newer: agent(newer, read)},
+				PullRequests: pullRequests(latest),
+			},
+			want: []*agentv1.AgentRow{
+				{
+					Agent:        agent(newer, read),
+					PullRequest:  currentStanding(latest),
+					PullRequests: []*pullrequestv1.PullRequest{latest.row()},
 				},
 			},
 		},

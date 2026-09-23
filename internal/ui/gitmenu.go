@@ -7,6 +7,7 @@ import (
 	"weave/config"
 	"weave/internal/ui/paint"
 	"weave/internal/ui/panel"
+	pullrequestv1 "weave/proto/gen/pullrequest/v1"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
@@ -22,10 +23,11 @@ const (
 )
 
 var (
-	errNoWorktree         = errors.New("this agent has no worktree of its own, so there is no base to move it onto")
-	errAgentGone          = errors.New("the agent the menu was opened on has left the list")
-	errNoPullRequest      = errors.New("weave has read the repository and nothing has been opened from this branch")
-	errPullRequestsUnread = errors.New("weave has not read this agent's repository yet, or its checkout is not on a forge")
+	errNoWorktree           = errors.New("this agent has no worktree of its own, so there is no base to move it onto")
+	errAgentGone            = errors.New("the agent the menu was opened on has left the list")
+	errNoPullRequest        = errors.New("weave has read the repository and nothing has been opened from this branch")
+	errMovedPastPullRequest = errors.New("the branch has moved on since its last pull request finished and nothing has been opened from it since")
+	errPullRequestsUnread   = errors.New("weave has not read this agent's repository yet, or its checkout is not on a forge")
 )
 
 // openGitMenu draws the git actions beside the list, for the agent the cursor is on.
@@ -35,6 +37,7 @@ func openGitMenu(h host, s panelShared, item panel.AgentRow) tea.Cmd {
 		name:           agent.Name,
 		rebaseable:     s.listing.isRebaseable(agent),
 		hasPullRequest: item.PullRequest.URL != "",
+		noPullRequest:  pullRequestHint(pullRequestRefusal(item)),
 	}, s.keys.Git, formKeys())
 
 	agentID := agent.ID
@@ -53,6 +56,31 @@ type gitMenu struct {
 	name           string
 	rebaseable     bool
 	hasPullRequest bool
+	noPullRequest  string
+}
+
+// pullRequestRefusal is why an agent with no current pull request has none to open.
+func pullRequestRefusal(item panel.AgentRow) error {
+	switch {
+	case item.PullRequest.State != pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE:
+		return errPullRequestsUnread
+	case len(item.PullRequests) > 0:
+		return errMovedPastPullRequest
+	default:
+		return errNoPullRequest
+	}
+}
+
+// pullRequestHint is a refusal as the menu words it beside its entry.
+func pullRequestHint(refusal error) string {
+	switch {
+	case errors.Is(refusal, errPullRequestsUnread):
+		return "not read yet"
+	case errors.Is(refusal, errMovedPastPullRequest):
+		return "moved on since its last one"
+	default:
+		return "none from this branch"
+	}
 }
 
 func gitMenuForm(menu gitMenu, keys config.GitKeys, form config.FormKeys) (*huh.Form, *gitChoice) {
@@ -73,7 +101,7 @@ func gitMenuForm(menu gitMenu, keys config.GitKeys, form config.FormKeys) (*huh.
 			huh.NewOption(gitEntryLabel(gitEntry{
 				name:    "Open the pull request",
 				keys:    keys.OpenPullRequest,
-				refusal: "none from this branch",
+				refusal: menu.noPullRequest,
 				held:    menu.hasPullRequest,
 			}), gitChoiceOpenPullRequest),
 			huh.NewOption("Cancel", gitChoiceCancel),

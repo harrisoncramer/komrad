@@ -92,6 +92,8 @@ message Agent {
   // https://github.com/harrisoncramer/weave, unset when the checkout is gone or its origin
   // is not a forge.
   optional string repository_url = 37;
+  // The commit its checkout has checked out, unset when the checkout is gone or git cannot read it.
+  optional string head_sha = 41;
   // Whether its checkout has been taken away, which leaves the record and the transcript.
   bool worktree_removed = 23;
   // Whether a merge, a rebase or a cherry-pick is part-way through its checkout, waiting on

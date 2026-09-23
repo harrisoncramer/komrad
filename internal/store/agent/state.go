@@ -122,6 +122,8 @@ type SetCheckoutParams struct {
 	Branch *string
 	// RepositoryURL is the repository the cwd pushes to, nil when it names none.
 	RepositoryURL *string
+	// HeadSHA is the commit checked out at the cwd, nil when git reads none.
+	HeadSHA *string
 	// WorktreeRemoved says the cwd no longer exists on disk.
 	WorktreeRemoved bool
 	// SequenceInProgress says a merge, a rebase or a cherry-pick is part-way through the checkout.
@@ -138,6 +140,7 @@ func (s *AgentStore) SetCheckout(ctx context.Context, id string, params SetCheck
 		ID:                 id,
 		Branch:             params.Branch,
 		RepositoryUrl:      params.RepositoryURL,
+		HeadSha:            params.HeadSHA,
 		WorktreeRemoved:    params.WorktreeRemoved,
 		SequenceInProgress: params.SequenceInProgress,
 	})

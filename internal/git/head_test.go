@@ -19,7 +19,10 @@ func TestIntegrationReadHeadStateReadsASettledCheckout(t *testing.T) {
 
 	head := client.ReadHeadState(t.Context(), dir)
 
+	sha, err := git.Run(t.Context(), dir, "rev-parse", "HEAD")
+	require.NoError(t, err)
 	assert.Equal(t, "main", head.Branch)
+	assert.Equal(t, sha, head.SHA)
 	assert.False(t, head.SequenceInProgress)
 	assert.Empty(t, head.RepositoryURL)
 }
@@ -76,10 +79,13 @@ func TestIntegrationReadHeadStateNamesTheBranchAStoppedRebaseBelongsTo(t *testin
 	branch, err := git.Run(t.Context(), dir, "rev-parse", "--abbrev-ref", "HEAD")
 	require.NoError(t, err)
 	require.Equal(t, "HEAD", branch)
+	sha, err := git.Run(t.Context(), dir, "rev-parse", "HEAD")
+	require.NoError(t, err)
 
 	head := client.ReadHeadState(t.Context(), dir)
 
 	assert.Equal(t, "topic", head.Branch)
+	assert.Equal(t, sha, head.SHA)
 	assert.True(t, head.SequenceInProgress)
 }
 
@@ -130,6 +136,7 @@ func TestIntegrationReadHeadStateAnswersEmptyForSomewhereGitWillNotSpeakFor(t *t
 	head := client.ReadHeadState(t.Context(), t.TempDir())
 
 	assert.Empty(t, head.Branch)
+	assert.Empty(t, head.SHA)
 	assert.False(t, head.SequenceInProgress)
 }
 

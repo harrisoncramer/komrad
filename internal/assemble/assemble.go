@@ -219,8 +219,8 @@ func finishedRank(pullRequest *pullrequestv1.PullRequest) int {
 }
 
 // calculatePullRequestStanding is where an agent's pull request stands: unread until the sync
-// has looked at the repository, none when it has and found nothing on the branch, else the
-// current one.
+// has looked at the repository, none when it has and found nothing on the branch or the agent
+// has moved past a finished one, else the current one.
 func calculatePullRequestStanding(agent *agentv1.Agent, pullRequests []*pullrequestv1.PullRequest) *agentv1.PullRequestStanding {
 	if len(pullRequests) == 0 {
 		state := pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNREAD
@@ -232,6 +232,9 @@ func calculatePullRequestStanding(agent *agentv1.Agent, pullRequests []*pullrequ
 	}
 
 	current := pullRequests[0]
+	if isMovedPast(agent, current) {
+		return &agentv1.PullRequestStanding{State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE}
+	}
 
 	return &agentv1.PullRequestStanding{
 		State:        current.GetState(),
@@ -241,6 +244,15 @@ func calculatePullRequestStanding(agent *agentv1.Agent, pullRequests []*pullrequ
 		Checks:       current.GetChecks(),
 		Mergeability: current.GetMergeability(),
 	}
+}
+
+// isMovedPast is whether the agent's checkout has left the commit a finished pull request ended on.
+func isMovedPast(agent *agentv1.Agent, pullRequest *pullrequestv1.PullRequest) bool {
+	if finishedRank(pullRequest) == 0 || agent.HeadSha == nil {
+		return false
+	}
+
+	return agent.GetHeadSha() != pullRequest.GetHeadSha()
 }
 
 // getAgentsWithUnreadMail is the set of agents with mail waiting that has not expired by now.

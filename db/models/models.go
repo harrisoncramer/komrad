@@ -281,6 +281,8 @@ type Agent struct {
 	TreeStandingSha string
 	// The engine that owns this row, stamped from the login that wrote it.
 	TenantID string
+	// The commit the agent's checkout has checked out, null when the checkout is gone or git cannot read it. The cwd syncer rewrites it on the same pass that rewrites branch.
+	HeadSha *string
 }
 
 // Facts an agent recorded about its own work, such as the pull request it opened.

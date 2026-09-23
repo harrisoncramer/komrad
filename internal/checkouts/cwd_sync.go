@@ -200,11 +200,13 @@ func (cs *CwdSyncer) write(ctx context.Context, look cwdLook) error {
 	checkout := agentstore.SetCheckoutParams{
 		Branch:             xptr.NonEmpty(head.Branch),
 		RepositoryURL:      xptr.NonEmpty(head.RepositoryURL),
+		HeadSHA:            xptr.NonEmpty(head.SHA),
 		WorktreeRemoved:    look.removed,
 		SequenceInProgress: head.SequenceInProgress,
 	}
 	unchanged := xptr.Equal(agent.Branch, checkout.Branch) &&
 		xptr.Equal(agent.RepositoryURL, checkout.RepositoryURL) &&
+		xptr.Equal(agent.HeadSHA, checkout.HeadSHA) &&
 		agent.WorktreeRemoved == checkout.WorktreeRemoved &&
 		agent.SequenceInProgress == checkout.SequenceInProgress
 	if unchanged {

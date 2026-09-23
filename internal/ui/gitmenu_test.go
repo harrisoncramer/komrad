@@ -71,10 +71,11 @@ func TestGitMenuEntriesAnswerTheirOwnKeys(t *testing.T) {
 // menu is still drawn and the reason is read rather than the press being swallowed.
 func TestGitMenuSaysWhyAnEntryWouldDoNothing(t *testing.T) {
 	tests := []struct {
-		name     string
-		pressed  string
-		standing panel.PullRequestStanding
-		want     string
+		name         string
+		pressed      string
+		standing     panel.PullRequestStanding
+		pullRequests []panel.PullRequest
+		want         string
 	}{
 		{
 			name:    "the rebase",
@@ -93,6 +94,13 @@ func TestGitMenuSaysWhyAnEntryWouldDoNothing(t *testing.T) {
 			standing: panel.PullRequestStanding{State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE},
 			want:     errNoPullRequest.Error(),
 		},
+		{
+			name:         "the pull request of a branch that has moved past its last one",
+			pressed:      "o",
+			standing:     panel.PullRequestStanding{State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE},
+			pullRequests: []panel.PullRequest{{Number: 740, State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED}},
+			want:         errMovedPastPullRequest.Error(),
+		},
 	}
 
 	for _, tt := range tests {
@@ -100,6 +108,7 @@ func TestGitMenuSaysWhyAnEntryWouldDoNothing(t *testing.T) {
 			m := gitModel(t)
 			m.listing.workflows[0].Worktree.Enabled = false
 			m.listing.agents[0].PullRequest = tt.standing
+			m.listing.agents[0].PullRequests = tt.pullRequests
 
 			opened := routeKey(t, m, "b")
 			require.Equal(t, formGit, opened.form.kind)
@@ -236,4 +245,41 @@ func TestGitMenuActsOnTheAgentItWasOpenedOn(t *testing.T) {
 	assert.Equal(t, formNone, picked.form.kind)
 	require.Len(t, picked.messages.items, 1)
 	assert.Contains(t, picked.messages.items[0].detail, errAgentGone.Error())
+}
+
+// TestPullRequestHint covers the menu's hint beside the pull request entry for each reason an
+// agent has none to open.
+func TestPullRequestHint(t *testing.T) {
+	none := panel.PullRequestStanding{State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE}
+
+	tests := []struct {
+		name string
+		item panel.AgentRow
+		want string
+	}{
+		{
+			name: "a repository not read yet",
+			item: panel.AgentRow{PullRequest: panel.PullRequestStanding{State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNREAD}},
+			want: "not read yet",
+		},
+		{
+			name: "a branch nothing was opened from",
+			item: panel.AgentRow{PullRequest: none},
+			want: "none from this branch",
+		},
+		{
+			name: "a branch that has moved past its last pull request",
+			item: panel.AgentRow{
+				PullRequest:  none,
+				PullRequests: []panel.PullRequest{{Number: 740, State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED}},
+			},
+			want: "moved on since its last one",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, pullRequestHint(pullRequestRefusal(tt.item)))
+		})
+	}
 }

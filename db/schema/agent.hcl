@@ -691,6 +691,11 @@ table "agents" {
     default = false
     comment = "Whether a merge, a rebase or a cherry-pick is part-way through the agent's checkout and waiting on somebody. Weave reads the checkout every few seconds and writes what it found here, so settling the sequence by hand clears this on its own."
   }
+  column "head_sha" {
+    null    = true
+    type    = text
+    comment = "The commit the agent's checkout has checked out, null when the checkout is gone or git cannot read it. The cwd syncer rewrites it on the same pass that rewrites branch."
+  }
   column "repository_url" {
     null    = true
     type    = text
