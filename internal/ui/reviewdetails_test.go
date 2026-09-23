@@ -318,3 +318,17 @@ func TestReviewPutsTheSidebarOnItsConfiguredSide(t *testing.T) {
 		})
 	}
 }
+
+// TestReviewSidebarStaysInsideEveryPaneHeight sweeps the heights an expanded legend used to run
+// past.
+func TestReviewSidebarStaysInsideEveryPaneHeight(t *testing.T) {
+	m := reviewWithAnEarlierReview(t, newFakeRepo(t.TempDir()), &fakeReviewAgents{})
+	m.helpExpanded = true
+
+	for height := 8; height <= 40; height++ {
+		m.height = height
+		view := m.review.view(m.shared())
+
+		assert.LessOrEqual(t, strings.Count(strings.TrimRight(view, "\n"), "\n")+1, height, "height %d", height)
+	}
+}

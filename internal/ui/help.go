@@ -63,7 +63,7 @@ func (m model) renderHelp(k keyMap, above ...string) string {
 }
 
 func (m model) doesLegendLeaveARow(legend string, above []string) bool {
-	if m.height <= 0 || len(above) == 0 {
+	if m.height <= 0 {
 		return true
 	}
 
