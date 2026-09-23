@@ -747,3 +747,23 @@ func TestFrameNudgeLeavesBothHalvesAColumn(t *testing.T) {
 	width, _ = frame.SidebarWidth(200)
 	assert.Equal(t, 198, width)
 }
+
+// TestAWindowTooNarrowForTheChosenWidthKeepsIt covers tmux clamping the sidebar into a window
+// narrower than the width chosen for it, which is not a choice.
+func TestAWindowTooNarrowForTheChosenWidthKeepsIt(t *testing.T) {
+	tmux := &recordingTmux{width: 149, windowWidth: 200, height: 50}
+	frame := New(tmux, config.Layout{SidebarWidth: 16})
+	frame.Attach("%0")
+	frame.SyncSplit()
+
+	// tmux leaves the stage its one-column minimum and gives the sidebar the rest.
+	tmux.windowWidth, tmux.width = 40, 1
+	frame.RestoreSplit()
+	frame.SyncSplit()
+
+	tmux.windowWidth, tmux.width = 200, 100
+	tmux.resizes = nil
+	frame.RestoreSplit()
+
+	assert.Equal(t, []string{"%0 50"}, tmux.resizes, "the width chosen before the window shrank")
+}

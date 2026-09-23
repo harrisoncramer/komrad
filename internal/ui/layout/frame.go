@@ -421,13 +421,16 @@ func (f *Frame) SyncSplit() {
 
 	f.stageCols = stage
 
-	if width := f.WindowCols() - stage - 1; width > 0 {
+	width := f.WindowCols() - stage - 1
+
+	// tmux clamping the sidebar into a narrow window leaves the stage at its one-column minimum.
+	clamped := stage <= 1 && width < f.cols
+	if width > 0 && !clamped {
 		f.cols = width
 	}
 }
 
-// ForgetSplit drops the measured divider, so a window that is no longer the size it was dragged
-// under is given the configured width rather than every new column.
+// ForgetSplit drops the measured divider.
 func (f *Frame) ForgetSplit() {
 	f.stageCols = 0
 }
