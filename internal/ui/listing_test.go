@@ -397,9 +397,8 @@ func TestArchiveCursorHoldsItsAgentWhenAFolderGoes(t *testing.T) {
 	}
 
 	applyListing(&m, nil, []panel.Workflow{{ID: "w2", Name: "infra"}}, nil)
-	m.applyListed(listedMsg{
-		archivedListed: true,
-		archived: archivedItems([]panel.Agent{
+	m.withListing(func(l *listing) {
+		l.archivedAgents = archivedItems([]panel.Agent{
 			{
 				ID:         "x2",
 				Name:       "infra-audit",
@@ -410,7 +409,7 @@ func TestArchiveCursorHoldsItsAgentWhenAFolderGoes(t *testing.T) {
 				Name:       "infra-upgrade",
 				WorkflowID: "w2",
 			},
-		}),
+		})
 	})
 
 	selected, ok := m.archive.hoveredAgent(m.shared())
@@ -418,179 +417,32 @@ func TestArchiveCursorHoldsItsAgentWhenAFolderGoes(t *testing.T) {
 	assert.Equal(t, "infra-audit", selected.Name)
 }
 
-// TestSearchListsTheArchive covers the search screen naming archived agents, which it can only
-// do while the screen is listing them.
-func TestSearchListsTheArchive(t *testing.T) {
-	lists := archivedLists{}
-
-	for _, tc := range []struct {
-		screen screen
-		want   int
-	}{
-		{screen: screenSearch, want: 1},
-		{screen: screenAgents, want: 0},
-	} {
-		m := model{
-			frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
-			keys:   config.DefaultKeybindings(),
-			screen: tc.screen,
-			api: api{
-				agents:    lists,
-				workflows: lists,
-				schedules: lists,
-			},
-		}
-
-		m = settle(t, m, m.listCmd())
-
-		assert.Len(t, m.listing.archivedAgents, tc.want, "screen %d holds the archived agents it asked for", tc.screen)
-	}
-}
-
-// TestTheArchiveIsReadOnlyWhenItMayHaveMoved pins that the archive is read once for the screen
-// that draws it, and again only after a watch event that could change it.
-func TestTheArchiveIsReadOnlyWhenItMayHaveMoved(t *testing.T) {
-	agentPut := func(id string) *watchv1.WatchEvent {
-		return putEvent(&watchv1.Row{Row: &watchv1.Row_Agent{Agent: &agentv1.Agent{Id: id, WorkflowId: "w1"}}})
+// TestTheArchiveIsTheWorldsArchivedRows pins that the archive screens draw the archived agents and
+// workflows the watch delivers, and the live listings leave them out.
+func TestTheArchiveIsTheWorldsArchivedRows(t *testing.T) {
+	archivedAt := "2026-09-23T10:00:00Z"
+	m := model{
+		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
+		keys:   config.DefaultKeybindings(),
+		screen: screenSearch,
 	}
 
-	tests := []struct {
-		name      string
-		event     *watchv1.WatchEvent
-		wantReads int
-	}{
-		{
-			name:      "a live agent is written",
-			event:     agentPut("live"),
-			wantReads: 1,
-		},
-		{
-			name:      "a key the panel never saw is gone",
-			event:     deletedEvent(watchv1.Resource_RESOURCE_AGENT, "stranger"),
-			wantReads: 1,
-		},
-		{
-			name:      "a pull request is gone",
-			event:     deletedEvent(watchv1.Resource_RESOURCE_PULL_REQUEST, "a1"),
-			wantReads: 1,
-		},
-		{
-			name:      "a live agent is archived",
-			event:     deletedEvent(watchv1.Resource_RESOURCE_AGENT, "live"),
-			wantReads: 2,
-		},
-		{
-			name:      "an archived agent is deleted",
-			event:     deletedEvent(watchv1.Resource_RESOURCE_AGENT, "a1"),
-			wantReads: 2,
-		},
-		{
-			name:      "an agent is restored or spawned",
-			event:     agentPut("fresh"),
-			wantReads: 2,
-		},
-		{
-			name:      "a workflow is restored or made",
-			event:     putEvent(&watchv1.Row{Row: &watchv1.Row_Workflow{Workflow: &workflowv1.Workflow{Id: "w2"}}}),
-			wantReads: 2,
-		},
-		{
-			name:      "the stream opens again",
-			event:     snapshotEvent(),
-			wantReads: 2,
-		},
-	}
+	m.applyWatch(client.WatchBatch{snapshotEvent(
+		&watchv1.Row{Row: &watchv1.Row_Workflow{Workflow: &workflowv1.Workflow{Id: "w1", Name: "api"}}},
+		&watchv1.Row{Row: &watchv1.Row_Workflow{Workflow: &workflowv1.Workflow{Id: "w2", Name: "old", ArchivedAt: &archivedAt}}},
+		&watchv1.Row{Row: &watchv1.Row_Agent{Agent: &agentv1.Agent{Id: "a1", Name: "live", WorkflowId: "w1"}}},
+		&watchv1.Row{Row: &watchv1.Row_Agent{Agent: &agentv1.Agent{Id: "a2", Name: "done", WorkflowId: "w1", ArchivedAt: &archivedAt}}},
+	)})
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			lists := &archiveListerCountingReads{}
-			m := newModelOnArchiveScreen(lists)
-			m.listing.world.Put(&watchv1.Row{Row: &watchv1.Row_Agent{Agent: &agentv1.Agent{Id: "live", WorkflowId: "w1"}}})
+	require.Len(t, m.listing.agents, 1)
+	assert.Equal(t, "a1", m.listing.agents[0].Agent.ID)
+	require.Len(t, m.listing.archivedAgents, 1)
+	assert.Equal(t, "a2", m.listing.archivedAgents[0].Agent.ID)
 
-			m = settle(t, m, m.listCmd())
-			require.Equal(t, 1, lists.reads, "the screen reads the archive once")
-			require.Len(t, m.listing.archivedAgents, 1)
-
-			m = settle(t, m, m.listCmd())
-			require.Equal(t, 1, lists.reads, "and not again on the next tick")
-
-			m.applyWatch(client.WatchBatch{tt.event})
-			m = settle(t, m, m.listCmd())
-
-			assert.Equal(t, tt.wantReads, lists.reads)
-		})
-	}
-}
-
-// TestReturningToTheArchiveReadsItAgain pins that coming back onto a screen that draws the
-// archive reads it fresh.
-func TestReturningToTheArchiveReadsItAgain(t *testing.T) {
-	lists := &archiveListerCountingReads{}
-	m := newModelOnArchiveScreen(lists)
-
-	m = settle(t, m, m.listCmd())
-	require.Equal(t, 1, lists.reads)
-
-	m.enterScreen(screenAgents)
-	m.enterScreen(screenArchive)
-	m = settle(t, m, m.listCmd())
-
-	assert.Equal(t, 2, lists.reads)
-}
-
-// TestAFailedArchiveReadIsRetried pins that the tick after a failed read of the archive reads it
-// again.
-func TestAFailedArchiveReadIsRetried(t *testing.T) {
-	lists := &archiveListerCountingReads{failures: 1}
-	m := newModelOnArchiveScreen(lists)
-
-	m = settle(t, m, m.listCmd())
-	require.Equal(t, 1, lists.reads)
-	require.Empty(t, m.listing.archivedAgents, "the failed read drew nothing")
-
-	m = settle(t, m, m.listCmd())
-
-	assert.Equal(t, 2, lists.reads)
-	assert.Len(t, m.listing.archivedAgents, 1)
-}
-
-// TestAMoveDuringAReadIsReadAfterIt pins that a read in flight is not doubled, and that an event
-// arriving while it runs is read once it lands.
-func TestAMoveDuringAReadIsReadAfterIt(t *testing.T) {
-	lists := &archiveListerCountingReads{}
-	m := newModelOnArchiveScreen(lists)
-	m.listing.world.Put(&watchv1.Row{Row: &watchv1.Row_Agent{Agent: &agentv1.Agent{Id: "live", WorkflowId: "w1"}}})
-
-	inFlight := m.listCmd()
-	require.NotNil(t, inFlight)
-
-	m.applyWatch(client.WatchBatch{deletedEvent(watchv1.Resource_RESOURCE_AGENT, "live")})
-	assert.Nil(t, m.listCmd(), "no second read starts while one is in flight")
-
-	m = settle(t, m, inFlight)
-	require.Equal(t, 1, lists.reads)
-
-	m = settle(t, m, m.listCmd())
-
-	assert.Equal(t, 2, lists.reads, "the move seen mid-read is read once the read lands")
-}
-
-type archivedLists struct {
-	emptyLists
-}
-
-func (archivedLists) ListAgents(_ context.Context, req *connect.Request[agentv1.ListAgentsRequest]) (*connect.Response[agentv1.ListAgentsResponse], error) {
-	if !req.Msg.GetArchived() {
-		return connect.NewResponse(&agentv1.ListAgentsResponse{}), nil
-	}
-
-	return connect.NewResponse(&agentv1.ListAgentsResponse{
-		Agents: []*agentv1.AgentRow{{Agent: &agentv1.Agent{
-			Id:         "a1",
-			Name:       "payouts",
-			WorkflowId: "w1",
-		}}},
-	}), nil
+	require.Len(t, m.listing.workflows, 1)
+	assert.Equal(t, "w1", m.listing.workflows[0].ID)
+	require.Len(t, m.listing.archivedWorkflows, 1)
+	assert.Equal(t, "w2", m.listing.archivedWorkflows[0].ID)
 }
 
 type emptyLists struct {
@@ -652,39 +504,4 @@ func TestUnreachableHintNamesWhatCanBeDone(t *testing.T) {
 			assert.Equal(t, tt.want, m.messages.items[0].hint)
 		})
 	}
-}
-
-// newModelOnArchiveScreen is a model on the archive screen that reads the archive through lists.
-func newModelOnArchiveScreen(lists *archiveListerCountingReads) model {
-	return model{
-		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
-		keys:   config.DefaultKeybindings(),
-		screen: screenArchive,
-		api: api{
-			agents:    lists,
-			workflows: lists,
-			schedules: lists,
-		},
-	}
-}
-
-// archiveListerCountingReads answers one archived agent after failing a given number of reads,
-// and counts how often the archive is read.
-type archiveListerCountingReads struct {
-	archivedLists
-	reads    int
-	failures int
-}
-
-func (c *archiveListerCountingReads) ListAgents(ctx context.Context, req *connect.Request[agentv1.ListAgentsRequest]) (*connect.Response[agentv1.ListAgentsResponse], error) {
-	if !req.Msg.GetArchived() {
-		return c.archivedLists.ListAgents(ctx, req)
-	}
-
-	c.reads++
-	if c.reads <= c.failures {
-		return nil, connect.NewError(connect.CodeUnavailable, errors.New("the server is busy"))
-	}
-
-	return c.archivedLists.ListAgents(ctx, req)
 }

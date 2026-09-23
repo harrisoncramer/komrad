@@ -216,6 +216,38 @@ func TestListByIDSpansTheArchive(t *testing.T) {
 	assert.Empty(t, none)
 }
 
+// TestWatchedWorkflowsSpanTheArchive pins that the workflows the watch carries are the live and
+// archived ones alike.
+func TestWatchedWorkflowsSpanTheArchive(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	create := func(name string) *Workflow {
+		created, err := st.Create(ctx, Config{
+			Name:     name,
+			Cwd:      "/repo",
+			Worktree: WorktreeConfig{BaseBranch: "main"},
+		})
+		require.NoError(t, err)
+
+		return created
+	}
+	live := create("live")
+	archived := create("archived")
+	require.NoError(t, st.Archive(ctx, archived.ID))
+	names := func(workflows []Workflow) []string {
+		return xslice.Map(workflows, func(w Workflow) string { return w.Name })
+	}
+
+	listed, err := st.GetWatched().List(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"archived", "live"}, names(listed))
+
+	byKey, err := st.GetWatched().ListByKey(ctx, []string{live.ID, archived.ID, missingID})
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []string{"archived", "live"}, names(byKey))
+}
+
 // TestListPageArchived pins that a workflow in one listing never shows up in the other, which
 // is what the panel and its archive each draw their headers from.
 func TestListPageArchived(t *testing.T) {

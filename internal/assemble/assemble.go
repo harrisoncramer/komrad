@@ -51,7 +51,7 @@ func (w *World) Apply(msg *watchv1.WatchEvent) (arrived []string) {
 }
 
 // Put holds one row, reporting the agent when it is one whose key or branch the world had not
-// seen.
+// seen, or one coming back from the archive.
 func (w *World) Put(row *watchv1.Row) (arrived []string) {
 	w.ensureMaps()
 
@@ -59,7 +59,9 @@ func (w *World) Put(row *watchv1.Row) (arrived []string) {
 	case *watchv1.Row_Agent:
 		held, ok := w.Agents[row.Agent.GetId()]
 		w.Agents[row.Agent.GetId()] = row.Agent
-		if !ok || held.GetRepositoryUrl() != row.Agent.GetRepositoryUrl() || held.GetBranch() != row.Agent.GetBranch() {
+
+		isRestored := held.GetArchivedAt() != "" && row.Agent.GetArchivedAt() == ""
+		if !ok || isRestored || held.GetRepositoryUrl() != row.Agent.GetRepositoryUrl() || held.GetBranch() != row.Agent.GetBranch() {
 			return []string{row.Agent.GetId()}
 		}
 	case *watchv1.Row_Workflow:

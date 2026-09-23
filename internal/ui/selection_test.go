@@ -389,15 +389,13 @@ func TestArchiveSelection(t *testing.T) {
 		m := archiveSelectionTree()
 		m.archive.selected = selectAgents([]string{"a1", "a3"}...)
 
-		m.applyArchive(
-			archivedItems([]panel.Agent{{
+		m.withListing(func(l *listing) {
+			l.archivedAgents = archivedItems([]panel.Agent{{
 				ID:         "a3",
 				Name:       "db",
 				WorkflowID: "w1",
-			}}),
-			nil,
-			"",
-		)
+			}})
+		})
 
 		assert.Equal(t, []string{"a3"}, selectedIDs(m.archive.selected))
 	})

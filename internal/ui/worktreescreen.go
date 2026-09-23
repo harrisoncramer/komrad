@@ -500,7 +500,6 @@ var (
 func (w *worktreesScreen) needs() screenNeeds {
 	return screenNeeds{
 		fromListing: true,
-		archive:     true,
 		worktrees:   true,
 	}
 }

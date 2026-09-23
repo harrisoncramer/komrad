@@ -227,18 +227,17 @@ type model struct {
 
 	// sized is the size each agent's own window was last put at, keyed by pane, so a listing that
 	// has not moved costs no tmux calls.
-	sized          map[string]string
-	info           infoState
-	details        detailsState
-	messages       messagesState
-	detailsHeight  float64
-	listing        listing
-	archiveListing archiveListingState
-	agents         agentsScreen
-	runHover       hoverState
-	schedules      schedulesScreen
-	archive        archiveScreen
-	worktrees      worktreesScreen
+	sized         map[string]string
+	info          infoState
+	details       detailsState
+	messages      messagesState
+	detailsHeight float64
+	listing       listing
+	agents        agentsScreen
+	runHover      hoverState
+	schedules     schedulesScreen
+	archive       archiveScreen
+	worktrees     worktreesScreen
 	// inspections is what the service answered for each worktree directory.
 	inspections map[string]worktreeInspection
 

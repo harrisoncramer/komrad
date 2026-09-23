@@ -40,7 +40,6 @@ func (m *model) applyWatch(batch client.WatchBatch) tea.Cmd {
 			if _, snapshot := event.GetEvent().(*watchv1.WatchEvent_Snapshot); snapshot {
 				m.reportUnreachable(nil)
 			}
-			m.archiveListing.markOutOfDateIfEventMayChangeIt(l, event)
 
 			arrived = append(arrived, l.world.Apply(event)...)
 		}

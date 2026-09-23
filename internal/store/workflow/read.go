@@ -39,6 +39,38 @@ func (s *WorkflowStore) List(ctx context.Context) ([]Workflow, error) {
 	}), nil
 }
 
+// WatchedWorkflows reads the workflows the watch carries, which are every one not being deleted.
+type WatchedWorkflows struct {
+	store *WorkflowStore
+}
+
+// GetWatched returns the reader of the workflows the watch carries.
+func (s *WorkflowStore) GetWatched() WatchedWorkflows {
+	return WatchedWorkflows{store: s}
+}
+
+// List returns every workflow not being deleted, archived ones included, by name.
+func (w WatchedWorkflows) List(ctx context.Context) ([]Workflow, error) {
+	rows, err := w.store.queries.SnapshotWatchedWorkflows(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the watched workflows: %w", err)
+	}
+
+	hooks, err := w.store.hooksByWorkflow(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return xslice.Map(rows, func(row *models.SnapshotWatchedWorkflowsRow) Workflow {
+		return workflowFromRow(row.Workflow, row.WorkflowConfig, row.WorkflowProvisionerConfig, hooks[row.Workflow.ID])
+	}), nil
+}
+
+// ListByKey returns the workflows among the given ids that are not being deleted.
+func (w WatchedWorkflows) ListByKey(ctx context.Context, ids []string) ([]Workflow, error) {
+	return w.store.ListByKey(ctx, ids)
+}
+
 // ByName is the order every workflow listing is read in, matched by the ORDER BY in
 // db/queries/workflow.sql, which sorts under the C collation because the database's own
 // ignores punctuation and no Go comparison does.
@@ -88,8 +120,8 @@ func (s *WorkflowStore) ListPage(ctx context.Context, limit int64, cursor *Curso
 	}), nil
 }
 
-// ListByKey returns the workflows among the given ids that the live listing holds, with their
-// hooks.
+// ListByKey returns the workflows among the given ids that are not being deleted, archived ones
+// included, with their hooks.
 func (s *WorkflowStore) ListByKey(ctx context.Context, ids []string) ([]Workflow, error) {
 	storable := store.KeepIDs(ids)
 	if len(storable) == 0 {

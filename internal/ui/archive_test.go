@@ -836,36 +836,19 @@ func TestArchiveTabsKeepTheCursorOnItsRow(t *testing.T) {
 	assert.Equal(t, 3, left.archive.cursor)
 }
 
-func archivedProtoWorkflow(id, name, archivedAt string) *workflowv1.Workflow {
-	return &workflowv1.Workflow{
-		Id:         id,
-		Name:       name,
-		ArchivedAt: &archivedAt,
-	}
-}
-
-// TestArchiveIsListedSeparatelyFromTheAgents covers the archived agents and folders arriving
-// through calls of their own, so neither can appear as a row in the tree.
-func TestArchiveIsListedSeparatelyFromTheAgents(t *testing.T) {
+// TestEnteringTheArchiveAsksForNothing pins that the archive screen draws the archived rows the
+// watch delivered, with no call of its own.
+func TestEnteringTheArchiveAsksForNothing(t *testing.T) {
 	agents := &fakeArchiveAgents{}
-	workflows := &fakeArchiveWorkflows{
-		archived: []*workflowv1.Workflow{archivedProtoWorkflow("w9", "retired", "2026-07-30T09:00:00Z")},
-	}
+	workflows := &fakeArchiveWorkflows{}
 	m := archiveModel(agents, workflows, config.DefaultKeybindings())
-	m.listing.archivedAgents = nil
 
-	cmd := m.enter(screenArchive, screenTarget{})
+	got := settle(t, m, m.enter(screenArchive, screenTarget{}))
 
-	got := settle(t, m, cmd)
-
-	assert.Contains(t, agents.listedArchived, true, "the archive is asked for by the pass the screen starts")
-	assert.Contains(t, workflows.listed, true, "and so are the folders it draws over them")
+	assert.Empty(t, agents.listedArchived, "no archived agents are asked for")
+	assert.Empty(t, workflows.listed, "and no archived folders")
 	require.Len(t, got.listing.archivedAgents, 1)
 	assert.Equal(t, "api-refactor", got.listing.archivedAgents[0].Agent.Name)
-	require.Len(t, got.listing.archivedWorkflows, 1)
-	assert.NotNil(t, got.listing.archivedWorkflows[0].ArchivedAt, "an archived folder carries when it was put away")
-	assert.Empty(t, got.listing.agents, "the tree's rows are not what the archive listed")
-	assert.Equal(t, []string{"w1"}, xslice.Map(got.listing.workflows, func(w panel.Workflow) string { return w.ID }), "and the archived folder is not one of the tree's")
 }
 
 func archiveModel(agents agentv1connect.AgentServiceClient, workflows workflowv1connect.WorkflowServiceClient, keys config.Keybindings) model {

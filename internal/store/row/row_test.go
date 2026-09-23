@@ -332,9 +332,9 @@ func TestListPage(t *testing.T) {
 	assert.Equal(t, archived.ID, old[0].ID)
 }
 
-// TestListByKey pins the watched set: the live rows among the given ids answer, an archived one,
-// one a delete has claimed and an id nothing holds are left out, and one that could not be an
-// id at all does not fail the read.
+// TestListByKey pins the watched set: the live and archived rows among the given ids answer, one
+// a delete has claimed and an id nothing holds are left out, and one that could not be an id at
+// all does not fail the read.
 func TestListByKey(t *testing.T) {
 	st := storetest.Open(t)
 	ctx := t.Context()
@@ -348,9 +348,7 @@ func TestListByKey(t *testing.T) {
 
 	rows, err := st.Rows.ListByKey(ctx, []string{first.ID, second.ID, archived.ID, deleting.ID, "00000000-0000-0000-0000-000000000000", "not-an-id"})
 	require.NoError(t, err)
-	require.Len(t, rows, 2)
-	assert.Equal(t, second.ID, rows[0].ID)
-	assert.Equal(t, first.ID, rows[1].ID)
+	assert.Equal(t, []string{archived.ID, second.ID, first.ID}, xslice.Map(rows, func(row rowstore.Row) string { return row.ID }))
 
 	rows, err = st.Rows.ListByKey(ctx, []string{"not-an-id"})
 	require.NoError(t, err)
@@ -358,7 +356,7 @@ func TestListByKey(t *testing.T) {
 
 	live, err := st.Rows.List(ctx)
 	require.NoError(t, err)
-	assert.Equal(t, []string{second.ID, first.ID}, xslice.Map(live, func(row rowstore.Row) string { return row.ID }), "the whole watched set reads the same way")
+	assert.Equal(t, []string{archived.ID, second.ID, first.ID}, xslice.Map(live, func(row rowstore.Row) string { return row.ID }), "the whole watched set reads the same way")
 }
 
 // TestGet pins the one-row read: an archived row answers, and an id nothing holds, or that

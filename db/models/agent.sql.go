@@ -1116,7 +1116,6 @@ FROM
     agents s
 WHERE
     s.id = ANY ($1::uuid[])
-    AND s.archived_at IS NULL
     AND s.deleting_at IS NULL
 ORDER BY
     s.id DESC
@@ -3183,8 +3182,7 @@ SELECT
 FROM
     agents s
 WHERE
-    s.archived_at IS NULL
-    AND s.deleting_at IS NULL
+    s.deleting_at IS NULL
 ORDER BY
     s.id DESC
 `

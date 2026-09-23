@@ -456,8 +456,8 @@ func (*Row_Mail) isRow_Row() {}
 
 func (*Row_PullRequest) isRow_Row() {}
 
-// Deleted names a row its watched set no longer holds, whether it was removed, archived or
-// claimed for a delete.
+// Deleted names a row its watched set no longer holds, whether it was removed or claimed for a
+// delete.
 type Deleted struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Which resource the row was of.

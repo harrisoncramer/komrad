@@ -64,9 +64,6 @@ type screenNeeds struct {
 	// fromListing is whether the watch's listings are what the screen draws.
 	fromListing bool
 
-	// archive is whether the archived agents are listed for the screen.
-	archive bool
-
 	// worktrees is whether the worktree directories are listed for the screen.
 	worktrees bool
 }
