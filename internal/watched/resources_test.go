@@ -93,7 +93,7 @@ func listDeclaredColumns(resources []watch.Resource) []string {
 		}
 	}
 	for _, resource := range resources {
-		named(resource.Table, resource.KeyColumn)
+		columns = append(columns, resource.Table+"."+resource.KeyColumn)
 		for _, ignored := range resource.IgnoredColumns {
 			named(resource.Table, ignored)
 		}
