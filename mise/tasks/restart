@@ -38,4 +38,21 @@ fi
 
 bind_panel_key "$weave"
 
+# Replaces the server of every other engine on this machine.
+engines_dir="$HOME/.config/weave/engines"
+if [ "${MISE_ENV:-}" != test ] && [ -d "$engines_dir" ]; then
+	for file in "$engines_dir"/*.toml; do
+		[ -e "$file" ] || continue
+		if grep -Eq '^[[:space:]]*(ssh|exec)[[:space:]]*=' "$file"; then
+			continue
+		fi
+
+		name="$(basename "$file" .toml)"
+		"$weave" stop --engine "$name" 2>/dev/null || true
+		if ! "$weave" start --engine "$name"; then
+			echo "warning: the $name engine's server did not come up" >&2
+		fi
+	done
+fi
+
 echo "killed $agents panes and restarted the server; press prefix+g for the panel"
