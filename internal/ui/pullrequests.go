@@ -172,14 +172,7 @@ func pullRequestStateWord(state pullrequestv1.PullRequestState) string {
 func (m model) openPullRequest(item panel.AgentRow) (model, tea.Cmd) {
 	standing := item.PullRequest
 	if standing.URL == "" {
-		refusal := errPullRequestsUnread
-		if standing.State == pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE {
-			refusal = errNoPullRequest
-			if len(item.PullRequests) > 0 {
-				refusal = errMovedPastPullRequest
-			}
-		}
-		m.report("Could not open the pull request of "+item.Agent.Name, refusal)
+		m.report("Could not open the pull request of "+item.Agent.Name, pullRequestRefusal(item))
 
 		return m, nil
 	}

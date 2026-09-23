@@ -37,7 +37,7 @@ func openGitMenu(h host, s panelShared, item panel.AgentRow) tea.Cmd {
 		name:           agent.Name,
 		rebaseable:     s.listing.isRebaseable(agent),
 		hasPullRequest: item.PullRequest.URL != "",
-		noPullRequest:  noPullRequestReason(item),
+		noPullRequest:  pullRequestHint(pullRequestRefusal(item)),
 	}, s.keys.Git, formKeys())
 
 	agentID := agent.ID
@@ -59,13 +59,28 @@ type gitMenu struct {
 	noPullRequest  string
 }
 
-// noPullRequestReason is why the menu has no pull request to open.
-func noPullRequestReason(item panel.AgentRow) string {
-	if item.PullRequest.State == pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE && len(item.PullRequests) > 0 {
-		return "moved on since its last one"
+// pullRequestRefusal is why an agent with no current pull request has none to open.
+func pullRequestRefusal(item panel.AgentRow) error {
+	switch {
+	case item.PullRequest.State != pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE:
+		return errPullRequestsUnread
+	case len(item.PullRequests) > 0:
+		return errMovedPastPullRequest
+	default:
+		return errNoPullRequest
 	}
+}
 
-	return "none from this branch"
+// pullRequestHint is a refusal as the menu words it beside its entry.
+func pullRequestHint(refusal error) string {
+	switch {
+	case errors.Is(refusal, errPullRequestsUnread):
+		return "not read yet"
+	case errors.Is(refusal, errMovedPastPullRequest):
+		return "moved on since its last one"
+	default:
+		return "none from this branch"
+	}
 }
 
 func gitMenuForm(menu gitMenu, keys config.GitKeys, form config.FormKeys) (*huh.Form, *gitChoice) {

@@ -247,9 +247,9 @@ func TestGitMenuActsOnTheAgentItWasOpenedOn(t *testing.T) {
 	assert.Contains(t, picked.messages.items[0].detail, errAgentGone.Error())
 }
 
-// TestNoPullRequestReason covers the menu's hint telling a branch that never had a pull request
-// from one that has moved past its last.
-func TestNoPullRequestReason(t *testing.T) {
+// TestPullRequestHint covers the menu's hint beside the pull request entry for each reason an
+// agent has none to open.
+func TestPullRequestHint(t *testing.T) {
 	none := panel.PullRequestStanding{State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE}
 
 	tests := []struct {
@@ -257,6 +257,11 @@ func TestNoPullRequestReason(t *testing.T) {
 		item panel.AgentRow
 		want string
 	}{
+		{
+			name: "a repository not read yet",
+			item: panel.AgentRow{PullRequest: panel.PullRequestStanding{State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNREAD}},
+			want: "not read yet",
+		},
 		{
 			name: "a branch nothing was opened from",
 			item: panel.AgentRow{PullRequest: none},
@@ -274,7 +279,7 @@ func TestNoPullRequestReason(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, noPullRequestReason(tt.item))
+			assert.Equal(t, tt.want, pullRequestHint(pullRequestRefusal(tt.item)))
 		})
 	}
 }
