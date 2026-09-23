@@ -14,7 +14,7 @@ var TriggerFunctions = []string{"watch_notify", "watch_subresource", "watch_subr
 // Triggers is every trigger the resources declare.
 func Triggers() []Trigger {
 	var triggers []Trigger
-	for _, resource := range Resources() {
+	for _, resource := range resources {
 		triggers = append(triggers, Trigger{
 			Name:     "watch_notify",
 			Table:    resource.Table,
@@ -23,12 +23,12 @@ func Triggers() []Trigger {
 
 		for _, subresource := range resource.Subresources {
 			trigger := Trigger{Name: "watch_subresource_" + resource.Table, Table: subresource.Table}
-			if subresource.Column != "" {
-				trigger.Function = "watch_subresource"
-				trigger.Args = []string{resource.Table, subresource.Column}
-			} else {
+			if lookup := subresource.Lookup; lookup != nil {
 				trigger.Function = "watch_subresource_lookup"
-				trigger.Args = []string{resource.Table, subresource.ResourceMatch, subresource.Match, subresource.ResourceMustBeNull}
+				trigger.Args = []string{resource.Table, lookup.ParentColumn, lookup.ChildColumn, lookup.SkipParentsWith}
+			} else {
+				trigger.Function = "watch_subresource"
+				trigger.Args = []string{resource.Table, subresource.Key}
 			}
 			triggers = append(triggers, trigger)
 		}
