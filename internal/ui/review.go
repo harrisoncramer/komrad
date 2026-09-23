@@ -83,6 +83,12 @@ func (r reviewScreen) isDiffFocused(s panelShared) bool {
 
 // update takes the review's own answers and, once nothing in the sidebar has them, the keys.
 func (r *reviewScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
+	cmd := r.route(h, s, msg)
+
+	return tea.Batch(cmd, r.catchUp(s))
+}
+
+func (r *reviewScreen) route(h host, s panelShared, msg tea.Msg) tea.Cmd {
 	switch msg := msg.(type) {
 	case reviewLoadedMsg:
 		return r.applyLoaded(h, s, msg)
@@ -91,7 +97,7 @@ func (r *reviewScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
 	case reviewWroteMsg:
 		return r.applyWrote(h, s, msg)
 	case reviewRefreshedMsg:
-		r.applyRefreshed(s, msg)
+		r.applyRefreshed(h, s, msg)
 
 		return nil
 	case reviewDiffPolledMsg:
