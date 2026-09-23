@@ -46,7 +46,7 @@ Every tool declares which agent roles it is offered to, in the same `surfaces` a
 
 A reviewer gets the tools for reading work and writing a review, and not `request_review`. An implementer gets the tools for getting its own work read and answering what comes back, and not the review-writing half or the panel's administration: workflows, schedules, rebases, worktrees, forges, and the agent lifecycle. An orchestrator gets everything but the review-writing half and `request_review`, since it writes no code and reviews nothing.
 
-The point is what a tool list costs. The whole surface is 62 tools and around 13,000 tokens, standing in every agent's context from its first turn; an implementer is served 22 of them and a reviewer 24, which is around 6,000. A caller weave cannot place, such as a person who registered the server by hand with `claude mcp add`, is served every tool, and none of this reaches `weave rpc`, where a person running a command holds no role.
+The point is what a tool list costs. The whole surface is 62 tools and around 13,000 tokens, standing in every agent's context from its first turn; an implementer is served 23 of them and a reviewer 24, which is around 6,000. A caller weave cannot place, such as a person who registered the server by hand with `claude mcp add`, is served every tool, and none of this reaches `weave rpc`, where a person running a command holds no role.
 
 ## The read-only role
 
