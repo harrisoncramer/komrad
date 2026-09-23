@@ -405,6 +405,27 @@ func TestReviewReloadKeepsTheSearch(t *testing.T) {
 	assert.True(t, jumped, "the search still has rows to step through")
 }
 
+// TestReviewBacksOutWhenTheWorktreeWasEmptied pins a reload that finds no changes returning the reader to the listing.
+func TestReviewBacksOutWhenTheWorktreeWasEmptied(t *testing.T) {
+	repo := newFakeRepo(t.TempDir())
+	m, _ := reviewModelOver(t, &fakeReviewAgents{}, repo)
+	m = openReview(t, m)
+
+	repo.wrote(wroteParams{Tree: "tree-of-the-base"})
+
+	cmd := m.review.reload(m.shared())
+	require.NotNil(t, cmd)
+
+	loaded, ok := cmd().(reviewLoadedMsg)
+	require.True(t, ok)
+	require.ErrorIs(t, loaded.err, diff.ErrNoChanges, "the round of an unmoved tree holds nothing")
+
+	m.review.applyLoaded(&m, m.shared(), loaded)
+
+	assert.Equal(t, screenAgents, m.screen, "the reader is put back on the listing")
+	assert.Nil(t, m.review.diff.view, "and the review is let go of")
+}
+
 // TestReviewReloadKeyOpensTheNextRound pins the opt-in: the reader asks for the next round, and
 // lands back where they were standing in the new one.
 func TestReviewReloadKeyOpensTheNextRound(t *testing.T) {

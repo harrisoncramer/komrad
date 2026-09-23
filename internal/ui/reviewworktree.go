@@ -41,12 +41,12 @@ func (w *reviewWorktree) markHashStarted(now time.Time) {
 	w.hashStartedAt = now
 }
 
-// markCaughtUp records the diff on screen as the worktree as it now stands.
+// markCaughtUp records the diff on screen as matching the worktree.
 func (w *reviewWorktree) markCaughtUp() {
 	w.moved = false
 }
 
-// recordHash takes a finished hash and reports whether it found the worktree moved.
+// recordHash records a finished hash and reports whether it found the worktree moved.
 func (w *reviewWorktree) recordHash(msg reviewWorktreeHashedMsg) bool {
 	w.hashing = false
 

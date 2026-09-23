@@ -678,7 +678,7 @@ func TestWatchingHoldsTheDiffWhileTheAgentWrites(t *testing.T) {
 	require.True(t, m.review.doesFollowLive(m.shared()), "the end of a turn is where it catches up")
 
 	cmd = m.review.applyWorktreeHashed(m.shared(), reviewWorktreeHashedMsg{agentID: m.review.agentID, moved: true})
-	assert.NotNil(t, cmd, "and that is one read rather than one every poll")
+	assert.NotNil(t, cmd, "and that is one read rather than one every hash")
 }
 
 // TestAWaitingAgentDoesNotHoldTheEditKey pins the gate against the half of an unfinished turn

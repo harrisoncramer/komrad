@@ -289,7 +289,7 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 	case tickMsg:
 		m.awaitingSize = false
 		next, readRuns := m.dwellRunsRead(msg.at)
-		hashing := next.hashReviewWorktreeCmd(msg.at)
+		hashWorktree := next.hashReviewWorktreeCmd(msg.at)
 		edited := next.reconcileEditor()
 
 		next = next.noticeRebuild()
@@ -297,7 +297,7 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 			return next, nil, true
 		}
 
-		return next, tea.Batch(next.listCmd(), tick(), hashing, readRuns, edited), true
+		return next, tea.Batch(next.listCmd(), tick(), hashWorktree, readRuns, edited), true
 	case tea.BlurMsg:
 		m.blurred = true
 		m.syncKeys()
