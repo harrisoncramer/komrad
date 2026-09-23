@@ -817,12 +817,13 @@ WITH failed AS (
 tallied AS (
     SELECT
         v.agent_id,
-        COUNT(DISTINCT v.round_id)::int AS rounds
+(COUNT(DISTINCT v.round_id) FILTER (WHERE v.released_at IS NOT NULL))::int AS rounds,
+        COUNT(*)::int AS reviews,
+        SUM((EXTRACT(EPOCH FROM v.updated_at) * 1000000)::bigint) AS moved
     FROM
         reviews v
     WHERE
         v.agent_id = ANY ($1::uuid[])
-        AND v.released_at IS NOT NULL
     GROUP BY
         v.agent_id
 ),
@@ -847,25 +848,13 @@ threaded AS (
     SELECT
         t.agent_id,
         COUNT(*)::int AS threads,
-        MAX(t.updated_at) AS moved_at
+        SUM((EXTRACT(EPOCH FROM t.updated_at) * 1000000)::bigint) AS moved
     FROM
         review_threads t
     WHERE
         t.agent_id = ANY ($1::uuid[])
     GROUP BY
         t.agent_id
-),
-reviewed AS (
-    SELECT
-        v.agent_id,
-        COUNT(*)::int AS reviews,
-        MAX(v.updated_at) AS moved_at
-    FROM
-        reviews v
-    WHERE
-        v.agent_id = ANY ($1::uuid[])
-    GROUP BY
-        v.agent_id
 )
 SELECT
     s.id,
@@ -882,14 +871,13 @@ SELECT
         WHERE
             y.repository_url = s.repository_url
             AND y.updated_through IS NOT NULL)::boolean AS repository_read,
-    CONCAT_WS(':', COALESCE(h.threads, 0), COALESCE(w.reviews, 0),(EXTRACT(EPOCH FROM GREATEST(h.moved_at, w.moved_at)) * 1000000)::bigint)::text AS review_version
+    CONCAT_WS(':', COALESCE(h.threads, 0), COALESCE(t.reviews, 0), h.moved, t.moved)::text AS review_version
 FROM
     agents s
     LEFT JOIN failed f ON f.agent_id = s.id
     LEFT JOIN tallied t ON t.agent_id = s.id
     LEFT JOIN concluded c ON c.agent_id = s.id
     LEFT JOIN threaded h ON h.agent_id = s.id
-    LEFT JOIN reviewed w ON w.agent_id = s.id
 WHERE
     s.id = ANY ($1::uuid[])
 `

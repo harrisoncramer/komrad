@@ -336,7 +336,9 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 	case client.WatchBatch:
 		cmd := m.applyWatch(msg)
 
-		return m, tea.Batch(cmd, m.refreshReviewCmd(time.Now())), true
+		reviewing := m.refreshReviewCmd(time.Now())
+
+		return m, tea.Batch(cmd, reviewing), true
 	case watchLostMsg:
 		m.applyWatchLost(msg)
 
