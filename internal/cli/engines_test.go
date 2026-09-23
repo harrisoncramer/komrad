@@ -96,7 +96,7 @@ func TestEngineRowsStartWithThisMachine(t *testing.T) {
 func TestProbeWarnsOfAFailingLoginAndRefusesOnlyWhatCannotStart(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	for _, name := range []string{"WEAVE_CONFIG", "WEAVE_ADDR", "WEAVE_TMUX_SOCKET", "WEAVE_CACHE_DIR", "WEAVE_DATABASE_URL", "WEAVE_READONLY_DATABASE_URL", "WEAVE_OWNER_DATABASE_URL", "WEAVE_DATABASE_PASSWORD_COMMAND"} {
+	for _, name := range []string{"WEAVE_CONFIG", "WEAVE_ADDR", "WEAVE_TMUX_SOCKET", "WEAVE_CACHE_DIR", "WEAVE_DATABASE_URL", "WEAVE_READONLY_DATABASE_URL", "WEAVE_OWNER_DATABASE_URL"} {
 		t.Setenv(name, "")
 	}
 
@@ -115,7 +115,7 @@ func TestProbeWarnsOfAFailingLoginAndRefusesOnlyWhatCannotStart(t *testing.T) {
 	write("running", strings.TrimPrefix(answering.URL, "http://"))
 
 	failing := func(err error) engineProber {
-		return engineProber{checkLogin: func(context.Context, *config.Environment) error { return err }}
+		return engineProber{checkLogin: func(context.Context, string) error { return err }}
 	}
 	badPassword := errors.New("password authentication failed")
 

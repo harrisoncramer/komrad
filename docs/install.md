@@ -72,8 +72,6 @@ owner_database_url = "postgres://weave:secret@localhost:5432/weave?sslmode=disab
 database_url       = "postgres://weave_engine_laptop:<password>@localhost:5432/weave?sslmode=disable"
 ```
 
-To keep the password out of the file, leave it out of `database_url` and either put it in `~/.pgpass` or set `database_password_command` to a command that prints it. The command runs for every new connection, so a password rotated with `weave engine ensure` reaches a running service without a restart.
-
 The service never migrates, and it refuses to start against a schema its build does not match or as a login that belongs to no engine. The built-in defaults are the checkout's docker-compose Postgres on `localhost:5460`, owned by `weave` and holding the `default` engine that `mise run docker:up` provisions, so an installed binary needs these set.
 
 ## Upgrading

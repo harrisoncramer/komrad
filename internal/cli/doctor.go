@@ -238,21 +238,20 @@ func (a *app) buildDoctorSettings() (doctor.Settings, error) {
 	colorTerm, _ := config.LookupEnv("COLORTERM")
 
 	return doctor.Settings{
-		TmuxSocket:              a.env.TmuxSocket,
-		InsideTmux:              a.env.Tmux,
-		ConfigStack:             a.configStack,
-		Sources:                 a.configSources,
-		Harnesses:               harnesses,
-		DatabaseURL:             a.env.DatabaseURL,
-		ReadOnlyDatabaseURL:     a.env.ReadOnlyDatabaseURL,
-		DatabasePasswordCommand: a.env.DatabasePasswordCommand,
-		Addr:                    a.env.Addr,
-		FocusKey:                ui.FocusKey,
-		EngineIsRemote:          a.engine().IsRemote(),
-		Version:                 version.Version(),
-		Commit:                  version.Commit(),
-		Term:                    termName,
-		ColorTerm:               colorTerm,
+		TmuxSocket:          a.env.TmuxSocket,
+		InsideTmux:          a.env.Tmux,
+		ConfigStack:         a.configStack,
+		Sources:             a.configSources,
+		Harnesses:           harnesses,
+		DatabaseURL:         a.env.DatabaseURL,
+		ReadOnlyDatabaseURL: a.env.ReadOnlyDatabaseURL,
+		Addr:                a.env.Addr,
+		FocusKey:            ui.FocusKey,
+		EngineIsRemote:      a.engine().IsRemote(),
+		Version:             version.Version(),
+		Commit:              version.Commit(),
+		Term:                termName,
+		ColorTerm:           colorTerm,
 	}, nil
 }
 

@@ -199,18 +199,17 @@ func isConfigFatal(cmd *cobra.Command) bool {
 
 func loadEnvironment(cfg *config.Config) (*config.Environment, error) {
 	return config.LoadEnvironment(config.Environment{
-		DatabaseURL:             cfg.Connection.DatabaseURL,
-		ReadOnlyDatabaseURL:     cfg.Connection.ReadOnlyDatabaseURL,
-		OwnerDatabaseURL:        cfg.Connection.OwnerDatabaseURL,
-		DatabasePasswordCommand: cfg.Connection.DatabasePasswordCommand,
-		Addr:                    cfg.Connection.Addr,
-		TmuxSocket:              cfg.Connection.TmuxSocket,
-		CacheDir:                cfg.Connection.CacheDir,
-		SSH:                     cfg.Connection.SSH,
-		EngineTmuxSocket:        cfg.Connection.EngineTmuxSocket,
-		PanelKey:                cfg.Connection.PanelKey,
-		Exec:                    cfg.Connection.Exec,
-		Forward:                 cfg.Connection.Forward,
-		EngineUser:              cfg.Connection.EngineUser,
+		DatabaseURL:         cfg.Connection.DatabaseURL,
+		ReadOnlyDatabaseURL: cfg.Connection.ReadOnlyDatabaseURL,
+		OwnerDatabaseURL:    cfg.Connection.OwnerDatabaseURL,
+		Addr:                cfg.Connection.Addr,
+		TmuxSocket:          cfg.Connection.TmuxSocket,
+		CacheDir:            cfg.Connection.CacheDir,
+		SSH:                 cfg.Connection.SSH,
+		EngineTmuxSocket:    cfg.Connection.EngineTmuxSocket,
+		PanelKey:            cfg.Connection.PanelKey,
+		Exec:                cfg.Connection.Exec,
+		Forward:             cfg.Connection.Forward,
+		EngineUser:          cfg.Connection.EngineUser,
 	})
 }

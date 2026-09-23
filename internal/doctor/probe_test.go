@@ -7,7 +7,6 @@ import (
 
 	"weave/db"
 	"weave/internal/pgtest"
-	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/storetest"
@@ -24,7 +23,7 @@ import (
 func TestProbeLeavesTheSchemaAlone(t *testing.T) {
 	url := pgtest.URL(t)
 
-	pending, err := readPendingMigrations(t.Context(), url, store.WithPasswordCommand(""))
+	pending, err := readPendingMigrations(t.Context(), url)
 	require.NoError(t, err)
 	assert.NotEmpty(t, pending, "a database pgtest just created has every migration outstanding")
 
@@ -43,7 +42,7 @@ func TestProbeLeavesTheSchemaAlone(t *testing.T) {
 // the connection, so a write is refused by Postgres rather than by this package remembering
 // not to send one.
 func TestProbeCannotWrite(t *testing.T) {
-	pool, err := openReadOnlyPool(t.Context(), pgtest.URL(t), store.WithPasswordCommand(""))
+	pool, err := openReadOnlyPool(t.Context(), pgtest.URL(t))
 	require.NoError(t, err)
 	defer pool.Close()
 
@@ -61,7 +60,7 @@ func TestProbeReportsNothingPendingOnceMigrated(t *testing.T) {
 	defer migrated.Close()
 	require.NoError(t, db.Migrate(t.Context(), migrated))
 
-	pending, err := readPendingMigrations(t.Context(), url, store.WithPasswordCommand(""))
+	pending, err := readPendingMigrations(t.Context(), url)
 	require.NoError(t, err)
 	assert.Empty(t, pending)
 }
@@ -124,7 +123,7 @@ func TestReadWorktreeOwnersReadsTheAgentsAndTheWorkflowDirs(t *testing.T) {
 		WorkflowID: workflow.ID,
 	})
 
-	owners, err := readWorktreeOwners(t.Context(), stores.URL, store.WithPasswordCommand(""))
+	owners, err := readWorktreeOwners(t.Context(), stores.URL)
 	require.NoError(t, err)
 
 	assert.Contains(t, owners.AgentIDs, agent.ID)
@@ -136,7 +135,7 @@ func TestReadWorktreeOwnersReadsTheAgentsAndTheWorkflowDirs(t *testing.T) {
 // TestReadWorktreeOwnersFailsWithoutTheTables covers the answer the orphan check degrades on,
 // where a database that cannot be read is not a machine with no orphans.
 func TestReadWorktreeOwnersFailsWithoutTheTables(t *testing.T) {
-	_, err := readWorktreeOwners(t.Context(), pgtest.URL(t), store.WithPasswordCommand(""))
+	_, err := readWorktreeOwners(t.Context(), pgtest.URL(t))
 
 	require.Error(t, err, "an unmigrated database says so rather than reporting nothing owns anything")
 }

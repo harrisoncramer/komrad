@@ -41,7 +41,7 @@ bind_panel_key "$weave"
 # Runs weave with the connection read from the engine file alone.
 engine_weave() {
 	env -u WEAVE_ADDR -u WEAVE_TMUX_SOCKET -u WEAVE_DATABASE_URL -u WEAVE_READONLY_DATABASE_URL \
-		-u WEAVE_OWNER_DATABASE_URL -u WEAVE_CACHE_DIR -u WEAVE_DATABASE_PASSWORD_COMMAND \
+		-u WEAVE_OWNER_DATABASE_URL -u WEAVE_CACHE_DIR \
 		"$weave" "$@"
 }
 
