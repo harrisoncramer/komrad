@@ -15,7 +15,6 @@ import (
 	"testing"
 	"time"
 
-	"weave/config"
 	"weave/internal/dbtest"
 	"weave/internal/git"
 	githubapp "weave/internal/github/app"
@@ -92,7 +91,7 @@ type fixture struct {
 func newFixture(t *testing.T, login string, verifyErr error) *fixture {
 	t.Helper()
 
-	pool, err := store.Open(t.Context(), dbtest.URL(t), config.DefaultTenantID)
+	pool, err := store.Open(t.Context(), dbtest.URL(t), dbtest.TenantID)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = pool.Close() })
 

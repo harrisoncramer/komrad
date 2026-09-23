@@ -247,7 +247,6 @@ func sessionEnvArgs(state *app) []string {
 		"-e", "WEAVE_TMUX_SOCKET=" + state.env.TmuxSocket,
 		"-e", "WEAVE_DATABASE_URL=" + state.env.DatabaseURL,
 		"-e", "WEAVE_READONLY_DATABASE_URL=" + state.env.ReadOnlyDatabaseURL,
-		"-e", "WEAVE_TENANT_ID=" + state.env.TenantID,
 		"-e", "WEAVE_ADDR=" + state.env.Addr,
 		"-e", "EDITOR=" + state.env.Editor,
 		"-e", "WEAVE_CACHE_DIR=" + state.env.CacheDir,

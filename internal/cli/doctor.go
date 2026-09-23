@@ -234,6 +234,11 @@ func (a *app) buildDoctorSettings() (doctor.Settings, error) {
 		return doctor.Settings{}, err
 	}
 
+	tenantID, err := a.env.GetTenantID()
+	if err != nil {
+		return doctor.Settings{}, err
+	}
+
 	termName, _ := config.LookupEnv("TERM")
 	colorTerm, _ := config.LookupEnv("COLORTERM")
 
@@ -245,7 +250,7 @@ func (a *app) buildDoctorSettings() (doctor.Settings, error) {
 		Harnesses:           harnesses,
 		DatabaseURL:         a.env.DatabaseURL,
 		ReadOnlyDatabaseURL: a.env.ReadOnlyDatabaseURL,
-		TenantID:            a.env.TenantID,
+		TenantID:            tenantID,
 		Addr:                a.env.Addr,
 		FocusKey:            ui.FocusKey,
 		EngineIsRemote:      a.engine().IsRemote(),

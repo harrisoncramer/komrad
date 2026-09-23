@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"weave/config"
 	"weave/internal/dbtest"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
@@ -116,7 +115,7 @@ func TestDeletingClaimHidesTheWorkflow(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			pool, err := store.Open(t.Context(), dbtest.URL(t), config.DefaultTenantID)
+			pool, err := store.Open(t.Context(), dbtest.URL(t), dbtest.TenantID)
 			require.NoError(t, err)
 			t.Cleanup(func() { _ = pool.Close() })
 			f, agents := NewWorkflowStore(pool.GetDB()), agentstore.NewAgentStore(pool.GetDB())

@@ -3,7 +3,6 @@ package store
 import (
 	"testing"
 
-	"weave/config"
 	"weave/db/models"
 	"weave/db/testmodels"
 	"weave/internal/dbtest"
@@ -37,7 +36,7 @@ func TestTenantStampedFromTheConnection(t *testing.T) {
 	created, err := models.New(pool.GetDB()).InsertWorkflowConfig(ctx, models.InsertWorkflowConfigParams{Harness: "claude"})
 	require.NoError(t, err)
 
-	assert.Equal(t, config.DefaultTenantID, created.TenantID)
+	assert.Equal(t, dbtest.TenantID, created.TenantID)
 }
 
 // TestUnscopedInsertRefused pins a connection that never set its tenant being unable to write.

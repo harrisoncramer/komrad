@@ -403,9 +403,6 @@ database_url          = "postgres://weave:weave@localhost:5460/weave?sslmode=dis
 # on the same server and the same database, so moving one moves both.
 # Set it when that login needs its own password or reaches the database another way.
 readonly_database_url = ""
-# The uuid every row this engine writes is stamped with, and later the only rows it may read.
-# Give each engine sharing a database its own, and never change it once the engine has run.
-tenant_id             = "00000000-0000-7000-8000-000000000001"
 # Where the background service listens, and where the panel, the CLI and the MCP
 # endpoint all reach it. Change it to run two weaves on one machine. It has to be a
 # loopback host, since the api has no auth and its writes spawn agents.

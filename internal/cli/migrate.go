@@ -25,7 +25,12 @@ zero.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			pool, err := store.Open(cmd.Context(), state.env.DatabaseURL, state.env.TenantID)
+			tenantID, err := state.env.GetTenantID()
+			if err != nil {
+				return err
+			}
+
+			pool, err := store.Open(cmd.Context(), state.env.DatabaseURL, tenantID)
 			if err != nil {
 				return err
 			}

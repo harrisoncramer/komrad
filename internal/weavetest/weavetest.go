@@ -150,7 +150,6 @@ func Start(t *testing.T, p Params) *Instance {
 	env := &config.Environment{
 		DatabaseURL:         stores.URL,
 		ReadOnlyDatabaseURL: stores.ReadOnlyURL,
-		TenantID:            config.DefaultTenantID,
 		Addr:                addr,
 		TmuxSocket:          tmuxServer.Socket(),
 		CacheDir:            cacheDir,
@@ -167,6 +166,9 @@ func Start(t *testing.T, p Params) *Instance {
 	}
 
 	describedHarnesses, err := doctor.DescribeHarnesses(harnesses)
+	require.NoError(t, err)
+
+	tenantID, err := env.GetTenantID()
 	require.NoError(t, err)
 
 	built, err := server.NewServer(t.Context(), server.NewServerParams{
@@ -186,7 +188,7 @@ func Start(t *testing.T, p Params) *Instance {
 			Harnesses:           describedHarnesses,
 			DatabaseURL:         env.DatabaseURL,
 			ReadOnlyDatabaseURL: env.ReadOnlyDatabaseURL,
-			TenantID:            env.TenantID,
+			TenantID:            tenantID,
 			Addr:                addr,
 		},
 	})

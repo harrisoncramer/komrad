@@ -6,9 +6,7 @@ import (
 	"fmt"
 	"net"
 	"strconv"
-	"strings"
 
-	"weave/config"
 	"weave/internal/dsn"
 
 	"github.com/jackc/pgx/v5/pgconn"
@@ -44,14 +42,6 @@ var (
 	errSchemaUnreadable = &ProblemError{
 		Code:    "schema_unreadable",
 		Message: "the applied migrations could not be read",
-	}
-	errTenantShared = &ProblemError{
-		Code:    "tenant_shared",
-		Message: "another machine's weave uses this database, and this engine still has the default tenant id",
-	}
-	errTenantHostsUnreadable = &ProblemError{
-		Code:    "tenant_hosts_unreadable",
-		Message: "could not read which other machines use this database",
 	}
 	errReadOnlyLoginShared = &ProblemError{
 		Code:    "readonly_login_shared",
@@ -117,34 +107,6 @@ func newSchemaCheck() Check {
 			}
 
 			return pass("up to date")
-		},
-	}
-}
-
-// newTenantCheck warns when an engine left on the default tenant shares its database with
-// another machine.
-func newTenantCheck() Check {
-	return Check{
-		Name:        "tenant",
-		Description: "every engine sharing a database needs a tenant id of its own",
-		Needs:       []string{"database"},
-		Run: func(ctx context.Context, env Env) Result {
-			detail := env.TenantID + describeSource(env, "tenant_id")
-			if env.TenantID != config.DefaultTenantID {
-				return pass(detail)
-			}
-
-			hosts, err := env.ReadOtherHosts(ctx, env.DatabaseURL)
-			if err != nil {
-				return warn(fmt.Errorf("%w: %w", errTenantHostsUnreadable, err), detail)
-			}
-
-			if len(hosts) > 0 {
-				return warn(fmt.Errorf("%w: %s; set connection.tenant_id, or WEAVE_TENANT_ID, to a uuid of this engine's own",
-					errTenantShared, strings.Join(hosts, ", ")), detail)
-			}
-
-			return pass(detail)
 		},
 	}
 }

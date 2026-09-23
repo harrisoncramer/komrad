@@ -22,7 +22,6 @@ import (
 	"weave/lib/xslice"
 
 	"github.com/go-viper/mapstructure/v2"
-	"github.com/google/uuid"
 	"github.com/spf13/viper"
 )
 
@@ -89,8 +88,6 @@ const (
 	DefaultAddr = "127.0.0.1:8787"
 	// The socket weave's own tmux server listens on, named for the tool.
 	DefaultTmuxSocket = "weave"
-	// The tenant every row belonged to before an engine could name its own.
-	DefaultTenantID = "00000000-0000-7000-8000-000000000001"
 )
 
 // DefaultHarness is the CLI a new agent runs when the config names none, spelled here
@@ -687,9 +684,6 @@ type Connection struct {
 	// on the same server and the same database, so moving one moves both.
 	// Set it when that login needs its own password or reaches the database another way.
 	ReadOnlyDatabaseURL string `mapstructure:"readonly_database_url"`
-	// The uuid every row this engine writes is stamped with, and later the only rows it may read.
-	// Give each engine sharing a database its own, and never change it once the engine has run.
-	TenantID string `mapstructure:"tenant_id"`
 	// Where the background service listens, and where the panel, the CLI and the MCP
 	// endpoint all reach it. Change it to run two weaves on one machine. It has to be a
 	// loopback host, since the api has no auth and its writes spawn agents.
@@ -787,7 +781,6 @@ func Defaults() *Config {
 func defaultConnection() Connection {
 	return Connection{
 		DatabaseURL: DefaultDatabaseURL,
-		TenantID:    DefaultTenantID,
 		Addr:        DefaultAddr,
 		TmuxSocket:  DefaultTmuxSocket,
 	}
@@ -951,20 +944,7 @@ func validateConnection(connection Connection) error {
 		return fmt.Errorf("connection.addr: %w", err)
 	}
 
-	if err := validateTenantID(connection.TenantID); err != nil {
-		return err
-	}
-
 	return validateDatabaseURL(connection.DatabaseURL)
-}
-
-// validateTenantID rejects a tenant id that is not a uuid.
-func validateTenantID(tenantID string) error {
-	if _, err := uuid.Parse(tenantID); err != nil {
-		return fmt.Errorf("connection.tenant_id: %q is not a uuid: %w", tenantID, err)
-	}
-
-	return nil
 }
 
 // loopbackHosts are the hosts that reach only this machine, spelled the ways a person writes them.
@@ -1314,9 +1294,6 @@ func (c *Config) normalizeZeroValues() {
 	if strings.TrimSpace(c.Connection.DatabaseURL) == "" {
 		c.Connection.DatabaseURL = DefaultDatabaseURL
 	}
-	if strings.TrimSpace(c.Connection.TenantID) == "" {
-		c.Connection.TenantID = DefaultTenantID
-	}
 	if strings.TrimSpace(c.Connection.TmuxSocket) == "" {
 		c.Connection.TmuxSocket = DefaultTmuxSocket
 	}
@@ -1364,7 +1341,6 @@ func registerDefaultValues(cfg *viper.Viper, prefix string, values map[string]an
 var connectionEnvironment = map[string]string{
 	"connection.database_url":          "WEAVE_DATABASE_URL",
 	"connection.readonly_database_url": "WEAVE_READONLY_DATABASE_URL",
-	"connection.tenant_id":             "WEAVE_TENANT_ID",
 	"connection.addr":                  "WEAVE_ADDR",
 	"connection.tmux_socket":           "WEAVE_TMUX_SOCKET",
 	"connection.cache_dir":             "WEAVE_CACHE_DIR",

@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"weave/config"
 	"weave/internal/dbtest"
 
 	"github.com/stretchr/testify/assert"
@@ -100,7 +99,7 @@ func TestUpdatedAtStamped(t *testing.T) {
 func open(ctx context.Context, t *testing.T) *Pool {
 	t.Helper()
 
-	pool, err := Open(ctx, dbtest.URL(t), config.DefaultTenantID)
+	pool, err := Open(ctx, dbtest.URL(t), dbtest.TenantID)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = pool.Close() })
 

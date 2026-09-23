@@ -3,7 +3,6 @@ package db
 import (
 	"fmt"
 	"os"
-	"strings"
 )
 
 // appNamePrefix marks a connection as weave's own in pg_stat_activity, which the migration pass
@@ -17,37 +16,15 @@ const maxAppName = 63
 // AppName is the application_name every weave pool connects under, naming the process rather
 // than the build so a migration pass can tell which connections are its own.
 func AppName() string {
-	return appName(hostname(), os.Getpid())
-}
+	host, err := os.Hostname()
+	if err != nil {
+		host = "unknown"
+	}
 
-// AppHost is the machine AppName names, cut where AppName cuts it.
-func AppHost() string {
-	return hostOf(AppName())
-}
-
-func appName(host string, pid int) string {
-	name := fmt.Sprintf("%s/%s/%d", appNamePrefix, host, pid)
+	name := fmt.Sprintf("%s/%s/%d", appNamePrefix, host, os.Getpid())
 	if len(name) > maxAppName {
 		name = name[:maxAppName]
 	}
 
 	return name
-}
-
-func hostOf(name string) string {
-	parts := strings.SplitN(name, "/", 3)
-	if len(parts) < 2 {
-		return ""
-	}
-
-	return parts[1]
-}
-
-func hostname() string {
-	host, err := os.Hostname()
-	if err != nil {
-		return "unknown"
-	}
-
-	return host
 }

@@ -6,13 +6,15 @@ import (
 	"context"
 	"testing"
 
-	"weave/config"
 	"weave/db"
 	"weave/internal/pgtest"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/require"
 )
+
+// TenantID is the tenant a test acts as.
+const TenantID = "01990000-0000-7000-8000-00000000beef"
 
 // URL is a migrated database of this test's own, dropped when the test ends.
 func URL(t *testing.T) string {
@@ -41,7 +43,7 @@ func Pool(t *testing.T) *pgxpool.Pool {
 
 	cfg, err := pgxpool.ParseConfig(URL(t))
 	require.NoError(t, err)
-	db.ScopeToTenant(cfg, config.DefaultTenantID)
+	db.ScopeToTenant(cfg, TenantID)
 
 	pool, err := pgxpool.NewWithConfig(t.Context(), cfg)
 	require.NoError(t, err)

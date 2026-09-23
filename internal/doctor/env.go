@@ -27,7 +27,6 @@ type Env struct {
 	PingDatabase          func(ctx context.Context, url string) error
 	ReadPendingMigrations func(ctx context.Context, url string) ([]string, error)
 	ConnectReadOnly       func(ctx context.Context, url string) error
-	ReadOtherHosts        func(ctx context.Context, url string) ([]string, error)
 	ReadWorktreeOwners    func(ctx context.Context, url string) (WorktreeOwners, error)
 	ReadWorkflowBases     func(ctx context.Context, url string) ([]WorkflowBase, error)
 	ResolveBase           func(ctx context.Context, dir, base string) (string, error)
@@ -103,7 +102,6 @@ func NewEnv(settings Settings) Env {
 		ConnectReadOnly: func(ctx context.Context, url string) error {
 			return connectReadOnly(ctx, url, settings.TenantID)
 		},
-		ReadOtherHosts:     readOtherHosts,
 		ReadWorktreeOwners: readWorktreeOwners,
 		ReadWorkflowBases:  readWorkflowBases,
 		ResolveBase:        resolveWorkflowBase,

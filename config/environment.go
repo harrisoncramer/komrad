@@ -18,7 +18,6 @@ const layerVariable = "WEAVE_CONFIG"
 type Environment struct {
 	DatabaseURL         string
 	ReadOnlyDatabaseURL string
-	TenantID            string
 	Addr                string
 	TmuxSocket          string
 	CacheDir            string
