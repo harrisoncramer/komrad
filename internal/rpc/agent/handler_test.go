@@ -2590,3 +2590,29 @@ func agentsByName(listed []*agentv1.AgentRow) map[string]*agentv1.Agent {
 
 	return byName
 }
+
+// TestArchiveAgentsHoldsAnAgentToItsOwnChildren covers an implementer finishing with its reviewer and nothing else.
+func TestArchiveAgentsHoldsAnAgentToItsOwnChildren(t *testing.T) {
+	svc, st, launcher := serviceWithLauncher(t)
+
+	parent := st.SeedAgent(t, agentstore.Agent{Name: "parent", Role: agentstore.RoleImplementer})
+	child := st.SeedAgent(t, agentstore.Agent{Name: "child", WorkflowID: parent.WorkflowID, ParentAgentID: &parent.ID, Role: agentstore.RoleReviewer})
+	stranger := st.SeedAgent(t, agentstore.Agent{Name: "stranger", Role: agentstore.RoleImplementer})
+	orchestrator := st.SeedAgent(t, agentstore.Agent{Name: "orchestrator", Role: agentstore.RoleOrchestrator})
+
+	archive := func(from string, ids ...string) error {
+		ctx := caller.With(t.Context(), caller.Caller{AgentID: from})
+		_, err := svc.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{Ids: ids}))
+
+		return err
+	}
+
+	require.Equal(t, connect.CodePermissionDenied, connect.CodeOf(archive(parent.ID, stranger.ID)))
+	require.Equal(t, connect.CodePermissionDenied, connect.CodeOf(archive(parent.ID, child.ID, stranger.ID)), "one stranger refuses the whole batch")
+	assert.Empty(t, launcher.archived)
+
+	require.NoError(t, archive(parent.ID, child.ID))
+	require.NoError(t, archive(orchestrator.ID, stranger.ID))
+	require.NoError(t, archive("", parent.ID))
+	assert.Equal(t, []string{child.ID, stranger.ID, parent.ID}, launcher.archived)
+}

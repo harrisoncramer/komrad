@@ -7,10 +7,13 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"weave/config"
+	"weave/db"
 	"weave/internal/doctor"
 	"weave/internal/engine"
+	"weave/internal/store"
 	"weave/internal/ui/enginepick"
 	"weave/internal/version"
 	"weave/lib/xslice"
@@ -88,8 +91,25 @@ func describeEngine(stack config.Stack, name string) enginepick.Row {
 	return row
 }
 
+// loginWait bounds the fresh database login the picker makes for an engine on this machine.
+const loginWait = 3 * time.Second
+
 type engineProber struct {
-	stack config.Stack
+	stack      config.Stack
+	checkLogin func(ctx context.Context, databaseURL string) error
+}
+
+// checkEngineLogin opens the store with a fresh login, as the engine's server does when it starts.
+func checkEngineLogin(ctx context.Context, databaseURL string) error {
+	ctx, cancel := context.WithTimeout(ctx, loginWait)
+	defer cancel()
+
+	pool, err := store.Open(ctx, databaseURL)
+	if err != nil {
+		return err
+	}
+
+	return pool.Close()
 }
 
 func (p engineProber) probe(ctx context.Context, row enginepick.Row) enginepick.Status {
@@ -100,6 +120,11 @@ func (p engineProber) probe(ctx context.Context, row enginepick.Row) enginepick.
 			Label:   "unreadable",
 			Refused: err.Error(),
 		}
+	}
+
+	var loginErr error
+	if !setup.remote.IsRemote() {
+		loginErr = p.checkLogin(ctx, setup.env.DatabaseURL)
 	}
 
 	addr := setup.env.Addr
@@ -126,6 +151,14 @@ func (p engineProber) probe(ctx context.Context, row enginepick.Row) enginepick.
 			Label:   "down",
 			Refused: "the engine's server is not answering on " + addr,
 		}
+	case !served.answering && loginErr != nil:
+		label, reason := describeStartFailure(loginErr)
+
+		return enginepick.Status{
+			Build:   "nothing, and its server could not start",
+			Label:   label,
+			Refused: reason,
+		}
 	case !served.answering:
 		return enginepick.Status{Build: "nothing yet, the server starts on open"}
 	case !served.current && setup.remote.IsRemote():
@@ -136,8 +169,24 @@ func (p engineProber) probe(ctx context.Context, row enginepick.Row) enginepick.
 				version.Describe(version.Version(), version.Commit()),
 				doctor.StaleEngineFix(served.version, served.commit)),
 		}
+	case loginErr != nil:
+		_, reason := describeStartFailure(loginErr)
+
+		return enginepick.Status{Build: version.Describe(served.version, served.commit) + ", but it could not start again: " + reason}
 	default:
 		return enginepick.Status{Build: version.Describe(served.version, served.commit)}
+	}
+}
+
+// describeStartFailure names why an engine's server could not start with the database url its file holds.
+func describeStartFailure(err error) (string, string) {
+	switch {
+	case errors.Is(err, store.ErrNotAnEngine):
+		return "no engine", "its database url logs in as no engine: " + err.Error()
+	case errors.Is(err, db.ErrSchemaBehind), errors.Is(err, db.ErrSchemaAhead):
+		return "schema", err.Error()
+	default:
+		return "login", "its database login fails: " + err.Error()
 	}
 }
 
@@ -147,7 +196,7 @@ func pickEngine(ctx context.Context, state *app, rows []enginepick.Row) (string,
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	prober := engineProber{stack: state.configStack}
+	prober := engineProber{stack: state.configStack, checkLogin: checkEngineLogin}
 
 	row, chosen, err := enginepick.Run(ctx, enginepick.RunParams{
 		Rows: rows,

@@ -4,7 +4,7 @@ Stop a list of agents and hide them from the panel, keyed by id, keeping their r
 
 ### Synopsis
 
-Stop a list of agents and hide them from the panel, keyed by id, keeping their records and transcripts. Prefer this to delete_agents: it is reversible with restore_agents, and search_transcripts still finds the conversations. The agents need not share a workflow. Returns not_found, and archives nothing at all, if any id given holds no agent, so a batch either goes whole or does not go. The children of any agent named here are archived with it, since a child rides along with its parent rather than standing on its own. A child named on its own is archived alone, which is how you finish with one reviewer while the agent it was reading for keeps working.
+Stop a list of agents and hide them from the panel, keyed by id, keeping their records and transcripts. Prefer this to delete_agents: it is reversible with restore_agents, and search_transcripts still finds the conversations. The agents need not share a workflow. Returns not_found, and archives nothing at all, if any id given holds no agent, so a batch either goes whole or does not go. The children of any agent named here are archived with it, since a child rides along with its parent rather than standing on its own. A child named on its own is archived alone, which is how you finish with one reviewer while the agent it was reading for keeps working. An agent other than an orchestrator may archive only its own children, and naming any other agent refuses the whole batch as permission_denied.
 
 ```
 weave rpc archive-agents [flags]
