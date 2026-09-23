@@ -59,6 +59,7 @@ func Agent(row rowstore.Row, options AgentOptions) *agentv1.Agent {
 		ParentAgentId:      stored.ParentAgentID,
 		Branch:             stored.Branch,
 		RepositoryUrl:      stored.RepositoryURL,
+		HeadSha:            stored.HeadSHA,
 		WorktreeRemoved:    stored.WorktreeRemoved,
 		SequenceInProgress: stored.SequenceInProgress,
 		FailedRun:          row.FailedRun,

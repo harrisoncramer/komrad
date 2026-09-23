@@ -130,6 +130,29 @@ func TestPullRequestFields(t *testing.T) {
 			want: []recordField{{"pull request", "#740 merged 2h ago"}},
 		},
 		{
+			name:     "none since a merged one the branch has moved past",
+			standing: panel.PullRequestStanding{State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE},
+			pullRequests: []panel.PullRequest{
+				{
+					Number:   740,
+					State:    pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED,
+					OpenedAt: yesterday,
+					MergedAt: &twoHoursAgo,
+					ClosedAt: &twoHoursAgo,
+				},
+				{
+					Number:   711,
+					State:    pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CLOSED,
+					OpenedAt: yesterday,
+					ClosedAt: &yesterday,
+				},
+			},
+			want: []recordField{
+				{"pull request", "none since #740 merged 2h ago"},
+				{"pull requests", "#711 closed"},
+			},
+		},
+		{
 			name:     "one closed with how long ago it closed",
 			standing: panel.PullRequestStanding{State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CLOSED, Number: 740},
 			pullRequests: []panel.PullRequest{{

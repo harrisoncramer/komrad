@@ -739,6 +739,7 @@ UPDATE
 SET
     branch = sqlc.narg('branch'),
     repository_url = sqlc.narg('repository_url'),
+    head_sha = sqlc.narg('head_sha'),
     worktree_removed = @worktree_removed,
     sequence_in_progress = @sequence_in_progress
 WHERE

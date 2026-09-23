@@ -15,6 +15,8 @@ type HeadState struct {
 	// Branch is the branch the work belongs to, which a stopped rebase still names even though
 	// its HEAD is detached.
 	Branch string
+	// SHA is the commit HEAD points at.
+	SHA string
 	// SequenceInProgress is whether a merge, a rebase or a cherry-pick is part-way through.
 	SequenceInProgress bool
 	// RepositoryURL is the canonical address of the repository origin points at, empty when
@@ -24,23 +26,24 @@ type HeadState struct {
 
 // ReadHeadState reads a checkout's HEAD, answering empty for a directory git will not speak for.
 func (c *Client) ReadHeadState(ctx context.Context, dir string) HeadState {
-	out, err := Run(ctx, dir, "rev-parse", "--abbrev-ref", "HEAD", "--absolute-git-dir")
+	out, err := Run(ctx, dir, "rev-parse", "HEAD", "--abbrev-ref", "HEAD", "--absolute-git-dir")
 	if err != nil {
 		return HeadState{}
 	}
 
-	branch, gitDir, ok := strings.Cut(out, "\n")
-	if !ok {
+	lines := strings.Split(out, "\n")
+	if len(lines) != 3 {
 		return HeadState{}
 	}
 
-	branch, gitDir = strings.TrimSpace(branch), strings.TrimSpace(gitDir)
+	sha, branch, gitDir := strings.TrimSpace(lines[0]), strings.TrimSpace(lines[1]), strings.TrimSpace(lines[2])
 	if branch == "HEAD" {
 		branch = rebasingBranch(gitDir)
 	}
 
 	return HeadState{
 		Branch:             branch,
+		SHA:                sha,
 		SequenceInProgress: hasSequenceMarker(gitDir),
 		RepositoryURL:      readRepositoryURL(ctx, dir),
 	}

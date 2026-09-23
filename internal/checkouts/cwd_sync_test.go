@@ -197,6 +197,67 @@ func TestCwdSyncerSyncRecordsTheRepository(t *testing.T) {
 	}
 }
 
+// TestCwdSyncerSyncRecordsTheHead covers the commit a finished pull request is measured
+// against: written, rewritten when the checkout moves, and cleared when the cwd is gone.
+func TestCwdSyncerSyncRecordsTheHead(t *testing.T) {
+	tests := []struct {
+		name   string
+		before *string
+		cwd    func(t *testing.T) string
+		heads  func(cwd string) fakeHeads
+		want   *string
+	}{
+		{
+			name:  "a checkout records the commit it has checked out",
+			cwd:   fakeCheckout,
+			heads: func(cwd string) fakeHeads { return fakeHeads{cwd: {Branch: "main", SHA: "aaa"}} },
+			want:  xptr.Ptr("aaa"),
+		},
+		{
+			name:   "a commit made under a running agent is rewritten on the next pass",
+			before: xptr.Ptr("aaa"),
+			cwd:    fakeCheckout,
+			heads:  func(cwd string) fakeHeads { return fakeHeads{cwd: {Branch: "main", SHA: "bbb"}} },
+			want:   xptr.Ptr("bbb"),
+		},
+		{
+			name:   "a cwd that no longer exists clears the commit",
+			before: xptr.Ptr("aaa"),
+			cwd:    removedDir,
+			heads:  func(cwd string) fakeHeads { return fakeHeads{cwd: {Branch: "main", SHA: "aaa"}} },
+			want:   nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := storetest.Open(t)
+			ctx := t.Context()
+
+			workflowID := seedWorkflow(t, st)
+			cwd := tt.cwd(t)
+			require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{
+				Name:       "a",
+				State:      agentstore.StateIdle,
+				WorkflowID: workflowID,
+				Cwd:        cwd,
+			}))
+			created, err := st.Agents.GetInWorkflow(ctx, workflowID, "a")
+			require.NoError(t, err)
+			require.NoError(t, st.Agents.SetCheckout(ctx, created.ID, agentstore.SetCheckoutParams{
+				Branch:  xptr.Ptr("main"),
+				HeadSHA: tt.before,
+			}))
+
+			require.NoError(t, newCwdSyncer(st.Agents, tt.heads(cwd)).Sync(ctx))
+
+			got, err := st.Agents.GetByID(ctx, created.ID)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got.HeadSHA)
+		})
+	}
+}
+
 // TestCwdSyncerSyncLooksAtEveryAgent covers the fan-out: a pass over more agents than it has
 // workers still reads every directory and writes every row.
 func TestCwdSyncerSyncLooksAtEveryAgent(t *testing.T) {

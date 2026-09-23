@@ -22,10 +22,11 @@ const (
 )
 
 var (
-	errNoWorktree         = errors.New("this agent has no worktree of its own, so there is no base to move it onto")
-	errAgentGone          = errors.New("the agent the menu was opened on has left the list")
-	errNoPullRequest      = errors.New("weave has read the repository and nothing has been opened from this branch")
-	errPullRequestsUnread = errors.New("weave has not read this agent's repository yet, or its checkout is not on a forge")
+	errNoWorktree           = errors.New("this agent has no worktree of its own, so there is no base to move it onto")
+	errAgentGone            = errors.New("the agent the menu was opened on has left the list")
+	errNoPullRequest        = errors.New("weave has read the repository and nothing has been opened from this branch")
+	errMovedPastPullRequest = errors.New("the branch has moved on since its last pull request finished and nothing has been opened from it since")
+	errPullRequestsUnread   = errors.New("weave has not read this agent's repository yet, or its checkout is not on a forge")
 )
 
 // openGitMenu draws the git actions beside the list, for the agent the cursor is on.

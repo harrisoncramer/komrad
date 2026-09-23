@@ -60,15 +60,21 @@ func (m *model) applyPullRequestsListed(msg pullRequestsListedMsg) tea.Cmd {
 // pullRequestFields are the record's rows for the branch's pull requests: why there is none,
 // or the current one and then the rest when there are any.
 func pullRequestFields(standing panel.PullRequestStanding, pullRequests []panel.PullRequest) []recordField {
+	isNone := standing.State == pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE
 	if len(pullRequests) == 0 {
-		if standing.State == pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE {
+		if isNone {
 			return []recordField{{pullRequestFieldKey, "none from this branch"}}
 		}
 
 		return []recordField{{pullRequestFieldKey, "not read yet"}}
 	}
 
-	fields := []recordField{{pullRequestFieldKey, currentPullRequestField(pullRequests[0])}}
+	current := currentPullRequestField(pullRequests[0])
+	if isNone {
+		current = "none since " + current
+	}
+
+	fields := []recordField{{pullRequestFieldKey, current}}
 	rest := xslice.Map(pullRequests[1:], func(pullRequest panel.PullRequest) string {
 		return fmt.Sprintf("#%d %s", pullRequest.Number, pullRequestWords(pullRequest.State, pullRequest.Checks, pullRequest.Mergeability))
 	})
@@ -169,6 +175,9 @@ func (m model) openPullRequest(item panel.AgentRow) (model, tea.Cmd) {
 		refusal := errPullRequestsUnread
 		if standing.State == pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE {
 			refusal = errNoPullRequest
+			if len(item.PullRequests) > 0 {
+				refusal = errMovedPastPullRequest
+			}
 		}
 		m.report("Could not open the pull request of "+item.Agent.Name, refusal)
 

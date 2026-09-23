@@ -204,6 +204,8 @@ type Agent struct {
 	// https://github.com/harrisoncramer/weave, unset when the checkout is gone or its origin
 	// is not a forge.
 	RepositoryUrl *string `protobuf:"bytes,37,opt,name=repository_url,json=repositoryUrl,proto3,oneof" json:"repository_url,omitempty"`
+	// The commit its checkout has checked out, unset when the checkout is gone or git cannot read it.
+	HeadSha *string `protobuf:"bytes,41,opt,name=head_sha,json=headSha,proto3,oneof" json:"head_sha,omitempty"`
 	// Whether its checkout has been taken away, which leaves the record and the transcript.
 	WorktreeRemoved bool `protobuf:"varint,23,opt,name=worktree_removed,json=worktreeRemoved,proto3" json:"worktree_removed,omitempty"`
 	// Whether a merge, a rebase or a cherry-pick is part-way through its checkout, waiting on
@@ -413,6 +415,13 @@ func (x *Agent) GetBranch() string {
 func (x *Agent) GetRepositoryUrl() string {
 	if x != nil && x.RepositoryUrl != nil {
 		return *x.RepositoryUrl
+	}
+	return ""
+}
+
+func (x *Agent) GetHeadSha() string {
+	if x != nil && x.HeadSha != nil {
+		return *x.HeadSha
 	}
 	return ""
 }
@@ -2938,7 +2947,7 @@ var File_agent_v1_agent_proto protoreflect.FileDescriptor
 
 const file_agent_v1_agent_proto_rawDesc = "" +
 	"\n" +
-	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x13agent/v1/mail.proto\x1a\x15agent/v1/review.proto\x1a\x19agent/v1/transcript.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a pullrequest/v1/pullrequest.proto\x1a\x14rules/v1/rules.proto\x1a\x12view/v1/view.proto\"\xcc\v\n" +
+	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x13agent/v1/mail.proto\x1a\x15agent/v1/review.proto\x1a\x19agent/v1/transcript.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a pullrequest/v1/pullrequest.proto\x1a\x14rules/v1/rules.proto\x1a\x12view/v1/view.proto\"\xf9\v\n" +
 	"\x05Agent\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x10\n" +
@@ -2966,12 +2975,13 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x13spawned_by_agent_id\x18\x14 \x01(\tH\x04R\x10spawnedByAgentId\x88\x01\x01\x12+\n" +
 	"\x0fparent_agent_id\x18\x1a \x01(\tH\x05R\rparentAgentId\x88\x01\x01\x12\x1b\n" +
 	"\x06branch\x18\x16 \x01(\tH\x06R\x06branch\x88\x01\x01\x12*\n" +
-	"\x0erepository_url\x18% \x01(\tH\aR\rrepositoryUrl\x88\x01\x01\x12)\n" +
+	"\x0erepository_url\x18% \x01(\tH\aR\rrepositoryUrl\x88\x01\x01\x12\x1e\n" +
+	"\bhead_sha\x18) \x01(\tH\bR\aheadSha\x88\x01\x01\x12)\n" +
 	"\x10worktree_removed\x18\x17 \x01(\bR\x0fworktreeRemoved\x120\n" +
 	"\x14sequence_in_progress\x18$ \x01(\bR\x12sequenceInProgress\x12\x1d\n" +
 	"\n" +
 	"failed_run\x18\x1b \x01(\bR\tfailedRun\x12)\n" +
-	"\x0efailed_run_log\x18\x1c \x01(\x05H\bR\ffailedRunLog\x88\x01\x01\x12(\n" +
+	"\x0efailed_run_log\x18\x1c \x01(\x05H\tR\ffailedRunLog\x88\x01\x01\x12(\n" +
 	"\x10state_changed_at\x18\x19 \x01(\tR\x0estateChangedAt\x12'\n" +
 	"\x0freported_reason\x18\x1d \x01(\tR\x0ereportedReason\x12'\n" +
 	"\x04role\x18\x1e \x01(\x0e2\x13.agent.v1.AgentRoleR\x04role\x12.\n" +
@@ -2989,7 +2999,8 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x14_spawned_by_agent_idB\x12\n" +
 	"\x10_parent_agent_idB\t\n" +
 	"\a_branchB\x11\n" +
-	"\x0f_repository_urlB\x11\n" +
+	"\x0f_repository_urlB\v\n" +
+	"\t_head_shaB\x11\n" +
 	"\x0f_failed_run_log\"\xf8\x01\n" +
 	"\bAgentRow\x12%\n" +
 	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\x12\x17\n" +
