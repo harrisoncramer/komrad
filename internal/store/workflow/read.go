@@ -39,18 +39,18 @@ func (s *WorkflowStore) List(ctx context.Context) ([]Workflow, error) {
 	}), nil
 }
 
-// WatchedWorkflows reads the workflows the watch carries, which are every one not being deleted.
-type WatchedWorkflows struct {
+// WatchedWorkflowReader reads the workflows the watch carries, which are every one not being deleted.
+type WatchedWorkflowReader struct {
 	store *WorkflowStore
 }
 
 // GetWatched returns the reader of the workflows the watch carries.
-func (s *WorkflowStore) GetWatched() WatchedWorkflows {
-	return WatchedWorkflows{store: s}
+func (s *WorkflowStore) GetWatched() WatchedWorkflowReader {
+	return WatchedWorkflowReader{store: s}
 }
 
 // List returns every workflow not being deleted, archived ones included, by name.
-func (w WatchedWorkflows) List(ctx context.Context) ([]Workflow, error) {
+func (w WatchedWorkflowReader) List(ctx context.Context) ([]Workflow, error) {
 	rows, err := w.store.queries.SnapshotWatchedWorkflows(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the watched workflows: %w", err)
@@ -58,7 +58,7 @@ func (w WatchedWorkflows) List(ctx context.Context) ([]Workflow, error) {
 
 	hooks, err := w.store.hooksByWorkflow(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read the hooks of the watched workflows: %w", err)
 	}
 
 	return xslice.Map(rows, func(row *models.SnapshotWatchedWorkflowsRow) Workflow {
@@ -67,7 +67,7 @@ func (w WatchedWorkflows) List(ctx context.Context) ([]Workflow, error) {
 }
 
 // ListByKey returns the workflows among the given ids that are not being deleted.
-func (w WatchedWorkflows) ListByKey(ctx context.Context, ids []string) ([]Workflow, error) {
+func (w WatchedWorkflowReader) ListByKey(ctx context.Context, ids []string) ([]Workflow, error) {
 	return w.store.ListByKey(ctx, ids)
 }
 
