@@ -662,7 +662,11 @@ func TestRestoreSplitLeavesAZoomedSidebarAlone(t *testing.T) {
 // TestRestoreSplitKeepsAChosenWidth covers a window that changed size after the divider was
 // dragged, which puts the sidebar back where it was dragged to rather than at the config.
 func TestRestoreSplitKeepsAChosenWidth(t *testing.T) {
-	tmux := &recordingTmux{width: 140, windowWidth: 200, height: 50}
+	tmux := &recordingTmux{
+		width:       140,
+		windowWidth: 200,
+		height:      50,
+	}
 	frame := New(tmux, config.Layout{SidebarWidth: 16})
 	frame.Attach("%0")
 	frame.ShowGuest("%7")
@@ -676,7 +680,11 @@ func TestRestoreSplitKeepsAChosenWidth(t *testing.T) {
 
 // TestFrameNudgeResizesTheSharedSplit covers a key moving the edge while tmux draws the divider.
 func TestFrameNudgeResizesTheSharedSplit(t *testing.T) {
-	tmux := &recordingTmux{width: 160, windowWidth: 200, height: 50}
+	tmux := &recordingTmux{
+		width:       160,
+		windowWidth: 200,
+		height:      50,
+	}
 	frame := New(tmux, config.Layout{SidebarWidth: 40})
 	frame.Attach("%0")
 
@@ -693,7 +701,11 @@ func TestFrameNudgeResizesTheSharedSplit(t *testing.T) {
 // TestFrameNudgeWhileZoomedIsPaidOnUnzoom covers a key moving the edge the panel paints itself,
 // where a resize would unzoom the window and so waits for the zoom to be let go.
 func TestFrameNudgeWhileZoomedIsPaidOnUnzoom(t *testing.T) {
-	tmux := &recordingTmux{width: 160, windowWidth: 200, height: 50}
+	tmux := &recordingTmux{
+		width:       160,
+		windowWidth: 200,
+		height:      50,
+	}
 	frame := New(tmux, config.Layout{SidebarWidth: 40})
 	frame.Attach("%0")
 	frame.Solo(true)
@@ -720,7 +732,11 @@ func TestFrameNudgeWhileZoomedIsPaidOnUnzoom(t *testing.T) {
 // TestFrameNudgeIsPaidWhenTmuxLetsTheZoomGo covers the zoom being dropped by tmux rather than by
 // the panel, which a sync finds.
 func TestFrameNudgeIsPaidWhenTmuxLetsTheZoomGo(t *testing.T) {
-	tmux := &recordingTmux{width: 160, windowWidth: 200, height: 50}
+	tmux := &recordingTmux{
+		width:       160,
+		windowWidth: 200,
+		height:      50,
+	}
 	frame := New(tmux, config.Layout{SidebarWidth: 40})
 	frame.Attach("%0")
 	frame.Solo(true)
@@ -735,7 +751,11 @@ func TestFrameNudgeIsPaidWhenTmuxLetsTheZoomGo(t *testing.T) {
 
 // TestFrameNudgeLeavesBothHalvesAColumn covers a key pressed past either end of the window.
 func TestFrameNudgeLeavesBothHalvesAColumn(t *testing.T) {
-	tmux := &recordingTmux{width: 160, windowWidth: 200, height: 50}
+	tmux := &recordingTmux{
+		width:       160,
+		windowWidth: 200,
+		height:      50,
+	}
 	frame := New(tmux, config.Layout{SidebarWidth: 40})
 	frame.Attach("%0")
 
@@ -751,7 +771,11 @@ func TestFrameNudgeLeavesBothHalvesAColumn(t *testing.T) {
 // TestAWindowTooNarrowForTheChosenWidthKeepsIt covers tmux clamping the sidebar into a window
 // narrower than the width chosen for it, which is not a choice.
 func TestAWindowTooNarrowForTheChosenWidthKeepsIt(t *testing.T) {
-	tmux := &recordingTmux{width: 149, windowWidth: 200, height: 50}
+	tmux := &recordingTmux{
+		width:       149,
+		windowWidth: 200,
+		height:      50,
+	}
 	frame := New(tmux, config.Layout{SidebarWidth: 16})
 	frame.Attach("%0")
 	frame.SyncSplit()
