@@ -6,8 +6,8 @@ import (
 	"flag"
 	"strings"
 	"testing"
-	"weave/internal/dbtest"
 
+	"weave/internal/dbtest"
 	"weave/internal/store"
 
 	"github.com/stretchr/testify/require"

@@ -167,3 +167,20 @@ func TestRunSurvivesACheckThatPanics(t *testing.T) {
 	assert.Equal(t, "check_panicked", report.Findings[1].Code)
 	assert.Equal(t, StatusOK, report.Findings[2].Status)
 }
+
+// TestNewEnvResolvesTheTenantOnlyToConnect pins a doctor that never connects never minting a tenant.
+func TestNewEnvResolvesTheTenantOnlyToConnect(t *testing.T) {
+	var asked int
+	env := NewEnv(Settings{GetTenantID: func() (string, error) {
+		asked++
+
+		return "", errors.New("no state directory")
+	}})
+
+	assert.Zero(t, asked)
+
+	err := env.ConnectReadOnly(t.Context(), "postgres://weave_readonly@localhost:1/weave")
+
+	require.Error(t, err)
+	assert.Equal(t, 1, asked)
+}

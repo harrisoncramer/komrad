@@ -52,7 +52,7 @@ func parseTenantID(id, source string) (string, error) {
 	return id, nil
 }
 
-// mintTenantID links a fresh id into place, leaving one another process linked first alone.
+// mintTenantID links a fresh id into place unless another process already has.
 func mintTenantID(dir, path string) (err error) {
 	id, err := uuid.NewV7()
 	if err != nil {
@@ -70,6 +70,10 @@ func mintTenantID(dir, path string) (err error) {
 	defer func() { err = errors.Join(err, os.Remove(tmp.Name())) }()
 
 	if _, err := tmp.WriteString(id.String() + "\n"); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("failed to write a tenant id: %w", err)
+	}
+	if err := tmp.Sync(); err != nil {
 		_ = tmp.Close()
 		return fmt.Errorf("failed to write a tenant id: %w", err)
 	}

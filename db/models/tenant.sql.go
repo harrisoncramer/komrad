@@ -29,36 +29,3 @@ func (q *Queries) EnsureTenant(ctx context.Context, id string) error {
 	_, err := q.db.Exec(ctx, ensureTenant, id)
 	return err
 }
-
-const listOtherWeaveHosts = `-- name: ListOtherWeaveHosts :many
-SELECT DISTINCT
-    SPLIT_PART(application_name, '/', 2)::text AS host
-FROM
-    pg_catalog.pg_stat_activity
-WHERE
-    datname = CURRENT_DATABASE()
-    AND application_name LIKE 'weave/%'
-    AND SPLIT_PART(application_name, '/', 2) <> $1::text
-ORDER BY
-    host
-`
-
-func (q *Queries) ListOtherWeaveHosts(ctx context.Context, host string) ([]string, error) {
-	rows, err := q.db.Query(ctx, listOtherWeaveHosts, host)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []string
-	for rows.Next() {
-		var host string
-		if err := rows.Scan(&host); err != nil {
-			return nil, err
-		}
-		items = append(items, host)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}

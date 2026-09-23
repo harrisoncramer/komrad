@@ -69,7 +69,7 @@ type Settings struct {
 	Harnesses           []HarnessInfo
 	DatabaseURL         string
 	ReadOnlyDatabaseURL string
-	TenantID            string
+	GetTenantID         func() (string, error)
 	Addr                string
 	// FocusKey is the key the panel binds in tmux's root table to take focus, which the
 	// keybindings check keeps free for it.
@@ -100,7 +100,12 @@ func NewEnv(settings Settings) Env {
 		PingDatabase:          pingDatabase,
 		ReadPendingMigrations: readPendingMigrations,
 		ConnectReadOnly: func(ctx context.Context, url string) error {
-			return connectReadOnly(ctx, url, settings.TenantID)
+			tenantID, err := settings.GetTenantID()
+			if err != nil {
+				return err
+			}
+
+			return connectReadOnly(ctx, url, tenantID)
 		},
 		ReadWorktreeOwners: readWorktreeOwners,
 		ReadWorkflowBases:  readWorkflowBases,
