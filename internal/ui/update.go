@@ -289,7 +289,7 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 	case tickMsg:
 		m.awaitingSize = false
 		next, readRuns := m.dwellRunsRead(msg.at)
-		reviewing := next.refreshReviewCmd(msg.at)
+		hashWorktree := next.hashReviewWorktreeCmd(msg.at)
 		edited := next.reconcileEditor()
 
 		next = next.noticeRebuild()
@@ -297,7 +297,7 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 			return next, nil, true
 		}
 
-		return next, tea.Batch(next.listCmd(), tick(), reviewing, readRuns, edited), true
+		return next, tea.Batch(next.listCmd(), tick(), hashWorktree, readRuns, edited), true
 	case tea.BlurMsg:
 		m.blurred = true
 		m.syncKeys()
@@ -385,13 +385,13 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 	}
 }
 
-// refreshReviewCmd is what the tick asks the review for while it is up.
-func (m *model) refreshReviewCmd(now time.Time) tea.Cmd {
+// hashReviewWorktreeCmd starts a hash of the agent's worktree while the review is up and one is due.
+func (m *model) hashReviewWorktreeCmd(now time.Time) tea.Cmd {
 	if m.screen != screenReview {
 		return nil
 	}
 
-	return m.review.refresh(m.shared(), now)
+	return m.review.hashWorktreeIfDue(m.shared(), now)
 }
 
 // followReviewCmd reads the review's conversation again when the watch has seen it move.

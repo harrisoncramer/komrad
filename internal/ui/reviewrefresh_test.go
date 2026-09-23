@@ -227,7 +227,7 @@ func TestReviewRefreshIsNotTheTick(t *testing.T) {
 	m = openReview(t, m)
 
 	moveReview(&m, "1")
-	m.refreshReviewCmd(time.Now())
+	m.hashReviewWorktreeCmd(time.Now())
 
 	assert.False(t, m.review.threads.reading)
 }
@@ -268,38 +268,6 @@ func TestReviewRefreshDrawsAHeldReadOnceInputCloses(t *testing.T) {
 
 	assert.Contains(t, ansi.Strip(m.review.view(m.shared())), "fixed it")
 	assert.False(t, m.review.threads.reading)
-}
-
-// TestReviewRefreshStandsDownMidInput pins that the tick does not fire while the reader is
-// typing.
-func TestReviewRefreshStandsDownMidInput(t *testing.T) {
-	tests := []struct {
-		name  string
-		start func(*model)
-	}{
-		{
-			name:  "a message is being composed",
-			start: func(m *model) { m.review.threads.composing = true },
-		},
-		{
-			name:  "a search pattern is being typed",
-			start: func(m *model) { m.review.diff.filter.typing = true },
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			dir := reviewRepo(t)
-			m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
-			m = openReview(t, m)
-
-			tt.start(&m)
-
-			assert.Nil(t, m.refreshReviewCmd(time.Now()))
-			assert.False(t, m.review.threads.reading)
-			assert.False(t, m.review.diff.diffPolling)
-		})
-	}
 }
 
 // TestReviewRefreshLeavesTheComposerAlone covers a read that was already in flight landing while
@@ -437,66 +405,7 @@ func TestReviewReloadKeepsTheSearch(t *testing.T) {
 	assert.True(t, jumped, "the search still has rows to step through")
 }
 
-// TestReviewDiffPollCatchesUpOnceTheTurnIsOver covers what watching is for: the worktree is
-// hashed in the background, and a move an idle agent left behind is read again on its own.
-func TestReviewDiffPollCatchesUpOnceTheTurnIsOver(t *testing.T) {
-	repo := newFakeRepo(t.TempDir())
-	m, tmux := reviewModelOver(t, &fakeReviewAgents{}, repo)
-	m = openReview(t, m)
-
-	repo.wrote(wroteParams{
-		Tree:  "tree-written-again",
-		Whole: fakePatchWrittenOver,
-		Sources: map[string]string{
-			fakeFile: "package greet\n\nfunc Hello() string {\n\treturn \"written by the agent\"\n}\n",
-		},
-	})
-
-	cmd := m.review.pollDiffCmd(m.shared())
-	polled, ok := cmd().(reviewDiffPolledMsg)
-	require.True(t, ok)
-	require.NoError(t, polled.err)
-
-	tmux.sentKeys = nil
-	caught := m.review.applyDiffPolled(m.shared(), polled)
-
-	require.True(t, m.review.diff.moved)
-	require.NotNil(t, caught, "an idle agent's move is read again rather than offered")
-	assert.Empty(t, tmux.sentKeys, "and nothing is typed at anybody to do it")
-
-	// The patch is only replaced once the read answers, so what is on screen until then is still
-	// the diff the reader was standing in.
-	shown := ansi.Strip(m.review.view(m.shared()))
-	assert.Contains(t, shown, "catching up")
-	assert.NotContains(t, shown, "written by the agent")
-
-	loaded, ok := caught().(reviewLoadedMsg)
-	require.True(t, ok)
-	m.review.applyLoaded(&m, m.shared(), loaded)
-
-	assert.Contains(t, ansi.Strip(m.review.view(m.shared())), "written by the agent", "and then it is drawn")
-}
-
-// TestReviewDiffPollIgnoresAWorktreeThatHasNotMoved pins the probe leaving an unchanged worktree
-// alone.
-func TestReviewDiffPollIgnoresAWorktreeThatHasNotMoved(t *testing.T) {
-	dir := reviewRepo(t)
-	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
-	m = openReview(t, m)
-
-	polled, ok := m.review.pollDiffCmd(m.shared())().(reviewDiffPolledMsg)
-	require.True(t, ok)
-	require.NoError(t, polled.err)
-
-	m.review.applyDiffPolled(m.shared(), polled)
-
-	assert.False(t, m.review.diff.moved)
-	assert.NotContains(t, ansi.Strip(m.review.view(m.shared())), "the agent has written since")
-}
-
-// TestReviewBacksOutWhenTheWorktreeWasEmptied covers the agent that throws its work away while
-// the review is open: catching up finds nothing to show, so the reader is put back on the listing
-// rather than left in a diff viewer with no diff in it.
+// TestReviewBacksOutWhenTheWorktreeWasEmptied pins a reload that finds no changes returning the reader to the listing.
 func TestReviewBacksOutWhenTheWorktreeWasEmptied(t *testing.T) {
 	repo := newFakeRepo(t.TempDir())
 	m, _ := reviewModelOver(t, &fakeReviewAgents{}, repo)
@@ -534,10 +443,10 @@ func TestReviewReloadKeyOpensTheNextRound(t *testing.T) {
 		},
 	})
 
-	polled, ok := m.review.pollDiffCmd(m.shared())().(reviewDiffPolledMsg)
+	hashed, ok := m.review.hashWorktreeCmd(m.shared())().(reviewWorktreeHashedMsg)
 	require.True(t, ok)
-	m.review.applyDiffPolled(m.shared(), polled)
-	require.True(t, m.review.diff.moved)
+	m.review.applyWorktreeHashed(m.shared(), hashed)
+	require.True(t, m.review.diff.worktree.moved)
 
 	m.review.diff.cursor = m.review.diff.view.Move(m.review.diff.cursor, 1)
 	place, located := m.review.diff.view.GetPlace(m.review.diff.cursor)
@@ -553,7 +462,7 @@ func TestReviewReloadKeyOpensTheNextRound(t *testing.T) {
 	m.review.applyLoaded(&m, m.shared(), loaded)
 
 	assert.Greater(t, m.review.round.GetOrdinal(), first, "the round moved on")
-	assert.False(t, m.review.diff.moved, "the notice goes with the round it was about")
+	assert.False(t, m.review.diff.worktree.moved, "the notice goes with the round it was about")
 
 	found, ok := m.review.diff.view.Locate(place)
 	require.True(t, ok)
@@ -573,7 +482,7 @@ func TestReviewReloadKeyReadsAgainWithNothingMoved(t *testing.T) {
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
 	m = openReview(t, m)
 
-	require.False(t, m.review.diff.moved)
+	require.False(t, m.review.diff.worktree.moved)
 
 	_, cmd := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("R")})
 	require.NotNil(t, cmd)
@@ -581,37 +490,6 @@ func TestReviewReloadKeyReadsAgainWithNothingMoved(t *testing.T) {
 	loaded, ok := cmd().(reviewLoadedMsg)
 	require.True(t, ok)
 	require.NoError(t, loaded.err)
-}
-
-// TestReviewDiffPollWaitsBetweenReads pins git being run every few seconds rather than every
-// tick.
-func TestReviewDiffPollWaitsBetweenReads(t *testing.T) {
-	dir := reviewRepo(t)
-	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
-	m = openReview(t, m)
-
-	at := time.Now()
-	require.NotNil(t, m.refreshReviewCmd(at))
-	require.True(t, m.review.diff.diffPolling)
-
-	m.review.applyDiffPolled(m.shared(), reviewDiffPolledMsg{agentID: "a1"})
-
-	assert.Nil(t, m.refreshReviewCmd(at.Add(time.Second)), "a tick a second later reads nothing")
-	assert.False(t, m.review.diff.diffPolling)
-
-	require.NotNil(t, m.refreshReviewCmd(at.Add(reviewDiffPollInterval)))
-	assert.True(t, m.review.diff.diffPolling)
-}
-
-// TestReviewRefreshIsOnlyForTheScreenThatIsUp pins the tick doing nothing anywhere else.
-func TestReviewRefreshIsOnlyForTheScreenThatIsUp(t *testing.T) {
-	dir := reviewRepo(t)
-	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
-	m = openReview(t, m)
-
-	m.review.leave(&m, m.shared())
-
-	assert.Nil(t, m.refreshReviewCmd(time.Now()))
 }
 
 // TestWhatChangedSinceYourLastReviewSurvivesAKeypress covers a standing fact about the diff
