@@ -12,10 +12,12 @@ import (
 //go:embed engine.sql
 var engineSQL string
 
+//go:embed engine_settings.sql
+var engineSettingsSQL string
+
 var enginePattern = regexp.MustCompile(`^[a-z][a-z0-9_]{0,29}$`)
 
-// ValidateEngineName refuses a name the engine's logins and River schema could not be named after.
-func ValidateEngineName(name string) error {
+func validateEngineName(name string) error {
 	if !enginePattern.MatchString(name) {
 		return fmt.Errorf("engine name %q must be 1 to 30 lowercase letters, digits or underscores, starting with a letter", name)
 	}
@@ -46,7 +48,7 @@ type EnsureEngineParams struct {
 
 // EnsureEngine creates an engine's tenant, logins and River schema, or brings an existing engine's up to date.
 func EnsureEngine(ctx context.Context, pool *pgxpool.Pool, params EnsureEngineParams) error {
-	if err := ValidateEngineName(params.Name); err != nil {
+	if err := validateEngineName(params.Name); err != nil {
 		return err
 	}
 
@@ -56,14 +58,8 @@ func EnsureEngine(ctx context.Context, pool *pgxpool.Pool, params EnsureEnginePa
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	settings := [][2]string{
-		{"weave.engine_name", params.Name},
-		{"weave.engine_password", params.Password},
-	}
-	for _, setting := range settings {
-		if _, err := tx.Exec(ctx, `SELECT set_config($1, $2, true)`, setting[0], setting[1]); err != nil {
-			return fmt.Errorf("failed to set %s: %w", setting[0], err)
-		}
+	if _, err := tx.Exec(ctx, engineSettingsSQL, params.Name, params.Password); err != nil {
+		return fmt.Errorf("failed to pass engine %s to its setup: %w", params.Name, err)
 	}
 
 	if _, err := tx.Exec(ctx, engineSQL); err != nil {

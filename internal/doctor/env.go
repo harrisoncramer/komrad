@@ -99,12 +99,14 @@ func NewEnv(settings Settings) Env {
 		ReadFile:              os.ReadFile,
 		PingDatabase:          pingDatabase,
 		ReadPendingMigrations: readPendingMigrations,
-		ConnectReadOnly:       connectReadOnly,
-		ReadEngine:            readEngine,
-		ReadWorktreeOwners:    readWorktreeOwners,
-		ReadWorkflowBases:     readWorkflowBases,
-		ResolveBase:           resolveWorkflowBase,
-		ReadTerminfo:          readTerminfo,
+		ConnectReadOnly: func(ctx context.Context, url string) error {
+			return connectReadOnly(ctx, url, settings.DatabaseURL)
+		},
+		ReadEngine:         readEngine,
+		ReadWorktreeOwners: readWorktreeOwners,
+		ReadWorkflowBases:  readWorkflowBases,
+		ResolveBase:        resolveWorkflowBase,
+		ReadTerminfo:       readTerminfo,
 	}
 }
 

@@ -135,7 +135,7 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 
 	// The MCP query tools connect through a least-privilege role, so their pool is opened
 	// apart from the one everything else writes through.
-	readOnly, err := store.OpenReadOnly(ctx, params.Env.ReadOnlyDatabaseURL)
+	readOnly, err := store.OpenReadOnly(ctx, params.Env.ReadOnlyDatabaseURL, st.pool.GetEngine().ID)
 	if err != nil {
 		return nil, err
 	}

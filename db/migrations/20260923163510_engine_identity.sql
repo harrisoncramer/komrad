@@ -136,6 +136,22 @@ ALTER TABLE "workflow_hooks" DROP CONSTRAINT "workflow_hooks_workflow_id_fkey", 
 -- Set comment to column: "tenant_id" on table: "workflow_hooks"
 COMMENT ON COLUMN "workflow_hooks"."tenant_id" IS 'The engine that owns this row, stamped from the login that wrote it.';
 
+CREATE FUNCTION current_login_is_reader()
+    RETURNS boolean
+    LANGUAGE sql
+    STABLE
+    SECURITY DEFINER
+    SET search_path = pg_catalog, public
+    AS $$
+    SELECT
+        COALESCE((
+            SELECT
+                reader
+            FROM public.tenant_logins
+            WHERE
+                ROLE = SESSION_USER), FALSE);
+$$;
+
 CREATE FUNCTION stamp_tenant()
     RETURNS TRIGGER
     AS $$
@@ -239,6 +255,40 @@ BEGIN
         WHEN duplicate_object OR unique_violation THEN
             NULL;
     END;
+END;
+$$;
+
+DO $$
+DECLARE
+    target text;
+BEGIN
+    FOREACH target IN ARRAY ARRAY['weave_engine', 'weave_reader']
+    LOOP
+        IF EXISTS (
+            SELECT
+                1
+            FROM
+                pg_roles
+            WHERE
+                rolname = target
+                AND (rolcanlogin
+                    OR rolsuper
+                    OR rolcreatedb
+                    OR rolcreaterole
+                    OR rolreplication
+                    OR rolbypassrls)) THEN
+        EXECUTE FORMAT('ALTER ROLE %I NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS', target);
+    END IF;
+        IF EXISTS (
+            SELECT
+                1
+            FROM
+                pg_auth_members
+            WHERE
+                member = target::regrole) THEN
+        RAISE EXCEPTION '% is a member of another role, which every engine login would inherit', target;
+    END IF;
+END LOOP;
 END;
 $$;
 

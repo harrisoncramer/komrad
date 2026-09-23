@@ -21,6 +21,9 @@ import (
 //go:embed drop_engine.sql
 var dropEngineSQL string
 
+//go:embed engine_login.sql
+var engineLoginSQL string
+
 //go:embed sweep_engines.sql
 var sweepEnginesSQL string
 
@@ -85,9 +88,16 @@ func EngineName(t *testing.T, database Database) string {
 	t.Helper()
 
 	name := "t" + randomHex(t, 12)
-	t.Cleanup(func() { dropEngine(t, database.OwnerURL, db.EngineLogin(name)) })
+	DropEngineWhenDone(t, database, name)
 
 	return name
+}
+
+// DropEngineWhenDone drops an engine's logins and whatever they own in database when the test ends.
+func DropEngineWhenDone(t *testing.T, database Database, name string) {
+	t.Helper()
+
+	t.Cleanup(func() { dropEngine(t, database.OwnerURL, db.EngineLogin(name)) })
 }
 
 // EngineURL is the url an engine's login connects to this database with.
@@ -128,7 +138,7 @@ func dropEngine(t *testing.T, ownerURL, login string) {
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	if _, err := tx.Exec(ctx, `SELECT set_config('weave.engine_login', $1, true)`, login); err != nil {
+	if _, err := tx.Exec(ctx, engineLoginSQL, login); err != nil {
 		t.Logf("failed to drop %s: %v", login, err)
 		return
 	}

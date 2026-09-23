@@ -26,7 +26,7 @@ func openTools(t *testing.T) *dbTools {
 	})
 	st.SeedTranscript(t, agent.ID, "we should update the parser")
 
-	readOnly, err := store.OpenReadOnly(t.Context(), st.ReadOnlyURL)
+	readOnly, err := store.OpenReadOnly(t.Context(), st.ReadOnlyURL, st.Pool.GetEngine().ID)
 	require.NoError(t, err)
 	t.Cleanup(readOnly.Close)
 

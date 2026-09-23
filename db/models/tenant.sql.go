@@ -30,3 +30,34 @@ func (q *Queries) GetCurrentEngine(ctx context.Context) (*GetCurrentEngineRow, e
 	err := row.Scan(&i.ID, &i.Name)
 	return &i, err
 }
+
+const getReaderIdentity = `-- name: GetReaderIdentity :one
+SELECT
+    COALESCE(r.rolsuper, TRUE)::boolean AS superuser,
+    COALESCE(r.rolbypassrls, TRUE)::boolean AS bypass_rls,
+    current_login_is_reader()::boolean AS reader,
+    COALESCE(current_tenant()::text, '')::text AS tenant_id
+FROM
+    pg_catalog.pg_roles r
+WHERE
+    r.rolname = SESSION_USER
+`
+
+type GetReaderIdentityRow struct {
+	Superuser bool
+	BypassRls bool
+	Reader    bool
+	TenantID  string
+}
+
+func (q *Queries) GetReaderIdentity(ctx context.Context) (*GetReaderIdentityRow, error) {
+	row := q.db.QueryRow(ctx, getReaderIdentity)
+	var i GetReaderIdentityRow
+	err := row.Scan(
+		&i.Superuser,
+		&i.BypassRls,
+		&i.Reader,
+		&i.TenantID,
+	)
+	return &i, err
+}

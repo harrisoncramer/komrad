@@ -51,7 +51,7 @@ func TestEnginesSharingADatabaseSeeOnlyTheirOwnRows(t *testing.T) {
 	_, err = workflowstore.NewWorkflowStore(secondPool.GetDB()).Create(ctx, workflowstore.Config{Name: "shared-name", Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"}})
 	require.NoError(t, err, "a name one engine holds is free for another")
 
-	reader, err := store.OpenReadOnly(ctx, second.ReaderURL)
+	reader, err := store.OpenReadOnly(ctx, second.ReaderURL, secondPool.GetEngine().ID)
 	require.NoError(t, err)
 	t.Cleanup(reader.Close)
 
@@ -143,4 +143,58 @@ func TestEnsuringAnEngineAgainKeepsItsRowsAndMovesItsPassword(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, kept, 1)
 	assert.Equal(t, created.ID, kept[0].ID)
+}
+
+// TestEnsureRefusesARoleItDidNotCreateHere pins an existing server role never being adopted, logins spanning every database on the server.
+func TestEnsureRefusesARoleItDidNotCreateHere(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+	first := dbtest.New(t)
+	second := dbtest.New(t)
+	name := dbtest.EngineName(t, first)
+	dbtest.DropEngineWhenDone(t, second, name)
+
+	require.NoError(t, store.EnsureEngine(ctx, first.OwnerURL, db.EnsureEngineParams{Name: name, Password: "first"}))
+
+	err := store.EnsureEngine(ctx, second.OwnerURL, db.EnsureEngineParams{Name: name, Password: "second"})
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "belongs to no engine")
+
+	_, err = store.Open(ctx, first.EngineURL(t, name, "first"))
+	require.NoError(t, err, "the refused attempt left the first database's engine as it was")
+}
+
+// TestTheReadOnlyPoolTakesOnlyThisEnginesReader pins the MCP pool refusing every login but the one paired with its engine.
+func TestTheReadOnlyPoolTakesOnlyThisEnginesReader(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+	database := dbtest.New(t)
+	first := dbtest.NewEngine(t, database)
+	second := dbtest.NewEngine(t, database)
+	firstID := openEngine(t, first).GetEngine().ID
+
+	tests := []struct {
+		name string
+		url  string
+	}{
+		{"another engine's reader", second.ReaderURL},
+		{"the engine's own writing login", first.URL},
+		{"the database owner", database.OwnerURL},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := store.OpenReadOnly(ctx, tt.url, firstID)
+			require.ErrorIs(t, err, store.ErrNotThisEnginesReader)
+		})
+	}
+
+	reader, err := store.OpenReadOnly(ctx, first.ReaderURL, firstID)
+	require.NoError(t, err)
+	reader.Close()
 }

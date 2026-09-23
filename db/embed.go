@@ -30,6 +30,9 @@ import (
 //go:embed migrations/*.sql
 var migrationsFS embed.FS
 
+//go:embed applied_migrations.sql
+var appliedMigrationsSQL string
+
 // migrateLock is the advisory lock key that stops two processes applying the same migration
 // twice, and it must never change.
 const migrateLock int64 = 7_240_115
@@ -141,8 +144,9 @@ func checkSchema(ctx context.Context, pool *pgxpool.Pool, files fs.FS) error {
 	return nil
 }
 
+// listAppliedMigrations reads the ledger, which a database that has never been migrated does not have yet.
 func listAppliedMigrations(ctx context.Context, q queryer) (map[string]bool, error) {
-	rows, err := q.Query(ctx, `SELECT version FROM schema_migrations`)
+	rows, err := q.Query(ctx, appliedMigrationsSQL)
 	if isUndefinedTable(err) {
 		return map[string]bool{}, nil
 	}
@@ -184,39 +188,12 @@ type queryer interface {
 
 // getMigrationsToRun is which of versions the database has no record of yet.
 func getMigrationsToRun(ctx context.Context, q queryer, versions []string) ([]string, error) {
-	rows, err := q.Query(ctx,
-		`SELECT version FROM schema_migrations WHERE version = ANY ($1)`, versions)
-	if isUndefinedTable(err) {
-		return versions, nil
-	}
+	applied, err := listAppliedMigrations(ctx, q)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read applied migrations: %w", err)
-	}
-	defer rows.Close()
-
-	appliedMigrations := make(map[string]bool, len(versions))
-	for rows.Next() {
-		var version string
-		if err := rows.Scan(&version); err != nil {
-			return nil, fmt.Errorf("failed to read an applied migration: %w", err)
-		}
-
-		appliedMigrations[version] = true
+		return nil, err
 	}
 
-	// The table can be missing on a database that has never been migrated, which the
-	// query above only reports once the rows are walked.
-	if err := rows.Err(); err != nil {
-		if isUndefinedTable(err) {
-			return versions, nil
-		}
-
-		return nil, fmt.Errorf("failed to read applied migrations: %w", err)
-	}
-
-	pending := xslice.Filter(versions, func(version string) bool { return !appliedMigrations[version] })
-
-	return pending, nil
+	return xslice.Filter(versions, func(version string) bool { return !applied[version] }), nil
 }
 
 // migrationSet is the migrations to apply and where to read them from.

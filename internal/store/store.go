@@ -149,9 +149,8 @@ func openOwner(ctx context.Context, url string) (*pgxpool.Pool, error) {
 	return pool, nil
 }
 
-// OpenReadOnly opens a pool for reading only, for surfaces such as the MCP endpoint that
-// must never write.
-func OpenReadOnly(ctx context.Context, url string) (*pgxpool.Pool, error) {
+// OpenReadOnly opens a read-only pool as engineID's reader login, for the MCP endpoint and anything else that must never write.
+func OpenReadOnly(ctx context.Context, url, engineID string) (*pgxpool.Pool, error) {
 	// It takes a url of its own because a read-only transaction stops writes and nothing
 	// else, so the role that url connects as decides everything a statement can read.
 	if url == "" {
@@ -176,7 +175,7 @@ func OpenReadOnly(ctx context.Context, url string) (*pgxpool.Pool, error) {
 		return nil, fmt.Errorf("failed to reach db read-only: %w", err)
 	}
 
-	if err := refuseSuperuser(ctx, pool); err != nil {
+	if err := checkReader(ctx, pool, engineID); err != nil {
 		pool.Close()
 		return nil, err
 	}
@@ -195,20 +194,28 @@ func parseConfig(url string) (*pgxpool.Config, error) {
 	return cfg, nil
 }
 
-func refuseSuperuser(ctx context.Context, pool *pgxpool.Pool) error {
-	var superuser bool
-	if err := pool.QueryRow(ctx,
-		`SELECT rolsuper FROM pg_roles WHERE rolname = current_user`).Scan(&superuser); err != nil {
-		return fmt.Errorf("failed to check whether the read-only role is a superuser: %w", err)
-	}
-	if !superuser {
-		return nil
+// ErrNotThisEnginesReader is what opening the read-only pool returns for any login but the engine's own reader.
+var ErrNotThisEnginesReader = fail.Precondition(
+	"the read-only database url must name this engine's reader login, which weave engine ensure creates")
+
+func checkReader(ctx context.Context, pool *pgxpool.Pool, engineID string) error {
+	identity, err := models.New(pool).GetReaderIdentity(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to read who the read-only login is: %w", err)
 	}
 
-	return fmt.Errorf(
-		"the read-only database role is a superuser, which would let a query tool read files on " +
-			"the database host; run 'weave engine ensure NAME' and point " +
-			"WEAVE_READONLY_DATABASE_URL at the role it creates")
+	switch {
+	case identity.Superuser:
+		return fmt.Errorf("%w: it is a superuser, which could read files on the database host", ErrNotThisEnginesReader)
+	case identity.BypassRls:
+		return fmt.Errorf("%w: it bypasses row security, which would show it every engine's rows", ErrNotThisEnginesReader)
+	case !identity.Reader:
+		return fmt.Errorf("%w: it is not a reader login", ErrNotThisEnginesReader)
+	case identity.TenantID != engineID:
+		return fmt.Errorf("%w: it belongs to another engine", ErrNotThisEnginesReader)
+	}
+
+	return nil
 }
 
 // GetDB returns the handle to build a domain store over for ordinary use, outside

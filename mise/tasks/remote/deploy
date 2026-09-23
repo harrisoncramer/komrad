@@ -88,13 +88,17 @@ KEY="deploy/weave-linux-arm64-$VERSION"
 aws s3 cp dist/weave-linux-arm64 "s3://$BUCKET/$KEY" --only-show-errors
 URL="$(aws s3 presign "s3://$BUCKET/$KEY" --expires-in 900 --region "$REGION")"
 
+CREDENTIALS_KEY="deploy/weave-database-credentials-$VERSION"
+aws s3 cp packer/files/weave-database-credentials "s3://$BUCKET/$CREDENTIALS_KEY" --only-show-errors
+CREDENTIALS_URL="$(aws s3 presign "s3://$BUCKET/$CREDENTIALS_KEY" --expires-in 900 --region "$REGION")"
+
 # The instance fetches the binary itself, so nothing large travels through the command and the
 # instance needs no permission on the bucket.
 COMMAND_ID="$(aws ssm send-command \
 	--region "$REGION" \
 	--instance-ids "$INSTANCE" \
 	--document-name AWS-RunShellScript \
-	--parameters "commands=[\"set -e\",\"curl -fsSL -o /tmp/weave-new '$URL'\",\"install -m 0755 /tmp/weave-new /usr/local/bin/weave\",\"rm -f /tmp/weave-new\",\"systemctl stop weave.service\",\"/usr/local/sbin/weave-database-credentials\",\"systemctl start weave.service\"]" \
+	--parameters "commands=[\"set -e\",\"curl -fsSL -o /tmp/weave-new '$URL'\",\"install -m 0755 /tmp/weave-new /usr/local/bin/weave\",\"rm -f /tmp/weave-new\",\"curl -fsSL -o /tmp/weave-database-credentials '$CREDENTIALS_URL'\",\"install -m 0755 /tmp/weave-database-credentials /usr/local/sbin/weave-database-credentials\",\"rm -f /tmp/weave-database-credentials\",\"systemctl stop weave.service\",\"/usr/local/sbin/weave-database-credentials\",\"systemctl start weave.service\"]" \
 	--query Command.CommandId \
 	--output text)"
 
