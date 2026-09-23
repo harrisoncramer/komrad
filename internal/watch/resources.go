@@ -55,6 +55,10 @@ var resources = []Resource{
 				Key:   "agent_id",
 			},
 			{
+				Table: "review_threads",
+				Key:   "agent_id",
+			},
+			{
 				Table: "pull_request_syncs",
 				Lookup: &Lookup{
 					ParentColumn:    "repository_url",

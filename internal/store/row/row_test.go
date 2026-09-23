@@ -146,6 +146,80 @@ func TestLocalReview(t *testing.T) {
 	assert.Zero(t, rowOf(t, st, reviewer.ID).LocalRounds, "the reviewer holds no diff of its own to have gone round")
 }
 
+// TestReviewVersion pins that every write the review screen draws moves the version the watch
+// carries on the agent's row.
+func TestReviewVersion(t *testing.T) {
+	st := storetest.Open(t)
+	ctx := t.Context()
+	reviews := reviewstore.NewReviewStore(st.Pool.GetDB())
+	agent := st.SeedAgent(t, agentstore.Agent{Name: "worker"})
+
+	last := rowOf(t, st, agent.ID).ReviewVersion
+	moved := func(write string) {
+		t.Helper()
+
+		version := rowOf(t, st, agent.ID).ReviewVersion
+		assert.NotEqual(t, last, version, write)
+		last = version
+	}
+
+	round, err := reviews.CreateRound(ctx, reviewstore.CreateRoundParams{
+		AgentID:     agent.ID,
+		BaseSHA:     "base",
+		SnapshotSHA: "snapshot",
+	})
+	require.NoError(t, err)
+
+	review, err := reviews.OpenReview(ctx, reviewstore.OpenReviewParams{
+		AgentID:    agent.ID,
+		RoundID:    round.ID,
+		AuthorKind: reviewstore.AuthorHuman,
+	})
+	require.NoError(t, err)
+	moved("a review is opened")
+
+	thread, err := reviews.CreateThread(ctx, reviewstore.CreateThreadParams{
+		AgentID:    agent.ID,
+		ReviewID:   review.ID,
+		RoundID:    round.ID,
+		FilePath:   "main.go",
+		NewStart:   1,
+		NewEnd:     1,
+		Body:       "wrong greeting",
+		AuthorKind: reviewstore.AuthorHuman,
+	})
+	require.NoError(t, err)
+	moved("a thread is opened")
+
+	_, err = reviews.ReleaseReview(ctx, reviewstore.ReleaseReviewParams{
+		ID:      review.ID,
+		Verdict: reviewstore.VerdictCommented,
+		Path:    "/tmp/review.md",
+	})
+	require.NoError(t, err)
+	moved("the review is released")
+
+	answer, err := reviews.CreateMessage(ctx, reviewstore.CreateMessageParams{
+		ThreadID:      thread.ID,
+		AuthorKind:    reviewstore.AuthorAgent,
+		AuthorAgentID: &agent.ID,
+		Body:          "fixed it",
+	})
+	require.NoError(t, err)
+	moved("the agent answers")
+
+	_, err = reviews.UpdateMessage(ctx, answer.ID, "fixed it properly", nil)
+	require.NoError(t, err)
+	moved("the agent rewrites its answer")
+
+	_, err = reviews.MarkThreadRead(ctx, thread.ID)
+	require.NoError(t, err)
+	moved("the person reads the thread")
+
+	require.NoError(t, reviews.DeleteReview(ctx, review.ID))
+	moved("the review and its thread are deleted")
+}
+
 // TestRepositoryRead pins the flag that tells an unread repository from one whose first sweep
 // completed and found nothing.
 func TestRepositoryRead(t *testing.T) {

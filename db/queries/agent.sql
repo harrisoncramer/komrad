@@ -88,6 +88,30 @@ concluded AS (
         v.agent_id,
         n.ordinal DESC,
         v.released_at DESC
+),
+threaded AS (
+    SELECT
+        t.agent_id,
+        COUNT(*)::int AS threads,
+        MAX(t.updated_at) AS moved_at
+    FROM
+        review_threads t
+    WHERE
+        t.agent_id = ANY (@ids::uuid[])
+    GROUP BY
+        t.agent_id
+),
+reviewed AS (
+    SELECT
+        v.agent_id,
+        COUNT(*)::int AS reviews,
+        MAX(v.updated_at) AS moved_at
+    FROM
+        reviews v
+    WHERE
+        v.agent_id = ANY (@ids::uuid[])
+    GROUP BY
+        v.agent_id
 )
 SELECT
     s.id,
@@ -103,12 +127,15 @@ SELECT
             pull_request_syncs y
         WHERE
             y.repository_url = s.repository_url
-            AND y.updated_through IS NOT NULL)::boolean AS repository_read
-    FROM
-        agents s
+            AND y.updated_through IS NOT NULL)::boolean AS repository_read,
+    CONCAT_WS(':', COALESCE(h.threads, 0), COALESCE(w.reviews, 0),(EXTRACT(EPOCH FROM GREATEST(h.moved_at, w.moved_at)) * 1000000)::bigint)::text AS review_version
+FROM
+    agents s
     LEFT JOIN failed f ON f.agent_id = s.id
     LEFT JOIN tallied t ON t.agent_id = s.id
     LEFT JOIN concluded c ON c.agent_id = s.id
+    LEFT JOIN threaded h ON h.agent_id = s.id
+    LEFT JOIN reviewed w ON w.agent_id = s.id
 WHERE
     s.id = ANY (@ids::uuid[]);
 

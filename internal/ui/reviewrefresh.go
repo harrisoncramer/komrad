@@ -2,8 +2,11 @@ package ui
 
 import (
 	"context"
+	"slices"
+	"strings"
 	"time"
 
+	"weave/internal/assemble"
 	"weave/internal/ui/panel"
 	agentv1 "weave/proto/gen/agent/v1"
 
@@ -22,12 +25,16 @@ const reviewDiffPollInterval = 5 * time.Second
 type reviewThreads struct {
 	list []*agentv1.ReviewThread
 
-	// activity is the conversation as it stood when the sidebar was last drawn, which a tick
-	// compares against so a refresh finding nothing new rebuilds nothing.
+	// activity is the conversation as it stood when the sidebar was last drawn, which a refresh
+	// compares against so one finding nothing new rebuilds nothing.
 	activity reviewActivity
 	// polling is set while a conversation read is in flight, so a slow one is not asked for again
 	// by every tick that passes underneath it.
 	polling bool
+	// seen is the watch's probe of the review as the conversation was last read against it.
+	seen string
+	// stale is set while the conversation on screen may be behind what the watch has seen.
+	stale bool
 
 	// owed is the id of the last released review while it still holds comments nobody has
 	// settled, empty once a second review would be allowed.
@@ -89,11 +96,16 @@ type reviewDiffPolledMsg struct {
 	err   error
 }
 
-// refresh is what the panel's own tick asks for while the review is up: the conversation every
-// time, and the worktree every few seconds.
+// refresh is what the panel asks for while the review is up: the conversation when the watch
+// says it moved, and the worktree every few seconds.
 func (r *reviewScreen) refresh(s panelShared, now time.Time) tea.Cmd {
 	if r.diff.view == nil {
 		return nil
+	}
+
+	if probe := reviewProbeOf(s.listing.world, r.agentID); probe != r.threads.seen {
+		r.threads.seen = probe
+		r.threads.stale = true
 	}
 
 	// A reader mid-input is left alone, and the tick after the key that closes them picks the work
@@ -104,7 +116,8 @@ func (r *reviewScreen) refresh(s panelShared, now time.Time) tea.Cmd {
 
 	var cmds []tea.Cmd
 
-	if !r.threads.polling {
+	if r.threads.stale && !r.threads.polling {
+		r.threads.stale = false
 		r.threads.polling = true
 		cmds = append(cmds, r.refreshThreadsCmd(s))
 	}
@@ -183,12 +196,16 @@ func (r *reviewScreen) applyRefreshed(s panelShared, msg reviewRefreshedMsg) {
 
 	// A read that failed says nothing, and the next tick asks again.
 	if msg.err != nil || r.diff.view == nil {
+		r.threads.stale = true
+
 		return
 	}
 
-	// Input can have started while the read was in flight, and the probe is left where it was
-	// so the tick after the reader is done finds this again.
+	// Input can have started while the read was in flight, so the tick after the reader is done
+	// reads it again.
 	if r.takesEveryKey() {
+		r.threads.stale = true
+
 		return
 	}
 
@@ -271,4 +288,18 @@ func (r reviewScreen) isAgentWriting(s panelShared) bool {
 	item, ok := r.agentRow(s)
 
 	return ok && item.Alive && item.Agent.State == panel.StateThinking
+}
+
+// reviewProbeOf is what the watch knows of an agent's review: the version on its row and the
+// review notices still waiting for it, whose claiming is what moves a comment to delivered.
+func reviewProbeOf(world assemble.World, agentID string) string {
+	var waiting []string
+	for id, mail := range world.Mail {
+		if mail.GetToAgentId() == agentID && mail.GetKind() == agentv1.MailKind_MAIL_KIND_REVIEW_ACTIVITY {
+			waiting = append(waiting, id)
+		}
+	}
+	slices.Sort(waiting)
+
+	return world.Agents[agentID].GetReviewVersion() + " " + strings.Join(waiting, ",")
 }

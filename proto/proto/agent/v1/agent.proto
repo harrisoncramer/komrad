@@ -122,6 +122,8 @@ message Agent {
   string held_at = 35;
   // Whether the pull request sync has swept its repository.
   bool repository_read = 39;
+  // Changes whenever anything in the review of the agent's own work moves.
+  string review_version = 40;
 }
 
 // AgentRow is an agent with what is drawn beside it: its mark, its waiting mail and the pull

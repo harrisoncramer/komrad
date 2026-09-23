@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -8,6 +9,7 @@ import (
 	"weave/internal/diff"
 	"weave/internal/ui/diffview"
 	agentv1 "weave/proto/gen/agent/v1"
+	watchv1 "weave/proto/gen/watch/v1"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
@@ -140,14 +142,122 @@ func TestReviewRefreshHoldsOneReadAtATime(t *testing.T) {
 	m = openReview(t, m)
 
 	at := time.Now()
+	moveReview(&m, "1")
 	require.NotNil(t, m.refreshReviewCmd(at))
 	require.True(t, m.review.threads.polling)
 
-	assert.Nil(t, m.refreshReviewCmd(at.Add(time.Second)), "nothing is asked for while a read is in flight")
+	moveReview(&m, "2")
+	m.refreshReviewCmd(at.Add(time.Second))
+	assert.True(t, m.review.threads.polling, "nothing more is asked for while a read is in flight")
 
 	m.review.applyRefreshed(m.shared(), reviewRefreshedMsg{agentID: "a1"})
 	assert.False(t, m.review.threads.polling)
-	assert.NotNil(t, m.refreshReviewCmd(at.Add(2*time.Second)), "and the tick after it lands asks again")
+	m.refreshReviewCmd(at.Add(2 * time.Second))
+	assert.True(t, m.review.threads.polling, "and the move it missed is read once it lands")
+}
+
+// moveReview puts the agent under review into the watched world with a new review version.
+func moveReview(m *model, version string) {
+	m.listing.world.Put(&watchv1.Row{Row: &watchv1.Row_Agent{Agent: &agentv1.Agent{Id: "a1", ReviewVersion: version}}})
+}
+
+// TestReviewRefreshWaitsForTheWatch pins that the conversation is read again only when the watch
+// has seen the review move.
+func TestReviewRefreshWaitsForTheWatch(t *testing.T) {
+	notice := func(id, to string) *watchv1.Row {
+		return &watchv1.Row{Row: &watchv1.Row_Mail{Mail: &agentv1.Mail{
+			Id:        id,
+			ToAgentId: to,
+			Kind:      agentv1.MailKind_MAIL_KIND_REVIEW_ACTIVITY,
+		}}}
+	}
+
+	tests := []struct {
+		name  string
+		held  []*watchv1.Row
+		move  func(m *model)
+		reads bool
+	}{
+		{
+			name:  "nothing moved",
+			move:  func(*model) {},
+			reads: false,
+		},
+		{
+			name:  "the review version moved",
+			move:  func(m *model) { moveReview(m, "2") },
+			reads: true,
+		},
+		{
+			name: "the agent claimed its review notice",
+			held: []*watchv1.Row{notice("n1", "a1")},
+			move: func(m *model) {
+				m.listing.world.Apply(&watchv1.WatchEvent{Event: &watchv1.WatchEvent_Deleted{Deleted: &watchv1.Deleted{
+					Resource: watchv1.Resource_RESOURCE_MAIL,
+					Key:      "n1",
+				}}})
+			},
+			reads: true,
+		},
+		{
+			name:  "another agent was sent a review notice",
+			move:  func(m *model) { m.listing.world.Put(notice("n2", "a2")) },
+			reads: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := reviewRepo(t)
+			m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+			moveReview(&m, "1")
+			for _, row := range tt.held {
+				m.listing.world.Put(row)
+			}
+			m = openReview(t, m)
+
+			tt.move(&m)
+			m.refreshReviewCmd(time.Now())
+
+			assert.Equal(t, tt.reads, m.review.threads.polling)
+		})
+	}
+}
+
+// TestReviewRefreshRetriesAFailedRead pins that a read which failed is asked for again without
+// the watch having to move a second time.
+func TestReviewRefreshRetriesAFailedRead(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	at := time.Now()
+	moveReview(&m, "1")
+	m.refreshReviewCmd(at)
+	require.True(t, m.review.threads.polling)
+
+	m.review.applyRefreshed(m.shared(), reviewRefreshedMsg{agentID: "a1", err: errors.New("unreachable")})
+	m.refreshReviewCmd(at.Add(time.Second))
+
+	assert.True(t, m.review.threads.polling)
+}
+
+// TestReviewRefreshCatchesUpAfterInput pins that a move seen while the reader was typing is read
+// once they stop.
+func TestReviewRefreshCatchesUpAfterInput(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	at := time.Now()
+	m.review.threads.composing = true
+	moveReview(&m, "1")
+	assert.Nil(t, m.refreshReviewCmd(at))
+
+	m.review.threads.composing = false
+	m.refreshReviewCmd(at.Add(time.Second))
+
+	assert.True(t, m.review.threads.polling)
 }
 
 // TestReviewRefreshStandsDownMidInput pins that the tick does not fire while the reader is
@@ -487,13 +597,10 @@ func TestReviewDiffPollWaitsBetweenReads(t *testing.T) {
 	require.NotNil(t, m.refreshReviewCmd(at))
 	require.True(t, m.review.diff.diffPolling)
 
-	m.review.applyRefreshed(m.shared(), reviewRefreshedMsg{agentID: "a1"})
 	m.review.applyDiffPolled(m.shared(), reviewDiffPolledMsg{agentID: "a1"})
 
-	require.NotNil(t, m.refreshReviewCmd(at.Add(time.Second)))
-	assert.False(t, m.review.diff.diffPolling, "a tick a second later reads the conversation and not the worktree")
-
-	m.review.applyRefreshed(m.shared(), reviewRefreshedMsg{agentID: "a1"})
+	assert.Nil(t, m.refreshReviewCmd(at.Add(time.Second)), "a tick a second later reads nothing")
+	assert.False(t, m.review.diff.diffPolling)
 
 	require.NotNil(t, m.refreshReviewCmd(at.Add(reviewDiffPollInterval)))
 	assert.True(t, m.review.diff.diffPolling)
