@@ -112,7 +112,7 @@ func (b *Broker) hold(ctx context.Context, conn *pgx.Conn) error {
 	}
 }
 
-// handleNotification puts the row a notification names in the pending set.
+// handleNotification signals the row a notification names.
 func (b *Broker) handleNotification(payload string) {
 	table, key, found := strings.Cut(payload, " ")
 	if !found {
@@ -121,7 +121,14 @@ func (b *Broker) handleNotification(payload string) {
 		return
 	}
 
-	b.markPending(table, key)
+	resource, ok := findResource(table)
+	if !ok {
+		b.reportUnknown(table)
+
+		return
+	}
+
+	b.Signal(resource, key)
 }
 
 // up says the listener is on the channel, so watchers may open.

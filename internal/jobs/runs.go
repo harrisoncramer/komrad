@@ -12,6 +12,7 @@ import (
 	"weave/internal/logging"
 
 	schedulestore "weave/internal/store/schedule"
+	watchv1 "weave/proto/gen/watch/v1"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -28,8 +29,8 @@ type scheduleReader interface {
 	ListByKey(ctx context.Context, ids []string) ([]schedulestore.Schedule, error)
 }
 
-type scheduleNotifier interface {
-	SendScheduleChange(ctx context.Context, scheduleID string) error
+type watchSignaler interface {
+	Signal(resource watchv1.Resource, keys ...string)
 }
 
 // RunLister reads a schedule's firings out of River's own record of its launch jobs.
@@ -121,9 +122,8 @@ func (r *LatestRunReader) ListByKey(ctx context.Context, ids []string) ([]schedu
 	return r.runs.AttachLatest(ctx, schedules)
 }
 
-// NotifyFinishedRuns tells the watch about each launch job River finishes until the client stops,
-// since finishing one writes no row of weave's own.
-func NotifyFinishedRuns(ctx context.Context, client *river.Client[pgx.Tx], notifier scheduleNotifier, logger *slog.Logger) {
+// SignalFinishedRuns signals the watch with each launch job River finishes until the client stops.
+func SignalFinishedRuns(ctx context.Context, client *river.Client[pgx.Tx], signaler watchSignaler, logger *slog.Logger) {
 	logger = cmp.Or(logger, slog.Default())
 	events, cancel := client.Subscribe(river.EventKindJobCompleted, river.EventKindJobCancelled, river.EventKindJobFailed)
 
@@ -139,13 +139,13 @@ func NotifyFinishedRuns(ctx context.Context, client *river.Client[pgx.Tx], notif
 					return
 				}
 
-				notifyFinishedRun(ctx, event, notifier, logger)
+				signalFinishedRun(ctx, event, signaler, logger)
 			}
 		}
 	}()
 }
 
-func notifyFinishedRun(ctx context.Context, event *river.Event, notifier scheduleNotifier, logger *slog.Logger) {
+func signalFinishedRun(ctx context.Context, event *river.Event, signaler watchSignaler, logger *slog.Logger) {
 	if event.Job == nil || event.Job.Kind != (internaljobs.LaunchAgentArgs{}).Kind() {
 		return
 	}
@@ -157,10 +157,7 @@ func notifyFinishedRun(ctx context.Context, event *river.Event, notifier schedul
 		return
 	}
 
-	if err := notifier.SendScheduleChange(ctx, args.ScheduleID); err != nil {
-		logger.LogAttrs(ctx, slog.LevelWarn, "failed to notify the watch of a finished run",
-			append([]slog.Attr{slog.String(logging.ScheduleID, args.ScheduleID)}, logging.Err(err)...)...)
-	}
+	signaler.Signal(watchv1.Resource_RESOURCE_SCHEDULE, args.ScheduleID)
 }
 
 func runFromJob(job *rivertype.JobRow) (*schedulestore.Run, error) {

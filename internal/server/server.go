@@ -25,8 +25,6 @@ import (
 	"weave/internal/tmux"
 	"weave/internal/watch"
 
-	notifystore "weave/internal/store/notify"
-
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
 )
@@ -134,9 +132,9 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 		return nil, err
 	}
 
-	notifyCtx, stopNotifying := context.WithCancel(context.WithoutCancel(ctx))
-	srv.closers = append(srv.closers, stopNotifying)
-	jobs.NotifyFinishedRuns(notifyCtx, srv.Jobs, notifystore.NewNotifyStore(st.pool.GetRawPool()), params.Logger)
+	signalCtx, stopSignaling := context.WithCancel(context.WithoutCancel(ctx))
+	srv.closers = append(srv.closers, stopSignaling)
+	jobs.SignalFinishedRuns(signalCtx, srv.Jobs, broker, params.Logger)
 
 	// The MCP query tools connect through a least-privilege role, so their pool is opened
 	// apart from the one everything else writes through.

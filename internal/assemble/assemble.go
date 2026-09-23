@@ -116,7 +116,11 @@ func (w *World) drop(deleted *watchv1.Deleted) {
 		delete(w.Mail, key)
 	case watchv1.Resource_RESOURCE_PULL_REQUEST:
 		delete(w.PullRequests, key)
-	case watchv1.Resource_RESOURCE_UNSPECIFIED:
+	case watchv1.Resource_RESOURCE_UNSPECIFIED,
+		watchv1.Resource_RESOURCE_REPOSITORY,
+		watchv1.Resource_RESOURCE_REVIEW,
+		watchv1.Resource_RESOURCE_REVIEW_THREAD,
+		watchv1.Resource_RESOURCE_WORKTREE:
 	}
 }
 
