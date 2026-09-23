@@ -1,0 +1,16 @@
+# A merged pull request on an agent's branch, then a commit in its checkout that moves the
+# branch past it, then the git menu's hint and the o key's refusal.
+key }
+key }
+key }
+key }
+key j
+wait #9901 merged
+sleep 1s
+wait none since
+key C-t
+sleep 500ms
+key b
+sleep 500ms
+key o
+sleep 1s
