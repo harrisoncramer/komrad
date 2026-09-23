@@ -233,6 +233,7 @@ type model struct {
 	messages      messagesState
 	detailsHeight float64
 	listing       listing
+	archiveReads  archiveReads
 	agents        agentsScreen
 	runHover      hoverState
 	schedules     schedulesScreen

@@ -53,15 +53,30 @@ type listedMsg struct {
 	worktreesListed      bool
 }
 
-// listCmd reads the archive and the worktree directories when the screen that is up draws
-// them, and nothing otherwise.
-func (m model) listCmd() tea.Cmd {
+// archiveReads is when the archive the screens draw from is read again.
+type archiveReads struct {
+	// current is set once the archive is read and nothing the watch has seen since could move it.
+	current bool
+	// reading is set while a read of the archive is in flight.
+	reading bool
+}
+
+// listCmd reads the archive when the screen that is up draws it and it is not current, and the
+// worktree directories whenever the screen draws them.
+func (m *model) listCmd() tea.Cmd {
 	needs := m.active().needs()
-	if !needs.archive && !needs.worktrees {
+	withArchive := needs.archive && !m.archiveReads.current && !m.archiveReads.reading
+	withWorktrees := needs.worktrees
+	if !withArchive && !withWorktrees {
 		return nil
 	}
 
-	clients, withArchive, withWorktrees := m.api, needs.archive, needs.worktrees
+	if withArchive {
+		m.archiveReads.current = true
+		m.archiveReads.reading = true
+	}
+
+	clients := m.api
 
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), agentsTimeout)
@@ -136,6 +151,9 @@ func (m *model) applyListed(result listedMsg) tea.Cmd {
 	archiveRow := m.archive.list().hovered(m.shared())
 	worktreeRow := m.worktrees.list().hovered(m.shared())
 
+	if result.archivedListed {
+		m.archiveReads.reading = false
+	}
 	if result.archivedListed && result.archivedErr == nil && result.archivedWorkflowsErr == nil {
 		m.applyArchive(result.archived, result.archivedWorkflows, archiveRow)
 	}

@@ -156,6 +156,7 @@ func (m *model) enterScreen(next screen) {
 
 	if m.screen != next {
 		m.filter = filterState{}
+		m.archiveReads.current = false
 	}
 
 	m.screen = next

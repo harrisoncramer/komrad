@@ -447,6 +447,129 @@ func TestSearchListsTheArchive(t *testing.T) {
 	}
 }
 
+// TestTheArchiveIsReadOnlyWhenItMayHaveMoved pins that the archive is read once for the screen
+// that draws it, and again only after a watch event that could change it.
+func TestTheArchiveIsReadOnlyWhenItMayHaveMoved(t *testing.T) {
+	agentPut := func(id string) *watchv1.WatchEvent {
+		return putEvent(&watchv1.Row{Row: &watchv1.Row_Agent{Agent: &agentv1.Agent{Id: id, WorkflowId: "w1"}}})
+	}
+
+	tests := []struct {
+		name      string
+		event     *watchv1.WatchEvent
+		wantReads int
+	}{
+		{
+			name:      "a live agent is written",
+			event:     agentPut("live"),
+			wantReads: 1,
+		},
+		{
+			name:      "a key the panel never saw is gone",
+			event:     deletedEvent(watchv1.Resource_RESOURCE_AGENT, "stranger"),
+			wantReads: 1,
+		},
+		{
+			name:      "a pull request is gone",
+			event:     deletedEvent(watchv1.Resource_RESOURCE_PULL_REQUEST, "a1"),
+			wantReads: 1,
+		},
+		{
+			name:      "a live agent is archived",
+			event:     deletedEvent(watchv1.Resource_RESOURCE_AGENT, "live"),
+			wantReads: 2,
+		},
+		{
+			name:      "an archived agent is deleted",
+			event:     deletedEvent(watchv1.Resource_RESOURCE_AGENT, "a1"),
+			wantReads: 2,
+		},
+		{
+			name:      "an agent is restored or spawned",
+			event:     agentPut("fresh"),
+			wantReads: 2,
+		},
+		{
+			name:      "a workflow is restored or made",
+			event:     putEvent(&watchv1.Row{Row: &watchv1.Row_Workflow{Workflow: &workflowv1.Workflow{Id: "w2"}}}),
+			wantReads: 2,
+		},
+		{
+			name:      "the stream opens again",
+			event:     snapshotEvent(),
+			wantReads: 2,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			lists := &countedArchive{}
+			m := model{
+				frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
+				keys:   config.DefaultKeybindings(),
+				screen: screenArchive,
+				api: api{
+					agents:    lists,
+					workflows: lists,
+					schedules: lists,
+				},
+			}
+			m.listing.world.Put(&watchv1.Row{Row: &watchv1.Row_Agent{Agent: &agentv1.Agent{Id: "live", WorkflowId: "w1"}}})
+
+			m = settle(t, m, m.listCmd())
+			require.Equal(t, 1, lists.reads, "the screen reads the archive once")
+			require.Len(t, m.listing.archivedAgents, 1)
+
+			m = settle(t, m, m.listCmd())
+			require.Equal(t, 1, lists.reads, "and not again on the next tick")
+
+			m.applyWatch(client.WatchBatch{tt.event})
+			m = settle(t, m, m.listCmd())
+
+			assert.Equal(t, tt.wantReads, lists.reads)
+		})
+	}
+}
+
+// TestReturningToTheArchiveReadsItAgain pins that coming back onto a screen that draws the
+// archive reads it fresh.
+func TestReturningToTheArchiveReadsItAgain(t *testing.T) {
+	lists := &countedArchive{}
+	m := model{
+		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
+		keys:   config.DefaultKeybindings(),
+		screen: screenArchive,
+		api: api{
+			agents:    lists,
+			workflows: lists,
+			schedules: lists,
+		},
+	}
+
+	m = settle(t, m, m.listCmd())
+	require.Equal(t, 1, lists.reads)
+
+	m.enterScreen(screenAgents)
+	m.enterScreen(screenArchive)
+	m = settle(t, m, m.listCmd())
+
+	assert.Equal(t, 2, lists.reads)
+}
+
+// countedArchive answers one archived agent and counts how often the archive is read.
+type countedArchive struct {
+	archivedLists
+	reads int
+}
+
+func (c *countedArchive) ListAgents(ctx context.Context, req *connect.Request[agentv1.ListAgentsRequest]) (*connect.Response[agentv1.ListAgentsResponse], error) {
+	if req.Msg.GetArchived() {
+		c.reads++
+	}
+
+	return c.archivedLists.ListAgents(ctx, req)
+}
+
 type archivedLists struct {
 	emptyLists
 }
