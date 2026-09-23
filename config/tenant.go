@@ -13,84 +13,56 @@ import (
 
 const tenantFile = "tenant_id"
 
-// GetTenantID is the tenant this engine writes as, minted into the state directory the first time it is asked for.
+// ErrNoTenantID is what reading the tenant returns on an engine that has never started.
+var ErrNoTenantID = errors.New("this engine has no tenant id yet; start it once with weave serve")
+
+// GetTenantID reads the tenant this engine writes as.
 func (e *Environment) GetTenantID() (string, error) {
-	path := filepath.Join(e.StateDir, tenantFile)
-	id, err := readTenantID(path)
-	if !errors.Is(err, fs.ErrNotExist) {
-		return id, err
+	data, err := os.ReadFile(e.tenantPath())
+	if errors.Is(err, fs.ErrNotExist) {
+		return "", ErrNoTenantID
 	}
-
-	if err := mintTenantID(e.StateDir, path); err != nil {
-		return "", err
-	}
-
-	return readTenantID(path)
-}
-
-func readTenantID(path string) (string, error) {
-	data, err := os.ReadFile(path)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to read the tenant id: %w", err)
 	}
 
-	return parseTenantID(strings.TrimSpace(string(data)), path)
-}
-
-func parseTenantID(id, source string) (string, error) {
+	id := strings.TrimSpace(string(data))
 	if _, err := uuid.Parse(id); err != nil {
-		return "", fmt.Errorf("the tenant id in %s is %q, which is not a uuid: %w", source, id, err)
+		return "", fmt.Errorf("the tenant id in %s is %q, which is not a uuid: %w", e.tenantPath(), id, err)
 	}
 
 	return id, nil
 }
 
-// mintTenantID links a fresh id into place unless another process already has.
-func mintTenantID(dir, path string) (err error) {
-	id, err := uuid.NewV7()
+// EnsureTenantID reads the tenant this engine writes as, minting it on the engine's first start.
+func (e *Environment) EnsureTenantID() (string, error) {
+	id, err := e.GetTenantID()
+	if !errors.Is(err, ErrNoTenantID) {
+		return id, err
+	}
+
+	minted, err := uuid.NewV7()
 	if err != nil {
-		return fmt.Errorf("failed to mint a tenant id: %w", err)
+		return "", fmt.Errorf("failed to mint a tenant id: %w", err)
 	}
 
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return fmt.Errorf("failed to create %s: %w", dir, err)
+	if err := os.MkdirAll(e.StateDir, 0o700); err != nil {
+		return "", fmt.Errorf("failed to create %s: %w", e.StateDir, err)
 	}
 
-	tmp, err := os.CreateTemp(dir, tenantFile+".*")
+	file, err := os.OpenFile(e.tenantPath(), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
-		return fmt.Errorf("failed to write a tenant id: %w", err)
-	}
-	defer func() { err = errors.Join(err, os.Remove(tmp.Name())) }()
-
-	if _, err := tmp.WriteString(id.String() + "\n"); err != nil {
-		_ = tmp.Close()
-		return fmt.Errorf("failed to write a tenant id: %w", err)
-	}
-	if err := tmp.Sync(); err != nil {
-		_ = tmp.Close()
-		return fmt.Errorf("failed to write a tenant id: %w", err)
-	}
-	if err := tmp.Close(); err != nil {
-		return fmt.Errorf("failed to write a tenant id: %w", err)
+		return "", fmt.Errorf("failed to save the tenant id: %w", err)
 	}
 
-	if err := os.Link(tmp.Name(), path); err != nil && !errors.Is(err, fs.ErrExist) {
-		return fmt.Errorf("failed to save the tenant id to %s: %w", path, err)
+	_, writeErr := file.WriteString(minted.String() + "\n")
+	if err := errors.Join(writeErr, file.Close()); err != nil {
+		return "", fmt.Errorf("failed to save the tenant id: %w", err)
 	}
 
-	return syncDir(dir)
+	return minted.String(), nil
 }
 
-func syncDir(dir string) (err error) {
-	d, err := os.Open(dir)
-	if err != nil {
-		return fmt.Errorf("failed to open %s: %w", dir, err)
-	}
-	defer func() { err = errors.Join(err, d.Close()) }()
-
-	if err := d.Sync(); err != nil {
-		return fmt.Errorf("failed to sync %s: %w", dir, err)
-	}
-
-	return nil
+func (e *Environment) tenantPath() string {
+	return filepath.Join(e.StateDir, tenantFile)
 }

@@ -69,7 +69,7 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 		return nil, err
 	}
 
-	tenantID, err := params.Env.GetTenantID()
+	tenantID, err := params.Env.EnsureTenantID()
 	if err != nil {
 		return nil, err
 	}
