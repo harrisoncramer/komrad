@@ -137,13 +137,13 @@ func receive(t *testing.T, stream *connect.ServerStreamForClient[watchv1.WatchEv
 // TestWatchSendsTheSnapshotThenChanges pins the shape of the stream end to end, through the
 // generated adapter and both interceptors.
 func TestWatchSendsTheSnapshotThenChanges(t *testing.T) {
-	s := serve(t, agentStore{ids: []string{"a1"}}, time.Hour)
+	s := serve(t, agentStore{ids: []string{"a1", "gone-a3"}}, time.Hour)
 
 	stream, err := s.client.Watch(t.Context(), connect.NewRequest(&emptypb.Empty{}))
 	require.NoError(t, err)
 
 	first := receive(t, stream)
-	require.Len(t, first.GetSnapshot().GetRows(), 1)
+	require.Len(t, first.GetSnapshot().GetRows(), 2)
 	assert.Equal(t, "a1", first.GetSnapshot().GetRows()[0].GetAgent().GetId())
 
 	s.notify(t, "agents a2")
