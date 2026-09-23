@@ -150,7 +150,7 @@ func (l *listened) seedAgent(t *testing.T) string {
 	return l.seed(t).agent
 }
 
-// seeded is the rows a lookup projection has to find its way between.
+// seeded is the rows a lookup subresource has to find its way between.
 type seeded struct {
 	workflow   string
 	config     string
@@ -178,10 +178,10 @@ func (l *listened) seed(t *testing.T) seeded {
 	return rows
 }
 
-// TestALookupProjectionReachesItsParents pins the two lookup projections against a real
-// database: a write to a table that holds no parent key reaches the watcher under the key of
-// the parent row that matches it.
-func TestALookupProjectionReachesItsParents(t *testing.T) {
+// TestALookupSubresourceReachesItsResources pins the two lookup subresources against a real
+// database: a write to a table that holds no resource key reaches the watcher under the key of
+// the resource row that matches it.
+func TestALookupSubresourceReachesItsResources(t *testing.T) {
 	stores := newStores()
 	l := newPooled(t)
 
@@ -195,7 +195,7 @@ func TestALookupProjectionReachesItsParents(t *testing.T) {
 	stores.workflows.put(workflowstore.Workflow{ID: rows.workflow, Name: "flow"})
 	stores.agents.put(agentRow(rows.agent))
 
-	// workflow_configs holds no workflow id: its parent is the workflow whose
+	// workflow_configs holds no workflow id: its resource is the workflow whose
 	// workflow_config_id is this row's id.
 	l.exec(t, `UPDATE workflow_configs SET flags = '--model opus' WHERE id = $1`, rows.config)
 
@@ -203,7 +203,7 @@ func TestALookupProjectionReachesItsParents(t *testing.T) {
 	assert.Equal(t, watchv1.Resource_RESOURCE_WORKFLOW, change.Resource)
 	assert.Equal(t, rows.workflow, change.Key, "a workflow config reaches its workflow")
 
-	// pull_request_syncs holds no agent id: its parents are the live agents on its repository.
+	// pull_request_syncs holds no agent id: its resources are the live agents on its repository.
 	l.exec(t, `INSERT INTO pull_request_syncs (repository_url, updated_through) VALUES ($1, now())`, rows.repository)
 
 	change = receive(t, subscription)
@@ -211,9 +211,9 @@ func TestALookupProjectionReachesItsParents(t *testing.T) {
 	assert.Equal(t, rows.agent, change.Key, "a repository sync reaches the live agents on that repository")
 }
 
-// TestALookupProjectionSkipsAnArchivedParent pins the narrowing: an archived agent is not a
-// parent, so a sync on its repository reaches nobody.
-func TestALookupProjectionSkipsAnArchivedParent(t *testing.T) {
+// TestALookupSubresourceSkipsAnArchivedResource pins the narrowing: an archived agent is not
+// reached, so a sync on its repository reaches nobody.
+func TestALookupSubresourceSkipsAnArchivedResource(t *testing.T) {
 	stores := newStores()
 	l := newPooled(t)
 
@@ -228,7 +228,7 @@ func TestALookupProjectionSkipsAnArchivedParent(t *testing.T) {
 	stores.agents.put(agentRow(rows.agent))
 
 	l.exec(t, `INSERT INTO pull_request_syncs (repository_url, updated_through) VALUES ($1, now())`, rows.repository)
-	// A write that reaches no parent raises nothing, so the workflow write is what proves the
+	// A write that reaches no resource raises nothing, so the workflow write is what proves the
 	// stream is still live.
 	l.exec(t, `UPDATE workflow_configs SET flags = '--model opus' WHERE id = $1`, rows.config)
 
@@ -246,7 +246,7 @@ func (l *listened) exec(t *testing.T, sql string, args ...any) {
 
 // TestAWriteReachesTheWatchersUnderItsResourceKey pins the routing the triggers do, end to end
 // through a real database: a write to a resource's own table reaches a watcher under that row's
-// key, and a write to a table projected onto it reaches the watcher under the parent's key.
+// key, and a write to one of its subresources reaches the watcher under the resource's key.
 func TestAWriteReachesTheWatchersUnderItsResourceKey(t *testing.T) {
 	stores := newStores()
 	l := newPooled(t)
@@ -268,6 +268,6 @@ func TestAWriteReachesTheWatchersUnderItsResourceKey(t *testing.T) {
 	l.exec(t, `INSERT INTO agent_metadata (agent_id, key, value) VALUES ($1, 'branch', 'agent/x')`, agent)
 
 	change := receive(t, subscription)
-	assert.Equal(t, agent, change.Key, "a write to a projected table reaches the watcher under its parent's key")
+	assert.Equal(t, agent, change.Key, "a write to a subresource reaches the watcher under its resource's key")
 	assert.Equal(t, watchv1.Resource_RESOURCE_AGENT, change.Resource)
 }

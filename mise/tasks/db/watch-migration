@@ -3,7 +3,7 @@ set -euo pipefail
 source "$MISE_CONFIG_ROOT/mise/tasks/_"
 
 if [ "$#" -ne 1 ]; then
-	echo "usage: mise run db:watch-migration <name>, such as watch_mail_projection" >&2
+	echo "usage: mise run db:watch-migration <name>, such as watch_mail_subresource" >&2
 	exit 2
 fi
 

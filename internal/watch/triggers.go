@@ -9,7 +9,7 @@ type Trigger struct {
 }
 
 // TriggerFunctions is every function a watch trigger runs.
-var TriggerFunctions = []string{"watch_notify", "watch_project", "watch_project_lookup"}
+var TriggerFunctions = []string{"watch_notify", "watch_subresource", "watch_subresource_lookup"}
 
 // Triggers is every trigger the resources declare.
 func Triggers() []Trigger {
@@ -21,14 +21,14 @@ func Triggers() []Trigger {
 			Function: "watch_notify",
 		})
 
-		for _, projection := range resource.Subresources {
-			trigger := Trigger{Name: "watch_project_" + resource.Table, Table: projection.Table}
-			if projection.Column != "" {
-				trigger.Function = "watch_project"
-				trigger.Args = []string{resource.Table, projection.Column}
+		for _, subresource := range resource.Subresources {
+			trigger := Trigger{Name: "watch_subresource_" + resource.Table, Table: subresource.Table}
+			if subresource.Column != "" {
+				trigger.Function = "watch_subresource"
+				trigger.Args = []string{resource.Table, subresource.Column}
 			} else {
-				trigger.Function = "watch_project_lookup"
-				trigger.Args = []string{resource.Table, projection.ParentMatch, projection.Match, projection.ParentMustBeNull}
+				trigger.Function = "watch_subresource_lookup"
+				trigger.Args = []string{resource.Table, subresource.ResourceMatch, subresource.Match, subresource.ResourceMustBeNull}
 			}
 			triggers = append(triggers, trigger)
 		}
