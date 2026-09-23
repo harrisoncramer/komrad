@@ -1,10 +1,6 @@
 package db
 
 import (
-	"context"
-	"fmt"
-
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -16,11 +12,5 @@ const TenantSetting = "weave.tenant"
 
 // ScopeToTenant makes every connection the pool opens act for tenantID.
 func ScopeToTenant(cfg *pgxpool.Config, tenantID string) {
-	cfg.AfterConnect = func(ctx context.Context, conn *pgx.Conn) error {
-		if _, err := conn.Exec(ctx, `SELECT set_config($1, $2, false)`, TenantSetting, tenantID); err != nil {
-			return fmt.Errorf("failed to set the connection's tenant: %w", err)
-		}
-
-		return nil
-	}
+	cfg.ConnConfig.RuntimeParams[TenantSetting] = tenantID
 }
