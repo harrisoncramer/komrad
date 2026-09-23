@@ -76,11 +76,13 @@ The service never migrates, and it refuses to start against a schema its build d
 
 ## Upgrading
 
-Download over the old binary, naming the release you want. Config, database, and tmux config are untouched. Migrate as the owner, then replace the running processes, which keep the build they started as:
+Download over the old binary, naming the release you want. Config, database, and tmux config are untouched. Stop the service, migrate as the owner, make sure the engine has its logins, then start it again, since the running processes keep the build they started as:
 
 ```sh
+weave stop
 weave migrate
-weave stop && weave start
+weave engine ensure default  # once, first upgrade past engine logins; it keeps every earlier row
+weave start
 tmux -L weave kill-server
 ```
 

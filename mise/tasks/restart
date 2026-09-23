@@ -21,6 +21,10 @@ fi
 
 "$weave" migrate
 
+case "${WEAVE_DATABASE_URL:-weave_engine_default:weave@}" in
+*weave_engine_default:weave@*) WEAVE_ENGINE_PASSWORD=weave "$weave" engine ensure default >/dev/null ;;
+esac
+
 if ! "$weave" start; then
 	echo "warning: the server did not come up, so open the panel to see why" >&2
 	echo "killed $agents panes; the server is not running"
