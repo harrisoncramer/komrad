@@ -75,9 +75,9 @@ func (q *Queries) DeleteWorkflowProvisionerConfig(ctx context.Context, id string
 
 const getWorkflow = `-- name: GetWorkflow :one
 SELECT
-    w.id, w.name, w.context, w.workflow_config_id, w.provisioner_config_id, w.archived_at, w.created_at, w.updated_at, w.deleting_at,
-    wc.id, wc.harness, wc.cwd, wc.flags, wc.created_at, wc.updated_at,
-    pc.id, pc.worktree_enabled, pc.worktree_base_branch, pc.worktree_copy_paths, pc.worktree_symlink_paths, pc.created_at, pc.updated_at, pc.worktree_diff_exclude, pc.worktree_dir
+    w.id, w.name, w.context, w.workflow_config_id, w.provisioner_config_id, w.archived_at, w.created_at, w.updated_at, w.deleting_at, w.tenant_id,
+    wc.id, wc.harness, wc.cwd, wc.flags, wc.created_at, wc.updated_at, wc.tenant_id,
+    pc.id, pc.worktree_enabled, pc.worktree_base_branch, pc.worktree_copy_paths, pc.worktree_symlink_paths, pc.created_at, pc.updated_at, pc.worktree_diff_exclude, pc.worktree_dir, pc.tenant_id
 FROM
     workflows w
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
@@ -113,12 +113,14 @@ func (q *Queries) GetWorkflow(ctx context.Context, arg GetWorkflowParams) (*GetW
 		&i.Workflow.CreatedAt,
 		&i.Workflow.UpdatedAt,
 		&i.Workflow.DeletingAt,
+		&i.Workflow.TenantID,
 		&i.WorkflowConfig.ID,
 		&i.WorkflowConfig.Harness,
 		&i.WorkflowConfig.Cwd,
 		&i.WorkflowConfig.Flags,
 		&i.WorkflowConfig.CreatedAt,
 		&i.WorkflowConfig.UpdatedAt,
+		&i.WorkflowConfig.TenantID,
 		&i.WorkflowProvisionerConfig.ID,
 		&i.WorkflowProvisionerConfig.WorktreeEnabled,
 		&i.WorkflowProvisionerConfig.WorktreeBaseBranch,
@@ -128,6 +130,7 @@ func (q *Queries) GetWorkflow(ctx context.Context, arg GetWorkflowParams) (*GetW
 		&i.WorkflowProvisionerConfig.UpdatedAt,
 		&i.WorkflowProvisionerConfig.WorktreeDiffExclude,
 		&i.WorkflowProvisionerConfig.WorktreeDir,
+		&i.WorkflowProvisionerConfig.TenantID,
 	)
 	return &i, err
 }
@@ -144,7 +147,7 @@ VALUES (
     $3,
     $4)
 RETURNING
-    id, name, context, workflow_config_id, provisioner_config_id, archived_at, created_at, updated_at, deleting_at
+    id, name, context, workflow_config_id, provisioner_config_id, archived_at, created_at, updated_at, deleting_at, tenant_id
 `
 
 type InsertWorkflowParams struct {
@@ -172,6 +175,7 @@ func (q *Queries) InsertWorkflow(ctx context.Context, arg InsertWorkflowParams) 
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletingAt,
+		&i.TenantID,
 	)
 	return &i, err
 }
@@ -186,7 +190,7 @@ VALUES (
     $2,
     $3)
 RETURNING
-    id, harness, cwd, flags, created_at, updated_at
+    id, harness, cwd, flags, created_at, updated_at, tenant_id
 `
 
 type InsertWorkflowConfigParams struct {
@@ -205,6 +209,7 @@ func (q *Queries) InsertWorkflowConfig(ctx context.Context, arg InsertWorkflowCo
 		&i.Flags,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TenantID,
 	)
 	return &i, err
 }
@@ -255,7 +260,7 @@ VALUES (
     $5,
     $6)
 RETURNING
-    id, worktree_enabled, worktree_base_branch, worktree_copy_paths, worktree_symlink_paths, created_at, updated_at, worktree_diff_exclude, worktree_dir
+    id, worktree_enabled, worktree_base_branch, worktree_copy_paths, worktree_symlink_paths, created_at, updated_at, worktree_diff_exclude, worktree_dir, tenant_id
 `
 
 type InsertWorkflowProvisionerConfigParams struct {
@@ -287,6 +292,7 @@ func (q *Queries) InsertWorkflowProvisionerConfig(ctx context.Context, arg Inser
 		&i.UpdatedAt,
 		&i.WorktreeDiffExclude,
 		&i.WorktreeDir,
+		&i.TenantID,
 	)
 	return &i, err
 }
@@ -441,9 +447,9 @@ func (q *Queries) ListWorkflowWorktreeDirs(ctx context.Context) ([]string, error
 
 const listWorkflowsByID = `-- name: ListWorkflowsByID :many
 SELECT
-    w.id, w.name, w.context, w.workflow_config_id, w.provisioner_config_id, w.archived_at, w.created_at, w.updated_at, w.deleting_at,
-    wc.id, wc.harness, wc.cwd, wc.flags, wc.created_at, wc.updated_at,
-    pc.id, pc.worktree_enabled, pc.worktree_base_branch, pc.worktree_copy_paths, pc.worktree_symlink_paths, pc.created_at, pc.updated_at, pc.worktree_diff_exclude, pc.worktree_dir
+    w.id, w.name, w.context, w.workflow_config_id, w.provisioner_config_id, w.archived_at, w.created_at, w.updated_at, w.deleting_at, w.tenant_id,
+    wc.id, wc.harness, wc.cwd, wc.flags, wc.created_at, wc.updated_at, wc.tenant_id,
+    pc.id, pc.worktree_enabled, pc.worktree_base_branch, pc.worktree_copy_paths, pc.worktree_symlink_paths, pc.created_at, pc.updated_at, pc.worktree_diff_exclude, pc.worktree_dir, pc.tenant_id
 FROM
     workflows w
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
@@ -479,12 +485,14 @@ func (q *Queries) ListWorkflowsByID(ctx context.Context, ids []string) ([]*ListW
 			&i.Workflow.CreatedAt,
 			&i.Workflow.UpdatedAt,
 			&i.Workflow.DeletingAt,
+			&i.Workflow.TenantID,
 			&i.WorkflowConfig.ID,
 			&i.WorkflowConfig.Harness,
 			&i.WorkflowConfig.Cwd,
 			&i.WorkflowConfig.Flags,
 			&i.WorkflowConfig.CreatedAt,
 			&i.WorkflowConfig.UpdatedAt,
+			&i.WorkflowConfig.TenantID,
 			&i.WorkflowProvisionerConfig.ID,
 			&i.WorkflowProvisionerConfig.WorktreeEnabled,
 			&i.WorkflowProvisionerConfig.WorktreeBaseBranch,
@@ -494,6 +502,7 @@ func (q *Queries) ListWorkflowsByID(ctx context.Context, ids []string) ([]*ListW
 			&i.WorkflowProvisionerConfig.UpdatedAt,
 			&i.WorkflowProvisionerConfig.WorktreeDiffExclude,
 			&i.WorkflowProvisionerConfig.WorktreeDir,
+			&i.WorkflowProvisionerConfig.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -507,9 +516,9 @@ func (q *Queries) ListWorkflowsByID(ctx context.Context, ids []string) ([]*ListW
 
 const listWorkflowsByKey = `-- name: ListWorkflowsByKey :many
 SELECT
-    w.id, w.name, w.context, w.workflow_config_id, w.provisioner_config_id, w.archived_at, w.created_at, w.updated_at, w.deleting_at,
-    wc.id, wc.harness, wc.cwd, wc.flags, wc.created_at, wc.updated_at,
-    pc.id, pc.worktree_enabled, pc.worktree_base_branch, pc.worktree_copy_paths, pc.worktree_symlink_paths, pc.created_at, pc.updated_at, pc.worktree_diff_exclude, pc.worktree_dir
+    w.id, w.name, w.context, w.workflow_config_id, w.provisioner_config_id, w.archived_at, w.created_at, w.updated_at, w.deleting_at, w.tenant_id,
+    wc.id, wc.harness, wc.cwd, wc.flags, wc.created_at, wc.updated_at, wc.tenant_id,
+    pc.id, pc.worktree_enabled, pc.worktree_base_branch, pc.worktree_copy_paths, pc.worktree_symlink_paths, pc.created_at, pc.updated_at, pc.worktree_diff_exclude, pc.worktree_dir, pc.tenant_id
 FROM
     workflows w
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
@@ -547,12 +556,14 @@ func (q *Queries) ListWorkflowsByKey(ctx context.Context, ids []string) ([]*List
 			&i.Workflow.CreatedAt,
 			&i.Workflow.UpdatedAt,
 			&i.Workflow.DeletingAt,
+			&i.Workflow.TenantID,
 			&i.WorkflowConfig.ID,
 			&i.WorkflowConfig.Harness,
 			&i.WorkflowConfig.Cwd,
 			&i.WorkflowConfig.Flags,
 			&i.WorkflowConfig.CreatedAt,
 			&i.WorkflowConfig.UpdatedAt,
+			&i.WorkflowConfig.TenantID,
 			&i.WorkflowProvisionerConfig.ID,
 			&i.WorkflowProvisionerConfig.WorktreeEnabled,
 			&i.WorkflowProvisionerConfig.WorktreeBaseBranch,
@@ -562,6 +573,7 @@ func (q *Queries) ListWorkflowsByKey(ctx context.Context, ids []string) ([]*List
 			&i.WorkflowProvisionerConfig.UpdatedAt,
 			&i.WorkflowProvisionerConfig.WorktreeDiffExclude,
 			&i.WorkflowProvisionerConfig.WorktreeDir,
+			&i.WorkflowProvisionerConfig.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -575,9 +587,9 @@ func (q *Queries) ListWorkflowsByKey(ctx context.Context, ids []string) ([]*List
 
 const listWorkflowsPage = `-- name: ListWorkflowsPage :many
 SELECT
-    w.id, w.name, w.context, w.workflow_config_id, w.provisioner_config_id, w.archived_at, w.created_at, w.updated_at, w.deleting_at,
-    wc.id, wc.harness, wc.cwd, wc.flags, wc.created_at, wc.updated_at,
-    pc.id, pc.worktree_enabled, pc.worktree_base_branch, pc.worktree_copy_paths, pc.worktree_symlink_paths, pc.created_at, pc.updated_at, pc.worktree_diff_exclude, pc.worktree_dir
+    w.id, w.name, w.context, w.workflow_config_id, w.provisioner_config_id, w.archived_at, w.created_at, w.updated_at, w.deleting_at, w.tenant_id,
+    wc.id, wc.harness, wc.cwd, wc.flags, wc.created_at, wc.updated_at, wc.tenant_id,
+    pc.id, pc.worktree_enabled, pc.worktree_base_branch, pc.worktree_copy_paths, pc.worktree_symlink_paths, pc.created_at, pc.updated_at, pc.worktree_diff_exclude, pc.worktree_dir, pc.tenant_id
 FROM
     workflows w
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
@@ -634,12 +646,14 @@ func (q *Queries) ListWorkflowsPage(ctx context.Context, arg ListWorkflowsPagePa
 			&i.Workflow.CreatedAt,
 			&i.Workflow.UpdatedAt,
 			&i.Workflow.DeletingAt,
+			&i.Workflow.TenantID,
 			&i.WorkflowConfig.ID,
 			&i.WorkflowConfig.Harness,
 			&i.WorkflowConfig.Cwd,
 			&i.WorkflowConfig.Flags,
 			&i.WorkflowConfig.CreatedAt,
 			&i.WorkflowConfig.UpdatedAt,
+			&i.WorkflowConfig.TenantID,
 			&i.WorkflowProvisionerConfig.ID,
 			&i.WorkflowProvisionerConfig.WorktreeEnabled,
 			&i.WorkflowProvisionerConfig.WorktreeBaseBranch,
@@ -649,6 +663,7 @@ func (q *Queries) ListWorkflowsPage(ctx context.Context, arg ListWorkflowsPagePa
 			&i.WorkflowProvisionerConfig.UpdatedAt,
 			&i.WorkflowProvisionerConfig.WorktreeDiffExclude,
 			&i.WorkflowProvisionerConfig.WorktreeDir,
+			&i.WorkflowProvisionerConfig.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -790,9 +805,9 @@ func (q *Queries) SetWorkflowProvisioner(ctx context.Context, arg SetWorkflowPro
 
 const snapshotWorkflows = `-- name: SnapshotWorkflows :many
 SELECT
-    w.id, w.name, w.context, w.workflow_config_id, w.provisioner_config_id, w.archived_at, w.created_at, w.updated_at, w.deleting_at,
-    wc.id, wc.harness, wc.cwd, wc.flags, wc.created_at, wc.updated_at,
-    pc.id, pc.worktree_enabled, pc.worktree_base_branch, pc.worktree_copy_paths, pc.worktree_symlink_paths, pc.created_at, pc.updated_at, pc.worktree_diff_exclude, pc.worktree_dir
+    w.id, w.name, w.context, w.workflow_config_id, w.provisioner_config_id, w.archived_at, w.created_at, w.updated_at, w.deleting_at, w.tenant_id,
+    wc.id, wc.harness, wc.cwd, wc.flags, wc.created_at, wc.updated_at, wc.tenant_id,
+    pc.id, pc.worktree_enabled, pc.worktree_base_branch, pc.worktree_copy_paths, pc.worktree_symlink_paths, pc.created_at, pc.updated_at, pc.worktree_diff_exclude, pc.worktree_dir, pc.tenant_id
 FROM
     workflows w
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
@@ -831,12 +846,14 @@ func (q *Queries) SnapshotWorkflows(ctx context.Context) ([]*SnapshotWorkflowsRo
 			&i.Workflow.CreatedAt,
 			&i.Workflow.UpdatedAt,
 			&i.Workflow.DeletingAt,
+			&i.Workflow.TenantID,
 			&i.WorkflowConfig.ID,
 			&i.WorkflowConfig.Harness,
 			&i.WorkflowConfig.Cwd,
 			&i.WorkflowConfig.Flags,
 			&i.WorkflowConfig.CreatedAt,
 			&i.WorkflowConfig.UpdatedAt,
+			&i.WorkflowConfig.TenantID,
 			&i.WorkflowProvisionerConfig.ID,
 			&i.WorkflowProvisionerConfig.WorktreeEnabled,
 			&i.WorkflowProvisionerConfig.WorktreeBaseBranch,
@@ -846,6 +863,7 @@ func (q *Queries) SnapshotWorkflows(ctx context.Context) ([]*SnapshotWorkflowsRo
 			&i.WorkflowProvisionerConfig.UpdatedAt,
 			&i.WorkflowProvisionerConfig.WorktreeDiffExclude,
 			&i.WorkflowProvisionerConfig.WorktreeDir,
+			&i.WorkflowProvisionerConfig.TenantID,
 		); err != nil {
 			return nil, err
 		}

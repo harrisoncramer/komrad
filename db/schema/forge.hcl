@@ -47,8 +47,20 @@ table "forge_connections" {
     type    = timestamptz
     comment = "When the forge said this credential's rate limit resets, after a refusal or a response whose remaining budget was zero. The pull request sync makes no request through the connection until it passes."
   }
+  column "tenant_id" {
+    null    = false
+    type    = uuid
+    default = sql("(current_setting('weave.tenant'::text, true))::uuid")
+    comment = "The tenant that owns this row, filled from the connection's weave.tenant setting."
+  }
   primary_key {
     columns = [column.id]
+  }
+  foreign_key "forge_connections_tenant_id_fkey" {
+    columns     = [column.tenant_id]
+    ref_columns = [table.tenants.column.id]
+    on_delete   = RESTRICT
+    on_update   = NO_ACTION
   }
   unique "forge_connections_host_key" {
     columns = [column.host]
@@ -181,8 +193,20 @@ table "pull_requests" {
     type    = text
     comment = "Where the forge says the pull request stands against its base and its branch rules, in weave's own words: clean, unstable, blocked, behind or conflicting, null while the forge has not computed it. Read with the checks and kept fresh the same way."
   }
+  column "tenant_id" {
+    null    = false
+    type    = uuid
+    default = sql("(current_setting('weave.tenant'::text, true))::uuid")
+    comment = "The tenant that owns this row, filled from the connection's weave.tenant setting."
+  }
   primary_key {
     columns = [column.id]
+  }
+  foreign_key "pull_requests_tenant_id_fkey" {
+    columns     = [column.tenant_id]
+    ref_columns = [table.tenants.column.id]
+    on_delete   = RESTRICT
+    on_update   = NO_ACTION
   }
   unique "pull_requests_host_provider_id_key" {
     columns = [column.host, column.provider_id]
@@ -221,8 +245,20 @@ table "agent_pull_requests" {
     default = sql("now()")
     comment = "When the pair was last seen together, moved at most once an hour."
   }
+  column "tenant_id" {
+    null    = false
+    type    = uuid
+    default = sql("(current_setting('weave.tenant'::text, true))::uuid")
+    comment = "The tenant that owns this row, filled from the connection's weave.tenant setting."
+  }
   primary_key {
     columns = [column.agent_id, column.pull_request_id]
+  }
+  foreign_key "agent_pull_requests_tenant_id_fkey" {
+    columns     = [column.tenant_id]
+    ref_columns = [table.tenants.column.id]
+    on_delete   = RESTRICT
+    on_update   = NO_ACTION
   }
   foreign_key "agent_pull_requests_agent_id_fkey" {
     columns     = [column.agent_id]
@@ -279,8 +315,20 @@ table "pull_request_syncs" {
     default = 0
     comment = "How many requests the most recent pass made for this repository."
   }
+  column "tenant_id" {
+    null    = false
+    type    = uuid
+    default = sql("(current_setting('weave.tenant'::text, true))::uuid")
+    comment = "The tenant that owns this row, filled from the connection's weave.tenant setting."
+  }
   primary_key {
     columns = [column.repository_url]
+  }
+  foreign_key "pull_request_syncs_tenant_id_fkey" {
+    columns     = [column.tenant_id]
+    ref_columns = [table.tenants.column.id]
+    on_delete   = RESTRICT
+    on_update   = NO_ACTION
   }
 }
 
@@ -306,7 +354,19 @@ table "branch_scans" {
     type    = timestamptz
     comment = "When the listing answered its last page, after which the branch is never scanned again."
   }
+  column "tenant_id" {
+    null    = false
+    type    = uuid
+    default = sql("(current_setting('weave.tenant'::text, true))::uuid")
+    comment = "The tenant that owns this row, filled from the connection's weave.tenant setting."
+  }
   primary_key {
     columns = [column.repository_url, column.branch]
+  }
+  foreign_key "branch_scans_tenant_id_fkey" {
+    columns     = [column.tenant_id]
+    ref_columns = [table.tenants.column.id]
+    on_delete   = RESTRICT
+    on_update   = NO_ACTION
   }
 }

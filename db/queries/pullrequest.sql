@@ -159,7 +159,8 @@ SELECT
     o.agent_id,
     o.pull_request_id,
     o.first_seen_at,
-    o.last_seen_at
+    o.last_seen_at,
+    o.tenant_id
 FROM
     agent_pull_requests o
 WHERE

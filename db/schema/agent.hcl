@@ -44,8 +44,20 @@ table "workflow_configs" {
     type    = timestamptz
     default = sql("now()")
   }
+  column "tenant_id" {
+    null    = false
+    type    = uuid
+    default = sql("(current_setting('weave.tenant'::text, true))::uuid")
+    comment = "The tenant that owns this row, filled from the connection's weave.tenant setting."
+  }
   primary_key {
     columns = [column.id]
+  }
+  foreign_key "workflow_configs_tenant_id_fkey" {
+    columns     = [column.tenant_id]
+    ref_columns = [table.tenants.column.id]
+    on_delete   = RESTRICT
+    on_update   = NO_ACTION
   }
 }
 
@@ -97,8 +109,20 @@ table "workflow_provisioner_configs" {
     type    = text
     default = ""
   }
+  column "tenant_id" {
+    null    = false
+    type    = uuid
+    default = sql("(current_setting('weave.tenant'::text, true))::uuid")
+    comment = "The tenant that owns this row, filled from the connection's weave.tenant setting."
+  }
   primary_key {
     columns = [column.id]
+  }
+  foreign_key "workflow_provisioner_configs_tenant_id_fkey" {
+    columns     = [column.tenant_id]
+    ref_columns = [table.tenants.column.id]
+    on_delete   = RESTRICT
+    on_update   = NO_ACTION
   }
   check "worktree_base_branch_named" {
     expr = "worktree_base_branch <> ''"
@@ -134,8 +158,20 @@ table "workflow_hooks" {
     type    = timestamptz
     default = sql("now()")
   }
+  column "tenant_id" {
+    null    = false
+    type    = uuid
+    default = sql("(current_setting('weave.tenant'::text, true))::uuid")
+    comment = "The tenant that owns this row, filled from the connection's weave.tenant setting."
+  }
   primary_key {
     columns = [column.id]
+  }
+  foreign_key "workflow_hooks_tenant_id_fkey" {
+    columns     = [column.tenant_id]
+    ref_columns = [table.tenants.column.id]
+    on_delete   = RESTRICT
+    on_update   = NO_ACTION
   }
   foreign_key "workflow_hooks_workflow_id_fkey" {
     columns     = [column.workflow_id]
@@ -192,8 +228,20 @@ table "workflows" {
     type    = timestamptz
     comment = "When a delete claimed the workflow, which happens when a delete claims the agents inside it. A claimed workflow is left out of the archive until the last of those agents goes and takes the row with it, and an agent whose delete fails gives the workflow back as it comes back itself."
   }
+  column "tenant_id" {
+    null    = false
+    type    = uuid
+    default = sql("(current_setting('weave.tenant'::text, true))::uuid")
+    comment = "The tenant that owns this row, filled from the connection's weave.tenant setting."
+  }
   primary_key {
     columns = [column.id]
+  }
+  foreign_key "workflows_tenant_id_fkey" {
+    columns     = [column.tenant_id]
+    ref_columns = [table.tenants.column.id]
+    on_delete   = RESTRICT
+    on_update   = NO_ACTION
   }
   foreign_key "workflows_workflow_config_id_fkey" {
     columns     = [column.workflow_config_id]
@@ -245,8 +293,20 @@ table "agent_transcript_sessions" {
     type    = timestamptz
     default = sql("now()")
   }
+  column "tenant_id" {
+    null    = false
+    type    = uuid
+    default = sql("(current_setting('weave.tenant'::text, true))::uuid")
+    comment = "The tenant that owns this row, filled from the connection's weave.tenant setting."
+  }
   primary_key {
     columns = [column.id]
+  }
+  foreign_key "agent_transcript_sessions_tenant_id_fkey" {
+    columns     = [column.tenant_id]
+    ref_columns = [table.tenants.column.id]
+    on_delete   = RESTRICT
+    on_update   = NO_ACTION
   }
   foreign_key "agent_transcript_sessions_agent_id_fkey" {
     columns     = [column.agent_id]
@@ -294,8 +354,20 @@ table "agent_transcript_chunks" {
       type = STORED
     }
   }
+  column "tenant_id" {
+    null    = false
+    type    = uuid
+    default = sql("(current_setting('weave.tenant'::text, true))::uuid")
+    comment = "The tenant that owns this row, filled from the connection's weave.tenant setting."
+  }
   primary_key {
     columns = [column.agent_id, column.seq]
+  }
+  foreign_key "agent_transcript_chunks_tenant_id_fkey" {
+    columns     = [column.tenant_id]
+    ref_columns = [table.tenants.column.id]
+    on_delete   = RESTRICT
+    on_update   = NO_ACTION
   }
   foreign_key "agent_transcript_chunks_agent_id_fkey" {
     columns     = [column.agent_id]
@@ -350,8 +422,20 @@ table "agent_metadata" {
     type    = timestamptz
     default = sql("now()")
   }
+  column "tenant_id" {
+    null    = false
+    type    = uuid
+    default = sql("(current_setting('weave.tenant'::text, true))::uuid")
+    comment = "The tenant that owns this row, filled from the connection's weave.tenant setting."
+  }
   primary_key {
     columns = [column.agent_id, column.key]
+  }
+  foreign_key "agent_metadata_tenant_id_fkey" {
+    columns     = [column.tenant_id]
+    ref_columns = [table.tenants.column.id]
+    on_delete   = RESTRICT
+    on_update   = NO_ACTION
   }
   foreign_key "agent_metadata_agent_id_fkey" {
     columns     = [column.agent_id]
@@ -407,8 +491,20 @@ table "agent_runs" {
     null = true
     type = timestamptz
   }
+  column "tenant_id" {
+    null    = false
+    type    = uuid
+    default = sql("(current_setting('weave.tenant'::text, true))::uuid")
+    comment = "The tenant that owns this row, filled from the connection's weave.tenant setting."
+  }
   primary_key {
     columns = [column.id]
+  }
+  foreign_key "agent_runs_tenant_id_fkey" {
+    columns     = [column.tenant_id]
+    ref_columns = [table.tenants.column.id]
+    on_delete   = RESTRICT
+    on_update   = NO_ACTION
   }
   foreign_key "agent_runs_agent_id_fkey" {
     columns     = [column.agent_id]
@@ -619,8 +715,20 @@ table "agents" {
     default = ""
     comment = "The round the standing was measured against."
   }
+  column "tenant_id" {
+    null    = false
+    type    = uuid
+    default = sql("(current_setting('weave.tenant'::text, true))::uuid")
+    comment = "The tenant that owns this row, filled from the connection's weave.tenant setting."
+  }
   primary_key {
     columns = [column.id]
+  }
+  foreign_key "agents_tenant_id_fkey" {
+    columns     = [column.tenant_id]
+    ref_columns = [table.tenants.column.id]
+    on_delete   = RESTRICT
+    on_update   = NO_ACTION
   }
   foreign_key "agents_workflow_id_fkey" {
     columns     = [column.workflow_id]
@@ -697,8 +805,20 @@ table "marks" {
     type    = uuid
     default = sql("uuidv7()")
   }
+  column "tenant_id" {
+    null    = false
+    type    = uuid
+    default = sql("(current_setting('weave.tenant'::text, true))::uuid")
+    comment = "The tenant that owns this row, filled from the connection's weave.tenant setting."
+  }
   primary_key {
     columns = [column.id]
+  }
+  foreign_key "marks_tenant_id_fkey" {
+    columns     = [column.tenant_id]
+    ref_columns = [table.tenants.column.id]
+    on_delete   = RESTRICT
+    on_update   = NO_ACTION
   }
   foreign_key "marks_agent_id_fkey" {
     columns     = [column.agent_id]

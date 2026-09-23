@@ -33,3 +33,18 @@ func migrate(ctx context.Context, url string) error {
 
 	return db.Migrate(ctx, pool)
 }
+
+// Pool is a pool on a migrated database of this test's own, acting for the default tenant.
+func Pool(t *testing.T) *pgxpool.Pool {
+	t.Helper()
+
+	cfg, err := pgxpool.ParseConfig(URL(t))
+	require.NoError(t, err)
+	db.ScopeToTenant(cfg, db.DefaultTenantID)
+
+	pool, err := pgxpool.NewWithConfig(t.Context(), cfg)
+	require.NoError(t, err)
+	t.Cleanup(pool.Close)
+
+	return pool
+}

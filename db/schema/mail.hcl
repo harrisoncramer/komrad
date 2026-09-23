@@ -65,8 +65,20 @@ table "mail" {
     type    = uuid
     comment = "The other agent a weave notice is about, null on ordinary mail. Counting unread notices by this column gives the recipient one notice per subject rather than one per kind, so an agent that hits the exchange cap with a second partner is told about that partner too. There is no foreign key here on purpose. The notice has to keep naming the agent whose exchange was cut off after that agent is gone."
   }
+  column "tenant_id" {
+    null    = false
+    type    = uuid
+    default = sql("(current_setting('weave.tenant'::text, true))::uuid")
+    comment = "The tenant that owns this row, filled from the connection's weave.tenant setting."
+  }
   primary_key {
     columns = [column.id]
+  }
+  foreign_key "mail_tenant_id_fkey" {
+    columns     = [column.tenant_id]
+    ref_columns = [table.tenants.column.id]
+    on_delete   = RESTRICT
+    on_update   = NO_ACTION
   }
   foreign_key "mail_from_agent_id_fkey" {
     columns     = [column.from_agent_id]

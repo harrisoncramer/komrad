@@ -133,7 +133,7 @@ func (q *Queries) InsertWorkflowMark(ctx context.Context, arg InsertWorkflowMark
 
 const listMarksByKey = `-- name: ListMarksByKey :many
 SELECT
-    mark, agent_id, workflow_id, created_at, id
+    mark, agent_id, workflow_id, created_at, id, tenant_id
 FROM
     marks
 WHERE
@@ -157,6 +157,7 @@ func (q *Queries) ListMarksByKey(ctx context.Context, ids []string) ([]*Mark, er
 			&i.WorkflowID,
 			&i.CreatedAt,
 			&i.ID,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -170,7 +171,7 @@ func (q *Queries) ListMarksByKey(ctx context.Context, ids []string) ([]*Mark, er
 
 const snapshotMarks = `-- name: SnapshotMarks :many
 SELECT
-    mark, agent_id, workflow_id, created_at, id
+    mark, agent_id, workflow_id, created_at, id, tenant_id
 FROM
     marks
 ORDER BY
@@ -192,6 +193,7 @@ func (q *Queries) SnapshotMarks(ctx context.Context) ([]*Mark, error) {
 			&i.WorkflowID,
 			&i.CreatedAt,
 			&i.ID,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}

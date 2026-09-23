@@ -279,6 +279,8 @@ type Agent struct {
 	TreeStanding string
 	// The round the standing was measured against.
 	TreeStandingSha string
+	// The tenant that owns this row, filled from the connection's weave.tenant setting.
+	TenantID string
 }
 
 // Facts an agent recorded about its own work, such as the pull request it opened.
@@ -288,6 +290,8 @@ type AgentMetadatum struct {
 	Value     string
 	CreatedAt time.Time
 	UpdatedAt time.Time
+	// The tenant that owns this row, filled from the connection's weave.tenant setting.
+	TenantID string
 }
 
 // Which agents were seen with which pull requests, one row per pair, never deleted or re-pointed. It is history rather than ownership: the live view derives the association from the branch and never reads this, and the archive reads nothing else.
@@ -297,6 +301,8 @@ type AgentPullRequest struct {
 	FirstSeenAt   time.Time
 	// When the pair was last seen together, moved at most once an hour.
 	LastSeenAt time.Time
+	// The tenant that owns this row, filled from the connection's weave.tenant setting.
+	TenantID string
 }
 
 // One run of a script weave fired for an agent. The output stays on disk and this row says where to find it.
@@ -311,6 +317,8 @@ type AgentRun struct {
 	ExitCode   *int32
 	Failure    string
 	ViewedAt   *time.Time
+	// The tenant that owns this row, filled from the connection's weave.tenant setting.
+	TenantID string
 }
 
 // One turn of an agent's conversation, indexed so it can be searched by word.
@@ -322,6 +330,8 @@ type AgentTranscriptChunk struct {
 	ContentOffset int64
 	SessionID     string
 	Tsv           interface{}
+	// The tenant that owns this row, filled from the connection's weave.tenant setting.
+	TenantID string
 }
 
 // One conversation an agent has held, holding how far its log has been copied into the store.
@@ -332,6 +342,8 @@ type AgentTranscriptSession struct {
 	SyncedOffset int64
 	SyncedAt     time.Time
 	CreatedAt    time.Time
+	// The tenant that owns this row, filled from the connection's weave.tenant setting.
+	TenantID string
 }
 
 // A branch weave has listed the pull requests of on purpose, once, which is what finds a pull request older than the sync's horizon on a branch an agent adopted.
@@ -342,6 +354,8 @@ type BranchScan struct {
 	NextCursor string
 	// When the listing answered its last page, after which the branch is never scanned again.
 	CompletedAt *time.Time
+	// The tenant that owns this row, filled from the connection's weave.tenant setting.
+	TenantID string
 }
 
 // A forge weave has been connected to, one row per host, holding who the credential was verified as. The credential itself is a file under weave's state directory rather than a column.
@@ -362,6 +376,8 @@ type ForgeConnection struct {
 	CreatedAt  time.Time
 	// When the forge said this credential's rate limit resets, after a refusal or a response whose remaining budget was zero. The pull request sync makes no request through the connection until it passes.
 	ThrottledUntil *time.Time
+	// The tenant that owns this row, filled from the connection's weave.tenant setting.
+	TenantID string
 }
 
 // One piece of mail from one agent to another, held until the recipient claims it.
@@ -381,6 +397,8 @@ type Mail struct {
 	Kind MailKind
 	// The other agent a weave notice is about, null on ordinary mail. Counting unread notices by this column gives the recipient one notice per subject rather than one per kind, so an agent that hits the exchange cap with a second partner is told about that partner too. There is no foreign key here on purpose. The notice has to keep naming the agent whose exchange was cut off after that agent is gone.
 	AboutAgentID *string
+	// The tenant that owns this row, filled from the connection's weave.tenant setting.
+	TenantID string
 }
 
 // A letter a person types to jump to one row. Each letter belongs to a single agent or a single workflow, so it always names one place.
@@ -390,6 +408,8 @@ type Mark struct {
 	WorkflowID *string
 	CreatedAt  time.Time
 	ID         string
+	// The tenant that owns this row, filled from the connection's weave.tenant setting.
+	TenantID string
 }
 
 // A pull request weave has read from a forge, one row per forge identity and none owned by an agent. Finished is derived: merged when merged_at is set, closed when closed_at is set and merged_at is not, open otherwise.
@@ -437,6 +457,8 @@ type PullRequest struct {
 	ChecksReadAt *time.Time
 	// Where the forge says the pull request stands against its base and its branch rules, in weave's own words: clean, unstable, blocked, behind or conflicting, null while the forge has not computed it. Read with the checks and kept fresh the same way.
 	Mergeability *string
+	// The tenant that owns this row, filled from the connection's weave.tenant setting.
+	TenantID string
 }
 
 // Where the pull request sync is for one repository: the high-water mark the changes have been read through, the first sweep in progress if one is, and what the last pass cost.
@@ -454,6 +476,8 @@ type PullRequestSync struct {
 	ReadAt *time.Time
 	// How many requests the most recent pass made for this repository.
 	Calls int32
+	// The tenant that owns this row, filled from the connection's weave.tenant setting.
+	TenantID string
 }
 
 // One reviewer's batch of comments on one round. Nobody else sees it while it is being written, and it is released all at once.
@@ -478,6 +502,8 @@ type Review struct {
 	UpdatedAt      time.Time
 	// What the reviewer said about the change as a whole rather than about any one line, empty when they said nothing. It goes at the top of the released review file, above the line comments, because it is what the agent should read first.
 	Body string
+	// The tenant that owns this row, filled from the connection's weave.tenant setting.
+	TenantID string
 }
 
 // One message in a review thread, written either by the reviewer or by the agent answering them.
@@ -496,6 +522,8 @@ type ReviewMessage struct {
 	ReviewID *string
 	// Replacement lines the reviewer is proposing for the range the thread is pinned to, empty on an ordinary comment. The agent applies them as written rather than treating them as a description of what to do.
 	Suggestion []string
+	// The tenant that owns this row, filled from the connection's weave.tenant setting.
+	TenantID string
 }
 
 // One frozen snapshot of what an agent has written. A review is always given against a round rather than against the working files.
@@ -509,6 +537,8 @@ type ReviewRound struct {
 	// A commit covering the agent's whole checkout, tracked and untracked files alike. A ref under refs/weave/rounds keeps it alive so git will not collect it. Writing it leaves the agent's own branch, index and files alone.
 	SnapshotSha string
 	CreatedAt   time.Time
+	// The tenant that owns this row, filled from the connection's weave.tenant setting.
+	TenantID string
 }
 
 // One conversation pinned to a file and a line range in the round its review was given against.
@@ -545,6 +575,8 @@ type ReviewThread struct {
 	ResolvedByKind NullReviewAuthorKind
 	// The agent that settled this thread, null when a person did or when nobody has. Do not read null as meaning a person, because resolved_by_kind is what says that. Deleting that agent clears this column rather than the settling.
 	ResolvedByAgentID *string
+	// The tenant that owns this row, filled from the connection's weave.tenant setting.
+	TenantID string
 }
 
 // One file of an agent's diff the person reviewing has read, and the shape that file had when they read it.
@@ -555,6 +587,8 @@ type ReviewViewedFile struct {
 	AgentID  string
 	// A hash of the file's own slice of the patch as it stood when it was read. The panel hashes the file again on every load and shows it as unread once the two disagree, which is what makes an agent writing to the file undo the mark. It is the diff that is hashed rather than the file, since the hunks change when the base moves under a file nothing has touched.
 	Fingerprint string
+	// The tenant that owns this row, filled from the connection's weave.tenant setting.
+	TenantID string
 }
 
 // A recurring agent launch, holding when to fire and the prompt to launch with.
@@ -573,6 +607,15 @@ type Schedule struct {
 	LastResultStatus  *string
 	LastResultMessage *string
 	LastResultAt      *time.Time
+	// The tenant that owns this row, filled from the connection's weave.tenant setting.
+	TenantID string
+}
+
+// An owner of rows, every other table carrying the id of the tenant it belongs to.
+type Tenant struct {
+	ID        string
+	Name      string
+	CreatedAt time.Time
 }
 
 // A named group of related agents. It is grouping only. Nothing here runs.
@@ -587,6 +630,8 @@ type Workflow struct {
 	UpdatedAt           time.Time
 	// When a delete claimed the workflow, which happens when a delete claims the agents inside it. A claimed workflow is left out of the archive until the last of those agents goes and takes the row with it, and an agent whose delete fails gives the workflow back as it comes back itself.
 	DeletingAt *time.Time
+	// The tenant that owns this row, filled from the connection's weave.tenant setting.
+	TenantID string
 }
 
 // The harness, working directory and flags a workflow gives each new agent it creates.
@@ -597,6 +642,8 @@ type WorkflowConfig struct {
 	Flags     string
 	CreatedAt time.Time
 	UpdatedAt time.Time
+	// The tenant that owns this row, filled from the connection's weave.tenant setting.
+	TenantID string
 }
 
 // Scripts a workflow runs at one point in an agent's life, in position order.
@@ -607,6 +654,8 @@ type WorkflowHook struct {
 	Script     string
 	Position   int32
 	CreatedAt  time.Time
+	// The tenant that owns this row, filled from the connection's weave.tenant setting.
+	TenantID string
 }
 
 // Whether a workflow gives each of its agents a git worktree of its own, and how that worktree is set up.
@@ -621,6 +670,8 @@ type WorkflowProvisionerConfig struct {
 	UpdatedAt            time.Time
 	WorktreeDiffExclude  []string
 	WorktreeDir          string
+	// The tenant that owns this row, filled from the connection's weave.tenant setting.
+	TenantID string
 }
 
 // The disk one worktree directory takes, as the size loop or get_worktree last measured it. Keyed by the directory rather than an agent, since a directory outlives its row and one nobody answers for is what the worktrees screen is for.
@@ -632,4 +683,6 @@ type WorktreeSize struct {
 	MeasuredAt time.Time
 	// Why the last walk failed, null when it did not.
 	Error *string
+	// The tenant that owns this row, filled from the connection's weave.tenant setting.
+	TenantID string
 }

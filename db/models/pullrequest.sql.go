@@ -111,7 +111,7 @@ func (q *Queries) EnsurePullRequestSync(ctx context.Context, repositoryUrl strin
 
 const getBranchScan = `-- name: GetBranchScan :one
 SELECT
-    repository_url, branch, next_cursor, completed_at
+    repository_url, branch, next_cursor, completed_at, tenant_id
 FROM
     branch_scans
 WHERE
@@ -132,13 +132,14 @@ func (q *Queries) GetBranchScan(ctx context.Context, arg GetBranchScanParams) (*
 		&i.Branch,
 		&i.NextCursor,
 		&i.CompletedAt,
+		&i.TenantID,
 	)
 	return &i, err
 }
 
 const getPullRequestByIdentity = `-- name: GetPullRequestByIdentity :one
 SELECT
-    id, host, forge, provider_id, url, repository_url, head_repository_url, number, title, head_branch, head_sha, base_branch, base_sha, draft, state, opened_at, changed_at, merged_at, closed_at, first_seen_at, review_decision, decision_changed_at, checks, checks_sha, checks_read_at, mergeability
+    id, host, forge, provider_id, url, repository_url, head_repository_url, number, title, head_branch, head_sha, base_branch, base_sha, draft, state, opened_at, changed_at, merged_at, closed_at, first_seen_at, review_decision, decision_changed_at, checks, checks_sha, checks_read_at, mergeability, tenant_id
 FROM
     pull_requests
 WHERE
@@ -181,13 +182,14 @@ func (q *Queries) GetPullRequestByIdentity(ctx context.Context, arg GetPullReque
 		&i.ChecksSha,
 		&i.ChecksReadAt,
 		&i.Mergeability,
+		&i.TenantID,
 	)
 	return &i, err
 }
 
 const getPullRequestSync = `-- name: GetPullRequestSync :one
 SELECT
-    repository_url, updated_through, listed_at, sweep_cursor, sweep_newest, read_at, calls
+    repository_url, updated_through, listed_at, sweep_cursor, sweep_newest, read_at, calls, tenant_id
 FROM
     pull_request_syncs
 WHERE
@@ -205,6 +207,7 @@ func (q *Queries) GetPullRequestSync(ctx context.Context, repositoryUrl string) 
 		&i.SweepNewest,
 		&i.ReadAt,
 		&i.Calls,
+		&i.TenantID,
 	)
 	return &i, err
 }
@@ -214,7 +217,8 @@ SELECT
     o.agent_id,
     o.pull_request_id,
     o.first_seen_at,
-    o.last_seen_at
+    o.last_seen_at,
+    o.tenant_id
 FROM
     agent_pull_requests o
 WHERE
@@ -237,6 +241,7 @@ func (q *Queries) ListAgentPullRequests(ctx context.Context, agentID string) ([]
 			&i.PullRequestID,
 			&i.FirstSeenAt,
 			&i.LastSeenAt,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -283,7 +288,7 @@ func (q *Queries) ListLiveRepositories(ctx context.Context) ([]*string, error) {
 
 const listPullRequestsByKey = `-- name: ListPullRequestsByKey :many
 SELECT
-    p.id, p.host, p.forge, p.provider_id, p.url, p.repository_url, p.head_repository_url, p.number, p.title, p.head_branch, p.head_sha, p.base_branch, p.base_sha, p.draft, p.state, p.opened_at, p.changed_at, p.merged_at, p.closed_at, p.first_seen_at, p.review_decision, p.decision_changed_at, p.checks, p.checks_sha, p.checks_read_at, p.mergeability
+    p.id, p.host, p.forge, p.provider_id, p.url, p.repository_url, p.head_repository_url, p.number, p.title, p.head_branch, p.head_sha, p.base_branch, p.base_sha, p.draft, p.state, p.opened_at, p.changed_at, p.merged_at, p.closed_at, p.first_seen_at, p.review_decision, p.decision_changed_at, p.checks, p.checks_sha, p.checks_read_at, p.mergeability, p.tenant_id
 FROM
     pull_requests p
 WHERE
@@ -339,6 +344,7 @@ func (q *Queries) ListPullRequestsByKey(ctx context.Context, ids []string) ([]*P
 			&i.ChecksSha,
 			&i.ChecksReadAt,
 			&i.Mergeability,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -352,7 +358,7 @@ func (q *Queries) ListPullRequestsByKey(ctx context.Context, ids []string) ([]*P
 
 const listPullRequestsOfAgents = `-- name: ListPullRequestsOfAgents :many
 SELECT
-    p.id, p.host, p.forge, p.provider_id, p.url, p.repository_url, p.head_repository_url, p.number, p.title, p.head_branch, p.head_sha, p.base_branch, p.base_sha, p.draft, p.state, p.opened_at, p.changed_at, p.merged_at, p.closed_at, p.first_seen_at, p.review_decision, p.decision_changed_at, p.checks, p.checks_sha, p.checks_read_at, p.mergeability
+    p.id, p.host, p.forge, p.provider_id, p.url, p.repository_url, p.head_repository_url, p.number, p.title, p.head_branch, p.head_sha, p.base_branch, p.base_sha, p.draft, p.state, p.opened_at, p.changed_at, p.merged_at, p.closed_at, p.first_seen_at, p.review_decision, p.decision_changed_at, p.checks, p.checks_sha, p.checks_read_at, p.mergeability, p.tenant_id
 FROM
     pull_requests p
 WHERE
@@ -406,6 +412,7 @@ func (q *Queries) ListPullRequestsOfAgents(ctx context.Context, ids []string) ([
 			&i.ChecksSha,
 			&i.ChecksReadAt,
 			&i.Mergeability,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -419,7 +426,7 @@ func (q *Queries) ListPullRequestsOfAgents(ctx context.Context, ids []string) ([
 
 const listPullRequestsPage = `-- name: ListPullRequestsPage :many
 SELECT
-    p.id, p.host, p.forge, p.provider_id, p.url, p.repository_url, p.head_repository_url, p.number, p.title, p.head_branch, p.head_sha, p.base_branch, p.base_sha, p.draft, p.state, p.opened_at, p.changed_at, p.merged_at, p.closed_at, p.first_seen_at, p.review_decision, p.decision_changed_at, p.checks, p.checks_sha, p.checks_read_at, p.mergeability
+    p.id, p.host, p.forge, p.provider_id, p.url, p.repository_url, p.head_repository_url, p.number, p.title, p.head_branch, p.head_sha, p.base_branch, p.base_sha, p.draft, p.state, p.opened_at, p.changed_at, p.merged_at, p.closed_at, p.first_seen_at, p.review_decision, p.decision_changed_at, p.checks, p.checks_sha, p.checks_read_at, p.mergeability, p.tenant_id
 FROM
     pull_requests p
 WHERE
@@ -494,6 +501,7 @@ func (q *Queries) ListPullRequestsPage(ctx context.Context, arg ListPullRequests
 			&i.ChecksSha,
 			&i.ChecksReadAt,
 			&i.Mergeability,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -507,7 +515,7 @@ func (q *Queries) ListPullRequestsPage(ctx context.Context, arg ListPullRequests
 
 const listStaleStandings = `-- name: ListStaleStandings :many
 SELECT
-    p.id, p.host, p.forge, p.provider_id, p.url, p.repository_url, p.head_repository_url, p.number, p.title, p.head_branch, p.head_sha, p.base_branch, p.base_sha, p.draft, p.state, p.opened_at, p.changed_at, p.merged_at, p.closed_at, p.first_seen_at, p.review_decision, p.decision_changed_at, p.checks, p.checks_sha, p.checks_read_at, p.mergeability
+    p.id, p.host, p.forge, p.provider_id, p.url, p.repository_url, p.head_repository_url, p.number, p.title, p.head_branch, p.head_sha, p.base_branch, p.base_sha, p.draft, p.state, p.opened_at, p.changed_at, p.merged_at, p.closed_at, p.first_seen_at, p.review_decision, p.decision_changed_at, p.checks, p.checks_sha, p.checks_read_at, p.mergeability, p.tenant_id
 FROM
     pull_requests p
 WHERE
@@ -586,6 +594,7 @@ func (q *Queries) ListStaleStandings(ctx context.Context, arg ListStaleStandings
 			&i.ChecksSha,
 			&i.ChecksReadAt,
 			&i.Mergeability,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}
@@ -803,7 +812,7 @@ func (q *Queries) SetStanding(ctx context.Context, arg SetStandingParams) error 
 
 const snapshotPullRequests = `-- name: SnapshotPullRequests :many
 SELECT
-    p.id, p.host, p.forge, p.provider_id, p.url, p.repository_url, p.head_repository_url, p.number, p.title, p.head_branch, p.head_sha, p.base_branch, p.base_sha, p.draft, p.state, p.opened_at, p.changed_at, p.merged_at, p.closed_at, p.first_seen_at, p.review_decision, p.decision_changed_at, p.checks, p.checks_sha, p.checks_read_at, p.mergeability
+    p.id, p.host, p.forge, p.provider_id, p.url, p.repository_url, p.head_repository_url, p.number, p.title, p.head_branch, p.head_sha, p.base_branch, p.base_sha, p.draft, p.state, p.opened_at, p.changed_at, p.merged_at, p.closed_at, p.first_seen_at, p.review_decision, p.decision_changed_at, p.checks, p.checks_sha, p.checks_read_at, p.mergeability, p.tenant_id
 FROM
     pull_requests p
 WHERE
@@ -858,6 +867,7 @@ func (q *Queries) SnapshotPullRequests(ctx context.Context) ([]*PullRequest, err
 			&i.ChecksSha,
 			&i.ChecksReadAt,
 			&i.Mergeability,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}

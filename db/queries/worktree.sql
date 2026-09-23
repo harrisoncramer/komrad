@@ -3,7 +3,8 @@ SELECT
     dir,
     size_bytes,
     measured_at,
-    error
+    error,
+    tenant_id
 FROM
     worktree_sizes
 ORDER BY

@@ -37,9 +37,7 @@ func newListened(t *testing.T, stores *fakeStores) *listened {
 func newPooled(t *testing.T) *listened {
 	t.Helper()
 
-	pool, err := pgxpool.New(t.Context(), dbtest.URL(t))
-	require.NoError(t, err)
-	t.Cleanup(pool.Close)
+	pool := dbtest.Pool(t)
 
 	return &listened{pool: pool}
 }

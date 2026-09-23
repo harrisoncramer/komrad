@@ -90,9 +90,7 @@ type served struct {
 func serve(t *testing.T, agents agentStore, heartbeat time.Duration) *served {
 	t.Helper()
 
-	pool, err := pgxpool.New(t.Context(), dbtest.URL(t))
-	require.NoError(t, err)
-	t.Cleanup(pool.Close)
+	pool := dbtest.Pool(t)
 
 	broker := watch.NewBroker(watch.NewBrokerParams{Pool: pool, Rows: newRows(agents)})
 	require.NoError(t, broker.Start())
