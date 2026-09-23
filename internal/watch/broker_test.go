@@ -23,7 +23,11 @@ const settle = 20 * time.Millisecond
 func newTestBroker(t *testing.T, stores *fakeStores) *Broker {
 	t.Helper()
 
-	broker := NewBroker(NewBrokerParams{Rows: newRows(stores), PassGap: time.Microsecond})
+	broker := NewBroker(NewBrokerParams{
+		Rows:      newRows(stores),
+		Resources: testResources,
+		PassGap:   time.Microsecond,
+	})
 	broker.up()
 	t.Cleanup(broker.Close)
 

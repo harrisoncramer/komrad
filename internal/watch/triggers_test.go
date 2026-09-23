@@ -1,9 +1,6 @@
 package watch
 
 import (
-	"bytes"
-	"slices"
-	"strings"
 	"testing"
 
 	"weave/lib/xslice"
@@ -12,46 +9,80 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestTheMigratedTriggersAreTheDeclaredOnes pins that the schema carries exactly the triggers the
-// resources declare, so a resource changed without a watch migration fails here.
-func TestTheMigratedTriggersAreTheDeclaredOnes(t *testing.T) {
+// TestTheMigratedTriggerFunctionsAreTheDeclaredOnes pins that the schema's trigger functions run the
+// bodies declared here.
+func TestTheMigratedTriggerFunctionsAreTheDeclaredOnes(t *testing.T) {
 	l := newPooled(t)
 
-	rows, err := l.pool.Query(t.Context(), `
-		SELECT
-			t.tgname,
-			c.relname,
-			t.tgfoid::regproc::text,
-			t.tgargs
-		FROM
-			pg_trigger t
-			JOIN pg_class c ON c.oid = t.tgrelid
-		WHERE
-			NOT t.tgisinternal
-			AND t.tgfoid::regproc::text = ANY ($1)`, TriggerFunctions)
+	names := xslice.Map(TriggerFunctions, func(function TriggerFunction) string { return function.Name })
+	rows, err := l.pool.Query(t.Context(), `SELECT proname::text, prosrc FROM pg_proc WHERE proname::text = ANY ($1)`, names)
 	require.NoError(t, err)
 	defer rows.Close()
 
-	var migrated []string
+	var migrated []TriggerFunction
 	for rows.Next() {
-		var trigger Trigger
-		var args []byte
-		require.NoError(t, rows.Scan(&trigger.Name, &trigger.Table, &trigger.Function, &args))
-		for arg := range bytes.SplitSeq(bytes.TrimSuffix(args, []byte{0}), []byte{0}) {
-			trigger.Args = append(trigger.Args, string(arg))
-		}
-		migrated = append(migrated, spell(trigger))
+		var function TriggerFunction
+		require.NoError(t, rows.Scan(&function.Name, &function.Body))
+		migrated = append(migrated, function)
 	}
 	require.NoError(t, rows.Err())
 
-	declared := xslice.Map(Triggers(), spell)
-	require.NotEmpty(t, declared)
-
-	slices.Sort(migrated)
-	slices.Sort(declared)
-	assert.Equal(t, declared, migrated, "the resources changed without a migration; run mise run db:watch-migration <name>")
+	assert.ElementsMatch(t, TriggerFunctions, migrated, "a trigger function changed without a migration; run mise run db:watch-migration <name>")
 }
 
-func spell(trigger Trigger) string {
-	return trigger.Table + "." + trigger.Name + " " + trigger.Function + "(" + strings.Join(trigger.Args, ", ") + ")"
+// TestBuildTriggersWritesKeysIgnoredColumnsAndFeeders pins the arguments each trigger is attached with.
+func TestBuildTriggersWritesKeysIgnoredColumnsAndFeeders(t *testing.T) {
+	resources := []Resource{
+		{
+			Table:     "marks",
+			KeyColumn: "id",
+		},
+		{
+			Table:          "repositories",
+			KeyColumn:      "url",
+			IgnoredColumns: []string{"calls", "updated_at"},
+			Feeders: []Feeder{
+				{
+					Table:  "repository_notes",
+					Column: "repository_url",
+				},
+				{
+					Table: "agents",
+					Lookup: &Lookup{
+						ParentColumn:    "url",
+						ChildColumn:     "repository_url",
+						SkipParentsWith: "archived_at",
+						OnChangeOf:      "branch",
+					},
+				},
+			},
+		},
+	}
+
+	assert.Equal(t, []Trigger{
+		{
+			Name:     "watch_notify",
+			Table:    "marks",
+			Function: "watch_notify",
+			Args:     []string{"id"},
+		},
+		{
+			Name:     "watch_notify",
+			Table:    "repositories",
+			Function: "watch_notify",
+			Args:     []string{"url", "calls", "updated_at"},
+		},
+		{
+			Name:     "watch_subresource_repositories",
+			Table:    "repository_notes",
+			Function: "watch_subresource",
+			Args:     []string{"repositories", "repository_url"},
+		},
+		{
+			Name:     "watch_subresource_repositories",
+			Table:    "agents",
+			Function: "watch_subresource_lookup",
+			Args:     []string{"repositories", "url", "url", "repository_url", "archived_at", "branch"},
+		},
+	}, BuildTriggers(resources))
 }

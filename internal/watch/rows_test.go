@@ -3,7 +3,6 @@ package watch
 import (
 	"context"
 	"fmt"
-	"maps"
 	"slices"
 	"strings"
 	"sync"
@@ -233,9 +232,9 @@ func TestSnapshotCarriesEveryWatchedSet(t *testing.T) {
 	assert.Equal(t, watchv1.Resource_RESOURCE_MARK, snapshot[6].Resource, "a snapshot row says which resource it is")
 }
 
-// TestEveryResourceIsDeclaredWhole pins that every resource's loader reads a row from its store and
-// draws it under its key.
-func TestEveryResourceIsDeclaredWhole(t *testing.T) {
+// TestEveryLoaderReadsItsResource pins that every loader reads a row from its store and draws it
+// under its key.
+func TestEveryLoaderReadsItsResource(t *testing.T) {
 	stores := newStores()
 	stores.agents.put(agentRow("k"))
 	stores.workflows.put(workflowstore.Workflow{ID: "k", Name: "flow"})
@@ -244,16 +243,11 @@ func TestEveryResourceIsDeclaredWhole(t *testing.T) {
 	stores.mail.put(mailstore.Mail{ID: "k"})
 	stores.pullRequests.put(pullrequeststore.PullRequest{ID: "k"})
 	rows := newRows(stores)
+	require.NotEmpty(t, rows.loaders)
 
-	declared := resources
-	require.NotEmpty(t, declared)
-
-	for _, r := range declared {
-		t.Run(r.Table, func(t *testing.T) {
-			assert.NotEqual(t, watchv1.Resource_RESOURCE_UNSPECIFIED, r.Enum, "no enum value")
-
-			bound, ok := rows.loaders[r.Enum]
-			require.True(t, ok, "no loader reads %s", r.Table)
+	for resource, bound := range rows.loaders {
+		t.Run(resource.String(), func(t *testing.T) {
+			assert.NotEqual(t, watchv1.Resource_RESOURCE_UNSPECIFIED, resource, "no enum value")
 
 			snapshot, err := bound.snapshot(t.Context())
 			require.NoError(t, err)
@@ -266,13 +260,4 @@ func TestEveryResourceIsDeclaredWhole(t *testing.T) {
 			assert.NotNil(t, held["k"], "the read-back answers no row for the key")
 		})
 	}
-}
-
-// TestLoadersAreTheResources pins the read-back to the resource list: one loader per resource, and
-// nothing else.
-func TestLoadersAreTheResources(t *testing.T) {
-	rows := newRows(newStores())
-
-	want := xslice.Map(resources, func(r Resource) watchv1.Resource { return r.Enum })
-	assert.ElementsMatch(t, want, slices.Collect(maps.Keys(rows.loaders)))
 }

@@ -12,7 +12,7 @@
 // replay events or store a durable event log. Instead, the pane just re-snapshots the database, which
 // is enough for a UI with a few thousand records at most.
 //
-// The database triggers fire regardless of the data changed; it's the broker's responsibility to
-// compare each row it reads back against the last one it sent for that key, so a write that
-// moves only a timestamp, for instance, doesn't send along the new data.
+// The database triggers fire on any change outside a resource's ignored columns; it's the broker's
+// responsibility to compare each row it reads back against the last one it sent for that key, so a
+// write that moves only a timestamp, for instance, doesn't send along the new data.
 package watch

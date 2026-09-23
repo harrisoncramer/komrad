@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"weave/internal/watch"
+	"weave/internal/watched"
 )
 
 var migrationName = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
@@ -60,11 +61,15 @@ func main() {
 func render() []byte {
 	functions := make([]string, len(watch.TriggerFunctions))
 	for i, function := range watch.TriggerFunctions {
-		functions[i] = quote(function) + "::regproc"
+		functions[i] = "'" + function.Name + "'::regproc"
 	}
 
 	var output bytes.Buffer
 	output.WriteString("SET LOCAL lock_timeout = '5s';\n\n")
+	for _, function := range watch.TriggerFunctions {
+		output.WriteString(function.BuildSQL())
+		output.WriteString("\n")
+	}
 	fmt.Fprintf(&output, `DO $$
 DECLARE
     stale record;
@@ -86,17 +91,9 @@ $$;
 
 `, strings.Join(functions, ", "))
 
-	for _, trigger := range watch.Triggers() {
-		args := make([]string, len(trigger.Args))
-		for i, arg := range trigger.Args {
-			args[i] = quote(arg)
-		}
-		fmt.Fprintf(&output, "CREATE TRIGGER %s AFTER INSERT OR UPDATE OR DELETE ON %s FOR EACH ROW EXECUTE FUNCTION %s(%s);\n", trigger.Name, trigger.Table, trigger.Function, strings.Join(args, ", "))
+	for _, trigger := range watch.BuildTriggers(watched.All()) {
+		output.WriteString(trigger.BuildSQL())
 	}
 
 	return output.Bytes()
-}
-
-func quote(value string) string {
-	return "'" + strings.ReplaceAll(value, "'", "''") + "'"
 }

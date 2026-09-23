@@ -17,6 +17,7 @@ import (
 	"weave/internal/logging"
 	"weave/internal/store"
 	"weave/internal/watch"
+	"weave/internal/watched"
 	"weave/lib/xslice"
 	watchv1 "weave/proto/gen/watch/v1"
 
@@ -96,7 +97,11 @@ func serve(t *testing.T, agents agentStore, heartbeat time.Duration) *served {
 	t.Cleanup(func() { _ = st.Close() })
 	pool := st.GetRawPool()
 
-	broker := watch.NewBroker(watch.NewBrokerParams{Pool: pool, Rows: newRows(agents)})
+	broker := watch.NewBroker(watch.NewBrokerParams{
+		Pool:      pool,
+		Rows:      newRows(agents),
+		Resources: watched.All(),
+	})
 	require.NoError(t, broker.Start())
 	t.Cleanup(broker.Close)
 

@@ -47,6 +47,8 @@ type NewBrokerParams struct {
 	Logger *slog.Logger
 	Pool   *pgxpool.Pool
 	Rows   *Rows
+	// Resources are the resources whose tables the listener maps notifications to.
+	Resources []Resource
 	// PassGap is the least time between two render passes, defaultPassGap when zero.
 	PassGap time.Duration
 }
@@ -57,6 +59,8 @@ type Broker struct {
 	logger *slog.Logger
 	pool   *pgxpool.Pool
 	rows   *Rows
+	// tables maps a notified table to the resource whose rows it holds.
+	tables map[string]watchv1.Resource
 
 	// pendingMu guards the keys marked pending and not yet read.
 	pendingMu sync.Mutex
@@ -96,6 +100,7 @@ func NewBroker(params NewBrokerParams) *Broker {
 		logger:      logger,
 		pool:        params.Pool,
 		rows:        params.Rows,
+		tables:      buildTables(params.Resources),
 		pending:     map[watchv1.Resource]map[string]struct{}{},
 		unknown:     map[string]struct{}{},
 		wake:        make(chan struct{}, 1),

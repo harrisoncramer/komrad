@@ -24,6 +24,7 @@ import (
 	"weave/internal/store"
 	"weave/internal/tmux"
 	"weave/internal/watch"
+	"weave/internal/watched"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
@@ -98,9 +99,10 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 	srv.closers = append(srv.closers, svc.review.Close)
 
 	broker := watch.NewBroker(watch.NewBrokerParams{
-		Logger: params.Logger,
-		Pool:   st.pool.GetRawPool(),
-		Rows:   svc.watchRows,
+		Logger:    params.Logger,
+		Pool:      st.pool.GetRawPool(),
+		Rows:      svc.watchRows,
+		Resources: watched.All(),
 	})
 	srv.Watch = broker
 	srv.closers = append(srv.closers, broker.Close)

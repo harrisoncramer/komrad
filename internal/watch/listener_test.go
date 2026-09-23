@@ -1,6 +1,7 @@
 package watch
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -12,16 +13,30 @@ import (
 	watchv1 "weave/proto/gen/watch/v1"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+// testResources maps the tables the tests notify on to their resources.
+var testResources = []Resource{
+	{
+		Enum:  watchv1.Resource_RESOURCE_AGENT,
+		Table: "agents",
+	},
+	{
+		Enum:  watchv1.Resource_RESOURCE_WORKFLOW,
+		Table: "workflows",
+	},
+}
+
 // listened is a broker listening to a database of the test's own, with the pool a test writes
 // through.
 type listened struct {
-	broker *Broker
-	pool   *pgxpool.Pool
+	broker   *Broker
+	pool     *pgxpool.Pool
+	ownerURL string
 }
 
 func newListened(t *testing.T, stores *fakeStores) *listened {
@@ -38,18 +53,26 @@ func newListened(t *testing.T, stores *fakeStores) *listened {
 func newPooled(t *testing.T) *listened {
 	t.Helper()
 
-	st, err := store.Open(t.Context(), dbtest.URL(t))
+	database := dbtest.New(t)
+	st, err := store.Open(t.Context(), dbtest.NewEngine(t, database).URL)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = st.Close() })
 
-	return &listened{pool: st.GetRawPool()}
+	return &listened{
+		pool:     st.GetRawPool(),
+		ownerURL: database.OwnerURL,
+	}
 }
 
 // listen puts the broker on the watch channel.
 func (l *listened) listen(t *testing.T, stores *fakeStores) {
 	t.Helper()
 
-	l.broker = NewBroker(NewBrokerParams{Pool: l.pool, Rows: newRows(stores)})
+	l.broker = NewBroker(NewBrokerParams{
+		Pool:      l.pool,
+		Rows:      newRows(stores),
+		Resources: testResources,
+	})
 	require.NoError(t, l.broker.Start())
 	t.Cleanup(l.broker.Close)
 }
@@ -172,10 +195,10 @@ func (l *listened) seed(t *testing.T) seeded {
 	return rows
 }
 
-// TestALookupSubresourceReachesItsResources pins the two lookup subresources against a real
+// TestALookupFeederReachesItsResources pins the two lookup feeders against a real
 // database: a write to a table that holds no resource key reaches the watcher under the key of
 // the resource row that matches it.
-func TestALookupSubresourceReachesItsResources(t *testing.T) {
+func TestALookupFeederReachesItsResources(t *testing.T) {
 	stores := newStores()
 	l := newPooled(t)
 
@@ -205,9 +228,9 @@ func TestALookupSubresourceReachesItsResources(t *testing.T) {
 	assert.Equal(t, rows.agent, change.Key, "a repository sync reaches the live agents on that repository")
 }
 
-// TestALookupSubresourceSkipsAnArchivedResource pins the narrowing: an archived agent is not
+// TestALookupFeederSkipsAnArchivedResource pins the narrowing: an archived agent is not
 // reached, so a sync on its repository reaches nobody.
-func TestALookupSubresourceSkipsAnArchivedResource(t *testing.T) {
+func TestALookupFeederSkipsAnArchivedResource(t *testing.T) {
 	stores := newStores()
 	l := newPooled(t)
 
@@ -264,4 +287,93 @@ func TestAWriteReachesTheWatchersUnderItsResourceKey(t *testing.T) {
 	change := waitForPassOfOneChange(t, subscription)
 	assert.Equal(t, agent, change.Key, "a write to a subresource reaches the watcher under its resource's key")
 	assert.Equal(t, watchv1.Resource_RESOURCE_AGENT, change.Resource)
+}
+
+// TestAnUpdateOfOnlyIgnoredColumnsNotifiesNothing pins that an agent write touching only
+// state_seen_at and updated_at raises nothing, and a write to any other column still does.
+func TestAnUpdateOfOnlyIgnoredColumnsNotifiesNothing(t *testing.T) {
+	l := newPooled(t)
+	rows := l.seed(t)
+	conn := l.listenRaw(t)
+
+	l.exec(t, `UPDATE agents SET state_seen_at = now() WHERE id = $1`, rows.agent)
+	l.exec(t, `UPDATE agents SET name = name WHERE id = $1`, rows.agent)
+	l.exec(t, `UPDATE workflows SET name = 'other' WHERE id = $1`, rows.workflow)
+	l.exec(t, `UPDATE agents SET name = 'renamed' WHERE id = $1`, rows.agent)
+
+	assert.Equal(t, []string{"workflows " + rows.workflow, "agents " + rows.agent}, waitForPayloads(t, conn, 2))
+}
+
+// TestALookupFeederOnOneColumnNotifiesOnlyItsChange pins that a lookup feeder with OnChangeOf
+// notifies its resource, under its key column, only when that column changes.
+func TestALookupFeederOnOneColumnNotifiesOnlyItsChange(t *testing.T) {
+	l := newPooled(t)
+	rows := l.seed(t)
+	byName := Resource{
+		Enum:      watchv1.Resource_RESOURCE_WORKFLOW,
+		Table:     "workflows",
+		KeyColumn: "name",
+		Feeders: []Feeder{
+			{
+				Table: "agents",
+				Lookup: &Lookup{
+					ParentColumn: "id",
+					ChildColumn:  "workflow_id",
+					OnChangeOf:   "archived_at",
+				},
+			},
+		},
+	}
+	for _, trigger := range BuildTriggers([]Resource{byName}) {
+		if trigger.Table == "agents" {
+			l.execAsOwner(t, trigger.BuildSQL())
+		}
+	}
+	conn := l.listenRaw(t)
+
+	l.exec(t, `UPDATE agents SET name = 'renamed' WHERE id = $1`, rows.agent)
+	l.exec(t, `UPDATE agents SET archived_at = now() WHERE id = $1`, rows.agent)
+
+	assert.Equal(t, []string{"agents " + rows.agent, "agents " + rows.agent, "workflows flow"}, waitForPayloads(t, conn, 3))
+}
+
+// execAsOwner runs a statement as the database's owner.
+func (l *listened) execAsOwner(t *testing.T, sql string) {
+	t.Helper()
+
+	owner, err := pgxpool.New(t.Context(), l.ownerURL)
+	require.NoError(t, err)
+	defer owner.Close()
+
+	_, err = owner.Exec(t.Context(), sql)
+	require.NoError(t, err)
+}
+
+// listenRaw puts a connection of its own on the watch channel.
+func (l *listened) listenRaw(t *testing.T) *pgx.Conn {
+	t.Helper()
+
+	pooled, err := l.pool.Acquire(t.Context())
+	require.NoError(t, err)
+	t.Cleanup(pooled.Release)
+
+	require.NoError(t, notifystore.NewNotifyStore(pooled).OpenWatchChannel(t.Context()))
+
+	return pooled.Conn()
+}
+
+// waitForPayloads reads the next count payloads raised on the connection.
+func waitForPayloads(t *testing.T, conn *pgx.Conn, count int) []string {
+	t.Helper()
+
+	var payloads []string
+	for range count {
+		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+		notification, err := conn.WaitForNotification(ctx)
+		cancel()
+		require.NoError(t, err, "only %v were raised", payloads)
+		payloads = append(payloads, notification.Payload)
+	}
+
+	return payloads
 }

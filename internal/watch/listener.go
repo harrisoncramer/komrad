@@ -121,7 +121,7 @@ func (b *Broker) handleNotification(payload string) {
 		return
 	}
 
-	resource, ok := findResource(table)
+	resource, ok := b.tables[table]
 	if !ok {
 		if b.shouldWarn("table " + table) {
 			b.logger.LogAttrs(context.Background(), slog.LevelWarn, "a notification named a table no resource is a row of", slog.String(logging.WatchTable, table))
