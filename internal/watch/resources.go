@@ -31,11 +31,30 @@ type Resource struct {
 	bind         func(Stores, func() time.Time) arm
 }
 
-// Explainer: Some resources are drawn from more than one table. An agent as isn't only a row of agents. It also includes that agent's metadata, its runs, its reviews and review rounds, and its PR sync state.
-// A write to one of these child tables leaves the resource's own table alone, so the
-// resource's own trigger never fires. Each subresource instead puts a trigger on its table that
-// notifies under the resource's table and key, and the broker reads the resource's row back as
-// if it had been written itself. For agents:
+//nolint:fussy // Necessary, this is the most complicated part of weave.
+//
+// Some resources are drawn from more than one table.
+// An agent as isn't only a row of agents. It also includes that agent's metadata, its runs, its reviews and review rounds, and its PR sync state.
+// A write to one of these child tables needs to tell clients that the parent resource has changed.
+// To accomplish this, we put a trigger on the subresource that fires for the parent.
+//
+// CREATE TRIGGER watch_subresource_agents
+//   AFTER INSERT OR UPDATE OR DELETE ON agent_metadata                            <----- Watches subresource
+//   FOR EACH ROW EXECUTE FUNCTION watch_subresource('agents', 'agent_id');        <----- Calls resource trigger function
+//
+// This is the same pattern that Postgraphile uses, see: https://postgraphile.org/postgraphile/4/subscriptions
+//
+// 1. The write (Postgres)
+//
+// INSERT INTO agent_metadata (agent_id, key, value) VALUES ('42', 'branch', 'agent/x');
+//
+// 2. The trigger fires (Postgres)
+//
+// The function reads agent_id off the arguments, gets '42', and calls:
+//
+// pg_notify('weave_watch', 'agents 42');
+//
+// On an UPDATE it checks the old row and the new row. On a DELETE it checks the old row only.
 
 type Subresource struct {
 	// Table is the subresource table.
