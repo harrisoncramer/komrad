@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"weave/config"
+	"weave/db"
 	"weave/internal/doctor"
 	"weave/internal/engine"
 	"weave/internal/store"
@@ -121,14 +122,9 @@ func (p engineProber) probe(ctx context.Context, row enginepick.Row) enginepick.
 		}
 	}
 
+	var loginErr error
 	if !setup.remote.IsRemote() {
-		if err := p.checkLogin(ctx, setup.env); err != nil {
-			return enginepick.Status{
-				Build:   "database login refused",
-				Label:   "login",
-				Refused: "this engine's server could not start with its database url: " + err.Error(),
-			}
-		}
+		loginErr = p.checkLogin(ctx, setup.env)
 	}
 
 	addr := setup.env.Addr
@@ -155,6 +151,14 @@ func (p engineProber) probe(ctx context.Context, row enginepick.Row) enginepick.
 			Label:   "down",
 			Refused: "the engine's server is not answering on " + addr,
 		}
+	case !served.answering && loginErr != nil:
+		label, reason := describeStartFailure(loginErr)
+
+		return enginepick.Status{
+			Build:   "nothing, and its server could not start",
+			Label:   label,
+			Refused: reason,
+		}
 	case !served.answering:
 		return enginepick.Status{Build: "nothing yet, the server starts on open"}
 	case !served.current && setup.remote.IsRemote():
@@ -165,8 +169,24 @@ func (p engineProber) probe(ctx context.Context, row enginepick.Row) enginepick.
 				version.Describe(version.Version(), version.Commit()),
 				doctor.StaleEngineFix(served.version, served.commit)),
 		}
+	case loginErr != nil:
+		_, reason := describeStartFailure(loginErr)
+
+		return enginepick.Status{Build: version.Describe(served.version, served.commit) + ", but it could not start again: " + reason}
 	default:
 		return enginepick.Status{Build: version.Describe(served.version, served.commit)}
+	}
+}
+
+// describeStartFailure names why an engine's server could not start with the database url its file holds.
+func describeStartFailure(err error) (string, string) {
+	switch {
+	case errors.Is(err, store.ErrNotAnEngine):
+		return "no engine", "its database url logs in as no engine: " + err.Error()
+	case errors.Is(err, db.ErrSchemaBehind), errors.Is(err, db.ErrSchemaAhead):
+		return "schema", err.Error()
+	default:
+		return "login", "its database login fails: " + err.Error()
 	}
 }
 

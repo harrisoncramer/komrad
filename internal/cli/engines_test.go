@@ -3,12 +3,18 @@ package cli
 import (
 	"context"
 	"errors"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"weave/config"
+	"weave/internal/store"
 	"weave/internal/ui/enginepick"
+	"weave/internal/version"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -86,32 +92,44 @@ func TestEngineRowsStartWithThisMachine(t *testing.T) {
 	assert.Contains(t, facts["engine"], "weave@host")
 }
 
-// TestProbeRefusesAnEngineWhoseLoginFails pins a bad password in an engine file showing in the picker, whatever a running server still holds.
-func TestProbeRefusesAnEngineWhoseLoginFails(t *testing.T) {
+// TestProbeWarnsOfAFailingLoginAndRefusesOnlyWhatCannotStart pins a bad password showing in the picker without locking out a running engine.
+func TestProbeWarnsOfAFailingLoginAndRefusesOnlyWhatCannotStart(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	for _, name := range []string{"WEAVE_CONFIG", "WEAVE_ADDR", "WEAVE_TMUX_SOCKET", "WEAVE_CACHE_DIR", "WEAVE_DATABASE_URL", "WEAVE_READONLY_DATABASE_URL", "WEAVE_OWNER_DATABASE_URL"} {
+	for _, name := range []string{"WEAVE_CONFIG", "WEAVE_ADDR", "WEAVE_TMUX_SOCKET", "WEAVE_CACHE_DIR", "WEAVE_DATABASE_URL", "WEAVE_READONLY_DATABASE_URL", "WEAVE_OWNER_DATABASE_URL", "WEAVE_DATABASE_PASSWORD_COMMAND"} {
 		t.Setenv(name, "")
 	}
 
+	answering := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = fmt.Fprintf(w, `{"status":"ok","version":%q,"commit":%q}`, version.Version(), version.Commit())
+	}))
+	t.Cleanup(answering.Close)
+
 	engines := filepath.Join(home, ".config", "weave", "engines")
 	require.NoError(t, os.MkdirAll(engines, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(engines, "second.toml"), []byte(
-		"[connection]\ndatabase_url = \"postgres://weave_engine_second:wrong@localhost:5460/weave\"\naddr = \"127.0.0.1:1\"\ntmux_socket = \"weave-second\"\n"), 0o600))
+	write := func(name, addr string) {
+		require.NoError(t, os.WriteFile(filepath.Join(engines, name+".toml"), []byte(
+			"[connection]\ndatabase_url = \"postgres://weave_engine_second:wrong@localhost:5460/weave\"\naddr = \""+addr+"\"\ntmux_socket = \"weave-"+name+"\"\n"), 0o600))
+	}
+	write("stopped", "127.0.0.1:1")
+	write("running", strings.TrimPrefix(answering.URL, "http://"))
 
-	var checked string
-	refuse := engineProber{checkLogin: func(_ context.Context, env *config.Environment) error {
-		checked = env.DatabaseURL
-		return errors.New("password authentication failed")
-	}}
+	failing := func(err error) engineProber {
+		return engineProber{checkLogin: func(context.Context, *config.Environment) error { return err }}
+	}
+	badPassword := errors.New("password authentication failed")
 
-	status := refuse.probe(t.Context(), enginepick.Row{Name: "second"})
+	stopped := failing(badPassword).probe(t.Context(), enginepick.Row{Name: "stopped"})
+	assert.Equal(t, "login", stopped.Label)
+	assert.Contains(t, stopped.Refused, "password authentication failed")
 
-	assert.Equal(t, "login", status.Label)
-	assert.Contains(t, status.Refused, "password authentication failed")
-	assert.Equal(t, "postgres://weave_engine_second:wrong@localhost:5460/weave", checked)
+	noEngine := failing(store.ErrNotAnEngine).probe(t.Context(), enginepick.Row{Name: "stopped"})
+	assert.Equal(t, "no engine", noEngine.Label)
 
-	admit := engineProber{checkLogin: func(context.Context, *config.Environment) error { return nil }}
+	running := failing(badPassword).probe(t.Context(), enginepick.Row{Name: "running"})
+	assert.Empty(t, running.Refused, "a running server can still be attached to")
+	assert.Contains(t, running.Build, "could not start again")
 
-	assert.Empty(t, admit.probe(t.Context(), enginepick.Row{Name: "second"}).Refused)
+	healthy := failing(nil).probe(t.Context(), enginepick.Row{Name: "stopped"})
+	assert.Empty(t, healthy.Refused)
 }

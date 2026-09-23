@@ -43,6 +43,7 @@ func runPasswordCommand(ctx context.Context, command string) (string, error) {
 	var stderr bytes.Buffer
 	cmd := exec.CommandContext(ctx, "sh", "-c", command)
 	cmd.Stderr = &stderr
+	cmd.WaitDelay = time.Second
 
 	out, err := cmd.Output()
 	if err != nil {

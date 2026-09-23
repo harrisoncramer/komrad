@@ -38,6 +38,13 @@ fi
 
 bind_panel_key "$weave"
 
+# Runs weave with the connection read from the engine file alone.
+engine_weave() {
+	env -u WEAVE_ADDR -u WEAVE_TMUX_SOCKET -u WEAVE_DATABASE_URL -u WEAVE_READONLY_DATABASE_URL \
+		-u WEAVE_OWNER_DATABASE_URL -u WEAVE_CACHE_DIR -u WEAVE_DATABASE_PASSWORD_COMMAND \
+		"$weave" "$@"
+}
+
 # Replaces the server of every other engine on this machine.
 engines_dir="$HOME/.config/weave/engines"
 if [ "${MISE_ENV:-}" != test ] && [ -d "$engines_dir" ]; then
@@ -48,8 +55,8 @@ if [ "${MISE_ENV:-}" != test ] && [ -d "$engines_dir" ]; then
 		fi
 
 		name="$(basename "$file" .toml)"
-		"$weave" stop --engine "$name" 2>/dev/null || true
-		if ! "$weave" start --engine "$name"; then
+		engine_weave stop --engine "$name" 2>/dev/null || true
+		if ! engine_weave start --engine "$name"; then
 			echo "warning: the $name engine's server did not come up" >&2
 		fi
 	done
