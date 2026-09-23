@@ -10,19 +10,19 @@ import (
 	watchv1 "weave/proto/gen/watch/v1"
 )
 
-// touchedKeys is the keys one render reads back, by resource, each resource's in order.
-type touchedKeys map[watchv1.Resource][]string
+// pendingKeys is the keys one render reads back, by resource, each resource's in order.
+type pendingKeys map[watchv1.Resource][]string
 
-// touch says the row of a table with this key may have moved.
-func (b *Broker) touch(table, key string) {
-	res, ok := resourcesByTable[table]
+// markPending says the row of a table with this key may have moved.
+func (b *Broker) markPending(table, key string) {
+	res, ok := findResource(table)
 	if !ok {
 		b.reportUnknown(table)
 
 		return
 	}
 
-	b.touchResource(res, []string{key})
+	b.markResourcePending(res, []string{key})
 }
 
 // reportUnknown says once that a table nothing reads is still announcing itself.
@@ -41,7 +41,7 @@ func (b *Broker) reportUnknown(table string) {
 	b.logger.LogAttrs(context.Background(), slog.LevelWarn, "a notification named a table no resource is a row of", slog.String(logging.WatchTable, table))
 }
 
-func (b *Broker) touchResource(res watchv1.Resource, keys []string) {
+func (b *Broker) markResourcePending(resource watchv1.Resource, keys []string) {
 	b.pendingMu.Lock()
 	defer b.pendingMu.Unlock()
 
@@ -49,13 +49,13 @@ func (b *Broker) touchResource(res watchv1.Resource, keys []string) {
 		return
 	}
 
-	touched := b.pending[res]
-	if touched == nil {
-		touched = map[string]struct{}{}
-		b.pending[res] = touched
+	pending := b.pending[resource]
+	if pending == nil {
+		pending = map[string]struct{}{}
+		b.pending[resource] = pending
 	}
 	for _, key := range keys {
-		touched[key] = struct{}{}
+		pending[key] = struct{}{}
 	}
 
 	// Poke the loop unless it has an unread poke.
@@ -65,23 +65,23 @@ func (b *Broker) touchResource(res watchv1.Resource, keys []string) {
 	}
 }
 
-// take empties the pending set and returns it with each resource's keys in order.
-func (b *Broker) take() touchedKeys {
+// drainPending empties the pending set and returns it with each resource's keys in order.
+func (b *Broker) drainPending() pendingKeys {
 	b.pendingMu.Lock()
 	defer b.pendingMu.Unlock()
 
-	touched := touchedKeys{}
+	pending := pendingKeys{}
 	for res, keys := range b.pending {
-		touched[res] = slices.Sorted(maps.Keys(keys))
+		pending[res] = slices.Sorted(maps.Keys(keys))
 	}
 	clear(b.pending)
 
-	return touched
+	return pending
 }
 
-// restore puts the keys a failed render took back for the next one.
-func (b *Broker) restore(touched touchedKeys) {
-	for res, keys := range touched {
-		b.touchResource(res, keys)
+// requeuePending puts the keys a failed render drained back for the next one.
+func (b *Broker) requeuePending(pending pendingKeys) {
+	for res, keys := range pending {
+		b.markResourcePending(res, keys)
 	}
 }

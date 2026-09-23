@@ -33,7 +33,7 @@ func newListened(t *testing.T, stores *fakeStores) *listened {
 }
 
 // newPooled opens a pool on a database of the test's own, with nothing listening to it yet, so
-// a write made now raises a notification nobody hears.
+// a write made now raises a notification nobody receives.
 func newPooled(t *testing.T) *listened {
 	t.Helper()
 
@@ -111,7 +111,7 @@ func TestANotificationReachesTheWatchers(t *testing.T) {
 
 // TestALostConnectionDropsEveryWatcher pins the answer to a connection going: every
 // subscription is closed, none opens until the listener is back, and the one that opens then
-// hears what is raised after.
+// receives what is raised after.
 func TestALostConnectionDropsEveryWatcher(t *testing.T) {
 	stores := newStores()
 	l := newListened(t, stores)

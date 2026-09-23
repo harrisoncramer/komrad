@@ -52,7 +52,7 @@ func TestAStampOnlyUpdateSendsNothing(t *testing.T) {
 	require.Len(t, subscription.Snapshot(), 1)
 
 	stores.agents.put(stamped("a", time.Unix(2, 0)))
-	broker.touch("agents", "a")
+	broker.markPending("agents", "a")
 
 	require.Eventually(t, func() bool { return len(stores.agents.reads()) == 1 }, time.Second, time.Millisecond, "the row is read back")
 	assert.Empty(t, drain(subscription), "the rendered row is the one the watcher holds")
@@ -71,13 +71,13 @@ func TestARealChangeSendsOnce(t *testing.T) {
 	renamed := agentRow("a")
 	renamed.Name = "renamed"
 	stores.agents.put(renamed)
-	broker.touch("agents", "a")
+	broker.markPending("agents", "a")
 
 	changes := drain(subscription)
 	require.Len(t, changes, 1)
 	assert.Equal(t, "renamed", changes[0].Row.GetAgent().GetName())
 
-	broker.touch("agents", "a")
+	broker.markPending("agents", "a")
 	assert.Empty(t, drain(subscription), "the same row read back twice is sent once")
 }
 
@@ -92,15 +92,15 @@ func TestARowTouchedTenTimesInOnePassSendsOnce(t *testing.T) {
 	subscription, err := broker.Subscribe(t.Context())
 	require.NoError(t, err)
 
-	// The first touch holds the loop while the other ten pile up behind it.
-	broker.touch("agents", "a")
+	// The first markPending holds the loop while the other ten pile up behind it.
+	broker.markPending("agents", "a")
 	require.Eventually(t, func() bool { return len(stores.agents.reads()) == 1 }, time.Second, time.Millisecond)
 
 	renamed := agentRow("a")
 	renamed.Name = "renamed"
 	stores.agents.put(renamed)
 	for range 10 {
-		broker.touch("agents", "a")
+		broker.markPending("agents", "a")
 	}
 	close(stores.agents.held)
 
@@ -120,11 +120,11 @@ func TestATombstoneSendsOnlyForAHeldRow(t *testing.T) {
 	subscription, err := broker.Subscribe(t.Context())
 	require.NoError(t, err)
 
-	broker.touch("agents", "never")
+	broker.markPending("agents", "never")
 	assert.Empty(t, drain(subscription), "a key the watcher never held sends no tombstone")
 
 	stores.agents.put()
-	broker.touch("agents", "a")
+	broker.markPending("agents", "a")
 
 	changes := drain(subscription)
 	require.Len(t, changes, 1)
@@ -135,6 +135,6 @@ func TestATombstoneSendsOnlyForAHeldRow(t *testing.T) {
 
 	// The row comes back, and is sent although it is the row the watcher last saw.
 	stores.agents.put(agentRow("a"))
-	broker.touch("agents", "a")
+	broker.markPending("agents", "a")
 	assert.Len(t, drain(subscription), 1)
 }

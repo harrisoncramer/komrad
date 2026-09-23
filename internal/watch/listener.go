@@ -83,7 +83,7 @@ func (b *Broker) connect(ctx context.Context) (*pgx.Conn, error) {
 	return conn, nil
 }
 
-// hold hears the connection until it is lost or ctx ends, and closes it.
+// hold listens on the connection until it is lost or ctx ends, and closes it.
 func (b *Broker) hold(ctx context.Context, conn *pgx.Conn) error {
 	defer func() { _ = conn.Close(ctx) }()
 
@@ -94,7 +94,7 @@ func (b *Broker) hold(ctx context.Context, conn *pgx.Conn) error {
 
 		switch {
 		case err == nil:
-			b.hear(notification.Payload)
+			b.handleNotification(notification.Payload)
 		case ctx.Err() != nil:
 			return ctx.Err()
 		case errors.Is(err, context.DeadlineExceeded):
@@ -112,8 +112,8 @@ func (b *Broker) hold(ctx context.Context, conn *pgx.Conn) error {
 	}
 }
 
-// hear puts the row a notification names in the pending set.
-func (b *Broker) hear(payload string) {
+// handleNotification puts the row a notification names in the pending set.
+func (b *Broker) handleNotification(payload string) {
 	table, key, found := strings.Cut(payload, " ")
 	if !found {
 		b.logger.LogAttrs(context.Background(), slog.LevelWarn, "a notification carried no key", slog.String(logging.WatchTable, payload))
@@ -121,7 +121,7 @@ func (b *Broker) hear(payload string) {
 		return
 	}
 
-	b.touch(table, key)
+	b.markPending(table, key)
 }
 
 // up says the listener is on the channel, so watchers may open.

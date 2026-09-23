@@ -44,20 +44,17 @@ type NewServerParams struct {
 	ContextPath        string
 	HookCommand        string
 	FallbackResumeRoot string
-	// Doctor is this machine as the doctor's checks see it, which run_doctor answers with.
-	Doctor doctor.Settings
-	// ForgeBuilders makes the forge for each kind, every kind this build knows when nil.
-	ForgeBuilders map[string]forge.Builder
+	Doctor             doctor.Settings
+	ForgeBuilders      map[string]forge.Builder
 }
 
 type Server struct {
-	Mux      *http.ServeMux
-	Jobs     *river.Client[pgx.Tx]
-	Periodic *jobs.RiverPeriodic
-	Pool     *store.Pool
-	Delivery *mail.DeliveryService
-	Loops    []Loop
-	// Watch hears which rows the database changed, and streams them to the panels.
+	Mux           *http.ServeMux
+	Jobs          *river.Client[pgx.Tx]
+	Periodic      *jobs.RiverPeriodic
+	Pool          *store.Pool
+	Delivery      *mail.DeliveryService
+	Loops         []Loop
 	Watch         *watch.Broker
 	logger        *slog.Logger
 	stopRequested chan struct{}

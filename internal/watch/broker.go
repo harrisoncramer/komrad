@@ -27,7 +27,7 @@ const retryAfter = time.Second
 // ErrClosed says the broker has stopped and takes no more watchers.
 var ErrClosed = fail.Precondition("the service is stopping, so no watch can be opened")
 
-// ErrNotListening says the broker has no connection hearing the database, so a snapshot taken
+// ErrNotListening says the broker has no connection listening on the database, so a snapshot taken
 // now could miss a change.
 var ErrNotListening = fail.Precondition("the watch is not listening to the database")
 
@@ -35,8 +35,7 @@ var ErrNotListening = fail.Precondition("the watch is not listening to the datab
 type Change struct {
 	Resource watchv1.Resource
 	Key      string
-	// Row carries the row, and nil is a tombstone.
-	Row *watchv1.Row
+	Row      *watchv1.Row
 }
 
 // NewBrokerParams is what a broker is built over.
@@ -46,14 +45,14 @@ type NewBrokerParams struct {
 	Rows   *Rows
 }
 
-// Broker hears from the database which rows moved, reads them back and fans them out to every
+// Broker receives from the database which rows moved, reads them back and fans them out to every
 // open subscription.
 type Broker struct {
 	logger *slog.Logger
 	pool   *pgxpool.Pool
 	rows   *Rows
 
-	// pendingMu guards what has been heard and not yet read.
+	// pendingMu guards the keys marked pending and not yet read.
 	pendingMu sync.Mutex
 	pending   map[watchv1.Resource]map[string]struct{}
 	// unknown is the tables already reported as announcing rows nothing reads.
@@ -74,7 +73,7 @@ type Broker struct {
 	stopped chan struct{}
 }
 
-// NewBroker builds the broker rendering through the rows, which hears nothing until Start.
+// NewBroker builds the broker rendering through the rows, which receives nothing until Start.
 func NewBroker(params NewBrokerParams) *Broker {
 	logger := params.Logger
 	if logger == nil {
@@ -129,10 +128,10 @@ func (b *Broker) Start() error {
 	return nil
 }
 
-// render reads back everything touched since the last one and sends what moved to every
+// render reads back everything marked pending since the last one and sends what moved to every
 // subscriber, reporting false when the read failed and the ids are back in the pending set.
 func (b *Broker) render() bool {
-	touched := b.take()
+	pending := b.drainPending()
 
 	b.mu.Lock()
 	b.generation++
@@ -146,10 +145,10 @@ func (b *Broker) render() bool {
 	ctx, cancel := context.WithTimeout(context.Background(), readTimeout)
 	defer cancel()
 
-	changes, err := b.rows.Read(ctx, touched)
+	changes, err := b.rows.Read(ctx, pending)
 	if err != nil {
-		b.logger.LogAttrs(ctx, slog.LevelError, "failed to read the rows a change touched", logging.Err(err)...)
-		b.restore(touched)
+		b.logger.LogAttrs(ctx, slog.LevelError, "failed to read the pending rows", logging.Err(err)...)
+		b.requeuePending(pending)
 
 		return false
 	}
@@ -225,7 +224,7 @@ func (b *Broker) drop(subscription *Subscription) {
 }
 
 // Close ends every subscription, lets the listener's connection go and stops the render loop,
-// dropping whatever was heard and not yet rendered.
+// dropping whatever was pending and not yet rendered.
 func (b *Broker) Close() {
 	b.mu.Lock()
 	if b.closed {

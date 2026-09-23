@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// settle is long enough for the loop to have rendered whatever was touched.
+// settle is long enough for the loop to have rendered whatever was pending.
 const settle = 20 * time.Millisecond
 
 // newTestBroker builds a broker rendering over the stores, with no listener behind it and
@@ -43,9 +43,9 @@ func receive(t *testing.T, subscription *Subscription) Change {
 	}
 }
 
-// TestTouchesPileUpBehindOneRead pins that touches made while a render is reading are one
+// TestPendingKeysPileUpBehindOneRead pins that keys marked pending while a render is reading are one
 // read of the deduplicated ids once it is done.
-func TestTouchesPileUpBehindOneRead(t *testing.T) {
+func TestPendingKeysPileUpBehindOneRead(t *testing.T) {
 	stores := newStores()
 	stores.agents.held = make(chan struct{})
 	broker := newTestBroker(t, stores)
@@ -54,20 +54,20 @@ func TestTouchesPileUpBehindOneRead(t *testing.T) {
 	require.NoError(t, err)
 
 	stores.agents.put(agentRow("held"), agentRow("a"), agentRow("b"))
-	broker.touch("agents", "held")
+	broker.markPending("agents", "held")
 	require.Eventually(t, func() bool { return len(stores.agents.reads()) == 1 }, time.Second, time.Millisecond)
 
-	broker.touch("agents", "b")
-	broker.touch("agents", "a")
-	broker.touch("agents", "a")
-	broker.touch("workflows", "w")
-	broker.touch("schedules", "s")
+	broker.markPending("agents", "b")
+	broker.markPending("agents", "a")
+	broker.markPending("agents", "a")
+	broker.markPending("workflows", "w")
+	broker.markPending("schedules", "s")
 	close(stores.agents.held)
 
 	require.Equal(t, "held", receive(t, subscription).Key)
 	changes := []Change{receive(t, subscription), receive(t, subscription)}
 
-	assert.Equal(t, [][]string{{"held"}, {"a", "b"}}, stores.agents.reads(), "the touches behind the held read are one read")
+	assert.Equal(t, [][]string{{"held"}, {"a", "b"}}, stores.agents.reads(), "the keys pending behind the held read are one read")
 	assert.Equal(t, []string{"a", "b"}, []string{changes[0].Key, changes[1].Key})
 	assert.NotNil(t, changes[0].Row)
 	assert.Empty(t, drain(subscription), "a key the watcher never held sends no tombstone")
@@ -78,7 +78,7 @@ func TestNothingIsReadWithoutAWatcher(t *testing.T) {
 	stores := newStores()
 	broker := newTestBroker(t, stores)
 
-	broker.touch("agents", "a")
+	broker.markPending("agents", "a")
 	time.Sleep(settle)
 
 	assert.Empty(t, stores.agents.reads())
@@ -96,7 +96,7 @@ func TestSubscriptionOpensWithTheSnapshot(t *testing.T) {
 
 	stores.agents.put(agentRow("a"))
 
-	broker.touch("agents", "a")
+	broker.markPending("agents", "a")
 	require.Equal(t, "a", receive(t, first).Key)
 
 	stores.workflows.put(workflowstore.Workflow{ID: "w"})
@@ -108,7 +108,7 @@ func TestSubscriptionOpensWithTheSnapshot(t *testing.T) {
 	renamed := agentRow("a")
 	renamed.Name = "renamed"
 	stores.agents.put(renamed)
-	broker.touch("agents", "a")
+	broker.markPending("agents", "a")
 	assert.Equal(t, "a", receive(t, first).Key)
 	assert.Equal(t, "a", receive(t, second).Key)
 }
@@ -126,14 +126,14 @@ func TestATouchDuringTheSnapshotOnlyReachesWatchersWhoseSnapshotPredatesIt(t *te
 	stores.agents.put(agentRow("a"), agentRow("b"))
 
 	// The render is held part way, and a second watcher subscribes behind it.
-	broker.touch("agents", "a")
+	broker.markPending("agents", "a")
 	require.Eventually(t, func() bool { return len(stores.agents.reads()) == 1 }, time.Second, time.Millisecond)
 
 	second, err := broker.Subscribe(t.Context())
 	require.NoError(t, err)
 	require.Len(t, second.Snapshot(), 2)
 
-	broker.touch("agents", "b")
+	broker.markPending("agents", "b")
 	close(stores.agents.held)
 
 	assert.Equal(t, "a", receive(t, first).Key)
@@ -152,7 +152,7 @@ func TestARenderReadBeforeASnapshotSkipsItsWatcher(t *testing.T) {
 	require.NoError(t, err)
 
 	stores.agents.put(agentRow("a"))
-	broker.touch("agents", "a")
+	broker.markPending("agents", "a")
 	require.Eventually(t, func() bool { return len(stores.agents.reads()) == 1 }, time.Second, time.Millisecond)
 
 	renamed := agentRow("a")
@@ -193,7 +193,7 @@ func TestASlowWatcherIsDropped(t *testing.T) {
 		stores.agents.put(rows...)
 
 		for _, id := range ids {
-			broker.touch("agents", id)
+			broker.markPending("agents", id)
 		}
 		time.Sleep(settle)
 	}
@@ -230,12 +230,12 @@ func TestCloseEndsEverySubscription(t *testing.T) {
 	_, err = broker.Subscribe(t.Context())
 	require.ErrorIs(t, err, ErrClosed)
 
-	broker.touch("agents", "a")
+	broker.markPending("agents", "a")
 	subscription.Close()
 }
 
-// TestAFailedReadIsRetriedWithTheNextOne pins that a read that fails keeps its touches for the
-// next render, which reads them again beside whatever was touched since.
+// TestAFailedReadIsRetriedWithTheNextOne pins that a read that fails keeps its pending keys for the
+// next render, which reads them again beside whatever was marked pending since.
 func TestAFailedReadIsRetriedWithTheNextOne(t *testing.T) {
 	stores := newStores()
 	stores.agents.err = errors.New("boom")
@@ -245,15 +245,15 @@ func TestAFailedReadIsRetriedWithTheNextOne(t *testing.T) {
 	require.NoError(t, err)
 
 	stores.agents.put(agentRow("a"), agentRow("b"))
-	broker.touch("agents", "a")
+	broker.markPending("agents", "a")
 	require.Eventually(t, func() bool { return len(stores.agents.reads()) == 1 }, time.Second, time.Millisecond)
 
 	stores.agents.mu.Lock()
 	stores.agents.err = nil
 	stores.agents.mu.Unlock()
 
-	broker.touch("agents", "b")
-	assert.Equal(t, "a", receive(t, subscription).Key, "the touch the failed read lost comes back")
+	broker.markPending("agents", "b")
+	assert.Equal(t, "a", receive(t, subscription).Key, "the key the failed read lost comes back")
 	assert.Equal(t, "b", receive(t, subscription).Key)
 	assert.Equal(t, []string{"a", "b"}, stores.agents.reads()[1], "one read serves both")
 }
@@ -273,7 +273,7 @@ func TestClosingASubscriptionEndsItsStream(t *testing.T) {
 	_, open := <-subscription.Changes()
 	require.False(t, open)
 
-	broker.touch("agents", "a")
+	broker.markPending("agents", "a")
 	time.Sleep(settle)
 	assert.Empty(t, stores.agents.reads(), "nothing is read once the last watcher has gone")
 }
@@ -286,7 +286,7 @@ func TestABrokerNeverStartedStillCloses(t *testing.T) {
 	_, err := broker.Subscribe(t.Context())
 	require.ErrorIs(t, err, ErrNotListening)
 
-	broker.touch("agents", "a")
+	broker.markPending("agents", "a")
 	broker.Close()
 
 	_, err = broker.Subscribe(t.Context())
@@ -303,9 +303,9 @@ func TestHearReadsTheTableAndTheKey(t *testing.T) {
 	require.NoError(t, err)
 
 	stores.agents.put(agentRow("a b"))
-	broker.hear("river_job 7")
-	broker.hear("agents")
-	broker.hear("agents a b")
+	broker.handleNotification("river_job 7")
+	broker.handleNotification("agents")
+	broker.handleNotification("agents a b")
 
 	assert.Equal(t, "a b", receive(t, subscription).Key, "the key runs to the end of the payload")
 	assert.Equal(t, [][]string{{"a b"}}, stores.agents.reads())

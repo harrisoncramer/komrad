@@ -7,6 +7,7 @@ import (
 	"slices"
 	"time"
 
+	"weave/internal/rpc/render"
 	"weave/lib/xslice"
 	watchv1 "weave/proto/gen/watch/v1"
 
@@ -43,19 +44,47 @@ type NewRowsParams struct {
 }
 
 // Rows renders the rows a notification names the way the list RPCs do, a tombstone for a key
-// the watched set no longer holds, with one arm per resource.
+// the watched set no longer holds, with one loader per resource.
 type Rows struct {
-	arms map[watchv1.Resource]arm
+	loaders map[watchv1.Resource]loader
 }
 
 // NewRows builds the read-back over the stores the resources are read from.
 func NewRows(params NewRowsParams) *Rows {
-	arms := map[watchv1.Resource]arm{}
-	for _, r := range Resources() {
-		arms[r.Enum] = r.bind(params.Stores, params.now)
-	}
+	stores := params.Stores
 
-	return &Rows{arms: arms}
+	return &Rows{loaders: map[watchv1.Resource]loader{
+		watchv1.Resource_RESOURCE_AGENT: newLoader(stores.Agents, func(row rowstore.Row) (string, *watchv1.Row) {
+			agent := render.Agent(row, render.AgentOptions{})
+
+			return agent.GetId(), &watchv1.Row{Row: &watchv1.Row_Agent{Agent: agent}}
+		}),
+		watchv1.Resource_RESOURCE_WORKFLOW: newLoader(stores.Workflows, func(row workflowstore.Workflow) (string, *watchv1.Row) {
+			workflow := render.Workflow(row, render.WorkflowOptions{})
+
+			return workflow.GetId(), &watchv1.Row{Row: &watchv1.Row_Workflow{Workflow: workflow}}
+		}),
+		watchv1.Resource_RESOURCE_SCHEDULE: newLoader(stores.Schedules, func(row schedulestore.Schedule) (string, *watchv1.Row) {
+			schedule := render.Schedule(row, params.now(), render.ScheduleOptions{})
+
+			return schedule.GetId(), &watchv1.Row{Row: &watchv1.Row_Schedule{Schedule: schedule}}
+		}),
+		watchv1.Resource_RESOURCE_MARK: newLoader(stores.Marks, func(row markstore.Mark) (string, *watchv1.Row) {
+			mark := render.Mark(row)
+
+			return mark.GetId(), &watchv1.Row{Row: &watchv1.Row_Mark{Mark: mark}}
+		}),
+		watchv1.Resource_RESOURCE_MAIL: newLoader(stores.Mail, func(row mailstore.Mail) (string, *watchv1.Row) {
+			mail := render.Mail(row)
+
+			return mail.GetId(), &watchv1.Row{Row: &watchv1.Row_Mail{Mail: mail}}
+		}),
+		watchv1.Resource_RESOURCE_PULL_REQUEST: newLoader(stores.PullRequests, func(row pullrequeststore.PullRequest) (string, *watchv1.Row) {
+			pullRequest := render.PullRequest(row)
+
+			return pullRequest.GetId(), &watchv1.Row{Row: &watchv1.Row_PullRequest{PullRequest: pullRequest}}
+		}),
+	}}
 }
 
 // now is the clock a render reads.
@@ -67,16 +96,16 @@ func (p NewRowsParams) now() time.Time {
 	return p.Now()
 }
 
-// arm reads one resource: the rows its watched set holds among the given keys, and every row
+// loader reads one resource: the rows its watched set holds among the given keys, and every row
 // it holds.
-type arm struct {
+type loader struct {
 	read     func(ctx context.Context, keys []string) (map[string]*watchv1.Row, error)
 	snapshot func(ctx context.Context) ([]Change, error)
 }
 
-// newArm is one resource's arm over its store and its renderer.
-func newArm[R any](store reader[R], draw func(R) (string, *watchv1.Row)) arm {
-	return arm{
+// newLoader is one resource's loader over its store and its renderer.
+func newLoader[R any](store reader[R], draw func(R) (string, *watchv1.Row)) loader {
+	return loader{
 		read: func(ctx context.Context, keys []string) (map[string]*watchv1.Row, error) {
 			rows, err := store.ListByKey(ctx, keys)
 			if err != nil {
@@ -106,17 +135,17 @@ func newArm[R any](store reader[R], draw func(R) (string, *watchv1.Row)) arm {
 	}
 }
 
-// Read renders each touched key as its row, or as a tombstone when its watched set no longer
+// Read renders each pending key as its row, or as a tombstone when its watched set no longer
 // holds it, resource by resource.
-func (r *Rows) Read(ctx context.Context, touched touchedKeys) ([]Change, error) {
+func (r *Rows) Read(ctx context.Context, pending pendingKeys) ([]Change, error) {
 	var changes []Change
-	for _, res := range slices.Sorted(maps.Keys(touched)) {
-		keys := touched[res]
+	for _, res := range slices.Sorted(maps.Keys(pending)) {
+		keys := pending[res]
 		if len(keys) == 0 {
 			continue
 		}
 
-		held, err := r.arms[res].read(ctx, keys)
+		held, err := r.loaders[res].read(ctx, keys)
 		if err != nil {
 			return nil, err
 		}
@@ -136,8 +165,8 @@ func (r *Rows) Read(ctx context.Context, touched touchedKeys) ([]Change, error) 
 // Snapshot renders every row the watched sets hold, one resource after another.
 func (r *Rows) Snapshot(ctx context.Context) ([]Change, error) {
 	var changes []Change
-	for _, res := range slices.Sorted(maps.Keys(r.arms)) {
-		drawn, err := r.arms[res].snapshot(ctx)
+	for _, res := range slices.Sorted(maps.Keys(r.loaders)) {
+		drawn, err := r.loaders[res].snapshot(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to snapshot %s: %w", res, err)
 		}
