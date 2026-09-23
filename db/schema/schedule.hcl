@@ -64,8 +64,20 @@ table "schedules" {
     null = true
     type = timestamptz
   }
+  column "tenant_id" {
+    null    = false
+    type    = uuid
+    default = sql("(current_setting('weave.tenant'::text, true))::uuid")
+    comment = "The tenant that owns this row, filled from the connection's weave.tenant setting."
+  }
   primary_key {
     columns = [column.id]
+  }
+  foreign_key "schedules_tenant_id_fkey" {
+    columns     = [column.tenant_id]
+    ref_columns = [table.tenants.column.id]
+    on_delete   = RESTRICT
+    on_update   = NO_ACTION
   }
   foreign_key "schedules_workflow_id_fkey" {
     columns     = [column.workflow_id]

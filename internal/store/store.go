@@ -111,13 +111,14 @@ func OpenReadOnly(ctx context.Context, url string) (*pgxpool.Pool, error) {
 	return pool, nil
 }
 
-// parseConfig reads url and names this process on every connection made from it.
+// parseConfig reads url and names this process and its tenant on every connection made from it.
 func parseConfig(url string) (*pgxpool.Config, error) {
 	cfg, err := pgxpool.ParseConfig(url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse database url: %w", err)
 	}
 	cfg.ConnConfig.RuntimeParams["application_name"] = db.AppName()
+	db.ScopeToTenant(cfg, db.DefaultTenantID)
 
 	return cfg, nil
 }

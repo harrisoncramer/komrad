@@ -25,7 +25,8 @@ SELECT
     dir,
     size_bytes,
     measured_at,
-    error
+    error,
+    tenant_id
 FROM
     worktree_sizes
 ORDER BY
@@ -46,6 +47,7 @@ func (q *Queries) ListWorktreeSizes(ctx context.Context) ([]*WorktreeSize, error
 			&i.SizeBytes,
 			&i.MeasuredAt,
 			&i.Error,
+			&i.TenantID,
 		); err != nil {
 			return nil, err
 		}

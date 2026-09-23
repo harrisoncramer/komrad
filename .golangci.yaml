@@ -286,6 +286,7 @@ linters:
             exclude:
               - ^lib/xslice/
               - ^db/models/
+              - ^db/testmodels/
           conversion_name:
             skip: false
             # Unanchored regexps over the path lint was run from. The service builds proto

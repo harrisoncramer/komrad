@@ -22,7 +22,8 @@ RETURNING
     login,
     verified_at,
     created_at,
-    throttled_until;
+    throttled_until,
+    tenant_id;
 
 -- name: GetForgeConnection :one
 SELECT
@@ -34,7 +35,8 @@ SELECT
     login,
     verified_at,
     created_at,
-    throttled_until
+    throttled_until,
+    tenant_id
 FROM
     forge_connections
 WHERE
@@ -50,7 +52,8 @@ SELECT
     login,
     verified_at,
     created_at,
-    throttled_until
+    throttled_until,
+    tenant_id
 FROM
     forge_connections
 WHERE
@@ -66,7 +69,8 @@ SELECT
     login,
     verified_at,
     created_at,
-    throttled_until
+    throttled_until,
+    tenant_id
 FROM
     forge_connections
 ORDER BY

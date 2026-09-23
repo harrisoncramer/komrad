@@ -40,8 +40,20 @@ table "review_rounds" {
     type    = timestamptz
     default = sql("now()")
   }
+  column "tenant_id" {
+    null    = false
+    type    = uuid
+    default = sql("(current_setting('weave.tenant'::text, true))::uuid")
+    comment = "The tenant that owns this row, filled from the connection's weave.tenant setting."
+  }
   primary_key {
     columns = [column.id]
+  }
+  foreign_key "review_rounds_tenant_id_fkey" {
+    columns     = [column.tenant_id]
+    ref_columns = [table.tenants.column.id]
+    on_delete   = RESTRICT
+    on_update   = NO_ACTION
   }
   foreign_key "review_rounds_agent_id_fkey" {
     columns     = [column.agent_id]
@@ -119,8 +131,20 @@ table "reviews" {
     default = ""
     comment = "What the reviewer said about the change as a whole rather than about any one line, empty when they said nothing. It goes at the top of the released review file, above the line comments, because it is what the agent should read first."
   }
+  column "tenant_id" {
+    null    = false
+    type    = uuid
+    default = sql("(current_setting('weave.tenant'::text, true))::uuid")
+    comment = "The tenant that owns this row, filled from the connection's weave.tenant setting."
+  }
   primary_key {
     columns = [column.id]
+  }
+  foreign_key "reviews_tenant_id_fkey" {
+    columns     = [column.tenant_id]
+    ref_columns = [table.tenants.column.id]
+    on_delete   = RESTRICT
+    on_update   = NO_ACTION
   }
   foreign_key "reviews_agent_id_fkey" {
     columns     = [column.agent_id]
@@ -265,8 +289,20 @@ table "review_threads" {
     type    = uuid
     comment = "The agent that settled this thread, null when a person did or when nobody has. Do not read null as meaning a person, because resolved_by_kind is what says that. Deleting that agent clears this column rather than the settling."
   }
+  column "tenant_id" {
+    null    = false
+    type    = uuid
+    default = sql("(current_setting('weave.tenant'::text, true))::uuid")
+    comment = "The tenant that owns this row, filled from the connection's weave.tenant setting."
+  }
   primary_key {
     columns = [column.id]
+  }
+  foreign_key "review_threads_tenant_id_fkey" {
+    columns     = [column.tenant_id]
+    ref_columns = [table.tenants.column.id]
+    on_delete   = RESTRICT
+    on_update   = NO_ACTION
   }
   foreign_key "review_threads_agent_id_fkey" {
     columns     = [column.agent_id]
@@ -348,8 +384,20 @@ table "review_messages" {
     default = sql("'{}'::text[]")
     comment = "Replacement lines the reviewer is proposing for the range the thread is pinned to, empty on an ordinary comment. The agent applies them as written rather than treating them as a description of what to do."
   }
+  column "tenant_id" {
+    null    = false
+    type    = uuid
+    default = sql("(current_setting('weave.tenant'::text, true))::uuid")
+    comment = "The tenant that owns this row, filled from the connection's weave.tenant setting."
+  }
   primary_key {
     columns = [column.id]
+  }
+  foreign_key "review_messages_tenant_id_fkey" {
+    columns     = [column.tenant_id]
+    ref_columns = [table.tenants.column.id]
+    on_delete   = RESTRICT
+    on_update   = NO_ACTION
   }
   foreign_key "review_messages_thread_id_fkey" {
     columns     = [column.thread_id]
@@ -399,8 +447,20 @@ table "review_viewed_files" {
     type    = text
     comment = "A hash of the file's own slice of the patch as it stood when it was read. The panel hashes the file again on every load and shows it as unread once the two disagree, which is what makes an agent writing to the file undo the mark. It is the diff that is hashed rather than the file, since the hunks change when the base moves under a file nothing has touched."
   }
+  column "tenant_id" {
+    null    = false
+    type    = uuid
+    default = sql("(current_setting('weave.tenant'::text, true))::uuid")
+    comment = "The tenant that owns this row, filled from the connection's weave.tenant setting."
+  }
   primary_key {
     columns = [column.agent_id, column.file_path]
+  }
+  foreign_key "review_viewed_files_tenant_id_fkey" {
+    columns     = [column.tenant_id]
+    ref_columns = [table.tenants.column.id]
+    on_delete   = RESTRICT
+    on_update   = NO_ACTION
   }
   foreign_key "review_viewed_files_agent_id_fkey" {
     columns     = [column.agent_id]
