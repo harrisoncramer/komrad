@@ -39,11 +39,11 @@ func forwardedEnv(t *testing.T, args []string) map[string]string {
 	return forwarded
 }
 
-// TestBuildManagerSessionArgsForwardsTheEnvironment covers which variables the manager
+// TestIntegrationBuildManagerSessionArgsForwardsTheEnvironment covers which variables the manager
 // session is created with; since a tmux server hands every session the environment it was
 // itself started with, a variable left out here quietly keeps whatever value some long-gone
 // shell had for it.
-func TestBuildManagerSessionArgsForwardsTheEnvironment(t *testing.T) {
+func TestIntegrationBuildManagerSessionArgsForwardsTheEnvironment(t *testing.T) {
 	state := &app{env: &config.Environment{
 		DatabaseURL:         "postgres://weave@db/weave",
 		ReadOnlyDatabaseURL: "postgres://weave_readonly@db/weave",
@@ -65,10 +65,10 @@ func TestBuildManagerSessionArgsForwardsTheEnvironment(t *testing.T) {
 	}, forwardedEnv(t, args))
 }
 
-// TestBuildManagerSessionArgsCarriesTheConfigPath covers the panel being told which config
+// TestIntegrationBuildManagerSessionArgsCarriesTheConfigPath covers the panel being told which config
 // file to read: it loads the file itself rather than being handed what this process parsed,
 // so a path left off here is a panel reading the default while the caller named another.
-func TestBuildManagerSessionArgsCarriesTheConfigPath(t *testing.T) {
+func TestIntegrationBuildManagerSessionArgsCarriesTheConfigPath(t *testing.T) {
 	tests := []struct {
 		name  string
 		stack config.Stack
@@ -104,9 +104,9 @@ func TestBuildManagerSessionArgsCarriesTheConfigPath(t *testing.T) {
 	}
 }
 
-// TestUserPanelKeyReadsTheServerTheUserIsAt covers the key the panel acts on coming off the
+// TestIntegrationUserPanelKeyReadsTheServerTheUserIsAt covers the key the panel acts on coming off the
 // user's own server.
-func TestUserPanelKeyReadsTheServerTheUserIsAt(t *testing.T) {
+func TestIntegrationUserPanelKeyReadsTheServerTheUserIsAt(t *testing.T) {
 	managerSocket := throwawaySocket(t)
 	panelSession(t, managerSocket)
 
@@ -128,9 +128,9 @@ func TestUserPanelKeyReadsTheServerTheUserIsAt(t *testing.T) {
 		"attaching from outside tmux still reads the server the panel was opened from")
 }
 
-// TestBuildPanelWindowArgsOpensInTheSessionItAlreadyHas covers the repair path carrying everything
+// TestIntegrationBuildPanelWindowArgsOpensInTheSessionItAlreadyHas covers the repair path carrying everything
 // the session path does.
-func TestBuildPanelWindowArgsOpensInTheSessionItAlreadyHas(t *testing.T) {
+func TestIntegrationBuildPanelWindowArgsOpensInTheSessionItAlreadyHas(t *testing.T) {
 	state := &app{
 		env: &config.Environment{
 			DatabaseURL:         "postgres://weave@db/weave",
@@ -151,9 +151,9 @@ func TestBuildPanelWindowArgsOpensInTheSessionItAlreadyHas(t *testing.T) {
 		args[len(args)-5:])
 }
 
-// TestIsPanelRunningNeedsThePanelsOwnPane covers the question the panel key asks before it
+// TestIntegrationIsPanelRunningNeedsThePanelsOwnPane covers the question the panel key asks before it
 // decides there is a panel to attach.
-func TestIsPanelRunningNeedsThePanelsOwnPane(t *testing.T) {
+func TestIntegrationIsPanelRunningNeedsThePanelsOwnPane(t *testing.T) {
 	socket := throwawaySocket(t)
 	panelSession(t, socket)
 
@@ -173,9 +173,9 @@ func TestIsPanelRunningNeedsThePanelsOwnPane(t *testing.T) {
 	assert.False(t, isPanelRunning(t.Context(), state), "the panel's own pane has gone")
 }
 
-// TestBuildPanelWindowArgsDetachesWhenNobodyIsAttaching covers a repair under --detach leaving the
+// TestIntegrationBuildPanelWindowArgsDetachesWhenNobodyIsAttaching covers a repair under --detach leaving the
 // current window alone.
-func TestBuildPanelWindowArgsDetachesWhenNobodyIsAttaching(t *testing.T) {
+func TestIntegrationBuildPanelWindowArgsDetachesWhenNobodyIsAttaching(t *testing.T) {
 	tests := []struct {
 		name     string
 		detached bool
@@ -204,8 +204,8 @@ func TestBuildPanelWindowArgsDetachesWhenNobodyIsAttaching(t *testing.T) {
 	}
 }
 
-// TestEnsureManagerSessionLeavesTheCurrentWindowAlone covers the repair not moving a watcher.
-func TestEnsureManagerSessionLeavesTheCurrentWindowAlone(t *testing.T) {
+// TestIntegrationEnsureManagerSessionLeavesTheCurrentWindowAlone covers the repair not moving a watcher.
+func TestIntegrationEnsureManagerSessionLeavesTheCurrentWindowAlone(t *testing.T) {
 	socket := throwawaySocket(t)
 	panelSession(t, socket)
 
@@ -223,9 +223,9 @@ func TestEnsureManagerSessionLeavesTheCurrentWindowAlone(t *testing.T) {
 		"a panel that is already up is nothing to do, current window included")
 }
 
-// TestBuildManagerSessionArgsHeadlessHoldsNoPanel covers an engine whose panel runs on another
+// TestIntegrationBuildManagerSessionArgsHeadlessHoldsNoPanel covers an engine whose panel runs on another
 // machine, where a panel here would swap an agent's pane into a stage nobody is looking at.
-func TestBuildManagerSessionArgsHeadlessHoldsNoPanel(t *testing.T) {
+func TestIntegrationBuildManagerSessionArgsHeadlessHoldsNoPanel(t *testing.T) {
 	state := &app{env: &config.Environment{
 		DatabaseURL: "postgres://weave@db/weave",
 		Addr:        "127.0.0.1:9999",
@@ -243,9 +243,9 @@ func TestBuildManagerSessionArgsHeadlessHoldsNoPanel(t *testing.T) {
 		"a headless session still carries what an agent launched into it needs")
 }
 
-// TestUserPanelKeyPrefersTheConfiguredKey covers the key the panel hides on being the one the
+// TestIntegrationUserPanelKeyPrefersTheConfiguredKey covers the key the panel hides on being the one the
 // binding was made with.
-func TestUserPanelKeyPrefersTheConfiguredKey(t *testing.T) {
+func TestIntegrationUserPanelKeyPrefersTheConfiguredKey(t *testing.T) {
 	managerSocket := throwawaySocket(t)
 	panelSession(t, managerSocket)
 
@@ -282,9 +282,9 @@ func sleepingPanel(t *testing.T) string {
 	return path
 }
 
-// TestEnsureManagerSessionReplacesAPanelFromAnotherBuild covers an open finding a panel built
+// TestIntegrationEnsureManagerSessionReplacesAPanelFromAnotherBuild covers an open finding a panel built
 // from other code, or one so old it never said which, and putting a fresh one up instead.
-func TestEnsureManagerSessionReplacesAPanelFromAnotherBuild(t *testing.T) {
+func TestIntegrationEnsureManagerSessionReplacesAPanelFromAnotherBuild(t *testing.T) {
 	self := version.Describe(version.Version(), version.Commit())
 
 	tests := []struct {
@@ -341,10 +341,10 @@ func TestEnsureManagerSessionReplacesAPanelFromAnotherBuild(t *testing.T) {
 	}
 }
 
-// TestEnsureManagerSessionReplacesAPanelHoldingAGuest covers a stale panel whose window also
+// TestIntegrationEnsureManagerSessionReplacesAPanelHoldingAGuest covers a stale panel whose window also
 // holds the pane it was showing an agent in: an agent's own pane on a local engine, which has to
 // survive in a window of its own, and a viewer on a remote engine, which goes with the window.
-func TestEnsureManagerSessionReplacesAPanelHoldingAGuest(t *testing.T) {
+func TestIntegrationEnsureManagerSessionReplacesAPanelHoldingAGuest(t *testing.T) {
 	tests := []struct {
 		name     string
 		owner    string
@@ -400,9 +400,9 @@ func TestEnsureManagerSessionReplacesAPanelHoldingAGuest(t *testing.T) {
 	}
 }
 
-// TestEnsureManagerSessionRepairsBesideAWindowNamedAfterTheSession covers the repair aiming at
+// TestIntegrationEnsureManagerSessionRepairsBesideAWindowNamedAfterTheSession covers the repair aiming at
 // the session when a window in it carries the session's name.
-func TestEnsureManagerSessionRepairsBesideAWindowNamedAfterTheSession(t *testing.T) {
+func TestIntegrationEnsureManagerSessionRepairsBesideAWindowNamedAfterTheSession(t *testing.T) {
 	socket := throwawaySocket(t)
 	panelSession(t, socket)
 

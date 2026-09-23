@@ -34,9 +34,9 @@ func writeTeardownHook(t *testing.T, instance *weavetest.Instance, body string) 
 	return request
 }
 
-// TestPreTeardownRunsWhileTheWorktreeIsStillThere covers the hook reading the worktree before
+// TestIntegrationPreTeardownRunsWhileTheWorktreeIsStillThere covers the hook reading the worktree before
 // the deprovisioner hands it back.
-func TestPreTeardownRunsWhileTheWorktreeIsStillThere(t *testing.T) {
+func TestIntegrationPreTeardownRunsWhileTheWorktreeIsStillThere(t *testing.T) {
 	hermeticGit(t)
 
 	instance := weavetest.Start(t, weavetest.Params{})
@@ -72,9 +72,9 @@ func TestPreTeardownRunsWhileTheWorktreeIsStillThere(t *testing.T) {
 	assert.NotEmpty(t, landed, "and read the worktree the deprovisioner had not taken yet")
 }
 
-// TestAFailedPreTeardownHoldsTheDelete covers a teardown that failed stopping the delete
+// TestIntegrationAFailedPreTeardownHoldsTheDelete covers a teardown that failed stopping the delete
 // rather than losing the row and the worktree with it.
-func TestAFailedPreTeardownHoldsTheDelete(t *testing.T) {
+func TestIntegrationAFailedPreTeardownHoldsTheDelete(t *testing.T) {
 	hermeticGit(t)
 
 	instance := weavetest.Start(t, weavetest.Params{})
@@ -110,9 +110,9 @@ func TestAFailedPreTeardownHoldsTheDelete(t *testing.T) {
 	assert.DirExists(t, tree, "the directory the next attempt needs is left where it was")
 }
 
-// TestPreTeardownIsSkippedOnceTheDirectoryHasGone covers a row whose worktree has gone being
+// TestIntegrationPreTeardownIsSkippedOnceTheDirectoryHasGone covers a row whose worktree has gone being
 // deletable rather than stuck on a hook that can never run.
-func TestPreTeardownIsSkippedOnceTheDirectoryHasGone(t *testing.T) {
+func TestIntegrationPreTeardownIsSkippedOnceTheDirectoryHasGone(t *testing.T) {
 	hermeticGit(t)
 
 	instance := weavetest.Start(t, weavetest.Params{})
@@ -144,9 +144,9 @@ func TestPreTeardownIsSkippedOnceTheDirectoryHasGone(t *testing.T) {
 	assert.NoFileExists(t, ran, "and the hook was never started")
 }
 
-// TestOverlappingDeletesRunThePreTeardownOnce covers two deletes of one agent running the
+// TestIntegrationOverlappingDeletesRunThePreTeardownOnce covers two deletes of one agent running the
 // hook once between them.
-func TestOverlappingDeletesRunThePreTeardownOnce(t *testing.T) {
+func TestIntegrationOverlappingDeletesRunThePreTeardownOnce(t *testing.T) {
 	hermeticGit(t)
 
 	instance := weavetest.Start(t, weavetest.Params{})

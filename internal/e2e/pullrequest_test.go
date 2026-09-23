@@ -33,11 +33,11 @@ type fakeForge struct {
 	standings atomic.Int32
 }
 
-// TestPullRequestsReachTheRowFromEachForge covers the whole road from a forge to the panel
+// TestIntegrationPullRequestsReachTheRowFromEachForge covers the whole road from a forge to the panel
 // on a real checkout: the connection, the cwd loop reading the branch and origin, the sync
 // storing the branch's pull requests and reading the open one's decision once, and both the
 // listing and the record answering with where it stands.
-func TestPullRequestsReachTheRowFromEachForge(t *testing.T) {
+func TestIntegrationPullRequestsReachTheRowFromEachForge(t *testing.T) {
 	tests := []struct {
 		name   string
 		host   string

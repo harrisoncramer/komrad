@@ -14,8 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestIsConfigFatal covers which commands a broken config stops.
-func TestIsConfigFatal(t *testing.T) {
+// TestIntegrationIsConfigFatal covers which commands a broken config stops.
+func TestIntegrationIsConfigFatal(t *testing.T) {
 	tests := []struct {
 		name    string
 		command string
@@ -72,9 +72,9 @@ func TestIsConfigFatal(t *testing.T) {
 	}
 }
 
-// TestResolveConfigStack covers each way of naming a layer list replacing the one below rather than
+// TestIntegrationResolveConfigStack covers each way of naming a layer list replacing the one below rather than
 // adding to it.
-func TestResolveConfigStack(t *testing.T) {
+func TestIntegrationResolveConfigStack(t *testing.T) {
 	tests := []struct {
 		name     string
 		flags    []string
@@ -137,9 +137,9 @@ func TestResolveConfigStack(t *testing.T) {
 	}
 }
 
-// TestResolveConfigStackRefusesAnEngineItCannotFind covers a name no file answers to, which
+// TestIntegrationResolveConfigStackRefusesAnEngineItCannotFind covers a name no file answers to, which
 // the local engine is a worse answer to than an error.
-func TestResolveConfigStackRefusesAnEngineItCannotFind(t *testing.T) {
+func TestIntegrationResolveConfigStackRefusesAnEngineItCannotFind(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("WEAVE_CONFIG", "")
 
@@ -151,9 +151,9 @@ func TestResolveConfigStackRefusesAnEngineItCannotFind(t *testing.T) {
 	require.Error(t, err, "a name made of spaces is a name, not a request for the local engine")
 }
 
-// TestConfigArgs covers the flags a child process is given, which have to put it on the same
+// TestIntegrationConfigArgs covers the flags a child process is given, which have to put it on the same
 // files as the process that spawned it.
-func TestConfigArgs(t *testing.T) {
+func TestIntegrationConfigArgs(t *testing.T) {
 	assert.Empty(t, configArgs(config.Stack{}))
 	assert.Equal(t, []string{"--engine", "remote"}, configArgs(config.Stack{Engine: "remote"}),
 		"the default path is not spelled out, so the child leaves it optional the way the parent did")

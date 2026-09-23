@@ -50,9 +50,9 @@ func newMovedBase(t *testing.T) (string, movedBase) {
 	return repo, fixture
 }
 
-// TestReplayCarriesOnlyTheAgentsOwnChange is the case this exists for: two rounds either side
+// TestIntegrationReplayCarriesOnlyTheAgentsOwnChange is the case this exists for: two rounds either side
 // of a moved base compare as the agent's own work, with the base's movement gone.
-func TestReplayCarriesOnlyTheAgentsOwnChange(t *testing.T) {
+func TestIntegrationReplayCarriesOnlyTheAgentsOwnChange(t *testing.T) {
 	repo, fixture := newMovedBase(t)
 
 	// The naive comparison carries main's own change as though the agent wrote it.
@@ -76,8 +76,8 @@ func TestReplayCarriesOnlyTheAgentsOwnChange(t *testing.T) {
 	assert.NotContains(t, diff, "main moved", "the base's own line is on both sides")
 }
 
-// TestReplayIsTheSameTreeTwice pins that a chapter drawn twice reads its old side from one tree.
-func TestReplayIsTheSameTreeTwice(t *testing.T) {
+// TestIntegrationReplayIsTheSameTreeTwice pins that a chapter drawn twice reads its old side from one tree.
+func TestIntegrationReplayIsTheSameTreeTwice(t *testing.T) {
 	repo, fixture := newMovedBase(t)
 
 	params := git.ReplayParams{
@@ -96,9 +96,9 @@ func TestReplayIsTheSameTreeTwice(t *testing.T) {
 	assert.Equal(t, first.Tree, second.Tree)
 }
 
-// TestReplayNamesThePathsTheBaseRewroteUnderTheAgent covers the one case no honest comparison
+// TestIntegrationReplayNamesThePathsTheBaseRewroteUnderTheAgent covers the one case no honest comparison
 // exists for, where the base and the agent rewrote the same lines.
-func TestReplayNamesThePathsTheBaseRewroteUnderTheAgent(t *testing.T) {
+func TestIntegrationReplayNamesThePathsTheBaseRewroteUnderTheAgent(t *testing.T) {
 	repo, fixture := newMovedBase(t)
 
 	run(t, repo, "checkout", "--quiet", "--detach", fixture.oldBase)
@@ -117,9 +117,9 @@ func TestReplayNamesThePathsTheBaseRewroteUnderTheAgent(t *testing.T) {
 	assert.NotEmpty(t, replayed.Tree, "the tree is still written, with the markers in it")
 }
 
-// TestReplayRefusesAMissingCommit covers a caller handing over less than the three commits a
+// TestIntegrationReplayRefusesAMissingCommit covers a caller handing over less than the three commits a
 // replay is made of.
-func TestReplayRefusesAMissingCommit(t *testing.T) {
+func TestIntegrationReplayRefusesAMissingCommit(t *testing.T) {
 	repo, fixture := newMovedBase(t)
 
 	_, err := client.Replay(t.Context(), git.ReplayParams{
@@ -138,8 +138,8 @@ func TestReplayRefusesAMissingCommit(t *testing.T) {
 	require.Error(t, err, "a commit no repository holds is a failure rather than an answer")
 }
 
-// TestIsAncestorTellsAMovedBaseFromARewrittenOne covers the two ways a base stops matching.
-func TestIsAncestorTellsAMovedBaseFromARewrittenOne(t *testing.T) {
+// TestIntegrationIsAncestorTellsAMovedBaseFromARewrittenOne covers the two ways a base stops matching.
+func TestIntegrationIsAncestorTellsAMovedBaseFromARewrittenOne(t *testing.T) {
 	repo, fixture := newMovedBase(t)
 
 	forward, err := client.IsAncestor(t.Context(), repo, fixture.oldBase, fixture.newBase)

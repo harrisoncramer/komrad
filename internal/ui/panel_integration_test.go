@@ -54,8 +54,8 @@ func listedFromService(t *testing.T, m model) model {
 	return settle(t, m, m.listCmd())
 }
 
-// TestPanelArchivesThroughTheService takes the archive key all the way to the database.
-func TestPanelArchivesThroughTheService(t *testing.T) {
+// TestIntegrationPanelArchivesThroughTheService takes the archive key all the way to the database.
+func TestIntegrationPanelArchivesThroughTheService(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()
 
@@ -120,9 +120,9 @@ func TestPanelArchivesThroughTheService(t *testing.T) {
 		"and the row goes off the shown's own list, leaving the folder it was in")
 }
 
-// TestStagedAgentExitsOnItsOwn covers a staged agent's pane dying while staging holds it in the
+// TestIntegrationStagedAgentExitsOnItsOwn covers a staged agent's pane dying while staging holds it in the
 // panel's own window.
-func TestStagedAgentExitsOnItsOwn(t *testing.T) {
+func TestIntegrationStagedAgentExitsOnItsOwn(t *testing.T) {
 	staged := newStagedPanel(t)
 	stagePane := staged.shown.frame.Pane(layout.RegionStage)
 
@@ -136,8 +136,8 @@ func TestStagedAgentExitsOnItsOwn(t *testing.T) {
 		"the shown is a nav pane and a stage pane again, the now-dormant agent's record in the stage")
 }
 
-// TestArchivingAWorkflowSendsItsPanesBack covers the panel's own stage pane.
-func TestArchivingAWorkflowSendsItsPanesBack(t *testing.T) {
+// TestIntegrationArchivingAWorkflowSendsItsPanesBack covers the panel's own stage pane.
+func TestIntegrationArchivingAWorkflowSendsItsPanesBack(t *testing.T) {
 	staged := newStagedPanel(t)
 	shown := staged.shown
 	stagePane := shown.frame.Pane(layout.RegionStage)
@@ -251,8 +251,8 @@ func panesInPanel(t *testing.T, instance *weavetest.Instance) []string {
 	return panes
 }
 
-// TestPanelKeepsTheWindowLeavingARunningAgent drives the panel against a real tmux server.
-func TestPanelKeepsTheWindowLeavingARunningAgent(t *testing.T) {
+// TestIntegrationPanelKeepsTheWindowLeavingARunningAgent drives the panel against a real tmux server.
+func TestIntegrationPanelKeepsTheWindowLeavingARunningAgent(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()
 
@@ -309,9 +309,9 @@ func TestPanelKeepsTheWindowLeavingARunningAgent(t *testing.T) {
 	assert.Equal(t, "1", zoomed(), "and tmux is holding it, rather than the frame only believing so")
 }
 
-// TestPanelIsTheSizeOfThePaneItWasGiven covers the panel drawing at the size of the pane it has
+// TestIntegrationPanelIsTheSizeOfThePaneItWasGiven covers the panel drawing at the size of the pane it has
 // just been given rather than the one it had before the zoom.
-func TestPanelIsTheSizeOfThePaneItWasGiven(t *testing.T) {
+func TestIntegrationPanelIsTheSizeOfThePaneItWasGiven(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()
 

@@ -15,10 +15,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestLogReadsTheServersOwnLog covers the path a person takes after a call fails: the error
+// TestIntegrationLogReadsTheServersOwnLog covers the path a person takes after a call fails: the error
 // carries a trace id, the listing names that trace, and reading it back through the service
 // gives the failure line with the method on it.
-func TestLogReadsTheServersOwnLog(t *testing.T) {
+func TestIntegrationLogReadsTheServersOwnLog(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{KeepLog: true})
 	ctx := t.Context()
 

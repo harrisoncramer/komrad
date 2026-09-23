@@ -13,9 +13,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestMovePanesReachesTmuxAsOneInvocation pins the batching against a real server, a change sent
+// TestIntegrationMovePanesReachesTmuxAsOneInvocation pins the batching against a real server, a change sent
 // a command at a time being painted a command at a time.
-func TestMovePanesReachesTmuxAsOneInvocation(t *testing.T) {
+func TestIntegrationMovePanesReachesTmuxAsOneInvocation(t *testing.T) {
 	client := testServer(t, "moves")
 
 	second := client.SplitRight("moves:moves.0", t.TempDir(), "50%")
@@ -29,9 +29,9 @@ func TestMovePanesReachesTmuxAsOneInvocation(t *testing.T) {
 	assert.Equal(t, second, paneAt(t, client, "moves", 0), "the swap landed")
 }
 
-// TestMovePanesLeavesTheZoomWhereTheMoveAsksFor covers the conditional a zoom is asked as, which
+// TestIntegrationMovePanesLeavesTheZoomWhereTheMoveAsksFor covers the conditional a zoom is asked as, which
 // has to land whatever an earlier command in the same invocation did to the zoom.
-func TestMovePanesLeavesTheZoomWhereTheMoveAsksFor(t *testing.T) {
+func TestIntegrationMovePanesLeavesTheZoomWhereTheMoveAsksFor(t *testing.T) {
 	client := testServer(t, "zoom")
 
 	require.NotEmpty(t, client.SplitRight("zoom:zoom.0", t.TempDir(), "50%"))
@@ -76,9 +76,9 @@ func TestMovePanesLeavesTheZoomWhereTheMoveAsksFor(t *testing.T) {
 	}
 }
 
-// TestMovePanesRespawnsAPaneWithItsScrollback pins the second command a respawn stands for, a
+// TestIntegrationMovePanesRespawnsAPaneWithItsScrollback pins the second command a respawn stands for, a
 // pane's scrollback outliving the process that wrote it.
-func TestMovePanesRespawnsAPaneWithItsScrollback(t *testing.T) {
+func TestIntegrationMovePanesRespawnsAPaneWithItsScrollback(t *testing.T) {
 	client := testServer(t, "respawn")
 	pane := paneAt(t, client, "respawn", 0)
 
@@ -92,9 +92,9 @@ func TestMovePanesRespawnsAPaneWithItsScrollback(t *testing.T) {
 		"and holds nothing the process before it wrote")
 }
 
-// TestArgsForMoveSaysNothingAboutAPaneItWasNotGiven pins the empty target, which tmux would read
+// TestIntegrationArgsForMoveSaysNothingAboutAPaneItWasNotGiven pins the empty target, which tmux would read
 // as the pane the person is looking at rather than as a move nobody asked for.
-func TestArgsForMoveSaysNothingAboutAPaneItWasNotGiven(t *testing.T) {
+func TestIntegrationArgsForMoveSaysNothingAboutAPaneItWasNotGiven(t *testing.T) {
 	tests := []struct {
 		name string
 		move panes.Move

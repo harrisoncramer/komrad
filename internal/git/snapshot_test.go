@@ -24,9 +24,9 @@ func capture(t *testing.T, root string, args ...string) string {
 	return strings.TrimSpace(string(out))
 }
 
-// TestTakeLeavesTheAgentsIndexAndWorktreeAlone is the whole reason the snapshot is built in an
+// TestIntegrationTakeLeavesTheAgentsIndexAndWorktreeAlone is the whole reason the snapshot is built in an
 // index of its own.
-func TestTakeLeavesTheAgentsIndexAndWorktreeAlone(t *testing.T) {
+func TestIntegrationTakeLeavesTheAgentsIndexAndWorktreeAlone(t *testing.T) {
 	root := repo(t)
 	write(t, root, "staged.go", "package main\n")
 	run(t, root, "add", "staged.go")
@@ -46,10 +46,10 @@ func TestTakeLeavesTheAgentsIndexAndWorktreeAlone(t *testing.T) {
 	assert.Equal(t, head, capture(t, root, "rev-parse", "HEAD"))
 }
 
-// TestTakingTheSameTreeTwiceIsTheSameRound is why the commit's dates are pinned: a snapshot that
+// TestIntegrationTakingTheSameTreeTwiceIsTheSameRound is why the commit's dates are pinned: a snapshot that
 // carried the clock would hash differently every time, so reopening a diff a second later would
 // read as a new round and lose every mark made against the first.
-func TestTakingTheSameTreeTwiceIsTheSameRound(t *testing.T) {
+func TestIntegrationTakingTheSameTreeTwiceIsTheSameRound(t *testing.T) {
 	root := repo(t)
 	write(t, root, "kept.go", "package main\n\nfunc A() {}\n")
 
@@ -70,8 +70,8 @@ func TestTakingTheSameTreeTwiceIsTheSameRound(t *testing.T) {
 	assert.NotEqual(t, first.SHA, moved.SHA, "and a worktree that moved is a new one")
 }
 
-// TestReleaseDropsTheRef covers letting a round go, which leaves its commit to be collected.
-func TestReleaseDropsTheRef(t *testing.T) {
+// TestIntegrationReleaseDropsTheRef covers letting a round go, which leaves its commit to be collected.
+func TestIntegrationReleaseDropsTheRef(t *testing.T) {
 	root := repo(t)
 	write(t, root, "kept.go", "package main\n\nfunc C() {}\n")
 
@@ -88,9 +88,9 @@ func TestReleaseDropsTheRef(t *testing.T) {
 	require.Error(t, cmd.Run())
 }
 
-// TestFileAtReadsTheRoundRatherThanTheWorktree is what lets a review quote the code a comment was
+// TestIntegrationFileAtReadsTheRoundRatherThanTheWorktree is what lets a review quote the code a comment was
 // written about: the round holds its own copy, so what the agent does afterwards cannot change it.
-func TestFileAtReadsTheRoundRatherThanTheWorktree(t *testing.T) {
+func TestIntegrationFileAtReadsTheRoundRatherThanTheWorktree(t *testing.T) {
 	root := repo(t)
 	write(t, root, "greet.go", "package main\n\nfunc greet() {}\n")
 
@@ -134,9 +134,9 @@ func controlTree(t *testing.T, root string) string {
 	return strings.TrimSpace(string(out))
 }
 
-// TestTheTreeIsTheSameHoweverTheIndexWasSeeded is the whole claim of reading the agent's index
+// TestIntegrationTheTreeIsTheSameHoweverTheIndexWasSeeded is the whole claim of reading the agent's index
 // rather than HEAD, so the two are made to agree over a worktree holding one of everything.
-func TestTheTreeIsTheSameHoweverTheIndexWasSeeded(t *testing.T) {
+func TestIntegrationTheTreeIsTheSameHoweverTheIndexWasSeeded(t *testing.T) {
 	root := repo(t)
 
 	write(t, root, "staged.go", "package main\n")
@@ -155,10 +155,10 @@ func TestTheTreeIsTheSameHoweverTheIndexWasSeeded(t *testing.T) {
 	assert.Equal(t, controlTree(t, root), tree)
 }
 
-// TestAnAssumeUnchangedFileIsStillHashed is why the agent's index is read only after asking about
+// TestIntegrationAnAssumeUnchangedFileIsStillHashed is why the agent's index is read only after asking about
 // its flags: it tells git to trust a recorded time over the file, and a round that did so would
 // leave the agent's edit out of the diff it is reviewed by.
-func TestAnAssumeUnchangedFileIsStillHashed(t *testing.T) {
+func TestIntegrationAnAssumeUnchangedFileIsStillHashed(t *testing.T) {
 	root := repo(t)
 	run(t, root, "update-index", "--assume-unchanged", "kept.go")
 	write(t, root, "kept.go", "package main\n\nfunc Edited() {}\n")
@@ -171,9 +171,9 @@ func TestAnAssumeUnchangedFileIsStillHashed(t *testing.T) {
 	assert.Equal(t, []string{"package main", "", "func Edited() {}"}, lines)
 }
 
-// TestASkipWorktreeFileIsKept covers a sparse checkout, where a file the agent never had on disk
+// TestIntegrationASkipWorktreeFileIsKept covers a sparse checkout, where a file the agent never had on disk
 // is one it has not deleted either.
-func TestASkipWorktreeFileIsKept(t *testing.T) {
+func TestIntegrationASkipWorktreeFileIsKept(t *testing.T) {
 	root := repo(t)
 	run(t, root, "update-index", "--skip-worktree", "kept.go")
 	require.NoError(t, os.Remove(filepath.Join(root, "kept.go")))
@@ -186,9 +186,9 @@ func TestASkipWorktreeFileIsKept(t *testing.T) {
 	assert.Equal(t, []string{"package main"}, lines)
 }
 
-// TestASkipWorktreeFileOnDiskIsStillHashed is the same invariant for the other flag git reads an
+// TestIntegrationASkipWorktreeFileOnDiskIsStillHashed is the same invariant for the other flag git reads an
 // index entry over a file for.
-func TestASkipWorktreeFileOnDiskIsStillHashed(t *testing.T) {
+func TestIntegrationASkipWorktreeFileOnDiskIsStillHashed(t *testing.T) {
 	root := repo(t)
 	run(t, root, "update-index", "--skip-worktree", "kept.go")
 	write(t, root, "kept.go", "package main\n\nfunc Edited() {}\n")
@@ -201,9 +201,9 @@ func TestASkipWorktreeFileOnDiskIsStillHashed(t *testing.T) {
 	assert.Equal(t, []string{"package main", "", "func Edited() {}"}, lines)
 }
 
-// TestAFileUnderBothFlagsIsStillHashed covers an entry carrying assume-unchanged and
+// TestIntegrationAFileUnderBothFlagsIsStillHashed covers an entry carrying assume-unchanged and
 // skip-worktree at once, which git clears one command at a time.
-func TestAFileUnderBothFlagsIsStillHashed(t *testing.T) {
+func TestIntegrationAFileUnderBothFlagsIsStillHashed(t *testing.T) {
 	root := repo(t)
 	run(t, root, "update-index", "--assume-unchanged", "kept.go")
 	run(t, root, "update-index", "--skip-worktree", "kept.go")
@@ -217,9 +217,9 @@ func TestAFileUnderBothFlagsIsStillHashed(t *testing.T) {
 	assert.Equal(t, []string{"package main", "", "func Edited() {}"}, lines)
 }
 
-// TestASkipWorktreeFileIsKeptBesideAnAssumeUnchangedOne is the sparse checkout again, in a
+// TestIntegrationASkipWorktreeFileIsKeptBesideAnAssumeUnchangedOne is the sparse checkout again, in a
 // worktree that also holds the flag a snapshot once seeded itself from the last commit over.
-func TestASkipWorktreeFileIsKeptBesideAnAssumeUnchangedOne(t *testing.T) {
+func TestIntegrationASkipWorktreeFileIsKeptBesideAnAssumeUnchangedOne(t *testing.T) {
 	root := repo(t)
 	run(t, root, "update-index", "--assume-unchanged", "proto/gen/api.pb.go")
 	run(t, root, "update-index", "--skip-worktree", "kept.go")
@@ -233,9 +233,9 @@ func TestASkipWorktreeFileIsKeptBesideAnAssumeUnchangedOne(t *testing.T) {
 	assert.Equal(t, []string{"package main"}, lines)
 }
 
-// TestTheIndexIsReadPastAnInheritedIndexFile covers a panel started with GIT_INDEX_FILE in its
+// TestIntegrationTheIndexIsReadPastAnInheritedIndexFile covers a panel started with GIT_INDEX_FILE in its
 // environment, which git would otherwise answer about instead of the agent's own index.
-func TestTheIndexIsReadPastAnInheritedIndexFile(t *testing.T) {
+func TestIntegrationTheIndexIsReadPastAnInheritedIndexFile(t *testing.T) {
 	root := repo(t)
 	run(t, root, "update-index", "--skip-worktree", "kept.go")
 	t.Setenv("GIT_INDEX_FILE", filepath.Join(t.TempDir(), "elsewhere.index"))
@@ -245,9 +245,9 @@ func TestTheIndexIsReadPastAnInheritedIndexFile(t *testing.T) {
 	assert.Equal(t, []string{"kept.go"}, paths)
 }
 
-// TestUnflaggingKeepsTheIndexTime covers git stamping an index it writes with the current time,
+// TestIntegrationUnflaggingKeepsTheIndexTime covers git stamping an index it writes with the current time,
 // which decides how much of the copy it is safe to trust a recorded stat for.
-func TestUnflaggingKeepsTheIndexTime(t *testing.T) {
+func TestIntegrationUnflaggingKeepsTheIndexTime(t *testing.T) {
 	root := repo(t)
 	run(t, root, "update-index", "--skip-worktree", "kept.go")
 
@@ -265,9 +265,9 @@ func TestUnflaggingKeepsTheIndexTime(t *testing.T) {
 	assert.Equal(t, before.ModTime(), after.ModTime())
 }
 
-// TestASnapshotSurvivesARepositoryWithNoIndex covers a repository nothing has been added to yet,
+// TestIntegrationASnapshotSurvivesARepositoryWithNoIndex covers a repository nothing has been added to yet,
 // whose index file git has not written.
-func TestASnapshotSurvivesARepositoryWithNoIndex(t *testing.T) {
+func TestIntegrationASnapshotSurvivesARepositoryWithNoIndex(t *testing.T) {
 	root := t.TempDir()
 	run(t, root, "init", "--initial-branch=main")
 	run(t, root, "config", "user.email", "test@example.com")
@@ -279,9 +279,9 @@ func TestASnapshotSurvivesARepositoryWithNoIndex(t *testing.T) {
 	assert.Equal(t, "loose.go", capture(t, root, "ls-tree", "--name-only", tree))
 }
 
-// TestASnapshotSurvivesAnUnreadableIndex is the fallback: an index the agent's own git would
+// TestIntegrationASnapshotSurvivesAnUnreadableIndex is the fallback: an index the agent's own git would
 // refuse is no reason for the panel to refuse a diff.
-func TestASnapshotSurvivesAnUnreadableIndex(t *testing.T) {
+func TestIntegrationASnapshotSurvivesAnUnreadableIndex(t *testing.T) {
 	root := repo(t)
 	write(t, root, "loose.go", "package main\n")
 
@@ -296,9 +296,9 @@ func TestASnapshotSurvivesAnUnreadableIndex(t *testing.T) {
 	assert.Equal(t, []string{"package main"}, lines)
 }
 
-// TestTheTreeStandsUntilTheWorktreeMoves is the comparison the review column rests on: the
+// TestIntegrationTheTreeStandsUntilTheWorktreeMoves is the comparison the review column rests on: the
 // worktree a round was taken of hashes to that round until a file in it changes.
-func TestTheTreeStandsUntilTheWorktreeMoves(t *testing.T) {
+func TestIntegrationTheTreeStandsUntilTheWorktreeMoves(t *testing.T) {
 	root := repo(t)
 	write(t, root, "loose.go", "package main\n")
 
@@ -316,9 +316,9 @@ func TestTheTreeStandsUntilTheWorktreeMoves(t *testing.T) {
 	assert.Equal(t, StandingSame, standing(t, root, snapshot.SHA), "a worktree edited back to the round is not a move")
 }
 
-// TestARebaseMovesTheTree pins that a rebase bringing in a commit of the base's is a move until
+// TestIntegrationARebaseMovesTheTree pins that a rebase bringing in a commit of the base's is a move until
 // the base has taken the round, and that the agent's own commit riding on top is not new work.
-func TestARebaseMovesTheTree(t *testing.T) {
+func TestIntegrationARebaseMovesTheTree(t *testing.T) {
 	root := repo(t)
 	snapshot := topicRound(t, root)
 
@@ -343,9 +343,9 @@ func TestARebaseMovesTheTree(t *testing.T) {
 	assert.Equal(t, StandingLandedMoved, standing(t, root, snapshot.SHA))
 }
 
-// TestAnUnreadableBaseIsRefused pins that a base git cannot find is reported rather than read
+// TestIntegrationAnUnreadableBaseIsRefused pins that a base git cannot find is reported rather than read
 // as a standing against something else.
-func TestAnUnreadableBaseIsRefused(t *testing.T) {
+func TestIntegrationAnUnreadableBaseIsRefused(t *testing.T) {
 	root := repo(t)
 	snapshot := topicRound(t, root)
 	write(t, root, "later.go", "package main\n")
@@ -367,9 +367,9 @@ func TestAnUnreadableBaseIsRefused(t *testing.T) {
 	}
 }
 
-// TestABaseThatIsTheHeadCannotHoldTheRound pins that a base naming the branch the agent is on
+// TestIntegrationABaseThatIsTheHeadCannotHoldTheRound pins that a base naming the branch the agent is on
 // never reads as having taken the round.
-func TestABaseThatIsTheHeadCannotHoldTheRound(t *testing.T) {
+func TestIntegrationABaseThatIsTheHeadCannotHoldTheRound(t *testing.T) {
 	root := repo(t)
 	snapshot := topicRound(t, root)
 	write(t, root, "later.go", "package main\n")
@@ -385,9 +385,9 @@ func TestABaseThatIsTheHeadCannotHoldTheRound(t *testing.T) {
 	assert.Equal(t, StandingMoved, standing)
 }
 
-// TestALandedRoundWithNothingOnTopIsLanded is the round shipped and the branch reset onto the
+// TestIntegrationALandedRoundWithNothingOnTopIsLanded is the round shipped and the branch reset onto the
 // base that took it.
-func TestALandedRoundWithNothingOnTopIsLanded(t *testing.T) {
+func TestIntegrationALandedRoundWithNothingOnTopIsLanded(t *testing.T) {
 	root := repo(t)
 	snapshot := topicRound(t, root)
 	moveOn(t, root)
@@ -398,9 +398,9 @@ func TestALandedRoundWithNothingOnTopIsLanded(t *testing.T) {
 	assert.Equal(t, StandingLanded, standing(t, root, snapshot.SHA))
 }
 
-// TestALandedRoundWithNewWorkOnTopIsLandedAndMoved is the round shipped and the agent writing
+// TestIntegrationALandedRoundWithNewWorkOnTopIsLandedAndMoved is the round shipped and the agent writing
 // more since.
-func TestALandedRoundWithNewWorkOnTopIsLandedAndMoved(t *testing.T) {
+func TestIntegrationALandedRoundWithNewWorkOnTopIsLandedAndMoved(t *testing.T) {
 	root := repo(t)
 	snapshot := topicRound(t, root)
 	moveOn(t, root)
@@ -417,9 +417,9 @@ func TestALandedRoundWithNewWorkOnTopIsLandedAndMoved(t *testing.T) {
 	assert.Equal(t, StandingLandedMoved, standing(t, root, snapshot.SHA))
 }
 
-// TestABranchBehindTheBaseTipIsStillClean pins that an agent sitting on an older base with
+// TestIntegrationABranchBehindTheBaseTipIsStillClean pins that an agent sitting on an older base with
 // nothing of its own is clean however far the base has moved on.
-func TestABranchBehindTheBaseTipIsStillClean(t *testing.T) {
+func TestIntegrationABranchBehindTheBaseTipIsStillClean(t *testing.T) {
 	root := repo(t)
 	snapshot := topicRound(t, root)
 	moveOn(t, root)
@@ -430,9 +430,9 @@ func TestABranchBehindTheBaseTipIsStillClean(t *testing.T) {
 	assert.Equal(t, StandingLanded, standing(t, root, snapshot.SHA))
 }
 
-// TestAStaleBaseReadsAsMovedNeverAsLanded pins that a base nobody has fetched errs toward a
+// TestIntegrationAStaleBaseReadsAsMovedNeverAsLanded pins that a base nobody has fetched errs toward a
 // pass owed and never toward green.
-func TestAStaleBaseReadsAsMovedNeverAsLanded(t *testing.T) {
+func TestIntegrationAStaleBaseReadsAsMovedNeverAsLanded(t *testing.T) {
 	root := repo(t)
 	snapshot := topicRound(t, root)
 	moveOn(t, root)
@@ -444,9 +444,9 @@ func TestAStaleBaseReadsAsMovedNeverAsLanded(t *testing.T) {
 	assert.Equal(t, StandingMoved, standing(t, root, snapshot.SHA))
 }
 
-// TestAnEditedRoundThatLandedIsNotLanded pins that landed means the base took the round itself
+// TestIntegrationAnEditedRoundThatLandedIsNotLanded pins that landed means the base took the round itself
 // rather than a later state of the same branch.
-func TestAnEditedRoundThatLandedIsNotLanded(t *testing.T) {
+func TestIntegrationAnEditedRoundThatLandedIsNotLanded(t *testing.T) {
 	root := repo(t)
 	snapshot := topicRound(t, root)
 

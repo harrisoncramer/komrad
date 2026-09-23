@@ -14,10 +14,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestCwdSyncRecordsTheRepository covers the identity a pull request is matched on, read off
+// TestIntegrationCwdSyncRecordsTheRepository covers the identity a pull request is matched on, read off
 // a real checkout by the cwd loop: the branch and the canonical origin land on the agent, an
 // origin moved by hand is picked up on the next pass, and one that names no forge clears it.
-func TestCwdSyncRecordsTheRepository(t *testing.T) {
+func TestIntegrationCwdSyncRecordsTheRepository(t *testing.T) {
 	hermeticGit(t)
 
 	instance := weavetest.Start(t, weavetest.Params{WorktreesDir: t.TempDir()})

@@ -11,9 +11,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestGetCurrentBranch covers what the panel reads off an agent's directory, where anything git
+// TestIntegrationGetCurrentBranch covers what the panel reads off an agent's directory, where anything git
 // will not name a branch for has to come back as no branch rather than as a name.
-func TestGetCurrentBranch(t *testing.T) {
+func TestIntegrationGetCurrentBranch(t *testing.T) {
 	t.Parallel()
 
 	onMain := repo(t)

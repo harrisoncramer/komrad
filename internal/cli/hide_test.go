@@ -16,9 +16,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestHideDetachesThePanelsClient covers hiding closing the popup by taking its client away while
+// TestIntegrationHideDetachesThePanelsClient covers hiding closing the popup by taking its client away while
 // leaving the session up.
-func TestHideDetachesThePanelsClient(t *testing.T) {
+func TestIntegrationHideDetachesThePanelsClient(t *testing.T) {
 	managerSocket := throwawaySocket(t)
 	panelSession(t, managerSocket)
 	viewer := attachViewer(t, managerSocket)

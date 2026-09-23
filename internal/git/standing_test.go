@@ -11,9 +11,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestReadChangesReadsTheCheckout covers the tracked and untracked halves against a real tree:
+// TestIntegrationReadChangesReadsTheCheckout covers the tracked and untracked halves against a real tree:
 // a file edited in place, one staged, one deleted and one git ignores.
-func TestReadChangesReadsTheCheckout(t *testing.T) {
+func TestIntegrationReadChangesReadsTheCheckout(t *testing.T) {
 	root := repo(t)
 	write(t, root, "kept.go", "package main\n\nvar changed = true\n")
 	write(t, root, "staged.go", "package main\n")
@@ -30,9 +30,9 @@ func TestReadChangesReadsTheCheckout(t *testing.T) {
 	assert.Equal(t, []string{".gitignore", "scratch.txt"}, changes.Untracked)
 }
 
-// TestReadChangesOfACleanTree pins an empty listing reading as nothing rather than as one
+// TestIntegrationReadChangesOfACleanTree pins an empty listing reading as nothing rather than as one
 // empty path.
-func TestReadChangesOfACleanTree(t *testing.T) {
+func TestIntegrationReadChangesOfACleanTree(t *testing.T) {
 	changes, err := client.ReadChanges(t.Context(), repo(t))
 	require.NoError(t, err)
 
@@ -40,8 +40,8 @@ func TestReadChangesOfACleanTree(t *testing.T) {
 	assert.Empty(t, changes.Untracked)
 }
 
-// TestCountAheadBehind covers a branch two commits past a base that has itself moved one.
-func TestCountAheadBehind(t *testing.T) {
+// TestIntegrationCountAheadBehind covers a branch two commits past a base that has itself moved one.
+func TestIntegrationCountAheadBehind(t *testing.T) {
 	root := repo(t)
 	run(t, root, "checkout", "-q", "-b", "feature")
 	write(t, root, "one.go", "package main\n")
@@ -63,9 +63,9 @@ func TestCountAheadBehind(t *testing.T) {
 	assert.Equal(t, 1, behind)
 }
 
-// TestIsBranchHeldElsewhere covers a branch whose tip only it reaches, and the same branch
+// TestIntegrationIsBranchHeldElsewhere covers a branch whose tip only it reaches, and the same branch
 // once main has merged it.
-func TestIsBranchHeldElsewhere(t *testing.T) {
+func TestIntegrationIsBranchHeldElsewhere(t *testing.T) {
 	root := repo(t)
 	run(t, root, "checkout", "-q", "-b", "feature")
 	write(t, root, "one.go", "package main\n")
@@ -84,8 +84,8 @@ func TestIsBranchHeldElsewhere(t *testing.T) {
 	assert.True(t, held)
 }
 
-// TestListCommitsSince covers the branch's own commits coming back newest first and capped.
-func TestListCommitsSince(t *testing.T) {
+// TestIntegrationListCommitsSince covers the branch's own commits coming back newest first and capped.
+func TestIntegrationListCommitsSince(t *testing.T) {
 	root := repo(t)
 	run(t, root, "checkout", "-q", "-b", "feature")
 	for _, name := range []string{"one", "two", "three"} {
@@ -104,9 +104,9 @@ func TestListCommitsSince(t *testing.T) {
 	assert.False(t, commits[0].CommittedAt.IsZero())
 }
 
-// TestPruneWorktreesDropsAGoneRegistration covers a directory removed by hand leaving a
+// TestIntegrationPruneWorktreesDropsAGoneRegistration covers a directory removed by hand leaving a
 // registration that prune takes away.
-func TestPruneWorktreesDropsAGoneRegistration(t *testing.T) {
+func TestIntegrationPruneWorktreesDropsAGoneRegistration(t *testing.T) {
 	root := repo(t)
 	tree := filepath.Join(t.TempDir(), "tree")
 	run(t, root, "worktree", "add", "-q", "-b", "feature", tree)

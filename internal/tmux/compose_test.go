@@ -17,8 +17,8 @@ import (
 // implement.
 const readlineShell = "/bin/bash"
 
-// TestPasteAndSubmitSendsTheText covers the text reaching a pane wrapped in paste markers.
-func TestPasteAndSubmitSendsTheText(t *testing.T) {
+// TestIntegrationPasteAndSubmitSendsTheText covers the text reaching a pane wrapped in paste markers.
+func TestIntegrationPasteAndSubmitSendsTheText(t *testing.T) {
 	client := testServer(t, "submit")
 	pane, received := rawPane(t, client, "submit")
 
@@ -27,9 +27,9 @@ func TestPasteAndSubmitSendsTheText(t *testing.T) {
 	waitForLine(t, received, "^[[200~read your mail^[[201~^M")
 }
 
-// TestPasteAndSubmitDropsControlCharacters covers a control character in the text never
+// TestIntegrationPasteAndSubmitDropsControlCharacters covers a control character in the text never
 // reaching the pane.
-func TestPasteAndSubmitDropsControlCharacters(t *testing.T) {
+func TestIntegrationPasteAndSubmitDropsControlCharacters(t *testing.T) {
 	client := testServer(t, "controls")
 	pane, received := rawPane(t, client, "controls")
 
@@ -38,8 +38,8 @@ func TestPasteAndSubmitDropsControlCharacters(t *testing.T) {
 	waitForLine(t, received, "^[[200~read your mail\ttoday^Mplease^[[201~^M")
 }
 
-// TestStripControlsKeepsTheText pins which characters go and which stay.
-func TestStripControlsKeepsTheText(t *testing.T) {
+// TestIntegrationStripControlsKeepsTheText pins which characters go and which stay.
+func TestIntegrationStripControlsKeepsTheText(t *testing.T) {
 	tests := []struct {
 		name string
 		text string
@@ -94,9 +94,9 @@ func TestStripControlsKeepsTheText(t *testing.T) {
 	}
 }
 
-// TestPasteAndSubmitIsOneInvocation covers the paste and Enter riding in a single tmux call
+// TestIntegrationPasteAndSubmitIsOneInvocation covers the paste and Enter riding in a single tmux call
 // so nothing typed at the pane can land between them.
-func TestPasteAndSubmitIsOneInvocation(t *testing.T) {
+func TestIntegrationPasteAndSubmitIsOneInvocation(t *testing.T) {
 	args := pasteArgs("buffer", "%9", "read your mail", ";", "send-keys", "-t", "%9", "Enter")
 
 	assert.Equal(t, []string{
@@ -106,9 +106,9 @@ func TestPasteAndSubmitIsOneInvocation(t *testing.T) {
 	}, args)
 }
 
-// TestPasteLeavesNoBufferBehind covers the buffer the paste is loaded through, which a person
+// TestIntegrationPasteLeavesNoBufferBehind covers the buffer the paste is loaded through, which a person
 // pasting at the pane themselves would otherwise find weave's text in.
-func TestPasteLeavesNoBufferBehind(t *testing.T) {
+func TestIntegrationPasteLeavesNoBufferBehind(t *testing.T) {
 	client := testServer(t, "buffers")
 	pane, received := rawPane(t, client, "buffers")
 
@@ -120,18 +120,18 @@ func TestPasteLeavesNoBufferBehind(t *testing.T) {
 	assert.NotContains(t, out, pasteBufferPrefix, "the buffer the paste was loaded through was dropped")
 }
 
-// TestPastesAtOnceHoldTheirOwnBuffers covers two pastes overlapping, a name they shared meaning
+// TestIntegrationPastesAtOnceHoldTheirOwnBuffers covers two pastes overlapping, a name they shared meaning
 // one text overwrites the other and the loser's paste finds its buffer already dropped.
-func TestPastesAtOnceHoldTheirOwnBuffers(t *testing.T) {
+func TestIntegrationPastesAtOnceHoldTheirOwnBuffers(t *testing.T) {
 	first := pasteArgs(pasteBufferName(), "%1", "for the first pane")
 	second := pasteArgs(pasteBufferName(), "%2", "for the second pane")
 
 	assert.NotEqual(t, first[2], second[2], "each paste names a buffer of its own")
 }
 
-// TestCutLineCarriesTheCursorFirst covers a kill taking only what is behind the cursor, which is
+// TestIntegrationCutLineCarriesTheCursorFirst covers a kill taking only what is behind the cursor, which is
 // what leaves the tail of a line behind.
-func TestCutLineCarriesTheCursorFirst(t *testing.T) {
+func TestIntegrationCutLineCarriesTheCursorFirst(t *testing.T) {
 	client := testServer(t, "cut")
 	pane, received := rawPane(t, client, "cut")
 
@@ -140,8 +140,8 @@ func TestCutLineCarriesTheCursorFirst(t *testing.T) {
 	waitForLine(t, received, "^E^U")
 }
 
-// TestYankLineSendsTheYank covers the other half of the round trip.
-func TestYankLineSendsTheYank(t *testing.T) {
+// TestIntegrationYankLineSendsTheYank covers the other half of the round trip.
+func TestIntegrationYankLineSendsTheYank(t *testing.T) {
 	client := testServer(t, "yank")
 	pane, received := rawPane(t, client, "yank")
 
@@ -150,9 +150,9 @@ func TestYankLineSendsTheYank(t *testing.T) {
 	waitForLine(t, received, "^Y")
 }
 
-// TestComposingRefusesWhatItCannotSend covers the arguments that would otherwise reach tmux as a
+// TestIntegrationComposingRefusesWhatItCannotSend covers the arguments that would otherwise reach tmux as a
 // paste of nothing or a send to whichever pane happens to be current.
-func TestComposingRefusesWhatItCannotSend(t *testing.T) {
+func TestIntegrationComposingRefusesWhatItCannotSend(t *testing.T) {
 	client := testServer(t, "refusals")
 
 	require.Error(t, client.PasteAndSubmit("", "text"))
@@ -180,9 +180,9 @@ func rawPane(t *testing.T, client *Client, session string) (pane, received strin
 	return pane, received
 }
 
-// TestCutAndYankRoundTripsThroughReadline covers what the byte tests cannot, a line editor clearing
+// TestIntegrationCutAndYankRoundTripsThroughReadline covers what the byte tests cannot, a line editor clearing
 // its own box whole and handing the text back.
-func TestCutAndYankRoundTripsThroughReadline(t *testing.T) {
+func TestIntegrationCutAndYankRoundTripsThroughReadline(t *testing.T) {
 	_, err := exec.LookPath(readlineShell)
 	require.NoError(t, err)
 

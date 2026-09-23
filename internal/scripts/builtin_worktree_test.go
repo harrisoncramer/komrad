@@ -16,10 +16,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestBuiltinWorktreeSetup exercises the shipped _worktree_setup script for real, the way
+// TestIntegrationBuiltinWorktreeSetup exercises the shipped _worktree_setup script for real, the way
 // a workflow's provisioner actually runs: installed to disk, found by name, and run
 // through the same Runner every other script uses.
-func TestBuiltinWorktreeSetup(t *testing.T) {
+func TestIntegrationBuiltinWorktreeSetup(t *testing.T) {
 	repo := initRepo(t)
 	require.NoError(t, os.WriteFile(filepath.Join(repo, ".env"), []byte("SECRET=1\n"), 0o644))
 	require.NoError(t, os.Mkdir(filepath.Join(repo, "node_modules"), 0o755))
@@ -49,10 +49,10 @@ func TestBuiltinWorktreeSetup(t *testing.T) {
 	assert.Equal(t, filepath.Join(repo, "node_modules"), link)
 }
 
-// TestBuiltinWorktreeSetupIsIdempotentOnResume covers the one thing a provisioner has to
+// TestIntegrationBuiltinWorktreeSetupIsIdempotentOnResume covers the one thing a provisioner has to
 // get right: rerunning it against a worktree that is still there must not fail or make a
 // second one, and must print the same path both times.
-func TestBuiltinWorktreeSetupIsIdempotentOnResume(t *testing.T) {
+func TestIntegrationBuiltinWorktreeSetupIsIdempotentOnResume(t *testing.T) {
 	repo := initRepo(t)
 	worktreesDir := t.TempDir()
 	env := worktreeEnv{
@@ -78,9 +78,9 @@ func TestBuiltinWorktreeSetupIsIdempotentOnResume(t *testing.T) {
 	assert.Equal(t, 1, strings.Count(string(listed), tree), "only one worktree exists after the resume")
 }
 
-// TestBuiltinWorktreeSetupOnResumeStillWorksAgainstTheRepo covers a resume, where the agent's
+// TestIntegrationBuiltinWorktreeSetupOnResumeStillWorksAgainstTheRepo covers a resume, where the agent's
 // cwd is already the worktree and a symlink would otherwise be relinked to point at itself.
-func TestBuiltinWorktreeSetupOnResumeStillWorksAgainstTheRepo(t *testing.T) {
+func TestIntegrationBuiltinWorktreeSetupOnResumeStillWorksAgainstTheRepo(t *testing.T) {
 	repo := initRepo(t)
 	require.NoError(t, os.WriteFile(filepath.Join(repo, ".env"), []byte("SECRET=1\n"), 0o644))
 
@@ -110,9 +110,9 @@ func TestBuiltinWorktreeSetupOnResumeStillWorksAgainstTheRepo(t *testing.T) {
 	assert.Equal(t, "SECRET=1\n", string(content))
 }
 
-// TestBuiltinWorktreeSetupRefusesAPathWithADotSegment pins the script's own refusal, which has
+// TestIntegrationBuiltinWorktreeSetupRefusesAPathWithADotSegment pins the script's own refusal, which has
 // to stay safe on the spellings the service now cleans away before it stores them.
-func TestBuiltinWorktreeSetupRefusesAPathWithADotSegment(t *testing.T) {
+func TestIntegrationBuiltinWorktreeSetupRefusesAPathWithADotSegment(t *testing.T) {
 	repo := initRepo(t)
 	require.NoError(t, os.WriteFile(filepath.Join(repo, ".env"), []byte("SECRET=1\n"), 0o644))
 
@@ -130,9 +130,9 @@ func TestBuiltinWorktreeSetupRefusesAPathWithADotSegment(t *testing.T) {
 	assertIsDir(t, tree)
 }
 
-// TestBuiltinWorktreeSetupOnResumeLeavesAppliedPathsAlone covers copy and symlink lists being
+// TestIntegrationBuiltinWorktreeSetupOnResumeLeavesAppliedPathsAlone covers copy and symlink lists being
 // applied only to a worktree this run created, copying over a directory nesting it deeper.
-func TestBuiltinWorktreeSetupOnResumeLeavesAppliedPathsAlone(t *testing.T) {
+func TestIntegrationBuiltinWorktreeSetupOnResumeLeavesAppliedPathsAlone(t *testing.T) {
 	repo := initRepo(t)
 	require.NoError(t, os.Mkdir(filepath.Join(repo, "node_modules"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(repo, "node_modules", "mod.txt"), []byte("dep\n"), 0o644))
@@ -164,11 +164,11 @@ func TestBuiltinWorktreeSetupOnResumeLeavesAppliedPathsAlone(t *testing.T) {
 	assert.Equal(t, "patched\n", string(content), "a resume does not overwrite what the agent changed")
 }
 
-// TestBuiltinWorktreeSetupResumesAfterTheDirectoryIsGoneButTheBranchIsNot covers cleanup
+// TestIntegrationBuiltinWorktreeSetupResumesAfterTheDirectoryIsGoneButTheBranchIsNot covers cleanup
 // having removed the worktree directory but left the branch behind, or anything else
 // deleting just the directory: setup has to be able to rebuild the worktree rather than
 // failing with "branch already exists".
-func TestBuiltinWorktreeSetupResumesAfterTheDirectoryIsGoneButTheBranchIsNot(t *testing.T) {
+func TestIntegrationBuiltinWorktreeSetupResumesAfterTheDirectoryIsGoneButTheBranchIsNot(t *testing.T) {
 	repo := initRepo(t)
 	worktreesDir := t.TempDir()
 	env := worktreeEnv{
@@ -195,10 +195,10 @@ func TestBuiltinWorktreeSetupResumesAfterTheDirectoryIsGoneButTheBranchIsNot(t *
 	assertIsDir(t, strings.TrimSpace(string(second.Stdout)))
 }
 
-// TestBuiltinWorktreeSetupOnResumeKeepsTheTreeTheAgentHolds covers the worktrees directory
+// TestIntegrationBuiltinWorktreeSetupOnResumeKeepsTheTreeTheAgentHolds covers the worktrees directory
 // being pointed somewhere else after the agent was provisioned, where computing the path
 // afresh would send the resume at a directory the branch is not checked out in.
-func TestBuiltinWorktreeSetupOnResumeKeepsTheTreeTheAgentHolds(t *testing.T) {
+func TestIntegrationBuiltinWorktreeSetupOnResumeKeepsTheTreeTheAgentHolds(t *testing.T) {
 	repo := initRepo(t)
 	env := worktreeEnv{
 		agentID:      "agent-moved-dir",
@@ -224,10 +224,10 @@ func TestBuiltinWorktreeSetupOnResumeKeepsTheTreeTheAgentHolds(t *testing.T) {
 	assert.NoDirExists(t, filepath.Join(moved, "agent-moved-dir"), "nothing is made under the directory worktrees now live in")
 }
 
-// TestBuiltinWorktreeSetupOnResumeRebuildsUnderTheConfiguredDirectory covers the tree an agent
+// TestIntegrationBuiltinWorktreeSetupOnResumeRebuildsUnderTheConfiguredDirectory covers the tree an agent
 // holds being gone as well as the worktrees directory having moved, where the registration the
 // old tree left behind still claims the branch until it is pruned.
-func TestBuiltinWorktreeSetupOnResumeRebuildsUnderTheConfiguredDirectory(t *testing.T) {
+func TestIntegrationBuiltinWorktreeSetupOnResumeRebuildsUnderTheConfiguredDirectory(t *testing.T) {
 	repo := initRepo(t)
 	env := worktreeEnv{
 		agentID:      "agent-moved-gone",
@@ -255,9 +255,9 @@ func TestBuiltinWorktreeSetupOnResumeRebuildsUnderTheConfiguredDirectory(t *test
 	assertBranch(t, rebuilt, "agent/agent-moved-gone")
 }
 
-// TestBuiltinWorktreeSetupOnProvisionUsesTheConfiguredDirectory covers a create never going back
+// TestIntegrationBuiltinWorktreeSetupOnProvisionUsesTheConfiguredDirectory covers a create never going back
 // to a cwd.
-func TestBuiltinWorktreeSetupOnProvisionUsesTheConfiguredDirectory(t *testing.T) {
+func TestIntegrationBuiltinWorktreeSetupOnProvisionUsesTheConfiguredDirectory(t *testing.T) {
 	repo := initRepo(t)
 	env := worktreeEnv{
 		agentID:      "agent-provision-dir",
@@ -279,10 +279,10 @@ func TestBuiltinWorktreeSetupOnProvisionUsesTheConfiguredDirectory(t *testing.T)
 	assert.NotContains(t, string(second.Stderr), "already exists", "the tree the cwd names is not taken for a create")
 }
 
-// TestBuiltinWorktreeSetupOnResumeRefusesACwdThatIsTheRepo covers a create that failed before
+// TestIntegrationBuiltinWorktreeSetupOnResumeRefusesACwdThatIsTheRepo covers a create that failed before
 // setup replaced the directory, which leaves the agent's cwd naming the workflow's own
 // checkout: resuming into that would run the agent inside the repository.
-func TestBuiltinWorktreeSetupOnResumeRefusesACwdThatIsTheRepo(t *testing.T) {
+func TestIntegrationBuiltinWorktreeSetupOnResumeRefusesACwdThatIsTheRepo(t *testing.T) {
 	repo := initRepo(t)
 	agentID := filepath.Base(repo)
 	worktreesDir := t.TempDir()
@@ -302,9 +302,9 @@ func TestBuiltinWorktreeSetupOnResumeRefusesACwdThatIsTheRepo(t *testing.T) {
 	assertBranch(t, tree, "agent/"+agentID)
 }
 
-// TestBuiltinWorktreeSetupCopiesADirectory covers a copy path naming a directory rather
+// TestIntegrationBuiltinWorktreeSetupCopiesADirectory covers a copy path naming a directory rather
 // than a file: cp without -r would fail and silently drop the rest of the list.
-func TestBuiltinWorktreeSetupCopiesADirectory(t *testing.T) {
+func TestIntegrationBuiltinWorktreeSetupCopiesADirectory(t *testing.T) {
 	repo := initRepo(t)
 	require.NoError(t, os.Mkdir(filepath.Join(repo, "assets"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(repo, "assets", "logo.png"), []byte("fake-png"), 0o644))
@@ -328,9 +328,9 @@ func TestBuiltinWorktreeSetupCopiesADirectory(t *testing.T) {
 	assert.Equal(t, "AFTER=1\n", string(after))
 }
 
-// TestBuiltinWorktreeSetupSkipsATrackedCopyPath pins that a path git already tracks is left
+// TestIntegrationBuiltinWorktreeSetupSkipsATrackedCopyPath pins that a path git already tracks is left
 // to the checkout rather than copied over with the version in the working tree.
-func TestBuiltinWorktreeSetupSkipsATrackedCopyPath(t *testing.T) {
+func TestIntegrationBuiltinWorktreeSetupSkipsATrackedCopyPath(t *testing.T) {
 	repo := initRepo(t)
 	require.NoError(t, os.WriteFile(filepath.Join(repo, "settings.json"), []byte("committed\n"), 0o644))
 	commitAll(t, repo)
@@ -352,9 +352,9 @@ func TestBuiltinWorktreeSetupSkipsATrackedCopyPath(t *testing.T) {
 	assert.Equal(t, "committed\n", string(content), "a tracked path is left as git checked it out rather than copied over")
 }
 
-// TestBuiltinWorktreeSetupSkipsATrackedSymlinkPath pins that a tracked directory is left as
+// TestIntegrationBuiltinWorktreeSetupSkipsATrackedSymlinkPath pins that a tracked directory is left as
 // git checked it out rather than replaced with a link.
-func TestBuiltinWorktreeSetupSkipsATrackedSymlinkPath(t *testing.T) {
+func TestIntegrationBuiltinWorktreeSetupSkipsATrackedSymlinkPath(t *testing.T) {
 	repo := initRepo(t)
 	require.NoError(t, os.Mkdir(filepath.Join(repo, "vendor"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(repo, "vendor", "lib.txt"), []byte("dep\n"), 0o644))
@@ -376,10 +376,10 @@ func TestBuiltinWorktreeSetupSkipsATrackedSymlinkPath(t *testing.T) {
 	assert.Equal(t, "dep\n", string(content), "a tracked path is left as git checked it out rather than symlinked over")
 }
 
-// TestBuiltinWorktreeSetupRefusesAPathOutsideTheWorktree covers what clearing a destination
+// TestIntegrationBuiltinWorktreeSetupRefusesAPathOutsideTheWorktree covers what clearing a destination
 // costs: a path that resolves out of the worktree, or names the worktree itself, would have
 // setup delete something it was never pointed at.
-func TestBuiltinWorktreeSetupRefusesAPathOutsideTheWorktree(t *testing.T) {
+func TestIntegrationBuiltinWorktreeSetupRefusesAPathOutsideTheWorktree(t *testing.T) {
 	repo := initRepo(t)
 	worktreesDir := t.TempDir()
 	require.NoError(t, os.Mkdir(filepath.Join(filepath.Dir(repo), "sibling"), 0o755))
@@ -405,9 +405,9 @@ func TestBuiltinWorktreeSetupRefusesAPathOutsideTheWorktree(t *testing.T) {
 	assert.True(t, info.IsDir(), "a path naming the worktree itself is refused rather than replacing it")
 }
 
-// TestBuiltinWorktreeSetupRefusesAPathUnderALinkAnEarlierEntryMade pins that a second entry
+// TestIntegrationBuiltinWorktreeSetupRefusesAPathUnderALinkAnEarlierEntryMade pins that a second entry
 // reaching through a link the first one made is refused rather than writing into the repo.
-func TestBuiltinWorktreeSetupRefusesAPathUnderALinkAnEarlierEntryMade(t *testing.T) {
+func TestIntegrationBuiltinWorktreeSetupRefusesAPathUnderALinkAnEarlierEntryMade(t *testing.T) {
 	repo := initRepo(t)
 	require.NoError(t, os.MkdirAll(filepath.Join(repo, "local", "bin"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(repo, "local", "bin", "tool"), []byte("tool\n"), 0o644))
@@ -434,9 +434,9 @@ func TestBuiltinWorktreeSetupRefusesAPathUnderALinkAnEarlierEntryMade(t *testing
 	assert.Equal(t, filepath.Join(repo, "local"), link)
 }
 
-// TestBuiltinWorktreeSetupRefusesAPathUnderATrackedSymlink pins that a path resolving
+// TestIntegrationBuiltinWorktreeSetupRefusesAPathUnderATrackedSymlink pins that a path resolving
 // through a tracked symlink out of the repo is refused.
-func TestBuiltinWorktreeSetupRefusesAPathUnderATrackedSymlink(t *testing.T) {
+func TestIntegrationBuiltinWorktreeSetupRefusesAPathUnderATrackedSymlink(t *testing.T) {
 	repo := initRepo(t)
 	outside := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(outside, "cache"), 0o755))
@@ -456,9 +456,9 @@ func TestBuiltinWorktreeSetupRefusesAPathUnderATrackedSymlink(t *testing.T) {
 	assert.FileExists(t, filepath.Join(outside, "cache", "keep.txt"), "the directory outside the repo survives")
 }
 
-// TestBuiltinWorktreeSetupAppliesAPathWrittenWithATrailingSlash pins that a trailing slash
+// TestIntegrationBuiltinWorktreeSetupAppliesAPathWrittenWithATrailingSlash pins that a trailing slash
 // names the same path, so the entry is not applied twice.
-func TestBuiltinWorktreeSetupAppliesAPathWrittenWithATrailingSlash(t *testing.T) {
+func TestIntegrationBuiltinWorktreeSetupAppliesAPathWrittenWithATrailingSlash(t *testing.T) {
 	repo := initRepo(t)
 	require.NoError(t, os.MkdirAll(filepath.Join(repo, "local", "bin"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(repo, "local", "bin", "tool"), []byte("tool\n"), 0o644))
@@ -483,9 +483,9 @@ func TestBuiltinWorktreeSetupAppliesAPathWrittenWithATrailingSlash(t *testing.T)
 	assert.Equal(t, filepath.Join(repo, "local"), link)
 }
 
-// TestBuiltinWorktreeSetupSkipsATrackedSymlinkWrittenWithATrailingSlash pins that the
+// TestIntegrationBuiltinWorktreeSetupSkipsATrackedSymlinkWrittenWithATrailingSlash pins that the
 // tracked check still recognizes the path when it is written with a trailing slash.
-func TestBuiltinWorktreeSetupSkipsATrackedSymlinkWrittenWithATrailingSlash(t *testing.T) {
+func TestIntegrationBuiltinWorktreeSetupSkipsATrackedSymlinkWrittenWithATrailingSlash(t *testing.T) {
 	repo := initRepo(t)
 	outside := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(outside, "cache"), 0o755))
@@ -504,10 +504,10 @@ func TestBuiltinWorktreeSetupSkipsATrackedSymlinkWrittenWithATrailingSlash(t *te
 	assert.FileExists(t, filepath.Join(outside, "cache", "keep.txt"), "the directory outside the repo survives")
 }
 
-// TestBuiltinWorktreeCleanupRefusesAPlainCheckout covers WEAVE_AGENT_CWD pointing at a
+// TestIntegrationBuiltinWorktreeCleanupRefusesAPlainCheckout covers WEAVE_AGENT_CWD pointing at a
 // checkout that is not a linked worktree at all, such as the repo weave itself lives in:
 // cleanup must not run worktree remove or branch -D against it.
-func TestBuiltinWorktreeCleanupRefusesAPlainCheckout(t *testing.T) {
+func TestIntegrationBuiltinWorktreeCleanupRefusesAPlainCheckout(t *testing.T) {
 	repo := initRepo(t)
 	runGit(t, repo, "branch", "agent/agent-i")
 
@@ -520,9 +520,9 @@ func TestBuiltinWorktreeCleanupRefusesAPlainCheckout(t *testing.T) {
 	assert.NotEmpty(t, strings.TrimSpace(string(branches)), "the branch survives since this was never a linked worktree")
 }
 
-// TestBuiltinWorktreeSetupCopyMissingSourceIsNonFatal covers a copy or symlink entry naming a
+// TestIntegrationBuiltinWorktreeSetupCopyMissingSourceIsNonFatal covers a copy or symlink entry naming a
 // file the repo does not have, where setup warns on stderr and keeps going.
-func TestBuiltinWorktreeSetupCopyMissingSourceIsNonFatal(t *testing.T) {
+func TestIntegrationBuiltinWorktreeSetupCopyMissingSourceIsNonFatal(t *testing.T) {
 	repo := initRepo(t)
 
 	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
@@ -539,9 +539,9 @@ func TestBuiltinWorktreeSetupCopyMissingSourceIsNonFatal(t *testing.T) {
 	assert.Contains(t, string(result.Stderr), "missing-cache")
 }
 
-// TestBuiltinWorktreeSetupRefusesABlankBase covers a workflow naming no base, which setup
+// TestIntegrationBuiltinWorktreeSetupRefusesABlankBase covers a workflow naming no base, which setup
 // refuses rather than guessing a branch of its own.
-func TestBuiltinWorktreeSetupRefusesABlankBase(t *testing.T) {
+func TestIntegrationBuiltinWorktreeSetupRefusesABlankBase(t *testing.T) {
 	worktreesDir := t.TempDir()
 	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
 		agentID:      "agent-d",
@@ -555,10 +555,10 @@ func TestBuiltinWorktreeSetupRefusesABlankBase(t *testing.T) {
 	assert.NoDirExists(t, filepath.Join(worktreesDir, "agent-d"), "no worktree was made")
 }
 
-// TestBuiltinWorktreeSetupFetchesFromOrigin covers the repo that has a remote: setup has to
+// TestIntegrationBuiltinWorktreeSetupFetchesFromOrigin covers the repo that has a remote: setup has to
 // fetch the base branch and build the worktree off origin's copy of it rather than
 // whatever the local repo happens to already have.
-func TestBuiltinWorktreeSetupFetchesFromOrigin(t *testing.T) {
+func TestIntegrationBuiltinWorktreeSetupFetchesFromOrigin(t *testing.T) {
 	upstream := initBareRepo(t)
 	repo := cloneRepo(t, upstream)
 
@@ -573,9 +573,9 @@ func TestBuiltinWorktreeSetupFetchesFromOrigin(t *testing.T) {
 	assertIsDir(t, strings.TrimSpace(string(result.Stdout)))
 }
 
-// TestBuiltinWorktreeSetupBranchesFromABaseTheRefspecDoesNotCover covers a single-branch clone,
+// TestIntegrationBuiltinWorktreeSetupBranchesFromABaseTheRefspecDoesNotCover covers a single-branch clone,
 // where fetching the default branch exits zero and still writes no ref to branch from.
-func TestBuiltinWorktreeSetupBranchesFromABaseTheRefspecDoesNotCover(t *testing.T) {
+func TestIntegrationBuiltinWorktreeSetupBranchesFromABaseTheRefspecDoesNotCover(t *testing.T) {
 	upstream := initBareRepo(t)
 	pushBranch(t, upstream, "feature", "feature-only.txt")
 	repo := singleBranchClone(t, upstream, "feature")
@@ -597,10 +597,10 @@ func TestBuiltinWorktreeSetupBranchesFromABaseTheRefspecDoesNotCover(t *testing.
 	assert.False(t, hasRef(t, repo, "refs/weave/base/agent-single-branch"), "the ref that named the branch point for one command is not left behind")
 }
 
-// TestBuiltinWorktreeSetupBranchesFromABaseWithNoRefspecAtAll covers the repo wired to a
+// TestIntegrationBuiltinWorktreeSetupBranchesFromABaseWithNoRefspecAtAll covers the repo wired to a
 // remote by hand rather than cloned, which has a URL to fetch from and no refspec to map
 // anything it fetches, so no fetch by branch name ever writes a tracking ref.
-func TestBuiltinWorktreeSetupBranchesFromABaseWithNoRefspecAtAll(t *testing.T) {
+func TestIntegrationBuiltinWorktreeSetupBranchesFromABaseWithNoRefspecAtAll(t *testing.T) {
 	upstream := initBareRepo(t)
 
 	repo := initRepo(t)
@@ -617,9 +617,9 @@ func TestBuiltinWorktreeSetupBranchesFromABaseWithNoRefspecAtAll(t *testing.T) {
 	assertIsDir(t, strings.TrimSpace(string(result.Stdout)))
 }
 
-// TestBuiltinWorktreeSetupStagesAnUncoveredBasePerAgent covers two setups fetching different
+// TestIntegrationBuiltinWorktreeSetupStagesAnUncoveredBasePerAgent covers two setups fetching different
 // bases at once, where the shared FETCH_HEAD would leave each reading the other's.
-func TestBuiltinWorktreeSetupStagesAnUncoveredBasePerAgent(t *testing.T) {
+func TestIntegrationBuiltinWorktreeSetupStagesAnUncoveredBasePerAgent(t *testing.T) {
 	upstream := initBareRepo(t)
 	pushBranch(t, upstream, "other", "other-only.txt")
 	pushBranch(t, upstream, "feature", "feature-only.txt")
@@ -668,9 +668,9 @@ func TestBuiltinWorktreeSetupStagesAnUncoveredBasePerAgent(t *testing.T) {
 	}
 }
 
-// TestBuiltinWorktreeSetupRefusesABaseTheRepoCannotReach covers a workflow naming a base nothing
+// TestIntegrationBuiltinWorktreeSetupRefusesABaseTheRepoCannotReach covers a workflow naming a base nothing
 // has, where letting git fail with invalid reference reads as a broken repo instead.
-func TestBuiltinWorktreeSetupRefusesABaseTheRepoCannotReach(t *testing.T) {
+func TestIntegrationBuiltinWorktreeSetupRefusesABaseTheRepoCannotReach(t *testing.T) {
 	upstream := initBareRepo(t)
 	repo := cloneRepo(t, upstream)
 
@@ -687,9 +687,9 @@ func TestBuiltinWorktreeSetupRefusesABaseTheRepoCannotReach(t *testing.T) {
 	assert.NoDirExists(t, filepath.Join(worktreesDir, "agent-bad-base"), "no worktree was made")
 }
 
-// TestBuiltinWorktreeCleanup covers the ordinary case: the worktree and its branch both
+// TestIntegrationBuiltinWorktreeCleanup covers the ordinary case: the worktree and its branch both
 // exist, and cleanup removes both.
-func TestBuiltinWorktreeCleanup(t *testing.T) {
+func TestIntegrationBuiltinWorktreeCleanup(t *testing.T) {
 	repo := initRepo(t)
 	setup, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
 		agentID:      "agent-f",
@@ -710,18 +710,18 @@ func TestBuiltinWorktreeCleanup(t *testing.T) {
 	assert.Empty(t, strings.TrimSpace(string(branches)), "the branch is gone")
 }
 
-// TestBuiltinWorktreeCleanupIsBestEffortWhenAlreadyGone covers what docs/scripts.md requires
+// TestIntegrationBuiltinWorktreeCleanupIsBestEffortWhenAlreadyGone covers what docs/scripts.md requires
 // of every deprovisioner: a workflow's cleanup must not block a delete whatever state its
 // target is in, so running cleanup against a directory that was never a worktree, or was
 // already removed, must still exit zero.
-func TestBuiltinWorktreeCleanupIsBestEffortWhenAlreadyGone(t *testing.T) {
+func TestIntegrationBuiltinWorktreeCleanupIsBestEffortWhenAlreadyGone(t *testing.T) {
 	result, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{agentID: "agent-never-existed", agentCwd: t.TempDir()})
 	require.NoError(t, err, "stderr: %s", result.Stderr)
 }
 
-// TestBuiltinWorktreeSetupDoesNotTrackTheBase covers the new branch being left with no upstream,
+// TestIntegrationBuiltinWorktreeSetupDoesNotTrackTheBase covers the new branch being left with no upstream,
 // which tracking the base would have git status report it against and a plain push refuse.
-func TestBuiltinWorktreeSetupDoesNotTrackTheBase(t *testing.T) {
+func TestIntegrationBuiltinWorktreeSetupDoesNotTrackTheBase(t *testing.T) {
 	upstream := initBareRepo(t)
 	repo := cloneRepo(t, upstream)
 
@@ -739,9 +739,9 @@ func TestBuiltinWorktreeSetupDoesNotTrackTheBase(t *testing.T) {
 	assert.Equal(t, "true", readGitConfig(t, tree, "push.autoSetupRemote"), "a plain push can create the remote branch")
 }
 
-// TestBuiltinWorktreeSetupRunsConcurrentlyInOneRepo covers several agents created at once, where
+// TestIntegrationBuiltinWorktreeSetupRunsConcurrentlyInOneRepo covers several agents created at once, where
 // anything setup writes to the repo's shared config makes git fail the add rather than wait.
-func TestBuiltinWorktreeSetupRunsConcurrentlyInOneRepo(t *testing.T) {
+func TestIntegrationBuiltinWorktreeSetupRunsConcurrentlyInOneRepo(t *testing.T) {
 	upstream := initBareRepo(t)
 	repo := cloneRepo(t, upstream)
 	worktreesDir := t.TempDir()
@@ -764,9 +764,9 @@ func TestBuiltinWorktreeSetupRunsConcurrentlyInOneRepo(t *testing.T) {
 	}
 }
 
-// TestBuiltinWorktreeSetupResumesAfterTheDirectoryIsDeletedOutright covers an rm -rf of the
+// TestIntegrationBuiltinWorktreeSetupResumesAfterTheDirectoryIsDeletedOutright covers an rm -rf of the
 // worktree, whose stale registration still claims the branch until it is pruned.
-func TestBuiltinWorktreeSetupResumesAfterTheDirectoryIsDeletedOutright(t *testing.T) {
+func TestIntegrationBuiltinWorktreeSetupResumesAfterTheDirectoryIsDeletedOutright(t *testing.T) {
 	repo := initRepo(t)
 	env := worktreeEnv{
 		agentID:      "agent-rmrf",
@@ -788,9 +788,9 @@ func TestBuiltinWorktreeSetupResumesAfterTheDirectoryIsDeletedOutright(t *testin
 	assertBranch(t, tree, "agent/agent-rmrf")
 }
 
-// TestBuiltinWorktreeCleanupRefusesAWorktreeItDoesNotOwn covers WEAVE_AGENT_CWD pointing at a
+// TestIntegrationBuiltinWorktreeCleanupRefusesAWorktreeItDoesNotOwn covers WEAVE_AGENT_CWD pointing at a
 // linked worktree weave did not make, which passes the same check a hand-made one does.
-func TestBuiltinWorktreeCleanupRefusesAWorktreeItDoesNotOwn(t *testing.T) {
+func TestIntegrationBuiltinWorktreeCleanupRefusesAWorktreeItDoesNotOwn(t *testing.T) {
 	repo := initRepo(t)
 	theirs := filepath.Join(t.TempDir(), "theirs")
 	runGit(t, repo, "worktree", "add", "--quiet", "-b", "someone-else", theirs)
@@ -802,9 +802,9 @@ func TestBuiltinWorktreeCleanupRefusesAWorktreeItDoesNotOwn(t *testing.T) {
 	assert.NotEmpty(t, readBranchList(t, repo, "someone-else"), "someone else's branch survives")
 }
 
-// TestBuiltinWorktreeCleanupKeepsAnUnmergedBranch covers an agent that committed work nobody
+// TestIntegrationBuiltinWorktreeCleanupKeepsAnUnmergedBranch covers an agent that committed work nobody
 // merged, where the branch is the one recoverable trace of it.
-func TestBuiltinWorktreeCleanupKeepsAnUnmergedBranch(t *testing.T) {
+func TestIntegrationBuiltinWorktreeCleanupKeepsAnUnmergedBranch(t *testing.T) {
 	repo := initRepo(t)
 	setup, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
 		agentID:      "agent-unmerged",
@@ -826,9 +826,9 @@ func TestBuiltinWorktreeCleanupKeepsAnUnmergedBranch(t *testing.T) {
 	assert.Contains(t, string(cleanup.Stderr), "agent/agent-unmerged", "the branch that was kept is named")
 }
 
-// TestBuiltinWorktreeCleanupReportsUncommittedWorkItDestroys covers a dirty worktree, where
+// TestIntegrationBuiltinWorktreeCleanupReportsUncommittedWorkItDestroys covers a dirty worktree, where
 // nobody is left to ask so what was thrown away goes to stderr instead.
-func TestBuiltinWorktreeCleanupReportsUncommittedWorkItDestroys(t *testing.T) {
+func TestIntegrationBuiltinWorktreeCleanupReportsUncommittedWorkItDestroys(t *testing.T) {
 	repo := initRepo(t)
 	setup, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
 		agentID:      "agent-dirty",
@@ -847,10 +847,10 @@ func TestBuiltinWorktreeCleanupReportsUncommittedWorkItDestroys(t *testing.T) {
 	assert.Contains(t, string(cleanup.Stderr), "scratch.txt", "what was destroyed is named")
 }
 
-// TestBuiltinWorktreeCleanupRefusesAWorktreeHoldingAnother covers a worktree with another
+// TestIntegrationBuiltinWorktreeCleanupRefusesAWorktreeHoldingAnother covers a worktree with another
 // registered inside it, which worktree remove --force would delete while leaving git holding
 // its registration.
-func TestBuiltinWorktreeCleanupRefusesAWorktreeHoldingAnother(t *testing.T) {
+func TestIntegrationBuiltinWorktreeCleanupRefusesAWorktreeHoldingAnother(t *testing.T) {
 	repo := initRepo(t)
 	setup, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
 		agentID:      "agent-nest",
@@ -871,9 +871,9 @@ func TestBuiltinWorktreeCleanupRefusesAWorktreeHoldingAnother(t *testing.T) {
 	assert.NotEmpty(t, readBranchList(t, repo, "inner-branch"), "the inner worktree is left registered and intact")
 }
 
-// TestBuiltinWorktreeCleanupHandlesADetachedHead covers a worktree left off its branch by a
+// TestIntegrationBuiltinWorktreeCleanupHandlesADetachedHead covers a worktree left off its branch by a
 // checkout, an interrupted rebase, or a bisect, where the path weave chose proves ownership.
-func TestBuiltinWorktreeCleanupHandlesADetachedHead(t *testing.T) {
+func TestIntegrationBuiltinWorktreeCleanupHandlesADetachedHead(t *testing.T) {
 	repo := initRepo(t)
 	setup, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
 		agentID:      "agent-detached",
@@ -892,9 +892,9 @@ func TestBuiltinWorktreeCleanupHandlesADetachedHead(t *testing.T) {
 	assert.Empty(t, readBranchList(t, repo, "agent/agent-detached"), "the branch goes with it")
 }
 
-// TestBuiltinWorktreeCleanupDeletesABranchHoldingNothingNew covers a local base behind origin,
+// TestIntegrationBuiltinWorktreeCleanupDeletesABranchHoldingNothingNew covers a local base behind origin,
 // where measuring against the repo's own HEAD would read every agent's branch as unmerged.
-func TestBuiltinWorktreeCleanupDeletesABranchHoldingNothingNew(t *testing.T) {
+func TestIntegrationBuiltinWorktreeCleanupDeletesABranchHoldingNothingNew(t *testing.T) {
 	upstream := initBareRepo(t)
 	repo := cloneRepo(t, upstream)
 	worktreesDir := t.TempDir()
@@ -921,9 +921,9 @@ func TestBuiltinWorktreeCleanupDeletesABranchHoldingNothingNew(t *testing.T) {
 	assert.Empty(t, readBranchList(t, repo, "agent/agent-nothing-new"), "a branch whose commits are all on origin is not worth keeping")
 }
 
-// TestBuiltinWorktreeCleanupRefusesWhenTheWorktreeListCannotBeRead covers the nested-worktree
+// TestIntegrationBuiltinWorktreeCleanupRefusesWhenTheWorktreeListCannotBeRead covers the nested-worktree
 // guard failing, where an unreadable list is not proof that nothing is nested.
-func TestBuiltinWorktreeCleanupRefusesWhenTheWorktreeListCannotBeRead(t *testing.T) {
+func TestIntegrationBuiltinWorktreeCleanupRefusesWhenTheWorktreeListCannotBeRead(t *testing.T) {
 	repo := initRepo(t)
 	setup, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
 		agentID:      "agent-blind",
@@ -945,10 +945,10 @@ func TestBuiltinWorktreeCleanupRefusesWhenTheWorktreeListCannotBeRead(t *testing
 	assert.NotEmpty(t, readBranchList(t, repo, "agent/agent-blind"), "nothing was removed")
 }
 
-// TestBuiltinWorktreeCleanupRefusesATreeWhoseRepoHasMoved covers a worktree whose .git file
+// TestIntegrationBuiltinWorktreeCleanupRefusesATreeWhoseRepoHasMoved covers a worktree whose .git file
 // points into a repo that is no longer at that path: git cannot answer at all, so cleanup has
 // to fail rather than record a clean deprovision for a directory that is still on disk.
-func TestBuiltinWorktreeCleanupRefusesATreeWhoseRepoHasMoved(t *testing.T) {
+func TestIntegrationBuiltinWorktreeCleanupRefusesATreeWhoseRepoHasMoved(t *testing.T) {
 	repo := initRepo(t)
 	setup, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
 		agentID:      "agent-adrift",
@@ -975,10 +975,10 @@ func TestBuiltinWorktreeCleanupRefusesATreeWhoseRepoHasMoved(t *testing.T) {
 	assert.NotEmpty(t, readBranchList(t, moved, "agent/agent-adrift"), "nothing was removed")
 }
 
-// TestBuiltinWorktreeCleanupRefusesATreeWhoseRegistrationIsGone covers the retry of a delete
+// TestIntegrationBuiltinWorktreeCleanupRefusesATreeWhoseRegistrationIsGone covers the retry of a delete
 // that failed partway: worktree remove already dropped the registration before it hit the
 // error, so the second run finds a directory git no longer knows anything about.
-func TestBuiltinWorktreeCleanupRefusesATreeWhoseRegistrationIsGone(t *testing.T) {
+func TestIntegrationBuiltinWorktreeCleanupRefusesATreeWhoseRegistrationIsGone(t *testing.T) {
 	repo := initRepo(t)
 	setup, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
 		agentID:      "agent-unregistered",
@@ -998,10 +998,10 @@ func TestBuiltinWorktreeCleanupRefusesATreeWhoseRegistrationIsGone(t *testing.T)
 	assert.NotEmpty(t, readBranchList(t, repo, "agent/agent-unregistered"), "the branch is left for a person to deal with")
 }
 
-// TestBuiltinWorktreeCleanupLeavesAWorktreeItDoesNotOwnAloneWhenGitCannotAnswer covers the two
+// TestIntegrationBuiltinWorktreeCleanupLeavesAWorktreeItDoesNotOwnAloneWhenGitCannotAnswer covers the two
 // refusals meeting: the ownership claim is a fact about the path and the agent id alone, so a
 // tree weave never made still exits zero when there is no repo left to ask.
-func TestBuiltinWorktreeCleanupLeavesAWorktreeItDoesNotOwnAloneWhenGitCannotAnswer(t *testing.T) {
+func TestIntegrationBuiltinWorktreeCleanupLeavesAWorktreeItDoesNotOwnAloneWhenGitCannotAnswer(t *testing.T) {
 	repo := initRepo(t)
 	theirs := filepath.Join(t.TempDir(), "theirs")
 	runGit(t, repo, "worktree", "add", "--quiet", "-b", "someone-else", theirs)
@@ -1323,9 +1323,9 @@ func assertBranch(t *testing.T, tree, want string) {
 	assert.Equal(t, want, strings.TrimSpace(string(out)))
 }
 
-// TestBuiltinWorktreeSetupAdoptsALocalBranch covers adoption with everything already on disk,
+// TestIntegrationBuiltinWorktreeSetupAdoptsALocalBranch covers adoption with everything already on disk,
 // where somebody else's branch is checked out as it stands rather than cut or reset.
-func TestBuiltinWorktreeSetupAdoptsALocalBranch(t *testing.T) {
+func TestIntegrationBuiltinWorktreeSetupAdoptsALocalBranch(t *testing.T) {
 	repo := initRepo(t)
 	runGit(t, repo, "checkout", "--quiet", "-b", "someones/work")
 	require.NoError(t, os.WriteFile(filepath.Join(repo, "theirs.txt"), []byte("theirs\n"), 0o644))
@@ -1346,9 +1346,9 @@ func TestBuiltinWorktreeSetupAdoptsALocalBranch(t *testing.T) {
 	assert.FileExists(t, filepath.Join(tree, "theirs.txt"), "the commits already on the branch are what the agent is looking at")
 }
 
-// TestBuiltinWorktreeSetupAdoptsABranchOnlyOnOrigin covers adopting a pull request nobody here has
+// TestIntegrationBuiltinWorktreeSetupAdoptsABranchOnlyOnOrigin covers adopting a pull request nobody here has
 // pulled yet.
-func TestBuiltinWorktreeSetupAdoptsABranchOnlyOnOrigin(t *testing.T) {
+func TestIntegrationBuiltinWorktreeSetupAdoptsABranchOnlyOnOrigin(t *testing.T) {
 	upstream := initBareRepo(t)
 	author := cloneRepo(t, upstream)
 	runGit(t, author, "checkout", "--quiet", "-b", "feature/theirs")
@@ -1377,9 +1377,9 @@ func TestBuiltinWorktreeSetupAdoptsABranchOnlyOnOrigin(t *testing.T) {
 	assert.Equal(t, "origin/feature/theirs", strings.TrimSpace(string(out)))
 }
 
-// TestBuiltinWorktreeSetupRefusesAnAdoptionItCannotReach covers a branch name that is not a
+// TestIntegrationBuiltinWorktreeSetupRefusesAnAdoptionItCannotReach covers a branch name that is not a
 // branch anywhere, where making one up would put the agent on an empty branch wearing its name.
-func TestBuiltinWorktreeSetupRefusesAnAdoptionItCannotReach(t *testing.T) {
+func TestIntegrationBuiltinWorktreeSetupRefusesAnAdoptionItCannotReach(t *testing.T) {
 	repo := initRepo(t)
 
 	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
@@ -1392,9 +1392,9 @@ func TestBuiltinWorktreeSetupRefusesAnAdoptionItCannotReach(t *testing.T) {
 	assert.Contains(t, string(result.Stderr), "no/such/branch is not a branch")
 }
 
-// TestBuiltinWorktreeCleanupKeepsAnAdoptedBranch covers adoption's cleanup, where the branch was
+// TestIntegrationBuiltinWorktreeCleanupKeepsAnAdoptedBranch covers adoption's cleanup, where the branch was
 // somebody else's so removing the worktree is the whole job.
-func TestBuiltinWorktreeCleanupKeepsAnAdoptedBranch(t *testing.T) {
+func TestIntegrationBuiltinWorktreeCleanupKeepsAnAdoptedBranch(t *testing.T) {
 	repo := initRepo(t)
 	runGit(t, repo, "branch", "someones/work")
 

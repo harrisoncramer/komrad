@@ -21,9 +21,9 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// TestWorktreesAreListedWithTheirAgentAndReadThroughGit covers the service listing a
+// TestIntegrationWorktreesAreListedWithTheirAgentAndReadThroughGit covers the service listing a
 // worktree it cut under the agent it cut it for, and reading it back against its base.
-func TestWorktreesAreListedWithTheirAgentAndReadThroughGit(t *testing.T) {
+func TestIntegrationWorktreesAreListedWithTheirAgentAndReadThroughGit(t *testing.T) {
 	hermeticGit(t)
 
 	worktreesDir := t.TempDir()
@@ -81,9 +81,9 @@ func TestWorktreesAreListedWithTheirAgentAndReadThroughGit(t *testing.T) {
 	assert.DirExists(t, tree)
 }
 
-// TestDeletingAnAgentTakesItsWorktreeOutOfTheListing covers the agent delete being what
+// TestIntegrationDeletingAnAgentTakesItsWorktreeOutOfTheListing covers the agent delete being what
 // removes a directory, and an orphan left beside it being the remover's to take.
-func TestDeletingAnAgentTakesItsWorktreeOutOfTheListing(t *testing.T) {
+func TestIntegrationDeletingAnAgentTakesItsWorktreeOutOfTheListing(t *testing.T) {
 	hermeticGit(t)
 
 	worktreesDir := t.TempDir()
@@ -129,10 +129,10 @@ func TestDeletingAnAgentTakesItsWorktreeOutOfTheListing(t *testing.T) {
 	assert.NoDirExists(t, orphan)
 }
 
-// TestWorktreeSizesAreMeasuredInTheBackground covers the loop measuring every listed directory
+// TestIntegrationWorktreeSizesAreMeasuredInTheBackground covers the loop measuring every listed directory
 // so the listing carries a size, get_worktree writing what it measured to the same table, and
 // the row of a directory that has gone being forgotten.
-func TestWorktreeSizesAreMeasuredInTheBackground(t *testing.T) {
+func TestIntegrationWorktreeSizesAreMeasuredInTheBackground(t *testing.T) {
 	hermeticGit(t)
 
 	worktreesDir := t.TempDir()

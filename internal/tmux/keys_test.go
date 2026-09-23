@@ -10,9 +10,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestBindRootKeyTakesTheKeyFromThePanes pins which table a root binding lands in, a key bound
+// TestIntegrationBindRootKeyTakesTheKeyFromThePanes pins which table a root binding lands in, a key bound
 // there firing whatever pane holds the keyboard and stopping that pane ever seeing it.
-func TestBindRootKeyTakesTheKeyFromThePanes(t *testing.T) {
+func TestIntegrationBindRootKeyTakesTheKeyFromThePanes(t *testing.T) {
 	client := testServer(t, "keys")
 
 	client.BindRootKey("F1", "display-message", "root")
@@ -25,8 +25,8 @@ func TestBindRootKeyTakesTheKeyFromThePanes(t *testing.T) {
 	assert.NotContains(t, keyTable(t, client, "root"), "F1", "unbinding gives the key back")
 }
 
-// TestBindKeyStaysBehindThePrefix pins that an ordinary binding is only reachable after the prefix.
-func TestBindKeyStaysBehindThePrefix(t *testing.T) {
+// TestIntegrationBindKeyStaysBehindThePrefix pins that an ordinary binding is only reachable after the prefix.
+func TestIntegrationBindKeyStaysBehindThePrefix(t *testing.T) {
 	client := testServer(t, "keys")
 
 	client.BindKey("F2", "display-message", "prefixed")
@@ -39,10 +39,10 @@ func TestBindKeyStaysBehindThePrefix(t *testing.T) {
 	assert.NotContains(t, keyTable(t, client, "prefix"), "F2", "unbinding takes it out of the prefix table")
 }
 
-// TestGetPrefixKeysReadsBackWhatWasBound pins that every key the listing names is handed back
+// TestIntegrationGetPrefixKeysReadsBackWhatWasBound pins that every key the listing names is handed back
 // as tmux takes it, the ones list-keys escapes or respells included, and pins how a command
 // holding a space is printed.
-func TestGetPrefixKeysReadsBackWhatWasBound(t *testing.T) {
+func TestIntegrationGetPrefixKeysReadsBackWhatWasBound(t *testing.T) {
 	client := testServer(t, "keys")
 
 	keys := []struct {
@@ -131,8 +131,8 @@ func TestGetPrefixKeysReadsBackWhatWasBound(t *testing.T) {
 	}
 }
 
-// TestCheckedBindsReportWhatTmuxSaid pins the refusal reaching the caller.
-func TestCheckedBindsReportWhatTmuxSaid(t *testing.T) {
+// TestIntegrationCheckedBindsReportWhatTmuxSaid pins the refusal reaching the caller.
+func TestIntegrationCheckedBindsReportWhatTmuxSaid(t *testing.T) {
 	client := testServer(t, "keys")
 
 	require.NoError(t, client.BindKeyChecked("F3", "display-message", "fine"))
@@ -152,9 +152,9 @@ func keyTable(t *testing.T, c *Client, table string) string {
 	return out
 }
 
-// TestFocusEventsAreTurnedOnAtTheServer pins the scope the option is set at, focus being a server
+// TestIntegrationFocusEventsAreTurnedOnAtTheServer pins the scope the option is set at, focus being a server
 // setting that per session leaves the panel's other windows silent.
-func TestFocusEventsAreTurnedOnAtTheServer(t *testing.T) {
+func TestIntegrationFocusEventsAreTurnedOnAtTheServer(t *testing.T) {
 	client := testServer(t, "focus")
 
 	client.EnableFocusEvents()
@@ -164,9 +164,9 @@ func TestFocusEventsAreTurnedOnAtTheServer(t *testing.T) {
 	assert.Equal(t, "on", strings.TrimSpace(out))
 }
 
-// TestInfoPaneRoundTripsAndClears pins the record of where the panel put its info region,
+// TestIntegrationInfoPaneRoundTripsAndClears pins the record of where the panel put its info region,
 // including the empty value that says there is no longer one.
-func TestInfoPaneRoundTripsAndClears(t *testing.T) {
+func TestIntegrationInfoPaneRoundTripsAndClears(t *testing.T) {
 	client := testServer(t, "info")
 
 	assert.Empty(t, client.GetInfoPane(), "nothing is recorded before the panel opens one")
@@ -178,9 +178,9 @@ func TestInfoPaneRoundTripsAndClears(t *testing.T) {
 	assert.Empty(t, client.GetInfoPane(), "the pane is given up rather than left pointing at a dead one")
 }
 
-// TestSocketPathNamesTheServerTheClientIsOn pins the answer weave tells its own server apart
+// TestIntegrationSocketPathNamesTheServerTheClientIsOn pins the answer weave tells its own server apart
 // from the user's by.
-func TestSocketPathNamesTheServerTheClientIsOn(t *testing.T) {
+func TestIntegrationSocketPathNamesTheServerTheClientIsOn(t *testing.T) {
 	client := testServer(t, "socket")
 
 	path, err := client.GetSocketPath()
@@ -189,9 +189,9 @@ func TestSocketPathNamesTheServerTheClientIsOn(t *testing.T) {
 	assert.Contains(t, path, "weave-test-", "the socket is the one this client was opened on")
 }
 
-// TestSessionOptionIsScopedToItsSession pins that setting one leaves the other sessions alone,
+// TestIntegrationSessionOptionIsScopedToItsSession pins that setting one leaves the other sessions alone,
 // which is what lets the panel's own session differ from the ones agents run in.
-func TestSessionOptionIsScopedToItsSession(t *testing.T) {
+func TestIntegrationSessionOptionIsScopedToItsSession(t *testing.T) {
 	client := testServer(t, "scoped")
 
 	_, err := client.query("new-session", "-d", "-s", "other", "--", "sh")

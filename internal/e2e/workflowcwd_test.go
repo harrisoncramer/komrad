@@ -14,9 +14,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestWorkflowCwdMustBeAPrimaryCheckout covers the cwd a worktree workflow is held to against
+// TestIntegrationWorkflowCwdMustBeAPrimaryCheckout covers the cwd a worktree workflow is held to against
 // real repositories.
-func TestWorkflowCwdMustBeAPrimaryCheckout(t *testing.T) {
+func TestIntegrationWorkflowCwdMustBeAPrimaryCheckout(t *testing.T) {
 	hermeticGit(t)
 
 	instance := weavetest.Start(t, weavetest.Params{WorktreesDir: t.TempDir()})

@@ -13,9 +13,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestPaneInAModeTakesNoKeys proves that nothing sent to a pane in a mode arrives, literally or
+// TestIntegrationPaneInAModeTakesNoKeys proves that nothing sent to a pane in a mode arrives, literally or
 // not.
-func TestPaneInAModeTakesNoKeys(t *testing.T) {
+func TestIntegrationPaneInAModeTakesNoKeys(t *testing.T) {
 	client := testServer(t, "weave")
 
 	pane, err := client.query("display-message", "-p", "-t", "weave:", "#{pane_id}")

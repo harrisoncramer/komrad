@@ -17,9 +17,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestMailReachesAnAgentThatHadAlreadyStopped covers a recipient sitting idle when the mail
+// TestIntegrationMailReachesAnAgentThatHadAlreadyStopped covers a recipient sitting idle when the mail
 // is sent, where no turn is ending and nothing runs on its behalf.
-func TestMailReachesAnAgentThatHadAlreadyStopped(t *testing.T) {
+func TestIntegrationMailReachesAnAgentThatHadAlreadyStopped(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()
 
@@ -87,9 +87,9 @@ func TestMailReachesAnAgentThatHadAlreadyStopped(t *testing.T) {
 	})
 }
 
-// TestDeliveryLeavesABusyAgentAlone covers an agent mid-turn that is about to run its own
+// TestIntegrationDeliveryLeavesABusyAgentAlone covers an agent mid-turn that is about to run its own
 // stop hook, so typing at it would cost a turn for nothing.
-func TestDeliveryLeavesABusyAgentAlone(t *testing.T) {
+func TestIntegrationDeliveryLeavesABusyAgentAlone(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()
 
@@ -119,9 +119,9 @@ func TestDeliveryLeavesABusyAgentAlone(t *testing.T) {
 	assert.Equal(t, mail.DeliveryDone, instance.Deliver(migrations.GetId()))
 }
 
-// TestDeliveryNeverTypesAtAnAgentOnAPrompt covers the state that must never be typed at, a line
+// TestIntegrationDeliveryNeverTypesAtAnAgentOnAPrompt covers the state that must never be typed at, a line
 // sent to a permission prompt answering the prompt.
-func TestDeliveryNeverTypesAtAnAgentOnAPrompt(t *testing.T) {
+func TestIntegrationDeliveryNeverTypesAtAnAgentOnAPrompt(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()
 
@@ -148,9 +148,9 @@ func TestDeliveryNeverTypesAtAnAgentOnAPrompt(t *testing.T) {
 	assert.Empty(t, instance.Typed(migrations.GetId()))
 }
 
-// TestExpiredMailIsGivenUpOn covers delivery finishing at the deadline rather than chasing a
+// TestIntegrationExpiredMailIsGivenUpOn covers delivery finishing at the deadline rather than chasing a
 // recipient forever.
-func TestExpiredMailIsGivenUpOn(t *testing.T) {
+func TestIntegrationExpiredMailIsGivenUpOn(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{DeliveryDeadline: "1ns"})
 	ctx := t.Context()
 
@@ -178,9 +178,9 @@ func TestExpiredMailIsGivenUpOn(t *testing.T) {
 	assert.Empty(t, instance.EndTurn(migrations.GetId()), "expired mail is not readable either")
 }
 
-// TestDeliveryWaitsForAPaneToDrawItsPrompt covers a CLI still coming up, which holds typed
+// TestIntegrationDeliveryWaitsForAPaneToDrawItsPrompt covers a CLI still coming up, which holds typed
 // keys in the terminal buffer but loses the newline that would submit them.
-func TestDeliveryWaitsForAPaneToDrawItsPrompt(t *testing.T) {
+func TestIntegrationDeliveryWaitsForAPaneToDrawItsPrompt(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()
 

@@ -78,10 +78,10 @@ func landOnTheBase(t *testing.T, repo string) {
 	runGitIn(t, repo, "checkout", "--quiet", branch)
 }
 
-// TestRebaseFastForwardsABranchWhoseWorkLanded is the end-to-end anchor for the move: a branch
+// TestIntegrationRebaseFastForwardsABranchWhoseWorkLanded is the end-to-end anchor for the move: a branch
 // whose commits the base already holds as one squashed commit reaches the base without replaying
 // anything, which replaying would turn into a collision with its own content.
-func TestRebaseFastForwardsABranchWhoseWorkLanded(t *testing.T) {
+func TestIntegrationRebaseFastForwardsABranchWhoseWorkLanded(t *testing.T) {
 	hermeticGit(t)
 
 	instance := weavetest.Start(t, weavetest.Params{WorktreesDir: t.TempDir()})
@@ -104,10 +104,10 @@ func TestRebaseFastForwardsABranchWhoseWorkLanded(t *testing.T) {
 		readGitOutput(t, tree, "rev-parse", "HEAD"), "the branch stands on the base")
 }
 
-// TestRebaseParksTheCheckoutBeforeItMoves is the end-to-end anchor for the undo: a rebase that
+// TestIntegrationRebaseParksTheCheckoutBeforeItMoves is the end-to-end anchor for the undo: a rebase that
 // drops commits on purpose writes the checkout to a ref of its own first, holding what was never
 // committed as well.
-func TestRebaseParksTheCheckoutBeforeItMoves(t *testing.T) {
+func TestIntegrationRebaseParksTheCheckoutBeforeItMoves(t *testing.T) {
 	hermeticGit(t)
 
 	instance := weavetest.Start(t, weavetest.Params{WorktreesDir: t.TempDir()})
@@ -135,9 +135,9 @@ func TestRebaseParksTheCheckoutBeforeItMoves(t *testing.T) {
 		"and holds what was never committed, which the reflog could not")
 }
 
-// TestRebaseWaitsForABusyAgentToStop is the end-to-end anchor for the settle, where the row still
+// TestIntegrationRebaseWaitsForABusyAgentToStop is the end-to-end anchor for the settle, where the row still
 // says idle from its last reading while the pane itself says a turn is running.
-func TestRebaseWaitsForABusyAgentToStop(t *testing.T) {
+func TestIntegrationRebaseWaitsForABusyAgentToStop(t *testing.T) {
 	hermeticGit(t)
 
 	instance := weavetest.Start(t, weavetest.Params{WorktreesDir: t.TempDir()})

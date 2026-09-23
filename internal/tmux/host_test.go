@@ -12,9 +12,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestHostRecord drives two real tmux servers and checks everything the panel writes about the
+// TestIntegrationHostRecord drives two real tmux servers and checks everything the panel writes about the
 // user's server stays on its own, which a fake could only assert against itself.
-func TestHostRecord(t *testing.T) {
+func TestIntegrationHostRecord(t *testing.T) {
 	hostSocket := newTestServer(t, "host")
 	managerSocket := newTestServer(t, "manager")
 
@@ -38,9 +38,9 @@ func TestHostRecord(t *testing.T) {
 		"and an open with nowhere to read forgets the last answer rather than repeating it")
 }
 
-// TestClientAtPath checks a client addressed by socket path reaches the same server as one
+// TestIntegrationClientAtPath checks a client addressed by socket path reaches the same server as one
 // addressed by name, which matters because tmux hands the popup only a path.
-func TestClientAtPath(t *testing.T) {
+func TestIntegrationClientAtPath(t *testing.T) {
 	socket := newTestServer(t, "path")
 
 	byName := NewClient(socket)

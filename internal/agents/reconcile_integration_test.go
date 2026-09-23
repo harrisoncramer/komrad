@@ -19,9 +19,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestReconcileAgainstRealTmux pins that the states the reconciler infers from a real pane
+// TestIntegrationReconcileAgainstRealTmux pins that the states the reconciler infers from a real pane
 // match what the fakes stand in for.
-func TestReconcileAgainstRealTmux(t *testing.T) {
+func TestIntegrationReconcileAgainstRealTmux(t *testing.T) {
 	it := tmuxtest.New(t)
 	cli := it.Client()
 	st := newStore(t)
@@ -80,9 +80,9 @@ func TestReconcileAgainstRealTmux(t *testing.T) {
 	assert.False(t, cli.IsPaneAlive(exitedPane), "the shell's pane is closed")
 }
 
-// TestExitedCLIStopsBeingANudgeTarget pins that mail is not typed at an agent whose CLI has
+// TestIntegrationExitedCLIStopsBeingANudgeTarget pins that mail is not typed at an agent whose CLI has
 // exited, whose pane looks just like one waiting to be told.
-func TestExitedCLIStopsBeingANudgeTarget(t *testing.T) {
+func TestIntegrationExitedCLIStopsBeingANudgeTarget(t *testing.T) {
 	it := tmuxtest.New(t)
 	cli := it.Client()
 	st := newStore(t)
@@ -126,9 +126,9 @@ func TestExitedCLIStopsBeingANudgeTarget(t *testing.T) {
 	assert.Empty(t, panes.sent, "nothing is sent to an agent whose CLI exited")
 }
 
-// TestReconcileHoldsAPaneOneListingLeftOut pins that a pane missing from a single listing is not
+// TestIntegrationReconcileHoldsAPaneOneListingLeftOut pins that a pane missing from a single listing is not
 // acted on.
-func TestReconcileHoldsAPaneOneListingLeftOut(t *testing.T) {
+func TestIntegrationReconcileHoldsAPaneOneListingLeftOut(t *testing.T) {
 	it := tmuxtest.New(t)
 	st := newStore(t)
 	ctx := t.Context()
@@ -166,10 +166,10 @@ func TestReconcileHoldsAPaneOneListingLeftOut(t *testing.T) {
 	}
 }
 
-// TestReconcileHoldsAPaneWhateverElseTheListingKept pins that the hold is per pane rather
+// TestIntegrationReconcileHoldsAPaneWhateverElseTheListingKept pins that the hold is per pane rather
 // than measured against the size of the loss, so a listing that dropped a minority of the
 // board is held on the same terms as one that dropped all of it.
-func TestReconcileHoldsAPaneWhateverElseTheListingKept(t *testing.T) {
+func TestIntegrationReconcileHoldsAPaneWhateverElseTheListingKept(t *testing.T) {
 	it := tmuxtest.New(t)
 	st := newStore(t)
 	ctx := t.Context()
@@ -193,9 +193,9 @@ func TestReconcileHoldsAPaneWhateverElseTheListingKept(t *testing.T) {
 	}
 }
 
-// TestReconcileForgetsAPaneThatStaysGone pins that an ordinary exit still settles, the hold
+// TestIntegrationReconcileForgetsAPaneThatStaysGone pins that an ordinary exit still settles, the hold
 // costing it the passes it takes to tell an exit from a listing that came back short.
-func TestReconcileForgetsAPaneThatStaysGone(t *testing.T) {
+func TestIntegrationReconcileForgetsAPaneThatStaysGone(t *testing.T) {
 	it := tmuxtest.New(t)
 	st := newStore(t)
 	ctx := t.Context()
@@ -224,9 +224,9 @@ func TestReconcileForgetsAPaneThatStaysGone(t *testing.T) {
 	}
 }
 
-// TestReconcileReturnsAHoldWhenTheListingComesBack pins that a pane the listing mentions
+// TestIntegrationReconcileReturnsAHoldWhenTheListingComesBack pins that a pane the listing mentions
 // again returns what its absence had accrued, so a run of blips never adds up to an exit.
-func TestReconcileReturnsAHoldWhenTheListingComesBack(t *testing.T) {
+func TestIntegrationReconcileReturnsAHoldWhenTheListingComesBack(t *testing.T) {
 	it := tmuxtest.New(t)
 	st := newStore(t)
 	ctx := t.Context()

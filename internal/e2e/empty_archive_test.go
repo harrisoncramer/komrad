@@ -20,9 +20,9 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// TestEmptyArchiveDestroysTheWholeArchive covers the emptying gesture end to end, the request
+// TestIntegrationEmptyArchiveDestroysTheWholeArchive covers the emptying gesture end to end, the request
 // only queueing the sweep the keypress's promise holds in.
-func TestEmptyArchiveDestroysTheWholeArchive(t *testing.T) {
+func TestIntegrationEmptyArchiveDestroysTheWholeArchive(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()
 
@@ -74,10 +74,10 @@ func TestEmptyArchiveDestroysTheWholeArchive(t *testing.T) {
 	assert.Equal(t, kept.GetId(), live[0].ID)
 }
 
-// TestEmptyArchiveLeavesAFailedTeardownInTheArchive covers what the gesture promises against
+// TestIntegrationEmptyArchiveLeavesAFailedTeardownInTheArchive covers what the gesture promises against
 // a deprovisioner that will not run: the row cannot be destroyed, so it has to be somewhere,
 // and the archive the user was emptying is the only place they would think to look for it.
-func TestEmptyArchiveLeavesAFailedTeardownInTheArchive(t *testing.T) {
+func TestIntegrationEmptyArchiveLeavesAFailedTeardownInTheArchive(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()
 
@@ -123,9 +123,9 @@ func TestEmptyArchiveLeavesAFailedTeardownInTheArchive(t *testing.T) {
 	assert.NotNil(t, stillArchived, "the workflow the straggler is still in stays archived rather than deleted")
 }
 
-// TestEmptyArchiveDeletesAWorkflowItEmptiesOut covers the other half of the sweep's promise:
+// TestIntegrationEmptyArchiveDeletesAWorkflowItEmptiesOut covers the other half of the sweep's promise:
 // an archived workflow it leaves with nothing inside it does not sit there forever either.
-func TestEmptyArchiveDeletesAWorkflowItEmptiesOut(t *testing.T) {
+func TestIntegrationEmptyArchiveDeletesAWorkflowItEmptiesOut(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()
 

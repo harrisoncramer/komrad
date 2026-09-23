@@ -81,9 +81,9 @@ func paths(patch *Patch) []string {
 	return found
 }
 
-// TestLoadHonoursExcludes is the point of the setting: a workflow that names its generated
+// TestIntegrationLoadHonoursExcludes is the point of the setting: a workflow that names its generated
 // tree stops seeing it, and everything else is untouched.
-func TestLoadHonoursExcludes(t *testing.T) {
+func TestIntegrationLoadHonoursExcludes(t *testing.T) {
 	tests := []struct {
 		name    string
 		exclude []string
@@ -129,10 +129,10 @@ func TestLoadHonoursExcludes(t *testing.T) {
 	}
 }
 
-// TestAPathSurvivesTheUserSDiffPrefixConfig keeps true the parser's one assumption, that the
+// TestIntegrationAPathSurvivesTheUserSDiffPrefixConfig keeps true the parser's one assumption, that the
 // first segment of the name on the header line is a prefix to drop, which a global
 // diff.noprefix would otherwise turn into a real directory eaten off every path.
-func TestAPathSurvivesTheUserSDiffPrefixConfig(t *testing.T) {
+func TestIntegrationAPathSurvivesTheUserSDiffPrefixConfig(t *testing.T) {
 	for _, settings := range [][]string{
 		{"diff.noprefix", "true"},
 		{"diff.mnemonicPrefix", "true"},
@@ -151,9 +151,9 @@ func TestAPathSurvivesTheUserSDiffPrefixConfig(t *testing.T) {
 	}
 }
 
-// TestLoadReadsBothSidesOfEveryFile covers the sources the colouring reads arriving for a
+// TestIntegrationLoadReadsBothSidesOfEveryFile covers the sources the colouring reads arriving for a
 // changed file, a new one and a deleted one alike.
-func TestLoadReadsBothSidesOfEveryFile(t *testing.T) {
+func TestIntegrationLoadReadsBothSidesOfEveryFile(t *testing.T) {
 	t.Parallel()
 
 	root := repo(t)

@@ -12,9 +12,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestPackerValidateWithoutABuild covers the check CI runs, where nothing has cross
+// TestIntegrationPackerValidateWithoutABuild covers the check CI runs, where nothing has cross
 // compiled the Linux binary the image is built around.
-func TestPackerValidateWithoutABuild(t *testing.T) {
+func TestIntegrationPackerValidateWithoutABuild(t *testing.T) {
 	_, err := exec.LookPath("packer")
 	require.NoError(t, err, "packer is a tool this repository pins")
 

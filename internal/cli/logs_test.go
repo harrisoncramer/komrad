@@ -13,10 +13,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestServeLogTail covers how the log is folded into a reason: a dial failure spans several
+// TestIntegrationServeLogTail covers how the log is folded into a reason: a dial failure spans several
 // indented lines, and the error it becomes is rendered wrapped, so it is carried as one line
 // rather than with the log's own breaks in it.
-func TestServeLogTail(t *testing.T) {
+func TestIntegrationServeLogTail(t *testing.T) {
 	dialFailure := "failed to reach db: failed to connect:\n\t[::1]:5460: dial error: connection refused\n"
 
 	tests := []struct {
@@ -51,9 +51,9 @@ func TestServeLogTail(t *testing.T) {
 	}
 }
 
-// TestServeLogTailIsBounded covers that a server which logged a great deal is cut down to its
+// TestIntegrationServeLogTailIsBounded covers that a server which logged a great deal is cut down to its
 // last lines, keeping the end where the failure that stopped it is.
-func TestServeLogTailIsBounded(t *testing.T) {
+func TestIntegrationServeLogTailIsBounded(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "serve.log")
 
 	var log strings.Builder
@@ -69,8 +69,8 @@ func TestServeLogTailIsBounded(t *testing.T) {
 	assert.NotContains(t, tail, "line 0 ", "the first is dropped")
 }
 
-// TestServeLogTailWithNoLog covers a log that could not be read at all, which is
+// TestIntegrationServeLogTailWithNoLog covers a log that could not be read at all, which is
 // the case when the file could not be opened for the server to write to either.
-func TestServeLogTailWithNoLog(t *testing.T) {
+func TestIntegrationServeLogTailWithNoLog(t *testing.T) {
 	assert.Empty(t, serveLogTail(filepath.Join(t.TempDir(), "absent.log"), 0))
 }

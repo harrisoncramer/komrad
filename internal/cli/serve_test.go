@@ -14,19 +14,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestServeLoggerRejectsAnUnknownLevel covers a level the config carries that slog has no
+// TestIntegrationServeLoggerRejectsAnUnknownLevel covers a level the config carries that slog has no
 // answer for: it fails rather than falling back, so a misspelled level is reported instead of
 // quietly leaving the log at a verbosity nobody chose.
-func TestServeLoggerRejectsAnUnknownLevel(t *testing.T) {
+func TestIntegrationServeLoggerRejectsAnUnknownLevel(t *testing.T) {
 	_, err := serveLogger("verbose")
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "verbose")
 }
 
-// TestShutdownSignalFollowsItsParent covers the context handed to serve still being the
+// TestIntegrationShutdownSignalFollowsItsParent covers the context handed to serve still being the
 // command's own, so a parent that goes away stops the server as a signal would.
-func TestShutdownSignalFollowsItsParent(t *testing.T) {
+func TestIntegrationShutdownSignalFollowsItsParent(t *testing.T) {
 	parent, cancelParent := context.WithCancel(t.Context())
 
 	ctx, stop := shutdownSignal(parent)
@@ -43,9 +43,9 @@ func TestShutdownSignalFollowsItsParent(t *testing.T) {
 	}
 }
 
-// TestShutdownSignalStopsOnASignal covers the wiring itself, that the signals a reload
+// TestIntegrationShutdownSignalStopsOnASignal covers the wiring itself, that the signals a reload
 // and a Ctrl-C actually send are the ones being listened for.
-func TestShutdownSignalStopsOnASignal(t *testing.T) {
+func TestIntegrationShutdownSignalStopsOnASignal(t *testing.T) {
 	ctx, stop := shutdownSignal(t.Context())
 	defer stop()
 
@@ -58,10 +58,10 @@ func TestShutdownSignalStopsOnASignal(t *testing.T) {
 	}
 }
 
-// TestServeListensWhereEverythingElseTalks covers the address the service binds: every
+// TestIntegrationServeListensWhereEverythingElseTalks covers the address the service binds: every
 // other command reads it out of WEAVE_ADDR, so a serve that ignores the variable binds an
 // address nothing is looking at and the panel goes on saying the server cannot be reached.
-func TestServeListensWhereEverythingElseTalks(t *testing.T) {
+func TestIntegrationServeListensWhereEverythingElseTalks(t *testing.T) {
 	tests := []struct {
 		name       string
 		flag       string
@@ -89,17 +89,17 @@ func TestServeListensWhereEverythingElseTalks(t *testing.T) {
 	}
 }
 
-// TestServeAddrFlagCarriesNoDefault covers the flag itself: a default spelled into it is
+// TestIntegrationServeAddrFlagCarriesNoDefault covers the flag itself: a default spelled into it is
 // indistinguishable from one the user typed, so the fallback above would never be reached.
-func TestServeAddrFlagCarriesNoDefault(t *testing.T) {
+func TestIntegrationServeAddrFlagCarriesNoDefault(t *testing.T) {
 	flag := serveCmd(&app{env: &config.Environment{Addr: "127.0.0.1:9999"}}).Flags().Lookup("addr")
 
 	require.NotNil(t, flag)
 	assert.Empty(t, flag.DefValue, "a default here shadows WEAVE_ADDR")
 }
 
-// TestServeRefusesAnAddressTheFileWouldRefuse covers the flag.
-func TestServeRefusesAnAddressTheFileWouldRefuse(t *testing.T) {
+// TestIntegrationServeRefusesAnAddressTheFileWouldRefuse covers the flag.
+func TestIntegrationServeRefusesAnAddressTheFileWouldRefuse(t *testing.T) {
 	tests := []struct {
 		name    string
 		addr    string

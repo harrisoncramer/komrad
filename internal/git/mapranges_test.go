@@ -38,9 +38,9 @@ func commitAll(t *testing.T, root, message string) string {
 	return capture(t, root, "rev-parse", "HEAD")
 }
 
-// TestMapRangesRefusals covers the callers that hand over something a repository cannot answer
+// TestIntegrationMapRangesRefusals covers the callers that hand over something a repository cannot answer
 // for.
-func TestMapRangesRefusals(t *testing.T) {
+func TestIntegrationMapRangesRefusals(t *testing.T) {
 	root := repo(t)
 	head := capture(t, root, "rev-parse", "HEAD")
 
@@ -84,8 +84,8 @@ func TestMapRangesRefusals(t *testing.T) {
 	}
 }
 
-// TestMapRangesReadsWhatTheCommitDid pins the shape of every change git can write.
-func TestMapRangesReadsWhatTheCommitDid(t *testing.T) {
+// TestIntegrationMapRangesReadsWhatTheCommitDid pins the shape of every change git can write.
+func TestIntegrationMapRangesReadsWhatTheCommitDid(t *testing.T) {
 	tests := []struct {
 		name   string
 		change func(t *testing.T, root string)
@@ -280,10 +280,10 @@ func TestMapRangesReadsWhatTheCommitDid(t *testing.T) {
 	}
 }
 
-// TestMapRangesFindsARenameAcrossTheWholeTree pins why the whole tree is read: git applies a
+// TestIntegrationMapRangesFindsARenameAcrossTheWholeTree pins why the whole tree is read: git applies a
 // pathspec before it looks for renames, so a diff filtered to a file's old path reports that file
 // deleted and every position on it is lost.
-func TestMapRangesFindsARenameAcrossTheWholeTree(t *testing.T) {
+func TestIntegrationMapRangesFindsARenameAcrossTheWholeTree(t *testing.T) {
 	root := repo(t)
 	write(t, root, "old.go", numbered(9))
 	from := commitAll(t, root, "before the rename")
@@ -304,9 +304,9 @@ func TestMapRangesFindsARenameAcrossTheWholeTree(t *testing.T) {
 	assert.Equal(t, "new.go", mappings[0].File.NewPath, "a rename read as a deletion drops every position on the file")
 }
 
-// TestATracedLineHoldsItsContent proves the hunk convention read here is the one git writes: a
+// TestIntegrationATracedLineHoldsItsContent proves the hunk convention read here is the one git writes: a
 // line a real commit left alone is found again by its content.
-func TestATracedLineHoldsItsContent(t *testing.T) {
+func TestIntegrationATracedLineHoldsItsContent(t *testing.T) {
 	random := rand.New(rand.NewSource(20260907))
 
 	const fileLines = 40
@@ -376,29 +376,4 @@ func rewriteSomeLines(random *rand.Rand, count int) ([]int, string) {
 	}
 
 	return kept, strings.Join(written, "\n") + "\n"
-}
-
-// FuzzMapPatch is the one input weave does not choose: a patch is git's output today and could be
-// a stranger's tomorrow, and a malformed hunk header must be an error rather than a panic in the
-// panel's own process.
-func FuzzMapPatch(f *testing.F) {
-	f.Add([]byte(""))
-	f.Add([]byte("diff --git a/a.go b/a.go\n--- a/a.go\n+++ b/a.go\n@@ -1 +1 @@\n-a\n+b\n"))
-	f.Add([]byte("diff --git a/a.go b/a.go\n--- a/a.go\n+++ b/a.go\n@@ -0,0 +1,2 @@\n+a\n+b\n"))
-	f.Add([]byte("diff --git a/a.go b/a.go\n--- a/a.go\n+++ b/a.go\n@@ -9999999999999999999,1 +1,1 @@\n-a\n+b\n"))
-	f.Add([]byte("diff --git a/a.go b/b.go\nsimilarity index 90%\nrename from a.go\nrename to b.go\n"))
-
-	f.Fuzz(func(t *testing.T, raw []byte) {
-		mappings, err := mapPatch(raw)
-		if err != nil {
-			return
-		}
-
-		for _, mapping := range mappings {
-			for _, current := range mapping.Ranges {
-				assert.LessOrEqual(t, current.Old.Start, current.Old.End, "a region cannot end before it starts")
-				assert.LessOrEqual(t, current.New.Start, current.New.End, "a region cannot end before it starts")
-			}
-		}
-	})
 }

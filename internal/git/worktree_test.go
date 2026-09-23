@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestParseWorktreesReadsTheListing pins the porcelain listing being read as blocks.
-func TestParseWorktreesReadsTheListing(t *testing.T) {
+// TestIntegrationParseWorktreesReadsTheListing pins the porcelain listing being read as blocks.
+func TestIntegrationParseWorktreesReadsTheListing(t *testing.T) {
 	tests := []struct {
 		name string
 		out  string

@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestReadHeadStateReadsASettledCheckout covers the ordinary answer.
-func TestReadHeadStateReadsASettledCheckout(t *testing.T) {
+// TestIntegrationReadHeadStateReadsASettledCheckout covers the ordinary answer.
+func TestIntegrationReadHeadStateReadsASettledCheckout(t *testing.T) {
 	t.Parallel()
 
 	dir := newRepo(t)
@@ -24,9 +24,9 @@ func TestReadHeadStateReadsASettledCheckout(t *testing.T) {
 	assert.Empty(t, head.RepositoryURL)
 }
 
-// TestReadHeadStateReadsTheRepository covers the identity a checkout carries: the canonical
+// TestIntegrationReadHeadStateReadsTheRepository covers the identity a checkout carries: the canonical
 // address of its origin, and nothing for an origin that names no forge.
-func TestReadHeadStateReadsTheRepository(t *testing.T) {
+func TestIntegrationReadHeadStateReadsTheRepository(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -66,9 +66,9 @@ func TestReadHeadStateReadsTheRepository(t *testing.T) {
 	}
 }
 
-// TestReadHeadStateNamesTheBranchAStoppedRebaseBelongsTo covers the case the row draws from,
+// TestIntegrationReadHeadStateNamesTheBranchAStoppedRebaseBelongsTo covers the case the row draws from,
 // where git has detached HEAD and the branch is only recoverable from the stopped sequence.
-func TestReadHeadStateNamesTheBranchAStoppedRebaseBelongsTo(t *testing.T) {
+func TestIntegrationReadHeadStateNamesTheBranchAStoppedRebaseBelongsTo(t *testing.T) {
 	t.Parallel()
 
 	dir := stoppedRebase(t)
@@ -83,9 +83,9 @@ func TestReadHeadStateNamesTheBranchAStoppedRebaseBelongsTo(t *testing.T) {
 	assert.True(t, head.SequenceInProgress)
 }
 
-// TestReadHeadStateCarriesNoBranchForARebaseOffADetachedHead covers what git writes into head-name
+// TestIntegrationReadHeadStateCarriesNoBranchForARebaseOffADetachedHead covers what git writes into head-name
 // when the rebase started from no branch.
-func TestReadHeadStateCarriesNoBranchForARebaseOffADetachedHead(t *testing.T) {
+func TestIntegrationReadHeadStateCarriesNoBranchForARebaseOffADetachedHead(t *testing.T) {
 	t.Parallel()
 
 	dir := stoppedRebase(t, "--detach")
@@ -96,8 +96,8 @@ func TestReadHeadStateCarriesNoBranchForARebaseOffADetachedHead(t *testing.T) {
 	assert.True(t, head.SequenceInProgress)
 }
 
-// TestReadHeadStateReadsAStoppedMerge covers a sequence that holds the index without detaching.
-func TestReadHeadStateReadsAStoppedMerge(t *testing.T) {
+// TestIntegrationReadHeadStateReadsAStoppedMerge covers a sequence that holds the index without detaching.
+func TestIntegrationReadHeadStateReadsAStoppedMerge(t *testing.T) {
 	t.Parallel()
 
 	dir := newRepo(t)
@@ -109,8 +109,8 @@ func TestReadHeadStateReadsAStoppedMerge(t *testing.T) {
 	assert.True(t, head.SequenceInProgress)
 }
 
-// TestReadHeadStateClearsItselfWhenTheRebaseIsSettled covers the recovery nobody tells weave about.
-func TestReadHeadStateClearsItselfWhenTheRebaseIsSettled(t *testing.T) {
+// TestIntegrationReadHeadStateClearsItselfWhenTheRebaseIsSettled covers the recovery nobody tells weave about.
+func TestIntegrationReadHeadStateClearsItselfWhenTheRebaseIsSettled(t *testing.T) {
 	t.Parallel()
 
 	dir := stoppedRebase(t)
@@ -122,9 +122,9 @@ func TestReadHeadStateClearsItselfWhenTheRebaseIsSettled(t *testing.T) {
 	assert.False(t, head.SequenceInProgress)
 }
 
-// TestReadHeadStateAnswersEmptyForSomewhereGitWillNotSpeakFor covers a directory that is no
+// TestIntegrationReadHeadStateAnswersEmptyForSomewhereGitWillNotSpeakFor covers a directory that is no
 // checkout, which reads as no branch rather than as a failure.
-func TestReadHeadStateAnswersEmptyForSomewhereGitWillNotSpeakFor(t *testing.T) {
+func TestIntegrationReadHeadStateAnswersEmptyForSomewhereGitWillNotSpeakFor(t *testing.T) {
 	t.Parallel()
 
 	head := client.ReadHeadState(t.Context(), t.TempDir())

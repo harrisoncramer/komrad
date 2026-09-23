@@ -15,9 +15,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestEveryCommandAnswersForItself walks the whole tree rather than the commands somebody wrote
+// TestIntegrationEveryCommandAnswersForItself walks the whole tree rather than the commands somebody wrote
 // a test for.
-func TestEveryCommandAnswersForItself(t *testing.T) {
+func TestIntegrationEveryCommandAnswersForItself(t *testing.T) {
 	walk(t, NewRootCommand(), func(t *testing.T, cmd *cobra.Command, path string) {
 		assert.NotEmpty(t, cmd.Short, "%s says nothing about itself", path)
 		assert.NotContains(t, cmd.Short, "\n", "%s runs its summary onto a second line", path)
@@ -29,9 +29,9 @@ func TestEveryCommandAnswersForItself(t *testing.T) {
 	})
 }
 
-// TestNoTwoCommandsAnswerToOneName pins the tree against a name bound twice, which cobra resolves
+// TestIntegrationNoTwoCommandsAnswerToOneName pins the tree against a name bound twice, which cobra resolves
 // to whichever was registered first and leaves the other unreachable.
-func TestNoTwoCommandsAnswerToOneName(t *testing.T) {
+func TestIntegrationNoTwoCommandsAnswerToOneName(t *testing.T) {
 	walk(t, NewRootCommand(), func(t *testing.T, cmd *cobra.Command, path string) {
 		held := map[string]string{}
 		for _, child := range cmd.Commands() {
@@ -62,9 +62,9 @@ func walk(t *testing.T, cmd *cobra.Command, check func(*testing.T, *cobra.Comman
 	descend(cmd, cmd.Name())
 }
 
-// TestQuietErrorsAreTheOnesAlreadyAnswered pins which failures main prints and which it
+// TestIntegrationQuietErrorsAreTheOnesAlreadyAnswered pins which failures main prints and which it
 // swallows.
-func TestQuietErrorsAreTheOnesAlreadyAnswered(t *testing.T) {
+func TestIntegrationQuietErrorsAreTheOnesAlreadyAnswered(t *testing.T) {
 	for _, quiet := range []error{ErrLogged, ErrReported, ErrPanelHidden} {
 		assert.True(t, IsQuiet(quiet), "%v has already been answered", quiet)
 	}
@@ -73,8 +73,8 @@ func TestQuietErrorsAreTheOnesAlreadyAnswered(t *testing.T) {
 	assert.False(t, IsQuiet(assert.AnError), "an ordinary failure is main's to print")
 }
 
-// TestColorFollowsWhatItWasAskedFor pins the three modes and the refusal.
-func TestColorFollowsWhatItWasAskedFor(t *testing.T) {
+// TestIntegrationColorFollowsWhatItWasAskedFor pins the three modes and the refusal.
+func TestIntegrationColorFollowsWhatItWasAskedFor(t *testing.T) {
 	tests := []struct {
 		name    string
 		mode    string
@@ -127,8 +127,8 @@ func TestColorFollowsWhatItWasAskedFor(t *testing.T) {
 	}
 }
 
-// TestCloseWithinSaysWhichHandleHungRatherThanWaiting pins the timeout around shutdown.
-func TestCloseWithinSaysWhichHandleHungRatherThanWaiting(t *testing.T) {
+// TestIntegrationCloseWithinSaysWhichHandleHungRatherThanWaiting pins the timeout around shutdown.
+func TestIntegrationCloseWithinSaysWhichHandleHungRatherThanWaiting(t *testing.T) {
 	var logged bytes.Buffer
 	logger := slog.New(slog.NewTextHandler(&logged, nil))
 
@@ -151,9 +151,9 @@ func TestCloseWithinSaysWhichHandleHungRatherThanWaiting(t *testing.T) {
 	assert.Contains(t, logged.String(), "the wedged pool", "the log names the handle that hung")
 }
 
-// TestHookBinaryPathIsThisBuild pins that agents are launched with the hooks of the binary
+// TestIntegrationHookBinaryPathIsThisBuild pins that agents are launched with the hooks of the binary
 // serving them.
-func TestHookBinaryPathIsThisBuild(t *testing.T) {
+func TestIntegrationHookBinaryPathIsThisBuild(t *testing.T) {
 	path := getHookBinaryPath(t.Context())
 	require.NotEmpty(t, path)
 

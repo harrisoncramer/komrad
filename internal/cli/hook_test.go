@@ -25,9 +25,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestStopHookDeliversMail pins what the stop hook writes back to the agent for each shape of
+// TestIntegrationStopHookDeliversMail pins what the stop hook writes back to the agent for each shape of
 // mailbox, and when it records the agent's turn boundary.
-func TestStopHookDeliversMail(t *testing.T) {
+func TestIntegrationStopHookDeliversMail(t *testing.T) {
 	tests := []struct {
 		name         string
 		agentID      string
@@ -172,9 +172,9 @@ func TestStopHookDeliversMail(t *testing.T) {
 	}
 }
 
-// TestClampReason covers what the hook does with a reason the endpoint would refuse, which it
+// TestIntegrationClampReason covers what the hook does with a reason the endpoint would refuse, which it
 // takes off rather than lose the turn end travelling with it.
-func TestClampReason(t *testing.T) {
+func TestIntegrationClampReason(t *testing.T) {
 	tests := []struct {
 		name   string
 		reason string
@@ -207,9 +207,9 @@ func TestClampReason(t *testing.T) {
 	}
 }
 
-// TestEveryInstalledHookHasASubcommand pins that each event weave points a harness at is
+// TestIntegrationEveryInstalledHookHasASubcommand pins that each event weave points a harness at is
 // answered by a subcommand of weave hook.
-func TestEveryInstalledHookHasASubcommand(t *testing.T) {
+func TestIntegrationEveryInstalledHookHasASubcommand(t *testing.T) {
 	names := xslice.Map(hookCmd(&app{}).Commands(), func(cmd *cobra.Command) string {
 		return cmd.Name()
 	})
@@ -219,9 +219,9 @@ func TestEveryInstalledHookHasASubcommand(t *testing.T) {
 	}
 }
 
-// TestMailPostamble pins the wording an agent is handed for each mix of senders, so it knows
+// TestIntegrationMailPostamble pins the wording an agent is handed for each mix of senders, so it knows
 // whether it is the panel operator or another agent talking.
-func TestMailPostamble(t *testing.T) {
+func TestIntegrationMailPostamble(t *testing.T) {
 	tests := []struct {
 		name string
 		mail []mailItem
@@ -276,9 +276,9 @@ func TestMailPostamble(t *testing.T) {
 	}
 }
 
-// TestStopHookSurvivesAServerThatIsNotThere pins that the hook exits cleanly when nothing is
+// TestIntegrationStopHookSurvivesAServerThatIsNotThere pins that the hook exits cleanly when nothing is
 // serving.
-func TestStopHookSurvivesAServerThatIsNotThere(t *testing.T) {
+func TestIntegrationStopHookSurvivesAServerThatIsNotThere(t *testing.T) {
 	state := &app{
 		env:       &config.Environment{Addr: "127.0.0.1:1", AgentID: "agent-a"},
 		harnesses: hookHarnesses(t),
@@ -375,8 +375,8 @@ func fakeMailServer(t *testing.T, params fakeMailParams) string {
 	return strippedHost(t, server.URL)
 }
 
-// TestTurnEndHookRecordsTheBoundary covers codex's notify program.
-func TestTurnEndHookRecordsTheBoundary(t *testing.T) {
+// TestIntegrationTurnEndHookRecordsTheBoundary covers codex's notify program.
+func TestIntegrationTurnEndHookRecordsTheBoundary(t *testing.T) {
 	tests := []struct {
 		name         string
 		agentID      string

@@ -16,9 +16,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestDeleteWorkflowFinishesOnceCleanupCatchesUp covers a deprovisioner that takes real
+// TestIntegrationDeleteWorkflowFinishesOnceCleanupCatchesUp covers a deprovisioner that takes real
 // time, where checking only once would leave the workflow archived though nothing failed.
-func TestDeleteWorkflowFinishesOnceCleanupCatchesUp(t *testing.T) {
+func TestIntegrationDeleteWorkflowFinishesOnceCleanupCatchesUp(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()
 

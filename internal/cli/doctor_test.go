@@ -19,10 +19,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestDoctorReadsTheConfigTheUserNamed covers which path the config check is made against:
+// TestIntegrationDoctorReadsTheConfigTheUserNamed covers which path the config check is made against:
 // the resolved path is always a file name, so reading it cannot tell a config nobody wrote
 // apart from one somebody named and never created.
-func TestDoctorReadsTheConfigTheUserNamed(t *testing.T) {
+func TestIntegrationDoctorReadsTheConfigTheUserNamed(t *testing.T) {
 	tests := []struct {
 		name    string
 		stack   config.Stack
@@ -77,9 +77,9 @@ func TestDoctorReadsTheConfigTheUserNamed(t *testing.T) {
 	}
 }
 
-// TestDoctorSurvivesAnEmptyLayerElement covers a layer list that will not resolve still
+// TestIntegrationDoctorSurvivesAnEmptyLayerElement covers a layer list that will not resolve still
 // reaching a report, which an unset WEAVE_CONFIG produces through the append idiom.
-func TestDoctorSurvivesAnEmptyLayerElement(t *testing.T) {
+func TestIntegrationDoctorSurvivesAnEmptyLayerElement(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
 	registry, err := harness.NewRegistry(claude.NewHarness(claude.NewHarnessParams{ConfigDir: t.TempDir()}))
@@ -99,9 +99,9 @@ func TestDoctorSurvivesAnEmptyLayerElement(t *testing.T) {
 	assert.Contains(t, loadErr.Error(), "empty path")
 }
 
-// TestDoctorAdviceReadsThePanelsOwnPane covers the doctor asking the same question the panel
+// TestIntegrationDoctorAdviceReadsThePanelsOwnPane covers the doctor asking the same question the panel
 // key asks.
-func TestDoctorAdviceReadsThePanelsOwnPane(t *testing.T) {
+func TestIntegrationDoctorAdviceReadsThePanelsOwnPane(t *testing.T) {
 	socket := throwawaySocket(t)
 	panelSession(t, socket)
 

@@ -46,9 +46,9 @@ func windowNames(t *testing.T, c *Client, session string) []string {
 	return strings.Split(out, "\n")
 }
 
-// TestNewWindowAlongsideASameNamedWindow covers the panel's own case, where tmux matches a
+// TestIntegrationNewWindowAlongsideASameNamedWindow covers the panel's own case, where tmux matches a
 // bare target against window names before session names and lands on the wrong one.
-func TestNewWindowAlongsideASameNamedWindow(t *testing.T) {
+func TestIntegrationNewWindowAlongsideASameNamedWindow(t *testing.T) {
 	client := testServer(t, "weave")
 
 	pane, err := client.NewWindow("weave", "agent-one", t.TempDir())
@@ -58,18 +58,18 @@ func TestNewWindowAlongsideASameNamedWindow(t *testing.T) {
 	assert.Equal(t, []string{"weave", "agent-one"}, windowNames(t, client, "weave"))
 }
 
-// TestSessionClientWithNothingAttached checks a server nobody is attached to and a session that
+// TestIntegrationSessionClientWithNothingAttached checks a server nobody is attached to and a session that
 // is not there both answer nothing.
-func TestSessionClientWithNothingAttached(t *testing.T) {
+func TestIntegrationSessionClientWithNothingAttached(t *testing.T) {
 	client := testServer(t, "detached")
 
 	assert.Empty(t, client.GetSessionClient("$0"))
 	assert.Empty(t, client.GetSessionClient("$99"))
 }
 
-// TestNewWindowRepeatedly covers several agents launching into the same session, which is
+// TestIntegrationNewWindowRepeatedly covers several agents launching into the same session, which is
 // the ordinary case and the one that finds an index tmux was given rather than chose.
-func TestNewWindowRepeatedly(t *testing.T) {
+func TestIntegrationNewWindowRepeatedly(t *testing.T) {
 	client := testServer(t, "weave")
 
 	for _, name := range []string{"agent-one", "agent-two", "agent-three"} {
@@ -81,9 +81,9 @@ func TestNewWindowRepeatedly(t *testing.T) {
 	assert.Equal(t, []string{"weave", "agent-one", "agent-two", "agent-three"}, windowNames(t, client, "weave"))
 }
 
-// TestPaneOwners covers the batched lookup a whole listing goes through, where a pane
+// TestIntegrationPaneOwners covers the batched lookup a whole listing goes through, where a pane
 // that is gone has to be absent rather than reported under a stale stamp.
-func TestPaneOwners(t *testing.T) {
+func TestIntegrationPaneOwners(t *testing.T) {
 	client := testServer(t, "weave")
 
 	stamped, err := client.NewWindow("weave", "stamped", t.TempDir())
@@ -108,9 +108,9 @@ func TestPaneOwners(t *testing.T) {
 	assert.True(t, panes[stamped].IsRunningShell(), "a pane weave opened is a shell until something is launched in it")
 }
 
-// TestSiblingPanesFindsTheRestOfTheWindow covers a restarted panel finding what the last one
+// TestIntegrationSiblingPanesFindsTheRestOfTheWindow covers a restarted panel finding what the last one
 // left, which needs a real server to confirm tmux maps a pane id to the window holding it.
-func TestSiblingPanesFindsTheRestOfTheWindow(t *testing.T) {
+func TestIntegrationSiblingPanesFindsTheRestOfTheWindow(t *testing.T) {
 	client := testServer(t, "weave")
 
 	panel, err := client.query("display-message", "-p", "-t", "weave:", "#{pane_id}")
@@ -127,17 +127,17 @@ func TestSiblingPanesFindsTheRestOfTheWindow(t *testing.T) {
 	assert.NotContains(t, siblings, panel, "the pane asked about is not its own sibling")
 }
 
-// TestSiblingPanesOfNothing covers the panel running outside tmux, where nothing is reclaimed
+// TestIntegrationSiblingPanesOfNothing covers the panel running outside tmux, where nothing is reclaimed
 // rather than tmux being asked about the active pane in some other window.
-func TestSiblingPanesOfNothing(t *testing.T) {
+func TestIntegrationSiblingPanesOfNothing(t *testing.T) {
 	client := testServer(t, "weave")
 
 	assert.Empty(t, client.GetSiblingPanes(""))
 }
 
-// TestBreakPaneKeepsTheID covers a staged agent returning to its own window, where a break
+// TestIntegrationBreakPaneKeepsTheID covers a staged agent returning to its own window, where a break
 // that renamed the pane would lose the agent the panel tracks by that id.
-func TestBreakPaneKeepsTheID(t *testing.T) {
+func TestIntegrationBreakPaneKeepsTheID(t *testing.T) {
 	client := testServer(t, "weave")
 
 	panel, err := client.query("display-message", "-p", "-t", "weave:", "#{pane_id}")

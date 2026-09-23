@@ -28,10 +28,10 @@ bind -n \; display-message semicolon
 bind -n "'" display-message quote
 `
 
-// TestTakePanelKeysHandsThePressToThePanelPaneOnly pins both arms of the rebinding against a
+// TestIntegrationTakePanelKeysHandsThePressToThePanelPaneOnly pins both arms of the rebinding against a
 // real client: the key reaches the program on the panel's pane, and the user's own binding runs
 // on any other pane, a multi-command binding included.
-func TestTakePanelKeysHandsThePressToThePanelPaneOnly(t *testing.T) {
+func TestIntegrationTakePanelKeysHandsThePressToThePanelPaneOnly(t *testing.T) {
 	client := testServer(t, "passkey")
 
 	config := filepath.Join(t.TempDir(), "tmux.conf")
@@ -101,8 +101,8 @@ func TestTakePanelKeysHandsThePressToThePanelPaneOnly(t *testing.T) {
 	assert.NotContains(t, client.CapturePane(pane), "^T", "and the pane itself never saw the key")
 }
 
-// TestPassKeyToPanelReportsWhatTmuxRefused pins the refusal naming the key.
-func TestPassKeyToPanelReportsWhatTmuxRefused(t *testing.T) {
+// TestIntegrationPassKeyToPanelReportsWhatTmuxRefused pins the refusal naming the key.
+func TestIntegrationPassKeyToPanelReportsWhatTmuxRefused(t *testing.T) {
 	client := testServer(t, "refused")
 
 	err := client.passKeyToPanel("no such key", "display-message paged")
@@ -119,10 +119,10 @@ func paneOption(t *testing.T, c *Client, pane, format string) string {
 	return out
 }
 
-// TestTakePanelWheelPressesTheScrollKeyOnThePanelPane pins the wheel binding's shape: the pane
+// TestIntegrationTakePanelWheelPressesTheScrollKeyOnThePanelPane pins the wheel binding's shape: the pane
 // under the mouse presses the scroll key when it is the panel's, and the user's own command runs
 // everywhere else.
-func TestTakePanelWheelPressesTheScrollKeyOnThePanelPane(t *testing.T) {
+func TestIntegrationTakePanelWheelPressesTheScrollKeyOnThePanelPane(t *testing.T) {
 	client := testServer(t, "wheel")
 
 	config := filepath.Join(t.TempDir(), "tmux.conf")
@@ -180,9 +180,9 @@ bind -n WheelUpPane if-shell -F "#{||:#{pane_in_mode},#{mouse_any_flag}}" { send
 	require.NoError(t, err)
 }
 
-// TestWheelOverThePanelPressesItsScrollKey turns a real wheel, written to the client's terminal
+// TestIntegrationWheelOverThePanelPressesItsScrollKey turns a real wheel, written to the client's terminal
 // as the mouse sequence, over each pane of a split window.
-func TestWheelOverThePanelPressesItsScrollKey(t *testing.T) {
+func TestIntegrationWheelOverThePanelPressesItsScrollKey(t *testing.T) {
 	client := testServer(t, "turn")
 	client.SetGlobal("mouse", "on")
 

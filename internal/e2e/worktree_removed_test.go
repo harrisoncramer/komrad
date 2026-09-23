@@ -15,8 +15,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestWorktreeRemovedReachesTheCaller covers the flag over the wire.
-func TestWorktreeRemovedReachesTheCaller(t *testing.T) {
+// TestIntegrationWorktreeRemovedReachesTheCaller covers the flag over the wire.
+func TestIntegrationWorktreeRemovedReachesTheCaller(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()
 

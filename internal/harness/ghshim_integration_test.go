@@ -107,8 +107,8 @@ func readIfThere(t *testing.T, path string) string {
 	return strings.TrimSpace(string(raw))
 }
 
-// TestGHShim covers the stand-in end to end, under the shell an agent would run it with.
-func TestGHShim(t *testing.T) {
+// TestIntegrationGHShim covers the stand-in end to end, under the shell an agent would run it with.
+func TestIntegrationGHShim(t *testing.T) {
 	const minted = "echo ghs_minted\n"
 
 	tests := []shimCase{

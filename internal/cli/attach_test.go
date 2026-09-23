@@ -19,9 +19,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestAttachRefusesWithoutAPanel runs against a real tmux server, where the check is that no
+// TestIntegrationAttachRefusesWithoutAPanel runs against a real tmux server, where the check is that no
 // session appears as a side effect.
-func TestAttachRefusesWithoutAPanel(t *testing.T) {
+func TestIntegrationAttachRefusesWithoutAPanel(t *testing.T) {
 	tests := []struct {
 		name   string
 		server bool

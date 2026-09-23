@@ -21,9 +21,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestRefusalReadsWhatTheServiceSaid pins how a call that was refused reaches the person who
+// TestIntegrationRefusalReadsWhatTheServiceSaid pins how a call that was refused reaches the person who
 // typed it.
-func TestRefusalReadsWhatTheServiceSaid(t *testing.T) {
+func TestIntegrationRefusalReadsWhatTheServiceSaid(t *testing.T) {
 	tests := []struct {
 		name    string
 		payload string
@@ -71,9 +71,9 @@ func TestRefusalReadsWhatTheServiceSaid(t *testing.T) {
 	}
 }
 
-// TestResponseIsWrittenForWhoeverIsReadingIt pins the two shapes the response comes out in, one
+// TestIntegrationResponseIsWrittenForWhoeverIsReadingIt pins the two shapes the response comes out in, one
 // for a person at a terminal and one for a script piping it somewhere.
-func TestResponseIsWrittenForWhoeverIsReadingIt(t *testing.T) {
+func TestIntegrationResponseIsWrittenForWhoeverIsReadingIt(t *testing.T) {
 	tests := []struct {
 		name    string
 		payload string
@@ -112,8 +112,8 @@ func TestResponseIsWrittenForWhoeverIsReadingIt(t *testing.T) {
 	}
 }
 
-// TestCallCarriesWhoIsAskingAndWhatTheyAskedFor pins the request as the service receives it.
-func TestCallCarriesWhoIsAskingAndWhatTheyAskedFor(t *testing.T) {
+// TestIntegrationCallCarriesWhoIsAskingAndWhatTheyAskedFor pins the request as the service receives it.
+func TestIntegrationCallCarriesWhoIsAskingAndWhatTheyAskedFor(t *testing.T) {
 	var (
 		gotBody   map[string]any
 		gotHeader http.Header
@@ -145,9 +145,9 @@ func TestCallCarriesWhoIsAskingAndWhatTheyAskedFor(t *testing.T) {
 	assert.Equal(t, "session-one", gotHeader.Get(caller.SessionHeader))
 }
 
-// TestCallReportsWhatWentWrongRatherThanTheBody pins the two ways a call fails short of an
+// TestIntegrationCallReportsWhatWentWrongRatherThanTheBody pins the two ways a call fails short of an
 // answer: a service that refused it, and a server that was not there to ask.
-func TestCallReportsWhatWentWrongRatherThanTheBody(t *testing.T) {
+func TestIntegrationCallReportsWhatWentWrongRatherThanTheBody(t *testing.T) {
 	refusing := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		_, _ = w.Write([]byte(`{"code":"not_found","message":"no agent holds that id"}`))
@@ -166,8 +166,8 @@ func TestCallReportsWhatWentWrongRatherThanTheBody(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to reach the server", "the address is named rather than the socket error alone")
 }
 
-// TestRequireServerSaysHowToStartOne pins the message a script gets when the panel is not up.
-func TestRequireServerSaysHowToStartOne(t *testing.T) {
+// TestIntegrationRequireServerSaysHowToStartOne pins the message a script gets when the panel is not up.
+func TestIntegrationRequireServerSaysHowToStartOne(t *testing.T) {
 	var healthPath string
 	answering := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		healthPath = r.URL.Path
@@ -190,9 +190,9 @@ func TestRequireServerSaysHowToStartOne(t *testing.T) {
 	assert.Contains(t, err.Error(), "127.0.0.1:8787", "a forwarded engine is named by the address it was configured with")
 }
 
-// TestRequireServerRefusesAnotherBuild covers a server left running from an older build, which
+// TestIntegrationRequireServerRefusesAnotherBuild covers a server left running from an older build, which
 // would answer a call this binary makes with unimplemented or, worse, with something else.
-func TestRequireServerRefusesAnotherBuild(t *testing.T) {
+func TestIntegrationRequireServerRefusesAnotherBuild(t *testing.T) {
 	stale := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(`{"version":"v0.0.0-20260101000000-0123456789ab","commit":"0123456"}`))
 	}))
@@ -220,9 +220,9 @@ func deadAddr(t *testing.T) string {
 	return strings.TrimPrefix(closed.URL, "http://")
 }
 
-// TestRpcSubcommandCarriesItsFlagsToTheService walks the whole path a script takes, from flags
+// TestIntegrationRpcSubcommandCarriesItsFlagsToTheService walks the whole path a script takes, from flags
 // derived from the protos by reflection to the field the schema names.
-func TestRpcSubcommandCarriesItsFlagsToTheService(t *testing.T) {
+func TestIntegrationRpcSubcommandCarriesItsFlagsToTheService(t *testing.T) {
 	var got map[string]any
 
 	service := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -254,9 +254,9 @@ func TestRpcSubcommandCarriesItsFlagsToTheService(t *testing.T) {
 	assert.NotContains(t, strings.TrimSpace(out.String()), "\n", "--compact keeps it to one line")
 }
 
-// TestRpcSubcommandRefusalReachesTheCaller pins that a service saying no comes back as the
+// TestIntegrationRpcSubcommandRefusalReachesTheCaller pins that a service saying no comes back as the
 // command failing with what it said.
-func TestRpcSubcommandRefusalReachesTheCaller(t *testing.T) {
+func TestIntegrationRpcSubcommandRefusalReachesTheCaller(t *testing.T) {
 	service := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == server.HealthPath {
 			_, _ = w.Write([]byte(`{"version":"` + version.Version() + `"}`))
@@ -283,8 +283,8 @@ func TestRpcSubcommandRefusalReachesTheCaller(t *testing.T) {
 	assert.Empty(t, out.String(), "nothing is printed as though it were an answer")
 }
 
-// TestRpcSubcommandStopsWhenNothingIsServing pins that the call is not attempted at all.
-func TestRpcSubcommandStopsWhenNothingIsServing(t *testing.T) {
+// TestIntegrationRpcSubcommandStopsWhenNothingIsServing pins that the call is not attempted at all.
+func TestIntegrationRpcSubcommandStopsWhenNothingIsServing(t *testing.T) {
 	root := rpcCmd(&app{env: &config.Environment{Addr: deadAddr(t)}})
 
 	var out bytes.Buffer

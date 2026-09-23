@@ -11,9 +11,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestIsAnyClientRecent covers the times tmux writes for a session's clients, which are whole
+// TestIntegrationIsAnyClientRecent covers the times tmux writes for a session's clients, which are whole
 // seconds since the epoch.
-func TestIsAnyClientRecent(t *testing.T) {
+func TestIntegrationIsAnyClientRecent(t *testing.T) {
 	bound := time.Date(2026, time.September, 9, 12, 0, 0, 0, time.UTC)
 	at := func(when time.Time) string { return strconv.FormatInt(when.Unix(), 10) }
 
@@ -50,9 +50,9 @@ func TestIsAnyClientRecent(t *testing.T) {
 	}
 }
 
-// TestIsClientAtPaneWithNobodyAttached covers a pane whose session no client is watching, which
+// TestIntegrationIsClientAtPaneWithNobodyAttached covers a pane whose session no client is watching, which
 // is every agent while the panel is closed.
-func TestIsClientAtPaneWithNobodyAttached(t *testing.T) {
+func TestIntegrationIsClientAtPaneWithNobodyAttached(t *testing.T) {
 	client := testServer(t, "alone")
 
 	pane, err := client.query("display-message", "-p", "-t", "alone:", "#{pane_id}")
@@ -61,9 +61,9 @@ func TestIsClientAtPaneWithNobodyAttached(t *testing.T) {
 	assert.False(t, client.IsClientAtPane(pane, time.Minute))
 }
 
-// TestIsClientAtPaneWithSomebodyWatching covers a client attached to the pane's session, and the
+// TestIntegrationIsClientAtPaneWithSomebodyWatching covers a client attached to the pane's session, and the
 // same client once it has looked away at another window.
-func TestIsClientAtPaneWithSomebodyWatching(t *testing.T) {
+func TestIntegrationIsClientAtPaneWithSomebodyWatching(t *testing.T) {
 	client := testServer(t, "watched")
 
 	pane, err := client.query("display-message", "-p", "-t", "watched:", "#{pane_id}")
@@ -83,9 +83,9 @@ func TestIsClientAtPaneWithSomebodyWatching(t *testing.T) {
 		"whoever is attached is looking at another window")
 }
 
-// TestIsClientAtPaneWithSomebodyWhoHasStoppedTyping covers the client that is still attached and
+// TestIntegrationIsClientAtPaneWithSomebodyWhoHasStoppedTyping covers the client that is still attached and
 // looking at the window, having taken no key for longer than the window asked for.
-func TestIsClientAtPaneWithSomebodyWhoHasStoppedTyping(t *testing.T) {
+func TestIntegrationIsClientAtPaneWithSomebodyWhoHasStoppedTyping(t *testing.T) {
 	client := testServer(t, "quiet")
 
 	pane, err := client.query("display-message", "-p", "-t", "quiet:", "#{pane_id}")
