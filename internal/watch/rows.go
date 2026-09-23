@@ -180,6 +180,17 @@ func (r *Rows) Snapshot(ctx context.Context) ([]Change, error) {
 	return changes, nil
 }
 
+// hasLoader reports whether the rows read a resource.
+func (r *Rows) hasLoader(resource watchv1.Resource) bool {
+	if r == nil {
+		return false
+	}
+
+	_, ok := r.loaders[resource]
+
+	return ok
+}
+
 // chooseAgentOptions draws an archived agent with only the opening of its prompt.
 func chooseAgentOptions(row rowstore.Row) render.AgentOptions {
 	if row.ArchivedAt != nil {

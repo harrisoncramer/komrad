@@ -440,7 +440,7 @@ func (x *Row) GetRepository() *v13.Repository {
 	return nil
 }
 
-func (x *Row) GetReview() *v1.Review {
+func (x *Row) GetReview() *v1.WatchedReview {
 	if x != nil {
 		if x, ok := x.Row.(*Row_Review); ok {
 			return x.Review
@@ -458,7 +458,7 @@ func (x *Row) GetReviewThread() *v1.ReviewThread {
 	return nil
 }
 
-func (x *Row) GetWorktree() *v14.Worktree {
+func (x *Row) GetWorktree() *v14.WatchedWorktree {
 	if x != nil {
 		if x, ok := x.Row.(*Row_Worktree); ok {
 			return x.Worktree
@@ -507,8 +507,8 @@ type Row_Repository struct {
 }
 
 type Row_Review struct {
-	// A review of an agent's work.
-	Review *v1.Review `protobuf:"bytes,8,opt,name=review,proto3,oneof"`
+	// A review of an agent's work, without its body.
+	Review *v1.WatchedReview `protobuf:"bytes,8,opt,name=review,proto3,oneof"`
 }
 
 type Row_ReviewThread struct {
@@ -518,7 +518,7 @@ type Row_ReviewThread struct {
 
 type Row_Worktree struct {
 	// A worktree as the filesystem holds it.
-	Worktree *v14.Worktree `protobuf:"bytes,10,opt,name=worktree,proto3,oneof"`
+	Worktree *v14.WatchedWorktree `protobuf:"bytes,10,opt,name=worktree,proto3,oneof"`
 }
 
 func (*Row_Agent) isRow_Row() {}
@@ -612,7 +612,7 @@ const file_watch_v1_watch_proto_rawDesc = "" +
 	"\x04rows\x18\x01 \x03(\v2\r.watch.v1.RowR\x04rows\"Y\n" +
 	"\aChanges\x12!\n" +
 	"\x04puts\x18\x01 \x03(\v2\r.watch.v1.RowR\x04puts\x12+\n" +
-	"\adeleted\x18\x02 \x03(\v2\x11.watch.v1.DeletedR\adeleted\"\x8b\x04\n" +
+	"\adeleted\x18\x02 \x03(\v2\x11.watch.v1.DeletedR\adeleted\"\x99\x04\n" +
 	"\x03Row\x12'\n" +
 	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentH\x00R\x05agent\x123\n" +
 	"\bworkflow\x18\x02 \x01(\v2\x15.workflow.v1.WorkflowH\x00R\bworkflow\x123\n" +
@@ -622,11 +622,11 @@ const file_watch_v1_watch_proto_rawDesc = "" +
 	"\fpull_request\x18\x06 \x01(\v2\x1b.pullrequest.v1.PullRequestH\x00R\vpullRequest\x12<\n" +
 	"\n" +
 	"repository\x18\a \x01(\v2\x1a.pullrequest.v1.RepositoryH\x00R\n" +
-	"repository\x12*\n" +
-	"\x06review\x18\b \x01(\v2\x10.agent.v1.ReviewH\x00R\x06review\x12=\n" +
-	"\rreview_thread\x18\t \x01(\v2\x16.agent.v1.ReviewThreadH\x00R\freviewThread\x123\n" +
+	"repository\x121\n" +
+	"\x06review\x18\b \x01(\v2\x17.agent.v1.WatchedReviewH\x00R\x06review\x12=\n" +
+	"\rreview_thread\x18\t \x01(\v2\x16.agent.v1.ReviewThreadH\x00R\freviewThread\x12:\n" +
 	"\bworktree\x18\n" +
-	" \x01(\v2\x15.worktree.v1.WorktreeH\x00R\bworktreeB\x05\n" +
+	" \x01(\v2\x1c.worktree.v1.WatchedWorktreeH\x00R\bworktreeB\x05\n" +
 	"\x03row\"K\n" +
 	"\aDeleted\x12.\n" +
 	"\bresource\x18\x01 \x01(\x0e2\x12.watch.v1.ResourceR\bresource\x12\x10\n" +
@@ -662,23 +662,23 @@ func file_watch_v1_watch_proto_rawDescGZIP() []byte {
 var file_watch_v1_watch_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_watch_v1_watch_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_watch_v1_watch_proto_goTypes = []any{
-	(Resource)(0),           // 0: watch.v1.Resource
-	(*WatchEvent)(nil),      // 1: watch.v1.WatchEvent
-	(*Snapshot)(nil),        // 2: watch.v1.Snapshot
-	(*Changes)(nil),         // 3: watch.v1.Changes
-	(*Row)(nil),             // 4: watch.v1.Row
-	(*Deleted)(nil),         // 5: watch.v1.Deleted
-	(*emptypb.Empty)(nil),   // 6: google.protobuf.Empty
-	(*v1.Agent)(nil),        // 7: agent.v1.Agent
-	(*v11.Workflow)(nil),    // 8: workflow.v1.Workflow
-	(*v12.Schedule)(nil),    // 9: schedule.v1.Schedule
-	(*v1.Mark)(nil),         // 10: agent.v1.Mark
-	(*v1.Mail)(nil),         // 11: agent.v1.Mail
-	(*v13.PullRequest)(nil), // 12: pullrequest.v1.PullRequest
-	(*v13.Repository)(nil),  // 13: pullrequest.v1.Repository
-	(*v1.Review)(nil),       // 14: agent.v1.Review
-	(*v1.ReviewThread)(nil), // 15: agent.v1.ReviewThread
-	(*v14.Worktree)(nil),    // 16: worktree.v1.Worktree
+	(Resource)(0),               // 0: watch.v1.Resource
+	(*WatchEvent)(nil),          // 1: watch.v1.WatchEvent
+	(*Snapshot)(nil),            // 2: watch.v1.Snapshot
+	(*Changes)(nil),             // 3: watch.v1.Changes
+	(*Row)(nil),                 // 4: watch.v1.Row
+	(*Deleted)(nil),             // 5: watch.v1.Deleted
+	(*emptypb.Empty)(nil),       // 6: google.protobuf.Empty
+	(*v1.Agent)(nil),            // 7: agent.v1.Agent
+	(*v11.Workflow)(nil),        // 8: workflow.v1.Workflow
+	(*v12.Schedule)(nil),        // 9: schedule.v1.Schedule
+	(*v1.Mark)(nil),             // 10: agent.v1.Mark
+	(*v1.Mail)(nil),             // 11: agent.v1.Mail
+	(*v13.PullRequest)(nil),     // 12: pullrequest.v1.PullRequest
+	(*v13.Repository)(nil),      // 13: pullrequest.v1.Repository
+	(*v1.WatchedReview)(nil),    // 14: agent.v1.WatchedReview
+	(*v1.ReviewThread)(nil),     // 15: agent.v1.ReviewThread
+	(*v14.WatchedWorktree)(nil), // 16: worktree.v1.WatchedWorktree
 }
 var file_watch_v1_watch_proto_depIdxs = []int32{
 	2,  // 0: watch.v1.WatchEvent.snapshot:type_name -> watch.v1.Snapshot
@@ -694,9 +694,9 @@ var file_watch_v1_watch_proto_depIdxs = []int32{
 	11, // 10: watch.v1.Row.mail:type_name -> agent.v1.Mail
 	12, // 11: watch.v1.Row.pull_request:type_name -> pullrequest.v1.PullRequest
 	13, // 12: watch.v1.Row.repository:type_name -> pullrequest.v1.Repository
-	14, // 13: watch.v1.Row.review:type_name -> agent.v1.Review
+	14, // 13: watch.v1.Row.review:type_name -> agent.v1.WatchedReview
 	15, // 14: watch.v1.Row.review_thread:type_name -> agent.v1.ReviewThread
-	16, // 15: watch.v1.Row.worktree:type_name -> worktree.v1.Worktree
+	16, // 15: watch.v1.Row.worktree:type_name -> worktree.v1.WatchedWorktree
 	0,  // 16: watch.v1.Deleted.resource:type_name -> watch.v1.Resource
 	6,  // 17: watch.v1.WatchService.Watch:input_type -> google.protobuf.Empty
 	1,  // 18: watch.v1.WatchService.Watch:output_type -> watch.v1.WatchEvent

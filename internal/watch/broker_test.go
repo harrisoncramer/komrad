@@ -351,6 +351,25 @@ func TestHearReadsTheTableAndTheKey(t *testing.T) {
 	assert.Equal(t, [][]string{{"a b"}}, stores.agents.reads())
 }
 
+// TestASignalForAResourceNothingReadsIsDropped pins that a resource with no loader never reaches
+// the render, and the pass carries only what is read.
+func TestASignalForAResourceNothingReadsIsDropped(t *testing.T) {
+	stores := newStores()
+	broker := newTestBroker(t, stores)
+
+	subscription, err := broker.Subscribe(t.Context())
+	require.NoError(t, err)
+
+	stores.agents.put(agentRow("a"))
+	broker.Signal(watchv1.Resource_RESOURCE_UNSPECIFIED, "u")
+	broker.Signal(watchv1.Resource_RESOURCE_REPOSITORY, "https://example.com/repo")
+	broker.Signal(watchv1.Resource_RESOURCE_AGENT, "a")
+
+	pass := waitForNextPass(t, subscription)
+	assert.Equal(t, []string{"a"}, keysInPass(pass))
+	assert.Equal(t, watchv1.Resource_RESOURCE_AGENT, pass[0].Resource)
+}
+
 // waitForNextPass waits for the next pass to reach a subscription.
 func waitForNextPass(t *testing.T, subscription *Subscription) []Change {
 	t.Helper()

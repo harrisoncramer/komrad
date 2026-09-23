@@ -15,6 +15,14 @@ type pendingKeys map[watchv1.Resource][]string
 
 // Signal says the rows of a resource with these keys may have moved.
 func (b *Broker) Signal(resource watchv1.Resource, keys ...string) {
+	if !b.rows.hasLoader(resource) {
+		if b.shouldWarn("resource " + resource.String()) {
+			b.logger.LogAttrs(context.Background(), slog.LevelWarn, "a signal named a resource nothing reads", slog.String(logging.WatchResource, resource.String()))
+		}
+
+		return
+	}
+
 	b.pendingMu.Lock()
 	defer b.pendingMu.Unlock()
 
@@ -38,20 +46,15 @@ func (b *Broker) Signal(resource watchv1.Resource, keys ...string) {
 	}
 }
 
-// reportUnknown says once that a table nothing reads is still announcing itself.
-func (b *Broker) reportUnknown(table string) {
+// shouldWarn reports whether a key is new to the broker, remembering it either way.
+func (b *Broker) shouldWarn(key string) bool {
 	b.pendingMu.Lock()
-	_, said := b.unknown[table]
-	if !said {
-		b.unknown[table] = struct{}{}
-	}
-	b.pendingMu.Unlock()
+	defer b.pendingMu.Unlock()
 
-	if said {
-		return
-	}
+	_, said := b.unknown[key]
+	b.unknown[key] = struct{}{}
 
-	b.logger.LogAttrs(context.Background(), slog.LevelWarn, "a notification named a table no resource is a row of", slog.String(logging.WatchTable, table))
+	return !said
 }
 
 // drainPending empties the pending set and returns it with each resource's keys in order.

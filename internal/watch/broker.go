@@ -61,7 +61,7 @@ type Broker struct {
 	// pendingMu guards the keys marked pending and not yet read.
 	pendingMu sync.Mutex
 	pending   map[watchv1.Resource]map[string]struct{}
-	// unknown is the tables already reported as announcing rows nothing reads.
+	// unknown is the tables and resources already reported as naming rows nothing reads.
 	unknown map[string]struct{}
 	// wake has room for one poke, which is all the loop needs to know.
 	wake chan struct{}

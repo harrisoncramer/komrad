@@ -59,12 +59,12 @@ message Row {
     pullrequest.v1.PullRequest pull_request = 6;
     // A repository and whether its pull requests have been read.
     pullrequest.v1.Repository repository = 7;
-    // A review of an agent's work.
-    agent.v1.Review review = 8;
+    // A review of an agent's work, without its body.
+    agent.v1.WatchedReview review = 8;
     // A review thread with its messages.
     agent.v1.ReviewThread review_thread = 9;
     // A worktree as the filesystem holds it.
-    worktree.v1.Worktree worktree = 10;
+    worktree.v1.WatchedWorktree worktree = 10;
   }
 }
 
