@@ -153,6 +153,9 @@ func (m *model) applyListed(result listedMsg) tea.Cmd {
 
 	if result.archivedListed {
 		m.archiveReads.reading = false
+		if result.archivedErr != nil || result.archivedWorkflowsErr != nil {
+			m.archiveReads.current = false
+		}
 	}
 	if result.archivedListed && result.archivedErr == nil && result.archivedWorkflowsErr == nil {
 		m.applyArchive(result.archived, result.archivedWorkflows, archiveRow)

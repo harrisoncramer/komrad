@@ -504,16 +504,7 @@ func TestTheArchiveIsReadOnlyWhenItMayHaveMoved(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			lists := &countedArchive{}
-			m := model{
-				frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
-				keys:   config.DefaultKeybindings(),
-				screen: screenArchive,
-				api: api{
-					agents:    lists,
-					workflows: lists,
-					schedules: lists,
-				},
-			}
+			m := archiveReadModel(lists)
 			m.listing.world.Put(&watchv1.Row{Row: &watchv1.Row_Agent{Agent: &agentv1.Agent{Id: "live", WorkflowId: "w1"}}})
 
 			m = settle(t, m, m.listCmd())
@@ -535,16 +526,7 @@ func TestTheArchiveIsReadOnlyWhenItMayHaveMoved(t *testing.T) {
 // archive reads it fresh.
 func TestReturningToTheArchiveReadsItAgain(t *testing.T) {
 	lists := &countedArchive{}
-	m := model{
-		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
-		keys:   config.DefaultKeybindings(),
-		screen: screenArchive,
-		api: api{
-			agents:    lists,
-			workflows: lists,
-			schedules: lists,
-		},
-	}
+	m := archiveReadModel(lists)
 
 	m = settle(t, m, m.listCmd())
 	require.Equal(t, 1, lists.reads)
@@ -556,15 +538,73 @@ func TestReturningToTheArchiveReadsItAgain(t *testing.T) {
 	assert.Equal(t, 2, lists.reads)
 }
 
-// countedArchive answers one archived agent and counts how often the archive is read.
+// TestAFailedArchiveReadIsRetried pins that the tick after a failed read of the archive reads it
+// again.
+func TestAFailedArchiveReadIsRetried(t *testing.T) {
+	lists := &countedArchive{failures: 1}
+	m := archiveReadModel(lists)
+
+	m = settle(t, m, m.listCmd())
+	require.Equal(t, 1, lists.reads)
+	require.Empty(t, m.listing.archivedAgents, "the failed read drew nothing")
+
+	m = settle(t, m, m.listCmd())
+
+	assert.Equal(t, 2, lists.reads)
+	assert.Len(t, m.listing.archivedAgents, 1)
+}
+
+// TestAMoveDuringAReadIsReadAfterIt pins that a read in flight is not doubled, and that an event
+// arriving while it runs is read once it lands.
+func TestAMoveDuringAReadIsReadAfterIt(t *testing.T) {
+	lists := &countedArchive{}
+	m := archiveReadModel(lists)
+	m.listing.world.Put(&watchv1.Row{Row: &watchv1.Row_Agent{Agent: &agentv1.Agent{Id: "live", WorkflowId: "w1"}}})
+
+	inFlight := m.listCmd()
+	require.NotNil(t, inFlight)
+
+	m.applyWatch(client.WatchBatch{deletedEvent(watchv1.Resource_RESOURCE_AGENT, "live")})
+	assert.Nil(t, m.listCmd(), "no second read starts while one is in flight")
+
+	m = settle(t, m, inFlight)
+	require.Equal(t, 1, lists.reads)
+
+	m = settle(t, m, m.listCmd())
+
+	assert.Equal(t, 2, lists.reads, "the move seen mid-read is read once the read lands")
+}
+
+// archiveReadModel is a model on the archive screen, reading the archive through lists.
+func archiveReadModel(lists *countedArchive) model {
+	return model{
+		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
+		keys:   config.DefaultKeybindings(),
+		screen: screenArchive,
+		api: api{
+			agents:    lists,
+			workflows: lists,
+			schedules: lists,
+		},
+	}
+}
+
+// countedArchive answers one archived agent, after failing a given number of reads, and counts
+// how often the archive is read.
 type countedArchive struct {
 	archivedLists
-	reads int
+	reads    int
+	failures int
 }
 
 func (c *countedArchive) ListAgents(ctx context.Context, req *connect.Request[agentv1.ListAgentsRequest]) (*connect.Response[agentv1.ListAgentsResponse], error) {
-	if req.Msg.GetArchived() {
-		c.reads++
+	if !req.Msg.GetArchived() {
+		return c.archivedLists.ListAgents(ctx, req)
+	}
+
+	c.reads++
+	if c.reads <= c.failures {
+		return nil, connect.NewError(connect.CodeUnavailable, errors.New("the server is busy"))
 	}
 
 	return c.archivedLists.ListAgents(ctx, req)
