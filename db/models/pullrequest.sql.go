@@ -301,8 +301,7 @@ WHERE
         FROM
             agents a
         WHERE
-            a.archived_at IS NULL
-            AND a.deleting_at IS NULL
+            a.deleting_at IS NULL
             AND a.repository_url = p.repository_url
             AND a.repository_url = p.head_repository_url
             AND a.branch = p.head_branch)
@@ -825,8 +824,7 @@ WHERE
         FROM
             agents a
         WHERE
-            a.archived_at IS NULL
-            AND a.deleting_at IS NULL
+            a.deleting_at IS NULL
             AND a.repository_url = p.repository_url
             AND a.repository_url = p.head_repository_url
             AND a.branch = p.head_branch)

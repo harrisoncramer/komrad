@@ -31,7 +31,7 @@ func (a *archiveScreen) enter(h host, s panelShared, target screenTarget) tea.Cm
 
 	a.stage(h, s)
 
-	return h.listCmd()
+	return nil
 }
 
 func (a *archiveScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {

@@ -183,18 +183,18 @@ func (s *PullRequestStore) ListForAgents(ctx context.Context, agentIDs []string)
 	return xslice.Map(rows, fromRow), nil
 }
 
-// List is every pull request opened from a branch a live agent is on, in its repository.
+// List is every pull request opened from a branch an agent, live or archived, is on in its repository.
 func (s *PullRequestStore) List(ctx context.Context) ([]PullRequest, error) {
 	rows, err := s.queries.SnapshotPullRequests(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list the pull requests on live branches: %w", err)
+		return nil, fmt.Errorf("failed to list the pull requests on agent branches: %w", err)
 	}
 
 	return xslice.Map(rows, fromRow), nil
 }
 
-// ListByKey returns whichever of the given ids hold a pull request opened from a branch a live
-// agent is on.
+// ListByKey returns whichever of the given ids hold a pull request opened from a branch an agent,
+// live or archived, is on.
 func (s *PullRequestStore) ListByKey(ctx context.Context, ids []string) ([]PullRequest, error) {
 	storable := store.KeepIDs(ids)
 	if len(storable) == 0 {
