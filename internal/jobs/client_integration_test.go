@@ -35,11 +35,12 @@ func newRiverClientWithStores(t *testing.T) (*river.Client[pgx.Tx], *storetest.S
 
 	stores := storetest.Open(t)
 
-	require.NoError(t, db.MigrateRiver(t.Context(), stores.Pool.GetRawPool()))
+	require.NoError(t, db.MigrateRiver(t.Context(), stores.Pool.GetRawPool(), stores.Pool.GetRiverSchema()))
 
 	schedules := &fakeSchedules{}
 
 	client, err := NewClient(NewClientParams{
+		Schema:    stores.Pool.GetRiverSchema(),
 		Pool:      stores.Pool.GetRawPool(),
 		Schedules: schedules,
 		Results:   schedules,
@@ -371,7 +372,7 @@ func (b *blockingLauncher) NewAgent(ctx context.Context, p agents.NewAgentParams
 // rescuer not coming back for an abandoned firing for over an hour.
 func TestStopWaitsForALaunchInFlight(t *testing.T) {
 	stores := storetest.Open(t)
-	require.NoError(t, db.MigrateRiver(t.Context(), stores.Pool.GetRawPool()))
+	require.NoError(t, db.MigrateRiver(t.Context(), stores.Pool.GetRawPool(), stores.Pool.GetRiverSchema()))
 
 	launcher := &blockingLauncher{started: make(chan struct{}), release: make(chan struct{})}
 	schedules := &fakeSchedules{schedule: &schedulestore.Schedule{
@@ -381,6 +382,7 @@ func TestStopWaitsForALaunchInFlight(t *testing.T) {
 	}}
 
 	client, err := NewClient(NewClientParams{
+		Schema:    stores.Pool.GetRiverSchema(),
 		Pool:      stores.Pool.GetRawPool(),
 		Schedules: schedules,
 		Results:   schedules,

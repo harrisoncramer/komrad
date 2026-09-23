@@ -46,13 +46,13 @@ Every tool declares which agent roles it is offered to, in the same `surfaces` a
 
 A reviewer gets the tools for reading work and writing a review, and not `request_review`. An implementer gets the tools for getting its own work read and answering what comes back, and not the review-writing half or the panel's administration: workflows, schedules, rebases, worktrees, forges, and the agent lifecycle. An orchestrator gets everything but the review-writing half and `request_review`, since it writes no code and reviews nothing.
 
-The point is what a tool list costs. The whole surface is 62 tools and around 13,000 tokens, standing in every agent's context from its first turn; an implementer is served 22 of them and a reviewer 24, which is around 6,000. A caller weave cannot place, such as a person who registered the server by hand with `claude mcp add`, is served every tool, and none of this reaches `weave rpc`, where a person running a command holds no role.
+The point is what a tool list costs. The whole surface is 62 tools and around 13,000 tokens, standing in every agent's context from its first turn; an implementer is served 23 of them and a reviewer 24, which is around 6,000. A caller weave cannot place, such as a person who registered the server by hand with `claude mcp add`, is served every tool, and none of this reaches `weave rpc`, where a person running a command holds no role.
 
 ## The read-only role
 
-The `query` tool connects as a least-privilege Postgres role, `weave_readonly` on the same database weave writes to.
+The `query` tool connects as the engine's read-only login, which `weave engine ensure` creates beside the one the engine writes with. It can only read, and Postgres shows it the engine's own rows and no other's, so a query cannot reach another engine's data however it is written.
 
-It's created by the `weave readonly-role` CLI tool, which reads the name and password out of the read-only URL. It needs the writable login to hold `CREATEROLE`. Without a working read-only login the service refuses to start.
+Without a working read-only login the service refuses to start.
 
 ## Who a call is from
 

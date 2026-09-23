@@ -27,6 +27,7 @@ the machine, start or stop the service, or call an endpoint from a script.
 
 * [weave attach](weave_attach.md)	 - Attach the running panel in this terminal
 * [weave doctor](weave_doctor.md)	 - Check that this machine has everything weave needs
+* [weave engine](weave_engine.md)	 - Set up the engines that share a database
 * [weave forge](weave_forge.md)	 - Connect weave to the services pull requests live on
 * [weave github](weave_github.md)	 - Reach GitHub as the engine's own App
 * [weave hide](weave_hide.md)	 - Hide the panel popup without stopping anything
@@ -36,7 +37,6 @@ the machine, start or stop the service, or call an endpoint from a script.
 * [weave open](weave_open.md)	 - Open the panel popup, creating or attaching its persistent session
 * [weave panel](weave_panel.md)	 - Run the panel itself, as the manager session's own command
 * [weave pr](weave_pr.md)	 - Read pull requests through the forges weave is connected to
-* [weave readonly-role](weave_readonly-role.md)	 - Create the least-privilege role the MCP query tools connect as
 * [weave rpc](weave_rpc.md)	 - Call the service's endpoints, one subcommand per RPC
 * [weave serve](weave_serve.md)	 - Run the weave service in the foreground
 * [weave shown](weave_shown.md)	 - Say in the exit status whether the panel is on screen on this tmux server

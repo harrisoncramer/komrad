@@ -1,2 +1,3 @@
 -- name: ListenToWatchChannel :exec
-LISTEN weave_watch;
+SELECT
+    listen_to_watch_channel();

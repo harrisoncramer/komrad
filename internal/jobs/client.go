@@ -8,7 +8,6 @@ import (
 	"log/slog"
 	"time"
 
-	"weave/db"
 	"weave/internal/jobs/internaljobs"
 
 	"github.com/jackc/pgx/v5"
@@ -23,6 +22,7 @@ const jobTimeout = 2 * time.Minute
 
 type NewClientParams struct {
 	Pool      *pgxpool.Pool
+	Schema    string
 	Schedules internaljobs.ScheduleGetter
 	Results   internaljobs.LaunchResultRecorder
 	Launcher  internaljobs.AgentLauncher
@@ -48,7 +48,7 @@ func NewClient(params NewClientParams) (*river.Client[pgx.Tx], error) {
 	}))
 
 	client, err := river.NewClient(riverpgxv5.New(params.Pool), &river.Config{
-		Schema:      db.RiverSchema,
+		Schema:      params.Schema,
 		Workers:     workers,
 		Logger:      cmp.Or(params.Logger, slog.Default()),
 		MaxAttempts: maxAttempts,

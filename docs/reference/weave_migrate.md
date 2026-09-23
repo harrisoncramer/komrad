@@ -4,15 +4,16 @@ Apply any pending database migrations
 
 ### Synopsis
 
-Apply any pending database migrations against the configured database.
+Apply any pending database migrations, connecting as the login that owns the schema.
 
-The service migrates its own schema on start, so this is for migrating without
-starting one: a fresh database, or a deploy step. It also applies River's queue
-migrations, which the service only reaches because it is the process that runs the
-queue, so asking on purpose has to ask for both.
+The service never migrates: an engine connects as a login that cannot change the schema,
+and it refuses to start against a database whose migrations do not match its build. So
+every upgrade runs this first, with owner_database_url (or WEAVE_OWNER_DATABASE_URL)
+naming the owner, which falls back to database_url on a database no engine has joined.
 
-It is safe to run against a database that is already current; it says so and exits
-zero.
+It refuses while another weave is connected and the build holds migrations the database
+has not seen, since those engines would stop matching. It is safe to run against a
+database that is already current; it says so and exits zero.
 
 ```
 weave migrate [flags]

@@ -1,7 +1,0 @@
-#!/usr/bin/env bash
-#MISE description="Create the least-privilege role the MCP query tools connect as."
-set -euo pipefail
-source "$MISE_CONFIG_ROOT/mise/tasks/_"
-
-cd "$MISE_CONFIG_ROOT"
-exec go run . readonly-role

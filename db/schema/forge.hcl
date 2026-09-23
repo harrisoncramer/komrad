@@ -50,8 +50,7 @@ table "forge_connections" {
   column "tenant_id" {
     null    = false
     type    = uuid
-    default = sql("(current_setting('weave.tenant'::text, true))::uuid")
-    comment = "The tenant that owns this row, filled from the connection's weave.tenant setting."
+    comment = "The engine that owns this row, stamped from the login that wrote it."
   }
   primary_key {
     columns = [column.id]
@@ -63,7 +62,7 @@ table "forge_connections" {
     on_update   = NO_ACTION
   }
   unique "forge_connections_host_key" {
-    columns = [column.host]
+    columns = [column.tenant_id, column.host]
   }
 }
 
@@ -196,11 +195,13 @@ table "pull_requests" {
   column "tenant_id" {
     null    = false
     type    = uuid
-    default = sql("(current_setting('weave.tenant'::text, true))::uuid")
-    comment = "The tenant that owns this row, filled from the connection's weave.tenant setting."
+    comment = "The engine that owns this row, stamped from the login that wrote it."
   }
   primary_key {
     columns = [column.id]
+  }
+  unique "pull_requests_tenant_id_id_key" {
+    columns = [column.tenant_id, column.id]
   }
   foreign_key "pull_requests_tenant_id_fkey" {
     columns     = [column.tenant_id]
@@ -209,10 +210,10 @@ table "pull_requests" {
     on_update   = NO_ACTION
   }
   unique "pull_requests_host_provider_id_key" {
-    columns = [column.host, column.provider_id]
+    columns = [column.tenant_id, column.host, column.provider_id]
   }
   unique "pull_requests_url_key" {
-    columns = [column.url]
+    columns = [column.tenant_id, column.url]
   }
   index "pull_requests_unfinished_head" {
     columns = [column.repository_url, column.head_branch]
@@ -248,8 +249,7 @@ table "agent_pull_requests" {
   column "tenant_id" {
     null    = false
     type    = uuid
-    default = sql("(current_setting('weave.tenant'::text, true))::uuid")
-    comment = "The tenant that owns this row, filled from the connection's weave.tenant setting."
+    comment = "The engine that owns this row, stamped from the login that wrote it."
   }
   primary_key {
     columns = [column.agent_id, column.pull_request_id]
@@ -261,14 +261,14 @@ table "agent_pull_requests" {
     on_update   = NO_ACTION
   }
   foreign_key "agent_pull_requests_agent_id_fkey" {
-    columns     = [column.agent_id]
-    ref_columns = [table.agents.column.id]
+    columns     = [column.tenant_id, column.agent_id]
+    ref_columns = [table.agents.column.tenant_id, table.agents.column.id]
     on_delete   = CASCADE
     on_update   = NO_ACTION
   }
   foreign_key "agent_pull_requests_pull_request_id_fkey" {
-    columns     = [column.pull_request_id]
-    ref_columns = [table.pull_requests.column.id]
+    columns     = [column.tenant_id, column.pull_request_id]
+    ref_columns = [table.pull_requests.column.tenant_id, table.pull_requests.column.id]
     on_delete   = CASCADE
     on_update   = NO_ACTION
   }
@@ -318,11 +318,10 @@ table "pull_request_syncs" {
   column "tenant_id" {
     null    = false
     type    = uuid
-    default = sql("(current_setting('weave.tenant'::text, true))::uuid")
-    comment = "The tenant that owns this row, filled from the connection's weave.tenant setting."
+    comment = "The engine that owns this row, stamped from the login that wrote it."
   }
   primary_key {
-    columns = [column.repository_url]
+    columns = [column.tenant_id, column.repository_url]
   }
   foreign_key "pull_request_syncs_tenant_id_fkey" {
     columns     = [column.tenant_id]
@@ -357,11 +356,10 @@ table "branch_scans" {
   column "tenant_id" {
     null    = false
     type    = uuid
-    default = sql("(current_setting('weave.tenant'::text, true))::uuid")
-    comment = "The tenant that owns this row, filled from the connection's weave.tenant setting."
+    comment = "The engine that owns this row, stamped from the login that wrote it."
   }
   primary_key {
-    columns = [column.repository_url, column.branch]
+    columns = [column.tenant_id, column.repository_url, column.branch]
   }
   foreign_key "branch_scans_tenant_id_fkey" {
     columns     = [column.tenant_id]

@@ -16,6 +16,7 @@ func renderConfig(cfg *weaveconfig.Config) (*structpb.Struct, error) {
 	shown := *cfg
 	shown.Connection.DatabaseURL = dsn.Redact(shown.Connection.DatabaseURL)
 	shown.Connection.ReadOnlyDatabaseURL = dsn.Redact(shown.Connection.ReadOnlyDatabaseURL)
+	shown.Connection.OwnerDatabaseURL = dsn.Redact(shown.Connection.OwnerDatabaseURL)
 
 	var encoded map[string]any
 	if err := mapstructure.Decode(&shown, &encoded); err != nil {

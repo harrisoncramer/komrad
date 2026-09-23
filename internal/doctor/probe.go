@@ -70,17 +70,38 @@ func openReadOnlyPool(ctx context.Context, url string) (*pgxpool.Pool, error) {
 	return pool, nil
 }
 
-func connectReadOnly(ctx context.Context, url string) error {
+// connectReadOnly opens the read-only pool as the service does, paired with the engine databaseURL logs in as.
+func connectReadOnly(ctx context.Context, url, databaseURL string) error {
 	ctx, cancel := context.WithTimeout(ctx, connectTimeout)
 	defer cancel()
 
-	pool, err := store.OpenReadOnly(ctx, url)
+	engine, err := store.Open(ctx, databaseURL)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = engine.Close() }()
+
+	pool, err := store.OpenReadOnly(ctx, url, engine.GetEngine().ID)
 	if err != nil {
 		return err
 	}
 	pool.Close()
 
 	return nil
+}
+
+// readEngine names the engine the login in url belongs to, opening the store the way the service does.
+func readEngine(ctx context.Context, url string) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, connectTimeout)
+	defer cancel()
+
+	pool, err := store.Open(ctx, url)
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = pool.Close() }()
+
+	return pool.GetEngine().Name, nil
 }
 
 // readWorkflowBases reads the directory and base branch of every live workflow.

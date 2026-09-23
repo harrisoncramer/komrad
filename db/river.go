@@ -9,23 +9,15 @@ import (
 	"github.com/riverqueue/river/rivermigrate"
 )
 
-// RiverSchema is the Postgres schema River keeps its own tables in, separate from the
-// application's so Atlas and River each manage their own ledger.
-const RiverSchema = "river"
-
-// MigrateRiver creates River's own tables without anyone installing the River CLI.
-func MigrateRiver(ctx context.Context, pool *pgxpool.Pool) error {
-	if _, err := pool.Exec(ctx, fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS %q", RiverSchema)); err != nil {
-		return fmt.Errorf("failed to create the river schema: %w", err)
-	}
-
-	migrator, err := rivermigrate.New(riverpgxv5.New(pool), &rivermigrate.Config{Schema: RiverSchema})
+// MigrateRiver creates River's own tables in an engine's schema without anyone installing the River CLI.
+func MigrateRiver(ctx context.Context, pool *pgxpool.Pool, schema string) error {
+	migrator, err := rivermigrate.New(riverpgxv5.New(pool), &rivermigrate.Config{Schema: schema})
 	if err != nil {
 		return fmt.Errorf("failed to build the river migrator: %w", err)
 	}
 
 	if _, err := migrator.Migrate(ctx, rivermigrate.DirectionUp, nil); err != nil {
-		return fmt.Errorf("failed to migrate river: %w", err)
+		return fmt.Errorf("failed to migrate river in %s: %w", schema, err)
 	}
 
 	return nil

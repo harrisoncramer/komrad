@@ -175,19 +175,15 @@ func (s *TranscriptStore) AppendTurns(ctx context.Context, params AppendTurnsPar
 		return fmt.Errorf("failed to read the next transcript chunk for %q: %w", params.AgentID, err)
 	}
 
-	rows := make([]models.InsertTranscriptChunksParams, 0, len(params.Turns))
+	chunks := models.InsertTranscriptChunksParams{AgentID: params.AgentID, SessionID: params.SessionID}
 	for i, turn := range placeTurns(next.ContentLength, next.NextSeq == 0, params.Turns) {
-		rows = append(rows, models.InsertTranscriptChunksParams{
-			AgentID:       params.AgentID,
-			SessionID:     params.SessionID,
-			Seq:           next.NextSeq + int32(i),
-			Role:          turn.Role,
-			Content:       turn.Content,
-			ContentOffset: turn.Offset,
-		})
+		chunks.Seqs = append(chunks.Seqs, next.NextSeq+int32(i))
+		chunks.Roles = append(chunks.Roles, turn.Role)
+		chunks.Contents = append(chunks.Contents, turn.Content)
+		chunks.ContentOffsets = append(chunks.ContentOffsets, turn.Offset)
 	}
 
-	if _, err := s.queries.InsertTranscriptChunks(ctx, rows); err != nil {
+	if err := s.queries.InsertTranscriptChunks(ctx, chunks); err != nil {
 		return fmt.Errorf("failed to insert transcript chunks for %q: %w", params.AgentID, err)
 	}
 

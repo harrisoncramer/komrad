@@ -280,7 +280,7 @@ type Agent struct {
 	TreeStanding string
 	// The round the standing was measured against.
 	TreeStandingSha string
-	// The tenant that owns this row, filled from the connection's weave.tenant setting.
+	// The engine that owns this row, stamped from the login that wrote it.
 	TenantID pgtype.UUID
 }
 
@@ -291,7 +291,7 @@ type AgentMetadatum struct {
 	Value     string
 	CreatedAt pgtype.Timestamptz
 	UpdatedAt pgtype.Timestamptz
-	// The tenant that owns this row, filled from the connection's weave.tenant setting.
+	// The engine that owns this row, stamped from the login that wrote it.
 	TenantID pgtype.UUID
 }
 
@@ -302,7 +302,7 @@ type AgentPullRequest struct {
 	FirstSeenAt   pgtype.Timestamptz
 	// When the pair was last seen together, moved at most once an hour.
 	LastSeenAt pgtype.Timestamptz
-	// The tenant that owns this row, filled from the connection's weave.tenant setting.
+	// The engine that owns this row, stamped from the login that wrote it.
 	TenantID pgtype.UUID
 }
 
@@ -318,7 +318,7 @@ type AgentRun struct {
 	ExitCode   *int32
 	Failure    string
 	ViewedAt   pgtype.Timestamptz
-	// The tenant that owns this row, filled from the connection's weave.tenant setting.
+	// The engine that owns this row, stamped from the login that wrote it.
 	TenantID pgtype.UUID
 }
 
@@ -331,7 +331,7 @@ type AgentTranscriptChunk struct {
 	ContentOffset int64
 	SessionID     pgtype.UUID
 	Tsv           interface{}
-	// The tenant that owns this row, filled from the connection's weave.tenant setting.
+	// The engine that owns this row, stamped from the login that wrote it.
 	TenantID pgtype.UUID
 }
 
@@ -343,7 +343,7 @@ type AgentTranscriptSession struct {
 	SyncedOffset int64
 	SyncedAt     pgtype.Timestamptz
 	CreatedAt    pgtype.Timestamptz
-	// The tenant that owns this row, filled from the connection's weave.tenant setting.
+	// The engine that owns this row, stamped from the login that wrote it.
 	TenantID pgtype.UUID
 }
 
@@ -355,7 +355,7 @@ type BranchScan struct {
 	NextCursor string
 	// When the listing answered its last page, after which the branch is never scanned again.
 	CompletedAt pgtype.Timestamptz
-	// The tenant that owns this row, filled from the connection's weave.tenant setting.
+	// The engine that owns this row, stamped from the login that wrote it.
 	TenantID pgtype.UUID
 }
 
@@ -377,7 +377,7 @@ type ForgeConnection struct {
 	CreatedAt  pgtype.Timestamptz
 	// When the forge said this credential's rate limit resets, after a refusal or a response whose remaining budget was zero. The pull request sync makes no request through the connection until it passes.
 	ThrottledUntil pgtype.Timestamptz
-	// The tenant that owns this row, filled from the connection's weave.tenant setting.
+	// The engine that owns this row, stamped from the login that wrote it.
 	TenantID pgtype.UUID
 }
 
@@ -398,7 +398,7 @@ type Mail struct {
 	Kind MailKind
 	// The other agent a weave notice is about, null on ordinary mail. Counting unread notices by this column gives the recipient one notice per subject rather than one per kind, so an agent that hits the exchange cap with a second partner is told about that partner too. There is no foreign key here on purpose. The notice has to keep naming the agent whose exchange was cut off after that agent is gone.
 	AboutAgentID pgtype.UUID
-	// The tenant that owns this row, filled from the connection's weave.tenant setting.
+	// The engine that owns this row, stamped from the login that wrote it.
 	TenantID pgtype.UUID
 }
 
@@ -409,7 +409,7 @@ type Mark struct {
 	WorkflowID pgtype.UUID
 	CreatedAt  pgtype.Timestamptz
 	ID         pgtype.UUID
-	// The tenant that owns this row, filled from the connection's weave.tenant setting.
+	// The engine that owns this row, stamped from the login that wrote it.
 	TenantID pgtype.UUID
 }
 
@@ -458,7 +458,7 @@ type PullRequest struct {
 	ChecksReadAt pgtype.Timestamptz
 	// Where the forge says the pull request stands against its base and its branch rules, in weave's own words: clean, unstable, blocked, behind or conflicting, null while the forge has not computed it. Read with the checks and kept fresh the same way.
 	Mergeability *string
-	// The tenant that owns this row, filled from the connection's weave.tenant setting.
+	// The engine that owns this row, stamped from the login that wrote it.
 	TenantID pgtype.UUID
 }
 
@@ -477,7 +477,7 @@ type PullRequestSync struct {
 	ReadAt pgtype.Timestamptz
 	// How many requests the most recent pass made for this repository.
 	Calls int32
-	// The tenant that owns this row, filled from the connection's weave.tenant setting.
+	// The engine that owns this row, stamped from the login that wrote it.
 	TenantID pgtype.UUID
 }
 
@@ -503,7 +503,7 @@ type Review struct {
 	UpdatedAt      pgtype.Timestamptz
 	// What the reviewer said about the change as a whole rather than about any one line, empty when they said nothing. It goes at the top of the released review file, above the line comments, because it is what the agent should read first.
 	Body string
-	// The tenant that owns this row, filled from the connection's weave.tenant setting.
+	// The engine that owns this row, stamped from the login that wrote it.
 	TenantID pgtype.UUID
 }
 
@@ -523,7 +523,7 @@ type ReviewMessage struct {
 	ReviewID pgtype.UUID
 	// Replacement lines the reviewer is proposing for the range the thread is pinned to, empty on an ordinary comment. The agent applies them as written rather than treating them as a description of what to do.
 	Suggestion []string
-	// The tenant that owns this row, filled from the connection's weave.tenant setting.
+	// The engine that owns this row, stamped from the login that wrote it.
 	TenantID pgtype.UUID
 }
 
@@ -538,7 +538,7 @@ type ReviewRound struct {
 	// A commit covering the agent's whole checkout, tracked and untracked files alike. A ref under refs/weave/rounds keeps it alive so git will not collect it. Writing it leaves the agent's own branch, index and files alone.
 	SnapshotSha string
 	CreatedAt   pgtype.Timestamptz
-	// The tenant that owns this row, filled from the connection's weave.tenant setting.
+	// The engine that owns this row, stamped from the login that wrote it.
 	TenantID pgtype.UUID
 }
 
@@ -576,7 +576,7 @@ type ReviewThread struct {
 	ResolvedByKind NullReviewAuthorKind
 	// The agent that settled this thread, null when a person did or when nobody has. Do not read null as meaning a person, because resolved_by_kind is what says that. Deleting that agent clears this column rather than the settling.
 	ResolvedByAgentID pgtype.UUID
-	// The tenant that owns this row, filled from the connection's weave.tenant setting.
+	// The engine that owns this row, stamped from the login that wrote it.
 	TenantID pgtype.UUID
 }
 
@@ -588,7 +588,7 @@ type ReviewViewedFile struct {
 	AgentID  pgtype.UUID
 	// A hash of the file's own slice of the patch as it stood when it was read. The panel hashes the file again on every load and shows it as unread once the two disagree, which is what makes an agent writing to the file undo the mark. It is the diff that is hashed rather than the file, since the hunks change when the base moves under a file nothing has touched.
 	Fingerprint string
-	// The tenant that owns this row, filled from the connection's weave.tenant setting.
+	// The engine that owns this row, stamped from the login that wrote it.
 	TenantID pgtype.UUID
 }
 
@@ -608,14 +608,23 @@ type Schedule struct {
 	LastResultStatus  *string
 	LastResultMessage *string
 	LastResultAt      pgtype.Timestamptz
-	// The tenant that owns this row, filled from the connection's weave.tenant setting.
+	// The engine that owns this row, stamped from the login that wrote it.
 	TenantID pgtype.UUID
 }
 
-// An owner of rows, every other table carrying the id of the tenant it belongs to.
+// An engine, the owner of every row it writes.
 type Tenant struct {
 	ID        pgtype.UUID
 	Name      string
+	CreatedAt pgtype.Timestamptz
+}
+
+// The Postgres logins an engine connects as, which is the only way an engine's identity is known.
+type TenantLogin struct {
+	Role     string
+	TenantID pgtype.UUID
+	// Whether this is the engine's read-only login rather than the one it writes with.
+	Reader    bool
 	CreatedAt pgtype.Timestamptz
 }
 
@@ -631,7 +640,7 @@ type Workflow struct {
 	UpdatedAt           pgtype.Timestamptz
 	// When a delete claimed the workflow, which happens when a delete claims the agents inside it. A claimed workflow is left out of the archive until the last of those agents goes and takes the row with it, and an agent whose delete fails gives the workflow back as it comes back itself.
 	DeletingAt pgtype.Timestamptz
-	// The tenant that owns this row, filled from the connection's weave.tenant setting.
+	// The engine that owns this row, stamped from the login that wrote it.
 	TenantID pgtype.UUID
 }
 
@@ -643,7 +652,7 @@ type WorkflowConfig struct {
 	Flags     string
 	CreatedAt pgtype.Timestamptz
 	UpdatedAt pgtype.Timestamptz
-	// The tenant that owns this row, filled from the connection's weave.tenant setting.
+	// The engine that owns this row, stamped from the login that wrote it.
 	TenantID pgtype.UUID
 }
 
@@ -655,7 +664,7 @@ type WorkflowHook struct {
 	Script     string
 	Position   int32
 	CreatedAt  pgtype.Timestamptz
-	// The tenant that owns this row, filled from the connection's weave.tenant setting.
+	// The engine that owns this row, stamped from the login that wrote it.
 	TenantID pgtype.UUID
 }
 
@@ -671,7 +680,7 @@ type WorkflowProvisionerConfig struct {
 	UpdatedAt            pgtype.Timestamptz
 	WorktreeDiffExclude  []string
 	WorktreeDir          string
-	// The tenant that owns this row, filled from the connection's weave.tenant setting.
+	// The engine that owns this row, stamped from the login that wrote it.
 	TenantID pgtype.UUID
 }
 
@@ -684,6 +693,6 @@ type WorktreeSize struct {
 	MeasuredAt pgtype.Timestamptz
 	// Why the last walk failed, null when it did not.
 	Error *string
-	// The tenant that owns this row, filled from the connection's weave.tenant setting.
+	// The engine that owns this row, stamped from the login that wrote it.
 	TenantID pgtype.UUID
 }

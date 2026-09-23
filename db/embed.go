@@ -30,8 +30,8 @@ import (
 //go:embed migrations/*.sql
 var migrationsFS embed.FS
 
-//go:embed readonly_role.sql
-var readOnlyRoleSQL string
+//go:embed applied_migrations.sql
+var appliedMigrationsSQL string
 
 // migrateLock is the advisory lock key that stops two processes applying the same migration
 // twice, and it must never change.
@@ -93,6 +93,83 @@ func Pending(ctx context.Context, pool *pgxpool.Pool) ([]string, error) {
 	return getMigrationsToRun(ctx, pool, versions)
 }
 
+// ErrSchemaBehind is returned when the database is missing migrations this build carries.
+var ErrSchemaBehind = errors.New("the database is missing migrations this build carries; run weave migrate as the database owner")
+
+// ErrSchemaAhead is returned when the database holds migrations this build does not know.
+var ErrSchemaAhead = errors.New("the database holds migrations this build does not know; run the build that applied them")
+
+// CheckSchema refuses a database whose applied migrations are not exactly the ones this build carries.
+func CheckSchema(ctx context.Context, pool *pgxpool.Pool) error {
+	files, err := openMigrationFiles()
+	if err != nil {
+		return err
+	}
+
+	return checkSchema(ctx, pool, files)
+}
+
+func checkSchema(ctx context.Context, pool *pgxpool.Pool, files fs.FS) error {
+	versions, err := listMigrationVersions(files)
+	if err != nil {
+		return err
+	}
+
+	applied, err := listAppliedMigrations(ctx, pool)
+	if err != nil {
+		return err
+	}
+
+	known := make(map[string]bool, len(versions))
+	for _, version := range versions {
+		known[version] = true
+	}
+
+	if pending := xslice.Filter(versions, func(version string) bool { return !applied[version] }); len(pending) > 0 {
+		return fmt.Errorf("%w: %s", ErrSchemaBehind, strings.Join(pending, ", "))
+	}
+
+	var unknown []string
+	for version := range applied {
+		if !known[version] {
+			unknown = append(unknown, version)
+		}
+	}
+	if len(unknown) > 0 {
+		sort.Strings(unknown)
+
+		return fmt.Errorf("%w: %s", ErrSchemaAhead, strings.Join(unknown, ", "))
+	}
+
+	return nil
+}
+
+// listAppliedMigrations reads the ledger, which a database that has never been migrated does not have yet.
+func listAppliedMigrations(ctx context.Context, q queryer) (map[string]bool, error) {
+	rows, err := q.Query(ctx, appliedMigrationsSQL)
+	if isUndefinedTable(err) {
+		return map[string]bool{}, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to read applied migrations: %w", err)
+	}
+
+	versions, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	if isUndefinedTable(err) {
+		return map[string]bool{}, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to read applied migrations: %w", err)
+	}
+
+	applied := make(map[string]bool, len(versions))
+	for _, version := range versions {
+		applied[version] = true
+	}
+
+	return applied, nil
+}
+
 // isPending reports whether any migration has yet to run.
 func isPending(ctx context.Context, pool *pgxpool.Pool, versions []string) (bool, error) {
 	pending, err := getMigrationsToRun(ctx, pool, versions)
@@ -111,39 +188,12 @@ type queryer interface {
 
 // getMigrationsToRun is which of versions the database has no record of yet.
 func getMigrationsToRun(ctx context.Context, q queryer, versions []string) ([]string, error) {
-	rows, err := q.Query(ctx,
-		`SELECT version FROM schema_migrations WHERE version = ANY ($1)`, versions)
-	if isUndefinedTable(err) {
-		return versions, nil
-	}
+	applied, err := listAppliedMigrations(ctx, q)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read applied migrations: %w", err)
-	}
-	defer rows.Close()
-
-	appliedMigrations := make(map[string]bool, len(versions))
-	for rows.Next() {
-		var version string
-		if err := rows.Scan(&version); err != nil {
-			return nil, fmt.Errorf("failed to read an applied migration: %w", err)
-		}
-
-		appliedMigrations[version] = true
+		return nil, err
 	}
 
-	// The table can be missing on a database that has never been migrated, which the
-	// query above only reports once the rows are walked.
-	if err := rows.Err(); err != nil {
-		if isUndefinedTable(err) {
-			return versions, nil
-		}
-
-		return nil, fmt.Errorf("failed to read applied migrations: %w", err)
-	}
-
-	pending := xslice.Filter(versions, func(version string) bool { return !appliedMigrations[version] })
-
-	return pending, nil
+	return xslice.Filter(versions, func(version string) bool { return !applied[version] }), nil
 }
 
 // migrationSet is the migrations to apply and where to read them from.

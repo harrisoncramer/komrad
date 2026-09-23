@@ -60,6 +60,7 @@ VALUES (
     $3,
     NOW())
 ON CONFLICT (
+    tenant_id,
     repository_url,
     branch)
     DO UPDATE SET
@@ -100,6 +101,7 @@ INSERT INTO pull_request_syncs(
 VALUES (
     $1)
 ON CONFLICT (
+    tenant_id,
     repository_url)
     DO NOTHING
 `
@@ -758,6 +760,7 @@ VALUES (
     $2,
     $3)
 ON CONFLICT (
+    tenant_id,
     repository_url,
     branch)
     DO UPDATE SET
@@ -942,6 +945,7 @@ WITH written AS (
         $17,
         $18)
 ON CONFLICT (
+    tenant_id,
     host,
     provider_id)
     DO UPDATE SET

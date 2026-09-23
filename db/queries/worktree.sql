@@ -22,6 +22,7 @@ VALUES (
     @measured_at,
     sqlc.narg(error))
 ON CONFLICT (
+    tenant_id,
     dir)
     DO UPDATE SET
         size_bytes = EXCLUDED.size_bytes,

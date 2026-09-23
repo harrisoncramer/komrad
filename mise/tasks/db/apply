@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#MISE description="Apply pending migrations to the database at WEAVE_DATABASE_URL."
+#MISE description="Apply pending migrations as the owner at WEAVE_OWNER_DATABASE_URL."
 set -euo pipefail
 source "$MISE_CONFIG_ROOT/mise/tasks/_"
 

@@ -29,10 +29,8 @@ import (
 // raised for the default path, since not having written a config is the ordinary install.
 var errLayerAbsent = errors.New("config layer is absent")
 
-const (
-	readOnlyUser     = "weave_readonly"
-	readOnlyPassword = "weave_readonly"
-)
+// readerSuffix turns an engine's login into the name of its read-only login.
+const readerSuffix = "_reader"
 
 // DefaultLogLevel is how much the service writes when the config says nothing. Failures
 // are written at error and everything else at debug, so the file stays empty while the
@@ -82,8 +80,11 @@ const DefaultMaxChildren = 3
 // is derived from whichever database url wins and the other from the platform's cache
 // directory, both after the file and the environment have been resolved.
 const (
-	// The Postgres `mise run docker:up` starts, so a checkout works with nothing exported.
-	DefaultDatabaseURL = "postgres://weave:weave@localhost:5460/weave?sslmode=disable"
+	// The default engine's login on the Postgres `mise run docker:up` starts and provisions,
+	// so a checkout works with nothing exported.
+	DefaultDatabaseURL = "postgres://weave_engine_default:weave@localhost:5460/weave?sslmode=disable"
+	// The login that owns that Postgres's schema, used while database_url is the default.
+	DefaultOwnerDatabaseURL = "postgres://weave:weave@localhost:5460/weave?sslmode=disable"
 	// Loopback, because the endpoint has no auth and its writes can spawn agents.
 	DefaultAddr = "127.0.0.1:8787"
 	// The socket weave's own tmux server listens on, named for the tool.
@@ -676,13 +677,16 @@ type Log struct {
 // These are the settings a second instance is isolated by, which is why they are a table
 // rather than four keys at the top level. Overriding the table is overriding the instance.
 type Connection struct {
-	// The Postgres weave keeps every agent, workflow, schedule and transcript in.
-	// Weave migrates the schema itself on the way in, so an empty database is enough.
+	// The Postgres weave keeps every agent, workflow, schedule and transcript in, reached as
+	// this engine's own login, which is what keeps its rows apart from every other engine's.
+	// `weave engine ensure` creates the login and prints this url.
 	DatabaseURL string `mapstructure:"database_url"`
+	// The login that owns the schema, used only by `weave migrate` and `weave engine ensure`.
+	// Left empty this is database_url, or the local owner while database_url is the default.
+	OwnerDatabaseURL string `mapstructure:"owner_database_url"`
 	// The least-privilege login the MCP query tools connect as.
-	// Left empty this is database_url with the weave_readonly login in place of yours,
-	// on the same server and the same database, so moving one moves both.
-	// Set it when that login needs its own password or reaches the database another way.
+	// Left empty this is database_url with the engine's reader login, which is its own login
+	// with _reader on the end and the same password.
 	ReadOnlyDatabaseURL string `mapstructure:"readonly_database_url"`
 	// Where the background service listens, and where the panel, the CLI and the MCP
 	// endpoint all reach it. Change it to run two weaves on one machine. It has to be a
@@ -1341,6 +1345,7 @@ func registerDefaultValues(cfg *viper.Viper, prefix string, values map[string]an
 var connectionEnvironment = map[string]string{
 	"connection.database_url":          "WEAVE_DATABASE_URL",
 	"connection.readonly_database_url": "WEAVE_READONLY_DATABASE_URL",
+	"connection.owner_database_url":    "WEAVE_OWNER_DATABASE_URL",
 	"connection.addr":                  "WEAVE_ADDR",
 	"connection.tmux_socket":           "WEAVE_TMUX_SOCKET",
 	"connection.cache_dir":             "WEAVE_CACHE_DIR",
@@ -1386,14 +1391,23 @@ func (c *Config) resolveDerived(report *Report) error {
 	}
 
 	if c.Connection.ReadOnlyDatabaseURL == "" {
-		c.Connection.ReadOnlyDatabaseURL = deriveReadOnlyURL(c.Connection.DatabaseURL)
+		c.Connection.ReadOnlyDatabaseURL = DeriveReadOnlyURL(c.Connection.DatabaseURL)
 		report.Sources["readonly_database_url"] = SourceDerived
+	}
+
+	if c.Connection.OwnerDatabaseURL == "" {
+		c.Connection.OwnerDatabaseURL = c.Connection.DatabaseURL
+		if report.Sources["database_url"] == SourceDefault {
+			c.Connection.OwnerDatabaseURL = DefaultOwnerDatabaseURL
+		}
+		report.Sources["owner_database_url"] = SourceDerived
 	}
 
 	return nil
 }
 
-func deriveReadOnlyURL(databaseURL string) string {
+// DeriveReadOnlyURL is the url of the reader login belonging to the engine login databaseURL names.
+func DeriveReadOnlyURL(databaseURL string) string {
 	parsed, err := url.Parse(databaseURL)
 	if err != nil {
 		return ""
@@ -1403,7 +1417,12 @@ func deriveReadOnlyURL(databaseURL string) string {
 		return ""
 	}
 
-	parsed.User = url.UserPassword(readOnlyUser, readOnlyPassword)
+	if parsed.User == nil || parsed.User.Username() == "" {
+		return ""
+	}
+
+	password, _ := parsed.User.Password()
+	parsed.User = url.UserPassword(parsed.User.Username()+readerSuffix, password)
 
 	return parsed.String()
 }

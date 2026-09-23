@@ -695,13 +695,50 @@ func (q *Queries) InsertAgent(ctx context.Context, arg InsertAgentParams) (strin
 	return id, err
 }
 
+const insertTranscriptChunks = `-- name: InsertTranscriptChunks :exec
+WITH chunk AS (
+    SELECT
+        UNNEST($3::int[]) AS seq,
+        UNNEST($4::text[]) AS role,
+        UNNEST($5::text[]) AS content,
+        UNNEST($6::bigint[]) AS content_offset)
+INSERT INTO agent_transcript_chunks(
+    agent_id,
+    session_id,
+    seq,
+    role,
+    content,
+    content_offset)
+SELECT
+    $1,
+    $2,
+    chunk.seq,
+    chunk.role,
+    chunk.content,
+    chunk.content_offset
+FROM
+    chunk
+`
+
 type InsertTranscriptChunksParams struct {
-	AgentID       string
-	SessionID     string
-	Seq           int32
-	Role          string
-	Content       string
-	ContentOffset int64
+	AgentID        string
+	SessionID      string
+	Seqs           []int32
+	Roles          []string
+	Contents       []string
+	ContentOffsets []int64
+}
+
+func (q *Queries) InsertTranscriptChunks(ctx context.Context, arg InsertTranscriptChunksParams) error {
+	_, err := q.db.Exec(ctx, insertTranscriptChunks,
+		arg.AgentID,
+		arg.SessionID,
+		arg.Seqs,
+		arg.Roles,
+		arg.Contents,
+		arg.ContentOffsets,
+	)
+	return err
 }
 
 const listAgentDirs = `-- name: ListAgentDirs :many

@@ -1119,7 +1119,13 @@ FROM
 WHERE
     agent_id = @agent_id;
 
--- name: InsertTranscriptChunks :copyfrom
+-- name: InsertTranscriptChunks :exec
+WITH chunk AS (
+    SELECT
+        UNNEST(@seqs::int[]) AS seq,
+        UNNEST(@roles::text[]) AS role,
+        UNNEST(@contents::text[]) AS content,
+        UNNEST(@content_offsets::bigint[]) AS content_offset)
 INSERT INTO agent_transcript_chunks(
     agent_id,
     session_id,
@@ -1127,13 +1133,15 @@ INSERT INTO agent_transcript_chunks(
     role,
     content,
     content_offset)
-VALUES (
+SELECT
     @agent_id,
     @session_id,
-    @seq,
-    @role,
-    @content,
-    @content_offset);
+    chunk.seq,
+    chunk.role,
+    chunk.content,
+    chunk.content_offset
+FROM
+    chunk;
 
 -- name: SearchTranscripts :many
 WITH q AS (

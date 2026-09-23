@@ -13,20 +13,21 @@ import (
 )
 
 var (
-	probeURL   = flag.String("probe.url", "", "read-only database url, such as postgres://weave_readonly:...@localhost:5460/weave")
-	probeQuery = flag.String("probe.query", "", "query to run")
-	probeWatch = flag.String("probe.watch", "", "agent name whose hits are reported wherever they land")
-	probePages = flag.Int("probe.pages", 5, "pages of ten to walk")
+	probeURL    = flag.String("probe.url", "", "an engine's reader url, such as postgres://weave_engine_default_reader:...@localhost:5460/weave")
+	probeEngine = flag.String("probe.engine", "", "the id of the engine the reader belongs to")
+	probeQuery  = flag.String("probe.query", "", "query to run")
+	probeWatch  = flag.String("probe.watch", "", "agent name whose hits are reported wherever they land")
+	probePages  = flag.Int("probe.pages", 5, "pages of ten to walk")
 )
 
 // TestProbeRanking prints where a query's hits land in a real database.
 func TestProbeRanking(t *testing.T) {
-	if *probeURL == "" || *probeQuery == "" {
-		t.Skip("set -probe.url and -probe.query")
+	if *probeURL == "" || *probeEngine == "" || *probeQuery == "" {
+		t.Skip("set -probe.url, -probe.engine and -probe.query")
 	}
 
 	ctx := t.Context()
-	pool, err := store.OpenReadOnly(ctx, *probeURL)
+	pool, err := store.OpenReadOnly(ctx, *probeURL, *probeEngine)
 	require.NoError(t, err)
 	t.Cleanup(pool.Close)
 

@@ -39,6 +39,7 @@ WITH written AS (
         sqlc.narg('merged_at'),
         sqlc.narg('closed_at'))
 ON CONFLICT (
+    tenant_id,
     host,
     provider_id)
     DO UPDATE SET
@@ -215,6 +216,7 @@ VALUES (
     @branch,
     @next_cursor)
 ON CONFLICT (
+    tenant_id,
     repository_url,
     branch)
     DO UPDATE SET
@@ -232,6 +234,7 @@ VALUES (
     @next_cursor,
     NOW())
 ON CONFLICT (
+    tenant_id,
     repository_url,
     branch)
     DO UPDATE SET
@@ -244,6 +247,7 @@ INSERT INTO pull_request_syncs(
 VALUES (
     @repository_url)
 ON CONFLICT (
+    tenant_id,
     repository_url)
     DO NOTHING;
 

@@ -47,7 +47,7 @@ weave doctor --json
 
 ## migrate
 
-Applies pending migrations to the configured database. The service migrates on start, so this is for migrating without starting one: a fresh database, or a deploy step. It's safe to run against a database that's already current.
+Applies pending migrations, connecting as `owner_database_url`. The service never migrates and refuses a schema its build does not match, so this runs before every upgrade. It's safe to run against a database that's already current.
 
 ```bash
 weave migrate
@@ -69,12 +69,12 @@ One subcommand per RPC, named the way the [MCP](mcp.md) tools name them, so a sc
 weave rpc list-agents --compact
 ```
 
-## readonly-role
+## engine ensure
 
-Creates the least-privilege Postgres role the MCP query tools connect as, so the SQL a model writes is fenced by the database rather than by inspecting the query. Run it once when setting a database up. It refuses if your two database URLs name the same login.
+Creates an engine on the database, or resets its logins' password: its identity, the login it writes with, a read-only login for its MCP query tools, and the schema its job queue lives in. It connects as `owner_database_url`, takes the password from `WEAVE_ENGINE_PASSWORD` or generates one, and prints the `database_url` the engine connects with. Naming the `default` engine hands the rows written before engines had logins to whoever takes it.
 
 ```bash
-weave readonly-role
+weave engine ensure laptop
 ```
 
 ## The full reference

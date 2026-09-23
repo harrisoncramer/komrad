@@ -220,6 +220,28 @@ func TestMigrateResumes(t *testing.T) {
 	assert.True(t, columnExists(t, pool, "resume_probe", "extra"), "and the rest picked up where it stopped")
 }
 
+// TestCheckSchemaWantsExactlyThisBuildsMigrations covers a service refusing a database behind its build and one ahead of it.
+func TestCheckSchemaWantsExactlyThisBuildsMigrations(t *testing.T) {
+	pool := open(t)
+	ctx := t.Context()
+
+	first := fstest.MapFS{"20260101000000_first.sql": {Data: []byte(`CREATE TABLE check_probe (id int)`)}}
+	both := fstest.MapFS{
+		"20260101000000_first.sql":  first["20260101000000_first.sql"],
+		"20260102000000_second.sql": {Data: []byte(`ALTER TABLE check_probe ADD COLUMN extra int`)},
+	}
+
+	require.ErrorIs(t, checkSchema(ctx, pool, first), ErrSchemaBehind, "an empty database is behind every build")
+
+	require.NoError(t, migrate(ctx, pool, first))
+	require.NoError(t, checkSchema(ctx, pool, first))
+	require.ErrorIs(t, checkSchema(ctx, pool, both), ErrSchemaBehind)
+
+	require.NoError(t, migrate(ctx, pool, both))
+	require.NoError(t, checkSchema(ctx, pool, both))
+	require.ErrorIs(t, checkSchema(ctx, pool, first), ErrSchemaAhead)
+}
+
 // TestMigrateUpToDate holds the lock elsewhere, so a Migrate that reached for it
 // would block until the deadline instead of returning.
 func TestMigrateUpToDate(t *testing.T) {

@@ -10,7 +10,8 @@ import (
 )
 
 const listenToWatchChannel = `-- name: ListenToWatchChannel :exec
-LISTEN weave_watch
+SELECT
+    listen_to_watch_channel()
 `
 
 func (q *Queries) ListenToWatchChannel(ctx context.Context) error {
