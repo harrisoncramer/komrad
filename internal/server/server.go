@@ -71,7 +71,9 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 		return nil, err
 	}
 
-	st, err := openStores(ctx, params.Env.DatabaseURL)
+	password := store.WithPasswordCommand(params.Env.DatabasePasswordCommand)
+
+	st, err := openStores(ctx, params.Env.DatabaseURL, password)
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +142,7 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 
 	// The MCP query tools connect through a least-privilege role, so their pool is opened
 	// apart from the one everything else writes through.
-	readOnly, err := store.OpenReadOnly(ctx, params.Env.ReadOnlyDatabaseURL, st.pool.GetEngine().ID)
+	readOnly, err := store.OpenReadOnly(ctx, params.Env.ReadOnlyDatabaseURL, st.pool.GetEngine().ID, password)
 	if err != nil {
 		return nil, err
 	}

@@ -95,15 +95,15 @@ const loginWait = 3 * time.Second
 
 type engineProber struct {
 	stack      config.Stack
-	checkLogin func(ctx context.Context, databaseURL string) error
+	checkLogin func(ctx context.Context, env *config.Environment) error
 }
 
 // checkEngineLogin opens the store with a fresh login, as the engine's server does when it starts.
-func checkEngineLogin(ctx context.Context, databaseURL string) error {
+func checkEngineLogin(ctx context.Context, env *config.Environment) error {
 	ctx, cancel := context.WithTimeout(ctx, loginWait)
 	defer cancel()
 
-	pool, err := store.Open(ctx, databaseURL)
+	pool, err := store.Open(ctx, env.DatabaseURL, store.WithPasswordCommand(env.DatabasePasswordCommand))
 	if err != nil {
 		return err
 	}
@@ -122,7 +122,7 @@ func (p engineProber) probe(ctx context.Context, row enginepick.Row) enginepick.
 	}
 
 	if !setup.remote.IsRemote() {
-		if err := p.checkLogin(ctx, setup.env.DatabaseURL); err != nil {
+		if err := p.checkLogin(ctx, setup.env); err != nil {
 			return enginepick.Status{
 				Build:   "database login refused",
 				Label:   "login",

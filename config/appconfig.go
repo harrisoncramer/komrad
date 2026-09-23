@@ -681,6 +681,9 @@ type Connection struct {
 	// this engine's own login, which is what keeps its rows apart from every other engine's.
 	// `weave engine ensure` creates the login and prints this url.
 	DatabaseURL string `mapstructure:"database_url"`
+	// A command that prints the password for database_url and its reader, run for every new connection.
+	// Left empty the password is the one in the url, or in ~/.pgpass.
+	DatabasePasswordCommand string `mapstructure:"database_password_command"`
 	// The login that owns the schema, used only by `weave migrate` and `weave engine ensure`.
 	// Left empty this is database_url, or the local owner while database_url is the default.
 	OwnerDatabaseURL string `mapstructure:"owner_database_url"`
@@ -1343,12 +1346,13 @@ func registerDefaultValues(cfg *viper.Viper, prefix string, values map[string]an
 }
 
 var connectionEnvironment = map[string]string{
-	"connection.database_url":          "WEAVE_DATABASE_URL",
-	"connection.readonly_database_url": "WEAVE_READONLY_DATABASE_URL",
-	"connection.owner_database_url":    "WEAVE_OWNER_DATABASE_URL",
-	"connection.addr":                  "WEAVE_ADDR",
-	"connection.tmux_socket":           "WEAVE_TMUX_SOCKET",
-	"connection.cache_dir":             "WEAVE_CACHE_DIR",
+	"connection.database_url":              "WEAVE_DATABASE_URL",
+	"connection.readonly_database_url":     "WEAVE_READONLY_DATABASE_URL",
+	"connection.owner_database_url":        "WEAVE_OWNER_DATABASE_URL",
+	"connection.database_password_command": "WEAVE_DATABASE_PASSWORD_COMMAND",
+	"connection.addr":                      "WEAVE_ADDR",
+	"connection.tmux_socket":               "WEAVE_TMUX_SOCKET",
+	"connection.cache_dir":                 "WEAVE_CACHE_DIR",
 }
 
 func bindEnvironment(cfg *viper.Viper) error {

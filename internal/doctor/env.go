@@ -11,6 +11,7 @@ import (
 
 	"weave/config"
 	"weave/internal/harness"
+	"weave/internal/store"
 )
 
 const commandTimeout = 5 * time.Second
@@ -70,7 +71,9 @@ type Settings struct {
 	Harnesses           []HarnessInfo
 	DatabaseURL         string
 	ReadOnlyDatabaseURL string
-	Addr                string
+	// DatabasePasswordCommand prints the password every probe's connection takes, when it is set.
+	DatabasePasswordCommand string
+	Addr                    string
 	// FocusKey is the key the panel binds in tmux's root table to take focus, which the
 	// keybindings check keeps free for it.
 	FocusKey       string
@@ -84,6 +87,7 @@ type Settings struct {
 // NewEnv is the env pointed at the machine this is running on.
 func NewEnv(settings Settings) Env {
 	settings.configLayers, _ = config.ResolveLayers(settings.ConfigStack) //nolint:errcheck // a stack that will not resolve is the config check's to report
+	password := store.WithPasswordCommand(settings.DatabasePasswordCommand)
 
 	return Env{
 		Settings:   settings,
@@ -95,18 +99,28 @@ func NewEnv(settings Settings) Env {
 
 			return err == nil
 		},
-		InspectDir:            inspectDir,
-		ReadFile:              os.ReadFile,
-		PingDatabase:          pingDatabase,
-		ReadPendingMigrations: readPendingMigrations,
-		ConnectReadOnly: func(ctx context.Context, url string) error {
-			return connectReadOnly(ctx, url, settings.DatabaseURL)
+		InspectDir: inspectDir,
+		ReadFile:   os.ReadFile,
+		PingDatabase: func(ctx context.Context, url string) error {
+			return pingDatabase(ctx, url, password)
 		},
-		ReadEngine:         readEngine,
-		ReadWorktreeOwners: readWorktreeOwners,
-		ReadWorkflowBases:  readWorkflowBases,
-		ResolveBase:        resolveWorkflowBase,
-		ReadTerminfo:       readTerminfo,
+		ReadPendingMigrations: func(ctx context.Context, url string) ([]string, error) {
+			return readPendingMigrations(ctx, url, password)
+		},
+		ConnectReadOnly: func(ctx context.Context, url string) error {
+			return connectReadOnly(ctx, url, settings.DatabaseURL, password)
+		},
+		ReadEngine: func(ctx context.Context, url string) (string, error) {
+			return readEngine(ctx, url, password)
+		},
+		ReadWorktreeOwners: func(ctx context.Context, url string) (WorktreeOwners, error) {
+			return readWorktreeOwners(ctx, url, password)
+		},
+		ReadWorkflowBases: func(ctx context.Context, url string) ([]WorkflowBase, error) {
+			return readWorkflowBases(ctx, url, password)
+		},
+		ResolveBase:  resolveWorkflowBase,
+		ReadTerminfo: readTerminfo,
 	}
 }
 

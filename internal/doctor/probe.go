@@ -26,8 +26,8 @@ const connectTimeout = 5 * time.Second
 // name of its own for.
 const writeAccess = 0x2
 
-func pingDatabase(ctx context.Context, url string) error {
-	pool, err := openReadOnlyPool(ctx, url)
+func pingDatabase(ctx context.Context, url string, password store.Option) error {
+	pool, err := openReadOnlyPool(ctx, url, password)
 	if err != nil {
 		return err
 	}
@@ -36,8 +36,8 @@ func pingDatabase(ctx context.Context, url string) error {
 	return nil
 }
 
-func readPendingMigrations(ctx context.Context, url string) ([]string, error) {
-	pool, err := openReadOnlyPool(ctx, url)
+func readPendingMigrations(ctx context.Context, url string, password store.Option) ([]string, error) {
+	pool, err := openReadOnlyPool(ctx, url, password)
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +46,7 @@ func readPendingMigrations(ctx context.Context, url string) ([]string, error) {
 	return db.Pending(ctx, pool)
 }
 
-func openReadOnlyPool(ctx context.Context, url string) (*pgxpool.Pool, error) {
+func openReadOnlyPool(ctx context.Context, url string, password store.Option) (*pgxpool.Pool, error) {
 	ctx, cancel := context.WithTimeout(ctx, connectTimeout)
 	defer cancel()
 
@@ -55,6 +55,7 @@ func openReadOnlyPool(ctx context.Context, url string) (*pgxpool.Pool, error) {
 		return nil, fmt.Errorf("failed to read the database url: %w", err)
 	}
 	cfg.ConnConfig.RuntimeParams["default_transaction_read_only"] = "on"
+	password(cfg)
 
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
@@ -71,17 +72,17 @@ func openReadOnlyPool(ctx context.Context, url string) (*pgxpool.Pool, error) {
 }
 
 // connectReadOnly opens the read-only pool as the service does, paired with the engine databaseURL logs in as.
-func connectReadOnly(ctx context.Context, url, databaseURL string) error {
+func connectReadOnly(ctx context.Context, url, databaseURL string, password store.Option) error {
 	ctx, cancel := context.WithTimeout(ctx, connectTimeout)
 	defer cancel()
 
-	engine, err := store.Open(ctx, databaseURL)
+	engine, err := store.Open(ctx, databaseURL, password)
 	if err != nil {
 		return err
 	}
 	defer func() { _ = engine.Close() }()
 
-	pool, err := store.OpenReadOnly(ctx, url, engine.GetEngine().ID)
+	pool, err := store.OpenReadOnly(ctx, url, engine.GetEngine().ID, password)
 	if err != nil {
 		return err
 	}
@@ -91,11 +92,11 @@ func connectReadOnly(ctx context.Context, url, databaseURL string) error {
 }
 
 // readEngine names the engine the login in url belongs to, opening the store the way the service does.
-func readEngine(ctx context.Context, url string) (string, error) {
+func readEngine(ctx context.Context, url string, password store.Option) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, connectTimeout)
 	defer cancel()
 
-	pool, err := store.Open(ctx, url)
+	pool, err := store.Open(ctx, url, password)
 	if err != nil {
 		return "", err
 	}
@@ -105,8 +106,8 @@ func readEngine(ctx context.Context, url string) (string, error) {
 }
 
 // readWorkflowBases reads the directory and base branch of every live workflow.
-func readWorkflowBases(ctx context.Context, url string) ([]WorkflowBase, error) {
-	pool, err := openReadOnlyPool(ctx, url)
+func readWorkflowBases(ctx context.Context, url string, password store.Option) ([]WorkflowBase, error) {
+	pool, err := openReadOnlyPool(ctx, url, password)
 	if err != nil {
 		return nil, err
 	}
@@ -185,8 +186,8 @@ func inspectDir(path string) (DirState, error) {
 
 // readWorktreeOwners reads who could own a worktree directory: every agent, archived ones
 // included, and the directories the workflows cut their worktrees in.
-func readWorktreeOwners(ctx context.Context, url string) (WorktreeOwners, error) {
-	pool, err := openReadOnlyPool(ctx, url)
+func readWorktreeOwners(ctx context.Context, url string, password store.Option) (WorktreeOwners, error) {
+	pool, err := openReadOnlyPool(ctx, url, password)
 	if err != nil {
 		return WorktreeOwners{}, err
 	}

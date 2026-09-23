@@ -19,9 +19,11 @@ type Environment struct {
 	DatabaseURL         string
 	ReadOnlyDatabaseURL string
 	OwnerDatabaseURL    string
-	Addr                string
-	TmuxSocket          string
-	CacheDir            string
+	// DatabasePasswordCommand prints the password every new engine connection takes, when it is set.
+	DatabasePasswordCommand string
+	Addr                    string
+	TmuxSocket              string
+	CacheDir                string
 	// StateDir is where weave keeps its own files about agents, such as worktrees, released
 	// reviews and forge credentials, and is the user's state directory unless a test says
 	// otherwise.

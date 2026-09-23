@@ -64,8 +64,8 @@ func (c IDCursor) Validate() error {
 }
 
 // Open connects to the Postgres at url as an engine's login, refusing a schema this build does not match.
-func Open(ctx context.Context, url string) (*Pool, error) {
-	cfg, err := parseConfig(url)
+func Open(ctx context.Context, url string, options ...Option) (*Pool, error) {
+	cfg, err := parseConfig(url, options...)
 	if err != nil {
 		return nil, err
 	}
@@ -150,14 +150,14 @@ func openOwner(ctx context.Context, url string) (*pgxpool.Pool, error) {
 }
 
 // OpenReadOnly opens a read-only pool as engineID's reader login, for the MCP endpoint and anything else that must never write.
-func OpenReadOnly(ctx context.Context, url, engineID string) (*pgxpool.Pool, error) {
+func OpenReadOnly(ctx context.Context, url, engineID string, options ...Option) (*pgxpool.Pool, error) {
 	// It takes a url of its own because a read-only transaction stops writes and nothing
 	// else, so the role that url connects as decides everything a statement can read.
 	if url == "" {
 		return nil, ErrNoReadOnlyURL
 	}
 
-	cfg, err := parseConfig(url)
+	cfg, err := parseConfig(url, options...)
 	if err != nil {
 		return nil, err
 	}
@@ -184,12 +184,16 @@ func OpenReadOnly(ctx context.Context, url, engineID string) (*pgxpool.Pool, err
 }
 
 // parseConfig reads url and names this process on every connection made from it.
-func parseConfig(url string) (*pgxpool.Config, error) {
+func parseConfig(url string, options ...Option) (*pgxpool.Config, error) {
 	cfg, err := pgxpool.ParseConfig(url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse database url: %w", err)
 	}
 	cfg.ConnConfig.RuntimeParams["application_name"] = db.AppName()
+
+	for _, option := range options {
+		option(cfg)
+	}
 
 	return cfg, nil
 }

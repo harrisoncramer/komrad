@@ -100,8 +100,8 @@ func TestProbeRefusesAnEngineWhoseLoginFails(t *testing.T) {
 		"[connection]\ndatabase_url = \"postgres://weave_engine_second:wrong@localhost:5460/weave\"\naddr = \"127.0.0.1:1\"\ntmux_socket = \"weave-second\"\n"), 0o600))
 
 	var checked string
-	refuse := engineProber{checkLogin: func(_ context.Context, url string) error {
-		checked = url
+	refuse := engineProber{checkLogin: func(_ context.Context, env *config.Environment) error {
+		checked = env.DatabaseURL
 		return errors.New("password authentication failed")
 	}}
 
@@ -111,7 +111,7 @@ func TestProbeRefusesAnEngineWhoseLoginFails(t *testing.T) {
 	assert.Contains(t, status.Refused, "password authentication failed")
 	assert.Equal(t, "postgres://weave_engine_second:wrong@localhost:5460/weave", checked)
 
-	admit := engineProber{checkLogin: func(context.Context, string) error { return nil }}
+	admit := engineProber{checkLogin: func(context.Context, *config.Environment) error { return nil }}
 
 	assert.Empty(t, admit.probe(t.Context(), enginepick.Row{Name: "second"}).Refused)
 }

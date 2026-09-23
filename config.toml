@@ -398,47 +398,50 @@ frame_history = 500
 # The Postgres weave keeps every agent, workflow, schedule and transcript in, reached as
 # this engine's own login, which is what keeps its rows apart from every other engine's.
 # `weave engine ensure` creates the login and prints this url.
-database_url          = "postgres://weave_engine_default:weave@localhost:5460/weave?sslmode=disable"
+database_url              = "postgres://weave_engine_default:weave@localhost:5460/weave?sslmode=disable"
+# A command that prints the password for database_url and its reader, run for every new connection.
+# Left empty the password is the one in the url, or in ~/.pgpass.
+database_password_command = ""
 # The login that owns the schema, used only by `weave migrate` and `weave engine ensure`.
 # Left empty this is database_url, or the local owner while database_url is the default.
-owner_database_url    = ""
+owner_database_url        = ""
 # The least-privilege login the MCP query tools connect as.
 # Left empty this is database_url with the engine's reader login, which is its own login
 # with _reader on the end and the same password.
-readonly_database_url = ""
+readonly_database_url     = ""
 # Where the background service listens, and where the panel, the CLI and the MCP
 # endpoint all reach it. Change it to run two weaves on one machine. It has to be a
 # loopback host, since the api has no auth and its writes spawn agents.
-addr                  = "127.0.0.1:8787"
+addr                      = "127.0.0.1:8787"
 # The tmux socket weave runs its own server on. Nothing in your normal tmux sees
 # that server, which is why `tmux -L weave ls` is how you look at it directly.
-tmux_socket           = "weave"
+tmux_socket               = "weave"
 # Where weave keeps what it generates: the service log, the built-in scripts it
 # writes out on every start, and the temp files a harness passes a prompt through.
 # Left empty this is ~/Library/Caches/weave on a Mac and ~/.cache/weave on Linux.
 # Everything under it is weave's to delete and rewrite, so nothing of yours belongs here.
-cache_dir             = ""
+cache_dir                 = ""
 # The ssh destination the engine runs on, like user@host, when it is not this machine.
 # Left empty the engine is local and an agent's terminal is shown by moving its own pane
 # into the panel, which only works while the panel and the agents share a tmux server.
-ssh                   = ""
+ssh                       = ""
 # The tmux socket the engine's own server runs on, which is only consulted when ssh names
 # a destination. Left empty it is tmux_socket, which is right when both machines run a
 # default weave and wrong when this machine is also running an engine of its own.
-engine_tmux_socket    = ""
+engine_tmux_socket        = ""
 # The key, after your tmux prefix, that opens and hides the panel, and the picker between
 # this machine and its engines once engine files exist. Left empty it is whatever
 # @weave_key says, and failing that g. An engine file may not set it.
-panel_key             = ""
+panel_key                 = ""
 # How to run a command on the engine, as an argv, when ssh is not how you reach it.
 # "{{command}}" is replaced with what weave wants run there, and "{{command_json}}" with the
 # same text escaped for embedding in JSON. It needs to allocate a terminal, since what it
 # carries is an interactive one.
-exec                  = []
+exec                      = []
 # How to forward a port from this machine to the engine, as an argv, when ssh is not how you
 # reach it. "{{local_port}}" and "{{remote_port}}" are replaced with the two ends. It should
 # stay in the foreground for as long as the forward is wanted.
-forward               = []
+forward                   = []
 # The account on the engine that owns its tmux server, where the transport does not already
 # arrive as it. Left empty nothing is stepped into.
-engine_user           = ""
+engine_user               = ""
