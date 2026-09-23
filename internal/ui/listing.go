@@ -53,27 +53,18 @@ type listedMsg struct {
 	worktreesListed      bool
 }
 
-// archiveReads is when the archive the screens draw from is read again.
-type archiveReads struct {
-	// current is set once the archive is read and nothing the watch has seen since could move it.
-	current bool
-	// reading is set while a read of the archive is in flight.
-	reading bool
-}
-
 // listCmd reads the archive when the screen that is up draws it and it is not current, and the
 // worktree directories whenever the screen draws them.
 func (m *model) listCmd() tea.Cmd {
 	needs := m.active().needs()
-	withArchive := needs.archive && !m.archiveReads.current && !m.archiveReads.reading
+	withArchive := needs.archive && m.archiveListing.shouldRead()
 	withWorktrees := needs.worktrees
 	if !withArchive && !withWorktrees {
 		return nil
 	}
 
 	if withArchive {
-		m.archiveReads.current = true
-		m.archiveReads.reading = true
+		m.archiveListing.markReadStarted()
 	}
 
 	clients := m.api
@@ -152,10 +143,7 @@ func (m *model) applyListed(result listedMsg) tea.Cmd {
 	worktreeRow := m.worktrees.list().hovered(m.shared())
 
 	if result.archivedListed {
-		m.archiveReads.reading = false
-		if result.archivedErr != nil || result.archivedWorkflowsErr != nil {
-			m.archiveReads.current = false
-		}
+		m.archiveListing.markReadFinished(result.archivedErr != nil || result.archivedWorkflowsErr != nil)
 	}
 	if result.archivedListed && result.archivedErr == nil && result.archivedWorkflowsErr == nil {
 		m.applyArchive(result.archived, result.archivedWorkflows, archiveRow)

@@ -105,6 +105,8 @@ func NewBroker(params NewBrokerParams) *Broker {
 	}
 
 	go func() {
+		// Each poke runs one pass over everything pending, and keys marked during a pass or the
+		// gap after it wait for the next.
 		for range b.wake {
 			started := time.Now()
 			if !b.render() {
@@ -171,6 +173,7 @@ func (b *Broker) render() bool {
 	defer b.mu.Unlock()
 
 	for subscription := range b.subscribers {
+		// A watcher whose snapshot was taken after this pass began already holds what the pass read.
 		if subscription.generation >= generation {
 			continue
 		}

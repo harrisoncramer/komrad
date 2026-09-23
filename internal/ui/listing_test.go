@@ -503,8 +503,8 @@ func TestTheArchiveIsReadOnlyWhenItMayHaveMoved(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			lists := &countedArchive{}
-			m := archiveReadModel(lists)
+			lists := &archiveListerCountingReads{}
+			m := newModelOnArchiveScreen(lists)
 			m.listing.world.Put(&watchv1.Row{Row: &watchv1.Row_Agent{Agent: &agentv1.Agent{Id: "live", WorkflowId: "w1"}}})
 
 			m = settle(t, m, m.listCmd())
@@ -525,8 +525,8 @@ func TestTheArchiveIsReadOnlyWhenItMayHaveMoved(t *testing.T) {
 // TestReturningToTheArchiveReadsItAgain pins that coming back onto a screen that draws the
 // archive reads it fresh.
 func TestReturningToTheArchiveReadsItAgain(t *testing.T) {
-	lists := &countedArchive{}
-	m := archiveReadModel(lists)
+	lists := &archiveListerCountingReads{}
+	m := newModelOnArchiveScreen(lists)
 
 	m = settle(t, m, m.listCmd())
 	require.Equal(t, 1, lists.reads)
@@ -541,8 +541,8 @@ func TestReturningToTheArchiveReadsItAgain(t *testing.T) {
 // TestAFailedArchiveReadIsRetried pins that the tick after a failed read of the archive reads it
 // again.
 func TestAFailedArchiveReadIsRetried(t *testing.T) {
-	lists := &countedArchive{failures: 1}
-	m := archiveReadModel(lists)
+	lists := &archiveListerCountingReads{failures: 1}
+	m := newModelOnArchiveScreen(lists)
 
 	m = settle(t, m, m.listCmd())
 	require.Equal(t, 1, lists.reads)
@@ -557,8 +557,8 @@ func TestAFailedArchiveReadIsRetried(t *testing.T) {
 // TestAMoveDuringAReadIsReadAfterIt pins that a read in flight is not doubled, and that an event
 // arriving while it runs is read once it lands.
 func TestAMoveDuringAReadIsReadAfterIt(t *testing.T) {
-	lists := &countedArchive{}
-	m := archiveReadModel(lists)
+	lists := &archiveListerCountingReads{}
+	m := newModelOnArchiveScreen(lists)
 	m.listing.world.Put(&watchv1.Row{Row: &watchv1.Row_Agent{Agent: &agentv1.Agent{Id: "live", WorkflowId: "w1"}}})
 
 	inFlight := m.listCmd()
@@ -573,41 +573,6 @@ func TestAMoveDuringAReadIsReadAfterIt(t *testing.T) {
 	m = settle(t, m, m.listCmd())
 
 	assert.Equal(t, 2, lists.reads, "the move seen mid-read is read once the read lands")
-}
-
-// archiveReadModel is a model on the archive screen, reading the archive through lists.
-func archiveReadModel(lists *countedArchive) model {
-	return model{
-		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
-		keys:   config.DefaultKeybindings(),
-		screen: screenArchive,
-		api: api{
-			agents:    lists,
-			workflows: lists,
-			schedules: lists,
-		},
-	}
-}
-
-// countedArchive answers one archived agent, after failing a given number of reads, and counts
-// how often the archive is read.
-type countedArchive struct {
-	archivedLists
-	reads    int
-	failures int
-}
-
-func (c *countedArchive) ListAgents(ctx context.Context, req *connect.Request[agentv1.ListAgentsRequest]) (*connect.Response[agentv1.ListAgentsResponse], error) {
-	if !req.Msg.GetArchived() {
-		return c.archivedLists.ListAgents(ctx, req)
-	}
-
-	c.reads++
-	if c.reads <= c.failures {
-		return nil, connect.NewError(connect.CodeUnavailable, errors.New("the server is busy"))
-	}
-
-	return c.archivedLists.ListAgents(ctx, req)
 }
 
 type archivedLists struct {
@@ -687,4 +652,39 @@ func TestUnreachableHintNamesWhatCanBeDone(t *testing.T) {
 			assert.Equal(t, tt.want, m.messages.items[0].hint)
 		})
 	}
+}
+
+// newModelOnArchiveScreen is a model on the archive screen that reads the archive through lists.
+func newModelOnArchiveScreen(lists *archiveListerCountingReads) model {
+	return model{
+		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
+		keys:   config.DefaultKeybindings(),
+		screen: screenArchive,
+		api: api{
+			agents:    lists,
+			workflows: lists,
+			schedules: lists,
+		},
+	}
+}
+
+// archiveListerCountingReads answers one archived agent after failing a given number of reads,
+// and counts how often the archive is read.
+type archiveListerCountingReads struct {
+	archivedLists
+	reads    int
+	failures int
+}
+
+func (c *archiveListerCountingReads) ListAgents(ctx context.Context, req *connect.Request[agentv1.ListAgentsRequest]) (*connect.Response[agentv1.ListAgentsResponse], error) {
+	if !req.Msg.GetArchived() {
+		return c.archivedLists.ListAgents(ctx, req)
+	}
+
+	c.reads++
+	if c.reads <= c.failures {
+		return nil, connect.NewError(connect.CodeUnavailable, errors.New("the server is busy"))
+	}
+
+	return c.archivedLists.ListAgents(ctx, req)
 }

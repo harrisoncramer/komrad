@@ -29,37 +29,6 @@ func newTestBroker(t *testing.T, stores *fakeStores) *Broker {
 	return broker
 }
 
-// receive waits for the next pass to reach a subscription.
-func receive(t *testing.T, subscription *Subscription) []Change {
-	t.Helper()
-
-	select {
-	case pass, open := <-subscription.Changes():
-		require.True(t, open, "the subscription closed")
-
-		return pass
-	case <-time.After(2 * time.Second):
-		t.Fatal("no pass arrived")
-
-		return nil
-	}
-}
-
-// receiveOne waits for the next pass and requires it to hold a single change.
-func receiveOne(t *testing.T, subscription *Subscription) Change {
-	t.Helper()
-
-	pass := receive(t, subscription)
-	require.Len(t, pass, 1, "the pass holds one change")
-
-	return pass[0]
-}
-
-// keysOf is the key each change in a pass names, in order.
-func keysOf(pass []Change) []string {
-	return xslice.Map(pass, func(change Change) string { return change.Key })
-}
-
 // TestPendingKeysPileUpBehindOneRead pins that keys marked pending while a render is reading are one
 // read of the deduplicated ids once it is done.
 func TestPendingKeysPileUpBehindOneRead(t *testing.T) {
@@ -81,11 +50,11 @@ func TestPendingKeysPileUpBehindOneRead(t *testing.T) {
 	broker.markPending("schedules", "s")
 	close(stores.agents.held)
 
-	require.Equal(t, []string{"held"}, keysOf(receive(t, subscription)))
-	pass := receive(t, subscription)
+	require.Equal(t, []string{"held"}, keysInPass(waitForNextPass(t, subscription)))
+	pass := waitForNextPass(t, subscription)
 
 	assert.Equal(t, [][]string{{"held"}, {"a", "b"}}, stores.agents.reads(), "the keys pending behind the held read are one read")
-	require.Equal(t, []string{"a", "b", "w", "s"}, keysOf(pass), "everything pending behind the held read is one pass")
+	require.Equal(t, []string{"a", "b", "w", "s"}, keysInPass(pass), "everything pending behind the held read is one pass")
 	assert.NotNil(t, pass[0].Row)
 	assert.Nil(t, pass[2].Row, "a key the watcher never held is still sent as gone")
 	assert.Empty(t, drain(subscription))
@@ -111,14 +80,14 @@ func TestABurstIsOnePassAndKeepsTheWatcher(t *testing.T) {
 	}
 	close(stores.agents.held)
 
-	require.Equal(t, []string{"held"}, keysOf(receive(t, subscription)))
-	assert.Len(t, receive(t, subscription), burst, "the whole burst is one pass")
+	require.Equal(t, []string{"held"}, keysInPass(waitForNextPass(t, subscription)))
+	assert.Len(t, waitForNextPass(t, subscription), burst, "the whole burst is one pass")
 
 	renamed := agentRow("held")
 	renamed.Name = "renamed"
 	stores.agents.put(renamed)
 	broker.markPending("agents", "held")
-	assert.Equal(t, []string{"held"}, keysOf(receive(t, subscription)), "and the watcher is still connected")
+	assert.Equal(t, []string{"held"}, keysInPass(waitForNextPass(t, subscription)), "and the watcher is still connected")
 }
 
 // TestPassesAreSpacedByTheGap pins the least time the broker leaves between two passes.
@@ -134,11 +103,11 @@ func TestPassesAreSpacedByTheGap(t *testing.T) {
 
 	stores.agents.put(agentRow("a"), agentRow("b"))
 	broker.markPending("agents", "a")
-	receive(t, subscription)
+	waitForNextPass(t, subscription)
 	first := time.Now()
 
 	broker.markPending("agents", "b")
-	receive(t, subscription)
+	waitForNextPass(t, subscription)
 
 	assert.GreaterOrEqual(t, time.Since(first), gap/2, "the second pass waits out the gap")
 }
@@ -167,7 +136,7 @@ func TestSubscriptionOpensWithTheSnapshot(t *testing.T) {
 	stores.agents.put(agentRow("a"))
 
 	broker.markPending("agents", "a")
-	require.Equal(t, []string{"a"}, keysOf(receive(t, first)))
+	require.Equal(t, []string{"a"}, keysInPass(waitForNextPass(t, first)))
 
 	stores.workflows.put(workflowstore.Workflow{ID: "w"})
 
@@ -179,8 +148,8 @@ func TestSubscriptionOpensWithTheSnapshot(t *testing.T) {
 	renamed.Name = "renamed"
 	stores.agents.put(renamed)
 	broker.markPending("agents", "a")
-	assert.Equal(t, []string{"a"}, keysOf(receive(t, first)))
-	assert.Equal(t, []string{"a"}, keysOf(receive(t, second)))
+	assert.Equal(t, []string{"a"}, keysInPass(waitForNextPass(t, first)))
+	assert.Equal(t, []string{"a"}, keysInPass(waitForNextPass(t, second)))
 }
 
 // TestATouchDuringTheSnapshotOnlyReachesWatchersWhoseSnapshotPredatesIt pins that each watcher
@@ -206,8 +175,8 @@ func TestATouchDuringTheSnapshotOnlyReachesWatchersWhoseSnapshotPredatesIt(t *te
 	broker.markPending("agents", "b")
 	close(stores.agents.held)
 
-	assert.Equal(t, []string{"a"}, keysOf(receive(t, first)))
-	assert.Equal(t, []string{"b"}, keysOf(receive(t, first)))
+	assert.Equal(t, []string{"a"}, keysInPass(waitForNextPass(t, first)))
+	assert.Equal(t, []string{"b"}, keysInPass(waitForNextPass(t, first)))
 	assert.Empty(t, drain(second), "the second watcher already received both rows in its snapshot")
 }
 
@@ -236,7 +205,7 @@ func TestARenderReadBeforeASnapshotSkipsItsWatcher(t *testing.T) {
 
 	close(stores.agents.held)
 
-	assert.Equal(t, "agent-a", receive(t, first)[0].Row.GetAgent().GetName())
+	assert.Equal(t, "agent-a", waitForNextPass(t, first)[0].Row.GetAgent().GetName())
 	assert.Empty(t, drain(second), "the stale read predates the second watcher's snapshot")
 }
 
@@ -324,7 +293,7 @@ func TestAFailedReadIsRetriedWithTheNextOne(t *testing.T) {
 	stores.agents.mu.Unlock()
 
 	broker.markPending("agents", "b")
-	assert.Equal(t, []string{"a", "b"}, keysOf(receive(t, subscription)), "the key the failed read lost comes back beside the next")
+	assert.Equal(t, []string{"a", "b"}, keysInPass(waitForNextPass(t, subscription)), "the key the failed read lost comes back beside the next")
 	assert.Equal(t, []string{"a", "b"}, stores.agents.reads()[1], "one read serves both")
 }
 
@@ -377,6 +346,37 @@ func TestHearReadsTheTableAndTheKey(t *testing.T) {
 	broker.handleNotification("agents")
 	broker.handleNotification("agents a b")
 
-	assert.Equal(t, []string{"a b"}, keysOf(receive(t, subscription)), "the key runs to the end of the payload")
+	assert.Equal(t, []string{"a b"}, keysInPass(waitForNextPass(t, subscription)), "the key runs to the end of the payload")
 	assert.Equal(t, [][]string{{"a b"}}, stores.agents.reads())
+}
+
+// waitForNextPass waits for the next pass to reach a subscription.
+func waitForNextPass(t *testing.T, subscription *Subscription) []Change {
+	t.Helper()
+
+	select {
+	case pass, open := <-subscription.Changes():
+		require.True(t, open, "the subscription closed")
+
+		return pass
+	case <-time.After(2 * time.Second):
+		t.Fatal("no pass arrived")
+
+		return nil
+	}
+}
+
+// waitForPassOfOneChange waits for the next pass and requires it to hold a single change.
+func waitForPassOfOneChange(t *testing.T, subscription *Subscription) Change {
+	t.Helper()
+
+	pass := waitForNextPass(t, subscription)
+	require.Len(t, pass, 1, "the pass holds one change")
+
+	return pass[0]
+}
+
+// keysInPass is the key each change in a pass names, in order.
+func keysInPass(pass []Change) []string {
+	return xslice.Map(pass, func(change Change) string { return change.Key })
 }

@@ -3,12 +3,10 @@ package ui
 import (
 	"context"
 	"log/slog"
-	"slices"
 	"time"
 
 	"weave/internal/client"
 	"weave/internal/logging"
-	"weave/internal/ui/panel"
 	watchv1 "weave/proto/gen/watch/v1"
 	"weave/proto/gen/watch/v1/watchv1connect"
 
@@ -42,9 +40,7 @@ func (m *model) applyWatch(batch client.WatchBatch) tea.Cmd {
 			if _, snapshot := event.GetEvent().(*watchv1.WatchEvent_Snapshot); snapshot {
 				m.reportUnreachable(nil)
 			}
-			if l.doesMoveArchive(event) {
-				m.archiveReads.current = false
-			}
+			m.archiveListing.markOutOfDateIfEventMayChangeIt(l, event)
 
 			arrived = append(arrived, l.world.Apply(event)...)
 		}
@@ -53,54 +49,6 @@ func (m *model) applyWatch(batch client.WatchBatch) tea.Cmd {
 	})
 
 	return tea.Batch(listed, m.listArrivedPullRequestsCmd(arrived))
-}
-
-// doesMoveArchive reports whether an event could change what the archive holds.
-func (l listing) doesMoveArchive(event *watchv1.WatchEvent) bool {
-	switch event := event.GetEvent().(type) {
-	case *watchv1.WatchEvent_Snapshot:
-		return true
-	case *watchv1.WatchEvent_Changes:
-		for _, row := range event.Changes.GetPuts() {
-			if agent := row.GetAgent(); agent != nil && l.world.Agents[agent.GetId()] == nil {
-				return true
-			}
-			if workflow := row.GetWorkflow(); workflow != nil && l.world.Workflows[workflow.GetId()] == nil {
-				return true
-			}
-		}
-
-		return slices.ContainsFunc(event.Changes.GetDeleted(), l.doesKnow)
-	}
-
-	return false
-}
-
-// doesKnow reports whether a gone key names an agent or workflow the world or the archive holds.
-func (l listing) doesKnow(deleted *watchv1.Deleted) bool {
-	key := deleted.GetKey()
-
-	switch deleted.GetResource() {
-	case watchv1.Resource_RESOURCE_AGENT:
-		isKey := func(row panel.AgentRow) bool {
-			return row.Agent.ID == key
-		}
-
-		return l.world.Agents[key] != nil || slices.ContainsFunc(l.archivedAgents, isKey)
-	case watchv1.Resource_RESOURCE_WORKFLOW:
-		isKey := func(workflow panel.Workflow) bool {
-			return workflow.ID == key
-		}
-
-		return l.world.Workflows[key] != nil || slices.ContainsFunc(l.archivedWorkflows, isKey)
-	case watchv1.Resource_RESOURCE_UNSPECIFIED,
-		watchv1.Resource_RESOURCE_SCHEDULE,
-		watchv1.Resource_RESOURCE_MARK,
-		watchv1.Resource_RESOURCE_MAIL,
-		watchv1.Resource_RESOURCE_PULL_REQUEST:
-	}
-
-	return false
 }
 
 // applyWatchLost says the server is gone until the next stream's snapshot says otherwise, and
