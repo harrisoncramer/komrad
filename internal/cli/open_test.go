@@ -47,6 +47,7 @@ func TestIntegrationBuildManagerSessionArgsForwardsTheEnvironment(t *testing.T) 
 	state := &app{env: &config.Environment{
 		DatabaseURL:         "postgres://weave@db/weave",
 		ReadOnlyDatabaseURL: "postgres://weave_readonly@db/weave",
+		TenantID:            "01990000-0000-7000-8000-000000000001",
 		Addr:                "127.0.0.1:9999",
 		TmuxSocket:          "weave-test",
 		CacheDir:            "/tmp/cache",
@@ -58,6 +59,7 @@ func TestIntegrationBuildManagerSessionArgsForwardsTheEnvironment(t *testing.T) 
 	assert.Equal(t, map[string]string{
 		"WEAVE_DATABASE_URL":          "postgres://weave@db/weave",
 		"WEAVE_READONLY_DATABASE_URL": "postgres://weave_readonly@db/weave",
+		"WEAVE_TENANT_ID":             "01990000-0000-7000-8000-000000000001",
 		"WEAVE_ADDR":                  "127.0.0.1:9999",
 		"WEAVE_TMUX_SOCKET":           "weave-test",
 		"EDITOR":                      "nvim",
