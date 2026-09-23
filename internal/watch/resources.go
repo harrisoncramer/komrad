@@ -26,30 +26,39 @@ type Resource struct {
 	Table string
 	// Enum is the value the wire sends the row under.
 	Enum watchv1.Resource
-	// Subresources includes all of the subtables that are  for a given resource.
+	// Subresources is the other tables drawn into this resource's row, which are never sent on their own.
+	//
+	// Explainer: a write to one of these tables leaves the resource's own table alone, so the
+	// resource's own trigger never fires. Each subresource instead puts a trigger on its table that
+	// notifies under the resource's table and key, and the broker reads the resource's row back as
+	// if it had been written itself. For agents:
+	//
+	//	agent_metadata.agent_id ---------+
+	//	agent_runs.agent_id -------------+
+	//	reviews.agent_id ----------------+--> pg_notify('weave_watch', 'agents <id>') --> agent row read back
+	//	review_rounds.agent_id ----------+
+	//	pull_request_syncs               |
+	//	  .repository_url = agents       |
+	//	  .repository_url, per agent ----+
 	Subresources []Subresource
 	bind         func(Stores, func() time.Time) arm
 }
 
-// Explainer: Some resources are drawn from more than one table. An agent as isn't only a row of agents. It also includes that agent's metadata, its runs, its reviews and review rounds, and its PR sync state.
-// A write to one of these child tables leaves the resource's own table alone, so the
-// resource's own trigger never fires. Each projection instead puts a trigger on its table that
-// notifies under the resource's table and key, and the broker reads the resource's row back as
-// if it had been written itself. For agents:
-
+// Subresource is one table drawn into a resource's row, and how a row of it finds the resource
+// it belongs to.
 type Subresource struct {
-	// Table is the projected table.
+	// Table is the subresource's table.
 	Table string
-	// Column is the column on the projected row holding the resource's key.
+	// Column is the column on the subresource row holding the resource's key.
 	Column string
-	// ParentMatch is the column on the resource's table matched against Match, when the key is
-	// not on the projected row.
-	ParentMatch string
-	// Match is the column on the projected row that ParentMatch is matched against.
+	// ResourceMatch is the column on the resource's table matched against Match, when the key is
+	// not on the subresource row.
+	ResourceMatch string
+	// Match is the column on the subresource row that ResourceMatch is matched against.
 	Match string
-	// ParentMustBeNull is a column of the resource's table that has to be null for the row to
-	// count as a parent.
-	ParentMustBeNull string
+	// ResourceMustBeNull is a column of the resource's table that has to be null for the row to
+	// be reached.
+	ResourceMustBeNull string
 }
 
 // resourcesByTable is the resource each table a notification names is the rows of.
@@ -71,28 +80,16 @@ func Resources() []Resource {
 			Store: func(stores Stores) reader[rowstore.Row] { return stores.Agents },
 			Draw:  func(row rowstore.Row) *agentv1.Agent { return render.Agent(row, render.AgentOptions{}) },
 			Wrap:  func(row *agentv1.Agent) *watchv1.Row { return &watchv1.Row{Row: &watchv1.Row_Agent{Agent: row}} },
-			Projects: []Subresource{
+			Subresources: []Subresource{
+				{Table: "agent_metadata", Column: "agent_id"},
+				{Table: "agent_runs", Column: "agent_id"},
+				{Table: "reviews", Column: "agent_id"},
+				{Table: "review_rounds", Column: "agent_id"},
 				{
-					Table:  "agent_metadata",
-					Column: "agent_id",
-				},
-				{
-					Table:  "agent_runs",
-					Column: "agent_id",
-				},
-				{
-					Table:  "reviews",
-					Column: "agent_id",
-				},
-				{
-					Table:  "review_rounds",
-					Column: "agent_id",
-				},
-				{
-					Table:            "pull_request_syncs",
-					ParentMatch:      "repository_url",
-					Match:            "repository_url",
-					ParentMustBeNull: "archived_at",
+					Table:              "pull_request_syncs",
+					ResourceMatch:      "repository_url",
+					Match:              "repository_url",
+					ResourceMustBeNull: "archived_at",
 				},
 			},
 		}),
@@ -106,17 +103,17 @@ func Resources() []Resource {
 			Wrap: func(row *workflowv1.Workflow) *watchv1.Row {
 				return &watchv1.Row{Row: &watchv1.Row_Workflow{Workflow: row}}
 			},
-			Projects: []Subresource{
+			Subresources: []Subresource{
 				{Table: "workflow_hooks", Column: "workflow_id"},
 				{
-					Table:       "workflow_configs",
-					ParentMatch: "workflow_config_id",
-					Match:       "id",
+					Table:         "workflow_configs",
+					ResourceMatch: "workflow_config_id",
+					Match:         "id",
 				},
 				{
-					Table:       "workflow_provisioner_configs",
-					ParentMatch: "provisioner_config_id",
-					Match:       "id",
+					Table:         "workflow_provisioner_configs",
+					ResourceMatch: "provisioner_config_id",
+					Match:         "id",
 				},
 			},
 		}),
@@ -172,8 +169,8 @@ type newResourceParams[R any, M message] struct {
 	DrawAt func(R, time.Time) M
 	// Wrap puts a drawn row in the Row arm this resource fills.
 	Wrap func(M) *watchv1.Row
-	// Projects is the tables rendered onto this one, whose writes move it.
-	Projects []Subresource
+	// Subresources is the other tables drawn into this resource's row.
+	Subresources []Subresource
 }
 
 // message is a drawn row, which every resource keys by its id.
@@ -188,7 +185,7 @@ func newResource[R any, M message](params newResourceParams[R, M]) Resource {
 	return Resource{
 		Table:        params.Table,
 		Enum:         params.Enum,
-		Subresources: params.Projects,
+		Subresources: params.Subresources,
 		bind: func(stores Stores, now func() time.Time) arm {
 			draw := params.Draw
 			if params.DrawAt != nil {

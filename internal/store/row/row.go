@@ -1,5 +1,5 @@
-// Package row reads what an agent's row in the panel says: the agent, and the facts projected
-// onto it from the tables that are attributes of an agent.
+// Package row reads what an agent's row in the panel says: the agent, and the facts drawn into
+// it from the tables that are attributes of an agent.
 package row
 
 import (
@@ -112,7 +112,7 @@ func (s *RowStore) Get(ctx context.Context, id string) (*Row, error) {
 	return &rows[0], nil
 }
 
-// hydrate reads the facts and the metadata projected onto each agent.
+// hydrate reads the facts and the metadata drawn into each agent's row.
 func (s *RowStore) hydrate(ctx context.Context, agents []*models.Agent) ([]Row, error) {
 	if len(agents) == 0 {
 		return nil, nil
