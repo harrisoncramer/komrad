@@ -7,10 +7,12 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"weave/config"
 	"weave/internal/doctor"
 	"weave/internal/engine"
+	"weave/internal/store"
 	"weave/internal/ui/enginepick"
 	"weave/internal/version"
 	"weave/lib/xslice"
@@ -88,8 +90,25 @@ func describeEngine(stack config.Stack, name string) enginepick.Row {
 	return row
 }
 
+// loginWait bounds the fresh database login the picker makes for an engine on this machine.
+const loginWait = 3 * time.Second
+
 type engineProber struct {
-	stack config.Stack
+	stack      config.Stack
+	checkLogin func(ctx context.Context, databaseURL string) error
+}
+
+// checkEngineLogin opens the store with a fresh login, as the engine's server does when it starts.
+func checkEngineLogin(ctx context.Context, databaseURL string) error {
+	ctx, cancel := context.WithTimeout(ctx, loginWait)
+	defer cancel()
+
+	pool, err := store.Open(ctx, databaseURL)
+	if err != nil {
+		return err
+	}
+
+	return pool.Close()
 }
 
 func (p engineProber) probe(ctx context.Context, row enginepick.Row) enginepick.Status {
@@ -99,6 +118,16 @@ func (p engineProber) probe(ctx context.Context, row enginepick.Row) enginepick.
 			Build:   "config could not be read",
 			Label:   "unreadable",
 			Refused: err.Error(),
+		}
+	}
+
+	if !setup.remote.IsRemote() {
+		if err := p.checkLogin(ctx, setup.env.DatabaseURL); err != nil {
+			return enginepick.Status{
+				Build:   "database login refused",
+				Label:   "login",
+				Refused: "this engine's server could not start with its database url: " + err.Error(),
+			}
 		}
 	}
 
@@ -147,7 +176,7 @@ func pickEngine(ctx context.Context, state *app, rows []enginepick.Row) (string,
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	prober := engineProber{stack: state.configStack}
+	prober := engineProber{stack: state.configStack, checkLogin: checkEngineLogin}
 
 	row, chosen, err := enginepick.Run(ctx, enginepick.RunParams{
 		Rows: rows,

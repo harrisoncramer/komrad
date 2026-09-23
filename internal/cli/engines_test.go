@@ -1,11 +1,14 @@
 package cli
 
 import (
+	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"weave/config"
+	"weave/internal/ui/enginepick"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -81,4 +84,34 @@ func TestEngineRowsStartWithThisMachine(t *testing.T) {
 	assert.Equal(t, "127.0.0.1:8799", facts["addr"])
 	assert.Equal(t, "weave-remote", facts["tmux"])
 	assert.Contains(t, facts["engine"], "weave@host")
+}
+
+// TestProbeRefusesAnEngineWhoseLoginFails pins a bad password in an engine file showing in the picker, whatever a running server still holds.
+func TestProbeRefusesAnEngineWhoseLoginFails(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	for _, name := range []string{"WEAVE_CONFIG", "WEAVE_ADDR", "WEAVE_TMUX_SOCKET", "WEAVE_CACHE_DIR", "WEAVE_DATABASE_URL", "WEAVE_READONLY_DATABASE_URL", "WEAVE_OWNER_DATABASE_URL"} {
+		t.Setenv(name, "")
+	}
+
+	engines := filepath.Join(home, ".config", "weave", "engines")
+	require.NoError(t, os.MkdirAll(engines, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(engines, "second.toml"), []byte(
+		"[connection]\ndatabase_url = \"postgres://weave_engine_second:wrong@localhost:5460/weave\"\naddr = \"127.0.0.1:1\"\ntmux_socket = \"weave-second\"\n"), 0o600))
+
+	var checked string
+	refuse := engineProber{checkLogin: func(_ context.Context, url string) error {
+		checked = url
+		return errors.New("password authentication failed")
+	}}
+
+	status := refuse.probe(t.Context(), enginepick.Row{Name: "second"})
+
+	assert.Equal(t, "login", status.Label)
+	assert.Contains(t, status.Refused, "password authentication failed")
+	assert.Equal(t, "postgres://weave_engine_second:wrong@localhost:5460/weave", checked)
+
+	admit := engineProber{checkLogin: func(context.Context, string) error { return nil }}
+
+	assert.Empty(t, admit.probe(t.Context(), enginepick.Row{Name: "second"}).Refused)
 }
