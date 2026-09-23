@@ -446,11 +446,11 @@ func TestMarks(t *testing.T) {
 }
 
 func put(row *watchv1.Row) *watchv1.WatchEvent {
-	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Put{Put: row}}
+	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Changes{Changes: &watchv1.Changes{Puts: []*watchv1.Row{row}}}}
 }
 
 func deleted(resource watchv1.Resource, key string) *watchv1.WatchEvent {
-	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Deleted{Deleted: &watchv1.Deleted{Resource: resource, Key: key}}}
+	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Changes{Changes: &watchv1.Changes{Deleted: []*watchv1.Deleted{{Resource: resource, Key: key}}}}}
 }
 
 func agentRow(a *agentv1.Agent) *watchv1.Row {
@@ -496,6 +496,13 @@ func TestApplyArrivals(t *testing.T) {
 	assert.Nil(t, world.Apply(put(agentRow(agent(newer)))), "the same agent again does not")
 	moved := agent(newer, func(a *agentv1.Agent) { a.Branch = xptr.Ptr("elsewhere") })
 	assert.Equal(t, []string{newer}, world.Apply(put(agentRow(moved))), "an agent whose branch moved arrives again")
+
+	archivedAt := "2026-09-23T10:00:00Z"
+	archived := agent(newer)
+	archived.Branch = moved.Branch
+	archived.ArchivedAt = &archivedAt
+	assert.Nil(t, world.Apply(put(agentRow(archived))), "an agent being archived does not arrive")
+	assert.Equal(t, []string{newer}, world.Apply(put(agentRow(moved))), "and one coming back from the archive does")
 	assert.Nil(t, world.Apply(put(&watchv1.Row{Row: &watchv1.Row_Mark{Mark: &agentv1.Mark{Id: "mark-a", Mark: "a"}}})), "no other row arrives")
 
 	snapshot := &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Snapshot{Snapshot: &watchv1.Snapshot{

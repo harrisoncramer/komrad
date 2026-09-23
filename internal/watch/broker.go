@@ -1,6 +1,7 @@
 package watch
 
 import (
+	"cmp"
 	"context"
 	"log/slog"
 	"sync"
@@ -15,8 +16,11 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// subscriberBuffer is how many live changes a watcher may fall behind before it is dropped.
+// subscriberBuffer is how many passes a watcher may fall behind before it is dropped.
 const subscriberBuffer = 1024
+
+// defaultPassGap is the least time between the start of one render pass and the start of the next.
+const defaultPassGap = 25 * time.Millisecond
 
 // readTimeout is how long one read-back or snapshot may take.
 const readTimeout = 10 * time.Second
@@ -43,6 +47,8 @@ type NewBrokerParams struct {
 	Logger *slog.Logger
 	Pool   *pgxpool.Pool
 	Rows   *Rows
+	// PassGap is the least time between two render passes, defaultPassGap when zero.
+	PassGap time.Duration
 }
 
 // Broker receives from the database which rows moved, reads them back and fans them out to every
@@ -84,6 +90,8 @@ func NewBroker(params NewBrokerParams) *Broker {
 	stopped := make(chan struct{})
 	close(stopped)
 
+	gap := cmp.Or(params.PassGap, defaultPassGap)
+
 	b := &Broker{
 		logger:      logger,
 		pool:        params.Pool,
@@ -97,10 +105,17 @@ func NewBroker(params NewBrokerParams) *Broker {
 	}
 
 	go func() {
+		// Each poke runs one pass over everything pending, and keys marked during a pass or the
+		// gap after it wait for the next.
 		for range b.wake {
+			started := time.Now()
 			if !b.render() {
 				time.Sleep(retryAfter)
+
+				continue
 			}
+
+			time.Sleep(gap - time.Since(started))
 		}
 	}()
 
@@ -128,8 +143,9 @@ func (b *Broker) Start() error {
 	return nil
 }
 
-// render reads back everything marked pending since the last one and sends what moved to every
-// subscriber, reporting false when the read failed and the ids are back in the pending set.
+// render reads back everything marked pending since the last one and sends each subscriber what
+// moved for it as one pass, reporting false when the read failed and the ids are back in the
+// pending set.
 func (b *Broker) render() bool {
 	pending := b.drainPending()
 
@@ -156,13 +172,21 @@ func (b *Broker) render() bool {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	for _, change := range changes {
-		for subscription := range b.subscribers {
-			if subscription.generation >= generation || !subscription.move(change) {
-				continue
-			}
+	for subscription := range b.subscribers {
+		// A watcher whose snapshot was taken after this pass began already holds what the pass read.
+		if subscription.generation >= generation {
+			continue
+		}
 
-			b.send(ctx, subscription, change)
+		var moved []Change
+		for _, change := range changes {
+			if subscription.move(change) {
+				moved = append(moved, change)
+			}
+		}
+
+		if len(moved) > 0 {
+			b.send(ctx, subscription, moved)
 		}
 	}
 
@@ -193,7 +217,7 @@ func (b *Broker) Subscribe(ctx context.Context) (*Subscription, error) {
 	rows := xslice.Map(snapshot, func(change Change) *watchv1.Row { return change.Row })
 	subscription := &Subscription{
 		broker:     b,
-		changes:    make(chan Change, subscriberBuffer),
+		changes:    make(chan []Change, subscriberBuffer),
 		snapshot:   rows,
 		sent:       rowsByResource(snapshot),
 		generation: b.generation,
@@ -203,11 +227,11 @@ func (b *Broker) Subscribe(ctx context.Context) (*Subscription, error) {
 	return subscription, nil
 }
 
-// send hands one change to a subscriber, dropping the subscriber when it has fallen too far
-// behind to take it.
-func (b *Broker) send(ctx context.Context, subscription *Subscription, change Change) {
+// send hands one pass to a subscriber, dropping the subscriber when it has fallen too far behind
+// to take it.
+func (b *Broker) send(ctx context.Context, subscription *Subscription, pass []Change) {
 	select {
-	case subscription.changes <- change:
+	case subscription.changes <- pass:
 	default:
 		b.logger.LogAttrs(ctx, slog.LevelWarn, "dropped a watcher that fell behind the stream")
 		b.drop(subscription)
@@ -250,10 +274,10 @@ func (b *Broker) Close() {
 	b.pendingMu.Unlock()
 }
 
-// Subscription is one watcher: the snapshot it opened with, and the stream of changes after it.
+// Subscription is one watcher: the snapshot it opened with, and the stream of passes after it.
 type Subscription struct {
 	broker   *Broker
-	changes  chan Change
+	changes  chan []Change
 	snapshot []*watchv1.Row
 	sent     map[watchv1.Resource]map[string]*watchv1.Row
 	// generation is the last render begun before the snapshot, whose read may predate it.
@@ -277,10 +301,9 @@ func rowsByResource(snapshot []Change) map[watchv1.Resource]map[string]*watchv1.
 func (s *Subscription) move(change Change) bool {
 	held := s.sent[change.Resource]
 	if change.Row == nil {
-		_, had := held[change.Key]
 		delete(held, change.Key)
 
-		return had
+		return true
 	}
 	if proto.Equal(held[change.Key], change.Row) {
 		return false
@@ -300,8 +323,8 @@ func (s *Subscription) Snapshot() []*watchv1.Row {
 	return s.snapshot
 }
 
-// Changes is the stream of changes since the snapshot, closed once the subscription ends.
-func (s *Subscription) Changes() <-chan Change {
+// Changes is the stream of passes since the snapshot, closed once the subscription ends.
+func (s *Subscription) Changes() <-chan []Change {
 	return s.changes
 }
 

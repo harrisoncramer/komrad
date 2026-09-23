@@ -1,15 +1,12 @@
 package ui
 
 import (
-	"context"
 	"fmt"
 	"reflect"
 	"slices"
 	"strings"
-	"sync"
 	"time"
 
-	"weave/internal/client"
 	"weave/internal/errui"
 	"weave/internal/ui/panel"
 	agentv1 "weave/proto/gen/agent/v1"
@@ -41,60 +38,28 @@ type hoverState struct {
 	since   time.Time
 }
 
-// listedMsg is the listings the watch does not carry, read for the screen that draws them.
+// listedMsg is the worktree directories, which the watch does not carry, read for the screen that
+// draws them.
 type listedMsg struct {
-	archived             []panel.AgentRow
-	archivedErr          error
-	archivedWorkflows    []panel.Workflow
-	archivedWorkflowsErr error
-	archivedListed       bool
-	worktrees            []worktreeItem
-	worktreesErr         error
-	worktreesListed      bool
+	worktrees    []worktreeItem
+	worktreesErr error
 }
 
-// listCmd reads the archive and the worktree directories when the screen that is up draws
-// them, and nothing otherwise.
+// listCmd reads the worktree directories when the screen that is up draws them.
 func (m model) listCmd() tea.Cmd {
-	needs := m.active().needs()
-	if !needs.archive && !needs.worktrees {
+	if !m.active().needs().worktrees {
 		return nil
 	}
 
-	clients, withArchive, withWorktrees := m.api, needs.archive, needs.worktrees
+	clients := m.api
 
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), agentsTimeout)
-		defer cancel()
-
-		result := listedMsg{
-			archivedListed:  withArchive,
-			worktreesListed: withWorktrees,
+		listed, err := clients.listWorktrees()
+		if err != nil {
+			return listedMsg{worktreesErr: err}
 		}
 
-		var wg sync.WaitGroup
-		if withArchive {
-			wg.Go(func() {
-				listed, err := client.ListAllArchivedAgents(ctx, clients.agents)
-				result.archived, result.archivedErr = agentRowsFrom(listed), err
-			})
-			wg.Go(func() {
-				listed, err := client.ListAllArchivedWorkflows(ctx, clients.workflows)
-				result.archivedWorkflows, result.archivedWorkflowsErr = workflowsFrom(listed), err
-			})
-		}
-		if withWorktrees {
-			wg.Go(func() {
-				listed, err := clients.listWorktrees()
-				if err == nil {
-					result.worktrees = worktreeItemsFrom(listed)
-				}
-				result.worktreesErr = err
-			})
-		}
-		wg.Wait()
-
-		return result
+		return listedMsg{worktrees: worktreeItemsFrom(listed)}
 	}
 }
 
@@ -131,16 +96,10 @@ func (m *model) unreachableHint() string {
 }
 
 func (m *model) applyListed(result listedMsg) tea.Cmd {
-	m.reportUnreachable(result.err())
+	m.reportUnreachable(result.worktreesErr)
 
-	archiveRow := m.archive.list().hovered(m.shared())
-	worktreeRow := m.worktrees.list().hovered(m.shared())
-
-	if result.archivedListed && result.archivedErr == nil && result.archivedWorkflowsErr == nil {
-		m.applyArchive(result.archived, result.archivedWorkflows, archiveRow)
-	}
-	if result.worktreesListed && result.worktreesErr == nil {
-		m.applyWorktrees(result.worktrees, worktreeRow)
+	if result.worktreesErr == nil {
+		m.applyWorktrees(result.worktrees, m.worktrees.list().hovered(m.shared()))
 	}
 
 	return m.afterListing()
@@ -186,17 +145,6 @@ func (m *model) afterListing() tea.Cmd {
 	}
 
 	return inspect
-}
-
-func (r listedMsg) err() error {
-	switch {
-	case r.archivedErr != nil:
-		return r.archivedErr
-	case r.archivedWorkflowsErr != nil:
-		return r.archivedWorkflowsErr
-	default:
-		return r.worktreesErr
-	}
 }
 
 type writeResult struct {

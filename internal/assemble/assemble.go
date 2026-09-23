@@ -28,7 +28,7 @@ type World struct {
 	PullRequests map[string]*pullrequestv1.PullRequest
 }
 
-// Apply puts or drops the row one message names, and reports the agents whose key or branch it
+// Apply puts or drops the rows one message names, and reports the agents whose key or branch it
 // had not seen.
 func (w *World) Apply(msg *watchv1.WatchEvent) (arrived []string) {
 	switch msg := msg.GetEvent().(type) {
@@ -37,18 +37,21 @@ func (w *World) Apply(msg *watchv1.WatchEvent) (arrived []string) {
 		for _, row := range msg.Snapshot.GetRows() {
 			w.Put(row)
 		}
-	case *watchv1.WatchEvent_Put:
-		return w.Put(msg.Put)
-	case *watchv1.WatchEvent_Deleted:
-		w.drop(msg.Deleted)
+	case *watchv1.WatchEvent_Changes:
+		for _, row := range msg.Changes.GetPuts() {
+			arrived = append(arrived, w.Put(row)...)
+		}
+		for _, deleted := range msg.Changes.GetDeleted() {
+			w.drop(deleted)
+		}
 	case *watchv1.WatchEvent_Heartbeat, nil:
 	}
 
-	return nil
+	return arrived
 }
 
 // Put holds one row, reporting the agent when it is one whose key or branch the world had not
-// seen.
+// seen, or one coming back from the archive.
 func (w *World) Put(row *watchv1.Row) (arrived []string) {
 	w.ensureMaps()
 
@@ -56,7 +59,9 @@ func (w *World) Put(row *watchv1.Row) (arrived []string) {
 	case *watchv1.Row_Agent:
 		held, ok := w.Agents[row.Agent.GetId()]
 		w.Agents[row.Agent.GetId()] = row.Agent
-		if !ok || held.GetRepositoryUrl() != row.Agent.GetRepositoryUrl() || held.GetBranch() != row.Agent.GetBranch() {
+
+		isRestored := held.GetArchivedAt() != "" && row.Agent.GetArchivedAt() == ""
+		if !ok || isRestored || held.GetRepositoryUrl() != row.Agent.GetRepositoryUrl() || held.GetBranch() != row.Agent.GetBranch() {
 			return []string{row.Agent.GetId()}
 		}
 	case *watchv1.Row_Workflow:

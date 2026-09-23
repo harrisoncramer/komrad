@@ -30,7 +30,7 @@ func (m *model) listArrivedPullRequestsCmd(arrived []string) tea.Cmd {
 	for _, id := range arrived {
 		agent := m.listing.world.Agents[id]
 		repository, branch := agent.GetRepositoryUrl(), agent.GetBranch()
-		if repository == "" || branch == "" {
+		if repository == "" || branch == "" || agent.GetArchivedAt() != "" {
 			continue
 		}
 

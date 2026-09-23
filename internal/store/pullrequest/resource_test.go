@@ -11,8 +11,8 @@ import (
 )
 
 // TestListByKeyIsTheParentLiveSet pins the read-back to the watched set: a pull request comes
-// back while a live agent is on its branch in its repository, and is a tombstone once that
-// agent is archived or was never there.
+// back while an agent, live or archived, is on its branch in its repository, and is a tombstone
+// when none was ever there.
 func TestListByKeyIsTheParentLiveSet(t *testing.T) {
 	ctx := t.Context()
 	h := open(t)
@@ -45,7 +45,7 @@ func TestListByKeyIsTheParentLiveSet(t *testing.T) {
 
 	listed, err = h.ListByKey(ctx, []string{held.ID})
 	require.NoError(t, err)
-	assert.Empty(t, listed, "an archived agent's pull request is a tombstone")
+	assert.Equal(t, []string{held.ID}, ids(listed), "an archived agent's pull request stays in the watched set")
 
 	none, err := h.ListByKey(ctx, nil)
 	require.NoError(t, err)

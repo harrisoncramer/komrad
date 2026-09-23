@@ -27,8 +27,7 @@ SELECT
 FROM
     agents s
 WHERE
-    s.archived_at IS NULL
-    AND s.deleting_at IS NULL
+    s.deleting_at IS NULL
 ORDER BY
     s.id DESC;
 
@@ -39,7 +38,6 @@ FROM
     agents s
 WHERE
     s.id = ANY (@ids::uuid[])
-    AND s.archived_at IS NULL
     AND s.deleting_at IS NULL
 ORDER BY
     s.id DESC;

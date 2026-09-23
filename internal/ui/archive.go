@@ -23,19 +23,15 @@ type archiveScreen struct {
 	rows []agentRow
 }
 
-// enter lands on the agent the target names, remembering it as the focus for the listing on
-// its way.
+// enter lands on the agent the target names.
 func (a *archiveScreen) enter(h host, s panelShared, target screenTarget) tea.Cmd {
-	if target.agentID != "" {
-		a.focus = target.agentID
-		if idx := rowIndexOfAgentID(a.listRows(s), target.agentID); idx >= 0 {
-			a.cursor = idx
-		}
+	if idx := rowIndexOfAgentID(a.listRows(s), target.agentID); target.agentID != "" && idx >= 0 {
+		a.cursor = idx
 	}
 
 	a.stage(h, s)
 
-	return h.listCmd()
+	return nil
 }
 
 func (a *archiveScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
@@ -137,26 +133,6 @@ func archivedAgentsOf(l listing) []panel.Agent {
 
 func (l listing) archivedCount(workflowID string) int {
 	return xslice.Count(l.archivedAgents, func(item panel.AgentRow) bool { return item.Agent.WorkflowID == workflowID })
-}
-
-// applyArchive hands the screen a fresh listing.
-func (m *model) applyArchive(agents []panel.AgentRow, workflows []panel.Workflow, hovered string) {
-	m.listing.archivedAgents, m.listing.archivedWorkflows = agents, workflows
-
-	m.archive.apply(m.shared(), hovered)
-}
-
-// apply takes a fresh listing, keeping the cursor on the row it was on, or on the agent the
-// screen was opened for.
-func (a *archiveScreen) apply(s panelShared, hovered string) {
-	focus := a.focus
-	a.focus = ""
-
-	if idx := rowIndexOfAgentID(a.listRows(s), focus); idx >= 0 {
-		hovered = agentRowKey(focus)
-	}
-
-	a.place(s, hovered)
 }
 
 // place keeps the cursor on the row it was on as the rows under it change.
@@ -425,7 +401,7 @@ var (
 )
 
 func (a *archiveScreen) needs() screenNeeds {
-	return screenNeeds{fromListing: true, archive: true}
+	return screenNeeds{fromListing: true}
 }
 
 func (a *archiveScreen) takesEveryKey() bool {

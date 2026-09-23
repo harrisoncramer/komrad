@@ -67,17 +67,17 @@ func (s *RowStore) ListPage(ctx context.Context, page Page) ([]Row, error) {
 	return s.hydrate(ctx, rows)
 }
 
-// List returns the rows of every agent the live listing holds, newest first.
+// List returns the rows of every agent not being deleted, archived ones included, newest first.
 func (s *RowStore) List(ctx context.Context) ([]Row, error) {
 	rows, err := s.queries.SnapshotAgents(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list the live agent rows: %w", err)
+		return nil, fmt.Errorf("failed to list the agent rows: %w", err)
 	}
 
 	return s.hydrate(ctx, rows)
 }
 
-// ListByKey returns the rows of the given agents that the live listing holds, newest first.
+// ListByKey returns the rows of the given agents that are not being deleted, newest first.
 func (s *RowStore) ListByKey(ctx context.Context, ids []string) ([]Row, error) {
 	storable := store.KeepIDs(ids)
 	if len(storable) == 0 {

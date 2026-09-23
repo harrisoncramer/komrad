@@ -104,12 +104,12 @@ func TestWriteLandsOnTheRowItMade(t *testing.T) {
 	assert.Equal(t, "new", selected.Agent.Name, "and the cursor is on it")
 
 	got.applyWatch(client.WatchBatch{
-		{Event: &watchv1.WatchEvent_Put{Put: &watchv1.Row{Row: &watchv1.Row_Agent{Agent: &agentv1.Agent{
+		putEvent(&watchv1.Row{Row: &watchv1.Row_Agent{Agent: &agentv1.Agent{
 			Id:         "a2",
 			Name:       "new",
 			WorkflowId: "w1",
 			Alive:      proto.Bool(true),
-		}}}}},
+		}}}),
 	})
 
 	require.Len(t, got.listing.agents, 2)
@@ -397,9 +397,8 @@ func TestArchiveCursorHoldsItsAgentWhenAFolderGoes(t *testing.T) {
 	}
 
 	applyListing(&m, nil, []panel.Workflow{{ID: "w2", Name: "infra"}}, nil)
-	m.applyListed(listedMsg{
-		archivedListed: true,
-		archived: archivedItems([]panel.Agent{
+	m.withListing(func(l *listing) {
+		l.archivedAgents = archivedItems([]panel.Agent{
 			{
 				ID:         "x2",
 				Name:       "infra-audit",
@@ -410,7 +409,7 @@ func TestArchiveCursorHoldsItsAgentWhenAFolderGoes(t *testing.T) {
 				Name:       "infra-upgrade",
 				WorkflowID: "w2",
 			},
-		}),
+		})
 	})
 
 	selected, ok := m.archive.hoveredAgent(m.shared())
@@ -418,51 +417,32 @@ func TestArchiveCursorHoldsItsAgentWhenAFolderGoes(t *testing.T) {
 	assert.Equal(t, "infra-audit", selected.Name)
 }
 
-// TestSearchListsTheArchive covers the search screen naming archived agents, which it can only
-// do while the screen is listing them.
-func TestSearchListsTheArchive(t *testing.T) {
-	lists := archivedLists{}
-
-	for _, tc := range []struct {
-		screen screen
-		want   int
-	}{
-		{screen: screenSearch, want: 1},
-		{screen: screenAgents, want: 0},
-	} {
-		m := model{
-			frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
-			keys:   config.DefaultKeybindings(),
-			screen: tc.screen,
-			api: api{
-				agents:    lists,
-				workflows: lists,
-				schedules: lists,
-			},
-		}
-
-		m = settle(t, m, m.listCmd())
-
-		assert.Len(t, m.listing.archivedAgents, tc.want, "screen %d holds the archived agents it asked for", tc.screen)
-	}
-}
-
-type archivedLists struct {
-	emptyLists
-}
-
-func (archivedLists) ListAgents(_ context.Context, req *connect.Request[agentv1.ListAgentsRequest]) (*connect.Response[agentv1.ListAgentsResponse], error) {
-	if !req.Msg.GetArchived() {
-		return connect.NewResponse(&agentv1.ListAgentsResponse{}), nil
+// TestTheArchiveIsTheWorldsArchivedRows pins that the archive screens draw the archived agents and
+// workflows the watch delivers, and the live listings leave them out.
+func TestTheArchiveIsTheWorldsArchivedRows(t *testing.T) {
+	archivedAt := "2026-09-23T10:00:00Z"
+	m := model{
+		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
+		keys:   config.DefaultKeybindings(),
+		screen: screenSearch,
 	}
 
-	return connect.NewResponse(&agentv1.ListAgentsResponse{
-		Agents: []*agentv1.AgentRow{{Agent: &agentv1.Agent{
-			Id:         "a1",
-			Name:       "payouts",
-			WorkflowId: "w1",
-		}}},
-	}), nil
+	m.applyWatch(client.WatchBatch{snapshotEvent(
+		&watchv1.Row{Row: &watchv1.Row_Workflow{Workflow: &workflowv1.Workflow{Id: "w1", Name: "api"}}},
+		&watchv1.Row{Row: &watchv1.Row_Workflow{Workflow: &workflowv1.Workflow{Id: "w2", Name: "old", ArchivedAt: &archivedAt}}},
+		&watchv1.Row{Row: &watchv1.Row_Agent{Agent: &agentv1.Agent{Id: "a1", Name: "live", WorkflowId: "w1"}}},
+		&watchv1.Row{Row: &watchv1.Row_Agent{Agent: &agentv1.Agent{Id: "a2", Name: "done", WorkflowId: "w1", ArchivedAt: &archivedAt}}},
+	)})
+
+	require.Len(t, m.listing.agents, 1)
+	assert.Equal(t, "a1", m.listing.agents[0].Agent.ID)
+	require.Len(t, m.listing.archivedAgents, 1)
+	assert.Equal(t, "a2", m.listing.archivedAgents[0].Agent.ID)
+
+	require.Len(t, m.listing.workflows, 1)
+	assert.Equal(t, "w1", m.listing.workflows[0].ID)
+	require.Len(t, m.listing.archivedWorkflows, 1)
+	assert.Equal(t, "w2", m.listing.archivedWorkflows[0].ID)
 }
 
 type emptyLists struct {

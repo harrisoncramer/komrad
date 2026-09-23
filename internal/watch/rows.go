@@ -55,7 +55,7 @@ func NewRows(params NewRowsParams) *Rows {
 
 	return &Rows{loaders: map[watchv1.Resource]loader{
 		watchv1.Resource_RESOURCE_AGENT: newLoader(stores.Agents, func(row rowstore.Row) (string, *watchv1.Row) {
-			agent := render.Agent(row, render.AgentOptions{})
+			agent := render.Agent(row, chooseAgentOptions(row))
 
 			return agent.GetId(), &watchv1.Row{Row: &watchv1.Row_Agent{Agent: agent}}
 		}),
@@ -178,4 +178,13 @@ func (r *Rows) Snapshot(ctx context.Context) ([]Change, error) {
 	}
 
 	return changes, nil
+}
+
+// chooseAgentOptions draws an archived agent with only the opening of its prompt.
+func chooseAgentOptions(row rowstore.Row) render.AgentOptions {
+	if row.ArchivedAt != nil {
+		return render.AgentOptions{PromptHead: render.SummaryHead}
+	}
+
+	return render.AgentOptions{}
 }

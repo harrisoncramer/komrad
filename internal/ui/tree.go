@@ -493,8 +493,8 @@ func (a *agentsScreen) apply(s panelShared, selected string) {
 	a.selected = a.selected.pruned(refsOf(a.rows(s)))
 }
 
-// listing is what the screens draw: the resources the watch has delivered, and the rows
-// assembled from them, with the archive beside them while a screen that draws it is up.
+// listing is what the screens draw: the resources the watch has delivered, and the live and
+// archived rows assembled from them.
 type listing struct {
 	world             assemble.World
 	agents            []panel.AgentRow
@@ -507,12 +507,27 @@ type listing struct {
 	marks map[string]string
 }
 
-// assemble draws the three listings and the marks from the world as it stands now.
+// assemble draws the listings, live and archived, and the marks from the world as it stands now.
 func (l *listing) assemble(now time.Time) {
-	l.agents = agentRowsFrom(assemble.AgentRows(l.world, now))
-	l.workflows = workflowsFrom(slices.Collect(maps.Values(l.world.Workflows)))
-	slices.SortFunc(l.workflows, func(a, b panel.Workflow) int {
+	agents := agentRowsFrom(assemble.AgentRows(l.world, now))
+	isArchivedAgent := func(row panel.AgentRow) bool {
+		return row.Agent.ArchivedAt != nil
+	}
+	l.agents = slices.DeleteFunc(slices.Clone(agents), isArchivedAgent)
+	l.archivedAgents = slices.DeleteFunc(agents, func(row panel.AgentRow) bool {
+		return !isArchivedAgent(row)
+	})
+
+	workflows := workflowsFrom(slices.Collect(maps.Values(l.world.Workflows)))
+	slices.SortFunc(workflows, func(a, b panel.Workflow) int {
 		return cmp.Or(strings.Compare(strings.ToLower(a.Name), strings.ToLower(b.Name)), strings.Compare(a.ID, b.ID))
+	})
+	isArchivedWorkflow := func(workflow panel.Workflow) bool {
+		return workflow.ArchivedAt != nil
+	}
+	l.workflows = slices.DeleteFunc(slices.Clone(workflows), isArchivedWorkflow)
+	l.archivedWorkflows = slices.DeleteFunc(workflows, func(workflow panel.Workflow) bool {
+		return !isArchivedWorkflow(workflow)
 	})
 	l.schedules = scheduleItemsFrom(slices.Collect(maps.Values(l.world.Schedules)))
 	slices.SortFunc(l.schedules, func(a, b scheduleItem) int { return strings.Compare(b.schedule.ID, a.schedule.ID) })

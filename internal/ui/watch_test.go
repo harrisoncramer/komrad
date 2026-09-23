@@ -67,7 +67,7 @@ func mailRowOf(mail *agentv1.Mail) *watchv1.Row {
 }
 
 func putEvent(row *watchv1.Row) *watchv1.WatchEvent {
-	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Put{Put: row}}
+	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Changes{Changes: &watchv1.Changes{Puts: []*watchv1.Row{row}}}}
 }
 
 func snapshotEvent(rows ...*watchv1.Row) *watchv1.WatchEvent {
@@ -75,7 +75,7 @@ func snapshotEvent(rows ...*watchv1.Row) *watchv1.WatchEvent {
 }
 
 func deletedEvent(resource watchv1.Resource, key string) *watchv1.WatchEvent {
-	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Deleted{Deleted: &watchv1.Deleted{Resource: resource, Key: key}}}
+	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Changes{Changes: &watchv1.Changes{Deleted: []*watchv1.Deleted{{Resource: resource, Key: key}}}}}
 }
 
 func agentIDs(items []panel.AgentRow) []string {
@@ -373,8 +373,8 @@ func TestLostStreamIsReportedUntilTheNextSnapshot(t *testing.T) {
 	assert.Len(t, m.messages.items, 1)
 }
 
-// TestTickListsOnlyWhatTheWatchLacks covers the archive screen, whose listing rides no stream,
-// being listed on every tick, and the agents screen asking for nothing.
+// TestTickListsOnlyWhatTheWatchLacks covers the worktree directories, which ride no stream, being
+// listed on every tick, and the agents and archive screens asking for nothing.
 func TestTickListsOnlyWhatTheWatchLacks(t *testing.T) {
 	m := watchedPanel()
 	now := time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC)
@@ -384,5 +384,10 @@ func TestTickListsOnlyWhatTheWatchLacks(t *testing.T) {
 
 	m.screen = screenArchive
 	_, cmd = update(t, m, tickMsg{at: now})
-	assert.True(t, hasListed(cmd), "the archive is listed on every tick")
+	assert.False(t, hasListed(cmd), "and so is the archive")
+
+	m.screen = screenWorktrees
+	m.api.worktrees = emptyLists{}
+	_, cmd = update(t, m, tickMsg{at: now})
+	assert.True(t, hasListed(cmd), "the worktree directories are listed on every tick")
 }

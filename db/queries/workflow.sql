@@ -38,6 +38,22 @@ ORDER BY
     COLLATE "C" ASC,
     w.id ASC;
 
+-- name: SnapshotWatchedWorkflows :many
+SELECT
+    sqlc.embed(w),
+    sqlc.embed(wc),
+    sqlc.embed(pc)
+FROM
+    workflows w
+    JOIN workflow_configs wc ON wc.id = w.workflow_config_id
+    JOIN workflow_provisioner_configs pc ON pc.id = w.provisioner_config_id
+WHERE
+    w.deleting_at IS NULL
+ORDER BY
+    LOWER(w.name)
+    COLLATE "C" ASC,
+    w.id ASC;
+
 -- name: ListWorkflowsByKey :many
 SELECT
     sqlc.embed(w),
@@ -49,7 +65,6 @@ FROM
     JOIN workflow_provisioner_configs pc ON pc.id = w.provisioner_config_id
 WHERE
     w.id = ANY (@ids::uuid[])
-    AND w.archived_at IS NULL
     AND w.deleting_at IS NULL
 ORDER BY
     w.id ASC;

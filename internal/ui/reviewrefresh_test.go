@@ -188,10 +188,7 @@ func TestReviewRefreshWaitsForTheWatch(t *testing.T) {
 			name: "the agent claimed its review notice",
 			held: []*watchv1.Row{notice("n1", "a1")},
 			move: func(m *model) {
-				m.listing.world.Apply(&watchv1.WatchEvent{Event: &watchv1.WatchEvent_Deleted{Deleted: &watchv1.Deleted{
-					Resource: watchv1.Resource_RESOURCE_MAIL,
-					Key:      "n1",
-				}}})
+				m.listing.world.Apply(deletedEvent(watchv1.Resource_RESOURCE_MAIL, "n1"))
 			},
 			reads: true,
 		},

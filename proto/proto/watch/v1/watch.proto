@@ -12,19 +12,16 @@ import "workflow/v1/workflow.proto";
 
 option go_package = "weave/proto/gen/watch/v1;watchv1";
 
-// WatchEvent is the snapshot a stream opens with, one row as the panel should now hold it, a
-// tombstone for one it should drop, or a heartbeat.
+// WatchEvent is the snapshot a stream opens with, the changes one pass found, or a heartbeat.
 message WatchEvent {
   // What moved.
   oneof event {
     // Every row the watched sets hold, sent once as the stream opens.
     Snapshot snapshot = 1;
-    // One row as the panel should now hold it.
-    Row put = 2;
-    // A row its watched set no longer holds.
-    Deleted deleted = 3;
+    // Every row one pass over the database found moved.
+    Changes changes = 2;
     // Nothing has changed for a while, and the stream is still alive.
-    google.protobuf.Empty heartbeat = 4;
+    google.protobuf.Empty heartbeat = 3;
   }
 }
 
@@ -32,6 +29,14 @@ message WatchEvent {
 message Snapshot {
   // Every row in the snapshot.
   repeated Row rows = 1;
+}
+
+// Changes is what one pass over the database found moved.
+message Changes {
+  // The rows as the panel should now hold them.
+  repeated Row puts = 1;
+  // The rows their watched sets no longer hold, whether the panel held them or not.
+  repeated Deleted deleted = 2;
 }
 
 // Row is one row of a resource table, rendered the way its list RPC renders it.
@@ -71,8 +76,8 @@ enum Resource {
   RESOURCE_PULL_REQUEST = 6;
 }
 
-// Deleted names a row its watched set no longer holds, whether it was removed, archived or
-// claimed for a delete.
+// Deleted names a row its watched set no longer holds, whether it was removed or claimed for a
+// delete.
 message Deleted {
   // Which resource the row was of.
   Resource resource = 1;

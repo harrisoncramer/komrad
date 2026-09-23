@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"weave/lib/xslice"
 	watchv1 "weave/proto/gen/watch/v1"
 
+	"weave/internal/rpc/render"
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
 	markstore "weave/internal/store/mark"
@@ -169,6 +171,30 @@ func TestReadAnswersARowOrATombstoneForEveryPendingKey(t *testing.T) {
 	assert.Equal(t, "w1", changes[6].Row.GetMark().GetWorkflowId())
 	assert.Equal(t, "a1", changes[8].Row.GetMail().GetToAgentId())
 	assert.Equal(t, int32(7), changes[10].Row.GetPullRequest().GetNumber())
+}
+
+// TestAnArchivedAgentCarriesOnlyTheOpeningOfItsPrompt pins that the watch draws an archived agent
+// with the summary head of its prompt and a live one with the whole of it.
+func TestAnArchivedAgentCarriesOnlyTheOpeningOfItsPrompt(t *testing.T) {
+	prompt := strings.Repeat("p", render.SummaryHead*2)
+	live := agentRow("live")
+	live.Prompt = prompt
+	archived := agentRow("archived")
+	archived.Prompt = prompt
+	archived.ArchivedAt = xptr.Ptr(fixedClock())
+
+	stores := newStores()
+	stores.agents.put(live, archived)
+
+	changes, err := newRows(stores).Read(t.Context(), pendingKeys{
+		watchv1.Resource_RESOURCE_AGENT: []string{"archived", "live"},
+	})
+	require.NoError(t, err)
+	require.Len(t, changes, 2)
+
+	assert.Len(t, changes[0].Row.GetAgent().GetPrompt(), render.SummaryHead, "the archived agent's prompt is cut to its opening")
+	assert.True(t, changes[0].Row.GetAgent().GetPromptTruncated())
+	assert.Equal(t, prompt, changes[1].Row.GetAgent().GetPrompt(), "and the live agent's is whole")
 }
 
 // TestReadOfNothingReadsNothing pins that an empty pending set costs no query.

@@ -96,8 +96,7 @@ func (Resource) EnumDescriptor() ([]byte, []int) {
 	return file_watch_v1_watch_proto_rawDescGZIP(), []int{0}
 }
 
-// WatchEvent is the snapshot a stream opens with, one row as the panel should now hold it, a
-// tombstone for one it should drop, or a heartbeat.
+// WatchEvent is the snapshot a stream opens with, the changes one pass found, or a heartbeat.
 type WatchEvent struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// What moved.
@@ -105,8 +104,7 @@ type WatchEvent struct {
 	// Types that are valid to be assigned to Event:
 	//
 	//	*WatchEvent_Snapshot
-	//	*WatchEvent_Put
-	//	*WatchEvent_Deleted
+	//	*WatchEvent_Changes
 	//	*WatchEvent_Heartbeat
 	Event         isWatchEvent_Event `protobuf_oneof:"event"`
 	unknownFields protoimpl.UnknownFields
@@ -159,19 +157,10 @@ func (x *WatchEvent) GetSnapshot() *Snapshot {
 	return nil
 }
 
-func (x *WatchEvent) GetPut() *Row {
+func (x *WatchEvent) GetChanges() *Changes {
 	if x != nil {
-		if x, ok := x.Event.(*WatchEvent_Put); ok {
-			return x.Put
-		}
-	}
-	return nil
-}
-
-func (x *WatchEvent) GetDeleted() *Deleted {
-	if x != nil {
-		if x, ok := x.Event.(*WatchEvent_Deleted); ok {
-			return x.Deleted
+		if x, ok := x.Event.(*WatchEvent_Changes); ok {
+			return x.Changes
 		}
 	}
 	return nil
@@ -195,26 +184,19 @@ type WatchEvent_Snapshot struct {
 	Snapshot *Snapshot `protobuf:"bytes,1,opt,name=snapshot,proto3,oneof"`
 }
 
-type WatchEvent_Put struct {
-	// One row as the panel should now hold it.
-	Put *Row `protobuf:"bytes,2,opt,name=put,proto3,oneof"`
-}
-
-type WatchEvent_Deleted struct {
-	// A row its watched set no longer holds.
-	Deleted *Deleted `protobuf:"bytes,3,opt,name=deleted,proto3,oneof"`
+type WatchEvent_Changes struct {
+	// Every row one pass over the database found moved.
+	Changes *Changes `protobuf:"bytes,2,opt,name=changes,proto3,oneof"`
 }
 
 type WatchEvent_Heartbeat struct {
 	// Nothing has changed for a while, and the stream is still alive.
-	Heartbeat *emptypb.Empty `protobuf:"bytes,4,opt,name=heartbeat,proto3,oneof"`
+	Heartbeat *emptypb.Empty `protobuf:"bytes,3,opt,name=heartbeat,proto3,oneof"`
 }
 
 func (*WatchEvent_Snapshot) isWatchEvent_Event() {}
 
-func (*WatchEvent_Put) isWatchEvent_Event() {}
-
-func (*WatchEvent_Deleted) isWatchEvent_Event() {}
+func (*WatchEvent_Changes) isWatchEvent_Event() {}
 
 func (*WatchEvent_Heartbeat) isWatchEvent_Event() {}
 
@@ -264,6 +246,61 @@ func (x *Snapshot) GetRows() []*Row {
 	return nil
 }
 
+// Changes is what one pass over the database found moved.
+type Changes struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The rows as the panel should now hold them.
+	Puts []*Row `protobuf:"bytes,1,rep,name=puts,proto3" json:"puts,omitempty"`
+	// The rows their watched sets no longer hold, whether the panel held them or not.
+	Deleted       []*Deleted `protobuf:"bytes,2,rep,name=deleted,proto3" json:"deleted,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Changes) Reset() {
+	*x = Changes{}
+	mi := &file_watch_v1_watch_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Changes) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Changes) ProtoMessage() {}
+
+func (x *Changes) ProtoReflect() protoreflect.Message {
+	mi := &file_watch_v1_watch_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Changes.ProtoReflect.Descriptor instead.
+func (*Changes) Descriptor() ([]byte, []int) {
+	return file_watch_v1_watch_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *Changes) GetPuts() []*Row {
+	if x != nil {
+		return x.Puts
+	}
+	return nil
+}
+
+func (x *Changes) GetDeleted() []*Deleted {
+	if x != nil {
+		return x.Deleted
+	}
+	return nil
+}
+
 // Row is one row of a resource table, rendered the way its list RPC renders it.
 type Row struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -284,7 +321,7 @@ type Row struct {
 
 func (x *Row) Reset() {
 	*x = Row{}
-	mi := &file_watch_v1_watch_proto_msgTypes[2]
+	mi := &file_watch_v1_watch_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -296,7 +333,7 @@ func (x *Row) String() string {
 func (*Row) ProtoMessage() {}
 
 func (x *Row) ProtoReflect() protoreflect.Message {
-	mi := &file_watch_v1_watch_proto_msgTypes[2]
+	mi := &file_watch_v1_watch_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -309,7 +346,7 @@ func (x *Row) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Row.ProtoReflect.Descriptor instead.
 func (*Row) Descriptor() ([]byte, []int) {
-	return file_watch_v1_watch_proto_rawDescGZIP(), []int{2}
+	return file_watch_v1_watch_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *Row) GetRow() isRow_Row {
@@ -419,8 +456,8 @@ func (*Row_Mail) isRow_Row() {}
 
 func (*Row_PullRequest) isRow_Row() {}
 
-// Deleted names a row its watched set no longer holds, whether it was removed, archived or
-// claimed for a delete.
+// Deleted names a row its watched set no longer holds, whether it was removed or claimed for a
+// delete.
 type Deleted struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Which resource the row was of.
@@ -433,7 +470,7 @@ type Deleted struct {
 
 func (x *Deleted) Reset() {
 	*x = Deleted{}
-	mi := &file_watch_v1_watch_proto_msgTypes[3]
+	mi := &file_watch_v1_watch_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -445,7 +482,7 @@ func (x *Deleted) String() string {
 func (*Deleted) ProtoMessage() {}
 
 func (x *Deleted) ProtoReflect() protoreflect.Message {
-	mi := &file_watch_v1_watch_proto_msgTypes[3]
+	mi := &file_watch_v1_watch_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -458,7 +495,7 @@ func (x *Deleted) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Deleted.ProtoReflect.Descriptor instead.
 func (*Deleted) Descriptor() ([]byte, []int) {
-	return file_watch_v1_watch_proto_rawDescGZIP(), []int{3}
+	return file_watch_v1_watch_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *Deleted) GetResource() Resource {
@@ -479,16 +516,18 @@ var File_watch_v1_watch_proto protoreflect.FileDescriptor
 
 const file_watch_v1_watch_proto_rawDesc = "" +
 	"\n" +
-	"\x14watch/v1/watch.proto\x12\bwatch.v1\x1a\x14agent/v1/agent.proto\x1a\x13agent/v1/mail.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a pullrequest/v1/pullrequest.proto\x1a\x1aschedule/v1/schedule.proto\x1a\x1aworkflow/v1/workflow.proto\"\xd1\x01\n" +
+	"\x14watch/v1/watch.proto\x12\bwatch.v1\x1a\x14agent/v1/agent.proto\x1a\x13agent/v1/mail.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a pullrequest/v1/pullrequest.proto\x1a\x1aschedule/v1/schedule.proto\x1a\x1aworkflow/v1/workflow.proto\"\xae\x01\n" +
 	"\n" +
 	"WatchEvent\x120\n" +
-	"\bsnapshot\x18\x01 \x01(\v2\x12.watch.v1.SnapshotH\x00R\bsnapshot\x12!\n" +
-	"\x03put\x18\x02 \x01(\v2\r.watch.v1.RowH\x00R\x03put\x12-\n" +
-	"\adeleted\x18\x03 \x01(\v2\x11.watch.v1.DeletedH\x00R\adeleted\x126\n" +
-	"\theartbeat\x18\x04 \x01(\v2\x16.google.protobuf.EmptyH\x00R\theartbeatB\a\n" +
+	"\bsnapshot\x18\x01 \x01(\v2\x12.watch.v1.SnapshotH\x00R\bsnapshot\x12-\n" +
+	"\achanges\x18\x02 \x01(\v2\x11.watch.v1.ChangesH\x00R\achanges\x126\n" +
+	"\theartbeat\x18\x03 \x01(\v2\x16.google.protobuf.EmptyH\x00R\theartbeatB\a\n" +
 	"\x05event\"-\n" +
 	"\bSnapshot\x12!\n" +
-	"\x04rows\x18\x01 \x03(\v2\r.watch.v1.RowR\x04rows\"\xad\x02\n" +
+	"\x04rows\x18\x01 \x03(\v2\r.watch.v1.RowR\x04rows\"Y\n" +
+	"\aChanges\x12!\n" +
+	"\x04puts\x18\x01 \x03(\v2\r.watch.v1.RowR\x04puts\x12+\n" +
+	"\adeleted\x18\x02 \x03(\v2\x11.watch.v1.DeletedR\adeleted\"\xad\x02\n" +
 	"\x03Row\x12'\n" +
 	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentH\x00R\x05agent\x123\n" +
 	"\bworkflow\x18\x02 \x01(\v2\x15.workflow.v1.WorkflowH\x00R\bworkflow\x123\n" +
@@ -524,41 +563,43 @@ func file_watch_v1_watch_proto_rawDescGZIP() []byte {
 }
 
 var file_watch_v1_watch_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_watch_v1_watch_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_watch_v1_watch_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_watch_v1_watch_proto_goTypes = []any{
 	(Resource)(0),           // 0: watch.v1.Resource
 	(*WatchEvent)(nil),      // 1: watch.v1.WatchEvent
 	(*Snapshot)(nil),        // 2: watch.v1.Snapshot
-	(*Row)(nil),             // 3: watch.v1.Row
-	(*Deleted)(nil),         // 4: watch.v1.Deleted
-	(*emptypb.Empty)(nil),   // 5: google.protobuf.Empty
-	(*v1.Agent)(nil),        // 6: agent.v1.Agent
-	(*v11.Workflow)(nil),    // 7: workflow.v1.Workflow
-	(*v12.Schedule)(nil),    // 8: schedule.v1.Schedule
-	(*v1.Mark)(nil),         // 9: agent.v1.Mark
-	(*v1.Mail)(nil),         // 10: agent.v1.Mail
-	(*v13.PullRequest)(nil), // 11: pullrequest.v1.PullRequest
+	(*Changes)(nil),         // 3: watch.v1.Changes
+	(*Row)(nil),             // 4: watch.v1.Row
+	(*Deleted)(nil),         // 5: watch.v1.Deleted
+	(*emptypb.Empty)(nil),   // 6: google.protobuf.Empty
+	(*v1.Agent)(nil),        // 7: agent.v1.Agent
+	(*v11.Workflow)(nil),    // 8: workflow.v1.Workflow
+	(*v12.Schedule)(nil),    // 9: schedule.v1.Schedule
+	(*v1.Mark)(nil),         // 10: agent.v1.Mark
+	(*v1.Mail)(nil),         // 11: agent.v1.Mail
+	(*v13.PullRequest)(nil), // 12: pullrequest.v1.PullRequest
 }
 var file_watch_v1_watch_proto_depIdxs = []int32{
 	2,  // 0: watch.v1.WatchEvent.snapshot:type_name -> watch.v1.Snapshot
-	3,  // 1: watch.v1.WatchEvent.put:type_name -> watch.v1.Row
-	4,  // 2: watch.v1.WatchEvent.deleted:type_name -> watch.v1.Deleted
-	5,  // 3: watch.v1.WatchEvent.heartbeat:type_name -> google.protobuf.Empty
-	3,  // 4: watch.v1.Snapshot.rows:type_name -> watch.v1.Row
-	6,  // 5: watch.v1.Row.agent:type_name -> agent.v1.Agent
-	7,  // 6: watch.v1.Row.workflow:type_name -> workflow.v1.Workflow
-	8,  // 7: watch.v1.Row.schedule:type_name -> schedule.v1.Schedule
-	9,  // 8: watch.v1.Row.mark:type_name -> agent.v1.Mark
-	10, // 9: watch.v1.Row.mail:type_name -> agent.v1.Mail
-	11, // 10: watch.v1.Row.pull_request:type_name -> pullrequest.v1.PullRequest
-	0,  // 11: watch.v1.Deleted.resource:type_name -> watch.v1.Resource
-	5,  // 12: watch.v1.WatchService.Watch:input_type -> google.protobuf.Empty
-	1,  // 13: watch.v1.WatchService.Watch:output_type -> watch.v1.WatchEvent
-	13, // [13:14] is the sub-list for method output_type
-	12, // [12:13] is the sub-list for method input_type
-	12, // [12:12] is the sub-list for extension type_name
-	12, // [12:12] is the sub-list for extension extendee
-	0,  // [0:12] is the sub-list for field type_name
+	3,  // 1: watch.v1.WatchEvent.changes:type_name -> watch.v1.Changes
+	6,  // 2: watch.v1.WatchEvent.heartbeat:type_name -> google.protobuf.Empty
+	4,  // 3: watch.v1.Snapshot.rows:type_name -> watch.v1.Row
+	4,  // 4: watch.v1.Changes.puts:type_name -> watch.v1.Row
+	5,  // 5: watch.v1.Changes.deleted:type_name -> watch.v1.Deleted
+	7,  // 6: watch.v1.Row.agent:type_name -> agent.v1.Agent
+	8,  // 7: watch.v1.Row.workflow:type_name -> workflow.v1.Workflow
+	9,  // 8: watch.v1.Row.schedule:type_name -> schedule.v1.Schedule
+	10, // 9: watch.v1.Row.mark:type_name -> agent.v1.Mark
+	11, // 10: watch.v1.Row.mail:type_name -> agent.v1.Mail
+	12, // 11: watch.v1.Row.pull_request:type_name -> pullrequest.v1.PullRequest
+	0,  // 12: watch.v1.Deleted.resource:type_name -> watch.v1.Resource
+	6,  // 13: watch.v1.WatchService.Watch:input_type -> google.protobuf.Empty
+	1,  // 14: watch.v1.WatchService.Watch:output_type -> watch.v1.WatchEvent
+	14, // [14:15] is the sub-list for method output_type
+	13, // [13:14] is the sub-list for method input_type
+	13, // [13:13] is the sub-list for extension type_name
+	13, // [13:13] is the sub-list for extension extendee
+	0,  // [0:13] is the sub-list for field type_name
 }
 
 func init() { file_watch_v1_watch_proto_init() }
@@ -568,11 +609,10 @@ func file_watch_v1_watch_proto_init() {
 	}
 	file_watch_v1_watch_proto_msgTypes[0].OneofWrappers = []any{
 		(*WatchEvent_Snapshot)(nil),
-		(*WatchEvent_Put)(nil),
-		(*WatchEvent_Deleted)(nil),
+		(*WatchEvent_Changes)(nil),
 		(*WatchEvent_Heartbeat)(nil),
 	}
-	file_watch_v1_watch_proto_msgTypes[2].OneofWrappers = []any{
+	file_watch_v1_watch_proto_msgTypes[3].OneofWrappers = []any{
 		(*Row_Agent)(nil),
 		(*Row_Workflow)(nil),
 		(*Row_Schedule)(nil),
@@ -586,7 +626,7 @@ func file_watch_v1_watch_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_watch_v1_watch_proto_rawDesc), len(file_watch_v1_watch_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   4,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
