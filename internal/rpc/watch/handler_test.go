@@ -15,6 +15,7 @@ import (
 	"weave/internal/dbtest"
 	"weave/internal/interceptors"
 	"weave/internal/logging"
+	"weave/internal/store"
 	"weave/internal/watch"
 	"weave/lib/xslice"
 	watchv1 "weave/proto/gen/watch/v1"
@@ -90,7 +91,10 @@ type served struct {
 func serve(t *testing.T, agents agentStore, heartbeat time.Duration) *served {
 	t.Helper()
 
-	pool := dbtest.Pool(t)
+	st, err := store.Open(t.Context(), dbtest.URL(t), dbtest.TenantID)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = st.Close() })
+	pool := st.GetRawPool()
 
 	broker := watch.NewBroker(watch.NewBrokerParams{Pool: pool, Rows: newRows(agents)})
 	require.NoError(t, broker.Start())

@@ -13,8 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TenantID is the tenant every migrated test database already holds.
-const TenantID = "00000000-0000-7000-8000-000000000001"
+// TenantID is the tenant a test acts as.
+const TenantID = "01990000-0000-7000-8000-00000000beef"
 
 // URL is a migrated database of this test's own, dropped when the test ends.
 func URL(t *testing.T) string {
@@ -35,19 +35,4 @@ func migrate(ctx context.Context, url string) error {
 	defer pool.Close()
 
 	return db.Migrate(ctx, pool)
-}
-
-// Pool is a pool on a migrated database of this test's own, acting for the default tenant.
-func Pool(t *testing.T) *pgxpool.Pool {
-	t.Helper()
-
-	cfg, err := pgxpool.ParseConfig(URL(t))
-	require.NoError(t, err)
-	db.ScopeToTenant(cfg, TenantID)
-
-	pool, err := pgxpool.NewWithConfig(t.Context(), cfg)
-	require.NoError(t, err)
-	t.Cleanup(pool.Close)
-
-	return pool
 }

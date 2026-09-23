@@ -12,7 +12,8 @@ import (
 
 // TestGetTenantIDMintsOnceAndKeepsIt pins an engine keeping the id it minted on its first start.
 func TestGetTenantIDMintsOnceAndKeepsIt(t *testing.T) {
-	t.Setenv(tenantVariable, "")
+	t.Parallel()
+
 	env := &Environment{StateDir: filepath.Join(t.TempDir(), "state")}
 
 	first, err := env.GetTenantID()
@@ -33,36 +34,15 @@ func TestGetTenantIDMintsOnceAndKeepsIt(t *testing.T) {
 	assert.Len(t, entries, 1, "the temp file the id was written through is gone")
 }
 
-// TestGetTenantIDReadsTheVariableWithoutSaving pins WEAVE_TENANT_ID winning and leaving the state directory alone.
-func TestGetTenantIDReadsTheVariableWithoutSaving(t *testing.T) {
-	t.Setenv(tenantVariable, "01990000-0000-7000-8000-000000000002")
-	env := &Environment{StateDir: filepath.Join(t.TempDir(), "state")}
-
-	got, err := env.GetTenantID()
-	require.NoError(t, err)
-	assert.Equal(t, "01990000-0000-7000-8000-000000000002", got)
-	assert.NoDirExists(t, env.StateDir)
-}
-
-// TestGetTenantIDRefusesAnIDThatIsNotAUUID covers a hand-edited file and a mistyped variable.
+// TestGetTenantIDRefusesAnIDThatIsNotAUUID covers a hand-edited file.
 func TestGetTenantIDRefusesAnIDThatIsNotAUUID(t *testing.T) {
-	t.Run("the saved file", func(t *testing.T) {
-		t.Setenv(tenantVariable, "")
-		dir := t.TempDir()
-		require.NoError(t, os.WriteFile(filepath.Join(dir, tenantFile), []byte("acme\n"), 0o600))
+	t.Parallel()
 
-		_, err := (&Environment{StateDir: dir}).GetTenantID()
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, tenantFile), []byte("acme\n"), 0o600))
 
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), tenantFile)
-	})
+	_, err := (&Environment{StateDir: dir}).GetTenantID()
 
-	t.Run("the variable", func(t *testing.T) {
-		t.Setenv(tenantVariable, "acme")
-
-		_, err := (&Environment{StateDir: t.TempDir()}).GetTenantID()
-
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), tenantVariable)
-	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), tenantFile)
 }

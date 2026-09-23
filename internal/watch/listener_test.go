@@ -6,6 +6,7 @@ import (
 
 	"weave/db"
 	"weave/internal/dbtest"
+	"weave/internal/store"
 	notifystore "weave/internal/store/notify"
 	workflowstore "weave/internal/store/workflow"
 	watchv1 "weave/proto/gen/watch/v1"
@@ -37,7 +38,10 @@ func newListened(t *testing.T, stores *fakeStores) *listened {
 func newPooled(t *testing.T) *listened {
 	t.Helper()
 
-	pool := dbtest.Pool(t)
+	st, err := store.Open(t.Context(), dbtest.URL(t), dbtest.TenantID)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = st.Close() })
+	pool := st.GetRawPool()
 
 	return &listened{pool: pool}
 }

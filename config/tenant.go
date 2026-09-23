@@ -11,17 +11,10 @@ import (
 	"github.com/google/uuid"
 )
 
-const (
-	tenantVariable = "WEAVE_TENANT_ID"
-	tenantFile     = "tenant_id"
-)
+const tenantFile = "tenant_id"
 
 // GetTenantID is the tenant this engine writes as, minted into the state directory the first time it is asked for.
 func (e *Environment) GetTenantID() (string, error) {
-	if id := os.Getenv(tenantVariable); id != "" {
-		return parseTenantID(id, tenantVariable)
-	}
-
 	path := filepath.Join(e.StateDir, tenantFile)
 	id, err := readTenantID(path)
 	if !errors.Is(err, fs.ErrNotExist) {
@@ -83,6 +76,20 @@ func mintTenantID(dir, path string) (err error) {
 
 	if err := os.Link(tmp.Name(), path); err != nil && !errors.Is(err, fs.ErrExist) {
 		return fmt.Errorf("failed to save the tenant id to %s: %w", path, err)
+	}
+
+	return syncDir(dir)
+}
+
+func syncDir(dir string) (err error) {
+	d, err := os.Open(dir)
+	if err != nil {
+		return fmt.Errorf("failed to open %s: %w", dir, err)
+	}
+	defer func() { err = errors.Join(err, d.Close()) }()
+
+	if err := d.Sync(); err != nil {
+		return fmt.Errorf("failed to sync %s: %w", dir, err)
 	}
 
 	return nil
