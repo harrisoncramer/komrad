@@ -41,6 +41,8 @@ var takenAndUndrawn = map[screen][]undrawn{
 	},
 	screenReview: {
 		{key: "ctrl+c", reason: "quit is not worth a row on any screen"},
+		{key: "ctrl+n", reason: "the mouse wheel presses it, and paging is the only scroll the diff names"},
+		{key: "ctrl+p", reason: "the mouse wheel presses it, and paging is the only scroll the diff names"},
 	},
 	screenWorktrees: {
 		{key: "ctrl+c", reason: "quit is not worth a row on any screen"},
