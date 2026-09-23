@@ -326,11 +326,11 @@ func TestRefreshDrawsAnEditedWorkflowContext(t *testing.T) {
 	staged := len(tmux.respawns)
 
 	fresh := client.WatchBatch{
-		{Event: &watchv1.WatchEvent_Put{Put: &watchv1.Row{Row: &watchv1.Row_Workflow{Workflow: &workflowv1.Workflow{
+		putEvent(&watchv1.Row{Row: &watchv1.Row_Workflow{Workflow: &workflowv1.Workflow{
 			Id:      "w1",
 			Name:    "api",
 			Context: "new notes",
-		}}}}},
+		}}}),
 	}
 	updated, _ := m.Update(fresh)
 	m, ok := updated.(model)

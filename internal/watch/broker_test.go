@@ -6,7 +6,8 @@ import (
 	"testing"
 	"time"
 
-	rowstore "weave/internal/store/row"
+	"weave/lib/xslice"
+
 	workflowstore "weave/internal/store/workflow"
 
 	"github.com/stretchr/testify/assert"
@@ -21,26 +22,42 @@ const settle = 20 * time.Millisecond
 func newTestBroker(t *testing.T, stores *fakeStores) *Broker {
 	t.Helper()
 
-	broker := NewBroker(NewBrokerParams{Rows: newRows(stores)})
+	broker := NewBroker(NewBrokerParams{Rows: newRows(stores), PassGap: time.Microsecond})
 	broker.up()
 	t.Cleanup(broker.Close)
 
 	return broker
 }
 
-func receive(t *testing.T, subscription *Subscription) Change {
+// receive waits for the next pass to reach a subscription.
+func receive(t *testing.T, subscription *Subscription) []Change {
 	t.Helper()
 
 	select {
-	case change, open := <-subscription.Changes():
+	case pass, open := <-subscription.Changes():
 		require.True(t, open, "the subscription closed")
 
-		return change
+		return pass
 	case <-time.After(2 * time.Second):
-		t.Fatal("no change arrived")
+		t.Fatal("no pass arrived")
 
-		return Change{}
+		return nil
 	}
+}
+
+// receiveOne waits for the next pass and requires it to hold a single change.
+func receiveOne(t *testing.T, subscription *Subscription) Change {
+	t.Helper()
+
+	pass := receive(t, subscription)
+	require.Len(t, pass, 1, "the pass holds one change")
+
+	return pass[0]
+}
+
+// keysOf is the key each change in a pass names, in order.
+func keysOf(pass []Change) []string {
+	return xslice.Map(pass, func(change Change) string { return change.Key })
 }
 
 // TestPendingKeysPileUpBehindOneRead pins that keys marked pending while a render is reading are one
@@ -64,13 +81,66 @@ func TestPendingKeysPileUpBehindOneRead(t *testing.T) {
 	broker.markPending("schedules", "s")
 	close(stores.agents.held)
 
-	require.Equal(t, "held", receive(t, subscription).Key)
-	changes := []Change{receive(t, subscription), receive(t, subscription)}
+	require.Equal(t, []string{"held"}, keysOf(receive(t, subscription)))
+	pass := receive(t, subscription)
 
 	assert.Equal(t, [][]string{{"held"}, {"a", "b"}}, stores.agents.reads(), "the keys pending behind the held read are one read")
-	assert.Equal(t, []string{"a", "b"}, []string{changes[0].Key, changes[1].Key})
-	assert.NotNil(t, changes[0].Row)
-	assert.Empty(t, drain(subscription), "a key the watcher never held sends no tombstone")
+	require.Equal(t, []string{"a", "b", "w", "s"}, keysOf(pass), "everything pending behind the held read is one pass")
+	assert.NotNil(t, pass[0].Row)
+	assert.Nil(t, pass[2].Row, "a key the watcher never held is still sent as gone")
+	assert.Empty(t, drain(subscription))
+}
+
+// TestABurstIsOnePassAndKeepsTheWatcher pins that thousands of keys pending behind one read reach
+// a watcher as a single pass rather than overflowing its buffer.
+func TestABurstIsOnePassAndKeepsTheWatcher(t *testing.T) {
+	stores := newStores()
+	stores.agents.held = make(chan struct{})
+	broker := newTestBroker(t, stores)
+
+	subscription, err := broker.Subscribe(t.Context())
+	require.NoError(t, err)
+
+	stores.agents.put(agentRow("held"))
+	broker.markPending("agents", "held")
+	require.Eventually(t, func() bool { return len(stores.agents.reads()) == 1 }, time.Second, time.Millisecond)
+
+	burst := 3 * subscriberBuffer
+	for i := range burst {
+		broker.markPending("pull_requests", fmt.Sprintf("pr-%d", i))
+	}
+	close(stores.agents.held)
+
+	require.Equal(t, []string{"held"}, keysOf(receive(t, subscription)))
+	assert.Len(t, receive(t, subscription), burst, "the whole burst is one pass")
+
+	renamed := agentRow("held")
+	renamed.Name = "renamed"
+	stores.agents.put(renamed)
+	broker.markPending("agents", "held")
+	assert.Equal(t, []string{"held"}, keysOf(receive(t, subscription)), "and the watcher is still connected")
+}
+
+// TestPassesAreSpacedByTheGap pins the least time the broker leaves between two passes.
+func TestPassesAreSpacedByTheGap(t *testing.T) {
+	stores := newStores()
+	gap := 100 * time.Millisecond
+	broker := NewBroker(NewBrokerParams{Rows: newRows(stores), PassGap: gap})
+	broker.up()
+	t.Cleanup(broker.Close)
+
+	subscription, err := broker.Subscribe(t.Context())
+	require.NoError(t, err)
+
+	stores.agents.put(agentRow("a"), agentRow("b"))
+	broker.markPending("agents", "a")
+	receive(t, subscription)
+	first := time.Now()
+
+	broker.markPending("agents", "b")
+	receive(t, subscription)
+
+	assert.GreaterOrEqual(t, time.Since(first), gap/2, "the second pass waits out the gap")
 }
 
 // TestNothingIsReadWithoutAWatcher pins that the broker costs nothing while nobody watches.
@@ -97,7 +167,7 @@ func TestSubscriptionOpensWithTheSnapshot(t *testing.T) {
 	stores.agents.put(agentRow("a"))
 
 	broker.markPending("agents", "a")
-	require.Equal(t, "a", receive(t, first).Key)
+	require.Equal(t, []string{"a"}, keysOf(receive(t, first)))
 
 	stores.workflows.put(workflowstore.Workflow{ID: "w"})
 
@@ -109,8 +179,8 @@ func TestSubscriptionOpensWithTheSnapshot(t *testing.T) {
 	renamed.Name = "renamed"
 	stores.agents.put(renamed)
 	broker.markPending("agents", "a")
-	assert.Equal(t, "a", receive(t, first).Key)
-	assert.Equal(t, "a", receive(t, second).Key)
+	assert.Equal(t, []string{"a"}, keysOf(receive(t, first)))
+	assert.Equal(t, []string{"a"}, keysOf(receive(t, second)))
 }
 
 // TestATouchDuringTheSnapshotOnlyReachesWatchersWhoseSnapshotPredatesIt pins that each watcher
@@ -136,8 +206,8 @@ func TestATouchDuringTheSnapshotOnlyReachesWatchersWhoseSnapshotPredatesIt(t *te
 	broker.markPending("agents", "b")
 	close(stores.agents.held)
 
-	assert.Equal(t, "a", receive(t, first).Key)
-	assert.Equal(t, "b", receive(t, first).Key)
+	assert.Equal(t, []string{"a"}, keysOf(receive(t, first)))
+	assert.Equal(t, []string{"b"}, keysOf(receive(t, first)))
 	assert.Empty(t, drain(second), "the second watcher already received both rows in its snapshot")
 }
 
@@ -166,7 +236,7 @@ func TestARenderReadBeforeASnapshotSkipsItsWatcher(t *testing.T) {
 
 	close(stores.agents.held)
 
-	assert.Equal(t, "agent-a", receive(t, first).Row.GetAgent().GetName())
+	assert.Equal(t, "agent-a", receive(t, first)[0].Row.GetAgent().GetName())
 	assert.Empty(t, drain(second), "the stale read predates the second watcher's snapshot")
 }
 
@@ -179,23 +249,14 @@ func TestASlowWatcherIsDropped(t *testing.T) {
 	subscription, err := broker.Subscribe(t.Context())
 	require.NoError(t, err)
 
-	// Each round renames every agent, so every round is a change, and nobody reads them.
-	ids := make([]string, 26)
-	for i := range ids {
-		ids[i] = string(rune('a' + i))
-	}
-	for round := range subscriberBuffer/len(ids) + 2 {
-		rows := make([]rowstore.Row, len(ids))
-		for i, id := range ids {
-			rows[i] = agentRow(id)
-			rows[i].Name = fmt.Sprintf("agent-%s-%d", id, round)
-		}
-		stores.agents.put(rows...)
+	// Each round renames the agent and waits for its read, so every round is a pass nobody reads.
+	for round := range subscriberBuffer + 1 {
+		row := agentRow("a")
+		row.Name = fmt.Sprintf("agent-a-%d", round)
+		stores.agents.put(row)
 
-		for _, id := range ids {
-			broker.markPending("agents", id)
-		}
-		time.Sleep(settle)
+		broker.markPending("agents", "a")
+		require.Eventually(t, func() bool { return len(stores.agents.reads()) == round+1 }, time.Second, time.Microsecond)
 	}
 
 	require.Eventually(t, func() bool {
@@ -253,8 +314,7 @@ func TestAFailedReadIsRetriedWithTheNextOne(t *testing.T) {
 	stores.agents.mu.Unlock()
 
 	broker.markPending("agents", "b")
-	assert.Equal(t, "a", receive(t, subscription).Key, "the key the failed read lost comes back")
-	assert.Equal(t, "b", receive(t, subscription).Key)
+	assert.Equal(t, []string{"a", "b"}, keysOf(receive(t, subscription)), "the key the failed read lost comes back beside the next")
 	assert.Equal(t, []string{"a", "b"}, stores.agents.reads()[1], "one read serves both")
 }
 
@@ -307,6 +367,6 @@ func TestHearReadsTheTableAndTheKey(t *testing.T) {
 	broker.handleNotification("agents")
 	broker.handleNotification("agents a b")
 
-	assert.Equal(t, "a b", receive(t, subscription).Key, "the key runs to the end of the payload")
+	assert.Equal(t, []string{"a b"}, keysOf(receive(t, subscription)), "the key runs to the end of the payload")
 	assert.Equal(t, [][]string{{"a b"}}, stores.agents.reads())
 }

@@ -148,14 +148,17 @@ func TestWatchSendsTheSnapshotThenChanges(t *testing.T) {
 	assert.Equal(t, "a1", first.GetSnapshot().GetRows()[0].GetAgent().GetId())
 
 	s.notify(t, "agents a2")
-	s.notify(t, "agents gone-a3")
 
 	written := receive(t, stream)
-	assert.Equal(t, "a2", written.GetPut().GetAgent().GetId())
+	require.Len(t, written.GetChanges().GetPuts(), 1)
+	assert.Equal(t, "a2", written.GetChanges().GetPuts()[0].GetAgent().GetId())
+
+	s.notify(t, "agents gone-a3")
 
 	deleted := receive(t, stream)
-	assert.Equal(t, watchv1.Resource_RESOURCE_AGENT, deleted.GetDeleted().GetResource())
-	assert.Equal(t, "gone-a3", deleted.GetDeleted().GetKey())
+	require.Len(t, deleted.GetChanges().GetDeleted(), 1)
+	assert.Equal(t, watchv1.Resource_RESOURCE_AGENT, deleted.GetChanges().GetDeleted()[0].GetResource())
+	assert.Equal(t, "gone-a3", deleted.GetChanges().GetDeleted()[0].GetKey())
 
 	require.NoError(t, stream.Close())
 }

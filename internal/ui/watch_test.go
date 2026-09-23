@@ -67,7 +67,7 @@ func mailRowOf(mail *agentv1.Mail) *watchv1.Row {
 }
 
 func putEvent(row *watchv1.Row) *watchv1.WatchEvent {
-	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Put{Put: row}}
+	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Changes{Changes: &watchv1.Changes{Puts: []*watchv1.Row{row}}}}
 }
 
 func snapshotEvent(rows ...*watchv1.Row) *watchv1.WatchEvent {
@@ -75,7 +75,7 @@ func snapshotEvent(rows ...*watchv1.Row) *watchv1.WatchEvent {
 }
 
 func deletedEvent(resource watchv1.Resource, key string) *watchv1.WatchEvent {
-	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Deleted{Deleted: &watchv1.Deleted{Resource: resource, Key: key}}}
+	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Changes{Changes: &watchv1.Changes{Deleted: []*watchv1.Deleted{{Resource: resource, Key: key}}}}}
 }
 
 func agentIDs(items []panel.AgentRow) []string {

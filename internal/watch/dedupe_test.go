@@ -28,12 +28,12 @@ func drain(subscription *Subscription) []Change {
 	var changes []Change
 	for {
 		select {
-		case change, open := <-subscription.Changes():
+		case pass, open := <-subscription.Changes():
 			if !open {
 				return changes
 			}
 
-			changes = append(changes, change)
+			changes = append(changes, pass...)
 		case <-time.After(settle):
 			return changes
 		}
@@ -109,10 +109,9 @@ func TestARowTouchedTenTimesInOnePassSendsOnce(t *testing.T) {
 	assert.Equal(t, "renamed", changes[0].Row.GetAgent().GetName())
 }
 
-// TestATombstoneSendsOnlyForAHeldRow pins that a key leaving the watched set goes out however it
-// was last rendered, drops what the broker remembered of it, and that a key the watcher never
-// held sends nothing.
-func TestATombstoneSendsOnlyForAHeldRow(t *testing.T) {
+// TestATombstoneSendsWhetherOrNotTheRowWasHeld pins that a key outside the watched set goes out
+// as gone for every watcher, and that one leaving it is no longer remembered.
+func TestATombstoneSendsWhetherOrNotTheRowWasHeld(t *testing.T) {
 	stores := newStores()
 	stores.agents.put(agentRow("a"))
 	broker := newTestBroker(t, stores)
@@ -121,7 +120,9 @@ func TestATombstoneSendsOnlyForAHeldRow(t *testing.T) {
 	require.NoError(t, err)
 
 	broker.markPending("agents", "never")
-	assert.Empty(t, drain(subscription), "a key the watcher never held sends no tombstone")
+	never := drain(subscription)
+	require.Len(t, never, 1, "a key the watcher never held is still sent as gone")
+	assert.Nil(t, never[0].Row)
 
 	stores.agents.put()
 	broker.markPending("agents", "a")

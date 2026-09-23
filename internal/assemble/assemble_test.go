@@ -446,11 +446,11 @@ func TestMarks(t *testing.T) {
 }
 
 func put(row *watchv1.Row) *watchv1.WatchEvent {
-	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Put{Put: row}}
+	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Changes{Changes: &watchv1.Changes{Puts: []*watchv1.Row{row}}}}
 }
 
 func deleted(resource watchv1.Resource, key string) *watchv1.WatchEvent {
-	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Deleted{Deleted: &watchv1.Deleted{Resource: resource, Key: key}}}
+	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Changes{Changes: &watchv1.Changes{Deleted: []*watchv1.Deleted{{Resource: resource, Key: key}}}}}
 }
 
 func agentRow(a *agentv1.Agent) *watchv1.Row {

@@ -119,11 +119,11 @@ func scheduleEvent(id string) *watchv1.WatchEvent {
 }
 
 func putEvent(row *watchv1.Row) *watchv1.WatchEvent {
-	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Put{Put: row}}
+	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Changes{Changes: &watchv1.Changes{Puts: []*watchv1.Row{row}}}}
 }
 
 func deletedEvent(resource watchv1.Resource, key string) *watchv1.WatchEvent {
-	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Deleted{Deleted: &watchv1.Deleted{Resource: resource, Key: key}}}
+	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Changes{Changes: &watchv1.Changes{Deleted: []*watchv1.Deleted{{Resource: resource, Key: key}}}}}
 }
 
 func snapshotEvent(agents ...*agentv1.Agent) *watchv1.WatchEvent {
@@ -177,10 +177,12 @@ func ids(events []*watchv1.WatchEvent) []string {
 		switch row := event.GetEvent().(type) {
 		case *watchv1.WatchEvent_Snapshot:
 			return "snapshot"
-		case *watchv1.WatchEvent_Put:
-			return rowID(row.Put)
-		case *watchv1.WatchEvent_Deleted:
-			return row.Deleted.GetKey()
+		case *watchv1.WatchEvent_Changes:
+			if puts := row.Changes.GetPuts(); len(puts) > 0 {
+				return rowID(puts[0])
+			}
+
+			return row.Changes.GetDeleted()[0].GetKey()
 		case *watchv1.WatchEvent_Heartbeat, nil:
 		}
 
