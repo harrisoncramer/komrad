@@ -67,7 +67,7 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 	})
 
 	// Agents on a branch with pull requests, on the base branch, on a read repository with no
-	// pull request, off any forge, and one archived and so out of the live set.
+	// pull request, off any forge, and one archived.
 	api := agentOn(t, st, pipeline.ID, "api", watchedRepository, "agent/api")
 	base := agentOn(t, st, pipeline.ID, "base", watchedRepository, "main")
 	quiet := agentOn(t, st, docs.ID, "quiet", watchedRepository, "agent/quiet")
@@ -132,7 +132,7 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 	require.False(t, seeded.agents[quiet.ID].GetUnreadMail())
 	require.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE, seeded.agents[quiet.ID].GetPullRequest().GetState())
 	require.Equal(t, "d", seeded.marks[docs.ID])
-	require.NotContains(t, seeded.agents, gone.ID)
+	require.NotEmpty(t, seeded.agents[gone.ID].GetAgent().GetArchivedAt(), "the archived agent is watched as archived")
 	require.Len(t, seeded.schedules, 1)
 
 	// The stream opens with the snapshot, applied the way the panel applies it.
@@ -191,7 +191,7 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 				require.NoError(t, err)
 			},
 			took: func(t *testing.T, stores view) {
-				assert.NotContains(t, stores.agents, quiet.ID)
+				assert.NotEmpty(t, stores.agents[quiet.ID].GetAgent().GetArchivedAt())
 			},
 		},
 	}
@@ -233,6 +233,10 @@ func viewFromRPCs(t *testing.T, instance *weavetest.Instance) view {
 	require.NoError(t, err)
 	require.Empty(t, agents.Msg.GetNextPageToken(), "the live set fits one page")
 
+	archived, err := instance.Agents.ListAgents(ctx, connect.NewRequest(&agentv1.ListAgentsRequest{View: viewv1.View_VIEW_FULL, Archived: true}))
+	require.NoError(t, err)
+	require.Empty(t, archived.Msg.GetNextPageToken(), "the archive fits one page")
+
 	marks, err := instance.Agents.ListMarks(ctx, connect.NewRequest(&emptypb.Empty{}))
 	require.NoError(t, err)
 
@@ -243,7 +247,7 @@ func viewFromRPCs(t *testing.T, instance *weavetest.Instance) view {
 	require.NoError(t, err)
 
 	return view{
-		agents:    xslice.KeyBy(agents.Msg.GetAgents(), func(row *agentv1.AgentRow) string { return row.GetAgent().GetId() }),
+		agents:    xslice.KeyBy(slices.Concat(agents.Msg.GetAgents(), archived.Msg.GetAgents()), func(row *agentv1.AgentRow) string { return row.GetAgent().GetId() }),
 		marks:     assemble.Marks(assemble.World{Marks: xslice.KeyBy(marks.Msg.GetMarks(), func(m *agentv1.Mark) string { return m.GetMark() })}),
 		workflows: xslice.KeyBy(workflows.Msg.GetWorkflows(), func(w *workflowv1.Workflow) string { return w.GetId() }),
 		schedules: xslice.KeyBy(schedules.Msg.GetSchedules(), func(s *schedulev1.Schedule) string { return s.GetId() }),
@@ -270,15 +274,18 @@ func viewFromGets(t *testing.T, instance *weavetest.Instance, listed view) view 
 	return got
 }
 
-// worldFromStores reads the live set the way the agent handler reads a page: the live rows,
-// every mark, the unclaimed mail to them, the pull requests on their branches and their
-// workflows, with the live schedules beside them.
+// worldFromStores reads the watched set the way the agent handler reads a page: the live and
+// archived rows, every mark, the unclaimed mail to them, the pull requests on their branches and
+// their workflows, with the live schedules beside them.
 func worldFromStores(t *testing.T, st *storetest.Stores) assemble.World {
 	t.Helper()
 	ctx := t.Context()
 
-	rows, err := st.Rows.ListPage(ctx, rowstore.Page{Limit: 100})
+	live, err := st.Rows.ListPage(ctx, rowstore.Page{Limit: 100})
 	require.NoError(t, err)
+	archived, err := st.Rows.ListPage(ctx, rowstore.Page{Limit: 100, Archived: true})
+	require.NoError(t, err)
+	rows := slices.Concat(live, archived)
 	agentIDs := xslice.Map(rows, func(row rowstore.Row) string { return row.ID })
 
 	marks, err := st.Marks.List(ctx)
