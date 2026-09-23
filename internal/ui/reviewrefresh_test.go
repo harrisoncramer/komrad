@@ -142,14 +142,14 @@ func TestReviewRefreshHoldsOneReadAtATime(t *testing.T) {
 
 	moveReview(&m, "1")
 	require.NotNil(t, m.followReviewCmd())
-	require.True(t, m.review.threads.polling)
+	require.True(t, m.review.threads.reading)
 
 	moveReview(&m, "2")
 	assert.Nil(t, m.followReviewCmd(), "nothing more is asked for while a read is in flight")
 
 	cmd := m.review.update(&m, m.shared(), reviewRefreshedMsg{agentID: "a1"})
 	assert.NotNil(t, cmd, "and the move it missed is read once it lands")
-	assert.True(t, m.review.threads.polling)
+	assert.True(t, m.review.threads.reading)
 }
 
 // moveReview puts the agent under review into the watched world with a new review version.
@@ -215,7 +215,7 @@ func TestReviewRefreshWaitsForTheWatch(t *testing.T) {
 			tt.move(&m)
 			m.followReviewCmd()
 
-			assert.Equal(t, tt.reads, m.review.threads.polling)
+			assert.Equal(t, tt.reads, m.review.threads.reading)
 		})
 	}
 }
@@ -229,11 +229,11 @@ func TestReviewRefreshIsNotTheTick(t *testing.T) {
 	moveReview(&m, "1")
 	m.refreshReviewCmd(time.Now())
 
-	assert.False(t, m.review.threads.polling)
+	assert.False(t, m.review.threads.reading)
 }
 
-// TestReviewRefreshReportsAFailedRead pins that a failed read is said, and read again on the
-// watch's next word.
+// TestReviewRefreshReportsAFailedRead pins that a failed read is said once and read again only
+// on the watch's next batch.
 func TestReviewRefreshReportsAFailedRead(t *testing.T) {
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
@@ -242,10 +242,12 @@ func TestReviewRefreshReportsAFailedRead(t *testing.T) {
 	moveReview(&m, "1")
 	require.NotNil(t, m.followReviewCmd())
 
-	m.review.applyRefreshed(&m, m.shared(), reviewRefreshedMsg{agentID: "a1", err: assert.AnError})
+	cmd := m.review.update(&m, m.shared(), reviewRefreshedMsg{agentID: "a1", err: assert.AnError})
 
 	assert.NotEmpty(t, m.messages.items)
-	assert.NotNil(t, m.followReviewCmd())
+	assert.Nil(t, cmd, "the failure is not read again straight away")
+	assert.False(t, m.review.threads.reading)
+	assert.NotNil(t, m.followReviewCmd(), "the next batch reads it again")
 }
 
 // TestReviewRefreshDrawsAHeldReadOnceInputCloses pins that a read landing while the reader types
@@ -265,7 +267,7 @@ func TestReviewRefreshDrawsAHeldReadOnceInputCloses(t *testing.T) {
 	m.review.update(&m, m.shared(), struct{}{})
 
 	assert.Contains(t, ansi.Strip(m.review.view(m.shared())), "fixed it")
-	assert.False(t, m.review.threads.polling)
+	assert.False(t, m.review.threads.reading)
 }
 
 // TestReviewRefreshStandsDownMidInput pins that the tick does not fire while the reader is
@@ -294,7 +296,7 @@ func TestReviewRefreshStandsDownMidInput(t *testing.T) {
 			tt.start(&m)
 
 			assert.Nil(t, m.refreshReviewCmd(time.Now()))
-			assert.False(t, m.review.threads.polling)
+			assert.False(t, m.review.threads.reading)
 			assert.False(t, m.review.diff.diffPolling)
 		})
 	}

@@ -28,8 +28,10 @@ type reviewThreads struct {
 	// activity is the conversation as it stood when the sidebar was last drawn, which a refresh
 	// compares against so one finding nothing new rebuilds nothing.
 	activity reviewActivity
-	// polling is set while a conversation read is in flight.
-	polling bool
+	// reading is set while a conversation read is in flight.
+	reading bool
+	// failed is set when the last read failed, and holds the next read back until the watch speaks.
+	failed bool
 	// seen is the watch's probe of the review as the conversation was last read against it.
 	seen string
 	// held is a read that landed while the reader was typing, drawn once they stop.
@@ -114,7 +116,7 @@ func (r *reviewScreen) refresh(s panelShared, now time.Time) tea.Cmd {
 
 // follow reads the conversation again when the watch has seen the review move since the last read.
 func (r *reviewScreen) follow(s panelShared) tea.Cmd {
-	if r.diff.view == nil || r.threads.polling {
+	if r.diff.view == nil || r.threads.reading || r.threads.failed {
 		return nil
 	}
 
@@ -124,9 +126,19 @@ func (r *reviewScreen) follow(s panelShared) tea.Cmd {
 	}
 
 	r.threads.seen = probe
-	r.threads.polling = true
+	r.threads.reading = true
 
 	return r.refreshThreadsCmd(s)
+}
+
+// followWatch reads the conversation again after a batch from the watch, retrying a failed read.
+func (r *reviewScreen) followWatch(s panelShared) tea.Cmd {
+	if r.threads.failed {
+		r.threads.failed = false
+		r.threads.seen = ""
+	}
+
+	return r.follow(s)
 }
 
 // catchUp draws a read held back while the reader was typing, then follows the watch.
@@ -200,10 +212,10 @@ func (r *reviewScreen) applyRefreshed(h host, s panelShared, msg reviewRefreshed
 		return
 	}
 
-	r.threads.polling = false
+	r.threads.reading = false
 
 	if msg.err != nil {
-		r.threads.seen = ""
+		r.threads.failed = true
 		h.report("Could not read the review of "+r.agentName, msg.err)
 
 		return

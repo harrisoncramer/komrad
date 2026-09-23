@@ -400,7 +400,7 @@ func (m *model) followReviewCmd() tea.Cmd {
 		return nil
 	}
 
-	return m.review.follow(m.shared())
+	return m.review.followWatch(m.shared())
 }
 
 // reconcileEditor catches the info pane and the review's editor going away on their own.
