@@ -86,13 +86,13 @@ func TestCreateAgentValidation(t *testing.T) {
 			_, err := client.CreateAgent(t.Context(), connect.NewRequest(tt.req))
 			if tt.wantErr {
 				assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
-				assert.Empty(t, launcher.got.Prompt, "a rejected request should never reach the launcher")
+				assert.Empty(t, launcher.created.Prompt, "a rejected request should never reach the launcher")
 
 				return
 			}
 
 			require.NoError(t, err)
-			assert.Equal(t, tt.req.GetPrompt(), launcher.got.Prompt)
+			assert.Equal(t, tt.req.GetPrompt(), launcher.created.Prompt)
 		})
 	}
 }
