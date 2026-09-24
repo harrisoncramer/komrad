@@ -96,7 +96,7 @@ func TestSearchResults(t *testing.T) {
 	t.Run("a query that matched nothing draws no rows", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openSearch(t, searchParams{
+		harness := openSearch(t, openSearchParams{
 			server: &searchServer{},
 			query:  "ledger",
 			rows:   buildSearchable(),
@@ -109,7 +109,7 @@ func TestSearchResults(t *testing.T) {
 		t.Parallel()
 
 		server := newSearchServer(newTurnHit("a2", "payouts", "ledger"))
-		harness := openSearch(t, searchParams{
+		harness := openSearch(t, openSearchParams{
 			server: server,
 			query:  "led",
 			rows:   buildSearchable(),
@@ -143,7 +143,7 @@ func TestSearchResults(t *testing.T) {
 			newTurnHit("a2", "dispatcher", "second"),
 			newTurnHit("a1", "dispatcher", "third"),
 		)
-		harness := openSearch(t, searchParams{
+		harness := openSearch(t, openSearchParams{
 			server: server,
 			query:  "ledger",
 		})
@@ -161,7 +161,7 @@ func TestSearchResults(t *testing.T) {
 		t.Parallel()
 
 		rows := append(buildSearchable(), newArchivedAgent("a3", "billing-old", "w1"))
-		harness := openSearch(t, searchParams{
+		harness := openSearch(t, openSearchParams{
 			server: newSearchServer(newTurnHit("a2", "payouts", "bill")),
 			query:  "BILL",
 			rows:   rows,
@@ -180,7 +180,7 @@ func TestSearchResults(t *testing.T) {
 	t.Run("an agent matched by its name and by a turn is one row carrying the turn", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openSearch(t, searchParams{
+		harness := openSearch(t, openSearchParams{
 			server: newSearchServer(newTurnHit("a1", "billing", "the billing ledger")),
 			query:  "billing",
 			rows:   buildSearchable(),
@@ -214,6 +214,19 @@ func TestSearchResults(t *testing.T) {
 // TestSearchKeys covers what the hits answer once enter has closed the query line.
 func TestSearchKeys(t *testing.T) {
 	t.Parallel()
+
+	t.Run("escape over an empty result puts the keys back in the query line", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openSearch(t, openSearchParams{
+			server: &searchServer{},
+			query:  "ledger",
+		})
+
+		harness.press("enter", "esc")
+
+		assert.Equal(t, "/ ledger"+queryCaret, readSearch(harness.readFrame()))
+	})
 
 	tests := []struct {
 		name        string
@@ -277,7 +290,7 @@ func TestSearchKeys(t *testing.T) {
 				newTurnHit("b", "bravo", "bravo"),
 				newTurnHit("c", "charlie", "charlie"),
 			)
-			harness := openSearch(t, searchParams{
+			harness := openSearch(t, openSearchParams{
 				server: server,
 				query:  "ledger",
 			})
@@ -295,23 +308,10 @@ func TestSearchKeys(t *testing.T) {
 		})
 	}
 
-	t.Run("escape over an empty result puts the keys back in the query line", func(t *testing.T) {
-		t.Parallel()
-
-		harness := openSearch(t, searchParams{
-			server: &searchServer{},
-			query:  "ledger",
-		})
-
-		harness.press("enter", "esc")
-
-		assert.Equal(t, "/ ledger"+queryCaret, readSearch(harness.readFrame()))
-	})
-
 	t.Run("the step off a name hit lands on the conversation below it", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openSearch(t, searchParams{
+		harness := openSearch(t, openSearchParams{
 			server: newSearchServer(newTurnHit("a2", "payouts", "bill")),
 			query:  "bill",
 			rows:   buildSearchable(),
@@ -339,7 +339,7 @@ func TestSearchLiveRow(t *testing.T) {
 		newMark("a", "a1"),
 		newUnreadMail("a1"),
 	}
-	harness := openSearch(t, searchParams{
+	harness := openSearch(t, openSearchParams{
 		server: newSearchServer(newTurnHit("a1", "billing", "first")),
 		query:  "ledger",
 		rows:   rows,
@@ -381,7 +381,7 @@ func TestSearchArchivedRow(t *testing.T) {
 			archived.State = tt.state
 			hit := newTurnHit("a2", "payouts", "second")
 			hit.Archived = true
-			harness := openSearch(t, searchParams{
+			harness := openSearch(t, openSearchParams{
 				server: newSearchServer(hit),
 				query:  "ledger",
 				rows:   []proto.Message{newLiveWorkflow("w1", "core"), archived},
@@ -433,7 +433,7 @@ func TestSearchUnknownRow(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			harness := openSearch(t, searchParams{
+			harness := openSearch(t, openSearchParams{
 				server: newSearchServer(tt.hit),
 				query:  "ledger",
 				rows:   tt.rows,
@@ -545,7 +545,7 @@ func TestSearchCursor(t *testing.T) {
 	t.Run("an agent whose name says the query joining the listing leaves the cursor and its preview", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openSearch(t, searchParams{
+		harness := openSearch(t, openSearchParams{
 			server: newSearchServer(newTurnHit("a2", "payouts", "bill")),
 			query:  "bill",
 			rows:   buildSearchable(),
@@ -562,7 +562,7 @@ func TestSearchCursor(t *testing.T) {
 	t.Run("the hit under the cursor going lands it on what is left and fetches that preview", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openSearch(t, searchParams{
+		harness := openSearch(t, openSearchParams{
 			server: newSearchServer(newTurnHit("a2", "payouts", "bill")),
 			query:  "bill",
 			rows:   buildSearchable(),
@@ -580,6 +580,28 @@ func TestSearchCursor(t *testing.T) {
 // TestSearchPreview covers the transcript the search draws beside its hits.
 func TestSearchPreview(t *testing.T) {
 	t.Parallel()
+
+	t.Run("a window too narrow for both halves draws the hits alone", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openPreview(t, panelHarnessParams{width: 69})
+
+		frame := harness.readFrame()
+		assert.Contains(t, frame, "billing")
+		assert.NotContains(t, frame, matchedTurn)
+	})
+
+	t.Run("a hit whose conversation has not been written says so", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openSearch(t, openSearchParams{
+			server: newSearchServer(newTurnHit("a1", "billing", "reconcile")),
+			query:  "reconcile",
+			rows:   buildSearchable(),
+		})
+
+		assert.Contains(t, readStageText(harness.readFrame()), "no transcript yet")
+	})
 
 	t.Run("the search takes the window and hands it back on the way out", func(t *testing.T) {
 		t.Parallel()
@@ -620,28 +642,6 @@ func TestSearchPreview(t *testing.T) {
 		harness := openPreview(t, panelHarnessParams{sidebarSide: config.SidebarSideRight})
 
 		assert.True(t, strings.HasPrefix(strings.TrimLeft(splitLines(harness.readFrame())[0], " "), "line"))
-	})
-
-	t.Run("a window too narrow for both halves draws the hits alone", func(t *testing.T) {
-		t.Parallel()
-
-		harness := openPreview(t, panelHarnessParams{width: 69})
-
-		frame := harness.readFrame()
-		assert.Contains(t, frame, "billing")
-		assert.NotContains(t, frame, matchedTurn)
-	})
-
-	t.Run("a hit whose conversation has not been written says so", func(t *testing.T) {
-		t.Parallel()
-
-		harness := openSearch(t, searchParams{
-			server: newSearchServer(newTurnHit("a1", "billing", "reconcile")),
-			query:  "reconcile",
-			rows:   buildSearchable(),
-		})
-
-		assert.Contains(t, readStageText(harness.readFrame()), "no transcript yet")
 	})
 
 	t.Run("a resize squares off every row at the new width", func(t *testing.T) {
@@ -704,7 +704,7 @@ func TestSearchPreview(t *testing.T) {
 		t.Parallel()
 
 		content, offset, length := buildTranscript()
-		harness := openSearch(t, searchParams{
+		harness := openSearch(t, openSearchParams{
 			server: &searchServer{
 				pages: map[string]*agentv1.SearchTranscriptsResponse{"": {Matches: []*agentv1.SearchHit{
 					newMatchHit("a1", 0, 0),
@@ -728,7 +728,7 @@ func TestSearchPreview(t *testing.T) {
 		content, offset, length := buildTranscript()
 		early := newMatchHit("a1", int64(strings.Index(content, "line 3 of the conversation before")), length)
 		early.Snippet = paint.MarkOpen + "conversation" + paint.MarkClose
-		harness := openSearch(t, searchParams{
+		harness := openSearch(t, openSearchParams{
 			server: &searchServer{
 				pages: map[string]*agentv1.SearchTranscriptsResponse{"": {Matches: []*agentv1.SearchHit{
 					newMatchHit("a1", offset, length),
@@ -763,7 +763,7 @@ func TestSearchPreview(t *testing.T) {
 		laterPayouts := newMatchHit("a2", early, length)
 		laterPayouts.Seq = 2
 		laterPayouts.Snippet = laterBilling.Snippet
-		harness := openSearch(t, searchParams{
+		harness := openSearch(t, openSearchParams{
 			server: &searchServer{
 				pages: map[string]*agentv1.SearchTranscriptsResponse{
 					"": {
@@ -814,14 +814,14 @@ func TestSearchPreview(t *testing.T) {
 	})
 }
 
-type searchParams struct {
+type openSearchParams struct {
 	harness panelHarnessParams
 	server  *searchServer
 	query   string
 	rows    []proto.Message
 }
 
-func openSearch(t *testing.T, params searchParams) *panelHarness {
+func openSearch(t *testing.T, params openSearchParams) *panelHarness {
 	t.Helper()
 
 	harness := newPanelHarness(t, params.harness)
@@ -848,7 +848,7 @@ func openPreview(t *testing.T, params panelHarnessParams) *panelHarness {
 		transcripts: map[string]string{"a1": content},
 	}
 
-	return openSearch(t, searchParams{
+	return openSearch(t, openSearchParams{
 		harness: params,
 		server:  server,
 		query:   "reconcile",

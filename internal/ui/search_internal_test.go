@@ -16,10 +16,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func marked(s string) string {
-	return paint.MarkOpen + s + paint.MarkClose
-}
-
 // TestHitSpansCoverTheHoveredTurn covers the turn a highlight is measured from, which is the turn
 // the hit names and not the whole transcript.
 func TestHitSpansCoverTheHoveredTurn(t *testing.T) {
@@ -54,7 +50,7 @@ func TestHitSpansCoverTheHoveredTurn(t *testing.T) {
 				agentID: "a1",
 				offset:  tt.offset,
 				length:  int64(len("beta reconcile two")),
-				snippet: marked("reconcile"),
+				snippet: markText("reconcile"),
 			}
 
 			assert.Equal(t, tt.want, hit.spans(content))
@@ -79,13 +75,13 @@ func TestAgentSpansCoverEveryTurn(t *testing.T) {
 				agentID: "a1",
 				offset:  turnAt,
 				length:  int64(len("beta reconcile two")),
-				snippet: marked("reconcile"),
+				snippet: markText("reconcile"),
 			},
 			{
 				agentID: "a1",
 				offset:  0,
 				length:  int64(len("alpha reconcile one")),
-				snippet: marked("reconcile"),
+				snippet: markText("reconcile"),
 			},
 		},
 	}
@@ -94,18 +90,6 @@ func TestAgentSpansCoverEveryTurn(t *testing.T) {
 		{Start: first, End: first + len("reconcile")},
 		{Start: second, End: second + len("reconcile")},
 	}, agent.spans(content))
-}
-
-func hits(names ...string) []searchHit {
-	out := xslice.Map(names, func(name string) searchHit {
-		return searchHit{
-			agentID: name,
-			name:    name,
-			snippet: name,
-		}
-	})
-
-	return out
 }
 
 // TestSearchTellsAHiddenHitFromAnArchivedOne pins the screen where the two used to draw alike:
@@ -162,9 +146,9 @@ func TestSearchTellsAHiddenHitFromAnArchivedOne(t *testing.T) {
 		},
 	})
 
-	built, _ := searchRows(m)
+	built, _ := buildSearchRows(m)
 	rows := xslice.Map([]string{"running", "dormant", "put-away"}, func(name string) view.Row {
-		return searchRowNamed(t, built, name)
+		return findSearchRow(t, built, name)
 	})
 
 	list := view.Prepare(view.Snapshot{Rows: rows, Columns: view.NoColumns()})
@@ -180,35 +164,6 @@ func TestSearchTellsAHiddenHitFromAnArchivedOne(t *testing.T) {
 
 	assert.Equal(t, view.EmphasisDim, archived.Emphasis, "an archived agent is dim")
 	assert.True(t, archived.Hidden.IsBlank(), "and carries no hidden mark, hidden before it was put away or not")
-}
-
-// searchRows is the rows the screen built for the agents it found, and the same rows drawn.
-func searchRows(m model) ([]view.Row, []string) {
-	pane := m.paneWidth()
-	snapshot := m.search.snapshot(m.shared(), m.search.rows(m.shared()), m.listPane(pane))
-
-	return snapshot.Rows, view.Rows(view.Prepare(snapshot), paint.Panel, pane)
-}
-
-// searchRowNamed is the row the screen built for the agent of that name.
-func searchRowNamed(t *testing.T, rows []view.Row, name string) view.Row {
-	t.Helper()
-
-	for _, row := range rows {
-		if row.Name == name {
-			return row
-		}
-	}
-
-	t.Fatalf("no row for %q", name)
-
-	return view.Row{}
-}
-
-// drawnLines is the screen as View hands it to bubbletea, which trims the newline the last row
-// carries before the pane is asked to hold it.
-func drawnLines(view string) []string {
-	return strings.Split(strings.TrimRight(ansi.Strip(view), "\n"), "\n")
 }
 
 // TestNameMatches covers where a name is marked, which is the query as the name spells it rather
@@ -240,19 +195,19 @@ func TestFlattenSnippet(t *testing.T) {
 		},
 		{
 			name:        "newlines and runs of spaces are one space",
-			snippet:     "the\n\n  " + marked("ledger") + "\tis   here",
+			snippet:     "the\n\n  " + markText("ledger") + "\tis   here",
 			wantText:    "the ledger is here",
 			wantMatches: []view.Span{{Start: 4, End: 10}},
 		},
 		{
 			name:        "two matches",
-			snippet:     marked("pgx") + " and " + marked("pool"),
+			snippet:     markText("pgx") + " and " + markText("pool"),
 			wantText:    "pgx and pool",
 			wantMatches: []view.Span{{Start: 0, End: 3}, {Start: 8, End: 12}},
 		},
 		{
 			name:        "a match in bytes rather than runes",
-			snippet:     "café " + marked("ledger"),
+			snippet:     "café " + markText("ledger"),
 			wantText:    "café ledger",
 			wantMatches: []view.Span{{Start: 6, End: 12}},
 		},
@@ -344,4 +299,49 @@ func TestSearchForgetsAPageInFlight(t *testing.T) {
 	})
 
 	assert.False(t, m.search.paging)
+}
+
+func markText(text string) string {
+	return paint.MarkOpen + text + paint.MarkClose
+}
+
+// buildSearchRows is the rows the screen built for the agents it found, and the same rows drawn.
+func buildSearchRows(m model) ([]view.Row, []string) {
+	pane := m.paneWidth()
+	snapshot := m.search.snapshot(m.shared(), m.search.rows(m.shared()), m.listPane(pane))
+
+	return snapshot.Rows, view.Rows(view.Prepare(snapshot), paint.Panel, pane)
+}
+
+// findSearchRow is the row the screen built for the agent of that name.
+func findSearchRow(t *testing.T, rows []view.Row, name string) view.Row {
+	t.Helper()
+
+	for _, row := range rows {
+		if row.Name == name {
+			return row
+		}
+	}
+
+	t.Fatalf("no row for %q", name)
+
+	return view.Row{}
+}
+
+func hits(names ...string) []searchHit {
+	out := xslice.Map(names, func(name string) searchHit {
+		return searchHit{
+			agentID: name,
+			name:    name,
+			snippet: name,
+		}
+	})
+
+	return out
+}
+
+// drawnLines is the screen as View hands it to bubbletea, which trims the newline the last row
+// carries before the pane is asked to hold it.
+func drawnLines(view string) []string {
+	return strings.Split(strings.TrimRight(ansi.Strip(view), "\n"), "\n")
 }

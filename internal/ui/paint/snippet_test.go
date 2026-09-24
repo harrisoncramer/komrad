@@ -53,12 +53,12 @@ func TestMarkedTerms(t *testing.T) {
 		},
 		{
 			name: "every marked word is named once",
-			in:   "the " + marked("Sandbox") + " and the " + marked("sandbox") + " and " + marked("tenant"),
+			in:   "the " + markText("Sandbox") + " and the " + markText("sandbox") + " and " + markText("tenant"),
 			want: []string{"sandbox", "tenant"},
 		},
 		{
 			name: "a word with a capital outside ASCII keeps it, since the transcript is folded the same way",
-			in:   marked("Ökonomie"),
+			in:   markText("Ökonomie"),
 			want: []string{"Ökonomie"},
 		},
 		{
@@ -204,13 +204,13 @@ func TestMatchSpansMarksWholeWords(t *testing.T) {
 func TestMatchSpansFoldsLikeTheTermsDo(t *testing.T) {
 	const content = "the Ökonomie report"
 
-	terms := MarkedTerms("the " + marked("Ökonomie") + " report")
+	terms := MarkedTerms("the " + markText("Ökonomie") + " report")
 	word := strings.Index(content, "Ökonomie")
 
 	assert.Equal(t, []Span{{Start: word, End: word + len("Ökonomie")}},
 		MatchSpans(content, 0, int64(len(content)), terms))
 }
 
-func marked(s string) string {
-	return MarkOpen + s + MarkClose
+func markText(text string) string {
+	return MarkOpen + text + MarkClose
 }

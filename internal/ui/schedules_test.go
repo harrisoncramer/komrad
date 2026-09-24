@@ -213,6 +213,10 @@ func TestSchedulesDocument(t *testing.T) {
 		wantAbsent []string
 	}{
 		{
+			name:      "an empty list says how to write one",
+			wantDrawn: []string{"A schedule launches an agent on a cron expression."},
+		},
+		{
 			name:       "a paused schedule says it will not run",
 			schedule:   newPausedSchedule("s1", "nightly"),
 			wantDrawn:  []string{"nightly", "paused — will not run"},
@@ -234,12 +238,6 @@ func TestSchedulesDocument(t *testing.T) {
 			wantDrawn: []string{"never fired", "check CI"},
 		},
 		{
-			name:       "an armed schedule leads with when it next fires",
-			schedule:   armed,
-			wantDrawn:  []string{"morning-ci", "next run", "check CI"},
-			wantAbsent: []string{"paused"},
-		},
-		{
 			name:     "each run reads as its outcome, a skip giving its reason and a failure its error",
 			schedule: flaky,
 			wantDrawn: []string{
@@ -250,11 +248,21 @@ func TestSchedulesDocument(t *testing.T) {
 			},
 			wantAbsent: []string{"an earlier attempt's error"},
 		},
+		{
+			name:       "an armed schedule leads with when it next fires",
+			schedule:   armed,
+			wantDrawn:  []string{"morning-ci", "next run", "check CI"},
+			wantAbsent: []string{"paused"},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := openSchedules(t, newLiveWorkflow("w1", "api"), tt.schedule)
+			rows := []proto.Message{newLiveWorkflow("w1", "api")}
+			if tt.schedule != nil {
+				rows = append(rows, tt.schedule)
+			}
+			harness := openSchedules(t, rows...)
 
 			document := readStageText(harness.readFrame())
 			for _, drawn := range tt.wantDrawn {
@@ -265,12 +273,6 @@ func TestSchedulesDocument(t *testing.T) {
 			}
 		})
 	}
-
-	t.Run("an empty list says how to write one", func(t *testing.T) {
-		harness := openSchedules(t)
-
-		assert.Contains(t, readStageText(harness.readFrame()), "A schedule launches an agent on a cron expression.")
-	})
 }
 
 // TestSchedulesRecord covers the fields the record under the list draws for a schedule.

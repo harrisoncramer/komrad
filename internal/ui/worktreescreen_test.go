@@ -303,6 +303,19 @@ func TestWorktreesDeleteAnswer(t *testing.T) {
 func TestWorktreesRecord(t *testing.T) {
 	t.Parallel()
 
+	t.Run("a directory git cannot read names its repository and no agent", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openWorktrees(t)
+		moveToWorktree(t, harness, "broken")
+		harness.press(widenListPresses...)
+
+		frame := harness.readFrame()
+		assert.Equal(t, "/var/folders/T/repo", readRecordField(frame, "repository"))
+		assert.Equal(t, "none", readRecordField(frame, "agent"))
+		assert.Empty(t, readRecordField(frame, "branch"))
+	})
+
 	t.Run("the listing names the agent through the list that holds it", func(t *testing.T) {
 		t.Parallel()
 
@@ -339,19 +352,6 @@ func TestWorktreesRecord(t *testing.T) {
 		assert.Equal(t, "origin/main  ↑2 ↓12", readRecordField(frame, "base"))
 		assert.Equal(t, "1 modified, 2 untracked", readRecordField(frame, "changes"))
 	})
-
-	t.Run("a directory git cannot read names its repository and no agent", func(t *testing.T) {
-		t.Parallel()
-
-		harness := openWorktrees(t)
-		moveToWorktree(t, harness, "broken")
-		harness.press(widenListPresses...)
-
-		frame := harness.readFrame()
-		assert.Equal(t, "/var/folders/T/repo", readRecordField(frame, "repository"))
-		assert.Equal(t, "none", readRecordField(frame, "agent"))
-		assert.Empty(t, readRecordField(frame, "branch"))
-	})
 }
 
 // TestWorktreesRecordActivity covers the record saying what a directory takes and when it was last active.
@@ -366,8 +366,12 @@ func TestWorktreesRecordActivity(t *testing.T) {
 		wantLastActive string
 	}{
 		{
-			name:           "nothing measured and nothing touched",
-			worktree:       &worktreev1.WatchedWorktree{Dir: "/trees/orphan", Readable: true, Branch: "agent/orphan"},
+			name: "nothing measured and nothing touched",
+			worktree: &worktreev1.WatchedWorktree{
+				Dir:      "/trees/orphan",
+				Readable: true,
+				Branch:   "agent/orphan",
+			},
 			row:            "agent/orphan",
 			wantSize:       "—",
 			wantLastActive: "—",
@@ -378,9 +382,9 @@ func TestWorktreesRecordActivity(t *testing.T) {
 				Dir:        "/trees/orphan",
 				Readable:   true,
 				Branch:     "agent/orphan",
-				MeasuredAt: proto.String(stampAgo(5 * time.Minute)),
+				MeasuredAt: proto.String(formatStampAgo(5 * time.Minute)),
 				SizeError:  "permission denied",
-				ModifiedAt: stampAgo(90 * time.Minute),
+				ModifiedAt: formatStampAgo(90 * time.Minute),
 			},
 			row:            "agent/orphan",
 			wantSize:       "—, could not measure: permission denied",
@@ -393,7 +397,7 @@ func TestWorktreesRecordActivity(t *testing.T) {
 				Readable:   true,
 				Branch:     "agent/archived",
 				SizeBytes:  proto.Int64(49 * 1024 * 1024),
-				MeasuredAt: proto.String(stampAgo(5 * time.Minute)),
+				MeasuredAt: proto.String(formatStampAgo(5 * time.Minute)),
 			},
 			row:            "reviewer",
 			wantSize:       "49M, measured 5m ago",
@@ -406,7 +410,7 @@ func TestWorktreesRecordActivity(t *testing.T) {
 			t.Parallel()
 
 			rows := buildWorktrees()
-			rows[3].(*agentv1.Agent).ArchivedAt = proto.String(stampAgo(4 * 24 * time.Hour))
+			rows[3].(*agentv1.Agent).ArchivedAt = proto.String(formatStampAgo(4 * 24 * time.Hour))
 			harness := openWorktrees(t, rows...)
 			harness.watch(buildPuts(tt.worktree))
 			moveToWorktree(t, harness, tt.row)
@@ -426,6 +430,7 @@ func TestWorktreesRecordOccupants(t *testing.T) {
 	tests := []struct {
 		name      string
 		row       string
+		dir       string
 		occupants []string
 		want      string
 		wantAfter string
@@ -433,10 +438,20 @@ func TestWorktreesRecordOccupants(t *testing.T) {
 		{
 			name: "none is left out",
 			row:  "treeview",
+			dir:  "/trees/live",
+		},
+		{
+			name:      "an unreadable directory names them after its repository",
+			row:       "broken",
+			dir:       "/trees/broken",
+			occupants: []string{"review-607"},
+			want:      "review-607",
+			wantAfter: "repository",
 		},
 		{
 			name:      "one is named after the repository",
 			row:       "treeview",
+			dir:       "/trees/live",
 			occupants: []string{"review-607"},
 			want:      "review-607",
 			wantAfter: "repository",
@@ -444,15 +459,9 @@ func TestWorktreesRecordOccupants(t *testing.T) {
 		{
 			name:      "two are named in order",
 			row:       "treeview",
+			dir:       "/trees/live",
 			occupants: []string{"second-reader", "review-607"},
 			want:      "review-607, second-reader",
-			wantAfter: "repository",
-		},
-		{
-			name:      "an unreadable directory names them after its repository",
-			row:       "broken",
-			occupants: []string{"review-607"},
-			want:      "review-607",
 			wantAfter: "repository",
 		},
 	}
@@ -463,13 +472,9 @@ func TestWorktreesRecordOccupants(t *testing.T) {
 
 			all := buildWorktrees()
 			rows := []proto.Message{all[0], all[1], all[3], all[4]}
-			dir := "/trees/live"
-			if tt.row == "broken" {
-				dir = "/trees/broken"
-			}
 			for i, name := range tt.occupants {
 				occupant := newAgent(fmt.Sprintf("occ%d", i), name, "w1")
-				occupant.Cwd = dir
+				occupant.Cwd = tt.dir
 				rows = append(rows, occupant)
 			}
 			rows = append(rows, buildWatchedWorktrees()...)
@@ -490,6 +495,40 @@ func TestWorktreesRecordOccupants(t *testing.T) {
 // TestWorktreesDocument covers the document drawn beside the list.
 func TestWorktreesDocument(t *testing.T) {
 	t.Parallel()
+
+	t.Run("a read git refused is drawn rather than asked again", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openWorktrees(t)
+		harness.refuse(worktreev1connect.WorktreeServiceGetWorktreeProcedure, connect.NewError(connect.CodeInternal, errors.New("git exploded")))
+		moveToWorktree(t, harness, "agent/orphan")
+		harness.fireTimers()
+		asked := len(harness.readSent(worktreev1connect.WorktreeServiceGetWorktreeProcedure))
+
+		harness.watch(buildPuts(newMeasuredWorktree("/trees/admin", 1024)))
+
+		assert.Contains(t, readStageText(harness.readFrame()), "git exploded")
+		assert.Len(t, harness.readSent(worktreev1connect.WorktreeServiceGetWorktreeProcedure), asked)
+	})
+
+	t.Run("a reread refused keeps the last answer beside the refusal", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openWorktrees(t)
+		harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(&worktreev1.GetWorktreeResponse{
+			Worktree: &worktreev1.Worktree{Dir: "/trees/live"},
+			BaseRef:  "origin/main",
+		}))
+		harness.fireTimers()
+		harness.refuse(worktreev1connect.WorktreeServiceGetWorktreeProcedure, connect.NewError(connect.CodeInternal, errors.New("git exploded")))
+
+		harness.press("j", "k")
+		harness.fireTimers()
+
+		document := readStageText(harness.readFrame())
+		assert.Contains(t, document, "could not read: git exploded")
+		assert.Contains(t, document, "Commits since origin/main")
+	})
 
 	entries := []*worktreev1.Entry{
 		{
@@ -522,7 +561,7 @@ func TestWorktreesDocument(t *testing.T) {
 			Commits: []*worktreev1.Commit{{
 				Sha:         "87a3bcc98c47",
 				Subject:     "fix(view): drop the column",
-				CommittedAt: stampAgo(2 * time.Hour),
+				CommittedAt: formatStampAgo(2 * time.Hour),
 			}},
 		}))
 		harness.fireTimers()
@@ -539,39 +578,6 @@ func TestWorktreesDocument(t *testing.T) {
 		} {
 			assert.Contains(t, document, want)
 		}
-	})
-
-	t.Run("a read git refused is drawn rather than asked again", func(t *testing.T) {
-		t.Parallel()
-
-		harness := openWorktrees(t)
-		harness.refuse(worktreev1connect.WorktreeServiceGetWorktreeProcedure, connect.NewError(connect.CodeInternal, errors.New("git exploded")))
-		moveToWorktree(t, harness, "agent/orphan")
-		harness.fireTimers()
-		asked := len(harness.readSent(worktreev1connect.WorktreeServiceGetWorktreeProcedure))
-
-		harness.watch(buildPuts(newMeasuredWorktree("/trees/admin", 1024)))
-
-		assert.Contains(t, readStageText(harness.readFrame()), "git exploded")
-		assert.Len(t, harness.readSent(worktreev1connect.WorktreeServiceGetWorktreeProcedure), asked)
-	})
-	t.Run("a reread refused keeps the last answer beside the refusal", func(t *testing.T) {
-		t.Parallel()
-
-		harness := openWorktrees(t)
-		harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(&worktreev1.GetWorktreeResponse{
-			Worktree: &worktreev1.Worktree{Dir: "/trees/live"},
-			BaseRef:  "origin/main",
-		}))
-		harness.fireTimers()
-		harness.refuse(worktreev1connect.WorktreeServiceGetWorktreeProcedure, connect.NewError(connect.CodeInternal, errors.New("git exploded")))
-
-		harness.press("j", "k")
-		harness.fireTimers()
-
-		document := readStageText(harness.readFrame())
-		assert.Contains(t, document, "could not read: git exploded")
-		assert.Contains(t, document, "Commits since origin/main")
 	})
 }
 
@@ -682,7 +688,7 @@ func newMeasuredWorktree(dir string, size int64) *worktreev1.WatchedWorktree {
 		worktree, _ := row.(*worktreev1.WatchedWorktree)
 		if worktree.GetDir() == dir {
 			worktree.SizeBytes = proto.Int64(size)
-			worktree.MeasuredAt = proto.String(stampAgo(time.Minute))
+			worktree.MeasuredAt = proto.String(formatStampAgo(time.Minute))
 
 			return worktree
 		}
@@ -709,7 +715,7 @@ func readHoveredWorktree(frame string) string {
 	return strings.TrimSpace(readHoveredRow(frame))
 }
 
-func stampAgo(ago time.Duration) string {
+func formatStampAgo(ago time.Duration) string {
 	return time.Now().Add(-ago).UTC().Format(time.RFC3339)
 }
 
