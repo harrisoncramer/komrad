@@ -104,14 +104,12 @@ func TestIntegrationOrchestrator(t *testing.T) {
 		instance.WaitForHarness(silent.GetId())
 		archiveAgent(t, instance, silent.GetId())
 
-		stored, err := instance.Stores.Agents.GetByID(ctx, silent.GetId())
-		require.NoError(t, err)
-		require.NoError(t, os.Remove(instance.Harness.LogPath(stored.SessionID)))
+		require.NoError(t, os.Remove(instance.Harness.LogPath(silent.GetSessionId())))
 
 		fresh := startOrchestrator(t, instance, otherID)
 		assert.NotEqual(t, silent.GetId(), fresh.GetId())
 
-		_, err = instance.Agents.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: silent.GetId()}))
+		_, err := instance.Agents.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: silent.GetId()}))
 		assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err), "the one that never ran is gone")
 	})
 }

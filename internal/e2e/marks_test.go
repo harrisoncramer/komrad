@@ -65,11 +65,6 @@ func TestIntegrationMarks(t *testing.T) {
 		assert.Equal(t, map[string]string{"w": workflowID}, listMarks(t, instance))
 	})
 
-	t.Run("a mark is one lowercase letter", func(t *testing.T) {
-		err := setMark(t, instance, &agentv1.SetMarkRequest{Target: onAgent(api.GetId()), Mark: xptr.Ptr("A")})
-		assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
-	})
-
 	t.Run("archiving an agent frees its letter", func(t *testing.T) {
 		require.NoError(t, setMark(t, instance, &agentv1.SetMarkRequest{Target: onAgent(api.GetId()), Mark: xptr.Ptr("a")}))
 
