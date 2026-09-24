@@ -4,27 +4,29 @@ import { link } from "../../site";
 ---
 
 <figure class="splash">
-  <picture>
-    <source media="(max-width: 767.98px)" srcset={link("/splash/splash-960.webp")} />
-    <img
-      src={link("/splash/splash.webp")}
-      alt="The weave panel: a list of agents grouped by project beside a live Claude session."
-      width="1920"
-      height="930"
-      fetchpriority="high"
-      decoding="async"
-    />
-  </picture>
-  <video
-    muted
-    loop
-    playsinline
-    preload="none"
-    aria-hidden="true"
-    data-webm={link("/splash/splash.webm")}
-    data-mp4={link("/splash/splash.mp4")}
-  ></video>
-  <div class="scrim" aria-hidden="true"></div>
+  <div class="media">
+    <picture>
+      <source media="(max-width: 767.98px)" srcset={link("/splash/splash-960.webp")} />
+      <img
+        src={link("/splash/splash.webp")}
+        alt="The weave panel: a list of agents grouped by project beside a live Claude session."
+        width="1920"
+        height="930"
+        fetchpriority="high"
+        decoding="async"
+      />
+    </picture>
+    <video
+      muted
+      loop
+      playsinline
+      preload="none"
+      aria-hidden="true"
+      data-webm={link("/splash/splash.webm")}
+      data-mp4={link("/splash/splash.mp4")}
+    ></video>
+    <div class="scrim" aria-hidden="true"></div>
+  </div>
   <div class="overlay">
     <h1>A terminal-based agent manager</h1>
     <p>
@@ -48,6 +50,10 @@ import { link } from "../../site";
   .splash {
     @apply relative mx-auto mt-6 w-full max-w-[1920px] overflow-hidden md:mt-10;
     aspect-ratio: 1920 / 930;
+  }
+
+  .media {
+    @apply absolute inset-0;
     mask-image:
       linear-gradient(to right, transparent, #000 5%, #000 95%, transparent),
       linear-gradient(to bottom, transparent, #000 10%, #000 55%, transparent);
@@ -57,6 +63,9 @@ import { link } from "../../site";
   @media (max-width: 767.98px) {
     .splash {
       aspect-ratio: 1 / 1;
+    }
+
+    .media {
       mask-image:
         linear-gradient(to right, #000 70%, transparent),
         linear-gradient(to bottom, transparent, #000 8%, #000 60%, transparent);
@@ -78,7 +87,17 @@ import { link } from "../../site";
 
   .scrim {
     @apply absolute inset-0;
-    background: radial-gradient(ellipse 45% 55% at 50% 45%, rgba(8, 13, 26, 0.72), rgba(8, 13, 26, 0.25) 75%);
+    background:
+      radial-gradient(ellipse 30% 30% at 50% 50%, rgba(8, 13, 26, 0.8), rgba(8, 13, 26, 0) 100%),
+      radial-gradient(ellipse 55% 65% at 50% 50%, rgba(8, 13, 26, 0.55), rgba(8, 13, 26, 0.3) 80%);
+  }
+
+  @media (max-width: 767.98px) {
+    .scrim {
+      background:
+        radial-gradient(ellipse 70% 45% at 50% 50%, rgba(8, 13, 26, 0.85), rgba(8, 13, 26, 0) 100%),
+        rgba(8, 13, 26, 0.35);
+    }
   }
 
   .overlay {
@@ -86,7 +105,11 @@ import { link } from "../../site";
   }
 
   .overlay h1 {
-    @apply text-2xl leading-tight font-semibold tracking-tight text-app-white md:text-4xl;
+    @apply text-2xl leading-tight font-semibold tracking-tight md:text-4xl;
+    background: linear-gradient(to bottom, #fff 35%, var(--color-app-gray-light));
+    background-clip: text;
+    color: transparent;
+    filter: drop-shadow(0 0 18px rgba(158, 196, 255, 0.35));
   }
 
   .overlay p {
