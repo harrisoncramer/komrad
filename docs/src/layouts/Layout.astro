@@ -1,6 +1,7 @@
 ---
 import "@fontsource/lora";
 import "@fontsource/playfair-display";
+import "@fontsource/jetbrains-mono";
 import "../styles/global.css";
 
 import Header from "../components/Header";
@@ -25,13 +26,13 @@ const pageTitle = title === SITE_TITLE ? title : `${title} | ${SITE_TITLE}`;
     <link rel="icon" type="image/png" href="/weave.png" />
     <title>{pageTitle}</title>
   </head>
-  <body class="min-h-screen">
-    <Header client:load>
+  <body>
+    <Header client:load path={Astro.url.pathname}>
       <Search />
     </Header>
-    <div class="flex max-w-6xl mx-auto">
+    <div class="mx-auto flex max-w-[1200px] gap-10 px-6 py-6">
       <Sidebar />
-      <main class="flex-1 min-w-0 p-6">
+      <main class="min-w-0 max-w-[900px] flex-1">
         <slot />
       </main>
     </div>

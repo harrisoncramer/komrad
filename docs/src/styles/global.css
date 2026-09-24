@@ -4,7 +4,29 @@
   --font-sans: Helvetica, sans-serif;
   --font-playfair: "Playfair Display", serif;
   --font-lora: Lora, serif;
+  --font-mono: "JetBrains Mono", monospace;
 
+  --text-*: initial;
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-tiny: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.55rem;
+  --text-2xl: 1.8rem;
+  --text-3xl: 2rem;
+  --text-4xl: 2.25rem;
+  --text-5xl: 3rem;
+  --text-6xl: 4rem;
+  --text-7xl: 5rem;
+
+  --breakpoint-*: initial;
+  --breakpoint-sm: 480px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 976px;
+  --breakpoint-xl: 1440px;
+
+  --color-transparent: transparent;
   --color-app-blue: #9ec4ff;
   --color-app-white: #ffffff;
   --color-app-black: #0d0d0d;
@@ -13,6 +35,11 @@
   --color-app-background-medium-dark: #1e1e1e;
   --color-app-background-light: #242424;
   --color-app-gray: #c9d1d9;
+  --color-app-gray-light: #b0b8c0;
+  --color-app-gray-dim: #888888;
+
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --shadow-3xl: 0 35px 60px -15px rgba(0, 0, 0, 0.3);
 }
 
 @layer base {
@@ -20,11 +47,49 @@
     @apply bg-app-blue text-app-black;
   }
 
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(158, 196, 255, 0.2) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background-color: rgba(158, 196, 255, 0.2);
+    border-radius: 3px;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(158, 196, 255, 0.35);
+  }
+
   html,
   body {
-    @apply bg-app-background-dark text-app-white;
-    background-image: url("/fabric-dark.png");
-    background-repeat: repeat;
+    @apply min-h-screen bg-app-background-dark text-app-white;
+    background-image:
+      radial-gradient(
+        ellipse at 50% 50%,
+        transparent 0%,
+        rgba(0, 0, 0, 0.02) 15%,
+        rgba(0, 0, 0, 0.05) 25%,
+        rgba(0, 0, 0, 0.08) 35%,
+        rgba(0, 0, 0, 0.12) 45%,
+        rgba(0, 0, 0, 0.17) 55%,
+        rgba(0, 0, 0, 0.22) 65%,
+        rgba(0, 0, 0, 0.28) 75%,
+        rgba(0, 0, 0, 0.34) 85%,
+        rgba(0, 0, 0, 0.4) 100%
+      ),
+      url("/fabric-dark.png");
+    background-attachment: fixed, scroll;
+    background-repeat: no-repeat, repeat;
   }
 
   h1,
@@ -36,7 +101,13 @@
   }
 
   h1 {
-    font-size: 2.25em;
+    font-size: 2em;
+  }
+
+  @media only screen and (min-width: 875px) {
+    h1 {
+      font-size: 2.75em;
+    }
   }
 
   h2 {
@@ -44,36 +115,60 @@
   }
 
   h3 {
+    font-size: 1.6em;
+  }
+
+  h4 {
     font-size: 1.5em;
   }
 
   p,
   li {
+    font-size: 1.05em;
     font-family: var(--font-lora);
-    font-size: 1.1em;
   }
 
   a {
-    @apply text-app-blue;
+    color: #9ec4ff;
   }
 }
 
-.doc-content {
-  @apply flex flex-col gap-6 mb-24;
+.astro-code {
+  position: relative;
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  font-family: var(--font-mono);
+  font-size: 0.9em;
 }
 
-.doc-content ul li {
-  @apply list-disc ml-6;
+.code-block {
+  position: relative;
 }
 
-.doc-content ol li {
-  @apply list-decimal ml-6;
+.code-copy-btn {
+  position: absolute;
+  bottom: 8px;
+  right: 12px;
+  padding: 2px 10px;
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
+  color: rgba(158, 196, 255, 0.5);
+  background: transparent;
+  border: 1px solid rgba(158, 196, 255, 0.15);
+  border-radius: 4px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
 }
 
-.doc-content pre {
-  @apply p-4 overflow-auto rounded-sm;
+.code-block:hover .code-copy-btn {
+  opacity: 1;
 }
 
-.doc-content :not(pre) > code {
-  @apply bg-app-background-medium px-1 rounded-sm;
+.code-copy-btn:hover {
+  color: rgba(158, 196, 255, 0.8);
+  border-color: rgba(158, 196, 255, 0.3);
 }

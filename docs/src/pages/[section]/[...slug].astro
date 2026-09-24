@@ -20,6 +20,6 @@ const { page } = Astro.props;
 const { Content } = await render(page);
 ---
 
-<DocPage title={page.data.title} description={page.data.description}>
+<DocPage title={page.data.title} description={page.data.description} filePath={page.filePath}>
   <Content />
 </DocPage>

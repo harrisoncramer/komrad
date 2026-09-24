@@ -15,16 +15,18 @@ const pages = await getPages(section.id);
 ---
 
 <Layout title={section.title}>
-  <h1 class="mb-8">{section.title}</h1>
+  <h1 class="mb-8 leading-tight">{section.title}</h1>
   {
     pages.length === 0 ? (
-      <p class="text-app-gray">Nothing here yet.</p>
+      <p class="text-app-gray-dim">Nothing here yet.</p>
     ) : (
-      <ul class="flex flex-col gap-4">
+      <ul class="flex flex-col gap-6">
         {pages.map((page) => (
-          <li>
-            <a href={`/${section.id}/${page.id}`}>{page.data.title}</a>
-            {page.data.description && <p class="text-app-gray">{page.data.description}</p>}
+          <li class="list-none">
+            <a href={`/${section.id}/${page.id}`} class="font-['Playfair_Display'] text-xl">
+              {page.data.title}
+            </a>
+            {page.data.description && <p class="mt-1 text-app-gray-light">{page.data.description}</p>}
           </li>
         ))}
       </ul>

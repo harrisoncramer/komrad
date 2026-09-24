@@ -1,20 +1,114 @@
 ---
 import Layout from "./Layout.astro";
+import { REPO_URL } from "../consts";
 
 type Props = {
   title: string;
   description?: string;
+  filePath?: string;
 };
 
-const { title, description } = Astro.props;
+const { title, description, filePath } = Astro.props;
 ---
 
 <Layout title={title} description={description}>
   <article data-pagefind-body>
-    <h1 class="mb-4" data-pagefind-meta="title">{title}</h1>
-    {description && <p class="text-lg mb-8 text-app-gray">{description}</p>}
-    <div class="doc-content">
+    <h1 class="title" data-pagefind-meta="title">{title}</h1>
+    {description && <p class="mb-8 text-lg text-app-gray-light">{description}</p>}
+    {
+      filePath && (
+        <div class="mb-3 flex justify-end" data-pagefind-ignore>
+          <a class="edit-link" href={`${REPO_URL}/blob/main/docs/${filePath}`}>
+            Edit this page on Github
+          </a>
+        </div>
+      )
+    }
+    <div class="doc-content mt-4">
       <slot />
     </div>
   </article>
 </Layout>
+
+<style>
+  @reference "../styles/global.css";
+
+  .title {
+    @apply leading-tight;
+  }
+
+  .edit-link {
+    @apply text-sm text-app-gray opacity-70 transition-opacity duration-200;
+    font-family: var(--font-lora);
+  }
+
+  .edit-link:hover,
+  .edit-link:focus-visible {
+    @apply opacity-100;
+  }
+
+  .doc-content {
+    @apply mb-24 flex flex-col gap-6;
+  }
+
+  .doc-content :global(:is(h2, h3, h4)) {
+    @apply mt-6 leading-tight;
+    scroll-margin-top: 5rem;
+  }
+
+  .doc-content :global(:is(p, li)) {
+    font-size: 1.1em;
+    line-height: 1.75;
+    color: #e8ebed;
+  }
+
+  .doc-content :global(ul li) {
+    @apply ml-6 list-disc;
+  }
+
+  .doc-content :global(ol li) {
+    @apply ml-6 list-decimal;
+  }
+
+  .doc-content :global(:not(pre) > code) {
+    @apply rounded-xs bg-app-background-light px-1.5 py-0.5 text-app-gray;
+    font-size: 0.85em;
+  }
+
+  .doc-content :global(blockquote) {
+    @apply m-0 border-l-2 border-app-blue pl-5 text-app-gray italic;
+    font-family: var(--font-lora);
+  }
+
+  .doc-content :global(a) {
+    @apply underline decoration-app-blue/40 decoration-1 underline-offset-4 transition-[text-decoration-color] duration-200;
+  }
+
+  .doc-content :global(a:hover),
+  .doc-content :global(a:focus-visible) {
+    @apply decoration-app-blue decoration-2;
+  }
+</style>
+
+<script>
+  document.querySelectorAll<HTMLPreElement>(".doc-content pre.astro-code").forEach((pre) => {
+    const block = document.createElement("div");
+    block.className = "code-block";
+    pre.replaceWith(block);
+    block.appendChild(pre);
+
+    const button = document.createElement("button");
+    button.className = "code-copy-btn";
+    button.textContent = "Copy";
+    block.appendChild(button);
+
+    button.addEventListener("click", () => {
+      void navigator.clipboard.writeText(pre.innerText).then(() => {
+        button.textContent = "Copied!";
+        setTimeout(() => {
+          button.textContent = "Copy";
+        }, 1500);
+      });
+    });
+  });
+</script>

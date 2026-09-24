@@ -2,7 +2,7 @@
 import { SECTIONS } from "../consts";
 import { getPages } from "../pages";
 
-const current = Astro.url.pathname.replace(/\/$/, "");
+const current = Astro.url.pathname.replace(/\/+$/, "");
 
 const sections = await Promise.all(
   SECTIONS.map(async (section) => ({
@@ -12,52 +12,77 @@ const sections = await Promise.all(
 );
 ---
 
-<aside
-  id="sidebar"
-  class="fixed md:sticky top-16 left-0 z-10 h-[calc(100vh-4rem)] w-64 shrink-0 overflow-y-auto bg-app-black md:bg-transparent p-4 -translate-x-full md:translate-x-0 transition-transform"
-  data-pagefind-ignore
->
-  <nav class="flex flex-col gap-6">
+<aside class="sidebar" data-pagefind-ignore>
+  <nav aria-label="Sections">
     {
       sections.map((section) => (
-        <div>
+        <div class="section">
           <a
             href={`/${section.id}`}
-            class:list={[
-              "block font-playfair text-lg mb-2",
-              current === `/${section.id}` ? "text-app-blue" : "text-app-white",
-            ]}
+            class="heading"
+            aria-current={current === `/${section.id}` ? "page" : undefined}
           >
             {section.title}
           </a>
-          <ul class="flex flex-col gap-1 border-l border-app-background-medium">
-            {section.pages.map((page) => {
-              const href = `/${section.id}/${page.id}`;
-              return (
-                <li class="text-base">
-                  <a
-                    href={href}
-                    class:list={[
-                      "block pl-3 -ml-px border-l",
-                      current === href
-                        ? "border-app-blue text-app-blue"
-                        : "border-transparent text-app-gray hover:text-app-white",
-                    ]}
-                  >
-                    {page.data.title}
-                  </a>
-                </li>
-              );
-            })}
-          </ul>
+          {section.pages.length > 0 && (
+            <ul class="pages">
+              {section.pages.map((page) => {
+                const href = `/${section.id}/${page.id}`;
+                return (
+                  <li>
+                    <a href={href} class="page" aria-current={current === href ? "page" : undefined}>
+                      {page.data.title}
+                    </a>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </div>
       ))
     }
   </nav>
 </aside>
 
-<style is:global>
-  html[data-nav-open] #sidebar {
-    translate: 0;
+<style>
+  @reference "../styles/global.css";
+
+  .sidebar {
+    @apply sticky top-20 hidden h-[calc(100vh-6rem)] w-52 shrink-0 overflow-y-auto pt-4 md:block;
+  }
+
+  .section + .section {
+    @apply mt-8;
+  }
+
+  .heading {
+    @apply block text-base text-app-white;
+    font-family: var(--font-playfair);
+  }
+
+  .heading[aria-current="page"] {
+    @apply text-app-blue;
+  }
+
+  .pages {
+    @apply mt-3 flex flex-col gap-1 border-l border-app-background-medium;
+  }
+
+  .pages li {
+    font-size: inherit;
+  }
+
+  .page {
+    @apply -ml-px block border-l-2 border-transparent py-1 pl-3 text-sm text-app-gray-light transition-colors duration-200;
+    font-family: var(--font-lora);
+  }
+
+  .page:hover,
+  .page:focus-visible {
+    @apply text-app-white;
+  }
+
+  .page[aria-current="page"] {
+    @apply border-app-blue text-app-blue;
   }
 </style>
