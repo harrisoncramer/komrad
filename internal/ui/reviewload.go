@@ -492,6 +492,8 @@ func (r *reviewScreen) reload(s panelShared) tea.Cmd {
 		r.diff.restore = &place
 	}
 
+	r.diff.followedMove = r.findMovedRound(s)
+
 	return loadReviewCmd(s, loadReviewCmdParams{
 		AgentID: r.agentID,
 		Dir:     r.dir,

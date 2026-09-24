@@ -116,7 +116,7 @@ func (r *reviewScreen) catchUp(s panelShared) tea.Cmd {
 		r.drawRefreshed(s, *held)
 	}
 
-	return r.follow(s)
+	return tea.Batch(r.follow(s), r.followMove(s))
 }
 
 func (r reviewScreen) refreshThreadsCmd(s panelShared) tea.Cmd {

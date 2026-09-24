@@ -121,7 +121,6 @@ func TestReviewMoveFollowsEachMoveOnce(t *testing.T) {
 	markReviewWorktreeMoved(&m)
 	require.NotNil(t, m.review.followMove(m.shared()))
 
-	m.review.loading = false
 	assert.Nil(t, m.review.followMove(m.shared()), "the same move is not read twice")
 
 	setReviewMovedSinceRound(&m, "")
@@ -129,6 +128,23 @@ func TestReviewMoveFollowsEachMoveOnce(t *testing.T) {
 
 	markReviewWorktreeMoved(&m)
 	assert.NotNil(t, m.review.followMove(m.shared()), "a later move is read again")
+}
+
+// TestReviewMoveCatchesUpOnceTheReaderLetsGo pins the catch-up a reader held back running on the
+// screen's next message rather than waiting for the watch.
+func TestReviewMoveCatchesUpOnceTheReaderLetsGo(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	m.review.threads.composing = true
+	markReviewWorktreeMoved(&m)
+	require.Nil(t, m.review.followMove(m.shared()))
+
+	m.review.threads.composing = false
+	m.review.update(&m, m.shared(), reviewRefreshedMsg{agentID: m.review.agentID})
+
+	assert.Equal(t, m.review.round.GetSnapshotSha(), m.review.diff.followedMove)
 }
 
 // markReviewWorktreeMoved has the watch report the worktree moved past the round on screen.

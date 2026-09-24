@@ -20,8 +20,6 @@ func (r *reviewScreen) followMove(s panelShared) tea.Cmd {
 		return nil
 	}
 
-	r.diff.followedMove = moved
-
 	return r.reload(s)
 }
 
