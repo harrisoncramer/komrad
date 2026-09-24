@@ -8,6 +8,7 @@ import (
 	"sync"
 	"testing"
 	"time"
+	"weave/internal/harness"
 
 	"weave/internal/harness/pane"
 	"weave/internal/harnesstest"
@@ -842,4 +843,30 @@ func TestResumeRefusesArchived(t *testing.T) {
 	require.ErrorIs(t, err, ErrAgentArchived)
 	require.ErrorContains(t, err, "restore it first", "the refusal says what to do about it")
 	assert.Empty(t, tmux.NewWindows, "and opens no window")
+}
+
+// TestResumeRefusesUnknownHarness pins that a resume fails rather than putting the wrong CLI
+// on a dormant agent's conversation.
+func TestResumeRefusesUnknownHarness(t *testing.T) {
+	st := newStore(t)
+	tmux := tmuxtest.NewFake()
+	service := st.agentService(agentServiceOptions{
+		tmux:      tmux,
+		harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}, Only: []string{harnesstest.FakeID}},
+	})
+
+	require.NoError(t, st.Create(t.Context(), agentstore.Agent{
+		Name:      "dormant",
+		State:     agentstore.StateIdle,
+		Harness:   "gemini",
+		SessionID: "sess-1",
+	}))
+	stored, err := st.Get(t.Context(), "dormant")
+	require.NoError(t, err)
+
+	_, err = service.resume.ResumeAgent(t.Context(), stored.ID)
+
+	require.ErrorIs(t, err, harness.ErrNotRegistered)
+	require.ErrorContains(t, err, "gemini")
+	assert.Empty(t, tmux.NewWindows, "nothing is opened for an agent that cannot be run")
 }

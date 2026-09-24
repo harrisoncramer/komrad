@@ -1043,3 +1043,37 @@ func TestDeleteWorkflowClaimsTheWorkflowWhileItsAgentsGo(t *testing.T) {
 	_, err = st.Workflows.GetIncludingArchived(ctx, created.ID)
 	require.ErrorIs(t, err, store.ErrNotFound, "the last agent going takes the workflow with it")
 }
+
+// TestRestoreOfAWorkflowUnderTheChildCeiling pins the same ceiling on the other way back, for a
+// workflow archived holding two children of one parent.
+func TestRestoreOfAWorkflowUnderTheChildCeiling(t *testing.T) {
+	tmux := tmuxtest.NewFake()
+	st := newStore(t)
+	manager := st.agentService(agentServiceOptions{
+		tmux:        tmux,
+		harnesses:   harnesstest.Registry{Harness: &harnesstest.Fake{}},
+		addr:        "127.0.0.1:9999",
+		maxChildren: 1,
+	})
+	workflows := st.workflowService(workflowServiceOptions{tmux: tmux, maxChildren: 1})
+	ctx := t.Context()
+
+	parent := seedRunning(t, st, tmux, "author", "%author", agentstore.StateIdle)
+	require.NoError(t, st.Update(ctx, withCwd(parent, t.TempDir())))
+
+	first, err := manager.launch.NewAgent(ctx, childOf(parent, "reviewer"))
+	require.NoError(t, err)
+	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, []string{first.ID}))
+
+	_, err = manager.launch.NewAgent(ctx, childOf(parent, "second-reviewer"))
+	require.NoError(t, err)
+
+	require.NoError(t, workflows.ArchiveWorkflow(ctx, parent.WorkflowID))
+
+	_, err = workflows.RestoreWorkflow(ctx, parent.WorkflowID)
+	require.ErrorIs(t, err, ErrTooManyChildren)
+
+	held, err := st.Agents.CountLiveChildren(ctx, parent.ID)
+	require.NoError(t, err)
+	assert.Zero(t, held, "the refusal restores nothing")
+}
