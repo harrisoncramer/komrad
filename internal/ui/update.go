@@ -75,6 +75,15 @@ func (m model) focusPane() string {
 }
 
 func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if wheel, ok := msg.(tea.MouseWheelMsg); ok {
+		pressed, ok := m.wheelKey(wheel)
+		if !ok {
+			return m, nil
+		}
+
+		msg = pressed
+	}
+
 	if size, ok := msg.(tea.WindowSizeMsg); ok {
 		m = m.resizeTo(size)
 	}
@@ -408,4 +417,24 @@ func (m model) isTyping() bool {
 	}
 
 	return m.active().takesEveryKey()
+}
+
+// wheelKey is the scroll key a turn of the mouse wheel presses.
+func (m model) wheelKey(wheel tea.MouseWheelMsg) (tea.KeyPressMsg, bool) {
+	var keys []string
+
+	switch wheel.Button {
+	case tea.MouseWheelUp:
+		keys = m.keys.Column.ScrollUp
+	case tea.MouseWheelDown:
+		keys = m.keys.Column.ScrollDown
+	default:
+		return tea.KeyPressMsg{}, false
+	}
+
+	if len(keys) == 0 {
+		return tea.KeyPressMsg{}, false
+	}
+
+	return keyMsg(keys[0]), true
 }

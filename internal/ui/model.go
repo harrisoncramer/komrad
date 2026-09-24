@@ -30,6 +30,7 @@ import (
 
 	"charm.land/bubbles/v2/cursor"
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/colorprofile"
 )
 
 // Run launches the panel and blocks for the life of the persistent manager tmux session.
@@ -40,7 +41,7 @@ func Run(ctx context.Context, deps Deps) error {
 	post := newPostbox()
 
 	m := newModel(deps, true, post)
-	program := tea.NewProgram(m)
+	program := tea.NewProgram(m, tea.WithColorProfile(colorprofile.TrueColor))
 	post.attach(program)
 
 	defer post.close()
