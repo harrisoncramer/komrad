@@ -418,15 +418,6 @@ func TestNoticesReportAPlainWorkflowsDirectory(t *testing.T) {
 	assert.Empty(t, noticeTexts(agentNotices(child)), "its parent's row already says it")
 }
 
-// noticeTexts is what a row's notices say, without their icons.
-func noticeTexts(notices []notice) []string {
-	said := xslice.Map(notices, func(n notice) string {
-		return n.text
-	})
-
-	return said
-}
-
 // TestReviewStateNoticesSayWhoseTurnItIs covers the record saying whose move is next in each review state.
 func TestReviewStateNoticesSayWhoseTurnItIs(t *testing.T) {
 	tests := []struct {
@@ -434,6 +425,18 @@ func TestReviewStateNoticesSayWhoseTurnItIs(t *testing.T) {
 		item panel.AgentRow
 		want string
 	}{
+		{
+			name: "never reviewed says nothing",
+			item: panel.AgentRow{},
+		},
+		{
+			name: "a review released without a conclusion says nothing",
+			item: panel.AgentRow{LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED},
+		},
+		{
+			name: "a tree that moved with nothing concluded on it says nothing",
+			item: panel.AgentRow{LocalTree: git.StandingMoved},
+		},
 		{
 			name: "approved on this tree",
 			item: panel.AgentRow{LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED},
@@ -479,17 +482,23 @@ func TestReviewStateNoticesSayWhoseTurnItIs(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			notices := agentNotices(noticeRow(tt.item))
-			require.Len(t, notices, 1, "the record says it once")
+			if tt.want == "" {
+				require.Empty(t, notices)
+
+				return
+			}
+
+			require.Len(t, notices, 1)
 			assert.Equal(t, tt.want, notices[0].text)
 		})
 	}
 }
 
-// TestReviewStateNoticesLeaveNeverReviewedSilent covers the review states the record leaves unsaid.
-func TestReviewStateNoticesLeaveNeverReviewedSilent(t *testing.T) {
-	assert.Empty(t, agentNotices(noticeRow(panel.AgentRow{})))
-	assert.Empty(t, agentNotices(noticeRow(panel.AgentRow{LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED})),
-		"a review released without a conclusion says nothing")
-	assert.Empty(t, agentNotices(noticeRow(panel.AgentRow{LocalTree: git.StandingMoved})),
-		"a tree that moved with nothing concluded on it is still never reviewed")
+// noticeTexts is what a row's notices say, without their icons.
+func noticeTexts(notices []notice) []string {
+	said := xslice.Map(notices, func(n notice) string {
+		return n.text
+	})
+
+	return said
 }

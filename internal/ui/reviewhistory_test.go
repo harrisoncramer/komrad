@@ -116,6 +116,16 @@ func TestFindPendingRound(t *testing.T) {
 			},
 		},
 		{
+			name: "an agent's open review pins nothing",
+			reviews: []*agentv1.Review{
+				{
+					Id:         "v1",
+					AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT,
+					RoundId:    "r1",
+				},
+			},
+		},
+		{
 			name: "the open batch pins its own round rather than an older thread's",
 			reviews: []*agentv1.Review{
 				{
@@ -131,16 +141,6 @@ func TestFindPendingRound(t *testing.T) {
 				},
 			},
 			want: "s5",
-		},
-		{
-			name: "an agent's open review pins nothing",
-			reviews: []*agentv1.Review{
-				{
-					Id:         "v1",
-					AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT,
-					RoundId:    "r1",
-				},
-			},
 		},
 	}
 

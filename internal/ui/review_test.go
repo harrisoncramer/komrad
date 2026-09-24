@@ -60,6 +60,40 @@ type reviewServer struct {
 
 // TestReviewOpen covers which agents the review key opens a diff for and what it draws.
 func TestReviewOpen(t *testing.T) {
+	t.Run("an agent that has written nothing is refused", func(t *testing.T) {
+		repo := gittest.NewRepo(t.TempDir())
+		repo.Wrote(gittest.WroteParams{Tree: "tree-of-the-base"})
+
+		harness := openReview(t, newReviewServerOver(repo))
+
+		frame := harness.readFrame()
+		assert.False(t, harness.panel.IsZoomed())
+		assert.Contains(t, frame, "Nothing to review in auth")
+		assert.Contains(t, frame, "no change against the base branch")
+	})
+
+	t.Run("an agent whose directory has gone is not opened", func(t *testing.T) {
+		server := newReviewServer(t)
+		server.agent.WorktreeRemoved = true
+
+		harness := openReview(t, server)
+
+		assert.False(t, harness.panel.IsZoomed())
+		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceOpenReviewRoundProcedure))
+	})
+
+	t.Run("a diff git cannot read is refused with the reason", func(t *testing.T) {
+		repo := gittest.NewRepo(t.TempDir())
+		repo.RootErr = gittest.ErrNoGit
+
+		harness := openReview(t, newReviewServerOver(repo))
+
+		frame := harness.readFrame()
+		assert.False(t, harness.panel.IsZoomed())
+		assert.Contains(t, frame, "Could not read the diff of")
+		assert.Contains(t, frame, gittest.ErrNoGit.Error())
+	})
+
 	t.Run("the diff is drawn beside the sidebar over the whole window", func(t *testing.T) {
 		harness := openReview(t, newReviewServer(t))
 
@@ -101,40 +135,6 @@ func TestReviewOpen(t *testing.T) {
 		harness := openReview(t, server)
 
 		assert.Contains(t, readStage(harness.readFrame()), "greet.go")
-	})
-
-	t.Run("an agent that has written nothing is refused", func(t *testing.T) {
-		repo := gittest.NewRepo(t.TempDir())
-		repo.Wrote(gittest.WroteParams{Tree: "tree-of-the-base"})
-
-		harness := openReview(t, newReviewServerOver(repo))
-
-		frame := harness.readFrame()
-		assert.False(t, harness.panel.IsZoomed())
-		assert.Contains(t, frame, "Nothing to review in auth")
-		assert.Contains(t, frame, "no change against the base branch")
-	})
-
-	t.Run("an agent whose directory has gone is not opened", func(t *testing.T) {
-		server := newReviewServer(t)
-		server.agent.WorktreeRemoved = true
-
-		harness := openReview(t, server)
-
-		assert.False(t, harness.panel.IsZoomed())
-		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceOpenReviewRoundProcedure))
-	})
-
-	t.Run("a diff git cannot read is refused with the reason", func(t *testing.T) {
-		repo := gittest.NewRepo(t.TempDir())
-		repo.RootErr = gittest.ErrNoGit
-
-		harness := openReview(t, newReviewServerOver(repo))
-
-		frame := harness.readFrame()
-		assert.False(t, harness.panel.IsZoomed())
-		assert.Contains(t, frame, "Could not read the diff of")
-		assert.Contains(t, frame, gittest.ErrNoGit.Error())
 	})
 }
 
@@ -381,15 +381,6 @@ func TestReviewThreads(t *testing.T) {
 
 // TestReviewThreadFocus covers the thread taking the keys to read a conversation taller than the sidebar.
 func TestReviewThreadFocus(t *testing.T) {
-	openLongThread := func(t *testing.T) *panelHarness {
-		t.Helper()
-
-		server := newReviewServer(t)
-		server.threads = []*agentv1.ReviewThread{newLongThread()}
-
-		return openReviewAt(t, server, panelHarnessParams{height: 14})
-	}
-
 	t.Run("the thread scrolls back to its start and escape hands the keys back", func(t *testing.T) {
 		harness := openLongThread(t)
 		require.NotContains(t, readSidebarProse(harness.readFrame()), "note 0")
@@ -630,6 +621,11 @@ func TestReviewDeliveryCount(t *testing.T) {
 			absent: []string{"unsent", "waiting", "delivered"},
 		},
 		{
+			name:     "what the agent said is nobody's delivery",
+			messages: []*agentv1.ReviewMessage{newAgentMessage("m9", "done")},
+			absent:   []string{"unsent", "waiting", "delivered"},
+		},
+		{
 			name:     "a comment never let go of is unsent",
 			messages: []*agentv1.ReviewMessage{newUnsentComment()},
 			want:     "1 unsent",
@@ -639,11 +635,6 @@ func TestReviewDeliveryCount(t *testing.T) {
 			name:     "each comment is counted by how far it got",
 			messages: []*agentv1.ReviewMessage{newUnsentComment(), newSentComment("m2"), newDeliveredComment("m3")},
 			want:     "1 unsent · 1 waiting · 1 delivered",
-		},
-		{
-			name:     "what the agent said is nobody's delivery",
-			messages: []*agentv1.ReviewMessage{newAgentMessage("m9", "done")},
-			absent:   []string{"unsent", "waiting", "delivered"},
 		},
 	}
 
@@ -674,6 +665,12 @@ func TestReviewDeliveryBadge(t *testing.T) {
 		absent  string
 	}{
 		{
+			name:    "nothing is said of what the agent wrote",
+			message: newAgentMessage("m9", "renamed it"),
+			want:    "renamed it",
+			absent:  "unsent",
+		},
+		{
 			name:    "a comment not let go of is unsent",
 			message: newUnsentComment(),
 			want:    "◇ unsent",
@@ -690,12 +687,6 @@ func TestReviewDeliveryBadge(t *testing.T) {
 			message: newDeliveredComment("m1"),
 			want:    "✓ delivered",
 			absent:  "waiting",
-		},
-		{
-			name:    "nothing is said of what the agent wrote",
-			message: newAgentMessage("m9", "renamed it"),
-			want:    "renamed it",
-			absent:  "unsent",
 		},
 	}
 
@@ -1389,27 +1380,49 @@ func TestReviewRecord(t *testing.T) {
 	})
 
 	t.Run("the record takes the keys only at a height it is drawn at", func(t *testing.T) {
-		taken := 0
-		for _, query := range []string{"", "hello"} {
-			for _, expanded := range []bool{false, true} {
+		tests := []struct {
+			name     string
+			query    string
+			expanded bool
+		}{
+			{
+				name: "a bare diff",
+			},
+			{
+				name:     "an expanded legend",
+				expanded: true,
+			},
+			{
+				name:  "a standing search",
+				query: "hello",
+			},
+			{
+				name:     "a standing search under an expanded legend",
+				query:    "hello",
+				expanded: true,
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
 				harness := openReview(t, newReviewServer(t))
-				if query != "" {
+				if tt.query != "" {
 					harness.press("/")
-					typeText(harness, query)
+					typeText(harness, tt.query)
 					harness.press("enter")
 				}
-				if expanded {
+				if tt.expanded {
 					harness.press("?")
 				}
 
+				taken := 0
 				for height := range 60 {
 					harness.send(tea.WindowSizeMsg{Width: reviewWidth, Height: height})
 					harness.press("ctrl+t")
-					frame := harness.readFrame()
-					if readRecordCursor(frame) == "" {
+					if readRecordCursor(harness.readFrame()) == "" {
 						harness.press("j")
 						assert.NotEqual(t, "greet.go:1", readReviewCursor(harness.readFrame()),
-							"the record took the keys at height %d without being drawn, query=%q expanded=%v", height, query, expanded)
+							"the record took the keys at height %d without being drawn", height)
 						harness.press("g", "g")
 
 						continue
@@ -1418,10 +1431,10 @@ func TestReviewRecord(t *testing.T) {
 					taken++
 					harness.press("ctrl+t")
 				}
-			}
-		}
 
-		assert.Positive(t, taken)
+				assert.Positive(t, taken)
+			})
+		}
 	})
 
 	t.Run("a shrink under a focused record gives the keys back to the diff", func(t *testing.T) {
@@ -1492,16 +1505,8 @@ func TestReviewLayout(t *testing.T) {
 
 // TestReviewExpand covers drawing a file whole rather than as its hunks.
 func TestReviewExpand(t *testing.T) {
-	openTall := func(t *testing.T) (*panelHarness, *reviewServer) {
-		t.Helper()
-
-		server := newReviewServerOver(gittest.NewTallRepo(t.TempDir()))
-
-		return openReviewAt(t, server, panelHarnessParams{height: 40}), server
-	}
-
 	t.Run("the expand key draws the lines the patch left out and gives the hunks back", func(t *testing.T) {
-		harness, _ := openTall(t)
+		harness, _ := openTallReview(t)
 		before := harness.readFrame()
 		require.Contains(t, before, "func Two()")
 		require.Contains(t, before, "@@")
@@ -1520,7 +1525,7 @@ func TestReviewExpand(t *testing.T) {
 	})
 
 	t.Run("the cursor stays on the line it stood on", func(t *testing.T) {
-		harness, _ := openTall(t)
+		harness, _ := openTallReview(t)
 		harness.press("j", "j")
 		before := readReviewCursor(harness.readFrame())
 
@@ -1530,7 +1535,7 @@ func TestReviewExpand(t *testing.T) {
 	})
 
 	t.Run("a reload keeps the file drawn whole", func(t *testing.T) {
-		harness, _ := openTall(t)
+		harness, _ := openTallReview(t)
 
 		harness.press("E", "R")
 
@@ -1546,7 +1551,7 @@ func TestReviewExpand(t *testing.T) {
 	})
 
 	t.Run("a folded file refuses and says so", func(t *testing.T) {
-		harness, _ := openTall(t)
+		harness, _ := openTallReview(t)
 
 		harness.press("v", "E")
 
@@ -1556,7 +1561,7 @@ func TestReviewExpand(t *testing.T) {
 	})
 
 	t.Run("a line only the expansion draws takes a comment", func(t *testing.T) {
-		harness, _ := openTall(t)
+		harness, _ := openTallReview(t)
 
 		harness.press("E", "G", "c")
 		require.Equal(t, "tall.go:13", readReviewCursor(harness.readFrame()))
@@ -1572,7 +1577,7 @@ func TestReviewExpand(t *testing.T) {
 	})
 
 	t.Run("collapsing puts that comment off screen rather than calling it changed", func(t *testing.T) {
-		harness, server := openTall(t)
+		harness, server := openTallReview(t)
 		server.threads = []*agentv1.ReviewThread{{
 			Id:          "t1",
 			FilePath:    gittest.TallFile,
@@ -1592,7 +1597,7 @@ func TestReviewExpand(t *testing.T) {
 	})
 
 	t.Run("a file folded while drawn whole stays folded after a reload", func(t *testing.T) {
-		harness, _ := openTall(t)
+		harness, _ := openTallReview(t)
 
 		harness.press("E", "v", "R")
 
@@ -2274,6 +2279,23 @@ func openReview(t *testing.T, server *reviewServer) *panelHarness {
 	return openReviewAt(t, server, panelHarnessParams{})
 }
 
+func openLongThread(t *testing.T) *panelHarness {
+	t.Helper()
+
+	server := newReviewServer(t)
+	server.threads = []*agentv1.ReviewThread{newLongThread()}
+
+	return openReviewAt(t, server, panelHarnessParams{height: 14})
+}
+
+func openTallReview(t *testing.T) (*panelHarness, *reviewServer) {
+	t.Helper()
+
+	server := newReviewServerOver(gittest.NewTallRepo(t.TempDir()))
+
+	return openReviewAt(t, server, panelHarnessParams{height: 40}), server
+}
+
 func openReviewAt(t *testing.T, server *reviewServer, params panelHarnessParams) *panelHarness {
 	t.Helper()
 
@@ -2613,7 +2635,12 @@ func newOwedServer(t *testing.T, threads ...*agentv1.ReviewThread) *reviewServer
 }
 
 func newOwedThread(path string, line int32) *agentv1.ReviewThread {
-	source := map[int32]string{1: " package greet", 2: " ", 3: " func Hello() string {", 5: " }"}
+	source := map[int32]string{
+		1: " package greet",
+		2: " ",
+		3: " func Hello() string {",
+		5: " }",
+	}
 	id := fmt.Sprintf("%s:%d", path, line)
 
 	return &agentv1.ReviewThread{

@@ -9,42 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func chapterRounds() []*agentv1.ReviewRound {
-	return []*agentv1.ReviewRound{
-		{
-			Id:          "r1",
-			Ordinal:     1,
-			BaseSha:     "b",
-			SnapshotSha: "s1",
-			CreatedAt:   "2026-09-08T13:00:00-04:00",
-		},
-		{
-			Id:          "r2",
-			Ordinal:     2,
-			BaseSha:     "b",
-			SnapshotSha: "s2",
-			CreatedAt:   "2026-09-08T14:00:00-04:00",
-		},
-		{
-			Id:          "r3",
-			Ordinal:     3,
-			BaseSha:     "b",
-			SnapshotSha: "s3",
-			CreatedAt:   "2026-09-08T15:00:00-04:00",
-		},
-	}
-}
-
-func releasedAgainst(ordinal int32, roundID, at string) *agentv1.Review {
-	return &agentv1.Review{
-		Id:           "v" + roundID,
-		AuthorKind:   agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
-		RoundId:      roundID,
-		RoundOrdinal: ordinal,
-		ReleasedAt:   at,
-	}
-}
-
 // TestChapterFilterCutsLaterReplies covers an earlier round's thread keeping only what was said while that round stood.
 func TestChapterFilterCutsLaterReplies(t *testing.T) {
 	rounds := []*agentv1.ReviewRound{
@@ -134,8 +98,8 @@ func TestChapterFilterCutsLaterReplies(t *testing.T) {
 
 // TestTheNewestChapterHidesNothing covers the chapter the reader stands on closing at nothing.
 func TestTheNewestChapterHidesNothing(t *testing.T) {
-	rounds := chapterRounds()
-	reviews := []*agentv1.Review{releasedAgainst(1, "r1", "2026-09-08T13:30:00-04:00")}
+	rounds := buildChapterRounds()
+	reviews := []*agentv1.Review{buildReleasedReview(1, "r1", "2026-09-08T13:30:00-04:00")}
 
 	chapters := cutChapters(cutChaptersParams{
 		Rounds:   rounds,
@@ -173,4 +137,40 @@ func TestAMessageWithAnUnreadableStampIsKept(t *testing.T) {
 
 	require.Len(t, drawn, 1)
 	assert.Len(t, drawn[0].GetMessages(), 3, "a stamp nobody can read is not a reason to hide a comment")
+}
+
+func buildChapterRounds() []*agentv1.ReviewRound {
+	return []*agentv1.ReviewRound{
+		{
+			Id:          "r1",
+			Ordinal:     1,
+			BaseSha:     "b",
+			SnapshotSha: "s1",
+			CreatedAt:   "2026-09-08T13:00:00-04:00",
+		},
+		{
+			Id:          "r2",
+			Ordinal:     2,
+			BaseSha:     "b",
+			SnapshotSha: "s2",
+			CreatedAt:   "2026-09-08T14:00:00-04:00",
+		},
+		{
+			Id:          "r3",
+			Ordinal:     3,
+			BaseSha:     "b",
+			SnapshotSha: "s3",
+			CreatedAt:   "2026-09-08T15:00:00-04:00",
+		},
+	}
+}
+
+func buildReleasedReview(ordinal int32, roundID, at string) *agentv1.Review {
+	return &agentv1.Review{
+		Id:           "v" + roundID,
+		AuthorKind:   agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
+		RoundId:      roundID,
+		RoundOrdinal: ordinal,
+		ReleasedAt:   at,
+	}
 }

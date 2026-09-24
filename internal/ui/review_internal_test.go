@@ -24,7 +24,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type fakeReviewAgents struct {
+type recordingReviewAgents struct {
 	agentv1connect.AgentServiceClient
 	repo    *gittest.Repo
 	rounds  []*agentv1.ReviewRound
@@ -38,7 +38,7 @@ type fakeReviewAgents struct {
 // TestReviewInFlight covers a load or a write landing after the screen has moved on under it.
 func TestReviewInFlight(t *testing.T) {
 	t.Run("the frame draws while the diff loads", func(t *testing.T) {
-		m, _ := buildReviewModel(t, &fakeReviewAgents{})
+		m, _ := buildReviewModel(t, &recordingReviewAgents{})
 		m.helpExpanded, m.height = true, 40
 
 		cmd := m.enterReview(m.listing.agents[0].Agent)
@@ -50,7 +50,7 @@ func TestReviewInFlight(t *testing.T) {
 	})
 
 	t.Run("a composer goes with the diff a landing load takes away", func(t *testing.T) {
-		agents := &fakeReviewAgents{}
+		agents := &recordingReviewAgents{}
 		m := buildReviewWithAnEarlierReview(t, agents)
 		m = pressReviewBase(t, m)
 		m.review.diff.cursor = findRowWithAnAnchor(t, m)
@@ -68,7 +68,7 @@ func TestReviewInFlight(t *testing.T) {
 	})
 
 	t.Run("another write landing mid send is not the send", func(t *testing.T) {
-		agents := &fakeReviewAgents{}
+		agents := &recordingReviewAgents{}
 		m, _ := buildReviewModel(t, agents)
 		m = openReview(t, m)
 		m = pressEdit(t, m)
@@ -86,7 +86,7 @@ func TestReviewInFlight(t *testing.T) {
 // TestReviewWhileTheAgentStops covers the keys pressed between asking the agent to stop and its answer.
 func TestReviewWhileTheAgentStops(t *testing.T) {
 	t.Run("a second edit press waits for the first", func(t *testing.T) {
-		m, _ := buildReviewModel(t, &fakeReviewAgents{})
+		m, _ := buildReviewModel(t, &recordingReviewAgents{})
 		m = openReview(t, m)
 
 		next, cmd := m.routeScreenMessage(keyMsg("e"))
@@ -103,7 +103,7 @@ func TestReviewWhileTheAgentStops(t *testing.T) {
 	})
 
 	t.Run("a pass given up before the agent stops lets it go", func(t *testing.T) {
-		agents := &fakeReviewAgents{}
+		agents := &recordingReviewAgents{}
 		m, _ := buildReviewModel(t, agents)
 		m = openReview(t, m)
 		setReviewAgentState(&m, panel.StateThinking)
@@ -139,7 +139,7 @@ func TestReviewWhileTheAgentStops(t *testing.T) {
 
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-				agents := &fakeReviewAgents{}
+				agents := &recordingReviewAgents{}
 				m, _ := buildReviewModel(t, agents)
 				m = openReview(t, m)
 				setReviewAgentState(&m, panel.StateThinking)
@@ -165,7 +165,7 @@ func TestReviewWhileTheAgentStops(t *testing.T) {
 // TestReviewEditor covers the editor pane the edit key opens.
 func TestReviewEditor(t *testing.T) {
 	t.Run("the editor quitting gives the stage back and reads the diff again", func(t *testing.T) {
-		m, tmux := buildReviewModel(t, &fakeReviewAgents{})
+		m, tmux := buildReviewModel(t, &recordingReviewAgents{})
 		m = openReview(t, m)
 		m = pressEdit(t, m)
 		require.NotEmpty(t, m.review.pass.editorPane)
@@ -179,7 +179,7 @@ func TestReviewEditor(t *testing.T) {
 	})
 
 	t.Run("the editor opens at the repository root the paths are named from", func(t *testing.T) {
-		agents := &fakeReviewAgents{}
+		agents := &recordingReviewAgents{}
 		m, tmux := buildReviewModel(t, agents)
 		root := agents.repo.Root
 		m.settings.Editor = "vi"
@@ -199,6 +199,7 @@ func TestIsReviewHistory(t *testing.T) {
 	tests := []struct {
 		name string
 		diff reviewDiff
+		want bool
 	}{
 		{
 			name: "the chapter list was recut under an index that stood still",
@@ -206,6 +207,7 @@ func TestIsReviewHistory(t *testing.T) {
 				chapters: []reviewChapter{{ToSHA: "s3", Ordinal: 3}},
 				head:     "s2",
 			},
+			want: true,
 		},
 		{
 			name: "the base and head were cleared under a diff still drawn to an older round",
@@ -213,6 +215,15 @@ func TestIsReviewHistory(t *testing.T) {
 				chapter: -1,
 				view:    diffview.NewView(&diff.Patch{BaseSHA: "s1", SnapshotSHA: "s2"}, false),
 			},
+			want: true,
+		},
+		{
+			name: "the diff stands on the round asked for",
+			diff: reviewDiff{
+				chapters: []reviewChapter{{ToSHA: "s3", Ordinal: 3}},
+				head:     "s3",
+			},
+			want: false,
 		},
 	}
 
@@ -225,8 +236,8 @@ func TestIsReviewHistory(t *testing.T) {
 
 			said, history := screen.isHistory()
 
-			assert.True(t, history)
-			assert.NotEmpty(t, said)
+			assert.Equal(t, tt.want, history)
+			assert.Equal(t, tt.want, said != "")
 		})
 	}
 }
@@ -234,7 +245,7 @@ func TestIsReviewHistory(t *testing.T) {
 // TestReviewEmphasis covers what the review draws in colour or weight rather than in text.
 func TestReviewEmphasis(t *testing.T) {
 	t.Run("the owed list brightens the comments drawn beside it", func(t *testing.T) {
-		agents := &fakeReviewAgents{
+		agents := &recordingReviewAgents{
 			threads: []*agentv1.ReviewThread{{
 				Id:       "t1",
 				ReviewId: "r1",
@@ -265,7 +276,7 @@ func TestReviewEmphasis(t *testing.T) {
 	})
 
 	t.Run("the chosen verdict wears its own tone rather than the muted one", func(t *testing.T) {
-		m, _ := buildReviewModel(t, &fakeReviewAgents{})
+		m, _ := buildReviewModel(t, &recordingReviewAgents{})
 		m = openReview(t, m)
 
 		next, _ := m.routeScreenMessage(keyMsg("ctrl+s"))
@@ -279,7 +290,7 @@ func TestReviewEmphasis(t *testing.T) {
 	})
 
 	t.Run("the cursor row dims while the record has the keys", func(t *testing.T) {
-		m, _ := buildReviewModel(t, &fakeReviewAgents{})
+		m, _ := buildReviewModel(t, &recordingReviewAgents{})
 		m = openReview(t, m)
 		live := findCursorRow(t, m)
 
@@ -294,7 +305,7 @@ func TestReviewEmphasis(t *testing.T) {
 	})
 }
 
-func (f *fakeReviewAgents) HoldAgent(
+func (f *recordingReviewAgents) HoldAgent(
 	_ context.Context,
 	req *connect.Request[agentv1.HoldAgentRequest],
 ) (*connect.Response[agentv1.HoldAgentResponse], error) {
@@ -303,7 +314,7 @@ func (f *fakeReviewAgents) HoldAgent(
 	return connect.NewResponse(&agentv1.HoldAgentResponse{}), nil
 }
 
-func (f *fakeReviewAgents) ReleaseAgent(
+func (f *recordingReviewAgents) ReleaseAgent(
 	_ context.Context,
 	req *connect.Request[agentv1.ReleaseAgentRequest],
 ) (*connect.Response[agentv1.ReleaseAgentResponse], error) {
@@ -312,14 +323,14 @@ func (f *fakeReviewAgents) ReleaseAgent(
 	return connect.NewResponse(&agentv1.ReleaseAgentResponse{}), nil
 }
 
-func (f *fakeReviewAgents) ListReviewViewedFiles(
+func (f *recordingReviewAgents) ListReviewViewedFiles(
 	context.Context,
 	*connect.Request[agentv1.ListReviewViewedFilesRequest],
 ) (*connect.Response[agentv1.ListReviewViewedFilesResponse], error) {
 	return connect.NewResponse(&agentv1.ListReviewViewedFilesResponse{}), nil
 }
 
-func (f *fakeReviewAgents) OpenReviewRound(
+func (f *recordingReviewAgents) OpenReviewRound(
 	_ context.Context,
 	req *connect.Request[agentv1.OpenReviewRoundRequest],
 ) (*connect.Response[agentv1.OpenReviewRoundResponse], error) {
@@ -337,21 +348,21 @@ func (f *fakeReviewAgents) OpenReviewRound(
 	return connect.NewResponse(&agentv1.OpenReviewRoundResponse{Round: f.rounds[len(f.rounds)-1]}), nil
 }
 
-func (f *fakeReviewAgents) ListReviewRounds(
+func (f *recordingReviewAgents) ListReviewRounds(
 	context.Context,
 	*connect.Request[agentv1.ListReviewRoundsRequest],
 ) (*connect.Response[agentv1.ListReviewRoundsResponse], error) {
 	return connect.NewResponse(&agentv1.ListReviewRoundsResponse{Rounds: f.rounds}), nil
 }
 
-func (f *fakeReviewAgents) ListReviews(
+func (f *recordingReviewAgents) ListReviews(
 	context.Context,
 	*connect.Request[agentv1.ListReviewsRequest],
 ) (*connect.Response[agentv1.ListReviewsResponse], error) {
 	return connect.NewResponse(&agentv1.ListReviewsResponse{Reviews: f.reviews}), nil
 }
 
-func (f *fakeReviewAgents) CreateReviewThread(
+func (f *recordingReviewAgents) CreateReviewThread(
 	_ context.Context,
 	req *connect.Request[agentv1.CreateReviewThreadRequest],
 ) (*connect.Response[agentv1.CreateReviewThreadResponse], error) {
@@ -360,7 +371,7 @@ func (f *fakeReviewAgents) CreateReviewThread(
 	return connect.NewResponse(&agentv1.CreateReviewThreadResponse{Thread: &agentv1.ReviewThread{Id: "t1"}}), nil
 }
 
-func buildReviewModel(t *testing.T, agents *fakeReviewAgents) (model, *recordingTmux) {
+func buildReviewModel(t *testing.T, agents *recordingReviewAgents) (model, *recordingTmux) {
 	t.Helper()
 
 	if agents.repo == nil {
@@ -401,7 +412,7 @@ func buildReviewAgent(dir string) panel.Agent {
 	}
 }
 
-func buildReviewWithAnEarlierReview(t *testing.T, agents *fakeReviewAgents) model {
+func buildReviewWithAnEarlierReview(t *testing.T, agents *recordingReviewAgents) model {
 	t.Helper()
 
 	m, _ := buildReviewModel(t, agents)
@@ -429,7 +440,7 @@ func buildReviewWithAnEarlierReview(t *testing.T, agents *fakeReviewAgents) mode
 func openReview(t *testing.T, m model) model {
 	t.Helper()
 
-	holdServed(&m)
+	putServedRowsInWorld(&m)
 	cmd := m.enterReview(m.listing.agents[0].Agent)
 	require.NotNil(t, cmd)
 
@@ -442,8 +453,8 @@ func openReview(t *testing.T, m model) model {
 	return m
 }
 
-func holdServed(m *model) {
-	fake, ok := m.api.agents.(*fakeReviewAgents)
+func putServedRowsInWorld(m *model) {
+	fake, ok := m.api.agents.(*recordingReviewAgents)
 	if !ok {
 		return
 	}
@@ -468,7 +479,7 @@ func holdServed(m *model) {
 func pressReviewBase(t *testing.T, m model) model {
 	t.Helper()
 
-	holdServed(&m)
+	putServedRowsInWorld(&m)
 	next, cmd := m.routeScreenMessage(keyMsg("<"))
 	m = next.(model)
 	require.NotNil(t, cmd)
