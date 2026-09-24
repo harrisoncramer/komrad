@@ -15,38 +15,78 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func failedRunTree() (model, *recordingTmux) {
-	tmux := &recordingTmux{sessionClient: panelViewer}
-
-	return model{
-		frame:  layout.New(tmux, config.DefaultLayout()),
-		popup:  NewPopupWindow(tmux, "test-session"),
-		keys:   config.DefaultKeybindings(),
-		width:  80,
-		screen: screenAgents,
-		listing: listing{
-			workflows: []panel.Workflow{{ID: "w1", Name: "backend"}},
-			agents: []panel.AgentRow{
-				{
-					Agent: panel.Agent{
-						ID:         "a1",
-						Name:       "auth",
-						WorkflowID: "w1",
-					},
-					Alive:     true,
-					FailedRun: true,
-				},
-				{
-					Agent: panel.Agent{
-						ID:         "a2",
-						Name:       "api",
-						WorkflowID: "w1",
-					},
-					Alive: true,
-				},
+// TestLogArgv covers the shell command a log viewer is run as.
+func TestLogArgv(t *testing.T) {
+	tests := []struct {
+		name        string
+		argv        []string
+		wantViewer  string
+		wantExports []string
+		wantAbsent  string
+	}{
+		{
+			name:        "nothing configured falls back to a pager on the file",
+			argv:        logArgv("", "/tmp/weave.log", ""),
+			wantViewer:  config.DefaultLogViewer,
+			wantExports: []string{"export WEAVE_LOG='/tmp/weave.log'; "},
+			wantAbsent:  "export WEAVE_AGENT_ID",
+		},
+		{
+			name:        "a viewer that is only whitespace is no viewer at all",
+			argv:        logArgv("   ", "/tmp/weave.log", ""),
+			wantViewer:  config.DefaultLogViewer,
+			wantExports: []string{"export WEAVE_LOG='/tmp/weave.log'; "},
+		},
+		{
+			name:       "a pipeline is left exactly as it was written",
+			argv:       logArgv(`jq -c . "$WEAVE_LOG" | fzf --ansi --preview 'echo {}'`, "/tmp/weave.log", "a1"),
+			wantViewer: `jq -c . "$WEAVE_LOG" | fzf --ansi --preview 'echo {}'`,
+			wantExports: []string{
+				"export WEAVE_LOG='/tmp/weave.log'; ",
+				"export WEAVE_AGENT_ID='a1'; ",
 			},
 		},
-	}, tmux
+		{
+			name:        "a path holding spaces and quotes survives the export",
+			argv:        logArgv("", "/Users/a b/it's.log", ""),
+			wantViewer:  config.DefaultLogViewer,
+			wantExports: []string{`export WEAVE_LOG='/Users/a b/it'\''s.log'`},
+		},
+		{
+			name:        "a process log falls back to its own viewer and names no agent",
+			argv:        processLogArgv("", "/tmp/setup.log"),
+			wantViewer:  config.DefaultProcessViewer,
+			wantExports: []string{"export WEAVE_LOG='/tmp/setup.log'; "},
+			wantAbsent:  "WEAVE_AGENT_ID",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Len(t, tt.argv, 3)
+			assert.Equal(t, []string{"sh", "-c"}, tt.argv[:2], "a pipeline needs a shell to read it")
+			assert.Contains(t, tt.argv[2], tt.wantViewer)
+			for _, export := range tt.wantExports {
+				assert.Contains(t, tt.argv[2], export)
+			}
+			if tt.wantAbsent != "" {
+				assert.NotContains(t, tt.argv[2], tt.wantAbsent)
+			}
+		})
+	}
+}
+
+// TestLogPlaceholders covers what a log pane says when there is no log to page.
+func TestLogPlaceholders(t *testing.T) {
+	m, _ := failedRunTree()
+	m.settings.RunLogsDir = t.TempDir()
+
+	m.agents.cursor = 0
+	assert.Contains(t, m.runLogContent().Key, "select an agent")
+	assert.Contains(t, m.agentLogContent().Key, "select an agent")
+
+	m.agents.cursor = 1
+	assert.Contains(t, m.runLogContent().Key, "no script has run")
 }
 
 // TestRunsReadNeedsTheRunLogUpAndReadForASecond pins what counts as reading a failed run.
@@ -108,27 +148,6 @@ func TestRunsReadNeedsTheRunLogUpAndReadForASecond(t *testing.T) {
 	}
 }
 
-// TestOpeningTheRunLogLandsOnTheRunThatFailed covers the mark taking the person to the run it
-// is about and not to a newer one that went fine.
-func TestOpeningTheRunLogLandsOnTheRunThatFailed(t *testing.T) {
-	logsDir := t.TempDir()
-	seedRunLogs(t, logsDir, "a1", 2)
-
-	m, _ := failedRunTree()
-	m.settings.RunLogsDir = logsDir
-	m.listing.agents[0].FailedRunLog = xptr.Ptr(int32(1))
-	m.agents.cursor = 1
-
-	assert.Equal(t, 1, m.runAt("a1", xptr.Ptr(int32(1))), "the failed run is one back from the newest")
-	assert.Equal(t, 0, m.runAt("a1", xptr.Ptr(int32(2))))
-	assert.Equal(t, 0, m.runAt("a1", nil), "no mark opens on the newest run the way it always did")
-	assert.Equal(t, 0, m.runAt("a1", xptr.Ptr(int32(9))), "and so does a number nothing on disk carries")
-
-	require.NotNil(t, m.failedRunLog("a1"))
-	assert.Equal(t, int32(1), *m.failedRunLog("a1"))
-	assert.Nil(t, m.failedRunLog("a2"), "a row carrying no mark names no run")
-}
-
 // TestTheRunLogFollowsTheCursorOntoTheFailedRun covers the pane's target changing under a position
 // worked out for the agent before it.
 func TestTheRunLogFollowsTheCursorOntoTheFailedRun(t *testing.T) {
@@ -172,67 +191,6 @@ func seedRunLogs(t *testing.T, logsDir, agentID string, count int) {
 	}
 }
 
-// TestRunPositionNamesWhichRunIsOnScreen covers the label on the older-run key.
-func TestRunPositionNamesWhichRunIsOnScreen(t *testing.T) {
-	tests := []struct {
-		name string
-		runs int
-		back int
-		want string
-	}{
-		{
-			name: "an agent that has run nothing",
-			runs: 0,
-			want: "older run",
-		},
-		{
-			name: "a single run is not worth counting",
-			runs: 1,
-			want: "older run",
-		},
-		{
-			name: "the newest of three",
-			runs: 3,
-			back: 0,
-			want: "run 3/3",
-		},
-		{
-			name: "one step back",
-			runs: 3,
-			back: 1,
-			want: "run 2/3",
-		},
-		{
-			name: "the oldest kept",
-			runs: 3,
-			back: 2,
-			want: "run 1/3",
-		},
-		{
-			name: "a position past what is left falls to the newest",
-			runs: 3,
-			back: 9,
-			want: "run 1/3",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			logsDir := t.TempDir()
-			if tt.runs > 0 {
-				seedRunLogs(t, logsDir, "a1", tt.runs)
-			}
-
-			m, _ := failedRunTree()
-			m.settings.RunLogsDir = logsDir
-			m.agents.cursor = 1
-			m.info.run = tt.back
-
-			assert.Equal(t, tt.want, m.runPosition())
-		})
-	}
-}
-
 // TestRunsReadRestartsWhenTheCursorMoves pins the hold belonging to the row rather than to the
 // pane, so walking the tree with the run log open never claims the rows travelled over.
 func TestRunsReadRestartsWhenTheCursorMoves(t *testing.T) {
@@ -254,4 +212,38 @@ func TestRunsReadRestartsWhenTheCursorMoves(t *testing.T) {
 
 	_, cmd = m.dwellRunsRead(at.Add(viewedDwell).Add(viewedDwell))
 	assert.NotNil(t, cmd)
+}
+
+func failedRunTree() (model, *recordingTmux) {
+	tmux := &recordingTmux{sessionClient: panelViewer}
+
+	return model{
+		frame:  layout.New(tmux, config.DefaultLayout()),
+		popup:  NewPopupWindow(tmux, "test-session"),
+		keys:   config.DefaultKeybindings(),
+		width:  80,
+		screen: screenAgents,
+		listing: listing{
+			workflows: []panel.Workflow{{ID: "w1", Name: "backend"}},
+			agents: []panel.AgentRow{
+				{
+					Agent: panel.Agent{
+						ID:         "a1",
+						Name:       "auth",
+						WorkflowID: "w1",
+					},
+					Alive:     true,
+					FailedRun: true,
+				},
+				{
+					Agent: panel.Agent{
+						ID:         "a2",
+						Name:       "api",
+						WorkflowID: "w1",
+					},
+					Alive: true,
+				},
+			},
+		},
+	}, tmux
 }

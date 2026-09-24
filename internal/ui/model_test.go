@@ -175,3 +175,13 @@ func (emptyLists) ListWorktrees(context.Context, *connect.Request[emptypb.Empty]
 func (emptyLists) GetWorktree(_ context.Context, req *connect.Request[worktreev1.GetWorktreeRequest]) (*connect.Response[worktreev1.GetWorktreeResponse], error) {
 	return nil, connect.NewError(connect.CodeNotFound, errors.New(req.Msg.GetDir()+" is not under the worktree directories"))
 }
+
+func pressLogs(t *testing.T, m model) model {
+	t.Helper()
+
+	next, _ := m.Update(keyMsg("l"))
+	shown, ok := next.(model)
+	require.True(t, ok)
+
+	return shown
+}
