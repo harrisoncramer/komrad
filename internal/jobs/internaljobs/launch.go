@@ -40,6 +40,7 @@ func (LaunchAgentArgs) InsertOpts() river.InsertOpts {
 	}
 }
 
+// NewLaunchAgentWorkerParams is what NewLaunchAgentWorker takes.
 type NewLaunchAgentWorkerParams struct {
 	Schedules ScheduleGetter
 	Runs      RunRecorder
