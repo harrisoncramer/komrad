@@ -550,9 +550,6 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 			name: "deleting takes the whole batch",
 			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter, ids []string) (string, error) {
 				_, err := svc.DeleteAgents(ctx, connect.NewRequest(&agentv1.DeleteAgentsRequest{Ids: ids}))
-				if err != nil {
-					return "", err
-				}
 
 				return "", err
 			},
@@ -564,9 +561,6 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 			name: "archiving from the panel takes the whole batch",
 			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter, ids []string) (string, error) {
 				_, err := svc.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{Ids: ids}))
-				if err != nil {
-					return "", err
-				}
 
 				return "", err
 			},
@@ -598,9 +592,6 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 			name: "emptying the archive",
 			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter, _ []string) (string, error) {
 				_, err := svc.EmptyArchive(ctx, connect.NewRequest(&emptypb.Empty{}))
-				if err != nil {
-					return "", err
-				}
 
 				return "", err
 			},
@@ -615,9 +606,6 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 					Id:   ids[0],
 					Name: "renamed",
 				}))
-				if err != nil {
-					return "", err
-				}
 
 				return "", err
 			},
@@ -632,9 +620,6 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 					Id:     ids[0],
 					Hidden: true,
 				}))
-				if err != nil {
-					return "", err
-				}
 
 				return "", err
 			},
@@ -650,9 +635,6 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 					Key:   "linear_issue",
 					Value: xptr.Ptr("https://linear.app/x/issue/ENG-1"),
 				}))
-				if err != nil {
-					return "", err
-				}
 
 				return "", err
 			},
@@ -668,9 +650,6 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 			name: "claiming the failed runs",
 			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter, ids []string) (string, error) {
 				_, err := svc.MarkRunsRead(ctx, connect.NewRequest(&agentv1.MarkRunsReadRequest{Id: ids[0]}))
-				if err != nil {
-					return "", err
-				}
 
 				return "", err
 			},
@@ -686,9 +665,6 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 					Reason:    "Bash",
 					TurnEnded: true,
 				}))
-				if err != nil {
-					return "", err
-				}
 
 				return "", err
 			},
@@ -1177,36 +1153,36 @@ func TestSearchTranscripts(t *testing.T) {
 // the caller rather than from the request alone.
 func TestSearchTranscriptsScope(t *testing.T) {
 	tests := []struct {
-		name        string
-		callerIs    string
-		asksFor     string
-		wantAnswers []string
+		name      string
+		callerIs  string
+		asksFor   string
+		wantNames []string
 	}{
 		{
-			name:        "an agent that names nobody reads its own conversation",
-			callerIs:    "alpha",
-			wantAnswers: []string{"alpha"},
+			name:      "an agent that names nobody reads its own conversation",
+			callerIs:  "alpha",
+			wantNames: []string{"alpha"},
 		},
 		{
-			name:        "an agent that names another reads that one",
-			callerIs:    "alpha",
-			asksFor:     "beta",
-			wantAnswers: []string{"beta"},
+			name:      "an agent that names another reads that one",
+			callerIs:  "alpha",
+			asksFor:   "beta",
+			wantNames: []string{"beta"},
 		},
 		{
-			name:        "an agent that names itself is where it started",
-			callerIs:    "alpha",
-			asksFor:     "alpha",
-			wantAnswers: []string{"alpha"},
+			name:      "an agent that names itself is where it started",
+			callerIs:  "alpha",
+			asksFor:   "alpha",
+			wantNames: []string{"alpha"},
 		},
 		{
-			name:        "the panel is not an agent and reads every conversation",
-			wantAnswers: []string{"alpha", "beta"},
+			name:      "the panel is not an agent and reads every conversation",
+			wantNames: []string{"alpha", "beta"},
 		},
 		{
-			name:        "and can still narrow to one",
-			asksFor:     "beta",
-			wantAnswers: []string{"beta"},
+			name:      "and can still narrow to one",
+			asksFor:   "beta",
+			wantNames: []string{"beta"},
 		},
 	}
 
@@ -1239,7 +1215,7 @@ func TestSearchTranscriptsScope(t *testing.T) {
 			names := xslice.Map(hits, func(hit *agentv1.SearchHit) string {
 				return hit.GetName()
 			})
-			assert.ElementsMatch(t, tt.wantAnswers, names)
+			assert.ElementsMatch(t, tt.wantNames, names)
 		})
 	}
 }
