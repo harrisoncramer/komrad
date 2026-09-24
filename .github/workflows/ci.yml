@@ -83,6 +83,8 @@ jobs:
               - 'db/**'
               - 'config/**'
               - 'cmd/protoc-gen-komrade-rpc/**'
+              - 'cmd/gen-docs/**'
+              - 'internal/cli/**'
               - 'mise/tasks/gen/**'
               - '.github/workflows/ci.yml'
 
