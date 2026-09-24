@@ -31,7 +31,7 @@ type Entry struct {
 
 // inode names one file across the links that share it.
 type inode struct {
-	dev uint64
+	dev int64
 	ino uint64
 }
 
@@ -139,7 +139,7 @@ func (w walker) count(entry fs.DirEntry) error {
 		return fmt.Errorf("stat %s: no stat_t behind %T", entry.Name(), info.Sys())
 	}
 	if stat.Nlink > 1 {
-		if _, dup := w.seen.LoadOrStore(inode{dev: uint64(stat.Dev), ino: stat.Ino}, struct{}{}); dup { //nolint:unconvert // Dev is int32 on darwin
+		if _, dup := w.seen.LoadOrStore(inode{dev: int64(stat.Dev), ino: stat.Ino}, struct{}{}); dup {
 			return nil
 		}
 	}

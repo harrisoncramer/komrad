@@ -173,7 +173,7 @@ WHERE
         SELECT
             recent.id
         FROM
-            unnest($1::uuid[]) AS s(id)
+            UNNEST($1::uuid[]) AS s(id)
             CROSS JOIN LATERAL (
                 SELECT
                     inner_run.id
