@@ -5,7 +5,6 @@ package e2e
 import (
 	"testing"
 
-	"weave/internal/caller"
 	"weave/internal/harness"
 	agentstore "weave/internal/store/agent"
 	"weave/internal/weavetest"
@@ -75,6 +74,26 @@ func TestIntegrationAgentLifecycle(t *testing.T) {
 		assert.Equal(t, "login-race", got.Msg.GetAgent().GetAgent().GetName())
 	})
 
+	t.Run("a person holds the agent at rest and lets it go", func(t *testing.T) {
+		held, err := instance.Agents.HoldAgent(ctx, connect.NewRequest(&agentv1.HoldAgentRequest{
+			Id: agent.GetId(),
+		}))
+		require.NoError(t, err)
+		assert.NotEmpty(t, held.Msg.GetAgent().GetHeldAt())
+
+		_, err = instance.Agents.ResumeAgent(ctx, connect.NewRequest(&agentv1.ResumeAgentRequest{
+			Id: agent.GetId(),
+		}))
+		assert.Equal(t, connect.CodeFailedPrecondition, connect.CodeOf(err), "a held agent is left alone")
+
+		released, err := instance.Agents.ReleaseAgent(ctx, connect.NewRequest(&agentv1.ReleaseAgentRequest{
+			Id: agent.GetId(),
+		}))
+		require.NoError(t, err)
+		assert.Empty(t, released.Msg.GetAgent().GetHeldAt())
+		assert.Empty(t, instance.Typed(agent.GetId()), "an agent that had finished is told nothing")
+	})
+
 	t.Run("archiving takes the pane with it", func(t *testing.T) {
 		_, err := instance.Agents.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{
 			Ids: []string{agent.GetId()},
@@ -129,40 +148,105 @@ func TestIntegrationAgentLifecycle(t *testing.T) {
 	})
 }
 
-// TestIntegrationCreateAgentRecordsSpawnedBy covers the parent recorded when one agent creates another,
-// which arrives in the caller header and is absent on every create the panel makes.
-func TestIntegrationCreateAgentRecordsSpawnedBy(t *testing.T) {
+// TestIntegrationAgentsSpawnAgents walks an agent spawning another on its own and a child
+// attached to it, through the API the panel and the MCP tools both call.
+func TestIntegrationAgentsSpawnAgents(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()
 
 	workflow, err := instance.Workflows.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{
-		Name: "backend",
+		Name: "weave",
 		Cwd:  t.TempDir(),
 	}))
 	require.NoError(t, err)
 	workflowID := workflow.Msg.GetWorkflow().GetId()
 
-	t.Run("a person creating from the panel records no parent", func(t *testing.T) {
-		agent := createAgent(t, instance, workflowID, "solo")
-		assert.Nil(t, agent.SpawnedByAgentId)
+	parent := createAgent(t, instance, workflowID, "author")
+	var child *agentv1.Agent
+
+	t.Run("a person creating from the panel records no spawner", func(t *testing.T) {
+		assert.Nil(t, parent.SpawnedByAgentId)
 	})
 
-	t.Run("an agent creating another records its own id", func(t *testing.T) {
-		parent := createAgent(t, instance, workflowID, "implementer")
-
+	t.Run("an agent spawning another on its own records itself as the spawner", func(t *testing.T) {
 		req := connect.NewRequest(&agentv1.CreateAgentRequest{
-			Prompt:     "review the diff",
-			Title:      "reviewer",
+			Prompt:     "fix the docs",
+			Title:      "unrelated",
 			WorkflowId: workflowID,
 		})
-		caller.Caller{AgentID: parent.GetId()}.SetHeader(req.Header())
+		callAs(req, parent.GetId())
 
 		created, err := instance.Agents.CreateAgent(ctx, req)
 		require.NoError(t, err)
 
-		child := created.Msg.GetAgent()
-		require.NotNil(t, child.SpawnedByAgentId)
-		assert.Equal(t, parent.GetId(), child.GetSpawnedByAgentId())
+		spawned := created.Msg.GetAgent()
+		assert.Equal(t, parent.GetId(), spawned.GetSpawnedByAgentId())
+		assert.Nil(t, spawned.ParentAgentId, "an agent spawned on its own is nobody's child")
+	})
+
+	t.Run("a child runs in its parent's checkout", func(t *testing.T) {
+		req := connect.NewRequest(&agentv1.CreateAgentRequest{
+			Prompt:        "read the change",
+			Title:         "reviewer",
+			WorkflowId:    workflowID,
+			ParentAgentId: &parent.Id,
+		})
+		callAs(req, parent.GetId())
+
+		created, err := instance.Agents.CreateAgent(ctx, req)
+		require.NoError(t, err)
+
+		child = created.Msg.GetAgent()
+		assert.Equal(t, parent.GetId(), child.GetParentAgentId())
+		assert.Equal(t, parent.GetCwd(), child.GetCwd())
+	})
+
+	t.Run("archiving the parent takes the child", func(t *testing.T) {
+		_, err := instance.Agents.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{
+			Ids: []string{parent.GetId()},
+		}))
+		require.NoError(t, err)
+
+		assert.ElementsMatch(t, []string{"unrelated"}, liveNames(t, instance))
+		assert.ElementsMatch(t, []string{"author", "reviewer"}, archivedNames(t, instance))
+	})
+
+	t.Run("restoring the parent brings the child back", func(t *testing.T) {
+		_, err := instance.Agents.RestoreAgents(ctx, connect.NewRequest(&agentv1.RestoreAgentsRequest{
+			Ids: []string{parent.GetId()},
+		}))
+		require.NoError(t, err)
+
+		assert.ElementsMatch(t, []string{"author", "reviewer", "unrelated"}, liveNames(t, instance))
+	})
+
+	t.Run("a child is archived on its own", func(t *testing.T) {
+		_, err := instance.Agents.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{
+			Ids: []string{child.GetId()},
+		}))
+		require.NoError(t, err)
+
+		assert.ElementsMatch(t, []string{"author", "unrelated"}, liveNames(t, instance))
+		assert.ElementsMatch(t, []string{"reviewer"}, archivedNames(t, instance))
+	})
+
+	t.Run("a child cannot come back before its parent", func(t *testing.T) {
+		_, err := instance.Agents.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{
+			Ids: []string{parent.GetId()},
+		}))
+		require.NoError(t, err)
+
+		_, err = instance.Agents.RestoreAgents(ctx, connect.NewRequest(&agentv1.RestoreAgentsRequest{
+			Ids: []string{child.GetId()},
+		}))
+		assert.Equal(t, connect.CodeFailedPrecondition, connect.CodeOf(err))
+		assert.ElementsMatch(t, []string{"author", "reviewer"}, archivedNames(t, instance))
+
+		_, err = instance.Agents.RestoreAgents(ctx, connect.NewRequest(&agentv1.RestoreAgentsRequest{
+			Ids: []string{parent.GetId(), child.GetId()},
+		}))
+		require.NoError(t, err)
+		assert.ElementsMatch(t, []string{"author", "reviewer", "unrelated"}, liveNames(t, instance))
 	})
 }
 
