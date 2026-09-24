@@ -595,7 +595,7 @@ func TestAgentsRecordFocus(t *testing.T) {
 		harness.press("z", "r", "n", "c")
 
 		assert.Equal(t, before, harness.readFrame())
-		harness.assertSent(readWorktreeRequests(2)...)
+		harness.assertSent(buildWorktreeReadRequests(2)...)
 	})
 
 	t.Run("nothing listed leaves the keys with the list", func(t *testing.T) {
@@ -723,28 +723,34 @@ func TestAgentsRecordHeight(t *testing.T) {
 func TestAgentsRecordFocusAndSize(t *testing.T) {
 	rows := append(buildRecorded(), newAgentAt("billing", "w1", 1))
 
-	t.Run("the focus key in a pane too short to draw the record leaves the keys with the list", func(t *testing.T) {
-		harness := newPanelHarness(t, panelHarnessParams{height: 12})
-		answerWorktreeReads(harness)
-		harness.watch(buildSnapshot(rows...))
+	tests := []struct {
+		name   string
+		params panelHarnessParams
+	}{
+		{
+			name:   "a pane too short to draw the record leaves the keys with the list",
+			params: panelHarnessParams{height: 12},
+		},
+		{
+			name: "a share too small for a field leaves the keys with the list",
+			params: panelHarnessParams{
+				height:        19,
+				detailsHeight: 0.05,
+			},
+		},
+	}
 
-		harness.press("ctrl+t", "j")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			harness := newPanelHarness(t, tt.params)
+			answerWorktreeReads(harness)
+			harness.watch(buildSnapshot(rows...))
 
-		assert.Equal(t, "  auth", readHoveredRow(harness.readFrame()))
-	})
+			harness.press("ctrl+t", "j")
 
-	t.Run("a share too small for a field leaves the keys with the list", func(t *testing.T) {
-		harness := newPanelHarness(t, panelHarnessParams{
-			height:        19,
-			detailsHeight: 0.05,
+			assert.Equal(t, "  auth", readHoveredRow(harness.readFrame()))
 		})
-		answerWorktreeReads(harness)
-		harness.watch(buildSnapshot(rows...))
-
-		harness.press("ctrl+t", "j")
-
-		assert.Equal(t, "  auth", readHoveredRow(harness.readFrame()))
-	})
+	}
 
 	t.Run("a shrink takes the keys back and a grow does not return them", func(t *testing.T) {
 		harness := openAgents(t, rows...)
@@ -873,11 +879,11 @@ func TestAgentsRecordWorktree(t *testing.T) {
 
 	t.Run("the focus key reads the directory again", func(t *testing.T) {
 		harness := openAgents(t, buildRecorded()...)
-		harness.assertSent(readWorktreeRequests(1)...)
+		harness.assertSent(buildWorktreeReadRequests(1)...)
 
 		harness.press("ctrl+t")
 
-		harness.assertSent(readWorktreeRequests(2)...)
+		harness.assertSent(buildWorktreeReadRequests(2)...)
 	})
 
 	t.Run("a refused reread keeps the last answer beside the refusal", func(t *testing.T) {
@@ -901,7 +907,7 @@ func TestAgentsRecordWorktree(t *testing.T) {
 
 		harness.press("ctrl+t", "ctrl+t", "k", "j")
 
-		harness.assertSent(readWorktreeRequests(1)...)
+		harness.assertSent(buildWorktreeReadRequests(1)...)
 	})
 
 	t.Run("a focused record grows to show every field and shrinks back", func(t *testing.T) {
@@ -1810,24 +1816,24 @@ func TestAgentsSetMark(t *testing.T) {
 		{
 			name:  "an unmarked agent takes the letter",
 			press: []string{"m", "a"},
-			want:  markAuth(proto.String("a")),
+			want:  newMarkAuthRequest(proto.String("a")),
 		},
 		{
 			name:  "a letter another agent holds is still set, since the service moves it",
 			marks: []proto.Message{newMark("a", "db")},
 			press: []string{"m", "a"},
-			want:  markAuth(proto.String("a")),
+			want:  newMarkAuthRequest(proto.String("a")),
 		},
 		{
 			name:  "the letter the agent already holds takes the mark off it",
 			marks: []proto.Message{newMark("a", "auth")},
 			press: []string{"m", "a"},
-			want:  markAuth(nil),
+			want:  newMarkAuthRequest(nil),
 		},
 		{
 			name:  "a key the screen acts on is read as the letter it is",
 			press: []string{"m", "h"},
-			want:  markAuth(proto.String("h")),
+			want:  newMarkAuthRequest(proto.String("h")),
 		},
 		{
 			name:  "a workflow header takes the letter as a workflow",
@@ -2088,28 +2094,28 @@ func buildFamily() []proto.Message {
 }
 
 func buildSortable() []proto.Message {
-	sortable := func(name, workflowID string, created, changed int) *agentv1.Agent {
+	newSortable := func(name, workflowID string, created, changed int) *agentv1.Agent {
 		agent := newAgentAt(name, workflowID, created)
 		agent.StateChangedAt = fmt.Sprintf("2026-09-20T12:%02d:00Z", changed)
 
 		return agent
 	}
-	charlie := sortable("charlie", "w1", 25, 5)
+	charlie := newSortable("charlie", "w1", 25, 5)
 	charlie.ParentAgentId = proto.String("alpha")
-	bob := sortable("bob", "w1", 5, 40)
+	bob := newSortable("bob", "w1", 5, 40)
 	bob.ParentAgentId = proto.String("alpha")
-	zulu := sortable("zulu", "w1", 20, 30)
+	zulu := newSortable("zulu", "w1", 20, 30)
 	zulu.Name = "Zulu"
 
 	return []proto.Message{
 		newLiveWorkflow("w1", "weave"),
 		newLiveWorkflow("w2", "gadgets"),
-		sortable("delta", "w1", 30, 10),
+		newSortable("delta", "w1", 30, 10),
 		charlie,
 		zulu,
-		sortable("alpha", "w1", 10, 20),
+		newSortable("alpha", "w1", 10, 20),
 		bob,
-		sortable("echo", "w2", 0, 50),
+		newSortable("echo", "w2", 0, 50),
 	}
 }
 
@@ -2256,7 +2262,7 @@ func refuseWith(code connect.Code, reason string) answerFunc {
 	}
 }
 
-func readWorktreeRequests(count int) []request {
+func buildWorktreeReadRequests(count int) []request {
 	return slices.Repeat([]request{{
 		procedure: worktreev1connect.WorktreeServiceGetWorktreeProcedure,
 		msg:       &worktreev1.GetWorktreeRequest{Dir: "/repo"},
@@ -2341,7 +2347,7 @@ func newMark(letter, agentID string) *agentv1.Mark {
 	}
 }
 
-func markAuth(letter *string) *agentv1.SetMarkRequest {
+func newMarkAuthRequest(letter *string) *agentv1.SetMarkRequest {
 	return &agentv1.SetMarkRequest{
 		Target: &agentv1.SetMarkRequest_AgentId{AgentId: "auth"},
 		Mark:   letter,

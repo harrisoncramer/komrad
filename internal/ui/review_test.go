@@ -1961,6 +1961,24 @@ func TestReviewBaseIsRefusedWhenTheBaseMoved(t *testing.T) {
 		"and says the base moved rather than drawing somebody else's work")
 }
 
+// TestUnprovisionedAgentIsReviewable pins that an agent told to keep the directory it was
+// given still has work of its own to read.
+func TestUnprovisionedAgentIsReviewable(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+
+	adopted := panel.Agent{
+		ID:         "a5",
+		Name:       "adopted",
+		Cwd:        dir,
+		WorkflowID: "w1",
+	}
+	assert.True(t, isReviewable(adopted))
+
+	m.enterReview(adopted)
+	assert.Equal(t, screenReview, m.screen)
+}
+
 // typeReviewMessage types words into the composer the way a person does, the field taking only
 // what its own keys give it.
 func typeReviewMessage(t *testing.T, m model, words string) model {
@@ -2050,22 +2068,4 @@ func streamThreads(t *testing.T, m *model, threads []*agentv1.ReviewThread) {
 
 	holdThreads(m, threads)
 	m.review.followWorld(m.shared())
-}
-
-// TestUnprovisionedAgentIsReviewable pins that an agent told to keep the directory it was
-// given still has work of its own to read.
-func TestUnprovisionedAgentIsReviewable(t *testing.T) {
-	dir := reviewRepo(t)
-	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
-
-	adopted := panel.Agent{
-		ID:         "a5",
-		Name:       "adopted",
-		Cwd:        dir,
-		WorkflowID: "w1",
-	}
-	assert.True(t, isReviewable(adopted))
-
-	m.enterReview(adopted)
-	assert.Equal(t, screenReview, m.screen)
 }

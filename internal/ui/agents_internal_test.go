@@ -22,6 +22,45 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// recordingHolds answers the hold calls and keeps what the panel sent.
+type recordingHolds struct {
+	agentv1connect.AgentServiceClient
+	held     []string
+	released []*agentv1.ReleaseAgentRequest
+}
+
+// refusingHolds refuses the first release and takes every one after it.
+type refusingHolds struct {
+	recordingHolds
+	refusals int
+}
+
+func (r *recordingHolds) HoldAgent(_ context.Context, req *connect.Request[agentv1.HoldAgentRequest]) (*connect.Response[agentv1.HoldAgentResponse], error) {
+	r.held = append(r.held, req.Msg.GetId())
+
+	return connect.NewResponse(&agentv1.HoldAgentResponse{}), nil
+}
+
+func (r *recordingHolds) ReleaseAgent(_ context.Context, req *connect.Request[agentv1.ReleaseAgentRequest]) (*connect.Response[agentv1.ReleaseAgentResponse], error) {
+	r.released = append(r.released, req.Msg)
+
+	return connect.NewResponse(&agentv1.ReleaseAgentResponse{}), nil
+}
+
+func (r *recordingHolds) ListAgents(context.Context, *connect.Request[agentv1.ListAgentsRequest]) (*connect.Response[agentv1.ListAgentsResponse], error) {
+	return connect.NewResponse(&agentv1.ListAgentsResponse{}), nil
+}
+
+func (r *refusingHolds) ReleaseAgent(ctx context.Context, req *connect.Request[agentv1.ReleaseAgentRequest]) (*connect.Response[agentv1.ReleaseAgentResponse], error) {
+	if r.refusals > 0 {
+		r.refusals--
+
+		return nil, errors.New("the input box would not take the words")
+	}
+
+	return r.recordingHolds.ReleaseAgent(ctx, req)
+}
+
 // TestRecordCopy covers the copy key taking a field's value out of the record.
 func TestRecordCopy(t *testing.T) {
 	t.Run("the value is taken rather than the clipped line it is drawn on", func(t *testing.T) {
@@ -163,22 +202,6 @@ func TestWorkflowRowNamesItsOrchestratorsPane(t *testing.T) {
 	assert.Equal(t, "claude", harness)
 }
 
-// refusingHolds refuses the first release and takes every one after it.
-type refusingHolds struct {
-	recordingHolds
-	refusals int
-}
-
-func (r *refusingHolds) ReleaseAgent(ctx context.Context, req *connect.Request[agentv1.ReleaseAgentRequest]) (*connect.Response[agentv1.ReleaseAgentResponse], error) {
-	if r.refusals > 0 {
-		r.refusals--
-
-		return nil, errors.New("the input box would not take the words")
-	}
-
-	return r.recordingHolds.ReleaseAgent(ctx, req)
-}
-
 // TestARefusedUnpauseKeepsTheEditedFiles covers the retry the panel's own advice asks for.
 func TestARefusedUnpauseKeepsTheEditedFiles(t *testing.T) {
 	at := time.Now()
@@ -280,29 +303,6 @@ func TestARefusedEndOfAReviewPassKeepsTheEditedFiles(t *testing.T) {
 	require.Empty(t, agents.released, "the refusal sent nothing")
 	assert.Contains(t, got.edited["a1"], "internal/agents/hold.go",
 		"a refused release leaves the reader's files for the next press")
-}
-
-// recordingHolds answers the hold calls and keeps what the panel sent.
-type recordingHolds struct {
-	agentv1connect.AgentServiceClient
-	held     []string
-	released []*agentv1.ReleaseAgentRequest
-}
-
-func (r *recordingHolds) HoldAgent(_ context.Context, req *connect.Request[agentv1.HoldAgentRequest]) (*connect.Response[agentv1.HoldAgentResponse], error) {
-	r.held = append(r.held, req.Msg.GetId())
-
-	return connect.NewResponse(&agentv1.HoldAgentResponse{}), nil
-}
-
-func (r *recordingHolds) ReleaseAgent(_ context.Context, req *connect.Request[agentv1.ReleaseAgentRequest]) (*connect.Response[agentv1.ReleaseAgentResponse], error) {
-	r.released = append(r.released, req.Msg)
-
-	return connect.NewResponse(&agentv1.ReleaseAgentResponse{}), nil
-}
-
-func (r *recordingHolds) ListAgents(context.Context, *connect.Request[agentv1.ListAgentsRequest]) (*connect.Response[agentv1.ListAgentsResponse], error) {
-	return connect.NewResponse(&agentv1.ListAgentsResponse{}), nil
 }
 
 // heldModel is the agents screen standing on one agent, held or not.
