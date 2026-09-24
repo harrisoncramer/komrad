@@ -41,12 +41,11 @@ func TestListReadsADirectoryWithoutGit(t *testing.T) {
 	assert.Empty(t, listing.UnreadableDirs)
 }
 
-// TestListReadsWhatADirectorySaysOfItself covers the directories that are not a readable
-// worktree on a branch still being listed, and a file beside them not.
+// TestListReadsWhatADirectorySaysOfItself covers directories that are not a readable worktree on a branch.
 func TestListReadsWhatADirectorySaysOfItself(t *testing.T) {
 	tests := []struct {
 		name string
-		// lay writes the directory and returns the repository it should read as cut from.
+		// lay returns the repository the directory should read as cut from.
 		lay          func(t *testing.T, f *fixture) string
 		wantReadable bool
 	}{
@@ -117,8 +116,7 @@ func TestListNamesTheOccupantsOfADirectory(t *testing.T) {
 	assert.Equal(t, "zed-reviewer", listing.Worktrees[0].Occupants[1].Name)
 }
 
-// TestListWalksEachWorkflowsOwnDirectory covers a workflow's own worktree directory being
-// walked beside the shared one, and a missing one being skipped.
+// TestListWalksEachWorkflowsOwnDirectory covers a workflow's own directory being walked beside the shared one.
 func TestListWalksEachWorkflowsOwnDirectory(t *testing.T) {
 	f := newFixture(t)
 	own := filepath.Join(t.TempDir(), "own")
@@ -199,8 +197,7 @@ func TestGetReadsOneDirectory(t *testing.T) {
 	require.ErrorIs(t, err, store.ErrNotFound)
 }
 
-// TestLastActiveIsTheLaterOfTheAgentsTimes covers the later of an agent's state change and its
-// archiving, and the directory's own mtime when no agent answers.
+// TestLastActiveIsTheLaterOfTheAgentsTimes covers when a directory was last touched.
 func TestLastActiveIsTheLaterOfTheAgentsTimes(t *testing.T) {
 	earlier := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
 	later := time.Date(2026, 9, 19, 12, 0, 0, 0, time.UTC)
@@ -245,7 +242,7 @@ func TestLastActiveIsTheLaterOfTheAgentsTimes(t *testing.T) {
 	}
 }
 
-// TestModifiedAtPrefersTheGitFile covers the .git file's mtime, else the directory's own.
+// TestModifiedAtPrefersTheGitFile covers the .git file's mtime winning over the directory's.
 func TestModifiedAtPrefersTheGitFile(t *testing.T) {
 	gitTouched := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
 	dirTouched := time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC)
@@ -280,8 +277,7 @@ func TestModifiedAtPrefersTheGitFile(t *testing.T) {
 	}
 }
 
-// TestFateIsDecidedByTheRow covers the three paths, and a row whose own delete failed taking
-// the remover's only once git cannot read the directory.
+// TestFateIsDecidedByTheRow covers which delete path each directory takes.
 func TestFateIsDecidedByTheRow(t *testing.T) {
 	archived := time.Date(2026, 9, 19, 12, 0, 0, 0, time.UTC)
 
@@ -335,9 +331,7 @@ func TestFateIsDecidedByTheRow(t *testing.T) {
 	}
 }
 
-// TestUnclaimedLeavesOutWhatADeleteHasClaimed covers an agent being deleted and a directory
-// nothing answers for that an unfinished delete names both being dropped, while an archived
-// agent's directory a delete names is still its agent's.
+// TestUnclaimedLeavesOutWhatADeleteHasClaimed covers which directories a delete has claimed.
 func TestUnclaimedLeavesOutWhatADeleteHasClaimed(t *testing.T) {
 	archived := time.Date(2026, 9, 19, 12, 0, 0, 0, time.UTC)
 	owned := Worktree{

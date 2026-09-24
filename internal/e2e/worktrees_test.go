@@ -27,9 +27,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// TestIntegrationWorktrees covers the life of the worktrees a workflow cuts, from the agents
-// created on them at once through the listing, the size loop, the cwd loop, the remover and the
-// agent delete that gives one back.
+// TestIntegrationWorktrees covers the worktrees a workflow cuts, from create to delete.
 func TestIntegrationWorktrees(t *testing.T) {
 	hermeticGit(t)
 
@@ -216,9 +214,7 @@ func TestIntegrationWorktrees(t *testing.T) {
 	})
 }
 
-// TestIntegrationRebase covers a rebase of a branch whose work landed on the base as a squash:
-// it waits for the agent to stop, parks the checkout with what was never committed, and moves
-// the branch onto the base without replaying anything.
+// TestIntegrationRebase covers rebasing a branch whose work landed on the base as a squash.
 func TestIntegrationRebase(t *testing.T) {
 	hermeticGit(t)
 
@@ -268,7 +264,6 @@ func TestIntegrationRebase(t *testing.T) {
 	})
 }
 
-// listWorktrees is the listing keyed by directory.
 func listWorktrees(t *testing.T, instance *weavetest.Instance) map[string]*worktreev1.Worktree {
 	t.Helper()
 
@@ -278,7 +273,6 @@ func listWorktrees(t *testing.T, instance *weavetest.Instance) map[string]*workt
 	return xslice.KeyBy(listed.Msg.GetWorktrees(), func(worktree *worktreev1.Worktree) string { return worktree.GetDir() })
 }
 
-// commitIn writes a file into a checkout and commits it with the subject given.
 func commitIn(t *testing.T, dir, name, subject string) {
 	t.Helper()
 
@@ -287,8 +281,7 @@ func commitIn(t *testing.T, dir, name, subject string) {
 	runGitIn(t, dir, "commit", "--quiet", "-m", subject)
 }
 
-// rebaseAgent is an agent on a worktree of its own, with two commits of its own work on its
-// branch.
+// rebaseAgent is an agent on a worktree of its own with two commits on its branch.
 func rebaseAgent(t *testing.T, instance *weavetest.Instance, repo string) (agentID, tree string) {
 	t.Helper()
 

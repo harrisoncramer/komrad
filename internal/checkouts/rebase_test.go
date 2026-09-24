@@ -28,7 +28,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// rebaseFixture is a real store holding a workflow that cuts worktrees.
 type rebaseFixture struct {
 	stores     *storetest.Stores
 	workflowID string
@@ -48,7 +47,7 @@ func newRebaseFixture(t *testing.T) *rebaseFixture {
 	}
 }
 
-// seed records an idle agent named auth in /tree, overridden by whatever the agent names.
+// seed records an idle agent named auth in /tree unless the agent says otherwise.
 func (f *rebaseFixture) seed(t *testing.T, agent agentstore.Agent) *agentstore.Agent {
 	t.Helper()
 
@@ -65,7 +64,7 @@ func (f *rebaseFixture) seed(t *testing.T, agent agentstore.Agent) *agentstore.A
 	return f.stores.SeedAgent(t, agent)
 }
 
-// service builds a rebase service over the real stores, filling in whatever params leaves out.
+// service builds a rebase service over the real stores.
 func (f *rebaseFixture) service(params NewRebaseServiceParams) *RebaseService {
 	params.Agents = f.stores.Agents
 	params.Workflows = f.stores.Workflows
@@ -76,7 +75,6 @@ func (f *rebaseFixture) service(params NewRebaseServiceParams) *RebaseService {
 	return NewRebaseService(params)
 }
 
-// mailer is the real mail service, which is what tells an agent about a rebase.
 func (f *rebaseFixture) mailer() *mail.MailService {
 	return mail.NewMailService(mail.NewMailServiceParams{
 		MailReadWriter: f.stores.Mail,
@@ -95,9 +93,7 @@ func (f *rebaseFixture) inbox(t *testing.T, id string) []string {
 	return xslice.Map(sent, func(piece mailstore.Mail) string { return piece.Body })
 }
 
-// TestRebaseRefusals covers every state of the row a rebase declines, which is most of the
-// feature: the operation itself is one git command and the judgement is all in what it will not
-// touch.
+// TestRebaseRefusals covers every state of the row a rebase declines.
 func TestRebaseRefusals(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -251,8 +247,7 @@ func TestTreeLocksRefuseAnEmptyPath(t *testing.T) {
 	assert.Nil(t, release)
 }
 
-// TestRebaseRefusesATreeGitWillNotMove covers the checkout's own refusals, each read before
-// the agent's turn is touched.
+// TestRebaseRefusesATreeGitWillNotMove covers the checkout's own refusals costing the agent no turn.
 func TestRebaseRefusesATreeGitWillNotMove(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -296,9 +291,7 @@ func TestRebaseRefusesATreeGitWillNotMove(t *testing.T) {
 	}
 }
 
-// TestRebaseMovesTheBranch covers the path git is sent down and what reaches the row and the
-// result: the park always comes first, a cutoff the plan found is where the replay starts, and
-// a stopped rebase is written to the row without waiting for the next pass.
+// TestRebaseMovesTheBranch covers the git calls a rebase makes and what reaches the row.
 func TestRebaseMovesTheBranch(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -452,9 +445,7 @@ func TestRebaseSettlesTheAgentBeforeItMoves(t *testing.T) {
 	}
 }
 
-// TestRebaseRereadsTheRowOnceTheAgentSettles covers the row changing while the agent was being
-// settled: a state stamped from a capture taken before the interrupt landed is trusted less than
-// the settled pane, while a hold refuses the rebase and tells an agent whose turn was cut for it.
+// TestRebaseRereadsTheRowOnceTheAgentSettles covers the row changing while the agent was being settled.
 func TestRebaseRereadsTheRowOnceTheAgentSettles(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -541,9 +532,7 @@ func (r *treeReadRecorder) ReadTreeState(ctx context.Context, dir string) (git.T
 	return r.Rebaser.ReadTreeState(ctx, dir)
 }
 
-// TestRebaseMailSaysWhatHappenedToTheBranch covers the mail naming the park whatever the
-// outcome, saying how many commits left the branch when some did, and never telling an agent
-// with no commits of its own that its commits are gone.
+// TestRebaseMailSaysWhatHappenedToTheBranch covers what the rebase mail tells the agent.
 func TestRebaseMailSaysWhatHappenedToTheBranch(t *testing.T) {
 	const park = "refs/weave/prerefresh/a1/1"
 
@@ -593,8 +582,7 @@ func TestRebaseMailSaysWhatHappenedToTheBranch(t *testing.T) {
 	}
 }
 
-// TestRebaseRefusesAnAgentInTheCallersCheckout covers who is asking rather than who the row
-// belongs to, however the asker's directory is spelled.
+// TestRebaseRefusesAnAgentInTheCallersCheckout covers a caller asking to rebase the checkout it works in.
 func TestRebaseRefusesAnAgentInTheCallersCheckout(t *testing.T) {
 	target := t.TempDir()
 	linked := filepath.Join(t.TempDir(), "link")
@@ -602,7 +590,7 @@ func TestRebaseRefusesAnAgentInTheCallersCheckout(t *testing.T) {
 
 	tests := []struct {
 		name string
-		// askerCwd seeds an agent in that directory as the caller, and asker names one by hand.
+		// askerCwd seeds the caller in that directory unless asker names one.
 		askerCwd string
 		asker    func(targetID string) caller.Caller
 		wantErr  error

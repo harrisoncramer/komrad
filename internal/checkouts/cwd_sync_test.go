@@ -20,8 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// syncFixture is a real store with a workflow to file agents under and the review store the
-// syncer reads rounds from.
+// syncFixture is a real store with a workflow and the review store.
 type syncFixture struct {
 	stores     *storetest.Stores
 	reviews    *reviewstore.ReviewStore
@@ -60,7 +59,7 @@ func (f *syncFixture) read(t *testing.T, id string) *agentstore.Agent {
 	return agent
 }
 
-// release takes a round of the agent's work on the snapshot and releases a review of it.
+// release releases a review of a new round on the snapshot.
 func (f *syncFixture) release(t *testing.T, agentID, snapshot string, verdict reviewstore.Verdict) {
 	t.Helper()
 
@@ -103,18 +102,15 @@ func (f *syncFixture) syncer(heads headReader, trees treeReader) *CwdSyncer {
 	})
 }
 
-// headsAt answers the one head state given for a directory.
 func headsAt(cwd string, state git.HeadState) *gittest.Heads {
 	return &gittest.Heads{States: map[string]git.HeadState{cwd: state}}
 }
 
-// noTrees is a git that finds no tree to compare.
 func noTrees() *gittest.Trees {
 	return &gittest.Trees{Standings: map[string]git.Standing{}}
 }
 
-// standingOn is the standing the row records against the given round, and unmoved against any
-// other.
+// standingOn is the standing the row records against the round, unmoved against any other.
 func (f *syncFixture) standingOn(t *testing.T, id, round string) git.Standing {
 	t.Helper()
 
@@ -126,9 +122,7 @@ func (f *syncFixture) standingOn(t *testing.T, id, round string) git.Standing {
 	return agent.TreeStanding
 }
 
-// TestCwdSyncerSyncRecordsTheCheckout covers what a pass writes for a live agent: whether its
-// cwd still exists, and the branch, repository and commit git names for it, each cleared when
-// the cwd names no directory or git names nothing.
+// TestCwdSyncerSyncRecordsTheCheckout covers what a pass writes of a live agent's checkout.
 func TestCwdSyncerSyncRecordsTheCheckout(t *testing.T) {
 	const weave = "https://github.com/harrisoncramer/weave"
 	const other = "https://gitlab.com/group/subgroup/repo"
@@ -222,8 +216,7 @@ func TestCwdSyncerSyncRecordsTheCheckout(t *testing.T) {
 	}
 }
 
-// TestCwdSyncerSyncObservesANewBranch covers that a pass which records a branch the row did not
-// hold observes the pull requests, and a pass that finds every branch where it was does not.
+// TestCwdSyncerSyncObservesANewBranch covers a pass observing pull requests only when a branch moved.
 func TestCwdSyncerSyncObservesANewBranch(t *testing.T) {
 	f := newSyncFixture(t)
 	cwd := fakeCheckout(t)
@@ -274,8 +267,7 @@ func TestCwdSyncerSyncLooksAtEveryAgent(t *testing.T) {
 	}
 }
 
-// TestCwdSyncerSyncRecordsAStoppedSequence covers a checkout part-way through a rebase saying
-// so on the agent while still naming its branch, and a sequence settled by hand being cleared.
+// TestCwdSyncerSyncRecordsAStoppedSequence covers a rebase part-way through a checkout reaching the row.
 func TestCwdSyncerSyncRecordsAStoppedSequence(t *testing.T) {
 	f := newSyncFixture(t)
 	repo := fakeCheckout(t)
@@ -292,8 +284,7 @@ func TestCwdSyncerSyncRecordsAStoppedSequence(t *testing.T) {
 	assert.False(t, f.read(t, agent.ID).SequenceInProgress)
 }
 
-// TestCwdSyncerSyncSkipsTheGitCallForARemovedCwd covers a cwd that is gone never being asked
-// for its branch.
+// TestCwdSyncerSyncSkipsTheGitCallForARemovedCwd covers a cwd that is gone never being asked for its branch.
 func TestCwdSyncerSyncSkipsTheGitCallForARemovedCwd(t *testing.T) {
 	f := newSyncFixture(t)
 	f.seed(t, "a", removedDir(t))
@@ -304,9 +295,7 @@ func TestCwdSyncerSyncSkipsTheGitCallForARemovedCwd(t *testing.T) {
 	assert.Empty(t, looked.Dirs)
 }
 
-// TestCwdSyncerSyncClearsWhatAnEarlierPassWrote covers an agent whose cwd changed under it: a
-// branch read off a checkout and a removal read off a missing directory are both cleared once
-// the cwd says otherwise.
+// TestCwdSyncerSyncClearsWhatAnEarlierPassWrote covers a branch and a removal being cleared once the cwd moves.
 func TestCwdSyncerSyncClearsWhatAnEarlierPassWrote(t *testing.T) {
 	f := newSyncFixture(t)
 	repo := fakeCheckout(t)
@@ -364,8 +353,7 @@ func (c *countingAgents) SetTreeStanding(ctx context.Context, id string, standin
 	return c.cwdSetter.SetTreeStanding(ctx, id, standing, snapshotSHA)
 }
 
-// TestCwdSyncerSyncWritesAStandingOnlyWhenItMoved covers a pass writing the standing it found
-// only where the row says otherwise.
+// TestCwdSyncerSyncWritesAStandingOnlyWhenItMoved covers a pass writing a standing only where the row differs.
 func TestCwdSyncerSyncWritesAStandingOnlyWhenItMoved(t *testing.T) {
 	f := newSyncFixture(t)
 	cwd := fakeCheckout(t)
@@ -400,8 +388,7 @@ func TestCwdSyncerSyncWritesAStandingOnlyWhenItMoved(t *testing.T) {
 	assert.Equal(t, git.StandingSame, f.standingOn(t, agent.ID, "snapshot-one"), "a move the next pass does not see is forgotten")
 }
 
-// TestCwdSyncerSyncReadsWhereTheTreeStands covers a worktree being reported as git finds it
-// against the round of its last verdict, and nothing being known of any other round.
+// TestCwdSyncerSyncReadsWhereTheTreeStands covers each standing git reports against the last verdict's round.
 func TestCwdSyncerSyncReadsWhereTheTreeStands(t *testing.T) {
 	f := newSyncFixture(t)
 	standings := map[string]git.Standing{
@@ -430,8 +417,7 @@ func TestCwdSyncerSyncReadsWhereTheTreeStands(t *testing.T) {
 		"a verdict on a round the pass has not compared against is not one the tree moved from")
 }
 
-// TestCwdSyncerSyncReportsATreeItCouldNotRead covers a failure reading the tree being said
-// rather than read as unmoved, and a standing found before the failure being kept.
+// TestCwdSyncerSyncReportsATreeItCouldNotRead covers a failed tree read being returned rather than read as unmoved.
 func TestCwdSyncerSyncReportsATreeItCouldNotRead(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -470,8 +456,7 @@ func TestCwdSyncerSyncReportsATreeItCouldNotRead(t *testing.T) {
 	}
 }
 
-// TestCwdSyncerSyncMeasuresAgainstTheWorkflowsBase covers the landed question being asked of
-// the branch the workflow cuts from.
+// TestCwdSyncerSyncMeasuresAgainstTheWorkflowsBase covers the landed question being asked of the workflow's base.
 func TestCwdSyncerSyncMeasuresAgainstTheWorkflowsBase(t *testing.T) {
 	f := newSyncFixture(t)
 	develop := f.stores.SeedWorkflow(t, workflowstore.Config{Name: "develop", Worktree: workflowstore.WorktreeConfig{BaseBranch: "develop"}})
@@ -488,8 +473,7 @@ func TestCwdSyncerSyncMeasuresAgainstTheWorkflowsBase(t *testing.T) {
 	assert.Equal(t, []string{"develop"}, hashed.Bases)
 }
 
-// TestCwdSyncerSyncHashesOnlyAReviewedTree covers a worktree with no verdict on it, or none left
-// on disk, never being hashed.
+// TestCwdSyncerSyncHashesOnlyAReviewedTree covers only a reviewed tree still on disk being hashed.
 func TestCwdSyncerSyncHashesOnlyAReviewedTree(t *testing.T) {
 	f := newSyncFixture(t)
 	reviewed := fakeCheckout(t)
@@ -509,8 +493,7 @@ func TestCwdSyncerSyncHashesOnlyAReviewedTree(t *testing.T) {
 	assert.Equal(t, git.StandingSame, f.standingOn(t, removedAgent.ID, "snapshot-three"))
 }
 
-// TestCwdSyncerSyncRecordsAMoveSinceTheNewestRound covers the newest round's snapshot being
-// written while the worktree no longer hashes to it.
+// TestCwdSyncerSyncRecordsAMoveSinceTheNewestRound covers the newest round being written once the tree no longer hashes to it.
 func TestCwdSyncerSyncRecordsAMoveSinceTheNewestRound(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -561,8 +544,7 @@ func TestCwdSyncerSyncRecordsAMoveSinceTheNewestRound(t *testing.T) {
 	}
 }
 
-// TestCwdSyncerSyncHashesTheWorktreeOnceForBothRounds covers one probe measured against both
-// the concluded round and the newest one.
+// TestCwdSyncerSyncHashesTheWorktreeOnceForBothRounds covers one probe serving the concluded and the newest round.
 func TestCwdSyncerSyncHashesTheWorktreeOnceForBothRounds(t *testing.T) {
 	f := newSyncFixture(t)
 	cwd := fakeCheckout(t)
@@ -579,8 +561,7 @@ func TestCwdSyncerSyncHashesTheWorktreeOnceForBothRounds(t *testing.T) {
 	assert.Equal(t, git.StandingMoved, f.standingOn(t, agent.ID, "snapshot-one"))
 }
 
-// TestCwdSyncerSyncKeepsAMoveItCouldNotProbe covers a worktree the pass cannot hash being said
-// and leaving the move the row already records.
+// TestCwdSyncerSyncKeepsAMoveItCouldNotProbe covers a failed probe leaving the recorded move alone.
 func TestCwdSyncerSyncKeepsAMoveItCouldNotProbe(t *testing.T) {
 	f := newSyncFixture(t)
 	cwd := fakeCheckout(t)

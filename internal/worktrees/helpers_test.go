@@ -13,12 +13,12 @@ import (
 	workflowstore "weave/internal/store/workflow"
 	worktreestore "weave/internal/store/worktree"
 	"weave/internal/storetest"
+	"weave/lib/xslice"
 
 	"github.com/stretchr/testify/require"
 )
 
-// fixture is a repository's .git directory with a worktrees directory beside it, laid out by
-// hand the way git lays one out, over a real store.
+// fixture is a hand-laid repository with a worktrees directory beside it, over a real store.
 type fixture struct {
 	repo       string
 	shared     string
@@ -64,8 +64,7 @@ func (f *fixture) listerOver(shared string) *Lister {
 	})
 }
 
-// cut lays out a worktree named with a fresh agent id: the directory with its .git file, and
-// the gitdir in the repository with HEAD on the agent's branch.
+// cut lays out a worktree named with a fresh agent id, with HEAD on the agent's branch.
 func (f *fixture) cut(t *testing.T) string {
 	t.Helper()
 
@@ -81,7 +80,6 @@ func (f *fixture) cut(t *testing.T) string {
 	return dir
 }
 
-// own records the agent a directory the fixture cut was made for.
 func (f *fixture) own(t *testing.T, dir string, agent agentstore.Agent) *agentstore.Agent {
 	t.Helper()
 
@@ -112,7 +110,6 @@ func (f *fixture) archive(t *testing.T, id string) {
 	require.NoError(t, err)
 }
 
-// measured stores a directory's row with a measurement taken at the time given.
 func (f *fixture) measured(t *testing.T, dir string, at time.Time) {
 	t.Helper()
 
@@ -124,19 +121,13 @@ func (f *fixture) measured(t *testing.T, dir string, at time.Time) {
 	}))
 }
 
-// stored reads every row the store holds, keyed by directory.
 func (f *fixture) stored(t *testing.T) map[string]worktreestore.Worktree {
 	t.Helper()
 
 	listed, err := f.worktrees.List(t.Context())
 	require.NoError(t, err)
 
-	byDir := make(map[string]worktreestore.Worktree, len(listed))
-	for _, worktree := range listed {
-		byDir[worktree.Dir] = worktree
-	}
-
-	return byDir
+	return xslice.KeyBy(listed, func(worktree worktreestore.Worktree) string { return worktree.Dir })
 }
 
 func (f *fixture) inspector() *Inspector {
@@ -166,7 +157,7 @@ func (f *fixture) remover() *Remover {
 	})
 }
 
-// fakeClaims is the directories an unfinished delete names, which the job queue holds.
+// fakeClaims is the directories an unfinished delete names.
 type fakeClaims struct {
 	dirs []string
 }

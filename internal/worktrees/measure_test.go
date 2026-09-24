@@ -40,7 +40,6 @@ func TestMeasureTakesTheUnmeasuredFirstThenTheStaleOldestFirst(t *testing.T) {
 	assert.Equal(t, int64(1), f.stored(t)[fresh].Size.Bytes, "a fresh measurement is left alone")
 }
 
-// measuredAt is the directories whose stored measurement was taken at the time given.
 func (f *fixture) measuredAt(t *testing.T, at time.Time) []string {
 	t.Helper()
 
@@ -182,9 +181,7 @@ func TestMeasureRecordsWhatTheFilesystemSays(t *testing.T) {
 	assert.NotNil(t, bare.ModifiedAt, "a directory with no .git file takes its own mtime")
 }
 
-// TestMeasureLeavesOutWhatADeleteNames covers an unowned directory an unfinished delete names
-// losing its row and going unwalked, while an owned one it names and one whose agent is being
-// deleted keep theirs.
+// TestMeasureLeavesOutWhatADeleteNames covers an unowned directory a delete names losing its row.
 func TestMeasureLeavesOutWhatADeleteNames(t *testing.T) {
 	f := newFixture(t)
 	deleting := f.cut(t)

@@ -21,8 +21,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// fakeWorktrees answers as the three readers and the queue, remembering what it was asked and
-// refusing with err when it is set.
+// fakeWorktrees answers as the readers and the queue, refusing with err when it is set.
 type fakeWorktrees struct {
 	listing    worktrees.Listing
 	inspection worktrees.Inspection
@@ -247,8 +246,7 @@ func TestRemoveUnownedWorktrees(t *testing.T) {
 	assert.Contains(t, resp.Msg.GetRefused()[0].GetReason(), "delete the agent instead")
 }
 
-// TestHandlerAnswersWithTheDomainsKind covers each procedure answering what the domain said:
-// a refusal with its kind, a failure as internal, and a queued delete as nothing.
+// TestHandlerAnswersWithTheDomainsKind covers each procedure answering with the code of what the domain said.
 func TestHandlerAnswersWithTheDomainsKind(t *testing.T) {
 	t.Parallel()
 
