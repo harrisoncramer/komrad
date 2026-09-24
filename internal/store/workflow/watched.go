@@ -39,21 +39,17 @@ var WatchedWorkflows = watch.Resource{
 
 // ListWatched returns the workflows among keys that are not being deleted, or every one when keys is nil, archived ones included.
 func (s *WorkflowStore) ListWatched(ctx context.Context, keys []string) ([]Workflow, error) {
-	if keys != nil {
-		return s.ListByKey(ctx, keys)
-	}
-
-	rows, err := s.queries.SnapshotWatchedWorkflows(ctx)
+	rows, err := s.queries.ListWatchedWorkflows(ctx, keys)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the watched workflows: %w", err)
 	}
 
-	hooks, err := s.hooksByWorkflow(ctx)
+	hooks, err := s.hooksForWorkflows(ctx, xslice.Map(rows, func(row *models.ListWatchedWorkflowsRow) string { return row.Workflow.ID }))
 	if err != nil {
-		return nil, fmt.Errorf("failed to read the hooks of the watched workflows: %w", err)
+		return nil, err
 	}
 
-	return xslice.Map(rows, func(row *models.SnapshotWatchedWorkflowsRow) Workflow {
+	return xslice.Map(rows, func(row *models.ListWatchedWorkflowsRow) Workflow {
 		return workflowFromRow(row.Workflow, row.WorkflowConfig, row.WorkflowProvisionerConfig, hooks[row.Workflow.ID])
 	}), nil
 }
