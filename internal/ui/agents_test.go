@@ -367,124 +367,6 @@ func TestAgentsLongList(t *testing.T) {
 	}
 }
 
-func openAgents(t *testing.T, rows ...proto.Message) *panelHarness {
-	t.Helper()
-
-	harness := newPanelHarness(t, panelHarnessParams{})
-	answerWorktreeReads(harness)
-	harness.watch(buildSnapshot(rows...))
-
-	return harness
-}
-
-func answerWorktreeReads(harness *panelHarness) {
-	harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {
-		read, _ := req.Any().(*worktreev1.GetWorktreeRequest)
-
-		return connect.NewResponse(&worktreev1.GetWorktreeResponse{Worktree: &worktreev1.Worktree{Dir: read.GetDir()}}), nil
-	})
-}
-
-func buildCursorable() []proto.Message {
-	return []proto.Message{
-		newLiveWorkflow("w1", "backend"),
-		newLiveWorkflow("w2", "frontend"),
-		newAgentAt("auth", "w1", 3),
-		newAgentAt("api", "w1", 2),
-		newAgentAt("db", "w1", 1),
-		newAgentAt("ui", "w2", 0),
-	}
-}
-
-func buildFamily() []proto.Message {
-	return []proto.Message{
-		newLiveWorkflow("w1", "weave"),
-		newAgentAt("author", "w1", 1),
-		newAgentAt("fix-gutter", "w1", 2),
-		newChild("a3", "reviewer", "author"),
-		newChild("a4", "test-runner", "author"),
-	}
-}
-
-func buildSortable() []proto.Message {
-	sortable := func(name, workflowID string, created, changed int) *agentv1.Agent {
-		agent := newAgentAt(name, workflowID, created)
-		agent.StateChangedAt = fmt.Sprintf("2026-09-20T12:%02d:00Z", changed)
-
-		return agent
-	}
-	charlie := sortable("charlie", "w1", 25, 5)
-	charlie.ParentAgentId = proto.String("alpha")
-	bob := sortable("bob", "w1", 5, 40)
-	bob.ParentAgentId = proto.String("alpha")
-	zulu := sortable("zulu", "w1", 20, 30)
-	zulu.Name = "Zulu"
-
-	return []proto.Message{
-		newLiveWorkflow("w1", "weave"),
-		newLiveWorkflow("w2", "gadgets"),
-		sortable("delta", "w1", 30, 10),
-		charlie,
-		zulu,
-		sortable("alpha", "w1", 10, 20),
-		bob,
-		sortable("echo", "w2", 0, 50),
-	}
-}
-
-func hideAgent(rows []proto.Message, id string) []proto.Message {
-	for _, row := range rows {
-		if agent, isAgent := row.(*agentv1.Agent); isAgent && agent.GetId() == id {
-			agent.Hidden = true
-		}
-	}
-
-	return rows
-}
-
-func newAgent(id, name, workflowID string) *agentv1.Agent {
-	return &agentv1.Agent{
-		Id:         id,
-		Name:       name,
-		WorkflowId: workflowID,
-		State:      agentv1.AgentState_AGENT_STATE_IDLE,
-	}
-}
-
-func newAgentAt(name, workflowID string, minute int) *agentv1.Agent {
-	agent := newAgent(name, name, workflowID)
-	agent.CreatedAt = fmt.Sprintf("2026-09-20T12:%02d:00Z", minute)
-
-	return agent
-}
-
-func newHiddenAgent(id, name string) *agentv1.Agent {
-	agent := newAgent(id, name, "w1")
-	agent.Hidden = true
-
-	return agent
-}
-
-func newChild(id, name, parentID string) *agentv1.Agent {
-	agent := newAgent(id, name, "w1")
-	agent.ParentAgentId = proto.String(parentID)
-
-	return agent
-}
-
-func newOrchestrator() *agentv1.Agent {
-	return &agentv1.Agent{
-		Id:         "o1",
-		Name:       "orchestrator",
-		WorkflowId: "w1",
-		PaneId:     "%9",
-		Harness:    "claude",
-		Alive:      proto.Bool(true),
-		State:      agentv1.AgentState_AGENT_STATE_THINKING,
-		Role:       agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR,
-	}
-}
-
 // TestAgentsCursor covers where the cursor stands as keys move it and the watch reshapes the tree.
 func TestAgentsCursor(t *testing.T) {
 	rows := buildCursorable()
@@ -1364,112 +1246,6 @@ func TestAgentsSearchAcrossSections(t *testing.T) {
 	})
 }
 
-func openWorktreeRecord(t *testing.T, params panelHarnessParams) *panelHarness {
-	t.Helper()
-
-	harness := newPanelHarness(t, params)
-	harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(buildWorktreeRead()))
-	harness.watch(buildSnapshot(buildRecorded()...))
-	harness.press("ctrl+t")
-
-	return harness
-}
-
-func findBarColumn(row string) int {
-	for _, bar := range listBars {
-		if at := strings.Index(row, strings.TrimSpace(bar)); at >= 0 {
-			return ansi.StringWidth(row[:at])
-		}
-	}
-
-	return -1
-}
-
-func readSearch(frame string) string {
-	return strings.TrimSpace(ansi.Truncate(splitLines(frame)[2], config.DefaultSidebarWidth, ""))
-}
-
-func findRecordCursor(frame string) int {
-	return slices.IndexFunc(readRecord(frame), func(line string) bool {
-		return strings.HasPrefix(line, "› ")
-	})
-}
-
-func isBlank(line string) bool {
-	return strings.TrimSpace(line) == ""
-}
-
-func buildWorktreeRead() *worktreev1.GetWorktreeResponse {
-	return &worktreev1.GetWorktreeResponse{
-		Worktree: &worktreev1.Worktree{
-			Dir:        "/repo",
-			Readable:   true,
-			Branch:     "agent/x",
-			Occupants:  []*worktreev1.WorktreeAgent{{Id: "a2", Name: "reader"}},
-			SizeBytes:  proto.Int64(1200 * 1024 * 1024),
-			MeasuredAt: proto.String(time.Now().UTC().Format(time.RFC3339)),
-		},
-		Modified:           []string{"a.go", "b.go"},
-		Untracked:          []string{"notes.md"},
-		BaseRef:            "origin/main",
-		Ahead:              3,
-		Behind:             12,
-		LandedCommits:      1,
-		SequenceInProgress: true,
-		Commits: []*worktreev1.Commit{
-			{
-				Sha:         "87a3bcc98c47",
-				Subject:     "fix(view): drop the column",
-				CommittedAt: time.Now().Add(-2 * time.Hour).UTC().Format(time.RFC3339),
-			},
-			{
-				Sha:         "1234567890ab",
-				Subject:     "feat(ui): a thing",
-				CommittedAt: time.Now().Add(-3 * time.Hour).UTC().Format(time.RFC3339),
-			},
-		},
-	}
-}
-
-func answerWith(read *worktreev1.GetWorktreeResponse) answerFunc {
-	return func(connect.AnyRequest) (connect.AnyResponse, error) {
-		return connect.NewResponse(read), nil
-	}
-}
-
-func refuseWith(code connect.Code, reason string) answerFunc {
-	return func(connect.AnyRequest) (connect.AnyResponse, error) {
-		return nil, connect.NewError(code, errors.New(reason))
-	}
-}
-
-func readWorktreeRequests(count int) []request {
-	return slices.Repeat([]request{{
-		procedure: worktreev1connect.WorktreeServiceGetWorktreeProcedure,
-		msg:       &worktreev1.GetWorktreeRequest{Dir: "/repo"},
-	}}, count)
-}
-
-func buildRecorded() []proto.Message {
-	agent := newAgentAt("auth", "w1", 0)
-	agent.Id = "a1"
-	agent.Cwd = "/repo"
-	agent.SessionId = "abc"
-	agent.Metadata = []*agentv1.AgentMetadata{{
-		Key:   "pr",
-		Value: "https://github.com/o/r/pull/312",
-	}}
-
-	return []proto.Message{
-		&workflowv1.Workflow{
-			Id:       "w1",
-			Name:     "backend",
-			Worktree: &workflowv1.WorktreeConfig{Enabled: true},
-		},
-		agent,
-	}
-}
-
 // TestAgentsPause covers pausing an agent and letting it go again.
 func TestAgentsPause(t *testing.T) {
 	t.Run("pausing takes the agent and says nothing to it", func(t *testing.T) {
@@ -1610,30 +1386,6 @@ func TestAgentsPause(t *testing.T) {
 	}
 }
 
-func newPausable(held string) *agentv1.Agent {
-	return &agentv1.Agent{
-		Id:         "a1",
-		Name:       "telescope",
-		WorkflowId: "w1",
-		PaneId:     "%9",
-		Alive:      proto.Bool(true),
-		State:      agentv1.AgentState_AGENT_STATE_THINKING,
-		HeldAt:     held,
-	}
-}
-
-func recordRelease(harness *panelHarness) *[]*agentv1.ReleaseAgentRequest {
-	var said []*agentv1.ReleaseAgentRequest
-	harness.answer(agentv1connect.AgentServiceReleaseAgentProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {
-		release, _ := req.Any().(*agentv1.ReleaseAgentRequest)
-		said = append(said, release)
-
-		return connect.NewResponse(&agentv1.ReleaseAgentResponse{}), nil
-	})
-
-	return &said
-}
-
 // TestAgentsOrchestrator covers the agent that stands behind a workflow's row.
 func TestAgentsOrchestrator(t *testing.T) {
 	dormant := newOrchestrator()
@@ -1756,12 +1508,6 @@ func TestAgentsOrchestrator(t *testing.T) {
 		frame := harness.readFrame()
 		assert.NotContains(t, frame, "Could not create the workflow")
 		assert.Equal(t, "api", readHoveredRow(frame), "the cursor lands on the workflow it made")
-	})
-}
-
-func answerWorkflowCreate(harness *panelHarness, id string) {
-	harness.answer(workflowv1connect.WorkflowServiceCreateWorkflowProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
-		return connect.NewResponse(&workflowv1.CreateWorkflowResponse{Workflow: &workflowv1.Workflow{Id: id}}), nil
 	})
 }
 
@@ -1899,14 +1645,6 @@ func TestAgentsWatchedEdits(t *testing.T) {
 		require.Equal(t, "  web", readHoveredRow(frame))
 		assert.True(t, strings.HasPrefix(readRecordField(frame, "pull request"), "#7 open"))
 	})
-}
-
-func newBranchAgent(id, name, branch string) *agentv1.Agent {
-	agent := newAgent(id, name, "w1")
-	agent.RepositoryUrl = proto.String(repositoryURL)
-	agent.Branch = proto.String(branch)
-
-	return agent
 }
 
 // TestAgentsSelection covers choosing several agents and acting on them at once.
@@ -2051,18 +1789,6 @@ func TestAgentsSelection(t *testing.T) {
 			msg:       &agentv1.ArchiveAgentsRequest{Ids: []string{"auth"}},
 		})
 	})
-}
-
-func buildSelectable() []proto.Message {
-	return []proto.Message{
-		newLiveWorkflow("w1", "backend"),
-		newLiveWorkflow("w2", "frontend"),
-		newAgentAt("auth", "w1", 5),
-		newAgentAt("api", "w1", 4),
-		newAgentAt("db", "w1", 3),
-		newHiddenAgent("sweep", "sweep"),
-		newAgentAt("ui", "w2", 1),
-	}
 }
 
 // TestAgentsSetMark covers the two keys that put a letter on the hovered row.
@@ -2312,6 +2038,280 @@ func TestAgentsJumpMark(t *testing.T) {
 		assert.Contains(t, frame, "Could not jump back")
 		assert.Equal(t, "  db", readHoveredRow(frame))
 	})
+}
+
+func openAgents(t *testing.T, rows ...proto.Message) *panelHarness {
+	t.Helper()
+
+	harness := newPanelHarness(t, panelHarnessParams{})
+	answerWorktreeReads(harness)
+	harness.watch(buildSnapshot(rows...))
+
+	return harness
+}
+
+func answerWorktreeReads(harness *panelHarness) {
+	harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {
+		read, _ := req.Any().(*worktreev1.GetWorktreeRequest)
+
+		return connect.NewResponse(&worktreev1.GetWorktreeResponse{Worktree: &worktreev1.Worktree{Dir: read.GetDir()}}), nil
+	})
+}
+
+func buildCursorable() []proto.Message {
+	return []proto.Message{
+		newLiveWorkflow("w1", "backend"),
+		newLiveWorkflow("w2", "frontend"),
+		newAgentAt("auth", "w1", 3),
+		newAgentAt("api", "w1", 2),
+		newAgentAt("db", "w1", 1),
+		newAgentAt("ui", "w2", 0),
+	}
+}
+
+func buildFamily() []proto.Message {
+	return []proto.Message{
+		newLiveWorkflow("w1", "weave"),
+		newAgentAt("author", "w1", 1),
+		newAgentAt("fix-gutter", "w1", 2),
+		newChild("a3", "reviewer", "author"),
+		newChild("a4", "test-runner", "author"),
+	}
+}
+
+func buildSortable() []proto.Message {
+	sortable := func(name, workflowID string, created, changed int) *agentv1.Agent {
+		agent := newAgentAt(name, workflowID, created)
+		agent.StateChangedAt = fmt.Sprintf("2026-09-20T12:%02d:00Z", changed)
+
+		return agent
+	}
+	charlie := sortable("charlie", "w1", 25, 5)
+	charlie.ParentAgentId = proto.String("alpha")
+	bob := sortable("bob", "w1", 5, 40)
+	bob.ParentAgentId = proto.String("alpha")
+	zulu := sortable("zulu", "w1", 20, 30)
+	zulu.Name = "Zulu"
+
+	return []proto.Message{
+		newLiveWorkflow("w1", "weave"),
+		newLiveWorkflow("w2", "gadgets"),
+		sortable("delta", "w1", 30, 10),
+		charlie,
+		zulu,
+		sortable("alpha", "w1", 10, 20),
+		bob,
+		sortable("echo", "w2", 0, 50),
+	}
+}
+
+func hideAgent(rows []proto.Message, id string) []proto.Message {
+	for _, row := range rows {
+		if agent, isAgent := row.(*agentv1.Agent); isAgent && agent.GetId() == id {
+			agent.Hidden = true
+		}
+	}
+
+	return rows
+}
+
+func newAgent(id, name, workflowID string) *agentv1.Agent {
+	return &agentv1.Agent{
+		Id:         id,
+		Name:       name,
+		WorkflowId: workflowID,
+		State:      agentv1.AgentState_AGENT_STATE_IDLE,
+	}
+}
+
+func newAgentAt(name, workflowID string, minute int) *agentv1.Agent {
+	agent := newAgent(name, name, workflowID)
+	agent.CreatedAt = fmt.Sprintf("2026-09-20T12:%02d:00Z", minute)
+
+	return agent
+}
+
+func newHiddenAgent(id, name string) *agentv1.Agent {
+	agent := newAgent(id, name, "w1")
+	agent.Hidden = true
+
+	return agent
+}
+
+func newChild(id, name, parentID string) *agentv1.Agent {
+	agent := newAgent(id, name, "w1")
+	agent.ParentAgentId = proto.String(parentID)
+
+	return agent
+}
+
+func newOrchestrator() *agentv1.Agent {
+	return &agentv1.Agent{
+		Id:         "o1",
+		Name:       "orchestrator",
+		WorkflowId: "w1",
+		PaneId:     "%9",
+		Harness:    "claude",
+		Alive:      proto.Bool(true),
+		State:      agentv1.AgentState_AGENT_STATE_THINKING,
+		Role:       agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR,
+	}
+}
+
+func openWorktreeRecord(t *testing.T, params panelHarnessParams) *panelHarness {
+	t.Helper()
+
+	harness := newPanelHarness(t, params)
+	harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(buildWorktreeRead()))
+	harness.watch(buildSnapshot(buildRecorded()...))
+	harness.press("ctrl+t")
+
+	return harness
+}
+
+func findBarColumn(row string) int {
+	for _, bar := range listBars {
+		if at := strings.Index(row, strings.TrimSpace(bar)); at >= 0 {
+			return ansi.StringWidth(row[:at])
+		}
+	}
+
+	return -1
+}
+
+func readSearch(frame string) string {
+	return strings.TrimSpace(ansi.Truncate(splitLines(frame)[2], config.DefaultSidebarWidth, ""))
+}
+
+func findRecordCursor(frame string) int {
+	return slices.IndexFunc(readRecord(frame), func(line string) bool {
+		return strings.HasPrefix(line, "› ")
+	})
+}
+
+func isBlank(line string) bool {
+	return strings.TrimSpace(line) == ""
+}
+
+func buildWorktreeRead() *worktreev1.GetWorktreeResponse {
+	return &worktreev1.GetWorktreeResponse{
+		Worktree: &worktreev1.Worktree{
+			Dir:        "/repo",
+			Readable:   true,
+			Branch:     "agent/x",
+			Occupants:  []*worktreev1.WorktreeAgent{{Id: "a2", Name: "reader"}},
+			SizeBytes:  proto.Int64(1200 * 1024 * 1024),
+			MeasuredAt: proto.String(time.Now().UTC().Format(time.RFC3339)),
+		},
+		Modified:           []string{"a.go", "b.go"},
+		Untracked:          []string{"notes.md"},
+		BaseRef:            "origin/main",
+		Ahead:              3,
+		Behind:             12,
+		LandedCommits:      1,
+		SequenceInProgress: true,
+		Commits: []*worktreev1.Commit{
+			{
+				Sha:         "87a3bcc98c47",
+				Subject:     "fix(view): drop the column",
+				CommittedAt: time.Now().Add(-2 * time.Hour).UTC().Format(time.RFC3339),
+			},
+			{
+				Sha:         "1234567890ab",
+				Subject:     "feat(ui): a thing",
+				CommittedAt: time.Now().Add(-3 * time.Hour).UTC().Format(time.RFC3339),
+			},
+		},
+	}
+}
+
+func answerWith(read *worktreev1.GetWorktreeResponse) answerFunc {
+	return func(connect.AnyRequest) (connect.AnyResponse, error) {
+		return connect.NewResponse(read), nil
+	}
+}
+
+func refuseWith(code connect.Code, reason string) answerFunc {
+	return func(connect.AnyRequest) (connect.AnyResponse, error) {
+		return nil, connect.NewError(code, errors.New(reason))
+	}
+}
+
+func readWorktreeRequests(count int) []request {
+	return slices.Repeat([]request{{
+		procedure: worktreev1connect.WorktreeServiceGetWorktreeProcedure,
+		msg:       &worktreev1.GetWorktreeRequest{Dir: "/repo"},
+	}}, count)
+}
+
+func buildRecorded() []proto.Message {
+	agent := newAgentAt("auth", "w1", 0)
+	agent.Id = "a1"
+	agent.Cwd = "/repo"
+	agent.SessionId = "abc"
+	agent.Metadata = []*agentv1.AgentMetadata{{
+		Key:   "pr",
+		Value: "https://github.com/o/r/pull/312",
+	}}
+
+	return []proto.Message{
+		&workflowv1.Workflow{
+			Id:       "w1",
+			Name:     "backend",
+			Worktree: &workflowv1.WorktreeConfig{Enabled: true},
+		},
+		agent,
+	}
+}
+
+func newPausable(held string) *agentv1.Agent {
+	return &agentv1.Agent{
+		Id:         "a1",
+		Name:       "telescope",
+		WorkflowId: "w1",
+		PaneId:     "%9",
+		Alive:      proto.Bool(true),
+		State:      agentv1.AgentState_AGENT_STATE_THINKING,
+		HeldAt:     held,
+	}
+}
+
+func recordRelease(harness *panelHarness) *[]*agentv1.ReleaseAgentRequest {
+	var said []*agentv1.ReleaseAgentRequest
+	harness.answer(agentv1connect.AgentServiceReleaseAgentProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {
+		release, _ := req.Any().(*agentv1.ReleaseAgentRequest)
+		said = append(said, release)
+
+		return connect.NewResponse(&agentv1.ReleaseAgentResponse{}), nil
+	})
+
+	return &said
+}
+
+func answerWorkflowCreate(harness *panelHarness, id string) {
+	harness.answer(workflowv1connect.WorkflowServiceCreateWorkflowProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+		return connect.NewResponse(&workflowv1.CreateWorkflowResponse{Workflow: &workflowv1.Workflow{Id: id}}), nil
+	})
+}
+
+func newBranchAgent(id, name, branch string) *agentv1.Agent {
+	agent := newAgent(id, name, "w1")
+	agent.RepositoryUrl = proto.String(repositoryURL)
+	agent.Branch = proto.String(branch)
+
+	return agent
+}
+
+func buildSelectable() []proto.Message {
+	return []proto.Message{
+		newLiveWorkflow("w1", "backend"),
+		newLiveWorkflow("w2", "frontend"),
+		newAgentAt("auth", "w1", 5),
+		newAgentAt("api", "w1", 4),
+		newAgentAt("db", "w1", 3),
+		newHiddenAgent("sweep", "sweep"),
+		newAgentAt("ui", "w2", 1),
+	}
 }
 
 func newMark(letter, agentID string) *agentv1.Mark {
