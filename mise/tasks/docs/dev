@@ -25,4 +25,10 @@ if [ ! -f node_modules/.package-lock.json ] || [ package-lock.json -nt node_modu
 	npm ci
 fi
 
+PUBLIC_DOCS_VERSION="$(docs_version)"
+PUBLIC_DOCS_COMMIT="$(build_commit)"
+export PUBLIC_DOCS_VERSION PUBLIC_DOCS_COMMIT
+
+gum log --level info "serving the docs at http://localhost:4321/$PUBLIC_DOCS_VERSION/"
+
 npm run dev

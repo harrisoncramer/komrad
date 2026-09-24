@@ -6,7 +6,7 @@ import { createReadStream, existsSync, statSync } from "node:fs";
 import { extname } from "node:path";
 
 const version = process.env.PUBLIC_DOCS_VERSION || "dev";
-const base = version === "dev" ? "/" : `/${version}/`;
+const base = `/${version}/`;
 
 const pagefindDir = new URL("./dist/pagefind/", import.meta.url);
 
