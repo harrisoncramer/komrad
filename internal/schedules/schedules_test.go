@@ -213,7 +213,7 @@ func TestNewSchedule(t *testing.T) {
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
 
-				listed, listErr := st.Schedules.List(t.Context())
+				listed, listErr := st.Schedules.ListWatched(t.Context(), nil)
 				require.NoError(t, listErr)
 				assert.Empty(t, listed, "a refused schedule is not written")
 
@@ -296,7 +296,7 @@ func TestScheduleWorkflowMustExist(t *testing.T) {
 			})
 			require.ErrorIs(t, err, tt.wantErr, "nor is one moved into it")
 
-			listed, err := st.Schedules.List(ctx)
+			listed, err := st.Schedules.ListWatched(ctx, nil)
 			require.NoError(t, err)
 			require.Len(t, listed, 1, "only the schedule that named a live workflow was written")
 			assert.Equal(t, live, listed[0].WorkflowID, "the refused update left the schedule where it was")
