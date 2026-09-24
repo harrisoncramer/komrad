@@ -64,9 +64,8 @@ func Agent(row rowstore.Row, options AgentOptions) *agentv1.Agent {
 		SequenceInProgress: stored.SequenceInProgress,
 		FailedRun:          row.FailedRun,
 		FailedRunLog:       row.FailedRunLog,
-		LocalReviewRounds:  row.LocalRounds,
-		LocalReviewVerdict: localVerdictOf(row.LocalVerdict),
-		LocalReviewTree:    standingOf(localTreeOf(row)),
+		TreeStanding:       standingOf(stored.TreeStanding),
+		TreeStandingSha:    stored.TreeStandingSHA,
 		HeldAt:             heldStamp(stored.HeldAt),
 		ReviewVersion:      row.ReviewVersion,
 	}
@@ -93,26 +92,6 @@ func ReviewVerdictOf(verdict reviewstore.Verdict) agentv1.ReviewVerdict {
 	default:
 		return agentv1.ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED
 	}
-}
-
-// localVerdictOf is the last local conclusion as the wire carries it, UNSPECIFIED when there is
-// none.
-func localVerdictOf(verdict *reviewstore.Verdict) agentv1.ReviewVerdict {
-	if verdict == nil {
-		return agentv1.ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED
-	}
-
-	return ReviewVerdictOf(*verdict)
-}
-
-// localTreeOf is where the worktree stands against the round the local verdict was given on,
-// unmoved while the standing was measured against any other round.
-func localTreeOf(row rowstore.Row) git.Standing {
-	if row.TreeStandingSHA != row.LocalReviewSHA {
-		return git.StandingSame
-	}
-
-	return row.TreeStanding
 }
 
 // standingOf is a standing as the wire carries it.

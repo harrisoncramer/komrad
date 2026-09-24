@@ -210,8 +210,8 @@ func deliverySlot(state agentv1.ReviewDeliveryState) int {
 	return int(state)
 }
 
-// reviewProbeOf is what the watch knows of an agent's review: the version on its row and the
-// review notices still waiting for it, whose claiming is what moves a comment to delivered.
+// reviewProbeOf is what the watch knows of an agent's review: the version on its row, when each
+// review of its work last moved, and the review notices still waiting for it.
 func reviewProbeOf(world assemble.World, agentID string) string {
 	var waiting []string
 	for id, mail := range world.Mail {
@@ -221,5 +221,13 @@ func reviewProbeOf(world assemble.World, agentID string) string {
 	}
 	slices.Sort(waiting)
 
-	return world.Agents[agentID].GetReviewVersion() + " " + strings.Join(waiting, ",")
+	var reviews []string
+	for id, review := range world.Reviews {
+		if review.GetAgentId() == agentID {
+			reviews = append(reviews, strings.Join([]string{id, review.GetUpdatedAt(), review.GetReleasedAt(), review.GetDeliveredAt()}, "@"))
+		}
+	}
+	slices.Sort(reviews)
+
+	return world.Agents[agentID].GetReviewVersion() + " " + strings.Join(reviews, ",") + " " + strings.Join(waiting, ",")
 }

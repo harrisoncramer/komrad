@@ -7,6 +7,7 @@ import (
 	mailstore "weave/internal/store/mail"
 	markstore "weave/internal/store/mark"
 	pullrequeststore "weave/internal/store/pullrequest"
+	reviewstore "weave/internal/store/review"
 	rowstore "weave/internal/store/row"
 	schedulestore "weave/internal/store/schedule"
 	workflowstore "weave/internal/store/workflow"
@@ -22,5 +23,6 @@ func All() []watch.Resource {
 		mailstore.WatchedMail,
 		pullrequeststore.WatchedPullRequests,
 		pullrequeststore.WatchedRepositories,
+		reviewstore.WatchedReviews,
 	}
 }

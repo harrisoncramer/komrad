@@ -108,6 +108,7 @@ type NewHandlerParams struct {
 	Unclaimed    unclaimedMailReader
 	PullRequests pullRequestReader
 	Repositories repositoryReader
+	Reviews      reviewReader
 	Rebaser      worktreeRebaser
 	Orchestrator orchestratorStarter
 	Clock        func() time.Time
@@ -132,6 +133,7 @@ type Handler struct {
 	unclaimed    unclaimedMailReader
 	pullRequests pullRequestReader
 	repositories repositoryReader
+	reviews      reviewReader
 	rebaser      worktreeRebaser
 	orchestrator orchestratorStarter
 	now          func() time.Time
@@ -164,6 +166,7 @@ func NewHandler(params NewHandlerParams) *Handler {
 		unclaimed:    params.Unclaimed,
 		pullRequests: params.PullRequests,
 		repositories: params.Repositories,
+		reviews:      params.Reviews,
 		rebaser:      params.Rebaser,
 		orchestrator: params.Orchestrator,
 		now:          now,

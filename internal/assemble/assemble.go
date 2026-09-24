@@ -27,6 +27,7 @@ type World struct {
 	Mail         map[string]*agentv1.Mail
 	PullRequests map[string]*pullrequestv1.PullRequest
 	Repositories map[string]*pullrequestv1.Repository
+	Reviews      map[string]*agentv1.WatchedReview
 }
 
 // Changed is the keys a message put or dropped, by resource.
@@ -119,6 +120,10 @@ func (w *World) put(row *watchv1.Row) (watchv1.Resource, string) {
 		w.Repositories[row.Repository.GetUrl()] = row.Repository
 
 		return watchv1.Resource_RESOURCE_REPOSITORY, row.Repository.GetUrl()
+	case *watchv1.Row_Review:
+		w.Reviews[row.Review.GetId()] = row.Review
+
+		return watchv1.Resource_RESOURCE_REVIEW, row.Review.GetId()
 	case nil:
 	}
 
@@ -147,6 +152,9 @@ func (w *World) ensureMaps() {
 	if w.Repositories == nil {
 		w.Repositories = map[string]*pullrequestv1.Repository{}
 	}
+	if w.Reviews == nil {
+		w.Reviews = map[string]*agentv1.WatchedReview{}
+	}
 }
 
 func (w *World) drop(deleted *watchv1.Deleted) {
@@ -166,19 +174,21 @@ func (w *World) drop(deleted *watchv1.Deleted) {
 		delete(w.PullRequests, key)
 	case watchv1.Resource_RESOURCE_REPOSITORY:
 		delete(w.Repositories, key)
+	case watchv1.Resource_RESOURCE_REVIEW:
+		delete(w.Reviews, key)
 	case watchv1.Resource_RESOURCE_UNSPECIFIED,
-		watchv1.Resource_RESOURCE_REVIEW,
 		watchv1.Resource_RESOURCE_REVIEW_THREAD,
 		watchv1.Resource_RESOURCE_WORKTREE:
 	}
 }
 
-// AgentRows draws every agent in the world with its mark, its unread mail and its pull
-// requests, newest first.
+// AgentRows draws every agent in the world with its mark, its unread mail, its pull requests
+// and where the local review of its work stands, newest first.
 func AgentRows(w World, now time.Time) []*agentv1.AgentRow {
 	marks := Marks(w)
 	unread := getAgentsWithUnreadMail(w.Mail, now)
 	onBranch := groupPullRequestsByBranch(w.PullRequests)
+	reviewed := groupReviewsByAgent(w.Reviews)
 
 	rows := make([]*agentv1.AgentRow, 0, len(w.Agents))
 	for _, agent := range w.Agents {
@@ -193,6 +203,7 @@ func AgentRows(w World, now time.Time) []*agentv1.AgentRow {
 		if mark, ok := marks[agent.GetId()]; ok {
 			row.Mark = &mark
 		}
+		setLocalReview(row, reviewed[agent.GetId()])
 
 		rows = append(rows, row)
 	}

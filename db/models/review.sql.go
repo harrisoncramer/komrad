@@ -1114,6 +1114,73 @@ func (q *Queries) ListReviews(ctx context.Context, agentID string) ([]*ListRevie
 	return items, nil
 }
 
+const listWatchedReviews = `-- name: ListWatchedReviews :many
+SELECT
+    v.id, v.agent_id, v.round_id, v.author_kind, v.author_agent_id, v.verdict, v.released_at, v.path, v.doorbell_mail_id, v.created_at, v.updated_at, v.body, v.tenant_id,
+    r.ordinal AS round_ordinal,
+    r.snapshot_sha AS round_snapshot_sha,
+    d.claimed_at AS delivered_at
+FROM
+    reviews v
+    JOIN review_rounds r ON r.id = v.round_id
+    LEFT JOIN mail d ON d.id = v.doorbell_mail_id
+WHERE ($1::text[] IS NULL
+    OR v.id = ANY ($1::uuid[]))
+AND ($2::text[] IS NULL
+    OR v.agent_id = ANY ($2::uuid[]))
+ORDER BY
+    v.id
+`
+
+type ListWatchedReviewsParams struct {
+	Keys     []string
+	AgentIds []string
+}
+
+type ListWatchedReviewsRow struct {
+	Review           Review
+	RoundOrdinal     int32
+	RoundSnapshotSha string
+	DeliveredAt      *time.Time
+}
+
+func (q *Queries) ListWatchedReviews(ctx context.Context, arg ListWatchedReviewsParams) ([]*ListWatchedReviewsRow, error) {
+	rows, err := q.db.Query(ctx, listWatchedReviews, arg.Keys, arg.AgentIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*ListWatchedReviewsRow
+	for rows.Next() {
+		var i ListWatchedReviewsRow
+		if err := rows.Scan(
+			&i.Review.ID,
+			&i.Review.AgentID,
+			&i.Review.RoundID,
+			&i.Review.AuthorKind,
+			&i.Review.AuthorAgentID,
+			&i.Review.Verdict,
+			&i.Review.ReleasedAt,
+			&i.Review.Path,
+			&i.Review.DoorbellMailID,
+			&i.Review.CreatedAt,
+			&i.Review.UpdatedAt,
+			&i.Review.Body,
+			&i.Review.TenantID,
+			&i.RoundOrdinal,
+			&i.RoundSnapshotSha,
+			&i.DeliveredAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const markReviewFileViewed = `-- name: MarkReviewFileViewed :one
 INSERT INTO review_viewed_files(
     agent_id,

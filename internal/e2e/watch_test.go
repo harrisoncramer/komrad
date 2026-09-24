@@ -23,6 +23,7 @@ import (
 	mailstore "weave/internal/store/mail"
 	markstore "weave/internal/store/mark"
 	pullrequeststore "weave/internal/store/pullrequest"
+	reviewstore "weave/internal/store/review"
 	rowstore "weave/internal/store/row"
 	schedulestore "weave/internal/store/schedule"
 	workflowstore "weave/internal/store/workflow"
@@ -185,6 +186,22 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 			},
 		},
 		{
+			name: "a review of an agent's work is released",
+			write: func(t *testing.T) {
+				reviews := reviewstore.NewReviewStore(st.Pool.GetDB())
+				round, err := reviews.CreateRound(ctx, reviewstore.CreateRoundParams{AgentID: api.ID, BaseSHA: "base", SnapshotSHA: "snapshot"})
+				require.NoError(t, err)
+				review, err := reviews.OpenReview(ctx, reviewstore.OpenReviewParams{AgentID: api.ID, RoundID: round.ID, AuthorKind: reviewstore.AuthorHuman})
+				require.NoError(t, err)
+				_, err = reviews.ReleaseReview(ctx, reviewstore.ReleaseReviewParams{ID: review.ID, Verdict: reviewstore.VerdictApproved, Path: "/tmp/review.md"})
+				require.NoError(t, err)
+			},
+			took: func(t *testing.T, stores view) {
+				assert.Equal(t, int32(1), stores.agents[api.ID].GetLocalReviewRounds())
+				assert.Equal(t, agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED, stores.agents[api.ID].GetLocalReviewVerdict())
+			},
+		},
+		{
 			name: "an agent is archived",
 			write: func(t *testing.T) {
 				_, err := instance.Agents.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{Ids: []string{quiet.ID}}))
@@ -276,7 +293,8 @@ func viewFromGets(t *testing.T, instance *weavetest.Instance, listed view) view 
 
 // worldFromStores reads the watched set the way the agent handler reads a page: the live and
 // archived rows, every mark, the unclaimed mail to them, the pull requests on their branches, the
-// repositories they sit on and their workflows, with the live schedules beside them.
+// repositories they sit on, the reviews of their work and their workflows, with the live
+// schedules beside them.
 func worldFromStores(t *testing.T, st *storetest.Stores) assemble.World {
 	t.Helper()
 	ctx := t.Context()
@@ -298,6 +316,9 @@ func worldFromStores(t *testing.T, st *storetest.Stores) assemble.World {
 	require.NoError(t, err)
 
 	repositories, err := st.PullRequestSyncs.ListWatched(ctx, xslice.Map(rows, func(row rowstore.Row) string { return xptr.Deref(row.RepositoryURL) }))
+	require.NoError(t, err)
+
+	reviews, err := reviewstore.NewReviewStore(st.Pool.GetDB()).ListForAgents(ctx, agentIDs)
 	require.NoError(t, err)
 
 	workflows, err := st.Workflows.ListByID(ctx, xslice.Map(rows, func(row rowstore.Row) string { return row.WorkflowID }))
@@ -325,6 +346,9 @@ func worldFromStores(t *testing.T, st *storetest.Stores) assemble.World {
 		}),
 		Repositories: xslice.KeyBy(xslice.Map(repositories, render.Repository), func(r *pullrequestv1.Repository) string {
 			return r.GetUrl()
+		}),
+		Reviews: xslice.KeyBy(xslice.Map(reviews, render.WatchedReview), func(r *agentv1.WatchedReview) string {
+			return r.GetId()
 		}),
 	}
 }

@@ -135,6 +135,23 @@ ORDER BY
     r.ordinal,
     v.id;
 
+-- name: ListWatchedReviews :many
+SELECT
+    sqlc.embed(v),
+    r.ordinal AS round_ordinal,
+    r.snapshot_sha AS round_snapshot_sha,
+    d.claimed_at AS delivered_at
+FROM
+    reviews v
+    JOIN review_rounds r ON r.id = v.round_id
+    LEFT JOIN mail d ON d.id = v.doorbell_mail_id
+WHERE (sqlc.narg('keys')::text[] IS NULL
+    OR v.id = ANY (sqlc.narg('keys')::uuid[]))
+AND (sqlc.narg('agent_ids')::text[] IS NULL
+    OR v.agent_id = ANY (sqlc.narg('agent_ids')::uuid[]))
+ORDER BY
+    v.id;
+
 -- name: CountOpenReviewComments :one
 SELECT
     COUNT(*)

@@ -58,36 +58,6 @@ WITH failed AS (
         r.started_at DESC,
         r.id DESC
 ),
-tallied AS (
-    SELECT
-        v.agent_id,
-(COUNT(DISTINCT v.round_id) FILTER (WHERE v.released_at IS NOT NULL))::int AS rounds,
-        COUNT(*)::int AS reviews,
-        SUM((EXTRACT(EPOCH FROM v.updated_at) * 1000000)::bigint) AS moved
-    FROM
-        reviews v
-    WHERE
-        v.agent_id = ANY (@ids::uuid[])
-    GROUP BY
-        v.agent_id
-),
-concluded AS (
-    SELECT DISTINCT ON (v.agent_id)
-        v.agent_id,
-        v.verdict,
-        n.snapshot_sha
-    FROM
-        reviews v
-        JOIN review_rounds n ON n.id = v.round_id
-    WHERE
-        v.agent_id = ANY (@ids::uuid[])
-        AND v.released_at IS NOT NULL
-        AND v.verdict IN ('approved', 'changes_requested')
-    ORDER BY
-        v.agent_id,
-        n.ordinal DESC,
-        v.released_at DESC
-),
 threaded AS (
     SELECT
         t.agent_id,
@@ -104,15 +74,10 @@ SELECT
     s.id,
 (f.agent_id IS NOT NULL)::boolean AS failed_run,
     f.log_number AS failed_run_log,
-    COALESCE(t.rounds, 0)::int AS local_rounds,
-    c.verdict AS local_verdict,
-    c.snapshot_sha AS local_review_sha,
-    CONCAT_WS(':', COALESCE(h.threads, 0), COALESCE(t.reviews, 0), h.moved, t.moved)::text AS review_version
+    CONCAT_WS(':', COALESCE(h.threads, 0), h.moved)::text AS review_version
 FROM
     agents s
     LEFT JOIN failed f ON f.agent_id = s.id
-    LEFT JOIN tallied t ON t.agent_id = s.id
-    LEFT JOIN concluded c ON c.agent_id = s.id
     LEFT JOIN threaded h ON h.agent_id = s.id
 WHERE
     s.id = ANY (@ids::uuid[]);

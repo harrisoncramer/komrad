@@ -97,8 +97,8 @@ func agentRowFrom(row *agentv1.AgentRow) panel.AgentRow {
 		UnreadMail:   row.GetUnreadMail(),
 		FailedRun:    agent.GetFailedRun(),
 		FailedRunLog: agent.FailedRunLog,
-		LocalVerdict: agent.GetLocalReviewVerdict(),
-		LocalTree:    standingFrom(agent.GetLocalReviewTree()),
+		LocalVerdict: row.GetLocalReviewVerdict(),
+		LocalTree:    standingFrom(row.GetLocalReviewTree()),
 		PullRequest:  pullRequestStandingFrom(row.GetPullRequest()),
 		PullRequests: xslice.Map(row.GetPullRequests(), pullRequestFrom),
 	}

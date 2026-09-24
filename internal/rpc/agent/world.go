@@ -13,6 +13,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
 	pullrequeststore "weave/internal/store/pullrequest"
+	reviewstore "weave/internal/store/review"
 	rowstore "weave/internal/store/row"
 	workflowstore "weave/internal/store/workflow"
 	agentv1 "weave/proto/gen/agent/v1"
@@ -36,6 +37,10 @@ type repositoryReader interface {
 	ListWatched(ctx context.Context, keys []string) ([]pullrequeststore.Sync, error)
 }
 
+type reviewReader interface {
+	ListForAgents(ctx context.Context, agentIDs []string) ([]reviewstore.Review, error)
+}
+
 // agentRow is an assembled row with the keyset cursor locating it.
 type agentRow struct {
 	*agentv1.AgentRow
@@ -49,7 +54,7 @@ func (r agentRow) Cursor() (agentstore.Cursor, error) {
 
 // assembleRows draws the rows of a page of agents: the agents themselves and, read beside
 // them, every mark, the unclaimed mail to them, the pull requests on their branches, their
-// repositories and their workflows, joined by the assembler.
+// repositories, the reviews of their work and their workflows, joined by the assembler.
 func (s *Handler) assembleRows(ctx context.Context, rows []rowstore.Row, options render.AgentOptions) ([]agentRow, *fail.Error) {
 	world, failure := s.world(ctx, rows, options)
 	if failure != nil {
@@ -86,6 +91,11 @@ func (s *Handler) world(ctx context.Context, rows []rowstore.Row, options render
 		return assemble.World{}, rpcerr.From(err, "failed to list the repositories")
 	}
 
+	reviews, err := s.reviews.ListForAgents(ctx, agentIDs)
+	if err != nil {
+		return assemble.World{}, rpcerr.From(err, "failed to list the reviews")
+	}
+
 	workflows, err := s.workflows.ListByID(ctx, workflowIDs)
 	if err != nil {
 		return assemble.World{}, rpcerr.From(err, "failed to list the workflows")
@@ -105,6 +115,9 @@ func (s *Handler) world(ctx context.Context, rows []rowstore.Row, options render
 		}),
 		Repositories: xslice.KeyBy(xslice.Map(repositories, render.Repository), func(r *pullrequestv1.Repository) string {
 			return r.GetUrl()
+		}),
+		Reviews: xslice.KeyBy(xslice.Map(reviews, render.WatchedReview), func(r *agentv1.WatchedReview) string {
+			return r.GetId()
 		}),
 	}, nil
 }

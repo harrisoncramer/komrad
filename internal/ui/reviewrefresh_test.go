@@ -198,6 +198,19 @@ func TestReviewRefreshWaitsForTheWatch(t *testing.T) {
 			move:  func(m *model) { m.listing.world.Put(notice("n2", "a2")) },
 			reads: false,
 		},
+		{
+			name: "a review of the agent's work was released",
+			held: []*watchv1.Row{watchedReview("a1", "")},
+			move: func(m *model) {
+				m.listing.world.Put(watchedReview("a1", "2026-09-02T10:00:00Z"))
+			},
+			reads: true,
+		},
+		{
+			name:  "a review of another agent's work moved",
+			move:  func(m *model) { m.listing.world.Put(watchedReview("a2", "2026-09-02T10:00:00Z")) },
+			reads: false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -216,6 +229,16 @@ func TestReviewRefreshWaitsForTheWatch(t *testing.T) {
 			assert.Equal(t, tt.reads, m.review.threads.reading)
 		})
 	}
+}
+
+// watchedReview is the one review of an agent's work the watch carries, released when releasedAt is set.
+func watchedReview(agentID, releasedAt string) *watchv1.Row {
+	return &watchv1.Row{Row: &watchv1.Row_Review{Review: &agentv1.WatchedReview{
+		Id:         "r-" + agentID,
+		AgentId:    agentID,
+		ReleasedAt: releasedAt,
+		UpdatedAt:  "2026-09-02T10:00:00Z",
+	}}}
 }
 
 // TestReviewRefreshIsNotTheTick pins that the tick never reads the conversation.

@@ -399,3 +399,29 @@ func waitForPayloads(t *testing.T, conn *pgx.Conn, count int) []string {
 
 	return payloads
 }
+
+// TestAReviewIsRaisedByItsDoorbellAndRound pins that claiming a review's doorbell and writing
+// its round raise the review, that other mail writes raise only the mail, and that nothing on
+// the review raises its agent.
+func TestAReviewIsRaisedByItsDoorbellAndRound(t *testing.T) {
+	l := newPooled(t)
+	rows := l.seed(t)
+	round, doorbell, review := uuid.NewString(), uuid.NewString(), uuid.NewString()
+	l.exec(t, `INSERT INTO review_rounds (id, agent_id, ordinal, base_sha, snapshot_sha) VALUES ($1, $2, 1, 'base', 'snapshot')`, round, rows.agent)
+	l.exec(t, `INSERT INTO mail (id, to_agent_id, body, expires_at) VALUES ($1, $2, 'weave: review', now() + interval '1 hour')`, doorbell, rows.agent)
+	l.exec(t, `INSERT INTO reviews (id, agent_id, round_id, author_kind, doorbell_mail_id) VALUES ($1, $2, $3, 'human', $4)`, review, rows.agent, round, doorbell)
+	conn := l.listenRaw(t)
+
+	l.exec(t, `UPDATE mail SET body = 'weave: review, again' WHERE id = $1`, doorbell)
+	l.exec(t, `UPDATE mail SET claimed_at = now() WHERE id = $1`, doorbell)
+	l.exec(t, `UPDATE review_rounds SET base_sha = 'rebased' WHERE id = $1`, round)
+	l.exec(t, `UPDATE reviews SET verdict = 'approved', released_at = now() WHERE id = $1`, review)
+
+	assert.Equal(t, []string{
+		"mail " + doorbell,
+		"mail " + doorbell,
+		"reviews " + review,
+		"reviews " + review,
+		"reviews " + review,
+	}, waitForPayloads(t, conn, 5))
+}

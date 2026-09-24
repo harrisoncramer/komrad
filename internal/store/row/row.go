@@ -9,11 +9,9 @@ import (
 	"weave/db"
 	"weave/db/models"
 	"weave/internal/store"
-	"weave/lib/xptr"
 	"weave/lib/xslice"
 
 	agentstore "weave/internal/store/agent"
-	reviewstore "weave/internal/store/review"
 )
 
 // Row is an agent with the facts about it that live beside its row rather than on it.
@@ -22,14 +20,7 @@ type Row struct {
 	FailedRun bool
 	// FailedRunLog is the log the unread failure went to.
 	FailedRunLog *int32
-	// LocalRounds is how many rounds of local review the agent's own work has been through.
-	LocalRounds int32
-	// LocalVerdict is what the last released local review concluded, nil when none has
-	// concluded anything.
-	LocalVerdict *reviewstore.Verdict
-	// LocalReviewSHA is the round that verdict was given on, empty when there is none.
-	LocalReviewSHA string
-	// ReviewVersion changes whenever a thread or review on the agent's work moves.
+	// ReviewVersion changes whenever a thread on the agent's work moves.
 	ReviewVersion string
 }
 
@@ -136,14 +127,7 @@ func (s *RowStore) hydrate(ctx context.Context, agents []*models.Agent) ([]Row, 
 		if facts, ok := factsByID[agent.ID]; ok {
 			row.FailedRun = facts.FailedRun
 			row.FailedRunLog = facts.FailedRunLog
-			row.LocalRounds = facts.LocalRounds
 			row.ReviewVersion = facts.ReviewVersion
-			if facts.LocalVerdict.Valid {
-				row.LocalVerdict = xptr.Ptr(reviewstore.Verdict(facts.LocalVerdict.ReviewVerdict))
-			}
-			if facts.LocalReviewSha != nil {
-				row.LocalReviewSHA = *facts.LocalReviewSha
-			}
 		}
 
 		return row

@@ -221,6 +221,7 @@ func reviewService(t *testing.T) (agentv1weave.AgentServiceAdapter, *storetest.S
 		Unclaimed:    st.Mail,
 		PullRequests: st.PullRequests,
 		Repositories: st.PullRequestSyncs,
+		Reviews:      rounds,
 		Liveness:     liveness,
 	})}, st, rounds
 }
@@ -271,7 +272,7 @@ func TestListedAgentsCarryWhereTheirTreeStands(t *testing.T) {
 
 		for _, row := range listed.Msg.GetAgents() {
 			if agent := row.GetAgent(); agent.GetName() == "worker" {
-				return agent.GetLocalReviewTree()
+				return row.GetLocalReviewTree()
 			}
 		}
 
@@ -330,7 +331,7 @@ func TestListedAgentsCarryTheirReviewRounds(t *testing.T) {
 
 		rounds := make(map[string]int32, len(listed.Msg.GetAgents()))
 		for _, row := range listed.Msg.GetAgents() {
-			rounds[row.GetAgent().GetName()] = row.GetAgent().GetLocalReviewRounds()
+			rounds[row.GetAgent().GetName()] = row.GetLocalReviewRounds()
 		}
 
 		return rounds

@@ -102,6 +102,7 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 			Unclaimed:    params.Stores.mail,
 			PullRequests: params.Stores.pullRequests,
 			Repositories: params.Stores.pullRequestSyncs,
+			Reviews:      params.Stores.review,
 			Rebaser:      params.Services.rebase,
 			Orchestrator: params.Services.orchestrator,
 		})}, options...))

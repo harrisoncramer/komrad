@@ -48,6 +48,8 @@ type Review struct {
 	AuthorKind    AuthorKind
 	AuthorAgentID *string
 
+	// RoundSnapshotSHA is the commit the round froze the checkout as, empty when it was not read.
+	RoundSnapshotSHA string
 	// Verdict is what the reviewer concluded, nil while the review is still open.
 	Verdict *Verdict
 	// ReleasedAt is when the review was released, nil while nothing in it has reached the agent.

@@ -11,6 +11,7 @@ import (
 	mailstore "weave/internal/store/mail"
 	markstore "weave/internal/store/mark"
 	pullrequeststore "weave/internal/store/pullrequest"
+	reviewstore "weave/internal/store/review"
 	rowstore "weave/internal/store/row"
 	schedulestore "weave/internal/store/schedule"
 	workflowstore "weave/internal/store/workflow"
@@ -26,6 +27,7 @@ func buildWatchLoaders(st *stores, runs *jobs.RunLister) []watch.Loader {
 		watch.NewLoader(watchv1.Resource_RESOURCE_MAIL, st.mail, renderWatchedMail),
 		watch.NewLoader(watchv1.Resource_RESOURCE_PULL_REQUEST, st.pullRequests, renderWatchedPullRequest),
 		watch.NewLoader(watchv1.Resource_RESOURCE_REPOSITORY, st.pullRequestSyncs, renderWatchedRepository),
+		watch.NewLoader(watchv1.Resource_RESOURCE_REVIEW, st.review, renderWatchedReview),
 	}
 }
 
@@ -69,4 +71,10 @@ func renderWatchedRepository(row pullrequeststore.Sync) (string, *watchv1.Row) {
 	repository := render.Repository(row)
 
 	return repository.GetUrl(), &watchv1.Row{Row: &watchv1.Row_Repository{Repository: repository}}
+}
+
+func renderWatchedReview(row reviewstore.Review) (string, *watchv1.Row) {
+	review := render.WatchedReview(row)
+
+	return review.GetId(), &watchv1.Row{Row: &watchv1.Row_Review{Review: review}}
 }

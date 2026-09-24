@@ -523,20 +523,22 @@ type WatchedReview struct {
 	RoundId string `protobuf:"bytes,3,opt,name=round_id,json=roundId,proto3" json:"round_id,omitempty"`
 	// Which round that is, counting from one.
 	RoundOrdinal int32 `protobuf:"varint,4,opt,name=round_ordinal,json=roundOrdinal,proto3" json:"round_ordinal,omitempty"`
+	// The commit that round froze the agent's checkout as.
+	RoundSnapshotSha string `protobuf:"bytes,5,opt,name=round_snapshot_sha,json=roundSnapshotSha,proto3" json:"round_snapshot_sha,omitempty"`
 	// Whether a person or an agent wrote it.
-	AuthorKind ReviewAuthorKind `protobuf:"varint,5,opt,name=author_kind,json=authorKind,proto3,enum=agent.v1.ReviewAuthorKind" json:"author_kind,omitempty"`
+	AuthorKind ReviewAuthorKind `protobuf:"varint,6,opt,name=author_kind,json=authorKind,proto3,enum=agent.v1.ReviewAuthorKind" json:"author_kind,omitempty"`
 	// The agent giving the review, absent when the person reviewing is.
-	AuthorAgentId *string `protobuf:"bytes,6,opt,name=author_agent_id,json=authorAgentId,proto3,oneof" json:"author_agent_id,omitempty"`
+	AuthorAgentId *string `protobuf:"bytes,7,opt,name=author_agent_id,json=authorAgentId,proto3,oneof" json:"author_agent_id,omitempty"`
 	// What the author concluded, unspecified while the review is still open.
-	Verdict ReviewVerdict `protobuf:"varint,7,opt,name=verdict,proto3,enum=agent.v1.ReviewVerdict" json:"verdict,omitempty"`
+	Verdict ReviewVerdict `protobuf:"varint,8,opt,name=verdict,proto3,enum=agent.v1.ReviewVerdict" json:"verdict,omitempty"`
 	// When the review was let go of, empty while it is still open.
-	ReleasedAt string `protobuf:"bytes,8,opt,name=released_at,json=releasedAt,proto3" json:"released_at,omitempty"`
+	ReleasedAt string `protobuf:"bytes,9,opt,name=released_at,json=releasedAt,proto3" json:"released_at,omitempty"`
 	// When the agent claimed the mail that told it the review was waiting.
-	DeliveredAt string `protobuf:"bytes,9,opt,name=delivered_at,json=deliveredAt,proto3" json:"delivered_at,omitempty"`
+	DeliveredAt string `protobuf:"bytes,10,opt,name=delivered_at,json=deliveredAt,proto3" json:"delivered_at,omitempty"`
 	// When the batch was opened.
-	CreatedAt string `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	CreatedAt string `protobuf:"bytes,11,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	// When anything in it last moved.
-	UpdatedAt     string `protobuf:"bytes,11,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	UpdatedAt     string `protobuf:"bytes,12,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -597,6 +599,13 @@ func (x *WatchedReview) GetRoundOrdinal() int32 {
 		return x.RoundOrdinal
 	}
 	return 0
+}
+
+func (x *WatchedReview) GetRoundSnapshotSha() string {
+	if x != nil {
+		return x.RoundSnapshotSha
+	}
+	return ""
 }
 
 func (x *WatchedReview) GetAuthorKind() ReviewAuthorKind {
@@ -2570,24 +2579,25 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"updated_at\x18\f \x01(\tR\tupdatedAt\x12\x12\n" +
 	"\x04body\x18\r \x01(\tR\x04body\x12!\n" +
 	"\fopen_threads\x18\x0e \x01(\x05R\vopenThreadsB\x12\n" +
-	"\x10_author_agent_id\"\xad\x03\n" +
+	"\x10_author_agent_id\"\xdb\x03\n" +
 	"\rWatchedReview\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
 	"\bagent_id\x18\x02 \x01(\tR\aagentId\x12\x19\n" +
 	"\bround_id\x18\x03 \x01(\tR\aroundId\x12#\n" +
-	"\rround_ordinal\x18\x04 \x01(\x05R\froundOrdinal\x12;\n" +
-	"\vauthor_kind\x18\x05 \x01(\x0e2\x1a.agent.v1.ReviewAuthorKindR\n" +
+	"\rround_ordinal\x18\x04 \x01(\x05R\froundOrdinal\x12,\n" +
+	"\x12round_snapshot_sha\x18\x05 \x01(\tR\x10roundSnapshotSha\x12;\n" +
+	"\vauthor_kind\x18\x06 \x01(\x0e2\x1a.agent.v1.ReviewAuthorKindR\n" +
 	"authorKind\x12+\n" +
-	"\x0fauthor_agent_id\x18\x06 \x01(\tH\x00R\rauthorAgentId\x88\x01\x01\x121\n" +
-	"\averdict\x18\a \x01(\x0e2\x17.agent.v1.ReviewVerdictR\averdict\x12\x1f\n" +
-	"\vreleased_at\x18\b \x01(\tR\n" +
+	"\x0fauthor_agent_id\x18\a \x01(\tH\x00R\rauthorAgentId\x88\x01\x01\x121\n" +
+	"\averdict\x18\b \x01(\x0e2\x17.agent.v1.ReviewVerdictR\averdict\x12\x1f\n" +
+	"\vreleased_at\x18\t \x01(\tR\n" +
 	"releasedAt\x12!\n" +
-	"\fdelivered_at\x18\t \x01(\tR\vdeliveredAt\x12\x1d\n" +
+	"\fdelivered_at\x18\n" +
+	" \x01(\tR\vdeliveredAt\x12\x1d\n" +
 	"\n" +
-	"created_at\x18\n" +
-	" \x01(\tR\tcreatedAt\x12\x1d\n" +
+	"created_at\x18\v \x01(\tR\tcreatedAt\x12\x1d\n" +
 	"\n" +
-	"updated_at\x18\v \x01(\tR\tupdatedAtB\x12\n" +
+	"updated_at\x18\f \x01(\tR\tupdatedAtB\x12\n" +
 	"\x10_author_agent_id\"\x99\x04\n" +
 	"\fReviewThread\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +

@@ -2320,6 +2320,7 @@ func serviceWithLauncher(t *testing.T) (agentv1weave.AgentServiceAdapter, *store
 		Unclaimed:    st.Mail,
 		PullRequests: st.PullRequests,
 		Repositories: st.PullRequestSyncs,
+		Reviews:      rounds,
 		Creator:      launcher,
 		Adopter:      launcher,
 		Liveness:     launcher,
