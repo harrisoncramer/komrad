@@ -56,6 +56,9 @@ type recordingTmux struct {
 	zoomed        bool
 	// keysElsewhere is the keyboard sitting in a pane other than the one being asked about.
 	keysElsewhere bool
+	rootBinds     map[string][]string
+	rootBindCount int
+	rootUnbinds   []string
 }
 
 // HarnessFrameReader answers whether a pane is drawing its harness yet.
@@ -72,6 +75,7 @@ type NewPanelParams struct {
 	Keys          config.Keybindings
 	DetailsHeight float64
 	SidebarSide   string
+	SidebarWidth  int
 	Width         int
 	Height        int
 	Settings      PanelSettings
@@ -102,6 +106,9 @@ func NewPanel(params NewPanelParams) *Panel {
 	}
 	if params.SidebarSide != "" {
 		layout.SidebarSide = params.SidebarSide
+	}
+	if params.SidebarWidth != 0 {
+		layout.SidebarWidth = params.SidebarWidth
 	}
 
 	return &Panel{
@@ -263,9 +270,19 @@ func (t *recordingTmux) DetachSession(string) {
 
 func (t *recordingTmux) BindKey(string, ...string) {}
 
-func (t *recordingTmux) BindRootKey(string, ...string) {}
+func (t *recordingTmux) BindRootKey(key string, command ...string) {
+	if t.rootBinds == nil {
+		t.rootBinds = map[string][]string{}
+	}
 
-func (t *recordingTmux) UnbindRootKey(string) {}
+	t.rootBinds[key] = command
+	t.rootBindCount++
+}
+
+func (t *recordingTmux) UnbindRootKey(key string) {
+	delete(t.rootBinds, key)
+	t.rootUnbinds = append(t.rootUnbinds, key)
+}
 
 func (t *recordingTmux) UnbindKey(string) {}
 
@@ -426,4 +443,46 @@ func (t *recordingTmux) RespawnPane(pane, dir string, argv ...string) {
 	t.respawns = append(t.respawns, strings.Join(argv, " "))
 	t.respawnPanes = append(t.respawnPanes, pane)
 	t.respawnDirs = append(t.respawnDirs, dir)
+}
+
+// UpdateGoldens reports whether the suite was run to rewrite its golden files.
+func UpdateGoldens() bool {
+	return *updateGoldens
+}
+
+// ReadRespawnPanes is every pane the panel has respawned, in the order it respawned them.
+func (p *Panel) ReadRespawnPanes() []string {
+	return p.tmux.respawnPanes
+}
+
+// ReadRespawnDirs is the directory each respawn was rooted at, in the order it was asked for.
+func (p *Panel) ReadRespawnDirs() []string {
+	return p.tmux.respawnDirs
+}
+
+// ReadBelowAnchors is every pane the panel has split a pane under.
+func (p *Panel) ReadBelowAnchors() []string {
+	return p.tmux.belowAnchors
+}
+
+// CountSwaps is how many times the panel has swapped two panes.
+func (p *Panel) CountSwaps() int {
+	return p.tmux.swaps
+}
+
+// ReadRootBinding is the command a key is bound to in tmux's root table, and false while it is unbound.
+func (p *Panel) ReadRootBinding(key string) ([]string, bool) {
+	command, bound := p.tmux.rootBinds[key]
+
+	return command, bound
+}
+
+// ReadRootUnbinds is every key the panel has taken out of tmux's root table.
+func (p *Panel) ReadRootUnbinds() []string {
+	return p.tmux.rootUnbinds
+}
+
+// CountRootBinds is how many times the panel has bound a key in tmux's root table.
+func (p *Panel) CountRootBinds() int {
+	return p.tmux.rootBindCount
 }

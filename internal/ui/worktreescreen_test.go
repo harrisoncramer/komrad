@@ -610,6 +610,104 @@ func TestWorktreesInspection(t *testing.T) {
 	})
 }
 
+// TestWorktreesSort covers the strip reordering the directories under the cursor.
+func TestWorktreesSort(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		press []string
+		want  []string
+	}{
+		{
+			name: "size down is the fallback, under each repository",
+			want: []string{"/home/h/gadge…", "  cargo-fix", "/home/h/weave", "  reviewer", "  treeview", "  agent/orphan", "/var/folders/…", "  broken"},
+		},
+		{
+			name:  "moving the focus reorders nothing",
+			press: []string{"f", "tab", "esc"},
+			want:  []string{"/home/h/gadge…", "  cargo-fix", "/home/h/weave", "  reviewer", "  treeview", "  agent/orphan", "/var/folders/…", "  broken"},
+		},
+		{
+			name:  "last accessed down is the most recent first",
+			press: []string{"f", "tab", "j", "esc"},
+			want:  []string{"/home/h/gadge…", "  cargo-fix", "/home/h/weave", "  treeview", "  agent/orphan", "  reviewer", "/var/folders/…", "  broken"},
+		},
+		{
+			name:  "the stop drops the headings and settles a tie in size by path",
+			press: []string{"f", "shift+tab", "j", "esc"},
+			want:  []string{"cargo-fix", "reviewer", "treeview", "broken", "agent/orphan"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			harness := openWorktrees(t, buildMeasuredWorktrees()...)
+
+			harness.press(tt.press...)
+
+			frame := harness.readFrame()
+			assert.Equal(t, tt.want, readListRows(frame))
+			assert.Equal(t, "treeview", readHoveredWorktree(frame), "the cursor keeps its row")
+		})
+	}
+
+	t.Run("the arrow turns under the cursor and the list takes the keys back", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openWorktrees(t, buildMeasuredWorktrees()...)
+		harness.press("f", "tab", "j", "f", "k")
+
+		frame := harness.readFrame()
+		assert.Contains(t, readSidebar(frame)[3], "↑ last-accessed", "the focus key is not the way back")
+		assert.Equal(t, "treeview", readRecordField(frame, "name"), "the cursor follows its row as the arrow turns")
+
+		harness.press("esc", "j")
+		assert.Equal(t, "/var/folders/…", readHoveredWorktree(harness.readFrame()))
+	})
+
+	t.Run("the stop flips the headings back and escape keeps what it chose", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openWorktrees(t, buildMeasuredWorktrees()...)
+		harness.press("f", "tab", "tab", "j")
+		require.Contains(t, splitLines(harness.readFrame())[0], "flat")
+
+		harness.press("k")
+		frame := harness.readFrame()
+		assert.NotContains(t, splitLines(frame)[0], "flat")
+		assert.Equal(t, "treeview", readRecordField(frame, "name"))
+
+		harness.press("j", "esc")
+		assert.Contains(t, splitLines(harness.readFrame())[0], "flat")
+	})
+
+	t.Run("a cursor on a heading lands on a row once the headings go", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openWorktrees(t, buildMeasuredWorktrees()...)
+		harness.press("k", "k")
+		require.Equal(t, "/home/h/weave", readHoveredWorktree(harness.readFrame()))
+
+		harness.press("f", "shift+tab", "j", "esc")
+
+		assert.Equal(t, "treeview", readHoveredWorktree(harness.readFrame()))
+	})
+
+	t.Run("the strip left from the stop comes back on its chosen column", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openWorktrees(t, buildMeasuredWorktrees()...)
+		harness.press("f", "shift+tab", "esc", "f", "k")
+
+		frame := harness.readFrame()
+		assert.Contains(t, readSidebar(frame)[3], "↑ size")
+		assert.NotContains(t, splitLines(frame)[0], "flat")
+	})
+}
+
 func openWorktrees(t *testing.T, rows ...proto.Message) *panelHarness {
 	t.Helper()
 
@@ -680,6 +778,48 @@ func buildWatchedWorktrees() []proto.Message {
 			Branch:   "agent/orphan",
 			Readable: true,
 		},
+	}
+}
+
+func buildMeasuredWorktrees() []proto.Message {
+	rows := buildWorktrees()
+	for _, row := range rows {
+		switch row := row.(type) {
+		case *agentv1.Agent:
+			measureAgent(row)
+		case *worktreev1.WatchedWorktree:
+			measureWorktree(row)
+		}
+	}
+
+	return rows
+}
+
+func measureAgent(agent *agentv1.Agent) {
+	switch agent.GetId() {
+	case "live":
+		agent.StateChangedAt = formatStampAgo(5 * time.Minute)
+	case "archived":
+		agent.ArchivedAt = proto.String(formatStampAgo(4 * 24 * time.Hour))
+	case "admin":
+		agent.ArchivedAt = proto.String(formatStampAgo(12 * time.Hour))
+	}
+}
+
+func measureWorktree(worktree *worktreev1.WatchedWorktree) {
+	switch worktree.GetDir() {
+	case "/trees/live", "/trees/archived":
+		worktree.SizeBytes = proto.Int64(49 * 1024 * 1024)
+		worktree.MeasuredAt = proto.String(formatStampAgo(time.Hour))
+	case "/trees/orphan":
+		worktree.MeasuredAt = proto.String(formatStampAgo(time.Hour))
+		worktree.SizeError = "permission denied"
+		worktree.ModifiedAt = formatStampAgo(3 * time.Hour)
+	case "/trees/broken":
+		worktree.ModifiedAt = formatStampAgo(2 * 7 * 24 * time.Hour)
+	case "/trees/admin":
+		worktree.SizeBytes = proto.Int64(1536 * 1024 * 1024)
+		worktree.MeasuredAt = proto.String(formatStampAgo(time.Hour))
 	}
 }
 
