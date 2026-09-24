@@ -456,8 +456,8 @@ func TestRebaseSettlesTheAgentBeforeItMoves(t *testing.T) {
 			channel := &harnesstest.Channel{}
 			observer := &settlingObserver{readings: tt.readings, err: tt.observeErr}
 			rebaser := &treeReadRecorder{
-				Rebaser: &gittest.Rebaser{State: git.TreeState{Branch: "agent/a1"}},
-				observer:        observer,
+				Rebaser:  &gittest.Rebaser{State: git.TreeState{Branch: "agent/a1"}},
+				observer: observer,
 			}
 
 			service := NewRebaseService(NewRebaseServiceParams{

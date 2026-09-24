@@ -3,10 +3,10 @@ package checkouts
 import (
 	"context"
 	"errors"
-	"sync"
 	"testing"
 
 	"weave/internal/git"
+	"weave/internal/gittest"
 	agentstore "weave/internal/store/agent"
 	reviewstore "weave/internal/store/review"
 	"weave/internal/storetest"
@@ -67,8 +67,8 @@ func TestCwdSyncerSyncRecordsAMoveSinceTheNewestRound(t *testing.T) {
 			}
 			syncer := NewCwdSyncer(NewCwdSyncerParams{
 				Agents: st.Agents,
-				Heads:  fakeHeads{cwd: {Root: cwd, SnapshotTree: tt.snapshotTree}},
-				Trees:  &probingTrees{trees: map[string]string{cwd: tt.probe}},
+				Heads:  &gittest.Heads{States: map[string]git.HeadState{cwd: {Root: cwd, SnapshotTree: tt.snapshotTree}}},
+				Trees:  &gittest.Trees{AllMoved: true, Probes: map[string]string{cwd: tt.probe}},
 				Rounds: rounds,
 				Bases:  fakeBases{},
 			})
@@ -88,10 +88,10 @@ func TestCwdSyncerSyncHashesTheWorktreeOnceForBothRounds(t *testing.T) {
 	agent := seedAgentAt(t, st, cwd)
 
 	approved := reviewstore.VerdictApproved
-	trees := &probingTrees{trees: map[string]string{cwd: "tree-moved"}}
+	trees := &gittest.Trees{AllMoved: true, Probes: map[string]string{cwd: "tree-moved"}}
 	syncer := NewCwdSyncer(NewCwdSyncerParams{
 		Agents: st.Agents,
-		Heads:  fakeHeads{cwd: {Root: cwd, SnapshotTree: "tree-two"}},
+		Heads:  &gittest.Heads{States: map[string]git.HeadState{cwd: {Root: cwd, SnapshotTree: "tree-two"}}},
 		Trees:  trees,
 		Rounds: fakeRounds{
 			tallies: []reviewstore.Tally{{
@@ -106,8 +106,8 @@ func TestCwdSyncerSyncHashesTheWorktreeOnceForBothRounds(t *testing.T) {
 
 	require.NoError(t, syncer.Sync(t.Context()))
 
-	assert.Equal(t, []string{cwd}, trees.probed, "the worktree is hashed once")
-	assert.Equal(t, []string{"tree-moved"}, trees.given, "and the standing reads that hash")
+	assert.Equal(t, []string{cwd}, trees.Probed, "the worktree is hashed once")
+	assert.Equal(t, []string{"tree-moved"}, trees.Given, "and the standing reads that hash")
 	assert.Equal(t, "snapshot-two", readMovedSinceRound(t, st, agent.ID))
 	assert.Equal(t, git.StandingMoved, standingOn(t, st, agent.ID, "snapshot-one"))
 }
@@ -119,10 +119,10 @@ func TestCwdSyncerSyncKeepsAMoveItCouldNotProbe(t *testing.T) {
 	cwd := fakeCheckout(t)
 	agent := seedAgentAt(t, st, cwd)
 
-	trees := &probingTrees{trees: map[string]string{cwd: "tree-moved"}}
+	trees := &gittest.Trees{AllMoved: true, Probes: map[string]string{cwd: "tree-moved"}}
 	syncer := NewCwdSyncer(NewCwdSyncerParams{
 		Agents: st.Agents,
-		Heads:  fakeHeads{cwd: {Root: cwd, SnapshotTree: "tree-one"}},
+		Heads:  &gittest.Heads{States: map[string]git.HeadState{cwd: {Root: cwd, SnapshotTree: "tree-one"}}},
 		Trees:  trees,
 		Rounds: fakeRounds{newest: []reviewstore.NewestRound{{AgentID: agent.ID, SnapshotSHA: "snapshot-one"}}},
 		Bases:  fakeBases{},
@@ -131,7 +131,7 @@ func TestCwdSyncerSyncKeepsAMoveItCouldNotProbe(t *testing.T) {
 	require.NoError(t, syncer.Sync(t.Context()))
 	require.Equal(t, "snapshot-one", readMovedSinceRound(t, st, agent.ID))
 
-	trees.fail = true
+	trees.ProbeErr = errors.New("the index could not be read")
 	err := syncer.Sync(t.Context())
 
 	require.Error(t, err)
@@ -151,36 +151,6 @@ func (f fakeRounds) ListTallies(context.Context) ([]reviewstore.Tally, error) {
 
 func (f fakeRounds) ListNewestRounds(context.Context) ([]reviewstore.NewestRound, error) {
 	return f.newest, nil
-}
-
-// probingTrees is a git that hashes each root to a tree and remembers the probes it took and was
-// given.
-type probingTrees struct {
-	mu     sync.Mutex
-	trees  map[string]string
-	fail   bool
-	probed []string
-	given  []string
-}
-
-func (p *probingTrees) ProbeTree(_ context.Context, root string) (string, error) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	p.probed = append(p.probed, root)
-
-	if p.fail {
-		return "", errors.New("the index could not be read")
-	}
-
-	return p.trees[root], nil
-}
-
-func (p *probingTrees) ReadStanding(_ context.Context, params git.ReadStandingParams) (git.Standing, error) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	p.given = append(p.given, params.Probe)
-
-	return git.StandingMoved, nil
 }
 
 // seedAgentAt is an idle agent named a whose cwd is the given directory.
