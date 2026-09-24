@@ -2,7 +2,6 @@ package ui
 
 import (
 	"log/slog"
-	"time"
 
 	"weave/internal/client"
 
@@ -33,7 +32,7 @@ func (m model) Init() tea.Cmd {
 
 	m.holdFocusKey()
 
-	return tea.Batch(tick(), m.listCmd(), cursor.Blink)
+	return tea.Batch(tick(), cursor.Blink)
 }
 
 // Update routes a message to the screen that owns it, and keeps the row cursor blinking.
@@ -80,6 +79,9 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	key, isKey := msg.(tea.KeyMsg)
+	if isKey {
+		m.landing = landing{}
+	}
 
 	if m.fatal() != nil {
 		if isKey {
@@ -289,7 +291,6 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 	case tickMsg:
 		m.awaitingSize = false
 		next, readRuns := m.dwellRunsRead(msg.at)
-		hashWorktree := next.hashReviewWorktreeCmd(msg.at)
 		edited := next.reconcileEditor()
 
 		next = next.noticeRebuild()
@@ -297,7 +298,7 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 			return next, nil, true
 		}
 
-		return next, tea.Batch(next.listCmd(), tick(), hashWorktree, readRuns, edited), true
+		return next, tea.Batch(tick(), readRuns, edited), true
 	case tea.BlurMsg:
 		m.blurred = true
 		m.syncKeys()
@@ -329,10 +330,6 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		m.applyScheduleRunsRead(msg)
 
 		return m, nil, true
-	case pullRequestsListedMsg:
-		cmd := m.applyPullRequestsListed(msg)
-
-		return m, cmd, true
 	case urlOpenedMsg:
 		m.applyURLOpened(msg)
 
@@ -345,10 +342,6 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		m.applyWatchLost(msg)
 
 		return m, nil, true
-	case listedMsg:
-		cmd := m.applyListed(msg)
-
-		return m, cmd, true
 	case writeResult:
 		next, cmd := m.applyWrite(msg)
 
@@ -386,15 +379,6 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 	default:
 		return m, nil, false
 	}
-}
-
-// hashReviewWorktreeCmd starts a hash of the agent's worktree while the review is up and one is due.
-func (m *model) hashReviewWorktreeCmd(now time.Time) tea.Cmd {
-	if m.screen != screenReview {
-		return nil
-	}
-
-	return m.review.hashWorktreeIfDue(m.shared(), now)
 }
 
 // reconcileEditor catches the info pane and the review's editor going away on their own.

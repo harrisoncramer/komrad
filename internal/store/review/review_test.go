@@ -690,6 +690,27 @@ func TestTalliesCountOneRoundOnce(t *testing.T) {
 	}, tallies[0])
 }
 
+// TestNewestRoundsAreEachAgentsLastRound pins the round listed for each agent, released or not.
+func TestNewestRoundsAreEachAgentsLastRound(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	agentID := seedAgent(t, st)
+	other := seedAgentNamed(t, st, "other")
+	seedAgentNamed(t, st, "unreviewed")
+
+	openRound(t, st, agentID, "tree-one")
+	openRound(t, st, agentID, "tree-two")
+	openRound(t, st, other, "tree-three")
+
+	newest, err := st.ListNewestRounds(ctx)
+	require.NoError(t, err)
+
+	assert.ElementsMatch(t, []NewestRound{
+		{AgentID: agentID, SnapshotSHA: "snapshot-tree-two"},
+		{AgentID: other, SnapshotSHA: "snapshot-tree-three"},
+	}, newest)
+}
+
 // TestTheLastReleasedReviewIsTheNewestOne pins which batch answers for where an author last
 // looked.
 func TestTheLastReleasedReviewIsTheNewestOne(t *testing.T) {

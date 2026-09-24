@@ -434,8 +434,8 @@ func (p reviewPass) backDesc() string {
 }
 
 // reloadDesc says what the reload key would do.
-func (d reviewDiff) reloadDesc() string {
-	if d.worktree.moved {
+func (r reviewScreen) reloadDesc(s panelShared) string {
+	if r.isWorktreeMoved(s) {
 		return "catch up"
 	}
 

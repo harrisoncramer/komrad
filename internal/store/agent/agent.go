@@ -162,6 +162,8 @@ type Agent struct {
 	// TreeStanding is where the worktree stands against the round TreeStandingSHA names.
 	TreeStanding    git.Standing
 	TreeStandingSHA string
+	// MovedSinceRound is the newest round's snapshot while the worktree no longer hashes to it.
+	MovedSinceRound string
 }
 
 // IsStateUnconfirmed reports whether the agent's state was last read longer ago than the bound.
@@ -248,5 +250,6 @@ func FromRow(agent models.Agent) Agent {
 		Alive:              agent.Alive,
 		TreeStanding:       git.Standing(agent.TreeStanding),
 		TreeStandingSHA:    agent.TreeStandingSha,
+		MovedSinceRound:    agent.MovedSinceRound,
 	}
 }

@@ -51,15 +51,15 @@ type workflowReader interface {
 	GetIncludingArchived(ctx context.Context, id string) (*workflowstore.Workflow, error)
 }
 
-type sizeUpserter interface {
-	Upsert(ctx context.Context, size worktreestore.Size) error
+type sizeRecorder interface {
+	RecordSize(ctx context.Context, size worktreestore.Size) error
 }
 
 type NewInspectorParams struct {
 	Lister    *Lister
 	Git       gitReader
 	Workflows workflowReader
-	Sizes     sizeUpserter
+	Sizes     sizeRecorder
 	// Now is the clock, time.Now when unset.
 	Now func() time.Time
 }
@@ -69,7 +69,7 @@ type Inspector struct {
 	lister    *Lister
 	git       gitReader
 	workflows workflowReader
-	sizes     sizeUpserter
+	sizes     sizeRecorder
 	now       func() time.Time
 }
 
@@ -113,7 +113,7 @@ func (i *Inspector) Inspect(ctx context.Context, params InspectParams) (*Inspect
 		Bytes:      inspection.Bytes,
 		MeasuredAt: i.now(),
 	}
-	if err := i.sizes.Upsert(ctx, size); err != nil {
+	if err := i.sizes.RecordSize(ctx, size); err != nil {
 		return nil, err
 	}
 	inspection.Worktree.Size = &size

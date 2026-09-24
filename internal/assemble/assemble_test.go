@@ -543,8 +543,8 @@ func TestApplyReportsChanged(t *testing.T) {
 			want: assemble.Changed{},
 		},
 		{
-			name: "a row the world does not hold yet is not reported",
-			msg:  put(&watchv1.Row{Row: &watchv1.Row_Worktree{}}),
+			name: "a row that carries nothing is not reported",
+			msg:  put(&watchv1.Row{}),
 			want: assemble.Changed{},
 		},
 		{

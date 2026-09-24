@@ -117,6 +117,8 @@ message Agent {
   ReviewTreeStanding tree_standing = 31;
   // The snapshot of the round tree_standing was measured against, empty before any measurement.
   string tree_standing_sha = 33;
+  // The snapshot of its newest round while its worktree no longer hashes to it, empty otherwise.
+  string moved_since_round = 42;
   // When a person stopped this agent and took its worktree, empty while nobody is holding it.
   string held_at = 35;
   // Changes whenever a thread on the agent's own work moves.

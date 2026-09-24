@@ -1,10 +1,15 @@
 package ui
 
 import (
+	"path/filepath"
+	"slices"
+	"strings"
 	"time"
 
 	"weave/internal/errui"
 	"weave/internal/ui/panel"
+	"weave/lib/dates"
+	worktreev1 "weave/proto/gen/worktree/v1"
 )
 
 // worktreeAgent is what the listing says of an agent that holds a directory.
@@ -41,6 +46,96 @@ type worktreeItem struct {
 // isMeasured reports whether the directory carries a size.
 func (i worktreeItem) isMeasured() bool {
 	return i.size != nil && i.size.err == ""
+}
+
+// worktreeItemsFrom draws every directory in the world with the agents that answer for it.
+func worktreeItemsFrom(worktrees map[string]*worktreev1.WatchedWorktree, agents []panel.AgentRow) []worktreeItem {
+	byID := make(map[string]panel.Agent, len(agents))
+	byCwd := map[string][]panel.Agent{}
+	for _, row := range agents {
+		byID[row.Agent.ID] = row.Agent
+		cwd := filepath.Clean(row.Agent.Cwd)
+		byCwd[cwd] = append(byCwd[cwd], row.Agent)
+	}
+
+	items := make([]worktreeItem, 0, len(worktrees))
+	for _, worktree := range worktrees {
+		items = append(items, worktreeItemFromWatched(worktree, byID, byCwd))
+	}
+	slices.SortFunc(items, func(a, b worktreeItem) int { return strings.Compare(a.dir, b.dir) })
+
+	return items
+}
+
+func worktreeItemFromWatched(worktree *worktreev1.WatchedWorktree, byID map[string]panel.Agent, byCwd map[string][]panel.Agent) worktreeItem {
+	item := worktreeItem{
+		dir:      worktree.GetDir(),
+		repoDir:  worktree.GetRepoDir(),
+		branch:   worktree.GetBranch(),
+		readable: worktree.GetReadable(),
+	}
+	if worktree.MeasuredAt != nil {
+		item.size = &worktreeSize{
+			bytes:      worktree.GetSizeBytes(),
+			measuredAt: dates.Parse(worktree.GetMeasuredAt()),
+			err:        worktree.GetSizeError(),
+		}
+	}
+
+	var owner *panel.Agent
+	name := filepath.Base(item.dir)
+	if agent, ok := byID[name]; ok {
+		owner = &agent
+		described := worktreeAgentOf(agent)
+		item.agent = &described
+	}
+	for _, agent := range byCwd[item.dir] {
+		if agent.ID != name {
+			item.occupants = append(item.occupants, worktreeAgentOf(agent))
+		}
+	}
+	slices.SortFunc(item.occupants, func(a, b worktreeAgent) int { return strings.Compare(a.name, b.name) })
+
+	item.fate = fateOf(owner, item.readable)
+	item.lastActiveAt = lastActiveOf(owner, dates.Parse(worktree.GetModifiedAt()))
+
+	return item
+}
+
+func worktreeAgentOf(agent panel.Agent) worktreeAgent {
+	return worktreeAgent{
+		id:         agent.ID,
+		name:       agent.Name,
+		state:      agent.State,
+		archivedAt: agent.ArchivedAt,
+	}
+}
+
+// fateOf is which delete path a directory takes, decided by the agent it was made for.
+func fateOf(owner *panel.Agent, readable bool) worktreeFate {
+	switch {
+	case owner == nil:
+		return fateUnowned
+	case owner.State == panel.StateFailedToCleanup && !readable:
+		return fateUnowned
+	case owner.ArchivedAt != nil:
+		return fateArchived
+	}
+
+	return fateLive
+}
+
+// lastActiveOf is when a directory was last touched, by its agent when one answers and by its
+// mtime otherwise.
+func lastActiveOf(owner *panel.Agent, modifiedAt time.Time) time.Time {
+	switch {
+	case owner == nil:
+		return modifiedAt
+	case owner.ArchivedAt != nil && owner.ArchivedAt.After(owner.StateChangedAt):
+		return *owner.ArchivedAt
+	}
+
+	return owner.StateChangedAt
 }
 
 // worktreeEntry is one top-level entry of a directory.

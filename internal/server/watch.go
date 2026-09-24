@@ -15,6 +15,7 @@ import (
 	rowstore "weave/internal/store/row"
 	schedulestore "weave/internal/store/schedule"
 	workflowstore "weave/internal/store/workflow"
+	worktreestore "weave/internal/store/worktree"
 )
 
 // buildWatchLoaders pairs each watched resource's lister with its renderer.
@@ -28,6 +29,7 @@ func buildWatchLoaders(st *stores, runs *jobs.RunLister) []watch.Loader {
 		watch.NewLoader(watchv1.Resource_RESOURCE_PULL_REQUEST, st.pullRequests, renderWatchedPullRequest),
 		watch.NewLoader(watchv1.Resource_RESOURCE_REPOSITORY, st.pullRequestSyncs, renderWatchedRepository),
 		watch.NewLoader(watchv1.Resource_RESOURCE_REVIEW, st.review, renderWatchedReview),
+		watch.NewLoader(watchv1.Resource_RESOURCE_WORKTREE, st.worktrees, renderWatchedWorktree),
 	}
 }
 
@@ -77,4 +79,10 @@ func renderWatchedReview(row reviewstore.Review) (string, *watchv1.Row) {
 	review := render.WatchedReview(row)
 
 	return review.GetId(), &watchv1.Row{Row: &watchv1.Row_Review{Review: review}}
+}
+
+func renderWatchedWorktree(row worktreestore.Worktree) (string, *watchv1.Row) {
+	worktree := render.WatchedWorktree(row)
+
+	return worktree.GetDir(), &watchv1.Row{Row: &watchv1.Row_Worktree{Worktree: worktree}}
 }

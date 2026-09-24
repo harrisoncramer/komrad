@@ -1,22 +1,18 @@
 package ui
 
 import (
-	"context"
 	"testing"
 	"time"
 
 	"weave/internal/client"
-	"weave/internal/ui/paint/label"
 	"weave/internal/ui/panel"
 	"weave/lib/xptr"
 	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
 	pullrequestv1 "weave/proto/gen/pullrequest/v1"
-	"weave/proto/gen/pullrequest/v1/pullrequestv1connect"
 	watchv1 "weave/proto/gen/watch/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
 
-	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -235,42 +231,11 @@ func indexOf(labels []string, label string) int {
 	return -1
 }
 
-// recordingPullRequests stands in for the service, answering one merged pull request on
-// whatever branch is asked for and keeping the branches asked.
-type recordingPullRequests struct {
-	pullrequestv1connect.PullRequestServiceClient
-	asked []string
-	err   error
-}
-
-func (r *recordingPullRequests) ListPullRequests(_ context.Context, req *connect.Request[pullrequestv1.ListPullRequestsRequest]) (*connect.Response[pullrequestv1.ListPullRequestsResponse], error) {
-	r.asked = append(r.asked, req.Msg.GetRepositoryUrl()+" "+req.Msg.GetHeadBranch())
-	if r.err != nil {
-		return nil, r.err
-	}
-
-	return connect.NewResponse(&pullrequestv1.ListPullRequestsResponse{
-		PullRequests: []*pullrequestv1.PullRequest{{
-			Id:                "pr-740",
-			RepositoryUrl:     req.Msg.GetRepositoryUrl(),
-			HeadRepositoryUrl: req.Msg.GetRepositoryUrl(),
-			HeadBranch:        req.Msg.GetHeadBranch(),
-			Number:            740,
-			Url:               "https://github.com/harrisoncramer/weave/pull/740",
-			State:             pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED,
-			OpenedAt:          "2026-09-19T12:00:00Z",
-			MergedAt:          xptr.Ptr("2026-09-20T10:00:00Z"),
-			ClosedAt:          xptr.Ptr("2026-09-20T10:00:00Z"),
-		}},
-	}), nil
-}
-
 // TestPullRequestOnNobodysBranchIsHeldAndNotDrawn covers a pull request arriving for a branch
 // no held agent is on: it draws on no row, and draws on the agent that arrives on that branch
 // afterwards.
 func TestPullRequestOnNobodysBranchIsHeldAndNotDrawn(t *testing.T) {
 	m := watchedPanel()
-	m.api.pullRequests = &recordingPullRequests{}
 
 	m, _ = update(t, m, client.WatchBatch{snapshotEvent(
 		workflowRowOf(&workflowv1.Workflow{Id: "w1", Name: "api"}),
@@ -315,14 +280,4 @@ func pullRequestRowOf(id, branch string, number int32) *watchv1.Row {
 		State:             pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
 		OpenedAt:          "2026-09-19T12:00:00Z",
 	}}}
-}
-
-// ageOf is how long ago a wire stamp was, as the record spells it.
-func ageOf(t *testing.T, stamp string) string {
-	t.Helper()
-
-	parsed, err := time.Parse(time.RFC3339, stamp)
-	require.NoError(t, err)
-
-	return label.Age(parsed)
 }

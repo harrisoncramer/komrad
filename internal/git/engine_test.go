@@ -133,12 +133,8 @@ func TestIntegrationEngineClientReadsWhatTheLocalClientReads(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, reachable)
 
-	tree, err := engineClient.GetTree(t.Context(), root, head)
-	require.NoError(t, err)
-
 	want, err := client.GetTree(t.Context(), root, head)
 	require.NoError(t, err)
-	assert.Equal(t, want, tree)
 
 	mappings, err := engineClient.MapRanges(t.Context(), MapRangesParams{
 		Dir:     root,
@@ -157,54 +153,6 @@ func TestIntegrationEngineClientReadsWhatTheLocalClientReads(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, want, replayed.Tree)
 	assert.Empty(t, replayed.Conflicts)
-}
-
-// TestIntegrationEngineClientProbesTheWorktreeAsTheLocalClientDoes covers the probe hashing untracked files in one round trip without touching the checkout.
-func TestIntegrationEngineClientProbesTheWorktreeAsTheLocalClientDoes(t *testing.T) {
-	t.Parallel()
-
-	root := repo(t)
-	write(t, root, "untracked.go", "package main\n")
-
-	remote, log := shellEngine(t)
-
-	probe, err := NewEngineClient(remote).ProbeTree(t.Context(), filepath.Join(root, "proto"))
-	require.NoError(t, err)
-
-	want, err := client.ProbeTree(t.Context(), root)
-	require.NoError(t, err)
-	assert.Equal(t, want, probe)
-
-	assert.Len(t, commandsRun(t, log), 1)
-
-	held, err := Run(t.Context(), root, "status", "--porcelain")
-	require.NoError(t, err)
-	assert.Equal(t, "?? untracked.go", held)
-}
-
-// TestIntegrationEngineClientProbeMovesWhenTheWorktreeDoes covers the poll behind the review telling a moved worktree from a still one.
-func TestIntegrationEngineClientProbeMovesWhenTheWorktreeDoes(t *testing.T) {
-	t.Parallel()
-
-	root := repo(t)
-	remote, _ := shellEngine(t)
-	engineClient := NewEngineClient(remote)
-
-	before, err := engineClient.ProbeTree(t.Context(), root)
-	require.NoError(t, err)
-
-	head, err := Run(t.Context(), root, "rev-parse", "HEAD")
-	require.NoError(t, err)
-
-	held, err := engineClient.GetTree(t.Context(), root, head)
-	require.NoError(t, err)
-	assert.Equal(t, held, before)
-
-	write(t, root, "kept.go", "package main\n\nvar moved = 1\n")
-
-	after, err := engineClient.ProbeTree(t.Context(), root)
-	require.NoError(t, err)
-	assert.NotEqual(t, before, after)
 }
 
 // TestIntegrationShellCommandQuotesEveryWord covers a path and an argument the far side's shell would otherwise split.

@@ -353,7 +353,7 @@ func (q *Queries) ForgetAgentPane(ctx context.Context, arg ForgetAgentPaneParams
 
 const getAgentByID = `-- name: GetAgentByID :one
 SELECT
-    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, parent_agent_id, turn_ended_at, provision_enabled, reported_reason, role, held_at, held_mid_turn, nudge_sent_at, sequence_in_progress, repository_url, deleting_at, alive, tree_standing, tree_standing_sha, tenant_id, head_sha
+    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, parent_agent_id, turn_ended_at, provision_enabled, reported_reason, role, held_at, held_mid_turn, nudge_sent_at, sequence_in_progress, repository_url, deleting_at, alive, tree_standing, tree_standing_sha, tenant_id, head_sha, moved_since_round
 FROM
     agents s
 WHERE
@@ -405,13 +405,14 @@ func (q *Queries) GetAgentByID(ctx context.Context, id string) (*Agent, error) {
 		&i.TreeStandingSha,
 		&i.TenantID,
 		&i.HeadSha,
+		&i.MovedSinceRound,
 	)
 	return &i, err
 }
 
 const getAgentByIdempotencyKey = `-- name: GetAgentByIdempotencyKey :one
 SELECT
-    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, parent_agent_id, turn_ended_at, provision_enabled, reported_reason, role, held_at, held_mid_turn, nudge_sent_at, sequence_in_progress, repository_url, deleting_at, alive, tree_standing, tree_standing_sha, tenant_id, head_sha
+    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, parent_agent_id, turn_ended_at, provision_enabled, reported_reason, role, held_at, held_mid_turn, nudge_sent_at, sequence_in_progress, repository_url, deleting_at, alive, tree_standing, tree_standing_sha, tenant_id, head_sha, moved_since_round
 FROM
     agents s
 WHERE
@@ -463,13 +464,14 @@ func (q *Queries) GetAgentByIdempotencyKey(ctx context.Context, idempotencyKey *
 		&i.TreeStandingSha,
 		&i.TenantID,
 		&i.HeadSha,
+		&i.MovedSinceRound,
 	)
 	return &i, err
 }
 
 const getAgentInWorkflow = `-- name: GetAgentInWorkflow :one
 SELECT
-    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, parent_agent_id, turn_ended_at, provision_enabled, reported_reason, role, held_at, held_mid_turn, nudge_sent_at, sequence_in_progress, repository_url, deleting_at, alive, tree_standing, tree_standing_sha, tenant_id, head_sha
+    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, parent_agent_id, turn_ended_at, provision_enabled, reported_reason, role, held_at, held_mid_turn, nudge_sent_at, sequence_in_progress, repository_url, deleting_at, alive, tree_standing, tree_standing_sha, tenant_id, head_sha, moved_since_round
 FROM
     agents s
 WHERE
@@ -528,6 +530,7 @@ func (q *Queries) GetAgentInWorkflow(ctx context.Context, arg GetAgentInWorkflow
 		&i.TreeStandingSha,
 		&i.TenantID,
 		&i.HeadSha,
+		&i.MovedSinceRound,
 	)
 	return &i, err
 }
@@ -801,79 +804,6 @@ func (q *Queries) ListAgentDirs(ctx context.Context) ([]*ListAgentDirsRow, error
 	return items, nil
 }
 
-const listAgentFacts = `-- name: ListAgentFacts :many
-WITH failed AS (
-    SELECT DISTINCT ON (r.agent_id)
-        r.agent_id,
-        r.log_number
-    FROM
-        agent_runs r
-    WHERE
-        r.agent_id = ANY ($1::uuid[])
-        AND r.failure <> ''
-        AND r.viewed_at IS NULL
-    ORDER BY
-        r.agent_id,
-        r.started_at DESC,
-        r.id DESC
-),
-threaded AS (
-    SELECT
-        t.agent_id,
-        COUNT(*)::int AS threads,
-        SUM((EXTRACT(EPOCH FROM t.updated_at) * 1000000)::bigint) AS moved
-    FROM
-        review_threads t
-    WHERE
-        t.agent_id = ANY ($1::uuid[])
-    GROUP BY
-        t.agent_id
-)
-SELECT
-    s.id,
-(f.agent_id IS NOT NULL)::boolean AS failed_run,
-    f.log_number AS failed_run_log,
-    CONCAT_WS(':', COALESCE(h.threads, 0), h.moved)::text AS review_version
-FROM
-    agents s
-    LEFT JOIN failed f ON f.agent_id = s.id
-    LEFT JOIN threaded h ON h.agent_id = s.id
-WHERE
-    s.id = ANY ($1::uuid[])
-`
-
-type ListAgentFactsRow struct {
-	ID            string
-	FailedRun     bool
-	FailedRunLog  *int32
-	ReviewVersion string
-}
-
-func (q *Queries) ListAgentFacts(ctx context.Context, ids []string) ([]*ListAgentFactsRow, error) {
-	rows, err := q.db.Query(ctx, listAgentFacts, ids)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []*ListAgentFactsRow
-	for rows.Next() {
-		var i ListAgentFactsRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.FailedRun,
-			&i.FailedRunLog,
-			&i.ReviewVersion,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, &i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listAgentMetadata = `-- name: ListAgentMetadata :many
 SELECT
     agent_id,
@@ -914,9 +844,49 @@ func (q *Queries) ListAgentMetadata(ctx context.Context, agentIds []string) ([]*
 	return items, nil
 }
 
+const listAgentPageIDs = `-- name: ListAgentPageIDs :many
+SELECT
+    s.id
+FROM
+    agents s
+WHERE ($1::boolean) =(s.archived_at IS NOT NULL)
+    AND s.deleting_at IS NULL
+    AND ($2::uuid IS NULL
+        OR s.id < $2)
+ORDER BY
+    s.id DESC
+LIMIT $3
+`
+
+type ListAgentPageIDsParams struct {
+	Archived bool
+	CursorID *string
+	Lim      int32
+}
+
+func (q *Queries) ListAgentPageIDs(ctx context.Context, arg ListAgentPageIDsParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, listAgentPageIDs, arg.Archived, arg.CursorID, arg.Lim)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listAgents = `-- name: ListAgents :many
 SELECT
-    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, parent_agent_id, turn_ended_at, provision_enabled, reported_reason, role, held_at, held_mid_turn, nudge_sent_at, sequence_in_progress, repository_url, deleting_at, alive, tree_standing, tree_standing_sha, tenant_id, head_sha
+    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, parent_agent_id, turn_ended_at, provision_enabled, reported_reason, role, held_at, held_mid_turn, nudge_sent_at, sequence_in_progress, repository_url, deleting_at, alive, tree_standing, tree_standing_sha, tenant_id, head_sha, moved_since_round
 FROM
     agents s
 WHERE
@@ -975,6 +945,7 @@ func (q *Queries) ListAgents(ctx context.Context) ([]*Agent, error) {
 			&i.TreeStandingSha,
 			&i.TenantID,
 			&i.HeadSha,
+			&i.MovedSinceRound,
 		); err != nil {
 			return nil, err
 		}
@@ -988,7 +959,7 @@ func (q *Queries) ListAgents(ctx context.Context) ([]*Agent, error) {
 
 const listAgentsByID = `-- name: ListAgentsByID :many
 SELECT
-    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, parent_agent_id, turn_ended_at, provision_enabled, reported_reason, role, held_at, held_mid_turn, nudge_sent_at, sequence_in_progress, repository_url, deleting_at, alive, tree_standing, tree_standing_sha, tenant_id, head_sha
+    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, parent_agent_id, turn_ended_at, provision_enabled, reported_reason, role, held_at, held_mid_turn, nudge_sent_at, sequence_in_progress, repository_url, deleting_at, alive, tree_standing, tree_standing_sha, tenant_id, head_sha, moved_since_round
 FROM
     agents s
 WHERE
@@ -1047,79 +1018,7 @@ func (q *Queries) ListAgentsByID(ctx context.Context, ids []string) ([]*Agent, e
 			&i.TreeStandingSha,
 			&i.TenantID,
 			&i.HeadSha,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, &i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listAgentsByKey = `-- name: ListAgentsByKey :many
-SELECT
-    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, parent_agent_id, turn_ended_at, provision_enabled, reported_reason, role, held_at, held_mid_turn, nudge_sent_at, sequence_in_progress, repository_url, deleting_at, alive, tree_standing, tree_standing_sha, tenant_id, head_sha
-FROM
-    agents s
-WHERE
-    s.id = ANY ($1::uuid[])
-    AND s.deleting_at IS NULL
-ORDER BY
-    s.id DESC
-`
-
-func (q *Queries) ListAgentsByKey(ctx context.Context, ids []string) ([]*Agent, error) {
-	rows, err := q.db.Query(ctx, listAgentsByKey, ids)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []*Agent
-	for rows.Next() {
-		var i Agent
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.Cwd,
-			&i.Flags,
-			&i.Prompt,
-			&i.PaneID,
-			&i.State,
-			&i.StateChangedAt,
-			&i.Harness,
-			&i.SessionID,
-			&i.WorkflowID,
-			&i.ScheduleID,
-			&i.IdempotencyKey,
-			&i.SpawnedByAgentID,
-			&i.ArchivedAt,
-			&i.IsHidden,
-			&i.NudgedAt,
-			&i.Branch,
-			&i.WorktreeRemoved,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.StateSeenAt,
-			&i.InterruptedAt,
-			&i.AdoptedBranch,
-			&i.ParentAgentID,
-			&i.TurnEndedAt,
-			&i.ProvisionEnabled,
-			&i.ReportedReason,
-			&i.Role,
-			&i.HeldAt,
-			&i.HeldMidTurn,
-			&i.NudgeSentAt,
-			&i.SequenceInProgress,
-			&i.RepositoryUrl,
-			&i.DeletingAt,
-			&i.Alive,
-			&i.TreeStanding,
-			&i.TreeStandingSha,
-			&i.TenantID,
-			&i.HeadSha,
+			&i.MovedSinceRound,
 		); err != nil {
 			return nil, err
 		}
@@ -1133,7 +1032,7 @@ func (q *Queries) ListAgentsByKey(ctx context.Context, ids []string) ([]*Agent, 
 
 const listAgentsForTranscriptSync = `-- name: ListAgentsForTranscriptSync :many
 SELECT
-    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, parent_agent_id, turn_ended_at, provision_enabled, reported_reason, role, held_at, held_mid_turn, nudge_sent_at, sequence_in_progress, repository_url, deleting_at, alive, tree_standing, tree_standing_sha, tenant_id, head_sha
+    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, parent_agent_id, turn_ended_at, provision_enabled, reported_reason, role, held_at, held_mid_turn, nudge_sent_at, sequence_in_progress, repository_url, deleting_at, alive, tree_standing, tree_standing_sha, tenant_id, head_sha, moved_since_round
 FROM
     agents s
 WHERE
@@ -1202,87 +1101,7 @@ func (q *Queries) ListAgentsForTranscriptSync(ctx context.Context) ([]*Agent, er
 			&i.TreeStandingSha,
 			&i.TenantID,
 			&i.HeadSha,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, &i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listAgentsPage = `-- name: ListAgentsPage :many
-SELECT
-    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, parent_agent_id, turn_ended_at, provision_enabled, reported_reason, role, held_at, held_mid_turn, nudge_sent_at, sequence_in_progress, repository_url, deleting_at, alive, tree_standing, tree_standing_sha, tenant_id, head_sha
-FROM
-    agents s
-WHERE ($1::boolean) =(s.archived_at IS NOT NULL)
-    AND s.deleting_at IS NULL
-    AND ($2::uuid IS NULL
-        OR s.id < $2)
-ORDER BY
-    s.id DESC
-LIMIT $3
-`
-
-type ListAgentsPageParams struct {
-	Archived bool
-	CursorID *string
-	Lim      int32
-}
-
-func (q *Queries) ListAgentsPage(ctx context.Context, arg ListAgentsPageParams) ([]*Agent, error) {
-	rows, err := q.db.Query(ctx, listAgentsPage, arg.Archived, arg.CursorID, arg.Lim)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []*Agent
-	for rows.Next() {
-		var i Agent
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.Cwd,
-			&i.Flags,
-			&i.Prompt,
-			&i.PaneID,
-			&i.State,
-			&i.StateChangedAt,
-			&i.Harness,
-			&i.SessionID,
-			&i.WorkflowID,
-			&i.ScheduleID,
-			&i.IdempotencyKey,
-			&i.SpawnedByAgentID,
-			&i.ArchivedAt,
-			&i.IsHidden,
-			&i.NudgedAt,
-			&i.Branch,
-			&i.WorktreeRemoved,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.StateSeenAt,
-			&i.InterruptedAt,
-			&i.AdoptedBranch,
-			&i.ParentAgentID,
-			&i.TurnEndedAt,
-			&i.ProvisionEnabled,
-			&i.ReportedReason,
-			&i.Role,
-			&i.HeldAt,
-			&i.HeldMidTurn,
-			&i.NudgeSentAt,
-			&i.SequenceInProgress,
-			&i.RepositoryUrl,
-			&i.DeletingAt,
-			&i.Alive,
-			&i.TreeStanding,
-			&i.TreeStandingSha,
-			&i.TenantID,
-			&i.HeadSha,
+			&i.MovedSinceRound,
 		); err != nil {
 			return nil, err
 		}
@@ -1296,7 +1115,7 @@ func (q *Queries) ListAgentsPage(ctx context.Context, arg ListAgentsPageParams) 
 
 const listAllAgents = `-- name: ListAllAgents :many
 SELECT
-    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, parent_agent_id, turn_ended_at, provision_enabled, reported_reason, role, held_at, held_mid_turn, nudge_sent_at, sequence_in_progress, repository_url, deleting_at, alive, tree_standing, tree_standing_sha, tenant_id, head_sha
+    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, parent_agent_id, turn_ended_at, provision_enabled, reported_reason, role, held_at, held_mid_turn, nudge_sent_at, sequence_in_progress, repository_url, deleting_at, alive, tree_standing, tree_standing_sha, tenant_id, head_sha, moved_since_round
 FROM
     agents s
 ORDER BY
@@ -1353,6 +1172,7 @@ func (q *Queries) ListAllAgents(ctx context.Context) ([]*Agent, error) {
 			&i.TreeStandingSha,
 			&i.TenantID,
 			&i.HeadSha,
+			&i.MovedSinceRound,
 		); err != nil {
 			return nil, err
 		}
@@ -1366,7 +1186,7 @@ func (q *Queries) ListAllAgents(ctx context.Context) ([]*Agent, error) {
 
 const listArchiveSweepPage = `-- name: ListArchiveSweepPage :many
 SELECT
-    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, parent_agent_id, turn_ended_at, provision_enabled, reported_reason, role, held_at, held_mid_turn, nudge_sent_at, sequence_in_progress, repository_url, deleting_at, alive, tree_standing, tree_standing_sha, tenant_id, head_sha
+    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, parent_agent_id, turn_ended_at, provision_enabled, reported_reason, role, held_at, held_mid_turn, nudge_sent_at, sequence_in_progress, repository_url, deleting_at, alive, tree_standing, tree_standing_sha, tenant_id, head_sha, moved_since_round
 FROM
     agents s
 WHERE
@@ -1433,6 +1253,7 @@ func (q *Queries) ListArchiveSweepPage(ctx context.Context, arg ListArchiveSweep
 			&i.TreeStandingSha,
 			&i.TenantID,
 			&i.HeadSha,
+			&i.MovedSinceRound,
 		); err != nil {
 			return nil, err
 		}
@@ -1446,7 +1267,7 @@ func (q *Queries) ListArchiveSweepPage(ctx context.Context, arg ListArchiveSweep
 
 const listArchivedWorkflowAgents = `-- name: ListArchivedWorkflowAgents :many
 SELECT
-    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, parent_agent_id, turn_ended_at, provision_enabled, reported_reason, role, held_at, held_mid_turn, nudge_sent_at, sequence_in_progress, repository_url, deleting_at, alive, tree_standing, tree_standing_sha, tenant_id, head_sha
+    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, parent_agent_id, turn_ended_at, provision_enabled, reported_reason, role, held_at, held_mid_turn, nudge_sent_at, sequence_in_progress, repository_url, deleting_at, alive, tree_standing, tree_standing_sha, tenant_id, head_sha, moved_since_round
 FROM
     agents
 WHERE
@@ -1506,6 +1327,7 @@ func (q *Queries) ListArchivedWorkflowAgents(ctx context.Context, workflowID str
 			&i.TreeStandingSha,
 			&i.TenantID,
 			&i.HeadSha,
+			&i.MovedSinceRound,
 		); err != nil {
 			return nil, err
 		}
@@ -1519,7 +1341,7 @@ func (q *Queries) ListArchivedWorkflowAgents(ctx context.Context, workflowID str
 
 const listChildAgents = `-- name: ListChildAgents :many
 SELECT
-    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, parent_agent_id, turn_ended_at, provision_enabled, reported_reason, role, held_at, held_mid_turn, nudge_sent_at, sequence_in_progress, repository_url, deleting_at, alive, tree_standing, tree_standing_sha, tenant_id, head_sha
+    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, parent_agent_id, turn_ended_at, provision_enabled, reported_reason, role, held_at, held_mid_turn, nudge_sent_at, sequence_in_progress, repository_url, deleting_at, alive, tree_standing, tree_standing_sha, tenant_id, head_sha, moved_since_round
 FROM
     agents
 WHERE
@@ -1578,6 +1400,7 @@ func (q *Queries) ListChildAgents(ctx context.Context, parentIds []string) ([]*A
 			&i.TreeStandingSha,
 			&i.TenantID,
 			&i.HeadSha,
+			&i.MovedSinceRound,
 		); err != nil {
 			return nil, err
 		}
@@ -1658,7 +1481,7 @@ func (q *Queries) ListLastTranscriptTurns(ctx context.Context, arg ListLastTrans
 
 const listLiveAgentsNamed = `-- name: ListLiveAgentsNamed :many
 SELECT
-    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, parent_agent_id, turn_ended_at, provision_enabled, reported_reason, role, held_at, held_mid_turn, nudge_sent_at, sequence_in_progress, repository_url, deleting_at, alive, tree_standing, tree_standing_sha, tenant_id, head_sha
+    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, parent_agent_id, turn_ended_at, provision_enabled, reported_reason, role, held_at, held_mid_turn, nudge_sent_at, sequence_in_progress, repository_url, deleting_at, alive, tree_standing, tree_standing_sha, tenant_id, head_sha, moved_since_round
 FROM
     agents s
 WHERE
@@ -1718,6 +1541,7 @@ func (q *Queries) ListLiveAgentsNamed(ctx context.Context, name string) ([]*Agen
 			&i.TreeStandingSha,
 			&i.TenantID,
 			&i.HeadSha,
+			&i.MovedSinceRound,
 		); err != nil {
 			return nil, err
 		}
@@ -1731,7 +1555,7 @@ func (q *Queries) ListLiveAgentsNamed(ctx context.Context, name string) ([]*Agen
 
 const listLiveWorkflowAgents = `-- name: ListLiveWorkflowAgents :many
 SELECT
-    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, parent_agent_id, turn_ended_at, provision_enabled, reported_reason, role, held_at, held_mid_turn, nudge_sent_at, sequence_in_progress, repository_url, deleting_at, alive, tree_standing, tree_standing_sha, tenant_id, head_sha
+    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, parent_agent_id, turn_ended_at, provision_enabled, reported_reason, role, held_at, held_mid_turn, nudge_sent_at, sequence_in_progress, repository_url, deleting_at, alive, tree_standing, tree_standing_sha, tenant_id, head_sha, moved_since_round
 FROM
     agents
 WHERE
@@ -1791,6 +1615,7 @@ func (q *Queries) ListLiveWorkflowAgents(ctx context.Context, workflowID string)
 			&i.TreeStandingSha,
 			&i.TenantID,
 			&i.HeadSha,
+			&i.MovedSinceRound,
 		); err != nil {
 			return nil, err
 		}
@@ -1832,6 +1657,131 @@ func (q *Queries) ListScheduleAgentNamesOutsideWorkflow(ctx context.Context, arg
 			return nil, err
 		}
 		items = append(items, name)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listWatchedAgents = `-- name: ListWatchedAgents :many
+WITH watched AS (
+    SELECT
+        ARRAY (
+            SELECT
+                a.id
+            FROM
+                agents a
+            WHERE
+                a.deleting_at IS NULL
+                AND ($1::text[] IS NULL
+                    OR a.id = ANY ($1::uuid[]))) AS ids
+),
+failed AS (
+    SELECT DISTINCT ON (r.agent_id)
+        r.agent_id,
+        r.log_number
+    FROM
+        watched w
+        JOIN agent_runs r ON r.agent_id = ANY (w.ids)
+    WHERE
+        r.failure <> ''
+        AND r.viewed_at IS NULL
+    ORDER BY
+        r.agent_id,
+        r.started_at DESC,
+        r.id DESC
+),
+threaded AS (
+    SELECT
+        t.agent_id,
+        COUNT(*)::int AS threads,
+        SUM((EXTRACT(EPOCH FROM t.updated_at) * 1000000)::bigint) AS moved
+    FROM
+        watched w
+        JOIN review_threads t ON t.agent_id = ANY (w.ids)
+    GROUP BY
+        t.agent_id
+)
+SELECT
+    s.id, s.name, s.cwd, s.flags, s.prompt, s.pane_id, s.state, s.state_changed_at, s.harness, s.session_id, s.workflow_id, s.schedule_id, s.idempotency_key, s.spawned_by_agent_id, s.archived_at, s.is_hidden, s.nudged_at, s.branch, s.worktree_removed, s.created_at, s.updated_at, s.state_seen_at, s.interrupted_at, s.adopted_branch, s.parent_agent_id, s.turn_ended_at, s.provision_enabled, s.reported_reason, s.role, s.held_at, s.held_mid_turn, s.nudge_sent_at, s.sequence_in_progress, s.repository_url, s.deleting_at, s.alive, s.tree_standing, s.tree_standing_sha, s.tenant_id, s.head_sha, s.moved_since_round,
+(f.agent_id IS NOT NULL)::boolean AS failed_run,
+    f.log_number AS failed_run_log,
+    CONCAT_WS(':', COALESCE(h.threads, 0), h.moved)::text AS review_version
+FROM
+    watched w
+    JOIN agents s ON s.id = ANY (w.ids)
+    LEFT JOIN failed f ON f.agent_id = s.id
+    LEFT JOIN threaded h ON h.agent_id = s.id
+ORDER BY
+    s.id DESC
+`
+
+type ListWatchedAgentsRow struct {
+	Agent         Agent
+	FailedRun     bool
+	FailedRunLog  *int32
+	ReviewVersion string
+}
+
+func (q *Queries) ListWatchedAgents(ctx context.Context, keys []string) ([]*ListWatchedAgentsRow, error) {
+	rows, err := q.db.Query(ctx, listWatchedAgents, keys)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*ListWatchedAgentsRow
+	for rows.Next() {
+		var i ListWatchedAgentsRow
+		if err := rows.Scan(
+			&i.Agent.ID,
+			&i.Agent.Name,
+			&i.Agent.Cwd,
+			&i.Agent.Flags,
+			&i.Agent.Prompt,
+			&i.Agent.PaneID,
+			&i.Agent.State,
+			&i.Agent.StateChangedAt,
+			&i.Agent.Harness,
+			&i.Agent.SessionID,
+			&i.Agent.WorkflowID,
+			&i.Agent.ScheduleID,
+			&i.Agent.IdempotencyKey,
+			&i.Agent.SpawnedByAgentID,
+			&i.Agent.ArchivedAt,
+			&i.Agent.IsHidden,
+			&i.Agent.NudgedAt,
+			&i.Agent.Branch,
+			&i.Agent.WorktreeRemoved,
+			&i.Agent.CreatedAt,
+			&i.Agent.UpdatedAt,
+			&i.Agent.StateSeenAt,
+			&i.Agent.InterruptedAt,
+			&i.Agent.AdoptedBranch,
+			&i.Agent.ParentAgentID,
+			&i.Agent.TurnEndedAt,
+			&i.Agent.ProvisionEnabled,
+			&i.Agent.ReportedReason,
+			&i.Agent.Role,
+			&i.Agent.HeldAt,
+			&i.Agent.HeldMidTurn,
+			&i.Agent.NudgeSentAt,
+			&i.Agent.SequenceInProgress,
+			&i.Agent.RepositoryUrl,
+			&i.Agent.DeletingAt,
+			&i.Agent.Alive,
+			&i.Agent.TreeStanding,
+			&i.Agent.TreeStandingSha,
+			&i.Agent.TenantID,
+			&i.Agent.HeadSha,
+			&i.Agent.MovedSinceRound,
+			&i.FailedRun,
+			&i.FailedRunLog,
+			&i.ReviewVersion,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -2967,6 +2917,25 @@ func (q *Queries) SetAgentMetadata(ctx context.Context, arg SetAgentMetadataPara
 	return items, nil
 }
 
+const setAgentMovedSinceRound = `-- name: SetAgentMovedSinceRound :exec
+UPDATE
+    agents
+SET
+    moved_since_round = $1
+WHERE
+    id = $2
+`
+
+type SetAgentMovedSinceRoundParams struct {
+	MovedSinceRound string
+	ID              string
+}
+
+func (q *Queries) SetAgentMovedSinceRound(ctx context.Context, arg SetAgentMovedSinceRoundParams) error {
+	_, err := q.db.Exec(ctx, setAgentMovedSinceRound, arg.MovedSinceRound, arg.ID)
+	return err
+}
+
 const setAgentNudgeSentByID = `-- name: SetAgentNudgeSentByID :exec
 UPDATE
     agents
@@ -3123,78 +3092,6 @@ type SetAgentsAliveParams struct {
 func (q *Queries) SetAgentsAlive(ctx context.Context, arg SetAgentsAliveParams) error {
 	_, err := q.db.Exec(ctx, setAgentsAlive, arg.Alive, arg.Ids)
 	return err
-}
-
-const snapshotAgents = `-- name: SnapshotAgents :many
-SELECT
-    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, parent_agent_id, turn_ended_at, provision_enabled, reported_reason, role, held_at, held_mid_turn, nudge_sent_at, sequence_in_progress, repository_url, deleting_at, alive, tree_standing, tree_standing_sha, tenant_id, head_sha
-FROM
-    agents s
-WHERE
-    s.deleting_at IS NULL
-ORDER BY
-    s.id DESC
-`
-
-func (q *Queries) SnapshotAgents(ctx context.Context) ([]*Agent, error) {
-	rows, err := q.db.Query(ctx, snapshotAgents)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []*Agent
-	for rows.Next() {
-		var i Agent
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.Cwd,
-			&i.Flags,
-			&i.Prompt,
-			&i.PaneID,
-			&i.State,
-			&i.StateChangedAt,
-			&i.Harness,
-			&i.SessionID,
-			&i.WorkflowID,
-			&i.ScheduleID,
-			&i.IdempotencyKey,
-			&i.SpawnedByAgentID,
-			&i.ArchivedAt,
-			&i.IsHidden,
-			&i.NudgedAt,
-			&i.Branch,
-			&i.WorktreeRemoved,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.StateSeenAt,
-			&i.InterruptedAt,
-			&i.AdoptedBranch,
-			&i.ParentAgentID,
-			&i.TurnEndedAt,
-			&i.ProvisionEnabled,
-			&i.ReportedReason,
-			&i.Role,
-			&i.HeldAt,
-			&i.HeldMidTurn,
-			&i.NudgeSentAt,
-			&i.SequenceInProgress,
-			&i.RepositoryUrl,
-			&i.DeletingAt,
-			&i.Alive,
-			&i.TreeStanding,
-			&i.TreeStandingSha,
-			&i.TenantID,
-			&i.HeadSha,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, &i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }
 
 const updateAgent = `-- name: UpdateAgent :exec

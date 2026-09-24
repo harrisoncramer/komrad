@@ -425,3 +425,22 @@ func TestAReviewIsRaisedByItsDoorbellAndRound(t *testing.T) {
 		"reviews " + review,
 	}, waitForPayloads(t, conn, 5))
 }
+
+// TestALookupFeederMatchesAcrossColumnTypes pins that an agent's uuid reaches the worktree
+// whose text name holds it, and only when the agent's deleting_at moves.
+func TestALookupFeederMatchesAcrossColumnTypes(t *testing.T) {
+	l := newPooled(t)
+	rows := l.seed(t)
+	dir := "/worktrees/" + uuid.NewString()
+	l.exec(t, `INSERT INTO worktrees (dir, name) VALUES ($1, $2)`, dir, rows.agent)
+	conn := l.listenRaw(t)
+
+	l.exec(t, `UPDATE agents SET name = 'renamed' WHERE id = $1`, rows.agent)
+	l.exec(t, `UPDATE agents SET deleting_at = now() WHERE id = $1`, rows.agent)
+
+	assert.Equal(t, []string{
+		"agents " + rows.agent,
+		"agents " + rows.agent,
+		"worktrees " + dir,
+	}, waitForPayloads(t, conn, 3))
+}

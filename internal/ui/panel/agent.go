@@ -100,6 +100,8 @@ type AgentRow struct {
 	LocalVerdict agentv1.ReviewVerdict
 	// LocalTree is where the worktree stands against the round that verdict was given on.
 	LocalTree git.Standing
+	// MovedSinceRound is the newest round's snapshot while the worktree no longer hashes to it.
+	MovedSinceRound string
 	// PullRequest is where the pull request opened from its branch stands.
 	PullRequest PullRequestStanding
 	// PullRequests is every pull request opened from its branch, the current one first.

@@ -10,11 +10,13 @@ import (
 	"weave/internal/client"
 	"weave/internal/ui/layout"
 	"weave/internal/ui/panel"
+	"weave/lib/xptr"
 	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
 	schedulev1 "weave/proto/gen/schedule/v1"
 	watchv1 "weave/proto/gen/watch/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
+	worktreev1 "weave/proto/gen/worktree/v1"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/stretchr/testify/assert"
@@ -59,6 +61,10 @@ func scheduleRowOf(schedule *schedulev1.Schedule) *watchv1.Row {
 	return &watchv1.Row{Row: &watchv1.Row_Schedule{Schedule: schedule}}
 }
 
+func worktreeRowOf(worktree *worktreev1.WatchedWorktree) *watchv1.Row {
+	return &watchv1.Row{Row: &watchv1.Row_Worktree{Worktree: worktree}}
+}
+
 func markRowOf(mark *agentv1.Mark) *watchv1.Row {
 	return &watchv1.Row{Row: &watchv1.Row_Mark{Mark: mark}}
 }
@@ -81,17 +87,6 @@ func deletedEvent(resource watchv1.Resource, key string) *watchv1.WatchEvent {
 
 func agentIDs(items []panel.AgentRow) []string {
 	return xslice.Map(items, func(item panel.AgentRow) string { return item.Agent.ID })
-}
-
-// hasListed says whether the tick's command asked the service for the archive or the worktrees.
-func hasListed(cmd tea.Cmd) bool {
-	for _, msg := range produced(cmd) {
-		if _, ok := msg.(listedMsg); ok {
-			return true
-		}
-	}
-
-	return false
 }
 
 // TestSnapshotReplacesTheListing covers the opening of a stream: the snapshot's rows fill a
@@ -374,21 +369,47 @@ func TestLostStreamIsReportedUntilTheNextSnapshot(t *testing.T) {
 	assert.Len(t, m.messages.items, 1)
 }
 
-// TestTickListsOnlyWhatTheWatchLacks covers the worktree directories, which ride no stream, being
-// listed on every tick, and the agents and archive screens asking for nothing.
-func TestTickListsOnlyWhatTheWatchLacks(t *testing.T) {
+// TestWorktreesAreDrawnFromTheWatch covers each directory taking its owner, its occupants and
+// its fate from the agents in the world, and leaving the screen when the watch drops it.
+func TestWorktreesAreDrawnFromTheWatch(t *testing.T) {
 	m := watchedPanel()
-	now := time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC)
-
-	_, cmd := update(t, m, tickMsg{at: now})
-	assert.False(t, hasListed(cmd), "the agents screen is fed by the watch alone")
-
-	m.screen = screenArchive
-	_, cmd = update(t, m, tickMsg{at: now})
-	assert.False(t, hasListed(cmd), "and so is the archive")
-
 	m.screen = screenWorktrees
-	m.api.worktrees = emptyLists{}
-	_, cmd = update(t, m, tickMsg{at: now})
-	assert.True(t, hasListed(cmd), "the worktree directories are listed on every tick")
+
+	m, _ = update(t, m, client.WatchBatch{snapshotEvent(
+		agentRowOf(&agentv1.Agent{Id: "01a", Name: "live", State: agentv1.AgentState_AGENT_STATE_IDLE, StateChangedAt: "2026-09-21T10:00:00Z"}),
+		agentRowOf(&agentv1.Agent{Id: "01b", Name: "put-away", ArchivedAt: xptr.Ptr("2026-09-21T11:00:00Z")}),
+		agentRowOf(&agentv1.Agent{Id: "01c", Name: "visitor", Cwd: "/trees/01a"}),
+		agentRowOf(&agentv1.Agent{Id: "01d", Name: "stuck", State: agentv1.AgentState_AGENT_STATE_FAILED_TO_CLEANUP}),
+		worktreeRowOf(&worktreev1.WatchedWorktree{Dir: "/trees/01a", Readable: true}),
+		worktreeRowOf(&worktreev1.WatchedWorktree{Dir: "/trees/01b", Readable: true}),
+		worktreeRowOf(&worktreev1.WatchedWorktree{Dir: "/trees/01d"}),
+		worktreeRowOf(&worktreev1.WatchedWorktree{Dir: "/trees/orphan", ModifiedAt: "2026-09-20T09:00:00Z", SizeBytes: xptr.Ptr(int64(42)), MeasuredAt: xptr.Ptr("2026-09-21T09:00:00Z")}),
+	)})
+
+	byDir := xslice.KeyBy(m.worktrees.items, func(item worktreeItem) string { return item.dir })
+	require.Len(t, byDir, 4)
+
+	live := byDir["/trees/01a"]
+	require.NotNil(t, live.agent)
+	assert.Equal(t, "live", live.agent.name)
+	assert.Equal(t, fateLive, live.fate)
+	assert.Equal(t, []string{"visitor"}, xslice.Map(live.occupants, func(occupant worktreeAgent) string { return occupant.name }))
+	assert.Equal(t, time.Date(2026, 9, 21, 10, 0, 0, 0, time.UTC), live.lastActiveAt, "an owned directory is as active as its agent")
+
+	archived := byDir["/trees/01b"]
+	assert.Equal(t, fateArchived, archived.fate)
+	assert.Equal(t, time.Date(2026, 9, 21, 11, 0, 0, 0, time.UTC), archived.lastActiveAt)
+
+	assert.Equal(t, fateUnowned, byDir["/trees/01d"].fate, "a failed cleanup git cannot read is the remover's")
+
+	orphan := byDir["/trees/orphan"]
+	assert.Nil(t, orphan.agent)
+	assert.Equal(t, fateUnowned, orphan.fate)
+	assert.Equal(t, time.Date(2026, 9, 20, 9, 0, 0, 0, time.UTC), orphan.lastActiveAt, "an unowned directory is as active as its mtime")
+	require.NotNil(t, orphan.size)
+	assert.Equal(t, int64(42), orphan.size.bytes)
+
+	m, _ = update(t, m, client.WatchBatch{deletedEvent(watchv1.Resource_RESOURCE_WORKTREE, "/trees/orphan")})
+
+	assert.Len(t, m.worktrees.items, 3)
 }

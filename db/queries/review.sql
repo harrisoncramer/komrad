@@ -555,6 +555,16 @@ FROM
     released r
     LEFT JOIN concluded c ON c.agent_id = r.agent_id;
 
+-- name: ListNewestReviewRounds :many
+SELECT DISTINCT ON (agent_id)
+    agent_id,
+    snapshot_sha
+FROM
+    review_rounds
+ORDER BY
+    agent_id,
+    ordinal DESC;
+
 -- name: ListLiveReviewers :many
 SELECT
     c.parent_agent_id AS agent_id,

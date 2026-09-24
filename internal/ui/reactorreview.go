@@ -14,5 +14,5 @@ func (reviewReactor) react(m *model, _ assemble.Changed) tea.Cmd {
 		return nil
 	}
 
-	return m.review.followWatch(m.shared())
+	return tea.Batch(m.review.followWatch(m.shared()), m.review.followMove(m.shared()))
 }

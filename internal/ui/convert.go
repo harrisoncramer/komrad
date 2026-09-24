@@ -92,15 +92,16 @@ func agentRowFrom(row *agentv1.AgentRow) panel.AgentRow {
 	agent := row.GetAgent()
 
 	return panel.AgentRow{
-		Agent:        agentFrom(agent),
-		Alive:        agent.GetAlive(),
-		UnreadMail:   row.GetUnreadMail(),
-		FailedRun:    agent.GetFailedRun(),
-		FailedRunLog: agent.FailedRunLog,
-		LocalVerdict: row.GetLocalReviewVerdict(),
-		LocalTree:    standingFrom(row.GetLocalReviewTree()),
-		PullRequest:  pullRequestStandingFrom(row.GetPullRequest()),
-		PullRequests: xslice.Map(row.GetPullRequests(), pullRequestFrom),
+		Agent:           agentFrom(agent),
+		Alive:           agent.GetAlive(),
+		UnreadMail:      row.GetUnreadMail(),
+		FailedRun:       agent.GetFailedRun(),
+		FailedRunLog:    agent.FailedRunLog,
+		LocalVerdict:    row.GetLocalReviewVerdict(),
+		LocalTree:       standingFrom(row.GetLocalReviewTree()),
+		PullRequest:     pullRequestStandingFrom(row.GetPullRequest()),
+		PullRequests:    xslice.Map(row.GetPullRequests(), pullRequestFrom),
+		MovedSinceRound: agent.GetMovedSinceRound(),
 	}
 }
 
@@ -223,10 +224,6 @@ func scheduleRunFrom(r *schedulev1.ScheduleRun) panel.ScheduleRun {
 	}
 
 	return run
-}
-
-func worktreeItemsFrom(listed *worktreev1.ListWorktreesResponse) []worktreeItem {
-	return xslice.Map(listed.GetWorktrees(), worktreeItemFrom)
 }
 
 func worktreeItemFrom(w *worktreev1.Worktree) worktreeItem {

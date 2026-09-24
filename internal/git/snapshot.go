@@ -49,13 +49,8 @@ type Snapshot struct {
 	SHA     string
 }
 
-// ProbeTree writes an agent's worktree out as a tree and nothing else.
-func (c *Client) ProbeTree(ctx context.Context, dir string) (string, error) {
-	root, err := c.GetRoot(ctx, dir)
-	if err != nil {
-		return "", err
-	}
-
+// ProbeTree writes the worktree at root out as a tree and nothing else.
+func (c *Client) ProbeTree(ctx context.Context, root string) (string, error) {
 	return writeTree(ctx, root)
 }
 
@@ -390,6 +385,8 @@ type ReadStandingParams struct {
 	Dir         string
 	Base        string
 	SnapshotSHA string
+	// Probe is the worktree's tree already written, written again when empty.
+	Probe string
 }
 
 // ReadStanding is where a worktree stands against a ref.
@@ -399,9 +396,12 @@ func (c *Client) ReadStanding(ctx context.Context, params ReadStandingParams) (S
 		return StandingSame, err
 	}
 
-	probe, err := writeTree(ctx, root)
-	if err != nil {
-		return StandingSame, err
+	probe := params.Probe
+	if probe == "" {
+		probe, err = writeTree(ctx, root)
+		if err != nil {
+			return StandingSame, err
+		}
 	}
 
 	held, err := c.GetTree(ctx, root, params.SnapshotSHA)

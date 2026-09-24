@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"weave/config"
 	"weave/internal/client"
@@ -33,7 +34,7 @@ func settle(t *testing.T, m model, cmd tea.Cmd) model {
 
 	for _, msg := range produced(cmd) {
 		switch msg.(type) {
-		case writeResult, listedMsg, client.WatchBatch, pullRequestsListedMsg:
+		case writeResult, client.WatchBatch:
 		default:
 			continue
 		}
@@ -74,96 +75,123 @@ func produced(cmd tea.Cmd) []tea.Msg {
 	}
 }
 
-// TestWriteLandsOnTheRowItMade covers a create landing: the row the write answered with goes
-// into the listing before the watch has delivered it, and the cursor onto it.
-func TestWriteLandsOnTheRowItMade(t *testing.T) {
-	m := watchedPanel()
-	m.applyWatch(client.WatchBatch{snapshotEvent(
-		workflowRowOf(&workflowv1.Workflow{Id: "w1", Name: "api"}),
-		agentRowOf(&agentv1.Agent{
-			Id:         "a1",
-			Name:       "old",
-			WorkflowId: "w1",
-		}),
-	)})
+// TestWriteLandsOnceTheWatchDeliversTheRow covers a create landing: the world waits for the
+// watch to carry the row the write made, and the cursor goes onto it when it does.
+func TestWriteLandsOnceTheWatchDeliversTheRow(t *testing.T) {
+	m := landingPanel()
 
-	landed, _ := m.applyWrite(writeResult{written: &written{
-		row: agentRowKey("a2"),
-		agent: &agentv1.Agent{
-			Id:         "a2",
-			Name:       "new",
-			WorkflowId: "w1",
-		},
-	}})
+	landed, _ := m.applyWrite(writeResult{written: &written{row: agentRowKey("a2")}})
 	got := asModel(t, landed)
 
 	_, held := got.listing.liveAgent("a2")
-	require.True(t, held, "the row is on screen the moment the write lands")
-	selected, ok := got.agents.selectedAgent(got.shared())
-	require.True(t, ok)
-	assert.Equal(t, "new", selected.Agent.Name, "and the cursor is on it")
+	require.False(t, held, "the write puts nothing into the world")
+	assert.Equal(t, agentRowKey("a1"), hoveredAgentRowKey(got), "and the cursor waits where it was")
 
-	got.applyWatch(client.WatchBatch{
-		putEvent(&watchv1.Row{Row: &watchv1.Row_Agent{Agent: &agentv1.Agent{
-			Id:         "a2",
-			Name:       "new",
-			WorkflowId: "w1",
-			Alive:      proto.Bool(true),
-		}}}),
-	})
+	got.applyWatch(client.WatchBatch{putEvent(agentRowOf(&agentv1.Agent{
+		Id:         "a2",
+		Name:       "new",
+		WorkflowId: "w1",
+		Alive:      proto.Bool(true),
+	}))})
 
-	require.Len(t, got.listing.agents, 2)
-	selected, ok = got.agents.selectedAgent(got.shared())
-	require.True(t, ok)
-	assert.Equal(t, "new", selected.Agent.Name, "the event that carries the row leaves the cursor on it")
-	assert.True(t, selected.Alive, "and takes the row over")
+	assert.Equal(t, agentRowKey("a2"), hoveredAgentRowKey(got), "the event that carries the row takes the cursor to it")
+	assert.Empty(t, got.landing.row)
 }
 
-// TestWriteLandsOnTheWorkflowItMade covers a workflow create, whose header is drawn from the
-// workflow the write answered with.
-func TestWriteLandsOnTheWorkflowItMade(t *testing.T) {
-	m := watchedPanel()
-	m.applyWatch(client.WatchBatch{snapshotEvent(
-		workflowRowOf(&workflowv1.Workflow{Id: "w1", Name: "zeta"}),
-	)})
+// TestWriteLandsOnceTheWatchDeliversTheWorkflow covers a workflow create, whose header the
+// cursor goes to once the watch carries the workflow.
+func TestWriteLandsOnceTheWatchDeliversTheWorkflow(t *testing.T) {
+	m := landingPanel()
 
-	landed, _ := m.applyWrite(writeResult{written: &written{
-		row:      workflowRowKey("w2"),
-		workflow: &workflowv1.Workflow{Id: "w2", Name: "api"},
-	}})
+	landed, _ := m.applyWrite(writeResult{written: &written{row: workflowRowKey("w2")}})
 	got := asModel(t, landed)
+	require.Len(t, got.listing.workflows, 1)
+
+	got.applyWatch(client.WatchBatch{putEvent(workflowRowOf(&workflowv1.Workflow{Id: "w2", Name: "api"}))})
 
 	require.Len(t, got.listing.workflows, 2)
-	assert.Equal(t, "api", got.listing.workflows[0].Name, "the workflow is filed where the listing would file it")
-	assert.Equal(t, workflowRowKey("w2"), rowKeyAt(got.agents.rows(got.shared()), got.agents.cursor))
+	assert.Equal(t, workflowRowKey("w2"), hoveredAgentRowKey(got))
 }
 
-// TestWriteLeavesARowTheWatchAlreadyDelivered covers the write's answer arriving after the
-// watch has already put the row on screen, which is left as the watch rendered it.
-func TestWriteLeavesARowTheWatchAlreadyDelivered(t *testing.T) {
-	m := watchedPanel()
-	m.applyWatch(client.WatchBatch{snapshotEvent(
-		workflowRowOf(&workflowv1.Workflow{Id: "w1", Name: "api"}),
-		agentRowOf(&agentv1.Agent{
-			Id:         "a2",
-			Name:       "new",
-			WorkflowId: "w1",
-			Alive:      proto.Bool(true),
-		}),
-	)})
+// TestWriteLandsOnARowTheWatchAlreadyDelivered covers the write's answer arriving after the
+// watch has already put the row on screen.
+func TestWriteLandsOnARowTheWatchAlreadyDelivered(t *testing.T) {
+	m := landingPanel()
+	m.applyWatch(client.WatchBatch{putEvent(agentRowOf(&agentv1.Agent{Id: "a2", Name: "new", WorkflowId: "w1"}))})
 
-	landed, _ := m.applyWrite(writeResult{written: &written{
-		row: agentRowKey("a2"),
-		agent: &agentv1.Agent{
-			Id:         "a2",
-			Name:       "new",
-			WorkflowId: "w1",
-		},
-	}})
+	landed, _ := m.applyWrite(writeResult{written: &written{row: agentRowKey("a2")}})
 	got := asModel(t, landed)
 
-	require.Len(t, got.listing.agents, 1)
-	assert.True(t, got.listing.agents[0].Alive)
+	assert.Equal(t, agentRowKey("a2"), hoveredAgentRowKey(got))
+	assert.Empty(t, got.landing.row, "and nothing is left waiting")
+}
+
+// TestLandingNeverWaitsForever covers the row a landing waits on not turning up while it waits,
+// so a later listing leaves the cursor alone.
+func TestLandingNeverWaitsForever(t *testing.T) {
+	arrived := putEvent(agentRowOf(&agentv1.Agent{Id: "a2", Name: "new", WorkflowId: "w1"}))
+
+	tests := []struct {
+		name  string
+		write func(m *model) model
+		want  string
+	}{
+		{
+			name: "a failed create holds nothing",
+			write: func(m *model) model {
+				landed, _ := m.applyWrite(writeResult{summary: "Could not create the agent", err: errors.New("refused")})
+
+				return asModel(t, landed)
+			},
+			want: agentRowKey("a1"),
+		},
+		{
+			name: "a row that never arrives gives up once the wait runs out",
+			write: func(m *model) model {
+				m.landOn(written{row: agentRowKey("a2")}, time.Now().Add(-landingWait-time.Second))
+
+				return *m
+			},
+			want: agentRowKey("a1"),
+		},
+		{
+			name: "a key pressed while waiting takes the cursor back",
+			write: func(m *model) model {
+				m.landOn(written{row: agentRowKey("a2")}, time.Now())
+
+				return pressMark(t, *m, "k")
+			},
+			want: workflowRowKey("w1"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := landingPanel()
+			got := tt.write(&m)
+
+			got.applyWatch(client.WatchBatch{arrived})
+
+			assert.Equal(t, tt.want, hoveredAgentRowKey(got))
+			assert.Empty(t, got.landing.row)
+		})
+	}
+}
+
+// TestLandingWaitsOnARowAFilterHides covers the watch delivering the row while the listing's
+// filter keeps it off the screen, which leaves the cursor where it was.
+func TestLandingWaitsOnARowAFilterHides(t *testing.T) {
+	m := landingPanel()
+	m.filter.mode = filterModeFilter
+	m.filter.setQuery("^old$")
+	m.landOn(written{row: agentRowKey("a2")}, time.Now())
+
+	m.applyWatch(client.WatchBatch{putEvent(agentRowOf(&agentv1.Agent{Id: "a2", Name: "new", WorkflowId: "w1"}))})
+
+	_, held := m.listing.liveAgent("a2")
+	require.True(t, held, "the row is in the world")
+	assert.Equal(t, agentRowKey("a1"), hoveredAgentRowKey(m), "and the cursor stays on a row it can see")
+	assert.Equal(t, agentRowKey("a2"), m.landing.row, "until the wait runs out")
 }
 
 // TestFirstListingLandsOnTheFirstAgent covers the cursor being placed by the first pass.
@@ -504,4 +532,48 @@ func TestUnreachableHintNamesWhatCanBeDone(t *testing.T) {
 			assert.Equal(t, tt.want, m.messages.items[0].hint)
 		})
 	}
+}
+
+func landingPanel() model {
+	m := watchedPanel()
+	m.applyWatch(client.WatchBatch{snapshotEvent(
+		workflowRowOf(&workflowv1.Workflow{Id: "w1", Name: "api"}),
+		agentRowOf(&agentv1.Agent{Id: "a1", Name: "old", WorkflowId: "w1"}),
+	)})
+
+	return m
+}
+
+func hoveredAgentRowKey(m model) string {
+	return rowKeyAt(m.agents.rows(m.shared()), m.agents.cursor)
+}
+
+// TestHeldLandingKeepsThePaneTheWriteShowed covers a batch for another row arriving while the
+// landing waits, which leaves the created pane on the stage.
+func TestHeldLandingKeepsThePaneTheWriteShowed(t *testing.T) {
+	tmux := &recordingTmux{}
+	m := watchedPanel()
+	m.tmux = tmux
+	m.frame = layout.New(tmux, config.DefaultLayout())
+	m.frame.Attach("%0")
+	old := &agentv1.Agent{Id: "a1", Name: "old", WorkflowId: "w1", PaneId: "%1", Alive: proto.Bool(true)}
+	m.applyWatch(client.WatchBatch{snapshotEvent(
+		workflowRowOf(&workflowv1.Workflow{Id: "w1", Name: "api"}),
+		agentRowOf(old),
+	)})
+	m.stageSelection()
+	require.Equal(t, "%1", m.frame.GuestPane())
+
+	landed, _ := m.applyWrite(writeResult{written: &written{row: agentRowKey("a2"), pane: "%9"}})
+	got := asModel(t, landed)
+	require.Equal(t, "%9", got.frame.GuestPane())
+
+	got.applyWatch(client.WatchBatch{putEvent(agentRowOf(&agentv1.Agent{Id: "a1", Name: "renamed", WorkflowId: "w1", PaneId: "%1", Alive: proto.Bool(true)}))})
+
+	assert.Equal(t, "%9", got.frame.GuestPane(), "the old row's pane is not swapped back over the new one")
+
+	got.applyWatch(client.WatchBatch{putEvent(agentRowOf(&agentv1.Agent{Id: "a2", Name: "new", WorkflowId: "w1", PaneId: "%9", Alive: proto.Bool(true)}))})
+
+	assert.Equal(t, agentRowKey("a2"), hoveredAgentRowKey(got))
+	assert.Equal(t, "%9", got.frame.GuestPane())
 }

@@ -455,6 +455,24 @@ func (s *ReviewStore) ListTallies(ctx context.Context) ([]Tally, error) {
 	}), nil
 }
 
+// NewestRound is the snapshot of an agent's newest review round.
+type NewestRound struct {
+	AgentID     string
+	SnapshotSHA string
+}
+
+// ListNewestRounds is the newest round of every agent that has one.
+func (s *ReviewStore) ListNewestRounds(ctx context.Context) ([]NewestRound, error) {
+	rows, err := s.queries.ListNewestReviewRounds(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the newest review rounds: %w", err)
+	}
+
+	return xslice.Map(rows, func(row *models.ListNewestReviewRoundsRow) NewestRound {
+		return NewestRound{AgentID: row.AgentID, SnapshotSHA: row.SnapshotSha}
+	}), nil
+}
+
 // LiveReviewer is a reviewer still owed an answer about the work of the agent it is attached to.
 type LiveReviewer struct {
 	AgentID    string

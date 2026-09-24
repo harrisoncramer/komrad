@@ -99,6 +99,10 @@ func (m *model) sizeAgentWindows() {
 
 // stageSelection puts the pane of whatever the agents cursor is standing on beside the list.
 func (m *model) stageSelection() {
+	if m.isLandingHeld(time.Now()) {
+		return
+	}
+
 	m.frame.Begin()
 	defer m.afterStaging()
 

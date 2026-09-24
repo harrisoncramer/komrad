@@ -66,6 +66,7 @@ func Agent(row rowstore.Row, options AgentOptions) *agentv1.Agent {
 		FailedRunLog:       row.FailedRunLog,
 		TreeStanding:       standingOf(stored.TreeStanding),
 		TreeStandingSha:    stored.TreeStandingSHA,
+		MovedSinceRound:    stored.MovedSinceRound,
 		HeldAt:             heldStamp(stored.HeldAt),
 		ReviewVersion:      row.ReviewVersion,
 	}

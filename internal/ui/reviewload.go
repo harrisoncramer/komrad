@@ -361,7 +361,6 @@ func (d *reviewDiff) load(msg reviewLoadedMsg, isDark bool) {
 	d.baseAt = msg.earlierAt
 	d.pinned = msg.pinned
 	d.chapters = msg.chapters
-	d.worktree.markCaughtUp()
 	d.since = msg.since
 
 	// The files the reader opened out are the view's own, so a view built again over the patch
@@ -492,6 +491,8 @@ func (r *reviewScreen) reload(s panelShared) tea.Cmd {
 	if place, ok := r.diff.view.GetPlace(r.diff.cursor); ok {
 		r.diff.restore = &place
 	}
+
+	r.diff.followedMove = r.findMovedRound(s)
 
 	return loadReviewCmd(s, loadReviewCmdParams{
 		AgentID: r.agentID,

@@ -156,11 +156,11 @@ func TestIdentityIsPerHost(t *testing.T) {
 	require.ErrorIs(t, err, store.ErrNotFound)
 }
 
-// TestObserveJoinsLiveAgentsToTheirBranches covers attribution: an agent on the branch a pull
+// TestObserveJoinsAgentsToTheirBranches covers attribution: an agent on the branch a pull
 // request came from is recorded beside it, one on another branch or on the workflow's base
 // branch is not, a fork's pull request is attributed to nobody, and a second pass inside the
 // hour writes nothing.
-func TestObserveJoinsLiveAgentsToTheirBranches(t *testing.T) {
+func TestObserveJoinsAgentsToTheirBranches(t *testing.T) {
 	h := open(t)
 	ctx := t.Context()
 
@@ -199,8 +199,8 @@ func TestObserveJoinsLiveAgentsToTheirBranches(t *testing.T) {
 	assert.Zero(t, again, "a pair seen within the hour is not written again")
 }
 
-// TestObserveSkipsArchivedAgents covers that only live agents are attributed.
-func TestObserveSkipsArchivedAgents(t *testing.T) {
+// TestObserveLinksArchivedAgents covers that an archived agent is attributed like a live one.
+func TestObserveLinksArchivedAgents(t *testing.T) {
 	h := open(t)
 	ctx := t.Context()
 
@@ -213,7 +213,7 @@ func TestObserveSkipsArchivedAgents(t *testing.T) {
 
 	written, err := h.Observe(ctx)
 	require.NoError(t, err)
-	assert.Zero(t, written)
+	assert.Equal(t, int64(1), written)
 }
 
 // TestLiveRepositoriesAndUnscannedBranches covers the two listings the pass starts from: the

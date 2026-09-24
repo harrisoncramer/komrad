@@ -8,9 +8,9 @@ WHERE
 ORDER BY
     s.id DESC;
 
--- name: ListAgentsPage :many
+-- name: ListAgentPageIDs :many
 SELECT
-    *
+    s.id
 FROM
     agents s
 WHERE (@archived::boolean) =(s.archived_at IS NOT NULL)
@@ -21,37 +21,28 @@ ORDER BY
     s.id DESC
 LIMIT @lim;
 
--- name: SnapshotAgents :many
-SELECT
-    *
-FROM
-    agents s
-WHERE
-    s.deleting_at IS NULL
-ORDER BY
-    s.id DESC;
-
--- name: ListAgentsByKey :many
-SELECT
-    *
-FROM
-    agents s
-WHERE
-    s.id = ANY (@ids::uuid[])
-    AND s.deleting_at IS NULL
-ORDER BY
-    s.id DESC;
-
--- name: ListAgentFacts :many
-WITH failed AS (
+-- name: ListWatchedAgents :many
+WITH watched AS (
+    SELECT
+        ARRAY (
+            SELECT
+                a.id
+            FROM
+                agents a
+            WHERE
+                a.deleting_at IS NULL
+                AND (sqlc.narg('keys')::text[] IS NULL
+                    OR a.id = ANY (sqlc.narg('keys')::uuid[]))) AS ids
+),
+failed AS (
     SELECT DISTINCT ON (r.agent_id)
         r.agent_id,
         r.log_number
     FROM
-        agent_runs r
+        watched w
+        JOIN agent_runs r ON r.agent_id = ANY (w.ids)
     WHERE
-        r.agent_id = ANY (@ids::uuid[])
-        AND r.failure <> ''
+        r.failure <> ''
         AND r.viewed_at IS NULL
     ORDER BY
         r.agent_id,
@@ -64,23 +55,23 @@ threaded AS (
         COUNT(*)::int AS threads,
         SUM((EXTRACT(EPOCH FROM t.updated_at) * 1000000)::bigint) AS moved
     FROM
-        review_threads t
-    WHERE
-        t.agent_id = ANY (@ids::uuid[])
+        watched w
+        JOIN review_threads t ON t.agent_id = ANY (w.ids)
     GROUP BY
         t.agent_id
 )
 SELECT
-    s.id,
+    sqlc.embed(s),
 (f.agent_id IS NOT NULL)::boolean AS failed_run,
     f.log_number AS failed_run_log,
     CONCAT_WS(':', COALESCE(h.threads, 0), h.moved)::text AS review_version
 FROM
-    agents s
+    watched w
+    JOIN agents s ON s.id = ANY (w.ids)
     LEFT JOIN failed f ON f.agent_id = s.id
     LEFT JOIN threaded h ON h.agent_id = s.id
-WHERE
-    s.id = ANY (@ids::uuid[]);
+ORDER BY
+    s.id DESC;
 
 -- name: ListArchiveSweepPage :many
 SELECT
@@ -788,6 +779,14 @@ UPDATE
 SET
     tree_standing = @tree_standing,
     tree_standing_sha = @tree_standing_sha
+WHERE
+    id = @id;
+
+-- name: SetAgentMovedSinceRound :exec
+UPDATE
+    agents
+SET
+    moved_since_round = @moved_since_round
 WHERE
     id = @id;
 

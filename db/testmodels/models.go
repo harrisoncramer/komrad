@@ -284,6 +284,8 @@ type Agent struct {
 	TenantID pgtype.UUID
 	// The commit the agent's checkout has checked out, null when the checkout is gone or git cannot read it. The cwd syncer rewrites it on the same pass that rewrites branch.
 	HeadSha *string
+	// The snapshot of the agent's newest review round when its worktree no longer hashes to it, empty while it still does or when there is no round. The cwd syncer rewrites it every pass.
+	MovedSinceRound string
 }
 
 // Facts an agent recorded about its own work, such as the pull request it opened.
@@ -297,7 +299,7 @@ type AgentMetadatum struct {
 	TenantID pgtype.UUID
 }
 
-// Which agents were seen with which pull requests, one row per pair, never deleted or re-pointed. It is history rather than ownership: the live view derives the association from the branch and never reads this, and the archive reads nothing else.
+// Which agents were seen with which pull requests, one row per pair, never re-pointed. The watch carries every pull request with a row here.
 type AgentPullRequest struct {
 	AgentID       pgtype.UUID
 	PullRequestID pgtype.UUID
@@ -683,15 +685,25 @@ type WorkflowProvisionerConfig struct {
 	TenantID pgtype.UUID
 }
 
-// The disk one worktree directory takes, as the size loop or get_worktree last measured it. Keyed by the directory rather than an agent, since a directory outlives its row and one nobody answers for is what the worktrees screen is for.
-type WorktreeSize struct {
+// One directory under the worktree directories as the filesystem holds it, written by the size loop. Keyed by the directory rather than an agent, since a directory outlives its row and one nobody answers for is what the worktrees screen is for. An unowned directory an unfinished delete names has no row, and the watch leaves out one whose agent is being deleted.
+type Worktree struct {
 	Dir string
-	// Blocks taken rather than length, a hard linked file counted once. Zero while error is set.
+	// Blocks taken rather than length, a hard linked file counted once. Zero until measured and while size_error is set.
 	SizeBytes int64
-	// When the walk last finished, whether or not it succeeded, so a failed directory is not walked again on every pass.
+	// When the walk last finished, whether or not it succeeded, null until the first walk.
 	MeasuredAt pgtype.Timestamptz
 	// Why the last walk failed, null when it did not.
-	Error *string
+	SizeError *string
 	// The engine that owns this row, stamped from the login that wrote it.
 	TenantID pgtype.UUID
+	// The directory's basename, which is the id of the agent it was cut for.
+	Name string
+	// The repository the directory was cut from, read off its .git file, empty when there is no such file.
+	RepoDir string
+	// What the gitdir's HEAD names, empty when it is detached or cannot be read.
+	Branch string
+	// Whether the gitdir the .git file names is still there.
+	Readable bool
+	// When git last wrote the directory's .git file, else the directory's own modification time.
+	Mtime pgtype.Timestamptz
 }

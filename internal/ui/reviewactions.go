@@ -294,7 +294,7 @@ func (r *reviewScreen) legend() []screenLegendRow {
 		},
 		{
 			of:   []actionID{actionReviewReload},
-			desc: func(panelShared) string { return r.diff.reloadDesc() },
+			desc: func(s panelShared) string { return r.reloadDesc(s) },
 		},
 		{
 			of:   []actionID{actionReviewResolve},
