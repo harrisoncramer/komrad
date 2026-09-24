@@ -60,6 +60,10 @@ type reviewWroteMsg struct {
 	agentID string
 	notice  string
 	err     error
+	// readBack says threads is the review of an archived agent read back after the write.
+	readBack bool
+	threads  []*agentv1.ReviewThread
+	readErr  error
 	// sent says this is the answer to a released review rather than to any of the other writes
 	// this screen makes, which all come back the same way.
 	sent bool
@@ -452,6 +456,14 @@ func (r *reviewScreen) applyWrote(h host, s panelShared, msg reviewWroteMsg) tea
 	}
 
 	r.notice = msg.notice
+
+	switch {
+	case !msg.readBack:
+	case msg.readErr != nil:
+		h.report("Could not read the review of "+r.agentName+" back", msg.readErr)
+	default:
+		r.applyThreads(s, msg.threads)
+	}
 
 	if !msg.sent {
 		return nil

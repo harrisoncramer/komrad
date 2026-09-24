@@ -128,6 +128,34 @@ func TestReviewStopsFollowingAnArchivedAgent(t *testing.T) {
 	assert.Contains(t, ansi.Strip(m.review.view(m.shared())), "fixed it")
 }
 
+// TestSettlingOnAnArchivedAgentReadsTheReviewBack pins that a write on a review whose threads
+// the world no longer holds draws what the server answers after it.
+func TestSettlingOnAnArchivedAgentReadsTheReviewBack(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	agents.threads = pinnedThread(t, m, deliveredComment())
+	streamThreads(t, &m, agents.threads)
+	require.Equal(t, 1, m.review.diff.view.CountOpenThreads())
+
+	m.listing.archivedAgents = m.listing.agents
+	m.listing.agents = nil
+	delete(m.listing.world.ReviewThreads, "t1")
+
+	next, cmd := m.routeScreenMessage(keyMsg("r"))
+	m = next.(model)
+	require.NotNil(t, cmd)
+
+	wrote, ok := cmd().(reviewWroteMsg)
+	require.True(t, ok)
+	require.True(t, agents.settled.GetResolved())
+	m.review.applyWrote(&m, m.shared(), wrote)
+
+	assert.Zero(t, m.review.diff.view.CountOpenThreads(), "the settled thread is drawn settled")
+}
+
 // TestReviewReadsThreadsFromTheWorld pins where a load takes the conversation from: the world for
 // a live agent, and the server for an archived one.
 func TestReviewReadsThreadsFromTheWorld(t *testing.T) {
