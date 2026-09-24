@@ -161,6 +161,16 @@ func TestAgentsRows(t *testing.T) {
 		}
 	})
 
+	t.Run("a branch draws nothing on the row", func(t *testing.T) {
+		branch := newAgent("a1", "worker", "w1")
+		branch.Branch = proto.String("agent/a1")
+
+		plain := openAgents(t, newLiveWorkflow("w1", "backend"), newAgent("a1", "worker", "w1"))
+		branched := openAgents(t, newLiveWorkflow("w1", "backend"), branch)
+
+		assert.Equal(t, readListRows(plain.readFrame()), readListRows(branched.readFrame()))
+	})
+
 	t.Run("an empty panel still draws its chrome and says where to start", func(t *testing.T) {
 		harness := openAgents(t)
 
@@ -577,6 +587,17 @@ func TestAgentsRecordFocus(t *testing.T) {
 
 		harness.press("k")
 		assert.Equal(t, "backend", readHoveredRow(harness.readFrame()), "the list has the keys again")
+	})
+
+	t.Run("one cursor is drawn at a time", func(t *testing.T) {
+		harness := openAgents(t, buildRecorded()...)
+		require.Equal(t, 1, countCursors(harness.readFrame()))
+
+		harness.press("ctrl+t")
+
+		frame := harness.readFrame()
+		assert.Equal(t, 1, countCursors(frame))
+		assert.NotEmpty(t, readRecordCursor(frame), "the cursor is the record's")
 	})
 
 	t.Run("another row's record opens at its top", func(t *testing.T) {
@@ -2212,6 +2233,10 @@ func findRecordCursor(frame string) int {
 	return slices.IndexFunc(readRecord(frame), func(line string) bool {
 		return strings.HasPrefix(line, "› ")
 	})
+}
+
+func countCursors(frame string) int {
+	return strings.Count(frame, "›")
 }
 
 func isBlank(line string) bool {

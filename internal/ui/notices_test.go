@@ -16,7 +16,7 @@ import (
 // TestNotices covers the record spelling out the marks on the hovered row above its fields.
 func TestNotices(t *testing.T) {
 	t.Run("every mark the row carries is said above its fields", func(t *testing.T) {
-		harness := openNoticed(t, panelHarnessParams{}, newMarked(), newUnreadMail("a1"))
+		harness := openNoticed(t, panelHarnessParams{}, newMarked(), newUnreadMail("n1"))
 
 		record := readRecordProse(harness.readFrame())
 		assert.Contains(t, record, "a script weave fired failed, log unread")
@@ -33,7 +33,7 @@ func TestNotices(t *testing.T) {
 
 	t.Run("the notices take their lines from the fields rather than the list", func(t *testing.T) {
 		plain := openNoticed(t, panelHarnessParams{}, newNoticed())
-		marked := openNoticed(t, panelHarnessParams{}, newMarked(), newUnreadMail("a1"))
+		marked := openNoticed(t, panelHarnessParams{}, newMarked(), newUnreadMail("n1"))
 
 		assert.Len(t, readRecord(marked.readFrame()), len(readRecord(plain.readFrame())))
 		assert.Equal(t, findRule(plain.readFrame()), findRule(marked.readFrame()), "the record starts on the same line")
@@ -52,7 +52,7 @@ func TestNotices(t *testing.T) {
 				width:  40,
 				height: 13,
 			},
-			rows:       []proto.Message{newMarked(), newUnreadMail("a1")},
+			rows:       []proto.Message{newMarked(), newUnreadMail("n1")},
 			want:       []string{"name", "a script weave fired failed"},
 			wantAbsent: []string{"no longer exists"},
 		},
@@ -103,7 +103,7 @@ func TestNoticesGolden(t *testing.T) {
 		{
 			name:  "marks-beside-the-name",
 			press: widenListPresses,
-			rows:  []proto.Message{newHeld(newFailedRun()), newUnreadMail("a1")},
+			rows:  []proto.Message{newHeld(newFailedRun()), newUnreadMail("n1")},
 		},
 		{
 			name:  "column-facts",
@@ -112,8 +112,8 @@ func TestNoticesGolden(t *testing.T) {
 				newRebasing(),
 				&agentv1.WatchedReview{
 					Id:           "v1",
-					AgentId:      "a1",
-					RoundId:      "a1-round-1",
+					AgentId:      "n1",
+					RoundId:      "n1-round-1",
 					RoundOrdinal: 1,
 					ReleasedAt:   "2026-09-20T12:00:00Z",
 					Verdict:      agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
@@ -154,7 +154,7 @@ func openNoticed(t *testing.T, params panelHarnessParams, rows ...proto.Message)
 
 func newNoticed() *agentv1.Agent {
 	return &agentv1.Agent{
-		Id:         "a1",
+		Id:         "n1",
 		Name:       "worker",
 		WorkflowId: "w1",
 		Cwd:        "/repo",

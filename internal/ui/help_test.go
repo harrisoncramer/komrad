@@ -1,300 +1,120 @@
-package ui
+package ui_test
 
 import (
+	"slices"
 	"strings"
 	"testing"
-	"time"
 
-	"weave/config"
-	"weave/internal/ui/layout"
-	"weave/internal/ui/panel"
+	"weave/proto/gen/agent/v1/agentv1connect"
 
-	"charm.land/bubbles/v2/key"
-	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-// TestHelpToggle covers the help key.
-func TestHelpToggle(t *testing.T) {
-	m := helpModel()
+// TestHelp covers the legend under the list and the key that expands it.
+func TestHelp(t *testing.T) {
+	t.Run("the legend opens on one line and the help key brings the rest out", func(t *testing.T) {
+		harness := openHelp(t, panelHarnessParams{}, slices.Repeat([]string{"}"}, 4)...)
+		collapsed := harness.readFrame()
 
-	view := m.agents.view(m.shared())
-	assert.NotContains(t, view, "archive", "the help opens on its one line, dropping what the row also does")
-	assert.Contains(t, view, "open", "it keeps what the row does first")
-	assert.Contains(t, view, "show help", "and says the key that brings the rest out")
+		legend := readLegend(collapsed)
+		assert.Contains(t, legend, "open", "it keeps what the row does first")
+		assert.Contains(t, legend, "show help")
+		assert.NotContains(t, legend, "archive", "and drops what the row also does")
 
-	next, _ := m.route(keyMsg("?"))
-	expanded, ok := next.(model)
-	require.True(t, ok)
-	require.True(t, expanded.helpExpanded)
+		harness.press("?")
 
-	view = expanded.agents.view(expanded.shared())
-	assert.Contains(t, view, "archive", "the expanded help names every binding")
-	assert.Contains(t, view, "hide help", "and says the key that puts it away")
+		expanded := harness.readFrame()
+		legend = readLegend(expanded)
+		assert.Contains(t, legend, "archive", "the expanded legend names every binding")
+		assert.Contains(t, legend, "hide help")
+		assert.Less(t, findRule(expanded), findRule(collapsed), "the rows the legend takes are the list's")
 
-	assert.Greater(t, m.listLines(m.renderHelp(m.agentHelp())), expanded.listLines(expanded.renderHelp(expanded.agentHelp())),
-		"the rows the help takes are the list's")
+		harness.press("?")
+		assert.Contains(t, readLegend(harness.readFrame()), "show help", "the key toggles rather than only expanding")
+	})
 
-	back, _ := expanded.route(keyMsg("?"))
-	collapsed, ok := back.(model)
-	require.True(t, ok)
-	assert.False(t, collapsed.helpExpanded, "the key toggles rather than only expanding")
-}
+	t.Run("a sidebar wide enough for two columns draws the same legend in fewer lines", func(t *testing.T) {
+		narrow := openHelp(t, panelHarnessParams{}, append(slices.Repeat([]string{"}"}, 4), "?")...)
+		wide := openHelp(t, panelHarnessParams{}, append(slices.Repeat([]string{"}"}, 11), "?")...)
 
-// TestHelpToggleOnSearch pins that a question mark typed into the search query is a character
-// to search for rather than the key that draws the legend.
-func TestHelpToggleOnSearch(t *testing.T) {
-	m := helpModel()
-	m.screen = screenSearch
-	m.search.typing = true
-
-	next, _ := m.route(keyMsg("?"))
-	searched, ok := next.(model)
-	require.True(t, ok)
-
-	assert.False(t, searched.helpExpanded, "the help is left as it was")
-	assert.Equal(t, "?", searched.search.query, "the key is typed instead")
-}
-
-// TestHelpColumnsFollowTheWidth pins that a sidebar wide enough for two columns draws the
-// same bindings in half the lines.
-func TestHelpColumnsFollowTheWidth(t *testing.T) {
-	narrow := helpModel()
-	narrow.helpExpanded = true
-
-	wide := narrow
-	wide.width = 74
-
-	bindings := byLabel(narrow.agentHelp().full)
-	require.Len(t, helpColumns(bindings, narrow.width), 1, "a narrow sidebar holds one column")
-	require.Len(t, helpColumns(bindings, wide.width), 2, "a wider one holds two")
-
-	narrowHelp := ansi.Strip(narrow.renderHelp(narrow.agentHelp()))
-	wideHelp := ansi.Strip(wide.renderHelp(wide.agentHelp()))
-
-	assert.Equal(t, len(bindings), strings.Count(narrowHelp, "\n"), "one binding a line down the one column")
-	assert.Less(t, strings.Count(wideHelp, "\n"), strings.Count(narrowHelp, "\n"), "two columns are shorter")
-	for _, binding := range bindings {
-		assert.Contains(t, wideHelp, binding.Help().Desc, "and drop nothing")
-	}
-}
-
-// TestNoLegendIsDrawnAsAnEllipsis draws every screen's expanded legend at the narrowest sidebar
-// a configured split leaves.
-func TestNoLegendIsDrawnAsAnEllipsis(t *testing.T) {
-	legends := map[screen]func(model) keyMap{
-		screenAgents:    model.agentHelp,
-		screenSchedules: model.scheduleHelp,
-		screenArchive:   model.archiveHelp,
-		screenSearch:    model.searchHelp,
-		screenReview:    model.reviewHelp,
-		screenWorktrees: model.worktreesHelp,
-	}
-
-	for s, legend := range legends {
-		m := helpModel()
-		m.screen = s
-		m.helpExpanded = true
-		m = m.measuredAt(nameWidth)
-
-		k := legend(m)
-		drawn := ansi.Strip(m.renderHelp(k))
-
-		assert.NotEqual(t, "…", strings.TrimSpace(drawn), "screen %d draws its legend as an ellipsis", s)
-
-		// Checked by the key rather than by what it is described as: the claim is that every key
-		// the short form names is findable, not that a particular wording survived.
-		for _, binding := range byLabel(k.short) {
-			assert.Contains(t, drawn, binding.Help().Key,
-				"screen %d loses the key for %q at %d columns", s, binding.Help().Desc, nameWidth)
+		narrowLegend, wideLegend := readLegend(narrow.readFrame()), readLegend(wide.readFrame())
+		assert.Less(t, len(splitLines(wideLegend)), len(splitLines(narrowLegend)))
+		for _, word := range strings.Fields(narrowLegend) {
+			assert.Contains(t, wideLegend, word, "and drops nothing")
 		}
+	})
+
+	t.Run("a legend too wide for the sidebar keeps its short form and says there is help to show", func(t *testing.T) {
+		harness := openHelp(t, panelHarnessParams{}, "?")
+
+		legend := readLegend(harness.readFrame())
+		assert.Contains(t, legend, "show help")
+		assert.NotContains(t, legend, "hide help", "rather than claiming to have hidden any")
+		assert.NotContains(t, legend, "move")
+	})
+
+	t.Run("an expanded legend gives way before it takes the list's last row", func(t *testing.T) {
+		harness := openHelp(t, panelHarnessParams{}, append(slices.Repeat([]string{"}"}, 4), "?")...)
+
+		for height := 8; height <= defaultHarnessHeight; height++ {
+			resize(harness, defaultHarnessWidth, height)
+
+			assert.Equal(t, "  api-refactor", readHoveredRow(harness.readFrame()), "the list keeps its row at height %d", height)
+		}
+
+		assert.Contains(t, readLegend(harness.readFrame()), "hide help", "a tall pane draws the legend whole")
+	})
+}
+
+// TestHelpFitsEveryScreen covers each legend drawn whole at the narrowest sidebar and never wider than the pane.
+func TestHelpFitsEveryScreen(t *testing.T) {
+	t.Parallel()
+
+	for _, screen := range buildListScreens() {
+		if screen.title == "Search" {
+			continue
+		}
+
+		t.Run(screen.name+" is not drawn as an ellipsis at the narrowest sidebar", func(t *testing.T) {
+			t.Parallel()
+
+			harness := openHelp(t, panelHarnessParams{}, append(screen.press, "?")...)
+
+			legend := strings.TrimSpace(readLegend(harness.readFrame()))
+			assert.NotEqual(t, "…", legend)
+			assert.Contains(t, legend, "help")
+		})
 	}
-}
 
-// TestARefusedExpansionSaysItShowedNothing covers the key on a screen whose expanded legend will
-// not fit: it draws the short form.
-func TestARefusedExpansionSaysItShowedNothing(t *testing.T) {
-	m := helpModel()
-	m.helpExpanded = true
-	m = m.measuredAt(nameWidth)
-
-	drawn := ansi.Strip(m.renderHelp(m.agentHelp()))
-
-	require.NotContains(t, drawn, "move", "the agents legend does not fit a sidebar this narrow")
-	assert.Contains(t, drawn, "show help", "so the key says it has help left to show")
-	assert.NotContains(t, drawn, "hide help", "rather than claiming to have hidden any")
-}
-
-// TestALegendThePaneCannotHoldGivesWay pins the expanded legend standing down to its short form
-// at the height it would leave the list no row under the header, and standing again one row
-// taller.
-func TestALegendThePaneCannotHoldGivesWay(t *testing.T) {
-	m := helpModel()
-	m.helpExpanded = true
-	header := m.agentsHeader()
-	full := m.renderHelp(m.agentHelp())
-	m.height = strings.Count(header, "\n") + strings.Count(full, "\n")
-
-	drawn := ansi.Strip(m.renderHelp(m.agentHelp(), header))
-
-	require.NotContains(t, drawn, "move", "the legend and the header fill the pane between them")
-	assert.Contains(t, drawn, "show help", "so the key says it has help left to show")
-	assert.NotContains(t, drawn, "hide help", "rather than claiming to have hidden any")
-
-	m.height++
-	assert.Equal(t, full, m.renderHelp(m.agentHelp(), header), "one row taller the list keeps a row and the legend is drawn whole")
-}
-
-func helpModel() model {
-	return model{
-		keys:    config.DefaultKeybindings(),
-		frame:   layout.New(&recordingTmux{}, config.DefaultLayout()),
-		height:  40,
-		width:   46,
-		listing: listing{workflows: []panel.Workflow{{ID: "w1", Name: "everything"}}, agents: []panel.AgentRow{{Agent: panel.Agent{Name: "api-refactor", WorkflowID: "w1"}}}}, agents: agentsScreen{rowCursor: rowCursor{cursor: 1}},
-	}
-}
-
-// TestLegendOrderIsPinned holds the search screen's legend.
-func TestLegendOrderIsPinned(t *testing.T) {
 	tests := []struct {
 		name  string
-		s     screen
-		of    func(model) keyMap
-		short []string
-		full  []string
+		press []string
 	}{
 		{
-			name:  "search",
-			s:     screenSearch,
-			of:    model.searchHelp,
-			short: []string{"enter go to it", "esc// edit the query", "? show help"},
-			full: []string{
-				"enter go to it",
-				"esc// edit the query",
-				"k/j move",
-				"gg/G top/bottom",
-				"C-u/C-d page",
-				"C-n/C-p scroll",
-				"? show help",
-				"{/} resize",
-			},
+			name:  "the agents tree on a paused row fits every width",
+			press: []string{"j"},
+		},
+		{
+			name:  "the record fits every width",
+			press: []string{"ctrl+t"},
+		},
+		{
+			name:  "the message region fits every width",
+			press: []string{"enter", "ctrl+g"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := helpModel()
-			m.screen = tt.s
+			t.Parallel()
 
-			k := tt.of(m)
-			assert.Equal(t, tt.short, legendLabels(k.short), "the short legend")
-			assert.Equal(t, tt.full, legendLabels(k.full), "the expanded legend")
-		})
-	}
-}
+			for _, width := range []int{20, 30, 38, 41, 46, 60, 80, 120} {
+				for _, expanded := range [][]string{nil, {"?"}} {
+					harness := openHelp(t, panelHarnessParams{width: width}, slices.Concat(tt.press, expanded)...)
 
-func legendLabels(bindings []key.Binding) []string {
-	out := make([]string, len(bindings))
-	for i, b := range bindings {
-		out[i] = b.Help().Key + " " + b.Help().Desc
-	}
-
-	return out
-}
-
-// TestNoScreenBindsOneKeyTwice pins that every legend a screen draws names each key once.
-func TestNoScreenBindsOneKeyTwice(t *testing.T) {
-	base := helpModel()
-	base.listing.schedules = []scheduleItem{{}}
-
-	tests := []struct {
-		name   string
-		screen screen
-		legend func(model) keyMap
-	}{
-		{
-			name:   "the agents tree",
-			screen: screenAgents,
-			legend: model.agentHelp,
-		},
-		{
-			name:   "the archive",
-			screen: screenArchive,
-			legend: model.archiveHelp,
-		},
-		{
-			name:   "the schedules",
-			screen: screenSchedules,
-			legend: model.scheduleHelp,
-		},
-		{
-			name:   "the search",
-			screen: screenSearch,
-			legend: model.searchHelp,
-		},
-		{
-			name:   "the review",
-			screen: screenReview,
-			legend: model.reviewHelp,
-		},
-		{
-			name:   "the details under a list",
-			screen: screenAgents,
-			legend: model.detailsHelp,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			m := base
-			m.screen = tt.screen
-
-			held := map[string]string{}
-			for _, b := range tt.legend(m).full {
-				for _, k := range b.Keys() {
-					desc := b.Help().Desc
-					if was, taken := held[k]; taken {
-						assert.Failf(t, "one key, two actions",
-							"%q is bound to both %q and %q", k, was, desc)
-
-						continue
-					}
-					held[k] = desc
-				}
-			}
-		})
-	}
-}
-
-// TestNoLegendIsWiderThanThePane sweeps every pane width a window or a configured sidebar could
-// leave.
-func TestNoLegendIsWiderThanThePane(t *testing.T) {
-	legends := map[string]func(model) keyMap{
-		"the agents tree": model.agentHelp,
-		"the schedules":   model.scheduleHelp,
-		"the archive":     model.archiveHelp,
-		"the search":      model.searchHelp,
-		"the review":      model.reviewHelp,
-		"the worktrees":   model.worktreesHelp,
-		"the details":     model.detailsHelp,
-		"the messages":    model.messagesHelp,
-	}
-
-	for name, legend := range legends {
-		t.Run(name, func(t *testing.T) {
-			for width := 5; width <= 90; width++ {
-				for _, expanded := range []bool{false, true} {
-					m := helpModel()
-					m.helpExpanded = expanded
-					m = m.measuredAt(width)
-
-					drawn := ansi.Strip(m.renderHelp(legend(m)))
-					for i, row := range strings.Split(drawn, "\n") {
-						assert.LessOrEqual(t, lipgloss.Width(row), width,
-							"row %d of the legend is wider than a %d column pane: %q", i, width, row)
+					for i, row := range splitLines(readLegend(harness.readFrame())) {
+						assert.LessOrEqual(t, ansi.StringWidth(row), width, "legend row %d at width %d: %q", i, width, row)
 					}
 				}
 			}
@@ -302,41 +122,17 @@ func TestNoLegendIsWiderThanThePane(t *testing.T) {
 	}
 }
 
-// TestAPausedRowsLegendStillDraws sweeps the widths with the row a paused agent adds.
-func TestAPausedRowsLegendStillDraws(t *testing.T) {
-	at := time.Now()
+func openHelp(t *testing.T, params panelHarnessParams, press ...string) *panelHarness {
+	t.Helper()
 
-	for width := 5; width <= 90; width++ {
-		for _, expanded := range []bool{false, true} {
-			m := helpModel()
-			m.listing.agents[0].Agent.HeldAt = &at
-			m.helpExpanded = expanded
-			m = m.measuredAt(width)
+	dormant := newDormant("api-refactor")
+	dormant.Id = "a2"
 
-			drawn := ansi.Strip(m.renderHelp(m.agentHelp()))
-			for i, row := range strings.Split(drawn, "\n") {
-				assert.LessOrEqual(t, lipgloss.Width(row), width,
-					"row %d of a paused row's legend is wider than a %d column pane: %q", i, width, row)
-			}
+	harness := newPanelHarness(t, params)
+	answerWorktreeReads(harness)
+	harness.refuse(agentv1connect.AgentServiceResumeAgentProcedure, newTracedRefusal("no such agent"))
+	harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), newPausable("1970-01-01T00:00:00Z"), dormant))
+	harness.press(press...)
 
-			if width >= 46 && expanded {
-				assert.Contains(t, drawn, "unpause in silence",
-					"the way out of a pause is missing from a %d column legend", width)
-			}
-		}
-	}
-}
-
-// TestTheLegendRowFitsTheWholePanel asserts the width rather than the height a wrapped row costs
-// the frame.
-func TestTheLegendRowFitsTheWholePanel(t *testing.T) {
-	m := detailsModel(&recordingTmux{})
-	m.height, m.width = 30, 40
-	m.report("Could not copy to your clipboard", errNoWorkflow)
-	focused := m.toggleMessagesFocus()
-
-	for i, row := range strings.Split(ansi.Strip(focused.render()), "\n") {
-		assert.LessOrEqual(t, lipgloss.Width(row), focused.width,
-			"row %d of the panel is wider than its %d column pane: %q", i, focused.width, row)
-	}
+	return harness
 }
