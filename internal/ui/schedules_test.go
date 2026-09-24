@@ -402,6 +402,16 @@ func TestSchedulesForm(t *testing.T) {
 		assert.Contains(t, readStageText(frame), "> 0 9 * * *")
 	})
 
+	t.Run("a refused pause says why", func(t *testing.T) {
+		harness := openSchedules(t, buildSchedules()...)
+		harness.refuse(schedulev1connect.ScheduleServiceSetScheduleEnabledProcedure, errors.New("cron must be five fields"))
+
+		harness.press(widenListPresses...)
+		harness.press("space")
+
+		assert.Contains(t, harness.readFrame(), `Could not pause schedule "morning-ci"`)
+	})
+
 	t.Run("an edit sends the field it changed and the flags it was opened with", func(t *testing.T) {
 		hidden := newSchedule("s1", "morning-ci")
 		hidden.HideAgents = true
@@ -420,16 +430,6 @@ func TestSchedulesForm(t *testing.T) {
 			Prompt:     "check CI harder",
 			WorkflowId: "w1",
 		})
-	})
-
-	t.Run("a refused pause says why", func(t *testing.T) {
-		harness := openSchedules(t, buildSchedules()...)
-		harness.refuse(schedulev1connect.ScheduleServiceSetScheduleEnabledProcedure, errors.New("cron must be five fields"))
-
-		harness.press(widenListPresses...)
-		harness.press("space")
-
-		assert.Contains(t, harness.readFrame(), `Could not pause schedule "morning-ci"`)
 	})
 
 	t.Run("every confirm draws its buttons in the same column", func(t *testing.T) {
