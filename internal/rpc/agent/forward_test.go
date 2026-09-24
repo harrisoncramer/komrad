@@ -8,7 +8,6 @@ import (
 	"weave/internal/agents"
 	"weave/internal/caller"
 	"weave/internal/mail"
-	"weave/internal/storetest"
 	"weave/internal/tmuxtest"
 	"weave/lib/dates"
 	agentv1 "weave/proto/gen/agent/v1"
@@ -31,45 +30,55 @@ var forwardedAt = time.Date(2026, time.September, 19, 10, 0, 0, 0, time.UTC)
 
 // TestForwardLastTurns covers the mail a forward composes.
 func TestForwardLastTurns(t *testing.T) {
-	stored := []transcriptstore.Turn{
+	conclusion := []transcriptstore.StoredTurn{
 		{
-			Role:    "user",
-			Content: "opening question",
+			Seq:     3,
+			Role:    "assistant",
+			Content: "then the conclusion",
 		},
+	}
+	lastTwo := []transcriptstore.StoredTurn{
 		{
+			Seq:     1,
 			Role:    "assistant",
 			Content: "a first reading of the problem",
 		},
 		{
+			Seq:     2,
 			Role:    "user",
 			Content: "a nudge",
 		},
 		{
+			Seq:     3,
 			Role:    "assistant",
 			Content: "then the conclusion",
 		},
+	}
+	tooLong := []transcriptstore.StoredTurn{
 		{
-			Role:    "user",
-			Content: "a follow-up nobody has answered",
+			Seq:     0,
+			Role:    "assistant",
+			Content: strings.Repeat("x", mail.MaxMailBody),
 		},
 	}
 
 	tests := []struct {
-		name      string
-		turns     []transcriptstore.Turn
-		branch    *string
-		from      string
-		to        string
-		callerIs  string
-		req       *agentv1.ForwardLastTurnsRequest
-		sendErr   error
-		wantCode  connect.Code
-		wantTurns int32
-		wantBody  string
+		name           string
+		turns          []transcriptstore.StoredTurn
+		wantTurnsAsked int32
+		branch         *string
+		from           string
+		to             string
+		callerIs       string
+		req            *agentv1.ForwardLastTurnsRequest
+		sendErr        error
+		wantCode       connect.Code
+		wantTurns      int32
+		wantBody       string
 	}{
 		{
 			name:     "a source no agent holds",
-			turns:    stored,
+			turns:    conclusion,
 			from:     uuid.NewString(),
 			callerIs: "gamma",
 			req:      &agentv1.ForwardLastTurnsRequest{},
@@ -83,7 +92,7 @@ func TestForwardLastTurns(t *testing.T) {
 		},
 		{
 			name:     "a recipient no agent holds",
-			turns:    stored,
+			turns:    conclusion,
 			to:       uuid.NewString(),
 			callerIs: "gamma",
 			req:      &agentv1.ForwardLastTurnsRequest{},
@@ -91,28 +100,22 @@ func TestForwardLastTurns(t *testing.T) {
 		},
 		{
 			name:     "a send the mail service refuses",
-			turns:    stored,
+			turns:    conclusion,
 			callerIs: "gamma",
 			req:      &agentv1.ForwardLastTurnsRequest{},
 			sendErr:  mail.ErrExchangeCapped,
 			wantCode: connect.CodeResourceExhausted,
 		},
 		{
-			name: "a body past what mail holds is refused rather than cut",
-			turns: []transcriptstore.Turn{{
-				Role:    "assistant",
-				Content: strings.Repeat("x", mail.MaxMailBody),
-			}},
+			name:     "a body past what mail holds is refused rather than cut",
+			turns:    tooLong,
 			callerIs: "gamma",
 			req:      &agentv1.ForwardLastTurnsRequest{},
 			wantCode: connect.CodeInvalidArgument,
 		},
 		{
-			name: "a smaller window brings the same body under the cap",
-			turns: []transcriptstore.Turn{{
-				Role:    "assistant",
-				Content: strings.Repeat("x", mail.MaxMailBody),
-			}},
+			name:      "a smaller window brings the same body under the cap",
+			turns:     tooLong,
 			callerIs:  "gamma",
 			req:       &agentv1.ForwardLastTurnsRequest{MaxBytes: proto.Int32(20)},
 			wantTurns: 1,
@@ -123,9 +126,10 @@ func TestForwardLastTurns(t *testing.T) {
 				strings.Repeat("x", 20),
 		},
 		{
-			name:     "a window cuts the head of a turn and the label says so",
-			turns:    stored,
-			callerIs: "gamma",
+			name:           "a window cuts the head of a turn and the label says so",
+			turns:          lastTwo,
+			wantTurnsAsked: 2,
+			callerIs:       "gamma",
 			req: &agentv1.ForwardLastTurnsRequest{
 				Turns:    proto.Int32(2),
 				MaxBytes: proto.Int32(22),
@@ -144,9 +148,10 @@ func TestForwardLastTurns(t *testing.T) {
 				"then the conclusion",
 		},
 		{
-			name:     "more turns come with the prompts between them, the note ahead of them and no branch when none is known",
-			turns:    stored,
-			callerIs: "gamma",
+			name:           "more turns come with the prompts between them, the note ahead of them and no branch when none is known",
+			turns:          lastTwo,
+			wantTurnsAsked: 2,
+			callerIs:       "gamma",
 			req: &agentv1.ForwardLastTurnsRequest{
 				Turns: proto.Int32(2),
 				Note:  proto.String("alpha settled the cursor question; build on it"),
@@ -168,7 +173,7 @@ func TestForwardLastTurns(t *testing.T) {
 		},
 		{
 			name:      "the panel forwarding as nobody",
-			turns:     stored,
+			turns:     conclusion,
 			req:       &agentv1.ForwardLastTurnsRequest{},
 			wantTurns: 1,
 			wantBody: "Forwarded from alpha (ALPHA): turn 3 of its conversation as of 2026-09-19T10:00:00Z. " +
@@ -179,7 +184,7 @@ func TestForwardLastTurns(t *testing.T) {
 		},
 		{
 			name:      "the default forwards the last thing the source said under a header naming it",
-			turns:     stored,
+			turns:     conclusion,
 			branch:    proto.String("agent/alpha"),
 			callerIs:  "gamma",
 			req:       &agentv1.ForwardLastTurnsRequest{},
@@ -194,20 +199,23 @@ func TestForwardLastTurns(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			st := storetest.Open(t)
+			rows := &fakeRowReader{}
+			transcripts := &fakeTranscriptReader{turns: tt.turns}
 			mailer := &fakeMailer{err: tt.sendErr}
-			svc, terminal := newForwardHandler(st, mailer)
+			svc, terminal := newForwardHandler(rows, transcripts, mailer)
 
-			alpha := st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateIdle})
-			beta := st.SeedAgent(t, agentstore.Agent{
+			alpha := rows.seed(agentstore.Agent{
+				Name:   "alpha",
+				State:  agentstore.StateIdle,
+				Branch: tt.branch,
+			})
+			beta := rows.seed(agentstore.Agent{
 				Name:  "beta",
 				Pane:  "%beta",
 				State: agentstore.StateIdle,
 			})
-			gamma := st.SeedAgent(t, agentstore.Agent{Name: "gamma", State: agentstore.StateIdle})
+			gamma := rows.seed(agentstore.Agent{Name: "gamma", State: agentstore.StateIdle})
 			terminal.Owners[beta.Pane] = beta.ID
-			st.SeedTurns(t, alpha.ID, tt.turns...)
-			require.NoError(t, st.Agents.SetCheckout(t.Context(), alpha.ID, agentstore.SetCheckoutParams{Branch: tt.branch}))
 
 			tt.req.FromAgentId = tt.from
 			if tt.req.FromAgentId == "" {
@@ -235,6 +243,10 @@ func TestForwardLastTurns(t *testing.T) {
 			}
 
 			require.NoError(t, err)
+			assert.Equal(t, []agents.ListLastTurnsParams{{
+				AgentID: alpha.ID,
+				Turns:   tt.wantTurnsAsked,
+			}}, transcripts.listed)
 
 			want := strings.ReplaceAll(tt.wantBody, "ALPHA", alpha.ID)
 			require.Equal(t, []mail.SendMailParams{{
@@ -273,16 +285,15 @@ func TestForwardLastTurnsWarnsOfADormantRecipient(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			st := storetest.Open(t)
-			svc, terminal := newForwardHandler(st, &fakeMailer{})
+			rows := &fakeRowReader{}
+			svc, terminal := newForwardHandler(rows, &fakeTranscriptReader{turns: []transcriptstore.StoredTurn{{Role: "assistant", Content: "then the conclusion"}}}, &fakeMailer{})
 
-			alpha := st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateIdle})
-			beta := st.SeedAgent(t, agentstore.Agent{
+			alpha := rows.seed(agentstore.Agent{Name: "alpha", State: agentstore.StateIdle})
+			beta := rows.seed(agentstore.Agent{
 				Name:  "beta",
 				Pane:  "%beta",
 				State: agentstore.StateIdle,
 			})
-			st.SeedTurns(t, alpha.ID, transcriptstore.Turn{Role: "assistant", Content: "then the conclusion"})
 			if tt.running {
 				terminal.Owners[beta.Pane] = beta.ID
 			}
@@ -307,13 +318,12 @@ func TestForwardLastTurnsWarnsOfADormantRecipient(t *testing.T) {
 
 // TestForwardLastTurnsRecordsTheRead covers a forward leaving the line a read of somebody else's conversation leaves.
 func TestForwardLastTurnsRecordsTheRead(t *testing.T) {
-	st := storetest.Open(t)
-	svc, _ := newForwardHandler(st, &fakeMailer{})
+	rows := &fakeRowReader{}
+	svc, _ := newForwardHandler(rows, &fakeTranscriptReader{turns: []transcriptstore.StoredTurn{{Role: "assistant", Content: "then the conclusion"}}}, &fakeMailer{})
 
-	alpha := st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateIdle})
-	beta := st.SeedAgent(t, agentstore.Agent{Name: "beta", State: agentstore.StateIdle})
-	gamma := st.SeedAgent(t, agentstore.Agent{Name: "gamma", State: agentstore.StateIdle})
-	st.SeedTurns(t, alpha.ID, transcriptstore.Turn{Role: "assistant", Content: "then the conclusion"})
+	alpha := rows.seed(agentstore.Agent{Name: "alpha", State: agentstore.StateIdle})
+	beta := rows.seed(agentstore.Agent{Name: "beta", State: agentstore.StateIdle})
+	gamma := rows.seed(agentstore.Agent{Name: "gamma", State: agentstore.StateIdle})
 
 	ctx, written := newLoggedCaller(t, gamma.ID)
 
@@ -340,13 +350,13 @@ func TestMaxMailBodyIsTheWireCap(t *testing.T) {
 	assert.EqualValues(t, mail.MaxMailBody, rules.GetString().GetMaxLen())
 }
 
-// newForwardHandler is the handler over the test stores and a fake mail service, reading liveness off a fake tmux.
-func newForwardHandler(st *storetest.Stores, mailer *fakeMailer) (agentv1weave.AgentServiceAdapter, *tmuxtest.Fake) {
+// newForwardHandler is the handler over fakes of the rows, the transcripts and the mail service, reading liveness off a fake tmux.
+func newForwardHandler(rows *fakeRowReader, transcripts *fakeTranscriptReader, mailer *fakeMailer) (agentv1weave.AgentServiceAdapter, *tmuxtest.Fake) {
 	terminal := tmuxtest.NewFake()
 
 	return agentv1weave.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{
-		Agents:      st.Agents,
-		Transcripts: st.Transcripts,
+		Agents:      rows,
+		Transcripts: transcripts,
 		Mail:        mailer,
 		Liveness:    agents.NewPaneLiveness(terminal),
 		Clock: func() time.Time {

@@ -33,6 +33,7 @@ type services struct {
 	schedule        *schedules.ScheduleService
 	liveness        *agents.PaneLiveness
 	rowWriter       *agents.RowWriter
+	rowReader       *agents.RowReader
 	launch          *agents.LaunchService
 	resume          *agents.ResumeService
 	adopt           *agents.AdoptService
@@ -267,6 +268,17 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 	return &services{
 		loadConfig: loadConfig,
 		watchRows:  watch.NewRows(buildWatchLoaders(st)),
+		rowReader: agents.NewRowReader(agents.NewRowReaderParams{
+			Agents:       st.agents,
+			Rows:         st.rows,
+			Transcripts:  st.transcripts,
+			Marks:        st.marks,
+			Mail:         st.mail,
+			PullRequests: st.pullRequests,
+			Repositories: st.pullRequestSyncs,
+			Reviews:      st.review,
+			Workflows:    st.workflows,
+		}),
 		rowWriter: agents.NewRowWriter(agents.NewRowWriterParams{
 			Agents:     st.agents,
 			Runs:       st.runs,

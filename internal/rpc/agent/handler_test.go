@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/http"
+	"net/http/httptest"
 	"slices"
 	"strings"
 	"testing"
@@ -12,30 +14,28 @@ import (
 
 	agentv1weave "weave/proto/gen/agent/v1/agentv1weave"
 
-	"weave/config"
 	"weave/internal/agents"
 	"weave/internal/caller"
 	"weave/internal/checkouts"
-	"weave/internal/gittest"
+	"weave/internal/interceptors"
 	"weave/internal/logging"
 	"weave/internal/logtest"
-	"weave/internal/mail"
-	"weave/internal/marks"
-	"weave/internal/reviews"
 	"weave/internal/rpc/render"
 	"weave/internal/store"
-	"weave/internal/storetest"
 	"weave/lib/xptr"
 	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
+	"weave/proto/gen/agent/v1/agentv1connect"
 	paginationv1 "weave/proto/gen/pagination/v1"
 	viewv1 "weave/proto/gen/view/v1"
 
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
 	markstore "weave/internal/store/mark"
+	pullrequeststore "weave/internal/store/pullrequest"
 	reviewstore "weave/internal/store/review"
-	runstore "weave/internal/store/run"
+	rowstore "weave/internal/store/row"
+	workflowstore "weave/internal/store/workflow"
 
 	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
@@ -47,6 +47,8 @@ import (
 )
 
 const missingID = "00000000-0000-0000-0000-000000000000"
+
+const weaveRepository = "https://github.com/harrisoncramer/weave"
 
 type markCall struct {
 	mark   string
@@ -86,13 +88,82 @@ func (f *fakeMarkReadWriter) ClearMark(_ context.Context, target markstore.Targe
 	return true, nil
 }
 
-// ListWatched answers marks unless err refuses it.
-func (f *fakeMarkReadWriter) ListWatched(context.Context, []string) ([]markstore.Mark, error) {
+// ListMarks answers marks unless err refuses it.
+func (f *fakeMarkReadWriter) ListMarks(context.Context) ([]markstore.Mark, error) {
 	if f.err != nil {
 		return nil, f.err
 	}
 
 	return f.marks, nil
+}
+
+// fakeRowReader answers from the rows and surroundings a test seeds and records each page asked for.
+type fakeRowReader struct {
+	rows         []rowstore.Row
+	surroundings agents.Surroundings
+	err          error
+	pages        []rowstore.Page
+}
+
+// seed adds an agent's row, giving it an id when it has none.
+func (f *fakeRowReader) seed(agent agentstore.Agent) agentstore.Agent {
+	if agent.ID == "" {
+		agent.ID = uuid.NewString()
+	}
+	f.rows = append(f.rows, rowstore.Row{Agent: agent})
+
+	return agent
+}
+
+// GetAgent answers the seeded agent with the id, or not found.
+func (f *fakeRowReader) GetAgent(_ context.Context, id string) (*agentstore.Agent, error) {
+	row, err := f.find(id)
+	if err != nil {
+		return nil, err
+	}
+
+	return &row.Agent, nil
+}
+
+// ListRows records the page and answers every seeded row unless err refuses it.
+func (f *fakeRowReader) ListRows(_ context.Context, page rowstore.Page) ([]rowstore.Row, error) {
+	f.pages = append(f.pages, page)
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return f.rows, nil
+}
+
+// ListRowsByID answers the seeded rows among the ids.
+func (f *fakeRowReader) ListRowsByID(_ context.Context, ids []string) ([]rowstore.Row, error) {
+	return xslice.Filter(f.rows, func(row rowstore.Row) bool {
+		return slices.Contains(ids, row.ID)
+	}), nil
+}
+
+// GetRow answers the seeded row with the id, or not found.
+func (f *fakeRowReader) GetRow(_ context.Context, id string) (*rowstore.Row, error) {
+	return f.find(id)
+}
+
+// ListSurroundings answers the surroundings unless err refuses it.
+func (f *fakeRowReader) ListSurroundings(context.Context, []rowstore.Row) (*agents.Surroundings, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return &f.surroundings, nil
+}
+
+func (f *fakeRowReader) find(id string) (*rowstore.Row, error) {
+	for _, row := range f.rows {
+		if row.ID == id {
+			return &row, nil
+		}
+	}
+
+	return nil, fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
 }
 
 // TestLifecycleRefusalsMapToCodes pins the code each refusal of the agent services reaches the
@@ -349,14 +420,14 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc, st, services := newRecordedService(t)
+			svc, services := newRecordedService(t)
 			services.err = tt.err
 
 			err := tt.call(t.Context(), svc)
 
 			assert.Equal(t, tt.wantCode, connect.CodeOf(err))
 			if tt.err == nil {
-				assert.Equal(t, &recordingAgentServices{t: t, st: st}, services, "a request the handler refuses reaches no service")
+				assert.Equal(t, &recordingAgentServices{rows: &fakeRowReader{}}, services, "a request the handler refuses reaches no service")
 			}
 		})
 	}
@@ -741,11 +812,11 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc, st, services := newRecordedService(t)
+			svc, services := newRecordedService(t)
 			services.err = tt.err
 			ids := []string{
-				st.SeedAgent(t, agentstore.Agent{Name: "alpha"}).ID,
-				st.SeedAgent(t, agentstore.Agent{Name: "beta"}).ID,
+				services.rows.seed(agentstore.Agent{Name: "alpha"}).ID,
+				services.rows.seed(agentstore.Agent{Name: "beta"}).ID,
 			}
 
 			answer, err := tt.call(t.Context(), svc, ids)
@@ -796,24 +867,23 @@ func TestArchiveAgentsHoldsAnAgentToItsOwnChildren(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc, st, services := newRecordedService(t)
-			parent := st.SeedAgent(t, agentstore.Agent{
+			svc, services := newRecordedService(t)
+			parent := services.rows.seed(agentstore.Agent{
 				Name: "parent",
 				Role: agentstore.RoleImplementer,
 			})
 			seeded := map[string]string{
 				"parent": parent.ID,
-				"child": st.SeedAgent(t, agentstore.Agent{
+				"child": services.rows.seed(agentstore.Agent{
 					Name:          "child",
-					WorkflowID:    parent.WorkflowID,
 					ParentAgentID: &parent.ID,
 					Role:          agentstore.RoleReviewer,
 				}).ID,
-				"stranger": st.SeedAgent(t, agentstore.Agent{
+				"stranger": services.rows.seed(agentstore.Agent{
 					Name: "stranger",
 					Role: agentstore.RoleImplementer,
 				}).ID,
-				"orchestrator": st.SeedAgent(t, agentstore.Agent{
+				"orchestrator": services.rows.seed(agentstore.Agent{
 					Name: "orchestrator",
 					Role: agentstore.RoleOrchestrator,
 				}).ID,
@@ -838,25 +908,27 @@ func TestArchiveAgentsHoldsAnAgentToItsOwnChildren(t *testing.T) {
 	}
 }
 
-// TestListAgents pins what a listed row carries from the watched sets beside it, and what the
+// TestListAgents pins what a listed row carries from the surroundings beside it, and what the
 // request's view and archive flag change.
 func TestListAgents(t *testing.T) {
 	prompt := strings.Repeat("a", render.SummaryHead+50)
+	archivedAt := time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
 
 	tests := []struct {
 		name  string
 		req   *agentv1.ListAgentsRequest
-		check func(t *testing.T, rows map[string]*agentv1.AgentRow)
+		check func(t *testing.T, rows map[string]*agentv1.AgentRow, pages []rowstore.Page)
 	}{
 		{
-			name: "the default listing is the live agents, their prompts cut to the head",
+			name: "the default listing asks for the live agents and cuts their prompts to the head",
 			req:  &agentv1.ListAgentsRequest{},
-			check: func(t *testing.T, rows map[string]*agentv1.AgentRow) {
-				require.Len(t, rows, 1)
+			check: func(t *testing.T, rows map[string]*agentv1.AgentRow, pages []rowstore.Page) {
+				require.Len(t, pages, 1)
+				assert.False(t, pages[0].Archived)
 				alpha := rows["alpha"].GetAgent()
 				assert.Equal(t, prompt[:render.SummaryHead], alpha.GetPrompt())
 				assert.True(t, alpha.GetPromptTruncated())
-				assert.True(t, rows["alpha"].GetUnreadMail(), "the mail sent to it is read from the watched mail")
+				assert.True(t, rows["alpha"].GetUnreadMail(), "the mail sent to it is read from the surroundings")
 				assert.True(t, alpha.GetFailedRun())
 				assert.Nil(t, alpha.ArchivedAt)
 			},
@@ -864,67 +936,162 @@ func TestListAgents(t *testing.T) {
 		{
 			name: "the full view keeps the whole prompt",
 			req:  &agentv1.ListAgentsRequest{View: viewv1.View_VIEW_FULL},
-			check: func(t *testing.T, rows map[string]*agentv1.AgentRow) {
+			check: func(t *testing.T, rows map[string]*agentv1.AgentRow, _ []rowstore.Page) {
 				assert.Equal(t, prompt, rows["alpha"].GetAgent().GetPrompt())
 				assert.False(t, rows["alpha"].GetAgent().GetPromptTruncated())
 			},
 		},
 		{
-			name: "asking for the archived agents lists only those",
+			name: "asking for the archived agents asks for those and says when each was archived",
 			req:  &agentv1.ListAgentsRequest{Archived: true},
-			check: func(t *testing.T, rows map[string]*agentv1.AgentRow) {
-				require.Len(t, rows, 1)
-				archivedAt, err := time.Parse(time.RFC3339, rows["archived"].GetAgent().GetArchivedAt())
-				require.NoError(t, err, "an archived agent says when it was archived, in RFC 3339")
-				assert.WithinDuration(t, time.Now(), archivedAt, time.Minute)
+			check: func(t *testing.T, rows map[string]*agentv1.AgentRow, pages []rowstore.Page) {
+				require.Len(t, pages, 1)
+				assert.True(t, pages[0].Archived)
+				assert.Equal(t, "2026-09-20T12:00:00Z", rows["archived"].GetAgent().GetArchivedAt(), "in RFC 3339")
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc, st := service(t)
-			ctx := t.Context()
-			alpha := st.SeedAgent(t, agentstore.Agent{
-				Name:   "alpha",
-				Prompt: prompt,
-			})
-			seedFailedRun(t, st, alpha.ID)
-			_, err := st.Mail.Send(ctx, mailstore.SendParams{
-				FromName:  "beta",
-				ToAgentID: alpha.ID,
-				Body:      "refunded_cents",
-				Deadline:  time.Hour,
-			})
-			require.NoError(t, err)
-			archived := st.SeedAgent(t, agentstore.Agent{Name: "archived"})
-			_, err = st.Agents.Archive(ctx, []string{archived.ID})
-			require.NoError(t, err)
+			rows := &fakeRowReader{
+				rows: []rowstore.Row{
+					{
+						Agent: agentstore.Agent{
+							ID:     alphaID,
+							Name:   "alpha",
+							Prompt: prompt,
+						},
+						FailedRun: true,
+					},
+					{
+						Agent: agentstore.Agent{
+							ID:         uuid.NewString(),
+							Name:       "archived",
+							ArchivedAt: &archivedAt,
+						},
+					},
+				},
+				surroundings: agents.Surroundings{Mail: []mailstore.Mail{
+					{
+						ID:        "mail-1",
+						FromName:  "beta",
+						ToAgentID: alphaID,
+						Body:      "refunded_cents",
+						ExpiresAt: time.Now().Add(time.Hour),
+					},
+				}},
+			}
 
-			listed, err := svc.ListAgents(ctx, connect.NewRequest(tt.req))
+			listed, err := newRowHandler(rows).ListAgents(t.Context(), connect.NewRequest(tt.req))
 			require.NoError(t, err)
 
 			tt.check(t, xslice.KeyBy(listed.Msg.GetAgents(), func(row *agentv1.AgentRow) string {
 				return row.GetAgent().GetName()
-			}))
+			}), rows.pages)
 		})
 	}
 }
 
-// TestGetAgent pins that one agent is read whole, its liveness written even when false.
-func TestGetAgent(t *testing.T) {
-	svc, st := service(t)
-	prompt := strings.Repeat("a", render.SummaryHead+50)
-	alpha := st.SeedAgent(t, agentstore.Agent{
-		Name:   "alpha",
-		Cwd:    "/repo",
-		Prompt: prompt,
-		State:  agentstore.StateThinking,
-	})
-	seedFailedRun(t, st, alpha.ID)
+// TestListAgentsRefusalsMapToCodes pins the code a read the listing depends on reaches the caller as.
+func TestListAgentsRefusalsMapToCodes(t *testing.T) {
+	tests := []struct {
+		name     string
+		call     func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) error
+		wantCode connect.Code
+	}{
+		{
+			name: "a listing that cannot be read",
+			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) error {
+				_, err := svc.ListAgents(ctx, connect.NewRequest(&agentv1.ListAgentsRequest{}))
 
-	got, err := svc.GetAgent(t.Context(), connect.NewRequest(&agentv1.GetAgentRequest{Id: alpha.ID}))
+				return err
+			},
+			wantCode: connect.CodeInternal,
+		},
+		{
+			name: "an agent whose surroundings cannot be read",
+			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) error {
+				_, err := svc.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: alphaID}))
+
+				return err
+			},
+			wantCode: connect.CodeInternal,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rows := &fakeRowReader{err: errors.New("connection refused")}
+			rows.seed(agentstore.Agent{
+				ID:   alphaID,
+				Name: "alpha",
+			})
+
+			assert.Equal(t, tt.wantCode, connect.CodeOf(tt.call(t.Context(), newRowHandler(rows))))
+		})
+	}
+}
+
+// TestGetAgent pins that one agent is read whole and drawn beside its surroundings, its liveness
+// written even when false.
+func TestGetAgent(t *testing.T) {
+	prompt := strings.Repeat("a", render.SummaryHead+50)
+	created := time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
+	rows := &fakeRowReader{
+		rows: []rowstore.Row{
+			{
+				Agent: agentstore.Agent{
+					ID:            alphaID,
+					Name:          "alpha",
+					Cwd:           "/repo",
+					Prompt:        prompt,
+					State:         agentstore.StateThinking,
+					CreatedAt:     created,
+					WorkflowID:    "wf-1",
+					RepositoryURL: xptr.Ptr(weaveRepository),
+					Branch:        xptr.Ptr("agent/x"),
+				},
+				FailedRun:    true,
+				FailedRunLog: xptr.Ptr(int32(4)),
+			},
+		},
+		surroundings: agents.Surroundings{
+			Marks: []markstore.Mark{
+				{
+					ID:      "m1",
+					Mark:    "a",
+					AgentID: xptr.Ptr(alphaID),
+				},
+			},
+			PullRequests: []pullrequeststore.PullRequest{
+				{
+					ID:                "pr-740",
+					Number:            740,
+					RepositoryURL:     weaveRepository,
+					HeadRepositoryURL: weaveRepository,
+					HeadBranch:        "agent/x",
+					State:             "open",
+					OpenedAt:          created,
+				},
+			},
+			Repositories: []pullrequeststore.Sync{{RepositoryURL: weaveRepository}},
+			Reviews: []reviewstore.Review{
+				{
+					ID:      "review-1",
+					AgentID: alphaID,
+				},
+			},
+			Workflows: []workflowstore.Workflow{{ID: "wf-1"}},
+		},
+	}
+
+	got, err := newRowHandler(rows).GetAgent(t.Context(), connect.NewRequest(&agentv1.GetAgentRequest{Id: alphaID}))
 	require.NoError(t, err)
+
+	assert.Equal(t, "a", got.Msg.GetAgent().GetMark(), "the agent is drawn beside its surroundings")
+	require.Len(t, got.Msg.GetAgent().GetPullRequests(), 1)
+	assert.Equal(t, int32(740), got.Msg.GetAgent().GetPullRequests()[0].GetNumber(), "with every pull request on its branch")
 
 	agent := got.Msg.GetAgent().GetAgent()
 	assert.Equal(t, "/repo", agent.GetCwd())
@@ -933,10 +1100,7 @@ func TestGetAgent(t *testing.T) {
 	assert.Equal(t, int32(4), agent.GetFailedRunLog())
 	require.NotNil(t, agent.Alive, "a dormant agent says so rather than leaving it out")
 	assert.False(t, agent.GetAlive())
-
-	created, err := time.Parse(time.RFC3339, agent.GetCreatedAt())
-	require.NoError(t, err, "the creation time is RFC 3339")
-	assert.WithinDuration(t, time.Now(), created, time.Minute)
+	assert.Equal(t, "2026-09-20T12:00:00Z", agent.GetCreatedAt(), "the creation time is RFC 3339")
 }
 
 // TestMarkRefusalsMapToCodes pins the code each refusal of the marks reaches the caller as.
@@ -1133,11 +1297,12 @@ func TestLog(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc, st := service(t)
+			rows := &fakeRowReader{}
+			svc := newRowHandler(rows)
 
 			id := uuid.NewString()
 			if tt.seed {
-				id = st.SeedAgent(t, agentstore.Agent{
+				id = rows.seed(agentstore.Agent{
 					Name:  "alpha",
 					Cwd:   "/repo",
 					State: agentstore.StateThinking,
@@ -1185,8 +1350,7 @@ func TestLog(t *testing.T) {
 
 // recordingAgentServices stands in for every agent service the handler calls, recording each request.
 type recordingAgentServices struct {
-	t            *testing.T
-	st           *storetest.Stores
+	rows         *fakeRowReader
 	err          error
 	spawnedAgent *agentstore.Agent
 	created      agents.NewAgentParams
@@ -1210,14 +1374,15 @@ type recordingAgentServices struct {
 	emptied      int
 }
 
-// spawn writes the agent the fake answers with to the store.
+// spawn seeds the agent the fake answers with among the rows.
 func (f *recordingAgentServices) spawn() *agentstore.Agent {
 	if f.spawnedAgent == nil {
-		f.spawnedAgent = f.st.SeedAgent(f.t, agentstore.Agent{
+		spawned := f.rows.seed(agentstore.Agent{
 			Name:  "spawned",
 			Cwd:   "/repo",
 			State: agentstore.StateIdle,
 		})
+		f.spawnedAgent = &spawned
 	}
 
 	return f.spawnedAgent
@@ -1395,87 +1560,33 @@ func restoreAlpha(ctx context.Context, svc agentv1weave.AgentServiceAdapter) err
 	return err
 }
 
-// seedFailedRun records a script that failed for the agent, in the fourth run log.
-func seedFailedRun(t *testing.T, st *storetest.Stores, agentID string) {
-	t.Helper()
-
-	id, err := st.Runs.Begin(t.Context(), runstore.BeginParams{
-		AgentID:   agentID,
-		Trigger:   "post-launch",
-		Script:    "install-deps",
-		LogNumber: xptr.Ptr(int32(4)),
-	})
-	require.NoError(t, err)
-	require.NoError(t, st.Runs.Finish(t.Context(), runstore.FinishParams{
-		ID:      id,
-		Failure: "a hook failed",
-	}))
-}
-
-// markService is the real thing over the test stores, a mark spanning two tables a fake would
-// only agree with itself about.
-func markService(st *storetest.Stores) *marks.MarkService {
-	return marks.NewMarkService(marks.NewMarkServiceParams{Marks: st.Marks, Tx: st.Pool})
-}
-
 // newMarkHandler is the handler over a fake of the marks alone.
 func newMarkHandler(marks *fakeMarkReadWriter) agentv1weave.AgentServiceAdapter {
+	return agentv1weave.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{Marks: marks})}
+}
+
+// newRowHandler is the handler over a fake of the rows, reading every agent as dormant.
+func newRowHandler(rows *fakeRowReader) agentv1weave.AgentServiceAdapter {
 	return agentv1weave.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{
-		Marks:   marks,
-		Watched: WatchedListers{Marks: marks},
+		Agents:   rows,
+		Rows:     rows,
+		Liveness: &recordingAgentServices{},
 	})}
 }
 
-func service(t *testing.T) (agentv1weave.AgentServiceAdapter, *storetest.Stores) {
-	t.Helper()
-	svc, st, _ := newRecordedService(t)
-
-	return svc, st
-}
-
-func newRecordedService(t *testing.T) (agentv1weave.AgentServiceAdapter, *storetest.Stores, *recordingAgentServices) {
+// newRecordedService is the handler over fakes of every agent service, recording what each was asked.
+func newRecordedService(t *testing.T) (agentv1weave.AgentServiceAdapter, *recordingAgentServices) {
 	t.Helper()
 
-	st := storetest.Open(t)
-	services := &recordingAgentServices{t: t, st: st}
-
-	mailer := mail.NewMailService(mail.NewMailServiceParams{
-		MailReadWriter: st.Mail,
-		Agents:         st.Agents,
-		Workflows:      st.Workflows,
-		Config:         config.Mail{},
-	})
-
-	rounds := reviewstore.NewReviewStore(st.Pool.GetDB())
-	review := reviews.NewReviewService(reviews.NewReviewServiceParams{
-		Threads:   rounds,
-		Messages:  rounds,
-		Viewed:    rounds,
-		Rounds:    rounds,
-		Reviews:   rounds,
-		Snapshots: &gittest.Snapshots{},
-		Workflows: st.Workflows,
-		StateDir:  t.TempDir(),
-		Agents:    st.Agents,
-		Mailer:    mailer,
-	})
+	services := &recordingAgentServices{rows: &fakeRowReader{}}
 
 	return agentv1weave.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{
-		Agents:      st.Agents,
-		Rows:        st.Rows,
-		Writer:      services,
-		Transcripts: st.Transcripts,
-		Mail:        mailer,
-		Review:      review,
-		Marks:       markService(st),
-		Watched: WatchedListers{
-			Marks:        st.Marks,
-			Mail:         st.Mail,
-			PullRequests: st.PullRequests,
-			Repositories: st.PullRequestSyncs,
-			Reviews:      rounds,
-			Workflows:    st.Workflows,
-		},
+		Agents:       services.rows,
+		Rows:         services.rows,
+		Writer:       services,
+		Transcripts:  &fakeTranscriptReader{},
+		Mail:         &fakeMailer{},
+		Marks:        &fakeMarkReadWriter{},
 		Creator:      services,
 		Adopter:      services,
 		Liveness:     services,
@@ -1485,5 +1596,387 @@ func newRecordedService(t *testing.T) (agentv1weave.AgentServiceAdapter, *storet
 		Archive:      services,
 		Orchestrator: services,
 		Rebaser:      services,
-	})}, st, services
+	})}, services
+}
+
+// TestCreateAgentValidation pins which create requests the schema accepts and which it refuses
+// before a handler ever sees them.
+func TestCreateAgentValidation(t *testing.T) {
+	tests := []struct {
+		name    string
+		req     *agentv1.CreateAgentRequest
+		wantErr bool
+	}{
+		{
+			name: "a prompt, a workflow, and an absolute directory are enough",
+			req: &agentv1.CreateAgentRequest{
+				Prompt:     "audit the migrations",
+				Dir:        "/repo",
+				WorkflowId: "wf-1",
+			},
+		},
+		{
+			name: "a home-relative directory is allowed, since the manager expands it",
+			req: &agentv1.CreateAgentRequest{
+				Prompt:     "go",
+				Dir:        "~/repo",
+				WorkflowId: "wf-1",
+			},
+		},
+		{
+			name: "no directory is allowed, since the workflow has one",
+			req:  &agentv1.CreateAgentRequest{Prompt: "go", WorkflowId: "wf-1"},
+		},
+		{
+			name:    "no prompt",
+			req:     &agentv1.CreateAgentRequest{Dir: "/repo", WorkflowId: "wf-1"},
+			wantErr: true,
+		},
+		{
+			name:    "no workflow, which every agent needs",
+			req:     &agentv1.CreateAgentRequest{Prompt: "go", Dir: "/repo"},
+			wantErr: true,
+		},
+		{
+			name: "a relative directory would be read against whichever pane is current",
+			req: &agentv1.CreateAgentRequest{
+				Prompt:     "go",
+				Dir:        "repo",
+				WorkflowId: "wf-1",
+			},
+			wantErr: true,
+		},
+		{
+			name: "flags carrying a shell metacharacter are refused rather than quoted and run",
+			req: &agentv1.CreateAgentRequest{
+				Prompt:     "go",
+				Dir:        "/repo",
+				WorkflowId: "wf-1",
+				Flags:      "--model opus; rm -rf /",
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client, services := validatedClient(t)
+
+			_, err := client.CreateAgent(t.Context(), connect.NewRequest(tt.req))
+			if tt.wantErr {
+				assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
+				assert.Empty(t, services.created.Prompt, "a rejected request should never reach the services")
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.req.GetPrompt(), services.created.Prompt)
+		})
+	}
+}
+
+// TestRequestValidation covers the proto constraints, which run in the interceptor and so
+// need a real client rather than the service directly.
+func TestRequestValidation(t *testing.T) {
+	tests := []struct {
+		name    string
+		call    func(t *testing.T, c agentv1connect.AgentServiceClient) error
+		wantErr bool
+	}{
+		{
+			name: "a rename to a name with a space is refused",
+			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
+				_, err := c.UpdateAgent(t.Context(), connect.NewRequest(&agentv1.UpdateAgentRequest{Id: "id-1", Name: "my agent"}))
+
+				return err
+			},
+			wantErr: true,
+		},
+		{
+			name: "so is one carrying a colon, which tmux reads as a target separator",
+			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
+				_, err := c.UpdateAgent(t.Context(), connect.NewRequest(&agentv1.UpdateAgentRequest{Id: "id-1", Name: "a:b"}))
+
+				return err
+			},
+			wantErr: true,
+		},
+		{
+			name: "a rename needs an id to key on",
+			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
+				_, err := c.UpdateAgent(t.Context(), connect.NewRequest(&agentv1.UpdateAgentRequest{Id: "", Name: "fine"}))
+
+				return err
+			},
+			wantErr: true,
+		},
+		{
+			name: "a get with no id is refused",
+			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
+				_, err := c.GetAgent(t.Context(), connect.NewRequest(&agentv1.GetAgentRequest{Id: ""}))
+
+				return err
+			},
+			wantErr: true,
+		},
+		{
+			name: "a delete naming no agent is refused",
+			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
+				_, err := c.DeleteAgents(t.Context(), connect.NewRequest(&agentv1.DeleteAgentsRequest{Ids: nil}))
+
+				return err
+			},
+			wantErr: true,
+		},
+		{
+			name: "so is one carrying an empty id among real ones",
+			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
+				_, err := c.DeleteAgents(t.Context(), connect.NewRequest(&agentv1.DeleteAgentsRequest{
+					Ids: []string{uuid.NewString(), ""},
+				}))
+
+				return err
+			},
+			wantErr: true,
+		},
+		{
+			name: "a delete past the ceiling on how many go at once is refused",
+			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
+				ids := make([]string, 0, 26)
+				for range 26 {
+					ids = append(ids, uuid.NewString())
+				}
+
+				_, err := c.DeleteAgents(t.Context(), connect.NewRequest(&agentv1.DeleteAgentsRequest{Ids: ids}))
+
+				return err
+			},
+			wantErr: true,
+		},
+		{
+			name: "an archive naming the same agent twice is refused, since it says nothing twice",
+			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
+				id := uuid.NewString()
+				_, err := c.ArchiveAgents(t.Context(), connect.NewRequest(&agentv1.ArchiveAgentsRequest{
+					Ids: []string{id, id},
+				}))
+
+				return err
+			},
+			wantErr: true,
+		},
+		{
+			name: "a restore past the ceiling on how many go at once is refused",
+			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
+				ids := make([]string, 0, 101)
+				for range 101 {
+					ids = append(ids, uuid.NewString())
+				}
+
+				_, err := c.RestoreAgents(t.Context(), connect.NewRequest(&agentv1.RestoreAgentsRequest{Ids: ids}))
+
+				return err
+			},
+			wantErr: true,
+		},
+		{
+			name: "a mark of more than one letter is refused, since it is drawn into one cell",
+			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
+				_, err := c.SetMark(t.Context(), connect.NewRequest(&agentv1.SetMarkRequest{
+					Target: &agentv1.SetMarkRequest_AgentId{AgentId: uuid.NewString()},
+					Mark:   xptr.Ptr("ab"),
+				}))
+
+				return err
+			},
+			wantErr: true,
+		},
+		{
+			name: "an empty mark is refused, since clearing a mark is leaving it out",
+			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
+				_, err := c.SetMark(t.Context(), connect.NewRequest(&agentv1.SetMarkRequest{
+					Target: &agentv1.SetMarkRequest_AgentId{AgentId: uuid.NewString()},
+					Mark:   xptr.Ptr(""),
+				}))
+
+				return err
+			},
+			wantErr: true,
+		},
+		{
+			name: "an uppercase mark is refused, since a mark is one lowercase letter",
+			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
+				_, err := c.SetMark(t.Context(), connect.NewRequest(&agentv1.SetMarkRequest{
+					Target: &agentv1.SetMarkRequest_AgentId{AgentId: uuid.NewString()},
+					Mark:   xptr.Ptr("A"),
+				}))
+
+				return err
+			},
+			wantErr: true,
+		},
+		{
+			name: "a mark that is not a letter at all is refused",
+			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
+				_, err := c.SetMark(t.Context(), connect.NewRequest(&agentv1.SetMarkRequest{
+					Target: &agentv1.SetMarkRequest_AgentId{AgentId: uuid.NewString()},
+					Mark:   xptr.Ptr("◐"),
+				}))
+
+				return err
+			},
+			wantErr: true,
+		},
+		{
+			name: "a mark with no agent to put it on is refused",
+			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
+				_, err := c.SetMark(t.Context(), connect.NewRequest(&agentv1.SetMarkRequest{
+					Mark: xptr.Ptr("a"),
+				}))
+
+				return err
+			},
+			wantErr: true,
+		},
+		{
+			name: "a letter is not what the constraint stops",
+			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
+				_, err := c.SetMark(t.Context(), connect.NewRequest(&agentv1.SetMarkRequest{
+					Target: &agentv1.SetMarkRequest_AgentId{AgentId: uuid.NewString()},
+					Mark:   xptr.Ptr("a"),
+				}))
+
+				if connect.CodeOf(err) == connect.CodeNotFound {
+					return nil
+				}
+
+				return err
+			},
+		},
+		{
+			name: "a log script carrying a control character is refused",
+			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
+				script := "run\x1b[31mred"
+				_, err := c.Log(t.Context(), connect.NewRequest(&agentv1.LogRequest{
+					Id:      xptr.Ptr(uuid.NewString()),
+					Message: "starting",
+					Script:  &script,
+				}))
+
+				return err
+			},
+			wantErr: true,
+		},
+		{
+			name: "a metadata key carrying a capital is refused",
+			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
+				_, err := c.SetMetadata(t.Context(), connect.NewRequest(&agentv1.SetMetadataRequest{
+					Id:    uuid.NewString(),
+					Key:   "PullRequest",
+					Value: xptr.Ptr("https://github.com/o/r/pull/1"),
+				}))
+
+				return err
+			},
+			wantErr: true,
+		},
+		{
+			name: "so is one carrying a space",
+			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
+				_, err := c.SetMetadata(t.Context(), connect.NewRequest(&agentv1.SetMetadataRequest{
+					Id:    uuid.NewString(),
+					Key:   "pull request",
+					Value: xptr.Ptr("https://github.com/o/r/pull/1"),
+				}))
+
+				return err
+			},
+			wantErr: true,
+		},
+		{
+			name: "a metadata write with no key at all is refused",
+			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
+				_, err := c.SetMetadata(t.Context(), connect.NewRequest(&agentv1.SetMetadataRequest{
+					Id:    uuid.NewString(),
+					Key:   "",
+					Value: xptr.Ptr("https://github.com/o/r/pull/1"),
+				}))
+
+				return err
+			},
+			wantErr: true,
+		},
+		{
+			name: "a metadata value spanning two lines is refused",
+			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
+				_, err := c.SetMetadata(t.Context(), connect.NewRequest(&agentv1.SetMetadataRequest{
+					Id:    uuid.NewString(),
+					Key:   "linear_issue",
+					Value: xptr.Ptr("https://linear.app/x/issue/ENG-1\nand another"),
+				}))
+
+				return err
+			},
+			wantErr: true,
+		},
+		{
+			name: "a slug key and a single-line url are what the constraint lets through",
+			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
+				_, err := c.SetMetadata(t.Context(), connect.NewRequest(&agentv1.SetMetadataRequest{
+					Id:    uuid.NewString(),
+					Key:   "linear_issue",
+					Value: xptr.Ptr("https://linear.app/x/issue/ENG-1"),
+				}))
+
+				if connect.CodeOf(err) == connect.CodeNotFound {
+					return nil
+				}
+
+				return err
+			},
+		},
+		{
+			name: "clearing a key needs no value",
+			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
+				_, err := c.SetMetadata(t.Context(), connect.NewRequest(&agentv1.SetMetadataRequest{
+					Id:  uuid.NewString(),
+					Key: "linear_issue",
+				}))
+
+				return err
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client, _ := validatedClient(t)
+
+			err := tt.call(t, client)
+			if tt.wantErr {
+				assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
+				return
+			}
+
+			require.NoError(t, err)
+		})
+	}
+}
+
+func validatedClient(t *testing.T) (agentv1connect.AgentServiceClient, *recordingAgentServices) {
+	t.Helper()
+
+	svc, services := newRecordedService(t)
+
+	validation, err := interceptors.NewValidation()
+	require.NoError(t, err)
+
+	mux := http.NewServeMux()
+	mux.Handle(agentv1connect.NewAgentServiceHandler(svc, connect.WithInterceptors(validation)))
+
+	server := httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+
+	return agentv1connect.NewAgentServiceClient(server.Client(), server.URL), services
 }

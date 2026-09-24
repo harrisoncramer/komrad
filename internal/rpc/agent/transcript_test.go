@@ -16,10 +16,10 @@ import (
 	"weave/lib/xptr"
 	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
+	"weave/proto/gen/agent/v1/agentv1connect"
 	"weave/proto/gen/agent/v1/agentv1weave"
 	paginationv1 "weave/proto/gen/pagination/v1"
 
-	agentstore "weave/internal/store/agent"
 	transcriptstore "weave/internal/store/transcript"
 
 	"connectrpc.com/connect"
@@ -30,25 +30,6 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
-// fakeAgentReader answers whether an agent exists from its field.
-type fakeAgentReader struct {
-	missing bool
-}
-
-// GetByID answers an agent with the id asked for unless it is missing.
-func (f fakeAgentReader) GetByID(_ context.Context, id string) (*agentstore.Agent, error) {
-	if f.missing {
-		return nil, agents.ErrAgentNotFound
-	}
-
-	return &agentstore.Agent{ID: id}, nil
-}
-
-// Exists answers true unless the agent is missing.
-func (f fakeAgentReader) Exists(context.Context, string) (bool, error) {
-	return !f.missing, nil
-}
-
 // fakeTranscriptReader answers from its fields and records what each call asked of it.
 type fakeTranscriptReader struct {
 	content  string
@@ -56,11 +37,11 @@ type fakeTranscriptReader struct {
 	results  transcriptstore.Results
 	err      error
 	searched []transcriptstore.SearchParams
-	listed   []transcriptstore.ListLastTurnsParams
+	listed   []agents.ListLastTurnsParams
 }
 
-// Get answers content unless err refuses it.
-func (f *fakeTranscriptReader) Get(context.Context, string) (string, error) {
+// ReadTranscript answers content unless err refuses it.
+func (f *fakeTranscriptReader) ReadTranscript(context.Context, string) (string, error) {
 	if f.err != nil {
 		return "", f.err
 	}
@@ -69,7 +50,7 @@ func (f *fakeTranscriptReader) Get(context.Context, string) (string, error) {
 }
 
 // ListLastTurns records the params and answers turns unless err refuses it.
-func (f *fakeTranscriptReader) ListLastTurns(_ context.Context, params transcriptstore.ListLastTurnsParams) ([]transcriptstore.StoredTurn, error) {
+func (f *fakeTranscriptReader) ListLastTurns(_ context.Context, params agents.ListLastTurnsParams) ([]transcriptstore.StoredTurn, error) {
 	f.listed = append(f.listed, params)
 	if f.err != nil {
 		return nil, f.err
@@ -78,8 +59,8 @@ func (f *fakeTranscriptReader) ListLastTurns(_ context.Context, params transcrip
 	return f.turns, nil
 }
 
-// Search records the params and answers results unless err refuses it.
-func (f *fakeTranscriptReader) Search(_ context.Context, params transcriptstore.SearchParams) (transcriptstore.Results, error) {
+// SearchTranscripts records the params and answers results unless err refuses it.
+func (f *fakeTranscriptReader) SearchTranscripts(_ context.Context, params transcriptstore.SearchParams) (transcriptstore.Results, error) {
 	f.searched = append(f.searched, params)
 	if f.err != nil {
 		return transcriptstore.Results{}, f.err
@@ -238,14 +219,13 @@ func TestTranscriptRefusalsMapToCodes(t *testing.T) {
 	tests := []struct {
 		name     string
 		call     func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) error
-		missing  bool
 		err      error
 		wantCode connect.Code
 	}{
 		{
 			name:     "the transcript of an agent nobody holds",
 			call:     getTranscript(""),
-			missing:  true,
+			err:      agents.ErrAgentNotFound,
 			wantCode: connect.CodeNotFound,
 		},
 		{
@@ -262,7 +242,7 @@ func TestTranscriptRefusalsMapToCodes(t *testing.T) {
 		{
 			name:     "the last turns of an agent nobody holds",
 			call:     getLastTurns,
-			missing:  true,
+			err:      agents.ErrAgentNotFound,
 			wantCode: connect.CodeNotFound,
 		},
 		{
@@ -286,7 +266,7 @@ func TestTranscriptRefusalsMapToCodes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := newTranscriptHandler(fakeAgentReader{missing: tt.missing}, &fakeTranscriptReader{err: tt.err})
+			svc := newTranscriptHandler(&fakeTranscriptReader{err: tt.err})
 
 			err := tt.call(t.Context(), svc)
 
@@ -334,7 +314,7 @@ func TestSearchTranscriptsScope(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			transcripts := &fakeTranscriptReader{}
-			svc := newTranscriptHandler(fakeAgentReader{}, transcripts)
+			svc := newTranscriptHandler(transcripts)
 
 			ctx := t.Context()
 			if tt.callerIs != "" {
@@ -385,7 +365,7 @@ func TestSearchTranscripts(t *testing.T) {
 		}},
 		Next: &next,
 	}}
-	svc := newTranscriptHandler(fakeAgentReader{}, transcripts)
+	svc := newTranscriptHandler(transcripts)
 
 	first, err := svc.SearchTranscripts(t.Context(), connect.NewRequest(&agentv1.SearchTranscriptsRequest{
 		Query:      "reconciler",
@@ -491,7 +471,7 @@ func TestCrossAgentReadIsRecorded(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := newTranscriptHandler(fakeAgentReader{}, &fakeTranscriptReader{})
+			svc := newTranscriptHandler(&fakeTranscriptReader{})
 
 			var written strings.Builder
 			ctx := logging.WithLogger(t.Context(), logging.New(&written, slog.LevelInfo))
@@ -517,7 +497,7 @@ func TestCrossAgentReadIsRecorded(t *testing.T) {
 // TestGetTranscriptPagesToTheEnd pins that the windows join back into the transcript that was stored.
 func TestGetTranscriptPagesToTheEnd(t *testing.T) {
 	whole := strings.Repeat("a", 50) + strings.Repeat("b", 50) + strings.Repeat("c", 50)
-	svc := newTranscriptHandler(fakeAgentReader{}, &fakeTranscriptReader{content: whole})
+	svc := newTranscriptHandler(&fakeTranscriptReader{content: whole})
 
 	var (
 		read   strings.Builder
@@ -558,7 +538,7 @@ type lastTurn struct {
 	truncated bool
 }
 
-// TestGetLastTurns pins what reaches the store and that a window keeps the end of each turn.
+// TestGetLastTurns pins what reaches the reader and that a window keeps the end of each turn.
 func TestGetLastTurns(t *testing.T) {
 	stored := []transcriptstore.StoredTurn{
 		{
@@ -576,13 +556,12 @@ func TestGetLastTurns(t *testing.T) {
 	tests := []struct {
 		name      string
 		req       *agentv1.GetLastTurnsRequest
-		wantLimit int32
+		wantTurns int32
 		want      []lastTurn
 	}{
 		{
-			name:      "the default is the last thing the agent said",
-			req:       &agentv1.GetLastTurnsRequest{},
-			wantLimit: 1,
+			name: "no count is handed down as none",
+			req:  &agentv1.GetLastTurnsRequest{},
 			want: []lastTurn{
 				{
 					role:    "assistant",
@@ -602,7 +581,7 @@ func TestGetLastTurns(t *testing.T) {
 				Turns:    proto.Int32(2),
 				MaxBytes: proto.Int32(22),
 			},
-			wantLimit: 2,
+			wantTurns: 2,
 			want: []lastTurn{
 				{
 					role:      "assistant",
@@ -622,7 +601,7 @@ func TestGetLastTurns(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			transcripts := &fakeTranscriptReader{turns: stored}
-			svc := newTranscriptHandler(fakeAgentReader{}, transcripts)
+			svc := newTranscriptHandler(transcripts)
 
 			tt.req.AgentId = alphaID
 			got, err := svc.GetLastTurns(t.Context(), connect.NewRequest(tt.req))
@@ -637,19 +616,86 @@ func TestGetLastTurns(t *testing.T) {
 				}
 			})
 			assert.Equal(t, tt.want, read)
-			assert.Equal(t, []transcriptstore.ListLastTurnsParams{{
+			assert.Equal(t, []agents.ListLastTurnsParams{{
 				AgentID: alphaID,
-				Role:    "assistant",
-				Limit:   tt.wantLimit,
+				Turns:   tt.wantTurns,
 			}}, transcripts.listed)
 		})
 	}
 }
 
-// newTranscriptHandler is the handler over fakes of the agents and the transcripts alone.
-func newTranscriptHandler(agentReader fakeAgentReader, transcripts *fakeTranscriptReader) agentv1weave.AgentServiceAdapter {
-	return agentv1weave.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{
-		Agents:      agentReader,
-		Transcripts: transcripts,
-	})}
+// newTranscriptHandler is the handler over a fake of the transcripts alone.
+func newTranscriptHandler(transcripts *fakeTranscriptReader) agentv1weave.AgentServiceAdapter {
+	return agentv1weave.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{Transcripts: transcripts})}
+}
+
+// TestTranscriptRequestValidation covers the proto constraints on a transcript read, which run in
+// the interceptor and so need a real client rather than the service directly.
+func TestTranscriptRequestValidation(t *testing.T) {
+	tests := []struct {
+		name    string
+		call    func(t *testing.T, c agentv1connect.AgentServiceClient) error
+		wantErr bool
+	}{
+		{
+			name: "an empty search query matches everything",
+			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
+				_, err := c.SearchTranscripts(t.Context(), connect.NewRequest(&agentv1.SearchTranscriptsRequest{Query: ""}))
+
+				return err
+			},
+			wantErr: true,
+		},
+		{
+			name: "a query of two characters is accepted",
+			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
+				_, err := c.SearchTranscripts(t.Context(), connect.NewRequest(&agentv1.SearchTranscriptsRequest{Query: "ab"}))
+
+				return err
+			},
+			wantErr: false,
+		},
+		{
+			name: "an oversized limit is clamped, not refused",
+			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
+				_, err := c.SearchTranscripts(t.Context(), connect.NewRequest(&agentv1.SearchTranscriptsRequest{
+					Query:      "mcp",
+					Pagination: &paginationv1.Pagination{Limit: proto.Int32(5000)},
+				}))
+
+				return err
+			},
+		},
+		{
+			name: "an unset limit still means the server default",
+			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
+				_, err := c.SearchTranscripts(t.Context(), connect.NewRequest(&agentv1.SearchTranscriptsRequest{Query: "mcp"}))
+
+				return err
+			},
+		},
+		{
+			name: "a transcript read with no agent id is refused",
+			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
+				_, err := c.GetTranscript(t.Context(), connect.NewRequest(&agentv1.GetTranscriptRequest{AgentId: ""}))
+
+				return err
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client, _ := validatedClient(t)
+
+			err := tt.call(t, client)
+			if tt.wantErr {
+				assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
+				return
+			}
+
+			require.NoError(t, err)
+		})
+	}
 }
