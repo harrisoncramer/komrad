@@ -123,6 +123,16 @@ func TestErrorsUnreachable(t *testing.T) {
 		assert.NotContains(t, frame, "The panel could not list your agents", "and no screen is taken over")
 	})
 
+	t.Run("a close the service chose is reopened without a word", func(t *testing.T) {
+		harness := openAgents(t, newLiveWorkflow("w1", "backend"))
+
+		harness.send(ui.NewWatchLost(nil))
+
+		frame := harness.readFrame()
+		assert.NotContains(t, frame, "Cannot reach the")
+		assert.Contains(t, frame, "No messages")
+	})
+
 	t.Run("a stream that came back and went again is said again", func(t *testing.T) {
 		harness := openUnreachable(t, engine.Remote{})
 
