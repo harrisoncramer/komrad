@@ -610,20 +610,30 @@ const navPageStep = 10
 
 // listLines is the room the list has once the chrome around it has taken its share.
 func (m model) listLines(chrome ...string) int {
-	if m.height <= 0 {
+	return fitLines(m.height, chrome...)
+}
+
+// fitLines is the room a pane of height lines has once the chrome has taken its share.
+func fitLines(height int, chrome ...string) int {
+	if height <= 0 {
 		return paint.Unbounded
 	}
 
-	return max(m.spareLines(chrome...), 0)
+	return max(spareLinesOf(height, chrome...), 0)
 }
 
 // spareLines is what the pane has left once the chrome has taken its share, unclamped.
 func (m model) spareLines(chrome ...string) int {
-	if m.height <= 0 {
+	return spareLinesOf(m.height, chrome...)
+}
+
+// spareLinesOf is what a pane of height lines has left once the chrome has taken its share.
+func spareLinesOf(height int, chrome ...string) int {
+	if height <= 0 {
 		return 0
 	}
 
-	lines := m.height
+	lines := height
 	for _, part := range chrome {
 		lines -= strings.Count(part, "\n")
 	}
