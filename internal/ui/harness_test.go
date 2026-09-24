@@ -14,6 +14,7 @@ import (
 	"weave/config"
 	"weave/internal/client"
 	"weave/internal/ui"
+	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	"weave/proto/gen/hook/v1/hookv1connect"
@@ -46,8 +47,6 @@ var timerCmds = []string{
 	"cursor.(*Model).Blink.",
 }
 
-// panelHarness drives the panel from the outside: watch batches and keys in, frames and the
-// requests it sent out.
 type panelHarness struct {
 	t     *testing.T
 	panel *ui.Panel
@@ -67,8 +66,6 @@ type request struct {
 
 type answerFunc func(req connect.AnyRequest) (connect.AnyResponse, error)
 
-// requestLog records every request the panel sends and answers it, with an empty response unless
-// a test said otherwise.
 type requestLog struct {
 	mu      sync.Mutex
 	seen    []request
@@ -101,7 +98,7 @@ func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
 		width, height = 140, 40
 	}
 
-	h := &panelHarness{
+	harness := &panelHarness{
 		t:   t,
 		log: log,
 		panel: ui.NewPanel(ui.NewPanelParams{
@@ -116,28 +113,26 @@ func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
 		}),
 	}
 
-	h.settle(h.panel.Init())
-	h.send(tea.WindowSizeMsg{
+	harness.settle(harness.panel.Init())
+	harness.send(tea.WindowSizeMsg{
 		Width:  width,
 		Height: height,
 	})
 
-	return h
+	return harness
 }
 
-// watch delivers one batch off the watch stream.
 func (h *panelHarness) watch(events ...*watchv1.WatchEvent) {
 	h.t.Helper()
 
 	h.send(client.WatchBatch(events))
 }
 
-// press types each key in turn, letting what each one started land before the next.
 func (h *panelHarness) press(keys ...string) {
 	h.t.Helper()
 
 	for _, key := range keys {
-		h.send(ui.KeyPress(key))
+		h.send(ui.NewKeyPress(key))
 	}
 }
 
@@ -147,12 +142,10 @@ func (h *panelHarness) send(msg tea.Msg) {
 	h.settle(h.panel.Update(msg))
 }
 
-// frame is the panel as drawn, without its colours.
-func (h *panelHarness) frame() string {
+func (h *panelHarness) readFrame() string {
 	return ansi.Strip(h.panel.View())
 }
 
-// assertSent checks the panel sent exactly these requests, in this order.
 func (h *panelHarness) assertSent(want ...request) {
 	h.t.Helper()
 	h.log.mu.Lock()
@@ -162,7 +155,6 @@ func (h *panelHarness) assertSent(want ...request) {
 	assert.Empty(h.t, diff, "the requests sent (-want +got)")
 }
 
-// answer replaces the empty response to a procedure.
 func (h *panelHarness) answer(procedure string, answer answerFunc) {
 	h.log.mu.Lock()
 	defer h.log.mu.Unlock()
@@ -170,15 +162,12 @@ func (h *panelHarness) answer(procedure string, answer answerFunc) {
 	h.log.answers[procedure] = answer
 }
 
-// refuse answers a procedure with an error.
 func (h *panelHarness) refuse(procedure string, err error) {
 	h.answer(procedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 		return nil, err
 	})
 }
 
-// settle runs what the panel asked for and hands it each message that comes back, the way the
-// program does, holding back the timers so nothing waits on a clock.
 func (h *panelHarness) settle(cmd tea.Cmd) {
 	h.t.Helper()
 
@@ -246,34 +235,15 @@ func isTimer(cmd tea.Cmd) bool {
 	return false
 }
 
-// snapshot is the batch a stream opens with, holding every row the panel is to know about.
-func snapshot(rows ...proto.Message) *watchv1.WatchEvent {
-	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Snapshot{Snapshot: &watchv1.Snapshot{Rows: watchRows(rows)}}}
+func buildSnapshot(rows ...proto.Message) *watchv1.WatchEvent {
+	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Snapshot{Snapshot: &watchv1.Snapshot{Rows: wrapRows(rows)}}}
 }
 
-// put is a change adding or replacing rows.
-func put(rows ...proto.Message) *watchv1.WatchEvent {
-	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Changes{Changes: &watchv1.Changes{Puts: watchRows(rows)}}}
+func wrapRows(rows []proto.Message) []*watchv1.Row {
+	return xslice.Map(rows, wrapRow)
 }
 
-// deleted is a change taking a row away.
-func deleted(resource watchv1.Resource, key string) *watchv1.WatchEvent {
-	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Changes{Changes: &watchv1.Changes{Deleted: []*watchv1.Deleted{{
-		Resource: resource,
-		Key:      key,
-	}}}}}
-}
-
-func watchRows(rows []proto.Message) []*watchv1.Row {
-	wrapped := make([]*watchv1.Row, 0, len(rows))
-	for _, row := range rows {
-		wrapped = append(wrapped, watchRow(row))
-	}
-
-	return wrapped
-}
-
-func watchRow(row proto.Message) *watchv1.Row {
+func wrapRow(row proto.Message) *watchv1.Row {
 	switch row := row.(type) {
 	case *agentv1.Agent:
 		return &watchv1.Row{Row: &watchv1.Row_Agent{Agent: row}}

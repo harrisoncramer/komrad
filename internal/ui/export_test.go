@@ -91,8 +91,8 @@ func (p *Panel) View() string {
 	return p.model.render()
 }
 
-// KeyPress is the press bubbletea delivers for a key as a binding spells it.
-func KeyPress(key string) tea.KeyPressMsg {
+// NewKeyPress is the press bubbletea delivers for a key as a binding spells it.
+func NewKeyPress(key string) tea.KeyPressMsg {
 	return keyMsg(key)
 }
 
