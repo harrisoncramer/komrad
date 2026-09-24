@@ -32,7 +32,7 @@ type stores struct {
 	forges           *forgestore.ForgeStore
 	pullRequests     *pullrequeststore.PullRequestStore
 	pullRequestSyncs *pullrequeststore.PullRequestSyncStore
-	sizes            *worktreestore.WorktreeStore
+	worktrees        *worktreestore.WorktreeStore
 }
 
 func openStores(ctx context.Context, databaseURL string) (*stores, error) {
@@ -57,6 +57,6 @@ func openStores(ctx context.Context, databaseURL string) (*stores, error) {
 		forges:           forgestore.NewForgeStore(db),
 		pullRequests:     pullrequeststore.NewPullRequestStore(db),
 		pullRequestSyncs: pullrequeststore.NewPullRequestSyncStore(db),
-		sizes:            worktreestore.NewWorktreeStore(db),
+		worktrees:        worktreestore.NewWorktreeStore(db),
 	}, nil
 }

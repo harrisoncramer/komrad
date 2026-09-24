@@ -16,6 +16,7 @@ import (
 	schedulev1 "weave/proto/gen/schedule/v1"
 	watchv1 "weave/proto/gen/watch/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
+	worktreev1 "weave/proto/gen/worktree/v1"
 )
 
 // World is every resource a caller holds, by key.
@@ -27,6 +28,7 @@ type World struct {
 	Mail         map[string]*agentv1.Mail
 	PullRequests map[string]*pullrequestv1.PullRequest
 	Repositories map[string]*pullrequestv1.Repository
+	Worktrees    map[string]*worktreev1.WatchedWorktree
 }
 
 // Changed is the keys a message put or dropped, by resource.
@@ -119,6 +121,10 @@ func (w *World) put(row *watchv1.Row) (watchv1.Resource, string) {
 		w.Repositories[row.Repository.GetUrl()] = row.Repository
 
 		return watchv1.Resource_RESOURCE_REPOSITORY, row.Repository.GetUrl()
+	case *watchv1.Row_Worktree:
+		w.Worktrees[row.Worktree.GetDir()] = row.Worktree
+
+		return watchv1.Resource_RESOURCE_WORKTREE, row.Worktree.GetDir()
 	case nil:
 	}
 
@@ -147,6 +153,9 @@ func (w *World) ensureMaps() {
 	if w.Repositories == nil {
 		w.Repositories = map[string]*pullrequestv1.Repository{}
 	}
+	if w.Worktrees == nil {
+		w.Worktrees = map[string]*worktreev1.WatchedWorktree{}
+	}
 }
 
 func (w *World) drop(deleted *watchv1.Deleted) {
@@ -166,10 +175,11 @@ func (w *World) drop(deleted *watchv1.Deleted) {
 		delete(w.PullRequests, key)
 	case watchv1.Resource_RESOURCE_REPOSITORY:
 		delete(w.Repositories, key)
+	case watchv1.Resource_RESOURCE_WORKTREE:
+		delete(w.Worktrees, key)
 	case watchv1.Resource_RESOURCE_UNSPECIFIED,
 		watchv1.Resource_RESOURCE_REVIEW,
-		watchv1.Resource_RESOURCE_REVIEW_THREAD,
-		watchv1.Resource_RESOURCE_WORKTREE:
+		watchv1.Resource_RESOURCE_REVIEW_THREAD:
 	}
 }
 

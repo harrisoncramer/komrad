@@ -92,3 +92,5 @@ CREATE TRIGGER watch_notify AFTER INSERT OR UPDATE OR DELETE ON mail FOR EACH RO
 CREATE TRIGGER watch_notify AFTER INSERT OR UPDATE OR DELETE ON pull_requests FOR EACH ROW EXECUTE FUNCTION watch_notify('id');
 CREATE TRIGGER watch_subresource_pull_requests AFTER INSERT OR UPDATE OR DELETE ON agent_pull_requests FOR EACH ROW EXECUTE FUNCTION watch_subresource('pull_requests', 'pull_request_id');
 CREATE TRIGGER watch_notify AFTER INSERT OR UPDATE OR DELETE ON pull_request_syncs FOR EACH ROW EXECUTE FUNCTION watch_notify('repository_url', 'calls', 'listed_at', 'read_at', 'sweep_cursor', 'sweep_newest');
+CREATE TRIGGER watch_notify AFTER INSERT OR UPDATE OR DELETE ON worktrees FOR EACH ROW EXECUTE FUNCTION watch_notify('dir');
+CREATE TRIGGER watch_subresource_worktrees AFTER INSERT OR UPDATE OR DELETE ON agents FOR EACH ROW EXECUTE FUNCTION watch_subresource_lookup('worktrees', 'dir', 'name', 'id', '', 'deleting_at');

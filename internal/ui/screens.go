@@ -63,9 +63,6 @@ type screenTarget struct {
 type screenNeeds struct {
 	// fromListing is whether the watch's listings are what the screen draws.
 	fromListing bool
-
-	// worktrees is whether the worktree directories are listed for the screen.
-	worktrees bool
 }
 
 // detailed is a screen that draws a record under its list.
@@ -167,7 +164,6 @@ type host interface {
 	// The form, the popup, the screen that is up and the archive and worktree listings are the root's.
 	openForm(f formState) tea.Cmd
 	enter(next screen, target screenTarget) tea.Cmd
-	listCmd() tea.Cmd
 	hide() tea.Cmd
 
 	// The stage is the root's, and every list screen waits for its cursor to rest before staging.

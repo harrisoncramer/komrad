@@ -48,6 +48,9 @@ type Worktree struct {
 	Agent *Agent
 	// Occupants are the other rows working in this directory.
 	Occupants []Agent
+	// ModifiedAt is when git last wrote the directory's .git file, else the directory's own
+	// modification time, zero when neither could be read.
+	ModifiedAt time.Time
 	// Size is the directory's last measurement, nil until the loop has been round.
 	Size *worktreestore.Size
 	// LastActiveAt is when the directory was last touched, read off its agent when one answers
@@ -150,17 +153,6 @@ func (l *Lister) ListDirs(ctx context.Context) ([]string, error) {
 	return xslice.UniqueBy(dirs, func(dir string) string { return dir }), nil
 }
 
-// ListPaths is every directory immediately under the worktree directories, and which of those
-// directories could not be read.
-func (l *Lister) ListPaths(ctx context.Context) (Paths, error) {
-	dirs, err := l.ListDirs(ctx)
-	if err != nil {
-		return Paths{}, err
-	}
-
-	return walk(dirs), nil
-}
-
 // List is every directory under the worktree directories, with what answers for each.
 func (l *Lister) List(ctx context.Context) (*Listing, error) {
 	dirs, err := l.ListDirs(ctx)
@@ -224,7 +216,7 @@ func (l *Lister) answerer(ctx context.Context) (func(dir string) Worktree, error
 		if size, ok := sized[dir]; ok {
 			worktree.Size = &size
 		}
-		worktree.LastActiveAt = lastActive(dir, worktree.Agent)
+		worktree.LastActiveAt = lastActive(worktree)
 
 		return worktree
 	}, nil
@@ -260,17 +252,22 @@ func walk(dirs []string) Paths {
 	return found
 }
 
-// lastActive is when a directory was last touched: the agent's latest state change or
-// archiving when one answers, else the mtime of its .git file, else its own.
-func lastActive(dir string, agent *Agent) time.Time {
-	if agent != nil {
-		if agent.ArchivedAt != nil && agent.ArchivedAt.After(agent.StateChangedAt) {
-			return *agent.ArchivedAt
-		}
-
-		return agent.StateChangedAt
+// lastActive is when a directory was last touched, by its agent when one answers and by its
+// mtime otherwise.
+func lastActive(worktree Worktree) time.Time {
+	agent := worktree.Agent
+	if agent == nil {
+		return worktree.ModifiedAt
+	}
+	if agent.ArchivedAt != nil && agent.ArchivedAt.After(agent.StateChangedAt) {
+		return *agent.ArchivedAt
 	}
 
+	return agent.StateChangedAt
+}
+
+// modifiedAt is the mtime of a directory's .git file, else its own.
+func modifiedAt(dir string) time.Time {
 	for _, path := range []string{filepath.Join(dir, ".git"), dir} {
 		if info, err := os.Lstat(path); err == nil {
 			return info.ModTime()
@@ -282,7 +279,7 @@ func lastActive(dir string, agent *Agent) time.Time {
 
 // read is what a directory says about itself without asking git.
 func read(dir string) Worktree {
-	worktree := Worktree{Dir: dir}
+	worktree := Worktree{Dir: dir, ModifiedAt: modifiedAt(dir)}
 
 	gitdir := readGitdir(dir)
 	if gitdir == "" {
@@ -370,6 +367,26 @@ func describe(row agentstore.AgentDir) *Agent {
 		Deleting:        row.DeletingAt != nil,
 		WorkflowID:      row.WorkflowID,
 	}
+}
+
+// Unclaimed drops the directories a delete has claimed: those whose agent is being deleted, and
+// those nothing answers for that an unfinished delete names.
+func Unclaimed(listing []Worktree, claimed []string) []Worktree {
+	return xslice.Filter(unnamed(listing, claimed), func(worktree Worktree) bool {
+		return worktree.Agent == nil || !worktree.Agent.Deleting
+	})
+}
+
+// unnamed drops the directories nothing answers for that an unfinished delete names.
+func unnamed(listing []Worktree, claimed []string) []Worktree {
+	named := make(map[string]bool, len(claimed))
+	for _, dir := range claimed {
+		named[dir] = true
+	}
+
+	return xslice.Filter(listing, func(worktree Worktree) bool {
+		return worktree.Fate() != FateUnowned || !named[worktree.Dir]
+	})
 }
 
 // isUnder reports whether a path is a directory immediately under one of the worktree

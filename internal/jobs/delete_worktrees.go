@@ -8,6 +8,7 @@ import (
 
 	"weave/internal/jobs/internaljobs"
 	agentstore "weave/internal/store/agent"
+	worktreestore "weave/internal/store/worktree"
 	"weave/lib/xslice"
 
 	"github.com/jackc/pgx/v5"
@@ -22,11 +23,15 @@ func NewWorktreeDelete(queue *Enqueuer) *WorktreeDelete {
 	return &WorktreeDelete{queue: queue}
 }
 
-// DeleteWorktrees claims the archived agents the directories were cut for and queues one
-// delete of the directories in the same transaction.
+// DeleteWorktrees claims the archived agents the directories were cut for, forgets the
+// directories' rows and queues one delete of the directories in the same transaction.
 func (d *WorktreeDelete) DeleteWorktrees(ctx context.Context, dirs []string) error {
 	return d.queue.InsertTx(ctx, internaljobs.DeleteWorktreesArgs{Dirs: dirs}, func(tx pgx.Tx) error {
-		return agentstore.NewAgentStore(tx).MarkArchivedDeletingByID(ctx, xslice.Map(dirs, filepath.Base))
+		if err := agentstore.NewAgentStore(tx).MarkArchivedDeletingByID(ctx, xslice.Map(dirs, filepath.Base)); err != nil {
+			return err
+		}
+
+		return worktreestore.NewWorktreeStore(tx).Delete(ctx, dirs)
 	})
 }
 

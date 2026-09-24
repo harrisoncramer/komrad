@@ -469,17 +469,6 @@ func (a api) listHooks() ([]*hookv1.Hook, error) {
 	})
 }
 
-func (a api) listWorktrees() (*worktreev1.ListWorktreesResponse, error) {
-	return call(requestTimeout, func(ctx context.Context) (*worktreev1.ListWorktreesResponse, error) {
-		resp, err := a.worktrees.ListWorktrees(ctx, connect.NewRequest(&emptypb.Empty{}))
-		if err != nil {
-			return nil, fmt.Errorf("failed to list worktrees: %w", err)
-		}
-
-		return resp.Msg, nil
-	})
-}
-
 func (a api) getWorktree(dir string) (*worktreev1.GetWorktreeResponse, error) {
 	return call(requestTimeout, func(ctx context.Context) (*worktreev1.GetWorktreeResponse, error) {
 		resp, err := a.worktrees.GetWorktree(ctx, connect.NewRequest(&worktreev1.GetWorktreeRequest{Dir: dir}))

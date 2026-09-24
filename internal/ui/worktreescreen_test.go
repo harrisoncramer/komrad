@@ -79,6 +79,7 @@ func worktreesModel() model {
 					Cwd:        "/trees/admin",
 				},
 			}),
+			worktrees: worktreeFixture(),
 		},
 		worktrees: worktreesScreen{items: worktreeFixture()},
 	}

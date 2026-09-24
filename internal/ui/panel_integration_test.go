@@ -29,8 +29,7 @@ import (
 
 const panelSession = "shown"
 
-// listedFromService seeds the panel from the list RPCs the way the watch's snapshot would, and
-// reads whatever the screen that is up lists on its own.
+// listedFromService seeds the panel from the list RPCs the way the watch's snapshot would.
 func listedFromService(t *testing.T, m model) model {
 	t.Helper()
 
@@ -51,7 +50,7 @@ func listedFromService(t *testing.T, m model) model {
 		)}}},
 	})
 
-	return settle(t, m, m.listCmd())
+	return m
 }
 
 // TestIntegrationPanelArchivesThroughTheService takes the archive key all the way to the database.

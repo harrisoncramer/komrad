@@ -77,7 +77,7 @@ func (s *Handler) ListWorktrees(ctx context.Context, _ *emptypb.Empty) (*worktre
 	}
 
 	return &worktreev1.ListWorktreesResponse{
-		Worktrees:      xslice.Map(unclaimed(listing.Worktrees, claimed), renderWorktree),
+		Worktrees:      xslice.Map(worktrees.Unclaimed(listing.Worktrees, claimed), renderWorktree),
 		Dirs:           listing.Dirs,
 		UnreadableDirs: listing.UnreadableDirs,
 	}, nil
@@ -141,26 +141,6 @@ func (s *Handler) DeleteWorktrees(ctx context.Context, req *worktreev1.DeleteWor
 	}
 
 	return &emptypb.Empty{}, nil
-}
-
-// unclaimed drops the directories a delete has claimed: those whose agent is being deleted, and
-// those nothing answers for that an unfinished delete names.
-func unclaimed(listing []worktrees.Worktree, claimed []string) []worktrees.Worktree {
-	named := make(map[string]bool, len(claimed))
-	for _, dir := range claimed {
-		named[dir] = true
-	}
-
-	return xslice.Filter(listing, func(worktree worktrees.Worktree) bool {
-		switch {
-		case worktree.Agent != nil && worktree.Agent.Deleting:
-			return false
-		case worktree.Fate() == worktrees.FateUnowned:
-			return !named[worktree.Dir]
-		}
-
-		return true
-	})
 }
 
 func renderWorktree(worktree worktrees.Worktree) *worktreev1.Worktree {
