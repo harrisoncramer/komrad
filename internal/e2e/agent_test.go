@@ -148,8 +148,8 @@ func TestIntegrationAgentLifecycle(t *testing.T) {
 	})
 }
 
-// TestIntegrationAgentsSpawnAgents walks an agent spawning another on its own and a child
-// attached to it, through the API the panel and the MCP tools both call.
+// TestIntegrationAgentsSpawnAgents walks an agent spawning another on its own and a child attached
+// to it.
 func TestIntegrationAgentsSpawnAgents(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()

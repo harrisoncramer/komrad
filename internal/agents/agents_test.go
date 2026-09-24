@@ -48,8 +48,8 @@ func TestDeprovisionerLogsAWorkflowThatWouldNotRead(t *testing.T) {
 	assert.Equal(t, "/repo/.worktrees/auth", got["weave.script.agent.cwd"])
 }
 
-// TestDeprovisionerSaysNothingWhenThereIsNothingToTearDown covers the quiet half, where an
-// agent keeps the directory it was given.
+// TestDeprovisionerSaysNothingWhenThereIsNothingToTearDown pins that no teardown is named and
+// nothing is logged.
 func TestDeprovisionerSaysNothingWhenThereIsNothingToTearDown(t *testing.T) {
 	tests := []struct {
 		name       string

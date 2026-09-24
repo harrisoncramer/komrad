@@ -64,10 +64,9 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 			wantCode: connect.CodeInternal,
 		},
 		{
-			name: "an adoption into a workflow with no cwd",
-			call: adoptMain,
-			err:  agents.ErrWorktreeNeedsCwd,
-			// The workflow's invalid argument reads as a precondition on an adoption.
+			name:     "an adoption into a workflow with no cwd reads as a precondition",
+			call:     adoptMain,
+			err:      agents.ErrWorktreeNeedsCwd,
 			wantCode: connect.CodeFailedPrecondition,
 		},
 		{
@@ -268,8 +267,8 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc, _, services := serviceWithLauncher(t)
-			services.err = tt.err
+			svc, _, launcher := serviceWithLauncher(t)
+			launcher.err = tt.err
 
 			err := tt.call(t.Context(), svc)
 
@@ -286,7 +285,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 		call     func(ctx context.Context, svc agentv1weave.AgentServiceAdapter, ids []string) (string, error)
 		err      error
 		wantName string
-		check    func(t *testing.T, services *fakeLauncher, ids []string)
+		check    func(t *testing.T, launcher *fakeLauncher, ids []string)
 	}{
 		{
 			name: "a spent idempotency key answers with the agent it launched",
@@ -300,8 +299,8 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 			},
 			err:      agents.ErrAlreadyLaunched,
 			wantName: "spawned",
-			check: func(t *testing.T, services *fakeLauncher, _ []string) {
-				assert.Equal(t, "triage:ENG-5260", services.created.IdempotencyKey)
+			check: func(t *testing.T, launcher *fakeLauncher, _ []string) {
+				assert.Equal(t, "triage:ENG-5260", launcher.created.IdempotencyKey)
 			},
 		},
 		{
@@ -322,7 +321,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 				return created.Msg.GetAgent().GetName(), err
 			},
 			wantName: "spawned",
-			check: func(t *testing.T, services *fakeLauncher, ids []string) {
+			check: func(t *testing.T, launcher *fakeLauncher, ids []string) {
 				assert.Equal(t, agents.NewAgentParams{
 					Title:            "audit",
 					Dir:              "/repo",
@@ -333,7 +332,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 					Harness:          "codex",
 					IdempotencyKey:   "triage:ENG-5260",
 					ParentAgentID:    ids[0],
-				}, services.created)
+				}, launcher.created)
 			},
 		},
 		{
@@ -351,7 +350,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 				return requested.Msg.GetReviewer().GetName(), err
 			},
 			wantName: "spawned",
-			check: func(t *testing.T, services *fakeLauncher, ids []string) {
+			check: func(t *testing.T, launcher *fakeLauncher, ids []string) {
 				assert.Equal(t, agents.RequestReviewParams{
 					AgentID:        ids[0],
 					Prompt:         "read the parser change",
@@ -359,7 +358,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 					Harness:        "codex",
 					Flags:          "--sandbox read-only",
 					IdempotencyKey: "review-1",
-				}, services.reviewed)
+				}, launcher.reviewed)
 			},
 		},
 		{
@@ -378,7 +377,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 				return adopted.Msg.GetAgent().GetName(), err
 			},
 			wantName: "spawned",
-			check: func(t *testing.T, services *fakeLauncher, _ []string) {
+			check: func(t *testing.T, launcher *fakeLauncher, _ []string) {
 				assert.Equal(t, agents.AdoptParams{
 					Ref:            "https://github.com/o/r/pull/1069",
 					Title:          "logo",
@@ -387,7 +386,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 					WorkflowID:     "wf-1",
 					Harness:        "claude",
 					IdempotencyKey: "adopt-1",
-				}, services.adopted)
+				}, launcher.adopted)
 			},
 		},
 		{
@@ -403,13 +402,13 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 				return retried.Msg.GetAgent().GetName(), err
 			},
 			wantName: "spawned",
-			check: func(t *testing.T, services *fakeLauncher, ids []string) {
+			check: func(t *testing.T, launcher *fakeLauncher, ids []string) {
 				assert.Equal(t, agents.RetryCreateParams{
 					ID:      ids[0],
 					Flags:   "--model opus",
 					Prompt:  "try again",
 					Harness: "codex",
-				}, services.retried)
+				}, launcher.retried)
 			},
 		},
 		{
@@ -420,8 +419,8 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 				return resumed.Msg.GetAgent().GetName(), err
 			},
 			wantName: "spawned",
-			check: func(t *testing.T, services *fakeLauncher, ids []string) {
-				assert.Equal(t, ids[:1], services.resumed)
+			check: func(t *testing.T, launcher *fakeLauncher, ids []string) {
+				assert.Equal(t, ids[:1], launcher.resumed)
 			},
 		},
 		{
@@ -432,8 +431,8 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 				return held.Msg.GetAgent().GetName(), err
 			},
 			wantName: "spawned",
-			check: func(t *testing.T, services *fakeLauncher, ids []string) {
-				assert.Equal(t, ids[:1], services.held)
+			check: func(t *testing.T, launcher *fakeLauncher, ids []string) {
+				assert.Equal(t, ids[:1], launcher.held)
 			},
 		},
 		{
@@ -447,11 +446,11 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 				return released.Msg.GetAgent().GetName(), err
 			},
 			wantName: "spawned",
-			check: func(t *testing.T, services *fakeLauncher, ids []string) {
+			check: func(t *testing.T, launcher *fakeLauncher, ids []string) {
 				assert.Equal(t, agents.ReleaseParams{
 					AgentID: ids[0],
 					Said:    "I rebased your branch",
-				}, services.released)
+				}, launcher.released)
 			},
 		},
 		{
@@ -462,8 +461,8 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 				return started.Msg.GetAgent().GetName(), err
 			},
 			wantName: "spawned",
-			check: func(t *testing.T, services *fakeLauncher, _ []string) {
-				assert.Equal(t, []string{"wf-1"}, services.orchestrated)
+			check: func(t *testing.T, launcher *fakeLauncher, _ []string) {
+				assert.Equal(t, []string{"wf-1"}, launcher.orchestrated)
 			},
 		},
 		{
@@ -473,8 +472,8 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 
 				return "", err
 			},
-			check: func(t *testing.T, services *fakeLauncher, ids []string) {
-				assert.Equal(t, ids, services.deleted)
+			check: func(t *testing.T, launcher *fakeLauncher, ids []string) {
+				assert.Equal(t, ids, launcher.deleted)
 			},
 		},
 		{
@@ -484,8 +483,8 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 
 				return "", err
 			},
-			check: func(t *testing.T, services *fakeLauncher, ids []string) {
-				assert.Equal(t, ids, services.archived)
+			check: func(t *testing.T, launcher *fakeLauncher, ids []string) {
+				assert.Equal(t, ids, launcher.archived)
 			},
 		},
 		{
@@ -500,8 +499,8 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 				return strings.Join(names, " "), err
 			},
 			wantName: "alpha beta",
-			check: func(t *testing.T, services *fakeLauncher, ids []string) {
-				assert.Equal(t, ids, services.restored)
+			check: func(t *testing.T, launcher *fakeLauncher, ids []string) {
+				assert.Equal(t, ids, launcher.restored)
 			},
 		},
 		{
@@ -511,8 +510,8 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 
 				return "", err
 			},
-			check: func(t *testing.T, services *fakeLauncher, _ []string) {
-				assert.Equal(t, 1, services.emptied)
+			check: func(t *testing.T, launcher *fakeLauncher, _ []string) {
+				assert.Equal(t, 1, launcher.emptied)
 			},
 		},
 		{
@@ -525,8 +524,8 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 
 				return "", err
 			},
-			check: func(t *testing.T, services *fakeLauncher, ids []string) {
-				assert.Equal(t, map[string]string{ids[0]: "renamed"}, services.renamed)
+			check: func(t *testing.T, launcher *fakeLauncher, ids []string) {
+				assert.Equal(t, map[string]string{ids[0]: "renamed"}, launcher.renamed)
 			},
 		},
 		{
@@ -539,8 +538,8 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 
 				return "", err
 			},
-			check: func(t *testing.T, services *fakeLauncher, ids []string) {
-				assert.Equal(t, map[string]bool{ids[0]: true}, services.hidden)
+			check: func(t *testing.T, launcher *fakeLauncher, ids []string) {
+				assert.Equal(t, map[string]bool{ids[0]: true}, launcher.hidden)
 			},
 		},
 		{
@@ -554,12 +553,12 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 
 				return "", err
 			},
-			check: func(t *testing.T, services *fakeLauncher, ids []string) {
+			check: func(t *testing.T, launcher *fakeLauncher, ids []string) {
 				assert.Equal(t, agents.SetMetadataParams{
 					AgentID: ids[0],
 					Key:     "linear_issue",
 					Value:   xptr.Ptr("https://linear.app/x/issue/ENG-1"),
-				}, services.metadata)
+				}, launcher.metadata)
 			},
 		},
 		{
@@ -569,8 +568,8 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 
 				return "", err
 			},
-			check: func(t *testing.T, services *fakeLauncher, ids []string) {
-				assert.Equal(t, ids[:1], services.runsRead)
+			check: func(t *testing.T, launcher *fakeLauncher, ids []string) {
+				assert.Equal(t, ids[:1], launcher.runsRead)
 			},
 		},
 		{
@@ -584,20 +583,20 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 
 				return "", err
 			},
-			check: func(t *testing.T, services *fakeLauncher, ids []string) {
+			check: func(t *testing.T, launcher *fakeLauncher, ids []string) {
 				assert.Equal(t, agents.RecordReportParams{
 					AgentID:   ids[0],
 					Reason:    "Bash",
 					TurnEnded: true,
-				}, services.reported)
+				}, launcher.reported)
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc, st, services := serviceWithLauncher(t)
-			services.err = tt.err
+			svc, st, launcher := serviceWithLauncher(t)
+			launcher.err = tt.err
 			ids := []string{
 				st.SeedAgent(t, agentstore.Agent{Name: "alpha"}).ID,
 				st.SeedAgent(t, agentstore.Agent{Name: "beta"}).ID,
@@ -607,13 +606,13 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 			require.NoError(t, err)
 
 			assert.Equal(t, tt.wantName, name)
-			tt.check(t, services, ids)
+			tt.check(t, launcher, ids)
 		})
 	}
 }
 
 // TestArchiveAgentsHoldsAnAgentToItsOwnChildren pins that an agent other than an orchestrator
-// archives only its own children, while the panel archives anything.
+// archives only its own children.
 func TestArchiveAgentsHoldsAnAgentToItsOwnChildren(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -651,7 +650,7 @@ func TestArchiveAgentsHoldsAnAgentToItsOwnChildren(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc, st, services := serviceWithLauncher(t)
+			svc, st, launcher := serviceWithLauncher(t)
 			parent := st.SeedAgent(t, agentstore.Agent{
 				Name: "parent",
 				Role: agentstore.RoleImplementer,
@@ -682,13 +681,13 @@ func TestArchiveAgentsHoldsAnAgentToItsOwnChildren(t *testing.T) {
 
 			if tt.wantCode != 0 {
 				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
-				assert.Empty(t, services.archived)
+				assert.Empty(t, launcher.archived)
 
 				return
 			}
 
 			require.NoError(t, err)
-			assert.Equal(t, ids, services.archived)
+			assert.Equal(t, ids, launcher.archived)
 		})
 	}
 }
@@ -766,8 +765,7 @@ func TestListAgents(t *testing.T) {
 	}
 }
 
-// TestGetAgent pins that one agent is read whole, with what is drawn beside it and its liveness
-// written even when false.
+// TestGetAgent pins that one agent is read whole, its liveness written even when false.
 func TestGetAgent(t *testing.T) {
 	svc, st := service(t)
 	prompt := strings.Repeat("a", render.SummaryHead+50)
@@ -1372,8 +1370,7 @@ func TestGetTranscript(t *testing.T) {
 	}
 }
 
-// fakeLauncher stands in for every agent service the handler calls, recording what each call
-// asked and refusing with err when a test sets it.
+// fakeLauncher stands in for every agent service the handler calls, recording each request.
 type fakeLauncher struct {
 	t            *testing.T
 	st           *storetest.Stores
@@ -1399,8 +1396,7 @@ type fakeLauncher struct {
 	emptied      int
 }
 
-// spawn is the agent the fake stands up, written to the store the way a real launch writes its
-// row.
+// spawn writes the agent the fake answers with to the store.
 func (f *fakeLauncher) spawn() *agentstore.Agent {
 	if f.spawnedAgent == nil {
 		f.spawnedAgent = f.st.SeedAgent(f.t, agentstore.Agent{
@@ -1413,8 +1409,7 @@ func (f *fakeLauncher) spawn() *agentstore.Agent {
 	return f.spawnedAgent
 }
 
-// answer is the spawned agent, or err in its place, except that a spent idempotency key comes
-// back beside the agent it launched.
+// answer returns the spawned agent, or err in its place unless err is a spent idempotency key.
 func (f *fakeLauncher) answer() (*agentstore.Agent, error) {
 	if f.err != nil && !errors.Is(f.err, agents.ErrAlreadyLaunched) {
 		return nil, f.err
@@ -1489,8 +1484,7 @@ func (f *fakeLauncher) ArchiveAgents(_ context.Context, ids []string) error {
 	return f.err
 }
 
-// RestoreAgents answers with an agent for every id, which the handler then reads back off the
-// store.
+// RestoreAgents answers with an agent for every id.
 func (f *fakeLauncher) RestoreAgents(_ context.Context, ids []string) ([]agentstore.Agent, error) {
 	f.restored = append(f.restored, ids...)
 	if f.err != nil {

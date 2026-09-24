@@ -53,8 +53,7 @@ func TestNewChildAgentTakesItsLaunchFromTheParent(t *testing.T) {
 	assert.Empty(t, deprovisionerFor(ctx, st.Workflows, *child), "and a provisioner turned off leaves nothing to run against it")
 }
 
-// TestNewChildAgentRefusals pins that a child asking for what its parent decides, or attached to
-// an agent that cannot hold one, is refused rather than quietly overridden.
+// TestNewChildAgentRefusals pins each child a launch refuses and records nothing for.
 func TestNewChildAgentRefusals(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -270,8 +269,8 @@ func withCwd(agent agentstore.Agent, dir string) agentstore.Agent {
 	return agent
 }
 
-// TestTheFamilyMovesTogether pins that a parent's archive, delete and restore carry its children,
-// while a child's own leave the parent alone.
+// TestTheFamilyMovesTogether pins that a parent's archive, delete and restore carry its children
+// and a child's own leave the parent.
 func TestTheFamilyMovesTogether(t *testing.T) {
 	tests := []struct {
 		name     string
