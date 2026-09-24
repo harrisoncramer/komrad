@@ -27,6 +27,19 @@ local_version() {
 	echo "v0.0.0-local.$(git rev-parse --short HEAD)$(dirty_suffix)"
 }
 
+# The docs directory a build publishes to: a release tag, tip, or dev for a local build.
+docs_version() {
+	if [ -n "${DOCS_VERSION:-}" ]; then
+		echo "$DOCS_VERSION"
+	elif [[ "${WEAVE_VERSION:-}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+		echo "$WEAVE_VERSION"
+	elif tag="$(git describe --exact-match --tags --match 'v*' HEAD 2>/dev/null)"; then
+		echo "$tag"
+	else
+		echo dev
+	fi
+}
+
 go_build_binary() {
 	local os="$1" arch="$2" version="$3" out="$4"
 	local commit

@@ -6,7 +6,8 @@ set -euo pipefail
 usage() {
 	echo "Usage: mise run docs:preview"
 	echo
-	echo "Serves docs/dist as it would be deployed. Run docs:build first."
+	echo "Serves docs/dist as it would be deployed. Run docs:build first, with the same"
+	echo "DOCS_VERSION, since the base path the site links under is fixed at build time."
 }
 
 for arg in "$@"; do
@@ -23,5 +24,11 @@ cd "$MISE_CONFIG_ROOT/docs"
 if [ ! -f node_modules/.package-lock.json ] || [ package-lock.json -nt node_modules/.package-lock.json ]; then
 	npm ci
 fi
+
+PUBLIC_DOCS_VERSION="$(docs_version)"
+PUBLIC_DOCS_COMMIT="$(build_commit)"
+export PUBLIC_DOCS_VERSION PUBLIC_DOCS_COMMIT
+
+gum log --level info "docs at $PUBLIC_DOCS_VERSION, commit ${PUBLIC_DOCS_COMMIT:-none, the tree is dirty}"
 
 npm run preview

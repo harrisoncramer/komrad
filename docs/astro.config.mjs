@@ -5,6 +5,9 @@ import tailwindcss from "@tailwindcss/vite";
 import { createReadStream, existsSync, statSync } from "node:fs";
 import { extname } from "node:path";
 
+const version = process.env.PUBLIC_DOCS_VERSION || "dev";
+const base = version === "dev" ? "/" : `/${version}/`;
+
 const pagefindDir = new URL("./dist/pagefind/", import.meta.url);
 
 const pagefindTypes = {
@@ -17,12 +20,12 @@ const pagefindTypes = {
 const pagefind = {
   name: "pagefind",
   resolveId(id) {
-    if (id === "/pagefind/pagefind.js") {
+    if (id.endsWith("/pagefind/pagefind.js")) {
       return { id, external: true };
     }
   },
   configureServer(server) {
-    server.middlewares.use("/pagefind", (req, res, next) => {
+    server.middlewares.use(`${base}pagefind`, (req, res, next) => {
       const requested = new URL("." + req.url.split("?")[0], pagefindDir);
       if (!requested.href.startsWith(pagefindDir.href)) return next();
       if (!existsSync(requested) || !statSync(requested).isFile()) return next();
@@ -34,6 +37,7 @@ const pagefind = {
 };
 
 export default defineConfig({
+  base,
   integrations: [mdx(), react()],
   vite: {
     plugins: [tailwindcss(), pagefind],

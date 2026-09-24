@@ -2,6 +2,7 @@
 import DocPage from "../../../layouts/DocPage.astro";
 import IndexList from "../../../components/reference/IndexList.astro";
 import { api, prose } from "../../../reference";
+import { link } from "../../../site";
 
 export function getStaticPaths() {
   return api.services.map((service) => ({
@@ -19,7 +20,7 @@ const { service } = Astro.props;
   <IndexList
     rows
     items={service.methods.map((method) => ({
-      href: `/api/${service.slug}/${method.slug}`,
+      href: link(`/api/${service.slug}/${method.slug}`),
       title: method.tool,
       summary: method.summary,
       id: method.slug,

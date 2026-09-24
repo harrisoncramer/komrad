@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+source "$MISE_CONFIG_ROOT/mise/tasks/_"
+set -euo pipefail
+#MISE description="Write the list of published docs versions the version picker reads."
+
+usage() {
+	echo "Usage: mise run docs:versions [path]"
+	echo
+	echo "Writes versions.json, which the site's version picker fetches from the root of"
+	echo "the docs host. Stable is every v*.*.* tag, newest first, and unstable is tip at"
+	echo "origin main. It lives outside every versioned build because an old build cannot"
+	echo "know about the releases cut after it. Written to stdout when no path is given."
+}
+
+for arg in "$@"; do
+	case "$arg" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	esac
+done
+
+cd "$MISE_CONFIG_ROOT"
+
+remote_tags="$(git ls-remote --tags --refs origin 'v*.*.*')"
+
+stable="$(echo "$remote_tags" | awk 'NF { sub("refs/tags/", "", $2); print $2, $1 }' | sort -rV | while read -r tag object; do
+	commit="$(git ls-remote origin "refs/tags/$tag^{}" | awk '{ print $1 }')"
+	jq -n --arg version "$tag" --arg commit "${commit:-$object}" '{version: $version, commit: $commit}'
+done | jq -s .)"
+
+tip="$(jq -n --arg commit "$(git ls-remote origin refs/heads/main | awk '{ print $1 }')" '[{version: "tip", commit: $commit}]')"
+
+versions="$(jq -n --argjson stable "$stable" --argjson unstable "$tip" '{stable: $stable, unstable: $unstable}')"
+
+if [ -n "${1:-}" ]; then
+	echo "$versions" >"$1"
+else
+	echo "$versions"
+fi

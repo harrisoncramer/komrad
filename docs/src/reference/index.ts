@@ -1,6 +1,7 @@
 import apiData from "../data/api.json";
 import cliData from "../data/cli.json";
 import configData from "../data/config.json";
+import { link } from "../site";
 import type { API, Command, Message, Section } from "./types";
 
 export const api = apiData as API;
@@ -9,7 +10,7 @@ export const config = configData as Section;
 
 export const commandBySlug = new Map(commands.map((command) => [command.slug, command]));
 
-export const commandHref = (slug: string) => (slug === "" ? "/cli" : `/cli/${slug}`);
+export const commandHref = (slug: string) => link(slug === "" ? "/cli" : `/cli/${slug}`);
 
 export function referencedTypes(roots: string[]) {
   const messages: [string, Message][] = [];

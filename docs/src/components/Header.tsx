@@ -3,6 +3,8 @@ import type { ReactNode } from "react";
 import NavigationDropdown from "./NavigationDropdown";
 import { REPO_URL, SECTIONS, SITE_TITLE } from "../consts";
 import { isCurrent } from "./nav";
+import { link } from "../site";
+import VersionPicker from "./VersionPicker";
 import type { NavLink } from "./nav";
 
 type HeaderProps = {
@@ -11,7 +13,7 @@ type HeaderProps = {
 };
 
 const NAV_LINKS: readonly NavLink[] = SECTIONS.map((section) => ({
-  href: `/${section.id}`,
+  href: link(`/${section.id}`),
   label: section.title,
 }));
 
@@ -53,11 +55,11 @@ const Header = ({ children, path }: HeaderProps) => {
     >
       <div className="grid grid-cols-[1fr_auto_auto] items-center gap-x-2 px-4 py-3 md:grid-cols-[1fr_auto_1fr] md:gap-x-8">
         <a
-          href="/"
+          href={link("/")}
           data-site-title
           className="col-start-1 row-start-1 flex items-center gap-2 justify-self-start text-base text-app-white transition-opacity duration-200"
         >
-          <img src="/favicon.png" alt="" className="h-7 w-7" />
+          <img src={link("/favicon.png")} alt="" className="h-7 w-7" />
           {SITE_TITLE}
         </a>
 
@@ -83,6 +85,7 @@ const Header = ({ children, path }: HeaderProps) => {
 
         <div className="col-start-2 row-start-1 flex items-center gap-1 justify-self-end md:col-start-3 md:gap-3">
           {children}
+          <VersionPicker />
           <a
             href={REPO_URL}
             target="_blank"

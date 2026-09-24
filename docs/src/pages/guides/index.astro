@@ -2,6 +2,7 @@
 import Layout from "../../layouts/Layout.astro";
 import IndexList from "../../components/reference/IndexList.astro";
 import { getGuides } from "../../guides";
+import { link } from "../../site";
 
 const guides = await getGuides();
 ---
@@ -12,7 +13,7 @@ const guides = await getGuides();
     guides.length > 0 && (
       <IndexList
         items={guides.map((guide) => ({
-          href: `/guides/${guide.id}`,
+          href: link(`/guides/${guide.id}`),
           title: guide.data.title,
           summary: guide.data.description,
         }))}

@@ -5,6 +5,7 @@ import FlagTable from "./FlagTable.astro";
 import Heading from "./Heading.astro";
 import IndexList from "./IndexList.astro";
 import { commandBySlug, commandHref, prose } from "../../reference";
+import { link } from "../../site";
 import type { Command } from "../../reference/types";
 
 type Props = {
@@ -35,7 +36,7 @@ const children = command.children.flatMap((slug) => commandBySlug.get(slug) ?? [
   {
     command.slug === "rpc" && (
       <p>
-        Each subcommand is one endpoint, documented with its request and response in the <a href="/api">API
+        Each subcommand is one endpoint, documented with its request and response in the <a href={link("/api")}>API
         reference</a>.
       </p>
     )

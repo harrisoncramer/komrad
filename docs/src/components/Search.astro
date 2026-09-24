@@ -199,7 +199,7 @@
 
   const DEBOUNCE_MS = 150;
   const MAX_RESULTS = 4;
-  const PAGEFIND_PATH = "/pagefind/pagefind.js";
+  const PAGEFIND_PATH = `${import.meta.env.BASE_URL.replace(/\/$/, "")}/pagefind/pagefind.js`;
 
   let pagefindPromise: Promise<Pagefind> | undefined;
 

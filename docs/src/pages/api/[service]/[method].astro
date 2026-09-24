@@ -6,6 +6,7 @@ import EnumTable from "../../../components/reference/EnumTable.astro";
 import MessageTable from "../../../components/reference/MessageTable.astro";
 import { anchor, api, kebab, prose, referencedTypes } from "../../../reference";
 import type { Field } from "../../../reference/types";
+import { link } from "../../../site";
 
 export function getStaticPaths() {
   return api.services.flatMap((service) =>
@@ -74,7 +75,7 @@ const traits = [
 
 <DocPage title={method.tool} description={method.summary}>
   <p class="traits">
-    <a href={`/api/${service.slug}`} class="trait trait-link">{service.title}</a>
+    <a href={link(`/api/${service.slug}`)} class="trait trait-link">{service.title}</a>
     {traits.map((trait) => <span class="trait">{trait}</span>)}
   </p>
 

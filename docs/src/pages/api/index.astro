@@ -4,6 +4,7 @@ import IndexList from "../../components/reference/IndexList.astro";
 import Heading from "../../components/reference/Heading.astro";
 import JumpBar from "../../components/reference/JumpBar.astro";
 import { api, prose } from "../../reference";
+import { link } from "../../site";
 ---
 
 <DocPage
@@ -15,13 +16,13 @@ import { api, prose } from "../../reference";
     api.services.map((service) => (
       <section class="service">
         <Heading id={service.slug}>
-          <a href={`/api/${service.slug}`}>{service.title}</a>
+          <a href={link(`/api/${service.slug}`)}>{service.title}</a>
         </Heading>
         <div class="service-description" set:html={prose(service.description)} />
         <IndexList
           rows
           items={service.methods.map((method) => ({
-            href: `/api/${service.slug}/${method.slug}`,
+            href: link(`/api/${service.slug}/${method.slug}`),
             title: method.tool,
             summary: method.summary,
             id: `${service.slug}-${method.slug}`,
