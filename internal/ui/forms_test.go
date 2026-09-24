@@ -1546,3 +1546,69 @@ func TestRefreshWarning(t *testing.T) {
 		})
 	}
 }
+
+func (m model) openAgentForm(workflow panel.Workflow, values *agentFormValues) model {
+	openAgentForm(&m, workflow, values)
+
+	return m
+}
+
+func (m model) openChildForm(parent panel.Agent, values *agentFormValues) (tea.Model, tea.Cmd) {
+	cmd := openChildForm(&m, parent, values)
+
+	return m, cmd
+}
+
+func (m model) openRename(agent panel.Agent) model {
+	openRename(&m, agent)
+
+	return m
+}
+
+func (m model) openRenameForm(agent panel.Agent, name *string) model {
+	openRenameForm(&m, agent, name)
+
+	return m
+}
+
+func (m model) openAdoptForm(workflow panel.Workflow, values *adoptFormValues) (tea.Model, tea.Cmd) {
+	cmd := openAdoptForm(&m, workflow, values)
+
+	return m, cmd
+}
+
+func (m model) archiveAgentsConfirm(agents []panel.Agent) (tea.Model, tea.Cmd) {
+	cmd := confirmArchiveAgents(&m, m.listing.liveAgents(), agents)
+
+	return m, cmd
+}
+
+func (m model) newWorkflowForm() (tea.Model, tea.Cmd) {
+	cmd := newWorkflowForm(&m)
+
+	return m, cmd
+}
+
+func (m model) editWorkflowForm(workflow panel.Workflow) (tea.Model, tea.Cmd) {
+	cmd := editWorkflowForm(&m, m.shared(), workflow)
+
+	return m, cmd
+}
+
+func (m model) openWorkflowRename(workflow panel.Workflow, values *workflowFormValues) model {
+	openWorkflowRename(&m, workflow, values)
+
+	return m
+}
+
+func (m model) openWorkflowConfigForm(values *workflowFormValues, target *panel.Workflow) model {
+	openWorkflowConfigForm(&m, values, target)
+
+	return m
+}
+
+func (m model) archiveWorkflowConfirm(workflow panel.Workflow) model {
+	archiveWorkflowConfirm(&m, workflow)
+
+	return m
+}

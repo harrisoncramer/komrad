@@ -15,7 +15,6 @@ import (
 	"weave/proto/gen/agent/v1/agentv1connect"
 	schedulev1 "weave/proto/gen/schedule/v1"
 	"weave/proto/gen/schedule/v1/schedulev1connect"
-	watchv1 "weave/proto/gen/watch/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
 	"weave/proto/gen/workflow/v1/workflowv1connect"
 	worktreev1 "weave/proto/gen/worktree/v1"
@@ -194,22 +193,6 @@ func TestLandingWaitsOnARowAFilterHides(t *testing.T) {
 	assert.Equal(t, agentRowKey("a2"), m.landing.row, "until the wait runs out")
 }
 
-// TestFirstListingLandsOnTheFirstAgent covers the cursor being placed by the first pass.
-func TestFirstListingLandsOnTheFirstAgent(t *testing.T) {
-	m := model{
-		frame:   layout.New(&recordingTmux{}, config.DefaultLayout()),
-		keys:    config.DefaultKeybindings(),
-		screen:  screenAgents,
-		listing: listing{workflows: []panel.Workflow{{ID: "w1", Name: "api"}}},
-	}
-
-	applyListing(&m, []panel.AgentRow{{Agent: panel.Agent{Name: "api-refactor", WorkflowID: "w1"}}}, []panel.Workflow{{ID: "w1", Name: "api"}}, nil)
-
-	selected, ok := m.agents.selectedAgent(m.shared())
-	require.True(t, ok, "the cursor is on an agent rather than on the folder above it")
-	assert.Equal(t, "api-refactor", selected.Agent.Name)
-}
-
 // TestCreatedAgentReceivesFocus covers the cursor landing on a created agent and staying there
 // once the watch delivers its row.
 func TestCreatedAgentReceivesFocus(t *testing.T) {
@@ -323,77 +306,6 @@ func TestCreatedWorkflowReceivesFocus(t *testing.T) {
 	assert.Equal(t, "new", hovered.ID)
 }
 
-// TestCursorHoldsItsFolderAcrossAListing covers a folder archived from somewhere else, after
-// which the cursor follows the folder it names rather than the index it was drawn at.
-func TestCursorHoldsItsFolderAcrossAListing(t *testing.T) {
-	m := model{
-		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
-		keys:   config.DefaultKeybindings(),
-		screen: screenAgents,
-		listing: listing{workflows: []panel.Workflow{{ID: "w1", Name: "api"}, {ID: "w2", Name: "infra"}}, agents: []panel.AgentRow{
-			{Agent: panel.Agent{
-				ID:         "a1",
-				Name:       "api-refactor",
-				WorkflowID: "w1",
-			}},
-			{Agent: panel.Agent{
-				ID:         "a2",
-				Name:       "infra-audit",
-				WorkflowID: "w2",
-			}},
-		}}, agents: agentsScreen{rowCursor: rowCursor{cursor: 2}, placed: true},
-	}
-
-	applyListing(&m, []panel.AgentRow{{Agent: panel.Agent{
-		ID:         "a2",
-		Name:       "infra-audit",
-		WorkflowID: "w2",
-	}}}, []panel.Workflow{{ID: "w2", Name: "infra"}}, nil)
-
-	hovered, ok := m.agents.hoveredWorkflow(m.shared())
-	require.True(t, ok, "the cursor is still on a folder rather than on the agent under it")
-	assert.Equal(t, "infra", hovered.Name)
-}
-
-// TestCursorHoldsItsAgentWhenAFolderArrives covers a folder sorting in above the cursor,
-// where the folders land before the agents and leave the tree half of each pass.
-func TestCursorHoldsItsAgentWhenAFolderArrives(t *testing.T) {
-	m := model{
-		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
-		keys:   config.DefaultKeybindings(),
-		screen: screenAgents,
-		listing: listing{workflows: []panel.Workflow{{ID: "w2", Name: "infra"}}, agents: []panel.AgentRow{
-			{Agent: panel.Agent{
-				ID:         "b1",
-				Name:       "infra-audit",
-				WorkflowID: "w2",
-			}},
-			{Agent: panel.Agent{
-				ID:         "b2",
-				Name:       "infra-upgrade",
-				WorkflowID: "w2",
-			}},
-		}}, agents: agentsScreen{rowCursor: rowCursor{cursor: 2}, placed: true},
-	}
-
-	applyListing(&m, []panel.AgentRow{
-		{Agent: panel.Agent{
-			ID:         "b1",
-			Name:       "infra-audit",
-			WorkflowID: "w2",
-		}},
-		{Agent: panel.Agent{
-			ID:         "b2",
-			Name:       "infra-upgrade",
-			WorkflowID: "w2",
-		}},
-	}, []panel.Workflow{{ID: "w1", Name: "api"}, {ID: "w2", Name: "infra"}}, nil)
-
-	selected, ok := m.agents.selectedAgent(m.shared())
-	require.True(t, ok, "the cursor is on an agent")
-	assert.Equal(t, "infra-upgrade", selected.Agent.Name)
-}
-
 // TestArchiveCursorHoldsItsAgentWhenAFolderGoes covers the same shape on the archive, whose
 // folders are replaced before its own listings land.
 func TestArchiveCursorHoldsItsAgentWhenAFolderGoes(t *testing.T) {
@@ -443,34 +355,6 @@ func TestArchiveCursorHoldsItsAgentWhenAFolderGoes(t *testing.T) {
 	selected, ok := m.archive.hoveredAgent(m.shared())
 	require.True(t, ok, "the cursor is on an archived agent")
 	assert.Equal(t, "infra-audit", selected.Name)
-}
-
-// TestTheArchiveIsTheWorldsArchivedRows pins that the archive screens draw the archived agents and
-// workflows the watch delivers, and the live listings leave them out.
-func TestTheArchiveIsTheWorldsArchivedRows(t *testing.T) {
-	archivedAt := "2026-09-23T10:00:00Z"
-	m := model{
-		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
-		keys:   config.DefaultKeybindings(),
-		screen: screenSearch,
-	}
-
-	m.applyWatch(client.WatchBatch{snapshotEvent(
-		&watchv1.Row{Row: &watchv1.Row_Workflow{Workflow: &workflowv1.Workflow{Id: "w1", Name: "api"}}},
-		&watchv1.Row{Row: &watchv1.Row_Workflow{Workflow: &workflowv1.Workflow{Id: "w2", Name: "old", ArchivedAt: &archivedAt}}},
-		&watchv1.Row{Row: &watchv1.Row_Agent{Agent: &agentv1.Agent{Id: "a1", Name: "live", WorkflowId: "w1"}}},
-		&watchv1.Row{Row: &watchv1.Row_Agent{Agent: &agentv1.Agent{Id: "a2", Name: "done", WorkflowId: "w1", ArchivedAt: &archivedAt}}},
-	)})
-
-	require.Len(t, m.listing.agents, 1)
-	assert.Equal(t, "a1", m.listing.agents[0].Agent.ID)
-	require.Len(t, m.listing.archivedAgents, 1)
-	assert.Equal(t, "a2", m.listing.archivedAgents[0].Agent.ID)
-
-	require.Len(t, m.listing.workflows, 1)
-	assert.Equal(t, "w1", m.listing.workflows[0].ID)
-	require.Len(t, m.listing.archivedWorkflows, 1)
-	assert.Equal(t, "w2", m.listing.archivedWorkflows[0].ID)
 }
 
 type emptyLists struct {

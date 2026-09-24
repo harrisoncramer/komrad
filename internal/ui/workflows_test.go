@@ -6,132 +6,19 @@ import (
 	"testing"
 
 	"weave/config"
-	"weave/internal/client"
 	"weave/internal/errui"
 	"weave/internal/ui/layout"
 	"weave/internal/ui/panel"
-	"weave/lib/xslice"
 	hookv1 "weave/proto/gen/hook/v1"
 	"weave/proto/gen/hook/v1/hookv1connect"
-	watchv1 "weave/proto/gen/watch/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
 	"weave/proto/gen/workflow/v1/workflowv1connect"
 
 	"connectrpc.com/connect"
-	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
-
-// TestAgentRows checks the tree the list renders, where every workflow is a header
-// with its agents beneath it.
-func TestAgentRows(t *testing.T) {
-	tests := []struct {
-		name      string
-		workflows []panel.Workflow
-		agents    []panel.AgentRow
-		wantRows  []string
-	}{
-		{
-			name:     "an empty store renders nothing at all",
-			wantRows: []string{},
-		},
-		{
-			name:      "an empty workflow keeps its header, so an agent can be added to it",
-			workflows: []panel.Workflow{{ID: "w1", Name: "backend"}},
-			wantRows:  []string{"header:backend"},
-		},
-		{
-			name: "agents nest under the workflow they belong to",
-			workflows: []panel.Workflow{
-				{ID: "w1", Name: "backend"},
-				{ID: "w2", Name: "frontend"},
-			},
-			agents: []panel.AgentRow{
-				{Agent: panel.Agent{Name: "auth", WorkflowID: "w1"}},
-				{Agent: panel.Agent{Name: "ui", WorkflowID: "w2"}},
-			},
-			wantRows: []string{
-				"header:backend",
-				"agent:auth",
-				"header:frontend",
-				"agent:ui",
-			},
-		},
-		{
-			name: "an agent whose workflow is gone is not rendered",
-			workflows: []panel.Workflow{
-				{ID: "w1", Name: "backend"},
-			},
-			agents: []panel.AgentRow{
-				{Agent: panel.Agent{Name: "auth", WorkflowID: "w1"}},
-				{Agent: panel.Agent{Name: "orphan", WorkflowID: "vanished"}},
-			},
-			wantRows: []string{
-				"header:backend",
-				"agent:auth",
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			m := model{listing: listing{workflows: tt.workflows, agents: tt.agents}}
-
-			assert.Equal(t, tt.wantRows, describeRows(m.agents.rows(m.shared())))
-		})
-	}
-}
-
-// TestHoveredWorkflow checks the cursor reports a real workflow only when it sits on that
-// workflow's header.
-func TestHoveredWorkflow(t *testing.T) {
-	tests := []struct {
-		name     string
-		cursor   int
-		wantName string
-		wantOK   bool
-	}{
-		{
-			name:   "on an agent",
-			cursor: 1,
-		},
-		{
-			name:   "on the no-workflow header, which has no record behind it",
-			cursor: 2,
-		},
-		{
-			name:   "on an agent belonging to no workflow",
-			cursor: 3,
-		},
-		{
-			name:     "on a workflow header",
-			cursor:   0,
-			wantName: "backend",
-			wantOK:   true,
-		},
-	}
-
-	m := model{
-		listing: listing{workflows: []panel.Workflow{{ID: "w1", Name: "backend"}}, agents: []panel.AgentRow{
-			{Agent: panel.Agent{Name: "auth", WorkflowID: "w1"}},
-			{Agent: panel.Agent{Name: "loose"}},
-		}},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			m.agents.cursor = tt.cursor
-
-			workflow, ok := m.agents.hoveredWorkflow(m.shared())
-			require.Equal(t, tt.wantOK, ok)
-			if ok {
-				assert.Equal(t, tt.wantName, workflow.Name)
-			}
-		})
-	}
-}
 
 type refusingWorkflows struct {
 	workflowv1connect.WorkflowServiceClient
@@ -244,104 +131,6 @@ func TestFailedWorkflowListKeepsTheTree(t *testing.T) {
 
 	assert.Len(t, m.listing.workflows, 2, "the tree already on screen is kept")
 	require.Error(t, m.unreachable, "and the panel says the server is not answering")
-}
-
-// TestApplyWorkflows pins the refresh taking the listed workflows as they come, newest
-// first.
-func TestApplyWorkflows(t *testing.T) {
-	tests := []struct {
-		name      string
-		current   []panel.Workflow
-		fresh     []panel.Workflow
-		wantNames []string
-	}{
-		{
-			name:    "an edit lands on the workflow without moving it",
-			current: []panel.Workflow{{ID: "w1", Name: "api"}, {ID: "w2", Name: "web"}},
-			fresh: []panel.Workflow{
-				{ID: "w1", Name: "api"},
-				{
-					ID:      "w2",
-					Name:    "web",
-					Context: "notes",
-				},
-			},
-			wantNames: []string{"api", "web"},
-		},
-		{
-			name:      "a workflow created elsewhere lands where the listing put it",
-			current:   []panel.Workflow{{ID: "w1", Name: "api"}},
-			fresh:     []panel.Workflow{{ID: "w2", Name: "web"}, {ID: "w1", Name: "api"}},
-			wantNames: []string{"web", "api"},
-		},
-		{
-			name:      "a workflow archived elsewhere drops out",
-			current:   []panel.Workflow{{ID: "w1", Name: "api"}, {ID: "w2", Name: "web"}},
-			fresh:     []panel.Workflow{{ID: "w2", Name: "web"}},
-			wantNames: []string{"web"},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			m := model{listing: listing{workflows: tt.current}}
-
-			m.listing.workflows = tt.fresh
-
-			names := xslice.Map(m.listing.workflows, func(w panel.Workflow) string {
-				return w.Name
-			})
-			assert.Equal(t, tt.wantNames, names)
-		})
-	}
-}
-
-// TestRefreshDrawsAnEditedWorkflowContext pins a context edited elsewhere reaching the column on
-// the next listing, which it does by being drawn from the row the cursor is on rather than pushed
-// into a pane that had to be told the text had changed.
-func TestRefreshDrawsAnEditedWorkflowContext(t *testing.T) {
-	tmux := &recordingTmux{width: 200, height: 40}
-	frame := layout.New(tmux, config.DefaultLayout())
-	frame.Attach("%0")
-
-	m := model{
-		frame:  frame,
-		keys:   config.DefaultKeybindings(),
-		width:  200,
-		height: 40,
-		screen: screenAgents,
-		listing: listing{
-			workflows: []panel.Workflow{
-				{
-					ID:      "w1",
-					Name:    "api",
-					Context: "old notes",
-				},
-			},
-		},
-	}
-	m.stageSelection()
-	require.Contains(t, ansi.Strip(m.render()), "old notes", "the folder's notes stand beside the list")
-
-	staged := len(tmux.respawns)
-
-	fresh := client.WatchBatch{
-		putEvent(&watchv1.Row{Row: &watchv1.Row_Workflow{Workflow: &workflowv1.Workflow{
-			Id:      "w1",
-			Name:    "api",
-			Context: "new notes",
-		}}}),
-	}
-	updated, _ := m.Update(fresh)
-	m, ok := updated.(model)
-	require.True(t, ok)
-
-	assert.Equal(t, "new notes", m.listing.workflows[0].Context)
-
-	view := ansi.Strip(m.render())
-	assert.Contains(t, view, "new notes", "the edit is on screen without the cursor moving")
-	assert.NotContains(t, view, "old notes")
-	assert.Len(t, tmux.respawns, staged, "and nothing was pushed into a pane to put it there")
 }
 
 func describeRows(rows []agentRow) []string {

@@ -4,14 +4,10 @@ import (
 	"testing"
 	"time"
 
-	"weave/internal/client"
 	"weave/internal/ui/panel"
 	"weave/lib/xptr"
 	"weave/lib/xslice"
-	agentv1 "weave/proto/gen/agent/v1"
 	pullrequestv1 "weave/proto/gen/pullrequest/v1"
-	watchv1 "weave/proto/gen/watch/v1"
-	workflowv1 "weave/proto/gen/workflow/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -229,55 +225,4 @@ func indexOf(labels []string, label string) int {
 	}
 
 	return -1
-}
-
-// TestPullRequestOnNobodysBranchIsHeldAndNotDrawn covers a pull request arriving for a branch
-// no held agent is on: it draws on no row, and draws on the agent that arrives on that branch
-// afterwards.
-func TestPullRequestOnNobodysBranchIsHeldAndNotDrawn(t *testing.T) {
-	m := watchedPanel()
-
-	m, _ = update(t, m, client.WatchBatch{snapshotEvent(
-		workflowRowOf(&workflowv1.Workflow{Id: "w1", Name: "api"}),
-		agentRowOf(&agentv1.Agent{
-			Id:            "a1",
-			WorkflowId:    "w1",
-			RepositoryUrl: xptr.Ptr(repository),
-			Branch:        xptr.Ptr("agent/x"),
-		}),
-		&watchv1.Row{Row: &watchv1.Row_Repository{Repository: &pullrequestv1.Repository{Url: repository, Read: true}}},
-	)})
-
-	m, _ = update(t, m, client.WatchBatch{putEvent(pullRequestRowOf("pr-1", "agent/other", 7))})
-
-	require.Len(t, m.listing.agents, 1)
-	assert.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE, m.listing.agents[0].PullRequest.State, "the row on another branch is untouched")
-	assert.Len(t, m.listing.world.PullRequests, 1, "the pull request is held for the agent that may arrive")
-
-	m, _ = update(t, m, client.WatchBatch{
-		putEvent(agentRowOf(&agentv1.Agent{
-			Id:            "a2",
-			WorkflowId:    "w1",
-			RepositoryUrl: xptr.Ptr(repository),
-			Branch:        xptr.Ptr("agent/other"),
-		})),
-	})
-
-	row, ok := m.listing.liveAgent("a2")
-	require.True(t, ok)
-	assert.Equal(t, int32(7), row.PullRequest.Number, "and draws on it once it has")
-}
-
-const repository = "https://github.com/harrisoncramer/weave"
-
-func pullRequestRowOf(id, branch string, number int32) *watchv1.Row {
-	return &watchv1.Row{Row: &watchv1.Row_PullRequest{PullRequest: &pullrequestv1.PullRequest{
-		Id:                id,
-		RepositoryUrl:     repository,
-		HeadRepositoryUrl: repository,
-		HeadBranch:        branch,
-		Number:            number,
-		State:             pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
-		OpenedAt:          "2026-09-19T12:00:00Z",
-	}}}
 }

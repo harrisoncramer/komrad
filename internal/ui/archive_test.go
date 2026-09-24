@@ -6,7 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	"weave/config"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	pullrequestv1 "weave/proto/gen/pullrequest/v1"
@@ -340,6 +339,20 @@ func TestArchiveRows(t *testing.T) {
 			wantRows: []string{"backend", "  auth"},
 		},
 		{
+			name: "an orchestrator is a row of its own rather than folded onto its folder",
+			rows: []proto.Message{
+				newLiveWorkflow("w1", "backend"),
+				&agentv1.Agent{
+					Id:         "o1",
+					Name:       "orchestrator",
+					WorkflowId: "w1",
+					Role:       agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR,
+					ArchivedAt: proto.String(archivedAt),
+				},
+			},
+			wantRows: []string{"backend", "  orchestrator"},
+		},
+		{
 			name: "live and archived folders are drawn together by name",
 			rows: []proto.Message{
 				newLiveWorkflow("w2", "frontend"),
@@ -526,9 +539,9 @@ func TestArchiveDocument(t *testing.T) {
 func TestArchiveSort(t *testing.T) {
 	unsorted := []proto.Message{
 		newLiveWorkflow("w1", "backend"),
-		newArchivedAgentAt("zeta", "w1", "2026-07-30T12:00:00Z"),
-		newArchivedAgentAt("mid", "w1", "2026-07-30T13:00:00Z"),
-		newArchivedAgentAt("alpha", "w1", "2026-07-30T09:00:00Z"),
+		newArchivedAgentAt("zeta", "2026-07-30T12:00:00Z"),
+		newArchivedAgentAt("mid", "2026-07-30T13:00:00Z"),
+		newArchivedAgentAt("alpha", "2026-07-30T09:00:00Z"),
 	}
 
 	tests := []struct {
@@ -566,6 +579,19 @@ func TestArchiveSort(t *testing.T) {
 			assert.Equal(t, tt.want, readListRows(harness.readFrame()))
 		})
 	}
+
+	t.Run("the top and bottom keys walk the archive's own rows", func(t *testing.T) {
+		harness := openArchive(t, unsorted...)
+
+		harness.press("G")
+		assert.Equal(t, "  alpha", readHoveredRow(harness.readFrame()))
+
+		harness.press("g")
+		assert.Equal(t, "  alpha", readHoveredRow(harness.readFrame()), "the first press waits for the second")
+
+		harness.press("g")
+		assert.Equal(t, "backend", readHoveredRow(harness.readFrame()))
+	})
 
 	t.Run("the cursor keeps its row as the archive is reordered", func(t *testing.T) {
 		harness := openArchive(t, unsorted...)
@@ -661,6 +687,120 @@ func TestArchiveWindow(t *testing.T) {
 	})
 }
 
+// TestArchiveSelection covers choosing several archived agents and acting on them at once.
+func TestArchiveSelection(t *testing.T) {
+	rows := []proto.Message{
+		newLiveWorkflow("w1", "backend"),
+		newArchivedAgentAt("auth", "2026-07-30T12:00:00Z"),
+		newArchivedAgentAt("api", "2026-07-30T11:00:00Z"),
+		newArchivedAgentAt("db", "2026-07-30T10:00:00Z"),
+	}
+
+	tests := []struct {
+		name     string
+		press    []string
+		wantSent []request
+	}{
+		{
+			name:  "a header takes its whole folder",
+			press: []string{"v", "r"},
+			wantSent: []request{{
+				procedure: agentv1connect.AgentServiceRestoreAgentsProcedure,
+				msg:       &agentv1.RestoreAgentsRequest{Ids: []string{"auth", "api", "db"}},
+			}},
+		},
+		{
+			name:  "the range key reaches back to the nearest selection",
+			press: []string{"j", "v", "j", "j", "V", "r"},
+			wantSent: []request{{
+				procedure: agentv1connect.AgentServiceRestoreAgentsProcedure,
+				msg:       &agentv1.RestoreAgentsRequest{Ids: []string{"auth", "api", "db"}},
+			}},
+		},
+		{
+			name:  "restore takes the whole selection rather than the hovered row",
+			press: []string{"j", "v", "j", "v", "j", "r"},
+			wantSent: []request{{
+				procedure: agentv1connect.AgentServiceRestoreAgentsProcedure,
+				msg:       &agentv1.RestoreAgentsRequest{Ids: []string{"auth", "api"}},
+			}},
+		},
+		{
+			name:  "delete opens its prompt over the archive on the whole selection",
+			press: []string{"j", "v", "j", "v", "j", "d", "y"},
+			wantSent: []request{{
+				procedure: agentv1connect.AgentServiceDeleteAgentsProcedure,
+				msg:       &agentv1.DeleteAgentsRequest{Ids: []string{"auth", "api"}},
+			}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			harness := openArchive(t, rows...)
+
+			harness.press(tt.press...)
+
+			assert.Contains(t, splitLines(harness.readFrame())[0], archiveTitle)
+			harness.assertSent(tt.wantSent...)
+		})
+	}
+
+	t.Run("a folder restore stands down while a selection is up", func(t *testing.T) {
+		harness := openArchive(t, newArchivedWorkflow("w1", "backend"), newArchivedAgent("a1", "auth", "w1"))
+
+		harness.press("j", "v", "g", "g", "r")
+
+		harness.assertSent(request{
+			procedure: agentv1connect.AgentServiceRestoreAgentsProcedure,
+			msg:       &agentv1.RestoreAgentsRequest{Ids: []string{"a1"}},
+		})
+	})
+
+	t.Run("the selection outlives a refused restore", func(t *testing.T) {
+		harness := openArchive(t, rows...)
+		harness.refuse(agentv1connect.AgentServiceRestoreAgentsProcedure, connect.NewError(connect.CodeUnavailable, errors.New("down")))
+
+		harness.press("j", "v", "r")
+
+		assert.Contains(t, readLegend(harness.readFrame()), "1 selected")
+	})
+
+	t.Run("escape clears the selection before it leaves the archive", func(t *testing.T) {
+		harness := openArchive(t, rows...)
+		harness.press("j", "v")
+
+		harness.press("esc")
+
+		frame := harness.readFrame()
+		assert.Contains(t, splitLines(frame)[0], archiveTitle)
+		assert.NotContains(t, readLegend(frame), "selected")
+
+		harness.press("esc")
+		assert.Contains(t, splitLines(harness.readFrame())[0], agentsTitle)
+	})
+
+	t.Run("an agent gone from the archive drops out of the selection", func(t *testing.T) {
+		harness := openArchive(t, rows...)
+		harness.press("j", "v", "G", "v")
+
+		harness.watch(buildSnapshot(rows[0], rows[3]))
+		harness.press("r")
+
+		harness.assertSent(request{
+			procedure: agentv1connect.AgentServiceRestoreAgentsProcedure,
+			msg:       &agentv1.RestoreAgentsRequest{Ids: []string{"db"}},
+		})
+	})
+
+	t.Run("selecting in the archive leaves the agents tree alone", func(t *testing.T) {
+		harness := openArchive(t, append(slices.Clone(rows), newAgent("a9", "live", "w1"))...)
+		harness.press("j", "v", "esc", "esc")
+
+		assert.NotContains(t, readLegend(harness.readFrame()), "selected")
+	})
+}
+
 func openArchive(t *testing.T, rows ...proto.Message) *panelHarness {
 	t.Helper()
 
@@ -703,60 +843,9 @@ func newArchivedAgent(id, name, workflowID string) *agentv1.Agent {
 	}
 }
 
-func newArchivedAgentAt(name, workflowID, at string) *agentv1.Agent {
-	agent := newArchivedAgent(name, name, workflowID)
+func newArchivedAgentAt(name, at string) *agentv1.Agent {
+	agent := newArchivedAgent(name, name, "w1")
 	agent.ArchivedAt = proto.String(at)
 
 	return agent
-}
-
-func splitLines(frame string) []string {
-	return strings.Split(frame, "\n")
-}
-
-func readListRows(frame string) []string {
-	var rows []string
-	for _, line := range splitLines(frame) {
-		_, row, isRow := strings.Cut(ansi.Truncate(line, config.DefaultSidebarWidth, ""), "│ ")
-		if isRow {
-			rows = append(rows, strings.TrimRight(row, " "))
-		}
-	}
-
-	return rows
-}
-
-func readHoveredRow(frame string) string {
-	for _, line := range splitLines(frame) {
-		if !strings.HasPrefix(line, "›") {
-			continue
-		}
-
-		_, row, _ := strings.Cut(ansi.Truncate(line, config.DefaultSidebarWidth, ""), "│ ")
-
-		return strings.TrimRight(row, " ")
-	}
-
-	return ""
-}
-
-func findRecordLine(frame, label string) int {
-	for i, line := range splitLines(frame) {
-		if strings.HasPrefix(strings.TrimLeft(line, "› "), label+" ") {
-			return i
-		}
-	}
-
-	return -1
-}
-
-func readLegend(frame string) string {
-	rows := splitLines(frame)
-	for i := len(rows) - 1; i >= 0; i-- {
-		if strings.HasPrefix(rows[i], "─") {
-			return strings.Join(rows[i+1:], "\n")
-		}
-	}
-
-	return ""
 }
