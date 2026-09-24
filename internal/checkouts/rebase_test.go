@@ -11,6 +11,7 @@ import (
 	"weave/internal/agents"
 	"weave/internal/caller"
 	"weave/internal/git"
+	"weave/internal/gittest"
 	"weave/internal/harness"
 	"weave/internal/harnesstest"
 	"weave/internal/store"
@@ -111,7 +112,7 @@ func TestRebaseRefusals(t *testing.T) {
 			service := NewRebaseService(NewRebaseServiceParams{
 				Agents:    fakeRebaseAgents{agent: agent},
 				Workflows: fakeRebaseWorkflows{flow: flow},
-				Rebaser:   &fakeRebaser{},
+				Rebaser:   &gittest.Rebaser{},
 			})
 
 			_, err := service.Rebase(t.Context(), "a1")
@@ -135,7 +136,7 @@ func TestRebaseRefusesAnArchivedAgent(t *testing.T) {
 			ArchivedAt: &at,
 		}},
 		Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
-		Rebaser:   &fakeRebaser{},
+		Rebaser:   &gittest.Rebaser{},
 	})
 
 	_, err := service.Rebase(t.Context(), "a1")
@@ -162,7 +163,7 @@ func TestRebaseTakesTheTreeLock(t *testing.T) {
 		}},
 		Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
 		Locks:     locks,
-		Rebaser:   &fakeRebaser{},
+		Rebaser:   &gittest.Rebaser{},
 	})
 
 	_, err := service.Rebase(t.Context(), "a1")
@@ -272,9 +273,9 @@ func TestRebaseRecordsAStoppedRebase(t *testing.T) {
 				State:      agentstore.StateIdle,
 			}}
 
-			rebaser := &fakeRebaser{state: git.TreeState{Branch: "agent/a1"}}
+			rebaser := &gittest.Rebaser{State: git.TreeState{Branch: "agent/a1"}}
 			if tt.conflict {
-				rebaser.replayErr = git.ErrRebaseConflicted
+				rebaser.ReplayErr = git.ErrRebaseConflicted
 			}
 
 			service := NewRebaseService(NewRebaseServiceParams{
@@ -290,59 +291,6 @@ func TestRebaseRecordsAStoppedRebase(t *testing.T) {
 			assert.Equal(t, tt.wantStopped, agents.setStopped)
 		})
 	}
-}
-
-// fakeRebaser answers as a checkout with no repository behind it.
-type fakeRebaser struct {
-	state      git.TreeState
-	prediction git.Prediction
-	commits    int
-	parked     []string
-	cutoff     string
-	// replayErr is what a replay answers with, which is how a conflict is asked for.
-	replayErr error
-	// calls is what was asked of git, in the order it was asked.
-	calls []string
-}
-
-func (f *fakeRebaser) ReadTreeState(context.Context, string) (git.TreeState, error) {
-	return f.state, nil
-}
-
-func (f *fakeRebaser) FetchBase(_ context.Context, _, _ string) (ref, sha string, err error) {
-	return "origin/main", "basesha", nil
-}
-
-func (f *fakeRebaser) CountCommitsToReplay(context.Context, string, string) (int, error) {
-	return f.commits, nil
-}
-
-func (f *fakeRebaser) PredictRebase(context.Context, string, string) (git.Prediction, error) {
-	return f.prediction, nil
-}
-
-func (f *fakeRebaser) Park(_ context.Context, _, ref string) (string, error) {
-	f.parked = append(f.parked, ref)
-	f.calls = append(f.calls, "park")
-
-	return "parkedsha", nil
-}
-
-func (f *fakeRebaser) ReleaseRefsUnder(context.Context, string, string, string) error {
-	return nil
-}
-
-func (f *fakeRebaser) Rebase(context.Context, string, string) error {
-	f.calls = append(f.calls, "rebase")
-
-	return f.replayErr
-}
-
-func (f *fakeRebaser) RebaseOnto(_ context.Context, _, _, cutoff string) error {
-	f.cutoff = cutoff
-	f.calls = append(f.calls, "rebaseOnto")
-
-	return f.replayErr
 }
 
 // recordingRebaseAgents notes whether the pull request key was cleared, which is the write the
@@ -368,9 +316,9 @@ func (r *recordingRebaseAgents) SetSequenceInProgressByID(_ context.Context, _ s
 func TestRebaseReplaysWhenTheTreesDiffer(t *testing.T) {
 	t.Parallel()
 
-	rebaser := &fakeRebaser{
-		state:      git.TreeState{Branch: "agent/a1"},
-		prediction: git.Prediction{Replay: 1},
+	rebaser := &gittest.Rebaser{
+		State:      git.TreeState{Branch: "agent/a1"},
+		Prediction: git.Prediction{Replay: 1},
 	}
 
 	service := NewRebaseService(NewRebaseServiceParams{
@@ -390,7 +338,7 @@ func TestRebaseReplaysWhenTheTreesDiffer(t *testing.T) {
 
 	assert.False(t, result.Moved, "work was replayed, so the branch was not merely moved")
 	assert.Empty(t, result.Cutoff)
-	assert.Equal(t, []string{"park", "rebase"}, rebaser.calls, "no cutoff, so the whole branch replays")
+	assert.Equal(t, []string{"park", "rebase"}, rebaser.Calls, "no cutoff, so the whole branch replays")
 }
 
 // TestRebaseRefusesAPathTheIndexIsHolding covers a path whose working copy git is deliberately
@@ -407,7 +355,7 @@ func TestRebaseRefusesAPathTheIndexIsHolding(t *testing.T) {
 			State:      agentstore.StateIdle,
 		}},
 		Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
-		Rebaser: &fakeRebaser{state: git.TreeState{
+		Rebaser: &gittest.Rebaser{State: git.TreeState{
 			Branch:      "agent/a1",
 			HiddenPaths: []string{"own.txt"},
 		}},
@@ -421,7 +369,7 @@ func TestRebaseRefusesAPathTheIndexIsHolding(t *testing.T) {
 func TestRebaseParksBeforeItAsksGitToMove(t *testing.T) {
 	t.Parallel()
 
-	rebaser := &fakeRebaser{state: git.TreeState{Branch: "agent/a1"}}
+	rebaser := &gittest.Rebaser{State: git.TreeState{Branch: "agent/a1"}}
 
 	service := NewRebaseService(NewRebaseServiceParams{
 		Agents: &recordingRebaseAgents{agent: agentstore.Agent{
@@ -438,8 +386,8 @@ func TestRebaseParksBeforeItAsksGitToMove(t *testing.T) {
 	_, err := service.Rebase(t.Context(), "a1")
 	require.NoError(t, err)
 
-	require.Len(t, rebaser.parked, 1)
-	assert.Equal(t, []string{"park", "rebase"}, rebaser.calls)
+	require.Len(t, rebaser.Parked, 1)
+	assert.Equal(t, []string{"park", "rebase"}, rebaser.Calls)
 }
 
 // TestRebaseSettlesTheAgentBeforeItMoves is the safety argument for the row being a pane reading
@@ -508,8 +456,8 @@ func TestRebaseSettlesTheAgentBeforeItMoves(t *testing.T) {
 			channel := &harnesstest.Channel{}
 			observer := &settlingObserver{readings: tt.readings, err: tt.observeErr}
 			rebaser := &treeReadRecorder{
-				fakeRebaser: &fakeRebaser{state: git.TreeState{Branch: "agent/a1"}},
-				observer:    observer,
+				Rebaser: &gittest.Rebaser{State: git.TreeState{Branch: "agent/a1"}},
+				observer:        observer,
 			}
 
 			service := NewRebaseService(NewRebaseServiceParams{
@@ -537,7 +485,7 @@ func TestRebaseSettlesTheAgentBeforeItMoves(t *testing.T) {
 			}
 
 			assert.Equal(t, tt.wantInterrupts, channel.Interrupts)
-			assert.Equal(t, tt.wantCalls, rebaser.calls, "nothing is parked or moved under an agent still working")
+			assert.Equal(t, tt.wantCalls, rebaser.Calls, "nothing is parked or moved under an agent still working")
 		})
 	}
 }
@@ -554,7 +502,7 @@ func TestRebaseRefusesADirtyTreeWithoutCuttingTheTurn(t *testing.T) {
 		Agents:    fakeRebaseAgents{agent: settledAgent()},
 		Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
 		Settler:   settlerOver(channel, observer),
-		Rebaser:   &fakeRebaser{state: git.TreeState{Branch: "agent/a1", TrackedChanges: true}},
+		Rebaser:   &gittest.Rebaser{State: git.TreeState{Branch: "agent/a1", TrackedChanges: true}},
 	})
 
 	_, err := service.Rebase(t.Context(), "a1")
@@ -574,7 +522,7 @@ func TestRebaseTrustsTheSettledPaneOverTheRow(t *testing.T) {
 
 	channel := &harnesstest.Channel{}
 	observer := &settlingObserver{readings: []harness.Activity{harness.ActivityWorking, harness.ActivityIdle}}
-	rebaser := &fakeRebaser{state: git.TreeState{Branch: "agent/a1"}}
+	rebaser := &gittest.Rebaser{State: git.TreeState{Branch: "agent/a1"}}
 
 	service := NewRebaseService(NewRebaseServiceParams{
 		Agents:    &driftingRebaseAgents{first: settledAgent(), then: stamped},
@@ -587,7 +535,7 @@ func TestRebaseTrustsTheSettledPaneOverTheRow(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, 1, channel.Interrupts)
-	assert.Equal(t, []string{"park", "rebase"}, rebaser.calls)
+	assert.Equal(t, []string{"park", "rebase"}, rebaser.Calls)
 }
 
 // TestRebaseTellsAnAgentCutForNothing covers a hold landing while the agent was settling, which
@@ -618,7 +566,7 @@ func TestRebaseTellsAnAgentCutForNothing(t *testing.T) {
 
 			channel := &harnesstest.Channel{}
 			notifier := &recordingNotifier{}
-			rebaser := &fakeRebaser{state: git.TreeState{Branch: "agent/a1"}}
+			rebaser := &gittest.Rebaser{State: git.TreeState{Branch: "agent/a1"}}
 
 			service := NewRebaseService(NewRebaseServiceParams{
 				Agents:    &driftingRebaseAgents{first: settledAgent(), then: held},
@@ -631,7 +579,7 @@ func TestRebaseTellsAnAgentCutForNothing(t *testing.T) {
 			_, err := service.Rebase(t.Context(), "a1")
 			require.ErrorIs(t, err, agents.ErrAgentHeld)
 
-			assert.Empty(t, rebaser.calls, "nothing moves under a held agent")
+			assert.Empty(t, rebaser.Calls, "nothing moves under a held agent")
 			require.Len(t, notifier.sent, tt.wantMail)
 			if tt.wantMail > 0 {
 				assert.Contains(t, notifier.sent[0], "interrupted")
@@ -686,7 +634,7 @@ func (n *recordingNotifier) SendSystemMail(_ context.Context, _, body string) (*
 
 // treeReadRecorder notes how many pane readings had been taken by the time the tree was read.
 type treeReadRecorder struct {
-	*fakeRebaser
+	*gittest.Rebaser
 	observer        *settlingObserver
 	readsBeforeTree int
 }
@@ -694,7 +642,7 @@ type treeReadRecorder struct {
 func (r *treeReadRecorder) ReadTreeState(ctx context.Context, dir string) (git.TreeState, error) {
 	r.readsBeforeTree = r.observer.reads
 
-	return r.fakeRebaser.ReadTreeState(ctx, dir)
+	return r.Rebaser.ReadTreeState(ctx, dir)
 }
 
 // TestRebaseReplaysFromTheCutoffThePlanFound covers the branch a squash merge needs, where
@@ -702,9 +650,9 @@ func (r *treeReadRecorder) ReadTreeState(ctx context.Context, dir string) (git.T
 func TestRebaseReplaysFromTheCutoffThePlanFound(t *testing.T) {
 	t.Parallel()
 
-	rebaser := &fakeRebaser{
-		state: git.TreeState{Branch: "agent/a1"},
-		prediction: git.Prediction{
+	rebaser := &gittest.Rebaser{
+		State: git.TreeState{Branch: "agent/a1"},
+		Prediction: git.Prediction{
 			Cutoff: "cutoffsha",
 			Landed: 2,
 			Replay: 1,
@@ -728,8 +676,8 @@ func TestRebaseReplaysFromTheCutoffThePlanFound(t *testing.T) {
 
 	require.False(t, result.Conflicted, "the cutoff is what keeps this off the conflict path")
 	assert.Equal(t, "cutoffsha", result.Cutoff)
-	assert.Equal(t, "cutoffsha", rebaser.cutoff, "the cutoff the plan found is the one git is given")
-	assert.Equal(t, []string{"park", "rebaseOnto"}, rebaser.calls, "a plain rebase would collide with the landed content")
+	assert.Equal(t, "cutoffsha", rebaser.Cutoff, "the cutoff the plan found is the one git is given")
+	assert.Equal(t, []string{"park", "rebaseOnto"}, rebaser.Calls, "a plain rebase would collide with the landed content")
 	assert.Equal(t, 1, result.Replay, "the plan's counts reach the result")
 	assert.Positive(t, result.Landed)
 	assert.False(t, result.Moved, "work was replayed, so this is not a bare move")
@@ -749,7 +697,7 @@ func TestRebaseMailsForAnAgentWithNoWorkOfItsOwn(t *testing.T) {
 			State:      agentstore.StateIdle,
 		}},
 		Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
-		Rebaser:   &fakeRebaser{state: git.TreeState{Branch: "agent/a1"}},
+		Rebaser:   &gittest.Rebaser{State: git.TreeState{Branch: "agent/a1"}},
 	})
 
 	result, err := service.Rebase(t.Context(), "a1")
@@ -889,7 +837,7 @@ func TestRebaseRefusesAnAgentInTheCallersCheckout(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			rebaser := &fakeRebaser{state: git.TreeState{Branch: "fix/auth"}}
+			rebaser := &gittest.Rebaser{State: git.TreeState{Branch: "fix/auth"}}
 			service := NewRebaseService(NewRebaseServiceParams{
 				Agents:    rebaseRoster{"a1": target, "a2": reviewer, "a3": elsewhere},
 				Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
@@ -900,13 +848,13 @@ func TestRebaseRefusesAnAgentInTheCallersCheckout(t *testing.T) {
 
 			if tt.wantErr == nil {
 				require.NoError(t, err)
-				assert.Equal(t, []string{"park", "rebase"}, rebaser.calls)
+				assert.Equal(t, []string{"park", "rebase"}, rebaser.Calls)
 
 				return
 			}
 
 			require.ErrorIs(t, err, tt.wantErr)
-			assert.Empty(t, rebaser.calls)
+			assert.Empty(t, rebaser.Calls)
 		})
 	}
 }
@@ -960,7 +908,7 @@ func TestRebaseRefusesTheCallerWhateverThePathSpelling(t *testing.T) {
 				ID: "a2", Name: "billing", WorkflowID: "w1", Cwd: tt.askerCwd, State: agentstore.StateThinking,
 			}
 
-			rebaser := &fakeRebaser{state: git.TreeState{Branch: "fix/auth"}}
+			rebaser := &gittest.Rebaser{State: git.TreeState{Branch: "fix/auth"}}
 			service := NewRebaseService(NewRebaseServiceParams{
 				Agents:    rebaseRoster{"a1": target, "a2": asker},
 				Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
@@ -971,13 +919,13 @@ func TestRebaseRefusesTheCallerWhateverThePathSpelling(t *testing.T) {
 
 			if tt.wantErr == nil {
 				require.NoError(t, err)
-				assert.Equal(t, []string{"park", "rebase"}, rebaser.calls)
+				assert.Equal(t, []string{"park", "rebase"}, rebaser.Calls)
 
 				return
 			}
 
 			require.ErrorIs(t, err, tt.wantErr)
-			assert.Empty(t, rebaser.calls)
+			assert.Empty(t, rebaser.Calls)
 		})
 	}
 }
@@ -998,7 +946,7 @@ func TestRebasingAHeldAgentIsRefused(t *testing.T) {
 			HeldAt:     &at,
 		}},
 		Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
-		Rebaser:   &fakeRebaser{},
+		Rebaser:   &gittest.Rebaser{},
 	})
 
 	_, err := service.Rebase(t.Context(), "a1")
