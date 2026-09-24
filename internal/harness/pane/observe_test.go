@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"weave/internal/harness"
+	"weave/internal/harnesstest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -19,20 +20,20 @@ func TestObserveReadsTheFrameThroughItsHarness(t *testing.T) {
 	}{
 		{
 			name:  "an agent part-way through a turn",
-			frame: busyFrame,
-			want:  harness.Observation{Activity: harness.ActivityWorking, Frame: busyFrame},
+			frame: harnesstest.FrameWorking,
+			want:  harness.Observation{Activity: harness.ActivityWorking, Frame: harnesstest.FrameWorking},
 		},
 		{
 			name:  "an empty input box",
-			frame: idleFrame,
-			want:  harness.Observation{Activity: harness.ActivityIdle, Frame: idleFrame},
+			frame: harnesstest.FrameIdle,
+			want:  harness.Observation{Activity: harness.ActivityIdle, Frame: harnesstest.FrameIdle},
 		},
 		{
 			name:  "a box holding a draft",
-			frame: composingFrame + ": half a thought",
+			frame: harnesstest.FrameComposing + ": half a thought",
 			want: harness.Observation{
 				Activity: harness.ActivityComposing,
-				Frame:    composingFrame + ": half a thought",
+				Frame:    harnesstest.FrameComposing + ": half a thought",
 			},
 		},
 		{
@@ -45,7 +46,7 @@ func TestObserveReadsTheFrameThroughItsHarness(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			p := NewPane(NewPaneParams{
 				Terminal:  &fakeTerminal{frame: tt.frame},
-				Harnesses: fakeHarnesses{harness: &fakeHarness{}},
+				Harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}},
 			})
 
 			got, err := p.Observe(t.Context(), target)
@@ -58,7 +59,7 @@ func TestObserveReadsTheFrameThroughItsHarness(t *testing.T) {
 // TestObserveRefusesAHarnessItCannotLookUp pins that an unreadable frame is an error rather
 // than a reading.
 func TestObserveRefusesAHarnessItCannotLookUp(t *testing.T) {
-	p := NewPane(NewPaneParams{Terminal: &fakeTerminal{frame: busyFrame}, Harnesses: fakeHarnesses{}})
+	p := NewPane(NewPaneParams{Terminal: &fakeTerminal{frame: harnesstest.FrameWorking}, Harnesses: harnesstest.Registry{}})
 
 	_, err := p.Observe(t.Context(), target)
 	require.Error(t, err)

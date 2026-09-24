@@ -11,24 +11,17 @@ import (
 	"time"
 
 	"weave/internal/harness"
+	"weave/internal/harnesstest"
 	"weave/internal/logging"
 
 	"github.com/stretchr/testify/require"
 )
 
-const (
-	idleFrame      = "frame: idle"
-	composingFrame = "frame: composing"
-	busyFrame      = "frame: working"
-)
-
-const testHarnessID = "claude"
-
 // target is the agent every test in this package speaks to.
 var target = harness.Target{
 	AgentID:   "agent-a",
 	Pane:      "%1",
-	HarnessID: testHarnessID,
+	HarnessID: harnesstest.FakeID,
 }
 
 // fakeTerminal stands in for the tmux server, recording what was done to the pane in the order
@@ -77,7 +70,7 @@ func (f *fakeTerminal) CapturePane(string) string {
 			return f.afterCut
 		}
 
-		return idleFrame
+		return harnesstest.FrameIdle
 	}
 
 	return f.frame
@@ -118,73 +111,6 @@ func (f *fakeTerminal) YankLine(string) error {
 	return nil
 }
 
-// fakeHarness reads the frames the tests in this package write.
-type fakeHarness struct {
-	interruptKeys []string
-}
-
-func (f *fakeHarness) ID() string     { return testHarnessID }
-func (f *fakeHarness) Binary() string { return testHarnessID }
-
-func (f *fakeHarness) BuildCommand(harness.Launch) (string, error) { return "agent-cli", nil }
-
-func (f *fakeHarness) MintSessionID() string { return "" }
-
-func (f *fakeHarness) InterruptKeys() []string {
-	if f.interruptKeys == nil {
-		return []string{"Escape"}
-	}
-
-	return f.interruptKeys
-}
-
-func (f *fakeHarness) ReadReport(harness.Event, []byte) (harness.Report, error) {
-	return harness.Report{}, nil
-}
-
-func (f *fakeHarness) ReadInput(frame string) harness.Input {
-	switch {
-	case frame == busyFrame:
-		return harness.Input{Activity: harness.ActivityWorking}
-	case strings.HasPrefix(frame, composingFrame):
-		return harness.Input{Activity: harness.ActivityComposing, Held: composingLines(strings.TrimPrefix(frame, composingFrame))}
-	case frame == "":
-		return harness.Input{Activity: harness.ActivityUnknown}
-	default:
-		return harness.Input{Activity: harness.ActivityIdle, Held: []string{""}}
-	}
-}
-
-// composingLines is the box's lines out of the frame a test wrote.
-func composingLines(held string) []string {
-	if held == "" {
-		return []string{"half a question about"}
-	}
-
-	return strings.Split(strings.TrimPrefix(held, ": "), "|")
-}
-
-func (f *fakeHarness) LogPath(string) string { return "" }
-
-func (f *fakeHarness) FindSession(string) (string, error) { return "", nil }
-
-func (f *fakeHarness) ReadLog(string, int64) (harness.LogRead, error) {
-	return harness.LogRead{}, nil
-}
-
-// fakeHarnesses answers every lookup with the one harness it holds.
-type fakeHarnesses struct {
-	harness harness.Harness
-}
-
-func (f fakeHarnesses) GetByID(string) (harness.Harness, error) {
-	if f.harness == nil {
-		return nil, errors.New("no harness")
-	}
-
-	return f.harness, nil
-}
-
 // harnessesFailingAfter answers a given number of pane reads and refuses every one after that,
 // which is a frame that goes unreadable part-way through a cut.
 type harnessesFailingAfter struct {
@@ -209,7 +135,7 @@ func composingPane(t *testing.T, terminal *fakeTerminal, now *time.Time) *Pane {
 
 	return NewPane(NewPaneParams{
 		Terminal:  terminal,
-		Harnesses: fakeHarnesses{harness: &fakeHarness{}},
+		Harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}},
 		Now:       func() time.Time { return *now },
 	})
 }

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"weave/internal/harness"
+	"weave/internal/harnesstest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -22,16 +23,16 @@ func TestReadyRefusesAPaneThatIsNotListening(t *testing.T) {
 	}{
 		{
 			name:  "an agent part-way through a turn",
-			frame: busyFrame,
+			frame: harnesstest.FrameWorking,
 		},
 		{
 			name:   "a pane sitting in one of tmux's own modes",
-			frame:  idleFrame,
+			frame:  harnesstest.FrameIdle,
 			inMode: true,
 		},
 		{
 			name:  "an input box left on screen by a CLI that has exited",
-			frame: idleFrame,
+			frame: harnesstest.FrameIdle,
 			shell: true,
 		},
 		{
@@ -40,7 +41,7 @@ func TestReadyRefusesAPaneThatIsNotListening(t *testing.T) {
 		},
 		{
 			name:  "an empty input box",
-			frame: idleFrame,
+			frame: harnesstest.FrameIdle,
 			want:  true,
 		},
 	}
@@ -52,7 +53,7 @@ func TestReadyRefusesAPaneThatIsNotListening(t *testing.T) {
 				inMode: tt.inMode,
 				shell:  tt.shell,
 			}
-			p := NewPane(NewPaneParams{Terminal: terminal, Harnesses: fakeHarnesses{harness: &fakeHarness{}}})
+			p := NewPane(NewPaneParams{Terminal: terminal, Harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}}})
 
 			ready, err := p.Ready(t.Context(), target)
 			require.NoError(t, err)
@@ -64,8 +65,8 @@ func TestReadyRefusesAPaneThatIsNotListening(t *testing.T) {
 
 // TestSendPastesIntoAnEmptyBox pins that an idle pane takes the paste and nothing around it.
 func TestSendPastesIntoAnEmptyBox(t *testing.T) {
-	terminal := &fakeTerminal{frame: idleFrame}
-	p := NewPane(NewPaneParams{Terminal: terminal, Harnesses: fakeHarnesses{harness: &fakeHarness{}}})
+	terminal := &fakeTerminal{frame: harnesstest.FrameIdle}
+	p := NewPane(NewPaneParams{Terminal: terminal, Harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}}})
 
 	sent, err := p.Send(t.Context(), target, "weave: read_mail")
 	require.NoError(t, err)
@@ -83,17 +84,17 @@ func TestSendRefusesAPaneWhoseCLIHasExited(t *testing.T) {
 	}{
 		{
 			name:      "an input box the dead CLI left drawn",
-			harnesses: fakeHarnesses{harness: &fakeHarness{}},
+			harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}},
 		},
 		{
 			name:      "a frame no harness can read",
-			harnesses: fakeHarnesses{},
+			harnesses: harnesstest.Registry{},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			terminal := &fakeTerminal{frame: idleFrame, shell: true}
+			terminal := &fakeTerminal{frame: harnesstest.FrameIdle, shell: true}
 			p := NewPane(NewPaneParams{Terminal: terminal, Harnesses: tt.harnesses})
 
 			sent, err := p.Send(t.Context(), target, "weave: read_mail")
@@ -107,8 +108,8 @@ func TestSendRefusesAPaneWhoseCLIHasExited(t *testing.T) {
 // TestSendToAnUnknownHarnessPastesAnyway pins that a frame nothing can read is written to
 // rather than held forever.
 func TestSendToAnUnknownHarnessPastesAnyway(t *testing.T) {
-	terminal := &fakeTerminal{frame: busyFrame}
-	p := NewPane(NewPaneParams{Terminal: terminal, Harnesses: fakeHarnesses{}})
+	terminal := &fakeTerminal{frame: harnesstest.FrameWorking}
+	p := NewPane(NewPaneParams{Terminal: terminal, Harnesses: harnesstest.Registry{}})
 
 	sent, err := p.Send(t.Context(), target, "weave: read_mail")
 	require.NoError(t, err)
@@ -146,7 +147,7 @@ func TestSendToAComposingPane(t *testing.T) {
 		},
 		{
 			name:  "a still draft spread over more than one line",
-			frame: composingFrame + ": first|second",
+			frame: harnesstest.FrameComposing + ": first|second",
 			held:  draftStaleAfter,
 		},
 		{
@@ -165,7 +166,7 @@ func TestSendToAComposingPane(t *testing.T) {
 		{
 			name:        "a cut that left text in the box",
 			held:        draftStaleAfter,
-			afterCut:    composingFrame,
+			afterCut:    harnesstest.FrameComposing,
 			wantActions: []string{"cut", "yank"},
 		},
 	}
@@ -174,7 +175,7 @@ func TestSendToAComposingPane(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			frame := tt.frame
 			if frame == "" {
-				frame = composingFrame
+				frame = harnesstest.FrameComposing
 			}
 
 			now := time.Date(2026, time.September, 9, 12, 0, 0, 0, time.UTC)
@@ -212,7 +213,7 @@ func TestSendToAComposingPane(t *testing.T) {
 // however long weave has been watching it.
 func TestSendTimesADraftFromWhenItLastMoved(t *testing.T) {
 	now := time.Date(2026, time.September, 9, 12, 0, 0, 0, time.UTC)
-	terminal := &fakeTerminal{frame: composingFrame + ": one"}
+	terminal := &fakeTerminal{frame: harnesstest.FrameComposing + ": one"}
 	p := composingPane(t, terminal, &now)
 
 	sent, err := deliver(t.Context(), t, p)
@@ -220,7 +221,7 @@ func TestSendTimesADraftFromWhenItLastMoved(t *testing.T) {
 	require.False(t, sent)
 
 	now = now.Add(draftStaleAfter)
-	terminal.frame = composingFrame + ": one and a bit"
+	terminal.frame = harnesstest.FrameComposing + ": one and a bit"
 
 	sent, err = deliver(t.Context(), t, p)
 	require.NoError(t, err)
@@ -239,7 +240,7 @@ func TestSendTimesADraftFromWhenItLastMoved(t *testing.T) {
 // from when it appeared rather than from the draft before it.
 func TestSendForgetsADraftOnceTheBoxIsEmpty(t *testing.T) {
 	now := time.Date(2026, time.September, 9, 12, 0, 0, 0, time.UTC)
-	terminal := &fakeTerminal{frame: composingFrame}
+	terminal := &fakeTerminal{frame: harnesstest.FrameComposing}
 	p := composingPane(t, terminal, &now)
 
 	sent, err := deliver(t.Context(), t, p)
@@ -247,14 +248,14 @@ func TestSendForgetsADraftOnceTheBoxIsEmpty(t *testing.T) {
 	require.False(t, sent)
 
 	now = now.Add(draftStaleAfter)
-	terminal.frame = idleFrame
+	terminal.frame = harnesstest.FrameIdle
 
 	sent, err = deliver(t.Context(), t, p)
 	require.NoError(t, err)
 	require.True(t, sent)
 	require.Equal(t, []string{"paste"}, terminal.actions, "an empty box needs no cut")
 
-	terminal.frame = composingFrame
+	terminal.frame = harnesstest.FrameComposing
 	terminal.actions = nil
 
 	sent, err = deliver(t.Context(), t, p)
@@ -267,7 +268,7 @@ func TestSendForgetsADraftOnceTheBoxIsEmpty(t *testing.T) {
 // will not touch.
 func TestSendSaysOnceThatAMultiLineDraftIsInTheWay(t *testing.T) {
 	now := time.Date(2026, time.September, 9, 12, 0, 0, 0, time.UTC)
-	terminal := &fakeTerminal{frame: composingFrame + ": first|second"}
+	terminal := &fakeTerminal{frame: harnesstest.FrameComposing + ": first|second"}
 	p := composingPane(t, terminal, &now)
 
 	ctx, records := loggedContext(t)
@@ -295,7 +296,7 @@ func TestSendSaysOnceThatAMultiLineDraftIsInTheWay(t *testing.T) {
 // nothing behind in the draft clock.
 func TestForgetDropsWhatWasRememberedOfABox(t *testing.T) {
 	now := time.Date(2026, time.September, 9, 12, 0, 0, 0, time.UTC)
-	terminal := &fakeTerminal{frame: composingFrame}
+	terminal := &fakeTerminal{frame: harnesstest.FrameComposing}
 	p := composingPane(t, terminal, &now)
 
 	sent, err := deliver(t.Context(), t, p)
@@ -312,7 +313,7 @@ func TestForgetDropsWhatWasRememberedOfABox(t *testing.T) {
 // paste after it turns out.
 func TestSendHandsBackADraftWhenThePasteFails(t *testing.T) {
 	now := time.Date(2026, time.September, 9, 12, 0, 0, 0, time.UTC)
-	terminal := &fakeTerminal{frame: composingFrame, pasteErr: errors.New("tmux said no")}
+	terminal := &fakeTerminal{frame: harnesstest.FrameComposing, pasteErr: errors.New("tmux said no")}
 	p := composingPane(t, terminal, &now)
 
 	sent, err := deliver(t.Context(), t, p)
@@ -331,7 +332,7 @@ func TestSendHandsBackADraftWhenThePasteFails(t *testing.T) {
 // rather than failing the send that already landed.
 func TestSendReportsAYankItCouldNotMake(t *testing.T) {
 	now := time.Date(2026, time.September, 9, 12, 0, 0, 0, time.UTC)
-	terminal := &fakeTerminal{frame: composingFrame, yankErr: errors.New("tmux said no")}
+	terminal := &fakeTerminal{frame: harnesstest.FrameComposing, yankErr: errors.New("tmux said no")}
 	p := composingPane(t, terminal, &now)
 
 	ctx, records := loggedContext(t)
@@ -357,8 +358,8 @@ func TestSendReportsAYankItCouldNotMake(t *testing.T) {
 // cut that never learns whether the box came back empty.
 func TestSendHandsBackADraftWhenTheFrameGoesUnreadable(t *testing.T) {
 	now := time.Date(2026, time.September, 9, 12, 0, 0, 0, time.UTC)
-	terminal := &fakeTerminal{frame: composingFrame}
-	harnesses := &harnessesFailingAfter{harness: &fakeHarness{}, answer: 3}
+	terminal := &fakeTerminal{frame: harnesstest.FrameComposing}
+	harnesses := &harnessesFailingAfter{harness: &harnesstest.Fake{}, answer: 3}
 	p := NewPane(NewPaneParams{
 		Terminal:  terminal,
 		Harnesses: harnesses,
@@ -381,8 +382,8 @@ func TestSendHandsBackADraftWhenTheFrameGoesUnreadable(t *testing.T) {
 // TestInterruptSendsTheHarnessItsOwnKeys pins that stopping an agent is the CLI's own interrupt
 // rather than anything weave decides.
 func TestInterruptSendsTheHarnessItsOwnKeys(t *testing.T) {
-	terminal := &fakeTerminal{frame: busyFrame}
-	p := NewPane(NewPaneParams{Terminal: terminal, Harnesses: fakeHarnesses{harness: &fakeHarness{interruptKeys: []string{"Escape", "Escape"}}}})
+	terminal := &fakeTerminal{frame: harnesstest.FrameWorking}
+	p := NewPane(NewPaneParams{Terminal: terminal, Harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{InterruptWith: []string{"Escape", "Escape"}}}})
 
 	require.NoError(t, p.Interrupt(t.Context(), target))
 	assert.Equal(t, []string{"keys:Escape,Escape"}, terminal.actions)
@@ -397,24 +398,24 @@ func TestInterruptRefusesWhatItCannotStop(t *testing.T) {
 	}{
 		{
 			name:      "an agent holding no pane",
-			target:    harness.Target{AgentID: "agent-a", HarnessID: testHarnessID},
-			harnesses: fakeHarnesses{harness: &fakeHarness{}},
+			target:    harness.Target{AgentID: "agent-a", HarnessID: harnesstest.FakeID},
+			harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}},
 		},
 		{
 			name:      "a harness weave cannot look up",
 			target:    target,
-			harnesses: fakeHarnesses{},
+			harnesses: harnesstest.Registry{},
 		},
 		{
 			name:      "a harness with no keys that stop it",
 			target:    target,
-			harnesses: fakeHarnesses{harness: &fakeHarness{interruptKeys: []string{}}},
+			harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{InterruptWith: []string{}}},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			terminal := &fakeTerminal{frame: busyFrame}
+			terminal := &fakeTerminal{frame: harnesstest.FrameWorking}
 			p := NewPane(NewPaneParams{Terminal: terminal, Harnesses: tt.harnesses})
 
 			require.Error(t, p.Interrupt(t.Context(), tt.target))

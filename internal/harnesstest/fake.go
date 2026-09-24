@@ -36,6 +36,10 @@ type Fake struct {
 	CommandErr error
 	Name       string
 	NoSession  bool
+	// InterruptWith is the keys an interrupt sends, Escape when nil.
+	InterruptWith []string
+	// Session is the id FindSession answers.
+	Session string
 }
 
 // ID is Name, or FakeID when the test gave none.
@@ -74,9 +78,13 @@ func (f *Fake) MintSessionID() string {
 	return uuid.NewString()
 }
 
-// InterruptKeys is Escape.
+// InterruptKeys is InterruptWith, or Escape when the test gave none.
 func (f *Fake) InterruptKeys() []string {
-	return []string{"Escape"}
+	if f.InterruptWith == nil {
+		return []string{"Escape"}
+	}
+
+	return f.InterruptWith
 }
 
 // ReadReport reads nothing.
@@ -107,9 +115,9 @@ func (f *Fake) LogPath(string) string {
 	return ""
 }
 
-// FindSession finds nothing.
+// FindSession answers Session.
 func (f *Fake) FindSession(string) (string, error) {
-	return "", nil
+	return f.Session, nil
 }
 
 // ReadLog reads nothing.
@@ -117,7 +125,7 @@ func (f *Fake) ReadLog(string, int64) (harness.LogRead, error) {
 	return harness.LogRead{}, nil
 }
 
-// Registry answers an id from ByID, then with Harness, refusing any id outside Only.
+// Registry answers an id from ByID, then with Harness, refusing any id outside Only or left with no harness.
 type Registry struct {
 	Harness *Fake
 	ByID    map[string]*Fake
@@ -131,6 +139,9 @@ func (r Registry) GetByID(id string) (harness.Harness, error) {
 	}
 	if found, ok := r.ByID[id]; ok {
 		return found, nil
+	}
+	if r.Harness == nil {
+		return nil, fmt.Errorf("%w: %q", harness.ErrNotRegistered, id)
 	}
 
 	return r.Harness, nil
