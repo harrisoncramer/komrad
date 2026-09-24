@@ -16,6 +16,7 @@ const VersionPicker = () => {
   const [versions, setVersions] = useState<Versions | null>(null);
 
   useEffect(() => {
+    if (BUILD.version === "dev") return;
     fetch("/versions.json")
       .then((response) => (response.ok ? response.json() : null))
       .then((body: Versions | null) => {

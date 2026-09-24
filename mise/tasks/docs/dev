@@ -34,4 +34,4 @@ fi
 
 gum log --level info "serving the docs at http://localhost:4321/$PUBLIC_DOCS_VERSION/"
 
-npm run dev
+npm run dev -- --force

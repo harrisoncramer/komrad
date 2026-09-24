@@ -97,7 +97,7 @@ linters:
         - pattern: ^exec\.Command(Context)?$
           msg: a unit test does not shell out to git
     depguard:
-      # The layers, as docs/concepts.md describes them. A layer may call the one below it
+      # The layers, as docs/src/content/guides/how-it-works.md describes them. A layer may call the one below it
       # and may not reach past it, and the panel receives its adapters rather than
       # importing them. These are cheap to keep and expensive to rediscover.
       rules:
