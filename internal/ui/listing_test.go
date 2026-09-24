@@ -47,10 +47,10 @@ func settle(t *testing.T, m model, cmd tea.Cmd) model {
 	return m
 }
 
-// applyListing hands the model the three live listings the way a watch snapshot does.
-func applyListing(m *model, agents []panel.AgentRow, workflows []panel.Workflow, schedules []scheduleItem) tea.Cmd {
+// applyListing hands the model the live agents and workflows the way a watch snapshot does.
+func applyListing(m *model, agents []panel.AgentRow, workflows []panel.Workflow) tea.Cmd {
 	return m.withListing(func(l *listing) {
-		l.agents, l.workflows, l.schedules = agents, workflows, schedules
+		l.agents, l.workflows = agents, workflows
 	})
 }
 
@@ -299,7 +299,7 @@ func TestCreatedWorkflowReceivesFocus(t *testing.T) {
 	applyListing(&m, nil, []panel.Workflow{
 		{ID: "w1", Name: "api"},
 		{ID: "new", Name: "web"},
-	}, nil)
+	})
 
 	hovered, ok := m.agents.hoveredWorkflow(m.shared())
 	require.True(t, ok, "the cursor is on a folder header")
@@ -336,7 +336,7 @@ func TestArchiveCursorHoldsItsAgentWhenAFolderGoes(t *testing.T) {
 		archive: archiveScreen{rowCursor: rowCursor{cursor: 3}},
 	}
 
-	applyListing(&m, nil, []panel.Workflow{{ID: "w2", Name: "infra"}}, nil)
+	applyListing(&m, nil, []panel.Workflow{{ID: "w2", Name: "infra"}})
 	m.withListing(func(l *listing) {
 		l.archivedAgents = archivedItems([]panel.Agent{
 			{

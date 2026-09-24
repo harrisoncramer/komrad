@@ -185,7 +185,7 @@ func TestAHandMovedPaneCorrectsTheFrame(t *testing.T) {
 
 	// The panel wants the window on this row, so it takes it back on the next listing.
 	tmux.keysElsewhere = false
-	applyListing(&m, nil, m.listing.workflows, nil)
+	applyListing(&m, nil, m.listing.workflows)
 
 	assert.True(t, m.frame.IsSolo(), "and takes it back on the next listing, since it wants it here")
 }
