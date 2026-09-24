@@ -29,7 +29,7 @@ const { flags, prefix } = Astro.props;
                 </code>
               </a>
             </td>
-            <td class="type-cell" data-label="type">{flag.type}</td>
+            <td class="type-cell" data-sep=":">{flag.type}</td>
             <td>
               <p>{flag.usage}</p>
               {flag.default && flag.default !== "[]" && flag.default !== "false" && (

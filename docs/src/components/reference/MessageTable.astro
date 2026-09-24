@@ -36,7 +36,7 @@ const id = anchor(name);
                     <code>{field.name}</code>
                   </a>
                 </td>
-                <td class="type-cell" data-label="type">
+                <td class="type-cell" data-sep=":">
                   {field.map && "map of "}
                   {field.repeated && !field.map && "list of "}
                   {field.ref ? <a href={`#${anchor(field.ref)}`}>{field.type}</a> : field.type}

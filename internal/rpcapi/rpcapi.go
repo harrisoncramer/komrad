@@ -132,8 +132,7 @@ func IsIdempotent(method protoreflect.MethodDescriptor, surfaces *annotationv1.S
 	return level == descriptorpb.MethodOptions_IDEMPOTENT || level == descriptorpb.MethodOptions_NO_SIDE_EFFECTS
 }
 
-// IsDestructive reports whether the call can take something away, which is never true of a
-// read-only method and otherwise true unless the annotation says not.
+// IsDestructive reports whether the call can take something away.
 func IsDestructive(method protoreflect.MethodDescriptor, surfaces *annotationv1.Surfaces) bool {
 	if IsReadOnly(method) {
 		return false

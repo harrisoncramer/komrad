@@ -70,6 +70,10 @@
     background-color: rgba(158, 196, 255, 0.35);
   }
 
+  html {
+    scroll-padding-top: 5.5rem;
+  }
+
   html,
   body {
     @apply min-h-screen bg-app-background-dark text-app-white;
@@ -213,9 +217,6 @@
   font-size: 0.85em;
 }
 
-.doc-content .type {
-  scroll-margin-top: 5rem;
-}
 
 .doc-content .type h3 {
   font-size: 1.3em;
@@ -323,9 +324,6 @@
   color: var(--color-app-blue);
 }
 
-.doc-content .service {
-  scroll-margin-top: 5rem;
-}
 
 .doc-content .service h2 a {
   text-decoration: none;
@@ -360,6 +358,10 @@
 }
 
 @media (max-width: 639.98px) {
+  .table-scroll {
+    overflow: visible;
+  }
+
   .doc-content table,
   .doc-content tbody {
     display: block;
@@ -371,8 +373,9 @@
 
   .doc-content tr {
     display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
+    flex-wrap: wrap;
+    align-items: baseline;
+    column-gap: 0.5rem;
     padding: 0.75rem 0;
     border-bottom: 1px solid var(--color-app-background-medium-dark);
   }
@@ -383,34 +386,36 @@
     padding: 0;
   }
 
-  .doc-content .type-cell {
+  .doc-content td:last-child {
+    flex-basis: 100%;
+    margin-top: 0.4rem;
+  }
+
+  .doc-content td[data-sep] {
+    min-width: 0;
+    font-family: var(--font-mono);
+    font-size: 0.85em;
     white-space: normal;
+  }
+
+  .doc-content td[data-sep]::before {
+    content: attr(data-sep);
+    margin-right: 0.5rem;
+    color: var(--color-app-gray-dim);
   }
 
   .doc-content td.default-cell {
     max-width: none;
   }
 
-  .doc-content td[data-label]::before {
-    content: attr(data-label);
-    display: block;
-    margin-bottom: 0.1rem;
-    font-family: var(--font-lora);
-    font-size: 0.8rem;
-    color: var(--color-app-gray-dim);
-  }
-
   .doc-content td.default-cell code {
+    background: none;
+    padding: 0;
     white-space: pre-wrap;
     overflow-wrap: anywhere;
   }
 }
 
-.doc-content .anchored,
-.doc-content tr[id],
-.doc-content li[id] {
-  scroll-margin-top: 5rem;
-}
 
 .doc-content a.anchor {
   margin-left: 0.4em;
@@ -450,9 +455,52 @@
   color: var(--color-app-blue);
 }
 
-.doc-content tr:target td,
-.doc-content li:target {
-  background: rgba(158, 196, 255, 0.06);
+.doc-content table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.doc-content tr:target td {
+  background: rgba(158, 196, 255, 0.08);
+}
+
+.doc-content tr:target td:first-child {
+  border-radius: 8px 0 0 8px;
+}
+
+.doc-content tr:target td:last-child {
+  border-radius: 0 8px 8px 0;
+}
+
+.doc-content ul.index-list > li:target {
+  margin: 0 -0.75rem;
+  padding-left: 0.75rem;
+  padding-right: 0.75rem;
+  border-radius: 8px;
+  background: rgba(158, 196, 255, 0.08);
+}
+
+.doc-content .anchored:target {
+  margin-left: -0.6rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 8px;
+  background: rgba(158, 196, 255, 0.08);
+}
+
+@media (max-width: 639.98px) {
+  .doc-content tr:target {
+    margin: 0 -0.75rem;
+    padding: 0.75rem;
+    border-radius: 8px;
+    background: rgba(158, 196, 255, 0.08);
+  }
+
+  .doc-content tr:target td,
+  .doc-content tr:target td:first-child,
+  .doc-content tr:target td:last-child {
+    background: transparent;
+    border-radius: 0;
+  }
 }
 
 @media (max-width: 639.98px) {

@@ -45,7 +45,7 @@ const jumps = [...firstOf].map(([table, path]) => ({ href: `#${path || "top-leve
                         <code>{setting.key}</code>
                       </a>
                     </td>
-                    <td class="default-cell" data-label="default">
+                    <td class="default-cell" data-sep="=">
                       <code class:list={{ long: setting.default.length > 24 }}>{setting.default}</code>
                     </td>
                     <td set:html={prose(setting.description)} />
