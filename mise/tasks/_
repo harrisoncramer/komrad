@@ -22,3 +22,10 @@ shell_scripts() {
 
 	find "${roots[@]}" -type f -exec file {} + | grep -i 'shell script' | cut -d: -f1
 }
+
+# docs_install brings docs/node_modules in line with its lockfile, run from docs/.
+docs_install() {
+	if [ ! -f node_modules/.package-lock.json ] || [ package-lock.json -nt node_modules/.package-lock.json ]; then
+		npm ci
+	fi
+}

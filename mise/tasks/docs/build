@@ -10,9 +10,9 @@ usage() {
 	echo "it to write the search index the site and the dev server both read."
 	echo
 	echo "The site is built to be served under /<version>/, where the version is"
-	echo "DOCS_VERSION, else a release WEAVE_VERSION, else the release tag at HEAD, else"
-	echo "dev. It is stamped with the commit the Go"
-	echo "build stamps, so a release's docs name the same commit as its binaries."
+	echo "DOCS_VERSION, else a release WEAVE_VERSION, else dev. It is stamped with the"
+	echo "commit the Go build stamps, so a release's docs name the same commit as its"
+	echo "binaries. Serve the result with docs:site."
 }
 
 for arg in "$@"; do
@@ -26,9 +26,7 @@ done
 
 cd "$MISE_CONFIG_ROOT/docs"
 
-if [ ! -f node_modules/.package-lock.json ] || [ package-lock.json -nt node_modules/.package-lock.json ]; then
-	npm ci
-fi
+docs_install
 
 PUBLIC_DOCS_VERSION="$(docs_version)"
 PUBLIC_DOCS_COMMIT="$(build_commit)"
@@ -37,4 +35,3 @@ export PUBLIC_DOCS_VERSION PUBLIC_DOCS_COMMIT
 gum log --level info "docs at $PUBLIC_DOCS_VERSION, commit ${PUBLIC_DOCS_COMMIT:-none, the tree is dirty}"
 
 npm run build
-echo "$PUBLIC_DOCS_VERSION" >dist/.docs-version

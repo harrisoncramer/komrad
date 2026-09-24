@@ -20,8 +20,6 @@ done
 
 cd "$MISE_CONFIG_ROOT/docs"
 
-if [ ! -f node_modules/.package-lock.json ] || [ package-lock.json -nt node_modules/.package-lock.json ]; then
-	npm ci
-fi
+docs_install
 
 npm run check

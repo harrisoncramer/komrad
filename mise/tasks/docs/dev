@@ -21,9 +21,7 @@ done
 
 cd "$MISE_CONFIG_ROOT/docs"
 
-if [ ! -f node_modules/.package-lock.json ] || [ package-lock.json -nt node_modules/.package-lock.json ]; then
-	npm ci
-fi
+docs_install
 
 PUBLIC_DOCS_VERSION="$(docs_version)"
 PUBLIC_DOCS_COMMIT="$(build_commit)"

@@ -9,7 +9,8 @@ usage() {
 	echo "Builds this checkout as tip, and again under each version named, into"
 	echo "docs/site/<version>, writes docs/site/versions.json listing them, and serves"
 	echo "docs/site on http://localhost:4330. The named versions are this checkout under"
-	echo "another name, there to exercise the version picker before any release exists:"
+	echo "another name, oldest first, there to exercise the version picker before any"
+	echo "release exists:"
 	echo
 	echo "    mise run docs:site v0.1.0 v0.2.0"
 }
@@ -25,9 +26,7 @@ done
 
 cd "$MISE_CONFIG_ROOT/docs"
 
-if [ ! -f node_modules/.package-lock.json ] || [ package-lock.json -nt node_modules/.package-lock.json ]; then
-	npm ci
-fi
+docs_install
 
 rm -rf site
 mkdir site
@@ -47,7 +46,7 @@ for version in tip "$@"; do
 done
 
 jq -n --argjson stable "$stable" --arg commit "$PUBLIC_DOCS_COMMIT" \
-	'{stable: ($stable | sort_by(.version | ltrimstr("v") | split(".") | map(tonumber)) | reverse), unstable: [{version: "tip", commit: $commit}]}' >site/versions.json
+	'{stable: ($stable | reverse), unstable: [{version: "tip", commit: $commit}]}' >site/versions.json
 
 cat >site/index.html <<'HTML'
 <!doctype html>

@@ -6,5 +6,3 @@ export const BUILD = {
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 export const link = (path: string) => `${base}${path}`;
-
-export const withoutBase = (pathname: string) => pathname.slice(base.length) || "/";
