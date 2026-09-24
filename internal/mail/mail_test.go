@@ -17,6 +17,18 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// addressBook is the agents an address may resolve to, across three workflows.
+type addressBook struct {
+	sender        *agentstore.Agent
+	reviewerHere  *agentstore.Agent
+	reviewerThere *agentstore.Agent
+	migrations    *agentstore.Agent
+	testerWeave   *agentstore.Agent
+	testerDocs    *agentstore.Agent
+	retired       *agentstore.Agent
+	unheldID      string
+}
+
 // TestSendMailRefusals pins which sentinel each way of addressing mail wrongly comes back with.
 func TestSendMailRefusals(t *testing.T) {
 	tests := []struct {
@@ -725,18 +737,6 @@ func TestResolveRecipient(t *testing.T) {
 			assert.Equal(t, tt.want, got.ID)
 		})
 	}
-}
-
-// addressBook is the agents an address may resolve to, across three workflows.
-type addressBook struct {
-	sender        *agentstore.Agent
-	reviewerHere  *agentstore.Agent
-	reviewerThere *agentstore.Agent
-	migrations    *agentstore.Agent
-	testerWeave   *agentstore.Agent
-	testerDocs    *agentstore.Agent
-	retired       *agentstore.Agent
-	unheldID      string
 }
 
 // seedAddressBook records the address book, naming one agent after an id nothing holds and another after another agent's id.
