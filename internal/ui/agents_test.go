@@ -30,15 +30,16 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-var (
-	recordNameLine = regexp.MustCompile(`name\s+auth`)
-	recordBaseLine = regexp.MustCompile(`base\s+origin/main`)
-)
-
 const (
 	hiddenMark    = " \uf4c5"
 	heldAt        = "2026-09-20T12:00:00Z"
 	repositoryURL = "https://github.com/harrisoncramer/weave"
+)
+
+var (
+	recordNameLine = regexp.MustCompile(`name\s+auth`)
+	recordBaseLine = regexp.MustCompile(`base\s+origin/main`)
+	cursorRowLine  = regexp.MustCompile(`package greet`)
 )
 
 // TestAgentsRows covers which rows the agents tree draws and where.
@@ -2327,9 +2328,9 @@ func newOrchestrator() *agentv1.Agent {
 	}
 }
 
-func findRawLine(frame string, stripped *regexp.Regexp) string {
+func findRawLine(frame string, pattern *regexp.Regexp) string {
 	for _, line := range splitLines(frame) {
-		if stripped.MatchString(ansi.Strip(line)) {
+		if pattern.MatchString(ansi.Strip(line)) {
 			return line
 		}
 	}

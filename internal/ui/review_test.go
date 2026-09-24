@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"testing"
 
@@ -2192,6 +2191,7 @@ func TestReviewPass(t *testing.T) {
 		loads := len(harness.readSent(agentv1connect.AgentServiceOpenReviewRoundProcedure))
 
 		editor := harness.panel.ReadRespawnedPanes()
+		require.NotEmpty(t, editor)
 		harness.panel.SetPaneDead(editor[len(editor)-1])
 		harness.fireTimers()
 
@@ -2511,7 +2511,7 @@ func TestReviewEmphasis(t *testing.T) {
 }
 
 func readRawCursorRow(harness *panelHarness) string {
-	line := findRawLine(harness.readRawFrame(), regexp.MustCompile(`package greet`))
+	line := findRawLine(harness.readRawFrame(), cursorRowLine)
 
 	return ansi.Cut(line, config.DefaultSidebarWidth, reviewWidth)
 }

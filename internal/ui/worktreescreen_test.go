@@ -621,7 +621,7 @@ func TestWorktreesInspection(t *testing.T) {
 		harness.press("j", "k")
 		harness.fireTimers()
 
-		assert.Len(t, readSentFor(harness, "/trees/archived"), 1)
+		assert.Len(t, readWorktreeReadsOf(harness, "/trees/archived"), 1)
 	})
 
 	t.Run("a row read again shows its last answer until the new one lands", func(t *testing.T) {
@@ -750,7 +750,7 @@ func moveToWorktree(t *testing.T, harness *panelHarness, name string) {
 	require.Equal(t, name, readHoveredWorktree(harness.readFrame()))
 }
 
-func readSentFor(harness *panelHarness, dir string) []proto.Message {
+func readWorktreeReadsOf(harness *panelHarness, dir string) []proto.Message {
 	return slices.DeleteFunc(harness.readSent(worktreev1connect.WorktreeServiceGetWorktreeProcedure), func(sent proto.Message) bool {
 		read, _ := sent.(*worktreev1.GetWorktreeRequest)
 

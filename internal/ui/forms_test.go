@@ -2,7 +2,7 @@ package ui_test
 
 import (
 	"errors"
-	"fmt"
+	"io/fs"
 	"os"
 	"slices"
 	"strings"
@@ -568,7 +568,7 @@ func TestFormsFieldEditor(t *testing.T) {
 		harness.press("r", "ctrl+e")
 
 		_, err := os.Stat(ui.FormFieldDraftPath("name"))
-		assert.True(t, os.IsNotExist(err))
+		assert.ErrorIs(t, err, fs.ErrNotExist)
 	})
 
 	tests := []struct {
@@ -705,13 +705,31 @@ func TestFormsLayout(t *testing.T) {
 	t.Run("a held form draws its notice under it at every height", func(t *testing.T) {
 		t.Parallel()
 
-		for _, height := range []int{24, 32, 40} {
-			t.Run(fmt.Sprintf("%d rows", height), func(t *testing.T) {
+		tests := []struct {
+			name   string
+			height int
+		}{
+			{
+				name:   "a short window",
+				height: 24,
+			},
+			{
+				name:   "a middling window",
+				height: 32,
+			},
+			{
+				name:   "a tall window",
+				height: 40,
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
 				t.Parallel()
 
 				harness := newPanelHarness(t, panelHarnessParams{
 					width:  160,
-					height: height,
+					height: tt.height,
 				})
 				answerWorktreeReads(harness)
 				harness.watch(buildSnapshot(newFormWorkflow()))
@@ -720,7 +738,7 @@ func TestFormsLayout(t *testing.T) {
 				harness.press(slices.Concat([]string{"w"}, spellKeys("web"), []string{"ctrl+s"})...)
 
 				lines := splitLines(strings.TrimSuffix(harness.readFrame(), "\n"))
-				assert.Len(t, lines, height)
+				assert.Len(t, lines, tt.height)
 				assert.NotContains(t, lines[0], "submitting", "the panel keeps its top row")
 				assert.Contains(t, findLastFilled(lines), "submitting…", "the notice sits under the form")
 			})
