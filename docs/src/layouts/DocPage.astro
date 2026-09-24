@@ -14,7 +14,7 @@ const { title, description, filePath } = Astro.props;
 <Layout title={title} description={description}>
   <article data-pagefind-body>
     <h1 class="title" data-pagefind-meta="title">{title}</h1>
-    {description && <p class="mb-8 text-lg text-app-gray-light">{description}</p>}
+    {description && <p class="mt-2 mb-8 text-lg text-app-gray-light">{description}</p>}
     {
       filePath && (
         <div class="mb-3 flex justify-end" data-pagefind-ignore>
@@ -39,7 +39,7 @@ const { title, description, filePath } = Astro.props;
 
   .edit-link {
     @apply text-sm text-app-gray opacity-70 transition-opacity duration-200;
-    font-family: var(--font-lora);
+    font-family: var(--font-sans);
   }
 
   .edit-link:hover,
@@ -56,14 +56,14 @@ const { title, description, filePath } = Astro.props;
   }
 
   .doc-content :global(:is(p, li)) {
-    font-size: 1.1em;
-    line-height: 1.75;
+    font-size: 1em;
+    line-height: 1.7;
     color: #e6ecf5;
   }
 
   @media (max-width: 639.98px) {
     .doc-content :global(:is(p, li)) {
-      font-size: 1em;
+      font-size: 0.95em;
       line-height: 1.65;
     }
   }
@@ -82,8 +82,8 @@ const { title, description, filePath } = Astro.props;
   }
 
   .doc-content :global(blockquote) {
-    @apply m-0 border-l-2 border-app-blue pl-5 text-app-gray italic;
-    font-family: var(--font-lora);
+    @apply m-0 border-l-2 border-app-blue pl-5 text-app-gray;
+    font-family: var(--font-sans);
   }
 
   .doc-content :global(a) {

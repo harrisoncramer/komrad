@@ -76,7 +76,7 @@ const NavigationDropdown = ({ links, path }: NavigationDropdownProps) => {
             <a
               href={link.href}
               aria-current={isCurrent(link.href, path) ? "page" : undefined}
-              className="block px-4 py-2.5 font-['Playfair_Display'] text-base text-app-white hover:bg-app-background-light aria-[current=page]:text-app-blue"
+              className="block px-4 py-2.5 text-base text-app-white hover:bg-app-background-light aria-[current=page]:text-app-blue"
             >
               {link.label}
             </a>

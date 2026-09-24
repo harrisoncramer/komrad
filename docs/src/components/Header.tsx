@@ -55,7 +55,7 @@ const Header = ({ children, path }: HeaderProps) => {
         <a
           href="/"
           data-site-title
-          className="col-start-1 row-start-1 flex items-center gap-2 justify-self-start font-['Playfair_Display'] text-base text-app-white transition-opacity duration-200"
+          className="col-start-1 row-start-1 flex items-center gap-2 justify-self-start text-base text-app-white transition-opacity duration-200"
         >
           <img src="/favicon.png" alt="" className="h-7 w-7" />
           {SITE_TITLE}
@@ -68,7 +68,7 @@ const Header = ({ children, path }: HeaderProps) => {
                 <a
                   href={link.href}
                   aria-current={isCurrent(link.href, currentPath) ? "page" : undefined}
-                  className="block pt-2 font-['Playfair_Display'] text-base text-app-white after:mx-auto after:mt-[5px] after:block after:h-[3px] after:w-0 after:bg-transparent after:transition-[width,background-color] after:duration-300 after:ease-in-out hover:after:w-4/5 hover:after:bg-app-blue focus-visible:after:w-4/5 focus-visible:after:bg-app-blue aria-[current=page]:after:w-4/5 aria-[current=page]:after:bg-app-blue"
+                  className="block pt-2 text-base text-app-white after:mx-auto after:mt-[5px] after:block after:h-[3px] after:w-0 after:bg-transparent after:transition-[width,background-color] after:duration-300 after:ease-in-out hover:after:w-4/5 hover:after:bg-app-blue focus-visible:after:w-4/5 focus-visible:after:bg-app-blue aria-[current=page]:after:w-4/5 aria-[current=page]:after:bg-app-blue"
                 >
                   {link.label}
                 </a>
