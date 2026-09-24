@@ -48,6 +48,53 @@ import (
 
 const missingID = "00000000-0000-0000-0000-000000000000"
 
+type markCall struct {
+	mark   string
+	target markstore.Target
+}
+
+// fakeMarkReadWriter answers from its fields and records each letter set and cleared.
+type fakeMarkReadWriter struct {
+	marks   []markstore.Mark
+	unlive  bool
+	err     error
+	set     []markCall
+	cleared []markstore.Target
+}
+
+// SetMark records the letter and answers whether the row was live unless err refuses it.
+func (f *fakeMarkReadWriter) SetMark(_ context.Context, mark string, target markstore.Target) (bool, error) {
+	f.set = append(f.set, markCall{
+		mark:   mark,
+		target: target,
+	})
+
+	if f.err != nil {
+		return false, f.err
+	}
+
+	return !f.unlive, nil
+}
+
+// ClearMark records the target and answers err.
+func (f *fakeMarkReadWriter) ClearMark(_ context.Context, target markstore.Target) (bool, error) {
+	f.cleared = append(f.cleared, target)
+	if f.err != nil {
+		return false, f.err
+	}
+
+	return true, nil
+}
+
+// ListWatched answers marks unless err refuses it.
+func (f *fakeMarkReadWriter) ListWatched(context.Context, []string) ([]markstore.Mark, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return f.marks, nil
+}
+
 // TestLifecycleRefusalsMapToCodes pins the code each refusal of the agent services reaches the
 // caller as.
 func TestLifecycleRefusalsMapToCodes(t *testing.T) {
@@ -892,46 +939,6 @@ func TestGetAgent(t *testing.T) {
 	assert.WithinDuration(t, time.Now(), created, time.Minute)
 }
 
-type markCall struct {
-	mark   string
-	target markstore.Target
-}
-
-// fakeMarkWriter answers from its fields and records each letter set and cleared.
-type fakeMarkWriter struct {
-	marks   []markstore.Mark
-	unlive  bool
-	err     error
-	set     []markCall
-	cleared []markstore.Target
-}
-
-// SetMark records the letter and answers whether the row was live unless err refuses it.
-func (f *fakeMarkWriter) SetMark(_ context.Context, mark string, target markstore.Target) (bool, error) {
-	f.set = append(f.set, markCall{
-		mark:   mark,
-		target: target,
-	})
-
-	return !f.unlive, f.err
-}
-
-// ClearMark records the target and answers err.
-func (f *fakeMarkWriter) ClearMark(_ context.Context, target markstore.Target) (bool, error) {
-	f.cleared = append(f.cleared, target)
-
-	return true, f.err
-}
-
-// ListWatched answers marks unless err refuses it.
-func (f *fakeMarkWriter) ListWatched(context.Context, []string) ([]markstore.Mark, error) {
-	if f.err != nil {
-		return nil, f.err
-	}
-
-	return f.marks, nil
-}
-
 // TestMarkRefusalsMapToCodes pins the code each refusal of the marks reaches the caller as.
 func TestMarkRefusalsMapToCodes(t *testing.T) {
 	setMark := func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) error {
@@ -958,31 +965,31 @@ func TestMarkRefusalsMapToCodes(t *testing.T) {
 	tests := []struct {
 		name     string
 		call     func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) error
-		marks    fakeMarkWriter
+		marks    fakeMarkReadWriter
 		wantCode connect.Code
 	}{
 		{
 			name:     "a letter for a row that is not live",
 			call:     setMark,
-			marks:    fakeMarkWriter{unlive: true},
+			marks:    fakeMarkReadWriter{unlive: true},
 			wantCode: connect.CodeNotFound,
 		},
 		{
 			name:     "a letter the store cannot write",
 			call:     setMark,
-			marks:    fakeMarkWriter{err: errors.New("connection refused")},
+			marks:    fakeMarkReadWriter{err: errors.New("connection refused")},
 			wantCode: connect.CodeInternal,
 		},
 		{
 			name:     "a clear the store cannot write",
 			call:     clearMark,
-			marks:    fakeMarkWriter{err: errors.New("connection refused")},
+			marks:    fakeMarkReadWriter{err: errors.New("connection refused")},
 			wantCode: connect.CodeInternal,
 		},
 		{
 			name:     "a listing the store cannot read",
 			call:     listMarks,
-			marks:    fakeMarkWriter{err: errors.New("connection refused")},
+			marks:    fakeMarkReadWriter{err: errors.New("connection refused")},
 			wantCode: connect.CodeInternal,
 		},
 	}
@@ -1041,7 +1048,7 @@ func TestMarkRequestsReachTheService(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			marks := &fakeMarkWriter{}
+			marks := &fakeMarkReadWriter{}
 
 			_, err := newMarkHandler(marks).SetMark(t.Context(), connect.NewRequest(tt.req))
 			require.NoError(t, err)
@@ -1054,7 +1061,7 @@ func TestMarkRequestsReachTheService(t *testing.T) {
 
 // TestListMarks pins that each mark names the one row it jumps to.
 func TestListMarks(t *testing.T) {
-	marks := &fakeMarkWriter{marks: []markstore.Mark{
+	marks := &fakeMarkReadWriter{marks: []markstore.Mark{
 		{
 			ID:      "m1",
 			Mark:    "a",
@@ -1412,7 +1419,7 @@ func markService(st *storetest.Stores) *marks.MarkService {
 }
 
 // newMarkHandler is the handler over a fake of the marks alone.
-func newMarkHandler(marks *fakeMarkWriter) agentv1weave.AgentServiceAdapter {
+func newMarkHandler(marks *fakeMarkReadWriter) agentv1weave.AgentServiceAdapter {
 	return agentv1weave.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{
 		Marks:   marks,
 		Watched: WatchedListers{Marks: marks},

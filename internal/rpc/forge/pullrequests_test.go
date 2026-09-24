@@ -41,7 +41,7 @@ func (f *fakeForge) List(_ context.Context, params forge.ListParams) (*forge.Pag
 
 // TestListForgePullRequests pins what reaches the forge and how each pull request renders.
 func TestListForgePullRequests(t *testing.T) {
-	merged := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
+	stamp := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
 	listing := &fakeForge{pullRequests: []forge.PullRequest{{
 		Forge:      forge.KindGitHub,
 		ProviderID: "PR_1",
@@ -54,9 +54,9 @@ func TestListForgePullRequests(t *testing.T) {
 		Number:     1,
 		Title:      "one",
 		HeadBranch: "agent/x",
-		CreatedAt:  merged,
-		UpdatedAt:  merged,
-		MergedAt:   &merged,
+		CreatedAt:  stamp,
+		UpdatedAt:  stamp,
+		MergedAt:   &stamp,
 	}}}
 	connector := &fakeConnector{
 		connections: []forgestore.Connection{newConnection()},

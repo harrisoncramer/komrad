@@ -27,15 +27,21 @@ type fakeLogReader struct {
 // Lines records the trace and answers lines unless err refuses it.
 func (f *fakeLogReader) Lines(trace string) ([]logread.Line, error) {
 	f.traces = append(f.traces, trace)
+	if f.err != nil {
+		return nil, f.err
+	}
 
-	return f.lines, f.err
+	return f.lines, nil
 }
 
 // RecentTraces records the limit and answers summaries unless err refuses it.
 func (f *fakeLogReader) RecentTraces(limit int) ([]logread.Summary, error) {
 	f.limits = append(f.limits, limit)
+	if f.err != nil {
+		return nil, f.err
+	}
 
-	return f.summaries, f.err
+	return f.summaries, nil
 }
 
 // TestLogRefusalsMapToCodes pins the code each refusal of the log reader reaches the caller as.

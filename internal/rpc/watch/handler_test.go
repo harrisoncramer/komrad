@@ -210,12 +210,12 @@ func TestWatchRefusalsMapToCodes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := serve(t, tt.agents, time.Hour)
+			served := serve(t, tt.agents, time.Hour)
 			if tt.closed {
-				s.broker.Close()
+				served.broker.Close()
 			}
 
-			stream, err := s.client.Watch(t.Context(), connect.NewRequest(&emptypb.Empty{}))
+			stream, err := served.client.Watch(t.Context(), connect.NewRequest(&emptypb.Empty{}))
 			require.NoError(t, err)
 
 			assert.False(t, stream.Receive())

@@ -30,6 +30,64 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
+// fakeAgentReader answers whether an agent exists from its field.
+type fakeAgentReader struct {
+	missing bool
+}
+
+// GetByID answers an agent with the id asked for unless it is missing.
+func (f fakeAgentReader) GetByID(_ context.Context, id string) (*agentstore.Agent, error) {
+	if f.missing {
+		return nil, agents.ErrAgentNotFound
+	}
+
+	return &agentstore.Agent{ID: id}, nil
+}
+
+// Exists answers true unless the agent is missing.
+func (f fakeAgentReader) Exists(context.Context, string) (bool, error) {
+	return !f.missing, nil
+}
+
+// fakeTranscriptReader answers from its fields and records what each call asked of it.
+type fakeTranscriptReader struct {
+	content  string
+	turns    []transcriptstore.StoredTurn
+	results  transcriptstore.Results
+	err      error
+	searched []transcriptstore.SearchParams
+	listed   []transcriptstore.ListLastTurnsParams
+}
+
+// Get answers content unless err refuses it.
+func (f *fakeTranscriptReader) Get(context.Context, string) (string, error) {
+	if f.err != nil {
+		return "", f.err
+	}
+
+	return f.content, nil
+}
+
+// ListLastTurns records the params and answers turns unless err refuses it.
+func (f *fakeTranscriptReader) ListLastTurns(_ context.Context, params transcriptstore.ListLastTurnsParams) ([]transcriptstore.StoredTurn, error) {
+	f.listed = append(f.listed, params)
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return f.turns, nil
+}
+
+// Search records the params and answers results unless err refuses it.
+func (f *fakeTranscriptReader) Search(_ context.Context, params transcriptstore.SearchParams) (transcriptstore.Results, error) {
+	f.searched = append(f.searched, params)
+	if f.err != nil {
+		return transcriptstore.Results{}, f.err
+	}
+
+	return f.results, nil
+}
+
 // TestTranscriptWindow covers the cut a page token is minted from, which has to move forward by
 // whole characters and stop rather than hand back a token asking the same question again.
 func TestTranscriptWindow(t *testing.T) {
@@ -143,57 +201,6 @@ func TestTranscriptWindow(t *testing.T) {
 			}
 		})
 	}
-}
-
-// fakeAgentReader answers whether an agent exists from its field.
-type fakeAgentReader struct {
-	missing bool
-}
-
-// GetByID answers an agent with the id asked for unless it is missing.
-func (f fakeAgentReader) GetByID(_ context.Context, id string) (*agentstore.Agent, error) {
-	if f.missing {
-		return nil, agents.ErrAgentNotFound
-	}
-
-	return &agentstore.Agent{ID: id}, nil
-}
-
-// Exists answers true unless the agent is missing.
-func (f fakeAgentReader) Exists(context.Context, string) (bool, error) {
-	return !f.missing, nil
-}
-
-// fakeTranscriptReader answers from its fields and records what each call asked of it.
-type fakeTranscriptReader struct {
-	content  string
-	turns    []transcriptstore.StoredTurn
-	results  transcriptstore.Results
-	err      error
-	searched []transcriptstore.SearchParams
-	listed   []transcriptstore.ListLastTurnsParams
-}
-
-// Get answers content unless err refuses it.
-func (f *fakeTranscriptReader) Get(context.Context, string) (string, error) {
-	return f.content, f.err
-}
-
-// ListLastTurns records the params and answers turns unless err refuses it.
-func (f *fakeTranscriptReader) ListLastTurns(_ context.Context, params transcriptstore.ListLastTurnsParams) ([]transcriptstore.StoredTurn, error) {
-	f.listed = append(f.listed, params)
-	if f.err != nil {
-		return nil, f.err
-	}
-
-	return f.turns, nil
-}
-
-// Search records the params and answers results unless err refuses it.
-func (f *fakeTranscriptReader) Search(_ context.Context, params transcriptstore.SearchParams) (transcriptstore.Results, error) {
-	f.searched = append(f.searched, params)
-
-	return f.results, f.err
 }
 
 // TestTranscriptRefusalsMapToCodes pins the code each refusal of a transcript read reaches the caller as.

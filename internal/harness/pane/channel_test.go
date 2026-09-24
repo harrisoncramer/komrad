@@ -53,9 +53,9 @@ func TestReadyRefusesAPaneThatIsNotListening(t *testing.T) {
 				inMode: tt.inMode,
 				shell:  tt.shell,
 			}
-			p := NewPane(NewPaneParams{Terminal: terminal, Harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}}})
+			pane := NewPane(NewPaneParams{Terminal: terminal, Harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}}})
 
-			ready, err := p.Ready(t.Context(), target)
+			ready, err := pane.Ready(t.Context(), target)
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, ready)
 			assert.Empty(t, terminal.actions, "asking whether a box would take something touches nothing")
@@ -66,9 +66,9 @@ func TestReadyRefusesAPaneThatIsNotListening(t *testing.T) {
 // TestSendPastesIntoAnEmptyBox pins that an idle pane takes the paste and nothing around it.
 func TestSendPastesIntoAnEmptyBox(t *testing.T) {
 	terminal := &fakeTerminal{frame: harnesstest.FrameIdle}
-	p := NewPane(NewPaneParams{Terminal: terminal, Harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}}})
+	pane := NewPane(NewPaneParams{Terminal: terminal, Harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}}})
 
-	sent, err := p.Send(t.Context(), target, "weave: read_mail")
+	sent, err := pane.Send(t.Context(), target, "weave: read_mail")
 	require.NoError(t, err)
 	assert.True(t, sent)
 	assert.Equal(t, []string{"paste"}, terminal.actions, "an empty box needs no cut")
@@ -109,9 +109,9 @@ func TestSendRefusesAPaneWhoseCLIHasExited(t *testing.T) {
 // rather than held forever.
 func TestSendToAnUnknownHarnessPastesAnyway(t *testing.T) {
 	terminal := &fakeTerminal{frame: harnesstest.FrameWorking}
-	p := NewPane(NewPaneParams{Terminal: terminal, Harnesses: harnesstest.Registry{}})
+	pane := NewPane(NewPaneParams{Terminal: terminal, Harnesses: harnesstest.Registry{}})
 
-	sent, err := p.Send(t.Context(), target, "weave: read_mail")
+	sent, err := pane.Send(t.Context(), target, "weave: read_mail")
 	require.NoError(t, err)
 	assert.True(t, sent)
 	assert.Equal(t, []string{"paste"}, terminal.actions)
@@ -383,9 +383,9 @@ func TestSendHandsBackADraftWhenTheFrameGoesUnreadable(t *testing.T) {
 // rather than anything weave decides.
 func TestInterruptSendsTheHarnessItsOwnKeys(t *testing.T) {
 	terminal := &fakeTerminal{frame: harnesstest.FrameWorking}
-	p := NewPane(NewPaneParams{Terminal: terminal, Harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{InterruptWith: []string{"Escape", "Escape"}}}})
+	pane := NewPane(NewPaneParams{Terminal: terminal, Harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{InterruptWith: []string{"Escape", "Escape"}}}})
 
-	require.NoError(t, p.Interrupt(t.Context(), target))
+	require.NoError(t, pane.Interrupt(t.Context(), target))
 	assert.Equal(t, []string{"keys:Escape,Escape"}, terminal.actions)
 }
 
