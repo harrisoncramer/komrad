@@ -17,7 +17,7 @@ import (
 // TestIntegrationWorkflowCwdMustBeAPrimaryCheckout covers the cwd a worktree workflow is held to against
 // real repositories.
 func TestIntegrationWorkflowCwdMustBeAPrimaryCheckout(t *testing.T) {
-	hermeticGit(t)
+	isolateGit(t)
 
 	instance := weavetest.Start(t, weavetest.Params{WorktreesDir: t.TempDir()})
 	repo := initGitRepo(t)

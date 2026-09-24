@@ -24,7 +24,7 @@ func TestIntegrationDeleteWorkflowFinishesOnceCleanupCatchesUp(t *testing.T) {
 
 	replaceWorktreeTeardown(t, instance, "#!/bin/sh\nsleep 0.2\nexit 0\n")
 
-	workflow, err := instance.Workflows.CreateWorkflow(ctx, connect.NewRequest(worktreeWorkflow(t)))
+	workflow, err := instance.Workflows.CreateWorkflow(ctx, connect.NewRequest(buildWorktreeWorkflow(t)))
 	require.NoError(t, err)
 	workflowID := workflow.Msg.GetWorkflow().GetId()
 

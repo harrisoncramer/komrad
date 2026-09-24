@@ -79,7 +79,7 @@ func TestIntegrationPullRequestsReachTheRowFromEachForge(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			hermeticGit(t)
+			isolateGit(t)
 
 			fake := tt.fake(t)
 			kind, err := forge.KindForHost(tt.host)

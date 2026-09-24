@@ -20,311 +20,158 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestCwdSyncerSync covers what the periodic pass writes for a live agent: whether its cwd
-// still exists, and the branch git names for it, cleared for a cwd that names no directory or
-// that git names no branch for.
-func TestCwdSyncerSync(t *testing.T) {
-	onMain := fakeCheckout(t)
-	onFeature := fakeCheckout(t)
-
-	// What git answers for each directory, which internal/git's own tests pin against a real
-	// repository.
-	branches := &gittest.Heads{States: map[string]git.HeadState{
-		onMain:    {Branch: "main"},
-		onFeature: {Branch: "feature/x"},
-	}}
-
-	tests := []struct {
-		name        string
-		cwd         string
-		wantBranch  *string
-		wantRemoved bool
-	}{
-		{
-			name:        "a blank cwd carries no branch and is not reported removed",
-			cwd:         "",
-			wantBranch:  nil,
-			wantRemoved: false,
-		},
-		{
-			name:        "a directory that is not a git checkout carries no branch",
-			cwd:         t.TempDir(),
-			wantBranch:  nil,
-			wantRemoved: false,
-		},
-		{
-			name:        "a checkout on main reads main",
-			cwd:         onMain,
-			wantBranch:  xptr.Ptr("main"),
-			wantRemoved: false,
-		},
-		{
-			name:        "a checkout on another branch reads that branch",
-			cwd:         onFeature,
-			wantBranch:  xptr.Ptr("feature/x"),
-			wantRemoved: false,
-		},
-		{
-			name:        "a cwd that no longer exists is reported removed and carries no branch",
-			cwd:         removedDir(t),
-			wantBranch:  nil,
-			wantRemoved: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			st := storetest.Open(t)
-			ctx := t.Context()
-
-			workflowID := seedWorkflow(t, st)
-			require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{
-				Name:       "a",
-				State:      agentstore.StateIdle,
-				WorkflowID: workflowID,
-				Cwd:        tt.cwd,
-			}))
-			created, err := st.Agents.GetInWorkflow(ctx, workflowID, "a")
-			require.NoError(t, err)
-
-			require.NoError(t, newCwdSyncer(st.Agents, branches).Sync(ctx))
-
-			got, err := st.Agents.GetByID(ctx, created.ID)
-			require.NoError(t, err)
-			require.NotNil(t, got)
-			assert.Equal(t, tt.wantRemoved, got.WorktreeRemoved)
-			if tt.wantBranch == nil {
-				assert.Nil(t, got.Branch)
-				return
-			}
-
-			require.NotNil(t, got.Branch)
-			assert.Equal(t, *tt.wantBranch, *got.Branch)
-		})
-	}
+// syncFixture is a real store with a workflow and the review store.
+type syncFixture struct {
+	stores     *storetest.Stores
+	reviews    *reviewstore.ReviewStore
+	workflowID string
 }
 
-// newCwdSyncer is a syncer over a git that has no rounds to compare against.
-func newCwdSyncer(agents cwdSetter, heads headReader) *CwdSyncer {
-	return NewCwdSyncer(NewCwdSyncerParams{
-		Agents:       agents,
-		Heads:        heads,
-		Trees:        &gittest.Trees{Standings: map[string]git.Standing{}},
-		Rounds:       fakeTallies{},
-		Bases:        fakeBases{},
-		PullRequests: &countingObservations{},
-	})
+// countingCwdSetter is the real agent store with its standing writes counted.
+type countingCwdSetter struct {
+	cwdSetter
+	standingWrites int
 }
 
-// TestCwdSyncerSyncObservesANewBranch covers that a pass which records a branch the row did not
-// hold observes the pull requests, and a pass that finds every branch where it was does not.
-func TestCwdSyncerSyncObservesANewBranch(t *testing.T) {
-	ctx := t.Context()
-	st := storetest.Open(t)
-	workflowID := seedWorkflow(t, st)
-	cwd := fakeCheckout(t)
-	require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{
-		Name:       "a",
-		State:      agentstore.StateIdle,
-		WorkflowID: workflowID,
-		Cwd:        cwd,
-	}))
+func (c *countingCwdSetter) SetTreeStanding(ctx context.Context, id string, standing git.Standing, snapshotSHA string) error {
+	c.standingWrites++
 
-	heads := &gittest.Heads{States: map[string]git.HeadState{cwd: {Branch: "agent/x", RepositoryURL: "https://github.com/harrisoncramer/weave"}}}
-	observations := &countingObservations{}
-	syncer := NewCwdSyncer(NewCwdSyncerParams{
-		Agents:       st.Agents,
-		Heads:        heads,
-		Trees:        &gittest.Trees{Standings: map[string]git.Standing{}},
-		Rounds:       fakeTallies{},
-		Bases:        fakeBases{},
-		PullRequests: observations,
-	})
-
-	require.NoError(t, syncer.Sync(ctx))
-	assert.Equal(t, 1, observations.passes, "recording a new branch observes")
-
-	require.NoError(t, syncer.Sync(ctx))
-	assert.Equal(t, 1, observations.passes, "a branch already on the row observes nothing")
-
-	heads.States[cwd] = git.HeadState{Branch: "agent/y", RepositoryURL: "https://github.com/harrisoncramer/weave"}
-	require.NoError(t, syncer.Sync(ctx))
-	assert.Equal(t, 2, observations.passes, "moving branch observes again")
+	return c.cwdSetter.SetTreeStanding(ctx, id, standing, snapshotSHA)
 }
 
-// TestCwdSyncerSyncRecordsTheRepository covers the identity the pull request join sits on: the
-// canonical address git reads for a checkout is written, rewritten when the origin moves, and
-// cleared when the cwd stops naming a forge repository or stops existing at all.
-func TestCwdSyncerSyncRecordsTheRepository(t *testing.T) {
+// countingPullRequestObserver counts the observation passes it is asked for.
+type countingPullRequestObserver struct {
+	passes int
+}
+
+func (c *countingPullRequestObserver) Observe(context.Context) (int64, error) {
+	c.passes++
+
+	return 0, nil
+}
+
+// TestCwdSyncerSyncRecordsTheCheckout covers what a pass writes of a live agent's checkout.
+func TestCwdSyncerSyncRecordsTheCheckout(t *testing.T) {
 	const weave = "https://github.com/harrisoncramer/weave"
 	const other = "https://gitlab.com/group/subgroup/repo"
 
 	tests := []struct {
-		name   string
-		before *string
-		cwd    func(t *testing.T) string
-		heads  func(cwd string) *gittest.Heads
-		want   *string
+		name        string
+		before      agentstore.SetCheckoutParams
+		cwd         func(t *testing.T) string
+		head        git.HeadState
+		wantBranch  *string
+		wantRepo    *string
+		wantSHA     *string
+		wantRemoved bool
 	}{
 		{
-			name: "a checkout with a forge origin records its canonical address",
-			cwd:  fakeCheckout,
-			heads: func(cwd string) *gittest.Heads {
-				return &gittest.Heads{States: map[string]git.HeadState{cwd: {Branch: "main", RepositoryURL: weave}}}
+			name: "a blank cwd carries nothing and is not reported removed",
+			cwd: func(*testing.T) string {
+				return ""
 			},
-			want: xptr.Ptr(weave),
 		},
 		{
-			name:   "an origin moved under a running agent is rewritten on the next pass",
-			before: xptr.Ptr(weave),
-			cwd:    fakeCheckout,
-			heads: func(cwd string) *gittest.Heads {
-				return &gittest.Heads{States: map[string]git.HeadState{cwd: {Branch: "main", RepositoryURL: other}}}
+			name: "a directory that is not a checkout carries nothing",
+			cwd: func(t *testing.T) string {
+				return t.TempDir()
 			},
-			want: xptr.Ptr(other),
 		},
 		{
-			name:   "a checkout whose origin is not a forge clears what an earlier pass wrote",
-			before: xptr.Ptr(weave),
-			cwd:    fakeCheckout,
-			heads: func(cwd string) *gittest.Heads {
-				return &gittest.Heads{States: map[string]git.HeadState{cwd: {Branch: "main"}}}
+			name: "a cwd that no longer exists is reported removed and cleared",
+			before: agentstore.SetCheckoutParams{
+				Branch:        xptr.Ptr("main"),
+				RepositoryURL: xptr.Ptr(weave),
+				HeadSHA:       xptr.Ptr("aaa"),
 			},
-			want: nil,
+			cwd: makeRemovedDir,
+			head: git.HeadState{
+				Branch:        "main",
+				RepositoryURL: weave,
+				SHA:           "aaa",
+			},
+			wantRemoved: true,
 		},
 		{
-			name:   "a cwd that no longer exists clears the repository",
-			before: xptr.Ptr(weave),
-			cwd:    removedDir,
-			heads: func(cwd string) *gittest.Heads {
-				return &gittest.Heads{States: map[string]git.HeadState{cwd: {Branch: "main", RepositoryURL: weave}}}
-			},
-			want: nil,
+			name:       "a checkout whose origin is not a forge clears what an earlier pass wrote",
+			before:     agentstore.SetCheckoutParams{RepositoryURL: xptr.Ptr(weave)},
+			cwd:        makeCheckout,
+			head:       git.HeadState{Branch: "main"},
+			wantBranch: xptr.Ptr("main"),
 		},
 		{
-			name:  "a directory that is not a checkout records no repository",
-			cwd:   func(t *testing.T) string { return t.TempDir() },
-			heads: func(string) *gittest.Heads { return &gittest.Heads{States: map[string]git.HeadState{}} },
-			want:  nil,
+			name: "a checkout records its branch, canonical address and commit over what an earlier pass wrote",
+			before: agentstore.SetCheckoutParams{
+				Branch:        xptr.Ptr("main"),
+				RepositoryURL: xptr.Ptr(weave),
+				HeadSHA:       xptr.Ptr("aaa"),
+			},
+			cwd: makeCheckout,
+			head: git.HeadState{
+				Branch:        "main",
+				RepositoryURL: other,
+				SHA:           "bbb",
+			},
+			wantBranch: xptr.Ptr("main"),
+			wantRepo:   xptr.Ptr(other),
+			wantSHA:    xptr.Ptr("bbb"),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			st := storetest.Open(t)
-			ctx := t.Context()
-
-			workflowID := seedWorkflow(t, st)
+			fixture := newSyncFixture(t)
 			cwd := tt.cwd(t)
-			require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{
-				Name:       "a",
-				State:      agentstore.StateIdle,
-				WorkflowID: workflowID,
-				Cwd:        cwd,
-			}))
-			created, err := st.Agents.GetInWorkflow(ctx, workflowID, "a")
-			require.NoError(t, err)
-			require.NoError(t, st.Agents.SetCheckout(ctx, created.ID, agentstore.SetCheckoutParams{RepositoryURL: tt.before}))
+			agent := fixture.seed(t, "a", cwd)
+			require.NoError(t, fixture.stores.Agents.SetCheckout(t.Context(), agent.ID, tt.before))
 
-			require.NoError(t, newCwdSyncer(st.Agents, tt.heads(cwd)).Sync(ctx))
+			require.NoError(t, fixture.newSyncer(NewCwdSyncerParams{Heads: buildHeads(cwd, tt.head)}).Sync(t.Context()))
 
-			got, err := st.Agents.GetByID(ctx, created.ID)
-			require.NoError(t, err)
-			assert.Equal(t, tt.want, got.RepositoryURL)
+			got := fixture.read(t, agent.ID)
+			assert.Equal(t, tt.wantRemoved, got.WorktreeRemoved)
+			assert.Equal(t, tt.wantBranch, got.Branch)
+			assert.Equal(t, tt.wantRepo, got.RepositoryURL)
+			assert.Equal(t, tt.wantSHA, got.HeadSHA)
 		})
 	}
 }
 
-// TestCwdSyncerSyncRecordsTheHead covers the commit a finished pull request is measured
-// against: written, rewritten when the checkout moves, and cleared when the cwd is gone.
-func TestCwdSyncerSyncRecordsTheHead(t *testing.T) {
-	tests := []struct {
-		name   string
-		before *string
-		cwd    func(t *testing.T) string
-		heads  func(cwd string) *gittest.Heads
-		want   *string
-	}{
-		{
-			name: "a checkout records the commit it has checked out",
-			cwd:  fakeCheckout,
-			heads: func(cwd string) *gittest.Heads {
-				return &gittest.Heads{States: map[string]git.HeadState{cwd: {Branch: "main", SHA: "aaa"}}}
-			},
-			want: xptr.Ptr("aaa"),
-		},
-		{
-			name:   "a commit made under a running agent is rewritten on the next pass",
-			before: xptr.Ptr("aaa"),
-			cwd:    fakeCheckout,
-			heads: func(cwd string) *gittest.Heads {
-				return &gittest.Heads{States: map[string]git.HeadState{cwd: {Branch: "main", SHA: "bbb"}}}
-			},
-			want: xptr.Ptr("bbb"),
-		},
-		{
-			name:   "a cwd that no longer exists clears the commit",
-			before: xptr.Ptr("aaa"),
-			cwd:    removedDir,
-			heads: func(cwd string) *gittest.Heads {
-				return &gittest.Heads{States: map[string]git.HeadState{cwd: {Branch: "main", SHA: "aaa"}}}
-			},
-			want: nil,
-		},
-	}
+// TestCwdSyncerSyncObservesANewBranch covers a pass observing pull requests only when a branch moved.
+func TestCwdSyncerSyncObservesANewBranch(t *testing.T) {
+	fixture := newSyncFixture(t)
+	cwd := makeCheckout(t)
+	fixture.seed(t, "a", cwd)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			st := storetest.Open(t)
-			ctx := t.Context()
+	heads := buildHeads(cwd, git.HeadState{Branch: "agent/x"})
+	observations := &countingPullRequestObserver{}
+	syncer := fixture.newSyncer(NewCwdSyncerParams{Heads: heads, PullRequests: observations})
 
-			workflowID := seedWorkflow(t, st)
-			cwd := tt.cwd(t)
-			require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{
-				Name:       "a",
-				State:      agentstore.StateIdle,
-				WorkflowID: workflowID,
-				Cwd:        cwd,
-			}))
-			created, err := st.Agents.GetInWorkflow(ctx, workflowID, "a")
-			require.NoError(t, err)
-			require.NoError(t, st.Agents.SetCheckout(ctx, created.ID, agentstore.SetCheckoutParams{
-				Branch:  xptr.Ptr("main"),
-				HeadSHA: tt.before,
-			}))
+	require.NoError(t, syncer.Sync(t.Context()))
+	assert.Equal(t, 1, observations.passes, "recording a new branch observes")
 
-			require.NoError(t, newCwdSyncer(st.Agents, tt.heads(cwd)).Sync(ctx))
+	require.NoError(t, syncer.Sync(t.Context()))
+	assert.Equal(t, 1, observations.passes, "a branch already on the row observes nothing")
 
-			got, err := st.Agents.GetByID(ctx, created.ID)
-			require.NoError(t, err)
-			assert.Equal(t, tt.want, got.HeadSHA)
-		})
-	}
+	heads.States[cwd] = git.HeadState{Branch: "agent/y"}
+	require.NoError(t, syncer.Sync(t.Context()))
+	assert.Equal(t, 2, observations.passes, "moving branch observes again")
 }
 
 // TestCwdSyncerSyncLooksAtEveryAgent covers the fan-out: a pass over more agents than it has
 // workers still reads every directory and writes every row.
 func TestCwdSyncerSyncLooksAtEveryAgent(t *testing.T) {
-	st := storetest.Open(t)
-	ctx := t.Context()
-
-	workflowID := seedWorkflow(t, st)
+	fixture := newSyncFixture(t)
 	heads := &gittest.Heads{States: map[string]git.HeadState{}}
 	count := cwdLookWorkers*2 + 1
 	for i := range count {
-		cwd := fakeCheckout(t)
+		cwd := makeCheckout(t)
 		heads.States[cwd] = git.HeadState{Branch: fmt.Sprintf("b%d", i)}
-		require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{
-			Name:       fmt.Sprintf("a%d", i),
-			State:      agentstore.StateIdle,
-			WorkflowID: workflowID,
-			Cwd:        cwd,
-		}))
+		fixture.seed(t, fmt.Sprintf("a%d", i), cwd)
 	}
 
-	require.NoError(t, newCwdSyncer(st.Agents, heads).Sync(ctx))
+	require.NoError(t, fixture.newSyncer(NewCwdSyncerParams{Heads: heads}).Sync(t.Context()))
 
-	agents, err := st.Agents.List(ctx)
+	agents, err := fixture.stores.Agents.List(t.Context())
 	require.NoError(t, err)
 	require.Len(t, agents, count)
 	for _, agent := range agents {
@@ -333,183 +180,404 @@ func TestCwdSyncerSyncLooksAtEveryAgent(t *testing.T) {
 	}
 }
 
-// TestCwdSyncerSyncRecordsAStoppedSequence covers the signal the row draws from: a checkout
-// part-way through a rebase says so on the agent, and still names the branch the work is on.
+// TestCwdSyncerSyncRecordsAStoppedSequence covers a rebase part-way through a checkout reaching the row.
 func TestCwdSyncerSyncRecordsAStoppedSequence(t *testing.T) {
-	st := storetest.Open(t)
-	ctx := t.Context()
+	fixture := newSyncFixture(t)
+	repo := makeCheckout(t)
+	agent := fixture.seed(t, "a", repo)
 
-	workflowID := seedWorkflow(t, st)
-	repo := fakeCheckout(t)
-	require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{
-		Name:       "a",
-		State:      agentstore.StateIdle,
-		WorkflowID: workflowID,
-		Cwd:        repo,
-	}))
-	created, err := st.Agents.GetInWorkflow(ctx, workflowID, "a")
-	require.NoError(t, err)
+	require.NoError(t, fixture.newSyncer(NewCwdSyncerParams{Heads: buildHeads(repo, git.HeadState{Branch: "topic", SequenceInProgress: true})}).Sync(t.Context()))
 
-	stopped := &gittest.Heads{States: map[string]git.HeadState{repo: {Branch: "topic", SequenceInProgress: true}}}
-	require.NoError(t, newCwdSyncer(st.Agents, stopped).Sync(ctx))
-
-	got, err := st.Agents.GetByID(ctx, created.ID)
-	require.NoError(t, err)
+	got := fixture.read(t, agent.ID)
 	assert.True(t, got.SequenceInProgress)
-	require.NotNil(t, got.Branch)
-	assert.Equal(t, "topic", *got.Branch)
+	assert.Equal(t, xptr.Ptr("topic"), got.Branch)
 
-	// Settled by hand in the worktree, which nothing tells weave about.
-	require.NoError(t, newCwdSyncer(st.Agents, &gittest.Heads{States: map[string]git.HeadState{repo: {Branch: "topic"}}}).Sync(ctx))
+	require.NoError(t, fixture.newSyncer(NewCwdSyncerParams{Heads: buildHeads(repo, git.HeadState{Branch: "topic"})}).Sync(t.Context()))
 
-	after, err := st.Agents.GetByID(ctx, created.ID)
-	require.NoError(t, err)
-	assert.False(t, after.SequenceInProgress)
+	assert.False(t, fixture.read(t, agent.ID).SequenceInProgress)
 }
 
-// TestCwdSyncerSyncSkipsTheGitCallForARemovedCwd covers the waste the single pass exists to
-// avoid: a cwd that is gone has no branch to read, so nothing waits out a git call against it.
+// TestCwdSyncerSyncSkipsTheGitCallForARemovedCwd covers a cwd that is gone never being asked for its branch.
 func TestCwdSyncerSyncSkipsTheGitCallForARemovedCwd(t *testing.T) {
-	st := storetest.Open(t)
-	ctx := t.Context()
-
-	workflowID := seedWorkflow(t, st)
-	require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{
-		Name:       "a",
-		State:      agentstore.StateIdle,
-		WorkflowID: workflowID,
-		Cwd:        removedDir(t),
-	}))
-	created, err := st.Agents.GetInWorkflow(ctx, workflowID, "a")
-	require.NoError(t, err)
-
+	fixture := newSyncFixture(t)
+	fixture.seed(t, "a", makeRemovedDir(t))
 	looked := &gittest.Heads{}
-	syncer := newCwdSyncer(st.Agents, looked)
 
-	require.NoError(t, syncer.Sync(ctx))
+	require.NoError(t, fixture.newSyncer(NewCwdSyncerParams{Heads: looked}).Sync(t.Context()))
 
-	assert.Empty(t, looked.Dirs, "a cwd that is gone is never asked for its branch")
-
-	got, err := st.Agents.GetByID(ctx, created.ID)
-	require.NoError(t, err)
-	assert.True(t, got.WorktreeRemoved)
+	assert.Empty(t, looked.Dirs)
 }
 
-// TestCwdSyncerSyncClearsAStaleBranch covers an agent whose cwd changed out from under it,
-// from a checkout to something that is not one: the next pass has to clear what an earlier
-// pass wrote rather than leave it stale.
-func TestCwdSyncerSyncClearsAStaleBranch(t *testing.T) {
-	st := storetest.Open(t)
-	ctx := t.Context()
+// TestCwdSyncerSyncClearsWhatAnEarlierPassWrote covers a branch and a removal being cleared once the cwd moves.
+func TestCwdSyncerSyncClearsWhatAnEarlierPassWrote(t *testing.T) {
+	fixture := newSyncFixture(t)
+	repo := makeCheckout(t)
+	onBranch := fixture.seed(t, "on-branch", repo)
+	removed := fixture.seed(t, "removed", makeRemovedDir(t))
+	syncer := fixture.newSyncer(NewCwdSyncerParams{Heads: buildHeads(repo, git.HeadState{Branch: "main"})})
 
-	workflowID := seedWorkflow(t, st)
-	repo := fakeCheckout(t)
-	require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{
-		Name:       "a",
-		State:      agentstore.StateIdle,
-		WorkflowID: workflowID,
-		Cwd:        repo,
-	}))
-	created, err := st.Agents.GetInWorkflow(ctx, workflowID, "a")
-	require.NoError(t, err)
+	require.NoError(t, syncer.Sync(t.Context()))
+	require.Equal(t, xptr.Ptr("main"), fixture.read(t, onBranch.ID).Branch)
+	require.True(t, fixture.read(t, removed.ID).WorktreeRemoved)
 
-	syncer := newCwdSyncer(st.Agents, &gittest.Heads{States: map[string]git.HeadState{repo: {Branch: "main"}}})
-	require.NoError(t, syncer.Sync(ctx))
+	for _, id := range []string{onBranch.ID, removed.ID} {
+		agent := fixture.read(t, id)
+		agent.Cwd = t.TempDir()
+		require.NoError(t, fixture.stores.Agents.Update(t.Context(), *agent))
+	}
 
-	got, err := st.Agents.GetByID(ctx, created.ID)
-	require.NoError(t, err)
-	require.NotNil(t, got.Branch)
-	assert.Equal(t, "main", *got.Branch)
+	require.NoError(t, syncer.Sync(t.Context()))
 
-	got.Cwd = t.TempDir()
-	require.NoError(t, st.Agents.Update(ctx, *got))
-
-	require.NoError(t, syncer.Sync(ctx))
-
-	after, err := st.Agents.GetByID(ctx, created.ID)
-	require.NoError(t, err)
-	assert.Nil(t, after.Branch)
-}
-
-// TestCwdSyncerSyncClearsAStaleRemoval covers an agent whose cwd was recreated after
-// vanishing: the next pass has to clear what an earlier pass wrote rather than leave it
-// stuck as removed.
-func TestCwdSyncerSyncClearsAStaleRemoval(t *testing.T) {
-	st := storetest.Open(t)
-	ctx := t.Context()
-
-	workflowID := seedWorkflow(t, st)
-	require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{
-		Name:       "a",
-		State:      agentstore.StateIdle,
-		WorkflowID: workflowID,
-		Cwd:        removedDir(t),
-	}))
-	created, err := st.Agents.GetInWorkflow(ctx, workflowID, "a")
-	require.NoError(t, err)
-
-	syncer := newCwdSyncer(st.Agents, &gittest.Heads{States: map[string]git.HeadState{}})
-	require.NoError(t, syncer.Sync(ctx))
-
-	got, err := st.Agents.GetByID(ctx, created.ID)
-	require.NoError(t, err)
-	assert.True(t, got.WorktreeRemoved)
-
-	got.Cwd = t.TempDir()
-	require.NoError(t, st.Agents.Update(ctx, *got))
-
-	require.NoError(t, syncer.Sync(ctx))
-
-	after, err := st.Agents.GetByID(ctx, created.ID)
-	require.NoError(t, err)
-	assert.False(t, after.WorktreeRemoved)
+	assert.Nil(t, fixture.read(t, onBranch.ID).Branch)
+	assert.False(t, fixture.read(t, removed.ID).WorktreeRemoved)
 }
 
 // TestCwdSyncerSyncSkipsArchivedAgents covers that the pass walks live agents only.
 func TestCwdSyncerSyncSkipsArchivedAgents(t *testing.T) {
+	fixture := newSyncFixture(t)
+	checkout := makeCheckout(t)
+	gone := makeRemovedDir(t)
+	ids := []string{fixture.seed(t, "checkout", checkout).ID, fixture.seed(t, "gone", gone).ID}
+	_, err := fixture.stores.Agents.Archive(t.Context(), ids)
+	require.NoError(t, err)
+
+	heads := &gittest.Heads{States: map[string]git.HeadState{
+		checkout: {Branch: "main"},
+		gone:     {Branch: "main"},
+	}}
+	require.NoError(t, fixture.newSyncer(NewCwdSyncerParams{Heads: heads}).Sync(t.Context()))
+
+	for _, id := range ids {
+		got := fixture.read(t, id)
+		assert.Nil(t, got.Branch)
+		assert.False(t, got.WorktreeRemoved)
+	}
+}
+
+// TestCwdSyncerSyncWritesAStandingOnlyWhenItMoved covers a pass writing a standing only where the row differs.
+func TestCwdSyncerSyncWritesAStandingOnlyWhenItMoved(t *testing.T) {
+	fixture := newSyncFixture(t)
+	cwd := makeCheckout(t)
+	agent := fixture.seed(t, "a", cwd)
+	fixture.release(t, agent.ID, "snapshot-one", reviewstore.VerdictApproved)
+
+	trees := &gittest.Trees{Standings: map[string]git.Standing{cwd: git.StandingSame}}
+	agents := &countingCwdSetter{cwdSetter: fixture.stores.Agents}
+	syncer := fixture.newSyncer(NewCwdSyncerParams{Agents: agents, Trees: trees})
+
+	require.NoError(t, syncer.Sync(t.Context()))
+	assert.Equal(t, 1, agents.standingWrites, "the first pass records the round the tree was measured against")
+	assert.Equal(t, "snapshot-one", fixture.read(t, agent.ID).TreeStandingSHA)
+
+	require.NoError(t, syncer.Sync(t.Context()))
+	assert.Equal(t, 1, agents.standingWrites, "a pass that finds the tree where it was writes nothing")
+
+	trees.Standings[cwd] = git.StandingMoved
+	require.NoError(t, syncer.Sync(t.Context()))
+	assert.Equal(t, 2, agents.standingWrites, "a tree that moved against its round is written")
+	assert.Equal(t, git.StandingMoved, fixture.readRecordedStanding(t, agent.ID, "snapshot-one"))
+
+	trees.Standings[cwd] = git.StandingSame
+	require.NoError(t, syncer.Sync(t.Context()))
+	assert.Equal(t, git.StandingSame, fixture.readRecordedStanding(t, agent.ID, "snapshot-one"), "a move the next pass does not see is forgotten")
+}
+
+// TestCwdSyncerSyncReadsWhereTheTreeStands covers each standing git reports against the last verdict's round.
+func TestCwdSyncerSyncReadsWhereTheTreeStands(t *testing.T) {
+	fixture := newSyncFixture(t)
+	standings := map[string]git.Standing{
+		"edited":        git.StandingMoved,
+		"untouched":     git.StandingSame,
+		"landed":        git.StandingLanded,
+		"landed-edited": git.StandingLandedMoved,
+	}
+	trees := &gittest.Trees{Standings: map[string]git.Standing{}}
+	ids := map[string]string{}
+	for name, standing := range standings {
+		cwd := makeCheckout(t)
+		trees.Standings[cwd] = standing
+		ids[name] = fixture.seed(t, name, cwd).ID
+		fixture.release(t, ids[name], "snapshot-"+name, reviewstore.VerdictApproved)
+	}
+
+	assert.Equal(t, git.StandingSame, fixture.readRecordedStanding(t, ids["edited"], "snapshot-edited"), "nothing is recorded before the first pass")
+
+	require.NoError(t, fixture.newSyncer(NewCwdSyncerParams{Trees: trees}).Sync(t.Context()))
+
+	for name, standing := range standings {
+		assert.Equal(t, standing, fixture.readRecordedStanding(t, ids[name], "snapshot-"+name), name)
+	}
+}
+
+// TestCwdSyncerSyncReportsATreeItCouldNotRead covers a failed tree read being returned rather than read as unmoved.
+func TestCwdSyncerSyncReportsATreeItCouldNotRead(t *testing.T) {
 	tests := []struct {
-		name string
-		cwd  string
+		name         string
+		trees        *gittest.Trees
+		wantErr      string
+		wantStanding git.Standing
 	}{
 		{
-			name: "a checkout is not read for its branch",
-			cwd:  fakeCheckout(t),
+			name:         "a tree the pass cannot compare",
+			trees:        buildEmptyTrees(),
+			wantErr:      `failed to compare the tree of "a"`,
+			wantStanding: git.StandingSame,
 		},
 		{
-			name: "a cwd that is gone is not reported removed",
-			cwd:  removedDir(t),
+			name: "a failure after the tree was found to have moved",
+			trees: &gittest.Trees{
+				AllMoved:    true,
+				StandingErr: errors.New("the base could not be merged"),
+			},
+			wantErr:      "the base could not be merged",
+			wantStanding: git.StandingMoved,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			st := storetest.Open(t)
-			ctx := t.Context()
+			fixture := newSyncFixture(t)
+			agent := fixture.seed(t, "a", makeCheckout(t))
+			fixture.release(t, agent.ID, "snapshot-one", reviewstore.VerdictApproved)
 
-			workflowID := seedWorkflow(t, st)
-			require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{
-				Name:       "a",
-				State:      agentstore.StateIdle,
-				WorkflowID: workflowID,
-				Cwd:        tt.cwd,
-			}))
-			created, err := st.Agents.GetInWorkflow(ctx, workflowID, "a")
-			require.NoError(t, err)
-			_, archiveErr := st.Agents.Archive(ctx, []string{created.ID})
-			require.NoError(t, archiveErr)
+			err := fixture.newSyncer(NewCwdSyncerParams{Trees: tt.trees}).Sync(t.Context())
 
-			require.NoError(t, newCwdSyncer(st.Agents, &gittest.Heads{States: map[string]git.HeadState{tt.cwd: {Branch: "main"}}}).Sync(ctx))
-
-			got, err := st.Agents.GetByID(ctx, created.ID)
-			require.NoError(t, err)
-			assert.Nil(t, got.Branch)
-			assert.False(t, got.WorktreeRemoved)
+			require.ErrorContains(t, err, tt.wantErr)
+			assert.Equal(t, tt.wantStanding, fixture.readRecordedStanding(t, agent.ID, "snapshot-one"))
 		})
 	}
 }
 
-// fakeCheckout is a directory that reads as a primary checkout.
-func fakeCheckout(t *testing.T) string {
+// TestCwdSyncerSyncMeasuresAgainstTheWorkflowsBase covers the landed question being asked of the workflow's base.
+func TestCwdSyncerSyncMeasuresAgainstTheWorkflowsBase(t *testing.T) {
+	fixture := newSyncFixture(t)
+	develop := fixture.stores.SeedWorkflow(t, workflowstore.Config{Name: "develop", Worktree: workflowstore.WorktreeConfig{BaseBranch: "develop"}})
+	agent := fixture.stores.SeedAgent(t, agentstore.Agent{
+		Name:       "reviewed",
+		WorkflowID: develop.ID,
+		Cwd:        makeCheckout(t),
+	})
+	fixture.release(t, agent.ID, "snapshot-one", reviewstore.VerdictApproved)
+	hashed := &gittest.Trees{AllMoved: true}
+
+	require.NoError(t, fixture.newSyncer(NewCwdSyncerParams{Trees: hashed}).Sync(t.Context()))
+
+	assert.Equal(t, []string{"develop"}, hashed.Bases)
+}
+
+// TestCwdSyncerSyncHashesOnlyAReviewedTree covers only a reviewed tree still on disk being hashed.
+func TestCwdSyncerSyncHashesOnlyAReviewedTree(t *testing.T) {
+	fixture := newSyncFixture(t)
+	reviewed := makeCheckout(t)
+	reviewedAgent := fixture.seed(t, "reviewed", reviewed)
+	fixture.seed(t, "unreviewed", makeCheckout(t))
+	commentedAgent := fixture.seed(t, "commented", makeCheckout(t))
+	removedAgent := fixture.seed(t, "removed", makeRemovedDir(t))
+	fixture.release(t, reviewedAgent.ID, "snapshot-one", reviewstore.VerdictApproved)
+	fixture.release(t, commentedAgent.ID, "snapshot-two", reviewstore.VerdictCommented)
+	fixture.release(t, removedAgent.ID, "snapshot-three", reviewstore.VerdictApproved)
+	hashed := &gittest.Trees{AllMoved: true}
+
+	require.NoError(t, fixture.newSyncer(NewCwdSyncerParams{Trees: hashed}).Sync(t.Context()))
+
+	assert.Equal(t, []string{reviewed}, hashed.Dirs)
+	assert.Equal(t, git.StandingMoved, fixture.readRecordedStanding(t, reviewedAgent.ID, "snapshot-one"))
+	assert.Equal(t, git.StandingSame, fixture.readRecordedStanding(t, removedAgent.ID, "snapshot-three"))
+}
+
+// TestCwdSyncerSyncRecordsAMoveSinceTheNewestRound covers the newest round being written once the tree no longer hashes to it.
+func TestCwdSyncerSyncRecordsAMoveSinceTheNewestRound(t *testing.T) {
+	tests := []struct {
+		name         string
+		newest       string
+		snapshotTree string
+		probe        string
+		want         string
+	}{
+		{
+			name:   "a round git cannot read records no move",
+			newest: "snapshot-one",
+			probe:  "tree-moved",
+		},
+		{
+			name:  "an agent with no round records no move",
+			probe: "tree-moved",
+		},
+		{
+			name:         "a worktree that still hashes to its newest round records no move",
+			newest:       "snapshot-one",
+			snapshotTree: "tree-one",
+			probe:        "tree-one",
+		},
+		{
+			name:         "a worktree that moved records its newest round",
+			newest:       "snapshot-one",
+			snapshotTree: "tree-one",
+			probe:        "tree-moved",
+			want:         "snapshot-one",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fixture := newSyncFixture(t)
+			cwd := makeCheckout(t)
+			agent := fixture.seed(t, "a", cwd)
+			if tt.newest != "" {
+				fixture.openRound(t, agent.ID, tt.newest)
+			}
+
+			heads := buildHeads(cwd, git.HeadState{Root: cwd, SnapshotTree: tt.snapshotTree})
+			trees := &gittest.Trees{AllMoved: true, Probes: map[string]string{cwd: tt.probe}}
+			require.NoError(t, fixture.newSyncer(NewCwdSyncerParams{Heads: heads, Trees: trees}).Sync(t.Context()))
+
+			assert.Equal(t, tt.want, fixture.read(t, agent.ID).MovedSinceRound)
+		})
+	}
+}
+
+// TestCwdSyncerSyncHashesTheWorktreeOnceForBothRounds covers one probe serving the concluded and the newest round.
+func TestCwdSyncerSyncHashesTheWorktreeOnceForBothRounds(t *testing.T) {
+	fixture := newSyncFixture(t)
+	cwd := makeCheckout(t)
+	agent := fixture.seed(t, "a", cwd)
+	fixture.release(t, agent.ID, "snapshot-one", reviewstore.VerdictApproved)
+	fixture.openRound(t, agent.ID, "snapshot-two")
+	trees := &gittest.Trees{AllMoved: true, Probes: map[string]string{cwd: "tree-moved"}}
+
+	require.NoError(t, fixture.newSyncer(NewCwdSyncerParams{Heads: buildHeads(cwd, git.HeadState{Root: cwd, SnapshotTree: "tree-two"}), Trees: trees}).Sync(t.Context()))
+
+	assert.Equal(t, []string{cwd}, trees.Probed, "the worktree is hashed once")
+	assert.Equal(t, []string{"tree-moved"}, trees.Given, "and the standing reads that hash")
+	assert.Equal(t, "snapshot-two", fixture.read(t, agent.ID).MovedSinceRound)
+	assert.Equal(t, git.StandingMoved, fixture.readRecordedStanding(t, agent.ID, "snapshot-one"))
+}
+
+// TestCwdSyncerSyncKeepsAMoveItCouldNotProbe covers a failed probe leaving the recorded move alone.
+func TestCwdSyncerSyncKeepsAMoveItCouldNotProbe(t *testing.T) {
+	fixture := newSyncFixture(t)
+	cwd := makeCheckout(t)
+	agent := fixture.seed(t, "a", cwd)
+	fixture.openRound(t, agent.ID, "snapshot-one")
+	trees := &gittest.Trees{AllMoved: true, Probes: map[string]string{cwd: "tree-moved"}}
+	syncer := fixture.newSyncer(NewCwdSyncerParams{Heads: buildHeads(cwd, git.HeadState{Root: cwd, SnapshotTree: "tree-one"}), Trees: trees})
+
+	require.NoError(t, syncer.Sync(t.Context()))
+	require.Equal(t, "snapshot-one", fixture.read(t, agent.ID).MovedSinceRound)
+
+	trees.ProbeErr = errors.New("the index could not be read")
+	err := syncer.Sync(t.Context())
+
+	require.ErrorContains(t, err, `failed to hash the worktree of "a"`)
+	assert.Equal(t, "snapshot-one", fixture.read(t, agent.ID).MovedSinceRound)
+}
+
+func newSyncFixture(t *testing.T) *syncFixture {
+	t.Helper()
+
+	stores := storetest.Open(t)
+
+	return &syncFixture{
+		stores:     stores,
+		reviews:    reviewstore.NewReviewStore(stores.Pool.GetDB()),
+		workflowID: stores.SeedWorkflow(t, workflowstore.Config{Name: "flow"}).ID,
+	}
+}
+
+func (f *syncFixture) seed(t *testing.T, name, cwd string) *agentstore.Agent {
+	t.Helper()
+
+	return f.stores.SeedAgent(t, agentstore.Agent{
+		Name:       name,
+		WorkflowID: f.workflowID,
+		Cwd:        cwd,
+	})
+}
+
+func (f *syncFixture) read(t *testing.T, id string) *agentstore.Agent {
+	t.Helper()
+
+	agent, err := f.stores.Agents.GetByID(t.Context(), id)
+	require.NoError(t, err)
+	require.NotNil(t, agent)
+
+	return agent
+}
+
+// release releases a review of a new round on the snapshot.
+func (f *syncFixture) release(t *testing.T, agentID, snapshot string, verdict reviewstore.Verdict) {
+	t.Helper()
+
+	round := f.openRound(t, agentID, snapshot)
+	review, err := f.reviews.OpenReview(t.Context(), reviewstore.OpenReviewParams{
+		AgentID:    agentID,
+		RoundID:    round.ID,
+		AuthorKind: reviewstore.AuthorHuman,
+	})
+	require.NoError(t, err)
+
+	_, err = f.reviews.ReleaseReview(t.Context(), reviewstore.ReleaseReviewParams{
+		ID:      review.ID,
+		Verdict: verdict,
+	})
+	require.NoError(t, err)
+}
+
+func (f *syncFixture) openRound(t *testing.T, agentID, snapshot string) *reviewstore.Round {
+	t.Helper()
+
+	round, err := f.reviews.CreateRound(t.Context(), reviewstore.CreateRoundParams{
+		AgentID:     agentID,
+		BaseSHA:     gittest.BaseSHA,
+		SnapshotSHA: snapshot,
+	})
+	require.NoError(t, err)
+
+	return round
+}
+
+// newSyncer builds a syncer over the real stores, filling in whatever params leaves out.
+func (f *syncFixture) newSyncer(params NewCwdSyncerParams) *CwdSyncer {
+	if params.Agents == nil {
+		params.Agents = f.stores.Agents
+	}
+	if params.Heads == nil {
+		params.Heads = &gittest.Heads{States: map[string]git.HeadState{}}
+	}
+	if params.Trees == nil {
+		params.Trees = buildEmptyTrees()
+	}
+	if params.PullRequests == nil {
+		params.PullRequests = &countingPullRequestObserver{}
+	}
+	params.Rounds = f.reviews
+	params.Bases = f.stores.Workflows
+
+	return NewCwdSyncer(params)
+}
+
+// readRecordedStanding is the standing the row records against the round, unmoved against any other.
+func (f *syncFixture) readRecordedStanding(t *testing.T, id, round string) git.Standing {
+	t.Helper()
+
+	agent := f.read(t, id)
+	if agent.TreeStandingSHA != round {
+		return git.StandingSame
+	}
+
+	return agent.TreeStanding
+}
+
+func buildHeads(cwd string, state git.HeadState) *gittest.Heads {
+	return &gittest.Heads{States: map[string]git.HeadState{cwd: state}}
+}
+
+func buildEmptyTrees() *gittest.Trees {
+	return &gittest.Trees{Standings: map[string]git.Standing{}}
+}
+
+// makeCheckout is a directory that reads as a primary checkout.
+func makeCheckout(t *testing.T) string {
 	t.Helper()
 
 	dir := t.TempDir()
@@ -518,7 +586,7 @@ func fakeCheckout(t *testing.T) string {
 	return dir
 }
 
-func removedDir(t *testing.T) string {
+func makeRemovedDir(t *testing.T) string {
 	t.Helper()
 
 	dir := filepath.Join(t.TempDir(), "gone")
@@ -526,378 +594,4 @@ func removedDir(t *testing.T) string {
 	require.NoError(t, os.Remove(dir))
 
 	return dir
-}
-
-// standingOn is the standing the row records against the given round, and unmoved against any
-// other.
-func standingOn(t *testing.T, st *storetest.Stores, id, round string) git.Standing {
-	t.Helper()
-
-	agent, err := st.Agents.GetByID(t.Context(), id)
-	require.NoError(t, err)
-	require.NotNil(t, agent)
-	if agent.TreeStandingSHA != round {
-		return git.StandingSame
-	}
-
-	return agent.TreeStanding
-}
-
-// countingAgents is the agent store with its standing writes counted.
-type countingAgents struct {
-	cwdSetter
-	standingWrites int
-}
-
-func (c *countingAgents) SetTreeStanding(ctx context.Context, id string, standing git.Standing, snapshotSHA string) error {
-	c.standingWrites++
-
-	return c.cwdSetter.SetTreeStanding(ctx, id, standing, snapshotSHA)
-}
-
-// TestCwdSyncerSyncWritesAStandingOnlyWhenItMoved pins that a pass writes the standing it
-// found only where the row says otherwise, so a pass that finds every tree where the last one
-// did writes nothing.
-func TestCwdSyncerSyncWritesAStandingOnlyWhenItMoved(t *testing.T) {
-	st := storetest.Open(t)
-	ctx := t.Context()
-
-	workflowID := seedWorkflow(t, st)
-	cwd := fakeCheckout(t)
-	require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{
-		Name:       "a",
-		State:      agentstore.StateIdle,
-		WorkflowID: workflowID,
-		Cwd:        cwd,
-	}))
-	created, err := st.Agents.GetInWorkflow(ctx, workflowID, "a")
-	require.NoError(t, err)
-
-	approved := reviewstore.VerdictApproved
-	trees := &gittest.Trees{Standings: map[string]git.Standing{cwd: git.StandingSame}}
-	agents := &countingAgents{cwdSetter: st.Agents}
-	syncer := NewCwdSyncer(NewCwdSyncerParams{
-		Agents: agents,
-		Heads:  &gittest.Heads{States: map[string]git.HeadState{}},
-		Trees:  trees,
-		Rounds: fakeTallies{{
-			AgentID:     created.ID,
-			Verdict:     &approved,
-			SnapshotSHA: "snapshot-one",
-		}},
-		Bases:        fakeBases{},
-		PullRequests: &countingObservations{},
-	})
-
-	require.NoError(t, syncer.Sync(ctx))
-	assert.Equal(t, 1, agents.standingWrites, "the first pass records the round the tree was measured against")
-	assert.Equal(t, "snapshot-one", func() string {
-		agent, err := st.Agents.GetByID(ctx, created.ID)
-		require.NoError(t, err)
-
-		return agent.TreeStandingSHA
-	}())
-
-	require.NoError(t, syncer.Sync(ctx))
-	assert.Equal(t, 1, agents.standingWrites, "a pass that finds the tree where it was writes nothing")
-
-	trees.Standings[cwd] = git.StandingMoved
-	require.NoError(t, syncer.Sync(ctx))
-	assert.Equal(t, 2, agents.standingWrites, "a tree that moved against its round is written")
-	assert.Equal(t, git.StandingMoved, standingOn(t, st, created.ID, "snapshot-one"))
-}
-
-type fakeBases []workflowstore.Workflow
-
-func (f fakeBases) List(context.Context) ([]workflowstore.Workflow, error) {
-	return f, nil
-}
-
-type fakeTallies []reviewstore.Tally
-
-func (f fakeTallies) ListTallies(context.Context) ([]reviewstore.Tally, error) {
-	return f, nil
-}
-
-func (fakeTallies) ListNewestRounds(context.Context) ([]reviewstore.NewestRound, error) {
-	return nil, nil
-}
-
-// TestCwdSyncerSyncReadsWhereTheTreeStands pins that a worktree is reported as git finds it
-// against the round of its last verdict, and that nothing is known of any other round.
-func TestCwdSyncerSyncReadsWhereTheTreeStands(t *testing.T) {
-	st := storetest.Open(t)
-	ctx := t.Context()
-
-	workflowID := seedWorkflow(t, st)
-	dirs := map[string]string{}
-	for _, name := range []string{"edited", "untouched", "landed", "landed-edited"} {
-		dirs[name] = fakeCheckout(t)
-		require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{
-			Name:       name,
-			State:      agentstore.StateIdle,
-			WorkflowID: workflowID,
-			Cwd:        dirs[name],
-		}))
-	}
-	ids := map[string]string{}
-	for name := range dirs {
-		agent, err := st.Agents.GetInWorkflow(ctx, workflowID, name)
-		require.NoError(t, err)
-		ids[name] = agent.ID
-	}
-
-	approved := reviewstore.VerdictApproved
-	tallies := fakeTallies{}
-	for name, id := range ids {
-		tallies = append(tallies, reviewstore.Tally{
-			AgentID:     id,
-			Verdict:     &approved,
-			SnapshotSHA: "snapshot-" + name,
-		})
-	}
-	syncer := NewCwdSyncer(NewCwdSyncerParams{
-		Agents: st.Agents,
-		Heads:  &gittest.Heads{States: map[string]git.HeadState{}},
-		Trees: &gittest.Trees{Standings: map[string]git.Standing{
-			dirs["edited"]:        git.StandingMoved,
-			dirs["untouched"]:     git.StandingSame,
-			dirs["landed"]:        git.StandingLanded,
-			dirs["landed-edited"]: git.StandingLandedMoved,
-		}},
-		Rounds:       tallies,
-		Bases:        fakeBases{},
-		PullRequests: &countingObservations{},
-	})
-
-	assert.Equal(t, git.StandingSame, standingOn(t, st, ids["edited"], "snapshot-edited"), "nothing is recorded before the first pass")
-
-	require.NoError(t, syncer.Sync(ctx))
-
-	assert.Equal(t, git.StandingMoved, standingOn(t, st, ids["edited"], "snapshot-edited"))
-	assert.Equal(t, git.StandingSame, standingOn(t, st, ids["untouched"], "snapshot-untouched"))
-	assert.Equal(t, git.StandingLanded, standingOn(t, st, ids["landed"], "snapshot-landed"))
-	assert.Equal(t, git.StandingLandedMoved, standingOn(t, st, ids["landed-edited"], "snapshot-landed-edited"))
-	assert.Equal(t, git.StandingSame, standingOn(t, st, ids["edited"], "snapshot-newer"),
-		"a verdict on a round the pass has not compared against is not one the tree moved from")
-}
-
-// TestCwdSyncerSyncKeepsAStandingReportedWithAnError pins that a failure after the tree was
-// found to have moved is said, and never demotes the row to unmoved.
-func TestCwdSyncerSyncKeepsAStandingReportedWithAnError(t *testing.T) {
-	st := storetest.Open(t)
-	ctx := t.Context()
-
-	workflowID := seedWorkflow(t, st)
-	require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{
-		Name:       "a",
-		State:      agentstore.StateIdle,
-		WorkflowID: workflowID,
-		Cwd:        fakeCheckout(t),
-	}))
-	created, err := st.Agents.GetInWorkflow(ctx, workflowID, "a")
-	require.NoError(t, err)
-
-	approved := reviewstore.VerdictApproved
-	syncer := NewCwdSyncer(NewCwdSyncerParams{
-		Agents:       st.Agents,
-		Heads:        &gittest.Heads{States: map[string]git.HeadState{}},
-		Trees:        &gittest.Trees{AllMoved: true, StandingErr: errors.New("the base could not be merged")},
-		Bases:        fakeBases{},
-		PullRequests: &countingObservations{},
-		Rounds: fakeTallies{{
-			AgentID:     created.ID,
-			Verdict:     &approved,
-			SnapshotSHA: "snapshot-one",
-		}},
-	})
-
-	err = syncer.Sync(ctx)
-	require.Error(t, err)
-	assert.Equal(t, git.StandingMoved, standingOn(t, st, created.ID, "snapshot-one"))
-}
-
-// TestCwdSyncerSyncMeasuresAgainstTheWorkflowsBase pins that the landed question is asked of
-// the branch the workflow cuts from.
-func TestCwdSyncerSyncMeasuresAgainstTheWorkflowsBase(t *testing.T) {
-	st := storetest.Open(t)
-	ctx := t.Context()
-
-	workflowID := seedWorkflow(t, st)
-	require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{
-		Name:       "reviewed",
-		State:      agentstore.StateIdle,
-		WorkflowID: workflowID,
-		Cwd:        fakeCheckout(t),
-	}))
-	agent, err := st.Agents.GetInWorkflow(ctx, workflowID, "reviewed")
-	require.NoError(t, err)
-
-	approved := reviewstore.VerdictApproved
-	hashed := &gittest.Trees{AllMoved: true}
-	syncer := NewCwdSyncer(NewCwdSyncerParams{
-		Agents: st.Agents,
-		Heads:  &gittest.Heads{States: map[string]git.HeadState{}},
-		Trees:  hashed,
-		Rounds: fakeTallies{{
-			AgentID:     agent.ID,
-			Verdict:     &approved,
-			SnapshotSHA: "snapshot-one",
-		}},
-		Bases: fakeBases{{
-			ID:       workflowID,
-			Worktree: workflowstore.WorktreeConfig{BaseBranch: "develop"},
-		}},
-		PullRequests: &countingObservations{},
-	})
-
-	require.NoError(t, syncer.Sync(ctx))
-
-	assert.Equal(t, []string{"develop"}, hashed.Bases)
-}
-
-// TestCwdSyncerSyncHashesOnlyAReviewedTree covers the cost the pass keeps down: a worktree with
-// no verdict on it, or none left on disk, is never hashed.
-func TestCwdSyncerSyncHashesOnlyAReviewedTree(t *testing.T) {
-	st := storetest.Open(t)
-	ctx := t.Context()
-
-	workflowID := seedWorkflow(t, st)
-	reviewed, unreviewed, commented := fakeCheckout(t), fakeCheckout(t), fakeCheckout(t)
-	for name, cwd := range map[string]string{
-		"reviewed":   reviewed,
-		"unreviewed": unreviewed,
-		"commented":  commented,
-		"removed":    removedDir(t),
-	} {
-		require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{
-			Name:       name,
-			State:      agentstore.StateIdle,
-			WorkflowID: workflowID,
-			Cwd:        cwd,
-		}))
-	}
-	reviewedAgent, err := st.Agents.GetInWorkflow(ctx, workflowID, "reviewed")
-	require.NoError(t, err)
-	commentedAgent, err := st.Agents.GetInWorkflow(ctx, workflowID, "commented")
-	require.NoError(t, err)
-	removedAgent, err := st.Agents.GetInWorkflow(ctx, workflowID, "removed")
-	require.NoError(t, err)
-
-	approved := reviewstore.VerdictApproved
-	hashed := &gittest.Trees{AllMoved: true}
-	syncer := NewCwdSyncer(NewCwdSyncerParams{
-		Agents:       st.Agents,
-		Heads:        &gittest.Heads{States: map[string]git.HeadState{}},
-		Trees:        hashed,
-		Bases:        fakeBases{},
-		PullRequests: &countingObservations{},
-		Rounds: fakeTallies{
-			{
-				AgentID:     reviewedAgent.ID,
-				Verdict:     &approved,
-				SnapshotSHA: "snapshot-one",
-			},
-			{AgentID: commentedAgent.ID, Rounds: 1},
-			{
-				AgentID:     removedAgent.ID,
-				Verdict:     &approved,
-				SnapshotSHA: "snapshot-three",
-			},
-		},
-	})
-
-	require.NoError(t, syncer.Sync(ctx))
-
-	assert.Equal(t, []string{reviewed}, hashed.Dirs)
-	assert.Equal(t, git.StandingMoved, standingOn(t, st, reviewedAgent.ID, "snapshot-one"))
-	assert.Equal(t, git.StandingSame, standingOn(t, st, removedAgent.ID, "snapshot-three"))
-}
-
-// TestCwdSyncerSyncForgetsAMoveTheNextPassDoesNotSee pins that each pass replaces the last:
-// a round opened on the moved tree leaves nothing for the column to keep saying.
-func TestCwdSyncerSyncForgetsAMoveTheNextPassDoesNotSee(t *testing.T) {
-	st := storetest.Open(t)
-	ctx := t.Context()
-
-	workflowID := seedWorkflow(t, st)
-	cwd := fakeCheckout(t)
-	require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{
-		Name:       "a",
-		State:      agentstore.StateIdle,
-		WorkflowID: workflowID,
-		Cwd:        cwd,
-	}))
-	created, err := st.Agents.GetInWorkflow(ctx, workflowID, "a")
-	require.NoError(t, err)
-
-	approved := reviewstore.VerdictApproved
-	trees := &gittest.Trees{Standings: map[string]git.Standing{cwd: git.StandingMoved}}
-	syncer := NewCwdSyncer(NewCwdSyncerParams{
-		Agents:       st.Agents,
-		Heads:        &gittest.Heads{States: map[string]git.HeadState{}},
-		Trees:        trees,
-		Bases:        fakeBases{},
-		PullRequests: &countingObservations{},
-		Rounds: fakeTallies{{
-			AgentID:     created.ID,
-			Verdict:     &approved,
-			SnapshotSHA: "snapshot-one",
-		}},
-	})
-
-	require.NoError(t, syncer.Sync(ctx))
-	require.Equal(t, git.StandingMoved, standingOn(t, st, created.ID, "snapshot-one"))
-
-	trees.Standings[cwd] = git.StandingSame
-	require.NoError(t, syncer.Sync(ctx))
-	assert.Equal(t, git.StandingSame, standingOn(t, st, created.ID, "snapshot-one"))
-}
-
-// TestCwdSyncerSyncReportsAProbeItCouldNotMake pins that a tree the pass cannot hash is said
-// rather than read as unmoved.
-func TestCwdSyncerSyncReportsAProbeItCouldNotMake(t *testing.T) {
-	st := storetest.Open(t)
-	ctx := t.Context()
-
-	workflowID := seedWorkflow(t, st)
-	cwd := fakeCheckout(t)
-	require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{
-		Name:       "a",
-		State:      agentstore.StateIdle,
-		WorkflowID: workflowID,
-		Cwd:        cwd,
-	}))
-	created, err := st.Agents.GetInWorkflow(ctx, workflowID, "a")
-	require.NoError(t, err)
-
-	approved := reviewstore.VerdictApproved
-	syncer := NewCwdSyncer(NewCwdSyncerParams{
-		Agents:       st.Agents,
-		Heads:        &gittest.Heads{States: map[string]git.HeadState{}},
-		Trees:        &gittest.Trees{Standings: map[string]git.Standing{}},
-		Bases:        fakeBases{},
-		PullRequests: &countingObservations{},
-		Rounds: fakeTallies{{
-			AgentID:     created.ID,
-			Verdict:     &approved,
-			SnapshotSHA: "snapshot-one",
-		}},
-	})
-
-	err = syncer.Sync(ctx)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), `failed to compare the tree of "a"`)
-	assert.Equal(t, git.StandingSame, standingOn(t, st, created.ID, "snapshot-one"))
-}
-
-// countingObservations counts the observation passes it is asked for.
-type countingObservations struct {
-	passes int
-}
-
-func (c *countingObservations) Observe(context.Context) (int64, error) {
-	c.passes++
-
-	return 0, nil
 }

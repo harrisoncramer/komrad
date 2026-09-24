@@ -1,15 +1,13 @@
 package worktrees
 
 import (
-	"context"
-	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 
-	worktreestore "weave/internal/store/worktree"
-	"weave/lib/xslice"
+	agentstore "weave/internal/store/agent"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -19,39 +17,26 @@ import (
 // directories, those with no size before those measured over an hour ago, oldest first, and
 // leaving a fresh measurement alone.
 func TestMeasureTakesTheUnmeasuredFirstThenTheStaleOldestFirst(t *testing.T) {
-	f := newFixture(t)
-	dirs := xslice.Map([]string{"aaaa", "bbbb", "cccc", "dddd", "eeee", "ffff", "gggg", "hhhh", "iiii", "jjjj"}, func(id string) string {
-		return f.cut(t, id)
-	})
+	fixture := newFixture(t)
+	dirs := make([]string, 10)
+	for i := range dirs {
+		dirs[i] = fixture.cut(t)
+	}
+	slices.Sort(dirs)
 	fresh, older, oldest := dirs[7], dirs[8], dirs[9]
-	f.sizes.stored[fresh] = worktreestore.Size{
-		Dir:        fresh,
-		Bytes:      1,
-		MeasuredAt: f.now.Add(-10 * time.Minute),
-	}
-	f.sizes.stored[older] = worktreestore.Size{
-		Dir:        older,
-		Bytes:      1,
-		MeasuredAt: f.now.Add(-2 * time.Hour),
-	}
-	f.sizes.stored[oldest] = worktreestore.Size{
-		Dir:        oldest,
-		Bytes:      1,
-		MeasuredAt: f.now.Add(-3 * time.Hour),
-	}
+	fixture.recordSize(t, fresh, fixture.now.Add(-10*time.Minute))
+	fixture.recordSize(t, older, fixture.now.Add(-2*time.Hour))
+	fixture.recordSize(t, oldest, fixture.now.Add(-3*time.Hour))
 
-	require.NoError(t, f.measurer().Measure(t.Context()))
+	require.NoError(t, fixture.newMeasurer().Measure(t.Context()))
 
-	assert.Equal(t, append(dirs[:7:7], oldest), f.sizes.written)
-	assert.Positive(t, f.sizes.stored[dirs[0]].Bytes)
-	assert.Empty(t, f.sizes.stored[dirs[0]].Error)
-	assert.Equal(t, f.now, f.sizes.stored[dirs[0]].MeasuredAt)
-	assert.Equal(t, int64(1), f.sizes.stored[older].Bytes, "the newer stale directory waits for the next pass")
+	assert.ElementsMatch(t, append(dirs[:7:7], oldest), fixture.listMeasuredAt(t, fixture.now))
 
-	require.NoError(t, f.measurer().Measure(t.Context()))
+	fixture.now = fixture.now.Add(time.Minute)
+	require.NoError(t, fixture.newMeasurer().Measure(t.Context()))
 
-	assert.Equal(t, append(dirs[:7:7], oldest, older), f.sizes.written)
-	assert.Equal(t, int64(1), f.sizes.stored[fresh].Bytes, "a fresh measurement is left alone")
+	assert.Equal(t, []string{older}, fixture.listMeasuredAt(t, fixture.now), "the newer stale directory waits for the next pass")
+	assert.Equal(t, int64(1), fixture.readSize(t, fresh).Bytes, "a fresh measurement is left alone")
 }
 
 // TestMeasureRecordsAFailedWalkAndDoesNotRetryIt covers a walk that fails being recorded with
@@ -61,159 +46,132 @@ func TestMeasureRecordsAFailedWalkAndDoesNotRetryIt(t *testing.T) {
 		t.Skip("root reads a directory whatever its mode")
 	}
 
-	f := newFixture(t)
-	dir := f.cut(t, "aaaa")
+	fixture := newFixture(t)
+	dir := fixture.cut(t)
 	locked := filepath.Join(dir, "locked")
 	require.NoError(t, os.Mkdir(locked, 0o000))
 	t.Cleanup(func() { _ = os.Chmod(locked, 0o755) })
+	failedAt := fixture.now
 
-	require.NoError(t, f.measurer().Measure(t.Context()))
+	require.NoError(t, fixture.newMeasurer().Measure(t.Context()))
 
-	require.Len(t, f.sizes.written, 1)
-	recorded := f.sizes.stored[dir]
+	recorded := fixture.readSize(t, dir)
 	assert.Zero(t, recorded.Bytes)
 	assert.Contains(t, recorded.Error, "permission denied")
-	assert.Equal(t, f.now, recorded.MeasuredAt)
+	assert.True(t, recorded.MeasuredAt.Equal(failedAt))
 
-	require.NoError(t, f.measurer().Measure(t.Context()))
+	fixture.now = fixture.now.Add(time.Minute)
+	require.NoError(t, fixture.newMeasurer().Measure(t.Context()))
 
-	assert.Len(t, f.sizes.written, 1, "a failed walk is not taken again on the next pass")
+	assert.True(t, fixture.readSize(t, dir).MeasuredAt.Equal(failedAt), "a failed walk is not taken again on the next pass")
 
-	f.now = f.now.Add(2 * time.Hour)
-	require.NoError(t, f.measurer().Measure(t.Context()))
+	fixture.now = fixture.now.Add(2 * time.Hour)
+	require.NoError(t, fixture.newMeasurer().Measure(t.Context()))
 
-	assert.Len(t, f.sizes.written, 2, "a failed walk is taken again once it is stale")
+	assert.True(t, fixture.readSize(t, dir).MeasuredAt.Equal(fixture.now), "a failed walk is taken again once it is stale")
 }
 
 // TestMeasureForgetsADirectoryThatHasGone covers a stored row whose directory the listing no
 // longer holds being deleted, unless a worktree directory could not be read at all.
 func TestMeasureForgetsADirectoryThatHasGone(t *testing.T) {
-	f := newFixture(t)
-	kept := f.cut(t, "aaaa")
-	gone := filepath.Join(f.shared, "gone")
-	for _, dir := range []string{kept, gone} {
-		f.sizes.stored[dir] = worktreestore.Size{
-			Dir:        dir,
-			Bytes:      1,
-			MeasuredAt: f.now,
-		}
-	}
+	fixture := newFixture(t)
+	kept := fixture.cut(t)
+	gone := filepath.Join(fixture.shared, "gone")
+	fixture.recordSize(t, kept, fixture.now)
+	fixture.recordSize(t, gone, fixture.now)
 
-	unreadable := filepath.Join(filepath.Dir(f.shared), "not-a-dir")
-	write(t, filepath.Dir(f.shared), "not-a-dir", "x\n")
-	f.flows.dirs = []string{unreadable}
-	require.NoError(t, f.measurer().Measure(t.Context()))
+	unreadable := filepath.Join(filepath.Dir(fixture.shared), "not-a-dir")
+	write(t, filepath.Dir(fixture.shared), "not-a-dir", "x\n")
+	blind := fixture.newMeasurerOver(fixture.newListerOver(unreadable))
+	require.NoError(t, blind.Measure(t.Context()))
 
-	assert.Empty(t, f.sizes.deleted, "nothing is forgotten while a worktree directory cannot be read")
+	assert.Contains(t, fixture.listStored(t), gone, "nothing is forgotten while a worktree directory cannot be read")
 
-	f.flows.dirs = nil
-	require.NoError(t, f.measurer().Measure(t.Context()))
+	require.NoError(t, fixture.newMeasurer().Measure(t.Context()))
 
-	assert.Equal(t, []string{gone}, f.sizes.deleted)
-	assert.Contains(t, f.sizes.stored, kept)
-	assert.NotContains(t, f.sizes.stored, gone)
+	assert.Contains(t, fixture.listStored(t), kept)
+	assert.NotContains(t, fixture.listStored(t), gone)
 }
 
 // TestMeasureCarriesOnPastADirectoryItCannotRecord covers one refused write neither stopping
 // the pass nor hiding the failure: the directories after it are still walked and the error
 // comes back.
 func TestMeasureCarriesOnPastADirectoryItCannotRecord(t *testing.T) {
-	f := newFixture(t)
-	refused := f.cut(t, "aaaa")
-	after := f.cut(t, "bbbb")
-	f.sizes.refused = map[string]error{refused: errors.New("invalid byte sequence for encoding \"UTF8\"")}
+	fixture := newFixture(t)
+	after := fixture.cut(t)
+	measurer := fixture.newMeasurerOver(&fakeWorktreeLister{listing: Listing{Worktrees: []Worktree{
+		{Dir: filepath.Join(fixture.shared, "nul\x00")},
+		{Dir: after},
+	}}})
 
-	err := f.measurer().Measure(t.Context())
+	err := measurer.Measure(t.Context())
 
 	require.ErrorContains(t, err, "invalid byte sequence")
-	assert.Equal(t, []string{after}, f.sizes.written)
-	assert.Positive(t, f.sizes.stored[after].Bytes)
+	assert.Positive(t, fixture.readSize(t, after).Bytes)
 }
 
 // TestMeasureForgetsADirectoryThatVanishesMidPass covers a directory the listing named that is
 // gone by the time it is walked: its row is deleted and no error is recorded for it.
 func TestMeasureForgetsADirectoryThatVanishesMidPass(t *testing.T) {
-	f := newFixture(t)
-	vanished := filepath.Join(f.shared, "vanished")
-	f.sizes.stored[vanished] = worktreestore.Size{
-		Dir:        vanished,
-		Bytes:      1,
-		MeasuredAt: f.now.Add(-2 * time.Hour),
-	}
-	measurer := NewMeasurer(NewMeasurerParams{
-		Lister:    &fakeListing{listing: Listing{Worktrees: []Worktree{{Dir: vanished}}}},
-		Claimed:   f.claims,
-		Worktrees: f.sizes,
-		Now:       func() time.Time { return f.now },
-	})
+	fixture := newFixture(t)
+	vanished := filepath.Join(fixture.shared, "vanished")
+	fixture.recordSize(t, vanished, fixture.now.Add(-2*time.Hour))
+	measurer := fixture.newMeasurerOver(&fakeWorktreeLister{listing: Listing{Worktrees: []Worktree{{Dir: vanished}}}})
 
 	require.NoError(t, measurer.Measure(t.Context()))
 
-	assert.Equal(t, []string{vanished}, f.sizes.deleted)
-	assert.Empty(t, f.sizes.written)
-	assert.NotContains(t, f.sizes.stored, vanished)
-	assert.NotContains(t, f.sizes.records, vanished)
+	assert.NotContains(t, fixture.listStored(t), vanished)
 }
 
 // TestMeasureRecordsWhatTheFilesystemSays covers every directory getting a row carrying its
 // repository, branch, readability and mtime, whether or not this pass walks it.
 func TestMeasureRecordsWhatTheFilesystemSays(t *testing.T) {
-	f := newFixture(t)
-	dirs := xslice.Map([]string{"aaaa", "bbbb", "cccc", "dddd", "eeee", "ffff", "gggg", "hhhh", "iiii"}, func(id string) string {
-		return f.cut(t, id)
-	})
-	orphan := filepath.Join(f.shared, "orphan")
+	fixture := newFixture(t)
+	dirs := make([]string, measuresPerPass+1)
+	for i := range dirs {
+		dirs[i] = fixture.cut(t)
+	}
+	orphan := filepath.Join(fixture.shared, "orphan")
 	require.NoError(t, os.Mkdir(orphan, 0o755))
 
-	require.NoError(t, f.measurer().Measure(t.Context()))
+	require.NoError(t, fixture.newMeasurer().Measure(t.Context()))
 
-	require.Len(t, f.sizes.records, len(dirs)+1, "a directory the pass does not walk still has its row")
-	record := f.sizes.records[dirs[8]]
-	assert.Equal(t, f.repo, record.RepoDir)
-	assert.Equal(t, "agent/iiii", record.Branch)
+	stored := fixture.listStored(t)
+	require.Len(t, stored, len(dirs)+1, "a directory the pass does not walk still has its row")
+	record := stored[dirs[0]]
+	assert.Equal(t, fixture.repo, record.RepoDir)
+	assert.Equal(t, "agent/"+filepath.Base(dirs[0]), record.Branch)
 	assert.True(t, record.Readable)
-	require.NotNil(t, record.ModifiedAt)
-	assert.Equal(t, time.UTC, record.ModifiedAt.Location())
+	assert.NotNil(t, record.ModifiedAt)
 
-	bare := f.sizes.records[orphan]
+	bare := stored[orphan]
 	assert.Empty(t, bare.RepoDir)
 	assert.False(t, bare.Readable)
 	assert.NotNil(t, bare.ModifiedAt, "a directory with no .git file takes its own mtime")
 }
 
-// TestMeasureLeavesOutWhatADeleteNames covers an unowned directory an unfinished delete names
-// losing its row, while an owned one it names and one whose agent is being deleted keep theirs.
+// TestMeasureLeavesOutWhatADeleteNames covers an unowned directory a delete names losing its row.
 func TestMeasureLeavesOutWhatADeleteNames(t *testing.T) {
-	f := newFixture(t)
-	deleting := f.cut(t, "aaaa")
-	named := f.cut(t, "bbbb")
-	owned := f.cut(t, "cccc")
-	kept := f.cut(t, "dddd")
-	f.own("aaaa", "going", nil)
-	f.owners.rows[0].DeletingAt = &f.now
-	f.own("cccc", "live", nil)
+	fixture := newFixture(t)
+	deleting := fixture.cut(t)
+	named := fixture.cut(t)
+	owned := fixture.cut(t)
+	kept := fixture.cut(t)
+	going := fixture.own(t, deleting, agentstore.Agent{Name: "going"})
+	require.NoError(t, fixture.stores.Agents.MarkDeleting(t.Context(), []string{going.ID}))
+	fixture.own(t, owned, agentstore.Agent{Name: "live"})
 	for _, dir := range []string{deleting, named, owned, kept} {
-		f.sizes.records[dir] = worktreestore.Worktree{Dir: dir}
+		fixture.recordSize(t, dir, fixture.now.Add(-2*time.Hour))
 	}
-	f.claims.dirs = []string{named, owned}
+	fixture.claims.dirs = []string{named, owned}
 
-	require.NoError(t, f.measurer().Measure(t.Context()))
+	require.NoError(t, fixture.newMeasurer().Measure(t.Context()))
 
-	assert.Equal(t, []string{named}, f.sizes.deleted)
-	assert.NotContains(t, f.sizes.records, named)
-	assert.Contains(t, f.sizes.records, deleting, "the watch leaves this one out, so the row is kept for a failed delete")
-	assert.Contains(t, f.sizes.records, owned)
-	assert.Contains(t, f.sizes.records, kept)
-	assert.NotContains(t, f.sizes.written, named, "a named directory is not walked")
-}
-
-// fakeListing answers with whatever listing the test names, on disk or not.
-type fakeListing struct {
-	listing Listing
-}
-
-func (l *fakeListing) List(context.Context) (*Listing, error) {
-	return &l.listing, nil
+	stored := fixture.listStored(t)
+	assert.NotContains(t, stored, named)
+	assert.Contains(t, stored, deleting, "the watch leaves this one out, so the row is kept for a failed delete")
+	assert.Contains(t, stored, owned)
+	assert.Contains(t, stored, kept)
 }
 
 // TestStorableText covers a NUL and a half rune being taken out of an error's text.

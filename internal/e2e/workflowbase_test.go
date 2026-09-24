@@ -19,7 +19,7 @@ import (
 // what origin/HEAD names when the clone has one, and the branch the checkout is on when it has
 // no origin, with the response carrying the name stored.
 func TestIntegrationCreateWorkflowFillsTheBaseFromTheClone(t *testing.T) {
-	hermeticGit(t)
+	isolateGit(t)
 
 	tests := []struct {
 		name string

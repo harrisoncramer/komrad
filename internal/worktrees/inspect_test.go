@@ -9,6 +9,7 @@ import (
 
 	"weave/internal/git"
 	"weave/internal/store"
+	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 	worktreestore "weave/internal/store/worktree"
 
@@ -20,27 +21,27 @@ import (
 // git, and everything git answered being carried back: the standing, the changes, the
 // commits, and the branch being kept since nothing else reaches its tip.
 func TestInspectReadsABranchAgainstItsWorkflowsBase(t *testing.T) {
-	f := newFixture(t)
-	dir := f.cut(t, "aaaa")
-	f.own("aaaa", "first", nil)
-	f.flows.flows["flow"] = &workflowstore.Workflow{Worktree: workflowstore.WorktreeConfig{BaseBranch: "develop"}}
+	fixture := newFixture(t)
+	dir := fixture.cut(t)
+	develop := fixture.stores.SeedWorkflow(t, workflowstore.Config{Name: "develop", Worktree: workflowstore.WorktreeConfig{BaseBranch: "develop"}})
+	fixture.own(t, dir, agentstore.Agent{Name: "first", WorkflowID: develop.ID})
+	fixture.git.State = git.TreeState{Branch: filepath.Base(dir), InProgress: true}
 	at := time.Date(2026, 9, 19, 12, 0, 0, 0, time.UTC)
 	write(t, dir, "big/one", strings.Repeat("x", 20000))
-	f.git.Changes = git.Changes{Modified: []string{"own.go"}, Untracked: []string{"scratch.txt"}}
-	f.git.State = git.TreeState{Branch: "agent/aaaa", InProgress: true}
-	f.git.Ahead, f.git.Behind = 2, 12
-	f.git.Prediction = git.Prediction{Landed: 1, Replay: 1}
-	f.git.Commits = []git.Commit{{
+	fixture.git.Changes = git.Changes{Modified: []string{"own.go"}, Untracked: []string{"scratch.txt"}}
+	fixture.git.Ahead, fixture.git.Behind = 2, 12
+	fixture.git.Prediction = git.Prediction{Landed: 1, Replay: 1}
+	fixture.git.Commits = []git.Commit{{
 		SHA:         "abc",
 		Subject:     "own work",
 		CommittedAt: at,
 	}}
 
-	inspection, err := f.inspector().Inspect(t.Context(), InspectParams{Dir: dir})
+	inspection, err := fixture.newInspector().Inspect(t.Context(), InspectParams{Dir: dir})
 	require.NoError(t, err)
 
-	assert.Equal(t, "develop", f.git.Resolved)
-	assert.Equal(t, 0, f.git.Fetches)
+	assert.Equal(t, "develop", fixture.git.Resolved)
+	assert.Equal(t, 0, fixture.git.Fetches)
 	assert.Equal(t, dir, inspection.Worktree.Dir)
 	assert.Equal(t, "origin/develop", inspection.BaseRef)
 	assert.Equal(t, 2, inspection.Ahead)
@@ -48,36 +49,26 @@ func TestInspectReadsABranchAgainstItsWorkflowsBase(t *testing.T) {
 	assert.Equal(t, 1, inspection.Landed)
 	assert.True(t, inspection.SequenceInProgress)
 	assert.True(t, inspection.KeepsBranch)
-	assert.Equal(t, f.git.Changes, inspection.Changes)
-	assert.Equal(t, f.git.Commits, inspection.Commits)
+	assert.Equal(t, fixture.git.Changes, inspection.Changes)
+	assert.Equal(t, fixture.git.Commits, inspection.Commits)
 	assert.Equal(t, Entry{
 		Path:  "big",
 		Bytes: usage(t, filepath.Join(dir, "big/one")),
 		Dir:   true,
 	}, inspection.Entries[0])
-	assert.Equal(t, held(inspection.Entries), inspection.Bytes)
-}
-
-// held is what the entries add up to.
-func held(entries []Entry) int64 {
-	var total int64
-	for _, entry := range entries {
-		total += entry.Bytes
-	}
-
-	return total
+	assert.Equal(t, sumEntryBytes(inspection.Entries), inspection.Bytes)
 }
 
 // TestInspectReportsABaseTheCloneDoesNotHold covers a clone without the workflow's base
 // answering with why rather than with a standing against something else.
 func TestInspectReportsABaseTheCloneDoesNotHold(t *testing.T) {
-	f := newFixture(t)
-	dir := f.cut(t, "hhhh")
-	f.own("hhhh", "stale", nil)
-	f.git.Unresolved = true
-	f.git.Commits = []git.Commit{{SHA: "never"}}
+	fixture := newFixture(t)
+	dir := fixture.cut(t)
+	fixture.own(t, dir, agentstore.Agent{Name: "stale"})
+	fixture.git.Unresolved = true
+	fixture.git.Commits = []git.Commit{{SHA: "never"}}
 
-	inspection, err := f.inspector().Inspect(t.Context(), InspectParams{Dir: dir})
+	inspection, err := fixture.newInspector().Inspect(t.Context(), InspectParams{Dir: dir})
 	require.NoError(t, err)
 
 	require.ErrorIs(t, inspection.BaseErr, git.ErrBaseMissing)
@@ -89,10 +80,10 @@ func TestInspectReportsABaseTheCloneDoesNotHold(t *testing.T) {
 // TestInspectReportsADirectoryWithNoRowAsHavingNoBase covers a directory whose agent row is
 // gone, which names no workflow and so no base.
 func TestInspectReportsADirectoryWithNoRowAsHavingNoBase(t *testing.T) {
-	f := newFixture(t)
-	dir := f.cut(t, "iiii")
+	fixture := newFixture(t)
+	dir := fixture.cut(t)
 
-	inspection, err := f.inspector().Inspect(t.Context(), InspectParams{Dir: dir})
+	inspection, err := fixture.newInspector().Inspect(t.Context(), InspectParams{Dir: dir})
 	require.NoError(t, err)
 
 	require.ErrorIs(t, inspection.BaseErr, git.ErrBaseMissing)
@@ -102,28 +93,28 @@ func TestInspectReportsADirectoryWithNoRowAsHavingNoBase(t *testing.T) {
 // TestInspectFetchesWhenAsked covers the fetch flag going to git's fetch rather than its
 // resolve, with the workflow's base named to it.
 func TestInspectFetchesWhenAsked(t *testing.T) {
-	f := newFixture(t)
-	dir := f.cut(t, "bbbb")
-	f.own("bbbb", "fetched", nil)
+	fixture := newFixture(t)
+	dir := fixture.cut(t)
+	fixture.own(t, dir, agentstore.Agent{Name: "fetched"})
 
-	inspection, err := f.inspector().Inspect(t.Context(), InspectParams{Dir: dir, Fetch: true})
+	inspection, err := fixture.newInspector().Inspect(t.Context(), InspectParams{Dir: dir, Fetch: true})
 	require.NoError(t, err)
 
-	assert.Equal(t, 0, f.git.Resolves)
-	assert.Equal(t, 1, f.git.Fetches)
-	assert.Equal(t, "main", f.git.Fetched)
+	assert.Equal(t, 0, fixture.git.Resolves)
+	assert.Equal(t, 1, fixture.git.Fetches)
+	assert.Equal(t, "main", fixture.git.Fetched)
 	assert.Equal(t, "origin/main", inspection.BaseRef)
 }
 
 // TestInspectReadsALandedBranchAsLeavingNothingBehind covers a branch some other ref reaches
 // not being kept.
 func TestInspectReadsALandedBranchAsLeavingNothingBehind(t *testing.T) {
-	f := newFixture(t)
-	dir := f.cut(t, "cccc")
-	f.own("cccc", "landed", nil)
-	f.git.Held = true
+	fixture := newFixture(t)
+	dir := fixture.cut(t)
+	fixture.own(t, dir, agentstore.Agent{Name: "landed"})
+	fixture.git.Held = true
 
-	inspection, err := f.inspector().Inspect(t.Context(), InspectParams{Dir: dir})
+	inspection, err := fixture.newInspector().Inspect(t.Context(), InspectParams{Dir: dir})
 	require.NoError(t, err)
 
 	assert.False(t, inspection.KeepsBranch)
@@ -131,13 +122,12 @@ func TestInspectReadsALandedBranchAsLeavingNothingBehind(t *testing.T) {
 
 // TestInspectKeepsAnAdoptedBranch covers the adopted flag winning over reachability.
 func TestInspectKeepsAnAdoptedBranch(t *testing.T) {
-	f := newFixture(t)
-	dir := f.cut(t, "dddd")
-	f.own("dddd", "adopted", nil)
-	f.owners.rows[0].AdoptedBranch = "agent/dddd"
-	f.git.Held = true
+	fixture := newFixture(t)
+	dir := fixture.cut(t)
+	fixture.own(t, dir, agentstore.Agent{Name: "adopted", AdoptedBranch: "agent/" + filepath.Base(dir)})
+	fixture.git.Held = true
 
-	inspection, err := f.inspector().Inspect(t.Context(), InspectParams{Dir: dir})
+	inspection, err := fixture.newInspector().Inspect(t.Context(), InspectParams{Dir: dir})
 	require.NoError(t, err)
 
 	assert.True(t, inspection.KeepsBranch)
@@ -146,12 +136,12 @@ func TestInspectKeepsAnAdoptedBranch(t *testing.T) {
 // TestInspectReadsAnUnrelatedBaseAsNothingLanded covers git's refusal to relate the branch
 // and the base being read as no landed commits rather than as a failure.
 func TestInspectReadsAnUnrelatedBaseAsNothingLanded(t *testing.T) {
-	f := newFixture(t)
-	dir := f.cut(t, "eeee")
-	f.own("eeee", "unrelated", nil)
-	f.git.PredictErr = git.ErrBaseUnrelated
+	fixture := newFixture(t)
+	dir := fixture.cut(t)
+	fixture.own(t, dir, agentstore.Agent{Name: "unrelated"})
+	fixture.git.PredictErr = git.ErrBaseUnrelated
 
-	inspection, err := f.inspector().Inspect(t.Context(), InspectParams{Dir: dir})
+	inspection, err := fixture.newInspector().Inspect(t.Context(), InspectParams{Dir: dir})
 	require.NoError(t, err)
 
 	assert.Equal(t, 0, inspection.Landed)
@@ -160,13 +150,13 @@ func TestInspectReadsAnUnrelatedBaseAsNothingLanded(t *testing.T) {
 // TestInspectReadsOnlyTheEntriesOfAGoneRegistration covers a directory git cannot read
 // answering with its entries and nothing from git.
 func TestInspectReadsOnlyTheEntriesOfAGoneRegistration(t *testing.T) {
-	f := newFixture(t)
-	dir := filepath.Join(f.shared, "ffff")
+	fixture := newFixture(t)
+	dir := filepath.Join(fixture.shared, "ffff")
 	write(t, dir, ".git", "gitdir: /var/folders/xx/T/repo/.git/worktrees/ffff\n")
 	write(t, dir, "left", strings.Repeat("x", 20000))
-	f.git.Commits = []git.Commit{{SHA: "never"}}
+	fixture.git.Commits = []git.Commit{{SHA: "never"}}
 
-	inspection, err := f.inspector().Inspect(t.Context(), InspectParams{Dir: dir})
+	inspection, err := fixture.newInspector().Inspect(t.Context(), InspectParams{Dir: dir})
 	require.NoError(t, err)
 
 	assert.False(t, inspection.Worktree.Readable)
@@ -178,10 +168,10 @@ func TestInspectReadsOnlyTheEntriesOfAGoneRegistration(t *testing.T) {
 // TestInspectRefusesADirectoryTheListingDoesNotHold covers a path outside the worktree
 // directories being not found rather than read.
 func TestInspectRefusesADirectoryTheListingDoesNotHold(t *testing.T) {
-	f := newFixture(t)
-	require.NoError(t, os.MkdirAll(filepath.Join(f.shared, "gggg"), 0o755))
+	fixture := newFixture(t)
+	require.NoError(t, os.MkdirAll(filepath.Join(fixture.shared, "gggg"), 0o755))
 
-	_, err := f.inspector().Inspect(t.Context(), InspectParams{Dir: f.repo})
+	_, err := fixture.newInspector().Inspect(t.Context(), InspectParams{Dir: fixture.repo})
 
 	require.ErrorIs(t, err, store.ErrNotFound)
 }
@@ -189,24 +179,33 @@ func TestInspectRefusesADirectoryTheListingDoesNotHold(t *testing.T) {
 // TestInspectRecordsTheSizeItWalked covers the walk's total being written to the size store
 // under the time of the call and carried back on the worktree, over whatever was stored.
 func TestInspectRecordsTheSizeItWalked(t *testing.T) {
-	f := newFixture(t)
-	dir := f.cut(t, "aaaa")
-	f.sizes.stored[dir] = worktreestore.Size{
+	fixture := newFixture(t)
+	dir := fixture.cut(t)
+	require.NoError(t, fixture.worktrees.Upsert(t.Context(), worktreestore.Worktree{Dir: dir}))
+	require.NoError(t, fixture.worktrees.RecordSize(t.Context(), worktreestore.Size{
 		Dir:        dir,
-		MeasuredAt: f.now.Add(-time.Hour),
+		MeasuredAt: fixture.now.Add(-time.Hour),
 		Error:      "permission denied",
-	}
+	}))
 
-	inspection, err := f.inspector().Inspect(t.Context(), InspectParams{Dir: dir})
+	inspection, err := fixture.newInspector().Inspect(t.Context(), InspectParams{Dir: dir})
 	require.NoError(t, err)
 
 	assert.Positive(t, inspection.Bytes)
-	assert.Equal(t, []string{dir}, f.sizes.written)
-	assert.Equal(t, worktreestore.Size{
-		Dir:        dir,
-		Bytes:      inspection.Bytes,
-		MeasuredAt: f.now,
-	}, f.sizes.stored[dir])
+	stored := fixture.readSize(t, dir)
+	assert.Equal(t, inspection.Bytes, stored.Bytes)
+	assert.Empty(t, stored.Error)
+	assert.True(t, stored.MeasuredAt.Equal(fixture.now))
 	require.NotNil(t, inspection.Worktree.Size)
-	assert.Equal(t, f.sizes.stored[dir], *inspection.Worktree.Size)
+	assert.Equal(t, inspection.Bytes, inspection.Worktree.Size.Bytes)
+}
+
+// sumEntryBytes adds up what the entries hold.
+func sumEntryBytes(entries []Entry) int64 {
+	var total int64
+	for _, entry := range entries {
+		total += entry.Bytes
+	}
+
+	return total
 }
