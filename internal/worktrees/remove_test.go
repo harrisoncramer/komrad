@@ -26,7 +26,7 @@ func TestRemoveTakesAnUnownedDirectoryAndPrunesIt(t *testing.T) {
 	assert.Equal(t, []string{dir}, removal.Removed)
 	assert.Empty(t, removal.Refused)
 	assert.NoDirExists(t, dir)
-	assert.Equal(t, []string{f.repo}, f.git.pruned)
+	assert.Equal(t, []string{f.repo}, f.git.Pruned)
 }
 
 // TestRemoveTakesAGoneRegistrationWithoutPruning covers a directory git cannot read going
@@ -41,7 +41,7 @@ func TestRemoveTakesAGoneRegistrationWithoutPruning(t *testing.T) {
 
 	assert.Equal(t, []string{dir}, removal.Removed)
 	assert.NoDirExists(t, dir)
-	assert.Empty(t, f.git.pruned)
+	assert.Empty(t, f.git.Pruned)
 }
 
 // TestRemoveRefusesWhatAnAgentAnswersFor covers the refusals: a live row, an archived row, a
@@ -93,7 +93,7 @@ func TestRemoveRefusesWhatAnAgentAnswersFor(t *testing.T) {
 	assert.DirExists(t, vetoed)
 	assert.DirExists(t, shared)
 	assert.DirExists(t, deep)
-	assert.Empty(t, f.git.pruned)
+	assert.Empty(t, f.git.Pruned)
 }
 
 // TestRemoveTakesADirectoryWhoseRowFailedToCleanUp covers the one owned directory the
@@ -124,7 +124,7 @@ func TestRemoveRefusesADirectoryHoldingAnotherWorktree(t *testing.T) {
 	registered := f.cut(t, "registered")
 	byHand := filepath.Join(registered, "by-hand")
 	write(t, byHand, ".git", "gitdir: "+filepath.Join(f.repo, ".git", "worktrees", "by-hand")+"\n")
-	f.git.registered = []git.Worktree{{Dir: f.repo}, {Dir: byHand}}
+	f.git.Registered = []git.Worktree{{Dir: f.repo}, {Dir: byHand}}
 
 	removal, err := f.remover().Remove(t.Context(), []string{listed, registered})
 	require.NoError(t, err)
@@ -145,7 +145,7 @@ func TestRemoveRefusesADirectoryHoldingAnotherWorktree(t *testing.T) {
 func TestRemoveMarksAStepThatBroke(t *testing.T) {
 	f := newFixture(t)
 	unlisted := f.cut(t, "unlisted")
-	f.git.listErr = errors.New("git is not on the path")
+	f.git.ListErr = errors.New("git is not on the path")
 
 	removal, err := f.remover().Remove(t.Context(), []string{unlisted})
 	require.NoError(t, err)
@@ -155,7 +155,7 @@ func TestRemoveMarksAStepThatBroke(t *testing.T) {
 	assert.True(t, removal.Refused[0].Failed)
 	assert.DirExists(t, unlisted)
 
-	f.git.listErr = nil
+	f.git.ListErr = nil
 	held := f.cut(t, "held")
 	require.NoError(t, os.Chmod(f.shared, 0o500))
 	t.Cleanup(func() { assert.NoError(t, os.Chmod(f.shared, 0o700)) })

@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	"weave/internal/diff"
+	"weave/internal/gittest"
 	"weave/internal/ui/diffview"
 	"weave/internal/ui/paint"
 	"weave/internal/ui/panel"
@@ -31,7 +32,7 @@ type fakeReviewAgents struct {
 	replied    *agentv1.AddReviewMessageRequest
 	released   *agentv1.ReleaseReviewRequest
 	dir        string
-	repo       *fakeRepo
+	repo       *gittest.Repo
 	rounds     []*agentv1.ReviewRound
 	reviews    []*agentv1.Review
 	marked     *agentv1.SetReviewFileViewedRequest
@@ -136,7 +137,7 @@ func (f *fakeReviewAgents) OpenReviewRound(
 	_ context.Context,
 	req *connect.Request[agentv1.OpenReviewRoundRequest],
 ) (*connect.Response[agentv1.OpenReviewRoundResponse], error) {
-	sha, baseSHA := snapshotOf(f.repo.tree), fakeBaseSHA
+	sha, baseSHA := gittest.NameSnapshot(f.repo.Tree), gittest.BaseSHA
 
 	if len(f.rounds) == 0 || f.rounds[len(f.rounds)-1].GetSnapshotSha() != sha {
 		f.rounds = append(f.rounds, &agentv1.ReviewRound{
@@ -265,15 +266,15 @@ func reviewRepo(t *testing.T) string {
 func reviewModel(t *testing.T, agents agentv1connect.AgentServiceClient, dir string) (model, *recordingTmux) {
 	t.Helper()
 
-	return reviewModelOver(t, agents, newFakeRepo(dir))
+	return buildReviewModel(t, agents, gittest.NewRepo(dir))
 }
 
-// reviewModelOver is a review screen over a repository the test holds on to, for the tests that
+// buildReviewModel is a review screen over a repository the test holds on to, for the tests that
 // move it between rounds.
-func reviewModelOver(t *testing.T, agents agentv1connect.AgentServiceClient, repo *fakeRepo) (model, *recordingTmux) {
+func buildReviewModel(t *testing.T, agents agentv1connect.AgentServiceClient, repo *gittest.Repo) (model, *recordingTmux) {
 	t.Helper()
 
-	dir := repo.root
+	dir := repo.Root
 
 	tmux := &recordingTmux{width: 200, height: 30}
 	if fake, ok := agents.(*fakeReviewAgents); ok {
@@ -357,10 +358,10 @@ func enterReview(t *testing.T, m model) model {
 // TestEnterReviewRefusesAnEmptyWorktree pins the drop back to the listing for an agent that has
 // written nothing.
 func TestEnterReviewRefusesAnEmptyWorktree(t *testing.T) {
-	repo := newFakeRepo(t.TempDir())
-	repo.wrote(wroteParams{Tree: "tree-of-the-base"})
+	repo := gittest.NewRepo(t.TempDir())
+	repo.Wrote(gittest.WroteParams{Tree: "tree-of-the-base"})
 
-	m, _ := reviewModelOver(t, &fakeReviewAgents{}, repo)
+	m, _ := buildReviewModel(t, &fakeReviewAgents{}, repo)
 
 	m = enterReview(t, m)
 
@@ -374,14 +375,14 @@ func TestEnterReviewRefusesAnEmptyWorktree(t *testing.T) {
 // TestEnterReviewOpensAnUntrackedFile covers the worktree whose only work is a file git has never
 // seen.
 func TestEnterReviewOpensAnUntrackedFile(t *testing.T) {
-	repo := newFakeRepo(t.TempDir())
-	repo.wrote(wroteParams{
+	repo := gittest.NewRepo(t.TempDir())
+	repo.Wrote(gittest.WroteParams{
 		Tree:    "tree-with-an-untracked-file",
-		Whole:   fakePatchOfAnAddedFile,
+		Whole:   gittest.PatchOfAnAddedFile,
 		Sources: map[string]string{"new.go": "package greet\n"},
 	})
 
-	m, _ := reviewModelOver(t, &fakeReviewAgents{}, repo)
+	m, _ := buildReviewModel(t, &fakeReviewAgents{}, repo)
 
 	m = openReview(t, m)
 
@@ -961,10 +962,10 @@ func TestReviewRendersWhileLoading(t *testing.T) {
 // reader is put back on the listing and told through the messages region rather than left in a
 // viewer with the raw error drawn in the sidebar.
 func TestReviewReportsAFailedLoad(t *testing.T) {
-	repo := newFakeRepo(t.TempDir())
-	repo.rootErr = errNoGit
+	repo := gittest.NewRepo(t.TempDir())
+	repo.RootErr = gittest.ErrNoGit
 
-	m, _ := reviewModelOver(t, &fakeReviewAgents{}, repo)
+	m, _ := buildReviewModel(t, &fakeReviewAgents{}, repo)
 
 	m = enterReview(t, m)
 
@@ -972,7 +973,7 @@ func TestReviewReportsAFailedLoad(t *testing.T) {
 	require.Len(t, m.messages.items, 1)
 	assert.Equal(t, messageError, m.messages.items[0].kind)
 	assert.Contains(t, m.messages.items[0].summary, "Could not read the diff of")
-	assert.Contains(t, m.messages.items[0].detail, errNoGit.Error(),
+	assert.Contains(t, m.messages.items[0].detail, gittest.ErrNoGit.Error(),
 		"the error the read failed with is what the reader is told")
 }
 
@@ -1527,18 +1528,18 @@ func TestReviewSearchWithNoMatchesSaysSo(t *testing.T) {
 // repaint.
 func TestReviewFileJumpSurvivesARepaint(t *testing.T) {
 	// A jump needs somewhere to land, and the round the other tests share holds one file.
-	repo := newFakeRepo(t.TempDir())
-	repo.wrote(wroteParams{
+	repo := gittest.NewRepo(t.TempDir())
+	repo.Wrote(gittest.WroteParams{
 		Tree:  "tree-with-two-files",
-		Whole: fakePatch + fakePatchOfAnotherFile,
+		Whole: gittest.Patch + gittest.PatchOfAnotherFile,
 		Sources: map[string]string{
-			fakeFile:    fakeHeadSource,
-			"second.go": "package greet\n\nfunc Second() string {\n\treturn \"second\"\n}\n",
+			gittest.File: gittest.HeadSource,
+			"second.go":  "package greet\n\nfunc Second() string {\n\treturn \"second\"\n}\n",
 		},
 	})
 
 	agents := &fakeReviewAgents{}
-	m, _ := reviewModelOver(t, agents, repo)
+	m, _ := buildReviewModel(t, agents, repo)
 	m = openReview(t, m)
 
 	next, _ := m.routeScreenMessage(keyMsg("]"))
@@ -1635,9 +1636,9 @@ func TestMarkingAFileViewedFoldsItAway(t *testing.T) {
 // reopening an unmoved tree finds the file still folded, and a round the agent has written into
 // starts with nothing read.
 func TestAViewedFileComesBackInTheNextRound(t *testing.T) {
-	repo := newFakeRepo(t.TempDir())
+	repo := gittest.NewRepo(t.TempDir())
 	agents := &fakeReviewAgents{}
-	m, _ := reviewModelOver(t, agents, repo)
+	m, _ := buildReviewModel(t, agents, repo)
 	m = openReview(t, m)
 
 	next, cmd := m.routeScreenMessage(keyMsg("v"))
@@ -1648,11 +1649,11 @@ func TestAViewedFileComesBackInTheNextRound(t *testing.T) {
 	require.True(t, m.review.diff.view.IsViewed("greet.go"), "nothing changed, so the mark still holds")
 	assert.Empty(t, m.review.notice)
 
-	repo.wrote(wroteParams{
+	repo.Wrote(gittest.WroteParams{
 		Tree:  "tree-written-again",
-		Whole: fakePatchWrittenOver,
+		Whole: gittest.PatchWrittenOver,
 		Sources: map[string]string{
-			fakeFile: "package greet\n\nfunc Hello() string {\n\treturn \"written by the agent\"\n}\n",
+			gittest.File: "package greet\n\nfunc Hello() string {\n\treturn \"written by the agent\"\n}\n",
 		},
 	})
 
@@ -1693,9 +1694,9 @@ func TestReviewMatchCountSpellsMatchesOffAMatch(t *testing.T) {
 // TestReviewBaseNarrowsToTheLastReview covers the question a second round is about: the diff
 // measured from the round the person last reviewed rather than from the fork point.
 func TestReviewBaseNarrowsToTheLastReview(t *testing.T) {
-	repo := newFakeRepo(t.TempDir())
+	repo := gittest.NewRepo(t.TempDir())
 	agents := &fakeReviewAgents{}
-	m, _ := reviewModelOver(t, agents, repo)
+	m, _ := buildReviewModel(t, agents, repo)
 
 	m = openReview(t, m)
 	require.Len(t, agents.rounds, 1, "the first look takes a round")
@@ -1709,13 +1710,13 @@ func TestReviewBaseNarrowsToTheLastReview(t *testing.T) {
 		ReleasedAt:   "2026-09-08T10:00:00Z",
 	}}
 
-	repo.wrote(wroteParams{
+	repo.Wrote(gittest.WroteParams{
 		Tree:  "tree-with-a-second-file",
-		Whole: fakePatchOfBothFiles,
-		Since: fakePatchOfTheSecondFile,
+		Whole: gittest.PatchOfBothFiles,
+		Since: gittest.PatchOfTheSecondFile,
 		Sources: map[string]string{
-			fakeFile:    fakeHeadSource,
-			"second.go": "package greet\n\nfunc Second() {}\n",
+			gittest.File: gittest.HeadSource,
+			"second.go":  "package greet\n\nfunc Second() {}\n",
 		},
 	})
 
@@ -1754,12 +1755,12 @@ func TestReviewBaseNarrowsToTheLastReview(t *testing.T) {
 	assert.Contains(t, ansi.Strip(m.review.view(m.shared())), "all changes")
 }
 
-// reviewWithAnEarlierReview is the panel on a second round with the first one reviewed and
+// buildReviewWithAnEarlierReview is the panel on a second round with the first one reviewed and
 // released.
-func reviewWithAnEarlierReview(t *testing.T, repo *fakeRepo, agents *fakeReviewAgents) model {
+func buildReviewWithAnEarlierReview(t *testing.T, repo *gittest.Repo, agents *fakeReviewAgents) model {
 	t.Helper()
 
-	m, _ := reviewModelOver(t, agents, repo)
+	m, _ := buildReviewModel(t, agents, repo)
 	m = openReview(t, m)
 	require.Len(t, agents.rounds, 1)
 
@@ -1772,13 +1773,13 @@ func reviewWithAnEarlierReview(t *testing.T, repo *fakeRepo, agents *fakeReviewA
 		ReleasedAt:   "2026-09-08T10:00:00Z",
 	}}
 
-	repo.wrote(wroteParams{
+	repo.Wrote(gittest.WroteParams{
 		Tree:  "tree-with-a-second-file",
-		Whole: fakePatchOfBothFiles,
-		Since: fakePatchOfTheSecondFile,
+		Whole: gittest.PatchOfBothFiles,
+		Since: gittest.PatchOfTheSecondFile,
 		Sources: map[string]string{
-			fakeFile:    fakeHeadSource,
-			"second.go": "package greet\n\nfunc Second() {}\n",
+			gittest.File: gittest.HeadSource,
+			"second.go":  "package greet\n\nfunc Second() {}\n",
 		},
 	})
 
@@ -1830,10 +1831,10 @@ func pressReviewBase(t *testing.T, m model) model {
 // one already reviewed, where narrowing draws nothing and used to throw the reader out of the
 // screen with the notice an empty agent gets.
 func TestReviewBaseSaysSoWhenNothingChangedSinceThatReview(t *testing.T) {
-	repo := newFakeRepo(t.TempDir())
+	repo := gittest.NewRepo(t.TempDir())
 	agents := &fakeReviewAgents{}
 
-	m, _ := reviewModelOver(t, agents, repo)
+	m, _ := buildReviewModel(t, agents, repo)
 	m = openReview(t, m)
 	first := agents.rounds[0]
 
@@ -1846,19 +1847,19 @@ func TestReviewBaseSaysSoWhenNothingChangedSinceThatReview(t *testing.T) {
 	}}
 
 	// The tree moves and moves back, so the newest round is the reviewed round's snapshot again.
-	repo.wrote(wroteParams{
+	repo.Wrote(gittest.WroteParams{
 		Tree:  "tree-with-a-second-file",
-		Whole: fakePatchOfBothFiles,
-		Since: fakePatchOfTheSecondFile,
+		Whole: gittest.PatchOfBothFiles,
+		Since: gittest.PatchOfTheSecondFile,
 		Sources: map[string]string{
-			fakeFile:    fakeHeadSource,
-			"second.go": "package greet\n\nfunc Second() {}\n",
+			gittest.File: gittest.HeadSource,
+			"second.go":  "package greet\n\nfunc Second() {}\n",
 		},
 	})
 	m = openReview(t, m)
-	repo.wrote(wroteParams{
-		Tree:  fakeTree,
-		Whole: fakePatch,
+	repo.Wrote(gittest.WroteParams{
+		Tree:  gittest.UnmovedTree,
+		Whole: gittest.Patch,
 	})
 	m = openReview(t, m)
 	require.NotNil(t, m.review.diff.baseRound)
@@ -1878,7 +1879,7 @@ func TestReviewBaseSaysSoWhenNothingChangedSinceThatReview(t *testing.T) {
 func TestWritingIsRefusedOnAFinishedRound(t *testing.T) {
 	agents := &fakeReviewAgents{}
 
-	m := reviewWithAnEarlierReview(t, newFakeRepo(t.TempDir()), agents)
+	m := buildReviewWithAnEarlierReview(t, gittest.NewRepo(t.TempDir()), agents)
 	m = pressReviewBase(t, m)
 	require.NotEmpty(t, m.review.diff.base, "the diff narrowed to a round")
 
@@ -1921,9 +1922,9 @@ func TestWritingIsRefusedOnAFinishedRound(t *testing.T) {
 // TestReviewBaseIsRefusedWhenTheBaseMoved covers two rounds measured from different points, where
 // a diff of the two snapshots would carry whatever else moved on the base.
 func TestReviewBaseIsRefusedWhenTheBaseMoved(t *testing.T) {
-	repo := newFakeRepo(t.TempDir())
+	repo := gittest.NewRepo(t.TempDir())
 	agents := &fakeReviewAgents{}
-	m, _ := reviewModelOver(t, agents, repo)
+	m, _ := buildReviewModel(t, agents, repo)
 
 	m = openReview(t, m)
 	first := agents.rounds[0]
@@ -1937,13 +1938,13 @@ func TestReviewBaseIsRefusedWhenTheBaseMoved(t *testing.T) {
 		ReleasedAt:   "2026-09-08T10:00:00Z",
 	}}
 
-	repo.wrote(wroteParams{
+	repo.Wrote(gittest.WroteParams{
 		Tree:  "tree-with-a-second-file",
-		Whole: fakePatchOfBothFiles,
-		Since: fakePatchOfTheSecondFile,
+		Whole: gittest.PatchOfBothFiles,
+		Since: gittest.PatchOfTheSecondFile,
 		Sources: map[string]string{
-			fakeFile:    fakeHeadSource,
-			"second.go": "package greet\n\nfunc Second() {}\n",
+			gittest.File: gittest.HeadSource,
+			"second.go":  "package greet\n\nfunc Second() {}\n",
 		},
 	})
 

@@ -3,6 +3,8 @@ package ui
 import (
 	"testing"
 
+	"weave/internal/gittest"
+
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -42,15 +44,15 @@ func TestReviewMoveWaitsWhileTheReaderTypes(t *testing.T) {
 // TestReviewMoveCatchesUpOnceTheTurnIsOver covers what watching is for: a move the watch reports
 // of an idle agent is read again on its own.
 func TestReviewMoveCatchesUpOnceTheTurnIsOver(t *testing.T) {
-	repo := newFakeRepo(t.TempDir())
-	m, tmux := reviewModelOver(t, &fakeReviewAgents{}, repo)
+	repo := gittest.NewRepo(t.TempDir())
+	m, tmux := buildReviewModel(t, &fakeReviewAgents{}, repo)
 	m = openReview(t, m)
 
-	repo.wrote(wroteParams{
+	repo.Wrote(gittest.WroteParams{
 		Tree:  "tree-written-again",
-		Whole: fakePatchWrittenOver,
+		Whole: gittest.PatchWrittenOver,
 		Sources: map[string]string{
-			fakeFile: "package greet\n\nfunc Hello() string {\n\treturn \"written by the agent\"\n}\n",
+			gittest.File: "package greet\n\nfunc Hello() string {\n\treturn \"written by the agent\"\n}\n",
 		},
 	})
 	markReviewWorktreeMoved(&m)

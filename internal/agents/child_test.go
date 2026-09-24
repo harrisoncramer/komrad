@@ -3,7 +3,9 @@ package agents
 import (
 	"testing"
 
+	"weave/internal/harnesstest"
 	agentstore "weave/internal/store/agent"
+	"weave/internal/tmuxtest"
 	"weave/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
@@ -13,7 +15,7 @@ import (
 // TestNewChildAgentTakesItsLaunchFromTheParent pins what a child is given rather than asked
 // for: the parent's checkout, no provisioner of its own, and the parent's workflow.
 func TestNewChildAgentTakesItsLaunchFromTheParent(t *testing.T) {
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	manager := newManager(tmux, st, "")
 	ctx := t.Context()
@@ -97,7 +99,7 @@ func TestNewChildAgentRefusals(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tmux := newFakeTmux()
+			tmux := tmuxtest.NewFake()
 			st := newStore(t)
 			manager := newManager(tmux, st, "")
 
@@ -122,7 +124,7 @@ func TestNewChildAgentRefusals(t *testing.T) {
 // TestNewChildAgentRefusesAnArchivedParent pins that a child is never attached to an agent
 // already on its way out.
 func TestNewChildAgentRefusesAnArchivedParent(t *testing.T) {
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	manager := newManager(tmux, st, "")
 	ctx := t.Context()
@@ -142,7 +144,7 @@ func TestNewChildAgentRefusesAnArchivedParent(t *testing.T) {
 // TestNewChildAgentRefusesAParentWithNoDirectory pins that a child is never launched into the
 // workflow's own checkout.
 func TestNewChildAgentRefusesAParentWithNoDirectory(t *testing.T) {
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	manager := newManager(tmux, st, "")
 
@@ -160,7 +162,7 @@ func TestNewChildAgentRefusesAParentWithNoDirectory(t *testing.T) {
 
 // TestNewChildAgentRefusesAChildOfAChild pins the one level.
 func TestNewChildAgentRefusesAChildOfAChild(t *testing.T) {
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	manager := newManager(tmux, st, "")
 
@@ -178,11 +180,11 @@ func TestNewChildAgentRefusesAChildOfAChild(t *testing.T) {
 
 // TestNewChildAgentUnderTheChildCeiling pins the per-parent cap.
 func TestNewChildAgentUnderTheChildCeiling(t *testing.T) {
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	manager := st.agentService(agentServiceOptions{
 		tmux:        tmux,
-		harnesses:   fakeHarnesses{harness: &fakeHarness{}},
+		harnesses:   harnesstest.Registry{Harness: &harnesstest.Fake{}},
 		addr:        "127.0.0.1:9999",
 		maxChildren: 1,
 	})
@@ -204,11 +206,11 @@ func TestNewChildAgentUnderTheChildCeiling(t *testing.T) {
 // TestRestoreOfAChildUnderTheChildCeiling pins that a child comes back only while its parent
 // still has room.
 func TestRestoreOfAChildUnderTheChildCeiling(t *testing.T) {
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	manager := st.agentService(agentServiceOptions{
 		tmux:        tmux,
-		harnesses:   fakeHarnesses{harness: &fakeHarness{}},
+		harnesses:   harnesstest.Registry{Harness: &harnesstest.Fake{}},
 		addr:        "127.0.0.1:9999",
 		maxChildren: 1,
 	})
@@ -236,11 +238,11 @@ func TestRestoreOfAChildUnderTheChildCeiling(t *testing.T) {
 // TestRestoreOfAWorkflowUnderTheChildCeiling pins the same ceiling on the other way back, for a
 // workflow archived holding two children of one parent.
 func TestRestoreOfAWorkflowUnderTheChildCeiling(t *testing.T) {
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	manager := st.agentService(agentServiceOptions{
 		tmux:        tmux,
-		harnesses:   fakeHarnesses{harness: &fakeHarness{}},
+		harnesses:   harnesstest.Registry{Harness: &harnesstest.Fake{}},
 		addr:        "127.0.0.1:9999",
 		maxChildren: 1,
 	})
@@ -301,7 +303,7 @@ func TestArchiveTakesTheChildren(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tmux := newFakeTmux()
+			tmux := tmuxtest.NewFake()
 			st := newStore(t)
 			manager := newManager(tmux, st, "")
 			ctx := t.Context()
@@ -314,7 +316,7 @@ func TestArchiveTakesTheChildren(t *testing.T) {
 			live, err := st.List(ctx)
 			require.NoError(t, err)
 			assert.Empty(t, live, "the family goes together")
-			assert.Contains(t, tmux.killedPanes, child.Pane, "and the child's pane goes with its row")
+			assert.Contains(t, tmux.KilledPanes, child.Pane, "and the child's pane goes with its row")
 		})
 	}
 }
@@ -322,7 +324,7 @@ func TestArchiveTakesTheChildren(t *testing.T) {
 // TestArchiveOfAChildLeavesTheParent pins that finishing with one child leaves the agent it was
 // reading for where it was.
 func TestArchiveOfAChildLeavesTheParent(t *testing.T) {
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	manager := newManager(tmux, st, "")
 	ctx := t.Context()
@@ -336,16 +338,16 @@ func TestArchiveOfAChildLeavesTheParent(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, live, 1, "only the child goes")
 	assert.Equal(t, parent.ID, live[0].ID)
-	assert.Contains(t, tmux.killedPanes, child.Pane)
+	assert.Contains(t, tmux.KilledPanes, child.Pane)
 }
 
 // TestDeleteTakesTheChildren pins that deleting a parent removes the children too, and that
 // their panes are dead before the parent's cleanup runs against the checkout they shared.
 func TestDeleteTakesTheChildren(t *testing.T) {
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	lifecycle := &fakeLifecycle{}
-	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
+	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
 	ctx := t.Context()
 
 	parent := seedRunning(t, st, tmux, "author", "%author", agentstore.StateIdle)
@@ -356,12 +358,12 @@ func TestDeleteTakesTheChildren(t *testing.T) {
 	all, err := st.ListAll(ctx)
 	require.NoError(t, err)
 	assert.Empty(t, all, "nothing is left of the family")
-	assert.Contains(t, tmux.killedPanes, child.Pane)
+	assert.Contains(t, tmux.KilledPanes, child.Pane)
 }
 
 // TestDeleteTakesAChildAlone pins that a child can be destroyed by itself.
 func TestDeleteTakesAChildAlone(t *testing.T) {
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	manager := newManager(tmux, st, "")
 	ctx := t.Context()
@@ -375,13 +377,13 @@ func TestDeleteTakesAChildAlone(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, all, 1, "the parent is left as it was")
 	assert.Equal(t, parent.ID, all[0].ID)
-	assert.Contains(t, tmux.killedPanes, child.Pane)
+	assert.Contains(t, tmux.KilledPanes, child.Pane)
 }
 
 // TestRestoreBringsTheChildrenBack pins that a parent taken out of the archive arrives with the
 // children it was archived with.
 func TestRestoreBringsTheChildrenBack(t *testing.T) {
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	manager := newManager(tmux, st, "")
 	ctx := t.Context()
@@ -423,7 +425,7 @@ func TestRestoreOfAChildNeedsItsParentBack(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tmux := newFakeTmux()
+			tmux := tmuxtest.NewFake()
 			st := newStore(t)
 			manager := newManager(tmux, st, "")
 			ctx := t.Context()
@@ -456,7 +458,7 @@ func TestRestoreOfAChildNeedsItsParentBack(t *testing.T) {
 // TestChildBriefingReplacesTheDelegateOne pins what a child is told.
 func TestChildBriefingReplacesTheDelegateOne(t *testing.T) {
 	launcher := NewLauncher(NewLauncherParams{
-		Tmux:    newFakeTmux(),
+		Tmux:    tmuxtest.NewFake(),
 		Addr:    "127.0.0.1:9999",
 		LogPath: briefedLogPath,
 	})
@@ -478,7 +480,7 @@ func TestChildBriefingReplacesTheDelegateOne(t *testing.T) {
 // TestNewChildAgentRefusesAnOrchestratorParent pins that the agent folded onto a workflow's own row
 // holds no children.
 func TestNewChildAgentRefusesAnOrchestratorParent(t *testing.T) {
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	manager := newManager(tmux, st, "")
 	ctx := t.Context()

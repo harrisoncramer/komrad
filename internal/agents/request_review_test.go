@@ -4,9 +4,11 @@ import (
 	"testing"
 
 	"weave/internal/harness"
+	"weave/internal/harnesstest"
 	agentstore "weave/internal/store/agent"
 	reviewstore "weave/internal/store/review"
 	workflowstore "weave/internal/store/workflow"
+	"weave/internal/tmuxtest"
 	"weave/lib/xptr"
 
 	"github.com/google/uuid"
@@ -16,9 +18,9 @@ import (
 
 // TestRequestReviewSpawnsTheReviewer pins what asking for a review makes.
 func TestRequestReviewSpawnsTheReviewer(t *testing.T) {
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	st := newStore(t)
-	manager, h := newManagerWithHarness(tmux, st, "")
+	manager, fakeHarness := newManagerWithHarness(tmux, st, "")
 	ctx := t.Context()
 
 	dir := t.TempDir()
@@ -50,8 +52,8 @@ func TestRequestReviewSpawnsTheReviewer(t *testing.T) {
 	assert.Contains(t, guidance, "Settle everything it raises",
 		"the asker is handed the rest of the loop, since it was not launched with this half")
 
-	require.Len(t, h.launches, 2)
-	briefing := h.launches[1].Context
+	require.Len(t, fakeHarness.Launches, 2)
+	briefing := fakeHarness.Launches[1].Context
 	assert.Contains(t, briefing, "### When you are the one reviewing",
 		"the role written on the row is what decides the half the pane is briefed with")
 	assert.NotContains(t, briefing, "### Getting your own work read")
@@ -60,7 +62,7 @@ func TestRequestReviewSpawnsTheReviewer(t *testing.T) {
 // TestRequestReviewNamesTheBranch pins the one fact weave holds that an agent asking for a
 // review tends to leave out of its own prompt.
 func TestRequestReviewNamesTheBranch(t *testing.T) {
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	manager := newManager(tmux, st, "")
 	ctx := t.Context()
@@ -83,7 +85,7 @@ func TestRequestReviewNamesTheBranch(t *testing.T) {
 // TestRequestReviewTitleOverridesTheName pins that a caller which named the reviewer keeps that
 // name.
 func TestRequestReviewTitleOverridesTheName(t *testing.T) {
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	manager := newManager(tmux, st, "")
 	ctx := t.Context()
@@ -126,7 +128,7 @@ func TestRequestReviewRefusals(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tmux := newFakeTmux()
+			tmux := tmuxtest.NewFake()
 			st := newStore(t)
 			manager := newManager(tmux, st, "")
 			ctx := t.Context()
@@ -154,7 +156,7 @@ func TestRequestReviewRefusals(t *testing.T) {
 // TestRequestReviewKeepsOneReviewer pins that a second ask is refused rather than answered with
 // a second reviewer.
 func TestRequestReviewKeepsOneReviewer(t *testing.T) {
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	manager := newManager(tmux, st, "")
 	ctx := t.Context()
@@ -188,7 +190,7 @@ func TestRequestReviewKeepsOneReviewer(t *testing.T) {
 // TestRequestReviewRetryAnswersWithTheSameReviewer pins that a spent idempotency key is still a
 // retry rather than a second ask.
 func TestRequestReviewRetryAnswersWithTheSameReviewer(t *testing.T) {
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	manager := newManager(tmux, st, "")
 	ctx := t.Context()
@@ -228,7 +230,7 @@ func TestRequestReviewRetryAnswersWithTheSameReviewer(t *testing.T) {
 // TestRequestReviewAfterAnApprovalSpawnsAnother pins that the guard holds a change to one
 // reviewer rather than an agent to one for its whole life.
 func TestRequestReviewAfterAnApprovalSpawnsAnother(t *testing.T) {
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	manager := newManager(tmux, st, "")
 	reviews := reviewstore.NewReviewStore(st.Pool.GetDB())
@@ -277,7 +279,7 @@ func TestRequestReviewAfterAnApprovalSpawnsAnother(t *testing.T) {
 // TestRequestReviewRefusesAChild pins that an ordinary child is refused too, however it was
 // briefed.
 func TestRequestReviewRefusesAChild(t *testing.T) {
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	manager := newManager(tmux, st, "")
 	ctx := t.Context()
@@ -305,9 +307,9 @@ func TestRequestReviewRefusesAChild(t *testing.T) {
 // TestWorktreeAgentIsToldToGetItsWorkRead pins the delivery of the other half, which reaches the
 // agents weave cut a checkout for and no others.
 func TestWorktreeAgentIsToldToGetItsWorkRead(t *testing.T) {
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	st := newStore(t)
-	manager, h := newManagerWithHarness(tmux, st, "")
+	manager, fakeHarness := newManagerWithHarness(tmux, st, "")
 	ctx := t.Context()
 
 	workflow, err := st.Workflows.Create(ctx, worktreeConfig(t, "worktrees"))
@@ -321,8 +323,8 @@ func TestWorktreeAgentIsToldToGetItsWorkRead(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, agentstore.RoleImplementer, author.Role, "an agent that names no role writes rather than reads")
 
-	require.Len(t, h.launches, 1)
-	briefing := h.launches[0].Context
+	require.Len(t, fakeHarness.Launches, 1)
+	briefing := fakeHarness.Launches[0].Context
 	assert.Contains(t, briefing, "### Getting your own work read")
 	assert.Contains(t, briefing, "Commit on your branch and stop there")
 	assert.NotContains(t, briefing, "### When you are the one reviewing")
@@ -331,7 +333,7 @@ func TestWorktreeAgentIsToldToGetItsWorkRead(t *testing.T) {
 // TestRequestReviewIsNotCaughtByTheOrchestratorRefusal pins that the ordinary use of a child still
 // stands.
 func TestRequestReviewIsNotCaughtByTheOrchestratorRefusal(t *testing.T) {
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	manager := newManager(tmux, st, "")
 	ctx := t.Context()
@@ -358,7 +360,7 @@ func TestRequestReviewIsNotCaughtByTheOrchestratorRefusal(t *testing.T) {
 // TestRequestReviewRefusesAnOrchestratorBeforeItSpawns pins that an orchestrator asking for a
 // review is turned away by the role check rather than by the parent check.
 func TestRequestReviewRefusesAnOrchestratorBeforeItSpawns(t *testing.T) {
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	manager := newManager(tmux, st, "")
 	ctx := t.Context()
@@ -380,7 +382,7 @@ func TestRequestReviewLandsTheReviewerOnTheHarnessAsked(t *testing.T) {
 	}{
 		{
 			name: "neither the asker nor the workflow names one, so it takes the configured default",
-			want: testHarnessID,
+			want: harnesstest.FakeID,
 		},
 		{
 			name:     "the workflow's default when the asker names none",
@@ -398,15 +400,15 @@ func TestRequestReviewLandsTheReviewerOnTheHarnessAsked(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
-			tmux := newFakeTmux()
-			byID := map[string]*fakeHarness{
-				testHarnessID: {id: testHarnessID},
-				"codex":       {id: "codex", noSession: true},
-				"gemini":      {id: "gemini"},
+			tmux := tmuxtest.NewFake()
+			byID := map[string]*harnesstest.Fake{
+				harnesstest.FakeID: {Name: harnesstest.FakeID},
+				"codex":            {Name: "codex", NoSession: true},
+				"gemini":           {Name: "gemini"},
 			}
 			service := st.agentService(agentServiceOptions{
 				tmux:      tmux,
-				harnesses: fakeHarnesses{byID: byID},
+				harnesses: harnesstest.Registry{ByID: byID},
 			})
 			ctx := t.Context()
 
@@ -421,7 +423,7 @@ func TestRequestReviewLandsTheReviewerOnTheHarnessAsked(t *testing.T) {
 				Title:      "author",
 				Dir:        t.TempDir(),
 				Prompt:     "write the change",
-				Harness:    testHarnessID,
+				Harness:    harnesstest.FakeID,
 				WorkflowID: created.ID,
 			})
 			require.NoError(t, err)
@@ -439,7 +441,7 @@ func TestRequestReviewLandsTheReviewerOnTheHarnessAsked(t *testing.T) {
 			assert.Equal(t, author.ID, *reviewer.ParentAgentID, "and still the asker's child")
 			assert.Equal(t, author.Cwd, reviewer.Cwd, "reading the asker's checkout")
 
-			launches := byID[tt.want].launches
+			launches := byID[tt.want].Launches
 			require.NotEmpty(t, launches, "the CLI named on the row is the one launched")
 			assert.Contains(t, launches[len(launches)-1].Context, "### When you are the one reviewing")
 		})
@@ -450,10 +452,10 @@ func TestRequestReviewLandsTheReviewerOnTheHarnessAsked(t *testing.T) {
 // way a create is, before a reviewer row is written.
 func TestRequestReviewRefusesUnknownHarness(t *testing.T) {
 	st := newStore(t)
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	service := st.agentService(agentServiceOptions{
 		tmux:      tmux,
-		harnesses: fakeHarnesses{harness: &fakeHarness{}, only: []string{testHarnessID}},
+		harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}, Only: []string{harnesstest.FakeID}},
 	})
 	ctx := t.Context()
 
@@ -475,15 +477,15 @@ func TestRequestReviewRefusesUnknownHarness(t *testing.T) {
 	all, err := st.List(ctx)
 	require.NoError(t, err)
 	assert.Len(t, all, 1, "a refused harness records no reviewer")
-	assert.Len(t, tmux.newWindows, 1, "and opens no second window")
+	assert.Len(t, tmux.NewWindows, 1, "and opens no second window")
 }
 
 // TestRequestReviewFlagsReachTheLaunch pins that the flags an asker gives its reviewer compose
 // the way they do on a create, the user's defaults for the CLI ahead of them.
 func TestRequestReviewFlagsReachTheLaunch(t *testing.T) {
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	st := newStore(t)
-	manager, h := newManagerWithHarness(tmux, st, "--model opus")
+	manager, fakeHarness := newManagerWithHarness(tmux, st, "--model opus")
 	ctx := t.Context()
 
 	author, err := manager.launch.NewAgent(ctx, NewAgentParams{
@@ -502,6 +504,6 @@ func TestRequestReviewFlagsReachTheLaunch(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "--model opus --effort high", reviewer.Flags)
-	require.Len(t, h.launches, 2)
-	assert.Equal(t, "--model opus --effort high", h.launches[1].Flags)
+	require.Len(t, fakeHarness.Launches, 2)
+	assert.Equal(t, "--model opus --effort high", fakeHarness.Launches[1].Flags)
 }

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"weave/internal/diff"
+	"weave/internal/gittest"
 	"weave/internal/ui/diffview"
 
 	"github.com/charmbracelet/x/ansi"
@@ -115,11 +116,11 @@ func TestReviewReloadKeepsTheSearch(t *testing.T) {
 
 // TestReviewBacksOutWhenTheWorktreeWasEmptied pins a reload that finds no changes returning the reader to the listing.
 func TestReviewBacksOutWhenTheWorktreeWasEmptied(t *testing.T) {
-	repo := newFakeRepo(t.TempDir())
-	m, _ := reviewModelOver(t, &fakeReviewAgents{}, repo)
+	repo := gittest.NewRepo(t.TempDir())
+	m, _ := buildReviewModel(t, &fakeReviewAgents{}, repo)
 	m = openReview(t, m)
 
-	repo.wrote(wroteParams{Tree: "tree-of-the-base"})
+	repo.Wrote(gittest.WroteParams{Tree: "tree-of-the-base"})
 
 	cmd := m.review.reload(m.shared())
 	require.NotNil(t, cmd)
@@ -137,17 +138,17 @@ func TestReviewBacksOutWhenTheWorktreeWasEmptied(t *testing.T) {
 // TestReviewReloadKeyOpensTheNextRound pins the opt-in: the reader asks for the next round, and
 // lands back where they were standing in the new one.
 func TestReviewReloadKeyOpensTheNextRound(t *testing.T) {
-	repo := newFakeRepo(t.TempDir())
-	m, _ := reviewModelOver(t, &fakeReviewAgents{}, repo)
+	repo := gittest.NewRepo(t.TempDir())
+	m, _ := buildReviewModel(t, &fakeReviewAgents{}, repo)
 	m = openReview(t, m)
 
 	first := m.review.round.GetOrdinal()
 
-	repo.wrote(wroteParams{
+	repo.Wrote(gittest.WroteParams{
 		Tree:  "tree-written-again",
-		Whole: fakePatchWrittenOver,
+		Whole: gittest.PatchWrittenOver,
 		Sources: map[string]string{
-			fakeFile: "package greet\n\nfunc Hello() string {\n\treturn \"written by the agent\"\n}\n",
+			gittest.File: "package greet\n\nfunc Hello() string {\n\treturn \"written by the agent\"\n}\n",
 		},
 	})
 
@@ -239,19 +240,19 @@ func TestANoticeCoversWhatChangedAndGivesItBack(t *testing.T) {
 // an agent that has written nothing and one whose every line is in a path the workflow hides both
 // leave the screen empty, and only one of them means the agent has not worked.
 func TestReviewSaysWhenEverythingIsExcluded(t *testing.T) {
-	repo := newFakeRepo(t.TempDir())
-	repo.wrote(wroteParams{
+	repo := gittest.NewRepo(t.TempDir())
+	repo.Wrote(gittest.WroteParams{
 		Tree:   "tree-inside-an-excluded-path",
-		Whole:  fakePatchInAnExcludedPath,
+		Whole:  gittest.PatchInAnExcludedPath,
 		Hidden: true,
 	})
 
-	m, _ := reviewModelOver(t, &fakeReviewAgents{}, repo)
+	m, _ := buildReviewModel(t, &fakeReviewAgents{}, repo)
 	m = openReview(t, m)
 
 	loaded, ok := loadReviewCmd(m.shared(), loadReviewCmdParams{
 		AgentID: m.review.agentID,
-		Dir:     repo.root,
+		Dir:     repo.Root,
 		Exclude: []string{"proto/gen"},
 	})().(reviewLoadedMsg)
 	require.True(t, ok)

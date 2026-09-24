@@ -6,6 +6,7 @@ import (
 
 	"weave/config"
 	"weave/internal/git"
+	"weave/internal/gittest"
 	"weave/internal/ui/layout"
 
 	"github.com/charmbracelet/x/ansi"
@@ -128,7 +129,7 @@ func TestReviewDimsTheCursorWhileTheRecordHasTheKeys(t *testing.T) {
 // earlier review to measure from.
 func TestReviewRecordGivesWayInASmallPane(t *testing.T) {
 	agents := &fakeReviewAgents{}
-	m := reviewWithAnEarlierReview(t, newFakeRepo(t.TempDir()), agents)
+	m := buildReviewWithAnEarlierReview(t, gittest.NewRepo(t.TempDir()), agents)
 
 	require.NotNil(t, m.review.diff.baseRound, "the base key has somewhere to go")
 	require.Contains(t, ansi.Strip(m.review.view(m.shared())), "agent_id", "the record draws at full height")
@@ -316,7 +317,7 @@ func TestReviewPutsTheSidebarOnItsConfiguredSide(t *testing.T) {
 // TestReviewSidebarStaysInsideEveryPaneHeight sweeps the heights an expanded legend used to run
 // past.
 func TestReviewSidebarStaysInsideEveryPaneHeight(t *testing.T) {
-	m := reviewWithAnEarlierReview(t, newFakeRepo(t.TempDir()), &fakeReviewAgents{})
+	m := buildReviewWithAnEarlierReview(t, gittest.NewRepo(t.TempDir()), &fakeReviewAgents{})
 	m.helpExpanded = true
 
 	for height := 8; height <= 40; height++ {

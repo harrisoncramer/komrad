@@ -3,6 +3,7 @@ package ui
 import (
 	"testing"
 
+	"weave/internal/gittest"
 	agentv1 "weave/proto/gen/agent/v1"
 
 	"github.com/stretchr/testify/assert"
@@ -23,12 +24,12 @@ index 23cef252a97433f151c14725c88e0c2dafce63ef..5586caad9270132f074ee5374d4652b8
  }
 `
 
-// reviewOnASecondRoundOfOneFile is the panel on a second round the agent wrote the same file in,
+// buildReviewOnASecondRound is the panel on a second round the agent wrote the same file in,
 // with the first round reviewed and released.
-func reviewOnASecondRoundOfOneFile(t *testing.T, repo *fakeRepo, agents *fakeReviewAgents) model {
+func buildReviewOnASecondRound(t *testing.T, repo *gittest.Repo, agents *fakeReviewAgents) model {
 	t.Helper()
 
-	m, _ := reviewModelOver(t, agents, repo)
+	m, _ := buildReviewModel(t, agents, repo)
 	m = openReview(t, m)
 	require.Len(t, agents.rounds, 1)
 
@@ -41,12 +42,12 @@ func reviewOnASecondRoundOfOneFile(t *testing.T, repo *fakeRepo, agents *fakeRev
 		ReleasedAt:   "2026-09-08T10:00:00Z",
 	}}
 
-	repo.wrote(wroteParams{
+	repo.Wrote(gittest.WroteParams{
 		Tree:  "tree-written-over",
-		Whole: fakePatchWrittenOver,
+		Whole: gittest.PatchWrittenOver,
 		Since: fakePatchOfGreetWrittenOverSince,
 		Sources: map[string]string{
-			fakeFile: "package greet\n\nfunc Hello() string {\n\treturn \"written by the agent\"\n}\n",
+			gittest.File: "package greet\n\nfunc Hello() string {\n\treturn \"written by the agent\"\n}\n",
 		},
 	})
 
@@ -76,10 +77,10 @@ func pressReviewBaseForward(t *testing.T, m model) model {
 // TestAViewedMarkTakenInAChapterDoesNotEatTheWholeChangeMark covers the mark meaning a file has
 // been read in the change rather than in one round of it.
 func TestAViewedMarkTakenInAChapterDoesNotEatTheWholeChangeMark(t *testing.T) {
-	repo := newFakeRepo(t.TempDir())
+	repo := gittest.NewRepo(t.TempDir())
 	agents := &fakeReviewAgents{}
 
-	m := reviewOnASecondRoundOfOneFile(t, repo, agents)
+	m := buildReviewOnASecondRound(t, repo, agents)
 
 	next, cmd := m.routeScreenMessage(keyMsg("v"))
 	m = next.(model)
@@ -87,13 +88,13 @@ func TestAViewedMarkTakenInAChapterDoesNotEatTheWholeChangeMark(t *testing.T) {
 	cmd()
 
 	require.NotNil(t, agents.marked)
-	require.Equal(t, fakeFile, agents.marked.GetFilePath())
+	require.Equal(t, gittest.File, agents.marked.GetFilePath())
 	whole := agents.marked.GetFingerprint()
 	require.NotEmpty(t, whole)
 
 	m = pressReviewBase(t, m)
 	require.NotEmpty(t, m.review.diff.base, "the diff narrowed to a round")
-	require.False(t, m.review.diff.view.IsViewed(fakeFile), "a chapter is a different diff, so it starts unread")
+	require.False(t, m.review.diff.view.IsViewed(gittest.File), "a chapter is a different diff, so it starts unread")
 
 	next, cmd = m.routeScreenMessage(keyMsg("v"))
 	m = next.(model)
@@ -101,11 +102,11 @@ func TestAViewedMarkTakenInAChapterDoesNotEatTheWholeChangeMark(t *testing.T) {
 
 	assert.Equal(t, whole, agents.marked.GetFingerprint(),
 		"the mark taken in a chapter does not overwrite the one taken on the whole change")
-	assert.False(t, m.review.diff.view.IsViewed(fakeFile), "and the chapter folds nothing away")
+	assert.False(t, m.review.diff.view.IsViewed(gittest.File), "and the chapter folds nothing away")
 	assert.Contains(t, m.review.notice, "whole change", "the refusal says why")
 
 	m = pressReviewBaseForward(t, m)
 
 	require.Empty(t, m.review.diff.base, "the whole change is back on screen")
-	assert.True(t, m.review.diff.view.IsViewed(fakeFile), "and the file is still read")
+	assert.True(t, m.review.diff.view.IsViewed(gittest.File), "and the file is still read")
 }

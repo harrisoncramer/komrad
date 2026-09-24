@@ -1,7 +1,6 @@
 package internaljobs
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -13,7 +12,7 @@ import (
 	schedulestore "weave/internal/store/schedule"
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/storetest"
-	"weave/internal/tmux"
+	"weave/internal/tmuxtest"
 	"weave/lib/xslice"
 
 	"github.com/riverqueue/river"
@@ -120,12 +119,12 @@ func newAgentService(t *testing.T, stores *storetest.Stores) *agents.LaunchServi
 	require.NoError(t, err)
 
 	return agents.NewLaunchService(agents.NewLaunchServiceParams{
-		Tmux:               &fakeTmux{},
+		Tmux:               tmuxtest.NewFake(),
 		Agents:             stores.Agents,
 		Reviews:            reviewstore.NewReviewStore(stores.Pool.GetDB()),
 		Workflows:          stores.Workflows,
 		Tx:                 stores.Pool,
-		Launcher:           agents.NewLauncher(agents.NewLauncherParams{Tmux: &fakeTmux{}, Addr: "127.0.0.1:8787"}),
+		Launcher:           agents.NewLauncher(agents.NewLauncherParams{Tmux: tmuxtest.NewFake(), Addr: "127.0.0.1:8787"}),
 		Harnesses:          registry,
 		UserDefaultHarness: claudeHarnessID,
 	})
@@ -145,31 +144,3 @@ func promoteScheduleAgents(t *testing.T, stores *storetest.Stores, scheduleID st
 		require.NoError(t, stores.Agents.SetStateByID(t.Context(), agent.ID, agentstore.StateThinking))
 	}
 }
-
-type fakeTmux struct {
-	panes int
-}
-
-func (s *fakeTmux) NewWindow(_, name, _ string) (string, error) {
-	s.panes++
-
-	return fmt.Sprintf("%%%d-%s", s.panes, name), nil
-}
-
-func (s *fakeTmux) KillPane(string) {}
-
-func (s *fakeTmux) SetPaneOwner(string, string) error { return nil }
-
-func (s *fakeTmux) GetPaneOwner(string) string { return "" }
-
-func (s *fakeTmux) GetPanes() (map[string]tmux.PaneStatus, error) {
-	return map[string]tmux.PaneStatus{}, nil
-}
-
-func (s *fakeTmux) GetHostPath() string { return "" }
-
-func (s *fakeTmux) SendKeys(string, ...string) error { return nil }
-
-func (s *fakeTmux) RespawnPane(string, string, ...string) error { return nil }
-
-func (s *fakeTmux) GetDefaultShell() string { return "/bin/sh" }

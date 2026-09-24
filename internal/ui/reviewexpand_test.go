@@ -3,6 +3,7 @@ package ui
 import (
 	"testing"
 
+	"weave/internal/gittest"
 	agentv1 "weave/proto/gen/agent/v1"
 
 	"github.com/charmbracelet/x/ansi"
@@ -26,7 +27,7 @@ func tallReview(t *testing.T) (model, *fakeReviewAgents) {
 	t.Helper()
 
 	agents := &fakeReviewAgents{}
-	m, _ := reviewModelOver(t, agents, newTallFakeRepo(t.TempDir()))
+	m, _ := buildReviewModel(t, agents, gittest.NewTallRepo(t.TempDir()))
 
 	return openReview(t, m), agents
 }
@@ -78,11 +79,11 @@ func TestExpansionSurvivesCatchingUp(t *testing.T) {
 	m, _ := tallReview(t)
 
 	expanded := pressExpand(t, m)
-	require.True(t, expanded.review.diff.view.IsExpanded(fakeTallFile))
+	require.True(t, expanded.review.diff.view.IsExpanded(gittest.TallFile))
 
 	reloaded := reloadReview(t, expanded)
 
-	assert.True(t, reloaded.review.diff.view.IsExpanded(fakeTallFile), "the file is still drawn whole")
+	assert.True(t, reloaded.review.diff.view.IsExpanded(gittest.TallFile), "the file is still drawn whole")
 	assert.Contains(t, ansi.Strip(reviewFrameText(t, reloaded)), "func Four()")
 }
 
@@ -96,7 +97,7 @@ func TestExpandRefusesAFileItCannotDrawMoreOf(t *testing.T) {
 
 	refused := pressExpand(t, m)
 
-	assert.False(t, refused.review.diff.view.IsExpanded(fakeFile))
+	assert.False(t, refused.review.diff.view.IsExpanded(gittest.File))
 	assert.Contains(t, refused.review.notice, "no more of that file")
 }
 
@@ -106,11 +107,11 @@ func TestExpandRefusesAFoldedFile(t *testing.T) {
 	m, _ := tallReview(t)
 
 	m.review.toggleViewed(&m, m.shared())
-	require.True(t, m.review.diff.view.IsViewed(fakeTallFile))
+	require.True(t, m.review.diff.view.IsViewed(gittest.TallFile))
 
 	refused := pressExpand(t, m)
 
-	assert.False(t, refused.review.diff.view.IsExpanded(fakeTallFile))
+	assert.False(t, refused.review.diff.view.IsExpanded(gittest.TallFile))
 	assert.Contains(t, refused.review.notice, "folded away")
 }
 
@@ -200,7 +201,7 @@ func TestACommentCanBeWrittenOnAnExpandedLine(t *testing.T) {
 	require.NoError(t, wrote.err)
 
 	require.NotNil(t, agents.created)
-	assert.Equal(t, fakeTallFile, agents.created.GetFilePath())
+	assert.Equal(t, gittest.TallFile, agents.created.GetFilePath())
 	assert.Equal(t, int32(13), agents.created.GetNewStart(), "anchored to the line it was written on")
 	assert.Equal(t, []string{" func Four() {}"}, agents.created.GetQuotedLines())
 }
@@ -232,7 +233,7 @@ func TestCollapsingPutsItsCommentOffScreenRatherThanCallingItChanged(t *testing.
 	}}
 
 	m = reloadReview(t, m)
-	require.True(t, m.review.diff.view.IsExpanded(fakeTallFile), "the file is still open")
+	require.True(t, m.review.diff.view.IsExpanded(gittest.TallFile), "the file is still open")
 
 	collapsed := ansi.Strip(reviewFrameText(t, pressExpand(t, m)))
 
@@ -249,7 +250,7 @@ func TestFoldingAnExpandedFileStaysFolded(t *testing.T) {
 	m, agents := tallReview(t)
 
 	m = pressExpand(t, m)
-	require.True(t, m.review.diff.view.IsExpanded(fakeTallFile))
+	require.True(t, m.review.diff.view.IsExpanded(gittest.TallFile))
 
 	next, cmd := m.routeScreenMessage(keyMsg("v"))
 	m, ok := next.(model)
@@ -259,15 +260,15 @@ func TestFoldingAnExpandedFileStaysFolded(t *testing.T) {
 	wrote, ok := cmd().(reviewWroteMsg)
 	require.True(t, ok)
 	require.NoError(t, wrote.err)
-	require.True(t, m.review.diff.view.IsViewed(fakeTallFile), "the file folds away on screen")
+	require.True(t, m.review.diff.view.IsViewed(gittest.TallFile), "the file folds away on screen")
 
 	require.NotNil(t, agents.marked)
 
 	reloaded, loaded := reloadReviewReading(t, m)
 
-	assert.Equal(t, patchFingerprint(t, loaded, fakeTallFile), agents.marked.GetFingerprint(),
+	assert.Equal(t, patchFingerprint(t, loaded, gittest.TallFile), agents.marked.GetFingerprint(),
 		"the mark carries the fingerprint of the file as the patch holds it")
-	assert.True(t, reloaded.review.diff.view.IsViewed(fakeTallFile), "and it is still read after a reload")
+	assert.True(t, reloaded.review.diff.view.IsViewed(gittest.TallFile), "and it is still read after a reload")
 }
 
 // patchFingerprint is the fingerprint a load computed for a file.
@@ -291,7 +292,7 @@ func TestExpansionSurvivesTheDiffBeingPutDown(t *testing.T) {
 	m, _ := tallReview(t)
 
 	expanded := pressExpand(t, m)
-	require.True(t, expanded.review.diff.view.IsExpanded(fakeTallFile))
+	require.True(t, expanded.review.diff.view.IsExpanded(gittest.TallFile))
 
 	// An index past the end of the recut list is what puts the diff down.
 	expanded.review.diff.chapter = len(expanded.review.diff.chapters)
@@ -311,6 +312,6 @@ func TestExpansionSurvivesTheDiffBeingPutDown(t *testing.T) {
 	expanded.review.applyLoaded(&expanded, expanded.shared(), answer)
 
 	require.NotNil(t, expanded.review.diff.view)
-	assert.True(t, expanded.review.diff.view.IsExpanded(fakeTallFile), "the file is still drawn whole")
+	assert.True(t, expanded.review.diff.view.IsExpanded(gittest.TallFile), "the file is still drawn whole")
 	assert.Contains(t, ansi.Strip(reviewFrameText(t, expanded)), "func Four()")
 }

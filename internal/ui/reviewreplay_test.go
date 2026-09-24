@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"weave/internal/git"
+	"weave/internal/gittest"
 	agentv1 "weave/proto/gen/agent/v1"
 
 	"github.com/charmbracelet/x/ansi"
@@ -25,13 +26,13 @@ const (
 // cannot say when nothing is stated.
 func reviewAcrossAMovedBase(
 	t *testing.T,
-	repo *fakeRepo,
+	repo *gittest.Repo,
 	agents *fakeReviewAgents,
 	replayed *git.Replayed,
 ) model {
 	t.Helper()
 
-	m, _ := reviewModelOver(t, agents, repo)
+	m, _ := buildReviewModel(t, agents, repo)
 	m = openReview(t, m)
 	require.Len(t, agents.rounds, 1)
 
@@ -47,23 +48,23 @@ func reviewAcrossAMovedBase(
 
 	// The two snapshots stand on different bases, so their own diff carries the base's move
 	// through the first file as though the agent had written it.
-	repo.wrote(wroteParams{
+	repo.Wrote(gittest.WroteParams{
 		Tree:  secondTree,
-		Whole: fakePatchOfBothFiles,
-		Since: fakePatchOfBothFiles,
+		Whole: gittest.PatchOfBothFiles,
+		Since: gittest.PatchOfBothFiles,
 		Sources: map[string]string{
-			fakeFile:    fakeHeadSource,
-			"second.go": "package greet\n\nfunc Second() {}\n",
+			gittest.File: gittest.HeadSource,
+			"second.go":  "package greet\n\nfunc Second() {}\n",
 		},
 	})
 
 	if replayed != nil {
-		repo.replays = map[string]*git.Replayed{
-			replayOf(olderBase, fakeBaseSHA, fakeSnapshotSHA): replayed,
+		repo.Replays = map[string]*git.Replayed{
+			gittest.NameReplay(olderBase, gittest.BaseSHA, gittest.SnapshotSHA): replayed,
 		}
 	}
 
-	repo.patches[pairOf(replayedTree, snapshotOf(secondTree))] = fakePatchOfTheSecondFile
+	repo.Patches[gittest.NamePair(replayedTree, gittest.NameSnapshot(secondTree))] = gittest.PatchOfTheSecondFile
 
 	m = openReview(t, m)
 	require.Len(t, agents.rounds, 2)
@@ -75,12 +76,12 @@ func reviewAcrossAMovedBase(
 // two reviews either side of a rebase compares as the agent's own work.
 func TestARoundAcrossAMovedBaseIsReplayedOntoIt(t *testing.T) {
 	agents := &fakeReviewAgents{}
-	m := reviewAcrossAMovedBase(t, newFakeRepo(t.TempDir()), agents, &git.Replayed{Tree: replayedTree})
+	m := reviewAcrossAMovedBase(t, gittest.NewRepo(t.TempDir()), agents, &git.Replayed{Tree: replayedTree})
 
 	m = pressReviewBase(t, m)
 
 	assert.Equal(t, replayedTree, m.review.diff.base, "the old side is the first round carried onto the moved base")
-	assert.Equal(t, snapshotOf(secondTree), m.review.diff.head)
+	assert.Equal(t, gittest.NameSnapshot(secondTree), m.review.diff.head)
 
 	files := m.review.diff.view.Stat().Files
 	assert.Equal(t, 1, files, "only what the agent wrote between the two reviews is drawn")
@@ -94,14 +95,14 @@ func TestARoundAcrossAMovedBaseIsReplayedOntoIt(t *testing.T) {
 // exists for, where the band still refuses and now names the paths.
 func TestAChapterTheBaseRewroteUnderTheAgentStaysRefused(t *testing.T) {
 	agents := &fakeReviewAgents{}
-	m := reviewAcrossAMovedBase(t, newFakeRepo(t.TempDir()), agents, &git.Replayed{
+	m := reviewAcrossAMovedBase(t, gittest.NewRepo(t.TempDir()), agents, &git.Replayed{
 		Tree:      "a-tree-with-markers-in-it",
-		Conflicts: []string{fakeFile, "second.go"},
+		Conflicts: []string{gittest.File, "second.go"},
 	})
 
 	m = pressReviewBase(t, m)
 
-	assert.Equal(t, fakeSnapshotSHA, m.review.diff.base, "the diff is still the two snapshots")
+	assert.Equal(t, gittest.SnapshotSHA, m.review.diff.base, "the diff is still the two snapshots")
 
 	shown := ansi.Strip(m.review.view(m.shared()))
 	assert.Contains(t, shown, "round 2 of 2, not comparable, the base moved, conflicts in greet.go, second.go")
@@ -111,11 +112,11 @@ func TestAChapterTheBaseRewroteUnderTheAgentStaysRefused(t *testing.T) {
 // which is refused the way it was before rather than failing the load.
 func TestAGitThatCannotReplayLeavesTheRefusalStanding(t *testing.T) {
 	agents := &fakeReviewAgents{}
-	m := reviewAcrossAMovedBase(t, newFakeRepo(t.TempDir()), agents, nil)
+	m := reviewAcrossAMovedBase(t, gittest.NewRepo(t.TempDir()), agents, nil)
 
 	m = pressReviewBase(t, m)
 
-	assert.Equal(t, fakeSnapshotSHA, m.review.diff.base)
+	assert.Equal(t, gittest.SnapshotSHA, m.review.diff.base)
 
 	shown := ansi.Strip(m.review.view(m.shared()))
 	assert.Contains(t, shown, "round 2 of 2, not comparable, the base moved")
@@ -126,8 +127,8 @@ func TestAGitThatCannotReplayLeavesTheRefusalStanding(t *testing.T) {
 // a different thing from the base moving on and is said so.
 func TestARewrittenHistoryIsSaidToBeOne(t *testing.T) {
 	agents := &fakeReviewAgents{}
-	repo := newFakeRepo(t.TempDir())
-	repo.rewritten = map[string]bool{pairOf(olderBase, fakeBaseSHA): true}
+	repo := gittest.NewRepo(t.TempDir())
+	repo.Rewritten = map[string]bool{gittest.NamePair(olderBase, gittest.BaseSHA): true}
 	m := reviewAcrossAMovedBase(t, repo, agents, &git.Replayed{Tree: replayedTree})
 
 	m = pressReviewBase(t, m)
@@ -140,11 +141,11 @@ func TestARewrittenHistoryIsSaidToBeOne(t *testing.T) {
 // draws and never how many there are, so a key moves the same distance either way.
 func TestTheWalkHasTheSameStopsWhetherOrNotItReplays(t *testing.T) {
 	agents := &fakeReviewAgents{}
-	replayed := reviewAcrossAMovedBase(t, newFakeRepo(t.TempDir()), agents, &git.Replayed{Tree: replayedTree})
+	replayed := reviewAcrossAMovedBase(t, gittest.NewRepo(t.TempDir()), agents, &git.Replayed{Tree: replayedTree})
 
-	refused := reviewAcrossAMovedBase(t, newFakeRepo(t.TempDir()), &fakeReviewAgents{}, &git.Replayed{
+	refused := reviewAcrossAMovedBase(t, gittest.NewRepo(t.TempDir()), &fakeReviewAgents{}, &git.Replayed{
 		Tree:      "a-tree-with-markers-in-it",
-		Conflicts: []string{fakeFile},
+		Conflicts: []string{gittest.File},
 	})
 
 	require.Len(t, replayed.review.diff.chapters, 2)
@@ -161,17 +162,17 @@ func TestTheWalkHasTheSameStopsWhetherOrNotItReplays(t *testing.T) {
 // tree and refused against the round's own base, where the same number names another line.
 func TestAnOldSideCountedInAReplayedTreePinsOnlyThere(t *testing.T) {
 	agents := &fakeReviewAgents{}
-	repo := newFakeRepo(t.TempDir())
+	repo := gittest.NewRepo(t.TempDir())
 	m := reviewAcrossAMovedBase(t, repo, agents, &git.Replayed{Tree: replayedTree})
 
 	// The chapter draws the agent's own edit of the first file, whose old side is the replayed
 	// tree.
-	repo.patches[pairOf(replayedTree, snapshotOf(secondTree))] = fakePatch
+	repo.Patches[gittest.NamePair(replayedTree, gittest.NameSnapshot(secondTree))] = gittest.Patch
 
 	agents.threads = []*agentv1.ReviewThread{{
 		Id:          "t1",
 		RoundId:     agents.rounds[1].GetId(),
-		FilePath:    fakeFile,
+		FilePath:    gittest.File,
 		BaseSha:     replayedTree,
 		OldStart:    4,
 		OldEnd:      4,
@@ -219,13 +220,13 @@ func reviewRowOfThread(t *testing.T, m model, id string) int {
 // than from the one the round on screen stands on.
 func TestTheFirstChapterIsMeasuredFromItsOwnBase(t *testing.T) {
 	agents := &fakeReviewAgents{}
-	repo := newFakeRepo(t.TempDir())
+	repo := gittest.NewRepo(t.TempDir())
 	m := reviewAcrossAMovedBase(t, repo, agents, &git.Replayed{Tree: replayedTree})
 
 	// What git reports between the moved base and round one carries main's own commits
 	// reversed, so it is two files where the agent wrote one.
-	repo.patches[pairOf(olderBase, fakeSnapshotSHA)] = fakePatch
-	repo.patches[pairOf(fakeBaseSHA, fakeSnapshotSHA)] = fakePatchOfBothFiles
+	repo.Patches[gittest.NamePair(olderBase, gittest.SnapshotSHA)] = gittest.Patch
+	repo.Patches[gittest.NamePair(gittest.BaseSHA, gittest.SnapshotSHA)] = gittest.PatchOfBothFiles
 
 	m = pressReviewBase(t, m)
 	m = pressReviewBase(t, m)
@@ -233,7 +234,7 @@ func TestTheFirstChapterIsMeasuredFromItsOwnBase(t *testing.T) {
 	require.Equal(t, 0, m.review.diff.chapter, "two presses reach the oldest round")
 	require.NotNil(t, m.review.diff.view)
 	assert.Equal(t, olderBase, m.review.diff.view.GetBaseSHA(), "the diff is measured from round one's own base")
-	assert.Equal(t, fakeSnapshotSHA, m.review.diff.view.GetSnapshotSHA())
+	assert.Equal(t, gittest.SnapshotSHA, m.review.diff.view.GetSnapshotSHA())
 	assert.Equal(t, 1, m.review.diff.view.Stat().Files)
 
 	shown := ansi.Strip(m.review.view(m.shared()))

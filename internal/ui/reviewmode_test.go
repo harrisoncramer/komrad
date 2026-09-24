@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"weave/internal/diff"
+	"weave/internal/gittest"
 	"weave/internal/ui/diffview"
 	"weave/internal/ui/panel"
 	agentv1 "weave/proto/gen/agent/v1"
@@ -119,7 +120,7 @@ func TestIsReviewHistoryReadsTheDiffOnScreen(t *testing.T) {
 // round they were on, so drawing it under the whole change's label reads as current work.
 func TestReloadWithNoChaptersLetsTheReaderOut(t *testing.T) {
 	agents := &fakeReviewAgents{}
-	m := reviewWithAnEarlierReview(t, newFakeRepo(t.TempDir()), agents)
+	m := buildReviewWithAnEarlierReview(t, gittest.NewRepo(t.TempDir()), agents)
 	m = pressReviewBase(t, m)
 	require.NotEmpty(t, m.review.diff.base)
 	require.GreaterOrEqual(t, m.review.diff.chapter, 0)
@@ -417,16 +418,16 @@ func TestSendingAReplyIsAllowedWhileAReviewIsOut(t *testing.T) {
 	assert.Empty(t, m.review.notice)
 }
 
-// reviewRepoWithADeletion is a worktree whose round both changes a file and removes one.
-func reviewRepoWithADeletion(t *testing.T) *fakeRepo {
+// buildRepoWithADeletion is a worktree whose round both changes a file and removes one.
+func buildRepoWithADeletion(t *testing.T) *gittest.Repo {
 	t.Helper()
 
-	repo := newFakeRepo(t.TempDir())
-	repo.sources[sourceOf(fakeBaseSHA, "gone.go")] = "package greet\n\nfunc Gone() {}\n"
-	repo.wrote(wroteParams{
+	repo := gittest.NewRepo(t.TempDir())
+	repo.Sources[gittest.NameSource(gittest.BaseSHA, "gone.go")] = "package greet\n\nfunc Gone() {}\n"
+	repo.Wrote(gittest.WroteParams{
 		Tree:    "tree-with-a-deletion",
-		Whole:   fakePatchWithADeletion,
-		Sources: map[string]string{fakeFile: fakeHeadSource},
+		Whole:   gittest.PatchWithADeletion,
+		Sources: map[string]string{gittest.File: gittest.HeadSource},
 	})
 
 	return repo
@@ -507,7 +508,7 @@ func reviewRowWithAnEditTarget(t *testing.T, m model) int {
 // which used to switch the screen's mode on the strength of an editor it never opened.
 func TestAnEditRefusedOnADeletedFileOpensNoMode(t *testing.T) {
 	agents := &fakeReviewAgents{}
-	m, _ := reviewModelOver(t, agents, reviewRepoWithADeletion(t))
+	m, _ := buildReviewModel(t, agents, buildRepoWithADeletion(t))
 	m = openReview(t, m)
 
 	m.review.diff.cursor = reviewRowInDeletedFile(t, m)
@@ -784,7 +785,7 @@ func reviewAnchorInTheDiff(t *testing.T, m model) diffview.Anchor {
 // key read it anyway.
 func TestAComposerDoesNotOutliveTheDiffItWasWrittenOn(t *testing.T) {
 	agents := &fakeReviewAgents{}
-	m := reviewWithAnEarlierReview(t, newFakeRepo(t.TempDir()), agents)
+	m := buildReviewWithAnEarlierReview(t, gittest.NewRepo(t.TempDir()), agents)
 	m = pressReviewBase(t, m)
 	require.GreaterOrEqual(t, m.review.diff.chapter, 0)
 
@@ -925,7 +926,7 @@ func TestComposingOnARowWithNoLineSaysSo(t *testing.T) {
 func TestACommentOnTheNewestRoundRecordsItsBase(t *testing.T) {
 	agents := &fakeReviewAgents{}
 
-	m := reviewWithAnEarlierReview(t, newFakeRepo(t.TempDir()), agents)
+	m := buildReviewWithAnEarlierReview(t, gittest.NewRepo(t.TempDir()), agents)
 	m = pressReviewBase(t, m)
 	require.NotEmpty(t, m.review.diff.base, "the diff is measured from the round reviewed before")
 
@@ -1082,17 +1083,17 @@ func TestTheOpenCommentKeyDoesNotClaimAFoldedReviewIsSettled(t *testing.T) {
 
 // TestTheOpenCommentKeySaysBothWhenOneIsFoldedAway pins which of the two the key says.
 func TestTheOpenCommentKeySaysBothWhenOneIsFoldedAway(t *testing.T) {
-	repo := newFakeRepo(t.TempDir())
+	repo := gittest.NewRepo(t.TempDir())
 	agents := &fakeReviewAgents{}
-	m, _ := reviewModelOver(t, agents, repo)
+	m, _ := buildReviewModel(t, agents, repo)
 
-	repo.wrote(wroteParams{
+	repo.Wrote(gittest.WroteParams{
 		Tree:  "tree-with-a-second-file",
-		Whole: fakePatchOfBothFiles,
-		Since: fakePatchOfTheSecondFile,
+		Whole: gittest.PatchOfBothFiles,
+		Since: gittest.PatchOfTheSecondFile,
 		Sources: map[string]string{
-			fakeFile:    fakeHeadSource,
-			"second.go": "package greet\n\nfunc Second() {}\n",
+			gittest.File: gittest.HeadSource,
+			"second.go":  "package greet\n\nfunc Second() {}\n",
 		},
 	})
 
@@ -1130,7 +1131,7 @@ func openThreadInEachFile(t *testing.T) []*agentv1.ReviewThread {
 
 	var threads []*agentv1.ReviewThread
 
-	for i, path := range []string{fakeFile, "second.go"} {
+	for i, path := range []string{gittest.File, "second.go"} {
 		threads = append(threads, &agentv1.ReviewThread{
 			Id:          fmt.Sprintf("open-%d", i),
 			AgentId:     "a1",

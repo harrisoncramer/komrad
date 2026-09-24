@@ -11,8 +11,10 @@ import (
 	"time"
 
 	"weave/internal/caller"
+	"weave/internal/harnesstest"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
+	"weave/internal/tmuxtest"
 	"weave/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
@@ -93,10 +95,10 @@ func TestNewAgent(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tmux := newFakeTmux()
-			tmux.newWindowErr = tt.windowErr
-			tmux.respawnErr = tt.respawnErr
-			tmux.setOwnerErr = tt.setOwnerErr
+			tmux := tmuxtest.NewFake()
+			tmux.NewWindowErr = tt.windowErr
+			tmux.RespawnErr = tt.respawnErr
+			tmux.SetOwnerErr = tt.setOwnerErr
 			st := newStore(t)
 			manager := newManager(tmux, st, "--default-flag")
 
@@ -122,7 +124,7 @@ func TestNewAgent(t *testing.T) {
 					require.ErrorContains(t, err, tt.wantErr)
 				}
 
-				assert.Empty(t, tmux.respawned, "nothing is started when the launch was refused")
+				assert.Empty(t, tmux.Respawned, "nothing is started when the launch was refused")
 
 				agents, listErr := st.List(t.Context())
 				require.NoError(t, listErr)
@@ -136,7 +138,7 @@ func TestNewAgent(t *testing.T) {
 				}
 
 				if tt.wantPaneKilled {
-					assert.NotEmpty(t, tmux.killedPanes, "the open pane goes with the record")
+					assert.NotEmpty(t, tmux.KilledPanes, "the open pane goes with the record")
 				}
 
 				return
@@ -156,8 +158,8 @@ func TestNewAgent(t *testing.T) {
 			assert.Equal(t, "do the thing", stored.Prompt)
 			assert.Equal(t, agentstore.StateIdle, stored.State)
 			assert.NotEmpty(t, stored.SessionID, "a conversation id is pinned at launch")
-			assert.NotEmpty(t, tmux.lastRespawn("%My-Agent").argv, "the agent is launched into the new pane")
-			assert.Equal(t, stored.ID, tmux.owners["%My-Agent"], "the pane is stamped with the agent it is running")
+			assert.NotEmpty(t, tmux.LastRespawn("%My-Agent").Argv, "the agent is launched into the new pane")
+			assert.Equal(t, stored.ID, tmux.Owners["%My-Agent"], "the pane is stamped with the agent it is running")
 			assert.True(t, manager.panes.IsAgentRunning(*stored), "and the agent reads as running in it")
 		})
 	}
@@ -202,7 +204,7 @@ func TestNewAgentIdempotency(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tmux := newFakeTmux()
+			tmux := tmuxtest.NewFake()
 			st := newStore(t)
 			manager := newManager(tmux, st, "")
 			dir := t.TempDir()
@@ -233,7 +235,7 @@ func TestNewAgentIdempotency(t *testing.T) {
 			if tt.wantSame {
 				assert.Equal(t, first.ID, second.ID, "the retry finds the agent it already created")
 				assert.Len(t, agents, 1, "and no second agent is recorded")
-				assert.Len(t, tmux.respawned, 1, "nor is a second agent started")
+				assert.Len(t, tmux.Respawned, 1, "nor is a second agent started")
 
 				return
 			}
@@ -275,7 +277,7 @@ func TestNewAgentRetriesUnderTheSameKey(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tmux := newFakeTmux()
+			tmux := tmuxtest.NewFake()
 			st := newStore(t)
 			manager := newManager(tmux, st, "")
 
@@ -301,7 +303,7 @@ func TestNewAgentRetriesUnderTheSameKey(t *testing.T) {
 				require.ErrorIs(t, err, ErrAlreadyLaunched)
 				assert.Equal(t, first.ID, second.ID, "the retry is answered with the agent already under the key")
 				assert.Len(t, all, 1, "and records no second agent")
-				assert.Len(t, tmux.respawned, 1, "nor starts one")
+				assert.Len(t, tmux.Respawned, 1, "nor starts one")
 
 				return
 			}
@@ -309,7 +311,7 @@ func TestNewAgentRetriesUnderTheSameKey(t *testing.T) {
 			require.NoError(t, err, "a failed create never launched, so the retry is free to")
 			assert.NotEqual(t, first.ID, second.ID)
 			assert.Len(t, all, 2, "the agent that failed is kept, since it says why it failed")
-			assert.Len(t, tmux.respawned, 2, "and the retry actually starts something")
+			assert.Len(t, tmux.Respawned, 2, "and the retry actually starts something")
 
 			held, err := st.Agents.GetByIdempotencyKey(t.Context(), key)
 			require.NoError(t, err)
@@ -344,9 +346,9 @@ func TestNewAgentRecordsWhoSpawnedIt(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tmux := newFakeTmux()
+			tmux := tmuxtest.NewFake()
 			st := newStore(t)
-			manager, h := newManagerWithHarness(tmux, st, "")
+			manager, fakeHarness := newManagerWithHarness(tmux, st, "")
 
 			ctx := t.Context()
 			var spawner *agentstore.Agent
@@ -368,7 +370,7 @@ func TestNewAgentRecordsWhoSpawnedIt(t *testing.T) {
 
 			if tt.wantErrIs != nil {
 				require.ErrorIs(t, err, tt.wantErrIs)
-				assert.Empty(t, tmux.respawned, "nothing is started when the caller cannot be attributed")
+				assert.Empty(t, tmux.Respawned, "nothing is started when the caller cannot be attributed")
 
 				agents, listErr := st.List(t.Context())
 				require.NoError(t, listErr)
@@ -378,8 +380,8 @@ func TestNewAgentRecordsWhoSpawnedIt(t *testing.T) {
 			}
 			require.NoError(t, err)
 			require.NotNil(t, created)
-			require.Len(t, h.launches, 1)
-			launch := h.launches[0]
+			require.Len(t, fakeHarness.Launches, 1)
+			launch := fakeHarness.Launches[0]
 
 			if spawner == nil {
 				assert.Nil(t, created.SpawnedByAgentID, "a create with no caller header names no parent")
@@ -432,15 +434,15 @@ func TestNewAgentGetsDirectory(t *testing.T) {
 			want := filepath.Join(home, "acmecorp", "monorepo")
 			require.NoError(t, os.MkdirAll(want, 0o755))
 
-			tmux := newFakeTmux()
+			tmux := tmuxtest.NewFake()
 			if tt.useClient {
-				tmux.clientDir = want
+				tmux.ClientDir = want
 			}
 
 			st := newStore(t)
 			manager := newManager(tmux, st, "")
 
-			created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{Name: "backend", Cwd: tt.workflowCwd})
+			created, err := newWorkflowService(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{Name: "backend", Cwd: tt.workflowCwd})
 			require.NoError(t, err)
 
 			_, err = manager.launch.NewAgent(t.Context(), NewAgentParams{
@@ -450,7 +452,7 @@ func TestNewAgentGetsDirectory(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			assert.Equal(t, want, tmux.newWindows["scoped"], "tmux is given an absolute path")
+			assert.Equal(t, want, tmux.NewWindows["scoped"], "tmux is given an absolute path")
 
 			stored, err := st.Get(t.Context(), "scoped")
 			require.NoError(t, err)
@@ -487,11 +489,11 @@ func TestNewAgentInsideWorkflow(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tmux := newFakeTmux()
+			tmux := tmuxtest.NewFake()
 			st := newStore(t)
-			manager, h := newManagerWithHarness(tmux, st, "")
+			manager, fakeHarness := newManagerWithHarness(tmux, st, "")
 
-			created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
+			created, err := newWorkflowService(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
 				Name:    "backend",
 				Context: tt.context,
 			})
@@ -511,8 +513,8 @@ func TestNewAgentInsideWorkflow(t *testing.T) {
 			require.NotNil(t, stored)
 			assert.Equal(t, params.WorkflowID, stored.WorkflowID, "the agent carries its workflow's id")
 
-			require.Len(t, h.launches, 1)
-			prompt := h.launches[0].Context
+			require.Len(t, fakeHarness.Launches, 1)
+			prompt := fakeHarness.Launches[0].Context
 			assert.Contains(t, prompt, "/mcp", "every agent is told about the endpoint")
 			if tt.wantContext {
 				assert.Contains(t, prompt, "shared notes")
@@ -571,18 +573,18 @@ func TestNewAgentRunsWorkflowSetup(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tmux := newFakeTmux()
+			tmux := tmuxtest.NewFake()
 			st := newStore(t)
 			lifecycle := &fakeLifecycle{dir: tt.answered, provisionErr: tt.provisionErr}
-			h := &fakeHarness{}
-			manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: h}, lifecycle)
+			fakeHarness := &harnesstest.Fake{}
+			manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: fakeHarness}, lifecycle)
 
 			cfg := workflowstore.Config{Name: "backend"}
 			if tt.worktree {
 				cfg = worktreeConfig(t, "backend")
 			}
 
-			created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), cfg)
+			created, err := newWorkflowService(st, tmux).NewWorkflow(t.Context(), cfg)
 			require.NoError(t, err)
 
 			asked := t.TempDir()
@@ -602,7 +604,7 @@ func TestNewAgentRunsWorkflowSetup(t *testing.T) {
 				require.NotNil(t, stored, "a refused setup leaves a row to look at rather than none")
 				assert.Equal(t, agentstore.StateFailedToCreate, stored.State)
 				assert.NotEmpty(t, metadataValue(stored.Metadata), "and why")
-				assert.Empty(t, h.launches, "and launches nothing")
+				assert.Empty(t, fakeHarness.Launches, "and launches nothing")
 
 				return
 			}
@@ -618,8 +620,8 @@ func TestNewAgentRunsWorkflowSetup(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, stored)
 			assert.Equal(t, want, stored.Cwd, "the row records where the agent actually runs")
-			require.Len(t, h.launches, 1)
-			assert.Equal(t, want, h.launches[0].Dir, "and the launch is told the same directory")
+			require.Len(t, fakeHarness.Launches, 1)
+			assert.Equal(t, want, fakeHarness.Launches[0].Dir, "and the launch is told the same directory")
 		})
 	}
 }
@@ -627,13 +629,13 @@ func TestNewAgentRunsWorkflowSetup(t *testing.T) {
 // TestNewAgentProvisionOverrideToNone pins the one thing an agent can say for itself about its
 // directory: that it keeps the one it was given.
 func TestNewAgentProvisionOverrideToNone(t *testing.T) {
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	lifecycle := &fakeLifecycle{}
-	h := &fakeHarness{}
-	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: h}, lifecycle)
+	fakeHarness := &harnesstest.Fake{}
+	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: fakeHarness}, lifecycle)
 
-	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), worktreeConfig(t, "backend"))
+	created, err := newWorkflowService(st, tmux).NewWorkflow(t.Context(), worktreeConfig(t, "backend"))
 	require.NoError(t, err)
 
 	asked := t.TempDir()
@@ -691,12 +693,12 @@ func TestNewAgentCeiling(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tmux := newFakeTmux()
+			tmux := tmuxtest.NewFake()
 			st := newStore(t)
 			lifecycle := &fakeLifecycle{}
 			manager := st.agentServiceCapped(tmux, lifecycle, tt.maxAgents)
 
-			workflow, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
+			workflow, err := newWorkflowService(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
 				Name:     "backend",
 				Cwd:      fakeCheckout(t),
 				Worktree: workflowstore.WorktreeConfig{Enabled: true},
@@ -712,7 +714,7 @@ func TestNewAgentCeiling(t *testing.T) {
 				}
 			}
 
-			opened := len(tmux.newWindows)
+			opened := len(tmux.NewWindows)
 
 			created, err := manager.launch.NewAgent(t.Context(), NewAgentParams{
 				Title:      "agent",
@@ -724,7 +726,7 @@ func TestNewAgentCeiling(t *testing.T) {
 				require.ErrorIs(t, err, tt.wantErr)
 				assert.Contains(t, err.Error(), "please archive one to continue", "the refusal says what to do about it")
 				assert.Empty(t, lifecycle.provision, "a refused create runs no provisioner")
-				assert.Len(t, tmux.newWindows, opened, "and opens no window")
+				assert.Len(t, tmux.NewWindows, opened, "and opens no window")
 
 				return
 			}
@@ -738,7 +740,7 @@ func TestNewAgentCeiling(t *testing.T) {
 // TestNewAgentCeilingAllowsARetriedLaunch covers the one create the ceiling does not measure,
 // which is a retry carrying a key an agent already holds.
 func TestNewAgentCeilingAllowsARetriedLaunch(t *testing.T) {
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	manager := st.agentServiceCapped(tmux, &fakeLifecycle{}, 1)
 
@@ -797,15 +799,15 @@ func TestNewAgentCleansUpAfterASetupThatRan(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tmux := newFakeTmux()
-			tmux.newWindowErr = tt.windowErr
-			tmux.setOwnerErr = tt.setOwnerErr
-			tmux.respawnErr = tt.respawnErr
+			tmux := tmuxtest.NewFake()
+			tmux.NewWindowErr = tt.windowErr
+			tmux.SetOwnerErr = tt.setOwnerErr
+			tmux.RespawnErr = tt.respawnErr
 			st := newStore(t)
 			lifecycle := &fakeLifecycle{dir: tt.answered}
-			manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
+			manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
 
-			created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
+			created, err := newWorkflowService(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
 				Name:     "backend",
 				Cwd:      fakeCheckout(t),
 				Worktree: workflowstore.WorktreeConfig{Enabled: true},
@@ -839,12 +841,12 @@ func TestNewAgentCleansUpAfterASetupThatRan(t *testing.T) {
 // TestNewAgentDoesNotCleanUpASetupThatRefused pins no cleanup after a setup that refused,
 // which would ask the script to undo work nobody did.
 func TestNewAgentDoesNotCleanUpASetupThatRefused(t *testing.T) {
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	lifecycle := &fakeLifecycle{provisionErr: ErrProvisionFailed}
-	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
+	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
 
-	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
+	created, err := newWorkflowService(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
 		Name:     "backend",
 		Cwd:      fakeCheckout(t),
 		Worktree: workflowstore.WorktreeConfig{Enabled: true},
@@ -877,16 +879,16 @@ func (c *cancellingSetupLifecycle) RunProvision(ctx context.Context, agent agent
 // TestNewAgentClosesOutACreateTheCallerAbandoned pins the write that marks a create failed
 // outliving the request.
 func TestNewAgentClosesOutACreateTheCallerAbandoned(t *testing.T) {
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	lifecycle := &cancellingSetupLifecycle{fakeLifecycle: &fakeLifecycle{dir: t.TempDir()}, cancel: cancel}
-	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
+	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
 
-	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
+	created, err := newWorkflowService(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
 		Name:     "backend",
 		Cwd:      fakeCheckout(t),
 		Worktree: workflowstore.WorktreeConfig{Enabled: true},
@@ -936,13 +938,13 @@ func (c *slowCleanupLifecycle) RunDeprovision(ctx context.Context, agent agentst
 // TestNewAgentWaitsForTheCleanupOfAFailedCreate pins the teardown of a failed create being
 // waited for.
 func TestNewAgentWaitsForTheCleanupOfAFailedCreate(t *testing.T) {
-	tmux := newFakeTmux()
-	tmux.newWindowErr = errors.New("tmux refused the window")
+	tmux := tmuxtest.NewFake()
+	tmux.NewWindowErr = errors.New("tmux refused the window")
 	st := newStore(t)
 	lifecycle := &slowCleanupLifecycle{fakeLifecycle: &fakeLifecycle{dir: t.TempDir()}}
-	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
+	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
 
-	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
+	created, err := newWorkflowService(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
 		Name:     "backend",
 		Cwd:      fakeCheckout(t),
 		Worktree: workflowstore.WorktreeConfig{Enabled: true},
@@ -1014,7 +1016,7 @@ func TestUniqueAgentName(t *testing.T) {
 				seed(t, st, name, "%2", agentstore.StateIdle)
 			}
 
-			manager := newManager(newFakeTmux(), st, "")
+			manager := newManager(tmuxtest.NewFake(), st, "")
 
 			assert.Equal(t, tt.wantName, manager.launch.uniqueAgentName(t.Context(), workflowID, tt.title, tt.prompt))
 		})
@@ -1052,7 +1054,7 @@ func TestNameTaken(t *testing.T) {
 	workflowID := seedWorkflow(t, st)
 	other := seedWorkflow(t, st)
 	seedInWorkflow(t, st, workflowID, "taken", "%1", agentstore.StateIdle)
-	manager := newManager(newFakeTmux(), st, "")
+	manager := newManager(tmuxtest.NewFake(), st, "")
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
