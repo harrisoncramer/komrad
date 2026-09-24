@@ -8,7 +8,7 @@ import (
 	"weave/proto/gen/workflow/v1/workflowv1connect"
 	"weave/proto/gen/worktree/v1/worktreev1connect"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 // Panel is the panel's model driven the way the running program drives it.
@@ -88,7 +88,12 @@ func (p *Panel) Update(msg tea.Msg) tea.Cmd {
 
 // View is the frame the panel draws.
 func (p *Panel) View() string {
-	return p.model.View()
+	return p.model.render()
+}
+
+// KeyPress is the press bubbletea delivers for a key as a binding spells it.
+func KeyPress(key string) tea.KeyPressMsg {
+	return keyMsg(key)
 }
 
 // IsZoomed reports whether the panel last asked tmux to zoom its pane over the window.

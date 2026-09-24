@@ -26,38 +26,24 @@ import (
 	worktreev1 "weave/proto/gen/worktree/v1"
 	"weave/proto/gen/worktree/v1/worktreev1connect"
 
+	tea "charm.land/bubbletea/v2"
 	"connectrpc.com/connect"
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 const maxSettleSteps = 1000
 
 var timerCmds = []string{
-	"bubbletea.Tick.",
-	"bubbletea.Every.",
-	"cursor.(*Model).BlinkCmd.",
-}
-
-var namedKeys = map[string]tea.KeyType{
-	"esc":       tea.KeyEsc,
-	"enter":     tea.KeyEnter,
-	"tab":       tea.KeyTab,
-	"shift+tab": tea.KeyShiftTab,
-	"up":        tea.KeyUp,
-	"down":      tea.KeyDown,
-	"left":      tea.KeyLeft,
-	"right":     tea.KeyRight,
-	"backspace": tea.KeyBackspace,
-	"ctrl+c":    tea.KeyCtrlC,
-	"ctrl+t":    tea.KeyCtrlT,
+	"bubbletea/v2.Tick.",
+	"bubbletea/v2.Every.",
+	"cursor.(*Model).Blink.",
 }
 
 // panelHarness drives the panel from the outside: watch batches and keys in, frames and the
@@ -151,7 +137,7 @@ func (h *panelHarness) press(keys ...string) {
 	h.t.Helper()
 
 	for _, key := range keys {
-		h.send(keyMsg(key))
+		h.send(ui.KeyPress(key))
 	}
 }
 
@@ -258,17 +244,6 @@ func isTimer(cmd tea.Cmd) bool {
 	}
 
 	return false
-}
-
-func keyMsg(key string) tea.KeyMsg {
-	if key == " " {
-		return tea.KeyMsg{Type: tea.KeySpace, Runes: []rune{' '}}
-	}
-	if named, ok := namedKeys[key]; ok {
-		return tea.KeyMsg{Type: named}
-	}
-
-	return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(key)}
 }
 
 // snapshot is the batch a stream opens with, holding every row the panel is to know about.
