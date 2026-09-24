@@ -19,7 +19,7 @@ FROM
 WHERE
     s.archived_at IS NULL
     AND (sqlc.narg('keys')::text[] IS NULL
-        OR s.id::text = ANY (sqlc.narg('keys')))
+        OR s.id = ANY (sqlc.narg('keys')::uuid[]))
 ORDER BY
     s.id DESC;
 

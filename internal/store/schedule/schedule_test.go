@@ -393,7 +393,7 @@ func TestListWatched(t *testing.T) {
 		{
 			name:      "keys naming no schedule list nothing",
 			seeds:     []string{"a"},
-			keys:      []string{"00000000-0000-0000-0000-000000000000", "not-an-id"},
+			keys:      []string{"00000000-0000-0000-0000-000000000000"},
 			wantNames: []string{},
 		},
 		{

@@ -194,7 +194,7 @@ FROM
 WHERE
     s.archived_at IS NULL
     AND ($1::text[] IS NULL
-        OR s.id::text = ANY ($1))
+        OR s.id = ANY ($1::uuid[]))
 ORDER BY
     s.id DESC
 `
