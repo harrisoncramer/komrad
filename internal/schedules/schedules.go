@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"weave/internal/fail"
-	"weave/internal/store"
-	schedulestore "weave/internal/store/schedule"
-	workflowstore "weave/internal/store/workflow"
+	"komrade/internal/fail"
+	"komrade/internal/store"
+	schedulestore "komrade/internal/store/schedule"
+	workflowstore "komrade/internal/store/workflow"
 
 	"github.com/robfig/cron/v3"
 )

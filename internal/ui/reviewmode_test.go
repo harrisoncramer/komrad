@@ -3,9 +3,9 @@ package ui
 import (
 	"testing"
 
-	"weave/internal/diff"
-	"weave/internal/ui/diffview"
-	agentv1 "weave/proto/gen/agent/v1"
+	"komrade/internal/diff"
+	"komrade/internal/ui/diffview"
+	agentv1 "komrade/proto/gen/agent/v1"
 
 	"github.com/stretchr/testify/assert"
 )

@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"time"
 
-	"weave/internal/fail"
-	"weave/internal/rpcerr"
-	"weave/internal/watch"
-	watchv1 "weave/proto/gen/watch/v1"
+	"komrade/internal/fail"
+	"komrade/internal/rpcerr"
+	"komrade/internal/watch"
+	watchv1 "komrade/proto/gen/watch/v1"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"

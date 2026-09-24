@@ -1,4 +1,4 @@
-⏺ Spawned reconcile-breaker (01a069a0), standalone so it gets its own worktree at ~/.local/state/weave/worktrees/01a069a0-… — not a child, since it writes code and can't
+⏺ Spawned reconcile-breaker (01a069a0), standalone so it gets its own worktree at ~/.local/state/komrade/worktrees/01a069a0-… — not a child, since it writes code and can't
   share my checkout.
 
   Briefed it with the failure path already walked so it confirms rather than rediscovers: GetPanes returns on error but not on a short success → zero PaneStatus →
@@ -21,4 +21,4 @@
 ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
   -- INSERT -- ⏵⏵ bypass permissions on (shift+tab to cycle) · ← 3 agents
-  ⧉  weave-against-the-field
+  ⧉  komrade-against-the-field

@@ -3,12 +3,12 @@ package render
 import (
 	"time"
 
-	"weave/internal/schedules"
-	"weave/lib/xslice"
-	"weave/lib/xstr"
+	"komrade/internal/schedules"
+	"komrade/lib/xslice"
+	"komrade/lib/xstr"
 
-	schedulestore "weave/internal/store/schedule"
-	schedulev1 "weave/proto/gen/schedule/v1"
+	schedulestore "komrade/internal/store/schedule"
+	schedulev1 "komrade/proto/gen/schedule/v1"
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 )

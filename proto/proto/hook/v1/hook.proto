@@ -6,7 +6,7 @@ import "annotation/v1/tool.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/empty.proto";
 
-option go_package = "weave/proto/gen/hook/v1;hookv1";
+option go_package = "komrade/proto/gen/hook/v1;hookv1";
 
 message Hook {
   // The file name in the hooks directory, which is what a workflow names to fire it.
@@ -15,9 +15,9 @@ message Hook {
   bool executable = 2;
   // What the script says about itself in its own header comments.
   string description = 3;
-  // How long weave waits for it, taken from its header, or unset to wait the default.
+  // How long komrade waits for it, taken from its header, or unset to wait the default.
   optional google.protobuf.Duration timeout = 4;
-  // What weave could not read in the header, which leaves the rest of it at the defaults.
+  // What komrade could not read in the header, which leaves the rest of it at the defaults.
   repeated string header_problems = 5;
 }
 
@@ -26,7 +26,7 @@ message ListHooksResponse {
   repeated Hook hooks = 1;
 }
 
-// HookService lists the scripts the user has written for weave to fire.
+// HookService lists the scripts the user has written for komrade to fire.
 service HookService {
   rpc ListHooks(google.protobuf.Empty) returns (ListHooksResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;

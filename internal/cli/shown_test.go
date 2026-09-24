@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"weave/internal/agents"
-	"weave/internal/tmux"
+	"komrade/internal/agents"
+	"komrade/internal/tmux"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -49,7 +49,7 @@ func TestIntegrationShownAnswersFromWhatIsOnScreen(t *testing.T) {
 	_ = viewer.Wait()
 }
 
-// TestIntegrationShownWithoutATmuxServer covers the key binding running somewhere weave cannot work out
+// TestIntegrationShownWithoutATmuxServer covers the key binding running somewhere komrade cannot work out
 // which server pressed it, where saying hidden is what leaves the press with a popup.
 func TestIntegrationShownWithoutATmuxServer(t *testing.T) {
 	managerSocket := throwawaySocket(t)
@@ -109,11 +109,11 @@ func TestIntegrationShownAndHideReachAnEnginesPanel(t *testing.T) {
 	hostPath := hostQuery(t, hostSocket, "display-message", "-p", "#{socket_path}")
 
 	state := hideState(t, localSocket, hostPaneEnv(t, hostSocket))
-	for _, name := range []string{"WEAVE_CONFIG", "WEAVE_ADDR", "WEAVE_TMUX_SOCKET", "WEAVE_CACHE_DIR", "WEAVE_DATABASE_URL", "WEAVE_READONLY_DATABASE_URL"} {
+	for _, name := range []string{"KOMRADE_CONFIG", "KOMRADE_ADDR", "KOMRADE_TMUX_SOCKET", "KOMRADE_CACHE_DIR", "KOMRADE_DATABASE_URL", "KOMRADE_READONLY_DATABASE_URL"} {
 		t.Setenv(name, "")
 	}
 
-	engines := filepath.Join(os.Getenv("HOME"), ".config", "weave", "engines")
+	engines := filepath.Join(os.Getenv("HOME"), ".config", "komrade", "engines")
 	require.NoError(t, os.MkdirAll(engines, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(engines, "remote.toml"),
 		[]byte("[connection]\ntmux_socket = \""+engineSocket+"\"\n"), 0o600))

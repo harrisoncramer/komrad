@@ -4,10 +4,10 @@ import (
 	"errors"
 	"slices"
 
-	"weave/config"
-	"weave/internal/ui/paint"
-	"weave/internal/ui/panel"
-	pullrequestv1 "weave/proto/gen/pullrequest/v1"
+	"komrade/config"
+	"komrade/internal/ui/paint"
+	"komrade/internal/ui/panel"
+	pullrequestv1 "komrade/proto/gen/pullrequest/v1"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
@@ -25,9 +25,9 @@ const (
 var (
 	errNoWorktree           = errors.New("this agent has no worktree of its own, so there is no base to move it onto")
 	errAgentGone            = errors.New("the agent the menu was opened on has left the list")
-	errNoPullRequest        = errors.New("weave has read the repository and nothing has been opened from this branch")
+	errNoPullRequest        = errors.New("komrade has read the repository and nothing has been opened from this branch")
 	errMovedPastPullRequest = errors.New("the branch has moved on since its last pull request finished and nothing has been opened from it since")
-	errPullRequestsUnread   = errors.New("weave has not read this agent's repository yet, or its checkout is not on a forge")
+	errPullRequestsUnread   = errors.New("komrade has not read this agent's repository yet, or its checkout is not on a forge")
 )
 
 // openGitMenu draws the git actions beside the list, for the agent the cursor is on.
@@ -203,7 +203,7 @@ func (m model) runGitChoice(agentID string, choice gitChoice) (model, tea.Cmd) {
 	return m, nil
 }
 
-// isRebaseable reports whether an agent sits in a worktree weave cut for it alone.
+// isRebaseable reports whether an agent sits in a worktree komrade cut for it alone.
 func (l listing) isRebaseable(agent panel.Agent) bool {
 	if !hasCheckout(agent) {
 		return false

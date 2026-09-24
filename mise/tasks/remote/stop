@@ -81,7 +81,7 @@ aws ec2 wait instance-stopped --region "$REGION" --instance-ids "$INSTANCE"
 ADDRESS="$(terraform_output instance_public_ip)"
 
 if [ -n "$ADDRESS" ]; then
-	rm -f "/tmp/cm-weave-weave@$ADDRESS:22"
+	rm -f "/tmp/cm-komrade-komrade@$ADDRESS:22"
 fi
 
 gum log --level info "the engine is stopped"

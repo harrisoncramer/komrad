@@ -5,15 +5,15 @@ package workflow
 import (
 	"context"
 
-	"weave/internal/agents"
-	"weave/internal/fail"
-	"weave/internal/rpc/render"
-	"weave/internal/rpcerr"
-	"weave/lib/pagination"
-	"weave/lib/xslice"
-	workflowv1 "weave/proto/gen/workflow/v1"
+	"komrade/internal/agents"
+	"komrade/internal/fail"
+	"komrade/internal/rpc/render"
+	"komrade/internal/rpcerr"
+	"komrade/lib/pagination"
+	"komrade/lib/xslice"
+	workflowv1 "komrade/proto/gen/workflow/v1"
 
-	workflowstore "weave/internal/store/workflow"
+	workflowstore "komrade/internal/store/workflow"
 
 	"google.golang.org/protobuf/types/known/emptypb"
 )

@@ -4,10 +4,10 @@ package doctor
 import (
 	"context"
 
-	"weave/internal/doctor"
-	"weave/internal/fail"
-	"weave/lib/xslice"
-	doctorv1 "weave/proto/gen/doctor/v1"
+	"komrade/internal/doctor"
+	"komrade/internal/fail"
+	"komrade/lib/xslice"
+	doctorv1 "komrade/proto/gen/doctor/v1"
 
 	"google.golang.org/protobuf/types/known/emptypb"
 )

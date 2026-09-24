@@ -5,10 +5,10 @@ import (
 	"errors"
 	"time"
 
-	"weave/internal/git"
-	"weave/internal/store"
-	workflowstore "weave/internal/store/workflow"
-	worktreestore "weave/internal/store/worktree"
+	"komrade/internal/git"
+	"komrade/internal/store"
+	workflowstore "komrade/internal/store/workflow"
+	worktreestore "komrade/internal/store/worktree"
 )
 
 // commitLimit is how many of a branch's commits an inspection lists.

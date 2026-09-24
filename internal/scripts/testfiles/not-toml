@@ -1,5 +1,5 @@
 #!/bin/sh
-#WEAVE description = just words, unquoted
+#KOMRADE description = just words, unquoted
 set -eu
 
 echo "declared"

@@ -8,17 +8,17 @@ import (
 	"path/filepath"
 	"strings"
 
-	"weave/internal/agents"
-	"weave/internal/fail"
-	"weave/internal/git"
-	"weave/internal/mail"
-	"weave/internal/store"
-	agentstore "weave/internal/store/agent"
-	mailstore "weave/internal/store/mail"
-	reviewstore "weave/internal/store/review"
+	"komrade/internal/agents"
+	"komrade/internal/fail"
+	"komrade/internal/git"
+	"komrade/internal/mail"
+	"komrade/internal/store"
+	agentstore "komrade/internal/store/agent"
+	mailstore "komrade/internal/store/mail"
+	reviewstore "komrade/internal/store/review"
 )
 
-// reviewDirName is where released reviews are kept under weave's own state directory.
+// reviewDirName is where released reviews are kept under komrade's own state directory.
 const reviewDirName = "reviews"
 
 // ErrReviewNoRound is answered when a review is asked for on an agent no round has been taken
@@ -44,7 +44,7 @@ var ErrReviewNotAnswered = fail.Precondition("your last review is still owed an 
 
 // ErrReviewNotCurrent is answered when a comment's line numbers were read from a snapshot no
 // round of that agent was taken of.
-var ErrReviewNotCurrent = fail.Precondition("those lines were read from a snapshot weave never froze")
+var ErrReviewNotCurrent = fail.Precondition("those lines were read from a snapshot komrade never froze")
 
 // ErrReviewEmpty is answered when a review is released with nothing written in it.
 var ErrReviewEmpty = fail.Precondition("that review has nothing in it")
@@ -551,7 +551,7 @@ type reviewNoticeParams struct {
 // reviewNotice is the whole of what the mail carries: the round, the verdict, how much there is
 // and how to read it.
 func reviewNotice(params reviewNoticeParams) string {
-	return fmt.Sprintf("weave: review of round %d released: %s, %d comment(s). "+
+	return fmt.Sprintf("komrade: review of round %d released: %s, %d comment(s). "+
 		"Call get_review with review id %s, or read %s, then answer each thread with add_review_message.",
 		params.Ordinal, strings.ReplaceAll(string(params.Verdict), "_", " "), params.Comments, params.ReviewID, params.Path)
 }
@@ -670,7 +670,7 @@ type writeReviewParams struct {
 	Threads []ReviewThreadInContext
 }
 
-// writeReview puts the whole review under weave's own state directory rather than in the
+// writeReview puts the whole review under komrade's own state directory rather than in the
 // agent's worktree, and leaves it there for good.
 func (s *ReviewService) writeReview(ctx context.Context, params writeReviewParams) (string, error) {
 	dir := filepath.Join(s.stateDir, reviewDirName, params.Agent.ID)

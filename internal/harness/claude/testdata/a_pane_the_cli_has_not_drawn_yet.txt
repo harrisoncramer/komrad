@@ -1,9 +1,9 @@
-WEAVE_AGENT_ID='01a06dd8-7f66-75b4-b83d-5414869a70c1' WEAVE_SESSION_ID='74a5800b
+KOMRADE_AGENT_ID='01a06dd8-7f66-75b4-b83d-5414869a70c1' KOMRADE_SESSION_ID='74a5800b
 -391d-4904-8bcc-9118b8b62c36' claude --mcp-config '/Users/harrisoncramer/.claude
-/weave-mcp.json' --settings '/Users/harrisoncramer/.claude/weave-settings.json'
+/komrade-mcp.json' --settings '/Users/harrisoncramer/.claude/komrade-settings.json'
 --resume '74a5800b-391d-4904-8bcc-9118b8b62c36'
 [30m[44m [1m~[0m[30m[44m/.l/st/w/w/[1m01a06dd8-7f66-75b4-b83d-5414869a70c1[0m[30m[44m [34m[43m[30m agent/01a06d…5414869a70c1 [33m[49m[39m
-WEAVE_AGENT_ID=[33m'01a06dd8-7f66-75b4-b83d-5414869a70c1'[39m WEAVE_SESSION_ID=[33m'74a5800b
+KOMRADE_AGENT_ID=[33m'01a06dd8-7f66-75b4-b83d-5414869a70c1'[39m KOMRADE_SESSION_ID=[33m'74a5800b
 -391d-4904-8bcc-9118b8b62c36'[39m [32mclaude[39m [36m--mcp-config[39m [33m'/Users/harrisoncramer/.claude
-/weave-mcp.json'[39m [36m--settings[39m [33m'/Users/harrisoncramer/.claude/weave-settings.json'[39m
+/komrade-mcp.json'[39m [36m--settings[39m [33m'/Users/harrisoncramer/.claude/komrade-settings.json'[39m
 [36m--resume[39m [33m'74a5800b-391d-4904-8bcc-9118b8b62c36'[39m

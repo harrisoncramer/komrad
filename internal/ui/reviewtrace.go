@@ -5,11 +5,11 @@ import (
 	"maps"
 	"time"
 
-	"weave/internal/git"
-	"weave/internal/position"
-	"weave/internal/ui/diffview"
-	"weave/lib/xslice"
-	agentv1 "weave/proto/gen/agent/v1"
+	"komrade/internal/git"
+	"komrade/internal/position"
+	"komrade/internal/ui/diffview"
+	"komrade/lib/xslice"
+	agentv1 "komrade/proto/gen/agent/v1"
 )
 
 // traceTimeout is how long every pair together may take, kept apart from the load's own budget

@@ -10,9 +10,9 @@ import (
 	"slices"
 	"strings"
 
-	"weave/internal/logging"
-	"weave/internal/worktrees"
-	"weave/lib/xslice"
+	"komrade/internal/logging"
+	"komrade/internal/worktrees"
+	"komrade/lib/xslice"
 
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"

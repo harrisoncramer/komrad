@@ -33,9 +33,9 @@ import (
 	"strings"
 	"time"
 
-	"weave/internal/fail"
-	"weave/internal/logging"
-	"weave/lib/xhttp"
+	"komrade/internal/fail"
+	"komrade/internal/logging"
+	"komrade/lib/xhttp"
 )
 
 // assertionLife is how far ahead of now the assertion's expiry is set, leaving the span it covers

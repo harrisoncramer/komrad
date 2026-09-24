@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"weave/internal/git"
+	"komrade/internal/git"
 
 	"github.com/bluekeyes/go-gitdiff/gitdiff"
 )

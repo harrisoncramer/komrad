@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"testing"
 
-	"weave/internal/version"
+	"komrade/internal/version"
 
 	"github.com/stretchr/testify/assert"
 )

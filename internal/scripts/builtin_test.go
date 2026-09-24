@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestInstallBuiltins covers the scripts weave ships reaching disk, each underscored since
+// TestInstallBuiltins covers the scripts komrade ships reaching disk, each underscored since
 // they sit behind the panel's own keys rather than in the list a person picks from.
 func TestInstallBuiltins(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "scripts")
@@ -56,7 +56,7 @@ func TestInstallBuiltinsRefusesRelativePath(t *testing.T) {
 	err := InstallBuiltins(filepath.Join(".", "scripts"))
 	require.ErrorIs(t, err, ErrDirNotAbsolute)
 
-	assert.FileExists(t, filepath.Join(theirs, "deploy.sh"), "a directory weave did not name is not emptied")
+	assert.FileExists(t, filepath.Join(theirs, "deploy.sh"), "a directory komrade did not name is not emptied")
 }
 
 // TestInstallBuiltinsRefusesDirectoryItDoesNotOwn covers an absolute path that is somebody else's
@@ -69,5 +69,5 @@ func TestInstallBuiltinsRefusesDirectoryItDoesNotOwn(t *testing.T) {
 	err := InstallBuiltins(theirs)
 	require.ErrorIs(t, err, ErrDirNotOurs)
 
-	assert.FileExists(t, filepath.Join(theirs, "deploy.sh"), "a directory weave did not write is not emptied")
+	assert.FileExists(t, filepath.Join(theirs, "deploy.sh"), "a directory komrade did not write is not emptied")
 }

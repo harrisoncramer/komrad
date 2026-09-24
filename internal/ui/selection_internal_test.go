@@ -1,7 +1,7 @@
 package ui
 
 import (
-	"weave/lib/xslice"
+	"komrade/lib/xslice"
 )
 
 // selectAgents is a selection holding the named agents, spelled by id as the tables read.

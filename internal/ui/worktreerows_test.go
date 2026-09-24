@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
-	"weave/internal/ui/panel"
-	"weave/internal/view"
-	"weave/lib/xslice"
+	"komrade/internal/ui/panel"
+	"komrade/internal/view"
+	"komrade/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -21,7 +21,7 @@ func worktreeFixture() []worktreeItem {
 	return []worktreeItem{
 		{
 			dir:      "/trees/live",
-			repoDir:  "/home/h/weave",
+			repoDir:  "/home/h/komrade",
 			branch:   "agent/live",
 			readable: true,
 			agent: &worktreeAgent{
@@ -38,7 +38,7 @@ func worktreeFixture() []worktreeItem {
 		},
 		{
 			dir:      "/trees/archived",
-			repoDir:  "/home/h/weave",
+			repoDir:  "/home/h/komrade",
 			branch:   "agent/archived",
 			readable: true,
 			agent: &worktreeAgent{
@@ -51,7 +51,7 @@ func worktreeFixture() []worktreeItem {
 		},
 		{
 			dir:      "/trees/orphan",
-			repoDir:  "/home/h/weave",
+			repoDir:  "/home/h/komrade",
 			branch:   "agent/orphan",
 			readable: true,
 		},
@@ -101,7 +101,7 @@ func TestWorktreeRowsOrderEachGroupByTheColumn(t *testing.T) {
 			want: []string{
 				"repo:/home/h/gadgets/admin",
 				"tree:/trees/admin",
-				"repo:/home/h/weave",
+				"repo:/home/h/komrade",
 				"tree:/trees/archived",
 				"tree:/trees/live",
 				"tree:/trees/orphan",
@@ -116,7 +116,7 @@ func TestWorktreeRowsOrderEachGroupByTheColumn(t *testing.T) {
 			want: []string{
 				"repo:/home/h/gadgets/admin",
 				"tree:/trees/admin",
-				"repo:/home/h/weave",
+				"repo:/home/h/komrade",
 				"tree:/trees/live",
 				"tree:/trees/archived",
 				"tree:/trees/orphan",
@@ -131,7 +131,7 @@ func TestWorktreeRowsOrderEachGroupByTheColumn(t *testing.T) {
 			want: []string{
 				"repo:/home/h/gadgets/admin",
 				"tree:/trees/admin",
-				"repo:/home/h/weave",
+				"repo:/home/h/komrade",
 				"tree:/trees/archived",
 				"tree:/trees/live",
 				"tree:/trees/orphan",
@@ -146,7 +146,7 @@ func TestWorktreeRowsOrderEachGroupByTheColumn(t *testing.T) {
 			want: []string{
 				"repo:/home/h/gadgets/admin",
 				"tree:/trees/admin",
-				"repo:/home/h/weave",
+				"repo:/home/h/komrade",
 				"tree:/trees/live",
 				"tree:/trees/orphan",
 				"tree:/trees/archived",
@@ -161,7 +161,7 @@ func TestWorktreeRowsOrderEachGroupByTheColumn(t *testing.T) {
 			want: []string{
 				"repo:/home/h/gadgets/admin",
 				"tree:/trees/admin",
-				"repo:/home/h/weave",
+				"repo:/home/h/komrade",
 				"tree:/trees/archived",
 				"tree:/trees/orphan",
 				"tree:/trees/live",
@@ -278,7 +278,7 @@ func TestWorktreeRowNames(t *testing.T) {
 	assert.Equal(t, []string{
 		"/home/h/gadgets/admin",
 		"custom-cargo-fixes",
-		"/home/h/weave",
+		"/home/h/komrade",
 		"review-column",
 		"worktree-view",
 		"agent/orphan",
@@ -360,9 +360,9 @@ func TestWorktreesSnapshotReadsEveryRow(t *testing.T) {
 		byKey[row.Key] = row
 	}
 
-	weave := byKey["repo:/home/h/weave"]
-	assert.Equal(t, view.KindWorkflow, weave.Kind)
-	assert.Equal(t, view.ProcessNone, weave.Process)
+	komrade := byKey["repo:/home/h/komrade"]
+	assert.Equal(t, view.KindWorkflow, komrade.Kind)
+	assert.Equal(t, view.ProcessNone, komrade.Process)
 
 	live := byKey["tree:/trees/live"]
 	assert.Equal(t, view.KindAgent, live.Kind)
@@ -455,7 +455,7 @@ func TestWorktreeAgentFactsOffTheWorktreeListing(t *testing.T) {
 }
 
 // measuredFixture is the fixture with the loop having been round: the live and archived
-// directories under weave measured, the orphan's walk failed, the admin one measured under its
+// directories under komrade measured, the orphan's walk failed, the admin one measured under its
 // own repository, and each with a last activity behind the given moment.
 func measuredFixture(now time.Time) []worktreeItem {
 	items := worktreeFixture()
@@ -492,7 +492,7 @@ func TestWorktreesSnapshotCellsAreSizeThenAge(t *testing.T) {
 	assert.Equal(t, map[string][]string{
 		"repo:/home/h/gadgets/admin": {"1.5G"},
 		"tree:/trees/admin":          {"1.5G", "12h"},
-		"repo:/home/h/weave":         {"98M"},
+		"repo:/home/h/komrade":       {"98M"},
 		"tree:/trees/live":           {"49M", "30s"},
 		"tree:/trees/archived":       {"49M", "4d"},
 		"tree:/trees/orphan":         {"—", "3h"},

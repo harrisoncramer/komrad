@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"weave/internal/caller"
-	"weave/internal/harness"
+	"komrade/internal/caller"
+	"komrade/internal/harness"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -26,22 +26,22 @@ func TestBuildCommand(t *testing.T) {
 		{
 			name:        "a resume pins the prior conversation by id",
 			launch:      harness.Launch{SessionID: "sess-1", Resume: true},
-			wantCommand: "WEAVE_SESSION_ID='sess-1' claude --resume 'sess-1'",
+			wantCommand: "KOMRADE_SESSION_ID='sess-1' claude --resume 'sess-1'",
 		},
 		{
 			name:        "a fresh launch pins the id it was given",
 			launch:      harness.Launch{SessionID: "sess-2"},
-			wantCommand: "WEAVE_SESSION_ID='sess-2' claude --session-id 'sess-2'",
+			wantCommand: "KOMRADE_SESSION_ID='sess-2' claude --session-id 'sess-2'",
 		},
 		{
 			name:        "flags precede the session id",
 			launch:      harness.Launch{Flags: "--model opus", SessionID: "sess-3"},
-			wantCommand: "WEAVE_SESSION_ID='sess-3' claude '--model' 'opus' --session-id 'sess-3'",
+			wantCommand: "KOMRADE_SESSION_ID='sess-3' claude '--model' 'opus' --session-id 'sess-3'",
 		},
 		{
 			name:        "the agent's own ids lead the line, so they reach claude's environment",
 			launch:      harness.Launch{AgentID: "id-1", SessionID: "sess-4"},
-			wantCommand: "WEAVE_AGENT_ID='id-1' WEAVE_SESSION_ID='sess-4' claude --session-id 'sess-4'",
+			wantCommand: "KOMRADE_AGENT_ID='id-1' KOMRADE_SESSION_ID='sess-4' claude --session-id 'sess-4'",
 		},
 		{
 			name: "and they survive a resume",
@@ -50,7 +50,7 @@ func TestBuildCommand(t *testing.T) {
 				SessionID: "sess-5",
 				Resume:    true,
 			},
-			wantCommand: "WEAVE_AGENT_ID='id-1' WEAVE_SESSION_ID='sess-5' claude --resume 'sess-5'",
+			wantCommand: "KOMRADE_AGENT_ID='id-1' KOMRADE_SESSION_ID='sess-5' claude --resume 'sess-5'",
 		},
 	}
 
@@ -205,7 +205,7 @@ func TestBuildCommandPassesTextThroughTempFiles(t *testing.T) {
 }
 
 // TestBuildCommandStagesTextUnderTheCacheDir covers the prompt files landing under the directory
-// weave was told to keep what it generates in rather than the system temp directory.
+// komrade was told to keep what it generates in rather than the system temp directory.
 func TestBuildCommandStagesTextUnderTheCacheDir(t *testing.T) {
 	cache := t.TempDir()
 
@@ -254,7 +254,7 @@ func TestBuildCommandRegistersMCPServer(t *testing.T) {
 
 			match := mcpConfigRef.FindStringSubmatch(command)
 			require.Len(t, match, 2, "the launch carries a config path")
-			assert.Equal(t, filepath.Join(configDir, "weave-mcp.json"), match[1])
+			assert.Equal(t, filepath.Join(configDir, "komrade-mcp.json"), match[1])
 
 			raw, err := os.ReadFile(match[1])
 			require.NoError(t, err)
@@ -268,7 +268,7 @@ func TestBuildCommandRegistersMCPServer(t *testing.T) {
 			}
 			require.NoError(t, json.Unmarshal(raw, &config))
 
-			server, ok := config.MCPServers["weave"]
+			server, ok := config.MCPServers["komrade"]
 			require.True(t, ok, "the panel's own server is registered")
 			assert.Equal(t, "http", server.Type)
 			assert.Equal(t, "http://127.0.0.1:9999/mcp", server.URL)
@@ -287,7 +287,7 @@ func stripGeneratedFlags(command string) string {
 	return settingsRef.ReplaceAllString(mcpConfigRef.ReplaceAllString(command, ""), "")
 }
 
-// TestBuildCommandPinsTheConfigDir covers the launch carrying the directory weave reads its log from.
+// TestBuildCommandPinsTheConfigDir covers the launch carrying the directory komrade reads its log from.
 func TestBuildCommandPinsTheConfigDir(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -374,7 +374,7 @@ func TestMCPConfigCarriesTheAgentsIdentity(t *testing.T) {
 
 	match := mcpConfigRef.FindStringSubmatch(command)
 	require.Len(t, match, 2)
-	assert.Equal(t, filepath.Join(home, ".claude", "weave-mcp.json"), match[1],
+	assert.Equal(t, filepath.Join(home, ".claude", "komrade-mcp.json"), match[1],
 		"one file for every agent, since the headers name no agent")
 
 	raw, err := os.ReadFile(match[1])
@@ -387,16 +387,16 @@ func TestMCPConfigCarriesTheAgentsIdentity(t *testing.T) {
 	}
 	require.NoError(t, json.Unmarshal(raw, &config))
 
-	headers := config.MCPServers["weave"].Headers
-	assert.Equal(t, "${WEAVE_AGENT_ID:-}", headers[caller.AgentHeader])
-	assert.Equal(t, "${WEAVE_SESSION_ID:-}", headers[caller.SessionHeader])
+	headers := config.MCPServers["komrade"].Headers
+	assert.Equal(t, "${KOMRADE_AGENT_ID:-}", headers[caller.AgentHeader])
+	assert.Equal(t, "${KOMRADE_SESSION_ID:-}", headers[caller.SessionHeader])
 
-	assert.Contains(t, command, "WEAVE_AGENT_ID='agent-1'")
-	assert.Contains(t, command, "WEAVE_SESSION_ID='sess-1'")
+	assert.Contains(t, command, "KOMRADE_AGENT_ID='agent-1'")
+	assert.Contains(t, command, "KOMRADE_SESSION_ID='sess-1'")
 }
 
 // TestBuildCommandRegistersTheStopHook pins when the launch command carries the stop hook,
-// which is what lets weave hear an agent finish a turn.
+// which is what lets komrade hear an agent finish a turn.
 func TestBuildCommandRegistersTheStopHook(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -410,12 +410,12 @@ func TestBuildCommandRegistersTheStopHook(t *testing.T) {
 		},
 		{
 			name:        "a fresh launch",
-			hookCommand: "/usr/local/bin/weave",
+			hookCommand: "/usr/local/bin/komrade",
 			wantHook:    true,
 		},
 		{
 			name:        "a resume, since mail arrives whether or not the agent was just started",
-			hookCommand: "/usr/local/bin/weave",
+			hookCommand: "/usr/local/bin/komrade",
 			resume:      true,
 			wantHook:    true,
 		},
@@ -434,7 +434,7 @@ func TestBuildCommandRegistersTheStopHook(t *testing.T) {
 			require.NoError(t, err)
 
 			settings := readSettings(t, command)
-			assert.Equal(t, filepath.Join(configDir, "weave-settings.json"), settingsPath(t, command))
+			assert.Equal(t, filepath.Join(configDir, "komrade-settings.json"), settingsPath(t, command))
 
 			if !tt.wantHook {
 				assert.Empty(t, settings.Hooks, "no hook is registered")
@@ -442,7 +442,7 @@ func TestBuildCommandRegistersTheStopHook(t *testing.T) {
 				return
 			}
 
-			require.Len(t, settings.Hooks, len(InstalledHooks), "every event weave answers is written")
+			require.Len(t, settings.Hooks, len(InstalledHooks), "every event komrade answers is written")
 			for event, install := range InstalledHooks {
 				group, ok := settings.Hooks[string(event)]
 				require.True(t, ok, "the %s event is hooked", event)
@@ -465,7 +465,7 @@ func TestBuildCommandDeniesSubagents(t *testing.T) {
 	}{
 		{
 			name:        "a fresh launch",
-			hookCommand: "/usr/local/bin/weave",
+			hookCommand: "/usr/local/bin/komrade",
 		},
 		{
 			name:   "a launch that registered no hook",
@@ -473,7 +473,7 @@ func TestBuildCommandDeniesSubagents(t *testing.T) {
 		},
 		{
 			name:        "a resume",
-			hookCommand: "/usr/local/bin/weave",
+			hookCommand: "/usr/local/bin/komrade",
 			resume:      true,
 		},
 	}

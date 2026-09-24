@@ -3,7 +3,7 @@ package main
 import (
 	"strings"
 
-	"weave/lib/xslice"
+	"komrade/lib/xslice"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"

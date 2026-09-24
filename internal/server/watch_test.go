@@ -3,18 +3,18 @@ package server
 import (
 	"testing"
 
-	"weave/internal/watch"
-	"weave/internal/watched"
-	"weave/lib/xslice"
-	watchv1 "weave/proto/gen/watch/v1"
+	"komrade/internal/watch"
+	"komrade/internal/watched"
+	"komrade/lib/xslice"
+	watchv1 "komrade/proto/gen/watch/v1"
 
-	agentstore "weave/internal/store/agent"
-	mailstore "weave/internal/store/mail"
-	markstore "weave/internal/store/mark"
-	pullrequeststore "weave/internal/store/pullrequest"
-	rowstore "weave/internal/store/row"
-	schedulestore "weave/internal/store/schedule"
-	workflowstore "weave/internal/store/workflow"
+	agentstore "komrade/internal/store/agent"
+	mailstore "komrade/internal/store/mail"
+	markstore "komrade/internal/store/mark"
+	pullrequeststore "komrade/internal/store/pullrequest"
+	rowstore "komrade/internal/store/row"
+	schedulestore "komrade/internal/store/schedule"
+	workflowstore "komrade/internal/store/workflow"
 
 	"github.com/stretchr/testify/assert"
 )

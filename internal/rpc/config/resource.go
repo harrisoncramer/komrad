@@ -4,15 +4,15 @@ import (
 	"encoding/json"
 	"fmt"
 
-	weaveconfig "weave/config"
-	"weave/internal/dsn"
+	komradeconfig "komrade/config"
+	"komrade/internal/dsn"
 
 	"github.com/go-viper/mapstructure/v2"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
-func renderConfig(cfg *weaveconfig.Config) (*structpb.Struct, error) {
+func renderConfig(cfg *komradeconfig.Config) (*structpb.Struct, error) {
 	shown := *cfg
 	shown.Connection.DatabaseURL = dsn.Redact(shown.Connection.DatabaseURL)
 	shown.Connection.ReadOnlyDatabaseURL = dsn.Redact(shown.Connection.ReadOnlyDatabaseURL)

@@ -6,21 +6,21 @@ import (
 	"testing"
 	"time"
 
-	"weave/internal/git"
-	"weave/internal/pullrequests"
-	pullrequeststore "weave/internal/store/pullrequest"
-	"weave/lib/xptr"
-	"weave/lib/xslice"
-	paginationv1 "weave/proto/gen/pagination/v1"
-	pullrequestv1 "weave/proto/gen/pullrequest/v1"
-	"weave/proto/gen/pullrequest/v1/pullrequestv1weave"
+	"komrade/internal/git"
+	"komrade/internal/pullrequests"
+	pullrequeststore "komrade/internal/store/pullrequest"
+	"komrade/lib/xptr"
+	"komrade/lib/xslice"
+	paginationv1 "komrade/proto/gen/pagination/v1"
+	pullrequestv1 "komrade/proto/gen/pullrequest/v1"
+	"komrade/proto/gen/pullrequest/v1/pullrequestv1komrade"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-const weaveRepository = "https://github.com/harrisoncramer/weave"
+const komradeRepository = "https://github.com/harrisoncramer/komrade"
 
 // fakePullRequestLister answers from its fields and records each page asked for.
 type fakePullRequestLister struct {
@@ -56,14 +56,14 @@ func TestListPullRequestsRefusalsMapToCodes(t *testing.T) {
 		{
 			name: "a cursor nobody could have been handed",
 			req: &pullrequestv1.ListPullRequestsRequest{
-				RepositoryUrl: weaveRepository,
+				RepositoryUrl: komradeRepository,
 				Pagination:    &paginationv1.Pagination{Cursor: xptr.Ptr("not-a-token")},
 			},
 			wantCode: connect.CodeInvalidArgument,
 		},
 		{
 			name:     "a store that cannot be read",
-			req:      &pullrequestv1.ListPullRequestsRequest{RepositoryUrl: weaveRepository},
+			req:      &pullrequestv1.ListPullRequestsRequest{RepositoryUrl: komradeRepository},
 			err:      errors.New("connection refused"),
 			wantCode: connect.CodeInternal,
 		},
@@ -72,7 +72,7 @@ func TestListPullRequestsRefusalsMapToCodes(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			reader := &fakePullRequestLister{err: tt.err}
-			service := pullrequestv1weave.PullRequestServiceAdapter{Impl: NewHandler(NewHandlerParams{PullRequests: reader})}
+			service := pullrequestv1komrade.PullRequestServiceAdapter{Impl: NewHandler(NewHandlerParams{PullRequests: reader})}
 
 			_, err := service.ListPullRequests(t.Context(), connect.NewRequest(tt.req))
 			require.Error(t, err)
@@ -98,10 +98,10 @@ func TestListPullRequests(t *testing.T) {
 			MergedAt: &merged,
 		},
 	}}
-	service := pullrequestv1weave.PullRequestServiceAdapter{Impl: NewHandler(NewHandlerParams{PullRequests: reader})}
+	service := pullrequestv1komrade.PullRequestServiceAdapter{Impl: NewHandler(NewHandlerParams{PullRequests: reader})}
 
 	first, err := service.ListPullRequests(t.Context(), connect.NewRequest(&pullrequestv1.ListPullRequestsRequest{
-		RepositoryUrl: "git@github.com:harrisoncramer/weave.git",
+		RepositoryUrl: "git@github.com:harrisoncramer/komrade.git",
 		HeadBranch:    "agent/x",
 		Pagination:    &paginationv1.Pagination{Limit: xptr.Ptr(int32(2))},
 	}))
@@ -115,7 +115,7 @@ func TestListPullRequests(t *testing.T) {
 
 	reader.pullRequests = nil
 	second, err := service.ListPullRequests(t.Context(), connect.NewRequest(&pullrequestv1.ListPullRequestsRequest{
-		RepositoryUrl: weaveRepository,
+		RepositoryUrl: komradeRepository,
 		Pagination:    &paginationv1.Pagination{Cursor: first.Msg.NextPageToken},
 	}))
 	require.NoError(t, err)
@@ -123,12 +123,12 @@ func TestListPullRequests(t *testing.T) {
 
 	want := []pullrequests.ListPullRequestsParams{
 		{
-			RepositoryURL: "git@github.com:harrisoncramer/weave.git",
+			RepositoryURL: "git@github.com:harrisoncramer/komrade.git",
 			HeadBranch:    "agent/x",
 			Limit:         2,
 		},
 		{
-			RepositoryURL: weaveRepository,
+			RepositoryURL: komradeRepository,
 			Limit:         20,
 			Cursor: &pullrequeststore.Cursor{
 				Finished: true,

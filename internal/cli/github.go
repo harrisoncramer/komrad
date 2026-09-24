@@ -7,12 +7,12 @@ import (
 	"strings"
 	"time"
 
-	"weave/internal/fail"
-	"weave/internal/forge"
-	"weave/internal/forge/forges"
-	"weave/internal/git"
-	githubapp "weave/internal/github/app"
-	"weave/lib/xhttp"
+	"komrade/internal/fail"
+	"komrade/internal/forge"
+	"komrade/internal/forge/forges"
+	"komrade/internal/git"
+	githubapp "komrade/internal/github/app"
+	"komrade/lib/xhttp"
 
 	"github.com/spf13/cobra"
 )
@@ -22,7 +22,7 @@ const githubTokenTimeout = 20 * time.Second
 // githubHost is the one host an App minted from the config reaches.
 const githubHost = "github.com"
 
-// errNotGitHubCheckout says a checkout's origin is on a host weave holds no App for.
+// errNotGitHubCheckout says a checkout's origin is on a host komrade holds no App for.
 var errNotGitHubCheckout = fail.Precondition("the checkout's origin is not on github.com")
 
 func githubCmd(state *app) *cobra.Command {
@@ -34,7 +34,7 @@ func githubCmd(state *app) *cobra.Command {
 An engine runs agents that write code, so it has to push. Giving it a personal
 access token would leave a secret on the machine that works forever.
 
-Instead weave holds a GitHub App's private key and signs a short assertion with it.
+Instead komrade holds a GitHub App's private key and signs a short assertion with it.
 GitHub returns a token that stops working after an hour and only reaches the
 repositories the App was installed on.
 
@@ -63,8 +63,8 @@ func githubTokenCmd(state *app) *cobra.Command {
 Run this to check the App is set up. A token starting ghs_ means the key, the App id
 and the installation id all agree. Any other answer says which one does not.
 
-The stand-in weave puts ahead of an agent's PATH as gh runs this for every call, so
-a tool weave hands the token to never holds a stale one. --checkout is how that
+The stand-in komrade puts ahead of an agent's PATH as gh runs this for every call, so
+a tool komrade hands the token to never holds a stale one. --checkout is how that
 stand-in says which tree it was run in, and refuses a tree whose origin is on a host
 the App does not reach. --if-configured prints nothing and succeeds on a machine
 that names no App, which leaves gh the credential the machine was logged in with.`,
@@ -133,7 +133,7 @@ func requireGitHubRemote(raw string) error {
 	}
 
 	return errNotGitHubCheckout.Saying(
-		"%s is on %s, and weave holds a GitHub App and nothing else, so it has no credential for that forge",
+		"%s is on %s, and komrade holds a GitHub App and nothing else, so it has no credential for that forge",
 		remote.Path, remote.Host)
 }
 
@@ -151,7 +151,7 @@ Nothing is stored. The token is made when git asks and stops working within the 
 
 Set it up with:
 
-    git config --global credential.https://github.com.helper '!weave github credential'`,
+    git config --global credential.https://github.com.helper '!komrade github credential'`,
 		Args:          cobra.MaximumNArgs(1),
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -196,7 +196,7 @@ func githubToken(ctx context.Context, state *app) (string, error) {
 
 	if !current.IsConfigured() {
 		return "", fmt.Errorf("no github app is configured: set app_id, installation_id and " +
-			"private_key_path under [github_app] in the config this weave was started with")
+			"private_key_path under [github_app] in the config this komrade was started with")
 	}
 
 	token, err := current.Cache.Fetch(ctx, xhttp.NewClient(githubTokenTimeout), time.Now())

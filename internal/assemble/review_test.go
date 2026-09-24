@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"weave/internal/assemble"
+	"komrade/internal/assemble"
 
-	agentv1 "weave/proto/gen/agent/v1"
-	watchv1 "weave/proto/gen/watch/v1"
+	agentv1 "komrade/proto/gen/agent/v1"
+	watchv1 "komrade/proto/gen/watch/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

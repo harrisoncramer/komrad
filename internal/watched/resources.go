@@ -2,16 +2,16 @@
 package watched
 
 import (
-	"weave/internal/watch"
+	"komrade/internal/watch"
 
-	mailstore "weave/internal/store/mail"
-	markstore "weave/internal/store/mark"
-	pullrequeststore "weave/internal/store/pullrequest"
-	reviewstore "weave/internal/store/review"
-	rowstore "weave/internal/store/row"
-	schedulestore "weave/internal/store/schedule"
-	workflowstore "weave/internal/store/workflow"
-	worktreestore "weave/internal/store/worktree"
+	mailstore "komrade/internal/store/mail"
+	markstore "komrade/internal/store/mark"
+	pullrequeststore "komrade/internal/store/pullrequest"
+	reviewstore "komrade/internal/store/review"
+	rowstore "komrade/internal/store/row"
+	schedulestore "komrade/internal/store/schedule"
+	workflowstore "komrade/internal/store/workflow"
+	worktreestore "komrade/internal/store/worktree"
 )
 
 // All lists every resource the watch carries the rows of.

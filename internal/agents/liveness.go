@@ -1,7 +1,7 @@
 package agents
 
 import (
-	agentstore "weave/internal/store/agent"
+	agentstore "komrade/internal/store/agent"
 )
 
 // PaneLiveness answers whether an agent is still running: true exactly while the pane its row

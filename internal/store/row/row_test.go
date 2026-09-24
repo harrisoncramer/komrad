@@ -3,14 +3,14 @@ package row_test
 import (
 	"testing"
 
-	"weave/internal/store"
-	"weave/internal/storetest"
-	"weave/lib/xptr"
-	"weave/lib/xslice"
+	"komrade/internal/store"
+	"komrade/internal/storetest"
+	"komrade/lib/xptr"
+	"komrade/lib/xslice"
 
-	agentstore "weave/internal/store/agent"
-	rowstore "weave/internal/store/row"
-	runstore "weave/internal/store/run"
+	agentstore "komrade/internal/store/agent"
+	rowstore "komrade/internal/store/row"
+	runstore "komrade/internal/store/run"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

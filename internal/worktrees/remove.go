@@ -9,9 +9,9 @@ import (
 	"slices"
 	"strings"
 
-	"weave/internal/git"
-	"weave/internal/logging"
-	agentstore "weave/internal/store/agent"
+	"komrade/internal/git"
+	"komrade/internal/logging"
+	agentstore "komrade/internal/store/agent"
 )
 
 // Refusal is a directory a removal left alone, and why.

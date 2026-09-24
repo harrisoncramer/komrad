@@ -4,9 +4,9 @@ package panel
 import (
 	"time"
 
-	"weave/internal/git"
-	"weave/lib/xslice"
-	agentv1 "weave/proto/gen/agent/v1"
+	"komrade/internal/git"
+	"komrade/lib/xslice"
+	agentv1 "komrade/proto/gen/agent/v1"
 )
 
 // State is what an agent is doing.

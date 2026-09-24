@@ -5,7 +5,7 @@ import (
 	"net/url"
 	"strings"
 
-	"weave/internal/fail"
+	"komrade/internal/fail"
 )
 
 // ErrNotForgeRemote says a remote names no repository on a forge.
@@ -13,7 +13,7 @@ var ErrNotForgeRemote = fail.InvalidArgument("remote is not a forge repository")
 
 // RemoteURL is a git remote taken apart into the pieces a forge repository is named by.
 type RemoteURL struct {
-	// Raw is the remote exactly as git had it, such as git@github.com:harrisoncramer/weave.git.
+	// Raw is the remote exactly as git had it, such as git@github.com:harrisoncramer/komrade.git.
 	Raw string
 	// Scheme is the transport the remote fetches over, one of ssh, git, http or https.
 	Scheme string
@@ -22,7 +22,7 @@ type RemoteURL struct {
 	// Port is the port as spelled, such as 2222, or empty when the remote named none.
 	Port string
 	// Path is the lowercased repository path with its .git suffix and surrounding slashes
-	// removed, such as harrisoncramer/weave or group/subgroup/repo.
+	// removed, such as harrisoncramer/komrade or group/subgroup/repo.
 	Path string
 }
 

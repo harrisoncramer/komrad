@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"strings"
 
-	"weave/db"
-	"weave/db/models"
-	"weave/internal/store"
-	"weave/lib/xslice"
+	"komrade/db"
+	"komrade/db/models"
+	"komrade/internal/store"
+	"komrade/lib/xslice"
 )
 
 // ListWorktreeDirs returns the directories the workflows cut their worktrees in.

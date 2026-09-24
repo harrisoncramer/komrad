@@ -16,10 +16,10 @@ func TestLoadAddsProcessEnvironment(t *testing.T) {
 	t.Setenv("EDITOR", "nvim")
 	t.Setenv("TMUX", "/tmp/tmux,1,0")
 	t.Setenv("TMUX_PANE", "%4")
-	t.Setenv("WEAVE_AGENT_ID", "agent-1")
-	t.Setenv("WEAVE_SESSION_ID", "session-1")
+	t.Setenv("KOMRADE_AGENT_ID", "agent-1")
+	t.Setenv("KOMRADE_SESSION_ID", "session-1")
 
-	connection := Environment{Addr: "127.0.0.1:9999", CacheDir: "/tmp/weave-cache"}
+	connection := Environment{Addr: "127.0.0.1:9999", CacheDir: "/tmp/komrade-cache"}
 
 	got, err := LoadEnvironment(connection)
 	require.NoError(t, err)
@@ -31,7 +31,7 @@ func TestLoadAddsProcessEnvironment(t *testing.T) {
 	assert.Equal(t, "%4", got.TmuxPane)
 	assert.Equal(t, "agent-1", got.AgentID)
 	assert.Equal(t, "session-1", got.SessionID)
-	assert.Equal(t, "/tmp/weave-cache/weave.log", got.LogPath())
+	assert.Equal(t, "/tmp/komrade-cache/komrade.log", got.LogPath())
 	assert.NotEmpty(t, got.StateDir, "the state directory is filled in when the caller names none")
 }
 
@@ -40,9 +40,9 @@ func TestLoadAddsProcessEnvironment(t *testing.T) {
 func TestLoadKeepsAStateDirItWasGiven(t *testing.T) {
 	t.Setenv("EDITOR", "")
 
-	got, err := LoadEnvironment(Environment{StateDir: "/tmp/weave-state"})
+	got, err := LoadEnvironment(Environment{StateDir: "/tmp/komrade-state"})
 	require.NoError(t, err)
-	assert.Equal(t, "/tmp/weave-state", got.StateDir)
+	assert.Equal(t, "/tmp/komrade-state", got.StateDir)
 }
 
 // TestLoadDefaultsEditor pins the editor used when the process names none.
@@ -58,7 +58,7 @@ func TestLoadDefaultsEditor(t *testing.T) {
 // platform separates a path list.
 func TestLayerPathsUsesPlatformPathList(t *testing.T) {
 	want := []string{"/one.toml", "/two.toml"}
-	t.Setenv("WEAVE_CONFIG", strings.Join(want, string(filepath.ListSeparator)))
+	t.Setenv("KOMRADE_CONFIG", strings.Join(want, string(filepath.ListSeparator)))
 
 	assert.Equal(t, want, LayerPaths())
 }

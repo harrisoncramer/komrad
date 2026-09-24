@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"weave/internal/agents"
-	transcriptstore "weave/internal/store/transcript"
+	"komrade/internal/agents"
+	transcriptstore "komrade/internal/store/transcript"
 )
 
 const assistantRole = "assistant"

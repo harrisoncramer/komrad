@@ -3,7 +3,7 @@ package ui
 import (
 	"strings"
 
-	"weave/internal/ui/paint"
+	"komrade/internal/ui/paint"
 
 	tea "charm.land/bubbletea/v2"
 )

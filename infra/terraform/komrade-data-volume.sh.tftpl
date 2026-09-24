@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Explainer: this is everything the host cannot know until Terraform has built it.
+#
+# The machine image carries the scripts, the units and the toolchain, so almost nothing
+# is installed at boot. What the image cannot contain is the identity of the volume and
+# the database this particular instance was given, because those are created by the same
+# Terraform run that creates the instance. Writing them here is the handover.
+#
+# The units below are enabled in the image, so they also try to run earlier in the boot,
+# before these files exist. They are written to skip cleanly in that case, and starting
+# them here is what actually runs them once the files are in place.
+
+mkdir -p /etc/komrade
+
+echo "KOMRADE_DATA_VOLUME_ID=${data_volume_id}" >/etc/komrade/data-volume.env
+
+# Only the name of the secret travels here, never its value. User data is readable by anything
+# on the instance that can reach the metadata service, so it carries identifiers and nothing else.
+cat >/etc/komrade/database-source.env <<ENV
+KOMRADE_DATABASE_SECRET_ARN=${database_secret_arn}
+KOMRADE_DATABASE_HOST=${database_host}
+KOMRADE_DATABASE_NAME=${database_name}
+AWS_REGION=${aws_region}
+ENV
+
+# Order matters. The volume has to be mounted before komrade can use it, and the password
+# has to be fetched before komrade can start, so each is started in turn rather than left
+# to systemd's own ordering.
+systemctl start komrade-data-volume.service
+
+# The home this writes into lives on the data volume, so it has to follow the mount above.
+if [ -n "${ssh_public_key}" ]; then
+	install -d -m 700 -o komrade -g komrade /var/lib/komrade/home/.ssh
+	printf '%s\n' "${ssh_public_key}" >/var/lib/komrade/home/.ssh/authorized_keys
+	chmod 600 /var/lib/komrade/home/.ssh/authorized_keys
+	chown komrade:komrade /var/lib/komrade/home/.ssh/authorized_keys
+fi
+
+systemctl start komrade-database-credentials.service
+systemctl start komrade.service

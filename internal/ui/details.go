@@ -5,10 +5,10 @@ import (
 	"strconv"
 	"strings"
 
-	"weave/config"
-	"weave/internal/ui/paint"
-	"weave/internal/view"
-	"weave/lib/xslice"
+	"komrade/config"
+	"komrade/internal/ui/paint"
+	"komrade/internal/view"
+	"komrade/lib/xslice"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"

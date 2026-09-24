@@ -5,9 +5,9 @@ import (
 	"os/exec"
 	"strings"
 
-	"weave/internal/engine"
-	"weave/internal/position"
-	"weave/lib/xslice"
+	"komrade/internal/engine"
+	"komrade/internal/position"
+	"komrade/lib/xslice"
 )
 
 // EngineClient is git run on the engine an agent's worktree is on, reached through its transport.

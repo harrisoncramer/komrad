@@ -3,8 +3,8 @@ package agent
 import (
 	"testing"
 
-	"weave/internal/store"
-	"weave/lib/xptr"
+	"komrade/internal/store"
+	"komrade/lib/xptr"
 
 	"github.com/stretchr/testify/require"
 )

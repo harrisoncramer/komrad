@@ -3,7 +3,7 @@
 //
 // A review comment is written against a round, a frozen commit of an agent's worktree, and the
 // agent keeps writing afterwards. To draw that comment against a later round something has to
-// say where those lines went. Both rounds are ordinary commits weave still holds, so the answer
+// say where those lines went. Both rounds are ordinary commits komrade still holds, so the answer
 // is in git rather than in a guess, and this package is the arithmetic that reads it.
 //
 // A range holds its start and not its end. That choice does two things. It makes a span of no
@@ -26,5 +26,5 @@
 //
 // The design is Gerrit's GitPositionTransformer, which has done this since 2020 and had the
 // sense to keep the transformer ignorant of comments. Reimplemented here rather than translated,
-// and the same ignorance is the reason this package imports nothing of weave's.
+// and the same ignorance is the reason this package imports nothing of komrade's.
 package position

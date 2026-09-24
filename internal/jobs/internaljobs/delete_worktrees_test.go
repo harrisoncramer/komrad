@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"weave/internal/worktrees"
-	"weave/lib/xptr"
+	"komrade/internal/worktrees"
+	"komrade/lib/xptr"
 
 	"github.com/riverqueue/river"
 	"github.com/stretchr/testify/assert"

@@ -1,4 +1,4 @@
-// Package rpccodec holds the codecs weave hangs on its connect handlers.
+// Package rpccodec holds the codecs komrade hangs on its connect handlers.
 package rpccodec
 
 import (

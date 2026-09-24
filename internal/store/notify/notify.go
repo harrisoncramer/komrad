@@ -5,8 +5,8 @@ import (
 	"context"
 	"fmt"
 
-	"weave/db/models"
-	"weave/internal/store"
+	"komrade/db/models"
+	"komrade/internal/store"
 )
 
 // NotifyStore listens on the watch channel.

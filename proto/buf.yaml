@@ -4,7 +4,7 @@ modules:
 deps:
   - buf.build/bufbuild/protovalidate
 plugins:
-  - plugin: ../local/buf-plugin-weave
+  - plugin: ../local/buf-plugin-komrade
 lint:
   use:
     - STANDARD

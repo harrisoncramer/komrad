@@ -3,7 +3,7 @@ package ui
 import (
 	"testing"
 
-	"weave/config"
+	"komrade/config"
 
 	"charm.land/huh/v2"
 	"github.com/stretchr/testify/assert"

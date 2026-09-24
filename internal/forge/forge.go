@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"time"
 
-	"weave/internal/fail"
-	"weave/internal/git"
-	"weave/lib/xhttp"
+	"komrade/internal/fail"
+	"komrade/internal/git"
+	"komrade/lib/xhttp"
 )
 
 // ErrNotFound says the forge has nothing at the address asked for.
@@ -73,7 +73,7 @@ const KindGitLab = "gitlab"
 // MethodToken is the method for a credential a person supplied.
 const MethodToken = "token"
 
-// ReviewDecision is where a forge says a pull request's reviews stand, in weave's own words.
+// ReviewDecision is where a forge says a pull request's reviews stand, in komrade's own words.
 type ReviewDecision string
 
 const (
@@ -87,7 +87,7 @@ const (
 	ReviewDecisionChangesRequested ReviewDecision = "changes_requested"
 )
 
-// Checks is where a forge says the checks on a pull request's head commit stand, in weave's
+// Checks is where a forge says the checks on a pull request's head commit stand, in komrade's
 // own words.
 type Checks string
 
@@ -103,7 +103,7 @@ const (
 )
 
 // Mergeability is where a forge says a pull request stands against its base and its branch
-// rules, in weave's own words.
+// rules, in komrade's own words.
 type Mergeability string
 
 const (

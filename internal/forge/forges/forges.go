@@ -6,11 +6,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"weave/config"
-	"weave/internal/forge"
-	"weave/internal/forge/github"
-	"weave/internal/forge/gitlab"
-	githubapp "weave/internal/github/app"
+	"komrade/config"
+	"komrade/internal/forge"
+	"komrade/internal/forge/github"
+	"komrade/internal/forge/gitlab"
+	githubapp "komrade/internal/github/app"
 )
 
 // Builders makes the forge for each kind this build knows.

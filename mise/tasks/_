@@ -2,8 +2,8 @@
 source "$MISE_CONFIG_ROOT/mise/tasks/_build"
 : "${DB_PORT:=5460}"
 export DB_PORT
-export WEAVE_DATABASE_URL="${WEAVE_DATABASE_URL:-postgres://weave:weave@localhost:${DB_PORT}/weave?sslmode=disable}"
-export DATABASE_URL="$WEAVE_DATABASE_URL"
+export KOMRADE_DATABASE_URL="${KOMRADE_DATABASE_URL:-postgres://komrade:komrade@localhost:${DB_PORT}/komrade?sslmode=disable}"
+export DATABASE_URL="$KOMRADE_DATABASE_URL"
 
 adminURL() {
 	echo "${DATABASE_URL%/*}/postgres?sslmode=disable"

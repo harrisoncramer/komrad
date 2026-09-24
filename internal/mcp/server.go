@@ -1,9 +1,9 @@
-// Package mcp serves weave's API to the agents themselves, turning each RPC method into a tool
+// Package mcp serves komrade's API to the agents themselves, turning each RPC method into a tool
 // an agent's CLI can call.
 //
 // The tools are generated from the same descriptors the handlers are built on, so a tool takes
 // the request's fields as its inputs and its annotations say whether it only reads. That is
-// what lets one agent spawn, address, or read another without weave keeping a second
+// what lets one agent spawn, address, or read another without komrade keeping a second
 // hand-written surface in step with the first.
 //
 // A tool's annotation also says which roles it is offered to, and the caller names itself on
@@ -16,9 +16,9 @@ import (
 	"fmt"
 	"net/http"
 
-	annotationv1 "weave/proto/gen/annotation/v1"
+	annotationv1 "komrade/proto/gen/annotation/v1"
 
-	"weave/internal/caller"
+	"komrade/internal/caller"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
@@ -80,11 +80,11 @@ func getCallerRole(request *http.Request, roleOf RoleOf) annotationv1.Role {
 
 func newServer(params NewHandlerParams, role annotationv1.Role) (*mcpsdk.Server, error) {
 	server := mcpsdk.NewServer(&mcpsdk.Implementation{
-		Name:    "weave-db",
+		Name:    "komrade-db",
 		Title:   "Claude Agents Database",
 		Version: "0.1.0",
 	}, &mcpsdk.ServerOptions{
-		Instructions: "Access to weave, a tmux panel that runs background coding agents. " +
+		Instructions: "Access to komrade, a tmux panel that runs background coding agents. " +
 			"Two ways in. list_tables, describe_table, and query read the panel's Postgres database " +
 			"directly, which is best for aggregates and joins. The agent tools read and change " +
 			"the agents themselves, and are the only way to spawn, rename, or remove one.",

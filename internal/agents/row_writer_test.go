@@ -4,11 +4,11 @@ import (
 	"context"
 	"testing"
 
-	"weave/internal/store"
-	agentstore "weave/internal/store/agent"
-	rowstore "weave/internal/store/row"
-	runstore "weave/internal/store/run"
-	"weave/lib/xptr"
+	"komrade/internal/store"
+	agentstore "komrade/internal/store/agent"
+	rowstore "komrade/internal/store/row"
+	runstore "komrade/internal/store/run"
+	"komrade/lib/xptr"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"

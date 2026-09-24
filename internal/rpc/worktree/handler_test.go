@@ -6,14 +6,14 @@ import (
 	"testing"
 	"time"
 
-	"weave/internal/git"
-	"weave/internal/store"
-	agentstore "weave/internal/store/agent"
-	worktreestore "weave/internal/store/worktree"
-	"weave/internal/worktrees"
-	agentv1 "weave/proto/gen/agent/v1"
-	worktreev1 "weave/proto/gen/worktree/v1"
-	worktreev1weave "weave/proto/gen/worktree/v1/worktreev1weave"
+	"komrade/internal/git"
+	"komrade/internal/store"
+	agentstore "komrade/internal/store/agent"
+	worktreestore "komrade/internal/store/worktree"
+	"komrade/internal/worktrees"
+	agentv1 "komrade/proto/gen/agent/v1"
+	worktreev1 "komrade/proto/gen/worktree/v1"
+	worktreev1komrade "komrade/proto/gen/worktree/v1/worktreev1komrade"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
@@ -230,13 +230,13 @@ func TestHandlerAnswersWithTheDomainsKind(t *testing.T) {
 	tests := []struct {
 		name     string
 		fake     *fakeWorktrees
-		call     func(ctx context.Context, service worktreev1weave.WorktreeServiceAdapter) error
+		call     func(ctx context.Context, service worktreev1komrade.WorktreeServiceAdapter) error
 		wantCode connect.Code
 	}{
 		{
 			name: "a listing that fails",
 			fake: &fakeWorktrees{err: broke},
-			call: func(ctx context.Context, service worktreev1weave.WorktreeServiceAdapter) error {
+			call: func(ctx context.Context, service worktreev1komrade.WorktreeServiceAdapter) error {
 				_, err := service.ListWorktrees(ctx, connect.NewRequest(&emptypb.Empty{}))
 
 				return err
@@ -246,7 +246,7 @@ func TestHandlerAnswersWithTheDomainsKind(t *testing.T) {
 		{
 			name: "a claim read that fails",
 			fake: &fakeWorktrees{claimErr: broke},
-			call: func(ctx context.Context, service worktreev1weave.WorktreeServiceAdapter) error {
+			call: func(ctx context.Context, service worktreev1komrade.WorktreeServiceAdapter) error {
 				_, err := service.ListWorktrees(ctx, connect.NewRequest(&emptypb.Empty{}))
 
 				return err
@@ -256,7 +256,7 @@ func TestHandlerAnswersWithTheDomainsKind(t *testing.T) {
 		{
 			name: "a directory outside the worktree directories",
 			fake: &fakeWorktrees{err: notUnder},
-			call: func(ctx context.Context, service worktreev1weave.WorktreeServiceAdapter) error {
+			call: func(ctx context.Context, service worktreev1komrade.WorktreeServiceAdapter) error {
 				_, err := service.GetWorktree(ctx, connect.NewRequest(&worktreev1.GetWorktreeRequest{Dir: "/elsewhere"}))
 
 				return err
@@ -266,7 +266,7 @@ func TestHandlerAnswersWithTheDomainsKind(t *testing.T) {
 		{
 			name: "a removal that fails",
 			fake: &fakeWorktrees{err: broke},
-			call: func(ctx context.Context, service worktreev1weave.WorktreeServiceAdapter) error {
+			call: func(ctx context.Context, service worktreev1komrade.WorktreeServiceAdapter) error {
 				_, err := service.RemoveUnownedWorktrees(ctx, connect.NewRequest(&worktreev1.RemoveUnownedWorktreesRequest{Dirs: []string{"/trees/gone"}}))
 
 				return err
@@ -276,7 +276,7 @@ func TestHandlerAnswersWithTheDomainsKind(t *testing.T) {
 		{
 			name: "a delete the queue refuses",
 			fake: &fakeWorktrees{err: broke},
-			call: func(ctx context.Context, service worktreev1weave.WorktreeServiceAdapter) error {
+			call: func(ctx context.Context, service worktreev1komrade.WorktreeServiceAdapter) error {
 				_, err := service.DeleteWorktrees(ctx, connect.NewRequest(&worktreev1.DeleteWorktreesRequest{Dirs: []string{"/trees/gone"}}))
 
 				return err
@@ -296,8 +296,8 @@ func TestHandlerAnswersWithTheDomainsKind(t *testing.T) {
 	}
 }
 
-func newService(fake *fakeWorktrees) worktreev1weave.WorktreeServiceAdapter {
-	return worktreev1weave.WorktreeServiceAdapter{Impl: NewHandler(NewHandlerParams{
+func newService(fake *fakeWorktrees) worktreev1komrade.WorktreeServiceAdapter {
+	return worktreev1komrade.WorktreeServiceAdapter{Impl: NewHandler(NewHandlerParams{
 		Lister:    fake,
 		Inspector: fake,
 		Remover:   fake,

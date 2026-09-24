@@ -42,7 +42,7 @@ require_output() {
 	if [ -z "$value" ]; then
 		echo "could not read $name from Terraform, so there is no engine to work with." >&2
 		echo >&2
-		echo "Run 'mise run terraform:apply' to build one, or set the matching WEAVE_ENGINE_*" >&2
+		echo "Run 'mise run terraform:apply' to build one, or set the matching KOMRADE_ENGINE_*" >&2
 		echo "variable to skip Terraform entirely." >&2
 		exit 1
 	fi
@@ -56,7 +56,7 @@ engine_region() {
 
 # require_instance names the engine's instance, taking an argument over the environment over state.
 require_instance() {
-	local instance=${1:-${WEAVE_ENGINE_INSTANCE:-}}
+	local instance=${1:-${KOMRADE_ENGINE_INSTANCE:-}}
 
 	if [ -z "$instance" ]; then
 		instance="$(terraform_output instance_id)"
@@ -65,7 +65,7 @@ require_instance() {
 	if [ -z "$instance" ]; then
 		echo "could not read the engine's instance from Terraform." >&2
 		echo >&2
-		echo "Run 'mise run terraform:apply' to build one, or set WEAVE_ENGINE_INSTANCE." >&2
+		echo "Run 'mise run terraform:apply' to build one, or set KOMRADE_ENGINE_INSTANCE." >&2
 		exit 1
 	fi
 

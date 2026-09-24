@@ -4,15 +4,15 @@ import (
 	"testing"
 	"time"
 
-	"weave/internal/ui"
-	agentv1 "weave/proto/gen/agent/v1"
-	"weave/proto/gen/agent/v1/agentv1connect"
+	"komrade/internal/ui"
+	agentv1 "komrade/proto/gen/agent/v1"
+	"komrade/proto/gen/agent/v1/agentv1connect"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-const rebuiltNotice = "weave was rebuilt"
+const rebuiltNotice = "komrade was rebuilt"
 
 type fakeBinary struct {
 	isReplaced bool

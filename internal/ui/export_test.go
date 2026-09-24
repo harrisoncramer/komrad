@@ -11,16 +11,16 @@ import (
 	"testing"
 	"time"
 
-	"weave/config"
-	"weave/internal/browser"
-	"weave/internal/engine"
-	"weave/internal/panes"
-	"weave/internal/ui/layout"
-	"weave/proto/gen/agent/v1/agentv1connect"
-	"weave/proto/gen/hook/v1/hookv1connect"
-	schedulev1connect "weave/proto/gen/schedule/v1/schedulev1connect"
-	"weave/proto/gen/workflow/v1/workflowv1connect"
-	"weave/proto/gen/worktree/v1/worktreev1connect"
+	"komrade/config"
+	"komrade/internal/browser"
+	"komrade/internal/engine"
+	"komrade/internal/panes"
+	"komrade/internal/ui/layout"
+	"komrade/proto/gen/agent/v1/agentv1connect"
+	"komrade/proto/gen/hook/v1/hookv1connect"
+	schedulev1connect "komrade/proto/gen/schedule/v1/schedulev1connect"
+	"komrade/proto/gen/workflow/v1/workflowv1connect"
+	"komrade/proto/gen/worktree/v1/worktreev1connect"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/assert"
@@ -113,7 +113,7 @@ type NewPanelParams struct {
 	Tmux          PanelTmux
 }
 
-// NewPanel builds the panel the way weave panel does, over a recording tmux.
+// NewPanel builds the panel the way komrade panel does, over a recording tmux.
 func NewPanel(params NewPanelParams) *Panel {
 	settings := params.Settings
 	if settings.Pane == "" {

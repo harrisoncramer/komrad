@@ -3,7 +3,7 @@
  [90m/[m 
  [90mf[m   [90m↓ archived[m  [90mname[m  [90m·[m  [90mworkflow[m
 
-[34m›[m         [90m│[m [1;34mweave[m
+[34m›[m         [90m│[m [1;34mkomrade[m
     [90m[m     [90m│[m   [90mreviewer[m
     [90m[m     [90m│[m   [90mcargo-fix[m
 
@@ -12,7 +12,7 @@
 
 
 [90m────────────────────────────────────────────[m
-  [90mname         [m weave
+  [90mname         [m komrade
   [90magents       [m 2
   [90mdefault agent[m —
   [90mdirectory    [m —
@@ -23,6 +23,6 @@
 
 [90m────────────────────────────────────────────[m
 [92m✔[m No messages
-[90m  Weave is running normally[m
+[90m  Komrade is running normally[m
 [90m────────────────────────────────────────────[m
 [90m?[m [90mshow help[m

@@ -4,12 +4,12 @@ package log
 import (
 	"context"
 
-	"weave/internal/fail"
-	"weave/internal/logging"
-	"weave/internal/logread"
-	"weave/internal/rpcerr"
-	"weave/lib/xslice"
-	logv1 "weave/proto/gen/log/v1"
+	"komrade/internal/fail"
+	"komrade/internal/logging"
+	"komrade/internal/logread"
+	"komrade/internal/rpcerr"
+	"komrade/lib/xslice"
+	logv1 "komrade/proto/gen/log/v1"
 
 	"google.golang.org/protobuf/types/known/structpb"
 )

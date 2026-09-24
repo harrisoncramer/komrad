@@ -6,7 +6,7 @@ import "annotation/v1/tool.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/struct.proto";
 
-option go_package = "weave/proto/gen/config/v1;configv1";
+option go_package = "komrade/proto/gen/config/v1;configv1";
 
 message GetConfigResponse {
   // The configuration as it stands, keyed the way the user's own file is, with the connection

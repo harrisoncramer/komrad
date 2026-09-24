@@ -3,8 +3,8 @@ package agent
 import (
 	"testing"
 
-	transcriptstore "weave/internal/store/transcript"
-	"weave/internal/ui/paint"
+	transcriptstore "komrade/internal/store/transcript"
+	"komrade/internal/ui/paint"
 
 	"github.com/stretchr/testify/assert"
 )

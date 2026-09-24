@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	"weave/config"
-	"weave/lib/xslice"
+	"komrade/config"
+	"komrade/lib/xslice"
 )
 
 const maxNamedOrphans = 3

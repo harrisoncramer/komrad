@@ -3,13 +3,13 @@ package agents
 import (
 	"testing"
 
-	"weave/internal/harness"
-	"weave/internal/harnesstest"
-	agentstore "weave/internal/store/agent"
-	reviewstore "weave/internal/store/review"
-	workflowstore "weave/internal/store/workflow"
-	"weave/internal/tmuxtest"
-	"weave/lib/xptr"
+	"komrade/internal/harness"
+	"komrade/internal/harnesstest"
+	agentstore "komrade/internal/store/agent"
+	reviewstore "komrade/internal/store/review"
+	workflowstore "komrade/internal/store/workflow"
+	"komrade/internal/tmuxtest"
+	"komrade/lib/xptr"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -59,7 +59,7 @@ func TestRequestReviewSpawnsTheReviewer(t *testing.T) {
 	assert.NotContains(t, briefing, "### Getting your own work read")
 }
 
-// TestRequestReviewNamesTheBranch pins the one fact weave holds that an agent asking for a
+// TestRequestReviewNamesTheBranch pins the one fact komrade holds that an agent asking for a
 // review tends to leave out of its own prompt.
 func TestRequestReviewNamesTheBranch(t *testing.T) {
 	tmux := tmuxtest.NewFake()
@@ -305,7 +305,7 @@ func TestRequestReviewRefusesAChild(t *testing.T) {
 }
 
 // TestWorktreeAgentIsToldToGetItsWorkRead pins the delivery of the other half, which reaches the
-// agents weave cut a checkout for and no others.
+// agents komrade cut a checkout for and no others.
 func TestWorktreeAgentIsToldToGetItsWorkRead(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	st := newStore(t)

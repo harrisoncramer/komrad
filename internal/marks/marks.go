@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"weave/db"
-	"weave/internal/store"
-	markstore "weave/internal/store/mark"
+	"komrade/db"
+	"komrade/internal/store"
+	markstore "komrade/internal/store/mark"
 )
 
 type txRunner interface {

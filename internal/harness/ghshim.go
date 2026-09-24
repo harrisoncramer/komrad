@@ -6,16 +6,16 @@ import (
 	"path/filepath"
 )
 
-// ToolsDirName is the directory under the cache dir holding the stand-ins weave puts ahead of
+// ToolsDirName is the directory under the cache dir holding the stand-ins komrade puts ahead of
 // an agent's PATH.
-const ToolsDirName = "weave-agent-tools"
+const ToolsDirName = "komrade-agent-tools"
 
 // ghShim is the stand-in an agent reaches as gh.
 const ghShim = `#!/bin/sh
-# Weave's stand-in for gh. GitHub's CLI reads its credential from the environment and has no
+# Komrade's stand-in for gh. GitHub's CLI reads its credential from the environment and has no
 # credential helper, so this hands it a token minted for this call alone.
 self=%s
-weave=%s
+komrade=%s
 
 real=
 IFS=:
@@ -29,7 +29,7 @@ done
 unset IFS
 
 if [ -z "$real" ]; then
-	echo "weave: gh is not installed on this machine" >&2
+	echo "komrade: gh is not installed on this machine" >&2
 	exit 127
 fi
 
@@ -37,7 +37,7 @@ if [ -n "${GH_TOKEN:-}" ] || [ -n "${GITHUB_TOKEN:-}" ]; then
 	exec "$real" "$@"
 fi
 
-token=$("$weave" github token --checkout "$(pwd)" --if-configured) || exit 1
+token=$("$komrade" github token --checkout "$(pwd)" --if-configured) || exit 1
 if [ -n "$token" ]; then
 	export GH_TOKEN="$token"
 fi
@@ -46,9 +46,9 @@ exec "$real" "$@"
 `
 
 // WriteGHShim writes the gh stand-in under the cache dir, answering the directory holding it
-// and an empty one when there is no weave binary to point it at.
-func WriteGHShim(cacheDir, weaveBinary string) (string, error) {
-	if cacheDir == "" || weaveBinary == "" {
+// and an empty one when there is no komrade binary to point it at.
+func WriteGHShim(cacheDir, komradeBinary string) (string, error) {
+	if cacheDir == "" || komradeBinary == "" {
 		return "", nil
 	}
 
@@ -58,7 +58,7 @@ func WriteGHShim(cacheDir, weaveBinary string) (string, error) {
 	}
 
 	path := filepath.Join(dir, "gh")
-	if err := writeScript(path, fmt.Sprintf(ghShim, QuoteArg(dir), QuoteArg(weaveBinary))); err != nil {
+	if err := writeScript(path, fmt.Sprintf(ghShim, QuoteArg(dir), QuoteArg(komradeBinary))); err != nil {
 		return "", err
 	}
 

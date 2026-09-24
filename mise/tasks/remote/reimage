@@ -78,7 +78,7 @@ gum log --level info "moving the engine from $CURRENT to $AMI"
 
 # Read before the instance goes, since afterwards there is nothing to ask.
 AGENTS="$(mise run remote:connect -- \
-	'tmux -L weave list-windows -a -F "#{window_name}" 2>/dev/null | sort -u | grep -v "^sh$"' 2>/dev/null || true)"
+	'tmux -L komrade list-windows -a -F "#{window_name}" 2>/dev/null | sort -u | grep -v "^sh$"' 2>/dev/null || true)"
 
 if [ -n "$AGENTS" ]; then
 	echo
@@ -126,9 +126,9 @@ terraform -chdir=infra/terraform apply -input=false "${TERRAFORM_ARGS[@]+"${TERR
 HOST="$(terraform_output instance_public_ip)"
 
 if [ -n "$HOST" ]; then
-	rm -f "/tmp/cm-weave-weave@$HOST:22"
+	rm -f "/tmp/cm-komrade-komrade@$HOST:22"
 	ssh-keygen -R "$HOST" >/dev/null 2>&1 || true
-	ssh-keygen -R "$HOST" -f "${WEAVE_ENGINE_KNOWN_HOSTS:-$HOME/.ssh/known_hosts_weave_engine}" >/dev/null 2>&1 || true
+	ssh-keygen -R "$HOST" -f "${KOMRADE_ENGINE_KNOWN_HOSTS:-$HOME/.ssh/known_hosts_komrade_engine}" >/dev/null 2>&1 || true
 
 	gum log --level info "dropped the old host key for $HOST"
 fi

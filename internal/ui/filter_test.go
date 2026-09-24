@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	schedulev1 "weave/proto/gen/schedule/v1"
-	worktreev1 "weave/proto/gen/worktree/v1"
+	schedulev1 "komrade/proto/gen/schedule/v1"
+	worktreev1 "komrade/proto/gen/worktree/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -399,7 +399,7 @@ func TestFilterScreens(t *testing.T) {
 				newNamedSchedule("s1", "nightly"),
 				&worktreev1.WatchedWorktree{
 					Dir:      "/trees/auth",
-					RepoDir:  "/home/h/weave",
+					RepoDir:  "/home/h/komrade",
 					Branch:   "agent/auth",
 					Readable: true,
 				},
@@ -423,7 +423,7 @@ func TestFilterWorktreeHeader(t *testing.T) {
 		newLiveWorkflow("w1", "backend"),
 		&worktreev1.WatchedWorktree{
 			Dir:        "/trees/worktree-view",
-			RepoDir:    "/home/h/weave",
+			RepoDir:    "/home/h/komrade",
 			Branch:     "agent/worktree-view",
 			Readable:   true,
 			SizeBytes:  proto.Int64(1 << 20),
@@ -431,7 +431,7 @@ func TestFilterWorktreeHeader(t *testing.T) {
 		},
 		&worktreev1.WatchedWorktree{
 			Dir:        "/trees/other",
-			RepoDir:    "/home/h/weave",
+			RepoDir:    "/home/h/komrade",
 			Branch:     "agent/other",
 			Readable:   true,
 			SizeBytes:  proto.Int64(1 << 20),

@@ -5,13 +5,13 @@ import (
 	"path/filepath"
 	"testing"
 
-	"weave/internal/harness"
-	"weave/internal/harness/claude"
-	"weave/internal/harness/codex"
-	"weave/internal/harnesstest"
-	agentstore "weave/internal/store/agent"
-	transcriptstore "weave/internal/store/transcript"
-	"weave/internal/storetest"
+	"komrade/internal/harness"
+	"komrade/internal/harness/claude"
+	"komrade/internal/harness/codex"
+	"komrade/internal/harnesstest"
+	agentstore "komrade/internal/store/agent"
+	transcriptstore "komrade/internal/store/transcript"
+	"komrade/internal/storetest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -306,7 +306,7 @@ func TestSyncAdoptedSessionIsIndexed(t *testing.T) {
 	require.NoError(t, os.MkdirAll(dir, 0o755))
 	rollout := filepath.Join(dir, "rollout-2026-07-30T12-41-39-"+sessionID+".jsonl")
 	require.NoError(t, os.WriteFile(rollout,
-		[]byte(`{"type":"session_meta","payload":{"id":"`+sessionID+`","originator":"weave-`+created.ID+`"}}`+"\n"+
+		[]byte(`{"type":"session_meta","payload":{"id":"`+sessionID+`","originator":"komrade-`+created.ID+`"}}`+"\n"+
 			`{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"how do I use trigram search"}]}}`+"\n"),
 		0o600))
 

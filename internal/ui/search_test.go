@@ -6,12 +6,12 @@ import (
 	"testing"
 	"time"
 
-	"weave/config"
-	"weave/internal/ui/paint"
-	"weave/lib/xslice"
-	agentv1 "weave/proto/gen/agent/v1"
-	"weave/proto/gen/agent/v1/agentv1connect"
-	paginationv1 "weave/proto/gen/pagination/v1"
+	"komrade/config"
+	"komrade/internal/ui/paint"
+	"komrade/lib/xslice"
+	agentv1 "komrade/proto/gen/agent/v1"
+	"komrade/proto/gen/agent/v1/agentv1connect"
+	paginationv1 "komrade/proto/gen/pagination/v1"
 
 	tea "charm.land/bubbletea/v2"
 	"connectrpc.com/connect"

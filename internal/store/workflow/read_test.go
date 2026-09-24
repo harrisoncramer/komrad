@@ -4,8 +4,8 @@ import (
 	"slices"
 	"testing"
 
-	"weave/internal/store"
-	"weave/lib/xslice"
+	"komrade/internal/store"
+	"komrade/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -325,7 +325,7 @@ func TestListPageOrderMatchesByName(t *testing.T) {
 	ctx := t.Context()
 
 	var want []Workflow
-	for _, name := range []string{"weavebot", "weave-bughunt", "weave", "Weave.Old", "weave_two"} {
+	for _, name := range []string{"komradebot", "komrade-bughunt", "komrade", "Komrade.Old", "komrade_two"} {
 		created, err := st.Create(ctx, Config{Name: name, Worktree: WorktreeConfig{BaseBranch: "main"}})
 		require.NoError(t, err)
 		want = append(want, *created)

@@ -5,7 +5,7 @@ package doctor.v1;
 import "annotation/v1/tool.proto";
 import "google/protobuf/empty.proto";
 
-option go_package = "weave/proto/gen/doctor/v1;doctorv1";
+option go_package = "komrade/proto/gen/doctor/v1;doctorv1";
 
 message Finding {
   // Which check this is, such as database or tmux shell.
@@ -54,7 +54,7 @@ service DoctorService {
       cli: true
       mcp: true
       name: "run_doctor"
-      description: "Check the machine the service runs on for what its agents need: tmux and its shell, the config, the harness binaries, the hooks and worktree directories, the database and its schema. Each check answers ok, warn, fail or skip with what was found and what to do about it. This is what weave doctor asks an engine for, and it is how to find out whether an engine is fit to run agents without a shell on it."
+      description: "Check the machine the service runs on for what its agents need: tmux and its shell, the config, the harness binaries, the hooks and worktree directories, the database and its schema. Each check answers ok, warn, fail or skip with what was found and what to do about it. This is what komrade doctor asks an engine for, and it is how to find out whether an engine is fit to run agents without a shell on it."
       roles: [ROLE_ORCHESTRATOR]
     };
   }

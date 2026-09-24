@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"weave/internal/git"
+	"komrade/internal/git"
 )
 
 // Checkout answers every question about a checkout with what the test put in it, remembering

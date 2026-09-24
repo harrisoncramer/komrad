@@ -3,12 +3,12 @@ package assemble_test
 import (
 	"testing"
 
-	"weave/internal/assemble"
-	"weave/lib/xptr"
-	"weave/lib/xslice"
+	"komrade/internal/assemble"
+	"komrade/lib/xptr"
+	"komrade/lib/xslice"
 
-	agentv1 "weave/proto/gen/agent/v1"
-	watchv1 "weave/proto/gen/watch/v1"
+	agentv1 "komrade/proto/gen/agent/v1"
+	watchv1 "komrade/proto/gen/watch/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

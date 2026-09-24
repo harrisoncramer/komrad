@@ -11,11 +11,11 @@ import (
 	"strings"
 	"testing"
 
-	"weave/config"
-	"weave/internal/caller"
-	"weave/internal/errui"
-	"weave/internal/server"
-	"weave/internal/version"
+	"komrade/config"
+	"komrade/internal/caller"
+	"komrade/internal/errui"
+	"komrade/internal/server"
+	"komrade/internal/version"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -183,7 +183,7 @@ func TestIntegrationRequireServerSaysHowToStartOne(t *testing.T) {
 
 	err := requireServer(t.Context(), dead, dead)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "weave start", "the refusal says what to do about it")
+	assert.Contains(t, err.Error(), "komrade start", "the refusal says what to do about it")
 
 	err = requireServer(t.Context(), dead, "127.0.0.1:8787")
 	require.Error(t, err)
@@ -206,7 +206,7 @@ func TestIntegrationRequireServerRefusesAnotherBuild(t *testing.T) {
 
 	err = requireServer(t.Context(), addr, "127.0.0.1:8787")
 	require.ErrorIs(t, err, errui.ErrEngineBuild, "a forwarded engine is somebody else's build to match")
-	assert.NotContains(t, err.Error(), "weave start", "starting a server here would not be the engine")
+	assert.NotContains(t, err.Error(), "komrade start", "starting a server here would not be the engine")
 }
 
 // deadAddr is an address nothing is listening on, taken by opening a server and closing it so
@@ -294,5 +294,5 @@ func TestIntegrationRpcSubcommandStopsWhenNothingIsServing(t *testing.T) {
 
 	err := root.ExecuteContext(t.Context())
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "weave start")
+	assert.Contains(t, err.Error(), "komrade start")
 }

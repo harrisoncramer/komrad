@@ -81,7 +81,7 @@ func (Role) EnumDescriptor() ([]byte, []int) {
 
 type Surfaces struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Whether weave rpc gets a subcommand for the method, which is what a script runs.
+	// Whether komrade rpc gets a subcommand for the method, which is what a script runs.
 	Cli bool `protobuf:"varint,1,opt,name=cli,proto3" json:"cli,omitempty"`
 	// Whether the MCP server offers the method as a tool, which is what a model calls. A tool
 	// without a CLI command makes no sense, so mcp implies cli.
@@ -236,7 +236,7 @@ const file_annotation_v1_tool_proto_rawDesc = "" +
 	"\x10ROLE_IMPLEMENTER\x10\x01\x12\x11\n" +
 	"\rROLE_REVIEWER\x10\x02\x12\x15\n" +
 	"\x11ROLE_ORCHESTRATOR\x10\x03:U\n" +
-	"\bsurfaces\x12\x1e.google.protobuf.MethodOptions\x18ӆ\x03 \x01(\v2\x17.annotation.v1.SurfacesR\bsurfacesB,Z*weave/proto/gen/annotation/v1;annotationv1b\x06proto3"
+	"\bsurfaces\x12\x1e.google.protobuf.MethodOptions\x18ӆ\x03 \x01(\v2\x17.annotation.v1.SurfacesR\bsurfacesB.Z,komrade/proto/gen/annotation/v1;annotationv1b\x06proto3"
 
 var (
 	file_annotation_v1_tool_proto_rawDescOnce sync.Once

@@ -9,9 +9,9 @@ import (
 	context "context"
 	errors "errors"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
+	v1 "komrade/proto/gen/workflow/v1"
 	http "net/http"
 	strings "strings"
-	v1 "weave/proto/gen/workflow/v1"
 )
 
 // This is a compile-time assertion to ensure that this generated file and the connect package are

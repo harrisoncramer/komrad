@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"weave/internal/harness"
+	"komrade/internal/harness"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -36,7 +36,7 @@ const startupFrame = "\x1b[2m╰────────────────
 	"\n" +
 	"\x1b[1m›\x1b[0m \x1b[2mRun /review on my current changes\x1b[0m\n" +
 	"\n" +
-	"  \x1b[38;2;130;156;207mgpt-5.6-sol medium\x1b[2m\x1b[39m · \x1b[0m\x1b[38;2;154;184;117m~/.local/state/weave/worktrees/01a06355-b7ca-78b2-b18e-f…"
+	"  \x1b[38;2;130;156;207mgpt-5.6-sol medium\x1b[2m\x1b[39m · \x1b[0m\x1b[38;2;154;184;117m~/.local/state/komrade/worktrees/01a06355-b7ca-78b2-b18e-f…"
 
 const composerTail = "\n\n› " + composerHint + "\n\n  gpt-5.6-sol default fast · /repo/worktree"
 
@@ -102,7 +102,7 @@ const questionsFrame = "  Question 1/3 (3 unanswered)\n" +
 const labelledStartupFrame = "\x1b[1m\x1b[38;2;128;128;128m•\x1b[0m \x1b[1m\x1b[38;2;128;128;128mStarting MCP servers (1/3): gadgets, codex_apps\x1b[0m " +
 	dimOn + "(0s • esc to interrupt)" + dimOff + composerTail
 
-const quotedStatusFrame = dimOn + "  \u2514 weave.send_mail({\"body\":\"the pane still said Working (4s \u2022 esc to interrupt) afterwards\"})" + dimOff + "\n" +
+const quotedStatusFrame = dimOn + "  \u2514 komrade.send_mail({\"body\":\"the pane still said Working (4s \u2022 esc to interrupt) afterwards\"})" + dimOff + "\n" +
 	"\n" +
 	"\u2022 Yes. It is a separate bug that already exists on main.\n" +
 	"\n" +
@@ -367,7 +367,7 @@ func TestReadActivityWithoutComposer(t *testing.T) {
 		},
 		{
 			name:  "the shell's echo of the launch command",
-			frame: "harry@mac ~/weave % WEAVE_AGENT_ID=01a0 codex resume 019abc",
+			frame: "harry@mac ~/komrade % KOMRADE_AGENT_ID=01a0 codex resume 019abc",
 		},
 		{
 			name:  "a startup banner with no composer",

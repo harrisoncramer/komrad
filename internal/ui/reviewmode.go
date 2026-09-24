@@ -3,9 +3,9 @@ package ui
 import (
 	"fmt"
 
-	"weave/internal/ui/paint"
-	"weave/internal/ui/paint/label"
-	agentv1 "weave/proto/gen/agent/v1"
+	"komrade/internal/ui/paint"
+	"komrade/internal/ui/paint/label"
+	agentv1 "komrade/proto/gen/agent/v1"
 )
 
 // The mode is the one thing on the screen that changes what every key does, so each state gets

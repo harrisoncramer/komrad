@@ -9,7 +9,7 @@ type Target struct {
 	HarnessID string
 }
 
-// Channel is how weave says something to an agent.
+// Channel is how komrade says something to an agent.
 type Channel interface {
 	Ready(ctx context.Context, target Target) (bool, error)
 
@@ -20,7 +20,7 @@ type Channel interface {
 	Forget(agentID string)
 }
 
-// Observer is how weave learns what an agent is doing.
+// Observer is how komrade learns what an agent is doing.
 type Observer interface {
 	Observe(ctx context.Context, target Target) (Observation, error)
 }

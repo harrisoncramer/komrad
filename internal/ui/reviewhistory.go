@@ -3,9 +3,9 @@ package ui
 import (
 	"time"
 
-	"weave/internal/assemble"
-	"weave/lib/dates"
-	agentv1 "weave/proto/gen/agent/v1"
+	"komrade/internal/assemble"
+	"komrade/lib/dates"
+	agentv1 "komrade/proto/gen/agent/v1"
 )
 
 // findPendingRound is the round a reader's own open review was opened against, and nothing when

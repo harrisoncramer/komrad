@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"weave/lib/xptr"
+	"komrade/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

@@ -9,14 +9,14 @@ import (
 	"testing"
 	"time"
 
-	"weave/internal/harness"
-	"weave/internal/harness/pane"
-	"weave/internal/harnesstest"
-	"weave/internal/scripts"
-	agentstore "weave/internal/store/agent"
-	workflowstore "weave/internal/store/workflow"
-	"weave/internal/tmuxtest"
-	"weave/lib/xptr"
+	"komrade/internal/harness"
+	"komrade/internal/harness/pane"
+	"komrade/internal/harnesstest"
+	"komrade/internal/scripts"
+	agentstore "komrade/internal/store/agent"
+	workflowstore "komrade/internal/store/workflow"
+	"komrade/internal/tmuxtest"
+	"komrade/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -159,7 +159,7 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 		assert.Equal(t, interruptedPrompt, fakeHarness.Launches[0].Prompt)
 	})
 
-	// What `mise run restart` does: the tmux server goes whole and weave's own server goes
+	// What `mise run restart` does: the tmux server goes whole and komrade's own server goes
 	// with it, so no reconcile pass ever watches the panes go and the store is left holding
 	// a turn that is already over.
 	unwatched := func(t *testing.T, state agentstore.State) (*testAgents, *testStore, *harnesstest.Fake, agentstore.Agent) {
@@ -267,7 +267,7 @@ func TestATurnCutOffWithNoTmuxServerIsAskedForAgain(t *testing.T) {
 
 	service, fakeHarness := newManagerWithHarness(tmux, st, "")
 
-	tmux.PaneOwnersErr = errors.New("error connecting to /private/tmp/tmux-501/weave")
+	tmux.PaneOwnersErr = errors.New("error connecting to /private/tmp/tmux-501/komrade")
 	rec := NewReconciler(NewReconcilerParams{
 		Panes:    tmux,
 		Observer: pane.NewPane(pane.NewPaneParams{Terminal: tmux, Harnesses: harnesstest.Registry{Harness: fakeHarness}}),

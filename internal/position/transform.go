@@ -4,7 +4,7 @@ import (
 	"cmp"
 	"slices"
 
-	"weave/lib/xslice"
+	"komrade/lib/xslice"
 )
 
 // TransformParams says which places to move, what happened to their files, and what to do with a

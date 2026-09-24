@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"weave/internal/position"
-	"weave/lib/xslice"
+	"komrade/internal/position"
+	"komrade/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

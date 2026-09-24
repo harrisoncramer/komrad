@@ -3,8 +3,8 @@ package ui
 import (
 	"time"
 
-	"weave/internal/ui/paint"
-	"weave/internal/view"
+	"komrade/internal/ui/paint"
+	"komrade/internal/view"
 
 	"charm.land/bubbles/v2/cursor"
 	tea "charm.land/bubbletea/v2"

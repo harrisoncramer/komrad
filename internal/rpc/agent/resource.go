@@ -1,12 +1,12 @@
 package agent
 
 import (
-	"weave/internal/rpc/render"
+	"komrade/internal/rpc/render"
 
-	mailstore "weave/internal/store/mail"
-	transcriptstore "weave/internal/store/transcript"
-	agentv1 "weave/proto/gen/agent/v1"
-	viewv1 "weave/proto/gen/view/v1"
+	mailstore "komrade/internal/store/mail"
+	transcriptstore "komrade/internal/store/transcript"
+	agentv1 "komrade/proto/gen/agent/v1"
+	viewv1 "komrade/proto/gen/view/v1"
 )
 
 // agentViewOptions is how much of an agent the view a request asked for draws.

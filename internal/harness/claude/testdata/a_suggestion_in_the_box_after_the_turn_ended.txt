@@ -4,7 +4,7 @@
 
 [38;5;114m⏺[39m [1mBash[0m(python3 - <<'EOF'
       p='internal/tmux/compose_test.go'…)
-[38;5;246m  ⎿  [39mok         weave/internal/tmux     0.354s
+[38;5;246m  ⎿  [39mok         komrade/internal/tmux     0.354s
      0 issues.
      b6a64731 test(tmux): one field per line in the strip table
      ef648a5d fix(tmux): drop control characters from a paste before it reaches the pane
@@ -51,7 +51,7 @@
      [38;5;77m[48;5;22m 76 +[38;5;231m                        want: [38;5;186m"read\n\tmail"[38;5;231m,                                                                                                                                                                                                                                                        [39m[49m
      [38;5;246m… 14 more lines [39m
 
-  [38;5;246mCalled weave [39m
+  [38;5;246mCalled komrade [39m
 
 [38;5;231m⏺[39m Finding applied (b6a64731), thread answered. Ending turn; reviewer's next verdict arrives as mail.
 

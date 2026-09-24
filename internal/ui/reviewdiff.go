@@ -3,9 +3,9 @@ package ui
 import (
 	"strings"
 
-	"weave/internal/ui/diffview"
-	"weave/internal/ui/paint"
-	agentv1 "weave/proto/gen/agent/v1"
+	"komrade/internal/ui/diffview"
+	"komrade/internal/ui/paint"
+	agentv1 "komrade/proto/gen/agent/v1"
 )
 
 // reviewDiff is the patch on screen and where the reader is standing in it.

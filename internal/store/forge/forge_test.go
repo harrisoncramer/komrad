@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"weave/internal/dbtest"
-	"weave/internal/store"
+	"komrade/internal/dbtest"
+	"komrade/internal/store"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

@@ -6,15 +6,15 @@ import (
 	"context"
 	"time"
 
-	"weave/internal/fail"
-	"weave/internal/rpc/render"
-	"weave/internal/rpcerr"
-	"weave/internal/schedules"
-	"weave/lib/pagination"
-	"weave/lib/xslice"
-	schedulev1 "weave/proto/gen/schedule/v1"
+	"komrade/internal/fail"
+	"komrade/internal/rpc/render"
+	"komrade/internal/rpcerr"
+	"komrade/internal/schedules"
+	"komrade/lib/pagination"
+	"komrade/lib/xslice"
+	schedulev1 "komrade/proto/gen/schedule/v1"
 
-	schedulestore "weave/internal/store/schedule"
+	schedulestore "komrade/internal/store/schedule"
 
 	"google.golang.org/protobuf/types/known/emptypb"
 )

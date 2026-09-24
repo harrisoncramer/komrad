@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-sudo -u weave env HOME=/opt/mise/home MISE_DATA_DIR=/opt/mise/data MISE_CONFIG_DIR=/opt/mise/config \
+sudo -u komrade env HOME=/opt/mise/home MISE_DATA_DIR=/opt/mise/data MISE_CONFIG_DIR=/opt/mise/config \
 	bash -c 'mise exec node@22 -- npm install -g @anthropic-ai/claude-code @openai/codex && mise reshim'
 
 curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \

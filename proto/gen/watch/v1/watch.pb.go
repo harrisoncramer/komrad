@@ -10,15 +10,15 @@ import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
+	v1 "komrade/proto/gen/agent/v1"
+	_ "komrade/proto/gen/annotation/v1"
+	v13 "komrade/proto/gen/pullrequest/v1"
+	v12 "komrade/proto/gen/schedule/v1"
+	v11 "komrade/proto/gen/workflow/v1"
+	v14 "komrade/proto/gen/worktree/v1"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
-	v1 "weave/proto/gen/agent/v1"
-	_ "weave/proto/gen/annotation/v1"
-	v13 "weave/proto/gen/pullrequest/v1"
-	v12 "weave/proto/gen/schedule/v1"
-	v11 "weave/proto/gen/workflow/v1"
-	v14 "weave/proto/gen/worktree/v1"
 )
 
 const (
@@ -645,7 +645,7 @@ const file_watch_v1_watch_proto_rawDesc = "" +
 	"\x11RESOURCE_WORKTREE\x10\n" +
 	"2\x93\x01\n" +
 	"\fWatchService\x12\x82\x01\n" +
-	"\x05Watch\x12\x16.google.protobuf.Empty\x1a\x14.watch.v1.WatchEvent\"I\x9a\xb5\x18B:@a stream the panel holds open; a model or a script lists instead\x90\x02\x010\x01B\"Z weave/proto/gen/watch/v1;watchv1b\x06proto3"
+	"\x05Watch\x12\x16.google.protobuf.Empty\x1a\x14.watch.v1.WatchEvent\"I\x9a\xb5\x18B:@a stream the panel holds open; a model or a script lists instead\x90\x02\x010\x01B$Z\"komrade/proto/gen/watch/v1;watchv1b\x06proto3"
 
 var (
 	file_watch_v1_watch_proto_rawDescOnce sync.Once

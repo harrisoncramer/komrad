@@ -3,7 +3,7 @@ package errui
 import (
 	"errors"
 
-	"weave/internal/caller"
+	"komrade/internal/caller"
 
 	"connectrpc.com/connect"
 )

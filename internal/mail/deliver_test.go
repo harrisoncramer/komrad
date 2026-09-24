@@ -10,25 +10,25 @@ import (
 	"testing"
 	"time"
 
-	"weave/db/testmodels"
-	"weave/internal/agents"
-	"weave/internal/harness"
-	"weave/internal/harness/claude"
-	"weave/internal/harness/codex"
-	"weave/internal/harness/pane"
-	"weave/internal/harnesstest"
-	"weave/internal/logging"
-	agentstore "weave/internal/store/agent"
-	mailstore "weave/internal/store/mail"
-	"weave/internal/storetest"
-	"weave/internal/tmuxtest"
+	"komrade/db/testmodels"
+	"komrade/internal/agents"
+	"komrade/internal/harness"
+	"komrade/internal/harness/claude"
+	"komrade/internal/harness/codex"
+	"komrade/internal/harness/pane"
+	"komrade/internal/harnesstest"
+	"komrade/internal/logging"
+	agentstore "komrade/internal/store/agent"
+	mailstore "komrade/internal/store/mail"
+	"komrade/internal/storetest"
+	"komrade/internal/tmuxtest"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-const nudgeLine = "weave: 1 piece(s) of unread mail, call read_mail"
+const nudgeLine = "komrade: 1 piece(s) of unread mail, call read_mail"
 
 // nudgeSentFailer is the real agent store refusing to record that a nudge was sent.
 type nudgeSentFailer struct {
@@ -64,7 +64,7 @@ func TestDeliver(t *testing.T) {
 			want: DeliveryDone,
 		},
 		{
-			name: "an agent a person is holding, whose tree is not weave's to type into",
+			name: "an agent a person is holding, whose tree is not komrade's to type into",
 			arrange: func(t *testing.T, st *storetest.Stores, id string) {
 				_, err := st.Agents.Hold(t.Context(), agentstore.HoldParams{
 					ID: id,
@@ -445,7 +445,7 @@ func TestDeliverRetriesANudgeAcrossAnArchive(t *testing.T) {
 
 // TestDeliverDefersToARealHarnessStillComingUp pins that each registered harness reads a pane still echoing its launch as not listening.
 func TestDeliverDefersToARealHarnessStillComingUp(t *testing.T) {
-	shellEcho := "harry@mac ~/weave % WEAVE_AGENT_ID=01a0 codex resume 019abc"
+	shellEcho := "harry@mac ~/komrade % KOMRADE_AGENT_ID=01a0 codex resume 019abc"
 
 	tests := []struct {
 		name    string
@@ -580,7 +580,7 @@ func TestDeliverSpendsTheClaimOnAChannelThatTakesTheLineAndThenRefuses(t *testin
 	}
 }
 
-// TestDeliverLeavesTheClaimOnAChannelThatWasNeverReady pins that an agent weave never spoke to is left for the next pass.
+// TestDeliverLeavesTheClaimOnAChannelThatWasNeverReady pins that an agent komrade never spoke to is left for the next pass.
 func TestDeliverLeavesTheClaimOnAChannelThatWasNeverReady(t *testing.T) {
 	st := storetest.Open(t)
 	terminal := tmuxtest.NewFake()

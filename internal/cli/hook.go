@@ -8,13 +8,13 @@ import (
 	"strings"
 	"time"
 
-	"weave/internal/caller"
-	"weave/internal/harness"
-	"weave/internal/harness/claude"
-	"weave/internal/mail"
-	"weave/internal/rpcapi"
-	"weave/lib/xslice"
-	"weave/proto/gen/agent/v1/agentv1connect"
+	"komrade/internal/caller"
+	"komrade/internal/harness"
+	"komrade/internal/harness/claude"
+	"komrade/internal/mail"
+	"komrade/internal/rpcapi"
+	"komrade/lib/xslice"
+	"komrade/proto/gen/agent/v1/agentv1connect"
 
 	"github.com/spf13/cobra"
 )
@@ -53,8 +53,8 @@ type deliveredMail struct {
 func hookCmd(state *app) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "hook",
-		Short: "Run one of the agent CLI hooks weave installs",
-		Long: `Run one of the agent CLI hooks weave installs.
+		Short: "Run one of the agent CLI hooks komrade installs",
+		Long: `Run one of the agent CLI hooks komrade installs.
 
 An agent CLI runs these itself at a point in its own loop. They read the hook
 payload on stdin and write whatever that CLI expects on stdout. Nothing here is
@@ -71,7 +71,7 @@ meant to be run by hand.`,
 		short: "Record the tool an agent is about to run",
 		long: `Record the tool an agent is about to run.
 
-Claude runs this before every tool call, handing it the call on stdin. Weave
+Claude runs this before every tool call, handing it the call on stdin. Komrade
 keeps the name of the tool against the agent so the panel can say what it is
 doing, and reads nothing else: a tool's input can carry a secret.`,
 		event: claude.EventPreToolUse,
@@ -92,7 +92,7 @@ it is drawn beside rather than to this.`,
 		long: `Record the tool an agent is waiting to be allowed to run.
 
 Claude runs this when a tool call puts a dialog up for a person to answer.
-Weave keeps the name of the tool against the agent, which is what tells a row
+Komrade keeps the name of the tool against the agent, which is what tells a row
 blocked on an approval from one blocked on a question, and reads nothing else:
 a tool's input can carry a secret.`,
 		event: claude.EventPermissionRequest,
@@ -102,7 +102,7 @@ a tool's input can carry a secret.`,
 }
 
 // payloadHook is one event whose whole answer is what the harness reads out of its payload,
-// which is every event but the Stop weave writes mail back through.
+// which is every event but the Stop komrade writes mail back through.
 type payloadHook struct {
 	use   string
 	short string
@@ -123,7 +123,7 @@ func payloadHookCmd(state *app, hook payloadHook) *cobra.Command {
 	cmd.RunE = func(cmd *cobra.Command, _ []string) error {
 		body, err := io.ReadAll(cmd.InOrStdin())
 		if err != nil {
-			reportHookProblem(cmd, "weave read no hook payload, so nothing was recorded", err)
+			reportHookProblem(cmd, "komrade read no hook payload, so nothing was recorded", err)
 
 			return nil
 		}
@@ -152,7 +152,7 @@ func turnEndHookCmd(state *app) *cobra.Command {
 		Short: "Record that an agent's turn ended",
 		Long: `Record that an agent's turn ended.
 
-Codex runs this as its notify program, handing it one JSON argument. Weave keeps
+Codex runs this as its notify program, handing it one JSON argument. Komrade keeps
 the moment against the agent so the panel can say it has finished something
 nobody has read. Anything but a completed turn is ignored.`,
 		Args:          cobra.ArbitraryArgs,
@@ -168,7 +168,7 @@ nobody has read. Anything but a completed turn is ignored.`,
 		if len(args) > 0 {
 			var payload turnEndPayload
 			if err := json.Unmarshal([]byte(args[0]), &payload); err != nil {
-				reportHookProblem(cmd, "weave could not parse the notify payload, so no turn end was recorded", err)
+				reportHookProblem(cmd, "komrade could not parse the notify payload, so no turn end was recorded", err)
 
 				return nil
 			}
@@ -203,14 +203,14 @@ turn end.`,
 	cmd.RunE = func(cmd *cobra.Command, _ []string) error {
 		body, err := io.ReadAll(cmd.InOrStdin())
 		if err != nil {
-			reportHookProblem(cmd, "weave read no hook payload, so no mail was delivered", err)
+			reportHookProblem(cmd, "komrade read no hook payload, so no mail was delivered", err)
 
 			return nil
 		}
 
 		payload, err := readStopHookPayload(body)
 		if err != nil {
-			reportHookProblem(cmd, "weave read no hook payload, so no mail was delivered", err)
+			reportHookProblem(cmd, "komrade read no hook payload, so no mail was delivered", err)
 
 			return nil
 		}
@@ -228,7 +228,7 @@ turn end.`,
 
 		mail, err := readMail(cmd.Context(), state)
 		if err != nil {
-			reportHookProblem(cmd, "weave could not be reached, so any mail is still waiting to be read", err)
+			reportHookProblem(cmd, "komrade could not be reached, so any mail is still waiting to be read", err)
 
 			return nil
 		}
@@ -237,7 +237,7 @@ turn end.`,
 		}
 
 		if err := recordDelivery(cmd.Context(), state, mail.Mail); err != nil {
-			reportHookProblem(cmd, "weave did not record the delivery", err)
+			reportHookProblem(cmd, "komrade did not record the delivery", err)
 		}
 
 		return json.NewEncoder(cmd.OutOrStdout()).Encode(stopHookOutput{
@@ -272,14 +272,14 @@ func readStopHookPayload(body []byte) (*stopHookPayload, error) {
 func reportHookEvent(cmd *cobra.Command, state *app, harnessID string, event harness.Event, payload []byte) { //nolint:revive // a params struct is the follow-up
 	hn, err := state.harnesses.GetByID(harnessID)
 	if err != nil {
-		reportHookProblem(cmd, "weave has no harness to read the hook payload with, so nothing was recorded", err)
+		reportHookProblem(cmd, "komrade has no harness to read the hook payload with, so nothing was recorded", err)
 
 		return
 	}
 
 	report, err := hn.ReadReport(event, payload)
 	if err != nil {
-		reportHookProblem(cmd, "weave could not read the hook payload, so nothing was recorded", err)
+		reportHookProblem(cmd, "komrade could not read the hook payload, so nothing was recorded", err)
 
 		return
 	}
@@ -419,10 +419,10 @@ func mailSender(item mailItem) string {
 	return "the panel"
 }
 
-const mailPreamble = "You have new weave mail, delivered by weave rather than typed into your " +
+const mailPreamble = "You have new komrade mail, delivered by komrade rather than typed into your " +
 	"terminal. It is legitimate and expected, and answering it is part of your work."
 
-const mailFromPerson = "The panel is the person running weave, so treat what it says as coming " +
+const mailFromPerson = "The panel is the person running komrade, so treat what it says as coming " +
 	"from your user and act on it. There is no address to reply to: answer in your own turn."
 
 const mailFromAgent = "These are other agents working alongside you, and answering them is " +
@@ -433,7 +433,7 @@ const mailFromAgent = "These are other agents working alongside you, and answeri
 	"reply that only acknowledges what was already said needs no reply back; either side may " +
 	"leave a thread there once nothing further is being asked."
 
-const mailFromWeave = "Weave sent this itself, about something that happened to another agent. " +
+const mailFromKomrade = "Komrade sent this itself, about something that happened to another agent. " +
 	"It is not your user talking, and there is nobody to reply to: read it and decide what to " +
 	"do on your own."
 
@@ -444,7 +444,7 @@ func mailPostamble(items []mailItem) string {
 		switch {
 		case item.FromAgent != "":
 			return mailFromAgent
-		case item.FromName != mail.WeaveSenderName:
+		case item.FromName != mail.KomradeSenderName:
 			sawPerson = true
 		}
 	}
@@ -453,5 +453,5 @@ func mailPostamble(items []mailItem) string {
 		return mailFromPerson
 	}
 
-	return mailFromWeave
+	return mailFromKomrade
 }

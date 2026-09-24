@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"weave/internal/harness"
-	"weave/internal/harnesstest"
-	agentstore "weave/internal/store/agent"
-	"weave/internal/tmuxtest"
+	"komrade/internal/harness"
+	"komrade/internal/harnesstest"
+	agentstore "komrade/internal/store/agent"
+	"komrade/internal/tmuxtest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

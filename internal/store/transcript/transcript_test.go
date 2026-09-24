@@ -4,12 +4,12 @@ import (
 	"strings"
 	"testing"
 
-	"weave/internal/dbtest"
-	"weave/internal/store"
-	agentstore "weave/internal/store/agent"
-	workflowstore "weave/internal/store/workflow"
-	"weave/lib/xptr"
-	"weave/lib/xslice"
+	"komrade/internal/dbtest"
+	"komrade/internal/store"
+	agentstore "komrade/internal/store/agent"
+	workflowstore "komrade/internal/store/workflow"
+	"komrade/lib/xptr"
+	"komrade/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -364,7 +364,7 @@ func TestSearch(t *testing.T) {
 		},
 		{
 			name:     "a flag name is a search rather than an exclusion",
-			content:  "the config file lives at ~/.config/weave/config.toml",
+			content:  "the config file lives at ~/.config/komrade/config.toml",
 			query:    "--config",
 			wantHits: 1,
 		},
@@ -779,7 +779,7 @@ func TestSearchNearWaitsForTheWordMatches(t *testing.T) {
 	ctx := t.Context()
 
 	glued := seedAgent(t, st, "glued")
-	seedTranscript(t, st, glued, "it lives in /state/weave/worktree/01a0 today")
+	seedTranscript(t, st, glued, "it lives in /state/komrade/worktree/01a0 today")
 
 	for _, name := range []string{"one", "two", "three", "four"} {
 		seedTranscript(t, st, seedAgent(t, st, name), "the worktree is checked out for "+name)

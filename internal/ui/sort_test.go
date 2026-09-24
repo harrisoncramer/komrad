@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"weave/lib/xslice"
+	"komrade/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 )

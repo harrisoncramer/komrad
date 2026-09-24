@@ -3,8 +3,8 @@ package reviews
 import (
 	"testing"
 
-	agentstore "weave/internal/store/agent"
-	reviewstore "weave/internal/store/review"
+	agentstore "komrade/internal/store/agent"
+	reviewstore "komrade/internal/store/review"
 
 	"github.com/stretchr/testify/assert"
 )

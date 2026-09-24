@@ -1,6 +1,6 @@
 package view
 
-import "weave/lib/xslice"
+import "komrade/lib/xslice"
 
 // Drawn is one glyph the list draws, with the width the layout counts it as.
 type Drawn struct {

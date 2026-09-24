@@ -1,17 +1,17 @@
-// Package worktree serves the directories weave cut for its agents.
+// Package worktree serves the directories komrade cut for its agents.
 package worktree
 
 import (
 	"context"
 
-	"weave/internal/fail"
-	"weave/internal/git"
-	"weave/internal/rpc/render"
-	"weave/internal/rpcerr"
-	"weave/internal/worktrees"
-	"weave/lib/dates"
-	"weave/lib/xslice"
-	worktreev1 "weave/proto/gen/worktree/v1"
+	"komrade/internal/fail"
+	"komrade/internal/git"
+	"komrade/internal/rpc/render"
+	"komrade/internal/rpcerr"
+	"komrade/internal/worktrees"
+	"komrade/lib/dates"
+	"komrade/lib/xslice"
+	worktreev1 "komrade/proto/gen/worktree/v1"
 
 	"google.golang.org/protobuf/types/known/emptypb"
 )

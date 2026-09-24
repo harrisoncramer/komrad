@@ -12,15 +12,15 @@ import (
 	"testing"
 	"time"
 
-	"weave/internal/interceptors"
-	"weave/internal/logging"
-	"weave/internal/watch"
-	"weave/lib/xslice"
-	agentv1 "weave/proto/gen/agent/v1"
-	watchv1 "weave/proto/gen/watch/v1"
+	"komrade/internal/interceptors"
+	"komrade/internal/logging"
+	"komrade/internal/watch"
+	"komrade/lib/xslice"
+	agentv1 "komrade/proto/gen/agent/v1"
+	watchv1 "komrade/proto/gen/watch/v1"
 
-	"weave/proto/gen/watch/v1/watchv1connect"
-	watchv1weave "weave/proto/gen/watch/v1/watchv1weave"
+	"komrade/proto/gen/watch/v1/watchv1connect"
+	watchv1komrade "komrade/proto/gen/watch/v1/watchv1komrade"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
@@ -81,7 +81,7 @@ func serve(t *testing.T, subscriber *fakeSubscriber, heartbeat time.Duration) *s
 
 	mux := http.NewServeMux()
 	mux.Handle(watchv1connect.NewWatchServiceHandler(
-		watchv1weave.WatchServiceAdapter{Impl: NewHandler(NewHandlerParams{Subscriber: subscriber, HeartbeatAfter: heartbeat})},
+		watchv1komrade.WatchServiceAdapter{Impl: NewHandler(NewHandlerParams{Subscriber: subscriber, HeartbeatAfter: heartbeat})},
 		connect.WithInterceptors(interceptors.NewLogging(logging.New(&out, slog.LevelDebug)), validation),
 	))
 	server := httptest.NewServer(mux)

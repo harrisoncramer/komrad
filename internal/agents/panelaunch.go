@@ -7,10 +7,10 @@ import (
 	"os"
 	"strings"
 
-	"weave/internal/harness"
-	"weave/internal/logging"
-	agentstore "weave/internal/store/agent"
-	"weave/lib/xslice"
+	"komrade/internal/harness"
+	"komrade/internal/logging"
+	agentstore "komrade/internal/store/agent"
+	"komrade/lib/xslice"
 )
 
 //go:embed briefing.md
@@ -41,7 +41,7 @@ type NewLauncherParams struct {
 	CacheDir    string
 	LogPath     string
 	ContextPath string
-	// BinPath is weave's own binary, which an agent's hooks and its gh stand-in both run.
+	// BinPath is komrade's own binary, which an agent's hooks and its gh stand-in both run.
 	BinPath string
 }
 
@@ -161,7 +161,7 @@ func (l *Launcher) globalContext() string {
 	return string(text)
 }
 
-// toolsDir is where weave's stand-ins for the tools an agent calls are written, empty when
+// toolsDir is where komrade's stand-ins for the tools an agent calls are written, empty when
 // they could not be.
 func (l *Launcher) toolsDir() string {
 	dir, err := harness.WriteGHShim(l.cacheDir, l.binPath)
@@ -190,7 +190,7 @@ type launchParams struct {
 	ParentName       string
 	Role             agentstore.Role
 
-	// OwnsCheckout is whether weave provisioned this agent a tree of its own, which separates an
+	// OwnsCheckout is whether komrade provisioned this agent a tree of its own, which separates an
 	// agent writing a change from one reading somebody else's.
 	OwnsCheckout bool
 	Resume       bool

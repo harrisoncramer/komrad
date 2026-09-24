@@ -5,7 +5,7 @@ group: concepts
 order: 3
 ---
 
-A workflow is the template an agent is created from. Every agent belongs to exactly one workflow, which is why weave asks you to make one before your first agent.
+A workflow is the template an agent is created from. Every agent belongs to exactly one workflow, which is why komrade asks you to make one before your first agent.
 
 Think of a workflow as a group of agents that do the same kind of work. The workflow decides where they start, how their CLI is launched, what they are told before they begin, and whether they each get a checkout of their own.
 
@@ -23,7 +23,7 @@ Changing a workflow only affects agents spawned afterwards. An agent keeps the s
 
 A workflow can hold free text that is added to the system prompt of every agent in it. This is where you put what you would otherwise tell each agent by hand: where things live in the repository and how tests run, how branches and commits are named, what agents in this group may touch and what they must leave alone, and how they should record their work so you can find it later.
 
-The context an agent starts with is built up in layers, from general to specific. First comes weave's own briefing about itself, then a note about the agent's role if it has one, then your [global context file](../../config/#context), and last the workflow's own text. The workflow comes last, so it has the final word.
+The context an agent starts with is built up in layers, from general to specific. First comes komrade's own briefing about itself, then a note about the agent's role if it has one, then your [global context file](../../config/#context), and last the workflow's own text. The workflow comes last, so it has the final word.
 
 ## A checkout per agent
 
@@ -37,9 +37,9 @@ New worktrees start as clean checkouts, so anything git does not track, like a l
 
 ## The base branch
 
-A worktree workflow names a base branch. New worktrees are cut from it, an agent's work is measured and reviewed against it, and rebases move an agent onto it. Weave works it out from your clone when you create the workflow and remembers it.
+A worktree workflow names a base branch. New worktrees are cut from it, an agent's work is measured and reviewed against it, and rebases move an agent onto it. Komrade works it out from your clone when you create the workflow and remembers it.
 
-If the clone ever loses that branch, weave says so rather than guessing, and `weave doctor` lists every workflow whose base branch cannot be found.
+If the clone ever loses that branch, komrade says so rather than guessing, and `komrade doctor` lists every workflow whose base branch cannot be found.
 
 ## Leaving generated code out of the diff
 

@@ -4,20 +4,20 @@ services:
   db:
     image: postgres:18
     environment:
-      POSTGRES_USER: weave
-      POSTGRES_PASSWORD: weave
-      POSTGRES_DB: weave
+      POSTGRES_USER: komrade
+      POSTGRES_PASSWORD: komrade
+      POSTGRES_DB: komrade
     ports:
       - "${DB_PORT:-5460}:5432"
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "weave"]
+      test: ["CMD", "pg_isready", "-U", "komrade"]
       interval: 2s
       timeout: 5s
       retries: 15
     volumes:
-      - weave-db:/var/lib/postgresql
+      - komrade-db:/var/lib/postgresql
 
-  # The machines weave doctor is written for, each the same image at a different stage of
+  # The machines komrade doctor is written for, each the same image at a different stage of
   # having been set up. They are the only way to see the first-run experience, since the
   # machine this is developed on has every dependency already.
   #
@@ -31,7 +31,7 @@ services:
       dockerfile: doctor-sandbox.Dockerfile
       target: bare
     volumes: &doctor-sandbox-volumes
-      - ./bin/weave-linux:/usr/local/bin/weave:ro
+      - ./bin/komrade-linux:/usr/local/bin/komrade:ro
 
   doctor-tmux-old:
     profiles: ["doctor"]
@@ -55,17 +55,17 @@ services:
     profiles: ["doctor"]
     image: postgres:18
     environment:
-      POSTGRES_USER: weave
-      POSTGRES_PASSWORD: weave
-      POSTGRES_DB: weave
+      POSTGRES_USER: komrade
+      POSTGRES_PASSWORD: komrade
+      POSTGRES_DB: komrade
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "weave"]
+      test: ["CMD", "pg_isready", "-U", "komrade"]
       interval: 2s
       timeout: 5s
       retries: 15
 
   # The same machine with a Postgres reachable, for the checks that need one to answer.
-  # Override WEAVE_DATABASE_URL on the run to point it at a database that is missing, unmigrated,
+  # Override KOMRADE_DATABASE_URL on the run to point it at a database that is missing, unmigrated,
   # or refusing the password.
   doctor-postgres:
     profiles: ["doctor"]
@@ -77,7 +77,7 @@ services:
       doctor-db:
         condition: service_healthy
     environment:
-      WEAVE_DATABASE_URL: postgres://weave:weave@doctor-db:5432/weave?sslmode=disable
+      KOMRADE_DATABASE_URL: postgres://komrade:komrade@doctor-db:5432/komrade?sslmode=disable
 
 volumes:
-  weave-db:
+  komrade-db:

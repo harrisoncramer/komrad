@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"weave/internal/errui"
-	"weave/internal/ui/panel"
-	agentv1 "weave/proto/gen/agent/v1"
+	"komrade/internal/errui"
+	"komrade/internal/ui/panel"
+	agentv1 "komrade/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -65,7 +65,7 @@ func (m *model) unreachableHint() string {
 		return "The tunnel to the engine is dialled again until it answers"
 	}
 
-	return "Start it with: weave serve"
+	return "Start it with: komrade serve"
 }
 
 // withListing changes the listing the screens draw from and puts each cursor back where it was.

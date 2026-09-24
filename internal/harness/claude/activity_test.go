@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"weave/internal/harness"
+	"komrade/internal/harness"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -293,7 +293,7 @@ func TestReadActivityIgnoresTranscriptProse(t *testing.T) {
 		},
 		{
 			name:  "an answer ending in a truncated path",
-			frame: "⏺ Spawned it at ~/.local/state/weave/worktrees/01a069a0-… — not a child.\n" + idleFrame,
+			frame: "⏺ Spawned it at ~/.local/state/komrade/worktrees/01a069a0-… — not a child.\n" + idleFrame,
 		},
 		{
 			name:  "an answer quoting a spinner, wrapped",

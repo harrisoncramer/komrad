@@ -1,12 +1,12 @@
 [
   {
     "slug": "",
-    "path": "weave",
+    "path": "komrade",
     "parent": "",
-    "usage": "weave",
+    "usage": "komrade",
     "aliases": [],
     "short": "tmux panel and CLI for background coding agents",
-    "long": "Weave runs coding agents in tmux panes and keeps track of them.\n\nThere are two processes. `weave serve` is the long-lived service that owns the\ndatabase, answers the API and the MCP endpoint, and watches every pane. The panel\nis a client of it, which is why it can be closed and reopened without stopping\nanything. Every other command here is a client of the same service.\n\nThe panel is normally reached through the tmux key binding rather than by name,\nand the commands below are for the times something has to be done by hand: check\nthe machine, start or stop the service, or call an endpoint from a script.",
+    "long": "Komrade runs coding agents in tmux panes and keeps track of them.\n\nThere are two processes. `komrade serve` is the long-lived service that owns the\ndatabase, answers the API and the MCP endpoint, and watches every pane. The panel\nis a client of it, which is why it can be closed and reopened without stopping\nanything. Every other command here is a client of the same service.\n\nThe panel is normally reached through the tmux key binding rather than by name,\nand the commands below are for the times something has to be done by hand: check\nthe machine, start or stop the service, or call an endpoint from a script.",
     "example": "",
     "flags": [
       {
@@ -49,9 +49,9 @@
   },
   {
     "slug": "attach",
-    "path": "weave attach",
+    "path": "komrade attach",
     "parent": "",
-    "usage": "weave attach",
+    "usage": "komrade attach",
     "aliases": [],
     "short": "Attach the running panel in this terminal",
     "long": "Attach the running panel in this terminal.\n\nThis is the panel without the popup around it, on the same session the panel key\nopens, so both show the same thing and neither disturbs the other. The panel key\ndetaches it, which gives this terminal back and leaves everything running.\n\nIt attaches a panel that is already up and refuses when there is none, since\nstarting one is what the panel key is for.",
@@ -77,12 +77,12 @@
   },
   {
     "slug": "doctor",
-    "path": "weave doctor",
+    "path": "komrade doctor",
     "parent": "",
-    "usage": "weave doctor [flags]",
+    "usage": "komrade doctor [flags]",
     "aliases": [],
-    "short": "Check that this machine has everything weave needs",
-    "long": "Check that this machine has everything weave needs, one line per dependency.\n\nIt checks tmux and its version, the shell tmux starts panes with, whether the\nconfig file parses and names a harness that exists, the hooks and worktrees\ndirectories and whether any worktree there is left without an agent, the database\nand whether its schema is current, the read-only login the MCP query tools connect\nas, the service on its address, and the CLI binary behind each harness. It repairs\nnothing, since a command that changed what it was describing could not be trusted\nto say what is wrong.\n\nIt also asks the terminal what it can draw. Every glyph the agents list uses is\nwritten out and the cursor position queried, so what comes back is how far the\ncursor moved rather than how wide the ink was. Inside tmux that answer comes\nfrom tmux's own grid rather than from the terminal underneath it. Bold and\nitalic are read out of the terminfo entry of the terminal tmux paints to, and\ncolour depth out of the entry this process emits for, which is what an entry\nclaims rather than what a terminal does. Nothing is asked of a terminal that is\nnot there, and whether the font has a glyph at all is not tested.\n\nPointed at an engine with --engine, the checks about this machine run here and the\nones about the engine are asked of its service, which makes them on its own\nmachine; they are printed under an \"on the engine\" heading, and marked not checked\nwhen the service cannot be reached or is running a different build.\n\nThe exit status is non-zero when any check failed, so it can gate a script, and\n--json prints the report rather than the summary. Run this first when the panel is\ndoing something that makes no sense.",
+    "short": "Check that this machine has everything komrade needs",
+    "long": "Check that this machine has everything komrade needs, one line per dependency.\n\nIt checks tmux and its version, the shell tmux starts panes with, whether the\nconfig file parses and names a harness that exists, the hooks and worktrees\ndirectories and whether any worktree there is left without an agent, the database\nand whether its schema is current, the read-only login the MCP query tools connect\nas, the service on its address, and the CLI binary behind each harness. It repairs\nnothing, since a command that changed what it was describing could not be trusted\nto say what is wrong.\n\nIt also asks the terminal what it can draw. Every glyph the agents list uses is\nwritten out and the cursor position queried, so what comes back is how far the\ncursor moved rather than how wide the ink was. Inside tmux that answer comes\nfrom tmux's own grid rather than from the terminal underneath it. Bold and\nitalic are read out of the terminfo entry of the terminal tmux paints to, and\ncolour depth out of the entry this process emits for, which is what an entry\nclaims rather than what a terminal does. Nothing is asked of a terminal that is\nnot there, and whether the font has a glyph at all is not tested.\n\nPointed at an engine with --engine, the checks about this machine run here and the\nones about the engine are asked of its service, which makes them on its own\nmachine; they are printed under an \"on the engine\" heading, and marked not checked\nwhen the service cannot be reached or is running a different build.\n\nThe exit status is non-zero when any check failed, so it can gate a script, and\n--json prints the report rather than the summary. Run this first when the panel is\ndoing something that makes no sense.",
     "example": "",
     "flags": [
       {
@@ -120,9 +120,9 @@
   },
   {
     "slug": "engine",
-    "path": "weave engine",
+    "path": "komrade engine",
     "parent": "",
-    "usage": "weave engine",
+    "usage": "komrade engine",
     "aliases": [],
     "short": "Set up the engines that share a database",
     "long": "",
@@ -150,12 +150,12 @@
   },
   {
     "slug": "engine/ensure",
-    "path": "weave engine ensure",
+    "path": "komrade engine ensure",
     "parent": "engine",
-    "usage": "weave engine ensure NAME",
+    "usage": "komrade engine ensure NAME",
     "aliases": [],
     "short": "Create an engine's identity and logins, or reset their password",
-    "long": "Create an engine's identity and logins, or reset their password.\n\nAn engine is one weave service on one machine. Everything it writes belongs to it, and\nPostgres keeps every other engine's rows out of its reach, because it connects as a login\nof its own that the database maps to its identity. This creates that identity if no engine\nhas the name yet, a login for it and a read-only login for its MCP query tools, and the\nschema its job queue lives in, connecting as owner_database_url.\n\nBoth logins take the password in WEAVE_ENGINE_PASSWORD, or a fresh one when that is unset,\nand running it again resets them to it. It prints the database_url the engine connects with.\nNaming an engine that already exists, such as the default one every row written before\nengines had logins belongs to, hands it new logins and keeps its rows.",
+    "long": "Create an engine's identity and logins, or reset their password.\n\nAn engine is one komrade service on one machine. Everything it writes belongs to it, and\nPostgres keeps every other engine's rows out of its reach, because it connects as a login\nof its own that the database maps to its identity. This creates that identity if no engine\nhas the name yet, a login for it and a read-only login for its MCP query tools, and the\nschema its job queue lives in, connecting as owner_database_url.\n\nBoth logins take the password in KOMRADE_ENGINE_PASSWORD, or a fresh one when that is unset,\nand running it again resets them to it. It prints the database_url the engine connects with.\nNaming an engine that already exists, such as the default one every row written before\nengines had logins belongs to, hands it new logins and keeps its rows.",
     "example": "",
     "flags": [],
     "inherited": [
@@ -178,12 +178,12 @@
   },
   {
     "slug": "forge",
-    "path": "weave forge",
+    "path": "komrade forge",
     "parent": "",
-    "usage": "weave forge",
+    "usage": "komrade forge",
     "aliases": [],
-    "short": "Connect weave to the services pull requests live on",
-    "long": "Connect weave to the services pull requests live on.\n\nWeave reads the pull requests its agents open through a connection to each forge,\nmade once and kept until it is disconnected. The service holds the connection: a\ntoken lives in a file under its state directory that only its user can read, and\nthe row in its database records who the forge said the credential belongs to.\nEvery command here talks to the service, so with --engine it connects the engine.",
+    "short": "Connect komrade to the services pull requests live on",
+    "long": "Connect komrade to the services pull requests live on.\n\nKomrade reads the pull requests its agents open through a connection to each forge,\nmade once and kept until it is disconnected. The service holds the connection: a\ntoken lives in a file under its state directory that only its user can read, and\nthe row in its database records who the forge said the credential belongs to.\nEvery command here talks to the service, so with --engine it connects the engine.",
     "example": "",
     "flags": [],
     "inherited": [
@@ -211,9 +211,9 @@
   },
   {
     "slug": "forge/check",
-    "path": "weave forge check",
+    "path": "komrade forge check",
     "parent": "forge",
-    "usage": "weave forge check",
+    "usage": "komrade forge check",
     "aliases": [],
     "short": "Ask every connected forge whether its credential still works",
     "long": "Ask every connected forge whether its credential still works, the way its method\nallows, and record the answer on each connection. A refusal marks the connection\nuntil it is connected again.",
@@ -239,12 +239,12 @@
   },
   {
     "slug": "forge/connect",
-    "path": "weave forge connect",
+    "path": "komrade forge connect",
     "parent": "forge",
-    "usage": "weave forge connect \u003chost\u003e [flags]",
+    "usage": "komrade forge connect \u003chost\u003e [flags]",
     "aliases": [],
     "short": "Connect a forge with a token read from stdin, or as the engine's GitHub App",
-    "long": "Connect a forge with a token read from stdin, or as the engine's GitHub App.\n\nWith --method token, the default, the token is read from standard input, or from\nthe file --token-file names. It is never taken as an argument, since arguments are\nvisible to every process on the machine. Pipe it in:\n\n    gh auth token | weave forge connect github.com\n    op read op://vault/github/token | weave forge connect github.com\n\nWith --method github-app nothing is read. The service mints a token from the App\nnamed under [github_app] in its own config, checks the installation reaches at\nleast one repository, and records the App's own name as the login. That is the\nengine's path, where nobody is there to paste a token and the App's key is already\non the machine: weave forge connect github.com --method github-app --engine remote.\n\nThe service asks the forge who the credential belongs to before storing anything,\nso a token that is wrong or expired is refused here rather than found out later.\nThat proves the token is real, not that it can read your repositories: a token with\nno permissions answers the same question, and shows up later as a repository the\nforge says it cannot find. github.com and gitlab.com say which forge they run; any\nother host needs --kind, and --api-url when the API is not at https://\u003chost\u003e/api/v3\nfor GitHub or /api/v4 for GitLab. The address has to be https.",
+    "long": "Connect a forge with a token read from stdin, or as the engine's GitHub App.\n\nWith --method token, the default, the token is read from standard input, or from\nthe file --token-file names. It is never taken as an argument, since arguments are\nvisible to every process on the machine. Pipe it in:\n\n    gh auth token | komrade forge connect github.com\n    op read op://vault/github/token | komrade forge connect github.com\n\nWith --method github-app nothing is read. The service mints a token from the App\nnamed under [github_app] in its own config, checks the installation reaches at\nleast one repository, and records the App's own name as the login. That is the\nengine's path, where nobody is there to paste a token and the App's key is already\non the machine: komrade forge connect github.com --method github-app --engine remote.\n\nThe service asks the forge who the credential belongs to before storing anything,\nso a token that is wrong or expired is refused here rather than found out later.\nThat proves the token is real, not that it can read your repositories: a token with\nno permissions answers the same question, and shows up later as a repository the\nforge says it cannot find. github.com and gitlab.com say which forge they run; any\nother host needs --kind, and --api-url when the API is not at https://\u003chost\u003e/api/v3\nfor GitHub or /api/v4 for GitLab. The address has to be https.",
     "example": "",
     "flags": [
       {
@@ -296,9 +296,9 @@
   },
   {
     "slug": "forge/disconnect",
-    "path": "weave forge disconnect",
+    "path": "komrade forge disconnect",
     "parent": "forge",
-    "usage": "weave forge disconnect \u003chost\u003e",
+    "usage": "komrade forge disconnect \u003chost\u003e",
     "aliases": [],
     "short": "Forget a forge and the token it was connected with",
     "long": "",
@@ -324,11 +324,11 @@
   },
   {
     "slug": "forge/list",
-    "path": "weave forge list",
+    "path": "komrade forge list",
     "parent": "forge",
-    "usage": "weave forge list",
+    "usage": "komrade forge list",
     "aliases": [],
-    "short": "Show every connected forge and who weave acts as there",
+    "short": "Show every connected forge and who komrade acts as there",
     "long": "",
     "example": "",
     "flags": [],
@@ -352,12 +352,12 @@
   },
   {
     "slug": "github",
-    "path": "weave github",
+    "path": "komrade github",
     "parent": "",
-    "usage": "weave github",
+    "usage": "komrade github",
     "aliases": [],
     "short": "Reach GitHub as the engine's own App",
-    "long": "Reach GitHub as the engine's own App.\n\nAn engine runs agents that write code, so it has to push. Giving it a personal\naccess token would leave a secret on the machine that works forever.\n\nInstead weave holds a GitHub App's private key and signs a short assertion with it.\nGitHub returns a token that stops working after an hour and only reaches the\nrepositories the App was installed on.\n\nSet the App id, the installation id and the path to the key under `[github_app]`.",
+    "long": "Reach GitHub as the engine's own App.\n\nAn engine runs agents that write code, so it has to push. Giving it a personal\naccess token would leave a secret on the machine that works forever.\n\nInstead komrade holds a GitHub App's private key and signs a short assertion with it.\nGitHub returns a token that stops working after an hour and only reaches the\nrepositories the App was installed on.\n\nSet the App id, the installation id and the path to the key under `[github_app]`.",
     "example": "",
     "flags": [],
     "inherited": [
@@ -383,12 +383,12 @@
   },
   {
     "slug": "github/credential",
-    "path": "weave github credential",
+    "path": "komrade github credential",
     "parent": "github",
-    "usage": "weave github credential",
+    "usage": "komrade github credential",
     "aliases": [],
     "short": "Answer git's credential helper protocol with an installation token",
-    "long": "Answer git when it asks for a password.\n\nGit runs this and describes what it wants to reach. This answers only for https to\ngithub.com. Anything else gets no answer, so git falls back to whatever else the\naccount has configured.\n\nNothing is stored. The token is made when git asks and stops working within the hour.\n\nSet it up with:\n\n    git config --global credential.https://github.com.helper '!weave github credential'",
+    "long": "Answer git when it asks for a password.\n\nGit runs this and describes what it wants to reach. This answers only for https to\ngithub.com. Anything else gets no answer, so git falls back to whatever else the\naccount has configured.\n\nNothing is stored. The token is made when git asks and stops working within the hour.\n\nSet it up with:\n\n    git config --global credential.https://github.com.helper '!komrade github credential'",
     "example": "",
     "flags": [],
     "inherited": [
@@ -411,12 +411,12 @@
   },
   {
     "slug": "github/token",
-    "path": "weave github token",
+    "path": "komrade github token",
     "parent": "github",
-    "usage": "weave github token [flags]",
+    "usage": "komrade github token [flags]",
     "aliases": [],
     "short": "Print an installation token, minting one if the cached one is spent",
-    "long": "Print an installation token.\n\nRun this to check the App is set up. A token starting ghs_ means the key, the App id\nand the installation id all agree. Any other answer says which one does not.\n\nThe stand-in weave puts ahead of an agent's PATH as gh runs this for every call, so\na tool weave hands the token to never holds a stale one. --checkout is how that\nstand-in says which tree it was run in, and refuses a tree whose origin is on a host\nthe App does not reach. --if-configured prints nothing and succeeds on a machine\nthat names no App, which leaves gh the credential the machine was logged in with.",
+    "long": "Print an installation token.\n\nRun this to check the App is set up. A token starting ghs_ means the key, the App id\nand the installation id all agree. Any other answer says which one does not.\n\nThe stand-in komrade puts ahead of an agent's PATH as gh runs this for every call, so\na tool komrade hands the token to never holds a stale one. --checkout is how that\nstand-in says which tree it was run in, and refuses a tree whose origin is on a host\nthe App does not reach. --if-configured prints nothing and succeeds on a machine\nthat names no App, which leaves gh the credential the machine was logged in with.",
     "example": "",
     "flags": [
       {
@@ -454,12 +454,12 @@
   },
   {
     "slug": "hide",
-    "path": "weave hide",
+    "path": "komrade hide",
     "parent": "",
-    "usage": "weave hide",
+    "usage": "komrade hide",
     "aliases": [],
     "short": "Hide the panel popup without stopping anything",
-    "long": "Hide the panel popup.\n\nIt detaches the client the popup is holding, which closes the popup. The manager\nsession stays up, so the next `weave open` comes back to the panel where it was, and\nthe service and the agents are untouched.\n\nThis is what the panel key runs while the popup is open, so it is rarely typed.",
+    "long": "Hide the panel popup.\n\nIt detaches the client the popup is holding, which closes the popup. The manager\nsession stays up, so the next `komrade open` comes back to the panel where it was, and\nthe service and the agents are untouched.\n\nThis is what the panel key runs while the popup is open, so it is rarely typed.",
     "example": "",
     "flags": [],
     "inherited": [
@@ -482,12 +482,12 @@
   },
   {
     "slug": "hook",
-    "path": "weave hook",
+    "path": "komrade hook",
     "parent": "",
-    "usage": "weave hook",
+    "usage": "komrade hook",
     "aliases": [],
-    "short": "Run one of the agent CLI hooks weave installs",
-    "long": "Run one of the agent CLI hooks weave installs.\n\nAn agent CLI runs these itself at a point in its own loop. They read the hook\npayload on stdin and write whatever that CLI expects on stdout. Nothing here is\nmeant to be run by hand.",
+    "short": "Run one of the agent CLI hooks komrade installs",
+    "long": "Run one of the agent CLI hooks komrade installs.\n\nAn agent CLI runs these itself at a point in its own loop. They read the hook\npayload on stdin and write whatever that CLI expects on stdout. Nothing here is\nmeant to be run by hand.",
     "example": "",
     "flags": [],
     "inherited": [
@@ -516,12 +516,12 @@
   },
   {
     "slug": "hook/permission-request",
-    "path": "weave hook permission-request",
+    "path": "komrade hook permission-request",
     "parent": "hook",
-    "usage": "weave hook permission-request",
+    "usage": "komrade hook permission-request",
     "aliases": [],
     "short": "Record the tool an agent is waiting to be allowed to run",
-    "long": "Record the tool an agent is waiting to be allowed to run.\n\nClaude runs this when a tool call puts a dialog up for a person to answer.\nWeave keeps the name of the tool against the agent, which is what tells a row\nblocked on an approval from one blocked on a question, and reads nothing else:\na tool's input can carry a secret.",
+    "long": "Record the tool an agent is waiting to be allowed to run.\n\nClaude runs this when a tool call puts a dialog up for a person to answer.\nKomrade keeps the name of the tool against the agent, which is what tells a row\nblocked on an approval from one blocked on a question, and reads nothing else:\na tool's input can carry a secret.",
     "example": "",
     "flags": [],
     "inherited": [
@@ -544,9 +544,9 @@
   },
   {
     "slug": "hook/post-tool-use",
-    "path": "weave hook post-tool-use",
+    "path": "komrade hook post-tool-use",
     "parent": "hook",
-    "usage": "weave hook post-tool-use",
+    "usage": "komrade hook post-tool-use",
     "aliases": [],
     "short": "Record that an agent's tool call returned",
     "long": "Record that an agent's tool call returned.\n\nClaude runs this once a tool call has finished, which takes the tool back off\nthe agent's row. A call that fails runs nothing, so the row is left to the state\nit is drawn beside rather than to this.",
@@ -572,12 +572,12 @@
   },
   {
     "slug": "hook/pre-tool-use",
-    "path": "weave hook pre-tool-use",
+    "path": "komrade hook pre-tool-use",
     "parent": "hook",
-    "usage": "weave hook pre-tool-use",
+    "usage": "komrade hook pre-tool-use",
     "aliases": [],
     "short": "Record the tool an agent is about to run",
-    "long": "Record the tool an agent is about to run.\n\nClaude runs this before every tool call, handing it the call on stdin. Weave\nkeeps the name of the tool against the agent so the panel can say what it is\ndoing, and reads nothing else: a tool's input can carry a secret.",
+    "long": "Record the tool an agent is about to run.\n\nClaude runs this before every tool call, handing it the call on stdin. Komrade\nkeeps the name of the tool against the agent so the panel can say what it is\ndoing, and reads nothing else: a tool's input can carry a secret.",
     "example": "",
     "flags": [],
     "inherited": [
@@ -600,9 +600,9 @@
   },
   {
     "slug": "hook/stop",
-    "path": "weave hook stop",
+    "path": "komrade hook stop",
     "parent": "hook",
-    "usage": "weave hook stop",
+    "usage": "komrade hook stop",
     "aliases": [],
     "short": "Deliver an agent's unread mail as its turn ends",
     "long": "Deliver an agent's unread mail as its turn ends.\n\nThe agent CLI runs this on its Stop event. It reads the agent's mail and prints it\nback as additional context, which the CLI hands the model as another turn. An\nagent with no mail, or a panel that cannot be reached, prints nothing and lets the\nturn end.",
@@ -628,12 +628,12 @@
   },
   {
     "slug": "hook/turn-end",
-    "path": "weave hook turn-end",
+    "path": "komrade hook turn-end",
     "parent": "hook",
-    "usage": "weave hook turn-end",
+    "usage": "komrade hook turn-end",
     "aliases": [],
     "short": "Record that an agent's turn ended",
-    "long": "Record that an agent's turn ended.\n\nCodex runs this as its notify program, handing it one JSON argument. Weave keeps\nthe moment against the agent so the panel can say it has finished something\nnobody has read. Anything but a completed turn is ignored.",
+    "long": "Record that an agent's turn ended.\n\nCodex runs this as its notify program, handing it one JSON argument. Komrade keeps\nthe moment against the agent so the panel can say it has finished something\nnobody has read. Anything but a completed turn is ignored.",
     "example": "",
     "flags": [],
     "inherited": [
@@ -656,9 +656,9 @@
   },
   {
     "slug": "log",
-    "path": "weave log",
+    "path": "komrade log",
     "parent": "",
-    "usage": "weave log [trace-id] [flags]",
+    "usage": "komrade log [trace-id] [flags]",
     "aliases": [],
     "short": "Show the log lines the service wrote under one trace id",
     "long": "Show the log lines the service wrote under one trace id.\n\nEvery line the service logs carries a trace id, which is one id for one request end\nto end or one pass of a background loop. A call that fails answers with its trace\nid, so following what happened behind a failure is a matter of naming the id here.\nThe service reads its own log back, so this works against a remote engine the same\nas against this machine.\n\nRun with --recent instead of an id to list the trace ids the log ends with, which\nis where to start when you know what you did but not what it was called.",
@@ -692,12 +692,12 @@
   },
   {
     "slug": "migrate",
-    "path": "weave migrate",
+    "path": "komrade migrate",
     "parent": "",
-    "usage": "weave migrate",
+    "usage": "komrade migrate",
     "aliases": [],
     "short": "Apply any pending database migrations",
-    "long": "Apply any pending database migrations, connecting as the login that owns the schema.\n\nThe service never migrates: an engine connects as a login that cannot change the schema,\nand it refuses to start against a database whose migrations do not match its build. So\nevery upgrade runs this first, with owner_database_url (or WEAVE_OWNER_DATABASE_URL)\nnaming the owner, which falls back to database_url on a database no engine has joined.\n\nIt refuses while another weave is connected and the build holds migrations the database\nhas not seen, since those engines would stop matching. It is safe to run against a\ndatabase that is already current; it says so and exits zero.",
+    "long": "Apply any pending database migrations, connecting as the login that owns the schema.\n\nThe service never migrates: an engine connects as a login that cannot change the schema,\nand it refuses to start against a database whose migrations do not match its build. So\nevery upgrade runs this first, with owner_database_url (or KOMRADE_OWNER_DATABASE_URL)\nnaming the owner, which falls back to database_url on a database no engine has joined.\n\nIt refuses while another komrade is connected and the build holds migrations the database\nhas not seen, since those engines would stop matching. It is safe to run against a\ndatabase that is already current; it says so and exits zero.",
     "example": "",
     "flags": [],
     "inherited": [
@@ -720,12 +720,12 @@
   },
   {
     "slug": "open",
-    "path": "weave open",
+    "path": "komrade open",
     "parent": "",
-    "usage": "weave open [flags]",
+    "usage": "komrade open [flags]",
     "aliases": [],
     "short": "Open the panel popup, creating or attaching its persistent session",
-    "long": "Open the panel popup over the current tmux session.\n\nIt creates the manager session if it is not there and attaches either way, so the\npanel keeps its place between opens rather than starting over. The manager session\nlives on weave's own tmux server, so it does not show up in `tmux ls`.\n\nWith engine files under the config's engines directory and no --engine given, it\nfirst asks which weave to open, this machine or one of them, and runs itself again\non the one chosen. Closing that panel comes back to the question, and closing the\nquestion closes the popup. An engine running other code than this weave cannot be\nchosen.\n\nThe tmux plugin runs this as the popup's command, so it blocks until the client\ndetaches, which is what closes the popup. Pressing the panel key again runs\n`weave hide`. Run by hand outside a popup it attaches the manager session in the\nterminal instead, which is the panel without the popup around it.\n\nWith --detach it creates the session and returns, which is what a script wants when\nit needs somewhere for agents to be put back into.\n\nWith --headless it creates that session holding nothing but a placeholder, for an\nengine whose panel runs on somebody else's machine and which would otherwise swap\nan agent's pane into a panel nobody is looking at.",
+    "long": "Open the panel popup over the current tmux session.\n\nIt creates the manager session if it is not there and attaches either way, so the\npanel keeps its place between opens rather than starting over. The manager session\nlives on komrade's own tmux server, so it does not show up in `tmux ls`.\n\nWith engine files under the config's engines directory and no --engine given, it\nfirst asks which komrade to open, this machine or one of them, and runs itself again\non the one chosen. Closing that panel comes back to the question, and closing the\nquestion closes the popup. An engine running other code than this komrade cannot be\nchosen.\n\nThe tmux plugin runs this as the popup's command, so it blocks until the client\ndetaches, which is what closes the popup. Pressing the panel key again runs\n`komrade hide`. Run by hand outside a popup it attaches the manager session in the\nterminal instead, which is the panel without the popup around it.\n\nWith --detach it creates the session and returns, which is what a script wants when\nit needs somewhere for agents to be put back into.\n\nWith --headless it creates that session holding nothing but a placeholder, for an\nengine whose panel runs on somebody else's machine and which would otherwise swap\nan agent's pane into a panel nobody is looking at.",
     "example": "",
     "flags": [
       {
@@ -763,12 +763,12 @@
   },
   {
     "slug": "panel",
-    "path": "weave panel",
+    "path": "komrade panel",
     "parent": "",
-    "usage": "weave panel",
+    "usage": "komrade panel",
     "aliases": [],
     "short": "Run the panel itself, as the manager session's own command",
-    "long": "Run the panel itself.\n\nThis is the command the manager tmux session runs, not the one to type. It starts\nthe service if nothing is answering, then draws the panel and talks to that service\nover the API like any other client. Run by hand outside the manager session it will\ndraw, but the popup and the key bindings around it will not be there.\n\nUse `weave open` to bring the panel up.",
+    "long": "Run the panel itself.\n\nThis is the command the manager tmux session runs, not the one to type. It starts\nthe service if nothing is answering, then draws the panel and talks to that service\nover the API like any other client. Run by hand outside the manager session it will\ndraw, but the popup and the key bindings around it will not be there.\n\nUse `komrade open` to bring the panel up.",
     "example": "",
     "flags": [],
     "inherited": [
@@ -791,11 +791,11 @@
   },
   {
     "slug": "pr",
-    "path": "weave pr",
+    "path": "komrade pr",
     "parent": "",
-    "usage": "weave pr",
+    "usage": "komrade pr",
     "aliases": [],
-    "short": "Read pull requests through the forges weave is connected to",
+    "short": "Read pull requests through the forges komrade is connected to",
     "long": "",
     "example": "",
     "flags": [],
@@ -821,12 +821,12 @@
   },
   {
     "slug": "pr/list",
-    "path": "weave pr list",
+    "path": "komrade pr list",
     "parent": "pr",
-    "usage": "weave pr list \u003cremote-url\u003e [branch]",
+    "usage": "komrade pr list \u003cremote-url\u003e [branch]",
     "aliases": [],
     "short": "List a repository's pull requests, or those opened from one branch",
-    "long": "List a repository's pull requests through the forge its host is connected to.\n\nGive a remote as git spells it. With a branch, every pull request opened from it is\nlisted whatever its state, which is the read the pull request sweep makes; without\none, the repository's open pull requests are listed.\n\n    weave pr list git@github.com:harrisoncramer/weave.git\n    weave pr list git@github.com:harrisoncramer/weave.git agent/some-branch\n\nThe forge hands them over a hundred at a time and this follows every page, so the\nlist is whole; to read one page at a time, call the endpoint through weave rpc\nwith a limit and the cursor it answers.\n\nA repository the credential cannot see answers not found, which is how a token\nwithout access to a private repository shows up.",
+    "long": "List a repository's pull requests through the forge its host is connected to.\n\nGive a remote as git spells it. With a branch, every pull request opened from it is\nlisted whatever its state, which is the read the pull request sweep makes; without\none, the repository's open pull requests are listed.\n\n    komrade pr list git@github.com:harrisoncramer/komrade.git\n    komrade pr list git@github.com:harrisoncramer/komrade.git agent/some-branch\n\nThe forge hands them over a hundred at a time and this follows every page, so the\nlist is whole; to read one page at a time, call the endpoint through komrade rpc\nwith a limit and the cursor it answers.\n\nA repository the credential cannot see answers not found, which is how a token\nwithout access to a private repository shows up.",
     "example": "",
     "flags": [],
     "inherited": [
@@ -849,9 +849,9 @@
   },
   {
     "slug": "rpc",
-    "path": "weave rpc",
+    "path": "komrade rpc",
     "parent": "",
-    "usage": "weave rpc",
+    "usage": "komrade rpc",
     "aliases": [],
     "short": "Call the service's endpoints, one subcommand per RPC",
     "long": "Call the service's endpoints from a script.\n\nEvery subcommand here is one RPC, named as the MCP tool surface names it, so a\nscript and a model ask for the same operation by the same name. Request fields are\nflags, and the response is the API's own JSON on stdout.",
@@ -877,12 +877,12 @@
   },
   {
     "slug": "serve",
-    "path": "weave serve",
+    "path": "komrade serve",
     "parent": "",
-    "usage": "weave serve [flags]",
+    "usage": "komrade serve [flags]",
     "aliases": [],
-    "short": "Run the weave service in the foreground",
-    "long": "Run the weave service in the foreground.\n\nIt opens the database, mounts the Connect handlers and the MCP endpoint on one\naddress, and runs the loops that read each pane's state, reconcile schedules, and\nsync transcripts. The panel and the rest of these commands are clients of it, so\nnothing works without it.\n\n`weave start` spawns this detached with its output going to the log file, which is\nhow it usually runs. Run it here to watch that output directly. It stops on an\ninterrupt, or when `weave stop` asks it to.",
+    "short": "Run the komrade service in the foreground",
+    "long": "Run the komrade service in the foreground.\n\nIt opens the database, mounts the Connect handlers and the MCP endpoint on one\naddress, and runs the loops that read each pane's state, reconcile schedules, and\nsync transcripts. The panel and the rest of these commands are clients of it, so\nnothing works without it.\n\n`komrade start` spawns this detached with its output going to the log file, which is\nhow it usually runs. Run it here to watch that output directly. It stops on an\ninterrupt, or when `komrade stop` asks it to.",
     "example": "",
     "flags": [
       {
@@ -890,7 +890,7 @@
         "shorthand": "",
         "type": "string",
         "default": "",
-        "usage": "listen address, defaulting to WEAVE_ADDR"
+        "usage": "listen address, defaulting to KOMRADE_ADDR"
       }
     ],
     "inherited": [
@@ -913,12 +913,12 @@
   },
   {
     "slug": "shown",
-    "path": "weave shown",
+    "path": "komrade shown",
     "parent": "",
-    "usage": "weave shown",
+    "usage": "komrade shown",
     "aliases": [],
     "short": "Say in the exit status whether the panel is on screen on this tmux server",
-    "long": "Say whether the panel is on screen on this tmux server.\n\nThe panel key runs this to decide which of its two branches to take, so it is asked\non every press and answers from what is true at that moment rather than from\nanything a previous press left behind. It succeeds when the panel has a client\nattached and this is the server that opened it, and fails otherwise, which is what\nsends the key to `weave open`.\n\nFailing is the safe direction: a press that cannot get an answer opens the panel\nrather than refusing to.",
+    "long": "Say whether the panel is on screen on this tmux server.\n\nThe panel key runs this to decide which of its two branches to take, so it is asked\non every press and answers from what is true at that moment rather than from\nanything a previous press left behind. It succeeds when the panel has a client\nattached and this is the server that opened it, and fails otherwise, which is what\nsends the key to `komrade open`.\n\nFailing is the safe direction: a press that cannot get an answer opens the panel\nrather than refusing to.",
     "example": "",
     "flags": [],
     "inherited": [
@@ -941,12 +941,12 @@
   },
   {
     "slug": "start",
-    "path": "weave start",
+    "path": "komrade start",
     "parent": "",
-    "usage": "weave start",
+    "usage": "komrade start",
     "aliases": [],
     "short": "Start the service in the background if it is not already running",
-    "long": "Start the service in the background if it is not already running.\n\nIt asks the configured address who is there first. A server of this build is left\nalone; one of another build is asked to stop and replaced, so a rebuilt binary is\nthe one answering. Otherwise `weave serve` is spawned detached, with its output\ngoing to the log file, and this waits for the address to answer before returning.\n\nOpening the panel does the same thing on its own, so this is for scripts and for\nbringing the service up without a panel.",
+    "long": "Start the service in the background if it is not already running.\n\nIt asks the configured address who is there first. A server of this build is left\nalone; one of another build is asked to stop and replaced, so a rebuilt binary is\nthe one answering. Otherwise `komrade serve` is spawned detached, with its output\ngoing to the log file, and this waits for the address to answer before returning.\n\nOpening the panel does the same thing on its own, so this is for scripts and for\nbringing the service up without a panel.",
     "example": "",
     "flags": [],
     "inherited": [
@@ -969,9 +969,9 @@
   },
   {
     "slug": "stop",
-    "path": "weave stop",
+    "path": "komrade stop",
     "parent": "",
-    "usage": "weave stop",
+    "usage": "komrade stop",
     "aliases": [],
     "short": "Ask the running service to stop, and wait until it is gone",
     "long": "Ask the running service to stop, and wait until it is gone.\n\nThis asks rather than signals, so the service can finish the launch it is in the\nmiddle of and say when it is done. It returns once the process has actually gone,\nnot when the address stops answering, which happens well before the shutdown is\nfinished. Nothing serving at the address is not an error.\n\nAgents keep running: they are tmux panes, not children of this process. They are\npicked back up when the service returns.",
@@ -997,12 +997,12 @@
   },
   {
     "slug": "tmux",
-    "path": "weave tmux",
+    "path": "komrade tmux",
     "parent": "",
-    "usage": "weave tmux [flags]",
+    "usage": "komrade tmux [flags]",
     "aliases": [],
     "short": "Bind the panel key on your tmux server",
-    "long": "Bind the panel key on your tmux server.\n\nThis is what a tmux config runs, as `run-shell 'weave tmux'`, and it is where the\nkey that opens and hides the panel comes from. The path of this binary is resolved\nonce and written into the binding, so weave only has to be findable when tmux parses\nits config rather than for the life of the server.\n\nThere is one key however many engines this machine knows: pressed, it opens this\nmachine's panel, or a picker when engine files are present. An engine has no key of\nits own, so --engine is refused here.\n\nA tmux server has to be running, since binding a key does not start one. The binding\nbelongs to the server rather than to a session, so it outlives the session it was\nmade from and dies with the server. Running this again binds the key as it now\nstands and unbinds the one it bound before, so run it by hand after changing\n@weave_key rather than restarting tmux, and after building weave somewhere else.\n\nRun from a pane on weave's own server, it binds on the server the last open of the\npanel came from, so a rebuild from inside the panel reaches your key too.\n\nWith --if-running it says nothing and does nothing when no tmux server is up, which\nis what a build script wants.",
+    "long": "Bind the panel key on your tmux server.\n\nThis is what a tmux config runs, as `run-shell 'komrade tmux'`, and it is where the\nkey that opens and hides the panel comes from. The path of this binary is resolved\nonce and written into the binding, so komrade only has to be findable when tmux parses\nits config rather than for the life of the server.\n\nThere is one key however many engines this machine knows: pressed, it opens this\nmachine's panel, or a picker when engine files are present. An engine has no key of\nits own, so --engine is refused here.\n\nA tmux server has to be running, since binding a key does not start one. The binding\nbelongs to the server rather than to a session, so it outlives the session it was\nmade from and dies with the server. Running this again binds the key as it now\nstands and unbinds the one it bound before, so run it by hand after changing\n@komrade_key rather than restarting tmux, and after building komrade somewhere else.\n\nRun from a pane on komrade's own server, it binds on the server the last open of the\npanel came from, so a rebuild from inside the panel reaches your key too.\n\nWith --if-running it says nothing and does nothing when no tmux server is up, which\nis what a build script wants.",
     "example": "",
     "flags": [
       {
@@ -1033,9 +1033,9 @@
   },
   {
     "slug": "version",
-    "path": "weave version",
+    "path": "komrade version",
     "parent": "",
-    "usage": "weave version",
+    "usage": "komrade version",
     "aliases": [],
     "short": "Print which build this binary is, and which one is serving",
     "long": "Print which build this binary is, and which one is answering on the address.\n\nThe two can differ. The service is long-lived and keeps the binary it started with,\nso rebuilding replaces the file on disk without changing what is running. When the\nsecond line is not the first, restart the service.",

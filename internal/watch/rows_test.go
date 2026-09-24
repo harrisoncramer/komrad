@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"weave/lib/xslice"
-	agentv1 "weave/proto/gen/agent/v1"
-	watchv1 "weave/proto/gen/watch/v1"
-	workflowv1 "weave/proto/gen/workflow/v1"
+	"komrade/lib/xslice"
+	agentv1 "komrade/proto/gen/agent/v1"
+	watchv1 "komrade/proto/gen/watch/v1"
+	workflowv1 "komrade/proto/gen/workflow/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

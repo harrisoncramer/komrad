@@ -17,7 +17,7 @@ func withPanel(status ServerStatus, running bool) Env {
 		Settings: Settings{
 			Addr:       "127.0.0.1:8787",
 			Version:    "v1.2.3",
-			TmuxSocket: "weave",
+			TmuxSocket: "komrade",
 		},
 		ProbeServer:    func(context.Context) (ServerStatus, error) { return status, nil },
 		IsPanelRunning: func(context.Context) bool { return running },
@@ -41,13 +41,13 @@ func TestServerCheck(t *testing.T) {
 			wantCode: "server_down",
 		},
 		{
-			name:     "something that is not weave",
+			name:     "something that is not komrade",
 			status:   ServerStatus{Answering: true},
 			want:     StatusFail,
 			wantCode: "address_taken",
 		},
 		{
-			name: "a weave from another build",
+			name: "a komrade from another build",
 			status: ServerStatus{
 				Answering: true,
 				Ready:     true,
@@ -141,14 +141,14 @@ func TestStaleServerFixDependsOnThePanel(t *testing.T) {
 	t.Run("no panel running", func(t *testing.T) {
 		result := newServerCheck().Run(t.Context(), withPanel(stale, false))
 
-		assert.Equal(t, "weave stop, then reopen the panel", result.Fix,
+		assert.Equal(t, "komrade stop, then reopen the panel", result.Fix,
 			"the next open creates the session and spawns the current build")
 	})
 
 	t.Run("a panel is running", func(t *testing.T) {
 		result := newServerCheck().Run(t.Context(), withPanel(stale, true))
 
-		assert.NotContains(t, result.Fix, "weave stop",
+		assert.NotContains(t, result.Fix, "komrade stop",
 			"stopping the server under a live panel strands it, since nothing re-runs ensureServer")
 		assert.Contains(t, result.Fix, "kill-server")
 		assert.Contains(t, result.Fix, "every agent",
@@ -170,7 +170,7 @@ func TestNotReadyWaitsRatherThanRestarts(t *testing.T) {
 	assert.NotContains(t, result.Fix, "kill")
 }
 
-// TestListenAddressIsCheckedFirst covers WEAVE_ADDR itself: every other branch of this
+// TestListenAddressIsCheckedFirst covers KOMRADE_ADDR itself: every other branch of this
 // check reads a probe, and a probe against an address nothing can bind answers the same way
 // as one nobody has started yet, so an unbindable address would otherwise read as the
 // ordinary state of a fresh machine.
@@ -246,27 +246,27 @@ func TestStaleServerFixDependsOnWhereTheEngineIs(t *testing.T) {
 			name:          "the engine was deployed from a dirty tree, so it names no commit to build from",
 			isRemote:      true,
 			engineVersion: "v0.0.0-engine.4b1db3cf+dirty.131311",
-			want:          "use the dist/weave-panel that deploy built, since it has no commit to build from",
+			want:          "use the dist/komrade-panel that deploy built, since it has no commit to build from",
 		},
 		{
 			name:          "the engine was deployed by hand from a commit",
 			isRemote:      true,
 			engineVersion: "v0.0.0-engine.4b1db3cf",
 			engineCommit:  "4b1db3cfa7f3eb6f9f5f4de5b4ba5f5e12f5a0c1",
-			want:          "build weave from 4b1db3c, or put this local build on the engine",
+			want:          "build komrade from 4b1db3c, or put this local build on the engine",
 		},
 		{
 			name:          "the engine runs a release, which is installed rather than built",
 			isRemote:      true,
 			engineVersion: "v0.4.0",
 			engineCommit:  "4b1db3cfa7f3eb6f9f5f4de5b4ba5f5e12f5a0c1",
-			want:          "install weave v0.4.0, which the engine runs",
+			want:          "install komrade v0.4.0, which the engine runs",
 		},
 		{
 			name:          "the engine is this machine, so its server is restarted here",
 			isRemote:      false,
 			engineVersion: "v0.4.0",
-			want:          "tmux -L weave kill-server, then reopen the panel, which also restarts every agent",
+			want:          "tmux -L komrade kill-server, then reopen the panel, which also restarts every agent",
 		},
 	}
 
@@ -275,7 +275,7 @@ func TestStaleServerFixDependsOnWhereTheEngineIs(t *testing.T) {
 			t.Parallel()
 
 			env := Env{
-				Settings:       Settings{TmuxSocket: "weave", EngineIsRemote: tt.isRemote},
+				Settings:       Settings{TmuxSocket: "komrade", EngineIsRemote: tt.isRemote},
 				IsPanelRunning: func(context.Context) bool { return true },
 			}
 
@@ -309,7 +309,7 @@ func TestServerCheckOnARemoteEngine(t *testing.T) {
 			status:     ServerStatus{},
 			wantStatus: StatusFail,
 			wantCode:   "server_down",
-			wantFix:    "start weave on the engine, since its service runs whether or not a panel is open",
+			wantFix:    "start komrade on the engine, since its service runs whether or not a panel is open",
 		},
 		{
 			name:       "something on the engine holds the address",
@@ -328,7 +328,7 @@ func TestServerCheckOnARemoteEngine(t *testing.T) {
 				Settings: Settings{
 					Addr:           "127.0.0.1:8787",
 					Version:        "v1.2.3",
-					TmuxSocket:     "weave",
+					TmuxSocket:     "komrade",
 					EngineIsRemote: true,
 				},
 				ProbeServer: func(context.Context) (ServerStatus, error) {

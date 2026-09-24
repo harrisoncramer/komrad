@@ -3,7 +3,7 @@ package ui
 import (
 	"testing"
 
-	"weave/config"
+	"komrade/config"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -20,38 +20,38 @@ func TestLogArgv(t *testing.T) {
 	}{
 		{
 			name:        "nothing configured falls back to a pager on the file",
-			argv:        logArgv("", "/tmp/weave.log", ""),
+			argv:        logArgv("", "/tmp/komrade.log", ""),
 			wantViewer:  config.DefaultLogViewer,
-			wantExports: []string{"export WEAVE_LOG='/tmp/weave.log'; "},
-			wantAbsent:  "export WEAVE_AGENT_ID",
+			wantExports: []string{"export KOMRADE_LOG='/tmp/komrade.log'; "},
+			wantAbsent:  "export KOMRADE_AGENT_ID",
 		},
 		{
 			name:        "a viewer that is only whitespace is no viewer at all",
-			argv:        logArgv("   ", "/tmp/weave.log", ""),
+			argv:        logArgv("   ", "/tmp/komrade.log", ""),
 			wantViewer:  config.DefaultLogViewer,
-			wantExports: []string{"export WEAVE_LOG='/tmp/weave.log'; "},
+			wantExports: []string{"export KOMRADE_LOG='/tmp/komrade.log'; "},
 		},
 		{
 			name:       "a pipeline is left exactly as it was written",
-			argv:       logArgv(`jq -c . "$WEAVE_LOG" | fzf --ansi --preview 'echo {}'`, "/tmp/weave.log", "a1"),
-			wantViewer: `jq -c . "$WEAVE_LOG" | fzf --ansi --preview 'echo {}'`,
+			argv:       logArgv(`jq -c . "$KOMRADE_LOG" | fzf --ansi --preview 'echo {}'`, "/tmp/komrade.log", "a1"),
+			wantViewer: `jq -c . "$KOMRADE_LOG" | fzf --ansi --preview 'echo {}'`,
 			wantExports: []string{
-				"export WEAVE_LOG='/tmp/weave.log'; ",
-				"export WEAVE_AGENT_ID='a1'; ",
+				"export KOMRADE_LOG='/tmp/komrade.log'; ",
+				"export KOMRADE_AGENT_ID='a1'; ",
 			},
 		},
 		{
 			name:        "a path holding spaces and quotes survives the export",
 			argv:        logArgv("", "/Users/a b/it's.log", ""),
 			wantViewer:  config.DefaultLogViewer,
-			wantExports: []string{`export WEAVE_LOG='/Users/a b/it'\''s.log'`},
+			wantExports: []string{`export KOMRADE_LOG='/Users/a b/it'\''s.log'`},
 		},
 		{
 			name:        "a process log falls back to its own viewer and names no agent",
 			argv:        processLogArgv("", "/tmp/setup.log"),
 			wantViewer:  config.DefaultProcessViewer,
-			wantExports: []string{"export WEAVE_LOG='/tmp/setup.log'; "},
-			wantAbsent:  "WEAVE_AGENT_ID",
+			wantExports: []string{"export KOMRADE_LOG='/tmp/setup.log'; "},
+			wantAbsent:  "KOMRADE_AGENT_ID",
 		},
 	}
 

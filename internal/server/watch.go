@@ -3,18 +3,18 @@ package server
 import (
 	"time"
 
-	"weave/internal/rpc/render"
-	"weave/internal/watch"
-	watchv1 "weave/proto/gen/watch/v1"
+	"komrade/internal/rpc/render"
+	"komrade/internal/watch"
+	watchv1 "komrade/proto/gen/watch/v1"
 
-	mailstore "weave/internal/store/mail"
-	markstore "weave/internal/store/mark"
-	pullrequeststore "weave/internal/store/pullrequest"
-	reviewstore "weave/internal/store/review"
-	rowstore "weave/internal/store/row"
-	schedulestore "weave/internal/store/schedule"
-	workflowstore "weave/internal/store/workflow"
-	worktreestore "weave/internal/store/worktree"
+	mailstore "komrade/internal/store/mail"
+	markstore "komrade/internal/store/mark"
+	pullrequeststore "komrade/internal/store/pullrequest"
+	reviewstore "komrade/internal/store/review"
+	rowstore "komrade/internal/store/row"
+	schedulestore "komrade/internal/store/schedule"
+	workflowstore "komrade/internal/store/workflow"
+	worktreestore "komrade/internal/store/worktree"
 )
 
 // buildWatchLoaders pairs each watched resource's lister with its renderer.

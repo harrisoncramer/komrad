@@ -4,13 +4,13 @@ package agent.v1;
 
 import "buf/validate/validate.proto";
 
-option go_package = "weave/proto/gen/agent/v1;agentv1";
+option go_package = "komrade/proto/gen/agent/v1;agentv1";
 
 // ReviewAuthorKind is who wrote a review message.
 enum ReviewAuthorKind {
   // No author was recorded.
   REVIEW_AUTHOR_KIND_UNSPECIFIED = 0;
-  // The person running weave.
+  // The person running komrade.
   REVIEW_AUTHOR_KIND_HUMAN = 1;
   // The agent whose work is being read, or the reviewer reading it.
   REVIEW_AUTHOR_KIND_AGENT = 2;
@@ -380,7 +380,7 @@ message ListReviewsResponse {
   repeated Review reviews = 1;
 }
 
-// ReleaseReviewRequest lets go of the author's open batch. Weave sends the agent one piece of
+// ReleaseReviewRequest lets go of the author's open batch. Komrade sends the agent one piece of
 // ordinary mail naming the review, which it reads whole with get_review, so nothing here decides
 // when the agent is interrupted or typed at: that is mail's own affair.
 message ReleaseReviewRequest {

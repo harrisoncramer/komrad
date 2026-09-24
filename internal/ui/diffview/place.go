@@ -4,8 +4,8 @@ import (
 	"cmp"
 	"slices"
 
-	"weave/internal/diff"
-	agentv1 "weave/proto/gen/agent/v1"
+	"komrade/internal/diff"
+	agentv1 "komrade/proto/gen/agent/v1"
 )
 
 // changedNotice heads the comments whose code the agent has rewritten or removed.

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"weave/internal/harness"
+	"komrade/internal/harness"
 
 	"github.com/stretchr/testify/assert"
 )

@@ -1,0 +1,13 @@
+[Unit]
+Description=Fetch the komrade GitHub App key
+Before=komrade.service
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/komrade-github-key
+
+[Install]
+WantedBy=multi-user.target

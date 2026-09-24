@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"weave/internal/engine"
+	"komrade/internal/engine"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -23,7 +23,7 @@ func shellEngine(t *testing.T) (engine.Remote, string) {
 
 	return engine.Remote{
 		Exec:   []string{"sh", "-c", `printf '%s\n' "$1" >> ` + log + ` && exec sh -c "$1"`, "sh", "{{command}}"},
-		Socket: "weave",
+		Socket: "komrade",
 	}, log
 }
 

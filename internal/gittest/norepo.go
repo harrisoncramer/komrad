@@ -4,9 +4,9 @@ package gittest
 import (
 	"context"
 
-	"weave/internal/fail"
-	"weave/internal/git"
-	"weave/internal/position"
+	"komrade/internal/fail"
+	"komrade/internal/git"
+	"komrade/internal/position"
 )
 
 // ErrNoGit is what the fake answers with.

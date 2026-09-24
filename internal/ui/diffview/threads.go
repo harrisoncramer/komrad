@@ -3,7 +3,7 @@ package diffview
 import (
 	"fmt"
 
-	agentv1 "weave/proto/gen/agent/v1"
+	agentv1 "komrade/proto/gen/agent/v1"
 )
 
 // lineIndex is the diff's lines looked at from the three directions a thread can be placed from:

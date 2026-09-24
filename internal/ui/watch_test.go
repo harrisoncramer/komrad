@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	watchv1 "weave/proto/gen/watch/v1"
-	worktreev1 "weave/proto/gen/worktree/v1"
+	watchv1 "komrade/proto/gen/watch/v1"
+	worktreev1 "komrade/proto/gen/worktree/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"time"
 
-	"weave/internal/logging"
-	"weave/internal/version"
+	"komrade/internal/logging"
+	"komrade/internal/version"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )

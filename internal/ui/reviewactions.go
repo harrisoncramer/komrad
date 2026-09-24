@@ -3,7 +3,7 @@ package ui
 import (
 	"slices"
 
-	"weave/config"
+	"komrade/config"
 
 	tea "charm.land/bubbletea/v2"
 )

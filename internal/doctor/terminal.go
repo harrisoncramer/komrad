@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"strings"
 
-	"weave/internal/ui/paint/label"
-	"weave/internal/view"
-	"weave/lib/xslice"
+	"komrade/internal/ui/paint/label"
+	"komrade/internal/view"
+	"komrade/lib/xslice"
 )
 
 // paletteColors is the number of colours the panel's palette is mixed for.

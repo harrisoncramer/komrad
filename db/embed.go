@@ -20,8 +20,8 @@ import (
 	"strings"
 	"time"
 
-	"weave/internal/logging"
-	"weave/lib/xslice"
+	"komrade/internal/logging"
+	"komrade/lib/xslice"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -94,7 +94,7 @@ func Pending(ctx context.Context, pool *pgxpool.Pool) ([]string, error) {
 }
 
 // ErrSchemaBehind is returned when the database is missing migrations this build carries.
-var ErrSchemaBehind = errors.New("the database is missing migrations this build carries; run weave migrate as the database owner")
+var ErrSchemaBehind = errors.New("the database is missing migrations this build carries; run komrade migrate as the database owner")
 
 // ErrSchemaAhead is returned when the database holds migrations this build does not know.
 var ErrSchemaAhead = errors.New("the database holds migrations this build does not know; run the build that applied them")
@@ -261,10 +261,10 @@ func apply(ctx context.Context, pool *pgxpool.Pool, set migrationSet) error {
 	return nil
 }
 
-// ErrDatabaseInUse is returned rather than migrating a database another weave is on.
-var ErrDatabaseInUse = errors.New("another weave is using this database")
+// ErrDatabaseInUse is returned rather than migrating a database another komrade is on.
+var ErrDatabaseInUse = errors.New("another komrade is using this database")
 
-// refuseSharedDatabase stops a pass that would change the schema under a weave already
+// refuseSharedDatabase stops a pass that would change the schema under a komrade already
 // running against the same database.
 func refuseSharedDatabase(ctx context.Context, conn *pgxpool.Conn, pending []string) error {
 	rows, err := conn.Query(ctx, `
@@ -288,7 +288,7 @@ func refuseSharedDatabase(ctx context.Context, conn *pgxpool.Conn, pending []str
 	}
 
 	return fmt.Errorf("%w: %s is connected to it, and this build holds %d migration(s) it has not seen (%s). "+
-		"Stop that weave, or point WEAVE_DATABASE_URL at a database of this checkout's own",
+		"Stop that komrade, or point KOMRADE_DATABASE_URL at a database of this checkout's own",
 		ErrDatabaseInUse, strings.Join(others, ", "), len(pending), strings.Join(pending, ", "))
 }
 

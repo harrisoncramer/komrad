@@ -9,9 +9,9 @@ import (
 	"io/fs"
 	"os"
 
-	"weave/internal/fail"
-	"weave/internal/logging"
-	"weave/lib/xslice"
+	"komrade/internal/fail"
+	"komrade/internal/logging"
+	"komrade/lib/xslice"
 )
 
 // ErrNoSuchTrace says nothing in the log was written under the trace asked for.

@@ -5,9 +5,9 @@ import (
 	"slices"
 	"strings"
 
-	"weave/internal/ui/panel"
-	"weave/lib/xslice"
-	hookv1 "weave/proto/gen/hook/v1"
+	"komrade/internal/ui/panel"
+	"komrade/lib/xslice"
+	hookv1 "komrade/proto/gen/hook/v1"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"

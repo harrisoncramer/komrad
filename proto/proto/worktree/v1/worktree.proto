@@ -7,7 +7,7 @@ import "annotation/v1/tool.proto";
 import "buf/validate/validate.proto";
 import "google/protobuf/empty.proto";
 
-option go_package = "weave/proto/gen/worktree/v1;worktreev1";
+option go_package = "komrade/proto/gen/worktree/v1;worktreev1";
 
 message WorktreeAgent {
   // The agent's id.
@@ -196,7 +196,7 @@ message DeleteWorktreesRequest {
   }];
 }
 
-// WorktreeService reads and clears the directories weave cut for its agents.
+// WorktreeService reads and clears the directories komrade cut for its agents.
 service WorktreeService {
   rpc ListWorktrees(google.protobuf.Empty) returns (ListWorktreesResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
@@ -204,7 +204,7 @@ service WorktreeService {
       cli: true
       mcp: true
       name: "list_worktrees"
-      description: "List every worktree directory weave holds, under the configured worktrees directory and each workflow's own, with the repository it was cut from, its branch, whether git can still read it, the agent it was made for, the other agents working in it, the disk it takes as it was last measured, and when it was last active. A directory with no agent is one whose row was deleted while cleanup did not run, or one a test left behind. A directory a delete has claimed and not yet taken, through delete_agents, delete_worktrees or the panel, is left out until that delete fails. Sizes are measured in the background a few directories at a time, so a directory the loop has not reached yet carries none. This reads the directories, the agent rows and the stored sizes and runs no git, so it is cheap to call often; read one directory's contents and standing against its base with get_worktree, which also measures it afresh."
+      description: "List every worktree directory komrade holds, under the configured worktrees directory and each workflow's own, with the repository it was cut from, its branch, whether git can still read it, the agent it was made for, the other agents working in it, the disk it takes as it was last measured, and when it was last active. A directory with no agent is one whose row was deleted while cleanup did not run, or one a test left behind. A directory a delete has claimed and not yet taken, through delete_agents, delete_worktrees or the panel, is left out until that delete fails. Sizes are measured in the background a few directories at a time, so a directory the loop has not reached yet carries none. This reads the directories, the agent rows and the stored sizes and runs no git, so it is cheap to call often; read one directory's contents and standing against its base with get_worktree, which also measures it afresh."
       roles: [ROLE_ORCHESTRATOR]
     };
   }

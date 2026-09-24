@@ -3,8 +3,8 @@ package harness_test
 import (
 	"testing"
 
-	"weave/internal/harness"
-	"weave/internal/harnesstest"
+	"komrade/internal/harness"
+	"komrade/internal/harnesstest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

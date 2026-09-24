@@ -4,12 +4,12 @@ import (
 	"errors"
 	"testing"
 
-	"weave/internal/harness"
-	"weave/internal/harnesstest"
-	agentstore "weave/internal/store/agent"
-	reviewstore "weave/internal/store/review"
-	workflowstore "weave/internal/store/workflow"
-	"weave/internal/tmuxtest"
+	"komrade/internal/harness"
+	"komrade/internal/harnesstest"
+	agentstore "komrade/internal/store/agent"
+	reviewstore "komrade/internal/store/review"
+	workflowstore "komrade/internal/store/workflow"
+	"komrade/internal/tmuxtest"
 
 	"github.com/google/uuid"
 

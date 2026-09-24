@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"weave/lib/xslice"
-	watchv1 "weave/proto/gen/watch/v1"
+	"komrade/lib/xslice"
+	watchv1 "komrade/proto/gen/watch/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

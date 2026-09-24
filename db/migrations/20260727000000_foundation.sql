@@ -45,9 +45,9 @@ CREATE OR REPLACE FUNCTION watch_notify()
     AS $$
 BEGIN
     IF TG_OP = 'DELETE' THEN
-        PERFORM pg_notify('weave_watch', TG_TABLE_NAME || ' ' || OLD.id::text);
+        PERFORM pg_notify('komrade_watch', TG_TABLE_NAME || ' ' || OLD.id::text);
     ELSE
-        PERFORM pg_notify('weave_watch', TG_TABLE_NAME || ' ' || NEW.id::text);
+        PERFORM pg_notify('komrade_watch', TG_TABLE_NAME || ' ' || NEW.id::text);
     END IF;
     RETURN NULL;
 END;
@@ -61,10 +61,10 @@ CREATE OR REPLACE FUNCTION watch_project()
     AS $$
 BEGIN
     IF TG_OP <> 'INSERT' AND (to_jsonb(OLD) ->> TG_ARGV[1]) IS NOT NULL THEN
-        PERFORM pg_notify('weave_watch', TG_ARGV[0] || ' ' || (to_jsonb(OLD) ->> TG_ARGV[1]));
+        PERFORM pg_notify('komrade_watch', TG_ARGV[0] || ' ' || (to_jsonb(OLD) ->> TG_ARGV[1]));
     END IF;
     IF TG_OP <> 'DELETE' AND (to_jsonb(NEW) ->> TG_ARGV[1]) IS NOT NULL THEN
-        PERFORM pg_notify('weave_watch', TG_ARGV[0] || ' ' || (to_jsonb(NEW) ->> TG_ARGV[1]));
+        PERFORM pg_notify('komrade_watch', TG_ARGV[0] || ' ' || (to_jsonb(NEW) ->> TG_ARGV[1]));
     END IF;
     RETURN NULL;
 END;
@@ -86,7 +86,7 @@ BEGIN
     END IF;
     FOR parent_id IN EXECUTE FORMAT('SELECT id::text FROM %I WHERE %I::text = $1 AND (%s)', TG_ARGV[0], TG_ARGV[1], narrowing)
         USING (to_jsonb(COALESCE(NEW, OLD)) ->> TG_ARGV[2]) LOOP
-        PERFORM pg_notify('weave_watch', TG_ARGV[0] || ' ' || parent_id);
+        PERFORM pg_notify('komrade_watch', TG_ARGV[0] || ' ' || parent_id);
     END LOOP;
     RETURN NULL;
 END;

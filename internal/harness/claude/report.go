@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"weave/internal/harness"
+	"komrade/internal/harness"
 )
 
-// The events Claude fires that weave takes a reading from, named as Claude names them.
+// The events Claude fires that komrade takes a reading from, named as Claude names them.
 const (
 	// EventStop is fired as a turn of Claude's own ends.
 	EventStop harness.Event = "Stop"
@@ -27,14 +27,14 @@ type toolPayload struct {
 	ToolName string `json:"tool_name"`
 }
 
-// ReadReport reads out of one of Claude's hook payloads only what weave records about the agent,
+// ReadReport reads out of one of Claude's hook payloads only what komrade records about the agent,
 // leaving what the hook has to answer Claude with to the subcommand that answers it.
 func (h *Harness) ReadReport(event harness.Event, payload []byte) (harness.Report, error) {
 	// The event is the caller's rather than the payload's, the subcommand answering an event
 	// knowing which one it is.
 	switch event {
 	// The event says the turn ended on its own, so nothing in the payload decides it, and a
-	// turn weave's own last answer caused is still a turn ending.
+	// turn komrade's own last answer caused is still a turn ending.
 	case EventStop:
 		return harness.Report{TurnEnded: true}, nil
 

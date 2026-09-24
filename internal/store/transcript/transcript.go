@@ -9,10 +9,10 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"weave/db"
-	"weave/db/models"
-	"weave/internal/store"
-	"weave/lib/xslice"
+	"komrade/db"
+	"komrade/db/models"
+	"komrade/internal/store"
+	"komrade/lib/xslice"
 )
 
 // Session is one conversation an agent has held.

@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"weave/lib/xhttp"
-	logv1 "weave/proto/gen/log/v1"
-	"weave/proto/gen/log/v1/logv1connect"
+	"komrade/lib/xhttp"
+	logv1 "komrade/proto/gen/log/v1"
+	"komrade/proto/gen/log/v1/logv1connect"
 
 	"connectrpc.com/connect"
 	"github.com/spf13/cobra"

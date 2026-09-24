@@ -7,7 +7,7 @@ import (
 	"context"
 	"fmt"
 
-	paginationv1 "weave/proto/gen/pagination/v1"
+	paginationv1 "komrade/proto/gen/pagination/v1"
 
 	"google.golang.org/protobuf/proto"
 )

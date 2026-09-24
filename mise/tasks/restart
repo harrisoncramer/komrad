@@ -4,49 +4,49 @@ source "$MISE_CONFIG_ROOT/mise/tasks/_build"
 set -euo pipefail
 cd "$MISE_CONFIG_ROOT"
 
-weave="$MISE_CONFIG_ROOT/bin/weave"
+komrade="$MISE_CONFIG_ROOT/bin/komrade"
 
-socket="${WEAVE_TMUX_SOCKET:-weave}"
-addr="${WEAVE_ADDR:-127.0.0.1:8787}"
+socket="${KOMRADE_TMUX_SOCKET:-komrade}"
+addr="${KOMRADE_ADDR:-127.0.0.1:8787}"
 
-go_build_local "$weave"
+go_build_local "$komrade"
 
 agents="$( (tmux -L "$socket" list-panes -a -F x 2>/dev/null || true) | wc -l | tr -d ' ')"
 
 tmux -L "$socket" kill-server 2>/dev/null || true
 
-if ! "$weave" stop; then
-	pkill -f "weave serve --addr $addr" 2>/dev/null || true
+if ! "$komrade" stop; then
+	pkill -f "komrade serve --addr $addr" 2>/dev/null || true
 fi
 
-"$weave" migrate
+"$komrade" migrate
 
-case "${WEAVE_DATABASE_URL:-weave_engine_default:weave@}" in
-*weave_engine_default:weave@*) WEAVE_ENGINE_PASSWORD=weave "$weave" engine ensure default >/dev/null ;;
+case "${KOMRADE_DATABASE_URL:-komrade_engine_default:komrade@}" in
+*komrade_engine_default:komrade@*) KOMRADE_ENGINE_PASSWORD=komrade "$komrade" engine ensure default >/dev/null ;;
 esac
 
-if ! "$weave" start; then
+if ! "$komrade" start; then
 	echo "warning: the server did not come up, so open the panel to see why" >&2
 	echo "killed $agents panes; the server is not running"
 	exit 1
 fi
 
-if ! "$weave" open --detach; then
+if ! "$komrade" open --detach; then
 	echo "warning: the panel session did not come up" >&2
 	exit 1
 fi
 
-bind_panel_key "$weave"
+bind_panel_key "$komrade"
 
-# Runs weave with the connection read from the engine file alone.
-engine_weave() {
-	env -u WEAVE_ADDR -u WEAVE_TMUX_SOCKET -u WEAVE_DATABASE_URL -u WEAVE_READONLY_DATABASE_URL \
-		-u WEAVE_OWNER_DATABASE_URL -u WEAVE_CACHE_DIR \
-		"$weave" "$@"
+# Runs komrade with the connection read from the engine file alone.
+engine_komrade() {
+	env -u KOMRADE_ADDR -u KOMRADE_TMUX_SOCKET -u KOMRADE_DATABASE_URL -u KOMRADE_READONLY_DATABASE_URL \
+		-u KOMRADE_OWNER_DATABASE_URL -u KOMRADE_CACHE_DIR \
+		"$komrade" "$@"
 }
 
 # Replaces the server of every other engine on this machine.
-engines_dir="$HOME/.config/weave/engines"
+engines_dir="$HOME/.config/komrade/engines"
 if [ "${MISE_ENV:-}" != test ] && [ -d "$engines_dir" ]; then
 	for file in "$engines_dir"/*.toml; do
 		[ -e "$file" ] || continue
@@ -55,8 +55,8 @@ if [ "${MISE_ENV:-}" != test ] && [ -d "$engines_dir" ]; then
 		fi
 
 		name="$(basename "$file" .toml)"
-		engine_weave stop --engine "$name" 2>/dev/null || true
-		if ! engine_weave start --engine "$name"; then
+		engine_komrade stop --engine "$name" 2>/dev/null || true
+		if ! engine_komrade start --engine "$name"; then
 			echo "warning: the $name engine's server did not come up" >&2
 		fi
 	done

@@ -6,7 +6,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// warmupPoll is how often a pane weave is waiting on is asked whether its harness has started.
+// warmupPoll is how often a pane komrade is waiting on is asked whether its harness has started.
 const warmupPoll = 100 * time.Millisecond
 
 // warmupCap is how long a pane is waited on before it is shown regardless, so a launch that
@@ -98,7 +98,7 @@ func (m *model) isPaneStageable(pane, harnessID string) bool {
 		return false
 	}
 
-	// A pane sitting at its shell has nothing coming that waiting would catch, and weave has seen
+	// A pane sitting at its shell has nothing coming that waiting would catch, and komrade has seen
 	// no harness in it to mark.
 	if !m.warm.ready[pane] && !m.tmux.IsPaneRunningCLI(pane) {
 		return true

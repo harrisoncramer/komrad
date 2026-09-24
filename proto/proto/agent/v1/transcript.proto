@@ -5,7 +5,7 @@ package agent.v1;
 import "buf/validate/validate.proto";
 import "pagination/v1/pagination.proto";
 
-option go_package = "weave/proto/gen/agent/v1;agentv1";
+option go_package = "komrade/proto/gen/agent/v1;agentv1";
 
 message SearchTranscriptsRequest {
   // The words to look for, matched whole and stemmed, with a quoted phrase required in that order and

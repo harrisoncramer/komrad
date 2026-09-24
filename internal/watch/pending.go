@@ -6,8 +6,8 @@ import (
 	"maps"
 	"slices"
 
-	"weave/internal/logging"
-	watchv1 "weave/proto/gen/watch/v1"
+	"komrade/internal/logging"
+	watchv1 "komrade/proto/gen/watch/v1"
 )
 
 // pendingKeys is the keys one render reads back, by resource, each resource's in order.

@@ -1,8 +1,8 @@
 package render
 
 import (
-	markstore "weave/internal/store/mark"
-	agentv1 "weave/proto/gen/agent/v1"
+	markstore "komrade/internal/store/mark"
+	agentv1 "komrade/proto/gen/agent/v1"
 )
 
 // Mark draws one mark as the wire carries it.

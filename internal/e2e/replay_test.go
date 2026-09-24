@@ -6,11 +6,11 @@ import (
 	"strings"
 	"testing"
 
-	"weave/internal/diff"
-	"weave/internal/git"
-	"weave/internal/weavetest"
-	agentv1 "weave/proto/gen/agent/v1"
-	workflowv1 "weave/proto/gen/workflow/v1"
+	"komrade/internal/diff"
+	"komrade/internal/git"
+	"komrade/internal/komradetest"
+	agentv1 "komrade/proto/gen/agent/v1"
+	workflowv1 "komrade/proto/gen/workflow/v1"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
@@ -36,7 +36,7 @@ func reviewAcrossARebase(t *testing.T, mainsGreet string, wantConflict bool) rou
 
 	isolateGit(t)
 
-	instance := weavetest.Start(t, weavetest.Params{WorktreesDir: t.TempDir()})
+	instance := komradetest.Start(t, komradetest.Params{WorktreesDir: t.TempDir()})
 	repo := initGitRepo(t)
 	ctx := t.Context()
 
@@ -62,8 +62,8 @@ func reviewAcrossARebase(t *testing.T, mainsGreet string, wantConflict bool) rou
 	agentID, tree := created.Msg.GetAgent().GetId(), created.Msg.GetAgent().GetCwd()
 	require.DirExists(t, tree)
 	instance.WaitForHarness(agentID)
-	runGitIn(t, tree, "config", "user.email", "test@weave.test")
-	runGitIn(t, tree, "config", "user.name", "weave test")
+	runGitIn(t, tree, "config", "user.email", "test@komrade.test")
+	runGitIn(t, tree, "config", "user.name", "komrade test")
 
 	writeIn(t, tree, "greet.go", greetRound1)
 	runGitIn(t, tree, "add", "greet.go")

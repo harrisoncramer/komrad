@@ -3,7 +3,7 @@ package cli
 import (
 	"errors"
 
-	"weave/internal/tmux"
+	"komrade/internal/tmux"
 
 	"github.com/spf13/cobra"
 )
@@ -26,7 +26,7 @@ starting one is what the panel key is for.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if !isPanelRunning(cmd.Context(), state) {
 				return errors.New("the panel is not running, so there is nothing to attach: " +
-					"press the panel key, or run `weave open`, to start it")
+					"press the panel key, or run `komrade open`, to start it")
 			}
 
 			socket := tmux.SocketFromEnv(state.env.Tmux)

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"weave/internal/errui"
+	"komrade/internal/errui"
 
 	tea "charm.land/bubbletea/v2"
 )

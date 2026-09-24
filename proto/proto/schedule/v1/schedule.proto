@@ -10,7 +10,7 @@ import "pagination/v1/pagination.proto";
 import "rules/v1/rules.proto";
 import "view/v1/view.proto";
 
-option go_package = "weave/proto/gen/schedule/v1;schedulev1";
+option go_package = "komrade/proto/gen/schedule/v1;schedulev1";
 
 // ScheduleRunState is where River holds a firing's job.
 enum ScheduleRunState {

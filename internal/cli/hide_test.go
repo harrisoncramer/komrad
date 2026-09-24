@@ -7,10 +7,10 @@ import (
 	"strings"
 	"testing"
 
-	"weave/config"
-	"weave/internal/agents"
-	"weave/internal/tmux"
-	"weave/internal/ui"
+	"komrade/config"
+	"komrade/internal/agents"
+	"komrade/internal/tmux"
+	"komrade/internal/ui"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

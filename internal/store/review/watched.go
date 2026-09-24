@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	"weave/db/models"
-	"weave/internal/store"
-	"weave/internal/watch"
-	"weave/lib/xptr"
-	"weave/lib/xslice"
-	watchv1 "weave/proto/gen/watch/v1"
+	"komrade/db/models"
+	"komrade/internal/store"
+	"komrade/internal/watch"
+	"komrade/lib/xptr"
+	"komrade/lib/xslice"
+	watchv1 "komrade/proto/gen/watch/v1"
 )
 
 // WatchedReviews declares the reviews to the watch.

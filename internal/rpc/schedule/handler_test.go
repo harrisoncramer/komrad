@@ -7,15 +7,15 @@ import (
 	"testing"
 	"time"
 
-	"weave/internal/rpc/render"
-	"weave/internal/schedules"
-	"weave/internal/store"
-	paginationv1 "weave/proto/gen/pagination/v1"
-	schedulev1 "weave/proto/gen/schedule/v1"
-	"weave/proto/gen/schedule/v1/schedulev1weave"
-	viewv1 "weave/proto/gen/view/v1"
+	"komrade/internal/rpc/render"
+	"komrade/internal/schedules"
+	"komrade/internal/store"
+	paginationv1 "komrade/proto/gen/pagination/v1"
+	schedulev1 "komrade/proto/gen/schedule/v1"
+	"komrade/proto/gen/schedule/v1/schedulev1komrade"
+	viewv1 "komrade/proto/gen/view/v1"
 
-	schedulestore "weave/internal/store/schedule"
+	schedulestore "komrade/internal/store/schedule"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
@@ -121,12 +121,12 @@ func (f *fakeSchedules) ListScheduleRuns(_ context.Context, params schedules.Lis
 
 // TestScheduleRefusalsMapToCodes pins the code each refusal of the schedule service reaches the caller as.
 func TestScheduleRefusalsMapToCodes(t *testing.T) {
-	create := func(ctx context.Context, svc schedulev1weave.ScheduleServiceAdapter) error {
+	create := func(ctx context.Context, svc schedulev1komrade.ScheduleServiceAdapter) error {
 		_, err := svc.CreateSchedule(ctx, connect.NewRequest(&schedulev1.CreateScheduleRequest{Name: "morning-ci"}))
 
 		return err
 	}
-	update := func(ctx context.Context, svc schedulev1weave.ScheduleServiceAdapter) error {
+	update := func(ctx context.Context, svc schedulev1komrade.ScheduleServiceAdapter) error {
 		_, err := svc.UpdateSchedule(ctx, connect.NewRequest(&schedulev1.UpdateScheduleRequest{Id: scheduleID}))
 
 		return err
@@ -134,7 +134,7 @@ func TestScheduleRefusalsMapToCodes(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		call     func(ctx context.Context, svc schedulev1weave.ScheduleServiceAdapter) error
+		call     func(ctx context.Context, svc schedulev1komrade.ScheduleServiceAdapter) error
 		err      error
 		wantCode connect.Code
 	}{
@@ -170,7 +170,7 @@ func TestScheduleRefusalsMapToCodes(t *testing.T) {
 		},
 		{
 			name: "pausing a schedule nothing holds",
-			call: func(ctx context.Context, svc schedulev1weave.ScheduleServiceAdapter) error {
+			call: func(ctx context.Context, svc schedulev1komrade.ScheduleServiceAdapter) error {
 				_, err := svc.SetScheduleEnabled(ctx, connect.NewRequest(&schedulev1.SetScheduleEnabledRequest{Id: scheduleID}))
 
 				return err
@@ -180,7 +180,7 @@ func TestScheduleRefusalsMapToCodes(t *testing.T) {
 		},
 		{
 			name: "archiving a schedule nothing holds",
-			call: func(ctx context.Context, svc schedulev1weave.ScheduleServiceAdapter) error {
+			call: func(ctx context.Context, svc schedulev1komrade.ScheduleServiceAdapter) error {
 				_, err := svc.ArchiveSchedule(ctx, connect.NewRequest(&schedulev1.ArchiveScheduleRequest{Id: scheduleID}))
 
 				return err
@@ -190,7 +190,7 @@ func TestScheduleRefusalsMapToCodes(t *testing.T) {
 		},
 		{
 			name: "reading a schedule nothing holds",
-			call: func(ctx context.Context, svc schedulev1weave.ScheduleServiceAdapter) error {
+			call: func(ctx context.Context, svc schedulev1komrade.ScheduleServiceAdapter) error {
 				_, err := svc.GetSchedule(ctx, connect.NewRequest(&schedulev1.GetScheduleRequest{Id: scheduleID}))
 
 				return err
@@ -200,7 +200,7 @@ func TestScheduleRefusalsMapToCodes(t *testing.T) {
 		},
 		{
 			name: "listing the runs of a schedule nothing holds",
-			call: func(ctx context.Context, svc schedulev1weave.ScheduleServiceAdapter) error {
+			call: func(ctx context.Context, svc schedulev1komrade.ScheduleServiceAdapter) error {
 				_, err := svc.ListScheduleRuns(ctx, connect.NewRequest(&schedulev1.ListScheduleRunsRequest{Id: scheduleID}))
 
 				return err
@@ -210,7 +210,7 @@ func TestScheduleRefusalsMapToCodes(t *testing.T) {
 		},
 		{
 			name: "listing with a page token that holds no id",
-			call: func(ctx context.Context, svc schedulev1weave.ScheduleServiceAdapter) error {
+			call: func(ctx context.Context, svc schedulev1komrade.ScheduleServiceAdapter) error {
 				_, err := svc.ListSchedules(ctx, connect.NewRequest(&schedulev1.ListSchedulesRequest{
 					Pagination: &paginationv1.Pagination{Cursor: proto.String("eyJpIjoibm90LWFuLWlkIn0=")},
 				}))
@@ -221,7 +221,7 @@ func TestScheduleRefusalsMapToCodes(t *testing.T) {
 		},
 		{
 			name: "a listing the store could not read",
-			call: func(ctx context.Context, svc schedulev1weave.ScheduleServiceAdapter) error {
+			call: func(ctx context.Context, svc schedulev1komrade.ScheduleServiceAdapter) error {
 				_, err := svc.ListSchedules(ctx, connect.NewRequest(&schedulev1.ListSchedulesRequest{}))
 
 				return err
@@ -258,12 +258,12 @@ func TestScheduleWritesPassDown(t *testing.T) {
 
 	tests := []struct {
 		name string
-		call func(ctx context.Context, svc schedulev1weave.ScheduleServiceAdapter) error
+		call func(ctx context.Context, svc schedulev1komrade.ScheduleServiceAdapter) error
 		want fakeSchedules
 	}{
 		{
 			name: "creating hands down every field",
-			call: func(ctx context.Context, svc schedulev1weave.ScheduleServiceAdapter) error {
+			call: func(ctx context.Context, svc schedulev1komrade.ScheduleServiceAdapter) error {
 				_, err := svc.CreateSchedule(ctx, connect.NewRequest(&schedulev1.CreateScheduleRequest{
 					Name:       cfg.Name,
 					Cron:       cfg.Cron,
@@ -280,7 +280,7 @@ func TestScheduleWritesPassDown(t *testing.T) {
 		},
 		{
 			name: "updating hands down the id and every field",
-			call: func(ctx context.Context, svc schedulev1weave.ScheduleServiceAdapter) error {
+			call: func(ctx context.Context, svc schedulev1komrade.ScheduleServiceAdapter) error {
 				_, err := svc.UpdateSchedule(ctx, connect.NewRequest(&schedulev1.UpdateScheduleRequest{
 					Id:         scheduleID,
 					Name:       cfg.Name,
@@ -303,7 +303,7 @@ func TestScheduleWritesPassDown(t *testing.T) {
 		},
 		{
 			name: "pausing hands down the id and the toggle",
-			call: func(ctx context.Context, svc schedulev1weave.ScheduleServiceAdapter) error {
+			call: func(ctx context.Context, svc schedulev1komrade.ScheduleServiceAdapter) error {
 				_, err := svc.SetScheduleEnabled(ctx, connect.NewRequest(&schedulev1.SetScheduleEnabledRequest{
 					Id:      scheduleID,
 					Enabled: true,
@@ -320,7 +320,7 @@ func TestScheduleWritesPassDown(t *testing.T) {
 		},
 		{
 			name: "archiving hands down the id",
-			call: func(ctx context.Context, svc schedulev1weave.ScheduleServiceAdapter) error {
+			call: func(ctx context.Context, svc schedulev1komrade.ScheduleServiceAdapter) error {
 				_, err := svc.ArchiveSchedule(ctx, connect.NewRequest(&schedulev1.ArchiveScheduleRequest{Id: scheduleID}))
 
 				return err
@@ -515,6 +515,6 @@ func TestListScheduleRuns(t *testing.T) {
 	}
 }
 
-func newScheduleHandler(fake *fakeSchedules) schedulev1weave.ScheduleServiceAdapter {
-	return schedulev1weave.ScheduleServiceAdapter{Impl: NewHandler(NewHandlerParams{Schedules: fake})}
+func newScheduleHandler(fake *fakeSchedules) schedulev1komrade.ScheduleServiceAdapter {
+	return schedulev1komrade.ScheduleServiceAdapter{Impl: NewHandler(NewHandlerParams{Schedules: fake})}
 }

@@ -4,10 +4,10 @@ import (
 	"testing"
 	"time"
 
-	"weave/internal/ui/panel"
-	agentv1 "weave/proto/gen/agent/v1"
-	workflowv1 "weave/proto/gen/workflow/v1"
-	worktreev1 "weave/proto/gen/worktree/v1"
+	"komrade/internal/ui/panel"
+	agentv1 "komrade/proto/gen/agent/v1"
+	workflowv1 "komrade/proto/gen/workflow/v1"
+	worktreev1 "komrade/proto/gen/worktree/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

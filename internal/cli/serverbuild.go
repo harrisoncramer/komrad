@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"weave/internal/doctor"
-	"weave/internal/errui"
-	"weave/internal/server"
-	"weave/internal/version"
+	"komrade/internal/doctor"
+	"komrade/internal/errui"
+	"komrade/internal/server"
+	"komrade/internal/version"
 )
 
 // isSameBuild reports whether a server that answered with this health body is running this code.
@@ -26,7 +26,7 @@ func requireEngineBuild(ctx context.Context, addr string) error {
 		return nil
 	}
 
-	return fmt.Errorf("%w: engine %s, this weave %s; %s",
+	return fmt.Errorf("%w: engine %s, this komrade %s; %s",
 		errui.ErrEngineBuild,
 		version.Describe(probe.version, probe.commit),
 		version.Describe(version.Version(), version.Commit()),

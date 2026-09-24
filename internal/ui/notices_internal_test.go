@@ -7,12 +7,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"weave/internal/git"
-	"weave/internal/ui/panel"
-	"weave/internal/view"
-	"weave/lib/xptr"
-	"weave/lib/xslice"
-	agentv1 "weave/proto/gen/agent/v1"
+	"komrade/internal/git"
+	"komrade/internal/ui/panel"
+	"komrade/internal/view"
+	"komrade/lib/xptr"
+	"komrade/lib/xslice"
+	agentv1 "komrade/proto/gen/agent/v1"
 )
 
 // TestAgentNotices covers what the record says about each mark a row carries, in the order a person would act on them.
@@ -299,7 +299,7 @@ func buildPlainRow(item panel.AgentRow) agentRow {
 		item: item,
 		workflow: panel.Workflow{
 			ID:   "w1",
-			Name: "weave",
+			Name: "komrade",
 		},
 	}
 }

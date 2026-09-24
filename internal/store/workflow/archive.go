@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"weave/internal/store"
+	"komrade/internal/store"
 )
 
 // Archive hides a workflow from the panel without dropping the row, leaving the agents inside

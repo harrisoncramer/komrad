@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"weave/db"
-	"weave/internal/store"
+	"komrade/db"
+	"komrade/internal/store"
 )
 
 // GetByIdempotencyKey returns the live or archived agent recorded under a key.

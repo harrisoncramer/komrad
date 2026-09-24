@@ -42,9 +42,9 @@ jobs:
               - 'go.sum'
               - '.golangci.yaml'
               - '.custom-gcl.yml'
-              - 'tools/weavelint/**'
-              - 'tools/weavepkg/**'
-              - 'tools/weaverec/**'
+              - 'tools/komradelint/**'
+              - 'tools/komradepkg/**'
+              - 'tools/komraderec/**'
               - '.github/workflows/ci.yml'
             shell:
               - 'mise/**'
@@ -82,11 +82,11 @@ jobs:
               - 'proto/**'
               - 'db/**'
               - 'config/**'
-              - 'cmd/protoc-gen-weave-rpc/**'
+              - 'cmd/protoc-gen-komrade-rpc/**'
               - 'mise/tasks/gen/**'
               - '.github/workflows/ci.yml'
 
-  # The shell weave runs: the mise tasks and the builtin scripts an agent's hooks call.
+  # The shell komrade runs: the mise tasks and the builtin scripts an agent's hooks call.
   shell:
     needs: changes
     if: needs.changes.outputs.shell == 'true'
@@ -169,19 +169,19 @@ jobs:
       postgres:
         image: postgres:18
         env:
-          POSTGRES_USER: weave
-          POSTGRES_PASSWORD: weave
-          POSTGRES_DB: weave
+          POSTGRES_USER: komrade
+          POSTGRES_PASSWORD: komrade
+          POSTGRES_DB: komrade
         ports:
           - 5460:5432
         options: >-
-          --health-cmd "pg_isready -U weave"
+          --health-cmd "pg_isready -U komrade"
           --health-interval 2s
           --health-timeout 5s
           --health-retries 15
 
     env:
-      WEAVE_DATABASE_URL: postgres://weave:weave@localhost:5460/weave?sslmode=disable
+      KOMRADE_DATABASE_URL: postgres://komrade:komrade@localhost:5460/komrade?sslmode=disable
 
     steps:
       - uses: actions/checkout@v4
@@ -206,25 +206,25 @@ jobs:
     runs-on: namespace-profile-harrisoncramer
 
     # The store tests run against a real Postgres rather than a fake, and
-    # internal/pgtest creates a database per test off the server WEAVE_DATABASE_URL
+    # internal/pgtest creates a database per test off the server KOMRADE_DATABASE_URL
     # points at. Credentials match docker-compose so nothing else has to change.
     services:
       postgres:
         image: postgres:18
         env:
-          POSTGRES_USER: weave
-          POSTGRES_PASSWORD: weave
-          POSTGRES_DB: weave
+          POSTGRES_USER: komrade
+          POSTGRES_PASSWORD: komrade
+          POSTGRES_DB: komrade
         ports:
           - 5460:5432
         options: >-
-          --health-cmd "pg_isready -U weave"
+          --health-cmd "pg_isready -U komrade"
           --health-interval 2s
           --health-timeout 5s
           --health-retries 15
 
     env:
-      WEAVE_DATABASE_URL: postgres://weave:weave@localhost:5460/weave?sslmode=disable
+      KOMRADE_DATABASE_URL: postgres://komrade:komrade@localhost:5460/komrade?sslmode=disable
 
       # A warm build cache otherwise lets go test replay a package's last result
       # instead of running it, and these tests reach a real Postgres that the cache
@@ -253,7 +253,7 @@ jobs:
 
       # go:lint builds golangci-lint from source to bundle the repo's plugins,
       # which dominates the job. The binary only changes when a plugin's pin or
-      # weave's own rules change, so it is cached against those rather than
+      # komrade's own rules change, so it is cached against those rather than
       # rebuilt every run.
       - name: Cache the custom linter
         uses: actions/cache@v4
@@ -261,7 +261,7 @@ jobs:
           path: |
             local/custom-gcl
             local/custom-gcl.sum
-          key: custom-gcl-v2-${{ runner.os }}-${{ hashFiles('.custom-gcl.yml', 'tools/weavelint/**') }}
+          key: custom-gcl-v2-${{ runner.os }}-${{ hashFiles('.custom-gcl.yml', 'tools/komradelint/**') }}
 
       - name: Check the formatting
         run: mise run go:fmt --check
@@ -272,7 +272,7 @@ jobs:
       - name: Run the unit tests
         run: mise run go:test --kind unit
 
-  # The integration tests drive a real git, a real tmux and a real weave, which is slow
+  # The integration tests drive a real git, a real tmux and a real komrade, which is slow
   # and flakes when the machine is busy. They carry a build tag, so this is the only job
   # that compiles them in. The paths above are wide because these tests drive the panel
   # end to end, so most of the module is behind them.
@@ -285,19 +285,19 @@ jobs:
       postgres:
         image: postgres:18
         env:
-          POSTGRES_USER: weave
-          POSTGRES_PASSWORD: weave
-          POSTGRES_DB: weave
+          POSTGRES_USER: komrade
+          POSTGRES_PASSWORD: komrade
+          POSTGRES_DB: komrade
         ports:
           - 5460:5432
         options: >-
-          --health-cmd "pg_isready -U weave"
+          --health-cmd "pg_isready -U komrade"
           --health-interval 2s
           --health-timeout 5s
           --health-retries 15
 
     env:
-      WEAVE_DATABASE_URL: postgres://weave:weave@localhost:5460/weave?sslmode=disable
+      KOMRADE_DATABASE_URL: postgres://komrade:komrade@localhost:5460/komrade?sslmode=disable
       GOFLAGS: -count=1
 
     steps:

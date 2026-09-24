@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"time"
 
-	"weave/db/models"
-	"weave/internal/store"
-	"weave/lib/xslice"
+	"komrade/db/models"
+	"komrade/internal/store"
+	"komrade/lib/xslice"
 )
 
 // Worktree is one directory as the size loop last read it.

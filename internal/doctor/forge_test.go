@@ -23,7 +23,7 @@ func TestForgesCheck(t *testing.T) {
 		{
 			name:       "nothing connected",
 			wantStatus: StatusWarn,
-			wantDetail: "gh auth token | weave forge connect github.com",
+			wantDetail: "gh auth token | komrade forge connect github.com",
 			wantCode:   "no_forges",
 		},
 		{

@@ -6,8 +6,8 @@ import (
 	"context"
 	"fmt"
 
-	"weave/db/models"
-	"weave/internal/store"
+	"komrade/db/models"
+	"komrade/internal/store"
 )
 
 // Mark is one letter and the row it names, exactly one of which is set.

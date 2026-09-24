@@ -1,4 +1,4 @@
-// Package run records one row for every script weave fires against an agent, so a hook that
+// Package run records one row for every script komrade fires against an agent, so a hook that
 // failed is a fact on the agent rather than a line in a log file nobody knows to open. The
 // output stays on disk and the row says where to find it.
 package run
@@ -7,8 +7,8 @@ import (
 	"context"
 	"fmt"
 
-	"weave/db/models"
-	"weave/internal/store"
+	"komrade/db/models"
+	"komrade/internal/store"
 )
 
 type RunStore struct {

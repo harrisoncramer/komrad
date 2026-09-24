@@ -4,46 +4,46 @@ import (
 	"log/slog"
 	"net/http"
 
-	"weave/internal/doctor"
-	"weave/internal/interceptors"
-	"weave/internal/jobs"
-	"weave/internal/logread"
-	"weave/internal/mcp"
-	rpcagent "weave/internal/rpc/agent"
-	rpcconfig "weave/internal/rpc/config"
-	rpcdoctor "weave/internal/rpc/doctor"
-	rpcforge "weave/internal/rpc/forge"
-	rpchook "weave/internal/rpc/hook"
-	rpclog "weave/internal/rpc/log"
-	rpcpullrequest "weave/internal/rpc/pullrequest"
-	rpcschedule "weave/internal/rpc/schedule"
-	rpcwatch "weave/internal/rpc/watch"
-	rpcworkflow "weave/internal/rpc/workflow"
-	rpcworktree "weave/internal/rpc/worktree"
-	"weave/internal/rpccodec"
-	"weave/internal/watch"
-	"weave/proto/gen/agent/v1/agentv1connect"
-	agentv1weave "weave/proto/gen/agent/v1/agentv1weave"
-	"weave/proto/gen/config/v1/configv1connect"
-	configv1weave "weave/proto/gen/config/v1/configv1weave"
-	"weave/proto/gen/doctor/v1/doctorv1connect"
-	doctorv1weave "weave/proto/gen/doctor/v1/doctorv1weave"
-	"weave/proto/gen/forge/v1/forgev1connect"
-	forgev1weave "weave/proto/gen/forge/v1/forgev1weave"
-	"weave/proto/gen/hook/v1/hookv1connect"
-	hookv1weave "weave/proto/gen/hook/v1/hookv1weave"
-	"weave/proto/gen/log/v1/logv1connect"
-	logv1weave "weave/proto/gen/log/v1/logv1weave"
-	"weave/proto/gen/pullrequest/v1/pullrequestv1connect"
-	pullrequestv1weave "weave/proto/gen/pullrequest/v1/pullrequestv1weave"
-	"weave/proto/gen/schedule/v1/schedulev1connect"
-	schedulev1weave "weave/proto/gen/schedule/v1/schedulev1weave"
-	"weave/proto/gen/watch/v1/watchv1connect"
-	watchv1weave "weave/proto/gen/watch/v1/watchv1weave"
-	"weave/proto/gen/workflow/v1/workflowv1connect"
-	workflowv1weave "weave/proto/gen/workflow/v1/workflowv1weave"
-	"weave/proto/gen/worktree/v1/worktreev1connect"
-	worktreev1weave "weave/proto/gen/worktree/v1/worktreev1weave"
+	"komrade/internal/doctor"
+	"komrade/internal/interceptors"
+	"komrade/internal/jobs"
+	"komrade/internal/logread"
+	"komrade/internal/mcp"
+	rpcagent "komrade/internal/rpc/agent"
+	rpcconfig "komrade/internal/rpc/config"
+	rpcdoctor "komrade/internal/rpc/doctor"
+	rpcforge "komrade/internal/rpc/forge"
+	rpchook "komrade/internal/rpc/hook"
+	rpclog "komrade/internal/rpc/log"
+	rpcpullrequest "komrade/internal/rpc/pullrequest"
+	rpcschedule "komrade/internal/rpc/schedule"
+	rpcwatch "komrade/internal/rpc/watch"
+	rpcworkflow "komrade/internal/rpc/workflow"
+	rpcworktree "komrade/internal/rpc/worktree"
+	"komrade/internal/rpccodec"
+	"komrade/internal/watch"
+	"komrade/proto/gen/agent/v1/agentv1connect"
+	agentv1komrade "komrade/proto/gen/agent/v1/agentv1komrade"
+	"komrade/proto/gen/config/v1/configv1connect"
+	configv1komrade "komrade/proto/gen/config/v1/configv1komrade"
+	"komrade/proto/gen/doctor/v1/doctorv1connect"
+	doctorv1komrade "komrade/proto/gen/doctor/v1/doctorv1komrade"
+	"komrade/proto/gen/forge/v1/forgev1connect"
+	forgev1komrade "komrade/proto/gen/forge/v1/forgev1komrade"
+	"komrade/proto/gen/hook/v1/hookv1connect"
+	hookv1komrade "komrade/proto/gen/hook/v1/hookv1komrade"
+	"komrade/proto/gen/log/v1/logv1connect"
+	logv1komrade "komrade/proto/gen/log/v1/logv1komrade"
+	"komrade/proto/gen/pullrequest/v1/pullrequestv1connect"
+	pullrequestv1komrade "komrade/proto/gen/pullrequest/v1/pullrequestv1komrade"
+	"komrade/proto/gen/schedule/v1/schedulev1connect"
+	schedulev1komrade "komrade/proto/gen/schedule/v1/schedulev1komrade"
+	"komrade/proto/gen/watch/v1/watchv1connect"
+	watchv1komrade "komrade/proto/gen/watch/v1/watchv1komrade"
+	"komrade/proto/gen/workflow/v1/workflowv1connect"
+	workflowv1komrade "komrade/proto/gen/workflow/v1/workflowv1komrade"
+	"komrade/proto/gen/worktree/v1/worktreev1connect"
+	worktreev1komrade "komrade/proto/gen/worktree/v1/worktreev1komrade"
 
 	"connectrpc.com/connect"
 	"github.com/jackc/pgx/v5"
@@ -83,7 +83,7 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 	mux.Handle(HealthPath, newHealthHandler(params.Stores.pool.GetRawPool()))
 	mux.Handle(StopPath, interceptors.NewLoggingHandler(params.Logger, newStopHandler(params.StopRequested)))
 	mux.Handle(agentv1connect.NewAgentServiceHandler(
-		agentv1weave.AgentServiceAdapter{Impl: rpcagent.NewHandler(rpcagent.NewHandlerParams{
+		agentv1komrade.AgentServiceAdapter{Impl: rpcagent.NewHandler(rpcagent.NewHandlerParams{
 			Agents:       params.Services.rowReader,
 			Rows:         params.Services.rowReader,
 			Writer:       params.Services.rowWriter,
@@ -102,33 +102,33 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 			Orchestrator: params.Services.orchestrator,
 		})}, options...))
 	mux.Handle(workflowv1connect.NewWorkflowServiceHandler(
-		workflowv1weave.WorkflowServiceAdapter{
+		workflowv1komrade.WorkflowServiceAdapter{
 			Impl: rpcworkflow.NewHandler(rpcworkflow.NewHandlerParams{
 				Workflows: params.Services.workflow,
 			}),
 		}, options...))
 	mux.Handle(schedulev1connect.NewScheduleServiceHandler(
-		schedulev1weave.ScheduleServiceAdapter{
+		schedulev1komrade.ScheduleServiceAdapter{
 			Impl: rpcschedule.NewHandler(rpcschedule.NewHandlerParams{
 				Schedules: params.Services.schedule,
 			}),
 		}, options...))
 	mux.Handle(configv1connect.NewConfigServiceHandler(
-		configv1weave.ConfigServiceAdapter{Impl: rpcconfig.NewHandler(params.Services.loadConfig)}, options...))
+		configv1komrade.ConfigServiceAdapter{Impl: rpcconfig.NewHandler(params.Services.loadConfig)}, options...))
 	mux.Handle(hookv1connect.NewHookServiceHandler(
-		hookv1weave.HookServiceAdapter{
+		hookv1komrade.HookServiceAdapter{
 			Impl: rpchook.NewHandler(params.Services.script),
 		}, options...))
 	mux.Handle(forgev1connect.NewForgeServiceHandler(
-		forgev1weave.ForgeServiceAdapter{
+		forgev1komrade.ForgeServiceAdapter{
 			Impl: rpcforge.NewHandler(params.Services.forge),
 		}, options...))
 	mux.Handle(pullrequestv1connect.NewPullRequestServiceHandler(
-		pullrequestv1weave.PullRequestServiceAdapter{
+		pullrequestv1komrade.PullRequestServiceAdapter{
 			Impl: rpcpullrequest.NewHandler(rpcpullrequest.NewHandlerParams{PullRequests: params.Services.pullRequests}),
 		}, options...))
 	mux.Handle(worktreev1connect.NewWorktreeServiceHandler(
-		worktreev1weave.WorktreeServiceAdapter{
+		worktreev1komrade.WorktreeServiceAdapter{
 			Impl: rpcworktree.NewHandler(rpcworktree.NewHandlerParams{
 				Lister:    params.Services.worktreeLister,
 				Inspector: params.Services.inspector,
@@ -138,15 +138,15 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 			}),
 		}, options...))
 	mux.Handle(watchv1connect.NewWatchServiceHandler(
-		watchv1weave.WatchServiceAdapter{
+		watchv1komrade.WatchServiceAdapter{
 			Impl: rpcwatch.NewHandler(rpcwatch.NewHandlerParams{Subscriber: rpcwatch.BrokerSubscriber{Broker: params.Watch}}),
 		}, options...))
 	mux.Handle(logv1connect.NewLogServiceHandler(
-		logv1weave.LogServiceAdapter{
+		logv1komrade.LogServiceAdapter{
 			Impl: rpclog.NewHandler(logread.New(params.LogPath)),
 		}, options...))
 	mux.Handle(doctorv1connect.NewDoctorServiceHandler(
-		doctorv1weave.DoctorServiceAdapter{
+		doctorv1komrade.DoctorServiceAdapter{
 			Impl: rpcdoctor.NewHandler(rpcdoctor.NewHandlerParams{
 				Env:    doctor.NewEnv(params.Doctor),
 				Checks: doctor.EngineChecks(params.Doctor),

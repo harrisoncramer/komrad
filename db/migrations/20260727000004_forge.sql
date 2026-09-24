@@ -7,7 +7,7 @@ CREATE TABLE "branch_scans" (
   PRIMARY KEY ("repository_url", "branch")
 );
 -- Set comment to table: "branch_scans"
-COMMENT ON TABLE "branch_scans" IS 'A branch weave has listed the pull requests of on purpose, once, which is what finds a pull request older than the sync''s horizon on a branch an agent adopted.';
+COMMENT ON TABLE "branch_scans" IS 'A branch komrade has listed the pull requests of on purpose, once, which is what finds a pull request older than the sync''s horizon on a branch an agent adopted.';
 -- Set comment to column: "next_cursor" on table: "branch_scans"
 COMMENT ON COLUMN "branch_scans"."next_cursor" IS 'Where the listing reads its next page from, empty for the first.';
 -- Set comment to column: "completed_at" on table: "branch_scans"
@@ -27,7 +27,7 @@ CREATE TABLE "forge_connections" (
   CONSTRAINT "forge_connections_host_key" UNIQUE ("host")
 );
 -- Set comment to table: "forge_connections"
-COMMENT ON TABLE "forge_connections" IS 'A forge weave has been connected to, one row per host, holding who the credential was verified as. The credential itself is a file under weave''s state directory rather than a column.';
+COMMENT ON TABLE "forge_connections" IS 'A forge komrade has been connected to, one row per host, holding who the credential was verified as. The credential itself is a file under komrade''s state directory rather than a column.';
 -- Set comment to column: "kind" on table: "forge_connections"
 COMMENT ON COLUMN "forge_connections"."kind" IS 'Which forge the host runs: github or gitlab.';
 -- Set comment to column: "host" on table: "forge_connections"
@@ -104,7 +104,7 @@ CREATE INDEX "pull_requests_attribution" ON "pull_requests" ("repository_url", "
 -- Create index "pull_requests_unfinished_head" to table: "pull_requests"
 CREATE INDEX "pull_requests_unfinished_head" ON "pull_requests" ("repository_url", "head_branch") WHERE ((merged_at IS NULL) AND (closed_at IS NULL));
 -- Set comment to table: "pull_requests"
-COMMENT ON TABLE "pull_requests" IS 'A pull request weave has read from a forge, one row per forge identity and none owned by an agent. Finished is derived: merged when merged_at is set, closed when closed_at is set and merged_at is not, open otherwise.';
+COMMENT ON TABLE "pull_requests" IS 'A pull request komrade has read from a forge, one row per forge identity and none owned by an agent. Finished is derived: merged when merged_at is set, closed when closed_at is set and merged_at is not, open otherwise.';
 -- Set comment to column: "host" on table: "pull_requests"
 COMMENT ON COLUMN "pull_requests"."host" IS 'The forge host the repository lives on, such as github.com, taken from the repository URL. Two installations of one forge hand out overlapping identifiers, so the host is part of the identity.';
 -- Set comment to column: "forge" on table: "pull_requests"
@@ -124,21 +124,21 @@ COMMENT ON COLUMN "pull_requests"."state" IS 'Where the forge says it stands, as
 -- Set comment to column: "opened_at" on table: "pull_requests"
 COMMENT ON COLUMN "pull_requests"."opened_at" IS 'When the forge says it was opened, which is what orders the pull requests on one branch.';
 -- Set comment to column: "changed_at" on table: "pull_requests"
-COMMENT ON COLUMN "pull_requests"."changed_at" IS 'The forge''s own last-change stamp, which is what the sync pages by. It is the forge''s clock and not weave''s, so it is not named updated_at and carries no trigger.';
+COMMENT ON COLUMN "pull_requests"."changed_at" IS 'The forge''s own last-change stamp, which is what the sync pages by. It is the forge''s clock and not komrade''s, so it is not named updated_at and carries no trigger.';
 -- Set comment to column: "first_seen_at" on table: "pull_requests"
-COMMENT ON COLUMN "pull_requests"."first_seen_at" IS 'When weave first inserted the row.';
+COMMENT ON COLUMN "pull_requests"."first_seen_at" IS 'When komrade first inserted the row.';
 -- Set comment to column: "review_decision" on table: "pull_requests"
-COMMENT ON COLUMN "pull_requests"."review_decision" IS 'Where the forge says the reviews stand, in weave''s own words: pending, approved or changes_requested, null while it has said nothing.';
+COMMENT ON COLUMN "pull_requests"."review_decision" IS 'Where the forge says the reviews stand, in komrade''s own words: pending, approved or changes_requested, null while it has said nothing.';
 -- Set comment to column: "decision_changed_at" on table: "pull_requests"
 COMMENT ON COLUMN "pull_requests"."decision_changed_at" IS 'The changed_at the review decision was read for, stale once changed_at has moved past it.';
 -- Set comment to column: "checks" on table: "pull_requests"
-COMMENT ON COLUMN "pull_requests"."checks" IS 'Where the forge says the checks on the head commit stand, in weave''s own words: pending, passing or failing, null while it reports none. A check finishing does not move changed_at, so the checks are kept fresh by checks_sha and checks_read_at rather than by the change stamp.';
+COMMENT ON COLUMN "pull_requests"."checks" IS 'Where the forge says the checks on the head commit stand, in komrade''s own words: pending, passing or failing, null while it reports none. A check finishing does not move changed_at, so the checks are kept fresh by checks_sha and checks_read_at rather than by the change stamp.';
 -- Set comment to column: "checks_sha" on table: "pull_requests"
 COMMENT ON COLUMN "pull_requests"."checks_sha" IS 'The head commit the checks were read for, stale once head_sha has moved past it.';
 -- Set comment to column: "checks_read_at" on table: "pull_requests"
 COMMENT ON COLUMN "pull_requests"."checks_read_at" IS 'When the checks and mergeability were last read, which is what paces every re-read.';
 -- Set comment to column: "mergeability" on table: "pull_requests"
-COMMENT ON COLUMN "pull_requests"."mergeability" IS 'Where the forge says the pull request stands against its base and its branch rules, in weave''s own words: clean, unstable, blocked, behind or conflicting, null while the forge has not computed it. Read with the checks and kept fresh the same way.';
+COMMENT ON COLUMN "pull_requests"."mergeability" IS 'Where the forge says the pull request stands against its base and its branch rules, in komrade''s own words: clean, unstable, blocked, behind or conflicting, null while the forge has not computed it. Read with the checks and kept fresh the same way.';
 -- Create "agent_pull_requests" table
 CREATE TABLE "agent_pull_requests" (
   "agent_id" uuid NOT NULL,

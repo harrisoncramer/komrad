@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"testing"
 
-	"weave/internal/doctor"
-	doctorv1 "weave/proto/gen/doctor/v1"
-	"weave/proto/gen/doctor/v1/doctorv1weave"
+	"komrade/internal/doctor"
+	doctorv1 "komrade/proto/gen/doctor/v1"
+	"komrade/proto/gen/doctor/v1/doctorv1komrade"
 
 	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
@@ -44,7 +44,7 @@ func TestRunDoctorRendersTheReport(t *testing.T) {
 			},
 		},
 	}
-	service := doctorv1weave.DoctorServiceAdapter{Impl: NewHandler(NewHandlerParams{Checks: checks})}
+	service := doctorv1komrade.DoctorServiceAdapter{Impl: NewHandler(NewHandlerParams{Checks: checks})}
 
 	resp, err := service.RunDoctor(t.Context(), connect.NewRequest(&emptypb.Empty{}))
 	require.NoError(t, err)
@@ -125,7 +125,7 @@ func TestRunDoctorRendersTheSummary(t *testing.T) {
 					})
 				}
 			}
-			service := doctorv1weave.DoctorServiceAdapter{Impl: NewHandler(NewHandlerParams{Checks: checks})}
+			service := doctorv1komrade.DoctorServiceAdapter{Impl: NewHandler(NewHandlerParams{Checks: checks})}
 
 			resp, err := service.RunDoctor(t.Context(), connect.NewRequest(&emptypb.Empty{}))
 			require.NoError(t, err)

@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
-	schedulestore "weave/internal/store/schedule"
-	workflowstore "weave/internal/store/workflow"
-	"weave/internal/storetest"
+	schedulestore "komrade/internal/store/schedule"
+	workflowstore "komrade/internal/store/workflow"
+	"komrade/internal/storetest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

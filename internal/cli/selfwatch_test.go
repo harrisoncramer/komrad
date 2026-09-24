@@ -51,7 +51,7 @@ func TestExecutableWatch(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			path := filepath.Join(t.TempDir(), "weave")
+			path := filepath.Join(t.TempDir(), "komrade")
 			require.NoError(t, os.WriteFile(path, []byte("old build"), 0o755))
 
 			watch := watchFile(path)

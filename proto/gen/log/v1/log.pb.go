@@ -11,10 +11,10 @@ import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	structpb "google.golang.org/protobuf/types/known/structpb"
+	_ "komrade/proto/gen/annotation/v1"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
-	_ "weave/proto/gen/annotation/v1"
 )
 
 const (
@@ -377,7 +377,7 @@ const file_log_v1_log_proto_rawDesc = "" +
 	"\n" +
 	"LogService\x12\xae\x03\n" +
 	"\vGetLogLines\x12\x1a.log.v1.GetLogLinesRequest\x1a\x1b.log.v1.GetLogLinesResponse\"\xe5\x02\x9a\xb5\x18\xdd\x02\b\x01\x10\x01\x1a\rget_log_lines\"\xc4\x02Read every log line the service wrote under one trace id, in order. A trace id covers one request end to end or one pass of a background loop; the service answers it on any call that failed, and it is on every line in the log. This is how to find out what happened behind a failure, on whichever engine the call was made to.B\x01\x03\x90\x02\x01\x12\xec\x02\n" +
-	"\x10ListRecentTraces\x12\x1f.log.v1.ListRecentTracesRequest\x1a .log.v1.ListRecentTracesResponse\"\x94\x02\x9a\xb5\x18\x8c\x02\b\x01\x10\x01\x1a\x12list_recent_traces\"\xee\x01List the traces the service's log ends with, oldest first, each with when it started, what it was about and how many lines it holds. Start here when you know what you did but not what it was called, then read its lines with get_log_lines.B\x01\x03\x90\x02\x01B\x1eZ\x1cweave/proto/gen/log/v1;logv1b\x06proto3"
+	"\x10ListRecentTraces\x12\x1f.log.v1.ListRecentTracesRequest\x1a .log.v1.ListRecentTracesResponse\"\x94\x02\x9a\xb5\x18\x8c\x02\b\x01\x10\x01\x1a\x12list_recent_traces\"\xee\x01List the traces the service's log ends with, oldest first, each with when it started, what it was about and how many lines it holds. Start here when you know what you did but not what it was called, then read its lines with get_log_lines.B\x01\x03\x90\x02\x01B Z\x1ekomrade/proto/gen/log/v1;logv1b\x06proto3"
 
 var (
 	file_log_v1_log_proto_rawDescOnce sync.Once

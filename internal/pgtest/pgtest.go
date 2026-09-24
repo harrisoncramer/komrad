@@ -14,13 +14,13 @@ import (
 	"testing"
 	"time"
 
-	"weave/config"
+	"komrade/config"
 
 	"github.com/jackc/pgx/v5"
 )
 
 const (
-	namePrefix = "weave_test_"
+	namePrefix = "komrade_test_"
 
 	// templateMarker separates a template's name from the version of the schema in it.
 	templateMarker = "_tpl"

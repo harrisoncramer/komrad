@@ -3,7 +3,7 @@ package ui
 import (
 	"testing"
 
-	"weave/internal/ui/paint"
+	"komrade/internal/ui/paint"
 
 	"github.com/stretchr/testify/assert"
 )

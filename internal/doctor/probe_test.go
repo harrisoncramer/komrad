@@ -5,11 +5,11 @@ import (
 	"path/filepath"
 	"testing"
 
-	"weave/db"
-	"weave/internal/pgtest"
-	agentstore "weave/internal/store/agent"
-	workflowstore "weave/internal/store/workflow"
-	"weave/internal/storetest"
+	"komrade/db"
+	"komrade/internal/pgtest"
+	agentstore "komrade/internal/store/agent"
+	workflowstore "komrade/internal/store/workflow"
+	"komrade/internal/storetest"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"
@@ -108,7 +108,7 @@ func TestInspectDirReportsADirectoryItCannotWrite(t *testing.T) {
 }
 
 // TestReadWorktreeOwnersReadsTheAgentsAndTheWorkflowDirs covers what makes an orphan
-// answerable: the ids weave names its worktrees after, the directories agents actually run
+// answerable: the ids komrade names its worktrees after, the directories agents actually run
 // in, and the places the workflows cut their trees.
 func TestReadWorktreeOwnersReadsTheAgentsAndTheWorkflowDirs(t *testing.T) {
 	stores := storetest.Open(t)

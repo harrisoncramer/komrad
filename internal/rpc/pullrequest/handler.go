@@ -1,17 +1,17 @@
-// Package pullrequest serves the pull requests weave has stored from its forges.
+// Package pullrequest serves the pull requests komrade has stored from its forges.
 package pullrequest
 
 import (
 	"context"
 
-	"weave/internal/fail"
-	"weave/internal/pullrequests"
-	"weave/internal/rpc/render"
-	"weave/internal/rpcerr"
-	pullrequeststore "weave/internal/store/pullrequest"
-	"weave/lib/pagination"
-	"weave/lib/xslice"
-	pullrequestv1 "weave/proto/gen/pullrequest/v1"
+	"komrade/internal/fail"
+	"komrade/internal/pullrequests"
+	"komrade/internal/rpc/render"
+	"komrade/internal/rpcerr"
+	pullrequeststore "komrade/internal/store/pullrequest"
+	"komrade/lib/pagination"
+	"komrade/lib/xslice"
+	pullrequestv1 "komrade/proto/gen/pullrequest/v1"
 )
 
 // pullRequestLister is what the handler reads of what the sync has stored.

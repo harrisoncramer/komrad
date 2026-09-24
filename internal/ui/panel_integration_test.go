@@ -8,13 +8,13 @@ import (
 	"strings"
 	"testing"
 
-	"weave/internal/ui"
-	"weave/internal/weavetest"
-	"weave/lib/xslice"
-	agentv1 "weave/proto/gen/agent/v1"
-	schedulev1 "weave/proto/gen/schedule/v1"
-	viewv1 "weave/proto/gen/view/v1"
-	workflowv1 "weave/proto/gen/workflow/v1"
+	"komrade/internal/komradetest"
+	"komrade/internal/ui"
+	"komrade/lib/xslice"
+	agentv1 "komrade/proto/gen/agent/v1"
+	schedulev1 "komrade/proto/gen/schedule/v1"
+	viewv1 "komrade/proto/gen/view/v1"
+	workflowv1 "komrade/proto/gen/workflow/v1"
 
 	"charm.land/lipgloss/v2"
 	"connectrpc.com/connect"
@@ -26,7 +26,7 @@ import (
 const panelSession = "shown"
 
 type servedPanel struct {
-	instance  *weavetest.Instance
+	instance  *komradetest.Instance
 	harness   *panelHarness
 	agentID   string
 	agentPane string
@@ -126,10 +126,10 @@ func TestIntegrationPanel(t *testing.T) {
 	})
 }
 
-func startServedAgent(t *testing.T) (*weavetest.Instance, string) {
+func startServedAgent(t *testing.T) (*komradetest.Instance, string) {
 	t.Helper()
 
-	instance := weavetest.Start(t, weavetest.Params{})
+	instance := komradetest.Start(t, komradetest.Params{})
 	workflow, err := instance.Workflows.CreateWorkflow(t.Context(), connect.NewRequest(&workflowv1.CreateWorkflowRequest{
 		Name: "backend",
 		Cwd:  t.TempDir(),
@@ -185,7 +185,7 @@ func openServedPanel(t *testing.T, windowWidth int) *servedPanel {
 	}
 }
 
-func newPanelRemote(instance *weavetest.Instance) *panelRemote {
+func newPanelRemote(instance *komradetest.Instance) *panelRemote {
 	return &panelRemote{
 		agents:    instance.Agents,
 		workflows: instance.Workflows,
@@ -195,7 +195,7 @@ func newPanelRemote(instance *weavetest.Instance) *panelRemote {
 	}
 }
 
-func relist(t *testing.T, instance *weavetest.Instance, harness *panelHarness) {
+func relist(t *testing.T, instance *komradetest.Instance, harness *panelHarness) {
 	t.Helper()
 
 	agents, err := instance.Agents.ListAgents(t.Context(), connect.NewRequest(&agentv1.ListAgentsRequest{View: viewv1.View_VIEW_FULL}))
@@ -220,7 +220,7 @@ func relist(t *testing.T, instance *weavetest.Instance, harness *panelHarness) {
 	harness.watch(buildSnapshot(rows...))
 }
 
-func readPanelPanes(instance *weavetest.Instance) []string {
+func readPanelPanes(instance *komradetest.Instance) []string {
 	var panes []string
 	for _, line := range strings.Split(instance.Tmux.Run("list-panes", "-s", "-t", panelSession, "-F", "#{pane_id}"), "\n") {
 		if pane := strings.TrimSpace(line); pane != "" {
@@ -231,7 +231,7 @@ func readPanelPanes(instance *weavetest.Instance) []string {
 	return panes
 }
 
-func readPaneWidth(t *testing.T, instance *weavetest.Instance, pane string) int {
+func readPaneWidth(t *testing.T, instance *komradetest.Instance, pane string) int {
 	t.Helper()
 
 	width, err := strconv.Atoi(instance.Tmux.Run("display-message", "-p", "-t", pane, "#{pane_width}"))

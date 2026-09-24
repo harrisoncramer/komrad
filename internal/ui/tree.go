@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"weave/internal/assemble"
-	"weave/internal/ui/paint/label"
-	"weave/internal/ui/panel"
-	"weave/lib/xslice"
+	"komrade/internal/assemble"
+	"komrade/internal/ui/paint/label"
+	"komrade/internal/ui/panel"
+	"komrade/lib/xslice"
 )
 
 // agentsScreen is the agents screen: the cursor in the tree of workflows and agents, how they

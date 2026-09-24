@@ -4,9 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	"weave/internal/git"
-	"weave/internal/gittest"
-	agentv1 "weave/proto/gen/agent/v1"
+	"komrade/internal/git"
+	"komrade/internal/gittest"
+	agentv1 "komrade/proto/gen/agent/v1"
 
 	"github.com/stretchr/testify/assert"
 )

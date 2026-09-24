@@ -1,6 +1,6 @@
 package view
 
-import "weave/internal/ui/paint"
+import "komrade/internal/ui/paint"
 
 // Glyph names a mark the sidebar draws, spelled out by the renderer rather than here.
 type Glyph int

@@ -6,14 +6,14 @@ import (
 	"log/slog"
 	"time"
 
-	"weave/internal/fail"
-	"weave/internal/forge"
-	"weave/internal/git"
-	"weave/internal/logging"
-	"weave/internal/store"
-	forgestore "weave/internal/store/forge"
-	pullrequeststore "weave/internal/store/pullrequest"
-	"weave/lib/xslice"
+	"komrade/internal/fail"
+	"komrade/internal/forge"
+	"komrade/internal/git"
+	"komrade/internal/logging"
+	"komrade/internal/store"
+	forgestore "komrade/internal/store/forge"
+	pullrequeststore "komrade/internal/store/pullrequest"
+	"komrade/lib/xslice"
 )
 
 // pullRequestSyncBudget is how many requests one pass may make for one repository, its first

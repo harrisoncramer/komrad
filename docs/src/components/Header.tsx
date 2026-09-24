@@ -62,7 +62,7 @@ const Header = ({ children, path }: HeaderProps) => {
             href={REPO_URL}
             target="_blank"
             rel="noreferrer"
-            aria-label="weave on GitHub"
+            aria-label="komrade on GitHub"
             className="flex h-10 w-10 items-center justify-center rounded-xs text-app-gray transition-colors duration-200 hover:bg-app-background-light hover:text-app-white focus-visible:bg-app-background-light focus-visible:text-app-white"
           >
             <svg aria-hidden="true" viewBox="0 0 16 16" fill="currentColor" className="h-5 w-5">

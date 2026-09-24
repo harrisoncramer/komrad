@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"weave/internal/ui/layout"
-	"weave/internal/ui/panel"
+	"komrade/internal/ui/layout"
+	"komrade/internal/ui/panel"
 
 	tea "charm.land/bubbletea/v2"
 	"google.golang.org/protobuf/proto"
@@ -87,7 +87,7 @@ func (m *model) sizeAgentWindows() {
 		pane := item.Agent.Pane
 
 		// The guest is standing in the panel's own window, so resizing its window would resize the
-		// terminal weave is drawn in.
+		// terminal komrade is drawn in.
 		if pane == "" || pane == guest || m.sized[pane] == want {
 			continue
 		}

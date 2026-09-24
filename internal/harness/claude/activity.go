@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"strings"
 
-	"weave/internal/harness"
+	"komrade/internal/harness"
 )
 
 var (

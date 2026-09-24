@@ -5,10 +5,10 @@ import (
 	"errors"
 	"fmt"
 
-	"weave/internal/harness"
-	agentstore "weave/internal/store/agent"
-	transcriptstore "weave/internal/store/transcript"
-	"weave/lib/xslice"
+	"komrade/internal/harness"
+	agentstore "komrade/internal/store/agent"
+	transcriptstore "komrade/internal/store/transcript"
+	"komrade/lib/xslice"
 )
 
 type transcriptReadWriter interface {

@@ -4,11 +4,11 @@ import (
 	"context"
 	"strconv"
 
-	"weave/internal/client"
-	"weave/lib/xhttp"
-	"weave/lib/xslice"
-	forgev1 "weave/proto/gen/forge/v1"
-	"weave/proto/gen/forge/v1/forgev1connect"
+	"komrade/internal/client"
+	"komrade/lib/xhttp"
+	"komrade/lib/xslice"
+	forgev1 "komrade/proto/gen/forge/v1"
+	"komrade/proto/gen/forge/v1/forgev1connect"
 
 	"github.com/spf13/cobra"
 )
@@ -16,7 +16,7 @@ import (
 func prCmd(state *app) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:           "pr",
-		Short:         "Read pull requests through the forges weave is connected to",
+		Short:         "Read pull requests through the forges komrade is connected to",
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -37,11 +37,11 @@ Give a remote as git spells it. With a branch, every pull request opened from it
 listed whatever its state, which is the read the pull request sweep makes; without
 one, the repository's open pull requests are listed.
 
-    weave pr list git@github.com:harrisoncramer/weave.git
-    weave pr list git@github.com:harrisoncramer/weave.git agent/some-branch
+    komrade pr list git@github.com:harrisoncramer/komrade.git
+    komrade pr list git@github.com:harrisoncramer/komrade.git agent/some-branch
 
 The forge hands them over a hundred at a time and this follows every page, so the
-list is whole; to read one page at a time, call the endpoint through weave rpc
+list is whole; to read one page at a time, call the endpoint through komrade rpc
 with a limit and the cursor it answers.
 
 A repository the credential cannot see answers not found, which is how a token

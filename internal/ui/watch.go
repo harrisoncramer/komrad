@@ -5,11 +5,11 @@ import (
 	"log/slog"
 	"time"
 
-	"weave/internal/assemble"
-	"weave/internal/client"
-	"weave/internal/logging"
-	watchv1 "weave/proto/gen/watch/v1"
-	"weave/proto/gen/watch/v1/watchv1connect"
+	"komrade/internal/assemble"
+	"komrade/internal/client"
+	"komrade/internal/logging"
+	watchv1 "komrade/proto/gen/watch/v1"
+	"komrade/proto/gen/watch/v1/watchv1connect"
 
 	tea "charm.land/bubbletea/v2"
 )

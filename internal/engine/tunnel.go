@@ -66,7 +66,7 @@ func (r Remote) TunnelPort(engineAddr string) int {
 // TunnelArgv is what is run to forward local to the engine's address.
 func (r Remote) TunnelArgv(local, engineAddr string) []string {
 	if len(r.Forward) > 0 {
-		_, localPort, _ := net.SplitHostPort(local)       //nolint:errcheck // weave built this address
+		_, localPort, _ := net.SplitHostPort(local)       //nolint:errcheck // komrade built this address
 		_, enginePort, _ := net.SplitHostPort(engineAddr) //nolint:errcheck // a bad one fails at dial
 
 		return fill(r.Forward, map[string]string{

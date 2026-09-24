@@ -1,6 +1,6 @@
 package agents
 
-import "weave/internal/harness"
+import "komrade/internal/harness"
 
 // isMidTurn reports whether a reading says a turn is running.
 func isMidTurn(activity harness.Activity) bool {

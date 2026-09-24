@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"weave/internal/store"
-	"weave/internal/weavetest"
-	agentv1 "weave/proto/gen/agent/v1"
-	workflowv1 "weave/proto/gen/workflow/v1"
+	"komrade/internal/komradetest"
+	"komrade/internal/store"
+	agentv1 "komrade/proto/gen/agent/v1"
+	workflowv1 "komrade/proto/gen/workflow/v1"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
@@ -22,7 +22,7 @@ import (
 func TestIntegrationWorkflowsAgainstRealRepositories(t *testing.T) {
 	isolateGit(t)
 
-	instance := weavetest.Start(t, weavetest.Params{WorktreesDir: t.TempDir()})
+	instance := komradetest.Start(t, komradetest.Params{WorktreesDir: t.TempDir()})
 	ctx := t.Context()
 
 	t.Run("a linked worktree is refused as the cwd, not being the primary checkout", func(t *testing.T) {
@@ -55,8 +55,8 @@ func TestIntegrationWorkflowsAgainstRealRepositories(t *testing.T) {
 	t.Run("a repository with no origin stores the branch it is on", func(t *testing.T) {
 		dir := t.TempDir()
 		runGitIn(t, dir, "init", "--quiet", "-b", "trunk")
-		runGitIn(t, dir, "config", "user.email", "test@weave.test")
-		runGitIn(t, dir, "config", "user.name", "weave test")
+		runGitIn(t, dir, "config", "user.email", "test@komrade.test")
+		runGitIn(t, dir, "config", "user.name", "komrade test")
 		require.NoError(t, os.WriteFile(filepath.Join(dir, "README.md"), []byte("hello\n"), 0o644))
 		runGitIn(t, dir, "add", "README.md")
 		runGitIn(t, dir, "commit", "--quiet", "-m", "initial")
@@ -110,7 +110,7 @@ type assertStoredBaseParams struct {
 	want string
 }
 
-func assertStoredBase(t *testing.T, instance *weavetest.Instance, params assertStoredBaseParams) {
+func assertStoredBase(t *testing.T, instance *komradetest.Instance, params assertStoredBaseParams) {
 	t.Helper()
 
 	created, err := instance.Workflows.CreateWorkflow(t.Context(), connect.NewRequest(params.req))

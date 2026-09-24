@@ -3,7 +3,7 @@ package layout
 import (
 	"testing"
 
-	"weave/config"
+	"komrade/config"
 
 	"github.com/stretchr/testify/assert"
 )

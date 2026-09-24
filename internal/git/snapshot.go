@@ -10,23 +10,23 @@ import (
 	"path/filepath"
 	"strings"
 
-	"weave/internal/fail"
+	"komrade/internal/fail"
 )
 
 // snapshotMessage is what the round's commit says.
-const snapshotMessage = "weave review round"
+const snapshotMessage = "komrade review round"
 
 // parkMessage is what the commit standing behind an undo says.
-const parkMessage = "weave parked worktree"
+const parkMessage = "komrade parked worktree"
 
 // snapshotIdentity is who the round's commit is by and when, both pinned so that the same
 // worktree taken twice hashes to the same commit and reads as one round.
 var snapshotIdentity = []string{
-	"GIT_AUTHOR_NAME=weave",
-	"GIT_AUTHOR_EMAIL=weave@localhost",
+	"GIT_AUTHOR_NAME=komrade",
+	"GIT_AUTHOR_EMAIL=komrade@localhost",
 	"GIT_AUTHOR_DATE=@0 +0000",
-	"GIT_COMMITTER_NAME=weave",
-	"GIT_COMMITTER_EMAIL=weave@localhost",
+	"GIT_COMMITTER_NAME=komrade",
+	"GIT_COMMITTER_EMAIL=komrade@localhost",
 	"GIT_COMMITTER_DATE=@0 +0000",
 }
 
@@ -168,7 +168,7 @@ func (c *Client) ReleaseRef(ctx context.Context, dir, ref string) error {
 
 // tempIndexPath names a file git may write an index to, leaving nothing there.
 func tempIndexPath() (string, error) {
-	file, err := os.CreateTemp("", "weave-round-*.index")
+	file, err := os.CreateTemp("", "komrade-round-*.index")
 	if err != nil {
 		return "", fmt.Errorf("failed to make room for a snapshot index: %w", err)
 	}

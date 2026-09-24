@@ -9,17 +9,17 @@ import (
 	"strings"
 	"time"
 
-	"weave/config"
-	"weave/internal/caller"
-	"weave/internal/harness"
-	"weave/internal/logging"
-	"weave/internal/scripts"
-	"weave/internal/store"
-	agentstore "weave/internal/store/agent"
-	workflowstore "weave/internal/store/workflow"
-	"weave/lib/xptr"
-	"weave/lib/xslice"
-	"weave/lib/xstr"
+	"komrade/config"
+	"komrade/internal/caller"
+	"komrade/internal/harness"
+	"komrade/internal/logging"
+	"komrade/internal/scripts"
+	"komrade/internal/store"
+	agentstore "komrade/internal/store/agent"
+	workflowstore "komrade/internal/store/workflow"
+	"komrade/lib/xptr"
+	"komrade/lib/xslice"
+	"komrade/lib/xstr"
 )
 
 type agentCounter interface {
@@ -310,7 +310,7 @@ func (s *LaunchService) planLaunch(ctx context.Context, params NewAgentParams) (
 		return nil, err
 	}
 
-	// The worktree is weave's own, so an agent gets the built-in pair or nothing at all.
+	// The worktree is komrade's own, so an agent gets the built-in pair or nothing at all.
 	provisioner, deprovisioner := "", ""
 	provisions := wf.Worktree.Enabled && !IsProvisionerDisabled(params.ProvisionEnabled)
 	if provisions {

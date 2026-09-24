@@ -5,23 +5,23 @@ import (
 	"testing"
 	"time"
 
-	"weave/internal/forge"
-	"weave/internal/storetest"
-	"weave/lib/xslice"
+	"komrade/internal/forge"
+	"komrade/internal/storetest"
+	"komrade/lib/xslice"
 
-	agentstore "weave/internal/store/agent"
-	mailstore "weave/internal/store/mail"
-	markstore "weave/internal/store/mark"
-	pullrequeststore "weave/internal/store/pullrequest"
-	reviewstore "weave/internal/store/review"
-	rowstore "weave/internal/store/row"
-	workflowstore "weave/internal/store/workflow"
+	agentstore "komrade/internal/store/agent"
+	mailstore "komrade/internal/store/mail"
+	markstore "komrade/internal/store/mark"
+	pullrequeststore "komrade/internal/store/pullrequest"
+	reviewstore "komrade/internal/store/review"
+	rowstore "komrade/internal/store/row"
+	workflowstore "komrade/internal/store/workflow"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-const readerRepository = "https://github.com/harrisoncramer/weave"
+const readerRepository = "https://github.com/harrisoncramer/komrade"
 
 func newRowReader(st *storetest.Stores) *RowReader {
 	reviews := reviewstore.NewReviewStore(st.Pool.GetDB())

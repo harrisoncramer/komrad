@@ -15,11 +15,11 @@ import (
 	"testing"
 	"time"
 
-	"weave/internal/dbtest"
-	"weave/internal/git"
-	githubapp "weave/internal/github/app"
-	"weave/internal/store"
-	forgestore "weave/internal/store/forge"
+	"komrade/internal/dbtest"
+	"komrade/internal/git"
+	githubapp "komrade/internal/github/app"
+	"komrade/internal/store"
+	forgestore "komrade/internal/store/forge"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -426,7 +426,7 @@ func appServer(t *testing.T, tls bool) (*httptest.Server, *int) {
 			w.WriteHeader(http.StatusCreated)
 			_, _ = w.Write([]byte(`{"token":"ghs_minted","expires_at":"` + time.Now().Add(time.Hour).UTC().Format(time.RFC3339) + `"}`))
 		case r.URL.Path == "/app":
-			_, _ = w.Write([]byte(`{"slug":"weave-engine"}`))
+			_, _ = w.Write([]byte(`{"slug":"komrade-engine"}`))
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -478,7 +478,7 @@ func TestConnectWithTheApp(t *testing.T) {
 	connection, err := f.service.Connect(ctx, ConnectParams{Host: "github.com", Method: MethodGitHubApp})
 	require.NoError(t, err)
 	assert.Equal(t, MethodGitHubApp, connection.Method)
-	assert.Equal(t, "weave-engine", connection.Login)
+	assert.Equal(t, "komrade-engine", connection.Login)
 	assert.Equal(t, 1, *mints)
 	require.Len(t, f.seen, 1)
 	assert.Equal(t, "ghs_minted", f.seen[0].Token.Expose())
@@ -591,7 +591,7 @@ func TestCheck(t *testing.T) {
 	seenBefore := len(f.seen)
 	login, err = f.service.Check(ctx, *app)
 	require.NoError(t, err)
-	assert.Equal(t, "weave-engine", login)
+	assert.Equal(t, "komrade-engine", login)
 	assert.Len(t, f.seen, seenBefore+1, "the App row is checked through its installation, not /user")
 
 	f.service.builders[KindGitHub] = func(_ string, auth Authenticator) Forge {

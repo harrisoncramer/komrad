@@ -8,11 +8,11 @@ import (
 	"strings"
 	"time"
 
-	"weave/internal/ui/paint"
-	"weave/internal/ui/paint/label"
-	"weave/internal/ui/panel"
-	"weave/internal/view"
-	"weave/lib/xslice"
+	"komrade/internal/ui/paint"
+	"komrade/internal/ui/paint/label"
+	"komrade/internal/ui/panel"
+	"komrade/internal/view"
+	"komrade/lib/xslice"
 )
 
 // worktreeRow is one line of the worktrees list: a repository heading its directories, or a

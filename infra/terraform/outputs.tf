@@ -1,21 +1,21 @@
 output "instance_id" {
-  value = aws_instance.weave.id
+  value = aws_instance.komrade.id
 }
 
 output "instance_public_ip" {
-  value = aws_eip.weave.public_ip
+  value = aws_eip.komrade.public_ip
 }
 
 output "database_endpoint" {
-  value = aws_db_instance.weave.address
+  value = aws_db_instance.komrade.address
 }
 
 output "database_secret_arn" {
-  value = aws_db_instance.weave.master_user_secret[0].secret_arn
+  value = aws_db_instance.komrade.master_user_secret[0].secret_arn
 }
 
 output "instance_ami" {
-  value = aws_instance.weave.ami
+  value = aws_instance.komrade.ami
 }
 
 output "aws_region" {

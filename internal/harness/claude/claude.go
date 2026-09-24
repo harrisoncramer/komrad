@@ -1,4 +1,4 @@
-// Package claude runs Claude Code as a weave agent, building the command that starts or
+// Package claude runs Claude Code as a komrade agent, building the command that starts or
 // resumes a conversation, reading its JSONL transcript, and telling from a captured frame
 // whether it is working, waiting on a person, or idle.
 package claude
@@ -8,8 +8,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"weave/config"
-	"weave/internal/harness"
+	"komrade/config"
+	"komrade/internal/harness"
 
 	"github.com/google/uuid"
 )

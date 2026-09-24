@@ -28,7 +28,7 @@ type ReviewAuthorKind int32
 const (
 	// No author was recorded.
 	ReviewAuthorKind_REVIEW_AUTHOR_KIND_UNSPECIFIED ReviewAuthorKind = 0
-	// The person running weave.
+	// The person running komrade.
 	ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN ReviewAuthorKind = 1
 	// The agent whose work is being read, or the reviewer reading it.
 	ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT ReviewAuthorKind = 2
@@ -2123,7 +2123,7 @@ func (x *ListReviewsResponse) GetReviews() []*Review {
 	return nil
 }
 
-// ReleaseReviewRequest lets go of the author's open batch. Weave sends the agent one piece of
+// ReleaseReviewRequest lets go of the author's open batch. Komrade sends the agent one piece of
 // ordinary mail naming the review, which it reads whole with get_review, so nothing here decides
 // when the agent is interrupted or typed at: that is mail's own affair.
 type ReleaseReviewRequest struct {
@@ -2757,7 +2757,7 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	" REVIEW_TREE_STANDING_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aREVIEW_TREE_STANDING_MOVED\x10\x01\x12\x1f\n" +
 	"\x1bREVIEW_TREE_STANDING_LANDED\x10\x02\x12%\n" +
-	"!REVIEW_TREE_STANDING_LANDED_MOVED\x10\x03B\"Z weave/proto/gen/agent/v1;agentv1b\x06proto3"
+	"!REVIEW_TREE_STANDING_LANDED_MOVED\x10\x03B$Z\"komrade/proto/gen/agent/v1;agentv1b\x06proto3"
 
 var (
 	file_agent_v1_review_proto_rawDescOnce sync.Once

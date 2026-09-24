@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"strings"
 
-	"weave/internal/ui/paint"
-	"weave/internal/ui/paint/label"
-	"weave/internal/ui/panel"
-	schedulev1 "weave/proto/gen/schedule/v1"
+	"komrade/internal/ui/paint"
+	"komrade/internal/ui/paint/label"
+	"komrade/internal/ui/panel"
+	schedulev1 "komrade/proto/gen/schedule/v1"
 
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"

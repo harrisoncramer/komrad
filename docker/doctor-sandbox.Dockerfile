@@ -1,4 +1,4 @@
-# The machine weave doctor is written for: one that has just installed the binary and has
+# The machine komrade doctor is written for: one that has just installed the binary and has
 # none of what it depends on. Each stage adds one dependency, so a check can be watched
 # failing and then passing without anything else on the machine changing.
 #
@@ -11,7 +11,7 @@ RUN apt-get update \
 	&& rm -rf /var/lib/apt/lists/*
 ENV HOME=/root
 WORKDIR /root
-ENTRYPOINT ["/usr/local/bin/weave"]
+ENTRYPOINT ["/usr/local/bin/komrade"]
 CMD ["doctor"]
 
 # A tmux too old for the panel. Bullseye ships 3.1c, which has display-popup but not the
@@ -23,7 +23,7 @@ RUN apt-get update \
 	&& rm -rf /var/lib/apt/lists/*
 ENV HOME=/root
 WORKDIR /root
-ENTRYPOINT ["/usr/local/bin/weave"]
+ENTRYPOINT ["/usr/local/bin/komrade"]
 CMD ["doctor"]
 
 # A tmux new enough. Bookworm ships 3.3a, which is exactly the floor, so this stage also

@@ -1,6 +1,6 @@
 package ui
 
-import "weave/internal/errui"
+import "komrade/internal/errui"
 
 // reportBrief stands in for report where the reason is long and already on screen.
 func (m *model) reportBrief(summary, detail string) {

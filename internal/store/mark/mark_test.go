@@ -4,10 +4,10 @@ import (
 	"testing"
 	"time"
 
-	"weave/internal/dbtest"
-	"weave/internal/store"
-	agentstore "weave/internal/store/agent"
-	workflowstore "weave/internal/store/workflow"
+	"komrade/internal/dbtest"
+	"komrade/internal/store"
+	agentstore "komrade/internal/store/agent"
+	workflowstore "komrade/internal/store/workflow"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"

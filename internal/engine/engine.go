@@ -1,4 +1,4 @@
-// Package engine says how the panel reaches the weave an agent is running in.
+// Package engine says how the panel reaches the komrade an agent is running in.
 //
 // An agent's terminal belongs to the tmux server the engine runs on. When that is this machine
 // the panel shows it by moving the pane itself into the stage with swap-pane, which the rest of
@@ -34,7 +34,7 @@ func (r Remote) IsRemote() bool {
 	return strings.TrimSpace(r.Destination) != "" || len(r.Exec) > 0
 }
 
-// Placeholders a transport's argv may carry, replaced with what weave needs it to carry.
+// Placeholders a transport's argv may carry, replaced with what komrade needs it to carry.
 const (
 	CommandPlaceholder     = "{{command}}"
 	CommandJSONPlaceholder = "{{command_json}}"

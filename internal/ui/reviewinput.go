@@ -1,8 +1,8 @@
 package ui
 
 import (
-	"weave/config"
-	"weave/internal/ui/paint"
+	"komrade/config"
+	"komrade/internal/ui/paint"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"

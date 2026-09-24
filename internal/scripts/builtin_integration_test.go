@@ -504,8 +504,8 @@ func TestIntegrationBuiltinWorktreeSetupSkipsATrackedSymlinkWrittenWithATrailing
 	assert.FileExists(t, filepath.Join(outside, "cache", "keep.txt"), "the directory outside the repo survives")
 }
 
-// TestIntegrationBuiltinWorktreeCleanupRefusesAPlainCheckout covers WEAVE_AGENT_CWD pointing at a
-// checkout that is not a linked worktree at all, such as the repo weave itself lives in:
+// TestIntegrationBuiltinWorktreeCleanupRefusesAPlainCheckout covers KOMRADE_AGENT_CWD pointing at a
+// checkout that is not a linked worktree at all, such as the repo komrade itself lives in:
 // cleanup must not run worktree remove or branch -D against it.
 func TestIntegrationBuiltinWorktreeCleanupRefusesAPlainCheckout(t *testing.T) {
 	repo := initRepo(t)
@@ -594,7 +594,7 @@ func TestIntegrationBuiltinWorktreeSetupBranchesFromABaseTheRefspecDoesNotCover(
 	assert.FileExists(t, filepath.Join(tree, "README.md"))
 	assert.NoFileExists(t, filepath.Join(tree, "feature-only.txt"), "the worktree is cut from origin's default branch rather than the one the clone happens to hold")
 	assert.False(t, hasRef(t, repo, "refs/remotes/origin/main"), "the human's remote refs are left as their refspec asked for")
-	assert.False(t, hasRef(t, repo, "refs/weave/base/agent-single-branch"), "the ref that named the branch point for one command is not left behind")
+	assert.False(t, hasRef(t, repo, "refs/komrade/base/agent-single-branch"), "the ref that named the branch point for one command is not left behind")
 }
 
 // TestIntegrationBuiltinWorktreeSetupBranchesFromABaseWithNoRefspecAtAll covers the repo wired to a
@@ -788,8 +788,8 @@ func TestIntegrationBuiltinWorktreeSetupResumesAfterTheDirectoryIsDeletedOutrigh
 	assertBranch(t, tree, "agent/agent-rmrf")
 }
 
-// TestIntegrationBuiltinWorktreeCleanupRefusesAWorktreeItDoesNotOwn covers WEAVE_AGENT_CWD pointing at a
-// linked worktree weave did not make, which passes the same check a hand-made one does.
+// TestIntegrationBuiltinWorktreeCleanupRefusesAWorktreeItDoesNotOwn covers KOMRADE_AGENT_CWD pointing at a
+// linked worktree komrade did not make, which passes the same check a hand-made one does.
 func TestIntegrationBuiltinWorktreeCleanupRefusesAWorktreeItDoesNotOwn(t *testing.T) {
 	repo := initRepo(t)
 	theirs := filepath.Join(t.TempDir(), "theirs")
@@ -872,7 +872,7 @@ func TestIntegrationBuiltinWorktreeCleanupRefusesAWorktreeHoldingAnother(t *test
 }
 
 // TestIntegrationBuiltinWorktreeCleanupHandlesADetachedHead covers a worktree left off its branch by a
-// checkout, an interrupted rebase, or a bisect, where the path weave chose proves ownership.
+// checkout, an interrupted rebase, or a bisect, where the path komrade chose proves ownership.
 func TestIntegrationBuiltinWorktreeCleanupHandlesADetachedHead(t *testing.T) {
 	repo := initRepo(t)
 	setup, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
@@ -1000,7 +1000,7 @@ func TestIntegrationBuiltinWorktreeCleanupRefusesATreeWhoseRegistrationIsGone(t 
 
 // TestIntegrationBuiltinWorktreeCleanupLeavesAWorktreeItDoesNotOwnAloneWhenGitCannotAnswer covers the two
 // refusals meeting: the ownership claim is a fact about the path and the agent id alone, so a
-// tree weave never made still exits zero when there is no repo left to ask.
+// tree komrade never made still exits zero when there is no repo left to ask.
 func TestIntegrationBuiltinWorktreeCleanupLeavesAWorktreeItDoesNotOwnAloneWhenGitCannotAnswer(t *testing.T) {
 	repo := initRepo(t)
 	theirs := filepath.Join(t.TempDir(), "theirs")
@@ -1063,15 +1063,15 @@ func (e worktreeEnv) toEnv() []string {
 	}
 
 	env := []string{
-		"WEAVE_AGENT_ID=" + e.agentID,
-		"WEAVE_AGENT_CWD=" + e.agentCwd,
-		"WEAVE_TRIGGER=" + trigger,
-		"WEAVE_WORKTREE_REPO=" + e.repo,
-		"WEAVE_WORKTREES_DIR=" + e.worktreesDir,
-		"WEAVE_WORKTREE_BASE_BRANCH=" + baseBranch,
-		"WEAVE_WORKTREE_ADOPT_BRANCH=" + e.adoptBranch,
-		"WEAVE_WORKTREE_COPY_PATHS=" + strings.Join(e.copyPaths, "\n"),
-		"WEAVE_WORKTREE_SYMLINK_PATHS=" + strings.Join(e.symlinkPaths, "\n"),
+		"KOMRADE_AGENT_ID=" + e.agentID,
+		"KOMRADE_AGENT_CWD=" + e.agentCwd,
+		"KOMRADE_TRIGGER=" + trigger,
+		"KOMRADE_WORKTREE_REPO=" + e.repo,
+		"KOMRADE_WORKTREES_DIR=" + e.worktreesDir,
+		"KOMRADE_WORKTREE_BASE_BRANCH=" + baseBranch,
+		"KOMRADE_WORKTREE_ADOPT_BRANCH=" + e.adoptBranch,
+		"KOMRADE_WORKTREE_COPY_PATHS=" + strings.Join(e.copyPaths, "\n"),
+		"KOMRADE_WORKTREE_SYMLINK_PATHS=" + strings.Join(e.symlinkPaths, "\n"),
 	}
 
 	if e.pathPrefix != "" {
@@ -1130,7 +1130,7 @@ func runScript(run scriptRun) outcome {
 	result, err := run.runner.RunAndWait(context.Background(), RunParams{
 		Script: *run.script,
 		Dir:    run.script.GetDir(),
-		Env:    append(run.env.toEnv(), "WEAVE_SETUP_DIR_FILE="+run.dirPath),
+		Env:    append(run.env.toEnv(), "KOMRADE_SETUP_DIR_FILE="+run.dirPath),
 	})
 
 	if named, readErr := os.ReadFile(run.dirPath); readErr == nil {
@@ -1192,8 +1192,8 @@ func initRepo(t *testing.T) string {
 
 	dir := t.TempDir()
 	runGit(t, dir, "init", "--quiet", "-b", "main")
-	runGit(t, dir, "config", "user.email", "test@weave.test")
-	runGit(t, dir, "config", "user.name", "weave test")
+	runGit(t, dir, "config", "user.email", "test@komrade.test")
+	runGit(t, dir, "config", "user.name", "komrade test")
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "README.md"), []byte("hello\n"), 0o644))
 	runGit(t, dir, "add", "README.md")
 	runGit(t, dir, "commit", "--quiet", "-m", "initial")
@@ -1224,8 +1224,8 @@ func cloneRepo(t *testing.T, upstream string) string {
 
 	dir := t.TempDir()
 	runGitClone(t, "--quiet", upstream, dir)
-	runGit(t, dir, "config", "user.email", "test@weave.test")
-	runGit(t, dir, "config", "user.name", "weave test")
+	runGit(t, dir, "config", "user.email", "test@komrade.test")
+	runGit(t, dir, "config", "user.name", "komrade test")
 
 	return dir
 }
@@ -1235,8 +1235,8 @@ func singleBranchClone(t *testing.T, upstream, branch string) string {
 
 	dir := t.TempDir()
 	runGitClone(t, "--quiet", "--single-branch", "--branch", branch, upstream, dir)
-	runGit(t, dir, "config", "user.email", "test@weave.test")
-	runGit(t, dir, "config", "user.name", "weave test")
+	runGit(t, dir, "config", "user.email", "test@komrade.test")
+	runGit(t, dir, "config", "user.name", "komrade test")
 
 	return dir
 }

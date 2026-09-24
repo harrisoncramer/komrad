@@ -27,7 +27,7 @@ func validateEngineName(name string) error {
 
 // EngineLogin is the Postgres login an engine writes with.
 func EngineLogin(name string) string {
-	return "weave_engine_" + name
+	return "komrade_engine_" + name
 }
 
 // EngineReaderLogin is the Postgres login an engine's read-only tools connect as.

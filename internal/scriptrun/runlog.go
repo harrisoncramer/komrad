@@ -8,12 +8,12 @@ import (
 	"os"
 	"path/filepath"
 
-	"weave/config"
-	"weave/internal/logging"
-	"weave/internal/scripts"
-	"weave/internal/store"
+	"komrade/config"
+	"komrade/internal/logging"
+	"komrade/internal/scripts"
+	"komrade/internal/store"
 
-	runstore "weave/internal/store/run"
+	runstore "komrade/internal/store/run"
 )
 
 // maxLogRunAttempts bounds the walk up through numbers a second process has already taken.
@@ -26,7 +26,7 @@ type runRecorder interface {
 	Prune(ctx context.Context, agentID string, keep int) error
 }
 
-// runRecord is one run as weave is watching it.
+// runRecord is one run as komrade is watching it.
 type runRecord struct {
 	logPath string
 	id      string

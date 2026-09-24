@@ -11,11 +11,11 @@ import (
 	"strings"
 	"time"
 
-	"weave/config"
-	"weave/internal/store"
-	agentstore "weave/internal/store/agent"
-	worktreestore "weave/internal/store/worktree"
-	"weave/lib/xslice"
+	"komrade/config"
+	"komrade/internal/store"
+	agentstore "komrade/internal/store/agent"
+	worktreestore "komrade/internal/store/worktree"
+	"komrade/lib/xslice"
 )
 
 // Agent is what a listing says about an agent that holds a directory.

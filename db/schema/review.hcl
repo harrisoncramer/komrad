@@ -33,7 +33,7 @@ table "review_rounds" {
   column "snapshot_sha" {
     null    = false
     type    = text
-    comment = "A commit covering the agent's whole checkout, tracked and untracked files alike. A ref under refs/weave/rounds keeps it alive so git will not collect it. Writing it leaves the agent's own branch, index and files alone."
+    comment = "A commit covering the agent's whole checkout, tracked and untracked files alike. A ref under refs/komrade/rounds keeps it alive so git will not collect it. Writing it leaves the agent's own branch, index and files alone."
   }
   column "created_at" {
     null    = false
@@ -110,7 +110,7 @@ table "reviews" {
     null    = false
     type    = text
     default = ""
-    comment = "The absolute path of the file the released review was written to, empty while the review is still open. The file lives in weave's own state directory rather than in the agent's checkout."
+    comment = "The absolute path of the file the released review was written to, empty while the review is still open. The file lives in komrade's own state directory rather than in the agent's checkout."
   }
   column "doorbell_mail_id" {
     null    = true

@@ -5,9 +5,9 @@ import (
 	"strings"
 	"time"
 
-	"weave/internal/ui/paint"
-	"weave/internal/ui/paint/label"
-	"weave/internal/ui/panel"
+	"komrade/internal/ui/paint"
+	"komrade/internal/ui/paint/label"
+	"komrade/internal/ui/panel"
 )
 
 type recordField struct {

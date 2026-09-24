@@ -1,4 +1,4 @@
-// Package errui draws the failures a person has to see: the full screens weave falls back to
+// Package errui draws the failures a person has to see: the full screens komrade falls back to
 // when it cannot start, and the readers that reduce a service error to the part worth showing.
 //
 // A failure at startup has no panel to report itself inside, so it is rendered as a screen of

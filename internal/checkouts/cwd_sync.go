@@ -7,11 +7,11 @@ import (
 	"os"
 	"time"
 
-	"weave/internal/git"
-	agentstore "weave/internal/store/agent"
-	reviewstore "weave/internal/store/review"
-	workflowstore "weave/internal/store/workflow"
-	"weave/lib/xptr"
+	"komrade/internal/git"
+	agentstore "komrade/internal/store/agent"
+	reviewstore "komrade/internal/store/review"
+	workflowstore "komrade/internal/store/workflow"
+	"komrade/lib/xptr"
 
 	"github.com/harrisoncramer/streamer"
 )

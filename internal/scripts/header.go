@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	directiveWord    = "WEAVE"
+	directiveWord    = "KOMRADE"
 	directiveTimeout = "timeout"
 	directiveDesc    = "description"
 )
@@ -138,7 +138,7 @@ func (h *Header) apply(directive string, line int) {
 		case key == directiveTimeout:
 			h.note(line, `timeout wants a quoted duration such as "90s" or "10m", or "none"`)
 		default:
-			h.note(line, fmt.Sprintf("%s is not a directive weave knows", key))
+			h.note(line, fmt.Sprintf("%s is not a directive komrade knows", key))
 		}
 	}
 }

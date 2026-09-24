@@ -10,12 +10,12 @@ import (
 	"sync"
 	"time"
 
-	"weave/config"
-	"weave/internal/logging"
-	"weave/internal/scripts"
-	"weave/internal/store"
-	agentstore "weave/internal/store/agent"
-	workflowstore "weave/internal/store/workflow"
+	"komrade/config"
+	"komrade/internal/logging"
+	"komrade/internal/scripts"
+	"komrade/internal/store"
+	agentstore "komrade/internal/store/agent"
+	workflowstore "komrade/internal/store/workflow"
 )
 
 // interruptedPrompt is what a resumed agent is asked on the way back in.
@@ -166,7 +166,7 @@ func (s *ResumeService) resume(ctx context.Context, agent agentstore.Agent) erro
 			return
 		}
 
-		// Nothing else in weave moves a row out of setting_up or takes away a window a resume
+		// Nothing else in komrade moves a row out of setting_up or takes away a window a resume
 		// opened, so both are put back here rather than depending on the caller still being
 		// around to see it happen.
 		restore, cancel := context.WithTimeout(context.WithoutCancel(ctx), teardownTimeout)

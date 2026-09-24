@@ -7,10 +7,10 @@ import (
 	"log/slog"
 	"testing"
 
-	"weave/internal/caller"
-	"weave/internal/logging"
-	"weave/internal/logtest"
-	agentv1 "weave/proto/gen/agent/v1"
+	"komrade/internal/caller"
+	"komrade/internal/logging"
+	"komrade/internal/logtest"
+	agentv1 "komrade/proto/gen/agent/v1"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"

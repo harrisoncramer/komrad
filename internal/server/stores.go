@@ -3,19 +3,19 @@ package server
 import (
 	"context"
 
-	"weave/internal/store"
-	agentstore "weave/internal/store/agent"
-	forgestore "weave/internal/store/forge"
-	mailstore "weave/internal/store/mail"
-	markstore "weave/internal/store/mark"
-	pullrequeststore "weave/internal/store/pullrequest"
-	reviewstore "weave/internal/store/review"
-	rowstore "weave/internal/store/row"
-	runstore "weave/internal/store/run"
-	schedulestore "weave/internal/store/schedule"
-	transcriptstore "weave/internal/store/transcript"
-	workflowstore "weave/internal/store/workflow"
-	worktreestore "weave/internal/store/worktree"
+	"komrade/internal/store"
+	agentstore "komrade/internal/store/agent"
+	forgestore "komrade/internal/store/forge"
+	mailstore "komrade/internal/store/mail"
+	markstore "komrade/internal/store/mark"
+	pullrequeststore "komrade/internal/store/pullrequest"
+	reviewstore "komrade/internal/store/review"
+	rowstore "komrade/internal/store/row"
+	runstore "komrade/internal/store/run"
+	schedulestore "komrade/internal/store/schedule"
+	transcriptstore "komrade/internal/store/transcript"
+	workflowstore "komrade/internal/store/workflow"
+	worktreestore "komrade/internal/store/worktree"
 )
 
 type stores struct {

@@ -1,8 +1,8 @@
 package ui
 
 import (
-	"weave/internal/errui"
-	"weave/internal/ui/paint"
+	"komrade/internal/errui"
+	"komrade/internal/ui/paint"
 
 	"charm.land/lipgloss/v2"
 )

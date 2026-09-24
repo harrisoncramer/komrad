@@ -1,4 +1,4 @@
-resource "aws_iam_role" "weave" {
+resource "aws_iam_role" "komrade" {
   name = "${var.name}-instance"
 
   assume_role_policy = jsonencode({
@@ -16,28 +16,28 @@ resource "aws_iam_role" "weave" {
 }
 
 resource "aws_iam_role_policy_attachment" "ssm" {
-  role       = aws_iam_role.weave.name
+  role       = aws_iam_role.komrade.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
-resource "aws_iam_instance_profile" "weave" {
+resource "aws_iam_instance_profile" "komrade" {
   name = "${var.name}-instance"
-  role = aws_iam_role.weave.name
+  role = aws_iam_role.komrade.name
   tags = merge(local.tags, { Name = "${var.name}-instance-profile" })
 }
 
-resource "aws_instance" "weave" {
+resource "aws_instance" "komrade" {
   ami                         = var.ami_id
   instance_type               = var.instance_type
-  subnet_id                   = aws_subnet.weave.id
-  vpc_security_group_ids      = [aws_security_group.weave.id]
+  subnet_id                   = aws_subnet.komrade.id
+  vpc_security_group_ids      = [aws_security_group.komrade.id]
   associate_public_ip_address = true
-  iam_instance_profile        = aws_iam_instance_profile.weave.name
-  user_data = templatefile("${path.module}/weave-data-volume.sh.tftpl", {
-    data_volume_id      = aws_ebs_volume.weave_data.id
-    database_secret_arn = aws_db_instance.weave.master_user_secret[0].secret_arn
-    database_host       = aws_db_instance.weave.address
-    database_name       = aws_db_instance.weave.db_name
+  iam_instance_profile        = aws_iam_instance_profile.komrade.name
+  user_data = templatefile("${path.module}/komrade-data-volume.sh.tftpl", {
+    data_volume_id      = aws_ebs_volume.komrade_data.id
+    database_secret_arn = aws_db_instance.komrade.master_user_secret[0].secret_arn
+    database_host       = aws_db_instance.komrade.address
+    database_name       = aws_db_instance.komrade.db_name
     aws_region          = var.aws_region
     ssh_public_key      = var.ssh_public_key
   })
@@ -72,14 +72,14 @@ resource "aws_instance" "weave" {
   tags = merge(local.tags, { Name = var.name })
 }
 
-resource "aws_eip" "weave" {
+resource "aws_eip" "komrade" {
   domain   = "vpc"
-  instance = aws_instance.weave.id
+  instance = aws_instance.komrade.id
   tags     = merge(local.tags, { Name = "${var.name}-public-ip" })
 }
 
-resource "aws_ebs_volume" "weave_data" {
-  availability_zone = aws_subnet.weave.availability_zone
+resource "aws_ebs_volume" "komrade_data" {
+  availability_zone = aws_subnet.komrade.availability_zone
   encrypted         = true
   final_snapshot    = true
   size              = var.data_volume_size_gib
@@ -87,8 +87,8 @@ resource "aws_ebs_volume" "weave_data" {
   tags              = merge(local.tags, { Name = "${var.name}-data" })
 }
 
-resource "aws_volume_attachment" "weave_data" {
+resource "aws_volume_attachment" "komrade_data" {
   device_name = "/dev/sdf"
-  volume_id   = aws_ebs_volume.weave_data.id
-  instance_id = aws_instance.weave.id
+  volume_id   = aws_ebs_volume.komrade_data.id
+  instance_id = aws_instance.komrade.id
 }

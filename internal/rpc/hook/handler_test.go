@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"weave/internal/agents"
-	hookv1 "weave/proto/gen/hook/v1"
-	hookv1weave "weave/proto/gen/hook/v1/hookv1weave"
+	"komrade/internal/agents"
+	hookv1 "komrade/proto/gen/hook/v1"
+	hookv1komrade "komrade/proto/gen/hook/v1/hookv1komrade"
 
 	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
@@ -55,7 +55,7 @@ func TestListHooks(t *testing.T) {
 					Header: agents.ScriptHeader{
 						Description: "Install what the worktree needs before the agent starts.",
 						Timeout:     45 * time.Second,
-						Problems:    []string{"line 4: nope is not a directive weave knows"},
+						Problems:    []string{"line 4: nope is not a directive komrade knows"},
 					},
 				},
 				{
@@ -69,7 +69,7 @@ func TestListHooks(t *testing.T) {
 					Executable:     true,
 					Description:    "Install what the worktree needs before the agent starts.",
 					Timeout:        durationpb.New(45 * time.Second),
-					HeaderProblems: []string{"line 4: nope is not a directive weave knows"},
+					HeaderProblems: []string{"line 4: nope is not a directive komrade knows"},
 				},
 				{
 					Name: "unrunnable",
@@ -80,7 +80,7 @@ func TestListHooks(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			service := hookv1weave.HookServiceAdapter{Impl: NewHandler(tt.lister)}
+			service := hookv1komrade.HookServiceAdapter{Impl: NewHandler(tt.lister)}
 
 			resp, err := service.ListHooks(t.Context(), connect.NewRequest(&emptypb.Empty{}))
 			if tt.want == nil {

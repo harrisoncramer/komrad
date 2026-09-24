@@ -4,10 +4,10 @@ import (
 	"context"
 	"sync"
 
-	"weave/config"
+	"komrade/config"
 
-	agentstore "weave/internal/store/agent"
-	workflowstore "weave/internal/store/workflow"
+	agentstore "komrade/internal/store/agent"
+	workflowstore "komrade/internal/store/workflow"
 )
 
 const (

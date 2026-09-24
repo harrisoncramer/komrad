@@ -1,8 +1,8 @@
 {
   "session_id": "23c0f577-fd0f-4c34-8d58-eb787cb06965",
-  "transcript_path": "/Users/harrisoncramer/.claude/projects/-private-tmp-claude-501--Users-harrisoncramer--local-state-weave-worktrees-01a0b96f-6a5c-78cd-a2d4-9031b5ca2263-e0e1afb6-5c1d-45d6-969a-0b4b8ad8ba31-scratchpad-probe-bypass/23c0f577-fd0f-4c34-8d58-eb787cb06965.jsonl",
-  "cwd": "/private/tmp/claude-501/-Users-harrisoncramer--local-state-weave-worktrees-01a0b96f-6a5c-78cd-a2d4-9031b5ca2263/e0e1afb6-5c1d-45d6-969a-0b4b8ad8ba31/scratchpad/probe/bypass",
-  "scratchpad_dir": "/private/tmp/claude-501/-private-tmp-claude-501--Users-harrisoncramer--local-state-weave-worktrees-01a0b96f-6a5c-78cd-a2d4-9031b5ca2263-e0e1afb6-5c1d-45d6-969a-0b4b8ad8ba31-scratchpad-probe-bypass/23c0f577-fd0f-4c34-8d58-eb787cb06965/scratchpad",
+  "transcript_path": "/Users/harrisoncramer/.claude/projects/-private-tmp-claude-501--Users-harrisoncramer--local-state-komrade-worktrees-01a0b96f-6a5c-78cd-a2d4-9031b5ca2263-e0e1afb6-5c1d-45d6-969a-0b4b8ad8ba31-scratchpad-probe-bypass/23c0f577-fd0f-4c34-8d58-eb787cb06965.jsonl",
+  "cwd": "/private/tmp/claude-501/-Users-harrisoncramer--local-state-komrade-worktrees-01a0b96f-6a5c-78cd-a2d4-9031b5ca2263/e0e1afb6-5c1d-45d6-969a-0b4b8ad8ba31/scratchpad/probe/bypass",
+  "scratchpad_dir": "/private/tmp/claude-501/-private-tmp-claude-501--Users-harrisoncramer--local-state-komrade-worktrees-01a0b96f-6a5c-78cd-a2d4-9031b5ca2263-e0e1afb6-5c1d-45d6-969a-0b4b8ad8ba31-scratchpad-probe-bypass/23c0f577-fd0f-4c34-8d58-eb787cb06965/scratchpad",
   "prompt_id": "399c66e9-6f41-4af7-91a4-16ccda163f4c",
   "permission_mode": "bypassPermissions",
   "hook_event_name": "PermissionRequest",

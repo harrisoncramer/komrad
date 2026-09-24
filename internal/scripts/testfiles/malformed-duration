@@ -1,6 +1,6 @@
 #!/bin/sh
-#WEAVE description="Names a duration nothing can read."
-#WEAVE timeout="soon"
+#KOMRADE description="Names a duration nothing can read."
+#KOMRADE timeout="soon"
 set -eu
 
 echo "declared"

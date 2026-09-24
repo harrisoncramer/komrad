@@ -1,10 +1,10 @@
 #!/bin/sh
-#WEAVE description="Weave's own script for giving an agent's worktree back, run when its workflow's worktree toggle is on. Not yours to name or fire."
+#KOMRADE description="Komrade's own script for giving an agent's worktree back, run when its workflow's worktree toggle is on. Not yours to name or fire."
 set -eu
 
-tree="$WEAVE_AGENT_CWD"
-branch="agent/$WEAVE_AGENT_ID"
-adopted="${WEAVE_WORKTREE_ADOPT_BRANCH:-}"
+tree="$KOMRADE_AGENT_CWD"
+branch="agent/$KOMRADE_AGENT_ID"
+adopted="${KOMRADE_WORKTREE_ADOPT_BRANCH:-}"
 
 if [ ! -d "$tree" ] || [ ! -f "$tree/.git" ]; then
 	exit 0
@@ -18,11 +18,11 @@ tree=$(cd "$tree" && pwd -P)
 # check above, and the launch path reaches cleanup with the agent's cwd still set to whatever
 # the workflow named when setup never got as far as replacing it. Setup names the directory
 # after the agent, and nothing an agent does renames it, so the directory's own name is the
-# claim. A worktree weave did not make carries a name a human chose, never an agent id, and
+# claim. A worktree komrade did not make carries a name a human chose, never an agent id, and
 # the branch the tree is on proves nothing once an agent detaches HEAD or works on a branch
 # of its own.
-if [ "$(basename "$tree")" != "$WEAVE_AGENT_ID" ]; then
-	echo "worktree cleanup: $tree is not named after $WEAVE_AGENT_ID, so it is not this agent's to remove" >&2
+if [ "$(basename "$tree")" != "$KOMRADE_AGENT_ID" ]; then
+	echo "worktree cleanup: $tree is not named after $KOMRADE_AGENT_ID, so it is not this agent's to remove" >&2
 	exit 0
 fi
 

@@ -3,9 +3,9 @@ package server
 import (
 	"testing"
 
-	annotationv1 "weave/proto/gen/annotation/v1"
+	annotationv1 "komrade/proto/gen/annotation/v1"
 
-	agentstore "weave/internal/store/agent"
+	agentstore "komrade/internal/store/agent"
 
 	"github.com/stretchr/testify/assert"
 )

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	agentstore "weave/internal/store/agent"
+	agentstore "komrade/internal/store/agent"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

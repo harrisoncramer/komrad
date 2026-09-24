@@ -5,10 +5,10 @@ import (
 	"slices"
 	"strings"
 
-	"weave/config"
-	"weave/internal/ui/paint"
-	"weave/internal/view"
-	"weave/lib/xslice"
+	"komrade/config"
+	"komrade/internal/ui/paint"
+	"komrade/internal/view"
+	"komrade/lib/xslice"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"

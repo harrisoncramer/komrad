@@ -3,16 +3,16 @@ package ui
 import (
 	"time"
 
-	"weave/internal/ui/panel"
-	agentv1 "weave/proto/gen/agent/v1"
-	pullrequestv1 "weave/proto/gen/pullrequest/v1"
-	schedulev1 "weave/proto/gen/schedule/v1"
-	workflowv1 "weave/proto/gen/workflow/v1"
-	worktreev1 "weave/proto/gen/worktree/v1"
+	"komrade/internal/ui/panel"
+	agentv1 "komrade/proto/gen/agent/v1"
+	pullrequestv1 "komrade/proto/gen/pullrequest/v1"
+	schedulev1 "komrade/proto/gen/schedule/v1"
+	workflowv1 "komrade/proto/gen/workflow/v1"
+	worktreev1 "komrade/proto/gen/worktree/v1"
 
-	"weave/internal/git"
-	"weave/lib/dates"
-	"weave/lib/xslice"
+	"komrade/internal/git"
+	"komrade/lib/dates"
+	"komrade/lib/xslice"
 )
 
 func agentFrom(s *agentv1.Agent) panel.Agent {

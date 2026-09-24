@@ -7,15 +7,15 @@ set -euo pipefail
 usage() {
 	echo "Usage: mise run remote:connect [-- command...]"
 	echo
-	echo "Opens a shell on the engine as the weave account over ssh. With a command after --"
+	echo "Opens a shell on the engine as the komrade account over ssh. With a command after --"
 	echo "it runs that instead and returns, which is what a script wants."
 	echo
-	echo "The address comes from Terraform, the key from WEAVE_ENGINE_KEY, and the connection"
+	echo "The address comes from Terraform, the key from KOMRADE_ENGINE_KEY, and the connection"
 	echo "is shared, so a second call costs a fraction of the first."
 	echo
 	echo "  mise run remote:connect"
-	echo "  mise run remote:connect -- systemctl status weave"
-	echo "  mise run remote:connect -- tmux -L weave list-sessions"
+	echo "  mise run remote:connect -- systemctl status komrade"
+	echo "  mise run remote:connect -- tmux -L komrade list-sessions"
 }
 
 for arg in "$@"; do
@@ -31,7 +31,7 @@ cd "$MISE_CONFIG_ROOT"
 
 require_aws_profile
 
-HOST="${WEAVE_ENGINE_HOST:-}"
+HOST="${KOMRADE_ENGINE_HOST:-}"
 
 if [ -z "$HOST" ]; then
 	HOST="$(terraform_output instance_public_ip)"
@@ -40,25 +40,25 @@ fi
 if [ -z "$HOST" ]; then
 	echo "could not read the engine's address from Terraform." >&2
 	echo >&2
-	echo "Run 'mise run terraform:apply' to build one, or set WEAVE_ENGINE_HOST." >&2
+	echo "Run 'mise run terraform:apply' to build one, or set KOMRADE_ENGINE_HOST." >&2
 	exit 1
 fi
 
-KEY="${WEAVE_ENGINE_KEY:-$HOME/.ssh/weave_engine}"
+KEY="${KOMRADE_ENGINE_KEY:-$HOME/.ssh/komrade_engine}"
 
 if [ ! -f "$KEY" ]; then
 	echo "no key at $KEY, so the engine will refuse the connection." >&2
 	echo >&2
 	echo "That key is the one whose public half Terraform put in the instance's authorized_keys," >&2
-	echo "as ssh_public_key in terraform.tfvars. Set WEAVE_ENGINE_KEY if yours lives elsewhere." >&2
+	echo "as ssh_public_key in terraform.tfvars. Set KOMRADE_ENGINE_KEY if yours lives elsewhere." >&2
 	exit 1
 fi
 
-USER_NAME="${WEAVE_ENGINE_USER:-weave}"
+USER_NAME="${KOMRADE_ENGINE_USER:-komrade}"
 
 # The address outlives the instance, so a rebuild answers on it with a new host key. The known
 # hosts are kept in a file of this engine's own, which is what makes dropping the old key safe.
-KNOWN_HOSTS="${WEAVE_ENGINE_KNOWN_HOSTS:-$HOME/.ssh/known_hosts_weave_engine}"
+KNOWN_HOSTS="${KOMRADE_ENGINE_KNOWN_HOSTS:-$HOME/.ssh/known_hosts_komrade_engine}"
 touch "$KNOWN_HOSTS"
 chmod 600 "$KNOWN_HOSTS"
 
@@ -76,7 +76,7 @@ fi
 SSH_ARGS=(
 	-o ControlMaster=auto
 	-o ControlPersist=10m
-	-o "ControlPath=/tmp/cm-weave-%r@%h:%p"
+	-o "ControlPath=/tmp/cm-komrade-%r@%h:%p"
 	-o StrictHostKeyChecking=accept-new
 	-o "UserKnownHostsFile=$KNOWN_HOSTS"
 	-o ConnectTimeout=10

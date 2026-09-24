@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"weave/internal/watch"
-	"weave/lib/xslice"
-	watchv1 "weave/proto/gen/watch/v1"
+	"komrade/internal/watch"
+	"komrade/lib/xslice"
+	watchv1 "komrade/proto/gen/watch/v1"
 )
 
 // WatchedMarks declares the marks to the watch.

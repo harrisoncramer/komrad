@@ -3,18 +3,18 @@ package agent
 import (
 	"context"
 
-	"weave/internal/assemble"
-	"weave/internal/fail"
-	"weave/internal/rpc/render"
-	"weave/internal/rpcerr"
-	"weave/lib/xslice"
+	"komrade/internal/assemble"
+	"komrade/internal/fail"
+	"komrade/internal/rpc/render"
+	"komrade/internal/rpcerr"
+	"komrade/lib/xslice"
 
-	agentstore "weave/internal/store/agent"
-	rowstore "weave/internal/store/row"
-	workflowstore "weave/internal/store/workflow"
-	agentv1 "weave/proto/gen/agent/v1"
-	pullrequestv1 "weave/proto/gen/pullrequest/v1"
-	workflowv1 "weave/proto/gen/workflow/v1"
+	agentstore "komrade/internal/store/agent"
+	rowstore "komrade/internal/store/row"
+	workflowstore "komrade/internal/store/workflow"
+	agentv1 "komrade/proto/gen/agent/v1"
+	pullrequestv1 "komrade/proto/gen/pullrequest/v1"
+	workflowv1 "komrade/proto/gen/workflow/v1"
 )
 
 // agentRow is an assembled row with the keyset cursor locating it.

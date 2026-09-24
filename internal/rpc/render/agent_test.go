@@ -9,10 +9,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/testing/protocmp"
 
-	agentstore "weave/internal/store/agent"
-	rowstore "weave/internal/store/row"
-	"weave/lib/xptr"
-	agentv1 "weave/proto/gen/agent/v1"
+	agentstore "komrade/internal/store/agent"
+	rowstore "komrade/internal/store/row"
+	"komrade/lib/xptr"
+	agentv1 "komrade/proto/gen/agent/v1"
 )
 
 // TestAgent pins the fields a client cannot draw unless the response carries them.

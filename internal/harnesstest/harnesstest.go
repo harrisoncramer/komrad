@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"weave/internal/harness"
+	"komrade/internal/harness"
 
 	"github.com/google/uuid"
 )
@@ -26,8 +26,8 @@ const tailLines = 5
 
 const agentScript = `#!/bin/sh
 log="$FAKE_ROOT/logs/$FAKE_SESSION.jsonl"
-state="$FAKE_ROOT/state/$WEAVE_AGENT_ID"
-typed="$FAKE_ROOT/typed/$WEAVE_AGENT_ID"
+state="$FAKE_ROOT/state/$KOMRADE_AGENT_ID"
+typed="$FAKE_ROOT/typed/$KOMRADE_AGENT_ID"
 mkdir -p "$FAKE_ROOT/logs" "$FAKE_ROOT/state" "$FAKE_ROOT/typed"
 
 if [ -n "$FAKE_RESUME" ]; then
@@ -52,7 +52,7 @@ done
 
 const scriptShell = "/bin/sh"
 
-const agentArg = "--weave-fake-agent"
+const agentArg = "--komrade-fake-agent"
 
 func init() {
 	if len(os.Args) != 3 || os.Args[1] != agentArg {

@@ -5,9 +5,9 @@ package internaljobs
 import (
 	"context"
 
-	"weave/internal/agents"
-	agentstore "weave/internal/store/agent"
-	schedulestore "weave/internal/store/schedule"
+	"komrade/internal/agents"
+	agentstore "komrade/internal/store/agent"
+	schedulestore "komrade/internal/store/schedule"
 )
 
 // ScheduleGetter reads the one schedule a firing names.

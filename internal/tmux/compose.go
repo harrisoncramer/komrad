@@ -10,7 +10,7 @@ import (
 )
 
 // pasteBufferPrefix opens the name of every buffer a paste is loaded through.
-const pasteBufferPrefix = "weave-paste"
+const pasteBufferPrefix = "komrade-paste"
 
 // pastes counts the pastes this process has sent, which a buffer name carries so two pastes at
 // once cannot overwrite each other's text.

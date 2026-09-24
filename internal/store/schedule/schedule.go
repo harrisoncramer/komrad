@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"time"
 
-	"weave/db"
-	"weave/db/models"
-	"weave/internal/store"
-	"weave/lib/xslice"
+	"komrade/db"
+	"komrade/db/models"
+	"komrade/internal/store"
+	"komrade/lib/xslice"
 )
 
 type Schedule struct {

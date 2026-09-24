@@ -5,15 +5,15 @@ group: operations
 order: 11
 ---
 
-This guide is for whoever runs the remote engine: building it, keeping it up to date, and keeping its bill down. Using an engine that already exists is covered in [running weave remotely](../remote/).
+This guide is for whoever runs the remote engine: building it, keeping it up to date, and keeping its bill down. Using an engine that already exists is covered in [running komrade remotely](../remote/).
 
-Everything here runs from a weave checkout as a mise task, and reaches AWS with the credentials in your environment.
+Everything here runs from a komrade checkout as a mise task, and reaches AWS with the credentials in your environment.
 
 ## What gets built
 
-The engine is one machine on AWS with a separate data disk and a managed Postgres database. The machine is disposable. Everything that matters lives on the data disk or in the database: agents' conversations and worktrees, weave's config, and the logins the agent CLIs use. So the machine can be switched off, or thrown away and rebuilt from a new image, without losing work.
+The engine is one machine on AWS with a separate data disk and a managed Postgres database. The machine is disposable. Everything that matters lives on the data disk or in the database: agents' conversations and worktrees, komrade's config, and the logins the agent CLIs use. So the machine can be switched off, or thrown away and rebuilt from a new image, without losing work.
 
-The engine pushes code and opens pull requests as a GitHub App rather than as you. The App's key is kept in AWS Secrets Manager and copied into memory on the machine when it boots, so it never touches the disk. From that key, weave makes GitHub tokens that expire after an hour and only reach the repositories you chose.
+The engine pushes code and opens pull requests as a GitHub App rather than as you. The App's key is kept in AWS Secrets Manager and copied into memory on the machine when it boots, so it never touches the disk. From that key, komrade makes GitHub tokens that expire after an hour and only reach the repositories you chose.
 
 ## Standing one up
 
@@ -23,15 +23,15 @@ First, get the prerequisites ready. You need an AWS account with a named profile
 
 Build the machine image with `mise run packer:build`. It takes a while and prints an image id at the end, which the infrastructure needs. It builds in us-east-1 unless you pass another region.
 
-Register a GitHub App on your account, with no webhook, installed only on the repositories the engine should work in. It needs to read and write repository contents, pull requests, issues and workflows. Generate a private key for it, then store that key in Secrets Manager as `weave/github-app` before creating the infrastructure. The machine only copies the key in when it boots, so storing it first means the first boot finds it.
+Register a GitHub App on your account, with no webhook, installed only on the repositories the engine should work in. It needs to read and write repository contents, pull requests, issues and workflows. Generate a private key for it, then store that key in Secrets Manager as `komrade/github-app` before creating the infrastructure. The machine only copies the key in when it boots, so storing it first means the first boot finds it.
 
-Describe the infrastructure by copying the two example files in [`infra/terraform`](https://github.com/harrisoncramer/weave/tree/main/infra/terraform) and filling them in. They cover your account, region, the image id, your SSH key, and the addresses allowed to connect over SSH. Terraform refuses to let the whole internet in. Fill in the three `github_*` values too. They let this repository's GitHub Actions reach AWS, and deploys, new images and the nightly schedule all depend on them. The defaults assume us-east-1, so another region needs its subnets overridden as well.
+Describe the infrastructure by copying the two example files in [`infra/terraform`](https://github.com/harrisoncramer/komrade/tree/main/infra/terraform) and filling them in. They cover your account, region, the image id, your SSH key, and the addresses allowed to connect over SSH. Terraform refuses to let the whole internet in. Fill in the three `github_*` values too. They let this repository's GitHub Actions reach AWS, and deploys, new images and the nightly schedule all depend on them. The defaults assume us-east-1, so another region needs its subnets overridden as well.
 
 Create the infrastructure with `mise run terraform:init` and then `mise run terraform:apply`. It builds the network, the machine, the data disk, the database and the permissions between them, and prints the engine's address.
 
-Configure the engine. Get a shell on it with `mise run remote:connect`. Weave's config file already exists there, set up by the image, so add the [`[github_app]`](../../config/#github_app) table to it with your App's id, its installation id and the key's path in memory. Check it works with `weave github token`, which should print a token. Then connect the engine's forge through the App, which you can do from your laptop. [Forges](../forges/) describes what that connection is for.
+Configure the engine. Get a shell on it with `mise run remote:connect`. Komrade's config file already exists there, set up by the image, so add the [`[github_app]`](../../config/#github_app) table to it with your App's id, its installation id and the key's path in memory. Check it works with `komrade github token`, which should print a token. Then connect the engine's forge through the App, which you can do from your laptop. [Forges](../forges/) describes what that connection is for.
 
-Finally, clone the repositories agents will work in onto the data disk, so they survive the machine being rebuilt. Git authenticates through weave, so this needs no password. Then point your panel at the engine and sign the agent CLI in, as [running weave remotely](../remote/) describes.
+Finally, clone the repositories agents will work in onto the data disk, so they survive the machine being rebuilt. Git authenticates through komrade, so this needs no password. Then point your panel at the engine and sign the agent CLI in, as [running komrade remotely](../remote/) describes.
 
 ## Keeping it up to date
 

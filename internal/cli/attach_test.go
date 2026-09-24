@@ -10,10 +10,10 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"weave/config"
-	"weave/internal/agents"
-	"weave/internal/tmux"
-	"weave/internal/ui"
+	"komrade/config"
+	"komrade/internal/agents"
+	"komrade/internal/tmux"
+	"komrade/internal/ui"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -77,7 +77,7 @@ func throwawaySocket(t *testing.T) string {
 	_, err := exec.LookPath("tmux")
 	require.NoError(t, err)
 
-	socket := fmt.Sprintf("weave-attach-%d-%d", os.Getpid(), sockets.Add(1))
+	socket := fmt.Sprintf("komrade-attach-%d-%d", os.Getpid(), sockets.Add(1))
 	t.Cleanup(func() { _ = exec.Command("tmux", "-L", socket, "kill-server").Run() })
 
 	return socket

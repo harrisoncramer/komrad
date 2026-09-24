@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"weave/internal/store"
+	"komrade/internal/store"
 )
 
 const slotsLock int64 = 7_240_116

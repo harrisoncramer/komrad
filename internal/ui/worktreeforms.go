@@ -5,8 +5,8 @@ import (
 	"slices"
 	"strings"
 
-	"weave/config"
-	"weave/internal/ui/paint/label"
+	"komrade/config"
+	"komrade/internal/ui/paint/label"
 
 	"charm.land/huh/v2"
 )

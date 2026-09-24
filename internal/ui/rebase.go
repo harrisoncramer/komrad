@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"weave/internal/git"
-	"weave/internal/ui/paint/label"
+	"komrade/internal/git"
+	"komrade/internal/ui/paint/label"
 
 	tea "charm.land/bubbletea/v2"
 )

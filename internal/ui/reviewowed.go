@@ -7,9 +7,9 @@ import (
 	"slices"
 	"strings"
 
-	"weave/internal/ui/diffview"
-	"weave/internal/ui/paint"
-	agentv1 "weave/proto/gen/agent/v1"
+	"komrade/internal/ui/diffview"
+	"komrade/internal/ui/paint"
+	agentv1 "komrade/proto/gen/agent/v1"
 
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"

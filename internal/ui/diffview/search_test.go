@@ -4,8 +4,8 @@ import (
 	"regexp"
 	"testing"
 
-	"weave/internal/diff"
-	agentv1 "weave/proto/gen/agent/v1"
+	"komrade/internal/diff"
+	agentv1 "komrade/proto/gen/agent/v1"
 
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"

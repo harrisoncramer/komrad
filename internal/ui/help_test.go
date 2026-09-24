@@ -11,9 +11,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
-	"weave/config"
-	"weave/proto/gen/agent/v1/agentv1connect"
-	workflowv1 "weave/proto/gen/workflow/v1"
+	"komrade/config"
+	"komrade/proto/gen/agent/v1/agentv1connect"
+	workflowv1 "komrade/proto/gen/workflow/v1"
 )
 
 // TestHelp covers the legend under the list and the key that expands it.

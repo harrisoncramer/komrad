@@ -1,5 +1,5 @@
 #!/bin/sh
-#WEAVE description="Says \"hello\" to the ✨ agent — em dash and all"
+#KOMRADE description="Says \"hello\" to the ✨ agent — em dash and all"
 set -eu
 
 echo "declared"

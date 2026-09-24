@@ -8,12 +8,12 @@ import (
 	"strconv"
 	"strings"
 
-	"weave/lib/xslice"
+	"komrade/lib/xslice"
 )
 
-const layerVariable = "WEAVE_CONFIG"
+const layerVariable = "KOMRADE_CONFIG"
 
-// Environment is the process context weave receives from its shell, tmux, or a launched
+// Environment is the process context komrade receives from its shell, tmux, or a launched
 // agent, with its connection fields copied from what Viper already resolved.
 type Environment struct {
 	DatabaseURL         string
@@ -22,7 +22,7 @@ type Environment struct {
 	Addr                string
 	TmuxSocket          string
 	CacheDir            string
-	// StateDir is where weave keeps its own files about agents, such as worktrees, released
+	// StateDir is where komrade keeps its own files about agents, such as worktrees, released
 	// reviews and forge credentials, and is the user's state directory unless a test says
 	// otherwise.
 	StateDir         string
@@ -39,7 +39,7 @@ type Environment struct {
 	Editor           string
 }
 
-// LayerPaths returns the config stack named by WEAVE_CONFIG using the platform's path-list separator, the same convention used by PATH.
+// LayerPaths returns the config stack named by KOMRADE_CONFIG using the platform's path-list separator, the same convention used by PATH.
 func LayerPaths() []string {
 	value := os.Getenv(layerVariable)
 	if value == "" {
@@ -72,8 +72,8 @@ func LoadEnvironment(connection Environment) (*Environment, error) {
 
 	connection.Tmux = os.Getenv("TMUX")
 	connection.TmuxPane = os.Getenv("TMUX_PANE")
-	connection.AgentID = os.Getenv("WEAVE_AGENT_ID")
-	connection.SessionID = os.Getenv("WEAVE_SESSION_ID")
+	connection.AgentID = os.Getenv("KOMRADE_AGENT_ID")
+	connection.SessionID = os.Getenv("KOMRADE_SESSION_ID")
 	connection.Editor = editor
 
 	return &connection, nil
@@ -88,21 +88,21 @@ func LookupEnv(name string) (string, bool) {
 
 // LogPath is the file the background service writes to.
 func (e *Environment) LogPath() string {
-	return filepath.Join(e.CacheDir, "weave.log")
+	return filepath.Join(e.CacheDir, "komrade.log")
 }
 
 // RunLogsDir is where a script's own output is kept, one directory per agent and one file per
 // run inside it, so it is still there to read after the pane it ran in has closed.
 func (e *Environment) RunLogsDir() string {
-	return filepath.Join(e.CacheDir, "weave-run-logs")
+	return filepath.Join(e.CacheDir, "komrade-run-logs")
 }
 
 // FramesDir is where the pane captures are kept when debug mode is on, one directory per agent.
 func (e *Environment) FramesDir() string {
-	return filepath.Join(e.CacheDir, "weave-frames")
+	return filepath.Join(e.CacheDir, "komrade-frames")
 }
 
-// The moments a script can run at, which are what a script reads out of WEAVE_TRIGGER and
+// The moments a script can run at, which are what a script reads out of KOMRADE_TRIGGER and
 // what a run's log file is named after: the worktree provisioner's own three, and the moments
 // a workflow can hang a hook on.
 const (

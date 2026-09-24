@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"weave/internal/ui/paint"
-	"weave/internal/ui/paint/label"
+	"komrade/internal/ui/paint"
+	"komrade/internal/ui/paint/label"
 
 	"charm.land/glamour/v2/ansi"
 	"charm.land/lipgloss/v2"

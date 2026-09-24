@@ -4,9 +4,9 @@ import (
 	"regexp"
 	"strings"
 
-	"weave/internal/rpcapi"
-	"weave/lib/xslice"
-	annotationv1 "weave/proto/gen/annotation/v1"
+	"komrade/internal/rpcapi"
+	"komrade/lib/xslice"
+	annotationv1 "komrade/proto/gen/annotation/v1"
 
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
@@ -103,7 +103,7 @@ func buildAPI(notes comments) apiDoc {
 			Slug:        strings.ReplaceAll(tool, "_", "-"),
 			Name:        string(exposed.Method.Name()),
 			Path:        exposed.GetPath(),
-			Command:     "weave rpc " + strings.ReplaceAll(tool, "_", "-"),
+			Command:     "komrade rpc " + strings.ReplaceAll(tool, "_", "-"),
 			Tool:        tool,
 			MCP:         exposed.Surfaces.GetMcp(),
 			Roles:       roles,

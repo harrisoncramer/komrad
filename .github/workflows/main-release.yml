@@ -84,9 +84,9 @@ jobs:
             echo "it makes no version promise and changes without notice."
             echo
             echo '```sh'
-            echo "curl -fsSL -o ~/.local/bin/weave \\"
-            echo "  https://github.com/$GITHUB_REPOSITORY/releases/download/tip/weave-darwin-arm64"
-            echo "chmod +x ~/.local/bin/weave"
+            echo "curl -fsSL -o ~/.local/bin/komrade \\"
+            echo "  https://github.com/$GITHUB_REPOSITORY/releases/download/tip/komrade-darwin-arm64"
+            echo "chmod +x ~/.local/bin/komrade"
             echo '```'
             echo
             echo "checksums.txt is same-origin. It catches a corrupted download, not a"

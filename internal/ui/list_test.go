@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"weave/internal/ui/paint"
-	"weave/internal/view"
+	"komrade/internal/ui/paint"
+	"komrade/internal/view"
 
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"

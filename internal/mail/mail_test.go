@@ -4,13 +4,13 @@ import (
 	"testing"
 	"time"
 
-	"weave/config"
-	agentstore "weave/internal/store/agent"
-	mailstore "weave/internal/store/mail"
-	workflowstore "weave/internal/store/workflow"
-	"weave/internal/storetest"
-	"weave/lib/xptr"
-	"weave/lib/xslice"
+	"komrade/config"
+	agentstore "komrade/internal/store/agent"
+	mailstore "komrade/internal/store/mail"
+	workflowstore "komrade/internal/store/workflow"
+	"komrade/internal/storetest"
+	"komrade/lib/xptr"
+	"komrade/lib/xslice"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -23,7 +23,7 @@ type addressBook struct {
 	reviewerHere  *agentstore.Agent
 	reviewerThere *agentstore.Agent
 	migrations    *agentstore.Agent
-	testerWeave   *agentstore.Agent
+	testerKomrade *agentstore.Agent
 	testerDocs    *agentstore.Agent
 	retired       *agentstore.Agent
 	unheldID      string
@@ -125,7 +125,7 @@ func TestSendMailRefusals(t *testing.T) {
 	}
 }
 
-// TestSendMailRecordsWhoSentIt pins the sender an agent's mail, a person's and weave's own each carry.
+// TestSendMailRecordsWhoSentIt pins the sender an agent's mail, a person's and komrade's own each carry.
 func TestSendMailRecordsWhoSentIt(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -140,9 +140,9 @@ func TestSendMailRecordsWhoSentIt(t *testing.T) {
 			wantFromName: "",
 		},
 		{
-			name:         "weave's own mail",
+			name:         "komrade's own mail",
 			system:       true,
-			wantFromName: WeaveSenderName,
+			wantFromName: KomradeSenderName,
 		},
 		{
 			name:         "an agent sending to another",
@@ -247,7 +247,7 @@ func TestSendMailLetsThroughWhatTheCapDoesNotStop(t *testing.T) {
 		system    bool
 	}{
 		{
-			name:      "weave's own mail to an agent whose pair has reached the cap",
+			name:      "komrade's own mail to an agent whose pair has reached the cap",
 			exchanged: 2,
 			system:    true,
 		},
@@ -443,7 +443,7 @@ func TestFamilyMailGetsThrough(t *testing.T) {
 	}
 }
 
-// TestSystemMailReachesAChild pins that the family rule bounds what a child may do rather than what weave may do to it.
+// TestSystemMailReachesAChild pins that the family rule bounds what a child may do rather than what komrade may do to it.
 func TestSystemMailReachesAChild(t *testing.T) {
 	st := storetest.Open(t)
 	svc := newMailService(st, config.DefaultMaxExchange)
@@ -451,7 +451,7 @@ func TestSystemMailReachesAChild(t *testing.T) {
 
 	sent, err := svc.SendSystemMail(t.Context(), family["child-one"].ID, "your parent was archived")
 	require.NoError(t, err)
-	assert.Equal(t, WeaveSenderName, sent.FromName)
+	assert.Equal(t, KomradeSenderName, sent.FromName)
 }
 
 // TestSendNoticeRefusesAPlainKind pins that a notice must say what it is about to be told apart from ordinary mail.
@@ -653,13 +653,13 @@ func TestResolveRecipientRefusals(t *testing.T) {
 			from:     book.sender.ID,
 			to:       "tester",
 			wantErr:  ErrRecipientAmbiguous,
-			wantSaid: []string{book.testerWeave.ID + ` in workflow "weave"`, book.testerDocs.ID + ` in workflow "docs"`},
+			wantSaid: []string{book.testerKomrade.ID + ` in workflow "komrade"`, book.testerDocs.ID + ` in workflow "docs"`},
 		},
 		{
 			name:     "a name two workflows hold, from nobody",
 			to:       "reviewer",
 			wantErr:  ErrRecipientAmbiguous,
-			wantSaid: []string{book.reviewerHere.ID + ` in workflow "gadgets"`, book.reviewerThere.ID + ` in workflow "weave"`},
+			wantSaid: []string{book.reviewerHere.ID + ` in workflow "gadgets"`, book.reviewerThere.ID + ` in workflow "komrade"`},
 		},
 		{
 			name:    "a name from a sender the panel does not know",
@@ -744,7 +744,7 @@ func seedAddressBook(t *testing.T, st *storetest.Stores) addressBook {
 	t.Helper()
 
 	gadgets := st.SeedWorkflow(t, workflowstore.Config{Name: "gadgets"})
-	weave := st.SeedWorkflow(t, workflowstore.Config{Name: "weave"})
+	komrade := st.SeedWorkflow(t, workflowstore.Config{Name: "komrade"})
 	docs := st.SeedWorkflow(t, workflowstore.Config{Name: "docs"})
 
 	seed := func(name, workflowID string) *agentstore.Agent {
@@ -757,15 +757,15 @@ func seedAddressBook(t *testing.T, st *storetest.Stores) addressBook {
 	book := addressBook{
 		sender:        seed("api", gadgets.ID),
 		reviewerHere:  seed("reviewer", gadgets.ID),
-		reviewerThere: seed("reviewer", weave.ID),
-		migrations:    seed("migrations", weave.ID),
-		testerWeave:   seed("tester", weave.ID),
+		reviewerThere: seed("reviewer", komrade.ID),
+		migrations:    seed("migrations", komrade.ID),
+		testerKomrade: seed("tester", komrade.ID),
 		testerDocs:    seed("tester", docs.ID),
-		retired:       seed("retired", weave.ID),
+		retired:       seed("retired", komrade.ID),
 		unheldID:      uuid.NewString(),
 	}
-	seed(book.unheldID, weave.ID)
-	seed(book.reviewerHere.ID, weave.ID)
+	seed(book.unheldID, komrade.ID)
+	seed(book.reviewerHere.ID, komrade.ID)
 
 	_, err := st.Agents.Archive(t.Context(), []string{book.retired.ID})
 	require.NoError(t, err)

@@ -122,10 +122,10 @@ WHERE
     AND a.attname = 'tenant_id'
     AND NOT a.attisdropped
     AND c.relname <> 'tenant_logins'
-    AND NOT (HAS_TABLE_PRIVILEGE('weave_engine', c.oid, 'SELECT')
-        AND HAS_TABLE_PRIVILEGE('weave_engine', c.oid, 'INSERT')
-        AND HAS_TABLE_PRIVILEGE('weave_engine', c.oid, 'UPDATE')
-        AND HAS_TABLE_PRIVILEGE('weave_engine', c.oid, 'DELETE')
-        AND HAS_TABLE_PRIVILEGE('weave_reader', c.oid, 'SELECT'))
+    AND NOT (HAS_TABLE_PRIVILEGE('komrade_engine', c.oid, 'SELECT')
+        AND HAS_TABLE_PRIVILEGE('komrade_engine', c.oid, 'INSERT')
+        AND HAS_TABLE_PRIVILEGE('komrade_engine', c.oid, 'UPDATE')
+        AND HAS_TABLE_PRIVILEGE('komrade_engine', c.oid, 'DELETE')
+        AND HAS_TABLE_PRIVILEGE('komrade_reader', c.oid, 'SELECT'))
 ORDER BY
     c.relname;

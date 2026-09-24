@@ -6,9 +6,9 @@ import (
 	"slices"
 	"strings"
 
-	"weave/config"
-	"weave/internal/ui/panel"
-	"weave/lib/xslice"
+	"komrade/config"
+	"komrade/internal/ui/panel"
+	"komrade/lib/xslice"
 
 	"charm.land/huh/v2"
 )

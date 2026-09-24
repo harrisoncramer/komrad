@@ -7,7 +7,7 @@ import (
 )
 
 // TestEnvPrefix covers what goes ahead of the CLI, the tools directory among it so that every
-// tool the agent shells out to finds weave's stand-ins first.
+// tool the agent shells out to finds komrade's stand-ins first.
 func TestEnvPrefix(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -20,12 +20,12 @@ func TestEnvPrefix(t *testing.T) {
 		{
 			name:   "the agent and its conversation",
 			launch: Launch{AgentID: "a1", SessionID: "s1"},
-			want:   "WEAVE_AGENT_ID='a1' WEAVE_SESSION_ID='s1' ",
+			want:   "KOMRADE_AGENT_ID='a1' KOMRADE_SESSION_ID='s1' ",
 		},
 		{
 			name:   "the tools directory goes ahead of the pane's own PATH",
-			launch: Launch{ToolsDir: "/cache/weave-agent-tools", AgentID: "a1"},
-			want:   `PATH='/cache/weave-agent-tools':"$PATH" WEAVE_AGENT_ID='a1' `,
+			launch: Launch{ToolsDir: "/cache/komrade-agent-tools", AgentID: "a1"},
+			want:   `PATH='/cache/komrade-agent-tools':"$PATH" KOMRADE_AGENT_ID='a1' `,
 		},
 	}
 

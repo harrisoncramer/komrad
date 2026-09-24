@@ -3,7 +3,7 @@
  [90m/[m 
  [90mf[m   [90m↓ created[m  [90mactivity[m  [90mname[m  [90m·[m  [90mworkflow[m
 
-          [90m│[m [1mweave[m
+          [90m│[m [1mkomrade[m
     [90m[m     [90m│[m   review-607
 [34m›[m   [90m[m     [97m┃[m   [34mtreeview[m
 
@@ -14,7 +14,7 @@
 [90m────────────────────────────────────────────[m
   [90mname      [m treeview
   [90magent     [m claude
-  [90mworkflow  [m weave
+  [90mworkflow  [m komrade
   [90mdirectory [m /trees/live
   [90msize      [m —
   [90mflags     [m —
@@ -23,6 +23,6 @@
 
 [90m────────────────────────────────────────────[m
 [92m✔[m No messages
-[90m  Weave is running normally[m
+[90m  Komrade is running normally[m
 [90m────────────────────────────────────────────[m
 [90menter[m [90mopen[m[90m • [m[90m?[m [90mshow help[m

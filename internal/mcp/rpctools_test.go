@@ -3,13 +3,13 @@ package mcp
 import (
 	"testing"
 
-	agentv1 "weave/proto/gen/agent/v1"
-	configv1 "weave/proto/gen/config/v1"
-	hookv1 "weave/proto/gen/hook/v1"
-	workflowv1 "weave/proto/gen/workflow/v1"
+	agentv1 "komrade/proto/gen/agent/v1"
+	configv1 "komrade/proto/gen/config/v1"
+	hookv1 "komrade/proto/gen/hook/v1"
+	workflowv1 "komrade/proto/gen/workflow/v1"
 
-	"weave/internal/rpcapi"
-	"weave/lib/xptr"
+	"komrade/internal/rpcapi"
+	"komrade/lib/xptr"
 
 	"google.golang.org/protobuf/reflect/protoreflect"
 

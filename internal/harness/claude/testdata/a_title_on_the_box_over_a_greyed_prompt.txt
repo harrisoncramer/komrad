@@ -10,7 +10,7 @@
 
 [38;5;188m⏺[39m Both clean, both pushed. Replying to the mail I owe, then archiving.
 
-  [38;5;102mCalled weave [1m2[0m[38;5;102m times [39m
+  [38;5;102mCalled komrade [1m2[0m[38;5;102m times [39m
 
 [38;5;188m⏺[39m Reviewer's gone — archived with the merge. Recording the durable finding, then archiving myself.
 
@@ -18,7 +18,7 @@
 
 [38;5;188m⏺[39m Done. Both repos pushed and green.
 
-  [1mweave[0m — [38;5;153med2ee7c8[39m on main. All 330 remaining comments rewritten (175 files, comments only: [38;5;153mgit diff -U0 --
+  [1mkomrade[0m — [38;5;153med2ee7c8[39m on main. All 330 remaining comments rewritten (175 files, comments only: [38;5;153mgit diff -U0 --
 [39m  [38;5;153m'*.go'[39m shows zero non-comment changed lines). Bumped to fussy v0.6.0, [38;5;153mcomment_clause[39m config removed along
   with the [38;5;153mpath-except[39m gate. Full module lints clean, full test suite green under [38;5;153mGOFLAGS=-count=1[39m. Rebased
   onto #433, which had landed on a file I'd edited, and re-verified after.
@@ -36,7 +36,7 @@
   Three things to know:
 
 
-[38;5;102m────────────────────────────────────────────────────────────────── Weave comments rewrite for fussy v0.4.0 ─
+[38;5;102m────────────────────────────────────────────────────────────────── Komrade comments rewrite for fussy v0.4.0 ─
 ❯ [39m
 [38;5;102m────────────────────────────────────────────────────────────────────────────────────────────────────────────
 

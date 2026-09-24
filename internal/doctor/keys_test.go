@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"weave/config"
-	"weave/internal/ui"
-	"weave/lib/xslice"
+	"komrade/config"
+	"komrade/internal/ui"
+	"komrade/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -20,7 +20,7 @@ func rootKeysEnv(cfg *config.Config, rootKeys ...string) Env {
 
 func rootKeysEnvWithPrefix(cfg *config.Config, prefix string, rootKeys ...string) Env {
 	env := configEnv(cfg, nil, true)
-	env.TmuxSocket = "weave"
+	env.TmuxSocket = "komrade"
 	env.FocusKey = ui.FocusKey
 	env.ValidateKeybindings = ui.ValidateKeybindings
 	env.IsPanelRunning = func(context.Context) bool { return true }
@@ -67,7 +67,7 @@ func TestKeybindingsCheckPassesWhenTmuxHoldsNothing(t *testing.T) {
 // TestKeybindingsCheckIgnoresThePanelsOwnFocusBinding covers the focus key the panel binds itself.
 func TestKeybindingsCheckIgnoresThePanelsOwnFocusBinding(t *testing.T) {
 	env := configEnv(config.Defaults(), nil, true)
-	env.TmuxSocket = "weave"
+	env.TmuxSocket = "komrade"
 	env.FocusKey = ui.FocusKey
 	env.ValidateKeybindings = ui.ValidateKeybindings
 	env.IsPanelRunning = func(context.Context) bool { return true }
@@ -88,13 +88,13 @@ func TestKeybindingsCheckIgnoresThePanelsOwnFocusBinding(t *testing.T) {
 // which hands the key through on its own pane and runs the user's command elsewhere.
 func TestKeybindingsCheckIgnoresAKeyThePanelHasTaken(t *testing.T) {
 	env := configEnv(config.Defaults(), nil, true)
-	env.TmuxSocket = "weave"
+	env.TmuxSocket = "komrade"
 	env.FocusKey = ui.FocusKey
 	env.ValidateKeybindings = ui.ValidateKeybindings
 	env.IsPanelRunning = func(context.Context) bool { return true }
 	env.Output = func(_ context.Context, _ string, args ...string) (string, error) {
 		if slices.Contains(args, "list-keys") {
-			return `bind-key  -T root C-d    if-shell -F "#{==:#{pane_id},#{@weave_panel_pane}}" send-keys "copy-mode -u"`, nil
+			return `bind-key  -T root C-d    if-shell -F "#{==:#{pane_id},#{@komrade_panel_pane}}" send-keys "copy-mode -u"`, nil
 		}
 
 		return "C-b\n", nil
@@ -149,7 +149,7 @@ func TestKeybindingsCheckFindsTheFocusKeyTakenByTmux(t *testing.T) {
 
 // TestTheKeybindingsCheckIsRun pins the check being one doctor makes.
 func TestTheKeybindingsCheckIsRun(t *testing.T) {
-	checks := Checks(Settings{Harnesses: claudeAndCodex, TmuxSocket: "weave"})
+	checks := Checks(Settings{Harnesses: claudeAndCodex, TmuxSocket: "komrade"})
 
 	assert.True(t, slices.ContainsFunc(checks, func(c Check) bool { return c.Name == "keybindings" }))
 }

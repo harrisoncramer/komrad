@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"weave/internal/schedules"
+	"komrade/internal/schedules"
 
 	"github.com/riverqueue/river"
 )
