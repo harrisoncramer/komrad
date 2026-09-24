@@ -8,9 +8,9 @@ WHERE
 ORDER BY
     s.id DESC;
 
--- name: ListAgentsPage :many
+-- name: ListAgentPageIDs :many
 SELECT
-    *
+    s.id
 FROM
     agents s
 WHERE (@archived::boolean) =(s.archived_at IS NOT NULL)

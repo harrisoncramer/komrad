@@ -841,6 +841,46 @@ func (q *Queries) ListAgentMetadata(ctx context.Context, agentIds []string) ([]*
 	return items, nil
 }
 
+const listAgentPageIDs = `-- name: ListAgentPageIDs :many
+SELECT
+    s.id
+FROM
+    agents s
+WHERE ($1::boolean) =(s.archived_at IS NOT NULL)
+    AND s.deleting_at IS NULL
+    AND ($2::uuid IS NULL
+        OR s.id < $2)
+ORDER BY
+    s.id DESC
+LIMIT $3
+`
+
+type ListAgentPageIDsParams struct {
+	Archived bool
+	CursorID *string
+	Lim      int32
+}
+
+func (q *Queries) ListAgentPageIDs(ctx context.Context, arg ListAgentPageIDsParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, listAgentPageIDs, arg.Archived, arg.CursorID, arg.Lim)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listAgents = `-- name: ListAgents :many
 SELECT
     id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, parent_agent_id, turn_ended_at, provision_enabled, reported_reason, role, held_at, held_mid_turn, nudge_sent_at, sequence_in_progress, repository_url, deleting_at, alive, tree_standing, tree_standing_sha, tenant_id, head_sha
@@ -1008,87 +1048,6 @@ ORDER BY
 
 func (q *Queries) ListAgentsForTranscriptSync(ctx context.Context) ([]*Agent, error) {
 	rows, err := q.db.Query(ctx, listAgentsForTranscriptSync)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []*Agent
-	for rows.Next() {
-		var i Agent
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.Cwd,
-			&i.Flags,
-			&i.Prompt,
-			&i.PaneID,
-			&i.State,
-			&i.StateChangedAt,
-			&i.Harness,
-			&i.SessionID,
-			&i.WorkflowID,
-			&i.ScheduleID,
-			&i.IdempotencyKey,
-			&i.SpawnedByAgentID,
-			&i.ArchivedAt,
-			&i.IsHidden,
-			&i.NudgedAt,
-			&i.Branch,
-			&i.WorktreeRemoved,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.StateSeenAt,
-			&i.InterruptedAt,
-			&i.AdoptedBranch,
-			&i.ParentAgentID,
-			&i.TurnEndedAt,
-			&i.ProvisionEnabled,
-			&i.ReportedReason,
-			&i.Role,
-			&i.HeldAt,
-			&i.HeldMidTurn,
-			&i.NudgeSentAt,
-			&i.SequenceInProgress,
-			&i.RepositoryUrl,
-			&i.DeletingAt,
-			&i.Alive,
-			&i.TreeStanding,
-			&i.TreeStandingSha,
-			&i.TenantID,
-			&i.HeadSha,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, &i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listAgentsPage = `-- name: ListAgentsPage :many
-SELECT
-    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, parent_agent_id, turn_ended_at, provision_enabled, reported_reason, role, held_at, held_mid_turn, nudge_sent_at, sequence_in_progress, repository_url, deleting_at, alive, tree_standing, tree_standing_sha, tenant_id, head_sha
-FROM
-    agents s
-WHERE ($1::boolean) =(s.archived_at IS NOT NULL)
-    AND s.deleting_at IS NULL
-    AND ($2::uuid IS NULL
-        OR s.id < $2)
-ORDER BY
-    s.id DESC
-LIMIT $3
-`
-
-type ListAgentsPageParams struct {
-	Archived bool
-	CursorID *string
-	Lim      int32
-}
-
-func (q *Queries) ListAgentsPage(ctx context.Context, arg ListAgentsPageParams) ([]*Agent, error) {
-	rows, err := q.db.Query(ctx, listAgentsPage, arg.Archived, arg.CursorID, arg.Lim)
 	if err != nil {
 		return nil, err
 	}

@@ -53,20 +53,20 @@ func NewRowStore(db store.DBTX) *RowStore {
 
 // ListPage returns one page of live or archived rows, newest first.
 func (s *RowStore) ListPage(ctx context.Context, page Page) ([]Row, error) {
-	params := models.ListAgentsPageParams{Lim: int32(page.Limit), Archived: page.Archived}
+	params := models.ListAgentPageIDsParams{Lim: int32(page.Limit), Archived: page.Archived}
 	if page.Cursor != nil {
 		params.CursorID = &page.Cursor.ID
 	}
 
-	agents, err := s.queries.ListAgentsPage(ctx, params)
+	ids, err := s.queries.ListAgentPageIDs(ctx, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list a page of agent rows: %w", err)
 	}
-	if len(agents) == 0 {
+	if len(ids) == 0 {
 		return nil, nil
 	}
 
-	return s.ListWatched(ctx, xslice.Map(agents, func(agent *models.Agent) string { return agent.ID }))
+	return s.ListWatched(ctx, ids)
 }
 
 // Get returns one agent's row, archived or not, or ErrNotFound when no agent has that id or a delete has claimed it.
@@ -94,21 +94,22 @@ func (s *RowStore) attachMetadata(ctx context.Context, watched []*models.ListWat
 		return nil, err
 	}
 
-	return xslice.Map(watched, func(watched *models.ListWatchedAgentsRow) Row {
+	return xslice.Map(watched, func(fact *models.ListWatchedAgentsRow) Row {
+		agent := agentstore.FromRow(fact.Agent)
+		agent.Metadata = metadata[fact.Agent.ID]
 		row := Row{
-			Agent:          agentstore.FromRow(watched.Agent),
-			FailedRun:      watched.FailedRun,
-			FailedRunLog:   watched.FailedRunLog,
-			LocalRounds:    watched.LocalRounds,
-			RepositoryRead: watched.RepositoryRead,
-			ReviewVersion:  watched.ReviewVersion,
+			Agent:          agent,
+			FailedRun:      fact.FailedRun,
+			FailedRunLog:   fact.FailedRunLog,
+			LocalRounds:    fact.LocalRounds,
+			RepositoryRead: fact.RepositoryRead,
+			ReviewVersion:  fact.ReviewVersion,
 		}
-		row.Metadata = metadata[watched.Agent.ID]
-		if watched.LocalVerdict.Valid {
-			row.LocalVerdict = xptr.Ptr(reviewstore.Verdict(watched.LocalVerdict.ReviewVerdict))
+		if fact.LocalVerdict.Valid {
+			row.LocalVerdict = xptr.Ptr(reviewstore.Verdict(fact.LocalVerdict.ReviewVerdict))
 		}
-		if watched.LocalReviewSha != nil {
-			row.LocalReviewSHA = *watched.LocalReviewSha
+		if fact.LocalReviewSha != nil {
+			row.LocalReviewSHA = *fact.LocalReviewSha
 		}
 
 		return row
