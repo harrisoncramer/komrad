@@ -1,0 +1,378 @@
+package reviews
+
+import (
+	"errors"
+	"fmt"
+	"os"
+	"testing"
+	"time"
+
+	"weave/internal/mail"
+	mailstore "weave/internal/store/mail"
+	reviewstore "weave/internal/store/review"
+	"weave/lib/xslice"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+// TestOpenRound pins that a round is taken only of a tree that has moved.
+func TestOpenRound(t *testing.T) {
+	tests := []struct {
+		name        string
+		snapshot    string
+		wantOrdinal int32
+	}{
+		{
+			name:        "a tree that has not moved",
+			snapshot:    firstSnapshot,
+			wantOrdinal: 1,
+		},
+		{
+			name:        "a tree the agent has written more in",
+			snapshot:    secondSnapshot,
+			wantOrdinal: 2,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fx := newReviewFixture(t, time.Hour)
+			fx.snapshots.SHA = tt.snapshot
+
+			round, err := fx.service.OpenRound(t.Context(), fx.worker.ID, personAuthor)
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.wantOrdinal, round.Ordinal)
+			assert.Equal(t, tt.snapshot, round.SnapshotSHA)
+		})
+	}
+}
+
+// TestReleaseReviewWritesTheFile pins what the file a release writes says.
+func TestReleaseReviewWritesTheFile(t *testing.T) {
+	tests := []struct {
+		name        string
+		write       func(t *testing.T, fx *reviewFixture) *ReleaseReviewResult
+		wantSaid    []string
+		wantNotSaid []string
+	}{
+		{
+			name: "an approval with nothing written",
+			write: func(t *testing.T, fx *reviewFixture) *ReleaseReviewResult {
+				return fx.releaseReview(t, personAuthor, reviewstore.VerdictApproved)
+			},
+			wantSaid: []string{"Approved", "round 1", "the person running weave"},
+		},
+		{
+			name: "a reviewer's comment",
+			write: func(t *testing.T, fx *reviewFixture) *ReleaseReviewResult {
+				fx.writeComment(t, newAgentAuthor(fx.reviewer), "this needs a nil check")
+
+				return fx.releaseReview(t, newAgentAuthor(fx.reviewer), reviewstore.VerdictChangesRequested)
+			},
+			wantSaid: []string{"Changes requested", "this needs a nil check", "greet.go:41", "worker", "reviewer"},
+		},
+		{
+			name: "a comment on a file the round holds",
+			write: func(t *testing.T, fx *reviewFixture) *ReleaseReviewResult {
+				fx.snapshots.Files["greet.go"] = buildGreetSource()
+				_, err := fx.service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
+					AgentID:  fx.worker.ID,
+					FilePath: "greet.go",
+					NewStart: 12,
+					NewEnd:   13,
+					Body:     "this needs a nil check",
+					Author:   personAuthor,
+				})
+				require.NoError(t, err)
+
+				return fx.releaseReview(t, personAuthor, reviewstore.VerdictChangesRequested)
+			},
+			wantSaid: []string{
+				">> 12  line 12 of greet.go",
+				">> 13  line 13 of greet.go",
+				"    6  line 6 of greet.go",
+				"   19  line 19 of greet.go",
+			},
+			wantNotSaid: []string{"line 5 of greet.go", "line 20 of greet.go"},
+		},
+		{
+			name: "a comment on a file the round cannot hand back",
+			write: func(t *testing.T, fx *reviewFixture) *ReleaseReviewResult {
+				fx.writeComment(t, personAuthor, "this needs a nil check")
+
+				return fx.releaseReview(t, personAuthor, reviewstore.VerdictChangesRequested)
+			},
+			wantSaid: []string{"+\tgreet(nil)", "this needs a nil check"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fx := newReviewFixture(t, time.Hour)
+
+			released := tt.write(t, fx)
+
+			written, err := os.ReadFile(released.Path)
+			require.NoError(t, err)
+
+			for _, said := range append(tt.wantSaid, fx.worker.ID) {
+				assert.Contains(t, string(written), said)
+			}
+			for _, unsaid := range tt.wantNotSaid {
+				assert.NotContains(t, string(written), unsaid)
+			}
+		})
+	}
+}
+
+// TestReleaseReviewRingsTheAgent pins that each release is one piece of mail naming it and none of its comments.
+func TestReleaseReviewRingsTheAgent(t *testing.T) {
+	fx := newReviewFixture(t, time.Hour)
+	reviewer := newAgentAuthor(fx.reviewer)
+	fx.writeComment(t, reviewer, "this needs a nil check")
+	fx.writeComment(t, reviewer, "and the caller above it")
+	fx.writeComment(t, reviewer, "and the test")
+
+	first := fx.releaseReview(t, reviewer, reviewstore.VerdictChangesRequested)
+	second := fx.releaseReview(t, personAuthor, reviewstore.VerdictApproved)
+
+	assert.Equal(t, 3, first.Comments)
+	rung := fx.listMail(t, fx.worker.ID)
+	require.Len(t, rung, 2, "one notice per release however many comments it holds")
+	for i, released := range []*ReleaseReviewResult{first, second} {
+		assert.Equal(t, &rung[i].ID, released.Review.DoorbellMailID)
+		assert.Equal(t, mailstore.KindReviewActivity, rung[i].Kind)
+		assert.Contains(t, rung[i].Body, "get_review with review id "+released.Review.ID)
+		assert.Contains(t, rung[i].Body, "or read "+released.Path)
+	}
+	assert.Contains(t, rung[0].Body, "changes requested")
+	assert.Contains(t, rung[1].Body, "approved")
+	assert.NotContains(t, rung[0].Body, "nil check", "the mail carries no feedback")
+}
+
+// TestReleaseReviewWaitsForTheMail pins that a review the agent could not be told about stays with its author.
+func TestReleaseReviewWaitsForTheMail(t *testing.T) {
+	fx := newReviewFixture(t, time.Hour)
+	fx.writeComment(t, newAgentAuthor(fx.reviewer), "this needs a nil check")
+	fillMailbox(t, fx)
+
+	_, err := fx.service.ReleaseReview(t.Context(), ReleaseReviewParams{
+		AgentID: fx.worker.ID,
+		Verdict: reviewstore.VerdictChangesRequested,
+		Author:  newAgentAuthor(fx.reviewer),
+	})
+	require.ErrorIs(t, err, mail.ErrMailboxFull)
+
+	listed, err := fx.service.ListReviews(t.Context(), fx.worker.ID, personAuthor)
+	require.NoError(t, err)
+	require.Len(t, listed, 1)
+	assert.Nil(t, listed[0].ReleasedAt)
+}
+
+// TestGetReview pins that a released review reads back as what went out with it, around the code it was about.
+func TestGetReview(t *testing.T) {
+	fx := newReviewFixture(t, time.Hour)
+	fx.snapshots.Files["greet.go"] = buildGreetSource()
+	opened, err := fx.service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
+		AgentID:  fx.worker.ID,
+		FilePath: "greet.go",
+		NewStart: 12,
+		NewEnd:   13,
+		Body:     "this needs a nil check",
+		Author:   personAuthor,
+	})
+	require.NoError(t, err)
+
+	gone, err := fx.service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
+		AgentID:     fx.worker.ID,
+		FilePath:    "gone.go",
+		QuotedLines: []string{"+\tgreet(nil)"},
+		Body:        "and this file",
+		Author:      personAuthor,
+	})
+	require.NoError(t, err)
+
+	first, err := fx.service.ReleaseReview(t.Context(), ReleaseReviewParams{
+		AgentID: fx.worker.ID,
+		Verdict: reviewstore.VerdictChangesRequested,
+		Body:    "two things before it goes",
+		Author:  personAuthor,
+	})
+	require.NoError(t, err)
+
+	fx.writeAnswer(t, opened.Thread.ID)
+	_, err = fx.service.AddReviewMessage(t.Context(), AddReviewMessageParams{
+		ThreadID: opened.Thread.ID,
+		Body:     "not quite, the other branch too",
+		Author:   personAuthor,
+	})
+	require.NoError(t, err)
+
+	second := fx.releaseReview(t, personAuthor, reviewstore.VerdictChangesRequested)
+
+	whole, err := fx.service.GetReview(t.Context(), first.Review.ID, newAgentAuthor(fx.worker))
+	require.NoError(t, err)
+
+	require.NotNil(t, whole.Review.Verdict)
+	assert.Equal(t, reviewstore.VerdictChangesRequested, *whole.Review.Verdict)
+	assert.Equal(t, "two things before it goes", whole.Review.Body)
+	assert.Empty(t, whole.Review.Path, "the agent is not told where the file is")
+	assert.Equal(t, firstSnapshot, whole.Round.SnapshotSHA)
+
+	require.Len(t, whole.Threads, 2)
+	byFile := xslice.KeyBy(whole.Threads, func(thread ReviewThreadInContext) string {
+		return thread.Thread.FilePath
+	})
+	assert.Len(t, byFile["greet.go"].Context, 14, "six lines either side of the two commented")
+	assert.Contains(t, byFile["greet.go"].Context, ">> 12  line 12 of greet.go")
+	assert.Empty(t, byFile["gone.go"].Context, "a file the round cannot hand back leaves its quoted lines")
+	assert.Equal(t, gone.Thread.QuotedLines, byFile["gone.go"].Thread.QuotedLines)
+	assert.Equal(t, []string{"this needs a nil check"}, readBodies(byFile["greet.go"].Messages),
+		"the answer and the second release belong elsewhere")
+	assert.Nil(t, byFile["greet.go"].Messages[0].SentAt, "and none of the panel's record of when")
+
+	again, err := fx.service.GetReview(t.Context(), second.Review.ID, newAgentAuthor(fx.worker))
+	require.NoError(t, err)
+	require.Len(t, again.Threads, 1)
+	assert.Equal(t, []string{"not quite, the other branch too"}, readBodies(again.Threads[0].Messages))
+}
+
+// TestGetReviewOfAnUnreleasedReview pins that a review still being written is found only by its author and the person.
+func TestGetReviewOfAnUnreleasedReview(t *testing.T) {
+	tests := []struct {
+		name    string
+		reader  func(fx *reviewFixture) ReviewAuthor
+		wantErr error
+	}{
+		{
+			name: "the agent under review",
+			reader: func(fx *reviewFixture) ReviewAuthor {
+				return newAgentAuthor(fx.worker)
+			},
+			wantErr: ErrReviewNotFound,
+		},
+		{
+			name: "an agent with no business in it",
+			reader: func(fx *reviewFixture) ReviewAuthor {
+				return newAgentAuthor(fx.stranger)
+			},
+			wantErr: ErrReviewNotFound,
+		},
+		{
+			name: "the person",
+			reader: func(*reviewFixture) ReviewAuthor {
+				return personAuthor
+			},
+		},
+		{
+			name: "the reviewer writing it",
+			reader: func(fx *reviewFixture) ReviewAuthor {
+				return newAgentAuthor(fx.reviewer)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fx := newReviewFixture(t, time.Hour)
+			written := fx.writeComment(t, newAgentAuthor(fx.reviewer), "this needs a nil check")
+
+			_, err := fx.service.GetReview(t.Context(), written.Thread.ReviewID, tt.reader(fx))
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+
+				return
+			}
+
+			require.NoError(t, err)
+		})
+	}
+}
+
+// TestListReviews pins which reviews each reader is shown, and to whom the path of the file is given.
+func TestListReviews(t *testing.T) {
+	tests := []struct {
+		name       string
+		reader     func(fx *reviewFixture) ReviewAuthor
+		wantPaths  []bool
+		wantOpened int
+	}{
+		{
+			name: "the agent under review is not told a review is open on it",
+			reader: func(fx *reviewFixture) ReviewAuthor {
+				return newAgentAuthor(fx.worker)
+			},
+			wantPaths: []bool{false},
+		},
+		{
+			name: "the reviewer sees its own draft and not the person's path",
+			reader: func(fx *reviewFixture) ReviewAuthor {
+				return newAgentAuthor(fx.reviewer)
+			},
+			wantPaths:  []bool{false, false},
+			wantOpened: 1,
+		},
+		{
+			name: "the person sees everything",
+			reader: func(*reviewFixture) ReviewAuthor {
+				return personAuthor
+			},
+			wantPaths:  []bool{true, false},
+			wantOpened: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fx := newReviewFixture(t, time.Hour)
+			fx.releaseFirstReview(t)
+			fx.writeComment(t, newAgentAuthor(fx.reviewer), "and the caller above it")
+
+			listed, err := fx.service.ListReviews(t.Context(), fx.worker.ID, tt.reader(fx))
+			require.NoError(t, err)
+
+			paths := xslice.Map(listed, func(review reviewstore.Review) bool {
+				return review.Path != ""
+			})
+			assert.Equal(t, tt.wantPaths, paths)
+			assert.Equal(t, tt.wantOpened, xslice.Count(listed, func(review reviewstore.Review) bool {
+				return review.ReleasedAt == nil
+			}))
+		})
+	}
+}
+
+// fillMailbox sends the worker notices until its mailbox refuses another.
+func fillMailbox(t *testing.T, fx *reviewFixture) {
+	t.Helper()
+
+	for {
+		_, err := fx.service.mailer.SendNotice(t.Context(), mail.SendNoticeParams{
+			ToAgentID: fx.worker.ID,
+			Body:      "waiting",
+			Kind:      mailstore.KindReviewActivity,
+		})
+		if errors.Is(err, mail.ErrMailboxFull) {
+			return
+		}
+		require.NoError(t, err)
+	}
+}
+
+// buildGreetSource is twenty numbered lines of the file a round holds.
+func buildGreetSource() []string {
+	source := make([]string, 0, 20)
+	for line := 1; line <= 20; line++ {
+		source = append(source, fmt.Sprintf("line %d of greet.go", line))
+	}
+
+	return source
+}
+
+func readBodies(messages []reviewstore.Message) []string {
+	return xslice.Map(messages, func(message reviewstore.Message) string {
+		return message.Body
+	})
+}

@@ -12,17 +12,15 @@ import (
 // TestListWatched pins that every review is carried, released or not, with its round and when
 // its doorbell was claimed, and that keys and agents narrow it.
 func TestListWatched(t *testing.T) {
-	st := open(t)
+	st := openFixture(t)
 	ctx := t.Context()
-	worker := seedAgent(t, st)
-	other := seedAgentNamed(t, st, "other")
+	worker := st.seedAgent(t, "worker")
+	other := st.seedAgent(t, "other")
 
-	first := openRound(t, st, worker, "one")
-	second := openRound(t, st, worker, "two")
-	released := openReview(t, st, worker, first.ID)
-	release(t, st, worker, released.ID, VerdictApproved)
-	pending := openReview(t, st, worker, second.ID)
-	elsewhere := openReview(t, st, other, openRound(t, st, other, "three").ID)
+	released := st.openReview(t, st.openRound(t, worker, "one"))
+	st.releaseReview(t, released, VerdictApproved)
+	pending := st.openReview(t, st.openRound(t, worker, "two"))
+	elsewhere := st.openReview(t, st.openRound(t, other, "three"))
 
 	snapshot, err := st.ListWatched(ctx, nil)
 	require.NoError(t, err)
@@ -56,24 +54,17 @@ func TestListWatched(t *testing.T) {
 // TestListWatchedThreads pins that the threads of live agents are carried with their messages
 // and round, without any message's delivery, and that an archived agent's threads leave the set.
 func TestListWatchedThreads(t *testing.T) {
-	st := open(t)
+	st := openFixture(t)
 	ctx := t.Context()
 	threads := NewThreadStore(st.pool)
-	worker := seedAgent(t, st)
-	archived := seedAgentNamed(t, st, "archived")
+	worker := st.seedAgent(t, "worker")
+	archived := st.seedAgent(t, "archived")
 
-	review := openReview(t, st, worker, openRound(t, st, worker, "one").ID)
-	thread := openThread(t, st, worker, review, "wrong greeting")
-	_, err := st.CreateMessage(ctx, CreateMessageParams{
-		ThreadID:      thread.ID,
-		AuthorKind:    AuthorAgent,
-		AuthorAgentID: &worker,
-		Body:          "fixed it",
-	})
-	require.NoError(t, err)
-	gone := openThread(t, st, archived, openReview(t, st, archived, openRound(t, st, archived, "two").ID), "left behind")
+	thread := st.openThread(t, st.openReview(t, st.openRound(t, worker, "one")), "wrong greeting")
+	st.writeAnswer(t, thread)
+	gone := st.openThread(t, st.openReview(t, st.openRound(t, archived, "two")), "left behind")
 
-	_, err = st.agents.Archive(ctx, []string{archived})
+	_, err := st.agents.Archive(ctx, []string{archived})
 	require.NoError(t, err)
 
 	snapshot, err := threads.ListWatched(ctx, nil)
