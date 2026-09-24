@@ -18,10 +18,17 @@ export function getStaticPaths() {
 const { service, method } = Astro.props;
 const request = api.messages[method.request];
 const response = api.messages[method.response];
-const required = request.fields.filter((field) => field.rules.includes("required"));
+const oneofs = new Set<string>();
+const required = request.fields.filter((field) => {
+  if (!field.rules.includes("required")) return false;
+  if (!field.oneof) return true;
+  if (oneofs.has(field.oneof)) return false;
+  oneofs.add(field.oneof);
+  return true;
+});
 
 const placeholder = (field: Field) => {
-  if (field.repeated) return [];
+  if (field.repeated) return [`<${field.name}>`];
   switch (field.type) {
     case "bool":
       return true;

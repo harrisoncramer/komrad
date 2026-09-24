@@ -94,10 +94,6 @@ func buildAPI(notes comments) apiDoc {
 		description := strings.Join(strings.Fields(exposed.Surfaces.GetDescription()), " ")
 		tool := exposed.Surfaces.GetName()
 		readOnly := rpcapi.IsReadOnly(exposed.Method)
-		destructive := !readOnly
-		if exposed.Surfaces.Destructive != nil {
-			destructive = exposed.Surfaces.GetDestructive()
-		}
 
 		roles := xslice.Map(exposed.Surfaces.GetRoles(), func(role annotationv1.Role) string {
 			return strings.ToLower(strings.TrimPrefix(role.String(), "ROLE_"))
@@ -115,7 +111,7 @@ func buildAPI(notes comments) apiDoc {
 			Description: description,
 			ReadOnly:    readOnly,
 			Idempotent:  rpcapi.IsIdempotent(exposed.Method, exposed.Surfaces),
-			Destructive: destructive,
+			Destructive: rpcapi.IsDestructive(exposed.Method, exposed.Surfaces),
 			Request:     string(exposed.Method.Input().FullName()),
 			Response:    string(exposed.Method.Output().FullName()),
 		})

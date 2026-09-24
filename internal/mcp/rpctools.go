@@ -59,10 +59,7 @@ func toolHints(method protoreflect.MethodDescriptor, surfaces *annotationv1.Surf
 
 	hints := &mcpsdk.ToolAnnotations{ReadOnlyHint: readOnly, IdempotentHint: rpcapi.IsIdempotent(method, surfaces)}
 	if !readOnly {
-		destructive := true
-		if surfaces.Destructive != nil {
-			destructive = surfaces.GetDestructive()
-		}
+		destructive := rpcapi.IsDestructive(method, surfaces)
 		hints.DestructiveHint = &destructive
 	}
 
