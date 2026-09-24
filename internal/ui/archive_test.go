@@ -6,7 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	"weave/config"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	pullrequestv1 "weave/proto/gen/pullrequest/v1"
@@ -708,55 +707,4 @@ func newArchivedAgentAt(name, workflowID, at string) *agentv1.Agent {
 	agent.ArchivedAt = proto.String(at)
 
 	return agent
-}
-
-func splitLines(frame string) []string {
-	return strings.Split(frame, "\n")
-}
-
-func readListRows(frame string) []string {
-	var rows []string
-	for _, line := range splitLines(frame) {
-		_, row, isRow := strings.Cut(ansi.Truncate(line, config.DefaultSidebarWidth, ""), "│ ")
-		if isRow {
-			rows = append(rows, strings.TrimRight(row, " "))
-		}
-	}
-
-	return rows
-}
-
-func readHoveredRow(frame string) string {
-	for _, line := range splitLines(frame) {
-		if !strings.HasPrefix(line, "›") {
-			continue
-		}
-
-		_, row, _ := strings.Cut(ansi.Truncate(line, config.DefaultSidebarWidth, ""), "│ ")
-
-		return strings.TrimRight(row, " ")
-	}
-
-	return ""
-}
-
-func findRecordLine(frame, label string) int {
-	for i, line := range splitLines(frame) {
-		if strings.HasPrefix(strings.TrimLeft(line, "› "), label+" ") {
-			return i
-		}
-	}
-
-	return -1
-}
-
-func readLegend(frame string) string {
-	rows := splitLines(frame)
-	for i := len(rows) - 1; i >= 0; i-- {
-		if strings.HasPrefix(rows[i], "─") {
-			return strings.Join(rows[i+1:], "\n")
-		}
-	}
-
-	return ""
 }

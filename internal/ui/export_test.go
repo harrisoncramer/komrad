@@ -20,15 +20,16 @@ type Panel struct {
 
 // NewPanelParams is what a panel under test is built over.
 type NewPanelParams struct {
-	Agents    agentv1connect.AgentServiceClient
-	Workflows workflowv1connect.WorkflowServiceClient
-	Schedules schedulev1connect.ScheduleServiceClient
-	Hooks     hookv1connect.HookServiceClient
-	Worktrees worktreev1connect.WorktreeServiceClient
-	Git       ReviewGit
-	Keys      config.Keybindings
-	Width     int
-	Height    int
+	Agents        agentv1connect.AgentServiceClient
+	Workflows     workflowv1connect.WorkflowServiceClient
+	Schedules     schedulev1connect.ScheduleServiceClient
+	Hooks         hookv1connect.HookServiceClient
+	Worktrees     worktreev1connect.WorktreeServiceClient
+	Git           ReviewGit
+	Keys          config.Keybindings
+	DetailsHeight float64
+	Width         int
+	Height        int
 }
 
 // NewPanel builds the panel the way weave panel does, over a recording tmux.
@@ -39,6 +40,10 @@ func NewPanel(params NewPanelParams) *Panel {
 		windowWidth: params.Width,
 	}
 	post := newPostbox()
+	layout := config.DefaultLayout()
+	if params.DetailsHeight != 0 {
+		layout.DetailsHeight = params.DetailsHeight
+	}
 
 	return &Panel{
 		model: newModel(Deps{
@@ -51,7 +56,7 @@ func NewPanel(params NewPanelParams) *Panel {
 			Hooks:       params.Hooks,
 			Worktrees:   params.Worktrees,
 			Keys:        params.Keys,
-			Layout:      config.DefaultLayout(),
+			Layout:      layout,
 			Settings:    PanelSettings{Pane: "%0"},
 		}, true, post),
 		post: post,

@@ -48,6 +48,8 @@ const (
 	defaultHarnessHeight = 40
 )
 
+var listBars = []string{"│ ", "┃ "}
+
 var timerCmds = []string{
 	"bubbletea/v2.Tick.",
 	"bubbletea/v2.Every.",
@@ -135,9 +137,10 @@ func TestHarnessFiresHeldTimers(t *testing.T) {
 }
 
 type panelHarnessParams struct {
-	width  int
-	height int
-	keys   *config.Keybindings
+	width         int
+	height        int
+	detailsHeight float64
+	keys          *config.Keybindings
 }
 
 func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
@@ -173,14 +176,15 @@ func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
 		t:        t,
 		recorder: recorder,
 		panel: ui.NewPanel(ui.NewPanelParams{
-			Agents:    agentv1connect.NewAgentServiceClient(server.Client(), server.URL),
-			Workflows: workflowv1connect.NewWorkflowServiceClient(server.Client(), server.URL),
-			Schedules: schedulev1connect.NewScheduleServiceClient(server.Client(), server.URL),
-			Hooks:     hookv1connect.NewHookServiceClient(server.Client(), server.URL),
-			Worktrees: worktreev1connect.NewWorktreeServiceClient(server.Client(), server.URL),
-			Keys:      keys,
-			Width:     width,
-			Height:    height,
+			Agents:        agentv1connect.NewAgentServiceClient(server.Client(), server.URL),
+			Workflows:     workflowv1connect.NewWorkflowServiceClient(server.Client(), server.URL),
+			Schedules:     schedulev1connect.NewScheduleServiceClient(server.Client(), server.URL),
+			Hooks:         hookv1connect.NewHookServiceClient(server.Client(), server.URL),
+			Worktrees:     worktreev1connect.NewWorktreeServiceClient(server.Client(), server.URL),
+			Keys:          keys,
+			DetailsHeight: params.detailsHeight,
+			Width:         width,
+			Height:        height,
 		}),
 	}
 
@@ -337,6 +341,10 @@ func buildSnapshot(rows ...proto.Message) *watchv1.WatchEvent {
 	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Snapshot{Snapshot: &watchv1.Snapshot{Rows: wrapRows(rows)}}}
 }
 
+func buildPuts(rows ...proto.Message) *watchv1.WatchEvent {
+	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Changes{Changes: &watchv1.Changes{Puts: wrapRows(rows)}}}
+}
+
 func wrapRows(rows []proto.Message) []*watchv1.Row {
 	return xslice.Map(rows, wrapRow)
 }
@@ -362,4 +370,108 @@ func wrapRow(row proto.Message) *watchv1.Row {
 	default:
 		panic(fmt.Sprintf("no watch row holds a %T", row))
 	}
+}
+
+func splitLines(frame string) []string {
+	return strings.Split(frame, "\n")
+}
+
+func readListRows(frame string) []string {
+	var rows []string
+	for _, line := range splitLines(frame) {
+		row, isRow := cutListRow(line)
+		if isRow {
+			rows = append(rows, row)
+		}
+	}
+
+	return rows
+}
+
+func readHoveredRow(frame string) string {
+	for _, line := range splitLines(frame) {
+		if !strings.HasPrefix(line, "›") {
+			continue
+		}
+
+		row, _ := cutListRow(line)
+
+		return row
+	}
+
+	return ""
+}
+
+func cutListRow(line string) (string, bool) {
+	sidebar := ansi.Truncate(line, config.DefaultSidebarWidth, "")
+	for _, bar := range listBars {
+		if _, row, isRow := strings.Cut(sidebar, bar); isRow {
+			return strings.TrimRight(row, " "), true
+		}
+	}
+
+	return "", false
+}
+
+func readRecord(frame string) []string {
+	var record []string
+	width, rules := 0, 0
+	for _, line := range splitLines(frame) {
+		if strings.HasPrefix(line, "─") {
+			rules++
+			width = ansi.StringWidth(strings.TrimRight(line, " "))
+
+			continue
+		}
+		if rules == 1 {
+			record = append(record, strings.TrimRight(ansi.Truncate(line, width, ""), " "))
+		}
+	}
+	if len(record) == 0 || !strings.HasPrefix(record[0], "  ") && !strings.HasPrefix(record[0], "› ") {
+		return nil
+	}
+
+	return record
+}
+
+func readRecordField(frame, label string) string {
+	for _, line := range readRecord(frame) {
+		field := strings.TrimLeft(line, "› ")
+		if value, isField := strings.CutPrefix(field, label+" "); isField {
+			return strings.TrimSpace(value)
+		}
+	}
+
+	return ""
+}
+
+func readRecordCursor(frame string) string {
+	for _, line := range readRecord(frame) {
+		if field, isHovered := strings.CutPrefix(line, "› "); isHovered {
+			return field
+		}
+	}
+
+	return ""
+}
+
+func findRecordLine(frame, label string) int {
+	for i, line := range splitLines(frame) {
+		if strings.HasPrefix(strings.TrimLeft(line, "› "), label+" ") {
+			return i
+		}
+	}
+
+	return -1
+}
+
+func readLegend(frame string) string {
+	rows := splitLines(frame)
+	for i := len(rows) - 1; i >= 0; i-- {
+		if strings.HasPrefix(rows[i], "─") {
+			return strings.Join(rows[i+1:], "\n")
+		}
+	}
+
+	return ""
 }
