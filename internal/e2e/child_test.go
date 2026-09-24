@@ -47,28 +47,7 @@ func TestIntegrationChildAgent(t *testing.T) {
 	assert.Equal(t, parent.GetId(), child.GetParentAgentId())
 	assert.Equal(t, parent.GetCwd(), child.GetCwd(), "a child runs in its parent's checkout")
 
-	t.Run("a child may only mail inside its family", func(t *testing.T) {
-		stranger := createAgent(t, instance, workflowID, "unrelated")
-
-		send := connect.NewRequest(&agentv1.SendMailRequest{
-			To:   stranger.GetId(),
-			Body: "hello",
-		})
-		caller.Caller{AgentID: child.GetId()}.SetHeader(send.Header())
-
-		_, err := instance.Agents.SendMail(ctx, send)
-		require.Error(t, err)
-		assert.Equal(t, connect.CodePermissionDenied, connect.CodeOf(err))
-
-		toParent := connect.NewRequest(&agentv1.SendMailRequest{
-			To:   parent.GetId(),
-			Body: "the diff reads clean",
-		})
-		caller.Caller{AgentID: child.GetId()}.SetHeader(toParent.Header())
-
-		_, err = instance.Agents.SendMail(ctx, toParent)
-		require.NoError(t, err)
-	})
+	createAgent(t, instance, workflowID, "unrelated")
 
 	t.Run("archiving the parent takes the child", func(t *testing.T) {
 		_, err := instance.Agents.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{

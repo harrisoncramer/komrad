@@ -194,7 +194,7 @@ func reviewService(t *testing.T) (agentv1weave.AgentServiceAdapter, *storetest.S
 	mailer := mail.NewMailService(mail.NewMailServiceParams{
 		MailReadWriter: st.Mail,
 		Agents:         st.Agents,
-		Config:         fakeMailConfig(config.DefaultMaxExchange),
+		Config:         config.Mail{},
 	})
 	review := reviews.NewReviewService(reviews.NewReviewServiceParams{
 		Threads:   rounds,

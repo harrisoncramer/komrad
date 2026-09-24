@@ -14,6 +14,7 @@ type Fake struct {
 	Owners          map[string]string
 	Captures        map[string]string
 	Commands        map[string]string
+	InMode          map[string]bool
 	ClientDir       string
 	Sent            map[string][][]string
 	Globals         map[string]string
@@ -44,6 +45,7 @@ func NewFake() *Fake {
 		Owners:         map[string]string{},
 		Captures:       map[string]string{},
 		Commands:       map[string]string{},
+		InMode:         map[string]bool{},
 		Sent:           map[string][][]string{},
 		Globals:        map[string]string{},
 		NewWindows:     map[string]string{},
@@ -233,9 +235,12 @@ func (f *Fake) KillPane(pane string) {
 	delete(f.Owners, pane)
 }
 
-// IsPaneInMode is false.
-func (f *Fake) IsPaneInMode(string) bool {
-	return false
+// IsPaneInMode answers InMode for the pane.
+func (f *Fake) IsPaneInMode(pane string) bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return f.InMode[pane]
 }
 
 // IsPaneRunningCLI is true when the pane runs something other than a shell.

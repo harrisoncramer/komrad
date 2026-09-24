@@ -7,7 +7,11 @@ import (
 	"time"
 
 	"weave/internal/caller"
+	"weave/internal/harness"
+	"weave/internal/mail"
+	agentstore "weave/internal/store/agent"
 	"weave/internal/weavetest"
+	"weave/lib/xptr"
 	agentv1 "weave/proto/gen/agent/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
 
@@ -16,52 +20,66 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestIntegrationAgentsMailEachOther pins that mail sent through the running service reaches the
-// recipient and empties its mailbox when read.
+// TestIntegrationAgentsMailEachOther walks one exchange between two agents, from the send through the nudge and the read to the reply.
 func TestIntegrationAgentsMailEachOther(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()
 
-	workflow, err := instance.Workflows.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{
-		Name: "checkout",
-		Cwd:  t.TempDir(),
-	}))
-	require.NoError(t, err)
+	workflowID := createMailWorkflow(t, instance)
+	api := createAgent(t, instance, workflowID, "api")
+	migrations := createAgent(t, instance, workflowID, "migrations")
 
-	api := createAgent(t, instance, workflow.Msg.GetWorkflow().GetId(), "api")
-	migrations := createAgent(t, instance, workflow.Msg.GetWorkflow().GetId(), "migrations")
+	instance.Settle(migrations.GetId(), harness.ActivityIdle, agentstore.StateIdle)
 
 	var sentID string
 
-	t.Run("an agent addresses another by id", func(t *testing.T) {
+	t.Run("an agent addresses another by name and nothing is typed yet", func(t *testing.T) {
 		req := connect.NewRequest(&agentv1.SendMailRequest{
-			To:   migrations.GetId(),
+			To:   "migrations",
 			Body: "what is the refund column called?",
 		})
-		caller.Caller{AgentID: api.GetId()}.SetHeader(req.Header())
+		callAs(req, api.GetId())
 
 		sent, err := instance.Agents.SendMail(ctx, req)
 		require.NoError(t, err)
 
-		mail := sent.Msg.GetMail()
-		assert.Equal(t, migrations.GetId(), mail.GetToAgentId())
-		assert.Equal(t, api.GetId(), mail.GetFromAgentId())
-		assert.Equal(t, "api", mail.GetFromName())
-		require.NotEmpty(t, mail.GetId())
-		sentID = mail.GetId()
+		sentMail := sent.Msg.GetMail()
+		assert.Equal(t, migrations.GetId(), sentMail.GetToAgentId())
+		assert.Equal(t, api.GetId(), sentMail.GetFromAgentId())
+		assert.Equal(t, "api", sentMail.GetFromName())
+		require.NotEmpty(t, sentMail.GetId())
+		sentID = sentMail.GetId()
+
+		assert.Empty(t, instance.Typed(migrations.GetId()), "sending types nothing at anybody")
 	})
 
-	t.Run("the recipient reads it once", func(t *testing.T) {
-		read := readMail(t, instance, migrations.GetId())
+	t.Run("delivery types one line at the idle recipient", func(t *testing.T) {
+		assert.Equal(t, mail.DeliverySoon, instance.Deliver(migrations.GetId()))
+
+		typed := instance.WaitForTyped(migrations.GetId(), 1)
+		require.Len(t, typed, 1, "the agent received exactly one line")
+		assert.Contains(t, typed[0], "read_mail")
+		assert.Contains(t, typed[0], "1 piece(s) of unread mail")
+		assert.NotContains(t, typed[0], "refund column", "the mail itself stays in the panel")
+	})
+
+	t.Run("it is not typed at twice for the same stretch of sitting idle", func(t *testing.T) {
+		assert.Equal(t, mail.DeliveryLater, instance.Deliver(migrations.GetId()))
+		assert.Len(t, instance.Typed(migrations.GetId()), 1)
+	})
+
+	t.Run("the recipient reads it once and delivery stands down", func(t *testing.T) {
+		read := instance.EndTurn(migrations.GetId())
 		require.Len(t, read, 1)
-		assert.Equal(t, "what is the refund column called?", read[0].GetBody())
 		assert.Equal(t, sentID, read[0].GetId())
+		assert.Equal(t, "what is the refund column called?", read[0].GetBody())
 
 		sentAt, err := time.Parse(time.RFC3339, read[0].GetCreatedAt())
 		require.NoError(t, err)
 		assert.WithinDuration(t, time.Now(), sentAt, time.Minute)
 
 		assert.Empty(t, readMail(t, instance, migrations.GetId()), "mail read once is not waiting again")
+		assert.Equal(t, mail.DeliveryDone, instance.Deliver(migrations.GetId()))
 	})
 
 	t.Run("the answer comes back on the same thread", func(t *testing.T) {
@@ -70,7 +88,7 @@ func TestIntegrationAgentsMailEachOther(t *testing.T) {
 			Body:    "refunded_cents",
 			ReplyTo: &sentID,
 		})
-		caller.Caller{AgentID: migrations.GetId()}.SetHeader(req.Header())
+		callAs(req, migrations.GetId())
 
 		_, err := instance.Agents.SendMail(ctx, req)
 		require.NoError(t, err)
@@ -82,9 +100,23 @@ func TestIntegrationAgentsMailEachOther(t *testing.T) {
 		assert.Equal(t, "migrations", read[0].GetFromName())
 	})
 
+	t.Run("what it was told is searchable afterwards", func(t *testing.T) {
+		instance.SyncTranscripts()
+
+		hits, err := instance.Agents.SearchTranscripts(ctx, connect.NewRequest(&agentv1.SearchTranscriptsRequest{
+			Query:   "refund column",
+			AgentId: xptr.Ptr(migrations.GetId()),
+		}))
+		require.NoError(t, err)
+		require.NotEmpty(t, hits.Msg.GetMatches())
+	})
+
 	t.Run("mail dies with the agent it was addressed to", func(t *testing.T) {
-		req := connect.NewRequest(&agentv1.SendMailRequest{To: migrations.GetId(), Body: "still there?"})
-		caller.Caller{AgentID: api.GetId()}.SetHeader(req.Header())
+		req := connect.NewRequest(&agentv1.SendMailRequest{
+			To:   migrations.GetId(),
+			Body: "still there?",
+		})
+		callAs(req, api.GetId())
 		_, err := instance.Agents.SendMail(ctx, req)
 		require.NoError(t, err)
 
@@ -99,6 +131,93 @@ func TestIntegrationAgentsMailEachOther(t *testing.T) {
 		}))
 		assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err))
 	})
+}
+
+// TestIntegrationDeliveryWaitsUntilTheRecipientCanTakeTheLine walks one piece of mail past every state an agent must not be typed at in.
+func TestIntegrationDeliveryWaitsUntilTheRecipientCanTakeTheLine(t *testing.T) {
+	instance := weavetest.Start(t, weavetest.Params{})
+	ctx := t.Context()
+
+	workflowID := createMailWorkflow(t, instance)
+	api := createAgent(t, instance, workflowID, "api")
+	migrations := createAgent(t, instance, workflowID, "migrations")
+
+	req := connect.NewRequest(&agentv1.SendMailRequest{
+		To:   migrations.GetId(),
+		Body: "what is the refund column called?",
+	})
+	callAs(req, api.GetId())
+	_, err := instance.Agents.SendMail(ctx, req)
+	require.NoError(t, err)
+
+	t.Run("an agent mid-turn is left to its own stop hook", func(t *testing.T) {
+		instance.Settle(migrations.GetId(), harness.ActivityWorking, agentstore.StateThinking)
+
+		assert.Equal(t, mail.DeliverySoon, instance.Deliver(migrations.GetId()))
+		assert.Empty(t, instance.Typed(migrations.GetId()))
+	})
+
+	t.Run("an agent on a permission prompt is never typed at, since the line would answer it", func(t *testing.T) {
+		instance.Settle(migrations.GetId(), harness.ActivityWaiting, agentstore.StateWaiting)
+
+		assert.Equal(t, mail.DeliveryLater, instance.Deliver(migrations.GetId()))
+		assert.Empty(t, instance.Typed(migrations.GetId()))
+	})
+
+	t.Run("a pane yet to draw its prompt is never typed at, however idle the row reads", func(t *testing.T) {
+		instance.Settle(migrations.GetId(), harness.ActivityIdle, agentstore.StateIdle)
+		require.NoError(t, instance.Harness.Show(migrations.GetId(), "fake:coming-up"))
+		instance.WaitForActivity(migrations.GetId(), harness.ActivityUnknown)
+
+		assert.Equal(t, mail.DeliveryLater, instance.Deliver(migrations.GetId()))
+		assert.Empty(t, instance.Typed(migrations.GetId()))
+	})
+
+	t.Run("the agent is told once its prompt is there to take the line", func(t *testing.T) {
+		instance.Settle(migrations.GetId(), harness.ActivityIdle, agentstore.StateIdle)
+
+		assert.Equal(t, mail.DeliverySoon, instance.Deliver(migrations.GetId()))
+
+		typed := instance.WaitForTyped(migrations.GetId(), 1)
+		require.Len(t, typed, 1)
+		assert.Contains(t, typed[0], "read_mail")
+	})
+}
+
+// TestIntegrationExpiredMailIsGivenUpOn covers delivery finishing at the deadline rather than chasing a recipient forever.
+func TestIntegrationExpiredMailIsGivenUpOn(t *testing.T) {
+	instance := weavetest.Start(t, weavetest.Params{DeliveryDeadline: "1ns"})
+	ctx := t.Context()
+
+	workflowID := createMailWorkflow(t, instance)
+	api := createAgent(t, instance, workflowID, "api")
+	migrations := createAgent(t, instance, workflowID, "migrations")
+
+	instance.Settle(migrations.GetId(), harness.ActivityIdle, agentstore.StateIdle)
+
+	req := connect.NewRequest(&agentv1.SendMailRequest{
+		To:   migrations.GetId(),
+		Body: "too late",
+	})
+	callAs(req, api.GetId())
+	_, err := instance.Agents.SendMail(ctx, req)
+	require.NoError(t, err)
+
+	assert.Equal(t, mail.DeliveryDone, instance.Deliver(migrations.GetId()))
+	assert.Empty(t, instance.Typed(migrations.GetId()))
+	assert.Empty(t, instance.EndTurn(migrations.GetId()), "expired mail is not readable either")
+}
+
+func createMailWorkflow(t *testing.T, instance *weavetest.Instance) string {
+	t.Helper()
+
+	workflow, err := instance.Workflows.CreateWorkflow(t.Context(), connect.NewRequest(&workflowv1.CreateWorkflowRequest{
+		Name: "checkout",
+		Cwd:  t.TempDir(),
+	}))
+	require.NoError(t, err)
+
+	return workflow.Msg.GetWorkflow().GetId()
 }
 
 func callAs[T any](req *connect.Request[T], agentID string) {
@@ -122,7 +241,7 @@ func readMail(t *testing.T, instance *weavetest.Instance, agentID string) []*age
 	t.Helper()
 
 	req := connect.NewRequest(&agentv1.ReadMailRequest{})
-	caller.Caller{AgentID: agentID}.SetHeader(req.Header())
+	callAs(req, agentID)
 
 	read, err := instance.Agents.ReadMail(t.Context(), req)
 	require.NoError(t, err)
