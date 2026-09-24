@@ -87,7 +87,6 @@ $$;
 CREATE TRIGGER watch_notify AFTER INSERT OR UPDATE OR DELETE ON agents FOR EACH ROW EXECUTE FUNCTION watch_notify('id', 'state_seen_at', 'updated_at');
 CREATE TRIGGER watch_subresource_agents AFTER INSERT OR UPDATE OR DELETE ON agent_metadata FOR EACH ROW EXECUTE FUNCTION watch_subresource('agents', 'agent_id');
 CREATE TRIGGER watch_subresource_agents AFTER INSERT OR UPDATE OR DELETE ON agent_runs FOR EACH ROW EXECUTE FUNCTION watch_subresource('agents', 'agent_id');
-CREATE TRIGGER watch_subresource_agents AFTER INSERT OR UPDATE OR DELETE ON review_threads FOR EACH ROW EXECUTE FUNCTION watch_subresource('agents', 'agent_id');
 CREATE TRIGGER watch_notify AFTER INSERT OR UPDATE OR DELETE ON workflows FOR EACH ROW EXECUTE FUNCTION watch_notify('id');
 CREATE TRIGGER watch_subresource_workflows AFTER INSERT OR UPDATE OR DELETE ON workflow_hooks FOR EACH ROW EXECUTE FUNCTION watch_subresource('workflows', 'workflow_id');
 CREATE TRIGGER watch_subresource_workflows AFTER INSERT OR UPDATE OR DELETE ON workflow_configs FOR EACH ROW EXECUTE FUNCTION watch_subresource_lookup('workflows', 'id', 'workflow_config_id', 'id', '', '');
@@ -101,5 +100,8 @@ CREATE TRIGGER watch_notify AFTER INSERT OR UPDATE OR DELETE ON pull_request_syn
 CREATE TRIGGER watch_notify AFTER INSERT OR UPDATE OR DELETE ON reviews FOR EACH ROW EXECUTE FUNCTION watch_notify('id');
 CREATE TRIGGER watch_subresource_reviews AFTER INSERT OR UPDATE OR DELETE ON mail FOR EACH ROW EXECUTE FUNCTION watch_subresource_lookup('reviews', 'id', 'doorbell_mail_id', 'id', '', 'claimed_at');
 CREATE TRIGGER watch_subresource_reviews AFTER INSERT OR UPDATE OR DELETE ON review_rounds FOR EACH ROW EXECUTE FUNCTION watch_subresource_lookup('reviews', 'id', 'round_id', 'id', '', '');
+CREATE TRIGGER watch_notify AFTER INSERT OR UPDATE OR DELETE ON review_threads FOR EACH ROW EXECUTE FUNCTION watch_notify('id');
+CREATE TRIGGER watch_subresource_review_threads AFTER INSERT OR UPDATE OR DELETE ON review_messages FOR EACH ROW EXECUTE FUNCTION watch_subresource('review_threads', 'thread_id');
+CREATE TRIGGER watch_subresource_review_threads AFTER INSERT OR UPDATE OR DELETE ON agents FOR EACH ROW EXECUTE FUNCTION watch_subresource_lookup('review_threads', 'id', 'agent_id', 'id', '', 'archived_at');
 CREATE TRIGGER watch_notify AFTER INSERT OR UPDATE OR DELETE ON worktrees FOR EACH ROW EXECUTE FUNCTION watch_notify('dir');
 CREATE TRIGGER watch_subresource_worktrees AFTER INSERT OR UPDATE OR DELETE ON agents FOR EACH ROW EXECUTE FUNCTION watch_subresource_lookup('worktrees', 'dir', 'name', 'id', '', 'deleting_at');

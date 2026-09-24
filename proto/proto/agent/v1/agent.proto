@@ -121,8 +121,6 @@ message Agent {
   string moved_since_round = 42;
   // When a person stopped this agent and took its worktree, empty while nobody is holding it.
   string held_at = 35;
-  // Changes whenever a thread on the agent's own work moves.
-  string review_version = 40;
 }
 
 // AgentRow is an agent with what is drawn beside it: its mark, its waiting mail and the pull

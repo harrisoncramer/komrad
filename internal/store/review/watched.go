@@ -85,3 +85,93 @@ func watchedReviewFromRow(row models.ListReviewsOfAgentsRow) Review {
 
 	return review
 }
+
+// WatchedReviewThreads declares the threads on live agents to the watch.
+var WatchedReviewThreads = watch.Resource{
+	Enum:      watchv1.Resource_RESOURCE_REVIEW_THREAD,
+	Table:     "review_threads",
+	KeyColumn: "id",
+	Feeders: []watch.Feeder{
+		{
+			Table:  "review_messages",
+			Column: "thread_id",
+		},
+		{
+			Table: "agents",
+			Lookup: &watch.Lookup{
+				ParentColumn: "agent_id",
+				ChildColumn:  "id",
+				OnChangeOf:   "archived_at",
+			},
+		},
+	},
+}
+
+// ThreadWithMessages is a thread and everything said in it, oldest first.
+type ThreadWithMessages struct {
+	Thread
+	Messages []Message
+}
+
+type ThreadStore struct {
+	queries *models.Queries
+}
+
+// NewThreadStore builds the watch's reader of review threads over a pool or transaction.
+func NewThreadStore(db store.DBTX) *ThreadStore {
+	return &ThreadStore{queries: models.New(db)}
+}
+
+// ListWatched returns whichever of keys are still threads on live agents, or every such thread when keys is nil.
+func (s *ThreadStore) ListWatched(ctx context.Context, keys []string) ([]ThreadWithMessages, error) {
+	if keys != nil {
+		keys = store.KeepIDs(keys)
+	}
+
+	rows, err := s.queries.ListWatchedReviewThreads(ctx, keys)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the watched review threads: %w", err)
+	}
+	if len(rows) == 0 {
+		return nil, nil
+	}
+
+	ids := xslice.Map(rows, func(row *models.ListWatchedReviewThreadsRow) string { return row.ID })
+
+	messages, err := s.queries.ListReviewMessagesOfThreads(ctx, ids)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the messages of %d watched review thread(s): %w", len(ids), err)
+	}
+
+	byThread := map[string][]Message{}
+	for _, row := range messages {
+		byThread[row.ThreadID] = append(byThread[row.ThreadID], undeliveredMessageFromRow(*row))
+	}
+
+	return xslice.Map(rows, func(row *models.ListWatchedReviewThreadsRow) ThreadWithMessages {
+		thread := threadFromRow(models.ReviewThread{
+			ID:                  row.ID,
+			AgentID:             row.AgentID,
+			ReviewID:            row.ReviewID,
+			RoundID:             row.RoundID,
+			BaseSha:             row.BaseSha,
+			FilePath:            row.FilePath,
+			OldStart:            row.OldStart,
+			OldEnd:              row.OldEnd,
+			NewStart:            row.NewStart,
+			NewEnd:              row.NewEnd,
+			QuotedLines:         row.QuotedLines,
+			LastAgentActivityAt: row.LastAgentActivityAt,
+			HumanReadAt:         row.HumanReadAt,
+			ResolvedAt:          row.ResolvedAt,
+			ResolvedByKind:      row.ResolvedByKind,
+			ResolvedByAgentID:   row.ResolvedByAgentID,
+			CreatedAt:           row.CreatedAt,
+			UpdatedAt:           row.UpdatedAt,
+		})
+		thread.RoundOrdinal = row.RoundOrdinal
+		thread.UnreadByHuman = xptr.Deref(row.UnreadByHuman)
+
+		return ThreadWithMessages{Thread: thread, Messages: byThread[row.ID]}
+	}), nil
+}

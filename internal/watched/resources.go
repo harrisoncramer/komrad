@@ -25,6 +25,7 @@ func All() []watch.Resource {
 		pullrequeststore.WatchedPullRequests,
 		pullrequeststore.WatchedRepositories,
 		reviewstore.WatchedReviews,
+		reviewstore.WatchedReviewThreads,
 		worktreestore.WatchedWorktrees,
 	}
 }

@@ -227,7 +227,7 @@ func (r *reviewScreen) saveMessage(s panelShared) tea.Cmd {
 	agents, threadID := s.api.agents, r.threads.editing
 	if threadID != "" {
 		// Nothing is said back: the reply is drawn in the thread it went into.
-		return r.writeCmd(s, "", func(ctx context.Context) error {
+		return r.writeCmd("", func(ctx context.Context) error {
 			_, err := agents.AddReviewMessage(ctx, connect.NewRequest(&agentv1.AddReviewMessageRequest{
 				ThreadId: threadID,
 				Body:     body,
@@ -265,7 +265,7 @@ func (r reviewScreen) createThreadCmd(s panelShared, anchor diffview.Anchor, bod
 		snapshot = r.round.GetSnapshotSha()
 	}
 
-	return r.writeCmd(s, "thread opened", func(ctx context.Context) error {
+	return r.writeCmd("thread opened", func(ctx context.Context) error {
 		_, err := agents.CreateReviewThread(ctx, connect.NewRequest(&agentv1.CreateReviewThreadRequest{
 			AgentId:     agentID,
 			BaseSha:     base,
@@ -297,7 +297,7 @@ func (r reviewScreen) resolveThread(s panelShared) tea.Cmd {
 		notice = "thread settled"
 	}
 
-	return r.writeCmd(s, notice, func(ctx context.Context) error {
+	return r.writeCmd(notice, func(ctx context.Context) error {
 		_, err := agents.SetReviewThreadResolved(ctx, connect.NewRequest(&agentv1.SetReviewThreadResolvedRequest{
 			Id:       id,
 			Resolved: settling,
@@ -341,7 +341,7 @@ func (r *reviewScreen) toggleViewed(h host, s panelShared) tea.Cmd {
 	agents, agentID := s.api.agents, r.agentID
 	fingerprint := file.Fingerprint()
 
-	return r.writeCmd(s, notice, func(ctx context.Context) error {
+	return r.writeCmd(notice, func(ctx context.Context) error {
 		_, err := agents.SetReviewFileViewed(ctx, connect.NewRequest(&agentv1.SetReviewFileViewedRequest{
 			AgentId:     agentID,
 			FilePath:    path,
@@ -362,7 +362,7 @@ func (r reviewScreen) markThreadReadCmd(s panelShared) tea.Cmd {
 
 	agents, id := s.api.agents, thread.GetId()
 
-	return r.writeCmd(s, "", func(ctx context.Context) error {
+	return r.writeCmd("", func(ctx context.Context) error {
 		_, err := agents.MarkReviewThreadRead(ctx, connect.NewRequest(&agentv1.MarkReviewThreadReadRequest{Id: id}))
 
 		return err
@@ -426,7 +426,7 @@ func (r *reviewScreen) send(s panelShared, interrupt bool) tea.Cmd {
 
 	agents, agentID := s.api.agents, r.agentID
 
-	return r.sendCmd(s, func(ctx context.Context) (string, error) {
+	return r.sendCmd(func(ctx context.Context) (string, error) {
 		resp, err := agents.ReleaseReview(ctx, connect.NewRequest(&agentv1.ReleaseReviewRequest{
 			AgentId:   agentID,
 			Verdict:   verdict,
@@ -481,42 +481,32 @@ func releasedNotice(verdict agentv1.ReviewVerdict, count int32, interrupt bool) 
 	return "no verdict" + sent
 }
 
-// writeCmd runs one write and reads the review back in the same breath.
-func (r reviewScreen) writeCmd(s panelShared, notice string, write func(context.Context) error) tea.Cmd {
-	return r.writeMsgCmd(s, false, func(ctx context.Context) (string, error) {
+// writeCmd runs one write on the review.
+func (r reviewScreen) writeCmd(notice string, write func(context.Context) error) tea.Cmd {
+	return r.writeMsgCmd(false, func(ctx context.Context) (string, error) {
 		return notice, write(ctx)
 	})
 }
 
 // sendCmd is the write that releases a review.
-func (r reviewScreen) sendCmd(s panelShared, write func(context.Context) (string, error)) tea.Cmd {
-	return r.writeMsgCmd(s, true, write)
+func (r reviewScreen) sendCmd(write func(context.Context) (string, error)) tea.Cmd {
+	return r.writeMsgCmd(true, write)
 }
 
-// writeMsgCmd runs one write and reads the review back, marking whose answer it is.
-func (r reviewScreen) writeMsgCmd(s panelShared, sent bool, write func(context.Context) (string, error)) tea.Cmd {
-	agents, agentID := s.api.agents, r.agentID
+// writeMsgCmd runs one write, marking whose answer it is.
+func (r reviewScreen) writeMsgCmd(sent bool, write func(context.Context) (string, error)) tea.Cmd {
+	agentID := r.agentID
 
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
 		defer cancel()
 
 		notice, err := write(ctx)
-		if err != nil {
-			return reviewWroteMsg{
-				agentID: agentID,
-				err:     err,
-				sent:    sent,
-			}
-		}
-
-		threads, readErr := listReviewThreads(ctx, agents, agentID)
 
 		return reviewWroteMsg{
 			agentID: agentID,
 			notice:  notice,
-			threads: threads,
-			readErr: readErr,
+			err:     err,
 			sent:    sent,
 		}
 	}

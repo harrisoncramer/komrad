@@ -68,7 +68,6 @@ func Agent(row rowstore.Row, options AgentOptions) *agentv1.Agent {
 		TreeStandingSha:    stored.TreeStandingSHA,
 		MovedSinceRound:    stored.MovedSinceRound,
 		HeldAt:             heldStamp(stored.HeldAt),
-		ReviewVersion:      row.ReviewVersion,
 	}
 }
 

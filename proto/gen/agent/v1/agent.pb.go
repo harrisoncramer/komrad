@@ -232,9 +232,7 @@ type Agent struct {
 	// The snapshot of its newest round while its worktree no longer hashes to it, empty otherwise.
 	MovedSinceRound string `protobuf:"bytes,42,opt,name=moved_since_round,json=movedSinceRound,proto3" json:"moved_since_round,omitempty"`
 	// When a person stopped this agent and took its worktree, empty while nobody is holding it.
-	HeldAt string `protobuf:"bytes,35,opt,name=held_at,json=heldAt,proto3" json:"held_at,omitempty"`
-	// Changes whenever a thread on the agent's own work moves.
-	ReviewVersion string `protobuf:"bytes,40,opt,name=review_version,json=reviewVersion,proto3" json:"review_version,omitempty"`
+	HeldAt        string `protobuf:"bytes,35,opt,name=held_at,json=heldAt,proto3" json:"held_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -503,13 +501,6 @@ func (x *Agent) GetMovedSinceRound() string {
 func (x *Agent) GetHeldAt() string {
 	if x != nil {
 		return x.HeldAt
-	}
-	return ""
-}
-
-func (x *Agent) GetReviewVersion() string {
-	if x != nil {
-		return x.ReviewVersion
 	}
 	return ""
 }
@@ -2965,7 +2956,8 @@ var File_agent_v1_agent_proto protoreflect.FileDescriptor
 
 const file_agent_v1_agent_proto_rawDesc = "" +
 	"\n" +
-	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x13agent/v1/mail.proto\x1a\x15agent/v1/review.proto\x1a\x19agent/v1/transcript.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a pullrequest/v1/pullrequest.proto\x1a\x14rules/v1/rules.proto\x1a\x12view/v1/view.proto\"\xa6\v\n" +
+	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x13agent/v1/mail.proto\x1a\x15agent/v1/review.proto\x1a\x19agent/v1/transcript.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a pullrequest/v1/pullrequest.proto\x1a\x14rules/v1/rules.proto\x1a\x12view/v1/view.proto\"\xff\n" +
+	"\n" +
 	"\x05Agent\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x10\n" +
@@ -3007,8 +2999,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\rtree_standing\x18\x1f \x01(\x0e2\x1c.agent.v1.ReviewTreeStandingR\ftreeStanding\x12*\n" +
 	"\x11tree_standing_sha\x18! \x01(\tR\x0ftreeStandingSha\x12*\n" +
 	"\x11moved_since_round\x18* \x01(\tR\x0fmovedSinceRound\x12\x17\n" +
-	"\aheld_at\x18# \x01(\tR\x06heldAt\x12%\n" +
-	"\x0ereview_version\x18( \x01(\tR\rreviewVersionB\x0e\n" +
+	"\aheld_at\x18# \x01(\tR\x06heldAtB\x0e\n" +
 	"\f_archived_atB\x0e\n" +
 	"\f_schedule_idB\b\n" +
 	"\x06_aliveB\x12\n" +

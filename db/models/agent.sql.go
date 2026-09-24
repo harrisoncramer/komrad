@@ -1691,37 +1691,23 @@ failed AS (
         r.agent_id,
         r.started_at DESC,
         r.id DESC
-),
-threaded AS (
-    SELECT
-        t.agent_id,
-        COUNT(*)::int AS threads,
-        SUM((EXTRACT(EPOCH FROM t.updated_at) * 1000000)::bigint) AS moved
-    FROM
-        watched w
-        JOIN review_threads t ON t.agent_id = ANY (w.ids)
-    GROUP BY
-        t.agent_id
 )
 SELECT
     s.id, s.name, s.cwd, s.flags, s.prompt, s.pane_id, s.state, s.state_changed_at, s.harness, s.session_id, s.workflow_id, s.schedule_id, s.idempotency_key, s.spawned_by_agent_id, s.archived_at, s.is_hidden, s.nudged_at, s.branch, s.worktree_removed, s.created_at, s.updated_at, s.state_seen_at, s.interrupted_at, s.adopted_branch, s.parent_agent_id, s.turn_ended_at, s.provision_enabled, s.reported_reason, s.role, s.held_at, s.held_mid_turn, s.nudge_sent_at, s.sequence_in_progress, s.repository_url, s.deleting_at, s.alive, s.tree_standing, s.tree_standing_sha, s.tenant_id, s.head_sha, s.moved_since_round,
 (f.agent_id IS NOT NULL)::boolean AS failed_run,
-    f.log_number AS failed_run_log,
-    CONCAT_WS(':', COALESCE(h.threads, 0), h.moved)::text AS review_version
+    f.log_number AS failed_run_log
 FROM
     watched w
     JOIN agents s ON s.id = ANY (w.ids)
     LEFT JOIN failed f ON f.agent_id = s.id
-    LEFT JOIN threaded h ON h.agent_id = s.id
 ORDER BY
     s.id DESC
 `
 
 type ListWatchedAgentsRow struct {
-	Agent         Agent
-	FailedRun     bool
-	FailedRunLog  *int32
-	ReviewVersion string
+	Agent        Agent
+	FailedRun    bool
+	FailedRunLog *int32
 }
 
 func (q *Queries) ListWatchedAgents(ctx context.Context, keys []string) ([]*ListWatchedAgentsRow, error) {
@@ -1777,7 +1763,6 @@ func (q *Queries) ListWatchedAgents(ctx context.Context, keys []string) ([]*List
 			&i.Agent.MovedSinceRound,
 			&i.FailedRun,
 			&i.FailedRunLog,
-			&i.ReviewVersion,
 		); err != nil {
 			return nil, err
 		}

@@ -83,7 +83,7 @@ func reviewDeliveryStamp(message *agentv1.ReviewMessage) string {
 func (t reviewThreads) deliveryCountView() string {
 	parts := make([]string, 0, len(reviewDeliveryOrder))
 	for _, state := range reviewDeliveryOrder {
-		count := t.activity.delivery[deliverySlot(state)]
+		count := t.delivery[deliverySlot(state)]
 		if count == 0 {
 			continue
 		}

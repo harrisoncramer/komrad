@@ -48,28 +48,15 @@ failed AS (
         r.agent_id,
         r.started_at DESC,
         r.id DESC
-),
-threaded AS (
-    SELECT
-        t.agent_id,
-        COUNT(*)::int AS threads,
-        SUM((EXTRACT(EPOCH FROM t.updated_at) * 1000000)::bigint) AS moved
-    FROM
-        watched w
-        JOIN review_threads t ON t.agent_id = ANY (w.ids)
-    GROUP BY
-        t.agent_id
 )
 SELECT
     sqlc.embed(s),
 (f.agent_id IS NOT NULL)::boolean AS failed_run,
-    f.log_number AS failed_run_log,
-    CONCAT_WS(':', COALESCE(h.threads, 0), h.moved)::text AS review_version
+    f.log_number AS failed_run_log
 FROM
     watched w
     JOIN agents s ON s.id = ANY (w.ids)
     LEFT JOIN failed f ON f.agent_id = s.id
-    LEFT JOIN threaded h ON h.agent_id = s.id
 ORDER BY
     s.id DESC;
 

@@ -142,7 +142,7 @@ func TestReviewMoveCatchesUpOnceTheReaderLetsGo(t *testing.T) {
 	require.Nil(t, m.review.followMove(m.shared()))
 
 	m.review.threads.composing = false
-	m.review.update(&m, m.shared(), reviewRefreshedMsg{agentID: m.review.agentID})
+	m.review.update(&m, m.shared(), reviewWroteMsg{agentID: m.review.agentID})
 
 	assert.Equal(t, m.review.round.GetSnapshotSha(), m.review.diff.followedMove)
 }

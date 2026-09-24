@@ -19,8 +19,6 @@ type Row struct {
 	FailedRun bool
 	// FailedRunLog is the log the unread failure went to.
 	FailedRunLog *int32
-	// ReviewVersion changes whenever a thread on the agent's work moves.
-	ReviewVersion string
 }
 
 // Page is one page of rows: how many, from where, and whether the archived ones.
@@ -88,10 +86,9 @@ func (s *RowStore) attachMetadata(ctx context.Context, watched []*models.ListWat
 		agent.Metadata = metadata[fact.Agent.ID]
 
 		return Row{
-			Agent:         agent,
-			FailedRun:     fact.FailedRun,
-			FailedRunLog:  fact.FailedRunLog,
-			ReviewVersion: fact.ReviewVersion,
+			Agent:        agent,
+			FailedRun:    fact.FailedRun,
+			FailedRunLog: fact.FailedRunLog,
 		}
 	}), nil
 }

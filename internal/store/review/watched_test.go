@@ -53,3 +53,41 @@ func TestListWatched(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, ofNobody, "no agents is no reviews rather than every review")
 }
+
+// TestListWatchedThreads pins that the threads of live agents are carried with their messages
+// and round, without any message's delivery, and that an archived agent's threads leave the set.
+func TestListWatchedThreads(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	threads := NewThreadStore(st.pool)
+	worker := seedAgent(t, st)
+	archived := seedAgentNamed(t, st, "archived")
+
+	review := openReview(t, st, worker, openRound(t, st, worker, "one").ID)
+	thread := openThread(t, st, worker, review, "wrong greeting")
+	_, err := st.CreateMessage(ctx, CreateMessageParams{
+		ThreadID:      thread.ID,
+		AuthorKind:    AuthorAgent,
+		AuthorAgentID: &worker,
+		Body:          "fixed it",
+	})
+	require.NoError(t, err)
+	gone := openThread(t, st, archived, openReview(t, st, archived, openRound(t, st, archived, "two").ID), "left behind")
+
+	_, err = st.agents.Archive(ctx, []string{archived})
+	require.NoError(t, err)
+
+	snapshot, err := threads.ListWatched(ctx, nil)
+	require.NoError(t, err)
+	require.Len(t, snapshot, 1, "the archived agent's thread is not watched")
+	assert.Equal(t, thread.ID, snapshot[0].ID)
+	assert.Equal(t, int32(1), snapshot[0].RoundOrdinal)
+	assert.True(t, snapshot[0].UnreadByHuman, "the agent answered since the person looked")
+	require.Len(t, snapshot[0].Messages, 2)
+	assert.Equal(t, "wrong greeting", snapshot[0].Messages[0].Body)
+	assert.Equal(t, DeliveryNone, snapshot[0].Messages[0].Delivery, "delivery is the panel's to work out")
+
+	listed, err := threads.ListWatched(ctx, []string{gone.ID, "not-a-uuid"})
+	require.NoError(t, err)
+	assert.Empty(t, listed, "a key on an archived agent is gone")
+}
