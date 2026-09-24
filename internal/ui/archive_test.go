@@ -142,6 +142,13 @@ func TestArchiveKeys(t *testing.T) {
 			wantPrompt: `Permanently delete workflow "backend"?`,
 		},
 		{
+			name:       "delete on an archived folder says the agent inside it goes too",
+			rows:       []proto.Message{archivedWorkflow("w1", "backend"), archivedAgent("a1", "api-refactor", "w1")},
+			press:      []string{"d"},
+			wantTitle:  archiveTitle,
+			wantPrompt: "The one agent still archived inside it goes with it",
+		},
+		{
 			name:       "empty on an agent opens the confirm prompt rather than sweeping",
 			rows:       oneArchivedAgent(),
 			press:      []string{"j", "D"},
