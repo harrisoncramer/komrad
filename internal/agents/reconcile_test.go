@@ -883,7 +883,7 @@ func TestReconcileSettlesOnASourceThatReadsNoScreen(t *testing.T) {
 	recorder := &fakeFrameRecorder{}
 	rec := NewReconciler(NewReconcilerParams{
 		Panes:    tmux,
-		Observer: harnesstest.ObserveActivities(harness.ActivityIdle),
+		Observer: harnesstest.NewActivityObserver(harness.ActivityIdle),
 		States:   st.Agents,
 	}).WithFrameRecorder(recorder)
 

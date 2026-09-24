@@ -288,14 +288,14 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc, st, launcher := serviceWithLauncher(t)
-			launcher.err = tt.err
+			svc, st, services := newRecordedService(t)
+			services.err = tt.err
 
 			err := tt.call(t.Context(), svc)
 
 			assert.Equal(t, tt.wantCode, connect.CodeOf(err))
 			if tt.err == nil {
-				assert.Equal(t, &fakeLauncher{t: t, st: st}, launcher, "a request the handler refuses reaches no service")
+				assert.Equal(t, &recordingAgentServices{t: t, st: st}, services, "a request the handler refuses reaches no service")
 			}
 		})
 	}
@@ -309,7 +309,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 		call       func(ctx context.Context, svc agentv1weave.AgentServiceAdapter, ids []string) (string, error)
 		err        error
 		wantAnswer string
-		check      func(t *testing.T, launcher *fakeLauncher, ids []string)
+		check      func(t *testing.T, services *recordingAgentServices, ids []string)
 	}{
 		{
 			name: "a spent idempotency key answers with the agent it launched",
@@ -326,8 +326,8 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 			},
 			err:        agents.ErrAlreadyLaunched,
 			wantAnswer: "spawned",
-			check: func(t *testing.T, launcher *fakeLauncher, _ []string) {
-				assert.Equal(t, "triage:ENG-5260", launcher.created.IdempotencyKey)
+			check: func(t *testing.T, services *recordingAgentServices, _ []string) {
+				assert.Equal(t, "triage:ENG-5260", services.created.IdempotencyKey)
 			},
 		},
 		{
@@ -351,7 +351,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 				return created.Msg.GetAgent().GetName(), nil
 			},
 			wantAnswer: "spawned",
-			check: func(t *testing.T, launcher *fakeLauncher, ids []string) {
+			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
 				assert.Equal(t, agents.NewAgentParams{
 					Title:            "audit",
 					Dir:              "/repo",
@@ -362,7 +362,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 					Harness:          "codex",
 					IdempotencyKey:   "triage:ENG-5260",
 					ParentAgentID:    ids[0],
-				}, launcher.created)
+				}, services.created)
 			},
 		},
 		{
@@ -383,7 +383,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 				return requested.Msg.GetReviewer().GetName(), nil
 			},
 			wantAnswer: "spawned",
-			check: func(t *testing.T, launcher *fakeLauncher, ids []string) {
+			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
 				assert.Equal(t, agents.RequestReviewParams{
 					AgentID:        ids[0],
 					Prompt:         "read the parser change",
@@ -391,7 +391,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 					Harness:        "codex",
 					Flags:          "--sandbox read-only",
 					IdempotencyKey: "review-1",
-				}, launcher.reviewed)
+				}, services.reviewed)
 			},
 		},
 		{
@@ -413,7 +413,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 				return adopted.Msg.GetAgent().GetName(), nil
 			},
 			wantAnswer: "spawned",
-			check: func(t *testing.T, launcher *fakeLauncher, _ []string) {
+			check: func(t *testing.T, services *recordingAgentServices, _ []string) {
 				assert.Equal(t, agents.AdoptParams{
 					Ref:            "https://github.com/o/r/pull/1069",
 					Title:          "logo",
@@ -422,7 +422,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 					WorkflowID:     "wf-1",
 					Harness:        "claude",
 					IdempotencyKey: "adopt-1",
-				}, launcher.adopted)
+				}, services.adopted)
 			},
 		},
 		{
@@ -441,13 +441,13 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 				return retried.Msg.GetAgent().GetName(), nil
 			},
 			wantAnswer: "spawned",
-			check: func(t *testing.T, launcher *fakeLauncher, ids []string) {
+			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
 				assert.Equal(t, agents.RetryCreateParams{
 					ID:      ids[0],
 					Flags:   "--model opus",
 					Prompt:  "try again",
 					Harness: "codex",
-				}, launcher.retried)
+				}, services.retried)
 			},
 		},
 		{
@@ -461,8 +461,8 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 				return resumed.Msg.GetAgent().GetName(), nil
 			},
 			wantAnswer: "spawned",
-			check: func(t *testing.T, launcher *fakeLauncher, ids []string) {
-				assert.Equal(t, ids[:1], launcher.resumed)
+			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
+				assert.Equal(t, ids[:1], services.resumed)
 			},
 		},
 		{
@@ -476,8 +476,8 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 				return held.Msg.GetAgent().GetName(), nil
 			},
 			wantAnswer: "spawned",
-			check: func(t *testing.T, launcher *fakeLauncher, ids []string) {
-				assert.Equal(t, ids[:1], launcher.held)
+			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
+				assert.Equal(t, ids[:1], services.held)
 			},
 		},
 		{
@@ -494,11 +494,11 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 				return released.Msg.GetAgent().GetName(), nil
 			},
 			wantAnswer: "spawned",
-			check: func(t *testing.T, launcher *fakeLauncher, ids []string) {
+			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
 				assert.Equal(t, agents.ReleaseParams{
 					AgentID: ids[0],
 					Said:    "I rebased your branch",
-				}, launcher.released)
+				}, services.released)
 			},
 		},
 		{
@@ -512,8 +512,8 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 				return started.Msg.GetAgent().GetName(), nil
 			},
 			wantAnswer: "spawned",
-			check: func(t *testing.T, launcher *fakeLauncher, _ []string) {
-				assert.Equal(t, []string{"wf-1"}, launcher.orchestrated)
+			check: func(t *testing.T, services *recordingAgentServices, _ []string) {
+				assert.Equal(t, []string{"wf-1"}, services.orchestrated)
 			},
 		},
 		{
@@ -527,8 +527,8 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 				return fmt.Sprintf("%s onto %s, %d of %d to replay", planned.Msg.GetBranch(), planned.Msg.GetBaseRef(), planned.Msg.GetReplayCommits(), planned.Msg.GetCommits()), nil
 			},
 			wantAnswer: "agent/alpha onto origin/main, 2 of 3 to replay",
-			check: func(t *testing.T, launcher *fakeLauncher, ids []string) {
-				assert.Equal(t, ids[:1], launcher.planned)
+			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
+				assert.Equal(t, ids[:1], services.planned)
 			},
 		},
 		{
@@ -542,8 +542,8 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 				return fmt.Sprintf("%s onto %s, conflicted %t", rebased.Msg.GetBranch(), rebased.Msg.GetBaseRef(), rebased.Msg.GetConflicted()), nil
 			},
 			wantAnswer: "agent/alpha onto origin/main, conflicted true",
-			check: func(t *testing.T, launcher *fakeLauncher, ids []string) {
-				assert.Equal(t, ids[:1], launcher.rebased)
+			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
+				assert.Equal(t, ids[:1], services.rebased)
 			},
 		},
 		{
@@ -553,8 +553,8 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 
 				return "", err
 			},
-			check: func(t *testing.T, launcher *fakeLauncher, ids []string) {
-				assert.Equal(t, ids, launcher.deleted)
+			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
+				assert.Equal(t, ids, services.deleted)
 			},
 		},
 		{
@@ -564,8 +564,8 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 
 				return "", err
 			},
-			check: func(t *testing.T, launcher *fakeLauncher, ids []string) {
-				assert.Equal(t, ids, launcher.archived)
+			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
+				assert.Equal(t, ids, services.archived)
 			},
 		},
 		{
@@ -584,8 +584,8 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 				return strings.Join(names, " "), nil
 			},
 			wantAnswer: "alpha beta",
-			check: func(t *testing.T, launcher *fakeLauncher, ids []string) {
-				assert.Equal(t, ids, launcher.restored)
+			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
+				assert.Equal(t, ids, services.restored)
 			},
 		},
 		{
@@ -595,8 +595,8 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 
 				return "", err
 			},
-			check: func(t *testing.T, launcher *fakeLauncher, _ []string) {
-				assert.Equal(t, 1, launcher.emptied)
+			check: func(t *testing.T, services *recordingAgentServices, _ []string) {
+				assert.Equal(t, 1, services.emptied)
 			},
 		},
 		{
@@ -609,8 +609,8 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 
 				return "", err
 			},
-			check: func(t *testing.T, launcher *fakeLauncher, ids []string) {
-				assert.Equal(t, map[string]string{ids[0]: "renamed"}, launcher.renamed)
+			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
+				assert.Equal(t, map[string]string{ids[0]: "renamed"}, services.renamed)
 			},
 		},
 		{
@@ -623,8 +623,8 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 
 				return "", err
 			},
-			check: func(t *testing.T, launcher *fakeLauncher, ids []string) {
-				assert.Equal(t, map[string]bool{ids[0]: true}, launcher.hidden)
+			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
+				assert.Equal(t, map[string]bool{ids[0]: true}, services.hidden)
 			},
 		},
 		{
@@ -638,12 +638,12 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 
 				return "", err
 			},
-			check: func(t *testing.T, launcher *fakeLauncher, ids []string) {
+			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
 				assert.Equal(t, agents.SetMetadataParams{
 					AgentID: ids[0],
 					Key:     "linear_issue",
 					Value:   xptr.Ptr("https://linear.app/x/issue/ENG-1"),
-				}, launcher.metadata)
+				}, services.metadata)
 			},
 		},
 		{
@@ -653,8 +653,8 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 
 				return "", err
 			},
-			check: func(t *testing.T, launcher *fakeLauncher, ids []string) {
-				assert.Equal(t, ids[:1], launcher.runsRead)
+			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
+				assert.Equal(t, ids[:1], services.runsRead)
 			},
 		},
 		{
@@ -668,20 +668,20 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 
 				return "", err
 			},
-			check: func(t *testing.T, launcher *fakeLauncher, ids []string) {
+			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
 				assert.Equal(t, agents.RecordReportParams{
 					AgentID:   ids[0],
 					Reason:    "Bash",
 					TurnEnded: true,
-				}, launcher.reported)
+				}, services.reported)
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc, st, launcher := serviceWithLauncher(t)
-			launcher.err = tt.err
+			svc, st, services := newRecordedService(t)
+			services.err = tt.err
 			ids := []string{
 				st.SeedAgent(t, agentstore.Agent{Name: "alpha"}).ID,
 				st.SeedAgent(t, agentstore.Agent{Name: "beta"}).ID,
@@ -691,7 +691,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 			require.NoError(t, err)
 
 			assert.Equal(t, tt.wantAnswer, answer)
-			tt.check(t, launcher, ids)
+			tt.check(t, services, ids)
 		})
 	}
 }
@@ -735,7 +735,7 @@ func TestArchiveAgentsHoldsAnAgentToItsOwnChildren(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc, st, launcher := serviceWithLauncher(t)
+			svc, st, services := newRecordedService(t)
 			parent := st.SeedAgent(t, agentstore.Agent{
 				Name: "parent",
 				Role: agentstore.RoleImplementer,
@@ -766,13 +766,13 @@ func TestArchiveAgentsHoldsAnAgentToItsOwnChildren(t *testing.T) {
 
 			if tt.wantCode != 0 {
 				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
-				assert.Empty(t, launcher.archived)
+				assert.Empty(t, services.archived)
 
 				return
 			}
 
 			require.NoError(t, err)
-			assert.Equal(t, ids, launcher.archived)
+			assert.Equal(t, ids, services.archived)
 		})
 	}
 }
@@ -1042,7 +1042,7 @@ func TestLog(t *testing.T) {
 
 			req := &agentv1.LogRequest{Message: "fetched origin/main"}
 			if tt.script != "" {
-				req.Script = &tt.script
+				req.Script = xptr.Ptr(tt.script)
 			}
 			if tt.explicit {
 				req.Id = &id
@@ -1455,8 +1455,8 @@ func TestGetTranscript(t *testing.T) {
 	}
 }
 
-// fakeLauncher stands in for every agent service the handler calls, recording each request.
-type fakeLauncher struct {
+// recordingAgentServices stands in for every agent service the handler calls, recording each request.
+type recordingAgentServices struct {
 	t            *testing.T
 	st           *storetest.Stores
 	err          error
@@ -1483,7 +1483,7 @@ type fakeLauncher struct {
 }
 
 // spawn writes the agent the fake answers with to the store.
-func (f *fakeLauncher) spawn() *agentstore.Agent {
+func (f *recordingAgentServices) spawn() *agentstore.Agent {
 	if f.spawnedAgent == nil {
 		f.spawnedAgent = f.st.SeedAgent(f.t, agentstore.Agent{
 			Name:  "spawned",
@@ -1496,7 +1496,7 @@ func (f *fakeLauncher) spawn() *agentstore.Agent {
 }
 
 // answer returns the spawned agent, or err in its place unless err is a spent idempotency key.
-func (f *fakeLauncher) answer() (*agentstore.Agent, error) {
+func (f *recordingAgentServices) answer() (*agentstore.Agent, error) {
 	if f.err != nil && !errors.Is(f.err, agents.ErrAlreadyLaunched) {
 		return nil, f.err
 	}
@@ -1504,60 +1504,60 @@ func (f *fakeLauncher) answer() (*agentstore.Agent, error) {
 	return f.spawn(), f.err
 }
 
-func (f *fakeLauncher) NewAgent(_ context.Context, params agents.NewAgentParams) (*agentstore.Agent, error) {
+func (f *recordingAgentServices) NewAgent(_ context.Context, params agents.NewAgentParams) (*agentstore.Agent, error) {
 	f.created = params
 
 	return f.answer()
 }
 
-func (f *fakeLauncher) RequestReview(_ context.Context, params agents.RequestReviewParams) (*agentstore.Agent, string, error) {
+func (f *recordingAgentServices) RequestReview(_ context.Context, params agents.RequestReviewParams) (*agentstore.Agent, string, error) {
 	f.reviewed = params
 	reviewer, err := f.answer()
 
 	return reviewer, "", err
 }
 
-func (f *fakeLauncher) RetryCreate(_ context.Context, params agents.RetryCreateParams) (*agentstore.Agent, error) {
+func (f *recordingAgentServices) RetryCreate(_ context.Context, params agents.RetryCreateParams) (*agentstore.Agent, error) {
 	f.retried = params
 
 	return f.answer()
 }
 
-func (f *fakeLauncher) Adopt(_ context.Context, params agents.AdoptParams) (*agentstore.Agent, error) {
+func (f *recordingAgentServices) Adopt(_ context.Context, params agents.AdoptParams) (*agentstore.Agent, error) {
 	f.adopted = params
 
 	return f.answer()
 }
 
-func (f *fakeLauncher) IsAgentRunning(agentstore.Agent) bool {
+func (f *recordingAgentServices) IsAgentRunning(agentstore.Agent) bool {
 	return false
 }
 
-func (f *fakeLauncher) ResumeAgent(_ context.Context, id string) (*agentstore.Agent, error) {
+func (f *recordingAgentServices) ResumeAgent(_ context.Context, id string) (*agentstore.Agent, error) {
 	f.resumed = append(f.resumed, id)
 
 	return f.answer()
 }
 
-func (f *fakeLauncher) Hold(_ context.Context, agentID string) (*agentstore.Agent, error) {
+func (f *recordingAgentServices) Hold(_ context.Context, agentID string) (*agentstore.Agent, error) {
 	f.held = append(f.held, agentID)
 
 	return f.answer()
 }
 
-func (f *fakeLauncher) Release(_ context.Context, params agents.ReleaseParams) (*agentstore.Agent, error) {
+func (f *recordingAgentServices) Release(_ context.Context, params agents.ReleaseParams) (*agentstore.Agent, error) {
 	f.released = params
 
 	return f.answer()
 }
 
-func (f *fakeLauncher) Start(_ context.Context, workflowID string) (*agentstore.Agent, error) {
+func (f *recordingAgentServices) Start(_ context.Context, workflowID string) (*agentstore.Agent, error) {
 	f.orchestrated = append(f.orchestrated, workflowID)
 
 	return f.answer()
 }
 
-func (f *fakeLauncher) PlanRebase(_ context.Context, agentID string) (*checkouts.RebasePlan, error) {
+func (f *recordingAgentServices) PlanRebase(_ context.Context, agentID string) (*checkouts.RebasePlan, error) {
 	f.planned = append(f.planned, agentID)
 	if f.err != nil {
 		return nil, f.err
@@ -1571,7 +1571,7 @@ func (f *fakeLauncher) PlanRebase(_ context.Context, agentID string) (*checkouts
 	}, nil
 }
 
-func (f *fakeLauncher) Rebase(_ context.Context, agentID string) (*checkouts.RebaseResult, error) {
+func (f *recordingAgentServices) Rebase(_ context.Context, agentID string) (*checkouts.RebaseResult, error) {
 	f.rebased = append(f.rebased, agentID)
 	if f.err != nil {
 		return nil, f.err
@@ -1586,20 +1586,20 @@ func (f *fakeLauncher) Rebase(_ context.Context, agentID string) (*checkouts.Reb
 	}, nil
 }
 
-func (f *fakeLauncher) DeleteAgents(_ context.Context, ids []string) error {
+func (f *recordingAgentServices) DeleteAgents(_ context.Context, ids []string) error {
 	f.deleted = append(f.deleted, ids...)
 
 	return f.err
 }
 
-func (f *fakeLauncher) ArchiveAgents(_ context.Context, ids []string) error {
+func (f *recordingAgentServices) ArchiveAgents(_ context.Context, ids []string) error {
 	f.archived = append(f.archived, ids...)
 
 	return f.err
 }
 
 // RestoreAgents answers with an agent for every id.
-func (f *fakeLauncher) RestoreAgents(_ context.Context, ids []string) ([]agentstore.Agent, error) {
+func (f *recordingAgentServices) RestoreAgents(_ context.Context, ids []string) ([]agentstore.Agent, error) {
 	f.restored = append(f.restored, ids...)
 	if f.err != nil {
 		return nil, f.err
@@ -1610,13 +1610,13 @@ func (f *fakeLauncher) RestoreAgents(_ context.Context, ids []string) ([]agentst
 	}), nil
 }
 
-func (f *fakeLauncher) EmptyArchive(context.Context) error {
+func (f *recordingAgentServices) EmptyArchive(context.Context) error {
 	f.emptied++
 
 	return f.err
 }
 
-func (f *fakeLauncher) SetHidden(_ context.Context, id string, hidden bool) error {
+func (f *recordingAgentServices) SetHidden(_ context.Context, id string, hidden bool) error {
 	if f.hidden == nil {
 		f.hidden = map[string]bool{}
 	}
@@ -1625,13 +1625,13 @@ func (f *fakeLauncher) SetHidden(_ context.Context, id string, hidden bool) erro
 	return f.err
 }
 
-func (f *fakeLauncher) SetMetadata(_ context.Context, params agents.SetMetadataParams) error {
+func (f *recordingAgentServices) SetMetadata(_ context.Context, params agents.SetMetadataParams) error {
 	f.metadata = params
 
 	return f.err
 }
 
-func (f *fakeLauncher) Rename(_ context.Context, id, name string) error {
+func (f *recordingAgentServices) Rename(_ context.Context, id, name string) error {
 	if f.renamed == nil {
 		f.renamed = map[string]string{}
 	}
@@ -1640,13 +1640,13 @@ func (f *fakeLauncher) Rename(_ context.Context, id, name string) error {
 	return f.err
 }
 
-func (f *fakeLauncher) MarkRunsRead(_ context.Context, id string) error {
+func (f *recordingAgentServices) MarkRunsRead(_ context.Context, id string) error {
 	f.runsRead = append(f.runsRead, id)
 
 	return f.err
 }
 
-func (f *fakeLauncher) RecordReport(_ context.Context, params agents.RecordReportParams) error {
+func (f *recordingAgentServices) RecordReport(_ context.Context, params agents.RecordReportParams) error {
 	f.reported = params
 
 	return f.err
@@ -1692,7 +1692,7 @@ func markService(st *storetest.Stores) *marks.MarkService {
 
 func service(t *testing.T) (agentv1weave.AgentServiceAdapter, *storetest.Stores) {
 	t.Helper()
-	svc, st, _ := serviceWithLauncher(t)
+	svc, st, _ := newRecordedService(t)
 
 	return svc, st
 }
@@ -1712,11 +1712,11 @@ func seedTranscript(t *testing.T, st *storetest.Stores, agentID string, turns []
 	return content
 }
 
-func serviceWithLauncher(t *testing.T) (agentv1weave.AgentServiceAdapter, *storetest.Stores, *fakeLauncher) {
+func newRecordedService(t *testing.T) (agentv1weave.AgentServiceAdapter, *storetest.Stores, *recordingAgentServices) {
 	t.Helper()
 
 	st := storetest.Open(t)
-	launcher := &fakeLauncher{t: t, st: st}
+	services := &recordingAgentServices{t: t, st: st}
 
 	mailer := mail.NewMailService(mail.NewMailServiceParams{
 		MailReadWriter: st.Mail,
@@ -1742,7 +1742,7 @@ func serviceWithLauncher(t *testing.T) (agentv1weave.AgentServiceAdapter, *store
 	return agentv1weave.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{
 		Agents:      st.Agents,
 		Rows:        st.Rows,
-		Writer:      launcher,
+		Writer:      services,
 		Transcripts: st.Transcripts,
 		Mail:        mailer,
 		Review:      review,
@@ -1755,14 +1755,14 @@ func serviceWithLauncher(t *testing.T) (agentv1weave.AgentServiceAdapter, *store
 			Reviews:      rounds,
 			Workflows:    st.Workflows,
 		},
-		Creator:      launcher,
-		Adopter:      launcher,
-		Liveness:     launcher,
-		Lifecycle:    launcher,
-		Resumer:      launcher,
-		Holder:       launcher,
-		Archive:      launcher,
-		Orchestrator: launcher,
-		Rebaser:      launcher,
-	})}, st, launcher
+		Creator:      services,
+		Adopter:      services,
+		Liveness:     services,
+		Lifecycle:    services,
+		Resumer:      services,
+		Holder:       services,
+		Archive:      services,
+		Orchestrator: services,
+		Rebaser:      services,
+	})}, st, services
 }

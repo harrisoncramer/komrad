@@ -210,8 +210,8 @@ func (o *Observer) Observe(context.Context, harness.Target) (harness.Observation
 	return o.Observations[at], nil
 }
 
-// ObserveActivities is an observer answering a run of bare activities.
-func ObserveActivities(activities ...harness.Activity) *Observer {
+// NewActivityObserver is an observer answering a run of bare activities.
+func NewActivityObserver(activities ...harness.Activity) *Observer {
 	return &Observer{Observations: xslice.Map(activities, func(activity harness.Activity) harness.Observation {
 		return harness.Observation{Activity: activity}
 	})}

@@ -56,10 +56,10 @@ func TestNewChildAgentTakesItsLaunchFromTheParent(t *testing.T) {
 // TestNewChildAgentRefusals pins each child a launch refuses and records nothing for.
 func TestNewChildAgentRefusals(t *testing.T) {
 	tests := []struct {
-		name      string
-		attachTo  func(t *testing.T, st *testStore, parent agentstore.Agent) agentstore.Agent
-		params    func(parent agentstore.Agent) NewAgentParams
-		wantErrIs error
+		name          string
+		prepareParent func(t *testing.T, st *testStore, parent agentstore.Agent) agentstore.Agent
+		params        func(parent agentstore.Agent) NewAgentParams
+		wantErrIs     error
 	}{
 		{
 			name: "a directory of its own",
@@ -103,7 +103,7 @@ func TestNewChildAgentRefusals(t *testing.T) {
 		},
 		{
 			name: "a parent already archived",
-			attachTo: func(t *testing.T, st *testStore, parent agentstore.Agent) agentstore.Agent {
+			prepareParent: func(t *testing.T, st *testStore, parent agentstore.Agent) agentstore.Agent {
 				t.Helper()
 				require.NoError(t, st.SoftDelete(t.Context(), parent.Name))
 
@@ -113,7 +113,7 @@ func TestNewChildAgentRefusals(t *testing.T) {
 		},
 		{
 			name: "a parent with no directory",
-			attachTo: func(t *testing.T, st *testStore, parent agentstore.Agent) agentstore.Agent {
+			prepareParent: func(t *testing.T, st *testStore, parent agentstore.Agent) agentstore.Agent {
 				t.Helper()
 				require.NoError(t, st.Update(t.Context(), withCwd(parent, "")))
 
@@ -123,7 +123,7 @@ func TestNewChildAgentRefusals(t *testing.T) {
 		},
 		{
 			name: "a parent that is itself a child",
-			attachTo: func(t *testing.T, st *testStore, parent agentstore.Agent) agentstore.Agent {
+			prepareParent: func(t *testing.T, st *testStore, parent agentstore.Agent) agentstore.Agent {
 				t.Helper()
 
 				return seedChild(t, st, tmuxtest.NewFake(), parent)
@@ -140,8 +140,8 @@ func TestNewChildAgentRefusals(t *testing.T) {
 
 			parent := withCwd(seedRunning(t, st, tmux, "author", "%author", agentstore.StateIdle), t.TempDir())
 			require.NoError(t, st.Update(t.Context(), parent))
-			if tt.attachTo != nil {
-				parent = tt.attachTo(t, st, parent)
+			if tt.prepareParent != nil {
+				parent = tt.prepareParent(t, st, parent)
 			}
 
 			params := childOf(parent, "second-reviewer")
@@ -269,59 +269,65 @@ func withCwd(agent agentstore.Agent, dir string) agentstore.Agent {
 	return agent
 }
 
+// family is a parent and the child attached to it.
+type family struct {
+	parent agentstore.Agent
+	child  agentstore.Agent
+}
+
 // TestTheFamilyMovesTogether pins that a parent's archive, delete and restore carry its children
 // and a child's own leave the parent.
 func TestTheFamilyMovesTogether(t *testing.T) {
 	tests := []struct {
 		name     string
-		act      func(ctx context.Context, lifecycle *LifecycleService, parent, child agentstore.Agent) error
+		act      func(ctx context.Context, lifecycle *LifecycleService, members family) error
 		wantLive []string
 		wantKept []string
 	}{
 		{
 			name: "archiving the parent takes the child",
-			act: func(ctx context.Context, lifecycle *LifecycleService, parent, _ agentstore.Agent) error {
-				return lifecycle.ArchiveAgents(ctx, []string{parent.ID})
+			act: func(ctx context.Context, lifecycle *LifecycleService, members family) error {
+				return lifecycle.ArchiveAgents(ctx, []string{members.parent.ID})
 			},
 			wantKept: []string{"author", "reviewer"},
 		},
 		{
 			name: "archiving both is the same archive",
-			act: func(ctx context.Context, lifecycle *LifecycleService, parent, child agentstore.Agent) error {
-				return lifecycle.ArchiveAgents(ctx, []string{parent.ID, child.ID})
+			act: func(ctx context.Context, lifecycle *LifecycleService, members family) error {
+				return lifecycle.ArchiveAgents(ctx, []string{members.parent.ID, members.child.ID})
 			},
 			wantKept: []string{"author", "reviewer"},
 		},
 		{
 			name: "archiving the child leaves the parent",
-			act: func(ctx context.Context, lifecycle *LifecycleService, _, child agentstore.Agent) error {
-				return lifecycle.ArchiveAgents(ctx, []string{child.ID})
+			act: func(ctx context.Context, lifecycle *LifecycleService, members family) error {
+				return lifecycle.ArchiveAgents(ctx, []string{members.child.ID})
 			},
 			wantLive: []string{"author"},
 			wantKept: []string{"author", "reviewer"},
 		},
 		{
 			name: "deleting the parent takes the child",
-			act: func(ctx context.Context, lifecycle *LifecycleService, parent, _ agentstore.Agent) error {
-				return lifecycle.DeleteAgents(ctx, []string{parent.ID})
+			act: func(ctx context.Context, lifecycle *LifecycleService, members family) error {
+				return lifecycle.DeleteAgents(ctx, []string{members.parent.ID})
 			},
 		},
 		{
 			name: "deleting the child leaves the parent",
-			act: func(ctx context.Context, lifecycle *LifecycleService, _, child agentstore.Agent) error {
-				return lifecycle.DeleteAgents(ctx, []string{child.ID})
+			act: func(ctx context.Context, lifecycle *LifecycleService, members family) error {
+				return lifecycle.DeleteAgents(ctx, []string{members.child.ID})
 			},
 			wantLive: []string{"author"},
 			wantKept: []string{"author"},
 		},
 		{
 			name: "restoring the parent brings the child back",
-			act: func(ctx context.Context, lifecycle *LifecycleService, parent, _ agentstore.Agent) error {
-				if err := lifecycle.ArchiveAgents(ctx, []string{parent.ID}); err != nil {
+			act: func(ctx context.Context, lifecycle *LifecycleService, members family) error {
+				if err := lifecycle.ArchiveAgents(ctx, []string{members.parent.ID}); err != nil {
 					return err
 				}
 
-				_, err := lifecycle.RestoreAgents(ctx, []string{parent.ID})
+				_, err := lifecycle.RestoreAgents(ctx, []string{members.parent.ID})
 
 				return err
 			},
@@ -340,15 +346,18 @@ func TestTheFamilyMovesTogether(t *testing.T) {
 			parent := seedRunning(t, st, tmux, "author", "%author", agentstore.StateIdle)
 			child := seedChild(t, st, tmux, parent)
 
-			require.NoError(t, tt.act(ctx, manager.lifecycle, parent, child))
+			require.NoError(t, tt.act(ctx, manager.lifecycle, family{
+				parent: parent,
+				child:  child,
+			}))
 
 			live, err := st.List(ctx)
 			require.NoError(t, err)
-			assert.ElementsMatch(t, tt.wantLive, agentNames(live))
+			assert.ElementsMatch(t, tt.wantLive, collectAgentNames(live))
 
 			kept, err := st.ListAll(ctx)
 			require.NoError(t, err)
-			assert.ElementsMatch(t, tt.wantKept, agentNames(kept))
+			assert.ElementsMatch(t, tt.wantKept, collectAgentNames(kept))
 			assert.Contains(t, tmux.KilledPanes, child.Pane, "the child's pane goes with its row")
 		})
 	}
@@ -471,7 +480,7 @@ func seedOrchestrator(t *testing.T, st *testStore, tmux paneStamper) agentstore.
 	return *got
 }
 
-func agentNames(agents []agentstore.Agent) []string {
+func collectAgentNames(agents []agentstore.Agent) []string {
 	return xslice.Map(agents, func(agent agentstore.Agent) string {
 		return agent.Name
 	})

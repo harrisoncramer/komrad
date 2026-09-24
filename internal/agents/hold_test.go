@@ -52,7 +52,7 @@ func TestHoldWaitsForTheAgentToStop(t *testing.T) {
 	agent := seed(t, st, "telescope", "%1", agentstore.StateThinking)
 
 	channel := &harnesstest.Channel{}
-	observer := harnesstest.ObserveActivities(
+	observer := harnesstest.NewActivityObserver(
 		harness.ActivityWorking,
 		harness.ActivityWorking,
 		harness.ActivityIdle,
@@ -73,7 +73,7 @@ func TestHoldRefusesAnAgentThatWillNotStop(t *testing.T) {
 	st := newStore(t)
 	agent := seed(t, st, "telescope", "%1", agentstore.StateThinking)
 
-	observer := harnesstest.ObserveActivities(harness.ActivityWorking)
+	observer := harnesstest.NewActivityObserver(harness.ActivityWorking)
 
 	_, err := newHolder(st, &harnesstest.Channel{}, observer).Hold(t.Context(), agent.ID)
 	require.ErrorIs(t, err, ErrUnsettled)
@@ -109,7 +109,7 @@ func TestHoldRefusesAFrameItCannotMatchWithoutTypingAtIt(t *testing.T) {
 			agent := seed(t, st, "telescope", "%1", agentstore.StateThinking)
 
 			channel := &harnesstest.Channel{}
-			observer := harnesstest.ObserveActivities(activity)
+			observer := harnesstest.NewActivityObserver(activity)
 
 			_, err := newHolder(st, channel, observer).Hold(t.Context(), agent.ID)
 			require.ErrorIs(t, err, ErrUnsettled)
@@ -131,7 +131,7 @@ func TestHoldingAnIdleAgentTypesNothingAtIt(t *testing.T) {
 	agent := seed(t, st, "telescope", "%1", agentstore.StateIdle)
 
 	channel := &harnesstest.Channel{}
-	observer := harnesstest.ObserveActivities(harness.ActivityIdle)
+	observer := harnesstest.NewActivityObserver(harness.ActivityIdle)
 
 	held, err := newHolder(st, channel, observer).Hold(t.Context(), agent.ID)
 	require.NoError(t, err)
@@ -147,7 +147,7 @@ func TestReleasingATurnThatWasCutSaysWhatChanged(t *testing.T) {
 	agent := seed(t, st, "telescope", "%1", agentstore.StateThinking)
 
 	channel := &harnesstest.Channel{}
-	holder := newHolder(st, channel, harnesstest.ObserveActivities(
+	holder := newHolder(st, channel, harnesstest.NewActivityObserver(
 		harness.ActivityWorking,
 		harness.ActivityIdle,
 	))
@@ -172,7 +172,7 @@ func TestReleasingAnAgentThatHadFinishedTypesNothing(t *testing.T) {
 	agent := seed(t, st, "telescope", "%1", agentstore.StateIdle)
 
 	channel := &harnesstest.Channel{}
-	holder := newHolder(st, channel, harnesstest.ObserveActivities(harness.ActivityIdle))
+	holder := newHolder(st, channel, harnesstest.NewActivityObserver(harness.ActivityIdle))
 
 	_, err := holder.Hold(t.Context(), agent.ID)
 	require.NoError(t, err)
@@ -193,7 +193,7 @@ func TestHoldingAnAgentTwiceIsRefused(t *testing.T) {
 	st := newStore(t)
 	agent := seed(t, st, "telescope", "%1", agentstore.StateIdle)
 
-	holder := newHolder(st, &harnesstest.Channel{}, harnesstest.ObserveActivities(harness.ActivityIdle))
+	holder := newHolder(st, &harnesstest.Channel{}, harnesstest.NewActivityObserver(harness.ActivityIdle))
 
 	first, err := holder.Hold(t.Context(), agent.ID)
 	require.NoError(t, err)
@@ -210,7 +210,7 @@ func TestReleasingAnAgentNobodyHoldsIsRefused(t *testing.T) {
 	st := newStore(t)
 	agent := seed(t, st, "telescope", "%1", agentstore.StateIdle)
 
-	holder := newHolder(st, &harnesstest.Channel{}, harnesstest.ObserveActivities(harness.ActivityIdle))
+	holder := newHolder(st, &harnesstest.Channel{}, harnesstest.NewActivityObserver(harness.ActivityIdle))
 
 	_, err := holder.Release(t.Context(), ReleaseParams{AgentID: agent.ID})
 	require.ErrorIs(t, err, ErrNotHeld)
@@ -223,7 +223,7 @@ func TestResumingAHeldAgentIsRefused(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	agent := seed(t, st, "telescope", "%1", agentstore.StateIdle)
 
-	holder := newHolder(st, &harnesstest.Channel{}, harnesstest.ObserveActivities(harness.ActivityIdle))
+	holder := newHolder(st, &harnesstest.Channel{}, harnesstest.NewActivityObserver(harness.ActivityIdle))
 
 	_, err := holder.Hold(t.Context(), agent.ID)
 	require.NoError(t, err)
@@ -242,7 +242,7 @@ func TestHoldingAWaitingAgentWaitsForThePromptToGo(t *testing.T) {
 	agent := seed(t, st, "telescope", "%1", agentstore.StateWaiting)
 
 	channel := &harnesstest.Channel{}
-	observer := harnesstest.ObserveActivities(
+	observer := harnesstest.NewActivityObserver(
 		harness.ActivityWaiting,
 		harness.ActivityWaiting,
 		harness.ActivityIdle,
@@ -263,7 +263,7 @@ func TestHoldRefusesAPromptThatNeverClears(t *testing.T) {
 	st := newStore(t)
 	agent := seed(t, st, "telescope", "%1", agentstore.StateWaiting)
 
-	observer := harnesstest.ObserveActivities(harness.ActivityWaiting)
+	observer := harnesstest.NewActivityObserver(harness.ActivityWaiting)
 
 	_, err := newHolder(st, &harnesstest.Channel{}, observer).Hold(t.Context(), agent.ID)
 	require.ErrorIs(t, err, ErrUnsettled)
@@ -279,7 +279,7 @@ func TestHoldReadsThePaneRatherThanTheRow(t *testing.T) {
 	agent := seed(t, st, "telescope", "%1", agentstore.StateIdle)
 
 	channel := &harnesstest.Channel{}
-	observer := harnesstest.ObserveActivities(
+	observer := harnesstest.NewActivityObserver(
 		harness.ActivityWorking,
 		harness.ActivityIdle,
 	)
@@ -298,7 +298,7 @@ func TestReleaseKeepsTheHoldWhenTheBoxRefuses(t *testing.T) {
 	agent := seed(t, st, "telescope", "%1", agentstore.StateThinking)
 
 	channel := &harnesstest.Channel{}
-	holder := newHolder(st, channel, harnesstest.ObserveActivities(
+	holder := newHolder(st, channel, harnesstest.NewActivityObserver(
 		harness.ActivityWorking,
 		harness.ActivityIdle,
 	))
@@ -323,7 +323,7 @@ func TestReleasingInSilenceLetsGoOfAnInterruptedAgent(t *testing.T) {
 	agent := seed(t, st, "telescope", "%1", agentstore.StateThinking)
 
 	channel := &harnesstest.Channel{}
-	holder := newHolder(st, channel, harnesstest.ObserveActivities(
+	holder := newHolder(st, channel, harnesstest.NewActivityObserver(
 		harness.ActivityWorking,
 		harness.ActivityIdle,
 	))

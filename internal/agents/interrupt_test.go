@@ -29,7 +29,7 @@ func TestInterruptLeavesAnAgentAtRestAlone(t *testing.T) {
 	agent := seed(t, st, "telescope", "%1", agentstore.StateIdle)
 
 	channel := &harnesstest.Channel{}
-	observer := harnesstest.ObserveActivities(harness.ActivityIdle)
+	observer := harnesstest.NewActivityObserver(harness.ActivityIdle)
 
 	require.NoError(t, newInterrupter(st, channel, observer).Interrupt(t.Context(), agent.ID))
 
@@ -44,7 +44,7 @@ func TestInterruptLeavesADraftAlone(t *testing.T) {
 	agent := seed(t, st, "sextant", "%1", agentstore.StateIdle)
 
 	channel := &harnesstest.Channel{}
-	observer := harnesstest.ObserveActivities(harness.ActivityComposing)
+	observer := harnesstest.NewActivityObserver(harness.ActivityComposing)
 
 	require.NoError(t, newInterrupter(st, channel, observer).Interrupt(t.Context(), agent.ID))
 
@@ -63,7 +63,7 @@ func TestInterruptStopsATurnInFlight(t *testing.T) {
 			agent := seed(t, st, "compass", "%1", agentstore.StateThinking)
 
 			channel := &harnesstest.Channel{}
-			observer := harnesstest.ObserveActivities(activity)
+			observer := harnesstest.NewActivityObserver(activity)
 
 			require.NoError(t, newInterrupter(st, channel, observer).Interrupt(t.Context(), agent.ID))
 
@@ -80,7 +80,7 @@ func TestInterruptLeavesAnUnrecognizedFrameAlone(t *testing.T) {
 	agent := seed(t, st, "quadrant", "%1", agentstore.StateThinking)
 
 	channel := &harnesstest.Channel{}
-	observer := harnesstest.ObserveActivities(harness.ActivityUnrecognized)
+	observer := harnesstest.NewActivityObserver(harness.ActivityUnrecognized)
 
 	require.NoError(t, newInterrupter(st, channel, observer).Interrupt(t.Context(), agent.ID))
 
