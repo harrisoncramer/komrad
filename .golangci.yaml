@@ -196,6 +196,14 @@ linters:
               desc: what tmux or a CLI can do is weave's own vocabulary, not the wire's
             - pkg: connectrpc.com/connect
               desc: same reason as the wire types
+        handler-tests:
+          files:
+            - "**/internal/rpc/**/*_test.go"
+          deny:
+            - pkg: weave/internal/storetest
+              desc: a handler takes its service as an interface, so its test hands in a fake service and covers only what the handler adds
+            - pkg: weave/internal/pgtest
+              desc: same reason as storetest
         generated-queries:
           files:
             - "**/*.go"
@@ -265,7 +273,7 @@ linters:
     custom:
       weavelint:
         type: module
-        description: Checks for this repo; a sentinel error must declare the kind of failure it is and be declared at package scope, a message wrapping another error opens with "failed to " or with the error itself, a connect handler must hand its strict half to the adapter rather than answering for itself, a forge Secret gives up its token only where it is sent or kept, an HTTP client is built by lib/xhttp, a declared function spans more than one line, a proto converter is named for its direction, a comment carries no justification clause, a loop that only maps a slice is xslice.Map, and a constructor taking a params struct is New<T>(New<T>Params) declared as params, type, constructor.
+        description: Checks for this repo; a sentinel error must declare the kind of failure it is and be declared at package scope, a message wrapping another error opens with "failed to " or with the error itself, a connect handler must hand its strict half to the adapter rather than answering for itself, a forge Secret gives up its token only where it is sent or kept, an HTTP client is built by lib/xhttp, a declared function spans more than one line, a proto converter is named for its direction, a comment carries no justification clause, a loop that only maps a slice is xslice.Map, a constructor taking a params struct is New<T>(New<T>Params) declared as params, type, constructor, the panel's screen tests drive the model only through the harness, no test fakes a store or a boundary a helper package already fakes, and a test file sits beside the source file it is named for.
         settings:
           sentinel_inline:
             skip: false
@@ -334,6 +342,162 @@ linters:
               - ^internal/interceptors/
               - ^config/
               - ^db/
+          black_box:
+            skip: false
+            # The panel's screen tests are in package ui_test, where they can only reach the
+            # model through the harness.
+            types:
+              - weave/internal/ui.model
+            # Unanchored regexps over the path lint was run from. The one file that exports the
+            # model to the harness, then the tests not yet moved onto it.
+            exclude:
+              - ^internal/ui/export_test\.go$
+              - ^internal/ui/list_internal_test\.go$
+          fake_store:
+            skip: false
+            # Unanchored regexps over the path lint was run from. A store's own tests, which have
+            # no real store to test against but themselves, then the fakes not yet deleted.
+            exclude:
+              - ^internal/store/
+              - ^internal/agents/fakes_test\.go$
+              - ^internal/agents/resume_test\.go$
+              - ^internal/rpc/agent/transcript_test\.go$
+              - ^internal/rpc/pullrequest/handler_test\.go$
+              - ^internal/rpc/workflow/handler_test\.go$
+              - ^internal/scriptrun/run_test\.go$
+              - ^internal/transcripts/transcripts_test\.go$
+          shared_fake:
+            skip: false
+            fakes:
+              - interface: weave/internal/agents.harnessGetter
+                fake: harnesstest.Registry
+              - interface: weave/internal/agents.paneController
+                fake: tmuxtest.Fake
+              - interface: weave/internal/agents.paneKiller
+                fake: tmuxtest.Fake
+              - interface: weave/internal/agents.paneLister
+                fake: tmuxtest.Fake
+              - interface: weave/internal/agents.paneOwnerReader
+                fake: tmuxtest.Fake
+              - interface: weave/internal/agents.paneStarter
+                fake: tmuxtest.Fake
+              - interface: weave/internal/agents.snapshotReleaser
+                fake: gittest.Snapshots
+              - interface: weave/internal/agents.worktreeLister
+                fake: gittest.Checkout
+              - interface: weave/internal/checkouts.headReader
+                fake: gittest.Heads
+              - interface: weave/internal/checkouts.treeReader
+                fake: gittest.Trees
+              - interface: weave/internal/checkouts.worktreeRebaser
+                fake: gittest.Rebaser
+              - interface: weave/internal/cli.paneCapturer
+                fake: tmuxtest.Fake
+              - interface: weave/internal/diff.patchReader
+                fake: gittest.Repo
+              - interface: weave/internal/harness.Channel
+                fake: harnesstest.Channel
+              - interface: weave/internal/harness.Harness
+                fake: harnesstest.Fake
+              - interface: weave/internal/harness.Observer
+                fake: harnesstest.Observer
+              - interface: weave/internal/harness/pane.harnessGetter
+                fake: harnesstest.Registry
+              - interface: weave/internal/harness/pane.terminal
+                fake: tmuxtest.Fake
+              - interface: weave/internal/reviews.reviewSnapshotter
+                fake: gittest.Snapshots
+              - interface: weave/internal/transcripts.harnessGetter
+                fake: harnesstest.Registry
+              - interface: weave/internal/ui.ReviewGit
+                fake: gittest.Repo
+              - interface: weave/internal/worktrees.gitReader
+                fake: gittest.Checkout
+              - interface: weave/internal/worktrees.registrar
+                fake: gittest.Checkout
+            # Unanchored regexps over the path lint was run from. The fakes not yet replaced.
+            exclude:
+              - ^internal/agents/fakes_test\.go$
+              - ^internal/agents/reconcile_integration_test\.go$
+              - ^internal/agents/reconcile_test\.go$
+              - ^internal/agents/resume_test\.go$
+              - ^internal/checkouts/fakes_test\.go$
+              - ^internal/checkouts/rebase_test\.go$
+              - ^internal/harness/pane/fakes_test\.go$
+              - ^internal/harness/registry_test\.go$
+              - ^internal/ui/harness_test\.go$
+              - ^internal/ui/reviewload_test\.go$
+              - ^internal/ui/reviewtrace_test\.go$
+          test_beside:
+            skip: false
+            # Unanchored regexps over the path lint was run from. Scenarios are named for the
+            # feature they describe, and the panel's harness and export file for what they hold,
+            # then the files not yet renamed or folded into their source file's test.
+            exclude:
+              - ^internal/e2e/
+              - ^internal/ui/harness_test\.go$
+              - ^internal/ui/export_test\.go$
+              - ^config/strict_test\.go$
+              - ^db/schema_test\.go$
+              - ^internal/agents/agents_test\.go$
+              - ^internal/agents/alive_test\.go$
+              - ^internal/agents/batch_test\.go$
+              - ^internal/agents/ceiling_test\.go$
+              - ^internal/agents/child_test\.go$
+              - ^internal/agents/fakes_test\.go$
+              - ^internal/agents/harness_test\.go$
+              - ^internal/bufcheck/imported_test\.go$
+              - ^internal/bufcheck/validation_test\.go$
+              - ^internal/checkouts/fakes_test\.go$
+              - ^internal/cli/commands_test\.go$
+              - ^internal/diff/round_test\.go$
+              - ^internal/doctor/remote_test\.go$
+              - ^internal/git/base_test\.go$
+              - ^internal/git/branch_test\.go$
+              - ^internal/git/helpers_test\.go$
+              - ^internal/git/readfiles_test\.go$
+              - ^internal/harness/claude/frames_test\.go$
+              - ^internal/harness/codex/frames_test\.go$
+              - ^internal/harness/pane/fakes_test\.go$
+              - ^internal/mcp/roles_test\.go$
+              - ^internal/rpc/agent/marker_test\.go$
+              - ^internal/rpc/agent/pullrequest_test\.go$
+              - ^internal/rpc/agent/validate_test\.go$
+              - ^internal/rpcerr/rpcerr_test\.go$
+              - ^internal/scripts/builtin_worktree_test\.go$
+              - ^internal/scripts/helpers_test\.go$
+              - ^internal/server/mailconfig_test\.go$
+              - ^internal/store/agent/alive_test\.go$
+              - ^internal/store/agent/fixture_test\.go$
+              - ^internal/store/agent/guards_test\.go$
+              - ^internal/store/engine_test\.go$
+              - ^internal/store/failure_test\.go$
+              - ^internal/store/mail/resource_test\.go$
+              - ^internal/store/mark/resource_test\.go$
+              - ^internal/store/pullrequest/resource_test\.go$
+              - ^internal/store/tenant_test\.go$
+              - ^internal/store/workflow/fixture_test\.go$
+              - ^internal/tmux/copy_mode_test\.go$
+              - ^internal/tmux/host_test\.go$
+              - ^internal/tmux/panes_test\.go$
+              - ^internal/tmux/passkey_test\.go$
+              - ^internal/tmux/server_test\.go$
+              - ^internal/tmux/spellkey_test\.go$
+              - ^internal/ui/diffview/expand_test\.go$
+              - ^internal/ui/diffview/pin_test\.go$
+              - ^internal/ui/errors_test\.go$
+              - ^internal/ui/keydrift_test\.go$
+              - ^internal/ui/layout/framereal_test\.go$
+              - ^internal/ui/layout/remote_test\.go$
+              - ^internal/ui/paint/paint_test\.go$
+              - ^internal/ui/panel_integration_test\.go$
+              - ^internal/version/describe_test\.go$
+              - ^internal/view/golden_test\.go$
+              - ^internal/view/result_test\.go$
+              - ^internal/view/spec_test\.go$
+              - ^internal/view/textcolumn_test\.go$
+              - ^internal/watch/dedupe_test\.go$
+              - ^internal/worktrees/helpers_test\.go$
       fussy:
         type: module
         description: Checks for this repo; forbids bare os environment access and a nil pointer returned with a nil error, asks the panel to bound the contexts it starts, keeps doc comments present and prefixed with the identifier name, and holds comments to a single sentence.
@@ -491,6 +655,11 @@ linters:
       - path: (_test\.go|internal/(pgtest|tmuxtest|storetest|harnesstest|logtest|weavetest)/)
         linters:
           - errcheck
+      # The handler tests that still run against a real store, until they hand in a fake service.
+      - path: ^internal/rpc/agent/(forward|handler|pullrequest)_test\.go$
+        linters:
+          - depguard
+        text: handler-tests
       # A test helper takes t and the fixture before its own arguments, so the limit that
       # holds a function to four does not fit one.
       - path: _test\.go$
