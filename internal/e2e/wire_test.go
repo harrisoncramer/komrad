@@ -10,11 +10,11 @@ import (
 	"net/http"
 	"testing"
 
-	"weave/internal/caller"
-	"weave/internal/weavetest"
-	agentv1 "weave/proto/gen/agent/v1"
-	"weave/proto/gen/agent/v1/agentv1connect"
-	workflowv1 "weave/proto/gen/workflow/v1"
+	"komrade/internal/caller"
+	"komrade/internal/komradetest"
+	agentv1 "komrade/proto/gen/agent/v1"
+	"komrade/proto/gen/agent/v1/agentv1connect"
+	workflowv1 "komrade/proto/gen/workflow/v1"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
@@ -22,9 +22,9 @@ import (
 )
 
 // TestIntegrationListMailDirectionOverJSON pins what a JSON caller gets for the direction it names, and the
-// refusal a direction weave does not have earns.
+// refusal a direction komrade does not have earns.
 func TestIntegrationListMailDirectionOverJSON(t *testing.T) {
-	instance := weavetest.Start(t, weavetest.Params{})
+	instance := komradetest.Start(t, komradetest.Params{})
 	ctx := t.Context()
 
 	workflow, err := instance.Workflows.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{
@@ -58,7 +58,7 @@ func TestIntegrationListMailDirectionOverJSON(t *testing.T) {
 			want:    "what beta said",
 		},
 		{
-			name:    "a direction weave does not have is refused",
+			name:    "a direction komrade does not have is refused",
 			request: `{"id":%q,"direction":"SENT"}`,
 		},
 		{
@@ -66,7 +66,7 @@ func TestIntegrationListMailDirectionOverJSON(t *testing.T) {
 			request: `{"id":%q,"direction":99}`,
 		},
 		{
-			name:    "a field weave does not have is refused",
+			name:    "a field komrade does not have is refused",
 			request: `{"id":%q,"directoin":"MAIL_DIRECTION_SENT"}`,
 		},
 		{
@@ -113,7 +113,7 @@ func TestIntegrationListMailDirectionOverJSON(t *testing.T) {
 	}
 }
 
-func sendMail(t *testing.T, instance *weavetest.Instance, fromID, toID, body string) {
+func sendMail(t *testing.T, instance *komradetest.Instance, fromID, toID, body string) {
 	t.Helper()
 
 	req := connect.NewRequest(&agentv1.SendMailRequest{To: toID, Body: body})

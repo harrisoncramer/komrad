@@ -6,18 +6,18 @@ import (
 	"os"
 	"path/filepath"
 
-	"weave/internal/caller"
-	"weave/internal/harness"
+	"komrade/internal/caller"
+	"komrade/internal/harness"
 )
 
-const mcpConfigJSON = `{"mcpServers":{"weave":{"type":"http","url":"http://%s/mcp","alwaysLoad":true,` +
+const mcpConfigJSON = `{"mcpServers":{"komrade":{"type":"http","url":"http://%s/mcp","alwaysLoad":true,` +
 	`"headers":{"` + caller.AgentHeader + `":"${` + harness.AgentIDEnv + `:-}",` +
 	`"` + caller.SessionHeader + `":"${` + harness.SessionIDEnv + `:-}"}}}}`
 
 var deniedAgents = []string{"Agent(general-purpose)", "Agent(claude)"}
 
 // BuildCommand renders the command line that puts Claude up, quoting everything interpolated
-// since it is written to a script and parsed by the shell weave starts the pane with.
+// since it is written to a script and parsed by the shell komrade starts the pane with.
 func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 	command := harness.EnvPrefix(launch)
 	if h.configDir != "" {
@@ -86,7 +86,7 @@ func (h *Harness) writeSettings(hookCommand string) (string, error) {
 		return "", fmt.Errorf("failed to encode the settings: %w", err)
 	}
 
-	path := filepath.Join(configDir, "weave-settings.json")
+	path := filepath.Join(configDir, "komrade-settings.json")
 	if err := os.WriteFile(path, body, 0o644); err != nil {
 		return "", fmt.Errorf("failed to write the settings: %w", err)
 	}
@@ -94,13 +94,13 @@ func (h *Harness) writeSettings(hookCommand string) (string, error) {
 	return path, nil
 }
 
-// HookInstall is how weave answers one Claude event, kept a struct so an event needing a matcher
+// HookInstall is how komrade answers one Claude event, kept a struct so an event needing a matcher
 // of its own is a field here.
 type HookInstall struct {
 	Subcommand string
 }
 
-// InstalledHooks is the events weave answers, keyed by the event Claude fires.
+// InstalledHooks is the events komrade answers, keyed by the event Claude fires.
 var InstalledHooks = map[harness.Event]HookInstall{
 	EventStop:              {Subcommand: "stop"},
 	EventPreToolUse:        {Subcommand: "pre-tool-use"},
@@ -108,7 +108,7 @@ var InstalledHooks = map[harness.Event]HookInstall{
 	EventPermissionRequest: {Subcommand: "permission-request"},
 }
 
-// hookSettings is the hooks block Claude loads at session start, empty when weave has no binary
+// hookSettings is the hooks block Claude loads at session start, empty when komrade has no binary
 // to point the events at.
 func hookSettings(hookCommand string) map[string]any {
 	if hookCommand == "" {
@@ -135,7 +135,7 @@ func (h *Harness) writeMCPConfig(endpoint string) (string, error) {
 		return "", fmt.Errorf("failed to create mcp config dir: %w", err)
 	}
 
-	path := filepath.Join(configDir, "weave-mcp.json")
+	path := filepath.Join(configDir, "komrade-mcp.json")
 	if err := os.WriteFile(path, []byte(fmt.Sprintf(mcpConfigJSON, endpoint)), 0o644); err != nil {
 		return "", fmt.Errorf("failed to write mcp config: %w", err)
 	}

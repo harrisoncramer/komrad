@@ -6,7 +6,7 @@ import "annotation/v1/tool.proto";
 import "buf/validate/validate.proto";
 import "google/protobuf/struct.proto";
 
-option go_package = "weave/proto/gen/log/v1;logv1";
+option go_package = "komrade/proto/gen/log/v1;logv1";
 
 message LogLine {
   // When the line was written, in RFC 3339.

@@ -3,7 +3,7 @@ package ui_test
 import (
 	"testing"
 
-	"weave/config"
+	"komrade/config"
 
 	"github.com/stretchr/testify/assert"
 )

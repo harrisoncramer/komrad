@@ -3,10 +3,10 @@ package ui
 import (
 	"slices"
 
-	"weave/config"
-	"weave/internal/ui/paint/label"
-	"weave/internal/ui/panel"
-	"weave/lib/xslice"
+	"komrade/config"
+	"komrade/internal/ui/paint/label"
+	"komrade/internal/ui/panel"
+	"komrade/lib/xslice"
 
 	tea "charm.land/bubbletea/v2"
 )

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"weave/internal/tmux"
+	"komrade/internal/tmux"
 )
 
 var (
@@ -99,7 +99,7 @@ func newKeybindingsCheck() Check {
 	}
 }
 
-// readRootKeys is what the root table of weave's own tmux server holds, keyed by the key, and is
+// readRootKeys is what the root table of komrade's own tmux server holds, keyed by the key, and is
 // empty where there is no server to ask yet.
 func readRootKeys(ctx context.Context, env Env) map[string]string {
 	held := map[string]string{}

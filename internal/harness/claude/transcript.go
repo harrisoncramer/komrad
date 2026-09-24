@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"weave/internal/harness"
+	"komrade/internal/harness"
 )
 
 // LogPath finds the JSONL log for a session id by globbing the id, so nothing here has to

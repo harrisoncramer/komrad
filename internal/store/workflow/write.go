@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"weave/db"
-	"weave/db/models"
-	"weave/internal/store"
+	"komrade/db"
+	"komrade/db/models"
+	"komrade/internal/store"
 )
 
 // Create inserts a workflow together with the config rows holding what new agents inherit and

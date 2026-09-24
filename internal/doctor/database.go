@@ -7,8 +7,8 @@ import (
 	"net"
 	"strconv"
 
-	"weave/internal/dsn"
-	"weave/internal/store"
+	"komrade/internal/dsn"
+	"komrade/internal/store"
 
 	"github.com/jackc/pgx/v5/pgconn"
 )
@@ -54,7 +54,7 @@ var (
 	}
 	errReadOnlyLoginShared = &ProblemError{
 		Code:    "readonly_login_shared",
-		Message: "WEAVE_READONLY_DATABASE_URL names the same login as DATABASE_URL",
+		Message: "KOMRADE_READONLY_DATABASE_URL names the same login as DATABASE_URL",
 	}
 	errReadOnlyLoginUnset = &ProblemError{
 		Code:    "readonly_login_unset",
@@ -70,17 +70,17 @@ var (
 	}
 )
 
-// newDatabaseCheck asserts Postgres is there and will let weave in.
+// newDatabaseCheck asserts Postgres is there and will let komrade in.
 func newDatabaseCheck() Check {
 	return Check{
 		Name:        "database",
-		Description: "every agent, workflow, and schedule weave knows about lives in Postgres",
+		Description: "every agent, workflow, and schedule komrade knows about lives in Postgres",
 		Run: func(ctx context.Context, env Env) Result {
 			if _, err := pgconn.ParseConfig(env.DatabaseURL); err != nil {
 				return fail(
 					fmt.Errorf("%w: %w", errDatabaseURLInvalid, err),
 					"",
-					"set connection.database_url, or WEAVE_DATABASE_URL, to a postgres:// url",
+					"set connection.database_url, or KOMRADE_DATABASE_URL, to a postgres:// url",
 				)
 			}
 
@@ -100,19 +100,19 @@ func newDatabaseCheck() Check {
 func newSchemaCheck() Check {
 	return Check{
 		Name:        "schema",
-		Description: "the tables weave reads have to match the build reading them",
+		Description: "the tables komrade reads have to match the build reading them",
 		Needs:       []string{"database"},
 		Run: func(ctx context.Context, env Env) Result {
 			pending, err := env.ReadPendingMigrations(ctx, env.DatabaseURL)
 			if err != nil {
-				return fail(fmt.Errorf("%w: %w", errSchemaUnreadable, err), "", "weave migrate")
+				return fail(fmt.Errorf("%w: %w", errSchemaUnreadable, err), "", "komrade migrate")
 			}
 
 			if len(pending) > 0 {
 				return fail(
 					fmt.Errorf("%w: %s not applied yet", errSchemaBehind, describeMigrationCount(len(pending))),
 					"",
-					"weave migrate, with owner_database_url naming the login that owns the schema",
+					"komrade migrate, with owner_database_url naming the login that owns the schema",
 				)
 			}
 
@@ -130,7 +130,7 @@ func newEngineCheck() Check {
 		Run: func(ctx context.Context, env Env) Result {
 			name, err := env.ReadEngine(ctx, env.DatabaseURL)
 			if errors.Is(err, store.ErrNotAnEngine) {
-				return fail(errNotAnEngine, dsn.Redact(env.DatabaseURL), "weave engine ensure NAME, then set database_url to the url it prints")
+				return fail(errNotAnEngine, dsn.Redact(env.DatabaseURL), "komrade engine ensure NAME, then set database_url to the url it prints")
 			}
 			if err != nil {
 				return fail(fmt.Errorf("%w: %s", errEngineUnreadable, describeDatabaseReason(err)), dsn.Redact(env.DatabaseURL), "")
@@ -153,7 +153,7 @@ func newReadOnlyLoginCheck() Check {
 				return fail(
 					errReadOnlyLoginUnset,
 					"",
-					"set WEAVE_READONLY_DATABASE_URL to the reader login weave engine ensure made",
+					"set KOMRADE_READONLY_DATABASE_URL to the reader login komrade engine ensure made",
 				)
 			}
 
@@ -161,7 +161,7 @@ func newReadOnlyLoginCheck() Check {
 				return fail(
 					errReadOnlyLoginShared,
 					dsn.Redact(env.ReadOnlyDatabaseURL),
-					"point WEAVE_READONLY_DATABASE_URL at the reader login weave engine ensure made",
+					"point KOMRADE_READONLY_DATABASE_URL at the reader login komrade engine ensure made",
 				)
 			}
 
@@ -169,7 +169,7 @@ func newReadOnlyLoginCheck() Check {
 				return fail(
 					fmt.Errorf("%w: %s", errReadOnlyLoginUnusable, describeDatabaseReason(err)),
 					dsn.Redact(env.ReadOnlyDatabaseURL),
-					"weave engine ensure NAME, which resets the reader login's password to the engine's",
+					"komrade engine ensure NAME, which resets the reader login's password to the engine's",
 				)
 			}
 

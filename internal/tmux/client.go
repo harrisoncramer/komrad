@@ -1,8 +1,8 @@
-// Package tmux is weave's seam in front of tmux, wrapping the one server it runs so the rest of
+// Package tmux is komrade's seam in front of tmux, wrapping the one server it runs so the rest of
 // the code names sessions, windows and panes rather than shell arguments.
 //
 // Every agent lives in a pane on that server, and the panel is a client attached to its manager
-// session, so almost everything weave does to an agent it does through here: creating the
+// session, so almost everything komrade does to an agent it does through here: creating the
 // window, capturing the frame the reconciler reads its state out of, typing into it, and
 // killing it. The socket is a field rather than a global so a test can point a client at a
 // throwaway server and drive it for real.
@@ -19,20 +19,20 @@ import (
 	"strings"
 	"time"
 
-	"weave/internal/logging"
+	"komrade/internal/logging"
 )
 
-const paneOwnerOption = "@weave_agent_id"
+const paneOwnerOption = "@komrade_agent_id"
 
-const hostSocketOption = "@weave_host_socket"
+const hostSocketOption = "@komrade_host_socket"
 
-const hostPathOption = "@weave_host_path"
+const hostPathOption = "@komrade_host_path"
 
-const InfoPaneOption = "@weave_info_pane"
+const InfoPaneOption = "@komrade_info_pane"
 
-const panelPaneOption = "@weave_panel_pane"
+const panelPaneOption = "@komrade_panel_pane"
 
-const panelBuildOption = "@weave_panel_build"
+const panelBuildOption = "@komrade_panel_build"
 
 const queryTimeout = 5 * time.Second
 

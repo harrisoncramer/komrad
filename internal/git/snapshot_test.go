@@ -38,7 +38,7 @@ func TestIntegrationTakeLeavesTheAgentsIndexAndWorktreeAlone(t *testing.T) {
 	_, err := client.TakeSnapshot(t.Context(), TakeSnapshotParams{
 		Dir:  root,
 		Base: "main",
-		Ref:  "refs/weave/rounds/two",
+		Ref:  "refs/komrade/rounds/two",
 	})
 	require.NoError(t, err)
 
@@ -78,13 +78,13 @@ func TestIntegrationReleaseDropsTheRef(t *testing.T) {
 	_, err := client.TakeSnapshot(t.Context(), TakeSnapshotParams{
 		Dir:  root,
 		Base: "main",
-		Ref:  "refs/weave/rounds/five",
+		Ref:  "refs/komrade/rounds/five",
 	})
 	require.NoError(t, err)
 
-	require.NoError(t, client.ReleaseRef(t.Context(), root, "refs/weave/rounds/five"))
+	require.NoError(t, client.ReleaseRef(t.Context(), root, "refs/komrade/rounds/five"))
 
-	cmd := exec.Command("git", "-C", root, "rev-parse", "--verify", "--quiet", "refs/weave/rounds/five")
+	cmd := exec.Command("git", "-C", root, "rev-parse", "--verify", "--quiet", "refs/komrade/rounds/five")
 	require.Error(t, cmd.Run())
 }
 

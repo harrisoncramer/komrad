@@ -6,19 +6,19 @@ import (
 	"strconv"
 	"strings"
 
-	"weave/lib/xslice"
+	"komrade/lib/xslice"
 
 	"github.com/invopop/jsonschema"
 )
 
-const preamble = `# weave configuration (github.com/harrisoncramer/weave).
+const preamble = `# komrade configuration (github.com/harrisoncramer/komrade).
 #
 # Generated from the Config struct in config. Do not edit by hand;
 # change the struct's doc comments or its default tag and run
 # 'mise run gen:config'.
 #
 # These are the built-in defaults. Do not copy this file over: write
-# ~/.config/weave/config.toml holding only what you are changing. An unknown key
+# ~/.config/komrade/config.toml holding only what you are changing. An unknown key
 # is an error.
 `
 

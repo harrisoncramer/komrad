@@ -3,16 +3,16 @@ package render
 import (
 	"time"
 
-	"weave/internal/git"
-	"weave/lib/dates"
-	"weave/lib/xptr"
-	"weave/lib/xslice"
-	"weave/lib/xstr"
+	"komrade/internal/git"
+	"komrade/lib/dates"
+	"komrade/lib/xptr"
+	"komrade/lib/xslice"
+	"komrade/lib/xstr"
 
-	agentstore "weave/internal/store/agent"
-	reviewstore "weave/internal/store/review"
-	rowstore "weave/internal/store/row"
-	agentv1 "weave/proto/gen/agent/v1"
+	agentstore "komrade/internal/store/agent"
+	reviewstore "komrade/internal/store/review"
+	rowstore "komrade/internal/store/row"
+	agentv1 "komrade/proto/gen/agent/v1"
 )
 
 // AgentOptions is how much of an agent is drawn.

@@ -21,4 +21,4 @@ the prompt asks, nothing more.
 [0;1m›[0m a codex draft that nobody sent, long enough to wrap across the composer more
   than once so the frame shows it
 
-  [38;2;130;156;207mgpt-5.6-sol low fast[2m[39m · [0m[38;2;154;184;117m~/weave-test/local/scratch/statedetect[39m
+  [38;2;130;156;207mgpt-5.6-sol low fast[2m[39m · [0m[38;2;154;184;117m~/komrade-test/local/scratch/statedetect[39m

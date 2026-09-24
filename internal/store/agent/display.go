@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"weave/db/models"
-	"weave/internal/store"
+	"komrade/db/models"
+	"komrade/internal/store"
 )
 
 // SetHidden updates a live agent's hidden state.

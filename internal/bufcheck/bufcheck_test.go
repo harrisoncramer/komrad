@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"weave/internal/bufcheck"
+	"komrade/internal/bufcheck"
 
 	"buf.build/go/bufplugin/check/checktest"
 )

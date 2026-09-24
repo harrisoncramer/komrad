@@ -3,7 +3,7 @@ package panel
 import (
 	"time"
 
-	schedulev1 "weave/proto/gen/schedule/v1"
+	schedulev1 "komrade/proto/gen/schedule/v1"
 )
 
 // Schedule is one recurring launch as the service listed it.

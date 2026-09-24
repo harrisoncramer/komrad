@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	schedulev1 "weave/proto/gen/schedule/v1"
-	schedulev1connect "weave/proto/gen/schedule/v1/schedulev1connect"
-	workflowv1 "weave/proto/gen/workflow/v1"
+	schedulev1 "komrade/proto/gen/schedule/v1"
+	schedulev1connect "komrade/proto/gen/schedule/v1/schedulev1connect"
+	workflowv1 "komrade/proto/gen/workflow/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -484,20 +484,20 @@ func TestSchedulesForm(t *testing.T) {
 			&workflowv1.Workflow{
 				Id:   "w1",
 				Name: "bughunt",
-				Cwd:  "/repos/weave",
+				Cwd:  "/repos/komrade",
 			},
 			&workflowv1.Workflow{
 				Id:   "w2",
-				Name: "weave",
-				Cwd:  "/repos/weave",
+				Name: "komrade",
+				Cwd:  "/repos/komrade",
 			},
 			second,
 		)
 		harness.press("e")
 
 		form := readStageText(harness.readFrame())
-		assert.Contains(t, form, "bughunt  /repos/weave")
-		assert.Contains(t, form, "> weave  /repos/weave")
+		assert.Contains(t, form, "bughunt  /repos/komrade")
+		assert.Contains(t, form, "> komrade  /repos/komrade")
 	})
 }
 

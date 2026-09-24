@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"weave/internal/store"
-	"weave/internal/watch"
-	watchv1 "weave/proto/gen/watch/v1"
+	"komrade/internal/store"
+	"komrade/internal/watch"
+	watchv1 "komrade/proto/gen/watch/v1"
 )
 
 // WatchedAgents declares the agents to the watch.

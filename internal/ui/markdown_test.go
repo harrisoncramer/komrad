@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
-	"weave/internal/ui/panel"
-	"weave/lib/xptr"
-	"weave/lib/xslice"
+	"komrade/internal/ui/panel"
+	"komrade/lib/xptr"
+	"komrade/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

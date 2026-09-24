@@ -4,8 +4,8 @@ import (
 	"sync"
 	"time"
 
-	"weave/config"
-	"weave/internal/frames"
+	"komrade/config"
+	"komrade/internal/frames"
 )
 
 // frameSettingsTTL is how long the recording settings are held before the config is read

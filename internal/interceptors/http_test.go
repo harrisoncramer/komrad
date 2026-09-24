@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"weave/internal/caller"
-	"weave/internal/logging"
-	"weave/internal/logtest"
+	"komrade/internal/caller"
+	"komrade/internal/logging"
+	"komrade/internal/logtest"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -172,12 +172,12 @@ func TestHTTPLoggingNamesTheCallingAgent(t *testing.T) {
 }
 
 // TestHTTPLoggingIgnoresAnUnexpandedVariable covers a CLI that passed the config through
-// without filling it in, which would put an agent called ${WEAVE_AGENT_ID} in the log.
+// without filling it in, which would put an agent called ${KOMRADE_AGENT_ID} in the log.
 func TestHTTPLoggingIgnoresAnUnexpandedVariable(t *testing.T) {
 	var out bytes.Buffer
 
 	req := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader(`{"method":"tools/list"}`))
-	req.Header.Set(caller.AgentHeader, "${WEAVE_AGENT_ID}")
+	req.Header.Set(caller.AgentHeader, "${KOMRADE_AGENT_ID}")
 
 	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
 	NewLoggingHandler(logging.New(&out, slog.LevelInfo), next).ServeHTTP(httptest.NewRecorder(), req)

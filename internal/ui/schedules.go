@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"time"
 
-	"weave/config"
-	"weave/internal/ui/paint"
-	"weave/internal/ui/panel"
-	"weave/internal/view"
+	"komrade/config"
+	"komrade/internal/ui/paint"
+	"komrade/internal/ui/panel"
+	"komrade/internal/view"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"

@@ -1,6 +1,6 @@
 #!/bin/sh
-#WEAVE description="Declares itself under a shebang."
-#WEAVE timeout="2m"
+#KOMRADE description="Declares itself under a shebang."
+#KOMRADE timeout="2m"
 set -eu
 
 echo "declared"

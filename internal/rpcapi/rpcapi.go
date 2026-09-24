@@ -1,4 +1,4 @@
-// Package rpcapi reads weave's own proto descriptors at runtime, so the CLI and the MCP server
+// Package rpcapi reads komrade's own proto descriptors at runtime, so the CLI and the MCP server
 // are generated from the same list of methods the handlers implement.
 //
 // It is what makes adding an RPC enough on its own. The method's path, its request fields and
@@ -12,18 +12,18 @@ import (
 	"iter"
 	"slices"
 
-	agentv1 "weave/proto/gen/agent/v1"
-	annotationv1 "weave/proto/gen/annotation/v1"
-	configv1 "weave/proto/gen/config/v1"
-	doctorv1 "weave/proto/gen/doctor/v1"
-	forgev1 "weave/proto/gen/forge/v1"
-	hookv1 "weave/proto/gen/hook/v1"
-	logv1 "weave/proto/gen/log/v1"
-	pullrequestv1 "weave/proto/gen/pullrequest/v1"
-	schedulev1 "weave/proto/gen/schedule/v1"
-	watchv1 "weave/proto/gen/watch/v1"
-	workflowv1 "weave/proto/gen/workflow/v1"
-	worktreev1 "weave/proto/gen/worktree/v1"
+	agentv1 "komrade/proto/gen/agent/v1"
+	annotationv1 "komrade/proto/gen/annotation/v1"
+	configv1 "komrade/proto/gen/config/v1"
+	doctorv1 "komrade/proto/gen/doctor/v1"
+	forgev1 "komrade/proto/gen/forge/v1"
+	hookv1 "komrade/proto/gen/hook/v1"
+	logv1 "komrade/proto/gen/log/v1"
+	pullrequestv1 "komrade/proto/gen/pullrequest/v1"
+	schedulev1 "komrade/proto/gen/schedule/v1"
+	watchv1 "komrade/proto/gen/watch/v1"
+	workflowv1 "komrade/proto/gen/workflow/v1"
+	worktreev1 "komrade/proto/gen/worktree/v1"
 
 	"buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	"google.golang.org/protobuf/proto"

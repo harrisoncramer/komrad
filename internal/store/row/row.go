@@ -6,11 +6,11 @@ import (
 	"context"
 	"fmt"
 
-	"weave/db/models"
-	"weave/internal/store"
-	"weave/lib/xslice"
+	"komrade/db/models"
+	"komrade/internal/store"
+	"komrade/lib/xslice"
 
-	agentstore "weave/internal/store/agent"
+	agentstore "komrade/internal/store/agent"
 )
 
 // Row is an agent with the facts about it that live beside its row rather than on it.

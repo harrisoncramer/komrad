@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"weave/config"
-	"weave/internal/ui"
-	agentv1 "weave/proto/gen/agent/v1"
-	"weave/proto/gen/agent/v1/agentv1connect"
+	"komrade/config"
+	"komrade/internal/ui"
+	agentv1 "komrade/proto/gen/agent/v1"
+	"komrade/proto/gen/agent/v1/agentv1connect"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -39,7 +39,7 @@ func TestLogs(t *testing.T) {
 
 		harness.press("l")
 		require.Len(t, harness.panel.ReadRespawns(), 2)
-		assert.Contains(t, harness.panel.ReadRespawns()[1], "export WEAVE_AGENT_ID='a1'")
+		assert.Contains(t, harness.panel.ReadRespawns()[1], "export KOMRADE_AGENT_ID='a1'")
 
 		harness.press("l")
 		assert.NotEmpty(t, harness.panel.ReadKilledPanes(), "the log's own pane goes with it")
@@ -190,7 +190,7 @@ func TestLogs(t *testing.T) {
 
 				respawns := harness.panel.ReadRespawns()
 				require.NotEmpty(t, respawns)
-				assert.Contains(t, respawns[len(respawns)-1], "weave-text-")
+				assert.Contains(t, respawns[len(respawns)-1], "komrade-text-")
 			})
 		}
 	})
@@ -208,8 +208,8 @@ func TestLogs(t *testing.T) {
 
 		respawns := harness.panel.ReadRespawns()
 		require.Len(t, respawns, 3)
-		assert.Contains(t, respawns[1], "export WEAVE_AGENT_ID='a1'")
-		assert.Contains(t, respawns[2], "export WEAVE_AGENT_ID='a2'")
+		assert.Contains(t, respawns[1], "export KOMRADE_AGENT_ID='a1'")
+		assert.Contains(t, respawns[2], "export KOMRADE_AGENT_ID='a2'")
 	})
 
 	t.Run("the key is typed into an open search", func(t *testing.T) {
@@ -455,7 +455,7 @@ func openFailedRun(t *testing.T) *panelHarness {
 func openLogs(t *testing.T, agents ...*agentv1.Agent) (*panelHarness, runLogWriter) {
 	t.Helper()
 
-	logPath := filepath.Join(t.TempDir(), "weave.log")
+	logPath := filepath.Join(t.TempDir(), "komrade.log")
 	require.NoError(t, os.WriteFile(logPath, []byte("listening on 127.0.0.1:8787\n"), 0o644))
 	runs := runLogWriter{root: t.TempDir()}
 

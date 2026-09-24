@@ -3,9 +3,9 @@ package bufcheck
 import (
 	"testing"
 
-	agentv1 "weave/proto/gen/agent/v1"
+	agentv1 "komrade/proto/gen/agent/v1"
 
-	"weave/lib/xptr"
+	"komrade/lib/xptr"
 
 	"buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	"github.com/stretchr/testify/assert"
@@ -17,7 +17,7 @@ import (
 	"google.golang.org/protobuf/types/descriptorpb"
 )
 
-// TestRefusesEmpty reads the rules off weave's own descriptors.
+// TestRefusesEmpty reads the rules off komrade's own descriptors.
 func TestRefusesEmpty(t *testing.T) {
 	t.Parallel()
 
@@ -73,7 +73,7 @@ func TestRefusesEmpty(t *testing.T) {
 	}
 }
 
-// TestIsDefinedOnly reads the enum rules off weave's own descriptors.
+// TestIsDefinedOnly reads the enum rules off komrade's own descriptors.
 func TestIsDefinedOnly(t *testing.T) {
 	t.Parallel()
 

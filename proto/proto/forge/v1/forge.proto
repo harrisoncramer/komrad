@@ -7,7 +7,7 @@ import "buf/validate/validate.proto";
 import "google/protobuf/empty.proto";
 import "pagination/v1/pagination.proto";
 
-option go_package = "weave/proto/gen/forge/v1;forgev1";
+option go_package = "komrade/proto/gen/forge/v1;forgev1";
 
 message Forge {
   // The connection's own id.
@@ -136,13 +136,13 @@ message ListForgePullRequestsResponse {
   optional string next_page_token = 2;
 }
 
-// ForgeService connects weave to the services pull requests live on, and reads them live.
+// ForgeService connects komrade to the services pull requests live on, and reads them live.
 service ForgeService {
   rpc ConnectForge(ConnectForgeRequest) returns (ConnectForgeResponse) {
     option (annotation.v1.surfaces) = {
       cli: false
       mcp: false
-      reason: "weave forge connect is the one caller, reading the token from stdin or a file. A generated command would take it as an argument, which every process on the machine can read, and a model handed one would be holding a credential it has no business holding."
+      reason: "komrade forge connect is the one caller, reading the token from stdin or a file. A generated command would take it as an argument, which every process on the machine can read, and a model handed one would be holding a credential it has no business holding."
     };
   }
   rpc ListForges(google.protobuf.Empty) returns (ListForgesResponse) {
@@ -151,7 +151,7 @@ service ForgeService {
       cli: true
       mcp: true
       name: "list_forges"
-      description: "List the forges weave is connected to, one per host, with who weave acts as there and when the forge last confirmed it. The token itself is never returned. A connection is made by a person with weave forge connect and is what the pull request sweep reads through."
+      description: "List the forges komrade is connected to, one per host, with who komrade acts as there and when the forge last confirmed it. The token itself is never returned. A connection is made by a person with komrade forge connect and is what the pull request sweep reads through."
       roles: [ROLE_ORCHESTRATOR]
     };
   }
@@ -171,7 +171,7 @@ service ForgeService {
       cli: true
       mcp: true
       name: "list_forge_pull_requests"
-      description: "List a repository's pull requests through the forge connection for its host, a page at a time: every one opened from a branch when one is named, whatever its state, or the open ones when none is. Give the repository as a git remote spells it, and pass the next_page_token back as pagination.cursor for the next page. A repository the connection's credential cannot see is answered as not found, which is also what a repository that does not exist answers. This asks the forge itself; list_pull_requests reads what weave has stored."
+      description: "List a repository's pull requests through the forge connection for its host, a page at a time: every one opened from a branch when one is named, whatever its state, or the open ones when none is. Give the repository as a git remote spells it, and pass the next_page_token back as pagination.cursor for the next page. A repository the connection's credential cannot see is answered as not found, which is also what a repository that does not exist answers. This asks the forge itself; list_pull_requests reads what komrade has stored."
       roles: [ROLE_ORCHESTRATOR]
     };
   }

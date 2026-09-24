@@ -1,4 +1,4 @@
-// Package forge is the boundary between weave and the service a repository's pull requests
+// Package forge is the boundary between komrade and the service a repository's pull requests
 // live on.
 package forge
 
@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"weave/internal/fail"
+	"komrade/internal/fail"
 )
 
 // ErrNoCredential says a connection has no credential in the store.
@@ -48,7 +48,7 @@ type Authenticator interface {
 	Invalidate(ctx context.Context) error
 }
 
-// CredentialStore keeps each connection's token somewhere only weave's user can read.
+// CredentialStore keeps each connection's token somewhere only komrade's user can read.
 type CredentialStore interface {
 	// Get is the token for a connection, or ErrNoCredential.
 	Get(ctx context.Context, connectionID string) (Secret, error)
@@ -93,7 +93,7 @@ func (f *FileStore) Get(_ context.Context, connectionID string) (Secret, error) 
 	return secret, nil
 }
 
-// Set puts a token on disk where only weave's user can read it.
+// Set puts a token on disk where only komrade's user can read it.
 func (f *FileStore) Set(_ context.Context, connectionID string, secret Secret) error {
 	path := f.Path(connectionID)
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {

@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Explainer: this mounts the EBS volume that holds everything the host must not lose.
+#
+# The host itself is disposable. Changing the machine image replaces the instance and
+# throws away its root disk, so komrade's database cache, its worktrees, the Go build
+# caches and the komrade user's home all live on a separate volume instead. This script
+# is what makes that volume usable, and it runs on every boot rather than only the
+# first, so a volume that arrives late costs a retry instead of a broken host.
+#
+# Terraform tells us which volume to use by writing its id into the file below, because
+# the id is not knowable until Terraform has created the volume.
+
+env_file=/etc/komrade/data-volume.env
+
+if [ ! -f "$env_file" ]; then
+	echo "$env_file is missing, so the data volume cannot be identified" >&2
+	exit 1
+fi
+
+# shellcheck source=/dev/null
+. "$env_file"
+
+: "${KOMRADE_DATA_VOLUME_ID:?KOMRADE_DATA_VOLUME_ID is not set}"
+
+# AWS presents an EBS volume to a Nitro guest as an NVMe device whose serial is the
+# volume id with the dashes removed. The device name the volume was attached under is
+# not the name the guest sees, so the serial is the only reliable way to find it.
+serial="${KOMRADE_DATA_VOLUME_ID//-/}"
+device=""
+
+# The volume is often attached a few seconds after the instance starts booting, so wait
+# up to two minutes for it to appear rather than giving up on the first look.
+for _ in {1..60}; do
+	device="$(lsblk -dn -o PATH,SERIAL | awk -v serial="$serial" '$2 == serial { print $1; exit }')"
+	if [ -n "$device" ]; then
+		break
+	fi
+	sleep 2
+done
+
+if [ -z "$device" ]; then
+	echo "no block device carries serial $serial" >&2
+	exit 1
+fi
+
+# A brand new volume has no filesystem on it. An existing one does, and must not be
+# reformatted, so only format when there is nothing there to lose.
+if ! blkid "$device" >/dev/null 2>&1; then
+	mkfs.ext4 -F "$device"
+fi
+
+mkdir -p /var/lib/komrade
+uuid="$(blkid -s UUID -o value "$device")"
+
+# Recording the mount in fstab is what makes it survive a reboot. The nofail option
+# means a missing volume delays the boot rather than dropping the host into recovery.
+if ! grep -q "UUID=$uuid" /etc/fstab; then
+	echo "UUID=$uuid /var/lib/komrade ext4 defaults,nofail 0 2" >>/etc/fstab
+fi
+
+mountpoint -q /var/lib/komrade || mount /var/lib/komrade
+
+# These are the directories that have to exist before komrade or a build can use them.
+mkdir -p /var/lib/komrade/go-build /var/lib/komrade/go-mod /var/lib/komrade/worktrees /var/lib/komrade/cache
+mkdir -p /var/lib/komrade/home/.config/komrade
+
+# The komrade user's home is on this volume so the GitHub and harness logins survive a new
+# machine image. The image carries a default config, which seeds the home the first time
+# and is left alone afterwards so edits made on the host are not overwritten.
+if [ ! -f /var/lib/komrade/home/.config/komrade/config.toml ]; then
+	install -m 0644 -o komrade -g komrade /usr/share/komrade/config.toml /var/lib/komrade/home/.config/komrade/config.toml
+fi
+
+# Only the directories this script makes are chowned, and only when they were just made. A
+# recursive pass over the whole volume would walk a Go build cache of tens of gigabytes on every
+# boot, before komrade is allowed to start.
+chown komrade:komrade /var/lib/komrade
+for directory in go-build go-mod worktrees cache home home/.config home/.config/komrade; do
+	chown komrade:komrade "/var/lib/komrade/$directory"
+done

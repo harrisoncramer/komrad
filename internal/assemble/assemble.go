@@ -8,15 +8,15 @@ import (
 	"strings"
 	"time"
 
-	"weave/lib/dates"
-	"weave/lib/xptr"
+	"komrade/lib/dates"
+	"komrade/lib/xptr"
 
-	agentv1 "weave/proto/gen/agent/v1"
-	pullrequestv1 "weave/proto/gen/pullrequest/v1"
-	schedulev1 "weave/proto/gen/schedule/v1"
-	watchv1 "weave/proto/gen/watch/v1"
-	workflowv1 "weave/proto/gen/workflow/v1"
-	worktreev1 "weave/proto/gen/worktree/v1"
+	agentv1 "komrade/proto/gen/agent/v1"
+	pullrequestv1 "komrade/proto/gen/pullrequest/v1"
+	schedulev1 "komrade/proto/gen/schedule/v1"
+	watchv1 "komrade/proto/gen/watch/v1"
+	workflowv1 "komrade/proto/gen/workflow/v1"
+	worktreev1 "komrade/proto/gen/worktree/v1"
 )
 
 // World is every resource a caller holds, by key.

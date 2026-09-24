@@ -5,10 +5,10 @@ package e2e
 import (
 	"testing"
 
-	"weave/internal/interceptors"
-	"weave/internal/weavetest"
-	agentv1 "weave/proto/gen/agent/v1"
-	logv1 "weave/proto/gen/log/v1"
+	"komrade/internal/interceptors"
+	"komrade/internal/komradetest"
+	agentv1 "komrade/proto/gen/agent/v1"
+	logv1 "komrade/proto/gen/log/v1"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
@@ -19,7 +19,7 @@ import (
 // carries a trace id, the listing names that trace, and reading it back through the service
 // gives the failure line with the method on it.
 func TestIntegrationLogReadsTheServersOwnLog(t *testing.T) {
-	instance := weavetest.Start(t, weavetest.Params{KeepLog: true})
+	instance := komradetest.Start(t, komradetest.Params{KeepLog: true})
 	ctx := t.Context()
 
 	_, err := instance.Agents.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: "00000000-0000-0000-0000-000000000000"}))

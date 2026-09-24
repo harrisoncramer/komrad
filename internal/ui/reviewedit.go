@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"weave/internal/ui/layout"
-	"weave/internal/ui/panel"
+	"komrade/internal/ui/layout"
+	"komrade/internal/ui/panel"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -115,14 +115,14 @@ func (r reviewScreen) isEditRefused(s panelShared) (string, bool) {
 	return "", false
 }
 
-// isAgentUnreadable reports whether weave cannot say what the agent is doing.
+// isAgentUnreadable reports whether komrade cannot say what the agent is doing.
 func (r reviewScreen) isAgentUnreadable(s panelShared) (string, bool) {
 	item, ok := r.agentRow(s)
 	if !ok || !item.Alive || item.Agent.State != panel.StateUncertain {
 		return "", false
 	}
 
-	return "weave cannot read this agent's pane, so it may be writing in this worktree · " +
+	return "komrade cannot read this agent's pane, so it may be writing in this worktree · " +
 		"look at the pane before you edit", true
 }
 

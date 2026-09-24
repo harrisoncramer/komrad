@@ -38,7 +38,7 @@ func TestEngineLaidOverAnAbsentDefault(t *testing.T) {
 	clearConnectionEnvironment(t)
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	engines := filepath.Join(home, ".config", "weave", "engines")
+	engines := filepath.Join(home, ".config", "komrade", "engines")
 	require.NoError(t, os.MkdirAll(engines, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(engines, "remote.toml"),
 		[]byte("[connection]\naddr = \"127.0.0.1:8799\"\n"), 0o600))
@@ -47,7 +47,7 @@ func TestEngineLaidOverAnAbsentDefault(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Len(t, layers, 2)
-	assert.Equal(t, filepath.Join(home, ".config", "weave", "config.toml"), layers[0].Path)
+	assert.Equal(t, filepath.Join(home, ".config", "komrade", "config.toml"), layers[0].Path)
 	assert.False(t, layers[0].Named, "the default path is no more required than it was without an engine")
 	assert.Equal(t, filepath.Join(engines, "remote.toml"), layers[1].Path)
 	assert.True(t, layers[1].Named, "an engine asked for by name has to be there")
@@ -64,7 +64,7 @@ func TestEngineOverANamedFile(t *testing.T) {
 	clearConnectionEnvironment(t)
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	engines := filepath.Join(home, ".config", "weave", "engines")
+	engines := filepath.Join(home, ".config", "komrade", "engines")
 	require.NoError(t, os.MkdirAll(engines, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(engines, "remote.toml"),
 		[]byte("[connection]\naddr = \"127.0.0.1:8799\"\n"), 0o600))
@@ -99,7 +99,7 @@ func TestEngineFileMayNotNameAPanelKey(t *testing.T) {
 	clearConnectionEnvironment(t)
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	engines := filepath.Join(home, ".config", "weave", "engines")
+	engines := filepath.Join(home, ".config", "komrade", "engines")
 	require.NoError(t, os.MkdirAll(engines, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(engines, "remote.toml"),
 		[]byte("[connection]\naddr = \"127.0.0.1:8799\"\npanel_key = \"G\"\n"), 0o600))
@@ -119,7 +119,7 @@ func TestEngineNamesReadsTheEnginesDir(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, names, "a machine with no engines dir knows no engines")
 
-	engines := filepath.Join(home, ".config", "weave", "engines")
+	engines := filepath.Join(home, ".config", "komrade", "engines")
 	require.NoError(t, os.MkdirAll(engines, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(engines, "remote.toml"), []byte(""), 0o600))
 

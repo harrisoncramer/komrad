@@ -10,10 +10,10 @@ import (
 	_ "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	v1 "komrade/proto/gen/pagination/v1"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
-	v1 "weave/proto/gen/pagination/v1"
 )
 
 const (
@@ -23,7 +23,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// MailKind tells an agent's own mail from a notice weave raised itself.
+// MailKind tells an agent's own mail from a notice komrade raised itself.
 type MailKind int32
 
 const (
@@ -31,9 +31,9 @@ const (
 	MailKind_MAIL_KIND_UNSPECIFIED MailKind = 0
 	// One agent writing to another, or the person writing to an agent.
 	MailKind_MAIL_KIND_PLAIN MailKind = 1
-	// Weave saying a review has moved, naming the file the comments were written to.
+	// Komrade saying a review has moved, naming the file the comments were written to.
 	MailKind_MAIL_KIND_REVIEW_ACTIVITY MailKind = 2
-	// Weave telling an agent that it and one other have spent their mail limit.
+	// Komrade telling an agent that it and one other have spent their mail limit.
 	MailKind_MAIL_KIND_EXCHANGE_CAPPED MailKind = 3
 )
 
@@ -137,9 +137,9 @@ type Mail struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Set this as reply_to on an answer so the two read as a thread.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// Which agent sent it, unset when weave sent it itself.
+	// Which agent sent it, unset when komrade sent it itself.
 	FromAgentId *string `protobuf:"bytes,2,opt,name=from_agent_id,json=fromAgentId,proto3,oneof" json:"from_agent_id,omitempty"`
-	// What to show as the sender, which is weave's own name for a notice it raised.
+	// What to show as the sender, which is komrade's own name for a notice it raised.
 	FromName string `protobuf:"bytes,3,opt,name=from_name,json=fromName,proto3" json:"from_name,omitempty"`
 	// The agent it is waiting for.
 	ToAgentId string `protobuf:"bytes,4,opt,name=to_agent_id,json=toAgentId,proto3" json:"to_agent_id,omitempty"`
@@ -153,7 +153,7 @@ type Mail struct {
 	ClaimedAt *string `protobuf:"bytes,8,opt,name=claimed_at,json=claimedAt,proto3,oneof" json:"claimed_at,omitempty"`
 	// When it stops being offered, whether or not it was ever taken.
 	ExpiresAt string `protobuf:"bytes,9,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
-	// Whether an agent wrote it or weave raised it.
+	// Whether an agent wrote it or komrade raised it.
 	Kind          MailKind `protobuf:"varint,10,opt,name=kind,proto3,enum=agent.v1.MailKind" json:"kind,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -886,7 +886,7 @@ const file_agent_v1_mail_proto_rawDesc = "" +
 	"\rMailDirection\x12\x1e\n" +
 	"\x1aMAIL_DIRECTION_UNSPECIFIED\x10\x00\x12\x1b\n" +
 	"\x17MAIL_DIRECTION_RECEIVED\x10\x01\x12\x17\n" +
-	"\x13MAIL_DIRECTION_SENT\x10\x02B\"Z weave/proto/gen/agent/v1;agentv1b\x06proto3"
+	"\x13MAIL_DIRECTION_SENT\x10\x02B$Z\"komrade/proto/gen/agent/v1;agentv1b\x06proto3"
 
 var (
 	file_agent_v1_mail_proto_rawDescOnce sync.Once

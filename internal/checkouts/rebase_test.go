@@ -7,21 +7,21 @@ import (
 	"testing"
 	"time"
 
-	"weave/config"
-	"weave/internal/agents"
-	"weave/internal/caller"
-	"weave/internal/git"
-	"weave/internal/gittest"
-	"weave/internal/harness"
-	"weave/internal/harnesstest"
-	"weave/internal/mail"
-	"weave/internal/store"
-	agentstore "weave/internal/store/agent"
-	mailstore "weave/internal/store/mail"
-	workflowstore "weave/internal/store/workflow"
-	"weave/internal/storetest"
-	"weave/lib/xptr"
-	"weave/lib/xslice"
+	"komrade/config"
+	"komrade/internal/agents"
+	"komrade/internal/caller"
+	"komrade/internal/git"
+	"komrade/internal/gittest"
+	"komrade/internal/harness"
+	"komrade/internal/harnesstest"
+	"komrade/internal/mail"
+	"komrade/internal/store"
+	agentstore "komrade/internal/store/agent"
+	mailstore "komrade/internal/store/mail"
+	workflowstore "komrade/internal/store/workflow"
+	"komrade/internal/storetest"
+	"komrade/lib/xptr"
+	"komrade/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -68,7 +68,7 @@ func TestRebaseRefusals(t *testing.T) {
 			wantErr: ErrRebaseBusy,
 		},
 		{
-			name: "a branch a human made, whose history is not weave's to rewrite",
+			name: "a branch a human made, whose history is not komrade's to rewrite",
 			lay: func(t *testing.T, fixture *rebaseFixture) *agentstore.Agent {
 				return fixture.seed(t, agentstore.Agent{AdoptedBranch: "harry/spike"})
 			},
@@ -466,7 +466,7 @@ func TestRebaseRereadsTheRowOnceTheAgentSettles(t *testing.T) {
 
 // TestRebaseMailSaysWhatHappenedToTheBranch covers what the rebase mail tells the agent.
 func TestRebaseMailSaysWhatHappenedToTheBranch(t *testing.T) {
-	const park = "refs/weave/prerefresh/a1/1"
+	const park = "refs/komrade/prerefresh/a1/1"
 
 	tests := []struct {
 		name        string
@@ -605,7 +605,7 @@ func TestRebaseLetsThroughAnAskerWithNoCheckout(t *testing.T) {
 			},
 		},
 		{
-			name: "an asker weave has no row for at all",
+			name: "an asker komrade has no row for at all",
 			asker: func(t *testing.T) caller.Caller {
 				id, err := store.NewID()
 				require.NoError(t, err)

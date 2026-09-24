@@ -5,7 +5,7 @@ import (
 	"slices"
 	"strings"
 
-	"weave/internal/ui/paint"
+	"komrade/internal/ui/paint"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"

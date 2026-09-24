@@ -7,14 +7,14 @@
 # the one being developed against.
 #
 # These are environment variables rather than a config file because the environment beats the
-# file, so the isolation holds whatever a developer has written in ~/.config/weave. WEAVE_CONFIG
+# file, so the isolation holds whatever a developer has written in ~/.config/komrade. KOMRADE_CONFIG
 # then keeps the panel settings apart too, since that file can now name a database of its own.
 [env]
 # Its own config, so the throwaway instance is not reading the panel settings of the checkout
-# being developed against. Naming a file here replaces ~/.config/weave/config.toml rather than
+# being developed against. Naming a file here replaces ~/.config/komrade/config.toml rather than
 # layering on top of it, which is the point. Nothing outside this checkout reaches the test
 # instance.
-WEAVE_CONFIG = "{{config_root}}/weave.test.toml"
+KOMRADE_CONFIG = "{{config_root}}/komrade.test.toml"
 
 # Its own Postgres. The port is what docker-compose publishes and what the connection string
 # points at, and the compose project is named after the directory, so `docker:up` brings up a
@@ -22,16 +22,16 @@ WEAVE_CONFIG = "{{config_root}}/weave.test.toml"
 # the default engine's login, which `docker:up` provisions, and the owner migrates. Clear an
 # inherited read-only URL so Viper falls through and derives it from the engine's.
 DB_PORT = "5461"
-WEAVE_DATABASE_URL = "postgres://weave_engine_default:weave@localhost:5461/weave?sslmode=disable"
-WEAVE_OWNER_DATABASE_URL = "postgres://weave:weave@localhost:5461/weave?sslmode=disable"
-WEAVE_READONLY_DATABASE_URL = ""
+KOMRADE_DATABASE_URL = "postgres://komrade_engine_default:komrade@localhost:5461/komrade?sslmode=disable"
+KOMRADE_OWNER_DATABASE_URL = "postgres://komrade:komrade@localhost:5461/komrade?sslmode=disable"
+KOMRADE_READONLY_DATABASE_URL = ""
 
 # Its own server, so both can run at once and neither adopts the other's.
-WEAVE_ADDR = "127.0.0.1:8790"
+KOMRADE_ADDR = "127.0.0.1:8790"
 
 # Its own tmux server. This is the one that matters most: the panel and every agent live
 # on it, and `mise run restart` kills it whole.
-WEAVE_TMUX_SOCKET = "weave-test"
+KOMRADE_TMUX_SOCKET = "komrade-test"
 
 # Its own log and generated files, so a tail here is not the other instance's output.
-WEAVE_CACHE_DIR = "{{env.HOME}}/Library/Caches/weave-test"
+KOMRADE_CACHE_DIR = "{{env.HOME}}/Library/Caches/komrade-test"

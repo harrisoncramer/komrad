@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"weave/config"
-	"weave/internal/engine"
-	"weave/internal/panes"
+	"komrade/config"
+	"komrade/internal/engine"
+	"komrade/internal/panes"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -796,9 +796,9 @@ func TestAWindowTooNarrowForTheChosenWidthKeepsIt(t *testing.T) {
 // remoteEngine is an engine somewhere this tmux server cannot reach.
 func remoteEngine() engine.Remote {
 	return engine.Remote{
-		Destination: "weave@host",
-		Socket:      "weave",
-		Session:     "weave",
+		Destination: "komrade@host",
+		Socket:      "komrade",
+		Session:     "komrade",
 	}
 }
 

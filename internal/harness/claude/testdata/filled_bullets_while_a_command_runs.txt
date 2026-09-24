@@ -1,7 +1,7 @@
 
 [38;5;174m ▐[48;5;16m▛███▛█[39m[49m   [1mClaude Code[0m [38;5;246mv2.1.273[39m
 [38;5;174m▝▜[48;5;16m█████[49m█▀[39m  [38;5;246mOpus 5 with medium effort · Claude Max[39m
-[38;5;174m  ▝▝ ▝▝  [39m  [38;5;246m/var/lib/weave/worktrees/01a0abfc-a0ac-7291-acd2-fec36e7ae56a[39m
+[38;5;174m  ▝▝ ▝▝  [39m  [38;5;246m/var/lib/komrade/worktrees/01a0abfc-a0ac-7291-acd2-fec36e7ae56a[39m
 
 
 [38;5;239m[48;5;237m❯ [38;5;231mRun this exact command: sleep 25 && echo captured. Then say what it printed in one line and stop.[39m

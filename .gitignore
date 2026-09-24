@@ -1,7 +1,7 @@
 bin/
 local/
 dist/
-/weave
+/komrade
 /gen-docs
 /mockup
 
@@ -17,5 +17,5 @@ crash.*.log
 !.claude/
 .claude/*
 !.claude/skills/
-tools/weavepkg/weavepkg
-tools/weaverec/weaverec
+tools/komradepkg/komradepkg
+tools/komraderec/komraderec

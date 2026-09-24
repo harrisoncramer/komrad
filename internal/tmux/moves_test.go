@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"weave/internal/panes"
+	"komrade/internal/panes"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

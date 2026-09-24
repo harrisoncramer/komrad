@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"testing"
 
-	"weave/internal/logtest"
+	"komrade/internal/logtest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

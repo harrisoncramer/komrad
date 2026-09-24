@@ -143,14 +143,14 @@
               "key": "pause",
               "path": "keybindings.agents.pause",
               "type": "array",
-              "description": "Pause the hovered agent where it stands, or unpause one you have already paused. Weave\nwaits for the agent to come to rest before it claims the worktree, and refuses rather than\nclaiming it when the agent will not stop or its pane cannot be read.",
+              "description": "Pause the hovered agent where it stands, or unpause one you have already paused. Komrade\nwaits for the agent to come to rest before it claims the worktree, and refuses rather than\nclaiming it when the agent will not stop or its pane cannot be read.",
               "default": "[\"p\"]"
             },
             {
               "key": "release_silently",
               "path": "keybindings.agents.release_silently",
               "type": "array",
-              "description": "Unpause the hovered agent without typing anything at it, which is the way out of a pause\nwhose agent will not take the words weave normally sends it.",
+              "description": "Unpause the hovered agent without typing anything at it, which is the way out of a pause\nwhose agent will not take the words komrade normally sends it.",
               "default": "[\"P\"]"
             },
             {
@@ -809,7 +809,7 @@
         },
         {
           "path": "keybindings.worktrees",
-          "description": "The worktrees screen, which lists every directory weave cut for an agent.",
+          "description": "The worktrees screen, which lists every directory komrade cut for an agent.",
           "settings": [
             {
               "key": "back",
@@ -860,13 +860,13 @@
     },
     {
       "path": "hooks",
-      "description": "Where weave finds the scripts a workflow hangs on a moment in its agents' lives.",
+      "description": "Where komrade finds the scripts a workflow hangs on a moment in its agents' lives.",
       "settings": [
         {
           "key": "dir",
           "path": "hooks.dir",
           "type": "string",
-          "description": "Directory for hooks: one executable file per hook, named after the hook.\nA hook is a script or program weave runs at a moment a workflow names it against, in the\nagent's own directory, with agent info in WEAVE_AGENT as JSON and the moment in\nWEAVE_TRIGGER. Default is ~/.config/weave/hooks.",
+          "description": "Directory for hooks: one executable file per hook, named after the hook.\nA hook is a script or program komrade runs at a moment a workflow names it against, in the\nagent's own directory, with agent info in KOMRADE_AGENT as JSON and the moment in\nKOMRADE_TRIGGER. Default is ~/.config/komrade/hooks.",
           "default": "\"\""
         }
       ],
@@ -880,7 +880,7 @@
           "key": "dir",
           "path": "worktrees.dir",
           "type": "string",
-          "description": "Directory generated worktrees are created under, one subdirectory per agent.\nLeft empty this is ~/.local/state/weave/worktrees.",
+          "description": "Directory generated worktrees are created under, one subdirectory per agent.\nLeft empty this is ~/.local/state/komrade/worktrees.",
           "default": "\"\""
         }
       ],
@@ -922,7 +922,7 @@
           "key": "file",
           "path": "context.file",
           "type": "string",
-          "description": "The file holding global context, read at each launch.\nLeft empty this is ~/.config/weave/context.md, but will not trigger a failure if left blank.",
+          "description": "The file holding global context, read at each launch.\nLeft empty this is ~/.config/komrade/context.md, but will not trigger a failure if left blank.",
           "default": "\"\""
         }
       ],
@@ -936,14 +936,14 @@
           "key": "delivery_deadline",
           "path": "mail.delivery_deadline",
           "type": "string",
-          "description": "How long mail stays deliverable, as a Go duration such as \"3h\" or \"45m\". Mail past\nit is neither delivered nor readable, and the row is kept as a record that it never\narrived. A duration weave cannot read, or one that is not positive, is refused.",
+          "description": "How long mail stays deliverable, as a Go duration such as \"3h\" or \"45m\". Mail past\nit is neither delivered nor readable, and the row is kept as a record that it never\narrived. A duration komrade cannot read, or one that is not positive, is refused.",
           "default": "\"3h\""
         },
         {
           "key": "max_exchange",
           "path": "mail.max_exchange",
           "type": "integer",
-          "description": "How much mail two agents may write each other before a send between them is\nrefused. It counts the pair in both directions over every thread, so opening a new\nsubject is not a way around it. When a send is refused weave marks a row for\nattention and tells the recipient its mail was stopped, so an exchange that is cut\noff does not leave the other side waiting on a reply that will never arrive. A\nnegative limit is refused.",
+          "description": "How much mail two agents may write each other before a send between them is\nrefused. It counts the pair in both directions over every thread, so opening a new\nsubject is not a way around it. When a send is refused komrade marks a row for\nattention and tells the recipient its mail was stopped, so an exchange that is cut\noff does not leave the other side waiting on a reply that will never arrive. A\nnegative limit is refused.",
           "default": "40"
         }
       ],
@@ -965,21 +965,21 @@
           "path": "log.viewer",
           "type": "string",
           "description": "The default log viewer. Switch with fzf, rg, etc.",
-          "default": "\"tail -n +1 -F \\\"$WEAVE_LOG\\\" | grep --line-buffered \\\"$WEAVE_AGENT_ID\\\" | less -R +F\""
+          "default": "\"tail -n +1 -F \\\"$KOMRADE_LOG\\\" | grep --line-buffered \\\"$KOMRADE_AGENT_ID\\\" | less -R +F\""
         },
         {
           "key": "process_viewer",
           "path": "log.process_viewer",
           "type": "string",
           "description": "The viewer for a provisioner's or deprovisioner's own output, plain text rather than the\nstructured log's JSON lines.",
-          "default": "\"less -R -X \\\"$WEAVE_LOG\\\"\""
+          "default": "\"less -R -X \\\"$KOMRADE_LOG\\\"\""
         }
       ],
       "sections": []
     },
     {
       "path": "debug",
-      "description": "Puts weave into debug mode which records additional information used to help diagnose issues.",
+      "description": "Puts komrade into debug mode which records additional information used to help diagnose issues.",
       "settings": [
         {
           "key": "frames",
@@ -1000,20 +1000,20 @@
     },
     {
       "path": "connection",
-      "description": "Which weave this is: the database, the address, the tmux socket, the cache.",
+      "description": "Which komrade this is: the database, the address, the tmux socket, the cache.",
       "settings": [
         {
           "key": "database_url",
           "path": "connection.database_url",
           "type": "string",
-          "description": "The Postgres weave keeps every agent, workflow, schedule and transcript in, reached as\nthis engine's own login, which is what keeps its rows apart from every other engine's.\n`weave engine ensure` creates the login and prints this url.",
-          "default": "\"postgres://weave_engine_default:weave@localhost:5460/weave?sslmode=disable\""
+          "description": "The Postgres komrade keeps every agent, workflow, schedule and transcript in, reached as\nthis engine's own login, which is what keeps its rows apart from every other engine's.\n`komrade engine ensure` creates the login and prints this url.",
+          "default": "\"postgres://komrade_engine_default:komrade@localhost:5460/komrade?sslmode=disable\""
         },
         {
           "key": "owner_database_url",
           "path": "connection.owner_database_url",
           "type": "string",
-          "description": "The login that owns the schema, used only by `weave migrate` and `weave engine ensure`.\nLeft empty this is database_url, or the local owner while database_url is the default.",
+          "description": "The login that owns the schema, used only by `komrade migrate` and `komrade engine ensure`.\nLeft empty this is database_url, or the local owner while database_url is the default.",
           "default": "\"\""
         },
         {
@@ -1027,21 +1027,21 @@
           "key": "addr",
           "path": "connection.addr",
           "type": "string",
-          "description": "Where the background service listens, and where the panel, the CLI and the MCP\nendpoint all reach it. Change it to run two weaves on one machine. It has to be a\nloopback host, since the api has no auth and its writes spawn agents.",
+          "description": "Where the background service listens, and where the panel, the CLI and the MCP\nendpoint all reach it. Change it to run two komrades on one machine. It has to be a\nloopback host, since the api has no auth and its writes spawn agents.",
           "default": "\"127.0.0.1:8787\""
         },
         {
           "key": "tmux_socket",
           "path": "connection.tmux_socket",
           "type": "string",
-          "description": "The tmux socket weave runs its own server on. Nothing in your normal tmux sees\nthat server, which is why `tmux -L weave ls` is how you look at it directly.",
-          "default": "\"weave\""
+          "description": "The tmux socket komrade runs its own server on. Nothing in your normal tmux sees\nthat server, which is why `tmux -L komrade ls` is how you look at it directly.",
+          "default": "\"komrade\""
         },
         {
           "key": "cache_dir",
           "path": "connection.cache_dir",
           "type": "string",
-          "description": "Where weave keeps what it generates: the service log, the built-in scripts it\nwrites out on every start, and the temp files a harness passes a prompt through.\nLeft empty this is ~/Library/Caches/weave on a Mac and ~/.cache/weave on Linux.\nEverything under it is weave's to delete and rewrite, so nothing of yours belongs here.",
+          "description": "Where komrade keeps what it generates: the service log, the built-in scripts it\nwrites out on every start, and the temp files a harness passes a prompt through.\nLeft empty this is ~/Library/Caches/komrade on a Mac and ~/.cache/komrade on Linux.\nEverything under it is komrade's to delete and rewrite, so nothing of yours belongs here.",
           "default": "\"\""
         },
         {
@@ -1055,21 +1055,21 @@
           "key": "engine_tmux_socket",
           "path": "connection.engine_tmux_socket",
           "type": "string",
-          "description": "The tmux socket the engine's own server runs on, which is only consulted when ssh names\na destination. Left empty it is tmux_socket, which is right when both machines run a\ndefault weave and wrong when this machine is also running an engine of its own.",
+          "description": "The tmux socket the engine's own server runs on, which is only consulted when ssh names\na destination. Left empty it is tmux_socket, which is right when both machines run a\ndefault komrade and wrong when this machine is also running an engine of its own.",
           "default": "\"\""
         },
         {
           "key": "panel_key",
           "path": "connection.panel_key",
           "type": "string",
-          "description": "The key, after your tmux prefix, that opens and hides the panel, and the picker between\nthis machine and its engines once engine files exist. Left empty it is whatever\n@weave_key says, and failing that g. An engine file may not set it.",
+          "description": "The key, after your tmux prefix, that opens and hides the panel, and the picker between\nthis machine and its engines once engine files exist. Left empty it is whatever\n@komrade_key says, and failing that g. An engine file may not set it.",
           "default": "\"\""
         },
         {
           "key": "exec",
           "path": "connection.exec",
           "type": "array",
-          "description": "How to run a command on the engine, as an argv, when ssh is not how you reach it.\n\"{{command}}\" is replaced with what weave wants run there, and \"{{command_json}}\" with the\nsame text escaped for embedding in JSON. It needs to allocate a terminal, since what it\ncarries is an interactive one.",
+          "description": "How to run a command on the engine, as an argv, when ssh is not how you reach it.\n\"{{command}}\" is replaced with what komrade wants run there, and \"{{command_json}}\" with the\nsame text escaped for embedding in JSON. It needs to allocate a terminal, since what it\ncarries is an interactive one.",
           "default": "[]"
         },
         {

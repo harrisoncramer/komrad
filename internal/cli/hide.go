@@ -1,7 +1,7 @@
 package cli
 
 import (
-	"weave/internal/tmux"
+	"komrade/internal/tmux"
 
 	"github.com/spf13/cobra"
 )
@@ -13,7 +13,7 @@ func hideCmd(state *app) *cobra.Command {
 		Long: `Hide the panel popup.
 
 It detaches the client the popup is holding, which closes the popup. The manager
-session stays up, so the next ` + "`weave open`" + ` comes back to the panel where it was, and
+session stays up, so the next ` + "`komrade open`" + ` comes back to the panel where it was, and
 the service and the agents are untouched.
 
 This is what the panel key runs while the popup is open, so it is rarely typed.`,

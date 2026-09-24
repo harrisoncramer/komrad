@@ -3,9 +3,9 @@ package diffview
 import (
 	"testing"
 
-	"weave/internal/diff"
-	"weave/internal/ui/paint"
-	agentv1 "weave/proto/gen/agent/v1"
+	"komrade/internal/diff"
+	"komrade/internal/ui/paint"
+	agentv1 "komrade/proto/gen/agent/v1"
 
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"

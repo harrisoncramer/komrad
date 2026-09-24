@@ -1,7 +1,7 @@
 // Package config loads the user's customization from one or more TOML files via viper,
 // merged in order so a later file wins. It covers which CLI agents run and the flags it
 // takes, the tags an agent can be given, the panel keybindings, and which database, address
-// and tmux server this weave is.
+// and tmux server this komrade is.
 package config
 
 import (
@@ -19,7 +19,7 @@ import (
 	"strings"
 	"time"
 
-	"weave/lib/xslice"
+	"komrade/lib/xslice"
 
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/spf13/viper"
@@ -38,12 +38,12 @@ const readerSuffix = "_reader"
 const DefaultLogLevel = "info"
 
 // DefaultLogViewer is what the agent-log stop opens the log in when the config names
-// nothing: filtered to the lines naming the agent WEAVE_AGENT_ID carries, followed live
-// rather than read once. An empty WEAVE_AGENT_ID matches every line, which is what running
+// nothing: filtered to the lines naming the agent KOMRADE_AGENT_ID carries, followed live
+// rather than read once. An empty KOMRADE_AGENT_ID matches every line, which is what running
 // this outside that stop degrades to.
-const DefaultLogViewer = `tail -n +1 -F "$WEAVE_LOG" | grep --line-buffered "$WEAVE_AGENT_ID" | less -R +F`
+const DefaultLogViewer = `tail -n +1 -F "$KOMRADE_LOG" | grep --line-buffered "$KOMRADE_AGENT_ID" | less -R +F`
 
-const DefaultProcessViewer = `less -R -X "$WEAVE_LOG"`
+const DefaultProcessViewer = `less -R -X "$KOMRADE_LOG"`
 
 // DefaultDeliveryDeadline is how long mail stays deliverable when the config names no
 // duration. Long enough that an agent left alone over lunch still gets its mail, short
@@ -56,7 +56,7 @@ const DefaultDeliveryDeadline = "3h"
 const DefaultMaxExchange = 40
 
 // DefaultFrameHistory is how many frames a recording keeps for one agent when the config names
-// no number. Since weave captures about one frame every two seconds, this equates roughly to 15 minutes
+// no number. Since komrade captures about one frame every two seconds, this equates roughly to 15 minutes
 // of frames captured, which should be more than enough to replicate most issues related to state transitions
 // or reading data off of an agent panel.
 const DefaultFrameHistory = 500
@@ -82,13 +82,13 @@ const DefaultMaxChildren = 3
 const (
 	// The default engine's login on the Postgres `mise run docker:up` starts and provisions,
 	// so a checkout works with nothing exported.
-	DefaultDatabaseURL = "postgres://weave_engine_default:weave@localhost:5460/weave?sslmode=disable"
+	DefaultDatabaseURL = "postgres://komrade_engine_default:komrade@localhost:5460/komrade?sslmode=disable"
 	// The login that owns that Postgres's schema, used while database_url is the default.
-	DefaultOwnerDatabaseURL = "postgres://weave:weave@localhost:5460/weave?sslmode=disable"
+	DefaultOwnerDatabaseURL = "postgres://komrade:komrade@localhost:5460/komrade?sslmode=disable"
 	// Loopback, because the endpoint has no auth and its writes can spawn agents.
 	DefaultAddr = "127.0.0.1:8787"
-	// The socket weave's own tmux server listens on, named for the tool.
-	DefaultTmuxSocket = "weave"
+	// The socket komrade's own tmux server listens on, named for the tool.
+	DefaultTmuxSocket = "komrade"
 )
 
 // DefaultHarness is the CLI a new agent runs when the config names none, spelled here
@@ -158,7 +158,7 @@ type Keybindings struct {
 	Terminal TerminalKeys `mapstructure:"terminal"`
 	// The bindings that create and change workflows, from the agents list.
 	Workflows WorkflowsKeys `mapstructure:"workflows"`
-	// The worktrees screen, which lists every directory weave cut for an agent.
+	// The worktrees screen, which lists every directory komrade cut for an agent.
 	Worktrees WorktreesKeys `mapstructure:"worktrees"`
 }
 
@@ -286,12 +286,12 @@ type AgentsKeys struct {
 	// workflow does not make worktrees, since there is no base branch to measure one against, and
 	// the legend leaves it off there.
 	Review []string `mapstructure:"review" default:"d"`
-	// Pause the hovered agent where it stands, or unpause one you have already paused. Weave
+	// Pause the hovered agent where it stands, or unpause one you have already paused. Komrade
 	// waits for the agent to come to rest before it claims the worktree, and refuses rather than
 	// claiming it when the agent will not stop or its pane cannot be read.
 	Pause []string `mapstructure:"pause" default:"p"`
 	// Unpause the hovered agent without typing anything at it, which is the way out of a pause
-	// whose agent will not take the words weave normally sends it.
+	// whose agent will not take the words komrade normally sends it.
 	ReleaseSilently []string `mapstructure:"release_silently" default:"P"`
 	// Hide the hovered agent from this list.
 	Hide []string `mapstructure:"hide" default:"h"`
@@ -510,19 +510,19 @@ type ArchiveKeys struct {
 	RestoreOpen []string `mapstructure:"restore_open" default:"R"`
 }
 
-// Hooks is where weave finds the scripts a workflow hangs on a moment in its agents' lives.
+// Hooks is where komrade finds the scripts a workflow hangs on a moment in its agents' lives.
 type Hooks struct {
 	// Directory for hooks: one executable file per hook, named after the hook.
-	// A hook is a script or program weave runs at a moment a workflow names it against, in the
-	// agent's own directory, with agent info in WEAVE_AGENT as JSON and the moment in
-	// WEAVE_TRIGGER. Default is ~/.config/weave/hooks.
+	// A hook is a script or program komrade runs at a moment a workflow names it against, in the
+	// agent's own directory, with agent info in KOMRADE_AGENT as JSON and the moment in
+	// KOMRADE_TRIGGER. Default is ~/.config/komrade/hooks.
 	Dir string `mapstructure:"dir"`
 }
 
 // Worktrees is where a workflow's generated git worktree provisioner puts what it creates.
 type Worktrees struct {
 	// Directory generated worktrees are created under, one subdirectory per agent.
-	// Left empty this is ~/.local/state/weave/worktrees.
+	// Left empty this is ~/.local/state/komrade/worktrees.
 	Dir string `mapstructure:"dir"`
 }
 
@@ -546,7 +546,7 @@ type GitHubApp struct {
 // so it does not have to be pasted into every workflow.
 type Context struct {
 	// The file holding global context, read at each launch.
-	// Left empty this is ~/.config/weave/context.md, but will not trigger a failure if left blank.
+	// Left empty this is ~/.config/komrade/context.md, but will not trigger a failure if left blank.
 	File string `mapstructure:"file"`
 }
 
@@ -593,18 +593,18 @@ type Harnesses struct {
 	Codex  Codex   `mapstructure:"codex"`
 }
 
-// Mail is how long weave keeps trying to hand mail to the agent it was addressed
+// Mail is how long komrade keeps trying to hand mail to the agent it was addressed
 // to. Delivery waits on the recipient: an agent that is busy gets its mail as its turn
 // ends, and one that has stopped is nudged, so an agent nobody is running holds mail until
 // it comes back or the deadline passes.
 type Mail struct {
 	// How long mail stays deliverable, as a Go duration such as "3h" or "45m". Mail past
 	// it is neither delivered nor readable, and the row is kept as a record that it never
-	// arrived. A duration weave cannot read, or one that is not positive, is refused.
+	// arrived. A duration komrade cannot read, or one that is not positive, is refused.
 	DeliveryDeadline string `mapstructure:"delivery_deadline"`
 	// How much mail two agents may write each other before a send between them is
 	// refused. It counts the pair in both directions over every thread, so opening a new
-	// subject is not a way around it. When a send is refused weave marks a row for
+	// subject is not a way around it. When a send is refused komrade marks a row for
 	// attention and tells the recipient its mail was stopped, so an exchange that is cut
 	// off does not leave the other side waiting on a reply that will never arrive. A
 	// negative limit is refused.
@@ -612,7 +612,7 @@ type Mail struct {
 }
 
 // GetDeliveryDeadline is how long mail stays deliverable, parsed. A duration that will
-// not parse is an error rather than the default, since a deadline somebody wrote and weave
+// not parse is an error rather than the default, since a deadline somebody wrote and komrade
 // quietly ignored is worse than one it refuses.
 func (m Mail) GetDeliveryDeadline() (time.Duration, error) {
 	if m.DeliveryDeadline == "" {
@@ -632,7 +632,7 @@ func (m Mail) GetDeliveryDeadline() (time.Duration, error) {
 
 // GetMaxExchange is how much mail two agents may write each other. An unset limit takes the
 // default; a negative one is an error rather than the default, for the same reason an
-// unparseable deadline is: a config somebody wrote and weave quietly ignored is worse than one
+// unparseable deadline is: a config somebody wrote and komrade quietly ignored is worse than one
 // it refuses.
 func (m Mail) GetMaxExchange() (int, error) {
 	if m.MaxExchange == 0 {
@@ -645,7 +645,7 @@ func (m Mail) GetMaxExchange() (int, error) {
 	return m.MaxExchange, nil
 }
 
-// Debug is what weave records about its own reading of an agent.
+// Debug is what komrade records about its own reading of an agent.
 type Debug struct {
 	// Whether the pane capture behind each reading of an agent is kept under the cache
 	// directory.
@@ -669,19 +669,19 @@ type Log struct {
 	ProcessViewer string `mapstructure:"process_viewer"`
 }
 
-// Connection is which weave you are talking to: the database it writes, the address it
+// Connection is which komrade you are talking to: the database it writes, the address it
 // serves, the tmux server it runs agents on, and the directory it generates into. Every
-// one of these also has a WEAVE_-prefixed environment variable, and the variable wins when
+// one of these also has a KOMRADE_-prefixed environment variable, and the variable wins when
 // it is set, so one shell or one checkout can point somewhere else without editing a file.
 //
 // These are the settings a second instance is isolated by, which is why they are a table
 // rather than four keys at the top level. Overriding the table is overriding the instance.
 type Connection struct {
-	// The Postgres weave keeps every agent, workflow, schedule and transcript in, reached as
+	// The Postgres komrade keeps every agent, workflow, schedule and transcript in, reached as
 	// this engine's own login, which is what keeps its rows apart from every other engine's.
-	// `weave engine ensure` creates the login and prints this url.
+	// `komrade engine ensure` creates the login and prints this url.
 	DatabaseURL string `mapstructure:"database_url"`
-	// The login that owns the schema, used only by `weave migrate` and `weave engine ensure`.
+	// The login that owns the schema, used only by `komrade migrate` and `komrade engine ensure`.
 	// Left empty this is database_url, or the local owner while database_url is the default.
 	OwnerDatabaseURL string `mapstructure:"owner_database_url"`
 	// The least-privilege login the MCP query tools connect as.
@@ -689,16 +689,16 @@ type Connection struct {
 	// with _reader on the end and the same password.
 	ReadOnlyDatabaseURL string `mapstructure:"readonly_database_url"`
 	// Where the background service listens, and where the panel, the CLI and the MCP
-	// endpoint all reach it. Change it to run two weaves on one machine. It has to be a
+	// endpoint all reach it. Change it to run two komrades on one machine. It has to be a
 	// loopback host, since the api has no auth and its writes spawn agents.
 	Addr string `mapstructure:"addr"`
-	// The tmux socket weave runs its own server on. Nothing in your normal tmux sees
-	// that server, which is why `tmux -L weave ls` is how you look at it directly.
+	// The tmux socket komrade runs its own server on. Nothing in your normal tmux sees
+	// that server, which is why `tmux -L komrade ls` is how you look at it directly.
 	TmuxSocket string `mapstructure:"tmux_socket"`
-	// Where weave keeps what it generates: the service log, the built-in scripts it
+	// Where komrade keeps what it generates: the service log, the built-in scripts it
 	// writes out on every start, and the temp files a harness passes a prompt through.
-	// Left empty this is ~/Library/Caches/weave on a Mac and ~/.cache/weave on Linux.
-	// Everything under it is weave's to delete and rewrite, so nothing of yours belongs here.
+	// Left empty this is ~/Library/Caches/komrade on a Mac and ~/.cache/komrade on Linux.
+	// Everything under it is komrade's to delete and rewrite, so nothing of yours belongs here.
 	CacheDir string `mapstructure:"cache_dir"`
 	// The ssh destination the engine runs on, like user@host, when it is not this machine.
 	// Left empty the engine is local and an agent's terminal is shown by moving its own pane
@@ -706,14 +706,14 @@ type Connection struct {
 	SSH string `mapstructure:"ssh"`
 	// The tmux socket the engine's own server runs on, which is only consulted when ssh names
 	// a destination. Left empty it is tmux_socket, which is right when both machines run a
-	// default weave and wrong when this machine is also running an engine of its own.
+	// default komrade and wrong when this machine is also running an engine of its own.
 	EngineTmuxSocket string `mapstructure:"engine_tmux_socket"`
 	// The key, after your tmux prefix, that opens and hides the panel, and the picker between
 	// this machine and its engines once engine files exist. Left empty it is whatever
-	// @weave_key says, and failing that g. An engine file may not set it.
+	// @komrade_key says, and failing that g. An engine file may not set it.
 	PanelKey string `mapstructure:"panel_key"`
 	// How to run a command on the engine, as an argv, when ssh is not how you reach it.
-	// "{{command}}" is replaced with what weave wants run there, and "{{command_json}}" with the
+	// "{{command}}" is replaced with what komrade wants run there, and "{{command_json}}" with the
 	// same text escaped for embedding in JSON. It needs to allocate a terminal, since what it
 	// carries is an interactive one.
 	Exec []string `mapstructure:"exec"`
@@ -743,7 +743,7 @@ type Config struct {
 	Layout Layout `mapstructure:"layout"`
 	// Panel keybindings, scoped to the screen each binding acts in.
 	Keybindings Keybindings `mapstructure:"keybindings"`
-	// Where weave finds the scripts a workflow hangs on a moment in its agents' lives.
+	// Where komrade finds the scripts a workflow hangs on a moment in its agents' lives.
 	Hooks Hooks `mapstructure:"hooks"`
 	// Where a workflow's generated worktree provisioner creates its worktrees.
 	Worktrees Worktrees `mapstructure:"worktrees"`
@@ -755,9 +755,9 @@ type Config struct {
 	Mail Mail `mapstructure:"mail"`
 	// The log the background service writes, which the panel's log key pages.
 	Log Log `mapstructure:"log"`
-	// Puts weave into debug mode which records additional information used to help diagnose issues.
+	// Puts komrade into debug mode which records additional information used to help diagnose issues.
 	Debug Debug `mapstructure:"debug"`
-	// Which weave this is: the database, the address, the tmux socket, the cache.
+	// Which komrade this is: the database, the address, the tmux socket, the cache.
 	Connection Connection `mapstructure:"connection"`
 }
 
@@ -995,7 +995,7 @@ func validateDatabaseURL(databaseURL string) error {
 		return fmt.Errorf("connection.database_url: %q is not a url: %w", databaseURL, err)
 	}
 	if parsed.Scheme != "postgres" && parsed.Scheme != "postgresql" {
-		return fmt.Errorf("connection.database_url: %q is a %s url, and weave stores its records in Postgres",
+		return fmt.Errorf("connection.database_url: %q is a %s url, and komrade stores its records in Postgres",
 			databaseURL, cmp.Or(parsed.Scheme, "schemeless"))
 	}
 	if parsed.Host == "" {
@@ -1015,19 +1015,19 @@ func validateLog(log Log) error {
 	return fmt.Errorf("log.level: %q is not one of %s", log.Level, strings.Join(logLevels, ", "))
 }
 
-// configHome is the directory the panel keeps its own files in, ~/.config/weave.
+// configHome is the directory the panel keeps its own files in, ~/.config/komrade.
 func configHome() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("failed to get home directory: %w", err)
 	}
 
-	return filepath.Join(home, ".config", "weave"), nil
+	return filepath.Join(home, ".config", "komrade"), nil
 }
 
 // ExpandHome expands a leading ~ or ~/ to the user's home directory, since nothing below a
 // config does it for itself. tmux's new-session -c takes the path literally, and so does
-// every open of a file weave was pointed at. A home directory that cannot be read leaves
+// every open of a file komrade was pointed at. A home directory that cannot be read leaves
 // the path as written.
 func ExpandHome(path string) string {
 	if path != "~" && !strings.HasPrefix(path, "~/") {
@@ -1045,8 +1045,8 @@ func ExpandHome(path string) string {
 	return filepath.Join(home, path[len("~/"):])
 }
 
-// GetHooksDir is where weave looks for the scripts a workflow hangs on a moment: the
-// configured directory, or ~/.config/weave/hooks when the config names none.
+// GetHooksDir is where komrade looks for the scripts a workflow hangs on a moment: the
+// configured directory, or ~/.config/komrade/hooks when the config names none.
 func (c Config) GetHooksDir() (string, error) {
 	if dir := strings.TrimSpace(c.Hooks.Dir); dir != "" {
 		return ExpandHome(dir), nil
@@ -1061,7 +1061,7 @@ func (c Config) GetHooksDir() (string, error) {
 }
 
 // GetWorktreesDir is where a generated worktree provisioner creates its worktrees: the
-// configured directory, or ~/.local/state/weave/worktrees when the config names none. The
+// configured directory, or ~/.local/state/komrade/worktrees when the config names none. The
 // default is filled in here rather than into Config for the reason the hooks directory's
 // is, since one machine's home directory spelled into the generated config would be wrong
 // on every other machine.
@@ -1075,11 +1075,11 @@ func (c Config) GetWorktreesDir() (string, error) {
 		return "", fmt.Errorf("failed to get home directory: %w", err)
 	}
 
-	return filepath.Join(home, ".local", "state", "weave", "worktrees"), nil
+	return filepath.Join(home, ".local", "state", "komrade", "worktrees"), nil
 }
 
-// GetStateDir is where weave keeps its own per-agent files, such as a released review for the agent to read. It is under
-// weave's own state directory rather than beside the agent's work, since a linked worktree's
+// GetStateDir is where komrade keeps its own per-agent files, such as a released review for the agent to read. It is under
+// komrade's own state directory rather than beside the agent's work, since a linked worktree's
 // own info/exclude is not read by git and a file put in the worktree would show up in the
 // diff being reviewed.
 func GetStateDir() (string, error) {
@@ -1088,11 +1088,11 @@ func GetStateDir() (string, error) {
 		return "", fmt.Errorf("failed to get home directory: %w", err)
 	}
 
-	return filepath.Join(home, ".local", "state", "weave"), nil
+	return filepath.Join(home, ".local", "state", "komrade"), nil
 }
 
 // GetContextFile is the standing text every agent is started with: the configured file, or
-// ~/.config/weave/context.md when the config names none. The default is filled in here for
+// ~/.config/komrade/context.md when the config names none. The default is filled in here for
 // the reason the hooks directory's is, since one machine's home directory spelled into
 // the generated config would be wrong on every other machine.
 func (c Config) GetContextFile() (string, error) {
@@ -1131,7 +1131,7 @@ type Stack struct {
 // An engine is laid over whichever of those two the stack came to, so naming one adds a
 // file rather than replacing the config underneath it.
 //
-// Weave never looks for a file it was not asked for. There is no sibling convention and
+// Komrade never looks for a file it was not asked for. There is no sibling convention and
 // nothing per directory, so which files are read depends on what was asked for rather than
 // on what happens to be lying around.
 //
@@ -1343,12 +1343,12 @@ func registerDefaultValues(cfg *viper.Viper, prefix string, values map[string]an
 }
 
 var connectionEnvironment = map[string]string{
-	"connection.database_url":          "WEAVE_DATABASE_URL",
-	"connection.readonly_database_url": "WEAVE_READONLY_DATABASE_URL",
-	"connection.owner_database_url":    "WEAVE_OWNER_DATABASE_URL",
-	"connection.addr":                  "WEAVE_ADDR",
-	"connection.tmux_socket":           "WEAVE_TMUX_SOCKET",
-	"connection.cache_dir":             "WEAVE_CACHE_DIR",
+	"connection.database_url":          "KOMRADE_DATABASE_URL",
+	"connection.readonly_database_url": "KOMRADE_READONLY_DATABASE_URL",
+	"connection.owner_database_url":    "KOMRADE_OWNER_DATABASE_URL",
+	"connection.addr":                  "KOMRADE_ADDR",
+	"connection.tmux_socket":           "KOMRADE_TMUX_SOCKET",
+	"connection.cache_dir":             "KOMRADE_CACHE_DIR",
 }
 
 func bindEnvironment(cfg *viper.Viper) error {
@@ -1381,10 +1381,10 @@ func (c *Config) resolveDerived(report *Report) error {
 	if c.Connection.CacheDir == "" {
 		dir, err := os.UserCacheDir()
 		if err != nil {
-			return fmt.Errorf("failed to find a cache directory, set WEAVE_CACHE_DIR to an absolute path weave can write to: %w", err)
+			return fmt.Errorf("failed to find a cache directory, set KOMRADE_CACHE_DIR to an absolute path komrade can write to: %w", err)
 		}
 
-		c.Connection.CacheDir = filepath.Join(dir, "weave")
+		c.Connection.CacheDir = filepath.Join(dir, "komrade")
 		report.Sources["cache_dir"] = SourceDerived
 	} else {
 		c.Connection.CacheDir = ExpandHome(c.Connection.CacheDir)

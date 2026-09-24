@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"slices"
 
-	"weave/config"
-	"weave/internal/ui/paint/label"
-	"weave/internal/ui/panel"
-	"weave/internal/view"
-	"weave/lib/xslice"
-	agentv1 "weave/proto/gen/agent/v1"
+	"komrade/config"
+	"komrade/internal/ui/paint/label"
+	"komrade/internal/ui/panel"
+	"komrade/internal/view"
+	"komrade/lib/xslice"
+	agentv1 "komrade/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
 )

@@ -11,23 +11,23 @@ import (
 	"testing"
 	"time"
 
-	"weave/internal/dbtest"
-	"weave/internal/forge"
-	"weave/internal/git"
-	"weave/internal/logging"
-	"weave/internal/store"
-	agentstore "weave/internal/store/agent"
-	forgestore "weave/internal/store/forge"
-	pullrequeststore "weave/internal/store/pullrequest"
-	workflowstore "weave/internal/store/workflow"
-	"weave/lib/xptr"
-	"weave/lib/xslice"
+	"komrade/internal/dbtest"
+	"komrade/internal/forge"
+	"komrade/internal/git"
+	"komrade/internal/logging"
+	"komrade/internal/store"
+	agentstore "komrade/internal/store/agent"
+	forgestore "komrade/internal/store/forge"
+	pullrequeststore "komrade/internal/store/pullrequest"
+	workflowstore "komrade/internal/store/workflow"
+	"komrade/lib/xptr"
+	"komrade/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-const syncRepository = "https://github.com/harrisoncramer/weave"
+const syncRepository = "https://github.com/harrisoncramer/komrade"
 
 const otherRepository = "https://github.com/harrisoncramer/weave-forge-fixture"
 
@@ -179,7 +179,7 @@ func newSyncFixture(t *testing.T) *syncFixture {
 
 	workflows := workflowstore.NewWorkflowStore(pool.GetDB())
 	created, err := workflows.Create(ctx, workflowstore.Config{
-		Name:     "weave",
+		Name:     "komrade",
 		Worktree: workflowstore.WorktreeConfig{Enabled: true, BaseBranch: "main"},
 	})
 	require.NoError(t, err)
@@ -315,7 +315,7 @@ func pullRequestAt(providerID, branch string, updatedAt time.Time) forge.PullReq
 	return pullRequestIn(git.RemoteURL{
 		Scheme: "https",
 		Host:   "github.com",
-		Path:   "harrisoncramer/weave",
+		Path:   "harrisoncramer/komrade",
 	}, providerID, branch, updatedAt)
 }
 
@@ -507,7 +507,7 @@ func TestSyncSearchPagesAndMovesTheMarkOnlyAtTheEnd(t *testing.T) {
 		Cursor:       "s2",
 	}
 	colliding := decided(pullRequestAt("PR_9", "agent/x", syncNow.Add(-2*time.Minute)), forge.ReviewDecisionNone)
-	colliding.URL = "https://github.com/harrisoncramer/weave/pull/PR_1"
+	colliding.URL = "https://github.com/harrisoncramer/komrade/pull/PR_1"
 	f.forge.changed["s2"] = &forge.Page{PullRequests: []forge.PullRequest{colliding}}
 
 	f.pass(t, syncNow.Add(time.Minute))
@@ -552,7 +552,7 @@ func TestSyncSearchLeavesOutAnUnsweptRepository(t *testing.T) {
 
 	require.Len(t, f.forge.searches, 2)
 	require.Len(t, f.forge.searches[1].Repos, 1, "the repository still sweeping is not searched")
-	assert.Equal(t, "harrisoncramer/weave", f.forge.searches[1].Repos[0].Path)
+	assert.Equal(t, "harrisoncramer/komrade", f.forge.searches[1].Repos[0].Path)
 	assert.True(t, f.forge.searches[1].Since.Equal(mark.Add(-pullRequestSyncOverlap)))
 	assert.True(t, f.getSyncOf(t, otherRepository).IsSweeping())
 
@@ -722,7 +722,7 @@ func TestSyncFailedPageRollsBackAndStillCounts(t *testing.T) {
 	f := newSyncFixture(t)
 	f.agentOn(t, "a", "agent/x")
 	colliding := pullRequestAt("PR_9", "agent/x", syncNow.Add(-2*time.Minute))
-	colliding.URL = "https://github.com/harrisoncramer/weave/pull/PR_1"
+	colliding.URL = "https://github.com/harrisoncramer/komrade/pull/PR_1"
 	f.forge.updated[""] = &forge.Page{
 		PullRequests: []forge.PullRequest{pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Minute))},
 		HasMore:      true,
@@ -962,7 +962,7 @@ func TestSyncSaysARenamedRepositoryOnce(t *testing.T) {
 	renamed := git.RemoteURL{
 		Scheme: "https",
 		Host:   "github.com",
-		Path:   "harrisoncramer/weave-renamed",
+		Path:   "harrisoncramer/komrade-renamed",
 	}
 	f.forge.updated[""] = &forge.Page{PullRequests: []forge.PullRequest{pullRequestIn(renamed, "PR_1", "agent/x", syncNow.Add(-time.Hour))}}
 	var logged bytes.Buffer
@@ -1028,7 +1028,7 @@ func TestSyncBacksOffARefusedCredential(t *testing.T) {
 func TestSyncSkipsARepositoryWithNoConnection(t *testing.T) {
 	f := newSyncFixture(t)
 	f.agentOn(t, "a", "agent/x")
-	elsewhere := "https://gitlab.com/harrisoncramer/weave"
+	elsewhere := "https://gitlab.com/harrisoncramer/komrade"
 	f.agentIn(t, "b", elsewhere, "agent/y")
 	f.forge.updated[""] = &forge.Page{}
 
@@ -1331,7 +1331,7 @@ func TestSyncWritesTheChecksTheSearchCarries(t *testing.T) {
 // shows the pull request from its branch.
 func TestSyncMatchesARemoteSpelledWithCapitals(t *testing.T) {
 	f := newSyncFixture(t)
-	spelled, err := git.ParseRemoteURL("git@github.com:HarrisonCramer/Weave.git")
+	spelled, err := git.ParseRemoteURL("git@github.com:HarrisonCramer/Komrade.git")
 	require.NoError(t, err)
 	agent := f.agentIn(t, "a", spelled.Canonical(), "agent/x")
 	page := map[string]*forge.Page{"": {PullRequests: []forge.PullRequest{pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Hour))}}}

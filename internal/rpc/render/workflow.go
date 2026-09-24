@@ -1,12 +1,12 @@
 package render
 
 import (
-	"weave/lib/dates"
-	"weave/lib/xslice"
-	"weave/lib/xstr"
+	"komrade/lib/dates"
+	"komrade/lib/xslice"
+	"komrade/lib/xstr"
 
-	workflowstore "weave/internal/store/workflow"
-	workflowv1 "weave/proto/gen/workflow/v1"
+	workflowstore "komrade/internal/store/workflow"
+	workflowv1 "komrade/proto/gen/workflow/v1"
 )
 
 // WorktreeConfigFromProto reads a worktree config off the wire into the store's own shape.

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"weave/internal/harness"
+	"komrade/internal/harness"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -57,7 +57,7 @@ func TestBuildCommand(t *testing.T) {
 		{
 			name:        "the agent's own id leads the line, so it reaches codex's environment",
 			launch:      harness.Launch{AgentID: "id-1", Prompt: "go"},
-			wantContain: []string{"WEAVE_AGENT_ID='id-1' CODEX_INTERNAL_ORIGINATOR_OVERRIDE='weave-id-1' codex"},
+			wantContain: []string{"KOMRADE_AGENT_ID='id-1' CODEX_INTERNAL_ORIGINATOR_OVERRIDE='komrade-id-1' codex"},
 		},
 		{
 			name: "and it survives a resume",
@@ -67,7 +67,7 @@ func TestBuildCommand(t *testing.T) {
 				Resume:    true,
 			},
 			wantContain: []string{
-				"WEAVE_AGENT_ID='id-1' WEAVE_SESSION_ID='sess' CODEX_INTERNAL_ORIGINATOR_OVERRIDE='weave-id-1' codex resume",
+				"KOMRADE_AGENT_ID='id-1' KOMRADE_SESSION_ID='sess' CODEX_INTERNAL_ORIGINATOR_OVERRIDE='komrade-id-1' codex resume",
 			},
 		},
 		{
@@ -81,12 +81,12 @@ func TestBuildCommand(t *testing.T) {
 			wantContain: []string{` -- "$(cat `, "; rm "},
 		},
 		{
-			name:        "notify points at weave, which is codex's only report of a turn ending",
-			launch:      harness.Launch{HookCommand: "/usr/local/bin/weave", Prompt: "go"},
-			wantContain: []string{`-c 'notify=["/usr/local/bin/weave","hook","turn-end"]'`},
+			name:        "notify points at komrade, which is codex's only report of a turn ending",
+			launch:      harness.Launch{HookCommand: "/usr/local/bin/komrade", Prompt: "go"},
+			wantContain: []string{`-c 'notify=["/usr/local/bin/komrade","hook","turn-end"]'`},
 		},
 		{
-			name:       "and a launch weave cannot name a binary for asks for none",
+			name:       "and a launch komrade cannot name a binary for asks for none",
 			launch:     harness.Launch{Prompt: "go"},
 			wantAbsent: []string{"notify="},
 		},
@@ -112,7 +112,7 @@ func TestBuildCommand(t *testing.T) {
 
 var homeRef = regexp.MustCompile(`CODEX_HOME='([^']+)' `)
 
-// TestBuildCommandPinsTheHome covers the launch carrying the directory weave reads its rollout
+// TestBuildCommandPinsTheHome covers the launch carrying the directory komrade reads its rollout
 // from.
 func TestBuildCommandPinsTheHome(t *testing.T) {
 	tests := []struct {
@@ -197,8 +197,8 @@ func TestBuildCommandRegistersMCPServer(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			assert.Contains(t, command, `-c 'mcp_servers.weave.url="http://127.0.0.1:9999/mcp"'`)
-			assert.Contains(t, command, `-c 'mcp_servers.weave.default_tools_approval_mode="approve"'`)
+			assert.Contains(t, command, `-c 'mcp_servers.komrade.url="http://127.0.0.1:9999/mcp"'`)
+			assert.Contains(t, command, `-c 'mcp_servers.komrade.default_tools_approval_mode="approve"'`)
 		})
 	}
 }
@@ -349,10 +349,10 @@ func TestMCPHeadersNameTheEnvironment(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Contains(t, command,
-		`-c 'mcp_servers.weave.env_http_headers={"X-Weave-Agent-Id"="WEAVE_AGENT_ID","X-Weave-Session-Id"="WEAVE_SESSION_ID"}'`)
+		`-c 'mcp_servers.komrade.env_http_headers={"X-Komrade-Agent-Id"="KOMRADE_AGENT_ID","X-Komrade-Session-Id"="KOMRADE_SESSION_ID"}'`)
 
-	assert.Contains(t, command, "WEAVE_AGENT_ID='agent-1'")
-	assert.Contains(t, command, "WEAVE_SESSION_ID='sess-1'")
+	assert.Contains(t, command, "KOMRADE_AGENT_ID='agent-1'")
+	assert.Contains(t, command, "KOMRADE_SESSION_ID='sess-1'")
 }
 
 // TestMCPHeadersOnlyWithAnEndpoint covers a launch with no server to register, where no

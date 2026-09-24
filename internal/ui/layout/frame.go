@@ -5,9 +5,9 @@ import (
 	"os"
 	"strconv"
 
-	"weave/config"
-	"weave/internal/engine"
-	"weave/internal/panes"
+	"komrade/config"
+	"komrade/internal/engine"
+	"komrade/internal/panes"
 )
 
 type Frame struct {

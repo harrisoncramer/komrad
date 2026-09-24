@@ -21,4 +21,4 @@ the server is answering on.
 
 [1m›[0m [2mUse /skills to list available skills[0m
 
-  [38;2;130;156;207mfoo medium[2m[39m · [0m[38;2;154;184;117m~/weave-test[39m
+  [38;2;130;156;207mfoo medium[2m[39m · [0m[38;2;154;184;117m~/komrade-test[39m

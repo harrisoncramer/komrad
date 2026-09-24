@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"weave/internal/git"
+	"komrade/internal/git"
 )
 
 // Snapshots freezes whatever tree its fields name and hands back the files it was given.

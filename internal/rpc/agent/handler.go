@@ -8,20 +8,20 @@ import (
 	"log/slog"
 	"time"
 
-	"weave/internal/agents"
-	"weave/internal/caller"
-	"weave/internal/fail"
-	"weave/internal/logging"
-	"weave/internal/rpc/render"
-	"weave/internal/rpcerr"
-	"weave/internal/store"
-	"weave/lib/pagination"
-	"weave/lib/xslice"
-	agentv1 "weave/proto/gen/agent/v1"
+	"komrade/internal/agents"
+	"komrade/internal/caller"
+	"komrade/internal/fail"
+	"komrade/internal/logging"
+	"komrade/internal/rpc/render"
+	"komrade/internal/rpcerr"
+	"komrade/internal/store"
+	"komrade/lib/pagination"
+	"komrade/lib/xslice"
+	agentv1 "komrade/proto/gen/agent/v1"
 
-	agentstore "weave/internal/store/agent"
-	markstore "weave/internal/store/mark"
-	rowstore "weave/internal/store/row"
+	agentstore "komrade/internal/store/agent"
+	markstore "komrade/internal/store/mark"
+	rowstore "komrade/internal/store/row"
 
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -378,7 +378,7 @@ func (s *Handler) SetMetadata(ctx context.Context, req *agentv1.SetMetadataReque
 	return &emptypb.Empty{}, nil
 }
 
-// Log writes one line to weave's log for an agent.
+// Log writes one line to komrade's log for an agent.
 func (s *Handler) Log(ctx context.Context, req *agentv1.LogRequest) (*emptypb.Empty, *fail.Error) {
 	id, failure := scopedAgentID(ctx, req.GetId())
 	if failure != nil {

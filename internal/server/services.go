@@ -5,24 +5,24 @@ import (
 	"os"
 	"path/filepath"
 
-	"weave/config"
-	"weave/internal/agents"
-	"weave/internal/checkouts"
-	"weave/internal/forge"
-	"weave/internal/forge/forges"
-	"weave/internal/frames"
-	"weave/internal/git"
-	"weave/internal/harness/pane"
-	"weave/internal/mail"
-	"weave/internal/marks"
-	"weave/internal/pullrequests"
-	"weave/internal/reviews"
-	"weave/internal/schedules"
-	"weave/internal/scriptrun"
-	"weave/internal/scripts"
-	"weave/internal/transcripts"
-	"weave/internal/watch"
-	"weave/internal/worktrees"
+	"komrade/config"
+	"komrade/internal/agents"
+	"komrade/internal/checkouts"
+	"komrade/internal/forge"
+	"komrade/internal/forge/forges"
+	"komrade/internal/frames"
+	"komrade/internal/git"
+	"komrade/internal/harness/pane"
+	"komrade/internal/mail"
+	"komrade/internal/marks"
+	"komrade/internal/pullrequests"
+	"komrade/internal/reviews"
+	"komrade/internal/schedules"
+	"komrade/internal/scriptrun"
+	"komrade/internal/scripts"
+	"komrade/internal/transcripts"
+	"komrade/internal/watch"
+	"komrade/internal/worktrees"
 )
 
 type services struct {
@@ -57,10 +57,10 @@ type services struct {
 	watchRows        *watch.Rows
 }
 
-// BuiltinScriptsDir is where the scripts weave ships are installed under a cache directory,
+// BuiltinScriptsDir is where the scripts komrade ships are installed under a cache directory,
 // which is the only place a script that is not a hook is resolved from.
 func BuiltinScriptsDir(cacheDir string) string {
-	return filepath.Join(cacheDir, "weave-builtin-scripts")
+	return filepath.Join(cacheDir, "komrade-builtin-scripts")
 }
 
 func buildServices(params NewServerParams, st *stores) (*services, error) {

@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"time"
 
-	"weave/internal/agents"
-	"weave/internal/store"
-	schedulestore "weave/internal/store/schedule"
-	"weave/lib/xptr"
+	"komrade/internal/agents"
+	"komrade/internal/store"
+	schedulestore "komrade/internal/store/schedule"
+	"komrade/lib/xptr"
 
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"

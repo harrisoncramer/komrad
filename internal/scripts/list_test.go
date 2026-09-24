@@ -34,14 +34,14 @@ func TestListSeesAChmod(t *testing.T) {
 func TestListSeesAnEditedHeader(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "open-pr")
-	require.NoError(t, os.WriteFile(path, []byte("#!/bin/sh\n#WEAVE description=\"before\"\n"), 0o755))
+	require.NoError(t, os.WriteFile(path, []byte("#!/bin/sh\n#KOMRADE description=\"before\"\n"), 0o755))
 
 	first, err := List(dir)
 	require.NoError(t, err)
 	require.Len(t, first, 1)
 	require.Equal(t, "before", first[0].Header.Description)
 
-	require.NoError(t, os.WriteFile(path, []byte("#!/bin/sh\n#WEAVE description=\"after\"\n"), 0o755))
+	require.NoError(t, os.WriteFile(path, []byte("#!/bin/sh\n#KOMRADE description=\"after\"\n"), 0o755))
 
 	second, err := List(dir)
 	require.NoError(t, err)

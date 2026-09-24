@@ -1,13 +1,13 @@
 resource "aws_subnet" "private" {
   for_each = var.private_subnet_cidrs
 
-  vpc_id            = aws_vpc.weave.id
+  vpc_id            = aws_vpc.komrade.id
   cidr_block        = each.value
   availability_zone = each.key
   tags              = merge(local.tags, { Name = "${var.name}-private-${each.key}" })
 }
 
-resource "aws_db_subnet_group" "weave" {
+resource "aws_db_subnet_group" "komrade" {
   name       = var.name
   subnet_ids = [for subnet in aws_subnet.private : subnet.id]
   tags       = merge(local.tags, { Name = "${var.name}-database" })
@@ -15,13 +15,13 @@ resource "aws_db_subnet_group" "weave" {
 
 resource "aws_security_group" "database" {
   name_prefix = "${var.name}-database-"
-  vpc_id      = aws_vpc.weave.id
+  vpc_id      = aws_vpc.komrade.id
 
   ingress {
     from_port       = 5432
     to_port         = 5432
     protocol        = "tcp"
-    security_groups = [aws_security_group.weave.id]
+    security_groups = [aws_security_group.komrade.id]
   }
 
   tags = merge(local.tags, { Name = "${var.name}-database" })
@@ -31,7 +31,7 @@ resource "aws_security_group" "database" {
   }
 }
 
-resource "aws_db_instance" "weave" {
+resource "aws_db_instance" "komrade" {
   identifier     = var.name
   engine         = "postgres"
   engine_version = var.database_engine_version
@@ -42,11 +42,11 @@ resource "aws_db_instance" "weave" {
   storage_type          = "gp3"
   storage_encrypted     = true
 
-  db_name                     = "weave"
-  username                    = "weave"
+  db_name                     = "komrade"
+  username                    = "komrade"
   manage_master_user_password = true
 
-  db_subnet_group_name   = aws_db_subnet_group.weave.name
+  db_subnet_group_name   = aws_db_subnet_group.komrade.name
   vpc_security_group_ids = [aws_security_group.database.id]
   availability_zone      = var.availability_zone
   multi_az               = false
@@ -68,11 +68,11 @@ resource "aws_db_instance" "weave" {
   tags = merge(local.tags, { Name = "${var.name}-database" })
 }
 
-# The role reads the whole weave namespace rather than one secret, so a second secret is a new
+# The role reads the whole komrade namespace rather than one secret, so a second secret is a new
 # entry in the store rather than an edit to IAM. It is still only this prefix, and only reading.
 resource "aws_iam_role_policy" "secrets" {
   name = "${var.name}-secrets"
-  role = aws_iam_role.weave.id
+  role = aws_iam_role.komrade.id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -81,7 +81,7 @@ resource "aws_iam_role_policy" "secrets" {
       Action = ["secretsmanager:GetSecretValue"]
       Resource = [
         "arn:aws:secretsmanager:${var.aws_region}:${var.aws_account_id}:secret:${var.secret_prefix}/*",
-        aws_db_instance.weave.master_user_secret[0].secret_arn,
+        aws_db_instance.komrade.master_user_secret[0].secret_arn,
       ]
     }]
   })

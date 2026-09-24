@@ -3,8 +3,8 @@ package ui
 import (
 	"fmt"
 
-	"weave/config"
-	"weave/internal/ui/panel"
+	"komrade/config"
+	"komrade/internal/ui/panel"
 
 	"charm.land/huh/v2"
 )

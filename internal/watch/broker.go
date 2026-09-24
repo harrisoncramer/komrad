@@ -7,10 +7,10 @@ import (
 	"sync"
 	"time"
 
-	"weave/internal/fail"
-	"weave/internal/logging"
-	"weave/lib/xslice"
-	watchv1 "weave/proto/gen/watch/v1"
+	"komrade/internal/fail"
+	"komrade/internal/logging"
+	"komrade/lib/xslice"
+	watchv1 "komrade/proto/gen/watch/v1"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/protobuf/proto"

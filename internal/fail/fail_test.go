@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"weave/internal/fail"
+	"komrade/internal/fail"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

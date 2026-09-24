@@ -3,9 +3,9 @@ package ui
 import (
 	"time"
 
-	"weave/config"
+	"komrade/config"
 
-	"weave/internal/ui/paint"
+	"komrade/internal/ui/paint"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"

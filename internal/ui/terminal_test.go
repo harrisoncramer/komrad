@@ -3,9 +3,9 @@ package ui_test
 import (
 	"testing"
 
-	"weave/internal/engine"
-	"weave/internal/ui"
-	agentv1 "weave/proto/gen/agent/v1"
+	"komrade/internal/engine"
+	"komrade/internal/ui"
+	agentv1 "komrade/proto/gen/agent/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -140,7 +140,7 @@ func TestTerminal(t *testing.T) {
 
 	t.Run("a remote engine's shell is opened over the transport", func(t *testing.T) {
 		remote := panelHarnessParams{engine: engine.Remote{Destination: "ubuntu@engine"}}
-		harness := openTerminal(t, remote, newStagedShellAgent("/var/lib/weave/worktrees/01a0c466"))
+		harness := openTerminal(t, remote, newStagedShellAgent("/var/lib/komrade/worktrees/01a0c466"))
 
 		harness.press("T")
 
@@ -148,7 +148,7 @@ func TestTerminal(t *testing.T) {
 		require.NotEmpty(t, harness.panel.ReadRespawns())
 		last := len(harness.panel.ReadRespawns()) - 1
 		assert.Equal(t, infoPane, harness.panel.ReadRespawnPanes()[last])
-		assert.Equal(t, `ssh -t ubuntu@engine cd '/var/lib/weave/worktrees/01a0c466' && exec "${SHELL:-sh}"`, harness.panel.ReadRespawns()[last])
+		assert.Equal(t, `ssh -t ubuntu@engine cd '/var/lib/komrade/worktrees/01a0c466' && exec "${SHELL:-sh}"`, harness.panel.ReadRespawns()[last])
 		assert.Empty(t, harness.panel.ReadRespawnDirs()[last], "the pane is not rooted at a directory this machine lacks")
 		assert.Equal(t, []string{infoPane}, harness.panel.ReadSelectedPanes())
 	})

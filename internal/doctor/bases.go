@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"weave/internal/git"
+	"komrade/internal/git"
 )
 
 var (

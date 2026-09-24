@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"weave/db"
-	"weave/internal/store"
-	agentstore "weave/internal/store/agent"
+	"komrade/db"
+	"komrade/internal/store"
+	agentstore "komrade/internal/store/agent"
 )
 
 const orchestratorDirName = "orchestrators"

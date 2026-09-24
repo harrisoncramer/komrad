@@ -1,6 +1,6 @@
 package view
 
-import "weave/internal/ui/paint/label"
+import "komrade/internal/ui/paint/label"
 
 // plainColumns is how many columns one glyph takes.
 const plainColumns = 1

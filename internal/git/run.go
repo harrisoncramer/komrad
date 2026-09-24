@@ -1,4 +1,4 @@
-// Package git runs git and holds the operations weave needs from it, with one convention for
+// Package git runs git and holds the operations komrade needs from it, with one convention for
 // timeouts, context and error wrapping covering every caller.
 package git
 

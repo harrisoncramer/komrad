@@ -6,10 +6,10 @@ import (
 	"strings"
 	"testing"
 
-	"weave/internal/dbtest"
-	"weave/internal/store"
-	"weave/internal/watch"
-	"weave/lib/xslice"
+	"komrade/internal/dbtest"
+	"komrade/internal/store"
+	"komrade/internal/watch"
+	"komrade/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

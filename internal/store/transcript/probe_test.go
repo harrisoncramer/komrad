@@ -7,13 +7,13 @@ import (
 	"strings"
 	"testing"
 
-	"weave/internal/store"
+	"komrade/internal/store"
 
 	"github.com/stretchr/testify/require"
 )
 
 var (
-	probeURL    = flag.String("probe.url", "", "an engine's reader url, such as postgres://weave_engine_default_reader:...@localhost:5460/weave")
+	probeURL    = flag.String("probe.url", "", "an engine's reader url, such as postgres://komrade_engine_default_reader:...@localhost:5460/komrade")
 	probeEngine = flag.String("probe.engine", "", "the id of the engine the reader belongs to")
 	probeQuery  = flag.String("probe.query", "", "query to run")
 	probeWatch  = flag.String("probe.watch", "", "agent name whose hits are reported wherever they land")

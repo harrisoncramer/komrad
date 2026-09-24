@@ -5,8 +5,8 @@ import (
 	"context"
 	"fmt"
 
-	"weave/internal/position"
-	"weave/lib/xslice"
+	"komrade/internal/position"
+	"komrade/lib/xslice"
 
 	"github.com/bluekeyes/go-gitdiff/gitdiff"
 )

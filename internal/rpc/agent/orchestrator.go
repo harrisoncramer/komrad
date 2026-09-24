@@ -3,11 +3,11 @@ package agent
 import (
 	"context"
 
-	agentv1 "weave/proto/gen/agent/v1"
+	agentv1 "komrade/proto/gen/agent/v1"
 
-	"weave/internal/fail"
-	"weave/internal/rpcerr"
-	agentstore "weave/internal/store/agent"
+	"komrade/internal/fail"
+	"komrade/internal/rpcerr"
+	agentstore "komrade/internal/store/agent"
 )
 
 type orchestratorStarter interface {

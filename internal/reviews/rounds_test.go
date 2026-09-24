@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"weave/internal/mail"
-	mailstore "weave/internal/store/mail"
-	reviewstore "weave/internal/store/review"
-	"weave/lib/xslice"
+	"komrade/internal/mail"
+	mailstore "komrade/internal/store/mail"
+	reviewstore "komrade/internal/store/review"
+	"komrade/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -62,7 +62,7 @@ func TestReleaseReviewWritesTheFile(t *testing.T) {
 			write: func(t *testing.T, fx *reviewFixture) *ReleaseReviewResult {
 				return fx.releaseReview(t, personAuthor, reviewstore.VerdictApproved)
 			},
-			wantSaid: []string{"Approved", "round 1", "the person running weave"},
+			wantSaid: []string{"Approved", "round 1", "the person running komrade"},
 		},
 		{
 			name: "a reviewer's comment",

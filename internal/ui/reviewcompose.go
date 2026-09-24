@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"weave/internal/ui/diffview"
-	"weave/internal/ui/paint/label"
-	agentv1 "weave/proto/gen/agent/v1"
+	"komrade/internal/ui/diffview"
+	"komrade/internal/ui/paint/label"
+	agentv1 "komrade/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
 	"connectrpc.com/connect"
@@ -183,7 +183,7 @@ func (r reviewScreen) openMessageEditor(h host, s panelShared) tea.Cmd {
 
 // messageDraftPath is where the message is put for the editor to open.
 func messageDraftPath(agentID string) string {
-	return filepath.Join(os.TempDir(), fmt.Sprintf("weave-comment-%s-%d.md", agentID, os.Getpid()))
+	return filepath.Join(os.TempDir(), fmt.Sprintf("komrade-comment-%s-%d.md", agentID, os.Getpid()))
 }
 
 // applyMessageEdited puts what the editor wrote back into the composer.

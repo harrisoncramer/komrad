@@ -163,7 +163,7 @@ func TestPickerView(t *testing.T) {
 
 	view := strings.Join(strings.Fields(ansi.Strip(m.render())), " ")
 
-	assert.Contains(t, view, "this weave is devel+abc")
+	assert.Contains(t, view, "this komrade is devel+abc")
 	assert.Contains(t, view, "▸ this machine checking")
 	assert.Contains(t, view, "remote mismatch")
 	assert.Contains(t, view, "staging down")

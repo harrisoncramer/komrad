@@ -5,17 +5,17 @@ package agent.v1;
 import "buf/validate/validate.proto";
 import "pagination/v1/pagination.proto";
 
-option go_package = "weave/proto/gen/agent/v1;agentv1";
+option go_package = "komrade/proto/gen/agent/v1;agentv1";
 
-// MailKind tells an agent's own mail from a notice weave raised itself.
+// MailKind tells an agent's own mail from a notice komrade raised itself.
 enum MailKind {
   // No kind was recorded, which the panel draws as a dash.
   MAIL_KIND_UNSPECIFIED = 0;
   // One agent writing to another, or the person writing to an agent.
   MAIL_KIND_PLAIN = 1;
-  // Weave saying a review has moved, naming the file the comments were written to.
+  // Komrade saying a review has moved, naming the file the comments were written to.
   MAIL_KIND_REVIEW_ACTIVITY = 2;
-  // Weave telling an agent that it and one other have spent their mail limit.
+  // Komrade telling an agent that it and one other have spent their mail limit.
   MAIL_KIND_EXCHANGE_CAPPED = 3;
 }
 
@@ -32,9 +32,9 @@ enum MailDirection {
 message Mail {
   // Set this as reply_to on an answer so the two read as a thread.
   string id = 1;
-  // Which agent sent it, unset when weave sent it itself.
+  // Which agent sent it, unset when komrade sent it itself.
   optional string from_agent_id = 2;
-  // What to show as the sender, which is weave's own name for a notice it raised.
+  // What to show as the sender, which is komrade's own name for a notice it raised.
   string from_name = 3;
   // The agent it is waiting for.
   string to_agent_id = 4;
@@ -48,7 +48,7 @@ message Mail {
   optional string claimed_at = 8;
   // When it stops being offered, whether or not it was ever taken.
   string expires_at = 9;
-  // Whether an agent wrote it or weave raised it.
+  // Whether an agent wrote it or komrade raised it.
   MailKind kind = 10;
 }
 

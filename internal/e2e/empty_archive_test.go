@@ -6,13 +6,13 @@ import (
 	"testing"
 	"time"
 
-	"weave/internal/store"
-	agentstore "weave/internal/store/agent"
-	rowstore "weave/internal/store/row"
-	"weave/internal/weavetest"
-	"weave/lib/xslice"
-	agentv1 "weave/proto/gen/agent/v1"
-	workflowv1 "weave/proto/gen/workflow/v1"
+	"komrade/internal/komradetest"
+	"komrade/internal/store"
+	agentstore "komrade/internal/store/agent"
+	rowstore "komrade/internal/store/row"
+	"komrade/lib/xslice"
+	agentv1 "komrade/proto/gen/agent/v1"
+	workflowv1 "komrade/proto/gen/workflow/v1"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
@@ -23,7 +23,7 @@ import (
 // TestIntegrationEmptyArchiveDestroysTheWholeArchive covers the emptying gesture end to end, the request
 // only queueing the sweep the keypress's promise holds in.
 func TestIntegrationEmptyArchiveDestroysTheWholeArchive(t *testing.T) {
-	instance := weavetest.Start(t, weavetest.Params{})
+	instance := komradetest.Start(t, komradetest.Params{})
 	ctx := t.Context()
 
 	workflow, err := instance.Workflows.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{
@@ -78,7 +78,7 @@ func TestIntegrationEmptyArchiveDestroysTheWholeArchive(t *testing.T) {
 // a deprovisioner that will not run: the row cannot be destroyed, so it has to be somewhere,
 // and the archive the user was emptying is the only place they would think to look for it.
 func TestIntegrationEmptyArchiveLeavesAFailedTeardownInTheArchive(t *testing.T) {
-	instance := weavetest.Start(t, weavetest.Params{})
+	instance := komradetest.Start(t, komradetest.Params{})
 	ctx := t.Context()
 
 	replaceWorktreeTeardown(t, instance, "#!/bin/sh\necho boom >&2\nexit 1\n")
@@ -126,7 +126,7 @@ func TestIntegrationEmptyArchiveLeavesAFailedTeardownInTheArchive(t *testing.T) 
 // TestIntegrationEmptyArchiveDeletesAWorkflowItEmptiesOut covers the other half of the sweep's promise:
 // an archived workflow it leaves with nothing inside it does not sit there forever either.
 func TestIntegrationEmptyArchiveDeletesAWorkflowItEmptiesOut(t *testing.T) {
-	instance := weavetest.Start(t, weavetest.Params{})
+	instance := komradetest.Start(t, komradetest.Params{})
 	ctx := t.Context()
 
 	workflow, err := instance.Workflows.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{

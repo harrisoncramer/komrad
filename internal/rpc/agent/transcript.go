@@ -4,16 +4,16 @@ import (
 	"context"
 	"unicode/utf8"
 
-	"weave/internal/caller"
-	"weave/internal/fail"
-	"weave/internal/rpcerr"
-	"weave/internal/transcripts"
-	"weave/lib/pagination"
-	"weave/lib/xslice"
-	"weave/lib/xstr"
-	agentv1 "weave/proto/gen/agent/v1"
+	"komrade/internal/caller"
+	"komrade/internal/fail"
+	"komrade/internal/rpcerr"
+	"komrade/internal/transcripts"
+	"komrade/lib/pagination"
+	"komrade/lib/xslice"
+	"komrade/lib/xstr"
+	agentv1 "komrade/proto/gen/agent/v1"
 
-	transcriptstore "weave/internal/store/transcript"
+	transcriptstore "komrade/internal/store/transcript"
 )
 
 type transcriptReader interface {

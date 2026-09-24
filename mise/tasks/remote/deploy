@@ -2,18 +2,18 @@
 source "$MISE_CONFIG_ROOT/mise/tasks/_"
 source "$MISE_CONFIG_ROOT/mise/tasks/remote/_remote_utils"
 set -euo pipefail
-#MISE description="Put this checkout's weave on the remote engine and restart it."
+#MISE description="Put this checkout's komrade on the remote engine and restart it."
 
 usage() {
 	echo "Usage: mise run remote:deploy [instance-id]"
 	echo
-	echo "Cross-compiles weave for the engine, installs it there, migrates as the owner, and restarts the service."
+	echo "Cross-compiles komrade for the engine, installs it there, migrates as the owner, and restarts the service."
 	echo "A clean deploy carries this checkout's commit, which is what the panel compares"
 	echo "against, so a panel built from the same commit needs nothing further. A deploy"
 	echo "from a dirty tree names no commit, so it also builds a local binary at the same"
-	echo "version for you to put in place of your own weave."
+	echo "version for you to put in place of your own komrade."
 	echo
-	echo "WEAVE_VERSION names the version the binary reports, which is how a release deploy"
+	echo "KOMRADE_VERSION names the version the binary reports, which is how a release deploy"
 	echo "puts its own tag on the engine. It is refused from a dirty tree."
 	echo
 	echo "With no argument the instance is whichever one Terraform last built."
@@ -67,29 +67,29 @@ fi
 # A dirty build carries no commit, so its version string is the only thing anybody has to go on.
 # Letting a caller name that version would put a binary on the engine that answers v0.3.0 and is
 # not v0.3.0, which is why this refuses rather than annotating what it was given.
-if [ -n "${WEAVE_VERSION:-}" ] && [ -n "$DIRTY" ]; then
-	echo "WEAVE_VERSION names $WEAVE_VERSION, and this tree has uncommitted changes." >&2
+if [ -n "${KOMRADE_VERSION:-}" ] && [ -n "$DIRTY" ]; then
+	echo "KOMRADE_VERSION names $KOMRADE_VERSION, and this tree has uncommitted changes." >&2
 	echo >&2
-	echo "Commit them, or unset WEAVE_VERSION and deploy under the engine stamp." >&2
+	echo "Commit them, or unset KOMRADE_VERSION and deploy under the engine stamp." >&2
 	exit 1
 fi
 
-VERSION="${WEAVE_VERSION:-v0.0.0-engine.$REVISION$DIRTY}"
+VERSION="${KOMRADE_VERSION:-v0.0.0-engine.$REVISION$DIRTY}"
 
 mkdir -p dist
-go_build_binary linux arm64 "$VERSION" dist/weave-linux-arm64
+go_build_binary linux arm64 "$VERSION" dist/komrade-linux-arm64
 if [ -n "$DIRTY" ]; then
-	go_build_binary "$(go env GOOS)" "$(go env GOARCH)" "$VERSION" dist/weave-panel
+	go_build_binary "$(go env GOOS)" "$(go env GOARCH)" "$VERSION" dist/komrade-panel
 else
-	rm -f dist/weave-panel
+	rm -f dist/komrade-panel
 fi
 
-KEY="deploy/weave-linux-arm64-$VERSION"
-aws s3 cp dist/weave-linux-arm64 "s3://$BUCKET/$KEY" --only-show-errors
+KEY="deploy/komrade-linux-arm64-$VERSION"
+aws s3 cp dist/komrade-linux-arm64 "s3://$BUCKET/$KEY" --only-show-errors
 URL="$(aws s3 presign "s3://$BUCKET/$KEY" --expires-in 900 --region "$REGION")"
 
-CREDENTIALS_KEY="deploy/weave-database-credentials-$VERSION"
-aws s3 cp packer/files/weave-database-credentials "s3://$BUCKET/$CREDENTIALS_KEY" --only-show-errors
+CREDENTIALS_KEY="deploy/komrade-database-credentials-$VERSION"
+aws s3 cp packer/files/komrade-database-credentials "s3://$BUCKET/$CREDENTIALS_KEY" --only-show-errors
 CREDENTIALS_URL="$(aws s3 presign "s3://$BUCKET/$CREDENTIALS_KEY" --expires-in 900 --region "$REGION")"
 
 # The instance fetches the binary itself, so nothing large travels through the command and the
@@ -98,7 +98,7 @@ COMMAND_ID="$(aws ssm send-command \
 	--region "$REGION" \
 	--instance-ids "$INSTANCE" \
 	--document-name AWS-RunShellScript \
-	--parameters "commands=[\"set -e\",\"curl -fsSL -o /tmp/weave-new '$URL'\",\"install -m 0755 /tmp/weave-new /usr/local/bin/weave\",\"rm -f /tmp/weave-new\",\"curl -fsSL -o /tmp/weave-database-credentials '$CREDENTIALS_URL'\",\"install -m 0755 /tmp/weave-database-credentials /usr/local/sbin/weave-database-credentials\",\"rm -f /tmp/weave-database-credentials\",\"systemctl stop weave.service\",\"/usr/local/sbin/weave-database-credentials\",\"systemctl start weave.service\"]" \
+	--parameters "commands=[\"set -e\",\"curl -fsSL -o /tmp/komrade-new '$URL'\",\"install -m 0755 /tmp/komrade-new /usr/local/bin/komrade\",\"rm -f /tmp/komrade-new\",\"curl -fsSL -o /tmp/komrade-database-credentials '$CREDENTIALS_URL'\",\"install -m 0755 /tmp/komrade-database-credentials /usr/local/sbin/komrade-database-credentials\",\"rm -f /tmp/komrade-database-credentials\",\"systemctl stop komrade.service\",\"/usr/local/sbin/komrade-database-credentials\",\"systemctl start komrade.service\"]" \
 	--query Command.CommandId \
 	--output text)"
 
@@ -125,5 +125,5 @@ fi
 
 echo "engine: $VERSION on $INSTANCE"
 if [ -n "$DIRTY" ]; then
-	echo "panel:  dist/weave-panel at $VERSION, since a dirty build is known by its version alone"
+	echo "panel:  dist/komrade-panel at $VERSION, since a dirty build is known by its version alone"
 fi

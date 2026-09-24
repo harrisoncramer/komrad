@@ -12,10 +12,10 @@ import (
 	"syscall"
 	"time"
 
-	"weave/config"
-	"weave/internal/logging"
-	serverPkg "weave/internal/server"
-	"weave/lib/xsync"
+	"komrade/config"
+	"komrade/internal/logging"
+	serverPkg "komrade/internal/server"
+	"komrade/lib/xsync"
 
 	"github.com/spf13/cobra"
 )
@@ -29,17 +29,17 @@ func serveCmd(state *app) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "serve",
-		Short: "Run the weave service in the foreground",
-		Long: `Run the weave service in the foreground.
+		Short: "Run the komrade service in the foreground",
+		Long: `Run the komrade service in the foreground.
 
 It opens the database, mounts the Connect handlers and the MCP endpoint on one
 address, and runs the loops that read each pane's state, reconcile schedules, and
 sync transcripts. The panel and the rest of these commands are clients of it, so
 nothing works without it.
 
-` + "`weave start`" + ` spawns this detached with its output going to the log file, which is
+` + "`komrade start`" + ` spawns this detached with its output going to the log file, which is
 how it usually runs. Run it here to watch that output directly. It stops on an
-interrupt, or when ` + "`weave stop`" + ` asks it to.`,
+interrupt, or when ` + "`komrade stop`" + ` asks it to.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			logger, err := serveLogger(state.logLevel)
@@ -84,7 +84,7 @@ interrupt, or when ` + "`weave stop`" + ` asks it to.`,
 		},
 	}
 
-	cmd.Flags().StringVar(&addr, "addr", "", "listen address, defaulting to WEAVE_ADDR")
+	cmd.Flags().StringVar(&addr, "addr", "", "listen address, defaulting to KOMRADE_ADDR")
 
 	return cmd
 }
@@ -103,7 +103,7 @@ func serveLogger(level string) (*slog.Logger, error) {
 		return nil, err
 	}
 
-	// `weave start` points this process's stderr at the log file the panel also appends to.
+	// `komrade start` points this process's stderr at the log file the panel also appends to.
 	return logging.New(os.Stderr, parsed).With(slog.String(logging.ProcessName, logging.ProcessServe)), nil
 }
 

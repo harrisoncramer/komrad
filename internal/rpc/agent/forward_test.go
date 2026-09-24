@@ -5,17 +5,17 @@ import (
 	"testing"
 	"time"
 
-	"weave/internal/agents"
-	"weave/internal/caller"
-	"weave/internal/mail"
-	"weave/internal/tmuxtest"
-	"weave/internal/transcripts"
-	"weave/lib/dates"
-	agentv1 "weave/proto/gen/agent/v1"
-	"weave/proto/gen/agent/v1/agentv1weave"
+	"komrade/internal/agents"
+	"komrade/internal/caller"
+	"komrade/internal/mail"
+	"komrade/internal/tmuxtest"
+	"komrade/internal/transcripts"
+	"komrade/lib/dates"
+	agentv1 "komrade/proto/gen/agent/v1"
+	"komrade/proto/gen/agent/v1/agentv1komrade"
 
-	agentstore "weave/internal/store/agent"
-	transcriptstore "weave/internal/store/transcript"
+	agentstore "komrade/internal/store/agent"
+	transcriptstore "komrade/internal/store/transcript"
 
 	"buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	"connectrpc.com/connect"
@@ -352,10 +352,10 @@ func TestMaxMailBodyIsTheWireCap(t *testing.T) {
 }
 
 // newForwardHandler is the handler over fakes of the rows, the transcripts and the mail service, reading liveness off a fake tmux.
-func newForwardHandler(rows *fakeRowReader, reader *fakeTranscriptReader, mailer *fakeMailer) (agentv1weave.AgentServiceAdapter, *tmuxtest.Fake) {
+func newForwardHandler(rows *fakeRowReader, reader *fakeTranscriptReader, mailer *fakeMailer) (agentv1komrade.AgentServiceAdapter, *tmuxtest.Fake) {
 	terminal := tmuxtest.NewFake()
 
-	return agentv1weave.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{
+	return agentv1komrade.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{
 		Agents:      rows,
 		Transcripts: reader,
 		Mail:        mailer,

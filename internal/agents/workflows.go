@@ -9,12 +9,12 @@ import (
 	"slices"
 	"strings"
 
-	"weave/config"
-	"weave/internal/fail"
-	"weave/internal/git"
-	"weave/internal/store"
-	agentstore "weave/internal/store/agent"
-	workflowstore "weave/internal/store/workflow"
+	"komrade/config"
+	"komrade/internal/fail"
+	"komrade/internal/git"
+	"komrade/internal/store"
+	agentstore "komrade/internal/store/agent"
+	workflowstore "komrade/internal/store/workflow"
 )
 
 const (
@@ -32,7 +32,7 @@ var ErrWorktreeCwdNotPrimaryCheckout = fail.InvalidArgument("a worktree-enabled 
 
 var ErrWorktreeUnsafePath = fail.InvalidArgument("a worktree copy or symlink path must be a relative path inside the repo")
 
-var ErrUnknownHookEvent = fail.InvalidArgument("a hook must name a moment weave fires")
+var ErrUnknownHookEvent = fail.InvalidArgument("a hook must name a moment komrade fires")
 
 var ErrWorktreeNeedsBase = fail.InvalidArgument("a workflow's base branch cannot be blank")
 
@@ -221,7 +221,7 @@ func (w *WorkflowService) UpdateWorkflow(ctx context.Context, id string, cfg wor
 	return nil
 }
 
-// normalizeHooks trims what a caller sent, drops the blank entries, and refuses a moment weave
+// normalizeHooks trims what a caller sent, drops the blank entries, and refuses a moment komrade
 // does not fire.
 func normalizeHooks(hooks []workflowstore.Hook) ([]workflowstore.Hook, error) {
 	kept := make([]workflowstore.Hook, 0, len(hooks))

@@ -4,7 +4,7 @@ import (
 	"math"
 	"strconv"
 
-	"weave/config"
+	"komrade/config"
 )
 
 type spec struct {

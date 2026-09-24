@@ -32,7 +32,7 @@ jobs:
       # Dispatched on a tag the image records it, and on a branch it falls back to the revision.
       - name: Build the image
         env:
-          WEAVE_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+          KOMRADE_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
         run: mise run packer:build | tee /tmp/packer.log
 
       - name: Record what it built
@@ -44,7 +44,7 @@ jobs:
           fi
 
           aws ssm put-parameter \
-            --name "/${{ vars.ENGINE_NAME || 'weave-development' }}/engine/ami-id" \
+            --name "/${{ vars.ENGINE_NAME || 'komrade-development' }}/engine/ami-id" \
             --type String --overwrite --value "$AMI"
 
           {

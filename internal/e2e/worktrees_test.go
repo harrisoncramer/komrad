@@ -12,14 +12,14 @@ import (
 	"testing"
 	"time"
 
-	"weave/config"
-	"weave/internal/harness"
-	worktreestore "weave/internal/store/worktree"
-	"weave/internal/weavetest"
-	"weave/lib/xslice"
-	agentv1 "weave/proto/gen/agent/v1"
-	workflowv1 "weave/proto/gen/workflow/v1"
-	worktreev1 "weave/proto/gen/worktree/v1"
+	"komrade/config"
+	"komrade/internal/harness"
+	"komrade/internal/komradetest"
+	worktreestore "komrade/internal/store/worktree"
+	"komrade/lib/xslice"
+	agentv1 "komrade/proto/gen/agent/v1"
+	workflowv1 "komrade/proto/gen/workflow/v1"
+	worktreev1 "komrade/proto/gen/worktree/v1"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
@@ -31,7 +31,7 @@ import (
 func TestIntegrationWorktrees(t *testing.T) {
 	isolateGit(t)
 
-	instance := weavetest.Start(t, weavetest.Params{})
+	instance := komradetest.Start(t, komradetest.Params{})
 	ctx := t.Context()
 	repo := initGitRepo(t)
 
@@ -173,13 +173,13 @@ func TestIntegrationWorktrees(t *testing.T) {
 	})
 
 	t.Run("the cwd loop records the repository a checkout pushes to", func(t *testing.T) {
-		runGitIn(t, repo, "remote", "set-url", "origin", "git@github.com:harrisoncramer/weave.git")
+		runGitIn(t, repo, "remote", "set-url", "origin", "git@github.com:harrisoncramer/komrade.git")
 		instance.SyncCwds()
 
 		fetched, err := instance.Agents.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: synced.GetId()}))
 		require.NoError(t, err)
 		assert.NotEmpty(t, fetched.Msg.GetAgent().GetAgent().GetBranch())
-		assert.Equal(t, "https://github.com/harrisoncramer/weave", fetched.Msg.GetAgent().GetAgent().GetRepositoryUrl())
+		assert.Equal(t, "https://github.com/harrisoncramer/komrade", fetched.Msg.GetAgent().GetAgent().GetRepositoryUrl())
 	})
 
 	t.Run("a worktree removed by hand reaches the caller", func(t *testing.T) {
@@ -208,7 +208,7 @@ func TestIntegrationWorktrees(t *testing.T) {
 func TestIntegrationRebase(t *testing.T) {
 	isolateGit(t)
 
-	instance := weavetest.Start(t, weavetest.Params{WorktreesDir: t.TempDir()})
+	instance := komradetest.Start(t, komradetest.Params{WorktreesDir: t.TempDir()})
 	repo := initGitRepo(t)
 	agentID, tree := createRebaseAgent(t, instance, repo)
 	landOnTheBase(t, repo)
@@ -249,7 +249,7 @@ func TestIntegrationRebase(t *testing.T) {
 	})
 
 	t.Run("the checkout is parked before it moves", func(t *testing.T) {
-		parked := readGitOutput(t, tree, "for-each-ref", "--format=%(refname)", "refs/weave/prerefresh/"+agentID+"/")
+		parked := readGitOutput(t, tree, "for-each-ref", "--format=%(refname)", "refs/komrade/prerefresh/"+agentID+"/")
 		require.NotEmpty(t, parked)
 
 		assert.Equal(t, before, readGitOutput(t, tree, "rev-parse", parked+"^"), "the park stands on the commit the branch was at")
@@ -258,7 +258,7 @@ func TestIntegrationRebase(t *testing.T) {
 	})
 }
 
-func listWorktrees(t *testing.T, instance *weavetest.Instance) map[string]*worktreev1.Worktree {
+func listWorktrees(t *testing.T, instance *komradetest.Instance) map[string]*worktreev1.Worktree {
 	t.Helper()
 
 	listed, err := instance.Worktrees.ListWorktrees(t.Context(), connect.NewRequest(&emptypb.Empty{}))
@@ -278,7 +278,7 @@ func commitIn(t *testing.T, dir, name, subject string) {
 }
 
 // createRebaseAgent is an agent on a worktree of its own with two commits on its branch.
-func createRebaseAgent(t *testing.T, instance *weavetest.Instance, repo string) (agentID, tree string) {
+func createRebaseAgent(t *testing.T, instance *komradetest.Instance, repo string) (agentID, tree string) {
 	t.Helper()
 
 	ctx := t.Context()
@@ -341,8 +341,8 @@ func initGitRepo(t *testing.T) string {
 
 	seed := t.TempDir()
 	runGitIn(t, seed, "init", "--quiet", "-b", "main")
-	runGitIn(t, seed, "config", "user.email", "test@weave.test")
-	runGitIn(t, seed, "config", "user.name", "weave test")
+	runGitIn(t, seed, "config", "user.email", "test@komrade.test")
+	runGitIn(t, seed, "config", "user.name", "komrade test")
 	require.NoError(t, os.WriteFile(filepath.Join(seed, "README.md"), []byte("hello\n"), 0o644))
 	runGitIn(t, seed, "add", "README.md")
 	runGitIn(t, seed, "commit", "--quiet", "-m", "initial")
@@ -353,8 +353,8 @@ func initGitRepo(t *testing.T) string {
 	clone := t.TempDir()
 	output, err := exec.Command("git", "clone", "--quiet", upstream, clone).CombinedOutput()
 	require.NoErrorf(t, err, "git clone: %s", output)
-	runGitIn(t, clone, "config", "user.email", "test@weave.test")
-	runGitIn(t, clone, "config", "user.name", "weave test")
+	runGitIn(t, clone, "config", "user.email", "test@komrade.test")
+	runGitIn(t, clone, "config", "user.name", "komrade test")
 
 	return clone
 }
@@ -392,7 +392,7 @@ func readGitConfig(t *testing.T, dir, key string) string {
 
 // replaceWorktreeTeardown writes over the built-in that gives an agent's worktree back, which
 // is the only deprovision there is now that a workflow cannot name a script of its own.
-func replaceWorktreeTeardown(t *testing.T, instance *weavetest.Instance, script string) {
+func replaceWorktreeTeardown(t *testing.T, instance *komradetest.Instance, script string) {
 	t.Helper()
 
 	require.NoError(t, os.WriteFile(filepath.Join(instance.BuiltinDir, "_worktree_cleanup"), []byte(script), 0o755))

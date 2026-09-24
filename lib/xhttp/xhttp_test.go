@@ -50,7 +50,7 @@ func TestJSON(t *testing.T) {
 		Client: server.Client(),
 		Method: http.MethodPost,
 		URL:    server.URL + "/ok",
-		Header: http.Header{"Authorization": {"Bearer tok"}, "Content-Type": {"application/vnd.weave+json"}},
+		Header: http.Header{"Authorization": {"Bearer tok"}, "Content-Type": {"application/vnd.komrade+json"}},
 		Body:   map[string]int{"n": 1},
 	}, &got)
 	require.NoError(t, err)
@@ -59,7 +59,7 @@ func TestJSON(t *testing.T) {
 	assert.Equal(t, "POST", got.Method)
 	assert.Equal(t, "Bearer tok", got.Auth)
 	assert.Equal(t, "application/json", got.Accept)
-	assert.Equal(t, "application/vnd.weave+json", got.Type)
+	assert.Equal(t, "application/vnd.komrade+json", got.Type)
 	assert.JSONEq(t, `{"n":1}`, string(got.Body))
 
 	var ignored echo

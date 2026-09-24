@@ -11,9 +11,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"weave/internal/caller"
-	"weave/internal/logging"
-	"weave/lib/xsync"
+	"komrade/internal/caller"
+	"komrade/internal/logging"
+	"komrade/lib/xsync"
 )
 
 const loopStopTimeout = 2 * time.Second

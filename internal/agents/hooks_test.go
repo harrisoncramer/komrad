@@ -6,12 +6,12 @@ import (
 	"testing"
 	"time"
 
-	"weave/internal/harnesstest"
-	"weave/internal/scripts"
-	agentstore "weave/internal/store/agent"
-	workflowstore "weave/internal/store/workflow"
-	"weave/internal/tmuxtest"
-	"weave/lib/xptr"
+	"komrade/internal/harnesstest"
+	"komrade/internal/scripts"
+	agentstore "komrade/internal/store/agent"
+	workflowstore "komrade/internal/store/workflow"
+	"komrade/internal/tmuxtest"
+	"komrade/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -202,9 +202,9 @@ func TestARetiredProvisionerRunsNoHooks(t *testing.T) {
 	assert.Empty(t, lifecycle.ranHooks(), "so no moment fires against it")
 }
 
-// TestNewWorkflowRefusesAHookOnAMomentWeaveDoesNotFire pins the refusal a hook hung on a moment
+// TestNewWorkflowRefusesAHookOnAMomentKomradeDoesNotFire pins the refusal a hook hung on a moment
 // nothing fires is answered with.
-func TestNewWorkflowRefusesAHookOnAMomentWeaveDoesNotFire(t *testing.T) {
+func TestNewWorkflowRefusesAHookOnAMomentKomradeDoesNotFire(t *testing.T) {
 	st := newStore(t)
 	workflows := newWorkflowService(st, tmuxtest.NewFake())
 
@@ -480,8 +480,8 @@ func TestRunDeprovisionLogsOneThatWouldNotStart(t *testing.T) {
 
 	got := recordFor(t, records(), "the deprovisioner would not start")
 	assert.Equal(t, "ERROR", got["severity_text"])
-	assert.Equal(t, "was-renamed", got["weave.script.name"])
-	assert.Equal(t, "/repo/.worktrees/auth", got["weave.script.agent.cwd"])
+	assert.Equal(t, "was-renamed", got["komrade.script.name"])
+	assert.Equal(t, "/repo/.worktrees/auth", got["komrade.script.agent.cwd"])
 }
 
 // TestDeprovisionerLogsAWorkflowThatWouldNotRead covers the read that breaks rather than
@@ -502,9 +502,9 @@ func TestDeprovisionerLogsAWorkflowThatWouldNotRead(t *testing.T) {
 
 	got := recordFor(t, records(), "the workflow behind an agent could not be read")
 	assert.Equal(t, "ERROR", got["severity_text"])
-	assert.Equal(t, workflowID, got["weave.workflow.id"])
-	assert.Equal(t, "a1", got["weave.script.agent.id"])
-	assert.Equal(t, "/repo/.worktrees/auth", got["weave.script.agent.cwd"])
+	assert.Equal(t, workflowID, got["komrade.workflow.id"])
+	assert.Equal(t, "a1", got["komrade.script.agent.id"])
+	assert.Equal(t, "/repo/.worktrees/auth", got["komrade.script.agent.cwd"])
 }
 
 // TestDeprovisionerSaysNothingWhenThereIsNothingToTearDown pins that no teardown is named and

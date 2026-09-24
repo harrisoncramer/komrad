@@ -62,7 +62,7 @@ esac
 
 aws ec2 wait instance-running --region "$REGION" --instance-ids "$INSTANCE"
 
-# Weave is serving within ten seconds of the kernel coming up and the instance checks take minutes,
+# Komrade is serving within ten seconds of the kernel coming up and the instance checks take minutes,
 # so an instance that passes them is one the panel can reach.
 aws ec2 wait instance-status-ok --region "$REGION" --instance-ids "$INSTANCE"
 

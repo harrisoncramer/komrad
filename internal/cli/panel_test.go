@@ -7,10 +7,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"weave/internal/engine"
-	"weave/internal/git"
-	"weave/internal/logging"
-	"weave/internal/ui"
+	"komrade/internal/engine"
+	"komrade/internal/git"
+	"komrade/internal/logging"
+	"komrade/internal/ui"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -21,7 +21,7 @@ func TestInstallPanelLoggerWritesToTheLogFile(t *testing.T) {
 	restore := slog.Default()
 	t.Cleanup(func() { slog.SetDefault(restore) })
 
-	logPath := filepath.Join(t.TempDir(), "sub", "weave.log")
+	logPath := filepath.Join(t.TempDir(), "sub", "komrade.log")
 
 	require.NoError(t, installPanelLogger(logPath, "info"))
 
@@ -44,7 +44,7 @@ func TestInstallPanelLoggerCatchesThePanicHandler(t *testing.T) {
 	restore := slog.Default()
 	t.Cleanup(func() { slog.SetDefault(restore) })
 
-	logPath := filepath.Join(t.TempDir(), "weave.log")
+	logPath := filepath.Join(t.TempDir(), "komrade.log")
 
 	require.NoError(t, installPanelLogger(logPath, "info"))
 
@@ -67,7 +67,7 @@ func TestInstallPanelLoggerRefusesABadLevel(t *testing.T) {
 	restore := slog.Default()
 	t.Cleanup(func() { slog.SetDefault(restore) })
 
-	logPath := filepath.Join(t.TempDir(), "weave.log")
+	logPath := filepath.Join(t.TempDir(), "komrade.log")
 
 	require.Error(t, installPanelLogger(logPath, "chatty"))
 	assert.NoFileExists(t, logPath)
@@ -84,7 +84,7 @@ func TestReviewGitRunsOnTheEngineWhenTheAgentsAreThere(t *testing.T) {
 	}{
 		{
 			name:   "a remote engine reads through its transport",
-			remote: engine.Remote{Destination: "weave@host"},
+			remote: engine.Remote{Destination: "komrade@host"},
 			want:   &git.EngineClient{},
 		},
 		{

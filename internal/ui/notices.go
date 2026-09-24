@@ -1,9 +1,9 @@
 package ui
 
 import (
-	"weave/internal/ui/paint"
-	"weave/internal/ui/panel"
-	"weave/internal/view"
+	"komrade/internal/ui/paint"
+	"komrade/internal/ui/panel"
+	"komrade/internal/view"
 )
 
 // notice is one of the marks a row draws said in words, carrying the part it plays rather than a
@@ -17,7 +17,7 @@ type notice struct {
 const (
 	failedToCreateNotice  = "setup failed, it never launched"
 	failedToCleanupNotice = "teardown failed, its directory is still there"
-	failedRunNotice       = "a script weave fired failed, log unread"
+	failedRunNotice       = "a script komrade fired failed, log unread"
 	unreadMailNotice      = "mail waiting, it has not read it"
 	worktreeRemovedNotice = "its directory no longer exists"
 	sequenceNotice        = "a rebase is stopped part way in it"

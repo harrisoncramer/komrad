@@ -7,9 +7,9 @@ import (
 	"strconv"
 	"testing"
 
-	"weave/config"
-	"weave/internal/caller"
-	"weave/internal/engine"
+	"komrade/config"
+	"komrade/internal/caller"
+	"komrade/internal/engine"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -31,7 +31,7 @@ func TestDialAPIReachesARemoteEngineThroughItsForward(t *testing.T) {
 		},
 		{
 			name: "the engine is elsewhere, so the forward is dialled instead",
-			ssh:  "weave@203.0.113.4",
+			ssh:  "komrade@203.0.113.4",
 		},
 	}
 

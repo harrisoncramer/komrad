@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"weave/internal/ui"
-	agentv1 "weave/proto/gen/agent/v1"
+	"komrade/internal/ui"
+	agentv1 "komrade/proto/gen/agent/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	panelKeyOption = "@weave_key"
+	panelKeyOption = "@komrade_key"
 	builtInKey     = "g"
 )
 
@@ -66,8 +66,8 @@ func TestPopupPanelKey(t *testing.T) {
 // TestPopupBindPanelKey covers the binding on the user's own tmux server that opens the panel.
 func TestPopupBindPanelKey(t *testing.T) {
 	local := ui.BindPanelKeyParams{
-		Self:       "/usr/local/bin/weave",
-		ConfigArgs: []string{"--config", "/etc/weave.toml", "--config", "/home/dev/weave.toml"},
+		Self:       "/usr/local/bin/komrade",
+		ConfigArgs: []string{"--config", "/etc/komrade.toml", "--config", "/home/dev/komrade.toml"},
 	}
 
 	t.Run("a refusal reaches the person who asked for it", func(t *testing.T) {
@@ -81,21 +81,21 @@ func TestPopupBindPanelKey(t *testing.T) {
 
 		require.NoError(t, ui.BindPanelKey(tmux, local))
 
-		assert.NotContains(t, tmux.globals, "@weave_open")
+		assert.NotContains(t, tmux.globals, "@komrade_open")
 		assert.Equal(t, []string{
 			"if-shell",
-			"/usr/local/bin/weave shown --config /etc/weave.toml --config /home/dev/weave.toml",
-			"run-shell -b '/usr/local/bin/weave hide --config /etc/weave.toml --config /home/dev/weave.toml'",
-			"display-popup -w 100% -h 100% -x C -y C -T ' weave ' " +
-				"-EE '/usr/local/bin/weave open --config /etc/weave.toml --config /home/dev/weave.toml'",
+			"/usr/local/bin/komrade shown --config /etc/komrade.toml --config /home/dev/komrade.toml",
+			"run-shell -b '/usr/local/bin/komrade hide --config /etc/komrade.toml --config /home/dev/komrade.toml'",
+			"display-popup -w 100% -h 100% -x C -y C -T ' komrade ' " +
+				"-EE '/usr/local/bin/komrade open --config /etc/komrade.toml --config /home/dev/komrade.toml'",
 		}, tmux.bound[builtInKey])
 	})
 
-	t.Run("a changed key takes back only the one this weave bound before", func(t *testing.T) {
-		local := ui.BindPanelKeyParams{Self: "/usr/local/bin/weave", ConfigArgs: []string{"--config", "/etc/weave.toml"}}
+	t.Run("a changed key takes back only the one this komrade bound before", func(t *testing.T) {
+		local := ui.BindPanelKeyParams{Self: "/usr/local/bin/komrade", ConfigArgs: []string{"--config", "/etc/komrade.toml"}}
 		remote := ui.BindPanelKeyParams{
-			Self:       "/usr/local/bin/weave",
-			ConfigArgs: []string{"--config", "/etc/weave.toml", "--engine", "remote"},
+			Self:       "/usr/local/bin/komrade",
+			ConfigArgs: []string{"--config", "/etc/komrade.toml", "--engine", "remote"},
 			Key:        "G",
 		}
 
@@ -115,15 +115,15 @@ func TestPopupBindPanelKey(t *testing.T) {
 		assert.Equal(t, []string{"C-g", "C-g"}, tmux.unbound)
 		assert.Contains(t, tmux.bound, "j")
 		assert.Contains(t, tmux.bound, "G", "the other engine's key, whose command this one's is a prefix of, stands")
-		assert.Contains(t, tmux.bound, "s", "and so does a binding that is not weave's")
+		assert.Contains(t, tmux.bound, "s", "and so does a binding that is not komrade's")
 	})
 }
 
 // TestPopupWindow covers the popup's own tmux session and the key that hides it.
 func TestPopupWindow(t *testing.T) {
 	t.Run("a client attached to the panel's session is somebody looking", func(t *testing.T) {
-		assert.True(t, ui.NewPopupWindow(&bindRecorder{client: "/dev/ttys004"}, "weave").IsShown())
-		assert.False(t, ui.NewPopupWindow(&bindRecorder{}, "weave").IsShown(), "the popup was hidden, which detached it")
+		assert.True(t, ui.NewPopupWindow(&bindRecorder{client: "/dev/ttys004"}, "komrade").IsShown())
+		assert.False(t, ui.NewPopupWindow(&bindRecorder{}, "komrade").IsShown(), "the popup was hidden, which detached it")
 	})
 
 	t.Run("the panel key hides the popup", func(t *testing.T) {
@@ -149,7 +149,7 @@ func TestPopupWindow(t *testing.T) {
 	t.Run("the focus key toggles between the sidebar and the agent's pane", func(t *testing.T) {
 		tmux := &bindRecorder{}
 
-		ui.NewPopupWindow(tmux, "weave").HoldFocusKey("%3", "%9")
+		ui.NewPopupWindow(tmux, "komrade").HoldFocusKey("%3", "%9")
 
 		assert.Equal(t, []string{
 			"if-shell", "-F", "#{==:#{pane_id},%3}",
@@ -160,14 +160,14 @@ func TestPopupWindow(t *testing.T) {
 	t.Run("no sidebar binds nothing", func(t *testing.T) {
 		tmux := &bindRecorder{}
 
-		ui.NewPopupWindow(tmux, "weave").HoldFocusKey("", "%9")
+		ui.NewPopupWindow(tmux, "komrade").HoldFocusKey("", "%9")
 
 		assert.Empty(t, tmux.bound)
 	})
 
 	t.Run("an empty stage gives the key back once and then says nothing", func(t *testing.T) {
 		tmux := &bindRecorder{}
-		popup := ui.NewPopupWindow(tmux, "weave")
+		popup := ui.NewPopupWindow(tmux, "komrade")
 
 		popup.HoldFocusKey("%3", "%9")
 		popup.HoldFocusKey("%3", "")
@@ -187,7 +187,7 @@ func TestPopupFocusKey(t *testing.T) {
 
 	t.Run("the panel going gives the key back", func(t *testing.T) {
 		tmux := &bindRecorder{}
-		popup := ui.NewPopupWindow(tmux, "weave")
+		popup := ui.NewPopupWindow(tmux, "komrade")
 
 		popup.HoldFocusKey("%3", "%9")
 		popup.ReleaseFocusKey()
@@ -198,7 +198,7 @@ func TestPopupFocusKey(t *testing.T) {
 	t.Run("releasing a key nobody held says nothing to tmux", func(t *testing.T) {
 		tmux := &bindRecorder{}
 
-		ui.NewPopupWindow(tmux, "weave").ReleaseFocusKey()
+		ui.NewPopupWindow(tmux, "komrade").ReleaseFocusKey()
 
 		assert.Empty(t, tmux.unbound)
 	})

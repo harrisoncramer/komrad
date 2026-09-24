@@ -1,4 +1,4 @@
-// Package dbtest hands a test a database with weave's schema already in it, copied from a
+// Package dbtest hands a test a database with komrade's schema already in it, copied from a
 // template rather than migrated from empty, and an engine of the test's own to connect as.
 package dbtest
 
@@ -11,8 +11,8 @@ import (
 	"sync"
 	"testing"
 
-	"weave/db"
-	"weave/internal/pgtest"
+	"komrade/db"
+	"komrade/internal/pgtest"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/require"

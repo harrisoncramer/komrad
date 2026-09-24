@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	agentv1 "weave/proto/gen/agent/v1"
-	"weave/proto/gen/agent/v1/agentv1connect"
+	agentv1 "komrade/proto/gen/agent/v1"
+	"komrade/proto/gen/agent/v1/agentv1connect"
 
 	"connectrpc.com/connect"
 )

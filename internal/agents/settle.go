@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"time"
 
-	"weave/internal/fail"
-	"weave/internal/harness"
-	agentstore "weave/internal/store/agent"
+	"komrade/internal/fail"
+	"komrade/internal/harness"
+	agentstore "komrade/internal/store/agent"
 )
 
-// settleBudget is how long weave waits for an interrupted agent to come to rest before it gives
+// settleBudget is how long komrade waits for an interrupted agent to come to rest before it gives
 // up.
 const settleBudget = 8 * time.Second
 

@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"strings"
 
-	"weave/internal/store"
+	"komrade/internal/store"
 
-	agentstore "weave/internal/store/agent"
-	schedulestore "weave/internal/store/schedule"
-	workflowstore "weave/internal/store/workflow"
+	agentstore "komrade/internal/store/agent"
+	schedulestore "komrade/internal/store/schedule"
+	workflowstore "komrade/internal/store/workflow"
 )
 
 type emptyWorkflowGetDeleter interface {

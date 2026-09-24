@@ -3,9 +3,9 @@ package view
 import (
 	"strings"
 
-	"weave/internal/ui/paint"
-	"weave/internal/ui/paint/label"
-	"weave/lib/xslice"
+	"komrade/internal/ui/paint"
+	"komrade/internal/ui/paint/label"
+	"komrade/lib/xslice"
 
 	"charm.land/lipgloss/v2"
 )

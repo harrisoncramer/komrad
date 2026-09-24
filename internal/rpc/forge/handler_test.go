@@ -7,13 +7,13 @@ import (
 	"testing"
 	"time"
 
-	"weave/internal/forge"
-	"weave/internal/store"
-	forgestore "weave/internal/store/forge"
-	"weave/lib/xptr"
-	forgev1 "weave/proto/gen/forge/v1"
-	forgev1weave "weave/proto/gen/forge/v1/forgev1weave"
-	paginationv1 "weave/proto/gen/pagination/v1"
+	"komrade/internal/forge"
+	"komrade/internal/store"
+	forgestore "komrade/internal/store/forge"
+	"komrade/lib/xptr"
+	forgev1 "komrade/proto/gen/forge/v1"
+	forgev1komrade "komrade/proto/gen/forge/v1/forgev1komrade"
+	paginationv1 "komrade/proto/gen/pagination/v1"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
@@ -94,7 +94,7 @@ func (f *fakeConnector) ForConnection(forgestore.Connection) (forge.Forge, error
 
 // TestForgeRefusalsMapToCodes pins the code each refusal reaches the caller as.
 func TestForgeRefusalsMapToCodes(t *testing.T) {
-	connectForge := func(ctx context.Context, service forgev1weave.ForgeServiceAdapter) error {
+	connectForge := func(ctx context.Context, service forgev1komrade.ForgeServiceAdapter) error {
 		_, err := service.ConnectForge(ctx, connect.NewRequest(&forgev1.ConnectForgeRequest{
 			Host:  "github.com",
 			Token: "tok",
@@ -102,23 +102,23 @@ func TestForgeRefusalsMapToCodes(t *testing.T) {
 
 		return err
 	}
-	listForges := func(ctx context.Context, service forgev1weave.ForgeServiceAdapter) error {
+	listForges := func(ctx context.Context, service forgev1komrade.ForgeServiceAdapter) error {
 		_, err := service.ListForges(ctx, connect.NewRequest(&emptypb.Empty{}))
 
 		return err
 	}
-	checkForges := func(ctx context.Context, service forgev1weave.ForgeServiceAdapter) error {
+	checkForges := func(ctx context.Context, service forgev1komrade.ForgeServiceAdapter) error {
 		_, err := service.CheckForges(ctx, connect.NewRequest(&emptypb.Empty{}))
 
 		return err
 	}
-	disconnectForge := func(ctx context.Context, service forgev1weave.ForgeServiceAdapter) error {
+	disconnectForge := func(ctx context.Context, service forgev1komrade.ForgeServiceAdapter) error {
 		_, err := service.DisconnectForge(ctx, connect.NewRequest(&forgev1.DisconnectForgeRequest{Host: "github.com"}))
 
 		return err
 	}
-	listPullRequests := func(remote, cursor string) func(ctx context.Context, service forgev1weave.ForgeServiceAdapter) error {
-		return func(ctx context.Context, service forgev1weave.ForgeServiceAdapter) error {
+	listPullRequests := func(remote, cursor string) func(ctx context.Context, service forgev1komrade.ForgeServiceAdapter) error {
+		return func(ctx context.Context, service forgev1komrade.ForgeServiceAdapter) error {
 			req := &forgev1.ListForgePullRequestsRequest{RemoteUrl: remote}
 			if cursor != "" {
 				req.Pagination = &paginationv1.Pagination{Cursor: xptr.Ptr(cursor)}
@@ -129,11 +129,11 @@ func TestForgeRefusalsMapToCodes(t *testing.T) {
 			return err
 		}
 	}
-	remote := "git@github.com:harrisoncramer/weave.git"
+	remote := "git@github.com:harrisoncramer/komrade.git"
 
 	tests := []struct {
 		name     string
-		call     func(ctx context.Context, service forgev1weave.ForgeServiceAdapter) error
+		call     func(ctx context.Context, service forgev1komrade.ForgeServiceAdapter) error
 		err      error
 		wantCode connect.Code
 	}{
@@ -197,7 +197,7 @@ func TestForgeRefusalsMapToCodes(t *testing.T) {
 				err:         tt.err,
 			}
 
-			err := tt.call(t.Context(), forgev1weave.ForgeServiceAdapter{Impl: NewHandler(connector)})
+			err := tt.call(t.Context(), forgev1komrade.ForgeServiceAdapter{Impl: NewHandler(connector)})
 			require.Error(t, err)
 			assert.Equal(t, tt.wantCode, connect.CodeOf(err))
 		})
@@ -210,7 +210,7 @@ func TestConnectForge(t *testing.T) {
 		connections: []forgestore.Connection{newConnection()},
 		held:        true,
 	}
-	service := forgev1weave.ForgeServiceAdapter{Impl: NewHandler(connector)}
+	service := forgev1komrade.ForgeServiceAdapter{Impl: NewHandler(connector)}
 
 	resp, err := service.ConnectForge(t.Context(), connect.NewRequest(&forgev1.ConnectForgeRequest{
 		Host:  "github.com",
@@ -228,7 +228,7 @@ func TestConnectForge(t *testing.T) {
 // TestDisconnectForge pins that the host asked for reaches the service.
 func TestDisconnectForge(t *testing.T) {
 	connector := &fakeConnector{}
-	service := forgev1weave.ForgeServiceAdapter{Impl: NewHandler(connector)}
+	service := forgev1komrade.ForgeServiceAdapter{Impl: NewHandler(connector)}
 
 	_, err := service.DisconnectForge(t.Context(), connect.NewRequest(&forgev1.DisconnectForgeRequest{Host: "github.com"}))
 	require.NoError(t, err)
@@ -279,7 +279,7 @@ func TestCheckForges(t *testing.T) {
 				connections: []forgestore.Connection{newConnection()},
 				checkErr:    tt.checkErr,
 			}
-			service := forgev1weave.ForgeServiceAdapter{Impl: NewHandler(connector)}
+			service := forgev1komrade.ForgeServiceAdapter{Impl: NewHandler(connector)}
 
 			resp, err := service.CheckForges(t.Context(), connect.NewRequest(&emptypb.Empty{}))
 			require.NoError(t, err)

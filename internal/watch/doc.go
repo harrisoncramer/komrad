@@ -8,7 +8,7 @@
 // a pending set of IDs, then reads those rows and sends each Subscription the row (or for a key its
 // watched set no longer holds, a tombstone).
 //
-// Every Subscription is dropped when that connection is lost. This is intentional. Weave doesn't
+// Every Subscription is dropped when that connection is lost. This is intentional. Komrade doesn't
 // replay events or store a durable event log. Instead, the pane just re-snapshots the database, which
 // is enough for a UI with a few thousand records at most.
 //

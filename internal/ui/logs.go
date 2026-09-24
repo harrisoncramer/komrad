@@ -6,14 +6,14 @@ import (
 	"slices"
 	"strings"
 
-	"weave/config"
-	"weave/internal/ui/layout"
-	"weave/internal/ui/panel"
+	"komrade/config"
+	"komrade/internal/ui/layout"
+	"komrade/internal/ui/panel"
 )
 
-const logEnvPath = "WEAVE_LOG"
+const logEnvPath = "KOMRADE_LOG"
 
-const agentIDEnvVar = "WEAVE_AGENT_ID"
+const agentIDEnvVar = "KOMRADE_AGENT_ID"
 
 func viewerArgv(viewer, fallback, path, agentID string) []string {
 	command := strings.TrimSpace(viewer)

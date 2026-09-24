@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// FuzzMapPatch is the one input weave does not choose: a patch is git's output today and could be
+// FuzzMapPatch is the one input komrade does not choose: a patch is git's output today and could be
 // a stranger's tomorrow, and a malformed hunk header must be an error rather than a panic in the
 // panel's own process.
 func FuzzMapPatch(f *testing.F) {

@@ -3,10 +3,10 @@ package schedule
 import (
 	"time"
 
-	"weave/internal/rpc/render"
-	schedulestore "weave/internal/store/schedule"
-	schedulev1 "weave/proto/gen/schedule/v1"
-	viewv1 "weave/proto/gen/view/v1"
+	"komrade/internal/rpc/render"
+	schedulestore "komrade/internal/store/schedule"
+	schedulev1 "komrade/proto/gen/schedule/v1"
+	viewv1 "komrade/proto/gen/view/v1"
 )
 
 type schedule struct {

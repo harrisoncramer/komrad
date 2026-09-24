@@ -15,10 +15,10 @@ import (
 	"syscall"
 	"time"
 
-	"weave/internal/logging"
-	"weave/internal/server"
-	"weave/internal/version"
-	"weave/lib/xhttp"
+	"komrade/internal/logging"
+	"komrade/internal/server"
+	"komrade/internal/version"
+	"komrade/lib/xhttp"
 )
 
 const (
@@ -157,7 +157,7 @@ func healthCheck(ctx context.Context, addr string) (*http.Response, error) {
 func getSelfPath() string {
 	path, err := os.Executable()
 	if err != nil {
-		return "weave"
+		return "komrade"
 	}
 
 	return path

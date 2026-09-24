@@ -12,8 +12,8 @@ import (
 	"net/http"
 	"time"
 
-	"weave/internal/caller"
-	"weave/internal/logging"
+	"komrade/internal/caller"
+	"komrade/internal/logging"
 
 	"github.com/google/uuid"
 )

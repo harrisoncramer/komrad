@@ -7,11 +7,11 @@ import (
 	"log/slog"
 	"time"
 
-	"weave/internal/harness"
-	"weave/internal/logging"
-	"weave/internal/store"
-	agentstore "weave/internal/store/agent"
-	mailstore "weave/internal/store/mail"
+	"komrade/internal/harness"
+	"komrade/internal/logging"
+	"komrade/internal/store"
+	agentstore "komrade/internal/store/agent"
+	mailstore "komrade/internal/store/mail"
 )
 
 type Delivery int
@@ -160,7 +160,7 @@ func (s *DeliveryService) Deliver(ctx context.Context, agentID string) (Delivery
 	}
 
 	if err := s.nudgeClaimer.SetNudgeSent(ctx, agent.ID); err != nil {
-		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to record the nudge weave sent an agent, so the next one will read as a first",
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to record the nudge komrade sent an agent, so the next one will read as a first",
 			append(logging.Err(err), slog.String(logging.TargetAgentID, agent.ID))...)
 	}
 
@@ -169,7 +169,7 @@ func (s *DeliveryService) Deliver(ctx context.Context, agentID string) (Delivery
 
 // nudge tells an agent about its mail, reporting whether the line was taken.
 func (s *DeliveryService) nudge(ctx context.Context, agent agentstore.Agent, pending int64) (bool, error) {
-	line := fmt.Sprintf("weave: %d piece(s) of unread mail, call read_mail", pending)
+	line := fmt.Sprintf("komrade: %d piece(s) of unread mail, call read_mail", pending)
 
 	sent, err := s.channel.Send(ctx, buildTarget(agent), line)
 	if err != nil {

@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"weave/internal/fail"
-	"weave/lib/xslice"
+	"komrade/internal/fail"
+	"komrade/lib/xslice"
 )
 
 var ErrShellUnsupported = fail.Internal("unsupported pane shell")

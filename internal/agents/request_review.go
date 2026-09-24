@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"strings"
 
-	"weave/internal/fail"
-	"weave/internal/store"
-	agentstore "weave/internal/store/agent"
-	reviewstore "weave/internal/store/review"
+	"komrade/internal/fail"
+	"komrade/internal/store"
+	agentstore "komrade/internal/store/agent"
+	reviewstore "komrade/internal/store/review"
 )
 
 // ErrReviewNeedsOwnWork says the agent asked for has no work of its own to be read, which is

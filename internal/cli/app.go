@@ -1,12 +1,12 @@
 package cli
 
 import (
-	"weave/config"
-	"weave/internal/agents"
-	"weave/internal/engine"
-	"weave/internal/harness"
-	"weave/internal/tmux"
-	"weave/internal/ui"
+	"komrade/config"
+	"komrade/internal/agents"
+	"komrade/internal/engine"
+	"komrade/internal/harness"
+	"komrade/internal/tmux"
+	"komrade/internal/ui"
 )
 
 type app struct {

@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	agentv1 "weave/proto/gen/agent/v1"
+	agentv1 "komrade/proto/gen/agent/v1"
 )
 
 // TestOnlyTheLastReleasedReviewIsOwedAnAnswer pins which review the screen reads and what it

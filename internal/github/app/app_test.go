@@ -317,7 +317,7 @@ func TestSlugAsksAsTheApp(t *testing.T) {
 			return
 		}
 
-		_, _ = w.Write([]byte(`{"slug":"weave-engine"}`))
+		_, _ = w.Write([]byte(`{"slug":"komrade-engine"}`))
 	}))
 	defer server.Close()
 
@@ -332,7 +332,7 @@ func TestSlugAsksAsTheApp(t *testing.T) {
 	}
 	slug, err := app.Slug(t.Context(), server.Client(), time.Now())
 	require.NoError(t, err)
-	assert.Equal(t, "weave-engine", slug)
+	assert.Equal(t, "komrade-engine", slug)
 	assert.True(t, strings.HasPrefix(seen, "Bearer "))
 	assert.Len(t, strings.Split(strings.TrimPrefix(seen, "Bearer "), "."), 3, "the app speaks with its assertion, not a token")
 

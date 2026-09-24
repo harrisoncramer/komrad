@@ -8,7 +8,7 @@ import (
 
 	"github.com/charmbracelet/x/ansi"
 
-	"weave/internal/caller"
+	"komrade/internal/caller"
 
 	"charm.land/lipgloss/v2"
 	"connectrpc.com/connect"
@@ -84,7 +84,7 @@ func TestFold(t *testing.T) {
 		},
 		{
 			name:      "a single word too long to fit is broken rather than left to overrun",
-			text:      "/Users/someone/Library/Application Support/weave/configuration.toml",
+			text:      "/Users/someone/Library/Application Support/komrade/configuration.toml",
 			wantLines: true,
 		},
 	}
@@ -132,14 +132,14 @@ func TestScreensFitTheirPane(t *testing.T) {
 			name: "the startup screen",
 			rendered: RenderStartupError(narrowPane, err, []Finding{{
 				Name:   "readonly login",
-				Reason: `the least-privilege login the MCP tools connect as does not work: password authentication failed for user "weave_readonly"`,
-				Fix:    "weave readonly-role",
+				Reason: `the least-privilege login the MCP tools connect as does not work: password authentication failed for user "komrade_readonly"`,
+				Fix:    "komrade readonly-role",
 			}}),
 		},
 		{
 			name: "the config screen carrying a detail of several lines",
 			rendered: RenderConfigError(narrowPane, errors.New(
-				"failed to parse config /home/u/.config/weave/config.toml: "+
+				"failed to parse config /home/u/.config/komrade/config.toml: "+
 					"default_harnes is not a setting; the top level takes default_harness, max_agents\n"+
 					"layout.splitt is not a setting; [layout] takes sidebar_side, sidebar_width, info_side, info_height")),
 		},
@@ -158,7 +158,7 @@ func TestScreensFitTheirPane(t *testing.T) {
 // start, so this screen is all the reader gets, and has to carry the error itself and name
 // the file to fix.
 func TestConfig(t *testing.T) {
-	err := errors.New("failed to parse config /home/u/.config/weave/config.toml: keybindings.list is not a setting; [keybindings] takes scripts, agents, archive, filter, form, help, nav, schedules, selection, workflows")
+	err := errors.New("failed to parse config /home/u/.config/komrade/config.toml: keybindings.list is not a setting; [keybindings] takes scripts, agents, archive, filter, form, help, nav, schedules, selection, workflows")
 
 	rendered := strings.Join(strings.Fields(RenderConfigError(narrowPane, err)), " ")
 
@@ -177,7 +177,7 @@ func TestStartup(t *testing.T) {
 
 	assert.Contains(t, rendered, "The agent server could not be started")
 	assert.Contains(t, rendered, "connect: connection refused")
-	assert.Contains(t, rendered, "weave doctor",
+	assert.Contains(t, rendered, "komrade doctor",
 		"with nothing found, the command that would find something is named")
 }
 
@@ -190,12 +190,12 @@ func TestStartupCarriesTheFindings(t *testing.T) {
 	rendered := strings.Join(strings.Fields(RenderStartupError(widePane, err, []Finding{{
 		Name:   "readonly login",
 		Reason: "the least-privilege login the MCP tools connect as does not work",
-		Fix:    "weave readonly-role",
+		Fix:    "komrade readonly-role",
 	}})), " ")
 
 	assert.Contains(t, rendered, "readonly login")
-	assert.Contains(t, rendered, "weave readonly-role", "the command that repairs it is on screen")
-	assert.NotContains(t, rendered, "weave doctor",
+	assert.Contains(t, rendered, "komrade readonly-role", "the command that repairs it is on screen")
+	assert.NotContains(t, rendered, "komrade doctor",
 		"nothing points at the doctor once the doctor has already answered")
 }
 
@@ -303,7 +303,7 @@ func tracedError(trace string) error {
 // TestStartupOnAnEngineRunningOtherCode covers the screen a remote panel gets, where restarting
 // anything over there is the one action that helps least and disturbs most.
 func TestStartupOnAnEngineRunningOtherCode(t *testing.T) {
-	err := fmt.Errorf("%w: engine v0.4.0 (8fe4a3b), this weave devel (16cbead)", ErrEngineBuild)
+	err := fmt.Errorf("%w: engine v0.4.0 (8fe4a3b), this komrade devel (16cbead)", ErrEngineBuild)
 
 	rendered := strings.Join(strings.Fields(RenderStartupError(narrowPane, err, nil)), " ")
 
@@ -318,9 +318,9 @@ func TestStartupOnAnEngineRunningOtherCode(t *testing.T) {
 func TestStartupOnARebuiltPanel(t *testing.T) {
 	rendered := strings.Join(strings.Fields(RenderStartupError(narrowPane, ErrRebuilt, nil)), " ")
 
-	assert.Contains(t, rendered, "weave was rebuilt")
+	assert.Contains(t, rendered, "komrade was rebuilt")
 	assert.Contains(t, rendered, "The panel key opens a panel from the new build")
 	assert.Contains(t, rendered, "Press any key to close")
 	assert.NotContains(t, rendered, "The agent server could not be started")
-	assert.NotContains(t, rendered, "weave doctor")
+	assert.NotContains(t, rendered, "komrade doctor")
 }

@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"os"
 
-	"weave/internal/logging"
+	"komrade/internal/logging"
 )
 
 const StopPath = "/stop"

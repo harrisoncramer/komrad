@@ -1,11 +1,11 @@
 package render
 
 import (
-	"weave/lib/dates"
-	"weave/lib/xslice"
+	"komrade/lib/dates"
+	"komrade/lib/xslice"
 
-	reviewstore "weave/internal/store/review"
-	agentv1 "weave/proto/gen/agent/v1"
+	reviewstore "komrade/internal/store/review"
+	agentv1 "komrade/proto/gen/agent/v1"
 )
 
 // WatchedReviewThread draws a thread as the watch carries it.

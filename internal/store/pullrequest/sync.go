@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"time"
 
-	"weave/db"
-	"weave/db/models"
-	"weave/internal/store"
-	"weave/lib/xptr"
-	"weave/lib/xslice"
+	"komrade/db"
+	"komrade/db/models"
+	"komrade/internal/store"
+	"komrade/lib/xptr"
+	"komrade/lib/xslice"
 )
 
 // Sync is where the sync is for one repository.

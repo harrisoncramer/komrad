@@ -5,22 +5,22 @@ import (
 	"testing"
 	"time"
 
-	"weave/internal/git"
-	"weave/internal/ui/panel"
-	"weave/internal/view"
-	"weave/lib/xptr"
-	agentv1 "weave/proto/gen/agent/v1"
-	pullrequestv1 "weave/proto/gen/pullrequest/v1"
+	"komrade/internal/git"
+	"komrade/internal/ui/panel"
+	"komrade/internal/view"
+	"komrade/lib/xptr"
+	agentv1 "komrade/proto/gen/agent/v1"
+	pullrequestv1 "komrade/proto/gen/pullrequest/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// checkoutWorkflow is a workflow weave cuts a worktree from.
+// checkoutWorkflow is a workflow komrade cuts a worktree from.
 func checkoutWorkflow() panel.Workflow {
 	return panel.Workflow{
 		ID:       "w1",
-		Name:     "weave",
+		Name:     "komrade",
 		Worktree: panel.WorktreeConfig{Enabled: true},
 	}
 }
@@ -477,7 +477,7 @@ func TestSnapshotKinds(t *testing.T) {
 			name: "a workflow whose orchestrator is working says so on its own bar",
 			row: agentRow{
 				header:   true,
-				workflow: panel.Workflow{ID: "w1", Name: "weave"},
+				workflow: panel.Workflow{ID: "w1", Name: "komrade"},
 				orchestrator: &panel.AgentRow{
 					Agent: panel.Agent{ID: "o1", State: panel.StateThinking},
 					Alive: true,
@@ -486,7 +486,7 @@ func TestSnapshotKinds(t *testing.T) {
 			want: view.Row{
 				Key:    "workflow:w1",
 				Kind:   view.KindWorkflow,
-				Name:   "weave",
+				Name:   "komrade",
 				Status: view.StatusThinking,
 			},
 		},
@@ -494,12 +494,12 @@ func TestSnapshotKinds(t *testing.T) {
 			name: "a workflow standing behind no orchestrator has no bar at all",
 			row: agentRow{
 				header:   true,
-				workflow: panel.Workflow{ID: "w1", Name: "weave"},
+				workflow: panel.Workflow{ID: "w1", Name: "komrade"},
 			},
 			want: view.Row{
 				Key:     "workflow:w1",
 				Kind:    view.KindWorkflow,
-				Name:    "weave",
+				Name:    "komrade",
 				Process: view.ProcessNone,
 			},
 		},
@@ -507,13 +507,13 @@ func TestSnapshotKinds(t *testing.T) {
 			name: "a workflow whose orchestrator has stopped has nothing running behind it",
 			row: agentRow{
 				header:       true,
-				workflow:     panel.Workflow{ID: "w1", Name: "weave"},
+				workflow:     panel.Workflow{ID: "w1", Name: "komrade"},
 				orchestrator: &panel.AgentRow{Agent: panel.Agent{ID: "o1", State: panel.StateIdle}},
 			},
 			want: view.Row{
 				Key:     "workflow:w1",
 				Kind:    view.KindWorkflow,
-				Name:    "weave",
+				Name:    "komrade",
 				Process: view.ProcessNone,
 			},
 		},
@@ -521,13 +521,13 @@ func TestSnapshotKinds(t *testing.T) {
 			name: "a workflow whose orchestrator failed to start still wears the failure",
 			row: agentRow{
 				header:       true,
-				workflow:     panel.Workflow{ID: "w1", Name: "weave"},
+				workflow:     panel.Workflow{ID: "w1", Name: "komrade"},
 				orchestrator: &panel.AgentRow{Agent: panel.Agent{ID: "o1", State: panel.StateFailedToCreate}},
 			},
 			want: view.Row{
 				Key:    "workflow:w1",
 				Kind:   view.KindWorkflow,
-				Name:   "weave",
+				Name:   "komrade",
 				Status: view.StatusBroken,
 			},
 		},
@@ -535,13 +535,13 @@ func TestSnapshotKinds(t *testing.T) {
 			name: "a workflow a schedule launches into says so",
 			row: agentRow{
 				header:   true,
-				workflow: panel.Workflow{ID: "w1", Name: "weave"},
+				workflow: panel.Workflow{ID: "w1", Name: "komrade"},
 			},
 			scheduled: map[string]bool{"w1": true},
 			want: view.Row{
 				Key:       "workflow:w1",
 				Kind:      view.KindWorkflow,
-				Name:      "weave",
+				Name:      "komrade",
 				Process:   view.ProcessNone,
 				Scheduled: true,
 			},
@@ -609,7 +609,7 @@ func TestSnapshotKinds(t *testing.T) {
 // still reports the directory it was handed and the review of its work.
 func TestSnapshotPlainWorkflowKeepsItsColumns(t *testing.T) {
 	row := snapshotRowOf(t, snapshotParams{rows: []agentRow{{
-		workflow: panel.Workflow{ID: "w1", Name: "weave"},
+		workflow: panel.Workflow{ID: "w1", Name: "komrade"},
 		item: panel.AgentRow{
 			Alive:        true,
 			LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED,
@@ -672,7 +672,7 @@ func TestSnapshotHiddenTally(t *testing.T) {
 func TestSnapshotListing(t *testing.T) {
 	params := snapshotParams{
 		rows: []agentRow{
-			{header: true, workflow: panel.Workflow{ID: "w1", Name: "weave"}},
+			{header: true, workflow: panel.Workflow{ID: "w1", Name: "komrade"}},
 			{item: panel.AgentRow{Agent: panel.Agent{ID: "a1", Name: "picked"}}},
 			{item: panel.AgentRow{Agent: panel.Agent{ID: "a2", Name: "passed over"}}},
 		},
@@ -717,9 +717,9 @@ func TestSnapshotSearchMatches(t *testing.T) {
 		},
 		{
 			name: "a workflow name is searched the same way",
-			expr: "eave",
-			row:  agentRow{header: true, workflow: panel.Workflow{ID: "w1", Name: "weave"}},
-			want: []view.Span{{Start: 1, End: 5}},
+			expr: "omrad",
+			row:  agentRow{header: true, workflow: panel.Workflow{ID: "w1", Name: "komrade"}},
+			want: []view.Span{{Start: 1, End: 6}},
 		},
 	}
 
@@ -742,7 +742,7 @@ func TestSnapshotSearchOffMarksNothing(t *testing.T) {
 	assert.Nil(t, row.Matches)
 }
 
-// TestSnapshotHeldWorking pins the pause that did not take: weave goes on reading the pane, so a
+// TestSnapshotHeldWorking pins the pause that did not take: komrade goes on reading the pane, so a
 // paused agent that is working again says so rather than the row claiming it stopped.
 func TestSnapshotHeldWorking(t *testing.T) {
 	tests := []struct {
@@ -855,7 +855,7 @@ func TestSnapshotChildRowCarriesNoTally(t *testing.T) {
 	}
 
 	rows := treeRows(treeRowsParams{
-		workflows: []panel.Workflow{{ID: "w1", Name: "weave"}},
+		workflows: []panel.Workflow{{ID: "w1", Name: "komrade"}},
 		agents:    []panel.AgentRow{{Agent: parent}, {Agent: child}},
 	})
 

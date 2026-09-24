@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"weave/internal/git"
-	agentv1 "weave/proto/gen/agent/v1"
+	"komrade/internal/git"
+	agentv1 "komrade/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
 	"google.golang.org/protobuf/proto"

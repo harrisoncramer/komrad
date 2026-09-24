@@ -1,11 +1,11 @@
-// Package scripts is the seam in front of the scripts a person writes, which weave runs against
+// Package scripts is the seam in front of the scripts a person writes, which komrade runs against
 // one agent: the provisioner that makes its directory before it starts, the deprovisioner that
 // tears that directory down after it is deleted, and the hooks bound to moments in its life.
 //
 // A script is an executable file in one of those directories, and its header comments declare
-// what it does and how long it may take. weave reads that header for the listing, hands the
+// what it does and how long it may take. komrade reads that header for the listing, hands the
 // agent to the script as its environment, and holds it to the timeout. Because they are
-// ordinary files, what a script does is the person's business rather than weave's, which is
+// ordinary files, what a script does is the person's business rather than komrade's, which is
 // what makes making a worktree something the tool does not have to know about.
 package scripts
 
@@ -20,8 +20,8 @@ import (
 	"syscall"
 	"time"
 
-	"weave/internal/fail"
-	"weave/internal/logging"
+	"komrade/internal/fail"
+	"komrade/internal/logging"
 )
 
 var ErrNotExecutable = fail.Precondition("the file is not executable: run chmod +x on it")

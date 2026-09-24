@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	agentv1 "weave/proto/gen/agent/v1"
-	schedulev1 "weave/proto/gen/schedule/v1"
-	viewv1 "weave/proto/gen/view/v1"
+	agentv1 "komrade/proto/gen/agent/v1"
+	schedulev1 "komrade/proto/gen/schedule/v1"
+	viewv1 "komrade/proto/gen/view/v1"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"

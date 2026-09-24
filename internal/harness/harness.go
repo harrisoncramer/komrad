@@ -1,6 +1,6 @@
-// Package harness is the boundary between weave and the CLI an agent actually runs.
+// Package harness is the boundary between komrade and the CLI an agent actually runs.
 //
-// A harness knows what weave cannot know generically: the command line that starts a
+// A harness knows what komrade cannot know generically: the command line that starts a
 // conversation, the keys that interrupt one, where the CLI writes its conversation log and how
 // to flatten that log into turns, how to read a captured frame for whether the agent is working
 // or waiting, and how to read one of its own hook payloads. The registry holds the harnesses
@@ -12,12 +12,12 @@ import (
 	"strings"
 )
 
-const AgentIDEnv = "WEAVE_AGENT_ID"
+const AgentIDEnv = "KOMRADE_AGENT_ID"
 
-const SessionIDEnv = "WEAVE_SESSION_ID"
+const SessionIDEnv = "KOMRADE_SESSION_ID"
 
 // EnvPrefix is the assignments that go ahead of the CLI so an agent runs knowing which agent it
-// is, which conversation it is in, and where weave's stand-ins for the tools it calls are.
+// is, which conversation it is in, and where komrade's stand-ins for the tools it calls are.
 func EnvPrefix(launch Launch) string {
 	var assignments []string
 	if launch.ToolsDir != "" {
@@ -46,10 +46,10 @@ type Launch struct {
 	MCPEndpoint string
 	CacheDir    string
 	Dir         string
-	// HookCommand is the weave binary a harness points its own hooks at, a harness that wires none
+	// HookCommand is the komrade binary a harness points its own hooks at, a harness that wires none
 	// leaving the turn end to the reconciler.
 	HookCommand string
-	// ToolsDir holds weave's stand-ins for the tools an agent calls, and goes ahead of the PATH
+	// ToolsDir holds komrade's stand-ins for the tools an agent calls, and goes ahead of the PATH
 	// the agent runs with.
 	ToolsDir string
 	Resume   bool
@@ -66,7 +66,7 @@ const (
 	ActivityIdle
 
 	// ActivityComposing is the input box holding text somebody typed and has not sent, which
-	// anything weave typed there would be fused with.
+	// anything komrade typed there would be fused with.
 	ActivityComposing
 
 	// ActivityUnrecognized is a frame that matched none of a harness's patterns.

@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package view.v1;
 
-option go_package = "weave/proto/gen/view/v1;viewv1";
+option go_package = "komrade/proto/gen/view/v1;viewv1";
 
 // View is how much of each record a listing returns, so that the panel, which draws every
 // field, and a model reading the same endpoint through a context window ask for different

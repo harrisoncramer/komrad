@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"weave/config"
-	"weave/lib/xslice"
+	"komrade/config"
+	"komrade/lib/xslice"
 )
 
 var (
@@ -79,7 +79,7 @@ func describeConfigFix(env Env) string {
 	}
 
 	if len(env.configLayers) == 0 {
-		return "drop --config, or WEAVE_CONFIG, to run on the defaults"
+		return "drop --config, or KOMRADE_CONFIG, to run on the defaults"
 	}
 
 	return "write " + env.configLayers[0].Path + ", or drop --config to run on the defaults"

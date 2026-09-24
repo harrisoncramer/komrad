@@ -1,7 +1,7 @@
 package cli
 
 import (
-	"weave/internal/store"
+	"komrade/internal/store"
 
 	"github.com/spf13/cobra"
 )
@@ -14,10 +14,10 @@ func migrateCmd(state *app) *cobra.Command {
 
 The service never migrates: an engine connects as a login that cannot change the schema,
 and it refuses to start against a database whose migrations do not match its build. So
-every upgrade runs this first, with owner_database_url (or WEAVE_OWNER_DATABASE_URL)
+every upgrade runs this first, with owner_database_url (or KOMRADE_OWNER_DATABASE_URL)
 naming the owner, which falls back to database_url on a database no engine has joined.
 
-It refuses while another weave is connected and the build holds migrations the database
+It refuses while another komrade is connected and the build holds migrations the database
 has not seen, since those engines would stop matching. It is safe to run against a
 database that is already current; it says so and exits zero.`,
 		Args:          cobra.NoArgs,

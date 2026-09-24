@@ -9,16 +9,16 @@ import (
 	"path"
 	"path/filepath"
 
-	"weave/internal/fail"
+	"komrade/internal/fail"
 )
 
 const builtinRoot = "builtin"
 
-const markerName = ".weave-builtins"
+const markerName = ".komrade-builtins"
 
 var ErrDirNotAbsolute = fail.Internal("the directory is not an absolute path")
 
-var ErrDirNotOurs = fail.Internal("the directory holds files weave did not write")
+var ErrDirNotOurs = fail.Internal("the directory holds files komrade did not write")
 
 //go:embed all:builtin
 var builtinFS embed.FS

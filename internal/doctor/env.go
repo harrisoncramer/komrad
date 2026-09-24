@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"weave/config"
-	"weave/internal/harness"
+	"komrade/config"
+	"komrade/internal/harness"
 )
 
 const commandTimeout = 5 * time.Second

@@ -7,7 +7,7 @@ set -euo pipefail
 usage() {
 	echo "Usage: mise run remote:restart [--hard] [instance-id]"
 	echo
-	echo "Restarts the weave service on the engine. The agents keep running, because the"
+	echo "Restarts the komrade service on the engine. The agents keep running, because the"
 	echo "service is stopped in a way that leaves the tmux server it forked alone."
 	echo
 	echo "With --hard the tmux server goes too, which is what picks up a change to the"
@@ -50,10 +50,10 @@ REGION="${AWS_REGION:-us-east-1}"
 
 if [ "$HARD" = true ]; then
 	gum log --level info "restarting the engine and its tmux server on $INSTANCE, which stops every agent"
-	COMMANDS='["systemctl restart weave.service","sleep 3","sudo -u weave tmux -L weave kill-server 2>/dev/null || true","systemctl restart weave-manager-session.service","sleep 4","systemctl is-active weave.service weave-manager-session.service","sudo -u weave tmux -L weave list-windows -a -F \"WIN #{window_id} panes=#{window_panes} #{window_name}\" 2>&1"]'
+	COMMANDS='["systemctl restart komrade.service","sleep 3","sudo -u komrade tmux -L komrade kill-server 2>/dev/null || true","systemctl restart komrade-manager-session.service","sleep 4","systemctl is-active komrade.service komrade-manager-session.service","sudo -u komrade tmux -L komrade list-windows -a -F \"WIN #{window_id} panes=#{window_panes} #{window_name}\" 2>&1"]'
 else
 	gum log --level info "restarting the engine on $INSTANCE, leaving its agents running"
-	COMMANDS='["systemctl restart weave.service","sleep 4","systemctl is-active weave.service","sudo -u weave tmux -L weave list-windows -a -F \"WIN #{window_id} panes=#{window_panes} #{window_name}\" 2>&1"]'
+	COMMANDS='["systemctl restart komrade.service","sleep 4","systemctl is-active komrade.service","sudo -u komrade tmux -L komrade list-windows -a -F \"WIN #{window_id} panes=#{window_panes} #{window_name}\" 2>&1"]'
 fi
 
 COMMAND_ID="$(aws ssm send-command \

@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"weave/db/models"
-	"weave/internal/git"
-	"weave/internal/store"
+	"komrade/db/models"
+	"komrade/internal/git"
+	"komrade/internal/store"
 )
 
 // ClaimNudge takes the right to tell an agent about waiting mail, checking and stamping in

@@ -6,19 +6,19 @@ import { link } from "../../site";
 const guides = await getGuides();
 
 const groups = [
-  { id: "start", title: "Getting started", blurb: "Install weave and learn how its pieces fit together." },
+  { id: "start", title: "Getting started", blurb: "Install komrade and learn how its pieces fit together." },
   { id: "concepts", title: "Concepts", blurb: "The things you build with: workflows, agents, and how they talk." },
-  { id: "operations", title: "Operations", blurb: "Connecting forges and running weave on a machine of its own." },
+  { id: "operations", title: "Operations", blurb: "Connecting forges and running komrade on a machine of its own." },
 ] as const;
 
 const numbered = guides.map((guide, index) => ({ guide, number: String(index + 1).padStart(2, "0") }));
 ---
 
-<Layout title="Guides" description="Hand-written guides to installing, using and running weave.">
+<Layout title="Guides" description="Hand-written guides to installing, using and running komrade.">
   <header class="intro">
     <h1>Guides</h1>
     <p>
-      These guides explain how weave works and how to use it, written to be read start to finish. The API, CLI and
+      These guides explain how komrade works and how to use it, written to be read start to finish. The API, CLI and
       config pages are generated from the code and say exactly what each call, command and key does. The guides say why,
       and how the pieces fit together.
     </p>

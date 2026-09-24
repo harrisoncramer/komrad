@@ -1,9 +1,9 @@
 package render
 
 import (
-	mailstore "weave/internal/store/mail"
-	"weave/lib/dates"
-	agentv1 "weave/proto/gen/agent/v1"
+	mailstore "komrade/internal/store/mail"
+	"komrade/lib/dates"
+	agentv1 "komrade/proto/gen/agent/v1"
 )
 
 // Mail draws one piece of mail as the wire carries it.

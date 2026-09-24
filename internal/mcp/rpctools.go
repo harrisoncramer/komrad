@@ -10,14 +10,14 @@ import (
 	"strings"
 	"time"
 
-	"weave/lib/xhttp"
-	annotationv1 "weave/proto/gen/annotation/v1"
+	"komrade/lib/xhttp"
+	annotationv1 "komrade/proto/gen/annotation/v1"
 
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 	"google.golang.org/protobuf/reflect/protoreflect"
 
-	"weave/internal/caller"
-	"weave/internal/rpcapi"
+	"komrade/internal/caller"
+	"komrade/internal/rpcapi"
 )
 
 const callTimeout = 30 * time.Second

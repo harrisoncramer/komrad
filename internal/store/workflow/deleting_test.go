@@ -4,10 +4,10 @@ import (
 	"context"
 	"testing"
 
-	"weave/internal/dbtest"
-	"weave/internal/store"
-	agentstore "weave/internal/store/agent"
-	"weave/lib/xslice"
+	"komrade/internal/dbtest"
+	"komrade/internal/store"
+	agentstore "komrade/internal/store/agent"
+	"komrade/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

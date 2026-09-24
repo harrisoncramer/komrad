@@ -1,4 +1,4 @@
 #!/usr/bin/env node
-//WEAVE description="Declared in a language whose comments are slashes."
-//WEAVE timeout="1m"
+//KOMRADE description="Declared in a language whose comments are slashes."
+//KOMRADE timeout="1m"
 console.log("declared");

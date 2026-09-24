@@ -33,7 +33,7 @@ func TestIntegrationPackerValidateWithoutABuild(t *testing.T) {
 	out, err := cmd.CombinedOutput()
 	require.NoError(t, err, "validate failed with an empty dist:\n%s", out)
 	require.Contains(t, string(out), "The configuration is valid.")
-	require.NoFileExists(t, filepath.Join(work, "dist", "weave-linux-arm64"))
+	require.NoFileExists(t, filepath.Join(work, "dist", "komrade-linux-arm64"))
 }
 
 func repoRoot(t *testing.T) string {

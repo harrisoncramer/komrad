@@ -237,7 +237,7 @@ func TestTmuxVersionNeedsTheBinary(t *testing.T) {
 
 func tmuxServers(answers map[string]string) Env {
 	return Env{
-		Settings: Settings{TmuxSocket: "weave", InsideTmux: "/tmp/tmux-501/default,1,0"},
+		Settings: Settings{TmuxSocket: "komrade", InsideTmux: "/tmp/tmux-501/default,1,0"},
 		LookPath: func(string) (string, error) { return "/usr/bin/tmux", nil },
 		Output: func(_ context.Context, _ string, args ...string) (string, error) {
 			socket := ""
@@ -268,24 +268,24 @@ func TestTmuxShellCheck(t *testing.T) {
 	}{
 		{
 			name:     "a shell that cannot parse the launch",
-			answers:  map[string]string{"-L weave": "/usr/bin/fish"},
+			answers:  map[string]string{"-L komrade": "/usr/bin/fish"},
 			want:     StatusFail,
 			wantCode: "tmux_shell_unsupported",
 		},
 		{
 			name:     "the same shell under a path tmux spelled differently",
-			answers:  map[string]string{"-L weave": "/opt/homebrew/bin/fish"},
+			answers:  map[string]string{"-L komrade": "/opt/homebrew/bin/fish"},
 			want:     StatusFail,
 			wantCode: "tmux_shell_unsupported",
 		},
 		{
 			name:       "an option tmux does not have set",
-			answers:    map[string]string{"-L weave": ""},
+			answers:    map[string]string{"-L komrade": ""},
 			want:       StatusOK,
 			wantDetail: "tmux names no default-shell, so panes take the system one",
 		},
 		{
-			name:       "weave's server is not up, so the user's answers",
+			name:       "komrade's server is not up, so the user's answers",
 			answers:    map[string]string{"": "/bin/bash"},
 			want:       StatusOK,
 			wantDetail: "/bin/bash (your tmux server)",
@@ -297,10 +297,10 @@ func TestTmuxShellCheck(t *testing.T) {
 			wantCode: "tmux_no_server",
 		},
 		{
-			name:       "weave's own server names a shell an agent can launch from",
-			answers:    map[string]string{"-L weave": "/bin/zsh"},
+			name:       "komrade's own server names a shell an agent can launch from",
+			answers:    map[string]string{"-L komrade": "/bin/zsh"},
 			want:       StatusOK,
-			wantDetail: "/bin/zsh (weave's tmux server)",
+			wantDetail: "/bin/zsh (komrade's tmux server)",
 		},
 	}
 
@@ -324,12 +324,12 @@ func TestTmuxShellStartsNoServer(t *testing.T) {
 	var calls [][]string
 
 	env := Env{
-		Settings: Settings{TmuxSocket: "weave"},
+		Settings: Settings{TmuxSocket: "komrade"},
 		LookPath: func(string) (string, error) { return "/usr/bin/tmux", nil },
 		Output: func(_ context.Context, _ string, args ...string) (string, error) {
 			calls = append(calls, args)
 
-			return "", errors.New("no server running on /tmp/tmux-501/weave")
+			return "", errors.New("no server running on /tmp/tmux-501/komrade")
 		},
 	}
 

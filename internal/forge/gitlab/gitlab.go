@@ -14,11 +14,11 @@ import (
 	"strings"
 	"time"
 
-	"weave/internal/fail"
-	"weave/internal/forge"
-	"weave/internal/forge/graphql"
-	"weave/internal/git"
-	"weave/lib/xptr"
+	"komrade/internal/fail"
+	"komrade/internal/forge"
+	"komrade/internal/forge/graphql"
+	"komrade/internal/git"
+	"komrade/lib/xptr"
 )
 
 // DefaultAPI is where gitlab.com answers REST calls, with GraphQL beside it.
@@ -464,7 +464,7 @@ func complexityOf(data map[string]json.RawMessage) complexity {
 	return measured
 }
 
-// failureOf is the first error the answer carries as weave's, nil when it carries none.
+// failureOf is the first error the answer carries as komrade's, nil when it carries none.
 func failureOf(answer *graphql.Answer) error {
 	if len(answer.Errors) == 0 {
 		return nil
@@ -578,7 +578,7 @@ func (n standingNode) standing() forge.Standing {
 	}
 }
 
-// mergeability is the detailed merge status in weave's words.
+// mergeability is the detailed merge status in komrade's words.
 func (n standingNode) mergeability() forge.Mergeability {
 	switch n.DetailedMergeStatus {
 	case "":
@@ -598,7 +598,7 @@ func (n standingNode) mergeability() forge.Mergeability {
 	return forge.MergeabilityBlocked
 }
 
-// checks is the head pipeline's status in weave's words.
+// checks is the head pipeline's status in komrade's words.
 func (n standingNode) checks() forge.Checks {
 	if n.HeadPipeline == nil {
 		return forge.ChecksNone
@@ -616,7 +616,7 @@ func (n standingNode) checks() forge.Checks {
 	return forge.ChecksNone
 }
 
-// decision folds the approvals into weave's word, a change request first, then approvals
+// decision folds the approvals into komrade's word, a change request first, then approvals
 // still owed, then an approval given.
 func (n standingNode) decision() forge.ReviewDecision {
 	for _, reviewer := range n.Reviewers.Nodes {
@@ -681,7 +681,7 @@ func numberOf(iid string) int {
 	return number
 }
 
-// closedAt is when the merge request finished, which GitLab stamps only on a close and weave
+// closedAt is when the merge request finished, which GitLab stamps only on a close and komrade
 // records on a merge as well.
 func (n mergeRequestNode) closedAt() *time.Time {
 	if n.ClosedAt != nil {

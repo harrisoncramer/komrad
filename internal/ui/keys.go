@@ -4,7 +4,7 @@ import (
 	"slices"
 	"strings"
 
-	"weave/config"
+	"komrade/config"
 
 	tea "charm.land/bubbletea/v2"
 )

@@ -3,7 +3,7 @@ package agent
 import (
 	"testing"
 
-	"weave/internal/store"
+	"komrade/internal/store"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"weave/config"
+	"komrade/config"
 
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
@@ -125,8 +125,8 @@ func TestIntegrationResolveConfigStack(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			home := t.TempDir()
 			t.Setenv("HOME", home)
-			t.Setenv("WEAVE_CONFIG", tt.variable)
-			engines := filepath.Join(home, ".config", "weave", "engines")
+			t.Setenv("KOMRADE_CONFIG", tt.variable)
+			engines := filepath.Join(home, ".config", "komrade", "engines")
 			require.NoError(t, os.MkdirAll(engines, 0o755))
 			require.NoError(t, os.WriteFile(filepath.Join(engines, "remote.toml"), []byte(""), 0o600))
 
@@ -142,7 +142,7 @@ func TestIntegrationResolveConfigStack(t *testing.T) {
 // the local engine is a worse answer to than an error.
 func TestIntegrationResolveConfigStackRefusesAnEngineItCannotFind(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	t.Setenv("WEAVE_CONFIG", "")
+	t.Setenv("KOMRADE_CONFIG", "")
 
 	_, err := resolveConfigStack(nil, "missing")
 	require.Error(t, err)

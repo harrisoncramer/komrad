@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"weave/internal/caller"
-	"weave/internal/logging"
-	"weave/internal/logtest"
-	"weave/lib/xslice"
+	"komrade/internal/caller"
+	"komrade/internal/logging"
+	"komrade/internal/logtest"
+	"komrade/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

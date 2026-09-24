@@ -6,10 +6,10 @@ import (
 	"strings"
 	"time"
 
-	"weave/internal/errui"
-	"weave/internal/ui/panel"
-	"weave/lib/dates"
-	worktreev1 "weave/proto/gen/worktree/v1"
+	"komrade/internal/errui"
+	"komrade/internal/ui/panel"
+	"komrade/lib/dates"
+	worktreev1 "komrade/proto/gen/worktree/v1"
 )
 
 // worktreeAgent is what the listing says of an agent that holds a directory.

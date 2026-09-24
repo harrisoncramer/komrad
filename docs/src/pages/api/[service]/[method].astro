@@ -57,7 +57,7 @@ const tabs = [
   { label: "Connect", code: connect, lang: "bash" as const },
   { label: "CLI", code: cli, lang: "bash" as const },
   ...(method.mcp
-    ? [{ label: "MCP", code: mcp, lang: "json" as const, note: `Offered by the weave MCP server${offered}.` }]
+    ? [{ label: "MCP", code: mcp, lang: "json" as const, note: `Offered by the komrade MCP server${offered}.` }]
     : []),
 ];
 const details = method.description.slice(method.summary.length).trim();

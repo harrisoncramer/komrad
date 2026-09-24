@@ -3,8 +3,8 @@ package ui
 import (
 	"slices"
 
-	"weave/internal/assemble"
-	agentv1 "weave/proto/gen/agent/v1"
+	"komrade/internal/assemble"
+	agentv1 "komrade/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
 	"google.golang.org/protobuf/proto"

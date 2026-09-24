@@ -1,7 +1,7 @@
 package ui
 
 import (
-	"weave/internal/ui/layout"
+	"komrade/internal/ui/layout"
 )
 
 type infoKind int

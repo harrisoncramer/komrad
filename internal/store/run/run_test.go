@@ -3,12 +3,12 @@ package run
 import (
 	"testing"
 
-	"weave/internal/dbtest"
-	"weave/internal/store"
-	agentstore "weave/internal/store/agent"
-	rowstore "weave/internal/store/row"
-	workflowstore "weave/internal/store/workflow"
-	"weave/lib/xptr"
+	"komrade/internal/dbtest"
+	"komrade/internal/store"
+	agentstore "komrade/internal/store/agent"
+	rowstore "komrade/internal/store/row"
+	workflowstore "komrade/internal/store/workflow"
+	"komrade/lib/xptr"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"

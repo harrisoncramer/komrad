@@ -1,4 +1,4 @@
-module weave
+module komrade
 
 go 1.25.8
 

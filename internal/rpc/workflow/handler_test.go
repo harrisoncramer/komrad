@@ -6,15 +6,15 @@ import (
 	"strings"
 	"testing"
 
-	"weave/internal/agents"
-	"weave/internal/rpc/render"
-	"weave/internal/store"
-	paginationv1 "weave/proto/gen/pagination/v1"
-	viewv1 "weave/proto/gen/view/v1"
-	workflowv1 "weave/proto/gen/workflow/v1"
-	workflowv1weave "weave/proto/gen/workflow/v1/workflowv1weave"
+	"komrade/internal/agents"
+	"komrade/internal/rpc/render"
+	"komrade/internal/store"
+	paginationv1 "komrade/proto/gen/pagination/v1"
+	viewv1 "komrade/proto/gen/view/v1"
+	workflowv1 "komrade/proto/gen/workflow/v1"
+	workflowv1komrade "komrade/proto/gen/workflow/v1/workflowv1komrade"
 
-	workflowstore "weave/internal/store/workflow"
+	workflowstore "komrade/internal/store/workflow"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
@@ -110,27 +110,27 @@ func (f *fakeWorkflows) ListWorkflows(_ context.Context, params agents.ListWorkf
 
 // TestWorkflowRefusalsMapToCodes pins the code each refusal of the workflow service reaches the caller as.
 func TestWorkflowRefusalsMapToCodes(t *testing.T) {
-	create := func(ctx context.Context, svc workflowv1weave.WorkflowServiceAdapter) error {
+	create := func(ctx context.Context, svc workflowv1komrade.WorkflowServiceAdapter) error {
 		_, err := svc.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{Name: "backend"}))
 
 		return err
 	}
-	update := func(ctx context.Context, svc workflowv1weave.WorkflowServiceAdapter) error {
+	update := func(ctx context.Context, svc workflowv1komrade.WorkflowServiceAdapter) error {
 		_, err := svc.UpdateWorkflow(ctx, connect.NewRequest(&workflowv1.UpdateWorkflowRequest{Id: workflowID}))
 
 		return err
 	}
-	archive := func(ctx context.Context, svc workflowv1weave.WorkflowServiceAdapter) error {
+	archive := func(ctx context.Context, svc workflowv1komrade.WorkflowServiceAdapter) error {
 		_, err := svc.ArchiveWorkflow(ctx, connect.NewRequest(&workflowv1.ArchiveWorkflowRequest{Id: workflowID}))
 
 		return err
 	}
-	restore := func(ctx context.Context, svc workflowv1weave.WorkflowServiceAdapter) error {
+	restore := func(ctx context.Context, svc workflowv1komrade.WorkflowServiceAdapter) error {
 		_, err := svc.RestoreWorkflow(ctx, connect.NewRequest(&workflowv1.RestoreWorkflowRequest{Id: workflowID}))
 
 		return err
 	}
-	deleteWorkflow := func(ctx context.Context, svc workflowv1weave.WorkflowServiceAdapter) error {
+	deleteWorkflow := func(ctx context.Context, svc workflowv1komrade.WorkflowServiceAdapter) error {
 		_, err := svc.DeleteWorkflow(ctx, connect.NewRequest(&workflowv1.DeleteWorkflowRequest{Id: workflowID}))
 
 		return err
@@ -138,7 +138,7 @@ func TestWorkflowRefusalsMapToCodes(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		call     func(ctx context.Context, svc workflowv1weave.WorkflowServiceAdapter) error
+		call     func(ctx context.Context, svc workflowv1komrade.WorkflowServiceAdapter) error
 		err      error
 		wantCode connect.Code
 	}{
@@ -167,7 +167,7 @@ func TestWorkflowRefusalsMapToCodes(t *testing.T) {
 			wantCode: connect.CodeInvalidArgument,
 		},
 		{
-			name:     "a hook on a moment weave never fires",
+			name:     "a hook on a moment komrade never fires",
 			call:     create,
 			err:      agents.ErrUnknownHookEvent,
 			wantCode: connect.CodeInvalidArgument,
@@ -180,7 +180,7 @@ func TestWorkflowRefusalsMapToCodes(t *testing.T) {
 		},
 		{
 			name: "reading a workflow nothing holds",
-			call: func(ctx context.Context, svc workflowv1weave.WorkflowServiceAdapter) error {
+			call: func(ctx context.Context, svc workflowv1komrade.WorkflowServiceAdapter) error {
 				_, err := svc.GetWorkflow(ctx, connect.NewRequest(&workflowv1.GetWorkflowRequest{Id: workflowID}))
 
 				return err
@@ -232,7 +232,7 @@ func TestWorkflowRefusalsMapToCodes(t *testing.T) {
 		},
 		{
 			name: "listing with a page token that holds no id",
-			call: func(ctx context.Context, svc workflowv1weave.WorkflowServiceAdapter) error {
+			call: func(ctx context.Context, svc workflowv1komrade.WorkflowServiceAdapter) error {
 				_, err := svc.ListWorkflows(ctx, connect.NewRequest(&workflowv1.ListWorkflowsRequest{
 					Pagination: &paginationv1.Pagination{Cursor: proto.String("eyJuIjoiYWxwaGEiLCJpIjoibm90LWFuLWlkIn0=")},
 				}))
@@ -243,7 +243,7 @@ func TestWorkflowRefusalsMapToCodes(t *testing.T) {
 		},
 		{
 			name: "a listing the store could not read",
-			call: func(ctx context.Context, svc workflowv1weave.WorkflowServiceAdapter) error {
+			call: func(ctx context.Context, svc workflowv1komrade.WorkflowServiceAdapter) error {
 				_, err := svc.ListWorkflows(ctx, connect.NewRequest(&workflowv1.ListWorkflowsRequest{}))
 
 				return err
@@ -306,12 +306,12 @@ func TestWorkflowWritesPassDown(t *testing.T) {
 
 	tests := []struct {
 		name string
-		call func(ctx context.Context, svc workflowv1weave.WorkflowServiceAdapter) error
+		call func(ctx context.Context, svc workflowv1komrade.WorkflowServiceAdapter) error
 		want fakeWorkflows
 	}{
 		{
 			name: "creating hands down every field",
-			call: func(ctx context.Context, svc workflowv1weave.WorkflowServiceAdapter) error {
+			call: func(ctx context.Context, svc workflowv1komrade.WorkflowServiceAdapter) error {
 				_, err := svc.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{
 					Name:     cfg.Name,
 					Context:  cfg.Context,
@@ -328,7 +328,7 @@ func TestWorkflowWritesPassDown(t *testing.T) {
 		},
 		{
 			name: "updating hands down the id and every field",
-			call: func(ctx context.Context, svc workflowv1weave.WorkflowServiceAdapter) error {
+			call: func(ctx context.Context, svc workflowv1komrade.WorkflowServiceAdapter) error {
 				_, err := svc.UpdateWorkflow(ctx, connect.NewRequest(&workflowv1.UpdateWorkflowRequest{
 					Id:       workflowID,
 					Name:     cfg.Name,
@@ -351,7 +351,7 @@ func TestWorkflowWritesPassDown(t *testing.T) {
 		},
 		{
 			name: "archiving hands down the id",
-			call: func(ctx context.Context, svc workflowv1weave.WorkflowServiceAdapter) error {
+			call: func(ctx context.Context, svc workflowv1komrade.WorkflowServiceAdapter) error {
 				_, err := svc.ArchiveWorkflow(ctx, connect.NewRequest(&workflowv1.ArchiveWorkflowRequest{Id: workflowID}))
 
 				return err
@@ -360,7 +360,7 @@ func TestWorkflowWritesPassDown(t *testing.T) {
 		},
 		{
 			name: "deleting hands down the id",
-			call: func(ctx context.Context, svc workflowv1weave.WorkflowServiceAdapter) error {
+			call: func(ctx context.Context, svc workflowv1komrade.WorkflowServiceAdapter) error {
 				_, err := svc.DeleteWorkflow(ctx, connect.NewRequest(&workflowv1.DeleteWorkflowRequest{Id: workflowID}))
 
 				return err
@@ -389,11 +389,11 @@ func TestWorkflowReadsRender(t *testing.T) {
 
 	tests := []struct {
 		name string
-		call func(ctx context.Context, svc workflowv1weave.WorkflowServiceAdapter) (*workflowv1.Workflow, error)
+		call func(ctx context.Context, svc workflowv1komrade.WorkflowServiceAdapter) (*workflowv1.Workflow, error)
 	}{
 		{
 			name: "reading one",
-			call: func(ctx context.Context, svc workflowv1weave.WorkflowServiceAdapter) (*workflowv1.Workflow, error) {
+			call: func(ctx context.Context, svc workflowv1komrade.WorkflowServiceAdapter) (*workflowv1.Workflow, error) {
 				got, err := svc.GetWorkflow(ctx, connect.NewRequest(&workflowv1.GetWorkflowRequest{Id: workflowID}))
 				if err != nil {
 					return nil, err
@@ -404,7 +404,7 @@ func TestWorkflowReadsRender(t *testing.T) {
 		},
 		{
 			name: "restoring one",
-			call: func(ctx context.Context, svc workflowv1weave.WorkflowServiceAdapter) (*workflowv1.Workflow, error) {
+			call: func(ctx context.Context, svc workflowv1komrade.WorkflowServiceAdapter) (*workflowv1.Workflow, error) {
 				got, err := svc.RestoreWorkflow(ctx, connect.NewRequest(&workflowv1.RestoreWorkflowRequest{Id: workflowID}))
 				if err != nil {
 					return nil, err
@@ -520,6 +520,6 @@ func TestListWorkflows(t *testing.T) {
 	}
 }
 
-func newWorkflowHandler(fake *fakeWorkflows) workflowv1weave.WorkflowServiceAdapter {
-	return workflowv1weave.WorkflowServiceAdapter{Impl: NewHandler(NewHandlerParams{Workflows: fake})}
+func newWorkflowHandler(fake *fakeWorkflows) workflowv1komrade.WorkflowServiceAdapter {
+	return workflowv1komrade.WorkflowServiceAdapter{Impl: NewHandler(NewHandlerParams{Workflows: fake})}
 }

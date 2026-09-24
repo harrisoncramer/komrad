@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"weave/internal/git"
-	"weave/internal/store"
-	"weave/lib/xptr"
+	"komrade/internal/git"
+	"komrade/internal/store"
+	"komrade/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

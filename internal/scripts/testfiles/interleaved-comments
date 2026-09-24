@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # A note about why this exists, written for whoever reads the file.
-#WEAVE description="Declared among ordinary comments."
+#KOMRADE description="Declared among ordinary comments."
 #
 # Another note, and a blank line under it.
-#WEAVE timeout="90s"
+#KOMRADE timeout="90s"
 
 set -euo pipefail
 

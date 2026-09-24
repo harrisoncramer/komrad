@@ -5,16 +5,16 @@ package cli
 import (
 	"testing"
 
-	"weave/internal/harness"
-	"weave/internal/harnesstest"
-	"weave/internal/tmuxtest"
+	"komrade/internal/harness"
+	"komrade/internal/harnesstest"
+	"komrade/internal/tmuxtest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // TestIntegrationDoesFrameShowHarness covers a pane still at its shell reading as a harness that has yet to
-// draw, and a harness weave cannot look up being taken at its word instead.
+// draw, and a harness komrade cannot look up being taken at its word instead.
 func TestIntegrationDoesFrameShowHarness(t *testing.T) {
 	t.Parallel()
 

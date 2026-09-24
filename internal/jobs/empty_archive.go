@@ -3,8 +3,8 @@ package jobs
 import (
 	"context"
 
-	"weave/internal/jobs/internaljobs"
-	agentstore "weave/internal/store/agent"
+	"komrade/internal/jobs/internaljobs"
+	agentstore "komrade/internal/store/agent"
 
 	"github.com/jackc/pgx/v5"
 )

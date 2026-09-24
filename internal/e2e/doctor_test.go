@@ -5,7 +5,7 @@ package e2e
 import (
 	"testing"
 
-	"weave/internal/weavetest"
+	"komrade/internal/komradetest"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
@@ -16,7 +16,7 @@ import (
 // TestIntegrationRunDoctorChecksTheServersOwnMachine covers what a doctor pointed at an engine reads back: the
 // service makes the checks about its machine with what it holds.
 func TestIntegrationRunDoctorChecksTheServersOwnMachine(t *testing.T) {
-	instance := weavetest.Start(t, weavetest.Params{})
+	instance := komradetest.Start(t, komradetest.Params{})
 
 	resp, err := instance.Doctor.RunDoctor(t.Context(), connect.NewRequest(&emptypb.Empty{}))
 	require.NoError(t, err)

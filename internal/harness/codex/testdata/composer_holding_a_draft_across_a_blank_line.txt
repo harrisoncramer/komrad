@@ -20,7 +20,7 @@
 
   third line after a blank
 
-  [38;2;130;156;207mgpt-5.6-luna medium[2m[39m · [0m[38;2;154;184;117m/private/tmp/claude-501/-Users-harrisoncramer--local-state-weave-worktrees-…
+  [38;2;130;156;207mgpt-5.6-luna medium[2m[39m · [0m[38;2;154;184;117m/private/tmp/claude-501/-Users-harrisoncramer--local-state-komrade-worktrees-…
 
 
 

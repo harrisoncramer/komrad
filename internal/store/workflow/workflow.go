@@ -5,8 +5,8 @@ package workflow
 import (
 	"time"
 
-	"weave/db/models"
-	"weave/internal/store"
+	"komrade/db/models"
+	"komrade/internal/store"
 )
 
 type Workflow struct {

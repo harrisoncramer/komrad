@@ -5,14 +5,14 @@ import (
 	"path/filepath"
 	"testing"
 
-	"weave/internal/harness"
+	"komrade/internal/harness"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // TestReadReport covers what one hook payload is read as, the event deciding it since that is
-// what weave pointed a subcommand at.
+// what komrade pointed a subcommand at.
 func TestReadReport(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -28,7 +28,7 @@ func TestReadReport(t *testing.T) {
 			want:    harness.Report{TurnEnded: true},
 		},
 		{
-			name:    "a turn weave's own last answer caused",
+			name:    "a turn komrade's own last answer caused",
 			event:   EventStop,
 			payload: `{"stop_hook_active":true}`,
 			want:    harness.Report{TurnEnded: true},
@@ -57,7 +57,7 @@ func TestReadReport(t *testing.T) {
 			want:    harness.Report{Reason: "Bash"},
 		},
 		{
-			name:    "a tool call weave could not read",
+			name:    "a tool call komrade could not read",
 			event:   EventPreToolUse,
 			payload: `{`,
 			wantErr: true,
@@ -142,7 +142,7 @@ func TestReadReportOnCapturedPayloads(t *testing.T) {
 }
 
 // TestEveryInstalledHookIsRead pins the direction the subcommand test cannot cover: an event
-// weave installs but takes no reading from would fire on every occurrence and be refused.
+// komrade installs but takes no reading from would fire on every occurrence and be refused.
 func TestEveryInstalledHookIsRead(t *testing.T) {
 	hn := NewHarness(NewHarnessParams{ConfigDir: t.TempDir()})
 

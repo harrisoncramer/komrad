@@ -4,8 +4,8 @@ import (
 	"slices"
 	"strings"
 
-	"weave/config"
-	"weave/lib/xslice"
+	"komrade/config"
+	"komrade/lib/xslice"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"

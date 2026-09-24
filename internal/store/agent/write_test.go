@@ -3,9 +3,9 @@ package agent
 import (
 	"testing"
 
-	"weave/db/models"
-	"weave/internal/store"
-	"weave/lib/xptr"
+	"komrade/db/models"
+	"komrade/internal/store"
+	"komrade/lib/xptr"
 
 	"github.com/google/uuid"
 

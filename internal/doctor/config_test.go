@@ -6,8 +6,8 @@ import (
 	"os/exec"
 	"testing"
 
-	"weave/config"
-	"weave/lib/xslice"
+	"komrade/config"
+	"komrade/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -20,7 +20,7 @@ var claudeAndCodex = []HarnessInfo{
 func configEnv(cfg *config.Config, loadErr error, exists bool, installed ...string) Env {
 	return Env{
 		Settings: Settings{
-			configLayers: []config.Layer{{Path: "/home/u/.config/weave/config.toml"}},
+			configLayers: []config.Layer{{Path: "/home/u/.config/komrade/config.toml"}},
 			Harnesses:    claudeAndCodex,
 		},
 		LookPath: func(name string) (string, error) {
@@ -52,7 +52,7 @@ func TestConfigCheck(t *testing.T) {
 		result := newConfigCheck().Run(t.Context(), configEnv(config.Defaults(), nil, true))
 
 		assert.Equal(t, StatusOK, result.Status)
-		assert.Equal(t, "/home/u/.config/weave/config.toml", result.Detail,
+		assert.Equal(t, "/home/u/.config/komrade/config.toml", result.Detail,
 			"the path is reported, since a config problem is not actionable without knowing which file")
 		assert.NotContains(t, result.Detail, "(absent)", "only a file that is missing is marked")
 	})
@@ -69,7 +69,7 @@ func TestConfigCheck(t *testing.T) {
 	})
 
 	t.Run("a file that was named but never written", func(t *testing.T) {
-		missing := errors.New("failed to read config /home/u/.config/weave/config.toml: there is no file there")
+		missing := errors.New("failed to read config /home/u/.config/komrade/config.toml: there is no file there")
 		result := newConfigCheck().Run(t.Context(), configEnv(nil, missing, false))
 
 		assert.Equal(t, StatusFail, result.Status)
@@ -129,7 +129,7 @@ func TestDefaultHarnessCheck(t *testing.T) {
 	}
 }
 
-// TestHarnessBinaryCheck covers the quietest failure weave has: a missing CLI leaves the
+// TestHarnessBinaryCheck covers the quietest failure komrade has: a missing CLI leaves the
 // pane idle, which reads as an agent that finished.
 func TestHarnessBinaryCheck(t *testing.T) {
 	tests := []struct {

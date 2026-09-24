@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"weave/internal/fail"
+	"komrade/internal/fail"
 
-	agentstore "weave/internal/store/agent"
+	agentstore "komrade/internal/store/agent"
 )
 
 // ErrPullRequestKey is a metadata write under the key the forge now fills.

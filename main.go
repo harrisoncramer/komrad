@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"weave/internal/cli"
-	"weave/internal/logging"
+	"komrade/internal/cli"
+	"komrade/internal/logging"
 )
 
 func main() {

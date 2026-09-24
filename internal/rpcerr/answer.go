@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"weave/internal/fail"
+	"komrade/internal/fail"
 
 	"connectrpc.com/connect"
 )

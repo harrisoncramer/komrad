@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"strings"
 
-	"weave/config"
-	"weave/internal/ui/paint"
-	"weave/internal/ui/paint/label"
-	"weave/internal/ui/panel"
-	"weave/lib/xptr"
+	"komrade/config"
+	"komrade/internal/ui/paint"
+	"komrade/internal/ui/paint/label"
+	"komrade/internal/ui/panel"
+	"komrade/lib/xptr"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"

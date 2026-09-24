@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-#MISE description="Lint the protobufs, with the custom rules weave's own conventions are in."
+#MISE description="Lint the protobufs, with the custom rules komrade's own conventions are in."
 set -euo pipefail
 cd "$MISE_CONFIG_ROOT"
 
 usage() {
 	echo "Usage: mise run proto:lint"
 	echo
-	echo "Builds the check plugin buf loads weave's own rules from, then runs buf lint."
+	echo "Builds the check plugin buf loads komrade's own rules from, then runs buf lint."
 	echo "The plugin is a Go binary in this module, so it is rebuilt every run rather"
 	echo "than left to go stale against the rules it serves."
 }
@@ -21,7 +21,7 @@ for arg in "$@"; do
 done
 
 mkdir -p local
-go build -o local/buf-plugin-weave ./cmd/buf-plugin-weave
+go build -o local/buf-plugin-komrade ./cmd/buf-plugin-komrade
 
 cd proto
 buf lint

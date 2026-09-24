@@ -1,5 +1,5 @@
 // Package layout owns the panes the panel is drawn across, turning the regions it asks for
-// into splits on weave's tmux server.
+// into splits on komrade's tmux server.
 //
 // The panel is one pane among several rather than a whole screen. The sidebar it draws
 // itself, and beside it sit the stage that pages a file or a diff, the info pane, and the
@@ -7,7 +7,7 @@
 // them are open, so the screens ask for a region rather than for a pane id.
 package layout
 
-import "weave/internal/panes"
+import "komrade/internal/panes"
 
 type Region int
 

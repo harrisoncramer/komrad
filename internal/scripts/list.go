@@ -5,8 +5,8 @@ import (
 	"slices"
 	"strings"
 
-	"weave/internal/fail"
-	"weave/lib/xslice"
+	"komrade/internal/fail"
+	"komrade/lib/xslice"
 )
 
 var ErrScriptNotFound = fail.NotFound("script not found")

@@ -7,8 +7,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"weave/config"
-	"weave/internal/cli"
+	"komrade/config"
+	"komrade/internal/cli"
 
 	"github.com/spf13/cobra"
 )

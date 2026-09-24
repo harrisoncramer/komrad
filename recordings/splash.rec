@@ -1,8 +1,8 @@
 # The splash banner on the docs site's home page (docs/public/splash), recorded from the
-# throwaway instance so a visitor sees weave busy rather than an empty list.
+# throwaway instance so a visitor sees komrade busy rather than an empty list.
 #
-# To remake it, seed weave-test with six workflows over small git repos under
-# /private/tmp/weave-demo, about ten haiku agents across them with one reviewer child, marks p
+# To remake it, seed komrade-test with six workflows over small git repos under
+# /private/tmp/komrade-demo, about ten haiku agents across them with one reviewer child, marks p
 # (payout-reconciliation) and c (cost-review), and a piece of mail, then run
 #   MISE_ENV=test mise run record recordings/splash.rec --width 240 --height 50 --pause 0.45s
 # Crop the recorder's step bar off the top (crop=2330:1130:0:34), take the frame after

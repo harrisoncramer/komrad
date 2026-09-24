@@ -25,7 +25,7 @@ func TestStampPtr(t *testing.T) {
 	}
 }
 
-// TestParse pins that a stamp weave cannot read comes back as the zero time rather than as an
+// TestParse pins that a stamp komrade cannot read comes back as the zero time rather than as an
 // error the caller would have nothing to do with.
 func TestParse(t *testing.T) {
 	assert.True(t, Parse("").IsZero())

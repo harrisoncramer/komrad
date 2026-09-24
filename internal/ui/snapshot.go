@@ -3,12 +3,12 @@ package ui
 import (
 	"regexp"
 
-	"weave/internal/git"
-	"weave/internal/ui/panel"
-	"weave/internal/view"
-	"weave/lib/xslice"
-	agentv1 "weave/proto/gen/agent/v1"
-	pullrequestv1 "weave/proto/gen/pullrequest/v1"
+	"komrade/internal/git"
+	"komrade/internal/ui/panel"
+	"komrade/internal/view"
+	"komrade/lib/xslice"
+	agentv1 "komrade/proto/gen/agent/v1"
+	pullrequestv1 "komrade/proto/gen/pullrequest/v1"
 )
 
 // snapshotParams is what the panel already holds about the agents list, handed over as plain

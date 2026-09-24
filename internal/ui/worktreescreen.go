@@ -5,12 +5,12 @@ import (
 	"strings"
 	"time"
 
-	"weave/config"
-	"weave/internal/errui"
-	"weave/internal/git"
-	"weave/internal/ui/paint/label"
-	"weave/internal/view"
-	"weave/lib/xslice"
+	"komrade/config"
+	"komrade/internal/errui"
+	"komrade/internal/git"
+	"komrade/internal/ui/paint/label"
+	"komrade/internal/view"
+	"komrade/lib/xslice"
 
 	tea "charm.land/bubbletea/v2"
 )

@@ -7,11 +7,11 @@ import (
 	"strings"
 	"testing"
 
-	"weave/internal/engine"
-	"weave/proto/gen/agent/v1/agentv1connect"
-	watchv1 "weave/proto/gen/watch/v1"
-	workflowv1 "weave/proto/gen/workflow/v1"
-	worktreev1 "weave/proto/gen/worktree/v1"
+	"komrade/internal/engine"
+	"komrade/proto/gen/agent/v1/agentv1connect"
+	watchv1 "komrade/proto/gen/watch/v1"
+	workflowv1 "komrade/proto/gen/workflow/v1"
+	worktreev1 "komrade/proto/gen/worktree/v1"
 
 	tea "charm.land/bubbletea/v2"
 	"connectrpc.com/connect"
@@ -572,7 +572,7 @@ func buildCrowdedSnapshot(long string) *watchv1.WatchEvent {
 		schedule.Cron = ""
 		worktree := &worktreev1.WatchedWorktree{
 			Dir:      "/trees/" + name,
-			RepoDir:  "/home/h/weave",
+			RepoDir:  "/home/h/komrade",
 			Branch:   "agent/" + name,
 			Readable: true,
 		}

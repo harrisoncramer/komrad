@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"os"
 
-	"weave/config"
+	"komrade/config"
 )
 
 const outputPath = "../config.toml"

@@ -9,8 +9,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"weave/internal/caller"
-	"weave/internal/logging"
+	"komrade/internal/caller"
+	"komrade/internal/logging"
 
 	"connectrpc.com/connect"
 	"github.com/google/uuid"

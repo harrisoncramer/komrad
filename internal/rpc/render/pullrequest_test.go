@@ -4,10 +4,10 @@ import (
 	"testing"
 	"time"
 
-	"weave/internal/forge"
-	pullrequeststore "weave/internal/store/pullrequest"
-	"weave/lib/xptr"
-	pullrequestv1 "weave/proto/gen/pullrequest/v1"
+	"komrade/internal/forge"
+	pullrequeststore "komrade/internal/store/pullrequest"
+	"komrade/lib/xptr"
+	pullrequestv1 "komrade/proto/gen/pullrequest/v1"
 
 	"github.com/stretchr/testify/assert"
 )

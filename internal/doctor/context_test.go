@@ -5,7 +5,7 @@ import (
 	"syscall"
 	"testing"
 
-	"weave/config"
+	"komrade/config"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -22,7 +22,7 @@ func contextEnv(file string, text string, readErr error) Env {
 }
 
 // TestContextCheck covers the standing text agents are started with, which the launcher reads and
-// drops the error from, so a file weave cannot read leaves every agent without it.
+// drops the error from, so a file komrade cannot read leaves every agent without it.
 func TestContextCheck(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -91,7 +91,7 @@ func TestContextCheck(t *testing.T) {
 // TestTheContextCheckIsRun pins the check being one doctor makes, a check nothing runs being
 // worth nothing.
 func TestTheContextCheckIsRun(t *testing.T) {
-	checks := Checks(Settings{Harnesses: claudeAndCodex, TmuxSocket: "weave"})
+	checks := Checks(Settings{Harnesses: claudeAndCodex, TmuxSocket: "komrade"})
 
 	assert.True(t, containsCheck(checks, "context"))
 }

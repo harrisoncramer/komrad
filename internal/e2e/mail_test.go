@@ -6,14 +6,14 @@ import (
 	"testing"
 	"time"
 
-	"weave/internal/caller"
-	"weave/internal/harness"
-	"weave/internal/mail"
-	agentstore "weave/internal/store/agent"
-	"weave/internal/weavetest"
-	"weave/lib/xptr"
-	agentv1 "weave/proto/gen/agent/v1"
-	workflowv1 "weave/proto/gen/workflow/v1"
+	"komrade/internal/caller"
+	"komrade/internal/harness"
+	"komrade/internal/komradetest"
+	"komrade/internal/mail"
+	agentstore "komrade/internal/store/agent"
+	"komrade/lib/xptr"
+	agentv1 "komrade/proto/gen/agent/v1"
+	workflowv1 "komrade/proto/gen/workflow/v1"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
@@ -22,7 +22,7 @@ import (
 
 // TestIntegrationAgentsMailEachOther walks one exchange between two agents, from the send through the nudge and the read to the reply.
 func TestIntegrationAgentsMailEachOther(t *testing.T) {
-	instance := weavetest.Start(t, weavetest.Params{})
+	instance := komradetest.Start(t, komradetest.Params{})
 	ctx := t.Context()
 
 	workflowID := createMailWorkflow(t, instance)
@@ -135,7 +135,7 @@ func TestIntegrationAgentsMailEachOther(t *testing.T) {
 
 // TestIntegrationDeliveryWaitsUntilTheRecipientCanTakeTheLine walks one piece of mail past every state an agent must not be typed at in.
 func TestIntegrationDeliveryWaitsUntilTheRecipientCanTakeTheLine(t *testing.T) {
-	instance := weavetest.Start(t, weavetest.Params{})
+	instance := komradetest.Start(t, komradetest.Params{})
 	ctx := t.Context()
 
 	workflowID := createMailWorkflow(t, instance)
@@ -186,7 +186,7 @@ func TestIntegrationDeliveryWaitsUntilTheRecipientCanTakeTheLine(t *testing.T) {
 
 // TestIntegrationExpiredMailIsGivenUpOn covers delivery finishing at the deadline rather than chasing a recipient forever.
 func TestIntegrationExpiredMailIsGivenUpOn(t *testing.T) {
-	instance := weavetest.Start(t, weavetest.Params{DeliveryDeadline: "1ns"})
+	instance := komradetest.Start(t, komradetest.Params{DeliveryDeadline: "1ns"})
 	ctx := t.Context()
 
 	workflowID := createMailWorkflow(t, instance)
@@ -208,7 +208,7 @@ func TestIntegrationExpiredMailIsGivenUpOn(t *testing.T) {
 	assert.Empty(t, instance.EndTurn(migrations.GetId()), "expired mail is not readable either")
 }
 
-func createMailWorkflow(t *testing.T, instance *weavetest.Instance) string {
+func createMailWorkflow(t *testing.T, instance *komradetest.Instance) string {
 	t.Helper()
 
 	workflow, err := instance.Workflows.CreateWorkflow(t.Context(), connect.NewRequest(&workflowv1.CreateWorkflowRequest{
@@ -224,7 +224,7 @@ func callAs[T any](req *connect.Request[T], agentID string) {
 	caller.Caller{AgentID: agentID}.SetHeader(req.Header())
 }
 
-func createAgent(t *testing.T, instance *weavetest.Instance, workflowID, name string) *agentv1.Agent {
+func createAgent(t *testing.T, instance *komradetest.Instance, workflowID, name string) *agentv1.Agent {
 	t.Helper()
 
 	created, err := instance.Agents.CreateAgent(t.Context(), connect.NewRequest(&agentv1.CreateAgentRequest{
@@ -237,7 +237,7 @@ func createAgent(t *testing.T, instance *weavetest.Instance, workflowID, name st
 	return created.Msg.GetAgent()
 }
 
-func readMail(t *testing.T, instance *weavetest.Instance, agentID string) []*agentv1.Mail {
+func readMail(t *testing.T, instance *komradetest.Instance, agentID string) []*agentv1.Mail {
 	t.Helper()
 
 	req := connect.NewRequest(&agentv1.ReadMailRequest{})

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"weave/internal/jobs/internaljobs"
+	"komrade/internal/jobs/internaljobs"
 
 	"github.com/riverqueue/river"
 )

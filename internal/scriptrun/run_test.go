@@ -12,14 +12,14 @@ import (
 	"testing"
 	"time"
 
-	"weave/config"
-	"weave/db/testmodels"
-	"weave/internal/logging"
-	"weave/internal/scripts"
-	agentstore "weave/internal/store/agent"
-	workflowstore "weave/internal/store/workflow"
-	"weave/internal/storetest"
-	"weave/lib/xptr"
+	"komrade/config"
+	"komrade/db/testmodels"
+	"komrade/internal/logging"
+	"komrade/internal/scripts"
+	agentstore "komrade/internal/store/agent"
+	workflowstore "komrade/internal/store/workflow"
+	"komrade/internal/storetest"
+	"komrade/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -29,7 +29,7 @@ import (
 // than never appearing.
 func TestListHooks(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "install-deps"), []byte("#!/bin/sh\n#WEAVE description=\"install it\"\n"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "install-deps"), []byte("#!/bin/sh\n#KOMRADE description=\"install it\"\n"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "unrunnable"), []byte("#!/bin/sh\n"), 0o644))
 
 	listed, err := scriptService(t, dir, &recordingRunner{}).ListHooks()
@@ -112,21 +112,21 @@ func TestScriptPayload(t *testing.T) {
 		values[key] = value
 	}
 
-	assert.Equal(t, fixtureAgentID, values["WEAVE_AGENT_ID"])
-	assert.Equal(t, "/repo", values["WEAVE_AGENT_CWD"])
-	assert.Equal(t, "127.0.0.1:8787", values["WEAVE_ADDR"])
-	assert.Equal(t, "weave", values["WEAVE_TMUX_SOCKET"])
-	assert.Equal(t, dir, values["WEAVE_SCRIPT_DIR"])
-	assert.Equal(t, firedScript, values["WEAVE_SCRIPT"], "its own name, for a script that wants to tag its own log lines")
-	assert.Equal(t, "%3", values["WEAVE_INFO_PANE"], "the pane the panel laid out for a script to fill")
-	assert.Equal(t, "/tmp/host-socket", values["WEAVE_HOST_TMUX_SOCKET"])
+	assert.Equal(t, fixtureAgentID, values["KOMRADE_AGENT_ID"])
+	assert.Equal(t, "/repo", values["KOMRADE_AGENT_CWD"])
+	assert.Equal(t, "127.0.0.1:8787", values["KOMRADE_ADDR"])
+	assert.Equal(t, "komrade", values["KOMRADE_TMUX_SOCKET"])
+	assert.Equal(t, dir, values["KOMRADE_SCRIPT_DIR"])
+	assert.Equal(t, firedScript, values["KOMRADE_SCRIPT"], "its own name, for a script that wants to tag its own log lines")
+	assert.Equal(t, "%3", values["KOMRADE_INFO_PANE"], "the pane the panel laid out for a script to fill")
+	assert.Equal(t, "/tmp/host-socket", values["KOMRADE_HOST_TMUX_SOCKET"])
 	assert.Equal(t, "nvim", values["EDITOR"], "the configured editor, not whatever the service inherited")
-	assert.Equal(t, "/bin/zsh", values["WEAVE_SHELL"], "the shell tmux itself opens a pane with")
-	assert.True(t, strings.HasPrefix(values["PATH"], "/opt/weave/bin"+string(os.PathListSeparator)),
-		"a script that shells out to weave finds this build's own binary first")
+	assert.Equal(t, "/bin/zsh", values["KOMRADE_SHELL"], "the shell tmux itself opens a pane with")
+	assert.True(t, strings.HasPrefix(values["PATH"], "/opt/komrade/bin"+string(os.PathListSeparator)),
+		"a script that shells out to komrade finds this build's own binary first")
 
 	var payload scriptPayload
-	require.NoError(t, json.Unmarshal([]byte(values["WEAVE_AGENT"]), &payload))
+	require.NoError(t, json.Unmarshal([]byte(values["KOMRADE_AGENT"]), &payload))
 
 	assert.Equal(t, "auth", payload.Name)
 	assert.Equal(t, string(agentstore.StateWaiting), payload.State)
@@ -139,7 +139,7 @@ func TestScriptPayload(t *testing.T) {
 	assert.Equal(t, map[string]string{"pr": "https://example.test/1"}, payload.Metadata)
 	assert.Equal(t, "fix auth", payload.Prompt)
 	assert.False(t, payload.PromptTruncated, "a prompt that fits arrives whole and says so")
-	assert.NotContains(t, values["WEAVE_AGENT"], "transcript", "a transcript is far past what an environment holds")
+	assert.NotContains(t, values["KOMRADE_AGENT"], "transcript", "a transcript is far past what an environment holds")
 }
 
 // TestWorktreeEnvOnlyWhenTheAgentIsProvisionedOne covers the environment the two built-in
@@ -172,11 +172,11 @@ func TestWorktreeEnvOnlyWhenTheAgentIsProvisionedOne(t *testing.T) {
 				SymlinkPaths: []string{"node_modules"},
 			},
 			wantKeys: []string{
-				"WEAVE_WORKTREE_REPO",
-				"WEAVE_WORKTREES_DIR",
-				"WEAVE_WORKTREE_BASE_BRANCH",
-				"WEAVE_WORKTREE_COPY_PATHS",
-				"WEAVE_WORKTREE_SYMLINK_PATHS",
+				"KOMRADE_WORKTREE_REPO",
+				"KOMRADE_WORKTREES_DIR",
+				"KOMRADE_WORKTREE_BASE_BRANCH",
+				"KOMRADE_WORKTREE_COPY_PATHS",
+				"KOMRADE_WORKTREE_SYMLINK_PATHS",
 			},
 		},
 	}
@@ -220,7 +220,7 @@ func TestWorktreeEnvOnlyWhenTheAgentIsProvisionedOne(t *testing.T) {
 			}
 
 			if len(tt.wantKeys) == 0 {
-				for _, key := range []string{"WEAVE_WORKTREE_REPO", "WEAVE_WORKTREES_DIR", "WEAVE_WORKTREE_BASE_BRANCH", "WEAVE_WORKTREE_COPY_PATHS", "WEAVE_WORKTREE_SYMLINK_PATHS"} {
+				for _, key := range []string{"KOMRADE_WORKTREE_REPO", "KOMRADE_WORKTREES_DIR", "KOMRADE_WORKTREE_BASE_BRANCH", "KOMRADE_WORKTREE_COPY_PATHS", "KOMRADE_WORKTREE_SYMLINK_PATHS"} {
 					_, ok := values[key]
 					assert.False(t, ok, "%s is not set for a workflow with worktree support off", key)
 				}
@@ -233,11 +233,11 @@ func TestWorktreeEnvOnlyWhenTheAgentIsProvisionedOne(t *testing.T) {
 				assert.True(t, ok, "%s is missing", key)
 			}
 
-			assert.Equal(t, "/repo", values["WEAVE_WORKTREE_REPO"], "the repo is the workflow's cwd, not the worktree the agent's cwd already names")
-			assert.Equal(t, worktreesDir, values["WEAVE_WORKTREES_DIR"])
-			assert.Equal(t, "develop", values["WEAVE_WORKTREE_BASE_BRANCH"])
-			assert.Equal(t, ".env\nconfig/local.json", values["WEAVE_WORKTREE_COPY_PATHS"])
-			assert.Equal(t, "node_modules", values["WEAVE_WORKTREE_SYMLINK_PATHS"])
+			assert.Equal(t, "/repo", values["KOMRADE_WORKTREE_REPO"], "the repo is the workflow's cwd, not the worktree the agent's cwd already names")
+			assert.Equal(t, worktreesDir, values["KOMRADE_WORKTREES_DIR"])
+			assert.Equal(t, "develop", values["KOMRADE_WORKTREE_BASE_BRANCH"])
+			assert.Equal(t, ".env\nconfig/local.json", values["KOMRADE_WORKTREE_COPY_PATHS"])
+			assert.Equal(t, "node_modules", values["KOMRADE_WORKTREE_SYMLINK_PATHS"])
 		})
 	}
 }
@@ -257,7 +257,7 @@ func TestRunScriptNamesAnArchivedWorkflow(t *testing.T) {
 
 	var payload scriptPayload
 	for _, entry := range runner.env {
-		if value, found := strings.CutPrefix(entry, "WEAVE_AGENT="); found {
+		if value, found := strings.CutPrefix(entry, "KOMRADE_AGENT="); found {
 			require.NoError(t, json.Unmarshal([]byte(value), &payload))
 		}
 	}
@@ -285,7 +285,7 @@ func TestRunScriptBoundsALongPrompt(t *testing.T) {
 
 	var encoded string
 	for _, entry := range runner.env {
-		if key, value, _ := strings.Cut(entry, "="); key == "WEAVE_AGENT" {
+		if key, value, _ := strings.Cut(entry, "="); key == "KOMRADE_AGENT" {
 			encoded = value
 		}
 	}
@@ -312,7 +312,7 @@ func TestRunScriptOnADormantAgent(t *testing.T) {
 
 	var payload scriptPayload
 	for _, entry := range runner.env {
-		if key, value, _ := strings.Cut(entry, "="); key == "WEAVE_AGENT" {
+		if key, value, _ := strings.Cut(entry, "="); key == "KOMRADE_AGENT" {
 			require.NoError(t, json.Unmarshal([]byte(value), &payload))
 		}
 	}
@@ -342,7 +342,7 @@ func TestFiredScriptWithTheAgentDirectoryGone(t *testing.T) {
 
 	var payload scriptPayload
 	for _, entry := range runner.env {
-		if key, value, _ := strings.Cut(entry, "="); key == "WEAVE_AGENT" {
+		if key, value, _ := strings.Cut(entry, "="); key == "KOMRADE_AGENT" {
 			require.NoError(t, json.Unmarshal([]byte(value), &payload))
 		}
 	}
@@ -450,7 +450,7 @@ func TestRunProvisionDoesNotHoldTheWholeDirFile(t *testing.T) {
 		"the refusal read the whole dir file to arrive at it")
 }
 
-// TestRunProvisionTellsTheScriptWhatSetItOff covers WEAVE_TRIGGER.
+// TestRunProvisionTellsTheScriptWhatSetItOff covers KOMRADE_TRIGGER.
 func TestRunProvisionTellsTheScriptWhatSetItOff(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -490,7 +490,7 @@ func TestRunProvisionTellsTheScriptWhatSetItOff(t *testing.T) {
 			runner := &recordingRunner{}
 			require.NoError(t, tt.fire(scriptService(t, dir, runner), runner))
 
-			assert.Contains(t, runner.env, "WEAVE_TRIGGER="+tt.wantTrigger)
+			assert.Contains(t, runner.env, "KOMRADE_TRIGGER="+tt.wantTrigger)
 		})
 	}
 }
@@ -533,11 +533,11 @@ func TestFiredScriptLogsWhatItDid(t *testing.T) {
 			wantLevel: "INFO",
 			wantBody:  "script finished",
 			wantFields: map[string]any{
-				"process.exit.code":     float64(0),
-				"weave.script.stderr":   nil,
-				"weave.script.name":     firedScript,
-				"weave.run.trigger":     TriggerDeprovision,
-				"weave.script.agent.id": fixtureAgentID,
+				"process.exit.code":       float64(0),
+				"komrade.script.stderr":   nil,
+				"komrade.script.name":     firedScript,
+				"komrade.run.trigger":     TriggerDeprovision,
+				"komrade.script.agent.id": fixtureAgentID,
 			},
 		},
 		{
@@ -550,9 +550,9 @@ func TestFiredScriptLogsWhatItDid(t *testing.T) {
 			wantLevel: "ERROR",
 			wantBody:  "script failed",
 			wantFields: map[string]any{
-				"process.exit.code":      float64(3),
-				"weave.script.stderr":    "fatal: '/repo' is dirty",
-				"weave.script.agent.cwd": "/repo",
+				"process.exit.code":        float64(3),
+				"komrade.script.stderr":    "fatal: '/repo' is dirty",
+				"komrade.script.agent.cwd": "/repo",
 			},
 		},
 	}
@@ -571,7 +571,7 @@ func TestFiredScriptLogsWhatItDid(t *testing.T) {
 
 			began := recordFor(t, written, "script started")
 			assert.Equal(t, "INFO", began["severity_text"])
-			assert.Equal(t, firedScript, began["weave.script.name"])
+			assert.Equal(t, firedScript, began["komrade.script.name"])
 
 			got := recordFor(t, written, tt.wantBody)
 			assert.Equal(t, tt.wantLevel, got["severity_text"])
@@ -605,19 +605,19 @@ func TestProvisionerLogsBothEnds(t *testing.T) {
 				err:      scripts.ErrFailed,
 			},
 			wantFields: map[string]any{
-				"process.exit.code":   float64(2),
-				"weave.script.stderr": "fatal: 'api-auth' is already checked out",
-				"weave.run.trigger":   TriggerProvision,
+				"process.exit.code":     float64(2),
+				"komrade.script.stderr": "fatal: 'api-auth' is already checked out",
+				"komrade.run.trigger":   TriggerProvision,
 			},
 		},
 		{
 			name:   "one that worked carries what it said about itself",
 			result: runResult{dirFile: "/repo/.worktrees/auth\n", stderr: "cloning\n"},
 			wantFields: map[string]any{
-				"process.exit.code":     float64(0),
-				"weave.script.stderr":   "cloning",
-				"weave.script.name":     "make-worktree",
-				"weave.script.agent.id": fixtureAgentID,
+				"process.exit.code":       float64(0),
+				"komrade.script.stderr":   "cloning",
+				"komrade.script.name":     "make-worktree",
+				"komrade.script.agent.id": fixtureAgentID,
 			},
 		},
 	}
@@ -642,7 +642,7 @@ func TestProvisionerLogsBothEnds(t *testing.T) {
 
 			began := recordFor(t, written, "script started")
 			assert.Equal(t, "INFO", began["severity_text"])
-			assert.Equal(t, TriggerProvision, began["weave.run.trigger"])
+			assert.Equal(t, TriggerProvision, began["komrade.run.trigger"])
 
 			got := recordFor(t, written, "script finished")
 			assert.Equal(t, "INFO", got["severity_text"], "the caller reports the refusal, this says a run happened")
@@ -673,9 +673,9 @@ func TestRunDeprovisionLogsUnderItsOwnTrigger(t *testing.T) {
 		}))
 
 	got := recordFor(t, records(), "script failed")
-	assert.Equal(t, TriggerDeprovision, got["weave.run.trigger"])
-	assert.Equal(t, "a2", got["weave.script.agent.id"])
-	assert.Equal(t, gone, got["weave.script.agent.cwd"], "the row is gone, so the record is what names the directory")
+	assert.Equal(t, TriggerDeprovision, got["komrade.run.trigger"])
+	assert.Equal(t, "a2", got["komrade.script.agent.id"])
+	assert.Equal(t, gone, got["komrade.script.agent.cwd"], "the row is gone, so the record is what names the directory")
 	assert.True(t, doneCalled, "the caller learns the run finished, not just that it logged")
 	require.ErrorIs(t, doneErr, scripts.ErrFailed)
 }
@@ -699,7 +699,7 @@ func TestRunDeprovisionLogsWhatAZeroExitSaid(t *testing.T) {
 
 	got := recordFor(t, records(), "script finished")
 	assert.EqualValues(t, 0, got["process.exit.code"], "the script succeeded")
-	assert.Equal(t, declined, got["weave.script.stderr"], "what it declined to do is kept")
+	assert.Equal(t, declined, got["komrade.script.stderr"], "what it declined to do is kept")
 	assert.True(t, doneCalled)
 	require.NoError(t, doneErr)
 }
@@ -757,7 +757,7 @@ func TestRunProvisionPersistsStdoutOnAFailure(t *testing.T) {
 	assert.Contains(t, string(persisted), "diagnosing 2")
 
 	got := recordFor(t, records(), "script finished")
-	assert.Contains(t, got, "weave.script.stdout", "the structured log carries the stream that actually failed")
+	assert.Contains(t, got, "komrade.script.stdout", "the structured log carries the stream that actually failed")
 }
 
 // TestScriptDetailCapsOutputAndNamesTheLogPath covers the string that becomes a panel
@@ -901,7 +901,7 @@ func TestScriptEnvGuardsAgainstInteractivePrompts(t *testing.T) {
 func TestRunHookRunsInTheAgentsDirectory(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "install-deps"), []byte(
-		"#!/bin/sh\nset -eu\necho installing in \"$PWD\"\npwd >installed\nprintf '%s' \"$WEAVE_TRIGGER\" >>installed\n",
+		"#!/bin/sh\nset -eu\necho installing in \"$PWD\"\npwd >installed\nprintf '%s' \"$KOMRADE_TRIGGER\" >>installed\n",
 	), 0o755))
 
 	logsDir := t.TempDir()
@@ -913,7 +913,7 @@ func TestRunHookRunsInTheAgentsDirectory(t *testing.T) {
 
 	landed, readErr := os.ReadFile(filepath.Join(worktree, "installed"))
 	require.NoError(t, readErr, "the hook ran in the agent's own directory rather than the script's")
-	assert.Contains(t, string(landed), workflowstore.HookPreLaunch, "and read the moment out of WEAVE_TRIGGER")
+	assert.Contains(t, string(landed), workflowstore.HookPreLaunch, "and read the moment out of KOMRADE_TRIGGER")
 
 	runs := config.ListRunLogs(logsDir, fixtureAgentID)
 	require.Len(t, runs, 1)
@@ -957,7 +957,7 @@ func TestRunHookRefusesADirectoryThatIsGone(t *testing.T) {
 
 // TestChmodMakesAHookRunnable pins the one action the listing tells a person to take: a hook
 // listed as unrunnable is refused, and a chmod is enough to make the next run go through
-// without weave being restarted.
+// without komrade being restarted.
 func TestChmodMakesAHookRunnable(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "install-deps")
@@ -1227,7 +1227,7 @@ const (
 // through rather than anything the script itself does.
 const firedScript = "_worktree_cleanup"
 
-// fireScript starts a script the way weave starts one it will not wait for.
+// fireScript starts a script the way komrade starts one it will not wait for.
 func fireScript(ctx context.Context, t *testing.T, svc *ScriptService) error {
 	t.Helper()
 
@@ -1362,10 +1362,10 @@ func TestScriptTimeouts(t *testing.T) {
 			dir := t.TempDir()
 			require.NoError(t, os.WriteFile(filepath.Join(dir, "bare"), []byte("#!/bin/sh\n"), 0o755))
 			require.NoError(t, os.WriteFile(filepath.Join(dir, "declared"), []byte(
-				"#!/bin/sh\n#WEAVE timeout=\"30s\"\n",
+				"#!/bin/sh\n#KOMRADE timeout=\"30s\"\n",
 			), 0o755))
 			require.NoError(t, os.WriteFile(filepath.Join(dir, "unlimited"), []byte(
-				"#!/bin/sh\n#WEAVE timeout=\"none\"\n",
+				"#!/bin/sh\n#KOMRADE timeout=\"none\"\n",
 			), 0o755))
 			require.NoError(t, os.WriteFile(filepath.Join(dir, firedScript), []byte("#!/bin/sh\n"), 0o755))
 
@@ -1510,9 +1510,9 @@ func scriptServiceOver(t *testing.T, params scriptServiceOverParams) *ScriptServ
 		},
 		BuiltinDir: params.Dir,
 		Addr:       "127.0.0.1:8787",
-		Socket:     "weave",
+		Socket:     "komrade",
 		Editor:     "nvim",
-		BinPath:    "/opt/weave/bin/weave",
+		BinPath:    "/opt/komrade/bin/komrade",
 		LogsDir:    params.LogsDir,
 	})
 }
@@ -1653,9 +1653,9 @@ func lookupEnv(env []string, key string) (string, bool) {
 	return "", false
 }
 
-// TestFiredScriptPrefersTheBuiltinOverAHookOfTheSameName pins where the scripts weave ships
+// TestFiredScriptPrefersTheBuiltinOverAHookOfTheSameName pins where the scripts komrade ships
 // come from now that a person's own directory is only ever read for hooks: a file of theirs
-// called _worktree_cleanup is a hook they may hang on a moment, not a replacement for weave's own.
+// called _worktree_cleanup is a hook they may hang on a moment, not a replacement for komrade's own.
 func TestFiredScriptPrefersTheBuiltinOverAHookOfTheSameName(t *testing.T) {
 	hooksDir, builtinDir := t.TempDir(), t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(hooksDir, firedScript), []byte("#!/bin/sh\n# theirs\n"), 0o755))
@@ -1667,7 +1667,7 @@ func TestFiredScriptPrefersTheBuiltinOverAHookOfTheSameName(t *testing.T) {
 
 	require.NoError(t, fireScript(t.Context(), t, service))
 
-	assert.Equal(t, builtinDir, runner.dir, "the one weave ships is the one that ran")
+	assert.Equal(t, builtinDir, runner.dir, "the one komrade ships is the one that ran")
 }
 
 // TestWorktreeEnvPrefersTheWorkflowsOwnDirectory covers which parent a worktree is made in:
@@ -1739,7 +1739,7 @@ func TestWorktreeEnvPrefersTheWorkflowsOwnDirectory(t *testing.T) {
 				values[key] = value
 			}
 
-			assert.Equal(t, tt.want(configured), values["WEAVE_WORKTREES_DIR"])
+			assert.Equal(t, tt.want(configured), values["KOMRADE_WORKTREES_DIR"])
 		})
 	}
 }

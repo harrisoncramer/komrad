@@ -13,11 +13,11 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"weave/internal/forge"
-	"weave/internal/forge/github"
-	"weave/internal/forge/gitlab"
-	"weave/internal/weavetest"
-	forgev1 "weave/proto/gen/forge/v1"
+	"komrade/internal/forge"
+	"komrade/internal/forge/github"
+	"komrade/internal/forge/gitlab"
+	"komrade/internal/komradetest"
+	forgev1 "komrade/proto/gen/forge/v1"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
@@ -27,7 +27,7 @@ import (
 
 // forgeTokenEnv names a GitHub token that reads harrisoncramer/weave-forge-fixture, and the
 // live test skips without one so the suite never needs the network.
-const forgeTokenEnv = "WEAVE_E2E_GITHUB_TOKEN"
+const forgeTokenEnv = "KOMRADE_E2E_GITHUB_TOKEN"
 
 // fakeForge is a forge answering a fixed pair of pull requests from one branch of one
 // repository, counting how often it was asked for the open one's review decision.
@@ -39,7 +39,7 @@ type fakeForge struct {
 // TestIntegrationForges walks a person connecting a forge, using it, and disconnecting it.
 func TestIntegrationForges(t *testing.T) {
 	fake := startFakeGitHub(t)
-	instance := weavetest.Start(t, weavetest.Params{
+	instance := komradetest.Start(t, komradetest.Params{
 		ForgeBuilders: map[string]forge.Builder{forge.KindGitHub: buildGitHub(fake.server)},
 	})
 	ctx := t.Context()
@@ -108,7 +108,7 @@ func TestIntegrationForgeSpeaksToGitHub(t *testing.T) {
 		t.Skipf("%s is not set", forgeTokenEnv)
 	}
 
-	instance := weavetest.Start(t, weavetest.Params{})
+	instance := komradetest.Start(t, komradetest.Params{})
 	ctx := t.Context()
 
 	connected, err := instance.Forges.ConnectForge(ctx, connect.NewRequest(&forgev1.ConnectForgeRequest{Host: "github.com", Token: token}))

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"net/http"
 
-	"weave/internal/logging"
+	"komrade/internal/logging"
 
 	"connectrpc.com/connect"
 )

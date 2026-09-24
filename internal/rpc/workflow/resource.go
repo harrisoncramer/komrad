@@ -1,11 +1,11 @@
 package workflow
 
 import (
-	"weave/internal/rpc/render"
+	"komrade/internal/rpc/render"
 
-	workflowstore "weave/internal/store/workflow"
-	viewv1 "weave/proto/gen/view/v1"
-	workflowv1 "weave/proto/gen/workflow/v1"
+	workflowstore "komrade/internal/store/workflow"
+	viewv1 "komrade/proto/gen/view/v1"
+	workflowv1 "komrade/proto/gen/workflow/v1"
 )
 
 type workflow struct {

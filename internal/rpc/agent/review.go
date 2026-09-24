@@ -3,15 +3,15 @@ package agent
 import (
 	"context"
 
-	"weave/internal/caller"
-	"weave/internal/fail"
-	"weave/internal/reviews"
-	"weave/internal/rpc/render"
-	"weave/internal/rpcerr"
-	reviewstore "weave/internal/store/review"
-	"weave/lib/dates"
-	"weave/lib/xslice"
-	agentv1 "weave/proto/gen/agent/v1"
+	"komrade/internal/caller"
+	"komrade/internal/fail"
+	"komrade/internal/reviews"
+	"komrade/internal/rpc/render"
+	"komrade/internal/rpcerr"
+	reviewstore "komrade/internal/store/review"
+	"komrade/lib/dates"
+	"komrade/lib/xslice"
+	agentv1 "komrade/proto/gen/agent/v1"
 )
 
 type reviewConversation interface {

@@ -3,11 +3,11 @@ package store_test
 import (
 	"testing"
 
-	"weave/db"
-	"weave/db/models"
-	"weave/internal/dbtest"
-	"weave/internal/store"
-	workflowstore "weave/internal/store/workflow"
+	"komrade/db"
+	"komrade/db/models"
+	"komrade/internal/dbtest"
+	"komrade/internal/store"
+	workflowstore "komrade/internal/store/workflow"
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/stretchr/testify/assert"

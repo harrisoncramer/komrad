@@ -12,13 +12,13 @@ import (
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
+	_ "komrade/proto/gen/annotation/v1"
+	v1 "komrade/proto/gen/pagination/v1"
+	_ "komrade/proto/gen/rules/v1"
+	v11 "komrade/proto/gen/view/v1"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
-	_ "weave/proto/gen/annotation/v1"
-	v1 "weave/proto/gen/pagination/v1"
-	_ "weave/proto/gen/rules/v1"
-	v11 "weave/proto/gen/view/v1"
 )
 
 const (
@@ -1099,7 +1099,7 @@ const file_schedule_v1_schedule_proto_rawDesc = "" +
 	"\x0eCreateSchedule\x12\".schedule.v1.CreateScheduleRequest\x1a#.schedule.v1.CreateScheduleResponse\"\xee\x03\x9a\xb5\x18\xe9\x03\b\x01\x10\x01\x1a\x0fcreate_schedule\"\xcc\x03Create a recurring agent launch inside a workflow. Nothing runs at create time; the agent is spawned when the cron expression next matches, and again on every match after that. The workflow supplies the directory, flags, and shared context each launch uses, so only the prompt and the timing are set here. Create it with enabled false to write it down without arming it, or with hideAgents true to keep its runs out of the panel's sidebar while they still run.(\x00B\x01\x03\x12\xa3\x03\n" +
 	"\x0eUpdateSchedule\x12\".schedule.v1.UpdateScheduleRequest\x1a\x16.google.protobuf.Empty\"\xd4\x02\x9a\xb5\x18\xcc\x02\b\x01\x10\x01\x1a\x0fupdate_schedule\"\xaf\x02Replace a schedule's name, cron expression, timezone, prompt, workflow, and whether the agents it launches start hidden from the panel. Every field is written, so read the schedule first and send back the ones you are not changing. Agents already launched are untouched, including their own hidden flag.(\x00B\x01\x03\x90\x02\x02\x12\x81\x02\n" +
 	"\x12SetScheduleEnabled\x12&.schedule.v1.SetScheduleEnabledRequest\x1a\x16.google.protobuf.Empty\"\xaa\x01\x9a\xb5\x18\xa2\x01\b\x01\x10\x01\x1a\x14set_schedule_enabled\"\x80\x01Pause or resume one schedule without editing anything else. A paused schedule keeps its record and its history and stops firing.(\x00B\x01\x03\x90\x02\x02\x12\x84\x03\n" +
-	"\x0fArchiveSchedule\x12#.schedule.v1.ArchiveScheduleRequest\x1a\x16.google.protobuf.Empty\"\xb3\x02\x9a\xb5\x18\xab\x02\b\x01\x10\x01\x1a\x10archive_schedule\"\x8d\x02Hide a schedule from the panel so it stops firing, keeping its record. The agents it already launched are left alone and keep running, and they still record the schedule that made them. Nothing brings an archived schedule back yet, so this is the end of it in practice.(\x00B\x01\x03\x90\x02\x02B(Z&weave/proto/gen/schedule/v1;schedulev1b\x06proto3"
+	"\x0fArchiveSchedule\x12#.schedule.v1.ArchiveScheduleRequest\x1a\x16.google.protobuf.Empty\"\xb3\x02\x9a\xb5\x18\xab\x02\b\x01\x10\x01\x1a\x10archive_schedule\"\x8d\x02Hide a schedule from the panel so it stops firing, keeping its record. The agents it already launched are left alone and keep running, and they still record the schedule that made them. Nothing brings an archived schedule back yet, so this is the end of it in practice.(\x00B\x01\x03\x90\x02\x02B*Z(komrade/proto/gen/schedule/v1;schedulev1b\x06proto3"
 
 var (
 	file_schedule_v1_schedule_proto_rawDescOnce sync.Once

@@ -8,19 +8,19 @@ import (
 	"os"
 	"sync"
 
-	"weave/config"
-	"weave/internal/frames"
-	"weave/internal/logging"
-	"weave/internal/scripts"
-	"weave/internal/store"
-	"weave/lib/xslice"
-	"weave/lib/xstr"
+	"komrade/config"
+	"komrade/internal/frames"
+	"komrade/internal/logging"
+	"komrade/internal/scripts"
+	"komrade/internal/store"
+	"komrade/lib/xslice"
+	"komrade/lib/xstr"
 
-	agentstore "weave/internal/store/agent"
-	reviewstore "weave/internal/store/review"
-	transcriptstore "weave/internal/store/transcript"
-	workflowstore "weave/internal/store/workflow"
-	worktreestore "weave/internal/store/worktree"
+	agentstore "komrade/internal/store/agent"
+	reviewstore "komrade/internal/store/review"
+	transcriptstore "komrade/internal/store/transcript"
+	workflowstore "komrade/internal/store/workflow"
+	worktreestore "komrade/internal/store/worktree"
 )
 
 // childLister reads the agents attached to a set of parents.

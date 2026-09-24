@@ -1,6 +1,6 @@
 #!/bin/sh
-#WEAVE summary="A key weave does not read."
-#WEAVE tools.node="20"
+#KOMRADE summary="A key komrade does not read."
+#KOMRADE tools.node="20"
 set -eu
 
 echo "declared"

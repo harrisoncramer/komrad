@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"time"
 
-	watchv1 "weave/proto/gen/watch/v1"
-	"weave/proto/gen/watch/v1/watchv1connect"
+	watchv1 "komrade/proto/gen/watch/v1"
+	"komrade/proto/gen/watch/v1/watchv1connect"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"

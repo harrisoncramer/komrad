@@ -10,7 +10,7 @@ issues:
 linters:
   enable:
     - bodyclose
-    - weavelint
+    - komradelint
     - unparam
     - exhaustive
     - fussy
@@ -72,10 +72,10 @@ linters:
         # nothing left to report the failure to.
         - (github.com/jackc/pgx/v5.Tx).Rollback
         - (*github.com/jackc/pgx/v5.Conn).Close
-        - (*weave/internal/store.Pool).Close
+        - (*komrade/internal/store.Pool).Close
         - (*os.File).Close
         - (io.Closer).Close
-        - (*weave/internal/engine.Tunnel).Close
+        - (*komrade/internal/engine.Tunnel).Close
         # Fails only with no HOME, and every caller treats the empty string as the fallback
         # it would have chosen anyway.
         - os.UserHomeDir
@@ -86,7 +86,7 @@ linters:
       # Explainer: driving a real git is what makes a test slow and what makes it flake under
       # load, so the suite is split into unit tests and integration tests, and only the
       # packages below pay for it. The rule is written against the calls rather than the
-      # imports, since a unit test that hands over a fake still imports weave/internal/git
+      # imports, since a unit test that hands over a fake still imports komrade/internal/git
       # for the types the fake is written in.
       analyze-types: true
       forbid:
@@ -105,31 +105,31 @@ linters:
           files:
             - "**/internal/ui/paint/**"
           deny:
-            - pkg: weave/internal/store
+            - pkg: komrade/internal/store
               desc: the drawing primitives hold no domain, so nothing here reads a record
-            - pkg: weave/db
+            - pkg: komrade/db
               desc: the drawing primitives hold no domain, so nothing here reads a record
-            - pkg: weave/proto
+            - pkg: komrade/proto
               desc: the drawing primitives hold no domain, so nothing here reads a record
-            - pkg: weave/internal/ui
+            - pkg: komrade/internal/ui
               desc: paint is under the panel rather than beside it, so it never reaches back up
         panel:
           files:
             - "**/internal/ui/**"
           deny:
-            - pkg: weave/internal/tmux
+            - pkg: komrade/internal/tmux
               desc: the panel takes what it needs of tmux as a dependency, so the option names stay in the adapter
-            - pkg: weave/internal/harness
+            - pkg: komrade/internal/harness
               desc: which CLI an agent runs is the service's business, and reaches the panel as data
-            - pkg: weave/internal/scripts
+            - pkg: komrade/internal/scripts
               desc: the panel lists and fires scripts over the API rather than reading the directory
-            - pkg: weave/internal/agents
+            - pkg: komrade/internal/agents
               desc: the panel is a client of the service, not a caller of it in process
-            - pkg: weave/db
+            - pkg: komrade/db
               desc: the panel holds no database connection
-            - pkg: weave/internal/store
+            - pkg: komrade/internal/store
               desc: the panel knows nothing the service has not told it, so a record reaches it as a proto and is kept in its own shape
-            - pkg: weave/internal/rpc/
+            - pkg: komrade/internal/rpc/
               desc: a handler's helpers convert between the store and the wire, and the panel has no store to convert from
         transport:
           files:
@@ -137,13 +137,13 @@ linters:
             - "**/internal/rpc/**"
             - "**/internal/mcp/**"
           deny:
-            - pkg: weave/internal/tmux
+            - pkg: komrade/internal/tmux
               desc: a handler translates and nothing more, so what tmux can do reaches it through the service
-            - pkg: weave/internal/harness
+            - pkg: komrade/internal/harness
               desc: same reason, and the service restates the refusals a handler maps on
-            - pkg: weave/internal/scripts
+            - pkg: komrade/internal/scripts
               desc: same reason, with agents.Script naming a script for a handler that has to describe one
-            - pkg: weave/db
+            - pkg: komrade/db
               desc: a handler holds no database connection
         domain:
           files:
@@ -157,7 +157,7 @@ linters:
             - "**/internal/scriptrun/**"
             - "**/internal/transcripts/**"
           deny:
-            - pkg: weave/proto/gen
+            - pkg: komrade/proto/gen
               desc: the service decides in its own types, and rendering them onto the wire is the handler's job
             - pkg: connectrpc.com/connect
               desc: the service returns a sentinel, and rpcerr picks the code it answers with
@@ -166,17 +166,17 @@ linters:
             - "**/internal/store/**"
           list-mode: lax
           allow:
-            - weave/proto/gen/watch/v1
+            - komrade/proto/gen/watch/v1
           deny:
-            - pkg: weave/internal/agents
+            - pkg: komrade/internal/agents
               desc: a store holds no rules, so nothing above it belongs here
-            - pkg: weave/internal/tmux
+            - pkg: komrade/internal/tmux
               desc: a store writes rows, and what is true of tmux reaches it as an argument
-            - pkg: weave/internal/harness
+            - pkg: komrade/internal/harness
               desc: same reason as tmux
-            - pkg: weave/internal/ui
+            - pkg: komrade/internal/ui
               desc: nothing below the panel may depend on it
-            - pkg: weave/proto/gen
+            - pkg: komrade/proto/gen
               desc: a row is the store's own struct, and two layers above it decide what the wire sees
             - pkg: connectrpc.com/connect
               desc: same reason as the wire types
@@ -186,23 +186,23 @@ linters:
             - "**/internal/harness/**"
             - "**/internal/scripts/**"
           deny:
-            - pkg: weave/internal/store
-              desc: an adapter is a seam in front of something weave does not own, and knows nothing of rows
-            - pkg: weave/internal/agents
+            - pkg: komrade/internal/store
+              desc: an adapter is a seam in front of something komrade does not own, and knows nothing of rows
+            - pkg: komrade/internal/agents
               desc: the service calls the adapter rather than the other way round
-            - pkg: weave/internal/ui
+            - pkg: komrade/internal/ui
               desc: same reason
-            - pkg: weave/proto/gen
-              desc: what tmux or a CLI can do is weave's own vocabulary, not the wire's
+            - pkg: komrade/proto/gen
+              desc: what tmux or a CLI can do is komrade's own vocabulary, not the wire's
             - pkg: connectrpc.com/connect
               desc: same reason as the wire types
         handler-tests:
           files:
             - "**/internal/rpc/**/*_test.go"
           deny:
-            - pkg: weave/internal/storetest
+            - pkg: komrade/internal/storetest
               desc: a handler takes its service as an interface, so its test hands in a fake service and covers only what the handler adds
-            - pkg: weave/internal/pgtest
+            - pkg: komrade/internal/pgtest
               desc: same reason as storetest
         generated-queries:
           files:
@@ -210,24 +210,24 @@ linters:
             - "!**/internal/store/**"
             - "!**/db/**"
           deny:
-            - pkg: weave/db/models
+            - pkg: komrade/db/models
               desc: the generated queries are the store's to call, so a caller goes through the domain store
         config:
           files:
             - "**/config/**"
             - "!**/internal/**"
           deny:
-            - pkg: weave/internal
+            - pkg: komrade/internal
               desc: config is read by everything and so may depend on nothing
     importas:
       no-unaliased: true
       alias:
-        - pkg: weave/internal/store/(\w+)
+        - pkg: komrade/internal/store/(\w+)
           alias: ${1}store
-        - pkg: weave/proto/gen/(\w+)/v1
+        - pkg: komrade/proto/gen/(\w+)/v1
           alias: ${1}v1
     sloglint:
-      # Every line in weave is written with LogAttrs, on the logger the context carries, so a
+      # Every line in komrade is written with LogAttrs, on the logger the context carries, so a
       # line reaches the log with the request's trace on it rather than bare.
       context: all
       attr-only: true
@@ -271,9 +271,9 @@ linters:
       # an enum a bound that moves on its own, so no switch answers for it.
       ignore-enum-members: End$
     custom:
-      weavelint:
+      komradelint:
         type: module
-        description: Checks for weave's own conventions.
+        description: Checks for komrade's own conventions.
         settings:
           sentinel_inline:
             skip: false
@@ -319,9 +319,9 @@ linters:
             # Where Expose may be called, spelled as types.Func.FullName spells a function. The
             # header that sends the token and the store that keeps it, and nothing else.
             allow:
-              - (weave/internal/forge.Credential).HeaderValue
-              - (*weave/internal/forge.FileStore).Set
-              - weave/internal/cli.tokenForTheWire
+              - (komrade/internal/forge.Credential).HeaderValue
+              - (*komrade/internal/forge.FileStore).Set
+              - komrade/internal/cli.tokenForTheWire
           handler_shape:
             skip: false
             # Unanchored regexps over the path lint was run from. The adapter's own signature is
@@ -347,7 +347,7 @@ linters:
             # The panel's screen tests are in package ui_test, where they can only reach the
             # model through the harness.
             types:
-              - weave/internal/ui.model
+              - komrade/internal/ui.model
             # Unanchored regexps over the path lint was run from.
             exclude:
               # This file hands the model to the harness. Something has to reach inside the
@@ -485,8 +485,8 @@ linters:
       # The integration tests: the packages whose subject is what git, tmux or the panel's own
       # binaries actually do, which is the one case a test has to drive the real thing. It is
       # the set mise/tasks/go/test runs for --kind integration. The fixture packages beside
-      # them, such as internal/weavetest, hold no test of their own and so need no entry.
-      - path: (internal/(git|diff|scripts|e2e|tmux|cli|harness)|tools/weaverec)/
+      # them, such as internal/komradetest, hold no test of their own and so need no entry.
+      - path: (internal/(git|diff|scripts|e2e|tmux|cli|harness)|tools/komraderec)/
         linters:
           - forbidigo
       # A binary's package comment would be the first thing a reader of the command sees on
@@ -511,7 +511,7 @@ linters:
       # test on the spot rather than travelling as a wrong value the way it would in the server.
       # The same files shell out to git and tmux to build their fixtures, where the command
       # is bounded by the test binary's own life and has no request to be cancelled with.
-      - path: (_test\.go|internal/(pgtest|tmuxtest|storetest|harnesstest|logtest|weavetest)/)
+      - path: (_test\.go|internal/(pgtest|tmuxtest|storetest|harnesstest|logtest|komradetest)/)
         linters:
           - forcetypeassert
           - noctx
@@ -522,7 +522,7 @@ linters:
         linters:
           - errname
       # depguard matches a denied package by prefix, so the panel's rule against
-      # weave/internal/tmux also catches weave/internal/tmuxtest, which is the fixture the
+      # komrade/internal/tmux also catches komrade/internal/tmuxtest, which is the fixture the
       # panel's own tests stand a real tmux server up with rather than the adapter itself.
       - path: internal/ui/
         linters:
@@ -530,7 +530,7 @@ linters:
         text: tmuxtest
       # Tests and the fixtures they share discard errors in t.Cleanup teardown, where a
       # failure means the throwaway server or file is already gone.
-      - path: (_test\.go|internal/(pgtest|tmuxtest|storetest|harnesstest|logtest|weavetest)/)
+      - path: (_test\.go|internal/(pgtest|tmuxtest|storetest|harnesstest|logtest|komradetest)/)
         linters:
           - errcheck
       # A test helper takes t and the fixture before its own arguments, so the limit that
@@ -546,4 +546,4 @@ formatters:
   settings:
     goimports:
       local-prefixes:
-        - weave
+        - komrade

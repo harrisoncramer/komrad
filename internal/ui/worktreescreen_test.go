@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"weave/lib/xslice"
-	agentv1 "weave/proto/gen/agent/v1"
-	worktreev1 "weave/proto/gen/worktree/v1"
-	"weave/proto/gen/worktree/v1/worktreev1connect"
+	"komrade/lib/xslice"
+	agentv1 "komrade/proto/gen/agent/v1"
+	worktreev1 "komrade/proto/gen/worktree/v1"
+	"komrade/proto/gen/worktree/v1/worktreev1connect"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
@@ -148,7 +148,7 @@ func TestWorktreesDelete(t *testing.T) {
 	}{
 		{
 			name:       "a repository header opens nothing",
-			row:        "/home/h/weave",
+			row:        "/home/h/komra…",
 			press:      []string{"d"},
 			wantAbsent: "Delete",
 		},
@@ -215,7 +215,7 @@ func TestWorktreesDelete(t *testing.T) {
 		stuck.State = agentv1.AgentState_AGENT_STATE_FAILED_TO_CLEANUP
 		stuck.Cwd = "/trees/stuck"
 		harness := openWorktrees(t,
-			newLiveWorkflow("w1", "weave"),
+			newLiveWorkflow("w1", "komrade"),
 			stuck,
 			&worktreev1.WatchedWorktree{Dir: "/trees/stuck"},
 		)
@@ -346,7 +346,7 @@ func TestWorktreesRecord(t *testing.T) {
 		assert.Equal(t, "reviewer", readRecordField(frame, "name"))
 		assert.Equal(t, "—", readRecordField(frame, "size"))
 		assert.Equal(t, "agent/archived", readRecordField(frame, "branch"))
-		assert.Equal(t, "weave", readRecordField(frame, "workflow"))
+		assert.Equal(t, "komrade", readRecordField(frame, "workflow"))
 		assert.True(t, strings.HasPrefix(readRecordField(frame, "agent"), "claude, archived "))
 		assert.Empty(t, readRecordField(frame, "base"))
 	})
@@ -678,17 +678,17 @@ func TestWorktreesSort(t *testing.T) {
 	}{
 		{
 			name: "size down is the fallback, under each repository",
-			want: []string{"/home/h/gadge…", "  cargo-fix", "/home/h/weave", "  reviewer", "  treeview", "  agent/orphan", "/var/folders/…", "  broken"},
+			want: []string{"/home/h/gadge…", "  cargo-fix", "/home/h/komra…", "  reviewer", "  treeview", "  agent/orphan", "/var/folders/…", "  broken"},
 		},
 		{
 			name:  "moving the focus reorders nothing",
 			press: []string{"f", "tab", "esc"},
-			want:  []string{"/home/h/gadge…", "  cargo-fix", "/home/h/weave", "  reviewer", "  treeview", "  agent/orphan", "/var/folders/…", "  broken"},
+			want:  []string{"/home/h/gadge…", "  cargo-fix", "/home/h/komra…", "  reviewer", "  treeview", "  agent/orphan", "/var/folders/…", "  broken"},
 		},
 		{
 			name:  "last accessed down is the most recent first",
 			press: []string{"f", "tab", "j", "esc"},
-			want:  []string{"/home/h/gadge…", "  cargo-fix", "/home/h/weave", "  treeview", "  agent/orphan", "  reviewer", "/var/folders/…", "  broken"},
+			want:  []string{"/home/h/gadge…", "  cargo-fix", "/home/h/komra…", "  treeview", "  agent/orphan", "  reviewer", "/var/folders/…", "  broken"},
 		},
 		{
 			name:  "the stop drops the headings and settles a tie in size by path",
@@ -746,7 +746,7 @@ func TestWorktreesSort(t *testing.T) {
 
 		harness := openWorktrees(t, buildMeasuredWorktrees()...)
 		harness.press("k", "k")
-		require.Equal(t, "/home/h/weave", readHoveredWorktree(harness.readFrame()))
+		require.Equal(t, "/home/h/komra…", readHoveredWorktree(harness.readFrame()))
 
 		harness.press("f", "shift+tab", "j", "esc")
 
@@ -797,7 +797,7 @@ func buildWorktrees() []proto.Message {
 	admin.Cwd = "/trees/admin"
 
 	return append([]proto.Message{
-		newLiveWorkflow("w1", "weave"),
+		newLiveWorkflow("w1", "komrade"),
 		live,
 		occupant,
 		archived,
@@ -815,7 +815,7 @@ func buildWatchedWorktrees() []proto.Message {
 		},
 		&worktreev1.WatchedWorktree{
 			Dir:      "/trees/archived",
-			RepoDir:  "/home/h/weave",
+			RepoDir:  "/home/h/komrade",
 			Branch:   "agent/archived",
 			Readable: true,
 		},
@@ -825,13 +825,13 @@ func buildWatchedWorktrees() []proto.Message {
 		},
 		&worktreev1.WatchedWorktree{
 			Dir:      "/trees/live",
-			RepoDir:  "/home/h/weave",
+			RepoDir:  "/home/h/komrade",
 			Branch:   "agent/live",
 			Readable: true,
 		},
 		&worktreev1.WatchedWorktree{
 			Dir:      "/trees/orphan",
-			RepoDir:  "/home/h/weave",
+			RepoDir:  "/home/h/komrade",
 			Branch:   "agent/orphan",
 			Readable: true,
 		},

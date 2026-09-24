@@ -1,6 +1,6 @@
 
 [38;5;175m[48;5;59m! [38;5;188mpwd[39m
-[38;5;102m[49m  ⎿  [39m/Users/harrisoncramer/.local/state/weave/worktrees/01a073ef-552f-73c8-ad82-0d5a30e7a1dd
+[38;5;102m[49m  ⎿  [39m/Users/harrisoncramer/.local/state/komrade/worktrees/01a073ef-552f-73c8-ad82-0d5a30e7a1dd
 
 [38;5;188m⏺[39m Right dir. Panel matches. So it's [38;5;153mgit branch[39m's full list, not a wrong terminal.
 

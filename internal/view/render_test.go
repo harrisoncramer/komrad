@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"weave/internal/ui/paint"
+	"komrade/internal/ui/paint"
 
 	"charm.land/lipgloss/v2"
 	"github.com/stretchr/testify/assert"
@@ -138,7 +138,7 @@ func TestRenderRowShapes(t *testing.T) {
 			golden: "row-workflow",
 			row: Row{
 				Kind:        KindWorkflow,
-				Name:        "weave",
+				Name:        "komrade",
 				Mark:        "w",
 				HiddenCount: 3,
 				Scheduled:   true,
@@ -149,7 +149,7 @@ func TestRenderRowShapes(t *testing.T) {
 			golden: "row-workflow-unmarked",
 			row: Row{
 				Kind:        KindWorkflow,
-				Name:        "weave-bughunt-job",
+				Name:        "komrade-bughunt-job",
 				HiddenCount: 5,
 				Scheduled:   true,
 			},
@@ -411,7 +411,7 @@ func livePanelRows() []Row {
 		},
 		{
 			Kind:        KindWorkflow,
-			Name:        "weave",
+			Name:        "komrade",
 			Mark:        "w",
 			Process:     ProcessNone,
 			HiddenCount: 4,
@@ -460,7 +460,7 @@ func livePanelRows() []Row {
 		},
 		{
 			Kind:        KindWorkflow,
-			Name:        "weave-bughunt-job",
+			Name:        "komrade-bughunt-job",
 			Process:     ProcessNone,
 			Scheduled:   true,
 			HiddenCount: 5,
@@ -814,7 +814,7 @@ func canonicalRows() []Row {
 		},
 		{
 			Kind:        KindWorkflow,
-			Name:        "weave",
+			Name:        "komrade",
 			Mark:        "w",
 			HiddenCount: 3,
 			Scheduled:   true,
@@ -862,7 +862,7 @@ func canonicalRows() []Row {
 		},
 		{
 			Kind:        KindWorkflow,
-			Name:        "weave-bughunt-job",
+			Name:        "komrade-bughunt-job",
 			HiddenCount: 5,
 			Scheduled:   true,
 			Process:     ProcessNone,
@@ -886,7 +886,7 @@ func archiveRows() []Row {
 		{
 			Key:       "w:live",
 			Kind:      KindWorkflow,
-			Name:      "weave",
+			Name:      "komrade",
 			Process:   ProcessNone,
 			Scheduled: true,
 		},
@@ -1015,7 +1015,7 @@ func TestRenderTextColumnsSitBesideTheBar(t *testing.T) {
 	rows := []Row{
 		{
 			Kind:  KindWorkflow,
-			Name:  "~/weave",
+			Name:  "~/komrade",
 			Cells: []Cell{muted("24G")},
 		},
 		{
@@ -1054,7 +1054,7 @@ func TestRenderTextColumnsSitBesideTheBar(t *testing.T) {
 		assert.Equalf(t, want, nameColumnOf(line, list.Lines[i]), "row %d opens its name past the gutter", i)
 	}
 
-	assert.Equal(t, "     24G      │ ~/weave", lines[0])
+	assert.Equal(t, "     24G      │ ~/komrade", lines[0])
 	assert.Equal(t, "    9.2M  12h │   issue-607-p…", lines[2])
 	assert.Equal(t, "              │   └ review-607", lines[3])
 }
@@ -1070,12 +1070,12 @@ func TestRenderTextCellIsClippedToItsColumn(t *testing.T) {
 		{
 			name:  "a column of no width draws nothing",
 			width: 0,
-			want:  "     │ weave",
+			want:  "     │ komrade",
 		},
 		{
 			name:  "a figure wider than its column is cut",
 			width: 4,
-			want:  "    123… │ weave",
+			want:  "    123… │ komrade",
 		},
 	}
 
@@ -1084,7 +1084,7 @@ func TestRenderTextCellIsClippedToItsColumn(t *testing.T) {
 			list := Prepare(Snapshot{
 				Rows: []Row{{
 					Kind:  KindWorkflow,
-					Name:  "weave",
+					Name:  "komrade",
 					Cells: []Cell{muted("12345")},
 				}},
 				Columns: Columns{{Kind: ColumnText, Width: tt.width}},

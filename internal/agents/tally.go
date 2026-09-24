@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	agentstore "weave/internal/store/agent"
+	agentstore "komrade/internal/store/agent"
 )
 
 const unrecognizedHoldLimit = 5

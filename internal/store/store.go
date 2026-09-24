@@ -14,10 +14,10 @@ import (
 	"fmt"
 	"strings"
 
-	"weave/db"
-	"weave/db/models"
-	"weave/internal/fail"
-	"weave/lib/xslice"
+	"komrade/db"
+	"komrade/db/models"
+	"komrade/internal/fail"
+	"komrade/lib/xslice"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -30,7 +30,7 @@ var ErrNameTaken = fail.AlreadyExists("name already taken")
 var ErrNotFound = fail.NotFound("not found")
 
 var ErrNoReadOnlyURL = fail.Internal(
-	"no read-only database url: set WEAVE_READONLY_DATABASE_URL, or a DATABASE_URL one can be derived from")
+	"no read-only database url: set KOMRADE_READONLY_DATABASE_URL, or a DATABASE_URL one can be derived from")
 
 type DBTX = models.DBTX
 
@@ -47,7 +47,7 @@ type Engine struct {
 
 // ErrNotAnEngine is what opening a pool returns for a login that belongs to no engine.
 var ErrNotAnEngine = fail.Precondition(
-	"the database login belongs to no engine; run weave engine ensure as the database owner and connect with the login it prints")
+	"the database login belongs to no engine; run komrade engine ensure as the database owner and connect with the login it prints")
 
 // IDCursor pages a listing that resumes from one row's id.
 type IDCursor struct {
@@ -196,7 +196,7 @@ func parseConfig(url string) (*pgxpool.Config, error) {
 
 // ErrNotThisEnginesReader is what opening the read-only pool returns for any login but the engine's own reader.
 var ErrNotThisEnginesReader = fail.Precondition(
-	"the read-only database url must name this engine's reader login, which weave engine ensure creates")
+	"the read-only database url must name this engine's reader login, which komrade engine ensure creates")
 
 func checkReader(ctx context.Context, pool *pgxpool.Pool, engineID string) error {
 	identity, err := models.New(pool).GetReaderIdentity(ctx)

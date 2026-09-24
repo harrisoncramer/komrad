@@ -85,7 +85,7 @@ const file_view_v1_view_proto_rawDesc = "" +
 	"\x04View\x12\x14\n" +
 	"\x10VIEW_UNSPECIFIED\x10\x00\x12\x10\n" +
 	"\fVIEW_SUMMARY\x10\x01\x12\r\n" +
-	"\tVIEW_FULL\x10\x02B Z\x1eweave/proto/gen/view/v1;viewv1b\x06proto3"
+	"\tVIEW_FULL\x10\x02B\"Z komrade/proto/gen/view/v1;viewv1b\x06proto3"
 
 var (
 	file_view_v1_view_proto_rawDescOnce sync.Once

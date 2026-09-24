@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"slices"
 
-	"weave/config"
-	"weave/internal/ui/paint/label"
-	"weave/internal/ui/panel"
-	"weave/lib/xslice"
+	"komrade/config"
+	"komrade/internal/ui/paint/label"
+	"komrade/internal/ui/panel"
+	"komrade/lib/xslice"
 
 	"charm.land/huh/v2"
 	"charm.land/lipgloss/v2"

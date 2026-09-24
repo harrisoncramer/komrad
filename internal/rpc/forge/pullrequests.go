@@ -4,14 +4,14 @@ import (
 	"context"
 	"fmt"
 
-	"weave/internal/fail"
-	"weave/internal/forge"
-	"weave/internal/git"
-	"weave/internal/rpcerr"
-	"weave/lib/dates"
-	"weave/lib/pagination"
-	"weave/lib/xslice"
-	forgev1 "weave/proto/gen/forge/v1"
+	"komrade/internal/fail"
+	"komrade/internal/forge"
+	"komrade/internal/git"
+	"komrade/internal/rpcerr"
+	"komrade/lib/dates"
+	"komrade/lib/pagination"
+	"komrade/lib/xslice"
+	forgev1 "komrade/proto/gen/forge/v1"
 )
 
 // pageCursor is where a listing left off, the forge's cursor for the next page and the size

@@ -8,9 +8,9 @@ import (
 	"net/http"
 	"testing"
 
-	"weave/internal/caller"
-	"weave/internal/weavetest"
-	agentv1 "weave/proto/gen/agent/v1"
+	"komrade/internal/caller"
+	"komrade/internal/komradetest"
+	agentv1 "komrade/proto/gen/agent/v1"
 
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
@@ -27,7 +27,7 @@ type toolCaller struct {
 // TestIntegrationMCPTools walks the tools an agent's CLI calls, from the list it is served to what
 // a call does and how a refusal reads.
 func TestIntegrationMCPTools(t *testing.T) {
-	instance := weavetest.Start(t, weavetest.Params{})
+	instance := komradetest.Start(t, komradetest.Params{})
 
 	workflowID := createWorkflow(t, instance, "checkout")
 	api := createAgent(t, instance, workflowID, "api")
@@ -51,7 +51,7 @@ func TestIntegrationMCPTools(t *testing.T) {
 		assert.NotContains(t, served, "request_review")
 	})
 
-	t.Run("a caller weave cannot place is served every tool", func(t *testing.T) {
+	t.Run("a caller komrade cannot place is served every tool", func(t *testing.T) {
 		served := connectMCP(t, instance, "").listTools(t)
 
 		assert.Subset(t, served, implementerTools.listTools(t))
@@ -111,8 +111,8 @@ func TestIntegrationMCPTools(t *testing.T) {
 	})
 }
 
-// connectMCP connects a tool caller as an agent, or as nobody weave can place when agentID is empty.
-func connectMCP(t *testing.T, instance *weavetest.Instance, agentID string) toolCaller {
+// connectMCP connects a tool caller as an agent, or as nobody komrade can place when agentID is empty.
+func connectMCP(t *testing.T, instance *komradetest.Instance, agentID string) toolCaller {
 	t.Helper()
 
 	client := mcpsdk.NewClient(&mcpsdk.Implementation{Name: "e2e", Version: "0"}, nil)

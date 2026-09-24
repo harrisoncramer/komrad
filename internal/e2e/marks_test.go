@@ -5,10 +5,10 @@ package e2e
 import (
 	"testing"
 
-	"weave/internal/weavetest"
-	"weave/lib/xptr"
-	agentv1 "weave/proto/gen/agent/v1"
-	workflowv1 "weave/proto/gen/workflow/v1"
+	"komrade/internal/komradetest"
+	"komrade/lib/xptr"
+	agentv1 "komrade/proto/gen/agent/v1"
+	workflowv1 "komrade/proto/gen/workflow/v1"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
@@ -19,7 +19,7 @@ import (
 // TestIntegrationMarks walks the letters a person types to jump to a row, from claiming one to
 // losing it with the row.
 func TestIntegrationMarks(t *testing.T) {
-	instance := weavetest.Start(t, weavetest.Params{})
+	instance := komradetest.Start(t, komradetest.Params{})
 	ctx := t.Context()
 
 	workflowID := createWorkflow(t, instance, "checkout")
@@ -94,7 +94,7 @@ func newWorkflowTarget(id string) *agentv1.SetMarkRequest_WorkflowId {
 	return &agentv1.SetMarkRequest_WorkflowId{WorkflowId: id}
 }
 
-func setMark(t *testing.T, instance *weavetest.Instance, req *agentv1.SetMarkRequest) error {
+func setMark(t *testing.T, instance *komradetest.Instance, req *agentv1.SetMarkRequest) error {
 	t.Helper()
 
 	_, err := instance.Agents.SetMark(t.Context(), connect.NewRequest(req))
@@ -103,7 +103,7 @@ func setMark(t *testing.T, instance *weavetest.Instance, req *agentv1.SetMarkReq
 }
 
 // listMarks is every mark by letter, each naming the agent or the workflow it jumps to.
-func listMarks(t *testing.T, instance *weavetest.Instance) map[string]string {
+func listMarks(t *testing.T, instance *komradetest.Instance) map[string]string {
 	t.Helper()
 
 	listed, err := instance.Agents.ListMarks(t.Context(), connect.NewRequest(&emptypb.Empty{}))

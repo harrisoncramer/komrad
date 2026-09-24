@@ -1,4 +1,4 @@
-// Package pullrequest stores the pull requests weave has read from its forges, the agents each
+// Package pullrequest stores the pull requests komrade has read from its forges, the agents each
 // was seen with, and where the sync is for every repository and branch it has listed.
 package pullrequest
 
@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"time"
 
-	"weave/db"
-	"weave/db/models"
-	"weave/internal/forge"
-	"weave/internal/store"
-	"weave/lib/xptr"
-	"weave/lib/xslice"
+	"komrade/db"
+	"komrade/db/models"
+	"komrade/internal/forge"
+	"komrade/internal/store"
+	"komrade/lib/xptr"
+	"komrade/lib/xslice"
 )
 
 // PullRequest is one pull request as the forge last described it, owned by nobody.
@@ -69,7 +69,7 @@ func (p PullRequest) IsFinished() bool {
 }
 
 // UpsertParams is a pull request as the forge describes it, which is every column but the id
-// and when weave first saw it.
+// and when komrade first saw it.
 type UpsertParams struct {
 	Host              string
 	Forge             string

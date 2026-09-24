@@ -1,7 +1,7 @@
 package cli
 
 import (
-	"weave/internal/version"
+	"komrade/internal/version"
 
 	"github.com/spf13/cobra"
 )

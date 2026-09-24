@@ -3,12 +3,12 @@ package transcripts
 import (
 	"testing"
 
-	"weave/internal/agents"
-	"weave/internal/storetest"
-	"weave/lib/xslice"
+	"komrade/internal/agents"
+	"komrade/internal/storetest"
+	"komrade/lib/xslice"
 
-	agentstore "weave/internal/store/agent"
-	transcriptstore "weave/internal/store/transcript"
+	agentstore "komrade/internal/store/agent"
+	transcriptstore "komrade/internal/store/transcript"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

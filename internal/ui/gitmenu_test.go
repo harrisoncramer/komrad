@@ -6,10 +6,10 @@ import (
 	"sync"
 	"testing"
 
-	agentv1 "weave/proto/gen/agent/v1"
-	"weave/proto/gen/agent/v1/agentv1connect"
-	pullrequestv1 "weave/proto/gen/pullrequest/v1"
-	workflowv1 "weave/proto/gen/workflow/v1"
+	agentv1 "komrade/proto/gen/agent/v1"
+	"komrade/proto/gen/agent/v1/agentv1connect"
+	pullrequestv1 "komrade/proto/gen/pullrequest/v1"
+	workflowv1 "komrade/proto/gen/workflow/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -18,7 +18,7 @@ import (
 
 const (
 	gitMenuTitle   = "Git on api"
-	pullRequestURL = "https://github.com/harrisoncramer/weave/pull/740"
+	pullRequestURL = "https://github.com/harrisoncramer/komrade/pull/740"
 )
 
 type recordingOpener struct {
@@ -113,7 +113,7 @@ func TestGitMenuRefusals(t *testing.T) {
 			rows:        buildUncutAgent(),
 			press:       "o",
 			wantEntry:   "Open the pull request (o) · not read yet",
-			wantRefusal: "weave has not read this agent's repository yet",
+			wantRefusal: "komrade has not read this agent's repository yet",
 		},
 		{
 			name: "the pull request of a branch with none",
@@ -123,7 +123,7 @@ func TestGitMenuRefusals(t *testing.T) {
 			}),
 			press:       "o",
 			wantEntry:   "Open the pull request (o) · none from this branch",
-			wantRefusal: "weave has read the repository and nothing has been opened from this branch",
+			wantRefusal: "komrade has read the repository and nothing has been opened from this branch",
 		},
 		{
 			name:        "the pull request of a branch that has moved past its last one",

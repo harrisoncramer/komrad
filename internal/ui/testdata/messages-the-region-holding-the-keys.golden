@@ -3,6 +3,7 @@
   127.0.0.1:8787: connection  
   refused                     
                               
-  [90mStart it with: weave serve[m  
+  [90mStart it with: komrade[m      
+  [90mserve[m                       
                               
   [90merror · [m[90m<landed>[m

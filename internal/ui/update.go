@@ -3,8 +3,8 @@ package ui
 import (
 	"log/slog"
 
-	"weave/internal/client"
-	"weave/internal/ui/paint"
+	"komrade/internal/client"
+	"komrade/internal/ui/paint"
 
 	"charm.land/bubbles/v2/cursor"
 	tea "charm.land/bubbletea/v2"

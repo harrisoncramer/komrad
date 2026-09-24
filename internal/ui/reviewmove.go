@@ -1,7 +1,7 @@
 package ui
 
 import (
-	"weave/internal/ui/panel"
+	"komrade/internal/ui/panel"
 
 	tea "charm.land/bubbletea/v2"
 )

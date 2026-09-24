@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"weave/internal/ui/paint"
-	agentv1 "weave/proto/gen/agent/v1"
+	"komrade/internal/ui/paint"
+	agentv1 "komrade/proto/gen/agent/v1"
 )
 
 // reviewDeliveryOrder is the three states a comment can stand in, ordered by how much they are

@@ -10,11 +10,11 @@ import (
 	"strings"
 	"time"
 
-	"weave/internal/forge"
-	"weave/internal/forge/graphql"
-	"weave/internal/git"
-	"weave/lib/xhttp"
-	"weave/lib/xptr"
+	"komrade/internal/forge"
+	"komrade/internal/forge/graphql"
+	"komrade/internal/git"
+	"komrade/lib/xhttp"
+	"komrade/lib/xptr"
 )
 
 // DefaultAPI is where github.com answers REST calls, with GraphQL beside it.
@@ -338,7 +338,7 @@ func noRepository(variables map[string]any) error {
 	return fmt.Errorf("%w: github has no repository %s/%s, which is also its answer for one the credential cannot see", forge.ErrNotFound, variables["owner"], variables["name"])
 }
 
-// failureOf is the first error the answer carries as weave's, nil when it carries none, with a
+// failureOf is the first error the answer carries as komrade's, nil when it carries none, with a
 // NOT_FOUND under one alias of the named field forgiven.
 func failureOf(answer *graphql.Answer, field string) error {
 	for _, failure := range answer.Errors {
@@ -356,7 +356,7 @@ func failureOf(answer *graphql.Answer, field string) error {
 	return nil
 }
 
-// checksOf is GitHub's statusCheckRollup state in weave's words, none for a commit with no
+// checksOf is GitHub's statusCheckRollup state in komrade's words, none for a commit with no
 // rollup.
 func checksOf(rollup *rollupNode) forge.Checks {
 	if rollup == nil {
@@ -375,7 +375,7 @@ func checksOf(rollup *rollupNode) forge.Checks {
 	return forge.ChecksNone
 }
 
-// reviewDecisionOf is GitHub's reviewDecision in weave's words, none for a null.
+// reviewDecisionOf is GitHub's reviewDecision in komrade's words, none for a null.
 func reviewDecisionOf(decision *string) forge.ReviewDecision {
 	if decision == nil {
 		return forge.ReviewDecisionNone
@@ -479,7 +479,7 @@ func (n standingNode) standing() forge.Standing {
 	}
 }
 
-// mergeabilityOf is GitHub's mergeStateStatus in weave's words.
+// mergeabilityOf is GitHub's mergeStateStatus in komrade's words.
 func mergeabilityOf(status string) forge.Mergeability {
 	switch status {
 	case "CLEAN", "HAS_HOOKS":
@@ -497,7 +497,7 @@ func mergeabilityOf(status string) forge.Mergeability {
 	return forge.MergeabilityUnknown
 }
 
-// checks is the rollup of the head commit in weave's words, none when the query carried no
+// checks is the rollup of the head commit in komrade's words, none when the query carried no
 // commit.
 func (n standingNode) checks() forge.Checks {
 	if len(n.Commits.Nodes) == 0 {

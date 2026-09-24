@@ -8,17 +8,17 @@ import (
 	"sync"
 	"time"
 
-	"weave/internal/agents"
-	"weave/internal/fail"
-	"weave/internal/logging"
-	"weave/internal/mail"
-	"weave/internal/scriptrun"
-	"weave/internal/store"
-	agentstore "weave/internal/store/agent"
-	mailstore "weave/internal/store/mail"
-	reviewstore "weave/internal/store/review"
-	workflowstore "weave/internal/store/workflow"
-	"weave/lib/xslice"
+	"komrade/internal/agents"
+	"komrade/internal/fail"
+	"komrade/internal/logging"
+	"komrade/internal/mail"
+	"komrade/internal/scriptrun"
+	"komrade/internal/store"
+	agentstore "komrade/internal/store/agent"
+	mailstore "komrade/internal/store/mail"
+	reviewstore "komrade/internal/store/review"
+	workflowstore "komrade/internal/store/workflow"
+	"komrade/lib/xslice"
 )
 
 // interruptSettleFor is how long the agent is given to act on the interrupt keys before the
@@ -120,7 +120,7 @@ type NewReviewServiceParams struct {
 	Mailer      reviewNoticeSender
 	Resumer     reviewerResumer
 	Interrupter agentInterrupter
-	// StateDir is where weave keeps its own files.
+	// StateDir is where komrade keeps its own files.
 	StateDir string
 	// NoticeDebounce overrides how long a reviewer's notice waits for another answer from the
 	// same author, zero meaning the default.
@@ -554,7 +554,7 @@ func (s *ReviewService) liveReviewerFor(ctx context.Context, author agentstore.A
 // answerNotice is the notice a reviewer gets, which says where to look rather than what was
 // said.
 func answerNotice(authorName string) string {
-	return fmt.Sprintf("weave: %s answered your review. Read the threads with list_review_threads, "+
+	return fmt.Sprintf("komrade: %s answered your review. Read the threads with list_review_threads, "+
 		"open a round over its work as it now stands, and release a verdict on that round.", authorName)
 }
 

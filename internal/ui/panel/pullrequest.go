@@ -3,7 +3,7 @@ package panel
 import (
 	"time"
 
-	pullrequestv1 "weave/proto/gen/pullrequest/v1"
+	pullrequestv1 "komrade/proto/gen/pullrequest/v1"
 )
 
 // PullRequestStanding is where the pull request opened from an agent's branch stands: the

@@ -6,9 +6,9 @@ import (
 	"maps"
 	"slices"
 
-	"weave/internal/diff"
-	"weave/lib/xslice"
-	agentv1 "weave/proto/gen/agent/v1"
+	"komrade/internal/diff"
+	"komrade/lib/xslice"
+	agentv1 "komrade/proto/gen/agent/v1"
 )
 
 type rowKind uint8

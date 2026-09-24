@@ -3,8 +3,8 @@ package ui
 import (
 	"fmt"
 
-	"weave/internal/ui/paint"
-	agentv1 "weave/proto/gen/agent/v1"
+	"komrade/internal/ui/paint"
+	agentv1 "komrade/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
 )

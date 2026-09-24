@@ -12,13 +12,13 @@ import (
 	"context"
 	"net/http"
 
-	"weave/lib/xhttp"
+	"komrade/lib/xhttp"
 )
 
 const (
 	TraceHeader   = "X-Request-Id"
-	AgentHeader   = "X-Weave-Agent-Id"
-	SessionHeader = "X-Weave-Session-Id"
+	AgentHeader   = "X-Komrade-Agent-Id"
+	SessionHeader = "X-Komrade-Session-Id"
 )
 
 type Caller struct {

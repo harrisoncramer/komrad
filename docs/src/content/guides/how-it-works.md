@@ -5,11 +5,11 @@ group: start
 order: 2
 ---
 
-Weave is built so that closing things is safe. You can close the panel, close your terminal, or restart your machine's session, and your agents keep running and nothing is forgotten. The rest of this guide explains how the pieces fit together to make that true.
+Komrade is built so that closing things is safe. You can close the panel, close your terminal, or restart your machine's session, and your agents keep running and nothing is forgotten. The rest of this guide explains how the pieces fit together to make that true.
 
 ## Two programs
 
-Weave is two programs, a service and a panel.
+Komrade is two programs, a service and a panel.
 
 The service is the long-running part. It holds the database, answers the API and the MCP server, and watches every agent. It keeps running when you close the panel or your terminal.
 
@@ -17,19 +17,19 @@ The panel is what you look at. It is an ordinary client of the service. When it 
 
 ## Agents live in tmux
 
-Each agent is a real terminal session running Claude or Codex. Weave runs them inside a tmux server of its own, separate from the one you work in, so your own sessions and weave's never tangle.
+Each agent is a real terminal session running Claude or Codex. Komrade runs them inside a tmux server of its own, separate from the one you work in, so your own sessions and komrade's never tangle.
 
-The panel lives there too, and reaches you through a tmux popup over whatever you were doing. Hiding the panel just closes the popup. Weave's tmux server, the panel inside it, and every agent all keep running behind it.
+The panel lives there too, and reaches you through a tmux popup over whatever you were doing. Hiding the panel just closes the popup. Komrade's tmux server, the panel inside it, and every agent all keep running behind it.
 
 <figure class="placeholder">
-  <figcaption>A diagram of your tmux server with the weave popup attached to weave's own tmux server, which holds the panel and each agent's window.</figcaption>
+  <figcaption>A diagram of your tmux server with the komrade popup attached to komrade's own tmux server, which holds the panel and each agent's window.</figcaption>
 </figure>
 
 Because agents live in tmux rather than inside the service, restarting or upgrading the service leaves them untouched.
 
 ## One API for everything
 
-Everything that changes anything goes through the service's API. The panel, a script using `weave rpc`, and an agent calling MCP tools are all clients of that one API, so they follow the same rules.
+Everything that changes anything goes through the service's API. The panel, a script using `komrade rpc`, and an agent calling MCP tools are all clients of that one API, so they follow the same rules.
 
 The CLI commands and the MCP tools are generated from the API's own definitions. Every endpoint says which of the two it appears in, and says why when it is left out of one. So nothing can be added quietly to one surface and forgotten on the other. The [API reference](../../api/) is generated from the same definitions.
 
@@ -37,13 +37,13 @@ The CLI commands and the MCP tools are generated from the API's own definitions.
 
 The service is built in layers. The outer layer receives requests from the API, MCP and CLI, checks them, logs them and records who made them. Below that, one service per area, such as agents, mail or schedules, holds the rules. Below that, the stores read and write the database.
 
-Anything weave does not own, like tmux, the agent CLIs and your scripts, sits behind an adapter. The adapter for agent CLIs, for example, is the only place that knows how Claude and Codex differ.
+Anything komrade does not own, like tmux, the agent CLIs and your scripts, sits behind an adapter. The adapter for agent CLIs, for example, is the only place that knows how Claude and Codex differ.
 
 ## Everything is a row in Postgres
 
-Weave keeps everything that must survive a restart in Postgres. Each thing you see is one row: an agent, a workflow, a schedule, a piece of mail, a pull request, a review.
+Komrade keeps everything that must survive a restart in Postgres. Each thing you see is one row: an agent, a workflow, a schedule, a piece of mail, a pull request, a review.
 
-Some facts come from outside, such as whether an agent's terminal is alive or whether its branch has moved. Weave's loops learn those and write them onto the row, so the database is always the whole story and nothing lives only in memory.
+Some facts come from outside, such as whether an agent's terminal is alive or whether its branch has moved. Komrade's loops learn those and write them onto the row, so the database is always the whole story and nothing lives only in memory.
 
 ## How a change reaches your screen
 

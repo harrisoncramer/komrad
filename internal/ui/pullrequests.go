@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"strings"
 
-	"weave/internal/ui/paint/label"
-	"weave/internal/ui/panel"
-	"weave/lib/xslice"
-	pullrequestv1 "weave/proto/gen/pullrequest/v1"
+	"komrade/internal/ui/paint/label"
+	"komrade/internal/ui/panel"
+	"komrade/lib/xslice"
+	pullrequestv1 "komrade/proto/gen/pullrequest/v1"
 
 	tea "charm.land/bubbletea/v2"
 )

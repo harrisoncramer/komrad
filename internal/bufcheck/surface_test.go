@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"weave/internal/bufcheck"
+	"komrade/internal/bufcheck"
 
 	"buf.build/go/bufplugin/check/checktest"
 )
@@ -84,7 +84,7 @@ func modelOnlyMessage(method string) string {
 
 func namelessMessage(method string) string {
 	return fmt.Sprintf(
-		"%q is on a surface with no name, which is what the command and the tool are both generated under, so weave serves it on neither.",
+		"%q is on a surface with no name, which is what the command and the tool are both generated under, so komrade serves it on neither.",
 		method,
 	)
 }

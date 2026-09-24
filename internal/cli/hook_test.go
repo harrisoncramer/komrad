@@ -12,13 +12,13 @@ import (
 	"testing"
 	"unicode/utf8"
 
-	"weave/config"
-	"weave/internal/caller"
-	"weave/internal/harness"
-	"weave/internal/harness/claude"
-	"weave/internal/harness/codex"
-	"weave/lib/xslice"
-	"weave/proto/gen/agent/v1/agentv1connect"
+	"komrade/config"
+	"komrade/internal/caller"
+	"komrade/internal/harness"
+	"komrade/internal/harness/claude"
+	"komrade/internal/harness/codex"
+	"komrade/lib/xslice"
+	"komrade/proto/gen/agent/v1/agentv1connect"
 
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
@@ -101,19 +101,19 @@ func TestIntegrationStopHookDeliversMail(t *testing.T) {
 			wantText:     []string{"From the panel, mail mail-1"},
 		},
 		{
-			name:    "a lifecycle notice from weave is not framed as the user talking",
+			name:    "a lifecycle notice from komrade is not framed as the user talking",
 			agentID: "agent-a",
 			payload: `{"stop_hook_active":false}`,
 			mail: []mailItem{
 				{
 					ID:       "mail-1",
-					FromName: "weave",
+					FromName: "komrade",
 					Body:     `Your delegate "child" (agent-c) was archived.`,
 				},
 			},
 			wantSent:     true,
 			wantBoundary: true,
-			wantText:     []string{"From weave, mail mail-1", "Weave sent this itself"},
+			wantText:     []string{"From komrade, mail mail-1", "Komrade sent this itself"},
 		},
 	}
 
@@ -207,15 +207,15 @@ func TestIntegrationClampReason(t *testing.T) {
 	}
 }
 
-// TestIntegrationEveryInstalledHookHasASubcommand pins that each event weave points a harness at is
-// answered by a subcommand of weave hook.
+// TestIntegrationEveryInstalledHookHasASubcommand pins that each event komrade points a harness at is
+// answered by a subcommand of komrade hook.
 func TestIntegrationEveryInstalledHookHasASubcommand(t *testing.T) {
 	names := xslice.Map(hookCmd(&app{}).Commands(), func(cmd *cobra.Command) string {
 		return cmd.Name()
 	})
 
 	for event, install := range claude.InstalledHooks {
-		assert.Contains(t, names, install.Subcommand, "the %s hook runs weave hook %s", event, install.Subcommand)
+		assert.Contains(t, names, install.Subcommand, "the %s hook runs komrade hook %s", event, install.Subcommand)
 	}
 }
 
@@ -228,9 +228,9 @@ func TestIntegrationMailPostamble(t *testing.T) {
 		want string
 	}{
 		{
-			name: "weave's own notice, alone",
-			mail: []mailItem{{FromName: "weave", Body: "your delegate was deleted"}},
-			want: mailFromWeave,
+			name: "komrade's own notice, alone",
+			mail: []mailItem{{FromName: "komrade", Body: "your delegate was deleted"}},
+			want: mailFromKomrade,
 		},
 		{
 			name: "the panel operator, alone",
@@ -247,9 +247,9 @@ func TestIntegrationMailPostamble(t *testing.T) {
 			want: mailFromAgent,
 		},
 		{
-			name: "a person's mail outranks a weave notice in the same batch",
+			name: "a person's mail outranks a komrade notice in the same batch",
 			mail: []mailItem{
-				{FromName: "weave", Body: "your delegate was archived"},
+				{FromName: "komrade", Body: "your delegate was archived"},
 				{Body: "stand down"},
 			},
 			want: mailFromPerson,
@@ -257,7 +257,7 @@ func TestIntegrationMailPostamble(t *testing.T) {
 		{
 			name: "an agent's mail outranks everything else in the same batch",
 			mail: []mailItem{
-				{FromName: "weave", Body: "your delegate was archived"},
+				{FromName: "komrade", Body: "your delegate was archived"},
 				{Body: "stand down"},
 				{
 					FromAgent: "agent-b",
@@ -294,8 +294,8 @@ func TestIntegrationStopHookSurvivesAServerThatIsNotThere(t *testing.T) {
 	cmd.SetErr(&errOut)
 
 	require.NoError(t, cmd.Execute())
-	assert.Empty(t, out.String(), "the turn is never blocked because weave is down")
-	assert.Contains(t, errOut.String(), "weave could not be reached")
+	assert.Empty(t, out.String(), "the turn is never blocked because komrade is down")
+	assert.Contains(t, errOut.String(), "komrade could not be reached")
 }
 
 // recordedReport is one call of the endpoint every hook event reports through.

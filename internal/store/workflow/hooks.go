@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"weave/config"
-	"weave/db/models"
-	"weave/lib/xslice"
+	"komrade/config"
+	"komrade/db/models"
+	"komrade/lib/xslice"
 )
 
 // The moments a workflow can hang a script on, each named for the event it hangs on and the

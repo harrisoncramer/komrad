@@ -24,7 +24,7 @@ variable "aws_shared_credentials_file" {
 
 variable "name" {
   type    = string
-  default = "weave-development"
+  default = "komrade-development"
 }
 
 variable "ami_id" {
@@ -76,7 +76,7 @@ variable "tags" {
   type = map(string)
   default = {
     ManagedBy = "terraform"
-    Project   = "weave"
+    Project   = "komrade"
   }
 }
 
@@ -127,12 +127,12 @@ variable "database_deletion_protection" {
 
 variable "secret_prefix" {
   type    = string
-  default = "weave"
+  default = "komrade"
 }
 
 variable "database_final_snapshot" {
   type    = string
-  default = "weave-development-final"
+  default = "komrade-development-final"
 }
 
 variable "ssh_public_key" {

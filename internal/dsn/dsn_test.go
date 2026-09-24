@@ -25,13 +25,13 @@ func TestRedact(t *testing.T) {
 		},
 		{
 			name: "the password is dropped and the login and address kept",
-			in:   "postgres://weave:secret@db.internal:5432/panel?sslmode=require",
-			want: "postgres://weave@db.internal:5432/panel",
+			in:   "postgres://komrade:secret@db.internal:5432/panel?sslmode=require",
+			want: "postgres://komrade@db.internal:5432/panel",
 		},
 		{
 			name: "a keyword-list dsn is redacted too, since pgconn parses those as well",
-			in:   "host=db.internal port=5432 dbname=panel user=weave password=secret",
-			want: "postgres://weave@db.internal:5432/panel",
+			in:   "host=db.internal port=5432 dbname=panel user=komrade password=secret",
+			want: "postgres://komrade@db.internal:5432/panel",
 		},
 	}
 

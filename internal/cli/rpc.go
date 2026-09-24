@@ -11,12 +11,12 @@ import (
 	"strings"
 	"time"
 
-	"weave/internal/caller"
-	"weave/internal/doctor"
-	"weave/internal/errui"
-	"weave/internal/rpcapi"
-	"weave/internal/version"
-	"weave/lib/xhttp"
+	"komrade/internal/caller"
+	"komrade/internal/doctor"
+	"komrade/internal/errui"
+	"komrade/internal/rpcapi"
+	"komrade/internal/version"
+	"komrade/lib/xhttp"
 
 	"github.com/spf13/cobra"
 )
@@ -122,12 +122,12 @@ func requireServer(ctx context.Context, addr, named string) error {
 			return fmt.Errorf("the engine reached through %s is not serving at %s", addr, named)
 		}
 
-		return fmt.Errorf("nothing is serving at %s, run weave start first", named)
+		return fmt.Errorf("nothing is serving at %s, run komrade start first", named)
 	}
 
 	if probe.version != "" && !probe.current {
 		if named != addr {
-			return fmt.Errorf("%w: engine %s, this weave %s; %s",
+			return fmt.Errorf("%w: engine %s, this komrade %s; %s",
 				errui.ErrEngineBuild,
 				version.Describe(probe.version, probe.commit),
 				version.Describe(version.Version(), version.Commit()),

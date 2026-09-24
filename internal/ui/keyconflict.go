@@ -3,7 +3,7 @@ package ui
 import (
 	"fmt"
 
-	"weave/config"
+	"komrade/config"
 
 	"charm.land/bubbles/v2/key"
 )

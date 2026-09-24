@@ -3,9 +3,9 @@ package agents
 import (
 	"testing"
 
-	"weave/internal/store"
-	workflowstore "weave/internal/store/workflow"
-	"weave/internal/tmuxtest"
+	"komrade/internal/store"
+	workflowstore "komrade/internal/store/workflow"
+	"komrade/internal/tmuxtest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

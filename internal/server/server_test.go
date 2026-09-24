@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"weave/config"
+	"komrade/config"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

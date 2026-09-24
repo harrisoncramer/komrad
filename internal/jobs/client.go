@@ -1,4 +1,4 @@
-// Package jobs owns the queue weave's background work runs on, with the jobs themselves in
+// Package jobs owns the queue komrade's background work runs on, with the jobs themselves in
 // internaljobs.
 package jobs
 
@@ -8,7 +8,7 @@ import (
 	"log/slog"
 	"time"
 
-	"weave/internal/jobs/internaljobs"
+	"komrade/internal/jobs/internaljobs"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"

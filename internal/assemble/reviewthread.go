@@ -5,7 +5,7 @@ import (
 	"slices"
 	"strings"
 
-	agentv1 "weave/proto/gen/agent/v1"
+	agentv1 "komrade/proto/gen/agent/v1"
 
 	"google.golang.org/protobuf/proto"
 )

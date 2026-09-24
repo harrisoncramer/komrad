@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"slices"
 
-	"weave/internal/ui/panel"
-	"weave/lib/xslice"
+	"komrade/internal/ui/panel"
+	"komrade/lib/xslice"
 )
 
 // rowRef is what the selection knows of a row.

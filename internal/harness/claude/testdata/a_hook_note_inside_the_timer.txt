@@ -1,5 +1,5 @@
-From weave, mail 01a0b571-08a9-728f-bc4b-357982e58ae4:
-  weave: review of round 7, approved, 0 comment(s), read /Users/harrisoncramer/.local/state/weave/reviews/01a0b536-0578-76be
+From komrade, mail 01a0b571-08a9-728f-bc4b-357982e58ae4:
+  komrade: review of round 7, approved, 0 comment(s), read /Users/harrisoncramer/.local/state/komrade/reviews/01a0b536-0578-76be
   -a13d-d944d08ddfc8/round-7-01a0b571-089e-7c28-850a-ef52d9befea9.md
 
   These are other agents working alongside you, and answering them is yours to do. Reply with send_mail, setting replyTo to
@@ -23,7 +23,7 @@ From weave, mail 01a0b571-08a9-728f-bc4b-357982e58ae4:
      [38;5;77m[48;5;22m 328 +[38;5;231m  [38;5;148msettings:[38;5;231m                                                                                                       [39m[49m
      [38;5;77m[48;5;22m 329 +[38;5;231m    [38;5;148mgoimports:[38;5;231m                                                                                                    [39m[49m
      [38;5;77m[48;5;22m 330 +[38;5;231m      [38;5;148mlocal-prefixes:[38;5;231m                                                                                             [39m[49m
-     [38;5;77m[48;5;22m 331 +[38;5;231m        - [38;5;186mweave[38;5;231m                                                                                                   [39m[49m
+     [38;5;77m[48;5;22m 331 +[38;5;231m        - [38;5;186mkomrade[38;5;231m                                                                                                   [39m[49m
 [38;5;246m  ⎿  [39mUpdated [1minternal/ui/forms.go[0m [38;5;246m(+1 -1)[39m
      [2m[38;5;231m 592 [0m[38;5;231m [39m
      [2m[38;5;231m 593 [0m[38;5;231m [38;5;81mfunc[38;5;231m [38;5;148mreleaseInSilenceForm[38;5;208m(name [38;5;148mstring[38;5;208m, keys config.FormKeys)[38;5;231m (*huh.Form, *[38;5;148mbool[38;5;231m) {[39m
@@ -47,4 +47,4 @@ From weave, mail 01a0b571-08a9-728f-bc4b-357982e58ae4:
 [38;5;246m❯ [39m
 [38;5;244m────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-[39m  [38;5;246m-- INSERT --[39m [38;5;211m⏵⏵ bypass permissions on[38;5;246m (shift+tab to cycle) · PR[39m [4m[38;5;220m]8;id=1c2p51v;https://github.com/harrisoncramer/weave/pull/676\#676[0m[38;5;246m]8;;\ · ← 3 agents[39m
+[39m  [38;5;246m-- INSERT --[39m [38;5;211m⏵⏵ bypass permissions on[38;5;246m (shift+tab to cycle) · PR[39m [4m[38;5;220m]8;id=1c2p51v;https://github.com/harrisoncramer/komrade/pull/676\#676[0m[38;5;246m]8;;\ · ← 3 agents[39m

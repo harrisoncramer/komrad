@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"weave/internal/git"
-	pullrequeststore "weave/internal/store/pullrequest"
+	"komrade/internal/git"
+	pullrequeststore "komrade/internal/store/pullrequest"
 )
 
 type pageLister interface {

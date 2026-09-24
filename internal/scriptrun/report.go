@@ -7,10 +7,10 @@ import (
 	"log/slog"
 	"time"
 
-	"weave/internal/logging"
-	"weave/internal/scripts"
+	"komrade/internal/logging"
+	"komrade/internal/scripts"
 
-	agentstore "weave/internal/store/agent"
+	agentstore "komrade/internal/store/agent"
 )
 
 const scriptDetailCap = 400
