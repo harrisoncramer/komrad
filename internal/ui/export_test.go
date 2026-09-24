@@ -85,6 +85,7 @@ type NewPanelParams struct {
 	StartupErr    error
 	RefuseSplits  bool
 	Clipboard     ClipboardWriter
+	Binary        BinaryWatcher
 }
 
 // NewPanel builds the panel the way weave panel does, over a recording tmux.
@@ -126,6 +127,7 @@ func NewPanel(params NewPanelParams) *Panel {
 			Settings:      settings,
 			ConfigErr:     params.ConfigErr,
 			StartupErr:    params.StartupErr,
+			Binary:        params.Binary,
 		}, true, post),
 		post: post,
 		tmux: tmux,
@@ -448,5 +450,17 @@ func (p *Panel) AgeWorktreeReads(by time.Duration) {
 	for dir, read := range p.model.inspections {
 		read.readAt = read.readAt.Add(-by)
 		p.model.inspections[dir] = read
+	}
+}
+
+// FormFieldDraftPath is the file a form field is written out to for the editor.
+var FormFieldDraftPath = formFieldDraftPath
+
+// NewFieldEdited is what the editor hands back for a field of the form on screen once it quits.
+func (p *Panel) NewFieldEdited(key, text string) tea.Msg {
+	return formFieldEditedMsg{
+		kind: p.model.form.kind,
+		key:  key,
+		text: text,
 	}
 }

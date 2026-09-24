@@ -2,11 +2,14 @@ package ui_test
 
 import (
 	"errors"
+	"fmt"
+	"os"
 	"slices"
 	"strings"
 	"testing"
 
 	"weave/config"
+	"weave/internal/ui"
 	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
@@ -380,6 +383,23 @@ func TestFormsArchivePrompt(t *testing.T) {
 		})
 	}
 
+	t.Run("a confirmed archive still in flight keeps a rebuilt panel up", func(t *testing.T) {
+		binary := &fakeBinary{}
+		harness := newPanelHarness(t, panelHarnessParams{binary: binary})
+		answerWorktreeReads(harness)
+		harness.watch(buildSnapshot(newFormWorkflow(), newFormAuthor()))
+		harness.hold(agentv1connect.AgentServiceArchiveAgentsProcedure)
+		harness.press("g", "g", "j", "z", "ctrl+s")
+
+		binary.isReplaced = true
+		harness.fireTimers()
+		require.NotContains(t, harness.readFrame(), "weave was rebuilt", "the write is still in flight")
+
+		harness.release(agentv1connect.AgentServiceArchiveAgentsProcedure)
+		harness.fireTimers()
+		assert.Contains(t, harness.readFrame(), "weave was rebuilt")
+	})
+
 	t.Run("a refused archive destroys nothing", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 		harness.refuse(agentv1connect.AgentServiceArchiveAgentsProcedure, connect.NewError(connect.CodeFailedPrecondition, errors.New("already archived")))
@@ -508,6 +528,70 @@ func TestFormsWorkflowHooks(t *testing.T) {
 	})
 }
 
+// TestFormsFieldEditor covers the editor key opening a form's text field in the reader's editor.
+func TestFormsFieldEditor(t *testing.T) {
+	t.Run("the field under the cursor is written out for the editor", func(t *testing.T) {
+		harness := openFieldEditor(t)
+
+		harness.press("e", "enter", "ctrl+e")
+
+		draft, err := os.ReadFile(ui.FormFieldDraftPath("context"))
+		require.NoError(t, err)
+		assert.Equal(t, "shared notes", string(draft))
+	})
+
+	t.Run("a form with no text field of its own leaves the key to the form", func(t *testing.T) {
+		harness := openFieldEditor(t)
+
+		harness.press("r", "ctrl+e")
+
+		_, err := os.Stat(ui.FormFieldDraftPath("name"))
+		assert.True(t, os.IsNotExist(err))
+	})
+
+	tests := []struct {
+		name  string
+		press []string
+		field string
+		want  *workflowv1.CreateWorkflowRequest
+	}{
+		{
+			name:  "the context of a workflow that provisions nothing",
+			press: slices.Concat([]string{"w"}, spellKeys("web"), slices.Repeat([]string{"enter"}, 5), []string{"up", "shift+tab", "shift+tab", "shift+tab", "shift+tab"}),
+			field: "context",
+			want: &workflowv1.CreateWorkflowRequest{
+				Name:     "web",
+				Context:  "what the editor wrote!",
+				Worktree: &workflowv1.WorktreeConfig{},
+			},
+		},
+		{
+			name:  "a list field of a workflow that makes worktrees",
+			press: slices.Concat([]string{"w"}, spellKeys("web"), slices.Repeat([]string{"enter"}, 8)),
+			field: "worktree_copy_paths",
+			want: &workflowv1.CreateWorkflowRequest{
+				Name: "web",
+				Worktree: &workflowv1.WorktreeConfig{
+					Enabled:   true,
+					CopyPaths: []string{"what the editor wrote!"},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			harness := openFieldEditor(t)
+			harness.press(append(tt.press, "ctrl+e")...)
+
+			harness.send(harness.panel.NewFieldEdited(tt.field, "what the editor wrote\n"))
+			harness.press("!", "ctrl+s")
+
+			harness.assertSentTo(workflowv1connect.WorkflowServiceCreateWorkflowProcedure, tt.want)
+		})
+	}
+}
+
 // TestFormsLayout covers a form being drawn in a column beside the list it was opened over.
 func TestFormsLayout(t *testing.T) {
 	t.Parallel()
@@ -562,6 +646,63 @@ func TestFormsLayout(t *testing.T) {
 		harness.press("r", "esc")
 
 		assert.False(t, harness.panel.IsZoomed())
+	})
+
+	t.Run("the list's cursor stands still beside a form", func(t *testing.T) {
+		t.Parallel()
+
+		tests := []struct {
+			name       string
+			press      []string
+			wantCursor bool
+		}{
+			{
+				name: "the list alone blinks its cursor out",
+			},
+			{
+				name:       "a form holding the keys leaves it drawn",
+				press:      []string{"w"},
+				wantCursor: true,
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				t.Parallel()
+
+				harness := openForms(t, newFormWorkflow(), newFormAuthor())
+				harness.press(tt.press...)
+
+				harness.fireTimers()
+
+				assert.Equal(t, tt.wantCursor, readHoveredRow(harness.readFrame()) != "")
+			})
+		}
+	})
+
+	t.Run("a held form draws its notice under it at every height", func(t *testing.T) {
+		t.Parallel()
+
+		for _, height := range []int{24, 32, 40} {
+			t.Run(fmt.Sprintf("%d rows", height), func(t *testing.T) {
+				t.Parallel()
+
+				harness := newPanelHarness(t, panelHarnessParams{
+					width:  160,
+					height: height,
+				})
+				answerWorktreeReads(harness)
+				harness.watch(buildSnapshot(newFormWorkflow()))
+				harness.hold(workflowv1connect.WorkflowServiceCreateWorkflowProcedure)
+
+				harness.press(slices.Concat([]string{"w"}, spellKeys("web"), []string{"ctrl+s"})...)
+
+				lines := splitLines(strings.TrimSuffix(harness.readFrame(), "\n"))
+				assert.Len(t, lines, height)
+				assert.NotContains(t, lines[0], "submitting", "the panel keeps its top row")
+				assert.Contains(t, findLastFilled(lines), "submitting…", "the notice sits under the form")
+			})
+		}
 	})
 
 	t.Run("a window too narrow for both halves draws the form whole", func(t *testing.T) {
@@ -678,6 +819,22 @@ func openForms(t *testing.T, workflow *workflowv1.Workflow, author *agentv1.Agen
 	return harness
 }
 
+func openFieldEditor(t *testing.T) *panelHarness {
+	t.Helper()
+
+	harness := newPanelHarness(t, panelHarnessParams{settings: ui.PanelSettings{Editor: "true"}})
+	answerWorktreeReads(harness)
+	harness.watch(buildSnapshot(newConfiguredWorkflow(), newFormAuthor()))
+	harness.press("g", "g")
+	t.Cleanup(func() {
+		for _, key := range []string{"context", "name", "worktree_copy_paths"} {
+			_ = os.Remove(ui.FormFieldDraftPath(key))
+		}
+	})
+
+	return harness
+}
+
 func openHookForm(t *testing.T, hooks []*workflowv1.WorkflowHook, available ...string) *panelHarness {
 	t.Helper()
 
@@ -748,4 +905,22 @@ func newLiveAuthor() *agentv1.Agent {
 
 func spellKeys(text string) []string {
 	return strings.Split(text, "")
+}
+
+func findLastFilled(lines []string) string {
+	for i := len(lines) - 1; i >= 0; i-- {
+		if strings.TrimSpace(lines[i]) != "" {
+			return lines[i]
+		}
+	}
+
+	return ""
+}
+
+type fakeBinary struct {
+	isReplaced bool
+}
+
+func (b *fakeBinary) IsReplaced() bool {
+	return b.isReplaced
 }

@@ -180,6 +180,7 @@ type panelHarnessParams struct {
 	startupErr    error
 	refuseSplits  bool
 	clipboard     ui.ClipboardWriter
+	binary        ui.BinaryWatcher
 }
 
 func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
@@ -249,6 +250,7 @@ func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
 			StartupErr:    params.startupErr,
 			RefuseSplits:  params.refuseSplits,
 			Clipboard:     params.clipboard,
+			Binary:        params.binary,
 		}),
 	}
 	t.Cleanup(harness.releaseParked)
