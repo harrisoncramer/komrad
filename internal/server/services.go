@@ -48,6 +48,7 @@ type services struct {
 	transcriptSync  *transcripts.TranscriptSyncer
 	forge           *forge.Service
 	pullRequestSync *pullrequests.PullRequestSyncer
+	pullRequests    *pullrequests.Lister
 	worktreeLister  *worktrees.Lister
 	inspector       *worktrees.Inspector
 	remover         *worktrees.Remover
@@ -276,6 +277,7 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		transcriptSync:  transcriptSyncer,
 		forge:           forgeService,
 		pullRequestSync: pullRequestSyncer,
+		pullRequests:    pullrequests.NewLister(pullrequests.NewListerParams{PullRequests: st.pullRequests}),
 		worktreeLister:  worktreeLister,
 		inspector: worktrees.NewInspector(worktrees.NewInspectorParams{
 			Lister:    worktreeLister,
