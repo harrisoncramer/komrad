@@ -21,7 +21,7 @@ done
 
 cd "$MISE_CONFIG_ROOT/docs"
 
-if [ ! -d node_modules ]; then
+if [ ! -f node_modules/.package-lock.json ] || [ package-lock.json -nt node_modules/.package-lock.json ]; then
 	npm ci
 fi
 
