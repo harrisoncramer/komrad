@@ -225,6 +225,17 @@ func TestConnectForge(t *testing.T) {
 	assert.NotContains(t, resp.Msg.String(), "ghp_")
 }
 
+// TestDisconnectForge pins that the host asked for reaches the service.
+func TestDisconnectForge(t *testing.T) {
+	connector := &fakeConnector{}
+	service := forgev1weave.ForgeServiceAdapter{Impl: NewHandler(connector)}
+
+	_, err := service.DisconnectForge(t.Context(), connect.NewRequest(&forgev1.DisconnectForgeRequest{Host: "github.com"}))
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{"github.com"}, connector.disconnected)
+}
+
 // TestCheckForges pins which answers of a check clear the connection's stamp.
 func TestCheckForges(t *testing.T) {
 	tests := []struct {
