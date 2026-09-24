@@ -427,10 +427,6 @@ linters:
               - ^internal/agents/reconcile_integration_test\.go$
               - ^internal/agents/reconcile_test\.go$
               - ^internal/agents/resume_test\.go$
-              - ^internal/checkouts/fakes_test\.go$
-              - ^internal/checkouts/rebase_test\.go$
-              - ^internal/harness/pane/fakes_test\.go$
-              - ^internal/harness/registry_test\.go$
               - ^internal/ui/harness_test\.go$
               - ^internal/ui/reviewload_test\.go$
               - ^internal/ui/reviewtrace_test\.go$
@@ -454,24 +450,11 @@ linters:
               - ^internal/agents/harness_test\.go$
               - ^internal/bufcheck/imported_test\.go$
               - ^internal/bufcheck/validation_test\.go$
-              - ^internal/checkouts/fakes_test\.go$
-              - ^internal/cli/commands_test\.go$
-              - ^internal/diff/round_test\.go$
-              - ^internal/doctor/remote_test\.go$
-              - ^internal/git/base_test\.go$
-              - ^internal/git/branch_test\.go$
-              - ^internal/git/helpers_test\.go$
-              - ^internal/git/readfiles_test\.go$
-              - ^internal/harness/claude/frames_test\.go$
-              - ^internal/harness/codex/frames_test\.go$
-              - ^internal/harness/pane/fakes_test\.go$
               - ^internal/mcp/roles_test\.go$
               - ^internal/rpc/agent/marker_test\.go$
               - ^internal/rpc/agent/pullrequest_test\.go$
               - ^internal/rpc/agent/validate_test\.go$
               - ^internal/rpcerr/rpcerr_test\.go$
-              - ^internal/scripts/builtin_worktree_test\.go$
-              - ^internal/scripts/helpers_test\.go$
               - ^internal/server/mailconfig_test\.go$
               - ^internal/store/agent/alive_test\.go$
               - ^internal/store/agent/fixture_test\.go$
@@ -483,12 +466,6 @@ linters:
               - ^internal/store/pullrequest/resource_test\.go$
               - ^internal/store/tenant_test\.go$
               - ^internal/store/workflow/fixture_test\.go$
-              - ^internal/tmux/copy_mode_test\.go$
-              - ^internal/tmux/host_test\.go$
-              - ^internal/tmux/panes_test\.go$
-              - ^internal/tmux/passkey_test\.go$
-              - ^internal/tmux/server_test\.go$
-              - ^internal/tmux/spellkey_test\.go$
               - ^internal/ui/diffview/expand_test\.go$
               - ^internal/ui/diffview/pin_test\.go$
               - ^internal/ui/errors_test\.go$
@@ -503,7 +480,6 @@ linters:
               - ^internal/view/spec_test\.go$
               - ^internal/view/textcolumn_test\.go$
               - ^internal/watch/dedupe_test\.go$
-              - ^internal/worktrees/helpers_test\.go$
       fussy:
         type: module
         description: Checks for this repo; forbids bare os environment access and a nil pointer returned with a nil error, asks the panel to bound the contexts it starts, keeps doc comments present and prefixed with the identifier name, and holds comments to a single sentence.
