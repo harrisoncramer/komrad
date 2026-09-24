@@ -357,15 +357,6 @@ func (f *fakeRepo) ReadFiles(_ context.Context, _ string, revisions []git.FileRe
 	return files, nil
 }
 
-func (f *fakeRepo) ProbeTree(context.Context, string) (string, error) {
-	return f.tree, nil
-}
-
-// GetTree answers with the tree a round froze, which its own name carries.
-func (f *fakeRepo) GetTree(_ context.Context, _, sha string) (string, error) {
-	return strings.TrimPrefix(sha, snapshotPrefix), nil
-}
-
 // WorktreeHead answers as a round nothing has checked out yet.
 func (f *fakeRepo) WorktreeHead(context.Context, string) (string, bool) {
 	return "", false

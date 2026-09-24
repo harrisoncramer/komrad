@@ -232,6 +232,8 @@ type Agent struct {
 	LocalReviewVerdict ReviewVerdict `protobuf:"varint,33,opt,name=local_review_verdict,json=localReviewVerdict,proto3,enum=agent.v1.ReviewVerdict" json:"local_review_verdict,omitempty"`
 	// Where the agent's worktree stands against the round that verdict was given on.
 	LocalReviewTree ReviewTreeStanding `protobuf:"varint,34,opt,name=local_review_tree,json=localReviewTree,proto3,enum=agent.v1.ReviewTreeStanding" json:"local_review_tree,omitempty"`
+	// The snapshot of its newest round while its worktree no longer hashes to it, empty otherwise.
+	MovedSinceRound string `protobuf:"bytes,42,opt,name=moved_since_round,json=movedSinceRound,proto3" json:"moved_since_round,omitempty"`
 	// When a person stopped this agent and took its worktree, empty while nobody is holding it.
 	HeldAt string `protobuf:"bytes,35,opt,name=held_at,json=heldAt,proto3" json:"held_at,omitempty"`
 	// Whether the pull request sync has swept its repository.
@@ -501,6 +503,13 @@ func (x *Agent) GetLocalReviewTree() ReviewTreeStanding {
 		return x.LocalReviewTree
 	}
 	return ReviewTreeStanding_REVIEW_TREE_STANDING_UNSPECIFIED
+}
+
+func (x *Agent) GetMovedSinceRound() string {
+	if x != nil {
+		return x.MovedSinceRound
+	}
+	return ""
 }
 
 func (x *Agent) GetHeldAt() string {
@@ -2947,7 +2956,7 @@ var File_agent_v1_agent_proto protoreflect.FileDescriptor
 
 const file_agent_v1_agent_proto_rawDesc = "" +
 	"\n" +
-	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x13agent/v1/mail.proto\x1a\x15agent/v1/review.proto\x1a\x19agent/v1/transcript.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a pullrequest/v1/pullrequest.proto\x1a\x14rules/v1/rules.proto\x1a\x12view/v1/view.proto\"\xf9\v\n" +
+	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x13agent/v1/mail.proto\x1a\x15agent/v1/review.proto\x1a\x19agent/v1/transcript.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a pullrequest/v1/pullrequest.proto\x1a\x14rules/v1/rules.proto\x1a\x12view/v1/view.proto\"\xa5\f\n" +
 	"\x05Agent\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x10\n" +
@@ -2988,7 +2997,8 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x13local_review_rounds\x18\x1f \x01(\x05R\x11localReviewRounds\x12)\n" +
 	"\x10prompt_truncated\x18  \x01(\bR\x0fpromptTruncated\x12I\n" +
 	"\x14local_review_verdict\x18! \x01(\x0e2\x17.agent.v1.ReviewVerdictR\x12localReviewVerdict\x12H\n" +
-	"\x11local_review_tree\x18\" \x01(\x0e2\x1c.agent.v1.ReviewTreeStandingR\x0flocalReviewTree\x12\x17\n" +
+	"\x11local_review_tree\x18\" \x01(\x0e2\x1c.agent.v1.ReviewTreeStandingR\x0flocalReviewTree\x12*\n" +
+	"\x11moved_since_round\x18* \x01(\tR\x0fmovedSinceRound\x12\x17\n" +
 	"\aheld_at\x18# \x01(\tR\x06heldAt\x12'\n" +
 	"\x0frepository_read\x18' \x01(\bR\x0erepositoryRead\x12%\n" +
 	"\x0ereview_version\x18( \x01(\tR\rreviewVersionB\x0e\n" +

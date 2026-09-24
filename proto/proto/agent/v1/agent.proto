@@ -120,6 +120,8 @@ message Agent {
   ReviewVerdict local_review_verdict = 33;
   // Where the agent's worktree stands against the round that verdict was given on.
   ReviewTreeStanding local_review_tree = 34;
+  // The snapshot of its newest round while its worktree no longer hashes to it, empty otherwise.
+  string moved_since_round = 42;
   // When a person stopped this agent and took its worktree, empty while nobody is holding it.
   string held_at = 35;
   // Whether the pull request sync has swept its repository.

@@ -283,6 +283,8 @@ type Agent struct {
 	TenantID string
 	// The commit the agent's checkout has checked out, null when the checkout is gone or git cannot read it. The cwd syncer rewrites it on the same pass that rewrites branch.
 	HeadSha *string
+	// The snapshot of the agent's newest review round when its worktree no longer hashes to it, empty while it still does or when there is no round. The cwd syncer rewrites it every pass.
+	MovedSinceRound string
 }
 
 // Facts an agent recorded about its own work, such as the pull request it opened.

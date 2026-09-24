@@ -290,6 +290,23 @@ func (s *AgentStore) SetTreeStanding(ctx context.Context, id string, standing gi
 	return nil
 }
 
+// SetMovedSinceRound records the newest round's snapshot the worktree has moved away from, or
+// clears it with an empty one.
+func (s *AgentStore) SetMovedSinceRound(ctx context.Context, id, snapshotSHA string) error {
+	if !store.IsID(id) {
+		return store.ErrNotFound.Saying("no agent with id %q", id)
+	}
+
+	if err := s.queries.SetAgentMovedSinceRound(ctx, models.SetAgentMovedSinceRoundParams{
+		ID:              id,
+		MovedSinceRound: snapshotSHA,
+	}); err != nil {
+		return fmt.Errorf("failed to set the round moved since for id %q: %w", id, err)
+	}
+
+	return nil
+}
+
 type ForgetPaneParams struct {
 	ID            string
 	Pane          string

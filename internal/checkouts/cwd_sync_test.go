@@ -107,19 +107,19 @@ func TestCwdSyncerSync(t *testing.T) {
 // newCwdSyncer is a syncer over a git that has no rounds to compare against.
 func newCwdSyncer(agents cwdSetter, heads headReader) *CwdSyncer {
 	return NewCwdSyncer(NewCwdSyncerParams{
-		Agents:  agents,
-		Heads:   heads,
-		Trees:   fakeTrees{},
-		Tallies: fakeTallies{},
-		Bases:   fakeBases{},
+		Agents: agents,
+		Heads:  heads,
+		Trees:  fakeTrees{},
+		Rounds: fakeTallies{},
+		Bases:  fakeBases{},
 	})
 }
 
 // fakeHeads is what git would read for each directory, and nothing at all for any other.
 type fakeHeads map[string]git.HeadState
 
-func (f fakeHeads) ReadHeadState(_ context.Context, dir string) git.HeadState {
-	return f[dir]
+func (f fakeHeads) ReadHeadState(_ context.Context, params git.ReadHeadStateParams) git.HeadState {
+	return f[params.Dir]
 }
 
 // TestCwdSyncerSyncRecordsTheRepository covers the identity the pull request join sits on: the
@@ -357,10 +357,10 @@ type recordingHeads struct {
 	dirs []string
 }
 
-func (r *recordingHeads) ReadHeadState(_ context.Context, dir string) git.HeadState {
+func (r *recordingHeads) ReadHeadState(_ context.Context, params git.ReadHeadStateParams) git.HeadState {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.dirs = append(r.dirs, dir)
+	r.dirs = append(r.dirs, params.Dir)
 
 	return git.HeadState{}
 }
@@ -502,6 +502,10 @@ func removedDir(t *testing.T) string {
 // about, and an error for any other.
 type fakeTrees map[string]git.Standing
 
+func (fakeTrees) ProbeTree(context.Context, string) (string, error) {
+	return "", errors.New("no worktree to probe")
+}
+
 func (f fakeTrees) ReadStanding(_ context.Context, params git.ReadStandingParams) (git.Standing, error) {
 	standing, ok := f[params.Dir]
 	if !ok {
@@ -563,7 +567,7 @@ func TestCwdSyncerSyncWritesAStandingOnlyWhenItMoved(t *testing.T) {
 		Agents: agents,
 		Heads:  fakeHeads{},
 		Trees:  trees,
-		Tallies: fakeTallies{{
+		Rounds: fakeTallies{{
 			AgentID:     created.ID,
 			Verdict:     &approved,
 			SnapshotSHA: "snapshot-one",
@@ -592,6 +596,10 @@ func TestCwdSyncerSyncWritesAStandingOnlyWhenItMoved(t *testing.T) {
 // failingTrees is a git that knows the tree moved but could not finish the landed question.
 type failingTrees struct{}
 
+func (failingTrees) ProbeTree(context.Context, string) (string, error) {
+	return "", errors.New("no worktree to probe")
+}
+
 func (failingTrees) ReadStanding(context.Context, git.ReadStandingParams) (git.Standing, error) {
 	return git.StandingMoved, errors.New("the base could not be merged")
 }
@@ -608,12 +616,20 @@ func (f fakeTallies) ListTallies(context.Context) ([]reviewstore.Tally, error) {
 	return f, nil
 }
 
+func (fakeTallies) ListNewestRounds(context.Context) ([]reviewstore.NewestRound, error) {
+	return nil, nil
+}
+
 // recordingTrees is a git that remembers which directories it was asked to hash, and against
 // which base.
 type recordingTrees struct {
 	mu    sync.Mutex
 	dirs  []string
 	bases []string
+}
+
+func (r *recordingTrees) ProbeTree(context.Context, string) (string, error) {
+	return "", errors.New("no worktree to probe")
 }
 
 func (r *recordingTrees) ReadStanding(_ context.Context, params git.ReadStandingParams) (git.Standing, error) {
@@ -667,8 +683,8 @@ func TestCwdSyncerSyncReadsWhereTheTreeStands(t *testing.T) {
 			dirs["landed"]:        git.StandingLanded,
 			dirs["landed-edited"]: git.StandingLandedMoved,
 		},
-		Tallies: tallies,
-		Bases:   fakeBases{},
+		Rounds: tallies,
+		Bases:  fakeBases{},
 	})
 
 	assert.Equal(t, git.StandingSame, standingOn(t, st, ids["edited"], "snapshot-edited"), "nothing is recorded before the first pass")
@@ -705,7 +721,7 @@ func TestCwdSyncerSyncKeepsAStandingReportedWithAnError(t *testing.T) {
 		Heads:  fakeHeads{},
 		Trees:  failingTrees{},
 		Bases:  fakeBases{},
-		Tallies: fakeTallies{{
+		Rounds: fakeTallies{{
 			AgentID:     created.ID,
 			Verdict:     &approved,
 			SnapshotSHA: "snapshot-one",
@@ -739,7 +755,7 @@ func TestCwdSyncerSyncMeasuresAgainstTheWorkflowsBase(t *testing.T) {
 		Agents: st.Agents,
 		Heads:  fakeHeads{},
 		Trees:  hashed,
-		Tallies: fakeTallies{{
+		Rounds: fakeTallies{{
 			AgentID:     agent.ID,
 			Verdict:     &approved,
 			SnapshotSHA: "snapshot-one",
@@ -790,7 +806,7 @@ func TestCwdSyncerSyncHashesOnlyAReviewedTree(t *testing.T) {
 		Heads:  fakeHeads{},
 		Trees:  hashed,
 		Bases:  fakeBases{},
-		Tallies: fakeTallies{
+		Rounds: fakeTallies{
 			{
 				AgentID:     reviewedAgent.ID,
 				Verdict:     &approved,
@@ -836,7 +852,7 @@ func TestCwdSyncerSyncForgetsAMoveTheNextPassDoesNotSee(t *testing.T) {
 		Heads:  fakeHeads{},
 		Trees:  trees,
 		Bases:  fakeBases{},
-		Tallies: fakeTallies{{
+		Rounds: fakeTallies{{
 			AgentID:     created.ID,
 			Verdict:     &approved,
 			SnapshotSHA: "snapshot-one",
@@ -874,7 +890,7 @@ func TestCwdSyncerSyncReportsAProbeItCouldNotMake(t *testing.T) {
 		Heads:  fakeHeads{},
 		Trees:  fakeTrees{},
 		Bases:  fakeBases{},
-		Tallies: fakeTallies{{
+		Rounds: fakeTallies{{
 			AgentID:     created.ID,
 			Verdict:     &approved,
 			SnapshotSHA: "snapshot-one",

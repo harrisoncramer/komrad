@@ -224,9 +224,9 @@ func TestReviewRefreshIsNotTheTick(t *testing.T) {
 	m = openReview(t, m)
 
 	moveReview(&m, "1")
-	m.hashReviewWorktreeCmd(time.Now())
+	next, _, _ := m.routeAsyncMessage(tickMsg{at: time.Now()})
 
-	assert.False(t, m.review.threads.reading)
+	assert.False(t, next.(model).review.threads.reading)
 }
 
 // TestReviewRefreshReportsAFailedRead pins that a failed read is said once and read again only
@@ -440,10 +440,8 @@ func TestReviewReloadKeyOpensTheNextRound(t *testing.T) {
 		},
 	})
 
-	hashed, ok := m.review.hashWorktreeCmd(m.shared())().(reviewWorktreeHashedMsg)
-	require.True(t, ok)
-	m.review.applyWorktreeHashed(m.shared(), hashed)
-	require.True(t, m.review.diff.worktree.moved)
+	markReviewWorktreeMoved(&m)
+	require.True(t, m.review.isWorktreeMoved(m.shared()))
 
 	m.review.diff.cursor = m.review.diff.view.Move(m.review.diff.cursor, 1)
 	place, located := m.review.diff.view.GetPlace(m.review.diff.cursor)
@@ -459,7 +457,7 @@ func TestReviewReloadKeyOpensTheNextRound(t *testing.T) {
 	m.review.applyLoaded(&m, m.shared(), loaded)
 
 	assert.Greater(t, m.review.round.GetOrdinal(), first, "the round moved on")
-	assert.False(t, m.review.diff.worktree.moved, "the notice goes with the round it was about")
+	assert.False(t, m.review.isWorktreeMoved(m.shared()), "the notice goes with the round it was about")
 
 	found, ok := m.review.diff.view.Locate(place)
 	require.True(t, ok)
@@ -479,7 +477,7 @@ func TestReviewReloadKeyReadsAgainWithNothingMoved(t *testing.T) {
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
 	m = openReview(t, m)
 
-	require.False(t, m.review.diff.worktree.moved)
+	require.False(t, m.review.isWorktreeMoved(m.shared()))
 
 	_, cmd := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("R")})
 	require.NotNil(t, cmd)

@@ -92,15 +92,16 @@ func agentRowFrom(row *agentv1.AgentRow) panel.AgentRow {
 	agent := row.GetAgent()
 
 	return panel.AgentRow{
-		Agent:        agentFrom(agent),
-		Alive:        agent.GetAlive(),
-		UnreadMail:   row.GetUnreadMail(),
-		FailedRun:    agent.GetFailedRun(),
-		FailedRunLog: agent.FailedRunLog,
-		LocalVerdict: agent.GetLocalReviewVerdict(),
-		LocalTree:    standingFrom(agent.GetLocalReviewTree()),
-		PullRequest:  pullRequestStandingFrom(row.GetPullRequest()),
-		PullRequests: xslice.Map(row.GetPullRequests(), pullRequestFrom),
+		Agent:           agentFrom(agent),
+		Alive:           agent.GetAlive(),
+		UnreadMail:      row.GetUnreadMail(),
+		FailedRun:       agent.GetFailedRun(),
+		FailedRunLog:    agent.FailedRunLog,
+		LocalVerdict:    agent.GetLocalReviewVerdict(),
+		LocalTree:       standingFrom(agent.GetLocalReviewTree()),
+		PullRequest:     pullRequestStandingFrom(row.GetPullRequest()),
+		PullRequests:    xslice.Map(row.GetPullRequests(), pullRequestFrom),
+		MovedSinceRound: agent.GetMovedSinceRound(),
 	}
 }
 
