@@ -447,7 +447,7 @@ func (h *panelHarness) fireTimers() {
 }
 
 func (l *requestRecorder) WrapUnary(connect.UnaryFunc) connect.UnaryFunc {
-	return func(_ context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
+	return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
 		l.mu.Lock()
 		msg, _ := req.Any().(proto.Message)
 		l.seen = append(l.seen, request{
@@ -457,7 +457,7 @@ func (l *requestRecorder) WrapUnary(connect.UnaryFunc) connect.UnaryFunc {
 		answer := l.answers[req.Spec().Procedure]
 		l.mu.Unlock()
 
-		l.gate.wait(req.Spec().Procedure)
+		l.gate.wait(ctx, req.Spec().Procedure)
 
 		if answer != nil {
 			return answer(req)
@@ -481,7 +481,7 @@ func (l *requestRecorder) WrapStreamingHandler(next connect.StreamingHandlerFunc
 	}
 }
 
-func (g *gate) wait(name string) {
+func (g *gate) wait(ctx context.Context, name string) {
 	g.mu.Lock()
 	isHeld := g.held[name]
 	g.mu.Unlock()
@@ -490,51 +490,59 @@ func (g *gate) wait(name string) {
 	}
 
 	release := make(chan struct{})
-	g.parked <- parkedCall{
+	select {
+	case g.parked <- parkedCall{
 		name:    name,
 		release: release,
+	}:
+	case <-ctx.Done():
+		return
 	}
-	<-release
+
+	select {
+	case <-release:
+	case <-ctx.Done():
+	}
 }
 
 func (g heldGit) CountChangedFiles(ctx context.Context, params git.CountChangedFilesParams) (int, error) {
-	g.gate.wait("git.CountChangedFiles")
+	g.gate.wait(ctx, "git.CountChangedFiles")
 
 	return g.git.CountChangedFiles(ctx, params)
 }
 
 func (g heldGit) MapRanges(ctx context.Context, params git.MapRangesParams) ([]position.Mapping, error) {
-	g.gate.wait("git.MapRanges")
+	g.gate.wait(ctx, "git.MapRanges")
 
 	return g.git.MapRanges(ctx, params)
 }
 
 func (g heldGit) Replay(ctx context.Context, params git.ReplayParams) (*git.Replayed, error) {
-	g.gate.wait("git.Replay")
+	g.gate.wait(ctx, "git.Replay")
 
 	return g.git.Replay(ctx, params)
 }
 
 func (g heldGit) IsAncestor(ctx context.Context, dir, maybeAncestor, of string) (bool, error) {
-	g.gate.wait("git.IsAncestor")
+	g.gate.wait(ctx, "git.IsAncestor")
 
 	return g.git.IsAncestor(ctx, dir, maybeAncestor, of)
 }
 
 func (g heldGit) GetRoot(ctx context.Context, dir string) (string, error) {
-	g.gate.wait("git.GetRoot")
+	g.gate.wait(ctx, "git.GetRoot")
 
 	return g.git.GetRoot(ctx, dir)
 }
 
 func (g heldGit) Diff(ctx context.Context, params git.DiffParams) ([]byte, error) {
-	g.gate.wait("git.Diff")
+	g.gate.wait(ctx, "git.Diff")
 
 	return g.git.Diff(ctx, params)
 }
 
 func (g heldGit) ReadFiles(ctx context.Context, dir string, revisions []git.FileRevision) (map[git.FileRevision][]byte, error) {
-	g.gate.wait("git.ReadFiles")
+	g.gate.wait(ctx, "git.ReadFiles")
 
 	return g.git.ReadFiles(ctx, dir, revisions)
 }
