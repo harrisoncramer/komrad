@@ -69,13 +69,13 @@ source "amazon-ebs" "komrade" {
   imds_support = "v2.0"
 
   tags = {
-    Name          = local.name
-    Project       = "komrade"
-    ManagedBy     = "packer"
+    Name            = local.name
+    Project         = "komrade"
+    ManagedBy       = "packer"
     KomradeRevision = var.komrade_revision
     KomradeVersion  = var.komrade_version
-    BaseAmi       = "{{ .SourceAMI }}"
-    BaseAmiName   = "{{ .SourceAMIName }}"
+    BaseAmi         = "{{ .SourceAMI }}"
+    BaseAmiName     = "{{ .SourceAMIName }}"
   }
 
   snapshot_tags = {
