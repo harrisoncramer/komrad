@@ -55,10 +55,10 @@ var timerCmds = []string{
 }
 
 type panelHarness struct {
-	t      *testing.T
-	panel  *ui.Panel
-	log    *requestRecorder
-	timers []tea.Cmd
+	t        *testing.T
+	panel    *ui.Panel
+	recorder *requestRecorder
+	timers   []tea.Cmd
 }
 
 type request struct {
@@ -143,8 +143,8 @@ type panelHarnessParams struct {
 func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
 	t.Helper()
 
-	log := &requestRecorder{answers: map[string]answerFunc{}}
-	interceptors := connect.WithInterceptors(log)
+	recorder := &requestRecorder{answers: map[string]answerFunc{}}
+	interceptors := connect.WithInterceptors(recorder)
 
 	mux := http.NewServeMux()
 	mux.Handle(agentv1connect.NewAgentServiceHandler(agentv1connect.UnimplementedAgentServiceHandler{}, interceptors))
@@ -170,8 +170,8 @@ func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
 	}
 
 	harness := &panelHarness{
-		t:   t,
-		log: log,
+		t:        t,
+		recorder: recorder,
 		panel: ui.NewPanel(ui.NewPanelParams{
 			Agents:    agentv1connect.NewAgentServiceClient(server.Client(), server.URL),
 			Workflows: workflowv1connect.NewWorkflowServiceClient(server.Client(), server.URL),
@@ -219,18 +219,18 @@ func (h *panelHarness) readFrame() string {
 
 func (h *panelHarness) assertSent(want ...request) {
 	h.t.Helper()
-	h.log.mu.Lock()
-	defer h.log.mu.Unlock()
+	h.recorder.mu.Lock()
+	defer h.recorder.mu.Unlock()
 
-	diff := cmp.Diff(want, h.log.seen, cmp.AllowUnexported(request{}), protocmp.Transform(), cmpopts.EquateEmpty())
+	diff := cmp.Diff(want, h.recorder.seen, cmp.AllowUnexported(request{}), protocmp.Transform(), cmpopts.EquateEmpty())
 	assert.Empty(h.t, diff, "the requests sent (-want +got)")
 }
 
 func (h *panelHarness) answer(procedure string, answer answerFunc) {
-	h.log.mu.Lock()
-	defer h.log.mu.Unlock()
+	h.recorder.mu.Lock()
+	defer h.recorder.mu.Unlock()
 
-	h.log.answers[procedure] = answer
+	h.recorder.answers[procedure] = answer
 }
 
 func (h *panelHarness) refuse(procedure string, err error) {
