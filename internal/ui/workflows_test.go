@@ -133,20 +133,6 @@ func TestFailedWorkflowListKeepsTheTree(t *testing.T) {
 	require.Error(t, m.unreachable, "and the panel says the server is not answering")
 }
 
-func describeRows(rows []agentRow) []string {
-	out := make([]string, 0, len(rows))
-	for _, row := range rows {
-		if row.header {
-			out = append(out, "header:"+row.workflow.Name)
-			continue
-		}
-
-		out = append(out, "agent:"+row.item.Agent.Name)
-	}
-
-	return out
-}
-
 // TestWorkflowEditFormRoundTripsTheStoredConfig covers the edit path whole, from the
 // workflow the watch carries, through the form, to the update written back.
 func TestWorkflowEditFormRoundTripsTheStoredConfig(t *testing.T) {

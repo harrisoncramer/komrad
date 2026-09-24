@@ -3,12 +3,14 @@
 package ui_test
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
 
 	"weave/internal/ui"
 	"weave/internal/weavetest"
+	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
 	schedulev1 "weave/proto/gen/schedule/v1"
 	viewv1 "weave/proto/gen/view/v1"
@@ -203,16 +205,17 @@ func relist(t *testing.T, instance *weavetest.Instance, harness *panelHarness) {
 	schedules, err := instance.Schedules.ListSchedules(t.Context(), connect.NewRequest(&schedulev1.ListSchedulesRequest{View: viewv1.View_VIEW_FULL}))
 	require.NoError(t, err)
 
-	var rows []proto.Message
-	for _, row := range agents.Msg.GetAgents() {
-		rows = append(rows, row.GetAgent())
-	}
-	for _, workflow := range workflows.Msg.GetWorkflows() {
-		rows = append(rows, workflow)
-	}
-	for _, schedule := range schedules.Msg.GetSchedules() {
-		rows = append(rows, schedule)
-	}
+	rows := slices.Concat(
+		xslice.Map(agents.Msg.GetAgents(), func(row *agentv1.AgentRow) proto.Message {
+			return row.GetAgent()
+		}),
+		xslice.Map(workflows.Msg.GetWorkflows(), func(workflow *workflowv1.Workflow) proto.Message {
+			return workflow
+		}),
+		xslice.Map(schedules.Msg.GetSchedules(), func(schedule *schedulev1.Schedule) proto.Message {
+			return schedule
+		}),
+	)
 
 	harness.watch(buildSnapshot(rows...))
 }

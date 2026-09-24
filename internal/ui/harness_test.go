@@ -19,7 +19,6 @@ import (
 	"weave/internal/engine"
 	"weave/internal/git"
 	"weave/internal/position"
-	"weave/internal/tmux"
 	"weave/internal/ui"
 	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
@@ -183,7 +182,7 @@ type panelHarnessParams struct {
 	refuseSplits  bool
 	binary        ui.BinaryWatcher
 	browser       browser.Opener
-	tmux          *tmux.Client
+	tmux          ui.PanelTmux
 	remote        *panelRemote
 }
 

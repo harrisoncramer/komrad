@@ -11,7 +11,6 @@ import (
 	"weave/internal/browser"
 	"weave/internal/engine"
 	"weave/internal/panes"
-	"weave/internal/tmux"
 	"weave/internal/ui/layout"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	"weave/proto/gen/hook/v1/hookv1connect"
@@ -63,6 +62,9 @@ type recordingTmux struct {
 	keysElsewhere bool
 }
 
+// PanelTmux is the tmux a panel under test drives in place of the recording one.
+type PanelTmux = uiTmux
+
 // HarnessFrameReader answers whether a pane is drawing its harness yet.
 type HarnessFrameReader = harnessFrameReader
 
@@ -87,7 +89,7 @@ type NewPanelParams struct {
 	RefuseSplits  bool
 	Binary        BinaryWatcher
 	Browser       browser.Opener
-	Tmux          *tmux.Client
+	Tmux          PanelTmux
 }
 
 // NewPanel builds the panel the way weave panel does, over a recording tmux.
