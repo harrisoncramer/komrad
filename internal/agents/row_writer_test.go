@@ -8,6 +8,8 @@ import (
 	"weave/lib/xptr"
 
 	agentstore "weave/internal/store/agent"
+	rowstore "weave/internal/store/row"
+	runstore "weave/internal/store/run"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -108,7 +110,7 @@ func TestRowWriterWrites(t *testing.T) {
 	tests := []struct {
 		name  string
 		write func(ctx context.Context, writer *RowWriter, agent agentstore.Agent) error
-		check func(t *testing.T, row agentstore.Agent)
+		check func(t *testing.T, row rowstore.Row)
 	}{
 		{
 			name: "clearing a key nothing held is served",
@@ -118,7 +120,7 @@ func TestRowWriterWrites(t *testing.T) {
 					Key:     "linear_issue",
 				})
 			},
-			check: func(t *testing.T, row agentstore.Agent) {
+			check: func(t *testing.T, row rowstore.Row) {
 				assert.Empty(t, row.Metadata)
 			},
 		},
@@ -127,7 +129,7 @@ func TestRowWriterWrites(t *testing.T) {
 			write: func(ctx context.Context, writer *RowWriter, agent agentstore.Agent) error {
 				return writer.SetHidden(ctx, agent.ID, true)
 			},
-			check: func(t *testing.T, row agentstore.Agent) {
+			check: func(t *testing.T, row rowstore.Row) {
 				assert.True(t, row.Hidden)
 			},
 		},
@@ -140,7 +142,7 @@ func TestRowWriterWrites(t *testing.T) {
 					Value:   xptr.Ptr("https://linear.app/x/issue/ENG-1"),
 				})
 			},
-			check: func(t *testing.T, row agentstore.Agent) {
+			check: func(t *testing.T, row rowstore.Row) {
 				assert.Equal(t, []agentstore.Metadata{
 					{
 						Key:   "linear_issue",
@@ -150,11 +152,20 @@ func TestRowWriterWrites(t *testing.T) {
 			},
 		},
 		{
+			name: "claiming the failed runs",
+			write: func(ctx context.Context, writer *RowWriter, agent agentstore.Agent) error {
+				return writer.MarkRunsRead(ctx, agent.ID)
+			},
+			check: func(t *testing.T, row rowstore.Row) {
+				assert.False(t, row.FailedRun)
+			},
+		},
+		{
 			name: "renaming keeps the id",
 			write: func(ctx context.Context, writer *RowWriter, agent agentstore.Agent) error {
 				return writer.Rename(ctx, agent.ID, "renamed")
 			},
-			check: func(t *testing.T, row agentstore.Agent) {
+			check: func(t *testing.T, row rowstore.Row) {
 				assert.Equal(t, "renamed", row.Name)
 			},
 		},
@@ -164,10 +175,23 @@ func TestRowWriterWrites(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
 			alpha := seed(t, st, "alpha", "", agentstore.StateIdle)
+			failed, err := st.Runs.Begin(t.Context(), runstore.BeginParams{
+				AgentID: alpha.ID,
+				Trigger: "post-launch",
+				Script:  "install-deps",
+			})
+			require.NoError(t, err)
+			require.NoError(t, st.Runs.Finish(t.Context(), runstore.FinishParams{
+				ID:      failed,
+				Failure: "a hook failed",
+			}))
 			writer := newRowWriter(st, &recordingReconciler{})
 
 			require.NoError(t, tt.write(t.Context(), writer, alpha))
-			tt.check(t, agentByID(t, st, alpha.ID))
+
+			row, err := st.Rows.Get(t.Context(), alpha.ID)
+			require.NoError(t, err)
+			tt.check(t, *row)
 		})
 	}
 }

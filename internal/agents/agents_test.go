@@ -48,15 +48,38 @@ func TestDeprovisionerLogsAWorkflowThatWouldNotRead(t *testing.T) {
 	assert.Equal(t, "/repo/.worktrees/auth", got["weave.script.agent.cwd"])
 }
 
-// TestDeprovisionerSaysNothingAboutAWorkflowThatProvisionsNothing covers the quiet half, where
-// a workflow's agents keep the directory they are given.
-func TestDeprovisionerSaysNothingAboutAWorkflowThatProvisionsNothing(t *testing.T) {
-	st := newStore(t)
-	agent := seed(t, st, "alpha", "", agentstore.StateIdle)
-	ctx, records := loggedContext(t)
+// TestDeprovisionerSaysNothingWhenThereIsNothingToTearDown covers the quiet half, where an
+// agent keeps the directory it was given.
+func TestDeprovisionerSaysNothingWhenThereIsNothingToTearDown(t *testing.T) {
+	tests := []struct {
+		name       string
+		workflowID func(t *testing.T, st *testStore) string
+	}{
+		{
+			name: "a workflow no row holds",
+			workflowID: func(*testing.T, *testStore) string {
+				return "b9b1a1de-0000-7000-8000-000000000000"
+			},
+		},
+		{
+			name:       "a workflow that makes no worktrees",
+			workflowID: seedWorkflow,
+		},
+	}
 
-	assert.Empty(t, deprovisionerFor(ctx, st.Workflows, agent))
-	assert.Empty(t, records())
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := newStore(t)
+			agent := agentstore.Agent{
+				ID:         "a1",
+				WorkflowID: tt.workflowID(t, st),
+			}
+			ctx, records := loggedContext(t)
+
+			assert.Empty(t, deprovisionerFor(ctx, st.Workflows, agent))
+			assert.Empty(t, records())
+		})
+	}
 }
 
 // TestTheWorktreeToggleIsTheWholeProvisioner pins what a workflow can say about an agent's
