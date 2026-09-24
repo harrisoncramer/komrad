@@ -264,20 +264,23 @@ func (f *Repo) Wrote(params WroteParams) {
 	}
 }
 
+// Replay answers the replay the test stated for these three commits.
 func (f *Repo) Replay(_ context.Context, params git.ReplayParams) (*git.Replayed, error) {
 	replayed, stated := f.Replays[ReplayOf(params.FromBase, params.OntoBase, params.SnapshotSHA)]
 	if !stated {
-		return nil, fmt.Errorf("this test stated no replay of %s from %s onto %s: %w",
-			params.SnapshotSHA, params.FromBase, params.OntoBase, ErrNoGit)
+		return nil, fmt.Errorf("%w: this test stated no replay of %s from %s onto %s",
+			ErrNoGit, params.SnapshotSHA, params.FromBase, params.OntoBase)
 	}
 
 	return replayed, nil
 }
 
+// IsAncestor is true unless the pair is in Rewritten.
 func (f *Repo) IsAncestor(_ context.Context, _, maybeAncestor, of string) (bool, error) {
 	return !f.Rewritten[PairOf(maybeAncestor, of)], nil
 }
 
+// GetRoot answers Root, or the directory itself when Root is blank.
 func (f *Repo) GetRoot(_ context.Context, dir string) (string, error) {
 	if f.RootErr != nil {
 		return "", f.RootErr
@@ -290,6 +293,7 @@ func (f *Repo) GetRoot(_ context.Context, dir string) (string, error) {
 	return dir, nil
 }
 
+// Diff answers the patch the test stated between two snapshots.
 func (f *Repo) Diff(_ context.Context, params git.DiffParams) ([]byte, error) {
 	patch, err := f.patchBetween(patchBetweenParams{
 		FromSHA: params.FromSHA,
@@ -303,6 +307,7 @@ func (f *Repo) Diff(_ context.Context, params git.DiffParams) ([]byte, error) {
 	return []byte(patch), nil
 }
 
+// CountChangedFiles counts the files in the patch between two snapshots.
 func (f *Repo) CountChangedFiles(_ context.Context, params git.CountChangedFilesParams) (int, error) {
 	patch, err := f.patchBetween(patchBetweenParams{
 		FromSHA: params.FromSHA,
@@ -335,8 +340,8 @@ func (f *Repo) patchBetween(params patchBetweenParams) (string, error) {
 
 	patch, stated := f.Patches[pair]
 	if !stated {
-		return "", fmt.Errorf("this test stated no diff between %s and %s: %w",
-			params.FromSHA, params.ToSHA, ErrNoGit)
+		return "", fmt.Errorf("%w: this test stated no diff between %s and %s",
+			ErrNoGit, params.FromSHA, params.ToSHA)
 	}
 
 	if len(params.Exclude) > 0 && f.Hidden[pair] {
@@ -346,6 +351,7 @@ func (f *Repo) patchBetween(params patchBetweenParams) (string, error) {
 	return patch, nil
 }
 
+// ReadFiles answers the sources the test stated for each revision.
 func (f *Repo) ReadFiles(_ context.Context, _ string, revisions []git.FileRevision) (map[git.FileRevision][]byte, error) {
 	files := make(map[git.FileRevision][]byte, len(revisions))
 	for _, revision := range revisions {

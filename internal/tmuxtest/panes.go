@@ -36,14 +36,27 @@ type Panes struct {
 	cut      bool
 }
 
-func (f *Panes) IsAgentRunning(agentstore.Agent) bool { return f.Alive }
+// IsAgentRunning answers Alive.
+func (f *Panes) IsAgentRunning(agentstore.Agent) bool {
+	return f.Alive
+}
 
-func (f *Panes) SendKeys(string, ...string) error { return nil }
+// SendKeys does nothing.
+func (f *Panes) SendKeys(string, ...string) error {
+	return nil
+}
 
-func (f *Panes) IsPaneInMode(string) bool { return f.InMode }
+// IsPaneInMode answers InMode.
+func (f *Panes) IsPaneInMode(string) bool {
+	return f.InMode
+}
 
-func (f *Panes) IsPaneRunningCLI(string) bool { return !f.Shell }
+// IsPaneRunningCLI is true unless Shell is set.
+func (f *Panes) IsPaneRunningCLI(string) bool {
+	return !f.Shell
+}
 
+// CapturePane answers Frame, or the frame after the cut once the cut has landed.
 func (f *Panes) CapturePane(string) string {
 	f.captures++
 
@@ -58,8 +71,12 @@ func (f *Panes) CapturePane(string) string {
 	return f.Frame
 }
 
-func (f *Panes) IsClientAtPane(string, time.Duration) bool { return f.ClientAt }
+// IsClientAtPane answers ClientAt.
+func (f *Panes) IsClientAtPane(string, time.Duration) bool {
+	return f.ClientAt
+}
 
+// PasteAndSubmit records the paste unless PasteErr refuses it.
 func (f *Panes) PasteAndSubmit(_, text string) error {
 	if f.PasteErr != nil {
 		f.Actions = append(f.Actions, "paste-failed")
@@ -73,6 +90,7 @@ func (f *Panes) PasteAndSubmit(_, text string) error {
 	return nil
 }
 
+// CutLine records the cut.
 func (f *Panes) CutLine(string) error {
 	f.Actions = append(f.Actions, "cut")
 	f.cut = true
@@ -81,6 +99,7 @@ func (f *Panes) CutLine(string) error {
 	return nil
 }
 
+// YankLine records the yank unless YankErr refuses it.
 func (f *Panes) YankLine(string) error {
 	if f.YankErr != nil {
 		f.Actions = append(f.Actions, "yank-failed")

@@ -31,6 +31,7 @@ type Fake struct {
 	Respawned       map[string][]Respawn
 }
 
+// NewFake is a tmux holding no panes.
 func NewFake() *Fake {
 	return &Fake{
 		Owners:         map[string]string{},
@@ -50,12 +51,14 @@ type Respawn struct {
 	Argv []string
 }
 
+// SetGlobal records a global option.
 func (f *Fake) SetGlobal(name, value string) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.Globals[name] = value
 }
 
+// ShowGlobal answers a global option.
 func (f *Fake) ShowGlobal(name string) string {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -63,6 +66,7 @@ func (f *Fake) ShowGlobal(name string) string {
 	return f.Globals[name]
 }
 
+// GetPaneOwner answers the agent Owners names for the pane.
 func (f *Fake) GetPaneOwner(pane string) string {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -70,6 +74,7 @@ func (f *Fake) GetPaneOwner(pane string) string {
 	return f.Owners[pane]
 }
 
+// CapturePane answers the frame Captures holds for the pane.
 func (f *Fake) CapturePane(pane string) string {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -77,6 +82,7 @@ func (f *Fake) CapturePane(pane string) string {
 	return f.Captures[pane]
 }
 
+// GetHostPath answers ClientDir.
 func (f *Fake) GetHostPath() string {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -84,12 +90,14 @@ func (f *Fake) GetHostPath() string {
 	return f.ClientDir
 }
 
+// DetachSession records the session.
 func (f *Fake) DetachSession(name string) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.Detached = append(f.Detached, name)
 }
 
+// GetPanes answers every owned pane with its command.
 func (f *Fake) GetPanes() (map[string]tmux.PaneStatus, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -106,12 +114,14 @@ func (f *Fake) GetPanes() (map[string]tmux.PaneStatus, error) {
 	return panes, nil
 }
 
+// SetSessionOption records a session option.
 func (f *Fake) SetSessionOption(target, name, value string) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.SessionOptions[target+"/"+name] = value
 }
 
+// SendKeys records the keys sent to a target.
 func (f *Fake) SendKeys(target string, keys ...string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -127,6 +137,7 @@ func (f *Fake) SendKeys(target string, keys ...string) error {
 	return nil
 }
 
+// GetDefaultShell answers Shell.
 func (f *Fake) GetDefaultShell() string {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -134,6 +145,7 @@ func (f *Fake) GetDefaultShell() string {
 	return f.Shell
 }
 
+// RespawnPane records the respawn.
 func (f *Fake) RespawnPane(pane, dir string, argv ...string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -149,6 +161,7 @@ func (f *Fake) RespawnPane(pane, dir string, argv ...string) error {
 	return nil
 }
 
+// LastRespawn is the latest respawn of a pane.
 func (f *Fake) LastRespawn(pane string) Respawn {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -161,8 +174,12 @@ func (f *Fake) LastRespawn(pane string) Respawn {
 	return runs[len(runs)-1]
 }
 
-func (f *Fake) SplitRight(anchorPane, dir string) string { return "%stage" }
+// SplitRight answers a stage pane.
+func (f *Fake) SplitRight(anchorPane, dir string) string {
+	return "%stage"
+}
 
+// NewWindow opens a pane named for the window.
 func (f *Fake) NewWindow(session, name, dir string) (string, error) {
 	if f.BeforeNewWindow != nil {
 		f.BeforeNewWindow()
@@ -184,6 +201,7 @@ func (f *Fake) NewWindow(session, name, dir string) (string, error) {
 	return opened, nil
 }
 
+// WindowsOpened counts the windows opened.
 func (f *Fake) WindowsOpened() int {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -191,6 +209,7 @@ func (f *Fake) WindowsOpened() int {
 	return f.NewWindowCalls
 }
 
+// SetPaneOwner records the pane owner.
 func (f *Fake) SetPaneOwner(pane, agentID string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -204,6 +223,7 @@ func (f *Fake) SetPaneOwner(pane, agentID string) error {
 	return nil
 }
 
+// KillPane records the pane and forgets its owner.
 func (f *Fake) KillPane(pane string) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -211,8 +231,12 @@ func (f *Fake) KillPane(pane string) {
 	delete(f.Owners, pane)
 }
 
-func (f *Fake) IsPaneInMode(string) bool { return false }
+// IsPaneInMode is false.
+func (f *Fake) IsPaneInMode(string) bool {
+	return false
+}
 
+// IsPaneRunningCLI is true when the pane runs something other than a shell.
 func (f *Fake) IsPaneRunningCLI(pane string) bool {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -222,8 +246,12 @@ func (f *Fake) IsPaneRunningCLI(pane string) bool {
 	return command != "" && !tmux.PaneStatus{Command: command}.IsRunningShell()
 }
 
-func (f *Fake) IsClientAtPane(string, time.Duration) bool { return false }
+// IsClientAtPane is false.
+func (f *Fake) IsClientAtPane(string, time.Duration) bool {
+	return false
+}
 
+// PasteAndSubmit records the text as sent.
 func (f *Fake) PasteAndSubmit(target, text string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -232,6 +260,12 @@ func (f *Fake) PasteAndSubmit(target, text string) error {
 	return nil
 }
 
-func (f *Fake) CutLine(string) error { return nil }
+// CutLine does nothing.
+func (f *Fake) CutLine(string) error {
+	return nil
+}
 
-func (f *Fake) YankLine(string) error { return nil }
+// YankLine does nothing.
+func (f *Fake) YankLine(string) error {
+	return nil
+}

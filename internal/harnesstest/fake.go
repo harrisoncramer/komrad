@@ -43,7 +43,9 @@ func (f *Fake) ID() string {
 }
 
 // Binary is the harness's id.
-func (f *Fake) Binary() string { return f.ID() }
+func (f *Fake) Binary() string {
+	return f.ID()
+}
 
 // BuildCommand records the launch and renders a command naming its session.
 func (f *Fake) BuildCommand(launch harness.Launch) (string, error) {
@@ -68,7 +70,9 @@ func (f *Fake) MintSessionID() string {
 }
 
 // InterruptKeys is Escape.
-func (f *Fake) InterruptKeys() []string { return []string{"Escape"} }
+func (f *Fake) InterruptKeys() []string {
+	return []string{"Escape"}
+}
 
 // ReadReport reads nothing.
 func (f *Fake) ReadReport(harness.Event, []byte) (harness.Report, error) {
@@ -102,10 +106,14 @@ func composingLines(held string) []string {
 }
 
 // LogPath is empty.
-func (f *Fake) LogPath(string) string { return "" }
+func (f *Fake) LogPath(string) string {
+	return ""
+}
 
 // FindSession finds nothing.
-func (f *Fake) FindSession(string) (string, error) { return "", nil }
+func (f *Fake) FindSession(string) (string, error) {
+	return "", nil
+}
 
 // ReadLog reads nothing.
 func (f *Fake) ReadLog(string, int64) (harness.LogRead, error) {
@@ -169,4 +177,6 @@ func (c *Channel) Interrupt(context.Context, harness.Target) error {
 }
 
 // Forget records the agent forgotten.
-func (c *Channel) Forget(agentID string) { c.Forgotten = append(c.Forgotten, agentID) }
+func (c *Channel) Forget(agentID string) {
+	c.Forgotten = append(c.Forgotten, agentID)
+}
