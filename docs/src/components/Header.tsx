@@ -1,4 +1,3 @@
-import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import NavigationDropdown from "./NavigationDropdown";
 import { REPO_URL, SECTIONS, SITE_TITLE } from "../consts";
@@ -17,42 +16,15 @@ const NAV_LINKS: readonly NavLink[] = SECTIONS.map((section) => ({
   label: section.title,
 }));
 
-const HIDE_AFTER_PX = 400;
-
 function normalizePath(path: string): string {
   return path.replace(/\/+$/, "") || "/";
 }
 
 const Header = ({ children, path }: HeaderProps) => {
-  const headerRef = useRef<HTMLElement>(null);
-  const [isHidden, setIsHidden] = useState(false);
   const currentPath = normalizePath(path);
 
-  useEffect(() => {
-    let lastOffset = window.scrollY;
-
-    const onScroll = () => {
-      const offset = window.scrollY;
-      const isScrollingDown = offset > lastOffset;
-      lastOffset = offset;
-
-      if (headerRef.current?.contains(document.activeElement)) {
-        setIsHidden(false);
-        return;
-      }
-
-      setIsHidden(isScrollingDown && offset > HIDE_AFTER_PX);
-    };
-
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
   return (
-    <header
-      ref={headerRef}
-      className={`sticky top-0 z-10 border-b border-app-background-medium bg-app-black/90 text-app-white shadow-sm backdrop-blur transition-[translate,visibility] duration-300 ${isHidden ? "invisible -translate-y-full" : "visible translate-y-0"}`}
-    >
+    <header className="sticky top-0 z-10 border-b border-app-background-medium bg-app-black/90 text-app-white shadow-sm backdrop-blur">
       <div className="grid grid-cols-[1fr_auto_auto] items-center gap-x-2 px-4 py-3 md:grid-cols-[1fr_auto_1fr] md:gap-x-8">
         <a
           href={link("/")}
