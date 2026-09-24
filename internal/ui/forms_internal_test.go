@@ -27,8 +27,7 @@ func (m model) openRename(agent panel.Agent) model {
 	return m
 }
 
-// TestFormOrderLeavesOutANote checks the cursor steps the same way huh does, huh passing a note
-// by rather than focusing it.
+// TestFormOrderLeavesOutANote covers the cursor stepping past a note the way huh does.
 func TestFormOrderLeavesOutANote(t *testing.T) {
 	prompt, title := "", ""
 

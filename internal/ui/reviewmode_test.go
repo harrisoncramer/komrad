@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestIsReviewHistory covers a comment being refused on the snapshot the diff was drawn to rather than the round asked for.
+// TestIsReviewHistory covers a comment being refused on a diff drawn to an older snapshot than its round.
 func TestIsReviewHistory(t *testing.T) {
 	tests := []struct {
 		name string
