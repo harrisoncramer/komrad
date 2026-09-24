@@ -1553,6 +1553,20 @@ func TestAgentsOrchestrator(t *testing.T) {
 		})
 	}
 
+	t.Run("a running orchestrator whose harness draws late is staged once it draws", func(t *testing.T) {
+		frames := &drawReporter{}
+		harness := newPanelHarness(t, panelHarnessParams{harnessFrames: frames})
+		answerWorktreeReads(harness)
+		harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), newOrchestrator()))
+		harness.fireTimers()
+		require.Empty(t, harness.panel.ReadGuestPane())
+
+		frames.isDrawn = true
+		harness.fireTimers()
+
+		assert.Equal(t, "%9", harness.panel.ReadGuestPane())
+	})
+
 	t.Run("open on a workflow starts its orchestrator", func(t *testing.T) {
 		harness := openAgents(t, newLiveWorkflow("w1", "backend"))
 

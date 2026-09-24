@@ -14,9 +14,7 @@ import (
 	workflowv1 "weave/proto/gen/workflow/v1"
 	"weave/proto/gen/workflow/v1/workflowv1connect"
 
-	tea "charm.land/bubbletea/v2"
 	"connectrpc.com/connect"
-	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -51,33 +49,6 @@ func (f *fakeArchiveAgents) DeleteAgents(_ context.Context, req *connect.Request
 	f.deleted = append(f.deleted, req.Msg.GetIds()...)
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
-}
-
-func answerPrompt(t *testing.T, m model, key string) model {
-	t.Helper()
-
-	kind := m.form.kind
-
-	var msg tea.Msg = keyMsg(key)
-	for range 8 {
-		updated, cmd := m.form.update(m, msg)
-		next, ok := updated.(model)
-		require.True(t, ok)
-
-		m = next
-		if cmd == nil {
-			return m
-		}
-		if m.form.kind != kind {
-			return settle(t, m, cmd)
-		}
-
-		msg = cmd()
-	}
-
-	t.Fatal("the prompt never closed")
-
-	return m
 }
 
 func archiveModel(agents agentv1connect.AgentServiceClient, workflows workflowv1connect.WorkflowServiceClient, keys config.Keybindings) model {

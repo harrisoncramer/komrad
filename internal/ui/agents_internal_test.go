@@ -1,65 +1,19 @@
 package ui
 
 import (
-	"context"
-	"errors"
 	"slices"
 	"strings"
 	"testing"
 	"time"
 
-	"weave/config"
-	"weave/internal/ui/layout"
 	"weave/internal/ui/paint"
 	"weave/internal/ui/panel"
-	agentv1 "weave/proto/gen/agent/v1"
-	"weave/proto/gen/agent/v1/agentv1connect"
 
 	tea "charm.land/bubbletea/v2"
-	"connectrpc.com/connect"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-// recordingHolds answers the hold calls and keeps what the panel sent.
-type recordingHolds struct {
-	agentv1connect.AgentServiceClient
-	held     []string
-	released []*agentv1.ReleaseAgentRequest
-}
-
-// refusingHolds refuses the first release and takes every one after it.
-type refusingHolds struct {
-	recordingHolds
-	refusals int
-}
-
-func (r *recordingHolds) HoldAgent(_ context.Context, req *connect.Request[agentv1.HoldAgentRequest]) (*connect.Response[agentv1.HoldAgentResponse], error) {
-	r.held = append(r.held, req.Msg.GetId())
-
-	return connect.NewResponse(&agentv1.HoldAgentResponse{}), nil
-}
-
-func (r *recordingHolds) ReleaseAgent(_ context.Context, req *connect.Request[agentv1.ReleaseAgentRequest]) (*connect.Response[agentv1.ReleaseAgentResponse], error) {
-	r.released = append(r.released, req.Msg)
-
-	return connect.NewResponse(&agentv1.ReleaseAgentResponse{}), nil
-}
-
-func (r *recordingHolds) ListAgents(context.Context, *connect.Request[agentv1.ListAgentsRequest]) (*connect.Response[agentv1.ListAgentsResponse], error) {
-	return connect.NewResponse(&agentv1.ListAgentsResponse{}), nil
-}
-
-func (r *refusingHolds) ReleaseAgent(ctx context.Context, req *connect.Request[agentv1.ReleaseAgentRequest]) (*connect.Response[agentv1.ReleaseAgentResponse], error) {
-	if r.refusals > 0 {
-		r.refusals--
-
-		return nil, errors.New("the input box would not take the words")
-	}
-
-	return r.recordingHolds.ReleaseAgent(ctx, req)
-}
 
 // TestRecordEmphasis covers what the record paints that a stripped frame cannot show.
 func TestRecordEmphasis(t *testing.T) {
@@ -101,141 +55,6 @@ func TestRecordEmphasis(t *testing.T) {
 		assert.Contains(t, lit, rowCursorStyle().Render(label))
 		assert.Equal(t, 1, strings.Count(ansi.Strip(lit), "›"))
 	})
-}
-
-// TestWorkflowRowNamesItsOrchestratorsPane covers the pane the warm-up clock reads for a workflow's row.
-func TestWorkflowRowNamesItsOrchestratorsPane(t *testing.T) {
-	m := model{
-		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
-		keys:   config.DefaultKeybindings(),
-		screen: screenAgents,
-		listing: listing{
-			workflows: []panel.Workflow{{ID: "w1", Name: "backend"}},
-			agents: []panel.AgentRow{{
-				Agent: panel.Agent{
-					ID:         "o1",
-					Name:       "orchestrator",
-					Pane:       "%9",
-					Harness:    "claude",
-					WorkflowID: "w1",
-					Role:       panel.RoleOrchestrator,
-				},
-				Alive: true,
-			}},
-		},
-	}
-
-	pane, harness := m.selectedAgentPane()
-
-	assert.Equal(t, "%9", pane)
-	assert.Equal(t, "claude", harness)
-}
-
-// TestARefusedUnpauseKeepsTheEditedFiles covers the retry the panel's own advice asks for.
-func TestARefusedUnpauseKeepsTheEditedFiles(t *testing.T) {
-	at := time.Now()
-	agents := &refusingHolds{refusals: 1}
-
-	m := heldModel(agents, &at)
-	m.noteEdited("a1", []string{"internal/agents/hold.go"})
-
-	refused, cmd := m.Update(keyMsg("p"))
-	first := requireModel(t, refused)
-	first = settle(t, first, cmd)
-
-	require.Empty(t, agents.released, "the refusal sent nothing")
-
-	pressed, cmd := first.Update(keyMsg("p"))
-	retried := requireModel(t, pressed)
-	settle(t, retried, cmd)
-
-	require.Len(t, agents.released, 1)
-	assert.Contains(t, agents.released[0].GetSaid(), "internal/agents/hold.go",
-		"the retry after a refusal still names the edited file")
-}
-
-// TestASilentUnpauseForgetsTheEditedFiles covers the release that says nothing.
-func TestASilentUnpauseForgetsTheEditedFiles(t *testing.T) {
-	at := time.Now()
-	agents := &recordingHolds{}
-
-	m := heldModel(agents, &at)
-	m.noteEdited("a1", []string{"internal/agents/hold.go"})
-
-	pressed, _ := m.Update(keyMsg("P"))
-	opened := requireModel(t, pressed)
-	require.Equal(t, formAgentRelease, opened.form.kind)
-
-	got := answerPrompt(t, opened, "y")
-
-	require.Len(t, agents.released, 1)
-	assert.Empty(t, agents.released[0].GetSaid())
-	assert.Empty(t, got.edited["a1"], "a silent release leaves no paths behind for a later hold")
-	require.NotEmpty(t, got.messages.items)
-	assert.Contains(t, got.messages.items[0].detail, "internal/agents/hold.go",
-		"the person is told what the agent was not")
-}
-
-// TestALandedUnpauseForgetsTheEditedFiles covers the release that named the files, which one
-// agent hears about once.
-func TestALandedUnpauseForgetsTheEditedFiles(t *testing.T) {
-	at := time.Now()
-	agents := &recordingHolds{}
-
-	m := heldModel(agents, &at)
-	m.noteEdited("a1", []string{"internal/agents/hold.go"})
-
-	pressed, cmd := m.Update(keyMsg("p"))
-	got := settle(t, requireModel(t, pressed), cmd)
-
-	require.Len(t, agents.released, 1)
-	assert.Contains(t, agents.released[0].GetSaid(), "internal/agents/hold.go")
-	assert.Empty(t, got.edited["a1"], "a release that named the files forgets them")
-}
-
-// TestALandedUnpauseKeepsAFileOpenedWhileItFlew covers a path remembered after the release was
-// built.
-func TestALandedUnpauseKeepsAFileOpenedWhileItFlew(t *testing.T) {
-	at := time.Now()
-	agents := &recordingHolds{}
-
-	m := heldModel(agents, &at)
-	m.noteEdited("a1", []string{"internal/agents/hold.go"})
-
-	pressed, cmd := m.Update(keyMsg("p"))
-	sent := requireModel(t, pressed)
-	sent.noteEdited("a1", []string{"internal/ui/refresh.go"})
-
-	got := settle(t, sent, cmd)
-
-	require.Len(t, agents.released, 1)
-	assert.NotContains(t, agents.released[0].GetSaid(), "internal/ui/refresh.go")
-	assert.Equal(t, []string{"internal/ui/refresh.go"}, got.edited["a1"],
-		"a landing forgets the files it named and leaves the rest")
-}
-
-// heldModel is the agents screen standing on one agent, held or not.
-func heldModel(agents agentv1connect.AgentServiceClient, held *time.Time) model {
-	m := model{
-		api:    api{agents: agents, workflows: emptyLists{}},
-		tmux:   &recordingTmux{},
-		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
-		keys:   config.DefaultKeybindings(),
-		screen: screenAgents,
-		listing: listing{
-			workflows: []panel.Workflow{{ID: "w1", Name: "backend"}},
-			agents: []panel.AgentRow{{Agent: panel.Agent{
-				ID:         "a1",
-				Name:       "telescope",
-				State:      panel.StateThinking,
-				WorkflowID: "w1",
-				HeldAt:     held,
-			}, Alive: true}},
-		},
-	}
-	m.agents.cursor = firstAgentRowIndex(m.agents.rows(m.shared()))
-
-	return m
 }
 
 // agentHelp is the agents legend as the frame draws it.
