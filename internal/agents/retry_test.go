@@ -35,7 +35,7 @@ func TestRetryCreateRelaunches(t *testing.T) {
 	_, err := manager.launch.NewAgent(t.Context(), params)
 	require.Error(t, err)
 
-	agents, err := st.List(t.Context())
+	agents, err := st.Agents.List(t.Context())
 	require.NoError(t, err)
 	require.Len(t, agents, 1)
 	assert.Equal(t, agentstore.StateFailedToCreate, agents[0].State)
@@ -94,7 +94,7 @@ func TestRetryCreateKeepsOriginalFlagsWhenNoneGiven(t *testing.T) {
 	_, err := manager.launch.NewAgent(t.Context(), params)
 	require.Error(t, err)
 
-	agents, err := st.List(t.Context())
+	agents, err := st.Agents.List(t.Context())
 	require.NoError(t, err)
 	require.Len(t, agents, 1)
 
@@ -127,7 +127,7 @@ func TestRetryCreateFailsAgainOnBadLaunch(t *testing.T) {
 	_, err := manager.launch.NewAgent(t.Context(), params)
 	require.Error(t, err)
 
-	agents, err := st.List(t.Context())
+	agents, err := st.Agents.List(t.Context())
 	require.NoError(t, err)
 	require.Len(t, agents, 1)
 	id := agents[0].ID

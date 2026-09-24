@@ -558,3 +558,25 @@ func TestLaunchWithoutAWeaveBinaryGivesNoStandIn(t *testing.T) {
 	require.Len(t, fakeHarness.Launches, 1)
 	assert.Empty(t, fakeHarness.Launches[0].ToolsDir)
 }
+
+// TestChildBriefingReplacesTheDelegateOne pins what a child is told.
+func TestChildBriefingReplacesTheDelegateOne(t *testing.T) {
+	launcher := NewLauncher(NewLauncherParams{
+		Tmux:    tmuxtest.NewFake(),
+		Addr:    "127.0.0.1:9999",
+		LogPath: briefedLogPath,
+	})
+
+	prompt := launcher.appendedSystemPrompt(launchParams{
+		SpawnedByAgentID: "agent-parent",
+		SpawnedByName:    "author",
+		ParentAgentID:    "agent-parent",
+		ParentName:       "author",
+	})
+
+	assert.Contains(t, prompt, "You are a child of agent author (agent-parent)")
+	assert.Contains(t, prompt, "do not commit")
+	assert.Contains(t, prompt, "you go when the parent goes")
+	assert.NotContains(t, prompt, "You were spawned by agent",
+		"the spawner paragraph would understate what a child runs under")
+}

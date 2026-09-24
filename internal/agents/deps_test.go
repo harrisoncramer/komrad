@@ -16,7 +16,7 @@ import (
 
 	"weave/db/testmodels"
 	"weave/internal/frames"
-	"weave/internal/git"
+	"weave/internal/gittest"
 	"weave/internal/harness"
 	"weave/internal/harnesstest"
 	"weave/internal/logging"
@@ -70,9 +70,9 @@ func (s *testStore) Get(ctx context.Context, name string) (*agentstore.Agent, er
 	return s.LiveAgentByName(ctx, name)
 }
 
-// Create records an agent, filing it under a workflow of its own when the test
+// createAgent records an agent, filing it under a workflow of its own when the test
 // did not name one.
-func (s *testStore) Create(ctx context.Context, agent agentstore.Agent) error {
+func (s *testStore) createAgent(ctx context.Context, agent agentstore.Agent) error {
 	if agent.Harness == "" {
 		agent.Harness = harnesstest.FakeID
 	}
@@ -86,19 +86,6 @@ func (s *testStore) Create(ctx context.Context, agent agentstore.Agent) error {
 	}
 
 	return s.Agents.Create(ctx, agent)
-}
-
-// Update rewrites an agent the test already recorded.
-func (s *testStore) Update(ctx context.Context, agent agentstore.Agent) error {
-	return s.Agents.Update(ctx, agent)
-}
-
-func (s *testStore) List(ctx context.Context) ([]agentstore.Agent, error) {
-	return s.Agents.List(ctx)
-}
-
-func (s *testStore) ListAll(ctx context.Context) ([]agentstore.Agent, error) {
-	return s.Agents.ListAll(ctx)
 }
 
 // SoftDelete archives the live agent with this name.
@@ -143,7 +130,7 @@ type testAgents struct {
 	panes        *PaneLiveness
 	emptied      *EmptyWorkflowDeleter
 	orchestrator *OrchestratorService
-	snapshots    *recordingSnapshots
+	snapshots    *gittest.Snapshots
 }
 
 type agentServiceOptions struct {
@@ -194,7 +181,7 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 		MaxChildren:        options.maxChildren,
 	})
 
-	snapshots := &recordingSnapshots{}
+	snapshots := &gittest.Snapshots{}
 
 	built := &testAgents{
 		launch:    launch,
@@ -211,7 +198,7 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 			Agents:    agents,
 			Workflows: s.Workflows,
 			Launch:    launch,
-			Worktrees: onlyTheMainCheckout{},
+			Worktrees: &gittest.Checkout{},
 		}),
 		lifecycle: NewLifecycleService(NewLifecycleServiceParams{
 			Tmux:           options.tmux,
@@ -243,37 +230,6 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 	})
 
 	return built
-}
-
-// recordingSnapshots is a git that records the round refs released through it.
-type recordingSnapshots struct {
-	mu       sync.Mutex
-	released []string
-}
-
-func (r *recordingSnapshots) ReleaseRef(_ context.Context, _, ref string) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	r.released = append(r.released, ref)
-
-	return nil
-}
-
-// releasedRefs is what has been released so far.
-func (r *recordingSnapshots) releasedRefs() []string {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	return slices.Clone(r.released)
-}
-
-// onlyTheMainCheckout is git reporting one checkout of a repository, the repository itself,
-// holding no branch.
-type onlyTheMainCheckout struct{}
-
-func (onlyTheMainCheckout) ListWorktrees(_ context.Context, repo string) ([]git.Worktree, error) {
-	return []git.Worktree{{Dir: repo}}, nil
 }
 
 // withWorktrees rebuilds the adopt service over a worktree listing of its own.
@@ -450,7 +406,7 @@ func seedInWorkflow(t *testing.T, st *testStore, workflowID, name, pane string, 
 		workflowID = seedWorkflow(t, st)
 	}
 
-	require.NoError(t, st.Create(ctx, agentstore.Agent{
+	require.NoError(t, st.createAgent(ctx, agentstore.Agent{
 		Name:       name,
 		Pane:       pane,
 		State:      state,
@@ -462,19 +418,6 @@ func seedInWorkflow(t *testing.T, st *testStore, workflowID, name, pane string, 
 	require.NotNil(t, got)
 
 	return *got
-}
-
-// writingPaneFirst is the store with a pane landing on the row in the one gap an archive or a
-// delete has, after it has read and killed the agents and before its own write commits.
-type writingPaneFirst struct {
-	*agentstore.AgentStore
-	inTheGap func()
-}
-
-func (s writingPaneFirst) Archive(ctx context.Context, ids []string) ([]agentstore.AgentPane, error) {
-	s.inTheGap()
-
-	return s.AgentStore.Archive(ctx, ids)
 }
 
 // txWritingPaneFirst is the same gap for the writes that go through a transaction, which is
@@ -539,7 +482,7 @@ func seedChild(t *testing.T, st *testStore, tmux paneStamper, parent agentstore.
 
 	const name = "reviewer"
 
-	require.NoError(t, st.Create(ctx, agentstore.Agent{
+	require.NoError(t, st.createAgent(ctx, agentstore.Agent{
 		Name:             name,
 		Pane:             "%" + name,
 		State:            agentstore.StateIdle,
@@ -601,7 +544,7 @@ func newManagerWithHarness(tmux *tmuxtest.Fake, st *testStore, flags string) (*t
 func agentByID(t *testing.T, st *testStore, id string) agentstore.Agent {
 	t.Helper()
 
-	all, err := st.ListAll(t.Context())
+	all, err := st.Agents.ListAll(t.Context())
 	require.NoError(t, err)
 
 	for _, agent := range all {

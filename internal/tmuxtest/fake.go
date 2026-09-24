@@ -24,6 +24,9 @@ type Fake struct {
 	SessionOptions  map[string]string
 	NewWindowErr    error
 	BeforeNewWindow func()
+	AfterGetPanes   func()
+	BeforeGetOwner  func()
+	AfterSetOwner   func()
 	NewWindowCalls  int
 	SetOwnerErr     error
 	SendKeysErr     error
@@ -83,6 +86,10 @@ func (f *Fake) ShowGlobal(name string) string {
 
 // GetPaneOwner answers the agent Owners names for the pane.
 func (f *Fake) GetPaneOwner(pane string) string {
+	if f.BeforeGetOwner != nil {
+		f.BeforeGetOwner()
+	}
+
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -121,6 +128,15 @@ func (f *Fake) DetachSession(name string) {
 
 // GetPanes answers every owned pane with its command.
 func (f *Fake) GetPanes() (map[string]tmux.PaneStatus, error) {
+	panes, err := f.listPanes()
+	if err == nil && f.AfterGetPanes != nil {
+		f.AfterGetPanes()
+	}
+
+	return panes, err
+}
+
+func (f *Fake) listPanes() (map[string]tmux.PaneStatus, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -233,6 +249,18 @@ func (f *Fake) WindowsOpened() int {
 
 // SetPaneOwner records the pane owner.
 func (f *Fake) SetPaneOwner(pane, agentID string) error {
+	if err := f.recordOwner(pane, agentID); err != nil {
+		return err
+	}
+
+	if f.AfterSetOwner != nil {
+		f.AfterSetOwner()
+	}
+
+	return nil
+}
+
+func (f *Fake) recordOwner(pane, agentID string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 

@@ -554,7 +554,7 @@ func TestArchiveWorkflow(t *testing.T) {
 			_, err = st.Get(ctx, "agent")
 			require.ErrorIs(t, err, store.ErrNotFound, "the agent is hidden from the live listing")
 
-			all, err := st.ListAll(ctx)
+			all, err := st.Agents.ListAll(ctx)
 			require.NoError(t, err)
 			require.Len(t, all, 1)
 			assert.NotNil(t, all[0].ArchivedAt, "and archived rather than removed")
@@ -654,7 +654,7 @@ func TestRestoreWorkflow(t *testing.T) {
 			require.NoError(t, err)
 			assert.Contains(t, workflowNames(listed), "backend", "the workflow is back in the listing")
 
-			live, err := st.List(ctx)
+			live, err := st.Agents.List(ctx)
 			require.NoError(t, err)
 			inside := make([]agentstore.Agent, 0, len(live))
 			for _, agent := range live {
@@ -888,7 +888,7 @@ func TestDeleteWorkflow(t *testing.T) {
 			require.ErrorIs(t, err, store.ErrNotFound, "the workflow row is gone")
 
 			if tt.addAgent {
-				all, err := st.ListAll(ctx)
+				all, err := st.Agents.ListAll(ctx)
 				require.NoError(t, err)
 				assert.Empty(t, all, "its agent goes with it")
 			}
@@ -952,7 +952,7 @@ func TestDeleteWorkflowRefusesAScheduleAnotherWorkflowsAgentsHold(t *testing.T) 
 	require.NoError(t, err)
 	assert.NotNil(t, got, "the workflow stays archived to be tried again")
 
-	all, err := st.ListAll(ctx)
+	all, err := st.Agents.ListAll(ctx)
 	require.NoError(t, err)
 	assert.Len(t, all, 2, "the agents inside it are left alone")
 }
@@ -1042,4 +1042,38 @@ func TestDeleteWorkflowClaimsTheWorkflowWhileItsAgentsGo(t *testing.T) {
 
 	_, err = st.Workflows.GetIncludingArchived(ctx, created.ID)
 	require.ErrorIs(t, err, store.ErrNotFound, "the last agent going takes the workflow with it")
+}
+
+// TestRestoreOfAWorkflowUnderTheChildCeiling pins the same ceiling on the other way back, for a
+// workflow archived holding two children of one parent.
+func TestRestoreOfAWorkflowUnderTheChildCeiling(t *testing.T) {
+	tmux := tmuxtest.NewFake()
+	st := newStore(t)
+	manager := st.agentService(agentServiceOptions{
+		tmux:        tmux,
+		harnesses:   harnesstest.Registry{Harness: &harnesstest.Fake{}},
+		addr:        "127.0.0.1:9999",
+		maxChildren: 1,
+	})
+	workflows := st.workflowService(workflowServiceOptions{tmux: tmux, maxChildren: 1})
+	ctx := t.Context()
+
+	parent := seedRunning(t, st, tmux, "author", "%author", agentstore.StateIdle)
+	require.NoError(t, st.Agents.Update(ctx, withCwd(parent, t.TempDir())))
+
+	first, err := manager.launch.NewAgent(ctx, childOf(parent, "reviewer"))
+	require.NoError(t, err)
+	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, []string{first.ID}))
+
+	_, err = manager.launch.NewAgent(ctx, childOf(parent, "second-reviewer"))
+	require.NoError(t, err)
+
+	require.NoError(t, workflows.ArchiveWorkflow(ctx, parent.WorkflowID))
+
+	_, err = workflows.RestoreWorkflow(ctx, parent.WorkflowID)
+	require.ErrorIs(t, err, ErrTooManyChildren)
+
+	held, err := st.Agents.CountLiveChildren(ctx, parent.ID)
+	require.NoError(t, err)
+	assert.Zero(t, held, "the refusal restores nothing")
 }

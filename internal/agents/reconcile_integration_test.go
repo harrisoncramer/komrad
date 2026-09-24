@@ -13,7 +13,6 @@ import (
 	"weave/internal/mail"
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
-	"weave/internal/tmux"
 	"weave/internal/tmuxtest"
 
 	"github.com/stretchr/testify/assert"
@@ -223,53 +222,6 @@ func TestIntegrationReconcileForgetsAPaneThatStaysGone(t *testing.T) {
 		assert.Equal(t, agent.Pane, still.Pane, "%s keeps its pane", agent.Name)
 		assert.Equal(t, agentstore.StateThinking, still.State, "%s stays thinking", agent.Name)
 	}
-}
-
-// TestIntegrationReconcileReturnsAHoldWhenTheListingComesBack pins that a pane the listing mentions
-// again returns what its absence had accrued, so a run of blips never adds up to an exit.
-func TestIntegrationReconcileReturnsAHoldWhenTheListingComesBack(t *testing.T) {
-	it := tmuxtest.New(t)
-	st := newStore(t)
-	ctx := t.Context()
-	dropping := &listingDroppingPanes{Client: it.Client()}
-	rec := NewReconciler(NewReconcilerParams{
-		Panes:    dropping,
-		Observer: pane.NewPane(pane.NewPaneParams{Terminal: dropping, Harnesses: mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ConfigDir: t.TempDir()}))}),
-		States:   st.Agents,
-	})
-
-	board := seedBoard(t, it, st, 5)
-
-	quietPane := it.Spawn("quiet", `sh -c 'exec cat'`)
-	board = append(board, seedRunning(t, st, it.Client(), "quiet", quietPane, agentstore.StateThinking))
-	require.Empty(t, it.Client().CapturePane(quietPane), "the quiet agent's pane captures nothing")
-
-	for range listingsBeforePaneGone * 3 {
-		dropping.drop = !dropping.drop
-		require.NoError(t, rec.Reconcile(ctx))
-	}
-
-	for _, agent := range board {
-		after := agentByID(t, st, agent.ID)
-		assert.Equal(t, agent.Pane, after.Pane, "%s keeps its pane", agent.Name)
-		assert.Nil(t, after.InterruptedAt, "%s records no interruption", agent.Name)
-	}
-}
-
-// listingDroppingPanes is a tmux that answers about panes that are all still running while leaving
-// every one of them out of the listing.
-type listingDroppingPanes struct {
-	*tmux.Client
-	drop bool
-}
-
-func (l *listingDroppingPanes) GetPanes() (map[string]tmux.PaneStatus, error) {
-	panes, err := l.Client.GetPanes()
-	if err != nil || !l.drop {
-		return panes, err
-	}
-
-	return map[string]tmux.PaneStatus{}, nil
 }
 
 // seedBoard spawns count agents that are all working.

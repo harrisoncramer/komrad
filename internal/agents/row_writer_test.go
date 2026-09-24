@@ -5,11 +5,10 @@ import (
 	"testing"
 
 	"weave/internal/store"
-	"weave/lib/xptr"
-
 	agentstore "weave/internal/store/agent"
 	rowstore "weave/internal/store/row"
 	runstore "weave/internal/store/run"
+	"weave/lib/xptr"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"

@@ -6,17 +6,21 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"weave/internal/caller"
+	"weave/internal/harness"
 	"weave/internal/harnesstest"
 	agentstore "weave/internal/store/agent"
+	reviewstore "weave/internal/store/review"
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/tmuxtest"
 	"weave/lib/xptr"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -126,7 +130,7 @@ func TestNewAgent(t *testing.T) {
 
 				assert.Empty(t, tmux.Respawned, "nothing is started when the launch was refused")
 
-				agents, listErr := st.List(t.Context())
+				agents, listErr := st.Agents.List(t.Context())
 				require.NoError(t, listErr)
 
 				if tt.wantsFailedRow {
@@ -229,7 +233,7 @@ func TestNewAgentIdempotency(t *testing.T) {
 			}
 			require.NotNil(t, second, "the agent already under the key comes back either way")
 
-			agents, err := st.List(t.Context())
+			agents, err := st.Agents.List(t.Context())
 			require.NoError(t, err)
 
 			if tt.wantSame {
@@ -296,7 +300,7 @@ func TestNewAgentRetriesUnderTheSameKey(t *testing.T) {
 			second, err := manager.launch.NewAgent(t.Context(), params)
 			require.NotNil(t, second)
 
-			all, listErr := st.ListAll(t.Context())
+			all, listErr := st.Agents.ListAll(t.Context())
 			require.NoError(t, listErr)
 
 			if !tt.wantRelaunch {
@@ -372,7 +376,7 @@ func TestNewAgentRecordsWhoSpawnedIt(t *testing.T) {
 				require.ErrorIs(t, err, tt.wantErrIs)
 				assert.Empty(t, tmux.Respawned, "nothing is started when the caller cannot be attributed")
 
-				agents, listErr := st.List(t.Context())
+				agents, listErr := st.Agents.List(t.Context())
 				require.NoError(t, listErr)
 				assert.Empty(t, agents, "a refused create records nothing")
 
@@ -829,7 +833,7 @@ func TestNewAgentCleansUpAfterASetupThatRan(t *testing.T) {
 				assert.Equal(t, tt.answered, lifecycle.deprovisionCwd[0], "cleanup runs against what setup actually built, not the workflow's planned dir")
 			}
 
-			agents, listErr := st.List(t.Context())
+			agents, listErr := st.Agents.List(t.Context())
 			require.NoError(t, listErr)
 			require.Len(t, agents, 1, "the row stays, marked failed, rather than vanishing")
 			assert.Equal(t, agentstore.StateFailedToCreate, agents[0].State)
@@ -902,7 +906,7 @@ func TestNewAgentClosesOutACreateTheCallerAbandoned(t *testing.T) {
 	})
 	require.Error(t, err)
 
-	agents, listErr := st.List(t.Context())
+	agents, listErr := st.Agents.List(t.Context())
 	require.NoError(t, listErr)
 	require.Len(t, agents, 1)
 	assert.Equal(t, agentstore.StateFailedToCreate, agents[0].State, "an abandoned create is not left setting up forever")
@@ -1066,4 +1070,464 @@ func TestNameTaken(t *testing.T) {
 			assert.Equal(t, tt.want, manager.launch.isNameTaken(t.Context(), scope, tt.check))
 		})
 	}
+}
+
+// TestNewAgentCeilingUnderConcurrency drives more creates than fit at once.
+func TestNewAgentCeilingUnderConcurrency(t *testing.T) {
+	t.Parallel()
+
+	const (
+		ceiling = 2
+		callers = 8
+	)
+
+	tmux := tmuxtest.NewFake()
+	st := newStore(t)
+	manager := st.agentServiceCapped(tmux, &fakeLifecycle{}, ceiling)
+	workflowID := seedWorkflow(t, st)
+	dir := t.TempDir()
+
+	var wg sync.WaitGroup
+	errs := make([]error, callers)
+
+	for i := range callers {
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+
+			_, err := manager.launch.NewAgent(t.Context(), NewAgentParams{
+				Title:      fmt.Sprintf("racer-%d", i),
+				Dir:        dir,
+				WorkflowID: workflowID,
+			})
+			errs[i] = err
+		}()
+	}
+
+	wg.Wait()
+
+	live, err := st.Agents.CountLive(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, int64(ceiling), live)
+
+	for i, err := range errs {
+		if err != nil {
+			require.ErrorIs(t, err, ErrTooManyAgents, "caller %d", i)
+		}
+	}
+
+	panes, err := tmux.GetPanes()
+	require.NoError(t, err)
+	require.Len(t, panes, ceiling)
+}
+
+// TestNewChildAgentTakesItsLaunchFromTheParent pins what a child is given rather than asked
+// for: the parent's checkout, no provisioner of its own, and the parent's workflow.
+func TestNewChildAgentTakesItsLaunchFromTheParent(t *testing.T) {
+	tmux := tmuxtest.NewFake()
+	st := newStore(t)
+	manager := newManager(tmux, st, "")
+	ctx := t.Context()
+
+	dir := t.TempDir()
+	parent, err := manager.launch.NewAgent(ctx, NewAgentParams{
+		Title:      "author",
+		Dir:        dir,
+		Prompt:     "write the change",
+		WorkflowID: seedWorkflow(t, st),
+	})
+	require.NoError(t, err)
+
+	child, err := manager.launch.NewAgent(ctx, NewAgentParams{
+		Title:         "reviewer",
+		Prompt:        "read the change",
+		WorkflowID:    parent.WorkflowID,
+		ParentAgentID: parent.ID,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, child)
+
+	assert.Equal(t, dir, child.Cwd, "a child runs where its parent runs")
+	require.NotNil(t, child.ParentAgentID)
+	assert.Equal(t, parent.ID, *child.ParentAgentID)
+	assert.Equal(t, parent.WorkflowID, child.WorkflowID)
+
+	// An unset provisioner falls back to the workflow's, which for a worktree-enabled workflow
+	// would tear the parent's checkout down, so the blank has to be on the row itself.
+	require.NotNil(t, child.ProvisionEnabled)
+	assert.False(t, *child.ProvisionEnabled)
+
+	assert.Empty(t, deprovisionerFor(ctx, st.Workflows, *child), "and a provisioner turned off leaves nothing to run against it")
+}
+
+// TestNewChildAgentRefusals pins each child a launch refuses and records nothing for.
+func TestNewChildAgentRefusals(t *testing.T) {
+	tests := []struct {
+		name          string
+		prepareParent func(t *testing.T, st *testStore, parent agentstore.Agent) agentstore.Agent
+		params        func(parent agentstore.Agent) NewAgentParams
+		wantErrIs     error
+	}{
+		{
+			name: "a directory of its own",
+			params: func(parent agentstore.Agent) NewAgentParams {
+				params := childOf(parent, "reviewer")
+				params.Dir = "/tmp"
+
+				return params
+			},
+			wantErrIs: ErrChildOwnsLaunch,
+		},
+		{
+			name: "a provisioner of its own",
+			params: func(parent agentstore.Agent) NewAgentParams {
+				params := childOf(parent, "reviewer")
+				params.ProvisionEnabled = xptr.Ptr(true)
+
+				return params
+			},
+			wantErrIs: ErrChildOwnsLaunch,
+		},
+		{
+			name: "a workflow other than its parent's",
+			params: func(parent agentstore.Agent) NewAgentParams {
+				params := childOf(parent, "reviewer")
+				params.WorkflowID = "b9b1a1de-0000-7000-8000-000000000000"
+
+				return params
+			},
+			wantErrIs: ErrChildOwnsLaunch,
+		},
+		{
+			name: "a parent nothing answers to",
+			params: func(parent agentstore.Agent) NewAgentParams {
+				params := childOf(parent, "reviewer")
+				params.ParentAgentID = "b9b1a1de-0000-7000-8000-000000000000"
+
+				return params
+			},
+			wantErrIs: ErrParentNotFound,
+		},
+		{
+			name: "a parent already archived",
+			prepareParent: func(t *testing.T, st *testStore, parent agentstore.Agent) agentstore.Agent {
+				t.Helper()
+				require.NoError(t, st.SoftDelete(t.Context(), parent.Name))
+
+				return parent
+			},
+			wantErrIs: ErrAgentArchived,
+		},
+		{
+			name: "a parent with no directory",
+			prepareParent: func(t *testing.T, st *testStore, parent agentstore.Agent) agentstore.Agent {
+				t.Helper()
+				require.NoError(t, st.Agents.Update(t.Context(), withCwd(parent, "")))
+
+				return parent
+			},
+			wantErrIs: ErrChildNeedsParentDirectory,
+		},
+		{
+			name: "a parent that is itself a child",
+			prepareParent: func(t *testing.T, st *testStore, parent agentstore.Agent) agentstore.Agent {
+				t.Helper()
+
+				return seedChild(t, st, tmuxtest.NewFake(), parent)
+			},
+			wantErrIs: ErrParentIsChild,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmux := tmuxtest.NewFake()
+			st := newStore(t)
+			manager := newManager(tmux, st, "")
+
+			parent := withCwd(seedRunning(t, st, tmux, "author", "%author", agentstore.StateIdle), t.TempDir())
+			require.NoError(t, st.Agents.Update(t.Context(), parent))
+			if tt.prepareParent != nil {
+				parent = tt.prepareParent(t, st, parent)
+			}
+
+			params := childOf(parent, "second-reviewer")
+			if tt.params != nil {
+				params = tt.params(parent)
+			}
+
+			before, err := st.Agents.ListAll(t.Context())
+			require.NoError(t, err)
+
+			created, err := manager.launch.NewAgent(t.Context(), params)
+			require.ErrorIs(t, err, tt.wantErrIs)
+			assert.Nil(t, created)
+
+			after, err := st.Agents.ListAll(t.Context())
+			require.NoError(t, err)
+			assert.Len(t, after, len(before), "the refusal records nothing")
+		})
+	}
+}
+
+// TestNewChildAgentUnderTheChildCeiling pins the per-parent cap.
+func TestNewChildAgentUnderTheChildCeiling(t *testing.T) {
+	tmux := tmuxtest.NewFake()
+	st := newStore(t)
+	manager := st.agentService(agentServiceOptions{
+		tmux:        tmux,
+		harnesses:   harnesstest.Registry{Harness: &harnesstest.Fake{}},
+		addr:        "127.0.0.1:9999",
+		maxChildren: 1,
+	})
+	ctx := t.Context()
+
+	parent := seedRunning(t, st, tmux, "author", "%author", agentstore.StateIdle)
+	require.NoError(t, st.Agents.Update(ctx, withCwd(parent, t.TempDir())))
+
+	attach := func(title string) error {
+		_, err := manager.launch.NewAgent(ctx, childOf(parent, title))
+
+		return err
+	}
+
+	require.NoError(t, attach("reviewer"))
+	require.ErrorIs(t, attach("second-reviewer"), ErrTooManyChildren)
+}
+
+func childOf(parent agentstore.Agent, title string) NewAgentParams {
+	return NewAgentParams{
+		Title:         title,
+		Prompt:        "read the change",
+		WorkflowID:    parent.WorkflowID,
+		ParentAgentID: parent.ID,
+	}
+}
+
+func withCwd(agent agentstore.Agent, dir string) agentstore.Agent {
+	agent.Cwd = dir
+
+	return agent
+}
+
+// TestNewChildAgentRefusesAnOrchestratorParent pins that the agent folded onto a workflow's own row
+// holds no children.
+func TestNewChildAgentRefusesAnOrchestratorParent(t *testing.T) {
+	tmux := tmuxtest.NewFake()
+	st := newStore(t)
+	manager := newManager(tmux, st, "")
+	ctx := t.Context()
+
+	parent := seedOrchestrator(t, st, tmux)
+	require.NoError(t, st.Agents.Update(ctx, withCwd(parent, t.TempDir())))
+
+	created, err := manager.launch.NewAgent(ctx, childOf(parent, "reader"))
+	require.ErrorIs(t, err, ErrParentIsOrchestrator)
+	assert.Nil(t, created)
+	require.ErrorContains(t, err, "provisionEnabled false", "the refusal names the shape to use instead")
+
+	live, err := st.Agents.List(ctx)
+	require.NoError(t, err)
+	assert.Len(t, live, 1, "the refusal records nothing beside the orchestrator")
+}
+
+// seedOrchestrator records the agent folded onto a workflow's own row.
+func seedOrchestrator(t *testing.T, st *testStore, tmux paneStamper) agentstore.Agent {
+	t.Helper()
+	ctx := t.Context()
+
+	const name = "orchestrator"
+	workflowID := seedWorkflow(t, st)
+
+	require.NoError(t, st.createAgent(ctx, agentstore.Agent{
+		Name:       name,
+		Pane:       "%" + name,
+		State:      agentstore.StateIdle,
+		WorkflowID: workflowID,
+		Role:       agentstore.RoleOrchestrator,
+	}))
+
+	got, err := st.Agents.GetInWorkflow(ctx, workflowID, name)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	require.NoError(t, tmux.SetPaneOwner(got.Pane, got.ID))
+
+	return *got
+}
+
+// TestNewAgentGetsHarness pins which CLI a new agent lands on, taking what the caller asked
+// for ahead of the workflow's default and the configured one.
+func TestNewAgentGetsHarness(t *testing.T) {
+	tests := []struct {
+		name      string
+		requested string
+		workflow  string
+		want      string
+	}{
+		{
+			name: "neither the agent nor its workflow names one, so it takes the configured default",
+			want: harnesstest.FakeID,
+		},
+		{
+			name:     "the workflow's default when the agent names none",
+			workflow: "codex",
+			want:     "codex",
+		},
+		{
+			name:      "what the caller asked for beats the workflow",
+			requested: "codex",
+			workflow:  harnesstest.FakeID,
+			want:      "codex",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := newStore(t)
+			tmux := tmuxtest.NewFake()
+
+			service := st.agentService(agentServiceOptions{
+				tmux:      tmux,
+				harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}},
+			})
+
+			created, err := st.Workflows.Create(t.Context(), workflowstore.Config{
+				Name:     "workflow-" + uuid.NewString(),
+				Harness:  tt.workflow,
+				Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"},
+			})
+			require.NoError(t, err)
+
+			_, err = service.launch.NewAgent(t.Context(), NewAgentParams{
+				Title:      "agent",
+				Dir:        t.TempDir(),
+				Harness:    tt.requested,
+				WorkflowID: created.ID,
+			})
+			require.NoError(t, err)
+
+			stored, err := st.Get(t.Context(), "agent")
+			require.NoError(t, err)
+			require.NotNil(t, stored)
+			assert.Equal(t, tt.want, stored.Harness)
+		})
+	}
+}
+
+// TestWorkflowFlagsFollowItsHarness pins that a workflow's flags reach only the agents running
+// the CLI it names.
+func TestWorkflowFlagsFollowItsHarness(t *testing.T) {
+	tests := []struct {
+		name      string
+		requested string
+		want      string
+	}{
+		{
+			name: "an agent on the workflow's own CLI takes its flags",
+			want: "--default-flag --model opus",
+		},
+		{
+			name:      "an agent on another CLI is launched without them",
+			requested: "codex",
+			want:      "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := newStore(t)
+			tmux := tmuxtest.NewFake()
+
+			service := st.agentService(agentServiceOptions{
+				tmux:      tmux,
+				harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}},
+				flags:     "--default-flag",
+			})
+
+			created, err := st.Workflows.Create(t.Context(), workflowstore.Config{
+				Name:     "workflow-" + uuid.NewString(),
+				Harness:  harnesstest.FakeID,
+				Flags:    "--model opus",
+				Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"},
+			})
+			require.NoError(t, err)
+
+			_, err = service.launch.NewAgent(t.Context(), NewAgentParams{
+				Title:      "agent",
+				Dir:        t.TempDir(),
+				Harness:    tt.requested,
+				WorkflowID: created.ID,
+			})
+			require.NoError(t, err)
+
+			stored, err := st.Get(t.Context(), "agent")
+			require.NoError(t, err)
+			require.NotNil(t, stored)
+			assert.Equal(t, tt.want, stored.Flags)
+		})
+	}
+}
+
+// TestNewAgentRefusesUnknownHarness pins that a CLI this binary cannot run is refused before
+// a window is opened or a row written.
+func TestNewAgentRefusesUnknownHarness(t *testing.T) {
+	st := newStore(t)
+	tmux := tmuxtest.NewFake()
+	service := st.agentService(agentServiceOptions{
+		tmux:      tmux,
+		harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}, Only: []string{harnesstest.FakeID}},
+	})
+
+	_, err := service.launch.NewAgent(t.Context(), NewAgentParams{
+		Title:      "agent",
+		Dir:        t.TempDir(),
+		Harness:    "gemini",
+		WorkflowID: seedWorkflow(t, st),
+	})
+
+	require.ErrorIs(t, err, harness.ErrNotRegistered)
+
+	agents, listErr := st.Agents.List(t.Context())
+	require.NoError(t, listErr)
+	assert.Empty(t, agents, "a refused harness records nothing")
+	assert.Empty(t, tmux.NewWindows, "and opens no window")
+	assert.Empty(t, tmux.Respawned, "and starts nothing")
+}
+
+// TestNewAgentFlagsFollowTheHarness pins that an agent inherits only the flags configured for
+// the CLI it runs.
+func TestNewAgentFlagsFollowTheHarness(t *testing.T) {
+	st := newStore(t)
+	tmux := tmuxtest.NewFake()
+
+	service := NewLaunchService(NewLaunchServiceParams{
+		Tmux:               tmux,
+		Agents:             st.Agents,
+		Reviews:            reviewstore.NewReviewStore(st.Pool.GetDB()),
+		Workflows:          st.Workflows,
+		Tx:                 st.Pool,
+		Launcher:           NewLauncher(NewLauncherParams{Tmux: tmux}),
+		Harnesses:          harnesstest.Registry{Harness: &harnesstest.Fake{}},
+		UserDefaultHarness: harnesstest.FakeID,
+		UserDefaultFlags: map[string]string{
+			harnesstest.FakeID: "--model opus",
+			"codex":            "--sandbox read-only",
+		},
+	})
+
+	_, err := service.NewAgent(t.Context(), NewAgentParams{
+		Title:      "agent",
+		Dir:        t.TempDir(),
+		Harness:    "codex",
+		Flags:      "--extra",
+		WorkflowID: seedWorkflow(t, st),
+	})
+	require.NoError(t, err)
+
+	stored, err := st.Get(t.Context(), "agent")
+	require.NoError(t, err)
+	require.NotNil(t, stored)
+	assert.Equal(t, "--sandbox read-only --extra", stored.Flags,
+		"the flags configured for the harness it runs, then its own")
 }
