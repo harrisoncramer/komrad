@@ -11,7 +11,6 @@ import (
 	"weave/lib/xptr"
 	"weave/lib/xslice"
 
-	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -338,10 +337,4 @@ func hits(names ...string) []searchHit {
 	})
 
 	return out
-}
-
-// drawnLines is the screen as View hands it to bubbletea, which trims the newline the last row
-// carries before the pane is asked to hold it.
-func drawnLines(view string) []string {
-	return strings.Split(strings.TrimRight(ansi.Strip(view), "\n"), "\n")
 }

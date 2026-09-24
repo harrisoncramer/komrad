@@ -211,17 +211,3 @@ func filterModel() model {
 		}}, agents: agentsScreen{rowCursor: rowCursor{cursor: 1}},
 	}
 }
-
-func rowNames(rows []agentRow) []string {
-	var names []string
-	for _, r := range rows {
-		if r.header {
-			names = append(names, r.workflow.Name)
-			continue
-		}
-
-		names = append(names, r.item.Agent.Name)
-	}
-
-	return names
-}
