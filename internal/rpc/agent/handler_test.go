@@ -2309,23 +2309,26 @@ func serviceWithLauncher(t *testing.T) (agentv1weave.AgentServiceAdapter, *store
 	})
 
 	return agentv1weave.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{
-		Agents:       st.Agents,
-		Rows:         st.Rows,
-		Writer:       rowWriterOver(st, &fakeReconciler{}),
-		Transcripts:  st.Transcripts,
-		Mail:         mailer,
-		Review:       review,
-		Marks:        markService(st),
-		Workflows:    st.Workflows,
-		Unclaimed:    st.Mail,
-		PullRequests: st.PullRequests,
-		Repositories: st.PullRequestSyncs,
-		Reviews:      rounds,
-		Creator:      launcher,
-		Adopter:      launcher,
-		Liveness:     launcher,
-		Lifecycle:    launcher,
-		Resumer:      launcher,
+		Agents:      st.Agents,
+		Rows:        st.Rows,
+		Writer:      rowWriterOver(st, &fakeReconciler{}),
+		Transcripts: st.Transcripts,
+		Mail:        mailer,
+		Review:      review,
+		Marks:       markService(st),
+		Watched: WatchedListers{
+			Marks:        st.Marks,
+			Mail:         st.Mail,
+			PullRequests: st.PullRequests,
+			Repositories: st.PullRequestSyncs,
+			Reviews:      rounds,
+			Workflows:    st.Workflows,
+		},
+		Creator:   launcher,
+		Adopter:   launcher,
+		Liveness:  launcher,
+		Lifecycle: launcher,
+		Resumer:   launcher,
 	})}, st, launcher
 }
 

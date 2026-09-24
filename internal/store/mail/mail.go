@@ -218,22 +218,6 @@ func (s *MailStore) ListByID(ctx context.Context, ids []string) ([]Mail, error) 
 	return xslice.Map(rows, fromRow), nil
 }
 
-// ListUnclaimedTo returns the mail addressed to any of the given agents that no recipient has
-// taken yet.
-func (s *MailStore) ListUnclaimedTo(ctx context.Context, agentIDs []string) ([]Mail, error) {
-	storable := store.KeepIDs(agentIDs)
-	if len(storable) == 0 {
-		return nil, nil
-	}
-
-	rows, err := s.queries.ListUnclaimedMailTo(ctx, storable)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list the unclaimed mail to %d agents: %w", len(storable), err)
-	}
-
-	return xslice.Map(rows, fromRow), nil
-}
-
 // Delete permanently removes mail by id without checking that every id holds any.
 func (s *MailStore) Delete(ctx context.Context, ids []string) error {
 	storable := store.KeepIDs(ids)

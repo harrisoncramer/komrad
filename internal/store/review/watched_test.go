@@ -44,12 +44,11 @@ func TestListWatched(t *testing.T) {
 	require.Len(t, listed, 1)
 	assert.NotNil(t, listed[0].DeliveredAt, "claiming the doorbell delivers the review")
 
-	ofOther, err := st.ListForAgents(ctx, []string{other})
+	ofOther, err := st.ListIDsOfAgents(ctx, []string{other, "not-an-id"})
 	require.NoError(t, err)
-	require.Len(t, ofOther, 1)
-	assert.Equal(t, elsewhere.ID, ofOther[0].ID)
+	assert.Equal(t, []string{elsewhere.ID}, ofOther)
 
-	ofNobody, err := st.ListForAgents(ctx, nil)
+	ofNobody, err := st.ListIDsOfAgents(ctx, nil)
 	require.NoError(t, err)
 	assert.Empty(t, ofNobody, "no agents is no reviews rather than every review")
 }

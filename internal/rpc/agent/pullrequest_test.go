@@ -19,7 +19,7 @@ import (
 const weaveRepository = "https://github.com/harrisoncramer/weave"
 
 // TestListedAgentsCarryWhereTheirPullRequestStands pins the standing the assembler draws from
-// the bare row and the pull requests beside it: unread until the repository has been read, none
+// the bare row and the pull requests it was seen with: unread until the repository has been read, none
 // once it has and the branch holds nothing, and otherwise the current pull request with its
 // state, number, address and title.
 func TestListedAgentsCarryWhereTheirPullRequestStands(t *testing.T) {
@@ -59,6 +59,8 @@ func TestListedAgentsCarryWhereTheirPullRequestStands(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.NoError(t, st.PullRequests.SetStanding(ctx, written.ID, forge.Standing{Decision: forge.ReviewDecisionChangesRequested}, time.Now()))
+	_, err = st.PullRequests.Observe(ctx)
+	require.NoError(t, err)
 
 	listed, err := svc.ListAgents(ctx, connect.NewRequest(&agentv1.ListAgentsRequest{}))
 	require.NoError(t, err)

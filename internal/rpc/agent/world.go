@@ -12,6 +12,7 @@ import (
 
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
+	markstore "weave/internal/store/mark"
 	pullrequeststore "weave/internal/store/pullrequest"
 	reviewstore "weave/internal/store/review"
 	rowstore "weave/internal/store/row"
@@ -21,24 +22,28 @@ import (
 	workflowv1 "weave/proto/gen/workflow/v1"
 )
 
-type workflowReader interface {
-	ListByID(ctx context.Context, ids []string) ([]workflowstore.Workflow, error)
+type watchedLister[R any] interface {
+	ListWatched(ctx context.Context, keys []string) ([]R, error)
 }
 
-type unclaimedMailReader interface {
-	ListUnclaimedTo(ctx context.Context, agentIDs []string) ([]mailstore.Mail, error)
+type pullRequestLister interface {
+	watchedLister[pullrequeststore.PullRequest]
+	ListObservations(ctx context.Context, agentIDs []string) ([]pullrequeststore.Observation, error)
 }
 
-type pullRequestReader interface {
-	ListForAgents(ctx context.Context, agentIDs []string) ([]pullrequeststore.PullRequest, error)
+type reviewLister interface {
+	watchedLister[reviewstore.Review]
+	ListIDsOfAgents(ctx context.Context, agentIDs []string) ([]string, error)
 }
 
-type repositoryReader interface {
-	ListWatched(ctx context.Context, keys []string) ([]pullrequeststore.Sync, error)
-}
-
-type reviewReader interface {
-	ListForAgents(ctx context.Context, agentIDs []string) ([]reviewstore.Review, error)
+// WatchedListers read the watched sets a page of agents is drawn from, the same ones the watch streams.
+type WatchedListers struct {
+	Marks        watchedLister[markstore.Mark]
+	Mail         watchedLister[mailstore.Mail]
+	PullRequests pullRequestLister
+	Repositories watchedLister[pullrequeststore.Sync]
+	Reviews      reviewLister
+	Workflows    watchedLister[workflowstore.Workflow]
 }
 
 // agentRow is an assembled row with the keyset cursor locating it.
@@ -52,9 +57,7 @@ func (r agentRow) Cursor() (agentstore.Cursor, error) {
 	return r.cursor, nil
 }
 
-// assembleRows draws the rows of a page of agents: the agents themselves and, read beside
-// them, every mark, the unclaimed mail to them, the pull requests on their branches, their
-// repositories, the reviews of their work and their workflows, joined by the assembler.
+// assembleRows draws the rows of a page of agents from the watched sets around them, joined by the assembler.
 func (s *Handler) assembleRows(ctx context.Context, rows []rowstore.Row, options render.AgentOptions) ([]agentRow, *fail.Error) {
 	world, failure := s.world(ctx, rows, options)
 	if failure != nil {
@@ -68,35 +71,47 @@ func (s *Handler) assembleRows(ctx context.Context, rows []rowstore.Row, options
 
 func (s *Handler) world(ctx context.Context, rows []rowstore.Row, options render.AgentOptions) (assemble.World, *fail.Error) {
 	agentIDs := xslice.Map(rows, func(row rowstore.Row) string { return row.ID })
-	workflowIDs := xslice.Map(rows, func(row rowstore.Row) string { return row.WorkflowID })
-	repositoryURLs := xslice.Map(rows, func(row rowstore.Row) string { return xptr.Deref(row.RepositoryURL) })
 
-	marks, err := s.marks.ListMarks(ctx)
+	marks, err := s.watched.Marks.ListWatched(ctx, nil)
 	if err != nil {
 		return assemble.World{}, rpcerr.From(err, "failed to list the marks")
 	}
 
-	mail, err := s.unclaimed.ListUnclaimedTo(ctx, agentIDs)
+	mail, err := s.watched.Mail.ListWatched(ctx, nil)
 	if err != nil {
 		return assemble.World{}, rpcerr.From(err, "failed to list the unclaimed mail")
 	}
 
-	pullRequests, err := s.pullRequests.ListForAgents(ctx, agentIDs)
+	observations, err := s.watched.PullRequests.ListObservations(ctx, agentIDs)
+	if err != nil {
+		return assemble.World{}, rpcerr.From(err, "failed to list the pull requests the agents were seen with")
+	}
+
+	pullRequests, err := listWatchedByKey(ctx, s.watched.PullRequests, xslice.Map(observations, func(o pullrequeststore.Observation) string {
+		return o.PullRequestID
+	}))
 	if err != nil {
 		return assemble.World{}, rpcerr.From(err, "failed to list the pull requests")
 	}
 
-	repositories, err := s.repositories.ListWatched(ctx, repositoryURLs)
+	repositories, err := listWatchedByKey(ctx, s.watched.Repositories, xslice.Map(rows, func(row rowstore.Row) string {
+		return xptr.Deref(row.RepositoryURL)
+	}))
 	if err != nil {
 		return assemble.World{}, rpcerr.From(err, "failed to list the repositories")
 	}
 
-	reviews, err := s.reviews.ListForAgents(ctx, agentIDs)
+	reviewIDs, err := s.watched.Reviews.ListIDsOfAgents(ctx, agentIDs)
+	if err != nil {
+		return assemble.World{}, rpcerr.From(err, "failed to list the reviews of the agents")
+	}
+
+	reviews, err := listWatchedByKey(ctx, s.watched.Reviews, reviewIDs)
 	if err != nil {
 		return assemble.World{}, rpcerr.From(err, "failed to list the reviews")
 	}
 
-	workflows, err := s.workflows.ListByID(ctx, workflowIDs)
+	workflows, err := listWatchedByKey(ctx, s.watched.Workflows, xslice.Map(rows, func(row rowstore.Row) string { return row.WorkflowID }))
 	if err != nil {
 		return assemble.World{}, rpcerr.From(err, "failed to list the workflows")
 	}
@@ -120,4 +135,13 @@ func (s *Handler) world(ctx context.Context, rows []rowstore.Row, options render
 			return r.GetId()
 		}),
 	}, nil
+}
+
+// listWatchedByKey reads the watched rows among keys, and nothing when there are none.
+func listWatchedByKey[R any](ctx context.Context, lister watchedLister[R], keys []string) ([]R, error) {
+	if len(keys) == 0 {
+		return nil, nil
+	}
+
+	return lister.ListWatched(ctx, keys)
 }

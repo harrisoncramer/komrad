@@ -165,7 +165,7 @@ SELECT
 FROM
     agent_pull_requests o
 WHERE
-    o.agent_id = @agent_id
+    o.agent_id = ANY (@agent_ids::uuid[])
 ORDER BY
     o.first_seen_at;
 
@@ -374,25 +374,6 @@ SET
     checks_read_at = @checks_read_at::timestamptz
 WHERE
     id = @id;
-
--- name: ListPullRequestsOfAgents :many
-SELECT
-    p.*
-FROM
-    pull_requests p
-WHERE
-    EXISTS (
-        SELECT
-            1
-        FROM
-            agents a
-        WHERE
-            a.id = ANY (@ids::uuid[])
-            AND a.repository_url = p.repository_url
-            AND a.repository_url = p.head_repository_url
-            AND a.branch = p.head_branch)
-ORDER BY
-    p.id;
 
 -- name: ListWatchedPullRequests :many
 SELECT

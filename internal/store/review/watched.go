@@ -44,28 +44,26 @@ func (s *ReviewStore) ListWatched(ctx context.Context, keys []string) ([]Review,
 	}
 
 	return xslice.Map(rows, func(row *models.ListWatchedReviewsRow) Review {
-		return watchedReviewFromRow(models.ListReviewsOfAgentsRow(*row))
+		return watchedReviewFromRow(*row)
 	}), nil
 }
 
-// ListForAgents returns every review of the given agents, as the watch carries them.
-func (s *ReviewStore) ListForAgents(ctx context.Context, agentIDs []string) ([]Review, error) {
+// ListIDsOfAgents returns the ids of every review of the given agents.
+func (s *ReviewStore) ListIDsOfAgents(ctx context.Context, agentIDs []string) ([]string, error) {
 	storable := store.KeepIDs(agentIDs)
 	if len(storable) == 0 {
 		return nil, nil
 	}
 
-	rows, err := s.queries.ListReviewsOfAgents(ctx, storable)
+	ids, err := s.queries.ListReviewIDsOfAgents(ctx, storable)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the reviews of %d agents: %w", len(storable), err)
 	}
 
-	return xslice.Map(rows, func(row *models.ListReviewsOfAgentsRow) Review {
-		return watchedReviewFromRow(*row)
-	}), nil
+	return ids, nil
 }
 
-func watchedReviewFromRow(row models.ListReviewsOfAgentsRow) Review {
+func watchedReviewFromRow(row models.ListWatchedReviewsRow) Review {
 	review := Review{
 		ID:               row.ID,
 		AgentID:          row.AgentID,

@@ -784,7 +784,7 @@ func TestSyncScansANewBranchOnceAndAttributesLocally(t *testing.T) {
 	scan, err := f.syncs.GetBranchScan(t.Context(), syncRepository, "agent/old")
 	require.NoError(t, err)
 	assert.NotNil(t, scan.CompletedAt)
-	seen, err := f.pullRequests.ListObservations(t.Context(), first)
+	seen, err := f.pullRequests.ListObservations(t.Context(), []string{first})
 	require.NoError(t, err)
 	assert.Len(t, seen, 2, "the agent is seen beside both pull requests from its branch")
 
@@ -792,7 +792,7 @@ func TestSyncScansANewBranchOnceAndAttributesLocally(t *testing.T) {
 	f.pass(t, syncNow.Add(time.Minute))
 
 	assert.Equal(t, []string{search(syncNow)}, f.forge.requests, "the branch is not scanned again")
-	seen, err = f.pullRequests.ListObservations(t.Context(), second)
+	seen, err = f.pullRequests.ListObservations(t.Context(), []string{second})
 	require.NoError(t, err)
 	assert.Len(t, seen, 2, "the second agent is attributed from what is stored")
 }
@@ -1353,10 +1353,7 @@ func TestSyncMatchesARemoteSpelledWithCapitals(t *testing.T) {
 	require.NoError(t, f.syncer.Sync(ctx))
 
 	assert.True(t, f.getSyncOf(t, spelled.Canonical()).IsSwept())
-	listed, err := f.pullRequests.ListForAgents(t.Context(), []string{agent})
-	require.NoError(t, err)
-	assert.Len(t, listed, 1, "the agent's row shows the pull request from its branch")
-	seen, err := f.pullRequests.ListObservations(t.Context(), agent)
+	seen, err := f.pullRequests.ListObservations(t.Context(), []string{agent})
 	require.NoError(t, err)
 	assert.Len(t, seen, 1, "the agent is observed beside its pull request")
 	assert.NotContains(t, logged.String(), "under another name")

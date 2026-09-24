@@ -308,7 +308,7 @@ func viewFromGets(t *testing.T, instance *weavetest.Instance, listed view) view 
 }
 
 // worldFromStores reads the watched set the way the agent handler reads a page: the live and
-// archived rows, every mark, the unclaimed mail to them, the pull requests an agent was seen with,
+// archived rows, every mark, the unclaimed mail, the pull requests an agent was seen with,
 // the repositories they sit on, the reviews of their work and their workflows, with the live
 // schedules beside them.
 func worldFromStores(t *testing.T, st *storetest.Stores) assemble.World {
@@ -325,7 +325,7 @@ func worldFromStores(t *testing.T, st *storetest.Stores) assemble.World {
 	marks, err := st.Marks.ListWatched(ctx, nil)
 	require.NoError(t, err)
 
-	mail, err := st.Mail.ListUnclaimedTo(ctx, agentIDs)
+	mail, err := st.Mail.ListWatched(ctx, nil)
 	require.NoError(t, err)
 
 	pullRequests, err := st.PullRequests.ListWatched(ctx, nil)
@@ -334,10 +334,13 @@ func worldFromStores(t *testing.T, st *storetest.Stores) assemble.World {
 	repositories, err := st.PullRequestSyncs.ListWatched(ctx, xslice.Map(rows, func(row rowstore.Row) string { return xptr.Deref(row.RepositoryURL) }))
 	require.NoError(t, err)
 
-	reviews, err := reviewstore.NewReviewStore(st.Pool.GetDB()).ListForAgents(ctx, agentIDs)
+	reviewStore := reviewstore.NewReviewStore(st.Pool.GetDB())
+	reviewIDs, err := reviewStore.ListIDsOfAgents(ctx, agentIDs)
+	require.NoError(t, err)
+	reviews, err := reviewStore.ListWatched(ctx, reviewIDs)
 	require.NoError(t, err)
 
-	workflows, err := st.Workflows.ListByID(ctx, xslice.Map(rows, func(row rowstore.Row) string { return row.WorkflowID }))
+	workflows, err := st.Workflows.ListWatched(ctx, xslice.Map(rows, func(row rowstore.Row) string { return row.WorkflowID }))
 	require.NoError(t, err)
 
 	schedules, err := st.Schedules.ListPage(ctx, 100, nil)

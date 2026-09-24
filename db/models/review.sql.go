@@ -779,6 +779,37 @@ func (q *Queries) ListNewestReviewRounds(ctx context.Context) ([]*ListNewestRevi
 	return items, nil
 }
 
+const listReviewIDsOfAgents = `-- name: ListReviewIDsOfAgents :many
+SELECT
+    v.id
+FROM
+    reviews v
+WHERE
+    v.agent_id = ANY ($1::uuid[])
+ORDER BY
+    v.id
+`
+
+func (q *Queries) ListReviewIDsOfAgents(ctx context.Context, agentIds []string) ([]string, error) {
+	rows, err := q.db.Query(ctx, listReviewIDsOfAgents, agentIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listReviewMessagesByThreads = `-- name: ListReviewMessagesByThreads :many
 SELECT
     m.id, m.thread_id, m.author_kind, m.author_agent_id, m.body, m.created_at, m.updated_at, m.review_id, m.suggestion, m.tenant_id,
@@ -1139,78 +1170,6 @@ func (q *Queries) ListReviews(ctx context.Context, agentID string) ([]*ListRevie
 			&i.RoundOrdinal,
 			&i.DeliveredAt,
 			&i.OpenThreads,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, &i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listReviewsOfAgents = `-- name: ListReviewsOfAgents :many
-SELECT
-    v.id,
-    v.agent_id,
-    v.round_id,
-    v.author_kind,
-    v.author_agent_id,
-    v.verdict,
-    v.released_at,
-    v.created_at,
-    v.updated_at,
-    r.ordinal AS round_ordinal,
-    r.snapshot_sha AS round_snapshot_sha,
-    d.claimed_at AS delivered_at
-FROM
-    reviews v
-    JOIN review_rounds r ON r.id = v.round_id
-    LEFT JOIN mail d ON d.id = v.doorbell_mail_id
-WHERE
-    v.agent_id = ANY ($1::uuid[])
-ORDER BY
-    v.id
-`
-
-type ListReviewsOfAgentsRow struct {
-	ID               string
-	AgentID          string
-	RoundID          string
-	AuthorKind       ReviewAuthorKind
-	AuthorAgentID    *string
-	Verdict          NullReviewVerdict
-	ReleasedAt       *time.Time
-	CreatedAt        time.Time
-	UpdatedAt        time.Time
-	RoundOrdinal     int32
-	RoundSnapshotSha string
-	DeliveredAt      *time.Time
-}
-
-func (q *Queries) ListReviewsOfAgents(ctx context.Context, agentIds []string) ([]*ListReviewsOfAgentsRow, error) {
-	rows, err := q.db.Query(ctx, listReviewsOfAgents, agentIds)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []*ListReviewsOfAgentsRow
-	for rows.Next() {
-		var i ListReviewsOfAgentsRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.AgentID,
-			&i.RoundID,
-			&i.AuthorKind,
-			&i.AuthorAgentID,
-			&i.Verdict,
-			&i.ReleasedAt,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.RoundOrdinal,
-			&i.RoundSnapshotSha,
-			&i.DeliveredAt,
 		); err != nil {
 			return nil, err
 		}

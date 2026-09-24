@@ -212,17 +212,20 @@ func reviewService(t *testing.T) (agentv1weave.AgentServiceAdapter, *storetest.S
 	liveness := &fakeLauncher{}
 
 	return agentv1weave.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{
-		Agents:       st.Agents,
-		Rows:         st.Rows,
-		Mail:         mailer,
-		Review:       review,
-		Marks:        markService(st),
-		Workflows:    st.Workflows,
-		Unclaimed:    st.Mail,
-		PullRequests: st.PullRequests,
-		Repositories: st.PullRequestSyncs,
-		Reviews:      rounds,
-		Liveness:     liveness,
+		Agents: st.Agents,
+		Rows:   st.Rows,
+		Mail:   mailer,
+		Review: review,
+		Marks:  markService(st),
+		Watched: WatchedListers{
+			Marks:        st.Marks,
+			Mail:         st.Mail,
+			PullRequests: st.PullRequests,
+			Repositories: st.PullRequestSyncs,
+			Reviews:      rounds,
+			Workflows:    st.Workflows,
+		},
+		Liveness: liveness,
 	})}, st, rounds
 }
 

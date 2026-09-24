@@ -77,10 +77,9 @@ type rowWriter interface {
 	RecordReport(ctx context.Context, params agents.RecordReportParams) error
 }
 
-// markReadWriter owns the letters a person types to jump to a row, which span agents and
+// markWriter owns the letters a person types to jump to a row, which span agents and
 // workflows and so are written through a transaction rather than through one store.
-type markReadWriter interface {
-	ListMarks(ctx context.Context) ([]markstore.Mark, error)
+type markWriter interface {
 	SetMark(ctx context.Context, mark string, target markstore.Target) (bool, error)
 	ClearMark(ctx context.Context, target markstore.Target) (bool, error)
 }
@@ -103,12 +102,8 @@ type NewHandlerParams struct {
 	Holder       agentHolder
 	Archive      archiveEmptier
 	Review       reviewConversation
-	Marks        markReadWriter
-	Workflows    workflowReader
-	Unclaimed    unclaimedMailReader
-	PullRequests pullRequestReader
-	Repositories repositoryReader
-	Reviews      reviewReader
+	Marks        markWriter
+	Watched      WatchedListers
 	Rebaser      worktreeRebaser
 	Orchestrator orchestratorStarter
 	Clock        func() time.Time
@@ -128,12 +123,8 @@ type Handler struct {
 	holder       agentHolder
 	archive      archiveEmptier
 	review       reviewConversation
-	marks        markReadWriter
-	workflows    workflowReader
-	unclaimed    unclaimedMailReader
-	pullRequests pullRequestReader
-	repositories repositoryReader
-	reviews      reviewReader
+	marks        markWriter
+	watched      WatchedListers
 	rebaser      worktreeRebaser
 	orchestrator orchestratorStarter
 	now          func() time.Time
@@ -162,11 +153,7 @@ func NewHandler(params NewHandlerParams) *Handler {
 		archive:      params.Archive,
 		review:       params.Review,
 		marks:        params.Marks,
-		workflows:    params.Workflows,
-		unclaimed:    params.Unclaimed,
-		pullRequests: params.PullRequests,
-		repositories: params.Repositories,
-		reviews:      params.Reviews,
+		watched:      params.Watched,
 		rebaser:      params.Rebaser,
 		orchestrator: params.Orchestrator,
 		now:          now,
@@ -322,7 +309,7 @@ func (s *Handler) GetAgent(ctx context.Context, req *agentv1.GetAgentRequest) (*
 
 // ListMarks is every mark, by letter.
 func (s *Handler) ListMarks(ctx context.Context, _ *emptypb.Empty) (*agentv1.ListMarksResponse, *fail.Error) {
-	marks, err := s.marks.ListMarks(ctx)
+	marks, err := s.watched.Marks.ListWatched(ctx, nil)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to list the marks")
 	}
