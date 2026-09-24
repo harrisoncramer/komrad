@@ -29,6 +29,7 @@ const pageTitle = title === SITE_TITLE ? title : `${title} | ${SITE_TITLE}`;
     <Header client:load path={Astro.url.pathname}>
       <Search />
     </Header>
+    <slot name="hero" />
     <main class="mx-auto max-w-[900px] px-6 py-6">
       <slot />
     </main>

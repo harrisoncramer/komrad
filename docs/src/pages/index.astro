@@ -1,6 +1,9 @@
 ---
 import Layout from "../layouts/Layout.astro";
+import Splash from "../components/home/Splash.astro";
 import { SITE_DESCRIPTION, SITE_TITLE } from "../consts";
 ---
 
-<Layout title={SITE_TITLE} description={SITE_DESCRIPTION} />
+<Layout title={SITE_TITLE} description={SITE_DESCRIPTION}>
+  <Splash slot="hero" />
+</Layout>

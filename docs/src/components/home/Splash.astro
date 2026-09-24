@@ -1,0 +1,90 @@
+---
+import { link } from "../../site";
+---
+
+<figure class="splash" aria-label="The weave panel running a dozen agents across six projects">
+  <picture>
+    <source media="(max-width: 767.98px)" srcset={link("/splash/splash-960.webp")} />
+    <img
+      src={link("/splash/splash.webp")}
+      alt="The weave panel: a list of agents grouped by project beside a live Claude session."
+      width="1920"
+      height="930"
+      fetchpriority="high"
+      decoding="async"
+    />
+  </picture>
+  <video
+    muted
+    loop
+    playsinline
+    preload="none"
+    aria-hidden="true"
+    data-webm={link("/splash/splash.webm")}
+    data-mp4={link("/splash/splash.mp4")}
+  ></video>
+</figure>
+
+<style>
+  @reference "../../styles/global.css";
+
+  .splash {
+    @apply relative mx-auto w-full max-w-[1920px] overflow-hidden border-b border-app-background-medium;
+    aspect-ratio: 1920 / 930;
+    max-height: 72vh;
+    background: #1f2029;
+  }
+
+  @media (max-width: 767.98px) {
+    .splash {
+      aspect-ratio: 1 / 1;
+    }
+  }
+
+  .splash img,
+  .splash video {
+    @apply absolute inset-0 h-full w-full object-cover object-left-top;
+  }
+
+  .splash video {
+    @apply opacity-0 transition-opacity duration-500;
+  }
+
+  .splash video[data-playing] {
+    @apply opacity-100;
+  }
+
+  .splash::after {
+    content: "";
+    @apply pointer-events-none absolute inset-x-0 bottom-0 h-1/4;
+    background: linear-gradient(to bottom, transparent, var(--color-app-background-dark));
+  }
+</style>
+
+<script>
+  const video = document.querySelector<HTMLVideoElement>(".splash video");
+  const wide = window.matchMedia("(min-width: 768px)");
+  const still = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+  if (video && wide.matches && !still.matches) {
+    for (const [type, attribute] of [
+      ["video/webm", "webm"],
+      ["video/mp4", "mp4"],
+    ] as const) {
+      const source = document.createElement("source");
+      source.type = type;
+      source.src = video.dataset[attribute] ?? "";
+      video.append(source);
+    }
+
+    video.addEventListener(
+      "playing",
+      () => {
+        video.dataset.playing = "";
+      },
+      { once: true },
+    );
+    video.load();
+    void video.play().catch(() => undefined);
+  }
+</script>

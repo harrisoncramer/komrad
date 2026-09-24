@@ -1,0 +1,36 @@
+# A fast tour for the landing page across a busy list: send a marked agent a follow-up so it is
+# working on camera, jump to another by its mark and open its details, archive an agent, then
+# search every transcript and jump to what the search found.
+key Escape
+key Escape
+key Escape
+key C-g
+sleep 300ms
+key Escape
+sleep 700ms
+key '
+key p
+key Enter
+sleep 300ms
+type Now add a rollback step for payouts that fail halfway, and list what it must undo.
+key Enter
+sleep 1500ms
+key C-a
+key '
+key c
+sleep 700ms
+key C-t
+sleep 900ms
+key C-t
+key g
+key j
+sleep 300ms
+key z
+sleep 400ms
+key C-s
+sleep 900ms
+key s
+type refund
+sleep 1000ms
+key Enter
+sleep 1500ms
