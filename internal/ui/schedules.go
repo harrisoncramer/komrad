@@ -183,10 +183,6 @@ func (w *schedulesScreen) editForm(h host, s panelShared) tea.Cmd {
 	}
 
 	target := item.schedule
-	if fresh, err := s.api.getSchedule(target.ID); err == nil && fresh != nil {
-		target = *fresh
-	}
-
 	values := schedulePrefill(target)
 
 	return w.openForm(h, &values, &target)

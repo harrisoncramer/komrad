@@ -836,7 +836,6 @@ type formRecorder struct {
 	schedulev1connect.ScheduleServiceClient
 	hookv1connect.HookServiceClient
 	refuse              error
-	storedWorkflow      *workflowv1.Workflow
 	createdAgent        *agentv1.CreateAgentRequest
 	startedOrchestrator *agentv1.StartOrchestratorRequest
 	adoptedAgent        *agentv1.AdoptRequest
@@ -922,14 +921,6 @@ func (f *formRecorder) ArchiveAgents(_ context.Context, req *connect.Request[age
 
 func (f *formRecorder) ListWorkflows(context.Context, *connect.Request[workflowv1.ListWorkflowsRequest]) (*connect.Response[workflowv1.ListWorkflowsResponse], error) {
 	return connect.NewResponse(&workflowv1.ListWorkflowsResponse{}), nil
-}
-
-func (f *formRecorder) GetWorkflow(_ context.Context, _ *connect.Request[workflowv1.GetWorkflowRequest]) (*connect.Response[workflowv1.GetWorkflowResponse], error) {
-	if f.storedWorkflow == nil {
-		return nil, connect.NewError(connect.CodeNotFound, errors.New("no such workflow"))
-	}
-
-	return connect.NewResponse(&workflowv1.GetWorkflowResponse{Workflow: f.storedWorkflow}), nil
 }
 
 func (f *formRecorder) CreateWorkflow(_ context.Context, req *connect.Request[workflowv1.CreateWorkflowRequest]) (*connect.Response[workflowv1.CreateWorkflowResponse], error) {

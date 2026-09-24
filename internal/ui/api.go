@@ -290,19 +290,6 @@ func (a api) emptyArchive() error {
 	})
 }
 
-func (a api) getSchedule(id string) (*panel.Schedule, error) {
-	return call(agentsTimeout, func(ctx context.Context) (*panel.Schedule, error) {
-		resp, err := a.schedules.GetSchedule(ctx, connect.NewRequest(&schedulev1.GetScheduleRequest{Id: id}))
-		if err != nil {
-			return nil, fmt.Errorf("failed to get schedule %q: %w", id, err)
-		}
-
-		schedule := scheduleFrom(resp.Msg.GetSchedule())
-
-		return &schedule, nil
-	})
-}
-
 func (a api) createSchedule(cfg panel.ScheduleConfig) error {
 	return mutate(func(ctx context.Context) (any, error) {
 		return a.schedules.CreateSchedule(ctx, connect.NewRequest(&schedulev1.CreateScheduleRequest{
@@ -358,19 +345,6 @@ func (a api) setScheduleEnabled(id string, enabled bool) error {
 func (a api) archiveSchedule(id string) error {
 	return mutate(func(ctx context.Context) (any, error) {
 		return a.schedules.ArchiveSchedule(ctx, connect.NewRequest(&schedulev1.ArchiveScheduleRequest{Id: id}))
-	})
-}
-
-func (a api) getWorkflow(id string) (*panel.Workflow, error) {
-	return call(agentsTimeout, func(ctx context.Context) (*panel.Workflow, error) {
-		resp, err := a.workflows.GetWorkflow(ctx, connect.NewRequest(&workflowv1.GetWorkflowRequest{Id: id}))
-		if err != nil {
-			return nil, fmt.Errorf("failed to get workflow %q: %w", id, err)
-		}
-
-		workflow := workflowFrom(resp.Msg.GetWorkflow())
-
-		return &workflow, nil
 	})
 }
 
