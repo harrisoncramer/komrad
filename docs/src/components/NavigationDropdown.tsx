@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { isCurrent } from "./Header";
-import type { NavLink } from "./Header";
+import { isCurrent } from "./nav";
+import type { NavLink } from "./nav";
 
 type NavigationDropdownProps = {
   links: readonly NavLink[];
@@ -48,7 +48,7 @@ const NavigationDropdown = ({ links, path }: NavigationDropdownProps) => {
       <button
         ref={buttonRef}
         type="button"
-        className="relative flex h-10 w-10 cursor-pointer items-center justify-center rounded-xs text-app-white outline-hidden hover:bg-app-background-light focus-visible:bg-app-background-light"
+        className="relative flex h-10 w-10 items-center justify-center rounded-xs text-app-white outline-hidden hover:bg-app-background-light focus-visible:bg-app-background-light"
         aria-label="Menu"
         aria-expanded={isOpen}
         aria-controls={MENU_ID}

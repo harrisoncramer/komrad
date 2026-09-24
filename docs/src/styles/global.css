@@ -131,6 +131,11 @@
   a {
     color: #9ec4ff;
   }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
 }
 
 .astro-code {
@@ -164,7 +169,8 @@
   transition: opacity 0.15s;
 }
 
-.code-block:hover .code-copy-btn {
+.code-block:hover .code-copy-btn,
+.code-copy-btn:focus-visible {
   opacity: 1;
 }
 

@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import NavigationDropdown from "./NavigationDropdown";
 import { SECTIONS, SITE_TITLE } from "../consts";
-
-export type NavLink = { href: string; label: string };
+import { isCurrent } from "./nav";
+import type { NavLink } from "./nav";
 
 type HeaderProps = {
   children: ReactNode;
@@ -19,10 +19,6 @@ const HIDE_AFTER_PX = 400;
 
 function normalizePath(path: string): string {
   return path.replace(/\/+$/, "") || "/";
-}
-
-export function isCurrent(href: string, path: string): boolean {
-  return path === href || path.startsWith(`${href}/`);
 }
 
 const Header = ({ children, path }: HeaderProps) => {
