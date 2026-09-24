@@ -1,9 +1,13 @@
 package ui
 
 import (
+	"flag"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"testing"
 
 	"weave/config"
 	"weave/internal/engine"
@@ -15,15 +19,20 @@ import (
 	"weave/proto/gen/worktree/v1/worktreev1connect"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const panelViewer = "/dev/ttys004"
+
+var updateGoldens = flag.Bool("update", false, "rewrite the golden files")
 
 // Panel is the panel's model driven the way the running program drives it.
 type Panel struct {
 	model model
 	post  *postbox
 	tmux  *recordingTmux
+	clip  *fakeClipboard
 }
 
 type unsplittableTmux struct {
@@ -104,7 +113,7 @@ func NewPanel(params NewPanelParams) *Panel {
 		layout.SidebarSide = params.SidebarSide
 	}
 
-	return &Panel{
+	panel := &Panel{
 		model: newModel(Deps{
 			PopupWindow:   NewPopupWindow(tmux, "test-session"),
 			Tmux:          driven,
@@ -124,7 +133,11 @@ func NewPanel(params NewPanelParams) *Panel {
 		}, true, post),
 		post: post,
 		tmux: tmux,
+		clip: &fakeClipboard{},
 	}
+	panel.model.clip = panel.clip
+
+	return panel
 }
 
 // Init is the command the program runs as it starts.
@@ -231,6 +244,18 @@ func (p *Panel) ReadWindowSizes() map[string]string {
 // SetPaneSize makes tmux report every pane and the window at the given size.
 func (p *Panel) SetPaneSize(width, height int) {
 	p.tmux.width, p.tmux.height, p.tmux.windowWidth = width, height, width
+}
+
+// ReadCopied is everything the panel has put on the clipboard.
+func (p *Panel) ReadCopied() []string {
+	return p.clip.written
+}
+
+// RequireGolden compares a drawn block against the file named for it under testdata.
+func RequireGolden(t *testing.T, name, got string) {
+	t.Helper()
+
+	requireGolden(t, name, got)
 }
 
 func (unsplittableTmux) SplitRight(string, string, string) string {
@@ -426,4 +451,20 @@ func (t *recordingTmux) RespawnPane(pane, dir string, argv ...string) {
 	t.respawns = append(t.respawns, strings.Join(argv, " "))
 	t.respawnPanes = append(t.respawnPanes, pane)
 	t.respawnDirs = append(t.respawnDirs, dir)
+}
+
+func requireGolden(t *testing.T, name, got string) {
+	t.Helper()
+
+	path := filepath.Join("testdata", name+".golden")
+	if *updateGoldens {
+		require.NoError(t, os.MkdirAll("testdata", 0o750))
+		require.NoError(t, os.WriteFile(path, []byte(got), 0o600))
+
+		return
+	}
+
+	want, err := os.ReadFile(path)
+	require.NoError(t, err, "no golden file yet, so run the suite with -update")
+	assert.Equal(t, string(want), got)
 }

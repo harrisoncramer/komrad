@@ -1,0 +1,11 @@
+[1;34m› [m[90m·[m [1mEmptying the arch…[m  [1;34m1 of 1[m
+                              
+  A background job is         
+  deleting 1 archived agent,  
+  each with its worktree.     
+  The rows are out of the     
+  archive now, and one whose  
+  delete fails comes back     
+  saying so.                  
+                              
+  [90minfo · [m[90m<landed>[m
