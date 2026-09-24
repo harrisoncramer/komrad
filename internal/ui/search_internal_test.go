@@ -11,7 +11,6 @@ import (
 	"weave/lib/xptr"
 	"weave/lib/xslice"
 
-	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -96,7 +95,7 @@ func TestAgentSpansCoverEveryTurn(t *testing.T) {
 // a hidden agent still running is bright with the hidden mark, a dormant hidden one is dim with
 // it, and an archived one is dim without it.
 func TestSearchTellsAHiddenHitFromAnArchivedOne(t *testing.T) {
-	m := filterModel()
+	m := newFilterModel()
 	m.screen = screenSearch
 	m.width = 80
 	m.search = searchScreen{query: "ledger"}
@@ -266,7 +265,7 @@ func (m model) searchHelp() keyMap {
 
 // TestSearchDropsAnswersForAQueryMovedPast covers an answer landing after the input has changed.
 func TestSearchDropsAnswersForAQueryMovedPast(t *testing.T) {
-	m := filterModel()
+	m := newFilterModel()
 	m.screen = screenSearch
 	m.search = searchScreen{query: "current"}
 
@@ -286,7 +285,7 @@ func TestSearchDropsAnswersForAQueryMovedPast(t *testing.T) {
 
 // TestSearchForgetsAPageInFlight covers a fresh search dropping the page the old one was waiting on.
 func TestSearchForgetsAPageInFlight(t *testing.T) {
-	m := filterModel()
+	m := newFilterModel()
 	m.screen = screenSearch
 	m.search = searchScreen{
 		query:  "reconciler",
@@ -338,10 +337,4 @@ func hits(names ...string) []searchHit {
 	})
 
 	return out
-}
-
-// drawnLines is the screen as View hands it to bubbletea, which trims the newline the last row
-// carries before the pane is asked to hold it.
-func drawnLines(view string) []string {
-	return strings.Split(strings.TrimRight(ansi.Strip(view), "\n"), "\n")
 }

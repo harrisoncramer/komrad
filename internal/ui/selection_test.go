@@ -61,16 +61,6 @@ func withColor(t *testing.T) {
 	t.Helper()
 }
 
-func press(t *testing.T, m model, key tea.KeyPressMsg) model {
-	t.Helper()
-
-	next, _ := m.routeScreenMessage(key)
-	updated, ok := next.(model)
-	require.True(t, ok)
-
-	return updated
-}
-
 func archiveSelectionTree() model {
 	return model{
 		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
@@ -172,7 +162,7 @@ func TestArchiveSelection(t *testing.T) {
 
 		opened.form.form.State = huh.StateCompleted
 		answered, cmd := opened.form.update(opened, keyMsg("enter"))
-		settle(t, asModel(t, answered), cmd)
+		settle(t, requireModel(t, answered), cmd)
 
 		assert.Equal(t, []string{"a1", "a2"}, agents.deleted, "and it is the whole selection it acts on")
 	})

@@ -15,6 +15,7 @@ import (
 
 	"weave/config"
 	"weave/internal/client"
+	"weave/internal/engine"
 	"weave/internal/ui"
 	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
@@ -146,6 +147,12 @@ type panelHarnessParams struct {
 	sidebarSide   string
 	keys          *config.Keybindings
 	git           ui.ReviewGit
+	settings      ui.PanelSettings
+	engine        engine.Remote
+	harnessFrames ui.HarnessFrameReader
+	configErr     error
+	startupErr    error
+	refuseSplits  bool
 }
 
 func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
@@ -192,6 +199,12 @@ func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
 			SidebarSide:   params.sidebarSide,
 			Width:         width,
 			Height:        height,
+			Settings:      params.settings,
+			Engine:        params.engine,
+			HarnessFrames: params.harnessFrames,
+			ConfigErr:     params.configErr,
+			StartupErr:    params.startupErr,
+			RefuseSplits:  params.refuseSplits,
 		}),
 	}
 
@@ -426,7 +439,10 @@ func readHoveredRow(frame string) string {
 			continue
 		}
 
-		row, _ := cutListRow(line)
+		row, isRow := cutListRow(line)
+		if !isRow {
+			return strings.TrimSpace(strings.TrimPrefix(ansi.Truncate(line, config.DefaultSidebarWidth, ""), "›"))
+		}
 
 		return row
 	}

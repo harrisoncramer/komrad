@@ -74,7 +74,7 @@ func TestRecordCopy(t *testing.T) {
 
 		require.NoError(t, copyResultFrom(t, cmd).err)
 		assert.Equal(t, []string{"https://github.com/o/r/pull/312"}, clip.written)
-		assert.Positive(t, asModel(t, copied).details.flashed, "the copied field flashes while the write runs")
+		assert.Positive(t, requireModel(t, copied).details.flashed, "the copied field flashes while the write runs")
 	})
 
 	t.Run("the field on screen is taken after the row changes under the record", func(t *testing.T) {
@@ -93,7 +93,7 @@ func TestRecordCopy(t *testing.T) {
 		require.NoError(t, copyResultFrom(t, cmd).err)
 
 		assert.Equal(t, []string{held.fields[0].value}, clip.written)
-		assert.Equal(t, 1, asModel(t, copied).details.flashed, "and flashes the line it took it from")
+		assert.Equal(t, 1, requireModel(t, copied).details.flashed, "and flashes the line it took it from")
 	})
 
 	t.Run("a narrowed record copies from the rows that are left", func(t *testing.T) {
@@ -106,7 +106,7 @@ func TestRecordCopy(t *testing.T) {
 		narrowed := pressMark(t, send(t, m, "ctrl+t"), "/", "c", "o", "m", "m", "i", "t", "tab", "enter", "G")
 		_, cmd := narrowed.copyDetailsField()
 		require.NotNil(t, cmd)
-		produced(cmd)
+		collectMessages(cmd)
 
 		assert.Equal(t, []string{"1234567890ab  3h   feat(ui): a thing"}, clip.written)
 	})
@@ -211,13 +211,13 @@ func TestARefusedUnpauseKeepsTheEditedFiles(t *testing.T) {
 	m.noteEdited("a1", []string{"internal/agents/hold.go"})
 
 	refused, cmd := m.Update(keyMsg("p"))
-	first := asModel(t, refused)
+	first := requireModel(t, refused)
 	first = settle(t, first, cmd)
 
 	require.Empty(t, agents.released, "the refusal sent nothing")
 
 	pressed, cmd := first.Update(keyMsg("p"))
-	retried := asModel(t, pressed)
+	retried := requireModel(t, pressed)
 	settle(t, retried, cmd)
 
 	require.Len(t, agents.released, 1)
@@ -234,7 +234,7 @@ func TestASilentUnpauseForgetsTheEditedFiles(t *testing.T) {
 	m.noteEdited("a1", []string{"internal/agents/hold.go"})
 
 	pressed, _ := m.Update(keyMsg("P"))
-	opened := asModel(t, pressed)
+	opened := requireModel(t, pressed)
 	require.Equal(t, formAgentRelease, opened.form.kind)
 
 	got := answerPrompt(t, opened, "y")
@@ -257,7 +257,7 @@ func TestALandedUnpauseForgetsTheEditedFiles(t *testing.T) {
 	m.noteEdited("a1", []string{"internal/agents/hold.go"})
 
 	pressed, cmd := m.Update(keyMsg("p"))
-	got := settle(t, asModel(t, pressed), cmd)
+	got := settle(t, requireModel(t, pressed), cmd)
 
 	require.Len(t, agents.released, 1)
 	assert.Contains(t, agents.released[0].GetSaid(), "internal/agents/hold.go")
@@ -274,7 +274,7 @@ func TestALandedUnpauseKeepsAFileOpenedWhileItFlew(t *testing.T) {
 	m.noteEdited("a1", []string{"internal/agents/hold.go"})
 
 	pressed, cmd := m.Update(keyMsg("p"))
-	sent := asModel(t, pressed)
+	sent := requireModel(t, pressed)
 	sent.noteEdited("a1", []string{"internal/ui/refresh.go"})
 
 	got := settle(t, sent, cmd)
