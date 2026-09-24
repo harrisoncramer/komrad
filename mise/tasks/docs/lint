@@ -8,7 +8,9 @@ usage() {
 	echo
 	echo "Runs ESLint over docs/ with the strict type-checked typescript-eslint rules,"
 	echo "the Astro and accessibility rules, and the React hooks rules. Pass --fix to"
-	echo "apply the fixes ESLint can make on its own."
+	echo "apply the fixes ESLint can make on its own. It generates Astro's types first,"
+	echo "since the type-aware rules cannot resolve astro:content or import.meta.env"
+	echo "without them."
 }
 
 FIX=()
@@ -28,4 +30,5 @@ cd "$MISE_CONFIG_ROOT/docs"
 
 docs_install
 
+npx astro sync >/dev/null
 npx eslint --max-warnings 0 "${FIX[@]}" .

@@ -1,6 +1,7 @@
 import { defineConfig } from "astro/config";
 import mdx from "@astrojs/mdx";
 import react from "@astrojs/react";
+import { unified } from "@astrojs/markdown-remark";
 import tailwindcss from "@tailwindcss/vite";
 import { createReadStream, existsSync, statSync } from "node:fs";
 import { basename, extname } from "node:path";
@@ -59,7 +60,7 @@ export default defineConfig({
     plugins: [tailwindcss(), pagefind],
   },
   markdown: {
-    rehypePlugins: [absoluteGuideLinks],
+    processor: unified({ rehypePlugins: [absoluteGuideLinks] }),
     shikiConfig: {
       theme: "tokyo-night",
     },
