@@ -1,12 +1,14 @@
 package agents
 
 import (
+	"context"
 	"testing"
 
 	"weave/internal/harnesstest"
 	agentstore "weave/internal/store/agent"
 	"weave/internal/tmuxtest"
 	"weave/lib/xptr"
+	"weave/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -51,49 +53,83 @@ func TestNewChildAgentTakesItsLaunchFromTheParent(t *testing.T) {
 	assert.Empty(t, deprovisionerFor(ctx, st.Workflows, *child), "and a provisioner turned off leaves nothing to run against it")
 }
 
-// TestNewChildAgentRefusals pins that a request asking for what the parent decides is answered
-// rather than quietly overridden.
+// TestNewChildAgentRefusals pins that a child asking for what its parent decides, or attached to
+// an agent that cannot hold one, is refused rather than quietly overridden.
 func TestNewChildAgentRefusals(t *testing.T) {
 	tests := []struct {
 		name      string
+		attachTo  func(t *testing.T, st *testStore, parent agentstore.Agent) agentstore.Agent
 		params    func(parent agentstore.Agent) NewAgentParams
 		wantErrIs error
 	}{
 		{
 			name: "a directory of its own",
 			params: func(parent agentstore.Agent) NewAgentParams {
-				return NewAgentParams{
-					Dir:           "/tmp",
-					WorkflowID:    parent.WorkflowID,
-					ParentAgentID: parent.ID,
-				}
+				params := childOf(parent, "reviewer")
+				params.Dir = "/tmp"
+
+				return params
 			},
 			wantErrIs: ErrChildOwnsLaunch,
 		},
 		{
 			name: "a provisioner of its own",
 			params: func(parent agentstore.Agent) NewAgentParams {
-				return NewAgentParams{
-					ProvisionEnabled: xptr.Ptr(true),
-					WorkflowID:       parent.WorkflowID,
-					ParentAgentID:    parent.ID,
-				}
+				params := childOf(parent, "reviewer")
+				params.ProvisionEnabled = xptr.Ptr(true)
+
+				return params
 			},
 			wantErrIs: ErrChildOwnsLaunch,
 		},
 		{
 			name: "a workflow other than its parent's",
 			params: func(parent agentstore.Agent) NewAgentParams {
-				return NewAgentParams{WorkflowID: "b9b1a1de-0000-7000-8000-000000000000", ParentAgentID: parent.ID}
+				params := childOf(parent, "reviewer")
+				params.WorkflowID = "b9b1a1de-0000-7000-8000-000000000000"
+
+				return params
 			},
 			wantErrIs: ErrChildOwnsLaunch,
 		},
 		{
 			name: "a parent nothing answers to",
 			params: func(parent agentstore.Agent) NewAgentParams {
-				return NewAgentParams{WorkflowID: parent.WorkflowID, ParentAgentID: "b9b1a1de-0000-7000-8000-000000000000"}
+				params := childOf(parent, "reviewer")
+				params.ParentAgentID = "b9b1a1de-0000-7000-8000-000000000000"
+
+				return params
 			},
 			wantErrIs: ErrParentNotFound,
+		},
+		{
+			name: "a parent already archived",
+			attachTo: func(t *testing.T, st *testStore, parent agentstore.Agent) agentstore.Agent {
+				t.Helper()
+				require.NoError(t, st.SoftDelete(t.Context(), parent.Name))
+
+				return parent
+			},
+			wantErrIs: ErrAgentArchived,
+		},
+		{
+			name: "a parent with no directory",
+			attachTo: func(t *testing.T, st *testStore, parent agentstore.Agent) agentstore.Agent {
+				t.Helper()
+				require.NoError(t, st.Update(t.Context(), withCwd(parent, "")))
+
+				return parent
+			},
+			wantErrIs: ErrChildNeedsParentDirectory,
+		},
+		{
+			name: "a parent that is itself a child",
+			attachTo: func(t *testing.T, st *testStore, parent agentstore.Agent) agentstore.Agent {
+				t.Helper()
+
+				return seedChild(t, st, tmuxtest.NewFake(), parent)
+			},
+			wantErrIs: ErrParentIsChild,
 		},
 	}
 
@@ -103,79 +139,29 @@ func TestNewChildAgentRefusals(t *testing.T) {
 			st := newStore(t)
 			manager := newManager(tmux, st, "")
 
-			parent := seedRunning(t, st, tmux, "author", "%author", agentstore.StateIdle)
-			require.NoError(t, st.Update(t.Context(), withCwd(parent, t.TempDir())))
+			parent := withCwd(seedRunning(t, st, tmux, "author", "%author", agentstore.StateIdle), t.TempDir())
+			require.NoError(t, st.Update(t.Context(), parent))
+			if tt.attachTo != nil {
+				parent = tt.attachTo(t, st, parent)
+			}
 
-			params := tt.params(parent)
-			params.Prompt = "read the change"
-			params.Title = "reviewer"
+			params := childOf(parent, "second-reviewer")
+			if tt.params != nil {
+				params = tt.params(parent)
+			}
+
+			before, err := st.ListAll(t.Context())
+			require.NoError(t, err)
 
 			created, err := manager.launch.NewAgent(t.Context(), params)
 			require.ErrorIs(t, err, tt.wantErrIs)
 			assert.Nil(t, created)
 
-			live, listErr := st.List(t.Context())
-			require.NoError(t, listErr)
-			assert.Len(t, live, 1, "the refusal records nothing beside the parent")
+			after, err := st.ListAll(t.Context())
+			require.NoError(t, err)
+			assert.Len(t, after, len(before), "the refusal records nothing")
 		})
 	}
-}
-
-// TestNewChildAgentRefusesAnArchivedParent pins that a child is never attached to an agent
-// already on its way out.
-func TestNewChildAgentRefusesAnArchivedParent(t *testing.T) {
-	tmux := tmuxtest.NewFake()
-	st := newStore(t)
-	manager := newManager(tmux, st, "")
-	ctx := t.Context()
-
-	parent := seedRunning(t, st, tmux, "author", "%author", agentstore.StateIdle)
-	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, []string{parent.ID}))
-
-	_, err := manager.launch.NewAgent(ctx, NewAgentParams{
-		Title:         "reviewer",
-		Prompt:        "read the change",
-		WorkflowID:    parent.WorkflowID,
-		ParentAgentID: parent.ID,
-	})
-	require.ErrorIs(t, err, ErrAgentArchived)
-}
-
-// TestNewChildAgentRefusesAParentWithNoDirectory pins that a child is never launched into the
-// workflow's own checkout.
-func TestNewChildAgentRefusesAParentWithNoDirectory(t *testing.T) {
-	tmux := tmuxtest.NewFake()
-	st := newStore(t)
-	manager := newManager(tmux, st, "")
-
-	parent := seedRunning(t, st, tmux, "author", "%author", agentstore.StateIdle)
-	require.Empty(t, parent.Cwd)
-
-	_, err := manager.launch.NewAgent(t.Context(), NewAgentParams{
-		Title:         "reviewer",
-		Prompt:        "read the change",
-		WorkflowID:    parent.WorkflowID,
-		ParentAgentID: parent.ID,
-	})
-	require.ErrorIs(t, err, ErrChildNeedsParentDirectory)
-}
-
-// TestNewChildAgentRefusesAChildOfAChild pins the one level.
-func TestNewChildAgentRefusesAChildOfAChild(t *testing.T) {
-	tmux := tmuxtest.NewFake()
-	st := newStore(t)
-	manager := newManager(tmux, st, "")
-
-	parent := seedRunning(t, st, tmux, "author", "%author", agentstore.StateIdle)
-	child := seedChild(t, st, tmux, parent)
-
-	_, err := manager.launch.NewAgent(t.Context(), NewAgentParams{
-		Title:         "second-reviewer",
-		Prompt:        "read the review",
-		WorkflowID:    child.WorkflowID,
-		ParentAgentID: child.ID,
-	})
-	require.ErrorIs(t, err, ErrParentIsChild)
 }
 
 // TestNewChildAgentUnderTheChildCeiling pins the per-parent cap.
@@ -284,20 +270,64 @@ func withCwd(agent agentstore.Agent, dir string) agentstore.Agent {
 	return agent
 }
 
-// TestArchiveTakesTheChildren pins that a child goes with its parent, whether or not the call
-// named it too.
-func TestArchiveTakesTheChildren(t *testing.T) {
+// TestTheFamilyMovesTogether pins that a parent's archive, delete and restore carry its children,
+// while a child's own leave the parent alone.
+func TestTheFamilyMovesTogether(t *testing.T) {
 	tests := []struct {
-		name    string
-		archive func(parent, child agentstore.Agent) []string
+		name     string
+		act      func(ctx context.Context, lifecycle *LifecycleService, parent, child agentstore.Agent) error
+		wantLive []string
+		wantKept []string
 	}{
 		{
-			name:    "the parent takes the child with it",
-			archive: func(parent, _ agentstore.Agent) []string { return []string{parent.ID} },
+			name: "archiving the parent takes the child",
+			act: func(ctx context.Context, lifecycle *LifecycleService, parent, _ agentstore.Agent) error {
+				return lifecycle.ArchiveAgents(ctx, []string{parent.ID})
+			},
+			wantKept: []string{"author", "reviewer"},
 		},
 		{
-			name:    "naming both is the same archive",
-			archive: func(parent, child agentstore.Agent) []string { return []string{parent.ID, child.ID} },
+			name: "archiving both is the same archive",
+			act: func(ctx context.Context, lifecycle *LifecycleService, parent, child agentstore.Agent) error {
+				return lifecycle.ArchiveAgents(ctx, []string{parent.ID, child.ID})
+			},
+			wantKept: []string{"author", "reviewer"},
+		},
+		{
+			name: "archiving the child leaves the parent",
+			act: func(ctx context.Context, lifecycle *LifecycleService, _, child agentstore.Agent) error {
+				return lifecycle.ArchiveAgents(ctx, []string{child.ID})
+			},
+			wantLive: []string{"author"},
+			wantKept: []string{"author", "reviewer"},
+		},
+		{
+			name: "deleting the parent takes the child",
+			act: func(ctx context.Context, lifecycle *LifecycleService, parent, _ agentstore.Agent) error {
+				return lifecycle.DeleteAgents(ctx, []string{parent.ID})
+			},
+		},
+		{
+			name: "deleting the child leaves the parent",
+			act: func(ctx context.Context, lifecycle *LifecycleService, _, child agentstore.Agent) error {
+				return lifecycle.DeleteAgents(ctx, []string{child.ID})
+			},
+			wantLive: []string{"author"},
+			wantKept: []string{"author"},
+		},
+		{
+			name: "restoring the parent brings the child back",
+			act: func(ctx context.Context, lifecycle *LifecycleService, parent, _ agentstore.Agent) error {
+				if err := lifecycle.ArchiveAgents(ctx, []string{parent.ID}); err != nil {
+					return err
+				}
+
+				_, err := lifecycle.RestoreAgents(ctx, []string{parent.ID})
+
+				return err
+			},
+			wantLive: []string{"author", "reviewer"},
+			wantKept: []string{"author", "reviewer"},
 		},
 	}
 
@@ -311,98 +341,18 @@ func TestArchiveTakesTheChildren(t *testing.T) {
 			parent := seedRunning(t, st, tmux, "author", "%author", agentstore.StateIdle)
 			child := seedChild(t, st, tmux, parent)
 
-			require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, tt.archive(parent, child)))
+			require.NoError(t, tt.act(ctx, manager.lifecycle, parent, child))
 
 			live, err := st.List(ctx)
 			require.NoError(t, err)
-			assert.Empty(t, live, "the family goes together")
-			assert.Contains(t, tmux.KilledPanes, child.Pane, "and the child's pane goes with its row")
+			assert.ElementsMatch(t, tt.wantLive, agentNames(live))
+
+			kept, err := st.ListAll(ctx)
+			require.NoError(t, err)
+			assert.ElementsMatch(t, tt.wantKept, agentNames(kept))
+			assert.Contains(t, tmux.KilledPanes, child.Pane, "the child's pane goes with its row")
 		})
 	}
-}
-
-// TestArchiveOfAChildLeavesTheParent pins that finishing with one child leaves the agent it was
-// reading for where it was.
-func TestArchiveOfAChildLeavesTheParent(t *testing.T) {
-	tmux := tmuxtest.NewFake()
-	st := newStore(t)
-	manager := newManager(tmux, st, "")
-	ctx := t.Context()
-
-	parent := seedRunning(t, st, tmux, "author", "%author", agentstore.StateIdle)
-	child := seedChild(t, st, tmux, parent)
-
-	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, []string{child.ID}))
-
-	live, err := st.List(ctx)
-	require.NoError(t, err)
-	require.Len(t, live, 1, "only the child goes")
-	assert.Equal(t, parent.ID, live[0].ID)
-	assert.Contains(t, tmux.KilledPanes, child.Pane)
-}
-
-// TestDeleteTakesTheChildren pins that deleting a parent removes the children too, and that
-// their panes are dead before the parent's cleanup runs against the checkout they shared.
-func TestDeleteTakesTheChildren(t *testing.T) {
-	tmux := tmuxtest.NewFake()
-	st := newStore(t)
-	lifecycle := &fakeLifecycle{}
-	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
-	ctx := t.Context()
-
-	parent := seedRunning(t, st, tmux, "author", "%author", agentstore.StateIdle)
-	child := seedChild(t, st, tmux, parent)
-
-	require.NoError(t, manager.lifecycle.DeleteAgents(ctx, []string{parent.ID}))
-
-	all, err := st.ListAll(ctx)
-	require.NoError(t, err)
-	assert.Empty(t, all, "nothing is left of the family")
-	assert.Contains(t, tmux.KilledPanes, child.Pane)
-}
-
-// TestDeleteTakesAChildAlone pins that a child can be destroyed by itself.
-func TestDeleteTakesAChildAlone(t *testing.T) {
-	tmux := tmuxtest.NewFake()
-	st := newStore(t)
-	manager := newManager(tmux, st, "")
-	ctx := t.Context()
-
-	parent := seedRunning(t, st, tmux, "author", "%author", agentstore.StateIdle)
-	child := seedChild(t, st, tmux, parent)
-
-	require.NoError(t, manager.lifecycle.DeleteAgents(ctx, []string{child.ID}))
-
-	all, err := st.ListAll(ctx)
-	require.NoError(t, err)
-	require.Len(t, all, 1, "the parent is left as it was")
-	assert.Equal(t, parent.ID, all[0].ID)
-	assert.Contains(t, tmux.KilledPanes, child.Pane)
-}
-
-// TestRestoreBringsTheChildrenBack pins that a parent taken out of the archive arrives with the
-// children it was archived with.
-func TestRestoreBringsTheChildrenBack(t *testing.T) {
-	tmux := tmuxtest.NewFake()
-	st := newStore(t)
-	manager := newManager(tmux, st, "")
-	ctx := t.Context()
-
-	parent := seedRunning(t, st, tmux, "author", "%author", agentstore.StateIdle)
-	child := seedChild(t, st, tmux, parent)
-
-	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, []string{parent.ID}))
-
-	restored, err := manager.lifecycle.RestoreAgents(ctx, []string{parent.ID})
-	require.NoError(t, err)
-	assert.Len(t, restored, 2)
-
-	live, err := st.List(ctx)
-	require.NoError(t, err)
-	assert.Len(t, live, 2, "the family comes back together")
-
-	assert.Equal(t, child.ID, agentByID(t, st, child.ID).ID)
-	assert.Nil(t, agentByID(t, st, child.ID).ArchivedAt)
 }
 
 // TestRestoreOfAChildNeedsItsParentBack pins the one direction the family rule still holds in:
@@ -520,4 +470,10 @@ func seedOrchestrator(t *testing.T, st *testStore, tmux paneStamper) agentstore.
 	require.NoError(t, tmux.SetPaneOwner(got.Pane, got.ID))
 
 	return *got
+}
+
+func agentNames(agents []agentstore.Agent) []string {
+	return xslice.Map(agents, func(agent agentstore.Agent) string {
+		return agent.Name
+	})
 }
