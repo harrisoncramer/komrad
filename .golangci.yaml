@@ -365,7 +365,6 @@ linters:
               - ^internal/jobs/internaljobs/empty_archive_test\.go$
               - ^internal/rpc/agent/handler_test\.go$
               - ^internal/rpc/agent/transcript_test\.go$
-              - ^internal/rpc/forge/handler_test\.go$
               - ^internal/rpc/pullrequest/handler_test\.go$
               - ^internal/rpc/schedule/handler_test\.go$
               - ^internal/rpc/watch/handler_test\.go$
