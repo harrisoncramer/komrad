@@ -21,7 +21,6 @@ var updateGoldens = flag.Bool("update", false, "rewrite the golden files")
 
 // TestNoticeBlockGolden draws the record's notice block whole.
 func TestNoticeBlockGolden(t *testing.T) {
-
 	tests := []struct {
 		name string
 		item func(*panel.AgentRow)

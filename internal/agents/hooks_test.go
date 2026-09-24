@@ -5,8 +5,10 @@ import (
 	"testing"
 	"time"
 
+	"weave/internal/harnesstest"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
+	"weave/internal/tmuxtest"
 	"weave/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
@@ -16,13 +18,13 @@ import (
 // TestNewAgentRunsPreLaunchHooksInOrder covers the pair this table exists for: a worktree
 // workflow that also wants something done inside the worktree before the CLI starts.
 func TestNewAgentRunsPreLaunchHooksInOrder(t *testing.T) {
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	provisioned := t.TempDir()
 	lifecycle := &fakeLifecycle{dir: provisioned}
-	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
+	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
 
-	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
+	created, err := newWorkflowService(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
 		Name:     "backend",
 		Cwd:      fakeCheckout(t),
 		Worktree: workflowstore.WorktreeConfig{Enabled: true, BaseBranch: "main"},
@@ -61,12 +63,12 @@ func TestNewAgentRunsPreLaunchHooksInOrder(t *testing.T) {
 // TestNewAgentRunsPostLaunchHooksInTheBackground pins the other half of the pair: the call does
 // not wait for them.
 func TestNewAgentRunsPostLaunchHooksInTheBackground(t *testing.T) {
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	lifecycle := &fakeLifecycle{dir: t.TempDir()}
-	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
+	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
 
-	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
+	created, err := newWorkflowService(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
 		Name:  "backend",
 		Hooks: []workflowstore.Hook{{Event: workflowstore.HookPostLaunch, Script: "announce"}},
 	})
@@ -92,15 +94,15 @@ func TestNewAgentRunsPostLaunchHooksInTheBackground(t *testing.T) {
 // TestNewAgentAbandonsACreateAPreLaunchHookRefused pins a failing pre-launch hook taking the
 // create with it.
 func TestNewAgentAbandonsACreateAPreLaunchHookRefused(t *testing.T) {
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	lifecycle := &fakeLifecycle{
 		dir:      t.TempDir(),
 		hookErrs: map[string]error{"install-deps": errors.New("mise refused")},
 	}
-	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
+	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
 
-	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
+	created, err := newWorkflowService(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
 		Name:     "backend",
 		Cwd:      fakeCheckout(t),
 		Worktree: workflowstore.WorktreeConfig{Enabled: true, BaseBranch: "main"},
@@ -132,12 +134,12 @@ func TestNewAgentAbandonsACreateAPreLaunchHookRefused(t *testing.T) {
 
 // TestNewChildAgentRunsNoHooks pins a child running no moment of its own.
 func TestNewChildAgentRunsNoHooks(t *testing.T) {
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	lifecycle := &fakeLifecycle{dir: t.TempDir()}
-	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
+	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
 
-	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
+	created, err := newWorkflowService(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
 		Name:  "backend",
 		Hooks: []workflowstore.Hook{{Event: workflowstore.HookPreLaunch, Script: "install-deps"}},
 	})
@@ -167,12 +169,12 @@ func TestNewChildAgentRunsNoHooks(t *testing.T) {
 // TestARetiredProvisionerRunsNoHooks pins the other half of the ownership rule: an agent handed
 // somebody else's checkout.
 func TestARetiredProvisionerRunsNoHooks(t *testing.T) {
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	lifecycle := &fakeLifecycle{dir: t.TempDir()}
-	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
+	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
 
-	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
+	created, err := newWorkflowService(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
 		Name:     "backend",
 		Cwd:      fakeCheckout(t),
 		Worktree: workflowstore.WorktreeConfig{Enabled: true, BaseBranch: "main"},
@@ -202,7 +204,7 @@ func TestARetiredProvisionerRunsNoHooks(t *testing.T) {
 // nothing fires is answered with.
 func TestNewWorkflowRefusesAHookOnAMomentWeaveDoesNotFire(t *testing.T) {
 	st := newStore(t)
-	workflows := workflowsFor(st, newFakeTmux())
+	workflows := newWorkflowService(st, tmuxtest.NewFake())
 
 	_, err := workflows.NewWorkflow(t.Context(), workflowstore.Config{
 		Name:  "backend",
@@ -216,7 +218,7 @@ func TestNewWorkflowRefusesAHookOnAMomentWeaveDoesNotFire(t *testing.T) {
 // order they run.
 func TestWorkflowHooksRoundTripInOrder(t *testing.T) {
 	st := newStore(t)
-	workflows := workflowsFor(st, newFakeTmux())
+	workflows := newWorkflowService(st, tmuxtest.NewFake())
 
 	created, err := workflows.NewWorkflow(t.Context(), workflowstore.Config{
 		Name:     "backend",
@@ -253,11 +255,11 @@ func TestWorkflowHooksRoundTripInOrder(t *testing.T) {
 // TestResumeFiresPostResumeHooks pins the moment a dormant agent comes back in.
 func TestResumeFiresPostResumeHooks(t *testing.T) {
 	st := newStore(t)
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	ctx := t.Context()
 
 	lifecycle := &fakeLifecycle{}
-	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
+	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
 
 	created, err := st.Workflows.Create(ctx, workflowstore.Config{
 		Name:     "backend",
@@ -288,11 +290,11 @@ func TestResumeFiresPostResumeHooks(t *testing.T) {
 // TestRestoreFiresPostRestoreHooks pins the moment the row comes back.
 func TestRestoreFiresPostRestoreHooks(t *testing.T) {
 	st := newStore(t)
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	ctx := t.Context()
 
 	lifecycle := &fakeLifecycle{}
-	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
+	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
 
 	created, err := st.Workflows.Create(ctx, workflowstore.Config{
 		Name:     "backend",
@@ -345,11 +347,11 @@ func TestAProvisionerDisabledAgentRunsNoHooksOnTheWayBackIn(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
-			tmux := newFakeTmux()
+			tmux := tmuxtest.NewFake()
 			ctx := t.Context()
 
 			lifecycle := &fakeLifecycle{}
-			manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
+			manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
 
 			created, err := st.Workflows.Create(ctx, workflowstore.Config{
 				Name:     "backend",
@@ -362,19 +364,22 @@ func TestAProvisionerDisabledAgentRunsNoHooksOnTheWayBackIn(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			agent := seedInWorkflow(t, st, created.ID, "reviewer", "%0", agentstore.StateIdle)
-			agent.Cwd = t.TempDir()
-			require.NoError(t, st.Agents.Update(ctx, agent))
-
-			// The override is written when an agent is created and never edited after, so the
-			// row is what has to carry it here rather than the copy in hand.
-			disableProvisioner(t, st, agent.ID)
+			require.NoError(t, st.Create(ctx, agentstore.Agent{
+				Name:             "reviewer",
+				Pane:             "%0",
+				State:            agentstore.StateIdle,
+				Cwd:              t.TempDir(),
+				WorkflowID:       created.ID,
+				ProvisionEnabled: xptr.Ptr(false),
+			}))
+			agent, err := st.Agents.GetInWorkflow(ctx, created.ID, "reviewer")
+			require.NoError(t, err)
 
 			if tt.name == "a restore" {
 				require.NoError(t, st.SoftDelete(ctx, "reviewer"))
 			}
 
-			tt.fire(t, manager, agent)
+			tt.fire(t, manager, *agent)
 
 			// Long enough for a hook chain to have started if one was going to.
 			require.Never(t, func() bool {
@@ -388,11 +393,11 @@ func TestAProvisionerDisabledAgentRunsNoHooksOnTheWayBackIn(t *testing.T) {
 // leaves out an agent in the batch that was already running.
 func TestRestoreFiresPostRestoreOnlyOnWhatWasArchived(t *testing.T) {
 	st := newStore(t)
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	ctx := t.Context()
 
 	lifecycle := &fakeLifecycle{}
-	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
+	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
 
 	created, err := st.Workflows.Create(ctx, workflowstore.Config{
 		Name:     "backend",
@@ -430,7 +435,7 @@ func TestRestoreFiresPostRestoreOnlyOnWhatWasArchived(t *testing.T) {
 // TestRestoreWorkflowFiresPostRestoreHooks pins the sibling path owing the same thing.
 func TestRestoreWorkflowFiresPostRestoreHooks(t *testing.T) {
 	st := newStore(t)
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	ctx := t.Context()
 
 	lifecycle := &fakeLifecycle{}

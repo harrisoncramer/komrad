@@ -8,7 +8,9 @@ import (
 	"testing"
 
 	"weave/internal/harness"
+	"weave/internal/harnesstest"
 	agentstore "weave/internal/store/agent"
+	"weave/internal/tmuxtest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -40,17 +42,17 @@ func TestLaunchStartsTheHarnessCommand(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cache := t.TempDir()
-			tmux := newFakeTmux()
-			tmux.respawnErr = tt.respawnErr
-			tmux.shell = "/bin/zsh"
-			h := &fakeHarness{commandErr: tt.commandErr}
+			tmux := tmuxtest.NewFake()
+			tmux.RespawnErr = tt.respawnErr
+			tmux.Shell = "/bin/zsh"
+			fakeHarness := &harnesstest.Fake{CommandErr: tt.commandErr}
 			launcher := NewLauncher(NewLauncherParams{
 				Tmux:     tmux,
 				Addr:     "127.0.0.1:9999",
 				CacheDir: cache,
 			})
 
-			err := launcher.launch(h, launchParams{
+			err := launcher.launch(fakeHarness, launchParams{
 				Pane:      "pane",
 				Dir:       "/work",
 				SessionID: "sess",
@@ -59,22 +61,22 @@ func TestLaunchStartsTheHarnessCommand(t *testing.T) {
 			if tt.wantErr != "" {
 				require.ErrorContains(t, err, tt.wantErr)
 				if tt.commandErr != nil {
-					assert.Empty(t, tmux.lastRespawn("pane").argv, "a command that was never built is never run")
+					assert.Empty(t, tmux.LastRespawn("pane").Argv, "a command that was never built is never run")
 				}
 
 				return
 			}
 
 			require.NoError(t, err)
-			require.Len(t, h.launches, 1)
-			assert.Empty(t, tmux.sent, "nothing is typed at the pane's shell, so nothing reaches its history")
+			require.Len(t, fakeHarness.Launches, 1)
+			assert.Empty(t, tmux.Sent, "nothing is typed at the pane's shell, so nothing reaches its history")
 
-			run := tmux.lastRespawn("pane")
-			assert.Equal(t, "/work", run.dir)
-			require.Len(t, run.argv, 5)
-			assert.Equal(t, []string{"/bin/zsh", "-l", "-i", "-c"}, run.argv[:4], "the agent's shell is a login shell, as it was when tmux started it")
+			run := tmux.LastRespawn("pane")
+			assert.Equal(t, "/work", run.Dir)
+			require.Len(t, run.Argv, 5)
+			assert.Equal(t, []string{"/bin/zsh", "-l", "-i", "-c"}, run.Argv[:4], "the agent's shell is a login shell, as it was when tmux started it")
 
-			script := run.argv[4]
+			script := run.Argv[4]
 			rest, ok := strings.CutSuffix(script, "; exec '/bin/zsh' -l -i")
 			require.True(t, ok, "the pane is left holding a shell once the agent exits")
 
@@ -92,27 +94,27 @@ func TestLaunchStartsTheHarnessCommand(t *testing.T) {
 
 // TestLaunchFallsBackToAPOSIXShell covers a tmux server naming no default shell.
 func TestLaunchFallsBackToAPOSIXShell(t *testing.T) {
-	tmux := newFakeTmux()
-	tmux.shell = ""
+	tmux := tmuxtest.NewFake()
+	tmux.Shell = ""
 	launcher := NewLauncher(NewLauncherParams{
 		Tmux:     tmux,
 		Addr:     "127.0.0.1:9999",
 		CacheDir: t.TempDir(),
 	})
 
-	require.NoError(t, launcher.launch(&fakeHarness{}, launchParams{Pane: "pane"}))
+	require.NoError(t, launcher.launch(&harnesstest.Fake{}, launchParams{Pane: "pane"}))
 
-	assert.Equal(t, fallbackShell, tmux.lastRespawn("pane").argv[0])
+	assert.Equal(t, fallbackShell, tmux.LastRespawn("pane").Argv[0])
 }
 
 // TestLaunchPassesWhatThePanelKnows covers what the launcher hands the harness, which is
 // what the agent is told and which conversation it is.
 func TestLaunchPassesWhatThePanelKnows(t *testing.T) {
-	tmux := newFakeTmux()
-	h := &fakeHarness{}
+	tmux := tmuxtest.NewFake()
+	fakeHarness := &harnesstest.Fake{}
 	launcher := NewLauncher(NewLauncherParams{Tmux: tmux, Addr: "127.0.0.1:9999"})
 
-	require.NoError(t, launcher.launch(h, launchParams{
+	require.NoError(t, launcher.launch(fakeHarness, launchParams{
 		Pane:      "pane",
 		Flags:     "--model opus",
 		Prompt:    "do the thing",
@@ -121,8 +123,8 @@ func TestLaunchPassesWhatThePanelKnows(t *testing.T) {
 		Resume:    true,
 	}))
 
-	require.Len(t, h.launches, 1)
-	launch := h.launches[0]
+	require.Len(t, fakeHarness.Launches, 1)
+	launch := fakeHarness.Launches[0]
 	assert.Equal(t, "--model opus", launch.Flags)
 	assert.Equal(t, "do the thing", launch.Prompt)
 	assert.Equal(t, "sess", launch.SessionID)
@@ -168,7 +170,7 @@ func TestAppendedSystemPrompt(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			launcher := NewLauncher(NewLauncherParams{
-				Tmux:    newFakeTmux(),
+				Tmux:    tmuxtest.NewFake(),
 				Addr:    "127.0.0.1:9999",
 				LogPath: briefedLogPath,
 			})
@@ -215,7 +217,7 @@ func TestAppendedSystemPromptDelegateBriefing(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			launcher := NewLauncher(NewLauncherParams{
-				Tmux:    newFakeTmux(),
+				Tmux:    tmuxtest.NewFake(),
 				Addr:    "127.0.0.1:9999",
 				LogPath: briefedLogPath,
 			})
@@ -276,7 +278,7 @@ func TestAppendedSystemPromptGlobalContext(t *testing.T) {
 			}
 
 			launcher := NewLauncher(NewLauncherParams{
-				Tmux:        newFakeTmux(),
+				Tmux:        tmuxtest.NewFake(),
 				Addr:        "127.0.0.1:9999",
 				LogPath:     briefedLogPath,
 				ContextPath: path,
@@ -304,7 +306,7 @@ func TestGlobalContextIsReadPerLaunch(t *testing.T) {
 	require.NoError(t, os.WriteFile(path, []byte("before-the-edit"), 0o600))
 
 	launcher := NewLauncher(NewLauncherParams{
-		Tmux:        newFakeTmux(),
+		Tmux:        tmuxtest.NewFake(),
 		Addr:        "127.0.0.1:9999",
 		LogPath:     briefedLogPath,
 		ContextPath: path,
@@ -389,7 +391,7 @@ func TestAppendedSystemPromptReviewBriefing(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			launcher := NewLauncher(NewLauncherParams{
-				Tmux:    newFakeTmux(),
+				Tmux:    tmuxtest.NewFake(),
 				Addr:    "127.0.0.1:9999",
 				LogPath: briefedLogPath,
 			})
@@ -410,7 +412,7 @@ func TestAppendedSystemPromptReviewBriefing(t *testing.T) {
 // review halves were cut out of it.
 func TestBriefingKeepsWhatEveryAgentNeeds(t *testing.T) {
 	launcher := NewLauncher(NewLauncherParams{
-		Tmux:    newFakeTmux(),
+		Tmux:    tmuxtest.NewFake(),
 		Addr:    "127.0.0.1:9999",
 		LogPath: briefedLogPath,
 	})
@@ -525,18 +527,18 @@ func TestContextBriefing(t *testing.T) {
 // is how gh is handed a credential the agent never holds itself.
 func TestLaunchGivesTheAgentAStandInForGH(t *testing.T) {
 	cache := t.TempDir()
-	h := &fakeHarness{}
+	fakeHarness := &harnesstest.Fake{}
 	launcher := NewLauncher(NewLauncherParams{
-		Tmux:     newFakeTmux(),
+		Tmux:     tmuxtest.NewFake(),
 		Addr:     "127.0.0.1:9999",
 		CacheDir: cache,
 		BinPath:  "/usr/local/bin/weave",
 	})
 
-	require.NoError(t, launcher.launch(h, launchParams{Pane: "pane"}))
+	require.NoError(t, launcher.launch(fakeHarness, launchParams{Pane: "pane"}))
 
-	require.Len(t, h.launches, 1)
-	tools := h.launches[0].ToolsDir
+	require.Len(t, fakeHarness.Launches, 1)
+	tools := fakeHarness.Launches[0].ToolsDir
 	assert.Equal(t, filepath.Join(cache, harness.ToolsDirName), tools)
 
 	body, err := os.ReadFile(filepath.Join(tools, "gh"))
@@ -548,11 +550,11 @@ func TestLaunchGivesTheAgentAStandInForGH(t *testing.T) {
 // TestLaunchWithoutAWeaveBinaryGivesNoStandIn covers a launcher that cannot name weave, whose
 // agent reaches github the way it always did rather than through a stand-in that cannot mint.
 func TestLaunchWithoutAWeaveBinaryGivesNoStandIn(t *testing.T) {
-	h := &fakeHarness{}
-	launcher := NewLauncher(NewLauncherParams{Tmux: newFakeTmux(), CacheDir: t.TempDir()})
+	fakeHarness := &harnesstest.Fake{}
+	launcher := NewLauncher(NewLauncherParams{Tmux: tmuxtest.NewFake(), CacheDir: t.TempDir()})
 
-	require.NoError(t, launcher.launch(h, launchParams{Pane: "pane"}))
+	require.NoError(t, launcher.launch(fakeHarness, launchParams{Pane: "pane"}))
 
-	require.Len(t, h.launches, 1)
-	assert.Empty(t, h.launches[0].ToolsDir)
+	require.Len(t, fakeHarness.Launches, 1)
+	assert.Empty(t, fakeHarness.Launches[0].ToolsDir)
 }

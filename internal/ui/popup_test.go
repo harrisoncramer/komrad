@@ -436,7 +436,7 @@ func TestFocusKeyFollowsTheStagedPane(t *testing.T) {
 }
 
 func FocusKeyModel(binds *bindingTmux) model {
-	m := filterModel()
+	m := newFilterModel()
 	m.popup = NewPopupWindow(binds, "weave")
 	m.settings.Pane = "%3"
 	for i := range m.listing.agents {
@@ -459,7 +459,7 @@ func TestFocusKeyGivenBackByAForm(t *testing.T) {
 	m.holdFocusKey()
 
 	opened := m.openRename(m.listing.agents[0].Agent)
-	m = asModel(t, opened)
+	m = requireModel(t, opened)
 	m.holdFocusKey()
 
 	_, bound := binds.bound["root:C-a"]
@@ -467,7 +467,7 @@ func TestFocusKeyGivenBackByAForm(t *testing.T) {
 	assert.Equal(t, []string{"C-a"}, binds.unbound)
 
 	closed, _ := m.closeForm()
-	m = asModel(t, closed)
+	m = requireModel(t, closed)
 	m.holdFocusKey()
 
 	_, bound = binds.bound["root:C-a"]

@@ -40,19 +40,20 @@ func (LaunchAgentArgs) InsertOpts() river.InsertOpts {
 	}
 }
 
+// NewLaunchAgentWorkerParams is what NewLaunchAgentWorker takes.
+type NewLaunchAgentWorkerParams struct {
+	Schedules ScheduleGetter
+	Runs      RunRecorder
+	Launcher  AgentLauncher
+	Running   RunningAgentCounter
+}
+
 type LaunchAgentWorker struct {
 	river.WorkerDefaults[LaunchAgentArgs]
 	schedules ScheduleGetter
 	runs      RunRecorder
 	agents    AgentLauncher
 	running   RunningAgentCounter
-}
-
-type NewLaunchAgentWorkerParams struct {
-	Schedules ScheduleGetter
-	Runs      RunRecorder
-	Launcher  AgentLauncher
-	Running   RunningAgentCounter
 }
 
 // NewLaunchAgentWorker builds the worker over the schedules it reads and the service that

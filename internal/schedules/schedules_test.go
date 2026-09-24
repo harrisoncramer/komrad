@@ -87,9 +87,9 @@ func TestParseCron(t *testing.T) {
 	}
 }
 
-// TestNextRun covers what the panel renders beside a schedule, including a paused one and
+// TestCalculateNextRun covers what the panel renders beside a schedule, including a paused one and
 // one whose expression stopped parsing.
-func TestNextRun(t *testing.T) {
+func TestCalculateNextRun(t *testing.T) {
 	from := time.Date(2026, time.July, 27, 10, 30, 0, 0, time.UTC)
 
 	tests := []struct {
@@ -224,6 +224,77 @@ func TestNewSchedule(t *testing.T) {
 			require.NotNil(t, created)
 			assert.Equal(t, tt.wantName, created.Name)
 			assert.Equal(t, workflowID, created.WorkflowID, "a schedule always names the workflow it launches into")
+		})
+	}
+}
+
+// TestUpdateSchedule pins what an update writes over the schedule it names.
+func TestUpdateSchedule(t *testing.T) {
+	tests := []struct {
+		name     string
+		cfg      schedulestore.Config
+		wantErr  error
+		wantName string
+		wantCron string
+	}{
+		{
+			name: "an unreadable expression leaves the schedule as it was",
+			cfg: schedulestore.Config{
+				Name:   "renamed",
+				Cron:   "0 99 * * *",
+				Prompt: "go",
+			},
+			wantErr:  ErrBadCron,
+			wantName: "nightly",
+			wantCron: "0 9 * * *",
+		},
+		{
+			name: "a blank name keeps the one it has",
+			cfg: schedulestore.Config{
+				Name:   "  ",
+				Cron:   "0 17 * * 5",
+				Prompt: "weekly",
+			},
+			wantName: "nightly",
+			wantCron: "0 17 * * 5",
+		},
+		{
+			name: "the fields given replace the ones stored",
+			cfg: schedulestore.Config{
+				Name:   "weekly",
+				Cron:   "0 17 * * 5",
+				Prompt: "weekly",
+			},
+			wantName: "weekly",
+			wantCron: "0 17 * * 5",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := storetest.Open(t)
+			ctx := t.Context()
+			svc := NewScheduleService(NewScheduleServiceParams{Schedules: st.Schedules, Workflows: st.Workflows})
+
+			existing := st.SeedSchedule(t, schedulestore.Config{
+				Name:   "nightly",
+				Cron:   "0 9 * * *",
+				Prompt: "go",
+			})
+
+			cfg := tt.cfg
+			cfg.WorkflowID = existing.WorkflowID
+			err := svc.UpdateSchedule(ctx, existing.ID, cfg)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+			} else {
+				require.NoError(t, err)
+			}
+
+			got, err := svc.GetSchedule(ctx, existing.ID)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantName, got.Name)
+			assert.Equal(t, tt.wantCron, got.Cron)
 		})
 	}
 }

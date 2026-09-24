@@ -49,7 +49,9 @@ type shimCase struct {
 func runCase(t *testing.T, tt shimCase) {
 	t.Helper()
 
-	root := t.TempDir()
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	require.NoError(t, err)
+
 	cache := filepath.Join(root, "cache")
 	asked := filepath.Join(root, "asked")
 	saw := filepath.Join(root, "saw")

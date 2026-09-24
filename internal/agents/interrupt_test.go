@@ -5,14 +5,15 @@ import (
 	"testing"
 
 	"weave/internal/harness"
+	"weave/internal/harnesstest"
 	agentstore "weave/internal/store/agent"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// interrupterOver builds an interrupter over the test store.
-func interrupterOver(st *testStore, channel *fakeChannel, observer harness.Observer) *Interrupter {
+// newInterrupter builds an interrupter over the test store.
+func newInterrupter(st *testStore, channel *harnesstest.Channel, observer harness.Observer) *Interrupter {
 	return NewInterrupter(NewInterrupterParams{
 		Agents:   st.Agents,
 		Channel:  channel,
@@ -27,13 +28,13 @@ func TestInterruptLeavesAnAgentAtRestAlone(t *testing.T) {
 	st := newStore(t)
 	agent := seed(t, st, "telescope", "%1", agentstore.StateIdle)
 
-	channel := &fakeChannel{}
-	observer := &settlingObserver{readings: []harness.Activity{harness.ActivityIdle}}
+	channel := &harnesstest.Channel{}
+	observer := harnesstest.NewActivityObserver(harness.ActivityIdle)
 
-	require.NoError(t, interrupterOver(st, channel, observer).Interrupt(t.Context(), agent.ID))
+	require.NoError(t, newInterrupter(st, channel, observer).Interrupt(t.Context(), agent.ID))
 
-	assert.Zero(t, channel.interrupts, "there was no turn to cut")
-	assert.Equal(t, 1, observer.reads, "and the pane was read to find that out")
+	assert.Zero(t, channel.Interrupts, "there was no turn to cut")
+	assert.Equal(t, 1, observer.Reads, "and the pane was read to find that out")
 }
 
 // TestInterruptLeavesADraftAlone is the other half of rest: a person part-way through typing has
@@ -42,12 +43,12 @@ func TestInterruptLeavesADraftAlone(t *testing.T) {
 	st := newStore(t)
 	agent := seed(t, st, "sextant", "%1", agentstore.StateIdle)
 
-	channel := &fakeChannel{}
-	observer := &settlingObserver{readings: []harness.Activity{harness.ActivityComposing}}
+	channel := &harnesstest.Channel{}
+	observer := harnesstest.NewActivityObserver(harness.ActivityComposing)
 
-	require.NoError(t, interrupterOver(st, channel, observer).Interrupt(t.Context(), agent.ID))
+	require.NoError(t, newInterrupter(st, channel, observer).Interrupt(t.Context(), agent.ID))
 
-	assert.Zero(t, channel.interrupts)
+	assert.Zero(t, channel.Interrupts)
 }
 
 // TestInterruptStopsATurnInFlight is the case the keys were ever sent for, a prompt waiting on an
@@ -61,12 +62,12 @@ func TestInterruptStopsATurnInFlight(t *testing.T) {
 			st := newStore(t)
 			agent := seed(t, st, "compass", "%1", agentstore.StateThinking)
 
-			channel := &fakeChannel{}
-			observer := &settlingObserver{readings: []harness.Activity{activity}}
+			channel := &harnesstest.Channel{}
+			observer := harnesstest.NewActivityObserver(activity)
 
-			require.NoError(t, interrupterOver(st, channel, observer).Interrupt(t.Context(), agent.ID))
+			require.NoError(t, newInterrupter(st, channel, observer).Interrupt(t.Context(), agent.ID))
 
-			assert.Equal(t, 1, channel.interrupts)
+			assert.Equal(t, 1, channel.Interrupts)
 		})
 	}
 }
@@ -78,12 +79,12 @@ func TestInterruptLeavesAnUnrecognizedFrameAlone(t *testing.T) {
 	st := newStore(t)
 	agent := seed(t, st, "quadrant", "%1", agentstore.StateThinking)
 
-	channel := &fakeChannel{}
-	observer := &settlingObserver{readings: []harness.Activity{harness.ActivityUnrecognized}}
+	channel := &harnesstest.Channel{}
+	observer := harnesstest.NewActivityObserver(harness.ActivityUnrecognized)
 
-	require.NoError(t, interrupterOver(st, channel, observer).Interrupt(t.Context(), agent.ID))
+	require.NoError(t, newInterrupter(st, channel, observer).Interrupt(t.Context(), agent.ID))
 
-	assert.Zero(t, channel.interrupts)
+	assert.Zero(t, channel.Interrupts)
 }
 
 // TestInterruptStopsAnUnreadablePane is the direction the doubt falls in: a capture that failed
@@ -93,10 +94,10 @@ func TestInterruptStopsAnUnreadablePane(t *testing.T) {
 	st := newStore(t)
 	agent := seed(t, st, "astrolabe", "%1", agentstore.StateThinking)
 
-	channel := &fakeChannel{}
-	observer := &settlingObserver{err: errors.New("no pane")}
+	channel := &harnesstest.Channel{}
+	observer := &harnesstest.Observer{Err: errors.New("no pane")}
 
-	require.NoError(t, interrupterOver(st, channel, observer).Interrupt(t.Context(), agent.ID))
+	require.NoError(t, newInterrupter(st, channel, observer).Interrupt(t.Context(), agent.ID))
 
-	assert.Equal(t, 1, channel.interrupts)
+	assert.Equal(t, 1, channel.Interrupts)
 }

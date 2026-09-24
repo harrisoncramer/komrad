@@ -11,6 +11,7 @@ import (
 	"weave/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestRunDeprovisionLogsOneThatWouldNotStart covers the deprovision that never becomes a process at
@@ -47,13 +48,38 @@ func TestDeprovisionerLogsAWorkflowThatWouldNotRead(t *testing.T) {
 	assert.Equal(t, "/repo/.worktrees/auth", got["weave.script.agent.cwd"])
 }
 
-// TestDeprovisionerSaysNothingAboutAWorkflowThatProvisionsNothing covers the quiet half, where
-// a workflow's agents keep the directory they are given.
-func TestDeprovisionerSaysNothingAboutAWorkflowThatProvisionsNothing(t *testing.T) {
-	ctx, records := loggedContext(t)
+// TestDeprovisionerSaysNothingWhenThereIsNothingToTearDown pins that no teardown is named and
+// nothing is logged.
+func TestDeprovisionerSaysNothingWhenThereIsNothingToTearDown(t *testing.T) {
+	tests := []struct {
+		name       string
+		workflowID func(t *testing.T, st *testStore) string
+	}{
+		{
+			name: "a workflow no row holds",
+			workflowID: func(*testing.T, *testStore) string {
+				return "b9b1a1de-0000-7000-8000-000000000000"
+			},
+		},
+		{
+			name:       "a workflow that makes no worktrees",
+			workflowID: seedWorkflow,
+		},
+	}
 
-	assert.Empty(t, deprovisionerFor(ctx, fakeWorkflowReader{}, agentstore.Agent{ID: "a1", WorkflowID: "wf1"}))
-	assert.Empty(t, records())
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := newStore(t)
+			agent := agentstore.Agent{
+				ID:         "a1",
+				WorkflowID: tt.workflowID(t, st),
+			}
+			ctx, records := loggedContext(t)
+
+			assert.Empty(t, deprovisionerFor(ctx, st.Workflows, agent))
+			assert.Empty(t, records())
+		})
+	}
 }
 
 // TestTheWorktreeToggleIsTheWholeProvisioner pins what a workflow can say about an agent's
@@ -98,18 +124,20 @@ func TestTheWorktreeToggleIsTheWholeProvisioner(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			workflows := fakeWorkflowReader{workflow: &workflowstore.Workflow{
-				ID:       "wf1",
-				Worktree: workflowstore.WorktreeConfig{Enabled: tt.worktree},
-			}}
+			st := newStore(t)
+			config := worktreeConfig(t, "backend")
+			config.Worktree.Enabled = tt.worktree
+			workflow, err := st.Workflows.Create(t.Context(), config)
+			require.NoError(t, err)
+
 			agent := agentstore.Agent{
 				ID:               "a1",
-				WorkflowID:       "wf1",
+				WorkflowID:       workflow.ID,
 				ProvisionEnabled: tt.provision,
 			}
 
-			assert.Equal(t, tt.wantProvision, provisionerFor(t.Context(), workflows, agent))
-			assert.Equal(t, tt.wantDeprovision, deprovisionerFor(t.Context(), workflows, agent))
+			assert.Equal(t, tt.wantProvision, provisionerFor(t.Context(), st.Workflows, agent))
+			assert.Equal(t, tt.wantDeprovision, deprovisionerFor(t.Context(), st.Workflows, agent))
 		})
 	}
 }

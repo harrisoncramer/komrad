@@ -3,351 +3,711 @@ package agent
 import (
 	"context"
 	"testing"
+	"time"
 
-	agentv1weave "weave/proto/gen/agent/v1/agentv1weave"
-
-	"weave/internal/git"
-	"weave/internal/mail"
-
-	"weave/config"
+	"weave/internal/agents"
 	"weave/internal/caller"
+	"weave/internal/mail"
 	"weave/internal/reviews"
-	agentstore "weave/internal/store/agent"
 	reviewstore "weave/internal/store/review"
-	"weave/internal/storetest"
+	"weave/lib/xptr"
 	agentv1 "weave/proto/gen/agent/v1"
+	"weave/proto/gen/agent/v1/agentv1weave"
 
 	"connectrpc.com/connect"
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/testing/protocmp"
 )
 
-// TestListReviewThreadsAnswersTheCallerItHas covers the identity being read off the call rather
-// than assumed.
-func TestListReviewThreadsAnswersTheCallerItHas(t *testing.T) {
-	svc, st, rounds := reviewService(t)
-	worker := st.SeedAgent(t, agentstore.Agent{
-		Name:  "worker",
-		Cwd:   "/repo",
-		State: agentstore.StateIdle,
-	})
+var reviewedAt = time.Date(2026, time.September, 24, 9, 0, 0, 0, time.UTC)
 
-	asHuman := caller.With(t.Context(), caller.Caller{})
-	_, err := svc.OpenReviewRound(asHuman, connect.NewRequest(&agentv1.OpenReviewRoundRequest{
-		AgentId: worker.ID,
-	}))
-	require.NoError(t, err)
-
-	released, err := svc.CreateReviewThread(asHuman, connect.NewRequest(&agentv1.CreateReviewThreadRequest{
-		AgentId:     worker.ID,
-		FilePath:    "greet.go",
-		NewStart:    41,
-		NewEnd:      41,
-		QuotedLines: []string{"+\tgreet(nil)"},
-		Body:        "this needs a nil check",
-	}))
-	require.NoError(t, err)
-
-	_, err = svc.ReleaseReview(asHuman, connect.NewRequest(&agentv1.ReleaseReviewRequest{
-		AgentId: worker.ID,
-		Verdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
-	}))
-	require.NoError(t, err)
-
-	// A second review may only be started once the first is done with.
-	_, err = svc.SetReviewThreadResolved(asHuman, connect.NewRequest(&agentv1.SetReviewThreadResolvedRequest{
-		Id:       released.Msg.GetThread().GetId(),
-		Resolved: true,
-	}))
-	require.NoError(t, err)
-
-	_, err = rounds.CreateRound(asHuman, reviewstore.CreateRoundParams{
-		AgentID:     worker.ID,
-		BaseSHA:     "base-sha",
-		SnapshotSHA: "moved-on",
-	})
-	require.NoError(t, err)
-
-	_, err = svc.CreateReviewThread(asHuman, connect.NewRequest(&agentv1.CreateReviewThreadRequest{
-		AgentId:     worker.ID,
-		FilePath:    "secret.go",
-		NewStart:    7,
-		NewEnd:      7,
-		QuotedLines: []string{"+\tdoThing()"},
-		Body:        "rip this out, I have not decided yet",
-	}))
-	require.NoError(t, err)
-
-	forHuman, err := svc.ListReviewThreads(asHuman, connect.NewRequest(&agentv1.ListReviewThreadsRequest{
-		AgentId: &worker.ID,
-	}))
-	require.NoError(t, err)
-	assert.Len(t, forHuman.Msg.GetThreads(), 2, "the panel reads its own unfinished review back")
-
-	asAgent := caller.With(t.Context(), caller.Caller{AgentID: worker.ID})
-	forAgent, err := svc.ListReviewThreads(asAgent, connect.NewRequest(&agentv1.ListReviewThreadsRequest{}))
-	require.NoError(t, err)
-
-	require.Len(t, forAgent.Msg.GetThreads(), 1)
-	thread := forAgent.Msg.GetThreads()[0]
-	assert.Equal(t, released.Msg.GetThread().GetId(), thread.GetId())
-	assert.NotContains(t, forAgent.Msg.String(), "I have not decided yet")
-	assert.NotContains(t, forAgent.Msg.String(), "secret.go")
-
-	require.Len(t, thread.GetMessages(), 1)
-	message := thread.GetMessages()[0]
-	assert.Equal(t, "this needs a nil check", message.GetBody())
-	assert.Empty(t, message.GetSentAt(), "when the person let the comment go is their own record")
-	assert.Equal(t, agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSPECIFIED, message.GetDelivery())
+// fakeReviewer answers every review call with err or with the rows it holds.
+type fakeReviewer struct {
+	err      error
+	review   reviewstore.Review
+	round    reviewstore.Round
+	thread   reviewstore.Thread
+	message  reviewstore.Message
+	viewed   *reviewstore.ViewedFile
+	listed   []reviews.ListReviewThreadsParams
+	released []reviews.ReleaseReviewParams
 }
 
-// TestGetReviewHandsTheAgentOneReleaseWhole pins that the agent reads a release in one call and
-// sees only what went out with it, cut by the review each message carries.
-func TestGetReviewHandsTheAgentOneReleaseWhole(t *testing.T) {
-	svc, st, _ := reviewService(t)
-	worker := st.SeedAgent(t, agentstore.Agent{
-		Name:  "worker",
-		Cwd:   "/repo",
-		State: agentstore.StateIdle,
-	})
+// TestReviewRefusalsMapToCodes pins the code each refusal of the review service reaches the caller as.
+func TestReviewRefusalsMapToCodes(t *testing.T) {
+	tests := []struct {
+		name     string
+		call     func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) error
+		err      error
+		asNobody bool
+		wantCode connect.Code
+	}{
+		{
+			name: "listing threads with no agent named and no caller identity",
+			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) error {
+				_, err := svc.ListReviewThreads(ctx, connect.NewRequest(&agentv1.ListReviewThreadsRequest{}))
 
-	asHuman := caller.With(t.Context(), caller.Caller{})
-	_, err := svc.OpenReviewRound(asHuman, connect.NewRequest(&agentv1.OpenReviewRoundRequest{
-		AgentId: worker.ID,
-	}))
-	require.NoError(t, err)
-
-	opened, err := svc.CreateReviewThread(asHuman, connect.NewRequest(&agentv1.CreateReviewThreadRequest{
-		AgentId:     worker.ID,
-		FilePath:    "greet.go",
-		NewStart:    41,
-		NewEnd:      41,
-		QuotedLines: []string{"+\tgreet(nil)"},
-		Body:        "this needs a nil check",
-	}))
-	require.NoError(t, err)
-
-	first, err := svc.ReleaseReview(asHuman, connect.NewRequest(&agentv1.ReleaseReviewRequest{
-		AgentId: worker.ID,
-		Verdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
-		Body:    "one thing before it goes",
-	}))
-	require.NoError(t, err)
-
-	asAgent := caller.With(t.Context(), caller.Caller{AgentID: worker.ID})
-	_, err = svc.AddReviewMessage(asAgent, connect.NewRequest(&agentv1.AddReviewMessageRequest{
-		ThreadId: opened.Msg.GetThread().GetId(),
-		Body:     "done",
-	}))
-	require.NoError(t, err)
-
-	_, err = svc.AddReviewMessage(asHuman, connect.NewRequest(&agentv1.AddReviewMessageRequest{
-		ThreadId: opened.Msg.GetThread().GetId(),
-		Body:     "not quite, the other branch too",
-	}))
-	require.NoError(t, err)
-
-	second, err := svc.ReleaseReview(asHuman, connect.NewRequest(&agentv1.ReleaseReviewRequest{
-		AgentId: worker.ID,
-		Verdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
-	}))
-	require.NoError(t, err)
-
-	whole, err := svc.GetReview(asAgent, connect.NewRequest(&agentv1.GetReviewRequest{
-		ReviewId: first.Msg.GetReview().GetId(),
-	}))
-	require.NoError(t, err)
-
-	assert.Equal(t, agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED, whole.Msg.GetReview().GetVerdict())
-	assert.Equal(t, "one thing before it goes", whole.Msg.GetReview().GetBody())
-	assert.Empty(t, whole.Msg.GetReview().GetPath(), "the agent is not told where the file is")
-	assert.Equal(t, int32(1), whole.Msg.GetRound().GetOrdinal())
-
-	require.Len(t, whole.Msg.GetThreads(), 1)
-	thread := whole.Msg.GetThreads()[0].GetThread()
-	assert.Equal(t, opened.Msg.GetThread().GetId(), thread.GetId())
-	assert.Equal(t, "greet.go", thread.GetFilePath())
-	require.Len(t, thread.GetMessages(), 1, "the agent's answer and the second release belong elsewhere")
-	assert.Equal(t, "this needs a nil check", thread.GetMessages()[0].GetBody())
-	assert.Equal(t, first.Msg.GetReview().GetId(), thread.GetMessages()[0].GetReviewId())
-
-	again, err := svc.GetReview(asAgent, connect.NewRequest(&agentv1.GetReviewRequest{
-		ReviewId: second.Msg.GetReview().GetId(),
-	}))
-	require.NoError(t, err)
-	require.Len(t, again.Msg.GetThreads(), 1)
-	require.Len(t, again.Msg.GetThreads()[0].GetThread().GetMessages(), 1)
-	assert.Equal(t, "not quite, the other branch too", again.Msg.GetThreads()[0].GetThread().GetMessages()[0].GetBody())
-
-	threads, err := svc.ListReviewThreads(asAgent, connect.NewRequest(&agentv1.ListReviewThreadsRequest{}))
-	require.NoError(t, err)
-	require.Len(t, threads.Msg.GetThreads(), 1)
-	require.Len(t, threads.Msg.GetThreads()[0].GetMessages(), 3)
-	assert.Nil(t, threads.Msg.GetThreads()[0].GetMessages()[1].ReviewId, "an answer belongs to no batch")
-}
-
-func reviewService(t *testing.T) (agentv1weave.AgentServiceAdapter, *storetest.Stores, *reviewstore.ReviewStore) {
-	t.Helper()
-
-	st := storetest.Open(t)
-	rounds := reviewstore.NewReviewStore(st.Pool.GetDB())
-	mailer := mail.NewMailService(mail.NewMailServiceParams{
-		MailReadWriter: st.Mail,
-		Agents:         st.Agents,
-		Config:         fakeMailConfig(config.DefaultMaxExchange),
-	})
-	review := reviews.NewReviewService(reviews.NewReviewServiceParams{
-		Threads:   rounds,
-		Messages:  rounds,
-		Viewed:    rounds,
-		Rounds:    rounds,
-		Reviews:   rounds,
-		Snapshots: fakeSnapshotter{},
-		Workflows: st.Workflows,
-		StateDir:  t.TempDir(),
-		Agents:    st.Agents,
-		Mailer:    mailer,
-	})
-
-	liveness := &fakeLauncher{}
-
-	return agentv1weave.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{
-		Agents: st.Agents,
-		Rows:   st.Rows,
-		Mail:   mailer,
-		Review: review,
-		Marks:  markService(st),
-		Watched: WatchedListers{
-			Marks:        st.Marks,
-			Mail:         st.Mail,
-			PullRequests: st.PullRequests,
-			Repositories: st.PullRequestSyncs,
-			Reviews:      rounds,
-			Workflows:    st.Workflows,
+				return err
+			},
+			asNobody: true,
+			wantCode: connect.CodeInvalidArgument,
 		},
-		Liveness: liveness,
-	})}, st, rounds
-}
+		{
+			name: "listing the threads of an agent that does not exist",
+			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) error {
+				_, err := svc.ListReviewThreads(ctx, connect.NewRequest(&agentv1.ListReviewThreadsRequest{}))
 
-// fakeSnapshotter stands in for git, these tests being about who the handler thinks is calling
-// rather than about what a worktree holds.
-type fakeSnapshotter struct{}
+				return err
+			},
+			err:      agents.ErrAgentNotFound,
+			wantCode: connect.CodeNotFound,
+		},
+		{
+			name: "a comment read from a snapshot weave never froze",
+			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) error {
+				_, err := svc.CreateReviewThread(ctx, connect.NewRequest(&agentv1.CreateReviewThreadRequest{AgentId: betaID}))
 
-func (fakeSnapshotter) TakeSnapshot(context.Context, git.TakeSnapshotParams) (*git.Snapshot, error) {
-	return &git.Snapshot{BaseSHA: "base-sha", SHA: "snapshot-sha"}, nil
-}
+				return err
+			},
+			err:      reviews.ErrReviewNotCurrent,
+			wantCode: connect.CodeFailedPrecondition,
+		},
+		{
+			name: "a second review before the first was answered",
+			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) error {
+				_, err := svc.CreateReviewThread(ctx, connect.NewRequest(&agentv1.CreateReviewThreadRequest{AgentId: betaID}))
 
-func (fakeSnapshotter) HoldRef(context.Context, string, string, string) error { return nil }
+				return err
+			},
+			err:      reviews.ErrReviewNotAnswered,
+			wantCode: connect.CodeFailedPrecondition,
+		},
+		{
+			name: "a reply in a thread nothing holds",
+			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) error {
+				_, err := svc.AddReviewMessage(ctx, connect.NewRequest(&agentv1.AddReviewMessageRequest{ThreadId: betaID}))
 
-func (fakeSnapshotter) ReleaseRef(context.Context, string, string) error { return nil }
+				return err
+			},
+			err:      reviews.ErrReviewThreadNotFound,
+			wantCode: connect.CodeNotFound,
+		},
+		{
+			name: "rewriting somebody else's words",
+			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) error {
+				_, err := svc.EditReviewMessage(ctx, connect.NewRequest(&agentv1.EditReviewMessageRequest{Id: betaID}))
 
-func (fakeSnapshotter) ReadFileLines(context.Context, string, string, string) ([]string, error) {
-	return nil, nil
-}
+				return err
+			},
+			err:      reviews.ErrReviewNotYours,
+			wantCode: connect.CodePermissionDenied,
+		},
+		{
+			name: "an agent marking a thread read",
+			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) error {
+				_, err := svc.MarkReviewThreadRead(ctx, connect.NewRequest(&agentv1.MarkReviewThreadReadRequest{Id: betaID}))
 
-// TestListedAgentsCarryWhereTheirTreeStands pins that the standing the cwd pass wrote against
-// the round of the last verdict rides the row.
-func TestListedAgentsCarryWhereTheirTreeStands(t *testing.T) {
-	svc, st, _ := reviewService(t)
-	worker := st.SeedAgent(t, agentstore.Agent{
-		Name:  "worker",
-		Cwd:   "/repo",
-		State: agentstore.StateIdle,
-	})
-	reviewer := st.SeedAgent(t, agentstore.Agent{
-		Name:          "reviewer",
-		Cwd:           "/repo",
-		State:         agentstore.StateIdle,
-		Role:          agentstore.RoleReviewer,
-		ParentAgentID: &worker.ID,
-	})
-	require.NoError(t, st.Agents.SetTreeStanding(t.Context(), worker.ID, git.StandingLandedMoved, "snapshot-sha"))
+				return err
+			},
+			err:      reviews.ErrReviewHumanOnly,
+			wantCode: connect.CodePermissionDenied,
+		},
+		{
+			name: "settling a comment on the caller's own work",
+			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) error {
+				_, err := svc.SetReviewThreadResolved(ctx, connect.NewRequest(&agentv1.SetReviewThreadResolvedRequest{Id: betaID}))
 
-	asReviewer := caller.With(t.Context(), caller.Caller{AgentID: reviewer.ID})
-	_, err := svc.OpenReviewRound(asReviewer, connect.NewRequest(&agentv1.OpenReviewRoundRequest{
-		AgentId: worker.ID,
-	}))
-	require.NoError(t, err)
+				return err
+			},
+			err:      reviews.ErrReviewNotYours,
+			wantCode: connect.CodePermissionDenied,
+		},
+		{
+			name: "a round of an agent with no directory",
+			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) error {
+				_, err := svc.OpenReviewRound(ctx, connect.NewRequest(&agentv1.OpenReviewRoundRequest{AgentId: betaID}))
 
-	standing := func() agentv1.ReviewTreeStanding {
-		listed, err := svc.ListAgents(t.Context(), connect.NewRequest(&agentv1.ListAgentsRequest{}))
-		require.NoError(t, err)
+				return err
+			},
+			err:      reviews.ErrReviewNoRound,
+			wantCode: connect.CodeFailedPrecondition,
+		},
+		{
+			name: "the rounds of an agent the caller is not reviewing",
+			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) error {
+				_, err := svc.ListReviewRounds(ctx, connect.NewRequest(&agentv1.ListReviewRoundsRequest{AgentId: betaID}))
 
-		for _, row := range listed.Msg.GetAgents() {
-			if agent := row.GetAgent(); agent.GetName() == "worker" {
-				return row.GetLocalReviewTree()
+				return err
+			},
+			err:      reviews.ErrReviewNotEntitled,
+			wantCode: connect.CodePermissionDenied,
+		},
+		{
+			name: "the reviews of an agent the caller is not reviewing",
+			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) error {
+				_, err := svc.ListReviews(ctx, connect.NewRequest(&agentv1.ListReviewsRequest{AgentId: betaID}))
+
+				return err
+			},
+			err:      reviews.ErrReviewNotEntitled,
+			wantCode: connect.CodePermissionDenied,
+		},
+		{
+			name: "a review nothing holds",
+			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) error {
+				_, err := svc.GetReview(ctx, connect.NewRequest(&agentv1.GetReviewRequest{ReviewId: betaID}))
+
+				return err
+			},
+			err:      reviews.ErrReviewNotFound,
+			wantCode: connect.CodeNotFound,
+		},
+		{
+			name: "releasing notes with nothing in them",
+			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) error {
+				_, err := svc.ReleaseReview(ctx, connect.NewRequest(&agentv1.ReleaseReviewRequest{AgentId: betaID}))
+
+				return err
+			},
+			err:      reviews.ErrReviewEmpty,
+			wantCode: connect.CodeFailedPrecondition,
+		},
+		{
+			name: "releasing to an agent whose mailbox is full",
+			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) error {
+				_, err := svc.ReleaseReview(ctx, connect.NewRequest(&agentv1.ReleaseReviewRequest{AgentId: betaID}))
+
+				return err
+			},
+			err:      mail.ErrMailboxFull,
+			wantCode: connect.CodeResourceExhausted,
+		},
+		{
+			name: "an agent marking a file viewed",
+			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) error {
+				_, err := svc.SetReviewFileViewed(ctx, connect.NewRequest(&agentv1.SetReviewFileViewedRequest{AgentId: betaID}))
+
+				return err
+			},
+			err:      reviews.ErrReviewHumanOnly,
+			wantCode: connect.CodePermissionDenied,
+		},
+		{
+			name: "an agent listing the files viewed",
+			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) error {
+				_, err := svc.ListReviewViewedFiles(ctx, connect.NewRequest(&agentv1.ListReviewViewedFilesRequest{AgentId: betaID}))
+
+				return err
+			},
+			err:      reviews.ErrReviewHumanOnly,
+			wantCode: connect.CodePermissionDenied,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := newReviewHandler(&fakeReviewer{err: tt.err})
+
+			ctx := t.Context()
+			if !tt.asNobody {
+				ctx = caller.With(ctx, caller.Caller{AgentID: alphaID})
 			}
-		}
 
-		return agentv1.ReviewTreeStanding_REVIEW_TREE_STANDING_UNSPECIFIED
+			err := tt.call(ctx, svc)
+			assert.Equal(t, tt.wantCode, connect.CodeOf(err))
+			if tt.err != nil {
+				require.ErrorIs(t, err, tt.err)
+			}
+		})
 	}
-
-	assert.Equal(t, agentv1.ReviewTreeStanding_REVIEW_TREE_STANDING_UNSPECIFIED, standing(),
-		"a round nobody has concluded on is nothing to stand against")
-
-	_, err = svc.ReleaseReview(asReviewer, connect.NewRequest(&agentv1.ReleaseReviewRequest{
-		AgentId: worker.ID,
-		Verdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED,
-	}))
-	require.NoError(t, err)
-
-	assert.Equal(t, agentv1.ReviewTreeStanding_REVIEW_TREE_STANDING_LANDED_MOVED, standing())
 }
 
-// TestListedAgentsCarryTheirReviewRounds is the wiring the panel draws its loop mark from: a
-// released review is counted against the agent whose work it was given on, and a review still
-// being written is counted against nobody.
-func TestListedAgentsCarryTheirReviewRounds(t *testing.T) {
-	svc, st, _ := reviewService(t)
-	worker := st.SeedAgent(t, agentstore.Agent{
-		Name:  "worker",
-		Cwd:   "/repo",
-		State: agentstore.StateIdle,
-	})
-	reviewer := st.SeedAgent(t, agentstore.Agent{
-		Name:          "reviewer",
-		Cwd:           "/repo",
-		State:         agentstore.StateIdle,
-		Role:          agentstore.RoleReviewer,
-		ParentAgentID: &worker.ID,
-	})
+// TestReviewCallsAnswerWhatTheServiceDid pins that each call answers with the row the service handed back.
+func TestReviewCallsAnswerWhatTheServiceDid(t *testing.T) {
+	tests := []struct {
+		name   string
+		call   func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) (string, error)
+		wantID string
+	}{
+		{
+			name: "opening a thread",
+			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) (string, error) {
+				got, err := svc.CreateReviewThread(ctx, connect.NewRequest(&agentv1.CreateReviewThreadRequest{AgentId: betaID}))
+				if err != nil {
+					return "", err
+				}
 
-	asReviewer := caller.With(t.Context(), caller.Caller{AgentID: reviewer.ID})
-	_, err := svc.OpenReviewRound(asReviewer, connect.NewRequest(&agentv1.OpenReviewRoundRequest{
-		AgentId: worker.ID,
-	}))
-	require.NoError(t, err)
+				return got.Msg.GetThread().GetId(), nil
+			},
+			wantID: "thread-1",
+		},
+		{
+			name: "replying in a thread",
+			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) (string, error) {
+				got, err := svc.AddReviewMessage(ctx, connect.NewRequest(&agentv1.AddReviewMessageRequest{ThreadId: "thread-1"}))
+				if err != nil {
+					return "", err
+				}
 
-	_, err = svc.CreateReviewThread(asReviewer, connect.NewRequest(&agentv1.CreateReviewThreadRequest{
-		AgentId:     worker.ID,
-		FilePath:    "greet.go",
-		NewStart:    41,
-		NewEnd:      41,
-		QuotedLines: []string{"+\tgreet(nil)"},
-		Body:        "this needs a nil check",
-	}))
-	require.NoError(t, err)
+				return got.Msg.GetMessage().GetId(), nil
+			},
+			wantID: "message-1",
+		},
+		{
+			name: "rewriting a message",
+			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) (string, error) {
+				got, err := svc.EditReviewMessage(ctx, connect.NewRequest(&agentv1.EditReviewMessageRequest{Id: "message-1"}))
+				if err != nil {
+					return "", err
+				}
 
-	counts := func() map[string]int32 {
-		listed, err := svc.ListAgents(t.Context(), connect.NewRequest(&agentv1.ListAgentsRequest{}))
-		require.NoError(t, err)
+				return got.Msg.GetMessage().GetId(), nil
+			},
+			wantID: "message-1",
+		},
+		{
+			name: "marking a thread read",
+			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) (string, error) {
+				got, err := svc.MarkReviewThreadRead(ctx, connect.NewRequest(&agentv1.MarkReviewThreadReadRequest{Id: "thread-1"}))
+				if err != nil {
+					return "", err
+				}
 
-		rounds := make(map[string]int32, len(listed.Msg.GetAgents()))
-		for _, row := range listed.Msg.GetAgents() {
-			rounds[row.GetAgent().GetName()] = row.GetLocalReviewRounds()
-		}
+				return got.Msg.GetThread().GetId(), nil
+			},
+			wantID: "thread-1",
+		},
+		{
+			name: "settling a thread",
+			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) (string, error) {
+				got, err := svc.SetReviewThreadResolved(ctx, connect.NewRequest(&agentv1.SetReviewThreadResolvedRequest{Id: "thread-1"}))
+				if err != nil {
+					return "", err
+				}
 
-		return rounds
+				return got.Msg.GetThread().GetId(), nil
+			},
+			wantID: "thread-1",
+		},
+		{
+			name: "opening a round",
+			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) (string, error) {
+				got, err := svc.OpenReviewRound(ctx, connect.NewRequest(&agentv1.OpenReviewRoundRequest{AgentId: betaID}))
+				if err != nil {
+					return "", err
+				}
+
+				return got.Msg.GetRound().GetId(), nil
+			},
+			wantID: "round-1",
+		},
+		{
+			name: "listing the rounds",
+			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) (string, error) {
+				got, err := svc.ListReviewRounds(ctx, connect.NewRequest(&agentv1.ListReviewRoundsRequest{AgentId: betaID}))
+				if err != nil {
+					return "", err
+				}
+
+				if len(got.Msg.GetRounds()) == 0 {
+					return "", nil
+				}
+
+				return got.Msg.GetRounds()[0].GetId(), nil
+			},
+			wantID: "round-1",
+		},
+		{
+			name: "listing the reviews",
+			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) (string, error) {
+				got, err := svc.ListReviews(ctx, connect.NewRequest(&agentv1.ListReviewsRequest{AgentId: betaID}))
+				if err != nil {
+					return "", err
+				}
+
+				if len(got.Msg.GetReviews()) == 0 {
+					return "", nil
+				}
+
+				return got.Msg.GetReviews()[0].GetId(), nil
+			},
+			wantID: "review-1",
+		},
 	}
 
-	assert.Zero(t, counts()["worker"], "a review nobody has released is nothing yet")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := newReviewHandler(&fakeReviewer{
+				review:  reviewstore.Review{ID: "review-1"},
+				round:   reviewstore.Round{ID: "round-1"},
+				thread:  reviewstore.Thread{ID: "thread-1"},
+				message: reviewstore.Message{ID: "message-1"},
+			})
 
-	_, err = svc.ReleaseReview(asReviewer, connect.NewRequest(&agentv1.ReleaseReviewRequest{
-		AgentId: worker.ID,
-		Verdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
+			id, err := tt.call(t.Context(), svc)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantID, id)
+		})
+	}
+}
+
+// TestListReviewThreadsNamesTheCaller pins whose review a listing reads and as whom.
+func TestListReviewThreadsNamesTheCaller(t *testing.T) {
+	tests := []struct {
+		name       string
+		callerID   string
+		agentID    *string
+		wantListed reviews.ListReviewThreadsParams
+	}{
+		{
+			name:     "an agent naming nobody reads its own",
+			callerID: alphaID,
+			wantListed: reviews.ListReviewThreadsParams{
+				AgentID: alphaID,
+				Author: reviews.ReviewAuthor{
+					Kind:    reviewstore.AuthorAgent,
+					AgentID: xptr.Ptr(alphaID),
+				},
+			},
+		},
+		{
+			name:     "an agent reading another's",
+			callerID: alphaID,
+			agentID:  xptr.Ptr(betaID),
+			wantListed: reviews.ListReviewThreadsParams{
+				AgentID: betaID,
+				Author: reviews.ReviewAuthor{
+					Kind:    reviewstore.AuthorAgent,
+					AgentID: xptr.Ptr(alphaID),
+				},
+			},
+		},
+		{
+			name:    "the panel reads as the person",
+			agentID: xptr.Ptr(betaID),
+			wantListed: reviews.ListReviewThreadsParams{
+				AgentID: betaID,
+				Author:  reviews.ReviewAuthor{Kind: reviewstore.AuthorHuman},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reviewer := &fakeReviewer{}
+			svc := newReviewHandler(reviewer)
+
+			ctx := t.Context()
+			if tt.callerID != "" {
+				ctx = caller.With(ctx, caller.Caller{AgentID: tt.callerID})
+			}
+
+			_, err := svc.ListReviewThreads(ctx, connect.NewRequest(&agentv1.ListReviewThreadsRequest{AgentId: tt.agentID}))
+			require.NoError(t, err)
+			assert.Equal(t, []reviews.ListReviewThreadsParams{tt.wantListed}, reviewer.listed)
+		})
+	}
+}
+
+// TestReleaseReviewPassesTheVerdict pins which verdict each wire value is released as.
+func TestReleaseReviewPassesTheVerdict(t *testing.T) {
+	tests := []struct {
+		name        string
+		verdict     agentv1.ReviewVerdict
+		wantVerdict reviewstore.Verdict
+	}{
+		{
+			name:        "no verdict at all is a comment",
+			verdict:     agentv1.ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED,
+			wantVerdict: reviewstore.VerdictCommented,
+		},
+		{
+			name:        "a comment",
+			verdict:     agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED,
+			wantVerdict: reviewstore.VerdictCommented,
+		},
+		{
+			name:        "changes requested",
+			verdict:     agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
+			wantVerdict: reviewstore.VerdictChangesRequested,
+		},
+		{
+			name:        "an approval",
+			verdict:     agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED,
+			wantVerdict: reviewstore.VerdictApproved,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reviewer := &fakeReviewer{}
+			svc := newReviewHandler(reviewer)
+
+			_, err := svc.ReleaseReview(t.Context(), connect.NewRequest(&agentv1.ReleaseReviewRequest{
+				AgentId:   betaID,
+				Verdict:   tt.verdict,
+				Body:      "two things before it goes",
+				Interrupt: true,
+			}))
+			require.NoError(t, err)
+
+			assert.Equal(t, []reviews.ReleaseReviewParams{{
+				AgentID:   betaID,
+				Verdict:   tt.wantVerdict,
+				Body:      "two things before it goes",
+				Interrupt: true,
+				Author:    reviews.ReviewAuthor{Kind: reviewstore.AuthorHuman},
+			}}, reviewer.released)
+		})
+	}
+}
+
+// TestGetReviewRendersTheReview pins what a review read whole looks like on the wire.
+func TestGetReviewRendersTheReview(t *testing.T) {
+	reviewer := &fakeReviewer{
+		review: reviewstore.Review{
+			ID:            "review-1",
+			AgentID:       betaID,
+			RoundID:       "round-1",
+			RoundOrdinal:  1,
+			AuthorKind:    reviewstore.AuthorAgent,
+			AuthorAgentID: xptr.Ptr(alphaID),
+			Verdict:       xptr.Ptr(reviewstore.VerdictChangesRequested),
+			ReleasedAt:    &reviewedAt,
+			DeliveredAt:   &reviewedAt,
+			Body:          "two things before it goes",
+			OpenThreads:   1,
+			CreatedAt:     reviewedAt,
+			UpdatedAt:     reviewedAt,
+		},
+		round: reviewstore.Round{
+			ID:          "round-1",
+			AgentID:     betaID,
+			Ordinal:     1,
+			BaseSHA:     "base-sha",
+			SnapshotSHA: "snapshot-sha",
+			CreatedAt:   reviewedAt,
+		},
+		thread: reviewstore.Thread{
+			ID:       "thread-1",
+			AgentID:  betaID,
+			FilePath: "greet.go",
+		},
+	}
+	svc := newReviewHandler(reviewer)
+
+	got, err := svc.GetReview(caller.With(t.Context(), caller.Caller{AgentID: betaID}), connect.NewRequest(&agentv1.GetReviewRequest{
+		ReviewId: "review-1",
 	}))
 	require.NoError(t, err)
 
-	assert.Equal(t, int32(1), counts()["worker"])
-	assert.Zero(t, counts()["reviewer"], "the reviewer holds no diff of its own to have gone round")
+	assert.Empty(t, cmp.Diff(&agentv1.GetReviewResponse{
+		Review: &agentv1.Review{
+			Id:            "review-1",
+			AgentId:       betaID,
+			RoundId:       "round-1",
+			RoundOrdinal:  1,
+			AuthorKind:    agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT,
+			AuthorAgentId: xptr.Ptr(alphaID),
+			Verdict:       agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
+			Body:          "two things before it goes",
+			OpenThreads:   1,
+			ReleasedAt:    "2026-09-24T09:00:00Z",
+			DeliveredAt:   "2026-09-24T09:00:00Z",
+			CreatedAt:     "2026-09-24T09:00:00Z",
+			UpdatedAt:     "2026-09-24T09:00:00Z",
+		},
+		Round: &agentv1.ReviewRound{
+			Id:          "round-1",
+			AgentId:     betaID,
+			Ordinal:     1,
+			BaseSha:     "base-sha",
+			SnapshotSha: "snapshot-sha",
+			CreatedAt:   "2026-09-24T09:00:00Z",
+		},
+		Threads: []*agentv1.ReviewThreadInContext{{
+			Thread: &agentv1.ReviewThread{
+				Id:       "thread-1",
+				AgentId:  betaID,
+				FilePath: "greet.go",
+			},
+			Context: []string{">> 1  package greet"},
+		}},
+	}, got.Msg, protocmp.Transform()))
+}
+
+// TestSetReviewFileViewedRendersTheMark pins that a mark taken back answers with no file.
+func TestSetReviewFileViewedRendersTheMark(t *testing.T) {
+	tests := []struct {
+		name       string
+		viewed     *reviewstore.ViewedFile
+		wantViewed *agentv1.ReviewViewedFile
+	}{
+		{
+			name: "a mark taken back",
+		},
+		{
+			name: "a file marked read",
+			viewed: &reviewstore.ViewedFile{
+				AgentID:     betaID,
+				FilePath:    "greet.go",
+				Fingerprint: "abc123",
+				ViewedAt:    reviewedAt,
+			},
+			wantViewed: &agentv1.ReviewViewedFile{
+				AgentId:     betaID,
+				FilePath:    "greet.go",
+				Fingerprint: "abc123",
+				ViewedAt:    "2026-09-24T09:00:00Z",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := newReviewHandler(&fakeReviewer{viewed: tt.viewed})
+
+			got, err := svc.SetReviewFileViewed(t.Context(), connect.NewRequest(&agentv1.SetReviewFileViewedRequest{
+				AgentId:  betaID,
+				FilePath: "greet.go",
+				Viewed:   tt.viewed != nil,
+			}))
+			require.NoError(t, err)
+			assert.Empty(t, cmp.Diff(tt.wantViewed, got.Msg.GetViewed(), protocmp.Transform()))
+		})
+	}
+}
+
+func newReviewHandler(reviewer *fakeReviewer) agentv1weave.AgentServiceAdapter {
+	return agentv1weave.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{
+		Review: reviewer,
+	})}
+}
+
+// ListReviewThreads records the listing and answers the thread it holds.
+func (f *fakeReviewer) ListReviewThreads(_ context.Context, params reviews.ListReviewThreadsParams) ([]reviews.ReviewThreadWithMessages, error) {
+	f.listed = append(f.listed, params)
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return []reviews.ReviewThreadWithMessages{{Thread: f.thread}}, nil
+}
+
+// CreateReviewThread answers the thread it holds.
+func (f *fakeReviewer) CreateReviewThread(context.Context, reviews.CreateReviewThreadParams) (*reviews.ReviewThreadWithMessages, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return &reviews.ReviewThreadWithMessages{Thread: f.thread}, nil
+}
+
+// AddReviewMessage answers the message it holds.
+func (f *fakeReviewer) AddReviewMessage(context.Context, reviews.AddReviewMessageParams) (*reviewstore.Message, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return &f.message, nil
+}
+
+// EditReviewMessage answers the message it holds.
+func (f *fakeReviewer) EditReviewMessage(context.Context, reviews.EditReviewMessageParams) (*reviewstore.Message, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return &f.message, nil
+}
+
+// MarkReviewThreadRead answers the thread it holds.
+func (f *fakeReviewer) MarkReviewThreadRead(context.Context, reviews.MarkReviewThreadReadParams) (*reviewstore.Thread, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return &f.thread, nil
+}
+
+// SetReviewThreadResolved answers the thread it holds.
+func (f *fakeReviewer) SetReviewThreadResolved(context.Context, reviews.SetReviewThreadResolvedParams) (*reviewstore.Thread, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return &f.thread, nil
+}
+
+// OpenRound answers the round it holds.
+func (f *fakeReviewer) OpenRound(context.Context, string, reviews.ReviewAuthor) (*reviewstore.Round, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return &f.round, nil
+}
+
+// ListRounds answers the round it holds.
+func (f *fakeReviewer) ListRounds(context.Context, string, reviews.ReviewAuthor) ([]reviewstore.Round, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return []reviewstore.Round{f.round}, nil
+}
+
+// ListReviews answers the review it holds.
+func (f *fakeReviewer) ListReviews(context.Context, string, reviews.ReviewAuthor) ([]reviewstore.Review, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return []reviewstore.Review{f.review}, nil
+}
+
+// GetReview answers the review, round and thread it holds, the thread drawn over one line of code.
+func (f *fakeReviewer) GetReview(context.Context, string, reviews.ReviewAuthor) (*reviews.ReviewInFull, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return &reviews.ReviewInFull{
+		Review: f.review,
+		Round:  f.round,
+		Threads: []reviews.ReviewThreadInContext{{
+			Thread:  f.thread,
+			Context: []string{">> 1  package greet"},
+		}},
+	}, nil
+}
+
+// ReleaseReview records the release and answers the review it holds.
+func (f *fakeReviewer) ReleaseReview(_ context.Context, params reviews.ReleaseReviewParams) (*reviews.ReleaseReviewResult, error) {
+	f.released = append(f.released, params)
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return &reviews.ReleaseReviewResult{Review: f.review}, nil
+}
+
+// SetReviewFileViewed answers the mark it holds.
+func (f *fakeReviewer) SetReviewFileViewed(context.Context, reviews.SetReviewFileViewedParams) (*reviewstore.ViewedFile, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return f.viewed, nil
+}
+
+// ListReviewViewedFiles answers nothing viewed.
+func (f *fakeReviewer) ListReviewViewedFiles(context.Context, reviews.ListReviewViewedFilesParams) ([]reviewstore.ViewedFile, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return nil, nil
 }

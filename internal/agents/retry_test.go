@@ -5,9 +5,11 @@ import (
 	"testing"
 
 	"weave/internal/harness"
+	"weave/internal/harnesstest"
 	agentstore "weave/internal/store/agent"
 	reviewstore "weave/internal/store/review"
 	workflowstore "weave/internal/store/workflow"
+	"weave/internal/tmuxtest"
 
 	"github.com/google/uuid"
 
@@ -17,8 +19,8 @@ import (
 
 // TestRetryCreateRelaunches covers a failed launch being put back into a pane.
 func TestRetryCreateRelaunches(t *testing.T) {
-	tmux := newFakeTmux()
-	tmux.respawnErr = errors.New("bad flags")
+	tmux := tmuxtest.NewFake()
+	tmux.RespawnErr = errors.New("bad flags")
 	st := newStore(t)
 	manager := newManager(tmux, st, "")
 
@@ -38,7 +40,7 @@ func TestRetryCreateRelaunches(t *testing.T) {
 	require.Len(t, agents, 1)
 	assert.Equal(t, agentstore.StateFailedToCreate, agents[0].State)
 
-	tmux.respawnErr = nil
+	tmux.RespawnErr = nil
 
 	retried, err := manager.launch.RetryCreate(t.Context(), RetryCreateParams{
 		ID:    agents[0].ID,
@@ -51,12 +53,12 @@ func TestRetryCreateRelaunches(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, agents[0].ID, got.ID, "the same row is reused")
 	assert.Equal(t, "--good-flag", got.Flags, "flags were replaced")
-	assert.NotEmpty(t, tmux.respawned, "the agent was launched into a pane")
+	assert.NotEmpty(t, tmux.Respawned, "the agent was launched into a pane")
 }
 
 // TestRetryCreateRefusesNonFailedAgent covers an agent that never failed to create.
 func TestRetryCreateRefusesNonFailedAgent(t *testing.T) {
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	manager := newManager(tmux, st, "")
 
@@ -76,8 +78,8 @@ func TestRetryCreateRefusesNonFailedAgent(t *testing.T) {
 
 // TestRetryCreateKeepsOriginalFlagsWhenNoneGiven covers a retry that names no flags of its own.
 func TestRetryCreateKeepsOriginalFlagsWhenNoneGiven(t *testing.T) {
-	tmux := newFakeTmux()
-	tmux.respawnErr = errors.New("boom")
+	tmux := tmuxtest.NewFake()
+	tmux.RespawnErr = errors.New("boom")
 	st := newStore(t)
 	manager := newManager(tmux, st, "")
 
@@ -96,7 +98,7 @@ func TestRetryCreateKeepsOriginalFlagsWhenNoneGiven(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, agents, 1)
 
-	tmux.respawnErr = nil
+	tmux.RespawnErr = nil
 
 	retried, err := manager.launch.RetryCreate(t.Context(), RetryCreateParams{
 		ID: agents[0].ID,
@@ -110,8 +112,8 @@ func TestRetryCreateKeepsOriginalFlagsWhenNoneGiven(t *testing.T) {
 
 // TestRetryCreateFailsAgainOnBadLaunch covers a retry whose launch fails the same way.
 func TestRetryCreateFailsAgainOnBadLaunch(t *testing.T) {
-	tmux := newFakeTmux()
-	tmux.respawnErr = errors.New("still broken")
+	tmux := tmuxtest.NewFake()
+	tmux.RespawnErr = errors.New("still broken")
 	st := newStore(t)
 	manager := newManager(tmux, st, "")
 
@@ -140,8 +142,8 @@ func TestRetryCreateFailsAgainOnBadLaunch(t *testing.T) {
 
 // TestRetryCreateOntoAnotherHarness covers a retry that corrects the CLI the agent runs.
 func TestRetryCreateOntoAnotherHarness(t *testing.T) {
-	tmux := newFakeTmux()
-	tmux.respawnErr = errors.New("claude is not installed")
+	tmux := tmuxtest.NewFake()
+	tmux.RespawnErr = errors.New("claude is not installed")
 	st := newStore(t)
 
 	launch := NewLaunchService(NewLaunchServiceParams{
@@ -151,11 +153,11 @@ func TestRetryCreateOntoAnotherHarness(t *testing.T) {
 		Workflows:          st.Workflows,
 		Tx:                 st.Pool,
 		Launcher:           NewLauncher(NewLauncherParams{Tmux: tmux}),
-		Harnesses:          fakeHarnesses{harness: &fakeHarness{}},
-		UserDefaultHarness: testHarnessID,
+		Harnesses:          harnesstest.Registry{Harness: &harnesstest.Fake{}},
+		UserDefaultHarness: harnesstest.FakeID,
 		UserDefaultFlags: map[string]string{
-			testHarnessID: "--dangerously-skip-permissions",
-			"codex":       "--sandbox danger-full-access",
+			harnesstest.FakeID: "--dangerously-skip-permissions",
+			"codex":            "--sandbox danger-full-access",
 		},
 	})
 
@@ -169,10 +171,10 @@ func TestRetryCreateOntoAnotherHarness(t *testing.T) {
 
 	failed, err := st.Get(t.Context(), "doomed")
 	require.NoError(t, err)
-	require.Equal(t, testHarnessID, failed.Harness)
+	require.Equal(t, harnesstest.FakeID, failed.Harness)
 	require.Equal(t, "--dangerously-skip-permissions", failed.Flags)
 
-	tmux.respawnErr = nil
+	tmux.RespawnErr = nil
 
 	retried, err := launch.RetryCreate(t.Context(), RetryCreateParams{
 		ID:      failed.ID,
@@ -190,8 +192,8 @@ func TestRetryCreateOntoAnotherHarness(t *testing.T) {
 // TestRetryCreateOntoAnotherHarnessDropsWorkflowFlags covers a retry off the CLI a workflow's
 // flags were written for.
 func TestRetryCreateOntoAnotherHarnessDropsWorkflowFlags(t *testing.T) {
-	tmux := newFakeTmux()
-	tmux.respawnErr = errors.New("boom")
+	tmux := tmuxtest.NewFake()
+	tmux.RespawnErr = errors.New("boom")
 	st := newStore(t)
 
 	launch := NewLaunchService(NewLaunchServiceParams{
@@ -201,13 +203,13 @@ func TestRetryCreateOntoAnotherHarnessDropsWorkflowFlags(t *testing.T) {
 		Workflows:          st.Workflows,
 		Tx:                 st.Pool,
 		Launcher:           NewLauncher(NewLauncherParams{Tmux: tmux}),
-		Harnesses:          fakeHarnesses{harness: &fakeHarness{}},
-		UserDefaultHarness: testHarnessID,
+		Harnesses:          harnesstest.Registry{Harness: &harnesstest.Fake{}},
+		UserDefaultHarness: harnesstest.FakeID,
 	})
 
 	wf, err := st.Workflows.Create(t.Context(), workflowstore.Config{
 		Name:     "workflow-" + uuid.NewString(),
-		Harness:  testHarnessID,
+		Harness:  harnesstest.FakeID,
 		Flags:    "--model opus",
 		Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"},
 	})
@@ -224,7 +226,7 @@ func TestRetryCreateOntoAnotherHarnessDropsWorkflowFlags(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "--model opus", failed.Flags)
 
-	tmux.respawnErr = nil
+	tmux.RespawnErr = nil
 
 	_, err = launch.RetryCreate(t.Context(), RetryCreateParams{
 		ID:      failed.ID,
@@ -240,8 +242,8 @@ func TestRetryCreateOntoAnotherHarnessDropsWorkflowFlags(t *testing.T) {
 // TestRetryCreateOntoAnotherHarnessRemintsTheSession covers the conversation an agent carries
 // over a retry that changes the CLI.
 func TestRetryCreateOntoAnotherHarnessRemintsTheSession(t *testing.T) {
-	tmux := newFakeTmux()
-	tmux.respawnErr = errors.New("boom")
+	tmux := tmuxtest.NewFake()
+	tmux.RespawnErr = errors.New("boom")
 	st := newStore(t)
 
 	launch := NewLaunchService(NewLaunchServiceParams{
@@ -251,8 +253,8 @@ func TestRetryCreateOntoAnotherHarnessRemintsTheSession(t *testing.T) {
 		Workflows:          st.Workflows,
 		Tx:                 st.Pool,
 		Launcher:           NewLauncher(NewLauncherParams{Tmux: tmux}),
-		Harnesses:          fakeHarnesses{harness: &fakeHarness{}, byID: map[string]*fakeHarness{"codex": {id: "codex", noSession: true}}},
-		UserDefaultHarness: testHarnessID,
+		Harnesses:          harnesstest.Registry{Harness: &harnesstest.Fake{}, ByID: map[string]*harnesstest.Fake{"codex": {Name: "codex", NoSession: true}}},
+		UserDefaultHarness: harnesstest.FakeID,
 	})
 
 	_, err := launch.NewAgent(t.Context(), NewAgentParams{
@@ -266,7 +268,7 @@ func TestRetryCreateOntoAnotherHarnessRemintsTheSession(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, failed.SessionID, "the CLI it failed on minted one")
 
-	tmux.respawnErr = nil
+	tmux.RespawnErr = nil
 
 	_, err = launch.RetryCreate(t.Context(), RetryCreateParams{
 		ID:      failed.ID,
@@ -281,8 +283,8 @@ func TestRetryCreateOntoAnotherHarnessRemintsTheSession(t *testing.T) {
 
 // TestRetryCreateKeepsTheSessionWhenTheHarnessDoesNot covers a retry that leaves the CLI alone.
 func TestRetryCreateKeepsTheSessionWhenTheHarnessDoesNot(t *testing.T) {
-	tmux := newFakeTmux()
-	tmux.respawnErr = errors.New("boom")
+	tmux := tmuxtest.NewFake()
+	tmux.RespawnErr = errors.New("boom")
 	st := newStore(t)
 	manager := newManager(tmux, st, "")
 
@@ -297,11 +299,11 @@ func TestRetryCreateKeepsTheSessionWhenTheHarnessDoesNot(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, failed.SessionID)
 
-	tmux.respawnErr = nil
+	tmux.RespawnErr = nil
 
 	_, err = manager.launch.RetryCreate(t.Context(), RetryCreateParams{
 		ID:      failed.ID,
-		Harness: testHarnessID,
+		Harness: harnesstest.FakeID,
 	})
 	require.NoError(t, err)
 
@@ -337,8 +339,8 @@ func TestRetryCreateFromThePanelOntoAnotherHarness(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tmux := newFakeTmux()
-			tmux.respawnErr = errors.New("claude is not installed")
+			tmux := tmuxtest.NewFake()
+			tmux.RespawnErr = errors.New("claude is not installed")
 			st := newStore(t)
 
 			launch := NewLaunchService(NewLaunchServiceParams{
@@ -348,17 +350,17 @@ func TestRetryCreateFromThePanelOntoAnotherHarness(t *testing.T) {
 				Workflows:          st.Workflows,
 				Tx:                 st.Pool,
 				Launcher:           NewLauncher(NewLauncherParams{Tmux: tmux}),
-				Harnesses:          fakeHarnesses{harness: &fakeHarness{}},
-				UserDefaultHarness: testHarnessID,
+				Harnesses:          harnesstest.Registry{Harness: &harnesstest.Fake{}},
+				UserDefaultHarness: harnesstest.FakeID,
 				UserDefaultFlags: map[string]string{
-					testHarnessID: "--dangerously-skip-permissions",
-					"codex":       "--sandbox danger-full-access",
+					harnesstest.FakeID: "--dangerously-skip-permissions",
+					"codex":            "--sandbox danger-full-access",
 				},
 			})
 
 			wf, err := st.Workflows.Create(t.Context(), workflowstore.Config{
 				Name:     "workflow-" + uuid.NewString(),
-				Harness:  testHarnessID,
+				Harness:  harnesstest.FakeID,
 				Flags:    tt.workflowFlags,
 				Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"},
 			})
@@ -374,7 +376,7 @@ func TestRetryCreateFromThePanelOntoAnotherHarness(t *testing.T) {
 			failed, err := st.Get(t.Context(), "doomed")
 			require.NoError(t, err)
 
-			tmux.respawnErr = nil
+			tmux.RespawnErr = nil
 
 			// The panel's form is prefilled with the flags the row already holds.
 			sent := failed.Flags
@@ -398,12 +400,12 @@ func TestRetryCreateFromThePanelOntoAnotherHarness(t *testing.T) {
 
 // TestRetryCreateRefusesUnknownHarness covers a retry naming a CLI this binary cannot run.
 func TestRetryCreateRefusesUnknownHarness(t *testing.T) {
-	tmux := newFakeTmux()
-	tmux.respawnErr = errors.New("boom")
+	tmux := tmuxtest.NewFake()
+	tmux.RespawnErr = errors.New("boom")
 	st := newStore(t)
 	service := st.agentService(agentServiceOptions{
 		tmux:      tmux,
-		harnesses: fakeHarnesses{harness: &fakeHarness{}, only: []string{testHarnessID}},
+		harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}, Only: []string{harnesstest.FakeID}},
 	})
 
 	_, err := service.launch.NewAgent(t.Context(), NewAgentParams{
@@ -424,5 +426,5 @@ func TestRetryCreateRefusesUnknownHarness(t *testing.T) {
 
 	got, err := st.Agents.GetByID(t.Context(), failed.ID)
 	require.NoError(t, err)
-	assert.Equal(t, testHarnessID, got.Harness, "a CLI that cannot be run is not recorded")
+	assert.Equal(t, harnesstest.FakeID, got.Harness, "a CLI that cannot be run is not recorded")
 }

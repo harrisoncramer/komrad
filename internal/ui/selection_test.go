@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"context"
 	"strings"
 	"testing"
 
@@ -10,16 +9,12 @@ import (
 	"weave/internal/ui/paint"
 	"weave/internal/ui/panel"
 	"weave/lib/xslice"
-	agentv1 "weave/proto/gen/agent/v1"
-	"weave/proto/gen/agent/v1/agentv1connect"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
 	"charm.land/lipgloss/v2"
-	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func selectionTree() model {
@@ -64,187 +59,6 @@ func selectionTree() model {
 // background.
 func withColor(t *testing.T) {
 	t.Helper()
-
-}
-
-func press(t *testing.T, m model, key tea.KeyPressMsg) model {
-	t.Helper()
-
-	next, _ := m.routeScreenMessage(key)
-	updated, ok := next.(model)
-	require.True(t, ok)
-
-	return updated
-}
-
-// TestToggleSelection covers what the select key does from each kind of row, where a header
-// acts as a checkbox over the whole folder.
-func TestToggleSelection(t *testing.T) {
-	tests := []struct {
-		name   string
-		cursor int
-		start  []string
-		want   []string
-	}{
-		{
-			name:   "an unselected agent is taken in",
-			cursor: 2,
-			want:   []string{"a2"},
-		},
-		{
-			name:   "and a selected one drops",
-			cursor: 2,
-			start:  []string{"a1", "a2"},
-			want:   []string{"a1"},
-		},
-		{
-			name:   "a header takes its whole folder, less the hidden agent with no row",
-			cursor: 0,
-			want:   []string{"a1", "a2", "a3"},
-		},
-		{
-			name:   "a partly selected folder is filled in rather than emptied",
-			cursor: 0,
-			start:  []string{"a2"},
-			want:   []string{"a1", "a2", "a3"},
-		},
-		{
-			name:   "a wholly selected folder drops, leaving what is outside it alone",
-			cursor: 0,
-			start:  []string{"a1", "a2", "a3", "a4"},
-			want:   []string{"a4"},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			m := selectionTree()
-			m.agents.cursor = tt.cursor
-			m.agents.selected = selectAgents(tt.start...)
-
-			assert.Equal(t, tt.want, selectedIDs(press(t, m, keyMsg("v")).agents.selected))
-		})
-	}
-}
-
-// TestToggleSelectionEmptyFolder covers a folder with no rows under it, which would otherwise
-// read as wholly selected and put the panel in a mode holding nothing.
-func TestToggleSelectionEmptyFolder(t *testing.T) {
-	m := selectionTree()
-	m.listing.workflows = append(m.listing.workflows, panel.Workflow{ID: "w3", Name: "chores"})
-	m.agents.cursor = len(m.agents.rows(m.shared())) - 1
-
-	after := press(t, m, keyMsg("v"))
-	assert.Empty(t, selectedIDs(after.agents.selected))
-	assert.False(t, after.agents.selected.isActive())
-}
-
-// TestSelectRange covers the key that takes in everything between the cursor and the nearest
-// selection, which from a list with nothing selected acts as the plain select key.
-func TestSelectRange(t *testing.T) {
-	tests := []struct {
-		name   string
-		cursor int
-		start  []string
-		want   []string
-	}{
-		{
-			name:   "from a list at rest it opens the mode on the agent under the cursor",
-			cursor: 3,
-			want:   []string{"a3"},
-		},
-		{
-			name:   "and on a header it takes the folder, the way the select key does",
-			cursor: 0,
-			want:   []string{"a1", "a2", "a3"},
-		},
-		{
-			name:   "a header takes no range once the mode is up, since only agents are selectable",
-			cursor: 0,
-			start:  []string{"a3"},
-			want:   []string{"a3"},
-		},
-		{
-			name:   "a selection above reaches down to the cursor",
-			cursor: 3,
-			start:  []string{"a1"},
-			want:   []string{"a1", "a2", "a3"},
-		},
-		{
-			name:   "a selection below reaches up to it",
-			cursor: 1,
-			start:  []string{"a3"},
-			want:   []string{"a1", "a2", "a3"},
-		},
-		{
-			name:   "a header inside the range is passed over rather than ending it",
-			cursor: 5,
-			start:  []string{"a3"},
-			want:   []string{"a3", "a4"},
-		},
-		{
-			name:   "a cursor the same distance from a selection either side takes the one above",
-			cursor: 2,
-			start:  []string{"a1", "a3"},
-			want:   []string{"a1", "a2", "a3"},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			m := selectionTree()
-			m.agents.cursor = tt.cursor
-			m.agents.selected = selectAgents(tt.start...)
-
-			assert.Equal(t, tt.want, selectedIDs(press(t, m, keyMsg("V")).agents.selected))
-		})
-	}
-}
-
-// TestSelectionKeysStandDown covers a selection being up, where the keys with nothing to say
-// about a set of agents do nothing and the clear key is the way out.
-func TestSelectionKeysStandDown(t *testing.T) {
-	m := selectionTree()
-	m.agents.cursor = 1
-	m.agents.selected = selectAgents([]string{"a1"}...)
-
-	renamed := press(t, m, keyMsg("r"))
-	assert.Equal(t, screenAgents, renamed.screen, "rename does not open its form")
-	assert.False(t, renamed.form.isActive())
-
-	moved := press(t, m, keyMsg("j"))
-	assert.Equal(t, 2, moved.agents.cursor, "the cursor still moves")
-
-	cleared := press(t, m, keyMsg("esc"))
-	assert.Empty(t, selectedIDs(cleared.agents.selected))
-	assert.False(t, cleared.agents.selected.isActive())
-}
-
-// TestPruneSelection covers a selected agent losing its row, which would otherwise hold the
-// panel in multi-select mode over something nobody can see.
-func TestPruneSelection(t *testing.T) {
-	t.Run("an agent gone from the listing drops", func(t *testing.T) {
-		m := selectionTree()
-		m.agents.placed = true
-		m.agents.selected = selectAgents([]string{"a1", "a4"}...)
-
-		applyListing(&m, []panel.AgentRow{{Agent: panel.Agent{
-			ID:         "a4",
-			Name:       "ui",
-			WorkflowID: "w2",
-		}}}, m.listing.workflows, nil)
-
-		assert.Equal(t, []string{"a4"}, selectedIDs(m.agents.selected))
-	})
-
-	t.Run("so does one the hidden toggle puts away", func(t *testing.T) {
-		m := selectionTree()
-		m.agents.showHidden = true
-		m.agents.selected = selectAgents([]string{"a1", "a5"}...)
-
-		away := press(t, m, keyMsg("H"))
-		assert.Equal(t, []string{"a1"}, selectedIDs(away.agents.selected))
-	})
 }
 
 func archiveSelectionTree() model {
@@ -348,7 +162,7 @@ func TestArchiveSelection(t *testing.T) {
 
 		opened.form.form.State = huh.StateCompleted
 		answered, cmd := opened.form.update(opened, keyMsg("enter"))
-		settle(t, asModel(t, answered), cmd)
+		settle(t, requireModel(t, answered), cmd)
 
 		assert.Equal(t, []string{"a1", "a2"}, agents.deleted, "and it is the whole selection it acts on")
 	})
@@ -436,82 +250,6 @@ func line(t *testing.T, view, text string) string {
 	t.Fatalf("no rendered row carries %q", text)
 
 	return ""
-}
-
-// TestArchiveSelectionFromTheTree covers the archive key over a selection, which only opens
-// the confirm prompt and archives nothing until that prompt is answered yes.
-func TestArchiveSelectionFromTheTree(t *testing.T) {
-	tests := []struct {
-		name     string
-		selected []string
-		cursor   int
-		wantIDs  []string
-	}{
-		{
-			name:    "with nothing selected the key still takes the hovered row",
-			cursor:  1,
-			wantIDs: []string{"a1"},
-		},
-		{
-			name:     "a selection is archived whole rather than the row under the cursor",
-			selected: []string{"a1", "a3"},
-			cursor:   2,
-			wantIDs:  []string{"a1", "a3"},
-		},
-		{
-			name:     "a selection spanning folders goes in one call",
-			selected: []string{"a1", "a4"},
-			cursor:   1,
-			wantIDs:  []string{"a1", "a4"},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			agents := &fakeTreeAgents{}
-			stage := &recordingTmux{}
-
-			m := selectionTree()
-			m.frame = layout.New(stage, config.DefaultLayout())
-			m.api = api{agents: agents}
-			m.agents.cursor = tt.cursor
-			m.agents.selected = selectAgents(tt.selected...)
-
-			for i := range m.listing.agents {
-				m.listing.agents[i].Agent.Pane = "%" + m.listing.agents[i].Agent.ID
-			}
-
-			opened, _ := m.routeScreenMessage(keyMsg("z"))
-			pressed, ok := opened.(model)
-			require.True(t, ok)
-			assert.Equal(t, formAgentArchive, pressed.form.kind, "the key opens the prompt rather than archiving outright")
-			assert.Empty(t, agents.archived, "nothing is sent until the prompt is confirmed")
-
-			pressed.form.form.State = huh.StateCompleted
-
-			next, cmd := pressed.form.update(pressed, keyMsg("enter"))
-			require.NotNil(t, cmd)
-			cmd()
-
-			assert.Equal(t, tt.wantIDs, agents.archived)
-
-			after, ok := next.(model)
-			require.True(t, ok)
-			assert.Equal(t, tt.selected, selectedIDs(after.agents.selected),
-				"the rows come off the selection on the next listing rather than on the keypress")
-		})
-	}
-}
-
-type fakeTreeAgents struct {
-	agentv1connect.AgentServiceClient
-	archived []string
-}
-
-func (f *fakeTreeAgents) ArchiveAgents(_ context.Context, req *connect.Request[agentv1.ArchiveAgentsRequest]) (*connect.Response[emptypb.Empty], error) {
-	f.archived = append(f.archived, req.Msg.GetIds()...)
-
-	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 // TestSelectionKeepsItsBarWhileAFormHasTheKeys covers the screen the selection exists for: a

@@ -1,16 +1,58 @@
 package ui
 
 import (
+	"context"
+	"errors"
 	"testing"
 
 	"weave/config"
+	"weave/internal/client"
 	"weave/internal/ui/layout"
 	"weave/internal/ui/panel"
-	"weave/lib/xslice"
+	agentv1 "weave/proto/gen/agent/v1"
+	"weave/proto/gen/agent/v1/agentv1connect"
+	schedulev1 "weave/proto/gen/schedule/v1"
+	"weave/proto/gen/schedule/v1/schedulev1connect"
+	workflowv1 "weave/proto/gen/workflow/v1"
+	"weave/proto/gen/workflow/v1/workflowv1connect"
+	worktreev1 "weave/proto/gen/worktree/v1"
+	"weave/proto/gen/worktree/v1/worktreev1connect"
 
+	tea "charm.land/bubbletea/v2"
+	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
+
+const clientPath = "/work/from-tmux"
+
+type emptyLists struct {
+	agentv1connect.AgentServiceClient
+	workflowv1connect.WorkflowServiceClient
+	schedulev1connect.ScheduleServiceClient
+	worktreev1connect.WorktreeServiceClient
+}
+
+func (emptyLists) ListAgents(context.Context, *connect.Request[agentv1.ListAgentsRequest]) (*connect.Response[agentv1.ListAgentsResponse], error) {
+	return connect.NewResponse(&agentv1.ListAgentsResponse{}), nil
+}
+
+func (emptyLists) ListWorkflows(context.Context, *connect.Request[workflowv1.ListWorkflowsRequest]) (*connect.Response[workflowv1.ListWorkflowsResponse], error) {
+	return connect.NewResponse(&workflowv1.ListWorkflowsResponse{}), nil
+}
+
+func (emptyLists) ListSchedules(context.Context, *connect.Request[schedulev1.ListSchedulesRequest]) (*connect.Response[schedulev1.ListSchedulesResponse], error) {
+	return connect.NewResponse(&schedulev1.ListSchedulesResponse{}), nil
+}
+
+func (emptyLists) ListWorktrees(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[worktreev1.ListWorktreesResponse], error) {
+	return connect.NewResponse(&worktreev1.ListWorktreesResponse{}), nil
+}
+
+func (emptyLists) GetWorktree(_ context.Context, req *connect.Request[worktreev1.GetWorktreeRequest]) (*connect.Response[worktreev1.GetWorktreeResponse], error) {
+	return nil, connect.NewError(connect.CodeNotFound, errors.New(req.Msg.GetDir()+" is not under the worktree directories"))
+}
 
 // TestClampCursor pins where the cursor lands for each length of list, an empty one
 // included.
@@ -54,145 +96,6 @@ func TestClampCursor(t *testing.T) {
 	}
 }
 
-// TestApplyAgents pins that a refresh takes the listed order as it comes and leaves the
-// cursor on the agent it was on rather than on an index a newer agent would shift.
-func TestApplyAgents(t *testing.T) {
-	tests := []struct {
-		name       string
-		start      []panel.AgentRow
-		cursor     int
-		fresh      []panel.AgentRow
-		wantLen    int
-		wantCursor string
-		wantOrder  []string
-	}{
-		{
-			name:    "a refresh that empties the list stays on the agents screen",
-			start:   items("a"),
-			fresh:   nil,
-			wantLen: 0,
-		},
-		{
-			name:       "the cursor follows its agent rather than its index",
-			start:      items("a", "b", "c"),
-			cursor:     1,
-			fresh:      items("b", "c", "a"),
-			wantLen:    3,
-			wantCursor: "a",
-			wantOrder:  []string{"b", "c", "a"},
-		},
-		{
-			name:       "an agent created elsewhere lands where the listing put it",
-			start:      items("a"),
-			cursor:     1,
-			fresh:      items("b", "a"),
-			wantLen:    2,
-			wantCursor: "a",
-			wantOrder:  []string{"b", "a"},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			m := model{
-				screen:  screenAgents,
-				frame:   layout.New(&recordingTmux{}, config.DefaultLayout()),
-				listing: listing{workflows: []panel.Workflow{{ID: testWorkflowID, Name: "backend"}}, agents: tt.start}, agents: agentsScreen{rowCursor: rowCursor{cursor: tt.cursor}, placed: true},
-				keys: config.DefaultKeybindings(),
-			}
-
-			applyListing(&m, tt.fresh, m.listing.workflows, nil)
-
-			assert.Equal(t, screenAgents, m.screen, "the panel stays where it was")
-			assert.Len(t, m.listing.agents, tt.wantLen)
-
-			if tt.wantLen == 0 {
-				_, _ = m.routeScreenMessage(keyMsg("enter"))
-				assert.Equal(t, screenAgents, m.screen)
-
-				return
-			}
-
-			selected, ok := m.agents.selectedAgent(m.shared())
-			require.True(t, ok, "the cursor is on an agent")
-			assert.Equal(t, tt.wantCursor, selected.Agent.Name)
-
-			names := xslice.Map(m.listing.agents, func(agent panel.AgentRow) string {
-				return agent.Agent.Name
-			})
-			assert.Equal(t, tt.wantOrder, names)
-		})
-	}
-}
-
-// TestPlaceTreeCursorSkipsHeaderAfterAgentRemoved pins that archiving the last agent under a
-// workflow leaves the cursor off the next workflow's header, which only moved into that index.
-func TestPlaceTreeCursorSkipsHeaderAfterAgentRemoved(t *testing.T) {
-	m := model{
-		screen: screenAgents,
-		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
-		listing: listing{
-			workflows: []panel.Workflow{
-				{ID: "w1", Name: "backend"},
-				{ID: "w2", Name: "frontend"},
-			},
-			agents: []panel.AgentRow{
-				{Agent: panel.Agent{
-					ID:         "a1",
-					Name:       "a1",
-					WorkflowID: "w1",
-				}},
-				{Agent: panel.Agent{
-					ID:         "a2",
-					Name:       "a2",
-					WorkflowID: "w2",
-				}},
-				{Agent: panel.Agent{
-					ID:         "a3",
-					Name:       "a3",
-					WorkflowID: "w2",
-				}},
-			},
-		},
-		agents: agentsScreen{rowCursor: rowCursor{cursor: 1}, placed: true},
-		keys:   config.DefaultKeybindings(),
-	}
-
-	was := rowKeyAt(m.agents.rows(m.shared()), m.agents.cursor)
-	require.Equal(t, "agent:a1", was)
-
-	applyListing(&m, []panel.AgentRow{
-		{Agent: panel.Agent{
-			ID:         "a2",
-			Name:       "a2",
-			WorkflowID: "w2",
-		}},
-		{Agent: panel.Agent{
-			ID:         "a3",
-			Name:       "a3",
-			WorkflowID: "w2",
-		}},
-	}, m.listing.workflows, nil)
-
-	selected, ok := m.agents.selectedAgent(m.shared())
-	require.True(t, ok, "the cursor lands on an agent, not the next workflow's header")
-	assert.Equal(t, "a2", selected.Agent.Name)
-}
-
-const testWorkflowID = "w1"
-
-func items(names ...string) []panel.AgentRow {
-	out := xslice.Map(names, func(name string) panel.AgentRow {
-		return panel.AgentRow{Agent: panel.Agent{
-			ID:         name,
-			Name:       name,
-			WorkflowID: testWorkflowID,
-		}}
-	})
-
-	return out
-}
-
 // TestNewModelWiresTmux pins the tmux dependency, which the model reaches for only when a form
 // opens with a blank directory.
 func TestNewModelWiresTmux(t *testing.T) {
@@ -218,9 +121,6 @@ func TestNewModelWiresTmux(t *testing.T) {
 			m := newModel(Deps{
 				PopupWindow: NewPopupWindow(tmux, "manager"),
 				Tmux:        tmux,
-				Agents:      refusingAgents{},
-				Workflows:   emptyLists{},
-				Schedules:   &fakeSchedules{},
 				Keys:        config.DefaultKeybindings(),
 				Settings:    PanelSettings{Addr: "127.0.0.1:8787"},
 			}, true, nil)
@@ -231,4 +131,87 @@ func TestNewModelWiresTmux(t *testing.T) {
 	}
 }
 
-const clientPath = "/work/from-tmux"
+func settle(t *testing.T, m model, cmd tea.Cmd) model {
+	t.Helper()
+
+	for _, msg := range collectMessages(cmd) {
+		switch msg.(type) {
+		case writeResult, client.WatchBatch:
+		default:
+			continue
+		}
+
+		updated, _ := m.Update(msg)
+		next, ok := updated.(model)
+		require.True(t, ok)
+		m = next
+	}
+
+	return m
+}
+
+// applyListing replaces the model's workflows and clears its agents.
+func applyListing(m *model, workflows []panel.Workflow) {
+	m.withListing(func(current *listing) {
+		current.agents, current.workflows = nil, workflows
+	})
+}
+
+func collectMessages(cmd tea.Cmd) []tea.Msg {
+	if cmd == nil {
+		return nil
+	}
+
+	switch msg := cmd().(type) {
+	case nil:
+		return nil
+	case tea.BatchMsg:
+		var msgs []tea.Msg
+		for _, batched := range msg {
+			msgs = append(msgs, collectMessages(batched)...)
+		}
+
+		return msgs
+	default:
+		return []tea.Msg{msg}
+	}
+}
+
+func pressLogs(t *testing.T, m model) model {
+	t.Helper()
+
+	next, _ := m.Update(keyMsg("l"))
+	shown, ok := next.(model)
+	require.True(t, ok)
+
+	return shown
+}
+
+func newFilterModel() model {
+	tmux := &recordingTmux{}
+	workflow := panel.Workflow{ID: "w1", Name: "core"}
+
+	return model{
+		tmux:   tmux,
+		popup:  NewPopupWindow(tmux, "test-session"),
+		frame:  layout.New(tmux, config.DefaultLayout()),
+		keys:   config.DefaultKeybindings(),
+		screen: screenAgents,
+		listing: listing{
+			workflows: []panel.Workflow{workflow},
+			agents: []panel.AgentRow{
+				{Agent: panel.Agent{
+					ID:         "a1",
+					Name:       "billing",
+					WorkflowID: "w1",
+				}},
+				{Agent: panel.Agent{
+					ID:         "a2",
+					Name:       "payouts",
+					WorkflowID: "w1",
+				}},
+			},
+		},
+		agents: agentsScreen{rowCursor: rowCursor{cursor: 1}},
+	}
+}

@@ -438,9 +438,17 @@ func TestListPage(t *testing.T) {
 	tests := []struct {
 		name      string
 		seeds     int
+		archived  int
 		limit     int64
 		wantPages int
 	}{
+		{
+			name:      "an archived schedule leaves the listing",
+			seeds:     3,
+			archived:  1,
+			limit:     10,
+			wantPages: 1,
+		},
 		{
 			name:      "one page holds everything when the limit is large",
 			seeds:     3,
@@ -461,11 +469,14 @@ func TestListPage(t *testing.T) {
 			ctx := t.Context()
 
 			for i := range tt.seeds {
-				seed(t, st, Config{
+				created := seed(t, st, Config{
 					Name:   string(rune('a' + i)),
 					Cron:   "0 9 * * *",
 					Prompt: "go",
 				})
+				if i < tt.archived {
+					require.NoError(t, st.Archive(ctx, created.ID))
+				}
 			}
 
 			var (
@@ -490,7 +501,7 @@ func TestListPage(t *testing.T) {
 			}
 
 			assert.Equal(t, tt.wantPages, pages)
-			assert.Len(t, seen, tt.seeds, "every schedule is returned exactly once")
+			assert.Len(t, seen, tt.seeds-tt.archived, "every live schedule is returned exactly once")
 			assert.IsDecreasing(t, seen, "the listing is newest first, which is descending id order")
 		})
 	}

@@ -34,7 +34,7 @@ type roundsAcrossARebase struct {
 func reviewAcrossARebase(t *testing.T, mainsGreet string, wantConflict bool) roundsAcrossARebase {
 	t.Helper()
 
-	hermeticGit(t)
+	isolateGit(t)
 
 	instance := weavetest.Start(t, weavetest.Params{WorktreesDir: t.TempDir()})
 	repo := initGitRepo(t)

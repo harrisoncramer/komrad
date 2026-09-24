@@ -33,6 +33,7 @@ import (
 	"weave/internal/forge"
 	"weave/internal/harness"
 	"weave/internal/harnesstest"
+	"weave/internal/jobs/internaljobs"
 	"weave/internal/logging"
 	"weave/internal/mail"
 	"weave/internal/server"
@@ -270,6 +271,19 @@ func (i *Instance) WorkQueue() {
 
 		return unfinished == 0
 	}, settleTimeout, 10*time.Millisecond, "the queue never drained")
+}
+
+// Fire queues one firing of a schedule, due at scheduledFor, and works the queue until it drains.
+func (i *Instance) Fire(scheduleID string, scheduledFor time.Time) {
+	i.t.Helper()
+
+	_, err := i.server.Jobs.Insert(i.t.Context(), internaljobs.LaunchAgentArgs{
+		ScheduleID:   scheduleID,
+		ScheduledFor: scheduledFor,
+	}, nil)
+	require.NoError(i.t, err)
+
+	i.WorkQueue()
 }
 
 func (i *Instance) runLoop(name string) {

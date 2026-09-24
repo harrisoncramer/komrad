@@ -7,16 +7,11 @@ import (
 
 	"weave/internal/harness"
 	"weave/internal/harnesstest"
+	"weave/internal/tmuxtest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-type fakePanes struct {
-	frame string
-}
-
-func (s fakePanes) CapturePane(string) string { return s.frame }
 
 // TestIntegrationDoesFrameShowHarness covers a pane still at its shell reading as a harness that has yet to
 // draw, and a harness weave cannot look up being taken at its word instead.
@@ -65,8 +60,10 @@ func TestIntegrationDoesFrameShowHarness(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
+			panes := tmuxtest.NewFake()
+			panes.Captures["%1"] = tt.frame
 			reader := paneFrameReader{
-				panes:     fakePanes{frame: tt.frame},
+				panes:     panes,
 				harnesses: registry,
 			}
 

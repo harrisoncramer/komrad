@@ -9,11 +9,13 @@ import (
 	"weave/config"
 	"weave/internal/frames"
 	"weave/internal/harness/pane"
+	"weave/internal/harnesstest"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	reviewstore "weave/internal/store/review"
 	rowstore "weave/internal/store/row"
 	workflowstore "weave/internal/store/workflow"
+	"weave/internal/tmuxtest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -38,12 +40,12 @@ func TestDeleteAgentRunsWorkflowCleanup(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tmux := newFakeTmux()
+			tmux := tmuxtest.NewFake()
 			st := newStore(t)
 			lifecycle := &fakeLifecycle{}
-			manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
+			manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
 
-			created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), worktreeConfig(t, "backend"))
+			created, err := newWorkflowService(st, tmux).NewWorkflow(t.Context(), worktreeConfig(t, "backend"))
 			require.NoError(t, err)
 
 			agent, err := manager.launch.NewAgent(t.Context(), NewAgentParams{
@@ -68,11 +70,11 @@ func TestDeleteAgentRunsWorkflowCleanup(t *testing.T) {
 // archive, where the worktree setup built is still on disk and the cleanup is the only
 // thing that takes it back.
 func TestDeleteAgentRunsCleanupFromAnArchivedWorkflow(t *testing.T) {
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	lifecycle := &fakeLifecycle{}
-	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
-	workflows := workflowsFor(st, tmux)
+	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
+	workflows := newWorkflowService(st, tmux)
 
 	created, err := workflows.NewWorkflow(t.Context(), worktreeConfig(t, "backend"))
 	require.NoError(t, err)
@@ -93,12 +95,12 @@ func TestDeleteAgentRunsCleanupFromAnArchivedWorkflow(t *testing.T) {
 // TestDeleteAgentMarksFailedToCleanupWhenTeardownFails covers the other side of a teardown: a
 // delete whose deprovisioner fails leaves the row behind, marked so.
 func TestDeleteAgentMarksFailedToCleanupWhenTeardownFails(t *testing.T) {
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	lifecycle := &fakeLifecycle{deprovisionRunErr: errors.New("worktree is dirty")}
-	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
+	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
 
-	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), worktreeConfig(t, "backend"))
+	created, err := newWorkflowService(st, tmux).NewWorkflow(t.Context(), worktreeConfig(t, "backend"))
 	require.NoError(t, err)
 
 	agent, err := manager.launch.NewAgent(t.Context(), NewAgentParams{
@@ -140,12 +142,12 @@ func TestDeleteClaimsTheRowWhileTheTeardownRuns(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tmux := newFakeTmux()
+			tmux := tmuxtest.NewFake()
 			st := newStore(t)
 			lifecycle := &fakeLifecycle{holdDeprovision: true}
-			manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
+			manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
 
-			created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), worktreeConfig(t, "backend"))
+			created, err := newWorkflowService(st, tmux).NewWorkflow(t.Context(), worktreeConfig(t, "backend"))
 			require.NoError(t, err)
 
 			agent, err := manager.launch.NewAgent(t.Context(), NewAgentParams{
@@ -183,12 +185,12 @@ func TestDeleteClaimsTheRowWhileTheTeardownRuns(t *testing.T) {
 // TestDeleteGivesBackWhatItCouldNotTake covers a delete refused whole, over a batch naming
 // an agent that has gone, releasing the claim a queued delete had already put on the rest.
 func TestDeleteGivesBackWhatItCouldNotTake(t *testing.T) {
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	st := newStore(t)
-	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, &fakeLifecycle{})
+	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, &fakeLifecycle{})
 	ctx := t.Context()
 
-	created, err := workflowsFor(st, tmux).NewWorkflow(ctx, worktreeConfig(t, "backend"))
+	created, err := newWorkflowService(st, tmux).NewWorkflow(ctx, worktreeConfig(t, "backend"))
 	require.NoError(t, err)
 	agent, err := manager.launch.NewAgent(ctx, NewAgentParams{
 		Title:      "agent",
@@ -210,12 +212,12 @@ func TestDeleteGivesBackWhatItCouldNotTake(t *testing.T) {
 
 // TestDeleteStaysArchivedOnAFailedTeardown pins a failed cleanup leaving the row in the archive.
 func TestDeleteStaysArchivedOnAFailedTeardown(t *testing.T) {
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	lifecycle := &fakeLifecycle{deprovisionRunErr: errors.New("worktree is dirty")}
-	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
+	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
 
-	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), worktreeConfig(t, "backend"))
+	created, err := newWorkflowService(st, tmux).NewWorkflow(t.Context(), worktreeConfig(t, "backend"))
 	require.NoError(t, err)
 
 	agent, err := manager.launch.NewAgent(t.Context(), NewAgentParams{
@@ -241,12 +243,12 @@ func TestDeleteStaysArchivedOnAFailedTeardown(t *testing.T) {
 
 // TestDeleteAgentRetryRecordsTheLatestReasonOnly pins a second failure overwriting the first.
 func TestDeleteAgentRetryRecordsTheLatestReasonOnly(t *testing.T) {
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	lifecycle := &fakeLifecycle{deprovisionRunErr: errors.New("worktree is dirty")}
-	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
+	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
 
-	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), worktreeConfig(t, "backend"))
+	created, err := newWorkflowService(st, tmux).NewWorkflow(t.Context(), worktreeConfig(t, "backend"))
 	require.NoError(t, err)
 
 	agent, err := manager.launch.NewAgent(t.Context(), NewAgentParams{
@@ -277,11 +279,11 @@ func TestDeleteAgentRetryRecordsTheLatestReasonOnly(t *testing.T) {
 // TestDeleteAgentsHandlesMixedCleanupOutcomes pins each agent's cleanup outcome landing on
 // that agent alone rather than on the batch.
 func TestDeleteAgentsHandlesMixedCleanupOutcomes(t *testing.T) {
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	lifecycle := &fakeLifecycle{}
-	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
-	workflows := workflowsFor(st, tmux)
+	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
+	workflows := newWorkflowService(st, tmux)
 
 	backend, err := workflows.NewWorkflow(t.Context(), worktreeConfig(t, "backend"))
 	require.NoError(t, err)
@@ -328,13 +330,13 @@ func TestDeleteAgentRemovesItsRunLogs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tmux := newFakeTmux()
+			tmux := tmuxtest.NewFake()
 			st := newStore(t)
 			lifecycle := &fakeLifecycle{deprovisionRunErr: tt.cleanupErr}
 			logsDir := t.TempDir()
 			manager := st.agentService(agentServiceOptions{
 				tmux:      tmux,
-				harnesses: fakeHarnesses{harness: &fakeHarness{}},
+				harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}},
 				addr:      "127.0.0.1:9999",
 				lifecycle: lifecycle,
 				logsDir:   logsDir,
@@ -344,7 +346,7 @@ func TestDeleteAgentRemovesItsRunLogs(t *testing.T) {
 			if tt.name != "no cleanup configured" {
 				cfg = worktreeConfig(t, "backend")
 			}
-			created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), cfg)
+			created, err := newWorkflowService(st, tmux).NewWorkflow(t.Context(), cfg)
 			require.NoError(t, err)
 
 			agent, err := manager.launch.NewAgent(t.Context(), NewAgentParams{
@@ -376,18 +378,18 @@ func TestDeleteAgentRemovesItsRunLogs(t *testing.T) {
 // TestDeleteAgentRemovesItsRecordedFrames pins a delete reclaiming what a recording kept for
 // that agent.
 func TestDeleteAgentRemovesItsRecordedFrames(t *testing.T) {
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	framesDir := t.TempDir()
 	manager := st.agentService(agentServiceOptions{
 		tmux:      tmux,
-		harnesses: fakeHarnesses{harness: &fakeHarness{}},
+		harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}},
 		addr:      "127.0.0.1:9999",
 		lifecycle: &fakeLifecycle{},
 		framesDir: framesDir,
 	})
 
-	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{Name: "backend"})
+	created, err := newWorkflowService(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{Name: "backend"})
 	require.NoError(t, err)
 
 	agent, err := manager.launch.NewAgent(t.Context(), NewAgentParams{
@@ -430,7 +432,7 @@ func TestArchiveAgent(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
-			tmux := newFakeTmux()
+			tmux := tmuxtest.NewFake()
 			manager := newManager(tmux, st, "")
 
 			target := "00000000-0000-0000-0000-000000000000"
@@ -448,7 +450,7 @@ func TestArchiveAgent(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-			assert.Contains(t, tmux.killedPanes, "%1", "the agent's pane is killed")
+			assert.Contains(t, tmux.KilledPanes, "%1", "the agent's pane is killed")
 
 			_, err = st.Get(t.Context(), tt.seed)
 			require.ErrorIs(t, err, store.ErrNotFound, "the agent is hidden from listings")
@@ -464,16 +466,16 @@ func TestArchiveAgent(t *testing.T) {
 // took.
 func TestArchiveKillsAPaneWrittenBeforeItsOwnWrite(t *testing.T) {
 	st := newStore(t)
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	ctx := t.Context()
 
 	agent := seed(t, st, "dormant", "", agentstore.StateIdle)
 
 	manager := st.agentService(agentServiceOptions{
 		tmux:      tmux,
-		harnesses: fakeHarnesses{harness: &fakeHarness{}},
+		harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}},
 		addr:      "127.0.0.1:9999",
-		agents:    writingPaneFirst{AgentStore: st.Agents, inTheGap: resumeInto(t, st, tmux, agent, "%9")},
+		agents:    writingPaneFirst{AgentStore: st.Agents, inTheGap: buildResumeWrite(t, buildResumeWriteParams{Store: st, Tmux: tmux, Agent: agent, Pane: "%9"})},
 	})
 
 	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, []string{agent.ID}))
@@ -481,7 +483,7 @@ func TestArchiveKillsAPaneWrittenBeforeItsOwnWrite(t *testing.T) {
 	after := agentByID(t, st, agent.ID)
 	require.NotNil(t, after.ArchivedAt, "the row really is archived")
 	assert.Empty(t, after.Pane, "and holds no pane for anything else to find it by")
-	assert.Contains(t, tmux.killedPanes, "%9", "so the archive kills the pane its write took")
+	assert.Contains(t, tmux.KilledPanes, "%9", "so the archive kills the pane its write took")
 }
 
 // TestDeleteKillsAPaneWrittenBeforeItsOwnWrite is the same gap on the delete, whose row goes
@@ -489,16 +491,16 @@ func TestArchiveKillsAPaneWrittenBeforeItsOwnWrite(t *testing.T) {
 // reach afterwards.
 func TestDeleteKillsAPaneWrittenBeforeItsOwnWrite(t *testing.T) {
 	st := newStore(t)
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	ctx := t.Context()
 
 	agent := seed(t, st, "dormant", "", agentstore.StateIdle)
 
 	manager := st.agentService(agentServiceOptions{
 		tmux:      tmux,
-		harnesses: fakeHarnesses{harness: &fakeHarness{}},
+		harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}},
 		addr:      "127.0.0.1:9999",
-		tx:        txWritingPaneFirst{txRunner: st.Pool, inTheGap: resumeInto(t, st, tmux, agent, "%9")},
+		tx:        txWritingPaneFirst{txRunner: st.Pool, inTheGap: buildResumeWrite(t, buildResumeWriteParams{Store: st, Tmux: tmux, Agent: agent, Pane: "%9"})},
 	})
 
 	require.NoError(t, manager.lifecycle.DeleteAgents(ctx, []string{agent.ID}))
@@ -506,7 +508,7 @@ func TestDeleteKillsAPaneWrittenBeforeItsOwnWrite(t *testing.T) {
 	all, err := st.ListAll(ctx)
 	require.NoError(t, err)
 	assert.Empty(t, all, "the row really is gone")
-	assert.Contains(t, tmux.killedPanes, "%9", "so the delete kills the pane its write took")
+	assert.Contains(t, tmux.KilledPanes, "%9", "so the delete kills the pane its write took")
 }
 
 // TestDeleteAgent covers destroying an agent for good, keyed by id since the unique name
@@ -539,7 +541,7 @@ func TestDeleteAgent(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
-			tmux := newFakeTmux()
+			tmux := tmuxtest.NewFake()
 			manager := newManager(tmux, st, "")
 			ctx := t.Context()
 
@@ -562,7 +564,7 @@ func TestDeleteAgent(t *testing.T) {
 
 			require.NoError(t, err)
 			if tt.wantPaneKilled {
-				assert.Contains(t, tmux.killedPanes, "%1", "the agent's pane is killed")
+				assert.Contains(t, tmux.KilledPanes, "%1", "the agent's pane is killed")
 			}
 
 			all, err := st.ListAll(ctx)
@@ -580,10 +582,10 @@ func TestDeleteAgent(t *testing.T) {
 func TestAReissuedPaneIsNotTheAgents(t *testing.T) {
 	const shared = "%4"
 
-	setup := func(t *testing.T) (*testAgents, *testStore, *fakeTmux, agentstore.Agent) {
+	setup := func(t *testing.T) (*testAgents, *testStore, *tmuxtest.Fake, agentstore.Agent) {
 		t.Helper()
 		st := newStore(t)
-		tmux := newFakeTmux()
+		tmux := tmuxtest.NewFake()
 		dormant := seed(t, st, "dormant", shared, agentstore.StateIdle)
 		seedRunning(t, st, tmux, "running", shared, agentstore.StateThinking)
 
@@ -598,13 +600,13 @@ func TestAReissuedPaneIsNotTheAgents(t *testing.T) {
 	t.Run("archiving it leaves the pane running", func(t *testing.T) {
 		manager, _, tmux, dormant := setup(t)
 		require.NoError(t, manager.lifecycle.ArchiveAgents(t.Context(), []string{dormant.ID}))
-		assert.Empty(t, tmux.killedPanes, "killing by a stale id would stop the agent using that pane now")
+		assert.Empty(t, tmux.KilledPanes, "killing by a stale id would stop the agent using that pane now")
 	})
 
 	t.Run("deleting it leaves the pane running", func(t *testing.T) {
 		manager, _, tmux, dormant := setup(t)
 		require.NoError(t, manager.lifecycle.DeleteAgents(t.Context(), []string{dormant.ID}))
-		assert.Empty(t, tmux.killedPanes, "killing by a stale id would stop the agent using that pane now")
+		assert.Empty(t, tmux.KilledPanes, "killing by a stale id would stop the agent using that pane now")
 	})
 
 	t.Run("resuming it opens a window rather than adopting the pane", func(t *testing.T) {
@@ -612,7 +614,7 @@ func TestAReissuedPaneIsNotTheAgents(t *testing.T) {
 		resumed, err := manager.resume.ResumeAgent(t.Context(), dormant.ID)
 		require.NoError(t, err)
 		assert.NotEqual(t, shared, resumed.Pane, "a resume that read the pane as its own would relaunch nothing")
-		assert.Equal(t, dormant.ID, tmux.owners[resumed.Pane], "and the new pane is its own")
+		assert.Equal(t, dormant.ID, tmux.Owners[resumed.Pane], "and the new pane is its own")
 
 		still := agentByID(t, st, dormant.ID)
 		assert.Equal(t, resumed.Pane, still.Pane)
@@ -620,11 +622,11 @@ func TestAReissuedPaneIsNotTheAgents(t *testing.T) {
 
 	t.Run("a reconcile pass forgets the claim without reading the pane", func(t *testing.T) {
 		_, st, tmux, dormant := setup(t)
-		tmux.captures[shared] = busyFrame
+		tmux.Captures[shared] = harnesstest.FrameWorking
 
 		rec := NewReconciler(NewReconcilerParams{
 			Panes:    tmux,
-			Observer: pane.NewPane(pane.NewPaneParams{Terminal: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}}),
+			Observer: pane.NewPane(pane.NewPaneParams{Terminal: tmux, Harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}}}),
 			States:   st.Agents,
 		})
 		require.NoError(t, rec.Reconcile(t.Context()))
@@ -657,7 +659,7 @@ func TestRestore(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
-			tmux := newFakeTmux()
+			tmux := tmuxtest.NewFake()
 			manager := newManager(tmux, st, "")
 			ctx := t.Context()
 
@@ -700,12 +702,12 @@ func TestRestore(t *testing.T) {
 			assert.Equal(t, "foo", restored.Name)
 			assert.Equal(t, agentstore.StateIdle, restored.State)
 			assert.Equal(t, "sess-old", restored.SessionID, "the conversation is preserved")
-			assert.Empty(t, tmux.owners, "a restore starts nothing, so no pane was opened")
+			assert.Empty(t, tmux.Owners, "a restore starts nothing, so no pane was opened")
 			assert.False(t, manager.panes.IsAgentRunning(restored), "it comes back dormant, waiting to be resumed")
 
 			resumed, err := manager.resume.ResumeAgent(ctx, original.ID)
 			require.NoError(t, err)
-			assert.Equal(t, original.ID, tmux.owners[resumed.Pane], "resuming stamps the pane it came back in")
+			assert.Equal(t, original.ID, tmux.Owners[resumed.Pane], "resuming stamps the pane it came back in")
 			assert.True(t, manager.panes.IsAgentRunning(*resumed), "so it reads as running again")
 		})
 	}
@@ -714,7 +716,7 @@ func TestRestore(t *testing.T) {
 // TestRestoreCeiling pins a restore being refused where a create would be, or the archive is
 // a way around the limit.
 func TestRestoreCeiling(t *testing.T) {
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	manager := st.agentServiceCapped(tmux, &fakeLifecycle{}, 2)
 	ctx := t.Context()
@@ -740,9 +742,9 @@ func TestRestoreCeiling(t *testing.T) {
 // agents on one base whose worktrees hash the same produce the same commit, so the ref holding a
 // round has to be named per agent or either of them deleting pulls the other's out from under it.
 func TestDeletingAnAgentLeavesAnotherAgentsRoundHeld(t *testing.T) {
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	st := newStore(t)
-	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, &fakeLifecycle{})
+	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, &fakeLifecycle{})
 	reviews := reviewstore.NewReviewStore(st.Pool.GetDB())
 
 	root := t.TempDir()
@@ -759,9 +761,9 @@ func TestDeletingAnAgentLeavesAnotherAgentsRoundHeld(t *testing.T) {
 // has released has nothing in it worth keeping, and a released one is what the agent it was given
 // to is working from.
 func TestDeletingAnAgentTakesItsDraftsAndKeepsItsReviews(t *testing.T) {
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	st := newStore(t)
-	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, &fakeLifecycle{})
+	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, &fakeLifecycle{})
 	reviews := reviewstore.NewReviewStore(st.Pool.GetDB())
 
 	root := t.TempDir()

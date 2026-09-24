@@ -7,6 +7,7 @@ import (
 	"weave/internal/ui/panel"
 	agentv1 "weave/proto/gen/agent/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
+	worktreev1 "weave/proto/gen/worktree/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -122,5 +123,19 @@ func TestRoleFromReadsEveryWireRole(t *testing.T) {
 	assert.Len(t, roles, len(agentv1.AgentRole_name), "every wire role is answered for")
 	for wire, want := range roles {
 		assert.Equal(t, want, roleFrom(wire), wire.String())
+	}
+}
+
+// TestWorktreeFateIsReadOffTheWire covers each fate the server names landing on the item, and
+// one it does not name reading as unowned.
+func TestWorktreeFateIsReadOffTheWire(t *testing.T) {
+	for wire, want := range map[worktreev1.WorktreeFate]worktreeFate{
+		worktreev1.WorktreeFate_WORKTREE_FATE_LIVE:        fateLive,
+		worktreev1.WorktreeFate_WORKTREE_FATE_ARCHIVED:    fateArchived,
+		worktreev1.WorktreeFate_WORKTREE_FATE_UNOWNED:     fateUnowned,
+		worktreev1.WorktreeFate_WORKTREE_FATE_UNSPECIFIED: fateUnowned,
+	} {
+		item := worktreeItemFrom(&worktreev1.Worktree{Dir: "/trees/a", Fate: wire})
+		assert.Equal(t, want, item.fate, wire.String())
 	}
 }

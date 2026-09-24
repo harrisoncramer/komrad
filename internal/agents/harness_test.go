@@ -4,9 +4,11 @@ import (
 	"testing"
 
 	"weave/internal/harness"
+	"weave/internal/harnesstest"
 	agentstore "weave/internal/store/agent"
 	reviewstore "weave/internal/store/review"
 	workflowstore "weave/internal/store/workflow"
+	"weave/internal/tmuxtest"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -24,7 +26,7 @@ func TestNewAgentGetsHarness(t *testing.T) {
 	}{
 		{
 			name: "neither the agent nor its workflow names one, so it takes the configured default",
-			want: testHarnessID,
+			want: harnesstest.FakeID,
 		},
 		{
 			name:     "the workflow's default when the agent names none",
@@ -34,7 +36,7 @@ func TestNewAgentGetsHarness(t *testing.T) {
 		{
 			name:      "what the caller asked for beats the workflow",
 			requested: "codex",
-			workflow:  testHarnessID,
+			workflow:  harnesstest.FakeID,
 			want:      "codex",
 		},
 	}
@@ -42,11 +44,11 @@ func TestNewAgentGetsHarness(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
-			tmux := newFakeTmux()
+			tmux := tmuxtest.NewFake()
 
 			service := st.agentService(agentServiceOptions{
 				tmux:      tmux,
-				harnesses: fakeHarnesses{harness: &fakeHarness{}},
+				harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}},
 			})
 
 			created, err := st.Workflows.Create(t.Context(), workflowstore.Config{
@@ -94,17 +96,17 @@ func TestWorkflowFlagsFollowItsHarness(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
-			tmux := newFakeTmux()
+			tmux := tmuxtest.NewFake()
 
 			service := st.agentService(agentServiceOptions{
 				tmux:      tmux,
-				harnesses: fakeHarnesses{harness: &fakeHarness{}},
+				harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}},
 				flags:     "--default-flag",
 			})
 
 			created, err := st.Workflows.Create(t.Context(), workflowstore.Config{
 				Name:     "workflow-" + uuid.NewString(),
-				Harness:  testHarnessID,
+				Harness:  harnesstest.FakeID,
 				Flags:    "--model opus",
 				Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"},
 			})
@@ -130,10 +132,10 @@ func TestWorkflowFlagsFollowItsHarness(t *testing.T) {
 // a window is opened or a row written.
 func TestNewAgentRefusesUnknownHarness(t *testing.T) {
 	st := newStore(t)
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	service := st.agentService(agentServiceOptions{
 		tmux:      tmux,
-		harnesses: fakeHarnesses{harness: &fakeHarness{}, only: []string{testHarnessID}},
+		harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}, Only: []string{harnesstest.FakeID}},
 	})
 
 	_, err := service.launch.NewAgent(t.Context(), NewAgentParams{
@@ -148,18 +150,18 @@ func TestNewAgentRefusesUnknownHarness(t *testing.T) {
 	agents, listErr := st.List(t.Context())
 	require.NoError(t, listErr)
 	assert.Empty(t, agents, "a refused harness records nothing")
-	assert.Empty(t, tmux.newWindows, "and opens no window")
-	assert.Empty(t, tmux.respawned, "and starts nothing")
+	assert.Empty(t, tmux.NewWindows, "and opens no window")
+	assert.Empty(t, tmux.Respawned, "and starts nothing")
 }
 
 // TestResumeRefusesUnknownHarness pins that a resume fails rather than putting the wrong CLI
 // on a dormant agent's conversation.
 func TestResumeRefusesUnknownHarness(t *testing.T) {
 	st := newStore(t)
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	service := st.agentService(agentServiceOptions{
 		tmux:      tmux,
-		harnesses: fakeHarnesses{harness: &fakeHarness{}, only: []string{testHarnessID}},
+		harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}, Only: []string{harnesstest.FakeID}},
 	})
 
 	require.NoError(t, st.Create(t.Context(), agentstore.Agent{
@@ -175,14 +177,14 @@ func TestResumeRefusesUnknownHarness(t *testing.T) {
 
 	require.ErrorIs(t, err, harness.ErrNotRegistered)
 	require.ErrorContains(t, err, "gemini")
-	assert.Empty(t, tmux.newWindows, "nothing is opened for an agent that cannot be run")
+	assert.Empty(t, tmux.NewWindows, "nothing is opened for an agent that cannot be run")
 }
 
 // TestNewAgentFlagsFollowTheHarness pins that an agent inherits only the flags configured for
 // the CLI it runs.
 func TestNewAgentFlagsFollowTheHarness(t *testing.T) {
 	st := newStore(t)
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 
 	service := NewLaunchService(NewLaunchServiceParams{
 		Tmux:               tmux,
@@ -191,11 +193,11 @@ func TestNewAgentFlagsFollowTheHarness(t *testing.T) {
 		Workflows:          st.Workflows,
 		Tx:                 st.Pool,
 		Launcher:           NewLauncher(NewLauncherParams{Tmux: tmux}),
-		Harnesses:          fakeHarnesses{harness: &fakeHarness{}},
-		UserDefaultHarness: testHarnessID,
+		Harnesses:          harnesstest.Registry{Harness: &harnesstest.Fake{}},
+		UserDefaultHarness: harnesstest.FakeID,
 		UserDefaultFlags: map[string]string{
-			testHarnessID: "--model opus",
-			"codex":       "--sandbox read-only",
+			harnesstest.FakeID: "--model opus",
+			"codex":            "--sandbox read-only",
 		},
 	})
 

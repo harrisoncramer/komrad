@@ -2,69 +2,94 @@ package worktrees
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
-	"weave/internal/git"
+	"weave/internal/gittest"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 	worktreestore "weave/internal/store/worktree"
+	"weave/internal/storetest"
+	"weave/lib/xslice"
 
 	"github.com/stretchr/testify/require"
 )
 
-// fixture is a repository's .git directory with a worktrees directory beside it, laid out by
-// hand the way git lays one out, and the fakes a lister reads.
-type fixture struct {
-	repo   string
-	shared string
-	owners *fakeOwners
-	flows  *fakeWorkflows
-	git    *fakeGit
-	sizes  *fakeWorktreeStore
-	claims *fakeClaims
-	lister *Lister
-	now    time.Time
+// worktreeFixture is a hand-laid repository with a worktrees directory beside it, over a real store.
+type worktreeFixture struct {
+	repo       string
+	shared     string
+	stores     *storetest.Stores
+	worktrees  *worktreestore.WorktreeStore
+	workflowID string
+	git        *gittest.Checkout
+	claims     *fakeClaimedDirLister
+	lister     *Lister
+	now        time.Time
 }
 
-func newFixture(t *testing.T) *fixture {
+// fakeClaimedDirLister answers with the directories an unfinished delete names.
+type fakeClaimedDirLister struct {
+	dirs []string
+}
+
+func (c *fakeClaimedDirLister) ListClaimedDirs(context.Context) ([]string, error) {
+	return c.dirs, nil
+}
+
+// fakeWorktreeLister answers with whatever listing the test names, on disk or not.
+type fakeWorktreeLister struct {
+	listing Listing
+}
+
+func (l *fakeWorktreeLister) List(context.Context) (*Listing, error) {
+	return &l.listing, nil
+}
+
+func newFixture(t *testing.T) *worktreeFixture {
 	t.Helper()
 
 	root, err := filepath.EvalSymlinks(t.TempDir())
 	require.NoError(t, err)
 
-	f := &fixture{
-		repo:   filepath.Join(root, "repo"),
-		shared: filepath.Join(root, "trees"),
-		owners: &fakeOwners{},
-		flows: &fakeWorkflows{flows: map[string]*workflowstore.Workflow{
-			"flow": {Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"}},
-		}},
-		git:    &fakeGit{},
-		sizes:  &fakeWorktreeStore{stored: map[string]worktreestore.Size{}, records: map[string]worktreestore.Worktree{}},
-		claims: &fakeClaims{},
-		now:    time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC),
+	stores := storetest.Open(t)
+	fixture := &worktreeFixture{
+		repo:       filepath.Join(root, "repo"),
+		shared:     filepath.Join(root, "trees"),
+		stores:     stores,
+		worktrees:  worktreestore.NewWorktreeStore(stores.Pool.GetDB()),
+		workflowID: stores.SeedWorkflow(t, workflowstore.Config{Name: "flow"}).ID,
+		git:        &gittest.Checkout{},
+		claims:     &fakeClaimedDirLister{},
+		now:        time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC),
 	}
-	require.NoError(t, os.MkdirAll(filepath.Join(f.repo, ".git", "worktrees"), 0o755))
-	require.NoError(t, os.MkdirAll(f.shared, 0o755))
-	f.lister = NewLister(NewListerParams{
-		SharedDir: func() (string, error) { return f.shared, nil },
-		Agents:    f.owners,
-		Workflows: f.flows,
-		Sizes:     f.sizes,
-	})
+	require.NoError(t, os.MkdirAll(filepath.Join(fixture.repo, ".git", "worktrees"), 0o755))
+	require.NoError(t, os.MkdirAll(fixture.shared, 0o755))
+	fixture.lister = fixture.newListerOver(fixture.shared)
 
-	return f
+	return fixture
 }
 
-// cut lays out a worktree named after an agent id: the directory with its .git file, and the
-// gitdir in the repository with HEAD on the agent's branch.
-func (f *fixture) cut(t *testing.T, id string) string {
+func (f *worktreeFixture) newListerOver(shared string) *Lister {
+	return NewLister(NewListerParams{
+		SharedDir: func() (string, error) {
+			return shared, nil
+		},
+		Agents:    f.stores.Agents,
+		Workflows: f.stores.Workflows,
+		Sizes:     f.worktrees,
+	})
+}
+
+// cut lays out a worktree named with a fresh agent id, with HEAD on the agent's branch.
+func (f *worktreeFixture) cut(t *testing.T) string {
 	t.Helper()
+
+	id, err := store.NewID()
+	require.NoError(t, err)
 
 	dir := filepath.Join(f.shared, id)
 	gitdir := filepath.Join(f.repo, ".git", "worktrees", id)
@@ -75,219 +100,113 @@ func (f *fixture) cut(t *testing.T, id string) string {
 	return dir
 }
 
-// own records an agent row for a directory the fixture cut.
-func (f *fixture) own(id, name string, archivedAt *time.Time) {
-	f.owners.rows = append(f.owners.rows, agentstore.AgentDir{
-		ID:         id,
+func (f *worktreeFixture) own(t *testing.T, dir string, agent agentstore.Agent) *agentstore.Agent {
+	t.Helper()
+
+	agent.ID = filepath.Base(dir)
+	agent.Cwd = dir
+	if agent.WorkflowID == "" {
+		agent.WorkflowID = f.workflowID
+	}
+
+	return f.stores.SeedAgent(t, agent)
+}
+
+// occupy records an agent working in a directory it was not made for.
+func (f *worktreeFixture) occupy(t *testing.T, cwd, name string) {
+	t.Helper()
+
+	f.stores.SeedAgent(t, agentstore.Agent{
 		Name:       name,
-		Cwd:        filepath.Join(f.shared, id),
-		State:      agentstore.StateIdle,
-		ArchivedAt: archivedAt,
-		WorkflowID: "flow",
+		Cwd:        cwd,
+		WorkflowID: f.workflowID,
 	})
 }
 
-func (f *fixture) inspector() *Inspector {
+func (f *worktreeFixture) archive(t *testing.T, id string) {
+	t.Helper()
+
+	_, err := f.stores.Agents.Archive(t.Context(), []string{id})
+	require.NoError(t, err)
+}
+
+func (f *worktreeFixture) recordSize(t *testing.T, dir string, at time.Time) {
+	t.Helper()
+
+	require.NoError(t, f.worktrees.Upsert(t.Context(), worktreestore.Worktree{Dir: dir}))
+	require.NoError(t, f.worktrees.RecordSize(t.Context(), worktreestore.Size{
+		Dir:        dir,
+		Bytes:      1,
+		MeasuredAt: at,
+	}))
+}
+
+func (f *worktreeFixture) listStored(t *testing.T) map[string]worktreestore.Worktree {
+	t.Helper()
+
+	listed, err := f.worktrees.List(t.Context())
+	require.NoError(t, err)
+
+	return xslice.KeyBy(listed, func(worktree worktreestore.Worktree) string {
+		return worktree.Dir
+	})
+}
+
+func (f *worktreeFixture) listMeasuredAt(t *testing.T, at time.Time) []string {
+	t.Helper()
+
+	var dirs []string
+	for dir, worktree := range f.listStored(t) {
+		if worktree.Size != nil && worktree.Size.MeasuredAt.Equal(at) {
+			dirs = append(dirs, dir)
+		}
+	}
+
+	return dirs
+}
+
+func (f *worktreeFixture) readSize(t *testing.T, dir string) worktreestore.Size {
+	t.Helper()
+
+	size := f.listStored(t)[dir].Size
+	require.NotNil(t, size, "%s has no measurement", dir)
+
+	return *size
+}
+
+func (f *worktreeFixture) newInspector() *Inspector {
 	return NewInspector(NewInspectorParams{
 		Lister:    f.lister,
 		Git:       f.git,
-		Workflows: f.flows,
-		Sizes:     f.sizes,
-		Now:       func() time.Time { return f.now },
+		Workflows: f.stores.Workflows,
+		Sizes:     f.worktrees,
+		Now: func() time.Time {
+			return f.now
+		},
 	})
 }
 
-func (f *fixture) measurer() *Measurer {
+func (f *worktreeFixture) newMeasurer() *Measurer {
+	return f.newMeasurerOver(f.lister)
+}
+
+func (f *worktreeFixture) newMeasurerOver(lister worktreeLister) *Measurer {
 	return NewMeasurer(NewMeasurerParams{
-		Lister:    f.lister,
+		Lister:    lister,
 		Claimed:   f.claims,
-		Worktrees: f.sizes,
-		Now:       func() time.Time { return f.now },
+		Worktrees: f.worktrees,
+		Now: func() time.Time {
+			return f.now
+		},
 	})
 }
 
-func (f *fixture) remover() *Remover {
+func (f *worktreeFixture) newRemover() *Remover {
 	return NewRemover(NewRemoverParams{
 		Lister: f.lister,
-		Agents: f.owners,
+		Agents: f.stores.Agents,
 		Git:    f.git,
 	})
-}
-
-type fakeOwners struct {
-	rows []agentstore.AgentDir
-}
-
-func (o *fakeOwners) ListDirs(context.Context) ([]agentstore.AgentDir, error) {
-	return o.rows, nil
-}
-
-// fakeWorktreeStore holds rows and measurements by directory, remembering the order sizes were
-// written in and refusing the directories the test names.
-type fakeWorktreeStore struct {
-	records map[string]worktreestore.Worktree
-	stored  map[string]worktreestore.Size
-	written []string
-	deleted []string
-	refused map[string]error
-}
-
-func (s *fakeWorktreeStore) List(context.Context) ([]worktreestore.Worktree, error) {
-	dirs := map[string]bool{}
-	for dir := range s.records {
-		dirs[dir] = true
-	}
-	for dir := range s.stored {
-		dirs[dir] = true
-	}
-
-	listed := make([]worktreestore.Worktree, 0, len(dirs))
-	for dir := range dirs {
-		record, ok := s.records[dir]
-		if !ok {
-			record = worktreestore.Worktree{Dir: dir}
-		}
-		if size, ok := s.stored[dir]; ok {
-			record.Size = &size
-		}
-		listed = append(listed, record)
-	}
-
-	return listed, nil
-}
-
-func (s *fakeWorktreeStore) ListSizes(context.Context) ([]worktreestore.Size, error) {
-	sizes := make([]worktreestore.Size, 0, len(s.stored))
-	for _, size := range s.stored {
-		sizes = append(sizes, size)
-	}
-
-	return sizes, nil
-}
-
-func (s *fakeWorktreeStore) Upsert(_ context.Context, worktree worktreestore.Worktree) error {
-	s.records[worktree.Dir] = worktree
-
-	return nil
-}
-
-func (s *fakeWorktreeStore) RecordSize(_ context.Context, size worktreestore.Size) error {
-	if err, ok := s.refused[size.Dir]; ok {
-		return err
-	}
-
-	s.stored[size.Dir] = size
-	s.written = append(s.written, size.Dir)
-
-	return nil
-}
-
-func (s *fakeWorktreeStore) Delete(_ context.Context, dirs []string) error {
-	for _, dir := range dirs {
-		delete(s.records, dir)
-		delete(s.stored, dir)
-	}
-	s.deleted = append(s.deleted, dirs...)
-
-	return nil
-}
-
-// fakeClaims is the directories an unfinished delete names.
-type fakeClaims struct {
-	dirs []string
-}
-
-func (c *fakeClaims) ListClaimedDirs(context.Context) ([]string, error) {
-	return c.dirs, nil
-}
-
-type fakeWorkflows struct {
-	dirs  []string
-	flows map[string]*workflowstore.Workflow
-}
-
-func (w *fakeWorkflows) ListWorktreeDirs(context.Context) ([]string, error) {
-	return w.dirs, nil
-}
-
-func (w *fakeWorkflows) GetIncludingArchived(_ context.Context, id string) (*workflowstore.Workflow, error) {
-	if flow, ok := w.flows[id]; ok {
-		return flow, nil
-	}
-
-	return nil, store.ErrNotFound
-}
-
-// fakeGit answers every question about a checkout with what the test put in it, remembering
-// which base it was asked to resolve and which repositories it was asked to prune.
-type fakeGit struct {
-	changes    git.Changes
-	state      git.TreeState
-	ahead      int
-	behind     int
-	prediction git.Prediction
-	predictErr error
-	held       bool
-	unresolved bool
-	commits    []git.Commit
-	resolved   string
-	resolves   int
-	fetched    string
-	fetches    int
-	pruned     []string
-	registered []git.Worktree
-	listErr    error
-}
-
-func (g *fakeGit) ReadChanges(context.Context, string) (git.Changes, error) {
-	return g.changes, nil
-}
-
-func (g *fakeGit) ReadTreeState(context.Context, string) (git.TreeState, error) {
-	return g.state, nil
-}
-
-func (g *fakeGit) ResolveBase(_ context.Context, _, base string) (string, error) {
-	g.resolved = base
-	g.resolves++
-	if g.unresolved || base == "" {
-		return "", fmt.Errorf("%w: the clone has no origin/%s", git.ErrBaseMissing, base)
-	}
-
-	return "origin/" + base, nil
-}
-
-func (g *fakeGit) FetchBase(_ context.Context, _, base string) (string, string, error) {
-	g.fetched = base
-	g.fetches++
-
-	return "origin/" + base, "abc", nil
-}
-
-func (g *fakeGit) CountAheadBehind(context.Context, string, string) (int, int, error) {
-	return g.ahead, g.behind, nil
-}
-
-func (g *fakeGit) PredictRebase(context.Context, string, string) (git.Prediction, error) {
-	return g.prediction, g.predictErr
-}
-
-func (g *fakeGit) IsBranchHeldElsewhere(context.Context, string, string) (bool, error) {
-	return g.held, nil
-}
-
-func (g *fakeGit) ListCommitsSince(context.Context, string, string, int) ([]git.Commit, error) {
-	return g.commits, nil
-}
-
-func (g *fakeGit) ListWorktrees(context.Context, string) ([]git.Worktree, error) {
-	return g.registered, g.listErr
-}
-
-func (g *fakeGit) PruneWorktrees(_ context.Context, repo string) error {
-	g.pruned = append(g.pruned, repo)
-
-	return nil
 }
 
 func write(t *testing.T, root, path, content string) {

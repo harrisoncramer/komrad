@@ -181,7 +181,7 @@ WHERE
         SELECT
             recent.id
         FROM
-            unnest(@schedule_ids::uuid[]) AS s(id)
+            UNNEST(@schedule_ids::uuid[]) AS s(id)
             CROSS JOIN LATERAL (
                 SELECT
                     inner_run.id

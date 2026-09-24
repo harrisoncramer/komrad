@@ -4,9 +4,11 @@ import (
 	"context"
 	"testing"
 
+	"weave/internal/harnesstest"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
+	"weave/internal/tmuxtest"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -17,7 +19,7 @@ import (
 // share a workflow and whose panes go with them.
 func TestArchiveAgentsTakesTheWholeBatch(t *testing.T) {
 	st := newStore(t)
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	manager := newManager(tmux, st, "")
 	ctx := t.Context()
 
@@ -33,7 +35,7 @@ func TestArchiveAgentsTakesTheWholeBatch(t *testing.T) {
 		assert.NotNil(t, agentByID(t, st, agent.ID).ArchivedAt, "%s is archived", agent.Name)
 	}
 
-	assert.ElementsMatch(t, []string{"%1", "%2"}, tmux.killedPanes, "only the running agents had a pane to kill")
+	assert.ElementsMatch(t, []string{"%1", "%2"}, tmux.KilledPanes, "only the running agents had a pane to kill")
 
 	live, err := st.List(ctx)
 	require.NoError(t, err)
@@ -43,7 +45,7 @@ func TestArchiveAgentsTakesTheWholeBatch(t *testing.T) {
 // TestArchiveUnchangedAgents covers the guard a background pass needs.
 func TestArchiveUnchangedAgents(t *testing.T) {
 	st := newStore(t)
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	manager := newManager(tmux, st, "")
 	ctx := t.Context()
 
@@ -62,7 +64,7 @@ func TestArchiveUnchangedAgents(t *testing.T) {
 	assert.Equal(t, settled.ID, archived[0].ID, "only the row that still read as it was observed is archived")
 	assert.NotNil(t, agentByID(t, st, settled.ID).ArchivedAt)
 	assert.Nil(t, agentByID(t, st, moved.ID).ArchivedAt, "the row that moved since the snapshot is left for a later pass")
-	assert.Equal(t, []string{"%1"}, tmux.killedPanes, "the pane goes with the archive it belongs to")
+	assert.Equal(t, []string{"%1"}, tmux.KilledPanes, "the pane goes with the archive it belongs to")
 }
 
 // TestArchiveAgentsRefusesTheWholeBatch pins one bad id refusing the batch.
@@ -84,7 +86,7 @@ func TestArchiveAgentsRefusesTheWholeBatch(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
-			tmux := newFakeTmux()
+			tmux := tmuxtest.NewFake()
 			manager := newManager(tmux, st, "")
 			ctx := t.Context()
 
@@ -95,7 +97,7 @@ func TestArchiveAgentsRefusesTheWholeBatch(t *testing.T) {
 
 			require.ErrorIs(t, err, ErrAgentNotFound)
 			require.ErrorContains(t, err, tt.stray, "the refusal names what it could not find")
-			assert.Empty(t, tmux.killedPanes, "nothing was stopped")
+			assert.Empty(t, tmux.KilledPanes, "nothing was stopped")
 
 			live, err := st.List(ctx)
 			require.NoError(t, err)
@@ -107,10 +109,10 @@ func TestArchiveAgentsRefusesTheWholeBatch(t *testing.T) {
 // TestDeleteAgentsFiresEveryWorkflowsCleanup pins each agent's own worktree being removed.
 func TestDeleteAgentsFiresEveryWorkflowsCleanup(t *testing.T) {
 	st := newStore(t)
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	lifecycle := &fakeLifecycle{}
-	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
-	workflows := workflowsFor(st, tmux)
+	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
+	workflows := newWorkflowService(st, tmux)
 	ctx := t.Context()
 
 	backend, err := workflows.NewWorkflow(ctx, worktreeConfig(t, "backend"))
@@ -144,7 +146,7 @@ func TestDeleteAgentsFiresEveryWorkflowsCleanup(t *testing.T) {
 // TestDeleteAgentsTakesTheirTranscripts pins the conversations going with the rows.
 func TestDeleteAgentsTakesTheirTranscripts(t *testing.T) {
 	st := newStore(t)
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	manager := newManager(tmux, st, "")
 	ctx := t.Context()
 
@@ -168,12 +170,12 @@ func TestDeleteAgentsTakesTheirTranscripts(t *testing.T) {
 // a directory for an agent still in the panel.
 func TestDeleteAgentsRefusesTheWholeBatch(t *testing.T) {
 	st := newStore(t)
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	lifecycle := &fakeLifecycle{}
-	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
+	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
 	ctx := t.Context()
 
-	created, err := workflowsFor(st, tmux).NewWorkflow(ctx, worktreeConfig(t, "backend"))
+	created, err := newWorkflowService(st, tmux).NewWorkflow(ctx, worktreeConfig(t, "backend"))
 	require.NoError(t, err)
 
 	agent, err := manager.launch.NewAgent(ctx, NewAgentParams{
@@ -187,7 +189,7 @@ func TestDeleteAgentsRefusesTheWholeBatch(t *testing.T) {
 
 	require.ErrorIs(t, err, ErrAgentNotFound)
 	assert.Empty(t, lifecycle.deprovision, "no workspace was torn down")
-	assert.Empty(t, tmux.killedPanes, "and nothing was stopped")
+	assert.Empty(t, tmux.KilledPanes, "and nothing was stopped")
 
 	all, err := st.ListAll(ctx)
 	require.NoError(t, err)
@@ -197,9 +199,9 @@ func TestDeleteAgentsRefusesTheWholeBatch(t *testing.T) {
 // TestRestoreAgentsBringsBackEveryWorkflow pins each workflow coming back with its agents.
 func TestRestoreAgentsBringsBackEveryWorkflow(t *testing.T) {
 	st := newStore(t)
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	manager := newManager(tmux, st, "")
-	workflows := workflowsFor(st, tmux)
+	workflows := newWorkflowService(st, tmux)
 	ctx := t.Context()
 
 	backend, err := workflows.NewWorkflow(ctx, workflowstore.Config{Name: "backend"})
@@ -230,7 +232,7 @@ func TestRestoreAgentsBringsBackEveryWorkflow(t *testing.T) {
 // listing does not half-restore a folder.
 func TestRestoreAgentsRefusesTheWholeBatch(t *testing.T) {
 	st := newStore(t)
-	manager := newManager(newFakeTmux(), st, "")
+	manager := newManager(tmuxtest.NewFake(), st, "")
 	ctx := t.Context()
 
 	archived := seed(t, st, "auth", "", agentstore.StateIdle)
@@ -246,7 +248,7 @@ func TestRestoreAgentsRefusesTheWholeBatch(t *testing.T) {
 // once.
 func TestRestoreAgentsCountsTheWholeBatchAgainstTheCeiling(t *testing.T) {
 	st := newStore(t)
-	manager := st.agentServiceCapped(newFakeTmux(), &fakeLifecycle{}, 3)
+	manager := st.agentServiceCapped(tmuxtest.NewFake(), &fakeLifecycle{}, 3)
 	ctx := t.Context()
 
 	workflowID := seedWorkflow(t, st)
@@ -294,7 +296,7 @@ func TestRestoreAgentsRefusesOnANameTaken(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
-			manager := newManager(newFakeTmux(), st, "")
+			manager := newManager(tmuxtest.NewFake(), st, "")
 			ctx := t.Context()
 
 			workflowID := seedWorkflow(t, st)
@@ -327,7 +329,7 @@ func TestRestoreAgentsRefusesOnANameTaken(t *testing.T) {
 // workflows are not a clash, a name being unique only inside its own.
 func TestRestoreAgentsAllowsANameSharedAcrossWorkflows(t *testing.T) {
 	st := newStore(t)
-	manager := newManager(newFakeTmux(), st, "")
+	manager := newManager(tmuxtest.NewFake(), st, "")
 	ctx := t.Context()
 
 	backend, frontend := seedWorkflow(t, st), seedWorkflow(t, st)
@@ -350,7 +352,7 @@ func TestRestoreAgentsAllowsANameSharedAcrossWorkflows(t *testing.T) {
 // TestRestoreAgentsPassesOverTheLiveOnes pins live agents being skipped.
 func TestRestoreAgentsPassesOverTheLiveOnes(t *testing.T) {
 	st := newStore(t)
-	manager := st.agentServiceCapped(newFakeTmux(), &fakeLifecycle{}, 2)
+	manager := st.agentServiceCapped(tmuxtest.NewFake(), &fakeLifecycle{}, 2)
 	ctx := t.Context()
 
 	workflowID := seedWorkflow(t, st)
@@ -370,7 +372,7 @@ func TestRestoreAgentsPassesOverTheLiveOnes(t *testing.T) {
 // rather than being refused for room it does not need.
 func TestRestoreAgentsWithNothingArchived(t *testing.T) {
 	st := newStore(t)
-	manager := st.agentServiceCapped(newFakeTmux(), &fakeLifecycle{}, 2)
+	manager := st.agentServiceCapped(tmuxtest.NewFake(), &fakeLifecycle{}, 2)
 	ctx := t.Context()
 
 	workflowID := seedWorkflow(t, st)
@@ -394,7 +396,7 @@ func seedRunningIn(t *testing.T, st *testStore, tmux paneStamper, workflowID, na
 // TestArchiveAgentsNamesOnlyTheFirstMissing pins the refusal naming one id.
 func TestArchiveAgentsNamesOnlyTheFirstMissing(t *testing.T) {
 	st := newStore(t)
-	manager := newManager(newFakeTmux(), st, "")
+	manager := newManager(tmuxtest.NewFake(), st, "")
 
 	ids := make([]string, 0, 20)
 	for range 20 {
@@ -413,7 +415,7 @@ func TestArchiveAgentsNamesOnlyTheFirstMissing(t *testing.T) {
 // an agent's archived stamp is written again once the CLI holding its log is dead.
 func TestArchiveUnchangedAgentsStampsAfterTheKill(t *testing.T) {
 	st := newStore(t)
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	agents := &restampWatcher{lifecycleAgentReadWriter: st.Agents, tmux: tmux}
 	manager := newManager(tmux, st, "")
 	manager.lifecycle.agents = agents
@@ -434,12 +436,12 @@ func TestArchiveUnchangedAgentsStampsAfterTheKill(t *testing.T) {
 // written again.
 type restampWatcher struct {
 	lifecycleAgentReadWriter
-	tmux                *fakeTmux
+	tmux                *tmuxtest.Fake
 	killedWhenRestamped []string
 }
 
 func (r *restampWatcher) RestampArchived(ctx context.Context, ids []string) error {
-	r.killedWhenRestamped = append([]string(nil), r.tmux.killedPanes...)
+	r.killedWhenRestamped = append([]string(nil), r.tmux.KilledPanes...)
 
 	return r.lifecycleAgentReadWriter.RestampArchived(ctx, ids)
 }

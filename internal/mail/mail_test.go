@@ -1,16 +1,14 @@
 package mail
 
 import (
-	"context"
-	"fmt"
 	"testing"
 	"time"
 
 	"weave/config"
-	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
 	workflowstore "weave/internal/store/workflow"
+	"weave/internal/storetest"
 	"weave/lib/xptr"
 	"weave/lib/xslice"
 
@@ -19,881 +17,392 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestSendMailRefusals pins which sentinel each way of addressing mail wrongly comes back
-// with, from an unknown recipient to one whose mailbox is already full.
+// addressBook is the agents an address may resolve to, across three workflows.
+type addressBook struct {
+	sender        *agentstore.Agent
+	reviewerHere  *agentstore.Agent
+	reviewerThere *agentstore.Agent
+	migrations    *agentstore.Agent
+	testerWeave   *agentstore.Agent
+	testerDocs    *agentstore.Agent
+	retired       *agentstore.Agent
+	unheldID      string
+}
+
+// TestSendMailRefusals pins which sentinel each way of addressing mail wrongly comes back with.
 func TestSendMailRefusals(t *testing.T) {
 	tests := []struct {
 		name    string
-		params  SendMailParams
-		pending int64
+		from    string
+		to      string
+		replyTo *string
+		pending int
 		wantErr error
 	}{
 		{
-			name: "an address nothing answers to",
-			params: SendMailParams{
-				From:      "agent-a",
-				ToAgentID: "ghost",
-				Body:      "hello",
-			},
+			name:    "an address nothing answers to",
+			from:    "api",
+			to:      "ghost",
 			wantErr: ErrRecipientNotFound,
 		},
 		{
-			name: "a recipient that has been archived",
-			params: SendMailParams{
-				From:      "agent-a",
-				ToAgentID: "agent-archived",
-				Body:      "hello",
-			},
+			name:    "a recipient that has been archived",
+			from:    "api",
+			to:      "archived",
 			wantErr: ErrAgentArchived,
 		},
 		{
-			name: "a sender naming an agent that does not exist",
-			params: SendMailParams{
-				From:      "agent-ghost",
-				ToAgentID: "agent-b",
-				Body:      "hello",
-			},
+			name:    "a sender naming an agent that does not exist",
+			from:    "ghost",
+			to:      "migrations",
 			wantErr: ErrSenderUnknown,
 		},
 		{
-			name: "an agent addressing itself",
-			params: SendMailParams{
-				From:      "agent-a",
-				ToAgentID: "agent-a",
-				Body:      "hello",
-			},
+			name:    "an agent addressing itself",
+			from:    "api",
+			to:      "api",
 			wantErr: ErrSelfAddressed,
 		},
 		{
-			name: "a recipient already holding a full mailbox",
-			params: SendMailParams{
-				From:      "agent-a",
-				ToAgentID: "agent-b",
-				Body:      "hello",
-			},
+			name:    "a recipient already holding a full mailbox",
+			from:    "api",
+			to:      "migrations",
 			pending: maxPendingMail,
 			wantErr: ErrMailboxFull,
 		},
 		{
-			name: "a reply_to that is not a well-formed id",
-			params: SendMailParams{
-				From:      "agent-a",
-				ToAgentID: "agent-b",
-				Body:      "hello",
-				ReplyTo:   xptr.Ptr("not-an-id"),
-			},
+			name:    "a reply_to that is not a well-formed id",
+			from:    "api",
+			to:      "migrations",
+			replyTo: xptr.Ptr("not-an-id"),
 			wantErr: ErrReplyToNotFound,
 		},
 		{
-			name: "a reply_to naming a well-formed id nothing holds",
-			params: SendMailParams{
-				From:      "agent-a",
-				ToAgentID: "agent-b",
-				Body:      "hello",
-				ReplyTo:   xptr.Ptr(uuid.NewString()),
-			},
+			name:    "a reply_to naming a well-formed id nothing holds",
+			from:    "api",
+			to:      "migrations",
+			replyTo: xptr.Ptr(uuid.NewString()),
 			wantErr: ErrReplyToNotFound,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mailbox := &fakeMailbox{pending: tt.pending}
-			svc := NewMailService(NewMailServiceParams{
-				MailReadWriter: mailbox,
-				Agents:         newFakeDirectory(),
-				Config:         fakeMailConfig{maxExchange: config.DefaultMaxExchange},
-			})
+			st := storetest.Open(t)
+			svc := newMailService(st, config.DefaultMaxExchange)
 
-			sent, err := svc.SendMail(t.Context(), tt.params)
+			ids := map[string]string{
+				"api":        st.SeedAgent(t, agentstore.Agent{Name: "api"}).ID,
+				"migrations": st.SeedAgent(t, agentstore.Agent{Name: "migrations"}).ID,
+				"archived":   st.SeedAgent(t, agentstore.Agent{Name: "archived"}).ID,
+				"ghost":      uuid.NewString(),
+			}
+			_, err := st.Agents.Archive(t.Context(), []string{ids["archived"]})
+			require.NoError(t, err)
+
+			for range tt.pending {
+				_, err := st.Mail.Send(t.Context(), mailstore.SendParams{
+					ToAgentID: ids[tt.to],
+					Body:      "waiting",
+					Deadline:  time.Hour,
+				})
+				require.NoError(t, err)
+			}
+
+			sent, err := svc.SendMail(t.Context(), SendMailParams{
+				From:      ids[tt.from],
+				ToAgentID: ids[tt.to],
+				Body:      "hello",
+				ReplyTo:   tt.replyTo,
+			})
 			require.ErrorIs(t, err, tt.wantErr)
 			assert.Nil(t, sent)
-			assert.Empty(t, mailbox.sent)
+
+			pending, err := st.Mail.CountPending(t.Context(), ids[tt.to])
+			require.NoError(t, err)
+			assert.EqualValues(t, tt.pending, pending, "a refused send leaves nothing behind")
 		})
 	}
 }
 
-// TestSendMailStampsTheSender pins that mail records who sent it.
-func TestSendMailStampsTheSender(t *testing.T) {
-	mailbox := &fakeMailbox{}
-	svc := NewMailService(NewMailServiceParams{
-		MailReadWriter: mailbox,
-		Agents:         newFakeDirectory(),
-		Config:         fakeMailConfig{maxExchange: config.DefaultMaxExchange},
+// TestSendMailRecordsWhoSentIt pins the sender an agent's mail, a person's and weave's own each carry.
+func TestSendMailRecordsWhoSentIt(t *testing.T) {
+	tests := []struct {
+		name         string
+		from         string
+		system       bool
+		reply        bool
+		wantFromID   bool
+		wantFromName string
+	}{
+		{
+			name:         "a person sending as nobody",
+			wantFromName: "",
+		},
+		{
+			name:         "weave's own mail",
+			system:       true,
+			wantFromName: WeaveSenderName,
+		},
+		{
+			name:         "an agent sending to another",
+			from:         "api",
+			wantFromID:   true,
+			wantFromName: "api",
+		},
+		{
+			name:         "an agent answering on a thread",
+			from:         "api",
+			reply:        true,
+			wantFromID:   true,
+			wantFromName: "api",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := storetest.Open(t)
+			svc := newMailService(st, config.DefaultMaxExchange)
+			sender := st.SeedAgent(t, agentstore.Agent{Name: "api"})
+			recipient := st.SeedAgent(t, agentstore.Agent{Name: "migrations"})
+
+			var replyTo *string
+			if tt.reply {
+				opening, err := st.Mail.Send(t.Context(), mailstore.SendParams{
+					FromAgentID: &recipient.ID,
+					ToAgentID:   sender.ID,
+					Body:        "which column holds the refund?",
+					Deadline:    time.Hour,
+				})
+				require.NoError(t, err)
+				replyTo = &opening.ID
+			}
+
+			var sent *mailstore.Mail
+			var err error
+			switch {
+			case tt.system:
+				sent, err = svc.SendSystemMail(t.Context(), recipient.ID, "your delegate was archived")
+			case tt.from != "":
+				sent, err = svc.SendMail(t.Context(), SendMailParams{
+					From:      sender.ID,
+					ToAgentID: recipient.ID,
+					Body:      "refunded_cents",
+					ReplyTo:   replyTo,
+				})
+			default:
+				sent, err = svc.SendMail(t.Context(), SendMailParams{
+					ToAgentID: recipient.ID,
+					Body:      "which column holds the refund?",
+				})
+			}
+			require.NoError(t, err)
+
+			waiting, err := st.Mail.Claim(t.Context(), recipient.ID, maxClaimedMail)
+			require.NoError(t, err)
+			require.Len(t, waiting, 1)
+			assert.Equal(t, sent.ID, waiting[0].ID)
+			assert.Equal(t, mailstore.KindPlain, waiting[0].Kind)
+			assert.Equal(t, tt.wantFromName, waiting[0].FromName)
+			assert.Equal(t, replyTo, waiting[0].ReplyTo)
+
+			if !tt.wantFromID {
+				assert.Nil(t, waiting[0].FromAgentID)
+
+				return
+			}
+
+			require.NotNil(t, waiting[0].FromAgentID)
+			assert.Equal(t, sender.ID, *waiting[0].FromAgentID)
+		})
+	}
+}
+
+// TestSendMailRefusesAPairAtTheExchangeCap pins that ordinary mail between a pair is refused once they reach the cap.
+func TestSendMailRefusesAPairAtTheExchangeCap(t *testing.T) {
+	st := storetest.Open(t)
+	svc := newMailService(st, 2)
+	family := seedFamily(t, st)
+
+	exchange(t, svc, exchangeParams{
+		Child:    family["child-one"],
+		Parent:   family["parent"],
+		Messages: 2,
 	})
 
 	sent, err := svc.SendMail(t.Context(), SendMailParams{
-		From:      "agent-a",
-		ToAgentID: "agent-b",
-		Body:      "which column holds the refund?",
-	})
-	require.NoError(t, err)
-	require.NotNil(t, sent)
-	require.Len(t, mailbox.sent, 1)
-
-	wrote := mailbox.sent[0]
-	require.NotNil(t, wrote.FromAgentID)
-	assert.Equal(t, "agent-a", *wrote.FromAgentID)
-	assert.Equal(t, "api", wrote.FromName)
-	assert.Equal(t, "agent-b", wrote.ToAgentID)
-	assert.Equal(t, "which column holds the refund?", wrote.Body)
-}
-
-// TestSendMailFromNobody pins that mail sent by no agent carries no sender rather than an
-// invented one.
-func TestSendMailFromNobody(t *testing.T) {
-	mailbox := &fakeMailbox{}
-	svc := NewMailService(NewMailServiceParams{
-		MailReadWriter: mailbox,
-		Agents:         newFakeDirectory(),
-		Config:         fakeMailConfig{maxExchange: config.DefaultMaxExchange},
-	})
-
-	_, err := svc.SendMail(t.Context(), SendMailParams{ToAgentID: "agent-b", Body: "hello"})
-	require.NoError(t, err)
-	require.Len(t, mailbox.sent, 1)
-	assert.Nil(t, mailbox.sent[0].FromAgentID)
-	assert.Empty(t, mailbox.sent[0].FromName)
-}
-
-// TestSendMailRefusesPastTheExchangeCap pins that the cap counts the pair rather than a thread
-// of it, so a send with no reply_to is refused exactly like a reply once the two agents have
-// written each other as much as the limit allows.
-func TestSendMailRefusesPastTheExchangeCap(t *testing.T) {
-	mailbox := &fakeMailbox{}
-	svc := NewMailService(NewMailServiceParams{
-		MailReadWriter: mailbox,
-		Agents:         newFakeDirectory(),
-		Config:         fakeMailConfig{maxExchange: 2},
-	})
-
-	first, err := svc.SendMail(t.Context(), SendMailParams{
-		From: "agent-a", ToAgentID: "agent-b", Body: "which column?",
-	})
-	require.NoError(t, err)
-
-	_, err = svc.SendMail(t.Context(), SendMailParams{
-		From: "agent-b", ToAgentID: "agent-a", Body: "refunded_cents", ReplyTo: &first.ID,
-	})
-	require.NoError(t, err)
-
-	_, err = svc.SendMail(t.Context(), SendMailParams{
-		From: "agent-a", ToAgentID: "agent-b", Body: "one more thing", ReplyTo: &first.ID,
+		From:      family["child-one"].ID,
+		ToAgentID: family["parent"].ID,
+		Body:      "one more",
 	})
 	require.ErrorIs(t, err, ErrExchangeCapped)
-
-	_, err = svc.SendMail(t.Context(), SendMailParams{
-		From: "agent-a", ToAgentID: "agent-b", Body: "a fresh subject",
-	})
-	require.ErrorIs(t, err, ErrExchangeCapped, "opening a new thread is not a way around the cap")
+	assert.Nil(t, sent)
 }
 
-// exchange sends mail back and forth between a child and its parent, every message opening a
-// thread of its own the way a send with no reply_to does.
-func exchange(t *testing.T, svc *MailService, child string, messages int) {
-	t.Helper()
+// TestSendMailLetsThroughWhatTheCapDoesNotStop pins the sends the exchange cap leaves alone.
+func TestSendMailLetsThroughWhatTheCapDoesNotStop(t *testing.T) {
+	tests := []struct {
+		name      string
+		exchanged int
+		system    bool
+	}{
+		{
+			name:      "weave's own mail to an agent whose pair has reached the cap",
+			exchanged: 2,
+			system:    true,
+		},
+		{
+			name:      "a pair inside the cap",
+			exchanged: 1,
+		},
+	}
 
-	for at := range messages {
-		from, to := child, "parent"
-		if at%2 == 1 {
-			from, to = "parent", child
-		}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := storetest.Open(t)
+			svc := newMailService(st, 2)
+			family := seedFamily(t, st)
 
-		_, err := svc.SendMail(t.Context(), SendMailParams{
-			From:      from,
-			ToAgentID: to,
-			Body:      "round",
+			exchange(t, svc, exchangeParams{
+				Child:    family["child-one"],
+				Parent:   family["parent"],
+				Messages: tt.exchanged,
+			})
+
+			if tt.system {
+				_, err := svc.SendSystemMail(t.Context(), family["parent"].ID, "your delegate was archived")
+				require.NoError(t, err)
+
+				return
+			}
+
+			_, err := svc.SendMail(t.Context(), SendMailParams{
+				From:      family["child-one"].ID,
+				ToAgentID: family["parent"].ID,
+				Body:      "one more",
+			})
+			require.NoError(t, err)
 		})
-		require.NoError(t, err)
 	}
 }
 
-// cappedNotices is what a mailbox holds of the kind weave raises when it refuses a send, which
-// is how a test tells one notice standing for every refusal after it from a pile of them.
-func cappedNotices(mailbox *fakeMailbox) []mailstore.Mail {
-	var held []mailstore.Mail
-	for _, mail := range mailbox.byID {
-		if mail.Kind == mailstore.KindExchangeCapped {
-			held = append(held, mail)
-		}
-	}
+// TestSendMailTellsTheRecipientWhenTheCapRefusesASend walks the notice a refused send leaves the side that would otherwise wait on it.
+func TestSendMailTellsTheRecipientWhenTheCapRefusesASend(t *testing.T) {
+	st := storetest.Open(t)
+	svc := newMailService(st, 2)
+	family := seedFamily(t, st)
+	parent, childOne, childTwo := family["parent"], family["child-one"], family["child-two"]
 
-	return held
-}
+	refuse := func(t *testing.T, from agentstore.Agent) {
+		t.Helper()
 
-// TestSendMailTellsBothSidesWhenTheCapRefusesASend covers what keeps a refusal from stranding
-// the work: the sender gets the error, and the recipient is told mail meant for it was stopped so
-// it is not left waiting on a reply.
-func TestSendMailTellsBothSidesWhenTheCapRefusesASend(t *testing.T) {
-	mailbox := &fakeMailbox{}
-	family := newFakeFamily()
-	svc := NewMailService(NewMailServiceParams{
-		MailReadWriter: mailbox,
-		Agents:         family,
-		Config:         fakeMailConfig{maxExchange: 4},
-	})
-
-	exchange(t, svc, "child-one", 3)
-	assert.Empty(t, cappedNotices(mailbox), "a pair inside the cap is nobody's business")
-
-	exchange(t, svc, "child-one", 1)
-
-	_, err := svc.SendMail(t.Context(), SendMailParams{
-		From: "child-one", ToAgentID: "parent", Body: "one more",
-	})
-	require.ErrorIs(t, err, ErrExchangeCapped)
-
-	told := cappedNotices(mailbox)
-	require.Len(t, told, 1)
-	assert.Equal(t, "parent", told[0].ToAgentID, "the side that would otherwise wait forever")
-	assert.Contains(t, told[0].Body, "reviewer")
-	assert.Contains(t, told[0].Body, "child-one", "the id, since two workflows may hold one name")
-}
-
-// TestSendMailKeepsOneNoticePerUnreadRefusal pins what a retry past the cap costs: an unread
-// notice stands in for the refusals behind it, and one already read is replaced.
-func TestSendMailKeepsOneNoticePerUnreadRefusal(t *testing.T) {
-	mailbox := &fakeMailbox{}
-	family := newFakeFamily()
-	svc := NewMailService(NewMailServiceParams{
-		MailReadWriter: mailbox,
-		Agents:         family,
-		Config:         fakeMailConfig{maxExchange: 2},
-	})
-
-	exchange(t, svc, "child-one", 2)
-
-	for range 3 {
 		_, err := svc.SendMail(t.Context(), SendMailParams{
-			From: "child-one", ToAgentID: "parent", Body: "one more",
+			From:      from.ID,
+			ToAgentID: parent.ID,
+			Body:      "one more",
 		})
 		require.ErrorIs(t, err, ErrExchangeCapped)
 	}
 
-	assert.Len(t, cappedNotices(mailbox), 1, "the unread notice stands for the refusals behind it")
-
-	mailbox.claimHeld()
-
-	_, err := svc.SendMail(t.Context(), SendMailParams{
-		From: "child-one", ToAgentID: "parent", Body: "one more",
-	})
-	require.ErrorIs(t, err, ErrExchangeCapped)
-	assert.Len(t, cappedNotices(mailbox), 2, "a recipient that has read the notice is told again")
-}
-
-// TestSendMailTellsAnAgentAboutEverySeveredPair covers the hole a per-kind notice leaves: an
-// agent already holding an unread notice about one partner has to be told about a second one too,
-// or the exchange it is still waiting on is severed without it ever hearing so.
-func TestSendMailTellsAnAgentAboutEverySeveredPair(t *testing.T) {
-	mailbox := &fakeMailbox{}
-	family := newFakeFamily()
-	svc := NewMailService(NewMailServiceParams{
-		MailReadWriter: mailbox,
-		Agents:         family,
-		Config:         fakeMailConfig{maxExchange: 2},
+	exchange(t, svc, exchangeParams{
+		Child:    childOne,
+		Parent:   parent,
+		Messages: 2,
 	})
 
-	exchange(t, svc, "child-one", 2)
-	exchange(t, svc, "child-two", 2)
-
-	_, err := svc.SendMail(t.Context(), SendMailParams{
-		From: "child-one", ToAgentID: "parent", Body: "spent",
-	})
-	require.ErrorIs(t, err, ErrExchangeCapped)
-
-	_, err = svc.SendMail(t.Context(), SendMailParams{
-		From: "child-two", ToAgentID: "parent", Body: "spent too",
-	})
-	require.ErrorIs(t, err, ErrExchangeCapped)
-
-	told := cappedNotices(mailbox)
-	require.Len(t, told, 2, "one notice per severed pair, not one per kind")
-
-	about := xslice.Map(told, func(notice mailstore.Mail) string {
-		require.NotNil(t, notice.AboutAgentID)
-
-		return *notice.AboutAgentID
-	})
-	assert.ElementsMatch(t, []string{"child-one", "child-two"}, about)
-}
-
-// TestSendMailCapsEachPairSeparately pins that the cap is spent per pair, so a reviewer that is
-// replaced starts with the whole allowance and two children of one parent do not spend each
-// other's.
-func TestSendMailCapsEachPairSeparately(t *testing.T) {
-	mailbox := &fakeMailbox{}
-	family := newFakeFamily()
-	svc := NewMailService(NewMailServiceParams{
-		MailReadWriter: mailbox,
-		Agents:         family,
-		Config:         fakeMailConfig{maxExchange: 4},
+	t.Run("a pair at the cap is nobody's business until a send is refused", func(t *testing.T) {
+		assert.Empty(t, listCappedNotices(t, st, parent.ID))
 	})
 
-	exchange(t, svc, "child-one", 4)
-	exchange(t, svc, "child-two", 3)
+	t.Run("the refusal leaves the recipient a notice naming the sender", func(t *testing.T) {
+		refuse(t, childOne)
 
-	_, err := svc.SendMail(t.Context(), SendMailParams{
-		From: "child-one", ToAgentID: "parent", Body: "spent",
-	})
-	require.ErrorIs(t, err, ErrExchangeCapped)
-
-	_, err = svc.SendMail(t.Context(), SendMailParams{
-		From: "child-two", ToAgentID: "parent", Body: "still has room",
-	})
-	require.NoError(t, err)
-}
-
-// TestSendMailLeavesWeavesOwnMailOutOfTheCount pins that a lifecycle notice does not spend the
-// pair's allowance.
-func TestSendMailLeavesWeavesOwnMailOutOfTheCount(t *testing.T) {
-	mailbox := &fakeMailbox{}
-	family := newFakeFamily()
-	svc := NewMailService(NewMailServiceParams{
-		MailReadWriter: mailbox,
-		Agents:         family,
-		Config:         fakeMailConfig{maxExchange: 4},
+		told := listCappedNotices(t, st, parent.ID)
+		require.Len(t, told, 1)
+		assert.Contains(t, told[0].Body, childOne.Name)
+		assert.Contains(t, told[0].Body, childOne.ID, "the id, since two workflows may hold one name")
 	})
 
-	for range 4 {
-		_, err := svc.SendSystemMail(t.Context(), "parent", "your delegate was archived")
+	t.Run("an unread notice stands for the refusals behind it", func(t *testing.T) {
+		refuse(t, childOne)
+		refuse(t, childOne)
+
+		assert.Len(t, listCappedNotices(t, st, parent.ID), 1)
+	})
+
+	t.Run("a recipient that has read the notice is told again", func(t *testing.T) {
+		_, err := st.Mail.Claim(t.Context(), parent.ID, maxPendingMail)
 		require.NoError(t, err)
-	}
-	exchange(t, svc, "child-one", 3)
 
-	_, err := svc.SendMail(t.Context(), SendMailParams{
-		From: "child-one", ToAgentID: "parent", Body: "still inside the cap",
-	})
-	require.NoError(t, err)
-}
+		refuse(t, childOne)
 
-// TestSendMailSystemNoticeIsNeverRefusedByTheCap proves weave can always reach an agent, a
-// lifecycle notice carrying no sending agent and so being no half of a pair.
-func TestSendMailSystemNoticeIsNeverRefusedByTheCap(t *testing.T) {
-	mailbox := &fakeMailbox{}
-	svc := NewMailService(NewMailServiceParams{
-		MailReadWriter: mailbox,
-		Agents:         newFakeDirectory(),
-		Config:         fakeMailConfig{maxExchange: 1},
+		assert.Len(t, listCappedNotices(t, st, parent.ID), 2)
 	})
 
-	for range 3 {
-		sent, err := svc.SendSystemMail(t.Context(), "agent-a", "your delegate was archived")
-		require.NoError(t, err)
-		require.NotNil(t, sent)
-	}
-}
-
-// TestSendSystemMailStampsWeaveAsTheSender proves a lifecycle notice lands with weave's name and no
-// agent id.
-func TestSendSystemMailStampsWeaveAsTheSender(t *testing.T) {
-	mailbox := &fakeMailbox{}
-	svc := NewMailService(NewMailServiceParams{
-		MailReadWriter: mailbox,
-		Agents:         newFakeDirectory(),
-		Config:         fakeMailConfig{maxExchange: config.DefaultMaxExchange},
-	})
-
-	sent, err := svc.SendSystemMail(t.Context(), "agent-a", "your delegate was archived")
-	require.NoError(t, err)
-	assert.Equal(t, WeaveSenderName, sent.FromName)
-	assert.Nil(t, sent.FromAgentID)
-}
-
-// TestClaimMail pins which claims are answered and which are refused, an id no agent holds
-// included.
-func TestClaimMail(t *testing.T) {
-	tests := []struct {
-		name    string
-		agentID string
-		wantErr error
-		wantLen int
-	}{
-		{
-			name:    "an id no agent holds",
-			agentID: "agent-ghost",
-			wantErr: ErrAgentNotFound,
-		},
-		{
-			name:    "an agent reading its own",
-			agentID: "agent-b",
-			wantLen: 1,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mailbox := &fakeMailbox{claimed: []mailstore.Mail{{ID: "mail-1", Body: "hello"}}}
-			svc := NewMailService(NewMailServiceParams{
-				MailReadWriter: mailbox,
-				Agents:         newFakeDirectory(),
-				Config:         fakeMailConfig{maxExchange: config.DefaultMaxExchange},
-			})
-
-			claimed, err := svc.ClaimMail(t.Context(), tt.agentID)
-			if tt.wantErr != nil {
-				require.ErrorIs(t, err, tt.wantErr)
-				assert.Empty(t, claimed)
-
-				return
-			}
-
-			require.NoError(t, err)
-			assert.Len(t, claimed, tt.wantLen)
-			assert.Equal(t, int32(maxClaimedMail), mailbox.claimLimit)
+	t.Run("a second severed pair gets a notice of its own", func(t *testing.T) {
+		exchange(t, svc, exchangeParams{
+			Child:    childTwo,
+			Parent:   parent,
+			Messages: 2,
 		})
-	}
-}
+		refuse(t, childTwo)
 
-type fakeMailConfig struct {
-	maxExchange int
-}
+		about := xslice.Map(listCappedNotices(t, st, parent.ID), func(notice mailstore.Mail) string {
+			require.NotNil(t, notice.AboutAgentID)
 
-func (fakeMailConfig) GetDeliveryDeadline() (time.Duration, error) {
-	return time.Hour, nil
-}
-
-func (f fakeMailConfig) GetMaxExchange() (int, error) {
-	return f.maxExchange, nil
-}
-
-type fakeMailbox struct {
-	sent       []mailstore.SendParams
-	pending    int64
-	claimed    []mailstore.Mail
-	claimLimit int32
-	byID       map[string]mailstore.Mail
-	deleted    []string
-}
-
-func (f *fakeMailbox) Send(_ context.Context, params mailstore.SendParams) (*mailstore.Mail, error) {
-	f.sent = append(f.sent, params)
-
-	sent := mailstore.Mail{
-		ID:           fmt.Sprintf("mail-%d", len(f.sent)),
-		FromAgentID:  params.FromAgentID,
-		FromName:     params.FromName,
-		ToAgentID:    params.ToAgentID,
-		Body:         params.Body,
-		Kind:         params.Kind,
-		ReplyTo:      params.ReplyTo,
-		AboutAgentID: params.AboutAgentID,
-	}
-
-	if f.byID == nil {
-		f.byID = map[string]mailstore.Mail{}
-	}
-	f.byID[sent.ID] = sent
-
-	return &sent, nil
-}
-
-func (f *fakeMailbox) GetByID(_ context.Context, id string) (*mailstore.Mail, error) {
-	found, ok := f.byID[id]
-	if !ok {
-		return nil, fmt.Errorf("%w: mail %q", store.ErrNotFound, id)
-	}
-
-	return &found, nil
-}
-
-func (f *fakeMailbox) Claim(_ context.Context, _ string, limit int32) ([]mailstore.Mail, error) {
-	f.claimLimit = limit
-
-	return f.claimed, nil
-}
-
-// claimHeld stamps everything the fake holds as read.
-func (f *fakeMailbox) claimHeld() {
-	claimedAt := time.Now()
-	for id, held := range f.byID {
-		held.ClaimedAt = &claimedAt
-		f.byID[id] = held
-	}
-}
-
-func (f *fakeMailbox) CountPending(context.Context, string) (int64, error) {
-	return f.pending, nil
-}
-
-func (f *fakeMailbox) GetPendingOfKind(_ context.Context, toAgentID string, kind mailstore.Kind, about string) (*mailstore.Mail, error) {
-	for _, held := range f.byID {
-		sameSubject := held.AboutAgentID != nil && *held.AboutAgentID == about
-		if held.ToAgentID == toAgentID && held.Kind == kind && sameSubject && held.ClaimedAt == nil {
-			return &held, nil
-		}
-	}
-
-	return nil, fmt.Errorf("%w: an unread %q notice", store.ErrNotFound, kind)
-}
-
-func (f *fakeMailbox) ListPage(_ context.Context, toAgentID string, _ int32, _ *mailstore.Cursor) ([]mailstore.Mail, error) {
-	var page []mailstore.Mail
-	for _, m := range f.byID {
-		if m.ToAgentID == toAgentID {
-			page = append(page, m)
-		}
-	}
-
-	return page, nil
-}
-
-// ListSentPage answers by sender rather than recipient.
-func (f *fakeMailbox) ListSentPage(_ context.Context, fromAgentID string, _ int32, _ *mailstore.Cursor) ([]mailstore.Mail, error) {
-	var page []mailstore.Mail
-	for _, m := range f.byID {
-		if m.FromAgentID != nil && *m.FromAgentID == fromAgentID {
-			page = append(page, m)
-		}
-	}
-
-	return page, nil
-}
-
-func (f *fakeMailbox) ListByID(_ context.Context, ids []string) ([]mailstore.Mail, error) {
-	var found []mailstore.Mail
-	for _, id := range ids {
-		if m, ok := f.byID[id]; ok {
-			found = append(found, m)
-		}
-	}
-
-	return found, nil
-}
-
-func (f *fakeMailbox) Delete(_ context.Context, ids []string) error {
-	f.deleted = append(f.deleted, ids...)
-	for _, id := range ids {
-		delete(f.byID, id)
-	}
-
-	return nil
-}
-
-// CountExchanged counts off the mail the fake holds, in both directions and ignoring notices,
-// the way the real store's query does.
-func (f *fakeMailbox) CountExchanged(_ context.Context, one, other string) (int64, error) {
-	var exchanged int64
-	for _, mail := range f.byID {
-		if mail.Kind != mailstore.KindPlain || mail.FromAgentID == nil {
-			continue
-		}
-
-		from, to := *mail.FromAgentID, mail.ToAgentID
-		if (from == one && to == other) || (from == other && to == one) {
-			exchanged++
-		}
-	}
-
-	return exchanged, nil
-}
-
-// TestListMailChecksTheAgentExists pins that listing an unknown mailbox is refused rather
-// than answered with nothing.
-func TestListMailChecksTheAgentExists(t *testing.T) {
-	mailbox := &fakeMailbox{}
-	svc := NewMailService(NewMailServiceParams{
-		MailReadWriter: mailbox,
-		Agents:         newFakeDirectory(),
-		Config:         fakeMailConfig{maxExchange: config.DefaultMaxExchange},
-	})
-
-	_, err := svc.ListMail(t.Context(), ListMailParams{AgentID: "ghost", Limit: 10})
-	require.ErrorIs(t, err, ErrAgentNotFound)
-}
-
-// TestListMailReturnsWhatIsAddressedToTheAgent pins that a listing is scoped to one mailbox.
-func TestListMailReturnsWhatIsAddressedToTheAgent(t *testing.T) {
-	mailbox := &fakeMailbox{byID: map[string]mailstore.Mail{
-		"mail-1": {
-			ID:        "mail-1",
-			ToAgentID: "agent-a",
-			Body:      "for alpha",
-		},
-		"mail-2": {
-			ID:        "mail-2",
-			ToAgentID: "agent-b",
-			Body:      "for beta",
-		},
-	}}
-	svc := NewMailService(NewMailServiceParams{
-		MailReadWriter: mailbox,
-		Agents:         newFakeDirectory(),
-		Config:         fakeMailConfig{maxExchange: config.DefaultMaxExchange},
-	})
-
-	listed, err := svc.ListMail(t.Context(), ListMailParams{AgentID: "agent-a", Limit: 10})
-	require.NoError(t, err)
-	require.Len(t, listed, 1)
-	assert.Equal(t, "for alpha", listed[0].Body)
-}
-
-// TestDeleteMailGoesWholeOrNotAtAll pins that a batch naming one unknown id deletes nothing
-// at all.
-func TestDeleteMailGoesWholeOrNotAtAll(t *testing.T) {
-	mailbox := &fakeMailbox{byID: map[string]mailstore.Mail{
-		"mail-1": {ID: "mail-1"},
-	}}
-	svc := NewMailService(NewMailServiceParams{
-		MailReadWriter: mailbox,
-		Agents:         newFakeDirectory(),
-		Config:         fakeMailConfig{maxExchange: config.DefaultMaxExchange},
-	})
-
-	err := svc.DeleteMail(t.Context(), []string{"mail-1", "ghost"})
-	require.ErrorIs(t, err, ErrMailNotFound)
-	assert.Empty(t, mailbox.deleted, "a batch that is not whole deletes nothing")
-	assert.Contains(t, mailbox.byID, "mail-1")
-}
-
-// TestDeleteMailDeletesEveryIDGiven pins that a batch every id of which is known goes whole.
-func TestDeleteMailDeletesEveryIDGiven(t *testing.T) {
-	mailbox := &fakeMailbox{byID: map[string]mailstore.Mail{
-		"mail-1": {ID: "mail-1"},
-		"mail-2": {ID: "mail-2"},
-	}}
-	svc := NewMailService(NewMailServiceParams{
-		MailReadWriter: mailbox,
-		Agents:         newFakeDirectory(),
-		Config:         fakeMailConfig{maxExchange: config.DefaultMaxExchange},
-	})
-
-	err := svc.DeleteMail(t.Context(), []string{"mail-1", "mail-2"})
-	require.NoError(t, err)
-	assert.Empty(t, mailbox.byID)
-}
-
-type fakeDirectory struct {
-	byID map[string]agentstore.Agent
-}
-
-func newFakeDirectory() *fakeDirectory {
-	api := agentstore.Agent{ID: "agent-a", Name: "api"}
-	migrations := agentstore.Agent{ID: "agent-b", Name: "migrations"}
-	archivedAt := time.Date(2026, time.August, 4, 9, 0, 0, 0, time.UTC)
-	archived := agentstore.Agent{
-		ID:         "agent-archived",
-		Name:       "old",
-		ArchivedAt: &archivedAt,
-	}
-
-	return &fakeDirectory{
-		byID: map[string]agentstore.Agent{
-			api.ID:        api,
-			migrations.ID: migrations,
-			archived.ID:   archived,
-		},
-	}
-}
-
-func (f *fakeDirectory) ListLiveNamed(_ context.Context, name string) ([]agentstore.Agent, error) {
-	var named []agentstore.Agent
-	for _, agent := range f.byID {
-		if agent.Name == name && agent.ArchivedAt == nil {
-			named = append(named, agent)
-		}
-	}
-
-	return named, nil
-}
-
-func (f *fakeDirectory) GetByID(_ context.Context, id string) (*agentstore.Agent, error) {
-	found, ok := f.byID[id]
-	if !ok {
-		return nil, fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
-	}
-
-	return &found, nil
-}
-
-type fakeWorkflowNames map[string]string
-
-func (f fakeWorkflowNames) Get(_ context.Context, id string) (*workflowstore.Workflow, error) {
-	name, ok := f[id]
-	if !ok {
-		return nil, fmt.Errorf("%w: workflow %q", store.ErrNotFound, id)
-	}
-
-	return &workflowstore.Workflow{ID: id, Name: name}, nil
-}
-
-// TestResolveRecipient pins the tiers an address resolves through: an id is taken as it stands
-// and never tried as a name, a name is looked for in the sender's own workflow before every
-// workflow, and a name more than one workflow holds is refused naming each holder.
-func TestResolveRecipient(t *testing.T) {
-	workflowA, workflowB, workflowC := uuid.NewString(), uuid.NewString(), uuid.NewString()
-	workflows := fakeWorkflowNames{
-		workflowA: "gadgets",
-		workflowB: "weave",
-		workflowC: "docs",
-	}
-
-	sender := agentstore.Agent{
-		ID:         uuid.NewString(),
-		Name:       "api",
-		WorkflowID: workflowA,
-	}
-	reviewerA := agentstore.Agent{
-		ID:         uuid.NewString(),
-		Name:       "reviewer",
-		WorkflowID: workflowA,
-	}
-	reviewerB := agentstore.Agent{
-		ID:         uuid.NewString(),
-		Name:       "reviewer",
-		WorkflowID: workflowB,
-	}
-	migrations := agentstore.Agent{
-		ID:         uuid.NewString(),
-		Name:       "migrations",
-		WorkflowID: workflowB,
-	}
-	testerB := agentstore.Agent{
-		ID:         uuid.NewString(),
-		Name:       "tester",
-		WorkflowID: workflowB,
-	}
-	testerC := agentstore.Agent{
-		ID:         uuid.NewString(),
-		Name:       "tester",
-		WorkflowID: workflowC,
-	}
-	archivedAt := time.Date(2026, time.August, 4, 9, 0, 0, 0, time.UTC)
-	retired := agentstore.Agent{
-		ID:         uuid.NewString(),
-		Name:       "retired",
-		WorkflowID: workflowB,
-		ArchivedAt: &archivedAt,
-	}
-	unheldID := uuid.NewString()
-	namedLikeAnID := agentstore.Agent{
-		ID:         uuid.NewString(),
-		Name:       unheldID,
-		WorkflowID: workflowB,
-	}
-	namedLikeAnother := agentstore.Agent{
-		ID:         uuid.NewString(),
-		Name:       reviewerA.ID,
-		WorkflowID: workflowB,
-	}
-
-	directory := &fakeDirectory{byID: map[string]agentstore.Agent{}}
-	for _, agent := range []agentstore.Agent{sender, reviewerA, reviewerB, migrations, testerB, testerC, retired, namedLikeAnID, namedLikeAnother} {
-		directory.byID[agent.ID] = agent
-	}
-
-	tests := []struct {
-		name     string
-		from     string
-		to       string
-		want     agentstore.Agent
-		wantErr  error
-		wantSaid []string
-	}{
-		{
-			name: "an id, even when another agent is named that id",
-			from: sender.ID,
-			to:   reviewerA.ID,
-			want: reviewerA,
-		},
-		{
-			name:    "an id nothing holds is not found rather than tried as a name",
-			from:    sender.ID,
-			to:      unheldID,
-			wantErr: ErrRecipientNotFound,
-		},
-		{
-			name: "an archived agent by id, for the send to refuse as archived",
-			from: sender.ID,
-			to:   retired.ID,
-			want: retired,
-		},
-		{
-			name: "a name held in the sender's own workflow and in another",
-			from: sender.ID,
-			to:   "reviewer",
-			want: reviewerA,
-		},
-		{
-			name: "a name held only in another workflow",
-			from: sender.ID,
-			to:   "migrations",
-			want: migrations,
-		},
-		{
-			name:    "a name nobody holds",
-			from:    sender.ID,
-			to:      "nobody",
-			wantErr: ErrRecipientNotFound,
-		},
-		{
-			name:    "a name held only by an archived agent",
-			from:    sender.ID,
-			to:      "retired",
-			wantErr: ErrRecipientNotFound,
-		},
-		{
-			name:     "a name two other workflows hold",
-			from:     sender.ID,
-			to:       "tester",
-			wantErr:  ErrRecipientAmbiguous,
-			wantSaid: []string{testerB.ID + " in workflow \"weave\"", testerC.ID + " in workflow \"docs\""},
-		},
-		{
-			name: "a name from nobody, which has no workflow to look in first",
-			from: "",
-			to:   "migrations",
-			want: migrations,
-		},
-		{
-			name:     "a name two workflows hold, from nobody",
-			from:     "",
-			to:       "reviewer",
-			wantErr:  ErrRecipientAmbiguous,
-			wantSaid: []string{reviewerA.ID + " in workflow \"gadgets\"", reviewerB.ID + " in workflow \"weave\""},
-		},
-		{
-			name:    "a name from a sender the panel does not know",
-			from:    uuid.NewString(),
-			to:      "migrations",
-			wantErr: ErrSenderUnknown,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			svc := NewMailService(NewMailServiceParams{
-				MailReadWriter: &fakeMailbox{},
-				Agents:         directory,
-				Workflows:      workflows,
-				Config:         fakeMailConfig{maxExchange: config.DefaultMaxExchange},
-			})
-
-			got, err := svc.ResolveRecipient(t.Context(), ResolveRecipientParams{From: tt.from, To: tt.to})
-			if tt.wantErr != nil {
-				require.ErrorIs(t, err, tt.wantErr)
-				assert.Nil(t, got)
-				for _, said := range tt.wantSaid {
-					assert.Contains(t, err.Error(), said)
-				}
-
-				return
-			}
-
-			require.NoError(t, err)
-			require.NotNil(t, got)
-			assert.Equal(t, tt.want.ID, got.ID)
+			return *notice.AboutAgentID
 		})
-	}
+		assert.ElementsMatch(t, []string{childOne.ID, childOne.ID, childTwo.ID}, about)
+	})
 }
 
-// TestChildMailStaysInTheFamily pins who a child may reach: its parent and that parent's other
-// children, and nobody else.
+// TestChildMailStaysInTheFamily pins that a child may reach nobody outside its parent and that parent's other children.
 func TestChildMailStaysInTheFamily(t *testing.T) {
 	tests := []struct {
-		name      string
-		from      string
-		to        string
-		wantErrIs error
+		name string
+		from string
+		to   string
+	}{
+		{
+			name: "a child reaching an unrelated agent",
+			from: "child-one",
+			to:   "stranger",
+		},
+		{
+			name: "a child reaching another parent's child",
+			from: "child-one",
+			to:   "cousin",
+		},
+		{
+			name: "an unrelated agent reaching a child",
+			from: "stranger",
+			to:   "child-one",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := storetest.Open(t)
+			svc := newMailService(st, config.DefaultMaxExchange)
+			family := seedFamily(t, st)
+
+			sent, err := svc.SendMail(t.Context(), SendMailParams{
+				From:      family[tt.from].ID,
+				ToAgentID: family[tt.to].ID,
+				Body:      "hello",
+			})
+			require.ErrorIs(t, err, ErrOutsideFamily)
+			assert.Nil(t, sent)
+		})
+	}
+}
+
+// TestFamilyMailGetsThrough pins the sends the family rule leaves alone.
+func TestFamilyMailGetsThrough(t *testing.T) {
+	tests := []struct {
+		name string
+		from string
+		to   string
 	}{
 		{
 			name: "a child answers its parent",
@@ -911,24 +420,6 @@ func TestChildMailStaysInTheFamily(t *testing.T) {
 			to:   "child-two",
 		},
 		{
-			name:      "a child reaching an unrelated agent",
-			from:      "child-one",
-			to:        "stranger",
-			wantErrIs: ErrOutsideFamily,
-		},
-		{
-			name:      "a child reaching another parent's child",
-			from:      "child-one",
-			to:        "cousin",
-			wantErrIs: ErrOutsideFamily,
-		},
-		{
-			name:      "an unrelated agent reaching a child",
-			from:      "stranger",
-			to:        "child-one",
-			wantErrIs: ErrOutsideFamily,
-		},
-		{
 			name: "two agents that are nobody's children",
 			from: "parent",
 			to:   "stranger",
@@ -937,75 +428,415 @@ func TestChildMailStaysInTheFamily(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mailbox := &fakeMailbox{}
-			svc := NewMailService(NewMailServiceParams{
-				MailReadWriter: mailbox,
-				Agents:         newFakeFamily(),
-				Config:         fakeMailConfig{maxExchange: config.DefaultMaxExchange},
-			})
+			st := storetest.Open(t)
+			svc := newMailService(st, config.DefaultMaxExchange)
+			family := seedFamily(t, st)
 
 			sent, err := svc.SendMail(t.Context(), SendMailParams{
-				From:      tt.from,
-				ToAgentID: tt.to,
+				From:      family[tt.from].ID,
+				ToAgentID: family[tt.to].ID,
 				Body:      "hello",
 			})
-			if tt.wantErrIs != nil {
-				require.ErrorIs(t, err, tt.wantErrIs)
-				assert.Nil(t, sent)
-				assert.Empty(t, mailbox.sent)
-
-				return
-			}
-
 			require.NoError(t, err)
-			require.Len(t, mailbox.sent, 1)
-			assert.Equal(t, tt.to, mailbox.sent[0].ToAgentID)
+			assert.Equal(t, family[tt.to].ID, sent.ToAgentID)
 		})
 	}
 }
 
-// TestSystemMailReachesAChild pins that weave's own mail, and a person's, is not held to the
-// family: these rules bound what a child may do rather than what may be done to it.
+// TestSystemMailReachesAChild pins that the family rule bounds what a child may do rather than what weave may do to it.
 func TestSystemMailReachesAChild(t *testing.T) {
-	mailbox := &fakeMailbox{}
-	svc := NewMailService(NewMailServiceParams{
-		MailReadWriter: mailbox,
-		Agents:         newFakeFamily(),
-		Config:         fakeMailConfig{maxExchange: config.DefaultMaxExchange},
-	})
+	st := storetest.Open(t)
+	svc := newMailService(st, config.DefaultMaxExchange)
+	family := seedFamily(t, st)
 
-	_, err := svc.SendSystemMail(t.Context(), "child-one", "your parent was archived")
+	sent, err := svc.SendSystemMail(t.Context(), family["child-one"].ID, "your parent was archived")
 	require.NoError(t, err)
-	require.Len(t, mailbox.sent, 1)
-	assert.Equal(t, mailstore.KindPlain, mailbox.sent[0].Kind)
-	assert.Equal(t, WeaveSenderName, mailbox.sent[0].FromName)
+	assert.Equal(t, WeaveSenderName, sent.FromName)
 }
 
-// newFakeFamily is one parent with two children, an unrelated agent, and another parent's child.
-func newFakeFamily() *fakeDirectory {
-	parent := agentstore.Agent{ID: "parent", Name: "author"}
-	other := agentstore.Agent{ID: "other-parent", Name: "other-author"}
+// TestSendNoticeRefusesAPlainKind pins that a notice must say what it is about to be told apart from ordinary mail.
+func TestSendNoticeRefusesAPlainKind(t *testing.T) {
+	st := storetest.Open(t)
+	svc := newMailService(st, config.DefaultMaxExchange)
+	recipient := st.SeedAgent(t, agentstore.Agent{Name: "migrations"})
 
-	return &fakeDirectory{
-		byID: map[string]agentstore.Agent{
-			parent.ID: parent,
-			other.ID:  other,
-			"child-one": {
-				ID:            "child-one",
-				Name:          "reviewer",
-				ParentAgentID: xptr.Ptr(parent.ID),
-			},
-			"child-two": {
-				ID:            "child-two",
-				Name:          "test-runner",
-				ParentAgentID: xptr.Ptr(parent.ID),
-			},
-			"cousin": {
-				ID:            "cousin",
-				Name:          "their-reviewer",
-				ParentAgentID: xptr.Ptr(other.ID),
-			},
-			"stranger": {ID: "stranger", Name: "unrelated"},
+	sent, err := svc.SendNotice(t.Context(), SendNoticeParams{
+		ToAgentID: recipient.ID,
+		Body:      "hello",
+		Kind:      mailstore.KindPlain,
+	})
+	require.ErrorIs(t, err, ErrNoticeKindMissing)
+	assert.Nil(t, sent)
+}
+
+// TestClaimMail pins that a claim is refused for an id no agent holds and takes at most one batch otherwise.
+func TestClaimMail(t *testing.T) {
+	st := storetest.Open(t)
+	svc := newMailService(st, config.DefaultMaxExchange)
+	recipient := st.SeedAgent(t, agentstore.Agent{Name: "migrations"})
+
+	for range maxClaimedMail + 1 {
+		_, err := svc.SendMail(t.Context(), SendMailParams{
+			ToAgentID: recipient.ID,
+			Body:      "hello",
+		})
+		require.NoError(t, err)
+	}
+
+	t.Run("an id no agent holds", func(t *testing.T) {
+		claimed, err := svc.ClaimMail(t.Context(), uuid.NewString())
+		require.ErrorIs(t, err, ErrAgentNotFound)
+		assert.Empty(t, claimed)
+	})
+
+	t.Run("an agent reading its own takes one batch", func(t *testing.T) {
+		claimed, err := svc.ClaimMail(t.Context(), recipient.ID)
+		require.NoError(t, err)
+		assert.Len(t, claimed, maxClaimedMail)
+	})
+
+	t.Run("and the rest on the next read", func(t *testing.T) {
+		claimed, err := svc.ClaimMail(t.Context(), recipient.ID)
+		require.NoError(t, err)
+		assert.Len(t, claimed, 1)
+	})
+}
+
+// TestListMail pins that a listing is refused for an unknown agent and otherwise reads the half of the correspondence asked for.
+func TestListMail(t *testing.T) {
+	st := storetest.Open(t)
+	svc := newMailService(st, config.DefaultMaxExchange)
+	api := st.SeedAgent(t, agentstore.Agent{Name: "api"})
+	migrations := st.SeedAgent(t, agentstore.Agent{Name: "migrations"})
+
+	_, err := svc.SendMail(t.Context(), SendMailParams{
+		From:      api.ID,
+		ToAgentID: migrations.ID,
+		Body:      "what api said",
+	})
+	require.NoError(t, err)
+
+	_, err = svc.SendMail(t.Context(), SendMailParams{
+		From:      migrations.ID,
+		ToAgentID: api.ID,
+		Body:      "what migrations said",
+	})
+	require.NoError(t, err)
+
+	t.Run("an id no agent holds", func(t *testing.T) {
+		listed, err := svc.ListMail(t.Context(), ListMailParams{
+			AgentID: uuid.NewString(),
+			Limit:   10,
+		})
+		require.ErrorIs(t, err, ErrAgentNotFound)
+		assert.Empty(t, listed)
+	})
+
+	tests := []struct {
+		name     string
+		agentID  string
+		sent     bool
+		wantBody string
+	}{
+		{
+			name:     "the mail addressed to the agent",
+			agentID:  api.ID,
+			wantBody: "what migrations said",
+		},
+		{
+			name:     "the mail the agent sent",
+			agentID:  api.ID,
+			sent:     true,
+			wantBody: "what api said",
 		},
 	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			listed, err := svc.ListMail(t.Context(), ListMailParams{
+				AgentID: tt.agentID,
+				Sent:    tt.sent,
+				Limit:   10,
+			})
+			require.NoError(t, err)
+			require.Len(t, listed, 1)
+			assert.Equal(t, tt.wantBody, listed[0].Body)
+		})
+	}
+}
+
+// TestDeleteMail pins that a batch goes whole or not at all.
+func TestDeleteMail(t *testing.T) {
+	tests := []struct {
+		name        string
+		withUnknown bool
+		wantErr     error
+		wantLeft    int
+	}{
+		{
+			name:        "a batch naming one id nothing holds",
+			withUnknown: true,
+			wantErr:     ErrMailNotFound,
+			wantLeft:    2,
+		},
+		{
+			name: "a batch every id of which holds mail",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := storetest.Open(t)
+			svc := newMailService(st, config.DefaultMaxExchange)
+			recipient := st.SeedAgent(t, agentstore.Agent{Name: "migrations"})
+
+			var ids []string
+			for range 2 {
+				sent, err := svc.SendMail(t.Context(), SendMailParams{
+					ToAgentID: recipient.ID,
+					Body:      "hello",
+				})
+				require.NoError(t, err)
+				ids = append(ids, sent.ID)
+			}
+			if tt.withUnknown {
+				ids = append(ids, uuid.NewString())
+			}
+
+			err := svc.DeleteMail(t.Context(), ids)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+			} else {
+				require.NoError(t, err)
+			}
+
+			left, err := st.Mail.CountPending(t.Context(), recipient.ID)
+			require.NoError(t, err)
+			assert.EqualValues(t, tt.wantLeft, left)
+		})
+	}
+}
+
+// TestResolveRecipientRefusals pins which sentinel each address nothing answers to, or more than one agent does, comes back with.
+func TestResolveRecipientRefusals(t *testing.T) {
+	st := storetest.Open(t)
+	svc := newMailService(st, config.DefaultMaxExchange)
+	book := seedAddressBook(t, st)
+
+	tests := []struct {
+		name     string
+		from     string
+		to       string
+		wantErr  error
+		wantSaid []string
+	}{
+		{
+			name:    "an id nothing holds is not found rather than tried as a name",
+			from:    book.sender.ID,
+			to:      book.unheldID,
+			wantErr: ErrRecipientNotFound,
+		},
+		{
+			name:    "a name nobody holds",
+			from:    book.sender.ID,
+			to:      "nobody",
+			wantErr: ErrRecipientNotFound,
+		},
+		{
+			name:    "a name held only by an archived agent",
+			from:    book.sender.ID,
+			to:      "retired",
+			wantErr: ErrRecipientNotFound,
+		},
+		{
+			name:     "a name two other workflows hold",
+			from:     book.sender.ID,
+			to:       "tester",
+			wantErr:  ErrRecipientAmbiguous,
+			wantSaid: []string{book.testerWeave.ID + ` in workflow "weave"`, book.testerDocs.ID + ` in workflow "docs"`},
+		},
+		{
+			name:     "a name two workflows hold, from nobody",
+			to:       "reviewer",
+			wantErr:  ErrRecipientAmbiguous,
+			wantSaid: []string{book.reviewerHere.ID + ` in workflow "gadgets"`, book.reviewerThere.ID + ` in workflow "weave"`},
+		},
+		{
+			name:    "a name from a sender the panel does not know",
+			from:    uuid.NewString(),
+			to:      "migrations",
+			wantErr: ErrSenderUnknown,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := svc.ResolveRecipient(t.Context(), ResolveRecipientParams{
+				From: tt.from,
+				To:   tt.to,
+			})
+			require.ErrorIs(t, err, tt.wantErr)
+			assert.Nil(t, got)
+			for _, said := range tt.wantSaid {
+				assert.Contains(t, err.Error(), said)
+			}
+		})
+	}
+}
+
+// TestResolveRecipient pins that an address resolves as an id first, then as a name in the sender's workflow, then as a name in any workflow.
+func TestResolveRecipient(t *testing.T) {
+	st := storetest.Open(t)
+	svc := newMailService(st, config.DefaultMaxExchange)
+	book := seedAddressBook(t, st)
+
+	tests := []struct {
+		name string
+		from string
+		to   string
+		want string
+	}{
+		{
+			name: "an id, even when another agent is named that id",
+			from: book.sender.ID,
+			to:   book.reviewerHere.ID,
+			want: book.reviewerHere.ID,
+		},
+		{
+			name: "an archived agent by id, for the send to refuse as archived",
+			from: book.sender.ID,
+			to:   book.retired.ID,
+			want: book.retired.ID,
+		},
+		{
+			name: "a name held in the sender's own workflow and in another",
+			from: book.sender.ID,
+			to:   "reviewer",
+			want: book.reviewerHere.ID,
+		},
+		{
+			name: "a name held only in another workflow",
+			from: book.sender.ID,
+			to:   "migrations",
+			want: book.migrations.ID,
+		},
+		{
+			name: "a name from nobody, which has no workflow to look in first",
+			to:   "migrations",
+			want: book.migrations.ID,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := svc.ResolveRecipient(t.Context(), ResolveRecipientParams{
+				From: tt.from,
+				To:   tt.to,
+			})
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got.ID)
+		})
+	}
+}
+
+// seedAddressBook records the address book, naming one agent after an id nothing holds and another after another agent's id.
+func seedAddressBook(t *testing.T, st *storetest.Stores) addressBook {
+	t.Helper()
+
+	gadgets := st.SeedWorkflow(t, workflowstore.Config{Name: "gadgets"})
+	weave := st.SeedWorkflow(t, workflowstore.Config{Name: "weave"})
+	docs := st.SeedWorkflow(t, workflowstore.Config{Name: "docs"})
+
+	seed := func(name, workflowID string) *agentstore.Agent {
+		return st.SeedAgent(t, agentstore.Agent{
+			Name:       name,
+			WorkflowID: workflowID,
+		})
+	}
+
+	book := addressBook{
+		sender:        seed("api", gadgets.ID),
+		reviewerHere:  seed("reviewer", gadgets.ID),
+		reviewerThere: seed("reviewer", weave.ID),
+		migrations:    seed("migrations", weave.ID),
+		testerWeave:   seed("tester", weave.ID),
+		testerDocs:    seed("tester", docs.ID),
+		retired:       seed("retired", weave.ID),
+		unheldID:      uuid.NewString(),
+	}
+	seed(book.unheldID, weave.ID)
+	seed(book.reviewerHere.ID, weave.ID)
+
+	_, err := st.Agents.Archive(t.Context(), []string{book.retired.ID})
+	require.NoError(t, err)
+
+	return book
+}
+
+func newMailService(st *storetest.Stores, maxExchange int) *MailService {
+	return NewMailService(NewMailServiceParams{
+		MailReadWriter: st.Mail,
+		Agents:         st.Agents,
+		Workflows:      st.Workflows,
+		Config:         config.Mail{MaxExchange: maxExchange},
+	})
+}
+
+// seedFamily records one parent with two children, an unrelated agent, and another parent's child.
+func seedFamily(t *testing.T, st *storetest.Stores) map[string]agentstore.Agent {
+	t.Helper()
+
+	parent := st.SeedAgent(t, agentstore.Agent{Name: "author"})
+	otherParent := st.SeedAgent(t, agentstore.Agent{Name: "other-author"})
+
+	seedChild := func(name, parentID string) agentstore.Agent {
+		return *st.SeedAgent(t, agentstore.Agent{
+			Name:          name,
+			ParentAgentID: &parentID,
+		})
+	}
+
+	return map[string]agentstore.Agent{
+		"parent":    *parent,
+		"child-one": seedChild("reviewer", parent.ID),
+		"child-two": seedChild("test-runner", parent.ID),
+		"cousin":    seedChild("their-reviewer", otherParent.ID),
+		"stranger":  *st.SeedAgent(t, agentstore.Agent{Name: "unrelated"}),
+	}
+}
+
+type exchangeParams struct {
+	Child    agentstore.Agent
+	Parent   agentstore.Agent
+	Messages int
+}
+
+// exchange sends mail back and forth between a child and its parent, every message opening a thread of its own.
+func exchange(t *testing.T, svc *MailService, params exchangeParams) {
+	t.Helper()
+
+	for at := range params.Messages {
+		from, to := params.Child, params.Parent
+		if at%2 == 1 {
+			from, to = params.Parent, params.Child
+		}
+
+		_, err := svc.SendMail(t.Context(), SendMailParams{
+			From:      from.ID,
+			ToAgentID: to.ID,
+			Body:      "round",
+		})
+		require.NoError(t, err)
+	}
+}
+
+func listCappedNotices(t *testing.T, st *storetest.Stores, agentID string) []mailstore.Mail {
+	t.Helper()
+
+	listed, err := st.Mail.ListPage(t.Context(), agentID, maxPendingMail, nil)
+	require.NoError(t, err)
+
+	return xslice.Filter(listed, func(mail mailstore.Mail) bool {
+		return mail.Kind == mailstore.KindExchangeCapped
+	})
 }

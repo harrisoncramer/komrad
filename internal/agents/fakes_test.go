@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -15,260 +14,23 @@ import (
 	"testing"
 	"time"
 
+	"weave/db/testmodels"
 	"weave/internal/frames"
 	"weave/internal/git"
 	"weave/internal/harness"
+	"weave/internal/harnesstest"
 	"weave/internal/logging"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	reviewstore "weave/internal/store/review"
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/storetest"
-	"weave/internal/tmux"
+	"weave/internal/tmuxtest"
 	"weave/lib/xptr"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
-
-type fakeTmux struct {
-	mu             sync.Mutex
-	owners         map[string]string
-	captures       map[string]string
-	commands       map[string]string
-	clientDir      string
-	sent           map[string][][]string
-	globals        map[string]string
-	newWindows     map[string]string
-	killedPanes    []string
-	detached       []string
-	sessionOptions map[string]string
-	newWindowErr   error
-	// beforeNewWindow runs before a window is opened.
-	beforeNewWindow func()
-	newWindowCalls  int
-	setOwnerErr     error
-	sendKeysErr     error
-	paneOwnersErr   error
-	respawnErr      error
-	shell           string
-	respawned       map[string][]respawn
-}
-
-func newFakeTmux() *fakeTmux {
-	return &fakeTmux{
-		owners:         map[string]string{},
-		captures:       map[string]string{},
-		commands:       map[string]string{},
-		sent:           map[string][][]string{},
-		globals:        map[string]string{},
-		newWindows:     map[string]string{},
-		sessionOptions: map[string]string{},
-		respawned:      map[string][]respawn{},
-		shell:          "/bin/zsh",
-	}
-}
-
-type respawn struct {
-	dir  string
-	argv []string
-}
-
-func (f *fakeTmux) SetGlobal(name, value string) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.globals[name] = value
-}
-
-func (f *fakeTmux) ShowGlobal(name string) string {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
-	return f.globals[name]
-}
-
-func (f *fakeTmux) GetPaneOwner(pane string) string {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
-	return f.owners[pane]
-}
-
-func (f *fakeTmux) CapturePane(pane string) string {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
-	return f.captures[pane]
-}
-
-func (f *fakeTmux) GetHostPath() string {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
-	return f.clientDir
-}
-
-func (f *fakeTmux) DetachSession(name string) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.detached = append(f.detached, name)
-}
-
-func (f *fakeTmux) GetPanes() (map[string]tmux.PaneStatus, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
-	if f.paneOwnersErr != nil {
-		return nil, f.paneOwnersErr
-	}
-
-	panes := map[string]tmux.PaneStatus{}
-	for pane, owner := range f.owners {
-		panes[pane] = tmux.PaneStatus{Owner: owner, Command: f.commands[pane]}
-	}
-
-	return panes, nil
-}
-
-func (f *fakeTmux) SetSessionOption(target, name, value string) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.sessionOptions[target+"/"+name] = value
-}
-
-func (f *fakeTmux) SendKeys(target string, keys ...string) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
-	if f.sendKeysErr != nil {
-		return f.sendKeysErr
-	}
-	if target == "" {
-		return errors.New("refusing to send keys to an empty target")
-	}
-	f.sent[target] = append(f.sent[target], keys)
-
-	return nil
-}
-
-func (f *fakeTmux) GetDefaultShell() string {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
-	return f.shell
-}
-
-func (f *fakeTmux) RespawnPane(pane, dir string, argv ...string) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
-	if f.respawnErr != nil {
-		return f.respawnErr
-	}
-	if pane == "" {
-		return errors.New("refusing to respawn an empty pane")
-	}
-	f.respawned[pane] = append(f.respawned[pane], respawn{dir: dir, argv: argv})
-
-	return nil
-}
-
-func (f *fakeTmux) lastRespawn(pane string) respawn {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
-	runs := f.respawned[pane]
-	if len(runs) == 0 {
-		return respawn{}
-	}
-
-	return runs[len(runs)-1]
-}
-
-func (f *fakeTmux) SplitRight(anchorPane, dir string) string { return "%stage" }
-
-func (f *fakeTmux) NewWindow(session, name, dir string) (string, error) {
-	if f.beforeNewWindow != nil {
-		f.beforeNewWindow()
-	}
-
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
-	if f.newWindowErr != nil {
-		return "", f.newWindowErr
-	}
-
-	f.newWindowCalls++
-
-	f.newWindows[name] = dir
-	opened := "%" + name
-	f.owners[opened] = ""
-
-	return opened, nil
-}
-
-func (f *fakeTmux) windowsOpened() int {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
-	return f.newWindowCalls
-}
-
-func (f *fakeTmux) SetPaneOwner(pane, agentID string) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
-	if f.setOwnerErr != nil {
-		return f.setOwnerErr
-	}
-
-	f.owners[pane] = agentID
-
-	return nil
-}
-
-func (f *fakeTmux) KillPane(pane string) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.killedPanes = append(f.killedPanes, pane)
-	delete(f.owners, pane)
-}
-
-func (f *fakeTmux) IsPaneInMode(string) bool { return false }
-
-func (f *fakeTmux) IsPaneRunningCLI(pane string) bool {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
-	command := f.commands[pane]
-
-	return command != "" && !tmux.PaneStatus{Command: command}.IsRunningShell()
-}
-
-func (f *fakeTmux) IsClientAtPane(string, time.Duration) bool { return false }
-
-func (f *fakeTmux) PasteAndSubmit(target, text string) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.sent[target] = append(f.sent[target], []string{text})
-
-	return nil
-}
-
-func (f *fakeTmux) CutLine(string) error { return nil }
-
-func (f *fakeTmux) YankLine(string) error { return nil }
-
-const (
-	busyFrame         = "frame: working"
-	idleFrame         = "frame: idle"
-	composingFrame    = "frame: composing"
-	waitFrame         = "frame: waiting"
-	unrecognizedFrame = "frame: unrecognized"
-)
-
-const testHarnessID = "claude"
 
 // fakeFrameRecorder stands in for the recording, holding what a pass handed it rather than
 // writing anything.
@@ -294,103 +56,6 @@ func (f *fakeFrameRecorder) Forget(map[string]struct{}) {
 	f.forgotten++
 }
 
-type fakeHarness struct {
-	mu         sync.Mutex
-	launches   []harness.Launch
-	commandErr error
-	id         string
-
-	// noSession stands in for Codex, which takes no session id on the command line.
-	noSession bool
-}
-
-func (f *fakeHarness) ID() string {
-	if f.id != "" {
-		return f.id
-	}
-
-	return testHarnessID
-}
-
-func (f *fakeHarness) Binary() string { return f.ID() }
-
-func (f *fakeHarness) BuildCommand(launch harness.Launch) (string, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
-	f.launches = append(f.launches, launch)
-	if f.commandErr != nil {
-		return "", f.commandErr
-	}
-
-	return "agent-cli --session " + launch.SessionID, nil
-}
-
-func (f *fakeHarness) MintSessionID() string {
-	if f.noSession {
-		return ""
-	}
-
-	return uuid.NewString()
-}
-
-func (f *fakeHarness) InterruptKeys() []string { return []string{"Escape"} }
-
-func (f *fakeHarness) ReadReport(harness.Event, []byte) (harness.Report, error) {
-	return harness.Report{}, nil
-}
-
-func (f *fakeHarness) ReadInput(frame string) harness.Input {
-	switch {
-	case frame == busyFrame:
-		return harness.Input{Activity: harness.ActivityWorking}
-	case frame == waitFrame:
-		return harness.Input{Activity: harness.ActivityWaiting}
-	case strings.HasPrefix(frame, composingFrame):
-		return harness.Input{Activity: harness.ActivityComposing, Held: composingLines(strings.TrimPrefix(frame, composingFrame))}
-	case frame == "":
-		return harness.Input{Activity: harness.ActivityUnknown}
-	case strings.HasPrefix(frame, unrecognizedFrame):
-		return harness.Input{Activity: harness.ActivityUnrecognized}
-	default:
-		return harness.Input{Activity: harness.ActivityIdle, Held: []string{""}}
-	}
-}
-
-// composingLines is the box's lines out of the frame a test wrote.
-func composingLines(held string) []string {
-	if held == "" {
-		return []string{"half a question about"}
-	}
-
-	return strings.Split(strings.TrimPrefix(held, ": "), "|")
-}
-
-func (f *fakeHarness) LogPath(string) string { return "" }
-
-func (f *fakeHarness) FindSession(string) (string, error) { return "", nil }
-
-func (f *fakeHarness) ReadLog(string, int64) (harness.LogRead, error) {
-	return harness.LogRead{}, nil
-}
-
-type fakeHarnesses struct {
-	harness *fakeHarness
-	byID    map[string]*fakeHarness
-	only    []string
-}
-
-func (f fakeHarnesses) GetByID(id string) (harness.Harness, error) {
-	if len(f.only) > 0 && !slices.Contains(f.only, id) {
-		return nil, fmt.Errorf("%w: %q", harness.ErrNotRegistered, id)
-	}
-	if found, ok := f.byID[id]; ok {
-		return found, nil
-	}
-
-	return f.harness, nil
-}
-
 type testStore struct {
 	*storetest.Stores
 }
@@ -409,7 +74,7 @@ func (s *testStore) Get(ctx context.Context, name string) (*agentstore.Agent, er
 // did not name one.
 func (s *testStore) Create(ctx context.Context, agent agentstore.Agent) error {
 	if agent.Harness == "" {
-		agent.Harness = testHarnessID
+		agent.Harness = harnesstest.FakeID
 	}
 	if agent.WorkflowID == "" {
 		created, err := s.Workflows.Create(ctx, workflowstore.Config{Name: "workflow-" + uuid.NewString(), Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"}})
@@ -483,7 +148,7 @@ type testAgents struct {
 
 type agentServiceOptions struct {
 	tmux        fakeTmuxController
-	harnesses   fakeHarnesses
+	harnesses   harnesstest.Registry
 	addr        string
 	flags       string
 	lifecycle   agentScriptRunner
@@ -523,8 +188,8 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 		Launcher:           launcher,
 		Harnesses:          options.harnesses,
 		Scripts:            options.lifecycle,
-		UserDefaultHarness: testHarnessID,
-		UserDefaultFlags:   map[string]string{testHarnessID: options.flags},
+		UserDefaultHarness: harnesstest.FakeID,
+		UserDefaultFlags:   map[string]string{harnesstest.FakeID: options.flags},
 		MaxAgents:          options.maxAgents,
 		MaxChildren:        options.maxChildren,
 	})
@@ -631,7 +296,7 @@ type fakeTmuxController interface {
 	SendKeys(target string, keys ...string) error
 }
 
-func (s *testStore) agentServiceWithLifecycle(tmux fakeTmuxController, harnesses fakeHarnesses, lifecycle agentScriptRunner) *testAgents {
+func (s *testStore) agentServiceWithLifecycle(tmux fakeTmuxController, harnesses harnesstest.Registry, lifecycle agentScriptRunner) *testAgents {
 	return s.agentService(agentServiceOptions{
 		tmux:      tmux,
 		harnesses: harnesses,
@@ -640,10 +305,10 @@ func (s *testStore) agentServiceWithLifecycle(tmux fakeTmuxController, harnesses
 	})
 }
 
-func (s *testStore) agentServiceCapped(tmux *fakeTmux, lifecycle agentScriptRunner, maxAgents int) *testAgents {
+func (s *testStore) agentServiceCapped(tmux *tmuxtest.Fake, lifecycle agentScriptRunner, maxAgents int) *testAgents {
 	return s.agentService(agentServiceOptions{
 		tmux:      tmux,
-		harnesses: fakeHarnesses{harness: &fakeHarness{}},
+		harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}},
 		addr:      "127.0.0.1:9999",
 		lifecycle: lifecycle,
 		maxAgents: maxAgents,
@@ -744,7 +409,7 @@ func (f *fakeLifecycle) RunDeprovision(ctx context.Context, agent agentstore.Age
 }
 
 type workflowServiceOptions struct {
-	tmux        *fakeTmux
+	tmux        *tmuxtest.Fake
 	lifecycle   agentScriptRunner
 	maxAgents   int
 	maxChildren int
@@ -753,7 +418,7 @@ type workflowServiceOptions struct {
 func (s *testStore) workflowService(options workflowServiceOptions) *WorkflowService {
 	deleter := s.agentService(agentServiceOptions{
 		tmux:      options.tmux,
-		harnesses: fakeHarnesses{harness: &fakeHarness{}},
+		harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}},
 		addr:      "127.0.0.1:9999",
 	})
 
@@ -825,12 +490,22 @@ func (t txWritingPaneFirst) InTx(ctx context.Context, fn func(store.DBTX) error)
 	return t.txRunner.InTx(ctx, fn)
 }
 
-// resumeInto returns the write a resume does once its window is open, putting a pane on the
+// buildResumeWriteParams is the agent a resume writes, the pane it lands in, and where both are
+// recorded.
+type buildResumeWriteParams struct {
+	Store *testStore
+	Tmux  *tmuxtest.Fake
+	Agent agentstore.Agent
+	Pane  string
+}
+
+// buildResumeWrite returns the write a resume does once its window is open, putting a pane on the
 // agent's row and stamping that pane as its own.
-func resumeInto(t *testing.T, st *testStore, tmux *fakeTmux, agent agentstore.Agent, pane string) func() {
+func buildResumeWrite(t *testing.T, params buildResumeWriteParams) func() {
 	t.Helper()
 
 	done := false
+	agent := params.Agent
 
 	return func() {
 		if done {
@@ -838,9 +513,9 @@ func resumeInto(t *testing.T, st *testStore, tmux *fakeTmux, agent agentstore.Ag
 		}
 		done = true
 
-		agent.Pane = pane
-		require.NoError(t, st.Agents.Update(t.Context(), agent))
-		require.NoError(t, tmux.SetPaneOwner(pane, agent.ID))
+		agent.Pane = params.Pane
+		require.NoError(t, params.Store.Agents.Update(t.Context(), agent))
+		require.NoError(t, params.Tmux.SetPaneOwner(params.Pane, agent.ID))
 	}
 }
 
@@ -885,9 +560,12 @@ func seedChild(t *testing.T, st *testStore, tmux paneStamper, parent agentstore.
 
 func backdateStateSeen(t *testing.T, st *testStore, id string, age time.Duration) {
 	t.Helper()
-	_, err := st.Pool.GetDB().Exec(t.Context(),
-		`UPDATE agents SET state_seen_at = NOW() - $2::interval WHERE id = $1`, id, age.String())
-	require.NoError(t, err)
+
+	queries := testmodels.New(st.Pool.GetDB())
+	require.NoError(t, queries.BackdateAgentStateSeen(t.Context(), testmodels.BackdateAgentStateSeenParams{
+		AgeMicros: age.Microseconds(),
+		ID:        id,
+	}))
 }
 
 func stateOf(t *testing.T, st *testStore, name string) agentstore.State {
@@ -899,25 +577,25 @@ func stateOf(t *testing.T, st *testStore, name string) agentstore.State {
 	return got.State
 }
 
-func newManager(tmux *fakeTmux, st *testStore, flags string) *testAgents {
+func newManager(tmux *tmuxtest.Fake, st *testStore, flags string) *testAgents {
 	service, _ := newManagerWithHarness(tmux, st, flags)
 
 	return service
 }
 
-func workflowsFor(st *testStore, tmux *fakeTmux) *WorkflowService {
+func newWorkflowService(st *testStore, tmux *tmuxtest.Fake) *WorkflowService {
 	return st.workflowService(workflowServiceOptions{tmux: tmux})
 }
 
-func newManagerWithHarness(tmux *fakeTmux, st *testStore, flags string) (*testAgents, *fakeHarness) {
-	h := &fakeHarness{}
+func newManagerWithHarness(tmux *tmuxtest.Fake, st *testStore, flags string) (*testAgents, *harnesstest.Fake) {
+	fakeHarness := &harnesstest.Fake{}
 
 	return st.agentService(agentServiceOptions{
 		tmux:      tmux,
-		harnesses: fakeHarnesses{harness: h},
+		harnesses: harnesstest.Registry{Harness: fakeHarness},
 		addr:      "127.0.0.1:9999",
 		flags:     flags,
-	}), h
+	}), fakeHarness
 }
 
 func agentByID(t *testing.T, st *testStore, id string) agentstore.Agent {
@@ -945,15 +623,6 @@ func seedWorkflow(t *testing.T, st *testStore) string {
 	require.NotNil(t, created)
 
 	return created.ID
-}
-
-// disableProvisioner writes the one override an agent can carry.
-func disableProvisioner(t *testing.T, st *testStore, id string) {
-	t.Helper()
-
-	_, err := st.Pool.GetDB().Exec(t.Context(),
-		`UPDATE agents SET provision_enabled = FALSE WHERE id = $1`, id)
-	require.NoError(t, err)
 }
 
 // worktreeConfig is a workflow that provisions worktrees.
@@ -985,60 +654,6 @@ func mustRegistry(t *testing.T, harnesses ...harness.Harness) *harness.Registry 
 	require.NoError(t, err)
 
 	return registry
-}
-
-type fakeChannel struct {
-	refuseReady bool
-	refuseSend  bool
-	sendErr     error
-	sent        []string
-	forgotten   []string
-	interrupts  int
-}
-
-func (f *fakeChannel) Ready(context.Context, harness.Target) (bool, error) {
-	return !f.refuseReady, nil
-}
-
-func (f *fakeChannel) Send(_ context.Context, _ harness.Target, text string) (bool, error) {
-	if f.sendErr != nil {
-		return false, f.sendErr
-	}
-	if f.refuseSend {
-		return false, nil
-	}
-	f.sent = append(f.sent, text)
-
-	return true, nil
-}
-
-func (f *fakeChannel) Interrupt(context.Context, harness.Target) error {
-	f.interrupts++
-
-	return nil
-}
-
-func (f *fakeChannel) Forget(agentID string) { f.forgotten = append(f.forgotten, agentID) }
-
-type fakeWorkflowReader struct {
-	workflow *workflowstore.Workflow
-	archived bool
-}
-
-func (f fakeWorkflowReader) Get(ctx context.Context, id string) (*workflowstore.Workflow, error) {
-	if f.archived {
-		return nil, fmt.Errorf("%w: workflow %q", store.ErrNotFound, id)
-	}
-
-	return f.GetIncludingArchived(ctx, id)
-}
-
-func (f fakeWorkflowReader) GetIncludingArchived(_ context.Context, id string) (*workflowstore.Workflow, error) {
-	if f.workflow != nil && f.workflow.ID == id {
-		return f.workflow, nil
-	}
-
-	return nil, fmt.Errorf("%w: workflow %q", store.ErrNotFound, id)
 }
 
 func loggedContext(t *testing.T) (context.Context, func() []map[string]any) {

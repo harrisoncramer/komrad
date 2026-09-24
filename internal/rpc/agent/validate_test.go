@@ -81,18 +81,18 @@ func TestCreateAgentValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			client, launcher := validatedClient(t)
+			client, services := validatedClient(t)
 
 			_, err := client.CreateAgent(t.Context(), connect.NewRequest(tt.req))
 			if tt.wantErr {
 				assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
-				assert.Empty(t, launcher.got.Prompt, "a rejected request should never reach the launcher")
+				assert.Empty(t, services.created.Prompt, "a rejected request should never reach the services")
 
 				return
 			}
 
 			require.NoError(t, err)
-			assert.Equal(t, tt.req.GetPrompt(), launcher.got.Prompt)
+			assert.Equal(t, tt.req.GetPrompt(), services.created.Prompt)
 		})
 	}
 }
@@ -431,10 +431,10 @@ func TestRequestValidation(t *testing.T) {
 	}
 }
 
-func validatedClient(t *testing.T) (agentv1connect.AgentServiceClient, *fakeLauncher) {
+func validatedClient(t *testing.T) (agentv1connect.AgentServiceClient, *recordingAgentServices) {
 	t.Helper()
 
-	svc, st, launcher := serviceWithLauncher(t)
+	svc, st, services := newRecordedService(t)
 
 	st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateIdle})
 
@@ -447,5 +447,5 @@ func validatedClient(t *testing.T) (agentv1connect.AgentServiceClient, *fakeLaun
 	server := httptest.NewServer(mux)
 	t.Cleanup(server.Close)
 
-	return agentv1connect.NewAgentServiceClient(server.Client(), server.URL), launcher
+	return agentv1connect.NewAgentServiceClient(server.Client(), server.URL), services
 }
