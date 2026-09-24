@@ -21,7 +21,7 @@ import (
 // speak to as one of them.
 type connector interface {
 	Connect(ctx context.Context, params forge.ConnectParams) (*forgestore.Connection, error)
-	List(ctx context.Context) ([]forgestore.Connection, error)
+	ListConnections(ctx context.Context) ([]forgestore.Connection, error)
 	Disconnect(ctx context.Context, host string) error
 	Check(ctx context.Context, connection forgestore.Connection) (string, error)
 	HasCredential(ctx context.Context, connection forgestore.Connection) (bool, error)
@@ -63,7 +63,7 @@ func (s *Handler) ConnectForge(ctx context.Context, req *forgev1.ConnectForgeReq
 
 // ListForges is every connection, by host.
 func (s *Handler) ListForges(ctx context.Context, _ *emptypb.Empty) (*forgev1.ListForgesResponse, *fail.Error) {
-	connections, err := s.forges.List(ctx)
+	connections, err := s.forges.ListConnections(ctx)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to list forges")
 	}
@@ -83,7 +83,7 @@ func (s *Handler) ListForges(ctx context.Context, _ *emptypb.Empty) (*forgev1.Li
 
 // CheckForges asks every forge whether its credential still works and records the answer.
 func (s *Handler) CheckForges(ctx context.Context, _ *emptypb.Empty) (*forgev1.CheckForgesResponse, *fail.Error) {
-	connections, err := s.forges.List(ctx)
+	connections, err := s.forges.ListConnections(ctx)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to list forges")
 	}

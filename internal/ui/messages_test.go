@@ -15,6 +15,7 @@ import (
 	"weave/internal/engine"
 	"weave/internal/ui"
 	"weave/lib/xslice"
+	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
 )
 
@@ -404,4 +405,94 @@ func readTally(frame string) string {
 	}
 
 	return strings.Join(fields[len(fields)-3:], " ")
+}
+
+// TestMessagesRefusedWrites covers a refused write being said in the message region.
+func TestMessagesRefusedWrites(t *testing.T) {
+	tests := []struct {
+		name        string
+		agent       *agentv1.Agent
+		refused     string
+		reason      string
+		press       []string
+		wantSummary string
+	}{
+		{
+			name:        "a refused archive",
+			agent:       newDormant("api-refactor"),
+			refused:     agentv1connect.AgentServiceArchiveAgentsProcedure,
+			reason:      "already archived",
+			press:       []string{"j", "z", "ctrl+s"},
+			wantSummary: `Could not archive agent "api-refactor"`,
+		},
+		{
+			name:        "a refused resume",
+			agent:       newDormant("api-refactor"),
+			refused:     agentv1connect.AgentServiceResumeAgentProcedure,
+			reason:      "no such agent",
+			press:       []string{"j", "enter"},
+			wantSummary: `Could not resume agent "api-refactor"`,
+		},
+		{
+			name:        "a refused pause",
+			agent:       newPausable(""),
+			refused:     agentv1connect.AgentServiceHoldAgentProcedure,
+			reason:      `"telescope" would not stop`,
+			press:       []string{"j", "p"},
+			wantSummary: `Could not pause agent "telescope"`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			harness := openAgents(t, newLiveWorkflow("w1", "backend"), tt.agent)
+			harness.refuse(tt.refused, connect.NewError(connect.CodeFailedPrecondition, errors.New(tt.reason)))
+
+			harness.press(append(tt.press, widenListPresses...)...)
+
+			frame := harness.readFrame()
+			assert.Contains(t, frame, tt.wantSummary)
+			assert.Contains(t, frame, tt.reason, "the service's reason is shown rather than the connect code in front of it")
+			assert.NotEmpty(t, readHoveredRow(frame), "the list is still on screen above the region")
+		})
+	}
+
+	t.Run("a write that lands says nothing and takes nothing away", func(t *testing.T) {
+		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newDormant("api-refactor"))
+		harness.refuse(agentv1connect.AgentServiceResumeAgentProcedure, connect.NewError(connect.CodeNotFound, errors.New("no such agent")))
+
+		harness.press("j", "enter", "z", "ctrl+s")
+		harness.press(widenListPresses...)
+
+		frame := harness.readFrame()
+		assert.Contains(t, frame, `Could not resume agent "api-refactor"`)
+		assert.NotContains(t, frame, "+1", "the archive that landed pushed nothing onto the stack")
+	})
+
+	t.Run("a message outlives the form opened over it", func(t *testing.T) {
+		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newDormant("api-refactor"))
+		harness.refuse(agentv1connect.AgentServiceResumeAgentProcedure, connect.NewError(connect.CodeNotFound, errors.New("no such agent")))
+
+		harness.press("j", "enter", "r")
+		require.Contains(t, harness.readFrame(), "Rename")
+
+		harness.press("esc")
+
+		assert.Contains(t, harness.readFrame(), "no such agent")
+	})
+}
+
+// TestMessagesRegionKeys covers the keys of the message region.
+func TestMessagesRegionKeys(t *testing.T) {
+	harness := openAgents(t, newLiveWorkflow("w1", "backend"), newDormant("api-refactor"))
+	harness.refuse(agentv1connect.AgentServiceResumeAgentProcedure, connect.NewError(connect.CodeNotFound, errors.New("no such agent")))
+	harness.press("j", "enter")
+
+	assert.Contains(t, harness.readFrame(), "to read", "the way into the whole message is said")
+
+	harness.press("esc")
+	assert.Contains(t, harness.readFrame(), "no such agent", "the list's own esc leaves the region alone")
+
+	harness.press("ctrl+g", "esc")
+	assert.Contains(t, harness.readFrame(), "No messages", "the region's esc dismisses what it is showing")
 }

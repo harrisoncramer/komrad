@@ -6,10 +6,9 @@ import (
 	"fmt"
 	"testing"
 
-	"time"
-
 	agentstore "weave/internal/store/agent"
-	"weave/lib/xptr"
+	workflowstore "weave/internal/store/workflow"
+	"weave/internal/storetest"
 
 	"github.com/riverqueue/river"
 	"github.com/stretchr/testify/assert"
@@ -57,10 +56,14 @@ func TestEmptyArchiveSweepsEveryPage(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			archive := newFakeArchive(tt.archived)
-			archive.failOn = tt.failOn
-			archive.keepRows = tt.keepRows
-			worker := NewEmptyArchiveWorker(archive, archive)
+			st := storetest.Open(t)
+			workflow := st.SeedWorkflow(t, workflowstore.Config{Name: "backend"})
+			for i := range tt.archived {
+				seedArchived(t, st, agentstore.Agent{Name: fmt.Sprintf("agent-%d", i), WorkflowID: workflow.ID})
+			}
+
+			deleter := &recordingDeleter{agents: st.Agents, failOn: tt.failOn, keepRows: tt.keepRows}
+			worker := NewEmptyArchiveWorker(st.Agents, deleter)
 
 			err := worker.Work(t.Context(), &river.Job[EmptyArchiveArgs]{Args: EmptyArchiveArgs{}})
 
@@ -70,19 +73,15 @@ func TestEmptyArchiveSweepsEveryPage(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			assert.Equal(t, tt.wantDeleted, archive.deleted, "how many archived agents the sweep deleted")
+			assert.Equal(t, tt.wantDeleted, deleter.deleted, "how many archived agents the sweep deleted")
 		})
 	}
 }
 
-type fakeArchive struct {
-	agents  []agentstore.Agent
+type recordingDeleter struct {
+	agents  *agentstore.AgentStore
 	deleted int
 	pages   int
-
-	// live is the agents outside the archive, which the sweep never pages through but does ask
-	// about when a child on a page names one as its parent.
-	live []agentstore.Agent
 
 	// asked is the ids each delete was given, which says what the sweep left out of a page as well
 	// as what it deleted.
@@ -96,117 +95,73 @@ type fakeArchive struct {
 	keepRows bool
 }
 
-func newFakeArchive(count int) *fakeArchive {
-	archive := &fakeArchive{}
-	for i := count; i > 0; i-- {
-		archive.agents = append(archive.agents, archivedRow(agentstore.Agent{ID: fmt.Sprintf("%06d", i)}))
-	}
+func (d *recordingDeleter) DeleteAgents(ctx context.Context, ids []string) error {
+	d.pages++
+	d.asked = append(d.asked, ids)
 
-	return archive
-}
-
-// archivedRow stamps the archive time the store carries on a row the sweep reads.
-func archivedRow(agent agentstore.Agent) agentstore.Agent {
-	agent.ArchivedAt = xptr.Ptr(time.Now())
-
-	return agent
-}
-
-func (f *fakeArchive) ListArchiveSweepPage(_ context.Context, limit int64, cursor *agentstore.Cursor) ([]agentstore.Agent, error) {
-	page := make([]agentstore.Agent, 0, limit)
-	for _, agent := range f.agents {
-		if cursor != nil && agent.ID >= cursor.ID {
-			continue
-		}
-		if int64(len(page)) == limit {
-			break
-		}
-
-		page = append(page, agent)
-	}
-
-	return page, nil
-}
-
-// ListByID spans the archive and the live agents beside it, the way the store's own read does.
-func (f *fakeArchive) ListByID(_ context.Context, ids []string) ([]agentstore.Agent, error) {
-	wanted := make(map[string]bool, len(ids))
-	for _, id := range ids {
-		wanted[id] = true
-	}
-
-	var found []agentstore.Agent
-	for _, agent := range append(append([]agentstore.Agent{}, f.agents...), f.live...) {
-		if wanted[agent.ID] {
-			found = append(found, agent)
-		}
-	}
-
-	return found, nil
-}
-
-func (f *fakeArchive) DeleteAgents(_ context.Context, ids []string) error {
-	f.pages++
-	f.asked = append(f.asked, ids)
-
-	if f.pages == f.failOn {
+	if d.pages == d.failOn {
 		return errors.New("the delete would not go")
 	}
 
-	f.deleted += len(ids)
+	d.deleted += len(ids)
 
-	if f.keepRows {
+	if d.keepRows {
 		return nil
 	}
 
-	gone := make(map[string]bool, len(ids))
-	for _, id := range ids {
-		gone[id] = true
-	}
-	// A child goes with its parent, the way the service it stands in for takes them.
-	for _, agent := range f.agents {
-		if agent.ParentAgentID != nil && gone[*agent.ParentAgentID] {
-			gone[agent.ID] = true
-		}
-	}
+	_, err := d.agents.Delete(ctx, ids)
 
-	kept := f.agents[:0]
-	for _, agent := range f.agents {
-		if !gone[agent.ID] {
-			kept = append(kept, agent)
-		}
-	}
-	f.agents = kept
+	return err
+}
 
-	return nil
+func seedArchived(t *testing.T, st *storetest.Stores, agent agentstore.Agent) *agentstore.Agent {
+	t.Helper()
+
+	seeded := st.SeedAgent(t, agent)
+	_, err := st.Agents.Archive(t.Context(), []string{seeded.ID})
+	require.NoError(t, err)
+
+	return seeded
+}
+
+func requireArchiveEmpty(t *testing.T, st *storetest.Stores) {
+	t.Helper()
+
+	left, err := st.Agents.ListArchiveSweepPage(t.Context(), emptyArchiveBatch, nil)
+	require.NoError(t, err)
+	assert.Empty(t, left)
 }
 
 // TestEmptyArchiveAsksForTheParents pins that a page holding a child whose parent is in the
 // archive too names only that parent, the delete taking the child with it.
 func TestEmptyArchiveAsksForTheParents(t *testing.T) {
-	archive := newFakeArchive(0)
-	archive.agents = []agentstore.Agent{
-		archivedRow(agentstore.Agent{ID: "000002", ParentAgentID: xptr.Ptr("000001")}),
-		archivedRow(agentstore.Agent{ID: "000001"}),
-	}
-	worker := NewEmptyArchiveWorker(archive, archive)
+	st := storetest.Open(t)
+	parent := st.SeedAgent(t, agentstore.Agent{Name: "author"})
+	seedArchived(t, st, agentstore.Agent{Name: "reviewer", WorkflowID: parent.WorkflowID, ParentAgentID: &parent.ID})
+	_, err := st.Agents.Archive(t.Context(), []string{parent.ID})
+	require.NoError(t, err)
+
+	deleter := &recordingDeleter{agents: st.Agents}
+	worker := NewEmptyArchiveWorker(st.Agents, deleter)
 
 	require.NoError(t, worker.Work(t.Context(), &river.Job[EmptyArchiveArgs]{Args: EmptyArchiveArgs{}}))
 
-	assert.Equal(t, [][]string{{"000001"}}, archive.asked)
-	assert.Empty(t, archive.agents, "and the child goes with it")
+	assert.Equal(t, [][]string{{parent.ID}}, deleter.asked)
+	requireArchiveEmpty(t, st)
 }
 
 // TestEmptyArchiveTakesAChildWhoseParentIsLive pins the row nothing else can reach: a child
 // archived on its own, whose parent is still working and is never named by the sweep.
 func TestEmptyArchiveTakesAChildWhoseParentIsLive(t *testing.T) {
-	archive := newFakeArchive(0)
-	archive.agents = []agentstore.Agent{archivedRow(agentstore.Agent{ID: "000002", ParentAgentID: xptr.Ptr("000001")})}
-	archive.live = []agentstore.Agent{{ID: "000001"}}
-	worker := NewEmptyArchiveWorker(archive, archive)
+	st := storetest.Open(t)
+	parent := st.SeedAgent(t, agentstore.Agent{Name: "author"})
+	child := seedArchived(t, st, agentstore.Agent{Name: "reviewer", WorkflowID: parent.WorkflowID, ParentAgentID: &parent.ID})
+
+	deleter := &recordingDeleter{agents: st.Agents}
+	worker := NewEmptyArchiveWorker(st.Agents, deleter)
 
 	require.NoError(t, worker.Work(t.Context(), &river.Job[EmptyArchiveArgs]{Args: EmptyArchiveArgs{}}))
 
-	assert.Equal(t, [][]string{{"000002"}}, archive.asked)
-	assert.Empty(t, archive.agents, "the archive is left empty")
+	assert.Equal(t, [][]string{{child.ID}}, deleter.asked)
+	requireArchiveEmpty(t, st)
 }

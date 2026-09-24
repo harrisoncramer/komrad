@@ -24,6 +24,9 @@ type Fake struct {
 	SessionOptions  map[string]string
 	NewWindowErr    error
 	BeforeNewWindow func()
+	AfterGetPanes   func()
+	BeforeGetOwner  func()
+	AfterSetOwner   func()
 	NewWindowCalls  int
 	SetOwnerErr     error
 	SendKeysErr     error
@@ -31,6 +34,14 @@ type Fake struct {
 	RespawnErr      error
 	Shell           string
 	Respawned       map[string][]Respawn
+	ClientAt        map[string]bool
+	PasteErr        error
+	YankErr         error
+	// Edits is every cut, paste and yank made on a pane, in the order they were made.
+	Edits map[string][]string
+	// CutFrames is what a pane shows once its line is cut, one frame per capture, holding the last.
+	CutFrames map[string][]string
+	cutReads  map[string]int
 }
 
 // Respawn is one respawn of a pane: the directory it started in and the command it ran.
@@ -51,6 +62,9 @@ func NewFake() *Fake {
 		NewWindows:     map[string]string{},
 		SessionOptions: map[string]string{},
 		Respawned:      map[string][]Respawn{},
+		ClientAt:       map[string]bool{},
+		Edits:          map[string][]string{},
+		CutFrames:      map[string][]string{},
 		Shell:          "/bin/zsh",
 	}
 }
@@ -72,16 +86,27 @@ func (f *Fake) ShowGlobal(name string) string {
 
 // GetPaneOwner answers the agent Owners names for the pane.
 func (f *Fake) GetPaneOwner(pane string) string {
+	if f.BeforeGetOwner != nil {
+		f.BeforeGetOwner()
+	}
+
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
 	return f.Owners[pane]
 }
 
-// CapturePane answers the frame Captures holds for the pane.
+// CapturePane answers the frame Captures holds for the pane, or the next of CutFrames once its line is cut.
 func (f *Fake) CapturePane(pane string) string {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+
+	frames := f.CutFrames[pane]
+	if read, cut := f.cutReads[pane]; cut && len(frames) > 0 {
+		f.cutReads[pane]++
+
+		return frames[min(read, len(frames)-1)]
+	}
 
 	return f.Captures[pane]
 }
@@ -103,6 +128,15 @@ func (f *Fake) DetachSession(name string) {
 
 // GetPanes answers every owned pane with its command.
 func (f *Fake) GetPanes() (map[string]tmux.PaneStatus, error) {
+	panes, err := f.listPanes()
+	if err == nil && f.AfterGetPanes != nil {
+		f.AfterGetPanes()
+	}
+
+	return panes, err
+}
+
+func (f *Fake) listPanes() (map[string]tmux.PaneStatus, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -215,6 +249,18 @@ func (f *Fake) WindowsOpened() int {
 
 // SetPaneOwner records the pane owner.
 func (f *Fake) SetPaneOwner(pane, agentID string) error {
+	if err := f.recordOwner(pane, agentID); err != nil {
+		return err
+	}
+
+	if f.AfterSetOwner != nil {
+		f.AfterSetOwner()
+	}
+
+	return nil
+}
+
+func (f *Fake) recordOwner(pane, agentID string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -253,26 +299,55 @@ func (f *Fake) IsPaneRunningCLI(pane string) bool {
 	return command != "" && !tmux.PaneStatus{Command: command}.IsRunningShell()
 }
 
-// IsClientAtPane is false.
-func (f *Fake) IsClientAtPane(string, time.Duration) bool {
-	return false
+// IsClientAtPane answers ClientAt for the pane.
+func (f *Fake) IsClientAtPane(pane string, _ time.Duration) bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return f.ClientAt[pane]
 }
 
-// PasteAndSubmit records the text as sent.
+// PasteAndSubmit records the paste, and the text as sent unless PasteErr refuses it.
 func (f *Fake) PasteAndSubmit(target, text string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+
+	f.recordEdit(target, "paste")
+	if f.PasteErr != nil {
+		return f.PasteErr
+	}
 	f.Sent[target] = append(f.Sent[target], []string{text})
 
 	return nil
 }
 
-// CutLine does nothing.
-func (f *Fake) CutLine(string) error {
+// CutLine records the cut, after which the pane shows CutFrames.
+func (f *Fake) CutLine(target string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	f.recordEdit(target, "cut")
+	if f.cutReads == nil {
+		f.cutReads = map[string]int{}
+	}
+	f.cutReads[target] = 0
+
 	return nil
 }
 
-// YankLine does nothing.
-func (f *Fake) YankLine(string) error {
-	return nil
+// YankLine records the yank, answering YankErr.
+func (f *Fake) YankLine(target string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	f.recordEdit(target, "yank")
+
+	return f.YankErr
+}
+
+func (f *Fake) recordEdit(target, edit string) {
+	if f.Edits == nil {
+		f.Edits = map[string][]string{}
+	}
+	f.Edits[target] = append(f.Edits[target], edit)
 }

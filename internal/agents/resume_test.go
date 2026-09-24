@@ -9,12 +9,14 @@ import (
 	"testing"
 	"time"
 
+	"weave/internal/harness"
 	"weave/internal/harness/pane"
 	"weave/internal/harnesstest"
 	"weave/internal/scripts"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/tmuxtest"
+	"weave/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -356,7 +358,7 @@ func TestAResumeInItsSetupIsNotArchivedOutFromUnderItself(t *testing.T) {
 	require.NotEmpty(t, after.Pane)
 	assert.Equal(t, agentstore.StateIdle, after.State)
 
-	live, err := st.List(ctx)
+	live, err := st.Agents.List(ctx)
 	require.NoError(t, err)
 	assert.Len(t, live, 1, "the agent whose CLI is running is one a listing shows")
 }
@@ -477,25 +479,11 @@ func TestAResumeIsClaimableAgainAfterOneFinishes(t *testing.T) {
 	assert.Equal(t, 2, tmux.WindowsOpened())
 }
 
-// archivingTmux archives the agent the first time a resume asks whether it is already running,
-// which is the only call between the caller reading the row and the resume marking it.
-type archivingTmux struct {
-	*tmuxtest.Fake
-	sync func()
-	once sync.Once
-}
-
-func (a *archivingTmux) GetPaneOwner(pane string) string {
-	a.once.Do(a.sync)
-
-	return a.Fake.GetPaneOwner(pane)
-}
-
 // TestAPassThatArchivesBeforeTheMarkStopsTheResume pins the mark refusing an archived row,
 // which is where a resume finds out about an archive that landed while it was reading.
 func TestAPassThatArchivesBeforeTheMarkStopsTheResume(t *testing.T) {
 	st := newStore(t)
-	base := tmuxtest.NewFake()
+	tmux := tmuxtest.NewFake()
 	ctx := t.Context()
 
 	created, err := st.Workflows.Create(ctx, workflowstore.Config{
@@ -507,11 +495,13 @@ func TestAPassThatArchivesBeforeTheMarkStopsTheResume(t *testing.T) {
 
 	agent := seedInWorkflow(t, st, created.ID, "agent", "", agentstore.StateIdle)
 
-	tmux := &archivingTmux{Fake: base}
 	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, &fakeLifecycle{})
-	tmux.sync = func() {
-		_, syncErr := manager.lifecycle.ArchiveUnchangedAgents(ctx, []agentstore.Agent{agent})
-		require.NoError(t, syncErr)
+	var once sync.Once
+	tmux.BeforeGetOwner = func() {
+		once.Do(func() {
+			_, syncErr := manager.lifecycle.ArchiveUnchangedAgents(ctx, []agentstore.Agent{agent})
+			require.NoError(t, syncErr)
+		})
 	}
 
 	_, err = manager.resume.ResumeAgent(ctx, agent.ID)
@@ -520,9 +510,9 @@ func TestAPassThatArchivesBeforeTheMarkStopsTheResume(t *testing.T) {
 	after := agentByID(t, st, agent.ID)
 	require.NotNil(t, after.ArchivedAt, "the pass really did archive it")
 	assert.Empty(t, after.Pane, "and the resume wrote no pane onto the archived row")
-	assert.Empty(t, base.NewWindows, "the resume gave up before it opened a window")
+	assert.Empty(t, tmux.NewWindows, "the resume gave up before it opened a window")
 
-	live, err := st.List(ctx)
+	live, err := st.Agents.List(ctx)
 	require.NoError(t, err)
 	assert.Empty(t, live, "nothing is left running that no listing shows")
 }
@@ -573,7 +563,7 @@ func TestAnArchiveAfterTheMarkStopsTheResume(t *testing.T) {
 	assert.Len(t, tmux.KilledPanes, 1, "the pane the resume opened goes with the resume that lost")
 	assert.Empty(t, fakeHarness.Launches, "and no CLI was launched into a pane no listing shows")
 
-	live, err := st.List(ctx)
+	live, err := st.Agents.List(ctx)
 	require.NoError(t, err)
 	assert.Empty(t, live, "nothing is left running that no listing shows")
 }
@@ -620,18 +610,9 @@ func TestADeleteAfterTheMarkStopsTheResume(t *testing.T) {
 	assert.Len(t, tmux.KilledPanes, 1, "the pane the resume opened goes with the resume that lost")
 	assert.Empty(t, fakeHarness.Launches, "no CLI was launched for an agent no row holds")
 
-	rows, err := st.ListAll(ctx)
+	rows, err := st.Agents.ListAll(ctx)
 	require.NoError(t, err)
 	assert.Empty(t, rows, "the delete really did take the row")
-}
-
-// refusingUpdate is the store with its last write to the row taken away.
-type refusingUpdate struct {
-	*agentstore.AgentStore
-}
-
-func (refusingUpdate) UpdateIfLive(context.Context, agentstore.Agent) (bool, error) {
-	return false, errors.New("the row would not take the write")
 }
 
 // TestAResumeThatFailsOnItsLastWritePutsBackWhatItFound pins that the state on the row when
@@ -639,21 +620,17 @@ func (refusingUpdate) UpdateIfLive(context.Context, agentstore.Agent) (bool, err
 func TestAResumeThatFailsOnItsLastWritePutsBackWhatItFound(t *testing.T) {
 	st := newStore(t)
 	tmux := tmuxtest.NewFake()
-	ctx := t.Context()
+	ctx, cancel := context.WithCancel(t.Context())
 
 	workflowID := seedWorkflow(t, st)
 	agent := seedInWorkflow(t, st, workflowID, "cut", "", agentstore.StateThinking)
+	require.NoError(t, st.Agents.SetInterruptedAtByID(ctx, agent.ID, xptr.Ptr(time.Now())))
 
-	manager := st.agentService(agentServiceOptions{
-		tmux:      tmux,
-		harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}},
-		addr:      "127.0.0.1:9999",
-		lifecycle: &fakeLifecycle{},
-		agents:    refusingUpdate{AgentStore: st.Agents},
-	})
+	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, &fakeLifecycle{})
+	tmux.AfterSetOwner = cancel
 
 	_, err := manager.resume.ResumeAgent(ctx, agent.ID)
-	require.Error(t, err)
+	require.ErrorContains(t, err, "failed to resume agent", "the write that failed is the last one")
 
 	after := agentByID(t, st, agent.ID)
 	assert.Equal(t, agentstore.StateThinking, after.State, "the row reads as the resume found it")
@@ -842,4 +819,30 @@ func TestResumeRefusesArchived(t *testing.T) {
 	require.ErrorIs(t, err, ErrAgentArchived)
 	require.ErrorContains(t, err, "restore it first", "the refusal says what to do about it")
 	assert.Empty(t, tmux.NewWindows, "and opens no window")
+}
+
+// TestResumeRefusesUnknownHarness pins that a resume fails rather than putting the wrong CLI
+// on a dormant agent's conversation.
+func TestResumeRefusesUnknownHarness(t *testing.T) {
+	st := newStore(t)
+	tmux := tmuxtest.NewFake()
+	service := st.agentService(agentServiceOptions{
+		tmux:      tmux,
+		harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}, Only: []string{harnesstest.FakeID}},
+	})
+
+	require.NoError(t, st.createAgent(t.Context(), agentstore.Agent{
+		Name:      "dormant",
+		State:     agentstore.StateIdle,
+		Harness:   "gemini",
+		SessionID: "sess-1",
+	}))
+	stored, err := st.Get(t.Context(), "dormant")
+	require.NoError(t, err)
+
+	_, err = service.resume.ResumeAgent(t.Context(), stored.ID)
+
+	require.ErrorIs(t, err, harness.ErrNotRegistered)
+	require.ErrorContains(t, err, "gemini")
+	assert.Empty(t, tmux.NewWindows, "nothing is opened for an agent that cannot be run")
 }

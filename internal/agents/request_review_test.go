@@ -474,7 +474,7 @@ func TestRequestReviewRefusesUnknownHarness(t *testing.T) {
 	})
 	require.ErrorIs(t, err, harness.ErrNotRegistered)
 
-	all, err := st.List(ctx)
+	all, err := st.Agents.List(ctx)
 	require.NoError(t, err)
 	assert.Len(t, all, 1, "a refused harness records no reviewer")
 	assert.Len(t, tmux.NewWindows, 1, "and opens no second window")

@@ -12,7 +12,8 @@ type Snapshots struct {
 	SHA     string
 	BaseSHA string
 	// Files is each path as every snapshot holds it.
-	Files map[string][]string
+	Files    map[string][]string
+	Released []string
 }
 
 // TakeSnapshot answers SHA and BaseSHA.
@@ -28,8 +29,10 @@ func (*Snapshots) HoldRef(context.Context, string, string, string) error {
 	return nil
 }
 
-// ReleaseRef does nothing.
-func (*Snapshots) ReleaseRef(context.Context, string, string) error {
+// ReleaseRef records the ref.
+func (s *Snapshots) ReleaseRef(_ context.Context, _, ref string) error {
+	s.Released = append(s.Released, ref)
+
 	return nil
 }
 

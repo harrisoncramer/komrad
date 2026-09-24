@@ -144,7 +144,7 @@ func TestAdoptRefusesADirectoryAnotherAgentHolds(t *testing.T) {
 			require.NoError(t, os.MkdirAll(sitting, 0o755))
 			manager.withWorktrees(&gittest.Checkout{Registered: []git.Worktree{{Dir: repo}, {Dir: sitting, Branch: tt.branch}}})
 
-			require.NoError(t, st.Create(t.Context(), agentstore.Agent{
+			require.NoError(t, st.createAgent(t.Context(), agentstore.Agent{
 				Name:          "sitting",
 				Cwd:           sitting,
 				State:         agentstore.StateIdle,
@@ -197,7 +197,7 @@ func TestAdoptTakesOverAWorktreeRegistrationWithNoDirectory(t *testing.T) {
 	sitting := filepath.Join(t.TempDir(), "sitting")
 	manager.withWorktrees(&gittest.Checkout{Registered: []git.Worktree{{Dir: repo}, {Dir: sitting, Branch: "someones/work"}}})
 
-	require.NoError(t, st.Create(t.Context(), agentstore.Agent{
+	require.NoError(t, st.createAgent(t.Context(), agentstore.Agent{
 		Name:          "sitting",
 		Cwd:           sitting,
 		State:         agentstore.StateIdle,
@@ -244,7 +244,7 @@ func TestAdoptTwiceIsRefused(t *testing.T) {
 	require.ErrorIs(t, err, ErrAdoptAlreadyAdopted)
 	assert.Contains(t, err.Error(), first.Name, "the refusal names the agent holding the branch")
 
-	agents, err := st.List(t.Context())
+	agents, err := st.Agents.List(t.Context())
 	require.NoError(t, err)
 	assert.Len(t, agents, 1, "and no second one was started")
 }
@@ -331,7 +331,7 @@ func TestAdoptRefusesAPullRequest(t *testing.T) {
 
 			require.ErrorIs(t, err, ErrAdoptNotABranch)
 
-			agents, listErr := st.List(t.Context())
+			agents, listErr := st.Agents.List(t.Context())
 			require.NoError(t, listErr)
 			assert.Empty(t, agents, "a refused adoption starts nothing")
 		})

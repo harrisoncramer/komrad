@@ -1,7 +1,6 @@
 package checkouts
 
 import (
-	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -31,19 +30,6 @@ import (
 type rebaseFixture struct {
 	stores     *storetest.Stores
 	workflowID string
-}
-
-// treeReadRecorder notes how many pane readings had been taken by the time the tree was read.
-type treeReadRecorder struct {
-	*gittest.Rebaser
-	observer        *settlingObserver
-	readsBeforeTree int
-}
-
-func (r *treeReadRecorder) ReadTreeState(ctx context.Context, dir string) (git.TreeState, error) {
-	r.readsBeforeTree = r.observer.reads
-
-	return r.Rebaser.ReadTreeState(ctx, dir)
 }
 
 // TestRebaseRefusals covers every state of the row a rebase declines.
@@ -230,7 +216,7 @@ func TestRebaseRefusesATreeGitWillNotMove(t *testing.T) {
 			fixture := newRebaseFixture(t)
 			agent := fixture.seed(t, agentstore.Agent{Pane: "%1"})
 			channel := &harnesstest.Channel{}
-			observer := &settlingObserver{readings: []harness.Activity{harness.ActivityWorking}}
+			observer := harnesstest.NewActivityObserver(harness.ActivityWorking)
 
 			_, err := fixture.newService(NewRebaseServiceParams{
 				Settler: buildSettler(channel, observer),
@@ -239,7 +225,7 @@ func TestRebaseRefusesATreeGitWillNotMove(t *testing.T) {
 
 			require.ErrorIs(t, err, tt.wantErr)
 			assert.Zero(t, channel.Interrupts, "a tree that cannot move costs the agent no turn")
-			assert.Zero(t, observer.reads)
+			assert.Zero(t, observer.Reads)
 		})
 	}
 }
@@ -340,7 +326,8 @@ func TestRebaseRefusesAnAgentThatWillNotSettle(t *testing.T) {
 			fixture := newRebaseFixture(t)
 			agent := fixture.seed(t, agentstore.Agent{Pane: "%1"})
 			channel := &harnesstest.Channel{}
-			observer := &settlingObserver{readings: tt.readings, err: tt.observeErr}
+			observer := harnesstest.NewActivityObserver(tt.readings...)
+			observer.Err = tt.observeErr
 			rebaser := &gittest.Rebaser{State: git.TreeState{Branch: "agent/a1"}}
 
 			_, err := fixture.newService(NewRebaseServiceParams{
@@ -389,10 +376,11 @@ func TestRebaseSettlesTheAgentBeforeItMoves(t *testing.T) {
 			fixture := newRebaseFixture(t)
 			agent := fixture.seed(t, agentstore.Agent{Pane: tt.pane})
 			channel := &harnesstest.Channel{}
-			observer := &settlingObserver{readings: tt.readings}
-			rebaser := &treeReadRecorder{
-				Rebaser:  &gittest.Rebaser{State: git.TreeState{Branch: "agent/a1"}},
-				observer: observer,
+			observer := harnesstest.NewActivityObserver(tt.readings...)
+			readsBeforeTree := 0
+			rebaser := &gittest.Rebaser{
+				State:          git.TreeState{Branch: "agent/a1"},
+				BeforeReadTree: func() { readsBeforeTree = observer.Reads },
 			}
 
 			_, err := fixture.newService(NewRebaseServiceParams{
@@ -401,8 +389,8 @@ func TestRebaseSettlesTheAgentBeforeItMoves(t *testing.T) {
 			}).Rebase(t.Context(), agent.ID)
 			require.NoError(t, err)
 
-			assert.Equal(t, tt.wantReads, observer.reads)
-			assert.Equal(t, tt.wantReads, rebaser.readsBeforeTree, "the plan reads the tree only once the agent has stopped")
+			assert.Equal(t, tt.wantReads, observer.Reads)
+			assert.Equal(t, tt.wantReads, readsBeforeTree, "the plan reads the tree only once the agent has stopped")
 			assert.Equal(t, tt.wantInterrupts, channel.Interrupts)
 			assert.Equal(t, []string{"park", "rebase"}, rebaser.Calls)
 		})
@@ -448,10 +436,8 @@ func TestRebaseRereadsTheRowOnceTheAgentSettles(t *testing.T) {
 			fixture := newRebaseFixture(t)
 			agent := fixture.seed(t, agentstore.Agent{Pane: "%1"})
 			channel := &harnesstest.Channel{}
-			observer := &settlingObserver{
-				readings: tt.readings,
-				onFirst:  func() { tt.settling(t, fixture, agent.ID) },
-			}
+			observer := harnesstest.NewActivityObserver(tt.readings...)
+			observer.BeforeFirst = func() { tt.settling(t, fixture, agent.ID) }
 			rebaser := &gittest.Rebaser{State: git.TreeState{Branch: "agent/a1"}}
 
 			_, err := fixture.newService(NewRebaseServiceParams{
@@ -708,4 +694,28 @@ func (f *rebaseFixture) readInbox(t *testing.T, id string) []string {
 func holdWhileSettling(t *testing.T, fixture *rebaseFixture, id string) {
 	_, err := fixture.stores.Agents.Hold(t.Context(), agentstore.HoldParams{ID: id, At: time.Now()})
 	require.NoError(t, err)
+}
+
+// settleStep is how far the fake clock moves between two readings of the pane.
+const settleStep = 250 * time.Millisecond
+
+// buildSettler builds a settler whose clock walks the budget by itself.
+func buildSettler(channel harness.Channel, observer harness.Observer) *agents.Settler {
+	at := time.Now()
+
+	return agents.NewSettler(agents.NewSettlerParams{
+		Channel:  channel,
+		Observer: observer,
+		Clock: func() time.Time {
+			at = at.Add(settleStep)
+
+			return at
+		},
+		Wait: func(time.Duration) <-chan time.Time {
+			rested := make(chan time.Time, 1)
+			rested <- at
+
+			return rested
+		},
+	})
 }

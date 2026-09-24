@@ -1,12 +1,20 @@
 package pane
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
 	"errors"
+	"log/slog"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 
 	"weave/internal/harness"
 	"weave/internal/harnesstest"
+	"weave/internal/logging"
+	"weave/internal/tmuxtest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -48,31 +56,32 @@ func TestReadyRefusesAPaneThatIsNotListening(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			terminal := &fakeTerminal{
-				frame:  tt.frame,
-				inMode: tt.inMode,
-				shell:  tt.shell,
+			terminal := terminalShowing(tt.frame)
+			terminal.InMode[target.Pane] = tt.inMode
+			if tt.shell {
+				terminal.Commands[target.Pane] = "zsh"
 			}
 			pane := NewPane(NewPaneParams{Terminal: terminal, Harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}}})
 
 			ready, err := pane.Ready(t.Context(), target)
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, ready)
-			assert.Empty(t, terminal.actions, "asking whether a box would take something touches nothing")
+			assert.Empty(t, terminal.Sent, "asking whether a box would take something touches nothing")
+			assert.Empty(t, terminal.Edits, "asking whether a box would take something touches nothing")
 		})
 	}
 }
 
 // TestSendPastesIntoAnEmptyBox pins that an idle pane takes the paste and nothing around it.
 func TestSendPastesIntoAnEmptyBox(t *testing.T) {
-	terminal := &fakeTerminal{frame: harnesstest.FrameIdle}
+	terminal := terminalShowing(harnesstest.FrameIdle)
 	pane := NewPane(NewPaneParams{Terminal: terminal, Harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}}})
 
 	sent, err := pane.Send(t.Context(), target, "weave: read_mail")
 	require.NoError(t, err)
 	assert.True(t, sent)
-	assert.Equal(t, []string{"paste"}, terminal.actions, "an empty box needs no cut")
-	assert.Equal(t, []string{"weave: read_mail"}, terminal.pasted)
+	assert.Equal(t, []string{"paste"}, terminal.Edits[target.Pane], "an empty box needs no cut")
+	assert.Equal(t, [][]string{{"weave: read_mail"}}, terminal.Sent[target.Pane])
 }
 
 // TestSendRefusesAPaneWhoseCLIHasExited pins that a pane whose foreground program is a shell is
@@ -94,13 +103,15 @@ func TestSendRefusesAPaneWhoseCLIHasExited(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			terminal := &fakeTerminal{frame: harnesstest.FrameIdle, shell: true}
+			terminal := terminalShowing(harnesstest.FrameIdle)
+			terminal.Commands[target.Pane] = "zsh"
 			p := NewPane(NewPaneParams{Terminal: terminal, Harnesses: tt.harnesses})
 
 			sent, err := p.Send(t.Context(), target, "weave: read_mail")
 			require.NoError(t, err)
 			assert.False(t, sent)
-			assert.Empty(t, terminal.actions)
+			assert.Empty(t, terminal.Sent)
+			assert.Empty(t, terminal.Edits)
 		})
 	}
 }
@@ -108,13 +119,13 @@ func TestSendRefusesAPaneWhoseCLIHasExited(t *testing.T) {
 // TestSendToAnUnknownHarnessPastesAnyway pins that a frame nothing can read is written to
 // rather than held forever.
 func TestSendToAnUnknownHarnessPastesAnyway(t *testing.T) {
-	terminal := &fakeTerminal{frame: harnesstest.FrameWorking}
+	terminal := terminalShowing(harnesstest.FrameWorking)
 	pane := NewPane(NewPaneParams{Terminal: terminal, Harnesses: harnesstest.Registry{}})
 
 	sent, err := pane.Send(t.Context(), target, "weave: read_mail")
 	require.NoError(t, err)
 	assert.True(t, sent)
-	assert.Equal(t, []string{"paste"}, terminal.actions)
+	assert.Equal(t, []string{"paste"}, terminal.Edits[target.Pane])
 }
 
 // TestSendToAComposingPane pins which draft weave cuts to get a line past and which it leaves
@@ -179,31 +190,33 @@ func TestSendToAComposingPane(t *testing.T) {
 			}
 
 			now := time.Date(2026, time.September, 9, 12, 0, 0, 0, time.UTC)
-			terminal := &fakeTerminal{
-				frame:      frame,
-				afterCut:   tt.afterCut,
-				clientAt:   tt.clientAt,
-				staleReads: tt.staleReads,
+			afterCut := tt.afterCut
+			if afterCut == "" {
+				afterCut = harnesstest.FrameIdle
 			}
+
+			terminal := terminalShowing(frame)
+			terminal.ClientAt[target.Pane] = tt.clientAt
+			terminal.CutFrames[target.Pane] = append(slices.Repeat([]string{frame}, tt.staleReads), afterCut)
 			p := composingPane(t, terminal, &now)
 
 			sent, err := deliver(t.Context(), t, p)
 			require.NoError(t, err)
 			require.False(t, sent, "the first look at a draft only starts its clock")
-			require.Empty(t, terminal.actions)
+			require.Empty(t, terminal.Edits[target.Pane])
 
 			now = now.Add(tt.held)
 
 			sent, err = deliver(t.Context(), t, p)
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, sent)
-			assert.Equal(t, tt.wantActions, terminal.actions)
+			assert.Equal(t, tt.wantActions, terminal.Edits[target.Pane])
 
 			if tt.want {
-				require.Len(t, terminal.pasted, 1)
-				assert.Contains(t, terminal.pasted[0], "read_mail")
+				require.Len(t, terminal.Sent[target.Pane], 1)
+				assert.Contains(t, terminal.Sent[target.Pane][0][0], "read_mail")
 			} else {
-				assert.Empty(t, terminal.pasted, "a draft weave will not cut is never pasted over")
+				assert.Empty(t, terminal.Sent[target.Pane], "a draft weave will not cut is never pasted over")
 			}
 		})
 	}
@@ -213,7 +226,7 @@ func TestSendToAComposingPane(t *testing.T) {
 // however long weave has been watching it.
 func TestSendTimesADraftFromWhenItLastMoved(t *testing.T) {
 	now := time.Date(2026, time.September, 9, 12, 0, 0, 0, time.UTC)
-	terminal := &fakeTerminal{frame: harnesstest.FrameComposing + ": one"}
+	terminal := terminalShowing(harnesstest.FrameComposing + ": one")
 	p := composingPane(t, terminal, &now)
 
 	sent, err := deliver(t.Context(), t, p)
@@ -221,26 +234,26 @@ func TestSendTimesADraftFromWhenItLastMoved(t *testing.T) {
 	require.False(t, sent)
 
 	now = now.Add(draftStaleAfter)
-	terminal.frame = harnesstest.FrameComposing + ": one and a bit"
+	terminal.Captures[target.Pane] = harnesstest.FrameComposing + ": one and a bit"
 
 	sent, err = deliver(t.Context(), t, p)
 	require.NoError(t, err)
 	assert.False(t, sent, "the text moved, so the clock starts again")
-	assert.Empty(t, terminal.actions)
+	assert.Empty(t, terminal.Edits[target.Pane])
 
 	now = now.Add(draftStaleAfter)
 
 	sent, err = deliver(t.Context(), t, p)
 	require.NoError(t, err)
 	assert.True(t, sent)
-	assert.Equal(t, []string{"cut", "paste", "yank"}, terminal.actions)
+	assert.Equal(t, []string{"cut", "paste", "yank"}, terminal.Edits[target.Pane])
 }
 
 // TestSendForgetsADraftOnceTheBoxIsEmpty pins that text typed after the box was emptied is timed
 // from when it appeared rather than from the draft before it.
 func TestSendForgetsADraftOnceTheBoxIsEmpty(t *testing.T) {
 	now := time.Date(2026, time.September, 9, 12, 0, 0, 0, time.UTC)
-	terminal := &fakeTerminal{frame: harnesstest.FrameComposing}
+	terminal := terminalShowing(harnesstest.FrameComposing)
 	p := composingPane(t, terminal, &now)
 
 	sent, err := deliver(t.Context(), t, p)
@@ -248,27 +261,27 @@ func TestSendForgetsADraftOnceTheBoxIsEmpty(t *testing.T) {
 	require.False(t, sent)
 
 	now = now.Add(draftStaleAfter)
-	terminal.frame = harnesstest.FrameIdle
+	terminal.Captures[target.Pane] = harnesstest.FrameIdle
 
 	sent, err = deliver(t.Context(), t, p)
 	require.NoError(t, err)
 	require.True(t, sent)
-	require.Equal(t, []string{"paste"}, terminal.actions, "an empty box needs no cut")
+	require.Equal(t, []string{"paste"}, terminal.Edits[target.Pane], "an empty box needs no cut")
 
-	terminal.frame = harnesstest.FrameComposing
-	terminal.actions = nil
+	terminal.Captures[target.Pane] = harnesstest.FrameComposing
+	terminal.Edits[target.Pane] = nil
 
 	sent, err = deliver(t.Context(), t, p)
 	require.NoError(t, err)
 	assert.False(t, sent, "the box was empty since, so this draft is new")
-	assert.Empty(t, terminal.actions)
+	assert.Empty(t, terminal.Edits[target.Pane])
 }
 
 // TestSendSaysOnceThatAMultiLineDraftIsInTheWay pins the one thing weave does about a box it
 // will not touch.
 func TestSendSaysOnceThatAMultiLineDraftIsInTheWay(t *testing.T) {
 	now := time.Date(2026, time.September, 9, 12, 0, 0, 0, time.UTC)
-	terminal := &fakeTerminal{frame: harnesstest.FrameComposing + ": first|second"}
+	terminal := terminalShowing(harnesstest.FrameComposing + ": first|second")
 	p := composingPane(t, terminal, &now)
 
 	ctx, records := loggedContext(t)
@@ -289,14 +302,14 @@ func TestSendSaysOnceThatAMultiLineDraftIsInTheWay(t *testing.T) {
 	written := records()
 	require.Len(t, written, 1, "three passes over the same draft say it once")
 	assert.Equal(t, "WARN", written[0]["severity_text"])
-	assert.Empty(t, terminal.actions)
+	assert.Empty(t, terminal.Edits[target.Pane])
 }
 
 // TestForgetDropsWhatWasRememberedOfABox pins that an agent nothing will look at again leaves
 // nothing behind in the draft clock.
 func TestForgetDropsWhatWasRememberedOfABox(t *testing.T) {
 	now := time.Date(2026, time.September, 9, 12, 0, 0, 0, time.UTC)
-	terminal := &fakeTerminal{frame: harnesstest.FrameComposing}
+	terminal := terminalShowing(harnesstest.FrameComposing)
 	p := composingPane(t, terminal, &now)
 
 	sent, err := deliver(t.Context(), t, p)
@@ -313,7 +326,8 @@ func TestForgetDropsWhatWasRememberedOfABox(t *testing.T) {
 // paste after it turns out.
 func TestSendHandsBackADraftWhenThePasteFails(t *testing.T) {
 	now := time.Date(2026, time.September, 9, 12, 0, 0, 0, time.UTC)
-	terminal := &fakeTerminal{frame: harnesstest.FrameComposing, pasteErr: errors.New("tmux said no")}
+	terminal := terminalShowing(harnesstest.FrameComposing)
+	terminal.PasteErr = errors.New("tmux said no")
 	p := composingPane(t, terminal, &now)
 
 	sent, err := deliver(t.Context(), t, p)
@@ -325,14 +339,16 @@ func TestSendHandsBackADraftWhenThePasteFails(t *testing.T) {
 	sent, err = deliver(t.Context(), t, p)
 	require.Error(t, err)
 	assert.False(t, sent)
-	assert.Equal(t, []string{"cut", "paste-failed", "yank"}, terminal.actions)
+	assert.Equal(t, []string{"cut", "paste", "yank"}, terminal.Edits[target.Pane])
+	assert.Empty(t, terminal.Sent[target.Pane])
 }
 
 // TestSendReportsAYankItCouldNotMake pins that a hand-back tmux refuses is said out loud
 // rather than failing the send that already landed.
 func TestSendReportsAYankItCouldNotMake(t *testing.T) {
 	now := time.Date(2026, time.September, 9, 12, 0, 0, 0, time.UTC)
-	terminal := &fakeTerminal{frame: harnesstest.FrameComposing, yankErr: errors.New("tmux said no")}
+	terminal := terminalShowing(harnesstest.FrameComposing)
+	terminal.YankErr = errors.New("tmux said no")
 	p := composingPane(t, terminal, &now)
 
 	ctx, records := loggedContext(t)
@@ -346,7 +362,7 @@ func TestSendReportsAYankItCouldNotMake(t *testing.T) {
 	sent, err = deliver(ctx, t, p)
 	require.NoError(t, err, "the line landed, so the send is not failed over the hand-back")
 	assert.True(t, sent)
-	assert.Equal(t, []string{"cut", "paste", "yank-failed"}, terminal.actions)
+	assert.Equal(t, []string{"cut", "paste", "yank"}, terminal.Edits[target.Pane])
 
 	written := records()
 	require.Len(t, written, 1)
@@ -358,8 +374,19 @@ func TestSendReportsAYankItCouldNotMake(t *testing.T) {
 // cut that never learns whether the box came back empty.
 func TestSendHandsBackADraftWhenTheFrameGoesUnreadable(t *testing.T) {
 	now := time.Date(2026, time.September, 9, 12, 0, 0, 0, time.UTC)
-	terminal := &fakeTerminal{frame: harnesstest.FrameComposing}
-	harnesses := &harnessesFailingAfter{harness: &harnesstest.Fake{}, answer: 3}
+	terminal := terminalShowing(harnesstest.FrameComposing)
+	reads := 0
+	harnesses := harnesstest.Registry{
+		Harness: &harnesstest.Fake{},
+		BeforeGet: func(string) error {
+			reads++
+			if reads > 3 {
+				return errors.New("the frame went unreadable")
+			}
+
+			return nil
+		},
+	}
 	p := NewPane(NewPaneParams{
 		Terminal:  terminal,
 		Harnesses: harnesses,
@@ -375,18 +402,18 @@ func TestSendHandsBackADraftWhenTheFrameGoesUnreadable(t *testing.T) {
 	sent, err = deliver(t.Context(), t, p)
 	require.Error(t, err, "the frame the cut is read out of went unreadable")
 	assert.False(t, sent)
-	assert.Equal(t, []string{"cut", "yank"}, terminal.actions)
-	assert.Empty(t, terminal.pasted)
+	assert.Equal(t, []string{"cut", "yank"}, terminal.Edits[target.Pane])
+	assert.Empty(t, terminal.Sent[target.Pane])
 }
 
 // TestInterruptSendsTheHarnessItsOwnKeys pins that stopping an agent is the CLI's own interrupt
 // rather than anything weave decides.
 func TestInterruptSendsTheHarnessItsOwnKeys(t *testing.T) {
-	terminal := &fakeTerminal{frame: harnesstest.FrameWorking}
+	terminal := terminalShowing(harnesstest.FrameWorking)
 	pane := NewPane(NewPaneParams{Terminal: terminal, Harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{InterruptWith: []string{"Escape", "Escape"}}}})
 
 	require.NoError(t, pane.Interrupt(t.Context(), target))
-	assert.Equal(t, []string{"keys:Escape,Escape"}, terminal.actions)
+	assert.Equal(t, [][]string{{"Escape", "Escape"}}, terminal.Sent[target.Pane])
 }
 
 // TestInterruptRefusesWhatItCannotStop pins the two agents there is no interrupt to send.
@@ -395,31 +422,100 @@ func TestInterruptRefusesWhatItCannotStop(t *testing.T) {
 		name      string
 		target    harness.Target
 		harnesses harnessGetter
+		wantErr   string
 	}{
 		{
 			name:      "an agent holding no pane",
 			target:    harness.Target{AgentID: "agent-a", HarnessID: harnesstest.FakeID},
 			harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}},
+			wantErr:   "not in a pane",
 		},
 		{
 			name:      "a harness weave cannot look up",
 			target:    target,
 			harnesses: harnesstest.Registry{},
+			wantErr:   "failed to find the harness",
 		},
 		{
 			name:      "a harness with no keys that stop it",
 			target:    target,
 			harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{InterruptWith: []string{}}},
+			wantErr:   "no keys that interrupt it",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			terminal := &fakeTerminal{frame: harnesstest.FrameWorking}
+			terminal := terminalShowing(harnesstest.FrameWorking)
 			p := NewPane(NewPaneParams{Terminal: terminal, Harnesses: tt.harnesses})
 
-			require.Error(t, p.Interrupt(t.Context(), tt.target))
-			assert.Empty(t, terminal.actions)
+			require.ErrorContains(t, p.Interrupt(t.Context(), tt.target), tt.wantErr)
+			assert.Empty(t, terminal.Sent)
 		})
+	}
+}
+
+// target is the agent every test in this package speaks to.
+var target = harness.Target{
+	AgentID:   "agent-a",
+	Pane:      "%1",
+	HarnessID: harnesstest.FakeID,
+}
+
+// terminalShowing is a tmux whose pane shows the frame under a running CLI, and an empty box once its line is cut.
+func terminalShowing(frame string) *tmuxtest.Fake {
+	terminal := tmuxtest.NewFake()
+	terminal.Captures[target.Pane] = frame
+	terminal.Commands[target.Pane] = "claude"
+	terminal.CutFrames[target.Pane] = []string{harnesstest.FrameIdle}
+
+	return terminal
+}
+
+// composingPane is a channel over one pane, whose clock a test moves by writing to the time it
+// returns.
+func composingPane(t *testing.T, terminal *tmuxtest.Fake, now *time.Time) *Pane {
+	t.Helper()
+
+	return NewPane(NewPaneParams{
+		Terminal:  terminal,
+		Harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}},
+		Now:       func() time.Time { return *now },
+	})
+}
+
+// deliver is the two calls the delivery service makes: ask whether the line would be taken,
+// then say it.
+func deliver(ctx context.Context, t *testing.T, p *Pane) (bool, error) {
+	t.Helper()
+
+	ready, err := p.Ready(ctx, target)
+	if err != nil || !ready {
+		return false, err
+	}
+
+	return p.Send(ctx, target, "weave: 1 piece(s) of unread mail, call read_mail")
+}
+
+func loggedContext(t *testing.T) (context.Context, func() []map[string]any) {
+	t.Helper()
+
+	var written bytes.Buffer
+
+	ctx := logging.WithLogger(t.Context(), logging.New(&written, slog.LevelDebug))
+
+	return ctx, func() []map[string]any {
+		records := make([]map[string]any, 0, 2)
+		for _, line := range strings.Split(strings.TrimSpace(written.String()), "\n") {
+			if line == "" {
+				continue
+			}
+
+			var record map[string]any
+			require.NoError(t, json.Unmarshal([]byte(line), &record))
+			records = append(records, record)
+		}
+
+		return records
 	}
 }

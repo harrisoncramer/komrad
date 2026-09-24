@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"weave/internal/git"
+	"weave/internal/pullrequests"
 	pullrequeststore "weave/internal/store/pullrequest"
 	"weave/lib/xptr"
 	"weave/lib/xslice"
@@ -20,15 +22,15 @@ import (
 
 const weaveRepository = "https://github.com/harrisoncramer/weave"
 
-// fakePullRequestReader answers from its fields and records each page asked for.
-type fakePullRequestReader struct {
+// fakePullRequestLister answers from its fields and records each page asked for.
+type fakePullRequestLister struct {
 	pullRequests []pullrequeststore.PullRequest
 	err          error
-	listed       []pullrequeststore.ListPageParams
+	listed       []pullrequests.ListPullRequestsParams
 }
 
-// ListPage records the params and answers pullRequests unless err refuses it.
-func (f *fakePullRequestReader) ListPage(_ context.Context, params pullrequeststore.ListPageParams) ([]pullrequeststore.PullRequest, error) {
+// ListPullRequests records the params and answers pullRequests unless err refuses it.
+func (f *fakePullRequestLister) ListPullRequests(_ context.Context, params pullrequests.ListPullRequestsParams) ([]pullrequeststore.PullRequest, error) {
 	f.listed = append(f.listed, params)
 	if f.err != nil {
 		return nil, f.err
@@ -48,6 +50,7 @@ func TestListPullRequestsRefusalsMapToCodes(t *testing.T) {
 		{
 			name:     "a repository that names no forge",
 			req:      &pullrequestv1.ListPullRequestsRequest{RepositoryUrl: "/local/path"},
+			err:      git.ErrNotForgeRemote,
 			wantCode: connect.CodeInvalidArgument,
 		},
 		{
@@ -68,7 +71,7 @@ func TestListPullRequestsRefusalsMapToCodes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			reader := &fakePullRequestReader{err: tt.err}
+			reader := &fakePullRequestLister{err: tt.err}
 			service := pullrequestv1weave.PullRequestServiceAdapter{Impl: NewHandler(NewHandlerParams{PullRequests: reader})}
 
 			_, err := service.ListPullRequests(t.Context(), connect.NewRequest(tt.req))
@@ -78,11 +81,11 @@ func TestListPullRequestsRefusalsMapToCodes(t *testing.T) {
 	}
 }
 
-// TestListPullRequests pins what reaches the store and that a full page hands back its last cursor.
+// TestListPullRequests pins what reaches the lister and that a full page hands back its last cursor.
 func TestListPullRequests(t *testing.T) {
 	opened := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
 	merged := opened.Add(time.Hour)
-	reader := &fakePullRequestReader{pullRequests: []pullrequeststore.PullRequest{
+	reader := &fakePullRequestLister{pullRequests: []pullrequeststore.PullRequest{
 		{
 			ID:       "01a0d1d7-0000-7000-8000-000000000002",
 			Number:   2,
@@ -118,9 +121,9 @@ func TestListPullRequests(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, second.Msg.NextPageToken)
 
-	want := []pullrequeststore.ListPageParams{
+	want := []pullrequests.ListPullRequestsParams{
 		{
-			RepositoryURL: weaveRepository,
+			RepositoryURL: "git@github.com:harrisoncramer/weave.git",
 			HeadBranch:    "agent/x",
 			Limit:         2,
 		},

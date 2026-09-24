@@ -9,6 +9,7 @@ import (
 	"weave/internal/fail"
 	"weave/internal/rpc/render"
 	"weave/internal/rpcerr"
+	"weave/internal/schedules"
 	"weave/lib/pagination"
 	"weave/lib/xslice"
 	schedulev1 "weave/proto/gen/schedule/v1"
@@ -26,36 +27,21 @@ type scheduleReadWriter interface {
 	UpdateSchedule(ctx context.Context, id string, cfg schedulestore.Config) error
 	SetScheduleEnabled(ctx context.Context, id string, enabled bool) error
 	ArchiveSchedule(ctx context.Context, id string) error
-}
-
-type scheduleLister interface {
-	ListPage(ctx context.Context, limit int64, cursor *schedulestore.Cursor) ([]schedulestore.Schedule, error)
-}
-
-type runLister interface {
-	ListRuns(ctx context.Context, scheduleID string, limit int) ([]schedulestore.Run, error)
+	ListSchedules(ctx context.Context, params schedules.ListSchedulesParams) ([]schedulestore.Schedule, error)
+	ListScheduleRuns(ctx context.Context, params schedules.ListScheduleRunsParams) ([]schedulestore.Run, error)
 }
 
 type NewHandlerParams struct {
-	Lister    scheduleLister
 	Schedules scheduleReadWriter
-	Runs      runLister
 }
 
 type Handler struct {
-	lister    scheduleLister
 	schedules scheduleReadWriter
-	runs      runLister
 }
 
-// NewHandler constructs the handler from the store it lists through, the service that owns
-// the rules, and the record of the firings.
+// NewHandler constructs the handler over the service that owns the rules.
 func NewHandler(params NewHandlerParams) *Handler {
-	return &Handler{
-		lister:    params.Lister,
-		schedules: params.Schedules,
-		runs:      params.Runs,
-	}
+	return &Handler{schedules: params.Schedules}
 }
 
 // ListSchedules returns one page of schedules, newest first.
@@ -65,7 +51,10 @@ func (s *Handler) ListSchedules(ctx context.Context, req *schedulev1.ListSchedul
 		return nil, rpcerr.From(err, "failed to read the pagination")
 	}
 
-	page, err := s.lister.ListPage(ctx, paginator.Limit(), paginator.Cursor())
+	page, err := s.schedules.ListSchedules(ctx, schedules.ListSchedulesParams{
+		Limit:  paginator.Limit(),
+		Cursor: paginator.Cursor(),
+	})
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to list schedules")
 	}
@@ -100,16 +89,15 @@ func (s *Handler) GetSchedule(ctx context.Context, req *schedulev1.GetScheduleRe
 
 // ListScheduleRuns returns a schedule's most recent firings, newest first.
 func (s *Handler) ListScheduleRuns(ctx context.Context, req *schedulev1.ListScheduleRunsRequest) (*schedulev1.ListScheduleRunsResponse, *fail.Error) {
-	if _, err := s.schedules.GetSchedule(ctx, req.GetId()); err != nil {
-		return nil, rpcerr.From(err, "failed to get schedule")
-	}
-
 	limit := int(req.GetLimit())
 	if limit == 0 {
 		limit = defaultRunLimit
 	}
 
-	runs, err := s.runs.ListRuns(ctx, req.GetId(), limit)
+	runs, err := s.schedules.ListScheduleRuns(ctx, schedules.ListScheduleRunsParams{
+		ScheduleID: req.GetId(),
+		Limit:      limit,
+	})
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to list the schedule's runs")
 	}

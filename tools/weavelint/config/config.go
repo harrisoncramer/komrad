@@ -15,7 +15,6 @@ type Config struct {
 	ConstructorShape ConstructorShapeConfig `json:"constructor_shape"`
 	BlackBox         BlackBoxConfig         `json:"black_box"`
 	FakeStore        FakeStoreConfig        `json:"fake_store"`
-	SharedFake       SharedFakeConfig       `json:"shared_fake"`
 	TestBeside       BesideConfig           `json:"test_beside"`
 }
 
@@ -36,25 +35,6 @@ type FakeStoreConfig struct {
 	Skip bool `json:"skip"`
 	// Exclude is unanchored regexps over the file path.
 	Exclude []string `json:"exclude"`
-}
-
-// SharedFakeConfig settles which interfaces already have a shared fake.
-type SharedFakeConfig struct {
-	// Skip turns the rule off.
-	Skip bool `json:"skip"`
-	// Fakes is each interface a helper package already fakes, and the fake that does.
-	Fakes []SharedFake `json:"fakes"`
-	// Exclude is unanchored regexps over the file path.
-	Exclude []string `json:"exclude"`
-}
-
-// SharedFake is one interface and the shared fake that stands in for it.
-type SharedFake struct {
-	// Interface is spelled as the import path, a dot and the interface's name, such as
-	// weave/internal/agents.paneStarter.
-	Interface string `json:"interface"`
-	// Fake is what the finding tells the test to use instead, such as tmuxtest.Fake.
-	Fake string `json:"fake"`
 }
 
 // BesideConfig settles which test files may be named for something other than a source file.

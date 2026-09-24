@@ -4,24 +4,21 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
 	"weave/config"
+	"weave/db/testmodels"
 	"weave/internal/logging"
 	"weave/internal/scripts"
-	"weave/internal/store"
-
 	agentstore "weave/internal/store/agent"
-	runstore "weave/internal/store/run"
 	workflowstore "weave/internal/store/workflow"
+	"weave/internal/storetest"
 	"weave/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
@@ -100,6 +97,8 @@ func TestScriptPayload(t *testing.T) {
 
 	runner := &recordingRunner{}
 	service := scriptService(t, dir, runner)
+	seeded, err := service.agents.GetByID(t.Context(), fixtureAgentID)
+	require.NoError(t, err)
 
 	require.NoError(t, fireScript(t.Context(), t, service))
 
@@ -113,7 +112,7 @@ func TestScriptPayload(t *testing.T) {
 		values[key] = value
 	}
 
-	assert.Equal(t, "a1", values["WEAVE_AGENT_ID"])
+	assert.Equal(t, fixtureAgentID, values["WEAVE_AGENT_ID"])
 	assert.Equal(t, "/repo", values["WEAVE_AGENT_CWD"])
 	assert.Equal(t, "127.0.0.1:8787", values["WEAVE_ADDR"])
 	assert.Equal(t, "weave", values["WEAVE_TMUX_SOCKET"])
@@ -134,7 +133,9 @@ func TestScriptPayload(t *testing.T) {
 	assert.True(t, payload.Alive, "the pane still belongs to this agent")
 	assert.Equal(t, "%9", payload.Pane)
 	assert.Equal(t, "backend", payload.Workflow, "the workflow reads as its name, not the id a script cannot use")
-	assert.Equal(t, "2026-07-30T09:00:00Z", payload.CreatedAt)
+	created, err := time.Parse(time.RFC3339, payload.CreatedAt)
+	require.NoError(t, err, "the creation time is RFC 3339")
+	assert.True(t, created.Equal(seeded.CreatedAt.Truncate(time.Second)), "and names the instant the row was written")
 	assert.Equal(t, map[string]string{"pr": "https://example.test/1"}, payload.Metadata)
 	assert.Equal(t, "fix auth", payload.Prompt)
 	assert.False(t, payload.PromptTruncated, "a prompt that fits arrives whole and says so")
@@ -186,17 +187,18 @@ func TestWorktreeEnvOnlyWhenTheAgentIsProvisionedOne(t *testing.T) {
 			require.NoError(t, os.WriteFile(filepath.Join(builtinDir, firedScript), []byte("#!/bin/sh\n"), 0o755))
 			worktreesDir := t.TempDir()
 
+			st := storetest.Open(t)
+			seedFixture(t, st, agentstore.Agent{
+				ID:               fixtureAgentID,
+				Name:             "auth",
+				Cwd:              "/worktrees/a1",
+				ProvisionEnabled: tt.provision,
+			}, workflowstore.Config{Name: "backend", Cwd: "/repo", Worktree: tt.worktree})
+
 			runner := &recordingRunner{}
 			service := NewScriptService(NewScriptServiceParams{
-				Agents: fakeAgentReader{agent: &agentstore.Agent{
-					ID:               "a1",
-					Cwd:              "/worktrees/a1",
-					WorkflowID:       "w1",
-					ProvisionEnabled: tt.provision,
-				}},
-				Workflows: fakeWorkflowReader{workflow: &workflowstore.Workflow{
-					ID: "w1", Name: "backend", Cwd: "/repo", Worktree: tt.worktree,
-				}},
+				Agents:     st.Agents,
+				Workflows:  st.Workflows,
 				Tmux:       fakePaneOwner{},
 				Runner:     runner,
 				BuiltinDir: builtinDir,
@@ -246,11 +248,10 @@ func TestRunScriptNamesAnArchivedWorkflow(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(dir, firedScript), []byte("#!/bin/sh\n"), 0o755))
 
 	runner := &recordingRunner{}
-	service := scriptService(t, dir, runner)
-	service.workflows = fakeWorkflowReader{
-		workflow: &workflowstore.Workflow{ID: "w1", Name: "backend"},
-		archived: true,
-	}
+	st := storetest.Open(t)
+	agent := seedFixture(t, st, fixtureAgent(), workflowstore.Config{Name: "backend"})
+	require.NoError(t, st.Workflows.Archive(t.Context(), agent.WorkflowID))
+	service := scriptServiceOver(t, scriptServiceOverParams{Stores: st, Dir: dir, Runner: runner})
 
 	require.NoError(t, fireScript(t.Context(), t, service))
 
@@ -271,13 +272,14 @@ func TestRunScriptBoundsALongPrompt(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(dir, firedScript), []byte("#!/bin/sh\n"), 0o755))
 
 	runner := &recordingRunner{}
-	service := scriptService(t, dir, runner)
-	service.agents = fakeAgentReader{agent: &agentstore.Agent{
-		ID:     "a1",
+	st := storetest.Open(t)
+	seedFixture(t, st, agentstore.Agent{
+		ID:     fixtureAgentID,
 		Name:   "auth",
 		Cwd:    "/repo",
 		Prompt: strings.Repeat("prompt ", maxScriptPrompt),
-	}}
+	}, workflowstore.Config{Name: "backend"})
+	service := scriptServiceOver(t, scriptServiceOverParams{Stores: st, Dir: dir, Runner: runner})
 
 	require.NoError(t, fireScript(t.Context(), t, service))
 
@@ -326,12 +328,13 @@ func TestFiredScriptWithTheAgentDirectoryGone(t *testing.T) {
 
 	gone := filepath.Join(t.TempDir(), "removed-worktree")
 	runner := &recordingRunner{}
-	service := scriptService(t, dir, runner)
-	service.agents = fakeAgentReader{agent: &agentstore.Agent{
-		ID:   "a1",
+	st := storetest.Open(t)
+	seedFixture(t, st, agentstore.Agent{
+		ID:   fixtureAgentID,
 		Name: "auth",
 		Cwd:  gone,
-	}}
+	}, workflowstore.Config{Name: "backend"})
+	service := scriptServiceOver(t, scriptServiceOverParams{Stores: st, Dir: dir, Runner: runner})
 
 	require.NoError(t, fireScript(t.Context(), t, service))
 
@@ -408,7 +411,7 @@ func TestRunProvision(t *testing.T) {
 			runner := &recordingRunner{results: map[string]runResult{tt.script: tt.result}}
 			service := scriptService(t, dir, runner)
 
-			got, err := service.RunProvision(t.Context(), agentstore.Agent{ID: "a1", Name: "auth"}, tt.script)
+			got, err := service.RunProvision(t.Context(), agentstore.Agent{ID: fixtureAgentID, Name: "auth"}, tt.script)
 
 			if tt.wantErr {
 				require.ErrorIs(t, err, ErrProvisionFailed)
@@ -436,7 +439,7 @@ func TestRunProvisionDoesNotHoldTheWholeDirFile(t *testing.T) {
 	var before, after runtime.MemStats
 	runtime.ReadMemStats(&before)
 
-	got, err := service.RunProvision(t.Context(), agentstore.Agent{ID: "a1", Name: "auth"}, "greedy")
+	got, err := service.RunProvision(t.Context(), agentstore.Agent{ID: fixtureAgentID, Name: "auth"}, "greedy")
 
 	runtime.ReadMemStats(&after)
 
@@ -457,7 +460,7 @@ func TestRunProvisionTellsTheScriptWhatSetItOff(t *testing.T) {
 		{
 			name: "fired as a workflow's setup",
 			fire: func(s *ScriptService, _ *recordingRunner) error {
-				_, err := s.RunProvision(t.Context(), agentstore.Agent{ID: "a1"}, "make-worktree")
+				_, err := s.RunProvision(t.Context(), agentstore.Agent{ID: fixtureAgentID}, "make-worktree")
 				return err
 			},
 			wantTrigger: TriggerProvision,
@@ -465,7 +468,7 @@ func TestRunProvisionTellsTheScriptWhatSetItOff(t *testing.T) {
 		{
 			name: "fired as a workflow's setup on the way back up",
 			fire: func(s *ScriptService, _ *recordingRunner) error {
-				_, err := s.RunResume(t.Context(), agentstore.Agent{ID: "a1"}, "make-worktree")
+				_, err := s.RunResume(t.Context(), agentstore.Agent{ID: fixtureAgentID}, "make-worktree")
 				return err
 			},
 			wantTrigger: TriggerResume,
@@ -473,7 +476,7 @@ func TestRunProvisionTellsTheScriptWhatSetItOff(t *testing.T) {
 		{
 			name: "fired as a workflow's cleanup",
 			fire: func(s *ScriptService, _ *recordingRunner) error {
-				return s.RunDeprovision(t.Context(), agentstore.Agent{ID: "a1"}, "make-worktree", nil)
+				return s.RunDeprovision(t.Context(), agentstore.Agent{ID: fixtureAgentID}, "make-worktree", nil)
 			},
 			wantTrigger: TriggerDeprovision,
 		},
@@ -501,7 +504,7 @@ func TestRunProvisionCarriesTheReason(t *testing.T) {
 		"make-worktree": {stderr: "fatal: 'api-auth' is already checked out", err: scripts.ErrFailed},
 	}}
 
-	_, err := scriptService(t, dir, runner).RunProvision(t.Context(), agentstore.Agent{ID: "a1"}, "make-worktree")
+	_, err := scriptService(t, dir, runner).RunProvision(t.Context(), agentstore.Agent{ID: fixtureAgentID}, "make-worktree")
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "already checked out")
@@ -511,7 +514,7 @@ func TestRunProvisionCarriesTheReason(t *testing.T) {
 // pretended over, leaving the caller to decide the agent is still removable.
 func TestRunDeprovisionRefusesOneThatIsGone(t *testing.T) {
 	err := scriptService(t, t.TempDir(), &recordingRunner{}).
-		RunDeprovision(t.Context(), agentstore.Agent{ID: "a1"}, "was-renamed", nil)
+		RunDeprovision(t.Context(), agentstore.Agent{ID: fixtureAgentID}, "was-renamed", nil)
 
 	require.ErrorIs(t, err, scripts.ErrScriptNotFound)
 }
@@ -534,7 +537,7 @@ func TestFiredScriptLogsWhatItDid(t *testing.T) {
 				"weave.script.stderr":   nil,
 				"weave.script.name":     firedScript,
 				"weave.run.trigger":     TriggerDeprovision,
-				"weave.script.agent.id": "a1",
+				"weave.script.agent.id": fixtureAgentID,
 			},
 		},
 		{
@@ -614,7 +617,7 @@ func TestProvisionerLogsBothEnds(t *testing.T) {
 				"process.exit.code":     float64(0),
 				"weave.script.stderr":   "cloning",
 				"weave.script.name":     "make-worktree",
-				"weave.script.agent.id": "a1",
+				"weave.script.agent.id": fixtureAgentID,
 			},
 		},
 	}
@@ -628,7 +631,7 @@ func TestProvisionerLogsBothEnds(t *testing.T) {
 			ctx, records := loggedContext(t)
 
 			_, err := scriptService(t, dir, runner).
-				RunProvision(ctx, agentstore.Agent{ID: "a1", Cwd: "/repo"}, "make-worktree")
+				RunProvision(ctx, agentstore.Agent{ID: fixtureAgentID, Cwd: "/repo"}, "make-worktree")
 			if tt.result.err != nil {
 				require.Error(t, err)
 			} else {
@@ -713,7 +716,7 @@ func TestRunDeprovisionPersistsStdoutOnAFailure(t *testing.T) {
 	svc := scriptServiceWithLogsDir(t, dir, scripts.NewRunner(), logsDir)
 
 	done := make(chan error, 1)
-	require.NoError(t, svc.RunDeprovision(t.Context(), agentstore.Agent{ID: "a1", Cwd: dir}, "teardown", func(err error) {
+	require.NoError(t, svc.RunDeprovision(t.Context(), agentstore.Agent{ID: fixtureAgentID, Cwd: dir}, "teardown", func(err error) {
 		done <- err
 	}))
 
@@ -743,7 +746,7 @@ func TestRunProvisionPersistsStdoutOnAFailure(t *testing.T) {
 	svc := scriptServiceWithLogsDir(t, dir, scripts.NewRunner(), logsDir)
 	ctx, records := loggedContext(t)
 
-	_, err := svc.RunProvision(ctx, agentstore.Agent{ID: "a1"}, "setup")
+	_, err := svc.RunProvision(ctx, agentstore.Agent{ID: fixtureAgentID}, "setup")
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "diagnosing 1", "the refusal a create call sees carries what the script said")
@@ -870,7 +873,7 @@ func TestScriptEnvGuardsAgainstInteractivePrompts(t *testing.T) {
 			svc := scriptServiceWithLogsDir(t, dir, scripts.NewRunner(), logsDir)
 
 			done := make(chan error, 1)
-			require.NoError(t, svc.RunDeprovision(t.Context(), agentstore.Agent{ID: "a1", Cwd: dir}, "teardown", func(err error) {
+			require.NoError(t, svc.RunDeprovision(t.Context(), agentstore.Agent{ID: fixtureAgentID, Cwd: dir}, "teardown", func(err error) {
 				done <- err
 			}))
 
@@ -905,14 +908,14 @@ func TestRunHookRunsInTheAgentsDirectory(t *testing.T) {
 	worktree := t.TempDir()
 	svc := scriptServiceWithLogsDir(t, dir, scripts.NewRunner(), logsDir)
 
-	err := svc.RunHook(t.Context(), agentstore.Agent{ID: "a1", Cwd: worktree}, "install-deps", workflowstore.HookPreLaunch)
+	err := svc.RunHook(t.Context(), agentstore.Agent{ID: fixtureAgentID, Cwd: worktree}, "install-deps", workflowstore.HookPreLaunch)
 	require.NoError(t, err)
 
 	landed, readErr := os.ReadFile(filepath.Join(worktree, "installed"))
 	require.NoError(t, readErr, "the hook ran in the agent's own directory rather than the script's")
 	assert.Contains(t, string(landed), workflowstore.HookPreLaunch, "and read the moment out of WEAVE_TRIGGER")
 
-	runs := config.ListRunLogs(logsDir, "a1")
+	runs := config.ListRunLogs(logsDir, fixtureAgentID)
 	require.Len(t, runs, 1)
 	assert.Equal(t, workflowstore.HookPreLaunch, runs[0].Trigger)
 	assert.Equal(t, "install-deps", runs[0].Script)
@@ -931,7 +934,7 @@ func TestRunHookCarriesWhatTheScriptSaid(t *testing.T) {
 
 	svc := scriptServiceWithLogsDir(t, dir, scripts.NewRunner(), t.TempDir())
 
-	err := svc.RunHook(t.Context(), agentstore.Agent{ID: "a1", Cwd: t.TempDir()}, "install-deps", workflowstore.HookPreLaunch)
+	err := svc.RunHook(t.Context(), agentstore.Agent{ID: fixtureAgentID, Cwd: t.TempDir()}, "install-deps", workflowstore.HookPreLaunch)
 
 	require.ErrorIs(t, err, ErrHookFailed)
 	assert.Contains(t, err.Error(), "install-deps")
@@ -946,7 +949,7 @@ func TestRunHookRefusesADirectoryThatIsGone(t *testing.T) {
 
 	svc := scriptServiceWithLogsDir(t, dir, scripts.NewRunner(), t.TempDir())
 
-	err := svc.RunHook(t.Context(), agentstore.Agent{ID: "a1", Cwd: "/definitely/not/here"}, "install-deps", workflowstore.HookPreLaunch)
+	err := svc.RunHook(t.Context(), agentstore.Agent{ID: fixtureAgentID, Cwd: "/definitely/not/here"}, "install-deps", workflowstore.HookPreLaunch)
 
 	require.ErrorIs(t, err, ErrHookFailed)
 	assert.Contains(t, err.Error(), "/definitely/not/here")
@@ -967,7 +970,7 @@ func TestChmodMakesAHookRunnable(t *testing.T) {
 	require.Len(t, listed, 1)
 	require.False(t, listed[0].Executable)
 
-	err = svc.RunHook(t.Context(), agentstore.Agent{ID: "a1", Cwd: t.TempDir()}, "install-deps", workflowstore.HookPreLaunch)
+	err = svc.RunHook(t.Context(), agentstore.Agent{ID: fixtureAgentID, Cwd: t.TempDir()}, "install-deps", workflowstore.HookPreLaunch)
 	require.ErrorIs(t, err, scripts.ErrNotExecutable)
 
 	require.NoError(t, os.Chmod(path, 0o755))
@@ -977,7 +980,7 @@ func TestChmodMakesAHookRunnable(t *testing.T) {
 	require.Len(t, listed, 1)
 	assert.True(t, listed[0].Executable)
 
-	require.NoError(t, svc.RunHook(t.Context(), agentstore.Agent{ID: "a1", Cwd: t.TempDir()}, "install-deps", workflowstore.HookPreLaunch))
+	require.NoError(t, svc.RunHook(t.Context(), agentstore.Agent{ID: fixtureAgentID, Cwd: t.TempDir()}, "install-deps", workflowstore.HookPreLaunch))
 }
 
 // TestARefusedRunLeavesNoRunBehind pins a refusal spending no number.
@@ -991,70 +994,32 @@ func TestARefusedRunLeavesNoRunBehind(t *testing.T) {
 	err := fireScript(t.Context(), t, svc)
 
 	require.Error(t, err, "a file nobody made executable is not startable")
-	assert.Empty(t, config.ListRunLogs(logsDir, "a1"), "and it leaves no run behind")
+	assert.Empty(t, config.ListRunLogs(logsDir, fixtureAgentID), "and it leaves no run behind")
 }
 
-// fakeRunRecorder stands in for the run table, holding what a test wants to read back about
-// the rows the service opened and closed.
-type fakeRunRecorder struct {
-	mu        sync.Mutex
-	begun     []runstore.BeginParams
-	finished  []runstore.FinishParams
-	abandoned []string
-	pruned    []string
-}
-
-func (f *fakeRunRecorder) Begin(_ context.Context, params runstore.BeginParams) (string, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
-	f.begun = append(f.begun, params)
-
-	return fmt.Sprintf("run-%d", len(f.begun)), nil
-}
-
-func (f *fakeRunRecorder) Finish(_ context.Context, params runstore.FinishParams) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
-	f.finished = append(f.finished, params)
-
-	return nil
-}
-
-func (f *fakeRunRecorder) Abandon(_ context.Context, id string) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
-	f.abandoned = append(f.abandoned, id)
-
-	return nil
-}
-
-func (f *fakeRunRecorder) Prune(_ context.Context, agentID string, _ int) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
-	f.pruned = append(f.pruned, agentID)
-
-	return nil
-}
-
-func (f *fakeRunRecorder) rows() ([]runstore.BeginParams, []runstore.FinishParams) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
-	return f.begun, f.finished
-}
-
-func scriptServiceRecording(t *testing.T, dir string, runner scriptRunner, logsDir string) (*ScriptService, *fakeRunRecorder) {
+func scriptServiceRecording(t *testing.T, dir string, runner scriptRunner, logsDir string) (*ScriptService, *storetest.Stores) {
 	t.Helper()
 
-	recorder := &fakeRunRecorder{}
-	svc := scriptServiceWithLogsDir(t, dir, runner, logsDir)
-	svc.runs = recorder
+	st := storetest.Open(t)
+	seedFixture(t, st, fixtureAgent(), workflowstore.Config{Name: "backend"})
+	svc := scriptServiceOver(t, scriptServiceOverParams{
+		Stores:  st,
+		Dir:     dir,
+		Runner:  runner,
+		LogsDir: logsDir,
+	})
+	svc.runs = st.Runs
 
-	return svc, recorder
+	return svc, st
+}
+
+func listRuns(t *testing.T, st *storetest.Stores) []*testmodels.ListAgentRunsRow {
+	t.Helper()
+
+	runs, err := testmodels.New(st.Pool.GetDB()).ListAgentRuns(t.Context(), fixtureAgentID)
+	require.NoError(t, err)
+
+	return runs
 }
 
 // TestRunHookRecordsTheRun covers the row a hook leaves behind.
@@ -1093,34 +1058,31 @@ func TestRunHookRecordsTheRun(t *testing.T) {
 			require.NoError(t, os.WriteFile(filepath.Join(dir, "install-deps"), []byte(tt.script), 0o755))
 
 			logsDir := t.TempDir()
-			svc, recorder := scriptServiceRecording(t, dir, scripts.NewRunner(), logsDir)
+			svc, st := scriptServiceRecording(t, dir, scripts.NewRunner(), logsDir)
 
-			err := svc.RunHook(t.Context(), agentstore.Agent{ID: "a1", Cwd: tt.cwd(t)}, "install-deps", workflowstore.HookPostLaunch)
+			err := svc.RunHook(t.Context(), agentstore.Agent{ID: fixtureAgentID, Cwd: tt.cwd(t)}, "install-deps", workflowstore.HookPostLaunch)
 			if tt.wantFailure == "" {
 				require.NoError(t, err)
 			} else {
 				require.Error(t, err)
 			}
 
-			begun, finished := recorder.rows()
+			runs := listRuns(t, st)
 
-			require.Len(t, begun, 1)
-			assert.Equal(t, "a1", begun[0].AgentID)
-			assert.Equal(t, workflowstore.HookPostLaunch, begun[0].Trigger)
-			assert.Equal(t, "install-deps", begun[0].Script)
-			require.NotNil(t, begun[0].LogNumber, "the row points at the log the output went to")
-			assert.Equal(t, int32(1), *begun[0].LogNumber)
+			require.Len(t, runs, 1)
+			assert.Equal(t, workflowstore.HookPostLaunch, runs[0].Trigger)
+			assert.Equal(t, "install-deps", runs[0].Script)
+			require.NotNil(t, runs[0].LogNumber, "the row points at the log the output went to")
+			assert.Equal(t, int32(1), *runs[0].LogNumber)
 
-			require.Len(t, finished, 1)
-			assert.Equal(t, "run-1", finished[0].ID)
-			assert.Equal(t, tt.wantExitCode, finished[0].ExitCode)
+			assert.Equal(t, tt.wantExitCode, runs[0].ExitCode)
 			if tt.wantFailure == "" {
-				assert.Empty(t, finished[0].Failure)
+				assert.Empty(t, runs[0].Failure)
 
 				return
 			}
-			assert.Contains(t, finished[0].Failure, "install-deps", "the row says which script it was")
-			assert.Contains(t, finished[0].Failure, tt.wantFailure)
+			assert.Contains(t, runs[0].Failure, "install-deps", "the row says which script it was")
+			assert.Contains(t, runs[0].Failure, tt.wantFailure)
 		})
 	}
 }
@@ -1132,15 +1094,15 @@ func TestAHookThatFailedSilentlySaysSoInItsLog(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "install-deps"), []byte("#!/bin/sh\nexit 4\n"), 0o755))
 
 	logsDir := t.TempDir()
-	svc, recorder := scriptServiceRecording(t, dir, scripts.NewRunner(), logsDir)
+	svc, st := scriptServiceRecording(t, dir, scripts.NewRunner(), logsDir)
 
 	err := svc.RunHook(t.Context(), agentstore.Agent{ID: fixtureAgentID, Cwd: t.TempDir()}, "install-deps", workflowstore.HookPostLaunch)
 	require.ErrorIs(t, err, ErrHookFailed)
 
-	_, finished := recorder.rows()
-	require.Len(t, finished, 1)
-	require.NotNil(t, finished[0].ExitCode)
-	assert.Equal(t, int32(4), *finished[0].ExitCode)
+	runs := listRuns(t, st)
+	require.Len(t, runs, 1)
+	require.NotNil(t, runs[0].ExitCode)
+	assert.Equal(t, int32(4), *runs[0].ExitCode)
 
 	logged, readErr := os.ReadFile(onlyRunLog(t, logsDir))
 	require.NoError(t, readErr)
@@ -1152,14 +1114,11 @@ func TestARefusedRunDropsItsRow(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, firedScript), []byte("#!/bin/sh\nexit 0\n"), 0o644))
 
-	svc, recorder := scriptServiceRecording(t, dir, scripts.NewRunner(), t.TempDir())
+	svc, st := scriptServiceRecording(t, dir, scripts.NewRunner(), t.TempDir())
 
 	require.Error(t, fireScript(t.Context(), t, svc), "a file nobody made executable is not startable")
 
-	begun, finished := recorder.rows()
-	require.Len(t, begun, 1)
-	assert.Empty(t, finished)
-	assert.Equal(t, []string{"run-1"}, recorder.abandoned)
+	assert.Empty(t, listRuns(t, st))
 }
 
 // TestARefusedProvisionerSaysSo covers a provisioner that never runs and so writes nothing:
@@ -1170,16 +1129,16 @@ func TestARefusedProvisionerSaysSo(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "setup"), []byte("#!/bin/sh\nexit 0\n"), 0o644))
 
 	logsDir := t.TempDir()
-	svc, recorder := scriptServiceRecording(t, dir, scripts.NewRunner(), logsDir)
+	svc, st := scriptServiceRecording(t, dir, scripts.NewRunner(), logsDir)
 
-	_, err := svc.RunProvision(t.Context(), agentstore.Agent{ID: "a1"}, "setup")
+	_, err := svc.RunProvision(t.Context(), agentstore.Agent{ID: fixtureAgentID}, "setup")
 
 	require.ErrorIs(t, err, ErrProvisionFailed)
 
-	_, finished := recorder.rows()
-	require.Len(t, finished, 1)
-	assert.Nil(t, finished[0].ExitCode, "a script nobody made executable never exited at all")
-	assert.Contains(t, finished[0].Failure, "setup")
+	runs := listRuns(t, st)
+	require.Len(t, runs, 1)
+	assert.Nil(t, runs[0].ExitCode, "a script nobody made executable never exited at all")
+	assert.Contains(t, runs[0].Failure, "setup")
 
 	logged, readErr := os.ReadFile(onlyRunLog(t, logsDir))
 	require.NoError(t, readErr)
@@ -1195,11 +1154,11 @@ func TestClaimRunLogNumbersEveryRun(t *testing.T) {
 	svc := scriptServiceWithLogsDir(t, dir, scripts.NewRunner(), logsDir)
 
 	for range 2 {
-		_, err := svc.RunProvision(t.Context(), agentstore.Agent{ID: "a1"}, "setup")
+		_, err := svc.RunProvision(t.Context(), agentstore.Agent{ID: fixtureAgentID}, "setup")
 		require.NoError(t, err)
 	}
 
-	runs := config.ListRunLogs(logsDir, "a1")
+	runs := config.ListRunLogs(logsDir, fixtureAgentID)
 
 	require.Len(t, runs, 2, "the second run does not overwrite the first")
 	assert.Equal(t, 2, runs[0].Number)
@@ -1220,18 +1179,18 @@ func TestClaimRunLogPrunesTheOldestRuns(t *testing.T) {
 	logsDir := t.TempDir()
 	svc := scriptServiceWithLogsDir(t, dir, scripts.NewRunner(), logsDir)
 
-	logDir := config.RunLogDir(logsDir, "a1")
+	logDir := config.RunLogDir(logsDir, fixtureAgentID)
 	require.NoError(t, os.MkdirAll(logDir, 0o755))
 	for number := 1; number <= config.MaxRunLogs; number++ {
 		name := config.RunLogName(number, config.TriggerDeprovision, firedScript)
 		require.NoError(t, os.WriteFile(filepath.Join(logDir, name), []byte("out\n"), 0o644))
 	}
 
-	path, number := svc.claimRunLog(t.Context(), "a1", config.TriggerDeprovision, firedScript)
+	path, number := svc.claimRunLog(t.Context(), fixtureAgentID, config.TriggerDeprovision, firedScript)
 	require.NotEmpty(t, path)
 	assert.Equal(t, config.MaxRunLogs+1, number)
 
-	runs := config.ListRunLogs(logsDir, "a1")
+	runs := config.ListRunLogs(logsDir, fixtureAgentID)
 
 	require.Len(t, runs, config.MaxRunLogs)
 	assert.Equal(t, config.MaxRunLogs+1, runs[0].Number, "the newest run is the one just claimed")
@@ -1244,12 +1203,12 @@ func TestClaimRunLogStepsPastANameAlreadyTaken(t *testing.T) {
 	logsDir := t.TempDir()
 	svc := scriptServiceWithLogsDir(t, t.TempDir(), scripts.NewRunner(), logsDir)
 
-	logDir := config.RunLogDir(logsDir, "a1")
+	logDir := config.RunLogDir(logsDir, fixtureAgentID)
 	require.NoError(t, os.MkdirAll(logDir, 0o755))
 	taken := filepath.Join(logDir, config.RunLogName(1, config.TriggerDeprovision, firedScript))
 	require.NoError(t, os.WriteFile(taken, []byte("someone else\n"), 0o644))
 
-	path, number := svc.claimRunLog(t.Context(), "a1", config.TriggerDeprovision, firedScript)
+	path, number := svc.claimRunLog(t.Context(), fixtureAgentID, config.TriggerDeprovision, firedScript)
 
 	assert.NotEqual(t, taken, path, "the name already there is left as it stands")
 	assert.Equal(t, 2, number, "it steps past the number that was taken")
@@ -1258,8 +1217,11 @@ func TestClaimRunLogStepsPastANameAlreadyTaken(t *testing.T) {
 	assert.Contains(t, string(content), "someone else")
 }
 
-// fixtureAgentID is the agent every script test in this file runs against.
-const fixtureAgentID = "a1"
+const (
+	// fixtureAgentID is the agent every script test in this file runs against.
+	fixtureAgentID = "01990000-0000-7000-8000-0000000000a1"
+	otherAgentID   = "01990000-0000-7000-8000-0000000000a2"
+)
 
 // firedScript is the built-in the tests use when they cover the machinery every script goes
 // through rather than anything the script itself does.
@@ -1331,7 +1293,7 @@ func recordFor(t *testing.T, records []map[string]any, body string) map[string]a
 // TestScriptTimeouts covers how long a run gets, where the file's own declaration wins and
 // only a launch blocked on the script falls back to a ceiling.
 func TestScriptTimeouts(t *testing.T) {
-	agent := agentstore.Agent{ID: "a1", Cwd: t.TempDir()}
+	agent := agentstore.Agent{ID: fixtureAgentID, Cwd: t.TempDir()}
 
 	tests := []struct {
 		name   string
@@ -1462,19 +1424,19 @@ func TestConcurrencyGuardIsScopedNarrowly(t *testing.T) {
 		{
 			name: "the same script for a different agent runs alongside it",
 			fire: func(svc *ScriptService) error {
-				return fireScriptFor(t.Context(), t, svc, "a2")
+				return fireScriptFor(t.Context(), t, svc, otherAgentID)
 			},
 		},
 		{
 			name: "a hook is never guarded by the in-flight set",
 			fire: func(svc *ScriptService) error {
-				return svc.RunHook(t.Context(), agentstore.Agent{ID: "a1", Cwd: t.TempDir()}, firedScript, workflowstore.HookPreLaunch)
+				return svc.RunHook(t.Context(), agentstore.Agent{ID: fixtureAgentID, Cwd: t.TempDir()}, firedScript, workflowstore.HookPreLaunch)
 			},
 		},
 		{
 			name: "a provisioner is never guarded by the in-flight set",
 			fire: func(svc *ScriptService) error {
-				_, err := svc.RunProvision(t.Context(), agentstore.Agent{ID: "a1"}, firedScript)
+				_, err := svc.RunProvision(t.Context(), agentstore.Agent{ID: fixtureAgentID}, firedScript)
 
 				return err
 			},
@@ -1486,10 +1448,10 @@ func TestConcurrencyGuardIsScopedNarrowly(t *testing.T) {
 			dir := t.TempDir()
 			require.NoError(t, os.WriteFile(filepath.Join(dir, firedScript), []byte("#!/bin/sh\nsleep 0.3\n"), 0o755))
 
-			svc := scriptService(t, dir, scripts.NewRunner())
-			svc.agents = fakeAgentReaderFunc(func(_ context.Context, id string) (*agentstore.Agent, error) {
-				return &agentstore.Agent{ID: id}, nil
-			})
+			st := storetest.Open(t)
+			first := seedFixture(t, st, fixtureAgent(), workflowstore.Config{Name: "backend"})
+			st.SeedAgent(t, agentstore.Agent{ID: otherAgentID, Name: "api", WorkflowID: first.WorkflowID})
+			svc := scriptServiceOver(t, scriptServiceOverParams{Stores: st, Dir: dir, Runner: scripts.NewRunner()})
 
 			require.NoError(t, fireScript(t.Context(), t, svc))
 
@@ -1498,20 +1460,6 @@ func TestConcurrencyGuardIsScopedNarrowly(t *testing.T) {
 			time.Sleep(500 * time.Millisecond)
 		})
 	}
-}
-
-type fakeAgentReaderFunc func(ctx context.Context, id string) (*agentstore.Agent, error)
-
-func (f fakeAgentReaderFunc) GetByID(ctx context.Context, id string) (*agentstore.Agent, error) {
-	return f(ctx, id)
-}
-
-func (fakeAgentReaderFunc) ListLiveNamed(context.Context, string) ([]agentstore.Agent, error) {
-	return nil, nil
-}
-
-func (fakeAgentReaderFunc) ListChildren(context.Context, []string) ([]agentstore.Agent, error) {
-	return nil, nil
 }
 
 func scriptService(t *testing.T, dir string, runner scriptRunner) *ScriptService {
@@ -1523,68 +1471,80 @@ func scriptService(t *testing.T, dir string, runner scriptRunner) *ScriptService
 func scriptServiceWithLogsDir(t *testing.T, dir string, runner scriptRunner, logsDir string) *ScriptService {
 	t.Helper()
 
+	st := storetest.Open(t)
+	seedFixture(t, st, fixtureAgent(), workflowstore.Config{Name: "backend"})
+
+	return scriptServiceOver(t, scriptServiceOverParams{
+		Stores:  st,
+		Dir:     dir,
+		Runner:  runner,
+		LogsDir: logsDir,
+	})
+}
+
+type scriptServiceOverParams struct {
+	Stores  *storetest.Stores
+	Dir     string
+	Runner  scriptRunner
+	LogsDir string
+}
+
+func scriptServiceOver(t *testing.T, params scriptServiceOverParams) *ScriptService {
+	t.Helper()
+
 	return NewScriptService(NewScriptServiceParams{
-		Agents: fakeAgentReader{agent: &agentstore.Agent{
-			ID: "a1", Name: "auth", State: agentstore.StateWaiting, Cwd: "/repo",
-			Harness: "claude", SessionID: "sess-1", Flags: "--model opus", Prompt: "fix auth",
-			Pane: "%9", WorkflowID: "w1",
-			CreatedAt: time.Date(2026, time.July, 30, 9, 0, 0, 0, time.UTC),
-			Metadata:  []agentstore.Metadata{{Key: "pr", Value: "https://example.test/1"}},
-		}},
-		Workflows: fakeWorkflowReader{workflow: &workflowstore.Workflow{ID: "w1", Name: "backend"}},
+		Agents:    params.Stores.Agents,
+		Workflows: params.Stores.Workflows,
 		Tmux: fakePaneOwner{
-			owner:      "a1",
+			owner:      fixtureAgentID,
 			hostSocket: "/tmp/host-socket",
 			shell:      "/bin/zsh",
 			infoPane:   "%3",
 		},
-		Runner: runner,
+		Runner: params.Runner,
 		Load: func() (*config.Config, error) {
 			cfg := config.Defaults()
-			cfg.Hooks.Dir = dir
+			cfg.Hooks.Dir = params.Dir
 
 			return cfg, nil
 		},
-		BuiltinDir: dir,
+		BuiltinDir: params.Dir,
 		Addr:       "127.0.0.1:8787",
 		Socket:     "weave",
 		Editor:     "nvim",
 		BinPath:    "/opt/weave/bin/weave",
-		LogsDir:    logsDir,
+		LogsDir:    params.LogsDir,
 	})
 }
 
-type fakeAgentReader struct {
-	agent *agentstore.Agent
-}
-
-func (f fakeAgentReader) GetByID(_ context.Context, id string) (*agentstore.Agent, error) {
-	if f.agent != nil && f.agent.ID == id {
-		return f.agent, nil
+func fixtureAgent() agentstore.Agent {
+	return agentstore.Agent{
+		ID:        fixtureAgentID,
+		Name:      "auth",
+		State:     agentstore.StateWaiting,
+		Cwd:       "/repo",
+		Harness:   "claude",
+		SessionID: "sess-1",
+		Flags:     "--model opus",
+		Prompt:    "fix auth",
+		Pane:      "%9",
 	}
-
-	return nil, fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
 }
 
-type fakeWorkflowReader struct {
-	workflow *workflowstore.Workflow
-	archived bool
-}
+func seedFixture(t *testing.T, st *storetest.Stores, agent agentstore.Agent, workflow workflowstore.Config) *agentstore.Agent {
+	t.Helper()
 
-func (f fakeWorkflowReader) Get(ctx context.Context, id string) (*workflowstore.Workflow, error) {
-	if f.archived {
-		return nil, fmt.Errorf("%w: workflow %q", store.ErrNotFound, id)
-	}
+	agent.WorkflowID = st.SeedWorkflow(t, workflow).ID
+	seeded := st.SeedAgent(t, agent)
 
-	return f.GetIncludingArchived(ctx, id)
-}
+	_, err := st.Agents.SetMetadata(t.Context(), agentstore.SetMetadataParams{
+		ID:    seeded.ID,
+		Key:   "pr",
+		Value: xptr.Ptr("https://example.test/1"),
+	})
+	require.NoError(t, err)
 
-func (f fakeWorkflowReader) GetIncludingArchived(_ context.Context, id string) (*workflowstore.Workflow, error) {
-	if f.workflow != nil && f.workflow.ID == id {
-		return f.workflow, nil
-	}
-
-	return nil, fmt.Errorf("%w: workflow %q", store.ErrNotFound, id)
+	return seeded
 }
 
 type fakePaneOwner struct {
@@ -1744,15 +1704,21 @@ func TestWorktreeEnvPrefersTheWorkflowsOwnDirectory(t *testing.T) {
 			require.NoError(t, os.WriteFile(filepath.Join(builtinDir, firedScript), []byte("#!/bin/sh\n"), 0o755))
 			configured := t.TempDir()
 
+			st := storetest.Open(t)
+			seedFixture(t, st, agentstore.Agent{
+				ID:   fixtureAgentID,
+				Name: "auth",
+				Cwd:  "/worktrees/a1",
+			}, workflowstore.Config{
+				Name:     "backend",
+				Cwd:      "/repo",
+				Worktree: workflowstore.WorktreeConfig{Enabled: true, Dir: tt.dir},
+			})
+
 			runner := &recordingRunner{}
 			service := NewScriptService(NewScriptServiceParams{
-				Agents: fakeAgentReader{agent: &agentstore.Agent{
-					ID: "a1", Cwd: "/worktrees/a1", WorkflowID: "w1",
-				}},
-				Workflows: fakeWorkflowReader{workflow: &workflowstore.Workflow{
-					ID: "w1", Name: "backend", Cwd: "/repo",
-					Worktree: workflowstore.WorktreeConfig{Enabled: true, Dir: tt.dir},
-				}},
+				Agents:     st.Agents,
+				Workflows:  st.Workflows,
 				Tmux:       fakePaneOwner{},
 				Runner:     runner,
 				BuiltinDir: builtinDir,
@@ -1787,10 +1753,10 @@ func TestARefusedHookLeavesARunLogSayingWhy(t *testing.T) {
 	logsDir := t.TempDir()
 	svc := scriptServiceWithLogsDir(t, dir, scripts.NewRunner(), logsDir)
 
-	err := svc.RunHook(t.Context(), agentstore.Agent{ID: "a1", Cwd: "/definitely/not/here"}, "install-deps", workflowstore.HookPostRestore)
+	err := svc.RunHook(t.Context(), agentstore.Agent{ID: fixtureAgentID, Cwd: "/definitely/not/here"}, "install-deps", workflowstore.HookPostRestore)
 	require.ErrorIs(t, err, ErrHookFailed)
 
-	runs := config.ListRunLogs(logsDir, "a1")
+	runs := config.ListRunLogs(logsDir, fixtureAgentID)
 	require.Len(t, runs, 1)
 	assert.Equal(t, workflowstore.HookPostRestore, runs[0].Trigger)
 	assert.Equal(t, "install-deps", runs[0].Script)
@@ -1806,10 +1772,10 @@ func TestAHookThatCannotStartLeavesARunLogSayingWhy(t *testing.T) {
 	logsDir := t.TempDir()
 	svc := scriptServiceWithLogsDir(t, t.TempDir(), scripts.NewRunner(), logsDir)
 
-	err := svc.RunHook(t.Context(), agentstore.Agent{ID: "a1", Cwd: t.TempDir()}, "install-deps", workflowstore.HookPostLaunch)
+	err := svc.RunHook(t.Context(), agentstore.Agent{ID: fixtureAgentID, Cwd: t.TempDir()}, "install-deps", workflowstore.HookPostLaunch)
 	require.ErrorIs(t, err, ErrHookFailed)
 
-	runs := config.ListRunLogs(logsDir, "a1")
+	runs := config.ListRunLogs(logsDir, fixtureAgentID)
 	require.Len(t, runs, 1)
 
 	logged, readErr := os.ReadFile(runs[0].Path)
@@ -1828,13 +1794,13 @@ func TestSilentAsyncFailureSaysWhyInItsLog(t *testing.T) {
 	runner := &recordingRunner{results: map[string]runResult{
 		"teardown": {exitCode: 7, err: scripts.ErrFailed},
 	}}
-	svc, recorder := scriptServiceRecording(t, dir, runner, logsDir)
+	svc, st := scriptServiceRecording(t, dir, runner, logsDir)
 
 	require.NoError(t, svc.RunDeprovision(t.Context(), agentstore.Agent{ID: fixtureAgentID}, "teardown", nil))
 
-	_, finished := recorder.rows()
-	require.Len(t, finished, 1)
-	require.NotEmpty(t, finished[0].Failure, "the row is a failure, so it wears the flag")
+	runs := listRuns(t, st)
+	require.Len(t, runs, 1)
+	require.NotEmpty(t, runs[0].Failure, "the row is a failure, so it wears the flag")
 
 	said, err := os.ReadFile(onlyRunLog(t, logsDir))
 	require.NoError(t, err)

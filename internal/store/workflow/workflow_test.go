@@ -3,6 +3,9 @@ package workflow
 import (
 	"testing"
 
+	"weave/internal/dbtest"
+	"weave/internal/store"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -224,4 +227,16 @@ func TestWorktreeConfigRoundTrip(t *testing.T) {
 			assert.Equal(t, tt.want, listed[0].Worktree, "the listing carries it too")
 		})
 	}
+}
+
+const missingID = "00000000-0000-0000-0000-000000000000"
+
+func open(t *testing.T) *WorkflowStore {
+	t.Helper()
+
+	pool, err := store.Open(t.Context(), dbtest.URL(t))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = pool.Close() })
+
+	return NewWorkflowStore(pool.GetDB())
 }

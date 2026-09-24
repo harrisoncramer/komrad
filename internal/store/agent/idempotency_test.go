@@ -3,6 +3,7 @@ package agent
 import (
 	"testing"
 
+	"weave/internal/store"
 	"weave/lib/xptr"
 
 	"github.com/stretchr/testify/require"
@@ -55,6 +56,25 @@ func TestIdempotencyKeyIsUnique(t *testing.T) {
 			}
 
 			require.NoError(t, err)
+		})
+	}
+}
+
+// TestGetByIdempotencyKeyAnswersNotFoundForAKeyNoCreateRecorded pins store.ErrNotFound for a miss.
+func TestGetByIdempotencyKeyAnswersNotFoundForAKeyNoCreateRecorded(t *testing.T) {
+	tests := []struct {
+		name string
+		key  string
+	}{
+		{name: "a key nothing was created under", key: ""},
+		{name: "a key nobody used", key: "a key nobody used"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := open(t).GetByIdempotencyKey(t.Context(), tt.key)
+
+			require.ErrorIs(t, err, store.ErrNotFound)
 		})
 	}
 }

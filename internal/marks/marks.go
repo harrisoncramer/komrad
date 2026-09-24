@@ -79,3 +79,13 @@ func (s *MarkService) ClearMark(ctx context.Context, target markstore.Target) (b
 
 	return s.marks.Clear(ctx, target)
 }
+
+// ListMarks is every mark, by letter.
+func (s *MarkService) ListMarks(ctx context.Context) ([]markstore.Mark, error) {
+	marks, err := s.marks.ListWatched(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the marks: %w", err)
+	}
+
+	return marks, nil
+}

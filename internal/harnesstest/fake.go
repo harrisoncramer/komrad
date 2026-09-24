@@ -40,10 +40,15 @@ type Fake struct {
 	InterruptWith []string
 	// Session is the id FindSession answers.
 	Session string
+	// Anonymous leaves ID blank.
+	Anonymous bool
 }
 
 // ID is Name, or FakeID when the test gave none.
 func (f *Fake) ID() string {
+	if f.Anonymous {
+		return ""
+	}
 	if f.Name != "" {
 		return f.Name
 	}
@@ -130,10 +135,17 @@ type Registry struct {
 	Harness *Fake
 	ByID    map[string]*Fake
 	Only    []string
+	// BeforeGet runs ahead of every lookup, and an error it returns refuses that lookup.
+	BeforeGet func(id string) error
 }
 
 // GetByID is the harness registered under id.
 func (r Registry) GetByID(id string) (harness.Harness, error) {
+	if r.BeforeGet != nil {
+		if err := r.BeforeGet(id); err != nil {
+			return nil, err
+		}
+	}
 	if len(r.Only) > 0 && !slices.Contains(r.Only, id) {
 		return nil, fmt.Errorf("%w: %q", harness.ErrNotRegistered, id)
 	}
@@ -201,6 +213,9 @@ type Observer struct {
 	Observations []harness.Observation
 	Err          error
 	Reads        int
+	// BeforeFirst runs ahead of the first observation.
+	BeforeFirst func()
+	began       bool
 }
 
 // Observe answers the next observation in the run.
@@ -208,6 +223,10 @@ func (o *Observer) Observe(context.Context, harness.Target) (harness.Observation
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
+	if !o.began && o.BeforeFirst != nil {
+		o.BeforeFirst()
+	}
+	o.began = true
 	if o.Err != nil {
 		return harness.Observation{}, o.Err
 	}

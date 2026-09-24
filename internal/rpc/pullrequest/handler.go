@@ -5,7 +5,7 @@ import (
 	"context"
 
 	"weave/internal/fail"
-	"weave/internal/git"
+	"weave/internal/pullrequests"
 	"weave/internal/rpc/render"
 	"weave/internal/rpcerr"
 	pullrequeststore "weave/internal/store/pullrequest"
@@ -14,20 +14,20 @@ import (
 	pullrequestv1 "weave/proto/gen/pullrequest/v1"
 )
 
-// storedPullRequestReader is what the handler reads of what the sync has stored.
-type storedPullRequestReader interface {
-	ListPage(ctx context.Context, params pullrequeststore.ListPageParams) ([]pullrequeststore.PullRequest, error)
+// pullRequestLister is what the handler reads of what the sync has stored.
+type pullRequestLister interface {
+	ListPullRequests(ctx context.Context, params pullrequests.ListPullRequestsParams) ([]pullrequeststore.PullRequest, error)
 }
 
 type NewHandlerParams struct {
-	PullRequests storedPullRequestReader
+	PullRequests pullRequestLister
 }
 
 type Handler struct {
-	pullRequests storedPullRequestReader
+	pullRequests pullRequestLister
 }
 
-// NewHandler constructs the handler over the store.
+// NewHandler constructs the handler over the lister.
 func NewHandler(params NewHandlerParams) *Handler {
 	return &Handler{pullRequests: params.PullRequests}
 }
@@ -35,18 +35,13 @@ func NewHandler(params NewHandlerParams) *Handler {
 // ListPullRequests is one page of a repository's stored pull requests, the unfinished ones
 // first and each group newest opened first.
 func (s *Handler) ListPullRequests(ctx context.Context, req *pullrequestv1.ListPullRequestsRequest) (*pullrequestv1.ListPullRequestsResponse, *fail.Error) {
-	repo, err := git.ParseRemoteURL(req.GetRepositoryUrl())
-	if err != nil {
-		return nil, rpcerr.From(err, "failed to read the repository")
-	}
-
 	paginator, err := pagination.New[pullrequeststore.Cursor, pullRequestPage](req.GetPagination())
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to read the pagination")
 	}
 
-	listed, err := s.pullRequests.ListPage(ctx, pullrequeststore.ListPageParams{
-		RepositoryURL: repo.Canonical(),
+	listed, err := s.pullRequests.ListPullRequests(ctx, pullrequests.ListPullRequestsParams{
+		RepositoryURL: req.GetRepositoryUrl(),
 		HeadBranch:    req.GetHeadBranch(),
 		Limit:         int32(paginator.Limit()),
 		Cursor:        paginator.Cursor(),

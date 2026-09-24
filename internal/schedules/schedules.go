@@ -21,6 +21,8 @@ type scheduleReadWriter interface {
 	Update(ctx context.Context, id string, cfg schedulestore.Config) error
 	SetEnabled(ctx context.Context, id string, enabled bool) error
 	Archive(ctx context.Context, id string) error
+	ListPage(ctx context.Context, limit int64, cursor *schedulestore.Cursor) ([]schedulestore.Schedule, error)
+	ListRuns(ctx context.Context, scheduleID string, limit int) ([]schedulestore.Run, error)
 }
 
 type workflowReader interface {
@@ -141,6 +143,44 @@ func (s *ScheduleService) ArchiveSchedule(ctx context.Context, id string) error 
 	}
 
 	return nil
+}
+
+type ListSchedulesParams struct {
+	Limit  int64
+	Cursor *schedulestore.Cursor
+}
+
+// ListSchedules returns one page of schedules, newest first.
+func (s *ScheduleService) ListSchedules(ctx context.Context, params ListSchedulesParams) ([]schedulestore.Schedule, error) {
+	listed, err := s.store.ListPage(ctx, params.Limit, params.Cursor)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list schedules: %w", err)
+	}
+
+	return listed, nil
+}
+
+type ListScheduleRunsParams struct {
+	ScheduleID string
+	Limit      int
+}
+
+// ListScheduleRuns returns a schedule's most recent firings, newest first.
+func (s *ScheduleService) ListScheduleRuns(ctx context.Context, params ListScheduleRunsParams) ([]schedulestore.Run, error) {
+	_, err := s.GetSchedule(ctx, params.ScheduleID)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, ErrScheduleNotFound.Saying("no schedule with id %q", params.ScheduleID)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	runs, err := s.store.ListRuns(ctx, params.ScheduleID, params.Limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the runs of schedule %q: %w", params.ScheduleID, err)
+	}
+
+	return runs, nil
 }
 
 func (s *ScheduleService) requireWorkflow(ctx context.Context, workflowID string) error {

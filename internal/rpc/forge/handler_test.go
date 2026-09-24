@@ -44,8 +44,8 @@ func (f *fakeConnector) Connect(_ context.Context, params forge.ConnectParams) (
 	return &f.connections[0], nil
 }
 
-// List answers connections unless err refuses it.
-func (f *fakeConnector) List(context.Context) ([]forgestore.Connection, error) {
+// ListConnections answers connections unless err refuses it.
+func (f *fakeConnector) ListConnections(context.Context) ([]forgestore.Connection, error) {
 	if f.err != nil {
 		return nil, f.err
 	}

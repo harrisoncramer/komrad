@@ -58,8 +58,6 @@ func TestMarkSpans(t *testing.T) {
 // TestRenderTranscript covers the preview being the markdown a conversation is written in
 // rather than its source, with the matched word styled where the rendering put it.
 func TestRenderTranscript(t *testing.T) {
-	withColor(t)
-
 	const content = "# A heading\n\n- a list item\n\nthe ledger is here\n"
 
 	word := strings.Index(content, "ledger")
@@ -160,8 +158,6 @@ func TestRenderTranscriptEstimatesADroppedMatch(t *testing.T) {
 // TestRenderTranscriptKeepsTheStylingAroundAMatch covers a match inside a run the renderer
 // styled, inline code being where an identifier is matched.
 func TestRenderTranscriptKeepsTheStylingAroundAMatch(t *testing.T) {
-	withColor(t)
-
 	const content = "the `author_kind` column\n"
 
 	word := strings.Index(content, "author")

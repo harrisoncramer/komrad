@@ -30,9 +30,8 @@ and use the fake a helper package already has rather than writing one:
 - `harnesstest.Fake`, `Registry`, `Channel` and `Observer` for the harness.
 - `gittest.Checkout`, `Heads`, `Trees`, `Rebaser`, `Snapshots`, `Repo` and `NoRepo` for git.
 
-Each is configured by its fields and records what it was asked. The `shared_fake` rule flags a
-test type that satisfies an interface one of these already fakes, and its message names the
-fake to use. If a shared fake cannot answer what your test needs, add a field to it.
+Each is configured by its fields and records what it was asked. Never write a second fake of one
+of these boundaries. If a shared fake cannot answer what your test needs, add a field to it.
 
 ## Handler
 

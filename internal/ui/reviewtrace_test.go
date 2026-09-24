@@ -1,8 +1,6 @@
 package ui
 
 import (
-	"context"
-	"sync"
 	"testing"
 
 	"weave/internal/git"
@@ -37,45 +35,10 @@ var rewroteTheLine = []position.Mapping{{
 	Ranges: []position.RangeMapping{{Old: position.Range{Start: 4, End: 5}, New: position.Range{Start: 4, End: 5}}},
 }}
 
-// mappingGit answers a pair of snapshots with what git reported between them.
-type mappingGit struct {
-	gittest.NoRepo
-	mu      sync.Mutex
-	asked   []git.MapRangesParams
-	answers map[string][]position.Mapping
-}
-
-// newMappingGit is a git that answers for the snapshots a test names and nothing else.
-func newMappingGit(answers map[string][]position.Mapping) *mappingGit {
-	return &mappingGit{answers: answers}
-}
-
-func (g *mappingGit) MapRanges(_ context.Context, params git.MapRangesParams) ([]position.Mapping, error) {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-
-	g.asked = append(g.asked, params)
-
-	mappings, held := g.answers[gittest.NamePair(params.FromSHA, params.ToSHA)]
-	if !held {
-		return nil, gittest.ErrNoGit
-	}
-
-	return mappings, nil
-}
-
-// pairsAsked is every pair of snapshots the tracing asked git about.
-func (g *mappingGit) pairsAsked() []git.MapRangesParams {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-
-	return append([]git.MapRangesParams(nil), g.asked...)
-}
-
 // TestTraceThreadsFollowsALineThroughGit covers the whole tracing path: a comment on line four of
 // the first snapshot is line eight of the second, which only the mapping between the two can say.
 func TestTraceThreadsFollowsALineThroughGit(t *testing.T) {
-	repo := newMappingGit(map[string][]position.Mapping{gittest.NamePair(firstSHA, secondSHA): insertedAHelper})
+	repo := &gittest.Repo{Mappings: map[string][]position.Mapping{gittest.NamePair(firstSHA, secondSHA): insertedAHelper}}
 
 	rounds := []*agentv1.ReviewRound{
 		{
@@ -115,14 +78,14 @@ func TestTraceThreadsFollowsALineThroughGit(t *testing.T) {
 		Dir:     traceDir,
 		FromSHA: firstSHA,
 		ToSHA:   secondSHA,
-	}}, repo.pairsAsked(),
+	}}, repo.MappingsAsked(),
 		"the pair read is the snapshot it was written against and the one on screen")
 }
 
 // TestTraceThreadsMarksTheRoundOnScreenAsExact covers a thread written against the snapshot on
 // screen, whose numbers are counted in that tree and so need no git call to be trusted.
 func TestTraceThreadsMarksTheRoundOnScreenAsExact(t *testing.T) {
-	repo := newMappingGit(nil)
+	repo := &gittest.Repo{}
 
 	traced := traceThreads(t.Context(), traceThreadsParams{
 		Git:   repo,
@@ -147,13 +110,13 @@ func TestTraceThreadsMarksTheRoundOnScreenAsExact(t *testing.T) {
 	assert.Equal(t, tracedFile, found.FilePath)
 	assert.Equal(t, int32(8), found.NewStart, "the number it was written at is the number it holds")
 	assert.True(t, found.Exact, "and it is exact rather than traced")
-	assert.Empty(t, repo.pairsAsked(), "nothing was read to place it")
+	assert.Empty(t, repo.MappingsAsked(), "nothing was read to place it")
 }
 
 // TestTraceThreadsKeepsTheFileWhenTheLinesAreGone covers code the agent wrote over: the file is
 // still there and the lines are not.
 func TestTraceThreadsKeepsTheFileWhenTheLinesAreGone(t *testing.T) {
-	repo := newMappingGit(map[string][]position.Mapping{gittest.NamePair(firstSHA, thirdSHA): rewroteTheLine})
+	repo := &gittest.Repo{Mappings: map[string][]position.Mapping{gittest.NamePair(firstSHA, thirdSHA): rewroteTheLine}}
 
 	traced := traceThreads(t.Context(), traceThreadsParams{
 		Git:   repo,
@@ -184,7 +147,7 @@ func TestTraceThreadsKeepsTheFileWhenTheLinesAreGone(t *testing.T) {
 // earlier snapshot, so a thread from a later round is not drawn there and tracing it would run a
 // backwards diff of the whole tree for an answer nothing reads.
 func TestTraceThreadsSkipsRoundsTheScreenWillNotDraw(t *testing.T) {
-	repo := newMappingGit(map[string][]position.Mapping{gittest.NamePair(secondSHA, firstSHA): insertedAHelper})
+	repo := &gittest.Repo{Mappings: map[string][]position.Mapping{gittest.NamePair(secondSHA, firstSHA): insertedAHelper}}
 
 	rounds := []*agentv1.ReviewRound{
 		{
@@ -218,14 +181,14 @@ func TestTraceThreadsSkipsRoundsTheScreenWillNotDraw(t *testing.T) {
 	})
 
 	assert.Empty(t, traced, "a later round is not traced backwards into an earlier one")
-	assert.Empty(t, repo.pairsAsked(), "and the diff it would have taken was never run")
+	assert.Empty(t, repo.MappingsAsked(), "and the diff it would have taken was never run")
 }
 
 // TestTraceThreadsGivesUpWholeRatherThanInPart covers one pair failing while another answers:
 // keeping the answers that arrived would make placement depend on which pairs could be read, so
 // two loads of the same screen would draw the same comments in different places.
 func TestTraceThreadsGivesUpWholeRatherThanInPart(t *testing.T) {
-	repo := newMappingGit(map[string][]position.Mapping{gittest.NamePair(firstSHA, secondSHA): insertedAHelper})
+	repo := &gittest.Repo{Mappings: map[string][]position.Mapping{gittest.NamePair(firstSHA, secondSHA): insertedAHelper}}
 
 	rounds := []*agentv1.ReviewRound{
 		{
@@ -288,7 +251,7 @@ func TestTraceThreadsGivesUpWholeRatherThanInPart(t *testing.T) {
 // and then put it back, which takes a second round carrying a snapshot an earlier round already
 // held.
 func TestTraceThreadsMarksEveryRoundHoldingTheSnapshotOnScreen(t *testing.T) {
-	repo := newMappingGit(nil)
+	repo := &gittest.Repo{}
 
 	traced := traceThreads(t.Context(), traceThreadsParams{
 		Git:   repo,
@@ -324,5 +287,5 @@ func TestTraceThreadsMarksEveryRoundHoldingTheSnapshotOnScreen(t *testing.T) {
 	require.True(t, ok, "the earlier round holding this snapshot is on screen too")
 	assert.True(t, found.Exact)
 	assert.Equal(t, int32(8), found.NewStart)
-	assert.Empty(t, repo.pairsAsked(), "the round it was written against is the one on screen")
+	assert.Empty(t, repo.MappingsAsked(), "the round it was written against is the one on screen")
 }

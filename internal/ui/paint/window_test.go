@@ -159,8 +159,6 @@ func TestWindowRowsNeverOutgrowsThePane(t *testing.T) {
 
 // TestPaintRow covers laying a background under a row that is already coloured.
 func TestPaintRow(t *testing.T) {
-	withColor(t)
-
 	set := BackgroundSequence(SelectionBackground)
 	row := "  " + Panel.Style(ToneAccent).Render("api") + " " + dim.Render("1m")
 
