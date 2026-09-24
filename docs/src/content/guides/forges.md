@@ -1,61 +1,38 @@
 ---
 title: Forges
-description: Connect weave to GitHub or GitLab so it can read and open pull requests.
+description: How weave talks to GitHub or GitLab, and how agents open pull requests.
 group: operations
 order: 9
 ---
 
-A forge is a git hosting service such as GitHub or GitLab. Weave connects to each forge once, with a token, and keeps the connection until you remove it. It uses the connection to see which pull requests are open on each agent's branch, and so agents can open pull requests.
+A forge is where your code is hosted, such as GitHub or GitLab. Weave connects to it for two reasons. It wants to show you, beside each agent, the pull request that agent's branch has open and where it stands. And agents need to push branches and open pull requests without you doing it for them.
 
-## Connecting
+## Connecting a forge
 
-Make a personal access token on the forge and pipe it in.
+You connect a forge once, by handing weave a token. Weave checks the token with the forge straight away and refuses one that is wrong or expired. That check only proves the token is real. It does not prove the token can see your repositories, so give it access to the pull requests of the repositories your agents work in. GitHub and GitLab are both supported, including self-hosted installs.
 
-```sh
-gh auth token | weave forge connect github.com
-```
+Weave keeps a connection until you remove it, and tells you when a token has stopped working. The `weave forge` and `weave doctor` commands show what is connected and whether it still works, and the [CLI reference](../../cli/forge/) has the details.
 
-Anything that prints the token works, such as `pbpaste` or `op read`, and `--token-file` reads it from a file. Weave never takes the token as an argument, because arguments are visible to every process through `ps` and end up in shell history.
+## What weave reads
 
-Before storing the token, weave asks the forge who it belongs to, so a wrong or expired token is refused straight away. That only proves the token is real. A token with no permissions passes this check and later can't see your repositories, so give it read access to pull requests on the repositories your agents work in.
+While an agent is live, weave keeps an eye on the pull requests in its repository. It notices when one is opened from the agent's branch, when checks pass or fail, when reviewers approve or ask for changes, when it conflicts with its base, and when it is merged or closed. That shows up as a small symbol on the agent's row, and in more detail in the agent's record.
 
-`weave forge list` shows every connected forge, who weave acts as there, and when the forge last confirmed it. `weave forge check` asks every forge again, which is what `weave doctor` runs. `weave forge disconnect github.com` removes a forge. These commands talk to the running service, and `--engine <name>` runs one against a remote engine instead.
+<figure class="placeholder">
+  <figcaption>The agents list, with rows showing an open, an approved, a failing and a merged pull request.</figcaption>
+</figure>
 
-`github.com` and `gitlab.com` are recognised on their own. For any other host, pass `--kind`. Weave then looks for the API at `https://<host>/api/v3` for GitHub or `/api/v4` for GitLab, and `--api-url` overrides that. The address has to be https, because the token is sent with every request.
-
-## Reading pull requests
-
-```sh
-weave pr list git@github.com:owner/repo.git
-weave pr list git@github.com:owner/repo.git some-branch
-```
-
-Give the repository the way a git remote spells it, because the host decides which connection is used. Without a branch this lists the open pull requests. With a branch it lists every pull request opened from it, in any state.
-
-A repository the token cannot see looks exactly like one that does not exist, because the forge does not tell the two apart.
-
-The service also reads pull requests itself, once a minute, for every repository a live agent is on. That fills in the pull request symbol on each agent's row, as described in [agents](../agents/#pull-requests). Each pass is kept small. A new repository is read back thirty days. After that, one search per forge host each minute finds only the pull requests that changed. Both GitHub and GitLab are read, and a GitLab merge request counts as a pull request.
+Weave does this quietly and cheaply. It asks the forge only what has changed since it last looked, and backs off when the forge says it is being asked too often. A GitLab merge request counts as a pull request.
 
 ## Where the token lives
 
-The database holds only what is not secret: the host, the kind of forge, the login it answered with, and when that was last confirmed.
+The database only holds what is safe to store: which forge, which account the token belongs to, and when that was last checked. The token itself sits in a file that only your user can read, and weave reads it for each request rather than keeping it in memory. It never shows up in logs.
 
-The token is kept in `~/.local/state/weave/forge/<connection id>`, which only your user can read. Each request reads the file, puts the token in the request header, and forgets it. Logs and errors show the token masked.
-
-On a laptop this is the same arrangement as the GitHub CLI keeping its token in `~/.config/gh/hosts.yml`, or your SSH keys in `~/.ssh`. Personal tokens do not expire unless you set them to. Weave notices when one has expired, and both `weave forge list` and `weave doctor` report it.
+On a laptop this is the same arrangement as the GitHub CLI or your SSH keys. A personal token does not expire unless you set one to, which is why weave watches for tokens that have.
 
 ## How agents push and open pull requests
 
-Agents never hold a credential of their own.
+Agents never hold a credential of their own. When an agent's git needs to authenticate, it asks weave, and weave hands over a short-lived token. When an agent runs the GitHub CLI, weave quietly supplies a fresh token to that one command and nothing else. No token is ever typed into an agent's pane, so none can leak into a transcript.
 
-Git asks a credential helper for a password each time it needs one. On a machine set up as in [administering the engine](../engine-admin/), that helper is `weave github credential`, which hands git a token that expires within the hour.
+On your own laptop, weave stays out of the way and agents use whatever git and GitHub logins you already have. On a remote engine, weave uses a GitHub App, which makes tokens that expire after an hour and only reach the repositories you chose. [Administering the engine](../engine-admin/) sets that up.
 
-The `gh` CLI cannot ask a helper, because it only reads `GH_TOKEN` when it starts. So weave puts a small stand-in for `gh` ahead of the real one on every agent's `PATH`. The stand-in asks weave for a fresh token, sets it for that one `gh` process, and runs the real binary. Nothing is exported into the pane, so no token appears in a screen capture or a transcript.
-
-On a machine with no `[github_app]` configured, the stand-in does nothing and runs the real `gh`, which uses whatever login the machine has. A `GH_TOKEN` or `GITHUB_TOKEN` already set is left alone too.
-
-When weave does hold the credential and cannot help, it refuses clearly. If the checkout's origin is on a forge the App cannot reach, or the App cannot make a token, the agent gets weave's own error and a non-zero exit. On a machine with no `gh` installed, the stand-in says so and exits 127.
-
-## On a remote engine
-
-A remote engine should use a GitHub App, which makes tokens that expire after an hour. [Administering the engine](../engine-admin/) sets one up. With the App configured, `weave forge connect github.com --method github-app` connects the engine's forge through it. No token is stored under `forge/`. The service keeps the App's current token in `github-token.json` in its cache directory, readable only by the weave user, until it expires. The login recorded is the App's own name.
+When weave is responsible for the credential and cannot provide one, it says so clearly. The agent learns it cannot open the pull request, instead of reading a confusing error from an unauthenticated tool.

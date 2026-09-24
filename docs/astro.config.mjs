@@ -40,6 +40,7 @@ const pagefind = {
 
 export default defineConfig({
   base,
+  trailingSlash: "always",
   integrations: [mdx(), react()],
   vite: {
     plugins: [tailwindcss(), pagefind],

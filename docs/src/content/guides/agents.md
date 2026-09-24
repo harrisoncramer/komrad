@@ -53,7 +53,7 @@ The panel shows metadata in the details under the list. The key `pr` is refused,
 
 ## Pull requests
 
-The third symbol on an agent's row is the pull request opened from its branch, read by the [pull request sync](../forges/#reading-pull-requests). If the branch has several, the row shows the newest one that is still open, or the newest one if all are finished.
+The third symbol on an agent's row is the pull request opened from its branch, read by the [pull request sync](../forges/#what-weave-reads). If the branch has several, the row shows the newest one that is still open, or the newest one if all are finished.
 
 A grey pull request symbol means it is open. A green check means the forge would merge it now. Yellow means changes were requested, and a grey draft symbol means it is a draft. A red cross means a check failed, and a red stop sign means it conflicts with its base. Purple means merged, and red means closed without merging. Nothing is drawn until the repository has been read, or if no pull request was opened from the branch.
 

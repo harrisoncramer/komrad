@@ -1,72 +1,42 @@
 ---
 title: MCP
-description: Let agents see and manage other agents through weave's MCP server.
+description: How agents see and manage other agents through weave's MCP server.
 group: concepts
 order: 8
 ---
 
-Weave serves its API over MCP, which is what makes orchestration possible. An agent weave spawned can ask what the other agents are doing and spawn more of them. The panel and every agent are clients of the same service.
+Weave serves its own API over MCP, the protocol agent CLIs use to call tools. That is what lets one agent coordinate others. An agent weave started can ask what the other agents are doing, read their conversations, send them mail, and start new agents of its own. To weave, a model calling a tool is one more client, the same as the panel or a script.
 
-The endpoint is `http://127.0.0.1:8787/mcp`, or wherever `WEAVE_ADDR` points. It has no authentication. It only listens on loopback, and its tools can spawn and delete agents, so binding the service to any other address is a real change in who can reach it.
+<figure class="placeholder">
+  <figcaption>An orchestrator agent's pane, calling weave tools to spawn two children and read their replies.</figcaption>
+</figure>
 
-Do not call the HTTP API with hand-written curl. That skips the checks the tools carry and the headers that say who made the call. From a shell, use `weave rpc`, which is covered in the [CLI reference](../../cli/rpc/).
+## Who can reach it
 
-## Adding it to a client
+Every agent weave starts is already connected to the server, and nothing needs setting up. You can also add it to your own Claude or Codex session, which is how you drive weave from a conversation outside the panel. The server only listens on your own machine and asks for no password. That is safe because nothing else can reach it, and it is also why exposing it anywhere else would be a real change.
 
-Agents that weave launches already have it. Weave also turns on `alwaysLoad` for them, so Claude does not hide the weave tools behind its tool search. And it denies Claude's general-purpose subagent tool, so an agent asked to spawn something uses weave instead.
-
-For your own Claude session:
-
-```sh
-claude mcp add --transport http weave http://127.0.0.1:8787/mcp
-```
-
-For a client that takes JSON:
-
-```json
-{
-  "mcpServers": {
-    "weave": {
-      "type": "http",
-      "url": "http://127.0.0.1:8787/mcp"
-    }
-  }
-}
-```
-
-For Codex, which takes TOML:
-
-```toml
-[mcp_servers.weave]
-url = "http://127.0.0.1:8787/mcp"
-```
-
-Name the server `weave`. Nothing enforces it, but the briefing every spawned agent reads calls it that.
+For agents running Claude, weave also makes sure its tools are always visible and switches off Claude's built-in subagent tool. An agent asked to spawn help then uses weave, so the new agent appears in the panel where you can see it and step in.
 
 ## Two kinds of tool
 
-The first kind is read-only SQL over weave's Postgres, through `list_tables`, `describe_table` and `query`. An orchestrator can use these to answer its own questions without weave needing a dedicated tool for each one. `query` takes a single `SELECT` or `WITH`, refuses writes, returns at most 1000 rows, cuts cells at 2000 characters, and gives up after 15 seconds.
+The first kind reads weave's database directly, with read-only SQL. It is there so an orchestrator can answer its own questions, like how many agents in a workflow are still working, without weave needing a tool for every question. Queries are read-only, kept small, and cut off if they run long.
 
-The second kind is the service's own API as tools. Each call goes back over loopback to the API, so it takes the same path and the same checks as any other client. Spawning, renaming and removing agents can only be done this way, because the SQL tools cannot write.
+The second kind is the API itself: listing and fetching agents, creating them, sending mail, requesting reviews, and so on. These tools go through the same API as the panel, so they follow the same rules and checks. Anything that changes something, such as spawning or archiving an agent, goes through these, since the SQL tools cannot write.
 
-Agents use the API tools to change things, and SQL when the question is a count or a join. Examples are how many agents in each workflow are still thinking, or which of my children recorded a pull request.
+When a model lists agents, it gets the same combined row the panel draws: the agent, its mark, whether mail is waiting, and its pull requests and review state. What a model sees and what you see stay in step.
 
-A tool that lists or fetches something answers rows of that one kind. The exception is `list_agents` and `get_agent`, which answer the agent with what the panel draws beside it: its mark, whether mail is waiting, and its pull requests. They build that the same way the panel does, so a model sees what you see in one call.
+The [API reference](../../api/) lists every tool and what it takes.
 
-The [API reference](../../api/) lists every tool.
+## Different roles, different tools
 
-## Who gets which tools
+Every tool in an agent's list sits in its context from its first turn, and a long list costs attention as well as tokens. So weave only offers each agent the tools that fit its role.
 
-Every tool declares which agent roles it is offered to, and the proto linter refuses a tool that leaves this out. Each call names its caller in the `X-Weave-Agent-Id` header, and the server serves that caller's role.
+An implementer, the agent writing a change, gets what it needs to do the work, get it reviewed and answer the review. It can read workflows but not change them, and it cannot administer the panel. A reviewer gets what it needs to read work and write a review. An orchestrator, which hands work out and writes no code, gets everything except the review-writing tools. Each role ends up with well under half of the full set.
 
-A reviewer gets the tools for reading work and writing a review. An implementer gets the tools for getting its own work read and answering what comes back. It does not get the review-writing tools or the panel's administration, such as workflows, schedules, rebases, worktrees and forges. An orchestrator gets everything except the review-writing tools and `request_review`, because it writes no code and reviews nothing.
+A caller weave cannot place, such as you with the server added to your own session, is offered everything. None of this affects the `weave rpc` commands.
 
-The point is context cost. Every tool description sits in an agent's context from its first turn, and an implementer or reviewer is served well under half the full set. A caller weave cannot place, such as you with a server added by hand, is served every tool. None of this applies to `weave rpc`.
+## Knowing who called
 
-## The read-only login
+Every agent carries its own id, and weave attaches it to every call the agent makes. That is how a call is credited to the agent that made it, how the server knows which role to serve, and how a family of agents stays inside its own limits. Calls from the panel carry no id, because the panel is you.
 
-The `query` tool connects as the engine's read-only login, which `weave engine ensure` creates. It can only read, and Postgres only shows it the engine's own rows, so no query can reach another engine's data. The service will not start without it.
-
-## Who a call is from
-
-An agent's id is in `WEAVE_AGENT_ID`, and its conversation id is in `WEAVE_SESSION_ID`. Weave sets both before starting the CLI and adds them as headers on every call the agent makes, so each call is credited to the agent that made it. The panel sends neither, because it is you.
+The SQL tools connect with a separate read-only login that each engine is given when it is set up. It can only see that engine's own rows, so no query can reach another engine's data, however it is written.
