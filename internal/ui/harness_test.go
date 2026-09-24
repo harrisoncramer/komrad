@@ -286,6 +286,10 @@ func (h *panelHarness) readFrame() string {
 	return ansi.Strip(h.panel.View())
 }
 
+func (h *panelHarness) readRawFrame() string {
+	return h.panel.View()
+}
+
 func (h *panelHarness) assertSent(want ...request) {
 	h.t.Helper()
 	h.recorder.mu.Lock()
