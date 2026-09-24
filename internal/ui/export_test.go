@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -450,4 +451,48 @@ func (p *Panel) SetShown(isShown bool) {
 // SetHostPath makes tmux report the directory of the client the panel was invoked from.
 func (p *Panel) SetHostPath(path string) {
 	p.tmux.path = path
+}
+
+// IsKeyTaken reports whether a press of the key reaches any binding the panel dispatches on.
+func (p *Panel) IsKeyTaken(key string) bool {
+	isTaken := false
+	keyProbe = func([]string) {
+		isTaken = true
+	}
+	defer func() {
+		keyProbe = nil
+	}()
+
+	p.model.route(keyMsg(key))
+
+	return isTaken
+}
+
+// ReadLegendKeys is every key the legend of the screen that is up names.
+func (p *Panel) ReadLegendKeys() []string {
+	m := p.model
+	shared := m.shared()
+
+	var legend keyMap
+	switch m.screen {
+	case screenAgents:
+		legend = m.listHelp(m.agents.help(shared))
+	case screenSchedules:
+		legend = m.listHelpOf(m.schedules.listParams(shared))
+	case screenArchive:
+		legend = m.listHelpOf(m.archive.listParams(shared))
+	case screenSearch:
+		legend = m.search.help(shared)
+	case screenReview:
+		legend = m.review.help(shared)
+	case screenWorktrees:
+		legend = m.listHelpOf(m.worktrees.listParams(shared))
+	}
+
+	var keys []string
+	for _, binding := range slices.Concat(legend.short, legend.full) {
+		keys = append(keys, binding.Keys()...)
+	}
+
+	return keys
 }
