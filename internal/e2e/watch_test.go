@@ -275,8 +275,8 @@ func viewFromGets(t *testing.T, instance *weavetest.Instance, listed view) view 
 }
 
 // worldFromStores reads the watched set the way the agent handler reads a page: the live and
-// archived rows, every mark, the unclaimed mail to them, the pull requests on their branches and
-// their workflows, with the live schedules beside them.
+// archived rows, every mark, the unclaimed mail to them, the pull requests on their branches, the
+// repositories they sit on and their workflows, with the live schedules beside them.
 func worldFromStores(t *testing.T, st *storetest.Stores) assemble.World {
 	t.Helper()
 	ctx := t.Context()
@@ -295,6 +295,9 @@ func worldFromStores(t *testing.T, st *storetest.Stores) assemble.World {
 	require.NoError(t, err)
 
 	pullRequests, err := st.PullRequests.ListForAgents(ctx, agentIDs)
+	require.NoError(t, err)
+
+	repositories, err := st.PullRequestSyncs.ListWatched(ctx, xslice.Map(rows, func(row rowstore.Row) string { return xptr.Deref(row.RepositoryURL) }))
 	require.NoError(t, err)
 
 	workflows, err := st.Workflows.ListByID(ctx, xslice.Map(rows, func(row rowstore.Row) string { return row.WorkflowID }))
@@ -319,6 +322,9 @@ func worldFromStores(t *testing.T, st *storetest.Stores) assemble.World {
 		Mail:  xslice.KeyBy(xslice.Map(mail, render.Mail), func(m *agentv1.Mail) string { return m.GetId() }),
 		PullRequests: xslice.KeyBy(xslice.Map(pullRequests, render.PullRequest), func(p *pullrequestv1.PullRequest) string {
 			return p.GetId()
+		}),
+		Repositories: xslice.KeyBy(xslice.Map(repositories, render.Repository), func(r *pullrequestv1.Repository) string {
+			return r.GetUrl()
 		}),
 	}
 }
