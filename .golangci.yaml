@@ -352,7 +352,6 @@ linters:
             # model to the harness, then the tests not yet moved onto it.
             exclude:
               - ^internal/ui/export_test\.go$
-              - ^internal/ui/list_internal_test\.go$
           fake_store:
             skip: false
             # Unanchored regexps over the path lint was run from. A store's own tests, which have
@@ -431,9 +430,6 @@ linters:
               - ^internal/checkouts/rebase_test\.go$
               - ^internal/harness/pane/fakes_test\.go$
               - ^internal/harness/registry_test\.go$
-              - ^internal/ui/harness_test\.go$
-              - ^internal/ui/reviewload_test\.go$
-              - ^internal/ui/reviewtrace_test\.go$
           test_beside:
             skip: false
             # Unanchored regexps over the path lint was run from. Scenarios are named for the
@@ -489,13 +485,6 @@ linters:
               - ^internal/tmux/passkey_test\.go$
               - ^internal/tmux/server_test\.go$
               - ^internal/tmux/spellkey_test\.go$
-              - ^internal/ui/diffview/expand_test\.go$
-              - ^internal/ui/diffview/pin_test\.go$
-              - ^internal/ui/errors_test\.go$
-              - ^internal/ui/keydrift_test\.go$
-              - ^internal/ui/layout/framereal_test\.go$
-              - ^internal/ui/layout/remote_test\.go$
-              - ^internal/ui/paint/paint_test\.go$
               - ^internal/ui/panel_integration_test\.go$
               - ^internal/version/describe_test\.go$
               - ^internal/view/golden_test\.go$
