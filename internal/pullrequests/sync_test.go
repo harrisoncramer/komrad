@@ -158,24 +158,6 @@ func (f *scriptedForge) List(_ context.Context, params forge.ListParams) (*forge
 	return &copied, nil
 }
 
-// scriptedFinder answers the connection from the real store and always the one scripted forge.
-type scriptedFinder struct {
-	connections *forgestore.ForgeStore
-	forge       *scriptedForge
-}
-
-func (f *scriptedFinder) ConnectionFor(ctx context.Context, host string) (*forgestore.Connection, error) {
-	return f.connections.GetByHost(ctx, host)
-}
-
-func (f *scriptedFinder) ForConnection(forgestore.Connection) (forge.Forge, error) {
-	return f.forge, nil
-}
-
-func (f *scriptedFinder) SetThrottledUntil(ctx context.Context, id string, until *time.Time) error {
-	return f.connections.SetThrottledUntil(ctx, id, until)
-}
-
 type syncFixture struct {
 	syncer       *PullRequestSyncer
 	forge        *scriptedForge
@@ -230,7 +212,15 @@ func newSyncFixture(t *testing.T) *syncFixture {
 		now:          syncNow,
 	}
 	f.syncer = NewPullRequestSyncer(NewPullRequestSyncerParams{
-		Forges:       &scriptedFinder{connections: connections, forge: scripted},
+		Forges: forge.NewService(forge.NewServiceParams{
+			Connections: connections,
+			Credentials: forge.NewFileStore(t.TempDir()),
+			Builders: map[string]forge.Builder{
+				forge.KindGitHub: func(string, forge.Authenticator) forge.Forge {
+					return scripted
+				},
+			},
+		}),
 		PullRequests: f.pullRequests,
 		Syncs:        f.syncs,
 		Tx:           pool,

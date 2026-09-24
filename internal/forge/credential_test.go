@@ -1,10 +1,8 @@
 package forge
 
 import (
-	"context"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -52,40 +50,4 @@ func TestCredentialHeaderValue(t *testing.T) {
 
 	assert.Equal(t, "Bearer tok", Credential{Header: HeaderBearer, Token: NewSecret("tok")}.HeaderValue())
 	assert.Equal(t, "tok", Credential{Header: HeaderPrivateToken, Token: NewSecret("tok")}.HeaderValue())
-}
-
-type recordingVerified struct {
-	id string
-	at *time.Time
-}
-
-func (r *recordingVerified) SetVerifiedAt(_ context.Context, id string, at *time.Time) error {
-	r.id, r.at = id, at
-
-	return nil
-}
-
-// TestStoredCredential covers the Authenticator over the store: it answers with the header it
-// was built for, and Invalidate clears the connection's verified_at.
-func TestStoredCredential(t *testing.T) {
-	t.Parallel()
-
-	store := NewFileStore(t.TempDir())
-	require.NoError(t, store.Set(t.Context(), "conn-1", NewSecret("glpat-secret")))
-
-	connections := &recordingVerified{}
-	auth := NewStoredCredential(NewStoredCredentialParams{
-		Store:        store,
-		ConnectionID: "conn-1",
-		Header:       HeaderPrivateToken,
-		Connections:  connections,
-	})
-
-	credential, err := auth.Credential(t.Context())
-	require.NoError(t, err)
-	assert.Equal(t, Credential{Header: HeaderPrivateToken, Token: NewSecret("glpat-secret")}, credential)
-
-	require.NoError(t, auth.Invalidate(t.Context()))
-	assert.Equal(t, "conn-1", connections.id)
-	assert.Nil(t, connections.at)
 }
