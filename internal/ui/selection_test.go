@@ -64,7 +64,6 @@ func selectionTree() model {
 // background.
 func withColor(t *testing.T) {
 	t.Helper()
-
 }
 
 func press(t *testing.T, m model, key tea.KeyPressMsg) model {

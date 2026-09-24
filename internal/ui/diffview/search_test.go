@@ -171,7 +171,6 @@ func TestSearchFindsAViewedFileName(t *testing.T) {
 
 // TestFileNameMatchIsPainted covers the header a search found being drawn with the match on it.
 func TestFileNameMatchIsPainted(t *testing.T) {
-
 	view := twoHunkView()
 	require.Equal(t, 1, view.SetPattern(regexp.MustCompile(`eet\.g`)))
 

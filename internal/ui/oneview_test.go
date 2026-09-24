@@ -13,7 +13,6 @@ import (
 
 func withColour(t *testing.T) {
 	t.Helper()
-
 }
 
 // TestListSearchLightsTheRecord covers the one search lighting both panes while acting in one:

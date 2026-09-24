@@ -147,7 +147,6 @@ func TestMessagesFocusGoesDormantOffItsScreen(t *testing.T) {
 // TestMessagesTallySaysWhereTheKeysAre covers the region's own focus indicator: the tally is dim
 // while the list has the keys and the accent once it does not.
 func TestMessagesTallySaysWhereTheKeysAre(t *testing.T) {
-
 	m := detailsModel(&recordingTmux{})
 	m.height, m.width = 40, 60
 	m.pushMessage(message{
@@ -250,7 +249,6 @@ func TestMessagesRegionExpandsWhenFocused(t *testing.T) {
 // TestMessagesRegionLeavesTheReasonPlain covers the reason being the one part of an expanded
 // message drawn in the plain foreground.
 func TestMessagesRegionLeavesTheReasonPlain(t *testing.T) {
-
 	m := detailsModel(&recordingTmux{})
 	m.height, m.width = 30, 66
 	m.pushMessage(message{
@@ -417,7 +415,6 @@ func TestMessagesRefuseFocusWithNothingToRead(t *testing.T) {
 // TestMessagesPulseBlinksWhatJustLanded covers a message blinking twice as it lands, its words
 // taking the kind's own colour on each lit half, and leaving the row as it found it.
 func TestMessagesPulseBlinksWhatJustLanded(t *testing.T) {
-
 	const summary = "Nothing to review in fix-ci"
 
 	tests := []struct {

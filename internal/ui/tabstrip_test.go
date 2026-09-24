@@ -30,7 +30,6 @@ func stripFixture() tabStrip {
 
 func withANSI(t *testing.T) {
 	t.Helper()
-
 }
 
 // TestTabStripDrawsTheChosenTabInTheTonesOfItsFocus covers the title always muted, the chosen tab

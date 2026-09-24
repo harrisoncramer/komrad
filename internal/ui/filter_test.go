@@ -493,7 +493,6 @@ func TestFilterViewLine(t *testing.T) {
 // TestFilterSlashMarksAStandingSearch covers the colour of the slash, which is all a line that is
 // always drawn has to say whether anything is being searched for.
 func TestFilterSlashMarksAStandingSearch(t *testing.T) {
-
 	m := filterModel()
 
 	assert.Contains(t, m.filter.line(paint.Panel), dimStyle.Render("/"), "an idle line is dim")

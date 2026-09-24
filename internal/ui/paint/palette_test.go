@@ -50,7 +50,6 @@ func TestStageStyleRendersEveryElement(t *testing.T) {
 // TestPaletteFollowsTheTerminal pins every colour coming out as one of the sixteen the
 // terminal's scheme maps.
 func TestPaletteFollowsTheTerminal(t *testing.T) {
-
 	tests := []struct {
 		name string
 		tone Tone

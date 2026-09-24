@@ -152,7 +152,6 @@ func TestTheOwedListSaysWhenACommentIsFoldedAway(t *testing.T) {
 // TestTheOwedListBrightensWhatIsOnScreen covers a comment in view being drawn in the panel's own
 // colour while one that is not stays dim.
 func TestTheOwedListBrightensWhatIsOnScreen(t *testing.T) {
-
 	m := owedModel(t, []*agentv1.ReviewThread{owedThread("t1", gittest.File, 2)})
 
 	rows := m.review.owedComments()

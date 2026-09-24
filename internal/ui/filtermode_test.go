@@ -186,7 +186,6 @@ func TestFilterEscapeDropsTheMode(t *testing.T) {
 // TestFilterGlyphTakesTheCursorColour covers the funnel drawn in the cursor's colour like the
 // slash, so its shape alone says the list is narrowed.
 func TestFilterGlyphTakesTheCursorColour(t *testing.T) {
-
 	m := filterModeTree()
 	m.filter.typing = true
 	m.filter.mode = filterModeFilter

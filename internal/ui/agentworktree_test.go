@@ -432,7 +432,6 @@ func TestRecordSearchDroppedLeavingScreen(t *testing.T) {
 // TestRecordSearchLightsTheMatch covers the matched run of a value taking the match colour,
 // which the row is drawn in pieces to carry, and the pieces still adding up to the value.
 func TestRecordSearchLightsTheMatch(t *testing.T) {
-
 	m := recordSearchModel(t)
 	standing := pressMark(t, send(t, m, "/"), "o", "r", "i", "g", "i", "n", "enter")
 

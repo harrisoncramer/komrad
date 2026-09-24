@@ -1180,7 +1180,6 @@ func deliveredComment() *agentv1.ReviewMessage {
 // TestReviewVerdictKeepsItsColour covers the chosen verdict wearing what it means rather than
 // the muted tone of the options it was picked out of.
 func TestReviewVerdictKeepsItsColour(t *testing.T) {
-
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
 	m = openReview(t, m)
