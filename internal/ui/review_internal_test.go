@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"weave/config"
 	"weave/internal/diff"
 	"weave/internal/gittest"
 	"weave/internal/ui/diffview"
@@ -279,16 +281,16 @@ func TestReviewEmphasis(t *testing.T) {
 	t.Run("the cursor row dims while the record has the keys", func(t *testing.T) {
 		m, _ := buildReviewModel(t, &fakeReviewAgents{})
 		m = openReview(t, m)
-		live := m.render()
+		live := findCursorRow(t, m)
 
 		next, _ := m.Update(keyMsg("ctrl+t"))
 		m = next.(model)
 		require.True(t, m.isDetailsFocused())
-		assert.NotEqual(t, live, m.render())
+		assert.NotEqual(t, live, findCursorRow(t, m))
 
 		next, _ = m.Update(keyMsg("ctrl+t"))
 		m = next.(model)
-		assert.Equal(t, live, m.render())
+		assert.Equal(t, live, findCursorRow(t, m))
 	})
 }
 
@@ -534,6 +536,20 @@ func findRowWithAnAnchor(t *testing.T, m model) int {
 	require.FailNow(t, "the diff draws no line a comment can hang on")
 
 	return -1
+}
+
+func findCursorRow(t *testing.T, m model) string {
+	t.Helper()
+
+	for _, line := range strings.Split(m.render(), "\n") {
+		if strings.Contains(ansi.Strip(line), "package greet") {
+			return ansi.Cut(line, config.DefaultSidebarWidth, m.width)
+		}
+	}
+
+	require.FailNow(t, "the diff draws no cursor row")
+
+	return ""
 }
 
 func setReviewAgentState(m *model, state panel.State) {
