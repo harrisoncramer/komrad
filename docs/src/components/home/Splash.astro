@@ -29,15 +29,18 @@ import { link } from "../../site";
   @reference "../../styles/global.css";
 
   .splash {
-    @apply relative mx-auto w-full max-w-[1920px] overflow-hidden border-b border-app-background-medium;
+    @apply relative mx-auto w-full max-w-[1920px] overflow-hidden;
     aspect-ratio: 1920 / 930;
-    max-height: 72vh;
-    background: #1f2029;
+    mask-image:
+      linear-gradient(to right, transparent, #000 5%, #000 95%, transparent),
+      linear-gradient(to bottom, #000 55%, transparent);
+    mask-composite: intersect;
   }
 
   @media (max-width: 767.98px) {
     .splash {
       aspect-ratio: 1 / 1;
+      mask-image: linear-gradient(to right, #000 70%, transparent), linear-gradient(to bottom, #000 60%, transparent);
     }
   }
 
@@ -52,12 +55,6 @@ import { link } from "../../site";
 
   .splash video[data-playing] {
     @apply opacity-100;
-  }
-
-  .splash::after {
-    content: "";
-    @apply pointer-events-none absolute inset-x-0 bottom-0 h-1/4;
-    background: linear-gradient(to bottom, transparent, var(--color-app-background-dark));
   }
 </style>
 

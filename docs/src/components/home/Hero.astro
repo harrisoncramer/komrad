@@ -1,0 +1,60 @@
+---
+import { REPO_URL } from "../../consts";
+import { link } from "../../site";
+---
+
+<section class="hero">
+  <p class="eyebrow">Claude and Codex, managed from tmux</p>
+  <h1>A terminal-based agent manager.</h1>
+  <p class="subtitle">
+    Run dozens of coding agents side by side, each in its own checkout. Weave keeps them organised, lets them talk to
+    each other, and remembers everything they did.
+  </p>
+  <div class="actions">
+    <a class="primary" href={link("/guides/install")}>
+      Get started
+    </a>
+    <a class="secondary" href={REPO_URL} target="_blank" rel="noreferrer">
+      View on GitHub
+    </a>
+  </div>
+</section>
+
+<style>
+  @reference "../../styles/global.css";
+
+  .hero {
+    @apply mx-auto flex max-w-3xl flex-col items-center px-6 pt-20 pb-12 text-center md:pt-28 md:pb-16;
+  }
+
+  .eyebrow {
+    @apply mb-5 rounded-full border border-app-background-medium px-3 py-1 font-mono text-xs tracking-wide text-app-blue;
+  }
+
+  .hero h1 {
+    @apply text-4xl leading-tight font-semibold tracking-tight md:text-6xl;
+    background: linear-gradient(to bottom, #fff 40%, var(--color-app-gray-light));
+    background-clip: text;
+    color: transparent;
+  }
+
+  .subtitle {
+    @apply mt-6 max-w-2xl text-lg leading-relaxed text-app-gray-light md:text-xl;
+  }
+
+  .actions {
+    @apply mt-10 flex flex-wrap justify-center gap-3;
+  }
+
+  .actions a {
+    @apply rounded-lg px-5 py-2.5 text-sm font-medium no-underline transition-colors duration-200;
+  }
+
+  .primary {
+    @apply bg-app-blue text-app-black hover:bg-app-white;
+  }
+
+  .secondary {
+    @apply border border-app-background-medium text-app-white hover:border-app-blue/50;
+  }
+</style>
