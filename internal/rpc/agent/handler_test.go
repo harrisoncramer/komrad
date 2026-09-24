@@ -288,12 +288,15 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc, _, launcher := serviceWithLauncher(t)
+			svc, st, launcher := serviceWithLauncher(t)
 			launcher.err = tt.err
 
 			err := tt.call(t.Context(), svc)
 
 			assert.Equal(t, tt.wantCode, connect.CodeOf(err))
+			if tt.err == nil {
+				assert.Equal(t, &fakeLauncher{t: t, st: st}, launcher, "a request the handler refuses reaches no service")
+			}
 		})
 	}
 }
@@ -315,8 +318,11 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 					Prompt:         "go",
 					IdempotencyKey: xptr.Ptr("triage:ENG-5260"),
 				}))
+				if err != nil {
+					return "", err
+				}
 
-				return created.Msg.GetAgent().GetName(), err
+				return created.Msg.GetAgent().GetName(), nil
 			},
 			err:        agents.ErrAlreadyLaunched,
 			wantAnswer: "spawned",
@@ -338,8 +344,11 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 					IdempotencyKey:   xptr.Ptr("triage:ENG-5260"),
 					ParentAgentId:    xptr.Ptr(ids[0]),
 				}))
+				if err != nil {
+					return "", err
+				}
 
-				return created.Msg.GetAgent().GetName(), err
+				return created.Msg.GetAgent().GetName(), nil
 			},
 			wantAnswer: "spawned",
 			check: func(t *testing.T, launcher *fakeLauncher, ids []string) {
@@ -367,8 +376,11 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 					Flags:          "--sandbox read-only",
 					IdempotencyKey: xptr.Ptr("review-1"),
 				}))
+				if err != nil {
+					return "", err
+				}
 
-				return requested.Msg.GetReviewer().GetName(), err
+				return requested.Msg.GetReviewer().GetName(), nil
 			},
 			wantAnswer: "spawned",
 			check: func(t *testing.T, launcher *fakeLauncher, ids []string) {
@@ -394,8 +406,11 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 					WorkflowId:     "wf-1",
 					IdempotencyKey: xptr.Ptr("adopt-1"),
 				}))
+				if err != nil {
+					return "", err
+				}
 
-				return adopted.Msg.GetAgent().GetName(), err
+				return adopted.Msg.GetAgent().GetName(), nil
 			},
 			wantAnswer: "spawned",
 			check: func(t *testing.T, launcher *fakeLauncher, _ []string) {
@@ -419,8 +434,11 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 					Prompt:  "try again",
 					Harness: "codex",
 				}))
+				if err != nil {
+					return "", err
+				}
 
-				return retried.Msg.GetAgent().GetName(), err
+				return retried.Msg.GetAgent().GetName(), nil
 			},
 			wantAnswer: "spawned",
 			check: func(t *testing.T, launcher *fakeLauncher, ids []string) {
@@ -436,8 +454,11 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 			name: "resuming",
 			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter, ids []string) (string, error) {
 				resumed, err := svc.ResumeAgent(ctx, connect.NewRequest(&agentv1.ResumeAgentRequest{Id: ids[0]}))
+				if err != nil {
+					return "", err
+				}
 
-				return resumed.Msg.GetAgent().GetName(), err
+				return resumed.Msg.GetAgent().GetName(), nil
 			},
 			wantAnswer: "spawned",
 			check: func(t *testing.T, launcher *fakeLauncher, ids []string) {
@@ -448,8 +469,11 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 			name: "holding from the panel",
 			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter, ids []string) (string, error) {
 				held, err := svc.HoldAgent(ctx, connect.NewRequest(&agentv1.HoldAgentRequest{Id: ids[0]}))
+				if err != nil {
+					return "", err
+				}
 
-				return held.Msg.GetAgent().GetName(), err
+				return held.Msg.GetAgent().GetName(), nil
 			},
 			wantAnswer: "spawned",
 			check: func(t *testing.T, launcher *fakeLauncher, ids []string) {
@@ -463,8 +487,11 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 					Id:   ids[0],
 					Said: "I rebased your branch",
 				}))
+				if err != nil {
+					return "", err
+				}
 
-				return released.Msg.GetAgent().GetName(), err
+				return released.Msg.GetAgent().GetName(), nil
 			},
 			wantAnswer: "spawned",
 			check: func(t *testing.T, launcher *fakeLauncher, ids []string) {
@@ -478,8 +505,11 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 			name: "starting a workflow's orchestrator",
 			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter, _ []string) (string, error) {
 				started, err := svc.StartOrchestrator(ctx, connect.NewRequest(&agentv1.StartOrchestratorRequest{WorkflowId: "wf-1"}))
+				if err != nil {
+					return "", err
+				}
 
-				return started.Msg.GetAgent().GetName(), err
+				return started.Msg.GetAgent().GetName(), nil
 			},
 			wantAnswer: "spawned",
 			check: func(t *testing.T, launcher *fakeLauncher, _ []string) {
@@ -490,8 +520,11 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 			name: "planning a rebase",
 			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter, ids []string) (string, error) {
 				planned, err := svc.PlanRebase(ctx, connect.NewRequest(&agentv1.PlanRebaseRequest{AgentId: ids[0]}))
+				if err != nil {
+					return "", err
+				}
 
-				return fmt.Sprintf("%s onto %s, %d of %d to replay", planned.Msg.GetBranch(), planned.Msg.GetBaseRef(), planned.Msg.GetReplayCommits(), planned.Msg.GetCommits()), err
+				return fmt.Sprintf("%s onto %s, %d of %d to replay", planned.Msg.GetBranch(), planned.Msg.GetBaseRef(), planned.Msg.GetReplayCommits(), planned.Msg.GetCommits()), nil
 			},
 			wantAnswer: "agent/alpha onto origin/main, 2 of 3 to replay",
 			check: func(t *testing.T, launcher *fakeLauncher, ids []string) {
@@ -502,8 +535,11 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 			name: "rebasing",
 			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter, ids []string) (string, error) {
 				rebased, err := svc.RebaseWorktree(ctx, connect.NewRequest(&agentv1.RebaseWorktreeRequest{AgentId: ids[0]}))
+				if err != nil {
+					return "", err
+				}
 
-				return fmt.Sprintf("%s onto %s, conflicted %t", rebased.Msg.GetBranch(), rebased.Msg.GetBaseRef(), rebased.Msg.GetConflicted()), err
+				return fmt.Sprintf("%s onto %s, conflicted %t", rebased.Msg.GetBranch(), rebased.Msg.GetBaseRef(), rebased.Msg.GetConflicted()), nil
 			},
 			wantAnswer: "agent/alpha onto origin/main, conflicted true",
 			check: func(t *testing.T, launcher *fakeLauncher, ids []string) {
@@ -514,6 +550,9 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 			name: "deleting takes the whole batch",
 			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter, ids []string) (string, error) {
 				_, err := svc.DeleteAgents(ctx, connect.NewRequest(&agentv1.DeleteAgentsRequest{Ids: ids}))
+				if err != nil {
+					return "", err
+				}
 
 				return "", err
 			},
@@ -525,6 +564,9 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 			name: "archiving from the panel takes the whole batch",
 			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter, ids []string) (string, error) {
 				_, err := svc.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{Ids: ids}))
+				if err != nil {
+					return "", err
+				}
 
 				return "", err
 			},
@@ -536,12 +578,16 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 			name: "restoring answers with every agent restored",
 			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter, ids []string) (string, error) {
 				restored, err := svc.RestoreAgents(ctx, connect.NewRequest(&agentv1.RestoreAgentsRequest{Ids: ids}))
+				if err != nil {
+					return "", err
+				}
+
 				names := xslice.Map(restored.Msg.GetAgents(), func(agent *agentv1.Agent) string {
 					return agent.GetName()
 				})
 				slices.Sort(names)
 
-				return strings.Join(names, " "), err
+				return strings.Join(names, " "), nil
 			},
 			wantAnswer: "alpha beta",
 			check: func(t *testing.T, launcher *fakeLauncher, ids []string) {
@@ -552,6 +598,9 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 			name: "emptying the archive",
 			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter, _ []string) (string, error) {
 				_, err := svc.EmptyArchive(ctx, connect.NewRequest(&emptypb.Empty{}))
+				if err != nil {
+					return "", err
+				}
 
 				return "", err
 			},
@@ -566,6 +615,9 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 					Id:   ids[0],
 					Name: "renamed",
 				}))
+				if err != nil {
+					return "", err
+				}
 
 				return "", err
 			},
@@ -580,6 +632,9 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 					Id:     ids[0],
 					Hidden: true,
 				}))
+				if err != nil {
+					return "", err
+				}
 
 				return "", err
 			},
@@ -595,6 +650,9 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 					Key:   "linear_issue",
 					Value: xptr.Ptr("https://linear.app/x/issue/ENG-1"),
 				}))
+				if err != nil {
+					return "", err
+				}
 
 				return "", err
 			},
@@ -610,6 +668,9 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 			name: "claiming the failed runs",
 			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter, ids []string) (string, error) {
 				_, err := svc.MarkRunsRead(ctx, connect.NewRequest(&agentv1.MarkRunsReadRequest{Id: ids[0]}))
+				if err != nil {
+					return "", err
+				}
 
 				return "", err
 			},
@@ -625,6 +686,9 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 					Reason:    "Bash",
 					TurnEnded: true,
 				}))
+				if err != nil {
+					return "", err
+				}
 
 				return "", err
 			},
@@ -1420,7 +1484,6 @@ type fakeLauncher struct {
 	t            *testing.T
 	st           *storetest.Stores
 	err          error
-	alive        bool
 	spawnedAgent *agentstore.Agent
 	created      agents.NewAgentParams
 	reviewed     agents.RequestReviewParams
@@ -1490,9 +1553,8 @@ func (f *fakeLauncher) Adopt(_ context.Context, params agents.AdoptParams) (*age
 	return f.answer()
 }
 
-// IsAgentRunning answers for the fake's agents, which are live exactly when the test says so.
 func (f *fakeLauncher) IsAgentRunning(agentstore.Agent) bool {
-	return f.alive
+	return false
 }
 
 func (f *fakeLauncher) ResumeAgent(_ context.Context, id string) (*agentstore.Agent, error) {
