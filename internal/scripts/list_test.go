@@ -48,3 +48,10 @@ func TestListSeesAnEditedHeader(t *testing.T) {
 	require.Len(t, second, 1)
 	assert.Equal(t, "after", second[0].Header.Description)
 }
+
+// write puts an empty script at the path.
+func write(t *testing.T, path string, mode os.FileMode) {
+	t.Helper()
+
+	require.NoError(t, os.WriteFile(path, []byte("#!/bin/sh\n"), mode))
+}
