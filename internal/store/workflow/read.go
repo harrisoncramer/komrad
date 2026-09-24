@@ -24,19 +24,12 @@ func (s *WorkflowStore) ListWorktreeDirs(ctx context.Context) ([]string, error) 
 
 // List returns every workflow the live listing holds, by name.
 func (s *WorkflowStore) List(ctx context.Context) ([]Workflow, error) {
-	rows, err := s.queries.SnapshotWorkflows(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list workflows: %w", err)
-	}
-
-	hooks, err := s.hooksByWorkflow(ctx)
+	watched, err := s.ListWatched(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	return xslice.Map(rows, func(row *models.SnapshotWorkflowsRow) Workflow {
-		return workflowFromRow(row.Workflow, row.WorkflowConfig, row.WorkflowProvisionerConfig, hooks[row.Workflow.ID])
-	}), nil
+	return xslice.Filter(watched, func(w Workflow) bool { return w.ArchivedAt == nil }), nil
 }
 
 // ByName is the order every workflow listing is read in, matched by the ORDER BY in
@@ -66,26 +59,21 @@ func (c Cursor) Validate() error {
 // ListPage returns one page of workflows by name, resuming after cursor when one is given,
 // over the archived workflows or the live ones and never both.
 func (s *WorkflowStore) ListPage(ctx context.Context, limit int64, cursor *Cursor, archived bool) ([]Workflow, error) {
-	params := models.ListWorkflowsPageParams{Lim: int32(limit), Archived: archived}
+	params := models.ListWorkflowPageIDsParams{Lim: int32(limit), Archived: archived}
 	if cursor != nil {
 		params.CursorName = &cursor.Name
 		params.CursorID = &cursor.ID
 	}
 
-	rows, err := s.queries.ListWorkflowsPage(ctx, params)
+	ids, err := s.queries.ListWorkflowPageIDs(ctx, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list a page of workflows: %w", err)
 	}
-
-	ids := xslice.Map(rows, func(row *models.ListWorkflowsPageRow) string { return row.Workflow.ID })
-	hooks, err := s.hooksForWorkflows(ctx, ids)
-	if err != nil {
-		return nil, err
+	if len(ids) == 0 {
+		return nil, nil
 	}
 
-	return xslice.Map(rows, func(row *models.ListWorkflowsPageRow) Workflow {
-		return workflowFromRow(row.Workflow, row.WorkflowConfig, row.WorkflowProvisionerConfig, hooks[row.Workflow.ID])
-	}), nil
+	return s.ListWatched(ctx, ids)
 }
 
 // Get returns a live workflow by id, or ErrNotFound when none has that id.

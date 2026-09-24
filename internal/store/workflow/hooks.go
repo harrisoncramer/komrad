@@ -62,21 +62,6 @@ func (s *WorkflowStore) hooksFor(ctx context.Context, workflowID string) ([]Hook
 	}), nil
 }
 
-// hooksByWorkflow reads every workflow's hooks in one query.
-func (s *WorkflowStore) hooksByWorkflow(ctx context.Context) (map[string][]Hook, error) {
-	rows, err := s.queries.ListWorkflowHooks(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read workflow hooks: %w", err)
-	}
-
-	hooks := make(map[string][]Hook)
-	for _, row := range rows {
-		hooks[row.WorkflowID] = append(hooks[row.WorkflowID], Hook{Event: row.Event, Script: row.Script})
-	}
-
-	return hooks, nil
-}
-
 // hooksForWorkflows reads the hooks of the workflows named.
 func (s *WorkflowStore) hooksForWorkflows(ctx context.Context, ids []string) (map[string][]Hook, error) {
 	if len(ids) == 0 {

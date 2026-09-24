@@ -1,12 +1,8 @@
--- name: ListWorkflowsPage :many
+-- name: ListWorkflowPageIDs :many
 SELECT
-    sqlc.embed(w),
-    sqlc.embed(wc),
-    sqlc.embed(pc)
+    w.id
 FROM
     workflows w
-    JOIN workflow_configs wc ON wc.id = w.workflow_config_id
-    JOIN workflow_provisioner_configs pc ON pc.id = w.provisioner_config_id
 WHERE (@archived::boolean) =(w.archived_at IS NOT NULL)
     AND w.deleting_at IS NULL
     AND (sqlc.narg('cursor_id')::uuid IS NULL
@@ -20,23 +16,6 @@ ORDER BY
     COLLATE "C" ASC,
     w.id ASC
 LIMIT @lim;
-
--- name: SnapshotWorkflows :many
-SELECT
-    sqlc.embed(w),
-    sqlc.embed(wc),
-    sqlc.embed(pc)
-FROM
-    workflows w
-    JOIN workflow_configs wc ON wc.id = w.workflow_config_id
-    JOIN workflow_provisioner_configs pc ON pc.id = w.provisioner_config_id
-WHERE
-    w.archived_at IS NULL
-    AND w.deleting_at IS NULL
-ORDER BY
-    LOWER(w.name)
-    COLLATE "C" ASC,
-    w.id ASC;
 
 -- name: ListWatchedWorkflows :many
 SELECT
@@ -223,18 +202,6 @@ WHERE id = @id;
 -- name: DeleteWorkflowProvisionerConfig :exec
 DELETE FROM workflow_provisioner_configs
 WHERE id = @id;
-
--- name: ListWorkflowHooks :many
-SELECT
-    workflow_id,
-    event,
-    script
-FROM
-    workflow_hooks
-ORDER BY
-    workflow_id,
-    position,
-    id;
 
 -- name: ListHooksForWorkflows :many
 SELECT
