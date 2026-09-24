@@ -10,7 +10,11 @@ import (
 
 	"weave/config"
 	agentv1 "weave/proto/gen/agent/v1"
+	"weave/proto/gen/agent/v1/agentv1connect"
+	"weave/proto/gen/hook/v1/hookv1connect"
+	pullrequestv1 "weave/proto/gen/pullrequest/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
+	"weave/proto/gen/workflow/v1/workflowv1connect"
 	worktreev1 "weave/proto/gen/worktree/v1"
 	"weave/proto/gen/worktree/v1/worktreev1connect"
 
@@ -20,9 +24,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-const hiddenMark = " \uf4c5"
+const (
+	hiddenMark    = " \uf4c5"
+	heldAt        = "2026-09-20T12:00:00Z"
+	repositoryURL = "https://github.com/harrisoncramer/weave"
+)
 
 // TestAgentsRows covers which rows the agents tree draws and where.
 func TestAgentsRows(t *testing.T) {
@@ -1424,5 +1433,852 @@ func buildRecorded() []proto.Message {
 			Worktree: &workflowv1.WorktreeConfig{Enabled: true},
 		},
 		agent,
+	}
+}
+
+// TestAgentsPause covers pausing an agent and letting it go again.
+func TestAgentsPause(t *testing.T) {
+	t.Run("pausing takes the agent and says nothing to it", func(t *testing.T) {
+		harness := openAgents(t, newWorkflow("w1", "backend"), newPausable(""))
+
+		harness.press("p")
+
+		harness.assertSent(request{
+			procedure: agentv1connect.AgentServiceHoldAgentProcedure,
+			msg:       &agentv1.HoldAgentRequest{Id: "a1"},
+		})
+	})
+
+	t.Run("unpausing tells the agent to carry on", func(t *testing.T) {
+		harness := openAgents(t, newWorkflow("w1", "backend"), newPausable(heldAt))
+		said := recordRelease(harness)
+
+		harness.press("p")
+
+		require.Len(t, *said, 1)
+		assert.Equal(t, "a1", (*said)[0].GetId())
+		assert.NotEmpty(t, (*said)[0].GetSaid(), "an unpaused agent is told to carry on rather than left stopped")
+	})
+
+	t.Run("unpausing in silence asks first", func(t *testing.T) {
+		tests := []struct {
+			name     string
+			answer   string
+			wantSent int
+		}{
+			{
+				name:   "declining keeps the hold",
+				answer: "n",
+			},
+			{
+				name:     "confirming lets it go without saying anything",
+				answer:   "y",
+				wantSent: 1,
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				harness := openAgents(t, newWorkflow("w1", "backend"), newPausable(heldAt))
+				said := recordRelease(harness)
+
+				harness.press("P")
+				require.Empty(t, *said, "the key asks before it drops the words")
+
+				harness.press(tt.answer)
+
+				require.Len(t, *said, tt.wantSent)
+				if tt.wantSent > 0 {
+					assert.Equal(t, "a1", (*said)[0].GetId())
+					assert.Empty(t, (*said)[0].GetSaid(), "nothing is typed at an agent let go in silence")
+				}
+			})
+		}
+	})
+
+	t.Run("unpausing in silence is only for a paused agent", func(t *testing.T) {
+		harness := openAgents(t, newWorkflow("w1", "backend"), newPausable(""))
+		before := harness.readFrame()
+
+		harness.press("P")
+
+		assert.Equal(t, before, harness.readFrame(), "no prompt opens")
+		harness.assertSent()
+	})
+
+	t.Run("the open key does nothing for a paused agent", func(t *testing.T) {
+		harness := openAgents(t, newWorkflow("w1", "backend"), newPausable(heldAt))
+
+		harness.press("enter")
+
+		harness.assertSent()
+		assert.Contains(t, harness.readFrame(), "Press unpause to let it carry on")
+	})
+
+	t.Run("a paused agent draws its document in place of its pane", func(t *testing.T) {
+		harness := openAgents(t, newWorkflow("w1", "backend"), newPausable(heldAt))
+
+		assert.True(t, harness.panel.IsZoomed(), "the panel keeps the window")
+		assert.Contains(t, harness.readFrame(), "Press unpause to let it carry on")
+	})
+
+	t.Run("the legend names the way out of a pause only on a paused row", func(t *testing.T) {
+		paused := openAgents(t, newWorkflow("w1", "backend"), newPausable(heldAt))
+		paused.press(append(widenListPresses, "?")...)
+		assert.Contains(t, readLegend(paused.readFrame()), "unpause in silence")
+
+		loose := openAgents(t, newWorkflow("w1", "backend"), newPausable(""))
+		loose.press(append(widenListPresses, "?")...)
+		assert.NotContains(t, readLegend(loose.readFrame()), "unpause in silence")
+	})
+
+	tests := []struct {
+		name  string
+		state agentv1.AgentState
+		want  string
+	}{
+		{
+			name:  "at rest, which is what a pause claims",
+			state: agentv1.AgentState_AGENT_STATE_IDLE,
+			want:  "paused: you stopped it and have its worktree",
+		},
+		{
+			name:  "writing again",
+			state: agentv1.AgentState_AGENT_STATE_THINKING,
+			want:  "paused, but it has started working again",
+		},
+		{
+			name:  "stopped at a prompt anybody could answer",
+			state: agentv1.AgentState_AGENT_STATE_WAITING,
+			want:  "paused, but stopped at a prompt, so a write lands if anybody answers",
+		},
+		{
+			name:  "a pane nobody can read",
+			state: agentv1.AgentState_AGENT_STATE_UNCERTAIN,
+			want:  "paused, but its pane cannot be read, so it may be writing",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			agent := newPausable(heldAt)
+			agent.State = tt.state
+			harness := newPanelHarness(t, panelHarnessParams{width: 240})
+			answerWorktreeReads(harness)
+			harness.watch(buildSnapshot(newWorkflow("w1", "backend"), agent))
+
+			harness.press(slices.Repeat([]string{"}"}, 30)...)
+
+			record := strings.Join(readRecord(harness.readFrame()), "\n")
+			assert.Contains(t, record, tt.want)
+			assert.Equal(t, 1, strings.Count(record, "paused"), "a row says one thing about a pause, not two")
+		})
+	}
+}
+
+func newPausable(held string) *agentv1.Agent {
+	return &agentv1.Agent{
+		Id:         "a1",
+		Name:       "telescope",
+		WorkflowId: "w1",
+		PaneId:     "%9",
+		Alive:      proto.Bool(true),
+		State:      agentv1.AgentState_AGENT_STATE_THINKING,
+		HeldAt:     held,
+	}
+}
+
+func recordRelease(harness *panelHarness) *[]*agentv1.ReleaseAgentRequest {
+	var said []*agentv1.ReleaseAgentRequest
+	harness.answer(agentv1connect.AgentServiceReleaseAgentProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {
+		release, _ := req.Any().(*agentv1.ReleaseAgentRequest)
+		said = append(said, release)
+
+		return connect.NewResponse(&agentv1.ReleaseAgentResponse{}), nil
+	})
+
+	return &said
+}
+
+// TestAgentsOrchestrator covers the agent that stands behind a workflow's row.
+func TestAgentsOrchestrator(t *testing.T) {
+	dormant := newOrchestrator("o1", "w1")
+	dormant.Alive = nil
+	dormant.State = agentv1.AgentState_AGENT_STATE_IDLE
+	failed := newOrchestrator("o1", "w1")
+	failed.Alive = nil
+	failed.State = agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE
+
+	tests := []struct {
+		name       string
+		rows       []proto.Message
+		want       string
+		wantZoomed bool
+	}{
+		{
+			name:       "a workflow whose orchestrator failed to start says so",
+			rows:       []proto.Message{newWorkflow("w1", "backend"), failed},
+			want:       "setup failed",
+			wantZoomed: true,
+		},
+		{
+			name:       "a workflow whose orchestrator stopped says how to bring it back",
+			rows:       []proto.Message{newWorkflow("w1", "backend"), dormant},
+			want:       "Press open to resume.",
+			wantZoomed: true,
+		},
+		{
+			name:       "a workflow that never had one draws its shared context",
+			rows:       []proto.Message{newWorkflow("w1", "backend")},
+			want:       "no shared context set",
+			wantZoomed: true,
+		},
+		{
+			name: "a workflow whose orchestrator is running stages its pane",
+			rows: []proto.Message{newWorkflow("w1", "backend"), newOrchestrator("o1", "w1")},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			harness := openAgents(t, tt.rows...)
+			if !tt.wantZoomed {
+				harness.fireTimers()
+			}
+
+			assert.Equal(t, tt.wantZoomed, harness.panel.IsZoomed())
+			if tt.want != "" {
+				assert.Contains(t, harness.readFrame(), tt.want)
+			}
+		})
+	}
+
+	t.Run("open on a workflow starts its orchestrator", func(t *testing.T) {
+		harness := openAgents(t, newWorkflow("w1", "backend"))
+
+		harness.press("enter")
+
+		harness.assertSent(request{
+			procedure: agentv1connect.AgentServiceStartOrchestratorProcedure,
+			msg:       &agentv1.StartOrchestratorRequest{WorkflowId: "w1"},
+		})
+	})
+
+	t.Run("moving onto a workflow starts nothing", func(t *testing.T) {
+		harness := openAgents(t, newWorkflow("w1", "backend"), newAgent("a1", "telescope", "w1"))
+
+		harness.press("k")
+
+		require.Equal(t, "backend", readHoveredRow(harness.readFrame()))
+		harness.assertSent()
+	})
+
+	t.Run("a flat list draws no row for the orchestrator it folded away", func(t *testing.T) {
+		harness := openAgents(t,
+			newWorkflow("w1", "backend"),
+			newOrchestrator("o1", "w1"),
+			newAgentAt("telescope", "w1", 1),
+			newChild("a2", "reader", "telescope"),
+		)
+
+		harness.press("f", "shift+tab", "j")
+
+		assert.Equal(t, []string{"telescope", "  └ reader"}, readListRows(harness.readFrame()))
+	})
+
+	t.Run("a workflow made in the panel comes with its orchestrator", func(t *testing.T) {
+		harness := openAgents(t, newWorkflow("w1", "backend"))
+		answerWorkflowCreate(harness, "w2")
+
+		harness.press("w", "a", "p", "i", "ctrl+s")
+
+		harness.assertSent(
+			request{
+				procedure: hookv1connect.HookServiceListHooksProcedure,
+				msg:       &emptypb.Empty{},
+			},
+			request{
+				procedure: workflowv1connect.WorkflowServiceCreateWorkflowProcedure,
+				msg: &workflowv1.CreateWorkflowRequest{
+					Name:     "api",
+					Worktree: &workflowv1.WorktreeConfig{Enabled: true},
+				},
+			},
+			request{
+				procedure: agentv1connect.AgentServiceStartOrchestratorProcedure,
+				msg:       &agentv1.StartOrchestratorRequest{WorkflowId: "w2"},
+			},
+		)
+	})
+
+	t.Run("a workflow stands when its orchestrator will not start", func(t *testing.T) {
+		harness := openAgents(t, newWorkflow("w1", "backend"))
+		answerWorkflowCreate(harness, "w2")
+		harness.refuse(agentv1connect.AgentServiceStartOrchestratorProcedure, connect.NewError(connect.CodePermissionDenied, errors.New("the person refused the directory")))
+
+		harness.press("w", "a", "p", "i", "ctrl+s")
+		harness.watch(buildSnapshot(newWorkflow("w1", "backend"), newWorkflow("w2", "api")))
+
+		frame := harness.readFrame()
+		assert.NotContains(t, frame, "Could not create the workflow")
+		assert.Equal(t, "api", readHoveredRow(frame), "the cursor lands on the workflow it made")
+	})
+}
+
+func answerWorkflowCreate(harness *panelHarness, id string) {
+	harness.answer(workflowv1connect.WorkflowServiceCreateWorkflowProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+		return connect.NewResponse(&workflowv1.CreateWorkflowResponse{Workflow: &workflowv1.Workflow{Id: id}}), nil
+	})
+}
+
+// TestAgentsChildren covers what a parent and its children allow and say about each other.
+func TestAgentsChildren(t *testing.T) {
+	tests := []struct {
+		name  string
+		press []string
+		want  string
+	}{
+		{
+			name:  "one agent with nothing attached",
+			press: []string{"z"},
+			want:  `Archive agent "fix-gutter"?`,
+		},
+		{
+			name:  "one agent with children",
+			press: []string{"j", "z"},
+			want:  `Archive agent "author" and its 2 children?`,
+		},
+		{
+			name:  "a selection of agents counts every child that goes with it",
+			press: []string{"v", "j", "v", "z"},
+			want:  "Archive 2 agents and 2 children?",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			harness := openAgents(t, buildFamily()...)
+
+			harness.press(tt.press...)
+
+			assert.Contains(t, harness.readFrame(), tt.want)
+		})
+	}
+
+	t.Run("the hard delete counts the children in the archive's own rows", func(t *testing.T) {
+		reviewer := newArchivedAgent("a3", "reviewer", "w1")
+		reviewer.ParentAgentId = proto.String("a1")
+		harness := openArchive(t, newWorkflow("w1", "weave"), newArchivedAgent("a1", "author", "w1"), reviewer)
+
+		harness.press("j", "d")
+
+		frame := harness.readFrame()
+		assert.Contains(t, frame, `Permanently delete agent "author" and its child?`)
+		assert.Contains(t, frame, "Their transcripts go with them")
+	})
+
+	t.Run("the child key on a child says why rather than opening a form", func(t *testing.T) {
+		harness := openAgents(t, buildFamily()...)
+
+		harness.press(append([]string{"G", "C"}, widenListPresses...)...)
+
+		frame := harness.readFrame()
+		assert.Contains(t, frame, "may not have children")
+		assert.NotContains(t, frame, "C-s submit")
+	})
+
+	t.Run("only the parent's own worktree is offered a rebase", func(t *testing.T) {
+		rows := buildFamily()
+		rows[0] = &workflowv1.Workflow{
+			Id:       "w1",
+			Name:     "weave",
+			Worktree: &workflowv1.WorktreeConfig{Enabled: true},
+		}
+		author, _ := rows[1].(*agentv1.Agent)
+		author.Cwd = "/tmp/tree"
+		harness := openAgents(t, rows...)
+
+		harness.press("j", "b")
+		assert.NotContains(t, harness.readFrame(), "no worktree of its own")
+
+		harness.press("esc", "j", "b")
+		assert.Contains(t, harness.readFrame(), "Rebase onto the base (r) · no worktree of its own")
+	})
+}
+
+// TestAgentsWatchedEdits covers edits the watch delivers reaching the hovered row's record and document.
+func TestAgentsWatchedEdits(t *testing.T) {
+	t.Run("a workflow context edited elsewhere is drawn without the cursor moving", func(t *testing.T) {
+		workflow := newWorkflow("w1", "api")
+		workflow.Context = "old notes"
+		harness := openAgents(t, workflow)
+		require.Contains(t, harness.readFrame(), "old notes")
+
+		harness.watch(buildPuts(&workflowv1.Workflow{
+			Id:      "w1",
+			Name:    "api",
+			Context: "new notes",
+		}))
+
+		frame := harness.readFrame()
+		assert.Contains(t, frame, "new notes")
+		assert.NotContains(t, frame, "old notes")
+	})
+
+	t.Run("a pull request for a branch nobody is on waits for the agent that arrives on it", func(t *testing.T) {
+		harness := openAgents(t,
+			newWorkflow("w1", "api"),
+			newBranchAgent("a1", "api", "agent/x"),
+			&pullrequestv1.Repository{
+				Url:  repositoryURL,
+				Read: true,
+			},
+		)
+		harness.press(widenListPresses...)
+
+		harness.watch(buildPuts(&pullrequestv1.PullRequest{
+			Id:                "pr-1",
+			RepositoryUrl:     repositoryURL,
+			HeadRepositoryUrl: repositoryURL,
+			HeadBranch:        "agent/other",
+			Number:            7,
+			State:             pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
+			OpenedAt:          "2026-09-19T12:00:00Z",
+		}))
+		require.Equal(t, "none from this branch", readRecordField(harness.readFrame(), "pull request"), "the row on another branch is untouched")
+
+		arrived := newBranchAgent("a2", "web", "agent/other")
+		arrived.CreatedAt = "2026-09-20T12:00:00Z"
+		harness.watch(buildPuts(arrived))
+		harness.press("k")
+
+		frame := harness.readFrame()
+		require.Equal(t, "  web", readHoveredRow(frame))
+		assert.True(t, strings.HasPrefix(readRecordField(frame, "pull request"), "#7 open"))
+	})
+}
+
+func newBranchAgent(id, name, branch string) *agentv1.Agent {
+	agent := newAgent(id, name, "w1")
+	agent.RepositoryUrl = proto.String(repositoryURL)
+	agent.Branch = proto.String(branch)
+
+	return agent
+}
+
+// TestAgentsSelection covers choosing several agents and acting on them at once.
+func TestAgentsSelection(t *testing.T) {
+	tests := []struct {
+		name    string
+		press   []string
+		wantIDs []string
+	}{
+		{
+			name:    "with nothing selected the archive key takes the hovered row",
+			wantIDs: []string{"auth"},
+		},
+		{
+			name:    "the select key takes in the agent under the cursor",
+			press:   []string{"j", "v"},
+			wantIDs: []string{"api"},
+		},
+		{
+			name:    "and drops one already selected",
+			press:   []string{"v", "j", "v", "v"},
+			wantIDs: []string{"auth"},
+		},
+		{
+			name:    "a header takes its whole folder less the hidden agent with no row",
+			press:   []string{"k", "v"},
+			wantIDs: []string{"auth", "api", "db"},
+		},
+		{
+			name:    "a partly selected folder is filled in rather than emptied",
+			press:   []string{"j", "v", "k", "k", "v"},
+			wantIDs: []string{"auth", "api", "db"},
+		},
+		{
+			name:    "a wholly selected folder drops and leaves what is outside it",
+			press:   []string{"k", "v", "G", "v", "g", "g", "v", "G"},
+			wantIDs: []string{"ui"},
+		},
+		{
+			name:    "the range key from a list at rest takes the agent under the cursor",
+			press:   []string{"j", "j", "V"},
+			wantIDs: []string{"db"},
+		},
+		{
+			name:    "and on a header takes the folder",
+			press:   []string{"k", "V"},
+			wantIDs: []string{"auth", "api", "db"},
+		},
+		{
+			name:    "a header takes no range once the mode is up",
+			press:   []string{"j", "j", "v", "g", "g", "V", "j", "j", "j"},
+			wantIDs: []string{"db"},
+		},
+		{
+			name:    "a selection above reaches down to the cursor",
+			press:   []string{"v", "j", "j", "V"},
+			wantIDs: []string{"auth", "api", "db"},
+		},
+		{
+			name:    "a selection below reaches up to it",
+			press:   []string{"j", "j", "v", "k", "k", "V"},
+			wantIDs: []string{"auth", "api", "db"},
+		},
+		{
+			name:    "a header inside the range is passed over",
+			press:   []string{"j", "j", "v", "G", "V"},
+			wantIDs: []string{"db", "ui"},
+		},
+		{
+			name:    "a cursor as far from a selection either side takes the one above",
+			press:   []string{"v", "j", "j", "v", "k", "V"},
+			wantIDs: []string{"auth", "api", "db"},
+		},
+		{
+			name:    "a selection spanning folders goes in one call",
+			press:   []string{"v", "G", "v", "g", "g", "j"},
+			wantIDs: []string{"auth", "ui"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			harness := openAgents(t, buildSelectable()...)
+			harness.press(tt.press...)
+
+			harness.press("z")
+			harness.assertSent()
+			harness.press("ctrl+s")
+
+			harness.assertSent(request{
+				procedure: agentv1connect.AgentServiceArchiveAgentsProcedure,
+				msg:       &agentv1.ArchiveAgentsRequest{Ids: tt.wantIDs},
+			})
+		})
+	}
+
+	t.Run("a folder with no rows under it opens no selection", func(t *testing.T) {
+		harness := openAgents(t, append(buildSelectable(), newWorkflow("w3", "chores"))...)
+
+		harness.press("j", "j", "j")
+		require.Equal(t, "chores", readHoveredRow(harness.readFrame()))
+
+		harness.press("v")
+		assert.NotContains(t, readLegend(harness.readFrame()), "selected")
+	})
+
+	t.Run("keys with nothing to say about a set stand down and escape clears it", func(t *testing.T) {
+		harness := openAgents(t, buildSelectable()...)
+		harness.press("v")
+
+		harness.press("r")
+		assert.NotContains(t, harness.readFrame(), "C-s submit", "rename does not open its form")
+
+		harness.press("j")
+		assert.Equal(t, "  api", readHoveredRow(harness.readFrame()), "the cursor still moves")
+
+		harness.press("esc")
+		assert.NotContains(t, readLegend(harness.readFrame()), "selected")
+	})
+
+	t.Run("an agent gone from the listing drops out of the selection", func(t *testing.T) {
+		harness := openAgents(t, buildSelectable()...)
+		harness.press("v", "G", "v")
+
+		harness.watch(buildSnapshot(newWorkflow("w2", "frontend"), newAgentAt("ui", "w2", 1)))
+		harness.press("z", "ctrl+s")
+
+		harness.assertSent(request{
+			procedure: agentv1connect.AgentServiceArchiveAgentsProcedure,
+			msg:       &agentv1.ArchiveAgentsRequest{Ids: []string{"ui"}},
+		})
+	})
+
+	t.Run("so does one the hidden toggle puts away", func(t *testing.T) {
+		harness := openAgents(t, buildSelectable()...)
+		harness.press("H", "v", "j", "j", "j", "v", "H")
+
+		harness.press("z", "ctrl+s")
+
+		harness.assertSent(request{
+			procedure: agentv1connect.AgentServiceArchiveAgentsProcedure,
+			msg:       &agentv1.ArchiveAgentsRequest{Ids: []string{"auth"}},
+		})
+	})
+}
+
+func buildSelectable() []proto.Message {
+	return []proto.Message{
+		newWorkflow("w1", "backend"),
+		newWorkflow("w2", "frontend"),
+		newAgentAt("auth", "w1", 5),
+		newAgentAt("api", "w1", 4),
+		newAgentAt("db", "w1", 3),
+		newHiddenAgent("sweep", "sweep", "w1"),
+		newAgentAt("ui", "w2", 1),
+	}
+}
+
+// TestAgentsSetMark covers the two keys that put a letter on the hovered row.
+func TestAgentsSetMark(t *testing.T) {
+	tests := []struct {
+		name  string
+		marks []proto.Message
+		press []string
+		want  *agentv1.SetMarkRequest
+	}{
+		{
+			name:  "an unmarked agent takes the letter",
+			press: []string{"m", "a"},
+			want:  markAgent("auth", proto.String("a")),
+		},
+		{
+			name:  "a letter another agent holds is still set, since the service moves it",
+			marks: []proto.Message{newMark("a", "db")},
+			press: []string{"m", "a"},
+			want:  markAgent("auth", proto.String("a")),
+		},
+		{
+			name:  "the letter the agent already holds takes the mark off it",
+			marks: []proto.Message{newMark("a", "auth")},
+			press: []string{"m", "a"},
+			want:  markAgent("auth", nil),
+		},
+		{
+			name:  "a key the screen acts on is read as the letter it is",
+			press: []string{"m", "h"},
+			want:  markAgent("auth", proto.String("h")),
+		},
+		{
+			name:  "a workflow header takes the letter as a workflow",
+			press: []string{"k", "m", "a"},
+			want: &agentv1.SetMarkRequest{
+				Target: &agentv1.SetMarkRequest_WorkflowId{WorkflowId: "w1"},
+				Mark:   proto.String("a"),
+			},
+		},
+		{
+			name: "the letter a header already holds takes the mark off it",
+			marks: []proto.Message{&agentv1.Mark{
+				Id:         "m-w1",
+				Mark:       "a",
+				WorkflowId: proto.String("w1"),
+			}},
+			press: []string{"k", "m", "a"},
+			want: &agentv1.SetMarkRequest{
+				Target: &agentv1.SetMarkRequest_WorkflowId{WorkflowId: "w1"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			harness := openAgents(t, append(buildSelectable(), tt.marks...)...)
+
+			harness.press(tt.press[0])
+			harness.assertSent()
+			harness.press(tt.press[1:]...)
+
+			harness.assertSent(request{
+				procedure: agentv1connect.AgentServiceSetMarkProcedure,
+				msg:       tt.want,
+			})
+		})
+	}
+
+	refusals := []struct {
+		name       string
+		press      []string
+		wantBanner bool
+	}{
+		{
+			name:       "a key that is not a letter aborts the mark and says so",
+			press:      []string{"m", "1"},
+			wantBanner: true,
+		},
+		{
+			name:  "escape backs out without saying anything went wrong",
+			press: []string{"m", "esc"},
+		},
+		{
+			name:       "escape backs out even while a banner is up",
+			press:      []string{"m", "1", "m", "esc", "j"},
+			wantBanner: true,
+		},
+	}
+
+	for _, tt := range refusals {
+		t.Run(tt.name, func(t *testing.T) {
+			harness := openAgents(t, buildSelectable()...)
+
+			harness.press(tt.press...)
+
+			harness.assertSent()
+			assert.Equal(t, tt.wantBanner, strings.Contains(harness.readFrame(), "✗"))
+		})
+	}
+}
+
+// TestAgentsJumpMark covers the jump key taking the cursor to a marked row and back.
+func TestAgentsJumpMark(t *testing.T) {
+	tests := []struct {
+		name  string
+		mark  proto.Message
+		press []string
+		want  string
+	}{
+		{
+			name:  "an agent further down the list",
+			mark:  newMark("c", "db"),
+			press: []string{"'", "c"},
+			want:  "  db",
+		},
+		{
+			name:  "an agent in another workflow",
+			mark:  newMark("c", "ui"),
+			press: []string{"'", "c"},
+			want:  "  ui",
+		},
+		{
+			name:  "an agent a filter keeps off the list",
+			mark:  newMark("c", "db"),
+			press: []string{"/", "a", "u", "t", "h", "tab", "enter", "'", "c"},
+			want:  "  db",
+		},
+		{
+			name:  "a hidden agent, which the jump reveals rather than refusing",
+			mark:  newMark("c", "sweep"),
+			press: []string{"'", "c"},
+			want:  "  sweep" + hiddenMark,
+		},
+		{
+			name: "a workflow header",
+			mark: &agentv1.Mark{
+				Id:         "m-w2",
+				Mark:       "c",
+				WorkflowId: proto.String("w2"),
+			},
+			press: []string{"'", "c"},
+			want:  "frontend",
+		},
+		{
+			name: "a workflow header from a flat list, which is put back under its headers",
+			mark: &agentv1.Mark{
+				Id:         "m-w2",
+				Mark:       "c",
+				WorkflowId: proto.String("w2"),
+			},
+			press: []string{"f", "shift+tab", "j", "esc", "'", "c"},
+			want:  "frontend",
+		},
+		{
+			name:  "an agent from a flat list, which stays flat",
+			mark:  newMark("c", "db"),
+			press: []string{"f", "shift+tab", "j", "esc", "'", "c"},
+			want:  "db",
+		},
+		{
+			name:  "the key twice goes back to where the last jump left",
+			mark:  newMark("c", "db"),
+			press: []string{"'", "c", "'", "'"},
+			want:  "  auth",
+		},
+		{
+			name:  "and twice again goes forward",
+			mark:  newMark("c", "db"),
+			press: []string{"'", "c", "'", "'", "'", "'"},
+			want:  "  db",
+		},
+		{
+			name:  "back to a workflow header it was on",
+			mark:  newMark("c", "db"),
+			press: []string{"k", "'", "c", "'", "'"},
+			want:  "backend +1",
+		},
+		{
+			name:  "the key twice before any jump goes nowhere",
+			mark:  newMark("c", "db"),
+			press: []string{"'", "'"},
+			want:  "  auth",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			harness := openAgents(t, append(buildSelectable(), tt.mark)...)
+
+			harness.press(tt.press...)
+
+			frame := harness.readFrame()
+			assert.Equal(t, tt.want, readHoveredRow(frame))
+			assert.NotContains(t, frame, "✗")
+		})
+	}
+
+	t.Run("a letter nobody holds leaves the cursor and says so", func(t *testing.T) {
+		harness := openAgents(t, buildSelectable()...)
+
+		harness.press("'", "q")
+
+		frame := harness.readFrame()
+		assert.Equal(t, "  auth", readHoveredRow(frame))
+		assert.Contains(t, frame, "✗")
+	})
+
+	t.Run("a jump that cannot land leaves the search and the hidden rows standing", func(t *testing.T) {
+		orphan := newAgent("lost", "lost", "vanished")
+		harness := openAgents(t, append(buildSelectable(), orphan, newMark("c", "lost"))...)
+
+		harness.press("/", "a", "u", "t", "h", "enter", "'", "c")
+
+		frame := harness.readFrame()
+		assert.Contains(t, frame, "✗")
+		assert.Equal(t, "/ auth", readSearch(frame))
+		assert.NotContains(t, readListRows(frame), "  sweep"+hiddenMark)
+	})
+
+	t.Run("a jump revealing a hidden row keeps the search standing", func(t *testing.T) {
+		harness := openAgents(t, append(buildSelectable(), newMark("c", "sweep"))...)
+
+		harness.press("/", "a", "u", "t", "h", "enter", "'", "c")
+
+		frame := harness.readFrame()
+		assert.Equal(t, "/ auth", readSearch(frame))
+		assert.Equal(t, "  sweep"+hiddenMark, readHoveredRow(frame))
+	})
+
+	t.Run("going back to a row that has gone says so and forgets it", func(t *testing.T) {
+		rows := append(buildSelectable(), newMark("c", "db"))
+		harness := openAgents(t, rows...)
+		harness.press("'", "c")
+
+		harness.watch(buildSnapshot(slices.DeleteFunc(slices.Clone(rows), func(row proto.Message) bool {
+			agent, isAgent := row.(*agentv1.Agent)
+
+			return isAgent && agent.GetId() == "auth"
+		})...))
+		harness.press(append([]string{"'", "'"}, widenListPresses...)...)
+
+		frame := harness.readFrame()
+		assert.Contains(t, frame, "Could not jump back")
+		assert.Equal(t, "  db", readHoveredRow(frame))
+	})
+}
+
+func newMark(letter, agentID string) *agentv1.Mark {
+	return &agentv1.Mark{
+		Id:      "m-" + agentID,
+		Mark:    letter,
+		AgentId: proto.String(agentID),
+	}
+}
+
+func markAgent(id string, letter *string) *agentv1.SetMarkRequest {
+	return &agentv1.SetMarkRequest{
+		Target: &agentv1.SetMarkRequest_AgentId{AgentId: id},
+		Mark:   letter,
 	}
 }

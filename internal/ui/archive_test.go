@@ -660,6 +660,120 @@ func TestArchiveWindow(t *testing.T) {
 	})
 }
 
+// TestArchiveSelection covers choosing several archived agents and acting on them at once.
+func TestArchiveSelection(t *testing.T) {
+	rows := []proto.Message{
+		newLiveWorkflow("w1", "backend"),
+		newArchivedAgentAt("auth", "w1", "2026-07-30T12:00:00Z"),
+		newArchivedAgentAt("api", "w1", "2026-07-30T11:00:00Z"),
+		newArchivedAgentAt("db", "w1", "2026-07-30T10:00:00Z"),
+	}
+
+	tests := []struct {
+		name     string
+		press    []string
+		wantSent []request
+	}{
+		{
+			name:  "a header takes its whole folder",
+			press: []string{"v", "r"},
+			wantSent: []request{{
+				procedure: agentv1connect.AgentServiceRestoreAgentsProcedure,
+				msg:       &agentv1.RestoreAgentsRequest{Ids: []string{"auth", "api", "db"}},
+			}},
+		},
+		{
+			name:  "the range key reaches back to the nearest selection",
+			press: []string{"j", "v", "j", "j", "V", "r"},
+			wantSent: []request{{
+				procedure: agentv1connect.AgentServiceRestoreAgentsProcedure,
+				msg:       &agentv1.RestoreAgentsRequest{Ids: []string{"auth", "api", "db"}},
+			}},
+		},
+		{
+			name:  "restore takes the whole selection rather than the hovered row",
+			press: []string{"j", "v", "j", "v", "j", "r"},
+			wantSent: []request{{
+				procedure: agentv1connect.AgentServiceRestoreAgentsProcedure,
+				msg:       &agentv1.RestoreAgentsRequest{Ids: []string{"auth", "api"}},
+			}},
+		},
+		{
+			name:  "delete opens its prompt over the archive on the whole selection",
+			press: []string{"j", "v", "j", "v", "j", "d", "y"},
+			wantSent: []request{{
+				procedure: agentv1connect.AgentServiceDeleteAgentsProcedure,
+				msg:       &agentv1.DeleteAgentsRequest{Ids: []string{"auth", "api"}},
+			}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			harness := openArchive(t, rows...)
+
+			harness.press(tt.press...)
+
+			assert.Contains(t, splitLines(harness.readFrame())[0], archiveTitle)
+			harness.assertSent(tt.wantSent...)
+		})
+	}
+
+	t.Run("a folder restore stands down while a selection is up", func(t *testing.T) {
+		harness := openArchive(t, newArchivedWorkflow("w1", "backend"), newArchivedAgent("a1", "auth", "w1"))
+
+		harness.press("j", "v", "g", "g", "r")
+
+		harness.assertSent(request{
+			procedure: agentv1connect.AgentServiceRestoreAgentsProcedure,
+			msg:       &agentv1.RestoreAgentsRequest{Ids: []string{"a1"}},
+		})
+	})
+
+	t.Run("the selection outlives a refused restore", func(t *testing.T) {
+		harness := openArchive(t, rows...)
+		harness.refuse(agentv1connect.AgentServiceRestoreAgentsProcedure, connect.NewError(connect.CodeUnavailable, errors.New("down")))
+
+		harness.press("j", "v", "r")
+
+		assert.Contains(t, readLegend(harness.readFrame()), "1 selected")
+	})
+
+	t.Run("escape clears the selection before it leaves the archive", func(t *testing.T) {
+		harness := openArchive(t, rows...)
+		harness.press("j", "v")
+
+		harness.press("esc")
+
+		frame := harness.readFrame()
+		assert.Contains(t, splitLines(frame)[0], archiveTitle)
+		assert.NotContains(t, readLegend(frame), "selected")
+
+		harness.press("esc")
+		assert.Contains(t, splitLines(harness.readFrame())[0], agentsTitle)
+	})
+
+	t.Run("an agent gone from the archive drops out of the selection", func(t *testing.T) {
+		harness := openArchive(t, rows...)
+		harness.press("j", "v", "G", "v")
+
+		harness.watch(buildSnapshot(rows[0], rows[3]))
+		harness.press("r")
+
+		harness.assertSent(request{
+			procedure: agentv1connect.AgentServiceRestoreAgentsProcedure,
+			msg:       &agentv1.RestoreAgentsRequest{Ids: []string{"db"}},
+		})
+	})
+
+	t.Run("selecting in the archive leaves the agents tree alone", func(t *testing.T) {
+		harness := openArchive(t, append(slices.Clone(rows), newAgent("a9", "live", "w1"))...)
+		harness.press("j", "v", "esc", "esc")
+
+		assert.NotContains(t, readLegend(harness.readFrame()), "selected")
+	})
+}
+
 func openArchive(t *testing.T, rows ...proto.Message) *panelHarness {
 	t.Helper()
 
