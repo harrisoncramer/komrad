@@ -120,6 +120,19 @@ func (s *WorktreeStore) Delete(ctx context.Context, dirs []string) error {
 	return nil
 }
 
+// DeleteByName forgets the directories cut for the agents named.
+func (s *WorktreeStore) DeleteByName(ctx context.Context, names []string) error {
+	if len(names) == 0 {
+		return nil
+	}
+
+	if err := s.queries.DeleteWorktreesByName(ctx, names); err != nil {
+		return fmt.Errorf("failed to forget the worktrees of %d agents: %w", len(names), err)
+	}
+
+	return nil
+}
+
 func worktreeFrom(row *models.ListWorktreesRow) Worktree {
 	worktree := Worktree{
 		Dir:        row.Dir,

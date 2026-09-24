@@ -20,6 +20,16 @@ func (q *Queries) DeleteWorktrees(ctx context.Context, dirs []string) error {
 	return err
 }
 
+const deleteWorktreesByName = `-- name: DeleteWorktreesByName :exec
+DELETE FROM worktrees
+WHERE name = ANY ($1::text[])
+`
+
+func (q *Queries) DeleteWorktreesByName(ctx context.Context, names []string) error {
+	_, err := q.db.Exec(ctx, deleteWorktreesByName, names)
+	return err
+}
+
 const listWatchedWorktrees = `-- name: ListWatchedWorktrees :many
 SELECT
     w.dir,

@@ -108,6 +108,22 @@ func TestDeleteForgetsOnlyTheDirectoriesNamed(t *testing.T) {
 	assert.Equal(t, "/trees/b", listed[0].Dir)
 }
 
+// TestDeleteByNameForgetsTheAgentsDirectories covers the rows cut for the agents named going
+// whichever worktree directory holds them, and the rest staying.
+func TestDeleteByNameForgetsTheAgentsDirectories(t *testing.T) {
+	worktrees := openWorktreeStore(t)
+	for _, dir := range []string{"/trees/a", "/elsewhere/a", "/trees/b"} {
+		require.NoError(t, worktrees.Upsert(t.Context(), Worktree{Dir: dir}))
+	}
+
+	require.NoError(t, worktrees.DeleteByName(t.Context(), nil))
+	require.NoError(t, worktrees.DeleteByName(t.Context(), []string{"a", "never"}))
+
+	listed, err := worktrees.List(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, []string{"/trees/b"}, dirsOf(listed))
+}
+
 // TestListWatchedReadsTheKeysNamed covers nil keys reading every row and a list reading only
 // the directories it names.
 func TestListWatchedReadsTheKeysNamed(t *testing.T) {

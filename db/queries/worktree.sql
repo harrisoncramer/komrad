@@ -83,3 +83,7 @@ WHERE
 -- name: DeleteWorktrees :exec
 DELETE FROM worktrees
 WHERE dir = ANY (@dirs::text[]);
+
+-- name: DeleteWorktreesByName :exec
+DELETE FROM worktrees
+WHERE name = ANY (@names::text[]);
