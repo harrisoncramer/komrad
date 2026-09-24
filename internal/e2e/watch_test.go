@@ -288,7 +288,7 @@ func worldFromStores(t *testing.T, st *storetest.Stores) assemble.World {
 	rows := slices.Concat(live, archived)
 	agentIDs := xslice.Map(rows, func(row rowstore.Row) string { return row.ID })
 
-	marks, err := st.Marks.List(ctx)
+	marks, err := st.Marks.ListWatched(ctx, nil)
 	require.NoError(t, err)
 
 	mail, err := st.Mail.ListUnclaimedTo(ctx, agentIDs)
