@@ -25,6 +25,8 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+const repository = "https://github.com/harrisoncramer/weave"
+
 func watchedPanel() model {
 	return model{
 		api: api{
@@ -414,8 +416,6 @@ func TestWorktreesAreDrawnFromTheWatch(t *testing.T) {
 
 	assert.Len(t, m.worktrees.items, 3)
 }
-
-const repository = "https://github.com/harrisoncramer/weave"
 
 func pullRequestRowOf(id, branch string, number int32) *watchv1.Row {
 	return &watchv1.Row{Row: &watchv1.Row_PullRequest{PullRequest: &pullrequestv1.PullRequest{

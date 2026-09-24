@@ -43,7 +43,7 @@ func TestAgentsRows(t *testing.T) {
 		{
 			name: "an agent whose workflow is gone is not drawn",
 			rows: []proto.Message{
-				newWorkflow("w1", "backend"),
+				newLiveWorkflow("w1", "backend"),
 				newAgent("a1", "auth", "w1"),
 				newAgent("a2", "orphan", "vanished"),
 			},
@@ -52,7 +52,7 @@ func TestAgentsRows(t *testing.T) {
 		{
 			name: "an archived agent and workflow are left to the archive",
 			rows: []proto.Message{
-				newWorkflow("w1", "backend"),
+				newLiveWorkflow("w1", "backend"),
 				newArchivedWorkflow("w2", "old"),
 				newAgent("a1", "auth", "w1"),
 				newArchivedAgent("a2", "done", "w1"),
@@ -61,14 +61,14 @@ func TestAgentsRows(t *testing.T) {
 		},
 		{
 			name: "an empty workflow keeps its header",
-			rows: []proto.Message{newWorkflow("w1", "backend")},
+			rows: []proto.Message{newLiveWorkflow("w1", "backend")},
 			want: []string{"backend"},
 		},
 		{
 			name: "agents nest under the workflow they belong to",
 			rows: []proto.Message{
-				newWorkflow("w1", "backend"),
-				newWorkflow("w2", "frontend"),
+				newLiveWorkflow("w1", "backend"),
+				newLiveWorkflow("w2", "frontend"),
 				newAgent("a1", "auth", "w1"),
 				newAgent("a2", "ui", "w2"),
 			},
@@ -82,7 +82,7 @@ func TestAgentsRows(t *testing.T) {
 		{
 			name: "a child whose parent is not listed stands on its own",
 			rows: []proto.Message{
-				newWorkflow("w1", "weave"),
+				newLiveWorkflow("w1", "weave"),
 				newAgentAt("fix-gutter", "w1", 2),
 				newChild("a3", "reviewer", "author"),
 				newChild("a4", "test-runner", "author"),
@@ -92,7 +92,7 @@ func TestAgentsRows(t *testing.T) {
 		{
 			name: "a hidden agent gives its row to its workflow's count",
 			rows: []proto.Message{
-				newWorkflow("w1", "backend"),
+				newLiveWorkflow("w1", "backend"),
 				newAgent("a1", "auth", "w1"),
 				newHiddenAgent("a2", "chore"),
 				newHiddenAgent("a3", "sweep"),
@@ -112,7 +112,7 @@ func TestAgentsRows(t *testing.T) {
 		{
 			name: "an orchestrator is drawn on its workflow's row rather than as a row of its own",
 			rows: []proto.Message{
-				newWorkflow("w1", "backend"),
+				newLiveWorkflow("w1", "backend"),
 				newOrchestrator(),
 				newAgent("a1", "telescope", "w1"),
 			},
@@ -121,7 +121,7 @@ func TestAgentsRows(t *testing.T) {
 		{
 			name: "an orchestrator's child stands on its own",
 			rows: []proto.Message{
-				newWorkflow("w1", "backend"),
+				newLiveWorkflow("w1", "backend"),
 				newOrchestrator(),
 				newChild("a1", "reader", "o1"),
 			},
@@ -169,8 +169,8 @@ func TestAgentsRows(t *testing.T) {
 // TestAgentsShowHidden covers the key that shows and puts away the hidden agents.
 func TestAgentsShowHidden(t *testing.T) {
 	rows := []proto.Message{
-		newWorkflow("w1", "backend"),
-		newWorkflow("w2", "frontend"),
+		newLiveWorkflow("w1", "backend"),
+		newLiveWorkflow("w2", "frontend"),
 		newAgent("a1", "auth", "w1"),
 		newHiddenAgent("a2", "chore"),
 		newAgent("a3", "ui", "w2"),
@@ -313,7 +313,7 @@ func TestAgentsSort(t *testing.T) {
 
 // TestAgentsLongList covers a list with more rows than its pane.
 func TestAgentsLongList(t *testing.T) {
-	rows := []proto.Message{newWorkflow("w1", "weave")}
+	rows := []proto.Message{newLiveWorkflow("w1", "weave")}
 	for i := range 40 {
 		rows = append(rows, newAgentAt(fmt.Sprintf("agent-%02d", i), "w1", 39-i))
 	}
@@ -387,8 +387,8 @@ func answerWorktreeReads(harness *panelHarness) {
 
 func buildCursorable() []proto.Message {
 	return []proto.Message{
-		newWorkflow("w1", "backend"),
-		newWorkflow("w2", "frontend"),
+		newLiveWorkflow("w1", "backend"),
+		newLiveWorkflow("w2", "frontend"),
 		newAgentAt("auth", "w1", 3),
 		newAgentAt("api", "w1", 2),
 		newAgentAt("db", "w1", 1),
@@ -398,7 +398,7 @@ func buildCursorable() []proto.Message {
 
 func buildFamily() []proto.Message {
 	return []proto.Message{
-		newWorkflow("w1", "weave"),
+		newLiveWorkflow("w1", "weave"),
 		newAgentAt("author", "w1", 1),
 		newAgentAt("fix-gutter", "w1", 2),
 		newChild("a3", "reviewer", "author"),
@@ -421,8 +421,8 @@ func buildSortable() []proto.Message {
 	zulu.Name = "Zulu"
 
 	return []proto.Message{
-		newWorkflow("w1", "weave"),
-		newWorkflow("w2", "gadgets"),
+		newLiveWorkflow("w1", "weave"),
+		newLiveWorkflow("w2", "gadgets"),
 		sortable("delta", "w1", 30, 10),
 		charlie,
 		zulu,
@@ -440,10 +440,6 @@ func hideAgent(rows []proto.Message, id string) []proto.Message {
 	}
 
 	return rows
-}
-
-func newWorkflow(id, name string) *workflowv1.Workflow {
-	return newLiveWorkflow(id, name)
 }
 
 func newAgent(id, name, workflowID string) *agentv1.Agent {
@@ -563,7 +559,7 @@ func TestAgentsCursorAcrossListings(t *testing.T) {
 			name:  "the cursor follows its agent rather than its index",
 			press: []string{"j"},
 			next: []proto.Message{
-				newWorkflow("w1", "backend"),
+				newLiveWorkflow("w1", "backend"),
 				newAgentAt("api", "w1", 3),
 				newAgentAt("auth", "w1", 2),
 			},
@@ -581,7 +577,7 @@ func TestAgentsCursorAcrossListings(t *testing.T) {
 			name:  "a folder archived elsewhere leaves the cursor on the folder it named",
 			press: []string{"G", "k"},
 			next: []proto.Message{
-				newWorkflow("w2", "frontend"),
+				newLiveWorkflow("w2", "frontend"),
 				newAgentAt("ui", "w2", 0),
 			},
 			want: "frontend",
@@ -590,7 +586,7 @@ func TestAgentsCursorAcrossListings(t *testing.T) {
 			name:  "a folder sorting in above keeps the cursor on its agent",
 			press: []string{"G"},
 			next: append(slices.Clone(rows),
-				newWorkflow("w0", "api"),
+				newLiveWorkflow("w0", "api"),
 				newAgentAt("spike", "w0", 4),
 			),
 			want: "  ui",
@@ -599,8 +595,8 @@ func TestAgentsCursorAcrossListings(t *testing.T) {
 			name:  "the last agent under a folder going lands on the next agent rather than its header",
 			press: []string{"j", "j"},
 			next: []proto.Message{
-				newWorkflow("w1", "backend"),
-				newWorkflow("w2", "frontend"),
+				newLiveWorkflow("w1", "backend"),
+				newLiveWorkflow("w2", "frontend"),
 				newAgentAt("auth", "w1", 3),
 				newAgentAt("api", "w1", 2),
 				newAgentAt("ui", "w2", 0),
@@ -1477,7 +1473,7 @@ func buildRecorded() []proto.Message {
 // TestAgentsPause covers pausing an agent and letting it go again.
 func TestAgentsPause(t *testing.T) {
 	t.Run("pausing takes the agent and says nothing to it", func(t *testing.T) {
-		harness := openAgents(t, newWorkflow("w1", "backend"), newPausable(""))
+		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newPausable(""))
 
 		harness.press("p")
 
@@ -1488,7 +1484,7 @@ func TestAgentsPause(t *testing.T) {
 	})
 
 	t.Run("unpausing tells the agent to carry on", func(t *testing.T) {
-		harness := openAgents(t, newWorkflow("w1", "backend"), newPausable(heldAt))
+		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newPausable(heldAt))
 		said := recordRelease(harness)
 
 		harness.press("p")
@@ -1517,7 +1513,7 @@ func TestAgentsPause(t *testing.T) {
 
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-				harness := openAgents(t, newWorkflow("w1", "backend"), newPausable(heldAt))
+				harness := openAgents(t, newLiveWorkflow("w1", "backend"), newPausable(heldAt))
 				said := recordRelease(harness)
 
 				harness.press("P")
@@ -1535,7 +1531,7 @@ func TestAgentsPause(t *testing.T) {
 	})
 
 	t.Run("unpausing in silence is only for a paused agent", func(t *testing.T) {
-		harness := openAgents(t, newWorkflow("w1", "backend"), newPausable(""))
+		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newPausable(""))
 		before := harness.readFrame()
 
 		harness.press("P")
@@ -1545,7 +1541,7 @@ func TestAgentsPause(t *testing.T) {
 	})
 
 	t.Run("the open key does nothing for a paused agent", func(t *testing.T) {
-		harness := openAgents(t, newWorkflow("w1", "backend"), newPausable(heldAt))
+		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newPausable(heldAt))
 
 		harness.press("enter")
 
@@ -1554,18 +1550,18 @@ func TestAgentsPause(t *testing.T) {
 	})
 
 	t.Run("a paused agent draws its document in place of its pane", func(t *testing.T) {
-		harness := openAgents(t, newWorkflow("w1", "backend"), newPausable(heldAt))
+		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newPausable(heldAt))
 
 		assert.True(t, harness.panel.IsZoomed(), "the panel keeps the window")
 		assert.Contains(t, harness.readFrame(), "Press unpause to let it carry on")
 	})
 
 	t.Run("the legend names the way out of a pause only on a paused row", func(t *testing.T) {
-		paused := openAgents(t, newWorkflow("w1", "backend"), newPausable(heldAt))
+		paused := openAgents(t, newLiveWorkflow("w1", "backend"), newPausable(heldAt))
 		paused.press(append(widenListPresses, "?")...)
 		assert.Contains(t, readLegend(paused.readFrame()), "unpause in silence")
 
-		loose := openAgents(t, newWorkflow("w1", "backend"), newPausable(""))
+		loose := openAgents(t, newLiveWorkflow("w1", "backend"), newPausable(""))
 		loose.press(append(widenListPresses, "?")...)
 		assert.NotContains(t, readLegend(loose.readFrame()), "unpause in silence")
 	})
@@ -1603,7 +1599,7 @@ func TestAgentsPause(t *testing.T) {
 			agent.State = tt.state
 			harness := newPanelHarness(t, panelHarnessParams{width: 240})
 			answerWorktreeReads(harness)
-			harness.watch(buildSnapshot(newWorkflow("w1", "backend"), agent))
+			harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), agent))
 
 			harness.press(slices.Repeat([]string{"}"}, 30)...)
 
@@ -1655,25 +1651,25 @@ func TestAgentsOrchestrator(t *testing.T) {
 	}{
 		{
 			name:       "a workflow whose orchestrator failed to start says so",
-			rows:       []proto.Message{newWorkflow("w1", "backend"), failed},
+			rows:       []proto.Message{newLiveWorkflow("w1", "backend"), failed},
 			want:       "setup failed",
 			wantZoomed: true,
 		},
 		{
 			name:       "a workflow whose orchestrator stopped says how to bring it back",
-			rows:       []proto.Message{newWorkflow("w1", "backend"), dormant},
+			rows:       []proto.Message{newLiveWorkflow("w1", "backend"), dormant},
 			want:       "Press open to resume.",
 			wantZoomed: true,
 		},
 		{
 			name:       "a workflow that never had one draws its shared context",
-			rows:       []proto.Message{newWorkflow("w1", "backend")},
+			rows:       []proto.Message{newLiveWorkflow("w1", "backend")},
 			want:       "no shared context set",
 			wantZoomed: true,
 		},
 		{
 			name: "a workflow whose orchestrator is running stages its pane",
-			rows: []proto.Message{newWorkflow("w1", "backend"), newOrchestrator()},
+			rows: []proto.Message{newLiveWorkflow("w1", "backend"), newOrchestrator()},
 		},
 	}
 
@@ -1692,7 +1688,7 @@ func TestAgentsOrchestrator(t *testing.T) {
 	}
 
 	t.Run("open on a workflow starts its orchestrator", func(t *testing.T) {
-		harness := openAgents(t, newWorkflow("w1", "backend"))
+		harness := openAgents(t, newLiveWorkflow("w1", "backend"))
 
 		harness.press("enter")
 
@@ -1703,7 +1699,7 @@ func TestAgentsOrchestrator(t *testing.T) {
 	})
 
 	t.Run("moving onto a workflow starts nothing", func(t *testing.T) {
-		harness := openAgents(t, newWorkflow("w1", "backend"), newAgent("a1", "telescope", "w1"))
+		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newAgent("a1", "telescope", "w1"))
 
 		harness.press("k")
 
@@ -1713,7 +1709,7 @@ func TestAgentsOrchestrator(t *testing.T) {
 
 	t.Run("a flat list draws no row for the orchestrator it folded away", func(t *testing.T) {
 		harness := openAgents(t,
-			newWorkflow("w1", "backend"),
+			newLiveWorkflow("w1", "backend"),
 			newOrchestrator(),
 			newAgentAt("telescope", "w1", 1),
 			newChild("a2", "reader", "telescope"),
@@ -1725,7 +1721,7 @@ func TestAgentsOrchestrator(t *testing.T) {
 	})
 
 	t.Run("a workflow made in the panel comes with its orchestrator", func(t *testing.T) {
-		harness := openAgents(t, newWorkflow("w1", "backend"))
+		harness := openAgents(t, newLiveWorkflow("w1", "backend"))
 		answerWorkflowCreate(harness, "w2")
 
 		harness.press("w", "a", "p", "i", "ctrl+s")
@@ -1750,12 +1746,12 @@ func TestAgentsOrchestrator(t *testing.T) {
 	})
 
 	t.Run("a workflow stands when its orchestrator will not start", func(t *testing.T) {
-		harness := openAgents(t, newWorkflow("w1", "backend"))
+		harness := openAgents(t, newLiveWorkflow("w1", "backend"))
 		answerWorkflowCreate(harness, "w2")
 		harness.refuse(agentv1connect.AgentServiceStartOrchestratorProcedure, connect.NewError(connect.CodePermissionDenied, errors.New("the person refused the directory")))
 
 		harness.press("w", "a", "p", "i", "ctrl+s")
-		harness.watch(buildSnapshot(newWorkflow("w1", "backend"), newWorkflow("w2", "api")))
+		harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), newLiveWorkflow("w2", "api")))
 
 		frame := harness.readFrame()
 		assert.NotContains(t, frame, "Could not create the workflow")
@@ -1806,7 +1802,7 @@ func TestAgentsChildren(t *testing.T) {
 	t.Run("the hard delete counts the children in the archive's own rows", func(t *testing.T) {
 		reviewer := newArchivedAgent("a3", "reviewer", "w1")
 		reviewer.ParentAgentId = proto.String("a1")
-		harness := openArchive(t, newWorkflow("w1", "weave"), newArchivedAgent("a1", "author", "w1"), reviewer)
+		harness := openArchive(t, newLiveWorkflow("w1", "weave"), newArchivedAgent("a1", "author", "w1"), reviewer)
 
 		harness.press("j", "d")
 
@@ -1856,7 +1852,7 @@ func TestAgentsChildren(t *testing.T) {
 // TestAgentsWatchedEdits covers edits the watch delivers reaching the hovered row's record and document.
 func TestAgentsWatchedEdits(t *testing.T) {
 	t.Run("a workflow context edited elsewhere is drawn without the cursor moving", func(t *testing.T) {
-		workflow := newWorkflow("w1", "api")
+		workflow := newLiveWorkflow("w1", "api")
 		workflow.Context = "old notes"
 		harness := openAgents(t, workflow)
 		require.Contains(t, harness.readFrame(), "old notes")
@@ -1874,7 +1870,7 @@ func TestAgentsWatchedEdits(t *testing.T) {
 
 	t.Run("a pull request for a branch nobody is on waits for the agent that arrives on it", func(t *testing.T) {
 		harness := openAgents(t,
-			newWorkflow("w1", "api"),
+			newLiveWorkflow("w1", "api"),
 			newBranchAgent("a1", "api", "agent/x"),
 			&pullrequestv1.Repository{
 				Url:  repositoryURL,
@@ -2008,7 +2004,7 @@ func TestAgentsSelection(t *testing.T) {
 	}
 
 	t.Run("a folder with no rows under it opens no selection", func(t *testing.T) {
-		harness := openAgents(t, append(buildSelectable(), newWorkflow("w3", "chores"))...)
+		harness := openAgents(t, append(buildSelectable(), newLiveWorkflow("w3", "chores"))...)
 
 		harness.press("j", "j", "j")
 		require.Equal(t, "chores", readHoveredRow(harness.readFrame()))
@@ -2035,7 +2031,7 @@ func TestAgentsSelection(t *testing.T) {
 		harness := openAgents(t, buildSelectable()...)
 		harness.press("v", "G", "v")
 
-		harness.watch(buildSnapshot(newWorkflow("w2", "frontend"), newAgentAt("ui", "w2", 1)))
+		harness.watch(buildSnapshot(newLiveWorkflow("w2", "frontend"), newAgentAt("ui", "w2", 1)))
 		harness.press("z", "ctrl+s")
 
 		harness.assertSent(request{
@@ -2059,8 +2055,8 @@ func TestAgentsSelection(t *testing.T) {
 
 func buildSelectable() []proto.Message {
 	return []proto.Message{
-		newWorkflow("w1", "backend"),
-		newWorkflow("w2", "frontend"),
+		newLiveWorkflow("w1", "backend"),
+		newLiveWorkflow("w2", "frontend"),
 		newAgentAt("auth", "w1", 5),
 		newAgentAt("api", "w1", 4),
 		newAgentAt("db", "w1", 3),
