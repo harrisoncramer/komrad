@@ -2,27 +2,11 @@ package checkouts
 
 import (
 	"context"
-	"testing"
 	"time"
 
 	"weave/internal/agents"
 	"weave/internal/harness"
-	workflowstore "weave/internal/store/workflow"
-	"weave/internal/storetest"
-
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/require"
 )
-
-func seedWorkflow(t *testing.T, st *storetest.Stores) string {
-	t.Helper()
-
-	created, err := st.Workflows.Create(t.Context(), workflowstore.Config{Name: "workflow-" + uuid.NewString(), Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"}})
-	require.NoError(t, err)
-	require.NotNil(t, created)
-
-	return created.ID
-}
 
 // settlingObserver answers with a run of readings, holding the last one once they are spent, which
 // is how a pane that takes a moment to come to rest is written down.
@@ -30,9 +14,14 @@ type settlingObserver struct {
 	readings []harness.Activity
 	err      error
 	reads    int
+	// onFirst runs before the first reading.
+	onFirst func()
 }
 
 func (o *settlingObserver) Observe(_ context.Context, _ harness.Target) (harness.Observation, error) {
+	if o.reads == 0 && o.onFirst != nil {
+		o.onFirst()
+	}
 	if o.err != nil {
 		return harness.Observation{}, o.err
 	}
