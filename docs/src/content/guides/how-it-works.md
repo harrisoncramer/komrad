@@ -1,88 +1,68 @@
 ---
 title: How it works
-description: The service, the panel, and how a change reaches your screen.
+description: The service, the panel, tmux, and how a change reaches your screen.
 group: start
 order: 2
 ---
+
+Weave is built so that closing things is safe. You can close the panel, close your terminal, or restart your machine's session, and your agents keep running and nothing is forgotten. The rest of this guide explains how the pieces fit together to make that true.
 
 ## Two programs
 
 Weave is two programs, a service and a panel.
 
-The service is `weave serve`. It holds the database connection, answers the API and the MCP endpoint, and runs the loops that watch every agent. It keeps running when you close your terminal or the panel.
+The service is the long-running part. It holds the database, answers the API and the MCP server, and watches every agent. It keeps running when you close the panel or your terminal.
 
-The panel is `weave panel`, the terminal interface you look at. It is an ordinary client of the service. If nothing is answering when it opens, it starts the service itself and then talks to it over HTTP.
+The panel is what you look at. It is an ordinary client of the service. When it opens, it starts the service if nothing is running, and replaces it if a different build is running, so you are always talking to the binary you installed.
 
-## Tmux
+## Agents live in tmux
 
-A tmux server is a long-running process that owns sessions, windows and panes. You reach it through a socket.
+Each agent is a real terminal session running Claude or Codex. Weave runs them inside a tmux server of its own, separate from the one you work in, so your own sessions and weave's never tangle.
 
-Weave runs its own tmux server, separate from the one you work in. It is named by `WEAVE_TMUX_SOCKET`, which defaults to `weave`. It holds one session, called the manager session, and the panel runs inside it.
+The panel lives there too, and reaches you through a tmux popup over whatever you were doing. Hiding the panel just closes the popup. Weave's tmux server, the panel inside it, and every agent all keep running behind it.
 
-Pressing the weave key opens a tmux popup on your own server. That popup attaches to the manager session on weave's server. Hiding the panel detaches the popup, and the session and every agent keep running behind it.
+<figure class="placeholder">
+  <figcaption>A diagram of your tmux server with the weave popup attached to weave's own tmux server, which holds the panel and each agent's window.</figcaption>
+</figure>
 
-On the agents list, `C-a` moves focus between the sidebar and the agent's pane. A pane running an agent passes every key straight to that agent, so this one key is bound outside tmux's prefix on weave's server. Weave only binds it while the agents list is showing, and the agent loses the key for that time. The key cannot be changed. If `C-a` is your own tmux prefix, your server takes it first and this binding never fires.
+Because agents live in tmux rather than inside the service, restarting or upgrading the service leaves them untouched.
 
 ## One API for everything
 
-Every action goes through the service's API, and the panel is just one client of it. Archiving an agent from the panel is a keypress that becomes an API call.
+Everything that changes anything goes through the service's API. The panel, a script using `weave rpc`, and an agent calling MCP tools are all clients of that one API, so they follow the same rules.
 
-The same list of API methods produces the `weave rpc` commands and the MCP tools. Each method says whether it gets a command, a tool, or both. A method that is kept off a surface says why in its definition, and a method that says nothing fails the build. So adding an endpoint gives you a CLI command and an MCP tool every time, and leaving one out is always a decision someone wrote down.
+The CLI commands and the MCP tools are generated from the API's own definitions. Every endpoint says which of the two it appears in, and says why when it is left out of one. So nothing can be added quietly to one surface and forgotten on the other. The [API reference](../../api/) is generated from the same definitions.
 
-The [API reference](../../api/) lists every method.
+## Inside the service
 
-## Layers inside the service
+The service is built in layers. The outer layer receives requests from the API, MCP and CLI, checks them, logs them and records who made them. Below that, one service per area, such as agents, mail or schedules, holds the rules. Below that, the stores read and write the database.
 
-The outermost layer is the API handlers, the MCP server and the CLI. They parse and check requests, then hand them on. In front of the handlers, interceptors log each call, record who made it, and validate it.
+Anything weave does not own, like tmux, the agent CLIs and your scripts, sits behind an adapter. The adapter for agent CLIs, for example, is the only place that knows how Claude and Codex differ.
 
-Behind the handlers are the services, one for each area such as agents, mail, schedules, reviews or worktrees. The rules live here.
+## Everything is a row in Postgres
 
-Behind the services are the stores, again one for each area. A store reads and writes its own tables inside database transactions and touches nothing else.
+Weave keeps everything that must survive a restart in Postgres. Each thing you see is one row: an agent, a workflow, a schedule, a piece of mail, a pull request, a review.
 
-Adapters sit in front of the things weave does not own, like tmux, the agent CLIs and your scripts. The harness adapter, for example, is the only place that knows the difference between Claude and Codex.
+Some facts come from outside, such as whether an agent's terminal is alive or whether its branch has moved. Weave's loops learn those and write them onto the row, so the database is always the whole story and nothing lives only in memory.
 
-## Everything is a row
+## How a change reaches your screen
 
-Weave keeps its state in Postgres. Anything that has to survive a restart is written there.
+The panel never asks whether anything has changed. The database tells it.
 
-Each thing the panel draws is one row of one table. An agent, a workflow, a piece of mail, a pull request, a review and a schedule each have their own table. Every read in the API answers rows of one kind and never joins other things onto them.
+Whenever a write commits, the database announces which row changed. The service hears that, reads the row back and passes it to the panel, which redraws it. If the connection between them ever breaks, the panel reconnects and is sent the whole picture again, so it can never drift out of date. An announcement carries nothing but "this row changed", so losing one costs a refresh, never a wrong screen.
 
-Some facts come from outside the database. Whether an agent's pane is alive is read from tmux, and whether its worktree has moved is read from git. The loops that learn these facts write them onto the row, so nothing about an agent lives only in memory.
+When a script or a model asks for agents, the service builds each row the same way the panel does. What an agent sees through MCP matches what you see.
 
-## How a change reaches the panel
+## The background loops
 
-The database announces its own changes. A trigger on each table sends the table and the row's key as soon as a write commits. A write that rolls back announces nothing.
+A handful of loops keep the database in line with the outside world.
 
-The service listens for those announcements on one connection. For each one it reads the row back and sends it to every open watch stream. If the row has left what a stream carries, as a deleted agent has, it sends a tombstone instead. If the row reads back exactly as the stream last saw it, nothing is sent.
+One watches every agent's terminal, reading the screen to tell whether the agent is working, waiting on you, or idle. It reads the screen rather than trusting hooks, because a hook can be missed and a screen cannot lie about what is on it.
 
-The panel keeps one watch stream open for as long as it runs. The stream starts with every row the panel draws, then sends one row or tombstone at a time. If the stream breaks for any reason, the panel opens it again and starts from the whole picture, so nothing in the gap is missed.
-
-An announcement only says "go and look". It carries no data and nothing keeps it. Losing one costs a fresh read, never a wrong screen.
-
-## The agent's row
-
-The row drawn for an agent carries more than the agent. It shows the mark on it, whether mail is waiting, and the pull requests opened from its branch.
-
-One function puts that row together from the rows a caller holds. The panel runs it over what the stream delivered. The service runs the same function when a script or a model asks for agents, so `list_agents` answers exactly what the panel shows.
-
-## The loops
-
-The service runs a few loops that keep the database in line with what tmux and the agents are doing.
-
-The reconcile loop runs every two seconds. It decides each agent's state by reading its pane. An agent counts as thinking when its pane shows the CLI's working status line, rather than because a hook said so, since hooks are unreliable.
-
-The schedule loop runs every ten seconds. It makes the job queue match the schedules table.
-
-The mail loop runs every two seconds. It finds mail nobody has read yet and makes sure it gets delivered, including to agents that were stopped when it was sent. That is what makes multi-agent work reliable.
-
-The transcript sync runs every fifteen seconds. It adds each agent's new conversation text to the search index, so you and other agents can search old conversations.
+Others keep schedules lined up with the job queue, nudge idle agents that have unread mail, fold new conversation text into the search index, follow each agent's working directory, measure worktrees, and check the forge for pull request changes.
 
 ## One action, end to end
 
-Say you press the archive key. The panel turns the keypress into an archive request and sends it to the service. Nothing on your screen changes yet.
+Say you archive an agent from the panel. The panel sends an archive request to the service. The service checks it, stops the agent's terminal, and then marks the row archived in one transaction, together with any child agents that belong to it. The database announces the change, and the panel moves the agent into the archive.
 
-The interceptors log the request, record who sent it and check it against the rules the API declares. The handler passes it to the agents service. That service checks the agents exist and knows that archiving means stopping their panes as well as marking their rows.
-
-The store writes the rows in one transaction, and the service closes the panes through the tmux adapter. When the transaction commits, the database announces the rows. The service reads them back and sends them to the panel, which moves the agent into the archive. If the call failed, the panel shows the error and nothing was written.
-
-An agent archiving another agent over MCP takes the same path through the same checks and the same transaction.
+If an agent asks to archive another agent over MCP, the request takes the same path with one extra check. Unless it is an orchestrator, an agent may only archive its own children.

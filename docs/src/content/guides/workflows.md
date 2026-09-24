@@ -1,66 +1,62 @@
 ---
 title: Workflows
-description: The templates agents are created from, and what each one holds.
+description: The templates agents are created from, and what each one decides for them.
 group: concepts
 order: 3
 ---
 
-A workflow is the template an agent is created from. Every agent belongs to exactly one workflow, which is why weave asks you to make one first.
+A workflow is the template an agent is created from. Every agent belongs to exactly one workflow, which is why weave asks you to make one before your first agent.
 
-## What a workflow holds
+Think of a workflow as a group of agents that do the same kind of work. The workflow decides where they start, how their CLI is launched, what they are told before they begin, and whether they each get a checkout of their own.
 
-An agent is a CLI session, so a workflow is a set of defaults for those sessions. It can name the directory agents start in, the flags they run with (such as which model), and whether each agent gets a git worktree of its own.
+<figure class="placeholder">
+  <figcaption>The agents list, with two workflows expanded and their agents grouped beneath each one.</figcaption>
+</figure>
 
-You can override any of these when you spawn an agent. That lets you use a workflow's setup but change the model or the directory for one agent.
+## What a workflow decides
 
-A workflow also holds shared context. This is free text added to the system prompt of every agent created in it.
+A workflow names the directory its agents start in, which agent CLI they run, and the flags that CLI is launched with, such as which model to use. When you spawn an agent you can change any of these for that one agent, so a workflow is a starting point rather than a cage.
 
-## The harness
+Changing a workflow only affects agents spawned afterwards. An agent keeps the setup it was launched with.
 
-The harness is the agent CLI the workflow's agents run. Weave supports `claude` and `codex`.
+## Shared context
 
-An agent keeps the harness it started with, so changing this only affects new agents. A workflow's flags belong to its harness. An agent that runs a different CLI is launched without them, because flags like `--model opus` mean nothing to a CLI that does not know them.
+A workflow can hold free text that is added to the system prompt of every agent in it. This is where you put what you would otherwise tell each agent by hand: where things live in the repository and how tests run, how branches and commits are named, what agents in this group may touch and what they must leave alone, and how they should record their work so you can find it later.
+
+The context an agent starts with is built up in layers, from general to specific. First comes weave's own briefing about itself, then a note about the agent's role if it has one, then your [global context file](../../config/#context), and last the workflow's own text. The workflow comes last, so it has the final word.
+
+## A checkout per agent
+
+Agents that write code need to stay out of each other's way. A workflow can give every agent its own git worktree, a separate checkout of the repository, cut fresh from a base branch. The agent works on a branch of its own, and its worktree is removed when the agent is deleted.
+
+For this to work, the workflow's directory has to be an ordinary clone of the repository.
+
+Worktrees are made in the directory set by [`worktrees.dir`](../../config/#worktrees.dir), which every workflow shares. A workflow can name its own directory instead, for repositories whose own tooling expects checkouts in a particular place.
+
+New worktrees start as clean checkouts, so anything git does not track, like a local environment file, is missing. A workflow can list files to copy or link into every new worktree. For anything heavier, like installing dependencies, use a [hook](../hooks/).
 
 ## The base branch
 
-Every workflow names a base branch. Worktrees are cut from it, review rounds are diffed against it, and rebases move agents onto it.
+A worktree workflow names a base branch. New worktrees are cut from it, an agent's work is measured and reviewed against it, and rebases move an agent onto it. Weave works it out from your clone when you create the workflow and remembers it.
 
-If you leave it blank, weave fills it in from the clone at the workflow's directory. It takes what `origin/HEAD` names, then the branch the checkout is on, then `main`. After that it is stored, and editing the workflow later requires one.
+If the clone ever loses that branch, weave says so rather than guessing, and `weave doctor` lists every workflow whose base branch cannot be found.
 
-If the clone does not have the base branch, weave says so rather than guessing. A rebase or review round refuses and names the branch, and `weave doctor` lists every workflow with a base its clone cannot find. Fetch the branch, or change the workflow to one the clone has.
+## Leaving generated code out of the diff
 
-## Where worktrees go
+In a worktree workflow, the panel shows a diff of everything an agent has written. Generated code can bury the parts worth reading, so a workflow can list paths to leave out of the diff. This takes effect straight away, for agents already running as well as new ones.
 
-Worktree workflows make their worktrees in the directory named under `[worktrees]` in your [config](../../config/). Every workflow shares that directory.
-
-Some repositories need their worktrees somewhere specific. A monorepo might give each worktree under `.worktrees` its own ports and docker project, based on where it sits. So a workflow can name its own parent directory, and its worktrees are made there instead. Each agent still gets one worktree, named after the agent.
-
-This only affects agents spawned afterwards. An agent that already has a directory keeps it.
-
-## Leaving paths out of the diff
-
-The panel shows a diff of what each agent has written. Generated code can bury it, because a regenerated protobuf or sqlc directory is thousands of lines nobody reads.
-
-A workflow can list paths to leave out, as directories or globs relative to the agent's checkout, such as `proto/gen` or `*.pb.go`. The list is read every time a diff is drawn, so adding to it fixes agents that are already running.
-
-## The context
-
-Weave builds the added system prompt in three layers, from general to specific. First comes weave's own briefing, which covers the MCP tools, mail and so on. Next is your global context file, set under `[context]` in your [config](../../config/). Last is the workflow's context, so it has the final word.
-
-Good workflow context covers the repo's conventions, like where things live and how tests run. It covers naming, like branch names and commit style. It covers what agents in the group may touch and what they must leave alone, and which metadata keys they should record so you can find their work.
-
-The context is set when an agent launches. Editing a workflow reaches only agents spawned after the edit.
+<figure class="placeholder">
+  <figcaption>An agent's diff in the panel, with a generated directory left out.</figcaption>
+</figure>
 
 ## Archiving and restoring
 
-Archiving a workflow hides it and archives every agent in it, in one transaction. Nothing is destroyed. The rows and transcripts stay, and search still finds the conversations. Worktrees stay on disk too.
+Archiving a workflow puts it and every agent in it away together. Nothing is destroyed. The records, the conversations and the worktrees are all kept, and search still finds what the agents said.
 
-Weave refuses to archive a workflow while a schedule still launches into it, because the schedule would have nowhere to run. Turn those schedules off first.
+A workflow that a schedule still launches into cannot be archived, because the schedule would have nowhere to run. Archive the schedule first.
 
-Restoring brings everything back or nothing. It is refused if the returning agents would push you over your agent limit.
+Restoring brings the whole workflow back with its agents, stopped, ready to resume. It is refused if the returning agents would go over your agent limits, or if one would clash with the name of an agent that is already live.
 
-## Your first workflow
+## Starting small
 
-Open the panel with `prefix + g`. Press `w`, give the workflow a name, leave everything else blank and submit. Then press `c` and give an agent a prompt. A workflow with only a name works fine as a folder.
-
-Add to it as you learn what the group needs. Set a default directory once you are tired of typing it. Add context once you have told three agents the same thing. Turn on worktrees once agents need to stay out of each other's way, and add a pre-launch [hook](../hooks/) once those worktrees need something installed.
+A workflow with nothing but a name is perfectly useful as a folder. Start there and add to it as you notice a pattern. Set a default directory once you are tired of typing it. Add context once you have told three agents the same thing. Turn on worktrees once agents start treading on each other. Add a hook once those worktrees need setting up.

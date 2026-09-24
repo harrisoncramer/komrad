@@ -1,54 +1,48 @@
 ---
 title: Mail
-description: How agents send each other messages, and the limits on it.
+description: How agents send each other messages, and the limits that keep them in check.
 group: concepts
 order: 7
 ---
 
-Agents talk to each other by sending mail. Use it to coordinate several agents, or to let one agent hand work to others and hear back.
-
-Mail is always delivered. It is written to Postgres, and a job to deliver it is queued in the same transaction.
+Agents talk to each other by sending mail. It is how an orchestrator hands out work and hears back, how a reviewer tells an author what it found, and how any two agents coordinate without you relaying messages.
 
 ## Try it
 
-Spawn an agent called "neovim fan" with this prompt.
+Spawn an agent with a prompt like this one, and watch the two agents argue.
 
 ```text
 You are an avid neovim fan, and need someone to debate. Spawn an emacs agent in the same workflow and have a debate with them about the merits of the two editors, for a few rounds.
 ```
 
-It spawns a second agent, and the two send messages back and forth.
+<figure class="placeholder">
+  <figcaption>Two agents side by side, one reading mail the other just sent.</figcaption>
+</figure>
 
-## How delivery works
+## How mail arrives
 
-Each agent has a mailbox. An agent checks it at the end of each turn, so mail never interrupts an agent mid-turn. To stop a running agent urgently, open its pane and halt it yourself.
+Each agent has a mailbox in weave's database. Mail never interrupts an agent in the middle of what it is doing. An agent picks up its mail when it finishes a turn, which is the natural moment to read and reply. If you need to stop an agent urgently, open its terminal and stop it yourself.
 
-An idle agent ends no turns, so weave types a short nudge into its pane telling it mail is waiting. A nudge can be swallowed, so it is sent again every minute while the mail is still unread. A dormant agent gets the nudge when it wakes up. Mail cannot be sent to archived agents.
+An idle agent is not finishing turns, so weave types a short note into its terminal saying mail is waiting, and repeats it until the mail is read. Weave never types over something a person is halfway through writing. It sets a short draft aside, delivers the note, and puts the draft back. A longer draft makes it wait. Agents that are waiting on you, or that you have paused, are left alone until they are free.
 
-Weave never types into a prompt that already holds text, because the key that sends the nudge would also send what someone was typing. That agent is nudged once its prompt is empty. If that never happens, the mail expires unread.
+Mail to a stopped agent waits until it runs again. Mail cannot be sent to an archived agent. Mail that sits unread past the delivery deadline, set by [`mail.delivery_deadline`](../../config/#mail.delivery_deadline), expires.
 
-Because mail arrives when a turn ends, an agent cannot wait for mail inside a turn. Sleeping or looping while waiting for a reply is exactly what stops the reply arriving. Agents are told to end their turn instead.
+Because mail arrives when a turn ends, an agent cannot wait for a reply inside a turn. An agent that sleeps or loops while waiting is the one thing that stops the reply from reaching it. Agents are told to end their turn and let the reply come to them.
 
-## Reading a mailbox
+## Reading mail yourself
 
-The panel has no mailbox screen. Read an agent's mail with `weave rpc list-mail`, or the `list_mail` tool over MCP. Both show the mail without marking it read.
+The panel has no mailbox screen yet. You can read any agent's mail from the CLI or over MCP without marking it as read.
 
-## The exchange limit
+## The limit on a conversation
 
-Two agents may only write each other so much mail. The limit counts both directions and every thread together, so starting a new subject does not get around it. The default is forty messages, which is twenty each way.
+Two agents can only write each other so much, set by [`mail.max_exchange`](../../config/#mail.max_exchange). The limit counts both directions of every thread between the pair, so starting a new subject does not reset it. It exists to stop two agents looping on each other forever by accident.
 
-When the limit refuses a send, everyone involved hears about it. The sender gets an error. The agent it was writing to is told its mail was stopped, so it does not wait forever for a reply. And one row is flagged so a person notices. That is the parent when the two agents are siblings, since the parent can break the loop, and the sender otherwise.
+When the limit stops a message, both sides find out. The sender gets an error, and the agent it was writing to is sent a notice that mail meant for it was stopped, so it does not sit waiting for a reply that will never come.
 
-Weave's own notices never count against the limit, because they come from no agent.
+Mail you send and weave's own notices never count towards the limit. Deleting old mail between a pair gives them room again, which orchestrators can do when two agents genuinely need to keep talking.
 
-Deleting mail lowers the count, because the count is read from the mail that still exists. That is how a pair that really needs to keep talking gets more room. Agents can do this themselves, since `delete_mail` is not limited to the caller's own mailbox. So the limit stops conversations that run away by accident, not ones set on getting past it.
+## Families
 
-## Children and families
+A [child agent](../agents/#agents-that-work-together) belongs to a family: its parent and the parent's other children. Mail between agents stays inside families. A child can mail its parent and its siblings, and siblings can talk to each other directly so the parent does not have to pass every message along. An agent outside the family cannot mail the child, and the child cannot mail out.
 
-A [child agent](../agents/#children) may only mail its family, which is its parent and its parent's other children. Anything else is refused, and the error says to reply to the parent instead.
-
-Two children of the same parent can mail each other directly, so the parent does not have to relay every message. Children of different parents are not family.
-
-The rule limits what a child sends, not what it receives. Weave's own notices and mail you send yourself reach any child.
-
-Siblings are held to the same exchange limit as any pair. When it refuses a send between them, the parent is the row flagged, so they cannot loop without the parent finding out.
+You can always mail any agent yourself, and weave's own notices reach everyone.

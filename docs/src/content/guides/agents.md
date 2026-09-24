@@ -1,100 +1,68 @@
 ---
 title: Agents
-description: Creating, finding, searching and cleaning up the agents weave runs.
+description: What an agent is, what the panel shows about it, and how agents work together.
 group: concepts
 order: 4
 ---
 
-An agent is a Claude or Codex session that weave runs in a tmux pane. You can step away from it, restart your machine, search what it said, or have other agents drive it.
+An agent is a Claude or Codex session that weave runs for you in a terminal of its own. You can leave it working and come back, restart your machine without losing it, search everything it has said, or have other agents give it work.
 
-Some common setups show what that makes possible. A worktree agent gets an isolated checkout, and the worktree goes when you delete the agent. A triage agent runs on a [schedule](../schedules/), for example every weekday morning with a prompt to read the overnight alerts and write up anything that needs a person. An orchestrator is an agent whose job is to hand out work. It uses weave's [MCP](../mcp/) tools to create other agents and talks to them by [mail](../mail/).
+<figure class="placeholder">
+  <figcaption>The agents list beside an agent's live terminal, with the details panel for that agent underneath.</figcaption>
+</figure>
 
-## Creating one
+## What agents are good for
 
-Press `c` in the sidebar. If you name no harness, weave uses `default_harness` from your config. You can also create agents from the CLI.
+The same few ideas cover very different jobs. A worktree agent gets a private checkout of your repository and works on its own branch, so several can change code at once without colliding. A scheduled agent wakes on a timer, say every weekday morning, to read the overnight alerts and write up what needs a person. An orchestrator hands work out: it starts other agents through weave's [MCP](../mcp/) tools, talks to them by [mail](../mail/), and gathers what they find.
 
-## States
+## What state an agent is in
 
-An agent is thinking when it is generating or running a tool. It is waiting when it is blocked on a question for you, and idle when it has nothing to do.
+Weave reads each agent's screen to tell what it is doing. An agent is working while it thinks or runs a tool, waiting when it has stopped to ask you something, and idle when it has nothing to do. The panel shows this at a glance, so you can see which agents need you.
 
-An agent shown as a grey `?` is uncertain. Weave captured its pane but could not read it. That is not the same as finished, because the unreadable screen might be a question waiting for you. So weave leaves uncertain agents out of auto-archiving, holds schedules back for them, and holds their mail until the pane reads again.
+Sometimes weave cannot make sense of a screen. It treats that agent as though it were waiting on you, because an unreadable screen might be a question. It holds back scheduled runs and mail for that agent until the screen reads normally again.
 
-Separately, an agent is either running or dormant. A dormant agent's CLI has exited and its pane is closed. You can bring it back by resuming its session.
+An agent whose setup failed stays in the list and says what went wrong, so you can fix the cause and try again.
 
-## Adopting a branch that already exists
+Separately from what it is doing, an agent is either running or dormant. A dormant agent's CLI has exited and its terminal is closed, but its conversation is kept, and resuming it picks up where it left off.
 
-Adopting puts an agent on a branch someone else made. Hover a worktree workflow's header, press `a`, and give it a branch name. It works the same on GitHub, GitLab, a self-hosted remote, or a repository with no forge at all, because a branch belongs to git. A pull request URL or number is refused, and the error says what to use instead.
+## What the panel shows about an agent
 
-If nothing has the branch checked out, the agent gets a new worktree on it, fetched from origin first. If another checkout already holds the branch, the agent is launched in that checkout as it stands. If the branch is checked out in the workflow's own directory, adoption refuses, because that is the checkout you work in.
+Each agent's row shows its state, whether mail is waiting for it, and the pull request its branch has open, if any. The pull request symbol changes as the pull request moves: open, approved, failing checks, conflicting, merged, or closed.
 
-The branch stays its owner's. Weave never resets it, and deleting the agent removes the worktree but leaves the branch. Adopting a branch that already has an agent is refused and names that agent.
+Beneath the list, the details show everything about the agent under the cursor: what it was launched with, its branch and pull requests, how its checkout compares to the base branch, the facts it has recorded about its own work, and its latest changes and commits.
 
-The agent's prompt starts by telling it the branch and that the commits are not its own to rewrite. If you leave the prompt blank, it is told nothing has been asked yet and to wait. Agents can adopt branches too, through `adopt` over MCP.
+<figure class="placeholder">
+  <figcaption>The details panel for one agent, showing its branch, its pull request, its recorded metadata and its recent commits.</figcaption>
+</figure>
 
-## Children
+Agents record facts about their own work as metadata, such as the ticket they are on or a design note they wrote. That is how you find your way back to what an agent did, long after its conversation has scrolled away.
 
-A child agent is attached to another agent. It runs in the parent's directory, sets up nothing of its own, can only mail its own family, and goes when the parent goes. The panel draws it indented under its parent.
+## Finding agents and what they said
 
-Use a child when the new agent will read the parent's work rather than write its own. A reviewer or a test runner is the usual case. An agent that writes its own work needs its own checkout, so make it a standalone agent instead.
+You can search the list by name, and search the details of the agent you are looking at. You can also search every conversation weave has ever run, archived ones included, to find the agent that discussed something weeks ago.
 
-Press `C` on an agent to attach a child. The form asks for a prompt, a title, the harness and flags, but not where to run, because the parent decides that. Agents attach children through `create_agent` over MCP, with `parentAgentId` set to their own id.
+Marks let you jump straight back to an agent or a workflow you care about, the way marks work in vim. They belong to you, and no agent can set one.
 
-A child is a guest in someone else's checkout. It is told to read and run things but not to commit, push, stash or switch branches. It cannot have children of its own, and it can only mail its parent and that parent's other children.
+## Agents that work together
 
-Archiving or deleting a parent takes its children with it. You can also archive a child by itself, which is how you finish with a reviewer while its parent keeps working. A child can only be restored once its parent is live again.
+A child agent is attached to a parent agent and reads the parent's work. A reviewer checking a change, or a test runner reporting failures, is the usual case. A child works inside its parent's checkout, is told not to change it, can only mail its own family, and goes away when its parent does. The panel draws it beneath its parent. How many children one agent may hold is capped by [`max_children`](../../config/#max_children), because they all share one checkout.
 
-All of a parent's children share one checkout, so `max_children` in your config caps how many one agent may hold. A request over the cap is refused, not queued.
+An agent that writes work of its own needs its own checkout, so it should be a standalone agent rather than a child.
 
-## Metadata
+<figure class="placeholder">
+  <figcaption>A parent agent with a reviewer child indented beneath it in the agents list.</figcaption>
+</figure>
 
-Metadata is how an agent records things you will want to open later, like the ticket it is working on. It is a set of key and value pairs on the agent, written by the agent with `set_agent_metadata` using its own id from `WEAVE_AGENT_ID`.
+## Picking up an existing branch
 
-The panel shows metadata in the details under the list. The key `pr` is refused, because weave reads pull requests from the forge itself.
+You can put an agent onto a branch that already exists, one that someone else started, which weave calls adopting it. This works on any git repository, whether or not it lives on a forge. If nothing has that branch checked out, the agent gets a fresh worktree on it. If another checkout already has it, the agent works in that checkout as it is.
 
-## Pull requests
+The branch stays its owner's. Weave never resets it, deleting the agent leaves the branch alone, and the agent is told at the start that the commits are not its to rewrite.
 
-The third symbol on an agent's row is the pull request opened from its branch, read by the [pull request sync](../forges/#what-weave-reads). If the branch has several, the row shows the newest one that is still open, or the newest one if all are finished.
+## Finishing with an agent
 
-A grey pull request symbol means it is open. A green check means the forge would merge it now. Yellow means changes were requested, and a grey draft symbol means it is a draft. A red cross means a check failed, and a red stop sign means it conflicts with its base. Purple means merged, and red means closed without merging. Nothing is drawn until the repository has been read, or if no pull request was opened from the branch.
+Archiving is the ordinary way to finish. It stops the agent, closes its terminal and takes it out of the list, but keeps its record and its conversation, so search still finds it and you can restore it later.
 
-The details show a `pull request` row for the current one, such as "#740 merged 2h ago", and a `pull requests` row listing the others. Over MCP, `list_agents` and `get_agent` include each agent's pull requests.
+Deleting is permanent. It removes the record, the conversation and its search index, and it removes the agent's worktree from disk. You can delete agents from the archive one at a time, several at once, or clear the whole archive. Weave does the cleanup in the background and shows any agent whose cleanup failed, with the reason.
 
-## The details pane
-
-The details under the list describe the row the cursor is on. For an agent that is what it was launched with, its branch and pull requests, how its worktree stands against the base, its metadata, and up to ten uncommitted paths and ten commits. The worktree facts are read when the cursor rests on the row and again every minute, so they can be a minute old.
-
-`ctrl+t` moves the keys into the details, which then grow to fill the sidebar. `/` searches the details, `tab` turns the search into a filter, and `n` and `N` step between matches. `esc` clears the search, and a second `esc` hands the keys back.
-
-## The git menu
-
-`b` opens the git actions for the agent under the cursor. `r` rebases its worktree onto the latest base, and `o` opens its current pull request in your browser. An action that cannot apply says why instead of doing nothing, for example when the workflow has no worktrees or the branch has no pull request.
-
-## Marks
-
-A mark is a letter you put on a row so you can jump back to it, the way marks work in vim. Press `m` and a letter to mark the row under the cursor. Press `'` and that letter from anywhere in the list to jump back. Marked letters show in the column down the left edge.
-
-Agents and workflows share the same letters, and each letter belongs to one row. Marking a row with a letter that is already used moves the mark. Pressing `m` and a row's own letter clears it.
-
-Pressing `'` twice jumps back to where you were before the last jump. A jump always lands, even if it has to reveal a hidden row. Marks are only yours, so no agent can set one, and a row loses its mark when it is archived.
-
-## Searching the list
-
-Press `/` and type. Matches light up in both the list and the details, and nothing moves while you type.
-
-`enter` applies the search to the pane that has the keys. In the list, the cursor moves to the nearest agent whose name matches. In the details, it moves to the nearest matching field. `n` and `N` then step through matches.
-
-`ctrl+t` moves the keys between the list and the details and keeps the search. So `/directory`, then `ctrl+t`, then `y` copies the hovered agent's directory.
-
-`tab` while typing turns the search into a filter, which hides what does not match in that pane only. `esc` gives up the search and puts the cursor back where it was. There is only one search at a time.
-
-## Archiving, restoring and deleting
-
-Archiving an agent, with `z` by default, stops it, closes its pane and takes it off the panel. The row, its metadata and its transcript are kept. Archiving is the normal way to finish with an agent.
-
-The archive prompt also offers "Archive and delete", which archives and then destroys the agent.
-
-`Z` opens the archive, where you can restore agents or delete them for good. Deleting removes the row, its metadata, its transcript and its search index, and it removes the agent's worktree from disk. Search will never find that conversation again. `v` and `V` select several agents at once.
-
-An archived workflow can be deleted from the archive with `d`. Its archived agents go through the same cleanup as deleting them directly. If any of that cleanup is still running or fails, the workflow stays archived until nothing is left in it.
-
-`D` clears the whole archive. It asks first and then runs in the background, because each agent's worktree has to be removed. Rows still being cleaned up stay until they finish, so press it again if anything remains. A row whose cleanup failed stays with a red `✗`, and the stage beside it says what went wrong. Empty archived workflows are deleted along the way.
+Weave refuses to run more agents than [`max_agents`](../../config/#max_agents) allows, so archiving what you are done with keeps room for new work.

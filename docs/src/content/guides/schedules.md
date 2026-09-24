@@ -1,46 +1,32 @@
 ---
 title: Schedules
-description: Launch agents into a workflow on a cron expression.
+description: Start agents on a timer, and what happens when a run is late or busy.
 group: concepts
 order: 6
 ---
 
-A schedule launches an [agent](../agents/) into a [workflow](../workflows/) on a cron expression. It is a row in Postgres rather than a crontab entry, and the service copies the table onto its job queue every ten seconds, so schedules survive restarts.
+A schedule starts an [agent](../agents/) in a [workflow](../workflows/) on a timer, written as a cron expression. It is how you get work done while you are not there, like a triage agent every weekday morning or a dependency check every Monday.
 
-A schedule has a name, a cron expression, an optional timezone, a prompt, the workflow it launches into, whether it is on, and whether its agents start hidden. It has no directory or flags of its own. Those are read from the workflow each time it fires.
+A schedule is kept in weave's database rather than your crontab, so it survives restarts and moves with the engine. It holds a prompt, the workflow to launch into, the timing and an optional time zone. Everything else, such as the directory and the CLI's flags, comes from the workflow each time it fires. The agent it starts is named after the schedule and is otherwise an ordinary agent.
 
-The schedules screen shows each schedule's next run and the result of its last one.
+<figure class="placeholder">
+  <figcaption>The schedules screen, listing each schedule with its next run and the result of its last one.</figcaption>
+</figure>
 
 ## How firings behave
 
-A firing missed while the service was down is skipped, and the next one runs as normal. Weave never backfills on purpose.
+Weave never catches up on missed runs. If the service was down when a run was due, that run is skipped and the next one happens as normal. A run that is only a little late still happens, once.
 
-A late firing still runs, once, if it is less than an hour overdue. Past an hour it is dropped.
+A schedule never piles up work. If an agent from its last run is still working, waiting on you, or unreadable, the next run is skipped and recorded as skipped. An agent that has finished and gone idle does not hold anything back.
 
-Only one run happens at a time. If the last agent is still thinking, waiting, or on a pane weave could not read, the next tick is skipped. An idle agent does not hold the schedule back.
+A run that fails for a passing reason is tried again a few times. A run that cannot succeed is cancelled instead, and the reason is recorded. That covers a workflow that has gone, a directory that does not exist, or a setup that failed. It also covers hitting your agent limit. A schedule that keeps firing and never has its agents archived will eventually reach that limit and stop, and the last result on the schedules screen is where you would notice.
 
-Launches happen one after another, because each one opens a tmux window and types into it. Temporary failures are retried up to five times.
+## Pausing versus archiving
 
-A firing that would go over `max_agents` is cancelled rather than retried. A schedule that runs forever and never has its agents archived will eventually fill your limit and stop launching. The last result on the schedules screen is where you would notice.
+Turning a schedule off pauses it and keeps everything, ready to turn back on. Use this for anything you will want again.
 
-## Turning a schedule off versus archiving it
+Archiving puts a schedule away for good. Neither one touches the agents it already started. A workflow that a schedule still launches into cannot be archived until the schedule is.
 
-Turning a schedule off pauses it and keeps everything. It has no next run until you turn it back on, and then it fires at the next matching time. Use this for anything you will want again.
+## Driving schedules from scripts and agents
 
-Archiving puts a schedule away for good, and nothing brings it back yet. Neither one touches agents it already launched.
-
-## From the CLI and MCP
-
-The same operations are available both ways, such as `create_schedule`, `list_schedules` and `get_schedule`.
-
-```sh
-weave rpc create-schedule \
-  --name morning-triage \
-  --cron "0 9 * * 1-5" \
-  --timezone America/New_York \
-  --workflow-id "$WORKFLOW" \
-  --prompt "Read the issues opened since yesterday, label them, and comment on anything that looks like a duplicate." \
-  --enabled
-```
-
-A scheduled agent is an ordinary agent. It is launched the same way with the workflow's directory, flags and context, and gets the same tools. The only difference is that its row records which schedule made it.
+Everything you can do with schedules in the panel you can also do from the CLI with `weave rpc`, including listing past runs. Over MCP, the schedule tools are offered only to orchestrator agents, since only they are meant to plan other agents' work. The [API reference](../../api/schedule/) lists them.

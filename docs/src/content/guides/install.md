@@ -1,92 +1,62 @@
 ---
 title: Installing weave
-description: Get the binary, point it at Postgres, and open the panel.
+description: What weave needs, how to get it, and how to keep it up to date.
 group: start
 order: 1
 ---
 
-## Quick start
+Weave is a single binary. It runs your agents inside tmux and keeps its records in Postgres, so installing it means getting the binary, giving it a database, and letting tmux know about it.
 
-Weave runs on Mac and Linux. It needs tmux 3.3 or newer, PostgreSQL 18 or newer, and at least one agent CLI on your `PATH` that is already logged in. Weave drives `claude` and `codex`. Tmux's `default-shell` has to be a POSIX shell, and `set -g default-shell /bin/sh` is enough.
+## What you need
+
+Weave runs on Mac and Linux. It needs a recent tmux, PostgreSQL 18 or newer, and at least one agent CLI, Claude or Codex, installed and already logged in. `weave doctor` checks all of this for you and says what is missing.
+
+## Getting the binary
+
+Weave is published on GitHub in two channels. A stable release has a version number and a changelog, and is cut on purpose when main is in good shape. The `tip` release is rebuilt from main after every merge. It is always the newest code and makes no promises, so expect the odd breaking change or bug. Until the first stable release is cut, `tip` is the only channel.
+
+There is a build for Apple Silicon and Intel Macs, and for Linux on both x86 and ARM. Each release also carries checksums to verify a download against.
 
 ```sh
-curl -fsSL -o ~/.local/bin/weave \
-  https://github.com/harrisoncramer/weave/releases/download/v0.1.0/weave-darwin-arm64
+gh release download tip --repo harrisoncramer/weave --pattern weave-darwin-arm64 --output ~/.local/bin/weave
 chmod +x ~/.local/bin/weave
-
-echo "run-shell 'weave tmux'" >>~/.tmux.conf
-tmux source-file ~/.tmux.conf
-
-export WEAVE_OWNER_DATABASE_URL="postgres://weave:secret@localhost:5432/weave?sslmode=disable"
-weave migrate
-weave engine ensure laptop
-export WEAVE_DATABASE_URL="<the url it printed>"
-weave doctor
 ```
 
-Then press `prefix + g` inside tmux to open the panel.
+The repository is private for now, which is why the download goes through the GitHub CLI.
 
-## Picking a build
+## Giving it a database
 
-There are four builds: `weave-darwin-arm64` for Apple Silicon, `weave-darwin-amd64` for Intel Macs, and `weave-linux-amd64` and `weave-linux-arm64`.
+Weave needs an empty Postgres database and a login that owns it.
 
-Each comes on two channels. A stable release has a version number and a changelog, and is cut on purpose. The `tip` release is rebuilt from main on every merge, so its URL never changes and it makes no promises. Expect breaking changes and bugs if you run it.
+The owner login sets things up, and the running service uses a login of its own. That split exists because several weaves, called engines, can share one database. Each engine gets its own login, and Postgres keeps every engine to its own rows. An engine is one running weave on one machine, such as your laptop.
 
-```
-https://github.com/harrisoncramer/weave/releases/download/v0.1.0/weave-darwin-arm64
-https://github.com/harrisoncramer/weave/releases/download/tip/weave-darwin-arm64
-```
+Set up the database as the owner. `weave migrate` creates the schema, and `weave engine ensure` creates your engine and prints the connection setting it should use. Put the owner's URL and that printed setting in your config file, under [`owner_database_url`](../../config/#connection.owner_database_url) and [`database_url`](../../config/#connection.database_url). Put them in the file rather than your shell, because the panel opens in a tmux popup that never sees your shell's variables.
 
-While the repository is private, both URLs answer 404 to a plain curl. Use `gh release download` until it is public.
+The service never changes the schema on its own. It refuses to start against a schema its build does not match, which is why upgrades migrate first.
 
-Every release carries a `checksums.txt`. Check a download against it with `shasum -a 256 -c checksums.txt --ignore-missing`.
+## Hooking it into tmux
 
-If you use a remote engine, your weave and the engine's have to be the same build, because the panel refuses to talk to an engine running other code. Install yours from the release the engine runs, and upgrade both together. [Running weave remotely](../remote/) covers this.
+Add `run-shell 'weave tmux'` to your tmux config and reload it. That binds the key that opens and hides the panel. The first time you press it, weave starts its service in the background and opens the panel. The key is set by [`panel_key`](../../config/#connection.panel_key).
 
-## The database
+<figure class="placeholder">
+  <figcaption>The panel open in a tmux popup over a normal terminal session, showing an empty workflow list on first run.</figcaption>
+</figure>
 
-Weave needs an empty database and a login that owns it.
-
-Several engines can share one database. An engine is one running weave on one machine. Each engine connects with a login of its own, and Postgres keeps every engine to its own rows.
-
-The owner login sets things up. `weave migrate` brings the schema up to date. `weave engine ensure NAME` creates an engine with its login and a read-only login for its MCP tools, then prints the URL the engine should connect with. Both commands connect as `owner_database_url`, which falls back to `database_url`.
-
-```toml
-[connection]
-owner_database_url = "postgres://weave:secret@localhost:5432/weave?sslmode=disable"
-database_url       = "postgres://weave_engine_laptop:<password>@localhost:5432/weave?sslmode=disable"
-```
-
-The service never migrates on its own. It refuses to start against a schema its build does not match, or as a login that belongs to no engine.
-
-The built-in defaults point at the development Postgres in a checkout, on `localhost:5460`. An installed binary needs these two URLs set.
+Run `weave doctor` whenever something looks wrong. It checks every piece weave depends on and says which one is broken.
 
 ## Upgrading
 
-Download the new binary over the old one. Your config, database and tmux config are left alone.
+Download the new binary over the old one. Your config, database and tmux setup are left alone.
 
-The running processes keep the build they started with, so stop the service, migrate, make sure the engine has its logins, and start it again.
+The running service keeps the build it started with, so stop it, migrate the database, and open the panel again, which starts the new build.
 
 ```sh
 weave stop
 weave migrate
-weave engine ensure default
-weave start
-tmux -L weave kill-server
 ```
 
-Press `prefix + g` for a fresh panel. Killing weave's tmux server stops the agents that were running, but their records and transcripts stay in the database.
+A panel that is open when the binary changes notices and asks you to reopen it. Your agents keep running through all of this, because they live in tmux rather than inside the service.
 
-A panel that is open when the binary is replaced shows a screen saying so. Any key closes it, and the panel key opens a new one from the new build.
+## Building from source
 
-## From a checkout
-
-Contributors build from source, which needs Go 1.25.1 or newer.
-
-```sh
-git clone git@github.com:harrisoncramer/weave.git ~/weave
-cd ~/weave
-mise install
-mise run go:build
-mise run docker:up
-```
+Contributors build from a checkout of the repository. It needs Go 1.25.8 or newer and mise, which installs the rest of the tools. `mise run go:build` builds the binary and `mise run docker:up` starts a local development database.

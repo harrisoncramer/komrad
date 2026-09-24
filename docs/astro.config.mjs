@@ -3,12 +3,25 @@ import mdx from "@astrojs/mdx";
 import react from "@astrojs/react";
 import tailwindcss from "@tailwindcss/vite";
 import { createReadStream, existsSync, statSync } from "node:fs";
-import { extname } from "node:path";
+import { basename, extname } from "node:path";
 
 const version = process.env.PUBLIC_DOCS_VERSION || "dev";
 const base = `/${version}/`;
 
 const pagefindDir = new URL("./dist/pagefind/", import.meta.url);
+
+const absoluteGuideLinks = () => (tree, file) => {
+  const page = new URL(`guides/${basename(file.path, extname(file.path))}/`, `http://docs${base}`);
+  const visit = (node) => {
+    const href = node.properties?.href;
+    if (node.tagName === "a" && typeof href === "string" && href.startsWith(".")) {
+      const target = new URL(href, page);
+      node.properties.href = `${target.pathname}${target.hash}`;
+    }
+    node.children?.forEach(visit);
+  };
+  visit(tree);
+};
 
 const pagefindTypes = {
   ".js": "application/javascript",
@@ -40,12 +53,13 @@ const pagefind = {
 
 export default defineConfig({
   base,
-  trailingSlash: "always",
+  trailingSlash: "ignore",
   integrations: [mdx(), react()],
   vite: {
     plugins: [tailwindcss(), pagefind],
   },
   markdown: {
+    rehypePlugins: [absoluteGuideLinks],
     shikiConfig: {
       theme: "tokyo-night",
     },
