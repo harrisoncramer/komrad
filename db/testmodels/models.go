@@ -297,7 +297,7 @@ type AgentMetadatum struct {
 	TenantID pgtype.UUID
 }
 
-// Which agents were seen with which pull requests, one row per pair, never deleted or re-pointed. It is history rather than ownership: the live view derives the association from the branch and never reads this, and the archive reads nothing else.
+// Which agents were seen with which pull requests, one row per pair, never re-pointed. The watch carries every pull request with a row here.
 type AgentPullRequest struct {
 	AgentID       pgtype.UUID
 	PullRequestID pgtype.UUID

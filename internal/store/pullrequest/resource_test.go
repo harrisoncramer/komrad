@@ -10,10 +10,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestListByKeyIsTheParentLiveSet pins the read-back to the watched set: a pull request comes
-// back while an agent, live or archived, is on its branch in its repository, and is a tombstone
-// when none was ever there.
-func TestListByKeyIsTheParentLiveSet(t *testing.T) {
+// TestListWatchedIsTheLinkedSet pins the watched set to the links: a pull request is carried
+// once an agent has been seen with it and stays carried after that agent is archived, and one
+// nobody was seen with is a tombstone.
+func TestListWatchedIsTheLinkedSet(t *testing.T) {
 	ctx := t.Context()
 	h := open(t)
 	flow := h.createWorkflow(t)
@@ -23,31 +23,34 @@ func TestListByKeyIsTheParentLiveSet(t *testing.T) {
 	require.NoError(t, err)
 	orphan, err := h.Upsert(ctx, openPullRequest("PR_2", 2, "agent/nobody"))
 	require.NoError(t, err)
-	fork := openPullRequest("PR_3", 3, "agent/x")
-	fork.HeadRepositoryURL = fixture
-	forked, err := h.Upsert(ctx, fork)
-	require.NoError(t, err)
 
 	ids := func(pullRequests []PullRequest) []string {
 		return xslice.Map(pullRequests, func(p PullRequest) string { return p.ID })
 	}
 
-	listed, err := h.ListByKey(ctx, []string{held.ID, orphan.ID, forked.ID})
+	unlinked, err := h.ListWatched(ctx, nil)
 	require.NoError(t, err)
-	assert.Equal(t, []string{held.ID}, ids(listed), "a branch nobody is on and a fork's branch are tombstones")
+	assert.Empty(t, unlinked, "a pull request on an agent's branch is not carried before it is observed")
 
-	snapshot, err := h.List(ctx)
+	_, err = h.Observe(ctx)
+	require.NoError(t, err)
+
+	listed, err := h.ListWatched(ctx, []string{held.ID, orphan.ID})
+	require.NoError(t, err)
+	assert.Equal(t, []string{held.ID}, ids(listed), "a pull request nobody was seen with is a tombstone")
+
+	snapshot, err := h.ListWatched(ctx, nil)
 	require.NoError(t, err)
 	assert.Equal(t, []string{held.ID}, ids(snapshot))
 
 	_, err = h.agents.Archive(ctx, []string{onBranch})
 	require.NoError(t, err)
 
-	listed, err = h.ListByKey(ctx, []string{held.ID})
+	listed, err = h.ListWatched(ctx, []string{held.ID})
 	require.NoError(t, err)
 	assert.Equal(t, []string{held.ID}, ids(listed), "an archived agent's pull request stays in the watched set")
 
-	none, err := h.ListByKey(ctx, nil)
+	none, err := h.ListWatched(ctx, []string{})
 	require.NoError(t, err)
 	assert.Empty(t, none)
 }

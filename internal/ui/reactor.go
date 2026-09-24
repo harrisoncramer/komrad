@@ -15,7 +15,6 @@ type worldReactor interface {
 func newWorldReactors() []worldReactor {
 	return []worldReactor{
 		reviewReactor{},
-		newPullRequestReactor(),
 	}
 }
 

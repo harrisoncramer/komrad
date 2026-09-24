@@ -173,7 +173,6 @@ func TestStageTickReadsTheHoveredAgentsWorktree(t *testing.T) {
 	client := &recordingWorktreeReads{}
 	m := gitModel(t)
 	m.api.worktrees = client
-	m.api.pullRequests = &recordingPullRequests{}
 
 	m.waitToStage()
 	ask := m.applyStageTick(stageTickMsg{move: m.staging})
@@ -524,7 +523,6 @@ func TestFailedRereadKeepsTheLastAnswer(t *testing.T) {
 	client := &failingWorktreeReads{}
 	m := gitModel(t)
 	m.api.worktrees = client
-	m.api.pullRequests = &recordingPullRequests{}
 
 	m = landWorktreeRead(t, m, m.rereadAgentWorktreeCmd())
 	require.Equal(t, "origin/main  ↑1", fieldValue(t, m.hoveredDetails(), "base"))

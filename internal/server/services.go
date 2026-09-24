@@ -231,11 +231,12 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		Tx:           st.pool,
 	})
 	cwdSyncer := checkouts.NewCwdSyncer(checkouts.NewCwdSyncerParams{
-		Agents:  st.agents,
-		Heads:   gitClient,
-		Trees:   gitClient,
-		Tallies: st.review,
-		Bases:   st.workflows,
+		Agents:       st.agents,
+		Heads:        gitClient,
+		Trees:        gitClient,
+		Tallies:      st.review,
+		Bases:        st.workflows,
+		PullRequests: st.pullRequests,
 	})
 
 	transcriptSyncer := transcripts.NewTranscriptSyncer(transcripts.NewTranscriptSyncerParams{

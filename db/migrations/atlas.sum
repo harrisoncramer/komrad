@@ -1,4 +1,4 @@
-h1:CE9RVFXA9jn4J+OGhLw22S7Xq8LB8+osf+ISVeEJb8k=
+h1:tnGm/K4DG2ISaBYnJ8o066Fgqe7RHCsmlW6/16OHpSs=
 20260727000000_foundation.sql h1:7W4rJzYDLDmbY5bVN2UpLkNbncK+QlKdHDEZflYjgkM=
 20260727000001_agents.sql h1:1mLdMlbyeyCG7yTKNXxa35ecAdWwE65ICBHGbLnBDGY=
 20260727000002_mail.sql h1:B/wDwMChMbamyYWYheBJL8OOxjd+AzCqqDGaAWUH9qY=
@@ -13,4 +13,5 @@ h1:CE9RVFXA9jn4J+OGhLw22S7Xq8LB8+osf+ISVeEJb8k=
 20260923193912_agent_head_sha.sql h1:BrrmTEZxbgxuU12/suUU2aKyIG/yvS3cCkwvyWrz5nc=
 20260923200439_drop_schedule_last_result.sql h1:p+FYkiagLpvyF0De8cddsH1j8tvUld8gITDA6TB0TrA=
 20260923221038_watch_trigger_arguments.sql h1:LneFUcvBQ3eNnvf6QCIs5cZjeeDrWxJl0daNJCBpAWg=
-20260924013356_watch_repositories.sql h1:H0zbWs3Byu/UQwwGEtR9j4pMgozJSzhOE5rvbbzUlaI=
+20260924013903_agent_pull_requests_watched.sql h1:jdV7HIcsgi+2AbKD3kpYpqV+PABqoYA59eLuzfoz9aM=
+20260924015912_watch_repositories_and_pull_requests.sql h1:VsqiwUiYgDEhYyYvM4syF0JV4VoNI8vSnmm267mAkl8=

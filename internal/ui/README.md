@@ -80,7 +80,7 @@ the keybindings, the dimensions of its own pane.
 
 The panel is told. It holds the service's watch stream open for its whole life: the stream
 opens with a snapshot of every resource the panel draws, agents, workflows, schedules, marks,
-unclaimed mail and the pull requests on live agents' branches, then carries one row per
+unclaimed mail and the pull requests an agent was seen with, then carries one row per
 change, and the client in internal/client hands the changes over in batches a few tens of
 milliseconds wide. Each row goes into the World in internal/assemble, one map per kind, or
 comes out of it on a tombstone, and the rows the screens draw are assembled again from those
@@ -93,10 +93,9 @@ snapshot replaces what the last stream built. Nothing about an agent is discover
 service watches the panes and writes what it saw, and the panel takes rows like any other
 client.
 
-One thing is listed on arrival. The stream carries a pull request only once a live agent is on
-its branch, so when an agent the panel had not seen arrives, or one it holds moves to another
-branch, the panel asks once for the pull requests stored for that branch and puts them in the
-map, where later changes land over them by key.
+The stream carries a pull request once the server has seen an agent on its branch, which the
+pull request sync and cwd sync both record, so a pull request reaches the panel like any other
+row and the panel never asks for one.
 
 Two listings ride no stream. The archive and the worktree directories are read when a screen
 that draws them is entered and on every tick while it is up, and are left alone otherwise.

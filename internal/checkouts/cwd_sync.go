@@ -45,33 +45,40 @@ type tallyLister interface {
 	ListTallies(ctx context.Context) ([]reviewstore.Tally, error)
 }
 
+type pullRequestObserver interface {
+	Observe(ctx context.Context) (int64, error)
+}
+
 // NewCwdSyncerParams is what a cwd syncer is built over.
 type NewCwdSyncerParams struct {
-	Agents  cwdSetter
-	Heads   headReader
-	Trees   standingReader
-	Tallies tallyLister
-	Bases   workflowLister
+	Agents       cwdSetter
+	Heads        headReader
+	Trees        standingReader
+	Tallies      tallyLister
+	Bases        workflowLister
+	PullRequests pullRequestObserver
 }
 
 // CwdSyncer keeps what the panel shows of an agent's working directory in step with the
 // directory itself.
 type CwdSyncer struct {
-	agents  cwdSetter
-	heads   headReader
-	trees   standingReader
-	tallies tallyLister
-	bases   workflowLister
+	agents       cwdSetter
+	heads        headReader
+	trees        standingReader
+	tallies      tallyLister
+	bases        workflowLister
+	pullRequests pullRequestObserver
 }
 
 // NewCwdSyncer builds a syncer over the agent store.
 func NewCwdSyncer(params NewCwdSyncerParams) *CwdSyncer {
 	return &CwdSyncer{
-		agents:  params.Agents,
-		heads:   params.Heads,
-		trees:   params.Trees,
-		tallies: params.Tallies,
-		bases:   params.Bases,
+		agents:       params.Agents,
+		heads:        params.Heads,
+		trees:        params.Trees,
+		tallies:      params.Tallies,
+		bases:        params.Bases,
+		pullRequests: params.PullRequests,
 	}
 }
 
@@ -87,7 +94,8 @@ type cwdLook struct {
 }
 
 // Sync looks at every live agent's cwd once and writes what changed, clearing the branch and
-// repository when the cwd names no git checkout and leaving an agent with no cwd alone.
+// repository when the cwd names no git checkout, leaving an agent with no cwd alone, and
+// observing the pull requests when any agent moved onto a branch.
 func (cs *CwdSyncer) Sync(ctx context.Context) error {
 	agents, err := cs.agents.List(ctx)
 	if err != nil {
@@ -116,7 +124,9 @@ func (cs *CwdSyncer) Sync(ctx context.Context) error {
 	}
 
 	var failures []error
+	isObserving := false
 	for _, look := range looks {
+		isObserving = isObserving || look.hasMovedBranch()
 		if look.err != nil {
 			failures = append(failures, look.err)
 		}
@@ -124,6 +134,12 @@ func (cs *CwdSyncer) Sync(ctx context.Context) error {
 			failures = append(failures, err)
 		}
 		if err := cs.writeStanding(ctx, look); err != nil {
+			failures = append(failures, err)
+		}
+	}
+
+	if isObserving {
+		if _, err := cs.pullRequests.Observe(ctx); err != nil {
 			failures = append(failures, err)
 		}
 	}
@@ -192,6 +208,16 @@ func (cs *CwdSyncer) look(ctx context.Context, agent agentstore.Agent, round, ba
 	}
 
 	return look
+}
+
+// hasMovedBranch is whether the look found the agent on a branch or repository its row does not hold.
+func (cl cwdLook) hasMovedBranch() bool {
+	branch := xptr.NonEmpty(cl.head.Branch)
+	if branch == nil {
+		return false
+	}
+
+	return !xptr.Equal(cl.agent.Branch, branch) || !xptr.Equal(cl.agent.RepositoryURL, xptr.NonEmpty(cl.head.RepositoryURL))
 }
 
 // write records what the look found, when any of it differs from the row.

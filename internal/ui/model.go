@@ -23,7 +23,6 @@ import (
 	"weave/internal/ui/layout"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	"weave/proto/gen/hook/v1/hookv1connect"
-	"weave/proto/gen/pullrequest/v1/pullrequestv1connect"
 	schedulev1connect "weave/proto/gen/schedule/v1/schedulev1connect"
 	"weave/proto/gen/watch/v1/watchv1connect"
 	"weave/proto/gen/workflow/v1/workflowv1connect"
@@ -191,7 +190,6 @@ type Deps struct {
 	Schedules       schedulev1connect.ScheduleServiceClient
 	Hooks           hookv1connect.HookServiceClient
 	Worktrees       worktreev1connect.WorktreeServiceClient
-	PullRequests    pullrequestv1connect.PullRequestServiceClient
 	Watch           watchv1connect.WatchServiceClient
 	Keys            config.Keybindings
 	Layout          config.Layout
@@ -315,12 +313,11 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 		post:   post,
 		drawn:  &lastFrame{},
 		api: api{
-			agents:       deps.Agents,
-			workflows:    deps.Workflows,
-			schedules:    deps.Schedules,
-			hooks:        deps.Hooks,
-			worktrees:    deps.Worktrees,
-			pullRequests: deps.PullRequests,
+			agents:    deps.Agents,
+			workflows: deps.Workflows,
+			schedules: deps.Schedules,
+			hooks:     deps.Hooks,
+			worktrees: deps.Worktrees,
 		},
 		popup:           deps.PopupWindow,
 		clip:            systemClipboard{},

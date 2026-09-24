@@ -14,15 +14,22 @@ var WatchedPullRequests = watch.Resource{
 	Enum:      watchv1.Resource_RESOURCE_PULL_REQUEST,
 	Table:     "pull_requests",
 	KeyColumn: "id",
+	Feeders: []watch.Feeder{
+		{
+			Table:  "agent_pull_requests",
+			Column: "pull_request_id",
+		},
+	},
 }
 
-// ListWatched returns whichever of keys hold a pull request on an agent's branch, or every one when keys is nil.
+// ListWatched returns the pull requests among keys that some agent has been seen with, or every one when keys is nil.
 func (s *PullRequestStore) ListWatched(ctx context.Context, keys []string) ([]PullRequest, error) {
-	if keys == nil {
-		return s.List(ctx)
+	rows, err := s.queries.ListWatchedPullRequests(ctx, keys)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the watched pull requests: %w", err)
 	}
 
-	return s.ListByKey(ctx, keys)
+	return xslice.Map(rows, fromRow), nil
 }
 
 // WatchedRepositories declares the repositories the sync reads to the watch.
