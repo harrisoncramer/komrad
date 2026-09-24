@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"weave/internal/ui/paint"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	pullrequestv1 "weave/proto/gen/pullrequest/v1"
@@ -374,6 +375,36 @@ func TestArchiveRows(t *testing.T) {
 	}
 }
 
+// TestArchiveRowEmphasis covers what the archive's rows say in colour and in their bar.
+func TestArchiveRowEmphasis(t *testing.T) {
+	t.Run("an archived folder is greyed and a live one is not", func(t *testing.T) {
+		harness := openArchive(t,
+			newLiveWorkflow("w1", "backend"),
+			newArchivedAgent("a1", "auth", "w1"),
+			newArchivedWorkflow("w2", "frontend"),
+			newArchivedAgent("a2", "ui", "w2"),
+		)
+
+		harness.press("G")
+
+		frame := harness.readRawFrame()
+		muted := paint.Panel.Style(paint.ToneMuted).Bold(true)
+		assert.Contains(t, frame, muted.Render("frontend"))
+		assert.NotContains(t, frame, muted.Render("backend"))
+	})
+
+	t.Run("an agent a delete could not destroy draws a busy bar", func(t *testing.T) {
+		stuck := newArchivedAgent("a2", "stuck", "w1")
+		stuck.State = agentv1.AgentState_AGENT_STATE_FAILED_TO_CLEANUP
+		harness := openArchive(t, newLiveWorkflow("w1", "backend"), newArchivedAgent("a1", "auth", "w1"), stuck)
+
+		frame := harness.readFrame()
+
+		assert.Contains(t, findLine(splitLines(frame), "auth"), "│   auth")
+		assert.Contains(t, findLine(splitLines(frame), "stuck"), "┃   stuck")
+	})
+}
+
 // TestArchiveLegend covers the legend naming what the hovered row takes.
 func TestArchiveLegend(t *testing.T) {
 	neverStarted := newArchivedAgent("a1", "api-refactor", "w1")
@@ -633,6 +664,17 @@ func TestArchiveWindow(t *testing.T) {
 		harness.press("esc")
 
 		assert.False(t, harness.panel.IsZoomed(), "leaving the archive for a running agent gives the other panes their share back")
+	})
+
+	t.Run("restoring and opening an agent hands the window to the pane it opens", func(t *testing.T) {
+		harness := openArchive(t, buildOneArchivedAgent()...)
+		require.True(t, harness.panel.IsZoomed())
+		answerResume(harness)
+
+		harness.press("j", "R")
+
+		assert.False(t, harness.panel.IsZoomed(), "the pane it made is not left under the archive's own zoom")
+		assert.Equal(t, "%9", harness.panel.ReadGuestPane())
 	})
 
 	t.Run("a short window keeps the list beside the document", func(t *testing.T) {

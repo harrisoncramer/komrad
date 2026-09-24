@@ -111,10 +111,6 @@ func caretGlyph(caret view.Caret) string {
 	return paint.Panel.Cursor().Render(rowCursorGlyph)
 }
 
-func (m model) rowCursorPrefix() string {
-	return m.cursorPrefix(sectionList)
-}
-
 // isListFocused reports whether the keys are the list's.
 func (m model) isListFocused() bool {
 	return m.doKeysMoveCursors() && m.keyholder() == sectionList

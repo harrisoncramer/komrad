@@ -3,6 +3,7 @@ package ui_test
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -608,6 +609,44 @@ func TestWorktreesInspection(t *testing.T) {
 
 		assert.Equal(t, "agent/orphan", readHoveredWorktree(harness.readFrame()))
 	})
+
+	t.Run("a directory whose read is on its way is not asked for again", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openWorktrees(t)
+		harness.hold(worktreev1connect.WorktreeServiceGetWorktreeProcedure)
+		moveToWorktree(t, harness, "reviewer")
+		harness.fireTimers()
+
+		harness.press("j", "k")
+		harness.fireTimers()
+
+		assert.Len(t, readWorktreeReadsOf(harness, "/trees/archived"), 1)
+	})
+
+	t.Run("a row read again shows its last answer until the new one lands", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openWorktrees(t)
+		harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(&worktreev1.GetWorktreeResponse{
+			Worktree: &worktreev1.Worktree{
+				Dir:      "/trees/archived",
+				Readable: true,
+			},
+			BaseRef: "origin/main",
+			Ahead:   2,
+		}))
+		moveToWorktree(t, harness, "reviewer")
+		harness.fireTimers()
+		harness.hold(worktreev1connect.WorktreeServiceGetWorktreeProcedure)
+
+		harness.press("j", "k")
+		harness.fireTimers()
+
+		frame := harness.readFrame()
+		assert.Contains(t, frame, "Commits since origin/main")
+		assert.NotContains(t, frame, "reading the directory")
+	})
 }
 
 // TestWorktreesSort covers the strip reordering the directories under the cursor.
@@ -849,6 +888,14 @@ func moveToWorktree(t *testing.T, harness *panelHarness, name string) {
 	}
 
 	require.Equal(t, name, readHoveredWorktree(harness.readFrame()))
+}
+
+func readWorktreeReadsOf(harness *panelHarness, dir string) []proto.Message {
+	return slices.DeleteFunc(harness.readSent(worktreev1connect.WorktreeServiceGetWorktreeProcedure), func(sent proto.Message) bool {
+		read, _ := sent.(*worktreev1.GetWorktreeRequest)
+
+		return read.GetDir() != dir
+	})
 }
 
 func readHoveredWorktree(frame string) string {

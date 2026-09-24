@@ -76,6 +76,19 @@ func TestListingLandsWrites(t *testing.T) {
 		assert.Equal(t, "  old", readHoveredRow(harness.readFrame()))
 	})
 
+	t.Run("a row arriving after the landing gave up leaves the cursor where it was", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openLanding(t)
+		answerAgentCreate(harness, "")
+
+		harness.press("c", "h", "i", "ctrl+s")
+		harness.panel.ExpireLanding()
+		harness.watch(buildPuts(newAgent("a2", "new", "w1")))
+
+		assert.Equal(t, "  old", readHoveredRow(harness.readFrame()))
+	})
+
 	t.Run("a key pressed while the landing waits takes the cursor back", func(t *testing.T) {
 		t.Parallel()
 

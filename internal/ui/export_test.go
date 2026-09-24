@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"weave/config"
 	"weave/internal/engine"
@@ -70,6 +71,9 @@ type recordingTmux struct {
 	rootUnbinds   []string
 }
 
+// ClipboardWriter is where the panel's copy key writes.
+type ClipboardWriter = clipboardWriter
+
 // HarnessFrameReader answers whether a pane is drawing its harness yet.
 type HarnessFrameReader = harnessFrameReader
 
@@ -93,6 +97,8 @@ type NewPanelParams struct {
 	ConfigErr     error
 	StartupErr    error
 	RefuseSplits  bool
+	Clipboard     ClipboardWriter
+	Binary        BinaryWatcher
 }
 
 // NewPanel builds the panel the way weave panel does, over a recording tmux.
@@ -137,12 +143,17 @@ func NewPanel(params NewPanelParams) *Panel {
 			Settings:      settings,
 			ConfigErr:     params.ConfigErr,
 			StartupErr:    params.StartupErr,
+			Binary:        params.Binary,
 		}, true, post),
 		post: post,
 		tmux: tmux,
 		clip: &fakeClipboard{},
 	}
-	panel.model.clip = panel.clip
+	if params.Clipboard != nil {
+		panel.model.clip = params.Clipboard
+	} else {
+		panel.model.clip = panel.clip
+	}
 
 	return panel
 }
@@ -489,6 +500,40 @@ func requireGolden(t *testing.T, name, got string) {
 // ReadRespawnPanes is every pane the panel has respawned, in the order it respawned them.
 func (p *Panel) ReadRespawnPanes() []string {
 	return p.tmux.respawnPanes
+}
+
+// ExpireLanding runs out the wait a write's landing holds the cursor for.
+func (p *Panel) ExpireLanding() {
+	p.model.landing.until = time.Time{}
+}
+
+// AgeWorktreeReads makes every directory read the panel holds older by the given time.
+func (p *Panel) AgeWorktreeReads(by time.Duration) {
+	for dir, read := range p.model.inspections {
+		read.readAt = read.readAt.Add(-by)
+		p.model.inspections[dir] = read
+	}
+}
+
+// FormFieldDraftPath is the file a form field is written out to for the editor.
+var FormFieldDraftPath = formFieldDraftPath
+
+// NewFieldEdited is what the editor hands back for a field of the form on screen once it quits.
+func (p *Panel) NewFieldEdited(key, text string) tea.Msg {
+	return formFieldEditedMsg{
+		kind: p.model.form.kind,
+		key:  key,
+		text: text,
+	}
+}
+
+// SetPaneDead makes tmux report a pane as gone.
+func (p *Panel) SetPaneDead(pane string) {
+	if p.tmux.deadPanes == nil {
+		p.tmux.deadPanes = map[string]bool{}
+	}
+
+	p.tmux.deadPanes[pane] = true
 }
 
 // ReadRespawnDirs is the directory each respawn was rooted at, in the order it was asked for.

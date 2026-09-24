@@ -150,13 +150,6 @@ func settle(t *testing.T, m model, cmd tea.Cmd) model {
 	return m
 }
 
-// applyListing replaces the model's workflows and clears its agents.
-func applyListing(m *model, workflows []panel.Workflow) {
-	m.withListing(func(current *listing) {
-		current.agents, current.workflows = nil, workflows
-	})
-}
-
 func collectMessages(cmd tea.Cmd) []tea.Msg {
 	if cmd == nil {
 		return nil
