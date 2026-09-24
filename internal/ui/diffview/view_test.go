@@ -358,3 +358,50 @@ func TestHiddenMatchesCountsWhatTheFoldHides(t *testing.T) {
 	assert.Equal(t, 1, found, "only the file still drawn has rows to match")
 	assert.Equal(t, 1, view.HiddenMatches())
 }
+
+// TestAnAgentsOwnCommentIsNotOwedASettling covers who a settling is from: an agent answers its
+// own comments by working, so counting them would leave the person walking comments they have no
+// answer to give.
+func TestAnAgentsOwnCommentIsNotOwedASettling(t *testing.T) {
+	view := NewView(patchWith(diff.File{
+		OldPath: "greet.go",
+		NewPath: "greet.go",
+		Hunks: []diff.Hunk{hunkOf(
+			diff.Line{
+				Kind:      diff.Context,
+				Text:      "package greet",
+				OldNumber: 1,
+				NewNumber: 1,
+			},
+			diff.Line{
+				Kind:      diff.Addition,
+				Text:      "func Greet() {}",
+				NewNumber: 2,
+			},
+		)},
+	}), false)
+
+	mine := threadAt("t1", "greet.go", 1, 1, " package greet")
+	mine.Messages = []*agentv1.ReviewMessage{
+		{AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN},
+	}
+
+	its := threadAt("t2", "greet.go", 0, 2, "+func Greet() {}")
+	its.Messages = []*agentv1.ReviewMessage{
+		{AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT},
+	}
+
+	view.PinThreads([]*agentv1.ReviewThread{mine, its})
+
+	assert.Equal(t, 1, view.CountOpenThreads(), "only the comment the person wrote is theirs to settle")
+
+	next, ok := view.JumpOpenThread(-1, 1)
+	require.True(t, ok)
+
+	found, ok := view.GetThreadAt(next)
+	require.True(t, ok)
+	assert.Equal(t, "t1", found.GetId(), "and the walk stops on that one")
+
+	_, ok = view.JumpOpenThread(next, 1)
+	assert.False(t, ok, "with nothing after it")
+}

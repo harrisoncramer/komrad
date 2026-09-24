@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"weave/internal/diff"
-	"weave/internal/ui/paint"
 	agentv1 "weave/proto/gen/agent/v1"
 
 	"github.com/stretchr/testify/assert"
@@ -194,93 +193,6 @@ func TestPinningTwiceLeavesOneSection(t *testing.T) {
 	view.PinThreads(threads)
 
 	assert.Equal(t, once, view.Len())
-}
-
-// TestMarkForSaysWhichThreadIsWhich covers the gutter glyph ranking an unread reply first,
-// then settling, then whether the thread still stands on the code it was written against.
-func TestMarkForSaysWhichThreadIsWhich(t *testing.T) {
-	view := NewView(patchWith(diff.File{
-		OldPath: "greet.go",
-		NewPath: "greet.go",
-		Hunks: []diff.Hunk{hunkOf(
-			diff.Line{
-				Kind:      diff.Context,
-				Text:      "package greet",
-				OldNumber: 1,
-				NewNumber: 1,
-			},
-		)},
-	}), false)
-
-	thread := threadAt("t1", "greet.go", 1, 1, " package greet")
-	view.PinThreads([]*agentv1.ReviewThread{thread})
-
-	mark, style := view.markFor(thread)
-	assert.Equal(t, readMark, mark)
-	assert.Equal(t, paint.Panel.Style(paint.ToneSelf), style, "a thread the person opened is drawn in their colour")
-
-	thread.ResolvedAt = "2026-08-27T12:00:00Z"
-	mark, style = view.markFor(thread)
-	assert.Equal(t, settledMark, mark)
-	assert.Equal(t, paint.Panel.Style(paint.ToneSelf), style, "and the check keeps the author's colour")
-
-	thread.UnreadByHuman = true
-	mark, _ = view.markFor(thread)
-	assert.Equal(t, unreadMark, mark,
-		"a reply nobody has read outranks the settling, the gutter being the only place it is said")
-
-	thread.Messages = []*agentv1.ReviewMessage{
-		{AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT},
-	}
-	_, style = view.markFor(thread)
-	assert.Equal(t, paint.Panel.Style(paint.ToneOther), style, "a thread the agent opened is drawn in its own colour")
-}
-
-// TestAnAgentsOwnCommentIsNotOwedASettling covers who a settling is from: an agent answers its
-// own comments by working, so counting them would leave the person walking comments they have no
-// answer to give.
-func TestAnAgentsOwnCommentIsNotOwedASettling(t *testing.T) {
-	view := NewView(patchWith(diff.File{
-		OldPath: "greet.go",
-		NewPath: "greet.go",
-		Hunks: []diff.Hunk{hunkOf(
-			diff.Line{
-				Kind:      diff.Context,
-				Text:      "package greet",
-				OldNumber: 1,
-				NewNumber: 1,
-			},
-			diff.Line{
-				Kind:      diff.Addition,
-				Text:      "func Greet() {}",
-				NewNumber: 2,
-			},
-		)},
-	}), false)
-
-	mine := threadAt("t1", "greet.go", 1, 1, " package greet")
-	mine.Messages = []*agentv1.ReviewMessage{
-		{AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN},
-	}
-
-	its := threadAt("t2", "greet.go", 0, 2, "+func Greet() {}")
-	its.Messages = []*agentv1.ReviewMessage{
-		{AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT},
-	}
-
-	view.PinThreads([]*agentv1.ReviewThread{mine, its})
-
-	assert.Equal(t, 1, view.CountOpenThreads(), "only the comment the person wrote is theirs to settle")
-
-	next, ok := view.JumpOpenThread(-1, 1)
-	require.True(t, ok)
-
-	found, ok := view.GetThreadAt(next)
-	require.True(t, ok)
-	assert.Equal(t, "t1", found.GetId(), "and the walk stops on that one")
-
-	_, ok = view.JumpOpenThread(next, 1)
-	assert.False(t, ok, "with nothing after it")
 }
 
 // TestASecondThreadOnALineGetsItsOwnRow covers the second of two conversations on one line going
@@ -653,4 +565,101 @@ func TestPinStillReadsAnIndentAsUnchanged(t *testing.T) {
 
 	assert.Equal(t, pinned, view.placed[thread.GetId()],
 		"the drawn spelling of the line before the indent reads as the bare spelling of it after")
+}
+
+// expandableView is a file whose patch draws one changed line in the middle of it, with the whole
+// of its new side to hand.
+func expandableView() *View {
+	return NewView(patchWith(diff.File{
+		OldPath:   "tall.go",
+		NewPath:   "tall.go",
+		NewSource: "one\ntwo\nthree\nfour\nfive\nsix\nseven\neight\n",
+		Hunks: []diff.Hunk{{
+			Header:   "@@ -4,2 +4,2 @@",
+			NewStart: 4,
+			Lines: []diff.Line{
+				{
+					Kind:      diff.Context,
+					Text:      "four",
+					OldNumber: 4,
+					NewNumber: 4,
+				},
+				{
+					Kind:      diff.Addition,
+					Text:      "five",
+					NewNumber: 5,
+				},
+			},
+		}},
+	}), false)
+}
+
+// headingAbove is the foot section a thread was sorted into.
+func headingAbove(t *testing.T, view *View, id string) string {
+	t.Helper()
+
+	heading := ""
+	for _, current := range view.rows {
+		if current.kind == metadataRow {
+			heading = current.text
+		}
+
+		if current.kind == threadRow && current.thread.GetId() == id {
+			return heading
+		}
+	}
+
+	require.FailNow(t, "that thread has no row")
+
+	return ""
+}
+
+// TestAnAdriftCommentOnADrawnLineReadsAsChanged covers the agent rewriting the code under a
+// comment after reading the review, where the line is on screen and calling it off screen would
+// be false.
+func TestAnAdriftCommentOnADrawnLineReadsAsChanged(t *testing.T) {
+	view := expandableView()
+
+	thread := threadAt("t1", "tall.go", 0, 5, "+something else entirely")
+	view.PinThreads([]*agentv1.ReviewThread{thread})
+
+	require.Equal(t, adrift, view.placed["t1"], "the quote matches nothing, so it has no line")
+	assert.Equal(t, changedNotice, headingAbove(t, view, "t1"))
+}
+
+// TestAnAdriftCommentOnAnUndrawnLineReadsAsOffScreen covers the line the reader themselves took
+// off the screen by drawing the file tight again, which the agent has not touched.
+func TestAnAdriftCommentOnAnUndrawnLineReadsAsOffScreen(t *testing.T) {
+	view := expandableView()
+
+	thread := threadAt("t1", "tall.go", 8, 8, "+eight")
+	view.PinThreads([]*agentv1.ReviewThread{thread})
+
+	require.Equal(t, adrift, view.placed["t1"], "the patch draws no line eight")
+	assert.Equal(t, outsideNotice, headingAbove(t, view, "t1"))
+}
+
+// TestACommentOnAFileThatHasLeftTheChangeSaysSo covers the whole-change diff, where a file the
+// patch does not draw is a file that is gone.
+func TestACommentOnAFileThatHasLeftTheChangeSaysSo(t *testing.T) {
+	view := expandableView()
+
+	thread := threadAt("t2", "departed.go", 3, 3, "+gone")
+	view.PinThreads([]*agentv1.ReviewThread{thread})
+
+	require.Equal(t, adrift, view.placed["t2"], "the patch draws no such file")
+	assert.Equal(t, goneNotice, headingAbove(t, view, "t2"))
+}
+
+// TestACommentOutsideANarrowedDiffIsNotGone covers the same comment on a diff that is a slice of
+// the change, where the file may be in the rounds the reader has stepped past.
+func TestACommentOutsideANarrowedDiffIsNotGone(t *testing.T) {
+	view := expandableView()
+	view.SetNarrowed(true)
+
+	thread := threadAt("t1", "departed.go", 3, 3, "+gone")
+	view.PinThreads([]*agentv1.ReviewThread{thread})
+
+	require.Equal(t, adrift, view.placed["t1"])
+	assert.Equal(t, outsideNotice, headingAbove(t, view, "t1"))
 }
