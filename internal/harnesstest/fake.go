@@ -135,10 +135,17 @@ type Registry struct {
 	Harness *Fake
 	ByID    map[string]*Fake
 	Only    []string
+	// BeforeGet runs ahead of every lookup, and an error it returns refuses that lookup.
+	BeforeGet func(id string) error
 }
 
 // GetByID is the harness registered under id.
 func (r Registry) GetByID(id string) (harness.Harness, error) {
+	if r.BeforeGet != nil {
+		if err := r.BeforeGet(id); err != nil {
+			return nil, err
+		}
+	}
 	if len(r.Only) > 0 && !slices.Contains(r.Only, id) {
 		return nil, fmt.Errorf("%w: %q", harness.ErrNotRegistered, id)
 	}
@@ -206,6 +213,8 @@ type Observer struct {
 	Observations []harness.Observation
 	Err          error
 	Reads        int
+	// BeforeFirst runs ahead of the first observation.
+	BeforeFirst func()
 }
 
 // Observe answers the next observation in the run.
@@ -213,6 +222,9 @@ func (o *Observer) Observe(context.Context, harness.Target) (harness.Observation
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
+	if o.Reads == 0 && o.BeforeFirst != nil {
+		o.BeforeFirst()
+	}
 	if o.Err != nil {
 		return harness.Observation{}, o.Err
 	}

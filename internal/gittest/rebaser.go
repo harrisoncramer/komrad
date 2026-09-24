@@ -17,10 +17,16 @@ type Rebaser struct {
 	ReplayErr error
 	// Calls is what was asked of git, in the order it was asked.
 	Calls []string
+	// BeforeReadTree runs ahead of every read of the tree.
+	BeforeReadTree func()
 }
 
 // ReadTreeState answers State.
 func (f *Rebaser) ReadTreeState(context.Context, string) (git.TreeState, error) {
+	if f.BeforeReadTree != nil {
+		f.BeforeReadTree()
+	}
+
 	return f.State, nil
 }
 
