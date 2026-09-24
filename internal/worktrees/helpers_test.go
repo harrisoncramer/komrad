@@ -2,13 +2,12 @@ package worktrees
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
-	"weave/internal/git"
+	"weave/internal/gittest"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
@@ -24,7 +23,7 @@ type fixture struct {
 	shared string
 	owners *fakeOwners
 	flows  *fakeWorkflows
-	git    *fakeGit
+	git    *gittest.Checkout
 	sizes  *fakeWorktreeStore
 	claims *fakeClaims
 	lister *Lister
@@ -44,7 +43,7 @@ func newFixture(t *testing.T) *fixture {
 		flows: &fakeWorkflows{flows: map[string]*workflowstore.Workflow{
 			"flow": {Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"}},
 		}},
-		git:    &fakeGit{},
+		git:    &gittest.Checkout{},
 		sizes:  &fakeWorktreeStore{stored: map[string]worktreestore.Size{}, records: map[string]worktreestore.Worktree{}},
 		claims: &fakeClaims{},
 		now:    time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC),
@@ -216,78 +215,6 @@ func (w *fakeWorkflows) GetIncludingArchived(_ context.Context, id string) (*wor
 	}
 
 	return nil, store.ErrNotFound
-}
-
-// fakeGit answers every question about a checkout with what the test put in it, remembering
-// which base it was asked to resolve and which repositories it was asked to prune.
-type fakeGit struct {
-	changes    git.Changes
-	state      git.TreeState
-	ahead      int
-	behind     int
-	prediction git.Prediction
-	predictErr error
-	held       bool
-	unresolved bool
-	commits    []git.Commit
-	resolved   string
-	resolves   int
-	fetched    string
-	fetches    int
-	pruned     []string
-	registered []git.Worktree
-	listErr    error
-}
-
-func (g *fakeGit) ReadChanges(context.Context, string) (git.Changes, error) {
-	return g.changes, nil
-}
-
-func (g *fakeGit) ReadTreeState(context.Context, string) (git.TreeState, error) {
-	return g.state, nil
-}
-
-func (g *fakeGit) ResolveBase(_ context.Context, _, base string) (string, error) {
-	g.resolved = base
-	g.resolves++
-	if g.unresolved || base == "" {
-		return "", fmt.Errorf("%w: the clone has no origin/%s", git.ErrBaseMissing, base)
-	}
-
-	return "origin/" + base, nil
-}
-
-func (g *fakeGit) FetchBase(_ context.Context, _, base string) (string, string, error) {
-	g.fetched = base
-	g.fetches++
-
-	return "origin/" + base, "abc", nil
-}
-
-func (g *fakeGit) CountAheadBehind(context.Context, string, string) (int, int, error) {
-	return g.ahead, g.behind, nil
-}
-
-func (g *fakeGit) PredictRebase(context.Context, string, string) (git.Prediction, error) {
-	return g.prediction, g.predictErr
-}
-
-func (g *fakeGit) IsBranchHeldElsewhere(context.Context, string, string) (bool, error) {
-	return g.held, nil
-}
-
-func (g *fakeGit) ListCommitsSince(context.Context, string, string, int) ([]git.Commit, error) {
-	return g.commits, nil
-}
-
-func (g *fakeGit) ListWorktrees(context.Context, string) ([]git.Worktree, error) {
-	return g.registered, g.listErr
-}
-
-func (g *fakeGit) PruneWorktrees(_ context.Context, repo string) error {
-	g.pruned = append(g.pruned, repo)
-
-	return nil
 }
 
 func write(t *testing.T, root, path, content string) {

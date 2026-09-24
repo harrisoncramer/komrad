@@ -26,11 +26,11 @@ func TestInspectReadsABranchAgainstItsWorkflowsBase(t *testing.T) {
 	f.flows.flows["flow"] = &workflowstore.Workflow{Worktree: workflowstore.WorktreeConfig{BaseBranch: "develop"}}
 	at := time.Date(2026, 9, 19, 12, 0, 0, 0, time.UTC)
 	write(t, dir, "big/one", strings.Repeat("x", 20000))
-	f.git.changes = git.Changes{Modified: []string{"own.go"}, Untracked: []string{"scratch.txt"}}
-	f.git.state = git.TreeState{Branch: "agent/aaaa", InProgress: true}
-	f.git.ahead, f.git.behind = 2, 12
-	f.git.prediction = git.Prediction{Landed: 1, Replay: 1}
-	f.git.commits = []git.Commit{{
+	f.git.Changes = git.Changes{Modified: []string{"own.go"}, Untracked: []string{"scratch.txt"}}
+	f.git.State = git.TreeState{Branch: "agent/aaaa", InProgress: true}
+	f.git.Ahead, f.git.Behind = 2, 12
+	f.git.Prediction = git.Prediction{Landed: 1, Replay: 1}
+	f.git.Commits = []git.Commit{{
 		SHA:         "abc",
 		Subject:     "own work",
 		CommittedAt: at,
@@ -39,8 +39,8 @@ func TestInspectReadsABranchAgainstItsWorkflowsBase(t *testing.T) {
 	inspection, err := f.inspector().Inspect(t.Context(), InspectParams{Dir: dir})
 	require.NoError(t, err)
 
-	assert.Equal(t, "develop", f.git.resolved)
-	assert.Equal(t, 0, f.git.fetches)
+	assert.Equal(t, "develop", f.git.Resolved)
+	assert.Equal(t, 0, f.git.Fetches)
 	assert.Equal(t, dir, inspection.Worktree.Dir)
 	assert.Equal(t, "origin/develop", inspection.BaseRef)
 	assert.Equal(t, 2, inspection.Ahead)
@@ -48,8 +48,8 @@ func TestInspectReadsABranchAgainstItsWorkflowsBase(t *testing.T) {
 	assert.Equal(t, 1, inspection.Landed)
 	assert.True(t, inspection.SequenceInProgress)
 	assert.True(t, inspection.KeepsBranch)
-	assert.Equal(t, f.git.changes, inspection.Changes)
-	assert.Equal(t, f.git.commits, inspection.Commits)
+	assert.Equal(t, f.git.Changes, inspection.Changes)
+	assert.Equal(t, f.git.Commits, inspection.Commits)
 	assert.Equal(t, Entry{
 		Path:  "big",
 		Bytes: usage(t, filepath.Join(dir, "big/one")),
@@ -74,8 +74,8 @@ func TestInspectReportsABaseTheCloneDoesNotHold(t *testing.T) {
 	f := newFixture(t)
 	dir := f.cut(t, "hhhh")
 	f.own("hhhh", "stale", nil)
-	f.git.unresolved = true
-	f.git.commits = []git.Commit{{SHA: "never"}}
+	f.git.Unresolved = true
+	f.git.Commits = []git.Commit{{SHA: "never"}}
 
 	inspection, err := f.inspector().Inspect(t.Context(), InspectParams{Dir: dir})
 	require.NoError(t, err)
@@ -109,9 +109,9 @@ func TestInspectFetchesWhenAsked(t *testing.T) {
 	inspection, err := f.inspector().Inspect(t.Context(), InspectParams{Dir: dir, Fetch: true})
 	require.NoError(t, err)
 
-	assert.Equal(t, 0, f.git.resolves)
-	assert.Equal(t, 1, f.git.fetches)
-	assert.Equal(t, "main", f.git.fetched)
+	assert.Equal(t, 0, f.git.Resolves)
+	assert.Equal(t, 1, f.git.Fetches)
+	assert.Equal(t, "main", f.git.Fetched)
 	assert.Equal(t, "origin/main", inspection.BaseRef)
 }
 
@@ -121,7 +121,7 @@ func TestInspectReadsALandedBranchAsLeavingNothingBehind(t *testing.T) {
 	f := newFixture(t)
 	dir := f.cut(t, "cccc")
 	f.own("cccc", "landed", nil)
-	f.git.held = true
+	f.git.Held = true
 
 	inspection, err := f.inspector().Inspect(t.Context(), InspectParams{Dir: dir})
 	require.NoError(t, err)
@@ -135,7 +135,7 @@ func TestInspectKeepsAnAdoptedBranch(t *testing.T) {
 	dir := f.cut(t, "dddd")
 	f.own("dddd", "adopted", nil)
 	f.owners.rows[0].AdoptedBranch = "agent/dddd"
-	f.git.held = true
+	f.git.Held = true
 
 	inspection, err := f.inspector().Inspect(t.Context(), InspectParams{Dir: dir})
 	require.NoError(t, err)
@@ -149,7 +149,7 @@ func TestInspectReadsAnUnrelatedBaseAsNothingLanded(t *testing.T) {
 	f := newFixture(t)
 	dir := f.cut(t, "eeee")
 	f.own("eeee", "unrelated", nil)
-	f.git.predictErr = git.ErrBaseUnrelated
+	f.git.PredictErr = git.ErrBaseUnrelated
 
 	inspection, err := f.inspector().Inspect(t.Context(), InspectParams{Dir: dir})
 	require.NoError(t, err)
@@ -164,7 +164,7 @@ func TestInspectReadsOnlyTheEntriesOfAGoneRegistration(t *testing.T) {
 	dir := filepath.Join(f.shared, "ffff")
 	write(t, dir, ".git", "gitdir: /var/folders/xx/T/repo/.git/worktrees/ffff\n")
 	write(t, dir, "left", strings.Repeat("x", 20000))
-	f.git.commits = []git.Commit{{SHA: "never"}}
+	f.git.Commits = []git.Commit{{SHA: "never"}}
 
 	inspection, err := f.inspector().Inspect(t.Context(), InspectParams{Dir: dir})
 	require.NoError(t, err)
