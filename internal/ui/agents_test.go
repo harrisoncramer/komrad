@@ -667,8 +667,8 @@ func TestAgentsRecordFocus(t *testing.T) {
 // TestAgentsRecordCopy covers the copy key taking the field under the record's cursor.
 func TestAgentsRecordCopy(t *testing.T) {
 	t.Run("a clipboard that refuses the write says so", func(t *testing.T) {
-		clip := &fakeClipboard{err: errors.New("no clipboard utility found")}
-		harness := newPanelHarness(t, panelHarnessParams{clipboard: clip})
+		harness := newPanelHarness(t, panelHarnessParams{})
+		harness.panel.SetClipboardErr(errors.New("no clipboard utility found"))
 		answerWorktreeReads(harness)
 		harness.watch(buildSnapshot(buildRecorded()...))
 
@@ -678,7 +678,7 @@ func TestAgentsRecordCopy(t *testing.T) {
 		require.Contains(t, refused, "✗ Could not copy")
 		require.Contains(t, refused, "no clipboard utility found")
 
-		clip.err = nil
+		harness.panel.SetClipboardErr(nil)
 		harness.press("y")
 		harness.fireTimers()
 
@@ -687,7 +687,7 @@ func TestAgentsRecordCopy(t *testing.T) {
 
 	tests := []struct {
 		name  string
-		open  func(*testing.T, *fakeClipboard) *panelHarness
+		open  func(*testing.T) *panelHarness
 		press []string
 		want  string
 	}{
@@ -702,10 +702,10 @@ func TestAgentsRecordCopy(t *testing.T) {
 		},
 		{
 			name: "a narrowed record copies from the rows that are left",
-			open: func(t *testing.T, clip *fakeClipboard) *panelHarness {
+			open: func(t *testing.T) *panelHarness {
 				t.Helper()
 
-				return openWorktreeRecord(t, panelHarnessParams{clipboard: clip})
+				return openWorktreeRecord(t, panelHarnessParams{})
 			},
 			press: []string{"/", "c", "o", "m", "m", "i", "t", "tab", "enter", "G"},
 			want:  "1234567890ab  3h   feat(ui): a thing",
@@ -714,25 +714,23 @@ func TestAgentsRecordCopy(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			clip := &fakeClipboard{}
-			harness := tt.open(t, clip)
+			harness := tt.open(t)
 
 			harness.press(append(tt.press, "y")...)
 
-			assert.Equal(t, []string{tt.want}, clip.written)
+			assert.Equal(t, []string{tt.want}, harness.panel.ReadCopied())
 		})
 	}
 
 	t.Run("the field on screen is taken after the row goes from under the record", func(t *testing.T) {
-		clip := &fakeClipboard{}
 		rows := buildRecorded()
-		harness := openCopyRecord(t, clip)
+		harness := openCopyRecord(t)
 		harness.press("ctrl+t", "j", "j", "j")
 
 		harness.watch(buildSnapshot(rows[0]))
 		harness.press("y")
 
-		assert.Equal(t, []string{"backend"}, clip.written)
+		assert.Equal(t, []string{"backend"}, harness.panel.ReadCopied())
 	})
 }
 
@@ -2359,10 +2357,10 @@ func findRawLine(frame string, pattern *regexp.Regexp) string {
 	return ""
 }
 
-func openCopyRecord(t *testing.T, clip *fakeClipboard) *panelHarness {
+func openCopyRecord(t *testing.T) *panelHarness {
 	t.Helper()
 
-	harness := newPanelHarness(t, panelHarnessParams{clipboard: clip})
+	harness := newPanelHarness(t, panelHarnessParams{})
 	answerWorktreeReads(harness)
 	harness.watch(buildSnapshot(buildRecorded()...))
 
@@ -2553,15 +2551,4 @@ func newMarkAuthRequest(letter *string) *agentv1.SetMarkRequest {
 		Target: &agentv1.SetMarkRequest_AgentId{AgentId: "auth"},
 		Mark:   letter,
 	}
-}
-
-type fakeClipboard struct {
-	written []string
-	err     error
-}
-
-func (f *fakeClipboard) WriteAll(text string) error {
-	f.written = append(f.written, text)
-
-	return f.err
 }

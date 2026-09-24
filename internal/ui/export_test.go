@@ -71,9 +71,6 @@ type recordingTmux struct {
 	rootUnbinds   []string
 }
 
-// ClipboardWriter is where the panel's copy key writes.
-type ClipboardWriter = clipboardWriter
-
 // HarnessFrameReader answers whether a pane is drawing its harness yet.
 type HarnessFrameReader = harnessFrameReader
 
@@ -97,7 +94,6 @@ type NewPanelParams struct {
 	ConfigErr     error
 	StartupErr    error
 	RefuseSplits  bool
-	Clipboard     ClipboardWriter
 	Binary        BinaryWatcher
 }
 
@@ -149,11 +145,7 @@ func NewPanel(params NewPanelParams) *Panel {
 		tmux: tmux,
 		clip: &fakeClipboard{},
 	}
-	if params.Clipboard != nil {
-		panel.model.clip = params.Clipboard
-	} else {
-		panel.model.clip = panel.clip
-	}
+	panel.model.clip = panel.clip
 
 	return panel
 }
@@ -262,6 +254,11 @@ func (p *Panel) ReadWindowSizes() map[string]string {
 // SetPaneSize makes tmux report every pane and the window at the given size.
 func (p *Panel) SetPaneSize(width, height int) {
 	p.tmux.width, p.tmux.height, p.tmux.windowWidth = width, height, width
+}
+
+// SetClipboardErr makes every later copy fail with err, or succeed while it is nil.
+func (p *Panel) SetClipboardErr(err error) {
+	p.clip.err = err
 }
 
 // ReadCopied is everything the panel has put on the clipboard.
