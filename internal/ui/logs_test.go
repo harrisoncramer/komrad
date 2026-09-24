@@ -161,40 +161,6 @@ func TestLogs(t *testing.T) {
 		assert.Empty(t, harness.panel.ReadRespawns())
 	})
 
-	t.Run("a log pane the cursor leaves for a folder pages a placeholder", func(t *testing.T) {
-		t.Parallel()
-
-		tests := []struct {
-			name  string
-			press []string
-		}{
-			{
-				name:  "the run log",
-				press: []string{"l", "k"},
-			},
-			{
-				name:  "the agent log",
-				press: []string{"l", "l", "k"},
-			},
-		}
-
-		for _, tt := range tests {
-			t.Run(tt.name, func(t *testing.T) {
-				t.Parallel()
-
-				harness, runs := openLogs(t)
-				runs.write(t, 1, config.TriggerProvision)
-
-				harness.press(tt.press...)
-				harness.fireTimers()
-
-				respawns := harness.panel.ReadRespawns()
-				require.NotEmpty(t, respawns)
-				assert.Contains(t, respawns[len(respawns)-1], "weave-text-")
-			})
-		}
-	})
-
 	t.Run("the agent log follows the cursor onto the next agent", func(t *testing.T) {
 		t.Parallel()
 
@@ -259,6 +225,37 @@ func TestLogs(t *testing.T) {
 			harness.press(tt.press)
 
 			assert.NotEmpty(t, harness.panel.ReadKilledPanes())
+		})
+	}
+}
+
+// TestLogsFolderPlaceholder covers a log pane the cursor leaves for a folder paging a placeholder.
+func TestLogsFolderPlaceholder(t *testing.T) {
+	tests := []struct {
+		name  string
+		press []string
+	}{
+		{
+			name:  "the run log",
+			press: []string{"l", "k"},
+		},
+		{
+			name:  "the agent log",
+			press: []string{"l", "l", "k"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			harness, runs := openLogs(t)
+			runs.write(t, 1, config.TriggerProvision)
+
+			harness.press(tt.press...)
+			harness.fireTimers()
+
+			respawns := harness.panel.ReadRespawns()
+			require.NotEmpty(t, respawns)
+			assert.Contains(t, respawns[len(respawns)-1], "weave-text-")
 		})
 	}
 }
