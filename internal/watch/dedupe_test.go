@@ -4,8 +4,6 @@ import (
 	"testing"
 	"time"
 
-	agentstore "weave/internal/store/agent"
-	rowstore "weave/internal/store/row"
 	watchv1 "weave/proto/gen/watch/v1"
 
 	"github.com/stretchr/testify/assert"
@@ -13,13 +11,9 @@ import (
 )
 
 // stamped is the row a loop writes a stamp on, which the renderer draws no column of.
-func stamped(id string, at time.Time) rowstore.Row {
+func stamped(id string, at time.Time) testRow {
 	row := agentRow(id)
-	row.Agent = agentstore.Agent{
-		ID:        row.ID,
-		Name:      row.Name,
-		UpdatedAt: at,
-	}
+	row.UpdatedAt = at
 
 	return row
 }

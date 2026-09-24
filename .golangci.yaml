@@ -164,6 +164,9 @@ linters:
         stores:
           files:
             - "**/internal/store/**"
+          list-mode: lax
+          allow:
+            - weave/proto/gen/watch/v1
           deny:
             - pkg: weave/internal/agents
               desc: a store holds no rules, so nothing above it belongs here

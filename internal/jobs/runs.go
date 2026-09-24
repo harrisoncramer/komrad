@@ -24,9 +24,8 @@ import (
 // cancelPrefix is what River's cancel error writes ahead of the reason a skip gave.
 const cancelPrefix = "JobCancelError: "
 
-type scheduleReader interface {
-	List(ctx context.Context) ([]schedulestore.Schedule, error)
-	ListByKey(ctx context.Context, ids []string) ([]schedulestore.Schedule, error)
+type watchedScheduleLister interface {
+	ListWatched(ctx context.Context, keys []string) ([]schedulestore.Schedule, error)
 }
 
 type watchSignaler interface {
@@ -93,28 +92,18 @@ func (l *RunLister) AttachLatest(ctx context.Context, schedules []schedulestore.
 // LatestRunReader reads schedules with their newest firing on them, so a watched schedule row
 // changes when a firing does.
 type LatestRunReader struct {
-	schedules scheduleReader
+	schedules watchedScheduleLister
 	runs      *RunLister
 }
 
 // NewLatestRunReader builds the reader over the schedules and the runs of them.
-func NewLatestRunReader(schedules scheduleReader, runs *RunLister) *LatestRunReader {
+func NewLatestRunReader(schedules watchedScheduleLister, runs *RunLister) *LatestRunReader {
 	return &LatestRunReader{schedules: schedules, runs: runs}
 }
 
-// List returns every live schedule with its newest firing.
-func (r *LatestRunReader) List(ctx context.Context) ([]schedulestore.Schedule, error) {
-	schedules, err := r.schedules.List(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return r.runs.AttachLatest(ctx, schedules)
-}
-
-// ListByKey returns the live schedules among ids with their newest firing.
-func (r *LatestRunReader) ListByKey(ctx context.Context, ids []string) ([]schedulestore.Schedule, error) {
-	schedules, err := r.schedules.ListByKey(ctx, ids)
+// ListWatched returns the live schedules among keys, or every one when keys is nil, with their newest firing.
+func (r *LatestRunReader) ListWatched(ctx context.Context, keys []string) ([]schedulestore.Schedule, error) {
+	schedules, err := r.schedules.ListWatched(ctx, keys)
 	if err != nil {
 		return nil, err
 	}

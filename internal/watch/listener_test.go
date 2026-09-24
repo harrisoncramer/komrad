@@ -9,7 +9,6 @@ import (
 	"weave/internal/dbtest"
 	"weave/internal/store"
 	notifystore "weave/internal/store/notify"
-	workflowstore "weave/internal/store/workflow"
 	watchv1 "weave/proto/gen/watch/v1"
 
 	"github.com/google/uuid"
@@ -209,7 +208,7 @@ func TestALookupFeederReachesItsResources(t *testing.T) {
 	subscription, err := l.broker.Subscribe(t.Context())
 	require.NoError(t, err)
 
-	stores.workflows.put(workflowstore.Workflow{ID: rows.workflow, Name: "flow"})
+	stores.workflows.put(testRow{ID: rows.workflow, Name: "flow"})
 	stores.agents.put(agentRow(rows.agent))
 
 	// workflow_configs holds no workflow id: its resource is the workflow whose
@@ -241,7 +240,7 @@ func TestALookupFeederSkipsAnArchivedResource(t *testing.T) {
 	subscription, err := l.broker.Subscribe(t.Context())
 	require.NoError(t, err)
 
-	stores.workflows.put(workflowstore.Workflow{ID: rows.workflow, Name: "flow"})
+	stores.workflows.put(testRow{ID: rows.workflow, Name: "flow"})
 	stores.agents.put(agentRow(rows.agent))
 
 	l.exec(t, `INSERT INTO pull_request_syncs (repository_url, updated_through) VALUES ($1, now())`, rows.repository)

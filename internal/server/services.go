@@ -272,14 +272,7 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 	return &services{
 		loadConfig: loadConfig,
 		runs:       runs,
-		watchRows: watch.NewRows(watch.NewRowsParams{Stores: watch.Stores{
-			Agents:       st.rows,
-			Workflows:    st.workflows.GetWatched(),
-			Schedules:    jobs.NewLatestRunReader(st.schedules, runs),
-			Marks:        st.marks,
-			Mail:         st.mail,
-			PullRequests: st.pullRequests,
-		}}),
+		watchRows:  watch.NewRows(buildWatchLoaders(st, runs)),
 		rowWriter: agents.NewRowWriter(agents.NewRowWriterParams{
 			Agents:     st.agents,
 			Runs:       st.runs,

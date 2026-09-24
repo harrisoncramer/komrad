@@ -239,11 +239,11 @@ func TestWatchedWorkflowsSpanTheArchive(t *testing.T) {
 		return xslice.Map(workflows, func(w Workflow) string { return w.Name })
 	}
 
-	listed, err := st.GetWatched().List(ctx)
+	listed, err := st.ListWatched(ctx, nil)
 	require.NoError(t, err)
 	assert.Equal(t, []string{"archived", "live"}, names(listed))
 
-	byKey, err := st.GetWatched().ListByKey(ctx, []string{live.ID, archived.ID, missingID})
+	byKey, err := st.ListWatched(ctx, []string{live.ID, archived.ID, missingID})
 	require.NoError(t, err)
 	assert.ElementsMatch(t, []string{"archived", "live"}, names(byKey))
 }

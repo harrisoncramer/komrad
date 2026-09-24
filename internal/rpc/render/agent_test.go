@@ -1,6 +1,7 @@
 package render
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -55,6 +56,28 @@ func TestAgentWithoutAStateChange(t *testing.T) {
 	t.Parallel()
 
 	assert.Empty(t, Agent(rowOf(agentstore.Agent{ID: "a2"}), AgentOptions{}).GetStateChangedAt())
+}
+
+// TestWatchedAgentCarriesOnlyTheOpeningOfAnArchivedPrompt pins that the watch draws an archived agent
+// with the summary head of its prompt and a live one with the whole of it.
+func TestWatchedAgentCarriesOnlyTheOpeningOfAnArchivedPrompt(t *testing.T) {
+	t.Parallel()
+
+	prompt := strings.Repeat("p", SummaryHead*2)
+	archived := WatchedAgent(rowOf(agentstore.Agent{
+		ID:         "archived",
+		Prompt:     prompt,
+		ArchivedAt: xptr.Ptr(time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC)),
+	}))
+	live := WatchedAgent(rowOf(agentstore.Agent{
+		ID:     "live",
+		Prompt: prompt,
+	}))
+
+	assert.Len(t, archived.GetPrompt(), SummaryHead, "the archived agent's prompt is cut to its opening")
+	assert.True(t, archived.GetPromptTruncated())
+	assert.Equal(t, prompt, live.GetPrompt(), "and the live agent's is whole")
+	assert.False(t, live.GetPromptTruncated())
 }
 
 // rowOf is an agent's row with nothing beside it.

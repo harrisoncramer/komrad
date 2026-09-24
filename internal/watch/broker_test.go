@@ -8,7 +8,6 @@ import (
 
 	"weave/lib/xslice"
 
-	workflowstore "weave/internal/store/workflow"
 	watchv1 "weave/proto/gen/watch/v1"
 
 	"github.com/stretchr/testify/assert"
@@ -52,14 +51,13 @@ func TestPendingKeysPileUpBehindOneRead(t *testing.T) {
 	broker.Signal(watchv1.Resource_RESOURCE_AGENT, "a")
 	broker.Signal(watchv1.Resource_RESOURCE_AGENT, "a")
 	broker.Signal(watchv1.Resource_RESOURCE_WORKFLOW, "w")
-	broker.Signal(watchv1.Resource_RESOURCE_SCHEDULE, "s")
 	close(stores.agents.held)
 
 	require.Equal(t, []string{"held"}, keysInPass(waitForNextPass(t, subscription)))
 	pass := waitForNextPass(t, subscription)
 
 	assert.Equal(t, [][]string{{"held"}, {"a", "b"}}, stores.agents.reads(), "the keys pending behind the held read are one read")
-	require.Equal(t, []string{"a", "b", "w", "s"}, keysInPass(pass), "everything pending behind the held read is one pass")
+	require.Equal(t, []string{"a", "b", "w"}, keysInPass(pass), "everything pending behind the held read is one pass")
 	assert.NotNil(t, pass[0].Row)
 	assert.Nil(t, pass[2].Row, "a key the watcher never held is still sent as gone")
 	assert.Empty(t, drain(subscription))
@@ -81,7 +79,7 @@ func TestABurstIsOnePassAndKeepsTheWatcher(t *testing.T) {
 
 	burst := 3 * subscriberBuffer
 	for i := range burst {
-		broker.Signal(watchv1.Resource_RESOURCE_PULL_REQUEST, fmt.Sprintf("pr-%d", i))
+		broker.Signal(watchv1.Resource_RESOURCE_WORKFLOW, fmt.Sprintf("w-%d", i))
 	}
 	close(stores.agents.held)
 
@@ -143,7 +141,7 @@ func TestSubscriptionOpensWithTheSnapshot(t *testing.T) {
 	broker.Signal(watchv1.Resource_RESOURCE_AGENT, "a")
 	require.Equal(t, []string{"a"}, keysInPass(waitForNextPass(t, first)))
 
-	stores.workflows.put(workflowstore.Workflow{ID: "w"})
+	stores.workflows.put(testRow{ID: "w"})
 
 	second, err := broker.Subscribe(t.Context())
 	require.NoError(t, err)

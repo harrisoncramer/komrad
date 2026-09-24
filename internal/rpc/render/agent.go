@@ -73,6 +73,15 @@ func Agent(row rowstore.Row, options AgentOptions) *agentv1.Agent {
 	}
 }
 
+// WatchedAgent draws an agent as the watch carries it, an archived one with only the opening of its prompt.
+func WatchedAgent(row rowstore.Row) *agentv1.Agent {
+	if row.ArchivedAt != nil {
+		return Agent(row, AgentOptions{PromptHead: SummaryHead})
+	}
+
+	return Agent(row, AgentOptions{})
+}
+
 // ReviewVerdictOf is a verdict as the wire carries it.
 func ReviewVerdictOf(verdict reviewstore.Verdict) agentv1.ReviewVerdict {
 	switch verdict {
