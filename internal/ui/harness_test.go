@@ -171,6 +171,7 @@ type panelHarnessParams struct {
 	height        int
 	detailsHeight float64
 	sidebarSide   string
+	sidebarWidth  int
 	keys          *config.Keybindings
 	git           ui.ReviewGit
 	settings      ui.PanelSettings
@@ -239,6 +240,7 @@ func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
 			Keys:          keys,
 			DetailsHeight: params.detailsHeight,
 			SidebarSide:   params.sidebarSide,
+			SidebarWidth:  params.sidebarWidth,
 			Width:         width,
 			Height:        height,
 			Settings:      params.settings,

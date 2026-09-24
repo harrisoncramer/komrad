@@ -194,6 +194,54 @@ func TestScreensDivider(t *testing.T) {
 	})
 }
 
+// TestScreensSidebarWidth covers how wide the list is drawn beside a document.
+func TestScreensSidebarWidth(t *testing.T) {
+	tests := []struct {
+		name    string
+		columns int
+		want    int
+	}{
+		{
+			name:    "a configured width narrower than a list of names is widened to one",
+			columns: 8,
+			want:    30,
+		},
+		{
+			name:    "a configured width is capped at what leaves the document its floor",
+			columns: 190,
+			want:    160,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			harness := newPanelHarness(t, panelHarnessParams{
+				width:        200,
+				sidebarWidth: tt.columns,
+			})
+			harness.watch(buildSnapshot(newNotedWorkflow()))
+
+			assert.Equal(t, tt.want, measureListRule(harness.readFrame()))
+		})
+	}
+
+	t.Run("a divider dragged past the document's floor is drawn where it is", func(t *testing.T) {
+		harness := openStaged(t, "g", "g", "j")
+		harness.panel.SetPaneWidth("%0", 174)
+		harness.panel.SetPaneWidth("%9", 25)
+		harness.send(tea.WindowSizeMsg{Width: 174, Height: defaultHarnessHeight})
+
+		harness.press("k")
+		harness.fireTimers()
+		harness.panel.SetPaneWidth("%0", 200)
+		harness.send(tea.WindowSizeMsg{Width: 200, Height: defaultHarnessHeight})
+
+		frame := harness.readFrame()
+		assert.Equal(t, 174, measureListRule(frame), "the window less the stage and the divider")
+		assert.Contains(t, frame, "always run the linter", "and the document keeps what is left")
+	})
+}
+
 // TestScreensFitTheLegend covers a list screen fitting its title, its hovered row and its whole legend into the pane.
 func TestScreensFitTheLegend(t *testing.T) {
 	tests := []listScreen{
