@@ -328,10 +328,6 @@ func (m model) moveDetailsCursor(pressed string) (tea.Model, tea.Cmd) {
 		return m.setDetailsCursor(held, cursor+1), nil
 	}
 
-	if cursor == 0 {
-		return m.blurDetails(), nil
-	}
-
 	return m.setDetailsCursor(held, cursor-1), nil
 }
 

@@ -70,24 +70,6 @@ func TestFocusKeyWhileTypingJumpsIntoTheRecord(t *testing.T) {
 	assert.Equal(t, "name", header.fields[standing.detailsCursor(header)].label, "and the jump lands on the header's own match")
 }
 
-// TestTheRecordsTopWalksOut covers the up key on the record's first field handing the keys back
-// to the list, with the list's cursor where it was.
-func TestTheRecordsTopWalksOut(t *testing.T) {
-	m := detailsModel(&recordingTmux{})
-	require.Equal(t, 1, m.agents.cursor, "the cursor starts on the last row")
-
-	in := pressMark(t, m, "ctrl+t", "j")
-	require.True(t, in.isDetailsFocused())
-	require.Equal(t, 1, in.detailsCursor(in.hoveredDetails()))
-
-	out := pressMark(t, in, "k", "k")
-	assert.False(t, out.isDetailsFocused())
-	assert.Equal(t, 1, out.agents.cursor)
-
-	up := send(t, out, "k")
-	assert.Equal(t, 0, up.agents.cursor, "and the list moves again from there")
-}
-
 // TestClearingASearchFromTheOtherSectionLeavesTheCursor covers escape over a standing search:
 // cleared in the section it opened in, the cursor goes back to where the search found it, and
 // cleared from the other section, nothing moves.
