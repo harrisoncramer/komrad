@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"strings"
 	"testing"
@@ -153,7 +154,7 @@ func TestMailRefusalsMapToCodes(t *testing.T) {
 			} else {
 				mailer.err = tt.err
 			}
-			svc, _ := mailHandler(mailer)
+			svc, _ := newMailHandler(mailer)
 
 			err := tt.call(caller.With(t.Context(), caller.Caller{AgentID: alphaID}), svc)
 			assert.Equal(t, tt.wantCode, connect.CodeOf(err))
@@ -194,7 +195,7 @@ func TestSendMail(t *testing.T) {
 				Pane:  "%beta",
 				State: tt.state,
 			}}
-			svc, terminal := mailHandler(mailer)
+			svc, terminal := newMailHandler(mailer)
 			if tt.running {
 				terminal.Owners["%beta"] = betaID
 			}
@@ -213,7 +214,7 @@ func TestSendMail(t *testing.T) {
 				Body:      "which column holds the refund?",
 				ReplyTo:   proto.String("mail-0"),
 			}}, mailer.sent)
-			assert.Empty(t, cmpMail(mailer.mail[0], sent.Msg.GetMail()))
+			assert.Empty(t, diffMail(mailer.mail[0], sent.Msg.GetMail()))
 
 			if !tt.wantWarning {
 				assert.Nil(t, sent.Msg.Warning)
@@ -235,7 +236,7 @@ func TestReadMail(t *testing.T) {
 		id          *string
 		wantCode    connect.Code
 		wantClaimed string
-		wantLogged  bool
+		wantLogged  string
 	}{
 		{
 			name:     "no id and no caller identity",
@@ -251,7 +252,7 @@ func TestReadMail(t *testing.T) {
 			callerIs:    alphaID,
 			id:          proto.String(betaID),
 			wantClaimed: betaID,
-			wantLogged:  true,
+			wantLogged:  betaID,
 		},
 		{
 			name:        "the panel reading an agent's mailbox",
@@ -267,8 +268,8 @@ func TestReadMail(t *testing.T) {
 				ToAgentID: betaID,
 				Body:      "refunded_cents",
 			}}}
-			svc, _ := mailHandler(mailer)
-			ctx, written := loggedCaller(t, tt.callerIs)
+			svc, _ := newMailHandler(mailer)
+			ctx, written := newLoggedCaller(t, tt.callerIs)
 
 			read, err := svc.ReadMail(ctx, connect.NewRequest(&agentv1.ReadMailRequest{Id: tt.id}))
 			if tt.wantCode != 0 {
@@ -281,8 +282,12 @@ func TestReadMail(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, []string{tt.wantClaimed}, mailer.claimed)
 			require.Len(t, read.Msg.GetMail(), 1)
-			assert.Empty(t, cmpMail(mailer.mail[0], read.Msg.GetMail()[0]))
-			assertCrossAgentRead(t, written.String(), tt.wantLogged, "agent read another agent's mail", betaID)
+			assert.Empty(t, diffMail(mailer.mail[0], read.Msg.GetMail()[0]))
+			assertCrossAgentRead(t, assertCrossAgentReadParams{
+				Written: written.String(),
+				Body:    "agent read another agent's mail",
+				Target:  tt.wantLogged,
+			})
 		})
 	}
 }
@@ -297,7 +302,7 @@ func TestListMail(t *testing.T) {
 		wantCode   connect.Code
 		wantListed mail.ListMailParams
 		wantNext   bool
-		wantLogged bool
+		wantLogged string
 	}{
 		{
 			name:     "no id and no caller identity",
@@ -347,7 +352,7 @@ func TestListMail(t *testing.T) {
 				Sent:    true,
 				Limit:   20,
 			},
-			wantLogged: true,
+			wantLogged: betaID,
 		},
 		{
 			name:     "a full page hands back a token for the next",
@@ -369,13 +374,13 @@ func TestListMail(t *testing.T) {
 			mailer := &fakeMailer{}
 			for at := range tt.stored {
 				mailer.mail = append(mailer.mail, mailstore.Mail{
-					ID:        "mail-" + string(rune('a'+at)),
+					ID:        fmt.Sprintf("mail-%d", at),
 					ToAgentID: betaID,
 					Body:      "refunded_cents",
 				})
 			}
-			svc, _ := mailHandler(mailer)
-			ctx, written := loggedCaller(t, tt.callerIs)
+			svc, _ := newMailHandler(mailer)
+			ctx, written := newLoggedCaller(t, tt.callerIs)
 
 			listed, err := svc.ListMail(ctx, connect.NewRequest(tt.req))
 			if tt.wantCode != 0 {
@@ -388,9 +393,13 @@ func TestListMail(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, []mail.ListMailParams{tt.wantListed}, mailer.listed)
 			require.Len(t, listed.Msg.GetMail(), tt.stored)
-			assert.Empty(t, cmpMail(mailer.mail[0], listed.Msg.GetMail()[0]))
+			assert.Empty(t, diffMail(mailer.mail[0], listed.Msg.GetMail()[0]))
 			assert.Equal(t, tt.wantNext, listed.Msg.GetNextPageToken() != "")
-			assertCrossAgentRead(t, written.String(), tt.wantLogged, "agent listed another agent's mail", betaID)
+			assertCrossAgentRead(t, assertCrossAgentReadParams{
+				Written: written.String(),
+				Body:    "agent listed another agent's mail",
+				Target:  tt.wantLogged,
+			})
 		})
 	}
 }
@@ -398,7 +407,7 @@ func TestListMail(t *testing.T) {
 // TestDeleteMail pins that a delete hands every id down.
 func TestDeleteMail(t *testing.T) {
 	mailer := &fakeMailer{}
-	svc, _ := mailHandler(mailer)
+	svc, _ := newMailHandler(mailer)
 
 	_, err := svc.DeleteMail(t.Context(), connect.NewRequest(&agentv1.DeleteMailRequest{
 		Ids: []string{alphaID, betaID},
@@ -474,8 +483,8 @@ func (f *fakeMailer) DeleteMail(_ context.Context, ids []string) error {
 	return f.err
 }
 
-// mailHandler is the handler over a fake mail service, reading liveness off a fake tmux.
-func mailHandler(mailer *fakeMailer) (agentv1weave.AgentServiceAdapter, *tmuxtest.Fake) {
+// newMailHandler is the handler over a fake mail service, reading liveness off a fake tmux.
+func newMailHandler(mailer *fakeMailer) (agentv1weave.AgentServiceAdapter, *tmuxtest.Fake) {
 	terminal := tmuxtest.NewFake()
 
 	return agentv1weave.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{
@@ -484,8 +493,8 @@ func mailHandler(mailer *fakeMailer) (agentv1weave.AgentServiceAdapter, *tmuxtes
 	})}, terminal
 }
 
-// loggedCaller is a context calling as the agent named, whose log lines land in the builder handed back.
-func loggedCaller(t *testing.T, agentID string) (context.Context, *strings.Builder) {
+// newLoggedCaller is a context calling as the agent named, whose log lines land in the builder handed back.
+func newLoggedCaller(t *testing.T, agentID string) (context.Context, *strings.Builder) {
 	t.Helper()
 
 	var written strings.Builder
@@ -497,20 +506,27 @@ func loggedCaller(t *testing.T, agentID string) (context.Context, *strings.Build
 	return ctx, &written
 }
 
-func assertCrossAgentRead(t *testing.T, written string, wantLogged bool, body, target string) {
+type assertCrossAgentReadParams struct {
+	Written string
+	Body    string
+	// Target is whose mailbox or conversation was read, empty when no read should be recorded.
+	Target string
+}
+
+func assertCrossAgentRead(t *testing.T, params assertCrossAgentReadParams) {
 	t.Helper()
 
-	if !wantLogged {
-		assert.Empty(t, written)
+	if params.Target == "" {
+		assert.Empty(t, params.Written)
 
 		return
 	}
 
-	record := logtest.Record(t, written)
-	assert.Equal(t, body, record["body"])
-	assert.Equal(t, target, record[logging.TargetAgentID])
+	record := logtest.Record(t, params.Written)
+	assert.Equal(t, params.Body, record["body"])
+	assert.Equal(t, params.Target, record[logging.TargetAgentID])
 }
 
-func cmpMail(stored mailstore.Mail, rendered *agentv1.Mail) string {
+func diffMail(stored mailstore.Mail, rendered *agentv1.Mail) string {
 	return cmp.Diff(render.Mail(stored), rendered, protocmp.Transform())
 }

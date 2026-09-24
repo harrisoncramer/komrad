@@ -236,7 +236,11 @@ func TestSendMailHoldsAPairToTheExchangeCap(t *testing.T) {
 			svc := newMailService(st, 2)
 			family := seedFamily(t, st)
 
-			exchange(t, svc, family["child-one"], family["parent"], tt.exchanged)
+			exchange(t, svc, exchangeParams{
+				Child:    family["child-one"],
+				Parent:   family["parent"],
+				Messages: tt.exchanged,
+			})
 
 			if tt.system {
 				_, err := svc.SendSystemMail(t.Context(), family["parent"].ID, "your delegate was archived")
@@ -279,7 +283,11 @@ func TestSendMailTellsTheRecipientWhenTheCapRefusesASend(t *testing.T) {
 		require.ErrorIs(t, err, ErrExchangeCapped)
 	}
 
-	exchange(t, svc, childOne, parent, 2)
+	exchange(t, svc, exchangeParams{
+		Child:    childOne,
+		Parent:   parent,
+		Messages: 2,
+	})
 
 	t.Run("a pair at the cap is nobody's business until a send is refused", func(t *testing.T) {
 		assert.Empty(t, listCappedNotices(t, st, parent.ID))
@@ -311,7 +319,11 @@ func TestSendMailTellsTheRecipientWhenTheCapRefusesASend(t *testing.T) {
 	})
 
 	t.Run("a second severed pair gets a notice of its own", func(t *testing.T) {
-		exchange(t, svc, childTwo, parent, 2)
+		exchange(t, svc, exchangeParams{
+			Child:    childTwo,
+			Parent:   parent,
+			Messages: 2,
+		})
 		refuse(t, childTwo)
 
 		about := xslice.Map(listCappedNotices(t, st, parent.ID), func(notice mailstore.Mail) string {
@@ -572,7 +584,7 @@ func TestDeleteMail(t *testing.T) {
 	}
 }
 
-// TestResolveRecipient pins the tiers an address resolves through: an id as it stands, then a name in the sender's workflow, then in every workflow.
+// TestResolveRecipient pins that an address resolves as an id first, then as a name in the sender's workflow, then as a name in any workflow.
 func TestResolveRecipient(t *testing.T) {
 	st := storetest.Open(t)
 	svc := newMailService(st, config.DefaultMaxExchange)
@@ -716,7 +728,7 @@ func seedFamily(t *testing.T, st *storetest.Stores) map[string]agentstore.Agent 
 	parent := st.SeedAgent(t, agentstore.Agent{Name: "author"})
 	otherParent := st.SeedAgent(t, agentstore.Agent{Name: "other-author"})
 
-	seedChild := func(name string, parentID string) agentstore.Agent {
+	seedChild := func(name, parentID string) agentstore.Agent {
 		return *st.SeedAgent(t, agentstore.Agent{
 			Name:          name,
 			ParentAgentID: &parentID,
@@ -732,14 +744,20 @@ func seedFamily(t *testing.T, st *storetest.Stores) map[string]agentstore.Agent 
 	}
 }
 
+type exchangeParams struct {
+	Child    agentstore.Agent
+	Parent   agentstore.Agent
+	Messages int
+}
+
 // exchange sends mail back and forth between a child and its parent, every message opening a thread of its own.
-func exchange(t *testing.T, svc *MailService, child, parent agentstore.Agent, messages int) {
+func exchange(t *testing.T, svc *MailService, params exchangeParams) {
 	t.Helper()
 
-	for at := range messages {
-		from, to := child, parent
+	for at := range params.Messages {
+		from, to := params.Child, params.Parent
 		if at%2 == 1 {
-			from, to = parent, child
+			from, to = params.Parent, params.Child
 		}
 
 		_, err := svc.SendMail(t.Context(), SendMailParams{

@@ -35,24 +35,28 @@ func TestDeliver(t *testing.T) {
 		name      string
 		state     agentstore.State
 		noMail    bool
-		arrange   func(t *testing.T, st *storetest.Stores, terminal *tmuxtest.Fake, agent agentstore.Agent)
+		paneGone  bool
+		shell     bool
+		inMode    bool
+		frame     string
+		arrange   func(t *testing.T, st *storetest.Stores, id string)
 		want      Delivery
 		wantClaim bool
 		wantNudge bool
 	}{
 		{
 			name: "an agent archived since the mail was sent",
-			arrange: func(t *testing.T, st *storetest.Stores, _ *tmuxtest.Fake, agent agentstore.Agent) {
-				_, err := st.Agents.Archive(t.Context(), []string{agent.ID})
+			arrange: func(t *testing.T, st *storetest.Stores, id string) {
+				_, err := st.Agents.Archive(t.Context(), []string{id})
 				require.NoError(t, err)
 			},
 			want: DeliveryDone,
 		},
 		{
 			name: "an agent a person is holding, whose tree is not weave's to type into",
-			arrange: func(t *testing.T, st *storetest.Stores, _ *tmuxtest.Fake, agent agentstore.Agent) {
+			arrange: func(t *testing.T, st *storetest.Stores, id string) {
 				_, err := st.Agents.Hold(t.Context(), agentstore.HoldParams{
-					ID: agent.ID,
+					ID: id,
 					At: time.Now(),
 				})
 				require.NoError(t, err)
@@ -75,52 +79,40 @@ func TestDeliver(t *testing.T) {
 			want:  DeliveryLater,
 		},
 		{
-			name:  "a prompt nothing has confirmed is still left alone, since keys typed at one answer it",
-			state: agentstore.StateWaiting,
-			arrange: func(t *testing.T, st *storetest.Stores, _ *tmuxtest.Fake, agent agentstore.Agent) {
-				backdateStateSeen(t, st, agent.ID)
-			},
-			want: DeliveryLater,
+			name:    "a prompt nothing has confirmed is still left alone, since keys typed at one answer it",
+			state:   agentstore.StateWaiting,
+			arrange: backdateStateSeen,
+			want:    DeliveryLater,
 		},
 		{
-			name: "an agent whose pane is gone",
-			arrange: func(_ *testing.T, _ *storetest.Stores, terminal *tmuxtest.Fake, agent agentstore.Agent) {
-				delete(terminal.Owners, agent.Pane)
-			},
-			want: DeliveryLater,
+			name:     "an agent whose pane is gone",
+			paneGone: true,
+			want:     DeliveryLater,
 		},
 		{
-			name: "an agent whose CLI has exited with its pane still stamped as its own",
-			arrange: func(_ *testing.T, _ *storetest.Stores, terminal *tmuxtest.Fake, agent agentstore.Agent) {
-				terminal.Commands[agent.Pane] = "zsh"
-			},
-			want: DeliveryLater,
+			name:  "an agent whose CLI has exited with its pane still stamped as its own",
+			shell: true,
+			want:  DeliveryLater,
 		},
 		{
-			name: "an agent whose pane the user is scrolled back in",
-			arrange: func(_ *testing.T, _ *storetest.Stores, terminal *tmuxtest.Fake, agent agentstore.Agent) {
-				terminal.InMode[agent.Pane] = true
-			},
-			want: DeliveryLater,
+			name:   "an agent whose pane the user is scrolled back in",
+			inMode: true,
+			want:   DeliveryLater,
 		},
 		{
-			name: "an agent whose pane has opened but whose CLI has not finished coming up",
-			arrange: func(_ *testing.T, _ *storetest.Stores, terminal *tmuxtest.Fake, agent agentstore.Agent) {
-				terminal.Captures[agent.Pane] = harnesstest.FrameUnrecognized
-			},
-			want: DeliveryLater,
+			name:  "an agent whose pane has opened but whose CLI has not finished coming up",
+			frame: harnesstest.FrameUnrecognized,
+			want:  DeliveryLater,
 		},
 		{
-			name: "an agent whose prompt somebody is halfway through typing into",
-			arrange: func(_ *testing.T, _ *storetest.Stores, terminal *tmuxtest.Fake, agent agentstore.Agent) {
-				terminal.Captures[agent.Pane] = harnesstest.FrameComposing
-			},
-			want: DeliveryLater,
+			name:  "an agent whose prompt somebody is halfway through typing into",
+			frame: harnesstest.FrameComposing,
+			want:  DeliveryLater,
 		},
 		{
 			name: "an agent told about the mail recently enough that the line may yet be answered",
-			arrange: func(t *testing.T, st *storetest.Stores, _ *tmuxtest.Fake, agent agentstore.Agent) {
-				claimed, err := st.Agents.ClaimNudge(t.Context(), agent.ID, nudgeRetryAfter)
+			arrange: func(t *testing.T, st *storetest.Stores, id string) {
+				claimed, err := st.Agents.ClaimNudge(t.Context(), id, nudgeRetryAfter)
 				require.NoError(t, err)
 				require.True(t, claimed)
 			},
@@ -128,11 +120,9 @@ func TestDeliver(t *testing.T) {
 			wantClaim: true,
 		},
 		{
-			name:  "an agent mid-turn that no pass has confirmed since",
-			state: agentstore.StateThinking,
-			arrange: func(t *testing.T, st *storetest.Stores, _ *tmuxtest.Fake, agent agentstore.Agent) {
-				backdateStateSeen(t, st, agent.ID)
-			},
+			name:      "an agent mid-turn that no pass has confirmed since",
+			state:     agentstore.StateThinking,
+			arrange:   backdateStateSeen,
 			want:      DeliverySoon,
 			wantClaim: true,
 			wantNudge: true,
@@ -149,12 +139,25 @@ func TestDeliver(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st := storetest.Open(t)
 			terminal := tmuxtest.NewFake()
-			agent := seedListeningAgent(t, st, terminal, tt.state)
-			if !tt.noMail {
-				sendTo(t, st, agent.ID, time.Hour)
+			agent := seedListeningAgent(t, st, terminal)
+			if tt.state != "" {
+				require.NoError(t, st.Agents.SetStateByID(t.Context(), agent.ID, tt.state))
 			}
+			if !tt.noMail {
+				sendTo(t, st, agent.ID)
+			}
+			if tt.paneGone {
+				delete(terminal.Owners, agent.Pane)
+			}
+			if tt.shell {
+				terminal.Commands[agent.Pane] = "zsh"
+			}
+			if tt.frame != "" {
+				terminal.Captures[agent.Pane] = tt.frame
+			}
+			terminal.InMode[agent.Pane] = tt.inMode
 			if tt.arrange != nil {
-				tt.arrange(t, st, terminal, agent)
+				tt.arrange(t, st, agent.ID)
 			}
 
 			svc := newDeliveryService(st, terminal, newPaneChannel(terminal))
@@ -229,12 +232,12 @@ func TestDeliverSaysWhenANudgeWentNowhere(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st := storetest.Open(t)
 			terminal := tmuxtest.NewFake()
-			agent := seedListeningAgent(t, st, terminal, agentstore.StateIdle)
-			sendTo(t, st, agent.ID, time.Hour)
+			agent := seedListeningAgent(t, st, terminal)
+			sendTo(t, st, agent.ID)
 			require.NoError(t, tt.arrange(t.Context(), st, agent.ID))
 
 			svc := newDeliveryService(st, terminal, newPaneChannel(terminal))
-			ctx, records := loggedContext(t)
+			ctx, records := newLoggedContext(t)
 
 			got, err := svc.Deliver(ctx, agent.ID)
 			require.NoError(t, err)
@@ -251,12 +254,12 @@ func TestDeliverSaysWhenANudgeWentNowhere(t *testing.T) {
 func TestDeliverDoesNotWarnAfterAPassThatTypedNothing(t *testing.T) {
 	st := storetest.Open(t)
 	terminal := tmuxtest.NewFake()
-	agent := seedListeningAgent(t, st, terminal, agentstore.StateIdle)
-	sendTo(t, st, agent.ID, time.Hour)
+	agent := seedListeningAgent(t, st, terminal)
+	sendTo(t, st, agent.ID)
 
 	channel := &harnesstest.Channel{RefuseSend: true}
 	svc := newDeliveryService(st, terminal, channel)
-	ctx, records := loggedContext(t)
+	ctx, records := newLoggedContext(t)
 
 	got, err := svc.Deliver(ctx, agent.ID)
 	require.NoError(t, err)
@@ -280,8 +283,8 @@ func TestDeliverDoesNotWarnAfterAPassThatTypedNothing(t *testing.T) {
 func TestDeliverKeepsALandedNudgeWhenTheBookkeepingFails(t *testing.T) {
 	st := storetest.Open(t)
 	terminal := tmuxtest.NewFake()
-	agent := seedListeningAgent(t, st, terminal, agentstore.StateIdle)
-	sendTo(t, st, agent.ID, time.Hour)
+	agent := seedListeningAgent(t, st, terminal)
+	sendTo(t, st, agent.ID)
 
 	channel := &harnesstest.Channel{}
 	svc := NewDeliveryService(NewDeliveryServiceParams{
@@ -290,7 +293,7 @@ func TestDeliverKeepsALandedNudgeWhenTheBookkeepingFails(t *testing.T) {
 		PaneReader:    agents.NewPaneLiveness(terminal),
 		Channel:       channel,
 	})
-	ctx, records := loggedContext(t)
+	ctx, records := newLoggedContext(t)
 
 	got, err := svc.Deliver(ctx, agent.ID)
 	require.NoError(t, err, "the rest of the pass goes on")
@@ -306,11 +309,17 @@ func TestDeliverKeepsALandedNudgeWhenTheBookkeepingFails(t *testing.T) {
 func TestDeliverReportsExpiredMail(t *testing.T) {
 	st := storetest.Open(t)
 	terminal := tmuxtest.NewFake()
-	agent := seedListeningAgent(t, st, terminal, agentstore.StateIdle)
-	expired := sendTo(t, st, agent.ID, time.Nanosecond)
+	agent := seedListeningAgent(t, st, terminal)
+	expired, err := st.Mail.Send(t.Context(), mailstore.SendParams{
+		FromName:  "somebody",
+		ToAgentID: agent.ID,
+		Body:      "too late",
+		Deadline:  time.Nanosecond,
+	})
+	require.NoError(t, err)
 
 	svc := newDeliveryService(st, terminal, newPaneChannel(terminal))
-	ctx, records := loggedContext(t)
+	ctx, records := newLoggedContext(t)
 
 	got, err := svc.Deliver(ctx, agent.ID)
 	require.NoError(t, err)
@@ -327,11 +336,11 @@ func TestDeliverReportsExpiredMail(t *testing.T) {
 func TestDeliverAll(t *testing.T) {
 	st := storetest.Open(t)
 	terminal := tmuxtest.NewFake()
-	first := seedListeningAgent(t, st, terminal, agentstore.StateIdle)
-	second := seedListeningAgent(t, st, terminal, agentstore.StateIdle)
-	empty := seedListeningAgent(t, st, terminal, agentstore.StateIdle)
-	sendTo(t, st, first.ID, time.Hour)
-	sendTo(t, st, second.ID, time.Hour)
+	first := seedListeningAgent(t, st, terminal)
+	second := seedListeningAgent(t, st, terminal)
+	empty := seedListeningAgent(t, st, terminal)
+	sendTo(t, st, first.ID)
+	sendTo(t, st, second.ID)
 
 	svc := newDeliveryService(st, terminal, newPaneChannel(terminal))
 
@@ -346,8 +355,8 @@ func TestDeliverRetriesANudgeTheAgentNeverActedOn(t *testing.T) {
 	st := storetest.Open(t)
 	ctx := t.Context()
 	terminal := tmuxtest.NewFake()
-	agent := seedListeningAgent(t, st, terminal, agentstore.StateIdle)
-	sendTo(t, st, agent.ID, time.Hour)
+	agent := seedListeningAgent(t, st, terminal)
+	sendTo(t, st, agent.ID)
 
 	svc := newDeliveryService(st, terminal, newPaneChannel(terminal))
 
@@ -384,8 +393,8 @@ func TestDeliverRetriesANudgeAcrossAnArchive(t *testing.T) {
 	st := storetest.Open(t)
 	ctx := t.Context()
 	terminal := tmuxtest.NewFake()
-	agent := seedListeningAgent(t, st, terminal, agentstore.StateIdle)
-	sendTo(t, st, agent.ID, time.Hour)
+	agent := seedListeningAgent(t, st, terminal)
+	sendTo(t, st, agent.ID)
 
 	svc := newDeliveryService(st, terminal, newPaneChannel(terminal))
 
@@ -434,13 +443,13 @@ func TestDeliverDefersToARealHarnessStillComingUp(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st := storetest.Open(t)
 			terminal := tmuxtest.NewFake()
-			agent := seedListeningAgent(t, st, terminal, agentstore.StateIdle)
+			agent := seedListeningAgent(t, st, terminal)
 			require.NoError(t, st.Agents.SetHarness(t.Context(), agentstore.SetHarnessParams{
 				ID:      agent.ID,
 				Harness: tt.harness.ID(),
 			}))
 			terminal.Captures[agent.Pane] = shellEcho
-			sendTo(t, st, agent.ID, time.Hour)
+			sendTo(t, st, agent.ID)
 
 			registry, err := harness.NewRegistry(tt.harness)
 			require.NoError(t, err)
@@ -486,8 +495,8 @@ func TestDeliverTellsTheChannelToForgetAnAgentNothingWillLookAtAgain(t *testing.
 		t.Run(tt.name, func(t *testing.T) {
 			st := storetest.Open(t)
 			terminal := tmuxtest.NewFake()
-			agent := seedListeningAgent(t, st, terminal, agentstore.StateIdle)
-			sendTo(t, st, agent.ID, time.Hour)
+			agent := seedListeningAgent(t, st, terminal)
+			sendTo(t, st, agent.ID)
 
 			channel := &harnesstest.Channel{}
 			svc := newDeliveryService(st, terminal, channel)
@@ -529,8 +538,8 @@ func TestDeliverSpendsTheClaimOnAChannelThatTakesTheLineAndThenRefuses(t *testin
 		t.Run(tt.name, func(t *testing.T) {
 			st := storetest.Open(t)
 			terminal := tmuxtest.NewFake()
-			agent := seedListeningAgent(t, st, terminal, agentstore.StateIdle)
-			sendTo(t, st, agent.ID, time.Hour)
+			agent := seedListeningAgent(t, st, terminal)
+			sendTo(t, st, agent.ID)
 
 			svc := newDeliveryService(st, terminal, tt.channel)
 
@@ -555,8 +564,8 @@ func TestDeliverSpendsTheClaimOnAChannelThatTakesTheLineAndThenRefuses(t *testin
 func TestDeliverLeavesTheClaimOnAChannelThatWasNeverReady(t *testing.T) {
 	st := storetest.Open(t)
 	terminal := tmuxtest.NewFake()
-	agent := seedListeningAgent(t, st, terminal, agentstore.StateIdle)
-	sendTo(t, st, agent.ID, time.Hour)
+	agent := seedListeningAgent(t, st, terminal)
+	sendTo(t, st, agent.ID)
 
 	channel := &harnesstest.Channel{RefuseReady: true}
 	svc := newDeliveryService(st, terminal, channel)
@@ -597,15 +606,15 @@ func newPaneChannel(terminal *tmuxtest.Fake) *pane.Pane {
 	})
 }
 
-// seedListeningAgent records an agent in the given state whose pane is its own and shows an empty prompt.
-func seedListeningAgent(t *testing.T, st *storetest.Stores, terminal *tmuxtest.Fake, state agentstore.State) agentstore.Agent {
+// seedListeningAgent records an idle agent whose pane is its own and shows an empty prompt.
+func seedListeningAgent(t *testing.T, st *storetest.Stores, terminal *tmuxtest.Fake) agentstore.Agent {
 	t.Helper()
 
 	name := uuid.NewString()
 	agent := st.SeedAgent(t, agentstore.Agent{
 		Name:    name,
 		Pane:    "%" + name,
-		State:   state,
+		State:   agentstore.StateIdle,
 		Harness: harnesstest.FakeID,
 	})
 
@@ -616,18 +625,16 @@ func seedListeningAgent(t *testing.T, st *storetest.Stores, terminal *tmuxtest.F
 	return *agent
 }
 
-func sendTo(t *testing.T, st *storetest.Stores, agentID string, deadline time.Duration) *mailstore.Mail {
+func sendTo(t *testing.T, st *storetest.Stores, agentID string) {
 	t.Helper()
 
-	sent, err := st.Mail.Send(t.Context(), mailstore.SendParams{
+	_, err := st.Mail.Send(t.Context(), mailstore.SendParams{
 		FromName:  "somebody",
 		ToAgentID: agentID,
 		Body:      "please read this",
-		Deadline:  deadline,
+		Deadline:  time.Hour,
 	})
 	require.NoError(t, err)
-
-	return sent
 }
 
 func backdateNudge(t *testing.T, st *storetest.Stores, id string) {
@@ -646,8 +653,8 @@ func backdateStateSeen(t *testing.T, st *storetest.Stores, id string) {
 	require.NoError(t, err)
 }
 
-// loggedContext is a context whose log lines a test can read back as records.
-func loggedContext(t *testing.T) (context.Context, func() []map[string]any) {
+// newLoggedContext is a context whose log lines a test can read back as records.
+func newLoggedContext(t *testing.T) (context.Context, func() []map[string]any) {
 	t.Helper()
 
 	var written bytes.Buffer

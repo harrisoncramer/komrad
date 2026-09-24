@@ -196,7 +196,7 @@ func TestForwardLastTurns(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st := storetest.Open(t)
 			mailer := &fakeMailer{err: tt.sendErr}
-			svc, terminal := forwardHandler(st, mailer)
+			svc, terminal := newForwardHandler(st, mailer)
 
 			alpha := st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateIdle})
 			beta := st.SeedAgent(t, agentstore.Agent{
@@ -273,7 +273,7 @@ func TestForwardLastTurnsWarnsOfADormantRecipient(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := storetest.Open(t)
-			svc, terminal := forwardHandler(st, &fakeMailer{})
+			svc, terminal := newForwardHandler(st, &fakeMailer{})
 
 			alpha := st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateIdle})
 			beta := st.SeedAgent(t, agentstore.Agent{
@@ -307,21 +307,25 @@ func TestForwardLastTurnsWarnsOfADormantRecipient(t *testing.T) {
 // TestForwardLastTurnsRecordsTheRead covers a forward leaving the line a read of somebody else's conversation leaves.
 func TestForwardLastTurnsRecordsTheRead(t *testing.T) {
 	st := storetest.Open(t)
-	svc, _ := forwardHandler(st, &fakeMailer{})
+	svc, _ := newForwardHandler(st, &fakeMailer{})
 
 	alpha := st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateIdle})
 	beta := st.SeedAgent(t, agentstore.Agent{Name: "beta", State: agentstore.StateIdle})
 	gamma := st.SeedAgent(t, agentstore.Agent{Name: "gamma", State: agentstore.StateIdle})
 	st.SeedTurns(t, alpha.ID, transcriptstore.Turn{Role: "assistant", Content: "then the conclusion"})
 
-	ctx, written := loggedCaller(t, gamma.ID)
+	ctx, written := newLoggedCaller(t, gamma.ID)
 
 	_, err := svc.ForwardLastTurns(ctx, connect.NewRequest(&agentv1.ForwardLastTurnsRequest{
 		FromAgentId: alpha.ID,
 		ToAgentId:   beta.ID,
 	}))
 	require.NoError(t, err)
-	assertCrossAgentRead(t, written.String(), true, "agent read another agent's transcript", alpha.ID)
+	assertCrossAgentRead(t, assertCrossAgentReadParams{
+		Written: written.String(),
+		Body:    "agent read another agent's transcript",
+		Target:  alpha.ID,
+	})
 }
 
 // TestMaxMailBodyIsTheWireCap pins the cap a forward is held to against the one send_mail's request declares.
@@ -335,8 +339,8 @@ func TestMaxMailBodyIsTheWireCap(t *testing.T) {
 	assert.EqualValues(t, mail.MaxMailBody, rules.GetString().GetMaxLen())
 }
 
-// forwardHandler is the handler over the test stores and a fake mail service, reading liveness off a fake tmux.
-func forwardHandler(st *storetest.Stores, mailer *fakeMailer) (agentv1weave.AgentServiceAdapter, *tmuxtest.Fake) {
+// newForwardHandler is the handler over the test stores and a fake mail service, reading liveness off a fake tmux.
+func newForwardHandler(st *storetest.Stores, mailer *fakeMailer) (agentv1weave.AgentServiceAdapter, *tmuxtest.Fake) {
 	terminal := tmuxtest.NewFake()
 
 	return agentv1weave.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{
