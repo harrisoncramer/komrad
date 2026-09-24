@@ -364,19 +364,22 @@ func TestAProvisionerDisabledAgentRunsNoHooksOnTheWayBackIn(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			agent := seedInWorkflow(t, st, created.ID, "reviewer", "%0", agentstore.StateIdle)
-			agent.Cwd = t.TempDir()
-			require.NoError(t, st.Agents.Update(ctx, agent))
-
-			// The override is written when an agent is created and never edited after, so the
-			// row is what has to carry it here rather than the copy in hand.
-			disableProvisioner(t, st, agent.ID)
+			require.NoError(t, st.Create(ctx, agentstore.Agent{
+				Name:             "reviewer",
+				Pane:             "%0",
+				State:            agentstore.StateIdle,
+				Cwd:              t.TempDir(),
+				WorkflowID:       created.ID,
+				ProvisionEnabled: xptr.Ptr(false),
+			}))
+			agent, err := st.Agents.GetInWorkflow(ctx, created.ID, "reviewer")
+			require.NoError(t, err)
 
 			if tt.name == "a restore" {
 				require.NoError(t, st.SoftDelete(ctx, "reviewer"))
 			}
 
-			tt.fire(t, manager, agent)
+			tt.fire(t, manager, *agent)
 
 			// Long enough for a hook chain to have started if one was going to.
 			require.Never(t, func() bool {
