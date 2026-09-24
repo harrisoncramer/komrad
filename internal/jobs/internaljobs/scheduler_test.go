@@ -236,7 +236,7 @@ type listingSchedules struct {
 	err       error
 }
 
-func (l *listingSchedules) List(context.Context) ([]schedulestore.Schedule, error) {
+func (l *listingSchedules) ListWatched(context.Context, []string) ([]schedulestore.Schedule, error) {
 	return l.schedules, l.err
 }
 

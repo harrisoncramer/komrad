@@ -353,12 +353,13 @@ func TestHideAgents(t *testing.T) {
 	assert.False(t, updated.HideAgents, "an edit that turns it off is written")
 }
 
-// TestList covers what the listing shows.
-func TestList(t *testing.T) {
+// TestListWatched covers the watched set read whole and by key.
+func TestListWatched(t *testing.T) {
 	tests := []struct {
 		name      string
 		seeds     []string
 		archive   string
+		keys      []string
 		wantNames []string
 	}{
 		{
@@ -366,15 +367,40 @@ func TestList(t *testing.T) {
 			wantNames: []string{},
 		},
 		{
-			name:      "live schedules are listed",
+			name:      "nil keys list every live schedule",
 			seeds:     []string{"a", "b"},
 			wantNames: []string{"b", "a"},
 		},
 		{
-			name:      "an archived one drops out",
+			name:      "an archived one drops out of the whole set",
 			seeds:     []string{"a", "b"},
 			archive:   "b",
 			wantNames: []string{"a"},
+		},
+		{
+			name:      "keys list only the schedules they name",
+			seeds:     []string{"a", "b"},
+			keys:      []string{"a"},
+			wantNames: []string{"a"},
+		},
+		{
+			name:      "an archived key is left out",
+			seeds:     []string{"a", "b"},
+			archive:   "b",
+			keys:      []string{"a", "b"},
+			wantNames: []string{"a"},
+		},
+		{
+			name:      "keys naming no schedule list nothing",
+			seeds:     []string{"a"},
+			keys:      []string{"00000000-0000-0000-0000-000000000000", "not-an-id"},
+			wantNames: []string{},
+		},
+		{
+			name:      "an empty key list lists nothing",
+			seeds:     []string{"a"},
+			keys:      []string{},
+			wantNames: []string{},
 		},
 	}
 
@@ -396,7 +422,7 @@ func TestList(t *testing.T) {
 				require.NoError(t, st.Archive(ctx, byName[tt.archive]))
 			}
 
-			listed, err := st.List(ctx)
+			listed, err := st.ListWatched(ctx, resolveSeedNames(tt.keys, byName))
 			require.NoError(t, err)
 
 			names := xslice.Map(listed, func(s Schedule) string {
@@ -507,4 +533,18 @@ func seedWorkflow(t *testing.T, st *fixture) string {
 	require.NotNil(t, created)
 
 	return created.ID
+}
+
+func resolveSeedNames(keys []string, byName map[string]string) []string {
+	if keys == nil {
+		return nil
+	}
+
+	return xslice.Map(keys, func(key string) string {
+		if id, ok := byName[key]; ok {
+			return id
+		}
+
+		return key
+	})
 }
