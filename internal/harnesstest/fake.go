@@ -215,6 +215,7 @@ type Observer struct {
 	Reads        int
 	// BeforeFirst runs ahead of the first observation.
 	BeforeFirst func()
+	began       bool
 }
 
 // Observe answers the next observation in the run.
@@ -222,9 +223,10 @@ func (o *Observer) Observe(context.Context, harness.Target) (harness.Observation
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
-	if o.Reads == 0 && o.BeforeFirst != nil {
+	if !o.began && o.BeforeFirst != nil {
 		o.BeforeFirst()
 	}
+	o.began = true
 	if o.Err != nil {
 		return harness.Observation{}, o.Err
 	}
