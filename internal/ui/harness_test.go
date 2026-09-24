@@ -416,11 +416,26 @@ func cutListRow(line string) (string, bool) {
 }
 
 func readRecord(frame string) []string {
+	record, _ := cutRecord(frame)
+
+	return record
+}
+
+func isRecordDrawn(frame string) bool {
+	_, drawn := cutRecord(frame)
+
+	return drawn
+}
+
+func cutRecord(frame string) ([]string, bool) {
 	var record []string
 	width, rules := 0, 0
 	for _, line := range splitLines(frame) {
 		if strings.HasPrefix(line, "─") {
 			rules++
+			if rules == 2 {
+				break
+			}
 			width = ansi.StringWidth(strings.TrimRight(line, " "))
 
 			continue
@@ -429,11 +444,17 @@ func readRecord(frame string) []string {
 			record = append(record, strings.TrimRight(ansi.Truncate(line, width, ""), " "))
 		}
 	}
-	if len(record) == 0 || !strings.HasPrefix(record[0], "  ") && !strings.HasPrefix(record[0], "› ") {
-		return nil
+	if rules < 2 {
+		return nil, false
+	}
+	if len(record) == 0 {
+		return nil, true
+	}
+	if !strings.HasPrefix(record[0], "  ") && !strings.HasPrefix(record[0], "› ") {
+		return nil, false
 	}
 
-	return record
+	return record, true
 }
 
 func readRecordField(frame, label string) string {

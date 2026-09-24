@@ -148,7 +148,12 @@ func TestAgentsRows(t *testing.T) {
 			newAgentAt("other", "w1", 0),
 		)
 
-		rows := splitLines(harness.readFrame())[5:8]
+		rows := slices.DeleteFunc(splitLines(harness.readFrame()), func(line string) bool {
+			_, isRow := cutListRow(line)
+
+			return !isRow
+		})
+		require.Len(t, rows, 3)
 		other := rows[2]
 		assert.Len(t, other[:len(other)-len(strings.TrimLeft(other, " "))], 4, "an agent opens on its checkout column after the focus and mark cells")
 		for _, row := range rows[1:] {
@@ -682,7 +687,9 @@ func TestAgentsRecordHeight(t *testing.T) {
 			answerWorktreeReads(harness)
 			harness.watch(buildSnapshot(buildRecorded()...))
 
-			assert.Len(t, readRecord(harness.readFrame()), tt.want)
+			frame := harness.readFrame()
+			assert.Equal(t, tt.want > 0, isRecordDrawn(frame))
+			assert.Len(t, readRecord(frame), tt.want)
 		})
 	}
 
@@ -790,7 +797,7 @@ func TestAgentsRecordWorktree(t *testing.T) {
 		{
 			name:       "a registration git cannot read has a size and no standing",
 			answer:     answerWith(unreadable),
-			want:       map[string]string{"size": "1.2G, measured 0s ago"},
+			want:       map[string]string{"size": "1.2G, measured 5m ago"},
 			wantAbsent: []string{"base", "commits"},
 		},
 		{
@@ -1127,7 +1134,8 @@ func TestAgentsRecordSearch(t *testing.T) {
 		harness.press("?", "ctrl+t", "/", "a", "tab", "enter")
 
 		frame := harness.readFrame()
-		assert.Empty(t, readRecord(frame))
+		assert.False(t, isRecordDrawn(frame))
+		assert.False(t, hasAdjacentRules(frame), "no bare rules stand where the record was")
 		assert.Len(t, splitLines(frame), 19)
 	})
 }
@@ -2169,6 +2177,17 @@ func openWorktreeRecord(t *testing.T, params panelHarnessParams) *panelHarness {
 	return harness
 }
 
+func hasAdjacentRules(frame string) bool {
+	lines := splitLines(frame)
+	for i := 1; i < len(lines); i++ {
+		if strings.HasPrefix(lines[i-1], "─") && strings.HasPrefix(lines[i], "─") {
+			return true
+		}
+	}
+
+	return false
+}
+
 func findBarColumn(row string) int {
 	for _, bar := range listBars {
 		if at := strings.Index(row, strings.TrimSpace(bar)); at >= 0 {
@@ -2201,7 +2220,7 @@ func buildWorktreeRead() *worktreev1.GetWorktreeResponse {
 			Branch:     "agent/x",
 			Occupants:  []*worktreev1.WorktreeAgent{{Id: "a2", Name: "reader"}},
 			SizeBytes:  proto.Int64(1200 * 1024 * 1024),
-			MeasuredAt: proto.String(time.Now().UTC().Format(time.RFC3339)),
+			MeasuredAt: proto.String(time.Now().Add(-5 * time.Minute).UTC().Format(time.RFC3339)),
 		},
 		Modified:           []string{"a.go", "b.go"},
 		Untracked:          []string{"notes.md"},
