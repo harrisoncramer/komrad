@@ -21,8 +21,9 @@ active screen.
 
 screens.go is what the three of them dispatch through. Each screen is a type of its own,
 agentsScreen and the rest, holding its state and implementing screenModel: update takes every
-message the root did not claim, view draws the screen, enter lands it on a target, needs says
-what it draws from, and takesEveryKey says whether the screen is being typed at.
+message the root did not claim, view draws the screen, enter lands it on a target,
+doesDrawFromListing says whether it draws the watch's listings, and takesEveryKey says whether
+the screen is being typed at.
 A screen also implements whichever of the facets it draws: detailed for a record under its
 list, filtered for a search over it, tabbed for a strip over it, columned for a block beside it,
 and staged for a row it puts on the stage. The root holds the six screens by value and

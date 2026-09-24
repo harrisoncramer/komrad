@@ -281,8 +281,8 @@ var (
 	_ columned = (*schedulesScreen)(nil)
 )
 
-func (w *schedulesScreen) needs() screenNeeds {
-	return screenNeeds{fromListing: true}
+func (w *schedulesScreen) doesDrawFromListing() bool {
+	return true
 }
 
 func (w *schedulesScreen) takesEveryKey() bool {
