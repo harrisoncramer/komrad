@@ -682,7 +682,7 @@ type WorkflowProvisionerConfig struct {
 	TenantID string
 }
 
-// One directory under the worktree directories as the filesystem holds it, written by the size loop. Keyed by the directory rather than an agent, since a directory outlives its row and one nobody answers for is what the worktrees screen is for. A directory a delete has claimed has no row.
+// One directory under the worktree directories as the filesystem holds it, written by the size loop. Keyed by the directory rather than an agent, since a directory outlives its row and one nobody answers for is what the worktrees screen is for. An unowned directory an unfinished delete names has no row, and the watch leaves out one whose agent is being deleted.
 type Worktree struct {
 	Dir string
 	// Blocks taken rather than length, a hard linked file counted once. Zero until measured and while size_error is set.
@@ -693,6 +693,8 @@ type Worktree struct {
 	SizeError *string
 	// The engine that owns this row, stamped from the login that wrote it.
 	TenantID string
+	// The directory's basename, which is the id of the agent it was cut for.
+	Name string
 	// The repository the directory was cut from, read off its .git file, empty when there is no such file.
 	RepoDir string
 	// What the gitdir's HEAD names, empty when it is detached or cannot be read.

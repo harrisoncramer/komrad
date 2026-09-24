@@ -372,20 +372,20 @@ func describe(row agentstore.AgentDir) *Agent {
 // Unclaimed drops the directories a delete has claimed: those whose agent is being deleted, and
 // those nothing answers for that an unfinished delete names.
 func Unclaimed(listing []Worktree, claimed []string) []Worktree {
+	return xslice.Filter(unnamed(listing, claimed), func(worktree Worktree) bool {
+		return worktree.Agent == nil || !worktree.Agent.Deleting
+	})
+}
+
+// unnamed drops the directories nothing answers for that an unfinished delete names.
+func unnamed(listing []Worktree, claimed []string) []Worktree {
 	named := make(map[string]bool, len(claimed))
 	for _, dir := range claimed {
 		named[dir] = true
 	}
 
 	return xslice.Filter(listing, func(worktree Worktree) bool {
-		switch {
-		case worktree.Agent != nil && worktree.Agent.Deleting:
-			return false
-		case worktree.Fate() == FateUnowned:
-			return !named[worktree.Dir]
-		}
-
-		return true
+		return worktree.Fate() != FateUnowned || !named[worktree.Dir]
 	})
 }
 

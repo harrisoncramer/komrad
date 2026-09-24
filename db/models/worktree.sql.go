@@ -22,22 +22,28 @@ func (q *Queries) DeleteWorktrees(ctx context.Context, dirs []string) error {
 
 const listWatchedWorktrees = `-- name: ListWatchedWorktrees :many
 SELECT
-    dir,
-    repo_dir,
-    branch,
-    readable,
-    mtime,
-    size_bytes,
-    measured_at,
-    size_error,
-    tenant_id
+    w.dir,
+    w.repo_dir,
+    w.branch,
+    w.readable,
+    w.mtime,
+    w.size_bytes,
+    w.measured_at,
+    w.size_error
 FROM
-    worktrees
-WHERE
-    $1::text[] IS NULL
-    OR dir = ANY ($1::text[])
+    worktrees w
+WHERE ($1::text[] IS NULL
+    OR w.dir = ANY ($1::text[]))
+AND NOT EXISTS (
+    SELECT
+        1
+    FROM
+        agents a
+    WHERE
+        a.id::text = w.name
+        AND a.deleting_at IS NOT NULL)
 ORDER BY
-    dir
+    w.dir
 `
 
 type ListWatchedWorktreesRow struct {
@@ -49,7 +55,6 @@ type ListWatchedWorktreesRow struct {
 	SizeBytes  int64
 	MeasuredAt *time.Time
 	SizeError  *string
-	TenantID   string
 }
 
 func (q *Queries) ListWatchedWorktrees(ctx context.Context, keys []string) ([]*ListWatchedWorktreesRow, error) {
@@ -70,7 +75,62 @@ func (q *Queries) ListWatchedWorktrees(ctx context.Context, keys []string) ([]*L
 			&i.SizeBytes,
 			&i.MeasuredAt,
 			&i.SizeError,
-			&i.TenantID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listWorktrees = `-- name: ListWorktrees :many
+SELECT
+    dir,
+    repo_dir,
+    branch,
+    readable,
+    mtime,
+    size_bytes,
+    measured_at,
+    size_error
+FROM
+    worktrees
+ORDER BY
+    dir
+`
+
+type ListWorktreesRow struct {
+	Dir        string
+	RepoDir    string
+	Branch     string
+	Readable   bool
+	Mtime      *time.Time
+	SizeBytes  int64
+	MeasuredAt *time.Time
+	SizeError  *string
+}
+
+func (q *Queries) ListWorktrees(ctx context.Context) ([]*ListWorktreesRow, error) {
+	rows, err := q.db.Query(ctx, listWorktrees)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*ListWorktreesRow
+	for rows.Next() {
+		var i ListWorktreesRow
+		if err := rows.Scan(
+			&i.Dir,
+			&i.RepoDir,
+			&i.Branch,
+			&i.Readable,
+			&i.Mtime,
+			&i.SizeBytes,
+			&i.MeasuredAt,
+			&i.SizeError,
 		); err != nil {
 			return nil, err
 		}
@@ -113,6 +173,7 @@ func (q *Queries) RecordWorktreeSize(ctx context.Context, arg RecordWorktreeSize
 const upsertWorktree = `-- name: UpsertWorktree :exec
 INSERT INTO worktrees(
     dir,
+    name,
     repo_dir,
     branch,
     readable,
@@ -122,20 +183,29 @@ VALUES (
     $2,
     $3,
     $4,
-    $5)
+    $5,
+    $6)
 ON CONFLICT (
     tenant_id,
     dir)
     DO UPDATE SET
+        name = EXCLUDED.name,
         repo_dir = EXCLUDED.repo_dir,
         branch = EXCLUDED.branch,
         readable = EXCLUDED.readable,
         mtime = EXCLUDED.mtime
-    WHERE (worktrees.repo_dir, worktrees.branch, worktrees.readable, worktrees.mtime) IS DISTINCT FROM (EXCLUDED.repo_dir, EXCLUDED.branch, EXCLUDED.readable, EXCLUDED.mtime)
+    WHERE (
+        worktrees.name, worktrees.repo_dir, worktrees.branch, worktrees.readable, worktrees.mtime) IS DISTINCT FROM (
+        EXCLUDED.name,
+        EXCLUDED.repo_dir,
+        EXCLUDED.branch,
+        EXCLUDED.readable,
+        EXCLUDED.mtime)
 `
 
 type UpsertWorktreeParams struct {
 	Dir      string
+	Name     string
 	RepoDir  string
 	Branch   string
 	Readable bool
@@ -145,6 +215,7 @@ type UpsertWorktreeParams struct {
 func (q *Queries) UpsertWorktree(ctx context.Context, arg UpsertWorktreeParams) error {
 	_, err := q.db.Exec(ctx, upsertWorktree,
 		arg.Dir,
+		arg.Name,
 		arg.RepoDir,
 		arg.Branch,
 		arg.Readable,

@@ -1,9 +1,15 @@
 table "worktrees" {
   schema  = schema.public
-  comment = "One directory under the worktree directories as the filesystem holds it, written by the size loop. Keyed by the directory rather than an agent, since a directory outlives its row and one nobody answers for is what the worktrees screen is for. A directory a delete has claimed has no row."
+  comment = "One directory under the worktree directories as the filesystem holds it, written by the size loop. Keyed by the directory rather than an agent, since a directory outlives its row and one nobody answers for is what the worktrees screen is for. An unowned directory an unfinished delete names has no row, and the watch leaves out one whose agent is being deleted."
   column "dir" {
     null = false
     type = text
+  }
+  column "name" {
+    null    = false
+    type    = text
+    default = ""
+    comment = "The directory's basename, which is the id of the agent it was cut for."
   }
   column "repo_dir" {
     null    = false
@@ -51,6 +57,9 @@ table "worktrees" {
   }
   primary_key {
     columns = [column.tenant_id, column.dir]
+  }
+  index "worktrees_name" {
+    columns = [column.tenant_id, column.name]
   }
   foreign_key "worktrees_tenant_id_fkey" {
     columns     = [column.tenant_id]

@@ -6,6 +6,9 @@ import (
 
 	"weave/internal/dbtest"
 	"weave/internal/store"
+	agentstore "weave/internal/store/agent"
+	"weave/internal/storetest"
+	"weave/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -125,6 +128,41 @@ func TestListWatchedReadsTheKeysNamed(t *testing.T) {
 	none, err := worktrees.ListWatched(t.Context(), []string{})
 	require.NoError(t, err)
 	assert.Empty(t, none)
+}
+
+// TestListWatchedLeavesOutADeletingAgentsDirectory covers the watch dropping the directory of an
+// agent a delete has claimed, List still reading it, and a cleared claim bringing it back.
+func TestListWatchedLeavesOutADeletingAgentsDirectory(t *testing.T) {
+	stores := storetest.Open(t)
+	worktrees := NewWorktreeStore(stores.Pool.GetDB())
+	agent := stores.SeedAgent(t, agentstore.Agent{Name: "going"})
+	dir := "/trees/" + agent.ID
+	require.NoError(t, worktrees.Upsert(t.Context(), Worktree{Dir: dir}))
+	require.NoError(t, worktrees.Upsert(t.Context(), Worktree{Dir: "/trees/other"}))
+
+	require.NoError(t, stores.Agents.MarkDeleting(t.Context(), []string{agent.ID}))
+
+	watched, err := worktrees.ListWatched(t.Context(), nil)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"/trees/other"}, dirsOf(watched))
+
+	named, err := worktrees.ListWatched(t.Context(), []string{dir})
+	require.NoError(t, err)
+	assert.Empty(t, named)
+
+	all, err := worktrees.List(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, []string{dir, "/trees/other"}, dirsOf(all))
+
+	require.NoError(t, stores.Agents.ClearDeleting(t.Context(), []string{agent.ID}))
+
+	watched, err = worktrees.ListWatched(t.Context(), nil)
+	require.NoError(t, err)
+	assert.Equal(t, []string{dir, "/trees/other"}, dirsOf(watched))
+}
+
+func dirsOf(worktrees []Worktree) []string {
+	return xslice.Map(worktrees, func(worktree Worktree) string { return worktree.Dir })
 }
 
 func openWorktreeStore(t *testing.T) *WorktreeStore {

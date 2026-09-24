@@ -181,10 +181,9 @@ func TestMeasureRecordsWhatTheFilesystemSays(t *testing.T) {
 	assert.NotNil(t, bare.ModifiedAt, "a directory with no .git file takes its own mtime")
 }
 
-// TestMeasureLeavesOutWhatADeleteHasClaimed covers a directory whose agent is being deleted and
-// an unowned one an unfinished delete names losing their rows, while an owned directory a delete
-// names without claiming its agent keeps its own.
-func TestMeasureLeavesOutWhatADeleteHasClaimed(t *testing.T) {
+// TestMeasureLeavesOutWhatADeleteNames covers an unowned directory an unfinished delete names
+// losing its row, while an owned one it names and one whose agent is being deleted keep theirs.
+func TestMeasureLeavesOutWhatADeleteNames(t *testing.T) {
 	f := newFixture(t)
 	deleting := f.cut(t, "aaaa")
 	named := f.cut(t, "bbbb")
@@ -200,13 +199,12 @@ func TestMeasureLeavesOutWhatADeleteHasClaimed(t *testing.T) {
 
 	require.NoError(t, f.measurer().Measure(t.Context()))
 
-	assert.ElementsMatch(t, []string{deleting, named}, f.sizes.deleted)
-	assert.NotContains(t, f.sizes.records, deleting)
+	assert.Equal(t, []string{named}, f.sizes.deleted)
 	assert.NotContains(t, f.sizes.records, named)
+	assert.Contains(t, f.sizes.records, deleting, "the watch leaves this one out, so the row is kept for a failed delete")
 	assert.Contains(t, f.sizes.records, owned)
 	assert.Contains(t, f.sizes.records, kept)
-	assert.NotContains(t, f.sizes.written, deleting, "a claimed directory is not walked")
-	assert.NotContains(t, f.sizes.written, named)
+	assert.NotContains(t, f.sizes.written, named, "a named directory is not walked")
 }
 
 // fakeListing answers with whatever listing the test names, on disk or not.

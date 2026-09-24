@@ -69,8 +69,8 @@ func NewMeasurer(params NewMeasurerParams) *Measurer {
 	}
 }
 
-// Measure records every unclaimed directory, forgets the rest, and walks the few most in need of
-// a size, carrying on past one it cannot record.
+// Measure records every directory no delete names, forgets the rest, and walks the few most in
+// need of a size, carrying on past one it cannot record.
 func (m *Measurer) Measure(ctx context.Context) error {
 	listing, err := m.lister.List(ctx)
 	if err != nil {
@@ -87,7 +87,7 @@ func (m *Measurer) Measure(ctx context.Context) error {
 		return err
 	}
 
-	present := Unclaimed(listing.Worktrees, claimed)
+	present := unnamed(listing.Worktrees, claimed)
 	if err := m.worktrees.Delete(ctx, forgotten(listing, present, stored)); err != nil {
 		return err
 	}
@@ -164,8 +164,8 @@ func storableText(text string) string {
 	return strings.ToValidUTF8(strings.ReplaceAll(text, "\x00", ""), "")
 }
 
-// forgotten is every stored directory a delete has claimed or that has gone, a gone one counting
-// only while every worktree directory could be read.
+// forgotten is every stored directory a delete names or that has gone, a gone one counting only
+// while every worktree directory could be read.
 func forgotten(listing *Listing, present []Worktree, stored []worktreestore.Worktree) []string {
 	kept := make(map[string]bool, len(present))
 	for _, worktree := range present {

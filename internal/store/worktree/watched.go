@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	"weave/db/models"
 	"weave/internal/watch"
+	"weave/lib/xslice"
 	watchv1 "weave/proto/gen/watch/v1"
 )
 
@@ -13,14 +15,26 @@ var WatchedWorktrees = watch.Resource{
 	Enum:      watchv1.Resource_RESOURCE_WORKTREE,
 	Table:     "worktrees",
 	KeyColumn: "dir",
+	Feeders: []watch.Feeder{
+		{
+			Table: "agents",
+			Lookup: &watch.Lookup{
+				ParentColumn: "name",
+				ChildColumn:  "id",
+				OnChangeOf:   "deleting_at",
+			},
+		},
+	},
 }
 
-// ListWatched returns whichever of keys are still recorded directories, or every one when keys is nil.
+// ListWatched returns whichever of keys are recorded directories whose agent is not being deleted, or every one when keys is nil.
 func (s *WorktreeStore) ListWatched(ctx context.Context, keys []string) ([]Worktree, error) {
 	rows, err := s.queries.ListWatchedWorktrees(ctx, keys)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list worktrees: %w", err)
 	}
 
-	return worktreesFrom(rows), nil
+	return xslice.Map(rows, func(row *models.ListWatchedWorktreesRow) Worktree {
+		return worktreeFrom((*models.ListWorktreesRow)(row))
+	}), nil
 }

@@ -4,6 +4,7 @@ package worktree
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"time"
 
 	"weave/db/models"
@@ -43,9 +44,14 @@ func NewWorktreeStore(db store.DBTX) *WorktreeStore {
 	return &WorktreeStore{queries: models.New(db)}
 }
 
-// List reads every directory, by directory.
+// List reads every directory, by directory, whether or not the watch carries it.
 func (s *WorktreeStore) List(ctx context.Context) ([]Worktree, error) {
-	return s.ListWatched(ctx, nil)
+	rows, err := s.queries.ListWorktrees(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list worktrees: %w", err)
+	}
+
+	return xslice.Map(rows, worktreeFrom), nil
 }
 
 // ListSizes reads every measurement, by directory.
@@ -70,6 +76,7 @@ func (s *WorktreeStore) ListSizes(ctx context.Context) ([]Size, error) {
 func (s *WorktreeStore) Upsert(ctx context.Context, worktree Worktree) error {
 	err := s.queries.UpsertWorktree(ctx, models.UpsertWorktreeParams{
 		Dir:      worktree.Dir,
+		Name:     filepath.Base(worktree.Dir),
 		RepoDir:  worktree.RepoDir,
 		Branch:   worktree.Branch,
 		Readable: worktree.Readable,
@@ -113,7 +120,7 @@ func (s *WorktreeStore) Delete(ctx context.Context, dirs []string) error {
 	return nil
 }
 
-func worktreeFrom(row *models.ListWatchedWorktreesRow) Worktree {
+func worktreeFrom(row *models.ListWorktreesRow) Worktree {
 	worktree := Worktree{
 		Dir:        row.Dir,
 		RepoDir:    row.RepoDir,
@@ -133,8 +140,4 @@ func worktreeFrom(row *models.ListWatchedWorktreesRow) Worktree {
 	}
 
 	return worktree
-}
-
-func worktreesFrom(rows []*models.ListWatchedWorktreesRow) []Worktree {
-	return xslice.Map(rows, worktreeFrom)
 }

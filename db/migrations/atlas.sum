@@ -1,4 +1,4 @@
-h1:G/vad+FsRSW6LenJwhzCt70id+/G49KGdlB+0qk6/X0=
+h1:N1sxfLvK7w7/EQXF6hPNmASbirIubX3PFqF5Y/+F5vc=
 20260727000000_foundation.sql h1:7W4rJzYDLDmbY5bVN2UpLkNbncK+QlKdHDEZflYjgkM=
 20260727000001_agents.sql h1:1mLdMlbyeyCG7yTKNXxa35ecAdWwE65ICBHGbLnBDGY=
 20260727000002_mail.sql h1:B/wDwMChMbamyYWYheBJL8OOxjd+AzCqqDGaAWUH9qY=
@@ -13,5 +13,5 @@ h1:G/vad+FsRSW6LenJwhzCt70id+/G49KGdlB+0qk6/X0=
 20260923193912_agent_head_sha.sql h1:BrrmTEZxbgxuU12/suUU2aKyIG/yvS3cCkwvyWrz5nc=
 20260923200439_drop_schedule_last_result.sql h1:p+FYkiagLpvyF0De8cddsH1j8tvUld8gITDA6TB0TrA=
 20260923221038_watch_trigger_arguments.sql h1:LneFUcvBQ3eNnvf6QCIs5cZjeeDrWxJl0daNJCBpAWg=
-20260924012959_worktrees.sql h1:cdtDqu4ovaNlVdiriV6t5sXIEL2ZOTX/m4XgcAp6434=
-20260924013336_watch_worktrees.sql h1:bPSmJoCpP3e6WYy5IVGoLaZvoj+1CZvXGRXT1GuNFIA=
+20260924012959_worktrees.sql h1:fXZkYY7ognJrtujPM9KSz7igESs+EhzYtN/2kkrFFew=
+20260924015818_watch_worktrees.sql h1:v/Mum5C5+KWH8xgYZNQmYBC2C7ssxnOQ2g+PbLcN3tc=

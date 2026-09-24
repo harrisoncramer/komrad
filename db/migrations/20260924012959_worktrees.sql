@@ -4,9 +4,13 @@ ALTER TABLE "worktrees" RENAME CONSTRAINT "worktree_sizes_pkey" TO "worktrees_pk
 ALTER TABLE "worktrees" RENAME CONSTRAINT "worktree_sizes_tenant_id_fkey" TO "worktrees_tenant_id_fkey";
 ALTER TABLE "worktrees" RENAME COLUMN "error" TO "size_error";
 -- Modify "worktrees" table
-ALTER TABLE "worktrees" ALTER COLUMN "measured_at" DROP NOT NULL, ADD COLUMN "repo_dir" text NOT NULL DEFAULT '', ADD COLUMN "branch" text NOT NULL DEFAULT '', ADD COLUMN "readable" boolean NOT NULL DEFAULT false, ADD COLUMN "mtime" timestamptz NULL;
+ALTER TABLE "worktrees" ALTER COLUMN "measured_at" DROP NOT NULL, ADD COLUMN "name" text NOT NULL DEFAULT '', ADD COLUMN "repo_dir" text NOT NULL DEFAULT '', ADD COLUMN "branch" text NOT NULL DEFAULT '', ADD COLUMN "readable" boolean NOT NULL DEFAULT false, ADD COLUMN "mtime" timestamptz NULL;
+-- Create index "worktrees_name" to table: "worktrees"
+CREATE INDEX "worktrees_name" ON "worktrees" ("tenant_id", "name");
 -- Set comment to table: "worktrees"
-COMMENT ON TABLE "worktrees" IS 'One directory under the worktree directories as the filesystem holds it, written by the size loop. Keyed by the directory rather than an agent, since a directory outlives its row and one nobody answers for is what the worktrees screen is for. A directory a delete has claimed has no row.';
+COMMENT ON TABLE "worktrees" IS 'One directory under the worktree directories as the filesystem holds it, written by the size loop. Keyed by the directory rather than an agent, since a directory outlives its row and one nobody answers for is what the worktrees screen is for. An unowned directory an unfinished delete names has no row, and the watch leaves out one whose agent is being deleted.';
+-- Set comment to column: "name" on table: "worktrees"
+COMMENT ON COLUMN "worktrees"."name" IS 'The directory''s basename, which is the id of the agent it was cut for.';
 -- Set comment to column: "repo_dir" on table: "worktrees"
 COMMENT ON COLUMN "worktrees"."repo_dir" IS 'The repository the directory was cut from, read off its .git file, empty when there is no such file.';
 -- Set comment to column: "branch" on table: "worktrees"

@@ -92,3 +92,4 @@ CREATE TRIGGER watch_notify AFTER INSERT OR UPDATE OR DELETE ON marks FOR EACH R
 CREATE TRIGGER watch_notify AFTER INSERT OR UPDATE OR DELETE ON mail FOR EACH ROW EXECUTE FUNCTION watch_notify('id');
 CREATE TRIGGER watch_notify AFTER INSERT OR UPDATE OR DELETE ON pull_requests FOR EACH ROW EXECUTE FUNCTION watch_notify('id');
 CREATE TRIGGER watch_notify AFTER INSERT OR UPDATE OR DELETE ON worktrees FOR EACH ROW EXECUTE FUNCTION watch_notify('dir');
+CREATE TRIGGER watch_subresource_worktrees AFTER INSERT OR UPDATE OR DELETE ON agents FOR EACH ROW EXECUTE FUNCTION watch_subresource_lookup('worktrees', 'dir', 'name', 'id', '', 'deleting_at');
