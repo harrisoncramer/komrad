@@ -34,7 +34,10 @@ func TestKeyDrift(t *testing.T) {
 			drawn := harness.panel.ReadLegendKeys()
 
 			for _, pressed := range pressable {
-				if slices.ContainsFunc(screen.excused, func(u undrawn) bool { return u.key == pressed }) {
+				isExcused := slices.ContainsFunc(screen.excused, func(excused undrawn) bool {
+					return excused.key == pressed
+				})
+				if isExcused {
 					continue
 				}
 				if !harness.panel.IsKeyTaken(pressed) {
