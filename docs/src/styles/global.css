@@ -345,3 +345,130 @@
   font-size: 0.8em;
   color: var(--color-app-white);
 }
+
+.doc-content td.default-cell {
+  max-width: 14rem;
+}
+
+.doc-content td.default-cell code {
+  white-space: nowrap;
+}
+
+.doc-content td.default-cell code.long {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 639.98px) {
+  .doc-content table,
+  .doc-content tbody {
+    display: block;
+  }
+
+  .doc-content thead {
+    display: none;
+  }
+
+  .doc-content tr {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--color-app-background-medium-dark);
+  }
+
+  .doc-content td {
+    display: block;
+    border-bottom: 0;
+    padding: 0;
+  }
+
+  .doc-content .type-cell {
+    white-space: normal;
+  }
+
+  .doc-content td.default-cell {
+    max-width: none;
+  }
+
+  .doc-content td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 0.1rem;
+    font-family: var(--font-lora);
+    font-size: 0.8rem;
+    color: var(--color-app-gray-dim);
+  }
+
+  .doc-content td.default-cell code {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+}
+
+.doc-content .anchored,
+.doc-content tr[id],
+.doc-content li[id] {
+  scroll-margin-top: 5rem;
+}
+
+.doc-content a.anchor {
+  margin-left: 0.4em;
+  color: var(--color-app-gray-dim);
+  font-family: var(--font-lora);
+  font-size: 0.8em;
+  text-decoration: none;
+  opacity: 0;
+  transition: opacity 150ms, color 150ms;
+}
+
+.doc-content .anchored:hover a.anchor,
+.doc-content li:hover a.anchor,
+.doc-content a.anchor:focus-visible {
+  opacity: 1;
+}
+
+.doc-content a.anchor:hover {
+  color: var(--color-app-blue);
+}
+
+@media (hover: none) {
+  .doc-content a.anchor {
+    opacity: 0.6;
+  }
+}
+
+.doc-content td a.row-anchor {
+  text-decoration: none;
+}
+
+.doc-content td a.row-anchor code {
+  color: var(--color-app-white);
+}
+
+.doc-content td a.row-anchor:hover code {
+  color: var(--color-app-blue);
+}
+
+.doc-content tr:target td,
+.doc-content li:target {
+  background: rgba(158, 196, 255, 0.06);
+}
+
+@media (max-width: 639.98px) {
+  html {
+    font-size: 15px;
+  }
+
+  h1 {
+    font-size: 1.75em;
+  }
+
+  h2 {
+    font-size: 1.4em;
+  }
+
+  h3 {
+    font-size: 1.2em;
+  }
+}

@@ -1,5 +1,6 @@
 ---
 import DocPage from "../layouts/DocPage.astro";
+import Heading from "../components/reference/Heading.astro";
 import JumpBar from "../components/reference/JumpBar.astro";
 import { config, prose } from "../reference";
 import type { Section } from "../reference/types";
@@ -21,8 +22,10 @@ const jumps = [...firstOf].map(([table, path]) => ({ href: `#${path || "top-leve
   <JumpBar items={jumps} />
   {
     sections.map((section) => (
-      <section class="type" id={section.path || "top-level"}>
-        <h2>{section.path ? <code class="table-name">[{section.path}]</code> : "Top level"}</h2>
+      <section class="type">
+        <Heading id={section.path || "top-level"}>
+          {section.path ? <code class="table-name">[{section.path}]</code> : "Top level"}
+        </Heading>
         {section.description && <div set:html={prose(section.description)} />}
         {section.settings.length > 0 && (
           <div class="table-scroll">
@@ -38,10 +41,12 @@ const jumps = [...firstOf].map(([table, path]) => ({ href: `#${path || "top-leve
                 {section.settings.map((setting) => (
                   <tr id={setting.path}>
                     <td>
-                      <code>{setting.key}</code>
+                      <a class="row-anchor" href={`#${setting.path}`}>
+                        <code>{setting.key}</code>
+                      </a>
                     </td>
-                    <td class="type-cell">
-                      <code>{setting.default}</code>
+                    <td class="default-cell" data-label="default">
+                      <code class:list={{ long: setting.default.length > 24 }}>{setting.default}</code>
                     </td>
                     <td set:html={prose(setting.description)} />
                   </tr>

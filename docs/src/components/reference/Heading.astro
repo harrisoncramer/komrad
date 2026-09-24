@@ -1,0 +1,13 @@
+---
+import Anchor from "./Anchor.astro";
+
+type Props = {
+  id: string;
+  level?: 2 | 3;
+};
+
+const { id, level = 2 } = Astro.props;
+const Tag = `h${level}` as "h2" | "h3";
+---
+
+<Tag id={id} class="anchored"><slot /><Anchor id={id} /></Tag>

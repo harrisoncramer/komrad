@@ -1,6 +1,8 @@
 ---
+import Anchor from "./Anchor.astro";
+
 type Props = {
-  items: { href: string; title: string; summary?: string }[];
+  items: { href: string; title: string; summary?: string; id?: string }[];
   rows?: boolean;
 };
 
@@ -10,10 +12,13 @@ const { items, rows = false } = Astro.props;
 <ul class:list={["index-list", { rows }]}>
   {
     items.map((item) => (
-      <li>
-        <a href={item.href}>
-          <code>{item.title}</code>
-        </a>
+      <li id={item.id}>
+        <span class="index-name">
+          <a href={item.href}>
+            <code>{item.title}</code>
+          </a>
+          {item.id && <Anchor id={item.id} />}
+        </span>
         {item.summary && <p>{item.summary}</p>}
       </li>
     ))

@@ -2,6 +2,7 @@
 import { Code } from "astro:components";
 import DocPage from "../../layouts/DocPage.astro";
 import FlagTable from "./FlagTable.astro";
+import Heading from "./Heading.astro";
 import IndexList from "./IndexList.astro";
 import { commandBySlug, commandHref, prose } from "../../reference";
 import type { Command } from "../../reference/types";
@@ -51,7 +52,7 @@ const children = command.children.flatMap((slug) => commandBySlug.get(slug) ?? [
   {
     command.example && (
       <>
-        <h2>Examples</h2>
+        <Heading id="examples">Examples</Heading>
         <Code code={command.example} lang="bash" theme="tokyo-night" />
       </>
     )
@@ -60,10 +61,15 @@ const children = command.children.flatMap((slug) => commandBySlug.get(slug) ?? [
   {
     children.length > 0 && (
       <>
-        <h2>Commands</h2>
+        <Heading id="commands">Commands</Heading>
         <IndexList
           rows
-          items={children.map((child) => ({ href: commandHref(child.slug), title: child.path, summary: child.short }))}
+          items={children.map((child) => ({
+            href: commandHref(child.slug),
+            title: child.path,
+            summary: child.short,
+            id: `command-${child.slug.replaceAll("/", "-")}`,
+          }))}
         />
       </>
     )
@@ -72,8 +78,8 @@ const children = command.children.flatMap((slug) => commandBySlug.get(slug) ?? [
   {
     command.flags.length > 0 && (
       <>
-        <h2>Flags</h2>
-        <FlagTable flags={command.flags} />
+        <Heading id="flags">Flags</Heading>
+        <FlagTable flags={command.flags} prefix="flag" />
       </>
     )
   }
@@ -81,8 +87,8 @@ const children = command.children.flatMap((slug) => commandBySlug.get(slug) ?? [
   {
     command.inherited.length > 0 && (
       <>
-        <h2>Inherited flags</h2>
-        <FlagTable flags={command.inherited} />
+        <Heading id="inherited-flags">Inherited flags</Heading>
+        <FlagTable flags={command.inherited} prefix="inherited" />
       </>
     )
   }

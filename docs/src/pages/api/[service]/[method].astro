@@ -1,9 +1,10 @@
 ---
 import DocPage from "../../../layouts/DocPage.astro";
 import CallTabs from "../../../components/reference/CallTabs.astro";
+import Heading from "../../../components/reference/Heading.astro";
 import EnumTable from "../../../components/reference/EnumTable.astro";
 import MessageTable from "../../../components/reference/MessageTable.astro";
-import { api, kebab, prose, referencedTypes } from "../../../reference";
+import { anchor, api, kebab, prose, referencedTypes } from "../../../reference";
 import type { Field } from "../../../reference/types";
 
 export function getStaticPaths() {
@@ -79,19 +80,27 @@ const traits = [
 
   {details && <div set:html={prose(details)} />}
 
-  <h2>Calling it</h2>
+  <Heading id="calling-it">Calling it</Heading>
   <CallTabs tabs={tabs} />
 
-  <h2>Request</h2>
+  <Heading id="request">Request</Heading>
   <MessageTable name={method.request} message={request} />
 
-  <h2>Response</h2>
-  <MessageTable name={method.response} message={response} />
+  <Heading id="response">Response</Heading>
+  {
+    method.response === method.request ? (
+      <p>
+        The same <a href={`#${anchor(method.request)}`}>{request.name}</a> as the request.
+      </p>
+    ) : (
+      <MessageTable name={method.response} message={response} />
+    )
+  }
 
   {
     (nested.length > 0 || types.enums.length > 0) && (
       <>
-        <h2>Types</h2>
+        <Heading id="types">Types</Heading>
         {nested.map(([name, message]) => (
           <MessageTable name={name} message={message} />
         ))}

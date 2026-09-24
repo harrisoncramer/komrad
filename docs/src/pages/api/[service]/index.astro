@@ -22,6 +22,7 @@ const { service } = Astro.props;
       href: `/api/${service.slug}/${method.slug}`,
       title: method.tool,
       summary: method.summary,
+      id: method.slug,
     }))}
   />
 </DocPage>

@@ -3,9 +3,10 @@ import type { Flag } from "../../reference/types";
 
 type Props = {
   flags: Flag[];
+  prefix: string;
 };
 
-const { flags } = Astro.props;
+const { flags, prefix } = Astro.props;
 ---
 
 <div class="table-scroll">
@@ -20,13 +21,15 @@ const { flags } = Astro.props;
     <tbody>
       {
         flags.map((flag) => (
-          <tr>
+          <tr id={`${prefix}-${flag.name}`}>
             <td>
-              <code>
-                {flag.shorthand && `-${flag.shorthand}, `}--{flag.name}
-              </code>
+              <a class="row-anchor" href={`#${prefix}-${flag.name}`}>
+                <code>
+                  {flag.shorthand && `-${flag.shorthand}, `}--{flag.name}
+                </code>
+              </a>
             </td>
-            <td class="type-cell">{flag.type}</td>
+            <td class="type-cell" data-label="type">{flag.type}</td>
             <td>
               <p>{flag.usage}</p>
               {flag.default && flag.default !== "[]" && flag.default !== "false" && (

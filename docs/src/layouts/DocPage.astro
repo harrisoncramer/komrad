@@ -62,6 +62,13 @@ const { title, description, filePath } = Astro.props;
     color: #e6ecf5;
   }
 
+  @media (max-width: 639.98px) {
+    .doc-content :global(:is(p, li)) {
+      font-size: 1em;
+      line-height: 1.65;
+    }
+  }
+
   .doc-content :global(ul:not(.index-list) li) {
     @apply ml-6 list-disc;
   }

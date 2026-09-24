@@ -1,6 +1,7 @@
 ---
 import DocPage from "../../layouts/DocPage.astro";
 import IndexList from "../../components/reference/IndexList.astro";
+import Heading from "../../components/reference/Heading.astro";
 import JumpBar from "../../components/reference/JumpBar.astro";
 import { api, prose } from "../../reference";
 ---
@@ -12,10 +13,10 @@ import { api, prose } from "../../reference";
   <JumpBar items={api.services.map((service) => ({ href: `#${service.slug}`, label: service.title }))} />
   {
     api.services.map((service) => (
-      <section class="service" id={service.slug}>
-        <h2>
+      <section class="service">
+        <Heading id={service.slug}>
           <a href={`/api/${service.slug}`}>{service.title}</a>
-        </h2>
+        </Heading>
         <div class="service-description" set:html={prose(service.description)} />
         <IndexList
           rows
@@ -23,6 +24,7 @@ import { api, prose } from "../../reference";
             href: `/api/${service.slug}/${method.slug}`,
             title: method.tool,
             summary: method.summary,
+            id: `${service.slug}-${method.slug}`,
           }))}
         />
       </section>

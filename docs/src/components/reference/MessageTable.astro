@@ -1,4 +1,5 @@
 ---
+import Heading from "./Heading.astro";
 import { anchor, prose } from "../../reference";
 import type { Message } from "../../reference/types";
 
@@ -8,10 +9,11 @@ type Props = {
 };
 
 const { name, message } = Astro.props;
+const id = anchor(name);
 ---
 
-<section class="type" id={anchor(name)}>
-  <h3>{message.name}</h3>
+<section class="type">
+  <Heading id={id} level={3}>{message.name}</Heading>
   {message.description && <div class="type-description" set:html={prose(message.description)} />}
   {
     message.fields.length === 0 ? (
@@ -28,11 +30,13 @@ const { name, message } = Astro.props;
           </thead>
           <tbody>
             {message.fields.map((field) => (
-              <tr>
+              <tr id={`${id}-${field.name}`}>
                 <td>
-                  <code>{field.name}</code>
+                  <a class="row-anchor" href={`#${id}-${field.name}`}>
+                    <code>{field.name}</code>
+                  </a>
                 </td>
-                <td class="type-cell">
+                <td class="type-cell" data-label="type">
                   {field.map && "map of "}
                   {field.repeated && !field.map && "list of "}
                   {field.ref ? <a href={`#${anchor(field.ref)}`}>{field.type}</a> : field.type}
