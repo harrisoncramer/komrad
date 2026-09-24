@@ -297,6 +297,9 @@ func worldFromStores(t *testing.T, st *storetest.Stores) assemble.World {
 	pullRequests, err := st.PullRequests.ListForAgents(ctx, agentIDs)
 	require.NoError(t, err)
 
+	repositories, err := st.PullRequestSyncs.ListWatched(ctx, nil)
+	require.NoError(t, err)
+
 	workflows, err := st.Workflows.ListByID(ctx, xslice.Map(rows, func(row rowstore.Row) string { return row.WorkflowID }))
 	require.NoError(t, err)
 
@@ -319,6 +322,9 @@ func worldFromStores(t *testing.T, st *storetest.Stores) assemble.World {
 		Mail:  xslice.KeyBy(xslice.Map(mail, render.Mail), func(m *agentv1.Mail) string { return m.GetId() }),
 		PullRequests: xslice.KeyBy(xslice.Map(pullRequests, render.PullRequest), func(p *pullrequestv1.PullRequest) string {
 			return p.GetId()
+		}),
+		Repositories: xslice.KeyBy(xslice.Map(repositories, render.Repository), func(r *pullrequestv1.Repository) string {
+			return r.GetUrl()
 		}),
 	}
 }
