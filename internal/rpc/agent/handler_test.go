@@ -15,6 +15,7 @@ import (
 	"weave/config"
 	"weave/internal/agents"
 	"weave/internal/caller"
+	"weave/internal/checkouts"
 	"weave/internal/logging"
 	"weave/internal/logtest"
 	"weave/internal/mail"
@@ -206,6 +207,26 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 			wantCode: connect.CodeNotFound,
 		},
 		{
+			name: "planning a rebase of an agent with no worktree",
+			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) error {
+				_, err := svc.PlanRebase(ctx, connect.NewRequest(&agentv1.PlanRebaseRequest{AgentId: alphaID}))
+
+				return err
+			},
+			err:      checkouts.ErrRebaseNoWorktree,
+			wantCode: connect.CodeFailedPrecondition,
+		},
+		{
+			name: "a rebase of a dirty worktree",
+			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) error {
+				_, err := svc.RebaseWorktree(ctx, connect.NewRequest(&agentv1.RebaseWorktreeRequest{AgentId: alphaID}))
+
+				return err
+			},
+			err:      checkouts.ErrRebaseDirty,
+			wantCode: connect.CodeFailedPrecondition,
+		},
+		{
 			name: "a rename onto a name another agent holds",
 			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) error {
 				_, err := svc.UpdateAgent(ctx, connect.NewRequest(&agentv1.UpdateAgentRequest{
@@ -281,11 +302,11 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 // it answers with.
 func TestLifecycleRequestsReachTheServices(t *testing.T) {
 	tests := []struct {
-		name     string
-		call     func(ctx context.Context, svc agentv1weave.AgentServiceAdapter, ids []string) (string, error)
-		err      error
-		wantName string
-		check    func(t *testing.T, launcher *fakeLauncher, ids []string)
+		name       string
+		call       func(ctx context.Context, svc agentv1weave.AgentServiceAdapter, ids []string) (string, error)
+		err        error
+		wantAnswer string
+		check      func(t *testing.T, launcher *fakeLauncher, ids []string)
 	}{
 		{
 			name: "a spent idempotency key answers with the agent it launched",
@@ -297,8 +318,8 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 
 				return created.Msg.GetAgent().GetName(), err
 			},
-			err:      agents.ErrAlreadyLaunched,
-			wantName: "spawned",
+			err:        agents.ErrAlreadyLaunched,
+			wantAnswer: "spawned",
 			check: func(t *testing.T, launcher *fakeLauncher, _ []string) {
 				assert.Equal(t, "triage:ENG-5260", launcher.created.IdempotencyKey)
 			},
@@ -320,7 +341,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 
 				return created.Msg.GetAgent().GetName(), err
 			},
-			wantName: "spawned",
+			wantAnswer: "spawned",
 			check: func(t *testing.T, launcher *fakeLauncher, ids []string) {
 				assert.Equal(t, agents.NewAgentParams{
 					Title:            "audit",
@@ -349,7 +370,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 
 				return requested.Msg.GetReviewer().GetName(), err
 			},
-			wantName: "spawned",
+			wantAnswer: "spawned",
 			check: func(t *testing.T, launcher *fakeLauncher, ids []string) {
 				assert.Equal(t, agents.RequestReviewParams{
 					AgentID:        ids[0],
@@ -376,7 +397,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 
 				return adopted.Msg.GetAgent().GetName(), err
 			},
-			wantName: "spawned",
+			wantAnswer: "spawned",
 			check: func(t *testing.T, launcher *fakeLauncher, _ []string) {
 				assert.Equal(t, agents.AdoptParams{
 					Ref:            "https://github.com/o/r/pull/1069",
@@ -401,7 +422,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 
 				return retried.Msg.GetAgent().GetName(), err
 			},
-			wantName: "spawned",
+			wantAnswer: "spawned",
 			check: func(t *testing.T, launcher *fakeLauncher, ids []string) {
 				assert.Equal(t, agents.RetryCreateParams{
 					ID:      ids[0],
@@ -418,7 +439,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 
 				return resumed.Msg.GetAgent().GetName(), err
 			},
-			wantName: "spawned",
+			wantAnswer: "spawned",
 			check: func(t *testing.T, launcher *fakeLauncher, ids []string) {
 				assert.Equal(t, ids[:1], launcher.resumed)
 			},
@@ -430,7 +451,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 
 				return held.Msg.GetAgent().GetName(), err
 			},
-			wantName: "spawned",
+			wantAnswer: "spawned",
 			check: func(t *testing.T, launcher *fakeLauncher, ids []string) {
 				assert.Equal(t, ids[:1], launcher.held)
 			},
@@ -445,7 +466,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 
 				return released.Msg.GetAgent().GetName(), err
 			},
-			wantName: "spawned",
+			wantAnswer: "spawned",
 			check: func(t *testing.T, launcher *fakeLauncher, ids []string) {
 				assert.Equal(t, agents.ReleaseParams{
 					AgentID: ids[0],
@@ -460,9 +481,33 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 
 				return started.Msg.GetAgent().GetName(), err
 			},
-			wantName: "spawned",
+			wantAnswer: "spawned",
 			check: func(t *testing.T, launcher *fakeLauncher, _ []string) {
 				assert.Equal(t, []string{"wf-1"}, launcher.orchestrated)
+			},
+		},
+		{
+			name: "planning a rebase",
+			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter, ids []string) (string, error) {
+				planned, err := svc.PlanRebase(ctx, connect.NewRequest(&agentv1.PlanRebaseRequest{AgentId: ids[0]}))
+
+				return fmt.Sprintf("%s onto %s, %d of %d to replay", planned.Msg.GetBranch(), planned.Msg.GetBaseRef(), planned.Msg.GetReplayCommits(), planned.Msg.GetCommits()), err
+			},
+			wantAnswer: "agent/alpha onto origin/main, 2 of 3 to replay",
+			check: func(t *testing.T, launcher *fakeLauncher, ids []string) {
+				assert.Equal(t, ids[:1], launcher.planned)
+			},
+		},
+		{
+			name: "rebasing",
+			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter, ids []string) (string, error) {
+				rebased, err := svc.RebaseWorktree(ctx, connect.NewRequest(&agentv1.RebaseWorktreeRequest{AgentId: ids[0]}))
+
+				return fmt.Sprintf("%s onto %s, conflicted %t", rebased.Msg.GetBranch(), rebased.Msg.GetBaseRef(), rebased.Msg.GetConflicted()), err
+			},
+			wantAnswer: "agent/alpha onto origin/main, conflicted true",
+			check: func(t *testing.T, launcher *fakeLauncher, ids []string) {
+				assert.Equal(t, ids[:1], launcher.rebased)
 			},
 		},
 		{
@@ -498,7 +543,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 
 				return strings.Join(names, " "), err
 			},
-			wantName: "alpha beta",
+			wantAnswer: "alpha beta",
 			check: func(t *testing.T, launcher *fakeLauncher, ids []string) {
 				assert.Equal(t, ids, launcher.restored)
 			},
@@ -602,10 +647,10 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 				st.SeedAgent(t, agentstore.Agent{Name: "beta"}).ID,
 			}
 
-			name, err := tt.call(t.Context(), svc, ids)
+			answer, err := tt.call(t.Context(), svc, ids)
 			require.NoError(t, err)
 
-			assert.Equal(t, tt.wantName, name)
+			assert.Equal(t, tt.wantAnswer, answer)
 			tt.check(t, launcher, ids)
 		})
 	}
@@ -1068,36 +1113,36 @@ func TestSearchTranscripts(t *testing.T) {
 // the caller rather than from the request alone.
 func TestSearchTranscriptsScope(t *testing.T) {
 	tests := []struct {
-		name      string
-		callerIs  string
-		asksFor   string
-		wantNames []string
+		name        string
+		callerIs    string
+		asksFor     string
+		wantAnswers []string
 	}{
 		{
-			name:      "an agent that names nobody reads its own conversation",
-			callerIs:  "alpha",
-			wantNames: []string{"alpha"},
+			name:        "an agent that names nobody reads its own conversation",
+			callerIs:    "alpha",
+			wantAnswers: []string{"alpha"},
 		},
 		{
-			name:      "an agent that names another reads that one",
-			callerIs:  "alpha",
-			asksFor:   "beta",
-			wantNames: []string{"beta"},
+			name:        "an agent that names another reads that one",
+			callerIs:    "alpha",
+			asksFor:     "beta",
+			wantAnswers: []string{"beta"},
 		},
 		{
-			name:      "an agent that names itself is where it started",
-			callerIs:  "alpha",
-			asksFor:   "alpha",
-			wantNames: []string{"alpha"},
+			name:        "an agent that names itself is where it started",
+			callerIs:    "alpha",
+			asksFor:     "alpha",
+			wantAnswers: []string{"alpha"},
 		},
 		{
-			name:      "the panel is not an agent and reads every conversation",
-			wantNames: []string{"alpha", "beta"},
+			name:        "the panel is not an agent and reads every conversation",
+			wantAnswers: []string{"alpha", "beta"},
 		},
 		{
-			name:      "and can still narrow to one",
-			asksFor:   "beta",
-			wantNames: []string{"beta"},
+			name:        "and can still narrow to one",
+			asksFor:     "beta",
+			wantAnswers: []string{"beta"},
 		},
 	}
 
@@ -1130,7 +1175,7 @@ func TestSearchTranscriptsScope(t *testing.T) {
 			names := xslice.Map(hits, func(hit *agentv1.SearchHit) string {
 				return hit.GetName()
 			})
-			assert.ElementsMatch(t, tt.wantNames, names)
+			assert.ElementsMatch(t, tt.wantAnswers, names)
 		})
 	}
 }
@@ -1387,6 +1432,8 @@ type fakeLauncher struct {
 	resumed      []string
 	held         []string
 	orchestrated []string
+	planned      []string
+	rebased      []string
 	deleted      []string
 	archived     []string
 	restored     []string
@@ -1470,6 +1517,35 @@ func (f *fakeLauncher) Start(_ context.Context, workflowID string) (*agentstore.
 	f.orchestrated = append(f.orchestrated, workflowID)
 
 	return f.answer()
+}
+
+func (f *fakeLauncher) PlanRebase(_ context.Context, agentID string) (*checkouts.RebasePlan, error) {
+	f.planned = append(f.planned, agentID)
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return &checkouts.RebasePlan{
+		BaseRef: "origin/main",
+		Branch:  "agent/alpha",
+		Commits: 3,
+		Replay:  2,
+	}, nil
+}
+
+func (f *fakeLauncher) Rebase(_ context.Context, agentID string) (*checkouts.RebaseResult, error) {
+	f.rebased = append(f.rebased, agentID)
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return &checkouts.RebaseResult{
+		RebasePlan: checkouts.RebasePlan{
+			BaseRef: "origin/main",
+			Branch:  "agent/alpha",
+		},
+		Conflicted: true,
+	}, nil
 }
 
 func (f *fakeLauncher) DeleteAgents(_ context.Context, ids []string) error {
@@ -1649,5 +1725,6 @@ func serviceWithLauncher(t *testing.T) (agentv1weave.AgentServiceAdapter, *store
 		Holder:       launcher,
 		Archive:      launcher,
 		Orchestrator: launcher,
+		Rebaser:      launcher,
 	})}, st, launcher
 }
