@@ -84,44 +84,33 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 	mux.Handle(StopPath, interceptors.NewLoggingHandler(params.Logger, newStopHandler(params.StopRequested)))
 	mux.Handle(agentv1connect.NewAgentServiceHandler(
 		agentv1weave.AgentServiceAdapter{Impl: rpcagent.NewHandler(rpcagent.NewHandlerParams{
-			Agents:      params.Stores.agents,
-			Rows:        params.Stores.rows,
-			Writer:      params.Services.rowWriter,
-			Transcripts: params.Stores.transcripts,
-			Mail:        params.Services.mail,
-			Creator:     params.Services.launch,
-			Adopter:     params.Services.adopt,
-			Liveness:    params.Services.liveness,
-			Lifecycle:   params.Services.lifecycle,
-			Resumer:     params.Services.resume,
-			Holder:      params.Services.holder,
-			Archive:     jobs.NewArchiveSweep(queue),
-			Review:      params.Services.review,
-			Marks:       params.Services.marks,
-			Watched: rpcagent.WatchedListers{
-				Marks:        params.Stores.marks,
-				Mail:         params.Stores.mail,
-				PullRequests: params.Stores.pullRequests,
-				Repositories: params.Stores.pullRequestSyncs,
-				Reviews:      params.Stores.review,
-				Workflows:    params.Stores.workflows,
-			},
+			Agents:       params.Services.rowReader,
+			Rows:         params.Services.rowReader,
+			Writer:       params.Services.rowWriter,
+			Transcripts:  params.Services.transcriptReader,
+			Mail:         params.Services.mail,
+			Creator:      params.Services.launch,
+			Adopter:      params.Services.adopt,
+			Liveness:     params.Services.liveness,
+			Lifecycle:    params.Services.lifecycle,
+			Resumer:      params.Services.resume,
+			Holder:       params.Services.holder,
+			Archive:      jobs.NewArchiveSweep(queue),
+			Review:       params.Services.review,
+			Marks:        params.Services.marks,
 			Rebaser:      params.Services.rebase,
 			Orchestrator: params.Services.orchestrator,
 		})}, options...))
 	mux.Handle(workflowv1connect.NewWorkflowServiceHandler(
 		workflowv1weave.WorkflowServiceAdapter{
 			Impl: rpcworkflow.NewHandler(rpcworkflow.NewHandlerParams{
-				Lister:    params.Stores.workflows,
 				Workflows: params.Services.workflow,
 			}),
 		}, options...))
 	mux.Handle(schedulev1connect.NewScheduleServiceHandler(
 		schedulev1weave.ScheduleServiceAdapter{
 			Impl: rpcschedule.NewHandler(rpcschedule.NewHandlerParams{
-				Lister:    params.Stores.schedules,
 				Schedules: params.Services.schedule,
-				Runs:      params.Stores.schedules,
 			}),
 		}, options...))
 	mux.Handle(configv1connect.NewConfigServiceHandler(
@@ -136,7 +125,7 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 		}, options...))
 	mux.Handle(pullrequestv1connect.NewPullRequestServiceHandler(
 		pullrequestv1weave.PullRequestServiceAdapter{
-			Impl: rpcpullrequest.NewHandler(rpcpullrequest.NewHandlerParams{PullRequests: params.Stores.pullRequests}),
+			Impl: rpcpullrequest.NewHandler(rpcpullrequest.NewHandlerParams{PullRequests: params.Services.pullRequests}),
 		}, options...))
 	mux.Handle(worktreev1connect.NewWorktreeServiceHandler(
 		worktreev1weave.WorktreeServiceAdapter{
@@ -150,7 +139,7 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 		}, options...))
 	mux.Handle(watchv1connect.NewWatchServiceHandler(
 		watchv1weave.WatchServiceAdapter{
-			Impl: rpcwatch.NewHandler(rpcwatch.NewHandlerParams{Broker: params.Watch}),
+			Impl: rpcwatch.NewHandler(rpcwatch.NewHandlerParams{Subscriber: rpcwatch.BrokerSubscriber{Broker: params.Watch}}),
 		}, options...))
 	mux.Handle(logv1connect.NewLogServiceHandler(
 		logv1weave.LogServiceAdapter{

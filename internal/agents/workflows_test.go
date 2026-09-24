@@ -1077,3 +1077,44 @@ func TestRestoreOfAWorkflowUnderTheChildCeiling(t *testing.T) {
 	require.NoError(t, err)
 	assert.Zero(t, held, "the refusal restores nothing")
 }
+
+// TestListWorkflows pins that a listing reads the live or the archived workflows as asked.
+func TestListWorkflows(t *testing.T) {
+	st := newStore(t)
+	workflows := NewWorkflowService(NewWorkflowServiceParams{
+		Workflows: st.Workflows,
+		Pages:     st.Workflows,
+	})
+	st.SeedWorkflow(t, workflowstore.Config{Name: "backend"})
+	archived := st.SeedWorkflow(t, workflowstore.Config{Name: "frontend"})
+	require.NoError(t, st.Workflows.Archive(t.Context(), archived.ID))
+
+	tests := []struct {
+		name      string
+		archived  bool
+		wantNames []string
+	}{
+		{
+			name:      "the live workflows",
+			wantNames: []string{"backend"},
+		},
+		{
+			name:      "the archived workflows",
+			archived:  true,
+			wantNames: []string{"frontend"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			listed, err := workflows.ListWorkflows(t.Context(), ListWorkflowsParams{
+				Limit:    20,
+				Archived: tt.archived,
+			})
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantNames, xslice.Map(listed, func(w workflowstore.Workflow) string {
+				return w.Name
+			}))
+		})
+	}
+}

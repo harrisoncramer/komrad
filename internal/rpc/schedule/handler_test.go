@@ -35,11 +35,6 @@ type enableCall struct {
 	enabled bool
 }
 
-type listRunsCall struct {
-	id    string
-	limit int
-}
-
 // fakeSchedules answers from its fields and records what each call asked of it.
 type fakeSchedules struct {
 	stored  []schedulestore.Schedule
@@ -49,7 +44,7 @@ type fakeSchedules struct {
 	updated []updateCall
 	enabled []enableCall
 	gone    []string
-	listed  []listRunsCall
+	listed  []schedules.ListScheduleRunsParams
 }
 
 // GetSchedule answers the first stored schedule unless err refuses it.
@@ -105,21 +100,21 @@ func (f *fakeSchedules) ArchiveSchedule(_ context.Context, id string) error {
 	return f.err
 }
 
-// ListPage answers as many stored schedules as the limit allows unless err refuses it.
-func (f *fakeSchedules) ListPage(_ context.Context, limit int64, _ *schedulestore.Cursor) ([]schedulestore.Schedule, error) {
+// ListSchedules answers as many stored schedules as the limit allows unless err refuses it.
+func (f *fakeSchedules) ListSchedules(_ context.Context, params schedules.ListSchedulesParams) ([]schedulestore.Schedule, error) {
 	if f.err != nil {
 		return nil, f.err
 	}
 
-	return f.stored[:min(int(limit), len(f.stored))], nil
+	return f.stored[:min(int(params.Limit), len(f.stored))], nil
 }
 
-// ListRuns records the listing and answers runs.
-func (f *fakeSchedules) ListRuns(_ context.Context, id string, limit int) ([]schedulestore.Run, error) {
-	f.listed = append(f.listed, listRunsCall{
-		id:    id,
-		limit: limit,
-	})
+// ListScheduleRuns records the listing and answers runs unless err refuses it.
+func (f *fakeSchedules) ListScheduleRuns(_ context.Context, params schedules.ListScheduleRunsParams) ([]schedulestore.Run, error) {
+	f.listed = append(f.listed, params)
+	if f.err != nil {
+		return nil, f.err
+	}
 
 	return f.runs, nil
 }
@@ -508,10 +503,10 @@ func TestListScheduleRuns(t *testing.T) {
 				Limit: tt.limit,
 			}))
 			require.NoError(t, err)
-			assert.Equal(t, []listRunsCall{
+			assert.Equal(t, []schedules.ListScheduleRunsParams{
 				{
-					id:    scheduleID,
-					limit: tt.wantLimit,
+					ScheduleID: scheduleID,
+					Limit:      tt.wantLimit,
 				},
 			}, recorded.listed)
 			require.Len(t, listed.Msg.GetRuns(), 1)
@@ -521,9 +516,5 @@ func TestListScheduleRuns(t *testing.T) {
 }
 
 func newScheduleHandler(fake *fakeSchedules) schedulev1weave.ScheduleServiceAdapter {
-	return schedulev1weave.ScheduleServiceAdapter{Impl: NewHandler(NewHandlerParams{
-		Lister:    fake,
-		Schedules: fake,
-		Runs:      fake,
-	})}
+	return schedulev1weave.ScheduleServiceAdapter{Impl: NewHandler(NewHandlerParams{Schedules: fake})}
 }

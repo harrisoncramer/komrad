@@ -408,6 +408,17 @@ func TestScheduleNotFound(t *testing.T) {
 				return svc.ArchiveSchedule(t.Context(), missingScheduleID)
 			},
 		},
+		{
+			name: "listing its runs",
+			call: func(t *testing.T, svc *ScheduleService) error {
+				_, err := svc.ListScheduleRuns(t.Context(), ListScheduleRunsParams{
+					ScheduleID: missingScheduleID,
+					Limit:      20,
+				})
+
+				return err
+			},
+		},
 	}
 
 	for _, tt := range tests {

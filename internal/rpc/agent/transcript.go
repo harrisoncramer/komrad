@@ -4,10 +4,10 @@ import (
 	"context"
 	"unicode/utf8"
 
-	"weave/internal/agents"
 	"weave/internal/caller"
 	"weave/internal/fail"
 	"weave/internal/rpcerr"
+	"weave/internal/transcripts"
 	"weave/lib/pagination"
 	"weave/lib/xslice"
 	"weave/lib/xstr"
@@ -17,9 +17,9 @@ import (
 )
 
 type transcriptReader interface {
-	Get(ctx context.Context, agentID string) (string, error)
-	ListLastTurns(ctx context.Context, params transcriptstore.ListLastTurnsParams) ([]transcriptstore.StoredTurn, error)
-	Search(ctx context.Context, params transcriptstore.SearchParams) (transcriptstore.Results, error)
+	ReadTranscript(ctx context.Context, agentID string) (string, error)
+	ListLastTurns(ctx context.Context, params transcripts.ListLastTurnsParams) ([]transcriptstore.StoredTurn, error)
+	SearchTranscripts(ctx context.Context, params transcriptstore.SearchParams) (*transcriptstore.Results, error)
 }
 
 // SearchTranscripts runs a search over stored transcripts and returns one page of the turns
@@ -35,7 +35,7 @@ func (s *Handler) SearchTranscripts(ctx context.Context, req *agentv1.SearchTran
 		logCrossAgentRead(ctx, *scope, "agent read another agent's transcript")
 	}
 
-	results, err := s.transcripts.Search(ctx, transcriptstore.SearchParams{
+	results, err := s.transcripts.SearchTranscripts(ctx, transcriptstore.SearchParams{
 		Query:   req.GetQuery(),
 		Limit:   paginator.Limit(),
 		Cursor:  paginator.Cursor(),
@@ -87,15 +87,7 @@ func (s *Handler) GetTranscript(ctx context.Context, req *agentv1.GetTranscriptR
 		return nil, rpcerr.From(err, "failed to read the cursor")
 	}
 
-	exists, err := s.agents.Exists(ctx, req.GetAgentId())
-	if err != nil {
-		return nil, rpcerr.From(err, "failed to look up agent")
-	}
-	if !exists {
-		return nil, agents.ErrAgentNotFound.Saying("no agent with id %q", req.GetAgentId())
-	}
-
-	content, err := s.transcripts.Get(ctx, req.GetAgentId())
+	content, err := s.transcripts.ReadTranscript(ctx, req.GetAgentId())
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to get transcript")
 	}
@@ -145,20 +137,10 @@ func transcriptWindow(content string, cursor *transcriptstore.ContentCursor, req
 	return window, next, nil
 }
 
-const assistantRole = "assistant"
-
 // GetLastTurns returns the newest turns an agent wrote and the prompts between them, oldest
 // first, each cut from the head to fit the window asked for.
 func (s *Handler) GetLastTurns(ctx context.Context, req *agentv1.GetLastTurnsRequest) (*agentv1.GetLastTurnsResponse, *fail.Error) {
 	logCrossAgentRead(ctx, req.GetAgentId(), "agent read another agent's transcript")
-
-	exists, err := s.agents.Exists(ctx, req.GetAgentId())
-	if err != nil {
-		return nil, rpcerr.From(err, "failed to look up agent")
-	}
-	if !exists {
-		return nil, agents.ErrAgentNotFound.Saying("no agent with id %q", req.GetAgentId())
-	}
 
 	turns, failure := s.listLastTurns(ctx, listLastTurnsParams{
 		AgentID:  req.GetAgentId(),
@@ -181,15 +163,9 @@ type listLastTurnsParams struct {
 // listLastTurns reads an agent's newest turns and the prompts between them, oldest first, each
 // cut from the head to fit the window.
 func (s *Handler) listLastTurns(ctx context.Context, params listLastTurnsParams) ([]*agentv1.Turn, *fail.Error) {
-	count := params.Turns
-	if count <= 0 {
-		count = 1
-	}
-
-	newest, err := s.transcripts.ListLastTurns(ctx, transcriptstore.ListLastTurnsParams{
+	newest, err := s.transcripts.ListLastTurns(ctx, transcripts.ListLastTurnsParams{
 		AgentID: params.AgentID,
-		Role:    assistantRole,
-		Limit:   count,
+		Turns:   params.Turns,
 	})
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to list the last turns")

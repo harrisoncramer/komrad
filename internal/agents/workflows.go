@@ -50,8 +50,13 @@ type workflowAgentDeleter interface {
 	DeleteAgents(ctx context.Context, ids []string) error
 }
 
+type workflowPageLister interface {
+	ListPage(ctx context.Context, limit int64, cursor *workflowstore.Cursor, archived bool) ([]workflowstore.Workflow, error)
+}
+
 type NewWorkflowServiceParams struct {
 	Workflows    workflowReader
+	Pages        workflowPageLister
 	Agents       workflowAgentLister
 	AgentDeleter workflowAgentDeleter
 	Emptied      *EmptyWorkflowDeleter
@@ -65,6 +70,7 @@ type NewWorkflowServiceParams struct {
 
 type WorkflowService struct {
 	store        workflowReader
+	pages        workflowPageLister
 	agents       workflowAgentLister
 	agentDeleter workflowAgentDeleter
 	emptied      *EmptyWorkflowDeleter
@@ -80,6 +86,7 @@ type WorkflowService struct {
 func NewWorkflowService(params NewWorkflowServiceParams) *WorkflowService {
 	return &WorkflowService{
 		store:        params.Workflows,
+		pages:        params.Pages,
 		agents:       params.Agents,
 		agentDeleter: params.AgentDeleter,
 		emptied:      params.Emptied,
@@ -100,6 +107,22 @@ func (w *WorkflowService) GetWorkflow(ctx context.Context, id string) (*workflow
 	}
 
 	return found, nil
+}
+
+type ListWorkflowsParams struct {
+	Limit    int64
+	Cursor   *workflowstore.Cursor
+	Archived bool
+}
+
+// ListWorkflows returns one page of the live or the archived workflows, by name.
+func (w *WorkflowService) ListWorkflows(ctx context.Context, params ListWorkflowsParams) ([]workflowstore.Workflow, error) {
+	listed, err := w.pages.ListPage(ctx, params.Limit, params.Cursor, params.Archived)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list workflows: %w", err)
+	}
+
+	return listed, nil
 }
 
 // NewWorkflow creates a workflow, defaulting a blank name so the list always has a label and a

@@ -299,8 +299,8 @@ func requireInstallationReach(ctx context.Context, f Forge) error {
 	return nil
 }
 
-// List is every connection, by host.
-func (s *Service) List(ctx context.Context) ([]forgestore.Connection, error) {
+// ListConnections is every connection, by host.
+func (s *Service) ListConnections(ctx context.Context) ([]forgestore.Connection, error) {
 	return s.connections.List(ctx)
 }
 

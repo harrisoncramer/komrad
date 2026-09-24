@@ -43,9 +43,10 @@ type agentLiveness interface {
 // rowReader is what an agent's row says, read for a page, for the agents a write moved, and
 // for one agent.
 type rowReader interface {
-	ListPage(ctx context.Context, page rowstore.Page) ([]rowstore.Row, error)
-	ListWatched(ctx context.Context, keys []string) ([]rowstore.Row, error)
-	Get(ctx context.Context, id string) (*rowstore.Row, error)
+	ListRows(ctx context.Context, page rowstore.Page) ([]rowstore.Row, error)
+	ListRowsByID(ctx context.Context, ids []string) ([]rowstore.Row, error)
+	GetRow(ctx context.Context, id string) (*rowstore.Row, error)
+	ListSurroundings(ctx context.Context, rows []rowstore.Row) (*agents.Surroundings, error)
 }
 
 type agentLifecycle interface {
@@ -64,8 +65,7 @@ type agentHolder interface {
 }
 
 type agentReader interface {
-	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
-	Exists(ctx context.Context, id string) (bool, error)
+	GetAgent(ctx context.Context, id string) (*agentstore.Agent, error)
 }
 
 // rowWriter changes what an agent's row says.
@@ -77,11 +77,11 @@ type rowWriter interface {
 	RecordReport(ctx context.Context, params agents.RecordReportParams) error
 }
 
-// markWriter owns the letters a person types to jump to a row, which span agents and
-// workflows and so are written through a transaction rather than through one store.
-type markWriter interface {
+// markReadWriter reads and writes the letters a person types to jump to a row.
+type markReadWriter interface {
 	SetMark(ctx context.Context, mark string, target markstore.Target) (bool, error)
 	ClearMark(ctx context.Context, target markstore.Target) (bool, error)
+	ListMarks(ctx context.Context) ([]markstore.Mark, error)
 }
 
 type archiveEmptier interface {
@@ -102,8 +102,7 @@ type NewHandlerParams struct {
 	Holder       agentHolder
 	Archive      archiveEmptier
 	Review       reviewConversation
-	Marks        markWriter
-	Watched      WatchedListers
+	Marks        markReadWriter
 	Rebaser      worktreeRebaser
 	Orchestrator orchestratorStarter
 	Clock        func() time.Time
@@ -123,8 +122,7 @@ type Handler struct {
 	holder       agentHolder
 	archive      archiveEmptier
 	review       reviewConversation
-	marks        markWriter
-	watched      WatchedListers
+	marks        markReadWriter
 	rebaser      worktreeRebaser
 	orchestrator orchestratorStarter
 	now          func() time.Time
@@ -153,7 +151,6 @@ func NewHandler(params NewHandlerParams) *Handler {
 		archive:      params.Archive,
 		review:       params.Review,
 		marks:        params.Marks,
-		watched:      params.Watched,
 		rebaser:      params.Rebaser,
 		orchestrator: params.Orchestrator,
 		now:          now,
@@ -257,7 +254,7 @@ func (s *Handler) ListAgents(ctx context.Context, req *agentv1.ListAgentsRequest
 		return nil, rpcerr.From(err, "failed to read the pagination")
 	}
 
-	rows, err := s.rows.ListPage(ctx, rowstore.Page{
+	rows, err := s.rows.ListRows(ctx, rowstore.Page{
 		Limit:    paginator.Limit(),
 		Cursor:   paginator.Cursor(),
 		Archived: req.GetArchived(),
@@ -284,7 +281,7 @@ func (s *Handler) ListAgents(ctx context.Context, req *agentv1.ListAgentsRequest
 
 // renderOneAgent reads one agent's row and renders it.
 func (s *Handler) renderOneAgent(ctx context.Context, id string) (*agentv1.Agent, *fail.Error) {
-	row, err := s.rows.Get(ctx, id)
+	row, err := s.rows.GetRow(ctx, id)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to get agent")
 	}
@@ -294,7 +291,7 @@ func (s *Handler) renderOneAgent(ctx context.Context, id string) (*agentv1.Agent
 
 // GetAgent returns one agent by id, archived or not, assembled with what is drawn beside it.
 func (s *Handler) GetAgent(ctx context.Context, req *agentv1.GetAgentRequest) (*agentv1.GetAgentResponse, *fail.Error) {
-	row, err := s.rows.Get(ctx, req.GetId())
+	row, err := s.rows.GetRow(ctx, req.GetId())
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to get agent")
 	}
@@ -309,7 +306,7 @@ func (s *Handler) GetAgent(ctx context.Context, req *agentv1.GetAgentRequest) (*
 
 // ListMarks is every mark, by letter.
 func (s *Handler) ListMarks(ctx context.Context, _ *emptypb.Empty) (*agentv1.ListMarksResponse, *fail.Error) {
-	marks, err := s.watched.Marks.ListWatched(ctx, nil)
+	marks, err := s.marks.ListMarks(ctx)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to list the marks")
 	}
@@ -388,7 +385,7 @@ func (s *Handler) Log(ctx context.Context, req *agentv1.LogRequest) (*emptypb.Em
 		return nil, failure
 	}
 
-	agent, err := s.agents.GetByID(ctx, id)
+	agent, err := s.agents.GetAgent(ctx, id)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to get agent")
 	}
@@ -483,7 +480,7 @@ func (s *Handler) refuseArchivingOthers(ctx context.Context, ids []string) error
 		return nil
 	}
 
-	me, err := s.agents.GetByID(ctx, from)
+	me, err := s.agents.GetAgent(ctx, from)
 	if err != nil {
 		return err
 	}
@@ -492,7 +489,7 @@ func (s *Handler) refuseArchivingOthers(ctx context.Context, ids []string) error
 	}
 
 	for _, id := range ids {
-		target, err := s.agents.GetByID(ctx, id)
+		target, err := s.agents.GetAgent(ctx, id)
 		if errors.Is(err, store.ErrNotFound) {
 			continue
 		}
@@ -514,7 +511,7 @@ func (s *Handler) RestoreAgents(ctx context.Context, req *agentv1.RestoreAgentsR
 		return nil, rpcerr.From(err, "failed to restore agents")
 	}
 
-	rows, err := s.rows.ListWatched(ctx, agentstore.IDs(restored))
+	rows, err := s.rows.ListRowsByID(ctx, agentstore.IDs(restored))
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to get the restored agents")
 	}

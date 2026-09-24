@@ -349,22 +349,15 @@ linters:
             types:
               - weave/internal/ui.model
             # Unanchored regexps over the path lint was run from. The one file that exports the
-            # model to the harness, then the tests not yet moved onto it.
+            # model to the harness.
             exclude:
               - ^internal/ui/export_test\.go$
           fake_store:
             skip: false
             # Unanchored regexps over the path lint was run from. A store's own tests, which have
-            # no real store to test against but themselves, then the fakes not yet deleted.
+            # no real store to test against but themselves.
             exclude:
               - ^internal/store/
-              - ^internal/rpc/agent/handler_test\.go$
-              - ^internal/rpc/agent/transcript_test\.go$
-              - ^internal/rpc/forge/handler_test\.go$
-              - ^internal/rpc/pullrequest/handler_test\.go$
-              - ^internal/rpc/schedule/handler_test\.go$
-              - ^internal/rpc/watch/handler_test\.go$
-              - ^internal/rpc/workflow/handler_test\.go$
           shared_fake:
             skip: false
             fakes:
@@ -418,17 +411,12 @@ linters:
           test_beside:
             skip: false
             # Unanchored regexps over the path lint was run from. Scenarios are named for the
-            # feature they describe, and the panel's harness and export file for what they hold,
-            # then the files not yet renamed or folded into their source file's test.
+            # feature they describe, the panel's harness and export file for what they hold, and
+            # the panel's scenario against a real service for the whole panel it drives.
             exclude:
               - ^internal/e2e/
               - ^internal/ui/harness_test\.go$
               - ^internal/ui/export_test\.go$
-              - ^internal/mcp/roles_test\.go$
-              - ^internal/rpc/agent/marker_test\.go$
-              - ^internal/rpc/agent/pullrequest_test\.go$
-              - ^internal/rpc/agent/validate_test\.go$
-              - ^internal/rpcerr/rpcerr_test\.go$
               - ^internal/ui/panel_integration_test\.go$
       fussy:
         type: module
@@ -587,11 +575,6 @@ linters:
       - path: (_test\.go|internal/(pgtest|tmuxtest|storetest|harnesstest|logtest|weavetest)/)
         linters:
           - errcheck
-      # The handler tests that still run against a real store, until they hand in a fake service.
-      - path: ^internal/rpc/agent/(forward|handler|pullrequest)_test\.go$
-        linters:
-          - depguard
-        text: handler-tests
       # A test helper takes t and the fixture before its own arguments, so the limit that
       # holds a function to four does not fit one.
       - path: _test\.go$

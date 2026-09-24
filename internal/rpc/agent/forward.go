@@ -28,7 +28,7 @@ var errForwardTooLong = fail.InvalidArgument("the forward would run past what on
 func (s *Handler) ForwardLastTurns(ctx context.Context, req *agentv1.ForwardLastTurnsRequest) (*agentv1.ForwardLastTurnsResponse, *fail.Error) {
 	logCrossAgentRead(ctx, req.GetFromAgentId(), "agent read another agent's transcript")
 
-	source, err := s.agents.GetByID(ctx, req.GetFromAgentId())
+	source, err := s.agents.GetAgent(ctx, req.GetFromAgentId())
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, agents.ErrAgentNotFound.Saying("no agent with id %q", req.GetFromAgentId())
 	}
@@ -60,7 +60,7 @@ func (s *Handler) ForwardLastTurns(ctx context.Context, req *agentv1.ForwardLast
 		return nil, errForwardTooLong.Saying("the forward would run to %d characters and mail holds at most %d; pass a smaller maxBytes or fewer turns", length, mail.MaxMailBody)
 	}
 
-	recipient, err := s.agents.GetByID(ctx, req.GetToAgentId())
+	recipient, err := s.agents.GetAgent(ctx, req.GetToAgentId())
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, mail.ErrRecipientNotFound.Saying("no agent with id %q", req.GetToAgentId())
 	}
