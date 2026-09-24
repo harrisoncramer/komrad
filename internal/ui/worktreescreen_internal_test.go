@@ -92,3 +92,19 @@ func TestWorktreeReadAsksOnce(t *testing.T) {
 	assert.Nil(t, m.inspectHoveredWorktreeCmd())
 	assert.Nil(t, m.inspectWorktreeCmd())
 }
+
+// TestWorktreeRereadKeepsTheLastAnswer covers a row read again showing its last answer until the new one lands.
+func TestWorktreeRereadKeepsTheLastAnswer(t *testing.T) {
+	m := worktreesModel()
+	m.worktrees.cursor = 3
+	m.applyWorktreeInspection(worktreeInspectedMsg{dir: "/trees/archived", inspection: worktreeInspection{
+		answered: true,
+		baseRef:  "origin/main",
+		ahead:    2,
+	}})
+
+	require.NotNil(t, m.inspectWorktreeCmd())
+
+	assert.Contains(t, m.worktrees.doc(m.shared()), "Commits since origin/main")
+	assert.NotContains(t, m.worktrees.doc(m.shared()), "reading the directory")
+}

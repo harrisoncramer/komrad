@@ -99,9 +99,10 @@ func TestWorktreesJump(t *testing.T) {
 		wantHovered string
 	}{
 		{
-			name:      "a directory nothing answers for stays put",
-			row:       "agent/orphan",
-			wantTitle: worktreesTitle,
+			name:        "a directory nothing answers for stays put",
+			row:         "agent/orphan",
+			wantTitle:   worktreesTitle,
+			wantHovered: "agent/orphan",
 		},
 		{
 			name:        "a live agent's directory lands on the agents list",

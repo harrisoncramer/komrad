@@ -328,3 +328,20 @@ func TestSearchDropsAnswersForAQueryMovedPast(t *testing.T) {
 	assert.Empty(t, m.search.turns)
 	assert.Empty(t, m.search.preview.conversation)
 }
+
+// TestSearchForgetsAPageInFlight covers a fresh search dropping the page the old one was waiting on.
+func TestSearchForgetsAPageInFlight(t *testing.T) {
+	m := filterModel()
+	m.screen = screenSearch
+	m.search = searchScreen{
+		query:  "reconciler",
+		paging: true,
+	}
+
+	m.search.apply(&m, m.shared(), searchResult{
+		query: "reconciler",
+		hits:  hits("b"),
+	})
+
+	assert.False(t, m.search.paging)
+}

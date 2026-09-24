@@ -160,10 +160,9 @@ func TestSchedulesList(t *testing.T) {
 		assert.Equal(t, "bravo", readHoveredSchedule(harness.readFrame()))
 	})
 
-	t.Run("the document beside the list follows the cursor once it rests", func(t *testing.T) {
+	t.Run("the document beside the list follows the cursor", func(t *testing.T) {
 		harness := openSchedules(t, newSchedule("a", "alpha"), newSchedule("b", "bravo"))
 		harness.press("j")
-		harness.fireTimers()
 
 		assert.Contains(t, readStageText(harness.readFrame()), "alpha")
 	})
