@@ -464,3 +464,22 @@ func (p *Panel) NewFieldEdited(key, text string) tea.Msg {
 		text: text,
 	}
 }
+
+// SetPaneDead makes tmux report a pane as gone.
+func (p *Panel) SetPaneDead(pane string) {
+	if p.tmux.deadPanes == nil {
+		p.tmux.deadPanes = map[string]bool{}
+	}
+
+	p.tmux.deadPanes[pane] = true
+}
+
+// ReadRespawnDirs is the directory the panel respawned each pane in.
+func (p *Panel) ReadRespawnDirs() []string {
+	return p.tmux.respawnDirs
+}
+
+// ReadRespawnedPanes is every pane the panel has respawned.
+func (p *Panel) ReadRespawnedPanes() []string {
+	return p.tmux.respawnPanes
+}

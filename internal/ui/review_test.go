@@ -3,12 +3,17 @@ package ui_test
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
 	"weave/config"
+	"weave/internal/errui"
 	"weave/internal/git"
 	"weave/internal/gittest"
+	"weave/internal/ui"
+	"weave/internal/ui/paint"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	watchv1 "weave/proto/gen/watch/v1"
@@ -103,6 +108,24 @@ func TestReviewOpen(t *testing.T) {
 		assert.Contains(t, readStage(frame), "Review · auth")
 		assert.Contains(t, readStage(frame), "1 file, +1 -1")
 		assert.Len(t, splitLines(frame), reviewHeight)
+	})
+
+	t.Run("the frame draws while the diff loads", func(t *testing.T) {
+		server := newReviewServer(t)
+		harness := newPanelHarness(t, panelHarnessParams{
+			width:  reviewWidth,
+			height: 40,
+			git:    server.repo,
+		})
+		server.serve(harness)
+		harness.watch(server.buildSnapshot())
+		harness.hold("git.Diff")
+
+		harness.press("d", "?")
+
+		frame := harness.readFrame()
+		assert.Contains(t, readStageText(frame), "loading the diff")
+		assert.Contains(t, frame, "start a review here")
 	})
 
 	t.Run("a worktree holding only an untracked file opens", func(t *testing.T) {
@@ -1741,6 +1764,24 @@ func TestReviewRounds(t *testing.T) {
 		assert.Contains(t, readStageText(harness.readFrame()), "greet.go  ✓ viewed")
 	})
 
+	t.Run("a comment being written goes with the round a landing load takes away", func(t *testing.T) {
+		server := newEarlierReviewServer(t)
+		harness := openReview(t, server)
+		harness.press("<")
+		harness.hold(agentv1connect.AgentServiceListReviewRoundsProcedure)
+		harness.press("R")
+		server.roundsErr = errors.New("the server went away")
+
+		harness.press("c")
+		typeText(harness, "hello")
+		require.Contains(t, harness.readFrame(), "┃ Comment")
+		harness.release(agentv1connect.AgentServiceListReviewRoundsProcedure)
+
+		assert.NotContains(t, harness.readFrame(), "┃ Comment")
+		harness.press("ctrl+s")
+		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceCreateReviewThreadProcedure))
+	})
+
 	t.Run("a round listing that fails takes the reader back to the whole change", func(t *testing.T) {
 		server := newEarlierReviewServer(t)
 		harness := openReview(t, server)
@@ -2073,6 +2114,105 @@ func TestReviewPass(t *testing.T) {
 		harness.assertSentTo(agentv1connect.AgentServiceHoldAgentProcedure, &agentv1.HoldAgentRequest{Id: "a1"})
 	})
 
+	t.Run("a second edit press waits for the agent the first is stopping", func(t *testing.T) {
+		server := newReviewServer(t)
+		server.agent.State = agentv1.AgentState_AGENT_STATE_THINKING
+		harness := openReview(t, server)
+		harness.hold(agentv1connect.AgentServiceHoldAgentProcedure)
+
+		harness.press("e")
+		require.Contains(t, harness.readFrame(), "reviewing · stopping the age")
+
+		harness.press("e")
+		frame := harness.readFrame()
+		assert.Contains(t, readSidebarProse(frame), "still stopping")
+		assert.NotContains(t, frame, "editing ·")
+
+		harness.release(agentv1connect.AgentServiceHoldAgentProcedure)
+		assert.Contains(t, harness.readFrame(), "editing · greet.go")
+	})
+
+	t.Run("a pass given up before the agent stops lets it go", func(t *testing.T) {
+		tests := []struct {
+			name  string
+			key   string
+			leave []string
+		}{
+			{
+				name:  "the edit key backed out of",
+				key:   "e",
+				leave: []string{"esc"},
+			},
+			{
+				name:  "the edit key and the whole review left",
+				key:   "e",
+				leave: []string{"esc", "esc"},
+			},
+			{
+				name:  "the compose key and the whole review left",
+				key:   "c",
+				leave: []string{"esc", "esc"},
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				server := newReviewServer(t)
+				server.agent.State = agentv1.AgentState_AGENT_STATE_THINKING
+				harness := openReview(t, server)
+				harness.hold(agentv1connect.AgentServiceHoldAgentProcedure)
+				harness.press(tt.key)
+
+				harness.press(tt.leave...)
+				harness.release(agentv1connect.AgentServiceHoldAgentProcedure)
+
+				assert.NotContains(t, harness.readFrame(), "editing ·")
+				assert.Contains(t, readReleaseSaid(t, harness), "let you go")
+			})
+		}
+	})
+
+	t.Run("a comment written in a pass keeps the agent stopped", func(t *testing.T) {
+		harness := openReview(t, newReviewServer(t))
+		harness.press("e", "e")
+
+		harness.press("c")
+		typeText(harness, "hello")
+		harness.press("ctrl+s")
+
+		require.Len(t, harness.readSent(agentv1connect.AgentServiceCreateReviewThreadProcedure), 1)
+		assert.Contains(t, harness.readFrame(), "reviewing · agent paused")
+		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceReleaseAgentProcedure))
+	})
+
+	t.Run("the editor quitting gives the stage back and reads the diff again", func(t *testing.T) {
+		harness := openReview(t, newReviewServer(t))
+		harness.press("e")
+		require.Contains(t, harness.readFrame(), "editing · greet.go")
+		loads := len(harness.readSent(agentv1connect.AgentServiceOpenReviewRoundProcedure))
+
+		editor := harness.panel.ReadRespawnedPanes()
+		harness.panel.SetPaneDead(editor[len(editor)-1])
+		harness.fireTimers()
+
+		frame := harness.readFrame()
+		assert.NotContains(t, frame, "editing ·")
+		assert.Contains(t, frame, "reviewing · agent paused")
+		assert.Len(t, harness.readSent(agentv1connect.AgentServiceOpenReviewRoundProcedure), loads+1)
+	})
+
+	t.Run("the editor opens at the repository root the paths are named from", func(t *testing.T) {
+		server := newReviewServer(t)
+		server.agent.Cwd = filepath.Join(server.repo.Root, "cmd", "greet")
+		harness := openReviewAt(t, server, panelHarnessParams{settings: ui.PanelSettings{Editor: "vi"}})
+
+		harness.press("e")
+
+		require.NotEmpty(t, harness.panel.ReadRespawnDirs())
+		assert.Equal(t, server.repo.Root, harness.panel.ReadRespawnDirs()[0])
+		assert.Contains(t, harness.panel.ReadRespawns()[0], "'greet.go'")
+	})
+
 	t.Run("the back key closes the editor before it leaves the screen", func(t *testing.T) {
 		harness := openReview(t, newReviewServer(t))
 
@@ -2315,6 +2455,62 @@ func TestReviewPass(t *testing.T) {
 		harness.press("e")
 		harness.assertSentTo(agentv1connect.AgentServiceHoldAgentProcedure, &agentv1.HoldAgentRequest{Id: "a1"})
 	})
+}
+
+// TestReviewEmphasis covers what the review says in colour and weight rather than in text.
+func TestReviewEmphasis(t *testing.T) {
+	t.Run("the owed list brightens a comment only while its line is on screen", func(t *testing.T) {
+		server := newReviewServerOver(gittest.NewTallRepo(t.TempDir()))
+		thread := newOwedThread(gittest.TallFile, 5)
+		thread.QuotedLines = []string{" func One() {}"}
+		server.threads = []*agentv1.ReviewThread{thread}
+		server.reviews = []*agentv1.Review{{
+			Id:          "r1",
+			AuthorKind:  agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
+			ReleasedAt:  "2026-09-13T10:00:00Z",
+			OpenThreads: 1,
+		}}
+		harness := openReviewAt(t, server, panelHarnessParams{
+			height:        12,
+			detailsHeight: 0.01,
+		})
+		pin := gittest.TallFile + ":5"
+		require.Contains(t, harness.readRawFrame(), paint.Panel.Style(paint.ToneAccent).Bold(true).Render(pin))
+
+		harness.press("G")
+
+		frame := harness.readRawFrame()
+		assert.NotContains(t, frame, paint.Panel.Style(paint.ToneAccent).Bold(true).Render(pin))
+		assert.Contains(t, frame, errui.Dim.Render(pin))
+	})
+
+	t.Run("the chosen verdict wears its own tone rather than the muted one", func(t *testing.T) {
+		harness := openReview(t, newReviewServer(t))
+
+		harness.press("ctrl+s")
+
+		frame := harness.readRawFrame()
+		chosen := "  ▸ request changes"
+		assert.Contains(t, frame, paint.Panel.Style(paint.ToneWarning).Render(chosen))
+		assert.NotContains(t, frame, paint.Panel.Style(paint.ToneMuted).Render(chosen))
+	})
+
+	t.Run("the cursor row dims while the record has the keys", func(t *testing.T) {
+		harness := openReview(t, newReviewServer(t))
+		live := readRawCursorRow(harness)
+
+		harness.press("ctrl+t")
+		assert.NotEqual(t, live, readRawCursorRow(harness))
+
+		harness.press("ctrl+t")
+		assert.Equal(t, live, readRawCursorRow(harness))
+	})
+}
+
+func readRawCursorRow(harness *panelHarness) string {
+	line := findRawLine(harness.readRawFrame(), regexp.MustCompile(`package greet`))
+
+	return ansi.Cut(line, config.DefaultSidebarWidth, reviewWidth)
 }
 
 func newReviewServer(t *testing.T) *reviewServer {

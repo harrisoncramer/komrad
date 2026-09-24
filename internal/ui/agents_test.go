@@ -651,12 +651,14 @@ func TestAgentsRecordCopy(t *testing.T) {
 		harness.watch(buildSnapshot(buildRecorded()...))
 
 		harness.press("ctrl+t", "y")
+		harness.fireTimers()
 		refused := harness.readFrame()
 		require.Contains(t, refused, "✗ Could not copy")
 		require.Contains(t, refused, "no clipboard utility found")
 
 		clip.err = nil
 		harness.press("y")
+		harness.fireTimers()
 
 		assert.Equal(t, refused, harness.readFrame(), "a copy that worked reports nothing of its own")
 	})
