@@ -231,10 +231,10 @@ func TestWorkflowRefusalsMapToCodes(t *testing.T) {
 			wantCode: connect.CodeFailedPrecondition,
 		},
 		{
-			name: "listing with a page token that does not decode",
+			name: "listing with a page token that holds no id",
 			call: func(ctx context.Context, svc workflowv1weave.WorkflowServiceAdapter) error {
 				_, err := svc.ListWorkflows(ctx, connect.NewRequest(&workflowv1.ListWorkflowsRequest{
-					Pagination: &paginationv1.Pagination{Cursor: proto.String("not a token")},
+					Pagination: &paginationv1.Pagination{Cursor: proto.String("eyJuIjoiYWxwaGEiLCJpIjoibm90LWFuLWlkIn0=")},
 				}))
 
 				return err

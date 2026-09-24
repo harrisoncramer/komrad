@@ -4,9 +4,11 @@ import (
 	"testing"
 	"time"
 
+	"weave/internal/store"
 	schedulestore "weave/internal/store/schedule"
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/storetest"
+	"weave/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -149,9 +151,20 @@ func TestNewSchedule(t *testing.T) {
 	tests := []struct {
 		name     string
 		cfg      schedulestore.Config
+		taken    bool
 		wantErr  error
 		wantName string
 	}{
+		{
+			name: "a name a live schedule holds",
+			cfg: schedulestore.Config{
+				Name:   "morning-ci",
+				Cron:   "0 9 * * 1-5",
+				Prompt: "check CI",
+			},
+			taken:   true,
+			wantErr: store.ErrNameTaken,
+		},
 		{
 			name: "a schedule is stored as written",
 			cfg: schedulestore.Config{
@@ -209,13 +222,20 @@ func TestNewSchedule(t *testing.T) {
 			cfg := tt.cfg
 			cfg.WorkflowID = workflowID
 
+			var held []string
+			if tt.taken {
+				held = append(held, st.SeedSchedule(t, cfg).ID)
+			}
+
 			created, err := svc.NewSchedule(t.Context(), cfg)
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
 
 				listed, listErr := st.Schedules.ListWatched(t.Context(), nil)
 				require.NoError(t, listErr)
-				assert.Empty(t, listed, "a refused schedule is not written")
+				assert.ElementsMatch(t, held, xslice.Map(listed, func(schedule schedulestore.Schedule) string {
+					return schedule.ID
+				}), "a refused schedule is not written")
 
 				return
 			}
@@ -297,6 +317,63 @@ func TestUpdateSchedule(t *testing.T) {
 			assert.Equal(t, tt.wantCron, got.Cron)
 		})
 	}
+}
+
+// TestSetScheduleEnabled pins that pausing and resuming change only whether a schedule fires.
+func TestSetScheduleEnabled(t *testing.T) {
+	tests := []struct {
+		name    string
+		enabled bool
+	}{
+		{
+			name: "pausing",
+		},
+		{
+			name:    "resuming",
+			enabled: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := storetest.Open(t)
+			ctx := t.Context()
+			svc := NewScheduleService(NewScheduleServiceParams{Schedules: st.Schedules, Workflows: st.Workflows})
+
+			existing := st.SeedSchedule(t, schedulestore.Config{
+				Name:    "nightly",
+				Cron:    "0 9 * * *",
+				Prompt:  "go",
+				Enabled: !tt.enabled,
+			})
+
+			require.NoError(t, svc.SetScheduleEnabled(ctx, existing.ID, tt.enabled))
+
+			got, err := svc.GetSchedule(ctx, existing.ID)
+			require.NoError(t, err)
+			assert.Equal(t, tt.enabled, got.Enabled)
+			assert.Equal(t, "nightly", got.Name, "the rest of the schedule is left alone")
+		})
+	}
+}
+
+// TestArchiveSchedule pins that an archived schedule can no longer be read.
+func TestArchiveSchedule(t *testing.T) {
+	st := storetest.Open(t)
+	ctx := t.Context()
+	svc := NewScheduleService(NewScheduleServiceParams{Schedules: st.Schedules, Workflows: st.Workflows})
+
+	existing := st.SeedSchedule(t, schedulestore.Config{
+		Name:    "nightly",
+		Cron:    "0 9 * * *",
+		Prompt:  "go",
+		Enabled: true,
+	})
+
+	require.NoError(t, svc.ArchiveSchedule(ctx, existing.ID))
+
+	_, err := svc.GetSchedule(ctx, existing.ID)
+	require.ErrorIs(t, err, store.ErrNotFound)
 }
 
 // TestScheduleWorkflowMustExist pins that a schedule pointing at a missing workflow is
