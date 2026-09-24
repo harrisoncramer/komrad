@@ -2,6 +2,7 @@ package ui_test
 
 import (
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 
@@ -27,6 +28,8 @@ const (
 	deletePrompt  = "Permanently delete"
 	emptyingQueue = "Emptying the archive"
 )
+
+var widenList = slices.Repeat([]string{"}"}, 10)
 
 func TestArchiveKeys(t *testing.T) {
 	neverStarted := archivedAgent("a1", "api-refactor", "w1")
@@ -292,7 +295,7 @@ func TestArchiveReportsRefusedWrites(t *testing.T) {
 			h := openArchive(t, tt.rows...)
 			h.refuse(tt.refused, connect.NewError(connect.CodeNotFound, errors.New("no such agent")))
 
-			h.press(tt.press...)
+			h.press(append(tt.press, widenList...)...)
 
 			frame := h.frame()
 			assert.Contains(t, frame, tt.wantSummary)
@@ -432,6 +435,7 @@ func TestArchiveDocument(t *testing.T) {
 
 	t.Run("the record says what the agents list would say of it", func(t *testing.T) {
 		agent := archivedAgent("a1", "api-refactor", "w1")
+		agent.CreatedAt = "2026-07-29T09:00:00Z"
 		agent.Branch = proto.String("agent/a1")
 		agent.RepositoryUrl = proto.String("https://github.com/harrisoncramer/weave")
 		h := openArchive(t,
@@ -458,14 +462,14 @@ func TestArchiveDocument(t *testing.T) {
 			},
 		)
 
-		h.press("j")
+		h.press(append([]string{"j", "ctrl+t"}, widenList...)...)
 
 		frame := h.frame()
 		assert.Contains(t, frame, "agent/a1")
 		assert.Contains(t, frame, "#42 merged")
 		assert.Contains(t, frame, "approved while archived")
-		created, archived := strings.Index(frame, "created"), strings.Index(frame, "archived  ")
-		assert.Positive(t, created)
+		created, archived := recordLine(frame, "created"), recordLine(frame, "archived")
+		require.Positive(t, created)
 		assert.Less(t, created, archived, "when it was put away comes after when it was made")
 	})
 
@@ -539,11 +543,11 @@ func TestArchiveSort(t *testing.T) {
 		h.press("j", "j", "j")
 		require.Equal(t, "  alpha", hoveredRow(h.frame()))
 
-		for _, key := range []string{"f", "tab", "k", "j", "esc"} {
-			h.press(key)
+		h.press("f", "tab", "k", "esc")
+		assert.Equal(t, "  alpha", hoveredRow(h.frame()), "name up")
 
-			assert.Equal(t, "  alpha", hoveredRow(h.frame()), "after %s", key)
-		}
+		h.press("f", "j", "esc")
+		assert.Equal(t, "  alpha", hoveredRow(h.frame()), "name down")
 	})
 }
 
@@ -696,6 +700,16 @@ func hoveredRow(frame string) string {
 	}
 
 	return ""
+}
+
+func recordLine(frame, label string) int {
+	for i, line := range lines(frame) {
+		if strings.HasPrefix(strings.TrimLeft(line, "› "), label+" ") {
+			return i
+		}
+	}
+
+	return -1
 }
 
 func legend(frame string) string {
