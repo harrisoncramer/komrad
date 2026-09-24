@@ -16,7 +16,7 @@ type Snapshots struct {
 }
 
 // TakeSnapshot answers SHA and BaseSHA.
-func (s Snapshots) TakeSnapshot(context.Context, git.TakeSnapshotParams) (*git.Snapshot, error) {
+func (s *Snapshots) TakeSnapshot(context.Context, git.TakeSnapshotParams) (*git.Snapshot, error) {
 	return &git.Snapshot{
 		SHA:     s.SHA,
 		BaseSHA: s.BaseSHA,
@@ -24,17 +24,17 @@ func (s Snapshots) TakeSnapshot(context.Context, git.TakeSnapshotParams) (*git.S
 }
 
 // HoldRef does nothing.
-func (Snapshots) HoldRef(context.Context, string, string, string) error {
+func (*Snapshots) HoldRef(context.Context, string, string, string) error {
 	return nil
 }
 
 // ReleaseRef does nothing.
-func (Snapshots) ReleaseRef(context.Context, string, string) error {
+func (*Snapshots) ReleaseRef(context.Context, string, string) error {
 	return nil
 }
 
 // ReadFileLines answers what Files holds for the path, refusing one it does not name.
-func (s Snapshots) ReadFileLines(_ context.Context, _, _, path string) ([]string, error) {
+func (s *Snapshots) ReadFileLines(_ context.Context, _, _, path string) ([]string, error) {
 	lines, ok := s.Files[path]
 	if !ok {
 		return nil, fmt.Errorf("%w: no path %q", ErrNoGit, path)

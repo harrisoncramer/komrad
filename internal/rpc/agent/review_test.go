@@ -7,7 +7,6 @@ import (
 
 	"weave/internal/agents"
 	"weave/internal/caller"
-	"weave/internal/gittest"
 	"weave/internal/mail"
 	"weave/internal/reviews"
 	"weave/lib/xptr"
@@ -22,9 +21,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 )
-
-// fakeSnapshotter is the git a handler built over the real review service is given.
-type fakeSnapshotter = gittest.Snapshots
 
 var reviewedAt = time.Date(2026, time.September, 24, 9, 0, 0, 0, time.UTC)
 

@@ -16,6 +16,7 @@ import (
 	"weave/internal/agents"
 	"weave/internal/caller"
 	"weave/internal/checkouts"
+	"weave/internal/gittest"
 	"weave/internal/logging"
 	"weave/internal/logtest"
 	"weave/internal/mail"
@@ -1732,7 +1733,7 @@ func newRecordedService(t *testing.T) (agentv1weave.AgentServiceAdapter, *storet
 		Viewed:    rounds,
 		Rounds:    rounds,
 		Reviews:   rounds,
-		Snapshots: fakeSnapshotter{},
+		Snapshots: &gittest.Snapshots{},
 		Workflows: st.Workflows,
 		StateDir:  t.TempDir(),
 		Agents:    st.Agents,
