@@ -137,3 +137,11 @@ func MergeabilityOf(mergeability *forge.Mergeability) pullrequestv1.Mergeability
 
 	return pullrequestv1.Mergeability_MERGEABILITY_UNKNOWN
 }
+
+// Repository draws where the sync is for one repository as the wire carries it.
+func Repository(sync pullrequeststore.Sync) *pullrequestv1.Repository {
+	return &pullrequestv1.Repository{
+		Url:  sync.RepositoryURL,
+		Read: sync.IsSwept(),
+	}
+}

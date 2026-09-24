@@ -26,6 +26,7 @@ type World struct {
 	Marks        map[string]*agentv1.Mark
 	Mail         map[string]*agentv1.Mail
 	PullRequests map[string]*pullrequestv1.PullRequest
+	Repositories map[string]*pullrequestv1.Repository
 }
 
 // Changed is the keys a message put or dropped, by resource.
@@ -114,6 +115,10 @@ func (w *World) put(row *watchv1.Row) (watchv1.Resource, string) {
 		w.PullRequests[row.PullRequest.GetId()] = row.PullRequest
 
 		return watchv1.Resource_RESOURCE_PULL_REQUEST, row.PullRequest.GetId()
+	case *watchv1.Row_Repository:
+		w.Repositories[row.Repository.GetUrl()] = row.Repository
+
+		return watchv1.Resource_RESOURCE_REPOSITORY, row.Repository.GetUrl()
 	case nil:
 	}
 
@@ -139,6 +144,9 @@ func (w *World) ensureMaps() {
 	if w.PullRequests == nil {
 		w.PullRequests = map[string]*pullrequestv1.PullRequest{}
 	}
+	if w.Repositories == nil {
+		w.Repositories = map[string]*pullrequestv1.Repository{}
+	}
 }
 
 func (w *World) drop(deleted *watchv1.Deleted) {
@@ -156,8 +164,9 @@ func (w *World) drop(deleted *watchv1.Deleted) {
 		delete(w.Mail, key)
 	case watchv1.Resource_RESOURCE_PULL_REQUEST:
 		delete(w.PullRequests, key)
+	case watchv1.Resource_RESOURCE_REPOSITORY:
+		delete(w.Repositories, key)
 	case watchv1.Resource_RESOURCE_UNSPECIFIED,
-		watchv1.Resource_RESOURCE_REPOSITORY,
 		watchv1.Resource_RESOURCE_REVIEW,
 		watchv1.Resource_RESOURCE_REVIEW_THREAD,
 		watchv1.Resource_RESOURCE_WORKTREE:
@@ -178,7 +187,7 @@ func AgentRows(w World, now time.Time) []*agentv1.AgentRow {
 		row := &agentv1.AgentRow{
 			Agent:        agent,
 			UnreadMail:   unread[agent.GetId()],
-			PullRequest:  calculatePullRequestStanding(agent, pullRequests),
+			PullRequest:  calculatePullRequestStanding(agent, w.Repositories[agent.GetRepositoryUrl()], pullRequests),
 			PullRequests: pullRequests,
 		}
 		if mark, ok := marks[agent.GetId()]; ok {
@@ -270,10 +279,10 @@ func finishedRank(pullRequest *pullrequestv1.PullRequest) int {
 // calculatePullRequestStanding is where an agent's pull request stands: unread until the sync
 // has looked at the repository, none when it has and found nothing on the branch or the agent
 // has moved past a finished one, else the current one.
-func calculatePullRequestStanding(agent *agentv1.Agent, pullRequests []*pullrequestv1.PullRequest) *agentv1.PullRequestStanding {
+func calculatePullRequestStanding(agent *agentv1.Agent, repository *pullrequestv1.Repository, pullRequests []*pullrequestv1.PullRequest) *agentv1.PullRequestStanding {
 	if len(pullRequests) == 0 {
 		state := pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNREAD
-		if agent.GetRepositoryRead() {
+		if repository.GetRead() {
 			state = pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE
 		}
 

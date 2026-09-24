@@ -29,8 +29,6 @@ type Row struct {
 	LocalVerdict *reviewstore.Verdict
 	// LocalReviewSHA is the round that verdict was given on, empty when there is none.
 	LocalReviewSHA string
-	// RepositoryRead says the sync has read the agent's repository at least once.
-	RepositoryRead bool
 	// ReviewVersion changes whenever a thread or review on the agent's work moves.
 	ReviewVersion string
 }
@@ -139,7 +137,6 @@ func (s *RowStore) hydrate(ctx context.Context, agents []*models.Agent) ([]Row, 
 			row.FailedRun = facts.FailedRun
 			row.FailedRunLog = facts.FailedRunLog
 			row.LocalRounds = facts.LocalRounds
-			row.RepositoryRead = facts.RepositoryRead
 			row.ReviewVersion = facts.ReviewVersion
 			if facts.LocalVerdict.Valid {
 				row.LocalVerdict = xptr.Ptr(reviewstore.Verdict(facts.LocalVerdict.ReviewVerdict))

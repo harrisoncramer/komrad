@@ -122,8 +122,6 @@ message Agent {
   ReviewTreeStanding local_review_tree = 34;
   // When a person stopped this agent and took its worktree, empty while nobody is holding it.
   string held_at = 35;
-  // Whether the pull request sync has swept its repository.
-  bool repository_read = 39;
   // Changes whenever anything in the review of the agent's own work moves.
   string review_version = 40;
 }

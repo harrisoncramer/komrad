@@ -275,12 +275,12 @@ func TestPullRequestOnNobodysBranchIsHeldAndNotDrawn(t *testing.T) {
 	m, _ = update(t, m, client.WatchBatch{snapshotEvent(
 		workflowRowOf(&workflowv1.Workflow{Id: "w1", Name: "api"}),
 		agentRowOf(&agentv1.Agent{
-			Id:             "a1",
-			WorkflowId:     "w1",
-			RepositoryUrl:  xptr.Ptr(repository),
-			Branch:         xptr.Ptr("agent/x"),
-			RepositoryRead: true,
+			Id:            "a1",
+			WorkflowId:    "w1",
+			RepositoryUrl: xptr.Ptr(repository),
+			Branch:        xptr.Ptr("agent/x"),
 		}),
+		&watchv1.Row{Row: &watchv1.Row_Repository{Repository: &pullrequestv1.Repository{Url: repository, Read: true}}},
 	)})
 
 	m, _ = update(t, m, client.WatchBatch{putEvent(pullRequestRowOf("pr-1", "agent/other", 7))})

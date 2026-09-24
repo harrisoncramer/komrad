@@ -218,39 +218,62 @@ func TestALookupFeederReachesItsResources(t *testing.T) {
 	change := waitForPassOfOneChange(t, subscription)
 	assert.Equal(t, watchv1.Resource_RESOURCE_WORKFLOW, change.Resource)
 	assert.Equal(t, rows.workflow, change.Key, "a workflow config reaches its workflow")
-
-	// pull_request_syncs holds no agent id: its resources are the live agents on its repository.
-	l.exec(t, `INSERT INTO pull_request_syncs (repository_url, updated_through) VALUES ($1, now())`, rows.repository)
-
-	change = waitForPassOfOneChange(t, subscription)
-	assert.Equal(t, watchv1.Resource_RESOURCE_AGENT, change.Resource)
-	assert.Equal(t, rows.agent, change.Key, "a repository sync reaches the live agents on that repository")
 }
 
-// TestALookupFeederSkipsAnArchivedResource pins the narrowing: an archived agent is not
-// reached, so a sync on its repository reaches nobody.
+// TestALookupFeederSkipsAnArchivedResource pins that a lookup feeder with SkipParentsWith
+// reaches the agent on a repository only while that agent is not archived.
 func TestALookupFeederSkipsAnArchivedResource(t *testing.T) {
-	stores := newStores()
 	l := newPooled(t)
-
 	rows := l.seed(t)
+	onRepository := Resource{
+		Enum:      watchv1.Resource_RESOURCE_AGENT,
+		Table:     "agents",
+		KeyColumn: "id",
+		Feeders: []Feeder{
+			{
+				Table: "pull_request_syncs",
+				Lookup: &Lookup{
+					ParentColumn:    "repository_url",
+					ChildColumn:     "repository_url",
+					SkipParentsWith: "archived_at",
+				},
+			},
+		},
+	}
+	for _, trigger := range BuildTriggers([]Resource{onRepository}) {
+		if trigger.Table == "pull_request_syncs" {
+			l.execAsOwner(t, trigger.BuildSQL())
+		}
+	}
 	l.exec(t, `UPDATE agents SET archived_at = now() WHERE id = $1`, rows.agent)
-	l.listen(t, stores)
+	conn := l.listenRaw(t)
 
-	subscription, err := l.broker.Subscribe(t.Context())
-	require.NoError(t, err)
+	l.exec(t, `INSERT INTO pull_request_syncs (repository_url) VALUES ($1)`, rows.repository)
+	l.exec(t, `UPDATE agents SET archived_at = NULL WHERE id = $1`, rows.agent)
+	l.exec(t, `UPDATE pull_request_syncs SET updated_through = now() WHERE repository_url = $1`, rows.repository)
 
-	stores.workflows.put(testRow{ID: rows.workflow, Name: "flow"})
-	stores.agents.put(agentRow(rows.agent))
+	assert.Equal(t, []string{
+		"pull_request_syncs " + rows.repository,
+		"agents " + rows.agent,
+		"pull_request_syncs " + rows.repository,
+		"agents " + rows.agent,
+	}, waitForPayloads(t, conn, 4))
+}
 
-	l.exec(t, `INSERT INTO pull_request_syncs (repository_url, updated_through) VALUES ($1, now())`, rows.repository)
-	// A write that reaches no resource raises nothing, so the workflow write is what proves the
-	// stream is still live.
-	l.exec(t, `UPDATE workflow_configs SET flags = '--model opus' WHERE id = $1`, rows.config)
+// TestARepositorySyncNotifiesOnlyWhatIsDrawn pins that the sync's bookkeeping writes raise
+// nothing, and a completed sweep raises the repository under its URL.
+func TestARepositorySyncNotifiesOnlyWhatIsDrawn(t *testing.T) {
+	l := newPooled(t)
+	rows := l.seed(t)
+	l.exec(t, `INSERT INTO pull_request_syncs (repository_url) VALUES ($1)`, rows.repository)
+	conn := l.listenRaw(t)
 
-	change := waitForPassOfOneChange(t, subscription)
-	assert.Equal(t, watchv1.Resource_RESOURCE_WORKFLOW, change.Resource, "the archived agent's sync raised nothing")
-	assert.Equal(t, rows.workflow, change.Key)
+	l.exec(t, `UPDATE pull_request_syncs SET read_at = now(), calls = calls + 1 WHERE repository_url = $1`, rows.repository)
+	l.exec(t, `UPDATE pull_request_syncs SET sweep_cursor = '', sweep_newest = now(), listed_at = now() WHERE repository_url = $1`, rows.repository)
+	l.exec(t, `UPDATE agents SET name = 'renamed' WHERE id = $1`, rows.agent)
+	l.exec(t, `UPDATE pull_request_syncs SET updated_through = sweep_newest, sweep_cursor = NULL, sweep_newest = NULL WHERE repository_url = $1`, rows.repository)
+
+	assert.Equal(t, []string{"agents " + rows.agent, "pull_request_syncs " + rows.repository}, waitForPayloads(t, conn, 2))
 }
 
 func (l *listened) exec(t *testing.T, sql string, args ...any) {

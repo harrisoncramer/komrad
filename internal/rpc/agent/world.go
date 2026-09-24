@@ -7,6 +7,7 @@ import (
 	"weave/internal/fail"
 	"weave/internal/rpc/render"
 	"weave/internal/rpcerr"
+	"weave/lib/xptr"
 	"weave/lib/xslice"
 
 	agentstore "weave/internal/store/agent"
@@ -31,6 +32,10 @@ type pullRequestReader interface {
 	ListForAgents(ctx context.Context, agentIDs []string) ([]pullrequeststore.PullRequest, error)
 }
 
+type repositoryReader interface {
+	ListWatched(ctx context.Context, keys []string) ([]pullrequeststore.Sync, error)
+}
+
 // agentRow is an assembled row with the keyset cursor locating it.
 type agentRow struct {
 	*agentv1.AgentRow
@@ -43,8 +48,8 @@ func (r agentRow) Cursor() (agentstore.Cursor, error) {
 }
 
 // assembleRows draws the rows of a page of agents: the agents themselves and, read beside
-// them, every mark, the unclaimed mail to them, the pull requests on their branches and their
-// workflows, joined by the assembler.
+// them, every mark, the unclaimed mail to them, the pull requests on their branches, their
+// repositories and their workflows, joined by the assembler.
 func (s *Handler) assembleRows(ctx context.Context, rows []rowstore.Row, options render.AgentOptions) ([]agentRow, *fail.Error) {
 	world, failure := s.world(ctx, rows, options)
 	if failure != nil {
@@ -59,6 +64,7 @@ func (s *Handler) assembleRows(ctx context.Context, rows []rowstore.Row, options
 func (s *Handler) world(ctx context.Context, rows []rowstore.Row, options render.AgentOptions) (assemble.World, *fail.Error) {
 	agentIDs := xslice.Map(rows, func(row rowstore.Row) string { return row.ID })
 	workflowIDs := xslice.Map(rows, func(row rowstore.Row) string { return row.WorkflowID })
+	repositoryURLs := xslice.Map(rows, func(row rowstore.Row) string { return xptr.Deref(row.RepositoryURL) })
 
 	marks, err := s.marks.ListMarks(ctx)
 	if err != nil {
@@ -73,6 +79,11 @@ func (s *Handler) world(ctx context.Context, rows []rowstore.Row, options render
 	pullRequests, err := s.pullRequests.ListForAgents(ctx, agentIDs)
 	if err != nil {
 		return assemble.World{}, rpcerr.From(err, "failed to list the pull requests")
+	}
+
+	repositories, err := s.repositories.ListWatched(ctx, repositoryURLs)
+	if err != nil {
+		return assemble.World{}, rpcerr.From(err, "failed to list the repositories")
 	}
 
 	workflows, err := s.workflows.ListByID(ctx, workflowIDs)
@@ -91,6 +102,9 @@ func (s *Handler) world(ctx context.Context, rows []rowstore.Row, options render
 		Mail:  xslice.KeyBy(xslice.Map(mail, render.Mail), func(m *agentv1.Mail) string { return m.GetId() }),
 		PullRequests: xslice.KeyBy(xslice.Map(pullRequests, render.PullRequest), func(p *pullrequestv1.PullRequest) string {
 			return p.GetId()
+		}),
+		Repositories: xslice.KeyBy(xslice.Map(repositories, render.Repository), func(r *pullrequestv1.Repository) string {
+			return r.GetUrl()
 		}),
 	}, nil
 }

@@ -21,5 +21,6 @@ func All() []watch.Resource {
 		markstore.WatchedMarks,
 		mailstore.WatchedMail,
 		pullrequeststore.WatchedPullRequests,
+		pullrequeststore.WatchedRepositories,
 	}
 }
