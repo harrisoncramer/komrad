@@ -38,7 +38,12 @@ type NewClientParams struct {
 // the reconciler that reads them out of the schedules table.
 func NewClient(params NewClientParams) (*river.Client[pgx.Tx], error) {
 	workers := river.NewWorkers()
-	river.AddWorker(workers, internaljobs.NewLaunchAgentWorker(params.Schedules, params.Runs, params.Launcher, params.Running))
+	river.AddWorker(workers, internaljobs.NewLaunchAgentWorker(internaljobs.NewLaunchAgentWorkerParams{
+		Schedules: params.Schedules,
+		Runs:      params.Runs,
+		Launcher:  params.Launcher,
+		Running:   params.Running,
+	}))
 	river.AddWorker(workers, internaljobs.NewEmptyArchiveWorker(params.Archived, params.Deleter))
 	river.AddWorker(workers, internaljobs.NewDeleteWorktreesWorker(internaljobs.NewDeleteWorktreesWorkerParams{
 		Worktrees: params.Worktrees,

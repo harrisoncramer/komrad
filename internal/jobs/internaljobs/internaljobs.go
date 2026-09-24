@@ -37,7 +37,8 @@ type RunningAgentCounter interface {
 	CountLiveForSchedule(ctx context.Context, scheduleID string) (int64, error)
 }
 
+// RunRecorder records when a firing starts and how it ends.
 type RunRecorder interface {
-	StartRun(ctx context.Context, occurrence schedulestore.RunOccurrence, attempt, maxAttempts int) error
+	StartRun(ctx context.Context, params schedulestore.StartRunParams) error
 	FinishRun(ctx context.Context, occurrence schedulestore.RunOccurrence, outcome schedulestore.RunOutcome) error
 }

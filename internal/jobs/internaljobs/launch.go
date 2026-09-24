@@ -48,14 +48,21 @@ type LaunchAgentWorker struct {
 	running   RunningAgentCounter
 }
 
+type NewLaunchAgentWorkerParams struct {
+	Schedules ScheduleGetter
+	Runs      RunRecorder
+	Launcher  AgentLauncher
+	Running   RunningAgentCounter
+}
+
 // NewLaunchAgentWorker builds the worker over the schedules it reads and the service that
 // launches an agent.
-func NewLaunchAgentWorker(schedules ScheduleGetter, runs RunRecorder, launcher AgentLauncher, running RunningAgentCounter) *LaunchAgentWorker {
+func NewLaunchAgentWorker(params NewLaunchAgentWorkerParams) *LaunchAgentWorker {
 	return &LaunchAgentWorker{
-		schedules: schedules,
-		runs:      runs,
-		agents:    launcher,
-		running:   running,
+		schedules: params.Schedules,
+		runs:      params.Runs,
+		agents:    params.Launcher,
+		running:   params.Running,
 	}
 }
 
@@ -71,16 +78,21 @@ func (w *LaunchAgentWorker) Work(ctx context.Context, job *river.Job[LaunchAgent
 	}
 
 	occurrence := schedulestore.RunOccurrence{ScheduleID: schedule.ID, ScheduledFor: job.Args.ScheduledFor}
-	if err := w.runs.StartRun(ctx, occurrence, job.Attempt, job.MaxAttempts); err != nil {
-		return err
+	err = w.runs.StartRun(ctx, schedulestore.StartRunParams{
+		Occurrence:  occurrence,
+		Attempt:     job.Attempt,
+		MaxAttempts: job.MaxAttempts,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to start the run of schedule %q: %w", schedule.Name, err)
 	}
 
-	launched := w.launch(ctx, schedule, job.Args)
-	if err := w.runs.FinishRun(ctx, occurrence, outcomeOf(launched, job.JobRow)); err != nil {
-		return errors.Join(launched, err)
+	launchErr := w.launch(ctx, schedule, job.Args)
+	if err := w.runs.FinishRun(ctx, occurrence, buildRunOutcome(launchErr, job.JobRow)); err != nil {
+		return errors.Join(launchErr, fmt.Errorf("failed to finish the run of schedule %q: %w", schedule.Name, err))
 	}
 
-	return launched
+	return launchErr
 }
 
 func (w *LaunchAgentWorker) launch(ctx context.Context, schedule *schedulestore.Schedule, args LaunchAgentArgs) error {
@@ -126,7 +138,7 @@ func launchKey(scheduleID string, scheduledFor time.Time) string {
 	return "schedule:" + scheduleID + ":" + scheduledFor.UTC().Format(time.RFC3339)
 }
 
-func outcomeOf(err error, job *rivertype.JobRow) schedulestore.RunOutcome {
+func buildRunOutcome(err error, job *rivertype.JobRow) schedulestore.RunOutcome {
 	var cancelled *river.JobCancelError
 
 	switch {

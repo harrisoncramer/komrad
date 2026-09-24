@@ -167,7 +167,12 @@ func TestLaunchAgentWorker(t *testing.T) {
 			schedules := &fakeSchedules{schedule: tt.schedule}
 			runs := &fakeRuns{startErr: tt.startErr}
 			launcher := &fakeLauncher{err: tt.launchErr}
-			worker := NewLaunchAgentWorker(schedules, runs, launcher, &fakeRunning{count: tt.running})
+			worker := NewLaunchAgentWorker(NewLaunchAgentWorkerParams{
+				Schedules: schedules,
+				Runs:      runs,
+				Launcher:  launcher,
+				Running:   &fakeRunning{count: tt.running},
+			})
 
 			job := &river.Job[LaunchAgentArgs]{
 				JobRow: &rivertype.JobRow{Attempt: max(tt.attempt, 1), MaxAttempts: 5},
@@ -249,7 +254,12 @@ func TestLaunchAgentParams(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			launcher := &fakeLauncher{}
 			schedules := &fakeSchedules{schedule: &tt.schedule}
-			worker := NewLaunchAgentWorker(schedules, &fakeRuns{}, launcher, &fakeRunning{})
+			worker := NewLaunchAgentWorker(NewLaunchAgentWorkerParams{
+				Schedules: schedules,
+				Runs:      &fakeRuns{},
+				Launcher:  launcher,
+				Running:   &fakeRunning{},
+			})
 
 			require.NoError(t, worker.Work(t.Context(), &river.Job[LaunchAgentArgs]{
 				JobRow: &rivertype.JobRow{Attempt: 1, MaxAttempts: 5},
@@ -379,7 +389,7 @@ type fakeRuns struct {
 	finished schedulestore.RunOutcome
 }
 
-func (f *fakeRuns) StartRun(context.Context, schedulestore.RunOccurrence, int, int) error {
+func (f *fakeRuns) StartRun(context.Context, schedulestore.StartRunParams) error {
 	return f.startErr
 }
 

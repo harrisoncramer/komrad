@@ -467,7 +467,7 @@ func (fakeRunning) CountLiveForSchedule(context.Context, string) (int64, error) 
 
 type fakeRuns struct{}
 
-func (fakeRuns) StartRun(context.Context, schedulestore.RunOccurrence, int, int) error {
+func (fakeRuns) StartRun(context.Context, schedulestore.StartRunParams) error {
 	return nil
 }
 

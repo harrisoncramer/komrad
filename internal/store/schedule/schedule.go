@@ -27,7 +27,7 @@ type Schedule struct {
 	RecentRuns []Run
 }
 
-// RunState is where a firing stands: working, or finished one of three ways.
+// RunState is where a firing stands.
 type RunState string
 
 const (
@@ -37,10 +37,6 @@ const (
 	RunStateCancelled RunState = "cancelled"
 	RunStateDiscarded RunState = "discarded"
 )
-
-const recentRunsWatched = 20
-
-const runsKept = 200
 
 // Run is one firing of a schedule as the launch job recorded it.
 type Run struct {

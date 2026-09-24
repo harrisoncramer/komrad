@@ -594,7 +594,11 @@ func runService(t *testing.T) (schedulev1weave.ScheduleServiceAdapter, string, f
 		t.Helper()
 
 		occurrence := schedulestore.RunOccurrence{ScheduleID: scheduleID, ScheduledFor: scheduledFor}
-		require.NoError(t, st.Schedules.StartRun(t.Context(), occurrence, 1, 5))
+		require.NoError(t, st.Schedules.StartRun(t.Context(), schedulestore.StartRunParams{
+			Occurrence:  occurrence,
+			Attempt:     1,
+			MaxAttempts: 5,
+		}))
 
 		if cancel {
 			outcome := schedulestore.RunOutcome{State: schedulestore.RunStateCancelled, Message: "schedule is paused"}

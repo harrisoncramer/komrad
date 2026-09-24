@@ -10,26 +10,39 @@ import (
 	"weave/lib/xslice"
 )
 
+const (
+	recentRunsWatched = 20
+	runsKept          = 200
+)
+
+// RunOccurrence names one firing of a schedule by the time it was due.
 type RunOccurrence struct {
 	ScheduleID   string
 	ScheduledFor time.Time
 }
 
+// RunOutcome is how an attempt at a firing ended.
 type RunOutcome struct {
 	State   RunState
 	Message string
 }
 
+type StartRunParams struct {
+	Occurrence  RunOccurrence
+	Attempt     int
+	MaxAttempts int
+}
+
 // StartRun records that an attempt at a firing has begun.
-func (s *ScheduleStore) StartRun(ctx context.Context, occurrence RunOccurrence, attempt, maxAttempts int) error {
+func (s *ScheduleStore) StartRun(ctx context.Context, params StartRunParams) error {
 	err := s.queries.StartScheduleRun(ctx, models.StartScheduleRunParams{
-		ScheduleID:   occurrence.ScheduleID,
-		ScheduledFor: occurrence.ScheduledFor,
-		Attempt:      int32(attempt),
-		MaxAttempts:  int32(maxAttempts),
+		ScheduleID:   params.Occurrence.ScheduleID,
+		ScheduledFor: params.Occurrence.ScheduledFor,
+		Attempt:      int32(params.Attempt),
+		MaxAttempts:  int32(params.MaxAttempts),
 	})
 	if err != nil {
-		return fmt.Errorf("failed to record the start of a run of schedule %q: %w", occurrence.ScheduleID, err)
+		return fmt.Errorf("failed to record the start of a run of schedule %q: %w", params.Occurrence.ScheduleID, err)
 	}
 
 	return nil
@@ -66,7 +79,9 @@ func (s *ScheduleStore) ListRuns(ctx context.Context, scheduleID string, limit i
 		return nil, fmt.Errorf("failed to list the runs of schedule %q: %w", scheduleID, err)
 	}
 
-	return xslice.Map(rows, func(row *models.ListScheduleRunsRow) Run { return runFromRow(row.ScheduleRun) }), nil
+	return xslice.Map(rows, func(row *models.ListScheduleRunsRow) Run {
+		return runFromRow(row.ScheduleRun)
+	}), nil
 }
 
 func (s *ScheduleStore) attachRuns(ctx context.Context, schedules []Schedule, perSchedule int) ([]Schedule, error) {
@@ -75,7 +90,9 @@ func (s *ScheduleStore) attachRuns(ctx context.Context, schedules []Schedule, pe
 	}
 
 	rows, err := s.queries.ListRecentScheduleRuns(ctx, models.ListRecentScheduleRunsParams{
-		ScheduleIds: xslice.Map(schedules, func(schedule Schedule) string { return schedule.ID }),
+		ScheduleIds: xslice.Map(schedules, func(schedule Schedule) string {
+			return schedule.ID
+		}),
 		PerSchedule: int32(perSchedule),
 	})
 	if err != nil {

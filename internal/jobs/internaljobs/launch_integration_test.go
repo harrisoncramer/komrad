@@ -73,7 +73,12 @@ func TestScheduledLaunchCreatesOneAgent(t *testing.T) {
 				WorkflowID: workflow.ID,
 			})
 
-			worker := NewLaunchAgentWorker(stores.Schedules, stores.Schedules, newAgentService(t, stores), stores.Agents)
+			worker := NewLaunchAgentWorker(NewLaunchAgentWorkerParams{
+				Schedules: stores.Schedules,
+				Runs:      stores.Schedules,
+				Launcher:  newAgentService(t, stores),
+				Running:   stores.Agents,
+			})
 
 			for i, occurrence := range tt.occurrences {
 				err := worker.Work(t.Context(), &river.Job[LaunchAgentArgs]{
