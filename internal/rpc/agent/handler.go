@@ -44,7 +44,7 @@ type agentLiveness interface {
 // for one agent.
 type rowReader interface {
 	ListPage(ctx context.Context, page rowstore.Page) ([]rowstore.Row, error)
-	ListByKey(ctx context.Context, ids []string) ([]rowstore.Row, error)
+	ListWatched(ctx context.Context, keys []string) ([]rowstore.Row, error)
 	Get(ctx context.Context, id string) (*rowstore.Row, error)
 }
 
@@ -524,7 +524,7 @@ func (s *Handler) RestoreAgents(ctx context.Context, req *agentv1.RestoreAgentsR
 		return nil, rpcerr.From(err, "failed to restore agents")
 	}
 
-	rows, err := s.rows.ListByKey(ctx, agentstore.IDs(restored))
+	rows, err := s.rows.ListWatched(ctx, agentstore.IDs(restored))
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to get the restored agents")
 	}
