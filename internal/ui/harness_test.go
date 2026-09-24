@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"weave/config"
 	"weave/internal/client"
@@ -18,6 +19,7 @@ import (
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	"weave/proto/gen/hook/v1/hookv1connect"
+	paginationv1 "weave/proto/gen/pagination/v1"
 	pullrequestv1 "weave/proto/gen/pullrequest/v1"
 	schedulev1 "weave/proto/gen/schedule/v1"
 	schedulev1connect "weave/proto/gen/schedule/v1/schedulev1connect"
@@ -27,6 +29,7 @@ import (
 	worktreev1 "weave/proto/gen/worktree/v1"
 	"weave/proto/gen/worktree/v1/worktreev1connect"
 
+	"charm.land/bubbles/v2/cursor"
 	tea "charm.land/bubbletea/v2"
 	"connectrpc.com/connect"
 	"github.com/charmbracelet/x/ansi"
@@ -48,9 +51,10 @@ var timerCmds = []string{
 }
 
 type panelHarness struct {
-	t     *testing.T
-	panel *ui.Panel
-	log   *requestLog
+	t      *testing.T
+	panel  *ui.Panel
+	log    *requestLog
+	timers []tea.Cmd
 }
 
 type panelHarnessParams struct {
@@ -70,6 +74,66 @@ type requestLog struct {
 	mu      sync.Mutex
 	seen    []request
 	answers map[string]answerFunc
+}
+
+// TestHarnessHoldsTimers covers the harness telling a timer from a command it can run at once.
+func TestHarnessHoldsTimers(t *testing.T) {
+	blinker := cursor.New()
+
+	tests := []struct {
+		name string
+		cmd  tea.Cmd
+		want bool
+	}{
+		{
+			name: "a command that answers at once is run",
+			cmd: func() tea.Msg {
+				return nil
+			},
+			want: false,
+		},
+		{
+			name: "a tick is held",
+			cmd:  tea.Tick(time.Hour, nil),
+			want: true,
+		},
+		{
+			name: "an every is held",
+			cmd:  tea.Every(time.Hour, nil),
+			want: true,
+		},
+		{
+			name: "a cursor blink is held",
+			cmd:  blinker.Blink(),
+			want: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.NotNil(t, tt.cmd)
+
+			assert.Equal(t, tt.want, isTimer(tt.cmd))
+		})
+	}
+}
+
+// TestHarnessFiresHeldTimers covers a debounced search waiting for its timer to be fired.
+func TestHarnessFiresHeldTimers(t *testing.T) {
+	harness := newPanelHarness(t, panelHarnessParams{})
+	harness.watch(buildSnapshot())
+
+	harness.press("s", "a", "p", "i")
+	harness.assertSent()
+
+	harness.fireTimers()
+	harness.assertSent(request{
+		procedure: agentv1connect.AgentServiceSearchTranscriptsProcedure,
+		msg: &agentv1.SearchTranscriptsRequest{
+			Query:      "api",
+			Pagination: &paginationv1.Pagination{Limit: proto.Int32(10)},
+		},
+	})
 }
 
 func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
@@ -177,7 +241,12 @@ func (h *panelHarness) settle(cmd tea.Cmd) {
 
 		next := queue[0]
 		queue = queue[1:]
-		if next == nil || isTimer(next) {
+		if next == nil {
+			continue
+		}
+		if isTimer(next) {
+			h.timers = append(h.timers, next)
+
 			continue
 		}
 
@@ -188,6 +257,28 @@ func (h *panelHarness) settle(cmd tea.Cmd) {
 		default:
 			queue = append(queue, h.panel.Update(msg))
 		}
+	}
+}
+
+func (h *panelHarness) fireTimers() {
+	h.t.Helper()
+
+	pending := h.timers
+	h.timers = nil
+
+	fired := make([]tea.Msg, len(pending))
+	var group sync.WaitGroup
+	for i, timer := range pending {
+		group.Go(func() {
+			fired[i] = timer()
+		})
+	}
+	group.Wait()
+
+	for _, msg := range fired {
+		h.settle(func() tea.Msg {
+			return msg
+		})
 	}
 }
 

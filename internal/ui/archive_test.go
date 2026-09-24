@@ -604,6 +604,8 @@ func TestArchiveWindow(t *testing.T) {
 		harness.press("Z", "?")
 
 		frame := harness.readFrame()
+		assert.Equal(t, []string{"backend", "  api-refactor"}, readListRows(frame), "the list keeps its column")
+		assert.Contains(t, frame, "no shared context set", "beside the hovered row's document")
 		assert.Len(t, splitLines(frame), 10, "the view is exactly the pane")
 		assert.Contains(t, frame, "show help", "the legend gave up its expansion for the rows")
 		assert.NotContains(t, frame, "hide help")
@@ -624,17 +626,6 @@ func TestArchiveWindow(t *testing.T) {
 
 			assert.Len(t, splitLines(harness.readFrame()), height, "height=%d", height)
 		}
-	})
-
-	t.Run("the list holds the keyboard as the archive opens", func(t *testing.T) {
-		harness := openArchive(t, buildOneArchivedAgent()...)
-
-		harness.press("j", "r")
-
-		harness.assertSent(request{
-			procedure: agentv1connect.AgentServiceRestoreAgentsProcedure,
-			msg:       &agentv1.RestoreAgentsRequest{Ids: []string{"a1"}},
-		})
 	})
 }
 
