@@ -70,6 +70,14 @@ func TestPullRequestStateOf(t *testing.T) {
 			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED,
 		},
 		{
+			name: "clean beats an approval that would otherwise wait",
+			pullRequest: pullrequeststore.PullRequest{
+				ReviewDecision: xptr.Ptr(forge.ReviewDecisionApproved),
+				Mergeability:   xptr.Ptr(forge.MergeabilityClean),
+			},
+			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED,
+		},
+		{
 			name: "clean with no decision is ready, since the forge's rules asked for no review",
 			pullRequest: pullrequeststore.PullRequest{
 				Mergeability: xptr.Ptr(forge.MergeabilityClean),
