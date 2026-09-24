@@ -2,7 +2,6 @@ package ui
 
 import (
 	"context"
-	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -205,74 +204,6 @@ func (f *formRecorder) ArchiveSchedule(_ context.Context, req *connect.Request[s
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// TestNewAgentSubmitHoldsTheForm covers the new-agent form staying up until its create lands.
-func TestNewAgentSubmitHoldsTheForm(t *testing.T) {
-	tests := []struct {
-		name       string
-		refuse     error
-		wantDetail string
-	}{
-		{
-			name:       "a setup that fails",
-			refuse:     connect.NewError(connect.CodeFailedPrecondition, errors.New("the provisioner failed: exit 7")),
-			wantDetail: "the provisioner failed: exit 7",
-		},
-		{
-			name:       "a create refused before the provisioner ever ran",
-			refuse:     connect.NewError(connect.CodeInvalidArgument, errors.New("not allowed")),
-			wantDetail: "not allowed",
-		},
-		{
-			name: "a create that lands",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			recorder := &recordingTmux{}
-			sent := &formRecorder{refuse: tt.refuse}
-			m := newFormModel(sent)
-			m.tmux = recorder
-			m.frame = layout.New(recorder, config.DefaultLayout())
-			m.frame.Attach("%0")
-			m.listing.workflows[0].Worktree = panel.WorktreeConfig{Enabled: true}
-
-			workflow := m.listing.workflows[0]
-
-			values := agentPrefill(workflow)
-			values.Prompt = "check CI"
-
-			opened := m.openAgentForm(workflow, &values)
-			m = requireModel(t, opened)
-
-			updated, cmd := m.answerForm()
-			m = requireModel(t, updated)
-
-			assert.True(t, m.form.isActive(), "the form is still up while the create is in flight")
-			assert.True(t, m.held.active)
-			assert.False(t, m.held.since.IsZero(), "and the notice over it has something to count from")
-			assert.Equal(t, infoNothing, m.info.kind, "no pane is opened for the provisioner")
-			assert.Empty(t, recorder.infoPane)
-
-			got := settle(t, m, cmd)
-
-			if tt.refuse != nil {
-				require.NotEmpty(t, got.messages.items, "a refused create is reported")
-				assert.Equal(t, tt.wantDetail, newestMessage(got).detail)
-				assert.Equal(t, formAgent, got.form.kind, "and the form it came from is still up")
-
-				return
-			}
-
-			assert.Empty(t, got.messages.items)
-			assert.False(t, got.form.isActive(), "the form goes once the create has landed")
-			assert.False(t, got.held.active)
-			assert.Equal(t, infoNothing, got.info.kind)
-			require.NotNil(t, sent.createdAgent)
-		})
-	}
-}
-
 // TestConfirmingArchiveTracksTheWriteAsPending covers the confirmed archive counting as a write in flight.
 func TestConfirmingArchiveTracksTheWriteAsPending(t *testing.T) {
 	sent := &formRecorder{}
@@ -286,104 +217,6 @@ func TestConfirmingArchiveTracksTheWriteAsPending(t *testing.T) {
 
 	assert.Positive(t, got.pending, "the in-flight write is tracked on the model that comes back")
 	require.NotNil(t, cmd)
-}
-
-// TestFormTakesNoKeysWhileItsWriteIsInFlight covers a second submit while the first write is in flight.
-func TestFormTakesNoKeysWhileItsWriteIsInFlight(t *testing.T) {
-	sent := &formRecorder{}
-
-	m := newFormModel(sent)
-	workflow := m.listing.workflows[0]
-
-	values := agentPrefill(workflow)
-	values.Prompt = "check CI"
-
-	opened := m.openAgentForm(workflow, &values)
-	m = requireModel(t, opened)
-	m.held.active = true
-
-	updated, cmd := m.Update(keyMsg("ctrl+s"))
-	got := settle(t, requireModel(t, updated), cmd)
-
-	assert.Nil(t, sent.createdAgent, "the key never reached the submit path")
-	assert.Equal(t, formAgent, got.form.kind, "the form is still up")
-	assert.Equal(t, "check CI", values.Prompt, "and the form is as it was")
-}
-
-// TestEscDetachesFromAHeldForm covers esc handing the panel back during a create that still lands.
-func TestEscDetachesFromAHeldForm(t *testing.T) {
-	sent := &formRecorder{}
-	m := newFormModel(sent)
-
-	workflow := m.listing.workflows[0]
-
-	values := agentPrefill(workflow)
-	values.Prompt = "check CI"
-
-	opened := m.openAgentForm(workflow, &values)
-	m = requireModel(t, opened)
-
-	updated, cmd := m.answerForm()
-	m = requireModel(t, updated)
-	require.True(t, m.held.active)
-
-	detached, _ := m.Update(keyMsg("esc"))
-	m = requireModel(t, detached)
-
-	assert.False(t, m.held.active, "the panel takes keys again")
-	assert.False(t, m.form.isActive(), "and the form it was holding is gone")
-
-	got := settle(t, m, cmd)
-
-	assert.Empty(t, got.messages.items)
-	require.NotNil(t, sent.createdAgent, "the create the form was submitted for still ran")
-	_, isListed := got.listing.liveAgent("new")
-	assert.False(t, isListed, "and it lands without taking the cursor to the agent it made")
-}
-
-// TestAnEarlierWriteLeavesALaterHoldAlone covers an escaped create landing while a later form is held.
-func TestAnEarlierWriteLeavesALaterHoldAlone(t *testing.T) {
-	sent := &formRecorder{}
-	m := newFormModel(sent)
-
-	workflow := m.listing.workflows[0]
-
-	first := agentPrefill(workflow)
-	first.Prompt = "the slow one"
-
-	opened := m.openAgentForm(workflow, &first)
-	m = requireModel(t, opened)
-
-	submitted, _ := m.answerForm()
-	m = requireModel(t, submitted)
-
-	escaped := m.writes
-
-	detached, _ := m.Update(keyMsg("esc"))
-	m = requireModel(t, detached)
-
-	second := agentPrefill(workflow)
-	second.Prompt = "the second one"
-
-	opened = m.openAgentForm(workflow, &second)
-	m = requireModel(t, opened)
-
-	submitted, _ = m.answerForm()
-	m = requireModel(t, submitted)
-
-	require.True(t, m.held.active)
-	require.NotEqual(t, escaped, m.held.write, "the two submits are told apart by their own numbers")
-
-	landed, _ := m.applyWrite(writeResult{
-		summary: "Could not start the agent",
-		written: &written{row: agentRowKey("new")},
-		write:   escaped,
-	})
-	got := requireModel(t, landed)
-
-	assert.True(t, got.held.active, "the escaped create landing leaves the second form held")
-	assert.True(t, got.form.isActive())
-	assert.Empty(t, got.landing.row, "and an escaped create takes nobody to the agent it made")
 }
 
 // TestSubmittingNoticeCountsUp covers the submitting notice counting once a write is slow.
@@ -569,12 +402,6 @@ func findLastFilled(lines []string) string {
 	}
 
 	return ""
-}
-
-func (m model) openAgentForm(workflow panel.Workflow, values *agentFormValues) model {
-	openAgentForm(&m, workflow, values)
-
-	return m
 }
 
 func (m model) openRename(agent panel.Agent) model {

@@ -247,6 +247,74 @@ func TestFormsRefused(t *testing.T) {
 	}
 }
 
+// TestFormsInFlight covers the new-agent form while its create has not come back.
+func TestFormsInFlight(t *testing.T) {
+	create := agentv1connect.AgentServiceCreateAgentProcedure
+	submit := slices.Concat([]string{"c"}, spellKeys("check CI"), []string{"ctrl+s"})
+
+	t.Run("the form stays up saying it is submitting until the create lands", func(t *testing.T) {
+		harness := openForms(t, newFormWorkflow(), newFormAuthor())
+		harness.hold(create)
+
+		harness.press(submit...)
+
+		frame := harness.readFrame()
+		assert.Contains(t, frame, "submitting…")
+		assert.Contains(t, frame, "check CI", "the form is still up")
+		assert.Empty(t, harness.panel.ReadRespawns(), "no pane is opened for the provisioner")
+
+		harness.release(create)
+
+		assert.NotContains(t, harness.readFrame(), "submitting…", "the form goes once the create has landed")
+	})
+
+	t.Run("a second submit sends nothing", func(t *testing.T) {
+		harness := openForms(t, newFormWorkflow(), newFormAuthor())
+		harness.hold(create)
+		harness.press(submit...)
+
+		harness.press("ctrl+s", "!")
+
+		assert.Len(t, harness.readSent(create), 1, "the key never reached the submit path")
+		assert.Contains(t, harness.readFrame(), "check CI", "and the form is as it was")
+		assert.NotContains(t, harness.readFrame(), "check CI!")
+	})
+
+	t.Run("esc hands the panel back and the create still lands without taking the cursor", func(t *testing.T) {
+		harness := openForms(t, newFormWorkflow(), newFormAuthor())
+		answerAgentCreate(harness, "")
+		harness.hold(create)
+		harness.press(submit...)
+
+		harness.press("esc")
+
+		assert.NotContains(t, harness.readFrame(), "submitting…", "the form it was holding is gone")
+		harness.press("j")
+		assert.Equal(t, "  author", readHoveredRow(harness.readFrame()), "the panel takes keys again")
+
+		harness.release(create)
+		harness.watch(buildPuts(newAgent("a2", "check-ci", "w1")))
+
+		frame := harness.readFrame()
+		assert.Contains(t, frame, "No messages")
+		assert.Equal(t, "  author", readHoveredRow(frame), "the cursor stays where the reader left it")
+	})
+
+	t.Run("an escaped create landing leaves a later form held", func(t *testing.T) {
+		harness := openForms(t, newFormWorkflow(), newFormAuthor())
+		harness.hold(create)
+		harness.press(submit...)
+		harness.press("esc")
+		harness.press(slices.Concat([]string{"c"}, spellKeys("the second one"), []string{"ctrl+s"})...)
+
+		harness.release(create)
+
+		frame := harness.readFrame()
+		assert.Contains(t, frame, "submitting…", "the second form is still held")
+		assert.Contains(t, frame, "the second one")
+	})
+}
+
 // TestFormsArchivePrompt covers the three ways the agent archive prompt can be answered.
 func TestFormsArchivePrompt(t *testing.T) {
 	t.Run("the prompt opens on the reversible answer", func(t *testing.T) {
