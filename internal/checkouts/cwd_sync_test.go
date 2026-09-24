@@ -607,17 +607,6 @@ func TestCwdSyncerSyncWritesAStandingOnlyWhenItMoved(t *testing.T) {
 	assert.Equal(t, git.StandingMoved, standingOn(t, st, created.ID, "snapshot-one"))
 }
 
-// failingTrees is a git that knows the tree moved but could not finish the landed question.
-type failingTrees struct{}
-
-func (failingTrees) ProbeTree(context.Context, string) (string, error) {
-	return "", errors.New("no worktree to probe")
-}
-
-func (failingTrees) ReadStanding(context.Context, git.ReadStandingParams) (git.Standing, error) {
-	return git.StandingMoved, errors.New("the base could not be merged")
-}
-
 type fakeBases []workflowstore.Workflow
 
 func (f fakeBases) List(context.Context) ([]workflowstore.Workflow, error) {
@@ -713,7 +702,7 @@ func TestCwdSyncerSyncKeepsAStandingReportedWithAnError(t *testing.T) {
 	syncer := NewCwdSyncer(NewCwdSyncerParams{
 		Agents:       st.Agents,
 		Heads:        &gittest.Heads{States: map[string]git.HeadState{}},
-		Trees:        failingTrees{},
+		Trees:        &gittest.Trees{AllMoved: true, StandingErr: errors.New("the base could not be merged")},
 		Bases:        fakeBases{},
 		PullRequests: &countingObservations{},
 		Rounds: fakeTallies{{

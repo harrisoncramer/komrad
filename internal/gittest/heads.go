@@ -27,15 +27,16 @@ func (h *Heads) ReadHeadState(_ context.Context, params git.ReadHeadStateParams)
 
 // Trees answers where each directory stands, recording every probe and every read.
 type Trees struct {
-	mu        sync.Mutex
-	Probes    map[string]string
-	ProbeErr  error
-	Standings map[string]git.Standing
-	AllMoved  bool
-	Probed    []string
-	Given     []string
-	Dirs      []string
-	Bases     []string
+	mu          sync.Mutex
+	Probes      map[string]string
+	ProbeErr    error
+	Standings   map[string]git.Standing
+	AllMoved    bool
+	StandingErr error
+	Probed      []string
+	Given       []string
+	Dirs        []string
+	Bases       []string
 }
 
 // ProbeTree records the root and answers what Probes holds for it, refusing when there are no
@@ -55,8 +56,8 @@ func (t *Trees) ProbeTree(_ context.Context, root string) (string, error) {
 	return t.Probes[root], nil
 }
 
-// ReadStanding records the read and answers moved for every directory under AllMoved, or what
-// Standings holds, refusing a directory it does not name.
+// ReadStanding records the read and answers StandingErr beside moved under AllMoved, or beside
+// what Standings holds, refusing a directory it does not name.
 func (t *Trees) ReadStanding(_ context.Context, params git.ReadStandingParams) (git.Standing, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -65,7 +66,7 @@ func (t *Trees) ReadStanding(_ context.Context, params git.ReadStandingParams) (
 	t.Bases = append(t.Bases, params.Base)
 
 	if t.AllMoved {
-		return git.StandingMoved, nil
+		return git.StandingMoved, t.StandingErr
 	}
 
 	standing, ok := t.Standings[params.Dir]
@@ -73,5 +74,5 @@ func (t *Trees) ReadStanding(_ context.Context, params git.ReadStandingParams) (
 		return git.StandingSame, errors.New("no round to compare against")
 	}
 
-	return standing, nil
+	return standing, t.StandingErr
 }

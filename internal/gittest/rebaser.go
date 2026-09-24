@@ -6,7 +6,7 @@ import (
 	"weave/internal/git"
 )
 
-// Rebaser answers as a checkout with no repository behind it.
+// Rebaser is the git a rebase drives, answering from its fields and recording each call.
 type Rebaser struct {
 	State      git.TreeState
 	Prediction git.Prediction
