@@ -72,9 +72,9 @@ func TestIntegrationPanel(t *testing.T) {
 	t.Run("archiving a workflow sends its panes back and leaves the divider where it was dragged", func(t *testing.T) {
 		served := openServedPanel(t, 0)
 		stagePane := served.harness.panel.ReadStagePane()
-		configured := readPaneWidth(served.instance, served.agentPane)
+		configured := readPaneWidth(t, served.instance, served.agentPane)
 		served.instance.Tmux.Run("resize-pane", "-t", served.navPane, "-x", "60")
-		dragged := readPaneWidth(served.instance, served.agentPane)
+		dragged := readPaneWidth(t, served.instance, served.agentPane)
 		require.NotEqual(t, configured, dragged, "the drag moved the divider off the configured width")
 
 		served.harness.press("k", "z")
@@ -85,32 +85,32 @@ func TestIntegrationPanel(t *testing.T) {
 		assert.Empty(t, served.harness.panel.ReadGuestPane(), "the archived agent's pane is not left standing in the panel")
 		require.True(t, served.instance.Tmux.Client().IsPaneAlive(stagePane), "the panel's own stage pane outlives the archive")
 		assert.Equal(t, stagePane, served.harness.panel.ReadStagePane(), "so the panel is not left splitting another")
-		assert.Equal(t, dragged, readPaneWidth(served.instance, stagePane))
+		assert.Equal(t, dragged, readPaneWidth(t, served.instance, stagePane))
 	})
 
 	t.Run("leaving a running agent for its folder zooms the panel over the window", func(t *testing.T) {
 		served := openServedPanel(t, 0)
-		zoomed := func() string {
+		readZoomedFlag := func() string {
 			return served.instance.Tmux.Run("display-message", "-p", "-t", served.navPane, "#{window_zoomed_flag}")
 		}
-		require.Equal(t, "0", zoomed(), "the agent's own pane has the stage to itself")
+		require.Equal(t, "0", readZoomedFlag(), "the agent's own pane has the stage to itself")
 
 		served.harness.press("k")
 		served.harness.fireTimers()
 
-		assert.Equal(t, "1", zoomed())
+		assert.Equal(t, "1", readZoomedFlag())
 	})
 
 	t.Run("the panel draws at the size of the pane it has just been given", func(t *testing.T) {
 		served := openServedPanel(t, 341)
-		share := readPaneWidth(served.instance, served.navPane)
+		share := readPaneWidth(t, served.instance, served.navPane)
 		require.Less(t, share, 341, "the panel starts on its share of the window")
 
 		held := served.harness.panel.View()
 		served.harness.press("k")
 		unsettled := served.harness.fireTimersUnsettled()
 
-		require.Equal(t, 341, readPaneWidth(served.instance, served.navPane), "the folder row takes the window")
+		require.Equal(t, 341, readPaneWidth(t, served.instance, served.navPane), "the folder row takes the window")
 		assert.Equal(t, held, served.harness.panel.View(), "the panel keeps its last frame until it is told the size")
 
 		for _, cmd := range unsettled {
@@ -121,7 +121,7 @@ func TestIntegrationPanel(t *testing.T) {
 		served.harness.press("j")
 		served.harness.fireTimers()
 
-		require.Equal(t, share, readPaneWidth(served.instance, served.navPane), "the agent's own pane takes it back")
+		require.Equal(t, share, readPaneWidth(t, served.instance, served.navPane), "the agent's own pane takes it back")
 		assert.LessOrEqual(t, lipgloss.Width(served.harness.panel.View()), share, "so nothing drawn runs past the pane and wraps")
 	})
 }
@@ -231,11 +231,11 @@ func readPanelPanes(instance *weavetest.Instance) []string {
 	return panes
 }
 
-func readPaneWidth(instance *weavetest.Instance, pane string) int {
+func readPaneWidth(t *testing.T, instance *weavetest.Instance, pane string) int {
+	t.Helper()
+
 	width, err := strconv.Atoi(instance.Tmux.Run("display-message", "-p", "-t", pane, "#{pane_width}"))
-	if err != nil {
-		return 0
-	}
+	require.NoError(t, err)
 
 	return width
 }

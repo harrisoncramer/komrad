@@ -480,23 +480,22 @@ func (p *Panel) IsKeyTaken(key string) bool {
 
 // ReadLegendKeys is every key the legend of the screen that is up names.
 func (p *Panel) ReadLegendKeys() []string {
-	m := p.model
-	shared := m.shared()
+	shared := p.model.shared()
 
 	var legend keyMap
-	switch m.screen {
+	switch p.model.screen {
 	case screenAgents:
-		legend = m.listHelp(m.agents.help(shared))
+		legend = p.model.listHelp(p.model.agents.help(shared))
 	case screenSchedules:
-		legend = m.listHelpOf(m.schedules.listParams(shared))
+		legend = p.model.listHelpOf(p.model.schedules.listParams(shared))
 	case screenArchive:
-		legend = m.listHelpOf(m.archive.listParams(shared))
+		legend = p.model.listHelpOf(p.model.archive.listParams(shared))
 	case screenSearch:
-		legend = m.search.help(shared)
+		legend = p.model.search.help(shared)
 	case screenReview:
-		legend = m.review.help(shared)
+		legend = p.model.review.help(shared)
 	case screenWorktrees:
-		legend = m.listHelpOf(m.worktrees.listParams(shared))
+		legend = p.model.listHelpOf(p.model.worktrees.listParams(shared))
 	}
 
 	var keys []string

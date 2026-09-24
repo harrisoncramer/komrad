@@ -73,7 +73,7 @@ func buildDriftScreens() []driftScreen {
 		key:    "L",
 		reason: "the earlier run is named only while the pane is showing one",
 	}
-	wheel := "the mouse wheel presses it, and paging is the only scroll the diff names"
+	wheelReason := "the mouse wheel presses it, and paging is the only scroll the diff names"
 
 	return []driftScreen{
 		{
@@ -151,11 +151,11 @@ func buildDriftScreens() []driftScreen {
 				quit,
 				{
 					key:    "ctrl+n",
-					reason: wheel,
+					reason: wheelReason,
 				},
 				{
 					key:    "ctrl+p",
-					reason: wheel,
+					reason: wheelReason,
 				},
 			},
 		},

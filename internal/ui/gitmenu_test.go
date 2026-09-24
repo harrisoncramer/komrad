@@ -86,7 +86,7 @@ func TestGitMenu(t *testing.T) {
 
 		harness.press("r")
 
-		assert.Contains(t, readMessages(harness), "the agent the menu was opened on has left the list")
+		assert.Contains(t, openMessages(harness), "the agent the menu was opened on has left the list")
 		harness.assertSentTo(agentv1connect.AgentServicePlanRebaseProcedure)
 	})
 }
@@ -148,7 +148,7 @@ func TestGitMenuRefusals(t *testing.T) {
 			harness.press(tt.press)
 
 			assert.NotContains(t, harness.readFrame(), gitMenuTitle)
-			assert.Contains(t, readMessages(harness), tt.wantRefusal)
+			assert.Contains(t, openMessages(harness), tt.wantRefusal)
 		})
 	}
 }
@@ -265,7 +265,7 @@ func newMergedPullRequest() *pullrequestv1.PullRequest {
 	return merged
 }
 
-func readMessages(harness *panelHarness) string {
+func openMessages(harness *panelHarness) string {
 	harness.press("ctrl+g")
 
 	return strings.Join(strings.Fields(harness.readFrame()), " ")
