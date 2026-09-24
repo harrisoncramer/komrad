@@ -132,7 +132,7 @@ func TestErrorsUnreachable(t *testing.T) {
 		assert.Contains(t, harness.readFrame(), "+1")
 	})
 
-	hints := []struct {
+	tests := []struct {
 		name   string
 		remote engine.Remote
 		want   string
@@ -148,7 +148,7 @@ func TestErrorsUnreachable(t *testing.T) {
 		},
 	}
 
-	for _, tt := range hints {
+	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openUnreachable(t, tt.remote)
 

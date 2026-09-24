@@ -530,12 +530,6 @@ func (m model) openAgentForm(workflow panel.Workflow, values *agentFormValues) m
 	return m
 }
 
-func (m model) openChildForm(parent panel.Agent, values *agentFormValues) (tea.Model, tea.Cmd) {
-	cmd := openChildForm(&m, parent, values)
-
-	return m, cmd
-}
-
 func (m model) openRename(agent panel.Agent) model {
 	openRename(&m, agent)
 
@@ -546,12 +540,6 @@ func (m model) openRenameForm(agent panel.Agent, name *string) model {
 	openRenameForm(&m, agent, name)
 
 	return m
-}
-
-func (m model) openAdoptForm(workflow panel.Workflow, values *adoptFormValues) (tea.Model, tea.Cmd) {
-	cmd := openAdoptForm(&m, workflow, values)
-
-	return m, cmd
 }
 
 func (m model) archiveAgentsConfirm(agents []panel.Agent) (tea.Model, tea.Cmd) {
@@ -580,12 +568,6 @@ func (m model) openWorkflowRename(workflow panel.Workflow, values *workflowFormV
 
 func (m model) openWorkflowConfigForm(values *workflowFormValues, target *panel.Workflow) model {
 	openWorkflowConfigForm(&m, values, target)
-
-	return m
-}
-
-func (m model) archiveWorkflowConfirm(workflow panel.Workflow) model {
-	archiveWorkflowConfirm(&m, workflow)
 
 	return m
 }

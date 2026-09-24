@@ -1,10 +1,12 @@
 package ui_test
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
 	schedulev1 "weave/proto/gen/schedule/v1"
+	worktreev1 "weave/proto/gen/worktree/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -361,28 +363,33 @@ func TestFilterScreens(t *testing.T) {
 		assert.Equal(t, []string{"weekly", "nightly"}, names)
 	})
 
-	screens := []struct {
+	tests := []struct {
 		name  string
 		press []string
 		idle  string
 	}{
 		{
-			name: "the agents",
+			name: "the agents say a filter left nothing rather than that the list is empty",
 		},
 		{
-			name:  "the archive",
+			name:  "the archive says a filter left nothing rather than that nothing is archived",
 			press: []string{"Z"},
 			idle:  "nothing archived",
 		},
 		{
-			name:  "the schedules",
+			name:  "the schedules say a filter left nothing rather than that there are none",
 			press: []string{"S"},
 			idle:  "no schedules yet",
 		},
+		{
+			name:  "the worktrees say a filter left nothing rather than that there are none",
+			press: []string{"t"},
+			idle:  "no worktrees",
+		},
 	}
 
-	for _, tt := range screens {
-		t.Run(tt.name+" say a filter left nothing rather than that the list is empty", func(t *testing.T) {
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			harness := newPanelHarness(t, panelHarnessParams{})
 			answerWorktreeReads(harness)
 			harness.watch(buildSnapshot(
@@ -390,6 +397,7 @@ func TestFilterScreens(t *testing.T) {
 				newAgent("a1", "auth", "w1"),
 				newArchivedAgent("a2", "old", "w1"),
 				newNamedSchedule("s1", "nightly"),
+				&worktreev1.WatchedWorktree{Dir: "/trees/auth", RepoDir: "/home/h/weave", Branch: "agent/auth", Readable: true},
 			))
 
 			harness.press(append(tt.press, "/", "tab", "z", "z", "z", "enter")...)
@@ -401,6 +409,26 @@ func TestFilterScreens(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestFilterWorktreeHeader covers a repository's header counting every worktree under it while a filter narrows them.
+func TestFilterWorktreeHeader(t *testing.T) {
+	harness := newPanelHarness(t, panelHarnessParams{})
+	harness.watch(buildSnapshot(
+		newLiveWorkflow("w1", "backend"),
+		&worktreev1.WatchedWorktree{Dir: "/trees/worktree-view", RepoDir: "/home/h/weave", Branch: "agent/worktree-view", Readable: true, SizeBytes: proto.Int64(1 << 20), MeasuredAt: proto.String(archivedAt)},
+		&worktreev1.WatchedWorktree{Dir: "/trees/other", RepoDir: "/home/h/weave", Branch: "agent/other", Readable: true, SizeBytes: proto.Int64(1 << 20), MeasuredAt: proto.String(archivedAt)},
+	))
+	harness.press("t")
+	header := splitLines(harness.readFrame())[5]
+	require.Contains(t, header, "2.0M")
+
+	harness.press(slices.Concat([]string{"/", "tab"}, typed("worktree-view"), []string{"enter"})...)
+
+	frame := harness.readFrame()
+	assert.NotContains(t, frame, "agent/other", "the filter took the other worktree away")
+	assert.Equal(t, header, splitLines(frame)[5], "and the header's size still reads the whole listing")
+	assert.Contains(t, frame, "2 worktrees", "as does its count")
 }
 
 func openFilterable(t *testing.T, from string, rows ...proto.Message) *panelHarness {
@@ -416,7 +444,7 @@ func openFilterable(t *testing.T, from string, rows ...proto.Message) *panelHarn
 	}, rows...)...)
 
 	harness.press("g", "g")
-	for range len(filterableRows) {
+	for range filterableRows {
 		if readHoveredRow(harness.readFrame()) == from {
 			return harness
 		}

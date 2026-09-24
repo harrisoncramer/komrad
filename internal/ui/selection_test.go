@@ -61,16 +61,6 @@ func withColor(t *testing.T) {
 	t.Helper()
 }
 
-func press(t *testing.T, m model, key tea.KeyPressMsg) model {
-	t.Helper()
-
-	next, _ := m.routeScreenMessage(key)
-	updated, ok := next.(model)
-	require.True(t, ok)
-
-	return updated
-}
-
 func archiveSelectionTree() model {
 	return model{
 		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),

@@ -129,6 +129,22 @@ func TestLogs(t *testing.T) {
 		assert.Contains(t, respawns[len(respawns)-1], first)
 	})
 
+	t.Run("a failed run nothing on disk carries opens the newest", func(t *testing.T) {
+		t.Parallel()
+
+		failed := newRunning()
+		failed.FailedRun = true
+		failed.FailedRunLog = proto.Int32(9)
+		harness, runs := openLogs(t, failed)
+		writeRun(t, runs, 1, config.TriggerProvision)
+		newest := writeRun(t, runs, 2, config.TriggerResume)
+
+		harness.press("l")
+
+		require.Len(t, harness.panel.ReadRespawns(), 1)
+		assert.Contains(t, harness.panel.ReadRespawns()[0], newest)
+	})
+
 	t.Run("the keys open nothing with no agent under the cursor", func(t *testing.T) {
 		t.Parallel()
 
@@ -178,22 +194,22 @@ func TestLogs(t *testing.T) {
 		assert.Empty(t, harness.panel.ReadRespawns())
 	})
 
-	screens := []struct {
+	tests := []struct {
 		name  string
 		press string
 	}{
 		{
-			name:  "the archive",
+			name:  "entering the archive closes the log pane",
 			press: "Z",
 		},
 		{
-			name:  "the search",
+			name:  "entering the search closes the log pane",
 			press: "s",
 		},
 	}
 
-	for _, tt := range screens {
-		t.Run("entering "+tt.name+" closes the log pane", func(t *testing.T) {
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
 			harness, _ := openLogs(t)

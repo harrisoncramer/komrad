@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"weave/config"
+	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	hookv1 "weave/proto/gen/hook/v1"
@@ -429,30 +430,30 @@ func TestFormsWorkflowHooks(t *testing.T) {
 func TestFormsLayout(t *testing.T) {
 	t.Parallel()
 
-	opens := []struct {
+	tests := []struct {
 		name  string
 		press []string
 		want  string
 	}{
 		{
-			name:  "a form",
+			name:  "a form takes the window beside the list",
 			press: []string{"w"},
 			want:  "New workflow name",
 		},
 		{
-			name:  "a confirmation",
+			name:  "a confirmation takes the window beside the list",
 			press: []string{"z"},
 			want:  `Archive agent "author"?`,
 		},
 		{
-			name:  "the rename form",
+			name:  "the rename form takes the window beside the list",
 			press: []string{"r"},
 			want:  `Rename "author" to`,
 		},
 	}
 
-	for _, tt := range opens {
-		t.Run(tt.name+" takes the window beside the list", func(t *testing.T) {
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
 			harness := openForms(t, newFormWorkflow(), newLiveAuthor())
@@ -573,12 +574,9 @@ func openHookForm(t *testing.T, hooks []*workflowv1.WorkflowHook, available ...s
 	workflow.Hooks = hooks
 	harness := openForms(t, workflow)
 	harness.answer(hookv1connect.HookServiceListHooksProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
-		listed := &hookv1.ListHooksResponse{}
-		for _, name := range available {
-			listed.Hooks = append(listed.Hooks, &hookv1.Hook{Name: name, Executable: true})
-		}
-
-		return connect.NewResponse(listed), nil
+		return connect.NewResponse(&hookv1.ListHooksResponse{Hooks: xslice.Map(available, func(name string) *hookv1.Hook {
+			return &hookv1.Hook{Name: name, Executable: true}
+		})}), nil
 	})
 
 	harness.press("e")
@@ -597,12 +595,9 @@ func assertSentHooks(t *testing.T, harness *panelHarness, want []*workflowv1.Wor
 }
 
 func asRequests(procedure string, msgs []proto.Message) []request {
-	var requests []request
-	for _, msg := range msgs {
-		requests = append(requests, request{procedure: procedure, msg: msg})
-	}
-
-	return requests
+	return xslice.Map(msgs, func(msg proto.Message) request {
+		return request{procedure: procedure, msg: msg}
+	})
 }
 
 func newFormWorkflow() *workflowv1.Workflow {

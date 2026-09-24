@@ -1,6 +1,7 @@
 package ui_test
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -22,35 +23,10 @@ import (
 
 const crowdedCount = 40
 
-var listScreens = []struct {
+type listScreen struct {
 	name  string
 	press []string
 	title string
-}{
-	{
-		name:  "the agents tree",
-		title: "Agents & Workflows",
-	},
-	{
-		name:  "the archive",
-		press: []string{"Z"},
-		title: "Archive",
-	},
-	{
-		name:  "the schedules",
-		press: []string{"S"},
-		title: "Schedules",
-	},
-	{
-		name:  "the search",
-		press: []string{"s"},
-		title: "Search",
-	},
-	{
-		name:  "the worktrees",
-		press: []string{"t"},
-		title: "Worktrees",
-	},
 }
 
 // TestScreensStage covers what the panel shows beside the hovered row and how much of the window it holds.
@@ -170,10 +146,27 @@ func TestScreensStage(t *testing.T) {
 	})
 }
 
-// TestScreensFit covers every list screen fitting its chrome and its hovered row into the pane.
-func TestScreensFit(t *testing.T) {
-	for _, tt := range listScreens[:3] {
-		t.Run(tt.name+" fits its title, hovered row and whole legend", func(t *testing.T) {
+// TestScreensFitTheLegend covers a list screen fitting its title, its hovered row and its whole legend into the pane.
+func TestScreensFitTheLegend(t *testing.T) {
+	tests := []listScreen{
+		{
+			name:  "the agents tree",
+			title: "Agents & Workflows",
+		},
+		{
+			name:  "the archive",
+			press: []string{"Z"},
+			title: "Archive",
+		},
+		{
+			name:  "the schedules",
+			press: []string{"S"},
+			title: "Schedules",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			harness := openCrowded(t, panelHarnessParams{width: 80, height: 29})
 
 			harness.press(slices.Concat(tt.press, widenListPresses, []string{"G", "?"})...)
@@ -185,8 +178,11 @@ func TestScreensFit(t *testing.T) {
 			assert.Contains(t, readHoveredLine(frame), "agent39", "the hovered row is on screen")
 		})
 	}
+}
 
-	prompts := []struct {
+// TestScreensPromptSitsUnderTheTitle covers the prompt set in the same column as the title above it.
+func TestScreensPromptSitsUnderTheTitle(t *testing.T) {
+	tests := []struct {
 		name  string
 		press []string
 		want  string
@@ -213,8 +209,8 @@ func TestScreensFit(t *testing.T) {
 		},
 	}
 
-	for _, tt := range prompts {
-		t.Run(tt.name+" sets its prompt under the title", func(t *testing.T) {
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			harness := openCrowded(t, panelHarnessParams{width: 80, height: 29})
 
 			harness.press(tt.press...)
@@ -222,8 +218,11 @@ func TestScreensFit(t *testing.T) {
 			assert.True(t, strings.HasPrefix(splitLines(harness.readFrame())[2], tt.want))
 		})
 	}
+}
 
-	records := []struct {
+// TestScreensRecordGivesWay covers the record standing down at the height it would leave the list no row.
+func TestScreensRecordGivesWay(t *testing.T) {
+	tests := []struct {
 		name  string
 		press []string
 		fills int
@@ -244,8 +243,8 @@ func TestScreensFit(t *testing.T) {
 		},
 	}
 
-	for _, tt := range records {
-		t.Run(tt.name+" gives the record's rows up to the list", func(t *testing.T) {
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			harness := openCrowded(t, panelHarnessParams{width: 80, height: 40})
 			harness.press(append(tt.press, "G")...)
 
@@ -268,7 +267,7 @@ func TestScreensFitATightPane(t *testing.T) {
 
 	const fitsFrom, tall = 5, 40
 
-	states := []struct {
+	tests := []struct {
 		name  string
 		width int
 		press []string
@@ -319,30 +318,30 @@ func TestScreensFitATightPane(t *testing.T) {
 		},
 	}
 
-	for _, state := range states {
-		for _, screen := range listScreens {
-			if screen.title == "Search" && state.press != nil {
-				continue
-			}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-			t.Run(state.name+" on "+screen.name, func(t *testing.T) {
-				t.Parallel()
+			for _, screen := range buildListScreens() {
+				if screen.title == "Search" && tt.press != nil {
+					continue
+				}
 
-				harness := openCrowded(t, panelHarnessParams{width: state.width, height: tall})
-				harness.refuse(agentv1connect.AgentServiceResumeAgentProcedure, connect.NewError(connect.CodeNotFound, fmt.Errorf("no such agent")))
-				harness.press(append(append(screen.press, "G"), state.press...)...)
+				harness := openCrowded(t, panelHarnessParams{width: tt.width, height: tall})
+				harness.refuse(agentv1connect.AgentServiceResumeAgentProcedure, connect.NewError(connect.CodeNotFound, errors.New("no such agent")))
+				harness.press(slices.Concat(screen.press, []string{"G"}, tt.press)...)
 
 				for height := fitsFrom; height <= tall; height++ {
-					resize(harness, state.width, height)
+					resize(harness, tt.width, height)
 					frame := harness.readFrame()
 
-					assert.Len(t, splitLines(frame), height, "a pane %d lines tall", height)
+					assert.Len(t, splitLines(frame), height, "%s in a pane %d lines tall", screen.name, height)
 					if height > fitsFrom && screen.title != "Search" {
-						assert.NotEmpty(t, readHoveredLine(frame), "the hovered row is on screen in a pane %d lines tall", height)
+						assert.NotEmpty(t, readHoveredLine(frame), "%s keeps the hovered row on screen in a pane %d lines tall", screen.name, height)
 					}
 				}
-			})
-		}
+			}
+		})
 	}
 }
 
@@ -352,27 +351,28 @@ func TestScreensOutgrowNoPane(t *testing.T) {
 
 	widths := []int{38, 39, 40, 41, 42, 44, 46, 50, 60, 80, 120, 200}
 
-	for _, screen := range listScreens {
-		for _, width := range widths {
-			for _, height := range []int{28, 60} {
-				t.Run(fmt.Sprintf("%s at %dx%d", screen.name, width, height), func(t *testing.T) {
-					t.Parallel()
+	tests := buildListScreens()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
+			for _, width := range widths {
+				for _, height := range []int{28, 60} {
 					harness := openLongNamed(t, panelHarnessParams{width: width, height: height})
-					harness.press(screen.press...)
+					harness.press(tt.press...)
 
 					for range 2 {
 						frame := harness.readFrame()
-						assert.LessOrEqual(t, len(splitLines(frame)), height, "taller than the pane")
+						assert.LessOrEqual(t, len(splitLines(frame)), height, "taller than a %dx%d pane", width, height)
 						for i, line := range splitLines(frame) {
-							assert.LessOrEqual(t, ansi.StringWidth(line), width, "row %d is wider than the pane: %q", i, line)
+							assert.LessOrEqual(t, ansi.StringWidth(line), width, "row %d is wider than a %dx%d pane: %q", i, width, height, line)
 						}
 
 						harness.press("?")
 					}
-				})
+				}
 			}
-		}
+		})
 	}
 }
 
@@ -399,14 +399,15 @@ func TestScreensCutLongNames(t *testing.T) {
 
 // TestScreensSurviveAListing covers a listing landing on each screen the listing feeds.
 func TestScreensSurviveAListing(t *testing.T) {
-	for _, screen := range listScreens {
-		t.Run(screen.name, func(t *testing.T) {
+	tests := buildListScreens()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			harness := openCrowded(t, panelHarnessParams{width: 200})
-			harness.press(screen.press...)
+			harness.press(tt.press...)
 
 			harness.watch(buildCrowdedSnapshot(""))
 
-			assert.Contains(t, splitLines(harness.readFrame())[0], screen.title, "the screen stays where it was")
+			assert.Contains(t, splitLines(harness.readFrame())[0], tt.title, "the screen stays where it was")
 		})
 	}
 }
@@ -523,4 +524,33 @@ func findRowWith(t *testing.T, frame, want string) string {
 	require.Failf(t, "no row carries the text", "%q", want)
 
 	return ""
+}
+
+func buildListScreens() []listScreen {
+	return []listScreen{
+		{
+			name:  "the agents tree",
+			title: "Agents & Workflows",
+		},
+		{
+			name:  "the archive",
+			press: []string{"Z"},
+			title: "Archive",
+		},
+		{
+			name:  "the schedules",
+			press: []string{"S"},
+			title: "Schedules",
+		},
+		{
+			name:  "the search",
+			press: []string{"s"},
+			title: "Search",
+		},
+		{
+			name:  "the worktrees",
+			press: []string{"t"},
+			title: "Worktrees",
+		},
+	}
 }
