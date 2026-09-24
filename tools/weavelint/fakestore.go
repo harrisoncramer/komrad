@@ -45,7 +45,7 @@ func newFakeStore(settings config.FakeStoreConfig) (*analysis.Analyzer, error) {
 	}, nil
 }
 
-// reportFakeStores reports every method in a test file that a store package it takes or returns a type of declares on one of its own types.
+// reportFakeStores reports every method in a test file whose signature is a store method's and names a store type.
 func reportFakeStores(pass *analysis.Pass, file *ast.File) {
 	for _, decl := range file.Decls {
 		function, ok := decl.(*ast.FuncDecl)
