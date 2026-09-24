@@ -319,8 +319,7 @@ func (m model) detailsFilterRows() []filterRow {
 	})
 }
 
-// moveDetailsCursor steps the field cursor, and an up press on the first field walks back out
-// into the list.
+// moveDetailsCursor steps the field cursor.
 func (m model) moveDetailsCursor(pressed string) (tea.Model, tea.Cmd) {
 	held := m.hoveredDetails()
 	cursor := m.detailsCursor(held)
