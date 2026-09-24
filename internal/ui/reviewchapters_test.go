@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// chapterRounds is the shape the chapter tests share: rounds one to three, all off one base.
 func chapterRounds() []*agentv1.ReviewRound {
 	return []*agentv1.ReviewRound{
 		{
@@ -46,8 +45,7 @@ func releasedAgainst(ordinal int32, roundID, at string) *agentv1.Review {
 	}
 }
 
-// TestChapterFilterCutsLaterReplies covers a thread from an earlier round carrying replies
-// written after that round closed, which read as though they had been said about its code.
+// TestChapterFilterCutsLaterReplies covers an earlier round's thread keeping only what was said while that round stood.
 func TestChapterFilterCutsLaterReplies(t *testing.T) {
 	rounds := []*agentv1.ReviewRound{
 		{
@@ -134,9 +132,7 @@ func TestChapterFilterCutsLaterReplies(t *testing.T) {
 	assert.Len(t, whole[0].GetMessages(), 4, "the whole change carries the whole conversation")
 }
 
-// TestTheNewestChapterHidesNothing covers a diff pinned to a round the agent has already moved
-// past: the chapter that ends where the reader is looking must not be closed by a round they
-// cannot see, or their own newest comments are cut out of the only view that draws them.
+// TestTheNewestChapterHidesNothing covers the chapter the reader stands on closing at nothing.
 func TestTheNewestChapterHidesNothing(t *testing.T) {
 	rounds := chapterRounds()
 	reviews := []*agentv1.Review{releasedAgainst(1, "r1", "2026-09-08T13:30:00-04:00")}
@@ -151,9 +147,7 @@ func TestTheNewestChapterHidesNothing(t *testing.T) {
 	assert.Empty(t, chapters[1].Until, "the chapter the reader is standing on closes at nothing")
 }
 
-// TestAMessageWithAnUnreadableStampIsKept covers a stamp that will not parse: hiding the comment
-// leaves a thread drawn with no text and no way to find out why, so an unreadable stamp has to
-// mean show it.
+// TestAMessageWithAnUnreadableStampIsKept covers a message whose stamp will not parse being drawn rather than hidden.
 func TestAMessageWithAnUnreadableStampIsKept(t *testing.T) {
 	chapters := []reviewChapter{{
 		ToSHA:   "s1",

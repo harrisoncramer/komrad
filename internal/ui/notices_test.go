@@ -427,8 +427,7 @@ func noticeTexts(notices []notice) []string {
 	return said
 }
 
-// TestReviewStateNoticesSayWhoseTurnItIs covers the eight the record spells out, one per state
-// the column draws away from its baseline, each saying whose move is next.
+// TestReviewStateNoticesSayWhoseTurnItIs covers the record saying whose move is next in each review state.
 func TestReviewStateNoticesSayWhoseTurnItIs(t *testing.T) {
 	tests := []struct {
 		name string
@@ -486,8 +485,7 @@ func TestReviewStateNoticesSayWhoseTurnItIs(t *testing.T) {
 	}
 }
 
-// TestReviewStateNoticesLeaveNeverReviewedSilent pins the one baseline the record may leave
-// unsaid, and that a comment without a conclusion is no review at all.
+// TestReviewStateNoticesLeaveNeverReviewedSilent covers the review states the record leaves unsaid.
 func TestReviewStateNoticesLeaveNeverReviewedSilent(t *testing.T) {
 	assert.Empty(t, agentNotices(noticeRow(panel.AgentRow{})))
 	assert.Empty(t, agentNotices(noticeRow(panel.AgentRow{LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED})),

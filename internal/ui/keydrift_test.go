@@ -192,8 +192,7 @@ func driftModel(t *testing.T, s screen) model {
 func driftReviewModel(t *testing.T) model {
 	t.Helper()
 
-	dir := reviewRepo(t)
-	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m, _ := buildReviewModel(t, &fakeReviewAgents{})
 	m = openReview(t, m)
 
 	api := driftAPI()
