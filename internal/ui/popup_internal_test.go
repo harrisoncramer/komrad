@@ -15,10 +15,17 @@ func (t *bindingTmux) SetGlobal(name, value string) {
 	t.globals[name] = value
 }
 
-func (t *bindingTmux) ShowGlobal(name string) string           { return t.globals[name] }
-func (t *bindingTmux) GetSessionClient(string) string          { return "" }
+func (t *bindingTmux) ShowGlobal(name string) string {
+	return t.globals[name]
+}
+
+func (t *bindingTmux) GetSessionClient(string) string {
+	return ""
+}
+
 func (t *bindingTmux) SetSessionOption(string, string, string) {}
-func (t *bindingTmux) DetachSession(string)                    {}
+
+func (t *bindingTmux) DetachSession(string) {}
 
 func (t *bindingTmux) BindKey(key string, command ...string) {
 	if t.bound == nil {

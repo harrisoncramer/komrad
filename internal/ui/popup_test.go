@@ -253,36 +253,6 @@ func TestPopupFocusKey(t *testing.T) {
 	})
 }
 
-func openFocus(t *testing.T) *panelHarness {
-	t.Helper()
-
-	harness := newPanelHarness(t, panelHarnessParams{})
-	answerWorktreeReads(harness)
-	harness.watch(buildSnapshot(buildFocusRows()...))
-
-	return harness
-}
-
-func buildFocusRows() []proto.Message {
-	return []proto.Message{newLiveWorkflow("w1", "backend"), newFocusAgent("a1", "%9")}
-}
-
-func newFocusAgent(id, pane string) *agentv1.Agent {
-	agent := newAgentAt(id, "w1", 30)
-	agent.PaneId = pane
-	agent.Alive = proto.Bool(true)
-
-	return agent
-}
-
-func assertFocusKeyGivenBack(t *testing.T, harness *panelHarness, given int) {
-	t.Helper()
-
-	_, bound := harness.panel.ReadRootBinding(ui.FocusKey)
-	assert.False(t, bound)
-	assert.Equal(t, []string{ui.FocusKey}, harness.panel.ReadRootUnbinds()[given:], "given back once")
-}
-
 func (t *bindRecorder) SetGlobal(name, value string) {
 	if t.globals == nil {
 		t.globals = map[string]string{}
@@ -342,6 +312,36 @@ func (t *bindRecorder) GetPrefixKeys() (map[string]string, error) {
 	}
 
 	return table, nil
+}
+
+func openFocus(t *testing.T) *panelHarness {
+	t.Helper()
+
+	harness := newPanelHarness(t, panelHarnessParams{})
+	answerWorktreeReads(harness)
+	harness.watch(buildSnapshot(buildFocusRows()...))
+
+	return harness
+}
+
+func buildFocusRows() []proto.Message {
+	return []proto.Message{newLiveWorkflow("w1", "backend"), newFocusAgent("a1", "%9")}
+}
+
+func newFocusAgent(id, pane string) *agentv1.Agent {
+	agent := newAgentAt(id, "w1", 30)
+	agent.PaneId = pane
+	agent.Alive = proto.Bool(true)
+
+	return agent
+}
+
+func assertFocusKeyGivenBack(t *testing.T, harness *panelHarness, given int) {
+	t.Helper()
+
+	_, bound := harness.panel.ReadRootBinding(ui.FocusKey)
+	assert.False(t, bound)
+	assert.Equal(t, []string{ui.FocusKey}, harness.panel.ReadRootUnbinds()[given:], "given back once")
 }
 
 func printBinding(command []string) string {

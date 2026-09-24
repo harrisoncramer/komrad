@@ -19,17 +19,22 @@ func infoModel(tmux *recordingTmux) model {
 		keys:          config.DefaultKeybindings(),
 		screen:        screenAgents,
 		detailsHeight: config.DefaultDetailsHeight,
-		listing: listing{workflows: []panel.Workflow{{
-			ID:       "w1",
-			Name:     "backend",
-			Worktree: panel.WorktreeConfig{Enabled: true},
-		}}, agents: []panel.AgentRow{
-			{Agent: panel.Agent{
-				Name:       "auth",
-				Pane:       "%9",
-				Cwd:        "/repo",
-				WorkflowID: "w1",
-			}, Alive: true},
-		}}, agents: agentsScreen{rowCursor: rowCursor{cursor: 1}},
+		listing: listing{
+			workflows: []panel.Workflow{{
+				ID:       "w1",
+				Name:     "backend",
+				Worktree: panel.WorktreeConfig{Enabled: true},
+			}},
+			agents: []panel.AgentRow{{
+				Agent: panel.Agent{
+					Name:       "auth",
+					Pane:       "%9",
+					Cwd:        "/repo",
+					WorkflowID: "w1",
+				},
+				Alive: true,
+			}},
+		},
+		agents: agentsScreen{rowCursor: rowCursor{cursor: 1}},
 	}
 }

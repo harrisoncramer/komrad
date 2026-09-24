@@ -49,6 +49,7 @@ func TestTabStrip(t *testing.T) {
 			harness.press(tt.press...)
 
 			sidebar := readSidebar(harness.readFrame())
+			require.GreaterOrEqual(t, len(sidebar), 5)
 			assert.Contains(t, sidebar[2], "/")
 			assert.Contains(t, sidebar[3], "f")
 			assert.Empty(t, sidebar[4], "one blank row stands before the list")
@@ -221,7 +222,7 @@ func requireFrameGolden(t *testing.T, name, got string) {
 	t.Helper()
 
 	path := filepath.Join("testdata", name+".golden")
-	if ui.UpdateGoldens() {
+	if ui.ShouldUpdateGoldens() {
 		require.NoError(t, os.WriteFile(path, []byte(got), 0o600))
 
 		return

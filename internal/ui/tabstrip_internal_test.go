@@ -66,12 +66,12 @@ func TestTabStripView(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, groupedStripFixture().view(tt.state, paint.Panel, 0))
+			assert.Equal(t, tt.want, buildGroupedStrip().view(tt.state, paint.Panel, 0))
 		})
 	}
 
 	t.Run("a strip wider than the pane ends in an ellipsis", func(t *testing.T) {
-		drawn := groupedStripFixture().view(tabsState{}, paint.Panel, 12)
+		drawn := buildGroupedStrip().view(tabsState{}, paint.Panel, 12)
 
 		assert.Equal(t, 12, lipgloss.Width(drawn))
 		assert.True(t, strings.HasSuffix(ansi.Strip(drawn), "…"))
@@ -144,14 +144,14 @@ func TestTabStripStep(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			state := tt.from
 
-			groupedStripFixture().step(&state, tt.delta)
+			buildGroupedStrip().step(&state, tt.delta)
 
 			assert.Equal(t, tt.want, state)
 		})
 	}
 }
 
-func stripFixture() tabStrip {
+func buildStrip() tabStrip {
 	return tabStrip{
 		title:  "f",
 		legend: "sort",
@@ -164,8 +164,8 @@ func stripFixture() tabStrip {
 	}
 }
 
-func groupedStripFixture() tabStrip {
-	strip := stripFixture()
+func buildGroupedStrip() tabStrip {
+	strip := buildStrip()
 	strip.grouped = "repo"
 
 	return strip

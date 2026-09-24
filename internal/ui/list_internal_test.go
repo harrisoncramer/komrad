@@ -50,9 +50,9 @@ func TestListLines(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := model{height: tt.height}
+			panel := model{height: tt.height}
 
-			assert.Equal(t, tt.want, m.listLines(header, help))
+			assert.Equal(t, tt.want, panel.listLines(header, help))
 		})
 	}
 }

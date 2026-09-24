@@ -445,8 +445,8 @@ func (t *recordingTmux) RespawnPane(pane, dir string, argv ...string) {
 	t.respawnDirs = append(t.respawnDirs, dir)
 }
 
-// UpdateGoldens reports whether the suite was run to rewrite its golden files.
-func UpdateGoldens() bool {
+// ShouldUpdateGoldens reports whether the suite was run to rewrite its golden files.
+func ShouldUpdateGoldens() bool {
 	return *updateGoldens
 }
 

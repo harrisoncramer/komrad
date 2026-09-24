@@ -43,7 +43,7 @@ func TestTerminal(t *testing.T) {
 		harness.press("T")
 
 		assert.Len(t, harness.panel.ReadBelowAnchors(), 1, "the pane the logs were in is reused")
-		assert.Equal(t, []string{infoPane, infoPane}, harness.panel.ReadRespawnPanes())
+		require.Equal(t, []string{infoPane, infoPane}, harness.panel.ReadRespawnPanes())
 		assert.Equal(t, dir, harness.panel.ReadRespawnDirs()[1])
 	})
 
