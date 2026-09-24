@@ -1,1614 +1,889 @@
-package ui
+package ui_test
 
 import (
-	"context"
 	"fmt"
 	"strings"
 	"testing"
 	"time"
-	"unicode/utf8"
 
 	"weave/config"
-	"weave/internal/ui/panel"
-
-	"weave/internal/ui/layout"
 	"weave/internal/ui/paint"
-	"weave/internal/view"
-	"weave/lib/xptr"
 	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
-
-	"connectrpc.com/connect"
+	paginationv1 "weave/proto/gen/pagination/v1"
 
 	tea "charm.land/bubbletea/v2"
+	"connectrpc.com/connect"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 )
 
-// TestApplySearchResults confirms a response is shown only when it answers the
-// query the input still holds, so the list never shows hits for text the user
-// has already changed.
-func TestApplySearchResults(t *testing.T) {
+const (
+	searchTitle   = "Search"
+	queryCaret    = "▏"
+	matchedTurn   = "the reconcile loop is what settles this"
+	previewFiller = " and then a good deal more of it said in the same breath, going on for long " +
+		"enough that no column the panel draws holds the whole of it on one row"
+)
+
+type searchServer struct {
+	pages       map[string]*agentv1.SearchTranscriptsResponse
+	transcripts map[string]string
+}
+
+// TestSearchQuery covers the query line taking every key typed into it.
+func TestSearchQuery(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
-		name     string
-		query    string
-		msg      searchResult
-		wantHits int
+		name  string
+		press []string
+		want  string
 	}{
 		{
-			name:  "a response for a query the input has moved past",
-			query: "current",
-			msg: searchResult{
-				query: "stale",
-				hits:  hits("a", "b"),
-			},
-			wantHits: 0,
+			name:  "backspace on an empty query is harmless",
+			press: []string{"backspace"},
+			want:  "",
 		},
 		{
-			name:  "a response for the query on screen",
-			query: "current",
-			msg: searchResult{
-				query: "current",
-				hits:  hits("a", "b"),
-			},
-			wantHits: 2,
+			name:  "a multi-byte rune is dropped whole rather than half deleted",
+			press: []string{"a", "é", "backspace"},
+			want:  "a",
 		},
 		{
-			name:  "a query that matched nothing clears the list",
-			query: "current",
-			msg: searchResult{
-				query: "current",
-			},
-			wantHits: 0,
+			name:  "backspace drops the last character",
+			press: []string{"p", "o", "s", "t", "backspace"},
+			want:  "pos",
+		},
+		{
+			name:  "space is part of the query rather than a command",
+			press: []string{"p", "o", "space", "g", "r"},
+			want:  "po gr",
+		},
+		{
+			name:  "the nav keys are typed while the line holds them",
+			press: []string{"j", "k"},
+			want:  "jk",
+		},
+		{
+			name:  "the help key is typed rather than drawing the legend",
+			press: []string{"l", "e", "d", "g", "e", "r", "?"},
+			want:  "ledger?",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := model{
-				screen: screenSearch,
-				search: searchScreen{query: tt.query},
-				frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
-			}
+			t.Parallel()
 
-			m.search.apply(&m, m.shared(), tt.msg)
+			harness := openAgents(t)
+			harness.press("s")
 
-			assert.Len(t, m.search.turns, tt.wantHits)
+			harness.press(tt.press...)
+
+			assert.Equal(t, "/ "+tt.want+queryCaret, readSearch(harness.readFrame()))
 		})
 	}
 }
 
-// TestSearchResultsReachTheScreenThatIsUp pins that the search's own messages arrive through
-// the root's routing when the search is up, and go nowhere when another screen is.
-func TestSearchResultsReachTheScreenThatIsUp(t *testing.T) {
+// TestSearchResults covers what the hits the server answers with draw as.
+func TestSearchResults(t *testing.T) {
+	t.Parallel()
+
+	t.Run("a query that matched nothing draws no rows", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openSearch(t, &searchServer{}, "ledger", buildSearchable()...)
+
+		assert.Empty(t, readListRows(harness.readFrame()))
+	})
+
+	t.Run("emptying the query clears the hits without asking again", func(t *testing.T) {
+		t.Parallel()
+
+		server := newSearchServer(newTurnHit("a2", "payouts", "ledger"))
+		harness := openSearch(t, server, "led", buildSearchable()...)
+		require.NotEmpty(t, readListRows(harness.readFrame()))
+
+		harness.press("backspace", "backspace", "backspace")
+		harness.fireTimers()
+
+		assert.Empty(t, readListRows(harness.readFrame()))
+		assert.Len(t, harness.readSent(agentv1connect.AgentServiceSearchTranscriptsProcedure), 1)
+	})
+
+	t.Run("a search left before it settles is never sent", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openAgents(t, buildSearchable()...)
+		harness.press("s", "l", "e", "d", "esc")
+
+		harness.fireTimers()
+
+		assert.Contains(t, harness.readFrame(), agentsTitle)
+		harness.assertSentTo(agentv1connect.AgentServiceSearchTranscriptsProcedure)
+	})
+
+	t.Run("an agent is one row however many of its turns said the query", func(t *testing.T) {
+		t.Parallel()
+
+		server := newSearchServer(
+			newTurnHit("a1", "dispatcher", "first"),
+			newTurnHit("a2", "dispatcher", "second"),
+			newTurnHit("a1", "dispatcher", "third"),
+		)
+		harness := openSearch(t, server, "ledger")
+
+		assert.Equal(t, []string{
+			"dispatcher",
+			"#0 first",
+			"#0 third",
+			"dispatcher",
+			"#0 second",
+		}, readSearchRows(harness.readFrame()))
+	})
+
+	t.Run("the agents whose own name says the query stand first, live before archived", func(t *testing.T) {
+		t.Parallel()
+
+		rows := append(buildSearchable(), newArchivedAgent("a3", "billing-old", "w1"))
+		harness := openSearch(t, newSearchServer(newTurnHit("a2", "payouts", "bill")), "BILL", rows...)
+
+		frame := harness.readFrame()
+		assert.Equal(t, []string{
+			"billing",
+			"billing-old",
+			"payouts",
+			"#0 bill",
+		}, readSearchRows(frame))
+		assert.Contains(t, readHoveredRow(frame), "billing")
+	})
+
+	t.Run("an agent matched by its name and by a turn is one row carrying the turn", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openSearch(t, newSearchServer(newTurnHit("a1", "billing", "the billing ledger")), "billing", buildSearchable()...)
+
+		assert.Equal(t, []string{"billing", "#0 the billing ledger"}, readSearchRows(harness.readFrame()))
+	})
+
+	t.Run("more hits than the pane is tall are counted and the cursor still reaches the last", func(t *testing.T) {
+		t.Parallel()
+
+		var found []*agentv1.SearchHit
+		for i := range 20 {
+			found = append(found, newTurnHit(fmt.Sprintf("a%d", i), fmt.Sprintf("agent-%d", i), fmt.Sprintf("hit %d", i)))
+		}
+		harness := newPanelHarness(t, panelHarnessParams{height: 14})
+		newSearchServer(found...).serve(harness)
+		harness.watch(buildSnapshot())
+		harness.press("s")
+		typeText(harness, "agent")
+		harness.fireTimers()
+
+		assert.Contains(t, readSidebarProse(harness.readFrame()), "more")
+
+		harness.press("enter", "G")
+
+		assert.Contains(t, harness.readFrame(), "agent-19")
+	})
+}
+
+// TestSearchKeys covers what the hits answer once enter has closed the query line.
+func TestSearchKeys(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
-		name     string
-		screen   screen
-		wantHits int
+		name        string
+		press       []string
+		wantTitle   string
+		wantHovered string
+		wantTyping  bool
 	}{
 		{
-			name:     "on the search",
-			screen:   screenSearch,
-			wantHits: 2,
+			name:       "escape in the query line leaves the screen",
+			press:      []string{"esc"},
+			wantTitle:  agentsTitle,
+			wantTyping: false,
 		},
 		{
-			name:     "on the agents",
-			screen:   screenAgents,
-			wantHits: 0,
+			name:        "escape over the hits puts the keys back in the query line",
+			press:       []string{"enter", "esc"},
+			wantTitle:   searchTitle,
+			wantHovered: "alpha",
+			wantTyping:  true,
+		},
+		{
+			name:        "enter closes the line and leaves the query standing",
+			press:       []string{"enter"},
+			wantTitle:   searchTitle,
+			wantHovered: "alpha",
+		},
+		{
+			name:        "the nav keys run down the hits rather than typing",
+			press:       []string{"enter", "j", "j"},
+			wantTitle:   searchTitle,
+			wantHovered: "bravo",
+		},
+		{
+			name:        "the bottom key lands on the last turn",
+			press:       []string{"enter", "G"},
+			wantTitle:   searchTitle,
+			wantHovered: "#0 charlie",
+		},
+		{
+			name:        "the top key acts on its second press",
+			press:       []string{"enter", "G", "g", "g"},
+			wantTitle:   searchTitle,
+			wantHovered: "alpha",
+		},
+		{
+			name:        "the filter key puts the keys back in the query line and leaves the cursor",
+			press:       []string{"enter", "j", "/"},
+			wantTitle:   searchTitle,
+			wantHovered: "#0 alpha",
+			wantTyping:  true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := filterModel()
-			m.screen = tt.screen
-			m.search = searchScreen{query: "current"}
+			t.Parallel()
 
-			next, _ := m.route(searchResult{query: "current", hits: hits("a", "b")})
-			routed, ok := next.(model)
-			require.True(t, ok)
+			server := newSearchServer(
+				newTurnHit("a", "alpha", "alpha"),
+				newTurnHit("b", "bravo", "bravo"),
+				newTurnHit("c", "charlie", "charlie"),
+			)
+			harness := openSearch(t, server, "ledger")
 
-			assert.Len(t, routed.search.turns, tt.wantHits)
-		})
-	}
-}
+			harness.press(tt.press...)
 
-// TestUpdateSearchEditsQuery covers the keys that type into the query, avoiding the nav and
-// open keys, which stage a preview and so need tmux.
-func TestUpdateSearchEditsQuery(t *testing.T) {
-	tests := []struct {
-		name string
-		keys []tea.KeyPressMsg
-		want string
-	}{
-		{
-			name: "backspace on an empty query is harmless",
-			keys: []tea.KeyPressMsg{
-				keyMsg("backspace"),
-			},
-			want: "",
-		},
-		{
-			name: "printable runes accumulate",
-			keys: []tea.KeyPressMsg{
-				keyMsg("po"),
-				keyMsg("gr"),
-			},
-			want: "pogr",
-		},
-		{
-			name: "space is part of the query rather than a command",
-			keys: []tea.KeyPressMsg{
-				keyMsg("po"),
-				keyMsg("space"),
-				keyMsg("gr"),
-			},
-			want: "po gr",
-		},
-		{
-			name: "backspace drops the last character",
-			keys: []tea.KeyPressMsg{
-				keyMsg("post"),
-				keyMsg("backspace"),
-			},
-			want: "pos",
-		},
-		{
-			name: "the nav keys are part of the query while the line holds them",
-			keys: []tea.KeyPressMsg{
-				keyMsg("j"),
-				keyMsg("k"),
-			},
-			want: "jk",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			m := model{
-				screen: screenSearch,
-				keys:   config.DefaultKeybindings(),
-				search: searchScreen{typing: true},
-			}
-
-			for _, key := range tt.keys {
-				m.search.update(&m, m.shared(), key)
-			}
-
-			assert.Equal(t, tt.want, m.search.query)
-		})
-	}
-}
-
-// TestTrimLastRune pins that a backspace drops a whole rune rather than one byte of a
-// multi-byte one.
-func TestTrimLastRune(t *testing.T) {
-	tests := []struct {
-		name string
-		in   string
-		want string
-	}{
-		{
-			name: "an empty string",
-			in:   "",
-			want: "",
-		},
-		{
-			name: "a multi-byte rune is dropped whole rather than half-deleted",
-			in:   "aé",
-			want: "a",
-		},
-		{
-			name: "an ascii string",
-			in:   "abc",
-			want: "ab",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, paint.TrimLastRune(tt.in))
-		})
-	}
-}
-
-func marked(s string) string {
-	return paint.MarkOpen + s + paint.MarkClose
-}
-
-// TestMarkedTerms covers the words a highlight is looked for by, which are read back off the
-// snippet.
-func TestMarkedTerms(t *testing.T) {
-	tests := []struct {
-		name string
-		in   string
-		want []string
-	}{
-		{
-			name: "nothing marked names no word",
-			in:   "a turn that matched on a stem",
-		},
-		{
-			name: "every marked word is named once",
-			in:   "the " + marked("Sandbox") + " and the " + marked("sandbox") + " and " + marked("tenant"),
-			want: []string{"sandbox", "tenant"},
-		},
-		{
-			name: "a word with a capital outside ASCII keeps it, since the transcript is folded the same way",
-			in:   marked("Ökonomie"),
-			want: []string{"Ökonomie"},
-		},
-		{
-			name: "an unclosed mark is dropped",
-			in:   "the " + paint.MarkOpen + "sandbox",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, paint.MarkedTerms(tt.in))
-		})
-	}
-}
-
-// TestMatchSpans covers where the highlight goes, which the search index does not say: it
-// gives the turn and the words, so the words are found within the turn here.
-func TestMatchSpans(t *testing.T) {
-	const content = "a sandbox up top\n\nthe Sandbox tenant\nruns sandboxed\n\nsandbox down below"
-
-	turn := int64(strings.Index(content, "the Sandbox"))
-	turnLen := int64(len("the Sandbox tenant\nruns sandboxed"))
-
-	at := func(from int, word string) paint.Span {
-		i := from + strings.Index(content[from:], word)
-
-		return paint.Span{Start: i, End: i + len(word)}
-	}
-
-	tests := []struct {
-		name   string
-		offset int64
-		length int64
-		terms  []string
-		want   []paint.Span
-	}{
-		{
-			name:   "every spelling of the word within the turn is marked",
-			offset: turn,
-			length: turnLen,
-			terms:  []string{"sandbox"},
-			want:   []paint.Span{at(int(turn), "Sandbox"), at(strings.Index(content, "runs "), "sandbox")},
-		},
-		{
-			name:   "the turns around it are left alone",
-			offset: turn,
-			length: turnLen,
-			terms:  []string{"top"},
-		},
-		{
-			name:   "two of the words spelled over the same letters merge",
-			offset: turn,
-			length: turnLen,
-			terms:  []string{"sandbox", "sandboxed"},
-			want:   []paint.Span{at(int(turn), "Sandbox"), at(strings.Index(content, "runs "), "sandboxed")},
-		},
-		{
-			name:   "the word inside a longer word is left alone",
-			offset: turn,
-			length: turnLen,
-			terms:  []string{"and"},
-		},
-		{
-			name:   "no word to look for marks nothing",
-			offset: turn,
-			length: turnLen,
-		},
-		{
-			name:   "a turn past the end of the transcript marks nothing",
-			offset: int64(len(content) + 1),
-			length: turnLen,
-			terms:  []string{"sandbox"},
-		},
-		{
-			name:   "a turn running past the end stops at it",
-			offset: turn,
-			length: turnLen * 4,
-			terms:  []string{"tenant", "down"},
-			want:   []paint.Span{at(int(turn), "tenant"), at(int(turn), "down")},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, paint.MatchSpans(content, tt.offset, tt.length, tt.terms))
-		})
-	}
-}
-
-// TestMatchSpansMarksWholeWords pins the front of the match being a word boundary, which is
-// what the listing's own snippet marks, with the punctuation these transcripts are written
-// with reaching well past ASCII.
-func TestMatchSpansMarksWholeWords(t *testing.T) {
-	tests := []struct {
-		name    string
-		content string
-		want    bool
-	}{
-		{
-			name:    "a word of its own is marked",
-			content: "the sandbox here",
-			want:    true,
-		},
-		{
-			name:    "a curly quote in front of it is not part of the word",
-			content: "he said \u201csandbox\u201d once",
-			want:    true,
-		},
-		{
-			name:    "an em dash in front of it is not part of the word",
-			content: "the thing\u2014sandbox\u2014here",
-			want:    true,
-		},
-		{
-			name:    "a letter outside ASCII in front of it is part of the word",
-			content: "the Gr\u00fcnsandbox here",
-		},
-		{
-			name:    "a letter in front of it is part of the word",
-			content: "the presandbox here",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			spans := paint.MatchSpans(tt.content, 0, int64(len(tt.content)), []string{"sandbox"})
-
-			if !tt.want {
-				assert.Empty(t, spans, "the word is only spelled inside a longer one")
-
+			frame := harness.readFrame()
+			assert.Contains(t, frame, tt.wantTitle)
+			if tt.wantTitle != searchTitle {
 				return
 			}
-
-			word := strings.Index(tt.content, "sandbox")
-			assert.Equal(t, []paint.Span{{Start: word, End: word + len("sandbox")}}, spans)
+			assert.Equal(t, tt.wantHovered, readHoveredSearchRow(frame))
+			assert.Equal(t, tt.wantTyping, strings.HasSuffix(readSearch(frame), queryCaret))
+			assert.Contains(t, readSearch(frame), "ledger")
 		})
 	}
+
+	t.Run("escape over an empty result puts the keys back in the query line", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openSearch(t, &searchServer{}, "ledger")
+
+		harness.press("enter", "esc")
+
+		assert.Equal(t, "/ ledger"+queryCaret, readSearch(harness.readFrame()))
+	})
+
+	t.Run("the step off a name hit lands on the conversation below it", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openSearch(t, newSearchServer(newTurnHit("a2", "payouts", "bill")), "bill", buildSearchable()...)
+
+		harness.press("enter", "j")
+
+		assert.Equal(t, "payouts", readHoveredSearchRow(harness.readFrame()))
+	})
 }
 
-// TestMatchSpansFoldsLikeTheTermsDo pins the two sides of the search being folded the same way:
-// a word the snippet marks with a capital outside ASCII is still found in the transcript, which
-// a Unicode fold on one side only would miss.
-func TestMatchSpansFoldsLikeTheTermsDo(t *testing.T) {
-	const content = "the Ökonomie report"
+// TestSearchLiveRow covers a live agent's hit drawing as the agents list draws it.
+func TestSearchLiveRow(t *testing.T) {
+	t.Parallel()
 
-	terms := paint.MarkedTerms("the " + marked("Ökonomie") + " report")
-	word := strings.Index(content, "Ökonomie")
+	live := newAgent("a1", "billing", "w1")
+	live.State = agentv1.AgentState_AGENT_STATE_WAITING
+	live.Alive = proto.Bool(true)
+	live.Hidden = true
+	live.HeldAt = "2026-09-20T12:00:00Z"
+	live.ScheduleId = proto.String("s1")
+	rows := []proto.Message{
+		newLiveWorkflow("w1", "core"),
+		live,
+		newMark("a", "a1"),
+		newUnreadMail("a1"),
+	}
+	harness := openSearch(t, newSearchServer(newTurnHit("a1", "billing", "first")), "ledger", rows...)
+	searched := findRow(readListRows(harness.readFrame()), "billing")
 
-	assert.Equal(t, []paint.Span{{Start: word, End: word + len("Ökonomie")}},
-		paint.MatchSpans(content, 0, int64(len(content)), terms))
+	harness.press("esc", "H")
+
+	assert.Equal(t, strings.TrimSpace(findRow(readListRows(harness.readFrame()), "billing")), searched)
 }
 
-// TestHitSpansCoverTheHoveredTurn covers the turn a highlight is measured from, which is the turn
-// the hit names and not the whole transcript.
-func TestHitSpansCoverTheHoveredTurn(t *testing.T) {
-	const content = "alpha reconcile one\n\nbeta reconcile two\n"
-
-	second := int64(strings.Index(content, "beta"))
-	word := strings.Index(content[second:], "reconcile") + int(second)
+// TestSearchArchivedRow covers an archived agent's hit drawing as the archive draws it.
+func TestSearchArchivedRow(t *testing.T) {
+	t.Parallel()
 
 	tests := []struct {
-		name   string
-		offset int64
-		want   []paint.Span
+		name  string
+		state agentv1.AgentState
 	}{
 		{
-			name:   "an offset past the end marks nothing",
-			offset: int64(len(content) + 1),
+			name:  "an idle archived agent",
+			state: agentv1.AgentState_AGENT_STATE_IDLE,
 		},
 		{
-			name:   "an offset below zero marks nothing",
-			offset: -1,
+			name:  "an archived agent that never started",
+			state: agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE,
 		},
 		{
-			name:   "the hit's own turn is marked",
-			offset: second,
-			want:   []paint.Span{{Start: word, End: word + len("reconcile")}},
+			name:  "an archived agent a delete could not destroy",
+			state: agentv1.AgentState_AGENT_STATE_FAILED_TO_CLEANUP,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			hit := searchHit{
-				agentID: "a1",
-				offset:  tt.offset,
-				length:  int64(len("beta reconcile two")),
-				snippet: marked("reconcile"),
-			}
+			t.Parallel()
 
-			assert.Equal(t, tt.want, hit.spans(content))
+			archived := newArchivedAgent("a2", "payouts", "w1")
+			archived.State = tt.state
+			hit := newTurnHit("a2", "payouts", "second")
+			hit.Archived = true
+			harness := openSearch(t, newSearchServer(hit), "ledger", newLiveWorkflow("w1", "core"), archived)
+			searched := findRow(readListRows(harness.readFrame()), "payouts")
+
+			harness.press("esc", "Z")
+
+			assert.Equal(t, strings.TrimSpace(findRow(readListRows(harness.readFrame()), "payouts")), searched)
 		})
 	}
 }
 
-// TestAgentSpansCoverEveryTurn covers an agent whose conversation said the query more than once:
-// every turn is marked, in the order the transcript reads rather than the order the search ranked
-// them.
-func TestAgentSpansCoverEveryTurn(t *testing.T) {
-	const content = "alpha reconcile one\n\nbeta reconcile two\n"
+// TestSearchUnknownRow covers a hit on an agent the panel cannot read, which draws the quiet bar where every row opens its name.
+func TestSearchUnknownRow(t *testing.T) {
+	t.Parallel()
 
-	first := strings.Index(content, "reconcile")
-	second := strings.LastIndex(content, "reconcile")
-	turnAt := int64(strings.Index(content, "beta"))
-
-	agent := searchAgent{
-		id: "a1",
-		turns: []searchHit{
-			{
-				agentID: "a1",
-				offset:  turnAt,
-				length:  int64(len("beta reconcile two")),
-				snippet: marked("reconcile"),
+	tests := []struct {
+		name string
+		rows []proto.Message
+		hit  *agentv1.SearchHit
+	}{
+		{
+			name: "a hit named before the listing has landed",
+			hit:  newTurnHit("gone", "billing", "first"),
+		},
+		{
+			name: "an archived hit the panel holds no row for",
+			hit: &agentv1.SearchHit{
+				AgentId:  "a2",
+				Name:     "billing",
+				Archived: true,
+				Snippet:  "first",
 			},
-			{
-				agentID: "a1",
-				offset:  0,
-				length:  int64(len("alpha reconcile one")),
-				snippet: marked("reconcile"),
+		},
+		{
+			name: "an archived hit whose row carries no stamp",
+			rows: []proto.Message{newLiveWorkflow("w1", "core"), newAgent("a2", "billing", "w1")},
+			hit: &agentv1.SearchHit{
+				AgentId:  "a2",
+				Name:     "billing",
+				Archived: true,
+				Snippet:  "first",
 			},
 		},
 	}
 
-	assert.Equal(t, []paint.Span{
-		{Start: first, End: first + len("reconcile")},
-		{Start: second, End: second + len("reconcile")},
-	}, agent.spans(content))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			harness := openSearch(t, newSearchServer(tt.hit), "ledger", tt.rows...)
+
+			assert.Equal(t, "billing", strings.TrimPrefix(findRow(readListRows(harness.readFrame()), "billing"), "  "))
+			assert.Contains(t, readSidebar(harness.readFrame()), "›   │ billing")
+		})
+	}
 }
 
-func hits(names ...string) []searchHit {
-	out := xslice.Map(names, func(name string) searchHit {
-		return searchHit{
-			agentID: name,
-			name:    name,
-			snippet: name,
+// TestSearchJump covers enter going to where the conversation already is, without resuming or restoring it.
+func TestSearchJump(t *testing.T) {
+	t.Parallel()
+
+	hiddenPayouts := newPanedAgent("a2", "payouts", "%2")
+	hiddenPayouts.Hidden = true
+
+	archived := newTurnHit("a3", "old-work", "two")
+	archived.Archived = true
+
+	tests := []struct {
+		name        string
+		rows        []proto.Message
+		query       string
+		hit         *agentv1.SearchHit
+		wantTitle   string
+		wantHovered string
+		wantDrawn   string
+		wantZoomed  bool
+	}{
+		{
+			name:      "a hit the panel holds no row for leaves the cursor alone",
+			rows:      buildSearchable(),
+			query:     "ledger",
+			hit:       newTurnHit("gone", "gone", "two"),
+			wantTitle: agentsTitle,
+		},
+		{
+			name:        "a live hit lands on its row in the tree and gives the panes the window back",
+			rows:        buildSearchable(),
+			query:       "ledger",
+			hit:         newTurnHit("a2", "payouts", "two"),
+			wantTitle:   agentsTitle,
+			wantHovered: "payouts",
+		},
+		{
+			name:        "a hidden hit draws the hidden agents so its row exists",
+			rows:        []proto.Message{newLiveWorkflow("w1", "core"), newPanedAgent("a1", "billing", "%1"), hiddenPayouts},
+			query:       "ledger",
+			hit:         newTurnHit("a2", "payouts", "two"),
+			wantTitle:   agentsTitle,
+			wantHovered: "payouts",
+		},
+		{
+			name:        "an archived hit lands in the archive, which keeps the window for its own record",
+			rows:        append(buildSearchable(), newArchivedAgent("a3", "old-work", "w1")),
+			query:       "ledger",
+			hit:         archived,
+			wantTitle:   archiveTitle,
+			wantHovered: "old-work",
+			wantDrawn:   "kept until deleted",
+			wantZoomed:  true,
+		},
+		{
+			name:        "a name hit goes to the agent the same way",
+			rows:        buildSearchable(),
+			query:       "payout",
+			wantTitle:   agentsTitle,
+			wantHovered: "payouts",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			server := &searchServer{}
+			if tt.hit != nil {
+				server = newSearchServer(tt.hit)
+			}
+			harness := newPanelHarness(t, panelHarnessParams{})
+			answerWorktreeReads(harness)
+			server.serve(harness)
+			harness.watch(buildSnapshot(tt.rows...))
+			before := readHoveredRow(harness.readFrame())
+			searchFor(harness, tt.query)
+
+			harness.press("enter", "enter")
+
+			frame := harness.readFrame()
+			assert.Contains(t, frame, tt.wantTitle)
+			if tt.wantHovered == "" {
+				assert.Equal(t, before, readHoveredRow(frame))
+			}
+			assert.Contains(t, readHoveredRow(frame), tt.wantHovered)
+			assert.Contains(t, frame, tt.wantDrawn)
+			assert.Equal(t, tt.wantZoomed, harness.panel.IsZoomed())
+			harness.assertSentTo(agentv1connect.AgentServiceRestoreAgentsProcedure)
+			harness.assertSentTo(agentv1connect.AgentServiceResumeAgentProcedure)
+		})
+	}
+}
+
+// TestSearchCursor covers the cursor keeping its row as the listings the name hits are read off change.
+func TestSearchCursor(t *testing.T) {
+	t.Parallel()
+
+	t.Run("an agent whose name says the query joining the listing leaves the cursor and its preview", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openSearch(t, newSearchServer(newTurnHit("a2", "payouts", "bill")), "bill", buildSearchable()...)
+		harness.press("enter", "j")
+		previews := len(harness.readSent(agentv1connect.AgentServiceGetTranscriptProcedure))
+
+		harness.watch(buildPuts(newAgent("a4", "billing-two", "w1")))
+
+		assert.Equal(t, "payouts", readHoveredSearchRow(harness.readFrame()))
+		assert.Len(t, harness.readSent(agentv1connect.AgentServiceGetTranscriptProcedure), previews)
+	})
+
+	t.Run("the hit under the cursor going lands it on what is left and fetches that preview", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openSearch(t, newSearchServer(newTurnHit("a2", "payouts", "bill")), "bill", buildSearchable()...)
+
+		harness.watch(buildSnapshot(newLiveWorkflow("w1", "core"), newAgent("a2", "payouts", "w1")))
+
+		assert.Equal(t, "payouts", readHoveredSearchRow(harness.readFrame()))
+		sent := harness.readSent(agentv1connect.AgentServiceGetTranscriptProcedure)
+		require.NotEmpty(t, sent)
+		assert.Equal(t, "a2", sent[len(sent)-1].(*agentv1.GetTranscriptRequest).GetAgentId())
+	})
+}
+
+// TestSearchPreview covers the transcript the search draws beside its hits.
+func TestSearchPreview(t *testing.T) {
+	t.Parallel()
+
+	t.Run("the search takes the window and hands it back on the way out", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openPreview(t, panelHarnessParams{})
+		require.True(t, harness.panel.IsZoomed())
+
+		harness.press("esc")
+
+		assert.Contains(t, harness.readFrame(), agentsTitle)
+		assert.False(t, harness.panel.IsZoomed())
+	})
+
+	t.Run("the preview opens on the match rather than the top of the transcript", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openPreview(t, panelHarnessParams{})
+
+		preview := readStageText(harness.readFrame())
+		assert.Contains(t, preview, matchedTurn)
+		assert.Contains(t, preview, "line 199 of the conversation before")
+		assert.NotContains(t, preview, "line 0 of the conversation before")
+	})
+
+	t.Run("the hits and the transcript stand side by side", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openPreview(t, panelHarnessParams{})
+
+		frame := harness.readFrame()
+		assert.Contains(t, splitLines(frame)[0], searchTitle)
+		assert.NotEmpty(t, strings.TrimSpace(readStage(frame)[0]))
+	})
+
+	t.Run("the transcript takes the left when the sidebar is asked to stand right", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openPreview(t, panelHarnessParams{sidebarSide: config.SidebarSideRight})
+
+		assert.True(t, strings.HasPrefix(strings.TrimLeft(splitLines(harness.readFrame())[0], " "), "line"))
+	})
+
+	t.Run("a window too narrow for both halves draws the hits alone", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openPreview(t, panelHarnessParams{width: 69})
+
+		frame := harness.readFrame()
+		assert.Contains(t, frame, "billing")
+		assert.NotContains(t, frame, matchedTurn)
+	})
+
+	t.Run("a hit whose conversation has not been written says so", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openSearch(t, newSearchServer(newTurnHit("a1", "billing", "reconcile")), "reconcile", buildSearchable()...)
+
+		assert.Contains(t, readStageText(harness.readFrame()), "no transcript yet")
+	})
+
+	t.Run("a resize squares off every row at the new width", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openPreview(t, panelHarnessParams{})
+
+		harness.send(tea.WindowSizeMsg{
+			Width:  120,
+			Height: 40,
+		})
+
+		for _, row := range splitLines(harness.readFrame()) {
+			assert.Equal(t, 120, ansi.StringWidth(row))
 		}
 	})
 
-	return out
-}
+	t.Run("a height change keeps the reader's place", func(t *testing.T) {
+		t.Parallel()
 
-// TestJumpToSearchHit pins enter going to where the conversation already is, a live agent on
-// the tree and an archived one in the archive, without resuming or restoring either.
-func TestJumpToSearchHit(t *testing.T) {
-	tests := []struct {
-		name       string
-		hit        searchHit
-		hidden     bool
-		wantScreen screen
-		wantCursor string
-	}{
-		{
-			name:       "a hit the panel holds no row for leaves the cursor alone",
-			hit:        searchHit{agentID: "gone", name: "gone"},
-			wantScreen: screenAgents,
-			wantCursor: "billing",
-		},
-		{
-			name:       "a live hit lands on its row in the tree",
-			hit:        searchHit{agentID: "a2", name: "payouts"},
-			wantScreen: screenAgents,
-			wantCursor: "payouts",
-		},
-		{
-			name:       "a hidden hit draws the hidden agents so its row exists",
-			hit:        searchHit{agentID: "a2", name: "payouts"},
-			hidden:     true,
-			wantScreen: screenAgents,
-			wantCursor: "payouts",
-		},
-		{
-			name: "an archived hit lands in the archive",
-			hit: searchHit{
-				agentID:  "a3",
-				name:     "old-work",
-				archived: true,
-			},
-			wantScreen: screenArchive,
-			wantCursor: "old-work",
-		},
-	}
+		harness := openPreview(t, panelHarnessParams{})
+		harness.press("enter", "ctrl+n", "ctrl+n")
+		scrolled := readStage(harness.readFrame())[0]
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			client := &fakeSearchAgents{}
-			m := filterModel()
-			m.api = api{
-				agents:    client,
-				workflows: emptyLists{},
-				schedules: emptyLists{},
-			}
-			m.screen = screenSearch
-			m.search = searchScreen{query: "ledger", turns: []searchHit{tt.hit}}
-			m.listing.agents[1].Agent.Hidden = tt.hidden
-			m.listing.archivedAgents = archivedItems([]panel.Agent{{
-				ID:         "a3",
-				Name:       "old-work",
-				WorkflowID: "w1",
-			}})
-
-			updated, _ := m.route(keyMsg("enter"))
-			got, ok := updated.(model)
-			require.True(t, ok)
-
-			require.Equal(t, tt.wantScreen, got.screen)
-			assert.Nil(t, client.restored, "nothing is taken out of the archive")
-			assert.Nil(t, client.resumed, "nothing is put back in a pane")
-
-			rows, cursor := got.agents.rows(got.shared()), got.agents.cursor
-			if got.screen == screenArchive {
-				rows, cursor = got.archive.listRows(got.shared()), got.archive.cursor
-			}
-
-			require.Less(t, cursor, len(rows))
-			assert.Equal(t, tt.wantCursor, rows[cursor].item.Agent.Name)
+		harness.send(tea.WindowSizeMsg{
+			Width:  defaultHarnessWidth,
+			Height: 44,
 		})
-	}
-}
 
-// TestSearchEscape covers esc on the search screen, which steps back the way it does over a
-// filtered list: the hits hand the keys to the query line, and the line leaves the screen.
-func TestSearchEscape(t *testing.T) {
-	tests := []struct {
-		name       string
-		typing     bool
-		hits       []searchHit
-		wantScreen screen
-		wantTyping bool
-	}{
-		{
-			name:       "esc over the hits puts the keys back in the query line",
-			hits:       hits("a", "b", "c"),
-			wantScreen: screenSearch,
-			wantTyping: true,
-		},
-		{
-			name:       "esc over an empty result puts them back the same way",
-			wantScreen: screenSearch,
-			wantTyping: true,
-		},
-		{
-			name:       "esc in the query line leaves the screen",
-			typing:     true,
-			hits:       hits("a", "b", "c"),
-			wantScreen: screenAgents,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			m := filterModel()
-			m.api = api{
-				agents:    &fakeSearchAgents{},
-				workflows: emptyLists{},
-				schedules: emptyLists{},
-			}
-			m.screen = screenSearch
-			m.search = searchScreen{
-				typing: tt.typing,
-				query:  "ledger",
-				turns:  tt.hits,
-			}
-
-			updated, _ := m.route(keyMsg("esc"))
-			next, ok := updated.(model)
-			require.True(t, ok)
-
-			assert.Equal(t, tt.wantScreen, next.screen)
-			assert.Equal(t, tt.wantTyping, next.search.typing)
-		})
-	}
-}
-
-// TestSearchQueryOwnsTheKeys covers the query line taking every key while it is being typed
-// into, which is what keeps a letter bound elsewhere from acting instead of typing.
-func TestSearchQueryOwnsTheKeys(t *testing.T) {
-	m := filterModel()
-	m.screen = screenSearch
-	m.search = searchScreen{
-		typing: true,
-		query:  "ledger",
-		turns:  hits("a"),
-	}
-
-	updated, _ := m.route(keyMsg("?"))
-	got, ok := updated.(model)
-	require.True(t, ok)
-
-	assert.Equal(t, "ledger?", got.search.query)
-	assert.False(t, got.helpExpanded, "the help key is typed rather than drawing the legend")
-}
-
-// TestSearchHitsTakeTheKeys covers what the hits answer once enter has closed the query line:
-// the shared navigation keys, which type while the line is open, and the two keys that hand
-// them back to it.
-func TestSearchHitsTakeTheKeys(t *testing.T) {
-	tests := []struct {
-		name       string
-		keys       []string
-		wantCursor int
-		wantTyping bool
-		wantQuery  string
-	}{
-		{
-			name:       "enter closes the line and leaves the query standing",
-			keys:       []string{"enter"},
-			wantCursor: 0,
-			wantQuery:  "ledger",
-		},
-		{
-			name:       "the nav keys run down the hits rather than typing",
-			keys:       []string{"enter", "j", "j"},
-			wantCursor: 2,
-			wantQuery:  "ledger",
-		},
-		{
-			name:       "the bottom key lands on the last turn",
-			keys:       []string{"enter", "G"},
-			wantCursor: 5,
-			wantQuery:  "ledger",
-		},
-		{
-			name:       "the top key acts on its second press",
-			keys:       []string{"enter", "G", "g", "g"},
-			wantCursor: 0,
-			wantQuery:  "ledger",
-		},
-		{
-			name:       "the filter key puts the keys back in the query line",
-			keys:       []string{"enter", "j", "/"},
-			wantCursor: 1,
-			wantTyping: true,
-			wantQuery:  "ledger",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			m := filterModel()
-			m.api = api{
-				agents:    &fakeSearchAgents{},
-				workflows: emptyLists{},
-				schedules: emptyLists{},
-			}
-			m.screen = screenSearch
-			m.search = searchScreen{
-				typing: true,
-				query:  "ledger",
-				turns:  hits("a", "b", "c"),
-			}
-
-			for _, k := range tt.keys {
-				updated, _ := m.route(keyMsg(k))
-				next, ok := updated.(model)
-				require.True(t, ok)
-				m = next
-			}
-
-			require.Equal(t, screenSearch, m.screen)
-			assert.Equal(t, tt.wantCursor, m.search.cursor)
-			assert.Equal(t, tt.wantTyping, m.search.typing)
-			assert.Equal(t, tt.wantQuery, m.search.query)
-		})
-	}
-}
-
-type fakeSearchAgents struct {
-	agentv1connect.AgentServiceClient
-	restored []string
-	resumed  []string
-}
-
-func (f *fakeSearchAgents) RestoreAgents(_ context.Context, req *connect.Request[agentv1.RestoreAgentsRequest]) (*connect.Response[agentv1.RestoreAgentsResponse], error) {
-	f.restored = append(f.restored, req.Msg.GetIds()...)
-
-	response := &agentv1.RestoreAgentsResponse{Agents: xslice.Map(req.Msg.GetIds(), func(id string) *agentv1.Agent {
-		return &agentv1.Agent{Id: id, Name: "api-refactor"}
-	})}
-
-	return connect.NewResponse(response), nil
-}
-
-func (f *fakeSearchAgents) ResumeAgent(_ context.Context, req *connect.Request[agentv1.ResumeAgentRequest]) (*connect.Response[agentv1.ResumeAgentResponse], error) {
-	f.resumed = append(f.resumed, req.Msg.GetId())
-
-	return connect.NewResponse(&agentv1.ResumeAgentResponse{
-		Agent: &agentv1.Agent{
-			Id:     req.Msg.GetId(),
-			Name:   "api-refactor",
-			PaneId: "%9",
-		},
-	}), nil
-}
-
-// TestSearchNamesEachAgentOnce covers two agents sharing a name, which archived rows make
-// ordinary, and the rank ordering scattering one agent's hits: an agent is one row however many
-// of its turns said the query, and every one of those turns is drawn under it.
-func TestSearchNamesEachAgentOnce(t *testing.T) {
-	m := filterModel()
-	m.screen = screenSearch
-	m.width = 80
-	m.search = searchScreen{query: "ledger"}
-
-	m.search.apply(&m, m.shared(), searchResult{
-		query: "ledger",
-		hits: []searchHit{
-			{
-				agentID: "a1",
-				name:    "dispatcher",
-				snippet: "first",
-			},
-			{
-				agentID: "a2",
-				name:    "dispatcher",
-				snippet: "second",
-			},
-			{
-				agentID: "a1",
-				name:    "dispatcher",
-				snippet: "third",
-			},
-		},
+		assert.Equal(t, scrolled, readStage(harness.readFrame())[0])
 	})
 
-	agents := m.search.buildAgents(m.shared())
-	require.Len(t, agents, 2, "one row per agent rather than per turn")
-	assert.Equal(t, "a1", agents[0].id, "the agent the best turn belongs to stands first")
-	assert.Equal(t, []string{"first", "third"}, xslice.Map(agents[0].turns, func(hit searchHit) string {
-		return hit.snippet
-	}), "an agent's turns sit together on its row")
+	t.Run("a window that had no rows to give draws the preview once it grows", func(t *testing.T) {
+		t.Parallel()
 
-	view := ansi.Strip(m.search.view(m.shared()))
-	assert.Equal(t, 2, strings.Count(view, "dispatcher"), "one row per agent rather than per name")
-	assert.Less(t, strings.Index(view, "first"), strings.Index(view, "third"), "what each turn said is drawn under its agent")
-	assert.Less(t, strings.Index(view, "third"), strings.Index(view, "second"), "in the order the turns came back")
+		harness := openPreview(t, panelHarnessParams{})
+		harness.send(tea.WindowSizeMsg{Width: defaultHarnessWidth})
+
+		harness.send(tea.WindowSizeMsg{
+			Width:  defaultHarnessWidth,
+			Height: 30,
+		})
+
+		assert.Contains(t, readStageText(harness.readFrame()), matchedTurn)
+	})
+
+	t.Run("the keys that fill a pane stand down while the search holds the window", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openPreview(t, panelHarnessParams{})
+		harness.press("enter")
+		respawns := harness.panel.CountRespawns()
+
+		harness.press("l", "L", "T")
+
+		assert.Equal(t, respawns, harness.panel.CountRespawns())
+	})
+
+	t.Run("stepping to another agent's hit opens its own transcript on its own match", func(t *testing.T) {
+		t.Parallel()
+
+		content, offset, length := buildTranscript()
+		harness := openSearch(t, &searchServer{
+			pages: map[string]*agentv1.SearchTranscriptsResponse{"": {Matches: []*agentv1.SearchHit{
+				newMatchHit("a1", 0, 0),
+				newMatchHit("a2", offset, length),
+			}}},
+			transcripts: map[string]string{"a2": content},
+		}, "reconcile", buildSearchable()...)
+		require.NotContains(t, readStageText(harness.readFrame()), matchedTurn)
+
+		harness.press("enter", "j", "j")
+
+		assert.Contains(t, readStageText(harness.readFrame()), matchedTurn)
+	})
+
+	t.Run("stepping between two turns of one conversation moves the transcript it holds", func(t *testing.T) {
+		t.Parallel()
+
+		content, offset, length := buildTranscript()
+		early := newMatchHit("a1", int64(strings.Index(content, "line 3 of the conversation before")), length)
+		early.Snippet = paint.MarkOpen + "conversation" + paint.MarkClose
+		harness := openSearch(t, &searchServer{
+			pages: map[string]*agentv1.SearchTranscriptsResponse{"": {Matches: []*agentv1.SearchHit{
+				newMatchHit("a1", offset, length),
+				early,
+			}}},
+			transcripts: map[string]string{"a1": content},
+		}, "reconcile", buildSearchable()...)
+		harness.press("enter", "j")
+		require.Contains(t, readStageText(harness.readFrame()), matchedTurn)
+
+		harness.press("j")
+		assert.Contains(t, readStageText(harness.readFrame()), "line 3 of the conversation before")
+
+		harness.press("k")
+		assert.Contains(t, readStageText(harness.readFrame()), matchedTurn)
+		assert.Len(t, harness.readSent(agentv1connect.AgentServiceGetTranscriptProcedure), 1)
+	})
+
+	t.Run("the cursor reaching the end asks for the next page and keeps its turn as it lands", func(t *testing.T) {
+		t.Parallel()
+
+		content, offset, length := buildTranscript()
+		early := int64(strings.Index(content, "line 3 of the conversation before"))
+		second := newMatchHit("a2", offset, length)
+		second.Seq = 9
+		laterBilling := newMatchHit("a1", early, length)
+		laterBilling.Seq = 3
+		laterBilling.Snippet = paint.MarkOpen + "conversation" + paint.MarkClose
+		laterPayouts := newMatchHit("a2", early, length)
+		laterPayouts.Seq = 2
+		laterPayouts.Snippet = laterBilling.Snippet
+		harness := openSearch(t, &searchServer{
+			pages: map[string]*agentv1.SearchTranscriptsResponse{
+				"": {
+					Matches:       []*agentv1.SearchHit{newMatchHit("a1", offset, length), second},
+					NextPageToken: proto.String("page-2"),
+				},
+				"page-2": {Matches: []*agentv1.SearchHit{laterBilling, laterPayouts}},
+			},
+			transcripts: map[string]string{
+				"a1": content,
+				"a2": content,
+			},
+		}, "reconcile", buildSearchable()...)
+
+		harness.press("enter", "G")
+
+		harness.assertSentTo(agentv1connect.AgentServiceSearchTranscriptsProcedure,
+			&agentv1.SearchTranscriptsRequest{
+				Query:      "reconcile",
+				Pagination: &paginationv1.Pagination{Limit: proto.Int32(10)},
+			},
+			&agentv1.SearchTranscriptsRequest{
+				Query: "reconcile",
+				Pagination: &paginationv1.Pagination{
+					Limit:  proto.Int32(10),
+					Cursor: proto.String("page-2"),
+				},
+			},
+		)
+		frame := harness.readFrame()
+		assert.Equal(t, []string{
+			"billing",
+			"agent #0 reconcile",
+			"agent #3 conversation",
+			"payouts",
+			"agent #9 reconcile",
+			"agent #2 conversation",
+		}, readSearchRows(frame))
+		assert.Equal(t, "agent #9 reconcile", readHoveredSearchRow(frame))
+		assert.Contains(t, readStageText(frame), matchedTurn)
+
+		harness.press("G")
+
+		assert.Len(t, harness.readSent(agentv1connect.AgentServiceSearchTranscriptsProcedure), 2)
+	})
 }
 
-// searchRows is the rows the screen built for the agents it found, and the same rows drawn.
-func searchRows(m model) ([]view.Row, []string) {
-	pane := m.paneWidth()
-	snapshot := m.search.snapshot(m.shared(), m.search.rows(m.shared()), m.listPane(pane))
-
-	return snapshot.Rows, view.Rows(view.Prepare(snapshot), paint.Panel, pane)
-}
-
-// searchRowNamed is the row the screen built for the agent of that name.
-func searchRowNamed(t *testing.T, rows []view.Row, name string) view.Row {
+func openSearch(t *testing.T, server *searchServer, query string, rows ...proto.Message) *panelHarness {
 	t.Helper()
 
+	return openSearchAt(t, panelHarnessParams{}, server, query, rows...)
+}
+
+func openSearchAt(t *testing.T, params panelHarnessParams, server *searchServer, query string, rows ...proto.Message) *panelHarness {
+	t.Helper()
+
+	harness := newPanelHarness(t, params)
+	answerWorktreeReads(harness)
+	server.serve(harness)
+	harness.watch(buildSnapshot(rows...))
+	searchFor(harness, query)
+
+	return harness
+}
+
+func searchFor(harness *panelHarness, query string) {
+	harness.press("s")
+	typeText(harness, query)
+	harness.fireTimers()
+}
+
+func openPreview(t *testing.T, params panelHarnessParams) *panelHarness {
+	t.Helper()
+
+	content, offset, length := buildTranscript()
+	server := &searchServer{
+		pages:       map[string]*agentv1.SearchTranscriptsResponse{"": {Matches: []*agentv1.SearchHit{newMatchHit("a1", offset, length)}}},
+		transcripts: map[string]string{"a1": content},
+	}
+
+	return openSearchAt(t, params, server, "reconcile", buildSearchable()...)
+}
+
+func newSearchServer(hits ...*agentv1.SearchHit) *searchServer {
+	return &searchServer{pages: map[string]*agentv1.SearchTranscriptsResponse{"": {Matches: hits}}}
+}
+
+func (s *searchServer) serve(harness *panelHarness) {
+	harness.answer(agentv1connect.AgentServiceSearchTranscriptsProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {
+		search, _ := req.Any().(*agentv1.SearchTranscriptsRequest)
+		page := s.pages[search.GetPagination().GetCursor()]
+		if page == nil {
+			page = &agentv1.SearchTranscriptsResponse{}
+		}
+
+		return connect.NewResponse(page), nil
+	})
+	harness.answer(agentv1connect.AgentServiceGetTranscriptProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {
+		read, _ := req.Any().(*agentv1.GetTranscriptRequest)
+
+		return connect.NewResponse(&agentv1.GetTranscriptResponse{Content: s.transcripts[read.GetAgentId()]}), nil
+	})
+}
+
+func buildSearchable() []proto.Message {
+	return []proto.Message{
+		newLiveWorkflow("w1", "core"),
+		newPanedAgent("a1", "billing", "%1"),
+		newPanedAgent("a2", "payouts", "%2"),
+	}
+}
+
+func newPanedAgent(id, name, pane string) *agentv1.Agent {
+	agent := newAgent(id, name, "w1")
+	agent.PaneId = pane
+	agent.Alive = proto.Bool(true)
+
+	return agent
+}
+
+func buildTranscript() (string, int64, int64) {
+	var transcript strings.Builder
+	for i := range 200 {
+		fmt.Fprintf(&transcript, "line %d of the conversation before the match%s\n\n", i, previewFiller)
+	}
+
+	offset := int64(transcript.Len())
+	transcript.WriteString(matchedTurn + "\n")
+
+	for i := range 200 {
+		fmt.Fprintf(&transcript, "\nline %d of the conversation after the match\n", i)
+	}
+
+	return transcript.String(), offset, int64(len(matchedTurn) + 1)
+}
+
+func newTurnHit(agentID, name, snippet string) *agentv1.SearchHit {
+	return &agentv1.SearchHit{
+		AgentId: agentID,
+		Name:    name,
+		Snippet: snippet,
+	}
+}
+
+func newMatchHit(agentID string, offset, length int64) *agentv1.SearchHit {
+	names := map[string]string{
+		"a1": "billing",
+		"a2": "payouts",
+	}
+
+	return &agentv1.SearchHit{
+		AgentId:       agentID,
+		Name:          names[agentID],
+		Role:          "assistant",
+		ContentOffset: offset,
+		ContentLength: length,
+		Snippet:       paint.MarkOpen + "reconcile" + paint.MarkClose,
+	}
+}
+
+func newUnreadMail(agentID string) *agentv1.Mail {
+	return &agentv1.Mail{
+		Id:        "m1",
+		ToAgentId: agentID,
+		ExpiresAt: time.Now().Add(time.Hour).UTC().Format(time.RFC3339),
+	}
+}
+
+func readSearchRows(frame string) []string {
+	return xslice.Map(readListRows(frame), strings.TrimSpace)
+}
+
+func readHoveredSearchRow(frame string) string {
+	return strings.TrimSpace(readHoveredRow(frame))
+}
+
+func findRow(rows []string, name string) string {
 	for _, row := range rows {
-		if row.Name == name {
+		if strings.Contains(row, name) {
 			return row
 		}
 	}
 
-	t.Fatalf("no row for %q", name)
-
-	return view.Row{}
-}
-
-// TestSearchRowCarriesTheAgent covers a hit's row wearing what the agent's own row wears, which
-// is the whole reason the two screens draw through the same package.
-func TestSearchRowCarriesTheAgent(t *testing.T) {
-	marked := "a"
-
-	m := filterModel()
-	m.screen = screenSearch
-	m.width = 80
-	m.search = searchScreen{query: "ledger"}
-	m.listing.marks = map[string]string{"a1": marked}
-	m.listing.agents = []panel.AgentRow{
-		{
-			Agent: panel.Agent{
-				ID:         "a1",
-				Name:       "billing",
-				WorkflowID: "w1",
-				State:      panel.StateThinking,
-			},
-			Alive:      true,
-			UnreadMail: true,
-		},
-	}
-	m.listing.archivedAgents = archivedItems([]panel.Agent{
-		{
-			ID:         "a2",
-			Name:       "payouts",
-			WorkflowID: "w1",
-			State:      panel.StateIdle,
-			ArchivedAt: xptr.Ptr(time.Now()),
-		},
-	})
-
-	m.search.apply(&m, m.shared(), searchResult{
-		query: "ledger",
-		hits: []searchHit{
-			{
-				agentID: "a1",
-				name:    "billing",
-				snippet: "first",
-			},
-			{
-				agentID:  "a2",
-				name:     "payouts",
-				archived: true,
-				snippet:  "second",
-			},
-		},
-	})
-
-	rows, drawn := searchRows(m)
-
-	live := searchRowNamed(t, rows, "billing")
-	assert.Equal(t, view.StatusThinking, live.Status, "the live row wears the state it is in")
-	assert.Equal(t, view.ProcessAlive, live.Process, "and has a process behind it")
-	assert.Equal(t, marked, live.Mark, "the live row wears its mark")
-	assert.True(t, live.UnreadMail, "the live row says mail is waiting")
-
-	archived := searchRowNamed(t, rows, "payouts")
-	assert.True(t, archived.Archived, "the archived row says so")
-	assert.Equal(t, view.ProcessStopped, archived.Process, "and says a process was there and has stopped")
-
-	// Process decides the bar on its own, so the two rows are compared as they are drawn rather
-	// than by a field the renderer would never read.
-	assert.Contains(t, headerLine(t, strings.Join(ansiStripped(drawn), "\n"), "payouts"),
-		view.Spell(view.GlyphQuiet), "the archived row draws the quiet bar")
-	assert.Contains(t, headerLine(t, strings.Join(ansiStripped(drawn), "\n"), "billing"),
-		view.Spell(view.GlyphBusy), "while the thinking one draws a live bar")
-}
-
-// TestSearchTellsAHiddenHitFromAnArchivedOne pins the screen where the two used to draw alike:
-// a hidden agent still running is bright with the hidden mark, a dormant hidden one is dim with
-// it, and an archived one is dim without it.
-func TestSearchTellsAHiddenHitFromAnArchivedOne(t *testing.T) {
-	m := filterModel()
-	m.screen = screenSearch
-	m.width = 80
-	m.search = searchScreen{query: "ledger"}
-	m.listing.agents = []panel.AgentRow{
-		{Agent: panel.Agent{
-			ID:         "a1",
-			Name:       "running",
-			WorkflowID: "w1",
-			Hidden:     true,
-		}, Alive: true},
-		{Agent: panel.Agent{
-			ID:         "a2",
-			Name:       "dormant",
-			WorkflowID: "w1",
-			Hidden:     true,
-			State:      panel.StateIdle,
-		}},
-	}
-	m.listing.archivedAgents = archivedItems([]panel.Agent{
-		{
-			ID:         "a3",
-			Name:       "put-away",
-			WorkflowID: "w1",
-			Hidden:     true,
-			ArchivedAt: xptr.Ptr(time.Now()),
-		},
-	})
-	m.search.apply(&m, m.shared(), searchResult{
-		query: "ledger",
-		hits: []searchHit{
-			{
-				agentID: "a1",
-				name:    "running",
-				snippet: "first",
-			},
-			{
-				agentID: "a2",
-				name:    "dormant",
-				snippet: "second",
-			},
-			{
-				agentID:  "a3",
-				name:     "put-away",
-				archived: true,
-				snippet:  "third",
-			},
-		},
-	})
-
-	built, _ := searchRows(m)
-	rows := xslice.Map([]string{"running", "dormant", "put-away"}, func(name string) view.Row {
-		return searchRowNamed(t, built, name)
-	})
-
-	list := view.Prepare(view.Snapshot{Rows: rows, Columns: view.NoColumns()})
-	require.Len(t, list.Lines, 3)
-
-	running, dormant, archived := list.Lines[0], list.Lines[1], list.Lines[2]
-
-	assert.Equal(t, view.EmphasisNormal, running.Emphasis, "a hidden agent still running is bright")
-	assert.False(t, running.Hidden.IsBlank(), "and carries the hidden mark")
-
-	assert.Equal(t, view.EmphasisDim, dormant.Emphasis, "a hidden agent whose pane has gone is dim")
-	assert.False(t, dormant.Hidden.IsBlank(), "and keeps the hidden mark")
-
-	assert.Equal(t, view.EmphasisDim, archived.Emphasis, "an archived agent is dim")
-	assert.True(t, archived.Hidden.IsBlank(), "and carries no hidden mark, hidden before it was put away or not")
-}
-
-// treeOwned blanks the fields a row carries because of where it sits in a list rather than
-// because of the agent behind it, so what is left is what both screens read off that agent.
-func treeOwned(row view.Row) view.Row {
-	row.Key, row.Kind, row.Name = "", 0, ""
-	row.Matches, row.Mark = nil, ""
-	row.Repo, row.Review, row.Forge = 0, 0, 0
-	row.Selected, row.HiddenCount = false, 0
-
-	return row
-}
-
-// TestSearchRowSaysWhatTheAgentsListSays pins one agent read by both screens saying the same
-// thing, every field the helper above does not blank being compared.
-func TestSearchRowSaysWhatTheAgentsListSays(t *testing.T) {
-	item := panel.AgentRow{
-		Agent: panel.Agent{
-			ID:         "a1",
-			Name:       "ledger",
-			WorkflowID: "w1",
-			State:      panel.StateWaiting,
-			Hidden:     true,
-			HeldAt:     xptr.Ptr(time.Now()),
-			ScheduleID: xptr.Ptr("s1"),
-		},
-		Alive:      true,
-		UnreadMail: true,
-		FailedRun:  true,
-	}
-
-	m := filterModel()
-	m.screen = screenSearch
-	m.search = searchScreen{query: "ledger"}
-	m.listing.agents = []panel.AgentRow{item}
-
-	hit := m.search.agentRow(m.shared(), searchAgent{id: "a1", name: "ledger"}, nil)
-	tree := snapshotRow(agentRow{item: item}, snapshotParams{})
-
-	assert.Equal(t, treeOwned(tree), treeOwned(hit))
-}
-
-// TestArchivedAgentsSayTheSameOnBothScreens pins one archived agent drawing alike on the two
-// screens that can both name it, the rule living where the archive already kept it.
-func TestArchivedAgentsSayTheSameOnBothScreens(t *testing.T) {
-	states := []panel.State{
-		panel.StateIdle,
-		panel.StateFailedToCreate,
-		panel.StateFailedToCleanup,
-	}
-
-	for _, state := range states {
-		t.Run(string(state), func(t *testing.T) {
-			agent := panel.Agent{
-				ID:         "a2",
-				Name:       "payouts",
-				WorkflowID: "w1",
-				State:      state,
-				ArchivedAt: xptr.Ptr(time.Now()),
-			}
-
-			m := filterModel()
-			m.screen = screenSearch
-			m.search = searchScreen{query: "payouts"}
-			m.listing.archivedAgents = archivedItems([]panel.Agent{agent})
-
-			archive := view.StatusCell(snapshotRow(agentRow{item: panel.AgentRow{Agent: agent}}, snapshotParams{}))
-			search := view.StatusCell(m.search.agentRow(m.shared(), searchAgent{
-				id:       "a2",
-				name:     "payouts",
-				archived: true,
-			}, archivedByID(m.listing.archivedAgents)))
-
-			assert.Equal(t, archive, search, "the two screens draw one agent the same")
-		})
-	}
-}
-
-// TestArchivedHitGreysOnWhatTheServerSaid covers the two archived hits the panel holds no stamp
-// for, the greying and the tag resting on the flag the search came back with.
-func TestArchivedHitGreysOnWhatTheServerSaid(t *testing.T) {
-	tests := []struct {
-		name   string
-		listed []panel.Agent
-	}{
-		{
-			name:   "the archive listing has not arrived",
-			listed: nil,
-		},
-		{
-			// A row archived before the stamp existed carries no ArchivedAt, so the facts read off
-			// it say nothing about being archived.
-			name: "the listing arrived carrying no stamp",
-			listed: []panel.Agent{{
-				ID:         "a2",
-				Name:       "payouts",
-				WorkflowID: "w1",
-				State:      panel.StateIdle,
-			}},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			m := filterModel()
-			m.screen = screenSearch
-			m.search = searchScreen{query: "payouts"}
-			m.listing.archivedAgents = archivedItems(tt.listed)
-
-			row := m.search.agentRow(m.shared(), searchAgent{
-				id:       "a2",
-				name:     "payouts",
-				archived: true,
-			}, archivedByID(m.listing.archivedAgents))
-
-			assert.True(t, row.Archived, "the server said it is archived, so it greys")
-			assert.Equal(t, view.ProcessStopped, row.Process, "and it is over, whatever else is unknown")
-		})
-	}
-}
-
-// TestArchivedSearchRowKeepsTheDeleteThatFailed is the carve-out the archive already makes and
-// the search screen now inherits, an agent a delete could not destroy still having a worktree
-// somebody has to deal with.
-func TestArchivedSearchRowKeepsTheDeleteThatFailed(t *testing.T) {
-	agent := panel.Agent{
-		ID:         "a2",
-		Name:       "stuck",
-		WorkflowID: "w1",
-		State:      panel.StateFailedToCleanup,
-		ArchivedAt: xptr.Ptr(time.Now()),
-	}
-
-	m := filterModel()
-	m.screen = screenSearch
-	m.search = searchScreen{query: "stuck"}
-	m.listing.archivedAgents = archivedItems([]panel.Agent{agent})
-
-	cell := view.StatusCell(m.search.agentRow(m.shared(), searchAgent{
-		id:       "a2",
-		name:     "stuck",
-		archived: true,
-	}, archivedByID(m.listing.archivedAgents)))
-
-	assert.Equal(t, view.GlyphBusy, cell.Glyph, "a failed delete is not quietened by being archived")
-	assert.Equal(t, paint.ToneDanger, cell.Tone)
-}
-
-// TestSearchNamesAnAgentMatchedTwiceOnce covers one agent matched by its name and by a turn of
-// its conversation, which is one row carrying that turn rather than one row per way it matched.
-func TestSearchNamesAnAgentMatchedTwiceOnce(t *testing.T) {
-	m := filterModel()
-	m.screen = screenSearch
-	m.width = 80
-	m.search = searchScreen{query: "billing"}
-	m.listing.agents = []panel.AgentRow{{
-		Agent: panel.Agent{
-			ID:         "a1",
-			Name:       "billing",
-			WorkflowID: "w1",
-		},
-		Alive: true,
-	}}
-
-	m.search.apply(&m, m.shared(), searchResult{
-		query: "billing",
-		hits: []searchHit{{
-			agentID: "a1",
-			name:    "billing",
-			snippet: "the billing ledger",
-		}},
-	})
-
-	agents := m.search.buildAgents(m.shared())
-	require.Len(t, agents, 1, "one agent, matched by its name and by a turn, is one row")
-	assert.Len(t, agents[0].turns, 1, "and the turn is kept on it")
-
-	rows, drawn := searchRows(m)
-	require.Len(t, rows, 2)
-	assert.Equal(t, "a1", rows[0].Key, "the row answers to the agent")
-	assert.NotEmpty(t, rows[0].Matches, "and lights the name the query said")
-	assert.Equal(t, 0, caretColumn(drawn[0]), "the row wears the caret in its focus cell")
-	assert.Equal(t, "a1/0", rows[1].Key, "the turn hangs under it")
-	assert.Equal(t, view.KindHit, rows[1].Kind)
-}
-
-// ansiStripped is the drawn rows with their styling taken off.
-func ansiStripped(rows []string) []string {
-	return xslice.Map(rows, ansi.Strip)
-}
-
-// textColumn is the column a drawn row opens the given text at, counted in runes since nothing
-// left of a result's name is drawn as a glyph wider than one.
-func textColumn(t *testing.T, line, text string) int {
-	t.Helper()
-
-	at := strings.Index(line, text)
-	require.GreaterOrEqual(t, at, 0, "no %q in %q", text, line)
-
-	return utf8.RuneCountInString(line[:at])
-}
-
-// caretColumn is where a drawn row wears the cursor, or -1 where it wears none.
-func caretColumn(line string) int {
-	at := strings.Index(ansi.Strip(line), strings.TrimSpace(rowCursorGlyph))
-	if at < 0 {
-		return -1
-	}
-
-	return utf8.RuneCountInString(ansi.Strip(line)[:at])
-}
-
-// TestSearchRowWithoutTheAgent covers a hit named before its listing has landed, which is what a
-// first paint looks like, and which is only allowed to cost the marks.
-func TestSearchRowWithoutTheAgent(t *testing.T) {
-	m := filterModel()
-	m.screen = screenSearch
-	m.width = 80
-	m.search = searchScreen{query: "ledger"}
-	m.listing.agents = nil
-
-	m.search.apply(&m, m.shared(), searchResult{
-		query: "ledger",
-		hits: []searchHit{{
-			agentID: "gone",
-			name:    "billing",
-			snippet: "first",
-		}},
-	})
-
-	rows, _ := searchRows(m)
-	row := searchRowNamed(t, rows, "billing")
-
-	assert.Equal(t, view.ProcessNone, row.Process, "a hit nothing is known about has nothing behind it")
-
-	header := headerLine(t, ansi.Strip(m.search.view(m.shared())), "billing")
-	assert.True(t, strings.HasSuffix(header, view.Spell(view.GlyphQuiet)+" billing"),
-		"and still draws the quiet bar: %q", header)
-	assert.Equal(t, view.GutterColumns(view.NoColumns()), textColumn(t, header, "billing"),
-		"and opens its name where every other row does")
-}
-
-func headerLine(t *testing.T, view, name string) string {
-	t.Helper()
-
-	for _, line := range strings.Split(view, "\n") {
-		if strings.Contains(line, name) {
-			return line
-		}
-	}
-
-	t.Fatalf("no header for %q in:\n%s", name, view)
-
 	return ""
-}
-
-// TestJumpLeavesTheSearchBehind covers the window going back with the screen.
-func TestJumpLeavesTheSearchBehind(t *testing.T) {
-	tests := []struct {
-		name      string
-		hit       searchHit
-		wantSwaps int
-		wantDrawn string
-		wantSolo  bool
-	}{
-		{
-			name: "a live hit takes the agent's own pane",
-			hit: searchHit{
-				agentID: "a2",
-				name:    "payouts",
-				offset:  4,
-				length:  3,
-				snippet: marked("two"),
-			},
-			wantSwaps: 1,
-		},
-		{
-			name: "an archived hit takes the archive's own record",
-			hit: searchHit{
-				agentID:  "a3",
-				name:     "old-work",
-				archived: true,
-				offset:   4,
-				length:   3,
-				snippet:  marked("two"),
-			},
-			wantDrawn: "kept until deleted",
-			// The archive draws its own two columns, so it keeps the window the search was
-			// holding rather than handing it back to panes it is not going to use.
-			wantSolo: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tmux := &recordingTmux{width: 80, height: 40}
-			m := filterModel()
-			m.tmux, m.popup = tmux, NewPopupWindow(tmux, "test-session")
-			m.frame = layout.New(tmux, config.DefaultLayout())
-			m.frame.Attach("%0")
-			m.width, m.height = 120, 40
-			m.api = api{
-				agents:    &fakeSearchAgents{},
-				workflows: emptyLists{},
-				schedules: emptyLists{},
-			}
-			m.screen = screenSearch
-			m.listing.agents[1].Alive = true
-			m.listing.agents[1].Agent.Pane = "%9"
-			m.listing.archivedAgents = archivedItems([]panel.Agent{{
-				ID:         "a3",
-				Name:       "old-work",
-				WorkflowID: "w1",
-			}})
-			m.search = searchScreen{query: "ledger", turns: []searchHit{tt.hit}}
-
-			updated, _ := m.route(keyMsg("enter"))
-			landed, ok := updated.(model)
-			require.True(t, ok)
-
-			assert.Empty(t, landed.search.preview.conversation, "the preview does not follow the jump")
-			assert.Equal(t, tt.wantSolo, landed.frame.IsSolo(), "the window goes to whatever the screen jumped to needs")
-			assert.Equal(t, tt.wantSwaps, tmux.swaps, "the row's own stage is what is drawn")
-			if tt.wantDrawn != "" {
-				assert.Contains(t, ansi.Strip(landed.render()), tt.wantDrawn, "the row's own record is what is drawn beside the list")
-			}
-			assert.Empty(t, landed.search.query, "the search is let go of")
-			assert.Empty(t, landed.search.turns, "the search is let go of")
-		})
-	}
-}
-
-// TestJumpDropsALatePreview covers the transcript a hit was still being fetched for landing
-// after the jump has left, which used to put the search back over the agent it jumped to.
-func TestJumpDropsALatePreview(t *testing.T) {
-	tmux := &recordingTmux{width: 80, height: 40}
-	m := filterModel()
-	m.tmux, m.popup = tmux, NewPopupWindow(tmux, "test-session")
-	m.frame = layout.New(tmux, config.DefaultLayout())
-	m.frame.Attach("%0")
-	m.api = api{
-		agents:    &fakeSearchAgents{},
-		workflows: emptyLists{},
-		schedules: emptyLists{},
-	}
-	m.screen = screenSearch
-	m.listing.agents[1].Alive = true
-	m.listing.agents[1].Agent.Pane = "%9"
-	m.search = searchScreen{
-		query: "ledger",
-		turns: []searchHit{{
-			agentID: "a2",
-			name:    "payouts",
-			offset:  4,
-			length:  3,
-			snippet: marked("two"),
-		}},
-	}
-
-	updated, _ := m.route(keyMsg("enter"))
-	landed, ok := updated.(model)
-	require.True(t, ok)
-
-	late := previewResult{
-		agentID: "a2",
-		query:   "ledger",
-		content: "one\ntwo\nthree\n",
-	}
-	landed.search.applyPreview(landed.shared(), late)
-
-	assert.Empty(t, landed.search.preview.conversation, "the late preview is dropped")
-}
-
-// TestSearchViewFitsThePane covers a common query returning more hits than the pane is tall,
-// which used to be drawn whole and scroll the panel away.
-func TestSearchViewFitsThePane(t *testing.T) {
-	m := filterModel()
-	m.screen = screenSearch
-	m.width = 80
-	m.height = 14
-	m.search = searchScreen{query: "agent"}
-
-	var found []searchHit
-	for i := range 20 {
-		found = append(found, searchHit{
-			agentID: fmt.Sprintf("a%d", i),
-			name:    fmt.Sprintf("agent-%d", i),
-			snippet: fmt.Sprintf("hit %d", i),
-		})
-	}
-
-	m.search.apply(&m, m.shared(), searchResult{query: "agent", hits: found})
-
-	view := drawnLines(m.search.view(m.shared()))
-	assert.LessOrEqual(t, len(view), m.height, "the view is no taller than the pane")
-	assert.Contains(t, strings.Join(view, "\n"), "more", "the rows it could not draw are counted")
-
-	m.search.cursor = len(m.search.rows(m.shared())) - 1
-	bottom := drawnLines(m.search.view(m.shared()))
-	assert.LessOrEqual(t, len(bottom), m.height, "the view stays inside the pane at the end of the list")
-	assert.Contains(t, strings.Join(bottom, "\n"), "agent-19", "the agent under the cursor is drawn")
-}
-
-// drawnLines is the screen as View hands it to bubbletea, which trims the newline the last row
-// carries before the pane is asked to hold it.
-func drawnLines(view string) []string {
-	return strings.Split(strings.TrimRight(ansi.Strip(view), "\n"), "\n")
-}
-
-// TestSearchNamesStandFirst covers the agents whose own name says the query, which are read off
-// the listings and drawn above the agents whose conversation said it.
-func TestSearchNamesStandFirst(t *testing.T) {
-	m := filterModel()
-	m.screen = screenSearch
-	m.width = 80
-	m.listing.archivedAgents = archivedItems([]panel.Agent{{
-		ID:         "a3",
-		Name:       "billing-old",
-		WorkflowID: "w1",
-	}})
-	m.search = searchScreen{query: "BILL"}
-
-	m.search.apply(&m, m.shared(), searchResult{
-		query: "BILL",
-		hits: []searchHit{{
-			agentID: "a2",
-			name:    "payouts",
-			snippet: "bill",
-		}},
-	})
-
-	agents := m.search.buildAgents(m.shared())
-	require.Len(t, agents, 3)
-	assert.Equal(t, []string{"a1", "a3", "a2"}, xslice.Map(agents, func(agent searchAgent) string { return agent.id }),
-		"the live name, then the archived one, then the conversation")
-	assert.True(t, agents[1].archived, "an archived agent is named as archived")
-	assert.Empty(t, agents[0].turns, "an agent found by its name alone has no turn to open on")
-
-	rows, drawn := searchRows(m)
-	require.Len(t, rows, 4)
-	assert.NotEmpty(t, rows[0].Matches, "the name that said the query is lit")
-	assert.Empty(t, rows[2].Matches, "a name that did not is not")
-	assert.Equal(t, view.KindHit, rows[3].Kind, "and its turn hangs under it")
-	assert.Contains(t, ansi.Strip(drawn[m.search.cursor]), "billing", "the cursor opens on the first name")
-}
-
-// TestSearchNameHitsTakeTheCursor covers the cursor running from the names into the
-// conversations, the two being one list to walk.
-func TestSearchNameHitsTakeTheCursor(t *testing.T) {
-	m := filterModel()
-	m.api = api{
-		agents:    &fakeSearchAgents{},
-		workflows: emptyLists{},
-		schedules: emptyLists{},
-	}
-	m.screen = screenSearch
-	m.width = 80
-	m.search = searchScreen{query: "bill"}
-
-	m.search.apply(&m, m.shared(), searchResult{
-		query: "bill",
-		hits: []searchHit{{
-			agentID: "a2",
-			name:    "payouts",
-			snippet: "bill",
-		}},
-	})
-
-	opened, ok := m.search.hoveredAgent(m.shared())
-	require.True(t, ok)
-	assert.Equal(t, "a1", opened.id, "the cursor opens on the name")
-
-	m.search.list().move(&m, m.shared(), 1)
-
-	agent, ok := m.search.hoveredAgent(m.shared())
-	require.True(t, ok)
-	assert.Equal(t, "a2", agent.id, "the step off the name lands on the conversation")
-}
-
-// TestSearchNameHitJumps covers enter on a name hit, which goes to the agent the same way a
-// hit on its conversation does.
-func TestSearchNameHitJumps(t *testing.T) {
-	m := filterModel()
-	m.api = api{
-		agents:    &fakeSearchAgents{},
-		workflows: emptyLists{},
-		schedules: emptyLists{},
-	}
-	m.screen = screenSearch
-	m.search = searchScreen{query: "payout"}
-
-	m.search.jumpToAgent(&m, m.shared())
-	landed := m
-
-	assert.Equal(t, screenAgents, landed.screen)
-	require.Less(t, landed.agents.cursor, len(rowNames(landed.agents.rows(landed.shared()))))
-	assert.Equal(t, "payouts", rowNames(landed.agents.rows(landed.shared()))[landed.agents.cursor])
-}
-
-// TestNameMatches covers where a name is marked, which is the query as the name spells it rather
-// than as it was typed.
-func TestNameMatches(t *testing.T) {
-	assert.Equal(t, []view.Span{{Start: 0, End: 4}}, nameMatches("biLLing", " bill "))
-	assert.Nil(t, nameMatches("billing", "  "))
-	assert.Nil(t, nameMatches("billing", "payouts"))
-}
-
-// TestSearchCursorSurvivesARefresh covers the names among the rows being read off the listings:
-// a refresh that changes them moves the rows the cursor is counting, and used to leave it
-// standing on another agent or off the end of the list.
-func TestSearchCursorSurvivesARefresh(t *testing.T) {
-	sectioned := func() model {
-		m := filterModel()
-		m.api = api{
-			agents:    &fakeSearchAgents{},
-			workflows: emptyLists{},
-			schedules: emptyLists{},
-		}
-		m.screen = screenSearch
-		m.width = 80
-		m.search = searchScreen{query: "bill"}
-		m.search.apply(&m, m.shared(), searchResult{
-			query: "bill",
-			hits: []searchHit{{
-				agentID: "a2",
-				name:    "payouts",
-				snippet: "bill",
-			}},
-		})
-		m.search.cursor = 1
-
-		return m
-	}
-
-	t.Run("an agent whose name says the query joining the listing", func(t *testing.T) {
-		m := sectioned()
-
-		cmd := applyListing(&m, append([]panel.AgentRow{
-			{Agent: panel.Agent{
-				ID:         "a4",
-				Name:       "billing-two",
-				WorkflowID: "w1",
-			}},
-		}, m.listing.agents...), m.listing.workflows)
-
-		agent, ok := m.search.hoveredAgent(m.shared())
-		require.True(t, ok)
-		assert.Equal(t, "a2", agent.id, "the cursor stays on the agent it was standing on")
-		assert.Nil(t, cmd, "the preview beside it is the one already fetched")
-	})
-
-	t.Run("the hit under the cursor going", func(t *testing.T) {
-		m := sectioned()
-		m.search.cursor = 0
-
-		cmd := applyListing(&m, nil, m.listing.workflows)
-
-		agent, ok := m.search.hoveredAgent(m.shared())
-		require.True(t, ok, "a row still wears the cursor")
-		assert.Equal(t, "a2", agent.id, "the cursor lands on what is left")
-		assert.NotNil(t, cmd, "the preview is fetched for the agent it landed on")
-	})
-}
-
-// TestFlattenSnippet covers a snippet read into one line of text with the matched stretches
-// located in it.
-func TestFlattenSnippet(t *testing.T) {
-	tests := []struct {
-		name        string
-		snippet     string
-		wantText    string
-		wantMatches []view.Span
-	}{
-		{
-			name:     "nothing marked",
-			snippet:  "plain words",
-			wantText: "plain words",
-		},
-		{
-			name:     "a close with no open is ignored",
-			snippet:  "odd" + paint.MarkClose + " words",
-			wantText: "odd words",
-		},
-		{
-			name:        "newlines and runs of spaces are one space",
-			snippet:     "the\n\n  " + marked("ledger") + "\tis   here",
-			wantText:    "the ledger is here",
-			wantMatches: []view.Span{{Start: 4, End: 10}},
-		},
-		{
-			name:        "two matches",
-			snippet:     marked("pgx") + " and " + marked("pool"),
-			wantText:    "pgx and pool",
-			wantMatches: []view.Span{{Start: 0, End: 3}, {Start: 8, End: 12}},
-		},
-		{
-			name:        "a match in bytes rather than runes",
-			snippet:     "café " + marked("ledger"),
-			wantText:    "café ledger",
-			wantMatches: []view.Span{{Start: 6, End: 12}},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			text, matches := flattenSnippet(tt.snippet)
-
-			assert.Equal(t, tt.wantText, text)
-			assert.Equal(t, tt.wantMatches, matches)
-		})
-	}
-}
-
-// TestSearchHitLead covers who a turn is said by and where it sits, as the row leads with.
-func TestSearchHitLead(t *testing.T) {
-	tests := []struct {
-		name string
-		hit  searchHit
-		want string
-	}{
-		{
-			name: "no role at all",
-			hit:  searchHit{seq: 4},
-			want: "#4",
-		},
-		{
-			name: "a role the panel has no word for",
-			hit:  searchHit{role: "system", seq: 0},
-			want: "system #0",
-		},
-		{
-			name: "the person prompting",
-			hit:  searchHit{role: "user", seq: 518},
-			want: "you #518",
-		},
-		{
-			name: "the agent",
-			hit:  searchHit{role: "assistant", seq: 1},
-			want: "agent #1",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, tt.hit.lead())
-		})
-	}
-}
-
-// TestSearchHitRowFollowsItsAgent covers the row a turn is drawn as: it hangs under its agent
-// and greys with it, and never carries a process of its own.
-func TestSearchHitRowFollowsItsAgent(t *testing.T) {
-	hit := searchHit{
-		agentID: "a1",
-		role:    "assistant",
-		seq:     1,
-		snippet: "Hey. Ready. What " + marked("need") + "?",
-	}
-
-	row := searchHitRow(searchRow{agent: searchAgent{id: "a1", archived: true}, hit: &hit})
-
-	assert.Equal(t, "a1/1", row.Key)
-	assert.Equal(t, view.KindHit, row.Kind)
-	assert.Equal(t, "agent #1", row.Lead)
-	assert.Equal(t, "Hey. Ready. What need?", row.Name)
-	assert.Equal(t, []view.Span{{Start: 17, End: 21}}, row.Matches)
-	assert.True(t, row.Archived)
-	assert.Equal(t, view.ProcessNone, row.Process)
-}
-
-// searchHelp is the search legend as the frame draws it.
-func (m model) searchHelp() keyMap {
-	return m.search.help(m.shared())
 }
