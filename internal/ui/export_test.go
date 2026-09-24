@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"weave/config"
+	"weave/internal/browser"
 	"weave/internal/engine"
 	"weave/internal/panes"
 	"weave/proto/gen/agent/v1/agentv1connect"
@@ -82,6 +83,7 @@ type NewPanelParams struct {
 	StartupErr    error
 	RefuseSplits  bool
 	Binary        BinaryWatcher
+	Browser       browser.Opener
 }
 
 // NewPanel builds the panel the way weave panel does, over a recording tmux.
@@ -124,6 +126,7 @@ func NewPanel(params NewPanelParams) *Panel {
 			ConfigErr:     params.ConfigErr,
 			StartupErr:    params.StartupErr,
 			Binary:        params.Binary,
+			Browser:       params.Browser,
 		}, true, post),
 		post: post,
 		tmux: tmux,

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"weave/config"
+	"weave/internal/browser"
 	"weave/internal/client"
 	"weave/internal/engine"
 	"weave/internal/git"
@@ -180,6 +181,7 @@ type panelHarnessParams struct {
 	startupErr    error
 	refuseSplits  bool
 	binary        ui.BinaryWatcher
+	browser       browser.Opener
 }
 
 func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
@@ -249,6 +251,7 @@ func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
 			StartupErr:    params.startupErr,
 			RefuseSplits:  params.refuseSplits,
 			Binary:        params.binary,
+			Browser:       params.browser,
 		}),
 	}
 	t.Cleanup(harness.releaseParked)
