@@ -18,8 +18,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// fixture is a hand-laid repository with a worktrees directory beside it, over a real store.
-type fixture struct {
+// worktreeFixture is a hand-laid repository with a worktrees directory beside it, over a real store.
+type worktreeFixture struct {
 	repo       string
 	shared     string
 	stores     *storetest.Stores
@@ -31,14 +31,14 @@ type fixture struct {
 	now        time.Time
 }
 
-func newFixture(t *testing.T) *fixture {
+func newFixture(t *testing.T) *worktreeFixture {
 	t.Helper()
 
 	root, err := filepath.EvalSymlinks(t.TempDir())
 	require.NoError(t, err)
 
 	stores := storetest.Open(t)
-	f := &fixture{
+	fixture := &worktreeFixture{
 		repo:       filepath.Join(root, "repo"),
 		shared:     filepath.Join(root, "trees"),
 		stores:     stores,
@@ -48,16 +48,18 @@ func newFixture(t *testing.T) *fixture {
 		claims:     &fakeClaims{},
 		now:        time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC),
 	}
-	require.NoError(t, os.MkdirAll(filepath.Join(f.repo, ".git", "worktrees"), 0o755))
-	require.NoError(t, os.MkdirAll(f.shared, 0o755))
-	f.lister = f.listerOver(f.shared)
+	require.NoError(t, os.MkdirAll(filepath.Join(fixture.repo, ".git", "worktrees"), 0o755))
+	require.NoError(t, os.MkdirAll(fixture.shared, 0o755))
+	fixture.lister = fixture.newListerOver(fixture.shared)
 
-	return f
+	return fixture
 }
 
-func (f *fixture) listerOver(shared string) *Lister {
+func (f *worktreeFixture) newListerOver(shared string) *Lister {
 	return NewLister(NewListerParams{
-		SharedDir: func() (string, error) { return shared, nil },
+		SharedDir: func() (string, error) {
+			return shared, nil
+		},
 		Agents:    f.stores.Agents,
 		Workflows: f.stores.Workflows,
 		Sizes:     f.worktrees,
@@ -65,7 +67,7 @@ func (f *fixture) listerOver(shared string) *Lister {
 }
 
 // cut lays out a worktree named with a fresh agent id, with HEAD on the agent's branch.
-func (f *fixture) cut(t *testing.T) string {
+func (f *worktreeFixture) cut(t *testing.T) string {
 	t.Helper()
 
 	id, err := store.NewID()
@@ -80,7 +82,7 @@ func (f *fixture) cut(t *testing.T) string {
 	return dir
 }
 
-func (f *fixture) own(t *testing.T, dir string, agent agentstore.Agent) *agentstore.Agent {
+func (f *worktreeFixture) own(t *testing.T, dir string, agent agentstore.Agent) *agentstore.Agent {
 	t.Helper()
 
 	agent.ID = filepath.Base(dir)
@@ -93,7 +95,7 @@ func (f *fixture) own(t *testing.T, dir string, agent agentstore.Agent) *agentst
 }
 
 // occupy records an agent working in a directory it was not made for.
-func (f *fixture) occupy(t *testing.T, cwd, name string) {
+func (f *worktreeFixture) occupy(t *testing.T, cwd, name string) {
 	t.Helper()
 
 	f.stores.SeedAgent(t, agentstore.Agent{
@@ -103,14 +105,14 @@ func (f *fixture) occupy(t *testing.T, cwd, name string) {
 	})
 }
 
-func (f *fixture) archive(t *testing.T, id string) {
+func (f *worktreeFixture) archive(t *testing.T, id string) {
 	t.Helper()
 
 	_, err := f.stores.Agents.Archive(t.Context(), []string{id})
 	require.NoError(t, err)
 }
 
-func (f *fixture) measured(t *testing.T, dir string, at time.Time) {
+func (f *worktreeFixture) recordSize(t *testing.T, dir string, at time.Time) {
 	t.Helper()
 
 	require.NoError(t, f.worktrees.Upsert(t.Context(), worktreestore.Worktree{Dir: dir}))
@@ -121,35 +123,63 @@ func (f *fixture) measured(t *testing.T, dir string, at time.Time) {
 	}))
 }
 
-func (f *fixture) stored(t *testing.T) map[string]worktreestore.Worktree {
+func (f *worktreeFixture) listStored(t *testing.T) map[string]worktreestore.Worktree {
 	t.Helper()
 
 	listed, err := f.worktrees.List(t.Context())
 	require.NoError(t, err)
 
-	return xslice.KeyBy(listed, func(worktree worktreestore.Worktree) string { return worktree.Dir })
+	return xslice.KeyBy(listed, func(worktree worktreestore.Worktree) string {
+		return worktree.Dir
+	})
 }
 
-func (f *fixture) inspector() *Inspector {
+func (f *worktreeFixture) listMeasuredAt(t *testing.T, at time.Time) []string {
+	t.Helper()
+
+	var dirs []string
+	for dir, worktree := range f.listStored(t) {
+		if worktree.Size != nil && worktree.Size.MeasuredAt.Equal(at) {
+			dirs = append(dirs, dir)
+		}
+	}
+
+	return dirs
+}
+
+func (f *worktreeFixture) readSize(t *testing.T, dir string) worktreestore.Size {
+	t.Helper()
+
+	size := f.listStored(t)[dir].Size
+	require.NotNil(t, size, "%s has no measurement", dir)
+
+	return *size
+}
+
+func (f *worktreeFixture) newInspector() *Inspector {
 	return NewInspector(NewInspectorParams{
 		Lister:    f.lister,
 		Git:       f.git,
 		Workflows: f.stores.Workflows,
 		Sizes:     f.worktrees,
-		Now:       func() time.Time { return f.now },
+		Now: func() time.Time {
+			return f.now
+		},
 	})
 }
 
-func (f *fixture) measurer() *Measurer {
+func (f *worktreeFixture) newMeasurer() *Measurer {
 	return NewMeasurer(NewMeasurerParams{
 		Lister:    f.lister,
 		Claimed:   f.claims,
 		Worktrees: f.worktrees,
-		Now:       func() time.Time { return f.now },
+		Now: func() time.Time {
+			return f.now
+		},
 	})
 }
 
-func (f *fixture) remover() *Remover {
+func (f *worktreeFixture) newRemover() *Remover {
 	return NewRemover(NewRemoverParams{
 		Lister: f.lister,
 		Agents: f.stores.Agents,

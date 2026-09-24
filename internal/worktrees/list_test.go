@@ -18,26 +18,26 @@ import (
 // TestListReadsADirectoryWithoutGit covers the repository, the branch and the readability of
 // a worktree coming off its own files, and the agent row that answers for it.
 func TestListReadsADirectoryWithoutGit(t *testing.T) {
-	f := newFixture(t)
-	dir := f.cut(t)
-	agent := f.own(t, dir, agentstore.Agent{Name: "first"})
-	f.archive(t, agent.ID)
+	fixture := newFixture(t)
+	dir := fixture.cut(t)
+	agent := fixture.own(t, dir, agentstore.Agent{Name: "first"})
+	fixture.archive(t, agent.ID)
 
-	listing, err := f.lister.List(t.Context())
+	listing, err := fixture.lister.List(t.Context())
 	require.NoError(t, err)
 
 	require.Len(t, listing.Worktrees, 1)
 	tree := listing.Worktrees[0]
 	assert.Equal(t, dir, tree.Dir)
-	assert.Equal(t, f.repo, tree.RepoDir)
+	assert.Equal(t, fixture.repo, tree.RepoDir)
 	assert.Equal(t, "agent/"+agent.ID, tree.Branch)
 	assert.True(t, tree.Readable)
 	require.NotNil(t, tree.Agent)
 	assert.Equal(t, "first", tree.Agent.Name)
 	assert.Equal(t, agentstore.StateIdle, tree.Agent.State)
 	assert.NotNil(t, tree.Agent.ArchivedAt)
-	assert.Equal(t, f.workflowID, tree.Agent.WorkflowID)
-	assert.Equal(t, []string{f.shared}, listing.Dirs)
+	assert.Equal(t, fixture.workflowID, tree.Agent.WorkflowID)
+	assert.Equal(t, []string{fixture.shared}, listing.Dirs)
 	assert.Empty(t, listing.UnreadableDirs)
 }
 
@@ -46,33 +46,33 @@ func TestListReadsWhatADirectorySaysOfItself(t *testing.T) {
 	tests := []struct {
 		name string
 		// lay returns the repository the directory should read as cut from.
-		lay          func(t *testing.T, f *fixture) string
+		lay          func(t *testing.T, fixture *worktreeFixture) string
 		wantReadable bool
 	}{
 		{
 			name: "a directory with no .git file",
-			lay: func(t *testing.T, f *fixture) string {
-				require.NoError(t, os.MkdirAll(filepath.Join(f.shared, "cccc"), 0o755))
-				write(t, f.shared, "a-file", "not a directory\n")
+			lay: func(t *testing.T, fixture *worktreeFixture) string {
+				require.NoError(t, os.MkdirAll(filepath.Join(fixture.shared, "cccc"), 0o755))
+				write(t, fixture.shared, "a-file", "not a directory\n")
 
 				return ""
 			},
 		},
 		{
 			name: "a .git file naming a gitdir that is gone still reads the repository off the path",
-			lay: func(t *testing.T, f *fixture) string {
-				write(t, filepath.Join(f.shared, "bbbb"), ".git", "gitdir: /var/folders/xx/T/repo/.git/worktrees/bbbb\n")
+			lay: func(t *testing.T, fixture *worktreeFixture) string {
+				write(t, filepath.Join(fixture.shared, "bbbb"), ".git", "gitdir: /var/folders/xx/T/repo/.git/worktrees/bbbb\n")
 
 				return "/var/folders/xx/T/repo"
 			},
 		},
 		{
 			name: "a detached head names no branch",
-			lay: func(t *testing.T, f *fixture) string {
-				dir := f.cut(t)
-				write(t, filepath.Join(f.repo, ".git", "worktrees", filepath.Base(dir)), "HEAD", "0123456789abcdef0123456789abcdef01234567\n")
+			lay: func(t *testing.T, fixture *worktreeFixture) string {
+				dir := fixture.cut(t)
+				write(t, filepath.Join(fixture.repo, ".git", "worktrees", filepath.Base(dir)), "HEAD", "0123456789abcdef0123456789abcdef01234567\n")
 
-				return f.repo
+				return fixture.repo
 			},
 			wantReadable: true,
 		},
@@ -80,10 +80,10 @@ func TestListReadsWhatADirectorySaysOfItself(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			f := newFixture(t)
-			wantRepoDir := tt.lay(t, f)
+			fixture := newFixture(t)
+			wantRepoDir := tt.lay(t, fixture)
 
-			listing, err := f.lister.List(t.Context())
+			listing, err := fixture.lister.List(t.Context())
 			require.NoError(t, err)
 
 			require.Len(t, listing.Worktrees, 1)
@@ -99,13 +99,13 @@ func TestListReadsWhatADirectorySaysOfItself(t *testing.T) {
 // TestListNamesTheOccupantsOfADirectory covers every row whose cwd is the directory, however
 // the path is spelled, being listed beside the row it was cut for, sorted by name.
 func TestListNamesTheOccupantsOfADirectory(t *testing.T) {
-	f := newFixture(t)
-	dir := f.cut(t)
-	f.own(t, dir, agentstore.Agent{Name: "parent"})
-	f.occupy(t, dir, "zed-reviewer")
-	f.occupy(t, dir+string(filepath.Separator), "amy-alone")
+	fixture := newFixture(t)
+	dir := fixture.cut(t)
+	fixture.own(t, dir, agentstore.Agent{Name: "parent"})
+	fixture.occupy(t, dir, "zed-reviewer")
+	fixture.occupy(t, dir+string(filepath.Separator), "amy-alone")
 
-	listing, err := f.lister.List(t.Context())
+	listing, err := fixture.lister.List(t.Context())
 	require.NoError(t, err)
 
 	require.Len(t, listing.Worktrees, 1)
@@ -118,7 +118,7 @@ func TestListNamesTheOccupantsOfADirectory(t *testing.T) {
 
 // TestListWalksEachWorkflowsOwnDirectory covers a workflow's own directory being walked beside the shared one.
 func TestListWalksEachWorkflowsOwnDirectory(t *testing.T) {
-	f := newFixture(t)
+	fixture := newFixture(t)
 	own := filepath.Join(t.TempDir(), "own")
 	require.NoError(t, os.MkdirAll(filepath.Join(own, "eeee"), 0o755))
 	for name, dir := range map[string]string{
@@ -126,11 +126,11 @@ func TestListWalksEachWorkflowsOwnDirectory(t *testing.T) {
 		"own-spelled": own + string(filepath.Separator),
 		"missing":     filepath.Join(t.TempDir(), "missing"),
 	} {
-		f.stores.SeedWorkflow(t, workflowstore.Config{Name: name, Worktree: workflowstore.WorktreeConfig{Dir: dir}})
+		fixture.stores.SeedWorkflow(t, workflowstore.Config{Name: name, Worktree: workflowstore.WorktreeConfig{Dir: dir}})
 	}
-	f.cut(t)
+	fixture.cut(t)
 
-	listing, err := f.lister.List(t.Context())
+	listing, err := fixture.lister.List(t.Context())
 	require.NoError(t, err)
 
 	assert.Len(t, listing.Worktrees, 2)
@@ -141,11 +141,11 @@ func TestListWalksEachWorkflowsOwnDirectory(t *testing.T) {
 // TestListNamesADirectoryItCannotRead covers the shared directory being unreadable being
 // reported rather than read as empty.
 func TestListNamesADirectoryItCannotRead(t *testing.T) {
-	f := newFixture(t)
-	unreadable := filepath.Join(filepath.Dir(f.shared), "not-a-dir")
-	write(t, filepath.Dir(f.shared), "not-a-dir", "x\n")
+	fixture := newFixture(t)
+	unreadable := filepath.Join(filepath.Dir(fixture.shared), "not-a-dir")
+	write(t, filepath.Dir(fixture.shared), "not-a-dir", "x\n")
 
-	listing, err := f.listerOver(unreadable).List(t.Context())
+	listing, err := fixture.newListerOver(unreadable).List(t.Context())
 	require.NoError(t, err)
 
 	assert.Empty(t, listing.Worktrees)
@@ -155,12 +155,12 @@ func TestListNamesADirectoryItCannotRead(t *testing.T) {
 // TestListJoinsTheStoredSize covers a directory carrying the measurement stored for it, and one
 // the loop has not reached carrying none.
 func TestListJoinsTheStoredSize(t *testing.T) {
-	f := newFixture(t)
-	measured := f.cut(t)
-	unmeasured := f.cut(t)
-	f.measured(t, measured, f.now)
+	fixture := newFixture(t)
+	measured := fixture.cut(t)
+	unmeasured := fixture.cut(t)
+	fixture.recordSize(t, measured, fixture.now)
 
-	listing, err := f.lister.List(t.Context())
+	listing, err := fixture.lister.List(t.Context())
 	require.NoError(t, err)
 
 	require.Len(t, listing.Worktrees, 2)
@@ -174,12 +174,12 @@ func TestListJoinsTheStoredSize(t *testing.T) {
 // TestGetReadsOneDirectory covers one directory answered with its row and its size under a
 // worktree directory configured with a trailing slash, and a path outside them refused.
 func TestGetReadsOneDirectory(t *testing.T) {
-	f := newFixture(t)
-	dir := f.cut(t)
-	f.cut(t)
-	agent := f.own(t, dir, agentstore.Agent{Name: "first"})
-	f.measured(t, dir, f.now)
-	lister := f.listerOver(f.shared + string(filepath.Separator))
+	fixture := newFixture(t)
+	dir := fixture.cut(t)
+	fixture.cut(t)
+	agent := fixture.own(t, dir, agentstore.Agent{Name: "first"})
+	fixture.recordSize(t, dir, fixture.now)
+	lister := fixture.newListerOver(fixture.shared + string(filepath.Separator))
 
 	tree, err := lister.Get(t.Context(), dir+string(filepath.Separator))
 	require.NoError(t, err)
@@ -191,10 +191,10 @@ func TestGetReadsOneDirectory(t *testing.T) {
 	require.NotNil(t, tree.Size)
 	assert.Equal(t, int64(1), tree.Size.Bytes)
 
-	_, err = lister.Get(t.Context(), f.repo)
+	_, err = lister.Get(t.Context(), fixture.repo)
 	require.ErrorIs(t, err, store.ErrNotFound)
 
-	_, err = lister.Get(t.Context(), filepath.Join(f.shared, "cccc"))
+	_, err = lister.Get(t.Context(), filepath.Join(fixture.shared, "cccc"))
 	require.ErrorIs(t, err, store.ErrNotFound)
 }
 
@@ -393,7 +393,9 @@ func TestUnclaimedLeavesOutWhatADeleteHasClaimed(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := xslice.Map(Unclaimed(tt.listing, tt.claimed), func(worktree Worktree) string { return worktree.Dir })
+			got := xslice.Map(Unclaimed(tt.listing, tt.claimed), func(worktree Worktree) string {
+				return worktree.Dir
+			})
 
 			assert.Equal(t, tt.want, got)
 		})

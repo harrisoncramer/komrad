@@ -29,7 +29,7 @@ import (
 
 // TestIntegrationWorktrees covers the worktrees a workflow cuts, from create to delete.
 func TestIntegrationWorktrees(t *testing.T) {
-	hermeticGit(t)
+	isolateGit(t)
 
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()
@@ -156,7 +156,9 @@ func TestIntegrationWorktrees(t *testing.T) {
 
 		stored, err := worktreestore.NewWorktreeStore(instance.Stores.Pool.GetDB()).ListSizes(ctx)
 		require.NoError(t, err)
-		assert.NotContains(t, xslice.Map(stored, func(size worktreestore.Size) string { return size.Dir }), orphan,
+		assert.NotContains(t, xslice.Map(stored, func(size worktreestore.Size) string {
+			return size.Dir
+		}), orphan,
 			"the row of a directory that has gone is forgotten")
 	})
 
@@ -204,11 +206,11 @@ func TestIntegrationWorktrees(t *testing.T) {
 
 // TestIntegrationRebase covers rebasing a branch whose work landed on the base as a squash.
 func TestIntegrationRebase(t *testing.T) {
-	hermeticGit(t)
+	isolateGit(t)
 
 	instance := weavetest.Start(t, weavetest.Params{WorktreesDir: t.TempDir()})
 	repo := initGitRepo(t)
-	agentID, tree := rebaseAgent(t, instance, repo)
+	agentID, tree := createRebaseAgent(t, instance, repo)
 	landOnTheBase(t, repo)
 	writeIn(t, tree, "uncommitted.txt", "never committed\n")
 	before := readGitOutput(t, tree, "rev-parse", "HEAD")
@@ -258,7 +260,9 @@ func listWorktrees(t *testing.T, instance *weavetest.Instance) map[string]*workt
 	listed, err := instance.Worktrees.ListWorktrees(t.Context(), connect.NewRequest(&emptypb.Empty{}))
 	require.NoError(t, err)
 
-	return xslice.KeyBy(listed.Msg.GetWorktrees(), func(worktree *worktreev1.Worktree) string { return worktree.GetDir() })
+	return xslice.KeyBy(listed.Msg.GetWorktrees(), func(worktree *worktreev1.Worktree) string {
+		return worktree.GetDir()
+	})
 }
 
 func commitIn(t *testing.T, dir, name, subject string) {
@@ -269,8 +273,8 @@ func commitIn(t *testing.T, dir, name, subject string) {
 	runGitIn(t, dir, "commit", "--quiet", "-m", subject)
 }
 
-// rebaseAgent is an agent on a worktree of its own with two commits on its branch.
-func rebaseAgent(t *testing.T, instance *weavetest.Instance, repo string) (agentID, tree string) {
+// createRebaseAgent is an agent on a worktree of its own with two commits on its branch.
+func createRebaseAgent(t *testing.T, instance *weavetest.Instance, repo string) (agentID, tree string) {
 	t.Helper()
 
 	ctx := t.Context()
@@ -328,7 +332,7 @@ func writeIn(t *testing.T, dir, name, body string) {
 	require.NoError(t, os.WriteFile(filepath.Join(dir, name), []byte(body), 0o644))
 }
 
-func hermeticGit(t *testing.T) {
+func isolateGit(t *testing.T) {
 	t.Helper()
 
 	t.Setenv("GIT_CONFIG_GLOBAL", os.DevNull)
@@ -397,8 +401,8 @@ func replaceWorktreeTeardown(t *testing.T, instance *weavetest.Instance, script 
 	require.NoError(t, os.WriteFile(filepath.Join(instance.BuiltinDir, "_worktree_cleanup"), []byte(script), 0o755))
 }
 
-// worktreeWorkflow is the request for a workflow whose agents each get a worktree of their own.
-func worktreeWorkflow(t *testing.T) *workflowv1.CreateWorkflowRequest {
+// buildWorktreeWorkflow is the request for a workflow whose agents each get a worktree of their own.
+func buildWorktreeWorkflow(t *testing.T) *workflowv1.CreateWorkflowRequest {
 	t.Helper()
 
 	return &workflowv1.CreateWorkflowRequest{

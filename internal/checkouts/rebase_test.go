@@ -33,6 +33,19 @@ type rebaseFixture struct {
 	workflowID string
 }
 
+// treeReadRecorder notes how many pane readings had been taken by the time the tree was read.
+type treeReadRecorder struct {
+	*gittest.Rebaser
+	observer        *settlingObserver
+	readsBeforeTree int
+}
+
+func (r *treeReadRecorder) ReadTreeState(ctx context.Context, dir string) (git.TreeState, error) {
+	r.readsBeforeTree = r.observer.reads
+
+	return r.Rebaser.ReadTreeState(ctx, dir)
+}
+
 func newRebaseFixture(t *testing.T) *rebaseFixture {
 	t.Helper()
 
@@ -64,8 +77,8 @@ func (f *rebaseFixture) seed(t *testing.T, agent agentstore.Agent) *agentstore.A
 	return f.stores.SeedAgent(t, agent)
 }
 
-// service builds a rebase service over the real stores.
-func (f *rebaseFixture) service(params NewRebaseServiceParams) *RebaseService {
+// newService builds a rebase service over the real stores.
+func (f *rebaseFixture) newService(params NewRebaseServiceParams) *RebaseService {
 	params.Agents = f.stores.Agents
 	params.Workflows = f.stores.Workflows
 	if params.Rebaser == nil {
@@ -75,7 +88,7 @@ func (f *rebaseFixture) service(params NewRebaseServiceParams) *RebaseService {
 	return NewRebaseService(params)
 }
 
-func (f *rebaseFixture) mailer() *mail.MailService {
+func (f *rebaseFixture) newMailer() *mail.MailService {
 	return mail.NewMailService(mail.NewMailServiceParams{
 		MailReadWriter: f.stores.Mail,
 		Agents:         f.stores.Agents,
@@ -84,78 +97,80 @@ func (f *rebaseFixture) mailer() *mail.MailService {
 	})
 }
 
-func (f *rebaseFixture) inbox(t *testing.T, id string) []string {
+func (f *rebaseFixture) readInbox(t *testing.T, id string) []string {
 	t.Helper()
 
 	sent, err := f.stores.Mail.ListPage(t.Context(), id, 10, nil)
 	require.NoError(t, err)
 
-	return xslice.Map(sent, func(piece mailstore.Mail) string { return piece.Body })
+	return xslice.Map(sent, func(piece mailstore.Mail) string {
+		return piece.Body
+	})
 }
 
 // TestRebaseRefusals covers every state of the row a rebase declines.
 func TestRebaseRefusals(t *testing.T) {
 	tests := []struct {
 		name    string
-		lay     func(t *testing.T, f *rebaseFixture) *agentstore.Agent
+		lay     func(t *testing.T, fixture *rebaseFixture) *agentstore.Agent
 		wantErr error
 	}{
 		{
 			name: "an agent part-way through a turn, since the files would move under it",
-			lay: func(t *testing.T, f *rebaseFixture) *agentstore.Agent {
-				return f.seed(t, agentstore.Agent{State: agentstore.StateThinking})
+			lay: func(t *testing.T, fixture *rebaseFixture) *agentstore.Agent {
+				return fixture.seed(t, agentstore.Agent{State: agentstore.StateThinking})
 			},
 			wantErr: ErrRebaseBusy,
 		},
 		{
 			name: "an agent waiting on a question, which is also an unfinished turn",
-			lay: func(t *testing.T, f *rebaseFixture) *agentstore.Agent {
-				return f.seed(t, agentstore.Agent{State: agentstore.StateWaiting})
+			lay: func(t *testing.T, fixture *rebaseFixture) *agentstore.Agent {
+				return fixture.seed(t, agentstore.Agent{State: agentstore.StateWaiting})
 			},
 			wantErr: ErrRebaseBusy,
 		},
 		{
 			name: "an agent whose pane could not be read, which says nothing about whether it is working",
-			lay: func(t *testing.T, f *rebaseFixture) *agentstore.Agent {
-				return f.seed(t, agentstore.Agent{State: agentstore.StateUncertain, Pane: "%1"})
+			lay: func(t *testing.T, fixture *rebaseFixture) *agentstore.Agent {
+				return fixture.seed(t, agentstore.Agent{State: agentstore.StateUncertain, Pane: "%1"})
 			},
 			wantErr: ErrRebaseBusy,
 		},
 		{
 			name: "an agent whose worktree is still being provisioned",
-			lay: func(t *testing.T, f *rebaseFixture) *agentstore.Agent {
-				return f.seed(t, agentstore.Agent{State: agentstore.StateSettingUp})
+			lay: func(t *testing.T, fixture *rebaseFixture) *agentstore.Agent {
+				return fixture.seed(t, agentstore.Agent{State: agentstore.StateSettingUp})
 			},
 			wantErr: ErrRebaseBusy,
 		},
 		{
 			name: "a branch a human made, whose history is not weave's to rewrite",
-			lay: func(t *testing.T, f *rebaseFixture) *agentstore.Agent {
-				return f.seed(t, agentstore.Agent{AdoptedBranch: "harry/spike"})
+			lay: func(t *testing.T, fixture *rebaseFixture) *agentstore.Agent {
+				return fixture.seed(t, agentstore.Agent{AdoptedBranch: "harry/spike"})
 			},
 			wantErr: ErrRebaseAdopted,
 		},
 		{
 			name: "a child, since rebasing one rewrites its parent's branch",
-			lay: func(t *testing.T, f *rebaseFixture) *agentstore.Agent {
-				parent := f.seed(t, agentstore.Agent{Name: "parent"})
+			lay: func(t *testing.T, fixture *rebaseFixture) *agentstore.Agent {
+				parent := fixture.seed(t, agentstore.Agent{Name: "parent"})
 
-				return f.seed(t, agentstore.Agent{ParentAgentID: &parent.ID})
+				return fixture.seed(t, agentstore.Agent{ParentAgentID: &parent.ID})
 			},
 			wantErr: ErrRebaseNoWorktree,
 		},
 		{
 			name: "an agent told to keep the directory it was given",
-			lay: func(t *testing.T, f *rebaseFixture) *agentstore.Agent {
-				return f.seed(t, agentstore.Agent{ProvisionEnabled: xptr.Ptr(false)})
+			lay: func(t *testing.T, fixture *rebaseFixture) *agentstore.Agent {
+				return fixture.seed(t, agentstore.Agent{ProvisionEnabled: xptr.Ptr(false)})
 			},
 			wantErr: ErrRebaseNoWorktree,
 		},
 		{
 			name: "an agent whose directory is gone",
-			lay: func(t *testing.T, f *rebaseFixture) *agentstore.Agent {
-				agent := f.seed(t, agentstore.Agent{})
-				require.NoError(t, f.stores.Agents.SetCheckout(t.Context(), agent.ID, agentstore.SetCheckoutParams{WorktreeRemoved: true}))
+			lay: func(t *testing.T, fixture *rebaseFixture) *agentstore.Agent {
+				agent := fixture.seed(t, agentstore.Agent{})
+				require.NoError(t, fixture.stores.Agents.SetCheckout(t.Context(), agent.ID, agentstore.SetCheckoutParams{WorktreeRemoved: true}))
 
 				return agent
 			},
@@ -163,18 +178,18 @@ func TestRebaseRefusals(t *testing.T) {
 		},
 		{
 			name: "an agent in a workflow that makes no worktrees",
-			lay: func(t *testing.T, f *rebaseFixture) *agentstore.Agent {
-				flow := f.stores.SeedWorkflow(t, workflowstore.Config{Name: "no-worktrees"})
+			lay: func(t *testing.T, fixture *rebaseFixture) *agentstore.Agent {
+				flow := fixture.stores.SeedWorkflow(t, workflowstore.Config{Name: "no-worktrees"})
 
-				return f.seed(t, agentstore.Agent{WorkflowID: flow.ID})
+				return fixture.seed(t, agentstore.Agent{WorkflowID: flow.ID})
 			},
 			wantErr: ErrRebaseNoWorktree,
 		},
 		{
 			name: "an archived agent",
-			lay: func(t *testing.T, f *rebaseFixture) *agentstore.Agent {
-				agent := f.seed(t, agentstore.Agent{})
-				_, err := f.stores.Agents.Archive(t.Context(), []string{agent.ID})
+			lay: func(t *testing.T, fixture *rebaseFixture) *agentstore.Agent {
+				agent := fixture.seed(t, agentstore.Agent{})
+				_, err := fixture.stores.Agents.Archive(t.Context(), []string{agent.ID})
 				require.NoError(t, err)
 
 				return agent
@@ -183,9 +198,9 @@ func TestRebaseRefusals(t *testing.T) {
 		},
 		{
 			name: "a held agent, before anything types at it or moves the branch",
-			lay: func(t *testing.T, f *rebaseFixture) *agentstore.Agent {
-				agent := f.seed(t, agentstore.Agent{})
-				_, err := f.stores.Agents.Hold(t.Context(), agentstore.HoldParams{ID: agent.ID, At: time.Now()})
+			lay: func(t *testing.T, fixture *rebaseFixture) *agentstore.Agent {
+				agent := fixture.seed(t, agentstore.Agent{})
+				_, err := fixture.stores.Agents.Hold(t.Context(), agentstore.HoldParams{ID: agent.ID, At: time.Now()})
 				require.NoError(t, err)
 
 				return agent
@@ -194,8 +209,8 @@ func TestRebaseRefusals(t *testing.T) {
 		},
 		{
 			name: "an agent whose tree something else is working in",
-			lay: func(t *testing.T, f *rebaseFixture) *agentstore.Agent {
-				return f.seed(t, agentstore.Agent{Cwd: "/locked"})
+			lay: func(t *testing.T, fixture *rebaseFixture) *agentstore.Agent {
+				return fixture.seed(t, agentstore.Agent{Cwd: "/locked"})
 			},
 			wantErr: ErrRebaseBusy,
 		},
@@ -203,15 +218,15 @@ func TestRebaseRefusals(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			f := newRebaseFixture(t)
-			agent := tt.lay(t, f)
+			fixture := newRebaseFixture(t)
+			agent := tt.lay(t, fixture)
 			locks := NewTreeLocks()
 			release, taken := locks.TryLock("/locked")
 			require.True(t, taken)
 			t.Cleanup(release)
 			rebaser := &gittest.Rebaser{State: git.TreeState{Branch: "agent/a1"}}
 
-			_, err := f.service(NewRebaseServiceParams{Rebaser: rebaser, Locks: locks}).Rebase(t.Context(), agent.ID)
+			_, err := fixture.newService(NewRebaseServiceParams{Rebaser: rebaser, Locks: locks}).Rebase(t.Context(), agent.ID)
 
 			require.ErrorIs(t, err, tt.wantErr)
 			assert.Empty(t, rebaser.Calls)
@@ -274,13 +289,13 @@ func TestRebaseRefusesATreeGitWillNotMove(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			f := newRebaseFixture(t)
-			agent := f.seed(t, agentstore.Agent{Pane: "%1"})
+			fixture := newRebaseFixture(t)
+			agent := fixture.seed(t, agentstore.Agent{Pane: "%1"})
 			channel := &harnesstest.Channel{}
 			observer := &settlingObserver{readings: []harness.Activity{harness.ActivityWorking}}
 
-			_, err := f.service(NewRebaseServiceParams{
-				Settler: settlerOver(channel, observer),
+			_, err := fixture.newService(NewRebaseServiceParams{
+				Settler: buildSettler(channel, observer),
 				Rebaser: &gittest.Rebaser{State: tt.state},
 			}).Rebase(t.Context(), agent.ID)
 
@@ -334,10 +349,10 @@ func TestRebaseMovesTheBranch(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			f := newRebaseFixture(t)
-			agent := f.seed(t, agentstore.Agent{})
+			fixture := newRebaseFixture(t)
+			agent := fixture.seed(t, agentstore.Agent{})
 
-			result, err := f.service(NewRebaseServiceParams{Rebaser: tt.rebaser}).Rebase(t.Context(), agent.ID)
+			result, err := fixture.newService(NewRebaseServiceParams{Rebaser: tt.rebaser}).Rebase(t.Context(), agent.ID)
 			require.NoError(t, err)
 
 			assert.Equal(t, tt.wantCalls, tt.rebaser.Calls)
@@ -348,7 +363,7 @@ func TestRebaseMovesTheBranch(t *testing.T) {
 			assert.Equal(t, tt.rebaser.Prediction.Replay, result.Replay)
 			assert.False(t, result.Moved, "work was replayed or stopped, so the branch was not merely moved")
 
-			stored, err := f.stores.Agents.GetByID(t.Context(), agent.ID)
+			stored, err := fixture.stores.Agents.GetByID(t.Context(), agent.ID)
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantStopped, stored.SequenceInProgress)
 		})
@@ -416,8 +431,8 @@ func TestRebaseSettlesTheAgentBeforeItMoves(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			f := newRebaseFixture(t)
-			agent := f.seed(t, agentstore.Agent{Pane: tt.pane})
+			fixture := newRebaseFixture(t)
+			agent := fixture.seed(t, agentstore.Agent{Pane: tt.pane})
 			channel := &harnesstest.Channel{}
 			observer := &settlingObserver{readings: tt.readings, err: tt.observeErr}
 			rebaser := &treeReadRecorder{
@@ -425,8 +440,8 @@ func TestRebaseSettlesTheAgentBeforeItMoves(t *testing.T) {
 				observer: observer,
 			}
 
-			_, err := f.service(NewRebaseServiceParams{
-				Settler: settlerOver(channel, observer),
+			_, err := fixture.newService(NewRebaseServiceParams{
+				Settler: buildSettler(channel, observer),
 				Rebaser: rebaser,
 			}).Rebase(t.Context(), agent.ID)
 
@@ -449,7 +464,7 @@ func TestRebaseSettlesTheAgentBeforeItMoves(t *testing.T) {
 func TestRebaseRereadsTheRowOnceTheAgentSettles(t *testing.T) {
 	tests := []struct {
 		name      string
-		settling  func(t *testing.T, f *rebaseFixture, id string)
+		settling  func(t *testing.T, fixture *rebaseFixture, id string)
 		readings  []harness.Activity
 		wantErr   error
 		wantCalls []string
@@ -457,8 +472,8 @@ func TestRebaseRereadsTheRowOnceTheAgentSettles(t *testing.T) {
 	}{
 		{
 			name: "a row stamped thinking after the interrupt",
-			settling: func(t *testing.T, f *rebaseFixture, id string) {
-				require.NoError(t, f.stores.Agents.SetStateByID(t.Context(), id, agentstore.StateThinking))
+			settling: func(t *testing.T, fixture *rebaseFixture, id string) {
+				require.NoError(t, fixture.stores.Agents.SetStateByID(t.Context(), id, agentstore.StateThinking))
 			},
 			readings:  []harness.Activity{harness.ActivityWorking, harness.ActivityIdle},
 			wantCalls: []string{"park", "rebase"},
@@ -481,18 +496,18 @@ func TestRebaseRereadsTheRowOnceTheAgentSettles(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			f := newRebaseFixture(t)
-			agent := f.seed(t, agentstore.Agent{Pane: "%1"})
+			fixture := newRebaseFixture(t)
+			agent := fixture.seed(t, agentstore.Agent{Pane: "%1"})
 			channel := &harnesstest.Channel{}
 			observer := &settlingObserver{
 				readings: tt.readings,
-				onFirst:  func() { tt.settling(t, f, agent.ID) },
+				onFirst:  func() { tt.settling(t, fixture, agent.ID) },
 			}
 			rebaser := &gittest.Rebaser{State: git.TreeState{Branch: "agent/a1"}}
 
-			_, err := f.service(NewRebaseServiceParams{
-				Settler:  settlerOver(channel, observer),
-				Notifier: f.mailer(),
+			_, err := fixture.newService(NewRebaseServiceParams{
+				Settler:  buildSettler(channel, observer),
+				Notifier: fixture.newMailer(),
 				Rebaser:  rebaser,
 			}).Rebase(t.Context(), agent.ID)
 
@@ -502,7 +517,7 @@ func TestRebaseRereadsTheRowOnceTheAgentSettles(t *testing.T) {
 				require.NoError(t, err)
 			}
 			assert.Equal(t, tt.wantCalls, rebaser.Calls)
-			inbox := f.inbox(t, agent.ID)
+			inbox := fixture.readInbox(t, agent.ID)
 			if tt.wantMail == "" {
 				assert.Empty(t, inbox)
 
@@ -514,22 +529,9 @@ func TestRebaseRereadsTheRowOnceTheAgentSettles(t *testing.T) {
 	}
 }
 
-func holdWhileSettling(t *testing.T, f *rebaseFixture, id string) {
-	_, err := f.stores.Agents.Hold(t.Context(), agentstore.HoldParams{ID: id, At: time.Now()})
+func holdWhileSettling(t *testing.T, fixture *rebaseFixture, id string) {
+	_, err := fixture.stores.Agents.Hold(t.Context(), agentstore.HoldParams{ID: id, At: time.Now()})
 	require.NoError(t, err)
-}
-
-// treeReadRecorder notes how many pane readings had been taken by the time the tree was read.
-type treeReadRecorder struct {
-	*gittest.Rebaser
-	observer        *settlingObserver
-	readsBeforeTree int
-}
-
-func (r *treeReadRecorder) ReadTreeState(ctx context.Context, dir string) (git.TreeState, error) {
-	r.readsBeforeTree = r.observer.reads
-
-	return r.Rebaser.ReadTreeState(ctx, dir)
 }
 
 // TestRebaseMailSaysWhatHappenedToTheBranch covers what the rebase mail tells the agent.
@@ -596,8 +598,10 @@ func TestRebaseRefusesAnAgentInTheCallersCheckout(t *testing.T) {
 		wantErr  error
 	}{
 		{
-			name:    "the agent itself, whose turn the rebase would cut off",
-			asker:   func(targetID string) caller.Caller { return caller.Caller{AgentID: targetID} },
+			name: "the agent itself, whose turn the rebase would cut off",
+			asker: func(targetID string) caller.Caller {
+				return caller.Caller{AgentID: targetID}
+			},
 			wantErr: ErrRebaseSelf,
 		},
 		{
@@ -625,8 +629,10 @@ func TestRebaseRefusesAnAgentInTheCallersCheckout(t *testing.T) {
 			askerCwd: t.TempDir(),
 		},
 		{
-			name:  "a person, who carries no agent id",
-			asker: func(string) caller.Caller { return caller.Caller{} },
+			name: "a person, who carries no agent id",
+			asker: func(string) caller.Caller {
+				return caller.Caller{}
+			},
 		},
 		{
 			name: "an asker weave has no row for at all",
@@ -641,13 +647,13 @@ func TestRebaseRefusesAnAgentInTheCallersCheckout(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			f := newRebaseFixture(t)
-			agent := f.seed(t, agentstore.Agent{Cwd: target})
+			fixture := newRebaseFixture(t)
+			agent := fixture.seed(t, agentstore.Agent{Cwd: target})
 			var from caller.Caller
 			if tt.asker != nil {
 				from = tt.asker(agent.ID)
 			} else {
-				asker := f.seed(t, agentstore.Agent{
+				asker := fixture.seed(t, agentstore.Agent{
 					Name:  "asker",
 					Cwd:   tt.askerCwd,
 					State: agentstore.StateThinking,
@@ -656,7 +662,7 @@ func TestRebaseRefusesAnAgentInTheCallersCheckout(t *testing.T) {
 			}
 			rebaser := &gittest.Rebaser{State: git.TreeState{Branch: "fix/auth"}}
 
-			_, err := f.service(NewRebaseServiceParams{Rebaser: rebaser}).Rebase(caller.With(t.Context(), from), agent.ID)
+			_, err := fixture.newService(NewRebaseServiceParams{Rebaser: rebaser}).Rebase(caller.With(t.Context(), from), agent.ID)
 
 			if tt.wantErr == nil {
 				require.NoError(t, err)

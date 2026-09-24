@@ -17,31 +17,31 @@ import (
 // TestRemoveTakesAnUnownedDirectoryAndPrunesIt covers a readable worktree nothing answers
 // for going and its repository being pruned.
 func TestRemoveTakesAnUnownedDirectoryAndPrunesIt(t *testing.T) {
-	f := newFixture(t)
-	dir := f.cut(t)
+	fixture := newFixture(t)
+	dir := fixture.cut(t)
 
-	removal, err := f.remover().Remove(t.Context(), []string{dir})
+	removal, err := fixture.newRemover().Remove(t.Context(), []string{dir})
 	require.NoError(t, err)
 
 	assert.Equal(t, []string{dir}, removal.Removed)
 	assert.Empty(t, removal.Refused)
 	assert.NoDirExists(t, dir)
-	assert.Equal(t, []string{f.repo}, f.git.Pruned)
+	assert.Equal(t, []string{fixture.repo}, fixture.git.Pruned)
 }
 
 // TestRemoveTakesAGoneRegistrationWithoutPruning covers a directory git cannot read going
 // without a prune being attempted against a repository that is not there.
 func TestRemoveTakesAGoneRegistrationWithoutPruning(t *testing.T) {
-	f := newFixture(t)
-	dir := filepath.Join(f.shared, "bbbb")
+	fixture := newFixture(t)
+	dir := filepath.Join(fixture.shared, "bbbb")
 	write(t, dir, ".git", "gitdir: /var/folders/xx/T/repo/.git/worktrees/bbbb\n")
 
-	removal, err := f.remover().Remove(t.Context(), []string{dir})
+	removal, err := fixture.newRemover().Remove(t.Context(), []string{dir})
 	require.NoError(t, err)
 
 	assert.Equal(t, []string{dir}, removal.Removed)
 	assert.NoDirExists(t, dir)
-	assert.Empty(t, f.git.Pruned)
+	assert.Empty(t, fixture.git.Pruned)
 }
 
 // TestRemoveRefusesWhatAnAgentAnswersFor covers the refusals: a live row, an archived row, a
@@ -49,20 +49,20 @@ func TestRemoveTakesAGoneRegistrationWithoutPruning(t *testing.T) {
 // directory, an agent working somewhere under it, a path outside the worktree directories,
 // and one that is not there at all.
 func TestRemoveRefusesWhatAnAgentAnswersFor(t *testing.T) {
-	f := newFixture(t)
-	live := f.cut(t)
-	f.own(t, live, agentstore.Agent{Name: "live-agent"})
-	archived := f.cut(t)
-	f.archive(t, f.own(t, archived, agentstore.Agent{Name: "archived-agent"}).ID)
-	vetoed := f.cut(t)
-	f.own(t, vetoed, agentstore.Agent{Name: "vetoed-agent", State: agentstore.StateFailedToCleanup})
-	shared := f.cut(t)
-	f.occupy(t, shared, "child-agent")
-	deep := f.cut(t)
-	f.occupy(t, filepath.Join(deep, "packages", "api"), "under-agent")
+	fixture := newFixture(t)
+	live := fixture.cut(t)
+	fixture.own(t, live, agentstore.Agent{Name: "live-agent"})
+	archived := fixture.cut(t)
+	fixture.archive(t, fixture.own(t, archived, agentstore.Agent{Name: "archived-agent"}).ID)
+	vetoed := fixture.cut(t)
+	fixture.own(t, vetoed, agentstore.Agent{Name: "vetoed-agent", State: agentstore.StateFailedToCleanup})
+	shared := fixture.cut(t)
+	fixture.occupy(t, shared, "child-agent")
+	deep := fixture.cut(t)
+	fixture.occupy(t, filepath.Join(deep, "packages", "api"), "under-agent")
 	outside := t.TempDir()
 
-	removal, err := f.remover().Remove(t.Context(), []string{live, archived, vetoed, shared, deep, outside, filepath.Join(f.shared, "missing")})
+	removal, err := fixture.newRemover().Remove(t.Context(), []string{live, archived, vetoed, shared, deep, outside, filepath.Join(fixture.shared, "missing")})
 	require.NoError(t, err)
 
 	assert.Empty(t, removal.Removed)
@@ -81,18 +81,18 @@ func TestRemoveRefusesWhatAnAgentAnswersFor(t *testing.T) {
 	assert.DirExists(t, vetoed)
 	assert.DirExists(t, shared)
 	assert.DirExists(t, deep)
-	assert.Empty(t, f.git.Pruned)
+	assert.Empty(t, fixture.git.Pruned)
 }
 
 // TestRemoveTakesADirectoryWhoseRowFailedToCleanUp covers the one owned directory the
 // remover accepts, a cleanup that failed on a registration git cannot read.
 func TestRemoveTakesADirectoryWhoseRowFailedToCleanUp(t *testing.T) {
-	f := newFixture(t)
-	dir := f.cut(t)
-	require.NoError(t, os.RemoveAll(filepath.Join(f.repo, ".git", "worktrees", filepath.Base(dir))))
-	f.own(t, dir, agentstore.Agent{Name: "stuck", State: agentstore.StateFailedToCleanup})
+	fixture := newFixture(t)
+	dir := fixture.cut(t)
+	require.NoError(t, os.RemoveAll(filepath.Join(fixture.repo, ".git", "worktrees", filepath.Base(dir))))
+	fixture.own(t, dir, agentstore.Agent{Name: "stuck", State: agentstore.StateFailedToCleanup})
 
-	removal, err := f.remover().Remove(t.Context(), []string{dir})
+	removal, err := fixture.newRemover().Remove(t.Context(), []string{dir})
 	require.NoError(t, err)
 
 	assert.Equal(t, []string{dir}, removal.Removed)
@@ -103,17 +103,17 @@ func TestRemoveTakesADirectoryWhoseRowFailedToCleanUp(t *testing.T) {
 // a worktree sits inside it, whether the listing found that one under a workflow's directory
 // or only the repository has it registered.
 func TestRemoveRefusesADirectoryHoldingAnotherWorktree(t *testing.T) {
-	f := newFixture(t)
-	listed := f.cut(t)
-	f.stores.SeedWorkflow(t, workflowstore.Config{Name: "nested", Worktree: workflowstore.WorktreeConfig{Dir: listed}})
+	fixture := newFixture(t)
+	listed := fixture.cut(t)
+	fixture.stores.SeedWorkflow(t, workflowstore.Config{Name: "nested", Worktree: workflowstore.WorktreeConfig{Dir: listed}})
 	inner := filepath.Join(listed, "inner")
 	write(t, inner, ".git", "gitdir: /var/folders/xx/T/repo/.git/worktrees/inner\n")
-	registered := f.cut(t)
+	registered := fixture.cut(t)
 	byHand := filepath.Join(registered, "by-hand")
-	write(t, byHand, ".git", "gitdir: "+filepath.Join(f.repo, ".git", "worktrees", "by-hand")+"\n")
-	f.git.Registered = []git.Worktree{{Dir: f.repo}, {Dir: byHand}}
+	write(t, byHand, ".git", "gitdir: "+filepath.Join(fixture.repo, ".git", "worktrees", "by-hand")+"\n")
+	fixture.git.Registered = []git.Worktree{{Dir: fixture.repo}, {Dir: byHand}}
 
-	removal, err := f.remover().Remove(t.Context(), []string{listed, registered})
+	removal, err := fixture.newRemover().Remove(t.Context(), []string{listed, registered})
 	require.NoError(t, err)
 
 	assert.Empty(t, removal.Removed)
@@ -130,11 +130,11 @@ func TestRemoveRefusesADirectoryHoldingAnotherWorktree(t *testing.T) {
 // directory: the repository's registrations could not be read, and the directory could not be
 // removed.
 func TestRemoveMarksAStepThatBroke(t *testing.T) {
-	f := newFixture(t)
-	unlisted := f.cut(t)
-	f.git.ListErr = errors.New("git is not on the path")
+	fixture := newFixture(t)
+	unlisted := fixture.cut(t)
+	fixture.git.ListErr = errors.New("git is not on the path")
 
-	removal, err := f.remover().Remove(t.Context(), []string{unlisted})
+	removal, err := fixture.newRemover().Remove(t.Context(), []string{unlisted})
 	require.NoError(t, err)
 
 	require.Len(t, removal.Refused, 1)
@@ -142,12 +142,12 @@ func TestRemoveMarksAStepThatBroke(t *testing.T) {
 	assert.True(t, removal.Refused[0].Failed)
 	assert.DirExists(t, unlisted)
 
-	f.git.ListErr = nil
-	held := f.cut(t)
-	require.NoError(t, os.Chmod(f.shared, 0o500))
-	t.Cleanup(func() { assert.NoError(t, os.Chmod(f.shared, 0o700)) })
+	fixture.git.ListErr = nil
+	held := fixture.cut(t)
+	require.NoError(t, os.Chmod(fixture.shared, 0o500))
+	t.Cleanup(func() { assert.NoError(t, os.Chmod(fixture.shared, 0o700)) })
 
-	removal, err = f.remover().Remove(t.Context(), []string{held})
+	removal, err = fixture.newRemover().Remove(t.Context(), []string{held})
 	require.NoError(t, err)
 
 	require.Len(t, removal.Refused, 1)

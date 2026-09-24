@@ -28,7 +28,7 @@ func writeTeardownHook(t *testing.T, instance *weavetest.Instance, body string) 
 	const name = "take-the-stack-down"
 	require.NoError(t, os.WriteFile(filepath.Join(instance.HooksDir, name), []byte(body), 0o755))
 
-	request := worktreeWorkflow(t)
+	request := buildWorktreeWorkflow(t)
 	request.Hooks = []*workflowv1.WorkflowHook{{Event: workflowstore.HookPreTeardown, Script: name}}
 
 	return request
@@ -37,7 +37,7 @@ func writeTeardownHook(t *testing.T, instance *weavetest.Instance, body string) 
 // TestIntegrationPreTeardownRunsWhileTheWorktreeIsStillThere covers the hook reading the worktree before
 // the deprovisioner hands it back.
 func TestIntegrationPreTeardownRunsWhileTheWorktreeIsStillThere(t *testing.T) {
-	hermeticGit(t)
+	isolateGit(t)
 
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()
@@ -75,7 +75,7 @@ func TestIntegrationPreTeardownRunsWhileTheWorktreeIsStillThere(t *testing.T) {
 // TestIntegrationAFailedPreTeardownHoldsTheDelete covers a teardown that failed stopping the delete
 // rather than losing the row and the worktree with it.
 func TestIntegrationAFailedPreTeardownHoldsTheDelete(t *testing.T) {
-	hermeticGit(t)
+	isolateGit(t)
 
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()
@@ -113,7 +113,7 @@ func TestIntegrationAFailedPreTeardownHoldsTheDelete(t *testing.T) {
 // TestIntegrationPreTeardownIsSkippedOnceTheDirectoryHasGone covers a row whose worktree has gone being
 // deletable rather than stuck on a hook that can never run.
 func TestIntegrationPreTeardownIsSkippedOnceTheDirectoryHasGone(t *testing.T) {
-	hermeticGit(t)
+	isolateGit(t)
 
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()
@@ -147,7 +147,7 @@ func TestIntegrationPreTeardownIsSkippedOnceTheDirectoryHasGone(t *testing.T) {
 // TestIntegrationOverlappingDeletesRunThePreTeardownOnce covers two deletes of one agent running the
 // hook once between them.
 func TestIntegrationOverlappingDeletesRunThePreTeardownOnce(t *testing.T) {
-	hermeticGit(t)
+	isolateGit(t)
 
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()
