@@ -11,6 +11,8 @@ import (
 	"weave/internal/browser"
 	"weave/internal/engine"
 	"weave/internal/panes"
+	"weave/internal/tmux"
+	"weave/internal/ui/layout"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	"weave/proto/gen/hook/v1/hookv1connect"
 	schedulev1connect "weave/proto/gen/schedule/v1/schedulev1connect"
@@ -85,12 +87,15 @@ type NewPanelParams struct {
 	RefuseSplits  bool
 	Binary        BinaryWatcher
 	Browser       browser.Opener
+	Tmux          *tmux.Client
 }
 
 // NewPanel builds the panel the way weave panel does, over a recording tmux.
 func NewPanel(params NewPanelParams) *Panel {
 	settings := params.Settings
-	settings.Pane = "%0"
+	if settings.Pane == "" {
+		settings.Pane = "%0"
+	}
 	tmux := &recordingTmux{
 		width:       params.Width,
 		height:      params.Height,
@@ -99,6 +104,9 @@ func NewPanel(params NewPanelParams) *Panel {
 	var driven uiTmux = tmux
 	if params.RefuseSplits {
 		driven = unsplittableTmux{tmux}
+	}
+	if params.Tmux != nil {
+		driven = params.Tmux
 	}
 	post := newPostbox()
 	layout := config.DefaultLayout()
@@ -495,4 +503,9 @@ func (p *Panel) ReadLegendKeys() []string {
 	}
 
 	return keys
+}
+
+// ReadStagePane is the pane the panel's frame holds as its stage.
+func (p *Panel) ReadStagePane() string {
+	return p.model.frame.Pane(layout.RegionStage)
 }
