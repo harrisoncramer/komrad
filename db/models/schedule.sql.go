@@ -7,6 +7,7 @@ package models
 
 import (
 	"context"
+	"time"
 )
 
 const countLiveWorkflowSchedules = `-- name: CountLiveWorkflowSchedules :one
@@ -33,6 +34,37 @@ WHERE id = $1
 
 func (q *Queries) DeleteSchedule(ctx context.Context, id string) error {
 	_, err := q.db.Exec(ctx, deleteSchedule, id)
+	return err
+}
+
+const finishScheduleRun = `-- name: FinishScheduleRun :exec
+UPDATE
+    schedule_runs
+SET
+    state = $1::text,
+    message = $2,
+    finalized_at = CASE WHEN $1::text IN ('completed', 'cancelled', 'discarded') THEN
+        NOW()
+    END
+WHERE
+    schedule_id = $3
+    AND scheduled_for = $4
+`
+
+type FinishScheduleRunParams struct {
+	State        string
+	Message      string
+	ScheduleID   string
+	ScheduledFor time.Time
+}
+
+func (q *Queries) FinishScheduleRun(ctx context.Context, arg FinishScheduleRunParams) error {
+	_, err := q.db.Exec(ctx, finishScheduleRun,
+		arg.State,
+		arg.Message,
+		arg.ScheduleID,
+		arg.ScheduledFor,
+	)
 	return err
 }
 
@@ -128,6 +160,125 @@ func (q *Queries) InsertSchedule(ctx context.Context, arg InsertScheduleParams) 
 		&i.TenantID,
 	)
 	return &i, err
+}
+
+const listRecentScheduleRuns = `-- name: ListRecentScheduleRuns :many
+SELECT
+    r.id, r.schedule_id, r.scheduled_for, r.state, r.attempt, r.max_attempts, r.message, r.started_at, r.finalized_at, r.tenant_id
+FROM
+    schedule_runs r
+WHERE
+    r.schedule_id = ANY ($1::uuid[])
+    AND r.id IN (
+        SELECT
+            recent.id
+        FROM
+            unnest($1::uuid[]) AS s(id)
+            CROSS JOIN LATERAL (
+                SELECT
+                    inner_run.id
+                FROM
+                    schedule_runs inner_run
+                WHERE
+                    inner_run.schedule_id = s.id
+                ORDER BY
+                    inner_run.scheduled_for DESC
+                LIMIT $2) recent)
+ORDER BY
+    r.schedule_id,
+    r.scheduled_for DESC
+`
+
+type ListRecentScheduleRunsParams struct {
+	ScheduleIds []string
+	PerSchedule int32
+}
+
+type ListRecentScheduleRunsRow struct {
+	ScheduleRun ScheduleRun
+}
+
+func (q *Queries) ListRecentScheduleRuns(ctx context.Context, arg ListRecentScheduleRunsParams) ([]*ListRecentScheduleRunsRow, error) {
+	rows, err := q.db.Query(ctx, listRecentScheduleRuns, arg.ScheduleIds, arg.PerSchedule)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*ListRecentScheduleRunsRow
+	for rows.Next() {
+		var i ListRecentScheduleRunsRow
+		if err := rows.Scan(
+			&i.ScheduleRun.ID,
+			&i.ScheduleRun.ScheduleID,
+			&i.ScheduleRun.ScheduledFor,
+			&i.ScheduleRun.State,
+			&i.ScheduleRun.Attempt,
+			&i.ScheduleRun.MaxAttempts,
+			&i.ScheduleRun.Message,
+			&i.ScheduleRun.StartedAt,
+			&i.ScheduleRun.FinalizedAt,
+			&i.ScheduleRun.TenantID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listScheduleRuns = `-- name: ListScheduleRuns :many
+SELECT
+    r.id, r.schedule_id, r.scheduled_for, r.state, r.attempt, r.max_attempts, r.message, r.started_at, r.finalized_at, r.tenant_id
+FROM
+    schedule_runs r
+WHERE
+    r.schedule_id = $1
+ORDER BY
+    r.scheduled_for DESC
+LIMIT $2
+`
+
+type ListScheduleRunsParams struct {
+	ScheduleID string
+	Lim        int32
+}
+
+type ListScheduleRunsRow struct {
+	ScheduleRun ScheduleRun
+}
+
+func (q *Queries) ListScheduleRuns(ctx context.Context, arg ListScheduleRunsParams) ([]*ListScheduleRunsRow, error) {
+	rows, err := q.db.Query(ctx, listScheduleRuns, arg.ScheduleID, arg.Lim)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*ListScheduleRunsRow
+	for rows.Next() {
+		var i ListScheduleRunsRow
+		if err := rows.Scan(
+			&i.ScheduleRun.ID,
+			&i.ScheduleRun.ScheduleID,
+			&i.ScheduleRun.ScheduledFor,
+			&i.ScheduleRun.State,
+			&i.ScheduleRun.Attempt,
+			&i.ScheduleRun.MaxAttempts,
+			&i.ScheduleRun.Message,
+			&i.ScheduleRun.StartedAt,
+			&i.ScheduleRun.FinalizedAt,
+			&i.ScheduleRun.TenantID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listSchedulesPage = `-- name: ListSchedulesPage :many
@@ -299,6 +450,31 @@ func (q *Queries) MarkScheduleArchived(ctx context.Context, id string) error {
 	return err
 }
 
+const pruneScheduleRuns = `-- name: PruneScheduleRuns :exec
+DELETE FROM schedule_runs gone
+WHERE gone.schedule_id = $1
+    AND gone.id NOT IN (
+        SELECT
+            kept.id
+        FROM
+            schedule_runs kept
+        WHERE
+            kept.schedule_id = $1
+        ORDER BY
+            kept.scheduled_for DESC
+        LIMIT $2)
+`
+
+type PruneScheduleRunsParams struct {
+	ScheduleID string
+	Keep       int32
+}
+
+func (q *Queries) PruneScheduleRuns(ctx context.Context, arg PruneScheduleRunsParams) error {
+	_, err := q.db.Exec(ctx, pruneScheduleRuns, arg.ScheduleID, arg.Keep)
+	return err
+}
+
 const setScheduleEnabled = `-- name: SetScheduleEnabled :exec
 UPDATE
     schedules
@@ -316,6 +492,47 @@ type SetScheduleEnabledParams struct {
 
 func (q *Queries) SetScheduleEnabled(ctx context.Context, arg SetScheduleEnabledParams) error {
 	_, err := q.db.Exec(ctx, setScheduleEnabled, arg.Enabled, arg.ID)
+	return err
+}
+
+const startScheduleRun = `-- name: StartScheduleRun :exec
+INSERT INTO schedule_runs(
+    schedule_id,
+    scheduled_for,
+    state,
+    attempt,
+    max_attempts)
+VALUES (
+    $1,
+    $2,
+    'running',
+    $3,
+    $4)
+ON CONFLICT (
+    tenant_id,
+    schedule_id,
+    scheduled_for)
+    DO UPDATE SET
+        state = 'running',
+        attempt = EXCLUDED.attempt,
+        max_attempts = EXCLUDED.max_attempts,
+        finalized_at = NULL
+`
+
+type StartScheduleRunParams struct {
+	ScheduleID   string
+	ScheduledFor time.Time
+	Attempt      int32
+	MaxAttempts  int32
+}
+
+func (q *Queries) StartScheduleRun(ctx context.Context, arg StartScheduleRunParams) error {
+	_, err := q.db.Exec(ctx, startScheduleRun,
+		arg.ScheduleID,
+		arg.ScheduledFor,
+		arg.Attempt,
+		arg.MaxAttempts,
+	)
 	return err
 }
 

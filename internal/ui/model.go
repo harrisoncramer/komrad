@@ -238,14 +238,12 @@ type model struct {
 	// inspections is what the service answered for each worktree directory.
 	inspections map[string]worktreeInspection
 
-	// scheduleRuns is what the service answered for the hovered schedule's firings.
-	scheduleRuns scheduleRunsRead
-	search       searchScreen
-	review       reviewScreen
-	filter       filterState
-	rowCursor    cursor.Model
-	form         formState
-	held         heldWrite
+	search    searchScreen
+	review    reviewScreen
+	filter    filterState
+	rowCursor cursor.Model
+	form      formState
+	held      heldWrite
 	// detached holds the writes a person escaped out of, which land without taking the screen to
 	// what they made.
 	detached map[int]struct{}

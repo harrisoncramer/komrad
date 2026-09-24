@@ -13,8 +13,8 @@ import (
 // pendingKeys is the keys one render reads back, by resource, each resource's in order.
 type pendingKeys map[watchv1.Resource][]string
 
-// Signal says the rows of a resource with these keys may have moved.
-func (b *Broker) Signal(resource watchv1.Resource, keys ...string) {
+// signal says the rows of a resource with these keys may have moved.
+func (b *Broker) signal(resource watchv1.Resource, keys ...string) {
 	if !b.rows.hasLoader(resource) {
 		if b.shouldWarn("resource " + resource.String()) {
 			b.logger.LogAttrs(context.Background(), slog.LevelWarn, "a signal named a resource nothing reads", slog.String(logging.WatchResource, resource.String()))
@@ -74,6 +74,6 @@ func (b *Broker) drainPending() pendingKeys {
 // requeuePending puts the keys a failed render drained back for the next one.
 func (b *Broker) requeuePending(pending pendingKeys) {
 	for res, keys := range pending {
-		b.Signal(res, keys...)
+		b.signal(res, keys...)
 	}
 }

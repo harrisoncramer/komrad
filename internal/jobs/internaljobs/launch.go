@@ -8,6 +8,7 @@ import (
 
 	"weave/internal/agents"
 	"weave/internal/store"
+	schedulestore "weave/internal/store/schedule"
 	"weave/lib/xptr"
 
 	"github.com/riverqueue/river"
@@ -42,17 +43,26 @@ func (LaunchAgentArgs) InsertOpts() river.InsertOpts {
 type LaunchAgentWorker struct {
 	river.WorkerDefaults[LaunchAgentArgs]
 	schedules ScheduleGetter
+	runs      RunRecorder
 	agents    AgentLauncher
 	running   RunningAgentCounter
 }
 
+type NewLaunchAgentWorkerParams struct {
+	Schedules ScheduleGetter
+	Runs      RunRecorder
+	Launcher  AgentLauncher
+	Running   RunningAgentCounter
+}
+
 // NewLaunchAgentWorker builds the worker over the schedules it reads and the service that
 // launches an agent.
-func NewLaunchAgentWorker(schedules ScheduleGetter, launcher AgentLauncher, running RunningAgentCounter) *LaunchAgentWorker {
+func NewLaunchAgentWorker(params NewLaunchAgentWorkerParams) *LaunchAgentWorker {
 	return &LaunchAgentWorker{
-		schedules: schedules,
-		agents:    launcher,
-		running:   running,
+		schedules: params.Schedules,
+		runs:      params.Runs,
+		agents:    params.Launcher,
+		running:   params.Running,
 	}
 }
 
@@ -66,6 +76,26 @@ func (w *LaunchAgentWorker) Work(ctx context.Context, job *river.Job[LaunchAgent
 	if err != nil {
 		return fmt.Errorf("failed to read schedule %q: %w", job.Args.ScheduleID, err)
 	}
+
+	occurrence := schedulestore.RunOccurrence{ScheduleID: schedule.ID, ScheduledFor: job.Args.ScheduledFor}
+	err = w.runs.StartRun(ctx, schedulestore.StartRunParams{
+		Occurrence:  occurrence,
+		Attempt:     job.Attempt,
+		MaxAttempts: job.MaxAttempts,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to start the run of schedule %q: %w", schedule.Name, err)
+	}
+
+	launchErr := w.launch(ctx, schedule, job.Args)
+	if err := w.runs.FinishRun(ctx, occurrence, buildRunOutcome(launchErr, job.JobRow)); err != nil {
+		return errors.Join(launchErr, fmt.Errorf("failed to finish the run of schedule %q: %w", schedule.Name, err))
+	}
+
+	return launchErr
+}
+
+func (w *LaunchAgentWorker) launch(ctx context.Context, schedule *schedulestore.Schedule, args LaunchAgentArgs) error {
 	if !schedule.Enabled {
 		return river.JobCancel(fmt.Errorf("schedule %q is paused", schedule.Name))
 	}
@@ -84,7 +114,7 @@ func (w *LaunchAgentWorker) Work(ctx context.Context, job *river.Job[LaunchAgent
 		WorkflowID:     schedule.WorkflowID,
 		ScheduleID:     xptr.Ptr(schedule.ID),
 		Hidden:         schedule.HideAgents,
-		IdempotencyKey: launchKey(schedule.ID, job.Args.ScheduledFor),
+		IdempotencyKey: launchKey(schedule.ID, args.ScheduledFor),
 	})
 
 	if errors.Is(err, agents.ErrBadDirectory) ||
@@ -106,4 +136,19 @@ func (w *LaunchAgentWorker) Work(ctx context.Context, job *river.Job[LaunchAgent
 // the occurrence naming which run of it.
 func launchKey(scheduleID string, scheduledFor time.Time) string {
 	return "schedule:" + scheduleID + ":" + scheduledFor.UTC().Format(time.RFC3339)
+}
+
+func buildRunOutcome(err error, job *rivertype.JobRow) schedulestore.RunOutcome {
+	var cancelled *river.JobCancelError
+
+	switch {
+	case err == nil:
+		return schedulestore.RunOutcome{State: schedulestore.RunStateCompleted}
+	case errors.As(err, &cancelled):
+		return schedulestore.RunOutcome{State: schedulestore.RunStateCancelled, Message: errors.Unwrap(cancelled).Error()}
+	case job.Attempt >= job.MaxAttempts:
+		return schedulestore.RunOutcome{State: schedulestore.RunStateDiscarded, Message: err.Error()}
+	}
+
+	return schedulestore.RunOutcome{State: schedulestore.RunStateRetryable, Message: err.Error()}
 }

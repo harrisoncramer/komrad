@@ -108,3 +108,90 @@ ORDER BY
 -- name: DeleteSchedule :exec
 DELETE FROM schedules
 WHERE id = @id;
+
+-- name: StartScheduleRun :exec
+INSERT INTO schedule_runs(
+    schedule_id,
+    scheduled_for,
+    state,
+    attempt,
+    max_attempts)
+VALUES (
+    @schedule_id,
+    @scheduled_for,
+    'running',
+    @attempt,
+    @max_attempts)
+ON CONFLICT (
+    tenant_id,
+    schedule_id,
+    scheduled_for)
+    DO UPDATE SET
+        state = 'running',
+        attempt = EXCLUDED.attempt,
+        max_attempts = EXCLUDED.max_attempts,
+        finalized_at = NULL;
+
+-- name: FinishScheduleRun :exec
+UPDATE
+    schedule_runs
+SET
+    state = @state::text,
+    message = @message,
+    finalized_at = CASE WHEN @state::text IN ('completed', 'cancelled', 'discarded') THEN
+        NOW()
+    END
+WHERE
+    schedule_id = @schedule_id
+    AND scheduled_for = @scheduled_for;
+
+-- name: PruneScheduleRuns :exec
+DELETE FROM schedule_runs gone
+WHERE gone.schedule_id = @schedule_id
+    AND gone.id NOT IN (
+        SELECT
+            kept.id
+        FROM
+            schedule_runs kept
+        WHERE
+            kept.schedule_id = @schedule_id
+        ORDER BY
+            kept.scheduled_for DESC
+        LIMIT @keep);
+
+-- name: ListScheduleRuns :many
+SELECT
+    sqlc.embed(r)
+FROM
+    schedule_runs r
+WHERE
+    r.schedule_id = @schedule_id
+ORDER BY
+    r.scheduled_for DESC
+LIMIT @lim;
+
+-- name: ListRecentScheduleRuns :many
+SELECT
+    sqlc.embed(r)
+FROM
+    schedule_runs r
+WHERE
+    r.schedule_id = ANY (@schedule_ids::uuid[])
+    AND r.id IN (
+        SELECT
+            recent.id
+        FROM
+            unnest(@schedule_ids::uuid[]) AS s(id)
+            CROSS JOIN LATERAL (
+                SELECT
+                    inner_run.id
+                FROM
+                    schedule_runs inner_run
+                WHERE
+                    inner_run.schedule_id = s.id
+                ORDER BY
+                    inner_run.scheduled_for DESC
+                LIMIT @per_schedule) recent)
+ORDER BY
+    r.schedule_id,
+    r.scheduled_for DESC;

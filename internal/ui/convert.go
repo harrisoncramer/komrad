@@ -198,6 +198,7 @@ func scheduleFrom(s *schedulev1.Schedule) panel.Schedule {
 		HideAgents: s.GetHideAgents(),
 		Prompt:     s.GetPrompt(),
 		WorkflowID: s.GetWorkflowId(),
+		RecentRuns: xslice.Map(s.GetRecentRuns(), scheduleRunFrom),
 	}
 
 	if latest := s.GetLatestRun(); latest != nil {

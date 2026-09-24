@@ -24,15 +24,13 @@ type Schedule struct {
 	WorkflowID string
 	UpdatedAt  time.Time
 	LatestRun  *Run
+	RecentRuns []Run
 }
 
-// RunState is where River holds a firing: waiting, working, or finished one of three ways.
+// RunState is where a firing stands.
 type RunState string
 
 const (
-	RunStateAvailable RunState = "available"
-	RunStatePending   RunState = "pending"
-	RunStateScheduled RunState = "scheduled"
 	RunStateRunning   RunState = "running"
 	RunStateRetryable RunState = "retryable"
 	RunStateCompleted RunState = "completed"
@@ -40,7 +38,7 @@ const (
 	RunStateDiscarded RunState = "discarded"
 )
 
-// Run is one firing of a schedule as River's job for it stands.
+// Run is one firing of a schedule as the launch job recorded it.
 type Run struct {
 	ID           int64
 	ScheduledFor time.Time
@@ -90,7 +88,7 @@ func (s *ScheduleStore) ListPage(ctx context.Context, limit int64, cursor *Curso
 		return scheduleFromRow(row.Schedule)
 	})
 
-	return schedules, nil
+	return s.attachRuns(ctx, schedules, 1)
 }
 
 // Get returns a schedule by id, or ErrNotFound when none has that id.
@@ -107,9 +105,12 @@ func (s *ScheduleStore) Get(ctx context.Context, id string) (*Schedule, error) {
 		return nil, fmt.Errorf("failed to get schedule %q: %w", id, err)
 	}
 
-	schedule := scheduleFromRow(row.Schedule)
+	attached, err := s.attachRuns(ctx, []Schedule{scheduleFromRow(row.Schedule)}, 1)
+	if err != nil {
+		return nil, err
+	}
 
-	return &schedule, nil
+	return &attached[0], nil
 }
 
 // Create inserts a schedule and returns it.

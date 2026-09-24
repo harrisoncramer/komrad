@@ -219,7 +219,6 @@ func TestScheduleDocRows(t *testing.T) {
 	tests := []struct {
 		name     string
 		item     scheduleItem
-		runs     scheduleRunsRead
 		wants    []string
 		notWants []string
 	}{
@@ -257,26 +256,14 @@ func TestScheduleDocRows(t *testing.T) {
 			wants: []string{"quiet", "start hidden"},
 		},
 		{
-			name:     "runs not yet read draw nothing in their place",
-			item:     scheduleItem{schedule: panel.Schedule{Name: "fresh", Enabled: true, Prompt: "go"}},
-			notWants: []string{"never fired", "could not read runs"},
-		},
-		{
-			name:  "a failed read says so rather than looking like no runs",
-			item:  scheduleItem{schedule: panel.Schedule{Name: "fresh", Enabled: true, Prompt: "go"}},
-			runs:  scheduleRunsRead{answered: true, err: errors.New("connection refused")},
-			wants: []string{"could not read runs", "connection refused"},
-		},
-		{
 			name:  "a schedule that has never fired says so in one line",
 			item:  scheduleItem{schedule: panel.Schedule{Name: "fresh", Enabled: true, Prompt: "go"}},
-			runs:  scheduleRunsRead{answered: true},
 			wants: []string{"never fired", "go"},
 		},
 		{
 			name: "each run reads as its outcome, a skip giving its reason and a failure its error",
-			item: scheduleItem{schedule: panel.Schedule{Name: "flaky", Enabled: true, Prompt: "go"}},
-			runs: scheduleRunsRead{answered: true, runs: []panel.ScheduleRun{
+			item: scheduleItem{schedule: panel.Schedule{Name: "flaky", Enabled: true, Prompt: "go", RecentRuns: []panel.ScheduleRun{
+
 				{
 					ScheduledFor: next,
 					State:        schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_DISCARDED,
@@ -298,7 +285,7 @@ func TestScheduleDocRows(t *testing.T) {
 					MaxAttempts:  5,
 					Message:      "an earlier attempt's error",
 				},
-			}},
+			}}},
 			wants:    []string{"07-28 09:00", "failed", "5/5 attempts", "bad directory", "skipped", "schedule is paused", "launched", "2 attempts"},
 			notWants: []string{"an earlier attempt's error"},
 		},
@@ -306,7 +293,7 @@ func TestScheduleDocRows(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rendered := ansi.Strip(strings.Join(scheduleDocRows(tt.item, tt.runs, 100), "\n"))
+			rendered := ansi.Strip(strings.Join(scheduleDocRows(tt.item, 100), "\n"))
 
 			for _, want := range tt.wants {
 				assert.Contains(t, rendered, want)
@@ -532,21 +519,8 @@ func scheduleItems(names ...string) []scheduleItem {
 
 type fakeSchedules struct {
 	schedulev1connect.ScheduleServiceClient
-	err      error
-	writes   int
-	runReads int
-}
-
-func (f *fakeSchedules) ListScheduleRuns(context.Context, *connect.Request[schedulev1.ListScheduleRunsRequest]) (*connect.Response[schedulev1.ListScheduleRunsResponse], error) {
-	f.runReads++
-	if f.err != nil {
-		return nil, f.err
-	}
-
-	return connect.NewResponse(&schedulev1.ListScheduleRunsResponse{Runs: []*schedulev1.ScheduleRun{{
-		Id:    int64(f.runReads),
-		State: schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_COMPLETED,
-	}}}), nil
+	err    error
+	writes int
 }
 
 func (f *fakeSchedules) ListSchedules(context.Context, *connect.Request[schedulev1.ListSchedulesRequest]) (*connect.Response[schedulev1.ListSchedulesResponse], error) {

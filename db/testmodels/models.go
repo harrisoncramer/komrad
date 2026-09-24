@@ -613,6 +613,19 @@ type Schedule struct {
 	TenantID pgtype.UUID
 }
 
+type ScheduleRun struct {
+	ID           int64
+	ScheduleID   pgtype.UUID
+	ScheduledFor pgtype.Timestamptz
+	State        string
+	Attempt      int32
+	MaxAttempts  int32
+	Message      string
+	StartedAt    pgtype.Timestamptz
+	FinalizedAt  pgtype.Timestamptz
+	TenantID     pgtype.UUID
+}
+
 // An engine, the owner of every row it writes.
 type Tenant struct {
 	ID        pgtype.UUID

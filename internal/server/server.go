@@ -122,6 +122,7 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 		Pool:      st.pool.GetRawPool(),
 		Schema:    st.pool.GetRiverSchema(),
 		Schedules: st.schedules,
+		Runs:      st.schedules,
 		Launcher:  svc.launch,
 		Deleter:   svc.lifecycle,
 		Archived:  st.agents,
@@ -133,10 +134,6 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	signalCtx, stopSignaling := context.WithCancel(context.WithoutCancel(ctx))
-	srv.closers = append(srv.closers, stopSignaling)
-	jobs.SignalFinishedRuns(signalCtx, srv.Jobs, broker, params.Logger)
 
 	// The MCP query tools connect through a least-privilege role, so their pool is opened
 	// apart from the one everything else writes through.

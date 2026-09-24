@@ -20,14 +20,11 @@ const maxAttempts = 5
 
 const jobTimeout = 2 * time.Minute
 
-// jobRetention is how long River keeps a finished job, which is how far back a schedule's runs
-// can be read.
-const jobRetention = 90 * 24 * time.Hour
-
 type NewClientParams struct {
 	Pool      *pgxpool.Pool
 	Schema    string
 	Schedules internaljobs.ScheduleGetter
+	Runs      internaljobs.RunRecorder
 	Launcher  internaljobs.AgentLauncher
 	Deleter   internaljobs.AgentDeleter
 	Archived  internaljobs.ArchivedAgentLister
@@ -41,7 +38,12 @@ type NewClientParams struct {
 // the reconciler that reads them out of the schedules table.
 func NewClient(params NewClientParams) (*river.Client[pgx.Tx], error) {
 	workers := river.NewWorkers()
-	river.AddWorker(workers, internaljobs.NewLaunchAgentWorker(params.Schedules, params.Launcher, params.Running))
+	river.AddWorker(workers, internaljobs.NewLaunchAgentWorker(internaljobs.NewLaunchAgentWorkerParams{
+		Schedules: params.Schedules,
+		Runs:      params.Runs,
+		Launcher:  params.Launcher,
+		Running:   params.Running,
+	}))
 	river.AddWorker(workers, internaljobs.NewEmptyArchiveWorker(params.Archived, params.Deleter))
 	river.AddWorker(workers, internaljobs.NewDeleteWorktreesWorker(internaljobs.NewDeleteWorktreesWorkerParams{
 		Worktrees: params.Worktrees,
@@ -51,14 +53,11 @@ func NewClient(params NewClientParams) (*river.Client[pgx.Tx], error) {
 	}))
 
 	client, err := river.NewClient(riverpgxv5.New(params.Pool), &river.Config{
-		Schema:                      params.Schema,
-		Workers:                     workers,
-		Logger:                      cmp.Or(params.Logger, slog.Default()),
-		MaxAttempts:                 maxAttempts,
-		JobTimeout:                  jobTimeout,
-		CompletedJobRetentionPeriod: jobRetention,
-		CancelledJobRetentionPeriod: jobRetention,
-		DiscardedJobRetentionPeriod: jobRetention,
+		Schema:      params.Schema,
+		Workers:     workers,
+		Logger:      cmp.Or(params.Logger, slog.Default()),
+		MaxAttempts: maxAttempts,
+		JobTimeout:  jobTimeout,
 		Queues: map[string]river.QueueConfig{
 			river.QueueDefault: {MaxWorkers: 1},
 		},

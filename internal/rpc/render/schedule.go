@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"weave/internal/schedules"
+	"weave/lib/xslice"
 	"weave/lib/xstr"
 
 	schedulestore "weave/internal/store/schedule"
@@ -45,13 +46,12 @@ func Schedule(s schedulestore.Schedule, now time.Time, options ScheduleOptions) 
 		rendered.LatestRun = ScheduleRun(*s.LatestRun)
 	}
 
+	rendered.RecentRuns = xslice.Map(s.RecentRuns, ScheduleRun)
+
 	return rendered
 }
 
 var runStates = map[schedulestore.RunState]schedulev1.ScheduleRunState{
-	schedulestore.RunStateAvailable: schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_AVAILABLE,
-	schedulestore.RunStatePending:   schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_PENDING,
-	schedulestore.RunStateScheduled: schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_SCHEDULED,
 	schedulestore.RunStateRunning:   schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_RUNNING,
 	schedulestore.RunStateRetryable: schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_RETRYABLE,
 	schedulestore.RunStateCompleted: schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_COMPLETED,

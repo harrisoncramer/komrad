@@ -201,7 +201,7 @@ func scheduleFields(sched panel.Schedule, workflow *panel.Workflow) []recordFiel
 
 // scheduleDocRows is a schedule's document at a width: its name and next run, its firings, then
 // its prompt.
-func scheduleDocRows(item scheduleItem, runs scheduleRunsRead, width int) []string {
+func scheduleDocRows(item scheduleItem, width int) []string {
 	sched := item.schedule
 
 	notice := "_paused — will not run_"
@@ -219,7 +219,7 @@ func scheduleDocRows(item scheduleItem, runs scheduleRunsRead, width int) []stri
 	}
 
 	rows := paint.DocStyledRows(renderDocument(sched.Name, notice, "", ""), width, columnStyle())
-	if runRows := scheduleRunRows(runs, width); len(runRows) > 0 {
+	if runRows := scheduleRunRows(sched.RecentRuns, width); len(runRows) > 0 {
 		rows = append(append(rows, ""), runRows...)
 	}
 
