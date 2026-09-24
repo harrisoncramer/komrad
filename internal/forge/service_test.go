@@ -142,6 +142,8 @@ func TestConnect(t *testing.T) {
 
 	again, err := f.service.ForConnection(*connection)
 	require.NoError(t, err)
+	require.Len(t, f.seen, 2)
+	assert.Equal(t, Credential{Header: HeaderBearer, Token: NewSecret("ghp_secret")}, f.seen[1])
 	login, err := again.Verify(ctx)
 	require.NoError(t, err)
 	assert.Equal(t, "harrisoncramer", login)
