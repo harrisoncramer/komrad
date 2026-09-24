@@ -1,7 +1,6 @@
 package agents
 
 import (
-	"context"
 	"errors"
 	"testing"
 	"time"
@@ -14,25 +13,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-// settlingObserver answers with a run of readings, holding the last one once they are spent, which
-// is how a pane that takes a moment to come to rest is written down.
-type settlingObserver struct {
-	readings []harness.Activity
-	err      error
-	reads    int
-}
-
-func (o *settlingObserver) Observe(_ context.Context, _ harness.Target) (harness.Observation, error) {
-	if o.err != nil {
-		return harness.Observation{}, o.err
-	}
-
-	at := min(o.reads, len(o.readings)-1)
-	o.reads++
-
-	return harness.Observation{Activity: o.readings[at]}, nil
-}
 
 // newHolder builds a holder over the test store with a clock the test moves itself, so waiting
 // for an agent to settle costs no real time.
@@ -72,11 +52,11 @@ func TestHoldWaitsForTheAgentToStop(t *testing.T) {
 	agent := seed(t, st, "telescope", "%1", agentstore.StateThinking)
 
 	channel := &harnesstest.Channel{}
-	observer := &settlingObserver{readings: []harness.Activity{
+	observer := harnesstest.ObserveActivities(
 		harness.ActivityWorking,
 		harness.ActivityWorking,
 		harness.ActivityIdle,
-	}}
+	)
 
 	held, err := newHolder(st, channel, observer).Hold(t.Context(), agent.ID)
 	require.NoError(t, err)
@@ -84,7 +64,7 @@ func TestHoldWaitsForTheAgentToStop(t *testing.T) {
 	assert.NotNil(t, held.HeldAt, "the hold is written down only once the agent has stopped")
 	assert.True(t, held.HeldMidTurn, "and it says the turn it cut was still running")
 	assert.Equal(t, 1, channel.Interrupts)
-	assert.Equal(t, 3, observer.reads, "the pane was read until it settled")
+	assert.Equal(t, 3, observer.Reads, "the pane was read until it settled")
 }
 
 // TestHoldRefusesAnAgentThatWillNotStop covers the interrupt that never lands, where claiming the
@@ -93,7 +73,7 @@ func TestHoldRefusesAnAgentThatWillNotStop(t *testing.T) {
 	st := newStore(t)
 	agent := seed(t, st, "telescope", "%1", agentstore.StateThinking)
 
-	observer := &settlingObserver{readings: []harness.Activity{harness.ActivityWorking}}
+	observer := harnesstest.ObserveActivities(harness.ActivityWorking)
 
 	_, err := newHolder(st, &harnesstest.Channel{}, observer).Hold(t.Context(), agent.ID)
 	require.ErrorIs(t, err, ErrUnsettled)
@@ -109,7 +89,7 @@ func TestHoldRefusesAPaneItCannotRead(t *testing.T) {
 	st := newStore(t)
 	agent := seed(t, st, "telescope", "%1", agentstore.StateThinking)
 
-	observer := &settlingObserver{err: errors.New("the pane is gone")}
+	observer := &harnesstest.Observer{Err: errors.New("the pane is gone")}
 
 	_, err := newHolder(st, &harnesstest.Channel{}, observer).Hold(t.Context(), agent.ID)
 	require.ErrorIs(t, err, ErrUnsettled)
@@ -129,14 +109,14 @@ func TestHoldRefusesAFrameItCannotMatchWithoutTypingAtIt(t *testing.T) {
 			agent := seed(t, st, "telescope", "%1", agentstore.StateThinking)
 
 			channel := &harnesstest.Channel{}
-			observer := &settlingObserver{readings: []harness.Activity{activity}}
+			observer := harnesstest.ObserveActivities(activity)
 
 			_, err := newHolder(st, channel, observer).Hold(t.Context(), agent.ID)
 			require.ErrorIs(t, err, ErrUnsettled)
 			assert.Contains(t, err.Error(), "could not be read")
 
 			assert.Zero(t, channel.Interrupts, "nothing said there was a turn to cut")
-			assert.Equal(t, 1, observer.reads, "and the refusal costs no settle")
+			assert.Equal(t, 1, observer.Reads, "and the refusal costs no settle")
 
 			after := agentByID(t, st, agent.ID)
 			assert.Nil(t, after.HeldAt, "a refused hold claims nothing")
@@ -151,7 +131,7 @@ func TestHoldingAnIdleAgentTypesNothingAtIt(t *testing.T) {
 	agent := seed(t, st, "telescope", "%1", agentstore.StateIdle)
 
 	channel := &harnesstest.Channel{}
-	observer := &settlingObserver{readings: []harness.Activity{harness.ActivityIdle}}
+	observer := harnesstest.ObserveActivities(harness.ActivityIdle)
 
 	held, err := newHolder(st, channel, observer).Hold(t.Context(), agent.ID)
 	require.NoError(t, err)
@@ -167,10 +147,10 @@ func TestReleasingATurnThatWasCutSaysWhatChanged(t *testing.T) {
 	agent := seed(t, st, "telescope", "%1", agentstore.StateThinking)
 
 	channel := &harnesstest.Channel{}
-	holder := newHolder(st, channel, &settlingObserver{readings: []harness.Activity{
+	holder := newHolder(st, channel, harnesstest.ObserveActivities(
 		harness.ActivityWorking,
 		harness.ActivityIdle,
-	}})
+	))
 
 	_, err := holder.Hold(t.Context(), agent.ID)
 	require.NoError(t, err)
@@ -192,7 +172,7 @@ func TestReleasingAnAgentThatHadFinishedTypesNothing(t *testing.T) {
 	agent := seed(t, st, "telescope", "%1", agentstore.StateIdle)
 
 	channel := &harnesstest.Channel{}
-	holder := newHolder(st, channel, &settlingObserver{readings: []harness.Activity{harness.ActivityIdle}})
+	holder := newHolder(st, channel, harnesstest.ObserveActivities(harness.ActivityIdle))
 
 	_, err := holder.Hold(t.Context(), agent.ID)
 	require.NoError(t, err)
@@ -213,7 +193,7 @@ func TestHoldingAnAgentTwiceIsRefused(t *testing.T) {
 	st := newStore(t)
 	agent := seed(t, st, "telescope", "%1", agentstore.StateIdle)
 
-	holder := newHolder(st, &harnesstest.Channel{}, &settlingObserver{readings: []harness.Activity{harness.ActivityIdle}})
+	holder := newHolder(st, &harnesstest.Channel{}, harnesstest.ObserveActivities(harness.ActivityIdle))
 
 	first, err := holder.Hold(t.Context(), agent.ID)
 	require.NoError(t, err)
@@ -230,7 +210,7 @@ func TestReleasingAnAgentNobodyHoldsIsRefused(t *testing.T) {
 	st := newStore(t)
 	agent := seed(t, st, "telescope", "%1", agentstore.StateIdle)
 
-	holder := newHolder(st, &harnesstest.Channel{}, &settlingObserver{readings: []harness.Activity{harness.ActivityIdle}})
+	holder := newHolder(st, &harnesstest.Channel{}, harnesstest.ObserveActivities(harness.ActivityIdle))
 
 	_, err := holder.Release(t.Context(), ReleaseParams{AgentID: agent.ID})
 	require.ErrorIs(t, err, ErrNotHeld)
@@ -243,7 +223,7 @@ func TestResumingAHeldAgentIsRefused(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	agent := seed(t, st, "telescope", "%1", agentstore.StateIdle)
 
-	holder := newHolder(st, &harnesstest.Channel{}, &settlingObserver{readings: []harness.Activity{harness.ActivityIdle}})
+	holder := newHolder(st, &harnesstest.Channel{}, harnesstest.ObserveActivities(harness.ActivityIdle))
 
 	_, err := holder.Hold(t.Context(), agent.ID)
 	require.NoError(t, err)
@@ -262,11 +242,11 @@ func TestHoldingAWaitingAgentWaitsForThePromptToGo(t *testing.T) {
 	agent := seed(t, st, "telescope", "%1", agentstore.StateWaiting)
 
 	channel := &harnesstest.Channel{}
-	observer := &settlingObserver{readings: []harness.Activity{
+	observer := harnesstest.ObserveActivities(
 		harness.ActivityWaiting,
 		harness.ActivityWaiting,
 		harness.ActivityIdle,
-	}}
+	)
 
 	held, err := newHolder(st, channel, observer).Hold(t.Context(), agent.ID)
 	require.NoError(t, err)
@@ -274,7 +254,7 @@ func TestHoldingAWaitingAgentWaitsForThePromptToGo(t *testing.T) {
 	assert.Equal(t, 1, channel.Interrupts, "a prompt holds a pending write, so it is interrupted")
 	assert.NotNil(t, held.HeldAt)
 	assert.True(t, held.HeldMidTurn)
-	assert.Equal(t, 3, observer.reads, "and the hold waits for a frame that is not the prompt")
+	assert.Equal(t, 3, observer.Reads, "and the hold waits for a frame that is not the prompt")
 }
 
 // TestHoldRefusesAPromptThatNeverClears covers the interrupt that is swallowed at a prompt, where
@@ -283,7 +263,7 @@ func TestHoldRefusesAPromptThatNeverClears(t *testing.T) {
 	st := newStore(t)
 	agent := seed(t, st, "telescope", "%1", agentstore.StateWaiting)
 
-	observer := &settlingObserver{readings: []harness.Activity{harness.ActivityWaiting}}
+	observer := harnesstest.ObserveActivities(harness.ActivityWaiting)
 
 	_, err := newHolder(st, &harnesstest.Channel{}, observer).Hold(t.Context(), agent.ID)
 	require.ErrorIs(t, err, ErrUnsettled)
@@ -299,10 +279,10 @@ func TestHoldReadsThePaneRatherThanTheRow(t *testing.T) {
 	agent := seed(t, st, "telescope", "%1", agentstore.StateIdle)
 
 	channel := &harnesstest.Channel{}
-	observer := &settlingObserver{readings: []harness.Activity{
+	observer := harnesstest.ObserveActivities(
 		harness.ActivityWorking,
 		harness.ActivityIdle,
-	}}
+	)
 
 	held, err := newHolder(st, channel, observer).Hold(t.Context(), agent.ID)
 	require.NoError(t, err)
@@ -318,10 +298,10 @@ func TestReleaseKeepsTheHoldWhenTheBoxRefuses(t *testing.T) {
 	agent := seed(t, st, "telescope", "%1", agentstore.StateThinking)
 
 	channel := &harnesstest.Channel{}
-	holder := newHolder(st, channel, &settlingObserver{readings: []harness.Activity{
+	holder := newHolder(st, channel, harnesstest.ObserveActivities(
 		harness.ActivityWorking,
 		harness.ActivityIdle,
-	}})
+	))
 
 	_, err := holder.Hold(t.Context(), agent.ID)
 	require.NoError(t, err)
@@ -343,10 +323,10 @@ func TestReleasingInSilenceLetsGoOfAnInterruptedAgent(t *testing.T) {
 	agent := seed(t, st, "telescope", "%1", agentstore.StateThinking)
 
 	channel := &harnesstest.Channel{}
-	holder := newHolder(st, channel, &settlingObserver{readings: []harness.Activity{
+	holder := newHolder(st, channel, harnesstest.ObserveActivities(
 		harness.ActivityWorking,
 		harness.ActivityIdle,
-	}})
+	))
 
 	held, err := holder.Hold(t.Context(), agent.ID)
 	require.NoError(t, err)
