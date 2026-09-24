@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"weave/internal/assemble"
 	"weave/internal/diff"
 	"weave/internal/ui/diffview"
 	agentv1 "weave/proto/gen/agent/v1"
@@ -141,11 +142,11 @@ func TestReviewRefreshHoldsOneReadAtATime(t *testing.T) {
 	m = openReview(t, m)
 
 	moveReview(&m, "1")
-	require.NotNil(t, m.followReviewCmd())
+	require.NotNil(t, reviewReactor{}.react(&m, assemble.Changed{}))
 	require.True(t, m.review.threads.reading)
 
 	moveReview(&m, "2")
-	assert.Nil(t, m.followReviewCmd(), "nothing more is asked for while a read is in flight")
+	assert.Nil(t, reviewReactor{}.react(&m, assemble.Changed{}), "nothing more is asked for while a read is in flight")
 
 	cmd := m.review.update(&m, m.shared(), reviewRefreshedMsg{agentID: "a1"})
 	assert.NotNil(t, cmd, "and the move it missed is read once it lands")
@@ -210,7 +211,7 @@ func TestReviewRefreshWaitsForTheWatch(t *testing.T) {
 			m = openReview(t, m)
 
 			tt.move(&m)
-			m.followReviewCmd()
+			reviewReactor{}.react(&m, assemble.Changed{})
 
 			assert.Equal(t, tt.reads, m.review.threads.reading)
 		})
@@ -237,14 +238,14 @@ func TestReviewRefreshReportsAFailedRead(t *testing.T) {
 	m = openReview(t, m)
 
 	moveReview(&m, "1")
-	require.NotNil(t, m.followReviewCmd())
+	require.NotNil(t, reviewReactor{}.react(&m, assemble.Changed{}))
 
 	cmd := m.review.update(&m, m.shared(), reviewRefreshedMsg{agentID: "a1", err: assert.AnError})
 
 	assert.NotEmpty(t, m.messages.items)
 	assert.Nil(t, cmd, "the failure is not read again straight away")
 	assert.False(t, m.review.threads.reading)
-	assert.NotNil(t, m.followReviewCmd(), "the next batch reads it again")
+	assert.NotNil(t, reviewReactor{}.react(&m, assemble.Changed{}), "the next batch reads it again")
 }
 
 // TestReviewRefreshDrawsAHeldReadOnceInputCloses pins that a read landing while the reader types

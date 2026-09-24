@@ -233,6 +233,7 @@ type model struct {
 	messages      messagesState
 	detailsHeight float64
 	listing       listing
+	reactors      []worldReactor
 	agents        agentsScreen
 	runHover      hoverState
 	schedules     schedulesScreen
@@ -338,6 +339,7 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 		screen:          screenAgents,
 		rowCursor:       newRowCursor(),
 		warm:            newWarmupState(),
+		reactors:        newWorldReactors(),
 	}
 
 	if m.fatal() != nil {

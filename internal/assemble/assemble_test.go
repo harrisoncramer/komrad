@@ -485,33 +485,136 @@ func TestApplyOrdering(t *testing.T) {
 	assert.Len(t, world.Mail, 1)
 }
 
-// TestApplyArrivals is which puts report an agent to list pull requests for: one not held
-// before, or one whose branch or repository moved, and never a snapshot.
-func TestApplyArrivals(t *testing.T) {
+// TestApplyReportsChanged is which keys a message reports touching, by resource.
+func TestApplyReportsChanged(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		msg  *watchv1.WatchEvent
+		want assemble.Changed
+	}{
+		{
+			name: "a nil message touches nothing",
+			msg:  nil,
+			want: assemble.Changed{},
+		},
+		{
+			name: "a heartbeat touches nothing",
+			msg:  &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Heartbeat{}},
+			want: assemble.Changed{},
+		},
+		{
+			name: "a row the world does not hold yet is not reported",
+			msg:  put(&watchv1.Row{Row: &watchv1.Row_Worktree{}}),
+			want: assemble.Changed{},
+		},
+		{
+			name: "a put reports its key",
+			msg:  put(agentRow(agent(newer))),
+			want: assemble.Changed{Keys: map[watchv1.Resource][]string{watchv1.Resource_RESOURCE_AGENT: {newer}}},
+		},
+		{
+			name: "a tombstone reports its key",
+			msg:  deleted(watchv1.Resource_RESOURCE_MAIL, "m1"),
+			want: assemble.Changed{Keys: map[watchv1.Resource][]string{watchv1.Resource_RESOURCE_MAIL: {"m1"}}},
+		},
+		{
+			name: "a snapshot reports the world replaced and every row it carries",
+			msg: &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Snapshot{Snapshot: &watchv1.Snapshot{
+				Rows: []*watchv1.Row{
+					agentRow(agent(older)),
+					{Row: &watchv1.Row_Mark{Mark: &agentv1.Mark{Id: "mark-a", Mark: "a"}}},
+				},
+			}}},
+			want: assemble.Changed{
+				Replaced: true,
+				Keys: map[watchv1.Resource][]string{
+					watchv1.Resource_RESOURCE_AGENT: {older},
+					watchv1.Resource_RESOURCE_MARK:  {"mark-a"},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			var world assemble.World
+
+			assert.Equal(t, tt.want, world.Apply(tt.msg))
+		})
+	}
+}
+
+// TestApplySnapshotReplacesTheWorld is the promise that a snapshot keeps no row it does not carry.
+func TestApplySnapshotReplacesTheWorld(t *testing.T) {
 	t.Parallel()
 
 	var world assemble.World
+	world.Apply(put(agentRow(agent(newer))))
+	world.Apply(put(&watchv1.Row{Row: &watchv1.Row_Mark{Mark: &agentv1.Mark{Id: "mark-a", Mark: "a"}}}))
 
-	assert.Equal(t, []string{newer}, world.Apply(put(agentRow(agent(newer)))), "an agent not held before arrives")
-	assert.Nil(t, world.Apply(put(agentRow(agent(newer)))), "the same agent again does not")
-	moved := agent(newer, func(a *agentv1.Agent) { a.Branch = xptr.Ptr("elsewhere") })
-	assert.Equal(t, []string{newer}, world.Apply(put(agentRow(moved))), "an agent whose branch moved arrives again")
-
-	archivedAt := "2026-09-23T10:00:00Z"
-	archived := agent(newer)
-	archived.Branch = moved.Branch
-	archived.ArchivedAt = &archivedAt
-	assert.Nil(t, world.Apply(put(agentRow(archived))), "an agent being archived does not arrive")
-	assert.Equal(t, []string{newer}, world.Apply(put(agentRow(moved))), "and one coming back from the archive does")
-	assert.Nil(t, world.Apply(put(&watchv1.Row{Row: &watchv1.Row_Mark{Mark: &agentv1.Mark{Id: "mark-a", Mark: "a"}}})), "no other row arrives")
-
-	snapshot := &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Snapshot{Snapshot: &watchv1.Snapshot{
+	world.Apply(&watchv1.WatchEvent{Event: &watchv1.WatchEvent_Snapshot{Snapshot: &watchv1.Snapshot{
 		Rows: []*watchv1.Row{agentRow(agent(older))},
-	}}}
-	assert.Nil(t, world.Apply(snapshot), "a snapshot carries its pull requests, so nothing arrives")
-	assert.Equal(t, map[string]*agentv1.Agent{older: agent(older)}, world.Agents, "a snapshot replaces the world")
-	assert.Empty(t, world.Marks, "a snapshot keeps no row it does not carry")
+	}}})
 
-	assert.Nil(t, world.Apply(&watchv1.WatchEvent{Event: &watchv1.WatchEvent_Heartbeat{}}))
-	assert.Nil(t, world.Apply(nil))
+	assert.Equal(t, map[string]*agentv1.Agent{older: agent(older)}, world.Agents)
+	assert.Empty(t, world.Marks)
+}
+
+// TestChangedMerge is how a batch's changes fold together, a snapshot discarding what came
+// before it and keeping what came after.
+func TestChangedMerge(t *testing.T) {
+	t.Parallel()
+
+	agents := func(keys ...string) assemble.Changed {
+		return assemble.Changed{Keys: map[watchv1.Resource][]string{watchv1.Resource_RESOURCE_AGENT: keys}}
+	}
+	snapshot := agents(older)
+	snapshot.Replaced = true
+
+	tests := []struct {
+		name   string
+		merged []assemble.Changed
+		want   assemble.Changed
+	}{
+		{
+			name:   "nothing merged is nothing changed",
+			merged: nil,
+			want:   assemble.Changed{},
+		},
+		{
+			name:   "a snapshot drops the changes before it",
+			merged: []assemble.Changed{agents(newer), snapshot},
+			want:   snapshot,
+		},
+		{
+			name:   "changes after a snapshot are kept beside it",
+			merged: []assemble.Changed{snapshot, agents(newer)},
+			want: assemble.Changed{
+				Replaced: true,
+				Keys:     map[watchv1.Resource][]string{watchv1.Resource_RESOURCE_AGENT: {older, newer}},
+			},
+		},
+		{
+			name:   "changes gather by resource",
+			merged: []assemble.Changed{agents(newer), agents(older)},
+			want:   agents(newer, older),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			var changed assemble.Changed
+			for _, later := range tt.merged {
+				changed.Merge(later)
+			}
+
+			assert.Equal(t, tt.want, changed)
+		})
+	}
 }

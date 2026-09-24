@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"time"
 
+	"weave/internal/assemble"
 	"weave/internal/client"
 	"weave/internal/logging"
 	watchv1 "weave/proto/gen/watch/v1"
@@ -34,20 +35,20 @@ func watchRows(ctx context.Context, watches watchv1connect.WatchServiceClient, p
 // applyWatch takes a batch off the stream into the world, a snapshot replacing it whole, and
 // draws the listing from it again.
 func (m *model) applyWatch(batch client.WatchBatch) tea.Cmd {
-	var arrived []string
+	var changed assemble.Changed
 	listed := m.withListing(func(l *listing) {
 		for _, event := range batch {
 			if _, snapshot := event.GetEvent().(*watchv1.WatchEvent_Snapshot); snapshot {
 				m.reportUnreachable(nil)
 			}
 
-			arrived = append(arrived, l.world.Apply(event)...)
+			changed.Merge(l.world.Apply(event))
 		}
 
 		l.assemble(time.Now())
 	})
 
-	return tea.Batch(listed, m.listArrivedPullRequestsCmd(arrived))
+	return tea.Batch(listed, m.react(changed))
 }
 
 // applyWatchLost says the server is gone until the next stream's snapshot says otherwise, and

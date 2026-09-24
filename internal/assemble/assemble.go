@@ -28,56 +28,96 @@ type World struct {
 	PullRequests map[string]*pullrequestv1.PullRequest
 }
 
-// Apply puts or drops the rows one message names, and reports the agents whose key or branch it
-// had not seen.
-func (w *World) Apply(msg *watchv1.WatchEvent) (arrived []string) {
+// Changed is the keys a message put or dropped, by resource.
+type Changed struct {
+	// Replaced is whether a snapshot replaced the world whole.
+	Replaced bool
+	Keys     map[watchv1.Resource][]string
+}
+
+// Merge folds a later change into this one, a snapshot discarding what came before it.
+func (c *Changed) Merge(later Changed) {
+	if later.Replaced {
+		*c = Changed{Replaced: true}
+	}
+	for resource, keys := range later.Keys {
+		for _, key := range keys {
+			c.add(resource, key)
+		}
+	}
+}
+
+func (c *Changed) add(resource watchv1.Resource, key string) {
+	if resource == watchv1.Resource_RESOURCE_UNSPECIFIED {
+		return
+	}
+	if c.Keys == nil {
+		c.Keys = map[watchv1.Resource][]string{}
+	}
+	c.Keys[resource] = append(c.Keys[resource], key)
+}
+
+// Apply puts or drops the rows one message names, and reports the keys it touched.
+func (w *World) Apply(msg *watchv1.WatchEvent) Changed {
+	var changed Changed
 	switch msg := msg.GetEvent().(type) {
 	case *watchv1.WatchEvent_Snapshot:
 		*w = World{}
+		changed.Replaced = true
 		for _, row := range msg.Snapshot.GetRows() {
-			w.Put(row)
+			changed.add(w.put(row))
 		}
 	case *watchv1.WatchEvent_Changes:
 		for _, row := range msg.Changes.GetPuts() {
-			arrived = append(arrived, w.Put(row)...)
+			changed.add(w.put(row))
 		}
 		for _, deleted := range msg.Changes.GetDeleted() {
 			w.drop(deleted)
+			changed.add(deleted.GetResource(), deleted.GetKey())
 		}
 	case *watchv1.WatchEvent_Heartbeat, nil:
 	}
 
-	return arrived
+	return changed
 }
 
-// Put holds one row, reporting the agent when it is one whose key or branch the world had not
-// seen, or one coming back from the archive.
-func (w *World) Put(row *watchv1.Row) (arrived []string) {
+// Put holds one row.
+func (w *World) Put(row *watchv1.Row) {
+	w.put(row)
+}
+
+func (w *World) put(row *watchv1.Row) (watchv1.Resource, string) {
 	w.ensureMaps()
 
 	switch row := row.GetRow().(type) {
 	case *watchv1.Row_Agent:
-		held, ok := w.Agents[row.Agent.GetId()]
 		w.Agents[row.Agent.GetId()] = row.Agent
 
-		isRestored := held.GetArchivedAt() != "" && row.Agent.GetArchivedAt() == ""
-		if !ok || isRestored || held.GetRepositoryUrl() != row.Agent.GetRepositoryUrl() || held.GetBranch() != row.Agent.GetBranch() {
-			return []string{row.Agent.GetId()}
-		}
+		return watchv1.Resource_RESOURCE_AGENT, row.Agent.GetId()
 	case *watchv1.Row_Workflow:
 		w.Workflows[row.Workflow.GetId()] = row.Workflow
+
+		return watchv1.Resource_RESOURCE_WORKFLOW, row.Workflow.GetId()
 	case *watchv1.Row_Schedule:
 		w.Schedules[row.Schedule.GetId()] = row.Schedule
+
+		return watchv1.Resource_RESOURCE_SCHEDULE, row.Schedule.GetId()
 	case *watchv1.Row_Mark:
 		w.Marks[row.Mark.GetId()] = row.Mark
+
+		return watchv1.Resource_RESOURCE_MARK, row.Mark.GetId()
 	case *watchv1.Row_Mail:
 		w.Mail[row.Mail.GetId()] = row.Mail
+
+		return watchv1.Resource_RESOURCE_MAIL, row.Mail.GetId()
 	case *watchv1.Row_PullRequest:
 		w.PullRequests[row.PullRequest.GetId()] = row.PullRequest
+
+		return watchv1.Resource_RESOURCE_PULL_REQUEST, row.PullRequest.GetId()
 	case nil:
 	}
 
-	return nil
+	return watchv1.Resource_RESOURCE_UNSPECIFIED, ""
 }
 
 func (w *World) ensureMaps() {
