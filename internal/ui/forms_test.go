@@ -1,1132 +1,377 @@
-package ui
+package ui_test
 
 import (
-	"context"
 	"errors"
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
-	"time"
 
 	"weave/config"
-	"weave/internal/ui/layout"
-	"weave/internal/ui/panel"
-	"weave/lib/xptr"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	hookv1 "weave/proto/gen/hook/v1"
 	"weave/proto/gen/hook/v1/hookv1connect"
-	schedulev1 "weave/proto/gen/schedule/v1"
-	"weave/proto/gen/schedule/v1/schedulev1connect"
 	workflowv1 "weave/proto/gen/workflow/v1"
 	"weave/proto/gen/workflow/v1/workflowv1connect"
 
-	tea "charm.land/bubbletea/v2"
-	"charm.land/huh/v2"
 	"connectrpc.com/connect"
-	"github.com/charmbracelet/x/ansi"
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/testing/protocmp"
 )
 
-// TestFormsSubmitWhatIsOnScreen covers every form binding its fields to values the panel
-// holds.
-func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
+// TestFormsSubmit covers every form sending what was typed into it and closing once the write lands.
+func TestFormsSubmit(t *testing.T) {
 	tests := []struct {
-		name   string
-		open   func(t *testing.T, m model) model
-		submit func(m model) (tea.Model, tea.Cmd)
-		check  func(t *testing.T, sent *formRecorder)
+		name      string
+		workflow  *workflowv1.Workflow
+		press     []string
+		procedure string
+		want      proto.Message
 	}{
 		{
-			name: "the new-agent form",
-			open: func(t *testing.T, m model) model {
-				workflow := m.listing.workflows[0]
-
-				values := agentPrefill(workflow)
-				values.Prompt = "check CI"
-				values.Title = "ci"
-				values.Harness = "codex"
-
-				opened := m.openAgentForm(workflow, &values)
-
-				return asModel(t, opened)
-			},
-			submit: model.answerForm,
-			check: func(t *testing.T, sent *formRecorder) {
-				require.NotNil(t, sent.createdAgent)
-				assert.Equal(t, "check CI", sent.createdAgent.GetPrompt())
-				assert.Equal(t, "ci", sent.createdAgent.GetTitle())
-				assert.Equal(t, "codex", sent.createdAgent.GetHarness(), "the workflow's harness is prefilled and can be overridden")
-				assert.Equal(t, "/work/api", sent.createdAgent.GetDir(), "the workflow's directory is prefilled and kept")
-				assert.Empty(t, sent.createdAgent.GetFlags(), "the workflow's flags are inherited at launch rather than copied into the field")
-				assert.Equal(t, "w1", sent.createdAgent.GetWorkflowId())
-				assert.Nil(t, sent.createdAgent.ProvisionEnabled, "left on the default, the agent takes no override of its own")
+			name:      "the new-agent form sends the workflow's directory and an overridden harness",
+			press:     slices.Concat([]string{"c"}, typed("check CI"), []string{"enter"}, typed("ci"), []string{"enter", "ctrl+u"}, typed("codex"), []string{"ctrl+s"}),
+			procedure: agentv1connect.AgentServiceCreateAgentProcedure,
+			want: &agentv1.CreateAgentRequest{
+				Prompt:     "check CI",
+				Title:      "ci",
+				Harness:    "codex",
+				Dir:        "/work/api",
+				WorkflowId: "w1",
 			},
 		},
 		{
-			name: "the child form",
-			open: func(t *testing.T, m model) model {
-				parent := panel.Agent{
-					ID:         "a1",
-					Name:       "author",
-					WorkflowID: "w1",
-					Cwd:        "/work/api",
-					Harness:    "claude",
-					Flags:      "--model opus",
-				}
-
-				values := childPrefill(parent)
-				values.Prompt = "run the tests"
-
-				opened, _ := m.openChildForm(parent, &values)
-
-				return asModel(t, opened)
-			},
-			submit: model.answerForm,
-			check: func(t *testing.T, sent *formRecorder) {
-				require.NotNil(t, sent.createdAgent)
-				assert.Equal(t, "run the tests", sent.createdAgent.GetPrompt())
-				assert.Equal(t, "a1", sent.createdAgent.GetParentAgentId())
-				assert.Equal(t, "claude", sent.createdAgent.GetHarness())
-				assert.Empty(t, sent.createdAgent.GetFlags(), "the parent's flags are written for the CLI it runs")
+			name:      "the child form sends its parent and the parent's harness but not its flags",
+			press:     slices.Concat([]string{"j", "C"}, typed("run the tests"), []string{"ctrl+s"}),
+			procedure: agentv1connect.AgentServiceCreateAgentProcedure,
+			want: &agentv1.CreateAgentRequest{
+				Prompt:        "run the tests",
+				Harness:       "claude",
+				WorkflowId:    "w1",
+				ParentAgentId: proto.String("a1"),
 			},
 		},
 		{
-			name: "the rename form",
-			open: func(t *testing.T, m model) model {
-				name := "api-v2"
-
-				opened := m.openRenameForm(panel.Agent{ID: "a1", Name: "api-refactor"}, &name)
-
-				return asModel(t, opened)
-			},
-			submit: model.answerForm,
-			check: func(t *testing.T, sent *formRecorder) {
-				require.NotNil(t, sent.renamedAgent)
-				assert.Equal(t, "a1", sent.renamedAgent.GetId())
-				assert.Equal(t, "api-v2", sent.renamedAgent.GetName())
+			name:      "the rename form sends the new name",
+			press:     slices.Concat([]string{"j", "r"}, typed("api-v2"), []string{"ctrl+s"}),
+			procedure: agentv1connect.AgentServiceUpdateAgentProcedure,
+			want:      &agentv1.UpdateAgentRequest{Id: "a1", Name: "api-v2"},
+		},
+		{
+			name: "the adopt form sends the ref and prompt into the workflow",
+			press: slices.Concat([]string{"a"}, typed("https://github.com/acmecorp/admin/pull/1069"), []string{"enter"},
+				typed("pick it up"), []string{"ctrl+s"}),
+			procedure: agentv1connect.AgentServiceAdoptProcedure,
+			want: &agentv1.AdoptRequest{
+				Ref:        "https://github.com/acmecorp/admin/pull/1069",
+				Prompt:     "pick it up",
+				Harness:    "claude",
+				WorkflowId: "w1",
 			},
 		},
 		{
-			name: "the new-workflow form",
-			open: func(t *testing.T, m model) model {
-				values := workflowFormValues{
-					Name:        "web",
-					Context:     "the frontend",
-					Cwd:         "/work/web",
-					Flags:       "--model sonnet",
-					Provisioner: provisionerNone,
-				}
-
-				opened := m.openWorkflowConfigForm(&values, nil)
-
-				return asModel(t, opened)
-			},
-			submit: model.answerForm,
-			check: func(t *testing.T, sent *formRecorder) {
-				require.NotNil(t, sent.createdWorkflow)
-				assert.Equal(t, "web", sent.createdWorkflow.GetName())
-				assert.Equal(t, "the frontend", sent.createdWorkflow.GetContext())
-				assert.Equal(t, "/work/web", sent.createdWorkflow.GetCwd())
-				assert.Equal(t, "--model sonnet", sent.createdWorkflow.GetFlags())
-				assert.False(t, sent.createdWorkflow.GetWorktree().GetEnabled(), "None provisions nothing")
+			name: "the new-workflow form with no provisioner makes no worktrees",
+			press: slices.Concat([]string{"w"}, typed("web"), []string{"enter"}, typed("the frontend"), []string{"enter", "enter"},
+				typed("/work/web"), []string{"enter"}, typed("--model sonnet"), []string{"enter", "up", "ctrl+s"}),
+			procedure: workflowv1connect.WorkflowServiceCreateWorkflowProcedure,
+			want: &workflowv1.CreateWorkflowRequest{
+				Name:     "web",
+				Context:  "the frontend",
+				Cwd:      "/work/web",
+				Flags:    "--model sonnet",
+				Worktree: &workflowv1.WorktreeConfig{},
 			},
 		},
 		{
-			name: "the new-workflow form with worktree enabled",
-			open: func(t *testing.T, m model) model {
-				values := workflowFormValues{
-					Name:                 "web",
-					Cwd:                  "/work/web",
-					WorktreeBaseBranch:   "develop",
-					WorktreeCopyPaths:    ".env\n\nconfig/local.json\n",
-					WorktreeSymlinkPaths: "node_modules",
-					WorktreeDiffExclude:  "proto/gen\n*.pb.go",
-				}
-
-				opened := m.openWorkflowConfigForm(&values, nil)
-
-				return asModel(t, opened)
-			},
-			submit: model.answerForm,
-			check: func(t *testing.T, sent *formRecorder) {
-				require.NotNil(t, sent.createdWorkflow)
-				worktree := sent.createdWorkflow.GetWorktree()
-				require.NotNil(t, worktree)
-				assert.True(t, worktree.GetEnabled())
-				assert.Equal(t, "develop", worktree.GetBaseBranch())
-				assert.Equal(t, []string{".env", "config/local.json"}, worktree.GetCopyPaths(), "a blank line between two paths is dropped rather than sent as an entry")
-				assert.Equal(t, []string{"node_modules"}, worktree.GetSymlinkPaths())
-				assert.Equal(t, []string{"proto/gen", "*.pb.go"}, worktree.GetDiffExclude())
+			name: "the new-workflow form with worktrees sends each path list without its blank lines",
+			press: slices.Concat([]string{"w"}, typed("web"), []string{"enter", "enter", "enter", "enter", "enter", "enter"},
+				typed("develop"), []string{"enter", "enter"}, typed(".env"), []string{"ctrl+j", "ctrl+j"}, typed("config/local.json"),
+				[]string{"enter"}, typed("node_modules"), []string{"ctrl+s"}),
+			procedure: workflowv1connect.WorkflowServiceCreateWorkflowProcedure,
+			want: &workflowv1.CreateWorkflowRequest{
+				Name: "web",
+				Worktree: &workflowv1.WorktreeConfig{
+					Enabled:      true,
+					BaseBranch:   "develop",
+					CopyPaths:    []string{".env", "config/local.json"},
+					SymlinkPaths: []string{"node_modules"},
+				},
 			},
 		},
 		{
-			name: "the workflow edit form",
-			open: func(t *testing.T, m model) model {
-				target := m.listing.workflows[0]
-
-				values := workflowFormValuesFrom(panel.WorkflowConfig{
-					Name:     target.Name,
-					Context:  "shared notes",
-					Cwd:      target.Cwd,
-					Flags:    target.Flags,
-					Worktree: panel.WorktreeConfig{Enabled: true},
-				})
-				values.Cwd = "/work/api-v2"
-
-				opened := m.openWorkflowConfigForm(&values, &target)
-
-				return asModel(t, opened)
-			},
-			submit: model.answerForm,
-			check: func(t *testing.T, sent *formRecorder) {
-				require.NotNil(t, sent.updatedWorkflow)
-				assert.Equal(t, "w1", sent.updatedWorkflow.GetId())
-				assert.Equal(t, "/work/api-v2", sent.updatedWorkflow.GetCwd(), "the field that was edited")
-				assert.Equal(t, "api", sent.updatedWorkflow.GetName(), "and the ones that were not")
-				assert.Equal(t, "shared notes", sent.updatedWorkflow.GetContext())
-				assert.Equal(t, "--model opus", sent.updatedWorkflow.GetFlags())
-				assert.True(t, sent.updatedWorkflow.GetWorktree().GetEnabled(), "the stored choice survives a round trip through the field")
+			name:      "the workflow edit form sends the field edited and the ones that were not",
+			workflow:  newConfiguredWorkflow(),
+			press:     slices.Concat([]string{"e", "enter", "enter", "enter", "ctrl+u"}, typed("/work/api-v2"), []string{"ctrl+s"}),
+			procedure: workflowv1connect.WorkflowServiceUpdateWorkflowProcedure,
+			want: &workflowv1.UpdateWorkflowRequest{
+				Id:       "w1",
+				Name:     "api",
+				Context:  "shared notes",
+				Cwd:      "/work/api-v2",
+				Flags:    "--model opus",
+				Harness:  "claude",
+				Worktree: &workflowv1.WorktreeConfig{Enabled: true},
 			},
 		},
 		{
-			name: "the workflow rename form",
-			open: func(t *testing.T, m model) model {
-				values := workflowFormValues{Name: "backend"}
-
-				opened := m.openWorkflowRename(m.listing.workflows[0], &values)
-
-				return asModel(t, opened)
-			},
-			submit: model.answerForm,
-			check: func(t *testing.T, sent *formRecorder) {
-				require.NotNil(t, sent.updatedWorkflow)
-				assert.Equal(t, "backend", sent.updatedWorkflow.GetName())
-				assert.Equal(t, "/work/api", sent.updatedWorkflow.GetCwd(), "a rename carries the config it is not changing")
+			name:      "the workflow rename form carries the config it is not changing",
+			press:     slices.Concat([]string{"r"}, typed("backend"), []string{"ctrl+s"}),
+			procedure: workflowv1connect.WorkflowServiceUpdateWorkflowProcedure,
+			want: &workflowv1.UpdateWorkflowRequest{
+				Id:       "w1",
+				Name:     "backend",
+				Cwd:      "/work/api",
+				Flags:    "--model opus",
+				Harness:  "claude",
+				Worktree: &workflowv1.WorktreeConfig{},
 			},
 		},
 		{
-			name: "the new-schedule form",
-			open: func(t *testing.T, m model) model {
-				values := panel.ScheduleConfig{
-					Enabled:    true,
-					WorkflowID: m.listing.workflows[0].ID,
-					Name:       "sweeper",
-					Cron:       "*/5 * * * *",
-					Prompt:     "sweep",
-					HideAgents: true,
-				}
-
-				m.schedules.openForm(&m, &values, nil)
-
-				return m
-			},
-			submit: model.answerForm,
-			check: func(t *testing.T, sent *formRecorder) {
-				require.NotNil(t, sent.createdSchedule)
-				assert.Equal(t, "sweeper", sent.createdSchedule.GetName())
-				assert.Equal(t, "*/5 * * * *", sent.createdSchedule.GetCron())
-				assert.Equal(t, "sweep", sent.createdSchedule.GetPrompt())
-				assert.True(t, sent.createdSchedule.GetEnabled(), "armed is prefilled on and never touched")
-				assert.True(t, sent.createdSchedule.GetHideAgents())
-			},
-		},
-		{
-			name: "the schedule edit form",
-			open: func(t *testing.T, m model) model {
-				target := panel.Schedule{
-					ID:         "s1",
-					Name:       "sweeper",
-					Cron:       "*/5 * * * *",
-					Prompt:     "sweep",
-					Enabled:    true,
-					HideAgents: true,
-					WorkflowID: "w1",
-				}
-
-				values := schedulePrefill(target)
-				values.Prompt = "sweep harder"
-
-				m.schedules.openForm(&m, &values, &target)
-
-				return m
-			},
-			submit: model.answerForm,
-			check: func(t *testing.T, sent *formRecorder) {
-				require.NotNil(t, sent.updatedSchedule)
-				assert.Equal(t, "s1", sent.updatedSchedule.GetId())
-				assert.Equal(t, "sweep harder", sent.updatedSchedule.GetPrompt(), "the field that was edited")
-				assert.True(t, sent.updatedSchedule.GetHideAgents(), "and the flag it was opened with")
-			},
-		},
-		{
-			name: "the workflow archive prompt",
-			open: func(t *testing.T, m model) model {
-				opened := m.archiveWorkflowConfirm(m.listing.workflows[0])
-
-				return asModel(t, opened)
-			},
-			submit: model.answerForm,
-			check: func(t *testing.T, sent *formRecorder) {
-				require.NotNil(t, sent.archivedWorkflow)
-				assert.Equal(t, "w1", sent.archivedWorkflow.GetId())
-			},
-		},
-		{
-			name: "the agent archive prompt",
-			open: func(t *testing.T, m model) model {
-				opened, _ := m.archiveAgentsConfirm([]panel.Agent{{ID: "a1", Name: "api-refactor"}})
-
-				return asModel(t, opened)
-			},
-			submit: model.answerForm,
-			check: func(t *testing.T, sent *formRecorder) {
-				require.NotNil(t, sent.archivedAgents)
-				assert.Equal(t, []string{"a1"}, sent.archivedAgents.GetIds())
-				assert.Nil(t, sent.deletedAgents, "archiving alone keeps the record")
-			},
-		},
-		{
-			name: "the agent archive prompt answered archive and delete",
-			open: func(t *testing.T, m model) model {
-				opened, _ := m.archiveAgentsConfirm([]panel.Agent{{ID: "a1", Name: "api-refactor"}})
-				m = asModel(t, opened)
-
-				// The prompt opens on Archive, so the second answer is one step down the list.
-				pump(t, m.form.form, keyMsg("down"))
-
-				return m
-			},
-			submit: model.answerForm,
-			check: func(t *testing.T, sent *formRecorder) {
-				require.NotNil(t, sent.archivedAgents)
-				assert.Equal(t, []string{"a1"}, sent.archivedAgents.GetIds())
-				require.NotNil(t, sent.deletedAgents, "the delete follows the archive")
-				assert.Equal(t, []string{"a1"}, sent.deletedAgents.GetIds())
-			},
-		},
-		{
-			name: "the schedule delete prompt",
-			open: func(t *testing.T, m model) model {
-				m.listing.schedules = []scheduleItem{{schedule: panel.Schedule{ID: "s1", Name: "sweeper"}}}
-
-				m.schedules.archiveConfirm(&m, m.shared())
-
-				return m
-			},
-			submit: model.answerForm,
-			check: func(t *testing.T, sent *formRecorder) {
-				require.NotNil(t, sent.archivedSchedule)
-				assert.Equal(t, "s1", sent.archivedSchedule.GetId())
-			},
-		},
-		{
-			name: "the archive delete prompt",
-			open: func(t *testing.T, m model) model {
-				m.listing.archivedAgents = archivedItems([]panel.Agent{{ID: "a1", Name: "api-refactor"}})
-
-				confirmDeleteArchived(&m, m.shared(), archivedAgentsOf(m.listing))
-
-				return m
-			},
-			submit: model.answerForm,
-			check: func(t *testing.T, sent *formRecorder) {
-				require.NotNil(t, sent.deletedAgents)
-				assert.Equal(t, []string{"a1"}, sent.deletedAgents.GetIds())
-			},
-		},
-		{
-			name: "the workflow delete prompt",
-			open: func(t *testing.T, m model) model {
-				confirmDeleteWorkflow(&m, m.shared(), archivedWorkflow("w1", "backend"))
-
-				return m
-			},
-			submit: model.answerForm,
-			check: func(t *testing.T, sent *formRecorder) {
-				require.NotNil(t, sent.deletedWorkflow)
-				assert.Equal(t, "w1", sent.deletedWorkflow.GetId())
-			},
+			name:      "the workflow archive prompt archives the workflow",
+			press:     []string{"z", "ctrl+s"},
+			procedure: workflowv1connect.WorkflowServiceArchiveWorkflowProcedure,
+			want:      &workflowv1.ArchiveWorkflowRequest{Id: "w1"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			sent := &formRecorder{}
-			m := tt.open(t, formModel(sent))
+			workflow := tt.workflow
+			if workflow == nil {
+				workflow = newFormWorkflow()
+			}
+			harness := openForms(t, workflow)
 
-			updated, cmd := tt.submit(m)
-			submitted, ok := updated.(model)
-			require.True(t, ok)
+			harness.press(tt.press...)
 
-			got := settle(t, submitted, cmd)
-
-			require.Empty(t, got.messages.items, "the service accepted the write")
-			assert.False(t, got.form.isActive(), "a write the service took closes the form")
-			tt.check(t, sent)
+			harness.assertSentTo(tt.procedure, tt.want)
+			assert.NotContains(t, harness.readFrame(), "Could not", "the service accepted the write")
+			assert.NotContains(t, harness.readFrame(), "C-s submit", "and the form it closed is gone")
 		})
 	}
 }
 
-// TestNewAgentFormWorktreeOverride covers the one thing an agent can say for itself: left on
-// the default it takes no override at all, and choosing None is sent as one.
-func TestNewAgentFormWorktreeOverride(t *testing.T) {
+// TestFormsNewAgentWorktree covers the one thing an agent can say for itself about its worktree.
+func TestFormsNewAgentWorktree(t *testing.T) {
+	workflow := newFormWorkflow()
+	workflow.Worktree = &workflowv1.WorktreeConfig{Enabled: true}
+
+	t.Run("the field opens on what the workflow does", func(t *testing.T) {
+		harness := openForms(t, workflow)
+
+		harness.press("c")
+
+		assert.Contains(t, harness.readFrame(), "> Same as workflow")
+	})
+
+	tests := []struct {
+		name  string
+		press []string
+		want  *bool
+	}{
+		{
+			name: "left on the default nothing is sent",
+		},
+		{
+			name:  "choosing none is sent as an override rather than as nothing",
+			press: []string{"enter", "enter", "enter", "enter", "enter", "down"},
+			want:  proto.Bool(false),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			harness := openForms(t, workflow)
+
+			harness.press(slices.Concat([]string{"c"}, typed("go"), tt.press, []string{"ctrl+s"})...)
+
+			sent := harness.readSent(agentv1connect.AgentServiceCreateAgentProcedure)
+			require.Len(t, sent, 1)
+			create, ok := sent[0].(*agentv1.CreateAgentRequest)
+			require.True(t, ok)
+			assert.Equal(t, tt.want, create.ProvisionEnabled)
+		})
+	}
+}
+
+// TestFormsRefused covers a refused write leaving the form up, holding what was typed.
+func TestFormsRefused(t *testing.T) {
+	tests := []struct {
+		name      string
+		procedure string
+		press     []string
+		typed     string
+	}{
+		{
+			name:      "the new-agent form",
+			procedure: agentv1connect.AgentServiceCreateAgentProcedure,
+			press:     slices.Concat([]string{"c"}, typed("check CI"), []string{"ctrl+s"}),
+			typed:     "check CI",
+		},
+		{
+			name:      "the rename form",
+			procedure: agentv1connect.AgentServiceUpdateAgentProcedure,
+			press:     slices.Concat([]string{"j", "r"}, typed("api-v2"), []string{"ctrl+s"}),
+			typed:     "api-v2",
+		},
+		{
+			name:      "the new-workflow form",
+			procedure: workflowv1connect.WorkflowServiceCreateWorkflowProcedure,
+			press:     slices.Concat([]string{"w"}, typed("web"), []string{"ctrl+s"}),
+			typed:     "web",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			harness := openForms(t, newFormWorkflow())
+			harness.refuse(tt.procedure, connect.NewError(connect.CodeInvalidArgument, errors.New("not allowed")))
+
+			harness.press(tt.press...)
+
+			frame := harness.readFrame()
+			assert.Contains(t, frame, "not allowed", "a refused write is reported")
+			assert.Contains(t, frame, tt.typed, "the form is still up holding what was filled in")
+
+			harness.press("ctrl+g")
+			assert.Contains(t, harness.readFrame(), "fix and submit again", "esc backs out of the form rather than clearing the message")
+
+			harness.press("ctrl+g", "!")
+			assert.Contains(t, harness.readFrame(), tt.typed+"!", "and the form takes keys again")
+		})
+	}
+}
+
+// TestFormsArchivePrompt covers the three ways the agent archive prompt can be answered.
+func TestFormsArchivePrompt(t *testing.T) {
+	t.Run("the prompt opens on the reversible answer", func(t *testing.T) {
+		harness := openForms(t, newFormWorkflow())
+
+		harness.press("j", "z")
+
+		frame := harness.readFrame()
+		assert.Contains(t, frame, "> Archive")
+		assert.Contains(t, frame, "Archive and delete")
+		assert.Contains(t, frame, "Cancel")
+	})
+
 	tests := []struct {
 		name     string
-		chosen   string
-		wantSent *bool
+		press    []string
+		wantSent []request
 	}{
 		{
-			name:     "left on the default, nothing is sent",
-			chosen:   inheritWorktree,
-			wantSent: nil,
+			name:  "submitting without moving archives and keeps the record",
+			press: []string{"ctrl+s"},
+			wantSent: []request{{
+				procedure: agentv1connect.AgentServiceArchiveAgentsProcedure,
+				msg:       &agentv1.ArchiveAgentsRequest{Ids: []string{"a1"}},
+			}},
 		},
 		{
-			name:     "choosing none is sent as an override, not as nothing",
-			chosen:   withoutWorktree,
-			wantSent: xptr.Ptr(false),
+			name:  "one row down archives and then destroys",
+			press: []string{"down", "ctrl+s"},
+			wantSent: []request{
+				{
+					procedure: agentv1connect.AgentServiceArchiveAgentsProcedure,
+					msg:       &agentv1.ArchiveAgentsRequest{Ids: []string{"a1"}},
+				},
+				{
+					procedure: agentv1connect.AgentServiceDeleteAgentsProcedure,
+					msg:       &agentv1.DeleteAgentsRequest{Ids: []string{"a1"}},
+				},
+			},
+		},
+		{
+			name:  "the last row leaves the agent where it is",
+			press: []string{"down", "down", "ctrl+s"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			sent := &formRecorder{}
-			m := formModel(sent)
-			m.listing.workflows[0].Worktree = panel.WorktreeConfig{Enabled: true}
-			workflow := m.listing.workflows[0]
+			harness := openForms(t, newFormWorkflow())
+			harness.press("j", "z")
+			before := harness.readSent(worktreeReadProcedure)
 
-			values := agentPrefill(workflow)
+			harness.press(tt.press...)
 
-			opened := m.openAgentForm(workflow, &values)
-			m = asModel(t, opened)
-
-			values.Worktree = tt.chosen
-
-			updated, cmd := m.answerForm()
-			submitted, ok := updated.(model)
-			require.True(t, ok)
-			settle(t, submitted, cmd)
-
-			require.NotNil(t, sent.createdAgent)
-			assert.Equal(t, tt.wantSent, sent.createdAgent.ProvisionEnabled)
+			harness.assertSent(append(asRequests(worktreeReadProcedure, before), tt.wantSent...)...)
+			assert.Contains(t, splitLines(harness.readFrame())[0], "Agents & Workflows", "every answer lands back on the list")
 		})
 	}
-}
 
-// TestWorktreeSelectShowsTheCurrentChoiceOnOpen covers the field opening on a visible option.
-func TestWorktreeSelectShowsTheCurrentChoiceOnOpen(t *testing.T) {
-	agentForm, _ := newAgentForm(config.FixedFormKeys(),
-		&agentFormValues{Worktree: inheritWorktree},
-		true,
-	)
-	agentForm.Init()
+	t.Run("a refused archive destroys nothing", func(t *testing.T) {
+		harness := openForms(t, newFormWorkflow())
+		harness.refuse(agentv1connect.AgentServiceArchiveAgentsProcedure, connect.NewError(connect.CodeFailedPrecondition, errors.New("already archived")))
 
-	assert.Contains(t, ansi.Strip(agentForm.View()), "> Same as workflow", "the field opens with what it inherits marked as picked")
-}
+		harness.press(slices.Concat([]string{"j", "z", "down", "ctrl+s"}, widenListPresses)...)
 
-// TestRefusedSubmitKeepsTheForm covers a refused write leaving the form up with what was
-// filled in.
-func TestRefusedSubmitKeepsTheForm(t *testing.T) {
-	tests := []struct {
-		name   string
-		open   func(t *testing.T, m model) (model, func() string)
-		submit func(m model) (tea.Model, tea.Cmd)
-		form   formKind
-		typed  string
-	}{
-		{
-			name: "the new-agent form, with no provisioner to run",
-			open: func(t *testing.T, m model) (model, func() string) {
-				workflow := m.listing.workflows[0]
-
-				values := agentPrefill(workflow)
-				values.Prompt = "check CI"
-
-				opened := m.openAgentForm(workflow, &values)
-
-				return asModel(t, opened), func() string { return values.Prompt }
-			},
-			submit: func(m model) (tea.Model, tea.Cmd) { return m.updateForm(keyMsg("ctrl+s")) },
-			form:   formAgent,
-			typed:  "check CI",
-		},
-		{
-			name: "the rename form",
-			open: func(t *testing.T, m model) (model, func() string) {
-				name := "api-v2"
-
-				opened := m.openRenameForm(panel.Agent{ID: "a1", Name: "api-refactor"}, &name)
-				m = asModel(t, opened)
-				m.form.form.State = huh.StateCompleted
-
-				return m, func() string { return name }
-			},
-			submit: model.answerForm,
-			form:   formRename,
-			typed:  "api-v2",
-		},
-		{
-			name: "the new-workflow form",
-			open: func(t *testing.T, m model) (model, func() string) {
-				values := workflowFormValues{Name: "web"}
-
-				opened := m.openWorkflowConfigForm(&values, nil)
-				m = asModel(t, opened)
-				m.form.form.State = huh.StateCompleted
-
-				return m, func() string { return values.Name }
-			},
-			submit: model.answerForm,
-			form:   formWorkflow,
-			typed:  "web",
-		},
-		{
-			name: "the new-schedule form",
-			open: func(t *testing.T, m model) (model, func() string) {
-				values := panel.ScheduleConfig{
-					Enabled:    true,
-					WorkflowID: "w1",
-					Cron:       "*/5 * * * *",
-				}
-
-				m.schedules.openForm(&m, &values, nil)
-
-				return m, func() string { return values.Cron }
-			},
-			submit: model.answerForm,
-			form:   formSchedule,
-			typed:  "*/5 * * * *",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			sent := &formRecorder{refuse: connect.NewError(connect.CodeInvalidArgument, errors.New("not allowed"))}
-			m, held := tt.open(t, formModel(sent))
-
-			updated, cmd := tt.submit(m)
-			got := settle(t, asModel(t, updated), cmd)
-
-			require.NotEmpty(t, got.messages.items, "a refused write is reported")
-			assert.Equal(t, "not allowed", newestMessage(got).detail)
-			assert.Equal(t, "fix and submit again", newestMessage(got).hint, "esc backs out of the form rather than clearing the banner")
-			assert.Equal(t, tt.form, got.form.kind, "the form is still up and owns the keys")
-			assert.Equal(t, tt.typed, held(), "and still holds what was filled in")
-			assert.NotEqual(t, huh.StateCompleted, got.form.form.State, "a completed form draws as nothing, so the form is built back")
-			assert.NotEmpty(t, got.form.form.View())
-			assert.False(t, got.held.active, "and takes keys again, since the write it was waiting on has landed")
-		})
-	}
-}
-
-// TestNewAgentSubmitHoldsTheForm covers the new-agent form staying up with the submitting
-// notice over it until the create lands.
-func TestNewAgentSubmitHoldsTheForm(t *testing.T) {
-	tests := []struct {
-		name       string
-		refuse     error
-		wantDetail string
-	}{
-		{name: "a create that lands"},
-		{
-			name:       "a setup that fails",
-			refuse:     connect.NewError(connect.CodeFailedPrecondition, errors.New("the provisioner failed: exit 7")),
-			wantDetail: "the provisioner failed: exit 7",
-		},
-		{
-			name:       "a create refused before the provisioner ever ran",
-			refuse:     connect.NewError(connect.CodeInvalidArgument, errors.New("not allowed")),
-			wantDetail: "not allowed",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			recorder := &recordingTmux{}
-			sent := &formRecorder{refuse: tt.refuse}
-			m := formModel(sent)
-			m.tmux = recorder
-			m.frame = layout.New(recorder, config.DefaultLayout())
-			m.frame.Attach("%0")
-			m.listing.workflows[0].Worktree = panel.WorktreeConfig{Enabled: true}
-
-			workflow := m.listing.workflows[0]
-
-			values := agentPrefill(workflow)
-			values.Prompt = "check CI"
-
-			opened := m.openAgentForm(workflow, &values)
-			m = asModel(t, opened)
-
-			updated, cmd := m.answerForm()
-			m = asModel(t, updated)
-
-			assert.True(t, m.form.isActive(), "the form is still up while the create is in flight")
-			assert.True(t, m.held.active)
-			assert.False(t, m.held.since.IsZero(), "and the notice over it has something to count from")
-			assert.Equal(t, infoNothing, m.info.kind, "no pane is opened for the provisioner")
-			assert.Empty(t, recorder.infoPane)
-
-			got := settle(t, m, cmd)
-
-			if tt.refuse != nil {
-				require.NotEmpty(t, got.messages.items, "a refused create is reported")
-				assert.Equal(t, tt.wantDetail, newestMessage(got).detail)
-				assert.Equal(t, formAgent, got.form.kind, "and the form it came from is still up")
-
-				return
-			}
-
-			assert.Empty(t, got.messages.items)
-			assert.False(t, got.form.isActive(), "the form goes once the create has landed")
-			assert.False(t, got.held.active)
-			assert.Equal(t, infoNothing, got.info.kind)
-			require.NotNil(t, sent.createdAgent)
-		})
-	}
-}
-
-// TestProvisionerRebuildsTheForm checks that switching the provisioner swaps the worktree
-// fields for the hook pickers by rebuilding the form, and hands back whatever was typed into
-// the worktree fields if the provisioner switches back.
-func TestProvisionerRebuildsTheForm(t *testing.T) {
-	sent := &formRecorder{}
-	m := formModel(sent)
-
-	values := workflowFormValues{}
-
-	opened := m.openWorkflowConfigForm(&values, nil)
-	m = asModel(t, opened)
-
-	_, order := workflowConfigForm(workflowConfigParams{
-		NameTitle: "New workflow name",
-		Values:    &values,
-		Keys:      formKeys(),
+		assert.Contains(t, harness.readFrame(), `Could not archive and delete agent "author"`)
+		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceDeleteAgentsProcedure))
 	})
-	for range slices.Index(order, provisionerKey) {
-		m.form.form.NextField()
-	}
-
-	worktreeView := m.form.form.View()
-	assert.Equal(t, provisionerWorktree, values.Provisioner, "worktree is the default")
-	assert.Contains(t, worktreeView, "Worktree base branch", "worktree is the default, so its fields are already on screen")
-	assert.Contains(t, worktreeView, "Worktree copy paths")
-	assert.Contains(t, worktreeView, "Worktree symlink paths")
-
-	values.WorktreeCopyPaths = ".env"
-
-	updated, _ := m.form.update(m, keyMsg("up"))
-	m = asModel(t, updated)
-
-	require.Equal(t, provisionerNone, values.Provisioner, "the keypress switched it")
-	noneView := m.form.form.View()
-	assert.NotContains(t, noneView, "Worktree base branch", "None provisions nothing, so it asks nothing about a worktree")
-	assert.Contains(t, noneView, "Pre-launch hook", "the hooks are asked for whichever provisioner is chosen")
-
-	updated, _ = m.form.update(m, keyMsg("down"))
-	m = asModel(t, updated)
-
-	assert.Equal(t, provisionerWorktree, values.Provisioner)
-	assert.Equal(t, ".env", values.WorktreeCopyPaths, "switching back hands back what was typed before")
-	assert.Contains(t, m.form.form.View(), "Worktree copy paths")
 }
 
-// TestProvisionerSelectShowsEveryOptionOnOpen covers a select opening on the non-default
-// answer.
-func TestProvisionerSelectShowsEveryOptionOnOpen(t *testing.T) {
-	form, order := workflowConfigForm(workflowConfigParams{
-		NameTitle: "Workflow name",
-		Values:    &workflowFormValues{Provisioner: provisionerNone},
-		Keys:      config.FixedFormKeys(),
+// TestFormsKeys covers the keys a form answers to.
+func TestFormsKeys(t *testing.T) {
+	t.Run("enter on the last field of a form leaves it up", func(t *testing.T) {
+		harness := openForms(t, newFormWorkflow())
+
+		harness.press(slices.Concat([]string{"c"}, typed("go"), slices.Repeat([]string{"enter"}, 8))...)
+
+		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceCreateAgentProcedure))
+		assert.Contains(t, harness.readFrame(), "Initial prompt")
 	})
-	form.Init()
-	for range slices.Index(order, provisionerKey) {
-		form.NextField()
-	}
 
-	view := form.View()
-	assert.Contains(t, view, "None: agents keep the directory they are given", "neither option is hidden by the other being picked")
-	assert.Contains(t, view, "Worktree: a git worktree per agent")
-	assert.Less(t,
-		strings.Index(view, "None: agents keep the directory they are given"),
-		strings.Index(view, "Worktree: a git worktree per agent"),
-		"the options keep their order regardless of which is selected",
-	)
+	t.Run("enter leaves a one-field form up too", func(t *testing.T) {
+		harness := openForms(t, newFormWorkflow())
+
+		harness.press(slices.Concat([]string{"j", "r"}, typed("api-v2"), []string{"enter"})...)
+
+		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceUpdateAgentProcedure))
+	})
+
+	t.Run("the adopt key on an agent row opens nothing", func(t *testing.T) {
+		harness := openForms(t, newFormWorkflow())
+
+		harness.press("j", "a")
+
+		assert.NotContains(t, harness.readFrame(), "Adopt")
+		assert.Equal(t, "  author", readHoveredRow(harness.readFrame()))
+	})
 }
 
-// TestArchivePromptChoices covers the three ways the prompt can be answered, where it opens
-// on the reversible one so a submit alone never destroys anything.
-func TestArchivePromptChoices(t *testing.T) {
-	tests := []struct {
-		name         string
-		down         int
-		wantArchived []string
-		wantDeleted  []string
-	}{
-		{
-			name:         "submitting without moving archives and keeps the record",
-			wantArchived: []string{"a1"},
-		},
-		{
-			name:         "one row down archives and then destroys",
-			down:         1,
-			wantArchived: []string{"a1"},
-			wantDeleted:  []string{"a1"},
-		},
-		{
-			name: "the last row leaves them where they are",
-			down: 2,
-		},
-	}
+// TestFormsWorkflowProvisioner covers the workflow form asking only what its provisioner needs.
+func TestFormsWorkflowProvisioner(t *testing.T) {
+	harness := openForms(t, newFormWorkflow())
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			sent := &formRecorder{}
+	harness.press(slices.Concat([]string{"w"}, slices.Repeat([]string{"enter"}, 5))...)
+	frame := harness.readFrame()
+	assert.Contains(t, frame, "None: agents keep the directory they are given", "neither option is hidden by the other being picked")
+	assert.Less(t, strings.Index(frame, "None: agents keep"), strings.Index(frame, "Worktree: a git worktree per agent"), "and the options keep their order")
+	assert.Contains(t, frame, "Worktree base branch", "worktree is the default, so its fields are already on screen")
 
-			opened, cmd := formModel(sent).archiveAgentsConfirm([]panel.Agent{{ID: "a1", Name: "api-refactor"}})
-			m := delivered(t, asModel(t, opened), cmd)
+	harness.press(slices.Concat([]string{"enter", "enter", "enter"}, typed(".env"), []string{"shift+tab", "shift+tab", "shift+tab", "up"})...)
+	frame = harness.readFrame()
+	assert.NotContains(t, frame, "Worktree base branch", "none provisions nothing, so it asks nothing about a worktree")
+	assert.Contains(t, frame, "Pre-launch hook", "the hooks are asked for whichever provisioner is chosen")
 
-			for range tt.down {
-				m = deliver(t, m, keyMsg("down"))
-			}
+	harness.press("down", "ctrl+s")
 
-			got := deliver(t, m, keyMsg("ctrl+s"))
-
-			require.Empty(t, got.messages.items)
-			assert.Equal(t, screenAgents, got.screen, "every answer lands back on the list")
-			assert.Equal(t, tt.wantArchived, sent.archivedAgents.GetIds())
-			assert.Equal(t, tt.wantDeleted, sent.deletedAgents.GetIds())
-		})
-	}
-}
-
-// TestArchivePromptOpensOnArchive covers the prompt as first drawn.
-func TestArchivePromptOpensOnArchive(t *testing.T) {
-	form, choice := archiveAgentsForm([]panel.Agent{{ID: "a1", Name: "api-refactor"}}, 0, config.FixedFormKeys())
-	form.Init()
-	form.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
-
-	assert.Equal(t, archiveChoiceArchive, *choice, "the reversible answer is what a submit alone gives")
-
-	var rows []string
-	for _, line := range strings.Split(ansi.Strip(form.View()), "\n") {
-		if row := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), "┃")); row != "" {
-			rows = append(rows, row)
-		}
-	}
-
-	assert.Contains(t, rows, "> Archive", "and it is the row the cursor is on")
-	assert.Contains(t, rows, "Archive and delete")
-	assert.Contains(t, rows, "Cancel")
-}
-
-// TestArchivePromptKeepsTheRecordWhenTheArchiveIsRefused covers the delete only following an
-// archive that landed, so a refused archive leaves the agent there rather than destroyed.
-func TestArchivePromptKeepsTheRecordWhenTheArchiveIsRefused(t *testing.T) {
-	sent := &formRecorder{refuse: connect.NewError(connect.CodeFailedPrecondition, errors.New("already archived"))}
-
-	opened, _ := formModel(sent).archiveAgentsConfirm([]panel.Agent{{ID: "a1", Name: "api-refactor"}})
-	m := asModel(t, opened)
-
-	// The prompt opens on Archive, so archive-and-delete is one step down the list.
-	pump(t, m.form.form, keyMsg("down"))
-	m.form.form.State = huh.StateCompleted
-
-	submitted, cmd := m.form.update(m, keyMsg("enter"))
-	got := settle(t, asModel(t, submitted), cmd)
-
-	require.NotEmpty(t, got.messages.items, "the refusal is reported")
-	assert.Equal(t, `Could not archive and delete agent "api-refactor"`, newestMessage(got).summary)
-	assert.Nil(t, sent.deletedAgents, "nothing was destroyed")
-}
-
-// TestConfirmingArchiveTracksTheWriteAsPending covers the write being issued on a value
-// receiver, so the model it mutates has to be the one the confirm form returns.
-func TestConfirmingArchiveTracksTheWriteAsPending(t *testing.T) {
-	sent := &formRecorder{}
-
-	opened, _ := formModel(sent).archiveAgentsConfirm([]panel.Agent{{ID: "a1", Name: "api-refactor"}})
-	m := asModel(t, opened)
-	m.form.form.State = huh.StateCompleted
-
-	submitted, cmd := m.form.update(m, keyMsg("enter"))
-	got := asModel(t, submitted)
-
-	assert.Positive(t, got.pending, "the in-flight write is tracked on the model that comes back")
-	require.NotNil(t, cmd)
-}
-
-func deliver(t *testing.T, m model, msg tea.Msg) model {
-	t.Helper()
-
-	updated, cmd := m.Update(msg)
-
-	return delivered(t, asModel(t, updated), cmd)
-}
-
-func delivered(t *testing.T, m model, cmd tea.Cmd) model {
-	t.Helper()
-
-	for _, msg := range produced(cmd) {
-		m = deliver(t, m, msg)
-	}
-
-	return m
-}
-
-func asModel(t *testing.T, updated tea.Model) model {
-	t.Helper()
-
-	m, ok := updated.(model)
+	sent := harness.readSent(workflowv1connect.WorkflowServiceCreateWorkflowProcedure)
+	require.Len(t, sent, 1)
+	create, ok := sent[0].(*workflowv1.CreateWorkflowRequest)
 	require.True(t, ok)
-
-	return m
+	assert.Equal(t, []string{".env"}, create.GetWorktree().GetCopyPaths(), "switching back hands back what was typed before")
 }
 
-// TestFormResultsAreNotWhatIsSubmitted pins a field reaching huh's own results only as the
-// cursor leaves it.
-func TestFormResultsAreNotWhatIsSubmitted(t *testing.T) {
-	values := panel.ScheduleConfig{
-		Name:       "sweeper",
-		Cron:       "*/5 * * * *",
-		Prompt:     "sweep",
-		Enabled:    true,
-		HideAgents: true,
-	}
-
-	form, _ := scheduleForm(&values, nil, config.FixedFormKeys())
-	form.Init()
-
-	assert.Empty(t, form.GetString("name"), "huh has recorded nothing the cursor has not left")
-	assert.False(t, form.GetBool("hide_agents"))
-
-	assert.Equal(t, "sweeper", values.Name, "the bound values are what a submit reads")
-	assert.True(t, values.HideAgents)
-}
-
-func formModel(sent *formRecorder) model {
-	tmux := &recordingTmux{}
-
-	return model{
-		api: api{
-			agents:    sent,
-			workflows: sent,
-			schedules: sent,
-			hooks:     sent,
-		},
-		tmux:  tmux,
-		popup: NewPopupWindow(tmux, "test-session"),
-		frame: layout.New(tmux, config.DefaultLayout()),
-		keys:  config.DefaultKeybindings(),
-		listing: listing{workflows: []panel.Workflow{{
-			ID:      "w1",
-			Name:    "api",
-			Harness: "claude",
-			Cwd:     "/work/api",
-			Flags:   "--model opus",
-		}}},
-	}
-}
-
-type formRecorder struct {
-	agentv1connect.AgentServiceClient
-	workflowv1connect.WorkflowServiceClient
-	schedulev1connect.ScheduleServiceClient
-	hookv1connect.HookServiceClient
-	refuse              error
-	createdAgent        *agentv1.CreateAgentRequest
-	startedOrchestrator *agentv1.StartOrchestratorRequest
-	adoptedAgent        *agentv1.AdoptRequest
-	renamedAgent        *agentv1.UpdateAgentRequest
-	deletedAgents       *agentv1.DeleteAgentsRequest
-	archivedAgents      *agentv1.ArchiveAgentsRequest
-	createdWorkflow     *workflowv1.CreateWorkflowRequest
-	updatedWorkflow     *workflowv1.UpdateWorkflowRequest
-	archivedWorkflow    *workflowv1.ArchiveWorkflowRequest
-	deletedWorkflow     *workflowv1.DeleteWorkflowRequest
-	createdSchedule     *schedulev1.CreateScheduleRequest
-	updatedSchedule     *schedulev1.UpdateScheduleRequest
-	archivedSchedule    *schedulev1.ArchiveScheduleRequest
-}
-
-func (f *formRecorder) ListAgents(context.Context, *connect.Request[agentv1.ListAgentsRequest]) (*connect.Response[agentv1.ListAgentsResponse], error) {
-	return connect.NewResponse(&agentv1.ListAgentsResponse{}), nil
-}
-
-func (f *formRecorder) ListHooks(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[hookv1.ListHooksResponse], error) {
-	return connect.NewResponse(&hookv1.ListHooksResponse{}), nil
-}
-
-func (f *formRecorder) CreateAgent(_ context.Context, req *connect.Request[agentv1.CreateAgentRequest]) (*connect.Response[agentv1.CreateAgentResponse], error) {
-	if f.refuse != nil {
-		return nil, f.refuse
-	}
-
-	f.createdAgent = req.Msg
-
-	return connect.NewResponse(&agentv1.CreateAgentResponse{Agent: &agentv1.Agent{
-		Id:         "new",
-		Name:       req.Msg.GetTitle(),
-		PaneId:     "%new",
-		WorkflowId: req.Msg.GetWorkflowId(),
-	}}), nil
-}
-
-func (f *formRecorder) Adopt(_ context.Context, req *connect.Request[agentv1.AdoptRequest]) (*connect.Response[agentv1.AdoptResponse], error) {
-	if f.refuse != nil {
-		return nil, f.refuse
-	}
-
-	f.adoptedAgent = req.Msg
-
-	return connect.NewResponse(&agentv1.AdoptResponse{Agent: &agentv1.Agent{
-		Id:         "adopted",
-		Name:       "pr-1069",
-		PaneId:     "%adopted",
-		WorkflowId: req.Msg.GetWorkflowId(),
-	}}), nil
-}
-
-func (f *formRecorder) UpdateAgent(_ context.Context, req *connect.Request[agentv1.UpdateAgentRequest]) (*connect.Response[emptypb.Empty], error) {
-	if f.refuse != nil {
-		return nil, f.refuse
-	}
-
-	f.renamedAgent = req.Msg
-
-	return connect.NewResponse(&emptypb.Empty{}), nil
-}
-
-func (f *formRecorder) DeleteAgents(_ context.Context, req *connect.Request[agentv1.DeleteAgentsRequest]) (*connect.Response[emptypb.Empty], error) {
-	if f.refuse != nil {
-		return nil, f.refuse
-	}
-
-	f.deletedAgents = req.Msg
-
-	return connect.NewResponse(&emptypb.Empty{}), nil
-}
-
-func (f *formRecorder) ArchiveAgents(_ context.Context, req *connect.Request[agentv1.ArchiveAgentsRequest]) (*connect.Response[emptypb.Empty], error) {
-	if f.refuse != nil {
-		return nil, f.refuse
-	}
-
-	f.archivedAgents = req.Msg
-
-	return connect.NewResponse(&emptypb.Empty{}), nil
-}
-
-func (f *formRecorder) ListWorkflows(context.Context, *connect.Request[workflowv1.ListWorkflowsRequest]) (*connect.Response[workflowv1.ListWorkflowsResponse], error) {
-	return connect.NewResponse(&workflowv1.ListWorkflowsResponse{}), nil
-}
-
-func (f *formRecorder) CreateWorkflow(_ context.Context, req *connect.Request[workflowv1.CreateWorkflowRequest]) (*connect.Response[workflowv1.CreateWorkflowResponse], error) {
-	if f.refuse != nil {
-		return nil, f.refuse
-	}
-
-	f.createdWorkflow = req.Msg
-
-	return connect.NewResponse(&workflowv1.CreateWorkflowResponse{Workflow: &workflowv1.Workflow{Id: "new"}}), nil
-}
-
-func (f *formRecorder) StartOrchestrator(
-	_ context.Context,
-	req *connect.Request[agentv1.StartOrchestratorRequest],
-) (*connect.Response[agentv1.StartOrchestratorResponse], error) {
-	f.startedOrchestrator = req.Msg
-
-	return connect.NewResponse(&agentv1.StartOrchestratorResponse{}), nil
-}
-
-func (f *formRecorder) UpdateWorkflow(_ context.Context, req *connect.Request[workflowv1.UpdateWorkflowRequest]) (*connect.Response[emptypb.Empty], error) {
-	if f.refuse != nil {
-		return nil, f.refuse
-	}
-
-	f.updatedWorkflow = req.Msg
-
-	return connect.NewResponse(&emptypb.Empty{}), nil
-}
-
-func (f *formRecorder) ArchiveWorkflow(_ context.Context, req *connect.Request[workflowv1.ArchiveWorkflowRequest]) (*connect.Response[emptypb.Empty], error) {
-	if f.refuse != nil {
-		return nil, f.refuse
-	}
-
-	f.archivedWorkflow = req.Msg
-
-	return connect.NewResponse(&emptypb.Empty{}), nil
-}
-
-func (f *formRecorder) DeleteWorkflow(_ context.Context, req *connect.Request[workflowv1.DeleteWorkflowRequest]) (*connect.Response[emptypb.Empty], error) {
-	if f.refuse != nil {
-		return nil, f.refuse
-	}
-
-	f.deletedWorkflow = req.Msg
-
-	return connect.NewResponse(&emptypb.Empty{}), nil
-}
-
-func (f *formRecorder) ListSchedules(context.Context, *connect.Request[schedulev1.ListSchedulesRequest]) (*connect.Response[schedulev1.ListSchedulesResponse], error) {
-	return connect.NewResponse(&schedulev1.ListSchedulesResponse{}), nil
-}
-
-func (f *formRecorder) CreateSchedule(_ context.Context, req *connect.Request[schedulev1.CreateScheduleRequest]) (*connect.Response[schedulev1.CreateScheduleResponse], error) {
-	if f.refuse != nil {
-		return nil, f.refuse
-	}
-
-	f.createdSchedule = req.Msg
-
-	return connect.NewResponse(&schedulev1.CreateScheduleResponse{Schedule: &schedulev1.Schedule{Id: "new"}}), nil
-}
-
-func (f *formRecorder) UpdateSchedule(_ context.Context, req *connect.Request[schedulev1.UpdateScheduleRequest]) (*connect.Response[emptypb.Empty], error) {
-	if f.refuse != nil {
-		return nil, f.refuse
-	}
-
-	f.updatedSchedule = req.Msg
-
-	return connect.NewResponse(&emptypb.Empty{}), nil
-}
-
-func (f *formRecorder) ArchiveSchedule(_ context.Context, req *connect.Request[schedulev1.ArchiveScheduleRequest]) (*connect.Response[emptypb.Empty], error) {
-	if f.refuse != nil {
-		return nil, f.refuse
-	}
-
-	f.archivedSchedule = req.Msg
-
-	return connect.NewResponse(&emptypb.Empty{}), nil
-}
-
-// TestOnlyTheSubmitKeySubmitsAForm covers enter never submitting.
-func TestOnlyTheSubmitKeySubmitsAForm(t *testing.T) {
-	keys := config.FixedFormKeys()
-
-	agent, _ := newAgentForm(keys, &agentFormValues{}, true)
-	agent.Init()
-	for range 6 {
-		agent.Update(huh.NextField())
-	}
-
-	pump(t, agent, keyMsg("enter"))
-	assert.NotEqual(t, huh.StateCompleted, agent.State, "enter on the last field leaves the form alone")
-
-	rename, _ := renameForm("api-refactor", new(string), keys)
-	rename.Init()
-
-	pump(t, rename, keyMsg("enter"))
-	assert.NotEqual(t, huh.StateCompleted, rename.State, "enter leaves a one-field form alone too")
-
-	pump(t, rename, keyMsg(keys.Submit[0]))
-	assert.Equal(t, huh.StateCompleted, rename.State, "the configured key still submits it")
-}
-
-// TestFormTakesNoKeysWhileItsWriteIsInFlight covers the second ctrl+s landing before the
-// first write has answered, which would launch the same agent twice.
-func TestFormTakesNoKeysWhileItsWriteIsInFlight(t *testing.T) {
-	sent := &formRecorder{}
-
-	m := formModel(sent)
-	workflow := m.listing.workflows[0]
-
-	values := agentPrefill(workflow)
-	values.Prompt = "check CI"
-
-	opened := m.openAgentForm(workflow, &values)
-	m = asModel(t, opened)
-	m.held.active = true
-
-	updated, cmd := m.Update(keyMsg("ctrl+s"))
-	got := settle(t, asModel(t, updated), cmd)
-
-	assert.Nil(t, sent.createdAgent, "the key never reached the submit path")
-	assert.Equal(t, formAgent, got.form.kind, "the form is still up")
-	assert.Equal(t, "check CI", values.Prompt, "and the form is as it was")
-}
-
-func pump(t *testing.T, form *huh.Form, msg tea.Msg) {
-	t.Helper()
-
-	queue := []tea.Msg{msg}
-	for step := 0; len(queue) > 0 && step < 10; step++ {
-		_, cmd := form.Update(queue[0])
-		queue = append(queue[1:], produced(cmd)...)
-	}
-}
-
-// TestAdoptFormSendsWhatWasTyped covers the adopt form having no directory field.
-func TestAdoptFormSendsWhatWasTyped(t *testing.T) {
-	sent := &formRecorder{}
-	m := formModel(sent)
-	workflow := m.listing.workflows[0]
-
-	values := adoptPrefill(workflow)
-	assert.Equal(t, "claude", values.Harness, "the workflow's harness is prefilled")
-	assert.Empty(t, values.Flags, "its flags are not, being written for the CLI it names")
-
-	values.Ref = "https://github.com/acmecorp/admin/pull/1069"
-	values.Prompt = "pick it up"
-
-	opened, _ := m.openAdoptForm(workflow, &values)
-	adopting := asModel(t, opened)
-	require.Equal(t, formAdopt, adopting.form.kind)
-
-	updated, cmd := adopting.answerForm()
-	submitted, ok := updated.(model)
-	require.True(t, ok)
-	settle(t, submitted, cmd)
-
-	require.NotNil(t, sent.adoptedAgent)
-	assert.Equal(t, "https://github.com/acmecorp/admin/pull/1069", sent.adoptedAgent.GetRef())
-	assert.Equal(t, "pick it up", sent.adoptedAgent.GetPrompt())
-	assert.Equal(t, "w1", sent.adoptedAgent.GetWorkflowId())
-	assert.Nil(t, sent.createdAgent, "adoption does not go through create")
-}
-
-// TestAdoptKeyOpensTheForm covers the binding, which acts on a workflow header: adoption
-// goes into a workflow, so the row it answers on is the workflow rather than an agent
-// already inside it.
-func TestAdoptKeyOpensTheForm(t *testing.T) {
-	sent := &formRecorder{}
-	m := infoModel(&recordingTmux{})
-	m.api = api{agents: sent}
-	m.agents.cursor = 0
-
-	entered, _ := m.routeScreenMessage(keyMsg("a"))
-	opened := asModel(t, entered)
-
-	require.Equal(t, formAdopt, opened.form.kind)
-
-	submitted, cmd := opened.answerForm()
-	settle(t, asModel(t, submitted), cmd)
-
-	require.NotNil(t, sent.adoptedAgent)
-	assert.Equal(t, "w1", sent.adoptedAgent.GetWorkflowId(), "it adopts into the workflow under the cursor")
-}
-
-// TestAdoptKeyDoesNothingOnAnAgentRow covers the other half of that: the key is the
-// workflow's, so a row inside one is not what adoption is asked for.
-func TestAdoptKeyDoesNothingOnAnAgentRow(t *testing.T) {
-	m := infoModel(&recordingTmux{})
-	m.api = api{agents: &formRecorder{}}
-
-	entered, _ := m.routeScreenMessage(keyMsg("a"))
-	opened := asModel(t, entered)
-
-	assert.Equal(t, screenAgents, opened.screen)
-}
-
-// TestWorkflowFormRoundTripsEveryHookMoment pins the form editing every moment there is.
-func TestWorkflowFormRoundTripsEveryHookMoment(t *testing.T) {
-	hooks := []panel.Hook{
+// TestFormsWorkflowHooks covers the hook pickers offering what the hooks directory holds.
+func TestFormsWorkflowHooks(t *testing.T) {
+	every := []*workflowv1.WorkflowHook{
 		{Event: config.HookPreLaunch, Script: "install-deps"},
 		{Event: config.HookPostLaunch, Script: "announce"},
 		{Event: config.HookPostResume, Script: "announce-back"},
@@ -1134,481 +379,244 @@ func TestWorkflowFormRoundTripsEveryHookMoment(t *testing.T) {
 		{Event: config.HookPreTeardown, Script: "take-the-stack-down"},
 	}
 
-	values := workflowFormValuesFrom(panel.WorkflowConfig{Name: "backend", Hooks: hooks})
+	t.Run("a picker offers every hook and opens on the one the workflow names", func(t *testing.T) {
+		harness := openHookForm(t, []*workflowv1.WorkflowHook{{Event: config.HookPreLaunch, Script: "copy-env"}}, "install-deps", "copy-env")
 
-	assert.Equal(t, "install-deps", values.PreLaunchHook, "a moment's hook is what its select is sitting on")
-	assert.Equal(t, hooks, values.toConfig().Hooks, "and every moment comes back as it went in")
-}
+		frame := harness.readFrame()
+		assert.Contains(t, frame, "install-deps")
+		assert.Contains(t, frame, "> copy-env")
+	})
 
-// TestWorkflowFormKeepsTheFirstHookOnAMomentHoldingTwo pins what the form does with a workflow
-// written when a moment could hold several.
-func TestWorkflowFormKeepsTheFirstHookOnAMomentHoldingTwo(t *testing.T) {
-	values := workflowFormValuesFrom(panel.WorkflowConfig{
-		Name: "backend",
-		Hooks: []panel.Hook{
+	t.Run("a hook the directory no longer holds is still offered", func(t *testing.T) {
+		harness := openHookForm(t, []*workflowv1.WorkflowHook{{Event: config.HookPreLaunch, Script: "copy-env"}}, "install-deps")
+
+		assert.Contains(t, harness.readFrame(), "missing")
+	})
+
+	t.Run("an empty hooks directory says where hooks go", func(t *testing.T) {
+		harness := openHookForm(t, nil)
+
+		assert.Contains(t, harness.readFrame(), "none found in your hooks directory")
+	})
+
+	t.Run("a directory too long to draw whole says the list carries on", func(t *testing.T) {
+		harness := openHookForm(t, nil, "copy-env", "install-deps", "seed-db", "warm-cache", "link-modules")
+
+		assert.Contains(t, harness.readFrame(), "↑/↓ for more")
+	})
+
+	t.Run("every moment comes back as it went in", func(t *testing.T) {
+		harness := openHookForm(t, every, "install-deps", "announce", "announce-back", "unlock", "take-the-stack-down")
+
+		harness.press(slices.Concat(slices.Repeat([]string{"enter"}, 20), []string{"ctrl+s"})...)
+
+		assertSentHooks(t, harness, every)
+	})
+
+	t.Run("a moment holding two keeps the one that ran first", func(t *testing.T) {
+		harness := openHookForm(t, []*workflowv1.WorkflowHook{
 			{Event: config.HookPreLaunch, Script: "install-deps"},
 			{Event: config.HookPreLaunch, Script: "copy-env"},
-		},
+		}, "install-deps", "copy-env")
+
+		harness.press("ctrl+s")
+
+		assertSentHooks(t, harness, []*workflowv1.WorkflowHook{{Event: config.HookPreLaunch, Script: "install-deps"}})
 	})
-
-	assert.Equal(t, "install-deps", values.PreLaunchHook, "the one that ran first is the one on offer")
-	assert.Equal(t, []panel.Hook{
-		{Event: config.HookPreLaunch, Script: "install-deps"},
-	}, values.toConfig().Hooks, "and saving the form writes the one moment holds")
 }
 
-// TestHookFieldsOfferTheHooksDirectory pins the picker being a select over the hooks directory
-// rather than free text, and opening on what the workflow already names.
-func TestHookFieldsOfferTheHooksDirectory(t *testing.T) {
-	values := workflowFormValuesFrom(panel.WorkflowConfig{
-		Name:  "backend",
-		Hooks: []panel.Hook{{Event: config.HookPreLaunch, Script: "copy-env"}},
-	})
-
-	form, _ := workflowConfigForm(workflowConfigParams{
-		NameTitle: "Workflow name",
-		Values:    &values,
-		Hooks:     []hookChoice{{name: "install-deps"}, {name: "copy-env"}},
-		Keys:      config.FixedFormKeys(),
-	})
-	sizeForm(form, 40)
-
-	view := form.View()
-	assert.Contains(t, view, "Pre-launch hook")
-	assert.Contains(t, view, "install-deps", "every hook in the directory is offered")
-	assert.Contains(t, view, "copy-env")
-	assert.Equal(t, "copy-env", values.PreLaunchHook, "and the one it already names is the one picked")
-}
-
-// TestHookFieldsDrawEveryOptionThatFits pins a moment already naming a hook still offering the
-// options above it.
-func TestHookFieldsDrawEveryOptionThatFits(t *testing.T) {
-	hooks := []panel.Hook{
-		{Event: config.HookPreLaunch, Script: "copy-env"},
-		{Event: config.HookPostLaunch, Script: "copy-env"},
-		{Event: config.HookPostResume, Script: "copy-env"},
-		{Event: config.HookPostRestore, Script: "copy-env"},
-		{Event: config.HookPreTeardown, Script: "copy-env"},
-	}
-	values := workflowFormValuesFrom(panel.WorkflowConfig{Name: "backend", Hooks: hooks})
-
-	form, _ := workflowConfigForm(workflowConfigParams{
-		NameTitle: "Workflow name",
-		Values:    &values,
-		Hooks:     []hookChoice{{name: "install-deps"}, {name: "copy-env"}},
-		Keys:      config.FixedFormKeys(),
-	})
-	sizeForm(form, 60)
-
-	view := form.View()
-	assert.Equal(t, len(hooks), strings.Count(view, "install-deps"),
-		"every moment offers the hook above the one it names")
-	assert.NotContains(t, view, "↑/↓ for more", "and says nothing about scrolling for a list it draws whole")
-}
-
-// TestHookFieldsSayWhenTheListScrolls pins a hooks directory too long to draw whole telling a
-// person the list carries on.
-func TestHookFieldsSayWhenTheListScrolls(t *testing.T) {
-	available := []hookChoice{
-		{name: "copy-env"},
-		{name: "install-deps"},
-		{name: "seed-db"},
-		{name: "warm-cache"},
-		{name: "link-modules"},
-	}
-
-	values := workflowFormValues{Provisioner: provisionerNone}
-
-	form, _ := workflowConfigForm(workflowConfigParams{
-		NameTitle: "Workflow name",
-		Values:    &values,
-		Hooks:     available,
-		Keys:      config.FixedFormKeys(),
-	})
-	sizeForm(form, 60)
-
-	assert.Contains(t, form.View(), "↑/↓ for more")
-}
-
-// TestHookOptionsKeepAHookThatHasGone pins a hook the workflow names but the directory no
-// longer holds still being offered.
-func TestHookOptionsKeepAHookThatHasGone(t *testing.T) {
-	options := hookOptions([]hookChoice{{name: "install-deps"}}, "copy-env")
-
-	require.Len(t, options, 3)
-	assert.Empty(t, options[0].Value, "None leads, so huh opens the list at the top")
-	assert.Equal(t, "install-deps", options[1].Value)
-	assert.Equal(t, "copy-env", options[2].Value, "the missing one keeps its name as the value so it round-trips")
-	assert.Contains(t, options[2].Key, "missing")
-}
-
-// TestHookFieldsSayWhereHooksGoWhenThereAreNone pins the empty case reading as an empty
-// directory rather than a broken form.
-func TestHookFieldsSayWhereHooksGoWhenThereAreNone(t *testing.T) {
-	// None keeps the worktree fields off the screen and the hook fields on it.
-	values := workflowFormValues{Provisioner: provisionerNone}
-
-	form, _ := workflowConfigForm(workflowConfigParams{
-		NameTitle: "Workflow name",
-		Values:    &values,
-		Keys:      config.FixedFormKeys(),
-	})
-	sizeForm(form, 40)
-
-	assert.Contains(t, form.View(), "none found in your hooks directory")
-}
-
-// TestWorkflowFormScrollsToFitTheTerminal pins the form being given the room it has rather
-// than drawing past the bottom of the screen.
-func TestWorkflowFormScrollsToFitTheTerminal(t *testing.T) {
-	values := workflowFormValues{Provisioner: provisionerWorktree}
-
-	const terminal = 24
-
-	form, _ := workflowConfigForm(workflowConfigParams{
-		NameTitle: "Workflow name",
-		Values:    &values,
-		Hooks:     []hookChoice{{name: "install-deps"}},
-		Keys:      config.FixedFormKeys(),
-	})
-	sizeForm(form, terminal)
-
-	// huh draws its help line outside the height it is told about.
-	lines := strings.Count(form.View(), "\n") + 1
-	assert.LessOrEqual(t, lines, terminal+1, "the form is drawn inside the terminal it was sized against")
-	assert.Contains(t, form.View(), "Workflow name", "and opens at the top of itself")
-}
-
-// formColumnWidth is what these forms are measured in.
-const formColumnWidth = 80
-
-// sizeForm starts a form and tells it how much room it has.
-func sizeForm(form *huh.Form, height int) {
-	form.Init()
-	form.Update(tea.WindowSizeMsg{Width: formColumnWidth, Height: height})
-}
-
-// TestHookFieldsSurviveBeingWalkedThrough pins the fields not rewriting themselves as the
-// cursor passes over them.
-func TestHookFieldsSurviveBeingWalkedThrough(t *testing.T) {
-	values := workflowFormValuesFrom(panel.WorkflowConfig{
-		Name:     "backend",
-		Worktree: panel.WorktreeConfig{Enabled: true},
-		Hooks: []panel.Hook{
-			{Event: config.HookPreLaunch, Script: "install-deps"},
-			{Event: config.HookPostLaunch, Script: "announce"},
-		},
-	})
-	before := values.toConfig().Hooks
-
-	form, _ := workflowConfigForm(workflowConfigParams{
-		NameTitle: "Workflow name",
-		Values:    &values,
-		Hooks:     []hookChoice{{name: "announce"}, {name: "copy-env"}, {name: "install-deps"}},
-		Keys:      config.FixedFormKeys(),
-	})
-	sizeForm(form, 40)
-
-	// Every field, so each hook select is focused and blurred in turn.
-	for range 20 {
-		form.Update(huh.NextField())
-	}
-
-	assert.Equal(t, before, values.toConfig().Hooks, "walking the form leaves every moment as it was")
-}
-
-// TestEscDetachesFromAHeldForm covers esc during a create: the panel comes back rather than
-// holding every key until a provisioner that may run for minutes has finished, the write still
-// lands the agent it was sent for, and the landing leaves the person where they went.
-func TestEscDetachesFromAHeldForm(t *testing.T) {
-	sent := &formRecorder{}
-	m := formModel(sent)
-
-	workflow := m.listing.workflows[0]
-
-	values := agentPrefill(workflow)
-	values.Prompt = "check CI"
-
-	opened := m.openAgentForm(workflow, &values)
-	m = asModel(t, opened)
-
-	updated, cmd := m.answerForm()
-	m = asModel(t, updated)
-	require.True(t, m.held.active)
-
-	detached, _ := m.Update(keyMsg("esc"))
-	m = asModel(t, detached)
-
-	assert.False(t, m.held.active, "the panel takes keys again")
-	assert.False(t, m.form.isActive(), "and the form it was holding is gone")
-
-	got := settle(t, m, cmd)
-
-	assert.Empty(t, got.messages.items)
-	require.NotNil(t, sent.createdAgent, "the create the form was submitted for still ran")
-	_, held := got.listing.liveAgent("new")
-	assert.False(t, held, "and it lands without taking the cursor to the agent it made")
-}
-
-// TestAnEarlierWriteLeavesALaterHoldAlone covers escaping a slow create and submitting another:
-// the first one landing must not tear down the form the second is still being held for.
-func TestAnEarlierWriteLeavesALaterHoldAlone(t *testing.T) {
-	sent := &formRecorder{}
-	m := formModel(sent)
-
-	workflow := m.listing.workflows[0]
-
-	first := agentPrefill(workflow)
-	first.Prompt = "the slow one"
-
-	opened := m.openAgentForm(workflow, &first)
-	m = asModel(t, opened)
-
-	submitted, _ := m.answerForm()
-	m = asModel(t, submitted)
-
-	escaped := m.writes
-
-	detached, _ := m.Update(keyMsg("esc"))
-	m = asModel(t, detached)
-
-	second := agentPrefill(workflow)
-	second.Prompt = "the second one"
-
-	opened = m.openAgentForm(workflow, &second)
-	m = asModel(t, opened)
-
-	submitted, _ = m.answerForm()
-	m = asModel(t, submitted)
-
-	require.True(t, m.held.active)
-	require.NotEqual(t, escaped, m.held.write, "the two submits are told apart by their own numbers")
-
-	landed, _ := m.applyWrite(writeResult{
-		summary: "Could not start the agent",
-		written: &written{row: agentRowKey("new")},
-		write:   escaped,
-	})
-	got := asModel(t, landed)
-
-	assert.True(t, got.held.active, "the escaped create landing leaves the second form held")
-	assert.True(t, got.form.isActive())
-	assert.Empty(t, got.landing.row, "and an escaped create takes nobody to the agent it made")
-}
-
-// TestSubmittingNoticeCountsUp pins that a held form's notice stands still while the write is
-// quick and starts counting once it is not, so a slow provisioner does not read as a wedge.
-func TestSubmittingNoticeCountsUp(t *testing.T) {
-	since := time.Now()
-
-	assert.Equal(t, "  submitting…", submittingNotice(time.Time{}, since))
-	assert.Equal(t, "  submitting…", submittingNotice(since, since.Add(time.Second)))
-	assert.Equal(t, "  submitting… 12s · esc to keep working", submittingNotice(since, since.Add(12*time.Second)))
-	assert.Equal(t, "  submitting… 6m40s · esc to keep working", submittingNotice(since, since.Add(400*time.Second)))
-}
-
-// TestRefreshDescriptionSaysWhatWillHappen covers the sentence somebody reads before pressing,
-// which has to name what becomes of the branch rather than only what the operation is called.
-func TestRefreshDescriptionSaysWhatWillHappen(t *testing.T) {
-	t.Parallel()
-
-	for _, tt := range []struct {
-		name     string
-		plan     rebasePlan
-		want     []string
-		wantNone []string
+// TestFormsLayout covers a form being drawn in a column beside the list it was opened over.
+func TestFormsLayout(t *testing.T) {
+	opens := []struct {
+		name  string
+		press []string
+		want  string
 	}{
 		{
-			name: "a branch with nothing of its own is just moved",
-			plan: rebasePlan{
-				baseRef: "origin/main",
-			},
-			want:     []string{"no commits of its own", "moved to origin/main"},
-			wantNone: []string{"replayed"},
+			name:  "a form",
+			press: []string{"w"},
+			want:  "New workflow name",
 		},
 		{
-			name: "a branch the base already holds loses those commits",
-			plan: rebasePlan{
-				baseRef: "origin/main",
-				landed:  3,
-			},
-			want: []string{"already holds every commit", "3 commits will leave the branch"},
+			name:  "a confirmation",
+			press: []string{"z"},
+			want:  `Archive agent "author"?`,
 		},
 		{
-			name: "an ordinary rebase says what it replays",
-			plan: rebasePlan{
-				baseRef: "origin/main",
-				replay:  2,
-			},
-			want:     []string{"2 commits of its own will be replayed onto origin/main"},
-			wantNone: []string{"leave the branch"},
+			name:  "the rename form",
+			press: []string{"r"},
+			want:  `Rename "author" to`,
 		},
-		{
-			name: "a partly landed branch says both halves",
-			plan: rebasePlan{
-				baseRef: "origin/main",
-				landed:  2,
-				replay:  1,
-			},
-			want: []string{"1 commit of its own will be replayed", "Another 2 the base already holds"},
-		},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
+	}
 
-			description := rebaseDescription(tt.plan)
-			for _, want := range tt.want {
-				assert.Contains(t, description, want)
-			}
-			for _, none := range tt.wantNone {
-				assert.NotContains(t, description, none)
-			}
+	for _, tt := range opens {
+		t.Run(tt.name+" takes the window beside the list", func(t *testing.T) {
+			harness := openForms(t, newFormWorkflow(), newLiveAuthor())
+			harness.press("j")
+			harness.fireTimers()
+			require.False(t, harness.panel.IsZoomed(), "a live agent's pane shares the window")
+
+			harness.press(tt.press...)
+
+			frame := harness.readFrame()
+			assert.True(t, harness.panel.IsZoomed())
+			assert.Contains(t, readStage(frame)[0], tt.want)
+			assert.Contains(t, readListRows(frame), "  author", "the list it was opened over is still beside it")
 		})
 	}
-}
 
-// TestRefreshDescriptionAlwaysSaysWhatItDoesToTheFiles pins the half a person is most likely to
-// be wrong about.
-func TestRefreshDescriptionAlwaysSaysWhatItDoesToTheFiles(t *testing.T) {
-	t.Parallel()
+	t.Run("closing the form hands the window back", func(t *testing.T) {
+		harness := openForms(t, newFormWorkflow(), newLiveAuthor())
+		harness.press("j")
+		harness.fireTimers()
 
-	for _, plan := range []rebasePlan{
-		{baseRef: "origin/main"},
-		{baseRef: "origin/main", landed: 3},
-		{baseRef: "origin/main", replay: 2},
-	} {
-		description := rebaseDescription(plan)
-		assert.Contains(t, description, "files will change under it")
-		assert.Contains(t, description, "nothing untracked is removed")
-		assert.Contains(t, description, "copy of the worktree is kept")
-	}
-}
+		harness.press("r", "esc")
 
-// TestRefreshAffirmativeNamesWhatRuns covers the button naming what actually runs.
-func TestRefreshAffirmativeNamesWhatRuns(t *testing.T) {
-	t.Parallel()
+		assert.False(t, harness.panel.IsZoomed())
+	})
 
-	assert.Equal(t, "Rebase", rebaseAffirmative(rebasePlan{replay: 2}))
-	assert.Equal(t, "Move", rebaseAffirmative(rebasePlan{landed: 3}))
-	assert.Equal(t, "Move", rebaseAffirmative(rebasePlan{}))
-}
+	t.Run("a window too narrow for both halves draws the form whole", func(t *testing.T) {
+		harness := newPanelHarness(t, panelHarnessParams{width: 60})
+		answerWorktreeReads(harness)
+		harness.watch(buildSnapshot(newFormWorkflow(), newAgent("a1", "author", "w1")))
 
-// TestRefreshWarning covers each thing the confirmation is there to say, and the ordinary case
-// saying nothing.
-func TestRefreshWarning(t *testing.T) {
-	t.Parallel()
+		harness.press("w")
 
-	for _, tt := range []struct {
-		name     string
-		plan     rebasePlan
-		want     []string
-		wantNone bool
-	}{
-		{
-			name:     "a rebase that would run cleanly warns about nothing",
-			plan:     rebasePlan{replay: 2},
-			wantNone: true,
-		},
-		{
-			name:     "the landed commits are left to the description, which says what becomes of them",
-			plan:     rebasePlan{landed: 2},
-			wantNone: true,
-		},
-		{
-			name: "merge commits, which a rebase throws away before replaying what they settled",
-			plan: rebasePlan{merges: 2},
-			want: []string{"throws away 2 merge commits"},
-		},
-		{
-			name: "the paths the two sides both changed",
-			plan: rebasePlan{conflictPaths: []string{"a.go", "b.go"}},
-			want: []string{"Both sides changed a.go, b.go"},
-		},
-		{
-			name: "more paths than are worth reading out",
-			plan: rebasePlan{conflictPaths: []string{"a.go", "b.go", "c.go", "d.go", "e.go"}},
-			want: []string{"a.go, b.go, c.go and 2 more"},
-		},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
+		frame := harness.readFrame()
+		assert.Contains(t, splitLines(frame)[0], "New workflow name")
+		assert.NotContains(t, frame, "author", "the list gives the form its room")
+	})
 
-			warning := rebaseWarning(tt.plan)
-			if tt.wantNone {
-				assert.Empty(t, warning)
+	for _, height := range []int{16, 24, 32, 60} {
+		t.Run(fmt.Sprintf("a form in a window %d rows tall opens at its top and stays inside", height), func(t *testing.T) {
+			harness := newPanelHarness(t, panelHarnessParams{width: 160, height: height})
+			answerWorktreeReads(harness)
+			harness.watch(buildSnapshot(newFormWorkflow()))
 
-				return
-			}
+			harness.press("w")
 
-			for _, want := range tt.want {
-				assert.Contains(t, warning, want)
-			}
+			frame := harness.readFrame()
+			assert.LessOrEqual(t, len(splitLines(frame)), height)
+			assert.Contains(t, frame, "New workflow name")
 		})
 	}
+
+	for _, height := range []int{24, 32, 40} {
+		t.Run(fmt.Sprintf("a refused form in a window %d rows tall stays inside", height), func(t *testing.T) {
+			harness := newPanelHarness(t, panelHarnessParams{width: 160, height: height})
+			answerWorktreeReads(harness)
+			harness.watch(buildSnapshot(newFormWorkflow()))
+			harness.refuse(workflowv1connect.WorkflowServiceCreateWorkflowProcedure, connect.NewError(connect.CodeInvalidArgument, errors.New("no such workflow")))
+
+			harness.press(slices.Concat([]string{"w"}, typed("web"), []string{"ctrl+s"})...)
+
+			frame := harness.readFrame()
+			assert.LessOrEqual(t, len(splitLines(frame)), height)
+			assert.Contains(t, frame, "no such workflow")
+		})
+	}
+
+	t.Run("a refusal is read in full from inside the form", func(t *testing.T) {
+		harness := newPanelHarness(t, panelHarnessParams{width: 160})
+		answerWorktreeReads(harness)
+		harness.watch(buildSnapshot(newFormWorkflow()))
+		harness.refuse(workflowv1connect.WorkflowServiceCreateWorkflowProcedure, connect.NewError(connect.CodeInvalidArgument, errors.New("no such workflow")))
+		harness.press(slices.Concat([]string{"w"}, typed("web"), []string{"ctrl+s"})...)
+
+		harness.press("ctrl+g")
+		frame := harness.readFrame()
+		assert.Contains(t, frame, "Could not create the workflow")
+		assert.NotContains(t, frame, "New workflow name", "the form gives up what is drawn in its column")
+
+		harness.press("ctrl+g")
+		assert.Contains(t, harness.readFrame(), "New workflow name", "and takes it back")
+	})
 }
 
-func (m model) openAgentForm(workflow panel.Workflow, values *agentFormValues) model {
-	openAgentForm(&m, workflow, values)
+const worktreeReadProcedure = "/worktree.v1.WorktreeService/GetWorktree"
 
-	return m
+func openForms(t *testing.T, workflow *workflowv1.Workflow, agents ...*agentv1.Agent) *panelHarness {
+	t.Helper()
+
+	author := newAgent("a1", "author", "w1")
+	author.Cwd = "/work/api"
+	author.Harness = "claude"
+	author.Flags = "--model opus"
+	if len(agents) > 0 {
+		author = agents[0]
+	}
+
+	harness := openAgents(t, workflow, author)
+	harness.press("g", "g")
+
+	return harness
 }
 
-func (m model) openChildForm(parent panel.Agent, values *agentFormValues) (tea.Model, tea.Cmd) {
-	cmd := openChildForm(&m, parent, values)
+func openHookForm(t *testing.T, hooks []*workflowv1.WorkflowHook, available ...string) *panelHarness {
+	t.Helper()
 
-	return m, cmd
+	workflow := newFormWorkflow()
+	workflow.Hooks = hooks
+	harness := openForms(t, workflow)
+	harness.answer(hookv1connect.HookServiceListHooksProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+		listed := &hookv1.ListHooksResponse{}
+		for _, name := range available {
+			listed.Hooks = append(listed.Hooks, &hookv1.Hook{Name: name, Executable: true})
+		}
+
+		return connect.NewResponse(listed), nil
+	})
+
+	harness.press("e")
+
+	return harness
 }
 
-func (m model) openRename(agent panel.Agent) model {
-	openRename(&m, agent)
+func assertSentHooks(t *testing.T, harness *panelHarness, want []*workflowv1.WorkflowHook) {
+	t.Helper()
 
-	return m
+	sent := harness.readSent(workflowv1connect.WorkflowServiceUpdateWorkflowProcedure)
+	require.Len(t, sent, 1)
+	update, ok := sent[0].(*workflowv1.UpdateWorkflowRequest)
+	require.True(t, ok)
+	assert.Empty(t, cmp.Diff(want, update.GetHooks(), protocmp.Transform()))
 }
 
-func (m model) openRenameForm(agent panel.Agent, name *string) model {
-	openRenameForm(&m, agent, name)
+func asRequests(procedure string, msgs []proto.Message) []request {
+	var requests []request
+	for _, msg := range msgs {
+		requests = append(requests, request{procedure: procedure, msg: msg})
+	}
 
-	return m
+	return requests
 }
 
-func (m model) openAdoptForm(workflow panel.Workflow, values *adoptFormValues) (tea.Model, tea.Cmd) {
-	cmd := openAdoptForm(&m, workflow, values)
-
-	return m, cmd
+func newFormWorkflow() *workflowv1.Workflow {
+	return &workflowv1.Workflow{
+		Id:      "w1",
+		Name:    "api",
+		Harness: "claude",
+		Cwd:     "/work/api",
+		Flags:   "--model opus",
+	}
 }
 
-func (m model) archiveAgentsConfirm(agents []panel.Agent) (tea.Model, tea.Cmd) {
-	cmd := confirmArchiveAgents(&m, m.listing.liveAgents(), agents)
+func newConfiguredWorkflow() *workflowv1.Workflow {
+	workflow := newFormWorkflow()
+	workflow.Context = "shared notes"
+	workflow.Worktree = &workflowv1.WorktreeConfig{Enabled: true}
 
-	return m, cmd
+	return workflow
 }
 
-func (m model) newWorkflowForm() (tea.Model, tea.Cmd) {
-	cmd := newWorkflowForm(&m)
+func newLiveAuthor() *agentv1.Agent {
+	author := newAgent("a1", "author", "w1")
+	author.PaneId = "%9"
+	author.Alive = proto.Bool(true)
 
-	return m, cmd
+	return author
 }
 
-func (m model) editWorkflowForm(workflow panel.Workflow) (tea.Model, tea.Cmd) {
-	cmd := editWorkflowForm(&m, m.shared(), workflow)
-
-	return m, cmd
-}
-
-func (m model) openWorkflowRename(workflow panel.Workflow, values *workflowFormValues) model {
-	openWorkflowRename(&m, workflow, values)
-
-	return m
-}
-
-func (m model) openWorkflowConfigForm(values *workflowFormValues, target *panel.Workflow) model {
-	openWorkflowConfigForm(&m, values, target)
-
-	return m
-}
-
-func (m model) archiveWorkflowConfirm(workflow panel.Workflow) model {
-	archiveWorkflowConfirm(&m, workflow)
-
-	return m
+func typed(text string) []string {
+	return strings.Split(text, "")
 }
