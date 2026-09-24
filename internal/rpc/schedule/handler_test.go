@@ -1,21 +1,21 @@
 package schedule
 
 import (
+	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
 
-	schedulev1weave "weave/proto/gen/schedule/v1/schedulev1weave"
-
 	"weave/internal/rpc/render"
 	"weave/internal/schedules"
-	"weave/internal/storetest"
+	"weave/internal/store"
 	paginationv1 "weave/proto/gen/pagination/v1"
 	schedulev1 "weave/proto/gen/schedule/v1"
+	"weave/proto/gen/schedule/v1/schedulev1weave"
 	viewv1 "weave/proto/gen/view/v1"
 
 	schedulestore "weave/internal/store/schedule"
-	workflowstore "weave/internal/store/workflow"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
@@ -23,664 +23,507 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-const missingID = "00000000-0000-0000-0000-000000000000"
+const scheduleID = "01a0d228-0000-7000-8000-00000000000a"
 
-// TestCreateSchedule pins that a schedule is stored as written, and the code each refusal is
-// answered with.
-func TestCreateSchedule(t *testing.T) {
+type updateCall struct {
+	id  string
+	cfg schedulestore.Config
+}
+
+type enableCall struct {
+	id      string
+	enabled bool
+}
+
+type listRunsCall struct {
+	id    string
+	limit int
+}
+
+// fakeSchedules answers from its fields and records what each call asked of it.
+type fakeSchedules struct {
+	stored  []schedulestore.Schedule
+	runs    []schedulestore.Run
+	err     error
+	created []schedulestore.Config
+	updated []updateCall
+	enabled []enableCall
+	gone    []string
+	listed  []listRunsCall
+}
+
+// GetSchedule answers the first stored schedule unless err refuses it.
+func (f *fakeSchedules) GetSchedule(context.Context, string) (*schedulestore.Schedule, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return &f.stored[0], nil
+}
+
+// NewSchedule records the config and answers it as stored unless err refuses it.
+func (f *fakeSchedules) NewSchedule(_ context.Context, cfg schedulestore.Config) (*schedulestore.Schedule, error) {
+	f.created = append(f.created, cfg)
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return &schedulestore.Schedule{
+		ID:         scheduleID,
+		Name:       cfg.Name,
+		Cron:       cfg.Cron,
+		Enabled:    cfg.Enabled,
+		Prompt:     cfg.Prompt,
+		WorkflowID: cfg.WorkflowID,
+	}, nil
+}
+
+// UpdateSchedule records the update and answers err.
+func (f *fakeSchedules) UpdateSchedule(_ context.Context, id string, cfg schedulestore.Config) error {
+	f.updated = append(f.updated, updateCall{
+		id:  id,
+		cfg: cfg,
+	})
+
+	return f.err
+}
+
+// SetScheduleEnabled records the toggle and answers err.
+func (f *fakeSchedules) SetScheduleEnabled(_ context.Context, id string, enabled bool) error {
+	f.enabled = append(f.enabled, enableCall{
+		id:      id,
+		enabled: enabled,
+	})
+
+	return f.err
+}
+
+// ArchiveSchedule records the id and answers err.
+func (f *fakeSchedules) ArchiveSchedule(_ context.Context, id string) error {
+	f.gone = append(f.gone, id)
+
+	return f.err
+}
+
+// ListPage answers as many stored schedules as the limit allows unless err refuses it.
+func (f *fakeSchedules) ListPage(_ context.Context, limit int64, _ *schedulestore.Cursor) ([]schedulestore.Schedule, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return f.stored[:min(int(limit), len(f.stored))], nil
+}
+
+// ListRuns records the listing and answers runs.
+func (f *fakeSchedules) ListRuns(_ context.Context, id string, limit int) ([]schedulestore.Run, error) {
+	f.listed = append(f.listed, listRunsCall{
+		id:    id,
+		limit: limit,
+	})
+
+	return f.runs, nil
+}
+
+// TestScheduleRefusalsMapToCodes pins the code each refusal of the schedule service reaches the caller as.
+func TestScheduleRefusalsMapToCodes(t *testing.T) {
+	create := func(ctx context.Context, svc schedulev1weave.ScheduleServiceAdapter) error {
+		_, err := svc.CreateSchedule(ctx, connect.NewRequest(&schedulev1.CreateScheduleRequest{Name: "morning-ci"}))
+
+		return err
+	}
+	update := func(ctx context.Context, svc schedulev1weave.ScheduleServiceAdapter) error {
+		_, err := svc.UpdateSchedule(ctx, connect.NewRequest(&schedulev1.UpdateScheduleRequest{Id: scheduleID}))
+
+		return err
+	}
+
 	tests := []struct {
 		name     string
-		req      *schedulev1.CreateScheduleRequest
+		call     func(ctx context.Context, svc schedulev1weave.ScheduleServiceAdapter) error
+		err      error
 		wantCode connect.Code
-		check    func(t *testing.T, created *schedulev1.Schedule, workflow string)
 	}{
 		{
-			name: "a schedule is stored as written",
-			req: &schedulev1.CreateScheduleRequest{
-				Name: "morning-ci", Cron: "0 9 * * 1-5", Prompt: "check CI", Enabled: true,
-			},
-			check: func(t *testing.T, created *schedulev1.Schedule, _ string) {
-				assert.NotEmpty(t, created.GetId())
-				assert.Equal(t, "0 9 * * 1-5", created.GetCron())
-				assert.Equal(t, "check CI", created.GetPrompt())
-				assert.True(t, created.GetEnabled())
-			},
-		},
-		{
-			name: "the workflow it launches into is what it stores",
-			req: &schedulev1.CreateScheduleRequest{
-				Name: "nightly", Cron: "0 2 * * *", Prompt: "sweep", Enabled: true,
-			},
-			check: func(t *testing.T, created *schedulev1.Schedule, workflow string) {
-				assert.Equal(t, workflow, created.GetWorkflowId())
-			},
-		},
-		{
-			name: "an armed schedule reports when it next fires",
-			req: &schedulev1.CreateScheduleRequest{
-				Name: "hourly", Cron: "0 * * * *", Prompt: "poll", Enabled: true,
-			},
-			check: func(t *testing.T, created *schedulev1.Schedule, _ string) {
-				require.NotNil(t, created.GetNextRunAt())
-				assert.True(t, created.GetNextRunAt().AsTime().After(time.Now()))
-			},
-		},
-		{
-			name: "a paused schedule has no next run to report",
-			req: &schedulev1.CreateScheduleRequest{
-				Name: "draft", Cron: "0 9 * * *", Prompt: "later",
-			},
-			check: func(t *testing.T, created *schedulev1.Schedule, _ string) {
-				assert.False(t, created.GetEnabled())
-				assert.Nil(t, created.GetNextRunAt())
-			},
-		},
-		{
-			name: "hidden runs are stored as written",
-			req: &schedulev1.CreateScheduleRequest{
-				Name: "sweeper", Cron: "*/5 * * * *", Prompt: "sweep", Enabled: true,
-				HideAgents: true,
-			},
-			check: func(t *testing.T, created *schedulev1.Schedule, _ string) {
-				assert.True(t, created.GetHideAgents())
-			},
-		},
-		{
-			name: "an unparseable expression is refused",
-			req: &schedulev1.CreateScheduleRequest{
-				Name: "broken", Cron: "99 9 * * *", Prompt: "go",
-			},
+			name:     "an expression that cannot be read",
+			call:     create,
+			err:      schedules.ErrBadCron,
 			wantCode: connect.CodeInvalidArgument,
 		},
 		{
-			name: "an unknown timezone is refused",
-			req: &schedulev1.CreateScheduleRequest{
-				Name: "elsewhere", Cron: "0 9 * * *", Timezone: "Mars/Olympus", Prompt: "go",
-			},
-			wantCode: connect.CodeInvalidArgument,
+			name:     "a workflow nothing holds",
+			call:     create,
+			err:      schedules.ErrWorkflowNotFound,
+			wantCode: connect.CodeNotFound,
 		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			svc, workflow := service(t)
-
-			tt.req.WorkflowId = workflow
-			created, err := svc.CreateSchedule(t.Context(), connect.NewRequest(tt.req))
-			if tt.wantCode != 0 {
-				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
-				return
-			}
-
-			require.NoError(t, err)
-			tt.check(t, created.Msg.GetSchedule(), workflow)
-		})
-	}
-}
-
-// TestScheduleWorkflowMustExist covers a caller naming a workflow that is not there, which is
-// not_found rather than a server fault.
-func TestScheduleWorkflowMustExist(t *testing.T) {
-	svc, workflow := service(t)
-	existing := createSchedule(t, svc, workflow, "nightly")
-
-	const missing = "00000000-0000-0000-0000-0000000000ff"
-
-	_, err := svc.CreateSchedule(t.Context(), connect.NewRequest(&schedulev1.CreateScheduleRequest{
-		Name: "morning", Cron: "0 9 * * *", Prompt: "go", Enabled: true, WorkflowId: missing,
-	}))
-	assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err), "creating into a workflow that is not there")
-
-	_, err = svc.UpdateSchedule(t.Context(), connect.NewRequest(&schedulev1.UpdateScheduleRequest{
-		Id: existing, Name: "nightly", Cron: "0 9 * * *", Prompt: "go", Enabled: true, WorkflowId: missing,
-	}))
-	assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err), "moving one into it")
-}
-
-// TestCreateScheduleNameConflict covers the unique index surfacing as
-// already_exists rather than as a server fault.
-func TestCreateScheduleNameConflict(t *testing.T) {
-	tests := []struct {
-		name     string
-		second   string
-		wantCode connect.Code
-	}{
+		{
+			name:     "a workflow that has been archived",
+			call:     update,
+			err:      schedules.ErrWorkflowArchived,
+			wantCode: connect.CodeFailedPrecondition,
+		},
 		{
 			name:     "a name a live schedule holds",
-			second:   "morning-ci",
+			call:     create,
+			err:      store.ErrNameTaken,
 			wantCode: connect.CodeAlreadyExists,
 		},
 		{
-			name:   "a free name",
-			second: "evening-ci",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			svc, workflow := service(t)
-			createSchedule(t, svc, workflow, "morning-ci")
-
-			_, err := svc.CreateSchedule(t.Context(), connect.NewRequest(&schedulev1.CreateScheduleRequest{
-				Name: tt.second, Cron: "0 9 * * *", Prompt: "go", WorkflowId: workflow,
-			}))
-			if tt.wantCode != 0 {
-				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
-				return
-			}
-
-			require.NoError(t, err)
-		})
-	}
-}
-
-// TestGetSchedule pins that an id nobody holds is not found, an archived schedule included.
-func TestGetSchedule(t *testing.T) {
-	tests := []struct {
-		name     string
-		create   bool
-		id       string
-		wantCode connect.Code
-	}{
-		{
-			name:     "an id nobody holds",
-			id:       missingID,
+			name:     "updating a schedule nothing holds",
+			call:     update,
+			err:      schedules.ErrScheduleNotFound,
 			wantCode: connect.CodeNotFound,
 		},
 		{
-			name:     "a deleted schedule is gone from the read side",
-			create:   true,
-			wantCode: connect.CodeNotFound,
-		},
-		{
-			name:   "a schedule that exists",
-			create: true,
-		},
-	}
+			name: "pausing a schedule nothing holds",
+			call: func(ctx context.Context, svc schedulev1weave.ScheduleServiceAdapter) error {
+				_, err := svc.SetScheduleEnabled(ctx, connect.NewRequest(&schedulev1.SetScheduleEnabledRequest{Id: scheduleID}))
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			svc, workflow := service(t)
-			ctx := t.Context()
-
-			id := tt.id
-			if tt.create {
-				id = createSchedule(t, svc, workflow, "morning-ci")
-			}
-			if tt.create && tt.wantCode == connect.CodeNotFound {
-				_, err := svc.ArchiveSchedule(ctx, connect.NewRequest(&schedulev1.ArchiveScheduleRequest{Id: id}))
-				require.NoError(t, err)
-			}
-
-			got, err := svc.GetSchedule(ctx, connect.NewRequest(&schedulev1.GetScheduleRequest{Id: id}))
-			if tt.wantCode != 0 {
-				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
-				return
-			}
-
-			require.NoError(t, err)
-			assert.Equal(t, id, got.Msg.GetSchedule().GetId())
-			assert.Equal(t, "morning-ci", got.Msg.GetSchedule().GetName())
-		})
-	}
-}
-
-// TestListScheduleRuns covers a schedule's firings coming back newest first from the run
-// record, and the newest one riding on the schedule.
-func TestListScheduleRuns(t *testing.T) {
-	tests := []struct {
-		name      string
-		id        string
-		fired     int
-		cancel    bool
-		limit     int32
-		wantCode  connect.Code
-		wantRuns  int
-		wantState schedulev1.ScheduleRunState
-	}{
-		{
-			name:     "an id nobody holds",
-			id:       missingID,
-			wantCode: connect.CodeNotFound,
-		},
-		{
-			name: "a schedule that has never fired has no runs",
-		},
-		{
-			name:      "a firing being worked is listed",
-			fired:     1,
-			wantRuns:  1,
-			wantState: schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_RUNNING,
-		},
-		{
-			name:      "a cancelled firing is listed as cancelled",
-			fired:     1,
-			cancel:    true,
-			wantRuns:  1,
-			wantState: schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_CANCELLED,
-		},
-		{
-			name:      "the limit caps how many come back",
-			fired:     3,
-			limit:     2,
-			wantRuns:  2,
-			wantState: schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_RUNNING,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			svc, workflow, fire := runService(t)
-			id := createSchedule(t, svc, workflow, "morning-ci")
-			other := createSchedule(t, svc, workflow, "nightly")
-			fire(t, other, time.Date(2026, time.July, 1, 9, 0, 0, 0, time.UTC), false)
-
-			first := time.Date(2026, time.July, 28, 9, 0, 0, 0, time.UTC)
-			for i := range tt.fired {
-				fire(t, id, first.Add(time.Duration(i)*time.Hour), tt.cancel)
-			}
-
-			target := id
-			if tt.id != "" {
-				target = tt.id
-			}
-
-			got, err := svc.ListScheduleRuns(t.Context(), connect.NewRequest(&schedulev1.ListScheduleRunsRequest{Id: target, Limit: tt.limit}))
-			if tt.wantCode != 0 {
-				require.Error(t, err)
-				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
-
-				return
-			}
-
-			require.NoError(t, err)
-			runs := got.Msg.GetRuns()
-			require.Len(t, runs, tt.wantRuns, "only this schedule's firings are listed")
-
-			read, err := svc.GetSchedule(t.Context(), connect.NewRequest(&schedulev1.GetScheduleRequest{Id: id}))
-			require.NoError(t, err)
-
-			if tt.wantRuns == 0 {
-				assert.Nil(t, read.Msg.GetSchedule().GetLatestRun(), "a schedule that has never fired has no latest run")
-
-				return
-			}
-
-			newest := first.Add(time.Duration(tt.fired-1) * time.Hour)
-			assert.Equal(t, newest, runs[0].GetScheduledFor().AsTime(), "the newest firing comes first")
-			assert.Equal(t, tt.wantState, runs[0].GetState())
-			assert.Equal(t, runs[0].GetId(), read.Msg.GetSchedule().GetLatestRun().GetId(), "the schedule carries its newest firing")
-		})
-	}
-}
-
-// TestUpdateSchedule pins that every field is written on an update, and the code each refusal
-// is answered with.
-func TestUpdateSchedule(t *testing.T) {
-	tests := []struct {
-		name     string
-		target   string
-		req      *schedulev1.UpdateScheduleRequest
-		wantCode connect.Code
-		wantName string
-		wantCron string
-	}{
-		{
-			name:   "an id nobody holds",
-			target: missingID,
-			req: &schedulev1.UpdateScheduleRequest{
-				Name:   "renamed",
-				Cron:   "0 9 * * *",
-				Prompt: "go",
+				return err
 			},
+			err:      schedules.ErrScheduleNotFound,
 			wantCode: connect.CodeNotFound,
 		},
 		{
-			name: "the editable fields are replaced",
-			req: &schedulev1.UpdateScheduleRequest{
-				Name:   "renamed",
-				Cron:   "0 17 * * 5",
-				Prompt: "weekly",
+			name: "archiving a schedule nothing holds",
+			call: func(ctx context.Context, svc schedulev1weave.ScheduleServiceAdapter) error {
+				_, err := svc.ArchiveSchedule(ctx, connect.NewRequest(&schedulev1.ArchiveScheduleRequest{Id: scheduleID}))
+
+				return err
 			},
-			wantName: "renamed",
-			wantCron: "0 17 * * 5",
+			err:      schedules.ErrScheduleNotFound,
+			wantCode: connect.CodeNotFound,
 		},
 		{
-			name: "an unparseable expression leaves the record alone",
-			req: &schedulev1.UpdateScheduleRequest{
-				Name:   "renamed",
-				Cron:   "0 99 * * *",
-				Prompt: "go",
+			name: "reading a schedule nothing holds",
+			call: func(ctx context.Context, svc schedulev1weave.ScheduleServiceAdapter) error {
+				_, err := svc.GetSchedule(ctx, connect.NewRequest(&schedulev1.GetScheduleRequest{Id: scheduleID}))
+
+				return err
+			},
+			err:      store.ErrNotFound,
+			wantCode: connect.CodeNotFound,
+		},
+		{
+			name: "listing the runs of a schedule nothing holds",
+			call: func(ctx context.Context, svc schedulev1weave.ScheduleServiceAdapter) error {
+				_, err := svc.ListScheduleRuns(ctx, connect.NewRequest(&schedulev1.ListScheduleRunsRequest{Id: scheduleID}))
+
+				return err
+			},
+			err:      store.ErrNotFound,
+			wantCode: connect.CodeNotFound,
+		},
+		{
+			name: "listing with a page token that holds no id",
+			call: func(ctx context.Context, svc schedulev1weave.ScheduleServiceAdapter) error {
+				_, err := svc.ListSchedules(ctx, connect.NewRequest(&schedulev1.ListSchedulesRequest{
+					Pagination: &paginationv1.Pagination{Cursor: proto.String("eyJpIjoibm90LWFuLWlkIn0=")},
+				}))
+
+				return err
 			},
 			wantCode: connect.CodeInvalidArgument,
-			wantName: "morning-ci",
-			wantCron: "0 9 * * 1-5",
+		},
+		{
+			name: "a listing the store could not read",
+			call: func(ctx context.Context, svc schedulev1weave.ScheduleServiceAdapter) error {
+				_, err := svc.ListSchedules(ctx, connect.NewRequest(&schedulev1.ListSchedulesRequest{}))
+
+				return err
+			},
+			err:      errors.New("connection refused"),
+			wantCode: connect.CodeInternal,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc, workflow := service(t)
-			ctx := t.Context()
+			svc := newScheduleHandler(&fakeSchedules{err: tt.err})
 
-			id := createSchedule(t, svc, workflow, "morning-ci")
-			target := tt.target
-			if target == "" {
-				target = id
+			err := tt.call(t.Context(), svc)
+			assert.Equal(t, tt.wantCode, connect.CodeOf(err))
+			if tt.err != nil {
+				require.ErrorIs(t, err, tt.err)
 			}
-
-			req := tt.req
-			req.Id = target
-			req.WorkflowId = workflow
-			_, err := svc.UpdateSchedule(ctx, connect.NewRequest(req))
-			if tt.wantCode != 0 {
-				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
-			} else {
-				require.NoError(t, err)
-			}
-
-			if tt.wantName == "" {
-				return
-			}
-
-			got, err := svc.GetSchedule(ctx, connect.NewRequest(&schedulev1.GetScheduleRequest{Id: id}))
-			require.NoError(t, err)
-			assert.Equal(t, tt.wantName, got.Msg.GetSchedule().GetName())
-			assert.Equal(t, tt.wantCron, got.Msg.GetSchedule().GetCron())
 		})
 	}
 }
 
-// TestSetScheduleEnabled covers the pause toggle.
-func TestSetScheduleEnabled(t *testing.T) {
+// TestScheduleWritesPassDown pins what each write hands the schedule service.
+func TestScheduleWritesPassDown(t *testing.T) {
+	cfg := schedulestore.Config{
+		Name:       "morning-ci",
+		Cron:       "0 9 * * 1-5",
+		Timezone:   "America/New_York",
+		Enabled:    true,
+		HideAgents: true,
+		Prompt:     "check CI",
+		WorkflowID: "01a0d228-0000-7000-8000-0000000000ff",
+	}
+
+	tests := []struct {
+		name string
+		call func(ctx context.Context, svc schedulev1weave.ScheduleServiceAdapter) error
+		want fakeSchedules
+	}{
+		{
+			name: "creating hands down every field",
+			call: func(ctx context.Context, svc schedulev1weave.ScheduleServiceAdapter) error {
+				_, err := svc.CreateSchedule(ctx, connect.NewRequest(&schedulev1.CreateScheduleRequest{
+					Name:       cfg.Name,
+					Cron:       cfg.Cron,
+					Timezone:   cfg.Timezone,
+					Enabled:    cfg.Enabled,
+					HideAgents: cfg.HideAgents,
+					Prompt:     cfg.Prompt,
+					WorkflowId: cfg.WorkflowID,
+				}))
+
+				return err
+			},
+			want: fakeSchedules{created: []schedulestore.Config{cfg}},
+		},
+		{
+			name: "updating hands down the id and every field",
+			call: func(ctx context.Context, svc schedulev1weave.ScheduleServiceAdapter) error {
+				_, err := svc.UpdateSchedule(ctx, connect.NewRequest(&schedulev1.UpdateScheduleRequest{
+					Id:         scheduleID,
+					Name:       cfg.Name,
+					Cron:       cfg.Cron,
+					Timezone:   cfg.Timezone,
+					Enabled:    cfg.Enabled,
+					HideAgents: cfg.HideAgents,
+					Prompt:     cfg.Prompt,
+					WorkflowId: cfg.WorkflowID,
+				}))
+
+				return err
+			},
+			want: fakeSchedules{updated: []updateCall{
+				{
+					id:  scheduleID,
+					cfg: cfg,
+				},
+			}},
+		},
+		{
+			name: "pausing hands down the id and the toggle",
+			call: func(ctx context.Context, svc schedulev1weave.ScheduleServiceAdapter) error {
+				_, err := svc.SetScheduleEnabled(ctx, connect.NewRequest(&schedulev1.SetScheduleEnabledRequest{
+					Id:      scheduleID,
+					Enabled: true,
+				}))
+
+				return err
+			},
+			want: fakeSchedules{enabled: []enableCall{
+				{
+					id:      scheduleID,
+					enabled: true,
+				},
+			}},
+		},
+		{
+			name: "archiving hands down the id",
+			call: func(ctx context.Context, svc schedulev1weave.ScheduleServiceAdapter) error {
+				_, err := svc.ArchiveSchedule(ctx, connect.NewRequest(&schedulev1.ArchiveScheduleRequest{Id: scheduleID}))
+
+				return err
+			},
+			want: fakeSchedules{gone: []string{scheduleID}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			schedules := &fakeSchedules{}
+
+			require.NoError(t, tt.call(t.Context(), newScheduleHandler(schedules)))
+			assert.Equal(t, tt.want, *schedules)
+		})
+	}
+}
+
+// TestCreateSchedule pins that a created schedule comes back rendered, with its next run when it is armed.
+func TestCreateSchedule(t *testing.T) {
 	tests := []struct {
 		name        string
-		target      string
 		enabled     bool
-		wantCode    connect.Code
-		wantEnabled bool
 		wantNextRun bool
 	}{
 		{
-			name:     "an id nobody holds",
-			target:   missingID,
-			wantCode: connect.CodeNotFound,
+			name: "a paused schedule has no next run to report",
 		},
 		{
-			name:        "pausing drops the next run",
-			enabled:     false,
-			wantEnabled: false,
-		},
-		{
-			name:        "resuming brings it back",
+			name:        "an armed schedule reports when it next fires",
 			enabled:     true,
-			wantEnabled: true,
 			wantNextRun: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc, workflow := service(t)
-			ctx := t.Context()
+			svc := newScheduleHandler(&fakeSchedules{})
 
-			id := createSchedule(t, svc, workflow, "morning-ci")
-			target := tt.target
-			if target == "" {
-				target = id
-			}
-
-			_, err := svc.SetScheduleEnabled(ctx, connect.NewRequest(&schedulev1.SetScheduleEnabledRequest{
-				Id: target, Enabled: tt.enabled,
+			created, err := svc.CreateSchedule(t.Context(), connect.NewRequest(&schedulev1.CreateScheduleRequest{
+				Name:    "morning-ci",
+				Cron:    "0 9 * * 1-5",
+				Enabled: tt.enabled,
+				Prompt:  "check CI",
 			}))
-			if tt.wantCode != 0 {
-				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
-				return
-			}
 			require.NoError(t, err)
 
-			got, err := svc.GetSchedule(ctx, connect.NewRequest(&schedulev1.GetScheduleRequest{Id: id}))
-			require.NoError(t, err)
-			assert.Equal(t, tt.wantEnabled, got.Msg.GetSchedule().GetEnabled())
-			assert.Equal(t, tt.wantNextRun, got.Msg.GetSchedule().GetNextRunAt() != nil,
-				"only an armed schedule reports a next run")
+			schedule := created.Msg.GetSchedule()
+			assert.Equal(t, scheduleID, schedule.GetId())
+			assert.Equal(t, "check CI", schedule.GetPrompt())
+			assert.Equal(t, tt.wantNextRun, schedule.GetNextRunAt() != nil)
+			if tt.wantNextRun {
+				assert.True(t, schedule.GetNextRunAt().AsTime().After(time.Now()))
+			}
 		})
 	}
 }
 
-// TestArchiveSchedule pins that archiving hides a schedule, and that an id nobody holds is
-// not found.
-func TestArchiveSchedule(t *testing.T) {
-	tests := []struct {
-		name     string
-		target   string
-		wantCode connect.Code
-	}{
-		{
-			name:     "an id nobody holds",
-			target:   missingID,
-			wantCode: connect.CodeNotFound,
-		},
-		{
-			name: "a schedule that exists",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			svc, workflow := service(t)
-			ctx := t.Context()
-
-			id := createSchedule(t, svc, workflow, "morning-ci")
-			target := tt.target
-			if target == "" {
-				target = id
-			}
-
-			_, err := svc.ArchiveSchedule(ctx, connect.NewRequest(&schedulev1.ArchiveScheduleRequest{Id: target}))
-			if tt.wantCode != 0 {
-				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
-				return
-			}
-			require.NoError(t, err)
-
-			listed, err := svc.ListSchedules(ctx, connect.NewRequest(&schedulev1.ListSchedulesRequest{}))
-			require.NoError(t, err)
-			assert.Empty(t, listed.Msg.GetSchedules(), "a deleted schedule leaves the listing")
-		})
-	}
-}
-
-// TestListSchedules pins how a listing pages, from an empty store to one holding more than a
-// page.
+// TestListSchedules pins which view draws the whole prompt and when a page hands back a token for the next.
 func TestListSchedules(t *testing.T) {
+	long := strings.Repeat("p", render.SummaryHead+50)
+
 	tests := []struct {
-		name     string
-		seed     []string
-		limit    int32
-		wantMore bool
+		name          string
+		req           *schedulev1.ListSchedulesRequest
+		wantPrompts   []string
+		wantTruncated []bool
+		wantNext      bool
 	}{
 		{
-			name: "an empty store lists nothing",
+			name:          "the default view draws the head of a long prompt",
+			req:           &schedulev1.ListSchedulesRequest{},
+			wantPrompts:   []string{long[:render.SummaryHead], "check CI"},
+			wantTruncated: []bool{true, false},
 		},
 		{
-			name:  "everything fits on one page",
-			seed:  []string{"a", "b"},
-			limit: 10,
+			name: "the full view draws the whole of it",
+			req: &schedulev1.ListSchedulesRequest{
+				View: viewv1.View_VIEW_FULL,
+			},
+			wantPrompts:   []string{long, "check CI"},
+			wantTruncated: []bool{false, false},
 		},
 		{
-			name:     "a small limit hands back a token",
-			seed:     []string{"a", "b", "c"},
-			limit:    2,
-			wantMore: true,
+			name: "a full page hands back a token for the next",
+			req: &schedulev1.ListSchedulesRequest{
+				Pagination: &paginationv1.Pagination{Limit: proto.Int32(1)},
+			},
+			wantPrompts:   []string{long[:render.SummaryHead]},
+			wantTruncated: []bool{true},
+			wantNext:      true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc, workflow := service(t)
-			ctx := t.Context()
-
-			for _, name := range tt.seed {
-				createSchedule(t, svc, workflow, name)
-			}
-
-			req := &schedulev1.ListSchedulesRequest{}
-			if tt.limit > 0 {
-				req.Pagination = &paginationv1.Pagination{Limit: proto.Int32(tt.limit)}
-			}
-
-			first, err := svc.ListSchedules(ctx, connect.NewRequest(req))
-			require.NoError(t, err)
-
-			if !tt.wantMore {
-				assert.Len(t, first.Msg.GetSchedules(), len(tt.seed))
-				assert.Empty(t, first.Msg.GetNextPageToken())
-
-				return
-			}
-
-			require.NotEmpty(t, first.Msg.GetNextPageToken())
-
-			second, err := svc.ListSchedules(ctx, connect.NewRequest(&schedulev1.ListSchedulesRequest{
-				Pagination: &paginationv1.Pagination{
-					Limit:  proto.Int32(tt.limit),
-					Cursor: proto.String(first.Msg.GetNextPageToken()),
+			svc := newScheduleHandler(&fakeSchedules{stored: []schedulestore.Schedule{
+				{
+					ID:     scheduleID,
+					Name:   "nightly",
+					Prompt: long,
 				},
-			}))
+				{
+					ID:     "01a0d228-0000-7000-8000-00000000000b",
+					Name:   "hourly",
+					Prompt: "check CI",
+				},
+			}})
+
+			listed, err := svc.ListSchedules(t.Context(), connect.NewRequest(tt.req))
 			require.NoError(t, err)
 
-			seen := map[string]bool{}
-			for _, s := range append(first.Msg.GetSchedules(), second.Msg.GetSchedules()...) {
-				assert.False(t, seen[s.GetId()], "a schedule appears on one page only")
-				seen[s.GetId()] = true
+			prompts := make([]string, 0, len(listed.Msg.GetSchedules()))
+			truncated := make([]bool, 0, len(listed.Msg.GetSchedules()))
+			for _, schedule := range listed.Msg.GetSchedules() {
+				prompts = append(prompts, schedule.GetPrompt())
+				truncated = append(truncated, schedule.GetPromptTruncated())
 			}
-			assert.Len(t, seen, len(tt.seed))
+			assert.Equal(t, tt.wantPrompts, prompts)
+			assert.Equal(t, tt.wantTruncated, truncated)
+			assert.Equal(t, tt.wantNext, listed.Msg.GetNextPageToken() != "")
 		})
 	}
 }
 
-// TestListSchedulesRefusesAMangledToken covers a token that decodes but holds an id no row can
-// have.
-func TestListSchedulesRefusesAMangledToken(t *testing.T) {
-	svc, _ := service(t)
-
-	const token = "eyJpIjoibm90LWFuLWlkIn0="
-
-	_, err := svc.ListSchedules(t.Context(), connect.NewRequest(&schedulev1.ListSchedulesRequest{
-		Pagination: &paginationv1.Pagination{Cursor: proto.String(token)},
-	}))
-	require.Error(t, err)
-	assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
-}
-
-func service(t *testing.T) (schedulev1weave.ScheduleServiceAdapter, string) {
-	t.Helper()
-
-	svc, workflow, _ := runService(t)
-
-	return svc, workflow
-}
-
-// fireFunc records one firing of a schedule the way the launch job does, cancelling it when told.
-type fireFunc func(t *testing.T, scheduleID string, scheduledFor time.Time, cancel bool)
-
-func runService(t *testing.T) (schedulev1weave.ScheduleServiceAdapter, string, fireFunc) {
-	t.Helper()
-
-	st := storetest.Open(t)
-
-	fire := func(t *testing.T, scheduleID string, scheduledFor time.Time, cancel bool) {
-		t.Helper()
-
-		occurrence := schedulestore.RunOccurrence{ScheduleID: scheduleID, ScheduledFor: scheduledFor}
-		require.NoError(t, st.Schedules.StartRun(t.Context(), schedulestore.StartRunParams{
-			Occurrence:  occurrence,
-			Attempt:     1,
-			MaxAttempts: 5,
-		}))
-
-		if cancel {
-			outcome := schedulestore.RunOutcome{State: schedulestore.RunStateCancelled, Message: "schedule is paused"}
-			require.NoError(t, st.Schedules.FinishRun(t.Context(), occurrence, outcome))
-		}
-	}
-
-	manager := schedules.NewScheduleService(schedules.NewScheduleServiceParams{Schedules: st.Schedules, Workflows: st.Workflows})
-	svc := schedulev1weave.ScheduleServiceAdapter{Impl: NewHandler(NewHandlerParams{
-		Lister:    st.Schedules,
-		Schedules: manager,
-		Runs:      st.Schedules,
-	})}
-
-	return svc, st.SeedWorkflow(t, workflowstore.Config{Name: "schedules"}).ID, fire
-}
-
-func createSchedule(t *testing.T, svc schedulev1weave.ScheduleServiceAdapter, workflow, name string) string {
-	t.Helper()
-
-	created, err := svc.CreateSchedule(t.Context(), connect.NewRequest(&schedulev1.CreateScheduleRequest{
-		Name: name, Cron: "0 9 * * 1-5", Prompt: "check CI", Enabled: true, WorkflowId: workflow,
-	}))
-	require.NoError(t, err)
-
-	return created.Msg.GetSchedule().GetId()
-}
-
-// TestListSchedulesSummarisesThePrompt covers the default view holding back the bulk of a page,
-// which is the prompt.
-func TestListSchedulesSummarisesThePrompt(t *testing.T) {
-	svc, workflow := service(t)
-	prompt := strings.Repeat("p", render.SummaryHead+50)
-	seedSchedule(t, svc, workflow, "nightly", prompt)
-	seedSchedule(t, svc, workflow, "hourly", "check CI")
-
-	summary, err := svc.ListSchedules(t.Context(), connect.NewRequest(&schedulev1.ListSchedulesRequest{}))
-	require.NoError(t, err)
-	byName := schedulesByName(summary.Msg.GetSchedules())
-	assert.Equal(t, prompt[:render.SummaryHead], byName["nightly"].GetPrompt())
-	assert.True(t, byName["nightly"].GetPromptTruncated())
-	assert.Equal(t, "check CI", byName["hourly"].GetPrompt(), "a prompt inside the head is whole")
-	assert.False(t, byName["hourly"].GetPromptTruncated())
-
-	full, err := svc.ListSchedules(t.Context(), connect.NewRequest(&schedulev1.ListSchedulesRequest{
-		View: viewv1.View_VIEW_FULL,
-	}))
-	require.NoError(t, err)
-	byName = schedulesByName(full.Msg.GetSchedules())
-	assert.Equal(t, prompt, byName["nightly"].GetPrompt())
-	assert.False(t, byName["nightly"].GetPromptTruncated())
-}
-
-// TestGetScheduleKeepsTheWholePrompt covers the one-record endpoint, which no view narrows since
-// a caller asking for a single schedule has already narrowed it.
+// TestGetScheduleKeepsTheWholePrompt pins that reading one schedule is never narrowed to a summary.
 func TestGetScheduleKeepsTheWholePrompt(t *testing.T) {
-	svc, workflow := service(t)
-	prompt := strings.Repeat("p", render.SummaryHead+50)
-	id := seedSchedule(t, svc, workflow, "nightly", prompt)
+	long := strings.Repeat("p", render.SummaryHead+50)
+	svc := newScheduleHandler(&fakeSchedules{stored: []schedulestore.Schedule{
+		{
+			ID:     scheduleID,
+			Name:   "nightly",
+			Prompt: long,
+		},
+	}})
 
-	got, err := svc.GetSchedule(t.Context(), connect.NewRequest(&schedulev1.GetScheduleRequest{Id: id}))
+	got, err := svc.GetSchedule(t.Context(), connect.NewRequest(&schedulev1.GetScheduleRequest{Id: scheduleID}))
 	require.NoError(t, err)
-	assert.Equal(t, prompt, got.Msg.GetSchedule().GetPrompt())
+	assert.Equal(t, long, got.Msg.GetSchedule().GetPrompt())
 	assert.False(t, got.Msg.GetSchedule().GetPromptTruncated())
 }
 
-func seedSchedule(t *testing.T, svc schedulev1weave.ScheduleServiceAdapter, workflow, name, prompt string) string {
-	t.Helper()
-
-	created, err := svc.CreateSchedule(t.Context(), connect.NewRequest(&schedulev1.CreateScheduleRequest{
-		Name: name, Cron: "0 9 * * 1-5", Prompt: prompt, Enabled: true, WorkflowId: workflow,
-	}))
-	require.NoError(t, err)
-
-	return created.Msg.GetSchedule().GetId()
-}
-
-func schedulesByName(listed []*schedulev1.Schedule) map[string]*schedulev1.Schedule {
-	byName := make(map[string]*schedulev1.Schedule, len(listed))
-	for _, s := range listed {
-		byName[s.GetName()] = s
+// TestListScheduleRuns pins how many runs a listing asks for and that each comes back rendered.
+func TestListScheduleRuns(t *testing.T) {
+	run := schedulestore.Run{
+		ID:           7,
+		ScheduledFor: time.Date(2026, time.July, 28, 9, 0, 0, 0, time.UTC),
+		State:        schedulestore.RunStateCancelled,
+		Attempt:      1,
+		MaxAttempts:  5,
+		Message:      "schedule is paused",
 	}
 
-	return byName
+	tests := []struct {
+		name      string
+		limit     int32
+		wantLimit int
+	}{
+		{
+			name:      "an unset limit asks for twenty",
+			wantLimit: 20,
+		},
+		{
+			name:      "a limit is handed down as given",
+			limit:     2,
+			wantLimit: 2,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			schedules := &fakeSchedules{
+				stored: []schedulestore.Schedule{{ID: scheduleID}},
+				runs:   []schedulestore.Run{run},
+			}
+			svc := newScheduleHandler(schedules)
+
+			listed, err := svc.ListScheduleRuns(t.Context(), connect.NewRequest(&schedulev1.ListScheduleRunsRequest{
+				Id:    scheduleID,
+				Limit: tt.limit,
+			}))
+			require.NoError(t, err)
+			assert.Equal(t, []listRunsCall{
+				{
+					id:    scheduleID,
+					limit: tt.wantLimit,
+				},
+			}, schedules.listed)
+			require.Len(t, listed.Msg.GetRuns(), 1)
+			assert.True(t, proto.Equal(render.ScheduleRun(run), listed.Msg.GetRuns()[0]))
+		})
+	}
+}
+
+func newScheduleHandler(schedules *fakeSchedules) schedulev1weave.ScheduleServiceAdapter {
+	return schedulev1weave.ScheduleServiceAdapter{Impl: NewHandler(NewHandlerParams{
+		Lister:    schedules,
+		Schedules: schedules,
+		Runs:      schedules,
+	})}
 }
