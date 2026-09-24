@@ -1,6 +1,19 @@
 ---
 import { REPO_URL } from "../../consts";
 import { link } from "../../site";
+
+const WORDS = [
+  "APIs",
+  "microservices",
+  "data pipelines",
+  "CLIs",
+  "SDKs",
+  "integrations",
+  "test suites",
+  "dashboards",
+  "infrastructure",
+  "mobile apps",
+];
 ---
 
 <figure class="splash">
@@ -31,11 +44,13 @@ import { link } from "../../site";
     <h1>
       <span class="sr-only">Build anything with weave</span>
       <span aria-hidden="true">
-        Build{" "}
-        <span class="spin" data-spin>
-          agent teams
+        <span class="line">
+          Build{" "}
+          <span class="spin" data-spin data-words={JSON.stringify(WORDS)}>
+            {WORDS[0]}
+          </span>
         </span>{" "}
-        with weave
+        <span class="rest">with weave</span>
       </span>
     </h1>
     <p class="long">
@@ -99,7 +114,7 @@ import { link } from "../../site";
   .scrim {
     @apply absolute inset-0;
     background:
-      radial-gradient(ellipse 30% 30% at 50% 50%, rgba(8, 13, 26, 0.8), rgba(8, 13, 26, 0) 100%),
+      radial-gradient(ellipse 38% 36% at 50% 50%, rgba(8, 13, 26, 0.8), rgba(8, 13, 26, 0) 100%),
       radial-gradient(ellipse 55% 65% at 50% 50%, rgba(8, 13, 26, 0.55), rgba(8, 13, 26, 0.3) 80%);
   }
 
@@ -116,7 +131,7 @@ import { link } from "../../site";
   }
 
   .overlay h1 {
-    @apply text-[1.7rem] leading-[1.15] font-semibold tracking-tight md:text-4xl;
+    @apply text-[2rem] leading-[1.1] font-semibold tracking-tight md:text-5xl lg:text-[3.5rem];
     text-wrap: balance;
     background: linear-gradient(to bottom, #fff 35%, var(--color-app-gray-light));
     background-clip: text;
@@ -126,13 +141,30 @@ import { link } from "../../site";
 
   .overlay p {
     text-wrap: balance;
-    @apply mt-3 max-w-md text-sm leading-relaxed text-app-gray md:max-w-xl md:text-base;
+    @apply mt-4 max-w-md text-base leading-relaxed text-app-gray md:max-w-2xl md:text-lg;
   }
 
   .spin {
-    @apply relative inline-block text-app-blue;
+    @apply text-app-blue;
     -webkit-text-fill-color: var(--color-app-blue);
     filter: drop-shadow(0 0 14px rgba(158, 196, 255, 0.45));
+  }
+
+  .overlay h1 .line {
+    white-space: nowrap;
+  }
+
+  @media (max-width: 975.98px) {
+    .overlay h1 .line,
+    .overlay h1 .rest {
+      display: block;
+    }
+  }
+
+  @media (max-width: 767.98px) {
+    .overlay h1 {
+      font-size: clamp(1.5rem, 7.6vw, 2rem);
+    }
   }
 
   .overlay .short {
@@ -145,16 +177,16 @@ import { link } from "../../site";
     }
 
     .overlay .short {
-      @apply block max-w-[18rem];
+      @apply block max-w-[20rem];
     }
   }
 
   .actions {
-    @apply mt-6 flex gap-2.5;
+    @apply mt-8 flex gap-3;
   }
 
   .actions a {
-    @apply rounded-md px-4 py-2 text-sm font-medium no-underline transition-colors duration-200;
+    @apply rounded-md px-5 py-2.5 text-base font-medium no-underline transition-colors duration-200;
   }
 
   .primary {
@@ -167,18 +199,6 @@ import { link } from "../../site";
 </style>
 
 <script>
-  const WORDS = [
-    "APIs",
-    "microservices",
-    "data pipelines",
-    "CLIs",
-    "SDKs",
-    "integrations",
-    "test suites",
-    "dashboards",
-    "infrastructure",
-    "mobile apps",
-  ];
   const GLYPHS = "abcdefghijklmnopqrstuvwxyz#%&*+=<>/";
   const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -196,6 +216,7 @@ import { link } from "../../site";
   }
 
   const spin = document.querySelector<HTMLElement>("[data-spin]");
+  const WORDS = JSON.parse(spin?.dataset.words ?? "[]") as string[];
   if (spin && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
     void (async () => {
       for (let index = 1; ; index += 1) {

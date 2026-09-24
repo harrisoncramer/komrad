@@ -63,7 +63,7 @@ const VersionPicker = () => {
     <div ref={containerRef} className="relative">
       <button
         type="button"
-        className="flex h-7 cursor-pointer items-center gap-1 rounded-md border border-app-background-medium px-1.5 font-mono text-[11px] text-app-gray-light transition-colors hover:border-app-blue/40 hover:text-app-white md:h-9 md:gap-1.5 md:px-2.5 md:text-xs"
+        className="flex h-7 shrink-0 cursor-pointer items-center gap-1 rounded-md border border-app-background-medium px-1.5 font-mono text-[11px] whitespace-nowrap text-app-gray-light transition-colors hover:border-app-blue/40 hover:text-app-white md:h-9 md:gap-1.5 md:px-2.5 md:text-xs"
         aria-label="Documentation version"
         aria-expanded={isOpen}
         onClick={() => {
