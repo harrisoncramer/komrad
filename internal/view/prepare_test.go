@@ -1,6 +1,7 @@
 package view
 
 import (
+	"strings"
 	"testing"
 
 	"weave/internal/ui/paint"
@@ -1125,4 +1126,135 @@ func TestUndeclaredColumnsBuyTheNameTheirRoom(t *testing.T) {
 
 	assert.Equal(t, 6, NameColumns(pane, none.Columns)-NameColumns(pane, every.Columns),
 		"each of the three costs an Octicon and the space after it")
+}
+
+// drawnResultNameColumn is the column a result list opens its name at, counted off the drawing
+// by hand rather than from the package's own arithmetic.
+const drawnResultNameColumn = 6
+
+// resultRows are the rows a list of search hits is made of.
+func resultRows() []Row {
+	return []Row{
+		{
+			Key:  "live",
+			Kind: KindResult,
+			Name: "billing",
+		},
+		{
+			Key:     "live/3",
+			Kind:    KindHit,
+			Lead:    "agent #3",
+			Name:    "the ledger is reconciled nightly",
+			Matches: []Span{{Start: 4, End: 10}},
+		},
+		{
+			Key:      "archived",
+			Kind:     KindResult,
+			Name:     "payouts",
+			Archived: true,
+			Process:  ProcessStopped,
+		},
+		{
+			Key:      "archived/1",
+			Kind:     KindHit,
+			Lead:     "you #1",
+			Name:     "ledger",
+			Matches:  []Span{{Start: 0, End: 6}},
+			Archived: true,
+			Process:  ProcessStopped,
+		},
+	}
+}
+
+// drawResults is a result list with its styling taken off.
+func drawResults(pane int) []string {
+	list := Prepare(Snapshot{
+		Rows:    resultRows(),
+		Columns: NoColumns(),
+		Focused: "live",
+		Pane:    pane,
+	})
+
+	return strings.Split(ansiEscapes.ReplaceAllString(render(list, paint.Panel, 0), ""), "\n")
+}
+
+// TestPrepareResultsDeclareNoColumn pins what a list of results asks for: no column at all,
+// whatever the pane.
+func TestPrepareResultsDeclareNoColumn(t *testing.T) {
+	wide := Prepare(Snapshot{
+		Rows:    resultRows(),
+		Columns: NoColumns(),
+		Pane:    200,
+	})
+
+	assert.Empty(t, wide.Columns)
+	assert.Equal(t, everyColumn(), Prepare(Snapshot{Rows: resultRows(), Pane: 200}).Columns,
+		"the same pane draws all three when none is named")
+}
+
+// TestResultRowOpensAtTheGutter pins that a result is not a tree node: nothing is above it to be
+// indented under, so its name opens where a workflow's would and it is lettered as an ordinary
+// row.
+func TestResultRowOpensAtTheGutter(t *testing.T) {
+	list := Prepare(Snapshot{
+		Rows:    resultRows(),
+		Columns: NoColumns(),
+		Pane:    canonicalPane,
+	})
+	drawn := drawResults(canonicalPane)
+	require.Len(t, drawn, len(list.Lines))
+
+	for i, line := range list.Lines {
+		if line.Lead != "" {
+			continue
+		}
+
+		assert.Equal(t, 0, line.Indent, "row %q", drawn[i])
+		assert.Equal(t, WeightRegular, line.Weight, "row %q", drawn[i])
+		assert.Equal(t, drawnResultNameColumn, nameColumnOf(drawn[i], line), "row %q", drawn[i])
+	}
+}
+
+// TestHitRowHangsUnderItsResult pins that a turn is drawn one step in under the agent that
+// said it, its lead before the words.
+func TestHitRowHangsUnderItsResult(t *testing.T) {
+	list := Prepare(Snapshot{
+		Rows:    resultRows(),
+		Columns: NoColumns(),
+		Pane:    canonicalPane,
+	})
+	drawn := drawResults(canonicalPane)
+	require.Len(t, drawn, len(list.Lines))
+
+	hits := 0
+	for i, line := range list.Lines {
+		if line.Lead == "" {
+			continue
+		}
+		hits++
+
+		assert.Equal(t, indentColumns, line.Indent, "row %q", drawn[i])
+		assert.Equal(t, WeightRegular, line.Weight, "row %q", drawn[i])
+		assert.False(t, line.Rule, "row %q", drawn[i])
+		lead := strings.Index(drawn[i], line.Lead)
+		require.GreaterOrEqual(t, lead, 0, "row %q", drawn[i])
+		assert.Equal(t, wantNameColumn(KindHit), drawnColumns(drawn[i][:lead]), "row %q", drawn[i])
+		assert.Equal(t, wantNameColumn(KindHit)+len(line.Lead)+1, nameColumnOf(drawn[i], line), "row %q", drawn[i])
+		assert.Empty(t, line.Columns, "row %q", drawn[i])
+	}
+
+	assert.Equal(t, 2, hits)
+}
+
+// TestHitRowGivesItsLeadRoom pins that a narrow pane clips the words rather than the lead.
+func TestHitRowGivesItsLeadRoom(t *testing.T) {
+	line := prepareOne(t, Row{
+		Kind: KindHit,
+		Lead: "agent #3",
+		Name: "the ledger is reconciled nightly",
+	})
+	fitted := fitRow(line, 20)
+
+	assert.Equal(t, "agent #3", fitted.Lead)
+	assert.Len(t, []rune(fitted.Name), 20-indentColumns-len("agent #3")-1)
 }
