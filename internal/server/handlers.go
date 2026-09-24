@@ -118,9 +118,7 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 	mux.Handle(schedulev1connect.NewScheduleServiceHandler(
 		schedulev1weave.ScheduleServiceAdapter{
 			Impl: rpcschedule.NewHandler(rpcschedule.NewHandlerParams{
-				Lister:    params.Stores.schedules,
 				Schedules: params.Services.schedule,
-				Runs:      params.Stores.schedules,
 			}),
 		}, options...))
 	mux.Handle(configv1connect.NewConfigServiceHandler(
