@@ -3,6 +3,7 @@ package weavelint
 import (
 	"go/ast"
 	"go/types"
+	"slices"
 	"strings"
 
 	"weavelint/config"
@@ -44,7 +45,7 @@ func newFakeStore(settings config.FakeStoreConfig) (*analysis.Analyzer, error) {
 	}, nil
 }
 
-// reportFakeStores reports every method in a test file that a store package declares on one of its own types.
+// reportFakeStores reports every method in a test file that a store package it takes or returns a type of declares on one of its own types.
 func reportFakeStores(pass *analysis.Pass, file *ast.File) {
 	for _, decl := range file.Decls {
 		function, ok := decl.(*ast.FuncDecl)
@@ -62,7 +63,12 @@ func reportFakeStores(pass *analysis.Pass, file *ast.File) {
 			continue
 		}
 
-		for _, field := range function.Type.Params.List {
+		fields := function.Type.Params.List
+		if function.Type.Results != nil {
+			fields = slices.Concat(fields, function.Type.Results.List)
+		}
+
+		for _, field := range fields {
 			named := namedOf(pass.TypesInfo.TypeOf(field.Type))
 			if named == nil || !isStoreType(named) {
 				continue

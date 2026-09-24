@@ -8,7 +8,7 @@ import (
 	"golang.org/x/tools/go/analysis/analysistest"
 )
 
-// TestFakeStore covers a test method matching a store's own, a service's method taking a store's type, an unexported helper, and the real store.
+// TestFakeStore covers a test method matching a store's own by what it takes or returns, a service's method taking a store's type, an unexported helper, and the real store.
 func TestFakeStore(t *testing.T) {
 	analyzer, err := newFakeStore(config.FakeStoreConfig{})
 	if err != nil {

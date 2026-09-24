@@ -17,3 +17,11 @@ func (s *Store) Send(_ context.Context, _ SendParams) error {
 }
 
 func (s *Store) Seed(_ []*Box) {}
+
+func (s *Store) Get(_ context.Context, _ string) (*Box, error) {
+	return nil, nil
+}
+
+func (s *Store) Validate() error {
+	return nil
+}

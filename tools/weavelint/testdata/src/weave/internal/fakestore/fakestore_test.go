@@ -23,6 +23,14 @@ func (f *fakeBox) List(_ context.Context) ([]*boxstore.Box, error) {
 func (f *fakeBox) Seed(boxes []*boxstore.Box) { // want `fakeBox.Seed stands in for boxstore.Store.Seed; test against the real store through storetest`
 }
 
+func (f *fakeBox) Get(_ context.Context, _ string) (*boxstore.Box, error) { // want `fakeBox.Get stands in for boxstore.Store.Get; test against the real store through storetest`
+	return nil, nil
+}
+
+func (f *fakeBox) Validate() error {
+	return nil
+}
+
 func (f *fakeBox) Count() int {
 	return len(f.sent)
 }
