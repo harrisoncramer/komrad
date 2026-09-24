@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"weave/internal/harness"
+	"weave/lib/xslice"
 
 	"github.com/google/uuid"
 )
@@ -23,8 +24,9 @@ const (
 )
 
 var (
-	_ harness.Harness = (*Fake)(nil)
-	_ harness.Channel = (*Channel)(nil)
+	_ harness.Harness  = (*Fake)(nil)
+	_ harness.Channel  = (*Channel)(nil)
+	_ harness.Observer = (*Observer)(nil)
 )
 
 // Fake is a harness that reads the frames above and records every launch it renders.
@@ -180,4 +182,37 @@ func splitComposingLines(held string) []string {
 	}
 
 	return strings.Split(strings.TrimPrefix(held, ": "), "|")
+}
+
+// Observer answers a run of observations, holding the last once they are spent, or Err in their place.
+type Observer struct {
+	mu           sync.Mutex
+	Observations []harness.Observation
+	Err          error
+	Reads        int
+}
+
+// Observe answers the next observation in the run.
+func (o *Observer) Observe(context.Context, harness.Target) (harness.Observation, error) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+
+	if o.Err != nil {
+		return harness.Observation{}, o.Err
+	}
+	if len(o.Observations) == 0 {
+		return harness.Observation{}, nil
+	}
+
+	at := min(o.Reads, len(o.Observations)-1)
+	o.Reads++
+
+	return o.Observations[at], nil
+}
+
+// NewActivityObserver is an observer answering a run of bare activities.
+func NewActivityObserver(activities ...harness.Activity) *Observer {
+	return &Observer{Observations: xslice.Map(activities, func(activity harness.Activity) harness.Observation {
+		return harness.Observation{Activity: activity}
+	})}
 }

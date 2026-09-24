@@ -29,12 +29,12 @@ func TestInterruptLeavesAnAgentAtRestAlone(t *testing.T) {
 	agent := seed(t, st, "telescope", "%1", agentstore.StateIdle)
 
 	channel := &harnesstest.Channel{}
-	observer := &settlingObserver{readings: []harness.Activity{harness.ActivityIdle}}
+	observer := harnesstest.NewActivityObserver(harness.ActivityIdle)
 
 	require.NoError(t, newInterrupter(st, channel, observer).Interrupt(t.Context(), agent.ID))
 
 	assert.Zero(t, channel.Interrupts, "there was no turn to cut")
-	assert.Equal(t, 1, observer.reads, "and the pane was read to find that out")
+	assert.Equal(t, 1, observer.Reads, "and the pane was read to find that out")
 }
 
 // TestInterruptLeavesADraftAlone is the other half of rest: a person part-way through typing has
@@ -44,7 +44,7 @@ func TestInterruptLeavesADraftAlone(t *testing.T) {
 	agent := seed(t, st, "sextant", "%1", agentstore.StateIdle)
 
 	channel := &harnesstest.Channel{}
-	observer := &settlingObserver{readings: []harness.Activity{harness.ActivityComposing}}
+	observer := harnesstest.NewActivityObserver(harness.ActivityComposing)
 
 	require.NoError(t, newInterrupter(st, channel, observer).Interrupt(t.Context(), agent.ID))
 
@@ -63,7 +63,7 @@ func TestInterruptStopsATurnInFlight(t *testing.T) {
 			agent := seed(t, st, "compass", "%1", agentstore.StateThinking)
 
 			channel := &harnesstest.Channel{}
-			observer := &settlingObserver{readings: []harness.Activity{activity}}
+			observer := harnesstest.NewActivityObserver(activity)
 
 			require.NoError(t, newInterrupter(st, channel, observer).Interrupt(t.Context(), agent.ID))
 
@@ -80,7 +80,7 @@ func TestInterruptLeavesAnUnrecognizedFrameAlone(t *testing.T) {
 	agent := seed(t, st, "quadrant", "%1", agentstore.StateThinking)
 
 	channel := &harnesstest.Channel{}
-	observer := &settlingObserver{readings: []harness.Activity{harness.ActivityUnrecognized}}
+	observer := harnesstest.NewActivityObserver(harness.ActivityUnrecognized)
 
 	require.NoError(t, newInterrupter(st, channel, observer).Interrupt(t.Context(), agent.ID))
 
@@ -95,7 +95,7 @@ func TestInterruptStopsAnUnreadablePane(t *testing.T) {
 	agent := seed(t, st, "astrolabe", "%1", agentstore.StateThinking)
 
 	channel := &harnesstest.Channel{}
-	observer := &settlingObserver{err: errors.New("no pane")}
+	observer := &harnesstest.Observer{Err: errors.New("no pane")}
 
 	require.NoError(t, newInterrupter(st, channel, observer).Interrupt(t.Context(), agent.ID))
 

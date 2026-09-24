@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"weave/db/testmodels"
 	"weave/internal/frames"
 	"weave/internal/git"
 	"weave/internal/harness"
@@ -559,9 +560,12 @@ func seedChild(t *testing.T, st *testStore, tmux paneStamper, parent agentstore.
 
 func backdateStateSeen(t *testing.T, st *testStore, id string, age time.Duration) {
 	t.Helper()
-	_, err := st.Pool.GetDB().Exec(t.Context(),
-		`UPDATE agents SET state_seen_at = NOW() - $2::interval WHERE id = $1`, id, age.String())
-	require.NoError(t, err)
+
+	queries := testmodels.New(st.Pool.GetDB())
+	require.NoError(t, queries.BackdateAgentStateSeen(t.Context(), testmodels.BackdateAgentStateSeenParams{
+		AgeMicros: age.Microseconds(),
+		ID:        id,
+	}))
 }
 
 func stateOf(t *testing.T, st *testStore, name string) agentstore.State {
@@ -621,15 +625,6 @@ func seedWorkflow(t *testing.T, st *testStore) string {
 	return created.ID
 }
 
-// disableProvisioner writes the one override an agent can carry.
-func disableProvisioner(t *testing.T, st *testStore, id string) {
-	t.Helper()
-
-	_, err := st.Pool.GetDB().Exec(t.Context(),
-		`UPDATE agents SET provision_enabled = FALSE WHERE id = $1`, id)
-	require.NoError(t, err)
-}
-
 // worktreeConfig is a workflow that provisions worktrees.
 func worktreeConfig(t *testing.T, name string) workflowstore.Config {
 	t.Helper()
@@ -659,27 +654,6 @@ func mustRegistry(t *testing.T, harnesses ...harness.Harness) *harness.Registry 
 	require.NoError(t, err)
 
 	return registry
-}
-
-type fakeWorkflowReader struct {
-	workflow *workflowstore.Workflow
-	archived bool
-}
-
-func (f fakeWorkflowReader) Get(ctx context.Context, id string) (*workflowstore.Workflow, error) {
-	if f.archived {
-		return nil, fmt.Errorf("%w: workflow %q", store.ErrNotFound, id)
-	}
-
-	return f.GetIncludingArchived(ctx, id)
-}
-
-func (f fakeWorkflowReader) GetIncludingArchived(_ context.Context, id string) (*workflowstore.Workflow, error) {
-	if f.workflow != nil && f.workflow.ID == id {
-		return f.workflow, nil
-	}
-
-	return nil, fmt.Errorf("%w: workflow %q", store.ErrNotFound, id)
 }
 
 func loggedContext(t *testing.T) (context.Context, func() []map[string]any) {

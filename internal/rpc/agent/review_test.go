@@ -209,7 +209,7 @@ func reviewService(t *testing.T) (agentv1weave.AgentServiceAdapter, *storetest.S
 		Mailer:    mailer,
 	})
 
-	liveness := &fakeLauncher{}
+	liveness := &recordingAgentServices{}
 
 	return agentv1weave.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{
 		Agents: st.Agents,

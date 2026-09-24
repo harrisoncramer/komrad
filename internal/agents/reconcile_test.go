@@ -1,7 +1,6 @@
 package agents
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"testing"
@@ -871,16 +870,6 @@ func TestReconcileLeavesARowAResumeHasMovedOn(t *testing.T) {
 	}
 }
 
-// fakeObserver reports a reading of its own rather than reading any screen.
-type fakeObserver struct {
-	observation harness.Observation
-	err         error
-}
-
-func (f *fakeObserver) Observe(context.Context, harness.Target) (harness.Observation, error) {
-	return f.observation, f.err
-}
-
 // TestReconcileSettlesOnASourceThatReadsNoScreen pins that an observer carrying no frame moves
 // an agent's state and leaves the recorder nothing.
 func TestReconcileSettlesOnASourceThatReadsNoScreen(t *testing.T) {
@@ -894,7 +883,7 @@ func TestReconcileSettlesOnASourceThatReadsNoScreen(t *testing.T) {
 	recorder := &fakeFrameRecorder{}
 	rec := NewReconciler(NewReconcilerParams{
 		Panes:    tmux,
-		Observer: &fakeObserver{observation: harness.Observation{Activity: harness.ActivityIdle}},
+		Observer: harnesstest.NewActivityObserver(harness.ActivityIdle),
 		States:   st.Agents,
 	}).WithFrameRecorder(recorder)
 
@@ -919,7 +908,7 @@ func TestReconcileLeavesAnAgentAloneWhenTheObserverHasNothingToSay(t *testing.T)
 	recorder := &fakeFrameRecorder{}
 	rec := NewReconciler(NewReconcilerParams{
 		Panes:    tmux,
-		Observer: &fakeObserver{},
+		Observer: &harnesstest.Observer{},
 		States:   st.Agents,
 	}).WithFrameRecorder(recorder)
 
@@ -942,12 +931,9 @@ func TestReconcileLeavesAnAgentAloneWhenTheObserverFails(t *testing.T) {
 	tmux.Owners["%1"] = agent.ID
 
 	rec := NewReconciler(NewReconcilerParams{
-		Panes: tmux,
-		Observer: &fakeObserver{
-			observation: harness.Observation{Activity: harness.ActivityIdle},
-			err:         errors.New("the frame went unreadable"),
-		},
-		States: st.Agents,
+		Panes:    tmux,
+		Observer: &harnesstest.Observer{Err: errors.New("the frame went unreadable")},
+		States:   st.Agents,
 	})
 
 	for range reconcileMisses {
