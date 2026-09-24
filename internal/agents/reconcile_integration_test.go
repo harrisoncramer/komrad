@@ -9,6 +9,7 @@ import (
 
 	"weave/internal/harness/claude"
 	"weave/internal/harness/pane"
+	"weave/internal/harnesstest"
 	"weave/internal/mail"
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
@@ -112,18 +113,18 @@ func TestIntegrationExitedCLIStopsBeingANudgeTarget(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	panes := newFakeTmux()
+	panes := tmuxtest.NewFake()
 	svc := mail.NewDeliveryService(mail.NewDeliveryServiceParams{
 		MailboxReader: st.Mail,
 		NudgeClaimer:  st.Agents,
 		PaneReader:    NewPaneLiveness(cli),
-		Channel:       pane.NewPane(pane.NewPaneParams{Terminal: panes, Harnesses: fakeHarnesses{harness: &fakeHarness{}}}),
+		Channel:       pane.NewPane(pane.NewPaneParams{Terminal: panes, Harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}}}),
 	})
 
 	got, err := svc.Deliver(ctx, agent.ID)
 	require.NoError(t, err)
 	assert.Equal(t, mail.DeliveryLater, got, "delivery to an agent whose CLI exited")
-	assert.Empty(t, panes.sent, "nothing is sent to an agent whose CLI exited")
+	assert.Empty(t, panes.Sent, "nothing is sent to an agent whose CLI exited")
 }
 
 // TestIntegrationReconcileHoldsAPaneOneListingLeftOut pins that a pane missing from a single listing is not

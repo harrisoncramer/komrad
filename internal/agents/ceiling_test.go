@@ -5,6 +5,8 @@ import (
 	"sync"
 	"testing"
 
+	"weave/internal/tmuxtest"
+
 	"github.com/stretchr/testify/require"
 )
 
@@ -17,7 +19,7 @@ func TestNewAgentCeilingUnderConcurrency(t *testing.T) {
 		callers = 8
 	)
 
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	manager := st.agentServiceCapped(tmux, &fakeLifecycle{}, ceiling)
 	workflowID := seedWorkflow(t, st)

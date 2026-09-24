@@ -257,10 +257,10 @@ func TestDeliver(t *testing.T) {
 
 			agents := &fakeAgents{agent: tt.agent, claimed: tt.claimed}
 			panes := &fakePanes{
-				alive:  tt.alive,
-				shell:  tt.shell,
-				inMode: tt.inMode,
-				frame:  frame,
+				Alive:  tt.alive,
+				Shell:  tt.shell,
+				InMode: tt.inMode,
+				Frame:  frame,
 			}
 			svc := NewDeliveryService(NewDeliveryServiceParams{
 				MailboxReader: &fakeMailboxReader{pending: tt.pending},
@@ -274,16 +274,16 @@ func TestDeliver(t *testing.T) {
 			assert.Equal(t, tt.want, got)
 
 			if !tt.wantNudge {
-				assert.Empty(t, panes.actions, "nothing is sent to the agent")
+				assert.Empty(t, panes.Actions, "nothing is sent to the agent")
 				assert.Equal(t, tt.wantClaim, agents.taken,
 					"the right to type is only spent on an agent that could have taken the keys")
 
 				return
 			}
 
-			require.Len(t, panes.pasted, 1, "the line goes as one paste rather than as typed keys")
-			assert.Contains(t, panes.pasted[0], "read_mail")
-			assert.Equal(t, []string{"paste"}, panes.actions,
+			require.Len(t, panes.Pasted, 1, "the line goes as one paste rather than as typed keys")
+			assert.Contains(t, panes.Pasted[0], "read_mail")
+			assert.Equal(t, []string{"paste"}, panes.Actions,
 				"an empty box is pasted into and nothing else, the newline riding with the paste")
 			assert.True(t, agents.taken, "the right to type is claimed before anything is typed")
 		})
@@ -334,7 +334,7 @@ func TestDeliverSaysWhenANudgeWentNowhere(t *testing.T) {
 				NudgeSentAt: tt.nudgeSentAt,
 				TurnEndedAt: tt.turnEndedAt,
 			}}
-			panes := &fakePanes{alive: true, frame: idleFrame}
+			panes := &fakePanes{Alive: true, Frame: idleFrame}
 
 			svc := NewDeliveryService(NewDeliveryServiceParams{
 				MailboxReader: &fakeMailboxReader{pending: 1},
@@ -365,12 +365,12 @@ func TestDeliverDoesNotWarnAfterAPassThatTypedNothing(t *testing.T) {
 		Pane:  "%1",
 		State: agentstore.StateIdle,
 	}}
-	channel := &fakeChannel{refuseSend: true}
+	channel := &fakeChannel{RefuseSend: true}
 
 	svc := NewDeliveryService(NewDeliveryServiceParams{
 		MailboxReader: &fakeMailboxReader{pending: 1},
 		NudgeClaimer:  agents,
-		PaneReader:    &fakePanes{alive: true, frame: idleFrame},
+		PaneReader:    &fakePanes{Alive: true, Frame: idleFrame},
 		Channel:       channel,
 	})
 
@@ -379,14 +379,14 @@ func TestDeliverDoesNotWarnAfterAPassThatTypedNothing(t *testing.T) {
 	got, err := svc.Deliver(ctx, "agent-a")
 	require.NoError(t, err)
 	require.Equal(t, DeliveryLater, got)
-	require.Empty(t, channel.sent, "the channel refused the line, so nothing was typed")
+	require.Empty(t, channel.Sent, "the channel refused the line, so nothing was typed")
 
-	channel.refuseSend = false
+	channel.RefuseSend = false
 
 	got, err = svc.Deliver(ctx, "agent-a")
 	require.NoError(t, err)
 	require.Equal(t, DeliverySoon, got)
-	require.Len(t, channel.sent, 1)
+	require.Len(t, channel.Sent, 1)
 
 	written := records()
 	require.Len(t, written, 1)
@@ -407,7 +407,7 @@ func TestDeliverKeepsALandedNudgeWhenTheBookkeepingFails(t *testing.T) {
 	svc := NewDeliveryService(NewDeliveryServiceParams{
 		MailboxReader: &fakeMailboxReader{pending: 1},
 		NudgeClaimer:  agents,
-		PaneReader:    &fakePanes{alive: true, frame: idleFrame},
+		PaneReader:    &fakePanes{Alive: true, Frame: idleFrame},
 		Channel:       channel,
 	})
 
@@ -416,7 +416,7 @@ func TestDeliverKeepsALandedNudgeWhenTheBookkeepingFails(t *testing.T) {
 	got, err := svc.Deliver(ctx, "agent-a")
 	require.NoError(t, err, "the rest of the pass goes on")
 	assert.Equal(t, DeliverySoon, got)
-	assert.Len(t, channel.sent, 1)
+	assert.Len(t, channel.Sent, 1)
 
 	written := records()
 	require.Len(t, written, 2)
@@ -432,7 +432,7 @@ func TestDeliverReportsExpiredMail(t *testing.T) {
 		State: agentstore.StateIdle,
 	}}
 	mailbox := &fakeMailboxReader{expired: []mailstore.Mail{{ID: "mail-1"}}}
-	panes := &fakePanes{alive: true, frame: idleFrame}
+	panes := &fakePanes{Alive: true, Frame: idleFrame}
 
 	svc := NewDeliveryService(NewDeliveryServiceParams{
 		MailboxReader: mailbox,
@@ -445,7 +445,7 @@ func TestDeliverReportsExpiredMail(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, DeliveryDone, got)
 	assert.True(t, mailbox.readExpired, "an empty mailbox is checked for mail that ran out of time")
-	assert.Empty(t, panes.pasted)
+	assert.Empty(t, panes.Pasted)
 }
 
 type fakeMailboxReader struct {
@@ -512,71 +512,71 @@ func (f *fakeAgents) SetNudgeSent(_ context.Context, _ string) error {
 // fakePanes stands in for tmux, showing one frame until a cut of its input box has landed and
 // the frame after it once it has.
 type fakePanes struct {
-	alive    bool
-	shell    bool
-	inMode   bool
-	clientAt bool
-	frame    string
+	Alive    bool
+	Shell    bool
+	InMode   bool
+	ClientAt bool
+	Frame    string
 
-	// afterCut is the frame the pane shows once its line has been cut, an empty box unless a
+	// AfterCut is the frame the pane shows once its line has been cut, an empty box unless a
 	// test says otherwise.
-	afterCut string
+	AfterCut string
 
-	// staleReads is how many reads after the cut still show the frame from before it, which is
+	// StaleReads is how many reads after the cut still show the frame from before it, which is
 	// a CLI that has yet to repaint.
-	staleReads int
+	StaleReads int
 
-	// pasteErr and yankErr are what tmux refuses with.
-	pasteErr error
-	yankErr  error
+	// PasteErr and YankErr are what tmux refuses with.
+	PasteErr error
+	YankErr  error
 
-	// actions is what was done to the pane, in the order it was done.
-	actions  []string
-	pasted   []string
+	// Actions is what was done to the pane, in the order it was done.
+	Actions  []string
+	Pasted   []string
 	captures int
 	cutAt    int
 	cut      bool
 }
 
-func (f *fakePanes) IsAgentRunning(agentstore.Agent) bool { return f.alive }
+func (f *fakePanes) IsAgentRunning(agentstore.Agent) bool { return f.Alive }
 
 func (f *fakePanes) SendKeys(string, ...string) error { return nil }
 
-func (f *fakePanes) IsPaneInMode(string) bool { return f.inMode }
+func (f *fakePanes) IsPaneInMode(string) bool { return f.InMode }
 
-func (f *fakePanes) IsPaneRunningCLI(string) bool { return !f.shell }
+func (f *fakePanes) IsPaneRunningCLI(string) bool { return !f.Shell }
 
 func (f *fakePanes) CapturePane(string) string {
 	f.captures++
 
-	if f.cut && f.captures > f.cutAt+f.staleReads {
-		if f.afterCut != "" {
-			return f.afterCut
+	if f.cut && f.captures > f.cutAt+f.StaleReads {
+		if f.AfterCut != "" {
+			return f.AfterCut
 		}
 
 		return idleFrame
 	}
 
-	return f.frame
+	return f.Frame
 }
 
-func (f *fakePanes) IsClientAtPane(string, time.Duration) bool { return f.clientAt }
+func (f *fakePanes) IsClientAtPane(string, time.Duration) bool { return f.ClientAt }
 
 func (f *fakePanes) PasteAndSubmit(_, text string) error {
-	if f.pasteErr != nil {
-		f.actions = append(f.actions, "paste-failed")
+	if f.PasteErr != nil {
+		f.Actions = append(f.Actions, "paste-failed")
 
-		return f.pasteErr
+		return f.PasteErr
 	}
 
-	f.actions = append(f.actions, "paste")
-	f.pasted = append(f.pasted, text)
+	f.Actions = append(f.Actions, "paste")
+	f.Pasted = append(f.Pasted, text)
 
 	return nil
 }
 
 func (f *fakePanes) CutLine(string) error {
-	f.actions = append(f.actions, "cut")
+	f.Actions = append(f.Actions, "cut")
 	f.cut = true
 	f.cutAt = f.captures
 
@@ -584,13 +584,13 @@ func (f *fakePanes) CutLine(string) error {
 }
 
 func (f *fakePanes) YankLine(string) error {
-	if f.yankErr != nil {
-		f.actions = append(f.actions, "yank-failed")
+	if f.YankErr != nil {
+		f.Actions = append(f.Actions, "yank-failed")
 
-		return f.yankErr
+		return f.YankErr
 	}
 
-	f.actions = append(f.actions, "yank")
+	f.Actions = append(f.Actions, "yank")
 
 	return nil
 }
@@ -599,7 +599,7 @@ func (f *fakePanes) YankLine(string) error {
 // something waiting in it.
 func TestDeliverAllVisitsEveryMailboxHoldingMail(t *testing.T) {
 	agents := &fakeAgents{}
-	panes := &fakePanes{frame: idleFrame}
+	panes := &fakePanes{Frame: idleFrame}
 	mailbox := &fakeMailboxReader{mailboxes: []string{"agent-a", "agent-b"}}
 
 	svc := NewDeliveryService(NewDeliveryServiceParams{
@@ -610,7 +610,7 @@ func TestDeliverAllVisitsEveryMailboxHoldingMail(t *testing.T) {
 	})
 
 	require.NoError(t, svc.DeliverAll(t.Context()))
-	assert.Empty(t, panes.pasted, "mailboxes belonging to no agent are left alone")
+	assert.Empty(t, panes.Pasted, "mailboxes belonging to no agent are left alone")
 }
 
 // TestDeliverAllDoesNothingWhenNoMailIsWaiting pins that an empty sweep touches no pane.
@@ -643,7 +643,7 @@ func TestDeliverRetriesANudgeTheAgentNeverActedOn(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	panes := &fakePanes{alive: true, frame: idleFrame}
+	panes := &fakePanes{Alive: true, Frame: idleFrame}
 	svc := NewDeliveryService(NewDeliveryServiceParams{
 		MailboxReader: st.Mail,
 		NudgeClaimer:  st.Agents,
@@ -654,21 +654,21 @@ func TestDeliverRetriesANudgeTheAgentNeverActedOn(t *testing.T) {
 	got, err := svc.Deliver(ctx, agent.ID)
 	require.NoError(t, err)
 	assert.Equal(t, DeliverySoon, got)
-	require.Len(t, panes.pasted, 1, "an idle agent holding mail is told about it")
+	require.Len(t, panes.Pasted, 1, "an idle agent holding mail is told about it")
 
 	for range 30 {
 		got, err = svc.Deliver(ctx, agent.ID)
 		require.NoError(t, err)
 		assert.Equal(t, DeliveryLater, got)
 	}
-	assert.Len(t, panes.pasted, 1, "and not told again once a pass")
+	assert.Len(t, panes.Pasted, 1, "and not told again once a pass")
 
 	backdateNudge(t, st, agent.ID, nudgeRetryAfter+time.Minute)
 
 	got, err = svc.Deliver(ctx, agent.ID)
 	require.NoError(t, err)
 	assert.Equal(t, DeliverySoon, got)
-	assert.Len(t, panes.pasted, 2, "a nudge that did not get the mail read is sent again")
+	assert.Len(t, panes.Pasted, 2, "a nudge that did not get the mail read is sent again")
 
 	stranded := agentByID(t, st, agent.ID)
 	assert.Equal(t, agentstore.StateIdle, stranded.State, "nothing about the agent moved to earn the retry")
@@ -696,7 +696,7 @@ func TestDeliverRetriesANudgeAcrossAnArchive(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	panes := &fakePanes{alive: true, frame: idleFrame}
+	panes := &fakePanes{Alive: true, Frame: idleFrame}
 	svc := NewDeliveryService(NewDeliveryServiceParams{
 		MailboxReader: st.Mail,
 		NudgeClaimer:  st.Agents,
@@ -707,7 +707,7 @@ func TestDeliverRetriesANudgeAcrossAnArchive(t *testing.T) {
 	got, err := svc.Deliver(ctx, agent.ID)
 	require.NoError(t, err)
 	assert.Equal(t, DeliverySoon, got)
-	require.Len(t, panes.pasted, 1)
+	require.Len(t, panes.Pasted, 1)
 
 	_, archiveErr := st.Agents.Archive(ctx, []string{agent.ID})
 
@@ -716,7 +716,7 @@ func TestDeliverRetriesANudgeAcrossAnArchive(t *testing.T) {
 	got, err = svc.Deliver(ctx, agent.ID)
 	require.NoError(t, err)
 	assert.Equal(t, DeliveryDone, got, "an archived agent is not typed at")
-	assert.Len(t, panes.pasted, 1)
+	assert.Len(t, panes.Pasted, 1)
 
 	require.NoError(t, st.Agents.Restore(ctx, []string{agent.ID}))
 	backdateNudge(t, st, agent.ID, nudgeRetryAfter+time.Minute)
@@ -724,7 +724,7 @@ func TestDeliverRetriesANudgeAcrossAnArchive(t *testing.T) {
 	got, err = svc.Deliver(ctx, agent.ID)
 	require.NoError(t, err)
 	assert.Equal(t, DeliverySoon, got)
-	assert.Len(t, panes.pasted, 2, "an agent back from the archive is told about the mail it never read")
+	assert.Len(t, panes.Pasted, 2, "an agent back from the archive is told about the mail it never read")
 }
 
 type fixedHarnesses struct{ harness harness.Harness }
@@ -754,7 +754,7 @@ func TestDeliverDefersToARealHarnessStillComingUp(t *testing.T) {
 				},
 				claimed: true,
 			}
-			panes := &fakePanes{alive: true, frame: shellEcho}
+			panes := &fakePanes{Alive: true, Frame: shellEcho}
 			svc := NewDeliveryService(NewDeliveryServiceParams{
 				MailboxReader: &fakeMailboxReader{pending: 1},
 				NudgeClaimer:  agents,
@@ -765,7 +765,7 @@ func TestDeliverDefersToARealHarnessStillComingUp(t *testing.T) {
 			got, err := svc.Deliver(t.Context(), "agent-a")
 			require.NoError(t, err)
 			assert.Equal(t, DeliveryLater, got)
-			assert.Empty(t, panes.actions, "nothing is sent to a pane that is not listening")
+			assert.Empty(t, panes.Actions, "nothing is sent to a pane that is not listening")
 		})
 	}
 }
@@ -791,7 +791,7 @@ func TestDeliverTellsTheChannelToForgetAnAgentNothingWillLookAtAgain(t *testing.
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			panes := &fakePanes{alive: true, frame: composingFrame}
+			panes := &fakePanes{Alive: true, Frame: composingFrame}
 			agents := &fakeAgents{claimed: true, agent: &agentstore.Agent{
 				ID:    "agent-a",
 				Pane:  "%1",
@@ -808,14 +808,14 @@ func TestDeliverTellsTheChannelToForgetAnAgentNothingWillLookAtAgain(t *testing.
 			got, err := svc.Deliver(t.Context(), "agent-a")
 			require.NoError(t, err)
 			require.Equal(t, DeliverySoon, got)
-			require.Empty(t, channel.forgotten)
+			require.Empty(t, channel.Forgotten)
 
 			tt.gone(agents)
 
 			got, err = svc.Deliver(t.Context(), "agent-a")
 			require.NoError(t, err)
 			assert.Equal(t, DeliveryDone, got)
-			assert.Equal(t, []string{"agent-a"}, channel.forgotten, "nothing will reach this agent again")
+			assert.Equal(t, []string{"agent-a"}, channel.Forgotten, "nothing will reach this agent again")
 		})
 	}
 }
@@ -830,11 +830,11 @@ func TestDeliverSpendsTheClaimOnAChannelThatTakesTheLineAndThenRefuses(t *testin
 	}{
 		{
 			name:    "a channel that says yes and then declines",
-			channel: &fakeChannel{refuseSend: true},
+			channel: &fakeChannel{RefuseSend: true},
 		},
 		{
 			name:    "a channel whose send fails outright",
-			channel: &fakeChannel{sendErr: errors.New("tmux said no")},
+			channel: &fakeChannel{SendErr: errors.New("tmux said no")},
 			wantErr: true,
 		},
 	}
@@ -849,7 +849,7 @@ func TestDeliverSpendsTheClaimOnAChannelThatTakesTheLineAndThenRefuses(t *testin
 			svc := NewDeliveryService(NewDeliveryServiceParams{
 				MailboxReader: &fakeMailboxReader{pending: 1},
 				NudgeClaimer:  agents,
-				PaneReader:    &fakePanes{alive: true, frame: idleFrame},
+				PaneReader:    &fakePanes{Alive: true, Frame: idleFrame},
 				Channel:       tt.channel,
 			})
 
@@ -862,7 +862,7 @@ func TestDeliverSpendsTheClaimOnAChannelThatTakesTheLineAndThenRefuses(t *testin
 
 			assert.Equal(t, DeliveryLater, got)
 			assert.True(t, agents.taken, "the claim is spent on a send that reached the agent")
-			assert.Empty(t, tt.channel.sent)
+			assert.Empty(t, tt.channel.Sent)
 		})
 	}
 }
@@ -875,11 +875,11 @@ func TestDeliverLeavesTheClaimOnAChannelThatWasNeverReady(t *testing.T) {
 		Pane:  "%1",
 		State: agentstore.StateIdle,
 	}}
-	channel := &fakeChannel{refuseReady: true}
+	channel := &fakeChannel{RefuseReady: true}
 	svc := NewDeliveryService(NewDeliveryServiceParams{
 		MailboxReader: &fakeMailboxReader{pending: 1},
 		NudgeClaimer:  agents,
-		PaneReader:    &fakePanes{alive: true, frame: idleFrame},
+		PaneReader:    &fakePanes{Alive: true, Frame: idleFrame},
 		Channel:       channel,
 	})
 
@@ -887,39 +887,39 @@ func TestDeliverLeavesTheClaimOnAChannelThatWasNeverReady(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, DeliveryLater, got)
 	assert.False(t, agents.taken, "nothing reached the agent, so the right to type is not spent")
-	assert.Empty(t, channel.sent)
+	assert.Empty(t, channel.Sent)
 }
 
 // fakeChannel stands in for whatever reaches an agent, taking every line it is handed.
 type fakeChannel struct {
-	refuseReady bool
-	refuseSend  bool
-	sendErr     error
-	sent        []string
-	forgotten   []string
-	interrupts  int
+	RefuseReady bool
+	RefuseSend  bool
+	SendErr     error
+	Sent        []string
+	Forgotten   []string
+	Interrupts  int
 }
 
 func (f *fakeChannel) Ready(context.Context, harness.Target) (bool, error) {
-	return !f.refuseReady, nil
+	return !f.RefuseReady, nil
 }
 
 func (f *fakeChannel) Send(_ context.Context, _ harness.Target, text string) (bool, error) {
-	if f.sendErr != nil {
-		return false, f.sendErr
+	if f.SendErr != nil {
+		return false, f.SendErr
 	}
-	if f.refuseSend {
+	if f.RefuseSend {
 		return false, nil
 	}
-	f.sent = append(f.sent, text)
+	f.Sent = append(f.Sent, text)
 
 	return true, nil
 }
 
 func (f *fakeChannel) Interrupt(context.Context, harness.Target) error {
-	f.interrupts++
+	f.Interrupts++
 
 	return nil
 }
 
-func (f *fakeChannel) Forget(agentID string) { f.forgotten = append(f.forgotten, agentID) }
+func (f *fakeChannel) Forget(agentID string) { f.Forgotten = append(f.Forgotten, agentID) }

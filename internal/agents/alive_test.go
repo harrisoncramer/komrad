@@ -5,7 +5,9 @@ import (
 	"testing"
 
 	"weave/internal/harness/pane"
+	"weave/internal/harnesstest"
 	agentstore "weave/internal/store/agent"
+	"weave/internal/tmuxtest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -32,13 +34,13 @@ func TestReconcileWritesLivenessAgainstTheRow(t *testing.T) {
 	agent := seed(t, st, "agent", "%1", agentstore.StateIdle)
 	require.True(t, agent.Alive, "a row written with a pane is alive")
 
-	tmux := newFakeTmux()
-	tmux.owners["%1"] = agent.ID
-	tmux.captures["%1"] = busyFrame
+	tmux := tmuxtest.NewFake()
+	tmux.Owners["%1"] = agent.ID
+	tmux.Captures["%1"] = harnesstest.FrameWorking
 	states := &countingStates{agentStateReadWriter: st.Agents}
 	rec := NewReconciler(NewReconcilerParams{
 		Panes:    tmux,
-		Observer: pane.NewPane(pane.NewPaneParams{Terminal: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}}),
+		Observer: pane.NewPane(pane.NewPaneParams{Terminal: tmux, Harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}}}),
 		States:   states,
 	})
 
@@ -55,7 +57,7 @@ func TestReconcileWritesLivenessAgainstTheRow(t *testing.T) {
 	require.NoError(t, rec.Reconcile(ctx))
 	assert.Equal(t, 1, states.aliveWrites, "and the next pass finds the row agreeing")
 
-	tmux.owners["%1"] = ""
+	tmux.Owners["%1"] = ""
 	require.NoError(t, rec.Reconcile(ctx))
 	assert.Equal(t, 2, states.aliveWrites)
 	assert.False(t, aliveOf(t, st, agent.ID), "a pane that went is written dormant")

@@ -5,6 +5,7 @@ import (
 
 	"weave/internal/store"
 	workflowstore "weave/internal/store/workflow"
+	"weave/internal/tmuxtest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -45,7 +46,7 @@ func TestDeleteIfEmpty(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
-			tmux := newFakeTmux()
+			tmux := tmuxtest.NewFake()
 			manager := newManager(tmux, st, "")
 			workflows := workflowsFor(st, tmux)
 			ctx := t.Context()

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"weave/internal/git"
+	"weave/internal/tmuxtest"
 
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
@@ -51,7 +52,7 @@ func TestAdoptPlacesTheAgent(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tmux := newFakeTmux()
+			tmux := tmuxtest.NewFake()
 			st := newStore(t)
 			repo := fakeCheckout(t)
 
@@ -139,7 +140,7 @@ func TestAdoptRefusesADirectoryAnotherAgentHolds(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tmux := newFakeTmux()
+			tmux := tmuxtest.NewFake()
 			st := newStore(t)
 			manager := newManager(tmux, st, "")
 
@@ -172,7 +173,7 @@ func TestAdoptRefusesADirectoryAnotherAgentHolds(t *testing.T) {
 // TestAdoptTakesOverFromAnAgentWhoseWorktreeIsGone pins that a branch is not held for an
 // agent with no directory left, which would leave no way onto the work.
 func TestAdoptTakesOverFromAnAgentWhoseWorktreeIsGone(t *testing.T) {
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	manager := newManager(tmux, st, "")
 
@@ -192,7 +193,7 @@ func TestAdoptTakesOverFromAnAgentWhoseWorktreeIsGone(t *testing.T) {
 // TestAdoptTakesOverAWorktreeRegistrationWithNoDirectory pins that a checkout deleted by hand
 // does not hold the branch against an adoption.
 func TestAdoptTakesOverAWorktreeRegistrationWithNoDirectory(t *testing.T) {
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	manager := newManager(tmux, st, "")
 
@@ -223,7 +224,7 @@ func TestAdoptTakesOverAWorktreeRegistrationWithNoDirectory(t *testing.T) {
 // TestAdoptRefusesWithoutAWorktreeWorkflow pins that adoption is refused where agents share
 // one checkout, which would move a branch under somebody working in it.
 func TestAdoptRefusesWithoutAWorktreeWorkflow(t *testing.T) {
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	manager := newManager(tmux, st, "")
 
@@ -237,7 +238,7 @@ func TestAdoptRefusesWithoutAWorktreeWorkflow(t *testing.T) {
 
 // TestAdoptTwiceIsRefused pins asking again being a refusal naming the agent that has the branch.
 func TestAdoptTwiceIsRefused(t *testing.T) {
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	manager := newManager(tmux, st, "")
 
@@ -258,7 +259,7 @@ func TestAdoptTwiceIsRefused(t *testing.T) {
 // TestAdoptWithTheSameIdempotencyKeyIsAnsweredNotRefused pins the one repeat that means "again,
 // safely" rather than a second agent on the branch.
 func TestAdoptWithTheSameIdempotencyKeyIsAnsweredNotRefused(t *testing.T) {
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	manager := newManager(tmux, st, "")
 
@@ -288,7 +289,7 @@ func TestAdoptWithTheSameIdempotencyKeyIsAnsweredNotRefused(t *testing.T) {
 // TestAdoptAfterASetupFailureIsNotRefusedByTheCorpse pins a create that never launched leaving the
 // branch adoptable.
 func TestAdoptAfterASetupFailureIsNotRefusedByTheCorpse(t *testing.T) {
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	manager := newManager(tmux, st, "")
 
@@ -328,7 +329,7 @@ func TestAdoptRefusesAPullRequest(t *testing.T) {
 	} {
 		t.Run(ref, func(t *testing.T) {
 			st := newStore(t)
-			manager := newManager(newFakeTmux(), st, "")
+			manager := newManager(tmuxtest.NewFake(), st, "")
 
 			_, err := manager.adopt.Adopt(t.Context(), AdoptParams{
 				Ref:        ref,

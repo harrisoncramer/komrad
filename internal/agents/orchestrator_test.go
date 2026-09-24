@@ -5,8 +5,10 @@ import (
 	"testing"
 
 	"weave/internal/caller"
+	"weave/internal/harnesstest"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
+	"weave/internal/tmuxtest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -16,12 +18,12 @@ import (
 // workflow that hands every other agent a worktree and runs hooks over it.
 func TestStartOrchestratorLaunchesOne(t *testing.T) {
 	st := newStore(t)
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	stateDir := t.TempDir()
 	lifecycle := &fakeLifecycle{dir: t.TempDir()}
 	manager := st.agentService(agentServiceOptions{
 		tmux:      tmux,
-		harnesses: fakeHarnesses{harness: &fakeHarness{}},
+		harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}},
 		addr:      "127.0.0.1:9999",
 		stateDir:  stateDir,
 		lifecycle: lifecycle,
@@ -72,8 +74,8 @@ func TestStartOrchestratorRefusesAWorkflowThatIsNotThere(t *testing.T) {
 			st := newStore(t)
 			stateDir := t.TempDir()
 			manager := st.agentService(agentServiceOptions{
-				tmux:      newFakeTmux(),
-				harnesses: fakeHarnesses{harness: &fakeHarness{}},
+				tmux:      tmuxtest.NewFake(),
+				harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}},
 				addr:      "127.0.0.1:9999",
 				stateDir:  stateDir,
 			})
@@ -91,10 +93,10 @@ func TestStartOrchestratorRefusesAWorkflowThatIsNotThere(t *testing.T) {
 // index refuses the second insert and the caller still asked for an orchestrator.
 func TestStartOrchestratorTakesTheOneAnotherCallerWon(t *testing.T) {
 	st := newStore(t)
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	manager := st.agentService(agentServiceOptions{
 		tmux:      tmux,
-		harnesses: fakeHarnesses{harness: &fakeHarness{}},
+		harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}},
 		addr:      "127.0.0.1:9999",
 		stateDir:  t.TempDir(),
 	})
@@ -125,10 +127,10 @@ func TestStartOrchestratorReturnsTheOneTheWorkflowHas(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
-			tmux := newFakeTmux()
+			tmux := tmuxtest.NewFake()
 			manager := st.agentService(agentServiceOptions{
 				tmux:      tmux,
-				harnesses: fakeHarnesses{harness: &fakeHarness{}},
+				harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}},
 				addr:      "127.0.0.1:9999",
 				stateDir:  t.TempDir(),
 			})
@@ -160,10 +162,10 @@ func TestStartOrchestratorReturnsTheOneTheWorkflowHas(t *testing.T) {
 // TestOrchestratorSpawnsOnlyIntoItsOwnWorkflow pins the boundary an orchestrator is held to.
 func TestOrchestratorSpawnsOnlyIntoItsOwnWorkflow(t *testing.T) {
 	st := newStore(t)
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	manager := st.agentService(agentServiceOptions{
 		tmux:      tmux,
-		harnesses: fakeHarnesses{harness: &fakeHarness{}},
+		harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}},
 		addr:      "127.0.0.1:9999",
 		stateDir:  t.TempDir(),
 	})
@@ -196,10 +198,10 @@ func TestOrchestratorSpawnsOnlyIntoItsOwnWorkflow(t *testing.T) {
 // to be read.
 func TestOrchestratorIsRefusedAReview(t *testing.T) {
 	st := newStore(t)
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	manager := st.agentService(agentServiceOptions{
 		tmux:      tmux,
-		harnesses: fakeHarnesses{harness: &fakeHarness{}},
+		harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}},
 		addr:      "127.0.0.1:9999",
 		stateDir:  t.TempDir(),
 	})
@@ -219,10 +221,10 @@ func TestOrchestratorIsRefusedAReview(t *testing.T) {
 // holds no conversation, so resuming it asks its CLI for one that was never written.
 func TestStartOrchestratorReplacesOneThatNeverRan(t *testing.T) {
 	st := newStore(t)
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	manager := st.agentService(agentServiceOptions{
 		tmux:      tmux,
-		harnesses: fakeHarnesses{harness: &fakeHarness{}},
+		harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}},
 		addr:      "127.0.0.1:9999",
 		stateDir:  t.TempDir(),
 	})
@@ -255,8 +257,8 @@ func TestStartOrchestratorReplacesOneThatNeverRan(t *testing.T) {
 func TestStartOrchestratorKeepsOneStillRunning(t *testing.T) {
 	st := newStore(t)
 	manager := st.agentService(agentServiceOptions{
-		tmux:      newFakeTmux(),
-		harnesses: fakeHarnesses{harness: &fakeHarness{}},
+		tmux:      tmuxtest.NewFake(),
+		harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}},
 		addr:      "127.0.0.1:9999",
 		stateDir:  t.TempDir(),
 	})
@@ -276,10 +278,10 @@ func TestStartOrchestratorKeepsOneStillRunning(t *testing.T) {
 // resumed, never replaced.
 func TestStartOrchestratorKeepsOneThatHasSpoken(t *testing.T) {
 	st := newStore(t)
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	manager := st.agentService(agentServiceOptions{
 		tmux:      tmux,
-		harnesses: fakeHarnesses{harness: &fakeHarness{}},
+		harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}},
 		addr:      "127.0.0.1:9999",
 		stateDir:  t.TempDir(),
 	})

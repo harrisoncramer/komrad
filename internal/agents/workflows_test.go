@@ -4,10 +4,12 @@ import (
 	"errors"
 	"testing"
 
+	"weave/internal/harnesstest"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	schedulestore "weave/internal/store/schedule"
 	workflowstore "weave/internal/store/workflow"
+	"weave/internal/tmuxtest"
 	"weave/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
@@ -36,7 +38,7 @@ func TestNewWorkflow(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			created, err := workflowsFor(newStore(t), newFakeTmux()).NewWorkflow(t.Context(), tt.cfg)
+			created, err := workflowsFor(newStore(t), tmuxtest.NewFake()).NewWorkflow(t.Context(), tt.cfg)
 			require.NoError(t, err)
 			require.NotNil(t, created)
 			assert.Equal(t, tt.wantName, created.Name)
@@ -82,7 +84,7 @@ func TestUpdateWorkflow(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
-			workflows := workflowsFor(st, newFakeTmux())
+			workflows := workflowsFor(st, tmuxtest.NewFake())
 
 			id := "00000000-0000-0000-0000-000000000000"
 			if tt.create {
@@ -210,7 +212,7 @@ func TestNewWorkflowWithWorktree(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
 
-			created, err := workflowsFor(st, newFakeTmux()).NewWorkflow(t.Context(), tt.cfg)
+			created, err := workflowsFor(st, tmuxtest.NewFake()).NewWorkflow(t.Context(), tt.cfg)
 			if tt.wantErrIs != nil {
 				require.ErrorIs(t, err, tt.wantErrIs)
 				return
@@ -245,7 +247,7 @@ func TestNewWorkflowWantsAPrimaryCheckout(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := workflowsFor(newStore(t), newFakeTmux()).NewWorkflow(t.Context(), workflowstore.Config{
+			_, err := workflowsFor(newStore(t), tmuxtest.NewFake()).NewWorkflow(t.Context(), workflowstore.Config{
 				Name:     "backend",
 				Cwd:      tt.cwd(t),
 				Worktree: workflowstore.WorktreeConfig{Enabled: true},
@@ -265,7 +267,7 @@ func TestNewWorkflowWantsAPrimaryCheckout(t *testing.T) {
 // TestUpdateWorkflowRefusesAnUnsafeWorktreePath covers the same validation on the update path.
 func TestUpdateWorkflowRefusesAnUnsafeWorktreePath(t *testing.T) {
 	st := newStore(t)
-	workflows := workflowsFor(st, newFakeTmux())
+	workflows := workflowsFor(st, tmuxtest.NewFake())
 
 	created, err := workflows.NewWorkflow(t.Context(), workflowstore.Config{
 		Name:     "backend",
@@ -290,7 +292,7 @@ func TestUpdateWorkflowRefusesAnUnsafeWorktreePath(t *testing.T) {
 // in.
 func TestWorkflowWorktreePathsAreStoredCleaned(t *testing.T) {
 	st := newStore(t)
-	workflows := workflowsFor(st, newFakeTmux())
+	workflows := workflowsFor(st, tmuxtest.NewFake())
 	repo := fakeCheckout(t)
 
 	created, err := workflows.NewWorkflow(t.Context(), workflowstore.Config{
@@ -333,7 +335,7 @@ func TestWorkflowWorktreePathsAreStoredCleaned(t *testing.T) {
 // back off.
 func TestUpdateWorkflowWorktree(t *testing.T) {
 	st := newStore(t)
-	workflows := workflowsFor(st, newFakeTmux())
+	workflows := workflowsFor(st, tmuxtest.NewFake())
 
 	created, err := workflows.NewWorkflow(t.Context(), workflowstore.Config{Name: "backend", Cwd: "/repo"})
 	require.NoError(t, err)
@@ -366,7 +368,7 @@ func TestUpdateWorkflowWorktree(t *testing.T) {
 // them back rather than starting blank.
 func TestUpdateWorkflowWorktreeDisablePreservesTheDetails(t *testing.T) {
 	st := newStore(t)
-	workflows := workflowsFor(st, newFakeTmux())
+	workflows := workflowsFor(st, tmuxtest.NewFake())
 
 	details := workflowstore.WorktreeConfig{
 		BaseBranch:   "develop",
@@ -424,7 +426,7 @@ func TestUpdateWorkflowWorktreeDisablePreservesTheDetails(t *testing.T) {
 // killed none, and the transaction that follows takes one off a row and hides it.
 func TestArchiveWorkflowKillsAPaneWrittenBeforeItsOwnWrite(t *testing.T) {
 	st := newStore(t)
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	ctx := t.Context()
 
 	workflowID := seedWorkflow(t, st)
@@ -442,7 +444,7 @@ func TestArchiveWorkflowKillsAPaneWrittenBeforeItsOwnWrite(t *testing.T) {
 
 	after := agentByID(t, st, agent.ID)
 	require.NotNil(t, after.ArchivedAt, "the agent really is archived with its workflow")
-	assert.Contains(t, tmux.killedPanes, "%9", "so the archive kills the pane its write took")
+	assert.Contains(t, tmux.KilledPanes, "%9", "so the archive kills the pane its write took")
 }
 
 // TestArchiveWorkflow pins both halves committing together, so no agent is left running
@@ -473,7 +475,7 @@ func TestArchiveWorkflow(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
-			tmux := newFakeTmux()
+			tmux := tmuxtest.NewFake()
 			manager := newManager(tmux, st, "")
 			workflows := workflowsFor(st, tmux)
 			ctx := t.Context()
@@ -509,7 +511,7 @@ func TestArchiveWorkflow(t *testing.T) {
 					listed, listErr := st.Workflows.List(ctx)
 					require.NoError(t, listErr)
 					assert.Len(t, listed, 1, "a refused delete leaves the workflow alone")
-					assert.Empty(t, tmux.killedPanes, "and leaves the agents inside it running")
+					assert.Empty(t, tmux.KilledPanes, "and leaves the agents inside it running")
 				}
 
 				return
@@ -528,7 +530,7 @@ func TestArchiveWorkflow(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, all, 1)
 			assert.NotNil(t, all[0].ArchivedAt, "and archived rather than removed")
-			assert.Equal(t, []string{"%agent"}, tmux.killedPanes, "its CLI is stopped rather than left generating")
+			assert.Equal(t, []string{"%agent"}, tmux.KilledPanes, "its CLI is stopped rather than left generating")
 			assert.Empty(t, all[0].Pane, "and the pane it no longer owns is forgotten")
 		})
 	}
@@ -567,7 +569,7 @@ func TestRestoreWorkflow(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
-			tmux := newFakeTmux()
+			tmux := tmuxtest.NewFake()
 			manager := newManager(tmux, st, "")
 			workflows := workflowsFor(st, tmux)
 			ctx := t.Context()
@@ -593,12 +595,12 @@ func TestRestoreWorkflow(t *testing.T) {
 				require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{
 					Name:       "agent",
 					State:      agentstore.StateIdle,
-					Harness:    testHarnessID,
+					Harness:    harnesstest.FakeID,
 					WorkflowID: id,
 				}))
 			}
 
-			opened := len(tmux.newWindows)
+			opened := len(tmux.NewWindows)
 			restored, err := workflows.RestoreWorkflow(ctx, id)
 
 			if tt.wantErrIs != nil {
@@ -633,7 +635,7 @@ func TestRestoreWorkflow(t *testing.T) {
 				}
 			}
 			require.Len(t, inside, 1, "the workflow's agent is listed again")
-			assert.Len(t, tmux.newWindows, opened, "and nothing was started for it")
+			assert.Len(t, tmux.NewWindows, opened, "and nothing was started for it")
 
 			assert.Equal(t, "agent", inside[0].Name)
 
@@ -646,7 +648,7 @@ func TestRestoreWorkflow(t *testing.T) {
 // nothing.
 func TestRestoreWorkflowCeiling(t *testing.T) {
 	st := newStore(t)
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	manager := newManager(tmux, st, "")
 	workflows := st.workflowService(workflowServiceOptions{tmux: tmux, maxAgents: 3})
 	ctx := t.Context()
@@ -700,7 +702,7 @@ func workflowNames(listed []workflowstore.Workflow) []string {
 // with it, or it would be live under a header the tree does not list.
 func TestRestoreAgentRestoresItsWorkflow(t *testing.T) {
 	st := newStore(t)
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	manager := newManager(tmux, st, "")
 	workflows := workflowsFor(st, tmux)
 	ctx := t.Context()
@@ -741,7 +743,7 @@ func TestRestoreAgentRestoresItsWorkflow(t *testing.T) {
 // which archived rows sitting outside the unique index make possible.
 func TestRestoreWorkflowRefusesTwoArchivedNamesakes(t *testing.T) {
 	st := newStore(t)
-	workflows := workflowsFor(st, newFakeTmux())
+	workflows := workflowsFor(st, tmuxtest.NewFake())
 	ctx := t.Context()
 
 	created, err := workflows.NewWorkflow(ctx, workflowstore.Config{Name: "backend"})
@@ -751,7 +753,7 @@ func TestRestoreWorkflowRefusesTwoArchivedNamesakes(t *testing.T) {
 		require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{
 			Name:       "agent",
 			State:      agentstore.StateIdle,
-			Harness:    testHarnessID,
+			Harness:    harnesstest.FakeID,
 			WorkflowID: created.ID,
 		}))
 		require.NoError(t, st.SoftDelete(ctx, "agent"))
@@ -811,7 +813,7 @@ func TestDeleteWorkflow(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
-			tmux := newFakeTmux()
+			tmux := tmuxtest.NewFake()
 			manager := newManager(tmux, st, "")
 			workflows := workflowsFor(st, tmux)
 			ctx := t.Context()
@@ -875,7 +877,7 @@ func TestDeleteWorkflow(t *testing.T) {
 // any agent is cascaded to.
 func TestDeleteWorkflowRefusesAScheduleAnotherWorkflowsAgentsHold(t *testing.T) {
 	st := newStore(t)
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	manager := newManager(tmux, st, "")
 	workflows := workflowsFor(st, tmux)
 	ctx := t.Context()
@@ -932,9 +934,9 @@ func TestDeleteWorkflowRefusesAScheduleAnotherWorkflowsAgentsHold(t *testing.T) 
 // destroyed either, and neither is an error the caller sees, the same as emptying the archive.
 func TestDeleteWorkflowLeavesAStragglerAndItsWorkflowBehind(t *testing.T) {
 	st := newStore(t)
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	lifecycle := &fakeLifecycle{deprovisionRunErr: errors.New("worktree is dirty")}
-	agentSvc := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
+	agentSvc := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
 	workflows := NewWorkflowService(NewWorkflowServiceParams{
 		Workflows:    st.Workflows,
 		Agents:       st.Agents,
@@ -973,9 +975,9 @@ func TestDeleteWorkflowLeavesAStragglerAndItsWorkflowBehind(t *testing.T) {
 // last teardown has worked.
 func TestDeleteWorkflowClaimsTheWorkflowWhileItsAgentsGo(t *testing.T) {
 	st := newStore(t)
-	tmux := newFakeTmux()
+	tmux := tmuxtest.NewFake()
 	lifecycle := &fakeLifecycle{holdDeprovision: true}
-	agentSvc := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
+	agentSvc := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
 	workflows := NewWorkflowService(NewWorkflowServiceParams{
 		Workflows:    st.Workflows,
 		Agents:       st.Agents,
