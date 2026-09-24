@@ -1,213 +1,374 @@
-package ui
+package ui_test
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 
-	"weave/config"
-	"weave/internal/ui/layout"
-	"weave/internal/ui/panel"
+	"weave/internal/engine"
+	"weave/proto/gen/agent/v1/agentv1connect"
+	watchv1 "weave/proto/gen/watch/v1"
+	workflowv1 "weave/proto/gen/workflow/v1"
+	worktreev1 "weave/proto/gen/worktree/v1"
 
-	"charm.land/lipgloss/v2"
+	tea "charm.land/bubbletea/v2"
+	"connectrpc.com/connect"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 )
 
-// TestEveryScreenAnswersForItself walks the enum rather than a list of its own, so a screen
-// added with an arm that answers for nothing fails here the way one added with no arm at all
-// fails the exhaustive check.
-func TestEveryScreenAnswersForItself(t *testing.T) {
-	var m model
+const crowdedCount = 40
 
-	for s := screenAgents; s <= screenWorktrees; s++ {
-		screen := m.screenOf(s)
-		require.NotNil(t, screen, "screen %d is behind no door", s)
-
-		if c, ok := screen.(columned); ok {
-			assert.Positive(t, c.column().floor, "screen %d draws a block at no width", s)
-		}
-
-		if tb, ok := screen.(tabbed); ok {
-			assert.NotEmpty(t, tb.tabs().options, "screen %d draws a strip with no tabs", s)
-		}
-	}
+var listScreens = []struct {
+	name  string
+	press []string
+	title string
+}{
+	{
+		name:  "the agents tree",
+		title: "Agents & Workflows",
+	},
+	{
+		name:  "the archive",
+		press: []string{"Z"},
+		title: "Archive",
+	},
+	{
+		name:  "the schedules",
+		press: []string{"S"},
+		title: "Schedules",
+	},
+	{
+		name:  "the search",
+		press: []string{"s"},
+		title: "Search",
+	},
+	{
+		name:  "the worktrees",
+		press: []string{"t"},
+		title: "Worktrees",
+	},
 }
 
-// TestEveryScreenDrawsTheChromeItDid pins which pieces of chrome each screen implements.
-func TestEveryScreenDrawsTheChromeItDid(t *testing.T) {
-	tests := []struct {
-		name    string
-		screen  screen
-		details bool
-		filter  bool
-		tabs    bool
-		column  bool
-		stage   bool
+// TestScreensStage covers what the panel shows beside the hovered row and how much of the window it holds.
+func TestScreensStage(t *testing.T) {
+	t.Parallel()
+
+	t.Run("a row with no pane draws its notes beside the list and takes the window", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openStaged(t, "g", "g")
+
+		frame := harness.readFrame()
+		assert.True(t, harness.panel.IsZoomed())
+		assert.Contains(t, frame, "always run the linter")
+		assert.Contains(t, readListRows(frame), "backend")
+		for _, line := range splitLines(frame) {
+			assert.Equal(t, 200, ansi.StringWidth(line), "every row of the frame is squared off")
+		}
+	})
+
+	t.Run("a running agent's own pane gets the window back", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openStaged(t, "g", "g", "j")
+
+		assert.False(t, harness.panel.IsZoomed())
+		assert.Equal(t, "%9", harness.panel.ReadGuestPane())
+		assert.Equal(t, 200, measureListRule(harness.readFrame()), "and the list goes back to the whole of the pane")
+	})
+
+	t.Run("a dormant agent says why it has no pane", func(t *testing.T) {
+		t.Parallel()
+
+		harness := newPanelHarness(t, panelHarnessParams{width: 200})
+		answerWorktreeReads(harness)
+		harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), newDormant("auth")))
+
+		harness.press("j")
+		harness.fireTimers()
+
+		assert.True(t, harness.panel.IsZoomed())
+		assert.Contains(t, harness.readFrame(), "dormant")
+	})
+
+	t.Run("leaving a running agent for a row with no pane takes the window", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openStaged(t, "g", "g", "j")
+
+		harness.press("k")
+		harness.fireTimers()
+
+		assert.True(t, harness.panel.IsZoomed(), "tmux is holding the zoom rather than the frame only believing so")
+	})
+
+	t.Run("the frame is as tall as the pane", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openStaged(t, "g", "g", "j")
+
+		assert.Len(t, splitLines(harness.readFrame()), defaultHarnessHeight)
+	})
+
+	t.Run("a pane moved by hand gives up both halves until the next listing", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openStaged(t, "g", "g")
+
+		harness.panel.MoveKeysElsewhere(true)
+		harness.send(tea.BlurMsg{})
+
+		frame := harness.readFrame()
+		assert.NotContains(t, frame, "always run the linter", "the frame is told what tmux did rather than assuming")
+		assert.Equal(t, 200, measureListRule(frame), "so the list is drawn in the whole of the pane")
+
+		harness.panel.MoveKeysElsewhere(false)
+		harness.watch(buildSnapshot(newNotedWorkflow(), newRunning()))
+
+		assert.Contains(t, harness.readFrame(), "always run the linter", "and takes the window back on the next listing")
+	})
+
+	t.Run("an unfocused terminal keeps the window", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openStaged(t, "g", "g")
+		before := harness.readFrame()
+
+		harness.send(tea.BlurMsg{})
+
+		assert.Equal(t, before, harness.readFrame(), "nothing is laid out again behind an unfocused terminal")
+	})
+
+	t.Run("a running agent's window is kept at the size of the stage", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openStaged(t, "g", "g", "j")
+
+		harness.send(tea.WindowSizeMsg{Width: 200, Height: defaultHarnessHeight})
+
+		sizes := harness.panel.ReadWindowSizes()
+		assert.Contains(t, sizes, "%9")
+		assert.NotContains(t, sizes, "", "a dormant agent has no window to size")
+	})
+
+	t.Run("a remote engine's agent windows are left alone", func(t *testing.T) {
+		t.Parallel()
+
+		harness := newPanelHarness(t, panelHarnessParams{width: 200, engine: engine.Remote{Exec: []string{"ssh", "engine"}}})
+		answerWorktreeReads(harness)
+		harness.watch(buildSnapshot(newNotedWorkflow(), newRunning()))
+		harness.press("j")
+		harness.fireTimers()
+
+		harness.send(tea.WindowSizeMsg{Width: 200, Height: defaultHarnessHeight})
+
+		assert.Empty(t, harness.panel.ReadWindowSizes(), "no window on the panel's own server is touched")
+	})
+}
+
+// TestScreensFit covers every list screen fitting its chrome and its hovered row into the pane.
+func TestScreensFit(t *testing.T) {
+	for _, tt := range listScreens[:3] {
+		t.Run(tt.name+" fits its title, hovered row and whole legend", func(t *testing.T) {
+			harness := openCrowded(t, panelHarnessParams{width: 80, height: 29})
+
+			harness.press(slices.Concat(tt.press, widenListPresses, []string{"G", "?"})...)
+
+			frame := harness.readFrame()
+			assert.LessOrEqual(t, len(splitLines(frame)), 29)
+			assert.Contains(t, frame, tt.title)
+			assert.Contains(t, frame, "hide help")
+			assert.Contains(t, readHoveredLine(frame), "agent39", "the hovered row is on screen")
+		})
+	}
+
+	prompts := []struct {
+		name  string
+		press []string
+		want  string
 	}{
 		{
-			name:    "agents",
-			screen:  screenAgents,
-			details: true,
-			filter:  true,
-			tabs:    true,
-			column:  true,
-			stage:   true,
+			name:  "a search on the agents tree",
+			press: []string{"/", "d", "b", "enter"},
+			want:  " / db",
 		},
 		{
-			name:    "schedules",
-			screen:  screenSchedules,
-			details: true,
-			filter:  true,
-			column:  true,
+			name:  "a filter on the agents tree",
+			press: []string{"/", "tab", "d", "b", "enter"},
+			want:  " ▽ db",
 		},
 		{
-			name:    "archive",
-			screen:  screenArchive,
-			details: true,
-			filter:  true,
-			tabs:    true,
-			column:  true,
-			stage:   true,
+			name:  "a search on the worktrees",
+			press: []string{"t", "/", "d", "b", "enter"},
+			want:  " / db",
 		},
 		{
-			name:   "search",
-			screen: screenSearch,
-			column: true,
-		},
-		{
-			name:    "review",
-			screen:  screenReview,
-			details: true,
-			column:  true,
-		},
-		{
-			name:    "worktrees",
-			screen:  screenWorktrees,
-			details: true,
-			filter:  true,
-			tabs:    true,
-			column:  true,
-			stage:   true,
+			name:  "the transcript search",
+			press: []string{"s", "d", "b"},
+			want:  " / db",
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var m model
+	for _, tt := range prompts {
+		t.Run(tt.name+" sets its prompt under the title", func(t *testing.T) {
+			harness := openCrowded(t, panelHarnessParams{width: 80, height: 29})
 
-			screen := m.screenOf(tt.screen)
+			harness.press(tt.press...)
 
-			_, details := screen.(detailed)
-			_, filter := screen.(filtered)
-			_, tabs := screen.(tabbed)
-			_, column := screen.(columned)
-			_, stage := screen.(staged)
+			assert.True(t, strings.HasPrefix(splitLines(harness.readFrame())[2], tt.want))
+		})
+	}
 
-			assert.Equal(t, tt.details, details, "details")
-			assert.Equal(t, tt.filter, filter, "filter")
-			assert.Equal(t, tt.tabs, tabs, "tabs")
-			assert.Equal(t, tt.column, column, "column")
-			assert.Equal(t, tt.stage, stage, "stage")
+	records := []struct {
+		name  string
+		press []string
+		fills int
+	}{
+		{
+			name:  "the agents tree",
+			fills: 12,
+		},
+		{
+			name:  "the archive",
+			press: []string{"Z"},
+			fills: 12,
+		},
+		{
+			name:  "the schedules",
+			press: []string{"S"},
+			fills: 10,
+		},
+	}
+
+	for _, tt := range records {
+		t.Run(tt.name+" gives the record's rows up to the list", func(t *testing.T) {
+			harness := openCrowded(t, panelHarnessParams{width: 80, height: 40})
+			harness.press(append(tt.press, "G")...)
+
+			resize(harness, 80, tt.fills)
+			frame := harness.readFrame()
+			assert.False(t, isRecordDrawn(frame), "the record gives up its rows")
+			assert.Contains(t, readHoveredLine(frame), "agent39", "to the row the cursor stands on")
+
+			resize(harness, 80, tt.fills+1)
+			frame = harness.readFrame()
+			assert.True(t, isRecordDrawn(frame), "the record is drawn once the list keeps a row beside it")
+			assert.Contains(t, readHoveredLine(frame), "agent39")
 		})
 	}
 }
 
-// TestSharedIsTheRootAsAScreenSeesIt covers the value a screen is handed carrying what the root
-// holds.
-func TestSharedIsTheRootAsAScreenSeesIt(t *testing.T) {
-	m := crowdedModel(t)
-	m.helpExpanded = true
-	m.filter.typing = true
-	m.details.focused = true
-	m.messages.focused = true
-	m.form.kind = formScheduleArchive
+// TestScreensFitATightPane covers a list screen in a pane only just tall enough for its chrome.
+func TestScreensFitATightPane(t *testing.T) {
+	t.Parallel()
 
-	shared := m.shared()
+	const fitsFrom, tall = 5, 40
 
-	assert.Equal(t, m.listing, shared.listing)
-	assert.Equal(t, m.keys, shared.keys)
-	assert.Equal(t, m.width, shared.width)
-	assert.Equal(t, m.height, shared.height)
-	assert.Equal(t, m.paneWidth(), shared.pane)
-	assert.Equal(t, chromeState{
-		details:      m.details,
-		filter:       m.filter,
-		messages:     m.messages,
-		form:         m.form,
-		helpExpanded: m.helpExpanded,
-	}, shared.chrome)
-}
+	states := []struct {
+		name  string
+		width int
+		press []string
+	}{
+		{
+			name:  "plain",
+			width: 80,
+		},
+		{
+			name:  "with the help expanded",
+			width: 80,
+			press: []string{"?"},
+		},
+		{
+			name:  "with a message in the stack",
+			width: 80,
+			press: []string{"enter"},
+		},
+		{
+			name:  "with the region holding a message",
+			width: 80,
+			press: []string{"enter", "ctrl+g"},
+		},
+		{
+			name:  "with the record focused under the expanded legend",
+			width: 30,
+			press: []string{"?", "ctrl+t"},
+		},
+		{
+			name:  "with the record focused under the expanded legend at the width its own legend folds",
+			width: 35,
+			press: []string{"?", "ctrl+t"},
+		},
+		{
+			name:  "with a search standing under the expanded legend",
+			width: 30,
+			press: []string{"?", "/", "a", "enter"},
+		},
+		{
+			name:  "with a search standing under the expanded legend at the width its legend folds",
+			width: 35,
+			press: []string{"?", "/", "a", "enter"},
+		},
+		{
+			name:  "with a search being typed over the focused record",
+			width: 30,
+			press: []string{"?", "ctrl+t", "/", "a"},
+		},
+	}
 
-// TestEveryListingScreenSurvivesAListing drives a listing landing against each screen the
-// listing feeds.
-func TestEveryListingScreenSurvivesAListing(t *testing.T) {
-	for s := screenAgents; s <= screenWorktrees; s++ {
-		tmux := &recordingTmux{width: 200, height: 40}
-		m := infoModel(tmux)
-		if !m.screenOf(s).doesDrawFromListing() {
-			continue
+	for _, state := range states {
+		for _, screen := range listScreens {
+			if screen.title == "Search" && state.press != nil {
+				continue
+			}
+
+			t.Run(state.name+" on "+screen.name, func(t *testing.T) {
+				t.Parallel()
+
+				harness := openCrowded(t, panelHarnessParams{width: state.width, height: tall})
+				harness.refuse(agentv1connect.AgentServiceResumeAgentProcedure, connect.NewError(connect.CodeNotFound, fmt.Errorf("no such agent")))
+				harness.press(append(append(screen.press, "G"), state.press...)...)
+
+				for height := fitsFrom; height <= tall; height++ {
+					resize(harness, state.width, height)
+					frame := harness.readFrame()
+
+					assert.Len(t, splitLines(frame), height, "a pane %d lines tall", height)
+					if height > fitsFrom && screen.title != "Search" {
+						assert.NotEmpty(t, readHoveredLine(frame), "the hovered row is on screen in a pane %d lines tall", height)
+					}
+				}
+			})
 		}
-
-		m.width, m.height = 200, 40
-		m.frame.Attach("%0")
-		m.enterScreen(s)
-
-		m.withListing(func(*listing) {})
-
-		assert.Equal(t, s, m.screen, "screen %d left the screen it was on", s)
-		assert.NotEmpty(t, m.render(), "screen %d draws nothing after a listing", s)
 	}
 }
 
-// TestFormIsDrawnOverTheScreenItWasOpenedFrom covers the form being chrome rather than a screen
-// of its own.
-func TestFormIsDrawnOverTheScreenItWasOpenedFrom(t *testing.T) {
-	m := scheduleModel(&fakeSchedules{}, config.DefaultKeybindings())
+// TestScreensOutgrowNoPane covers every screen drawing inside the pane it was given, whatever the names in it.
+func TestScreensOutgrowNoPane(t *testing.T) {
+	t.Parallel()
 
-	m.schedules.archiveConfirm(&m, m.shared())
-	prompt := m
+	widths := []int{38, 39, 40, 41, 42, 44, 46, 50, 60, 80, 120, 200}
 
-	require.Equal(t, formScheduleArchive, prompt.form.kind)
-	assert.Equal(t, screenSchedules, prompt.screen, "the schedules are still the screen underneath")
-
-	closed, _ := prompt.closeForm()
-	got, ok := closed.(model)
-	require.True(t, ok)
-
-	assert.False(t, got.form.isActive(), "closing takes the prompt down")
-	assert.Equal(t, screenSchedules, got.screen, "and lands back where it was opened from")
-}
-
-// paneFloor is the narrowest pane this sweep asserts anything about, being a clipped name plus
-// the marks drawn around it.
-const paneFloor = 38
-
-// TestNoScreenOutgrowsThePaneItWasGiven sweeps every screen at panes tall enough to hold their
-// own chrome.
-func TestNoScreenOutgrowsThePaneItWasGiven(t *testing.T) {
-	widths := []int{paneFloor, 39, 40, 41, 42, 44, 46, 50, 60, 80, 120, 200}
-
-	for s := screenAgents; s <= screenWorktrees; s++ {
+	for _, screen := range listScreens {
 		for _, width := range widths {
 			for _, height := range []int{28, 60} {
-				name := fmt.Sprintf("%d at %dx%d", s, width, height)
-				t.Run(name, func(t *testing.T) {
-					m := longNamedModel(t)
-					m.screen = s
-					m.width, m.height = width, height
+				t.Run(fmt.Sprintf("%s at %dx%d", screen.name, width, height), func(t *testing.T) {
+					t.Parallel()
 
-					for _, expanded := range []bool{false, true} {
-						shown := m
-						shown.helpExpanded = expanded
+					harness := openLongNamed(t, panelHarnessParams{width: width, height: height})
+					harness.press(screen.press...)
 
-						drawn := drawnLines(shown.render())
-						assert.LessOrEqual(t, len(drawn), height, "taller than the pane")
-
-						for i, row := range drawn {
-							assert.LessOrEqual(t, lipgloss.Width(row), width,
-								"row %d is wider than the pane: %q", i, row)
+					for range 2 {
+						frame := harness.readFrame()
+						assert.LessOrEqual(t, len(splitLines(frame)), height, "taller than the pane")
+						for i, line := range splitLines(frame) {
+							assert.LessOrEqual(t, ansi.StringWidth(line), width, "row %d is wider than the pane: %q", i, line)
 						}
+
+						harness.press("?")
 					}
 				})
 			}
@@ -215,117 +376,151 @@ func TestNoScreenOutgrowsThePaneItWasGiven(t *testing.T) {
 	}
 }
 
-// TestALongNameIsCutWithAnEllipsis covers the names drawn beside a mark, where a cut made further
-// down takes the mark with it and says nothing.
-func TestALongNameIsCutWithAnEllipsis(t *testing.T) {
+// TestScreensCutLongNames covers a name too long for its row being cut with an ellipsis that leaves what is beside it.
+func TestScreensCutLongNames(t *testing.T) {
 	long := strings.Repeat("x", 120)
 
-	t.Run("a workflow in the tree", func(t *testing.T) {
-		m := crowdedModel(t)
-		m.width, m.height = 80, 40
-		m.listing.workflows[0].Name = long
-		m.agents.showHidden = false
-		m.listing.agents[0].Agent.Hidden = true
+	t.Run("a workflow in the tree keeps its hidden tally", func(t *testing.T) {
+		harness := newPanelHarness(t, panelHarnessParams{width: 80})
+		answerWorktreeReads(harness)
+		harness.watch(buildSnapshot(newLiveWorkflow("w1", long), newHiddenAgent("a1", "sweep")))
 
-		header := rowWith(t, m.agentsListView(), long[:10])
-		assert.Contains(t, header, "…", "the name says it was cut")
-		assert.Contains(t, header, "+1", "the tally beside it is still drawn")
+		row := findRowWith(t, harness.readFrame(), long[:10])
+		assert.Contains(t, row, "…", "the name says it was cut")
+		assert.Contains(t, row, "+1", "the tally beside it is still drawn")
 	})
 
 	t.Run("a workflow in the archive", func(t *testing.T) {
-		m := crowdedModel(t)
-		m.width, m.height = 80, 40
-		m.listing.archivedWorkflows = []panel.Workflow{{ID: "w1", Name: long}}
+		harness := openArchive(t, newArchivedWorkflow("w1", long))
 
-		assert.Contains(t, rowWith(t, m.screenListView(m.archive.listParams(m.shared())), long[:10]), "…", "the name says it was cut")
-	})
-
-	t.Run("a schedule", func(t *testing.T) {
-		m := crowdedModel(t)
-		m.width, m.height = 80, 40
-		m.listing.schedules[0].schedule.Name = long
-		m.listing.schedules[0].schedule.Cron = "0 9 * * 1"
-
-		row := rowWith(t, m.schedules.view(m.shared()), long[:10])
-		assert.Contains(t, row, "…", "the name says it was cut")
-		assert.Contains(t, row, "0 9 * * 1", "the cron beside it is still drawn")
+		assert.Contains(t, findRowWith(t, harness.readFrame(), long[:10]), "…")
 	})
 }
 
-// rowWith is the drawn row carrying a piece of text, failing the test when no row does.
-func rowWith(t *testing.T, view, want string) string {
+// TestScreensSurviveAListing covers a listing landing on each screen the listing feeds.
+func TestScreensSurviveAListing(t *testing.T) {
+	for _, screen := range listScreens {
+		t.Run(screen.name, func(t *testing.T) {
+			harness := openCrowded(t, panelHarnessParams{width: 200})
+			harness.press(screen.press...)
+
+			harness.watch(buildCrowdedSnapshot(""))
+
+			assert.Contains(t, splitLines(harness.readFrame())[0], screen.title, "the screen stays where it was")
+		})
+	}
+}
+
+func openStaged(t *testing.T, press ...string) *panelHarness {
 	t.Helper()
 
-	for _, row := range drawnLines(view) {
-		if strings.Contains(row, want) {
-			return row
+	harness := newPanelHarness(t, panelHarnessParams{width: 200})
+	answerWorktreeReads(harness)
+	harness.watch(buildSnapshot(newNotedWorkflow(), newRunning()))
+	harness.press(press...)
+	harness.fireTimers()
+
+	return harness
+}
+
+func openCrowded(t *testing.T, params panelHarnessParams) *panelHarness {
+	t.Helper()
+
+	harness := newPanelHarness(t, params)
+	answerWorktreeReads(harness)
+	harness.watch(buildCrowdedSnapshot(""))
+
+	return harness
+}
+
+func openLongNamed(t *testing.T, params panelHarnessParams) *panelHarness {
+	t.Helper()
+
+	harness := newPanelHarness(t, params)
+	answerWorktreeReads(harness)
+	harness.watch(buildCrowdedSnapshot(strings.Repeat("x", 120)))
+
+	return harness
+}
+
+func buildCrowdedSnapshot(long string) *watchv1.WatchEvent {
+	workflow := "everything"
+	if long != "" {
+		workflow = long
+	}
+
+	rows := []proto.Message{newLiveWorkflow("w1", workflow)}
+	for i := range crowdedCount {
+		name := fmt.Sprintf("agent%02d", i)
+		if i == crowdedCount-1 {
+			name = "agent39"
+		}
+		if long != "" && i == 0 {
+			name = long
+		}
+
+		agent := newAgent("a"+name, name, "w1")
+		agent.CreatedAt = fmt.Sprintf("2026-09-20T12:%02d:00Z", crowdedCount-i)
+		archived := newArchivedAgent("r"+name, name, "w1")
+		archived.ArchivedAt = proto.String(fmt.Sprintf("2026-07-30T09:%02d:00Z", crowdedCount-i))
+		schedule := newNamedSchedule("s"+name, name)
+		schedule.Cron = ""
+		worktree := &worktreev1.WatchedWorktree{
+			Dir:      "/trees/" + name,
+			RepoDir:  "/home/h/weave",
+			Branch:   "agent/" + name,
+			Readable: true,
+		}
+
+		rows = append(rows, agent, archived, schedule, worktree)
+	}
+
+	return buildSnapshot(rows...)
+}
+
+func newNotedWorkflow() *workflowv1.Workflow {
+	return &workflowv1.Workflow{
+		Id:      "w1",
+		Name:    "backend",
+		Context: "always run the linter",
+	}
+}
+
+func resize(harness *panelHarness, width, height int) {
+	harness.panel.SetPaneSize(width, height)
+	harness.send(tea.WindowSizeMsg{Width: width, Height: height})
+}
+
+func measureListRule(frame string) int {
+	for _, line := range splitLines(frame) {
+		if strings.HasPrefix(line, "─") {
+			return ansi.StringWidth(line) - ansi.StringWidth(strings.TrimLeft(line, "─"))
 		}
 	}
 
-	t.Fatalf("no row carries %q", want)
+	return 0
+}
+
+func readHoveredLine(frame string) string {
+	for _, line := range readSidebar(frame) {
+		if strings.HasPrefix(line, "›") {
+			return line
+		}
+	}
 
 	return ""
 }
 
-// longNamedModel is the crowded panel with a name on every listing longer than any pane.
-func longNamedModel(t *testing.T) model {
+func findRowWith(t *testing.T, frame, want string) string {
 	t.Helper()
 
-	long := strings.Repeat("x", 120)
-
-	m := crowdedModel(t)
-	m.listing.workflows[0].Name = long
-	m.listing.archivedWorkflows = m.listing.workflows
-	m.listing.schedules[0].schedule.Name = long
-	m.listing.agents = append([]panel.AgentRow{{
-		Agent: panel.Agent{
-			ID:         "zz",
-			Name:       long,
-			WorkflowID: "w1",
-		},
-	}}, m.listing.agents...)
-
-	return m
-}
-
-// crowdedModel is a panel with more on every screen than any pane can hold, which is the shape
-// that finds a view drawing past what it was given.
-func crowdedModel(t *testing.T) model {
-	t.Helper()
-
-	m := model{
-		keys:   config.DefaultKeybindings(),
-		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
-		width:  80,
-		height: 24,
-		listing: listing{
-			workflows: []panel.Workflow{{ID: "w1", Name: "a workflow with a long enough name"}},
-		},
+	for _, line := range readSidebar(frame) {
+		if strings.Contains(line, want) {
+			return line
+		}
 	}
 
-	for i := range 40 {
-		name := fmt.Sprintf("an-agent-with-a-long-name-%d", i)
-		m.listing.agents = append(m.listing.agents, panel.AgentRow{
-			Agent: panel.Agent{
-				ID:         fmt.Sprintf("a%d", i),
-				Name:       name,
-				WorkflowID: "w1",
-			},
-		})
-		m.listing.archivedAgents = append(m.listing.archivedAgents, panel.AgentRow{Agent: panel.Agent{
-			ID:         fmt.Sprintf("r%d", i),
-			Name:       name,
-			WorkflowID: "w1",
-		}})
-		m.listing.schedules = append(m.listing.schedules, scheduleItem{
-			schedule: panel.Schedule{ID: fmt.Sprintf("s%d", i), Name: name},
-		})
-		m.search.turns = append(m.search.turns, searchHit{
-			agentID: fmt.Sprintf("a%d", i),
-			name:    name,
-			snippet: strings.Repeat("a snippet long enough to want clipping ", 2),
-		})
-	}
+	require.Failf(t, "no row carries the text", "%q", want)
 
-	return m
+	return ""
 }

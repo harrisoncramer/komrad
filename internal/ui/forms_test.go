@@ -427,6 +427,8 @@ func TestFormsWorkflowHooks(t *testing.T) {
 
 // TestFormsLayout covers a form being drawn in a column beside the list it was opened over.
 func TestFormsLayout(t *testing.T) {
+	t.Parallel()
+
 	opens := []struct {
 		name  string
 		press []string
@@ -451,6 +453,8 @@ func TestFormsLayout(t *testing.T) {
 
 	for _, tt := range opens {
 		t.Run(tt.name+" takes the window beside the list", func(t *testing.T) {
+			t.Parallel()
+
 			harness := openForms(t, newFormWorkflow(), newLiveAuthor())
 			harness.press("j")
 			harness.fireTimers()
@@ -466,6 +470,8 @@ func TestFormsLayout(t *testing.T) {
 	}
 
 	t.Run("closing the form hands the window back", func(t *testing.T) {
+		t.Parallel()
+
 		harness := openForms(t, newFormWorkflow(), newLiveAuthor())
 		harness.press("j")
 		harness.fireTimers()
@@ -476,6 +482,8 @@ func TestFormsLayout(t *testing.T) {
 	})
 
 	t.Run("a window too narrow for both halves draws the form whole", func(t *testing.T) {
+		t.Parallel()
+
 		harness := newPanelHarness(t, panelHarnessParams{width: 60})
 		answerWorktreeReads(harness)
 		harness.watch(buildSnapshot(newFormWorkflow(), newAgent("a1", "author", "w1")))
@@ -489,6 +497,8 @@ func TestFormsLayout(t *testing.T) {
 
 	for _, height := range []int{16, 24, 32, 60} {
 		t.Run(fmt.Sprintf("a form in a window %d rows tall opens at its top and stays inside", height), func(t *testing.T) {
+			t.Parallel()
+
 			harness := newPanelHarness(t, panelHarnessParams{width: 160, height: height})
 			answerWorktreeReads(harness)
 			harness.watch(buildSnapshot(newFormWorkflow()))
@@ -503,6 +513,8 @@ func TestFormsLayout(t *testing.T) {
 
 	for _, height := range []int{24, 32, 40} {
 		t.Run(fmt.Sprintf("a refused form in a window %d rows tall stays inside", height), func(t *testing.T) {
+			t.Parallel()
+
 			harness := newPanelHarness(t, panelHarnessParams{width: 160, height: height})
 			answerWorktreeReads(harness)
 			harness.watch(buildSnapshot(newFormWorkflow()))
@@ -517,6 +529,8 @@ func TestFormsLayout(t *testing.T) {
 	}
 
 	t.Run("a refusal is read in full from inside the form", func(t *testing.T) {
+		t.Parallel()
+
 		harness := newPanelHarness(t, panelHarnessParams{width: 160})
 		answerWorktreeReads(harness)
 		harness.watch(buildSnapshot(newFormWorkflow()))

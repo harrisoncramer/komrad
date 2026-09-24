@@ -15,7 +15,11 @@ import (
 
 // TestListingLandsWrites covers the cursor going to the row a write made once the watch carries it.
 func TestListingLandsWrites(t *testing.T) {
+	t.Parallel()
+
 	t.Run("a created agent is waited for and then landed on", func(t *testing.T) {
+		t.Parallel()
+
 		harness := openLanding(t)
 		answerAgentCreate(harness, "")
 
@@ -28,6 +32,8 @@ func TestListingLandsWrites(t *testing.T) {
 	})
 
 	t.Run("a created workflow is landed on once its header arrives", func(t *testing.T) {
+		t.Parallel()
+
 		harness := openLanding(t)
 		answerWorkflowCreate(harness, "w2")
 
@@ -38,6 +44,8 @@ func TestListingLandsWrites(t *testing.T) {
 	})
 
 	t.Run("a row the watch delivered before the write answered is landed on at once", func(t *testing.T) {
+		t.Parallel()
+
 		harness := openLanding(t)
 		answerAgentCreate(harness, "")
 		harness.watch(buildPuts(newAgent("a2", "new", "w1")))
@@ -49,6 +57,8 @@ func TestListingLandsWrites(t *testing.T) {
 	})
 
 	t.Run("a refused create lands nowhere", func(t *testing.T) {
+		t.Parallel()
+
 		harness := openLanding(t)
 		harness.refuse(agentv1connect.AgentServiceCreateAgentProcedure, connect.NewError(connect.CodeInvalidArgument, errors.New("not allowed")))
 
@@ -59,6 +69,8 @@ func TestListingLandsWrites(t *testing.T) {
 	})
 
 	t.Run("a key pressed while the landing waits takes the cursor back", func(t *testing.T) {
+		t.Parallel()
+
 		harness := openLanding(t)
 		answerAgentCreate(harness, "")
 
@@ -69,6 +81,8 @@ func TestListingLandsWrites(t *testing.T) {
 	})
 
 	t.Run("a row the filter hides leaves the cursor on a row it can see", func(t *testing.T) {
+		t.Parallel()
+
 		harness := openLanding(t)
 		answerAgentCreate(harness, "")
 
@@ -80,6 +94,8 @@ func TestListingLandsWrites(t *testing.T) {
 	})
 
 	t.Run("a batch for another row keeps the pane the write showed", func(t *testing.T) {
+		t.Parallel()
+
 		old := newAgent("a1", "old", "w1")
 		old.PaneId = "%1"
 		old.Alive = proto.Bool(true)
@@ -106,6 +122,8 @@ func TestListingLandsWrites(t *testing.T) {
 	})
 
 	t.Run("a write with nothing to do with an open log pane leaves it up", func(t *testing.T) {
+		t.Parallel()
+
 		harness := openLanding(t)
 		harness.refuse(agentv1connect.AgentServiceUpdateAgentProcedure, connect.NewError(connect.CodeAlreadyExists, errors.New("name is taken")))
 		harness.press("l")
@@ -118,6 +136,8 @@ func TestListingLandsWrites(t *testing.T) {
 	})
 
 	t.Run("the archive cursor keeps its agent when a folder above it goes", func(t *testing.T) {
+		t.Parallel()
+
 		harness := openArchive(t,
 			newLiveWorkflow("w1", "api"),
 			newLiveWorkflow("w2", "infra"),
@@ -140,7 +160,11 @@ func TestListingLandsWrites(t *testing.T) {
 
 // TestListingFocus covers which writes and keys hand the keyboard to the pane they show.
 func TestListingFocus(t *testing.T) {
+	t.Parallel()
+
 	t.Run("the open key over a staged agent hands it the keys", func(t *testing.T) {
+		t.Parallel()
+
 		harness := openAgents(t, newLiveWorkflow("w1", "api"), newRunning())
 		harness.press("j")
 		harness.fireTimers()
@@ -151,6 +175,8 @@ func TestListingFocus(t *testing.T) {
 	})
 
 	t.Run("the open key over an agent the stage could not show leaves the keys", func(t *testing.T) {
+		t.Parallel()
+
 		harness := newPanelHarness(t, panelHarnessParams{refuseSplits: true})
 		answerWorktreeReads(harness)
 		harness.watch(buildSnapshot(newLiveWorkflow("w1", "api"), newRunning()))
@@ -163,6 +189,8 @@ func TestListingFocus(t *testing.T) {
 	})
 
 	t.Run("a resume hands the keys to the pane it puts back", func(t *testing.T) {
+		t.Parallel()
+
 		harness := openAgents(t, newLiveWorkflow("w1", "api"), newDormant("old"))
 		answerResume(harness)
 
@@ -173,6 +201,8 @@ func TestListingFocus(t *testing.T) {
 	})
 
 	t.Run("a create stages its pane and leaves the keys on the panel", func(t *testing.T) {
+		t.Parallel()
+
 		harness := openLanding(t)
 		answerAgentCreate(harness, "%9")
 
@@ -183,6 +213,8 @@ func TestListingFocus(t *testing.T) {
 	})
 
 	t.Run("a resume waits for the harness to draw before handing over the keys", func(t *testing.T) {
+		t.Parallel()
+
 		frames := &drawnFrames{}
 		harness := newPanelHarness(t, panelHarnessParams{harnessFrames: frames})
 		answerWorktreeReads(harness)
@@ -200,6 +232,8 @@ func TestListingFocus(t *testing.T) {
 	})
 
 	t.Run("a resume tmux will not split for leaves the keys on the panel", func(t *testing.T) {
+		t.Parallel()
+
 		harness := newPanelHarness(t, panelHarnessParams{refuseSplits: true})
 		answerWorktreeReads(harness)
 		harness.watch(buildSnapshot(newLiveWorkflow("w1", "api"), newDormant("old")))
@@ -212,6 +246,8 @@ func TestListingFocus(t *testing.T) {
 	})
 
 	t.Run("a resume tmux will not split for once the harness draws leaves the keys too", func(t *testing.T) {
+		t.Parallel()
+
 		frames := &drawnFrames{}
 		harness := newPanelHarness(t, panelHarnessParams{harnessFrames: frames, refuseSplits: true})
 		answerWorktreeReads(harness)

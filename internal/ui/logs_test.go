@@ -17,7 +17,11 @@ import (
 
 // TestLogs covers the log keys paging an agent's logs into the pane under the stage.
 func TestLogs(t *testing.T) {
+	t.Parallel()
+
 	t.Run("the logs key walks the run log, the agent log, and closed", func(t *testing.T) {
+		t.Parallel()
+
 		harness, runs := openLogs(t)
 		newest := writeRun(t, runs, 1, config.TriggerProvision)
 		harness.fireTimers()
@@ -40,6 +44,8 @@ func TestLogs(t *testing.T) {
 	})
 
 	t.Run("the older-run key steps back through the runs and wraps", func(t *testing.T) {
+		t.Parallel()
+
 		harness, runs := openLogs(t)
 		first := writeRun(t, runs, 1, config.TriggerProvision)
 		second := writeRun(t, runs, 2, config.TriggerResume)
@@ -50,6 +56,8 @@ func TestLogs(t *testing.T) {
 	})
 
 	t.Run("the older-run key has nowhere to step with one run and opens nothing alone", func(t *testing.T) {
+		t.Parallel()
+
 		harness, runs := openLogs(t)
 		writeRun(t, runs, 1, config.TriggerProvision)
 
@@ -61,6 +69,8 @@ func TestLogs(t *testing.T) {
 	})
 
 	t.Run("the older-run key names which run is on screen", func(t *testing.T) {
+		t.Parallel()
+
 		tests := []struct {
 			name  string
 			runs  int
@@ -87,6 +97,8 @@ func TestLogs(t *testing.T) {
 
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
+				t.Parallel()
+
 				harness, runs := openLogs(t)
 				for number := 1; number <= tt.runs; number++ {
 					writeRun(t, runs, number, config.TriggerProvision)
@@ -100,6 +112,8 @@ func TestLogs(t *testing.T) {
 	})
 
 	t.Run("the run log opens on the run that failed rather than a newer one", func(t *testing.T) {
+		t.Parallel()
+
 		failed := newRunning()
 		failed.FailedRun = true
 		failed.FailedRunLog = proto.Int32(1)
@@ -116,6 +130,8 @@ func TestLogs(t *testing.T) {
 	})
 
 	t.Run("the keys open nothing with no agent under the cursor", func(t *testing.T) {
+		t.Parallel()
+
 		harness, _ := openLogs(t)
 
 		harness.press("k", "l")
@@ -124,6 +140,8 @@ func TestLogs(t *testing.T) {
 	})
 
 	t.Run("the agent log follows the cursor onto the next agent", func(t *testing.T) {
+		t.Parallel()
+
 		second := newAgent("a2", "zeta", "w1")
 		second.PaneId = "%8"
 		second.Alive = proto.Bool(true)
@@ -139,6 +157,8 @@ func TestLogs(t *testing.T) {
 	})
 
 	t.Run("the key is typed into an open search", func(t *testing.T) {
+		t.Parallel()
+
 		harness, _ := openLogs(t)
 
 		harness.press("s", "l")
@@ -148,6 +168,8 @@ func TestLogs(t *testing.T) {
 	})
 
 	t.Run("the archive answers none of the pane keys", func(t *testing.T) {
+		t.Parallel()
+
 		harness, runs := openLogs(t)
 		writeRun(t, runs, 1, config.TriggerDeprovision)
 
@@ -172,6 +194,8 @@ func TestLogs(t *testing.T) {
 
 	for _, tt := range screens {
 		t.Run("entering "+tt.name+" closes the log pane", func(t *testing.T) {
+			t.Parallel()
+
 			harness, _ := openLogs(t)
 			harness.press("l", "l")
 			require.Empty(t, harness.panel.ReadKilledPanes())

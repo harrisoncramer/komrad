@@ -163,3 +163,37 @@ func (p *Panel) ReadRespawns() []string {
 func (p *Panel) ReadKilledPanes() []string {
 	return p.tmux.killed
 }
+
+// SetPaneWidth makes tmux report a pane at the given width.
+func (p *Panel) SetPaneWidth(pane string, width int) {
+	if p.tmux.paneWidths == nil {
+		p.tmux.paneWidths = map[string]int{}
+	}
+
+	p.tmux.paneWidths[pane] = width
+}
+
+// SetWindowWidth makes tmux report the window at the given width.
+func (p *Panel) SetWindowWidth(width int) {
+	p.tmux.windowWidth = width
+}
+
+// MoveKeysElsewhere makes tmux report the keyboard in a pane other than the panel's.
+func (p *Panel) MoveKeysElsewhere(elsewhere bool) {
+	p.tmux.keysElsewhere = elsewhere
+}
+
+// ReadResizes is every pane resize the panel has asked tmux for.
+func (p *Panel) ReadResizes() []string {
+	return p.tmux.resizes
+}
+
+// ReadWindowSizes is the size the panel last gave each agent's window.
+func (p *Panel) ReadWindowSizes() map[string]string {
+	return p.tmux.windowSizes
+}
+
+// SetPaneSize makes tmux report every pane and the window at the given size.
+func (p *Panel) SetPaneSize(width, height int) {
+	p.tmux.width, p.tmux.height, p.tmux.windowWidth = width, height, width
+}
