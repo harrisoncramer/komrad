@@ -246,6 +246,19 @@ func TestRemoveUnownedWorktrees(t *testing.T) {
 	assert.Contains(t, resp.Msg.GetRefused()[0].GetReason(), "delete the agent instead")
 }
 
+// TestDeleteWorktrees covers the directories reaching the queue and nothing being removed on the call.
+func TestDeleteWorktrees(t *testing.T) {
+	t.Parallel()
+
+	fake := &fakeWorktrees{}
+
+	_, err := newService(fake).DeleteWorktrees(t.Context(), connect.NewRequest(&worktreev1.DeleteWorktreesRequest{Dirs: []string{"/trees/gone", "/trees/aaaa"}}))
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{"/trees/gone", "/trees/aaaa"}, fake.queued)
+	assert.Empty(t, fake.removed)
+}
+
 // TestHandlerAnswersWithTheDomainsKind covers each procedure answering with the code of what the domain said.
 func TestHandlerAnswersWithTheDomainsKind(t *testing.T) {
 	t.Parallel()
@@ -309,15 +322,6 @@ func TestHandlerAnswersWithTheDomainsKind(t *testing.T) {
 			},
 			wantCode: connect.CodeInternal,
 		},
-		{
-			name: "a delete the queue takes",
-			fake: &fakeWorktrees{},
-			call: func(ctx context.Context, service worktreev1weave.WorktreeServiceAdapter) error {
-				_, err := service.DeleteWorktrees(ctx, connect.NewRequest(&worktreev1.DeleteWorktreesRequest{Dirs: []string{"/trees/gone"}}))
-
-				return err
-			},
-		},
 	}
 
 	for _, tt := range tests {
@@ -326,11 +330,6 @@ func TestHandlerAnswersWithTheDomainsKind(t *testing.T) {
 
 			err := tt.call(t.Context(), newService(tt.fake))
 
-			if tt.wantCode == 0 {
-				require.NoError(t, err)
-
-				return
-			}
 			assert.Equal(t, tt.wantCode, connect.CodeOf(err))
 		})
 	}

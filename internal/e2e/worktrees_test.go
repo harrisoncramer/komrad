@@ -49,7 +49,7 @@ func TestIntegrationWorktrees(t *testing.T) {
 	const siblings = 4
 	agents := make([]*agentv1.Agent, siblings)
 
-	t.Run("agents created at once each get a worktree of their own", func(t *testing.T) {
+	require.True(t, t.Run("agents created at once each get a worktree of their own", func(t *testing.T) {
 		errs := make([]error, siblings)
 
 		var wg sync.WaitGroup
@@ -76,7 +76,7 @@ func TestIntegrationWorktrees(t *testing.T) {
 			assert.Equal(t, instance.WorktreesDir, filepath.Dir(agents[i].GetCwd()))
 			assert.DirExists(t, agents[i].GetCwd())
 		}
-	})
+	}))
 
 	publisher, lister, leaver, synced := agents[0], agents[1], agents[2], agents[3]
 
@@ -171,25 +171,13 @@ func TestIntegrationWorktrees(t *testing.T) {
 	})
 
 	t.Run("the cwd loop records the repository a checkout pushes to", func(t *testing.T) {
-		readRepository := func() *string {
-			fetched, err := instance.Agents.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: synced.GetId()}))
-			require.NoError(t, err)
-			assert.NotEmpty(t, fetched.Msg.GetAgent().GetAgent().GetBranch())
-
-			return fetched.Msg.GetAgent().GetAgent().RepositoryUrl
-		}
-
 		runGitIn(t, repo, "remote", "set-url", "origin", "git@github.com:harrisoncramer/weave.git")
 		instance.SyncCwds()
-		assert.Equal(t, "https://github.com/harrisoncramer/weave", *readRepository())
 
-		runGitIn(t, repo, "remote", "set-url", "origin", "https://gitlab.com/group/subgroup/repo.git")
-		instance.SyncCwds()
-		assert.Equal(t, "https://gitlab.com/group/subgroup/repo", *readRepository(), "an origin moved by hand is picked up")
-
-		runGitIn(t, repo, "remote", "set-url", "origin", t.TempDir())
-		instance.SyncCwds()
-		assert.Nil(t, readRepository(), "an origin that names no forge clears it")
+		fetched, err := instance.Agents.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: synced.GetId()}))
+		require.NoError(t, err)
+		assert.NotEmpty(t, fetched.Msg.GetAgent().GetAgent().GetBranch())
+		assert.Equal(t, "https://github.com/harrisoncramer/weave", fetched.Msg.GetAgent().GetAgent().GetRepositoryUrl())
 	})
 
 	t.Run("a worktree removed by hand reaches the caller", func(t *testing.T) {

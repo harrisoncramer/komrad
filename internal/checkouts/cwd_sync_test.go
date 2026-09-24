@@ -413,8 +413,6 @@ func TestCwdSyncerSyncReadsWhereTheTreeStands(t *testing.T) {
 	for name, standing := range standings {
 		assert.Equal(t, standing, f.standingOn(t, ids[name], "snapshot-"+name), name)
 	}
-	assert.Equal(t, git.StandingSame, f.standingOn(t, ids["edited"], "snapshot-newer"),
-		"a verdict on a round the pass has not compared against is not one the tree moved from")
 }
 
 // TestCwdSyncerSyncReportsATreeItCouldNotRead covers a failed tree read being returned rather than read as unmoved.

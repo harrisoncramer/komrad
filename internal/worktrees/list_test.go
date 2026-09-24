@@ -122,8 +122,9 @@ func TestListWalksEachWorkflowsOwnDirectory(t *testing.T) {
 	own := filepath.Join(t.TempDir(), "own")
 	require.NoError(t, os.MkdirAll(filepath.Join(own, "eeee"), 0o755))
 	for name, dir := range map[string]string{
-		"own":     own,
-		"missing": filepath.Join(t.TempDir(), "missing"),
+		"own":         own,
+		"own-spelled": own + string(filepath.Separator),
+		"missing":     filepath.Join(t.TempDir(), "missing"),
 	} {
 		f.stores.SeedWorkflow(t, workflowstore.Config{Name: name, Worktree: workflowstore.WorktreeConfig{Dir: dir}})
 	}
