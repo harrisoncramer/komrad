@@ -67,15 +67,14 @@ func repo(t *testing.T) string {
 	return root
 }
 
-// clonePair is an origin and a clone of it.
-func clonePair(t *testing.T) (origin, clone string) {
+// clonedRepo is a clone of a repository, so it has an origin.
+func clonedRepo(t *testing.T) string {
 	t.Helper()
 
-	origin = repo(t)
-	clone = filepath.Join(t.TempDir(), "clone")
-	run(t, filepath.Dir(clone), "clone", "--quiet", origin, clone)
+	clone := filepath.Join(t.TempDir(), "clone")
+	run(t, filepath.Dir(clone), "clone", "--quiet", repo(t), clone)
 
-	return origin, clone
+	return clone
 }
 
 // TestIntegrationGetCurrentBranch covers what the panel reads off an agent's directory, where anything git
@@ -194,7 +193,7 @@ func TestIntegrationReadFilesRefusesADirectoryGitDoesNotHave(t *testing.T) {
 func TestIntegrationDefaultBaseReadsTheCloneOnce(t *testing.T) {
 	t.Parallel()
 
-	_, clone := clonePair(t)
+	clone := clonedRepo(t)
 	run(t, clone, "checkout", "--quiet", "-b", "wip")
 	assert.Equal(t, "main", DefaultBase(t.Context(), clone), "origin/HEAD wins over the branch checked out")
 

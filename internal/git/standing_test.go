@@ -128,7 +128,7 @@ func TestIntegrationPruneWorktreesDropsAGoneRegistration(t *testing.T) {
 func TestIntegrationResolveBaseReadsTheCloneAsItStands(t *testing.T) {
 	t.Parallel()
 
-	_, clone := clonePair(t)
+	clone := clonedRepo(t)
 	run(t, clone, "symbolic-ref", "-d", "refs/remotes/origin/HEAD")
 
 	ref, err := client.ResolveBase(t.Context(), clone, "main")
