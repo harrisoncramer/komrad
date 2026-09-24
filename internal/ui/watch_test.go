@@ -29,9 +29,10 @@ func watchedPanel() model {
 			workflows: emptyLists{},
 			schedules: emptyLists{},
 		},
-		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
-		keys:   config.DefaultKeybindings(),
-		screen: screenAgents,
+		frame:    layout.New(&recordingTmux{}, config.DefaultLayout()),
+		keys:     config.DefaultKeybindings(),
+		screen:   screenAgents,
+		reactors: newWorldReactors(),
 	}
 }
 

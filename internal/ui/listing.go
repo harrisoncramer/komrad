@@ -544,17 +544,18 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 // landOn puts the row a write made into the world where the watch has not delivered it yet,
 // and the cursor on it.
 func (m *model) landOn(row written) tea.Cmd {
-	var arrived []string
+	var puts []*watchv1.Row
 	if row.workflow != nil && m.listing.world.Workflows[row.workflow.GetId()] == nil {
-		m.listing.world.Put(&watchv1.Row{Row: &watchv1.Row_Workflow{Workflow: row.workflow}})
+		puts = append(puts, &watchv1.Row{Row: &watchv1.Row_Workflow{Workflow: row.workflow}})
 	}
 	if row.agent != nil && m.listing.world.Agents[row.agent.GetId()] == nil {
-		arrived = m.listing.world.Put(&watchv1.Row{Row: &watchv1.Row_Agent{Agent: row.agent}})
+		puts = append(puts, &watchv1.Row{Row: &watchv1.Row_Agent{Agent: row.agent}})
 	}
+	changed := m.listing.world.Apply(&watchv1.WatchEvent{Event: &watchv1.WatchEvent_Changes{Changes: &watchv1.Changes{Puts: puts}}})
 
 	m.listing.assemble(time.Now())
 	m.sizeAgentWindows()
 	m.agents.apply(m.shared(), row.row)
 
-	return m.listArrivedPullRequestsCmd(arrived)
+	return m.react(changed)
 }

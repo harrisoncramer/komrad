@@ -339,9 +339,8 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		return m, nil, true
 	case client.WatchBatch:
 		cmd := m.applyWatch(msg)
-		following := m.followReviewCmd()
 
-		return m, tea.Batch(cmd, following), true
+		return m, cmd, true
 	case watchLostMsg:
 		m.applyWatchLost(msg)
 
@@ -396,15 +395,6 @@ func (m *model) hashReviewWorktreeCmd(now time.Time) tea.Cmd {
 	}
 
 	return m.review.hashWorktreeIfDue(m.shared(), now)
-}
-
-// followReviewCmd reads the review's conversation again when the watch has seen it move.
-func (m *model) followReviewCmd() tea.Cmd {
-	if m.screen != screenReview {
-		return nil
-	}
-
-	return m.review.followWatch(m.shared())
 }
 
 // reconcileEditor catches the info pane and the review's editor going away on their own.
