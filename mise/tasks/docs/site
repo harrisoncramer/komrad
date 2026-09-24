@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+source "$MISE_CONFIG_ROOT/mise/tasks/_"
+set -euo pipefail
+#MISE description="Serve the versioned docs site locally, laid out the way it is deployed."
+
+usage() {
+	echo "Usage: mise run docs:site [version...]"
+	echo
+	echo "Builds this checkout as tip, and again under each version named, into"
+	echo "docs/site/<version>, writes docs/site/versions.json listing them, and serves"
+	echo "docs/site on http://localhost:4330. The named versions are this checkout under"
+	echo "another name, there to exercise the version picker before any release exists:"
+	echo
+	echo "    mise run docs:site v0.1.0 v0.2.0"
+}
+
+for arg in "$@"; do
+	case "$arg" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	esac
+done
+
+cd "$MISE_CONFIG_ROOT/docs"
+
+if [ ! -f node_modules/.package-lock.json ] || [ package-lock.json -nt node_modules/.package-lock.json ]; then
+	npm ci
+fi
+
+rm -rf site
+mkdir site
+
+PUBLIC_DOCS_COMMIT="$(build_commit)"
+export PUBLIC_DOCS_COMMIT
+
+stable="[]"
+for version in tip "$@"; do
+	gum log --level info "building docs as $version"
+	PUBLIC_DOCS_VERSION="$version" npm run build >/dev/null
+	cp -R dist "site/$version"
+
+	if [ "$version" != tip ]; then
+		stable="$(jq --arg version "$version" --arg commit "$PUBLIC_DOCS_COMMIT" '. + [{version: $version, commit: $commit}]' <<<"$stable")"
+	fi
+done
+
+jq -n --argjson stable "$stable" --arg commit "$PUBLIC_DOCS_COMMIT" \
+	'{stable: ($stable | sort_by(.version | ltrimstr("v") | split(".") | map(tonumber)) | reverse), unstable: [{version: "tip", commit: $commit}]}' >site/versions.json
+
+cat >site/index.html <<'HTML'
+<!doctype html>
+<meta http-equiv="refresh" content="0; url=/tip/">
+HTML
+
+gum log --level info "serving docs/site on http://localhost:4330/tip/"
+python3 -m http.server 4330 --directory site
