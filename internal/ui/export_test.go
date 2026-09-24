@@ -442,3 +442,11 @@ func (t *recordingTmux) RespawnPane(pane, dir string, argv ...string) {
 func (p *Panel) ExpireLanding() {
 	p.model.landing.until = time.Time{}
 }
+
+// AgeWorktreeReads makes every directory read the panel holds older by the given time.
+func (p *Panel) AgeWorktreeReads(by time.Duration) {
+	for dir, read := range p.model.inspections {
+		read.readAt = read.readAt.Add(-by)
+		p.model.inspections[dir] = read
+	}
+}

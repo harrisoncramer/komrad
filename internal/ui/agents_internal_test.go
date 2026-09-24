@@ -103,16 +103,6 @@ func TestRecordEmphasis(t *testing.T) {
 	})
 }
 
-// TestWorktreeReadGoesStale covers an answer about the hovered agent's directory being asked for again once it is old.
-func TestWorktreeReadGoesStale(t *testing.T) {
-	m := detailsModel(&recordingTmux{})
-	now := time.Now()
-	m.applyWorktreeInspection(worktreeInspectedMsg{dir: "/repo", inspection: readWorktree(now)})
-
-	assert.Nil(t, m.inspectAgentWorktreeCmd(now), "a fresh answer is not asked for again")
-	assert.NotNil(t, m.inspectAgentWorktreeCmd(now.Add(worktreeReadTTL+time.Second)), "a stale one is")
-}
-
 // TestWorkflowRowNamesItsOrchestratorsPane covers the pane the warm-up clock reads for a workflow's row.
 func TestWorkflowRowNamesItsOrchestratorsPane(t *testing.T) {
 	m := model{

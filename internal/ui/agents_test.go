@@ -970,6 +970,36 @@ func TestAgentsRecordWorktree(t *testing.T) {
 		assert.Equal(t, "M a.go", readRecordField(frame, "uncommitted"))
 	})
 
+	t.Run("the cursor coming to rest asks again only for a read gone stale", func(t *testing.T) {
+		tests := []struct {
+			name string
+			age  time.Duration
+			want int
+		}{
+			{
+				name: "a fresh read is not asked for again",
+				want: 1,
+			},
+			{
+				name: "a stale read is",
+				age:  2 * time.Minute,
+				want: 2,
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				harness := openAgents(t, buildRecorded()...)
+				harness.panel.AgeWorktreeReads(tt.age)
+
+				harness.press("k", "j")
+				harness.fireTimers()
+
+				harness.assertSent(buildWorktreeReadRequests(tt.want)...)
+			})
+		}
+	})
+
 	t.Run("a directory weave does not hold is never asked about twice", func(t *testing.T) {
 		harness := newPanelHarness(t, panelHarnessParams{})
 		harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, refuseWith(connect.CodeNotFound, "/repo is not under the worktree directories"))
