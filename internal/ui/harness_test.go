@@ -230,6 +230,7 @@ func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
 
 	var reviewGit ui.ReviewGit
 	if params.git != nil {
+		require.Nil(t, params.git.Before, "a repo is held by one harness")
 		params.git.Before = gate.wait
 		reviewGit = params.git
 	}
