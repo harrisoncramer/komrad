@@ -25,6 +25,35 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
+const clientPath = "/work/from-tmux"
+
+type emptyLists struct {
+	agentv1connect.AgentServiceClient
+	workflowv1connect.WorkflowServiceClient
+	schedulev1connect.ScheduleServiceClient
+	worktreev1connect.WorktreeServiceClient
+}
+
+func (emptyLists) ListAgents(context.Context, *connect.Request[agentv1.ListAgentsRequest]) (*connect.Response[agentv1.ListAgentsResponse], error) {
+	return connect.NewResponse(&agentv1.ListAgentsResponse{}), nil
+}
+
+func (emptyLists) ListWorkflows(context.Context, *connect.Request[workflowv1.ListWorkflowsRequest]) (*connect.Response[workflowv1.ListWorkflowsResponse], error) {
+	return connect.NewResponse(&workflowv1.ListWorkflowsResponse{}), nil
+}
+
+func (emptyLists) ListSchedules(context.Context, *connect.Request[schedulev1.ListSchedulesRequest]) (*connect.Response[schedulev1.ListSchedulesResponse], error) {
+	return connect.NewResponse(&schedulev1.ListSchedulesResponse{}), nil
+}
+
+func (emptyLists) ListWorktrees(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[worktreev1.ListWorktreesResponse], error) {
+	return connect.NewResponse(&worktreev1.ListWorktreesResponse{}), nil
+}
+
+func (emptyLists) GetWorktree(_ context.Context, req *connect.Request[worktreev1.GetWorktreeRequest]) (*connect.Response[worktreev1.GetWorktreeResponse], error) {
+	return nil, connect.NewError(connect.CodeNotFound, errors.New(req.Msg.GetDir()+" is not under the worktree directories"))
+}
+
 // TestClampCursor pins where the cursor lands for each length of list, an empty one
 // included.
 func TestClampCursor(t *testing.T) {
@@ -102,12 +131,10 @@ func TestNewModelWiresTmux(t *testing.T) {
 	}
 }
 
-const clientPath = "/work/from-tmux"
-
 func settle(t *testing.T, m model, cmd tea.Cmd) model {
 	t.Helper()
 
-	for _, msg := range produced(cmd) {
+	for _, msg := range collectMessages(cmd) {
 		switch msg.(type) {
 		case writeResult, client.WatchBatch:
 		default:
@@ -125,12 +152,12 @@ func settle(t *testing.T, m model, cmd tea.Cmd) model {
 
 // applyListing replaces the model's workflows and clears its agents.
 func applyListing(m *model, workflows []panel.Workflow) {
-	m.withListing(func(l *listing) {
-		l.agents, l.workflows = nil, workflows
+	m.withListing(func(current *listing) {
+		current.agents, current.workflows = nil, workflows
 	})
 }
 
-func produced(cmd tea.Cmd) []tea.Msg {
+func collectMessages(cmd tea.Cmd) []tea.Msg {
 	if cmd == nil {
 		return nil
 	}
@@ -141,40 +168,13 @@ func produced(cmd tea.Cmd) []tea.Msg {
 	case tea.BatchMsg:
 		var msgs []tea.Msg
 		for _, batched := range msg {
-			msgs = append(msgs, produced(batched)...)
+			msgs = append(msgs, collectMessages(batched)...)
 		}
 
 		return msgs
 	default:
 		return []tea.Msg{msg}
 	}
-}
-
-type emptyLists struct {
-	agentv1connect.AgentServiceClient
-	workflowv1connect.WorkflowServiceClient
-	schedulev1connect.ScheduleServiceClient
-	worktreev1connect.WorktreeServiceClient
-}
-
-func (emptyLists) ListAgents(context.Context, *connect.Request[agentv1.ListAgentsRequest]) (*connect.Response[agentv1.ListAgentsResponse], error) {
-	return connect.NewResponse(&agentv1.ListAgentsResponse{}), nil
-}
-
-func (emptyLists) ListWorkflows(context.Context, *connect.Request[workflowv1.ListWorkflowsRequest]) (*connect.Response[workflowv1.ListWorkflowsResponse], error) {
-	return connect.NewResponse(&workflowv1.ListWorkflowsResponse{}), nil
-}
-
-func (emptyLists) ListSchedules(context.Context, *connect.Request[schedulev1.ListSchedulesRequest]) (*connect.Response[schedulev1.ListSchedulesResponse], error) {
-	return connect.NewResponse(&schedulev1.ListSchedulesResponse{}), nil
-}
-
-func (emptyLists) ListWorktrees(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[worktreev1.ListWorktreesResponse], error) {
-	return connect.NewResponse(&worktreev1.ListWorktreesResponse{}), nil
-}
-
-func (emptyLists) GetWorktree(_ context.Context, req *connect.Request[worktreev1.GetWorktreeRequest]) (*connect.Response[worktreev1.GetWorktreeResponse], error) {
-	return nil, connect.NewError(connect.CodeNotFound, errors.New(req.Msg.GetDir()+" is not under the worktree directories"))
 }
 
 func pressLogs(t *testing.T, m model) model {
@@ -187,7 +187,7 @@ func pressLogs(t *testing.T, m model) model {
 	return shown
 }
 
-func filterModel() model {
+func newFilterModel() model {
 	tmux := &recordingTmux{}
 	workflow := panel.Workflow{ID: "w1", Name: "core"}
 
@@ -197,17 +197,21 @@ func filterModel() model {
 		frame:  layout.New(tmux, config.DefaultLayout()),
 		keys:   config.DefaultKeybindings(),
 		screen: screenAgents,
-		listing: listing{workflows: []panel.Workflow{workflow}, agents: []panel.AgentRow{
-			{Agent: panel.Agent{
-				ID:         "a1",
-				Name:       "billing",
-				WorkflowID: "w1",
-			}},
-			{Agent: panel.Agent{
-				ID:         "a2",
-				Name:       "payouts",
-				WorkflowID: "w1",
-			}},
-		}}, agents: agentsScreen{rowCursor: rowCursor{cursor: 1}},
+		listing: listing{
+			workflows: []panel.Workflow{workflow},
+			agents: []panel.AgentRow{
+				{Agent: panel.Agent{
+					ID:         "a1",
+					Name:       "billing",
+					WorkflowID: "w1",
+				}},
+				{Agent: panel.Agent{
+					ID:         "a2",
+					Name:       "payouts",
+					WorkflowID: "w1",
+				}},
+			},
+		},
+		agents: agentsScreen{rowCursor: rowCursor{cursor: 1}},
 	}
 }

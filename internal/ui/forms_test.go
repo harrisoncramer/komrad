@@ -2,7 +2,6 @@ package ui_test
 
 import (
 	"errors"
-	"fmt"
 	"slices"
 	"strings"
 	"testing"
@@ -497,39 +496,6 @@ func TestFormsLayout(t *testing.T) {
 		assert.NotContains(t, frame, "author", "the list gives the form its room")
 	})
 
-	for _, height := range []int{16, 24, 32, 60} {
-		t.Run(fmt.Sprintf("a form in a window %d rows tall opens at its top and stays inside", height), func(t *testing.T) {
-			t.Parallel()
-
-			harness := newPanelHarness(t, panelHarnessParams{width: 160, height: height})
-			answerWorktreeReads(harness)
-			harness.watch(buildSnapshot(newFormWorkflow()))
-
-			harness.press("w")
-
-			frame := harness.readFrame()
-			assert.LessOrEqual(t, len(splitLines(frame)), height)
-			assert.Contains(t, frame, "New workflow name")
-		})
-	}
-
-	for _, height := range []int{24, 32, 40} {
-		t.Run(fmt.Sprintf("a refused form in a window %d rows tall stays inside", height), func(t *testing.T) {
-			t.Parallel()
-
-			harness := newPanelHarness(t, panelHarnessParams{width: 160, height: height})
-			answerWorktreeReads(harness)
-			harness.watch(buildSnapshot(newFormWorkflow()))
-			harness.refuse(workflowv1connect.WorkflowServiceCreateWorkflowProcedure, connect.NewError(connect.CodeInvalidArgument, errors.New("no such workflow")))
-
-			harness.press(slices.Concat([]string{"w"}, spellKeys("web"), []string{"ctrl+s"})...)
-
-			frame := harness.readFrame()
-			assert.LessOrEqual(t, len(splitLines(frame)), height)
-			assert.Contains(t, frame, "no such workflow")
-		})
-	}
-
 	t.Run("a refusal is read in full from inside the form", func(t *testing.T) {
 		t.Parallel()
 
@@ -547,6 +513,78 @@ func TestFormsLayout(t *testing.T) {
 		harness.press("ctrl+g")
 		assert.Contains(t, harness.readFrame(), "New workflow name", "and takes it back")
 	})
+}
+
+// TestFormsFitTheWindow covers a form opening at its top and staying inside the window.
+func TestFormsFitTheWindow(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		height    int
+		isRefused bool
+		want      string
+	}{
+		{
+			name:      "a refused form in a short window",
+			height:    24,
+			isRefused: true,
+			want:      "no such workflow",
+		},
+		{
+			name:      "a refused form in a middling window",
+			height:    32,
+			isRefused: true,
+			want:      "no such workflow",
+		},
+		{
+			name:      "a refused form in a tall window",
+			height:    40,
+			isRefused: true,
+			want:      "no such workflow",
+		},
+		{
+			name:   "a form in a very short window",
+			height: 16,
+			want:   "New workflow name",
+		},
+		{
+			name:   "a form in a short window",
+			height: 24,
+			want:   "New workflow name",
+		},
+		{
+			name:   "a form in a middling window",
+			height: 32,
+			want:   "New workflow name",
+		},
+		{
+			name:   "a form in a very tall window",
+			height: 60,
+			want:   "New workflow name",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			harness := newPanelHarness(t, panelHarnessParams{width: 160, height: tt.height})
+			answerWorktreeReads(harness)
+			harness.watch(buildSnapshot(newFormWorkflow()))
+			press := []string{"w"}
+			if tt.isRefused {
+				harness.refuse(workflowv1connect.WorkflowServiceCreateWorkflowProcedure, connect.NewError(connect.CodeInvalidArgument, errors.New("no such workflow")))
+				press = slices.Concat(press, spellKeys("web"), []string{"ctrl+s"})
+			}
+
+			harness.press(press...)
+
+			frame := harness.readFrame()
+			assert.LessOrEqual(t, len(splitLines(frame)), tt.height)
+			assert.Contains(t, frame, tt.want)
+		})
+	}
 }
 
 func openForms(t *testing.T, workflow *workflowv1.Workflow, author *agentv1.Agent) *panelHarness {

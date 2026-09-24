@@ -78,15 +78,41 @@ func TestLogArgv(t *testing.T) {
 
 // TestLogPlaceholders covers what a log pane says when there is no log to page.
 func TestLogPlaceholders(t *testing.T) {
-	m, _ := failedRunTree()
-	m.settings.RunLogsDir = t.TempDir()
+	tests := []struct {
+		name    string
+		cursor  int
+		content func(model) layout.Content
+		want    string
+	}{
+		{
+			name:    "the run log with no agent under the cursor",
+			cursor:  0,
+			content: model.runLogContent,
+			want:    "select an agent",
+		},
+		{
+			name:    "the agent log with no agent under the cursor",
+			cursor:  0,
+			content: model.agentLogContent,
+			want:    "select an agent",
+		},
+		{
+			name:    "the run log of an agent no script has run for",
+			cursor:  1,
+			content: model.runLogContent,
+			want:    "no script has run",
+		},
+	}
 
-	m.agents.cursor = 0
-	assert.Contains(t, m.runLogContent().Key, "select an agent")
-	assert.Contains(t, m.agentLogContent().Key, "select an agent")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m, _ := newFailedRunTree()
+			m.settings.RunLogsDir = t.TempDir()
+			m.agents.cursor = tt.cursor
 
-	m.agents.cursor = 1
-	assert.Contains(t, m.runLogContent().Key, "no script has run")
+			assert.Contains(t, tt.content(m).Key, tt.want)
+		})
+	}
 }
 
 // TestRunsReadNeedsTheRunLogUpAndReadForASecond pins what counts as reading a failed run.
@@ -131,7 +157,7 @@ func TestRunsReadNeedsTheRunLogUpAndReadForASecond(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			at := time.Now()
 
-			m, tmux := failedRunTree()
+			m, tmux := newFailedRunTree()
 			m.info.kind = tt.kind
 			m.agents.cursor = tt.cursor
 			if tt.hidden {
@@ -156,7 +182,7 @@ func TestTheRunLogFollowsTheCursorOntoTheFailedRun(t *testing.T) {
 	seedRunLogs(t, logsDir, "a1", 2)
 	seedRunLogs(t, logsDir, "a2", 2)
 
-	m, _ := failedRunTree()
+	m, _ := newFailedRunTree()
 	m.settings.RunLogsDir = logsDir
 	m.listing.agents[0].FailedRunLog = xptr.Ptr(int32(1))
 	m.info.kind = infoRunLog
@@ -192,7 +218,7 @@ func seedRunLogs(t *testing.T, logsDir, agentID string, count int) {
 func TestRunsReadRestartsWhenTheCursorMoves(t *testing.T) {
 	at := time.Now()
 
-	m, _ := failedRunTree()
+	m, _ := newFailedRunTree()
 	m.info.kind = infoRunLog
 	m.agents.cursor = 1
 
@@ -209,7 +235,7 @@ func TestRunsReadRestartsWhenTheCursorMoves(t *testing.T) {
 	assert.NotNil(t, cmd)
 }
 
-func failedRunTree() (model, *recordingTmux) {
+func newFailedRunTree() (model, *recordingTmux) {
 	tmux := &recordingTmux{sessionClient: panelViewer}
 
 	return model{

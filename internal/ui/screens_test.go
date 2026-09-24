@@ -95,14 +95,14 @@ func TestScreensStage(t *testing.T) {
 
 		harness := openStaged(t, "g", "g")
 
-		harness.panel.MoveKeysElsewhere(true)
+		harness.panel.SetKeysElsewhere(true)
 		harness.send(tea.BlurMsg{})
 
 		frame := harness.readFrame()
 		assert.NotContains(t, frame, "always run the linter", "the frame is told what tmux did rather than assuming")
 		assert.Equal(t, 200, measureListRule(frame), "so the list is drawn in the whole of the pane")
 
-		harness.panel.MoveKeysElsewhere(false)
+		harness.panel.SetKeysElsewhere(false)
 		harness.watch(buildSnapshot(newNotedWorkflow(), newRunning()))
 
 		assert.Contains(t, harness.readFrame(), "always run the linter", "and takes the window back on the next listing")

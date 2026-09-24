@@ -19,6 +19,13 @@ type Panel struct {
 	tmux  *recordingTmux
 }
 
+type unsplittableTmux struct {
+	*recordingTmux
+}
+
+// HarnessFrameReader answers whether a pane is drawing its harness yet.
+type HarnessFrameReader = harnessFrameReader
+
 // NewPanelParams is what a panel under test is built over.
 type NewPanelParams struct {
 	Agents        agentv1connect.AgentServiceClient
@@ -38,10 +45,6 @@ type NewPanelParams struct {
 	ConfigErr     error
 	StartupErr    error
 	RefuseSplits  bool
-}
-
-type unsplittableTmux struct {
-	*recordingTmux
 }
 
 // NewPanel builds the panel the way weave panel does, over a recording tmux.
@@ -175,8 +178,8 @@ func (p *Panel) SetWindowWidth(width int) {
 	p.tmux.windowWidth = width
 }
 
-// MoveKeysElsewhere makes tmux report the keyboard in a pane other than the panel's.
-func (p *Panel) MoveKeysElsewhere(elsewhere bool) {
+// SetKeysElsewhere makes tmux report whether the keyboard is in a pane other than the panel's.
+func (p *Panel) SetKeysElsewhere(elsewhere bool) {
 	p.tmux.keysElsewhere = elsewhere
 }
 

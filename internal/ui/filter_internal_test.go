@@ -18,16 +18,23 @@ func TestFilterQuery(t *testing.T) {
 		wantBroken bool
 	}{
 		{
-			name:      "an empty query keeps every row",
-			query:     "",
-			row:       "anything",
-			wantMatch: true,
+			name:       "a pattern that will not compile draws every row",
+			query:      "api[",
+			row:        "unrelated",
+			wantMatch:  true,
+			wantBroken: true,
 		},
 		{
 			name:      "a name the pattern does not reach is held back",
 			query:     "^api",
 			row:       "web-api",
 			wantMatch: false,
+		},
+		{
+			name:      "an empty query keeps every row",
+			query:     "",
+			row:       "anything",
+			wantMatch: true,
 		},
 		{
 			name:      "a pattern in lower case matches either case",
@@ -47,13 +54,6 @@ func TestFilterQuery(t *testing.T) {
 			row:       "web-ui",
 			wantMatch: true,
 		},
-		{
-			name:       "a pattern that will not compile draws every row",
-			query:      "api[",
-			row:        "unrelated",
-			wantMatch:  true,
-			wantBroken: true,
-		},
 	}
 
 	for _, tt := range tests {
@@ -69,26 +69,78 @@ func TestFilterQuery(t *testing.T) {
 
 // TestFilterLine covers the colour of the glyph opening the filter line.
 func TestFilterLine(t *testing.T) {
-	var idle filterState
-	assert.Contains(t, idle.line(paint.Panel), dimStyle.Render("/"), "an idle line is dim")
-	assert.NotContains(t, idle.line(paint.Panel), paint.Panel.Cursor().Render("/"))
-
-	typing := filterState{typing: true}
-	assert.Contains(t, typing.line(paint.Panel), paint.Panel.Cursor().Render("/"), "an open input takes the accent")
-
 	var standing filterState
 	standing.setQuery("pay")
-	assert.Contains(t, standing.line(paint.Panel), paint.Panel.Cursor().Render("/"), "and so does a pattern left standing")
 
-	narrowing := filterState{typing: true, mode: filterModeFilter}
-	assert.Contains(t, narrowing.line(paint.Panel), paint.Panel.Cursor().Render("▽"), "the funnel takes the cursor's colour like the slash")
-	assert.NotContains(t, narrowing.line(paint.Panel), paint.Panel.Match().Render("▽"))
+	tests := []struct {
+		name       string
+		filter     filterState
+		want       string
+		wantAbsent string
+	}{
+		{
+			name:       "an idle line is dim",
+			filter:     filterState{},
+			want:       dimStyle.Render("/"),
+			wantAbsent: paint.Panel.Cursor().Render("/"),
+		},
+		{
+			name:   "an open input takes the accent",
+			filter: filterState{typing: true},
+			want:   paint.Panel.Cursor().Render("/"),
+		},
+		{
+			name:   "a pattern left standing takes the accent",
+			filter: standing,
+			want:   paint.Panel.Cursor().Render("/"),
+		},
+		{
+			name: "the funnel takes the cursor's colour like the slash",
+			filter: filterState{
+				typing: true,
+				mode:   filterModeFilter,
+			},
+			want:       paint.Panel.Cursor().Render("▽"),
+			wantAbsent: paint.Panel.Match().Render("▽"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			line := tt.filter.line(paint.Panel)
+
+			assert.Contains(t, line, tt.want)
+			if tt.wantAbsent != "" {
+				assert.NotContains(t, line, tt.wantAbsent)
+			}
+		})
+	}
 }
 
 // TestFilterHelpNamesTheOtherMode covers the legend naming what tab switches to.
 func TestFilterHelpNamesTheOtherMode(t *testing.T) {
-	assert.Equal(t, "filter instead", filterHelp(filterModeSearch).short[1].Help().Desc)
-	assert.Equal(t, "search instead", filterHelp(filterModeFilter).short[1].Help().Desc)
+	tests := []struct {
+		name string
+		mode filterMode
+		want string
+	}{
+		{
+			name: "a search offers the filter",
+			mode: filterModeSearch,
+			want: "filter instead",
+		},
+		{
+			name: "a filter offers the search",
+			mode: filterModeFilter,
+			want: "search instead",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, filterHelp(tt.mode).short[1].Help().Desc)
+		})
+	}
 }
 
 // TestReviewSearchIgnoresTab covers the review search having no mode for tab to flip.

@@ -14,11 +14,11 @@ import (
 )
 
 type drawReporter struct {
-	drawn bool
+	isDrawn bool
 }
 
 func (f *drawReporter) DoesFrameShowHarness(string, string) bool {
-	return f.drawn
+	return f.isDrawn
 }
 
 // TestListingLandsWrites covers the cursor going to the row a write made once the watch carries it.
@@ -232,7 +232,7 @@ func TestListingFocus(t *testing.T) {
 		harness.press("j", "enter")
 		require.Empty(t, harness.panel.ReadSelectedPanes(), "a pane still at its shell is not given the keys")
 
-		frames.drawn = true
+		frames.isDrawn = true
 		harness.fireTimers()
 
 		assert.Equal(t, "%9", harness.panel.ReadGuestPane())
@@ -263,7 +263,7 @@ func TestListingFocus(t *testing.T) {
 		answerResume(harness)
 
 		harness.press("j", "enter")
-		frames.drawn = true
+		frames.isDrawn = true
 		harness.fireTimers()
 
 		assert.Empty(t, harness.panel.ReadGuestPane())

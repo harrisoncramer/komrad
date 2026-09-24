@@ -230,13 +230,13 @@ func TestLogs(t *testing.T) {
 // TestLogsFailedPlaceholder covers what a failed agent's stage says about why it failed.
 func TestLogsFailedPlaceholder(t *testing.T) {
 	tests := []struct {
-		name       string
-		state      agentv1.AgentState
-		reason     string
-		runs       []string
-		emptyRuns  bool
-		want       string
-		wantAbsent string
+		name         string
+		state        agentv1.AgentState
+		reason       string
+		runs         []string
+		areRunsEmpty bool
+		want         string
+		wantAbsent   string
 	}{
 		{
 			name:       "a script that left a log is pointed at rather than repeated",
@@ -253,12 +253,12 @@ func TestLogsFailedPlaceholder(t *testing.T) {
 			want:   "tmux refused",
 		},
 		{
-			name:      "a run with nothing in it is passed over",
-			state:     agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE,
-			reason:    "tmux refused the window",
-			runs:      []string{config.TriggerProvision},
-			emptyRuns: true,
-			want:      "tmux refused",
+			name:         "a run with nothing in it is passed over",
+			state:        agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE,
+			reason:       "tmux refused the window",
+			runs:         []string{config.TriggerProvision},
+			areRunsEmpty: true,
+			want:         "tmux refused",
 		},
 		{
 			name:   "a hook that failed the create is the run pointed at",
@@ -285,7 +285,7 @@ func TestLogsFailedPlaceholder(t *testing.T) {
 			harness, runs := openLogs(t)
 			for i, trigger := range tt.runs {
 				path := runs.write(t, i+1, trigger)
-				if tt.emptyRuns {
+				if tt.areRunsEmpty {
 					require.NoError(t, os.Truncate(path, 0))
 				}
 			}

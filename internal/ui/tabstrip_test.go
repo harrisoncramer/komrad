@@ -502,11 +502,11 @@ func TestTabsStandDownOnAShortPane(t *testing.T) {
 	focused := send(t, m, "f")
 	require.True(t, focused.isTabsFocused())
 
-	shrunk := asModel(t, resize(focused, 80, 6))
+	shrunk := requireModel(t, resize(focused, 80, 6))
 	assert.False(t, shrunk.isTabsFocused(), "the keys go back to the list with the strip")
 	assert.True(t, shrunk.isListFocused())
 
-	grown := asModel(t, resize(shrunk, 80, 7))
+	grown := requireModel(t, resize(shrunk, 80, 7))
 	assert.False(t, grown.isTabsFocused(), "and stay there once the pane grows back")
 	assert.Equal(t, 39, send(t, grown, "k").worktrees.cursor, "so the next press moves the list")
 }

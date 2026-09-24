@@ -25,6 +25,34 @@ func TestFilterSearch(t *testing.T) {
 		wantSearch  string
 	}{
 		{
+			name:        "escape while typing gives up and puts the cursor back",
+			from:        "backend",
+			press:       []string{"/", "d", "b", "esc"},
+			wantHovered: "backend",
+			wantSearch:  "/",
+		},
+		{
+			name:        "escape over a standing search clears it and puts the cursor back",
+			from:        "backend",
+			press:       []string{"/", "d", "b", "enter", "esc"},
+			wantHovered: "backend",
+			wantSearch:  "/",
+		},
+		{
+			name:        "a pattern nothing matches leaves the cursor where it is",
+			from:        "  auth",
+			press:       []string{"/", "z", "z", "z", "enter"},
+			wantHovered: "  auth",
+			wantSearch:  "/ zzz",
+		},
+		{
+			name:        "n does nothing before a search stands",
+			from:        "  auth",
+			press:       []string{"n"},
+			wantHovered: "  auth",
+			wantSearch:  "/",
+		},
+		{
 			name:        "typing moves nothing",
 			from:        "backend",
 			press:       []string{"/", "d", "b"},
@@ -53,20 +81,6 @@ func TestFilterSearch(t *testing.T) {
 			wantSearch:  "/ ^front",
 		},
 		{
-			name:        "escape while typing gives up and puts the cursor back",
-			from:        "backend",
-			press:       []string{"/", "d", "b", "esc"},
-			wantHovered: "backend",
-			wantSearch:  "/",
-		},
-		{
-			name:        "escape over a standing search clears it and puts the cursor back",
-			from:        "backend",
-			press:       []string{"/", "d", "b", "enter", "esc"},
-			wantHovered: "backend",
-			wantSearch:  "/",
-		},
-		{
 			name:        "a key bound elsewhere is typed rather than acted on",
 			from:        "backend",
 			press:       []string{"/", "i"},
@@ -79,13 +93,6 @@ func TestFilterSearch(t *testing.T) {
 			press:       []string{"/", "p", "a", "backspace"},
 			wantHovered: "backend",
 			wantSearch:  "/ p▏",
-		},
-		{
-			name:        "n does nothing before a search stands",
-			from:        "  auth",
-			press:       []string{"n"},
-			wantHovered: "  auth",
-			wantSearch:  "/",
 		},
 		{
 			name:        "n walks forward from the row it is on",
@@ -107,13 +114,6 @@ func TestFilterSearch(t *testing.T) {
 			press:       []string{"/", "^", "(", "b", "a", "c", "k", "e", "n", "d", "|", "u", "i", ")", "$", "enter", "N"},
 			wantHovered: "  ui",
 			wantSearch:  "/ ^(backend|ui)$",
-		},
-		{
-			name:        "a pattern nothing matches leaves the cursor where it is",
-			from:        "  auth",
-			press:       []string{"/", "z", "z", "z", "enter"},
-			wantHovered: "  auth",
-			wantSearch:  "/ zzz",
 		},
 	}
 
@@ -157,6 +157,30 @@ func TestFilterNarrow(t *testing.T) {
 		wantHovered string
 		wantSearch  string
 	}{
+		{
+			name:        "escape while typing gives every row back",
+			from:        "frontend",
+			press:       []string{"/", "tab", "d", "b", "esc"},
+			wantRows:    filterableRows,
+			wantHovered: "frontend",
+			wantSearch:  "/",
+		},
+		{
+			name:        "escape over a standing filter gives every row back",
+			from:        "frontend",
+			press:       []string{"/", "tab", "d", "b", "enter", "esc"},
+			wantRows:    filterableRows,
+			wantHovered: "frontend",
+			wantSearch:  "/",
+		},
+		{
+			name:        "a pattern that will not compile takes nothing off the list",
+			from:        "backend",
+			press:       []string{"/", "tab", "a", "u", "t", "h", "[", "enter"},
+			wantRows:    filterableRows,
+			wantHovered: "backend",
+			wantSearch:  "▽ auth[",
+		},
 		{
 			name:        "tab while typing flips to a filter that narrows nothing until enter",
 			from:        "backend",
@@ -206,14 +230,6 @@ func TestFilterNarrow(t *testing.T) {
 			wantSearch:  "▽ ^backend$",
 		},
 		{
-			name:        "a pattern that will not compile takes nothing off the list",
-			from:        "backend",
-			press:       []string{"/", "tab", "a", "u", "t", "h", "[", "enter"},
-			wantRows:    filterableRows,
-			wantHovered: "backend",
-			wantSearch:  "▽ auth[",
-		},
-		{
 			name:        "a row it takes away hands the cursor to the nearest match forward",
 			from:        "  db",
 			press:       []string{"/", "u", "tab", "enter"},
@@ -236,22 +252,6 @@ func TestFilterNarrow(t *testing.T) {
 			wantRows:    []string{"backend", "  auth", "  └ api"},
 			wantHovered: "  auth",
 			wantSearch:  "▽ ^au",
-		},
-		{
-			name:        "escape while typing gives every row back",
-			from:        "frontend",
-			press:       []string{"/", "tab", "d", "b", "esc"},
-			wantRows:    filterableRows,
-			wantHovered: "frontend",
-			wantSearch:  "/",
-		},
-		{
-			name:        "escape over a standing filter gives every row back",
-			from:        "frontend",
-			press:       []string{"/", "tab", "d", "b", "enter", "esc"},
-			wantRows:    filterableRows,
-			wantHovered: "frontend",
-			wantSearch:  "/",
 		},
 		{
 			name:        "opening the input again starts a search",
@@ -329,7 +329,7 @@ func TestFilterScreens(t *testing.T) {
 			newNamedSchedule("s2", "morning"),
 			newNamedSchedule("s3", "weekly"),
 		))
-		listed := func() ([]string, string) {
+		readSchedules := func() ([]string, string) {
 			var names []string
 			var hovered string
 			for _, line := range readSidebar(harness.readFrame()) {
@@ -346,20 +346,20 @@ func TestFilterScreens(t *testing.T) {
 		harness.press("S")
 
 		harness.press("/", "l", "y", "enter")
-		names, hovered := listed()
+		names, hovered := readSchedules()
 		assert.Equal(t, []string{"weekly", "morning", "nightly"}, names, "a search leaves the list whole")
 		assert.Equal(t, "weekly", hovered)
 
 		harness.press("n")
-		_, hovered = listed()
+		_, hovered = readSchedules()
 		assert.Equal(t, "nightly", hovered, "n walks to the next match")
 
 		harness.press("N")
-		_, hovered = listed()
+		_, hovered = readSchedules()
 		assert.Equal(t, "weekly", hovered, "and N walks back")
 
 		harness.press("esc", "/", "tab", "l", "y", "enter")
-		names, _ = listed()
+		names, _ = readSchedules()
 		assert.Equal(t, []string{"weekly", "nightly"}, names)
 	})
 

@@ -160,7 +160,7 @@ func TestWorkflowEditFormRoundTripsTheStoredConfig(t *testing.T) {
 		Worktree: &workflowv1.WorktreeConfig{Enabled: true, BaseBranch: "develop"},
 	})
 
-	opened, _ := formModel(sent).editWorkflowForm(watched)
+	opened, _ := newFormModel(sent).editWorkflowForm(watched)
 	editing, ok := opened.(model)
 	require.True(t, ok)
 	require.Equal(t, formWorkflow, editing.form.kind)
@@ -183,7 +183,7 @@ func TestWorkflowEditFormRoundTripsTheStoredConfig(t *testing.T) {
 // workflow out of the listing and writes it back whole under a new name.
 func TestWorkflowRenameKeepsTheRestOfTheConfig(t *testing.T) {
 	sent := &formRecorder{}
-	m := formModel(sent)
+	m := newFormModel(sent)
 	m.listing.workflows = workflowsFrom([]*workflowv1.Workflow{{
 		Id:   "w1",
 		Name: "api",

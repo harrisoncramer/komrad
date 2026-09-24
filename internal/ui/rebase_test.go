@@ -10,7 +10,7 @@ import (
 func TestRefreshDescriptionSaysWhatWillHappen(t *testing.T) {
 	t.Parallel()
 
-	for _, tt := range []struct {
+	tests := []struct {
 		name     string
 		plan     rebasePlan
 		want     []string
@@ -50,7 +50,9 @@ func TestRefreshDescriptionSaysWhatWillHappen(t *testing.T) {
 			},
 			want: []string{"1 commit of its own will be replayed", "Another 2 the base already holds"},
 		},
-	} {
+	}
+
+	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -69,15 +71,39 @@ func TestRefreshDescriptionSaysWhatWillHappen(t *testing.T) {
 func TestRefreshDescriptionAlwaysSaysWhatItDoesToTheFiles(t *testing.T) {
 	t.Parallel()
 
-	for _, plan := range []rebasePlan{
-		{baseRef: "origin/main"},
-		{baseRef: "origin/main", landed: 3},
-		{baseRef: "origin/main", replay: 2},
-	} {
-		description := rebaseDescription(plan)
-		assert.Contains(t, description, "files will change under it")
-		assert.Contains(t, description, "nothing untracked is removed")
-		assert.Contains(t, description, "copy of the worktree is kept")
+	tests := []struct {
+		name string
+		plan rebasePlan
+	}{
+		{
+			name: "a branch the base already holds",
+			plan: rebasePlan{
+				baseRef: "origin/main",
+				landed:  3,
+			},
+		},
+		{
+			name: "a branch with nothing of its own",
+			plan: rebasePlan{baseRef: "origin/main"},
+		},
+		{
+			name: "a branch with commits to replay",
+			plan: rebasePlan{
+				baseRef: "origin/main",
+				replay:  2,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			description := rebaseDescription(tt.plan)
+			assert.Contains(t, description, "files will change under it")
+			assert.Contains(t, description, "nothing untracked is removed")
+			assert.Contains(t, description, "copy of the worktree is kept")
+		})
 	}
 }
 
@@ -85,16 +111,42 @@ func TestRefreshDescriptionAlwaysSaysWhatItDoesToTheFiles(t *testing.T) {
 func TestRefreshAffirmativeNamesWhatRuns(t *testing.T) {
 	t.Parallel()
 
-	assert.Equal(t, "Rebase", rebaseAffirmative(rebasePlan{replay: 2}))
-	assert.Equal(t, "Move", rebaseAffirmative(rebasePlan{landed: 3}))
-	assert.Equal(t, "Move", rebaseAffirmative(rebasePlan{}))
+	tests := []struct {
+		name string
+		plan rebasePlan
+		want string
+	}{
+		{
+			name: "a branch with nothing of its own is moved",
+			plan: rebasePlan{},
+			want: "Move",
+		},
+		{
+			name: "a branch the base already holds is moved",
+			plan: rebasePlan{landed: 3},
+			want: "Move",
+		},
+		{
+			name: "a branch with commits of its own is rebased",
+			plan: rebasePlan{replay: 2},
+			want: "Rebase",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tt.want, rebaseAffirmative(tt.plan))
+		})
+	}
 }
 
 // TestRefreshWarning covers what the rebase confirmation warns about.
 func TestRefreshWarning(t *testing.T) {
 	t.Parallel()
 
-	for _, tt := range []struct {
+	tests := []struct {
 		name     string
 		plan     rebasePlan
 		want     []string
@@ -125,7 +177,9 @@ func TestRefreshWarning(t *testing.T) {
 			plan: rebasePlan{conflictPaths: []string{"a.go", "b.go", "c.go", "d.go", "e.go"}},
 			want: []string{"a.go, b.go, c.go and 2 more"},
 		},
-	} {
+	}
+
+	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 

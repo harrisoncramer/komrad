@@ -72,10 +72,6 @@ type request struct {
 	msg       proto.Message
 }
 
-type harnessFrameReader interface {
-	DoesFrameShowHarness(pane, harnessID string) bool
-}
-
 type answerFunc func(req connect.AnyRequest) (connect.AnyResponse, error)
 
 type requestRecorder struct {
@@ -153,7 +149,7 @@ type panelHarnessParams struct {
 	git           ui.ReviewGit
 	settings      ui.PanelSettings
 	engine        engine.Remote
-	harnessFrames harnessFrameReader
+	harnessFrames ui.HarnessFrameReader
 	configErr     error
 	startupErr    error
 	refuseSplits  bool

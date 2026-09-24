@@ -162,7 +162,7 @@ func TestArchiveSelection(t *testing.T) {
 
 		opened.form.form.State = huh.StateCompleted
 		answered, cmd := opened.form.update(opened, keyMsg("enter"))
-		settle(t, asModel(t, answered), cmd)
+		settle(t, requireModel(t, answered), cmd)
 
 		assert.Equal(t, []string{"a1", "a2"}, agents.deleted, "and it is the whole selection it acts on")
 	})

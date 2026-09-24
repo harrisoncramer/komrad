@@ -15,7 +15,7 @@ import (
 // TestEditorKeyOpensTheFieldUnderTheCursor checks that an edit reaches the field with the cursor
 // and no other field.
 func TestEditorKeyOpensTheFieldUnderTheCursor(t *testing.T) {
-	m := formModel(&formRecorder{})
+	m := newFormModel(&formRecorder{})
 	m.settings.Editor = "true"
 
 	values := workflowFormValues{
@@ -26,13 +26,13 @@ func TestEditorKeyOpensTheFieldUnderTheCursor(t *testing.T) {
 	}
 
 	opened := m.openWorkflowConfigForm(&values, nil)
-	m = asModel(t, opened)
+	m = requireModel(t, opened)
 	m.form.form.NextField()
 
 	require.Equal(t, "context", m.form.form.GetFocusedField().GetKey(), "the cursor is on the field the editor opens")
 
 	edited, cmd := m.Update(keyMsg("ctrl+e"))
-	m = asModel(t, edited)
+	m = requireModel(t, edited)
 	require.NotNil(t, cmd, "the editor key is the panel's own, so it is answered rather than handed to huh")
 
 	draft, err := os.ReadFile(formFieldDraftPath("context"))
@@ -45,7 +45,7 @@ func TestEditorKeyOpensTheFieldUnderTheCursor(t *testing.T) {
 		key:  "context",
 		text: "the notes as the editor left them\n",
 	})
-	m = asModel(t, written)
+	m = requireModel(t, written)
 
 	assert.Equal(t, "the notes as the editor left them", values.Context, "the newline every editor writes at the end of a file is not part of the field")
 	assert.Equal(t, ".env", values.WorktreeCopyPaths, "a field the editor was not opened on keeps what it held")
@@ -59,12 +59,12 @@ func TestEditorKeyOpensTheFieldUnderTheCursor(t *testing.T) {
 // TestEditorKeyIsHandedOnByAFieldWithNoText checks that a form with nothing to edit leaves the
 // key to huh.
 func TestEditorKeyIsHandedOnByAFieldWithNoText(t *testing.T) {
-	m := formModel(&formRecorder{})
+	m := newFormModel(&formRecorder{})
 	m.settings.Editor = "true"
 
 	name := ""
 	opened := m.openRenameForm(panel.Agent{ID: "a1", Name: "api"}, &name)
-	m = asModel(t, opened)
+	m = requireModel(t, opened)
 
 	_, _, taken := m.openFormFieldEditor()
 	assert.False(t, taken, "there is no text field to open, so the key belongs to the form")
@@ -98,20 +98,20 @@ func TestEditorKeyOnEitherProvisioner(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := formModel(&formRecorder{})
+			m := newFormModel(&formRecorder{})
 			m.settings.Editor = "true"
 
 			values := workflowFormValues{Provisioner: tt.provisioner, Context: "the notes"}
 
 			opened := m.openWorkflowConfigForm(&values, nil)
-			m = asModel(t, opened)
+			m = requireModel(t, opened)
 
 			written, _ := m.Update(formFieldEditedMsg{
 				kind: formWorkflow,
 				key:  tt.field,
 				text: "what the editor wrote",
 			})
-			m = asModel(t, written)
+			m = requireModel(t, written)
 
 			assert.Equal(t, "what the editor wrote", tt.want(&values))
 			assert.Equal(t, tt.field, m.form.form.GetFocusedField().GetKey(), "the cursor is left where the editor was opened")

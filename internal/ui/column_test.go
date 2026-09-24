@@ -17,6 +17,12 @@ func TestSplitOfDrawsTheWidthItIsHanded(t *testing.T) {
 		wantOK      bool
 	}{
 		{
+			name:    "a window too narrow for both halves holds neither",
+			width:   60,
+			sidebar: 30,
+			wantOK:  false,
+		},
+		{
 			name:        "a width in the middle of the range is drawn as it stands",
 			width:       200,
 			sidebar:     60,
@@ -43,12 +49,6 @@ func TestSplitOfDrawsTheWidthItIsHanded(t *testing.T) {
 			sidebar:     140,
 			wantSidebar: 99,
 			wantOK:      true,
-		},
-		{
-			name:    "and a window too narrow for both halves holds neither",
-			width:   60,
-			sidebar: 30,
-			wantOK:  false,
 		},
 	}
 

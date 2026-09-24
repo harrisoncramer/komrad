@@ -17,8 +17,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// sizedTo gives a model a window wide enough for both halves and attaches its frame.
-func sizedTo(m model, tmux *recordingTmux) model {
+// sizeModel gives a model a window wide enough for both halves and attaches its frame.
+func sizeModel(m model, tmux *recordingTmux) model {
 	tmux.width, tmux.height, tmux.windowWidth = 200, 40, 200
 	m.width, m.height = 200, 40
 	m.frame.Attach("%0")
@@ -26,25 +26,25 @@ func sizedTo(m model, tmux *recordingTmux) model {
 	return m
 }
 
-// resizedTo puts the terminal and the panel's pane at the same size.
-func resizedTo(t *testing.T, m model, width, height int) model {
+// resizeModel puts the terminal and the panel's pane at the same size.
+func resizeModel(t *testing.T, m model, size tea.WindowSizeMsg) model {
 	t.Helper()
 
 	tmux, ok := m.tmux.(*recordingTmux)
 	require.True(t, ok)
-	tmux.width, tmux.height = width, height
+	tmux.width, tmux.height = size.Width, size.Height
 
-	sized, _ := m.route(tea.WindowSizeMsg{Width: width, Height: height})
+	sized, _ := m.route(size)
 
-	return asModel(t, sized)
+	return requireModel(t, sized)
 }
 
-// paneless is the panel on a row with no pane of its own.
-func paneless(t *testing.T) (model, *recordingTmux) {
+// newPanelessModel is the panel on a row with no pane of its own.
+func newPanelessModel(t *testing.T) (model, *recordingTmux) {
 	t.Helper()
 
 	tmux := &recordingTmux{}
-	m := sizedTo(infoModel(tmux), tmux)
+	m := sizeModel(infoModel(tmux), tmux)
 	m.listing.workflows = []panel.Workflow{{
 		ID:      "w1",
 		Name:    "backend",
@@ -80,7 +80,7 @@ func TestAConfiguredWidthIsWidenedAndCapped(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tmux := &recordingTmux{}
-			m := sizedTo(infoModel(tmux), tmux)
+			m := sizeModel(infoModel(tmux), tmux)
 			m.frame = layout.New(tmux, config.Layout{SidebarWidth: tt.columns})
 			m.frame.Attach("%0")
 			m.enterScreen(screenReview)
@@ -100,7 +100,7 @@ func TestAConfiguredWidthIsWidenedAndCapped(t *testing.T) {
 // TestADraggedDividerIsDrawnWhereItIs covers the panel drawing its boundary at the dragged divider.
 func TestADraggedDividerIsDrawnWhereItIs(t *testing.T) {
 	tmux := &recordingTmux{}
-	m := sizedTo(infoModel(tmux), tmux)
+	m := sizeModel(infoModel(tmux), tmux)
 	m.enterScreen(screenReview)
 	m.review = reviewScreen{
 		agentID:   "a1",
@@ -121,7 +121,7 @@ func TestADraggedDividerIsDrawnWhereItIs(t *testing.T) {
 func TestASplitAgentsListIsLaidOutAgainstItsOwnColumn(t *testing.T) {
 	withColor(t)
 
-	m, _ := paneless(t)
+	m, _ := newPanelessModel(t)
 	m.listing.agents = []panel.AgentRow{{Agent: panel.Agent{
 		ID:         "a1",
 		Name:       strings.Repeat("long-agent-name-", 6),

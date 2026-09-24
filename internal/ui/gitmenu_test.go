@@ -162,7 +162,7 @@ func TestGitMenuOpensTheCurrentPullRequest(t *testing.T) {
 			assert.Equal(t, formNone, picked.form.kind)
 			require.NotNil(t, cmd, "the browser is asked off the update")
 
-			for _, msg := range produced(cmd) {
+			for _, msg := range collectMessages(cmd) {
 				updated, _ := picked.Update(msg)
 				picked, ok = updated.(model)
 				require.True(t, ok)
