@@ -167,3 +167,51 @@ func TestRunSurvivesACheckThatPanics(t *testing.T) {
 	assert.Equal(t, "check_panicked", report.Findings[1].Code)
 	assert.Equal(t, StatusOK, report.Findings[2].Status)
 }
+
+// TestWithEngineMarksAndCountsTheEngineFindings covers the report the doctor prints for a
+// remote engine: what the service answered comes after what was made here, marked as the
+// engine's, and the summary counts both.
+func TestWithEngineMarksAndCountsTheEngineFindings(t *testing.T) {
+	t.Parallel()
+
+	here := Run(t.Context(), Env{}, []Check{stub("tmux", pass("3.5a"))})
+
+	report := here.WithEngine([]Finding{
+		{
+			Name:   "tmux",
+			Status: StatusOK,
+			Detail: "3.4",
+		},
+		{
+			Name:   "database",
+			Status: StatusFail,
+			Error:  "refused",
+		},
+	})
+
+	require.Len(t, report.Findings, 3)
+	assert.Empty(t, report.Findings[0].Where)
+	assert.Equal(t, WhereEngine, report.Findings[1].Where)
+	assert.Equal(t, WhereEngine, report.Findings[2].Where)
+	assert.Equal(t, 3, report.Summary.Total)
+	assert.Equal(t, 1, report.Summary.Fail)
+	assert.False(t, report.Summary.Healthy)
+	assert.True(t, here.Summary.Healthy, "the report made here is left as it was")
+}
+
+// TestEngineStandIns covers the one finding that takes the engine's place when its checks
+// could not be had, whose reason is the server check or the call itself.
+func TestEngineStandIns(t *testing.T) {
+	t.Parallel()
+
+	notChecked := EngineNotChecked()
+	assert.Equal(t, StatusSkip, notChecked.Status)
+	assert.Equal(t, WhereEngine, notChecked.Where)
+	assert.Contains(t, notChecked.Detail, "server has to pass first")
+
+	unanswered := EngineUnanswered(errors.New("connection reset"))
+	assert.Equal(t, StatusFail, unanswered.Status)
+	assert.Equal(t, WhereEngine, unanswered.Where)
+	assert.Equal(t, "engine_unanswered", unanswered.Code)
+	assert.Contains(t, unanswered.Error, "connection reset")
+}
