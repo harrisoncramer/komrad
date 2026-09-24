@@ -42,7 +42,11 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-const maxSettleSteps = 1000
+const (
+	maxSettleSteps       = 1000
+	defaultHarnessWidth  = 140
+	defaultHarnessHeight = 40
+)
 
 var timerCmds = []string{
 	"bubbletea/v2.Tick.",
@@ -53,14 +57,8 @@ var timerCmds = []string{
 type panelHarness struct {
 	t      *testing.T
 	panel  *ui.Panel
-	log    *requestLog
+	log    *requestRecorder
 	timers []tea.Cmd
-}
-
-type panelHarnessParams struct {
-	width  int
-	height int
-	keys   *config.Keybindings
 }
 
 type request struct {
@@ -70,7 +68,7 @@ type request struct {
 
 type answerFunc func(req connect.AnyRequest) (connect.AnyResponse, error)
 
-type requestLog struct {
+type requestRecorder struct {
 	mu      sync.Mutex
 	seen    []request
 	answers map[string]answerFunc
@@ -136,10 +134,16 @@ func TestHarnessFiresHeldTimers(t *testing.T) {
 	})
 }
 
+type panelHarnessParams struct {
+	width  int
+	height int
+	keys   *config.Keybindings
+}
+
 func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
 	t.Helper()
 
-	log := &requestLog{answers: map[string]answerFunc{}}
+	log := &requestRecorder{answers: map[string]answerFunc{}}
 	interceptors := connect.WithInterceptors(log)
 
 	mux := http.NewServeMux()
@@ -159,7 +163,10 @@ func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
 
 	width, height := params.width, params.height
 	if width == 0 {
-		width, height = 140, 40
+		width = defaultHarnessWidth
+	}
+	if height == 0 {
+		height = defaultHarnessHeight
 	}
 
 	harness := &panelHarness{
@@ -282,7 +289,7 @@ func (h *panelHarness) fireTimers() {
 	}
 }
 
-func (l *requestLog) WrapUnary(connect.UnaryFunc) connect.UnaryFunc {
+func (l *requestRecorder) WrapUnary(connect.UnaryFunc) connect.UnaryFunc {
 	return func(_ context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
 		l.mu.Lock()
 		msg, _ := req.Any().(proto.Message)
@@ -301,11 +308,11 @@ func (l *requestLog) WrapUnary(connect.UnaryFunc) connect.UnaryFunc {
 	}
 }
 
-func (l *requestLog) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
+func (l *requestRecorder) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
 	return next
 }
 
-func (l *requestLog) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
+func (l *requestRecorder) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
 	return func(ctx context.Context, conn connect.StreamingHandlerConn) error {
 		l.mu.Lock()
 		l.seen = append(l.seen, request{procedure: conn.Spec().Procedure})

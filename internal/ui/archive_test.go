@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"weave/config"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	pullrequestv1 "weave/proto/gen/pullrequest/v1"
@@ -22,14 +23,13 @@ import (
 
 const (
 	archivedAt    = "2026-07-30T09:00:00Z"
-	sidebarWidth  = 30
 	archiveTitle  = "Archive"
 	agentsTitle   = "Agents & Workflows"
 	deletePrompt  = "Permanently delete"
 	emptyingQueue = "Emptying the archive"
 )
 
-var widenList = slices.Repeat([]string{"}"}, 10)
+var widenListPresses = slices.Repeat([]string{"}"}, 10)
 
 // TestArchiveKeys covers what each key does on the row under the cursor.
 func TestArchiveKeys(t *testing.T) {
@@ -305,7 +305,7 @@ func TestArchiveReportsRefusedWrites(t *testing.T) {
 			harness := openArchive(t, tt.rows...)
 			harness.refuse(tt.refused, connect.NewError(connect.CodeNotFound, errors.New("no such agent")))
 
-			harness.press(append(tt.press, widenList...)...)
+			harness.press(append(tt.press, widenListPresses...)...)
 
 			frame := harness.readFrame()
 			assert.Contains(t, frame, tt.wantSummary)
@@ -367,35 +367,35 @@ func TestArchiveLegend(t *testing.T) {
 	neverStarted.State = agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE
 
 	tests := []struct {
-		name        string
-		rows        []proto.Message
-		press       []string
-		wants       []string
-		wantsAbsent []string
+		name       string
+		rows       []proto.Message
+		press      []string
+		want       []string
+		wantAbsent []string
 	}{
 		{
-			name:        "on a live folder",
-			rows:        buildOneArchivedAgent(),
-			wantsAbsent: []string{"restore", "delete for good"},
+			name:       "on a live folder",
+			rows:       buildOneArchivedAgent(),
+			wantAbsent: []string{"restore", "delete for good"},
 		},
 		{
-			name:        "on an archived folder",
-			rows:        []proto.Message{newArchivedWorkflow("w1", "backend")},
-			wants:       []string{"restore workflow"},
-			wantsAbsent: []string{"delete for good"},
+			name:       "on an archived folder",
+			rows:       []proto.Message{newArchivedWorkflow("w1", "backend")},
+			want:       []string{"restore workflow"},
+			wantAbsent: []string{"delete for good"},
 		},
 		{
-			name:        "on an agent that never started",
-			rows:        []proto.Message{newLiveWorkflow("w1", "backend"), neverStarted},
-			press:       []string{"j"},
-			wants:       []string{"restore", "delete for good"},
-			wantsAbsent: []string{"restore and open"},
+			name:       "on an agent that never started",
+			rows:       []proto.Message{newLiveWorkflow("w1", "backend"), neverStarted},
+			press:      []string{"j"},
+			want:       []string{"restore", "delete for good"},
+			wantAbsent: []string{"restore and open"},
 		},
 		{
 			name:  "on an agent",
 			rows:  buildOneArchivedAgent(),
 			press: []string{"j"},
-			wants: []string{"restore", "restore and open", "delete for good"},
+			want:  []string{"restore", "restore and open", "delete for good"},
 		},
 	}
 
@@ -406,10 +406,10 @@ func TestArchiveLegend(t *testing.T) {
 			harness.press(append(tt.press, "?")...)
 
 			got := readLegend(harness.readFrame())
-			for _, want := range tt.wants {
+			for _, want := range tt.want {
 				assert.Contains(t, got, want)
 			}
-			for _, absent := range tt.wantsAbsent {
+			for _, absent := range tt.wantAbsent {
 				assert.NotContains(t, got, absent)
 			}
 		})
@@ -418,33 +418,56 @@ func TestArchiveLegend(t *testing.T) {
 
 // TestArchiveDocument covers what is drawn beside the list for the hovered row.
 func TestArchiveDocument(t *testing.T) {
-	t.Run("an archived agent is not one merely waiting to be opened", func(t *testing.T) {
-		harness := openArchive(t, buildOneArchivedAgent()...)
+	stuck := newArchivedAgent("a1", "api-refactor", "w1")
+	stuck.State = agentv1.AgentState_AGENT_STATE_FAILED_TO_CLEANUP
+	stuck.Metadata = []*agentv1.AgentMetadata{{
+		Key:   "error",
+		Value: "the worktree is dirty",
+	}}
 
-		harness.press("j")
+	tests := []struct {
+		name       string
+		rows       []proto.Message
+		press      []string
+		want       []string
+		wantAbsent []string
+	}{
+		{
+			name: "an empty archive says what the archive is for",
+			rows: []proto.Message{newLiveWorkflow("w1", "backend")},
+			want: []string{"nothing archived", "until you delete them"},
+		},
+		{
+			name:       "an agent a delete could not destroy says why",
+			rows:       []proto.Message{newLiveWorkflow("w1", "backend"), stuck},
+			press:      []string{"j"},
+			want:       []string{"teardown failed", "the worktree is dirty"},
+			wantAbsent: []string{"Restore brings it back"},
+		},
+		{
+			name:       "an archived agent is not one merely waiting to be opened",
+			rows:       buildOneArchivedAgent(),
+			press:      []string{"j"},
+			want:       []string{"archived — kept until deleted", "Restore brings it back"},
+			wantAbsent: []string{"dormant"},
+		},
+	}
 
-		frame := harness.readFrame()
-		assert.Contains(t, frame, "archived — kept until deleted")
-		assert.Contains(t, frame, "Restore brings it back")
-		assert.NotContains(t, frame, "dormant")
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			harness := openArchive(t, tt.rows...)
 
-	t.Run("an agent a delete could not destroy says why", func(t *testing.T) {
-		stuck := newArchivedAgent("a1", "api-refactor", "w1")
-		stuck.State = agentv1.AgentState_AGENT_STATE_FAILED_TO_CLEANUP
-		stuck.Metadata = []*agentv1.AgentMetadata{{
-			Key:   "error",
-			Value: "the worktree is dirty",
-		}}
-		harness := openArchive(t, newLiveWorkflow("w1", "backend"), stuck)
+			harness.press(tt.press...)
 
-		harness.press("j")
-
-		frame := harness.readFrame()
-		assert.Contains(t, frame, "teardown failed")
-		assert.Contains(t, frame, "the worktree is dirty")
-		assert.NotContains(t, frame, "Restore brings it back")
-	})
+			frame := harness.readFrame()
+			for _, want := range tt.want {
+				assert.Contains(t, frame, want)
+			}
+			for _, absent := range tt.wantAbsent {
+				assert.NotContains(t, frame, absent)
+			}
+		})
+	}
 
 	t.Run("the record says what the agents list would say of it", func(t *testing.T) {
 		agent := newArchivedAgent("a1", "api-refactor", "w1")
@@ -475,7 +498,7 @@ func TestArchiveDocument(t *testing.T) {
 			},
 		)
 
-		harness.press(append([]string{"j", "ctrl+t"}, widenList...)...)
+		harness.press(append([]string{"j", "ctrl+t"}, widenListPresses...)...)
 
 		frame := harness.readFrame()
 		assert.Contains(t, frame, "agent/a1")
@@ -494,22 +517,14 @@ func TestArchiveDocument(t *testing.T) {
 		frame := harness.readFrame()
 		assert.Contains(t, frame, "the shared notes")
 		for _, row := range splitLines(frame) {
-			assert.LessOrEqual(t, ansi.StringWidth(row), 140, "neither column runs past the window")
+			assert.LessOrEqual(t, ansi.StringWidth(row), defaultHarnessWidth, "neither column runs past the window")
 		}
-	})
-
-	t.Run("an empty archive says what the archive is for", func(t *testing.T) {
-		harness := openArchive(t, newLiveWorkflow("w1", "backend"))
-
-		frame := harness.readFrame()
-		assert.Contains(t, frame, "nothing archived")
-		assert.Contains(t, frame, "until you delete them")
 	})
 }
 
 // TestArchiveSort covers ordering the archive by its column tabs.
 func TestArchiveSort(t *testing.T) {
-	sorted := []proto.Message{
+	unsorted := []proto.Message{
 		newLiveWorkflow("w1", "backend"),
 		newArchivedAgentAt("zeta", "w1", "2026-07-30T12:00:00Z"),
 		newArchivedAgentAt("mid", "w1", "2026-07-30T13:00:00Z"),
@@ -544,7 +559,7 @@ func TestArchiveSort(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := openArchive(t, sorted...)
+			harness := openArchive(t, unsorted...)
 
 			harness.press(tt.press...)
 
@@ -553,7 +568,7 @@ func TestArchiveSort(t *testing.T) {
 	}
 
 	t.Run("the cursor keeps its row as the archive is reordered", func(t *testing.T) {
-		harness := openArchive(t, sorted...)
+		harness := openArchive(t, unsorted...)
 		harness.press("j", "j", "j")
 		require.Equal(t, "  alpha", readHoveredRow(harness.readFrame()))
 
@@ -615,16 +630,33 @@ func TestArchiveWindow(t *testing.T) {
 		workflow := newLiveWorkflow("w1", "backend")
 		workflow.Context = strings.Repeat("a line of the document. ", 60)
 
-		for _, height := range []int{12, 16, 24} {
-			harness := newPanelHarness(t, panelHarnessParams{
-				width:  140,
-				height: height,
+		tests := []struct {
+			name   string
+			height int
+		}{
+			{
+				name:   "a short window",
+				height: 12,
+			},
+			{
+				name:   "a middling window",
+				height: 16,
+			},
+			{
+				name:   "a tall window",
+				height: 24,
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				harness := newPanelHarness(t, panelHarnessParams{height: tt.height})
+				harness.watch(buildSnapshot(workflow, newArchivedAgent("a1", "api-refactor", "w1")))
+
+				harness.press("Z")
+
+				assert.Len(t, splitLines(harness.readFrame()), tt.height)
 			})
-			harness.watch(buildSnapshot(workflow, newArchivedAgent("a1", "api-refactor", "w1")))
-
-			harness.press("Z")
-
-			assert.Len(t, splitLines(harness.readFrame()), height, "height=%d", height)
 		}
 	})
 }
@@ -685,7 +717,7 @@ func splitLines(frame string) []string {
 func readListRows(frame string) []string {
 	var rows []string
 	for _, line := range splitLines(frame) {
-		_, row, isRow := strings.Cut(ansi.Truncate(line, sidebarWidth, ""), "│ ")
+		_, row, isRow := strings.Cut(ansi.Truncate(line, config.DefaultSidebarWidth, ""), "│ ")
 		if isRow {
 			rows = append(rows, strings.TrimRight(row, " "))
 		}
@@ -700,7 +732,7 @@ func readHoveredRow(frame string) string {
 			continue
 		}
 
-		_, row, _ := strings.Cut(ansi.Truncate(line, sidebarWidth, ""), "│ ")
+		_, row, _ := strings.Cut(ansi.Truncate(line, config.DefaultSidebarWidth, ""), "│ ")
 
 		return strings.TrimRight(row, " ")
 	}

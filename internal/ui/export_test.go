@@ -40,24 +40,22 @@ func NewPanel(params NewPanelParams) *Panel {
 	}
 	post := newPostbox()
 
-	m := newModel(Deps{
-		PopupWindow: NewPopupWindow(tmux, "test-session"),
-		Tmux:        tmux,
-		Git:         params.Git,
-		Agents:      params.Agents,
-		Workflows:   params.Workflows,
-		Schedules:   params.Schedules,
-		Hooks:       params.Hooks,
-		Worktrees:   params.Worktrees,
-		Keys:        params.Keys,
-		Layout:      config.DefaultLayout(),
-		Settings:    PanelSettings{Pane: "%0"},
-	}, true, post)
-
 	return &Panel{
-		model: m,
-		post:  post,
-		tmux:  tmux,
+		model: newModel(Deps{
+			PopupWindow: NewPopupWindow(tmux, "test-session"),
+			Tmux:        tmux,
+			Git:         params.Git,
+			Agents:      params.Agents,
+			Workflows:   params.Workflows,
+			Schedules:   params.Schedules,
+			Hooks:       params.Hooks,
+			Worktrees:   params.Worktrees,
+			Keys:        params.Keys,
+			Layout:      config.DefaultLayout(),
+			Settings:    PanelSettings{Pane: "%0"},
+		}, true, post),
+		post: post,
+		tmux: tmux,
 	}
 }
 
@@ -66,24 +64,21 @@ func (p *Panel) Init() tea.Cmd {
 	return p.model.Init()
 }
 
-// Update hands the panel one message, and the size its own pane moved to as the resize the
-// program would deliver next.
+// Update hands the panel one message.
 func (p *Panel) Update(msg tea.Msg) tea.Cmd {
 	next, cmd := p.model.Update(msg)
 	if updated, ok := next.(model); ok {
 		p.model = updated
 	}
 
-	p.post.mu.Lock()
-	size := p.post.pending
-	p.post.pending = nil
-	p.post.mu.Unlock()
-
+	size := p.post.takePending()
 	if size == nil {
 		return cmd
 	}
 
-	return tea.Batch(cmd, func() tea.Msg { return *size })
+	return tea.Batch(cmd, func() tea.Msg {
+		return *size
+	})
 }
 
 // View is the frame the panel draws.
