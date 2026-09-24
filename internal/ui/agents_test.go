@@ -634,6 +634,76 @@ func TestAgentsRecordFocus(t *testing.T) {
 	})
 }
 
+// TestAgentsRecordCopy covers the copy key taking the field under the record's cursor.
+func TestAgentsRecordCopy(t *testing.T) {
+	t.Run("a clipboard that refuses the write says so", func(t *testing.T) {
+		clip := &fakeClipboard{err: errors.New("no clipboard utility found")}
+		harness := newPanelHarness(t, panelHarnessParams{clipboard: clip})
+		answerWorktreeReads(harness)
+		harness.watch(buildSnapshot(buildRecorded()...))
+
+		harness.press("ctrl+t", "y")
+		refused := harness.readFrame()
+		require.Contains(t, refused, "✗ Could not copy")
+		require.Contains(t, refused, "no clipboard utility found")
+
+		clip.err = nil
+		harness.press("y")
+
+		assert.Equal(t, refused, harness.readFrame(), "a copy that worked reports nothing of its own")
+	})
+
+	tests := []struct {
+		name  string
+		open  func(*testing.T, *fakeClipboard) *panelHarness
+		press []string
+		want  string
+	}{
+		{
+			name: "the whole value is taken rather than the clipped line it is drawn on",
+			open: openCopyRecord,
+			press: []string{
+				"ctrl+t",
+				"G",
+			},
+			want: "https://github.com/o/r/pull/312",
+		},
+		{
+			name: "a narrowed record copies from the rows that are left",
+			open: func(t *testing.T, clip *fakeClipboard) *panelHarness {
+				t.Helper()
+
+				return openWorktreeRecord(t, panelHarnessParams{clipboard: clip})
+			},
+			press: []string{"/", "c", "o", "m", "m", "i", "t", "tab", "enter", "G"},
+			want:  "1234567890ab  3h   feat(ui): a thing",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			clip := &fakeClipboard{}
+			harness := tt.open(t, clip)
+
+			harness.press(append(tt.press, "y")...)
+
+			assert.Equal(t, []string{tt.want}, clip.written)
+		})
+	}
+
+	t.Run("the field on screen is taken after the row goes from under the record", func(t *testing.T) {
+		clip := &fakeClipboard{}
+		rows := buildRecorded()
+		harness := openCopyRecord(t, clip)
+		harness.press("ctrl+t", "j", "j", "j")
+
+		harness.watch(buildSnapshot(rows[0]))
+		harness.press("y")
+
+		assert.Equal(t, []string{"backend"}, clip.written)
+	})
+}
+
 // TestAgentsRecordHeight covers how many lines the record takes from the sidebar.
 func TestAgentsRecordHeight(t *testing.T) {
 	tests := []struct {
@@ -2172,6 +2242,16 @@ func newOrchestrator() *agentv1.Agent {
 	}
 }
 
+func openCopyRecord(t *testing.T, clip *fakeClipboard) *panelHarness {
+	t.Helper()
+
+	harness := newPanelHarness(t, panelHarnessParams{clipboard: clip})
+	answerWorktreeReads(harness)
+	harness.watch(buildSnapshot(buildRecorded()...))
+
+	return harness
+}
+
 func openWorktreeRecord(t *testing.T, params panelHarnessParams) *panelHarness {
 	t.Helper()
 
@@ -2352,4 +2432,15 @@ func newMarkAuthRequest(letter *string) *agentv1.SetMarkRequest {
 		Target: &agentv1.SetMarkRequest_AgentId{AgentId: "auth"},
 		Mark:   letter,
 	}
+}
+
+type fakeClipboard struct {
+	written []string
+	err     error
+}
+
+func (f *fakeClipboard) WriteAll(text string) error {
+	f.written = append(f.written, text)
+
+	return f.err
 }

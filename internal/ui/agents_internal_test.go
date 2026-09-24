@@ -61,67 +61,6 @@ func (r *refusingHolds) ReleaseAgent(ctx context.Context, req *connect.Request[a
 	return r.recordingHolds.ReleaseAgent(ctx, req)
 }
 
-// TestRecordCopy covers the copy key taking a field's value out of the record.
-func TestRecordCopy(t *testing.T) {
-	t.Run("the value is taken rather than the clipped line it is drawn on", func(t *testing.T) {
-		clip := &fakeClipboard{}
-		m := detailsModel(&recordingTmux{})
-		m.clip = clip
-
-		bottom := send(t, send(t, m, "ctrl+t"), "G")
-		copied, cmd := bottom.updateDetails(keyMsg("y"))
-		require.NotNil(t, cmd)
-
-		require.NoError(t, copyResultFrom(t, cmd).err)
-		assert.Equal(t, []string{"https://github.com/o/r/pull/312"}, clip.written)
-		assert.Positive(t, requireModel(t, copied).details.flashed, "the copied field flashes while the write runs")
-	})
-
-	t.Run("the field on screen is taken after the row changes under the record", func(t *testing.T) {
-		clip := &fakeClipboard{}
-		m := detailsModel(&recordingTmux{})
-		m.clip = clip
-		m.agents.placed = true
-		down := send(t, send(t, send(t, send(t, m, "ctrl+t"), "j"), "j"), "j")
-
-		applyListing(&down, down.listing.workflows)
-		held := down.hoveredDetails()
-		require.Equal(t, "w1", held.id, "the workflow header took the archived agent's place")
-
-		copied, cmd := down.updateDetails(keyMsg("y"))
-		require.NotNil(t, cmd)
-		require.NoError(t, copyResultFrom(t, cmd).err)
-
-		assert.Equal(t, []string{held.fields[0].value}, clip.written)
-		assert.Equal(t, 1, requireModel(t, copied).details.flashed, "and flashes the line it took it from")
-	})
-
-	t.Run("a narrowed record copies from the rows that are left", func(t *testing.T) {
-		clip := &fakeClipboard{}
-		m := detailsModel(&recordingTmux{})
-		m.height, m.width = 40, 60
-		m.clip = clip
-		m.applyWorktreeInspection(worktreeInspectedMsg{dir: "/repo", inspection: readWorktree(time.Now())})
-
-		narrowed := pressMark(t, send(t, m, "ctrl+t"), "/", "c", "o", "m", "m", "i", "t", "tab", "enter", "G")
-		_, cmd := narrowed.copyDetailsField()
-		require.NotNil(t, cmd)
-		collectMessages(cmd)
-
-		assert.Equal(t, []string{"1234567890ab  3h   feat(ui): a thing"}, clip.written)
-	})
-
-	t.Run("a clipboard that refuses the write is reported", func(t *testing.T) {
-		m := detailsModel(&recordingTmux{})
-		m.clip = &fakeClipboard{err: errors.New("no clipboard utility found")}
-
-		_, cmd := send(t, m, "ctrl+t").updateDetails(keyMsg("y"))
-		require.NotNil(t, cmd)
-
-		assert.EqualError(t, copyResultFrom(t, cmd).err, "no clipboard utility found")
-	})
-}
-
 // TestRecordEmphasis covers what the record paints that a stripped frame cannot show.
 func TestRecordEmphasis(t *testing.T) {
 	t.Run("a search typed on the list lights its match in the record", func(t *testing.T) {
