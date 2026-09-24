@@ -5,10 +5,10 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"weave/internal/git"
 	agentstore "weave/internal/store/agent"
+	workflowstore "weave/internal/store/workflow"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -18,7 +18,7 @@ import (
 // for going and its repository being pruned.
 func TestRemoveTakesAnUnownedDirectoryAndPrunesIt(t *testing.T) {
 	f := newFixture(t)
-	dir := f.cut(t, "aaaa")
+	dir := f.cut(t)
 
 	removal, err := f.remover().Remove(t.Context(), []string{dir})
 	require.NoError(t, err)
@@ -50,28 +50,16 @@ func TestRemoveTakesAGoneRegistrationWithoutPruning(t *testing.T) {
 // and one that is not there at all.
 func TestRemoveRefusesWhatAnAgentAnswersFor(t *testing.T) {
 	f := newFixture(t)
-	live := f.cut(t, "live")
-	f.own("live", "live-agent", nil)
-	archived := f.cut(t, "archived")
-	at := time.Now()
-	f.own("archived", "archived-agent", &at)
-	vetoed := f.cut(t, "vetoed")
-	f.own("vetoed", "vetoed-agent", nil)
-	f.owners.rows[2].State = agentstore.StateFailedToCleanup
-	shared := f.cut(t, "shared")
-	f.owners.rows = append(f.owners.rows, agentstore.AgentDir{
-		ID:    "child",
-		Name:  "child-agent",
-		Cwd:   shared,
-		State: agentstore.StateIdle,
-	})
-	deep := f.cut(t, "deep")
-	f.owners.rows = append(f.owners.rows, agentstore.AgentDir{
-		ID:    "under",
-		Name:  "under-agent",
-		Cwd:   filepath.Join(deep, "packages", "api"),
-		State: agentstore.StateIdle,
-	})
+	live := f.cut(t)
+	f.own(t, live, agentstore.Agent{Name: "live-agent"})
+	archived := f.cut(t)
+	f.archive(t, f.own(t, archived, agentstore.Agent{Name: "archived-agent"}).ID)
+	vetoed := f.cut(t)
+	f.own(t, vetoed, agentstore.Agent{Name: "vetoed-agent", State: agentstore.StateFailedToCleanup})
+	shared := f.cut(t)
+	f.occupy(t, shared, "child-agent")
+	deep := f.cut(t)
+	f.occupy(t, filepath.Join(deep, "packages", "api"), "under-agent")
 	outside := t.TempDir()
 
 	removal, err := f.remover().Remove(t.Context(), []string{live, archived, vetoed, shared, deep, outside, filepath.Join(f.shared, "missing")})
@@ -100,10 +88,9 @@ func TestRemoveRefusesWhatAnAgentAnswersFor(t *testing.T) {
 // remover accepts, a cleanup that failed on a registration git cannot read.
 func TestRemoveTakesADirectoryWhoseRowFailedToCleanUp(t *testing.T) {
 	f := newFixture(t)
-	dir := filepath.Join(f.shared, "cccc")
-	write(t, dir, ".git", "gitdir: /var/folders/xx/T/repo/.git/worktrees/cccc\n")
-	f.own("cccc", "stuck", nil)
-	f.owners.rows[0].State = agentstore.StateFailedToCleanup
+	dir := f.cut(t)
+	require.NoError(t, os.RemoveAll(filepath.Join(f.repo, ".git", "worktrees", filepath.Base(dir))))
+	f.own(t, dir, agentstore.Agent{Name: "stuck", State: agentstore.StateFailedToCleanup})
 
 	removal, err := f.remover().Remove(t.Context(), []string{dir})
 	require.NoError(t, err)
@@ -117,11 +104,11 @@ func TestRemoveTakesADirectoryWhoseRowFailedToCleanUp(t *testing.T) {
 // or only the repository has it registered.
 func TestRemoveRefusesADirectoryHoldingAnotherWorktree(t *testing.T) {
 	f := newFixture(t)
-	listed := f.cut(t, "listed")
-	f.flows.dirs = []string{listed}
+	listed := f.cut(t)
+	f.stores.SeedWorkflow(t, workflowstore.Config{Name: "nested", Worktree: workflowstore.WorktreeConfig{Dir: listed}})
 	inner := filepath.Join(listed, "inner")
 	write(t, inner, ".git", "gitdir: /var/folders/xx/T/repo/.git/worktrees/inner\n")
-	registered := f.cut(t, "registered")
+	registered := f.cut(t)
 	byHand := filepath.Join(registered, "by-hand")
 	write(t, byHand, ".git", "gitdir: "+filepath.Join(f.repo, ".git", "worktrees", "by-hand")+"\n")
 	f.git.Registered = []git.Worktree{{Dir: f.repo}, {Dir: byHand}}
@@ -144,7 +131,7 @@ func TestRemoveRefusesADirectoryHoldingAnotherWorktree(t *testing.T) {
 // removed.
 func TestRemoveMarksAStepThatBroke(t *testing.T) {
 	f := newFixture(t)
-	unlisted := f.cut(t, "unlisted")
+	unlisted := f.cut(t)
 	f.git.ListErr = errors.New("git is not on the path")
 
 	removal, err := f.remover().Remove(t.Context(), []string{unlisted})
@@ -156,7 +143,7 @@ func TestRemoveMarksAStepThatBroke(t *testing.T) {
 	assert.DirExists(t, unlisted)
 
 	f.git.ListErr = nil
-	held := f.cut(t, "held")
+	held := f.cut(t)
 	require.NoError(t, os.Chmod(f.shared, 0o500))
 	t.Cleanup(func() { assert.NoError(t, os.Chmod(f.shared, 0o700)) })
 

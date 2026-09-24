@@ -15,13 +15,12 @@ import (
 // TestMeasureSumsEveryFileUnderADirectory covers the walk counting regular files through
 // subdirectories, following no symlink, and keeping what each top-level entry holds.
 func TestMeasureSumsEveryFileUnderADirectory(t *testing.T) {
-	f := newFixture(t)
-	dir := filepath.Join(f.shared, "aaaa")
+	dir := t.TempDir()
 	write(t, dir, "one", strings.Repeat("x", 100))
 	write(t, dir, "deep/two", strings.Repeat("x", 50))
 	write(t, dir, "deep/down/three", strings.Repeat("x", 75))
 	write(t, dir, "empty", "")
-	require.NoError(t, os.Symlink(f.repo, filepath.Join(dir, "linked")))
+	require.NoError(t, os.Symlink(t.TempDir(), filepath.Join(dir, "linked")))
 	one := usage(t, filepath.Join(dir, "one"))
 	deep := usage(t, filepath.Join(dir, "deep/two")) + usage(t, filepath.Join(dir, "deep/down/three"))
 	require.Positive(t, one)

@@ -9,6 +9,7 @@ import (
 
 	"weave/internal/git"
 	"weave/internal/store"
+	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 	worktreestore "weave/internal/store/worktree"
 
@@ -21,13 +22,13 @@ import (
 // commits, and the branch being kept since nothing else reaches its tip.
 func TestInspectReadsABranchAgainstItsWorkflowsBase(t *testing.T) {
 	f := newFixture(t)
-	dir := f.cut(t, "aaaa")
-	f.own("aaaa", "first", nil)
-	f.flows.flows["flow"] = &workflowstore.Workflow{Worktree: workflowstore.WorktreeConfig{BaseBranch: "develop"}}
+	dir := f.cut(t)
+	develop := f.stores.SeedWorkflow(t, workflowstore.Config{Name: "develop", Worktree: workflowstore.WorktreeConfig{BaseBranch: "develop"}})
+	f.own(t, dir, agentstore.Agent{Name: "first", WorkflowID: develop.ID})
+	f.git.State = git.TreeState{Branch: filepath.Base(dir), InProgress: true}
 	at := time.Date(2026, 9, 19, 12, 0, 0, 0, time.UTC)
 	write(t, dir, "big/one", strings.Repeat("x", 20000))
 	f.git.Changes = git.Changes{Modified: []string{"own.go"}, Untracked: []string{"scratch.txt"}}
-	f.git.State = git.TreeState{Branch: "agent/aaaa", InProgress: true}
 	f.git.Ahead, f.git.Behind = 2, 12
 	f.git.Prediction = git.Prediction{Landed: 1, Replay: 1}
 	f.git.Commits = []git.Commit{{
@@ -72,8 +73,8 @@ func held(entries []Entry) int64 {
 // answering with why rather than with a standing against something else.
 func TestInspectReportsABaseTheCloneDoesNotHold(t *testing.T) {
 	f := newFixture(t)
-	dir := f.cut(t, "hhhh")
-	f.own("hhhh", "stale", nil)
+	dir := f.cut(t)
+	f.own(t, dir, agentstore.Agent{Name: "stale"})
 	f.git.Unresolved = true
 	f.git.Commits = []git.Commit{{SHA: "never"}}
 
@@ -90,7 +91,7 @@ func TestInspectReportsABaseTheCloneDoesNotHold(t *testing.T) {
 // gone, which names no workflow and so no base.
 func TestInspectReportsADirectoryWithNoRowAsHavingNoBase(t *testing.T) {
 	f := newFixture(t)
-	dir := f.cut(t, "iiii")
+	dir := f.cut(t)
 
 	inspection, err := f.inspector().Inspect(t.Context(), InspectParams{Dir: dir})
 	require.NoError(t, err)
@@ -103,8 +104,8 @@ func TestInspectReportsADirectoryWithNoRowAsHavingNoBase(t *testing.T) {
 // resolve, with the workflow's base named to it.
 func TestInspectFetchesWhenAsked(t *testing.T) {
 	f := newFixture(t)
-	dir := f.cut(t, "bbbb")
-	f.own("bbbb", "fetched", nil)
+	dir := f.cut(t)
+	f.own(t, dir, agentstore.Agent{Name: "fetched"})
 
 	inspection, err := f.inspector().Inspect(t.Context(), InspectParams{Dir: dir, Fetch: true})
 	require.NoError(t, err)
@@ -119,8 +120,8 @@ func TestInspectFetchesWhenAsked(t *testing.T) {
 // not being kept.
 func TestInspectReadsALandedBranchAsLeavingNothingBehind(t *testing.T) {
 	f := newFixture(t)
-	dir := f.cut(t, "cccc")
-	f.own("cccc", "landed", nil)
+	dir := f.cut(t)
+	f.own(t, dir, agentstore.Agent{Name: "landed"})
 	f.git.Held = true
 
 	inspection, err := f.inspector().Inspect(t.Context(), InspectParams{Dir: dir})
@@ -132,9 +133,8 @@ func TestInspectReadsALandedBranchAsLeavingNothingBehind(t *testing.T) {
 // TestInspectKeepsAnAdoptedBranch covers the adopted flag winning over reachability.
 func TestInspectKeepsAnAdoptedBranch(t *testing.T) {
 	f := newFixture(t)
-	dir := f.cut(t, "dddd")
-	f.own("dddd", "adopted", nil)
-	f.owners.rows[0].AdoptedBranch = "agent/dddd"
+	dir := f.cut(t)
+	f.own(t, dir, agentstore.Agent{Name: "adopted", AdoptedBranch: "agent/" + filepath.Base(dir)})
 	f.git.Held = true
 
 	inspection, err := f.inspector().Inspect(t.Context(), InspectParams{Dir: dir})
@@ -147,8 +147,8 @@ func TestInspectKeepsAnAdoptedBranch(t *testing.T) {
 // and the base being read as no landed commits rather than as a failure.
 func TestInspectReadsAnUnrelatedBaseAsNothingLanded(t *testing.T) {
 	f := newFixture(t)
-	dir := f.cut(t, "eeee")
-	f.own("eeee", "unrelated", nil)
+	dir := f.cut(t)
+	f.own(t, dir, agentstore.Agent{Name: "unrelated"})
 	f.git.PredictErr = git.ErrBaseUnrelated
 
 	inspection, err := f.inspector().Inspect(t.Context(), InspectParams{Dir: dir})
@@ -190,23 +190,23 @@ func TestInspectRefusesADirectoryTheListingDoesNotHold(t *testing.T) {
 // under the time of the call and carried back on the worktree, over whatever was stored.
 func TestInspectRecordsTheSizeItWalked(t *testing.T) {
 	f := newFixture(t)
-	dir := f.cut(t, "aaaa")
-	f.sizes.stored[dir] = worktreestore.Size{
+	dir := f.cut(t)
+	require.NoError(t, f.worktrees.Upsert(t.Context(), worktreestore.Worktree{Dir: dir}))
+	require.NoError(t, f.worktrees.RecordSize(t.Context(), worktreestore.Size{
 		Dir:        dir,
 		MeasuredAt: f.now.Add(-time.Hour),
 		Error:      "permission denied",
-	}
+	}))
 
 	inspection, err := f.inspector().Inspect(t.Context(), InspectParams{Dir: dir})
 	require.NoError(t, err)
 
 	assert.Positive(t, inspection.Bytes)
-	assert.Equal(t, []string{dir}, f.sizes.written)
-	assert.Equal(t, worktreestore.Size{
-		Dir:        dir,
-		Bytes:      inspection.Bytes,
-		MeasuredAt: f.now,
-	}, f.sizes.stored[dir])
+	stored := f.stored(t)[dir].Size
+	require.NotNil(t, stored)
+	assert.Equal(t, inspection.Bytes, stored.Bytes)
+	assert.Empty(t, stored.Error)
+	assert.True(t, stored.MeasuredAt.Equal(f.now))
 	require.NotNil(t, inspection.Worktree.Size)
-	assert.Equal(t, f.sizes.stored[dir], *inspection.Worktree.Size)
+	assert.Equal(t, inspection.Bytes, inspection.Worktree.Size.Bytes)
 }
