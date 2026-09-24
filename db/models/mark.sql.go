@@ -138,7 +138,7 @@ FROM
     marks
 WHERE
     $1::text[] IS NULL
-    OR id::text = ANY ($1)
+    OR id = ANY ($1::uuid[])
 ORDER BY
     mark
 `

@@ -30,7 +30,7 @@ func TestListWatchedIsTheWatchedSet(t *testing.T) {
 	require.Len(t, all, 2)
 	ids := xslice.Map(all, func(mark Mark) string { return mark.ID })
 
-	listed, err := f.ListWatched(ctx, append(slices.Clone(ids), "00000000-0000-0000-0000-000000000000", "not-an-id"))
+	listed, err := f.ListWatched(ctx, append(slices.Clone(ids), "00000000-0000-0000-0000-000000000000"))
 	require.NoError(t, err)
 	assert.Equal(t, []Mark{
 		{

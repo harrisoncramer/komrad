@@ -5,7 +5,7 @@ FROM
     marks
 WHERE
     sqlc.narg('keys')::text[] IS NULL
-    OR id::text = ANY (sqlc.narg('keys'))
+    OR id = ANY (sqlc.narg('keys')::uuid[])
 ORDER BY
     mark;
 
