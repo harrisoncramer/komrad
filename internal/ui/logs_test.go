@@ -15,6 +15,10 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+type runLogWriter struct {
+	root string
+}
+
 // TestLogs covers the log keys paging an agent's logs into the pane under the stage.
 func TestLogs(t *testing.T) {
 	t.Parallel()
@@ -23,7 +27,7 @@ func TestLogs(t *testing.T) {
 		t.Parallel()
 
 		harness, runs := openLogs(t)
-		newest := writeRun(t, runs, 1, config.TriggerProvision)
+		newest := runs.write(t, 1, config.TriggerProvision)
 		harness.fireTimers()
 
 		harness.press("l")
@@ -47,8 +51,8 @@ func TestLogs(t *testing.T) {
 		t.Parallel()
 
 		harness, runs := openLogs(t)
-		first := writeRun(t, runs, 1, config.TriggerProvision)
-		second := writeRun(t, runs, 2, config.TriggerResume)
+		first := runs.write(t, 1, config.TriggerProvision)
+		second := runs.write(t, 2, config.TriggerResume)
 
 		harness.press("l", "L", "L")
 
@@ -59,7 +63,7 @@ func TestLogs(t *testing.T) {
 		t.Parallel()
 
 		harness, runs := openLogs(t)
-		writeRun(t, runs, 1, config.TriggerProvision)
+		runs.write(t, 1, config.TriggerProvision)
 
 		harness.press("L")
 		assert.Empty(t, harness.panel.ReadRespawns())
@@ -101,7 +105,7 @@ func TestLogs(t *testing.T) {
 
 				harness, runs := openLogs(t)
 				for number := 1; number <= tt.runs; number++ {
-					writeRun(t, runs, number, config.TriggerProvision)
+					runs.write(t, number, config.TriggerProvision)
 				}
 
 				harness.press(append(append([]string{"l"}, tt.press...), "?")...)
@@ -118,8 +122,8 @@ func TestLogs(t *testing.T) {
 		failed.FailedRun = true
 		failed.FailedRunLog = proto.Int32(1)
 		harness, runs := openLogs(t, failed)
-		first := writeRun(t, runs, 1, config.TriggerProvision)
-		writeRun(t, runs, 2, config.TriggerResume)
+		first := runs.write(t, 1, config.TriggerProvision)
+		runs.write(t, 2, config.TriggerResume)
 
 		harness.press("l")
 		harness.fireTimers()
@@ -136,8 +140,8 @@ func TestLogs(t *testing.T) {
 		failed.FailedRun = true
 		failed.FailedRunLog = proto.Int32(9)
 		harness, runs := openLogs(t, failed)
-		writeRun(t, runs, 1, config.TriggerProvision)
-		newest := writeRun(t, runs, 2, config.TriggerResume)
+		runs.write(t, 1, config.TriggerProvision)
+		newest := runs.write(t, 2, config.TriggerResume)
 
 		harness.press("l")
 
@@ -187,7 +191,7 @@ func TestLogs(t *testing.T) {
 		t.Parallel()
 
 		harness, runs := openLogs(t)
-		writeRun(t, runs, 1, config.TriggerDeprovision)
+		runs.write(t, 1, config.TriggerDeprovision)
 
 		harness.press("Z", "l", "L", "T")
 
@@ -280,7 +284,7 @@ func TestLogsFailedPlaceholder(t *testing.T) {
 			failed.Metadata = []*agentv1.AgentMetadata{{Key: "error", Value: tt.reason}}
 			harness, runs := openLogs(t)
 			for i, trigger := range tt.runs {
-				path := writeRun(t, runs, i+1, trigger)
+				path := runs.write(t, i+1, trigger)
 				if tt.emptyRuns {
 					require.NoError(t, os.Truncate(path, 0))
 				}
@@ -297,18 +301,18 @@ func TestLogsFailedPlaceholder(t *testing.T) {
 	}
 }
 
-func openLogs(t *testing.T, agents ...*agentv1.Agent) (*panelHarness, string) {
+func openLogs(t *testing.T, agents ...*agentv1.Agent) (*panelHarness, runLogWriter) {
 	t.Helper()
 
 	logPath := filepath.Join(t.TempDir(), "weave.log")
 	require.NoError(t, os.WriteFile(logPath, []byte("listening on 127.0.0.1:8787\n"), 0o644))
-	runs := t.TempDir()
+	runs := runLogWriter{root: t.TempDir()}
 
 	if len(agents) == 0 {
 		agents = []*agentv1.Agent{newRunning()}
 	}
 
-	harness := newPanelHarness(t, panelHarnessParams{settings: ui.PanelSettings{LogPath: logPath, RunLogsDir: runs}})
+	harness := newPanelHarness(t, panelHarnessParams{settings: ui.PanelSettings{LogPath: logPath, RunLogsDir: runs.root}})
 	answerWorktreeReads(harness)
 	rows := []proto.Message{newLiveWorkflow("w1", "api")}
 	for _, agent := range agents {
@@ -320,10 +324,10 @@ func openLogs(t *testing.T, agents ...*agentv1.Agent) (*panelHarness, string) {
 	return harness, runs
 }
 
-func writeRun(t *testing.T, runs string, number int, trigger string) string {
+func (w runLogWriter) write(t *testing.T, number int, trigger string) string {
 	t.Helper()
 
-	dir := config.RunLogDir(runs, "a1")
+	dir := config.RunLogDir(w.root, "a1")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
 
 	path := filepath.Join(dir, config.RunLogName(number, trigger, "make-worktree"))

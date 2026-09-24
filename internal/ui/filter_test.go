@@ -397,7 +397,12 @@ func TestFilterScreens(t *testing.T) {
 				newAgent("a1", "auth", "w1"),
 				newArchivedAgent("a2", "old", "w1"),
 				newNamedSchedule("s1", "nightly"),
-				&worktreev1.WatchedWorktree{Dir: "/trees/auth", RepoDir: "/home/h/weave", Branch: "agent/auth", Readable: true},
+				&worktreev1.WatchedWorktree{
+					Dir:      "/trees/auth",
+					RepoDir:  "/home/h/weave",
+					Branch:   "agent/auth",
+					Readable: true,
+				},
 			))
 
 			harness.press(append(tt.press, "/", "tab", "z", "z", "z", "enter")...)
@@ -416,14 +421,28 @@ func TestFilterWorktreeHeader(t *testing.T) {
 	harness := newPanelHarness(t, panelHarnessParams{})
 	harness.watch(buildSnapshot(
 		newLiveWorkflow("w1", "backend"),
-		&worktreev1.WatchedWorktree{Dir: "/trees/worktree-view", RepoDir: "/home/h/weave", Branch: "agent/worktree-view", Readable: true, SizeBytes: proto.Int64(1 << 20), MeasuredAt: proto.String(archivedAt)},
-		&worktreev1.WatchedWorktree{Dir: "/trees/other", RepoDir: "/home/h/weave", Branch: "agent/other", Readable: true, SizeBytes: proto.Int64(1 << 20), MeasuredAt: proto.String(archivedAt)},
+		&worktreev1.WatchedWorktree{
+			Dir:        "/trees/worktree-view",
+			RepoDir:    "/home/h/weave",
+			Branch:     "agent/worktree-view",
+			Readable:   true,
+			SizeBytes:  proto.Int64(1 << 20),
+			MeasuredAt: proto.String(archivedAt),
+		},
+		&worktreev1.WatchedWorktree{
+			Dir:        "/trees/other",
+			RepoDir:    "/home/h/weave",
+			Branch:     "agent/other",
+			Readable:   true,
+			SizeBytes:  proto.Int64(1 << 20),
+			MeasuredAt: proto.String(archivedAt),
+		},
 	))
 	harness.press("t")
 	header := splitLines(harness.readFrame())[5]
 	require.Contains(t, header, "2.0M")
 
-	harness.press(slices.Concat([]string{"/", "tab"}, typed("worktree-view"), []string{"enter"})...)
+	harness.press(slices.Concat([]string{"/", "tab"}, spellKeys("worktree-view"), []string{"enter"})...)
 
 	frame := harness.readFrame()
 	assert.NotContains(t, frame, "agent/other", "the filter took the other worktree away")

@@ -13,6 +13,14 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+type drawReporter struct {
+	drawn bool
+}
+
+func (f *drawReporter) DoesFrameShowHarness(string, string) bool {
+	return f.drawn
+}
+
 // TestListingLandsWrites covers the cursor going to the row a write made once the watch carries it.
 func TestListingLandsWrites(t *testing.T) {
 	t.Parallel()
@@ -215,7 +223,7 @@ func TestListingFocus(t *testing.T) {
 	t.Run("a resume waits for the harness to draw before handing over the keys", func(t *testing.T) {
 		t.Parallel()
 
-		frames := &drawnFrames{}
+		frames := &drawReporter{}
 		harness := newPanelHarness(t, panelHarnessParams{harnessFrames: frames})
 		answerWorktreeReads(harness)
 		harness.watch(buildSnapshot(newLiveWorkflow("w1", "api"), newDormant("old")))
@@ -248,7 +256,7 @@ func TestListingFocus(t *testing.T) {
 	t.Run("a resume tmux will not split for once the harness draws leaves the keys too", func(t *testing.T) {
 		t.Parallel()
 
-		frames := &drawnFrames{}
+		frames := &drawReporter{}
 		harness := newPanelHarness(t, panelHarnessParams{harnessFrames: frames, refuseSplits: true})
 		answerWorktreeReads(harness)
 		harness.watch(buildSnapshot(newLiveWorkflow("w1", "api"), newDormant("old")))
@@ -261,14 +269,6 @@ func TestListingFocus(t *testing.T) {
 		assert.Empty(t, harness.panel.ReadGuestPane())
 		assert.Empty(t, harness.panel.ReadSelectedPanes())
 	})
-}
-
-type drawnFrames struct {
-	drawn bool
-}
-
-func (f *drawnFrames) DoesFrameShowHarness(string, string) bool {
-	return f.drawn
 }
 
 func openLanding(t *testing.T) *panelHarness {

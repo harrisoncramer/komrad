@@ -15,6 +15,7 @@ import (
 	"weave/proto/gen/hook/v1/hookv1connect"
 	workflowv1 "weave/proto/gen/workflow/v1"
 	"weave/proto/gen/workflow/v1/workflowv1connect"
+	"weave/proto/gen/worktree/v1/worktreev1connect"
 
 	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
@@ -35,7 +36,7 @@ func TestFormsSubmit(t *testing.T) {
 	}{
 		{
 			name:      "the new-agent form sends the workflow's directory and an overridden harness",
-			press:     slices.Concat([]string{"c"}, typed("check CI"), []string{"enter"}, typed("ci"), []string{"enter", "ctrl+u"}, typed("codex"), []string{"ctrl+s"}),
+			press:     slices.Concat([]string{"c"}, spellKeys("check CI"), []string{"enter"}, spellKeys("ci"), []string{"enter", "ctrl+u"}, spellKeys("codex"), []string{"ctrl+s"}),
 			procedure: agentv1connect.AgentServiceCreateAgentProcedure,
 			want: &agentv1.CreateAgentRequest{
 				Prompt:     "check CI",
@@ -47,7 +48,7 @@ func TestFormsSubmit(t *testing.T) {
 		},
 		{
 			name:      "the child form sends its parent and the parent's harness but not its flags",
-			press:     slices.Concat([]string{"j", "C"}, typed("run the tests"), []string{"ctrl+s"}),
+			press:     slices.Concat([]string{"j", "C"}, spellKeys("run the tests"), []string{"ctrl+s"}),
 			procedure: agentv1connect.AgentServiceCreateAgentProcedure,
 			want: &agentv1.CreateAgentRequest{
 				Prompt:        "run the tests",
@@ -58,14 +59,14 @@ func TestFormsSubmit(t *testing.T) {
 		},
 		{
 			name:      "the rename form sends the new name",
-			press:     slices.Concat([]string{"j", "r"}, typed("api-v2"), []string{"ctrl+s"}),
+			press:     slices.Concat([]string{"j", "r"}, spellKeys("api-v2"), []string{"ctrl+s"}),
 			procedure: agentv1connect.AgentServiceUpdateAgentProcedure,
 			want:      &agentv1.UpdateAgentRequest{Id: "a1", Name: "api-v2"},
 		},
 		{
 			name: "the adopt form sends the ref and prompt into the workflow",
-			press: slices.Concat([]string{"a"}, typed("https://github.com/acmecorp/admin/pull/1069"), []string{"enter"},
-				typed("pick it up"), []string{"ctrl+s"}),
+			press: slices.Concat([]string{"a"}, spellKeys("https://github.com/acmecorp/admin/pull/1069"), []string{"enter"},
+				spellKeys("pick it up"), []string{"ctrl+s"}),
 			procedure: agentv1connect.AgentServiceAdoptProcedure,
 			want: &agentv1.AdoptRequest{
 				Ref:        "https://github.com/acmecorp/admin/pull/1069",
@@ -76,8 +77,8 @@ func TestFormsSubmit(t *testing.T) {
 		},
 		{
 			name: "the new-workflow form with no provisioner makes no worktrees",
-			press: slices.Concat([]string{"w"}, typed("web"), []string{"enter"}, typed("the frontend"), []string{"enter", "enter"},
-				typed("/work/web"), []string{"enter"}, typed("--model sonnet"), []string{"enter", "up", "ctrl+s"}),
+			press: slices.Concat([]string{"w"}, spellKeys("web"), []string{"enter"}, spellKeys("the frontend"), []string{"enter", "enter"},
+				spellKeys("/work/web"), []string{"enter"}, spellKeys("--model sonnet"), []string{"enter", "up", "ctrl+s"}),
 			procedure: workflowv1connect.WorkflowServiceCreateWorkflowProcedure,
 			want: &workflowv1.CreateWorkflowRequest{
 				Name:     "web",
@@ -89,9 +90,9 @@ func TestFormsSubmit(t *testing.T) {
 		},
 		{
 			name: "the new-workflow form with worktrees sends each path list without its blank lines",
-			press: slices.Concat([]string{"w"}, typed("web"), []string{"enter", "enter", "enter", "enter", "enter", "enter"},
-				typed("develop"), []string{"enter", "enter"}, typed(".env"), []string{"ctrl+j", "ctrl+j"}, typed("config/local.json"),
-				[]string{"enter"}, typed("node_modules"), []string{"ctrl+s"}),
+			press: slices.Concat([]string{"w"}, spellKeys("web"), []string{"enter", "enter", "enter", "enter", "enter", "enter"},
+				spellKeys("develop"), []string{"enter", "enter"}, spellKeys(".env"), []string{"ctrl+j", "ctrl+j"}, spellKeys("config/local.json"),
+				[]string{"enter"}, spellKeys("node_modules"), []string{"ctrl+s"}),
 			procedure: workflowv1connect.WorkflowServiceCreateWorkflowProcedure,
 			want: &workflowv1.CreateWorkflowRequest{
 				Name: "web",
@@ -106,7 +107,7 @@ func TestFormsSubmit(t *testing.T) {
 		{
 			name:      "the workflow edit form sends the field edited and the ones that were not",
 			workflow:  newConfiguredWorkflow(),
-			press:     slices.Concat([]string{"e", "enter", "enter", "enter", "ctrl+u"}, typed("/work/api-v2"), []string{"ctrl+s"}),
+			press:     slices.Concat([]string{"e", "enter", "enter", "enter", "ctrl+u"}, spellKeys("/work/api-v2"), []string{"ctrl+s"}),
 			procedure: workflowv1connect.WorkflowServiceUpdateWorkflowProcedure,
 			want: &workflowv1.UpdateWorkflowRequest{
 				Id:       "w1",
@@ -120,7 +121,7 @@ func TestFormsSubmit(t *testing.T) {
 		},
 		{
 			name:      "the workflow rename form carries the config it is not changing",
-			press:     slices.Concat([]string{"r"}, typed("backend"), []string{"ctrl+s"}),
+			press:     slices.Concat([]string{"r"}, spellKeys("backend"), []string{"ctrl+s"}),
 			procedure: workflowv1connect.WorkflowServiceUpdateWorkflowProcedure,
 			want: &workflowv1.UpdateWorkflowRequest{
 				Id:       "w1",
@@ -145,7 +146,7 @@ func TestFormsSubmit(t *testing.T) {
 			if workflow == nil {
 				workflow = newFormWorkflow()
 			}
-			harness := openForms(t, workflow)
+			harness := openForms(t, workflow, newFormAuthor())
 
 			harness.press(tt.press...)
 
@@ -162,7 +163,7 @@ func TestFormsNewAgentWorktree(t *testing.T) {
 	workflow.Worktree = &workflowv1.WorktreeConfig{Enabled: true}
 
 	t.Run("the field opens on what the workflow does", func(t *testing.T) {
-		harness := openForms(t, workflow)
+		harness := openForms(t, workflow, newFormAuthor())
 
 		harness.press("c")
 
@@ -186,9 +187,9 @@ func TestFormsNewAgentWorktree(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := openForms(t, workflow)
+			harness := openForms(t, workflow, newFormAuthor())
 
-			harness.press(slices.Concat([]string{"c"}, typed("go"), tt.press, []string{"ctrl+s"})...)
+			harness.press(slices.Concat([]string{"c"}, spellKeys("go"), tt.press, []string{"ctrl+s"})...)
 
 			sent := harness.readSent(agentv1connect.AgentServiceCreateAgentProcedure)
 			require.Len(t, sent, 1)
@@ -210,26 +211,26 @@ func TestFormsRefused(t *testing.T) {
 		{
 			name:      "the new-agent form",
 			procedure: agentv1connect.AgentServiceCreateAgentProcedure,
-			press:     slices.Concat([]string{"c"}, typed("check CI"), []string{"ctrl+s"}),
+			press:     slices.Concat([]string{"c"}, spellKeys("check CI"), []string{"ctrl+s"}),
 			typed:     "check CI",
 		},
 		{
 			name:      "the rename form",
 			procedure: agentv1connect.AgentServiceUpdateAgentProcedure,
-			press:     slices.Concat([]string{"j", "r"}, typed("api-v2"), []string{"ctrl+s"}),
+			press:     slices.Concat([]string{"j", "r"}, spellKeys("api-v2"), []string{"ctrl+s"}),
 			typed:     "api-v2",
 		},
 		{
 			name:      "the new-workflow form",
 			procedure: workflowv1connect.WorkflowServiceCreateWorkflowProcedure,
-			press:     slices.Concat([]string{"w"}, typed("web"), []string{"ctrl+s"}),
+			press:     slices.Concat([]string{"w"}, spellKeys("web"), []string{"ctrl+s"}),
 			typed:     "web",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := openForms(t, newFormWorkflow())
+			harness := openForms(t, newFormWorkflow(), newFormAuthor())
 			harness.refuse(tt.procedure, connect.NewError(connect.CodeInvalidArgument, errors.New("not allowed")))
 
 			harness.press(tt.press...)
@@ -250,7 +251,7 @@ func TestFormsRefused(t *testing.T) {
 // TestFormsArchivePrompt covers the three ways the agent archive prompt can be answered.
 func TestFormsArchivePrompt(t *testing.T) {
 	t.Run("the prompt opens on the reversible answer", func(t *testing.T) {
-		harness := openForms(t, newFormWorkflow())
+		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 
 		harness.press("j", "z")
 
@@ -295,19 +296,19 @@ func TestFormsArchivePrompt(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := openForms(t, newFormWorkflow())
+			harness := openForms(t, newFormWorkflow(), newFormAuthor())
 			harness.press("j", "z")
-			before := harness.readSent(worktreeReadProcedure)
+			before := harness.readSent(worktreev1connect.WorktreeServiceGetWorktreeProcedure)
 
 			harness.press(tt.press...)
 
-			harness.assertSent(append(asRequests(worktreeReadProcedure, before), tt.wantSent...)...)
+			harness.assertSent(append(wrapRequests(worktreev1connect.WorktreeServiceGetWorktreeProcedure, before), tt.wantSent...)...)
 			assert.Contains(t, splitLines(harness.readFrame())[0], "Agents & Workflows", "every answer lands back on the list")
 		})
 	}
 
 	t.Run("a refused archive destroys nothing", func(t *testing.T) {
-		harness := openForms(t, newFormWorkflow())
+		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 		harness.refuse(agentv1connect.AgentServiceArchiveAgentsProcedure, connect.NewError(connect.CodeFailedPrecondition, errors.New("already archived")))
 
 		harness.press(slices.Concat([]string{"j", "z", "down", "ctrl+s"}, widenListPresses)...)
@@ -320,24 +321,24 @@ func TestFormsArchivePrompt(t *testing.T) {
 // TestFormsKeys covers the keys a form answers to.
 func TestFormsKeys(t *testing.T) {
 	t.Run("enter on the last field of a form leaves it up", func(t *testing.T) {
-		harness := openForms(t, newFormWorkflow())
+		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 
-		harness.press(slices.Concat([]string{"c"}, typed("go"), slices.Repeat([]string{"enter"}, 8))...)
+		harness.press(slices.Concat([]string{"c"}, spellKeys("go"), slices.Repeat([]string{"enter"}, 8))...)
 
 		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceCreateAgentProcedure))
 		assert.Contains(t, harness.readFrame(), "Initial prompt")
 	})
 
 	t.Run("enter leaves a one-field form up too", func(t *testing.T) {
-		harness := openForms(t, newFormWorkflow())
+		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 
-		harness.press(slices.Concat([]string{"j", "r"}, typed("api-v2"), []string{"enter"})...)
+		harness.press(slices.Concat([]string{"j", "r"}, spellKeys("api-v2"), []string{"enter"})...)
 
 		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceUpdateAgentProcedure))
 	})
 
 	t.Run("the adopt key on an agent row opens nothing", func(t *testing.T) {
-		harness := openForms(t, newFormWorkflow())
+		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 
 		harness.press("j", "a")
 
@@ -348,7 +349,7 @@ func TestFormsKeys(t *testing.T) {
 
 // TestFormsWorkflowProvisioner covers the workflow form asking only what its provisioner needs.
 func TestFormsWorkflowProvisioner(t *testing.T) {
-	harness := openForms(t, newFormWorkflow())
+	harness := openForms(t, newFormWorkflow(), newFormAuthor())
 
 	harness.press(slices.Concat([]string{"w"}, slices.Repeat([]string{"enter"}, 5))...)
 	frame := harness.readFrame()
@@ -356,7 +357,7 @@ func TestFormsWorkflowProvisioner(t *testing.T) {
 	assert.Less(t, strings.Index(frame, "None: agents keep"), strings.Index(frame, "Worktree: a git worktree per agent"), "and the options keep their order")
 	assert.Contains(t, frame, "Worktree base branch", "worktree is the default, so its fields are already on screen")
 
-	harness.press(slices.Concat([]string{"enter", "enter", "enter"}, typed(".env"), []string{"shift+tab", "shift+tab", "shift+tab", "up"})...)
+	harness.press(slices.Concat([]string{"enter", "enter", "enter"}, spellKeys(".env"), []string{"shift+tab", "shift+tab", "shift+tab", "up"})...)
 	frame = harness.readFrame()
 	assert.NotContains(t, frame, "Worktree base branch", "none provisions nothing, so it asks nothing about a worktree")
 	assert.Contains(t, frame, "Pre-launch hook", "the hooks are asked for whichever provisioner is chosen")
@@ -521,7 +522,7 @@ func TestFormsLayout(t *testing.T) {
 			harness.watch(buildSnapshot(newFormWorkflow()))
 			harness.refuse(workflowv1connect.WorkflowServiceCreateWorkflowProcedure, connect.NewError(connect.CodeInvalidArgument, errors.New("no such workflow")))
 
-			harness.press(slices.Concat([]string{"w"}, typed("web"), []string{"ctrl+s"})...)
+			harness.press(slices.Concat([]string{"w"}, spellKeys("web"), []string{"ctrl+s"})...)
 
 			frame := harness.readFrame()
 			assert.LessOrEqual(t, len(splitLines(frame)), height)
@@ -536,7 +537,7 @@ func TestFormsLayout(t *testing.T) {
 		answerWorktreeReads(harness)
 		harness.watch(buildSnapshot(newFormWorkflow()))
 		harness.refuse(workflowv1connect.WorkflowServiceCreateWorkflowProcedure, connect.NewError(connect.CodeInvalidArgument, errors.New("no such workflow")))
-		harness.press(slices.Concat([]string{"w"}, typed("web"), []string{"ctrl+s"})...)
+		harness.press(slices.Concat([]string{"w"}, spellKeys("web"), []string{"ctrl+s"})...)
 
 		harness.press("ctrl+g")
 		frame := harness.readFrame()
@@ -548,18 +549,8 @@ func TestFormsLayout(t *testing.T) {
 	})
 }
 
-const worktreeReadProcedure = "/worktree.v1.WorktreeService/GetWorktree"
-
-func openForms(t *testing.T, workflow *workflowv1.Workflow, agents ...*agentv1.Agent) *panelHarness {
+func openForms(t *testing.T, workflow *workflowv1.Workflow, author *agentv1.Agent) *panelHarness {
 	t.Helper()
-
-	author := newAgent("a1", "author", "w1")
-	author.Cwd = "/work/api"
-	author.Harness = "claude"
-	author.Flags = "--model opus"
-	if len(agents) > 0 {
-		author = agents[0]
-	}
 
 	harness := openAgents(t, workflow, author)
 	harness.press("g", "g")
@@ -572,7 +563,7 @@ func openHookForm(t *testing.T, hooks []*workflowv1.WorkflowHook, available ...s
 
 	workflow := newFormWorkflow()
 	workflow.Hooks = hooks
-	harness := openForms(t, workflow)
+	harness := openForms(t, workflow, newFormAuthor())
 	harness.answer(hookv1connect.HookServiceListHooksProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 		return connect.NewResponse(&hookv1.ListHooksResponse{Hooks: xslice.Map(available, func(name string) *hookv1.Hook {
 			return &hookv1.Hook{Name: name, Executable: true}
@@ -594,7 +585,7 @@ func assertSentHooks(t *testing.T, harness *panelHarness, want []*workflowv1.Wor
 	assert.Empty(t, cmp.Diff(want, update.GetHooks(), protocmp.Transform()))
 }
 
-func asRequests(procedure string, msgs []proto.Message) []request {
+func wrapRequests(procedure string, msgs []proto.Message) []request {
 	return xslice.Map(msgs, func(msg proto.Message) request {
 		return request{procedure: procedure, msg: msg}
 	})
@@ -618,6 +609,15 @@ func newConfiguredWorkflow() *workflowv1.Workflow {
 	return workflow
 }
 
+func newFormAuthor() *agentv1.Agent {
+	author := newAgent("a1", "author", "w1")
+	author.Cwd = "/work/api"
+	author.Harness = "claude"
+	author.Flags = "--model opus"
+
+	return author
+}
+
 func newLiveAuthor() *agentv1.Agent {
 	author := newAgent("a1", "author", "w1")
 	author.PaneId = "%9"
@@ -626,6 +626,6 @@ func newLiveAuthor() *agentv1.Agent {
 	return author
 }
 
-func typed(text string) []string {
+func spellKeys(text string) []string {
 	return strings.Split(text, "")
 }

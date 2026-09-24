@@ -72,7 +72,7 @@ type request struct {
 	msg       proto.Message
 }
 
-type harnessFrames interface {
+type harnessFrameReader interface {
 	DoesFrameShowHarness(pane, harnessID string) bool
 }
 
@@ -153,7 +153,7 @@ type panelHarnessParams struct {
 	git           ui.ReviewGit
 	settings      ui.PanelSettings
 	engine        engine.Remote
-	harnessFrames harnessFrames
+	harnessFrames harnessFrameReader
 	configErr     error
 	startupErr    error
 	refuseSplits  bool
