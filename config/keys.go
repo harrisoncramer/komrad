@@ -4,34 +4,46 @@ import (
 	"fmt"
 	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 	"unicode"
 	"unicode/utf8"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
-// The span of tea.KeyType values a key name can be read from.
-const (
-	firstKeyType = -100
-	lastKeyType  = 127
-)
+// specialKeys is how many key codes bubbletea defines past its extended marker.
+const specialKeys = 512
 
-// pressableNames is every name bubbletea prints for a press.
+// lastFunctionKey is the highest function key a terminal without keyboard enhancements sends.
+const lastFunctionKey = 20
+
+// pressableNames is every name bubbletea prints for a key that is not a character.
 var pressableNames = func() []string {
-	var names []string
+	names := []string{}
+	codes := []rune{tea.KeyEnter, tea.KeyTab, tea.KeyBackspace, tea.KeyEscape, tea.KeySpace}
+	for code := tea.KeyExtended + 1; code <= tea.KeyExtended+specialKeys; code++ {
+		codes = append(codes, code)
+	}
 
-	for code := firstKeyType; code <= lastKeyType; code++ {
-		name := tea.KeyType(code).String()
-		if name == "" || name == "runes" {
-			continue
+	for _, code := range codes {
+		name := tea.Key{Code: code}.Keystroke()
+		if utf8.RuneCountInString(name) > 1 && !isPastLastFunctionKey(name) {
+			names = append(names, name)
 		}
-
-		names = append(names, name)
 	}
 
 	return names
 }()
+
+func isPastLastFunctionKey(name string) bool {
+	number, err := strconv.Atoi(strings.TrimPrefix(name, "f"))
+
+	return strings.HasPrefix(name, "f") && err == nil && number > lastFunctionKey
+}
+
+// controlAliases are the control characters a terminal sends for a key bubbletea names otherwise.
+var controlAliases = []rune{'m', 'i', '['}
 
 // keyChecker reads the bindings a config asks for and refuses the ones no press could reach.
 type keyChecker struct {
@@ -105,12 +117,29 @@ func (c *keyChecker) checkBinding(setting string, bound []string) error {
 
 // isPressable reports whether a press exists that bubbletea would print as this string.
 func (c *keyChecker) isPressable(key string) bool {
-	bare := strings.TrimPrefix(key, "alt+")
+	bare := key
+
+	var ctrl, shift bool
+	if after, ok := strings.CutPrefix(bare, "ctrl+"); ok {
+		ctrl, bare = true, after
+	}
+	bare = strings.TrimPrefix(bare, "alt+")
+	if after, ok := strings.CutPrefix(bare, "shift+"); ok {
+		shift, bare = true, after
+	}
+
 	if slices.Contains(pressableNames, bare) {
 		return true
 	}
 
 	pressed, size := utf8.DecodeRuneInString(bare)
+	if size != len(bare) || pressed == utf8.RuneError || !unicode.IsGraphic(pressed) || unicode.IsSpace(pressed) {
+		return false
+	}
 
-	return size == len(bare) && pressed != utf8.RuneError && unicode.IsGraphic(pressed)
+	if ctrl && (slices.Contains(controlAliases, pressed) || unicode.IsUpper(pressed)) {
+		return false
+	}
+
+	return !shift
 }

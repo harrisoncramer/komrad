@@ -6,8 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/charmbracelet/lipgloss"
-	"github.com/muesli/termenv"
+	"github.com/charmbracelet/x/ansi"
+
+	"charm.land/lipgloss/v2"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -112,7 +113,7 @@ func TestRenderListWindow(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := lines(RenderList(numbered(total), tt.cursor, tt.lines, dim))
+			got := lines(ansi.Strip(RenderList(numbered(total), tt.cursor, tt.lines, dim)))
 
 			assert.Equal(t, tt.want, got)
 		})
@@ -173,13 +174,4 @@ func TestPaintRow(t *testing.T) {
 
 	assert.Equal(t, lipgloss.Width(row), lipgloss.Width(PaintRow(row, 2)),
 		"a row wider than the pane is painted as it stands rather than padded")
-}
-
-// TestPaintRowWithoutColour covers a terminal that writes no escapes.
-func TestPaintRowWithoutColour(t *testing.T) {
-	restore := lipgloss.ColorProfile()
-	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })
-	lipgloss.SetColorProfile(termenv.Ascii)
-
-	assert.Equal(t, "  api", PaintRow("  api", 20))
 }

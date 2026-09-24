@@ -7,7 +7,7 @@ import (
 	"weave/internal/ui/paint/label"
 	"weave/lib/xslice"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 )
 
 // Rows draws every row of the agents list as its own string.

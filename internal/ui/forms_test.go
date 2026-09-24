@@ -21,9 +21,9 @@ import (
 	workflowv1 "weave/proto/gen/workflow/v1"
 	"weave/proto/gen/workflow/v1/workflowv1connect"
 
+	tea "charm.land/bubbletea/v2"
+	"charm.land/huh/v2"
 	"connectrpc.com/connect"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -423,7 +423,7 @@ func TestWorktreeSelectShowsTheCurrentChoiceOnOpen(t *testing.T) {
 	)
 	agentForm.Init()
 
-	assert.Contains(t, agentForm.View(), "> Same as workflow", "the field opens with what it inherits marked as picked")
+	assert.Contains(t, ansi.Strip(agentForm.View()), "> Same as workflow", "the field opens with what it inherits marked as picked")
 }
 
 // TestRefusedSubmitKeepsTheForm covers a refused write leaving the form up with what was
@@ -1336,7 +1336,7 @@ func TestEscDetachesFromAHeldForm(t *testing.T) {
 	m = asModel(t, updated)
 	require.True(t, m.held.active)
 
-	detached, _ := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	detached, _ := m.Update(keyMsg("esc"))
 	m = asModel(t, detached)
 
 	assert.False(t, m.held.active, "the panel takes keys again")
@@ -1369,7 +1369,7 @@ func TestAnEarlierWriteLeavesALaterHoldAlone(t *testing.T) {
 
 	escaped := m.writes
 
-	detached, _ := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	detached, _ := m.Update(keyMsg("esc"))
 	m = asModel(t, detached)
 
 	second := agentPrefill(workflow)

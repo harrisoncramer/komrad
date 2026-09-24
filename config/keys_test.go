@@ -4,8 +4,9 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"unicode/utf8"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -46,8 +47,8 @@ func TestLoadRejectsKeysBubbleteaCannotDeliver(t *testing.T) {
 			file: "[keybindings.agents]\nrename = [\"ctrl+i\"]\n",
 		},
 		{
-			name: "space spelled as a word rather than as the space bubbletea reports",
-			file: "[keybindings.schedules]\ntoggle = [\"space\"]\n",
+			name: "space spelled as the character rather than as the word bubbletea reports",
+			file: "[keybindings.schedules]\ntoggle = [\" \"]\n",
 		},
 		{
 			name: "a tmux spelling in a panel binding",
@@ -136,8 +137,8 @@ func TestLoadRejectsTheTopKeyOnTheBottomKey(t *testing.T) {
 
 // TestTheKeyTypeRangeCoversAllOfThem pins the span pressableNames reads.
 func TestTheKeyTypeRangeCoversAllOfThem(t *testing.T) {
-	assert.Empty(t, tea.KeyType(firstKeyType-1).String(), "a key type below the range has a name, so the range is too narrow")
-	assert.Empty(t, tea.KeyType(lastKeyType+1).String(), "a key type above the range has a name, so the range is too narrow")
+	past := tea.Key{Code: tea.KeyExtended + specialKeys + 1}.Keystroke()
+	assert.Equal(t, 1, utf8.RuneCountInString(past), "a key code above the range has a name, so the range is too narrow")
 	assert.NotEmpty(t, pressableNames)
 }
 
@@ -146,8 +147,8 @@ func TestIsPressableTakesEveryNameAPressProduces(t *testing.T) {
 	for _, key := range []string{
 		"enter", "esc", "tab", "shift+tab", "backspace", "delete", "insert",
 		"up", "down", "left", "right", "home", "end", "pgup", "pgdown",
-		"f1", "f20", "ctrl+a", "ctrl+\\", "alt+j", "alt+ctrl+j", "shift+left", "ctrl+shift+home",
-		" ", "a", "Z", "?", "/", "'", "<", "]", "\u00e9", "\u6f22",
+		"f1", "f20", "ctrl+a", "ctrl+\\", "alt+j", "ctrl+alt+j", "shift+left", "ctrl+shift+home",
+		"space", "a", "Z", "?", "/", "'", "<", "]", "\u00e9", "\u6f22",
 	} {
 		assert.True(t, newKeyChecker().isPressable(key), "bubbletea prints %q for a real press, so a config may name it", key)
 	}
@@ -157,8 +158,8 @@ func TestIsPressableTakesEveryNameAPressProduces(t *testing.T) {
 // bubbletea prints rather than the one a person would guess.
 func TestIsPressableRefusesWhatNoPressProduces(t *testing.T) {
 	for _, key := range []string{
-		"", " j ", "aa", "escape", "return", "space", "PgUp", "Ctrl+A", "C-d", "<C-d>",
-		"ctrl+m", "ctrl+i", "ctrl+shift+q", "f21", "ctrl+alt+j", "meta+j",
+		"", " ", " j ", "aa", "escape", "return", "PgUp", "Ctrl+A", "C-d", "<C-d>",
+		"ctrl+m", "ctrl+i", "ctrl+shift+q", "f21", "alt+ctrl+j", "meta+j",
 	} {
 		assert.False(t, newKeyChecker().isPressable(key), "no press produces %q, so a binding on it is unreachable", key)
 	}

@@ -7,9 +7,8 @@ import (
 	"weave/internal/diff"
 	agentv1 "weave/proto/gen/agent/v1"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
-	"github.com/muesli/termenv"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -172,9 +171,6 @@ func TestSearchFindsAViewedFileName(t *testing.T) {
 
 // TestFileNameMatchIsPainted covers the header a search found being drawn with the match on it.
 func TestFileNameMatchIsPainted(t *testing.T) {
-	restore := lipgloss.ColorProfile()
-	lipgloss.SetColorProfile(termenv.TrueColor)
-	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })
 
 	view := twoHunkView()
 	require.Equal(t, 1, view.SetPattern(regexp.MustCompile(`eet\.g`)))

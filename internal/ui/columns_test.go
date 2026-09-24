@@ -10,9 +10,9 @@ import (
 	"weave/internal/ui/panel"
 	"weave/lib/xptr"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -58,11 +58,11 @@ func TestAgentsDrawTheHoveredRowsNotes(t *testing.T) {
 
 	assert.True(t, m.frame.IsSolo(), "the panel takes the window when there is no pane to show")
 
-	view := ansi.Strip(m.View())
+	view := ansi.Strip(m.render())
 	assert.Contains(t, view, "always run the linter", "the folder's shared notes stand beside the list")
 	assert.Contains(t, view, "backend", "and the list is still there")
 
-	for _, row := range strings.Split(m.View(), "\n") {
+	for _, row := range strings.Split(m.render(), "\n") {
 		assert.Equal(t, m.width, lipgloss.Width(row), "every row of the frame is squared off")
 	}
 }
@@ -100,7 +100,7 @@ func TestAgentsSayWhyADormantAgentHasNoPane(t *testing.T) {
 	m.stageSelection()
 
 	assert.True(t, m.frame.IsSolo(), "a dormant agent has no pane, so the panel keeps the window")
-	assert.Contains(t, ansi.Strip(m.View()), "dormant", "and says so in its own frame")
+	assert.Contains(t, ansi.Strip(m.render()), "dormant", "and says so in its own frame")
 }
 
 // TestLeavingARunningAgentKeepsTheWindow covers moving off an agent onto a row with no pane, where
@@ -130,7 +130,7 @@ func TestTheFrameCoversThePane(t *testing.T) {
 	m.agents.cursor = 1
 	m.stageSelection()
 
-	assert.Len(t, strings.Split(m.View(), "\n"), m.height, "the frame is as tall as the pane it is painted into")
+	assert.Len(t, strings.Split(m.render(), "\n"), m.height, "the frame is as tall as the pane it is painted into")
 }
 
 // TestSchedulesDrawTheHoveredRecord covers the schedule's own record standing beside the list.
@@ -144,7 +144,7 @@ func TestSchedulesDrawTheHoveredRecord(t *testing.T) {
 
 	require.True(t, m.frame.IsSolo(), "the schedules screen draws both halves itself")
 
-	view := ansi.Strip(m.View())
+	view := ansi.Strip(m.render())
 	assert.Contains(t, view, "morning-ci", "the list names the schedule")
 	assert.Contains(t, view, "0 9 * * 1-5", "and the record beside it spells out when it fires")
 	assert.Empty(t, tmux.respawns, "nothing is pushed into a pane to put it there")
@@ -194,14 +194,14 @@ func TestAHandMovedPaneCorrectsTheFrame(t *testing.T) {
 // the terminal itself losing focus with the zoom untouched.
 func TestAnUnfocusedTerminalKeepsTheWindow(t *testing.T) {
 	m, _ := paneless(t)
-	before := m.View()
+	before := m.render()
 
 	// The keys have not moved.
 	left, _ := m.route(tea.BlurMsg{})
 	m = asModel(t, left)
 
 	assert.True(t, m.frame.IsSolo(), "the terminal losing focus is not the panel losing the window")
-	assert.Equal(t, before, m.View(), "so nothing is re-laid out behind an unfocused terminal")
+	assert.Equal(t, before, m.render(), "so nothing is re-laid out behind an unfocused terminal")
 	assert.False(t, m.keysElsewhere, "and the panel is still the thing being read")
 }
 

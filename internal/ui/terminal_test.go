@@ -8,7 +8,6 @@ import (
 	"weave/internal/ui/layout"
 	"weave/internal/ui/panel"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -38,7 +37,7 @@ func infoRespawns(tmux *recordingTmux) []string {
 func pressTerminal(t *testing.T, m model) model {
 	t.Helper()
 
-	next, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'T'}})
+	next, _ := m.Update(keyMsg(string('T')))
 	panel, ok := next.(model)
 	require.True(t, ok)
 
@@ -116,7 +115,7 @@ func TestTerminalStaysPutAsTheCursorMoves(t *testing.T) {
 	opened := pressTerminal(t, m)
 	require.Equal(t, first, opened.info.subject)
 
-	moved, _ := opened.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
+	moved, _ := opened.Update(keyMsg("j"))
 	panel, ok := moved.(model)
 	require.True(t, ok)
 
@@ -141,7 +140,7 @@ func TestTerminalMovesWhenAskedOnAnotherAgent(t *testing.T) {
 	opened := pressTerminal(t, m)
 	require.Equal(t, "back to the terminal", opened.terminalDesc())
 
-	moved, _ := opened.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
+	moved, _ := opened.Update(keyMsg("j"))
 	panel, ok := moved.(model)
 	require.True(t, ok)
 	require.Equal(t, "terminal here", panel.terminalDesc(), "the legend says the key moves the shell")
@@ -168,7 +167,7 @@ func TestTerminalStaysPutOnASiblingSharingTheDirectory(t *testing.T) {
 
 	opened := pressTerminal(t, m)
 
-	moved, _ := opened.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
+	moved, _ := opened.Update(keyMsg("j"))
 	panel, ok := moved.(model)
 	require.True(t, ok)
 	require.Equal(t, "back to the terminal", panel.terminalDesc())
@@ -188,7 +187,7 @@ func TestTerminalStaysPutOverAWorkflowHeader(t *testing.T) {
 
 	opened := pressTerminal(t, m)
 
-	moved, _ := opened.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("k")})
+	moved, _ := opened.Update(keyMsg("k"))
 	panel, ok := moved.(model)
 	require.True(t, ok)
 
@@ -218,7 +217,7 @@ func TestTerminalRefusesToMoveToAMissingWorktree(t *testing.T) {
 
 	opened := pressTerminal(t, m)
 
-	moved, _ := opened.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
+	moved, _ := opened.Update(keyMsg("j"))
 	panel, ok := moved.(model)
 	require.True(t, ok)
 

@@ -11,7 +11,7 @@ import (
 	"weave/internal/ui/paint"
 	agentv1 "weave/proto/gen/agent/v1"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 )
 

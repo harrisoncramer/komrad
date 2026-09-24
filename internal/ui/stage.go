@@ -7,7 +7,7 @@ import (
 	"weave/internal/ui/layout"
 	"weave/internal/ui/panel"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"google.golang.org/protobuf/proto"
 )
 

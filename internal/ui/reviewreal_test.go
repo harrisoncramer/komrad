@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/require"
 )
 
@@ -27,21 +27,21 @@ func TestReviewAgainstARealWorktree(t *testing.T) {
 
 	_ = m.review.view(m.shared())
 
-	for _, key := range []tea.KeyMsg{
-		{Type: tea.KeyRunes, Runes: []rune("j")},
-		{Type: tea.KeyRunes, Runes: []rune("G")},
-		{Type: tea.KeyPgDown},
-		{Type: tea.KeyPgUp},
-		{Type: tea.KeyRunes, Runes: []rune("]")},
-		{Type: tea.KeyRunes, Runes: []rune("[")},
-		{Type: tea.KeyRunes, Runes: []rune("l")},
-		{Type: tea.KeyRunes, Runes: []rune("h")},
-		{Type: tea.KeyRunes, Runes: []rune("t")},
-		{Type: tea.KeyRunes, Runes: []rune("}")},
-		{Type: tea.KeyRunes, Runes: []rune("{")},
-		{Type: tea.KeyRunes, Runes: []rune("g")},
-		{Type: tea.KeyRunes, Runes: []rune("v")},
-		{Type: tea.KeyRunes, Runes: []rune("v")},
+	for _, key := range []tea.KeyPressMsg{
+		keyMsg("j"),
+		keyMsg("G"),
+		keyMsg("pgdown"),
+		keyMsg("pgup"),
+		keyMsg("]"),
+		keyMsg("["),
+		keyMsg("l"),
+		keyMsg("h"),
+		keyMsg("t"),
+		keyMsg("}"),
+		keyMsg("{"),
+		keyMsg("g"),
+		keyMsg("v"),
+		keyMsg("v"),
 	} {
 		next, _ := m.routeScreenMessage(key)
 		m = next.(model)

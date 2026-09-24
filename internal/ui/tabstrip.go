@@ -6,8 +6,8 @@ import (
 
 	"weave/internal/ui/paint"
 
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -220,7 +220,7 @@ func (m model) focusTabs() model {
 	return m
 }
 
-func (m model) updateTabs(key tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m model) updateTabs(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	t, _ := m.activeTabs()
 	strip, state := t.tabs(), t.tabsState()
 	k := key.String()
@@ -231,7 +231,7 @@ func (m model) updateTabs(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		strip.step(state, 1)
 	case k == tabPrevKey:
 		strip.step(state, -1)
-	case state.onGroup && isBound(k, concatKeys(m.keys.Nav.Down, m.keys.Nav.Up)):
+	case state.onGroup && isBound(k, slices.Concat(m.keys.Nav.Down, m.keys.Nav.Up)):
 		state.flat = !state.flat
 	case isBound(k, m.keys.Nav.Down):
 		strip.choose(state, tabDown)
@@ -259,7 +259,7 @@ func (m model) tabsBinding() key.Binding {
 
 func (m model) tabsHelp() keyMap {
 	column := key.NewBinding(key.WithKeys(tabNextKey, tabPrevKey), key.WithHelp("tab/S-tab", "move"))
-	direction := binding(concatKeys(m.keys.Nav.Down, m.keys.Nav.Up), "sort down/up, flip")
+	direction := binding(slices.Concat(m.keys.Nav.Down, m.keys.Nav.Up), "sort down/up, flip")
 	back := binding([]string{"esc"}, "back to the list")
 
 	return keyMap{

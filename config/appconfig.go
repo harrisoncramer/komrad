@@ -482,7 +482,7 @@ type SchedulesKeys struct {
 	// Quit the panel.
 	Quit []string `mapstructure:"quit" default:"ctrl+c"`
 	// Pause or resume the schedule under the cursor.
-	Toggle []string `mapstructure:"toggle" default:" "`
+	Toggle []string `mapstructure:"toggle" default:"space"`
 }
 
 // ArchiveKeys are the bindings for the archive screen, which lists the agents

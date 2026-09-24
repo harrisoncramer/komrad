@@ -4,7 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/x/ansi"
+
+	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -17,14 +19,14 @@ func pickerRows() []Row {
 	}
 }
 
-func key(k string) tea.KeyMsg {
+func key(k string) tea.KeyPressMsg {
 	switch k {
 	case "enter":
-		return tea.KeyMsg{Type: tea.KeyEnter}
+		return tea.KeyPressMsg{Code: tea.KeyEnter}
 	case "esc":
-		return tea.KeyMsg{Type: tea.KeyEsc}
+		return tea.KeyPressMsg{Code: tea.KeyEscape}
 	default:
-		return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(k)}
+		return tea.KeyPressMsg{Code: []rune(k)[0], Text: k}
 	}
 }
 
@@ -159,7 +161,7 @@ func TestPickerView(t *testing.T) {
 	}})
 	m = next.(model)
 
-	view := strings.Join(strings.Fields(m.View()), " ")
+	view := strings.Join(strings.Fields(ansi.Strip(m.render())), " ")
 
 	assert.Contains(t, view, "this weave is devel+abc")
 	assert.Contains(t, view, "▸ this machine checking")
@@ -167,7 +169,7 @@ func TestPickerView(t *testing.T) {
 	assert.Contains(t, view, "staging down")
 
 	m, _ = press(t, m, "j")
-	view = strings.Join(strings.Fields(m.View()), " ")
+	view = strings.Join(strings.Fields(ansi.Strip(m.render())), " ")
 
 	assert.Contains(t, view, "addr 127.0.0.1:8787")
 	assert.Contains(t, view, "running v0.4.0 (8fe4a3b)")

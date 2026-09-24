@@ -10,8 +10,8 @@ import (
 	"weave/internal/ui/paint"
 	"weave/lib/xslice"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -67,7 +67,7 @@ type RunParams struct {
 // Run draws the picker until a row is chosen or the picker is closed, answering with the row
 // and whether one was chosen.
 func Run(ctx context.Context, params RunParams) (Row, bool, error) {
-	program := tea.NewProgram(newModel(params), tea.WithAltScreen(), tea.WithContext(ctx))
+	program := tea.NewProgram(newModel(params), tea.WithContext(ctx))
 
 	final, err := program.Run()
 	if err != nil {
@@ -146,14 +146,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		return m, nil
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		return m.press(msg)
 	}
 
 	return m, nil
 }
 
-func (m model) press(key tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m model) press(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch key.String() {
 	case "esc", "q", "ctrl+c":
 		return m, tea.Quit
@@ -192,8 +192,16 @@ func (m model) choose() (tea.Model, tea.Cmd) {
 	return m, tea.Quit
 }
 
-// View draws the rows in a column with the cursor's row described beside them.
-func (m model) View() string {
+// View is the picker on the alternate screen.
+func (m model) View() tea.View {
+	view := tea.NewView(m.render())
+	view.AltScreen = true
+
+	return view
+}
+
+// render draws the rows in a column with the cursor's row described beside them.
+func (m model) render() string {
 	list := make([]string, 0, len(m.rows)+2)
 	list = append(list, paint.Panel.Header().Render("Open which weave?"), "")
 

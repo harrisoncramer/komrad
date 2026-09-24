@@ -4,9 +4,10 @@ import (
 	"log/slog"
 
 	"weave/internal/client"
+	"weave/internal/ui/paint"
 
-	"github.com/charmbracelet/bubbles/cursor"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/cursor"
+	tea "charm.land/bubbletea/v2"
 )
 
 func (m model) hide() tea.Cmd {
@@ -32,7 +33,7 @@ func (m model) Init() tea.Cmd {
 
 	m.holdFocusKey()
 
-	return tea.Batch(tick(), cursor.Blink)
+	return tea.Batch(tick(), cursor.Blink, tea.RequestBackgroundColor)
 }
 
 // Update routes a message to the screen that owns it, and keeps the row cursor blinking.
@@ -78,7 +79,7 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m = m.resizeTo(size)
 	}
 
-	key, isKey := msg.(tea.KeyMsg)
+	key, isKey := msg.(tea.KeyPressMsg)
 	if isKey {
 		m.landing = landing{}
 	}
@@ -140,6 +141,12 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// What is left of the messages is a screen's own results, which the screen that is up reads
 	// and every other leaves alone.
+	if paste, ok := msg.(tea.PasteMsg); ok && m.filter.typing {
+		m.filter.setQuery(m.filter.query + pastedLine(paste))
+
+		return m, nil
+	}
+
 	if !isKey {
 		return m.routeScreenMessage(msg)
 	}
@@ -219,7 +226,7 @@ func (m model) nudgeSidebar(delta int) model {
 
 // routeGlobalKey answers the keys the panel owns whatever screen is up, reporting whether it
 // took the press so the screen underneath gets whatever it left alone.
-func (m model) routeGlobalKey(key tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
+func (m model) routeGlobalKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
 	if isBound(key.String(), m.keys.Help.Toggle) {
 		m.helpExpanded = !m.helpExpanded
 
@@ -299,6 +306,11 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		}
 
 		return next, tea.Batch(tick(), readRuns, edited), true
+	case tea.BackgroundColorMsg:
+		m.isDark = msg.IsDark()
+		paint.SetDarkBackground(m.isDark)
+
+		return m, nil, true
 	case tea.BlurMsg:
 		m.blurred = true
 		m.syncKeys()

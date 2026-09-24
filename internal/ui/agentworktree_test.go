@@ -13,11 +13,9 @@ import (
 	worktreev1 "weave/proto/gen/worktree/v1"
 	"weave/proto/gen/worktree/v1/worktreev1connect"
 
+	tea "charm.land/bubbletea/v2"
 	"connectrpc.com/connect"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
-	"github.com/muesli/termenv"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -232,7 +230,7 @@ func TestFocusedRecordGrowsToShowEverything(t *testing.T) {
 	drawn := ansi.Strip(focused.detailsView())
 	assert.Contains(t, drawn, "commits")
 	assert.NotContains(t, drawn, "more", "nothing is left out")
-	assert.Len(t, lines(focused.View()), focused.height)
+	assert.Len(t, lines(focused.render()), focused.height)
 	assert.Contains(t, outsideTheRecord(focused), "auth", "the list keeps its hovered row")
 
 	back := send(t, focused, "ctrl+t")
@@ -251,7 +249,7 @@ func TestFocusedRecordStopsAtTheRoom(t *testing.T) {
 	require.True(t, focused.isDetailsFocused())
 
 	assert.Less(t, focused.grownDetailsLines(focused.hoveredDetails()), len(focused.hoveredDetails().fields))
-	assert.Len(t, lines(focused.View()), focused.height)
+	assert.Len(t, lines(focused.render()), focused.height)
 	assert.Contains(t, ansi.Strip(focused.detailsView()), "more")
 }
 
@@ -289,7 +287,7 @@ func TestRecordSearchWalksOntoTheMatch(t *testing.T) {
 	typed := pressMark(t, opened, "s", "i", "z")
 	held := typed.hoveredDetails()
 	assert.Equal(t, 0, typed.detailsCursor(held), "typing moves nothing")
-	assert.Contains(t, ansi.Strip(typed.View()), "/ siz", "the header's search line is the record's")
+	assert.Contains(t, ansi.Strip(typed.render()), "/ siz", "the header's search line is the record's")
 
 	kept := pressMark(t, typed, "enter")
 	assert.False(t, kept.filter.typing)
@@ -335,7 +333,7 @@ func TestRecordFilterNarrowsTheFields(t *testing.T) {
 	assert.Equal(t, "landed", rows[1].field.label)
 	assert.Equal(t, "M b.go", rows[3].field.value, "a path under the uncommitted label stays with it")
 	assert.Equal(t, "uncommitted ? notes.md", rows[4].text)
-	assert.Contains(t, ansi.Strip(narrowed.View()), "▽ commit")
+	assert.Contains(t, ansi.Strip(narrowed.render()), "▽ commit")
 	assert.NotContains(t, ansi.Strip(narrowed.detailsView()), "directory")
 
 	bottom := send(t, narrowed, "G")
@@ -415,7 +413,7 @@ func TestRecordSearchStaysWhenTheKeysGo(t *testing.T) {
 	assert.Equal(t, filterModeFilter, back.filter.mode)
 	assert.Len(t, back.detailsRows(back.hoveredDetails()), 1, "the record is still narrowed")
 	assert.Equal(t, []string{"backend", "auth"}, rowNames(back.agents.rows(back.shared())), "and so is the list")
-	assert.Contains(t, ansi.Strip(back.View()), "▽ aut")
+	assert.Contains(t, ansi.Strip(back.render()), "▽ aut")
 }
 
 // TestRecordSearchDroppedLeavingScreen covers the record's search going with the list's when
@@ -434,9 +432,6 @@ func TestRecordSearchDroppedLeavingScreen(t *testing.T) {
 // TestRecordSearchLightsTheMatch covers the matched run of a value taking the match colour,
 // which the row is drawn in pieces to carry, and the pieces still adding up to the value.
 func TestRecordSearchLightsTheMatch(t *testing.T) {
-	restore := lipgloss.ColorProfile()
-	lipgloss.SetColorProfile(termenv.TrueColor)
-	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })
 
 	m := recordSearchModel(t)
 	standing := pressMark(t, send(t, m, "/"), "o", "r", "i", "g", "i", "n", "enter")
@@ -489,7 +484,7 @@ func TestFocusedRecordStaysThroughItsSearch(t *testing.T) {
 			assert.True(t, typing.filter.typing)
 			assert.True(t, typing.isDetailsFocused(), "the record is still drawn with its search line")
 			assert.NotEmpty(t, typing.detailsView())
-			assert.Len(t, lines(typing.View()), tt.height)
+			assert.Len(t, lines(typing.render()), tt.height)
 
 			kept := pressMark(t, typing, "enter")
 			assert.True(t, kept.filter.isStanding())
@@ -577,7 +572,7 @@ func TestBlindTypingAfterAShrink(t *testing.T) {
 	typed := pressMark(t, shrunk, "/", "a", "g", "e", "n", "t", "3")
 
 	assert.True(t, typed.filter.typing, "the list's search took the keys")
-	assert.Contains(t, ansi.Strip(typed.View()), "/ agent3", "and the header shows it")
+	assert.Contains(t, ansi.Strip(typed.render()), "/ agent3", "and the header shows it")
 }
 
 // TestGrownRecordWithNoRowDrawsNothing covers a share so small that a focused record's rules
@@ -591,5 +586,5 @@ func TestGrownRecordWithNoRowDrawsNothing(t *testing.T) {
 	require.Equal(t, 0, focused.grownDetailsLines(focused.hoveredDetails()), "the corner this pins")
 
 	assert.Empty(t, focused.detailsView())
-	assert.Len(t, lines(focused.View()), focused.height)
+	assert.Len(t, lines(focused.render()), focused.height)
 }

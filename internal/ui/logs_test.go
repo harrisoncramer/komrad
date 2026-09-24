@@ -9,7 +9,6 @@ import (
 	"weave/internal/ui/layout"
 	"weave/internal/ui/panel"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -31,7 +30,7 @@ func logsModel(t *testing.T, tmux *recordingTmux) (model, string) {
 func pressLogs(t *testing.T, m model) model {
 	t.Helper()
 
-	next, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}})
+	next, _ := m.Update(keyMsg(string('l')))
 	shown, ok := next.(model)
 	require.True(t, ok)
 
@@ -41,7 +40,7 @@ func pressLogs(t *testing.T, m model) model {
 func pressOlderLog(t *testing.T, m model) model {
 	t.Helper()
 
-	next, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'L'}})
+	next, _ := m.Update(keyMsg(string('L')))
 	shown, ok := next.(model)
 	require.True(t, ok)
 
@@ -149,7 +148,7 @@ func TestCycleLogsSurvivesACursorMove(t *testing.T) {
 	shown := pressLogs(t, m)
 	require.Equal(t, infoRunLog, shown.info.kind)
 
-	moved, _ := shown.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("k")})
+	moved, _ := shown.Update(keyMsg("k"))
 	shown, ok := moved.(model)
 	require.True(t, ok)
 

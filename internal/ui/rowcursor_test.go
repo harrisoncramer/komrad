@@ -5,9 +5,9 @@ import (
 
 	"testing"
 
-	"github.com/charmbracelet/bubbles/cursor"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/cursor"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -20,7 +20,7 @@ func TestRowCursorBlinksWhileFocused(t *testing.T) {
 
 	assert.Equal(t, paint.Panel.Cursor().Render(rowCursorGlyph), m.cursorPrefix(sectionList), "a shown cursor draws the arrow")
 
-	m.rowCursor.Blink = true
+	m.rowCursor.IsBlinked = true
 
 	assert.Equal(t, blankCursor, m.cursorPrefix(sectionList))
 	assert.Equal(t, lipgloss.Width(rowCursorGlyph), lipgloss.Width(blankCursor), "and leaves the room the arrow took")
@@ -32,7 +32,7 @@ func TestRowCursorBlinksWhileFocused(t *testing.T) {
 func TestRowCursorFollowsTheKeys(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	m.rowCursor = newRowCursor()
-	m.rowCursor.Blink = true
+	m.rowCursor.IsBlinked = true
 
 	assert.Equal(t, blankCursor, m.cursorPrefix(sectionList), "the list holds the keys and is in the hidden half")
 	assert.Equal(t, blankCursor, m.cursorPrefix(sectionRecord), "the record draws no arrow while the list has them")
@@ -48,7 +48,7 @@ func TestRowCursorFollowsTheKeys(t *testing.T) {
 	assert.Equal(t, blankCursor, m.cursorPrefix(sectionList), "the list draws no arrow while the record has them")
 	assert.Equal(t, blankCursor, m.cursorPrefix(sectionRecord), "and the record's is in the hidden half")
 
-	m.rowCursor.Blink = false
+	m.rowCursor.IsBlinked = false
 
 	assert.Equal(t, paint.Panel.Cursor().Render(rowCursorGlyph), m.cursorPrefix(sectionRecord))
 }
@@ -59,13 +59,13 @@ func TestRowCursorFollowsTheKeys(t *testing.T) {
 func TestRowCursorSolidUnderAKeypress(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	m.rowCursor = newRowCursor()
-	m.rowCursor.Blink = true
+	m.rowCursor.IsBlinked = true
 
 	next, cmd := m.Update(keyMsg("j"))
 	shown, ok := next.(model)
 	require.True(t, ok)
 
-	assert.False(t, shown.rowCursor.Blink)
+	assert.False(t, shown.rowCursor.IsBlinked)
 	assert.NotNil(t, cmd, "and a timer carries the blink on from there")
 }
 
@@ -79,7 +79,7 @@ func TestRowCursorFollowsTheKeyboard(t *testing.T) {
 	blurred, ok := left.(model)
 	require.True(t, ok)
 	assert.True(t, blurred.blurred)
-	assert.NotNil(t, blurred.rowCursor.BlinkCmd(), "the bubble keeps its timer through a blur")
+	assert.NotNil(t, blurred.rowCursor.Blink(), "the bubble keeps its timer through a blur")
 
 	back, _ := blurred.Update(tea.FocusMsg{})
 	focused, ok := back.(model)
@@ -106,7 +106,7 @@ func TestRowCursorTimerFlipsThePhase(t *testing.T) {
 	next, cmd := m.Update(keyMsg("j"))
 	shown, ok := next.(model)
 	require.True(t, ok)
-	require.False(t, shown.rowCursor.Blink)
+	require.False(t, shown.rowCursor.IsBlinked)
 
 	blinked := false
 	for _, msg := range drain(cmd) {
@@ -117,7 +117,7 @@ func TestRowCursorTimerFlipsThePhase(t *testing.T) {
 		after, _ := shown.Update(msg)
 		flipped, ok := after.(model)
 		require.True(t, ok)
-		blinked = flipped.rowCursor.Blink
+		blinked = flipped.rowCursor.IsBlinked
 	}
 
 	assert.True(t, blinked, "the timer's own message is what hides the arrow")
@@ -148,7 +148,7 @@ func drain(cmd tea.Cmd) []tea.Msg {
 // while keeping the colour that says the list is still the thing being driven.
 func TestRowCursorStandsStillWhileTyping(t *testing.T) {
 	m := model{rowCursor: newRowCursor(), screen: screenArchive}
-	m.rowCursor.Blink = true
+	m.rowCursor.IsBlinked = true
 	m.filter.typing = true
 
 	assert.Equal(t, paint.Panel.Cursor().Render(rowCursorGlyph), m.cursorPrefix(sectionList), "the filter has the arrows")

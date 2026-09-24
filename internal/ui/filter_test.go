@@ -9,10 +9,8 @@ import (
 	"weave/internal/ui/paint"
 	"weave/internal/ui/panel"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
-	"github.com/muesli/termenv"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -495,9 +493,6 @@ func TestFilterViewLine(t *testing.T) {
 // TestFilterSlashMarksAStandingSearch covers the colour of the slash, which is all a line that is
 // always drawn has to say whether anything is being searched for.
 func TestFilterSlashMarksAStandingSearch(t *testing.T) {
-	restore := lipgloss.ColorProfile()
-	lipgloss.SetColorProfile(termenv.TrueColor)
-	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })
 
 	m := filterModel()
 
@@ -519,7 +514,7 @@ func TestFilterSlashMarksAStandingSearch(t *testing.T) {
 func typeIntoFilter(m model, query string) model {
 	m.filter.typing = true
 	for _, r := range query {
-		next, _ := m.updateFilterInput(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		next, _ := m.updateFilterInput(keyMsg(string(r)))
 		m = next.(model)
 	}
 

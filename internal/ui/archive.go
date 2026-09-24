@@ -11,7 +11,7 @@ import (
 	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 // archiveScreen is the archive screen: the cursor in the archived agents and how they are
@@ -35,7 +35,7 @@ func (a *archiveScreen) enter(h host, s panelShared, target screenTarget) tea.Cm
 }
 
 func (a *archiveScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
-	key, ok := msg.(tea.KeyMsg)
+	key, ok := msg.(tea.KeyPressMsg)
 	if !ok {
 		return nil
 	}

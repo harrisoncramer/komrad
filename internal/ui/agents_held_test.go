@@ -12,8 +12,8 @@ import (
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
 
+	"charm.land/bubbles/v2/key"
 	"connectrpc.com/connect"
-	"github.com/charmbracelet/bubbles/key"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

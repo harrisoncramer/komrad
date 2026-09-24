@@ -3,8 +3,8 @@ package ui
 import (
 	"time"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/atotto/clipboard"
-	tea "github.com/charmbracelet/bubbletea"
 )
 
 type clipboardWriter interface {

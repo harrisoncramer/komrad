@@ -7,9 +7,7 @@ import (
 	"weave/internal/ui/paint"
 	"weave/internal/ui/paint/label"
 
-	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
-	"github.com/muesli/termenv"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -149,9 +147,6 @@ func TestMessagesFocusGoesDormantOffItsScreen(t *testing.T) {
 // TestMessagesTallySaysWhereTheKeysAre covers the region's own focus indicator: the tally is dim
 // while the list has the keys and the accent once it does not.
 func TestMessagesTallySaysWhereTheKeysAre(t *testing.T) {
-	restore := lipgloss.ColorProfile()
-	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })
-	lipgloss.SetColorProfile(termenv.TrueColor)
 
 	m := detailsModel(&recordingTmux{})
 	m.height, m.width = 40, 60
@@ -249,15 +244,12 @@ func TestMessagesRegionExpandsWhenFocused(t *testing.T) {
 	assert.Contains(t, region, "weave log 7c1f2a94")
 	assert.Contains(t, region, "error ·", "the footer says what kind of message this is")
 
-	assert.Contains(t, ansi.Strip(focused.View()), "Agents & Workflows", "the list is still above it")
+	assert.Contains(t, ansi.Strip(focused.render()), "Agents & Workflows", "the list is still above it")
 }
 
 // TestMessagesRegionLeavesTheReasonPlain covers the reason being the one part of an expanded
 // message drawn in the plain foreground.
 func TestMessagesRegionLeavesTheReasonPlain(t *testing.T) {
-	restore := lipgloss.ColorProfile()
-	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })
-	lipgloss.SetColorProfile(termenv.TrueColor)
 
 	m := detailsModel(&recordingTmux{})
 	m.height, m.width = 30, 66
@@ -390,10 +382,6 @@ func TestMessagesRegionIsColouredByKind(t *testing.T) {
 		},
 	}
 
-	restore := lipgloss.ColorProfile()
-	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })
-	lipgloss.SetColorProfile(termenv.TrueColor)
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := detailsModel(&recordingTmux{})
@@ -429,9 +417,6 @@ func TestMessagesRefuseFocusWithNothingToRead(t *testing.T) {
 // TestMessagesPulseBlinksWhatJustLanded covers a message blinking twice as it lands, its words
 // taking the kind's own colour on each lit half, and leaving the row as it found it.
 func TestMessagesPulseBlinksWhatJustLanded(t *testing.T) {
-	restore := lipgloss.ColorProfile()
-	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })
-	lipgloss.SetColorProfile(termenv.TrueColor)
 
 	const summary = "Nothing to review in fix-ci"
 
@@ -526,7 +511,7 @@ func TestChromeKeepsEveryRowInsideThePane(t *testing.T) {
 		m.messages = oneMessage("Your editor could not be opened on that message", "fork/exec "+path+": no such file or directory")
 		m.messages.focused = true
 
-		view := m.View()
+		view := m.render()
 		for i, row := range strings.Split(view, "\n") {
 			assert.LessOrEqual(t, ansi.StringWidth(row), width, "message row %d at width %d: %q", i, width, ansi.Strip(row))
 		}

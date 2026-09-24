@@ -5,8 +5,6 @@ import (
 
 	agentv1 "weave/proto/gen/agent/v1"
 
-	tea "github.com/charmbracelet/bubbletea"
-
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -192,7 +190,7 @@ func TestACommentCanBeWrittenOnAnExpandedLine(t *testing.T) {
 
 	m = typeReviewMessage(t, m, "this one is unchanged and wrong")
 
-	next, cmd := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyCtrlS})
+	next, cmd := m.routeScreenMessage(keyMsg("ctrl+s"))
 	_, ok = next.(model)
 	require.True(t, ok)
 	require.NotNil(t, cmd)

@@ -8,7 +8,7 @@ import (
 	"weave/internal/ui/layout"
 	"weave/internal/ui/panel"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 // defaultEditor is what the file is opened in when nothing said otherwise.

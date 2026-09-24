@@ -6,7 +6,7 @@ import (
 	"weave/internal/ui/panel"
 	agentv1 "weave/proto/gen/agent/v1"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -222,17 +222,17 @@ func TestReviewVerdictIsChosenInThePanel(t *testing.T) {
 			m, _ := reviewModel(t, agents, dir)
 			m = openReview(t, m)
 
-			next, _ := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyCtrlS})
+			next, _ := m.routeScreenMessage(keyMsg("ctrl+s"))
 			m = next.(model)
 			require.True(t, m.review.threads.releasing, "the submit key asks rather than sends")
 			require.Nil(t, agents.released, "and nothing has gone yet")
 
 			for range tt.tabs {
-				next, _ = m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyTab})
+				next, _ = m.routeScreenMessage(keyMsg("tab"))
 				m = next.(model)
 			}
 
-			sent, cmd := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyCtrlS})
+			sent, cmd := m.routeScreenMessage(keyMsg("ctrl+s"))
 			m = sent.(model)
 			require.NotNil(t, cmd)
 			require.False(t, m.review.threads.releasing, "and the panel is put away")
@@ -260,15 +260,15 @@ func TestAReviewCarriesAWordAboutTheWholeThing(t *testing.T) {
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	next, _ := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyCtrlS})
+	next, _ := m.routeScreenMessage(keyMsg("ctrl+s"))
 	m = next.(model)
 
 	for _, r := range "the shape is right" {
-		next, _ = m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		next, _ = m.routeScreenMessage(keyMsg(string(r)))
 		m = next.(model)
 	}
 
-	_, cmd := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyCtrlS})
+	_, cmd := m.routeScreenMessage(keyMsg("ctrl+s"))
 	require.NotNil(t, cmd)
 	cmd()
 
@@ -283,11 +283,11 @@ func TestAbandoningTheReleasePanelSendsNothing(t *testing.T) {
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	next, _ := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyCtrlS})
+	next, _ := m.routeScreenMessage(keyMsg("ctrl+s"))
 	m = next.(model)
 	require.True(t, m.review.threads.releasing)
 
-	next, _ = m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyEsc})
+	next, _ = m.routeScreenMessage(keyMsg("esc"))
 	m = next.(model)
 
 	assert.False(t, m.review.threads.releasing, "the panel is put away")
@@ -339,9 +339,9 @@ func TestReviewOfADeadAgentIsReadOnly(t *testing.T) {
 
 			m.helpExpanded = false
 
-			for _, key := range []tea.KeyMsg{
-				{Type: tea.KeyRunes, Runes: []rune("c")},
-				{Type: tea.KeyCtrlS},
+			for _, key := range []tea.KeyPressMsg{
+				keyMsg("c"),
+				keyMsg("ctrl+s"),
 			} {
 				next, cmd := m.routeScreenMessage(key)
 				refused := next.(model)
@@ -369,14 +369,14 @@ func TestReviewOfADeadAgentKeepsTheReadersOwnRecords(t *testing.T) {
 	m.review.applyThreads(m.shared(), pinnedThread(t, m, unsentComment()))
 	m.listing.agents = nil
 
-	next, cmd := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("r")})
+	next, cmd := m.routeScreenMessage(keyMsg("r"))
 	m = next.(model)
 	require.NotNil(t, cmd, "settling still works")
 	_, ok := cmd().(reviewWroteMsg)
 	require.True(t, ok)
 	require.NotNil(t, agents.settled)
 
-	next, cmd = m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("v")})
+	next, cmd = m.routeScreenMessage(keyMsg("v"))
 	m = next.(model)
 	require.NotNil(t, cmd, "and so does folding a file away")
 	_, ok = cmd().(reviewWroteMsg)

@@ -1,9 +1,11 @@
 package ui
 
 import (
+	"slices"
+
 	"weave/config"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 // actions is the review screen as one table, walked in precedence order by the dispatch and
@@ -37,38 +39,38 @@ func (r *reviewScreen) table() []screenAction {
 		},
 		{
 			id:   actionMove,
-			keys: func(k config.Keybindings) []string { return concatKeys(k.Nav.Up, k.Nav.Down) },
+			keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.Up, k.Nav.Down) },
 			run:  r.movePressed,
 		},
 		{
 			id:   actionJump,
-			keys: func(k config.Keybindings) []string { return concatKeys(k.Nav.Top, k.Nav.Bottom) },
+			keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.Top, k.Nav.Bottom) },
 			run:  r.jumpPressed,
 		},
 		{
 			id:   actionNavPage,
-			keys: func(k config.Keybindings) []string { return concatKeys(k.Nav.PageUp, k.Nav.PageDown) },
+			keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.PageUp, k.Nav.PageDown) },
 			run:  r.pagePressed,
 		},
 		{
 			id:   actionColumnScroll,
-			keys: func(k config.Keybindings) []string { return concatKeys(k.Column.ScrollDown, k.Column.ScrollUp) },
+			keys: func(k config.Keybindings) []string { return slices.Concat(k.Column.ScrollDown, k.Column.ScrollUp) },
 			run:  r.wheelPressed,
 		},
 		{
 			id:   actionReviewFile,
-			keys: func(k config.Keybindings) []string { return concatKeys(k.Review.NextFile, k.Review.PrevFile) },
+			keys: func(k config.Keybindings) []string { return slices.Concat(k.Review.NextFile, k.Review.PrevFile) },
 			run:  r.stepFile,
 		},
 		{
 			id:   actionReviewThread,
-			keys: func(k config.Keybindings) []string { return concatKeys(k.Review.NextThread, k.Review.PrevThread) },
+			keys: func(k config.Keybindings) []string { return slices.Concat(k.Review.NextThread, k.Review.PrevThread) },
 			run:  r.stepThread,
 		},
 		{
 			id: actionReviewOpenThread,
 			keys: func(k config.Keybindings) []string {
-				return concatKeys(k.Review.NextOpenThread, k.Review.PrevOpenThread)
+				return slices.Concat(k.Review.NextOpenThread, k.Review.PrevOpenThread)
 			},
 			run: r.stepOpenThread,
 		},
@@ -79,12 +81,12 @@ func (r *reviewScreen) table() []screenAction {
 		},
 		{
 			id:   actionReviewMatch,
-			keys: func(k config.Keybindings) []string { return concatKeys(k.Review.NextMatch, k.Review.PrevMatch) },
+			keys: func(k config.Keybindings) []string { return slices.Concat(k.Review.NextMatch, k.Review.PrevMatch) },
 			run:  r.stepMatch,
 		},
 		{
 			id:   actionReviewPan,
-			keys: func(k config.Keybindings) []string { return concatKeys(k.Review.PanLeft, k.Review.PanRight) },
+			keys: func(k config.Keybindings) []string { return slices.Concat(k.Review.PanLeft, k.Review.PanRight) },
 			run:  r.panBy,
 		},
 		{

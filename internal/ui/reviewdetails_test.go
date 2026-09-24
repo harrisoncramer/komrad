@@ -8,9 +8,7 @@ import (
 	"weave/internal/git"
 	"weave/internal/ui/layout"
 
-	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
-	"github.com/muesli/termenv"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -103,10 +101,6 @@ func TestReviewDimsTheCursorWhileTheRecordHasTheKeys(t *testing.T) {
 	dir := reviewRepo(t)
 	m, tmux := reviewModel(t, &fakeReviewAgents{}, dir)
 	m = openReview(t, m)
-
-	restore := lipgloss.ColorProfile()
-	lipgloss.SetColorProfile(termenv.TrueColor)
-	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })
 
 	live := reviewFrameRaw(t, m)
 
@@ -280,7 +274,7 @@ func TestReviewSidebarKeepsTheWindowWhenThereIsNoRoomForTheDiff(t *testing.T) {
 	_, ok = m.screenColumnSplit()
 	assert.False(t, ok, "there is no room for a conversation and a gutter both")
 	assert.Equal(t, 45, m.paneWidth(), "so the sidebar takes the window")
-	assert.NotContains(t, ansi.Strip(m.View()), "package greet", "and the diff waits")
+	assert.NotContains(t, ansi.Strip(m.render()), "package greet", "and the diff waits")
 }
 
 // TestReviewPutsTheSidebarOnItsConfiguredSide covers the split following the layout: the diff

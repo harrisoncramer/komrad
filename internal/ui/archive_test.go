@@ -23,8 +23,8 @@ import (
 	workflowv1 "weave/proto/gen/workflow/v1"
 	"weave/proto/gen/workflow/v1/workflowv1connect"
 
+	tea "charm.land/bubbletea/v2"
 	"connectrpc.com/connect"
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -1018,7 +1018,7 @@ func TestArchiveDrawsTheDocumentBesideTheList(t *testing.T) {
 		Context: "the shared notes",
 	}}
 
-	view := ansi.Strip(m.View())
+	view := ansi.Strip(m.render())
 
 	assert.Contains(t, view, "api-refactor", "the list is still drawn")
 	assert.Contains(t, view, "kept until deleted", "and the hovered row's document beside it")
@@ -1028,7 +1028,7 @@ func TestArchiveDrawsTheDocumentBesideTheList(t *testing.T) {
 	}
 
 	m.archive.list().jump(&m, m.shared(), 0)
-	assert.Contains(t, ansi.Strip(m.View()), "the shared notes", "the document follows the cursor onto the folder")
+	assert.Contains(t, ansi.Strip(m.render()), "the shared notes", "the document follows the cursor onto the folder")
 }
 
 // TestArchiveDrawsNothingArchivedBesideTheList covers the empty archive, which has no row to
@@ -1040,7 +1040,7 @@ func TestArchiveDrawsNothingArchivedBesideTheList(t *testing.T) {
 	m.listing.archivedAgents = nil
 	m.listing.archivedWorkflows = nil
 
-	view := ansi.Strip(m.View())
+	view := ansi.Strip(m.render())
 
 	assert.Contains(t, view, "nothing archived", "the list says the archive is empty")
 	assert.Contains(t, view, "until you delete them", "and the notice beside it says what the archive is for")
@@ -1098,9 +1098,9 @@ func TestArchiveKeepsTheSplitInAShortPane(t *testing.T) {
 	split, ok := m.screenColumnSplit()
 	require.True(t, ok, "ten rows hold the list beside the document")
 	assert.Equal(t, split.sidebar, m.paneWidth(), "with the list laid out against its own column")
-	assert.Equal(t, m.height, paint.CountLines(m.View()), "and the view is exactly the pane")
+	assert.Equal(t, m.height, paint.CountLines(m.render()), "and the view is exactly the pane")
 
-	drawn := ansi.Strip(m.View())
+	drawn := ansi.Strip(m.render())
 	assert.Contains(t, drawn, "show help", "the legend gave up its expansion for the rows")
 	assert.NotContains(t, drawn, "hide help")
 }

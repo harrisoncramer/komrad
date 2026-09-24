@@ -6,8 +6,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/charmbracelet/lipgloss"
-	"github.com/muesli/termenv"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -18,8 +16,6 @@ var update = flag.Bool("update", false, "rewrite the golden files")
 // TestMain pins the colour profile.
 func TestMain(m *testing.M) {
 	flag.Parse()
-	lipgloss.SetColorProfile(termenv.ANSI)
-	lipgloss.SetHasDarkBackground(true)
 
 	os.Exit(m.Run())
 }

@@ -2,6 +2,7 @@ package diffview
 
 import (
 	"fmt"
+	"image/color"
 	"slices"
 	"strings"
 
@@ -10,7 +11,7 @@ import (
 	"weave/lib/xstr"
 	agentv1 "weave/proto/gen/agent/v1"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -45,11 +46,11 @@ const (
 )
 
 var (
-	addedBackground     = lipgloss.AdaptiveColor{Light: "#dafbe1", Dark: "#1b3823"}
-	deletedBackground   = lipgloss.AdaptiveColor{Light: "#ffebe9", Dark: "#402222"}
-	cursorBackground    = lipgloss.AdaptiveColor{Light: "#dbeafe", Dark: "#1e3a5f"}
-	dimCursorBackground = lipgloss.AdaptiveColor{Light: "#e5e7eb", Dark: "#2b3038"}
-	matchBackground     = lipgloss.AdaptiveColor{Light: "#fde68a", Dark: "#7c5c00"}
+	addedBackground     = paint.Adaptive{Light: lipgloss.Color("#dafbe1"), Dark: lipgloss.Color("#1b3823")}
+	deletedBackground   = paint.Adaptive{Light: lipgloss.Color("#ffebe9"), Dark: lipgloss.Color("#402222")}
+	cursorBackground    = paint.Adaptive{Light: lipgloss.Color("#dbeafe"), Dark: lipgloss.Color("#1e3a5f")}
+	dimCursorBackground = paint.Adaptive{Light: lipgloss.Color("#e5e7eb"), Dark: lipgloss.Color("#2b3038")}
+	matchBackground     = paint.Adaptive{Light: lipgloss.Color("#fde68a"), Dark: lipgloss.Color("#7c5c00")}
 	plainBackground     = lipgloss.NoColor{}
 	gutterStyle         = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
 	fileStyle           = lipgloss.NewStyle().Bold(true)
@@ -148,7 +149,7 @@ func (v *View) countOpenThreadsIn(path string) int {
 
 // renderGutter draws the line numbers, what the diff did to the line, and whether a thread is
 // pinned to it.
-func (v *View) renderGutter(y int, line diff.Line, background lipgloss.TerminalColor) string {
+func (v *View) renderGutter(y int, line diff.Line, background color.Color) string {
 	mark, markStyle := " ", gutterStyle
 	if thread, ok := v.GetThreadAt(y); ok {
 		mark, markStyle = v.markFor(thread)
@@ -232,7 +233,7 @@ func formatNumber(value int) string {
 	return fmt.Sprint(value)
 }
 
-func getBackground(kind diff.LineKind, cursor Cursor) lipgloss.TerminalColor {
+func getBackground(kind diff.LineKind, cursor Cursor) color.Color {
 	switch cursor {
 	case LiveCursor:
 		return cursorBackground
@@ -254,7 +255,7 @@ func getBackground(kind diff.LineKind, cursor Cursor) lipgloss.TerminalColor {
 
 // renderTokens draws one lexed line on a background, one token at a time rather than through a
 // chroma formatter, which resets after every token and loses the background.
-func renderTokens(line styledLine, fallback string, background lipgloss.TerminalColor, found []span) string {
+func renderTokens(line styledLine, fallback string, background color.Color, found []span) string {
 	if len(line) == 0 {
 		line = styledLine{{text: fallback}}
 	}
@@ -326,7 +327,7 @@ func isInSpan(offset int, found []span) bool {
 
 // fitWindow slides an already-coloured line under the horizontal offset and pads it out to the
 // full width, so the background reaches the edge of the pane.
-func fitWindow(value string, offset, width int, background lipgloss.TerminalColor) string {
+func fitWindow(value string, offset, width int, background color.Color) string {
 	if width <= 0 {
 		return ""
 	}

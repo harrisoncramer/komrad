@@ -5,6 +5,8 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/charmbracelet/x/ansi"
+
 	"weave/config"
 	"weave/internal/ui/panel"
 	pullrequestv1 "weave/proto/gen/pullrequest/v1"
@@ -215,7 +217,7 @@ func TestGitMenuDrawsEveryEntry(t *testing.T) {
 	m := gitModel(t)
 	m.listing.workflows[0].Worktree.Enabled = false
 
-	drawn := routeKey(t, m, "b").View()
+	drawn := ansi.Strip(routeKey(t, m, "b").render())
 
 	assert.Contains(t, drawn, "Rebase onto the base")
 	assert.Contains(t, drawn, "Open the pull request")
@@ -226,12 +228,12 @@ func TestGitMenuDrawsEveryEntry(t *testing.T) {
 // the entries answer to.
 func TestGitMenuDoesNotFilter(t *testing.T) {
 	opened := routeKey(t, gitModel(t), "b")
-	assert.NotContains(t, opened.View(), "filter", "the footer offers no filter to type into")
+	assert.NotContains(t, ansi.Strip(opened.render()), "filter", "the footer offers no filter to type into")
 
 	typed := routeKey(t, opened, "/")
 
 	assert.Equal(t, formGit, typed.form.kind)
-	assert.Contains(t, typed.View(), "Rebase onto the base", "the entries are as they were")
+	assert.Contains(t, ansi.Strip(typed.render()), "Rebase onto the base", "the entries are as they were")
 }
 
 // TestGitMenuActsOnTheAgentItWasOpenedOn covers the row leaving the list while the menu stands,

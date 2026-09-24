@@ -8,7 +8,7 @@ import (
 	"weave/internal/ui/panel"
 	agentv1 "weave/proto/gen/agent/v1"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -172,7 +172,7 @@ func TestAPassGivenUpBeforeTheAgentStopsLetsItGo(t *testing.T) {
 	require.True(t, ok)
 	require.True(t, m.review.pass.pausing)
 
-	next, _ = m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyEsc})
+	next, _ = m.routeScreenMessage(keyMsg("esc"))
 	m, ok = next.(model)
 	require.True(t, ok)
 	require.Equal(t, modeWatching, m.review.pass.mode, "the reader gave the pass up")
@@ -395,7 +395,7 @@ func runReviewCmd(t *testing.T, cmd tea.Cmd) {
 // TestDroppingTheReviewWhileTheAgentIsStillStoppingLetsItGo covers the hold landing after the
 // reader has left the review screen altogether.
 func TestDroppingTheReviewWhileTheAgentIsStillStoppingLetsItGo(t *testing.T) {
-	for _, key := range []tea.KeyMsg{editorKey(), keyMsg("c")} {
+	for _, key := range []tea.KeyPressMsg{editorKey(), keyMsg("c")} {
 		dir := reviewRepo(t)
 		agents := &fakeReviewAgents{}
 		m, _ := reviewModel(t, agents, dir)
@@ -414,7 +414,7 @@ func TestDroppingTheReviewWhileTheAgentIsStillStoppingLetsItGo(t *testing.T) {
 		agentID := m.review.agentID
 
 		for m.screen == screenReview {
-			next, _ = m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+			next, _ = m.Update(keyMsg("esc"))
 			m, ok = next.(model)
 			require.True(t, ok)
 		}

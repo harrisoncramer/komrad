@@ -3,8 +3,8 @@ package paint
 import (
 	"strings"
 
-	"github.com/charmbracelet/glamour"
-	glamouransi "github.com/charmbracelet/glamour/ansi"
+	"charm.land/glamour/v2"
+	glamouransi "charm.land/glamour/v2/ansi"
 	"github.com/charmbracelet/x/ansi"
 )
 

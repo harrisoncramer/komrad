@@ -15,9 +15,9 @@ import (
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
 
+	tea "charm.land/bubbletea/v2"
+	"charm.land/huh/v2"
 	"connectrpc.com/connect"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/huh"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -77,7 +77,7 @@ func TestRefusedWriteIsReported(t *testing.T) {
 	}
 	m.agents.cursor = firstAgentRowIndex(m.agents.rows(m.shared()))
 
-	opened, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'z'}})
+	opened, _ := m.Update(keyMsg(string('z')))
 	pressed, ok := opened.(model)
 	require.True(t, ok)
 
@@ -138,7 +138,7 @@ func TestMessageSurvivesTheFormItWasReportedFrom(t *testing.T) {
 	opened := m.openRename(panel.Agent{ID: "a1", Name: "api-refactor"})
 	m = asModel(t, opened)
 
-	assert.Contains(t, m.View(), "Rename", "the form is on screen")
+	assert.Contains(t, ansi.Strip(m.render()), "Rename", "the form is on screen")
 	require.Len(t, m.messages.items, 1, "the refusal is still waiting to be read")
 	assert.Equal(t, "name is taken", newestMessage(m).detail)
 }
@@ -180,7 +180,7 @@ func TestSuccessfulWriteReportsNothing(t *testing.T) {
 	}
 	m.agents.cursor = firstAgentRowIndex(m.agents.rows(m.shared()))
 
-	opened, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'z'}})
+	opened, _ := m.Update(keyMsg(string('z')))
 	pressed, ok := opened.(model)
 	require.True(t, ok)
 
@@ -200,7 +200,7 @@ func TestMessageDrawsInTheRegion(t *testing.T) {
 	m.height, m.width = 40, 60
 	m.messages = oneMessage(`Could not archive agent "api-refactor"`, "already archived")
 
-	view := ansi.Strip(m.View())
+	view := ansi.Strip(m.render())
 
 	assert.Contains(t, view, "Could not archive agent")
 	assert.Contains(t, view, "already archived")
@@ -229,7 +229,7 @@ func TestMessagesYieldToTakeoverScreens(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			view := tt.m.View()
+			view := ansi.Strip(tt.m.render())
 
 			assert.Contains(t, view, tt.want)
 			assert.NotContains(t, view, "Could not delete")
@@ -252,7 +252,7 @@ func TestUnreachableReportsOnce(t *testing.T) {
 	m.applyWatchLost(watchLostMsg{err: errors.New("connection refused")})
 	assert.Len(t, m.messages.items, 1, "a server still down says nothing more")
 
-	assert.Contains(t, ansi.Strip(m.View()), "Cannot reach the server")
+	assert.Contains(t, ansi.Strip(m.render()), "Cannot reach the server")
 }
 
 // TestMessagesKeepEscOffTheList covers esc staying the list's own key until the region holds
@@ -304,7 +304,7 @@ func TestConfigErrorView(t *testing.T) {
 				listing:     listing{agents: []panel.AgentRow{{Agent: panel.Agent{Name: "should-not-render", State: panel.StateIdle}}}},
 			}
 
-			view := strings.Join(strings.Fields(m.View()), " ")
+			view := strings.Join(strings.Fields(m.render()), " ")
 
 			for _, want := range tt.wantContain {
 				assert.Contains(t, view, want)
@@ -322,7 +322,7 @@ func TestConfigErrorScreenIsTerminal(t *testing.T) {
 
 	assert.Nil(t, m.Init(), "no tick is started behind the error screen")
 
-	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
+	_, cmd := m.Update(keyMsg(string('x')))
 	require.NotNil(t, cmd, "any key dismisses the screen")
 	assert.Equal(t, tea.Quit(), cmd(), "and dismissing quits")
 }
@@ -369,7 +369,7 @@ func TestStartupErrorView(t *testing.T) {
 				listing:     listing{agents: []panel.AgentRow{{Agent: panel.Agent{Name: "should-not-render", State: panel.StateIdle}}}},
 			}
 
-			view := strings.Join(strings.Fields(m.View()), " ")
+			view := strings.Join(strings.Fields(m.render()), " ")
 
 			for _, want := range tt.wantContain {
 				assert.Contains(t, view, want)
@@ -387,7 +387,7 @@ func TestStartupErrorScreenIsTerminal(t *testing.T) {
 
 	assert.Nil(t, m.Init(), "no tick is started behind the error screen")
 
-	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
+	_, cmd := m.Update(keyMsg(string('x')))
 	require.NotNil(t, cmd, "any key dismisses the screen")
 	assert.Equal(t, tea.Quit(), cmd(), "and dismissing quits")
 }
@@ -402,8 +402,8 @@ func TestUnreachableView(t *testing.T) {
 	m, ok := down.(model)
 	require.True(t, ok)
 
-	assert.Contains(t, ansi.Strip(m.View()), "Cannot reach", "the failure is reported in the region")
-	assert.NotContains(t, ansi.Strip(m.View()), "The panel could not list your agents", "and no screen is taken over")
+	assert.Contains(t, ansi.Strip(m.render()), "Cannot reach", "the failure is reported in the region")
+	assert.NotContains(t, ansi.Strip(m.render()), "The panel could not list your agents", "and no screen is taken over")
 
 	back, _ := m.Update(client.WatchBatch{
 		snapshotEvent(agentRowOf(&agentv1.Agent{

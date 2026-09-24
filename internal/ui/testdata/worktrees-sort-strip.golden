@@ -1,28 +1,28 @@
-   Worktrees[90m  5 · —[0m
+   Worktrees[90m  5 · —[m
 
- [90m/[0m 
- [90m↑↓[0m   [90m↓ size[0m  [90mlast-accessed[0m  [90m·[0m  [90mrepo[0m
+ [90m/[m 
+ [90m↑↓[m   [90m↓ size[m  [90mlast-accessed[m  [90m·[m  [90mrepo[m
 
-       [90m—[0m      [90m│[0m [1m/home/h/gadgets/admin[0m
-       [90m—[0m      [90m│[0m   [90mcustom-cargo-fixes[0m
-       [90m—[0m      [90m│[0m [1m/home/h/weave[0m
-       [90m—[0m      [90m│[0m   [90mreview-column[0m
-[34m›[0m      [90m—[0m      [97m┃[0m   [34mworktree-view[0m
-       [90m—[0m      [90m│[0m   [90magent/orphan[0m
-       [90m—[0m      [90m│[0m [1m/var/folders/T/repo[0m
-       [90m—[0m      [90m│[0m   [90mbroken[0m
-[90m────────────────────────────────────────────[0m
-  [90mname       [0m worktree-view
-  [90mdirectory  [0m /trees/live
-  [90msize       [0m —
-  [90mlast active[0m —
-  [90mbranch     [0m agent/live
-  [90mrepository [0m /home/h/weave
-  [90malso here  [0m review-607
-  [90magent      [0m claude, thinking
-  [90mworkflow   [0m weave
-[90m────────────────────────────────────────────[0m
-[92m✔[0m No messages
-[90m  Weave is running normally[0m
-[90m────────────────────────────────────────────[0m
-[90md[0m [90marchive the agent[0m[90m • [0m[90mJ[0m [90mjump to agent[0m [90m…[0m
+       [90m—[m      [90m│[m [1m/home/h/gadgets/admin[m
+       [90m—[m      [90m│[m   [90mcustom-cargo-fixes[m
+       [90m—[m      [90m│[m [1m/home/h/weave[m
+       [90m—[m      [90m│[m   [90mreview-column[m
+[34m›[m      [90m—[m      [97m┃[m   [34mworktree-view[m
+       [90m—[m      [90m│[m   [90magent/orphan[m
+       [90m—[m      [90m│[m [1m/var/folders/T/repo[m
+       [90m—[m      [90m│[m   [90mbroken[m
+[90m────────────────────────────────────────────[m
+  [90mname       [m worktree-view
+  [90mdirectory  [m /trees/live
+  [90msize       [m —
+  [90mlast active[m —
+  [90mbranch     [m agent/live
+  [90mrepository [m /home/h/weave
+  [90malso here  [m review-607
+  [90magent      [m claude, thinking
+  [90mworkflow   [m weave
+[90m────────────────────────────────────────────[m
+[92m✔[m No messages
+[90m  Weave is running normally[m
+[90m────────────────────────────────────────────[m
+[90md[m [90marchive the agent[m[90m • [m[90mJ[m [90mjump to agent[m [90m…[m

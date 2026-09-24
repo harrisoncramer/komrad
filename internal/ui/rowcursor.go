@@ -6,8 +6,8 @@ import (
 	"weave/internal/ui/paint"
 	"weave/internal/view"
 
-	"github.com/charmbracelet/bubbles/cursor"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/cursor"
+	tea "charm.land/bubbletea/v2"
 )
 
 // blankCursor is the room a row leaves the arrow while the blink has it hidden.
@@ -40,10 +40,10 @@ func (m model) updateRowCursor(msg tea.Msg) (model, tea.Cmd) {
 
 	// A model built without newRowCursor has no timer context, which the bubble's own restart
 	// dereferences, so a cursor that was never made keeps whichever phase it is in.
-	if _, ok := msg.(tea.KeyMsg); ok && m.rowCursor.BlinkSpeed > 0 {
-		m.rowCursor.Blink = false
+	if _, ok := msg.(tea.KeyPressMsg); ok && m.rowCursor.BlinkSpeed > 0 {
+		m.rowCursor.IsBlinked = false
 
-		return m, tea.Batch(cmd, m.rowCursor.BlinkCmd())
+		return m, tea.Batch(cmd, m.rowCursor.Blink())
 	}
 
 	return m, cmd
@@ -51,7 +51,7 @@ func (m model) updateRowCursor(msg tea.Msg) (model, tea.Cmd) {
 
 // isCursorBlinkedOut reports whether the blink has the row cursor out of sight this frame.
 func (m model) isCursorBlinkedOut(focused bool) bool {
-	return focused && !m.isTyping() && m.rowCursor.Blink
+	return focused && !m.isTyping() && m.rowCursor.IsBlinked
 }
 
 // sidebarSection is one of the sections of the panel's own pane that has a cursor of its own.

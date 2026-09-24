@@ -1,14 +1,18 @@
 package paint
 
 import (
+	"image/color"
 	"strings"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 )
 
 // ansiReset ends every styled run lipgloss writes.
-const ansiReset = "\x1b[0m"
+const ansiReset = "\x1b[m"
+
+// resets are the two spellings of a reset a styled line can carry.
+var resets = []string{"\x1b[0m", ansiReset}
 
 // Header is the style a list's title is drawn in.
 func (p Palette) Header() lipgloss.Style {
@@ -67,7 +71,7 @@ func (p Palette) Broken() lipgloss.Style {
 // stageMatch marks a match in rendered markdown, where the warning colour the listing marks with
 // is already spoken for by inline code, so the word gets a block behind it instead.
 func (p Palette) stageMatch() lipgloss.Style {
-	return lipgloss.NewStyle().Foreground(lipgloss.Color("0")).Background(p.danger).Bold(true)
+	return lipgloss.NewStyle().Foreground(Black).Background(p.danger.color()).Bold(true)
 }
 
 // Mark is the shape every optional mark on a row takes: nothing when the fact it stands for is
@@ -107,18 +111,15 @@ func WrapRows(text string, width int) []string {
 
 // SelectionBackground is the bar a row taken into a selection is drawn under, dark enough that
 // the colours the row is already carrying still read through it.
-var SelectionBackground = lipgloss.AdaptiveColor{Light: "#dbeafe", Dark: "#1e3a5f"}
+var SelectionBackground = Adaptive{Light: lipgloss.Color("#dbeafe"), Dark: lipgloss.Color("#1e3a5f")}
 
 // PaintRow lays the selection background under one already-coloured line, setting it again after
 // every reset that line carries and filling the line out to the pane so it reads as a bar.
 func PaintRow(row string, width int) string {
 	// The diff viewer threads a background into every fragment it draws instead.
 	set := BackgroundSequence(SelectionBackground)
-	if set == "" {
-		return row
-	}
 
-	painted := set + strings.ReplaceAll(row, ansiReset, ansiReset+set)
+	painted := set + strings.NewReplacer(resets[0], ansiReset+set, resets[1], ansiReset+set).Replace(row)
 	if padding := width - lipgloss.Width(row); padding > 0 {
 		painted += strings.Repeat(" ", padding)
 	}
@@ -127,17 +128,7 @@ func PaintRow(row string, width int) string {
 }
 
 // BackgroundSequence is the escape that sets a background and nothing else, which lipgloss will
-// only write around text of its own, and is empty under a profile carrying no colour.
-func BackgroundSequence(background lipgloss.AdaptiveColor) string {
-	hex := background.Light
-	if lipgloss.HasDarkBackground() {
-		hex = background.Dark
-	}
-
-	sequence := lipgloss.ColorProfile().Color(hex).Sequence(true)
-	if sequence == "" {
-		return ""
-	}
-
-	return "\x1b[" + sequence + "m"
+// only write around text of its own.
+func BackgroundSequence(background color.Color) string {
+	return ansi.NewStyle().BackgroundColor(background).String()
 }

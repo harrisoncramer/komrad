@@ -3,7 +3,7 @@ package ui
 import (
 	"weave/internal/ui/panel"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 // followMove reads the diff again when the watch says the worktree has moved past the round on

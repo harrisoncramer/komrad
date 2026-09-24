@@ -10,7 +10,7 @@ import (
 	"weave/lib/xslice"
 	pullrequestv1 "weave/proto/gen/pullrequest/v1"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 // pullRequestFields are the record's rows for the branch's pull requests: why there is none,

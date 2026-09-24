@@ -4,7 +4,7 @@ import (
 	"weave/internal/errui"
 	"weave/internal/ui/paint"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 )
 
 const nameWidth = 30

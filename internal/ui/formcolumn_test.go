@@ -8,7 +8,7 @@ import (
 	"weave/internal/ui/paint"
 	"weave/internal/ui/panel"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -53,11 +53,11 @@ func TestFormTakesTheWindowBesideTheList(t *testing.T) {
 	require.True(t, ok, "and the window holds both halves")
 	assert.Equal(t, split.sidebar, m.paneWidth(), "the list is laid out against its own column")
 
-	view := ansi.Strip(m.View())
+	view := ansi.Strip(m.render())
 	assert.Contains(t, view, "New workflow name", "the form is on screen")
 	assert.Contains(t, view, "auth", "and so is the row it was opened from")
 
-	for _, row := range strings.Split(m.View(), "\n") {
+	for _, row := range strings.Split(m.render(), "\n") {
 		assert.Equal(t, m.width, lipgloss.Width(row),
 			"every row of the frame is squared off, so neither half slides under the other")
 	}
@@ -92,7 +92,7 @@ func TestConfirmDrawsBesideTheList(t *testing.T) {
 	require.True(t, ok, "and draws its column")
 	assert.Equal(t, split.sidebar, m.paneWidth(), "with the list laid out against its own column")
 
-	view := ansi.Strip(m.View())
+	view := ansi.Strip(m.render())
 	assert.Contains(t, view, "backend", "the prompt is on screen")
 	assert.Contains(t, view, "auth", "and so is the list it was opened over")
 }
@@ -108,7 +108,7 @@ func TestConfirmKeepsTheWholePaneOnANarrowWindow(t *testing.T) {
 	_, ok := m.columnSplit()
 	assert.False(t, ok, "the window cannot hold the list beside the prompt")
 	assert.Equal(t, m.width, m.paneWidth(), "so the prompt is drawn in the whole of the pane")
-	assert.Contains(t, ansi.Strip(m.View()), "backend")
+	assert.Contains(t, ansi.Strip(m.render()), "backend")
 }
 
 // TestFormIsSizedToItsColumn covers the form being laid out in the column it is drawn in rather
@@ -141,8 +141,8 @@ func TestFormStaysInsideTheFrame(t *testing.T) {
 
 		m = delivered(t, m, cmd)
 
-		assert.LessOrEqual(t, paint.CountLines(m.View()), height, "height=%d", height)
-		assert.Contains(t, ansi.Strip(m.View()), "New workflow name", "height=%d opens at the top of itself", height)
+		assert.LessOrEqual(t, paint.CountLines(m.render()), height, "height=%d", height)
+		assert.Contains(t, ansi.Strip(m.render()), "New workflow name", "height=%d opens at the top of itself", height)
 	}
 }
 
@@ -164,7 +164,7 @@ func TestFormStaysInsideTheFrameUnderARefusal(t *testing.T) {
 
 		require.NotEmpty(t, m.messages.items, "the reason is on screen")
 		require.True(t, m.form.isActive(), "and the form is still up to fix it in")
-		assert.LessOrEqual(t, paint.CountLines(m.View()), height, "height=%d", height)
+		assert.LessOrEqual(t, paint.CountLines(m.render()), height, "height=%d", height)
 	}
 }
 
@@ -181,11 +181,11 @@ func TestAHeldFormCarriesItsOwnNotice(t *testing.T) {
 		m.pending, m.held = 1, heldWrite{active: true, since: time.Now()}
 		m = delivered(t, m, formResized())
 
-		lines := strings.Split(strings.TrimRight(ansi.Strip(m.View()), "\n"), "\n")
+		lines := strings.Split(strings.TrimRight(ansi.Strip(m.render()), "\n"), "\n")
 
 		assert.NotContains(t, lines[0], "submitting", "height=%d the panel keeps its top row", height)
 		assert.Contains(t, lastFilled(lines), "submitting…", "height=%d the notice sits under the form", height)
-		assert.LessOrEqual(t, paint.CountLines(m.View()), height, "height=%d", height)
+		assert.LessOrEqual(t, paint.CountLines(m.render()), height, "height=%d", height)
 	}
 }
 
@@ -220,7 +220,7 @@ func TestFormKeepsTheWholePaneOnANarrowWindow(t *testing.T) {
 func TestFormStillsTheCursorOnTheListBesideIt(t *testing.T) {
 	m := formColumnModel(t)
 	m.rowCursor = newRowCursor()
-	m.rowCursor.Blink = true
+	m.rowCursor.IsBlinked = true
 	require.True(t, m.isListFocused(), "the list holds the keys to start with")
 	require.Equal(t, blankCursor, m.rowCursorPrefix(), "so its cursor is mid-blink")
 
@@ -250,7 +250,7 @@ func TestFormRefusalIsReadableFromInsideTheForm(t *testing.T) {
 
 	require.True(t, reading.isMessagesFocused(), "the focus key reaches the region past the form")
 
-	view := ansi.Strip(reading.View())
+	view := ansi.Strip(reading.render())
 	assert.Contains(t, view, "Could not create the workflow")
 	assert.Contains(t, view, errNoWorkflow.Error(), "the whole reason is drawn in the block")
 	assert.NotContains(t, view, "New workflow name", "the form gives up what is drawn in its column")
@@ -258,7 +258,7 @@ func TestFormRefusalIsReadableFromInsideTheForm(t *testing.T) {
 	back := send(t, reading, messagesFocusKey)
 
 	assert.False(t, back.isMessagesFocused())
-	assert.Contains(t, ansi.Strip(back.View()), "New workflow name", "and takes it back")
+	assert.Contains(t, ansi.Strip(back.render()), "New workflow name", "and takes it back")
 	assert.True(t, back.form.isActive(), "the form was never closed")
 }
 
@@ -277,7 +277,7 @@ func TestRenameDrawsBesideTheList(t *testing.T) {
 	require.True(t, ok, "and draws its column")
 	assert.Equal(t, split.sidebar, m.paneWidth(), "with the list laid out against its own column")
 
-	view := ansi.Strip(m.View())
+	view := ansi.Strip(m.render())
 	assert.Contains(t, view, "api-refactor", "the prompt is on screen")
 	assert.Contains(t, view, "auth", "and so is the list it was opened over")
 }

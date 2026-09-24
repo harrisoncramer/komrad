@@ -4,7 +4,7 @@ import (
 	"weave/internal/assemble"
 	"weave/lib/xslice"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 // worldReactor acts on what a batch from the watch changed in the world.

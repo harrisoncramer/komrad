@@ -9,8 +9,8 @@ import (
 	"weave/lib/xslice"
 	hookv1 "weave/proto/gen/hook/v1"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/huh"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/huh/v2"
 )
 
 func newWorkflowForm(h host) tea.Cmd {
@@ -170,7 +170,7 @@ func (l listing) agentsOf(workflowID string) []panel.Agent {
 // updateWorkflowForm is the one form whose fields change as it is answered, so it watches the
 // provisioner across the message that may have switched it.
 func (m model) updateWorkflowForm(msg tea.Msg, values *workflowFormValues, build func(model) (*huh.Form, []string)) (tea.Model, tea.Cmd) {
-	if key, ok := msg.(tea.KeyMsg); ok && isBound(key.String(), formKeys().Submit) {
+	if key, ok := msg.(tea.KeyPressMsg); ok && isBound(key.String(), formKeys().Submit) {
 		return m.answerForm()
 	}
 

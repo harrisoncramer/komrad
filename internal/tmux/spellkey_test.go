@@ -41,7 +41,7 @@ func TestSpellKeyNamesTheKeyAsTmuxDoes(t *testing.T) {
 		},
 		{
 			name: "the space bar",
-			key:  " ",
+			key:  "space",
 			want: "Space",
 		},
 	}

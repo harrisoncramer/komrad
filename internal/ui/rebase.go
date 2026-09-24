@@ -7,7 +7,7 @@ import (
 	"weave/internal/git"
 	"weave/internal/ui/paint/label"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 const rebaseTimeout = 30 * time.Second

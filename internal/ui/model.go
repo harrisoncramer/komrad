@@ -28,25 +28,19 @@ import (
 	"weave/proto/gen/workflow/v1/workflowv1connect"
 	"weave/proto/gen/worktree/v1/worktreev1connect"
 
-	"github.com/charmbracelet/bubbles/cursor"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/cursor"
+	tea "charm.land/bubbletea/v2"
 )
 
 // Run launches the panel and blocks for the life of the persistent manager tmux session.
 func Run(ctx context.Context, deps Deps) error {
-	// Asking writes an OSC query to the tty and blocks on the reply with no deadline, so the
-	// answer is settled and pinned here before bubbletea owns the input and reads that reply.
-	isDark := lipgloss.HasDarkBackground()
-	lipgloss.SetHasDarkBackground(isDark)
-
 	// The panel resizes its own pane by zooming it, and the renderer is told about that the same
 	// way the terminal tells it about any other resize, so a program has to exist before the model
 	// it runs can reach it.
 	post := newPostbox()
 
-	m := newModel(deps, isDark, post)
-	program := tea.NewProgram(m, tea.WithAltScreen(), tea.WithReportFocus())
+	m := newModel(deps, true, post)
+	program := tea.NewProgram(m)
 	post.attach(program)
 
 	defer post.close()
@@ -266,8 +260,7 @@ type model struct {
 	shell string
 	clip  clipboardWriter
 
-	// isDark is the terminal's background, settled before the program started and never asked
-	// again.
+	// isDark is the terminal's background as it last reported it.
 	isDark bool
 	post   *postbox
 

@@ -6,7 +6,7 @@ import (
 
 	"weave/internal/ui/layout"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 // fallbackShell is what the terminal runs when tmux answers for no default shell.

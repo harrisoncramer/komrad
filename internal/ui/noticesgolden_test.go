@@ -12,8 +12,6 @@ import (
 	"weave/lib/xptr"
 	agentv1 "weave/proto/gen/agent/v1"
 
-	"github.com/charmbracelet/lipgloss"
-	"github.com/muesli/termenv"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -23,9 +21,6 @@ var updateGoldens = flag.Bool("update", false, "rewrite the golden files")
 
 // TestNoticeBlockGolden draws the record's notice block whole.
 func TestNoticeBlockGolden(t *testing.T) {
-	restore := lipgloss.ColorProfile()
-	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })
-	lipgloss.SetColorProfile(termenv.ANSI)
 
 	tests := []struct {
 		name string

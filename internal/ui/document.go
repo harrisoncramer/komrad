@@ -6,7 +6,7 @@ import (
 
 	"weave/internal/ui/paint"
 
-	"github.com/charmbracelet/glamour/ansi"
+	"charm.land/glamour/v2/ansi"
 )
 
 // docWindow is where in a document the reader is: the rows it was rendered to, the first of them

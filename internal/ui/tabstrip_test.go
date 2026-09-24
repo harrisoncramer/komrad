@@ -5,11 +5,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/charmbracelet/x/ansi"
+
 	"weave/internal/ui/paint"
 	"weave/lib/xslice"
 
-	"github.com/charmbracelet/lipgloss"
-	"github.com/muesli/termenv"
+	"charm.land/lipgloss/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -30,9 +31,6 @@ func stripFixture() tabStrip {
 func withANSI(t *testing.T) {
 	t.Helper()
 
-	restore := lipgloss.ColorProfile()
-	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })
-	lipgloss.SetColorProfile(termenv.ANSI)
 }
 
 // TestTabStripDrawsTheChosenTabInTheTonesOfItsFocus covers the title always muted, the chosen tab
@@ -94,7 +92,7 @@ func TestTabStripIsCutToThePane(t *testing.T) {
 	drawn := stripFixture().view(tabsState{}, paint.Panel, 12)
 
 	assert.Equal(t, 12, lipgloss.Width(drawn))
-	assert.True(t, strings.HasSuffix(drawn, "…"))
+	assert.True(t, strings.HasSuffix(ansi.Strip(drawn), "…"))
 }
 
 // TestTabStripStepsAndWraps covers tab and shift+tab walking the focus along the tabs and
@@ -488,7 +486,7 @@ func TestTabsStandDownOnAShortPane(t *testing.T) {
 
 	m.height = 6
 	require.NotContains(t, m.worktreesHeader(), "↑↓", "the strip gives up its row")
-	assert.Contains(t, m.View(), "agent39", "to the row the cursor stands on")
+	assert.Contains(t, ansi.Strip(m.render()), "agent39", "to the row the cursor stands on")
 
 	refused := send(t, m, "f")
 	assert.False(t, refused.isTabsFocused(), "a strip that is not drawn takes no keys")
@@ -499,8 +497,8 @@ func TestTabsStandDownOnAShortPane(t *testing.T) {
 
 	m.height = 7
 	require.Contains(t, m.worktreesHeader(), "↑↓", "the strip is drawn once the list keeps a row beside it")
-	assert.Contains(t, m.View(), "agent39")
-	assert.Len(t, lines(m.View()), 7)
+	assert.Contains(t, ansi.Strip(m.render()), "agent39")
+	assert.Len(t, lines(m.render()), 7)
 
 	focused := send(t, m, "f")
 	require.True(t, focused.isTabsFocused())

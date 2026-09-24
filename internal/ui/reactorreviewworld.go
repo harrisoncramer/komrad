@@ -6,7 +6,7 @@ import (
 	"weave/internal/assemble"
 	watchv1 "weave/proto/gen/watch/v1"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 // reviewWorldReactor keeps the review on screen up with its threads, its reviews and its agent.

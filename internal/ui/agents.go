@@ -9,7 +9,7 @@ import (
 	"weave/internal/view"
 	agentv1 "weave/proto/gen/agent/v1"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 // enter lands on the agent the target names, showing it if it is hidden, or comes back to the
@@ -27,7 +27,7 @@ func (a *agentsScreen) enter(h host, s panelShared, target screenTarget) tea.Cmd
 }
 
 func (a *agentsScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
-	key, ok := msg.(tea.KeyMsg)
+	key, ok := msg.(tea.KeyPressMsg)
 	if !ok {
 		return nil
 	}

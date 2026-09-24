@@ -1,28 +1,28 @@
    Archive
 
- [90m/[0m 
- [90m↑↓[0m   [90m↓ archived[0m  [90mname[0m  [90m·[0m  [90mflat[0m
+ [90m/[m 
+ [90m↑↓[m   [90m↓ archived[m  [90mname[m  [90m·[m  [90mflat[m
 
-[34m›[0m   [90m[0m     [90m│[0m [34mreview-column[0m
-    [90m[0m     [90m│[0m [90mcustom-cargo-fixes[0m
-
-
+[34m›[m   [90m[m     [90m│[m [34mreview-column[m
+    [90m[m     [90m│[m [90mcustom-cargo-fixes[m
 
 
 
 
-[90m────────────────────────────────────────────[0m
-  [90mname      [0m review-column
-  [90magent     [0m claude
-  [90mworkflow  [0m weave
-  [90mdirectory [0m /trees/archived
-  [90mflags     [0m —
-  [90magent_id  [0m archived
-  [90msession_id[0m —
-  [90marchived  [0m Sep 17 at 12:00pm
 
-[90m────────────────────────────────────────────[0m
-[92m✔[0m No messages
-[90m  Weave is running normally[0m
-[90m────────────────────────────────────────────[0m
-[90mr[0m [90mrestore[0m[90m • [0m[90m?[0m [90mshow help[0m
+
+[90m────────────────────────────────────────────[m
+  [90mname      [m review-column
+  [90magent     [m claude
+  [90mworkflow  [m weave
+  [90mdirectory [m /trees/archived
+  [90mflags     [m —
+  [90magent_id  [m archived
+  [90msession_id[m —
+  [90marchived  [m Sep 17 at 12:00pm
+
+[90m────────────────────────────────────────────[m
+[92m✔[m No messages
+[90m  Weave is running normally[m
+[90m────────────────────────────────────────────[m
+[90mr[m [90mrestore[m[90m • [m[90m?[m [90mshow help[m

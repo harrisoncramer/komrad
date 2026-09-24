@@ -16,10 +16,10 @@ import (
 	worktreev1 "weave/proto/gen/worktree/v1"
 	"weave/proto/gen/worktree/v1/worktreev1connect"
 
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/huh/v2"
 	"connectrpc.com/connect"
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -85,7 +85,7 @@ func worktreesModel() model {
 	}
 }
 
-func pressWorktrees(t *testing.T, m model, key tea.KeyMsg) (model, tea.Cmd) {
+func pressWorktrees(t *testing.T, m model, key tea.KeyPressMsg) (model, tea.Cmd) {
 	t.Helper()
 
 	next, cmd := m.routeScreenMessage(key)

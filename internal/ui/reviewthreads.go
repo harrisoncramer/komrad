@@ -6,7 +6,7 @@ import (
 	"weave/internal/assemble"
 	agentv1 "weave/proto/gen/agent/v1"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"google.golang.org/protobuf/proto"
 )
 

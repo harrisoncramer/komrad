@@ -17,9 +17,9 @@ import (
 	agentv1 "weave/proto/gen/agent/v1"
 	paginationv1 "weave/proto/gen/pagination/v1"
 
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
 	"connectrpc.com/connect"
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -72,9 +72,15 @@ func (w *searchScreen) landOnRow(_ host, s panelShared) tea.Cmd {
 // actions is the search screen as one table once the query line has given the keys up.
 func (w *searchScreen) actions() screenActionSpec {
 	list := w.list()
+	shared := slices.DeleteFunc(list.actions(), func(a screenAction) bool { return a.id == actionColumnScroll })
 
 	return screenActionSpec{
-		table: append(list.actions(),
+		table: append(shared,
+			screenAction{
+				id:   actionColumnScroll,
+				keys: func(k config.Keybindings) []string { return slices.Concat(k.Column.ScrollDown, k.Column.ScrollUp) },
+				run:  func(_ host, s panelShared, pressed string) tea.Cmd { return w.scrollPreview(s, pressed) },
+			},
 			screenAction{
 				id:   actionSearchEdit,
 				keys: func(config.Keybindings) []string { return []string{"esc", filterOpenKey} },
@@ -472,9 +478,17 @@ func (w *searchScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
 		w.applyPreview(s, msg)
 
 		return nil
-	case tea.KeyMsg:
+	case tea.PasteMsg:
+		if !w.typing {
+			return nil
+		}
+
+		w.query += pastedLine(msg)
+
+		return debounceSearchCmd(w.query)
+	case tea.KeyPressMsg:
 		if w.typing {
-			return w.updateInput(h, msg)
+			return w.updateInput(h, s, msg)
 		}
 
 		return w.list().update(h, s, msg, w.actions())
@@ -483,7 +497,12 @@ func (w *searchScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
 	return nil
 }
 
-func (w *searchScreen) updateInput(h host, key tea.KeyMsg) tea.Cmd {
+func (w *searchScreen) updateInput(h host, s panelShared, key tea.KeyPressMsg) tea.Cmd {
+	passes := slices.Concat(s.keys.Nav.PageUp, s.keys.Nav.PageDown, s.keys.Column.ScrollDown, s.keys.Column.ScrollUp)
+	if typedText(key) == "" && isBound(key.String(), passes) {
+		return w.actions().dispatch(h, s, key.String())
+	}
+
 	switch k := key.String(); {
 	case k == "esc":
 		*w = searchScreen{}
@@ -501,12 +520,8 @@ func (w *searchScreen) updateInput(h host, key tea.KeyMsg) tea.Cmd {
 		}
 
 		return debounceSearchCmd(w.query)
-	case key.Type == tea.KeySpace:
-		w.query += " "
-
-		return debounceSearchCmd(w.query)
-	case key.Type == tea.KeyRunes:
-		w.query += string(key.Runes)
+	case typedText(key) != "":
+		w.query += typedText(key)
 
 		return debounceSearchCmd(w.query)
 	}

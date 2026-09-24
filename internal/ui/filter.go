@@ -7,8 +7,8 @@ import (
 
 	"weave/internal/ui/paint"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 // filterOpenKey opens the filter on every screen that draws one.
@@ -168,7 +168,7 @@ func (m *model) enterScreen(next screen) {
 
 // takeKey applies one keypress to a search being typed at, and reports whether it was one of
 // the search's.
-func (f *filterState) takeKey(key tea.KeyMsg) bool {
+func (f *filterState) takeKey(key tea.KeyPressMsg) bool {
 	switch k := key.String(); {
 	case k == "esc":
 		f.abandon()
@@ -176,10 +176,8 @@ func (f *filterState) takeKey(key tea.KeyMsg) bool {
 		f.typing = false
 	case k == "backspace":
 		f.setQuery(paint.TrimLastRune(f.query))
-	case key.Type == tea.KeySpace:
-		f.setQuery(f.query + " ")
-	case key.Type == tea.KeyRunes:
-		f.setQuery(f.query + string(key.Runes))
+	case typedText(key) != "":
+		f.setQuery(f.query + typedText(key))
 	default:
 		return false
 	}
@@ -212,7 +210,7 @@ func (m *model) clearFilter() {
 	}
 }
 
-func (m model) updateFilterInput(key tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m model) updateFilterInput(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if key.String() == "ctrl+c" {
 		return m, m.hide()
 	}

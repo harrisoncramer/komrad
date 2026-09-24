@@ -7,8 +7,8 @@ import (
 	"weave/config"
 	"weave/lib/xslice"
 
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
 )
 
 // actionID names one thing a screen does with a key.

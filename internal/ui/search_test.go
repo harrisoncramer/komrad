@@ -21,7 +21,7 @@ import (
 
 	"connectrpc.com/connect"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -120,46 +120,46 @@ func TestSearchResultsReachTheScreenThatIsUp(t *testing.T) {
 func TestUpdateSearchEditsQuery(t *testing.T) {
 	tests := []struct {
 		name string
-		keys []tea.KeyMsg
+		keys []tea.KeyPressMsg
 		want string
 	}{
 		{
 			name: "backspace on an empty query is harmless",
-			keys: []tea.KeyMsg{
-				{Type: tea.KeyBackspace},
+			keys: []tea.KeyPressMsg{
+				keyMsg("backspace"),
 			},
 			want: "",
 		},
 		{
 			name: "printable runes accumulate",
-			keys: []tea.KeyMsg{
-				{Type: tea.KeyRunes, Runes: []rune("po")},
-				{Type: tea.KeyRunes, Runes: []rune("gr")},
+			keys: []tea.KeyPressMsg{
+				keyMsg("po"),
+				keyMsg("gr"),
 			},
 			want: "pogr",
 		},
 		{
 			name: "space is part of the query rather than a command",
-			keys: []tea.KeyMsg{
-				{Type: tea.KeyRunes, Runes: []rune("po")},
-				{Type: tea.KeySpace},
-				{Type: tea.KeyRunes, Runes: []rune("gr")},
+			keys: []tea.KeyPressMsg{
+				keyMsg("po"),
+				keyMsg("space"),
+				keyMsg("gr"),
 			},
 			want: "po gr",
 		},
 		{
 			name: "backspace drops the last character",
-			keys: []tea.KeyMsg{
-				{Type: tea.KeyRunes, Runes: []rune("post")},
-				{Type: tea.KeyBackspace},
+			keys: []tea.KeyPressMsg{
+				keyMsg("post"),
+				keyMsg("backspace"),
 			},
 			want: "pos",
 		},
 		{
 			name: "the nav keys are part of the query while the line holds them",
-			keys: []tea.KeyMsg{
-				{Type: tea.KeyRunes, Runes: []rune("j")},
-				{Type: tea.KeyRunes, Runes: []rune("k")},
+			keys: []tea.KeyPressMsg{
+				keyMsg("j"),
+				keyMsg("k"),
 			},
 			want: "jk",
 		},
@@ -1262,7 +1262,7 @@ func TestJumpLeavesTheSearchBehind(t *testing.T) {
 			assert.Equal(t, tt.wantSolo, landed.frame.IsSolo(), "the window goes to whatever the screen jumped to needs")
 			assert.Equal(t, tt.wantSwaps, tmux.swaps, "the row's own stage is what is drawn")
 			if tt.wantDrawn != "" {
-				assert.Contains(t, landed.View(), tt.wantDrawn, "the row's own record is what is drawn beside the list")
+				assert.Contains(t, ansi.Strip(landed.render()), tt.wantDrawn, "the row's own record is what is drawn beside the list")
 			}
 			assert.Empty(t, landed.search.query, "the search is let go of")
 			assert.Empty(t, landed.search.turns, "the search is let go of")

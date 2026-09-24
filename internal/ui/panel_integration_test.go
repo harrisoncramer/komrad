@@ -19,10 +19,10 @@ import (
 	watchv1 "weave/proto/gen/watch/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
 
+	tea "charm.land/bubbletea/v2"
+	"charm.land/huh/v2"
+	"charm.land/lipgloss/v2"
 	"connectrpc.com/connect"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/huh"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -370,19 +370,19 @@ func TestIntegrationPanelIsTheSizeOfThePaneItWasGiven(t *testing.T) {
 		return width
 	}
 
-	held := shown.View()
+	held := shown.render()
 
 	shown.agents.cursor = 0
 	shown.stageSelection()
 
 	require.Equal(t, 341, paneWidth(), "the folder row takes the window")
 	assert.True(t, shown.awaitingSize, "which the shown has not been told the size of yet")
-	assert.Equal(t, held, shown.View(), "so it draws the frame it has rather than one at a width nobody has been given")
+	assert.Equal(t, held, shown.render(), "so it draws the frame it has rather than one at a width nobody has been given")
 
 	shown = shown.resizeTo(reportedSize(t, sizes))
 
 	assert.Equal(t, paneWidth(), shown.width, "and once the report lands it is the size of the pane it now has")
-	assert.Equal(t, 341, lipgloss.Width(shown.View()), "so the frame covers it")
+	assert.Equal(t, 341, lipgloss.Width(shown.render()), "so the frame covers it")
 
 	shown.agents.cursor = 1
 	shown.stageSelection()
@@ -392,7 +392,7 @@ func TestIntegrationPanelIsTheSizeOfThePaneItWasGiven(t *testing.T) {
 	shown = shown.resizeTo(reportedSize(t, sizes))
 
 	assert.Equal(t, paneWidth(), shown.width, "and the shown is the size of the pane it is left with")
-	assert.LessOrEqual(t, lipgloss.Width(shown.View()), share, "so nothing it draws runs past the pane and wraps")
+	assert.LessOrEqual(t, lipgloss.Width(shown.render()), share, "so nothing it draws runs past the pane and wraps")
 }
 
 // reportedSize is the size the frame read back off its own pane, which the panel is handed as a

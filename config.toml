@@ -262,7 +262,7 @@ open    = ["S"]
 # Quit the panel.
 quit    = ["ctrl+c"]
 # Pause or resume the schedule under the cursor.
-toggle  = [" "]
+toggle  = ["space"]
 
 # The keys that move the sidebar's edge, shared by every screen.
 [keybindings.sidebar]

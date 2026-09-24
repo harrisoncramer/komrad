@@ -1,12 +1,11 @@
 package paint
 
 import (
+	"image/color"
 	"strings"
 	"testing"
 
-	"github.com/charmbracelet/glamour"
-	"github.com/charmbracelet/lipgloss"
-	"github.com/muesli/termenv"
+	"charm.land/glamour/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -51,9 +50,6 @@ func TestStageStyleRendersEveryElement(t *testing.T) {
 // TestPaletteFollowsTheTerminal pins every colour coming out as one of the sixteen the
 // terminal's scheme maps.
 func TestPaletteFollowsTheTerminal(t *testing.T) {
-	restore := lipgloss.ColorProfile()
-	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })
-	lipgloss.SetColorProfile(termenv.TrueColor)
 
 	tests := []struct {
 		name string
@@ -97,7 +93,7 @@ func TestPaletteFollowsTheTerminal(t *testing.T) {
 
 // TestEveryToneIsItsOwnColour pins that the panel's tones stay told apart.
 func TestEveryToneIsItsOwnColour(t *testing.T) {
-	seen := map[lipgloss.Color]Tone{}
+	seen := map[color.Color]Tone{}
 
 	for _, tone := range []Tone{ToneMuted, ToneAccent, ToneSuccess, ToneWarning, ToneDanger, ToneMark, ToneSelf, ToneOther, ToneBright, ToneMerged} {
 		color := Panel.Color(tone)

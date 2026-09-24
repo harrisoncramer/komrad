@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 // markPending is the press the panel is waiting on a letter for.
@@ -42,7 +42,7 @@ func (a *agentsScreen) isMarkPending() bool {
 }
 
 // readMark takes the key pressed after a mark binding, being the letter the mark answers to.
-func (a *agentsScreen) readMark(h host, s panelShared, key tea.KeyMsg) tea.Cmd {
+func (a *agentsScreen) readMark(h host, s panelShared, key tea.KeyPressMsg) tea.Cmd {
 	pending := a.marks.pending
 	a.marks.pending = markPendingNone
 

@@ -6,7 +6,7 @@ import (
 	"weave/internal/diff"
 	agentv1 "weave/proto/gen/agent/v1"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/stretchr/testify/assert"

@@ -11,8 +11,8 @@ import (
 	"weave/internal/ui/panel"
 	"weave/lib/xptr"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/huh"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/huh/v2"
 )
 
 var errNoWorkflow = errors.New("every agent belongs to a workflow, so create one first")

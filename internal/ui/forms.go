@@ -7,10 +7,10 @@ import (
 
 	"weave/internal/ui/paint"
 
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/huh"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/huh/v2"
+	"charm.land/lipgloss/v2"
 )
 
 // formState is the form drawn over whichever screen is up, held by value around huh's own
@@ -316,7 +316,7 @@ func (m model) answerForm() (tea.Model, tea.Cmd) {
 // updateForm hands a message to the form on screen, and answers it either when huh says it is
 // finished or on the submit key.
 func (m model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if key, ok := msg.(tea.KeyMsg); ok && isBound(key.String(), formKeys().Submit) {
+	if key, ok := msg.(tea.KeyPressMsg); ok && isBound(key.String(), formKeys().Submit) {
 		return m.answerForm()
 	}
 

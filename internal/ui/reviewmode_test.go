@@ -10,7 +10,7 @@ import (
 	"weave/internal/ui/panel"
 	agentv1 "weave/proto/gen/agent/v1"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -252,11 +252,11 @@ func TestSendingAReviewLeavesWritingBehind(t *testing.T) {
 	require.False(t, m.review.threads.composing)
 	require.Equal(t, modeReviewing, m.review.pass.mode, "and the mode outlives one abandoned comment")
 
-	next, _ = m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyCtrlS})
+	next, _ = m.routeScreenMessage(keyMsg("ctrl+s"))
 	m = next.(model)
 	require.True(t, m.review.threads.releasing, "the verdict panel is open")
 
-	next, cmd := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyCtrlS})
+	next, cmd := m.routeScreenMessage(keyMsg("ctrl+s"))
 	m = next.(model)
 	require.NotNil(t, cmd, "and the same key sends it")
 
@@ -336,7 +336,7 @@ func TestTheVerdictIsRefusedOnAFinishedRound(t *testing.T) {
 
 	m = standOnAFinishedRound(m)
 
-	next, _ := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyCtrlS})
+	next, _ := m.routeScreenMessage(keyMsg("ctrl+s"))
 	m = next.(model)
 
 	assert.False(t, m.review.threads.releasing, "the verdict panel stays shut")
@@ -392,7 +392,7 @@ func TestSendingIsRefusedWhileAReviewIsOutWithNothingWritten(t *testing.T) {
 
 	m.review.threads.owed = "r1"
 
-	next, _ := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyCtrlS})
+	next, _ := m.routeScreenMessage(keyMsg("ctrl+s"))
 	m = next.(model)
 
 	assert.False(t, m.review.threads.releasing, "the verdict panel stays shut")
@@ -410,7 +410,7 @@ func TestSendingAReplyIsAllowedWhileAReviewIsOut(t *testing.T) {
 	m.review.threads.owed = "r1"
 	m.review.threads.delivery[deliverySlot(agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT)] = 1
 
-	next, _ := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyCtrlS})
+	next, _ := m.routeScreenMessage(keyMsg("ctrl+s"))
 	m = next.(model)
 
 	assert.True(t, m.review.threads.releasing, "what has been written can go")
@@ -452,7 +452,7 @@ func reviewRowInDeletedFile(t *testing.T, m model) int {
 }
 
 // editorKey is the key the edit action is bound to by default.
-func editorKey() tea.KeyMsg {
+func editorKey() tea.KeyPressMsg {
 	return keyMsg("e")
 }
 
@@ -809,7 +809,7 @@ func TestAComposerDoesNotOutliveTheDiffItWasWrittenOn(t *testing.T) {
 
 	assert.False(t, m.review.threads.composing, "the composer goes with the diff it was anchored to")
 
-	next, _ = m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyCtrlS})
+	next, _ = m.routeScreenMessage(keyMsg("ctrl+s"))
 	m = next.(model)
 
 	assert.Nil(t, agents.created, "and nothing is filed against a diff that is gone")

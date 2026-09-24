@@ -9,7 +9,7 @@ import (
 	"weave/internal/ui/panel"
 	schedulev1 "weave/proto/gen/schedule/v1"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 )
 

@@ -7,7 +7,6 @@ import (
 	"weave/internal/diff"
 	"weave/internal/ui/diffview"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -26,7 +25,7 @@ func TestReviewRefreshKeepsThePlace(t *testing.T) {
 
 	m.review.diff.panBy(12)
 
-	moved, _ := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("]")})
+	moved, _ := m.routeScreenMessage(keyMsg("]"))
 	m = moved.(model)
 
 	cursor, top, pan := m.review.diff.cursor, m.review.diff.top, m.review.diff.pan
@@ -159,7 +158,7 @@ func TestReviewReloadKeyOpensTheNextRound(t *testing.T) {
 	place, located := m.review.diff.view.GetPlace(m.review.diff.cursor)
 	require.True(t, located)
 
-	next, cmd := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("R")})
+	next, cmd := m.routeScreenMessage(keyMsg("R"))
 	m = next.(model)
 	require.NotNil(t, cmd, "the next round has to be taken")
 
@@ -191,7 +190,7 @@ func TestReviewReloadKeyReadsAgainWithNothingMoved(t *testing.T) {
 
 	require.False(t, m.review.isWorktreeMoved(m.shared()))
 
-	_, cmd := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("R")})
+	_, cmd := m.routeScreenMessage(keyMsg("R"))
 	require.NotNil(t, cmd)
 
 	loaded, ok := cmd().(reviewLoadedMsg)

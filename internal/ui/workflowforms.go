@@ -10,7 +10,7 @@ import (
 	"weave/internal/ui/panel"
 	"weave/lib/xslice"
 
-	"github.com/charmbracelet/huh"
+	"charm.land/huh/v2"
 )
 
 const (

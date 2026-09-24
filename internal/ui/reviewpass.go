@@ -7,8 +7,8 @@ import (
 
 	agentv1 "weave/proto/gen/agent/v1"
 
+	tea "charm.land/bubbletea/v2"
 	"connectrpc.com/connect"
-	tea "github.com/charmbracelet/bubbletea"
 )
 
 // reviewPass is a pass over the work: whether one is under way, what it did to the agent, and

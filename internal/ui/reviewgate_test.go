@@ -5,7 +5,7 @@ import (
 
 	agentv1 "weave/proto/gen/agent/v1"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -38,7 +38,7 @@ func refreshReview(t *testing.T, m model) model {
 }
 
 // pressReview presses one key and runs whatever it asked for.
-func pressReview(t *testing.T, m model, key tea.KeyMsg) model {
+func pressReview(t *testing.T, m model, key tea.KeyPressMsg) model {
 	t.Helper()
 
 	next, cmd := m.routeScreenMessage(key)
@@ -79,7 +79,7 @@ func TestSettlingTheLastCommentLetsTheNextReviewGo(t *testing.T) {
 
 	assert.False(t, m.review.threads.isOwedAnAnswer(), "settling the last comment ends the wait")
 
-	m = pressReview(t, m, tea.KeyMsg{Type: tea.KeyCtrlS})
+	m = pressReview(t, m, keyMsg("ctrl+s"))
 
 	assert.True(t, m.review.threads.releasing, "and the verdict panel opens again")
 }
@@ -100,13 +100,13 @@ func TestReplyingLetsTheNextReviewGo(t *testing.T) {
 	require.Equal(t, "t1", m.review.threads.editing)
 
 	m = typeReviewMessage(t, m, "still reads like a changelog")
-	m = pressReview(t, m, tea.KeyMsg{Type: tea.KeyCtrlS})
+	m = pressReview(t, m, keyMsg("ctrl+s"))
 
 	require.Equal(t, "still reads like a changelog", agents.replied.GetBody())
 	assert.Equal(t, 1, m.review.threads.unsentCount(), "which the panel is now holding")
 	assert.True(t, m.review.threads.isOwedAnAnswer(), "the comment is still open, so the wait stands")
 
-	m = pressReview(t, m, tea.KeyMsg{Type: tea.KeyCtrlS})
+	m = pressReview(t, m, keyMsg("ctrl+s"))
 
 	assert.True(t, m.review.threads.releasing, "and what has been written can go")
 }

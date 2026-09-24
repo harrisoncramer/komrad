@@ -1,28 +1,28 @@
    Archive
 
- [90m/[0m 
- [90m↑↓[0m   [90marchived[0m  [1;34m↑ name[0m  [90m·[0m  [90mworkflow[0m
+ [90m/[m 
+ [90m↑↓[m   [90marchived[m  [1;34m↑ name[m  [90m·[m  [90mworkflow[m
 
-          [90m│[0m [1mweave[0m
-    [90m[0m     [90m│[0m   [90mcustom-cargo-fixes[0m
-    [90m[0m     [90m│[0m   [90mreview-column[0m
-
-
+          [90m│[m [1mweave[m
+    [90m[m     [90m│[m   [90mcustom-cargo-fixes[m
+    [90m[m     [90m│[m   [90mreview-column[m
 
 
 
-[90m────────────────────────────────────────────[0m
-  [90mname         [0m weave
-  [90magents       [0m 2
-  [90mdefault agent[0m —
-  [90mdirectory    [0m —
-  [90mflags        [0m —
-  [90mworktree     [0m off
-  [90mworkflow_id  [0m w1
 
 
-[90m────────────────────────────────────────────[0m
-[92m✔[0m No messages
-[90m  Weave is running normally[0m
-[90m────────────────────────────────────────────[0m
-[90mesc[0m [90mback to the list[0m[90m • [0m[90mtab/S-tab[0m [90mmove[0m [90m…[0m
+[90m────────────────────────────────────────────[m
+  [90mname         [m weave
+  [90magents       [m 2
+  [90mdefault agent[m —
+  [90mdirectory    [m —
+  [90mflags        [m —
+  [90mworktree     [m off
+  [90mworkflow_id  [m w1
+
+
+[90m────────────────────────────────────────────[m
+[92m✔[m No messages
+[90m  Weave is running normally[m
+[90m────────────────────────────────────────────[m
+[90mesc[m [90mback to the list[m[90m • [m[90mtab/S-tab[m [90mmove[m [90m…[m

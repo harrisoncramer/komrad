@@ -10,8 +10,8 @@ import (
 	"weave/internal/view"
 	"weave/lib/xslice"
 
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -219,7 +219,7 @@ func (l screenList[T]) jump(h host, s panelShared, idx int) tea.Cmd {
 }
 
 // update settles the doubled top key ahead of the table.
-func (l screenList[T]) update(h host, s panelShared, key tea.KeyMsg, actions screenActionSpec) tea.Cmd {
+func (l screenList[T]) update(h host, s panelShared, key tea.KeyPressMsg, actions screenActionSpec) tea.Cmd {
 	k := key.String()
 
 	if h.takeTopPress(k) {
@@ -237,7 +237,7 @@ func (l screenList[T]) actions() []screenAction {
 	shared := []screenAction{
 		{
 			id:   actionJump,
-			keys: func(k config.Keybindings) []string { return concatKeys(k.Nav.Top, k.Nav.Bottom) },
+			keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.Top, k.Nav.Bottom) },
 			run:  l.jumpPressed,
 		},
 	}
@@ -252,17 +252,17 @@ func (l screenList[T]) actions() []screenAction {
 		},
 		screenAction{
 			id:   actionMove,
-			keys: func(k config.Keybindings) []string { return concatKeys(k.Nav.Up, k.Nav.Down) },
+			keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.Up, k.Nav.Down) },
 			run:  l.movePressed,
 		},
 		screenAction{
 			id:   actionNavPage,
-			keys: func(k config.Keybindings) []string { return concatKeys(k.Nav.PageUp, k.Nav.PageDown) },
+			keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.PageUp, k.Nav.PageDown) },
 			run:  l.pagePressed,
 		},
 		screenAction{
 			id:   actionColumnScroll,
-			keys: func(k config.Keybindings) []string { return concatKeys(k.Column.ScrollDown, k.Column.ScrollUp) },
+			keys: func(k config.Keybindings) []string { return slices.Concat(k.Column.ScrollDown, k.Column.ScrollUp) },
 			run:  l.scrollPressed,
 		},
 	)
@@ -310,7 +310,7 @@ func (l screenList[T]) filterActions() []screenAction {
 		},
 		{
 			id:   actionFilterMatch,
-			keys: func(k config.Keybindings) []string { return concatKeys(k.Filter.NextMatch, k.Filter.PrevMatch) },
+			keys: func(k config.Keybindings) []string { return slices.Concat(k.Filter.NextMatch, k.Filter.PrevMatch) },
 			when: standing,
 			run:  func(h host, _ panelShared, pressed string) tea.Cmd { return h.jumpToFilterMatch(pressed) },
 		},
@@ -522,7 +522,7 @@ func (m model) listPane(width int) listPane {
 	return listPane{
 		width:      width,
 		caret:      m.caretOf(sectionList),
-		blinkedOut: m.rowCursor.Blink,
+		blinkedOut: m.rowCursor.IsBlinked,
 	}
 }
 

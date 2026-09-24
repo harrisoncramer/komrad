@@ -9,8 +9,8 @@ import (
 	"weave/internal/ui/panel"
 	"weave/lib/xslice"
 
-	"github.com/charmbracelet/huh"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/huh/v2"
+	"charm.land/lipgloss/v2"
 )
 
 func scheduleForm(values *panel.ScheduleConfig, workflows []panel.Workflow, keys config.FormKeys) (*huh.Form, []string) {

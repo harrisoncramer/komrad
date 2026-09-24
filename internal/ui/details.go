@@ -10,8 +10,8 @@ import (
 	"weave/internal/view"
 	"weave/lib/xslice"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 // flashFieldStyle marks a row or a field that has just been copied.
@@ -175,7 +175,7 @@ func (m model) blurDetails() model {
 	return m
 }
 
-func (m model) updateDetails(key tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m model) updateDetails(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
 	if isBound(k, m.quitKeys()) {
@@ -203,22 +203,22 @@ func detailsActions() actionSpec {
 			},
 			{
 				id:   actionMove,
-				keys: func(k config.Keybindings) []string { return concatKeys(k.Nav.Up, k.Nav.Down) },
+				keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.Up, k.Nav.Down) },
 				run:  model.moveDetailsCursor,
 			},
 			{
 				id:   actionJump,
-				keys: func(k config.Keybindings) []string { return concatKeys(k.Nav.Top, k.Nav.Bottom) },
+				keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.Top, k.Nav.Bottom) },
 				run:  model.jumpDetailsCursor,
 			},
 			{
 				id:   actionNavPage,
-				keys: func(k config.Keybindings) []string { return concatKeys(k.Nav.PageUp, k.Nav.PageDown) },
+				keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.PageUp, k.Nav.PageDown) },
 				run:  model.pageDetailsCursor,
 			},
 			{
 				id:   actionColumnScroll,
-				keys: func(k config.Keybindings) []string { return concatKeys(k.Column.ScrollDown, k.Column.ScrollUp) },
+				keys: func(k config.Keybindings) []string { return slices.Concat(k.Column.ScrollDown, k.Column.ScrollUp) },
 				run:  model.moveDetailsCursor,
 			},
 			{
@@ -228,7 +228,7 @@ func detailsActions() actionSpec {
 			},
 			{
 				id:   actionFilterMatch,
-				keys: func(k config.Keybindings) []string { return concatKeys(k.Filter.NextMatch, k.Filter.PrevMatch) },
+				keys: func(k config.Keybindings) []string { return slices.Concat(k.Filter.NextMatch, k.Filter.PrevMatch) },
 				when: standing,
 				run:  model.jumpFilterMatch,
 			},

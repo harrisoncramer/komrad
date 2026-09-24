@@ -7,7 +7,7 @@ import (
 	"weave/internal/ui/panel"
 	agentv1 "weave/proto/gen/agent/v1"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 const reviewTimeout = 30 * time.Second
@@ -100,7 +100,7 @@ func (r *reviewScreen) route(h host, s panelShared, msg tea.Msg) tea.Cmd {
 		r.applyMessageEdited(h, s, msg)
 
 		return nil
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		return r.updateKey(h, s, msg)
 	}
 

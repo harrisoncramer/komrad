@@ -9,8 +9,8 @@ import (
 	"weave/internal/ui/panel"
 	pullrequestv1 "weave/proto/gen/pullrequest/v1"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/huh"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/huh/v2"
 )
 
 // gitChoice is one entry of the git menu.
@@ -144,7 +144,7 @@ func gitEntryLabel(entry gitEntry) string {
 
 // updateGitMenu answers an entry by its own letter, and hands huh every other message.
 func (m model) updateGitMenu(msg tea.Msg, choice *gitChoice) (tea.Model, tea.Cmd) {
-	press, ok := msg.(tea.KeyMsg)
+	press, ok := msg.(tea.KeyPressMsg)
 	if !ok {
 		return m.updateForm(msg)
 	}

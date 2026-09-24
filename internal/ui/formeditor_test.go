@@ -7,8 +7,7 @@ import (
 	"weave/config"
 	"weave/internal/ui/panel"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/huh"
+	"charm.land/huh/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -32,7 +31,7 @@ func TestEditorKeyOpensTheFieldUnderTheCursor(t *testing.T) {
 
 	require.Equal(t, "context", m.form.form.GetFocusedField().GetKey(), "the cursor is on the field the editor opens")
 
-	edited, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlE})
+	edited, cmd := m.Update(keyMsg("ctrl+e"))
 	m = asModel(t, edited)
 	require.NotNil(t, cmd, "the editor key is the panel's own, so it is answered rather than handed to huh")
 

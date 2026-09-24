@@ -12,8 +12,8 @@ import (
 	"weave/internal/ui/paint/label"
 	agentv1 "weave/proto/gen/agent/v1"
 
+	tea "charm.land/bubbletea/v2"
 	"connectrpc.com/connect"
-	tea "github.com/charmbracelet/bubbletea"
 )
 
 // reviewVerdicts is what the release panel offers, in the order a reader most often wants them.
@@ -120,7 +120,7 @@ func (r *reviewScreen) leaveWriting(h host, s panelShared) tea.Cmd {
 	return r.endPass(h, s, abandonedSaid)
 }
 
-func (r *reviewScreen) updateComposer(h host, s panelShared, key tea.KeyMsg) tea.Cmd {
+func (r *reviewScreen) updateComposer(h host, s panelShared, key tea.KeyPressMsg) tea.Cmd {
 	k := key.String()
 
 	// Every other key is a character being typed into the message, so the keys that leave it, and
@@ -384,7 +384,7 @@ func (r *reviewScreen) openRelease(s panelShared) tea.Cmd {
 
 // updateRelease takes every key while the panel is up: tab walks the verdict, the submit key
 // sends, escape abandons, and everything else is a word being typed about the work.
-func (r *reviewScreen) updateRelease(h host, s panelShared, key tea.KeyMsg) tea.Cmd {
+func (r *reviewScreen) updateRelease(h host, s panelShared, key tea.KeyPressMsg) tea.Cmd {
 	k := key.String()
 
 	switch {

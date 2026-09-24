@@ -1,9 +1,11 @@
 package ui
 
 import (
+	"slices"
+
 	"weave/config"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 // actions is the schedules screen as one table, walked in precedence order by the dispatch and
@@ -30,7 +32,7 @@ func (w *schedulesScreen) actions() screenActionSpec {
 			},
 			{
 				id:   actionFilterMatch,
-				keys: func(k config.Keybindings) []string { return concatKeys(k.Filter.NextMatch, k.Filter.PrevMatch) },
+				keys: func(k config.Keybindings) []string { return slices.Concat(k.Filter.NextMatch, k.Filter.PrevMatch) },
 				when: standing,
 				run:  func(h host, _ panelShared, pressed string) tea.Cmd { return h.jumpToFilterMatch(pressed) },
 			},
@@ -51,17 +53,17 @@ func (w *schedulesScreen) actions() screenActionSpec {
 			},
 			{
 				id:   actionMove,
-				keys: func(k config.Keybindings) []string { return concatKeys(k.Nav.Up, k.Nav.Down) },
+				keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.Up, k.Nav.Down) },
 				run:  list.movePressed,
 			},
 			{
 				id:   actionNavPage,
-				keys: func(k config.Keybindings) []string { return concatKeys(k.Nav.PageUp, k.Nav.PageDown) },
+				keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.PageUp, k.Nav.PageDown) },
 				run:  list.pagePressed,
 			},
 			{
 				id:   actionColumnScroll,
-				keys: func(k config.Keybindings) []string { return concatKeys(k.Column.ScrollDown, k.Column.ScrollUp) },
+				keys: func(k config.Keybindings) []string { return slices.Concat(k.Column.ScrollDown, k.Column.ScrollUp) },
 				run:  list.scrollPressed,
 			},
 			{

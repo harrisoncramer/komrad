@@ -3,7 +3,7 @@ package paint
 import (
 	"strings"
 
-	"github.com/charmbracelet/glamour/ansi"
+	"charm.land/glamour/v2/ansi"
 )
 
 // DocRows renders markdown into a column of its own, a row at a time.

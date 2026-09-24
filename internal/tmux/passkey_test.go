@@ -40,7 +40,7 @@ func TestIntegrationTakePanelKeysHandsThePressToThePanelPaneOnly(t *testing.T) {
 	require.NoError(t, err)
 
 	pane, err := client.query("new-window", "-P", "-F", "#{pane_id}", "-t", "passkey:", "--",
-		"sh", "-c", "stty raw -echo; cat -v")
+		"sh", "-c", `printf '\033[?1000h\033[?1006h'; stty raw -echo; cat -v`)
 	require.NoError(t, err)
 
 	require.NoError(t, client.TakePanelKeys([]string{"ctrl+d", "ctrl+u", "ctrl+t", "ctrl+n", "j", ";", "'"}))
@@ -119,10 +119,10 @@ func paneOption(t *testing.T, c *Client, pane, format string) string {
 	return out
 }
 
-// TestIntegrationTakePanelWheelPressesTheScrollKeyOnThePanelPane pins the wheel binding's shape: the pane
-// under the mouse presses the scroll key when it is the panel's, and the user's own command runs
-// everywhere else.
-func TestIntegrationTakePanelWheelPressesTheScrollKeyOnThePanelPane(t *testing.T) {
+// TestIntegrationTakePanelWheelHandsThePanelPaneTheMouse pins the wheel binding's shape: the pane
+// under the mouse is handed the mouse event when it is the panel's, and the user's own command
+// runs everywhere else.
+func TestIntegrationTakePanelWheelHandsThePanelPaneTheMouse(t *testing.T) {
 	client := testServer(t, "wheel")
 
 	config := filepath.Join(t.TempDir(), "tmux.conf")
@@ -132,36 +132,26 @@ bind -n WheelUpPane if-shell -F "#{||:#{pane_in_mode},#{mouse_any_flag}}" { send
 	_, err := client.query("source-file", config)
 	require.NoError(t, err)
 
-	require.NoError(t, client.TakePanelWheel("ctrl+p", "ctrl+n"))
+	require.NoError(t, client.TakePanelWheel())
 
 	rebound, err := client.GetRootKeys()
 	require.NoError(t, err)
 
 	for _, wheel := range []string{"WheelUpPane", "WheelDownPane"} {
 		assert.True(t, IsPanelPassThrough(rebound[wheel]), "%s is now the panel's: %s", wheel, rebound[wheel])
-		assert.Contains(t, rebound[wheel], "-t = ", "the pane under the mouse is the one asked and pressed")
+		assert.Contains(t, rebound[wheel], "-t = ", "the pane under the mouse is the one asked and handed the event")
 		assert.Contains(t, rebound[wheel], "pane_in_mode", "copy-mode over the panel keeps the wheel")
+		assert.Contains(t, rebound[wheel], panelWheel)
 	}
 
-	assert.Contains(t, rebound["WheelUpPane"], "send-keys -t = 'C-p'")
 	assert.Contains(t, rebound["WheelUpPane"], "copy-mode -e", "the user's command is the other arm")
-	assert.Contains(t, rebound["WheelDownPane"], "send-keys -t = 'C-n'")
 	assert.Contains(t, rebound["WheelDownPane"], `"send-keys -M"`, "a wheel tmux never bound is handed to the pane elsewhere")
 
-	require.NoError(t, client.TakePanelWheel("ctrl+p", "ctrl+n"))
+	require.NoError(t, client.TakePanelWheel())
 
 	again, err := client.GetRootKeys()
 	require.NoError(t, err)
 	assert.Equal(t, rebound, again, "a second panel finds the wheel taken and leaves it be")
-
-	require.NoError(t, client.TakePanelWheel("ctrl+u", "ctrl+d"))
-
-	moved, err := client.GetRootKeys()
-	require.NoError(t, err)
-	assert.Contains(t, moved["WheelUpPane"], "send-keys -t = 'C-u'", "a panel with another scroll key presses that one")
-	assert.Contains(t, moved["WheelUpPane"], "copy-mode -e", "and the user's command is still the other arm")
-	assert.Contains(t, moved["WheelDownPane"], "send-keys -t = 'C-d'")
-	assert.NotContains(t, moved["WheelDownPane"], "C-n")
 
 	pane, err := client.query("new-window", "-P", "-F", "#{pane_id}", "-t", "wheel:", "--", "cat")
 	require.NoError(t, err)
@@ -180,9 +170,9 @@ bind -n WheelUpPane if-shell -F "#{||:#{pane_in_mode},#{mouse_any_flag}}" { send
 	require.NoError(t, err)
 }
 
-// TestIntegrationWheelOverThePanelPressesItsScrollKey turns a real wheel, written to the client's terminal
-// as the mouse sequence, over each pane of a split window.
-func TestIntegrationWheelOverThePanelPressesItsScrollKey(t *testing.T) {
+// TestIntegrationWheelOverThePanelReachesIt turns a real wheel, written to the client's terminal as
+// the mouse sequence, over each pane of a split window.
+func TestIntegrationWheelOverThePanelReachesIt(t *testing.T) {
 	client := testServer(t, "turn")
 	client.SetGlobal("mouse", "on")
 
@@ -194,13 +184,13 @@ bind -n WheelUpPane if-shell -F "#{||:#{pane_in_mode},#{mouse_any_flag}}" { send
 	require.NoError(t, err)
 
 	pane, err := client.query("new-window", "-P", "-F", "#{pane_id}", "-t", "turn:", "--",
-		"sh", "-c", "stty raw -echo; cat -v")
+		"sh", "-c", `printf '\033[?1000h\033[?1006h'; stty raw -echo; cat -v`)
 	require.NoError(t, err)
 
 	other, err := client.query("split-window", "-v", "-P", "-F", "#{pane_id}", "-t", pane, "--", "cat")
 	require.NoError(t, err)
 
-	require.NoError(t, client.TakePanelWheel("ctrl+p", "ctrl+n"))
+	require.NoError(t, client.TakePanelWheel())
 	client.RecordPanelPane(pane)
 
 	outer := attachClient(t, client, "turn")
@@ -215,8 +205,8 @@ bind -n WheelUpPane if-shell -F "#{||:#{pane_in_mode},#{mouse_any_flag}}" { send
 	wheelUp(2)
 
 	require.Eventually(t, func() bool {
-		return strings.Contains(client.CapturePane(pane), "^P")
-	}, 5*time.Second, 20*time.Millisecond, "the wheel over the panel presses its scroll key")
+		return strings.Contains(client.CapturePane(pane), "[<64;")
+	}, 5*time.Second, 20*time.Millisecond, "the wheel over the panel reaches it as a mouse event")
 	assert.Empty(t, client.ShowGlobal("@turned"), "and the user's binding did not run")
 
 	wheelUp(20)
@@ -224,5 +214,5 @@ bind -n WheelUpPane if-shell -F "#{||:#{pane_in_mode},#{mouse_any_flag}}" { send
 	require.Eventually(t, func() bool {
 		return client.ShowGlobal("@turned") == "yes"
 	}, 5*time.Second, 20*time.Millisecond, "the wheel over any other pane runs the user's binding")
-	assert.NotContains(t, client.CapturePane(other), "^P")
+	assert.NotContains(t, client.CapturePane(other), "[<64;")
 }

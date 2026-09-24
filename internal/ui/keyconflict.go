@@ -5,7 +5,7 @@ import (
 
 	"weave/config"
 
-	"github.com/charmbracelet/bubbles/key"
+	"charm.land/bubbles/v2/key"
 )
 
 // screenNames are the screens as an error names them.

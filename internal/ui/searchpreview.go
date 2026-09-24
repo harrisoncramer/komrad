@@ -4,11 +4,16 @@ import (
 	"strings"
 
 	"weave/internal/ui/paint"
+
+	tea "charm.land/bubbletea/v2"
 )
 
 // transcriptPreviewBefore is how many rows of lead-in the preview opens with, so the match the
 // hit was found on is read in what was being said around it.
 const transcriptPreviewBefore = 12
+
+// previewWheelStep is how many rows one scroll key moves the transcript.
+const previewWheelStep = 3
 
 // searchPreview is the transcript standing beside the list: what it was drawn from, the rows it
 // drew to, and where in them the words the hit matched on landed.
@@ -85,6 +90,24 @@ func (w *searchScreen) drawPreview(s panelShared) {
 	}
 
 	preview.doc.top = preview.doc.clamp(preview.doc.top, split.rows)
+}
+
+// scrollPreview moves the transcript beside the list, stopping at either end.
+func (w *searchScreen) scrollPreview(s panelShared, pressed string) tea.Cmd {
+	split, ok := s.draw.screenColumnSplit()
+	if !ok {
+		return nil
+	}
+
+	delta := previewWheelStep
+	if isBound(pressed, s.keys.Column.ScrollUp) {
+		delta = -delta
+	}
+
+	doc := &w.preview.doc
+	doc.top = doc.clamp(doc.top+delta, split.rows)
+
+	return nil
 }
 
 // previewView is the screenful of the transcript beside the list, drawn without the markers the

@@ -4,9 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -114,7 +114,7 @@ func typeReviewLine(t *testing.T, m model, words string) model {
 	t.Helper()
 
 	for _, letter := range words {
-		next, _ := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{letter}})
+		next, _ := m.routeScreenMessage(keyMsg(string(letter)))
 		written, ok := next.(model)
 		require.True(t, ok)
 		m = written

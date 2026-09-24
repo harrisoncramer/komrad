@@ -11,7 +11,7 @@ import (
 	watchv1 "weave/proto/gen/watch/v1"
 	"weave/proto/gen/watch/v1/watchv1connect"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 // watchLostMsg says the stream has ended and is being opened again.

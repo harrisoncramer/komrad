@@ -8,7 +8,7 @@ import (
 	"weave/internal/ui/paint/label"
 	"weave/internal/ui/panel"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 // worktreeReadTTL is how long a reading of an agent's directory stands before the cursor resting

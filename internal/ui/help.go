@@ -6,9 +6,9 @@ import (
 
 	"weave/internal/ui/paint"
 
-	"github.com/charmbracelet/bubbles/help"
-	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/help"
+	"charm.land/bubbles/v2/key"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -86,7 +86,7 @@ func (m model) refusedExpansion(bindings []key.Binding) []key.Binding {
 func helpView(width int) help.Model {
 	view := help.New()
 	view.Styles = paint.HelpStyles()
-	view.Width = width
+	view.SetWidth(width)
 
 	return view
 }
@@ -213,7 +213,7 @@ func (m model) globalHelp() []key.Binding {
 
 // fullGlobalHelp is the expanded legend's share of the keys every screen answers.
 func (m model) fullGlobalHelp() []key.Binding {
-	return append(m.globalHelp(), binding(concatKeys(m.keys.Sidebar.Narrow, m.keys.Sidebar.Widen), "resize"))
+	return append(m.globalHelp(), binding(slices.Concat(m.keys.Sidebar.Narrow, m.keys.Sidebar.Widen), "resize"))
 }
 
 func (m model) detailsBinding() key.Binding {
@@ -228,11 +228,6 @@ func (m model) detailsBinding() key.Binding {
 func keyLabel(keys []string) string {
 	out := make([]string, len(keys))
 	for i, k := range keys {
-		if k == " " {
-			out[i] = "space"
-			continue
-		}
-
 		out[i] = strings.Replace(k, "ctrl+", "C-", 1)
 	}
 

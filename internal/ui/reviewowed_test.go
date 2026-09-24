@@ -7,9 +7,7 @@ import (
 	"weave/internal/ui/paint"
 	agentv1 "weave/proto/gen/agent/v1"
 
-	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
-	"github.com/muesli/termenv"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -153,9 +151,6 @@ func TestTheOwedListSaysWhenACommentIsFoldedAway(t *testing.T) {
 // TestTheOwedListBrightensWhatIsOnScreen covers a comment in view being drawn in the panel's own
 // colour while one that is not stays dim.
 func TestTheOwedListBrightensWhatIsOnScreen(t *testing.T) {
-	restore := lipgloss.ColorProfile()
-	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })
-	lipgloss.SetColorProfile(termenv.TrueColor)
 
 	m := owedModel(t, []*agentv1.ReviewThread{owedThread("t1", fakeFile, 2)})
 

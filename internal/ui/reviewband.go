@@ -7,8 +7,8 @@ import (
 	"weave/internal/ui/paint"
 	"weave/internal/ui/paint/label"
 
-	"github.com/charmbracelet/glamour/ansi"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/glamour/v2/ansi"
+	"charm.land/lipgloss/v2"
 )
 
 // reviewBandFloor is how many rows the band leaves the rest of the frame: the blank row, the

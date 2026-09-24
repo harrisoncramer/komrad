@@ -8,7 +8,6 @@ import (
 	"weave/internal/ui/panel"
 	"weave/lib/xslice"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -108,7 +107,7 @@ func TestApplyAgents(t *testing.T) {
 			assert.Len(t, m.listing.agents, tt.wantLen)
 
 			if tt.wantLen == 0 {
-				_, _ = m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyEnter})
+				_, _ = m.routeScreenMessage(keyMsg("enter"))
 				assert.Equal(t, screenAgents, m.screen)
 
 				return

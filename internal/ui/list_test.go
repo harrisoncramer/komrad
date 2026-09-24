@@ -98,7 +98,7 @@ func TestScreensFitThePane(t *testing.T) {
 			shown := m
 			shown.screen = tt.screen
 			shown.helpExpanded = true
-			view := shown.View()
+			view := shown.render()
 
 			assert.NotEqual(t, "\n", view[len(view)-1:], "the view ends without a trailing newline")
 			assert.LessOrEqual(t, len(lines(view)), height)
@@ -158,7 +158,7 @@ func TestScreenTitlesOpenWithTheirIcon(t *testing.T) {
 			shown.height = 29
 			shown.screen = tt.screen
 
-			first, _, _ := strings.Cut(shown.View(), "\n")
+			first, _, _ := strings.Cut(shown.render(), "\n")
 			require.True(t, strings.HasPrefix(first, " "+view.Spell(tt.icon)+"  "+tt.title), "the title opens the frame: %q", ansi.Strip(first))
 			assert.NotContains(t, first, paint.Panel.Title(tt.title), "and is drawn plain")
 		})
@@ -207,7 +207,7 @@ func TestSearchPromptSitsUnderTheTitle(t *testing.T) {
 			shown.filter.mode = tt.mode
 			shown.filter.setQuery("db")
 
-			rows := lines(ansi.Strip(shown.View()))
+			rows := lines(ansi.Strip(shown.render()))
 			require.Greater(t, len(rows), 2)
 			assert.True(t, strings.HasPrefix(rows[2], tt.want), "the prompt is the third row: %q", rows[2])
 		})
@@ -368,7 +368,7 @@ func TestScreensFitATightPane(t *testing.T) {
 					shown.screen = s
 					tt.prepare(&shown)
 
-					assert.Len(t, lines(shown.View()), height, "screen %d in a pane %d lines tall", s, height)
+					assert.Len(t, lines(shown.render()), height, "screen %d in a pane %d lines tall", s, height)
 
 					if height > fitsFrom {
 						assert.Contains(t, outsideTheRecord(shown), hovered, "screen %d keeps the hovered row on screen in a pane %d lines tall", s, height)
@@ -419,7 +419,7 @@ func TestTheRecordGivesWayToTheList(t *testing.T) {
 
 			shown.height = tt.fills
 			assert.Empty(t, shown.detailsView(), "the record gives up its rows")
-			assert.Contains(t, shown.View(), tt.hovered, "to the row the cursor stands on")
+			assert.Contains(t, ansi.Strip(shown.render()), tt.hovered, "to the row the cursor stands on")
 
 			shown.height = tt.fills + 1
 			assert.NotEmpty(t, shown.detailsView(), "the record is drawn once the list keeps a row beside it")
@@ -431,10 +431,10 @@ func TestTheRecordGivesWayToTheList(t *testing.T) {
 func outsideTheRecord(m model) string {
 	record := m.detailsView()
 	if record == "" {
-		return m.View()
+		return ansi.Strip(m.render())
 	}
 
-	return strings.Replace(m.View(), record, "", 1)
+	return ansi.Strip(strings.Replace(m.render(), record, "", 1))
 }
 
 func lines(rendered string) []string {

@@ -6,10 +6,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/charmbracelet/x/ansi"
+
 	"weave/internal/caller"
 
+	"charm.land/lipgloss/v2"
 	"connectrpc.com/connect"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -50,7 +52,7 @@ func TestScreenSections(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rendered := strings.TrimRight(tt.screen.Render(), "\n")
+			rendered := strings.TrimRight(ansi.Strip(tt.screen.Render()), "\n")
 
 			assert.Equal(t, tt.want, strings.Split(rendered, "\n"))
 		})

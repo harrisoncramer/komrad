@@ -9,9 +9,8 @@ import (
 	"weave/internal/ui/layout"
 	"weave/internal/ui/panel"
 
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/key"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -26,7 +25,7 @@ func TestHelpToggle(t *testing.T) {
 	assert.Contains(t, view, "open", "it keeps what the row does first")
 	assert.Contains(t, view, "show help", "and says the key that brings the rest out")
 
-	next, _ := m.route(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("?")})
+	next, _ := m.route(keyMsg("?"))
 	expanded, ok := next.(model)
 	require.True(t, ok)
 	require.True(t, expanded.helpExpanded)
@@ -38,7 +37,7 @@ func TestHelpToggle(t *testing.T) {
 	assert.Greater(t, m.listLines(m.renderHelp(m.agentHelp())), expanded.listLines(expanded.renderHelp(expanded.agentHelp())),
 		"the rows the help takes are the list's")
 
-	back, _ := expanded.route(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("?")})
+	back, _ := expanded.route(keyMsg("?"))
 	collapsed, ok := back.(model)
 	require.True(t, ok)
 	assert.False(t, collapsed.helpExpanded, "the key toggles rather than only expanding")
@@ -51,7 +50,7 @@ func TestHelpToggleOnSearch(t *testing.T) {
 	m.screen = screenSearch
 	m.search.typing = true
 
-	next, _ := m.route(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("?")})
+	next, _ := m.route(keyMsg("?"))
 	searched, ok := next.(model)
 	require.True(t, ok)
 
@@ -336,7 +335,7 @@ func TestTheLegendRowFitsTheWholePanel(t *testing.T) {
 	m.report("Could not copy to your clipboard", errNoWorkflow)
 	focused := m.toggleMessagesFocus()
 
-	for i, row := range strings.Split(ansi.Strip(focused.View()), "\n") {
+	for i, row := range strings.Split(ansi.Strip(focused.render()), "\n") {
 		assert.LessOrEqual(t, lipgloss.Width(row), focused.width,
 			"row %d of the panel is wider than its %d column pane: %q", i, focused.width, row)
 	}

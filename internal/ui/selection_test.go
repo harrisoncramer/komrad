@@ -13,11 +13,10 @@ import (
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
 
+	tea "charm.land/bubbletea/v2"
+	"charm.land/huh/v2"
+	"charm.land/lipgloss/v2"
 	"connectrpc.com/connect"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/huh"
-	"github.com/charmbracelet/lipgloss"
-	"github.com/muesli/termenv"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -66,12 +65,9 @@ func selectionTree() model {
 func withColor(t *testing.T) {
 	t.Helper()
 
-	restore := lipgloss.ColorProfile()
-	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })
-	lipgloss.SetColorProfile(termenv.TrueColor)
 }
 
-func press(t *testing.T, m model, key tea.KeyMsg) model {
+func press(t *testing.T, m model, key tea.KeyPressMsg) model {
 	t.Helper()
 
 	next, _ := m.routeScreenMessage(key)
@@ -279,7 +275,7 @@ func archiveSelectionTree() model {
 	}
 }
 
-func pressArchive(t *testing.T, m model, key tea.KeyMsg) model {
+func pressArchive(t *testing.T, m model, key tea.KeyPressMsg) model {
 	t.Helper()
 
 	next, _ := m.routeScreenMessage(key)

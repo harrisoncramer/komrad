@@ -11,9 +11,7 @@ import (
 	"weave/lib/xptr"
 	"weave/lib/xslice"
 
-	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
-	"github.com/muesli/termenv"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -188,9 +186,6 @@ func TestFilterEscapeDropsTheMode(t *testing.T) {
 // TestFilterGlyphTakesTheCursorColour covers the funnel drawn in the cursor's colour like the
 // slash, so its shape alone says the list is narrowed.
 func TestFilterGlyphTakesTheCursorColour(t *testing.T) {
-	restore := lipgloss.ColorProfile()
-	lipgloss.SetColorProfile(termenv.TrueColor)
-	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })
 
 	m := filterModeTree()
 	m.filter.typing = true

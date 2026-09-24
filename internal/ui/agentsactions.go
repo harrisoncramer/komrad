@@ -6,7 +6,7 @@ import (
 	"weave/config"
 	"weave/internal/ui/panel"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 // actions is the agents list as one table and the legend that names it.
@@ -440,13 +440,4 @@ func (a *agentsScreen) hideDesc(s panelShared) string {
 	}
 
 	return hide + "/" + a.showHiddenDesc()
-}
-
-func concatKeys(lists ...[]string) []string {
-	var out []string
-	for _, list := range lists {
-		out = append(out, list...)
-	}
-
-	return out
 }

@@ -13,8 +13,8 @@ import (
 	"weave/internal/ui/panel"
 	agentv1 "weave/proto/gen/agent/v1"
 
-	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/key"
+	"charm.land/lipgloss/v2"
 )
 
 // The tones the review wears, which the region drawing each one turns into a colour.
@@ -99,8 +99,8 @@ func (r reviewScreen) isThreadHolding() bool {
 
 // threadHelp is the legend while the conversation holds the keys.
 func (r reviewScreen) threadHelp(s panelShared) keyMap {
-	scroll := binding(concatKeys(s.keys.Nav.Up, s.keys.Nav.Down), "scroll the thread")
-	ends := binding(concatKeys(s.keys.Nav.Top, s.keys.Nav.Bottom), "top/bottom")
+	scroll := binding(slices.Concat(s.keys.Nav.Up, s.keys.Nav.Down), "scroll the thread")
+	ends := binding(slices.Concat(s.keys.Nav.Top, s.keys.Nav.Bottom), "top/bottom")
 	back := binding(s.keys.Review.FocusThread, "back to the diff")
 	reply := binding(s.keys.Review.Compose, "reply")
 	settle := binding(s.keys.Review.Resolve, r.diff.resolveDesc())

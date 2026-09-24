@@ -9,7 +9,7 @@ import (
 	"weave/internal/ui/layout"
 	"weave/internal/ui/panel"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -156,7 +156,7 @@ func TestEveryListingScreenSurvivesAListing(t *testing.T) {
 		m.withListing(func(*listing) {})
 
 		assert.Equal(t, s, m.screen, "screen %d left the screen it was on", s)
-		assert.NotEmpty(t, m.View(), "screen %d draws nothing after a listing", s)
+		assert.NotEmpty(t, m.render(), "screen %d draws nothing after a listing", s)
 	}
 }
 
@@ -201,7 +201,7 @@ func TestNoScreenOutgrowsThePaneItWasGiven(t *testing.T) {
 						shown := m
 						shown.helpExpanded = expanded
 
-						drawn := drawnLines(shown.View())
+						drawn := drawnLines(shown.render())
 						assert.LessOrEqual(t, len(drawn), height, "taller than the pane")
 
 						for i, row := range drawn {

@@ -6,7 +6,7 @@ import (
 	"weave/internal/ui/paint"
 	agentv1 "weave/proto/gen/agent/v1"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 // reviewPanStep is the smallest sideways jump, used until the pane has been measured.
@@ -16,7 +16,7 @@ const reviewPanStep = 8
 // scrolls under it.
 const reviewScrollMargin = 4
 
-func (r *reviewScreen) updateKey(h host, s panelShared, key tea.KeyMsg) tea.Cmd {
+func (r *reviewScreen) updateKey(h host, s panelShared, key tea.KeyPressMsg) tea.Cmd {
 	if r.threads.composing {
 		return r.updateComposer(h, s, key)
 	}
@@ -169,7 +169,7 @@ func (r *reviewScreen) refuseAwaiting(h host, s panelShared) {
 }
 
 // updateFilter is the search prompt taking keys.
-func (r *reviewScreen) updateFilter(h host, s panelShared, key tea.KeyMsg) tea.Cmd {
+func (r *reviewScreen) updateFilter(h host, s panelShared, key tea.KeyPressMsg) tea.Cmd {
 	if key.String() == "ctrl+c" {
 		return h.hide()
 	}

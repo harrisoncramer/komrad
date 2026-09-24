@@ -4,11 +4,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/charmbracelet/x/ansi"
+
 	"weave/config"
 	"weave/internal/errui"
 	"weave/internal/ui/layout"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -71,9 +73,9 @@ func TestRebuiltPanelPutsUpTheStartupScreen(t *testing.T) {
 	require.ErrorIs(t, m.fatal(), errui.ErrRebuilt)
 	assert.Empty(t, m.frame.GuestPane(), "the agent's pane goes back to its own window")
 	assert.Equal(t, 2, tmux.swaps)
-	assert.Contains(t, m.View(), "weave was rebuilt")
+	assert.Contains(t, ansi.Strip(m.render()), "weave was rebuilt")
 
-	_, cmd = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
+	_, cmd = m.Update(keyMsg(string('x')))
 	require.NotNil(t, cmd)
 	assert.Equal(t, tea.Quit(), cmd(), "any key closes it")
 	assert.Equal(t, 2, binary.asked, "a binary seen to change is not looked at again")

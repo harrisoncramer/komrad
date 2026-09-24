@@ -12,7 +12,7 @@ import (
 	"weave/internal/view"
 	"weave/lib/xslice"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 // entriesShown is how many of a directory's entries the document lists before counting the rest.
@@ -29,7 +29,7 @@ func (w *worktreesScreen) enter(h host, s panelShared, target screenTarget) tea.
 }
 
 func (w *worktreesScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
-	key, ok := msg.(tea.KeyMsg)
+	key, ok := msg.(tea.KeyPressMsg)
 	if !ok {
 		return nil
 	}

@@ -8,7 +8,7 @@ import (
 	"weave/config"
 	"weave/internal/ui/paint/label"
 
-	"github.com/charmbracelet/huh"
+	"charm.land/huh/v2"
 )
 
 // deleteWorktreesForm asks before a deletion, saying what goes through the agent delete, what the

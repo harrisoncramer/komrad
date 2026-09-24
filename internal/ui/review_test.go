@@ -17,10 +17,7 @@ import (
 	watchv1 "weave/proto/gen/watch/v1"
 
 	"connectrpc.com/connect"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
-	"github.com/muesli/termenv"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -434,15 +431,12 @@ func TestReviewCursorRedrawsInPlace(t *testing.T) {
 
 	// Without a colour profile the cursor row paints as bare text and moving it would change
 	// nothing in the frame.
-	restore := lipgloss.ColorProfile()
-	lipgloss.SetColorProfile(termenv.TrueColor)
-	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })
 
 	before, respawns := m.review.diff.cursor, len(tmux.respawns)
 	was := reviewFrameRaw(t, m)
 	tmux.sentKeys = nil
 
-	next, _ := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
+	next, _ := m.routeScreenMessage(keyMsg("j"))
 	m = next.(model)
 
 	require.Greater(t, m.review.diff.cursor, before)
@@ -464,14 +458,14 @@ func TestReviewScrollKeysMoveTheCursorAWheelTurn(t *testing.T) {
 
 	before := m.review.diff.cursor
 
-	next, _ := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyCtrlN})
+	next, _ := m.routeScreenMessage(keyMsg("ctrl+n"))
 	m = next.(model)
 
 	down := m.review.diff.cursor
 	require.Greater(t, down, before)
 	assert.LessOrEqual(t, down-before, reviewWheelStep, "a turn is a few rows, not a page")
 
-	next, _ = m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyCtrlP})
+	next, _ = m.routeScreenMessage(keyMsg("ctrl+p"))
 	m = next.(model)
 
 	assert.Equal(t, before, m.review.diff.cursor, "the other key turns it back")
@@ -494,7 +488,7 @@ func reviewFrameRaw(t *testing.T, m model) string {
 
 	require.Equal(t, screenReview, m.screen)
 
-	return m.View()
+	return m.render()
 }
 
 func reviewFrameRows(t *testing.T, m model) int {
@@ -529,13 +523,13 @@ func TestReviewComposeOpensAThread(t *testing.T) {
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	next, _ := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("c")})
+	next, _ := m.routeScreenMessage(keyMsg("c"))
 	m = next.(model)
 	require.True(t, m.review.threads.composing)
 
 	m = typeReviewMessage(t, m, "this should say hello")
 
-	next, cmd := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyCtrlS})
+	next, cmd := m.routeScreenMessage(keyMsg("ctrl+s"))
 	m = next.(model)
 	require.False(t, m.review.threads.composing)
 	require.NotNil(t, cmd)
@@ -619,14 +613,14 @@ func TestReviewPagesOnThePageKeys(t *testing.T) {
 
 	first := m.review.diff.cursor
 
-	next, _ := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyCtrlD})
+	next, _ := m.routeScreenMessage(keyMsg("ctrl+d"))
 	m = next.(model)
 
 	assert.Greater(t, m.review.diff.cursor, first)
 	_, ok := m.review.diff.view.GetAnchor(m.review.diff.cursor)
 	assert.True(t, ok)
 
-	next, _ = m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyCtrlU})
+	next, _ = m.routeScreenMessage(keyMsg("ctrl+u"))
 	m = next.(model)
 
 	assert.Equal(t, first, m.review.diff.cursor)
@@ -657,12 +651,12 @@ func TestReviewJumpsToASingleThread(t *testing.T) {
 	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1"})
 	streamThreads(t, &m, agents.threads)
 
-	next, _ := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("t")})
+	next, _ := m.routeScreenMessage(keyMsg("t"))
 	m = next.(model)
 	require.Equal(t, m.review.diff.view.GetLastRow(), m.review.diff.cursor, "t should reach the only thread")
 
 	// Standing on it, t has nowhere forward to go and has to stay put.
-	next, _ = m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("t")})
+	next, _ = m.routeScreenMessage(keyMsg("t"))
 	m = next.(model)
 	assert.Equal(t, m.review.diff.view.GetLastRow(), m.review.diff.cursor)
 }
@@ -689,7 +683,7 @@ func TestReviewAdriftThreadIsReachable(t *testing.T) {
 	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1"})
 	streamThreads(t, &m, agents.threads)
 
-	next, _ := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("t")})
+	next, _ := m.routeScreenMessage(keyMsg("t"))
 	m = next.(model)
 
 	thread, ok := m.review.diff.view.GetThreadAt(m.review.diff.cursor)
@@ -720,10 +714,10 @@ func TestReviewAdriftThreadTakesAReply(t *testing.T) {
 	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1"})
 	streamThreads(t, &m, agents.threads)
 
-	next, _ := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("t")})
+	next, _ := m.routeScreenMessage(keyMsg("t"))
 	m = next.(model)
 
-	next, _ = m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("c")})
+	next, _ = m.routeScreenMessage(keyMsg("c"))
 	m = next.(model)
 	require.True(t, m.review.threads.composing)
 	assert.Equal(t, "t1", m.review.threads.editing, "composing answers the thread rather than opening a new one")
@@ -825,13 +819,13 @@ func TestReviewThreadScrollsToItsStart(t *testing.T) {
 
 	require.NotContains(t, ansi.Strip(m.review.view(m.shared())), "note 0", "the start of the thread is off the sidebar")
 
-	next, _ := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyCtrlF})
+	next, _ := m.routeScreenMessage(keyMsg("ctrl+f"))
 	m = next.(model)
 	require.True(t, m.review.isThreadFocused(m.shared()))
 
 	cursor := m.review.diff.cursor
 	for range 20 {
-		next, _ = m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("k")})
+		next, _ = m.routeScreenMessage(keyMsg("k"))
 		m = next.(model)
 	}
 
@@ -840,7 +834,7 @@ func TestReviewThreadScrollsToItsStart(t *testing.T) {
 	assert.NotContains(t, shown, "note 5", "the end of the thread has scrolled away")
 	assert.Equal(t, cursor, m.review.diff.cursor, "the diff cursor stays where it was")
 
-	next, _ = m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyEsc})
+	next, _ = m.routeScreenMessage(keyMsg("esc"))
 	m = next.(model)
 
 	assert.False(t, m.review.isThreadFocused(m.shared()))
@@ -855,7 +849,7 @@ func TestReviewThreadFocusIsRefusedWithoutAThread(t *testing.T) {
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
 	m = openReview(t, m)
 
-	next, _ := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyCtrlF})
+	next, _ := m.routeScreenMessage(keyMsg("ctrl+f"))
 	m = next.(model)
 
 	assert.False(t, m.review.isThreadFocused(m.shared()))
@@ -873,20 +867,20 @@ func TestReviewScrollKeysMoveTheThreadWhileItHoldsTheKeys(t *testing.T) {
 	streamThreads(t, &m, reviewLongThread(t, m))
 	m.height = 14
 
-	next, _ := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyCtrlF})
+	next, _ := m.routeScreenMessage(keyMsg("ctrl+f"))
 	m = next.(model)
 	require.True(t, m.review.isThreadFocused(m.shared()))
 
 	cursor := m.review.diff.cursor
 
-	next, _ = m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyCtrlP})
+	next, _ = m.routeScreenMessage(keyMsg("ctrl+p"))
 	m = next.(model)
 
 	assert.True(t, m.review.isThreadFocused(m.shared()), "the conversation keeps the keys")
 	assert.Equal(t, reviewWheelStep, m.review.threads.scroll)
 	assert.Equal(t, cursor, m.review.diff.cursor, "and the diff did not move")
 
-	next, _ = m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyCtrlN})
+	next, _ = m.routeScreenMessage(keyMsg("ctrl+n"))
 	m = next.(model)
 
 	assert.Zero(t, m.review.threads.scroll)
@@ -904,13 +898,13 @@ func TestReviewThreadCursorMoveDropsTheScroll(t *testing.T) {
 	streamThreads(t, &m, reviewLongThread(t, m))
 	m.height = 14
 
-	next, _ := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyCtrlF})
+	next, _ := m.routeScreenMessage(keyMsg("ctrl+f"))
 	m = next.(model)
-	next, _ = m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("k")})
+	next, _ = m.routeScreenMessage(keyMsg("k"))
 	m = next.(model)
 	require.Positive(t, m.review.threads.scroll)
 
-	next, _ = m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyCtrlD})
+	next, _ = m.routeScreenMessage(keyMsg("ctrl+d"))
 	m = next.(model)
 
 	assert.Zero(t, m.review.threads.scroll)
@@ -995,7 +989,7 @@ func TestReviewKeepsDrawingAfterAWrite(t *testing.T) {
 	respawns := len(tmux.respawns)
 	tmux.sentKeys = nil
 
-	next, _ := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
+	next, _ := m.routeScreenMessage(keyMsg("j"))
 	m = next.(model)
 
 	assert.Len(t, tmux.respawns, respawns, "nothing is respawned")
@@ -1013,7 +1007,7 @@ func TestReviewPanRedrawsTheRows(t *testing.T) {
 
 	was := reviewFrameText(t, m)
 
-	next, _ := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("l")})
+	next, _ := m.routeScreenMessage(keyMsg("l"))
 	m = next.(model)
 
 	require.Positive(t, m.review.diff.pan)
@@ -1050,14 +1044,14 @@ func TestReviewRepliesInAThread(t *testing.T) {
 	assert.Contains(t, ansi.Strip(m.review.view(m.shared())), "reply in this thread",
 		"the legend says what the key will do on a line that already has a thread")
 
-	next, _ := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("c")})
+	next, _ := m.routeScreenMessage(keyMsg("c"))
 	m = next.(model)
 	require.True(t, m.review.threads.composing)
 	require.Equal(t, "t1", m.review.threads.editing, "the reply goes into the thread under the cursor")
 
 	m = typeReviewMessage(t, m, "yes, that is it")
 
-	next, cmd := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyCtrlS})
+	next, cmd := m.routeScreenMessage(keyMsg("ctrl+s"))
 	m = next.(model)
 	require.NotNil(t, cmd)
 
@@ -1079,7 +1073,7 @@ func TestReviewPanStepScalesWithThePane(t *testing.T) {
 
 	assert.Equal(t, 56, panStep(m.shared()), "a third of the 170 columns the diff is drawn in")
 
-	next, _ := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("l")})
+	next, _ := m.routeScreenMessage(keyMsg("l"))
 	m = next.(model)
 	assert.Equal(t, 56, m.review.diff.pan)
 
@@ -1185,15 +1179,12 @@ func deliveredComment() *agentv1.ReviewMessage {
 // TestReviewVerdictKeepsItsColour covers the chosen verdict wearing what it means rather than
 // the muted tone of the options it was picked out of.
 func TestReviewVerdictKeepsItsColour(t *testing.T) {
-	restore := lipgloss.ColorProfile()
-	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })
-	lipgloss.SetColorProfile(termenv.TrueColor)
 
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
 	m = openReview(t, m)
 
-	next, _ := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyCtrlS})
+	next, _ := m.routeScreenMessage(keyMsg("ctrl+s"))
 	m = next.(model)
 	require.True(t, m.review.threads.releasing)
 
@@ -1212,13 +1203,13 @@ func TestReviewReleaseIsTheSubmitKey(t *testing.T) {
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	next, _ := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyCtrlS})
+	next, _ := m.routeScreenMessage(keyMsg("ctrl+s"))
 	m = next.(model)
 	require.True(t, m.review.threads.releasing, "the key opens the panel")
 	require.False(t, m.review.threads.composing, "and not the line composer")
 	require.Nil(t, agents.released, "and sends nothing on its own")
 
-	_, cmd := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyCtrlS})
+	_, cmd := m.routeScreenMessage(keyMsg("ctrl+s"))
 	require.NotNil(t, cmd, "the same key sends from inside it")
 
 	wrote, ok := cmd().(reviewWroteMsg)
@@ -1250,7 +1241,7 @@ func TestSettlingAThreadIsWhatQuietsIt(t *testing.T) {
 	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1"})
 	streamThreads(t, &m, agents.threads)
 
-	next, cmd := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("r")})
+	next, cmd := m.routeScreenMessage(keyMsg("r"))
 	m = next.(model)
 	require.NotNil(t, cmd)
 
@@ -1268,7 +1259,7 @@ func TestSettlingAThreadIsWhatQuietsIt(t *testing.T) {
 		"the gutter is where settling is said, now the line above counts comments instead")
 
 	// Pressing it again reopens.
-	next, cmd = m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("r")})
+	next, cmd = m.routeScreenMessage(keyMsg("r"))
 	m = next.(model)
 	require.NotNil(t, cmd)
 
@@ -1299,10 +1290,10 @@ func TestSettlingSurvivesTheCodeMoving(t *testing.T) {
 	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1"})
 	streamThreads(t, &m, agents.threads)
 
-	next, _ := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("t")})
+	next, _ := m.routeScreenMessage(keyMsg("t"))
 	m = next.(model)
 
-	next, cmd := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("r")})
+	next, cmd := m.routeScreenMessage(keyMsg("r"))
 	m = next.(model)
 	require.NotNil(t, cmd)
 
@@ -1350,7 +1341,7 @@ func TestDeletingAnAdriftThreadLeavesTheCursorInTheDiff(t *testing.T) {
 	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1"})
 	streamThreads(t, &m, agents.threads)
 
-	next, _ := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("t")})
+	next, _ := m.routeScreenMessage(keyMsg("t"))
 	m = next.(model)
 	require.Equal(t, m.review.diff.view.GetLastRow(), m.review.diff.cursor)
 
@@ -1366,7 +1357,7 @@ func typeReview(t *testing.T, m model, keys string) model {
 	t.Helper()
 
 	for _, r := range keys {
-		next, _ := m.route(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		next, _ := m.route(keyMsg(string(r)))
 		m = next.(model)
 	}
 
@@ -1391,7 +1382,7 @@ func TestReviewSearchFollowsThePatternAsItIsTyped(t *testing.T) {
 	assert.NotEqual(t, start, m.review.diff.cursor, "the diff moved to the match while it was typed")
 	assert.Contains(t, ansi.Strip(m.review.view(m.shared())), "1 of 1")
 
-	next, _ := m.route(tea.KeyMsg{Type: tea.KeyEnter})
+	next, _ := m.route(keyMsg("enter"))
 	m = next.(model)
 
 	require.False(t, m.review.diff.filter.typing, "enter keeps the search and closes the prompt")
@@ -1413,7 +1404,7 @@ func TestReviewSearchCancelsBackToWhereItStarted(t *testing.T) {
 	m = typeReview(t, m, "goodbye")
 	require.NotEqual(t, start, m.review.diff.cursor)
 
-	next, _ := m.route(tea.KeyMsg{Type: tea.KeyEsc})
+	next, _ := m.route(keyMsg("esc"))
 	m = next.(model)
 
 	assert.False(t, m.review.diff.filter.typing)
@@ -1431,23 +1422,23 @@ func TestReviewSearchStepsThroughMatches(t *testing.T) {
 	m = typeReview(t, m, "/")
 	m = typeReview(t, m, "return")
 
-	next, _ := m.route(tea.KeyMsg{Type: tea.KeyEnter})
+	next, _ := m.route(keyMsg("enter"))
 	m = next.(model)
 
 	require.Equal(t, 2, m.review.diff.view.MatchCount(), "the line as it was and the line as it is")
 
 	first := m.review.diff.cursor
 
-	next, _ = m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("n")})
+	next, _ = m.routeScreenMessage(keyMsg("n"))
 	m = next.(model)
 	second := m.review.diff.cursor
 	require.NotEqual(t, first, second)
 
-	next, _ = m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("n")})
+	next, _ = m.routeScreenMessage(keyMsg("n"))
 	m = next.(model)
 	assert.Equal(t, first, m.review.diff.cursor, "past the last match is the first again")
 
-	next, _ = m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("N")})
+	next, _ = m.routeScreenMessage(keyMsg("N"))
 	m = next.(model)
 	assert.Equal(t, second, m.review.diff.cursor)
 }
@@ -1458,10 +1449,6 @@ func TestReviewSearchPaintsWhatItFound(t *testing.T) {
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
 	m = openReview(t, m)
-
-	restore := lipgloss.ColorProfile()
-	lipgloss.SetColorProfile(termenv.TrueColor)
-	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })
 
 	was := reviewFrameRaw(t, m)
 
@@ -1518,20 +1505,20 @@ func TestReviewSearchWithNoMatchesSaysSo(t *testing.T) {
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
 	m = openReview(t, m)
 
-	next, _ := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("n")})
+	next, _ := m.routeScreenMessage(keyMsg("n"))
 	m = next.(model)
 	assert.Equal(t, "nothing to search for yet", m.review.notice)
 
 	m = typeReview(t, m, "/")
 	m = typeReview(t, m, "wallaby")
 
-	next, _ = m.route(tea.KeyMsg{Type: tea.KeyEnter})
+	next, _ = m.route(keyMsg("enter"))
 	m = next.(model)
 
 	require.Zero(t, m.review.diff.view.MatchCount())
 	assert.Contains(t, ansi.Strip(m.review.view(m.shared())), "wallaby", "the pattern is still standing")
 
-	next, _ = m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("n")})
+	next, _ = m.routeScreenMessage(keyMsg("n"))
 	m = next.(model)
 	assert.Equal(t, "no matches", m.review.notice)
 }
@@ -1554,13 +1541,13 @@ func TestReviewFileJumpSurvivesARepaint(t *testing.T) {
 	m, _ := reviewModelOver(t, agents, repo)
 	m = openReview(t, m)
 
-	next, _ := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("]")})
+	next, _ := m.routeScreenMessage(keyMsg("]"))
 	m = next.(model)
 
 	pinned := m.review.diff.top
 	require.True(t, m.review.diff.pinTop, "a file jump says where the window goes")
 
-	next, _ = m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("l")})
+	next, _ = m.routeScreenMessage(keyMsg("l"))
 	m = next.(model)
 	assert.Equal(t, pinned, m.review.diff.top, "panning redraws the same rows and must not move them")
 
@@ -1568,7 +1555,7 @@ func TestReviewFileJumpSurvivesARepaint(t *testing.T) {
 	streamThreads(t, &m, nil)
 	assert.Equal(t, pinned, m.review.diff.top, "and neither does a write landing")
 
-	next, _ = m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("k")})
+	next, _ = m.routeScreenMessage(keyMsg("k"))
 	m = next.(model)
 	assert.False(t, m.review.diff.pinTop, "moving the cursor hands the window back to the margin")
 }
@@ -1593,12 +1580,12 @@ func TestReviewSearchLeavesTheAgentsListAlone(t *testing.T) {
 	assert.Equal(t, 1, m.agents.cursor, "and a refresh leaves the cursor where it was")
 
 	// Enter puts the prompt away and keeps the pattern.
-	next, _ := m.route(tea.KeyMsg{Type: tea.KeyEnter})
+	next, _ := m.route(keyMsg("enter"))
 	m = next.(model)
 	require.False(t, m.review.diff.filter.typing)
 	require.True(t, m.review.diff.filter.isStanding())
 
-	next, _ = m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyEsc})
+	next, _ = m.routeScreenMessage(keyMsg("esc"))
 	m = next.(model)
 
 	assert.Equal(t, screenAgents, m.screen)
@@ -1615,7 +1602,7 @@ func TestMarkingAFileViewedFoldsItAway(t *testing.T) {
 
 	whole := m.review.diff.view.Len()
 
-	next, cmd := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("v")})
+	next, cmd := m.routeScreenMessage(keyMsg("v"))
 	m = next.(model)
 	require.NotNil(t, cmd)
 
@@ -1634,7 +1621,7 @@ func TestMarkingAFileViewedFoldsItAway(t *testing.T) {
 	assert.NotEmpty(t, agents.marked.GetAgentId(), "the mark is held against the agent")
 	assert.NotEmpty(t, agents.marked.GetFingerprint(), "the mark carries the file's fingerprint")
 
-	next, cmd = m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("v")})
+	next, cmd = m.routeScreenMessage(keyMsg("v"))
 	m = next.(model)
 	require.NotNil(t, cmd)
 	cmd()
@@ -1653,7 +1640,7 @@ func TestAViewedFileComesBackInTheNextRound(t *testing.T) {
 	m, _ := reviewModelOver(t, agents, repo)
 	m = openReview(t, m)
 
-	next, cmd := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("v")})
+	next, cmd := m.routeScreenMessage(keyMsg("v"))
 	m = next.(model)
 	cmd()
 
@@ -1685,7 +1672,7 @@ func TestReviewMatchCountSpellsMatchesOffAMatch(t *testing.T) {
 	m = typeReview(t, m, "/")
 	m = typeReview(t, m, "return")
 
-	next, _ := m.route(tea.KeyMsg{Type: tea.KeyEnter})
+	next, _ := m.route(keyMsg("enter"))
 	m = next.(model)
 	require.Equal(t, 2, m.review.diff.view.MatchCount())
 
@@ -1980,7 +1967,7 @@ func typeReviewMessage(t *testing.T, m model, words string) model {
 	t.Helper()
 
 	for _, letter := range words {
-		next, _ := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{letter}})
+		next, _ := m.routeScreenMessage(keyMsg(string(letter)))
 		written, ok := next.(model)
 		require.True(t, ok)
 		m = written

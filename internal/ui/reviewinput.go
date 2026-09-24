@@ -4,9 +4,9 @@ import (
 	"weave/config"
 	"weave/internal/ui/paint"
 
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/huh"
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/huh/v2"
 )
 
 // reviewInputKey is the field's key inside its own one-field form.

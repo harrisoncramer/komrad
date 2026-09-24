@@ -9,8 +9,8 @@ import (
 	"weave/internal/ui/panel"
 	"weave/internal/view"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/huh"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/huh/v2"
 )
 
 // schedulesScreen is the schedules screen, holding its own cursor behind the panel's one door.
@@ -36,7 +36,7 @@ func (w *schedulesScreen) enter(h host, s panelShared, _ screenTarget) tea.Cmd {
 }
 
 func (w *schedulesScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
-	key, ok := msg.(tea.KeyMsg)
+	key, ok := msg.(tea.KeyPressMsg)
 	if !ok {
 		return nil
 	}

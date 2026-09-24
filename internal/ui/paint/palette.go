@@ -1,34 +1,45 @@
 package paint
 
 import (
+	"image/color"
+
 	"weave/lib/xptr"
 
-	"github.com/charmbracelet/bubbles/help"
-	"github.com/charmbracelet/glamour/ansi"
-	"github.com/charmbracelet/glamour/styles"
-	"github.com/charmbracelet/huh"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/help"
+	"charm.land/glamour/v2/ansi"
+	"charm.land/glamour/v2/styles"
+	"charm.land/huh/v2"
+	"charm.land/lipgloss/v2"
 )
 
-// The panel's whole palette, as terminal colour numbers so a theme the user has set decides
-// what each one looks like.
+// colorNumber is a terminal colour number, so a theme the user has set decides what it looks like.
+type colorNumber string
+
+// The panel's whole palette.
 const (
-	accent       = lipgloss.Color("4")
-	success      = lipgloss.Color("10")
-	warning      = lipgloss.Color("11")
-	danger       = lipgloss.Color("9")
-	muted        = lipgloss.Color("8")
-	speakerSelf  = lipgloss.Color("12")
-	speakerOther = lipgloss.Color("13")
+	accent       colorNumber = "4"
+	success      colorNumber = "10"
+	warning      colorNumber = "11"
+	danger       colorNumber = "9"
+	muted        colorNumber = "8"
+	speakerSelf  colorNumber = "12"
+	speakerOther colorNumber = "13"
 	// bright is a foreground above the terminal's own default.
-	bright = lipgloss.Color("15")
+	bright colorNumber = "15"
 	// merged is the plain magenta, kept off the bright one the other voice in a conversation
 	// wears so retuning the speakers leaves a landed change alone.
-	merged = lipgloss.Color("5")
+	merged colorNumber = "5"
 	// markColor is the plain yellow rather than the bright one a thinking agent is drawn in, so
 	// a mark in the gutter cannot be read as a lifecycle state.
-	markColor = lipgloss.Color("3")
+	markColor colorNumber = "3"
 )
+
+// Black is the terminal's own black, drawn on a coloured bar.
+var Black = lipgloss.Color("0")
+
+func (c colorNumber) color() color.Color {
+	return lipgloss.Color(string(c))
+}
 
 // Tone is the part a piece of the panel plays, which the palette turns into a colour.
 type Tone int
@@ -49,16 +60,16 @@ const (
 
 // Palette is the colours the panel draws in.
 type Palette struct {
-	accent  lipgloss.Color
-	success lipgloss.Color
-	warning lipgloss.Color
-	danger  lipgloss.Color
-	muted   lipgloss.Color
-	mark    lipgloss.Color
-	self    lipgloss.Color
-	other   lipgloss.Color
-	bright  lipgloss.Color
-	merged  lipgloss.Color
+	accent  colorNumber
+	success colorNumber
+	warning colorNumber
+	danger  colorNumber
+	muted   colorNumber
+	mark    colorNumber
+	self    colorNumber
+	other   colorNumber
+	bright  colorNumber
+	merged  colorNumber
 
 	// stage is held behind a pointer.
 	stage *ansi.StyleConfig
@@ -87,7 +98,16 @@ func withStage(palette Palette) Palette {
 }
 
 // Color is what a tone looks like in this palette.
-func (p Palette) Color(tone Tone) lipgloss.Color {
+func (p Palette) Color(tone Tone) color.Color {
+	return p.number(tone).color()
+}
+
+// ANSIColor is a tone in the form glamour's style config wants it.
+func (p Palette) ANSIColor(tone Tone) *string {
+	return ANSIColor(p.number(tone))
+}
+
+func (p Palette) number(tone Tone) colorNumber {
 	switch tone {
 	case ToneAccent:
 		return p.accent
@@ -120,33 +140,37 @@ func (p Palette) Style(tone Tone) lipgloss.Style {
 }
 
 // FormTheme is the huh theme a form is drawn in.
-func (p Palette) FormTheme() *huh.Theme {
-	theme := huh.ThemeBase()
+func (p Palette) FormTheme() huh.Theme {
+	return huh.ThemeFunc(p.formStyles)
+}
 
-	theme.Focused.Base = theme.Focused.Base.BorderForeground(p.muted)
-	theme.Focused.Title = theme.Focused.Title.Foreground(p.accent).Bold(true)
-	theme.Focused.NoteTitle = theme.Focused.NoteTitle.Foreground(p.accent).Bold(true)
-	theme.Focused.Description = theme.Focused.Description.Foreground(p.muted)
-	theme.Focused.Directory = theme.Focused.Directory.Foreground(p.accent)
-	theme.Focused.ErrorIndicator = theme.Focused.ErrorIndicator.Foreground(p.danger)
-	theme.Focused.ErrorMessage = theme.Focused.ErrorMessage.Foreground(p.danger)
-	theme.Focused.SelectSelector = theme.Focused.SelectSelector.Foreground(p.warning)
-	theme.Focused.MultiSelectSelector = theme.Focused.MultiSelectSelector.Foreground(p.warning)
-	theme.Focused.SelectedOption = theme.Focused.SelectedOption.Foreground(p.success)
-	theme.Focused.SelectedPrefix = theme.Focused.SelectedPrefix.Foreground(p.success)
-	theme.Focused.NextIndicator = theme.Focused.NextIndicator.Foreground(p.accent)
-	theme.Focused.PrevIndicator = theme.Focused.PrevIndicator.Foreground(p.accent)
-	theme.Focused.FocusedButton = theme.Focused.FocusedButton.Foreground(lipgloss.Color("0")).Background(p.accent)
-	theme.Focused.TextInput.Cursor = theme.Focused.TextInput.Cursor.Foreground(p.warning)
-	theme.Focused.TextInput.Prompt = theme.Focused.TextInput.Prompt.Foreground(p.accent)
-	theme.Focused.TextInput.Placeholder = theme.Focused.TextInput.Placeholder.Foreground(p.muted)
+func (p Palette) formStyles(isDark bool) *huh.Styles {
+	theme := huh.ThemeBase(isDark)
+
+	theme.Focused.Base = theme.Focused.Base.BorderForeground(p.muted.color())
+	theme.Focused.Title = theme.Focused.Title.Foreground(p.accent.color()).Bold(true)
+	theme.Focused.NoteTitle = theme.Focused.NoteTitle.Foreground(p.accent.color()).Bold(true)
+	theme.Focused.Description = theme.Focused.Description.Foreground(p.muted.color())
+	theme.Focused.Directory = theme.Focused.Directory.Foreground(p.accent.color())
+	theme.Focused.ErrorIndicator = theme.Focused.ErrorIndicator.Foreground(p.danger.color())
+	theme.Focused.ErrorMessage = theme.Focused.ErrorMessage.Foreground(p.danger.color())
+	theme.Focused.SelectSelector = theme.Focused.SelectSelector.Foreground(p.warning.color())
+	theme.Focused.MultiSelectSelector = theme.Focused.MultiSelectSelector.Foreground(p.warning.color())
+	theme.Focused.SelectedOption = theme.Focused.SelectedOption.Foreground(p.success.color())
+	theme.Focused.SelectedPrefix = theme.Focused.SelectedPrefix.Foreground(p.success.color())
+	theme.Focused.NextIndicator = theme.Focused.NextIndicator.Foreground(p.accent.color())
+	theme.Focused.PrevIndicator = theme.Focused.PrevIndicator.Foreground(p.accent.color())
+	theme.Focused.FocusedButton = theme.Focused.FocusedButton.Foreground(Black).Background(p.accent.color())
+	theme.Focused.TextInput.Cursor = theme.Focused.TextInput.Cursor.Foreground(p.warning.color())
+	theme.Focused.TextInput.Prompt = theme.Focused.TextInput.Prompt.Foreground(p.accent.color())
+	theme.Focused.TextInput.Placeholder = theme.Focused.TextInput.Placeholder.Foreground(p.muted.color())
 
 	theme.Blurred = theme.Focused
 	theme.Blurred.Base = theme.Blurred.Base.BorderStyle(lipgloss.HiddenBorder())
 	theme.Blurred.Card = theme.Blurred.Base
-	theme.Blurred.Title = theme.Blurred.Title.Foreground(p.muted).Bold(false)
-	theme.Blurred.NoteTitle = theme.Blurred.NoteTitle.Foreground(p.muted).Bold(false)
-	theme.Blurred.TextInput.Prompt = theme.Blurred.TextInput.Prompt.Foreground(p.muted)
+	theme.Blurred.Title = theme.Blurred.Title.Foreground(p.muted.color()).Bold(false)
+	theme.Blurred.NoteTitle = theme.Blurred.NoteTitle.Foreground(p.muted.color()).Bold(false)
+	theme.Blurred.TextInput.Prompt = theme.Blurred.TextInput.Prompt.Foreground(p.muted.color())
 	theme.Blurred.NextIndicator = lipgloss.NewStyle()
 	theme.Blurred.PrevIndicator = lipgloss.NewStyle()
 
@@ -157,7 +181,7 @@ func (p Palette) FormTheme() *huh.Theme {
 
 // HelpStyles is the legend's styling, muted throughout.
 func HelpStyles() help.Styles {
-	dim := lipgloss.NewStyle().Foreground(muted)
+	dim := lipgloss.NewStyle().Foreground(muted.color())
 
 	return help.Styles{
 		ShortKey:       dim,
@@ -216,7 +240,7 @@ func stageStyle(palette Palette) ansi.StyleConfig {
 	return style
 }
 
-// ANSIColor is a colour in the form glamour's style config wants it.
-func ANSIColor(color lipgloss.Color) *string {
-	return xptr.Ptr(string(color))
+// ANSIColor is a colour number in the form glamour's style config wants it.
+func ANSIColor(number colorNumber) *string {
+	return xptr.Ptr(string(number))
 }

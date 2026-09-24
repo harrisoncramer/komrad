@@ -7,12 +7,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/charmbracelet/x/ansi"
+
 	"weave/config"
 	"weave/internal/ui/panel"
 	"weave/lib/xptr"
 	"weave/lib/xslice"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -52,7 +54,7 @@ func TestDetailsDrawTheHoveredRow(t *testing.T) {
 		{Key: "summary", Value: "gave the record two more lines"},
 	}, m.listing.agents[0].Agent.Metadata...)
 
-	view := m.detailsView()
+	view := ansi.Strip(m.detailsView())
 
 	assert.Contains(t, view, "auth")
 	assert.Contains(t, view, "directory")
@@ -238,7 +240,7 @@ func TestDetailsCopyReportsAFailure(t *testing.T) {
 func TestDetailsAreDrawnBetweenTwoRules(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 
-	view := m.detailsView()
+	view := ansi.Strip(m.detailsView())
 
 	assert.True(t, strings.HasPrefix(view, strings.Repeat("─", m.width)), "the section opens on a rule")
 	assert.True(t, strings.HasSuffix(view, strings.Repeat("─", m.width)+"\n"), "and closes on one")

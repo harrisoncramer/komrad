@@ -18,7 +18,7 @@ import (
 	workflowv1 "weave/proto/gen/workflow/v1"
 	worktreev1 "weave/proto/gen/worktree/v1"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"

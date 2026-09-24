@@ -9,10 +9,10 @@ import (
 	"weave/internal/ui/paint"
 	"weave/internal/ui/paint/label"
 
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
-	glamouransi "github.com/charmbracelet/glamour/ansi"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
+	glamouransi "charm.land/glamour/v2/ansi"
+	"charm.land/lipgloss/v2"
 )
 
 // messagesRows is the most rows the region takes, which the pane keeps back whether or not the
@@ -481,7 +481,7 @@ func (m model) toggleMessagesFocus() model {
 	return m
 }
 
-func (m model) updateMessages(key tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m model) updateMessages(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
 	switch {
@@ -662,8 +662,8 @@ func (m model) messagesStyleConfig() glamouransi.StyleConfig {
 
 	style := palette.Stage()
 	style.Strong.Color = nil
-	style.Emph.Color = paint.ANSIColor(palette.Color(paint.ToneMuted))
-	style.Code.Color = paint.ANSIColor(palette.Color(kindTone(m.messagesKind())))
+	style.Emph.Color = palette.ANSIColor(paint.ToneMuted)
+	style.Code.Color = palette.ANSIColor(kindTone(m.messagesKind()))
 	style.Code.Prefix = ""
 	style.Code.Suffix = ""
 

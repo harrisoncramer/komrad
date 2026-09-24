@@ -7,10 +7,22 @@ import (
 	"time"
 
 	"weave/internal/errui"
+
+	tea "charm.land/bubbletea/v2"
 )
 
-// View renders the active screen, taking the failures in the order they happen.
-func (m model) View() string {
+// View is the frame, under the terminal modes the panel runs in.
+func (m model) View() tea.View {
+	view := tea.NewView(m.render())
+	view.AltScreen = true
+	view.ReportFocus = true
+	view.MouseMode = tea.MouseModeCellMotion
+
+	return view
+}
+
+// render renders the active screen, taking the failures in the order they happen.
+func (m model) render() string {
 	if m.configErr != nil {
 		return errui.RenderConfigError(m.width, m.configErr)
 	}

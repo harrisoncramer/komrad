@@ -321,7 +321,7 @@ func TestRefreshDrawsAnEditedWorkflowContext(t *testing.T) {
 		},
 	}
 	m.stageSelection()
-	require.Contains(t, ansi.Strip(m.View()), "old notes", "the folder's notes stand beside the list")
+	require.Contains(t, ansi.Strip(m.render()), "old notes", "the folder's notes stand beside the list")
 
 	staged := len(tmux.respawns)
 
@@ -338,7 +338,7 @@ func TestRefreshDrawsAnEditedWorkflowContext(t *testing.T) {
 
 	assert.Equal(t, "new notes", m.listing.workflows[0].Context)
 
-	view := ansi.Strip(m.View())
+	view := ansi.Strip(m.render())
 	assert.Contains(t, view, "new notes", "the edit is on screen without the cursor moving")
 	assert.NotContains(t, view, "old notes")
 	assert.Len(t, tmux.respawns, staged, "and nothing was pushed into a pane to put it there")

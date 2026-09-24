@@ -6,7 +6,7 @@ import (
 	"weave/config"
 	"weave/internal/ui/panel"
 
-	"github.com/charmbracelet/huh"
+	"charm.land/huh/v2"
 )
 
 func deleteAgentsForm(agents []panel.Agent, children int, keys config.FormKeys) (*huh.Form, *bool) {

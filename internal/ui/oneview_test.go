@@ -6,9 +6,7 @@ import (
 
 	"weave/internal/ui/paint"
 
-	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
-	"github.com/muesli/termenv"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -16,9 +14,6 @@ import (
 func withColour(t *testing.T) {
 	t.Helper()
 
-	restore := lipgloss.ColorProfile()
-	lipgloss.SetColorProfile(termenv.TrueColor)
-	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })
 }
 
 // TestListSearchLightsTheRecord covers the one search lighting both panes while acting in one:
@@ -205,5 +200,5 @@ func TestFieldOnlyFilterEmptiesTheList(t *testing.T) {
 
 	assert.Empty(t, narrowed.agents.rows(narrowed.shared()))
 	assert.False(t, narrowed.isDetailsFocused())
-	assert.Contains(t, ansi.Strip(narrowed.View()), "nothing matches")
+	assert.Contains(t, ansi.Strip(narrowed.render()), "nothing matches")
 }

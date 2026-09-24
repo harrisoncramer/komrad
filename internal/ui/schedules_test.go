@@ -17,9 +17,9 @@ import (
 	schedulev1 "weave/proto/gen/schedule/v1"
 	"weave/proto/gen/schedule/v1/schedulev1connect"
 
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
 	"connectrpc.com/connect"
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -572,24 +572,6 @@ func (f *fakeSchedules) ArchiveSchedule(context.Context, *connect.Request[schedu
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
-}
-
-func keyMsg(key string) tea.KeyMsg {
-	if key == " " {
-		return tea.KeyMsg{Type: tea.KeySpace, Runes: []rune{' '}}
-	}
-	if named, ok := namedKeys[key]; ok {
-		return tea.KeyMsg{Type: named}
-	}
-
-	return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(key)}
-}
-
-var namedKeys = map[string]tea.KeyType{
-	"esc":       tea.KeyEsc,
-	"ctrl+t":    tea.KeyCtrlT,
-	"tab":       tea.KeyTab,
-	"shift+tab": tea.KeyShiftTab,
 }
 
 // TestScheduleName covers matching the schedule an agent came from against the list the panel

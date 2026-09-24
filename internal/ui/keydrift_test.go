@@ -8,7 +8,7 @@ import (
 	"weave/config"
 	"weave/internal/ui/panel"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -146,30 +146,10 @@ func configuredKeys(t *testing.T, keys config.Keybindings) []string {
 
 // keyMsgOf turns a configured key string back into the press bubbletea would deliver, and
 // checks the round trip.
-func keyMsgOf(t *testing.T, pressed string) tea.KeyMsg {
+func keyMsgOf(t *testing.T, pressed string) tea.KeyPressMsg {
 	t.Helper()
 
-	named := map[string]tea.KeyType{
-		" ":      tea.KeySpace,
-		"enter":  tea.KeyEnter,
-		"esc":    tea.KeyEsc,
-		"left":   tea.KeyLeft,
-		"right":  tea.KeyRight,
-		"tab":    tea.KeyTab,
-		"ctrl+c": tea.KeyCtrlC,
-		"ctrl+d": tea.KeyCtrlD,
-		"ctrl+g": tea.KeyCtrlG,
-		"ctrl+n": tea.KeyCtrlN,
-		"ctrl+p": tea.KeyCtrlP,
-		"ctrl+s": tea.KeyCtrlS,
-		"ctrl+t": tea.KeyCtrlT,
-		"ctrl+u": tea.KeyCtrlU,
-	}
-
-	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(pressed)}
-	if kind, ok := named[pressed]; ok {
-		msg = tea.KeyMsg{Type: kind}
-	}
+	msg := keyMsg(pressed)
 
 	require.Equal(t, pressed, msg.String(), "the press this test builds is not the key it was asked for")
 

@@ -11,11 +11,14 @@ const panelPaneFormat = "#{==:#{pane_id},#{" + panelPaneOption + "}}"
 // wheelOptionPrefix names the global options holding the user's own wheel commands.
 const wheelOptionPrefix = "@weave_wheel_"
 
+// panelWheel is the wheel binding's arm over the panel's pane.
+const panelWheel = "send-keys -M -t ="
+
 // wheelPaneFormat is true of the panel's pane outside copy-mode.
 const wheelPaneFormat = "#{&&:" + panelPaneFormat + ",#{==:#{pane_in_mode},0}}"
 
 var keyNames = map[string]string{
-	" ":         "Space",
+	"space":     "Space",
 	"enter":     "Enter",
 	"esc":       "Escape",
 	"tab":       "Tab",
@@ -86,9 +89,9 @@ func (c *Client) TakePanelKeys(keys []string) error {
 	return errors.Join(errs...)
 }
 
-// TakePanelWheel rebinds the mouse wheel to press the panel's scroll keys on its own pane and
-// keep the user's command everywhere else.
-func (c *Client) TakePanelWheel(up, down string) error {
+// TakePanelWheel rebinds the mouse wheel to hand the panel's own pane the mouse event and keep
+// the user's command everywhere else.
+func (c *Client) TakePanelWheel() error {
 	held, err := c.GetRootKeys()
 	if err != nil {
 		return err
@@ -96,23 +99,17 @@ func (c *Client) TakePanelWheel(up, down string) error {
 
 	var errs []error
 
-	for _, turn := range []struct{ wheel, key string }{{"WheelUpPane", up}, {"WheelDownPane", down}} {
-		if turn.key == "" {
-			continue
-		}
-
+	for _, wheel := range []string{"WheelUpPane", "WheelDownPane"} {
 		// tmux binds no WheelDownPane of its own, so an unbound wheel falls back to what the pane
 		// would have been given.
-		command, ok := held[turn.wheel]
+		command, ok := held[wheel]
 		if !ok {
 			command = "send-keys -M"
 		}
 
-		through := "send-keys -t = " + quoteKey(SpellKey(turn.key))
-
-		option := wheelOptionPrefix + turn.wheel
+		option := wheelOptionPrefix + wheel
 		if IsPanelPassThrough(command) {
-			if strings.Contains(command, through) {
+			if strings.Contains(command, panelWheel) {
 				continue
 			}
 
@@ -126,8 +123,8 @@ func (c *Client) TakePanelWheel(up, down string) error {
 
 		otherwise := strings.ReplaceAll(command, ` \; `, " ; ")
 
-		if _, err := c.query("bind-key", "-n", turn.wheel, "if-shell", "-F", "-t", "=", wheelPaneFormat, through, otherwise); err != nil {
-			errs = append(errs, fmt.Errorf("failed to pass %s to the panel: %w", turn.wheel, err))
+		if _, err := c.query("bind-key", "-n", wheel, "if-shell", "-F", "-t", "=", wheelPaneFormat, panelWheel, otherwise); err != nil {
+			errs = append(errs, fmt.Errorf("failed to pass %s to the panel: %w", wheel, err))
 		}
 	}
 
