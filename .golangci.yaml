@@ -273,7 +273,7 @@ linters:
     custom:
       weavelint:
         type: module
-        description: Checks for this repo; a sentinel error must declare the kind of failure it is and be declared at package scope, a message wrapping another error opens with "failed to " or with the error itself, a connect handler must hand its strict half to the adapter rather than answering for itself, a forge Secret gives up its token only where it is sent or kept, an HTTP client is built by lib/xhttp, a declared function spans more than one line, a proto converter is named for its direction, a comment carries no justification clause, a loop that only maps a slice is xslice.Map, a constructor taking a params struct is New<T>(New<T>Params) declared as params, type, constructor, the panel's screen tests drive the model only through the harness, no test fakes a store or a boundary a helper package already fakes, and a test file sits beside the source file it is named for.
+        description: Checks for weave's own conventions.
         settings:
           sentinel_inline:
             skip: false
@@ -360,56 +360,6 @@ linters:
               # A store's own tests are the tests of the real store. A helper there that shares a
               # method name with the store is setting up rows, not faking anything.
               - ^internal/store/
-          shared_fake:
-            skip: false
-            fakes:
-              - interface: weave/internal/agents.harnessGetter
-                fake: harnesstest.Registry
-              - interface: weave/internal/agents.paneController
-                fake: tmuxtest.Fake
-              - interface: weave/internal/agents.paneKiller
-                fake: tmuxtest.Fake
-              - interface: weave/internal/agents.paneLister
-                fake: tmuxtest.Fake
-              - interface: weave/internal/agents.paneOwnerReader
-                fake: tmuxtest.Fake
-              - interface: weave/internal/agents.paneStarter
-                fake: tmuxtest.Fake
-              - interface: weave/internal/agents.snapshotReleaser
-                fake: gittest.Snapshots
-              - interface: weave/internal/agents.worktreeLister
-                fake: gittest.Checkout
-              - interface: weave/internal/checkouts.headReader
-                fake: gittest.Heads
-              - interface: weave/internal/checkouts.treeReader
-                fake: gittest.Trees
-              - interface: weave/internal/checkouts.worktreeRebaser
-                fake: gittest.Rebaser
-              - interface: weave/internal/cli.paneCapturer
-                fake: tmuxtest.Fake
-              - interface: weave/internal/diff.patchReader
-                fake: gittest.Repo
-              - interface: weave/internal/harness.Channel
-                fake: harnesstest.Channel
-              - interface: weave/internal/harness.Harness
-                fake: harnesstest.Fake
-              - interface: weave/internal/harness.Observer
-                fake: harnesstest.Observer
-              - interface: weave/internal/harness/pane.harnessGetter
-                fake: harnesstest.Registry
-              - interface: weave/internal/harness/pane.terminal
-                fake: tmuxtest.Fake
-              - interface: weave/internal/reviews.reviewSnapshotter
-                fake: gittest.Snapshots
-              - interface: weave/internal/transcripts.harnessGetter
-                fake: harnesstest.Registry
-              - interface: weave/internal/ui.ReviewGit
-                fake: gittest.Repo
-              - interface: weave/internal/worktrees.gitReader
-                fake: gittest.Checkout
-              - interface: weave/internal/worktrees.registrar
-                fake: gittest.Checkout
-            exclude: []
           test_beside:
             skip: false
             # Unanchored regexps over the path lint was run from.
@@ -428,7 +378,7 @@ linters:
               - ^internal/ui/panel_integration_test\.go$
       fussy:
         type: module
-        description: Checks for this repo; forbids bare os environment access and a nil pointer returned with a nil error, asks the panel to bound the contexts it starts, keeps doc comments present and prefixed with the identifier name, and holds comments to a single sentence.
+        description: General Go checks from fussy.
         settings:
           comment_length:
             skip: false

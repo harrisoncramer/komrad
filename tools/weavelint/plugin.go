@@ -89,11 +89,6 @@ func (l *linter) BuildAnalyzers() ([]*analysis.Analyzer, error) {
 		return nil, err
 	}
 
-	fakes, err := newSharedFake(l.config.SharedFake)
-	if err != nil {
-		return nil, err
-	}
-
 	beside, err := newTestBeside(l.config.TestBeside)
 	if err != nil {
 		return nil, err
@@ -112,7 +107,6 @@ func (l *linter) BuildAnalyzers() ([]*analysis.Analyzer, error) {
 		constructors,
 		boxes,
 		stores,
-		fakes,
 		beside,
 	}, nil
 }

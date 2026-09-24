@@ -39,9 +39,6 @@ tests what it adds and nothing it inherits.
 - No doc comment that restates a test's name.
 - Before adding a test at a higher layer, check the lower layer does not already own it.
 
-Linters hold the rest: `black_box`, `fake_store`, `shared_fake` and `test_beside` in
-`tools/weavelint`, and depguard's `handler-tests` rule. Each has an exclusion list in
-`.golangci.yaml` of the files not yet moved. Never add a file to one. A reviewer treats a test
-at the wrong layer, or one repeating a lower layer, as a finding.
+A reviewer treats a test at the wrong layer, or one repeating a lower layer, as a finding.
 
 The test-weave skill under `.claude/skills` says how to use each layer's helpers.
