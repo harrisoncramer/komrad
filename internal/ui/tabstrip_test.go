@@ -1,8 +1,6 @@
 package ui_test
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -194,7 +192,7 @@ func TestTabStripGolden(t *testing.T) {
 
 			harness.press(tt.press...)
 
-			requireFrameGolden(t, tt.name, harness.panel.View())
+			ui.RequireGolden(t, tt.name, harness.panel.View())
 		})
 	}
 }
@@ -216,19 +214,4 @@ func readLastLine(frame string) string {
 	lines := splitLines(frame)
 
 	return lines[len(lines)-1]
-}
-
-func requireFrameGolden(t *testing.T, name, got string) {
-	t.Helper()
-
-	path := filepath.Join("testdata", name+".golden")
-	if ui.ShouldUpdateGoldens() {
-		require.NoError(t, os.WriteFile(path, []byte(got), 0o600))
-
-		return
-	}
-
-	want, err := os.ReadFile(path)
-	require.NoError(t, err, "no golden file yet, so run the suite with -update")
-	assert.Equal(t, string(want), got)
 }

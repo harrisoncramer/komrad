@@ -486,11 +486,6 @@ func requireGolden(t *testing.T, name, got string) {
 	assert.Equal(t, string(want), got)
 }
 
-// ShouldUpdateGoldens reports whether the suite was run to rewrite its golden files.
-func ShouldUpdateGoldens() bool {
-	return *updateGoldens
-}
-
 // ReadRespawnPanes is every pane the panel has respawned, in the order it respawned them.
 func (p *Panel) ReadRespawnPanes() []string {
 	return p.tmux.respawnPanes
