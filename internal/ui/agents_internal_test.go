@@ -1,61 +1,14 @@
 package ui
 
 import (
-	"slices"
-	"strings"
 	"testing"
 	"time"
 
-	"weave/internal/ui/paint"
 	"weave/internal/ui/panel"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/charmbracelet/x/ansi"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-// TestRecordEmphasis covers what the record paints that a stripped frame cannot show.
-func TestRecordEmphasis(t *testing.T) {
-	t.Run("a search typed on the list lights its match in the record", func(t *testing.T) {
-		typed := pressMark(t, detailsModel(&recordingTmux{}), "/", "a", "u", "t", "h")
-		held := typed.hoveredDetails()
-
-		rows := typed.detailFieldRows(typed.detailsRows(held), typed.detailsCursor(held))
-
-		assert.Contains(t, rows[0], paint.Panel.Match().Render("auth"))
-	})
-
-	t.Run("a search standing over the record lights the matched run of a value", func(t *testing.T) {
-		m := detailsModel(&recordingTmux{})
-		m.height, m.width = 40, 60
-		m.applyWorktreeInspection(worktreeInspectedMsg{dir: "/repo", inspection: readWorktree(time.Now())})
-		standing := pressMark(t, send(t, m, "ctrl+t"), "/", "o", "r", "i", "g", "i", "n", "enter")
-		held := standing.hoveredDetails()
-
-		rows := standing.detailFieldRows(standing.detailsRows(held), standing.detailsCursor(held))
-
-		base := slices.IndexFunc(held.fields, func(field recordField) bool {
-			return field.label == "base"
-		})
-		assert.Contains(t, ansi.Strip(rows[base]), "origin/main  ↑3 ↓12")
-		assert.Contains(t, rows[base], paint.Panel.Match().Render("origin"))
-	})
-
-	t.Run("the hovered label takes the accent only while the record has the keys", func(t *testing.T) {
-		m := detailsModel(&recordingTmux{})
-		held := m.hoveredDetails()
-		label := padRight(held.fields[0].label, labelColumn(held.fields))
-
-		blurred := m.detailFieldRows(m.detailsRows(held), 0)[0]
-		m.details.focused = true
-		lit := m.detailFieldRows(m.detailsRows(held), 0)[0]
-
-		assert.Contains(t, blurred, dimStyle.Render(label))
-		assert.Contains(t, lit, rowCursorStyle().Render(label))
-		assert.Equal(t, 1, strings.Count(ansi.Strip(lit), "›"))
-	})
-}
 
 // agentHelp is the agents legend as the frame draws it.
 func (m model) agentHelp() keyMap {

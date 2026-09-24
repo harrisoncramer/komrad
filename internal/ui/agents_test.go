@@ -3,12 +3,15 @@ package ui_test
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
 	"time"
 
 	"weave/config"
+	"weave/internal/errui"
+	"weave/internal/ui/paint"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	"weave/proto/gen/hook/v1/hookv1connect"
@@ -25,6 +28,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
+)
+
+var (
+	recordNameLine = regexp.MustCompile(`name\s+auth`)
+	recordBaseLine = regexp.MustCompile(`base\s+origin/main`)
 )
 
 const (
@@ -701,6 +709,37 @@ func TestAgentsRecordCopy(t *testing.T) {
 		harness.press("y")
 
 		assert.Equal(t, []string{"backend"}, clip.written)
+	})
+}
+
+// TestAgentsRecordEmphasis covers what the record says in colour rather than in text.
+func TestAgentsRecordEmphasis(t *testing.T) {
+	t.Run("a search typed on the list lights its match in the record", func(t *testing.T) {
+		harness := openAgents(t, buildRecorded()...)
+
+		harness.press("/", "a", "u", "t", "h")
+
+		assert.Contains(t, findRawLine(harness.readRawFrame(), recordNameLine), paint.Panel.Match().Render("auth"))
+	})
+
+	t.Run("a search standing over the record lights the matched run of a value", func(t *testing.T) {
+		harness := openWorktreeRecord(t, panelHarnessParams{})
+
+		harness.press("/", "o", "r", "i", "g", "i", "n", "enter")
+
+		assert.Contains(t, findRawLine(harness.readRawFrame(), recordBaseLine), paint.Panel.Match().Render("origin"))
+	})
+
+	t.Run("the hovered label takes the accent only while the record has the keys", func(t *testing.T) {
+		harness := openAgents(t, buildRecorded()...)
+		label := "name      "
+		require.Contains(t, findRawLine(harness.readRawFrame(), recordNameLine), errui.Dim.Render(label))
+
+		harness.press("ctrl+t")
+
+		lit := findRawLine(harness.readRawFrame(), recordNameLine)
+		assert.Contains(t, lit, paint.Panel.Cursor().Render(label))
+		assert.Equal(t, 1, strings.Count(ansi.Strip(lit), "›"))
 	})
 }
 
@@ -2284,6 +2323,16 @@ func newOrchestrator() *agentv1.Agent {
 		State:      agentv1.AgentState_AGENT_STATE_THINKING,
 		Role:       agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR,
 	}
+}
+
+func findRawLine(frame string, stripped *regexp.Regexp) string {
+	for _, line := range splitLines(frame) {
+		if stripped.MatchString(ansi.Strip(line)) {
+			return line
+		}
+	}
+
+	return ""
 }
 
 func openCopyRecord(t *testing.T, clip *fakeClipboard) *panelHarness {
