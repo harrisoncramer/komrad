@@ -112,6 +112,14 @@ func TestErrorsRegion(t *testing.T) {
 
 // TestErrorsUnreachable covers the server going away being said once per time it goes.
 func TestErrorsUnreachable(t *testing.T) {
+	t.Run("the tree already drawn stays drawn", func(t *testing.T) {
+		harness := openUnreachable(t, engine.Remote{})
+
+		frame := harness.readFrame()
+		assert.Contains(t, frame, "Cannot reach the")
+		assert.Equal(t, []string{"backend"}, readListRows(frame))
+	})
+
 	t.Run("a stream lost twice in a row is said once", func(t *testing.T) {
 		harness := openUnreachable(t, engine.Remote{})
 

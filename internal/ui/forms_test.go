@@ -225,6 +225,12 @@ func TestFormsRefused(t *testing.T) {
 			press:     slices.Concat([]string{"w"}, spellKeys("web"), []string{"ctrl+s"}),
 			typed:     "web",
 		},
+		{
+			name:      "the workflow rename form",
+			procedure: workflowv1connect.WorkflowServiceUpdateWorkflowProcedure,
+			press:     slices.Concat([]string{"r"}, spellKeys("backend"), []string{"ctrl+s"}),
+			typed:     "backend",
+		},
 	}
 
 	for _, tt := range tests {
@@ -402,6 +408,14 @@ func TestFormsKeys(t *testing.T) {
 		harness.press(slices.Concat([]string{"j", "r"}, spellKeys("api-v2"), []string{"enter"})...)
 
 		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceUpdateAgentProcedure))
+	})
+
+	t.Run("a workflow edited to a blank name sends nothing", func(t *testing.T) {
+		harness := openForms(t, newFormWorkflow(), newFormAuthor())
+
+		harness.press("e", "ctrl+u", "space", "space", "ctrl+s")
+
+		assert.Empty(t, harness.readSent(workflowv1connect.WorkflowServiceUpdateWorkflowProcedure))
 	})
 
 	t.Run("the adopt key on an agent row opens nothing", func(t *testing.T) {
