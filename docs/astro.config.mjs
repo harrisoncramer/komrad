@@ -25,14 +25,16 @@ const pagefind = {
     }
   },
   configureServer(server) {
-    server.middlewares.use(`${base}pagefind`, (req, res, next) => {
+    const serve = (req, res, next) => {
       const requested = new URL("." + req.url.split("?")[0], pagefindDir);
       if (!requested.href.startsWith(pagefindDir.href)) return next();
       if (!existsSync(requested) || !statSync(requested).isFile()) return next();
       const type = pagefindTypes[extname(requested.pathname)];
       if (type) res.setHeader("Content-Type", type);
       createReadStream(requested).pipe(res);
-    });
+    };
+    server.middlewares.use(`${base}pagefind`, serve);
+    server.middlewares.use("/pagefind", serve);
   },
 };
 

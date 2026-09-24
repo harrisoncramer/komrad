@@ -8,8 +8,7 @@ type Versions = { stable: Release[]; unstable: Release[] };
 
 const short = (commit: string) => commit.slice(0, 7);
 
-const label = (version: string, commit: string) =>
-  version === "tip" || version === "dev" ? `${version}${commit ? ` · ${short(commit)}` : ""}` : version;
+const showsCommit = (version: string) => version === "tip" || version === "dev";
 
 const VersionPicker = () => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -59,13 +58,16 @@ const VersionPicker = () => {
     <div ref={containerRef} className="relative">
       <button
         type="button"
-        className="flex h-9 cursor-pointer items-center gap-1.5 rounded-md border border-app-background-medium px-2.5 font-mono text-xs text-app-gray-light transition-colors hover:border-app-blue/40 hover:text-app-white"
+        className="flex h-7 cursor-pointer items-center gap-1 rounded-md border border-app-background-medium px-1.5 font-mono text-[11px] text-app-gray-light transition-colors hover:border-app-blue/40 hover:text-app-white md:h-9 md:gap-1.5 md:px-2.5 md:text-xs"
         aria-label="Documentation version"
         aria-expanded={isOpen}
         onClick={() => setIsOpen((open) => !open)}
       >
-        {label(BUILD.version, BUILD.commit)}
-        <svg aria-hidden="true" viewBox="0 0 16 16" className="h-3 w-3" fill="currentColor">
+        {BUILD.version}
+        {showsCommit(BUILD.version) && BUILD.commit && (
+          <span className="hidden md:inline">· {short(BUILD.commit)}</span>
+        )}
+        <svg aria-hidden="true" viewBox="0 0 16 16" className="hidden h-3 w-3 md:block" fill="currentColor">
           <path d="M4.2 6.2a.75.75 0 0 1 1.06 0L8 8.94l2.74-2.74a.75.75 0 1 1 1.06 1.06L8.53 10.53a.75.75 0 0 1-1.06 0L4.2 7.26a.75.75 0 0 1 0-1.06Z" />
         </svg>
       </button>

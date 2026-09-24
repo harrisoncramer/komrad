@@ -37,8 +37,8 @@ export PUBLIC_DOCS_COMMIT
 stable="[]"
 for version in tip "$@"; do
 	gum log --level info "building docs as $version"
-	PUBLIC_DOCS_VERSION="$version" npm run build >/dev/null
-	cp -R dist "site/$version"
+	PUBLIC_DOCS_VERSION="$version" npx astro build --outDir "site/$version" >/dev/null
+	npx pagefind --site "site/$version" >/dev/null
 
 	if [ "$version" != tip ]; then
 		stable="$(jq --arg version "$version" --arg commit "$PUBLIC_DOCS_COMMIT" '. + [{version: $version, commit: $commit}]' <<<"$stable")"
