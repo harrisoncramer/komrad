@@ -88,29 +88,6 @@ func (s *WorkflowStore) ListPage(ctx context.Context, limit int64, cursor *Curso
 	}), nil
 }
 
-// ListByKey returns the workflows among the given ids that are not being deleted, archived ones
-// included, with their hooks.
-func (s *WorkflowStore) ListByKey(ctx context.Context, ids []string) ([]Workflow, error) {
-	storable := store.KeepIDs(ids)
-	if len(storable) == 0 {
-		return nil, nil
-	}
-
-	rows, err := s.queries.ListWorkflowsByKey(ctx, storable)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get %d workflows: %w", len(storable), err)
-	}
-
-	hooks, err := s.hooksForWorkflows(ctx, xslice.Map(rows, func(row *models.ListWorkflowsByKeyRow) string { return row.Workflow.ID }))
-	if err != nil {
-		return nil, err
-	}
-
-	return xslice.Map(rows, func(row *models.ListWorkflowsByKeyRow) Workflow {
-		return workflowFromRow(row.Workflow, row.WorkflowConfig, row.WorkflowProvisionerConfig, hooks[row.Workflow.ID])
-	}), nil
-}
-
 // ListByID returns the workflows among the given ids, archived or not, with their hooks.
 func (s *WorkflowStore) ListByID(ctx context.Context, ids []string) ([]Workflow, error) {
 	storable := store.KeepIDs(ids)
