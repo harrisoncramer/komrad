@@ -10,8 +10,6 @@ import (
 	"weave/internal/errui"
 	"weave/internal/ui/panel"
 	agentv1 "weave/proto/gen/agent/v1"
-	watchv1 "weave/proto/gen/watch/v1"
-	workflowv1 "weave/proto/gen/workflow/v1"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -116,7 +114,7 @@ func (m *model) withListing(change func(*listing)) tea.Cmd {
 	before := slices.Clone(m.listing.workflows)
 	change(&m.listing)
 
-	m.agents.apply(m.shared(), treeRow)
+	m.agents.apply(m.shared(), m.landedRow(treeRow, time.Now()))
 	m.schedules.apply(m, m.shared(), scheduleRow)
 	m.archive.place(m.shared(), archiveRow)
 	m.worktrees.place(m.shared(), worktreeRow)
@@ -170,13 +168,9 @@ type released struct {
 
 // written is the row a write made, as the write answered with it.
 type written struct {
-	row string
-	// agent and workflow are the rows the write answered with, inserted where the listing lacks
-	// them.
-	agent    *agentv1.Agent
-	workflow *workflowv1.Workflow
-	pane     string
-	harness  string
+	row     string
+	pane    string
+	harness string
 	// focus says the pane the write made is to be handed the keyboard once it is shown.
 	focus bool
 }
@@ -408,7 +402,6 @@ func (m *model) paneWriteCmd(summary string, focus bool, write func(api) (*agent
 
 		return written{
 			row:     agentRowKey(agent.GetId()),
-			agent:   agent,
 			pane:    agent.GetPaneId(),
 			harness: agent.GetHarness(),
 			focus:   focus,
@@ -450,16 +443,14 @@ func (m *model) createWorkflowCmd(cfg panel.WorkflowConfig) tea.Cmd {
 		// that agent will not start.
 		agent, err := clients.startOrchestrator(workflow.GetId())
 		if err != nil {
-			return written{row: workflowRowKey(workflow.GetId()), workflow: workflow}, nil //nolint:nilerr // the workflow was created
+			return written{row: workflowRowKey(workflow.GetId())}, nil //nolint:nilerr // the workflow was created
 		}
 
 		return written{
-			row:      workflowRowKey(workflow.GetId()),
-			agent:    agent,
-			workflow: workflow,
-			pane:     agent.GetPaneId(),
-			harness:  agent.GetHarness(),
-			focus:    true,
+			row:     workflowRowKey(workflow.GetId()),
+			pane:    agent.GetPaneId(),
+			harness: agent.GetHarness(),
+			focus:   true,
 		}, nil
 	})
 }
@@ -493,10 +484,9 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 	_, walkedAway := m.detached[result.write]
 	delete(m.detached, result.write)
 
-	var landed tea.Cmd
 	if result.written != nil && !walkedAway {
 		m.enterScreen(screenAgents)
-		landed = m.landOn(*result.written)
+		m.landOn(*result.written, time.Now())
 
 		if result.written.pane != "" {
 			if m.isPaneWarm(result.written.pane, result.written.harness) {
@@ -518,7 +508,7 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 		if result.err == nil && m.warm.pending != "" {
 			m.warm.closesForm = true
 
-			return m, landed
+			return m, nil
 		}
 
 		m.held = heldWrite{}
@@ -526,7 +516,7 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 		if result.err == nil {
 			closed, cmd := m.closeForm()
 
-			return closed, tea.Batch(landed, cmd)
+			return closed, cmd
 		}
 
 		m.messages.setNewestHint("fix and submit again")
@@ -535,27 +525,51 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 	// A refusal is reported into the region under the record, so the form is told to lay itself
 	// out again.
 	if m.form.isActive() {
-		return m, tea.Batch(landed, formResized())
+		return m, formResized()
 	}
 
-	return m, landed
+	return m, nil
 }
 
-// landOn puts the row a write made into the world where the watch has not delivered it yet,
-// and the cursor on it.
-func (m *model) landOn(row written) tea.Cmd {
-	var puts []*watchv1.Row
-	if row.workflow != nil && m.listing.world.Workflows[row.workflow.GetId()] == nil {
-		puts = append(puts, &watchv1.Row{Row: &watchv1.Row_Workflow{Workflow: row.workflow}})
-	}
-	if row.agent != nil && m.listing.world.Agents[row.agent.GetId()] == nil {
-		puts = append(puts, &watchv1.Row{Row: &watchv1.Row_Agent{Agent: row.agent}})
-	}
-	changed := m.listing.world.Apply(&watchv1.WatchEvent{Event: &watchv1.WatchEvent_Changes{Changes: &watchv1.Changes{Puts: puts}}})
+// landingWait is how long a write's landing waits for the watch to deliver the row it made.
+const landingWait = 2 * time.Second
 
-	m.listing.assemble(time.Now())
-	m.sizeAgentWindows()
-	m.agents.apply(m.shared(), row.row)
+// landing is the row a write made, which the cursor goes to once the watch delivers it.
+type landing struct {
+	row   string
+	until time.Time
+}
 
-	return m.react(changed)
+// landOn puts the cursor on the row a write made, or holds it for the watch to deliver.
+func (m *model) landOn(row written, now time.Time) {
+	if rowIndexOfKey(m.agents.rows(m.shared()), row.row) >= 0 {
+		m.landing = landing{}
+		m.agents.apply(m.shared(), row.row)
+
+		return
+	}
+
+	m.landing = landing{row: row.row, until: now.Add(landingWait)}
+}
+
+// landedRow is the row a held landing goes to once the listing holds it, or the hovered row.
+func (m *model) landedRow(hovered string, now time.Time) string {
+	target := m.landing
+	if target.row == "" {
+		return hovered
+	}
+
+	if now.After(target.until) {
+		m.landing = landing{}
+
+		return hovered
+	}
+
+	if rowIndexOfKey(m.agents.rows(m.shared()), target.row) < 0 {
+		return hovered
+	}
+
+	m.landing = landing{}
+
+	return target.row
 }

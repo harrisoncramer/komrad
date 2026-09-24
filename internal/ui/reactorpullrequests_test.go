@@ -139,23 +139,3 @@ func TestPullRequestReactorAsksOnArrival(t *testing.T) {
 		})
 	}
 }
-
-// TestLandedAgentListsItsPullRequests covers an agent a write made reaching the reactors before
-// the watch delivers it, and the watch delivering it asking nothing more.
-func TestLandedAgentListsItsPullRequests(t *testing.T) {
-	forge := &recordingPullRequests{}
-	m := watchedPanel()
-	m.api.pullRequests = forge
-	m.width, m.height = 200, 40
-	created := &agentv1.Agent{Id: "a1", WorkflowId: "w1", RepositoryUrl: xptr.Ptr(repository), Branch: xptr.Ptr("agent/x")}
-
-	m, cmd := update(t, m, client.WatchBatch{snapshotEvent(workflowRowOf(&workflowv1.Workflow{Id: "w1", Name: "api"}))})
-	m = settle(t, m, cmd)
-
-	m = settle(t, m, m.landOn(written{row: "a1", agent: created}))
-	require.Equal(t, []string{repository + " agent/x"}, forge.asked)
-
-	m, cmd = update(t, m, client.WatchBatch{putEvent(agentRowOf(created))})
-	settle(t, m, cmd)
-	assert.Len(t, forge.asked, 1)
-}
