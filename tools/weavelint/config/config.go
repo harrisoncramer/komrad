@@ -13,6 +13,57 @@ type Config struct {
 	ConversionName   ConversionNameConfig   `json:"conversion_name"`
 	SingleAppend     SingleAppendConfig     `json:"single_append"`
 	ConstructorShape ConstructorShapeConfig `json:"constructor_shape"`
+	BlackBox         BlackBoxConfig         `json:"black_box"`
+	FakeStore        FakeStoreConfig        `json:"fake_store"`
+	SharedFake       SharedFakeConfig       `json:"shared_fake"`
+	TestBeside       BesideConfig           `json:"test_beside"`
+}
+
+// BlackBoxConfig settles which types a test inside their package may not drive.
+type BlackBoxConfig struct {
+	// Skip turns the rule off.
+	Skip bool `json:"skip"`
+	// Types is the types held behind the external test package, spelled as the import path, a
+	// dot and the type's name, such as weave/internal/ui.model.
+	Types []string `json:"types"`
+	// Exclude is unanchored regexps over the file path.
+	Exclude []string `json:"exclude"`
+}
+
+// FakeStoreConfig settles where a test may fake a store.
+type FakeStoreConfig struct {
+	// Skip turns the rule off.
+	Skip bool `json:"skip"`
+	// Exclude is unanchored regexps over the file path.
+	Exclude []string `json:"exclude"`
+}
+
+// SharedFakeConfig settles which interfaces already have a shared fake.
+type SharedFakeConfig struct {
+	// Skip turns the rule off.
+	Skip bool `json:"skip"`
+	// Fakes is each interface a helper package already fakes, and the fake that does.
+	Fakes []SharedFake `json:"fakes"`
+	// Exclude is unanchored regexps over the file path.
+	Exclude []string `json:"exclude"`
+}
+
+// SharedFake is one interface and the shared fake that stands in for it.
+type SharedFake struct {
+	// Interface is spelled as the import path, a dot and the interface's name, such as
+	// weave/internal/agents.paneStarter.
+	Interface string `json:"interface"`
+	// Fake is what the finding tells the test to use instead, such as tmuxtest.Fake.
+	Fake string `json:"fake"`
+}
+
+// BesideConfig settles which test files may be named for something other than a source file.
+type BesideConfig struct {
+	// Skip turns the rule off.
+	Skip bool `json:"skip"`
+	// Exclude is unanchored regexps over the file path, for the files named for a feature or a
+	// screen rather than for the source file they test.
+	Exclude []string `json:"exclude"`
 }
 
 // ConstructorShapeConfig settles where the constructor rule applies.

@@ -79,6 +79,26 @@ func (l *linter) BuildAnalyzers() ([]*analysis.Analyzer, error) {
 		return nil, err
 	}
 
+	boxes, err := newBlackBox(l.config.BlackBox)
+	if err != nil {
+		return nil, err
+	}
+
+	stores, err := newFakeStore(l.config.FakeStore)
+	if err != nil {
+		return nil, err
+	}
+
+	fakes, err := newSharedFake(l.config.SharedFake)
+	if err != nil {
+		return nil, err
+	}
+
+	beside, err := newTestBeside(l.config.TestBeside)
+	if err != nil {
+		return nil, err
+	}
+
 	return []*analysis.Analyzer{
 		sentinels,
 		inline,
@@ -90,6 +110,10 @@ func (l *linter) BuildAnalyzers() ([]*analysis.Analyzer, error) {
 		conversions,
 		mappings,
 		constructors,
+		boxes,
+		stores,
+		fakes,
+		beside,
 	}, nil
 }
 
