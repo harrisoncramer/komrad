@@ -112,7 +112,6 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 	mux.Handle(workflowv1connect.NewWorkflowServiceHandler(
 		workflowv1weave.WorkflowServiceAdapter{
 			Impl: rpcworkflow.NewHandler(rpcworkflow.NewHandlerParams{
-				Lister:    params.Stores.workflows,
 				Workflows: params.Services.workflow,
 			}),
 		}, options...))

@@ -98,14 +98,14 @@ func (f *fakeWorkflows) DeleteWorkflow(_ context.Context, id string) error {
 	return f.err
 }
 
-// ListPage records which set was asked for and answers as many stored workflows as the limit allows.
-func (f *fakeWorkflows) ListPage(_ context.Context, limit int64, _ *workflowstore.Cursor, archived bool) ([]workflowstore.Workflow, error) {
-	f.listed = append(f.listed, archived)
+// ListWorkflows records which set was asked for and answers as many stored workflows as the limit allows.
+func (f *fakeWorkflows) ListWorkflows(_ context.Context, params agents.ListWorkflowsParams) ([]workflowstore.Workflow, error) {
+	f.listed = append(f.listed, params.Archived)
 	if f.err != nil {
 		return nil, f.err
 	}
 
-	return f.stored[:min(int(limit), len(f.stored))], nil
+	return f.stored[:min(int(params.Limit), len(f.stored))], nil
 }
 
 // TestWorkflowRefusalsMapToCodes pins the code each refusal of the workflow service reaches the caller as.
@@ -521,8 +521,5 @@ func TestListWorkflows(t *testing.T) {
 }
 
 func newWorkflowHandler(fake *fakeWorkflows) workflowv1weave.WorkflowServiceAdapter {
-	return workflowv1weave.WorkflowServiceAdapter{Impl: NewHandler(NewHandlerParams{
-		Lister:    fake,
-		Workflows: fake,
-	})}
+	return workflowv1weave.WorkflowServiceAdapter{Impl: NewHandler(NewHandlerParams{Workflows: fake})}
 }

@@ -367,7 +367,6 @@ linters:
               - ^internal/rpc/agent/transcript_test\.go$
               - ^internal/rpc/schedule/handler_test\.go$
               - ^internal/rpc/watch/handler_test\.go$
-              - ^internal/rpc/workflow/handler_test\.go$
               - ^internal/scriptrun/run_test\.go$
               - ^internal/transcripts/transcripts_test\.go$
           shared_fake:

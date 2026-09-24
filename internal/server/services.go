@@ -191,6 +191,7 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 	})
 	workflowService := agents.NewWorkflowService(agents.NewWorkflowServiceParams{
 		Workflows:    st.workflows,
+		Pages:        st.workflows,
 		Agents:       st.agents,
 		AgentDeleter: lifecycleService,
 		Emptied:      emptyWorkflows,

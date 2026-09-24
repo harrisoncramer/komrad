@@ -5,6 +5,7 @@ package workflow
 import (
 	"context"
 
+	"weave/internal/agents"
 	"weave/internal/fail"
 	"weave/internal/rpc/render"
 	"weave/internal/rpcerr"
@@ -24,29 +25,20 @@ type workflowReadWriter interface {
 	ArchiveWorkflow(ctx context.Context, id string) error
 	RestoreWorkflow(ctx context.Context, id string) (*workflowstore.Workflow, error)
 	DeleteWorkflow(ctx context.Context, id string) error
-}
-
-type workflowLister interface {
-	ListPage(ctx context.Context, limit int64, cursor *workflowstore.Cursor, archived bool) ([]workflowstore.Workflow, error)
+	ListWorkflows(ctx context.Context, params agents.ListWorkflowsParams) ([]workflowstore.Workflow, error)
 }
 
 type NewHandlerParams struct {
-	Lister    workflowLister
 	Workflows workflowReadWriter
 }
 
 type Handler struct {
-	lister    workflowLister
 	workflows workflowReadWriter
 }
 
-// NewHandler constructs the handler from the store it lists through and the service that owns
-// the rules.
+// NewHandler constructs the handler over the service that owns the rules.
 func NewHandler(params NewHandlerParams) *Handler {
-	return &Handler{
-		lister:    params.Lister,
-		workflows: params.Workflows,
-	}
+	return &Handler{workflows: params.Workflows}
 }
 
 // ListWorkflows returns one page of workflows, by name.
@@ -56,7 +48,11 @@ func (s *Handler) ListWorkflows(ctx context.Context, req *workflowv1.ListWorkflo
 		return nil, rpcerr.From(err, "failed to read the pagination")
 	}
 
-	stored, err := s.lister.ListPage(ctx, paginator.Limit(), paginator.Cursor(), req.GetArchived())
+	stored, err := s.workflows.ListWorkflows(ctx, agents.ListWorkflowsParams{
+		Limit:    paginator.Limit(),
+		Cursor:   paginator.Cursor(),
+		Archived: req.GetArchived(),
+	})
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to list workflows")
 	}
