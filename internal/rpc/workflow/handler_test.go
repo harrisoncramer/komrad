@@ -3,26 +3,17 @@ package workflow
 import (
 	"context"
 	"errors"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
-	"time"
-
-	"weave/lib/xslice"
-	workflowv1weave "weave/proto/gen/workflow/v1/workflowv1weave"
 
 	"weave/internal/agents"
 	"weave/internal/rpc/render"
 	"weave/internal/store"
-	"weave/internal/storetest"
-	"weave/internal/tmux"
 	paginationv1 "weave/proto/gen/pagination/v1"
 	viewv1 "weave/proto/gen/view/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
+	workflowv1weave "weave/proto/gen/workflow/v1/workflowv1weave"
 
-	agentstore "weave/internal/store/agent"
-	schedulestore "weave/internal/store/schedule"
 	workflowstore "weave/internal/store/workflow"
 
 	"connectrpc.com/connect"
@@ -31,729 +22,494 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-const missingID = "00000000-0000-0000-0000-000000000000"
+const workflowID = "01a0d228-0000-7000-8000-0000000000aa"
 
-// refusingSnapshots is a git that refuses every call a workflow test makes of it.
-type refusingSnapshots struct{}
-
-func (refusingSnapshots) ReleaseRef(context.Context, string, string) error {
-	return errors.New("a workflow test reached for a real git")
+type updateCall struct {
+	id  string
+	cfg workflowstore.Config
 }
 
-// TestCreateWorkflow pins what a workflow is stored as, a blank name falling back to a label
-// so the list never draws an empty row.
-func TestCreateWorkflow(t *testing.T) {
+// fakeWorkflows answers from its fields and records what each call asked of it.
+type fakeWorkflows struct {
+	stored   []workflowstore.Workflow
+	err      error
+	created  []workflowstore.Config
+	updated  []updateCall
+	archived []string
+	restored []string
+	deleted  []string
+	listed   []bool
+}
+
+// NewWorkflow records the config and answers it as stored unless err refuses it.
+func (f *fakeWorkflows) NewWorkflow(_ context.Context, cfg workflowstore.Config) (*workflowstore.Workflow, error) {
+	f.created = append(f.created, cfg)
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return &workflowstore.Workflow{
+		ID:       workflowID,
+		Name:     cfg.Name,
+		Worktree: cfg.Worktree,
+	}, nil
+}
+
+// GetWorkflow answers the first stored workflow unless err refuses it.
+func (f *fakeWorkflows) GetWorkflow(context.Context, string) (*workflowstore.Workflow, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return &f.stored[0], nil
+}
+
+// UpdateWorkflow records the update and answers err.
+func (f *fakeWorkflows) UpdateWorkflow(_ context.Context, id string, cfg workflowstore.Config) error {
+	f.updated = append(f.updated, updateCall{
+		id:  id,
+		cfg: cfg,
+	})
+
+	return f.err
+}
+
+// ArchiveWorkflow records the id and answers err.
+func (f *fakeWorkflows) ArchiveWorkflow(_ context.Context, id string) error {
+	f.archived = append(f.archived, id)
+
+	return f.err
+}
+
+// RestoreWorkflow records the id and answers the first stored workflow unless err refuses it.
+func (f *fakeWorkflows) RestoreWorkflow(_ context.Context, id string) (*workflowstore.Workflow, error) {
+	f.restored = append(f.restored, id)
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return &f.stored[0], nil
+}
+
+// DeleteWorkflow records the id and answers err.
+func (f *fakeWorkflows) DeleteWorkflow(_ context.Context, id string) error {
+	f.deleted = append(f.deleted, id)
+
+	return f.err
+}
+
+// ListPage records which set was asked for and answers as many stored workflows as the limit allows.
+func (f *fakeWorkflows) ListPage(_ context.Context, limit int64, _ *workflowstore.Cursor, archived bool) ([]workflowstore.Workflow, error) {
+	f.listed = append(f.listed, archived)
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return f.stored[:min(int(limit), len(f.stored))], nil
+}
+
+// TestWorkflowRefusalsMapToCodes pins the code each refusal of the workflow service reaches the caller as.
+func TestWorkflowRefusalsMapToCodes(t *testing.T) {
+	create := func(ctx context.Context, svc workflowv1weave.WorkflowServiceAdapter) error {
+		_, err := svc.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{Name: "backend"}))
+
+		return err
+	}
+	update := func(ctx context.Context, svc workflowv1weave.WorkflowServiceAdapter) error {
+		_, err := svc.UpdateWorkflow(ctx, connect.NewRequest(&workflowv1.UpdateWorkflowRequest{Id: workflowID}))
+
+		return err
+	}
+	archive := func(ctx context.Context, svc workflowv1weave.WorkflowServiceAdapter) error {
+		_, err := svc.ArchiveWorkflow(ctx, connect.NewRequest(&workflowv1.ArchiveWorkflowRequest{Id: workflowID}))
+
+		return err
+	}
+	restore := func(ctx context.Context, svc workflowv1weave.WorkflowServiceAdapter) error {
+		_, err := svc.RestoreWorkflow(ctx, connect.NewRequest(&workflowv1.RestoreWorkflowRequest{Id: workflowID}))
+
+		return err
+	}
+	deleteWorkflow := func(ctx context.Context, svc workflowv1weave.WorkflowServiceAdapter) error {
+		_, err := svc.DeleteWorkflow(ctx, connect.NewRequest(&workflowv1.DeleteWorkflowRequest{Id: workflowID}))
+
+		return err
+	}
+
 	tests := []struct {
-		name  string
-		req   *workflowv1.CreateWorkflowRequest
-		check func(t *testing.T, created *workflowv1.Workflow)
+		name     string
+		call     func(ctx context.Context, svc workflowv1weave.WorkflowServiceAdapter) error
+		err      error
+		wantCode connect.Code
 	}{
 		{
-			name: "a blank name falls back to a label, so the list never renders an empty row",
-			req:  &workflowv1.CreateWorkflowRequest{Name: "   "},
-			check: func(t *testing.T, created *workflowv1.Workflow) {
-				assert.Equal(t, "workflow", created.GetName())
-			},
+			name:     "a worktree workflow with no cwd",
+			call:     create,
+			err:      agents.ErrWorktreeNeedsCwd,
+			wantCode: connect.CodeInvalidArgument,
 		},
 		{
-			name: "a name alone is enough",
-			req:  &workflowv1.CreateWorkflowRequest{Name: "backend"},
-			check: func(t *testing.T, created *workflowv1.Workflow) {
-				assert.NotEmpty(t, created.GetId())
-				assert.Equal(t, "backend", created.GetName())
-			},
+			name:     "a cwd that is not a primary checkout",
+			call:     create,
+			err:      agents.ErrWorktreeCwdNotPrimaryCheckout,
+			wantCode: connect.CodeInvalidArgument,
 		},
 		{
-			name: "a home-relative directory is expanded before it is stored",
-			req: &workflowv1.CreateWorkflowRequest{
-				Name:    "platform",
-				Context: "shared notes",
-				Cwd:     "~/repo",
-				Flags:   "--model opus",
+			name:     "a copy path outside the repo",
+			call:     update,
+			err:      agents.ErrWorktreeUnsafePath,
+			wantCode: connect.CodeInvalidArgument,
+		},
+		{
+			name:     "a blank base branch",
+			call:     update,
+			err:      agents.ErrWorktreeNeedsBase,
+			wantCode: connect.CodeInvalidArgument,
+		},
+		{
+			name:     "a hook on a moment weave never fires",
+			call:     create,
+			err:      agents.ErrUnknownHookEvent,
+			wantCode: connect.CodeInvalidArgument,
+		},
+		{
+			name:     "a name a live workflow holds",
+			call:     create,
+			err:      store.ErrNameTaken,
+			wantCode: connect.CodeAlreadyExists,
+		},
+		{
+			name: "reading a workflow nothing holds",
+			call: func(ctx context.Context, svc workflowv1weave.WorkflowServiceAdapter) error {
+				_, err := svc.GetWorkflow(ctx, connect.NewRequest(&workflowv1.GetWorkflowRequest{Id: workflowID}))
+
+				return err
 			},
-			check: func(t *testing.T, created *workflowv1.Workflow) {
-				assert.Equal(t, "shared notes", created.GetContext())
-				assert.NotEqual(t, "~/repo", created.GetCwd())
+			err:      store.ErrNotFound,
+			wantCode: connect.CodeNotFound,
+		},
+		{
+			name:     "updating a workflow nothing holds",
+			call:     update,
+			err:      agents.ErrWorkflowNotFound,
+			wantCode: connect.CodeNotFound,
+		},
+		{
+			name:     "archiving a workflow nothing holds",
+			call:     archive,
+			err:      agents.ErrWorkflowNotFound,
+			wantCode: connect.CodeNotFound,
+		},
+		{
+			name:     "archiving a workflow still scheduled into",
+			call:     archive,
+			err:      agents.ErrWorkflowHasSchedules,
+			wantCode: connect.CodeFailedPrecondition,
+		},
+		{
+			name:     "restoring a workflow that is not archived",
+			call:     restore,
+			err:      agents.ErrWorkflowNotFound,
+			wantCode: connect.CodeNotFound,
+		},
+		{
+			name:     "restoring past the agent ceiling",
+			call:     restore,
+			err:      agents.ErrTooManyAgents,
+			wantCode: connect.CodeResourceExhausted,
+		},
+		{
+			name:     "deleting a workflow that is not archived",
+			call:     deleteWorkflow,
+			err:      agents.ErrWorkflowNotFound,
+			wantCode: connect.CodeNotFound,
+		},
+		{
+			name:     "deleting a workflow whose schedule another workflow's agents hold",
+			call:     deleteWorkflow,
+			err:      agents.ErrScheduleHasAgents,
+			wantCode: connect.CodeFailedPrecondition,
+		},
+		{
+			name: "listing with a page token that does not decode",
+			call: func(ctx context.Context, svc workflowv1weave.WorkflowServiceAdapter) error {
+				_, err := svc.ListWorkflows(ctx, connect.NewRequest(&workflowv1.ListWorkflowsRequest{
+					Pagination: &paginationv1.Pagination{Cursor: proto.String("not a token")},
+				}))
+
+				return err
 			},
+			wantCode: connect.CodeInvalidArgument,
+		},
+		{
+			name: "a listing the store could not read",
+			call: func(ctx context.Context, svc workflowv1weave.WorkflowServiceAdapter) error {
+				_, err := svc.ListWorkflows(ctx, connect.NewRequest(&workflowv1.ListWorkflowsRequest{}))
+
+				return err
+			},
+			err:      errors.New("connection refused"),
+			wantCode: connect.CodeInternal,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc, _ := service(t)
+			svc := newWorkflowHandler(&fakeWorkflows{err: tt.err})
 
-			created, err := svc.CreateWorkflow(t.Context(), connect.NewRequest(tt.req))
-			require.NoError(t, err)
-			tt.check(t, created.Msg.GetWorkflow())
+			err := tt.call(t.Context(), svc)
+			assert.Equal(t, tt.wantCode, connect.CodeOf(err))
+			if tt.err != nil {
+				require.ErrorIs(t, err, tt.err)
+			}
 		})
 	}
 }
 
-// TestCreateWorkflowWorktree covers the worktree config round trip through the handler,
-// and the two ways enabling it is refused: no cwd to work against, and a setup or cleanup
-// script the caller named itself, which weave would otherwise silently overwrite.
-func TestCreateWorkflowWorktree(t *testing.T) {
+// TestWorkflowWritesPassDown pins what each write hands the workflow service.
+func TestWorkflowWritesPassDown(t *testing.T) {
+	cfg := workflowstore.Config{
+		Name:    "backend",
+		Context: "shared notes",
+		Harness: "codex",
+		Cwd:     "/repo",
+		Flags:   "--model opus",
+		Worktree: workflowstore.WorktreeConfig{
+			Enabled:      true,
+			BaseBranch:   "develop",
+			Dir:          "/repo/.worktrees",
+			CopyPaths:    []string{".env"},
+			SymlinkPaths: []string{"node_modules"},
+			DiffExclude:  []string{"proto/gen"},
+		},
+		Hooks: []workflowstore.Hook{
+			{
+				Event:  workflowstore.HookPreLaunch,
+				Script: "warm-cache",
+			},
+		},
+	}
+	worktree := &workflowv1.WorktreeConfig{
+		Enabled:      true,
+		BaseBranch:   "develop",
+		Dir:          "/repo/.worktrees",
+		CopyPaths:    []string{".env"},
+		SymlinkPaths: []string{"node_modules"},
+		DiffExclude:  []string{"proto/gen"},
+	}
+	hooks := []*workflowv1.WorkflowHook{
+		{
+			Event:  workflowstore.HookPreLaunch,
+			Script: "warm-cache",
+		},
+	}
+
 	tests := []struct {
-		name     string
-		req      *workflowv1.CreateWorkflowRequest
-		wantCode connect.Code
-		check    func(t *testing.T, created *workflowv1.Workflow)
+		name string
+		call func(ctx context.Context, svc workflowv1weave.WorkflowServiceAdapter) error
+		want fakeWorkflows
 	}{
 		{
-			name: "enabling it with no cwd is refused",
-			req: &workflowv1.CreateWorkflowRequest{
-				Name:     "backend",
-				Worktree: &workflowv1.WorktreeConfig{Enabled: true},
+			name: "creating hands down every field",
+			call: func(ctx context.Context, svc workflowv1weave.WorkflowServiceAdapter) error {
+				_, err := svc.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{
+					Name:     cfg.Name,
+					Context:  cfg.Context,
+					Harness:  cfg.Harness,
+					Cwd:      cfg.Cwd,
+					Flags:    cfg.Flags,
+					Worktree: worktree,
+					Hooks:    hooks,
+				}))
+
+				return err
 			},
-			wantCode: connect.CodeInvalidArgument,
+			want: fakeWorkflows{created: []workflowstore.Config{cfg}},
 		},
 		{
-			name: "enabling it writes the config the worktree is cut with",
-			req: &workflowv1.CreateWorkflowRequest{
-				Name: "backend",
-				Cwd:  primaryCheckout(t),
-				Worktree: &workflowv1.WorktreeConfig{
-					Enabled:      true,
-					BaseBranch:   "develop",
-					Dir:          "/repo/.worktrees",
-					CopyPaths:    []string{".env"},
-					SymlinkPaths: []string{"node_modules"},
+			name: "updating hands down the id and every field",
+			call: func(ctx context.Context, svc workflowv1weave.WorkflowServiceAdapter) error {
+				_, err := svc.UpdateWorkflow(ctx, connect.NewRequest(&workflowv1.UpdateWorkflowRequest{
+					Id:       workflowID,
+					Name:     cfg.Name,
+					Context:  cfg.Context,
+					Harness:  cfg.Harness,
+					Cwd:      cfg.Cwd,
+					Flags:    cfg.Flags,
+					Worktree: worktree,
+					Hooks:    hooks,
+				}))
+
+				return err
+			},
+			want: fakeWorkflows{updated: []updateCall{
+				{
+					id:  workflowID,
+					cfg: cfg,
 				},
+			}},
+		},
+		{
+			name: "archiving hands down the id",
+			call: func(ctx context.Context, svc workflowv1weave.WorkflowServiceAdapter) error {
+				_, err := svc.ArchiveWorkflow(ctx, connect.NewRequest(&workflowv1.ArchiveWorkflowRequest{Id: workflowID}))
+
+				return err
 			},
-			check: func(t *testing.T, created *workflowv1.Workflow) {
-				assert.True(t, created.GetWorktree().GetEnabled())
-				assert.Equal(t, "develop", created.GetWorktree().GetBaseBranch())
-				assert.Equal(t, "/repo/.worktrees", created.GetWorktree().GetDir())
-				assert.Equal(t, []string{".env"}, created.GetWorktree().GetCopyPaths())
-				assert.Equal(t, []string{"node_modules"}, created.GetWorktree().GetSymlinkPaths())
+			want: fakeWorkflows{archived: []string{workflowID}},
+		},
+		{
+			name: "deleting hands down the id",
+			call: func(ctx context.Context, svc workflowv1weave.WorkflowServiceAdapter) error {
+				_, err := svc.DeleteWorkflow(ctx, connect.NewRequest(&workflowv1.DeleteWorkflowRequest{Id: workflowID}))
+
+				return err
 			},
+			want: fakeWorkflows{deleted: []string{workflowID}},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc, _ := service(t)
+			workflows := &fakeWorkflows{}
 
-			created, err := svc.CreateWorkflow(t.Context(), connect.NewRequest(tt.req))
-			if tt.wantCode != 0 {
-				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
-				return
-			}
-
-			require.NoError(t, err)
-			tt.check(t, created.Msg.GetWorkflow())
+			require.NoError(t, tt.call(t.Context(), newWorkflowHandler(workflows)))
+			assert.Equal(t, tt.want, *workflows)
 		})
 	}
 }
 
-// TestCreateWorkflowFillsABlankBase covers a blank base being stored as main when the cwd is no
-// repository to read one from, with the response carrying the name stored.
-func TestCreateWorkflowFillsABlankBase(t *testing.T) {
-	svc, st := service(t)
+// TestWorkflowReadsRender pins that every read answers with the workflow the service handed back, context whole.
+func TestWorkflowReadsRender(t *testing.T) {
+	stored := workflowstore.Workflow{
+		ID:      workflowID,
+		Name:    "backend",
+		Context: strings.Repeat("c", render.SummaryHead+50),
+	}
 
-	created, err := svc.CreateWorkflow(t.Context(), connect.NewRequest(&workflowv1.CreateWorkflowRequest{
-		Name:     "backend",
-		Cwd:      primaryCheckout(t),
-		Worktree: &workflowv1.WorktreeConfig{Enabled: true},
-	}))
-	require.NoError(t, err)
-	assert.Equal(t, "main", created.Msg.GetWorkflow().GetWorktree().GetBaseBranch())
-
-	stored, err := st.Workflows.Get(t.Context(), created.Msg.GetWorkflow().GetId())
-	require.NoError(t, err)
-	assert.Equal(t, "main", stored.Worktree.BaseBranch)
-}
-
-// TestUpdateWorkflowWorktreeDirSurvivesAReread pins the worktree directory against being
-// dropped on the way in: a field the write path forgets still reads back correctly from the
-// response it echoes, and only a second read shows it was never stored.
-func TestUpdateWorkflowWorktreeDirSurvivesAReread(t *testing.T) {
-	svc, _ := service(t)
-
-	created, err := svc.CreateWorkflow(t.Context(), connect.NewRequest(&workflowv1.CreateWorkflowRequest{
-		Name: "backend",
-		Cwd:  primaryCheckout(t),
-	}))
-	require.NoError(t, err)
-
-	id := created.Msg.GetWorkflow().GetId()
-	_, err = svc.UpdateWorkflow(t.Context(), connect.NewRequest(&workflowv1.UpdateWorkflowRequest{
-		Id:   id,
-		Name: "backend",
-		Cwd:  primaryCheckout(t),
-		Worktree: &workflowv1.WorktreeConfig{
-			Enabled:    true,
-			BaseBranch: "main",
-			Dir:        "/repo/.worktrees",
-		},
-	}))
-	require.NoError(t, err)
-
-	got, err := svc.GetWorkflow(t.Context(), connect.NewRequest(&workflowv1.GetWorkflowRequest{Id: id}))
-	require.NoError(t, err)
-	assert.Equal(t, "/repo/.worktrees", got.Msg.GetWorkflow().GetWorktree().GetDir())
-}
-
-// TestGetWorkflow pins that an id nobody holds is not found rather than an empty workflow.
-func TestGetWorkflow(t *testing.T) {
 	tests := []struct {
-		name     string
-		create   bool
-		id       string
-		wantCode connect.Code
+		name string
+		call func(ctx context.Context, svc workflowv1weave.WorkflowServiceAdapter) (*workflowv1.Workflow, error)
 	}{
 		{
-			name:     "an id nobody holds",
-			id:       missingID,
-			wantCode: connect.CodeNotFound,
-		},
-		{
-			name:     "a malformed id is refused rather than looked up",
-			id:       "not-a-uuid",
-			wantCode: connect.CodeNotFound,
-		},
-		{
-			name:   "a workflow that exists",
-			create: true,
-		},
-	}
+			name: "reading one",
+			call: func(ctx context.Context, svc workflowv1weave.WorkflowServiceAdapter) (*workflowv1.Workflow, error) {
+				got, err := svc.GetWorkflow(ctx, connect.NewRequest(&workflowv1.GetWorkflowRequest{Id: workflowID}))
+				if err != nil {
+					return nil, err
+				}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			svc, _ := service(t)
-
-			id := tt.id
-			if tt.create {
-				id = createWorkflow(t, svc, "backend")
-			}
-
-			got, err := svc.GetWorkflow(t.Context(), connect.NewRequest(&workflowv1.GetWorkflowRequest{Id: id}))
-			if tt.wantCode != 0 {
-				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
-				return
-			}
-
-			require.NoError(t, err)
-			assert.Equal(t, "backend", got.Msg.GetWorkflow().GetName())
-		})
-	}
-}
-
-// TestUpdateWorkflow covers that an update writes every field.
-func TestUpdateWorkflow(t *testing.T) {
-	tests := []struct {
-		name     string
-		create   bool
-		req      *workflowv1.UpdateWorkflowRequest
-		wantCode connect.Code
-		wantName string
-		wantCwd  string
-	}{
-		{
-			name: "an id nobody holds",
-			req: &workflowv1.UpdateWorkflowRequest{
-				Id:   missingID,
-				Name: "ghost",
+				return got.Msg.GetWorkflow(), nil
 			},
-			wantCode: connect.CodeNotFound,
 		},
 		{
-			name:   "every field is replaced",
-			create: true,
-			req: &workflowv1.UpdateWorkflowRequest{
-				Name:     "platform",
-				Context:  "rewritten",
-				Cwd:      "/repo",
-				Worktree: &workflowv1.WorktreeConfig{BaseBranch: "main"},
+			name: "restoring one",
+			call: func(ctx context.Context, svc workflowv1weave.WorkflowServiceAdapter) (*workflowv1.Workflow, error) {
+				got, err := svc.RestoreWorkflow(ctx, connect.NewRequest(&workflowv1.RestoreWorkflowRequest{Id: workflowID}))
+				if err != nil {
+					return nil, err
+				}
+
+				return got.Msg.GetWorkflow(), nil
 			},
-			wantName: "platform",
-			wantCwd:  "/repo",
-		},
-		{
-			name:   "a blank name keeps the one it has",
-			create: true,
-			req: &workflowv1.UpdateWorkflowRequest{
-				Context:  "rewritten",
-				Worktree: &workflowv1.WorktreeConfig{BaseBranch: "main"},
-			},
-			wantName: "backend",
-		},
-		{
-			name:   "a blank base branch is refused",
-			create: true,
-			req: &workflowv1.UpdateWorkflowRequest{
-				Context: "rewritten",
-			},
-			wantCode: connect.CodeInvalidArgument,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc, st := service(t)
+			svc := newWorkflowHandler(&fakeWorkflows{stored: []workflowstore.Workflow{stored}})
 
-			req := tt.req
-			if tt.create {
-				req.Id = createWorkflow(t, svc, "backend")
-			}
-
-			_, err := svc.UpdateWorkflow(t.Context(), connect.NewRequest(req))
-			if tt.wantCode != 0 {
-				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
-				return
-			}
-
+			got, err := tt.call(t.Context(), svc)
 			require.NoError(t, err)
-
-			stored, err := st.Workflows.Get(t.Context(), req.GetId())
-			require.NoError(t, err)
-			require.NotNil(t, stored)
-			assert.Equal(t, tt.wantName, stored.Name)
-			assert.Equal(t, "rewritten", stored.Context)
-			if tt.wantCwd != "" {
-				assert.Equal(t, tt.wantCwd, stored.Cwd)
-			}
+			assert.True(t, proto.Equal(render.Workflow(stored, render.WorkflowOptions{}), got))
 		})
 	}
 }
 
-// TestArchiveWorkflow covers the agents inside always going with it, there being nowhere to leave
-// one.
-func TestArchiveWorkflow(t *testing.T) {
-	tests := []struct {
-		name      string
-		create    bool
-		scheduled bool
-		twice     bool
-		wantCode  connect.Code
-	}{
-		{
-			name:     "an id nobody holds",
-			wantCode: connect.CodeNotFound,
-		},
-		{
-			name:     "deleting it twice is not a silent success",
-			create:   true,
-			twice:    true,
-			wantCode: connect.CodeNotFound,
-		},
-		{
-			name:   "the agents inside are archived alongside it",
-			create: true,
-		},
-		{
-			name:      "a workflow still scheduled into is refused",
-			create:    true,
-			scheduled: true,
-			wantCode:  connect.CodeFailedPrecondition,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			svc, st := service(t)
-			ctx := t.Context()
-
-			id := missingID
-			if tt.create {
-				id = createWorkflow(t, svc, "backend")
-				st.SeedAgent(t, agentstore.Agent{Name: "agent", WorkflowID: id})
-			}
-			if tt.scheduled {
-				st.SeedSchedule(t, schedulestore.Config{
-					Name:       "nightly",
-					Cron:       "0 2 * * *",
-					Prompt:     "sweep",
-					Enabled:    true,
-					WorkflowID: id,
-				})
-			}
-
-			req := connect.NewRequest(&workflowv1.ArchiveWorkflowRequest{Id: id})
-
-			_, err := svc.ArchiveWorkflow(ctx, req)
-			if tt.twice {
-				require.NoError(t, err)
-				_, err = svc.ArchiveWorkflow(ctx, req)
-			}
-
-			if tt.wantCode != 0 {
-				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
-				return
-			}
-
-			require.NoError(t, err)
-
-			_, err = st.LiveAgentByName(ctx, "agent")
-			require.ErrorIs(t, err, store.ErrNotFound, "the agent is hidden alongside its workflow")
-
-			all, err := st.Agents.ListAll(ctx)
-			require.NoError(t, err)
-			require.Len(t, all, 1)
-			assert.NotNil(t, all[0].ArchivedAt, "and archived rather than removed")
-		})
-	}
-}
-
-// TestRestoreWorkflow covers the codes a restore answers with, where a workflow that is not
-// archived is not found because there is nothing to do to it.
-func TestRestoreWorkflow(t *testing.T) {
-	tests := []struct {
-		name     string
-		create   bool
-		archive  bool
-		wantCode connect.Code
-	}{
-		{
-			name:     "an id nobody holds",
-			wantCode: connect.CodeNotFound,
-		},
-		{
-			name:     "a workflow that is not archived",
-			create:   true,
-			wantCode: connect.CodeNotFound,
-		},
-		{
-			name:    "an archived workflow comes back with its agents",
-			create:  true,
-			archive: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			svc, st := service(t)
-			ctx := t.Context()
-
-			id := missingID
-			if tt.create {
-				id = createWorkflow(t, svc, "backend")
-				st.SeedAgent(t, agentstore.Agent{Name: "agent", WorkflowID: id})
-			}
-			if tt.archive {
-				_, err := svc.ArchiveWorkflow(ctx, connect.NewRequest(&workflowv1.ArchiveWorkflowRequest{Id: id}))
-				require.NoError(t, err)
-			}
-
-			resp, err := svc.RestoreWorkflow(ctx, connect.NewRequest(&workflowv1.RestoreWorkflowRequest{Id: id}))
-
-			if tt.wantCode != 0 {
-				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
-
-				return
-			}
-
-			require.NoError(t, err)
-			assert.Equal(t, "backend", resp.Msg.GetWorkflow().GetName())
-
-			agent, err := st.LiveAgentByName(ctx, "agent")
-			require.NoError(t, err)
-			require.NotNil(t, agent, "its agent is listed again")
-			assert.Nil(t, agent.ArchivedAt)
-		})
-	}
-}
-
-// TestDeleteWorkflow covers the handler's codes: not found for a missing or a live workflow, and
-// the agents inside an archived one going with it otherwise.
-func TestDeleteWorkflow(t *testing.T) {
-	tests := []struct {
-		name     string
-		create   bool
-		archive  bool
-		wantCode connect.Code
-	}{
-		{
-			name:     "an id nobody holds",
-			wantCode: connect.CodeNotFound,
-		},
-		{
-			name:     "a workflow that is not archived",
-			create:   true,
-			wantCode: connect.CodeNotFound,
-		},
-		{
-			name:    "an archived workflow is destroyed along with its agents",
-			create:  true,
-			archive: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			svc, st := service(t)
-			ctx := t.Context()
-
-			id := missingID
-			if tt.create {
-				id = createWorkflow(t, svc, "backend")
-				st.SeedAgent(t, agentstore.Agent{Name: "agent", WorkflowID: id})
-			}
-			if tt.archive {
-				_, err := svc.ArchiveWorkflow(ctx, connect.NewRequest(&workflowv1.ArchiveWorkflowRequest{Id: id}))
-				require.NoError(t, err)
-			}
-
-			_, err := svc.DeleteWorkflow(ctx, connect.NewRequest(&workflowv1.DeleteWorkflowRequest{Id: id}))
-
-			if tt.wantCode != 0 {
-				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
-
-				return
-			}
-
-			require.NoError(t, err)
-
-			got, err := svc.GetWorkflow(ctx, connect.NewRequest(&workflowv1.GetWorkflowRequest{Id: id}))
-			assert.Nil(t, got)
-			assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err))
-
-			all, err := st.Agents.ListAll(ctx)
-			require.NoError(t, err)
-			assert.Empty(t, all, "its agent is destroyed too")
-		})
-	}
-}
-
-// TestListWorkflows pins how a listing pages, from an empty store to one holding more than a
-// page.
+// TestListWorkflows pins which set a listing reads, which view draws the whole context, and when a page hands back a token.
 func TestListWorkflows(t *testing.T) {
+	long := strings.Repeat("c", render.SummaryHead+50)
+
 	tests := []struct {
-		name      string
-		seed      []string
-		limit     int32
-		wantFirst int
-		wantMore  bool
+		name           string
+		req            *workflowv1.ListWorkflowsRequest
+		wantArchived   bool
+		wantContexts   []string
+		wantTruncated  []bool
+		wantNextCursor bool
 	}{
 		{
-			name:      "an empty store offers no next page",
-			wantFirst: 0,
+			name:          "the default view draws the head of a long context",
+			req:           &workflowv1.ListWorkflowsRequest{},
+			wantContexts:  []string{long[:render.SummaryHead], "ship it"},
+			wantTruncated: []bool{true, false},
 		},
 		{
-			name:      "a partial page is the last one",
-			seed:      []string{"one", "two"},
-			limit:     10,
-			wantFirst: 2,
+			name: "the full view draws the whole of it",
+			req: &workflowv1.ListWorkflowsRequest{
+				View: viewv1.View_VIEW_FULL,
+			},
+			wantContexts:  []string{long, "ship it"},
+			wantTruncated: []bool{false, false},
 		},
 		{
-			name:      "a full page offers the next",
-			seed:      []string{"one", "two", "three"},
-			limit:     2,
-			wantFirst: 2,
-			wantMore:  true,
+			name: "the archived flag reads the archive",
+			req: &workflowv1.ListWorkflowsRequest{
+				Archived: true,
+				View:     viewv1.View_VIEW_FULL,
+			},
+			wantArchived:  true,
+			wantContexts:  []string{long, "ship it"},
+			wantTruncated: []bool{false, false},
+		},
+		{
+			name: "a full page hands back a token for the next",
+			req: &workflowv1.ListWorkflowsRequest{
+				Pagination: &paginationv1.Pagination{Limit: proto.Int32(1)},
+				View:       viewv1.View_VIEW_FULL,
+			},
+			wantContexts:   []string{long},
+			wantTruncated:  []bool{false},
+			wantNextCursor: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc, _ := service(t)
-			ctx := t.Context()
-
-			for _, name := range tt.seed {
-				createWorkflow(t, svc, name)
-			}
-
-			page := &paginationv1.Pagination{}
-			if tt.limit > 0 {
-				page.Limit = proto.Int32(tt.limit)
-			}
-
-			first, err := svc.ListWorkflows(ctx, connect.NewRequest(&workflowv1.ListWorkflowsRequest{Pagination: page}))
-			require.NoError(t, err)
-			require.Len(t, first.Msg.GetWorkflows(), tt.wantFirst)
-
-			if !tt.wantMore {
-				assert.Empty(t, first.Msg.GetNextPageToken())
-				return
-			}
-
-			require.NotEmpty(t, first.Msg.GetNextPageToken())
-
-			second, err := svc.ListWorkflows(ctx, connect.NewRequest(&workflowv1.ListWorkflowsRequest{
-				Pagination: &paginationv1.Pagination{
-					Limit:  proto.Int32(tt.limit),
-					Cursor: proto.String(first.Msg.GetNextPageToken()),
+			workflows := &fakeWorkflows{stored: []workflowstore.Workflow{
+				{
+					ID:      workflowID,
+					Name:    "alpha",
+					Context: long,
 				},
-			}))
-			require.NoError(t, err)
+				{
+					ID:      "01a0d228-0000-7000-8000-0000000000bb",
+					Name:    "beta",
+					Context: "ship it",
+				},
+			}}
+			svc := newWorkflowHandler(workflows)
 
-			seen := map[string]bool{}
-			for _, w := range append(first.Msg.GetWorkflows(), second.Msg.GetWorkflows()...) {
-				assert.False(t, seen[w.GetId()], "a workflow appears on one page only")
-				seen[w.GetId()] = true
+			listed, err := svc.ListWorkflows(t.Context(), connect.NewRequest(tt.req))
+			require.NoError(t, err)
+			assert.Equal(t, []bool{tt.wantArchived}, workflows.listed)
+
+			contexts := make([]string, 0, len(listed.Msg.GetWorkflows()))
+			truncated := make([]bool, 0, len(listed.Msg.GetWorkflows()))
+			for _, workflow := range listed.Msg.GetWorkflows() {
+				contexts = append(contexts, workflow.GetContext())
+				truncated = append(truncated, workflow.GetContextTruncated())
 			}
-			assert.Len(t, seen, len(tt.seed))
+			assert.Equal(t, tt.wantContexts, contexts)
+			assert.Equal(t, tt.wantTruncated, truncated)
+			assert.Equal(t, tt.wantNextCursor, listed.Msg.GetNextPageToken() != "")
 		})
 	}
 }
 
-// TestListWorkflowsRefusesAMangledToken covers a token that decodes but holds an id no row can
-// have.
-func TestListWorkflowsRefusesAMangledToken(t *testing.T) {
-	svc, _ := service(t)
-
-	const token = "eyJpIjoibm90LWFuLWlkIn0="
-
-	_, err := svc.ListWorkflows(t.Context(), connect.NewRequest(&workflowv1.ListWorkflowsRequest{
-		Pagination: &paginationv1.Pagination{Cursor: proto.String(token)},
-	}))
-	require.Error(t, err)
-	assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
-}
-
-type idlePanes struct{}
-
-func (idlePanes) GetPanes() (map[string]tmux.PaneStatus, error) { return nil, nil }
-func (idlePanes) KillPane(string)                               {}
-func (idlePanes) NewWindow(_, _, _ string) (string, error)      { return "", nil }
-func (idlePanes) SetPaneOwner(_, _ string) error                { return nil }
-func (idlePanes) GetPaneOwner(string) string                    { return "" }
-func (idlePanes) GetHostPath() string                           { return "" }
-
-func service(t *testing.T) (workflowv1weave.WorkflowServiceAdapter, *storetest.Stores) {
-	t.Helper()
-
-	st := storetest.Open(t)
-	emptied := agents.NewEmptyWorkflowDeleter(agents.NewEmptyWorkflowDeleterParams{
-		Workflows: st.Workflows,
-		Agents:    st.Agents,
-		Schedules: st.Schedules,
-	})
-	deleter := agents.NewLifecycleService(agents.NewLifecycleServiceParams{
-		Tmux:           idlePanes{},
-		Agents:         st.Agents,
-		Workflows:      st.Workflows,
-		EmptyWorkflows: emptied,
-		Tx:             st.Pool,
-		Snapshots:      refusingSnapshots{},
-	})
-	manager := agents.NewWorkflowService(agents.NewWorkflowServiceParams{
-		Workflows:    st.Workflows,
-		Agents:       st.Agents,
-		AgentDeleter: deleter,
-		Emptied:      emptied,
-		Schedules:    st.Schedules,
-		Tmux:         idlePanes{},
-		Tx:           st.Pool,
-	})
-
-	return workflowv1weave.WorkflowServiceAdapter{Impl: NewHandler(NewHandlerParams{Lister: st.Workflows, Workflows: manager})}, st
-}
-
-func createWorkflow(t *testing.T, svc workflowv1weave.WorkflowServiceAdapter, name string) string {
-	t.Helper()
-
-	created, err := svc.CreateWorkflow(t.Context(), connect.NewRequest(&workflowv1.CreateWorkflowRequest{Name: name}))
-	require.NoError(t, err)
-
-	return created.Msg.GetWorkflow().GetId()
-}
-
-func primaryCheckout(t *testing.T) string {
-	t.Helper()
-
-	dir := t.TempDir()
-	require.NoError(t, os.Mkdir(filepath.Join(dir, ".git"), 0o755))
-
-	return dir
-}
-
-// TestListWorkflowsArchived covers the flag that picks which set is listed, and the archive time
-// riding out with it.
-func TestListWorkflowsArchived(t *testing.T) {
-	tests := []struct {
-		name      string
-		archived  bool
-		wantNames []string
-	}{
-		{
-			name:      "the live listing leaves out what was archived",
-			wantNames: []string{"live"},
-		},
-		{
-			name:      "the archive listing is the archived rows and only those",
-			archived:  true,
-			wantNames: []string{"archived"},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			svc, _ := service(t)
-			ctx := t.Context()
-
-			gone := createWorkflow(t, svc, "archived")
-			_, err := svc.ArchiveWorkflow(ctx, connect.NewRequest(&workflowv1.ArchiveWorkflowRequest{Id: gone}))
-			require.NoError(t, err)
-			createWorkflow(t, svc, "live")
-
-			listed, err := svc.ListWorkflows(ctx, connect.NewRequest(&workflowv1.ListWorkflowsRequest{
-				Archived: tt.archived,
-			}))
-			require.NoError(t, err)
-
-			names := xslice.Map(listed.Msg.GetWorkflows(), func(workflow *workflowv1.Workflow) string {
-				return workflow.GetName()
-			})
-			require.Equal(t, tt.wantNames, names)
-
-			if !tt.archived {
-				assert.Empty(t, listed.Msg.GetWorkflows()[0].GetArchivedAt(), "a live workflow reports no archive time")
-
-				return
-			}
-
-			stamped := listed.Msg.GetWorkflows()[0].GetArchivedAt()
-			require.NotEmpty(t, stamped, "and an archived one reports when it was put away")
-			_, err = time.Parse(time.RFC3339, stamped)
-			require.NoError(t, err, "as RFC 3339")
-		})
-	}
-}
-
-// TestListWorkflowsSummarisesTheContext covers the default view holding back the bulk of a page,
-// which is the context.
-func TestListWorkflowsSummarisesTheContext(t *testing.T) {
-	svc, st := service(t)
-	shared := strings.Repeat("c", render.SummaryHead+50)
-	st.SeedWorkflow(t, workflowstore.Config{Name: "alpha", Context: shared})
-	st.SeedWorkflow(t, workflowstore.Config{Name: "beta", Context: "ship it"})
-
-	summary, err := svc.ListWorkflows(t.Context(), connect.NewRequest(&workflowv1.ListWorkflowsRequest{}))
-	require.NoError(t, err)
-	byName := workflowsByName(summary.Msg.GetWorkflows())
-	assert.Equal(t, shared[:render.SummaryHead], byName["alpha"].GetContext())
-	assert.True(t, byName["alpha"].GetContextTruncated())
-	assert.Equal(t, "ship it", byName["beta"].GetContext(), "a context inside the head is whole")
-	assert.False(t, byName["beta"].GetContextTruncated())
-
-	full, err := svc.ListWorkflows(t.Context(), connect.NewRequest(&workflowv1.ListWorkflowsRequest{
-		View: viewv1.View_VIEW_FULL,
-	}))
-	require.NoError(t, err)
-	byName = workflowsByName(full.Msg.GetWorkflows())
-	assert.Equal(t, shared, byName["alpha"].GetContext())
-	assert.False(t, byName["alpha"].GetContextTruncated())
-}
-
-// TestGetWorkflowKeepsTheWholeContext covers the one-record endpoint, which no view narrows since
-// a caller asking for a single workflow has already narrowed it.
-func TestGetWorkflowKeepsTheWholeContext(t *testing.T) {
-	svc, st := service(t)
-	shared := strings.Repeat("c", render.SummaryHead+50)
-	seeded := st.SeedWorkflow(t, workflowstore.Config{Name: "alpha", Context: shared})
-
-	got, err := svc.GetWorkflow(t.Context(), connect.NewRequest(&workflowv1.GetWorkflowRequest{Id: seeded.ID}))
-	require.NoError(t, err)
-	assert.Equal(t, shared, got.Msg.GetWorkflow().GetContext())
-	assert.False(t, got.Msg.GetWorkflow().GetContextTruncated())
-}
-
-func workflowsByName(listed []*workflowv1.Workflow) map[string]*workflowv1.Workflow {
-	byName := make(map[string]*workflowv1.Workflow, len(listed))
-	for _, w := range listed {
-		byName[w.GetName()] = w
-	}
-
-	return byName
+func newWorkflowHandler(workflows *fakeWorkflows) workflowv1weave.WorkflowServiceAdapter {
+	return workflowv1weave.WorkflowServiceAdapter{Impl: NewHandler(NewHandlerParams{
+		Lister:    workflows,
+		Workflows: workflows,
+	})}
 }
