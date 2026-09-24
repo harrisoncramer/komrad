@@ -472,6 +472,19 @@ func TestListWorkflows(t *testing.T) {
 			wantTruncated:  []bool{false},
 			wantNextCursor: true,
 		},
+		{
+			name: "a token a listing handed back is accepted",
+			req: &workflowv1.ListWorkflowsRequest{
+				Pagination: &paginationv1.Pagination{
+					Limit:  proto.Int32(1),
+					Cursor: proto.String("eyJuIjoiYWxwaGEiLCJpIjoiMDFhMGQyMjgtMDAwMC03MDAwLTgwMDAtMDAwMDAwMDAwMGFhIn0="),
+				},
+				View: viewv1.View_VIEW_FULL,
+			},
+			wantContexts:   []string{long},
+			wantTruncated:  []bool{false},
+			wantNextCursor: true,
+		},
 	}
 
 	for _, tt := range tests {
