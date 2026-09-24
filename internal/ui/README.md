@@ -80,7 +80,7 @@ the keybindings, the dimensions of its own pane.
 
 The panel is told. It holds the service's watch stream open for its whole life: the stream
 opens with a snapshot of every resource the panel draws, agents, workflows, schedules, marks,
-unclaimed mail and the pull requests on live agents' branches, then carries one row per
+unclaimed mail and the pull requests an agent was seen with, then carries one row per
 change, and the client in internal/client hands the changes over in batches a few tens of
 milliseconds wide. Each row goes into the World in internal/assemble, one map per kind, or
 comes out of it on a tombstone, and the rows the screens draw are assembled again from those
