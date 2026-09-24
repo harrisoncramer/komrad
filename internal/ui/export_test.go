@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"weave/config"
 	"weave/internal/engine"
@@ -80,6 +81,7 @@ type NewPanelParams struct {
 	ConfigErr     error
 	StartupErr    error
 	RefuseSplits  bool
+	Binary        BinaryWatcher
 }
 
 // NewPanel builds the panel the way weave panel does, over a recording tmux.
@@ -121,6 +123,7 @@ func NewPanel(params NewPanelParams) *Panel {
 			Settings:      settings,
 			ConfigErr:     params.ConfigErr,
 			StartupErr:    params.StartupErr,
+			Binary:        params.Binary,
 		}, true, post),
 		post: post,
 		tmux: tmux,
@@ -426,4 +429,9 @@ func (t *recordingTmux) RespawnPane(pane, dir string, argv ...string) {
 	t.respawns = append(t.respawns, strings.Join(argv, " "))
 	t.respawnPanes = append(t.respawnPanes, pane)
 	t.respawnDirs = append(t.respawnDirs, dir)
+}
+
+// NewTick is the refresh loop's tick as it lands at the given time.
+func NewTick(at time.Time) tea.Msg {
+	return tickMsg{at: at}
 }
