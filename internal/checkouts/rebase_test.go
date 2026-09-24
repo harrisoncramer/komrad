@@ -46,68 +46,6 @@ func (r *treeReadRecorder) ReadTreeState(ctx context.Context, dir string) (git.T
 	return r.Rebaser.ReadTreeState(ctx, dir)
 }
 
-func newRebaseFixture(t *testing.T) *rebaseFixture {
-	t.Helper()
-
-	stores := storetest.Open(t)
-
-	return &rebaseFixture{
-		stores: stores,
-		workflowID: stores.SeedWorkflow(t, workflowstore.Config{
-			Name:     "flow",
-			Worktree: workflowstore.WorktreeConfig{Enabled: true},
-		}).ID,
-	}
-}
-
-// seed records an idle agent named auth in /tree unless the agent says otherwise.
-func (f *rebaseFixture) seed(t *testing.T, agent agentstore.Agent) *agentstore.Agent {
-	t.Helper()
-
-	if agent.Name == "" {
-		agent.Name = "auth"
-	}
-	if agent.Cwd == "" {
-		agent.Cwd = "/tree"
-	}
-	if agent.WorkflowID == "" {
-		agent.WorkflowID = f.workflowID
-	}
-
-	return f.stores.SeedAgent(t, agent)
-}
-
-// newService builds a rebase service over the real stores.
-func (f *rebaseFixture) newService(params NewRebaseServiceParams) *RebaseService {
-	params.Agents = f.stores.Agents
-	params.Workflows = f.stores.Workflows
-	if params.Rebaser == nil {
-		params.Rebaser = &gittest.Rebaser{State: git.TreeState{Branch: "agent/a1"}}
-	}
-
-	return NewRebaseService(params)
-}
-
-func (f *rebaseFixture) newMailer() *mail.MailService {
-	return mail.NewMailService(mail.NewMailServiceParams{
-		MailReadWriter: f.stores.Mail,
-		Agents:         f.stores.Agents,
-		Workflows:      f.stores.Workflows,
-		Config:         config.Mail{},
-	})
-}
-
-func (f *rebaseFixture) readInbox(t *testing.T, id string) []string {
-	t.Helper()
-
-	sent, err := f.stores.Mail.ListPage(t.Context(), id, 10, nil)
-	require.NoError(t, err)
-
-	return xslice.Map(sent, func(piece mailstore.Mail) string {
-		return piece.Body
-	})
-}
-
 // TestRebaseRefusals covers every state of the row a rebase declines.
 func TestRebaseRefusals(t *testing.T) {
 	tests := []struct {
@@ -370,49 +308,68 @@ func TestRebaseMovesTheBranch(t *testing.T) {
 	}
 }
 
-// TestRebaseSettlesTheAgentBeforeItMoves is the safety argument for the row being a pane reading
-// seconds old: the pane is read as it is now, a turn in flight is cut, and nothing is parked or
-// moved until the agent is seen to have come to rest.
-func TestRebaseSettlesTheAgentBeforeItMoves(t *testing.T) {
+// TestRebaseRefusesAnAgentThatWillNotSettle covers nothing being parked or moved until the pane is seen at rest.
+func TestRebaseRefusesAnAgentThatWillNotSettle(t *testing.T) {
 	tests := []struct {
 		name           string
-		pane           string
 		readings       []harness.Activity
 		observeErr     error
-		wantErr        error
 		wantSaid       string
 		wantInterrupts int
-		wantReads      int
-		wantCalls      []string
 	}{
 		{
 			name:           "an agent that will not stop",
-			pane:           "%1",
 			readings:       []harness.Activity{harness.ActivityWorking},
-			wantErr:        agents.ErrUnsettled,
 			wantSaid:       "had not stopped",
 			wantInterrupts: 1,
 		},
 		{
 			name:       "a pane that could not be read",
-			pane:       "%1",
 			observeErr: errors.New("the pane is gone"),
-			wantErr:    agents.ErrUnsettled,
 			wantSaid:   "could not be read",
 		},
 		{
 			name:     "a frame that matched nothing, which is no evidence of rest",
-			pane:     "%1",
 			readings: []harness.Activity{harness.ActivityUnrecognized},
-			wantErr:  agents.ErrUnsettled,
 			wantSaid: "could not be read",
 		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fixture := newRebaseFixture(t)
+			agent := fixture.seed(t, agentstore.Agent{Pane: "%1"})
+			channel := &harnesstest.Channel{}
+			observer := &settlingObserver{readings: tt.readings, err: tt.observeErr}
+			rebaser := &gittest.Rebaser{State: git.TreeState{Branch: "agent/a1"}}
+
+			_, err := fixture.newService(NewRebaseServiceParams{
+				Settler: buildSettler(channel, observer),
+				Rebaser: rebaser,
+			}).Rebase(t.Context(), agent.ID)
+
+			require.ErrorIs(t, err, agents.ErrUnsettled)
+			require.ErrorContains(t, err, tt.wantSaid)
+			assert.Equal(t, tt.wantInterrupts, channel.Interrupts)
+			assert.Empty(t, rebaser.Calls, "nothing is parked or moved under an agent still working")
+		})
+	}
+}
+
+// TestRebaseSettlesTheAgentBeforeItMoves covers the pane being read as it is now and a turn in flight being cut.
+func TestRebaseSettlesTheAgentBeforeItMoves(t *testing.T) {
+	tests := []struct {
+		name           string
+		pane           string
+		readings       []harness.Activity
+		wantInterrupts int
+		wantReads      int
+	}{
 		{
 			name:      "an agent at rest, which is read rather than interrupted",
 			pane:      "%1",
 			readings:  []harness.Activity{harness.ActivityIdle},
 			wantReads: 1,
-			wantCalls: []string{"park", "rebase"},
 		},
 		{
 			name:           "an agent part-way through a turn its row does not show yet",
@@ -420,12 +377,10 @@ func TestRebaseSettlesTheAgentBeforeItMoves(t *testing.T) {
 			readings:       []harness.Activity{harness.ActivityWorking, harness.ActivityWorking, harness.ActivityIdle},
 			wantInterrupts: 1,
 			wantReads:      3,
-			wantCalls:      []string{"park", "rebase"},
 		},
 		{
-			name:      "an agent with no pane, which has nothing running",
-			readings:  []harness.Activity{harness.ActivityWorking},
-			wantCalls: []string{"park", "rebase"},
+			name:     "an agent with no pane, which has nothing running",
+			readings: []harness.Activity{harness.ActivityWorking},
 		},
 	}
 
@@ -434,7 +389,7 @@ func TestRebaseSettlesTheAgentBeforeItMoves(t *testing.T) {
 			fixture := newRebaseFixture(t)
 			agent := fixture.seed(t, agentstore.Agent{Pane: tt.pane})
 			channel := &harnesstest.Channel{}
-			observer := &settlingObserver{readings: tt.readings, err: tt.observeErr}
+			observer := &settlingObserver{readings: tt.readings}
 			rebaser := &treeReadRecorder{
 				Rebaser:  &gittest.Rebaser{State: git.TreeState{Branch: "agent/a1"}},
 				observer: observer,
@@ -444,18 +399,12 @@ func TestRebaseSettlesTheAgentBeforeItMoves(t *testing.T) {
 				Settler: buildSettler(channel, observer),
 				Rebaser: rebaser,
 			}).Rebase(t.Context(), agent.ID)
+			require.NoError(t, err)
 
-			if tt.wantErr != nil {
-				require.ErrorIs(t, err, tt.wantErr)
-				assert.Contains(t, err.Error(), tt.wantSaid)
-			} else {
-				require.NoError(t, err)
-				assert.Equal(t, tt.wantReads, observer.reads)
-				assert.Equal(t, tt.wantReads, rebaser.readsBeforeTree, "the plan reads the tree only once the agent has stopped")
-			}
-
+			assert.Equal(t, tt.wantReads, observer.reads)
+			assert.Equal(t, tt.wantReads, rebaser.readsBeforeTree, "the plan reads the tree only once the agent has stopped")
 			assert.Equal(t, tt.wantInterrupts, channel.Interrupts)
-			assert.Equal(t, tt.wantCalls, rebaser.Calls, "nothing is parked or moved under an agent still working")
+			assert.Equal(t, []string{"park", "rebase"}, rebaser.Calls)
 		})
 	}
 }
@@ -471,15 +420,6 @@ func TestRebaseRereadsTheRowOnceTheAgentSettles(t *testing.T) {
 		wantMail  string
 	}{
 		{
-			name: "a row stamped thinking after the interrupt",
-			settling: func(t *testing.T, fixture *rebaseFixture, id string) {
-				require.NoError(t, fixture.stores.Agents.SetStateByID(t.Context(), id, agentstore.StateThinking))
-			},
-			readings:  []harness.Activity{harness.ActivityWorking, harness.ActivityIdle},
-			wantCalls: []string{"park", "rebase"},
-			wantMail:  "Your branch is still the same branch",
-		},
-		{
 			name:     "a hold landing on an agent whose turn was cut",
 			settling: holdWhileSettling,
 			readings: []harness.Activity{harness.ActivityWorking, harness.ActivityIdle},
@@ -491,6 +431,15 @@ func TestRebaseRereadsTheRowOnceTheAgentSettles(t *testing.T) {
 			settling: holdWhileSettling,
 			readings: []harness.Activity{harness.ActivityIdle},
 			wantErr:  agents.ErrAgentHeld,
+		},
+		{
+			name: "a row stamped thinking after the interrupt",
+			settling: func(t *testing.T, fixture *rebaseFixture, id string) {
+				require.NoError(t, fixture.stores.Agents.SetStateByID(t.Context(), id, agentstore.StateThinking))
+			},
+			readings:  []harness.Activity{harness.ActivityWorking, harness.ActivityIdle},
+			wantCalls: []string{"park", "rebase"},
+			wantMail:  "Your branch is still the same branch",
 		},
 	}
 
@@ -527,11 +476,6 @@ func TestRebaseRereadsTheRowOnceTheAgentSettles(t *testing.T) {
 			assert.Contains(t, inbox[0], tt.wantMail)
 		})
 	}
-}
-
-func holdWhileSettling(t *testing.T, fixture *rebaseFixture, id string) {
-	_, err := fixture.stores.Agents.Hold(t.Context(), agentstore.HoldParams{ID: id, At: time.Now()})
-	require.NoError(t, err)
 }
 
 // TestRebaseMailSaysWhatHappenedToTheBranch covers what the rebase mail tells the agent.
@@ -628,21 +572,6 @@ func TestRebaseRefusesAnAgentInTheCallersCheckout(t *testing.T) {
 			name:     "an agent working somewhere else",
 			askerCwd: t.TempDir(),
 		},
-		{
-			name: "a person, who carries no agent id",
-			asker: func(string) caller.Caller {
-				return caller.Caller{}
-			},
-		},
-		{
-			name: "an asker weave has no row for at all",
-			asker: func(string) caller.Caller {
-				id, err := store.NewID()
-				require.NoError(t, err)
-
-				return caller.Caller{AgentID: id}
-			},
-		},
 	}
 
 	for _, tt := range tests {
@@ -675,4 +604,108 @@ func TestRebaseRefusesAnAgentInTheCallersCheckout(t *testing.T) {
 			assert.Empty(t, rebaser.Calls)
 		})
 	}
+}
+
+// TestRebaseLetsThroughAnAskerWithNoCheckout covers a caller the check has no directory to compare.
+func TestRebaseLetsThroughAnAskerWithNoCheckout(t *testing.T) {
+	tests := []struct {
+		name  string
+		asker func(t *testing.T) caller.Caller
+	}{
+		{
+			name: "a person, who carries no agent id",
+			asker: func(*testing.T) caller.Caller {
+				return caller.Caller{}
+			},
+		},
+		{
+			name: "an asker weave has no row for at all",
+			asker: func(t *testing.T) caller.Caller {
+				id, err := store.NewID()
+				require.NoError(t, err)
+
+				return caller.Caller{AgentID: id}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fixture := newRebaseFixture(t)
+			agent := fixture.seed(t, agentstore.Agent{})
+			rebaser := &gittest.Rebaser{State: git.TreeState{Branch: "fix/auth"}}
+
+			_, err := fixture.newService(NewRebaseServiceParams{Rebaser: rebaser}).Rebase(caller.With(t.Context(), tt.asker(t)), agent.ID)
+			require.NoError(t, err)
+
+			assert.Equal(t, []string{"park", "rebase"}, rebaser.Calls)
+		})
+	}
+}
+
+func newRebaseFixture(t *testing.T) *rebaseFixture {
+	t.Helper()
+
+	stores := storetest.Open(t)
+
+	return &rebaseFixture{
+		stores: stores,
+		workflowID: stores.SeedWorkflow(t, workflowstore.Config{
+			Name:     "flow",
+			Worktree: workflowstore.WorktreeConfig{Enabled: true},
+		}).ID,
+	}
+}
+
+// seed records an idle agent named auth in /tree unless the agent says otherwise.
+func (f *rebaseFixture) seed(t *testing.T, agent agentstore.Agent) *agentstore.Agent {
+	t.Helper()
+
+	if agent.Name == "" {
+		agent.Name = "auth"
+	}
+	if agent.Cwd == "" {
+		agent.Cwd = "/tree"
+	}
+	if agent.WorkflowID == "" {
+		agent.WorkflowID = f.workflowID
+	}
+
+	return f.stores.SeedAgent(t, agent)
+}
+
+// newService builds a rebase service over the real stores.
+func (f *rebaseFixture) newService(params NewRebaseServiceParams) *RebaseService {
+	params.Agents = f.stores.Agents
+	params.Workflows = f.stores.Workflows
+	if params.Rebaser == nil {
+		params.Rebaser = &gittest.Rebaser{State: git.TreeState{Branch: "agent/a1"}}
+	}
+
+	return NewRebaseService(params)
+}
+
+func (f *rebaseFixture) newMailer() *mail.MailService {
+	return mail.NewMailService(mail.NewMailServiceParams{
+		MailReadWriter: f.stores.Mail,
+		Agents:         f.stores.Agents,
+		Workflows:      f.stores.Workflows,
+		Config:         config.Mail{},
+	})
+}
+
+func (f *rebaseFixture) readInbox(t *testing.T, id string) []string {
+	t.Helper()
+
+	sent, err := f.stores.Mail.ListPage(t.Context(), id, 10, nil)
+	require.NoError(t, err)
+
+	return xslice.Map(sent, func(piece mailstore.Mail) string {
+		return piece.Body
+	})
+}
+
+func holdWhileSettling(t *testing.T, fixture *rebaseFixture, id string) {
+	_, err := fixture.stores.Agents.Hold(t.Context(), agentstore.HoldParams{ID: id, At: time.Now()})
+	require.NoError(t, err)
 }

@@ -56,17 +56,7 @@ func TestInspectReadsABranchAgainstItsWorkflowsBase(t *testing.T) {
 		Bytes: usage(t, filepath.Join(dir, "big/one")),
 		Dir:   true,
 	}, inspection.Entries[0])
-	assert.Equal(t, held(inspection.Entries), inspection.Bytes)
-}
-
-// held is what the entries add up to.
-func held(entries []Entry) int64 {
-	var total int64
-	for _, entry := range entries {
-		total += entry.Bytes
-	}
-
-	return total
+	assert.Equal(t, sumEntryBytes(inspection.Entries), inspection.Bytes)
 }
 
 // TestInspectReportsABaseTheCloneDoesNotHold covers a clone without the workflow's base
@@ -208,4 +198,14 @@ func TestInspectRecordsTheSizeItWalked(t *testing.T) {
 	assert.True(t, stored.MeasuredAt.Equal(fixture.now))
 	require.NotNil(t, inspection.Worktree.Size)
 	assert.Equal(t, inspection.Bytes, inspection.Worktree.Size.Bytes)
+}
+
+// sumEntryBytes adds up what the entries hold.
+func sumEntryBytes(entries []Entry) int64 {
+	var total int64
+	for _, entry := range entries {
+		total += entry.Bytes
+	}
+
+	return total
 }

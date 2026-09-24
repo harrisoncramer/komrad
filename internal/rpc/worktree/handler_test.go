@@ -71,45 +71,6 @@ func (f *fakeWorktrees) ListClaimedDirs(context.Context) ([]string, error) {
 	return f.claimed, f.claimErr
 }
 
-func newService(fake *fakeWorktrees) worktreev1weave.WorktreeServiceAdapter {
-	return worktreev1weave.WorktreeServiceAdapter{Impl: NewHandler(NewHandlerParams{
-		Lister:    fake,
-		Inspector: fake,
-		Remover:   fake,
-		Deleter:   fake,
-		Claimed:   fake,
-	})}
-}
-
-func listed() worktrees.Worktree {
-	archived := time.Date(2026, 9, 19, 12, 0, 0, 0, time.UTC)
-
-	return worktrees.Worktree{
-		Dir:      "/trees/aaaa",
-		RepoDir:  "/repo",
-		Branch:   "agent/aaaa",
-		Readable: true,
-		Agent: &worktrees.Agent{
-			ID:         "aaaa",
-			Name:       "first",
-			State:      agentstore.StateIdle,
-			ArchivedAt: &archived,
-			Adopted:    true,
-		},
-		Occupants: []worktrees.Agent{{
-			ID:    "bbbb",
-			Name:  "first-reviewer",
-			State: agentstore.StateThinking,
-		}},
-		Size: &worktreestore.Size{
-			Dir:        "/trees/aaaa",
-			Bytes:      49 * 1024 * 1024,
-			MeasuredAt: archived.Add(time.Hour),
-		},
-		LastActiveAt: archived,
-	}
-}
-
 // TestListWorktrees covers the listing rendered whole: the agent with its stamp, the
 // occupants, the size and when it was measured, the last activity, the fate, a failed measurement
 // carrying its error and no size, an unmeasured directory carrying neither, and the
@@ -120,7 +81,7 @@ func TestListWorktrees(t *testing.T) {
 	failed := time.Date(2026, 9, 20, 9, 0, 0, 0, time.UTC)
 	fake := &fakeWorktrees{listing: worktrees.Listing{
 		Worktrees: []worktrees.Worktree{
-			listed(),
+			buildListedWorktree(),
 			{
 				Dir:          "/trees/gone",
 				RepoDir:      "/was",
@@ -183,7 +144,7 @@ func TestGetWorktree(t *testing.T) {
 
 	at := time.Date(2026, 9, 19, 11, 0, 0, 0, time.UTC)
 	fake := &fakeWorktrees{inspection: worktrees.Inspection{
-		Worktree: listed(),
+		Worktree: buildListedWorktree(),
 		Bytes:    42,
 		Entries: []worktrees.Entry{{
 			Path:  "local",
@@ -332,5 +293,44 @@ func TestHandlerAnswersWithTheDomainsKind(t *testing.T) {
 
 			assert.Equal(t, tt.wantCode, connect.CodeOf(err))
 		})
+	}
+}
+
+func newService(fake *fakeWorktrees) worktreev1weave.WorktreeServiceAdapter {
+	return worktreev1weave.WorktreeServiceAdapter{Impl: NewHandler(NewHandlerParams{
+		Lister:    fake,
+		Inspector: fake,
+		Remover:   fake,
+		Deleter:   fake,
+		Claimed:   fake,
+	})}
+}
+
+func buildListedWorktree() worktrees.Worktree {
+	archived := time.Date(2026, 9, 19, 12, 0, 0, 0, time.UTC)
+
+	return worktrees.Worktree{
+		Dir:      "/trees/aaaa",
+		RepoDir:  "/repo",
+		Branch:   "agent/aaaa",
+		Readable: true,
+		Agent: &worktrees.Agent{
+			ID:         "aaaa",
+			Name:       "first",
+			State:      agentstore.StateIdle,
+			ArchivedAt: &archived,
+			Adopted:    true,
+		},
+		Occupants: []worktrees.Agent{{
+			ID:    "bbbb",
+			Name:  "first-reviewer",
+			State: agentstore.StateThinking,
+		}},
+		Size: &worktreestore.Size{
+			Dir:        "/trees/aaaa",
+			Bytes:      49 * 1024 * 1024,
+			MeasuredAt: archived.Add(time.Hour),
+		},
+		LastActiveAt: archived,
 	}
 }

@@ -171,8 +171,40 @@ func TestListJoinsTheStoredSize(t *testing.T) {
 	assert.Equal(t, map[string]bool{measured: true, unmeasured: false}, sizes)
 }
 
+// TestGetRefusesADirectoryTheListingDoesNotHold covers a path outside the worktree directories being not found.
+func TestGetRefusesADirectoryTheListingDoesNotHold(t *testing.T) {
+	tests := []struct {
+		name string
+		dir  func(fixture *worktreeFixture) string
+	}{
+		{
+			name: "a path outside the worktree directories",
+			dir: func(fixture *worktreeFixture) string {
+				return fixture.repo
+			},
+		},
+		{
+			name: "a directory that is not there",
+			dir: func(fixture *worktreeFixture) string {
+				return filepath.Join(fixture.shared, "cccc")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fixture := newFixture(t)
+			fixture.cut(t)
+
+			_, err := fixture.lister.Get(t.Context(), tt.dir(fixture))
+
+			require.ErrorIs(t, err, store.ErrNotFound)
+		})
+	}
+}
+
 // TestGetReadsOneDirectory covers one directory answered with its row and its size under a
-// worktree directory configured with a trailing slash, and a path outside them refused.
+// worktree directory configured with a trailing slash.
 func TestGetReadsOneDirectory(t *testing.T) {
 	fixture := newFixture(t)
 	dir := fixture.cut(t)
@@ -190,12 +222,6 @@ func TestGetReadsOneDirectory(t *testing.T) {
 	assert.Equal(t, "first", tree.Agent.Name)
 	require.NotNil(t, tree.Size)
 	assert.Equal(t, int64(1), tree.Size.Bytes)
-
-	_, err = lister.Get(t.Context(), fixture.repo)
-	require.ErrorIs(t, err, store.ErrNotFound)
-
-	_, err = lister.Get(t.Context(), filepath.Join(fixture.shared, "cccc"))
-	require.ErrorIs(t, err, store.ErrNotFound)
 }
 
 // TestLastActiveIsTheLaterOfTheAgentsTimes covers when a directory was last touched.

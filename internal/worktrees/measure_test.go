@@ -1,7 +1,6 @@
 package worktrees
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"slices"
@@ -13,15 +12,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-// fakeListing answers with whatever listing the test names, on disk or not.
-type fakeListing struct {
-	listing Listing
-}
-
-func (l *fakeListing) List(context.Context) (*Listing, error) {
-	return &l.listing, nil
-}
 
 // TestMeasureTakesTheUnmeasuredFirstThenTheStaleOldestFirst covers a pass walking at most eight
 // directories, those with no size before those measured over an hour ago, oldest first, and
@@ -92,14 +82,7 @@ func TestMeasureForgetsADirectoryThatHasGone(t *testing.T) {
 
 	unreadable := filepath.Join(filepath.Dir(fixture.shared), "not-a-dir")
 	write(t, filepath.Dir(fixture.shared), "not-a-dir", "x\n")
-	blind := NewMeasurer(NewMeasurerParams{
-		Lister:    fixture.newListerOver(unreadable),
-		Claimed:   fixture.claims,
-		Worktrees: fixture.worktrees,
-		Now: func() time.Time {
-			return fixture.now
-		},
-	})
+	blind := fixture.newMeasurerOver(fixture.newListerOver(unreadable))
 	require.NoError(t, blind.Measure(t.Context()))
 
 	assert.Contains(t, fixture.listStored(t), gone, "nothing is forgotten while a worktree directory cannot be read")
@@ -116,17 +99,10 @@ func TestMeasureForgetsADirectoryThatHasGone(t *testing.T) {
 func TestMeasureCarriesOnPastADirectoryItCannotRecord(t *testing.T) {
 	fixture := newFixture(t)
 	after := fixture.cut(t)
-	measurer := NewMeasurer(NewMeasurerParams{
-		Lister: &fakeListing{listing: Listing{Worktrees: []Worktree{
-			{Dir: filepath.Join(fixture.shared, "nul\x00")},
-			{Dir: after},
-		}}},
-		Claimed:   fixture.claims,
-		Worktrees: fixture.worktrees,
-		Now: func() time.Time {
-			return fixture.now
-		},
-	})
+	measurer := fixture.newMeasurerOver(&fakeWorktreeLister{listing: Listing{Worktrees: []Worktree{
+		{Dir: filepath.Join(fixture.shared, "nul\x00")},
+		{Dir: after},
+	}}})
 
 	err := measurer.Measure(t.Context())
 
@@ -140,14 +116,7 @@ func TestMeasureForgetsADirectoryThatVanishesMidPass(t *testing.T) {
 	fixture := newFixture(t)
 	vanished := filepath.Join(fixture.shared, "vanished")
 	fixture.recordSize(t, vanished, fixture.now.Add(-2*time.Hour))
-	measurer := NewMeasurer(NewMeasurerParams{
-		Lister:    &fakeListing{listing: Listing{Worktrees: []Worktree{{Dir: vanished}}}},
-		Claimed:   fixture.claims,
-		Worktrees: fixture.worktrees,
-		Now: func() time.Time {
-			return fixture.now
-		},
-	})
+	measurer := fixture.newMeasurerOver(&fakeWorktreeLister{listing: Listing{Worktrees: []Worktree{{Dir: vanished}}}})
 
 	require.NoError(t, measurer.Measure(t.Context()))
 

@@ -26,9 +26,27 @@ type worktreeFixture struct {
 	worktrees  *worktreestore.WorktreeStore
 	workflowID string
 	git        *gittest.Checkout
-	claims     *fakeClaims
+	claims     *fakeClaimedDirLister
 	lister     *Lister
 	now        time.Time
+}
+
+// fakeClaimedDirLister answers with the directories an unfinished delete names.
+type fakeClaimedDirLister struct {
+	dirs []string
+}
+
+func (c *fakeClaimedDirLister) ListClaimedDirs(context.Context) ([]string, error) {
+	return c.dirs, nil
+}
+
+// fakeWorktreeLister answers with whatever listing the test names, on disk or not.
+type fakeWorktreeLister struct {
+	listing Listing
+}
+
+func (l *fakeWorktreeLister) List(context.Context) (*Listing, error) {
+	return &l.listing, nil
 }
 
 func newFixture(t *testing.T) *worktreeFixture {
@@ -45,7 +63,7 @@ func newFixture(t *testing.T) *worktreeFixture {
 		worktrees:  worktreestore.NewWorktreeStore(stores.Pool.GetDB()),
 		workflowID: stores.SeedWorkflow(t, workflowstore.Config{Name: "flow"}).ID,
 		git:        &gittest.Checkout{},
-		claims:     &fakeClaims{},
+		claims:     &fakeClaimedDirLister{},
 		now:        time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC),
 	}
 	require.NoError(t, os.MkdirAll(filepath.Join(fixture.repo, ".git", "worktrees"), 0o755))
@@ -169,8 +187,12 @@ func (f *worktreeFixture) newInspector() *Inspector {
 }
 
 func (f *worktreeFixture) newMeasurer() *Measurer {
+	return f.newMeasurerOver(f.lister)
+}
+
+func (f *worktreeFixture) newMeasurerOver(lister worktreeLister) *Measurer {
 	return NewMeasurer(NewMeasurerParams{
-		Lister:    f.lister,
+		Lister:    lister,
 		Claimed:   f.claims,
 		Worktrees: f.worktrees,
 		Now: func() time.Time {
@@ -185,15 +207,6 @@ func (f *worktreeFixture) newRemover() *Remover {
 		Agents: f.stores.Agents,
 		Git:    f.git,
 	})
-}
-
-// fakeClaims is the directories an unfinished delete names.
-type fakeClaims struct {
-	dirs []string
-}
-
-func (c *fakeClaims) ListClaimedDirs(context.Context) ([]string, error) {
-	return c.dirs, nil
 }
 
 func write(t *testing.T, root, path, content string) {

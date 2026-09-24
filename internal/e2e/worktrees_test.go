@@ -167,8 +167,8 @@ func TestIntegrationWorktrees(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.NotContains(t, listWorktrees(t, instance), leaver.GetCwd(), "the directory leaves the listing as soon as the delete claims it")
-		require.EventuallyWithT(t, func(c *assert.CollectT) {
-			assert.NoDirExists(c, leaver.GetCwd())
+		require.EventuallyWithT(t, func(collect *assert.CollectT) {
+			assert.NoDirExists(collect, leaver.GetCwd())
 		}, 10*time.Second, 100*time.Millisecond)
 	})
 
@@ -221,8 +221,12 @@ func TestIntegrationRebase(t *testing.T) {
 	const rest = 2 * time.Second
 	settled := make(chan error, 1)
 	go func() {
-		time.Sleep(rest)
-		settled <- instance.Harness.SetActivity(agentID, harness.ActivityIdle)
+		select {
+		case <-t.Context().Done():
+			settled <- nil
+		case <-time.After(rest):
+			settled <- instance.Harness.SetActivity(agentID, harness.ActivityIdle)
+		}
 	}()
 	t.Cleanup(func() { assert.NoError(t, <-settled) })
 
@@ -297,13 +301,8 @@ func createRebaseAgent(t *testing.T, instance *weavetest.Instance, repo string) 
 	require.DirExists(t, tree)
 	instance.WaitForHarness(agent.Msg.GetAgent().GetId())
 
-	writeIn(t, tree, "own.txt", "a first draft\n")
-	runGitIn(t, tree, "add", "own.txt")
-	runGitIn(t, tree, "commit", "--quiet", "-m", "a first draft")
-
-	writeIn(t, tree, "own.txt", "the agent's work\n")
-	runGitIn(t, tree, "add", "own.txt")
-	runGitIn(t, tree, "commit", "--quiet", "-m", "the agent's work")
+	commitIn(t, tree, "own.txt", "a first draft")
+	commitIn(t, tree, "own.txt", "the agent's work")
 
 	return agent.Msg.GetAgent().GetId(), tree
 }
@@ -318,9 +317,7 @@ func landOnTheBase(t *testing.T, repo string) {
 	writeIn(t, repo, "own.txt", "the agent's work\n")
 	runGitIn(t, repo, "add", "own.txt")
 	runGitIn(t, repo, "commit", "--quiet", "-m", "the agent's work, squashed")
-	writeIn(t, repo, "elsewhere.txt", "another pull request\n")
-	runGitIn(t, repo, "add", "elsewhere.txt")
-	runGitIn(t, repo, "commit", "--quiet", "-m", "another pull request")
+	commitIn(t, repo, "elsewhere.txt", "another pull request")
 	runGitIn(t, repo, "push", "--quiet")
 	runGitIn(t, repo, "checkout", "--quiet", branch)
 }
