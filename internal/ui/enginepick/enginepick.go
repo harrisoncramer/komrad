@@ -215,7 +215,7 @@ func (m model) render() string {
 		strings.Repeat(" ", gutter),
 		m.preview())
 
-	footer := paint.Panel.Style(paint.ToneMuted).Render("↑↓ move  enter open  esc close")
+	footer := paint.Panel.Style(paint.ToneMuted).Render("f move  enter open  esc close")
 	if m.notice != "" {
 		footer = paint.Panel.Style(paint.ToneDanger).Render(m.notice)
 	}

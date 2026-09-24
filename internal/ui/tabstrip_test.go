@@ -17,7 +17,7 @@ import (
 
 func stripFixture() tabStrip {
 	return tabStrip{
-		title:  "↑↓",
+		title:  "f",
 		legend: "sort",
 		options: []tabOption{
 			{id: "size", label: "size"},
@@ -51,17 +51,17 @@ func TestTabStripDrawsTheChosenTabInTheTonesOfItsFocus(t *testing.T) {
 		{
 			name:  "the zero state is the fallback with its arrow down, on the list's keys",
 			state: tabsState{},
-			want:  " " + muted.Render("↑↓") + "   " + muted.Render("↓ size") + "  " + muted.Render("age") + "  " + muted.Render("name"),
+			want:  " " + muted.Render("f") + "   " + muted.Render("↓ size") + "  " + muted.Render("age") + "  " + muted.Render("name"),
 		},
 		{
 			name:  "a chosen tab keeps its arrow when the list holds the keys",
 			state: tabsState{chosen: "age", direction: tabUp},
-			want:  " " + muted.Render("↑↓") + "   " + muted.Render("size") + "  " + muted.Render("↑ age") + "  " + muted.Render("name"),
+			want:  " " + muted.Render("f") + "   " + muted.Render("size") + "  " + muted.Render("↑ age") + "  " + muted.Render("name"),
 		},
 		{
 			name:  "the strip holding the keys draws the chosen tab in the accent",
 			state: tabsState{chosen: "age", focused: true},
-			want:  " " + muted.Render("↑↓") + "   " + muted.Render("size") + "  " + accent.Render("↓ age") + "  " + muted.Render("name"),
+			want:  " " + muted.Render("f") + "   " + muted.Render("size") + "  " + accent.Render("↓ age") + "  " + muted.Render("name"),
 		},
 		{
 			name: "a focus moved off the chosen tab lights the tab it stands on and leaves the arrow",
@@ -70,12 +70,12 @@ func TestTabStripDrawsTheChosenTabInTheTonesOfItsFocus(t *testing.T) {
 				focused: true,
 				focus:   "name",
 			},
-			want: " " + muted.Render("↑↓") + "   " + muted.Render("size") + "  " + muted.Render("↓ age") + "  " + accent.Render("name"),
+			want: " " + muted.Render("f") + "   " + muted.Render("size") + "  " + muted.Render("↓ age") + "  " + accent.Render("name"),
 		},
 		{
 			name:  "a choice the strip does not hold falls back",
 			state: tabsState{chosen: "gone"},
-			want:  " " + muted.Render("↑↓") + "   " + muted.Render("↓ size") + "  " + muted.Render("age") + "  " + muted.Render("name"),
+			want:  " " + muted.Render("f") + "   " + muted.Render("↓ size") + "  " + muted.Render("age") + "  " + muted.Render("name"),
 		},
 	}
 
@@ -176,7 +176,7 @@ func TestTabStripDrawsTheGroupStop(t *testing.T) {
 
 	muted := paint.Panel.Style(paint.ToneMuted)
 	accent := paint.Panel.Cursor()
-	columns := " " + muted.Render("↑↓") + "   " + muted.Render("↓ size") + "  " + muted.Render("age") + "  " + muted.Render("name")
+	columns := " " + muted.Render("f") + "   " + muted.Render("↓ size") + "  " + muted.Render("age") + "  " + muted.Render("name")
 	dot := "  " + muted.Render("·") + "  "
 
 	tests := []struct {
@@ -197,7 +197,7 @@ func TestTabStripDrawsTheGroupStop(t *testing.T) {
 		{
 			name:  "the focus on a column leaves the stop muted",
 			state: tabsState{focused: true, flat: true},
-			want:  " " + muted.Render("↑↓") + "   " + accent.Render("↓ size") + "  " + muted.Render("age") + "  " + muted.Render("name") + dot + muted.Render("flat"),
+			want:  " " + muted.Render("f") + "   " + accent.Render("↓ size") + "  " + muted.Render("age") + "  " + muted.Render("name") + dot + muted.Render("flat"),
 		},
 		{
 			name:  "the focus on the stop lights it and not the column",
@@ -485,7 +485,7 @@ func TestTabsStandDownOnAShortPane(t *testing.T) {
 	m.screen = screenWorktrees
 
 	m.height = 6
-	require.NotContains(t, m.worktreesHeader(), "↑↓", "the strip gives up its row")
+	require.NotContains(t, m.worktreesHeader(), "f", "the strip gives up its row")
 	assert.Contains(t, ansi.Strip(m.render()), "agent39", "to the row the cursor stands on")
 
 	refused := send(t, m, "f")
@@ -496,7 +496,7 @@ func TestTabsStandDownOnAShortPane(t *testing.T) {
 	assert.False(t, refused.isTabsFocused(), "and the refused press does not wake once the pane grows")
 
 	m.height = 7
-	require.Contains(t, m.worktreesHeader(), "↑↓", "the strip is drawn once the list keeps a row beside it")
+	require.Contains(t, m.worktreesHeader(), "f", "the strip is drawn once the list keeps a row beside it")
 	assert.Contains(t, ansi.Strip(m.render()), "agent39")
 	assert.Len(t, lines(m.render()), 7)
 
@@ -532,7 +532,7 @@ func TestTabsSitUnderTheFilterLine(t *testing.T) {
 
 	require.Len(t, header, 5)
 	assert.Contains(t, header[2], "/")
-	assert.Contains(t, header[3], "↑↓")
+	assert.Contains(t, header[3], "f")
 	assert.Empty(t, header[4])
 }
 
@@ -615,7 +615,7 @@ func TestEveryTabbedScreenTakesTheStrip(t *testing.T) {
 
 			drawn := lines(m.active().view(m.shared()))
 			assert.Contains(t, drawn[2], "/")
-			assert.Contains(t, drawn[3], "↑↓")
+			assert.Contains(t, drawn[3], "f")
 			assert.Empty(t, drawn[4])
 
 			focused := send(t, m, "f")

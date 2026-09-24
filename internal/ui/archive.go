@@ -384,7 +384,7 @@ func (a *archiveScreen) snapshot(s panelShared, pane listPane) view.Snapshot {
 
 func archiveTabs() tabStrip {
 	return tabStrip{
-		title:    "↑↓",
+		title:    "f",
 		legend:   "sort",
 		options:  tabOptionsOf(archiveSorts),
 		fallback: "archived",

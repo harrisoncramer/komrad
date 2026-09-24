@@ -157,7 +157,7 @@ func (w *worktreesScreen) view(s panelShared) string {
 
 func worktreesTabs() tabStrip {
 	return tabStrip{
-		title:    "↑↓",
+		title:    "f",
 		legend:   "sort",
 		options:  tabOptionsOf(worktreeSorts),
 		fallback: "size",

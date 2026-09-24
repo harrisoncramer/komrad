@@ -334,7 +334,7 @@ func (a *agentsScreen) view(s panelShared) string {
 
 func agentsTabs() tabStrip {
 	return tabStrip{
-		title:    "↑↓",
+		title:    "f",
 		legend:   "sort",
 		options:  tabOptionsOf(agentSorts),
 		fallback: "created",
