@@ -179,6 +179,7 @@ type panelHarnessParams struct {
 	configErr     error
 	startupErr    error
 	refuseSplits  bool
+	clipboard     ui.ClipboardWriter
 }
 
 func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
@@ -247,6 +248,7 @@ func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
 			ConfigErr:     params.configErr,
 			StartupErr:    params.startupErr,
 			RefuseSplits:  params.refuseSplits,
+			Clipboard:     params.clipboard,
 		}),
 	}
 	t.Cleanup(harness.releaseParked)

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"weave/config"
 	"weave/internal/engine"
@@ -58,6 +59,9 @@ type recordingTmux struct {
 	keysElsewhere bool
 }
 
+// ClipboardWriter is where the panel's copy key writes.
+type ClipboardWriter = clipboardWriter
+
 // HarnessFrameReader answers whether a pane is drawing its harness yet.
 type HarnessFrameReader = harnessFrameReader
 
@@ -80,6 +84,7 @@ type NewPanelParams struct {
 	ConfigErr     error
 	StartupErr    error
 	RefuseSplits  bool
+	Clipboard     ClipboardWriter
 }
 
 // NewPanel builds the panel the way weave panel does, over a recording tmux.
@@ -104,7 +109,7 @@ func NewPanel(params NewPanelParams) *Panel {
 		layout.SidebarSide = params.SidebarSide
 	}
 
-	return &Panel{
+	panel := &Panel{
 		model: newModel(Deps{
 			PopupWindow:   NewPopupWindow(tmux, "test-session"),
 			Tmux:          driven,
@@ -125,6 +130,11 @@ func NewPanel(params NewPanelParams) *Panel {
 		post: post,
 		tmux: tmux,
 	}
+	if params.Clipboard != nil {
+		panel.model.clip = params.Clipboard
+	}
+
+	return panel
 }
 
 // Init is the command the program runs as it starts.
@@ -426,4 +436,9 @@ func (t *recordingTmux) RespawnPane(pane, dir string, argv ...string) {
 	t.respawns = append(t.respawns, strings.Join(argv, " "))
 	t.respawnPanes = append(t.respawnPanes, pane)
 	t.respawnDirs = append(t.respawnDirs, dir)
+}
+
+// ExpireLanding runs out the wait a write's landing holds the cursor for.
+func (p *Panel) ExpireLanding() {
+	p.model.landing.until = time.Time{}
 }
