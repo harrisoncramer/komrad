@@ -66,19 +66,3 @@ func settlerOver(channel harness.Channel, observer harness.Observer) *agents.Set
 		},
 	})
 }
-
-type fakeChannel struct {
-	interrupts int
-}
-
-func (f *fakeChannel) Ready(context.Context, harness.Target) (bool, error) { return true, nil }
-
-func (f *fakeChannel) Send(context.Context, harness.Target, string) (bool, error) { return true, nil }
-
-func (f *fakeChannel) Interrupt(context.Context, harness.Target) error {
-	f.interrupts++
-
-	return nil
-}
-
-func (f *fakeChannel) Forget(string) {}

@@ -12,6 +12,7 @@ import (
 	"weave/internal/caller"
 	"weave/internal/git"
 	"weave/internal/harness"
+	"weave/internal/harnesstest"
 	"weave/internal/store"
 
 	agentstore "weave/internal/store/agent"
@@ -504,7 +505,7 @@ func TestRebaseSettlesTheAgentBeforeItMoves(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			channel := &fakeChannel{}
+			channel := &harnesstest.Channel{}
 			observer := &settlingObserver{readings: tt.readings, err: tt.observeErr}
 			rebaser := &treeReadRecorder{
 				fakeRebaser: &fakeRebaser{state: git.TreeState{Branch: "agent/a1"}},
@@ -535,7 +536,7 @@ func TestRebaseSettlesTheAgentBeforeItMoves(t *testing.T) {
 				assert.Equal(t, tt.wantReads, rebaser.readsBeforeTree, "the plan reads the tree only once the agent has stopped")
 			}
 
-			assert.Equal(t, tt.wantInterrupts, channel.interrupts)
+			assert.Equal(t, tt.wantInterrupts, channel.Interrupts)
 			assert.Equal(t, tt.wantCalls, rebaser.calls, "nothing is parked or moved under an agent still working")
 		})
 	}
@@ -546,7 +547,7 @@ func TestRebaseSettlesTheAgentBeforeItMoves(t *testing.T) {
 func TestRebaseRefusesADirtyTreeWithoutCuttingTheTurn(t *testing.T) {
 	t.Parallel()
 
-	channel := &fakeChannel{}
+	channel := &harnesstest.Channel{}
 	observer := &settlingObserver{readings: []harness.Activity{harness.ActivityWorking}}
 
 	service := NewRebaseService(NewRebaseServiceParams{
@@ -559,7 +560,7 @@ func TestRebaseRefusesADirtyTreeWithoutCuttingTheTurn(t *testing.T) {
 	_, err := service.Rebase(t.Context(), "a1")
 	require.ErrorIs(t, err, ErrRebaseDirty)
 
-	assert.Zero(t, channel.interrupts, "a tree that cannot move costs the agent no turn")
+	assert.Zero(t, channel.Interrupts, "a tree that cannot move costs the agent no turn")
 	assert.Zero(t, observer.reads)
 }
 
@@ -571,7 +572,7 @@ func TestRebaseTrustsTheSettledPaneOverTheRow(t *testing.T) {
 	stamped := settledAgent()
 	stamped.State = agentstore.StateThinking
 
-	channel := &fakeChannel{}
+	channel := &harnesstest.Channel{}
 	observer := &settlingObserver{readings: []harness.Activity{harness.ActivityWorking, harness.ActivityIdle}}
 	rebaser := &fakeRebaser{state: git.TreeState{Branch: "agent/a1"}}
 
@@ -585,7 +586,7 @@ func TestRebaseTrustsTheSettledPaneOverTheRow(t *testing.T) {
 	_, err := service.Rebase(t.Context(), "a1")
 	require.NoError(t, err)
 
-	assert.Equal(t, 1, channel.interrupts)
+	assert.Equal(t, 1, channel.Interrupts)
 	assert.Equal(t, []string{"park", "rebase"}, rebaser.calls)
 }
 
@@ -615,7 +616,7 @@ func TestRebaseTellsAnAgentCutForNothing(t *testing.T) {
 			held := settledAgent()
 			held.HeldAt = xptr.Ptr(time.Now())
 
-			channel := &fakeChannel{}
+			channel := &harnesstest.Channel{}
 			notifier := &recordingNotifier{}
 			rebaser := &fakeRebaser{state: git.TreeState{Branch: "agent/a1"}}
 
