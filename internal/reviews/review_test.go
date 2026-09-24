@@ -30,8 +30,7 @@ const (
 
 var personAuthor = ReviewAuthor{Kind: reviewstore.AuthorHuman}
 
-// reviewFixture is a worker with round one taken, the reviewer attached to it, and an agent with
-// no business in either.
+// reviewFixture is a worker with round one taken, its reviewer, and an agent with no business in either.
 type reviewFixture struct {
 	service   *ReviewService
 	reviews   *reviewstore.ReviewStore
@@ -1063,7 +1062,6 @@ func (fx *reviewFixture) listMail(t *testing.T, agentID string) []mailstore.Mail
 	return listed
 }
 
-// recordingResumer records the agents it is asked to put back in a pane.
 type recordingResumer struct {
 	mu      sync.Mutex
 	resumed []string

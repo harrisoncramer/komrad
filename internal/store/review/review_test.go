@@ -371,8 +371,8 @@ func TestASuggestionIsCarriedWithTheComment(t *testing.T) {
 	assert.Equal(t, []string{"if thing == nil {", "\treturn nil", "}"}, messages[0].Suggestion)
 }
 
-// release is one review let go of in a test of the tallies.
-type release struct {
+// tallyRelease is one review let go of on the tree named.
+type tallyRelease struct {
 	tree       string
 	byReviewer bool
 	verdict    Verdict
@@ -385,7 +385,7 @@ func TestListTallies(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		releases  []release
+		releases  []tallyRelease
 		openOn    string
 		wantTally *Tally
 	}{
@@ -394,7 +394,7 @@ func TestListTallies(t *testing.T) {
 		},
 		{
 			name: "notes with no conclusion",
-			releases: []release{
+			releases: []tallyRelease{
 				{
 					tree:    "tree-one",
 					verdict: VerdictCommented,
@@ -406,7 +406,7 @@ func TestListTallies(t *testing.T) {
 		},
 		{
 			name: "two rounds the reviewer sent back, and a third still being written",
-			releases: []release{
+			releases: []tallyRelease{
 				{
 					tree:       "tree-one",
 					byReviewer: true,
@@ -427,7 +427,7 @@ func TestListTallies(t *testing.T) {
 		},
 		{
 			name: "two authors on the one round",
-			releases: []release{
+			releases: []tallyRelease{
 				{
 					tree:    "tree-one",
 					verdict: VerdictCommented,
@@ -446,7 +446,7 @@ func TestListTallies(t *testing.T) {
 		},
 		{
 			name: "an approval after changes requested",
-			releases: []release{
+			releases: []tallyRelease{
 				{
 					tree:       "tree-one",
 					byReviewer: true,
@@ -466,7 +466,7 @@ func TestListTallies(t *testing.T) {
 		},
 		{
 			name: "an approval with a later round only commented on",
-			releases: []release{
+			releases: []tallyRelease{
 				{
 					tree:       "tree-one",
 					byReviewer: true,
@@ -492,7 +492,7 @@ func TestListTallies(t *testing.T) {
 			reviewerID := st.seedReviewerChild(t, agentID)
 
 			rounds := map[string]*Round{}
-			for _, released := range append(tt.releases, release{tree: tt.openOn}) {
+			for _, released := range append(tt.releases, tallyRelease{tree: tt.openOn}) {
 				if released.tree == "" {
 					continue
 				}
