@@ -42,7 +42,7 @@ func setLocalReview(row *agentv1.AgentRow, reviews []*agentv1.WatchedReview) {
 	}
 }
 
-// isConclusion is whether a review said the work is done or is not, rather than only commenting.
+// isConclusion is whether a review said the work is done or is not.
 func isConclusion(review *agentv1.WatchedReview) bool {
 	switch review.GetVerdict() {
 	case agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED, agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED:

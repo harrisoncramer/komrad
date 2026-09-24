@@ -1114,9 +1114,17 @@ func (q *Queries) ListReviews(ctx context.Context, agentID string) ([]*ListRevie
 	return items, nil
 }
 
-const listWatchedReviews = `-- name: ListWatchedReviews :many
+const listReviewsOfAgents = `-- name: ListReviewsOfAgents :many
 SELECT
-    v.id, v.agent_id, v.round_id, v.author_kind, v.author_agent_id, v.verdict, v.released_at, v.path, v.doorbell_mail_id, v.created_at, v.updated_at, v.body, v.tenant_id,
+    v.id,
+    v.agent_id,
+    v.round_id,
+    v.author_kind,
+    v.author_agent_id,
+    v.verdict,
+    v.released_at,
+    v.created_at,
+    v.updated_at,
     r.ordinal AS round_ordinal,
     r.snapshot_sha AS round_snapshot_sha,
     d.claimed_at AS delivered_at
@@ -1124,28 +1132,102 @@ FROM
     reviews v
     JOIN review_rounds r ON r.id = v.round_id
     LEFT JOIN mail d ON d.id = v.doorbell_mail_id
-WHERE ($1::text[] IS NULL
-    OR v.id = ANY ($1::uuid[]))
-AND ($2::text[] IS NULL
-    OR v.agent_id = ANY ($2::uuid[]))
+WHERE
+    v.agent_id = ANY ($1::uuid[])
 ORDER BY
     v.id
 `
 
-type ListWatchedReviewsParams struct {
-	Keys     []string
-	AgentIds []string
-}
-
-type ListWatchedReviewsRow struct {
-	Review           Review
+type ListReviewsOfAgentsRow struct {
+	ID               string
+	AgentID          string
+	RoundID          string
+	AuthorKind       ReviewAuthorKind
+	AuthorAgentID    *string
+	Verdict          NullReviewVerdict
+	ReleasedAt       *time.Time
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
 	RoundOrdinal     int32
 	RoundSnapshotSha string
 	DeliveredAt      *time.Time
 }
 
-func (q *Queries) ListWatchedReviews(ctx context.Context, arg ListWatchedReviewsParams) ([]*ListWatchedReviewsRow, error) {
-	rows, err := q.db.Query(ctx, listWatchedReviews, arg.Keys, arg.AgentIds)
+func (q *Queries) ListReviewsOfAgents(ctx context.Context, agentIds []string) ([]*ListReviewsOfAgentsRow, error) {
+	rows, err := q.db.Query(ctx, listReviewsOfAgents, agentIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*ListReviewsOfAgentsRow
+	for rows.Next() {
+		var i ListReviewsOfAgentsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.AgentID,
+			&i.RoundID,
+			&i.AuthorKind,
+			&i.AuthorAgentID,
+			&i.Verdict,
+			&i.ReleasedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.RoundOrdinal,
+			&i.RoundSnapshotSha,
+			&i.DeliveredAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listWatchedReviews = `-- name: ListWatchedReviews :many
+SELECT
+    v.id,
+    v.agent_id,
+    v.round_id,
+    v.author_kind,
+    v.author_agent_id,
+    v.verdict,
+    v.released_at,
+    v.created_at,
+    v.updated_at,
+    r.ordinal AS round_ordinal,
+    r.snapshot_sha AS round_snapshot_sha,
+    d.claimed_at AS delivered_at
+FROM
+    reviews v
+    JOIN review_rounds r ON r.id = v.round_id
+    LEFT JOIN mail d ON d.id = v.doorbell_mail_id
+WHERE
+    $1::text[] IS NULL
+    OR v.id = ANY ($1::uuid[])
+ORDER BY
+    v.id
+`
+
+type ListWatchedReviewsRow struct {
+	ID               string
+	AgentID          string
+	RoundID          string
+	AuthorKind       ReviewAuthorKind
+	AuthorAgentID    *string
+	Verdict          NullReviewVerdict
+	ReleasedAt       *time.Time
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+	RoundOrdinal     int32
+	RoundSnapshotSha string
+	DeliveredAt      *time.Time
+}
+
+func (q *Queries) ListWatchedReviews(ctx context.Context, keys []string) ([]*ListWatchedReviewsRow, error) {
+	rows, err := q.db.Query(ctx, listWatchedReviews, keys)
 	if err != nil {
 		return nil, err
 	}
@@ -1154,19 +1236,15 @@ func (q *Queries) ListWatchedReviews(ctx context.Context, arg ListWatchedReviews
 	for rows.Next() {
 		var i ListWatchedReviewsRow
 		if err := rows.Scan(
-			&i.Review.ID,
-			&i.Review.AgentID,
-			&i.Review.RoundID,
-			&i.Review.AuthorKind,
-			&i.Review.AuthorAgentID,
-			&i.Review.Verdict,
-			&i.Review.ReleasedAt,
-			&i.Review.Path,
-			&i.Review.DoorbellMailID,
-			&i.Review.CreatedAt,
-			&i.Review.UpdatedAt,
-			&i.Review.Body,
-			&i.Review.TenantID,
+			&i.ID,
+			&i.AgentID,
+			&i.RoundID,
+			&i.AuthorKind,
+			&i.AuthorAgentID,
+			&i.Verdict,
+			&i.ReleasedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
 			&i.RoundOrdinal,
 			&i.RoundSnapshotSha,
 			&i.DeliveredAt,

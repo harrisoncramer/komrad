@@ -137,7 +137,15 @@ ORDER BY
 
 -- name: ListWatchedReviews :many
 SELECT
-    sqlc.embed(v),
+    v.id,
+    v.agent_id,
+    v.round_id,
+    v.author_kind,
+    v.author_agent_id,
+    v.verdict,
+    v.released_at,
+    v.created_at,
+    v.updated_at,
     r.ordinal AS round_ordinal,
     r.snapshot_sha AS round_snapshot_sha,
     d.claimed_at AS delivered_at
@@ -145,10 +153,32 @@ FROM
     reviews v
     JOIN review_rounds r ON r.id = v.round_id
     LEFT JOIN mail d ON d.id = v.doorbell_mail_id
-WHERE (sqlc.narg('keys')::text[] IS NULL
-    OR v.id = ANY (sqlc.narg('keys')::uuid[]))
-AND (sqlc.narg('agent_ids')::text[] IS NULL
-    OR v.agent_id = ANY (sqlc.narg('agent_ids')::uuid[]))
+WHERE
+    sqlc.narg('keys')::text[] IS NULL
+    OR v.id = ANY (sqlc.narg('keys')::uuid[])
+ORDER BY
+    v.id;
+
+-- name: ListReviewsOfAgents :many
+SELECT
+    v.id,
+    v.agent_id,
+    v.round_id,
+    v.author_kind,
+    v.author_agent_id,
+    v.verdict,
+    v.released_at,
+    v.created_at,
+    v.updated_at,
+    r.ordinal AS round_ordinal,
+    r.snapshot_sha AS round_snapshot_sha,
+    d.claimed_at AS delivered_at
+FROM
+    reviews v
+    JOIN review_rounds r ON r.id = v.round_id
+    LEFT JOIN mail d ON d.id = v.doorbell_mail_id
+WHERE
+    v.agent_id = ANY (@agent_ids::uuid[])
 ORDER BY
     v.id;
 

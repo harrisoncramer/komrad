@@ -48,8 +48,8 @@ BEGIN
     IF TG_ARGV[4] <> '' THEN
         narrowing := FORMAT('%I IS NULL', TG_ARGV[4]);
     END IF;
-    FOR resource_key IN EXECUTE FORMAT('SELECT %I::text FROM %I WHERE tenant_id = $2 AND %I::text = $1 AND (%s)', TG_ARGV[1], TG_ARGV[0], TG_ARGV[2], narrowing)
-        USING (to_jsonb(COALESCE(NEW, OLD)) ->> TG_ARGV[3]), row_tenant LOOP
+    FOR resource_key IN EXECUTE FORMAT('SELECT %I::text FROM %I WHERE tenant_id = $2 AND %I = ($1).%I AND (%s)', TG_ARGV[1], TG_ARGV[0], TG_ARGV[2], TG_ARGV[3], narrowing)
+        USING COALESCE(NEW, OLD), row_tenant LOOP
         PERFORM pg_notify(watch_channel_of(row_tenant), TG_ARGV[0] || ' ' || resource_key);
     END LOOP;
     RETURN NULL;
