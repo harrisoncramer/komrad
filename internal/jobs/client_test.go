@@ -37,17 +37,13 @@ func newRiverClientWithStores(t *testing.T) (*river.Client[pgx.Tx], *storetest.S
 
 	require.NoError(t, db.MigrateRiver(t.Context(), stores.Pool.GetRawPool(), stores.Pool.GetRiverSchema()))
 
-	schedules := &fakeSchedules{}
-
 	client, err := NewClient(NewClientParams{
 		Schema:    stores.Pool.GetRiverSchema(),
 		Pool:      stores.Pool.GetRawPool(),
-		Schedules: schedules,
-		Runs:      fakeRuns{},
-		Launcher:  &fakeAgents{},
-		Deleter:   &fakeAgents{},
-		Archived:  &fakeArchive{},
-		Running:   &fakeRunning{},
+		Schedules: stores.Schedules,
+		Runs:      stores.Schedules,
+		Archived:  stores.Agents,
+		Running:   stores.Agents,
 	})
 	require.NoError(t, err)
 
@@ -375,27 +371,27 @@ func TestStopWaitsForALaunchInFlight(t *testing.T) {
 	require.NoError(t, db.MigrateRiver(t.Context(), stores.Pool.GetRawPool(), stores.Pool.GetRiverSchema()))
 
 	launcher := &blockingLauncher{started: make(chan struct{}), release: make(chan struct{})}
-	schedules := &fakeSchedules{schedule: &schedulestore.Schedule{
-		ID:      "s1",
+	schedule := stores.SeedSchedule(t, schedulestore.Config{
 		Name:    "nightly",
+		Cron:    "0 9 * * *",
+		Prompt:  "sweep",
 		Enabled: true,
-	}}
+	})
 
 	client, err := NewClient(NewClientParams{
 		Schema:    stores.Pool.GetRiverSchema(),
 		Pool:      stores.Pool.GetRawPool(),
-		Schedules: schedules,
-		Runs:      fakeRuns{},
+		Schedules: stores.Schedules,
+		Runs:      stores.Schedules,
 		Launcher:  launcher,
-		Deleter:   &fakeAgents{},
-		Archived:  &fakeArchive{},
-		Running:   &fakeRunning{},
+		Archived:  stores.Agents,
+		Running:   stores.Agents,
 	})
 	require.NoError(t, err)
 	require.NoError(t, client.Start(t.Context()))
 
 	inserted, err := client.Insert(t.Context(), internaljobs.LaunchAgentArgs{
-		ScheduleID:   "s1",
+		ScheduleID:   schedule.ID,
 		ScheduledFor: time.Date(2026, time.July, 28, 9, 0, 0, 0, time.UTC),
 	}, nil)
 	require.NoError(t, err)
@@ -427,50 +423,4 @@ func TestStopWaitsForALaunchInFlight(t *testing.T) {
 	job, err := client.JobGet(t.Context(), inserted.Job.ID)
 	require.NoError(t, err)
 	assert.Equal(t, rivertype.JobStateCompleted, job.State, "the firing is finished rather than left stuck as running")
-}
-
-type fakeSchedules struct {
-	schedule *schedulestore.Schedule
-}
-
-func (s *fakeSchedules) Get(context.Context, string) (*schedulestore.Schedule, error) {
-	return s.schedule, nil
-}
-
-func (s *fakeSchedules) List(context.Context) ([]schedulestore.Schedule, error) {
-	if s.schedule == nil {
-		return nil, nil
-	}
-
-	return []schedulestore.Schedule{*s.schedule}, nil
-}
-
-type fakeAgents struct{}
-
-func (fakeAgents) NewAgent(_ context.Context, p agents.NewAgentParams) (*agentstore.Agent, error) {
-	return &agentstore.Agent{ID: "a1", Name: p.Title}, nil
-}
-
-func (fakeAgents) DeleteAgents(context.Context, []string) error { return nil }
-
-type fakeArchive struct{}
-
-func (fakeArchive) ListArchiveSweepPage(context.Context, int64, *agentstore.Cursor) ([]agentstore.Agent, error) {
-	return nil, nil
-}
-
-func (fakeArchive) ListByID(context.Context, []string) ([]agentstore.Agent, error) { return nil, nil }
-
-type fakeRunning struct{}
-
-func (fakeRunning) CountLiveForSchedule(context.Context, string) (int64, error) { return 0, nil }
-
-type fakeRuns struct{}
-
-func (fakeRuns) StartRun(context.Context, schedulestore.StartRunParams) error {
-	return nil
-}
-
-func (fakeRuns) FinishRun(context.Context, schedulestore.RunOccurrence, schedulestore.RunOutcome) error {
-	return nil
 }
