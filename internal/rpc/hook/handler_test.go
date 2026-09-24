@@ -5,71 +5,93 @@ import (
 	"testing"
 	"time"
 
+	"weave/internal/agents"
+	hookv1 "weave/proto/gen/hook/v1"
 	hookv1weave "weave/proto/gen/hook/v1/hookv1weave"
 
-	"weave/internal/agents"
-
 	"connectrpc.com/connect"
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// TestListHooks covers a hook with no declared timeout leaving the field unset rather than
-// writing a zero.
-func TestListHooks(t *testing.T) {
-	manager := &fakeHooks{listedHooks: []agents.Script{
-		{
-			Name: "install-deps", Path: "/hooks/install-deps", Executable: true,
-			Header: agents.ScriptHeader{
-				Description: "Install what the worktree needs before the agent starts.",
-				Timeout:     45 * time.Second,
-				Problems:    []string{"line 4: nope is not a directive weave knows"},
-			},
-		},
-		{
-			Name:       "compiled",
-			Path:       "/hooks/compiled",
-			Executable: true,
-		},
-	}}
-
-	resp, err := hookv1weave.HookServiceAdapter{Impl: NewHandler(manager)}.ListHooks(t.Context(), connect.NewRequest(&emptypb.Empty{}))
-	require.NoError(t, err)
-
-	listed := resp.Msg.GetHooks()
-	require.Len(t, listed, 2)
-
-	assert.Equal(t, "install-deps", listed[0].GetName())
-	assert.True(t, listed[0].GetExecutable())
-	assert.Equal(t, "Install what the worktree needs before the agent starts.", listed[0].GetDescription())
-	assert.Equal(t, 45*time.Second, listed[0].GetTimeout().AsDuration())
-	assert.Equal(t, []string{"line 4: nope is not a directive weave knows"}, listed[0].GetHeaderProblems())
-
-	assert.Empty(t, listed[1].GetDescription())
-	assert.Nil(t, listed[1].GetTimeout(), "a file that declared no timeout sends none")
+type fakeHookLister struct {
+	hooks []agents.Script
+	err   error
 }
 
-// TestListHooksFailure covers a directory that could not be read at all.
-func TestListHooksFailure(t *testing.T) {
-	failing := &fakeHooks{listErr: errors.New("permission denied")}
-	service := hookv1weave.HookServiceAdapter{Impl: NewHandler(failing)}
-
-	_, err := service.ListHooks(t.Context(), connect.NewRequest(&emptypb.Empty{}))
-
-	require.Error(t, err)
-	assert.Equal(t, connect.CodeInternal, connect.CodeOf(err))
-}
-
-type fakeHooks struct {
-	listedHooks []agents.Script
-	listErr     error
-}
-
-func (f *fakeHooks) ListHooks() ([]agents.Script, error) {
-	if f.listErr != nil {
-		return nil, f.listErr
+// ListHooks answers hooks unless err refuses the listing.
+func (f fakeHookLister) ListHooks() ([]agents.Script, error) {
+	if f.err != nil {
+		return nil, f.err
 	}
 
-	return f.listedHooks, nil
+	return f.hooks, nil
+}
+
+// TestListHooks pins the code a failed listing reaches the caller as and how a listing renders.
+func TestListHooks(t *testing.T) {
+	tests := []struct {
+		name     string
+		lister   fakeHookLister
+		wantCode connect.Code
+		want     *hookv1.ListHooksResponse
+	}{
+		{
+			name:     "a directory that cannot be read",
+			lister:   fakeHookLister{err: errors.New("permission denied")},
+			wantCode: connect.CodeInternal,
+		},
+		{
+			name: "a hook with a header and one without",
+			lister: fakeHookLister{hooks: []agents.Script{
+				{
+					Name:       "install-deps",
+					Path:       "/hooks/install-deps",
+					Executable: true,
+					Header: agents.ScriptHeader{
+						Description: "Install what the worktree needs before the agent starts.",
+						Timeout:     45 * time.Second,
+						Problems:    []string{"line 4: nope is not a directive weave knows"},
+					},
+				},
+				{
+					Name: "unrunnable",
+					Path: "/hooks/unrunnable",
+				},
+			}},
+			want: &hookv1.ListHooksResponse{Hooks: []*hookv1.Hook{
+				{
+					Name:           "install-deps",
+					Executable:     true,
+					Description:    "Install what the worktree needs before the agent starts.",
+					Timeout:        durationpb.New(45 * time.Second),
+					HeaderProblems: []string{"line 4: nope is not a directive weave knows"},
+				},
+				{
+					Name: "unrunnable",
+				},
+			}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			service := hookv1weave.HookServiceAdapter{Impl: NewHandler(tt.lister)}
+
+			resp, err := service.ListHooks(t.Context(), connect.NewRequest(&emptypb.Empty{}))
+			if tt.want == nil {
+				require.Error(t, err)
+				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Empty(t, cmp.Diff(tt.want, resp.Msg, protocmp.Transform()))
+		})
+	}
 }
