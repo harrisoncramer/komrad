@@ -27,6 +27,7 @@ type stores struct {
 	transcripts      *transcriptstore.TranscriptStore
 	mail             *mailstore.MailStore
 	review           *reviewstore.ReviewStore
+	reviewThreads    *reviewstore.ThreadStore
 	runs             *runstore.RunStore
 	marks            *markstore.MarkStore
 	forges           *forgestore.ForgeStore
@@ -52,6 +53,7 @@ func openStores(ctx context.Context, databaseURL string) (*stores, error) {
 		transcripts:      transcriptstore.NewTranscriptStore(db),
 		mail:             mailstore.NewMailStore(db),
 		review:           reviewstore.NewReviewStore(db),
+		reviewThreads:    reviewstore.NewThreadStore(db),
 		runs:             runstore.NewRunStore(db),
 		marks:            markstore.NewMarkStore(db),
 		forges:           forgestore.NewForgeStore(db),

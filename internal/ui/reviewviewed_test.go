@@ -61,6 +61,7 @@ func reviewOnASecondRoundOfOneFile(t *testing.T, repo *fakeRepo, agents *fakeRev
 func pressReviewBaseForward(t *testing.T, m model) model {
 	t.Helper()
 
+	holdServedThreads(&m)
 	next, cmd := m.routeScreenMessage(keyMsg(">"))
 	m = next.(model)
 	require.NotNil(t, cmd, "widening reloads the diff")

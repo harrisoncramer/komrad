@@ -278,6 +278,35 @@ ORDER BY
     t.old_start,
     t.id;
 
+-- name: ListWatchedReviewThreads :many
+SELECT
+    t.*,
+    r.ordinal AS round_ordinal,
+(t.last_agent_activity_at IS NOT NULL
+        AND (t.human_read_at IS NULL
+            OR t.last_agent_activity_at > t.human_read_at)) AS unread_by_human
+FROM
+    review_threads t
+    JOIN review_rounds r ON r.id = t.round_id
+    JOIN agents a ON a.id = t.agent_id
+WHERE
+    a.archived_at IS NULL
+    AND (sqlc.narg('keys')::text[] IS NULL
+        OR t.id = ANY (sqlc.narg('keys')::uuid[]))
+ORDER BY
+    t.id;
+
+-- name: ListReviewMessagesOfThreads :many
+SELECT
+    m.*
+FROM
+    review_messages m
+WHERE
+    m.thread_id = ANY (@thread_ids::uuid[])
+ORDER BY
+    m.thread_id,
+    m.id;
+
 -- name: GetReviewThread :one
 SELECT
     t.*,

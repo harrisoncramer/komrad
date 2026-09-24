@@ -97,7 +97,7 @@ func (s *Handler) AddReviewMessage(ctx context.Context, req *agentv1.AddReviewMe
 		return nil, rpcerr.From(err, "failed to add the review message")
 	}
 
-	return &agentv1.AddReviewMessageResponse{Message: renderReviewMessage(*message)}, nil
+	return &agentv1.AddReviewMessageResponse{Message: render.ReviewMessage(*message)}, nil
 }
 
 // EditReviewMessage rewrites what was said.
@@ -112,7 +112,7 @@ func (s *Handler) EditReviewMessage(ctx context.Context, req *agentv1.EditReview
 		return nil, rpcerr.From(err, "failed to edit the review message")
 	}
 
-	return &agentv1.EditReviewMessageResponse{Message: renderReviewMessage(*message)}, nil
+	return &agentv1.EditReviewMessageResponse{Message: render.ReviewMessage(*message)}, nil
 }
 
 // MarkReviewThreadRead catches the calling side up on one conversation.
@@ -264,30 +264,7 @@ func reviewAuthorFrom(ctx context.Context) reviews.ReviewAuthor {
 }
 
 func renderReviewThread(thread reviews.ReviewThreadWithMessages) *agentv1.ReviewThread {
-	answered := &agentv1.ReviewThread{
-		Id:            thread.Thread.ID,
-		AgentId:       thread.Thread.AgentID,
-		ReviewId:      thread.Thread.ReviewID,
-		RoundId:       thread.Thread.RoundID,
-		RoundOrdinal:  thread.Thread.RoundOrdinal,
-		BaseSha:       thread.Thread.BaseSHA,
-		FilePath:      thread.Thread.FilePath,
-		OldStart:      thread.Thread.OldStart,
-		OldEnd:        thread.Thread.OldEnd,
-		NewStart:      thread.Thread.NewStart,
-		NewEnd:        thread.Thread.NewEnd,
-		QuotedLines:   thread.Thread.QuotedLines,
-		UnreadByHuman: thread.Thread.UnreadByHuman,
-		CreatedAt:     dates.Stamp(thread.Thread.CreatedAt),
-		UpdatedAt:     dates.Stamp(thread.Thread.UpdatedAt),
-		Messages:      xslice.Map(thread.Messages, renderReviewMessage),
-	}
-
-	if at := thread.Thread.ResolvedAt; at != nil {
-		answered.ResolvedAt = dates.Stamp(*at)
-	}
-
-	return answered
+	return render.ReviewThread(thread.Thread, thread.Messages)
 }
 
 func renderReviewThreadInContext(thread reviews.ReviewThreadInContext) *agentv1.ReviewThreadInContext {
@@ -297,50 +274,6 @@ func renderReviewThreadInContext(thread reviews.ReviewThreadInContext) *agentv1.
 			Messages: thread.Messages,
 		}),
 		Context: thread.Context,
-	}
-}
-
-func renderReviewMessage(message reviewstore.Message) *agentv1.ReviewMessage {
-	kind := agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN
-	if message.AuthorKind == reviewstore.AuthorAgent {
-		kind = agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT
-	}
-
-	answered := &agentv1.ReviewMessage{
-		Id:            message.ID,
-		ThreadId:      message.ThreadID,
-		AuthorKind:    kind,
-		AuthorAgentId: message.AuthorAgentID,
-		ReviewId:      message.ReviewID,
-		Body:          message.Body,
-		Suggestion:    message.Suggestion,
-		Delivery:      renderReviewDeliveryState(message.Delivery),
-		CreatedAt:     dates.Stamp(message.CreatedAt),
-		UpdatedAt:     dates.Stamp(message.UpdatedAt),
-	}
-
-	if at := message.SentAt; at != nil {
-		answered.SentAt = dates.Stamp(*at)
-	}
-	if at := message.DeliveredAt; at != nil {
-		answered.DeliveredAt = dates.Stamp(*at)
-	}
-
-	return answered
-}
-
-func renderReviewDeliveryState(state reviewstore.DeliveryState) agentv1.ReviewDeliveryState {
-	switch state {
-	case reviewstore.DeliveryUnsent:
-		return agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT
-	case reviewstore.DeliverySent:
-		return agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_SENT
-	case reviewstore.DeliveryDelivered:
-		return agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_DELIVERED
-	case reviewstore.DeliveryNone:
-		return agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSPECIFIED
-	default:
-		return agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSPECIFIED
 	}
 }
 

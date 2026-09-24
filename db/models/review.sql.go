@@ -874,6 +874,49 @@ func (q *Queries) ListReviewMessagesByThreads(ctx context.Context, threadIds []s
 	return items, nil
 }
 
+const listReviewMessagesOfThreads = `-- name: ListReviewMessagesOfThreads :many
+SELECT
+    m.id, m.thread_id, m.author_kind, m.author_agent_id, m.body, m.created_at, m.updated_at, m.review_id, m.suggestion, m.tenant_id
+FROM
+    review_messages m
+WHERE
+    m.thread_id = ANY ($1::uuid[])
+ORDER BY
+    m.thread_id,
+    m.id
+`
+
+func (q *Queries) ListReviewMessagesOfThreads(ctx context.Context, threadIds []string) ([]*ReviewMessage, error) {
+	rows, err := q.db.Query(ctx, listReviewMessagesOfThreads, threadIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*ReviewMessage
+	for rows.Next() {
+		var i ReviewMessage
+		if err := rows.Scan(
+			&i.ID,
+			&i.ThreadID,
+			&i.AuthorKind,
+			&i.AuthorAgentID,
+			&i.Body,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ReviewID,
+			&i.Suggestion,
+			&i.TenantID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listReviewRounds = `-- name: ListReviewRounds :many
 SELECT
     id, agent_id, ordinal, base_sha, snapshot_sha, created_at, tenant_id
@@ -1170,6 +1213,91 @@ func (q *Queries) ListReviews(ctx context.Context, agentID string) ([]*ListRevie
 			&i.RoundOrdinal,
 			&i.DeliveredAt,
 			&i.OpenThreads,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listWatchedReviewThreads = `-- name: ListWatchedReviewThreads :many
+SELECT
+    t.id, t.agent_id, t.file_path, t.old_start, t.old_end, t.new_start, t.new_end, t.quoted_lines, t.human_read_at, t.created_at, t.updated_at, t.last_agent_activity_at, t.resolved_at, t.review_id, t.round_id, t.base_sha, t.resolved_by_kind, t.resolved_by_agent_id, t.tenant_id,
+    r.ordinal AS round_ordinal,
+(t.last_agent_activity_at IS NOT NULL
+        AND (t.human_read_at IS NULL
+            OR t.last_agent_activity_at > t.human_read_at)) AS unread_by_human
+FROM
+    review_threads t
+    JOIN review_rounds r ON r.id = t.round_id
+    JOIN agents a ON a.id = t.agent_id
+WHERE
+    a.archived_at IS NULL
+    AND ($1::text[] IS NULL
+        OR t.id = ANY ($1::uuid[]))
+ORDER BY
+    t.id
+`
+
+type ListWatchedReviewThreadsRow struct {
+	ID                  string
+	AgentID             string
+	FilePath            string
+	OldStart            int32
+	OldEnd              int32
+	NewStart            int32
+	NewEnd              int32
+	QuotedLines         []string
+	HumanReadAt         *time.Time
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
+	LastAgentActivityAt *time.Time
+	ResolvedAt          *time.Time
+	ReviewID            string
+	RoundID             string
+	BaseSha             string
+	ResolvedByKind      NullReviewAuthorKind
+	ResolvedByAgentID   *string
+	TenantID            string
+	RoundOrdinal        int32
+	UnreadByHuman       *bool
+}
+
+func (q *Queries) ListWatchedReviewThreads(ctx context.Context, keys []string) ([]*ListWatchedReviewThreadsRow, error) {
+	rows, err := q.db.Query(ctx, listWatchedReviewThreads, keys)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*ListWatchedReviewThreadsRow
+	for rows.Next() {
+		var i ListWatchedReviewThreadsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.AgentID,
+			&i.FilePath,
+			&i.OldStart,
+			&i.OldEnd,
+			&i.NewStart,
+			&i.NewEnd,
+			&i.QuotedLines,
+			&i.HumanReadAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.LastAgentActivityAt,
+			&i.ResolvedAt,
+			&i.ReviewID,
+			&i.RoundID,
+			&i.BaseSha,
+			&i.ResolvedByKind,
+			&i.ResolvedByAgentID,
+			&i.TenantID,
+			&i.RoundOrdinal,
+			&i.UnreadByHuman,
 		); err != nil {
 			return nil, err
 		}

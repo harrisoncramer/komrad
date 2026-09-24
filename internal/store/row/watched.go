@@ -24,10 +24,6 @@ var WatchedAgents = watch.Resource{
 			Table:  "agent_runs",
 			Column: "agent_id",
 		},
-		{
-			Table:  "review_threads",
-			Column: "agent_id",
-		},
 	},
 }
 

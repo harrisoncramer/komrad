@@ -539,7 +539,15 @@ func threadFromRow(row models.ReviewThread) Thread {
 }
 
 func messageFromRow(row models.ReviewMessage) Message {
-	message := Message{
+	message := undeliveredMessageFromRow(row)
+	message.Delivery = deliveryOf(message)
+
+	return message
+}
+
+// undeliveredMessageFromRow is a message without the state of the review it went out with.
+func undeliveredMessageFromRow(row models.ReviewMessage) Message {
+	return Message{
 		ID:            row.ID,
 		ThreadID:      row.ThreadID,
 		ReviewID:      row.ReviewID,
@@ -550,9 +558,6 @@ func messageFromRow(row models.ReviewMessage) Message {
 		CreatedAt:     row.CreatedAt,
 		UpdatedAt:     row.UpdatedAt,
 	}
-	message.Delivery = deliveryOf(message)
-
-	return message
 }
 
 // deliveryOf reads a comment's state off the review it belongs to.

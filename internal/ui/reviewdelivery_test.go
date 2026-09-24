@@ -246,6 +246,7 @@ func TestReviewVerdictIsChosenInThePanel(t *testing.T) {
 			assert.Contains(t, wrote.notice, tt.says)
 
 			m.review.applyWrote(&m, m.shared(), wrote)
+			streamServed(&m)
 			assert.Contains(t, ansi.Strip(m.review.view(m.shared())), tt.says)
 		})
 	}

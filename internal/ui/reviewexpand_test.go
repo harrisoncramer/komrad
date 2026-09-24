@@ -163,6 +163,7 @@ func reloadReview(t *testing.T, m model) model {
 func reloadReviewReading(t *testing.T, m model) (model, reviewLoadedMsg) {
 	t.Helper()
 
+	holdServedThreads(&m)
 	cmd := m.review.reload(m.shared())
 	require.NotNil(t, cmd)
 

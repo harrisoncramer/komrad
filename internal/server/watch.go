@@ -29,6 +29,7 @@ func buildWatchLoaders(st *stores, runs *jobs.RunLister) []watch.Loader {
 		watch.NewLoader(watchv1.Resource_RESOURCE_PULL_REQUEST, st.pullRequests, renderWatchedPullRequest),
 		watch.NewLoader(watchv1.Resource_RESOURCE_REPOSITORY, st.pullRequestSyncs, renderWatchedRepository),
 		watch.NewLoader(watchv1.Resource_RESOURCE_REVIEW, st.review, renderWatchedReview),
+		watch.NewLoader(watchv1.Resource_RESOURCE_REVIEW_THREAD, st.reviewThreads, renderWatchedReviewThread),
 		watch.NewLoader(watchv1.Resource_RESOURCE_WORKTREE, st.worktrees, renderWatchedWorktree),
 	}
 }
@@ -79,6 +80,12 @@ func renderWatchedReview(row reviewstore.Review) (string, *watchv1.Row) {
 	review := render.WatchedReview(row)
 
 	return review.GetId(), &watchv1.Row{Row: &watchv1.Row_Review{Review: review}}
+}
+
+func renderWatchedReviewThread(row reviewstore.ThreadWithMessages) (string, *watchv1.Row) {
+	thread := render.WatchedReviewThread(row)
+
+	return thread.GetId(), &watchv1.Row{Row: &watchv1.Row_ReviewThread{ReviewThread: thread}}
 }
 
 func renderWatchedWorktree(row worktreestore.Worktree) (string, *watchv1.Row) {

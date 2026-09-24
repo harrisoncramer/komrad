@@ -300,39 +300,6 @@ func TestASendThatFailsKeepsThePass(t *testing.T) {
 	assert.True(t, m.review.pass.paused)
 }
 
-// TestASendThatLandedIsNotUndoneByAnUnreadableReview covers the two failures the answer used to
-// carry as one: the comments are in the agent's hands, so a review that will not read back is a
-// stale screen rather than a send to try again.
-func TestASendThatLandedIsNotUndoneByAnUnreadableReview(t *testing.T) {
-	dir := reviewRepo(t)
-	agents := &fakeReviewAgents{}
-	m, _ := reviewModel(t, agents, dir)
-	m = openReview(t, m)
-
-	m.review.diff.cursor = reviewRowWithAnEditTarget(t, m)
-	m = pressEdit(t, m)
-	m.review.closeEdit(&m, m.shared())
-	require.True(t, m.review.pass.paused)
-
-	cmd := m.review.send(m.shared(), false)
-	require.NotNil(t, cmd)
-
-	letGo := m.review.applyWrote(&m, m.shared(), reviewWroteMsg{
-		agentID: m.review.agentID,
-		notice:  "changes requested",
-		readErr: errors.New("the review could not be read back"),
-		sent:    true,
-	})
-
-	assert.Equal(t, modeWatching, m.review.pass.mode, "the review went, so the pass is over")
-	assert.False(t, m.review.pass.paused)
-
-	runReviewCmd(t, letGo)
-
-	require.NotNil(t, agents.letGo, "and the agent is let go, told what it was sent")
-	assert.Contains(t, agents.letGo.GetSaid(), "My comments are pinned")
-}
-
 // TestAnotherWriteLandingMidSendIsNotTheSend covers every write on this screen coming back the
 // same way: a comment answered while a review is still in flight would otherwise end the pass and
 // let the agent go before the review had landed at all.
@@ -441,7 +408,7 @@ func TestSendingAReplyIsAllowedWhileAReviewIsOut(t *testing.T) {
 	m = openReview(t, m)
 
 	m.review.threads.owed = "r1"
-	m.review.threads.activity.delivery[deliverySlot(agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT)] = 1
+	m.review.threads.delivery[deliverySlot(agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT)] = 1
 
 	next, _ := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyCtrlS})
 	m = next.(model)
@@ -996,7 +963,8 @@ func TestTheOpenCommentKeyWalksOnlyWhatIsUnsettled(t *testing.T) {
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1", threads: threadsOnEveryLine(t)})
+	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1"})
+	streamThreads(t, &m, threadsOnEveryLine(t))
 
 	next, _ := m.routeScreenMessage(keyMsg("u"))
 	written, ok := next.(model)
@@ -1021,7 +989,8 @@ func TestTheOpenCommentKeySaysWhenThereIsNothingLeft(t *testing.T) {
 		thread.ResolvedAt = "2026-09-13T12:00:00Z"
 	}
 
-	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1", threads: settled})
+	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1"})
+	streamThreads(t, &m, settled)
 
 	next, _ := m.routeScreenMessage(keyMsg("u"))
 	written, ok := next.(model)
@@ -1071,7 +1040,8 @@ func TestTheOpenCommentKeySaysWhenYouAreOnTheLastOne(t *testing.T) {
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1", threads: threadsOnEveryLine(t)})
+	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1"})
+	streamThreads(t, &m, threadsOnEveryLine(t))
 
 	next, _ := m.routeScreenMessage(keyMsg("u"))
 	written, ok := next.(model)
@@ -1094,7 +1064,8 @@ func TestTheOpenCommentKeyDoesNotClaimAFoldedReviewIsSettled(t *testing.T) {
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1", threads: threadsOnEveryLine(t)})
+	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1"})
+	streamThreads(t, &m, threadsOnEveryLine(t))
 
 	next, _ := m.routeScreenMessage(keyMsg("v"))
 	written, ok := next.(model)
@@ -1128,7 +1099,8 @@ func TestTheOpenCommentKeySaysBothWhenOneIsFoldedAway(t *testing.T) {
 	m = openReview(t, m)
 	require.Equal(t, 2, m.review.diff.view.Stat().Files, "the diff draws both files")
 
-	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1", threads: openThreadInEachFile(t)})
+	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1"})
+	streamThreads(t, &m, openThreadInEachFile(t))
 	require.Equal(t, 2, m.review.diff.view.CountOpenThreads())
 
 	// Fold the file the cursor is standing in, which leaves one open comment drawn and one not.

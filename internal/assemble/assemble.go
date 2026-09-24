@@ -21,15 +21,16 @@ import (
 
 // World is every resource a caller holds, by key.
 type World struct {
-	Agents       map[string]*agentv1.Agent
-	Workflows    map[string]*workflowv1.Workflow
-	Schedules    map[string]*schedulev1.Schedule
-	Marks        map[string]*agentv1.Mark
-	Mail         map[string]*agentv1.Mail
-	PullRequests map[string]*pullrequestv1.PullRequest
-	Repositories map[string]*pullrequestv1.Repository
-	Reviews      map[string]*agentv1.WatchedReview
-	Worktrees    map[string]*worktreev1.WatchedWorktree
+	Agents        map[string]*agentv1.Agent
+	Workflows     map[string]*workflowv1.Workflow
+	Schedules     map[string]*schedulev1.Schedule
+	Marks         map[string]*agentv1.Mark
+	Mail          map[string]*agentv1.Mail
+	PullRequests  map[string]*pullrequestv1.PullRequest
+	Repositories  map[string]*pullrequestv1.Repository
+	Reviews       map[string]*agentv1.WatchedReview
+	ReviewThreads map[string]*agentv1.ReviewThread
+	Worktrees     map[string]*worktreev1.WatchedWorktree
 }
 
 // Changed is the keys a message put or dropped, by resource.
@@ -126,6 +127,10 @@ func (w *World) put(row *watchv1.Row) (watchv1.Resource, string) {
 		w.Reviews[row.Review.GetId()] = row.Review
 
 		return watchv1.Resource_RESOURCE_REVIEW, row.Review.GetId()
+	case *watchv1.Row_ReviewThread:
+		w.ReviewThreads[row.ReviewThread.GetId()] = row.ReviewThread
+
+		return watchv1.Resource_RESOURCE_REVIEW_THREAD, row.ReviewThread.GetId()
 	case *watchv1.Row_Worktree:
 		w.Worktrees[row.Worktree.GetDir()] = row.Worktree
 
@@ -161,6 +166,9 @@ func (w *World) ensureMaps() {
 	if w.Reviews == nil {
 		w.Reviews = map[string]*agentv1.WatchedReview{}
 	}
+	if w.ReviewThreads == nil {
+		w.ReviewThreads = map[string]*agentv1.ReviewThread{}
+	}
 	if w.Worktrees == nil {
 		w.Worktrees = map[string]*worktreev1.WatchedWorktree{}
 	}
@@ -185,10 +193,11 @@ func (w *World) drop(deleted *watchv1.Deleted) {
 		delete(w.Repositories, key)
 	case watchv1.Resource_RESOURCE_REVIEW:
 		delete(w.Reviews, key)
+	case watchv1.Resource_RESOURCE_REVIEW_THREAD:
+		delete(w.ReviewThreads, key)
 	case watchv1.Resource_RESOURCE_WORKTREE:
 		delete(w.Worktrees, key)
-	case watchv1.Resource_RESOURCE_UNSPECIFIED,
-		watchv1.Resource_RESOURCE_REVIEW_THREAD:
+	case watchv1.Resource_RESOURCE_UNSPECIFIED:
 	}
 }
 
