@@ -54,7 +54,7 @@ Some facts an agent's row carries are learned from outside the database. Whether
 
 The database publishes its own changes. A trigger on each resource table announces the table and the key of a row the moment the write that moved it commits, and a write that rolls back announces nothing. The tables that describe a resource without being one, an agent's metadata for instance, announce the resource they belong to. A resource can name columns that nothing draws, and a write that changes only those announces nothing. Which tables carry a trigger, and which columns they pass over, is declared once, in Go, beside the code that reads those rows back, and a generated migration puts them on. The few changes that write no row of weave's, such as a scheduled job finishing, are announced by the service itself through the same door.
 
-The service holds one connection open to hear those announcements. It reads each named row back fresh and sends it down every open watch stream, or sends a tombstone when the row has left the set the stream carries, as an archived agent or a claimed mail has. A row that reads back exactly as the stream last carried it is sent to nobody, so a column a loop stamps on a timer moves nothing on the screen.
+The service holds one connection open to hear those announcements. It reads each named row back fresh and sends it down every open watch stream, or sends a tombstone when the row has left the set the stream carries, as a deleted agent or a claimed mail has. A row that reads back exactly as the stream last carried it is sent to nobody, so a column a loop stamps on a timer moves nothing on the screen.
 
 An announcement is an interrupt rather than a record. It carries no payload beyond the key, nothing durable is kept, and one that is lost costs a relist and never correctness, because every stream opens and reopens with the whole picture.
 
@@ -92,6 +92,6 @@ The handler then translates that request into a call on the agents service, whic
 
 The store then writes the rows, inside one transaction if more than one domain is involved. The service also kills the panes through the tmux adapter.
 
-When the transaction commits, the database announces the rows it moved. The service reads them back, finds them gone from the live set, and sends the panel a tombstone for each, and the panel drops them from the picture it draws. If the call failed, the error is reported on the panel's screen and nothing was written.
+When the transaction commits, the database announces the rows it moved. The service reads them back and sends the panel each row as it now stands, archived, and the panel moves it from the tree into the archive. The agent's review threads leave the watched set, so those go as tombstones. If the call failed, the error is reported on the panel's screen and nothing was written.
 
 The process is similar for an agent doing the same thing: the call may come over MCP, but eventually it still reaches the same validators, services logic, and database transaction code.
