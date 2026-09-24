@@ -1,14 +1,10 @@
-package ui
+package ui_test
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 
-	"weave/config"
-	"weave/internal/ui/layout"
 	"weave/internal/ui/paint"
-	"weave/internal/ui/panel"
 	"weave/internal/view"
 
 	"github.com/charmbracelet/x/ansi"
@@ -16,162 +12,149 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// screensModel is a panel standing on the last row of a list longer than any pane, on every
-// screen that draws one.
-func screensModel() model {
-	const total = 40
-
-	m := model{
-		keys:          config.DefaultKeybindings(),
-		width:         80,
-		detailsHeight: config.DefaultDetailsHeight,
-		frame:         layout.New(&recordingTmux{}, config.DefaultLayout()),
-		listing:       listing{workflows: []panel.Workflow{{ID: "w1", Name: "everything"}}},
-	}
-
-	for i := range total {
-		name := fmt.Sprintf("agent%d", i)
-		m.listing.agents = append(m.listing.agents, panel.AgentRow{Agent: panel.Agent{
-			ID:         name,
-			Name:       name,
-			WorkflowID: "w1",
-		}})
-		m.listing.archivedAgents = append(m.listing.archivedAgents, panel.AgentRow{Agent: panel.Agent{
-			ID:         name,
-			Name:       name,
-			WorkflowID: "w1",
-		}})
-		m.listing.schedules = append(m.listing.schedules, scheduleItem{schedule: panel.Schedule{Name: name}})
-	}
-
-	m.agents.cursor = total
-	m.archive.cursor = total
-	m.schedules.cursor = total - 1
-	for i := range total {
-		name := fmt.Sprintf("agent%02d", i)
-		m.worktrees.items = append(m.worktrees.items, worktreeItem{
-			dir:      "/trees/" + name,
-			repoDir:  "/home/h/weave",
-			branch:   "agent/" + name,
-			readable: true,
-			agent:    &worktreeAgent{id: name, name: name},
-		})
-	}
-	m.worktrees.cursor = total
-
-	return m
-}
-
-// TestScreenTitlesOpenWithTheirIcon covers every listing's title drawn one column in behind
-// the icon that says what the screen is, in the plain foreground rather than the accent.
-func TestScreenTitlesOpenWithTheirIcon(t *testing.T) {
-	withANSI(t)
-
+// TestListTitles covers every listing's title drawn behind the icon that says what the screen is.
+func TestListTitles(t *testing.T) {
 	tests := []struct {
-		name   string
-		screen screen
-		icon   view.Glyph
-		title  string
+		name  string
+		press []string
+		icon  view.Glyph
+		title string
 	}{
 		{
-			name:   "the agents tree",
-			screen: screenAgents,
-			icon:   view.GlyphWorkflow,
-			title:  "Agents & Workflows",
+			name:  "the agents tree",
+			icon:  view.GlyphWorkflow,
+			title: "Agents & Workflows",
 		},
 		{
-			name:   "the schedules",
-			screen: screenSchedules,
-			icon:   view.GlyphSchedule,
-			title:  "Schedules",
+			name:  "the schedules",
+			press: []string{"S"},
+			icon:  view.GlyphSchedule,
+			title: "Schedules",
 		},
 		{
-			name:   "the archive",
-			screen: screenArchive,
-			icon:   view.GlyphArchive,
-			title:  "Archive",
+			name:  "the archive",
+			press: []string{"Z"},
+			icon:  view.GlyphArchive,
+			title: "Archive",
 		},
 		{
-			name:   "the worktrees",
-			screen: screenWorktrees,
-			icon:   view.GlyphRepo,
-			title:  "Worktrees",
+			name:  "the worktrees",
+			press: []string{"t"},
+			icon:  view.GlyphRepo,
+			title: "Worktrees",
 		},
 		{
-			name:   "the search",
-			screen: screenSearch,
-			icon:   view.GlyphSearch,
-			title:  "Search",
+			name:  "the search",
+			press: []string{"s"},
+			icon:  view.GlyphSearch,
+			title: "Search",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			shown := screensModel()
-			shown.height = 29
-			shown.screen = tt.screen
+			harness := openCrowded(t, panelHarnessParams{})
 
-			first, _, _ := strings.Cut(shown.render(), "\n")
+			harness.press(tt.press...)
+
+			first, _, _ := strings.Cut(harness.readRawFrame(), "\n")
 			require.True(t, strings.HasPrefix(first, " "+view.Spell(tt.icon)+"  "+tt.title), "the title opens the frame: %q", ansi.Strip(first))
 			assert.NotContains(t, first, paint.Panel.Title(tt.title), "and is drawn plain")
 		})
 	}
 }
 
-// TestListLines pins that the chrome comes off the pane, and that a pane the chrome fills leaves
-// the list nothing rather than a line the pane does not have.
-func TestListLines(t *testing.T) {
-	const chrome = 6
-
-	header := "Archive\n\n"
-	help := "\nrestore\ndelete\nback\n"
-
+// TestListPageKeys covers a page key moving the cursor ten rows and stopping at either end.
+func TestListPageKeys(t *testing.T) {
 	tests := []struct {
-		name   string
-		height int
-		want   int
+		name  string
+		press []string
+		want  string
 	}{
 		{
-			name:   "an unmeasured pane is unbounded",
-			height: 0,
-			want:   paint.Unbounded,
+			name:  "a page down is ten rows",
+			press: []string{"ctrl+d"},
+			want:  "  agent10",
 		},
 		{
-			name:   "a pane shorter than its chrome keeps no rows",
-			height: chrome - 1,
-			want:   0,
+			name:  "a page past the top lands on the first row",
+			press: []string{"ctrl+d", "ctrl+u", "ctrl+u"},
+			want:  "everything",
 		},
 		{
-			name:   "a pane the chrome fills keeps no rows",
-			height: chrome,
-			want:   0,
-		},
-		{
-			name:   "a pane one line taller than its chrome keeps that line",
-			height: chrome + 1,
-			want:   1,
-		},
-		{
-			name:   "the pane less the chrome around the list",
-			height: 20,
-			want:   20 - chrome,
+			name:  "a page past the bottom lands on the last row",
+			press: []string{"G", "k", "ctrl+d"},
+			want:  "  agent39",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := model{height: tt.height}
+			harness := openCrowded(t, panelHarnessParams{})
 
-			assert.Equal(t, tt.want, m.listLines(header, help))
+			harness.press(tt.press...)
+
+			assert.True(t, strings.HasPrefix(readHoveredRow(harness.readFrame()), tt.want))
 		})
 	}
 }
 
-func lines(rendered string) []string {
-	trimmed := strings.TrimSuffix(rendered, "\n")
-	if trimmed == "" {
-		return nil
+// TestListScrollKeys covers the keys the mouse wheel presses moving every list one row.
+func TestListScrollKeys(t *testing.T) {
+	tests := []struct {
+		name   string
+		screen []string
+		first  string
+		second string
+	}{
+		{
+			name:   "the agents tree",
+			first:  "everything",
+			second: "  agent00",
+		},
+		{
+			name:   "the archive",
+			screen: []string{"Z"},
+			first:  "everything",
+			second: "  agent00",
+		},
+		{
+			name:   "the schedules",
+			screen: []string{"S"},
+			first:  "agent39",
+			second: "agent38",
+		},
 	}
 
-	return strings.Split(trimmed, "\n")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			harness := openCrowded(t, panelHarnessParams{})
+			harness.press(tt.screen...)
+			harness.press("g", "g")
+			require.Contains(t, readHoveredRow(harness.readFrame()), tt.first)
+
+			harness.press("ctrl+n")
+			assert.Contains(t, readHoveredRow(harness.readFrame()), tt.second, "one turn down is one row")
+
+			harness.press("ctrl+p")
+			assert.Contains(t, readHoveredRow(harness.readFrame()), tt.first, "and one turn up is back")
+
+			harness.press("ctrl+p")
+			assert.Contains(t, readHoveredRow(harness.readFrame()), tt.first, "the top stops it")
+		})
+	}
+
+	t.Run("a turn up on the record's first field keeps the record", func(t *testing.T) {
+		harness := openAgents(t, buildSelectable()...)
+		harness.press("ctrl+t")
+
+		harness.press("ctrl+n")
+		assert.Equal(t, "agent      —", readRecordCursor(harness.readFrame()), "a turn down is a field")
+
+		harness.press("ctrl+p")
+		assert.Equal(t, "name       auth", readRecordCursor(harness.readFrame()))
+
+		harness.press("ctrl+p")
+		assert.Equal(t, "name       auth", readRecordCursor(harness.readFrame()), "and a turn up past it keeps the record too")
+	})
 }

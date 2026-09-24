@@ -3,12 +3,15 @@ package ui_test
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
 	"time"
 
 	"weave/config"
+	"weave/internal/errui"
+	"weave/internal/ui/paint"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	"weave/proto/gen/hook/v1/hookv1connect"
@@ -31,6 +34,12 @@ const (
 	hiddenMark    = " \uf4c5"
 	heldAt        = "2026-09-20T12:00:00Z"
 	repositoryURL = "https://github.com/harrisoncramer/weave"
+)
+
+var (
+	recordNameLine = regexp.MustCompile(`name\s+auth`)
+	recordBaseLine = regexp.MustCompile(`base\s+origin/main`)
+	cursorRowLine  = regexp.MustCompile(`package greet`)
 )
 
 // TestAgentsRows covers which rows the agents tree draws and where.
@@ -159,6 +168,16 @@ func TestAgentsRows(t *testing.T) {
 		for _, row := range rows[1:] {
 			assert.Equal(t, findBarColumn(rows[0]), findBarColumn(row), "the bar stands in one column whatever the row is")
 		}
+	})
+
+	t.Run("a branch draws nothing on the row", func(t *testing.T) {
+		branch := newAgent("a1", "worker", "w1")
+		branch.Branch = proto.String("agent/a1")
+
+		plain := openAgents(t, newLiveWorkflow("w1", "backend"), newAgent("a1", "worker", "w1"))
+		branched := openAgents(t, newLiveWorkflow("w1", "backend"), branch)
+
+		assert.Equal(t, readListRows(plain.readFrame()), readListRows(branched.readFrame()))
 	})
 
 	t.Run("an empty panel still draws its chrome and says where to start", func(t *testing.T) {
@@ -579,6 +598,17 @@ func TestAgentsRecordFocus(t *testing.T) {
 		assert.Equal(t, "backend", readHoveredRow(harness.readFrame()), "the list has the keys again")
 	})
 
+	t.Run("one cursor is drawn at a time", func(t *testing.T) {
+		harness := openAgents(t, buildRecorded()...)
+		require.Equal(t, 1, countCursors(harness.readFrame()))
+
+		harness.press("ctrl+t")
+
+		frame := harness.readFrame()
+		assert.Equal(t, 1, countCursors(frame))
+		assert.NotEmpty(t, readRecordCursor(frame), "the cursor is the record's")
+	})
+
 	t.Run("another row's record opens at its top", func(t *testing.T) {
 		harness := openAgents(t, buildRecorded()...)
 
@@ -631,6 +661,107 @@ func TestAgentsRecordFocus(t *testing.T) {
 
 		harness.press("j")
 		assert.Regexp(t, `^agents\s+0$`, readRecordCursor(harness.readFrame()))
+	})
+}
+
+// TestAgentsRecordCopy covers the copy key taking the field under the record's cursor.
+func TestAgentsRecordCopy(t *testing.T) {
+	t.Run("a clipboard that refuses the write says so", func(t *testing.T) {
+		harness := newPanelHarness(t, panelHarnessParams{})
+		harness.panel.SetClipboardErr(errors.New("no clipboard utility found"))
+		answerWorktreeReads(harness)
+		harness.watch(buildSnapshot(buildRecorded()...))
+
+		harness.press("ctrl+t", "y")
+		harness.fireTimers()
+		refused := harness.readFrame()
+		require.Contains(t, refused, "✗ Could not copy")
+		require.Contains(t, refused, "no clipboard utility found")
+
+		harness.panel.SetClipboardErr(nil)
+		harness.press("y")
+		harness.fireTimers()
+
+		assert.Equal(t, refused, harness.readFrame(), "a copy that worked reports nothing of its own")
+	})
+
+	tests := []struct {
+		name  string
+		open  func(*testing.T) *panelHarness
+		press []string
+		want  string
+	}{
+		{
+			name: "the whole value is taken rather than the clipped line it is drawn on",
+			open: openCopyRecord,
+			press: []string{
+				"ctrl+t",
+				"G",
+			},
+			want: "https://github.com/o/r/pull/312",
+		},
+		{
+			name: "a narrowed record copies from the rows that are left",
+			open: func(t *testing.T) *panelHarness {
+				t.Helper()
+
+				return openWorktreeRecord(t, panelHarnessParams{})
+			},
+			press: []string{"/", "c", "o", "m", "m", "i", "t", "tab", "enter", "G"},
+			want:  "1234567890ab  3h   feat(ui): a thing",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			harness := tt.open(t)
+
+			harness.press(append(tt.press, "y")...)
+
+			assert.Equal(t, []string{tt.want}, harness.panel.ReadCopied())
+		})
+	}
+
+	t.Run("the field on screen is taken after the row goes from under the record", func(t *testing.T) {
+		rows := buildRecorded()
+		harness := openCopyRecord(t)
+		harness.press("ctrl+t", "j", "j", "j")
+
+		harness.watch(buildSnapshot(rows[0]))
+		harness.press("y")
+
+		assert.Equal(t, []string{"backend"}, harness.panel.ReadCopied())
+	})
+}
+
+// TestAgentsRecordEmphasis covers what the record says in colour rather than in text.
+func TestAgentsRecordEmphasis(t *testing.T) {
+	t.Run("a search typed on the list lights its match in the record", func(t *testing.T) {
+		harness := openAgents(t, buildRecorded()...)
+
+		harness.press("/", "a", "u", "t", "h")
+
+		assert.Contains(t, findRawLine(harness.readRawFrame(), recordNameLine), paint.Panel.Match().Render("auth"))
+	})
+
+	t.Run("a search standing over the record lights the matched run of a value", func(t *testing.T) {
+		harness := openWorktreeRecord(t, panelHarnessParams{})
+
+		harness.press("/", "o", "r", "i", "g", "i", "n", "enter")
+
+		assert.Contains(t, findRawLine(harness.readRawFrame(), recordBaseLine), paint.Panel.Match().Render("origin"))
+	})
+
+	t.Run("the hovered label takes the accent only while the record has the keys", func(t *testing.T) {
+		harness := openAgents(t, buildRecorded()...)
+		label := "name      "
+		require.Contains(t, findRawLine(harness.readRawFrame(), recordNameLine), errui.Dim.Render(label))
+
+		harness.press("ctrl+t")
+
+		lit := findRawLine(harness.readRawFrame(), recordNameLine)
+		assert.Contains(t, lit, paint.Panel.Cursor().Render(label))
+		assert.Equal(t, 1, strings.Count(ansi.Strip(lit), "›"))
 	})
 }
 
@@ -898,6 +1029,36 @@ func TestAgentsRecordWorktree(t *testing.T) {
 		assert.Equal(t, "could not read: context deadline exceeded", readRecordField(frame, "worktree"))
 		assert.Equal(t, "origin/main  ↑3 ↓12", readRecordField(frame, "base"))
 		assert.Equal(t, "M a.go", readRecordField(frame, "uncommitted"))
+	})
+
+	t.Run("the cursor coming to rest asks again only for a read gone stale", func(t *testing.T) {
+		tests := []struct {
+			name string
+			age  time.Duration
+			want int
+		}{
+			{
+				name: "a fresh read is not asked for again",
+				want: 1,
+			},
+			{
+				name: "a stale read is",
+				age:  2 * time.Minute,
+				want: 2,
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				harness := openAgents(t, buildRecorded()...)
+				harness.panel.AgeWorktreeReads(tt.age)
+
+				harness.press("k", "j")
+				harness.fireTimers()
+
+				harness.assertSent(buildWorktreeReadRequests(tt.want)...)
+			})
+		}
 	})
 
 	t.Run("a directory weave does not hold is never asked about twice", func(t *testing.T) {
@@ -1452,6 +1613,20 @@ func TestAgentsOrchestrator(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("a running orchestrator whose harness draws late is staged once it draws", func(t *testing.T) {
+		frames := &drawReporter{}
+		harness := newPanelHarness(t, panelHarnessParams{harnessFrames: frames})
+		answerWorktreeReads(harness)
+		harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), newOrchestrator()))
+		harness.fireTimers()
+		require.Empty(t, harness.panel.ReadGuestPane())
+
+		frames.isDrawn = true
+		harness.fireTimers()
+
+		assert.Equal(t, "%9", harness.panel.ReadGuestPane())
+	})
 
 	t.Run("open on a workflow starts its orchestrator", func(t *testing.T) {
 		harness := openAgents(t, newLiveWorkflow("w1", "backend"))
@@ -2172,6 +2347,26 @@ func newOrchestrator() *agentv1.Agent {
 	}
 }
 
+func findRawLine(frame string, pattern *regexp.Regexp) string {
+	for _, line := range splitLines(frame) {
+		if pattern.MatchString(ansi.Strip(line)) {
+			return line
+		}
+	}
+
+	return ""
+}
+
+func openCopyRecord(t *testing.T) *panelHarness {
+	t.Helper()
+
+	harness := newPanelHarness(t, panelHarnessParams{})
+	answerWorktreeReads(harness)
+	harness.watch(buildSnapshot(buildRecorded()...))
+
+	return harness
+}
+
 func openWorktreeRecord(t *testing.T, params panelHarnessParams) *panelHarness {
 	t.Helper()
 
@@ -2212,6 +2407,10 @@ func findRecordCursor(frame string) int {
 	return slices.IndexFunc(readRecord(frame), func(line string) bool {
 		return strings.HasPrefix(line, "› ")
 	})
+}
+
+func countCursors(frame string) int {
+	return strings.Count(frame, "›")
 }
 
 func isBlank(line string) bool {

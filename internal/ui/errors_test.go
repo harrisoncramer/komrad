@@ -3,7 +3,6 @@ package ui_test
 import (
 	"errors"
 	"slices"
-	"strings"
 	"testing"
 
 	"weave/internal/engine"
@@ -112,6 +111,14 @@ func TestErrorsRegion(t *testing.T) {
 
 // TestErrorsUnreachable covers the server going away being said once per time it goes.
 func TestErrorsUnreachable(t *testing.T) {
+	t.Run("the tree already drawn stays drawn", func(t *testing.T) {
+		harness := openUnreachable(t, engine.Remote{})
+
+		frame := harness.readFrame()
+		assert.Contains(t, frame, "Cannot reach the")
+		assert.Equal(t, []string{"backend"}, readListRows(frame))
+	})
+
 	t.Run("a stream lost twice in a row is said once", func(t *testing.T) {
 		harness := openUnreachable(t, engine.Remote{})
 
@@ -121,6 +128,15 @@ func TestErrorsUnreachable(t *testing.T) {
 		assert.Contains(t, frame, "Cannot reach the")
 		assert.NotContains(t, frame, "+1", "a server still down says nothing more")
 		assert.NotContains(t, frame, "The panel could not list your agents", "and no screen is taken over")
+	})
+
+	t.Run("a close the service chose leaves a lost server lost", func(t *testing.T) {
+		harness := openUnreachable(t, engine.Remote{})
+
+		harness.send(ui.NewWatchLost(nil))
+		harness.send(ui.NewWatchLost(errors.New("connection refused")))
+
+		assert.NotContains(t, harness.readFrame(), "+1")
 	})
 
 	t.Run("a stream that came back and went again is said again", func(t *testing.T) {
@@ -154,7 +170,7 @@ func TestErrorsUnreachable(t *testing.T) {
 
 			harness.press("ctrl+g")
 
-			frame := strings.Join(strings.Fields(harness.readFrame()), " ")
+			frame := joinProse(splitLines(harness.readFrame()))
 			assert.Contains(t, frame, serverAddr)
 			assert.Contains(t, frame, tt.want)
 		})
@@ -202,7 +218,7 @@ func TestErrorsFatalScreens(t *testing.T) {
 			harness.watch(buildSnapshot(newLiveWorkflow("w1", "should-not-render")))
 			harness.send(ui.NewWatchLost(errors.New("connection refused")))
 
-			frame := strings.Join(strings.Fields(harness.readFrame()), " ")
+			frame := joinProse(splitLines(harness.readFrame()))
 			for _, want := range tt.wantContain {
 				assert.Contains(t, frame, want)
 			}

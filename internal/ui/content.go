@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -61,12 +62,34 @@ func stageFilePath(name string) string {
 
 // writeStageFile writes the frame beside the path and renames it into place.
 func writeStageFile(path, content string) error {
-	temp := path + ".tmp"
-	if err := os.WriteFile(temp, []byte(content), 0o644); err != nil {
-		return err
+	temp, err := os.CreateTemp(filepath.Dir(path), filepath.Base(path)+".*.tmp")
+	if err != nil {
+		return fmt.Errorf("failed to create a temporary file beside %s: %w", path, err)
 	}
 
-	return os.Rename(temp, path)
+	if err := fillStageFile(temp, content); err != nil {
+		return errors.Join(err, os.Remove(temp.Name()))
+	}
+
+	if err := os.Rename(temp.Name(), path); err != nil {
+		return errors.Join(fmt.Errorf("failed to move %s into place: %w", temp.Name(), err), os.Remove(temp.Name()))
+	}
+
+	return nil
+}
+
+func fillStageFile(temp *os.File, content string) error {
+	if _, err := temp.WriteString(content); err != nil {
+		_ = temp.Close()
+
+		return fmt.Errorf("failed to write %s: %w", temp.Name(), err)
+	}
+
+	if err := temp.Close(); err != nil {
+		return fmt.Errorf("failed to close %s: %w", temp.Name(), err)
+	}
+
+	return nil
 }
 
 func pagerArgv(path string, line int) []string {

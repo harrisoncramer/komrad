@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -97,4 +98,47 @@ func TestWriteStageFileIsNeverTornInHalf(t *testing.T) {
 	}
 
 	assert.Equal(t, frames, written, "every frame was written")
+}
+
+// TestWriteStageFile covers two writers racing on one stage file and a write that cannot land.
+func TestWriteStageFile(t *testing.T) {
+	t.Run("two writers at once each land a whole frame", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "stage.ansi")
+		frames := []string{
+			strings.Repeat("first\n", 400),
+			strings.Repeat("second\n", 400),
+		}
+
+		errs := make(chan error, len(frames)*50)
+		var group sync.WaitGroup
+		for _, frame := range frames {
+			group.Go(func() {
+				for range 50 {
+					errs <- writeStageFile(path, frame)
+				}
+			})
+		}
+		group.Wait()
+		close(errs)
+
+		for err := range errs {
+			require.NoError(t, err)
+		}
+
+		body, err := os.ReadFile(path)
+		require.NoError(t, err)
+		assert.Contains(t, frames, string(body))
+	})
+
+	t.Run("a write that cannot be moved into place leaves no temporary file behind", func(t *testing.T) {
+		dir := t.TempDir()
+		path := filepath.Join(dir, "stage.ansi")
+		require.NoError(t, os.MkdirAll(filepath.Join(path, "occupied"), 0o750))
+
+		require.Error(t, writeStageFile(path, "one row\n"))
+
+		left, err := filepath.Glob(filepath.Join(dir, "stage.ansi.*.tmp"))
+		require.NoError(t, err)
+		assert.Empty(t, left)
+	})
 }

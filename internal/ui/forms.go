@@ -261,11 +261,14 @@ func (m *model) holdForm() tea.Cmd {
 		write:  m.writes,
 	}
 
-	if m.form.isActive() && m.form.form.State == huh.StateCompleted {
+	if !m.form.isActive() {
+		return nil
+	}
+	if m.form.form.State == huh.StateCompleted {
 		return m.rebuildForm()
 	}
 
-	return nil
+	return formResized()
 }
 
 // redrawOpenForm draws the form on screen again from the listing as it stands now, leaving the

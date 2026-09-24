@@ -14,8 +14,11 @@ import (
 	"time"
 
 	"weave/config"
+	"weave/internal/browser"
 	"weave/internal/client"
 	"weave/internal/engine"
+	"weave/internal/git"
+	"weave/internal/position"
 	"weave/internal/ui"
 	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
@@ -64,7 +67,38 @@ type panelHarness struct {
 	t        *testing.T
 	panel    *ui.Panel
 	recorder *requestRecorder
+	gate     *gate
 	timers   []tea.Cmd
+	parked   []parkedCmd
+}
+
+type gate struct {
+	mu     sync.Mutex
+	held   map[string]bool
+	parked chan parkedCall
+}
+
+type parkedCall struct {
+	name    string
+	release chan struct{}
+}
+
+type parkedCmd struct {
+	call parkedCall
+	done chan tea.Msg
+}
+
+type panelRemote struct {
+	agents    agentv1connect.AgentServiceClient
+	workflows workflowv1connect.WorkflowServiceClient
+	schedules schedulev1connect.ScheduleServiceClient
+	hooks     hookv1connect.HookServiceClient
+	worktrees worktreev1connect.WorktreeServiceClient
+}
+
+type heldGit struct {
+	git  ui.ReviewGit
+	gate *gate
 }
 
 type request struct {
@@ -78,6 +112,7 @@ type requestRecorder struct {
 	mu      sync.Mutex
 	seen    []request
 	answers map[string]answerFunc
+	gate    *gate
 }
 
 // TestHarnessHoldsTimers covers the harness telling a timer from a command it can run at once.
@@ -145,6 +180,7 @@ type panelHarnessParams struct {
 	height        int
 	detailsHeight float64
 	sidebarSide   string
+	sidebarWidth  int
 	keys          *config.Keybindings
 	git           ui.ReviewGit
 	settings      ui.PanelSettings
@@ -153,12 +189,23 @@ type panelHarnessParams struct {
 	configErr     error
 	startupErr    error
 	refuseSplits  bool
+	binary        ui.BinaryWatcher
+	browser       browser.Opener
+	tmux          ui.PanelTmux
+	remote        *panelRemote
 }
 
 func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
 	t.Helper()
 
-	recorder := &requestRecorder{answers: map[string]answerFunc{}}
+	gate := &gate{
+		held:   map[string]bool{},
+		parked: make(chan parkedCall),
+	}
+	recorder := &requestRecorder{
+		answers: map[string]answerFunc{},
+		gate:    gate,
+	}
 	interceptors := connect.WithInterceptors(recorder)
 
 	mux := http.NewServeMux()
@@ -171,9 +218,28 @@ func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
 	server := httptest.NewServer(mux)
 	t.Cleanup(server.Close)
 
+	remote := params.remote
+	if remote == nil {
+		remote = &panelRemote{
+			agents:    agentv1connect.NewAgentServiceClient(server.Client(), server.URL),
+			workflows: workflowv1connect.NewWorkflowServiceClient(server.Client(), server.URL),
+			schedules: schedulev1connect.NewScheduleServiceClient(server.Client(), server.URL),
+			hooks:     hookv1connect.NewHookServiceClient(server.Client(), server.URL),
+			worktrees: worktreev1connect.NewWorktreeServiceClient(server.Client(), server.URL),
+		}
+	}
+
 	keys := config.DefaultKeybindings()
 	if params.keys != nil {
 		keys = *params.keys
+	}
+
+	var reviewGit ui.ReviewGit
+	if params.git != nil {
+		reviewGit = heldGit{
+			git:  params.git,
+			gate: gate,
+		}
 	}
 
 	width, height := params.width, params.height
@@ -187,16 +253,18 @@ func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
 	harness := &panelHarness{
 		t:        t,
 		recorder: recorder,
+		gate:     gate,
 		panel: ui.NewPanel(ui.NewPanelParams{
-			Agents:        agentv1connect.NewAgentServiceClient(server.Client(), server.URL),
-			Workflows:     workflowv1connect.NewWorkflowServiceClient(server.Client(), server.URL),
-			Schedules:     schedulev1connect.NewScheduleServiceClient(server.Client(), server.URL),
-			Hooks:         hookv1connect.NewHookServiceClient(server.Client(), server.URL),
-			Worktrees:     worktreev1connect.NewWorktreeServiceClient(server.Client(), server.URL),
-			Git:           params.git,
+			Agents:        remote.agents,
+			Workflows:     remote.workflows,
+			Schedules:     remote.schedules,
+			Hooks:         remote.hooks,
+			Worktrees:     remote.worktrees,
+			Git:           reviewGit,
 			Keys:          keys,
 			DetailsHeight: params.detailsHeight,
 			SidebarSide:   params.sidebarSide,
+			SidebarWidth:  params.sidebarWidth,
 			Width:         width,
 			Height:        height,
 			Settings:      params.settings,
@@ -205,8 +273,12 @@ func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
 			ConfigErr:     params.configErr,
 			StartupErr:    params.startupErr,
 			RefuseSplits:  params.refuseSplits,
+			Binary:        params.binary,
+			Browser:       params.browser,
+			Tmux:          params.tmux,
 		}),
 	}
+	t.Cleanup(harness.releaseParked)
 
 	harness.settle(harness.panel.Init())
 	harness.send(tea.WindowSizeMsg{
@@ -239,6 +311,10 @@ func (h *panelHarness) send(msg tea.Msg) {
 
 func (h *panelHarness) readFrame() string {
 	return ansi.Strip(h.panel.View())
+}
+
+func (h *panelHarness) readRawFrame() string {
+	return h.panel.View()
 }
 
 func (h *panelHarness) assertSent(want ...request) {
@@ -302,7 +378,12 @@ func (h *panelHarness) settle(cmd tea.Cmd) {
 			continue
 		}
 
-		switch msg := next().(type) {
+		msg, isDone := h.run(next)
+		if !isDone {
+			continue
+		}
+
+		switch msg := msg.(type) {
 		case nil, tea.QuitMsg:
 		case tea.BatchMsg:
 			queue = append(queue, msg...)
@@ -312,9 +393,85 @@ func (h *panelHarness) settle(cmd tea.Cmd) {
 	}
 }
 
+func (h *panelHarness) hold(name string) {
+	h.gate.mu.Lock()
+	defer h.gate.mu.Unlock()
+
+	h.gate.held[name] = true
+}
+
+func (h *panelHarness) release(name string) {
+	h.t.Helper()
+
+	for i, parked := range h.parked {
+		if parked.call.name != name {
+			continue
+		}
+
+		h.parked = append(h.parked[:i:i], h.parked[i+1:]...)
+		close(parked.call.release)
+		msg, isDone := h.await(parked.done)
+		if isDone {
+			h.settle(func() tea.Msg {
+				return msg
+			})
+		}
+
+		return
+	}
+
+	require.Failf(h.t, "nothing to release", "no call to %s is held", name)
+}
+
+func (h *panelHarness) run(cmd tea.Cmd) (tea.Msg, bool) {
+	done := make(chan tea.Msg, 1)
+	go func() {
+		done <- cmd()
+	}()
+
+	return h.await(done)
+}
+
+func (h *panelHarness) await(done chan tea.Msg) (tea.Msg, bool) {
+	select {
+	case msg := <-done:
+		return msg, true
+	case call := <-h.gate.parked:
+		h.parked = append(h.parked, parkedCmd{
+			call: call,
+			done: done,
+		})
+
+		return nil, false
+	}
+}
+
+func (h *panelHarness) releaseParked() {
+	h.gate.mu.Lock()
+	clear(h.gate.held)
+	h.gate.mu.Unlock()
+
+	for _, parked := range h.parked {
+		close(parked.call.release)
+	}
+	h.parked = nil
+}
+
 func (h *panelHarness) fireTimers() {
 	h.t.Helper()
 
+	for _, msg := range h.runTimers() {
+		h.settle(func() tea.Msg {
+			return msg
+		})
+	}
+}
+
+func (h *panelHarness) fireTimersUnsettled() []tea.Cmd {
+	return xslice.Map(h.runTimers(), h.panel.Update)
+}
+
+func (h *panelHarness) runTimers() []tea.Msg {
 	pending := h.timers
 	h.timers = nil
 
@@ -327,15 +484,11 @@ func (h *panelHarness) fireTimers() {
 	}
 	group.Wait()
 
-	for _, msg := range fired {
-		h.settle(func() tea.Msg {
-			return msg
-		})
-	}
+	return fired
 }
 
 func (l *requestRecorder) WrapUnary(connect.UnaryFunc) connect.UnaryFunc {
-	return func(_ context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
+	return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
 		l.mu.Lock()
 		msg, _ := req.Any().(proto.Message)
 		l.seen = append(l.seen, request{
@@ -344,6 +497,8 @@ func (l *requestRecorder) WrapUnary(connect.UnaryFunc) connect.UnaryFunc {
 		})
 		answer := l.answers[req.Spec().Procedure]
 		l.mu.Unlock()
+
+		l.gate.wait(ctx, req.Spec().Procedure)
 
 		if answer != nil {
 			return answer(req)
@@ -365,6 +520,72 @@ func (l *requestRecorder) WrapStreamingHandler(next connect.StreamingHandlerFunc
 
 		return next(ctx, conn)
 	}
+}
+
+func (g *gate) wait(ctx context.Context, name string) {
+	g.mu.Lock()
+	isHeld := g.held[name]
+	g.mu.Unlock()
+	if !isHeld {
+		return
+	}
+
+	release := make(chan struct{})
+	select {
+	case g.parked <- parkedCall{
+		name:    name,
+		release: release,
+	}:
+	case <-ctx.Done():
+		return
+	}
+
+	select {
+	case <-release:
+	case <-ctx.Done():
+	}
+}
+
+func (g heldGit) CountChangedFiles(ctx context.Context, params git.CountChangedFilesParams) (int, error) {
+	g.gate.wait(ctx, "git.CountChangedFiles")
+
+	return g.git.CountChangedFiles(ctx, params)
+}
+
+func (g heldGit) MapRanges(ctx context.Context, params git.MapRangesParams) ([]position.Mapping, error) {
+	g.gate.wait(ctx, "git.MapRanges")
+
+	return g.git.MapRanges(ctx, params)
+}
+
+func (g heldGit) Replay(ctx context.Context, params git.ReplayParams) (*git.Replayed, error) {
+	g.gate.wait(ctx, "git.Replay")
+
+	return g.git.Replay(ctx, params)
+}
+
+func (g heldGit) IsAncestor(ctx context.Context, dir, maybeAncestor, of string) (bool, error) {
+	g.gate.wait(ctx, "git.IsAncestor")
+
+	return g.git.IsAncestor(ctx, dir, maybeAncestor, of)
+}
+
+func (g heldGit) GetRoot(ctx context.Context, dir string) (string, error) {
+	g.gate.wait(ctx, "git.GetRoot")
+
+	return g.git.GetRoot(ctx, dir)
+}
+
+func (g heldGit) Diff(ctx context.Context, params git.DiffParams) ([]byte, error) {
+	g.gate.wait(ctx, "git.Diff")
+
+	return g.git.Diff(ctx, params)
+}
+
+func (g heldGit) ReadFiles(ctx context.Context, dir string, revisions []git.FileRevision) (map[git.FileRevision][]byte, error) {
+	g.gate.wait(ctx, "git.ReadFiles")
+
+	return g.git.ReadFiles(ctx, dir, revisions)
 }
 
 func isTimer(cmd tea.Cmd) bool {
@@ -552,7 +773,11 @@ func readSidebar(frame string) []string {
 }
 
 func readSidebarProse(frame string) string {
-	return strings.Join(strings.Fields(strings.Join(readSidebar(frame), " ")), " ")
+	return joinProse(readSidebar(frame))
+}
+
+func joinProse(lines []string) string {
+	return strings.Join(strings.Fields(strings.Join(lines, " ")), " ")
 }
 
 func readStage(frame string) []string {

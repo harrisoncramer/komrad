@@ -1,26 +1,26 @@
-   Worktrees[90m  5 · —[m
+   Worktrees[90m  5 · 1.6G[m
 
  [90m/[m 
  [90mf[m   [90m↓ size[m  [90mlast-accessed[m  [90m·[m  [90mrepo[m
 
-       [90m—[m      [90m│[m [1m/home/h/gadgets/admin[m
-       [90m—[m      [90m│[m   [90mcustom-cargo-fixes[m
-       [90m—[m      [90m│[m [1m/home/h/weave[m
-       [90m—[m      [90m│[m   [90mreview-column[m
-[34m›[m      [90m—[m      [97m┃[m   [34mworktree-view[m
-       [90m—[m      [90m│[m   [90magent/orphan[m
+    [90m1.5G[m      [90m│[m [1m/home/h/gadgets/admin[m
+    [90m1.5G[m  [90m12h[m [90m│[m   [90mcargo-fix[m
+     [90m98M[m      [90m│[m [1m/home/h/weave[m
+     [90m49M[m   [90m4d[m [90m│[m   [90mreviewer[m
+[34m›[m    [90m49M[m   [90m5m[m [97m┃[m   [34mtreeview[m
+       [90m—[m   [90m3h[m [90m│[m   [90magent/orphan[m
        [90m—[m      [90m│[m [1m/var/folders/T/repo[m
-       [90m—[m      [90m│[m   [90mbroken[m
+       [90m—[m   [90m2w[m [90m│[m   [90mbroken[m
 [90m────────────────────────────────────────────[m
-  [90mname       [m worktree-view
+  [90mname       [m treeview
   [90mdirectory  [m /trees/live
-  [90msize       [m —
-  [90mlast active[m —
+  [90msize       [m 49M, measured 1h ago
+  [90mlast active[m 5m ago
   [90mbranch     [m agent/live
   [90mrepository [m /home/h/weave
   [90malso here  [m review-607
-  [90magent      [m claude, thinking
-  [90mworkflow   [m weave
+  [90mbase       [m —
+[90m  ↓ 3 more[m
 [90m────────────────────────────────────────────[m
 [92m✔[m No messages
 [90m  Weave is running normally[m

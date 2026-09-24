@@ -135,6 +135,44 @@ func TestSearchResults(t *testing.T) {
 		harness.assertSentTo(agentv1connect.AgentServiceSearchTranscriptsProcedure)
 	})
 
+	t.Run("an answer for a query moved past is dropped", func(t *testing.T) {
+		t.Parallel()
+
+		harness := newPanelHarness(t, panelHarnessParams{})
+		answerWorktreeReads(harness)
+		newSearchServer(newTurnHit("a2", "payouts", "ledger")).serve(harness)
+		harness.watch(buildSnapshot(buildSearchable()...))
+		harness.hold(agentv1connect.AgentServiceSearchTranscriptsProcedure)
+		searchFor(harness, "led")
+
+		harness.press("g")
+		harness.release(agentv1connect.AgentServiceSearchTranscriptsProcedure)
+
+		assert.Empty(t, readListRows(harness.readFrame()))
+	})
+
+	t.Run("a preview for a query moved past is dropped", func(t *testing.T) {
+		t.Parallel()
+
+		harness := newPanelHarness(t, panelHarnessParams{})
+		content, offset, length := buildTranscript()
+		server := &searchServer{
+			pages:       map[string]*agentv1.SearchTranscriptsResponse{"": {Matches: []*agentv1.SearchHit{newMatchHit("a1", offset, length)}}},
+			transcripts: map[string]string{"a1": content},
+		}
+		answerWorktreeReads(harness)
+		server.serve(harness)
+		harness.watch(buildSnapshot(buildSearchable()...))
+		harness.hold(agentv1connect.AgentServiceGetTranscriptProcedure)
+		searchFor(harness, "reconcile")
+		require.NotEmpty(t, readListRows(harness.readFrame()))
+
+		harness.press("r")
+		harness.release(agentv1connect.AgentServiceGetTranscriptProcedure)
+
+		assert.NotContains(t, readStageText(harness.readFrame()), matchedTurn)
+	})
+
 	t.Run("an agent is one row however many of its turns said the query", func(t *testing.T) {
 		t.Parallel()
 
@@ -356,12 +394,18 @@ func TestSearchArchivedRow(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name  string
-		state agentv1.AgentState
+		name     string
+		state    agentv1.AgentState
+		isHidden bool
 	}{
 		{
 			name:  "an idle archived agent",
 			state: agentv1.AgentState_AGENT_STATE_IDLE,
+		},
+		{
+			name:     "an archived agent hidden before it was put away",
+			state:    agentv1.AgentState_AGENT_STATE_IDLE,
+			isHidden: true,
 		},
 		{
 			name:  "an archived agent that never started",
@@ -379,6 +423,7 @@ func TestSearchArchivedRow(t *testing.T) {
 
 			archived := newArchivedAgent("a2", "payouts", "w1")
 			archived.State = tt.state
+			archived.Hidden = tt.isHidden
 			hit := newTurnHit("a2", "payouts", "second")
 			hit.Archived = true
 			harness := openSearch(t, openSearchParams{
