@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"weave/internal/weavetest"
+	"weave/lib/xptr"
 	agentv1 "weave/proto/gen/agent/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
 
@@ -81,7 +82,7 @@ func TestIntegrationOrchestrator(t *testing.T) {
 			Prompt:        "read the plan",
 			Title:         "reader",
 			WorkflowId:    workflowID,
-			ParentAgentId: &orchestrator.Id,
+			ParentAgentId: xptr.Ptr(orchestrator.GetId()),
 		})
 		callAs(req, orchestrator.GetId())
 

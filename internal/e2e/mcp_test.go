@@ -18,6 +18,12 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
+// toolCaller calls tools over an MCP session as one agent.
+type toolCaller struct {
+	agentID string
+	session *mcpsdk.ClientSession
+}
+
 // TestIntegrationMCPTools walks the tools an agent's CLI calls, from the list it is served to what
 // a call does and how a refusal reads.
 func TestIntegrationMCPTools(t *testing.T) {
@@ -105,34 +111,29 @@ func TestIntegrationMCPTools(t *testing.T) {
 	})
 }
 
-// toolSession is an MCP session held as one caller.
-type toolSession struct {
-	agentID string
-	session *mcpsdk.ClientSession
-}
-
-// connectMCP opens a tool session as an agent, or as nobody weave can place when agentID is empty.
-func connectMCP(t *testing.T, instance *weavetest.Instance, agentID string) toolSession {
+// connectMCP connects a tool caller as an agent, or as nobody weave can place when agentID is empty.
+func connectMCP(t *testing.T, instance *weavetest.Instance, agentID string) toolCaller {
 	t.Helper()
 
 	client := mcpsdk.NewClient(&mcpsdk.Implementation{Name: "e2e", Version: "0"}, nil)
 
-	session, err := client.Connect(callingAs(t, agentID), &mcpsdk.StreamableClientTransport{
+	session, err := client.Connect(newCallerContext(t, agentID), &mcpsdk.StreamableClientTransport{
 		Endpoint:             instance.URL + "/mcp",
 		HTTPClient:           &http.Client{Transport: caller.Transport(http.DefaultTransport)},
 		DisableStandaloneSSE: true,
 	}, nil)
 	require.NoError(t, err)
+
 	t.Cleanup(func() { _ = session.Close() })
 
-	return toolSession{agentID: agentID, session: session}
+	return toolCaller{agentID: agentID, session: session}
 }
 
-func (s toolSession) listTools(t *testing.T) []string {
+func (s toolCaller) listTools(t *testing.T) []string {
 	t.Helper()
 
 	var names []string
-	for tool, err := range s.session.Tools(callingAs(t, s.agentID), nil) {
+	for tool, err := range s.session.Tools(newCallerContext(t, s.agentID), nil) {
 		require.NoError(t, err)
 		names = append(names, tool.Name)
 	}
@@ -141,10 +142,10 @@ func (s toolSession) listTools(t *testing.T) []string {
 }
 
 // call runs a tool and returns the text it answered with and whether that text is an error.
-func (s toolSession) call(t *testing.T, name string, args map[string]any) (string, bool) {
+func (s toolCaller) call(t *testing.T, name string, args map[string]any) (string, bool) {
 	t.Helper()
 
-	result, err := s.session.CallTool(callingAs(t, s.agentID), &mcpsdk.CallToolParams{
+	result, err := s.session.CallTool(newCallerContext(t, s.agentID), &mcpsdk.CallToolParams{
 		Name:      name,
 		Arguments: args,
 	})
@@ -157,7 +158,7 @@ func (s toolSession) call(t *testing.T, name string, args map[string]any) (strin
 	return text.Text, result.IsError
 }
 
-func callingAs(t *testing.T, agentID string) context.Context {
+func newCallerContext(t *testing.T, agentID string) context.Context {
 	t.Helper()
 
 	return caller.With(t.Context(), caller.Caller{AgentID: agentID})
