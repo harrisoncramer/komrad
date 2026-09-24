@@ -218,31 +218,6 @@ func (s *MailStore) ListByID(ctx context.Context, ids []string) ([]Mail, error) 
 	return xslice.Map(rows, fromRow), nil
 }
 
-// List is every piece of mail no recipient has taken yet, expired or not.
-func (s *MailStore) List(ctx context.Context) ([]Mail, error) {
-	rows, err := s.queries.SnapshotMail(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list the unclaimed mail: %w", err)
-	}
-
-	return xslice.Map(rows, fromRow), nil
-}
-
-// ListByKey returns whichever of the given ids hold mail no recipient has taken yet.
-func (s *MailStore) ListByKey(ctx context.Context, ids []string) ([]Mail, error) {
-	storable := store.KeepIDs(ids)
-	if len(storable) == 0 {
-		return nil, nil
-	}
-
-	rows, err := s.queries.ListMailByKey(ctx, storable)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list %d unclaimed mail: %w", len(storable), err)
-	}
-
-	return xslice.Map(rows, fromRow), nil
-}
-
 // ListUnclaimedTo returns the mail addressed to any of the given agents that no recipient has
 // taken yet.
 func (s *MailStore) ListUnclaimedTo(ctx context.Context, agentIDs []string) ([]Mail, error) {

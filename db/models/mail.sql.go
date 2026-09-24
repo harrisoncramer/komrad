@@ -315,54 +315,6 @@ func (q *Queries) ListMailByID(ctx context.Context, ids []string) ([]*Mail, erro
 	return items, nil
 }
 
-const listMailByKey = `-- name: ListMailByKey :many
-SELECT
-    id, from_agent_id, from_name, to_agent_id, body, reply_to, claimed_at, reported_at, expires_at, created_at, updated_at, kind, about_agent_id, tenant_id
-FROM
-    mail m
-WHERE
-    m.id = ANY ($1::uuid[])
-    AND m.claimed_at IS NULL
-    AND m.expires_at > NOW()
-ORDER BY
-    m.id
-`
-
-func (q *Queries) ListMailByKey(ctx context.Context, ids []string) ([]*Mail, error) {
-	rows, err := q.db.Query(ctx, listMailByKey, ids)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []*Mail
-	for rows.Next() {
-		var i Mail
-		if err := rows.Scan(
-			&i.ID,
-			&i.FromAgentID,
-			&i.FromName,
-			&i.ToAgentID,
-			&i.Body,
-			&i.ReplyTo,
-			&i.ClaimedAt,
-			&i.ReportedAt,
-			&i.ExpiresAt,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.Kind,
-			&i.AboutAgentID,
-			&i.TenantID,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, &i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listMailPage = `-- name: ListMailPage :many
 SELECT
     id, from_agent_id, from_name, to_agent_id, body, reply_to, claimed_at, reported_at, expires_at, created_at, updated_at, kind, about_agent_id, tenant_id
@@ -551,37 +503,21 @@ func (q *Queries) ListUnclaimedMailTo(ctx context.Context, agentIds []string) ([
 	return items, nil
 }
 
-const reportExpiredMail = `-- name: ReportExpiredMail :many
-WITH unreported AS (
-    SELECT
-        m.id
-    FROM
-        mail m
-    WHERE
-        m.to_agent_id = $1
-        AND m.claimed_at IS NULL
-        AND m.reported_at IS NULL
-        AND m.expires_at <= NOW()
-    ORDER BY
-        m.id
-    FOR UPDATE
-        SKIP LOCKED)
-UPDATE
+const listWatchedMail = `-- name: ListWatchedMail :many
+SELECT
+    id, from_agent_id, from_name, to_agent_id, body, reply_to, claimed_at, reported_at, expires_at, created_at, updated_at, kind, about_agent_id, tenant_id
+FROM
     mail m
-SET
-    reported_at = NOW()
 WHERE
-    m.id IN (
-        SELECT
-            unreported.id
-        FROM
-            unreported)
-    RETURNING
-        id, from_agent_id, from_name, to_agent_id, body, reply_to, claimed_at, reported_at, expires_at, created_at, updated_at, kind, about_agent_id, tenant_id
+    m.claimed_at IS NULL
+    AND ($1::text[] IS NULL
+        OR m.id = ANY ($1::uuid[]))
+ORDER BY
+    m.id
 `
 
-func (q *Queries) ReportExpiredMail(ctx context.Context, toAgentID string) ([]*Mail, error) {
-	rows, err := q.db.Query(ctx, reportExpiredMail, toAgentID)
+func (q *Queries) ListWatchedMail(ctx context.Context, keys []string) ([]*Mail, error) {
+	rows, err := q.db.Query(ctx, listWatchedMail, keys)
 	if err != nil {
 		return nil, err
 	}
@@ -615,20 +551,37 @@ func (q *Queries) ReportExpiredMail(ctx context.Context, toAgentID string) ([]*M
 	return items, nil
 }
 
-const snapshotMail = `-- name: SnapshotMail :many
-SELECT
-    id, from_agent_id, from_name, to_agent_id, body, reply_to, claimed_at, reported_at, expires_at, created_at, updated_at, kind, about_agent_id, tenant_id
-FROM
+const reportExpiredMail = `-- name: ReportExpiredMail :many
+WITH unreported AS (
+    SELECT
+        m.id
+    FROM
+        mail m
+    WHERE
+        m.to_agent_id = $1
+        AND m.claimed_at IS NULL
+        AND m.reported_at IS NULL
+        AND m.expires_at <= NOW()
+    ORDER BY
+        m.id
+    FOR UPDATE
+        SKIP LOCKED)
+UPDATE
     mail m
+SET
+    reported_at = NOW()
 WHERE
-    m.claimed_at IS NULL
-    AND m.expires_at > NOW()
-ORDER BY
-    m.id
+    m.id IN (
+        SELECT
+            unreported.id
+        FROM
+            unreported)
+    RETURNING
+        id, from_agent_id, from_name, to_agent_id, body, reply_to, claimed_at, reported_at, expires_at, created_at, updated_at, kind, about_agent_id, tenant_id
 `
 
-func (q *Queries) SnapshotMail(ctx context.Context) ([]*Mail, error) {
-	rows, err := q.db.Query(ctx, snapshotMail)
+func (q *Queries) ReportExpiredMail(ctx context.Context, toAgentID string) ([]*Mail, error) {
+	rows, err := q.db.Query(ctx, reportExpiredMail, toAgentID)
 	if err != nil {
 		return nil, err
 	}

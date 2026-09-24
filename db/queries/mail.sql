@@ -130,14 +130,15 @@ FROM
 WHERE
     m.id = ANY (@ids::uuid[]);
 
--- name: SnapshotMail :many
+-- name: ListWatchedMail :many
 SELECT
     *
 FROM
     mail m
 WHERE
     m.claimed_at IS NULL
-    AND m.expires_at > NOW()
+    AND (sqlc.narg('keys')::text[] IS NULL
+        OR m.id = ANY (sqlc.narg('keys')::uuid[]))
 ORDER BY
     m.id;
 
@@ -149,18 +150,6 @@ FROM
 WHERE
     m.to_agent_id = ANY (@agent_ids::uuid[])
     AND m.claimed_at IS NULL
-ORDER BY
-    m.id;
-
--- name: ListMailByKey :many
-SELECT
-    *
-FROM
-    mail m
-WHERE
-    m.id = ANY (@ids::uuid[])
-    AND m.claimed_at IS NULL
-    AND m.expires_at > NOW()
 ORDER BY
     m.id;
 

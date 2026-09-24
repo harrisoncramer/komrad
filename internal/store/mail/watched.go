@@ -2,8 +2,10 @@ package mail
 
 import (
 	"context"
+	"fmt"
 
 	"weave/internal/watch"
+	"weave/lib/xslice"
 	watchv1 "weave/proto/gen/watch/v1"
 )
 
@@ -16,9 +18,10 @@ var WatchedMail = watch.Resource{
 
 // ListWatched returns whichever of keys hold unclaimed mail, or every unclaimed piece when keys is nil.
 func (s *MailStore) ListWatched(ctx context.Context, keys []string) ([]Mail, error) {
-	if keys == nil {
-		return s.List(ctx)
+	rows, err := s.queries.ListWatchedMail(ctx, keys)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the watched mail: %w", err)
 	}
 
-	return s.ListByKey(ctx, keys)
+	return xslice.Map(rows, fromRow), nil
 }
