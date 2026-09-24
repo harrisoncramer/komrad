@@ -17,8 +17,7 @@ import (
 	"weave/internal/browser"
 	"weave/internal/client"
 	"weave/internal/engine"
-	"weave/internal/git"
-	"weave/internal/position"
+	"weave/internal/gittest"
 	"weave/internal/ui"
 	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
@@ -94,11 +93,6 @@ type panelRemote struct {
 	schedules schedulev1connect.ScheduleServiceClient
 	hooks     hookv1connect.HookServiceClient
 	worktrees worktreev1connect.WorktreeServiceClient
-}
-
-type heldGit struct {
-	git  ui.ReviewGit
-	gate *gate
 }
 
 type request struct {
@@ -182,7 +176,7 @@ type panelHarnessParams struct {
 	sidebarSide   string
 	sidebarWidth  int
 	keys          *config.Keybindings
-	git           ui.ReviewGit
+	git           *gittest.Repo
 	settings      ui.PanelSettings
 	engine        engine.Remote
 	harnessFrames ui.HarnessFrameReader
@@ -236,10 +230,8 @@ func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
 
 	var reviewGit ui.ReviewGit
 	if params.git != nil {
-		reviewGit = heldGit{
-			git:  params.git,
-			gate: gate,
-		}
+		params.git.Before = gate.wait
+		reviewGit = params.git
 	}
 
 	width, height := params.width, params.height
@@ -544,48 +536,6 @@ func (g *gate) wait(ctx context.Context, name string) {
 	case <-release:
 	case <-ctx.Done():
 	}
-}
-
-func (g heldGit) CountChangedFiles(ctx context.Context, params git.CountChangedFilesParams) (int, error) {
-	g.gate.wait(ctx, "git.CountChangedFiles")
-
-	return g.git.CountChangedFiles(ctx, params)
-}
-
-func (g heldGit) MapRanges(ctx context.Context, params git.MapRangesParams) ([]position.Mapping, error) {
-	g.gate.wait(ctx, "git.MapRanges")
-
-	return g.git.MapRanges(ctx, params)
-}
-
-func (g heldGit) Replay(ctx context.Context, params git.ReplayParams) (*git.Replayed, error) {
-	g.gate.wait(ctx, "git.Replay")
-
-	return g.git.Replay(ctx, params)
-}
-
-func (g heldGit) IsAncestor(ctx context.Context, dir, maybeAncestor, of string) (bool, error) {
-	g.gate.wait(ctx, "git.IsAncestor")
-
-	return g.git.IsAncestor(ctx, dir, maybeAncestor, of)
-}
-
-func (g heldGit) GetRoot(ctx context.Context, dir string) (string, error) {
-	g.gate.wait(ctx, "git.GetRoot")
-
-	return g.git.GetRoot(ctx, dir)
-}
-
-func (g heldGit) Diff(ctx context.Context, params git.DiffParams) ([]byte, error) {
-	g.gate.wait(ctx, "git.Diff")
-
-	return g.git.Diff(ctx, params)
-}
-
-func (g heldGit) ReadFiles(ctx context.Context, dir string, revisions []git.FileRevision) (map[git.FileRevision][]byte, error) {
-	g.gate.wait(ctx, "git.ReadFiles")
-
-	return g.git.ReadFiles(ctx, dir, revisions)
 }
 
 func isTimer(cmd tea.Cmd) bool {

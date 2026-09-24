@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 
 	"weave/internal/git"
+	"weave/internal/position"
 )
 
 // Patch is what git writes between the two commits Repo stands for, taken from a real
@@ -176,6 +178,14 @@ type Repo struct {
 	Replays map[string]*git.Replayed
 	// Rewritten is the base pairs whose older base the newer one cannot reach.
 	Rewritten map[string]bool
+	// Mappings is where each line of one snapshot sits in another, keyed by the pair.
+	Mappings map[string][]position.Mapping
+	// Before runs ahead of every read, when set, with the read's name such as git.Diff.
+	Before func(ctx context.Context, name string)
+
+	mu            sync.Mutex
+	countsAsked   []git.CountChangedFilesParams
+	mappingsAsked []git.MapRangesParams
 }
 
 // NewRepo is a repository holding one changed file.
@@ -244,7 +254,9 @@ func (f *Repo) Wrote(params WroteParams) {
 }
 
 // Replay answers the replay the test stated for these three commits.
-func (f *Repo) Replay(_ context.Context, params git.ReplayParams) (*git.Replayed, error) {
+func (f *Repo) Replay(ctx context.Context, params git.ReplayParams) (*git.Replayed, error) {
+	f.before(ctx, "git.Replay")
+
 	replayed, stated := f.Replays[NameReplay(params.FromBase, params.OntoBase, params.SnapshotSHA)]
 	if !stated {
 		return nil, fmt.Errorf("%w: this test stated no replay of %s from %s onto %s",
@@ -255,12 +267,16 @@ func (f *Repo) Replay(_ context.Context, params git.ReplayParams) (*git.Replayed
 }
 
 // IsAncestor is true unless the pair is in Rewritten.
-func (f *Repo) IsAncestor(_ context.Context, _, maybeAncestor, of string) (bool, error) {
+func (f *Repo) IsAncestor(ctx context.Context, _, maybeAncestor, of string) (bool, error) {
+	f.before(ctx, "git.IsAncestor")
+
 	return !f.Rewritten[NamePair(maybeAncestor, of)], nil
 }
 
 // GetRoot answers Root, or the directory itself when Root is blank.
-func (f *Repo) GetRoot(_ context.Context, dir string) (string, error) {
+func (f *Repo) GetRoot(ctx context.Context, dir string) (string, error) {
+	f.before(ctx, "git.GetRoot")
+
 	if f.RootErr != nil {
 		return "", f.RootErr
 	}
@@ -273,7 +289,9 @@ func (f *Repo) GetRoot(_ context.Context, dir string) (string, error) {
 }
 
 // Diff answers the patch the test stated between two snapshots.
-func (f *Repo) Diff(_ context.Context, params git.DiffParams) ([]byte, error) {
+func (f *Repo) Diff(ctx context.Context, params git.DiffParams) ([]byte, error) {
+	f.before(ctx, "git.Diff")
+
 	patch, err := f.readPatchBetween(readPatchBetweenParams{
 		FromSHA: params.FromSHA,
 		ToSHA:   params.ToSHA,
@@ -287,7 +305,13 @@ func (f *Repo) Diff(_ context.Context, params git.DiffParams) ([]byte, error) {
 }
 
 // CountChangedFiles counts the files in the patch between two snapshots.
-func (f *Repo) CountChangedFiles(_ context.Context, params git.CountChangedFilesParams) (int, error) {
+func (f *Repo) CountChangedFiles(ctx context.Context, params git.CountChangedFilesParams) (int, error) {
+	f.before(ctx, "git.CountChangedFiles")
+
+	f.mu.Lock()
+	f.countsAsked = append(f.countsAsked, params)
+	f.mu.Unlock()
+
 	patch, err := f.readPatchBetween(readPatchBetweenParams{
 		FromSHA: params.FromSHA,
 		ToSHA:   params.ToSHA,
@@ -300,8 +324,43 @@ func (f *Repo) CountChangedFiles(_ context.Context, params git.CountChangedFiles
 	return strings.Count(patch, "diff --git "), nil
 }
 
+// MapRanges answers the mapping the test stated between two snapshots.
+func (f *Repo) MapRanges(ctx context.Context, params git.MapRangesParams) ([]position.Mapping, error) {
+	f.before(ctx, "git.MapRanges")
+
+	f.mu.Lock()
+	f.mappingsAsked = append(f.mappingsAsked, params)
+	f.mu.Unlock()
+
+	mappings, stated := f.Mappings[NamePair(params.FromSHA, params.ToSHA)]
+	if !stated {
+		return nil, fmt.Errorf("%w: this test stated no mapping between %s and %s",
+			ErrNoGit, params.FromSHA, params.ToSHA)
+	}
+
+	return mappings, nil
+}
+
+// CountsAsked is every count of changed files the repository was asked for.
+func (f *Repo) CountsAsked() []git.CountChangedFilesParams {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return append([]git.CountChangedFilesParams(nil), f.countsAsked...)
+}
+
+// MappingsAsked is every mapping between snapshots the repository was asked for.
+func (f *Repo) MappingsAsked() []git.MapRangesParams {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return append([]git.MapRangesParams(nil), f.mappingsAsked...)
+}
+
 // ReadFiles answers the sources the test stated for each revision.
-func (f *Repo) ReadFiles(_ context.Context, _ string, revisions []git.FileRevision) (map[git.FileRevision][]byte, error) {
+func (f *Repo) ReadFiles(ctx context.Context, _ string, revisions []git.FileRevision) (map[git.FileRevision][]byte, error) {
+	f.before(ctx, "git.ReadFiles")
+
 	files := make(map[git.FileRevision][]byte, len(revisions))
 	for _, revision := range revisions {
 		if source, stated := f.Sources[NameSource(revision.SHA, revision.Path)]; stated {
@@ -315,6 +374,12 @@ func (f *Repo) ReadFiles(_ context.Context, _ string, revisions []git.FileRevisi
 // WorktreeHead answers as a round nothing has checked out yet.
 func (f *Repo) WorktreeHead(context.Context, string) (string, bool) {
 	return "", false
+}
+
+func (f *Repo) before(ctx context.Context, name string) {
+	if f.Before != nil {
+		f.Before(ctx, name)
+	}
 }
 
 // NameReplay names one replay: the base a snapshot was measured from, the base it is carried
