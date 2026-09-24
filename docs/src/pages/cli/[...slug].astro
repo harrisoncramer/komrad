@@ -1,0 +1,14 @@
+---
+import CommandPage from "../../components/reference/CommandPage.astro";
+import { commands } from "../../reference";
+
+export function getStaticPaths() {
+  return commands
+    .filter((command) => command.slug !== "")
+    .map((command) => ({ params: { slug: command.slug }, props: { command } }));
+}
+
+const { command } = Astro.props;
+---
+
+<CommandPage command={command} />

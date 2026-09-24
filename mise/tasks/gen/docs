@@ -1,18 +1,15 @@
 #!/usr/bin/env bash
 source "$MISE_CONFIG_ROOT/mise/tasks/_"
 set -euo pipefail
-#MISE description="Regenerate the command reference under docs/reference."
+#MISE description="Regenerate the reference data the docs site renders."
 
 usage() {
 	echo "Usage: mise run gen:docs"
 	echo
-	echo "Rewrites docs/reference from weave's cobra command tree, one markdown file"
-	echo "per command. The commands are the source of truth; the pages are output, so"
-	echo "a thin help text is fixed by editing the command's Short and Long in"
-	echo "internal/cli and running this rather than by editing the page."
-	echo
-	echo "The directory holds generated pages and nothing else, so a page whose command"
-	echo "has been removed or renamed is deleted rather than left behind."
+	echo "Writes api.json, cli.json and config.json under docs/src/data from the proto"
+	echo "descriptors, the cobra command tree and the Config struct. Those sources are"
+	echo "the truth; the files are output, so a thin description is fixed at its source"
+	echo "and regenerated rather than edited here."
 }
 
 for arg in "$@"; do

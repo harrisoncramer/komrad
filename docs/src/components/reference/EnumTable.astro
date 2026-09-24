@@ -1,0 +1,38 @@
+---
+import { anchor, prose } from "../../reference";
+import type { Enum } from "../../reference/types";
+
+type Props = {
+  name: string;
+  value: Enum;
+};
+
+const { name, value } = Astro.props;
+---
+
+<section class="type" id={anchor(name)}>
+  <h3>{value.name}</h3>
+  {value.description && <div class="type-description" set:html={prose(value.description)} />}
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>Value</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        {
+          value.values.map((entry) => (
+            <tr>
+              <td>
+                <code>{entry.name}</code>
+              </td>
+              <td set:html={prose(entry.description)} />
+            </tr>
+          ))
+        }
+      </tbody>
+    </table>
+  </div>
+</section>

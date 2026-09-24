@@ -1,88 +1,65 @@
 package main
 
 import (
-	"errors"
+	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 
+	"weave/config"
 	"weave/internal/cli"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/cobra/doc"
 )
 
 func main() {
-	if err := run("docs/reference"); err != nil {
+	if err := run(context.Background(), ".", "docs/src/data"); err != nil {
 		fmt.Fprintln(os.Stderr, "gen-docs:", err)
 		os.Exit(1)
 	}
 }
 
-func run(dir string) error {
-	root := cli.NewRootCommand()
-	prepare(root)
-
-	// Generating somewhere else first names the pages the command tree has without
-	// restating cobra's own traversal and filename rules.
-	staging, err := os.MkdirTemp("", "gen-docs")
+// run writes the reference data the docs site renders, reading the sources under root.
+func run(ctx context.Context, root, dir string) error {
+	notes, err := readComments(ctx, filepath.Join(root, "proto", "proto"))
 	if err != nil {
-		return fmt.Errorf("creating staging directory: %w", err)
+		return err
 	}
 
-	return errors.Join(rebuild(root, dir, staging), os.RemoveAll(staging))
-}
-
-// rebuild leaves dir holding the pages the command tree has and nothing else, so a page whose
-// command was removed or renamed does not stay behind.
-func rebuild(root *cobra.Command, dir, staging string) error {
-	if err := doc.GenMarkdownTree(root, staging); err != nil {
-		return fmt.Errorf("generating markdown: %w", err)
+	settings, err := config.Document(filepath.Join(root, "config"))
+	if err != nil {
+		return fmt.Errorf("documenting the config: %w", err)
 	}
+
+	command := cli.NewRootCommand()
+	prepare(command)
 
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("creating %s: %w", dir, err)
 	}
 
-	staged, err := os.ReadDir(staging)
+	for name, value := range map[string]any{
+		"api.json":    buildAPI(notes),
+		"cli.json":    buildCLI(command),
+		"config.json": settings,
+	} {
+		if err := writeJSON(filepath.Join(dir, name), value); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func writeJSON(path string, value any) error {
+	encoded, err := json.MarshalIndent(value, "", "  ")
 	if err != nil {
-		return fmt.Errorf("reading staged pages: %w", err)
+		return fmt.Errorf("encoding %s: %w", path, err)
 	}
 
-	written := make(map[string]struct{}, len(staged))
-	for _, entry := range staged {
-		name := entry.Name()
-
-		page, err := os.ReadFile(filepath.Join(staging, name))
-		if err != nil {
-			return fmt.Errorf("reading staged page %s: %w", name, err)
-		}
-
-		if err := os.WriteFile(filepath.Join(dir, name), page, 0o644); err != nil {
-			return fmt.Errorf("writing %s: %w", name, err)
-		}
-
-		written[name] = struct{}{}
-	}
-
-	existing, err := os.ReadDir(dir)
-	if err != nil {
-		return fmt.Errorf("reading %s: %w", dir, err)
-	}
-
-	for _, entry := range existing {
-		name := entry.Name()
-		if entry.IsDir() || filepath.Ext(name) != ".md" {
-			continue
-		}
-
-		if _, ok := written[name]; ok {
-			continue
-		}
-
-		if err := os.Remove(filepath.Join(dir, name)); err != nil {
-			return fmt.Errorf("removing %s: %w", name, err)
-		}
+	if err := os.WriteFile(path, append(encoded, '\n'), 0o644); err != nil {
+		return fmt.Errorf("writing %s: %w", path, err)
 	}
 
 	return nil

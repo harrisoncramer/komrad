@@ -1,0 +1,100 @@
+---
+import { Code } from "astro:components";
+import DocPage from "../../../layouts/DocPage.astro";
+import EnumTable from "../../../components/reference/EnumTable.astro";
+import MessageTable from "../../../components/reference/MessageTable.astro";
+import { api, kebab, prose, referencedTypes } from "../../../reference";
+import type { Field } from "../../../reference/types";
+
+export function getStaticPaths() {
+  return api.services.flatMap((service) =>
+    service.methods.map((method) => ({
+      params: { service: service.slug, method: method.slug },
+      props: { service, method },
+    })),
+  );
+}
+
+const { service, method } = Astro.props;
+const request = api.messages[method.request];
+const response = api.messages[method.response];
+const required = request.fields.filter((field) => field.rules.includes("required"));
+
+const placeholder = (field: Field) => {
+  if (field.repeated) return [];
+  switch (field.type) {
+    case "bool":
+      return true;
+    case "int32":
+    case "int64":
+    case "uint32":
+    case "uint64":
+      return 0;
+    default:
+      return `<${field.name}>`;
+  }
+};
+
+const body = JSON.stringify(Object.fromEntries(required.map((field) => [field.name, placeholder(field)])), null, 2);
+const connect = `curl -X POST http://127.0.0.1:8787${method.path} \\
+  -H 'Content-Type: application/json' \\
+  -d '${body}'`;
+const cli = [method.command, ...required.map((field) => `--${kebab(field.name)} <${field.type}>`)].join(" \\\n  ");
+
+const types = referencedTypes([method.request, method.response]);
+const nested = types.messages.filter(([name]) => name !== method.request && name !== method.response);
+
+const traits = [
+  method.readOnly ? "read-only" : "writes",
+  method.idempotent ? "idempotent" : "not idempotent",
+  ...(method.destructive ? ["destructive"] : []),
+  ...(method.mcp ? ["MCP tool"] : ["CLI only"]),
+];
+---
+
+<DocPage title={method.tool} description={method.summary}>
+  <p class="traits">
+    <a href={`/api/${service.slug}`}>{service.title}</a>
+    {traits.map((trait) => <span class="trait">{trait}</span>)}
+  </p>
+
+  <div set:html={prose(method.description)} />
+
+  <h2>Calling it</h2>
+  <h4>Connect</h4>
+  <Code code={connect} lang="bash" theme="tokyo-night" />
+  <h4>CLI</h4>
+  <Code code={cli} lang="bash" theme="tokyo-night" />
+  {
+    method.mcp && (
+      <>
+        <h4>MCP</h4>
+        <p>
+          The weave MCP server offers this as the <code>{method.tool}</code> tool
+          {method.roles.length > 0 && <> to {method.roles.join(", ")} agents</>}, taking the request below as its
+          arguments.
+        </p>
+      </>
+    )
+  }
+
+  <h2>Request</h2>
+  <MessageTable name={method.request} message={request} />
+
+  <h2>Response</h2>
+  <MessageTable name={method.response} message={response} />
+
+  {
+    (nested.length > 0 || types.enums.length > 0) && (
+      <>
+        <h2>Types</h2>
+        {nested.map(([name, message]) => (
+          <MessageTable name={name} message={message} />
+        ))}
+        {types.enums.map(([name, value]) => (
+          <EnumTable name={name} value={value} />
+        ))}
+      </>
+    )
+  }
+</DocPage>

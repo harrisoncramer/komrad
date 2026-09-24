@@ -2,7 +2,10 @@ package config
 
 import (
 	"fmt"
+	"path"
+	"path/filepath"
 	"reflect"
+	"strings"
 
 	"github.com/invopop/jsonschema"
 )
@@ -24,8 +27,17 @@ func reflectSchema(dir string) (*jsonschema.Schema, error) {
 		ExpandedStruct: true,
 	}
 
-	if err := reflector.AddGoComments(pkgPath, dir); err != nil {
+	if err := reflector.AddGoComments("", dir); err != nil {
 		return nil, fmt.Errorf("failed to extract doc comments: %w", err)
+	}
+
+	// The extractor keys each comment by the directory as it was named, not by import path.
+	named := path.Clean(filepath.ToSlash(dir)) + "."
+	for key, comment := range reflector.CommentMap {
+		if rest, ok := strings.CutPrefix(key, named); ok {
+			delete(reflector.CommentMap, key)
+			reflector.CommentMap[pkgPath+"."+rest] = comment
+		}
 	}
 
 	schema := reflector.Reflect(&Config{})

@@ -62,7 +62,7 @@ const { title, description, filePath } = Astro.props;
     color: #e6ecf5;
   }
 
-  .doc-content :global(ul li) {
+  .doc-content :global(ul:not(.index-list) li) {
     @apply ml-6 list-disc;
   }
 

@@ -79,4 +79,4 @@ weave engine ensure laptop
 
 ## The full reference
 
-Every command's usage line, flags, and long description live in [reference/](reference/weave.md), generated from the command tree itself. That's the place to look for exact flag names and defaults, including the `rpc` subcommands, which are too many to list here.
+Every command's usage line, flags, and long description are on the docs site's CLI reference, and every `rpc` subcommand is on its API reference. Both are generated into `docs/src/data` from the command tree and the protos.

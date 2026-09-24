@@ -166,3 +166,108 @@
   color: rgba(158, 196, 255, 0.8);
   border-color: rgba(158, 196, 255, 0.3);
 }
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+.doc-content table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-lora);
+  font-size: 0.95em;
+}
+
+.doc-content th {
+  text-align: left;
+  font-weight: 500;
+  color: var(--color-app-gray-light);
+  border-bottom: 1px solid var(--color-app-background-medium);
+  padding: 0.5rem 0.75rem;
+}
+
+.doc-content td {
+  vertical-align: top;
+  border-bottom: 1px solid var(--color-app-background-medium-dark);
+  padding: 0.6rem 0.75rem;
+}
+
+.doc-content td p,
+.doc-content td li {
+  font-size: 1em;
+  line-height: 1.6;
+}
+
+.doc-content td p + p {
+  margin-top: 0.5rem;
+}
+
+.doc-content .type-cell {
+  white-space: nowrap;
+  color: var(--color-app-gray);
+}
+
+.doc-content td p.rules {
+  margin-top: 0.25rem;
+  color: var(--color-app-gray-dim);
+  font-size: 0.85em;
+}
+
+.doc-content .type {
+  scroll-margin-top: 5rem;
+}
+
+.doc-content .type h3 {
+  font-size: 1.3em;
+  margin-bottom: 0.5rem;
+}
+
+.doc-content .type-description {
+  margin-bottom: 1rem;
+}
+
+.doc-content .traits {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9em;
+}
+
+.doc-content .trait {
+  border: 1px solid var(--color-app-background-medium);
+  border-radius: 999px;
+  padding: 0.1rem 0.65rem;
+  color: var(--color-app-gray-light);
+  font-size: 0.85em;
+}
+
+.doc-content .index-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.doc-content ul.index-list > li {
+  font-size: 1rem;
+}
+
+.doc-content .index-list li p {
+  margin-top: 0.25rem;
+  color: var(--color-app-gray-light);
+  font-size: 0.95em;
+}
+
+.doc-content pre.plain-code {
+  overflow-x: auto;
+  padding: 12px;
+  border: 1px solid var(--color-app-background-medium);
+  border-radius: 8px;
+  background: var(--color-app-background-medium-dark);
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+
+.doc-content div > :is(p, pre) + :is(p, pre) {
+  margin-top: 1rem;
+}

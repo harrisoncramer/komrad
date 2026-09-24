@@ -8,6 +8,7 @@
 package rpcapi
 
 import (
+	"fmt"
 	"iter"
 	"slices"
 
@@ -170,6 +171,32 @@ func IsRequired(field protoreflect.FieldDescriptor) bool {
 	}
 
 	return rules.GetString().GetMinLen() > 0 || rules.GetRepeated().GetMinItems() > 0
+}
+
+// DescribeRules spells out what the service refuses of a field, in the order a reader weighs them.
+func DescribeRules(field protoreflect.FieldDescriptor) []string {
+	var parts []string
+	if IsRequired(field) {
+		parts = append(parts, "required")
+	}
+
+	rules := GetRules(field)
+	if text := rules.GetString(); text != nil {
+		if limit := text.GetMaxLen(); limit > 0 {
+			parts = append(parts, fmt.Sprintf("at most %d characters", limit))
+		}
+		if pattern := text.GetPattern(); pattern != "" {
+			parts = append(parts, "matching "+pattern)
+		}
+	}
+
+	if number := rules.GetInt32(); number != nil {
+		if number.GetGte() > 0 || number.GetLte() > 0 {
+			parts = append(parts, fmt.Sprintf("between %d and %d", number.GetGte(), number.GetLte()))
+		}
+	}
+
+	return parts
 }
 
 func getIdempotencyLevel(method protoreflect.MethodDescriptor) descriptorpb.MethodOptions_IdempotencyLevel {

@@ -5,6 +5,6 @@ export const REPO_URL = "https://github.com/harrisoncramer/weave";
 export const SECTIONS = [
   { id: "guides", title: "Guides" },
   { id: "api", title: "API" },
+  { id: "cli", title: "CLI" },
+  { id: "config", title: "Config" },
 ] as const;
-
-export type SectionId = (typeof SECTIONS)[number]["id"];

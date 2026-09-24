@@ -1,0 +1,19 @@
+---
+import { render } from "astro:content";
+import DocPage from "../../layouts/DocPage.astro";
+import { getGuides } from "../../guides";
+
+export async function getStaticPaths() {
+  return (await getGuides()).map((guide) => ({
+    params: { slug: guide.id },
+    props: { guide },
+  }));
+}
+
+const { guide } = Astro.props;
+const { Content } = await render(guide);
+---
+
+<DocPage title={guide.data.title} description={guide.data.description} filePath={guide.filePath}>
+  <Content />
+</DocPage>

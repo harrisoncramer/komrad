@@ -1,0 +1,28 @@
+---
+import DocPage from "../../layouts/DocPage.astro";
+import IndexList from "../../components/reference/IndexList.astro";
+import { api, prose } from "../../reference";
+---
+
+<DocPage
+  title="API"
+  description="Every endpoint the service answers, and how to reach it over Connect, from the CLI, and as an MCP tool."
+>
+  {
+    api.services.map((service) => (
+      <section>
+        <h2>
+          <a href={`/api/${service.slug}`}>{service.title}</a>
+        </h2>
+        <div set:html={prose(service.description)} />
+        <IndexList
+          items={service.methods.map((method) => ({
+            href: `/api/${service.slug}/${method.slug}`,
+            title: method.tool,
+            summary: method.summary,
+          }))}
+        />
+      </section>
+    ))
+  }
+</DocPage>

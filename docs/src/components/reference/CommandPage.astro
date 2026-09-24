@@ -1,0 +1,85 @@
+---
+import { Code } from "astro:components";
+import DocPage from "../../layouts/DocPage.astro";
+import FlagTable from "./FlagTable.astro";
+import IndexList from "./IndexList.astro";
+import { commandBySlug, commandHref, prose } from "../../reference";
+import type { Command } from "../../reference/types";
+
+type Props = {
+  command: Command;
+};
+
+const { command } = Astro.props;
+const parent = command.slug === "" ? undefined : commandBySlug.get(command.parent);
+const children = command.children.flatMap((slug) => commandBySlug.get(slug) ?? []);
+---
+
+<DocPage title={command.path} description={command.short}>
+  {
+    parent && (
+      <p class="traits">
+        <a href={commandHref(parent.slug)}>{parent.path}</a>
+      </p>
+    )
+  }
+
+  <Code code={command.usage} lang="bash" theme="tokyo-night" />
+
+  {command.long && <div set:html={prose(command.long)} />}
+
+  {
+    command.slug === "rpc" && (
+      <p>
+        Each subcommand is one endpoint, documented with its request and response in the <a href="/api">API
+        reference</a>.
+      </p>
+    )
+  }
+
+  {
+    command.aliases.length > 0 && (
+      <p>
+        Also answers to {command.aliases.map((alias) => <code>{alias}</code>)}.
+      </p>
+    )
+  }
+
+  {
+    command.example && (
+      <>
+        <h2>Examples</h2>
+        <Code code={command.example} lang="bash" theme="tokyo-night" />
+      </>
+    )
+  }
+
+  {
+    children.length > 0 && (
+      <>
+        <h2>Commands</h2>
+        <IndexList
+          items={children.map((child) => ({ href: commandHref(child.slug), title: child.path, summary: child.short }))}
+        />
+      </>
+    )
+  }
+
+  {
+    command.flags.length > 0 && (
+      <>
+        <h2>Flags</h2>
+        <FlagTable flags={command.flags} />
+      </>
+    )
+  }
+
+  {
+    command.inherited.length > 0 && (
+      <>
+        <h2>Inherited flags</h2>
+        <FlagTable flags={command.inherited} />
+      </>
+    )
+  }
+</DocPage>

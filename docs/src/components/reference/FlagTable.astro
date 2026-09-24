@@ -1,0 +1,41 @@
+---
+import type { Flag } from "../../reference/types";
+
+type Props = {
+  flags: Flag[];
+};
+
+const { flags } = Astro.props;
+---
+
+<div class="table-scroll">
+  <table>
+    <thead>
+      <tr>
+        <th>Flag</th>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      {
+        flags.map((flag) => (
+          <tr>
+            <td>
+              <code>
+                {flag.shorthand && `-${flag.shorthand}, `}--{flag.name}
+              </code>
+            </td>
+            <td class="type-cell">{flag.type}</td>
+            <td>
+              <p>{flag.usage}</p>
+              {flag.default && flag.default !== "[]" && flag.default !== "false" && (
+                <p class="rules">default {flag.default}</p>
+              )}
+            </td>
+          </tr>
+        ))
+      }
+    </tbody>
+  </table>
+</div>

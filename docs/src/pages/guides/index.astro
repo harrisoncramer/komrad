@@ -1,0 +1,22 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import IndexList from "../../components/reference/IndexList.astro";
+import { getGuides } from "../../guides";
+
+const guides = await getGuides();
+---
+
+<Layout title="Guides">
+  <h1 class="mb-8 leading-tight">Guides</h1>
+  {
+    guides.length > 0 && (
+      <IndexList
+        items={guides.map((guide) => ({
+          href: `/guides/${guide.id}`,
+          title: guide.data.title,
+          summary: guide.data.description,
+        }))}
+      />
+    )
+  }
+</Layout>
