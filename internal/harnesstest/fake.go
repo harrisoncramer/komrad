@@ -40,10 +40,15 @@ type Fake struct {
 	InterruptWith []string
 	// Session is the id FindSession answers.
 	Session string
+	// Anonymous leaves ID blank.
+	Anonymous bool
 }
 
 // ID is Name, or FakeID when the test gave none.
 func (f *Fake) ID() string {
+	if f.Anonymous {
+		return ""
+	}
 	if f.Name != "" {
 		return f.Name
 	}
