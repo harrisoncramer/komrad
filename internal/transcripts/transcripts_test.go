@@ -1,8 +1,6 @@
 package transcripts
 
 import (
-	"context"
-	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -144,12 +142,12 @@ func TestSyncSurvivesOneUnsyncableAgent(t *testing.T) {
 	unsyncable := seedWithSessionID(t, st, "claude-unsyncable", "unsyncable")
 
 	writeLogFor(t, configDir, "claude-readable", `{"type":"user","message":{"content":"a turn worth keeping"}}`+"\n")
-	writeLogFor(t, configDir, "claude-unsyncable", `{"type":"user","message":{"content":"never accepted"}}`+"\n")
+	unreadable := writeLogFor(t, configDir, "claude-unsyncable", `{"type":"user","message":{"content":"never accepted"}}`+"\n")
+	require.NoError(t, os.Chmod(unreadable, 0o000))
 
-	store := failingTranscripts{transcriptReadWriter: st.Transcripts, failFor: unsyncable.ID}
 	syncer := NewTranscriptSyncer(NewTranscriptSyncerParams{
 		Agents:      st.Agents,
-		Transcripts: store,
+		Transcripts: st.Transcripts,
 		Harnesses:   mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ConfigDir: configDir})),
 	})
 
@@ -164,19 +162,6 @@ func TestSyncSurvivesOneUnsyncableAgent(t *testing.T) {
 	empty, err := st.Transcripts.Get(ctx, unsyncable.ID)
 	require.NoError(t, err)
 	assert.Empty(t, empty, "the agent that failed has nothing stored")
-}
-
-type failingTranscripts struct {
-	transcriptReadWriter
-	failFor string
-}
-
-func (f failingTranscripts) AppendTurns(ctx context.Context, params transcriptstore.AppendTurnsParams) error {
-	if params.AgentID == f.failFor {
-		return errors.New("this log will never be accepted")
-	}
-
-	return f.transcriptReadWriter.AppendTurns(ctx, params)
 }
 
 // syncedOffset reads how far a session's log has been copied.
