@@ -446,3 +446,8 @@ func (p *Panel) SetShown(isShown bool) {
 		p.tmux.sessionClient = panelViewer
 	}
 }
+
+// SetHostPath makes tmux report the directory of the client the panel was invoked from.
+func (p *Panel) SetHostPath(path string) {
+	p.tmux.path = path
+}
