@@ -14,7 +14,6 @@ import (
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
 	schedulestore "weave/internal/store/schedule"
-	"weave/internal/tmux"
 	"weave/internal/tmuxtest"
 	"weave/lib/xptr"
 
@@ -449,7 +448,7 @@ func TestReconcileLeavesAnUnknownHarnessAlone(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
 
-	require.NoError(t, st.Create(ctx, agentstore.Agent{
+	require.NoError(t, st.createAgent(ctx, agentstore.Agent{
 		Name:    "orphan",
 		Pane:    "%1",
 		State:   agentstore.StateThinking,
@@ -663,7 +662,7 @@ func TestReconcileWithoutTmux(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
 
-	require.NoError(t, st.Create(ctx, agentstore.Agent{
+	require.NoError(t, st.createAgent(ctx, agentstore.Agent{
 		Name:  "busy",
 		Pane:  "%1",
 		State: agentstore.StateThinking,
@@ -736,7 +735,7 @@ func TestReconcileStampsWhatItConfirmed(t *testing.T) {
 			st := newStore(t)
 			ctx := t.Context()
 
-			require.NoError(t, st.Create(ctx, agentstore.Agent{
+			require.NoError(t, st.createAgent(ctx, agentstore.Agent{
 				Name:    "agent",
 				Pane:    "%1",
 				State:   agentstore.StateThinking,
@@ -805,24 +804,6 @@ func TestReconcileCoalescesTheConfirmationStamp(t *testing.T) {
 	assert.Equal(t, agent.StateChangedAt, stamped.StateChangedAt, "and the state itself never moved")
 }
 
-// resumeAfterSnapshot is a pane probe that moves the world on once a pass has read the panes,
-// which is the last moment before the walk and the window a resume lands in.
-type resumeAfterSnapshot struct {
-	paneKiller
-	resume func()
-}
-
-func (p *resumeAfterSnapshot) GetPanes() (map[string]tmux.PaneStatus, error) {
-	panes, err := p.paneKiller.GetPanes()
-	if err != nil {
-		return nil, err
-	}
-
-	p.resume()
-
-	return panes, nil
-}
-
 // TestReconcileLeavesARowAResumeHasMovedOn pins that a pass does not write its conclusion over
 // a row a resume has since given a live pane, including one on a reused pane id.
 func TestReconcileLeavesARowAResumeHasMovedOn(t *testing.T) {
@@ -852,13 +833,13 @@ func TestReconcileLeavesARowAResumeHasMovedOn(t *testing.T) {
 			resumed.Pane = tt.pane
 			resumed.State = agentstore.StateIdle
 
-			observer := &resumeAfterSnapshot{paneKiller: tmux, resume: func() {
+			tmux.AfterGetPanes = func() {
 				require.NoError(t, tmux.SetPaneOwner(tt.pane, agent.ID))
 				require.NoError(t, st.Agents.Update(ctx, resumed))
-			}}
+			}
 
 			rec := NewReconciler(NewReconcilerParams{
-				Panes:    observer,
+				Panes:    tmux,
 				Observer: pane.NewPane(pane.NewPaneParams{Terminal: tmux, Harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}}}),
 				States:   st.Agents,
 			})
@@ -1288,7 +1269,7 @@ func TestDeliverToAnAgentNoPassCanRead(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
 
-	require.NoError(t, st.Create(ctx, agentstore.Agent{
+	require.NoError(t, st.createAgent(ctx, agentstore.Agent{
 		Name:    "orphan",
 		Pane:    "%1",
 		State:   agentstore.StateThinking,
@@ -1411,4 +1392,44 @@ func aliveOf(t *testing.T, st *testStore, id string) bool {
 	require.NotNil(t, agent)
 
 	return agent.Alive
+}
+
+// TestReconcileReturnsAHoldWhenTheListingComesBack pins that a pane the listing mentions again
+// returns what its absence had accrued, so a run of blips never adds up to an exit.
+func TestReconcileReturnsAHoldWhenTheListingComesBack(t *testing.T) {
+	st := newStore(t)
+	ctx := t.Context()
+	tmux := tmuxtest.NewFake()
+
+	board := make([]agentstore.Agent, 0, 6)
+	for i := range 5 {
+		name := fmt.Sprintf("agent-%d", i)
+		pane := "%" + name
+		board = append(board, seedRunning(t, st, tmux, name, pane, agentstore.StateThinking))
+		tmux.Captures[pane] = harnesstest.FrameWorking
+	}
+	board = append(board, seedRunning(t, st, tmux, "quiet", "%quiet", agentstore.StateThinking))
+
+	rec := NewReconciler(NewReconcilerParams{
+		Panes:    tmux,
+		Observer: pane.NewPane(pane.NewPaneParams{Terminal: tmux, Harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}}}),
+		States:   st.Agents,
+	})
+
+	for pass := range listingsBeforePaneGone * 3 {
+		for _, agent := range board {
+			if pass%2 == 0 {
+				delete(tmux.Owners, agent.Pane)
+			} else {
+				tmux.Owners[agent.Pane] = agent.ID
+			}
+		}
+		require.NoError(t, rec.Reconcile(ctx))
+	}
+
+	for _, agent := range board {
+		after := agentByID(t, st, agent.ID)
+		assert.Equal(t, agent.Pane, after.Pane, "%s keeps its pane", agent.Name)
+		assert.Nil(t, after.InterruptedAt, "%s records no interruption", agent.Name)
+	}
 }

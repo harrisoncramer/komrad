@@ -10,18 +10,17 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
-	"weave/internal/harness"
-	reviewstore "weave/internal/store/review"
-
-	"github.com/google/uuid"
 
 	"weave/internal/caller"
+	"weave/internal/harness"
 	"weave/internal/harnesstest"
 	agentstore "weave/internal/store/agent"
+	reviewstore "weave/internal/store/review"
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/tmuxtest"
 	"weave/lib/xptr"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -131,7 +130,7 @@ func TestNewAgent(t *testing.T) {
 
 				assert.Empty(t, tmux.Respawned, "nothing is started when the launch was refused")
 
-				agents, listErr := st.List(t.Context())
+				agents, listErr := st.Agents.List(t.Context())
 				require.NoError(t, listErr)
 
 				if tt.wantsFailedRow {
@@ -234,7 +233,7 @@ func TestNewAgentIdempotency(t *testing.T) {
 			}
 			require.NotNil(t, second, "the agent already under the key comes back either way")
 
-			agents, err := st.List(t.Context())
+			agents, err := st.Agents.List(t.Context())
 			require.NoError(t, err)
 
 			if tt.wantSame {
@@ -301,7 +300,7 @@ func TestNewAgentRetriesUnderTheSameKey(t *testing.T) {
 			second, err := manager.launch.NewAgent(t.Context(), params)
 			require.NotNil(t, second)
 
-			all, listErr := st.ListAll(t.Context())
+			all, listErr := st.Agents.ListAll(t.Context())
 			require.NoError(t, listErr)
 
 			if !tt.wantRelaunch {
@@ -377,7 +376,7 @@ func TestNewAgentRecordsWhoSpawnedIt(t *testing.T) {
 				require.ErrorIs(t, err, tt.wantErrIs)
 				assert.Empty(t, tmux.Respawned, "nothing is started when the caller cannot be attributed")
 
-				agents, listErr := st.List(t.Context())
+				agents, listErr := st.Agents.List(t.Context())
 				require.NoError(t, listErr)
 				assert.Empty(t, agents, "a refused create records nothing")
 
@@ -834,7 +833,7 @@ func TestNewAgentCleansUpAfterASetupThatRan(t *testing.T) {
 				assert.Equal(t, tt.answered, lifecycle.deprovisionCwd[0], "cleanup runs against what setup actually built, not the workflow's planned dir")
 			}
 
-			agents, listErr := st.List(t.Context())
+			agents, listErr := st.Agents.List(t.Context())
 			require.NoError(t, listErr)
 			require.Len(t, agents, 1, "the row stays, marked failed, rather than vanishing")
 			assert.Equal(t, agentstore.StateFailedToCreate, agents[0].State)
@@ -907,7 +906,7 @@ func TestNewAgentClosesOutACreateTheCallerAbandoned(t *testing.T) {
 	})
 	require.Error(t, err)
 
-	agents, listErr := st.List(t.Context())
+	agents, listErr := st.Agents.List(t.Context())
 	require.NoError(t, listErr)
 	require.Len(t, agents, 1)
 	assert.Equal(t, agentstore.StateFailedToCreate, agents[0].State, "an abandoned create is not left setting up forever")
@@ -1224,7 +1223,7 @@ func TestNewChildAgentRefusals(t *testing.T) {
 			name: "a parent with no directory",
 			prepareParent: func(t *testing.T, st *testStore, parent agentstore.Agent) agentstore.Agent {
 				t.Helper()
-				require.NoError(t, st.Update(t.Context(), withCwd(parent, "")))
+				require.NoError(t, st.Agents.Update(t.Context(), withCwd(parent, "")))
 
 				return parent
 			},
@@ -1248,7 +1247,7 @@ func TestNewChildAgentRefusals(t *testing.T) {
 			manager := newManager(tmux, st, "")
 
 			parent := withCwd(seedRunning(t, st, tmux, "author", "%author", agentstore.StateIdle), t.TempDir())
-			require.NoError(t, st.Update(t.Context(), parent))
+			require.NoError(t, st.Agents.Update(t.Context(), parent))
 			if tt.prepareParent != nil {
 				parent = tt.prepareParent(t, st, parent)
 			}
@@ -1258,14 +1257,14 @@ func TestNewChildAgentRefusals(t *testing.T) {
 				params = tt.params(parent)
 			}
 
-			before, err := st.ListAll(t.Context())
+			before, err := st.Agents.ListAll(t.Context())
 			require.NoError(t, err)
 
 			created, err := manager.launch.NewAgent(t.Context(), params)
 			require.ErrorIs(t, err, tt.wantErrIs)
 			assert.Nil(t, created)
 
-			after, err := st.ListAll(t.Context())
+			after, err := st.Agents.ListAll(t.Context())
 			require.NoError(t, err)
 			assert.Len(t, after, len(before), "the refusal records nothing")
 		})
@@ -1285,7 +1284,7 @@ func TestNewChildAgentUnderTheChildCeiling(t *testing.T) {
 	ctx := t.Context()
 
 	parent := seedRunning(t, st, tmux, "author", "%author", agentstore.StateIdle)
-	require.NoError(t, st.Update(ctx, withCwd(parent, t.TempDir())))
+	require.NoError(t, st.Agents.Update(ctx, withCwd(parent, t.TempDir())))
 
 	attach := func(title string) error {
 		_, err := manager.launch.NewAgent(ctx, childOf(parent, title))
@@ -1321,14 +1320,14 @@ func TestNewChildAgentRefusesAnOrchestratorParent(t *testing.T) {
 	ctx := t.Context()
 
 	parent := seedOrchestrator(t, st, tmux)
-	require.NoError(t, st.Update(ctx, withCwd(parent, t.TempDir())))
+	require.NoError(t, st.Agents.Update(ctx, withCwd(parent, t.TempDir())))
 
 	created, err := manager.launch.NewAgent(ctx, childOf(parent, "reader"))
 	require.ErrorIs(t, err, ErrParentIsOrchestrator)
 	assert.Nil(t, created)
 	require.ErrorContains(t, err, "provisionEnabled false", "the refusal names the shape to use instead")
 
-	live, err := st.List(ctx)
+	live, err := st.Agents.List(ctx)
 	require.NoError(t, err)
 	assert.Len(t, live, 1, "the refusal records nothing beside the orchestrator")
 }
@@ -1341,7 +1340,7 @@ func seedOrchestrator(t *testing.T, st *testStore, tmux paneStamper) agentstore.
 	const name = "orchestrator"
 	workflowID := seedWorkflow(t, st)
 
-	require.NoError(t, st.Create(ctx, agentstore.Agent{
+	require.NoError(t, st.createAgent(ctx, agentstore.Agent{
 		Name:       name,
 		Pane:       "%" + name,
 		State:      agentstore.StateIdle,
@@ -1489,7 +1488,7 @@ func TestNewAgentRefusesUnknownHarness(t *testing.T) {
 
 	require.ErrorIs(t, err, harness.ErrNotRegistered)
 
-	agents, listErr := st.List(t.Context())
+	agents, listErr := st.Agents.List(t.Context())
 	require.NoError(t, listErr)
 	assert.Empty(t, agents, "a refused harness records nothing")
 	assert.Empty(t, tmux.NewWindows, "and opens no window")

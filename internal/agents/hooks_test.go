@@ -5,9 +5,9 @@ import (
 	"errors"
 	"testing"
 	"time"
-	"weave/internal/scripts"
 
 	"weave/internal/harnesstest"
+	"weave/internal/scripts"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/tmuxtest"
@@ -128,7 +128,7 @@ func TestNewAgentAbandonsACreateAPreLaunchHookRefused(t *testing.T) {
 	assert.Equal(t, "install-deps", ran[0].Script)
 	assert.Equal(t, []string{worktreeDeprovisioner}, lifecycle.deprovision, "what the provisioner built is given back")
 
-	agents, listErr := st.List(t.Context())
+	agents, listErr := st.Agents.List(t.Context())
 	require.NoError(t, listErr)
 	require.Len(t, agents, 1)
 	assert.Equal(t, agentstore.StateFailedToCreate, agents[0].State)
@@ -366,7 +366,7 @@ func TestAProvisionerDisabledAgentRunsNoHooksOnTheWayBackIn(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			require.NoError(t, st.Create(ctx, agentstore.Agent{
+			require.NoError(t, st.createAgent(ctx, agentstore.Agent{
 				Name:             "reviewer",
 				Pane:             "%0",
 				State:            agentstore.StateIdle,
@@ -487,19 +487,22 @@ func TestRunDeprovisionLogsOneThatWouldNotStart(t *testing.T) {
 // TestDeprovisionerLogsAWorkflowThatWouldNotRead covers the read that breaks rather than
 // answering, which skips a teardown as quietly as a workflow naming none.
 func TestDeprovisionerLogsAWorkflowThatWouldNotRead(t *testing.T) {
-	workflows := brokenWorkflowReader{err: errors.New("connection refused")}
-	ctx, records := loggedContext(t)
+	st := newStore(t)
+	workflowID := seedWorkflow(t, st)
+	logged, records := loggedContext(t)
+	ctx, cancel := context.WithCancel(logged)
+	cancel()
 
 	agent := agentstore.Agent{
 		ID:         "a1",
 		Cwd:        "/repo/.worktrees/auth",
-		WorkflowID: "wf1",
+		WorkflowID: workflowID,
 	}
-	assert.Empty(t, deprovisionerFor(ctx, workflows, agent))
+	assert.Empty(t, deprovisionerFor(ctx, st.Workflows, agent))
 
 	got := recordFor(t, records(), "the workflow behind an agent could not be read")
 	assert.Equal(t, "ERROR", got["severity_text"])
-	assert.Equal(t, "wf1", got["weave.workflow.id"])
+	assert.Equal(t, workflowID, got["weave.workflow.id"])
 	assert.Equal(t, "a1", got["weave.script.agent.id"])
 	assert.Equal(t, "/repo/.worktrees/auth", got["weave.script.agent.cwd"])
 }
@@ -596,16 +599,4 @@ func TestTheWorktreeToggleIsTheWholeProvisioner(t *testing.T) {
 			assert.Equal(t, tt.wantDeprovision, deprovisionerFor(t.Context(), st.Workflows, agent))
 		})
 	}
-}
-
-type brokenWorkflowReader struct {
-	err error
-}
-
-func (b brokenWorkflowReader) Get(ctx context.Context, id string) (*workflowstore.Workflow, error) {
-	return b.GetIncludingArchived(ctx, id)
-}
-
-func (b brokenWorkflowReader) GetIncludingArchived(context.Context, string) (*workflowstore.Workflow, error) {
-	return nil, b.err
 }

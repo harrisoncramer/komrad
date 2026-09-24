@@ -6,9 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"weave/lib/xslice"
-
-	"github.com/google/uuid"
 
 	"weave/config"
 	"weave/internal/frames"
@@ -20,7 +17,9 @@ import (
 	rowstore "weave/internal/store/row"
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/tmuxtest"
+	"weave/lib/xslice"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -116,7 +115,7 @@ func TestDeleteAgentMarksFailedToCleanupWhenTeardownFails(t *testing.T) {
 
 	require.NoError(t, manager.lifecycle.DeleteAgents(t.Context(), []string{agent.ID}))
 
-	agents, listErr := st.List(t.Context())
+	agents, listErr := st.Agents.List(t.Context())
 	require.NoError(t, listErr)
 	require.Len(t, agents, 1, "a failed teardown leaves the row rather than dropping it")
 	assert.Equal(t, agentstore.StateFailedToCleanup, agents[0].State)
@@ -167,7 +166,7 @@ func TestDeleteClaimsTheRowWhileTheTeardownRuns(t *testing.T) {
 			page, err := st.Rows.ListPage(t.Context(), rowstore.Page{Limit: 10, Archived: true})
 			require.NoError(t, err)
 			assert.Empty(t, page, "the row is out of the archive while the teardown runs")
-			all, err := st.ListAll(t.Context())
+			all, err := st.Agents.ListAll(t.Context())
 			require.NoError(t, err)
 			require.Len(t, all, 1, "and still there")
 			assert.NotNil(t, all[0].DeletingAt)
@@ -234,11 +233,11 @@ func TestDeleteStaysArchivedOnAFailedTeardown(t *testing.T) {
 	require.NoError(t, manager.lifecycle.ArchiveAgents(t.Context(), []string{agent.ID}))
 	require.NoError(t, manager.lifecycle.DeleteAgents(t.Context(), []string{agent.ID}))
 
-	live, listErr := st.List(t.Context())
+	live, listErr := st.Agents.List(t.Context())
 	require.NoError(t, listErr)
 	assert.Empty(t, live, "a teardown that failed does not put the agent back on the live list")
 
-	all, listErr := st.ListAll(t.Context())
+	all, listErr := st.Agents.ListAll(t.Context())
 	require.NoError(t, listErr)
 	require.Len(t, all, 1, "a failed teardown leaves the row rather than dropping it")
 	assert.Equal(t, agentstore.StateFailedToCleanup, all[0].State)
@@ -264,7 +263,7 @@ func TestDeleteAgentRetryRecordsTheLatestReasonOnly(t *testing.T) {
 
 	require.NoError(t, manager.lifecycle.DeleteAgents(t.Context(), []string{agent.ID}))
 
-	agents, err := st.List(t.Context())
+	agents, err := st.Agents.List(t.Context())
 	require.NoError(t, err)
 	require.Len(t, agents, 1)
 	assert.Contains(t, metadataValue(agents[0].Metadata), "worktree is dirty")
@@ -272,7 +271,7 @@ func TestDeleteAgentRetryRecordsTheLatestReasonOnly(t *testing.T) {
 	lifecycle.deprovisionRunErr = errors.New("network unreachable")
 	require.NoError(t, manager.lifecycle.DeleteAgents(t.Context(), []string{agent.ID}))
 
-	agents, err = st.List(t.Context())
+	agents, err = st.Agents.List(t.Context())
 	require.NoError(t, err)
 	require.Len(t, agents, 1, "still failing, so still here")
 	assert.Equal(t, agentstore.StateFailedToCleanup, agents[0].State)
@@ -311,7 +310,7 @@ func TestDeleteAgentsHandlesMixedCleanupOutcomes(t *testing.T) {
 
 	require.NoError(t, manager.lifecycle.DeleteAgents(t.Context(), []string{ok.ID, bad.ID}))
 
-	agents, err := st.List(t.Context())
+	agents, err := st.Agents.List(t.Context())
 	require.NoError(t, err)
 	require.Len(t, agents, 1, "the one that succeeded is gone, the one that failed is left")
 	assert.Equal(t, bad.ID, agents[0].ID)
@@ -474,13 +473,9 @@ func TestArchiveKillsAPaneWrittenBeforeItsOwnWrite(t *testing.T) {
 	ctx := t.Context()
 
 	agent := seed(t, st, "dormant", "", agentstore.StateIdle)
+	tmux.AfterGetPanes = buildResumeWrite(t, buildResumeWriteParams{Store: st, Tmux: tmux, Agent: agent, Pane: "%9"})
 
-	manager := st.agentService(agentServiceOptions{
-		tmux:      tmux,
-		harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}},
-		addr:      "127.0.0.1:9999",
-		agents:    writingPaneFirst{AgentStore: st.Agents, inTheGap: buildResumeWrite(t, buildResumeWriteParams{Store: st, Tmux: tmux, Agent: agent, Pane: "%9"})},
-	})
+	manager := newManager(tmux, st, "")
 
 	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, []string{agent.ID}))
 
@@ -509,7 +504,7 @@ func TestDeleteKillsAPaneWrittenBeforeItsOwnWrite(t *testing.T) {
 
 	require.NoError(t, manager.lifecycle.DeleteAgents(ctx, []string{agent.ID}))
 
-	all, err := st.ListAll(ctx)
+	all, err := st.Agents.ListAll(ctx)
 	require.NoError(t, err)
 	assert.Empty(t, all, "the row really is gone")
 	assert.Contains(t, tmux.KilledPanes, "%9", "so the delete kills the pane its write took")
@@ -559,7 +554,7 @@ func TestDeleteAgent(t *testing.T) {
 			if tt.wantErrIs != nil {
 				require.ErrorIs(t, err, tt.wantErrIs)
 
-				all, listErr := st.ListAll(ctx)
+				all, listErr := st.Agents.ListAll(ctx)
 				require.NoError(t, listErr)
 				assert.Len(t, all, 1, "a delete that matched nothing removes nothing")
 
@@ -571,7 +566,7 @@ func TestDeleteAgent(t *testing.T) {
 				assert.Contains(t, tmux.KilledPanes, "%1", "the agent's pane is killed")
 			}
 
-			all, err := st.ListAll(ctx)
+			all, err := st.Agents.ListAll(ctx)
 			require.NoError(t, err)
 			assert.Empty(t, all, "the row is gone from every listing, not hidden from one")
 
@@ -668,7 +663,7 @@ func TestRestore(t *testing.T) {
 			ctx := t.Context()
 
 			workflowID := seedWorkflow(t, st)
-			require.NoError(t, st.Create(ctx, agentstore.Agent{
+			require.NoError(t, st.createAgent(ctx, agentstore.Agent{
 				Name:       "foo",
 				State:      agentstore.StateIdle,
 				SessionID:  "sess-old",
@@ -679,7 +674,7 @@ func TestRestore(t *testing.T) {
 			require.NoError(t, st.SoftDelete(ctx, "foo"))
 
 			if tt.reuseName {
-				require.NoError(t, st.Create(ctx, agentstore.Agent{
+				require.NoError(t, st.createAgent(ctx, agentstore.Agent{
 					Name:       "foo",
 					State:      agentstore.StateIdle,
 					WorkflowID: workflowID,
@@ -757,7 +752,7 @@ func TestDeletingAnAgentLeavesAnotherAgentsRoundHeld(t *testing.T) {
 
 	require.NoError(t, manager.lifecycle.DeleteAgents(t.Context(), []string{going}))
 
-	assert.Equal(t, []string{reviewstore.RoundRef(going, "same-sha")}, manager.snapshots.releasedRefs(),
+	assert.Equal(t, []string{reviewstore.RoundRef(going, "same-sha")}, manager.snapshots.Released,
 		"only the going agent's round is let go of, since the other's ref names the other agent")
 }
 
@@ -820,7 +815,7 @@ func openBatch(t *testing.T, reviews *reviewstore.ReviewStore, agentID, roundID,
 func seedRoundedAgent(t *testing.T, st *testStore, reviews *reviewstore.ReviewStore, name, root, sha string) string {
 	t.Helper()
 
-	require.NoError(t, st.Create(t.Context(), agentstore.Agent{
+	require.NoError(t, st.createAgent(t.Context(), agentstore.Agent{
 		Name:  name,
 		Cwd:   root,
 		State: agentstore.StateIdle,
@@ -860,7 +855,7 @@ func TestArchiveAgentsTakesTheWholeBatch(t *testing.T) {
 
 	assert.ElementsMatch(t, []string{"%1", "%2"}, tmux.KilledPanes, "only the running agents had a pane to kill")
 
-	live, err := st.List(ctx)
+	live, err := st.Agents.List(ctx)
 	require.NoError(t, err)
 	assert.Empty(t, live, "the batch spanned both workflows")
 }
@@ -922,7 +917,7 @@ func TestArchiveAgentsRefusesTheWholeBatch(t *testing.T) {
 			require.ErrorContains(t, err, tt.stray, "the refusal names what it could not find")
 			assert.Empty(t, tmux.KilledPanes, "nothing was stopped")
 
-			live, err := st.List(ctx)
+			live, err := st.Agents.List(ctx)
 			require.NoError(t, err)
 			assert.Len(t, live, 2, "and nothing was archived")
 		})
@@ -961,7 +956,7 @@ func TestDeleteAgentsFiresEveryWorkflowsCleanup(t *testing.T) {
 	assert.Equal(t, []string{worktreeDeprovisioner, worktreeDeprovisioner}, lifecycle.deprovision,
 		"one run per agent, whichever order the listing put them in")
 
-	all, err := st.ListAll(ctx)
+	all, err := st.Agents.ListAll(ctx)
 	require.NoError(t, err)
 	assert.Empty(t, all)
 }
@@ -1014,7 +1009,7 @@ func TestDeleteAgentsRefusesTheWholeBatch(t *testing.T) {
 	assert.Empty(t, lifecycle.deprovision, "no workspace was torn down")
 	assert.Empty(t, tmux.KilledPanes, "and nothing was stopped")
 
-	all, err := st.ListAll(ctx)
+	all, err := st.Agents.ListAll(ctx)
 	require.NoError(t, err)
 	assert.Len(t, all, 1)
 }
@@ -1283,7 +1278,7 @@ func TestRestoreOfAChildUnderTheChildCeiling(t *testing.T) {
 	ctx := t.Context()
 
 	parent := seedRunning(t, st, tmux, "author", "%author", agentstore.StateIdle)
-	require.NoError(t, st.Update(ctx, withCwd(parent, t.TempDir())))
+	require.NoError(t, st.Agents.Update(ctx, withCwd(parent, t.TempDir())))
 
 	first, err := manager.launch.NewAgent(ctx, childOf(parent, "reviewer"))
 	require.NoError(t, err)
@@ -1383,11 +1378,11 @@ func TestTheFamilyMovesTogether(t *testing.T) {
 				child:  child,
 			}))
 
-			live, err := st.List(ctx)
+			live, err := st.Agents.List(ctx)
 			require.NoError(t, err)
 			assert.ElementsMatch(t, tt.wantLive, collectAgentNames(live))
 
-			kept, err := st.ListAll(ctx)
+			kept, err := st.Agents.ListAll(ctx)
 			require.NoError(t, err)
 			assert.ElementsMatch(t, tt.wantKept, collectAgentNames(kept))
 			assert.Contains(t, tmux.KilledPanes, child.Pane, "the child's pane goes with its row")

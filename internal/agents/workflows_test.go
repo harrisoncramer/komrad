@@ -554,7 +554,7 @@ func TestArchiveWorkflow(t *testing.T) {
 			_, err = st.Get(ctx, "agent")
 			require.ErrorIs(t, err, store.ErrNotFound, "the agent is hidden from the live listing")
 
-			all, err := st.ListAll(ctx)
+			all, err := st.Agents.ListAll(ctx)
 			require.NoError(t, err)
 			require.Len(t, all, 1)
 			assert.NotNil(t, all[0].ArchivedAt, "and archived rather than removed")
@@ -654,7 +654,7 @@ func TestRestoreWorkflow(t *testing.T) {
 			require.NoError(t, err)
 			assert.Contains(t, workflowNames(listed), "backend", "the workflow is back in the listing")
 
-			live, err := st.List(ctx)
+			live, err := st.Agents.List(ctx)
 			require.NoError(t, err)
 			inside := make([]agentstore.Agent, 0, len(live))
 			for _, agent := range live {
@@ -888,7 +888,7 @@ func TestDeleteWorkflow(t *testing.T) {
 			require.ErrorIs(t, err, store.ErrNotFound, "the workflow row is gone")
 
 			if tt.addAgent {
-				all, err := st.ListAll(ctx)
+				all, err := st.Agents.ListAll(ctx)
 				require.NoError(t, err)
 				assert.Empty(t, all, "its agent goes with it")
 			}
@@ -952,7 +952,7 @@ func TestDeleteWorkflowRefusesAScheduleAnotherWorkflowsAgentsHold(t *testing.T) 
 	require.NoError(t, err)
 	assert.NotNil(t, got, "the workflow stays archived to be tried again")
 
-	all, err := st.ListAll(ctx)
+	all, err := st.Agents.ListAll(ctx)
 	require.NoError(t, err)
 	assert.Len(t, all, 2, "the agents inside it are left alone")
 }
@@ -1059,7 +1059,7 @@ func TestRestoreOfAWorkflowUnderTheChildCeiling(t *testing.T) {
 	ctx := t.Context()
 
 	parent := seedRunning(t, st, tmux, "author", "%author", agentstore.StateIdle)
-	require.NoError(t, st.Update(ctx, withCwd(parent, t.TempDir())))
+	require.NoError(t, st.Agents.Update(ctx, withCwd(parent, t.TempDir())))
 
 	first, err := manager.launch.NewAgent(ctx, childOf(parent, "reviewer"))
 	require.NoError(t, err)
