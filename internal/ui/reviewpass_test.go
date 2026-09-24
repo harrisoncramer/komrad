@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"weave/internal/gittest"
 	"weave/internal/ui/panel"
 	agentv1 "weave/proto/gen/agent/v1"
 
@@ -313,7 +314,7 @@ func TestADroppedPassKeepsTheFilesForAReadersOwnPause(t *testing.T) {
 
 // TestAPassRedrawsTheReadersOwnEdits redraws the reader's worktree changes.
 func TestAPassRedrawsTheReadersOwnEdits(t *testing.T) {
-	repo := newFakeRepo(t.TempDir())
+	repo := gittest.NewRepo(t.TempDir())
 	agents := &fakeReviewAgents{}
 	m, _ := reviewModelOver(t, agents, repo)
 	m = openReview(t, m)
@@ -333,7 +334,7 @@ func TestAPassRedrawsTheReadersOwnEdits(t *testing.T) {
 	m.review.diff.cursor = reviewRowWithAnEditTarget(t, m)
 	m = pressEdit(t, m)
 
-	repo.wrote(wroteParams{Tree: "tree-the-reader-edited", Whole: fakePatchWrittenOver})
+	repo.Wrote(gittest.WroteParams{Tree: "tree-the-reader-edited", Whole: gittest.PatchWrittenOver})
 
 	cmd = m.review.closeEdit(&m, m.shared())
 	require.NotNil(t, cmd, "closing the editor reads the worktree again")
@@ -342,7 +343,7 @@ func TestAPassRedrawsTheReadersOwnEdits(t *testing.T) {
 	require.True(t, ok)
 	m.review.applyLoaded(&m, m.shared(), loaded)
 
-	assert.Equal(t, snapshotOf("tree-the-reader-edited"), m.review.diff.view.GetSnapshotSHA())
+	assert.Equal(t, gittest.SnapshotOf("tree-the-reader-edited"), m.review.diff.view.GetSnapshotSHA())
 	assert.Contains(t, ansi.Strip(m.review.view(m.shared())), "written by the agent")
 }
 

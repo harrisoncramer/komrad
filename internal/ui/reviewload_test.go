@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"weave/internal/git"
+	"weave/internal/gittest"
 	agentv1 "weave/proto/gen/agent/v1"
 
 	"github.com/stretchr/testify/assert"
@@ -12,7 +13,7 @@ import (
 
 // countingGit answers with a fixed number of changed files, and records what it was asked.
 type countingGit struct {
-	fakeGit
+	gittest.NoRepo
 	changed int
 	err     error
 	asked   git.CountChangedFilesParams
@@ -43,7 +44,7 @@ func TestChangedSinceLastReview(t *testing.T) {
 		{
 			name:    "git cannot answer, so nothing is said rather than a wrong number",
 			earlier: &agentv1.ReviewRound{SnapshotSha: "earlier"},
-			err:     errNoGit,
+			err:     gittest.ErrNoGit,
 			want:    "",
 		},
 		{

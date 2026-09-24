@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"weave/internal/gittest"
 	"weave/internal/ui/paint"
 	agentv1 "weave/proto/gen/agent/v1"
 
@@ -137,7 +138,7 @@ func TestTheOwedListIsNotDrawnOverADeadAgent(t *testing.T) {
 // TestTheOwedListSaysWhenACommentIsFoldedAway covers the comment in a file the reader has put away,
 // which the walk cannot reach and the list would otherwise name without saying why.
 func TestTheOwedListSaysWhenACommentIsFoldedAway(t *testing.T) {
-	m := owedModel(t, []*agentv1.ReviewThread{owedThread("t1", fakeFile, 2)})
+	m := owedModel(t, []*agentv1.ReviewThread{owedThread("t1", gittest.File, 2)})
 
 	require.Contains(t, ansi.Strip(m.review.sidebarView(m.shared())), "no reply")
 
@@ -152,13 +153,13 @@ func TestTheOwedListSaysWhenACommentIsFoldedAway(t *testing.T) {
 // colour while one that is not stays dim.
 func TestTheOwedListBrightensWhatIsOnScreen(t *testing.T) {
 
-	m := owedModel(t, []*agentv1.ReviewThread{owedThread("t1", fakeFile, 2)})
+	m := owedModel(t, []*agentv1.ReviewThread{owedThread("t1", gittest.File, 2)})
 
 	rows := m.review.owedComments()
 	require.Len(t, rows, 1)
 	require.True(t, m.review.isCommentNear(m.shared(), rows[0]), "its line is drawn beside the list")
 
-	bright := paint.Panel.Style(reviewOwedTone).Bold(true).Render(fakeFile + ":2")
+	bright := paint.Panel.Style(reviewOwedTone).Bold(true).Render(gittest.File + ":2")
 	assert.Contains(t, m.review.sidebarView(m.shared()), bright)
 
 	// The reader scrolls past it.
@@ -166,7 +167,7 @@ func TestTheOwedListBrightensWhatIsOnScreen(t *testing.T) {
 
 	require.False(t, m.review.isCommentNear(m.shared(), m.review.owedComments()[0]), "and now it is not")
 	assert.NotContains(t, m.review.sidebarView(m.shared()), bright)
-	assert.Contains(t, m.review.sidebarView(m.shared()), dimStyle.Render(fakeFile+":2"), "the row is still named, dim")
+	assert.Contains(t, m.review.sidebarView(m.shared()), dimStyle.Render(gittest.File+":2"), "the row is still named, dim")
 }
 
 // walkOpen presses a key and gives back the row the cursor landed on.
@@ -184,9 +185,9 @@ func walkOpen(t *testing.T, m model, key string) (model, int) {
 // cursor, and needs three comments to tell that from a wrap.
 func TestWalkingTheOpenCommentsGoesBothWays(t *testing.T) {
 	m := owedModel(t, []*agentv1.ReviewThread{
-		owedThread("t1", fakeFile, 2),
-		owedThread("t2", fakeFile, 3),
-		owedThread("t3", fakeFile, 4),
+		owedThread("t1", gittest.File, 2),
+		owedThread("t2", gittest.File, 3),
+		owedThread("t3", gittest.File, 4),
 	})
 
 	m, first := walkOpen(t, m, "u")
@@ -203,9 +204,9 @@ func TestWalkingTheOpenCommentsGoesBothWays(t *testing.T) {
 // TestWalkingTheOpenCommentsStopsAtTheEnds covers the walk holding still at either end.
 func TestWalkingTheOpenCommentsStopsAtTheEnds(t *testing.T) {
 	m := owedModel(t, []*agentv1.ReviewThread{
-		owedThread("t1", fakeFile, 2),
-		owedThread("t2", fakeFile, 3),
-		owedThread("t3", fakeFile, 4),
+		owedThread("t1", gittest.File, 2),
+		owedThread("t2", gittest.File, 3),
+		owedThread("t3", gittest.File, 4),
 	})
 
 	m, first := walkOpen(t, m, "u")
@@ -224,7 +225,7 @@ func TestWalkingTheOpenCommentsStopsAtTheEnds(t *testing.T) {
 // TestTheLegendFollowsTheKeysOntoTheThread covers the legend naming the conversation's own keys
 // once the reader has taken the keys onto it, and the diff's again once they hand them back.
 func TestTheLegendFollowsTheKeysOntoTheThread(t *testing.T) {
-	m := owedModel(t, []*agentv1.ReviewThread{owedThread("t1", fakeFile, 2)})
+	m := owedModel(t, []*agentv1.ReviewThread{owedThread("t1", gittest.File, 2)})
 	m.helpExpanded = true
 
 	m, _ = walkOpen(t, m, "u")

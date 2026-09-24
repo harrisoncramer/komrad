@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"weave/config"
+	"weave/internal/gittest"
 	"weave/internal/panes"
 	"weave/internal/ui/layout"
 	"weave/internal/ui/panel"
@@ -286,7 +287,7 @@ func infoModel(tmux *recordingTmux) model {
 
 	return model{
 		tmux:          tmux,
-		git:           fakeGit{},
+		git:           gittest.NoRepo{},
 		frame:         frame,
 		shell:         tmux.GetDefaultShell(),
 		keys:          config.DefaultKeybindings(),

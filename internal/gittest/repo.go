@@ -1,0 +1,363 @@
+package gittest
+
+import (
+	"context"
+	"fmt"
+	"strings"
+
+	"weave/internal/git"
+)
+
+// Patch is what git writes between the two commits Repo stands for, taken from a real
+// repository.
+const Patch = `diff --git a/greet.go b/greet.go
+index 0a90f17972dec66c378df67739faaf48b6235df9..23cef252a97433f151c14725c88e0c2dafce63ef 100644
+--- a/greet.go
++++ b/greet.go
+@@ -1,5 +1,5 @@
+ package greet
+ 
+ func Hello() string {
+-	return "hello"
++	return "goodbye"
+ }
+`
+
+// PatchWrittenOver is the same file written over a second time.
+const PatchWrittenOver = `diff --git a/greet.go b/greet.go
+index 0a90f17972dec66c378df67739faaf48b6235df9..5586caad9270132f074ee5374d4652b83d0acc98 100644
+--- a/greet.go
++++ b/greet.go
+@@ -1,5 +1,5 @@
+ package greet
+ 
+ func Hello() string {
+-	return "hello"
++	return "written by the agent"
+ }
+`
+
+// PatchOfAnAddedFile is a worktree whose only work is a file git had never seen.
+const PatchOfAnAddedFile = `diff --git a/new.go b/new.go
+new file mode 100644
+index 0000000000000000000000000000000000000000..eb3519d6032ff1d467fca3ee4bca7670dd93c393
+--- /dev/null
++++ b/new.go
+@@ -0,0 +1 @@
++package greet
+`
+
+// PatchWithADeletion changes one file and removes another.
+const PatchWithADeletion = `diff --git a/gone.go b/gone.go
+deleted file mode 100644
+index 2e28ecec343b169b8c4b27117080bd08dc427c5d..0000000000000000000000000000000000000000
+--- a/gone.go
++++ /dev/null
+@@ -1,3 +0,0 @@
+-package greet
+-
+-func Gone() {}
+diff --git a/greet.go b/greet.go
+index 0a90f17972dec66c378df67739faaf48b6235df9..23cef252a97433f151c14725c88e0c2dafce63ef 100644
+--- a/greet.go
++++ b/greet.go
+@@ -1,5 +1,5 @@
+ package greet
+ 
+ func Hello() string {
+-	return "hello"
++	return "goodbye"
+ }
+`
+
+// PatchOfBothFiles is the whole change of a worktree the agent wrote a second file into.
+const PatchOfBothFiles = Patch + `diff --git a/second.go b/second.go
+new file mode 100644
+index 0000000000000000000000000000000000000000..6f3be6f46b20679ed1c38500fd37b317742c260e
+--- /dev/null
++++ b/second.go
+@@ -0,0 +1,3 @@
++package greet
++
++func Second() {}
+`
+
+// PatchOfTheSecondFile is what git reports between those two rounds.
+const PatchOfTheSecondFile = `diff --git a/second.go b/second.go
+new file mode 100644
+index 0000000000000000000000000000000000000000..6f3be6f46b20679ed1c38500fd37b317742c260e
+--- /dev/null
++++ b/second.go
+@@ -0,0 +1,3 @@
++package greet
++
++func Second() {}
+`
+
+// PatchOfAnotherFile is a second file holding enough lines for a jump to land in.
+const PatchOfAnotherFile = `diff --git a/second.go b/second.go
+new file mode 100644
+index 0000000000000000000000000000000000000000..a3c7f6e558464c8b1b0eab6d0a6c53687c253ae3
+--- /dev/null
++++ b/second.go
+@@ -0,0 +1,5 @@
++package greet
++
++func Second() string {
++	return "second"
++}
+`
+
+// PatchOfATallFile changes one line in the middle of a file long enough that three lines of
+// context leave most of it off the screen.
+const PatchOfATallFile = `diff --git a/tall.go b/tall.go
+index 0a90f17972dec66c378df67739faaf48b6235df9..23cef252a97433f151c14725c88e0c2dafce63ef 100644
+--- a/tall.go
++++ b/tall.go
+@@ -5,7 +5,7 @@ package tall
+ func One() {}
+ 
+ func Two() {
+-	fmt.Println("one")
++	fmt.Println("two")
+ }
+ 
+ func Three() {}
+`
+
+// PatchInAnExcludedPath is a worktree whose every changed line sits inside an excluded path.
+const PatchInAnExcludedPath = `diff --git a/proto/gen/api.pb.go b/proto/gen/api.pb.go
+new file mode 100644
+index 0000000000000000000000000000000000000000..15c192a3393746be504c4f3ffeb5bcf24a264988
+--- /dev/null
++++ b/proto/gen/api.pb.go
+@@ -0,0 +1 @@
++package gen
+`
+
+const (
+	// SnapshotPrefix is what a round's commit is named after the tree it froze.
+	SnapshotPrefix = "snapshot-"
+	BaseSHA        = "39d09b1e629b114cf0fb9651479f2225948c20ea"
+	UnmovedTree    = "tree-unmoved"
+	File           = "greet.go"
+	SnapshotSHA    = SnapshotPrefix + UnmovedTree
+	BaseSource     = "package greet\n\nfunc Hello() string {\n\treturn \"hello\"\n}\n"
+	HeadSource     = "package greet\n\nfunc Hello() string {\n\treturn \"goodbye\"\n}\n"
+	TallFile       = "tall.go"
+	// The two sources of the tall file differ only on line eight, so the lines the patch leaves
+	// out are lines one to four and twelve to thirteen.
+	TallBase = "package tall\n\nimport \"fmt\"\n\nfunc One() {}\n\nfunc Two() {\n\tfmt.Println(\"one\")\n}" +
+		"\n\nfunc Three() {}\n\nfunc Four() {}\n"
+	TallHead = "package tall\n\nimport \"fmt\"\n\nfunc One() {}\n\nfunc Two() {\n\tfmt.Println(\"two\")\n}" +
+		"\n\nfunc Three() {}\n\nfunc Four() {}\n"
+)
+
+// ReplayOf names one replay: the base a snapshot was measured from, the base it is carried
+// onto, and the snapshot.
+func ReplayOf(fromBase, ontoBase, snapshot string) string {
+	return fromBase + ">" + ontoBase + ":" + snapshot
+}
+
+// SourceOf names one file's whole source: the snapshot holding it and its path.
+func SourceOf(sha, path string) string {
+	return sha + ":" + path
+}
+
+// SnapshotOf is the round a tree is frozen as.
+func SnapshotOf(tree string) string {
+	return SnapshotPrefix + tree
+}
+
+// PairOf names one diff: the two snapshots it is read between.
+func PairOf(from, to string) string {
+	return from + ".." + to
+}
+
+// Repo is the git a review screen reads, answering for the snapshots a test says the agent
+// took rather than from a repository on disk.
+type Repo struct {
+	// NoRepo refuses everything a review screen does not read from this fixture.
+	NoRepo
+	// Root is the directory every read is answered against.
+	Root string
+	// RootErr is a directory no repository can be found for.
+	RootErr error
+	// Tree is what the worktree hashes to now.
+	Tree string
+	// Patches is what git reports between a pair of snapshots, and a pair nobody named is a pair
+	// nothing changed between.
+	Patches map[string]string
+	// Hidden is the pairs whose every changed path is one the workflow keeps out of the diff.
+	Hidden map[string]bool
+	// Sources is the file's whole source in each snapshot, which the colouring reads.
+	Sources map[string]string
+	// Replays is what carrying a snapshot onto another base answers, keyed by the three commits,
+	// and a triple nobody stated is a repository that cannot replay.
+	Replays map[string]*git.Replayed
+	// Rewritten is the base pairs whose older base the newer one cannot reach.
+	Rewritten map[string]bool
+}
+
+// NewRepo is a repository holding one changed file.
+func NewRepo(root string) *Repo {
+	return &Repo{
+		Root:    root,
+		Tree:    UnmovedTree,
+		Patches: map[string]string{PairOf(BaseSHA, SnapshotSHA): Patch},
+		Hidden:  map[string]bool{},
+		Sources: map[string]string{
+			SourceOf(BaseSHA, File):     BaseSource,
+			SourceOf(SnapshotSHA, File): HeadSource,
+		},
+	}
+}
+
+// NewTallRepo is a repository whose one changed file is long enough to have lines the patch
+// does not draw.
+func NewTallRepo(root string) *Repo {
+	return &Repo{
+		Root:    root,
+		Tree:    UnmovedTree,
+		Patches: map[string]string{PairOf(BaseSHA, SnapshotSHA): PatchOfATallFile},
+		Hidden:  map[string]bool{},
+		Sources: map[string]string{
+			SourceOf(BaseSHA, TallFile):     TallBase,
+			SourceOf(SnapshotSHA, TallFile): TallHead,
+		},
+	}
+}
+
+// WroteParams is one turn of an agent's work: the tree the worktree now hashes to, and what git
+// reports for it.
+type WroteParams struct {
+	// Tree is what the worktree hashes to afterwards, which names the round taken of it.
+	Tree string
+	// Whole is what git reports between the base and this snapshot.
+	Whole string
+	// Since is what git reports between the snapshot before it and this one.
+	Since string
+	// Sources is the whole source each path holds in this snapshot, keyed by path.
+	Sources map[string]string
+	// Hidden says every changed path is one the workflow keeps out of the diff.
+	Hidden bool
+}
+
+// Wrote is the agent writing again, which moves the worktree onto a tree of its own.
+func (f *Repo) Wrote(params WroteParams) {
+	previous := SnapshotOf(f.Tree)
+	f.Tree = params.Tree
+
+	sha := SnapshotOf(params.Tree)
+	f.Patches[PairOf(BaseSHA, sha)] = params.Whole
+
+	if params.Since != "" {
+		f.Patches[PairOf(previous, sha)] = params.Since
+	}
+
+	for path, source := range params.Sources {
+		f.Sources[SourceOf(sha, path)] = source
+	}
+
+	if params.Hidden {
+		f.Hidden[PairOf(BaseSHA, sha)] = true
+	}
+}
+
+func (f *Repo) Replay(_ context.Context, params git.ReplayParams) (*git.Replayed, error) {
+	replayed, stated := f.Replays[ReplayOf(params.FromBase, params.OntoBase, params.SnapshotSHA)]
+	if !stated {
+		return nil, fmt.Errorf("this test stated no replay of %s from %s onto %s: %w",
+			params.SnapshotSHA, params.FromBase, params.OntoBase, ErrNoGit)
+	}
+
+	return replayed, nil
+}
+
+func (f *Repo) IsAncestor(_ context.Context, _, maybeAncestor, of string) (bool, error) {
+	return !f.Rewritten[PairOf(maybeAncestor, of)], nil
+}
+
+func (f *Repo) GetRoot(_ context.Context, dir string) (string, error) {
+	if f.RootErr != nil {
+		return "", f.RootErr
+	}
+
+	if f.Root != "" {
+		return f.Root, nil
+	}
+
+	return dir, nil
+}
+
+func (f *Repo) Diff(_ context.Context, params git.DiffParams) ([]byte, error) {
+	patch, err := f.patchBetween(patchBetweenParams{
+		FromSHA: params.FromSHA,
+		ToSHA:   params.ToSHA,
+		Exclude: params.Exclude,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return []byte(patch), nil
+}
+
+func (f *Repo) CountChangedFiles(_ context.Context, params git.CountChangedFilesParams) (int, error) {
+	patch, err := f.patchBetween(patchBetweenParams{
+		FromSHA: params.FromSHA,
+		ToSHA:   params.ToSHA,
+		Exclude: params.Exclude,
+	})
+	if err != nil {
+		return 0, err
+	}
+
+	return strings.Count(patch, "diff --git "), nil
+}
+
+// patchBetweenParams is one read of a diff: the two snapshots, and the paths left out of it.
+type patchBetweenParams struct {
+	FromSHA string
+	ToSHA   string
+	Exclude []string
+}
+
+// patchBetween is what git reports between two snapshots, refusing a pair the test never stated
+// rather than answering as a pair nothing changed between.
+func (f *Repo) patchBetween(params patchBetweenParams) (string, error) {
+	// A snapshot against itself is nothing changed.
+	if params.FromSHA == params.ToSHA {
+		return "", nil
+	}
+
+	pair := PairOf(params.FromSHA, params.ToSHA)
+
+	patch, stated := f.Patches[pair]
+	if !stated {
+		return "", fmt.Errorf("this test stated no diff between %s and %s: %w",
+			params.FromSHA, params.ToSHA, ErrNoGit)
+	}
+
+	if len(params.Exclude) > 0 && f.Hidden[pair] {
+		return "", nil
+	}
+
+	return patch, nil
+}
+
+func (f *Repo) ReadFiles(_ context.Context, _ string, revisions []git.FileRevision) (map[git.FileRevision][]byte, error) {
+	files := make(map[git.FileRevision][]byte, len(revisions))
+	for _, revision := range revisions {
+		if source, stated := f.Sources[SourceOf(revision.SHA, revision.Path)]; stated {
+			files[revision] = []byte(source)
+		}
+	}
+
+	return files, nil
+}
+
+// WorktreeHead answers as a round nothing has checked out yet.
+func (f *Repo) WorktreeHead(context.Context, string) (string, bool) {
+	return "", false
+}
