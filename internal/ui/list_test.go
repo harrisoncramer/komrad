@@ -64,8 +64,7 @@ func TestListTitles(t *testing.T) {
 	}
 }
 
-// TestListPageKeys covers a page key moving the cursor ten rows and landing on the end rather
-// than refusing to move past it.
+// TestListPageKeys covers a page key moving the cursor ten rows and stopping at either end.
 func TestListPageKeys(t *testing.T) {
 	tests := []struct {
 		name  string

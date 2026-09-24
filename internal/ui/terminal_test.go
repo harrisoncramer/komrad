@@ -21,7 +21,7 @@ const (
 func TestTerminal(t *testing.T) {
 	t.Run("the shell opens in the hovered agent's directory and takes the keys", func(t *testing.T) {
 		dir := t.TempDir()
-		harness := openTerminal(t, panelHarnessParams{}, newShellAgent("a1", dir))
+		harness := openTerminal(t, panelHarnessParams{}, newStagedShellAgent(dir))
 		require.Equal(t, 1, harness.panel.CountSwaps(), "the live agent is staged to begin with")
 
 		harness.press("T")
@@ -36,7 +36,7 @@ func TestTerminal(t *testing.T) {
 
 	t.Run("the shell takes the pane the logs were in", func(t *testing.T) {
 		dir := t.TempDir()
-		harness := openTerminal(t, panelHarnessParams{settings: ui.PanelSettings{RunLogsDir: t.TempDir()}}, newShellAgent("a1", dir))
+		harness := openTerminal(t, panelHarnessParams{settings: ui.PanelSettings{RunLogsDir: t.TempDir()}}, newStagedShellAgent(dir))
 		harness.press("l")
 		require.Len(t, harness.panel.ReadBelowAnchors(), 1)
 
@@ -48,7 +48,7 @@ func TestTerminal(t *testing.T) {
 	})
 
 	t.Run("the key again hands the shell the keys rather than respawning it", func(t *testing.T) {
-		harness := openTerminal(t, panelHarnessParams{}, newShellAgent("a1", t.TempDir()))
+		harness := openTerminal(t, panelHarnessParams{}, newStagedShellAgent(t.TempDir()))
 
 		harness.press("T", "T")
 
@@ -57,7 +57,7 @@ func TestTerminal(t *testing.T) {
 	})
 
 	t.Run("the stage drawn again leaves the shell running", func(t *testing.T) {
-		agent := newShellAgent("a1", t.TempDir())
+		agent := newStagedShellAgent(t.TempDir())
 		harness := openTerminal(t, panelHarnessParams{}, agent)
 		harness.press("T")
 
@@ -69,7 +69,7 @@ func TestTerminal(t *testing.T) {
 
 	t.Run("the shell stays where it opened as the cursor moves", func(t *testing.T) {
 		first, second := t.TempDir(), t.TempDir()
-		harness := openTerminal(t, panelHarnessParams{}, newShellAgent("a1", first), newShellAgent("a2", second))
+		harness := openTerminal(t, panelHarnessParams{}, newStagedShellAgent(first), newShellAgent("a2", second))
 		harness.press("T")
 
 		harness.press("j")
@@ -80,7 +80,7 @@ func TestTerminal(t *testing.T) {
 
 	t.Run("the key over another agent moves the shell there", func(t *testing.T) {
 		first, second := t.TempDir(), t.TempDir()
-		harness := openTerminal(t, panelHarnessParams{}, newShellAgent("a1", first), newShellAgent("a2", second))
+		harness := openTerminal(t, panelHarnessParams{}, newStagedShellAgent(first), newShellAgent("a2", second))
 
 		harness.press("T", "j", "T")
 
@@ -90,7 +90,7 @@ func TestTerminal(t *testing.T) {
 
 	t.Run("the key over a sibling in the same directory keeps the shell", func(t *testing.T) {
 		dir := t.TempDir()
-		harness := openTerminal(t, panelHarnessParams{}, newShellAgent("a1", dir), newShellAgent("a2", dir))
+		harness := openTerminal(t, panelHarnessParams{}, newStagedShellAgent(dir), newShellAgent("a2", dir))
 		harness.press("T", "j")
 		require.Contains(t, readExpandedLegend(harness), "back to the terminal")
 
@@ -102,7 +102,7 @@ func TestTerminal(t *testing.T) {
 
 	t.Run("the key over a workflow header keeps the shell", func(t *testing.T) {
 		dir := t.TempDir()
-		harness := openTerminal(t, panelHarnessParams{}, newShellAgent("a1", dir))
+		harness := openTerminal(t, panelHarnessParams{}, newStagedShellAgent(dir))
 
 		harness.press("T", "k", "T")
 
@@ -112,7 +112,7 @@ func TestTerminal(t *testing.T) {
 
 	t.Run("the key over an agent whose worktree has gone says why and keeps the shell", func(t *testing.T) {
 		dir := t.TempDir()
-		harness := openTerminal(t, panelHarnessParams{}, newShellAgent("a1", dir), newShellAgent("a2", "/no/such/worktree"))
+		harness := openTerminal(t, panelHarnessParams{}, newStagedShellAgent(dir), newShellAgent("a2", "/no/such/worktree"))
 
 		harness.press("T", "j", "T")
 
@@ -122,7 +122,7 @@ func TestTerminal(t *testing.T) {
 	})
 
 	t.Run("an agent whose worktree has gone opens no shell", func(t *testing.T) {
-		harness := openTerminal(t, panelHarnessParams{}, newShellAgent("a1", "/no/such/worktree"))
+		harness := openTerminal(t, panelHarnessParams{}, newStagedShellAgent("/no/such/worktree"))
 
 		harness.press("T")
 
@@ -131,7 +131,7 @@ func TestTerminal(t *testing.T) {
 	})
 
 	t.Run("a workflow header opens no shell", func(t *testing.T) {
-		harness := openTerminal(t, panelHarnessParams{}, newShellAgent("a1", t.TempDir()))
+		harness := openTerminal(t, panelHarnessParams{}, newStagedShellAgent(t.TempDir()))
 
 		harness.press("k", "T")
 
@@ -140,7 +140,7 @@ func TestTerminal(t *testing.T) {
 
 	t.Run("a remote engine's shell is opened over the transport", func(t *testing.T) {
 		remote := panelHarnessParams{engine: engine.Remote{Destination: "ubuntu@engine"}}
-		harness := openTerminal(t, remote, newShellAgent("a1", "/var/lib/weave/worktrees/01a0c466"))
+		harness := openTerminal(t, remote, newStagedShellAgent("/var/lib/weave/worktrees/01a0c466"))
 
 		harness.press("T")
 
@@ -155,7 +155,7 @@ func TestTerminal(t *testing.T) {
 
 	t.Run("a remote engine's agent with no directory opens no shell", func(t *testing.T) {
 		remote := panelHarnessParams{engine: engine.Remote{Destination: "ubuntu@engine"}}
-		harness := openTerminal(t, remote, newShellAgent("a1", ""))
+		harness := openTerminal(t, remote, newStagedShellAgent(""))
 
 		harness.press("T")
 
@@ -178,13 +178,17 @@ func openTerminal(t *testing.T, params panelHarnessParams, agents ...*agentv1.Ag
 	return harness
 }
 
+func newStagedShellAgent(dir string) *agentv1.Agent {
+	agent := newShellAgent("a1", dir)
+	agent.CreatedAt = "2026-09-20T12:01:00Z"
+	agent.PaneId = "%9"
+	agent.Alive = proto.Bool(true)
+
+	return agent
+}
+
 func newShellAgent(id, dir string) *agentv1.Agent {
 	agent := newAgentAt(id, "w1", 0)
-	if id == "a1" {
-		agent = newAgentAt(id, "w1", 1)
-		agent.PaneId = "%9"
-		agent.Alive = proto.Bool(true)
-	}
 	agent.Cwd = dir
 
 	return agent

@@ -78,8 +78,7 @@ func TestTabStripView(t *testing.T) {
 	})
 }
 
-// TestTabStripStep covers tab and shift+tab walking the focus along the strip and wrapping at
-// both ends, with the chosen tab and its arrow left where they were.
+// TestTabStripStep covers tab and shift+tab walking the focus along the strip and wrapping at both ends.
 func TestTabStripStep(t *testing.T) {
 	tests := []struct {
 		name  string

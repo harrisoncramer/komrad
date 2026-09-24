@@ -18,6 +18,7 @@ const (
 )
 
 type bindRecorder struct {
+	client    string
 	globals   map[string]string
 	bound     map[string][]string
 	unbound   []string
@@ -121,8 +122,8 @@ func TestPopupBindPanelKey(t *testing.T) {
 // TestPopupWindow covers the popup's own tmux session and the key that hides it.
 func TestPopupWindow(t *testing.T) {
 	t.Run("a client attached to the panel's session is somebody looking", func(t *testing.T) {
-		assert.True(t, ui.NewPopupWindow(&bindRecorder{}, "attached").IsShown())
-		assert.False(t, ui.NewPopupWindow(&bindRecorder{}, "test-session").IsShown(), "the popup was hidden, which detached it")
+		assert.True(t, ui.NewPopupWindow(&bindRecorder{client: "/dev/ttys004"}, "weave").IsShown())
+		assert.False(t, ui.NewPopupWindow(&bindRecorder{}, "weave").IsShown(), "the popup was hidden, which detached it")
 	})
 
 	t.Run("the panel key hides the popup", func(t *testing.T) {
@@ -294,12 +295,8 @@ func (t *bindRecorder) ShowGlobal(name string) string {
 	return t.globals[name]
 }
 
-func (t *bindRecorder) GetSessionClient(session string) string {
-	if session == "attached" {
-		return "/dev/ttys004"
-	}
-
-	return ""
+func (t *bindRecorder) GetSessionClient(string) string {
+	return t.client
 }
 
 func (t *bindRecorder) SetSessionOption(string, string, string) {}
