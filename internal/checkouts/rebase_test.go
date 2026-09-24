@@ -541,9 +541,9 @@ func (r *treeReadRecorder) ReadTreeState(ctx context.Context, dir string) (git.T
 	return r.Rebaser.ReadTreeState(ctx, dir)
 }
 
-// TestRebaseMailSaysWhatHappenedToTheBranch covers the mail naming the park from every outcome,
-// saying how many commits left the branch when some did, and never telling an agent with no
-// commits of its own that its commits are gone.
+// TestRebaseMailSaysWhatHappenedToTheBranch covers the mail naming the park whatever the
+// outcome, saying how many commits left the branch when some did, and never telling an agent
+// with no commits of its own that its commits are gone.
 func TestRebaseMailSaysWhatHappenedToTheBranch(t *testing.T) {
 	const park = "refs/weave/prerefresh/a1/1"
 
@@ -574,13 +574,10 @@ func TestRebaseMailSaysWhatHappenedToTheBranch(t *testing.T) {
 			wantSaid: park,
 		},
 		{
-			name: "a replay that dropped commits the base already held",
-			result: RebaseResult{
-				RebasePlan: RebasePlan{Landed: 2, Replay: 1},
-				ParkedRef:  park,
-			},
+			name:        "a replay that dropped commits the base already held, with no park to name",
+			result:      RebaseResult{RebasePlan: RebasePlan{Landed: 2, Replay: 1}},
 			wantSaid:    "2 of your commits are no longer on the branch",
-			wantNotSaid: "Nothing was lost",
+			wantNotSaid: "A copy of the worktree",
 		},
 	}
 
@@ -588,7 +585,6 @@ func TestRebaseMailSaysWhatHappenedToTheBranch(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			body := rebaseMail(tt.result)
 
-			assert.Contains(t, body, park)
 			assert.Contains(t, body, tt.wantSaid)
 			if tt.wantNotSaid != "" {
 				assert.NotContains(t, body, tt.wantNotSaid)
