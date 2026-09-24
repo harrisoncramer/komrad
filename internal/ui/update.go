@@ -79,6 +79,9 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	key, isKey := msg.(tea.KeyMsg)
+	if isKey {
+		m.landing = landing{}
+	}
 
 	if m.fatal() != nil {
 		if isKey {
