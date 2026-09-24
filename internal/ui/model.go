@@ -114,15 +114,20 @@ func (p *postbox) send(msg tea.Msg) {
 // otherwise block waiting for itself to take the message.
 func (p *postbox) deliver() {
 	for range p.wake {
-		p.mu.Lock()
-		size := p.pending
-		p.pending = nil
-		p.mu.Unlock()
-
-		if size != nil {
+		if size := p.takePending(); size != nil {
 			p.program.Send(*size)
 		}
 	}
+}
+
+func (p *postbox) takePending() *tea.WindowSizeMsg {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	size := p.pending
+	p.pending = nil
+
+	return size
 }
 
 type uiTmux interface {
