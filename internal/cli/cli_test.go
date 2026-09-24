@@ -5,6 +5,7 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"weave/config"
@@ -160,4 +161,62 @@ func TestIntegrationConfigArgs(t *testing.T) {
 	assert.Equal(t,
 		[]string{"--config", "/one.toml", "--config", "/two.toml", "--engine", "remote"},
 		configArgs(config.Stack{Paths: []string{"/one.toml", "/two.toml"}, Engine: "remote"}))
+}
+
+// TestIntegrationEveryCommandAnswersForItself walks the whole tree rather than the commands somebody wrote
+// a test for.
+func TestIntegrationEveryCommandAnswersForItself(t *testing.T) {
+	walk(t, NewRootCommand(), func(t *testing.T, cmd *cobra.Command, path string) {
+		assert.NotEmpty(t, cmd.Short, "%s says nothing about itself", path)
+		assert.NotContains(t, cmd.Short, "\n", "%s runs its summary onto a second line", path)
+
+		if !cmd.HasSubCommands() {
+			assert.NotNil(t, cmd.Args, "%s takes any arguments it is given", path)
+			assert.True(t, cmd.RunE != nil || cmd.Run != nil, "%s does nothing when run", path)
+		}
+	})
+}
+
+// TestIntegrationNoTwoCommandsAnswerToOneName pins the tree against a name bound twice, which cobra resolves
+// to whichever was registered first and leaves the other unreachable.
+func TestIntegrationNoTwoCommandsAnswerToOneName(t *testing.T) {
+	walk(t, NewRootCommand(), func(t *testing.T, cmd *cobra.Command, path string) {
+		held := map[string]string{}
+		for _, child := range cmd.Commands() {
+			for _, name := range append([]string{child.Name()}, child.Aliases...) {
+				if was, taken := held[name]; taken && was != child.Name() {
+					assert.Failf(t, "one name, two commands", "%s: %q is both %s and %s", path, name, was, child.Name())
+
+					continue
+				}
+				held[name] = child.Name()
+			}
+		}
+	})
+}
+
+func walk(t *testing.T, cmd *cobra.Command, check func(*testing.T, *cobra.Command, string)) {
+	t.Helper()
+
+	var descend func(*cobra.Command, string)
+	descend = func(current *cobra.Command, path string) {
+		check(t, current, path)
+
+		for _, child := range current.Commands() {
+			descend(child, strings.TrimSpace(path+" "+child.Name()))
+		}
+	}
+
+	descend(cmd, cmd.Name())
+}
+
+// TestIntegrationQuietErrorsAreTheOnesAlreadyAnswered pins which failures main prints and which it
+// swallows.
+func TestIntegrationQuietErrorsAreTheOnesAlreadyAnswered(t *testing.T) {
+	for _, quiet := range []error{ErrLogged, ErrReported, ErrPanelHidden} {
+		assert.True(t, IsQuiet(quiet), "%v has already been answered", quiet)
+	}
+
+	assert.False(t, IsQuiet(nil))
+	assert.False(t, IsQuiet(assert.AnError), "an ordinary failure is main's to print")
 }
