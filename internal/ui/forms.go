@@ -165,10 +165,15 @@ func (m model) formBox() (width, height int) {
 	return m.width, max(m.height-formHelpLines-held, 1)
 }
 
-// confirmSubmit answers a prompt by running what it asked for and taking it down as it goes.
+// confirmSubmit answers a prompt by running what it asked for, holding it up while a write it began is in flight.
 func confirmSubmit(write func(model) (model, tea.Cmd)) func(model) (tea.Model, tea.Cmd) {
 	return func(m model) (tea.Model, tea.Cmd) {
+		began := m.writes
 		written, writeCmd := write(m)
+
+		if written.writes != began && written.form.rebuild != nil {
+			return written, tea.Batch(writeCmd, written.holdForm())
+		}
 
 		next, back := written.closeForm()
 
@@ -309,6 +314,20 @@ func (m model) detachForm() (tea.Model, tea.Cmd) {
 	}
 
 	return m.closeForm()
+}
+
+// landHeld counts a write back in, and reports whether the form on screen was held for it.
+func (m *model) landHeld(write int) bool {
+	m.pending--
+	delete(m.detached, write)
+
+	if !m.held.owns(write) {
+		return false
+	}
+
+	m.held = heldWrite{}
+
+	return true
 }
 
 // answerForm runs what the form on screen was filled in to do.

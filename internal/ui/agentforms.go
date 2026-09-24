@@ -211,8 +211,15 @@ func (m model) openRebaseConfirm(plan rebasePlan) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 
-			return m, m.rebaseCmd(plan.agentID, plan.name)
+			cmd := m.rebaseCmd(plan.agentID, plan.name)
+
+			return m, cmd
 		}),
+		rebuild: func(model) (*huh.Form, []string) {
+			held, _ := rebaseForm(plan, formKeys())
+
+			return held, nil
+		},
 	})
 }
 

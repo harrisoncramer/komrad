@@ -33,12 +33,13 @@ var (
 // openGitMenu draws the git actions beside the list, for the agent the cursor is on.
 func openGitMenu(h host, s panelShared, item panel.AgentRow) tea.Cmd {
 	agent := item.Agent
-	form, choice := gitMenuForm(gitMenu{
+	menu := gitMenu{
 		name:           agent.Name,
 		rebaseable:     s.listing.isRebaseable(agent),
 		hasPullRequest: item.PullRequest.URL != "",
 		noPullRequest:  pullRequestHint(pullRequestRefusal(item)),
-	}, s.keys.Git, formKeys())
+	}
+	form, choice := gitMenuForm(menu, s.keys.Git, formKeys())
 
 	agentID := agent.ID
 
@@ -47,6 +48,11 @@ func openGitMenu(h host, s panelShared, item panel.AgentRow) tea.Cmd {
 		form:   form,
 		update: func(m model, msg tea.Msg) (tea.Model, tea.Cmd) { return m.updateGitMenu(msg, choice) },
 		submit: confirmSubmit(func(m model) (model, tea.Cmd) { return m.runGitChoice(agentID, *choice) }),
+		rebuild: func(model) (*huh.Form, []string) {
+			held, _ := gitMenuForm(menu, s.keys.Git, formKeys())
+
+			return held, nil
+		},
 	})
 }
 
@@ -183,7 +189,9 @@ func (m model) runGitChoice(agentID string, choice gitChoice) (model, tea.Cmd) {
 			return m, nil
 		}
 
-		return m, m.planRebaseCmd(agent.ID, agent.Name)
+		cmd := m.planRebaseCmd(agent.ID, agent.Name)
+
+		return m, cmd
 	case gitChoiceOpenPullRequest:
 		return m.openPullRequest(item)
 	case gitChoiceCancel:

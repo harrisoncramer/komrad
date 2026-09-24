@@ -374,7 +374,9 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 
 		return next, cmd, true
 	case rebasedMsg:
-		return m.applyRebased(msg), nil, true
+		next, cmd := m.applyRebased(msg)
+
+		return next, cmd, true
 	case formFieldEditedMsg:
 		next, cmd := m.applyFormFieldEdited(msg)
 

@@ -31,8 +31,9 @@ type rebasePlan struct {
 
 // rebasePlannedMsg is a plan come back, or the reason there is none.
 type rebasePlannedMsg struct {
-	plan rebasePlan
-	err  error
+	plan  rebasePlan
+	err   error
+	write int
 }
 
 // rebasedMsg is a finished rebase, conflicted when it stopped and is waiting for the agent.
@@ -47,19 +48,21 @@ type rebasedMsg struct {
 	// moved says the branch reached the base without replaying anything.
 	moved bool
 	err   error
+	write int
 }
 
 // planRebaseCmd asks what a rebase would do.
 func (m *model) planRebaseCmd(agentID, name string) tea.Cmd {
 	clients := m.api
+	write := m.beginWrite()
 
 	return func() tea.Msg {
 		plan, err := clients.planRebase(agentID)
 		if err != nil {
-			return rebasePlannedMsg{err: err}
+			return rebasePlannedMsg{err: err, write: write}
 		}
 
-		return rebasePlannedMsg{plan: rebasePlan{
+		return rebasePlannedMsg{write: write, plan: rebasePlan{
 			agentID:       agentID,
 			name:          name,
 			baseRef:       plan.GetBaseRef(),
@@ -76,14 +79,16 @@ func (m *model) planRebaseCmd(agentID, name string) tea.Cmd {
 // rebaseCmd runs the rebase and reports what it did.
 func (m *model) rebaseCmd(agentID, name string) tea.Cmd {
 	clients := m.api
+	write := m.beginWrite()
 
 	return func() tea.Msg {
 		result, err := clients.rebaseWorktree(agentID)
 		if err != nil {
-			return rebasedMsg{name: name, err: err}
+			return rebasedMsg{name: name, err: err, write: write}
 		}
 
 		return rebasedMsg{
+			write:      write,
 			name:       name,
 			baseRef:    result.GetBaseRef(),
 			baseSHA:    result.GetBaseSha(),
@@ -97,8 +102,14 @@ func (m *model) rebaseCmd(agentID, name string) tea.Cmd {
 
 // applyRebasePlanned opens the confirmation, or says why there is nothing to confirm.
 func (m *model) applyRebasePlanned(msg rebasePlannedMsg) (tea.Model, tea.Cmd) {
+	held := m.landHeld(msg.write)
+
 	if msg.err != nil {
 		m.report("Could not work out what a rebase would do", msg.err)
+
+		if held {
+			return m.closeForm()
+		}
 
 		return m, nil
 	}
@@ -106,12 +117,24 @@ func (m *model) applyRebasePlanned(msg rebasePlannedMsg) (tea.Model, tea.Cmd) {
 	return m.openRebaseConfirm(msg.plan)
 }
 
-// applyRebased reports the outcome.
-func (m *model) applyRebased(msg rebasedMsg) tea.Model {
+// applyRebased reports the outcome, and takes down the confirmation held for it.
+func (m *model) applyRebased(msg rebasedMsg) (tea.Model, tea.Cmd) {
+	held := m.landHeld(msg.write)
+
+	m.reportRebased(msg)
+
+	if held {
+		return m.closeForm()
+	}
+
+	return m, nil
+}
+
+func (m *model) reportRebased(msg rebasedMsg) {
 	if msg.err != nil {
 		m.report("Could not rebase the worktree of "+msg.name, msg.err)
 
-		return m
+		return
 	}
 
 	// Neither a success nor a failure: the work is intact and the agent has something to do.
@@ -123,7 +146,7 @@ func (m *model) applyRebased(msg rebasedMsg) tea.Model {
 				msg.baseRef, git.ShortSHA(msg.baseSHA), msg.name),
 		})
 
-		return m
+		return
 	}
 
 	if msg.moved {
@@ -134,7 +157,7 @@ func (m *model) applyRebased(msg rebasedMsg) tea.Model {
 				git.ShortSHA(msg.baseSHA), label.Count(msg.landed, "commit", "commits")),
 		})
 
-		return m
+		return
 	}
 
 	m.pushMessage(message{
@@ -143,6 +166,4 @@ func (m *model) applyRebased(msg rebasedMsg) tea.Model {
 		detail: fmt.Sprintf("%s. %s replayed.",
 			git.ShortSHA(msg.baseSHA), label.Count(msg.replay, "commit", "commits")),
 	})
-
-	return m
 }
