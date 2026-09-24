@@ -449,38 +449,51 @@ func (q *Queries) ListWatchedWorkflows(ctx context.Context, keys []string) ([]*L
 	return items, nil
 }
 
-const listWorkflowHooks = `-- name: ListWorkflowHooks :many
+const listWorkflowPageIDs = `-- name: ListWorkflowPageIDs :many
 SELECT
-    workflow_id,
-    event,
-    script
+    w.id
 FROM
-    workflow_hooks
+    workflows w
+WHERE ($1::boolean) =(w.archived_at IS NOT NULL)
+    AND w.deleting_at IS NULL
+    AND ($2::uuid IS NULL
+        OR (LOWER(w.name)
+            COLLATE "C",
+            w.id) >(LOWER($3::text)
+            COLLATE "C",
+            $2::uuid))
 ORDER BY
-    workflow_id,
-    position,
-    id
+    LOWER(w.name)
+    COLLATE "C" ASC,
+    w.id ASC
+LIMIT $4
 `
 
-type ListWorkflowHooksRow struct {
-	WorkflowID string
-	Event      string
-	Script     string
+type ListWorkflowPageIDsParams struct {
+	Archived   bool
+	CursorID   *string
+	CursorName *string
+	Lim        int32
 }
 
-func (q *Queries) ListWorkflowHooks(ctx context.Context) ([]*ListWorkflowHooksRow, error) {
-	rows, err := q.db.Query(ctx, listWorkflowHooks)
+func (q *Queries) ListWorkflowPageIDs(ctx context.Context, arg ListWorkflowPageIDsParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, listWorkflowPageIDs,
+		arg.Archived,
+		arg.CursorID,
+		arg.CursorName,
+		arg.Lim,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []*ListWorkflowHooksRow
+	var items []string
 	for rows.Next() {
-		var i ListWorkflowHooksRow
-		if err := rows.Scan(&i.WorkflowID, &i.Event, &i.Script); err != nil {
+		var id string
+		if err := rows.Scan(&id); err != nil {
 			return nil, err
 		}
-		items = append(items, &i)
+		items = append(items, id)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -511,96 +524,6 @@ func (q *Queries) ListWorkflowWorktreeDirs(ctx context.Context) ([]string, error
 			return nil, err
 		}
 		items = append(items, worktree_dir)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listWorkflowsPage = `-- name: ListWorkflowsPage :many
-SELECT
-    w.id, w.name, w.context, w.workflow_config_id, w.provisioner_config_id, w.archived_at, w.created_at, w.updated_at, w.deleting_at, w.tenant_id,
-    wc.id, wc.harness, wc.cwd, wc.flags, wc.created_at, wc.updated_at, wc.tenant_id,
-    pc.id, pc.worktree_enabled, pc.worktree_base_branch, pc.worktree_copy_paths, pc.worktree_symlink_paths, pc.created_at, pc.updated_at, pc.worktree_diff_exclude, pc.worktree_dir, pc.tenant_id
-FROM
-    workflows w
-    JOIN workflow_configs wc ON wc.id = w.workflow_config_id
-    JOIN workflow_provisioner_configs pc ON pc.id = w.provisioner_config_id
-WHERE ($1::boolean) =(w.archived_at IS NOT NULL)
-    AND w.deleting_at IS NULL
-    AND ($2::uuid IS NULL
-        OR (LOWER(w.name)
-            COLLATE "C",
-            w.id) >(LOWER($3::text)
-            COLLATE "C",
-            $2::uuid))
-ORDER BY
-    LOWER(w.name)
-    COLLATE "C" ASC,
-    w.id ASC
-LIMIT $4
-`
-
-type ListWorkflowsPageParams struct {
-	Archived   bool
-	CursorID   *string
-	CursorName *string
-	Lim        int32
-}
-
-type ListWorkflowsPageRow struct {
-	Workflow                  Workflow
-	WorkflowConfig            WorkflowConfig
-	WorkflowProvisionerConfig WorkflowProvisionerConfig
-}
-
-func (q *Queries) ListWorkflowsPage(ctx context.Context, arg ListWorkflowsPageParams) ([]*ListWorkflowsPageRow, error) {
-	rows, err := q.db.Query(ctx, listWorkflowsPage,
-		arg.Archived,
-		arg.CursorID,
-		arg.CursorName,
-		arg.Lim,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []*ListWorkflowsPageRow
-	for rows.Next() {
-		var i ListWorkflowsPageRow
-		if err := rows.Scan(
-			&i.Workflow.ID,
-			&i.Workflow.Name,
-			&i.Workflow.Context,
-			&i.Workflow.WorkflowConfigID,
-			&i.Workflow.ProvisionerConfigID,
-			&i.Workflow.ArchivedAt,
-			&i.Workflow.CreatedAt,
-			&i.Workflow.UpdatedAt,
-			&i.Workflow.DeletingAt,
-			&i.Workflow.TenantID,
-			&i.WorkflowConfig.ID,
-			&i.WorkflowConfig.Harness,
-			&i.WorkflowConfig.Cwd,
-			&i.WorkflowConfig.Flags,
-			&i.WorkflowConfig.CreatedAt,
-			&i.WorkflowConfig.UpdatedAt,
-			&i.WorkflowConfig.TenantID,
-			&i.WorkflowProvisionerConfig.ID,
-			&i.WorkflowProvisionerConfig.WorktreeEnabled,
-			&i.WorkflowProvisionerConfig.WorktreeBaseBranch,
-			&i.WorkflowProvisionerConfig.WorktreeCopyPaths,
-			&i.WorkflowProvisionerConfig.WorktreeSymlinkPaths,
-			&i.WorkflowProvisionerConfig.CreatedAt,
-			&i.WorkflowProvisionerConfig.UpdatedAt,
-			&i.WorkflowProvisionerConfig.WorktreeDiffExclude,
-			&i.WorkflowProvisionerConfig.WorktreeDir,
-			&i.WorkflowProvisionerConfig.TenantID,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, &i)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -734,78 +657,6 @@ func (q *Queries) SetWorkflowProvisioner(ctx context.Context, arg SetWorkflowPro
 		arg.WorkflowID,
 	)
 	return err
-}
-
-const snapshotWorkflows = `-- name: SnapshotWorkflows :many
-SELECT
-    w.id, w.name, w.context, w.workflow_config_id, w.provisioner_config_id, w.archived_at, w.created_at, w.updated_at, w.deleting_at, w.tenant_id,
-    wc.id, wc.harness, wc.cwd, wc.flags, wc.created_at, wc.updated_at, wc.tenant_id,
-    pc.id, pc.worktree_enabled, pc.worktree_base_branch, pc.worktree_copy_paths, pc.worktree_symlink_paths, pc.created_at, pc.updated_at, pc.worktree_diff_exclude, pc.worktree_dir, pc.tenant_id
-FROM
-    workflows w
-    JOIN workflow_configs wc ON wc.id = w.workflow_config_id
-    JOIN workflow_provisioner_configs pc ON pc.id = w.provisioner_config_id
-WHERE
-    w.archived_at IS NULL
-    AND w.deleting_at IS NULL
-ORDER BY
-    LOWER(w.name)
-    COLLATE "C" ASC,
-    w.id ASC
-`
-
-type SnapshotWorkflowsRow struct {
-	Workflow                  Workflow
-	WorkflowConfig            WorkflowConfig
-	WorkflowProvisionerConfig WorkflowProvisionerConfig
-}
-
-func (q *Queries) SnapshotWorkflows(ctx context.Context) ([]*SnapshotWorkflowsRow, error) {
-	rows, err := q.db.Query(ctx, snapshotWorkflows)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []*SnapshotWorkflowsRow
-	for rows.Next() {
-		var i SnapshotWorkflowsRow
-		if err := rows.Scan(
-			&i.Workflow.ID,
-			&i.Workflow.Name,
-			&i.Workflow.Context,
-			&i.Workflow.WorkflowConfigID,
-			&i.Workflow.ProvisionerConfigID,
-			&i.Workflow.ArchivedAt,
-			&i.Workflow.CreatedAt,
-			&i.Workflow.UpdatedAt,
-			&i.Workflow.DeletingAt,
-			&i.Workflow.TenantID,
-			&i.WorkflowConfig.ID,
-			&i.WorkflowConfig.Harness,
-			&i.WorkflowConfig.Cwd,
-			&i.WorkflowConfig.Flags,
-			&i.WorkflowConfig.CreatedAt,
-			&i.WorkflowConfig.UpdatedAt,
-			&i.WorkflowConfig.TenantID,
-			&i.WorkflowProvisionerConfig.ID,
-			&i.WorkflowProvisionerConfig.WorktreeEnabled,
-			&i.WorkflowProvisionerConfig.WorktreeBaseBranch,
-			&i.WorkflowProvisionerConfig.WorktreeCopyPaths,
-			&i.WorkflowProvisionerConfig.WorktreeSymlinkPaths,
-			&i.WorkflowProvisionerConfig.CreatedAt,
-			&i.WorkflowProvisionerConfig.UpdatedAt,
-			&i.WorkflowProvisionerConfig.WorktreeDiffExclude,
-			&i.WorkflowProvisionerConfig.WorktreeDir,
-			&i.WorkflowProvisionerConfig.TenantID,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, &i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }
 
 const updateWorkflowConfig = `-- name: UpdateWorkflowConfig :exec

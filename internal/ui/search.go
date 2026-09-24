@@ -722,8 +722,8 @@ func (w *searchScreen) help(s panelShared) keyMap {
 
 var _ columned = (*searchScreen)(nil)
 
-func (w *searchScreen) needs() screenNeeds {
-	return screenNeeds{}
+func (w *searchScreen) doesDrawFromListing() bool {
+	return false
 }
 
 func (w *searchScreen) takesEveryKey() bool {

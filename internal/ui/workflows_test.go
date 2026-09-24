@@ -359,24 +359,24 @@ func describeRows(rows []agentRow) []string {
 }
 
 // TestWorkflowEditFormRoundTripsTheStoredConfig covers the edit path whole, from the
-// workflow the service reports, through the form, to the update written back.
+// workflow the watch carries, through the form, to the update written back.
 func TestWorkflowEditFormRoundTripsTheStoredConfig(t *testing.T) {
-	sent := &formRecorder{storedWorkflow: &workflowv1.Workflow{
+	sent := &formRecorder{}
+	watched := workflowFrom(&workflowv1.Workflow{
 		Id:       "w1",
 		Name:     "api",
 		Harness:  "claude",
 		Cwd:      "/work/api",
 		Flags:    "--model opus",
 		Worktree: &workflowv1.WorktreeConfig{Enabled: true, BaseBranch: "develop"},
-	}}
+	})
 
-	opened, _ := formModel(sent).editWorkflowForm(panel.Workflow{ID: "w1", Name: "api"})
+	opened, _ := formModel(sent).editWorkflowForm(watched)
 	editing, ok := opened.(model)
 	require.True(t, ok)
 	require.Equal(t, formWorkflow, editing.form.kind)
 
-	// Submitting it untouched is what says the form opened on the stored config rather than on
-	// the thin row the key was pressed over.
+	// Submitting it untouched is what says the form opened on the whole row the watch carried.
 	updated, cmd := editing.answerForm()
 	submitted, ok := updated.(model)
 	require.True(t, ok)

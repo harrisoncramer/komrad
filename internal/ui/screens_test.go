@@ -145,7 +145,7 @@ func TestEveryListingScreenSurvivesAListing(t *testing.T) {
 	for s := screenAgents; s <= screenWorktrees; s++ {
 		tmux := &recordingTmux{width: 200, height: 40}
 		m := infoModel(tmux)
-		if !m.screenOf(s).needs().fromListing {
+		if !m.screenOf(s).doesDrawFromListing() {
 			continue
 		}
 

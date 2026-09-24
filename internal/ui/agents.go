@@ -413,8 +413,8 @@ var (
 	_ staged   = (*agentsScreen)(nil)
 )
 
-func (a *agentsScreen) needs() screenNeeds {
-	return screenNeeds{fromListing: true}
+func (a *agentsScreen) doesDrawFromListing() bool {
+	return true
 }
 
 func (a *agentsScreen) takesEveryKey() bool {

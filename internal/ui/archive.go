@@ -400,8 +400,8 @@ var (
 	_ staged   = (*archiveScreen)(nil)
 )
 
-func (a *archiveScreen) needs() screenNeeds {
-	return screenNeeds{fromListing: true}
+func (a *archiveScreen) doesDrawFromListing() bool {
+	return true
 }
 
 func (a *archiveScreen) takesEveryKey() bool {

@@ -492,10 +492,8 @@ var (
 	_ staged   = (*worktreesScreen)(nil)
 )
 
-func (w *worktreesScreen) needs() screenNeeds {
-	return screenNeeds{
-		fromListing: true,
-	}
+func (w *worktreesScreen) doesDrawFromListing() bool {
+	return true
 }
 
 func (w *worktreesScreen) takesEveryKey() bool {

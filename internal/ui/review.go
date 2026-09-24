@@ -129,8 +129,8 @@ var (
 	_ columned = (*reviewScreen)(nil)
 )
 
-func (r *reviewScreen) needs() screenNeeds {
-	return screenNeeds{}
+func (r *reviewScreen) doesDrawFromListing() bool {
+	return false
 }
 
 func (r *reviewScreen) detailsQuit(keys config.Keybindings) []string {

@@ -42,8 +42,8 @@ type screenModel interface {
 	// view draws the screen into the panel's own pane.
 	view(s panelShared) string
 
-	// needs is what the screen draws from.
-	needs() screenNeeds
+	// doesDrawFromListing reports whether the screen draws the watch's listings.
+	doesDrawFromListing() bool
 
 	// enter lands the cursor on the target where the target is on screen, and puts the stage
 	// right, once the root has put the screen up.
@@ -57,12 +57,6 @@ type screenModel interface {
 // understands.
 type screenTarget struct {
 	agentID string
-}
-
-// screenNeeds is what a screen draws from.
-type screenNeeds struct {
-	// fromListing is whether the watch's listings are what the screen draws.
-	fromListing bool
 }
 
 // detailed is a screen that draws a record under its list.
