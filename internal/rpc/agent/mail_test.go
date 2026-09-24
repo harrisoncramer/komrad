@@ -1,0 +1,516 @@
+package agent
+
+import (
+	"context"
+	"log/slog"
+	"strings"
+	"testing"
+	"time"
+
+	"weave/internal/agents"
+	"weave/internal/caller"
+	"weave/internal/logging"
+	"weave/internal/logtest"
+	"weave/internal/mail"
+	"weave/internal/rpc/render"
+	"weave/internal/tmuxtest"
+	agentv1 "weave/proto/gen/agent/v1"
+	"weave/proto/gen/agent/v1/agentv1weave"
+	paginationv1 "weave/proto/gen/pagination/v1"
+
+	agentstore "weave/internal/store/agent"
+	mailstore "weave/internal/store/mail"
+
+	"connectrpc.com/connect"
+	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/testing/protocmp"
+)
+
+const (
+	alphaID = "01a0d1d7-0000-7000-8000-00000000000a"
+	betaID  = "01a0d1d7-0000-7000-8000-00000000000b"
+)
+
+// TestMailRefusalsMapToCodes pins the code each refusal of the mail service reaches the caller as.
+func TestMailRefusalsMapToCodes(t *testing.T) {
+	send := func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) error {
+		_, err := svc.SendMail(ctx, connect.NewRequest(&agentv1.SendMailRequest{
+			To:   betaID,
+			Body: "hello",
+		}))
+
+		return err
+	}
+	read := func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) error {
+		_, err := svc.ReadMail(ctx, connect.NewRequest(&agentv1.ReadMailRequest{}))
+
+		return err
+	}
+	list := func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) error {
+		_, err := svc.ListMail(ctx, connect.NewRequest(&agentv1.ListMailRequest{}))
+
+		return err
+	}
+
+	tests := []struct {
+		name      string
+		call      func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) error
+		err       error
+		atResolve bool
+		wantCode  connect.Code
+	}{
+		{
+			name:      "an address nothing answers to",
+			call:      send,
+			err:       mail.ErrRecipientNotFound,
+			atResolve: true,
+			wantCode:  connect.CodeNotFound,
+		},
+		{
+			name:      "a name more than one workflow holds",
+			call:      send,
+			err:       mail.ErrRecipientAmbiguous,
+			atResolve: true,
+			wantCode:  connect.CodeInvalidArgument,
+		},
+		{
+			name:     "a sender the panel does not know",
+			call:     send,
+			err:      mail.ErrSenderUnknown,
+			wantCode: connect.CodeInvalidArgument,
+		},
+		{
+			name:     "an agent addressing itself",
+			call:     send,
+			err:      mail.ErrSelfAddressed,
+			wantCode: connect.CodeInvalidArgument,
+		},
+		{
+			name:     "a reply to mail nothing holds",
+			call:     send,
+			err:      mail.ErrReplyToNotFound,
+			wantCode: connect.CodeInvalidArgument,
+		},
+		{
+			name:     "an archived recipient",
+			call:     send,
+			err:      mail.ErrAgentArchived,
+			wantCode: connect.CodeFailedPrecondition,
+		},
+		{
+			name:     "a child reaching outside its family",
+			call:     send,
+			err:      mail.ErrOutsideFamily,
+			wantCode: connect.CodePermissionDenied,
+		},
+		{
+			name:     "a full mailbox",
+			call:     send,
+			err:      mail.ErrMailboxFull,
+			wantCode: connect.CodeResourceExhausted,
+		},
+		{
+			name:     "a pair past the exchange cap",
+			call:     send,
+			err:      mail.ErrExchangeCapped,
+			wantCode: connect.CodeResourceExhausted,
+		},
+		{
+			name:     "reading the mailbox of an agent that does not exist",
+			call:     read,
+			err:      mail.ErrAgentNotFound,
+			wantCode: connect.CodeNotFound,
+		},
+		{
+			name:     "listing the mailbox of an agent that does not exist",
+			call:     list,
+			err:      mail.ErrAgentNotFound,
+			wantCode: connect.CodeNotFound,
+		},
+		{
+			name: "deleting mail nothing holds",
+			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) error {
+				_, err := svc.DeleteMail(ctx, connect.NewRequest(&agentv1.DeleteMailRequest{Ids: []string{betaID}}))
+
+				return err
+			},
+			err:      mail.ErrMailNotFound,
+			wantCode: connect.CodeNotFound,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mailer := &fakeMailer{recipient: agentstore.Agent{
+				ID:   betaID,
+				Name: "beta",
+			}}
+			if tt.atResolve {
+				mailer.resolveErr = tt.err
+			} else {
+				mailer.err = tt.err
+			}
+			svc, _ := mailHandler(mailer)
+
+			err := tt.call(caller.With(t.Context(), caller.Caller{AgentID: alphaID}), svc)
+			assert.Equal(t, tt.wantCode, connect.CodeOf(err))
+			require.ErrorIs(t, err, tt.err)
+		})
+	}
+}
+
+// TestSendMail pins what a send passes down, what it renders, and when it warns that the recipient is dormant.
+func TestSendMail(t *testing.T) {
+	tests := []struct {
+		name        string
+		state       agentstore.State
+		running     bool
+		wantWarning bool
+	}{
+		{
+			name:        "an idle agent whose pane is gone",
+			state:       agentstore.StateIdle,
+			wantWarning: true,
+		},
+		{
+			name:  "an agent still being set up has no pane yet",
+			state: agentstore.StateSettingUp,
+		},
+		{
+			name:    "an idle agent in its pane",
+			state:   agentstore.StateIdle,
+			running: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mailer := &fakeMailer{recipient: agentstore.Agent{
+				ID:    betaID,
+				Name:  "beta",
+				Pane:  "%beta",
+				State: tt.state,
+			}}
+			svc, terminal := mailHandler(mailer)
+			if tt.running {
+				terminal.Owners["%beta"] = betaID
+			}
+
+			sent, err := svc.SendMail(caller.With(t.Context(), caller.Caller{AgentID: alphaID}), connect.NewRequest(&agentv1.SendMailRequest{
+				To:      "beta",
+				Body:    "which column holds the refund?",
+				ReplyTo: proto.String("mail-0"),
+			}))
+			require.NoError(t, err)
+
+			assert.Equal(t, []mail.ResolveRecipientParams{{From: alphaID, To: "beta"}}, mailer.resolved)
+			assert.Equal(t, []mail.SendMailParams{{
+				From:      alphaID,
+				ToAgentID: betaID,
+				Body:      "which column holds the refund?",
+				ReplyTo:   proto.String("mail-0"),
+			}}, mailer.sent)
+			assert.Empty(t, cmpMail(mailer.mail[0], sent.Msg.GetMail()))
+
+			if !tt.wantWarning {
+				assert.Nil(t, sent.Msg.Warning)
+
+				return
+			}
+
+			assert.Contains(t, sent.Msg.GetWarning(), "beta")
+			assert.Contains(t, sent.Msg.GetWarning(), "dormant")
+		})
+	}
+}
+
+// TestReadMail pins which mailbox a read claims and that reading somebody else's is written to the log.
+func TestReadMail(t *testing.T) {
+	tests := []struct {
+		name        string
+		callerIs    string
+		id          *string
+		wantCode    connect.Code
+		wantClaimed string
+		wantLogged  bool
+	}{
+		{
+			name:     "no id and no caller identity",
+			wantCode: connect.CodeInvalidArgument,
+		},
+		{
+			name:        "an unset id falls back to the caller's own",
+			callerIs:    alphaID,
+			wantClaimed: alphaID,
+		},
+		{
+			name:        "an agent reading another's mailbox",
+			callerIs:    alphaID,
+			id:          proto.String(betaID),
+			wantClaimed: betaID,
+			wantLogged:  true,
+		},
+		{
+			name:        "the panel reading an agent's mailbox",
+			id:          proto.String(betaID),
+			wantClaimed: betaID,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mailer := &fakeMailer{mail: []mailstore.Mail{{
+				ID:        "mail-1",
+				ToAgentID: betaID,
+				Body:      "refunded_cents",
+			}}}
+			svc, _ := mailHandler(mailer)
+			ctx, written := loggedCaller(t, tt.callerIs)
+
+			read, err := svc.ReadMail(ctx, connect.NewRequest(&agentv1.ReadMailRequest{Id: tt.id}))
+			if tt.wantCode != 0 {
+				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
+				assert.Empty(t, mailer.claimed)
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, []string{tt.wantClaimed}, mailer.claimed)
+			require.Len(t, read.Msg.GetMail(), 1)
+			assert.Empty(t, cmpMail(mailer.mail[0], read.Msg.GetMail()[0]))
+			assertCrossAgentRead(t, written.String(), tt.wantLogged, "agent read another agent's mail", betaID)
+		})
+	}
+}
+
+// TestListMail pins which mailbox and which half of it a listing reads, and the page token it hands back.
+func TestListMail(t *testing.T) {
+	tests := []struct {
+		name       string
+		callerIs   string
+		req        *agentv1.ListMailRequest
+		stored     int
+		wantCode   connect.Code
+		wantListed mail.ListMailParams
+		wantNext   bool
+		wantLogged bool
+	}{
+		{
+			name:     "no id and no caller identity",
+			req:      &agentv1.ListMailRequest{},
+			wantCode: connect.CodeInvalidArgument,
+		},
+		{
+			name:     "a page token that does not decode",
+			callerIs: alphaID,
+			req: &agentv1.ListMailRequest{
+				Pagination: &paginationv1.Pagination{Cursor: proto.String("not a token")},
+			},
+			wantCode: connect.CodeInvalidArgument,
+		},
+		{
+			name:     "an unset direction reads the caller's own mailbox",
+			callerIs: alphaID,
+			req:      &agentv1.ListMailRequest{},
+			stored:   1,
+			wantListed: mail.ListMailParams{
+				AgentID: alphaID,
+				Limit:   20,
+			},
+		},
+		{
+			name:     "received reads the mailbox too",
+			callerIs: alphaID,
+			req: &agentv1.ListMailRequest{
+				Direction: agentv1.MailDirection_MAIL_DIRECTION_RECEIVED,
+			},
+			stored: 1,
+			wantListed: mail.ListMailParams{
+				AgentID: alphaID,
+				Limit:   20,
+			},
+		},
+		{
+			name:     "sent reads what another agent wrote, and is written to the log",
+			callerIs: alphaID,
+			req: &agentv1.ListMailRequest{
+				Id:        proto.String(betaID),
+				Direction: agentv1.MailDirection_MAIL_DIRECTION_SENT,
+			},
+			stored: 1,
+			wantListed: mail.ListMailParams{
+				AgentID: betaID,
+				Sent:    true,
+				Limit:   20,
+			},
+			wantLogged: true,
+		},
+		{
+			name:     "a full page hands back a token for the next",
+			callerIs: alphaID,
+			req: &agentv1.ListMailRequest{
+				Pagination: &paginationv1.Pagination{Limit: proto.Int32(2)},
+			},
+			stored: 2,
+			wantListed: mail.ListMailParams{
+				AgentID: alphaID,
+				Limit:   2,
+			},
+			wantNext: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mailer := &fakeMailer{}
+			for at := range tt.stored {
+				mailer.mail = append(mailer.mail, mailstore.Mail{
+					ID:        "mail-" + string(rune('a'+at)),
+					ToAgentID: betaID,
+					Body:      "refunded_cents",
+				})
+			}
+			svc, _ := mailHandler(mailer)
+			ctx, written := loggedCaller(t, tt.callerIs)
+
+			listed, err := svc.ListMail(ctx, connect.NewRequest(tt.req))
+			if tt.wantCode != 0 {
+				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
+				assert.Empty(t, mailer.listed)
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, []mail.ListMailParams{tt.wantListed}, mailer.listed)
+			require.Len(t, listed.Msg.GetMail(), tt.stored)
+			assert.Empty(t, cmpMail(mailer.mail[0], listed.Msg.GetMail()[0]))
+			assert.Equal(t, tt.wantNext, listed.Msg.GetNextPageToken() != "")
+			assertCrossAgentRead(t, written.String(), tt.wantLogged, "agent listed another agent's mail", betaID)
+		})
+	}
+}
+
+// TestDeleteMail pins that a delete hands every id down.
+func TestDeleteMail(t *testing.T) {
+	mailer := &fakeMailer{}
+	svc, _ := mailHandler(mailer)
+
+	_, err := svc.DeleteMail(t.Context(), connect.NewRequest(&agentv1.DeleteMailRequest{
+		Ids: []string{alphaID, betaID},
+	}))
+	require.NoError(t, err)
+	assert.Equal(t, []string{alphaID, betaID}, mailer.deleted)
+}
+
+// fakeMailer answers from its fields and records what each call asked of it.
+type fakeMailer struct {
+	recipient  agentstore.Agent
+	resolveErr error
+	err        error
+	mail       []mailstore.Mail
+	resolved   []mail.ResolveRecipientParams
+	sent       []mail.SendMailParams
+	claimed    []string
+	listed     []mail.ListMailParams
+	deleted    []string
+}
+
+func (f *fakeMailer) ResolveRecipient(_ context.Context, params mail.ResolveRecipientParams) (*agentstore.Agent, error) {
+	f.resolved = append(f.resolved, params)
+	if f.resolveErr != nil {
+		return nil, f.resolveErr
+	}
+
+	return &f.recipient, nil
+}
+
+func (f *fakeMailer) SendMail(_ context.Context, params mail.SendMailParams) (*mailstore.Mail, error) {
+	f.sent = append(f.sent, params)
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	sent := mailstore.Mail{
+		ID:          "mail-1",
+		FromAgentID: &params.From,
+		FromName:    "alpha",
+		ToAgentID:   params.ToAgentID,
+		Body:        params.Body,
+		ReplyTo:     params.ReplyTo,
+		Kind:        mailstore.KindPlain,
+		CreatedAt:   time.Date(2026, time.September, 24, 9, 0, 0, 0, time.UTC),
+	}
+	f.mail = append(f.mail, sent)
+
+	return &sent, nil
+}
+
+func (f *fakeMailer) ClaimMail(_ context.Context, agentID string) ([]mailstore.Mail, error) {
+	f.claimed = append(f.claimed, agentID)
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return f.mail, nil
+}
+
+func (f *fakeMailer) ListMail(_ context.Context, params mail.ListMailParams) ([]mailstore.Mail, error) {
+	f.listed = append(f.listed, params)
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return f.mail, nil
+}
+
+func (f *fakeMailer) DeleteMail(_ context.Context, ids []string) error {
+	f.deleted = append(f.deleted, ids...)
+
+	return f.err
+}
+
+// mailHandler is the handler over a fake mail service, reading liveness off a fake tmux.
+func mailHandler(mailer *fakeMailer) (agentv1weave.AgentServiceAdapter, *tmuxtest.Fake) {
+	terminal := tmuxtest.NewFake()
+
+	return agentv1weave.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{
+		Mail:     mailer,
+		Liveness: agents.NewPaneLiveness(terminal),
+	})}, terminal
+}
+
+// loggedCaller is a context calling as the agent named, whose log lines land in the builder handed back.
+func loggedCaller(t *testing.T, agentID string) (context.Context, *strings.Builder) {
+	t.Helper()
+
+	var written strings.Builder
+	ctx := logging.WithLogger(t.Context(), logging.New(&written, slog.LevelInfo))
+	if agentID != "" {
+		ctx = caller.With(ctx, caller.Caller{AgentID: agentID})
+	}
+
+	return ctx, &written
+}
+
+func assertCrossAgentRead(t *testing.T, written string, wantLogged bool, body, target string) {
+	t.Helper()
+
+	if !wantLogged {
+		assert.Empty(t, written)
+
+		return
+	}
+
+	record := logtest.Record(t, written)
+	assert.Equal(t, body, record["body"])
+	assert.Equal(t, target, record[logging.TargetAgentID])
+}
+
+func cmpMail(stored mailstore.Mail, rendered *agentv1.Mail) string {
+	return cmp.Diff(render.Mail(stored), rendered, protocmp.Transform())
+}
