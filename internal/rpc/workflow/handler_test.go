@@ -371,10 +371,10 @@ func TestWorkflowWritesPassDown(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			workflows := &fakeWorkflows{}
+			recorded := &fakeWorkflows{}
 
-			require.NoError(t, tt.call(t.Context(), newWorkflowHandler(workflows)))
-			assert.Equal(t, tt.want, *workflows)
+			require.NoError(t, tt.call(t.Context(), newWorkflowHandler(recorded)))
+			assert.Equal(t, tt.want, *recorded)
 		})
 	}
 }
@@ -476,7 +476,7 @@ func TestListWorkflows(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			workflows := &fakeWorkflows{stored: []workflowstore.Workflow{
+			recorded := &fakeWorkflows{stored: []workflowstore.Workflow{
 				{
 					ID:      workflowID,
 					Name:    "alpha",
@@ -488,11 +488,11 @@ func TestListWorkflows(t *testing.T) {
 					Context: "ship it",
 				},
 			}}
-			svc := newWorkflowHandler(workflows)
+			svc := newWorkflowHandler(recorded)
 
 			listed, err := svc.ListWorkflows(t.Context(), connect.NewRequest(tt.req))
 			require.NoError(t, err)
-			assert.Equal(t, []bool{tt.wantArchived}, workflows.listed)
+			assert.Equal(t, []bool{tt.wantArchived}, recorded.listed)
 
 			contexts := make([]string, 0, len(listed.Msg.GetWorkflows()))
 			truncated := make([]bool, 0, len(listed.Msg.GetWorkflows()))
@@ -507,9 +507,9 @@ func TestListWorkflows(t *testing.T) {
 	}
 }
 
-func newWorkflowHandler(workflows *fakeWorkflows) workflowv1weave.WorkflowServiceAdapter {
+func newWorkflowHandler(fake *fakeWorkflows) workflowv1weave.WorkflowServiceAdapter {
 	return workflowv1weave.WorkflowServiceAdapter{Impl: NewHandler(NewHandlerParams{
-		Lister:    workflows,
-		Workflows: workflows,
+		Lister:    fake,
+		Workflows: fake,
 	})}
 }

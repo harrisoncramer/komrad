@@ -31,20 +31,21 @@ var nine = time.Date(2026, time.July, 28, 9, 0, 0, 0, time.UTC)
 // TestLaunchAgentWorker pins what one firing launches, and how the run and the job record each way it can end.
 func TestLaunchAgentWorker(t *testing.T) {
 	tests := []struct {
-		name            string
-		deleted         bool
-		paused          bool
-		hideAgents      bool
-		missingCwd      bool
-		busy            bool
-		crowded         bool
-		windowErr       error
-		attempt         int
-		wantCancel      bool
-		wantErr         bool
-		wantReason      string
-		wantRuns        []schedulestore.RunState
-		wantAgentHidden *bool
+		name         string
+		deleted      bool
+		paused       bool
+		hideAgents   bool
+		missingCwd   bool
+		busy         bool
+		crowded      bool
+		windowErr    error
+		attempt      int
+		wantCancel   bool
+		wantErr      bool
+		wantReason   string
+		wantRuns     []schedulestore.RunState
+		wantLaunched bool
+		wantHidden   bool
 	}{
 		{
 			name:       "a schedule deleted since the job was queued cancels",
@@ -97,15 +98,16 @@ func TestLaunchAgentWorker(t *testing.T) {
 			wantRuns:   []schedulestore.RunState{schedulestore.RunStateDiscarded},
 		},
 		{
-			name:            "a schedule hiding its runs launches a hidden agent",
-			hideAgents:      true,
-			wantRuns:        []schedulestore.RunState{schedulestore.RunStateCompleted},
-			wantAgentHidden: xptr.Ptr(true),
+			name:         "a schedule hiding its runs launches a hidden agent",
+			hideAgents:   true,
+			wantRuns:     []schedulestore.RunState{schedulestore.RunStateCompleted},
+			wantLaunched: true,
+			wantHidden:   true,
 		},
 		{
-			name:            "an armed schedule launches its agent",
-			wantRuns:        []schedulestore.RunState{schedulestore.RunStateCompleted},
-			wantAgentHidden: xptr.Ptr(false),
+			name:         "an armed schedule launches its agent",
+			wantRuns:     []schedulestore.RunState{schedulestore.RunStateCompleted},
+			wantLaunched: true,
 		},
 	}
 
@@ -197,7 +199,7 @@ func TestLaunchAgentWorker(t *testing.T) {
 				assert.NotContains(t, runs[0].Message, "JobCancelError", "in the worker's own words")
 			}
 
-			if tt.wantAgentHidden == nil {
+			if !tt.wantLaunched {
 				return
 			}
 
@@ -207,7 +209,7 @@ func TestLaunchAgentWorker(t *testing.T) {
 			assert.Equal(t, "check CI", launched[0].Prompt)
 			assert.Equal(t, workflow.ID, launched[0].WorkflowID)
 			assert.Equal(t, cwd, launched[0].Cwd, "the directory is the workflow's")
-			assert.Equal(t, *tt.wantAgentHidden, launched[0].Hidden)
+			assert.Equal(t, tt.wantHidden, launched[0].Hidden)
 			require.NotNil(t, launched[0].IdempotencyKey)
 			assert.Equal(t, "schedule:"+schedule.ID+":2026-07-28T09:00:00Z", *launched[0].IdempotencyKey)
 		})

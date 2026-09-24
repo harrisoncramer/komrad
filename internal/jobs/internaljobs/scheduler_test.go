@@ -136,20 +136,20 @@ func TestSchedulerReconcile(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			stores := storetest.Open(t)
-			written := newScheduleWriter(t, stores)
+			writer := newScheduleWriter(t, stores)
 			periodic := &recordingPeriodic{}
 			scheduler := NewScheduler(stores.Schedules, periodic)
 
 			var errs []error
 			for _, pass := range tt.passes {
-				written.apply(t, pass)
-				periodic.refused = written.ids[tt.failFor]
+				writer.apply(t, pass)
+				periodic.refused = writer.ids[tt.failFor]
 				errs = append(errs, scheduler.Reconcile(t.Context()))
 			}
 
 			assert.Equal(t, tt.wantErr, errors.Join(errs...) != nil)
-			assert.Equal(t, tt.wantAdded, written.keysOf(periodic.added))
-			assert.Equal(t, tt.wantRemoved, written.keysOf(periodic.removed))
+			assert.Equal(t, tt.wantAdded, writer.keysOf(periodic.added))
+			assert.Equal(t, tt.wantRemoved, writer.keysOf(periodic.removed))
 		})
 	}
 }
@@ -157,11 +157,11 @@ func TestSchedulerReconcile(t *testing.T) {
 // TestSchedulerReconcileFailure pins that a listing the reconciler could not read disarms nothing.
 func TestSchedulerReconcileFailure(t *testing.T) {
 	stores := storetest.Open(t)
-	written := newScheduleWriter(t, stores)
+	writer := newScheduleWriter(t, stores)
 	periodic := &recordingPeriodic{}
 	scheduler := NewScheduler(stores.Schedules, periodic)
 
-	written.apply(t, []scheduleRow{armed("s1", "0 9 * * *")})
+	writer.apply(t, []scheduleRow{armed("s1", "0 9 * * *")})
 	require.NoError(t, scheduler.Reconcile(t.Context()))
 
 	require.NoError(t, stores.Pool.Close())
@@ -196,7 +196,6 @@ func inZone(row scheduleRow, timezone string) scheduleRow {
 	return row
 }
 
-// scheduleWriter writes each pass of a test's schedules to the store, remembering which id each key was given.
 type scheduleWriter struct {
 	stores     *storetest.Stores
 	workflowID string

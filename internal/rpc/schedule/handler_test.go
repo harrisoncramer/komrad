@@ -336,10 +336,10 @@ func TestScheduleWritesPassDown(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			schedules := &fakeSchedules{}
+			recorded := &fakeSchedules{}
 
-			require.NoError(t, tt.call(t.Context(), newScheduleHandler(schedules)))
-			assert.Equal(t, tt.want, *schedules)
+			require.NoError(t, tt.call(t.Context(), newScheduleHandler(recorded)))
+			assert.Equal(t, tt.want, *recorded)
 		})
 	}
 }
@@ -497,11 +497,11 @@ func TestListScheduleRuns(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			schedules := &fakeSchedules{
+			recorded := &fakeSchedules{
 				stored: []schedulestore.Schedule{{ID: scheduleID}},
 				runs:   []schedulestore.Run{run},
 			}
-			svc := newScheduleHandler(schedules)
+			svc := newScheduleHandler(recorded)
 
 			listed, err := svc.ListScheduleRuns(t.Context(), connect.NewRequest(&schedulev1.ListScheduleRunsRequest{
 				Id:    scheduleID,
@@ -513,17 +513,17 @@ func TestListScheduleRuns(t *testing.T) {
 					id:    scheduleID,
 					limit: tt.wantLimit,
 				},
-			}, schedules.listed)
+			}, recorded.listed)
 			require.Len(t, listed.Msg.GetRuns(), 1)
 			assert.True(t, proto.Equal(render.ScheduleRun(run), listed.Msg.GetRuns()[0]))
 		})
 	}
 }
 
-func newScheduleHandler(schedules *fakeSchedules) schedulev1weave.ScheduleServiceAdapter {
+func newScheduleHandler(fake *fakeSchedules) schedulev1weave.ScheduleServiceAdapter {
 	return schedulev1weave.ScheduleServiceAdapter{Impl: NewHandler(NewHandlerParams{
-		Lister:    schedules,
-		Schedules: schedules,
-		Runs:      schedules,
+		Lister:    fake,
+		Schedules: fake,
+		Runs:      fake,
 	})}
 }
