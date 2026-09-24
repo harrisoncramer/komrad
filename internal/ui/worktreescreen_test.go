@@ -929,5 +929,5 @@ func readFormProse(frame string) string {
 		return strings.TrimPrefix(strings.TrimSpace(line), "┃")
 	})
 
-	return strings.Join(strings.Fields(strings.Join(lines, " ")), " ")
+	return joinProse(lines)
 }

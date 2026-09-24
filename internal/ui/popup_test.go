@@ -185,6 +185,24 @@ func TestPopupFocusKey(t *testing.T) {
 		"select-pane -t %9", "select-pane -t %0",
 	}
 
+	t.Run("the panel going gives the key back", func(t *testing.T) {
+		tmux := &bindRecorder{}
+		popup := ui.NewPopupWindow(tmux, "weave")
+
+		popup.HoldFocusKey("%3", "%9")
+		popup.ReleaseFocusKey()
+
+		assert.Equal(t, []string{ui.FocusKey}, tmux.unbound, "tmux keeps a root binding until the server dies")
+	})
+
+	t.Run("releasing a key nobody held says nothing to tmux", func(t *testing.T) {
+		tmux := &bindRecorder{}
+
+		ui.NewPopupWindow(tmux, "weave").ReleaseFocusKey()
+
+		assert.Empty(t, tmux.unbound)
+	})
+
 	t.Run("a staged agent holds the key once and a screen staging none gives it back", func(t *testing.T) {
 		harness := openFocus(t)
 		harness.watch(buildSnapshot(buildFocusRows()...))

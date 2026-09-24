@@ -31,12 +31,15 @@ const panelViewer = "/dev/ttys004"
 
 var updateGoldens = flag.Bool("update", false, "rewrite the golden files")
 
+// FormFieldDraftPath is the file a form field is written out to for the editor.
+var FormFieldDraftPath = formFieldDraftPath
+
 // Panel is the panel's model driven the way the running program drives it.
 type Panel struct {
 	model model
 	post  *postbox
 	tmux  *recordingTmux
-	clip  *fakeClipboard
+	clip  *recordingClipboard
 }
 
 type unsplittableTmux struct {
@@ -76,6 +79,11 @@ type recordingTmux struct {
 
 // PanelTmux is the tmux a panel under test drives in place of the recording one.
 type PanelTmux = uiTmux
+
+type recordingClipboard struct {
+	written []string
+	err     error
+}
 
 // HarnessFrameReader answers whether a pane is drawing its harness yet.
 type HarnessFrameReader = harnessFrameReader
@@ -157,7 +165,7 @@ func NewPanel(params NewPanelParams) *Panel {
 		}, true, post),
 		post: post,
 		tmux: tmux,
-		clip: &fakeClipboard{},
+		clip: &recordingClipboard{},
 	}
 	panel.model.clip = panel.clip
 
@@ -196,24 +204,30 @@ func NewKeyPress(key string) tea.KeyPressMsg {
 	return keyMsg(key)
 }
 
-// IsZoomed reports whether the panel last asked tmux to zoom its pane over the window.
-func (p *Panel) IsZoomed() bool {
-	return p.tmux.zoomed
-}
-
-// CountRespawns is how many panes the panel has respawned.
-func (p *Panel) CountRespawns() int {
-	return len(p.tmux.respawns)
-}
-
-// CountSentKeys is how many key sends the panel has typed into panes.
-func (p *Panel) CountSentKeys() int {
-	return len(p.tmux.sentKeys)
-}
-
 // NewWatchLost is the message the panel hears when its watch stream ends.
 func NewWatchLost(err error) tea.Msg {
 	return watchLostMsg{err: err}
+}
+
+// RequireGolden compares a drawn block against the file named for it under testdata.
+func RequireGolden(t *testing.T, name, got string) {
+	t.Helper()
+
+	requireGolden(t, name, got)
+}
+
+// NewTick is the refresh loop's tick as it lands at the given time.
+func NewTick(at time.Time) tea.Msg {
+	return tickMsg{at: at}
+}
+
+// NewFieldEdited is what the editor hands back for a field of the form on screen once it quits.
+func (p *Panel) NewFieldEdited(key, text string) tea.Msg {
+	return formFieldEditedMsg{
+		kind: p.model.form.kind,
+		key:  key,
+		text: text,
+	}
 }
 
 // ReadGuestPane is the pane the panel has swapped into its stage.
@@ -236,6 +250,138 @@ func (p *Panel) ReadKilledPanes() []string {
 	return p.tmux.killed
 }
 
+// ReadResizes is every pane resize the panel has asked tmux for.
+func (p *Panel) ReadResizes() []string {
+	return p.tmux.resizes
+}
+
+// ReadWindowSizes is the size the panel last gave each agent's window.
+func (p *Panel) ReadWindowSizes() map[string]string {
+	return p.tmux.windowSizes
+}
+
+// ReadCopied is everything the panel has put on the clipboard.
+func (p *Panel) ReadCopied() []string {
+	return p.clip.written
+}
+
+// ReadRespawnPanes is every pane the panel has respawned, in the order it respawned them.
+func (p *Panel) ReadRespawnPanes() []string {
+	return p.tmux.respawnPanes
+}
+
+// ReadRespawnDirs is the directory each respawn was rooted at, in the order it was asked for.
+func (p *Panel) ReadRespawnDirs() []string {
+	return p.tmux.respawnDirs
+}
+
+// ReadBelowAnchors is every pane the panel has split a pane under.
+func (p *Panel) ReadBelowAnchors() []string {
+	return p.tmux.belowAnchors
+}
+
+// ReadRootBinding is the command a key is bound to in tmux's root table, and false while it is unbound.
+func (p *Panel) ReadRootBinding(key string) ([]string, bool) {
+	command, bound := p.tmux.rootBinds[key]
+
+	return command, bound
+}
+
+// ReadRootUnbinds is every key the panel has taken out of tmux's root table.
+func (p *Panel) ReadRootUnbinds() []string {
+	return p.tmux.rootUnbinds
+}
+
+// ReadGlobalArmKeys is every key the keybinding check expects the router to answer ahead of the screen that is up.
+func (p *Panel) ReadGlobalArmKeys() []string {
+	var keys []string
+	for _, arm := range globalArms(p.model.screen, p.model.keys) {
+		keys = append(keys, arm.keys...)
+	}
+
+	return keys
+}
+
+// ReadLegendKeys is every key the legend of the screen that is up names.
+func (p *Panel) ReadLegendKeys() []string {
+	shared := p.model.shared()
+
+	var legend keyMap
+	switch p.model.screen {
+	case screenAgents:
+		legend = p.model.listHelp(p.model.agents.help(shared))
+	case screenSchedules:
+		legend = p.model.listHelpOf(p.model.schedules.listParams(shared))
+	case screenArchive:
+		legend = p.model.listHelpOf(p.model.archive.listParams(shared))
+	case screenSearch:
+		legend = p.model.search.help(shared)
+	case screenReview:
+		legend = p.model.review.help(shared)
+	case screenWorktrees:
+		legend = p.model.listHelpOf(p.model.worktrees.listParams(shared))
+	}
+
+	var keys []string
+	for _, binding := range slices.Concat(legend.short, legend.full) {
+		keys = append(keys, binding.Keys()...)
+	}
+
+	return keys
+}
+
+// ReadStagePane is the pane the panel's frame holds as its stage.
+func (p *Panel) ReadStagePane() string {
+	return p.model.frame.Pane(layout.RegionStage)
+}
+
+// CountRespawns is how many panes the panel has respawned.
+func (p *Panel) CountRespawns() int {
+	return len(p.tmux.respawns)
+}
+
+// CountSentKeys is how many key sends the panel has typed into panes.
+func (p *Panel) CountSentKeys() int {
+	return len(p.tmux.sentKeys)
+}
+
+// CountSwaps is how many times the panel has swapped two panes.
+func (p *Panel) CountSwaps() int {
+	return p.tmux.swaps
+}
+
+// CountRootBinds is how many times the panel has bound a key in tmux's root table.
+func (p *Panel) CountRootBinds() int {
+	return p.tmux.rootBindCount
+}
+
+// IsZoomed reports whether the panel last asked tmux to zoom its pane over the window.
+func (p *Panel) IsZoomed() bool {
+	return p.tmux.zoomed
+}
+
+// IsKeyTaken reports whether a press of the key reaches any binding the panel dispatches on.
+func (p *Panel) IsKeyTaken(key string) bool {
+	isTaken := false
+	keyProbe = func([]string) {
+		isTaken = true
+	}
+	defer func() {
+		keyProbe = nil
+	}()
+
+	p.model.route(keyMsg(key))
+
+	return isTaken
+}
+
+// IsGlobalKey reports whether the router answers a press of the key ahead of the screen that is up.
+func (p *Panel) IsGlobalKey(key string) bool {
+	_, _, isTaken := p.model.routeGlobalKey(keyMsg(key))
+
+	return isTaken
+}
+
 // SetPaneWidth makes tmux report a pane at the given width.
 func (p *Panel) SetPaneWidth(pane string, width int) {
 	if p.tmux.paneWidths == nil {
@@ -255,16 +401,6 @@ func (p *Panel) SetKeysElsewhere(elsewhere bool) {
 	p.tmux.keysElsewhere = elsewhere
 }
 
-// ReadResizes is every pane resize the panel has asked tmux for.
-func (p *Panel) ReadResizes() []string {
-	return p.tmux.resizes
-}
-
-// ReadWindowSizes is the size the panel last gave each agent's window.
-func (p *Panel) ReadWindowSizes() map[string]string {
-	return p.tmux.windowSizes
-}
-
 // SetPaneSize makes tmux report every pane and the window at the given size.
 func (p *Panel) SetPaneSize(width, height int) {
 	p.tmux.width, p.tmux.height, p.tmux.windowWidth = width, height, width
@@ -275,16 +411,55 @@ func (p *Panel) SetClipboardErr(err error) {
 	p.clip.err = err
 }
 
-// ReadCopied is everything the panel has put on the clipboard.
-func (p *Panel) ReadCopied() []string {
-	return p.clip.written
+// SetPaneDead makes tmux report a pane as gone.
+func (p *Panel) SetPaneDead(pane string) {
+	if p.tmux.deadPanes == nil {
+		p.tmux.deadPanes = map[string]bool{}
+	}
+
+	p.tmux.deadPanes[pane] = true
 }
 
-// RequireGolden compares a drawn block against the file named for it under testdata.
-func RequireGolden(t *testing.T, name, got string) {
+// SetShown makes tmux report whether a client is looking at the panel's session.
+func (p *Panel) SetShown(isShown bool) {
+	p.tmux.sessionClient = ""
+	if isShown {
+		p.tmux.sessionClient = panelViewer
+	}
+}
+
+// SetHostPath makes tmux report the directory of the client the panel was invoked from.
+func (p *Panel) SetHostPath(path string) {
+	p.tmux.path = path
+}
+
+// ExpireLanding runs out the wait a write's landing holds the cursor for.
+func (p *Panel) ExpireLanding() {
+	p.model.landing.until = time.Time{}
+}
+
+// AgeWorktreeReads makes every directory read the panel holds older by the given time.
+func (p *Panel) AgeWorktreeReads(by time.Duration) {
+	for dir, read := range p.model.inspections {
+		read.readAt = read.readAt.Add(-by)
+		p.model.inspections[dir] = read
+	}
+}
+
+func requireGolden(t *testing.T, name, got string) {
 	t.Helper()
 
-	requireGolden(t, name, got)
+	path := filepath.Join("testdata", name+".golden")
+	if *updateGoldens {
+		require.NoError(t, os.MkdirAll("testdata", 0o750))
+		require.NoError(t, os.WriteFile(path, []byte(got), 0o600))
+
+		return
+	}
+
+	want, err := os.ReadFile(path)
+	require.NoError(t, err, "no golden file yet, so run the suite with -update")
+	assert.Equal(t, string(want), got)
 }
 
 func (unsplittableTmux) SplitRight(string, string, string) string {
@@ -492,172 +667,8 @@ func (t *recordingTmux) RespawnPane(pane, dir string, argv ...string) {
 	t.respawnDirs = append(t.respawnDirs, dir)
 }
 
-func requireGolden(t *testing.T, name, got string) {
-	t.Helper()
+func (f *recordingClipboard) WriteAll(text string) error {
+	f.written = append(f.written, text)
 
-	path := filepath.Join("testdata", name+".golden")
-	if *updateGoldens {
-		require.NoError(t, os.MkdirAll("testdata", 0o750))
-		require.NoError(t, os.WriteFile(path, []byte(got), 0o600))
-
-		return
-	}
-
-	want, err := os.ReadFile(path)
-	require.NoError(t, err, "no golden file yet, so run the suite with -update")
-	assert.Equal(t, string(want), got)
-}
-
-// ReadRespawnPanes is every pane the panel has respawned, in the order it respawned them.
-func (p *Panel) ReadRespawnPanes() []string {
-	return p.tmux.respawnPanes
-}
-
-// ExpireLanding runs out the wait a write's landing holds the cursor for.
-func (p *Panel) ExpireLanding() {
-	p.model.landing.until = time.Time{}
-}
-
-// AgeWorktreeReads makes every directory read the panel holds older by the given time.
-func (p *Panel) AgeWorktreeReads(by time.Duration) {
-	for dir, read := range p.model.inspections {
-		read.readAt = read.readAt.Add(-by)
-		p.model.inspections[dir] = read
-	}
-}
-
-// FormFieldDraftPath is the file a form field is written out to for the editor.
-var FormFieldDraftPath = formFieldDraftPath
-
-// NewFieldEdited is what the editor hands back for a field of the form on screen once it quits.
-func (p *Panel) NewFieldEdited(key, text string) tea.Msg {
-	return formFieldEditedMsg{
-		kind: p.model.form.kind,
-		key:  key,
-		text: text,
-	}
-}
-
-// SetPaneDead makes tmux report a pane as gone.
-func (p *Panel) SetPaneDead(pane string) {
-	if p.tmux.deadPanes == nil {
-		p.tmux.deadPanes = map[string]bool{}
-	}
-
-	p.tmux.deadPanes[pane] = true
-}
-
-// ReadRespawnDirs is the directory each respawn was rooted at, in the order it was asked for.
-func (p *Panel) ReadRespawnDirs() []string {
-	return p.tmux.respawnDirs
-}
-
-// ReadBelowAnchors is every pane the panel has split a pane under.
-func (p *Panel) ReadBelowAnchors() []string {
-	return p.tmux.belowAnchors
-}
-
-// CountSwaps is how many times the panel has swapped two panes.
-func (p *Panel) CountSwaps() int {
-	return p.tmux.swaps
-}
-
-// ReadRootBinding is the command a key is bound to in tmux's root table, and false while it is unbound.
-func (p *Panel) ReadRootBinding(key string) ([]string, bool) {
-	command, bound := p.tmux.rootBinds[key]
-
-	return command, bound
-}
-
-// ReadRootUnbinds is every key the panel has taken out of tmux's root table.
-func (p *Panel) ReadRootUnbinds() []string {
-	return p.tmux.rootUnbinds
-}
-
-// CountRootBinds is how many times the panel has bound a key in tmux's root table.
-func (p *Panel) CountRootBinds() int {
-	return p.tmux.rootBindCount
-}
-
-// NewTick is the refresh loop's tick as it lands at the given time.
-func NewTick(at time.Time) tea.Msg {
-	return tickMsg{at: at}
-}
-
-// SetShown makes tmux report whether a client is looking at the panel's session.
-func (p *Panel) SetShown(isShown bool) {
-	p.tmux.sessionClient = ""
-	if isShown {
-		p.tmux.sessionClient = panelViewer
-	}
-}
-
-// SetHostPath makes tmux report the directory of the client the panel was invoked from.
-func (p *Panel) SetHostPath(path string) {
-	p.tmux.path = path
-}
-
-// IsKeyTaken reports whether a press of the key reaches any binding the panel dispatches on.
-func (p *Panel) IsKeyTaken(key string) bool {
-	isTaken := false
-	keyProbe = func([]string) {
-		isTaken = true
-	}
-	defer func() {
-		keyProbe = nil
-	}()
-
-	p.model.route(keyMsg(key))
-
-	return isTaken
-}
-
-// IsGlobalKey reports whether the router answers a press of the key ahead of the screen that is up.
-func (p *Panel) IsGlobalKey(key string) bool {
-	_, _, isTaken := p.model.routeGlobalKey(keyMsg(key))
-
-	return isTaken
-}
-
-// ReadGlobalArmKeys is every key the keybinding check expects the router to answer ahead of the screen that is up.
-func (p *Panel) ReadGlobalArmKeys() []string {
-	var keys []string
-	for _, arm := range globalArms(p.model.screen, p.model.keys) {
-		keys = append(keys, arm.keys...)
-	}
-
-	return keys
-}
-
-// ReadLegendKeys is every key the legend of the screen that is up names.
-func (p *Panel) ReadLegendKeys() []string {
-	shared := p.model.shared()
-
-	var legend keyMap
-	switch p.model.screen {
-	case screenAgents:
-		legend = p.model.listHelp(p.model.agents.help(shared))
-	case screenSchedules:
-		legend = p.model.listHelpOf(p.model.schedules.listParams(shared))
-	case screenArchive:
-		legend = p.model.listHelpOf(p.model.archive.listParams(shared))
-	case screenSearch:
-		legend = p.model.search.help(shared)
-	case screenReview:
-		legend = p.model.review.help(shared)
-	case screenWorktrees:
-		legend = p.model.listHelpOf(p.model.worktrees.listParams(shared))
-	}
-
-	var keys []string
-	for _, binding := range slices.Concat(legend.short, legend.full) {
-		keys = append(keys, binding.Keys()...)
-	}
-
-	return keys
-}
-
-// ReadStagePane is the pane the panel's frame holds as its stage.
-func (p *Panel) ReadStagePane() string {
-	return p.model.frame.Pane(layout.RegionStage)
+	return f.err
 }

@@ -112,7 +112,7 @@ func TestLogs(t *testing.T) {
 
 				harness.press(append(append([]string{"l"}, tt.press...), "?")...)
 
-				assert.Contains(t, strings.Join(strings.Fields(readLegend(harness.readFrame())), " "), "L "+tt.want)
+				assert.Contains(t, joinProse(splitLines(readLegend(harness.readFrame()))), "L "+tt.want)
 			})
 		}
 	})

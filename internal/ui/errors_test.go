@@ -3,7 +3,6 @@ package ui_test
 import (
 	"errors"
 	"slices"
-	"strings"
 	"testing"
 
 	"weave/internal/engine"
@@ -171,7 +170,7 @@ func TestErrorsUnreachable(t *testing.T) {
 
 			harness.press("ctrl+g")
 
-			frame := strings.Join(strings.Fields(harness.readFrame()), " ")
+			frame := joinProse(splitLines(harness.readFrame()))
 			assert.Contains(t, frame, serverAddr)
 			assert.Contains(t, frame, tt.want)
 		})
@@ -219,7 +218,7 @@ func TestErrorsFatalScreens(t *testing.T) {
 			harness.watch(buildSnapshot(newLiveWorkflow("w1", "should-not-render")))
 			harness.send(ui.NewWatchLost(errors.New("connection refused")))
 
-			frame := strings.Join(strings.Fields(harness.readFrame()), " ")
+			frame := joinProse(splitLines(harness.readFrame()))
 			for _, want := range tt.wantContain {
 				assert.Contains(t, frame, want)
 			}

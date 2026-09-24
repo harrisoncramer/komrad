@@ -204,11 +204,11 @@ func findRule(frame string) int {
 }
 
 func readRecordProse(frame string) string {
-	return strings.Join(strings.Fields(strings.Join(readRecord(frame), " ")), " ")
+	return joinProse(readRecord(frame))
 }
 
 func readNoticeBlock(harness *panelHarness) []string {
-	styled := splitLines(harness.panel.View())
+	styled := splitLines(harness.readRawFrame())
 
 	var block []string
 	width, rules := 0, 0

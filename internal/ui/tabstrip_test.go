@@ -192,7 +192,7 @@ func TestTabStripGolden(t *testing.T) {
 
 			harness.press(tt.press...)
 
-			ui.RequireGolden(t, tt.name, harness.panel.View())
+			ui.RequireGolden(t, tt.name, harness.readRawFrame())
 		})
 	}
 }

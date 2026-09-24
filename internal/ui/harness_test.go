@@ -88,6 +88,14 @@ type parkedCmd struct {
 	done chan tea.Msg
 }
 
+type panelRemote struct {
+	agents    agentv1connect.AgentServiceClient
+	workflows workflowv1connect.WorkflowServiceClient
+	schedules schedulev1connect.ScheduleServiceClient
+	hooks     hookv1connect.HookServiceClient
+	worktrees worktreev1connect.WorktreeServiceClient
+}
+
 type heldGit struct {
 	git  ui.ReviewGit
 	gate *gate
@@ -185,14 +193,6 @@ type panelHarnessParams struct {
 	browser       browser.Opener
 	tmux          ui.PanelTmux
 	remote        *panelRemote
-}
-
-type panelRemote struct {
-	agents    agentv1connect.AgentServiceClient
-	workflows workflowv1connect.WorkflowServiceClient
-	schedules schedulev1connect.ScheduleServiceClient
-	hooks     hookv1connect.HookServiceClient
-	worktrees worktreev1connect.WorktreeServiceClient
 }
 
 func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
@@ -773,7 +773,11 @@ func readSidebar(frame string) []string {
 }
 
 func readSidebarProse(frame string) string {
-	return strings.Join(strings.Fields(strings.Join(readSidebar(frame), " ")), " ")
+	return joinProse(readSidebar(frame))
+}
+
+func joinProse(lines []string) string {
+	return strings.Join(strings.Fields(strings.Join(lines, " ")), " ")
 }
 
 func readStage(frame string) []string {

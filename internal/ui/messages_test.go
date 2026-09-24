@@ -359,7 +359,7 @@ func readMessages(frame string) []string {
 }
 
 func readStyledMessages(harness *panelHarness) []string {
-	styled := splitLines(harness.panel.View())
+	styled := splitLines(harness.readRawFrame())
 	top, bottom, width := findMessageRules(splitLines(harness.readFrame()))
 	if top < 0 {
 		return nil
@@ -404,8 +404,4 @@ func readTally(frame string) string {
 	}
 
 	return strings.Join(fields[len(fields)-3:], " ")
-}
-
-func joinProse(lines []string) string {
-	return strings.Join(strings.Fields(strings.Join(lines, " ")), " ")
 }

@@ -65,7 +65,7 @@ func TestSelection(t *testing.T) {
 func findDrawnRow(t *testing.T, harness *panelHarness, name string) string {
 	t.Helper()
 
-	for _, line := range splitLines(harness.panel.View()) {
+	for _, line := range splitLines(harness.readRawFrame()) {
 		row, isRow := cutListRow(ansi.Strip(line))
 		if isRow && strings.TrimSpace(row) == name {
 			return line

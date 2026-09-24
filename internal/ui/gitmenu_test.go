@@ -3,7 +3,6 @@ package ui_test
 import (
 	"context"
 	"errors"
-	"strings"
 	"sync"
 	"testing"
 
@@ -268,5 +267,5 @@ func newMergedPullRequest() *pullrequestv1.PullRequest {
 func readOpenMessages(harness *panelHarness) string {
 	harness.press("ctrl+g")
 
-	return strings.Join(strings.Fields(harness.readFrame()), " ")
+	return joinProse(splitLines(harness.readFrame()))
 }
