@@ -400,6 +400,17 @@ func TestFormsArchivePrompt(t *testing.T) {
 		assert.Contains(t, harness.readFrame(), "weave was rebuilt")
 	})
 
+	t.Run("a refused workflow archive says why and keeps the workflow", func(t *testing.T) {
+		harness := openForms(t, newFormWorkflow(), newFormAuthor())
+		harness.refuse(workflowv1connect.WorkflowServiceArchiveWorkflowProcedure, connect.NewError(connect.CodeFailedPrecondition, errors.New("agents still running")))
+
+		harness.press(slices.Concat([]string{"z", "ctrl+s"}, widenListPresses)...)
+
+		frame := harness.readFrame()
+		assert.Contains(t, readSidebarProse(frame), "agents still running")
+		assert.Contains(t, readListRows(frame), "api")
+	})
+
 	t.Run("a refused archive destroys nothing", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 		harness.refuse(agentv1connect.AgentServiceArchiveAgentsProcedure, connect.NewError(connect.CodeFailedPrecondition, errors.New("already archived")))
@@ -488,6 +499,17 @@ func TestFormsWorkflowHooks(t *testing.T) {
 		frame := harness.readFrame()
 		assert.Contains(t, frame, "install-deps")
 		assert.Contains(t, frame, "> copy-env")
+	})
+
+	t.Run("a hook still waiting on a chmod is offered", func(t *testing.T) {
+		harness := openForms(t, newFormWorkflow(), newFormAuthor())
+		harness.answer(hookv1connect.HookServiceListHooksProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+			return connect.NewResponse(&hookv1.ListHooksResponse{Hooks: []*hookv1.Hook{{Name: "unrunnable"}}}), nil
+		})
+
+		harness.press("e")
+
+		assert.Contains(t, harness.readFrame(), "unrunnable")
 	})
 
 	t.Run("a hook the directory no longer holds is still offered", func(t *testing.T) {

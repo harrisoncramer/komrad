@@ -2500,7 +2500,10 @@ func TestReviewEmphasis(t *testing.T) {
 		live := readRawCursorRow(harness)
 
 		harness.press("ctrl+t")
-		assert.NotEqual(t, live, readRawCursorRow(harness))
+		dimmed := readRawCursorRow(harness)
+		require.NotEmpty(t, ansi.Strip(live))
+		assert.Equal(t, ansi.Strip(live), ansi.Strip(dimmed), "the same row, restyled")
+		assert.NotEqual(t, live, dimmed)
 
 		harness.press("ctrl+t")
 		assert.Equal(t, live, readRawCursorRow(harness))
