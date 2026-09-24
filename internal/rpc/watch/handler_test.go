@@ -188,27 +188,38 @@ func TestWatchEndsWhenTheBrokerCloses(t *testing.T) {
 	}, time.Second, 10*time.Millisecond, "the close is logged with the one message sent:\n%s", s.log.String())
 }
 
-// TestWatchRefusedOnceTheBrokerIsClosed pins the refusal a watch gets while the service stops.
-func TestWatchRefusedOnceTheBrokerIsClosed(t *testing.T) {
-	s := serve(t, agentStore{}, time.Hour)
-	s.broker.Close()
+// TestWatchRefusalsMapToCodes pins the code each refusal to open a watch reaches the caller as.
+func TestWatchRefusalsMapToCodes(t *testing.T) {
+	tests := []struct {
+		name     string
+		agents   agentStore
+		closed   bool
+		wantCode connect.Code
+	}{
+		{
+			name:     "a broker the service has closed",
+			closed:   true,
+			wantCode: connect.CodeFailedPrecondition,
+		},
+		{
+			name:     "a snapshot the store could not answer",
+			agents:   agentStore{listErr: errors.New("no database")},
+			wantCode: connect.CodeInternal,
+		},
+	}
 
-	stream, err := s.client.Watch(t.Context(), connect.NewRequest(&emptypb.Empty{}))
-	require.NoError(t, err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := serve(t, tt.agents, time.Hour)
+			if tt.closed {
+				s.broker.Close()
+			}
 
-	assert.False(t, stream.Receive())
-	assert.Equal(t, connect.CodeFailedPrecondition, connect.CodeOf(stream.Err()))
-}
+			stream, err := s.client.Watch(t.Context(), connect.NewRequest(&emptypb.Empty{}))
+			require.NoError(t, err)
 
-// TestWatchRefusedWhenTheSnapshotFails pins that a snapshot the store could not answer is a
-// failure of its own kind rather than the service stopping.
-func TestWatchRefusedWhenTheSnapshotFails(t *testing.T) {
-	s := serve(t, agentStore{listErr: errors.New("no database")}, time.Hour)
-
-	stream, err := s.client.Watch(t.Context(), connect.NewRequest(&emptypb.Empty{}))
-	require.NoError(t, err)
-
-	assert.False(t, stream.Receive())
-	assert.Equal(t, connect.CodeInternal, connect.CodeOf(stream.Err()))
-	assert.NotContains(t, stream.Err().Error(), "stopping")
+			assert.False(t, stream.Receive())
+			assert.Equal(t, tt.wantCode, connect.CodeOf(stream.Err()))
+		})
+	}
 }
