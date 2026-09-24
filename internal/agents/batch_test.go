@@ -112,7 +112,7 @@ func TestDeleteAgentsFiresEveryWorkflowsCleanup(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	lifecycle := &fakeLifecycle{}
 	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
-	workflows := workflowsFor(st, tmux)
+	workflows := newWorkflowService(st, tmux)
 	ctx := t.Context()
 
 	backend, err := workflows.NewWorkflow(ctx, worktreeConfig(t, "backend"))
@@ -175,7 +175,7 @@ func TestDeleteAgentsRefusesTheWholeBatch(t *testing.T) {
 	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
 	ctx := t.Context()
 
-	created, err := workflowsFor(st, tmux).NewWorkflow(ctx, worktreeConfig(t, "backend"))
+	created, err := newWorkflowService(st, tmux).NewWorkflow(ctx, worktreeConfig(t, "backend"))
 	require.NoError(t, err)
 
 	agent, err := manager.launch.NewAgent(ctx, NewAgentParams{
@@ -201,7 +201,7 @@ func TestRestoreAgentsBringsBackEveryWorkflow(t *testing.T) {
 	st := newStore(t)
 	tmux := tmuxtest.NewFake()
 	manager := newManager(tmux, st, "")
-	workflows := workflowsFor(st, tmux)
+	workflows := newWorkflowService(st, tmux)
 	ctx := t.Context()
 
 	backend, err := workflows.NewWorkflow(ctx, workflowstore.Config{Name: "backend"})

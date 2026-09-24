@@ -489,12 +489,22 @@ func (t txWritingPaneFirst) InTx(ctx context.Context, fn func(store.DBTX) error)
 	return t.txRunner.InTx(ctx, fn)
 }
 
-// resumeInto returns the write a resume does once its window is open, putting a pane on the
+// buildResumeWriteParams is the agent a resume writes, the pane it lands in, and where both are
+// recorded.
+type buildResumeWriteParams struct {
+	Store *testStore
+	Tmux  *tmuxtest.Fake
+	Agent agentstore.Agent
+	Pane  string
+}
+
+// buildResumeWrite returns the write a resume does once its window is open, putting a pane on the
 // agent's row and stamping that pane as its own.
-func resumeInto(t *testing.T, st *testStore, tmux *tmuxtest.Fake, agent agentstore.Agent, pane string) func() {
+func buildResumeWrite(t *testing.T, params buildResumeWriteParams) func() {
 	t.Helper()
 
 	done := false
+	agent := params.Agent
 
 	return func() {
 		if done {
@@ -502,9 +512,9 @@ func resumeInto(t *testing.T, st *testStore, tmux *tmuxtest.Fake, agent agentsto
 		}
 		done = true
 
-		agent.Pane = pane
-		require.NoError(t, st.Agents.Update(t.Context(), agent))
-		require.NoError(t, tmux.SetPaneOwner(pane, agent.ID))
+		agent.Pane = params.Pane
+		require.NoError(t, params.Store.Agents.Update(t.Context(), agent))
+		require.NoError(t, params.Tmux.SetPaneOwner(params.Pane, agent.ID))
 	}
 }
 
@@ -569,19 +579,19 @@ func newManager(tmux *tmuxtest.Fake, st *testStore, flags string) *testAgents {
 	return service
 }
 
-func workflowsFor(st *testStore, tmux *tmuxtest.Fake) *WorkflowService {
+func newWorkflowService(st *testStore, tmux *tmuxtest.Fake) *WorkflowService {
 	return st.workflowService(workflowServiceOptions{tmux: tmux})
 }
 
 func newManagerWithHarness(tmux *tmuxtest.Fake, st *testStore, flags string) (*testAgents, *harnesstest.Fake) {
-	h := &harnesstest.Fake{}
+	fakeHarness := &harnesstest.Fake{}
 
 	return st.agentService(agentServiceOptions{
 		tmux:      tmux,
-		harnesses: harnesstest.Registry{Harness: h},
+		harnesses: harnesstest.Registry{Harness: fakeHarness},
 		addr:      "127.0.0.1:9999",
 		flags:     flags,
-	}), h
+	}), fakeHarness
 }
 
 func agentByID(t *testing.T, st *testStore, id string) agentstore.Agent {

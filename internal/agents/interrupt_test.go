@@ -12,8 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// interrupterOver builds an interrupter over the test store.
-func interrupterOver(st *testStore, channel *harnesstest.Channel, observer harness.Observer) *Interrupter {
+// newInterrupter builds an interrupter over the test store.
+func newInterrupter(st *testStore, channel *harnesstest.Channel, observer harness.Observer) *Interrupter {
 	return NewInterrupter(NewInterrupterParams{
 		Agents:   st.Agents,
 		Channel:  channel,
@@ -31,7 +31,7 @@ func TestInterruptLeavesAnAgentAtRestAlone(t *testing.T) {
 	channel := &harnesstest.Channel{}
 	observer := &settlingObserver{readings: []harness.Activity{harness.ActivityIdle}}
 
-	require.NoError(t, interrupterOver(st, channel, observer).Interrupt(t.Context(), agent.ID))
+	require.NoError(t, newInterrupter(st, channel, observer).Interrupt(t.Context(), agent.ID))
 
 	assert.Zero(t, channel.Interrupts, "there was no turn to cut")
 	assert.Equal(t, 1, observer.reads, "and the pane was read to find that out")
@@ -46,7 +46,7 @@ func TestInterruptLeavesADraftAlone(t *testing.T) {
 	channel := &harnesstest.Channel{}
 	observer := &settlingObserver{readings: []harness.Activity{harness.ActivityComposing}}
 
-	require.NoError(t, interrupterOver(st, channel, observer).Interrupt(t.Context(), agent.ID))
+	require.NoError(t, newInterrupter(st, channel, observer).Interrupt(t.Context(), agent.ID))
 
 	assert.Zero(t, channel.Interrupts)
 }
@@ -65,7 +65,7 @@ func TestInterruptStopsATurnInFlight(t *testing.T) {
 			channel := &harnesstest.Channel{}
 			observer := &settlingObserver{readings: []harness.Activity{activity}}
 
-			require.NoError(t, interrupterOver(st, channel, observer).Interrupt(t.Context(), agent.ID))
+			require.NoError(t, newInterrupter(st, channel, observer).Interrupt(t.Context(), agent.ID))
 
 			assert.Equal(t, 1, channel.Interrupts)
 		})
@@ -82,7 +82,7 @@ func TestInterruptLeavesAnUnrecognizedFrameAlone(t *testing.T) {
 	channel := &harnesstest.Channel{}
 	observer := &settlingObserver{readings: []harness.Activity{harness.ActivityUnrecognized}}
 
-	require.NoError(t, interrupterOver(st, channel, observer).Interrupt(t.Context(), agent.ID))
+	require.NoError(t, newInterrupter(st, channel, observer).Interrupt(t.Context(), agent.ID))
 
 	assert.Zero(t, channel.Interrupts)
 }
@@ -97,7 +97,7 @@ func TestInterruptStopsAnUnreadablePane(t *testing.T) {
 	channel := &harnesstest.Channel{}
 	observer := &settlingObserver{err: errors.New("no pane")}
 
-	require.NoError(t, interrupterOver(st, channel, observer).Interrupt(t.Context(), agent.ID))
+	require.NoError(t, newInterrupter(st, channel, observer).Interrupt(t.Context(), agent.ID))
 
 	assert.Equal(t, 1, channel.Interrupts)
 }

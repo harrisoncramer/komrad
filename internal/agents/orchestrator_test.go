@@ -29,7 +29,7 @@ func TestStartOrchestratorLaunchesOne(t *testing.T) {
 		lifecycle: lifecycle,
 	})
 
-	workflow, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
+	workflow, err := newWorkflowService(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
 		Name:     "generous",
 		Cwd:      fakeCheckout(t),
 		Worktree: workflowstore.WorktreeConfig{Enabled: true},

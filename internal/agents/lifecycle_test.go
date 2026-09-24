@@ -45,7 +45,7 @@ func TestDeleteAgentRunsWorkflowCleanup(t *testing.T) {
 			lifecycle := &fakeLifecycle{}
 			manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
 
-			created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), worktreeConfig(t, "backend"))
+			created, err := newWorkflowService(st, tmux).NewWorkflow(t.Context(), worktreeConfig(t, "backend"))
 			require.NoError(t, err)
 
 			agent, err := manager.launch.NewAgent(t.Context(), NewAgentParams{
@@ -74,7 +74,7 @@ func TestDeleteAgentRunsCleanupFromAnArchivedWorkflow(t *testing.T) {
 	st := newStore(t)
 	lifecycle := &fakeLifecycle{}
 	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
-	workflows := workflowsFor(st, tmux)
+	workflows := newWorkflowService(st, tmux)
 
 	created, err := workflows.NewWorkflow(t.Context(), worktreeConfig(t, "backend"))
 	require.NoError(t, err)
@@ -100,7 +100,7 @@ func TestDeleteAgentMarksFailedToCleanupWhenTeardownFails(t *testing.T) {
 	lifecycle := &fakeLifecycle{deprovisionRunErr: errors.New("worktree is dirty")}
 	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
 
-	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), worktreeConfig(t, "backend"))
+	created, err := newWorkflowService(st, tmux).NewWorkflow(t.Context(), worktreeConfig(t, "backend"))
 	require.NoError(t, err)
 
 	agent, err := manager.launch.NewAgent(t.Context(), NewAgentParams{
@@ -147,7 +147,7 @@ func TestDeleteClaimsTheRowWhileTheTeardownRuns(t *testing.T) {
 			lifecycle := &fakeLifecycle{holdDeprovision: true}
 			manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
 
-			created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), worktreeConfig(t, "backend"))
+			created, err := newWorkflowService(st, tmux).NewWorkflow(t.Context(), worktreeConfig(t, "backend"))
 			require.NoError(t, err)
 
 			agent, err := manager.launch.NewAgent(t.Context(), NewAgentParams{
@@ -190,7 +190,7 @@ func TestDeleteGivesBackWhatItCouldNotTake(t *testing.T) {
 	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, &fakeLifecycle{})
 	ctx := t.Context()
 
-	created, err := workflowsFor(st, tmux).NewWorkflow(ctx, worktreeConfig(t, "backend"))
+	created, err := newWorkflowService(st, tmux).NewWorkflow(ctx, worktreeConfig(t, "backend"))
 	require.NoError(t, err)
 	agent, err := manager.launch.NewAgent(ctx, NewAgentParams{
 		Title:      "agent",
@@ -217,7 +217,7 @@ func TestDeleteStaysArchivedOnAFailedTeardown(t *testing.T) {
 	lifecycle := &fakeLifecycle{deprovisionRunErr: errors.New("worktree is dirty")}
 	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
 
-	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), worktreeConfig(t, "backend"))
+	created, err := newWorkflowService(st, tmux).NewWorkflow(t.Context(), worktreeConfig(t, "backend"))
 	require.NoError(t, err)
 
 	agent, err := manager.launch.NewAgent(t.Context(), NewAgentParams{
@@ -248,7 +248,7 @@ func TestDeleteAgentRetryRecordsTheLatestReasonOnly(t *testing.T) {
 	lifecycle := &fakeLifecycle{deprovisionRunErr: errors.New("worktree is dirty")}
 	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
 
-	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), worktreeConfig(t, "backend"))
+	created, err := newWorkflowService(st, tmux).NewWorkflow(t.Context(), worktreeConfig(t, "backend"))
 	require.NoError(t, err)
 
 	agent, err := manager.launch.NewAgent(t.Context(), NewAgentParams{
@@ -283,7 +283,7 @@ func TestDeleteAgentsHandlesMixedCleanupOutcomes(t *testing.T) {
 	st := newStore(t)
 	lifecycle := &fakeLifecycle{}
 	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
-	workflows := workflowsFor(st, tmux)
+	workflows := newWorkflowService(st, tmux)
 
 	backend, err := workflows.NewWorkflow(t.Context(), worktreeConfig(t, "backend"))
 	require.NoError(t, err)
@@ -346,7 +346,7 @@ func TestDeleteAgentRemovesItsRunLogs(t *testing.T) {
 			if tt.name != "no cleanup configured" {
 				cfg = worktreeConfig(t, "backend")
 			}
-			created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), cfg)
+			created, err := newWorkflowService(st, tmux).NewWorkflow(t.Context(), cfg)
 			require.NoError(t, err)
 
 			agent, err := manager.launch.NewAgent(t.Context(), NewAgentParams{
@@ -389,7 +389,7 @@ func TestDeleteAgentRemovesItsRecordedFrames(t *testing.T) {
 		framesDir: framesDir,
 	})
 
-	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{Name: "backend"})
+	created, err := newWorkflowService(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{Name: "backend"})
 	require.NoError(t, err)
 
 	agent, err := manager.launch.NewAgent(t.Context(), NewAgentParams{
@@ -475,7 +475,7 @@ func TestArchiveKillsAPaneWrittenBeforeItsOwnWrite(t *testing.T) {
 		tmux:      tmux,
 		harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}},
 		addr:      "127.0.0.1:9999",
-		agents:    writingPaneFirst{AgentStore: st.Agents, inTheGap: resumeInto(t, st, tmux, agent, "%9")},
+		agents:    writingPaneFirst{AgentStore: st.Agents, inTheGap: buildResumeWrite(t, buildResumeWriteParams{Store: st, Tmux: tmux, Agent: agent, Pane: "%9"})},
 	})
 
 	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, []string{agent.ID}))
@@ -500,7 +500,7 @@ func TestDeleteKillsAPaneWrittenBeforeItsOwnWrite(t *testing.T) {
 		tmux:      tmux,
 		harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}},
 		addr:      "127.0.0.1:9999",
-		tx:        txWritingPaneFirst{txRunner: st.Pool, inTheGap: resumeInto(t, st, tmux, agent, "%9")},
+		tx:        txWritingPaneFirst{txRunner: st.Pool, inTheGap: buildResumeWrite(t, buildResumeWriteParams{Store: st, Tmux: tmux, Agent: agent, Pane: "%9"})},
 	})
 
 	require.NoError(t, manager.lifecycle.DeleteAgents(ctx, []string{agent.ID}))

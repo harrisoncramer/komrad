@@ -20,7 +20,7 @@ import (
 func TestRequestReviewSpawnsTheReviewer(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	st := newStore(t)
-	manager, h := newManagerWithHarness(tmux, st, "")
+	manager, fakeHarness := newManagerWithHarness(tmux, st, "")
 	ctx := t.Context()
 
 	dir := t.TempDir()
@@ -52,8 +52,8 @@ func TestRequestReviewSpawnsTheReviewer(t *testing.T) {
 	assert.Contains(t, guidance, "Settle everything it raises",
 		"the asker is handed the rest of the loop, since it was not launched with this half")
 
-	require.Len(t, h.Launches, 2)
-	briefing := h.Launches[1].Context
+	require.Len(t, fakeHarness.Launches, 2)
+	briefing := fakeHarness.Launches[1].Context
 	assert.Contains(t, briefing, "### When you are the one reviewing",
 		"the role written on the row is what decides the half the pane is briefed with")
 	assert.NotContains(t, briefing, "### Getting your own work read")
@@ -309,7 +309,7 @@ func TestRequestReviewRefusesAChild(t *testing.T) {
 func TestWorktreeAgentIsToldToGetItsWorkRead(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	st := newStore(t)
-	manager, h := newManagerWithHarness(tmux, st, "")
+	manager, fakeHarness := newManagerWithHarness(tmux, st, "")
 	ctx := t.Context()
 
 	workflow, err := st.Workflows.Create(ctx, worktreeConfig(t, "worktrees"))
@@ -323,8 +323,8 @@ func TestWorktreeAgentIsToldToGetItsWorkRead(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, agentstore.RoleImplementer, author.Role, "an agent that names no role writes rather than reads")
 
-	require.Len(t, h.Launches, 1)
-	briefing := h.Launches[0].Context
+	require.Len(t, fakeHarness.Launches, 1)
+	briefing := fakeHarness.Launches[0].Context
 	assert.Contains(t, briefing, "### Getting your own work read")
 	assert.Contains(t, briefing, "Commit on your branch and stop there")
 	assert.NotContains(t, briefing, "### When you are the one reviewing")
@@ -485,7 +485,7 @@ func TestRequestReviewRefusesUnknownHarness(t *testing.T) {
 func TestRequestReviewFlagsReachTheLaunch(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	st := newStore(t)
-	manager, h := newManagerWithHarness(tmux, st, "--model opus")
+	manager, fakeHarness := newManagerWithHarness(tmux, st, "--model opus")
 	ctx := t.Context()
 
 	author, err := manager.launch.NewAgent(ctx, NewAgentParams{
@@ -504,6 +504,6 @@ func TestRequestReviewFlagsReachTheLaunch(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "--model opus --effort high", reviewer.Flags)
-	require.Len(t, h.Launches, 2)
-	assert.Equal(t, "--model opus --effort high", h.Launches[1].Flags)
+	require.Len(t, fakeHarness.Launches, 2)
+	assert.Equal(t, "--model opus --effort high", fakeHarness.Launches[1].Flags)
 }

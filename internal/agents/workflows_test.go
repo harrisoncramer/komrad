@@ -38,7 +38,7 @@ func TestNewWorkflow(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			created, err := workflowsFor(newStore(t), tmuxtest.NewFake()).NewWorkflow(t.Context(), tt.cfg)
+			created, err := newWorkflowService(newStore(t), tmuxtest.NewFake()).NewWorkflow(t.Context(), tt.cfg)
 			require.NoError(t, err)
 			require.NotNil(t, created)
 			assert.Equal(t, tt.wantName, created.Name)
@@ -84,7 +84,7 @@ func TestUpdateWorkflow(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
-			workflows := workflowsFor(st, tmuxtest.NewFake())
+			workflows := newWorkflowService(st, tmuxtest.NewFake())
 
 			id := "00000000-0000-0000-0000-000000000000"
 			if tt.create {
@@ -212,7 +212,7 @@ func TestNewWorkflowWithWorktree(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
 
-			created, err := workflowsFor(st, tmuxtest.NewFake()).NewWorkflow(t.Context(), tt.cfg)
+			created, err := newWorkflowService(st, tmuxtest.NewFake()).NewWorkflow(t.Context(), tt.cfg)
 			if tt.wantErrIs != nil {
 				require.ErrorIs(t, err, tt.wantErrIs)
 				return
@@ -247,7 +247,7 @@ func TestNewWorkflowWantsAPrimaryCheckout(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := workflowsFor(newStore(t), tmuxtest.NewFake()).NewWorkflow(t.Context(), workflowstore.Config{
+			_, err := newWorkflowService(newStore(t), tmuxtest.NewFake()).NewWorkflow(t.Context(), workflowstore.Config{
 				Name:     "backend",
 				Cwd:      tt.cwd(t),
 				Worktree: workflowstore.WorktreeConfig{Enabled: true},
@@ -267,7 +267,7 @@ func TestNewWorkflowWantsAPrimaryCheckout(t *testing.T) {
 // TestUpdateWorkflowRefusesAnUnsafeWorktreePath covers the same validation on the update path.
 func TestUpdateWorkflowRefusesAnUnsafeWorktreePath(t *testing.T) {
 	st := newStore(t)
-	workflows := workflowsFor(st, tmuxtest.NewFake())
+	workflows := newWorkflowService(st, tmuxtest.NewFake())
 
 	created, err := workflows.NewWorkflow(t.Context(), workflowstore.Config{
 		Name:     "backend",
@@ -292,7 +292,7 @@ func TestUpdateWorkflowRefusesAnUnsafeWorktreePath(t *testing.T) {
 // in.
 func TestWorkflowWorktreePathsAreStoredCleaned(t *testing.T) {
 	st := newStore(t)
-	workflows := workflowsFor(st, tmuxtest.NewFake())
+	workflows := newWorkflowService(st, tmuxtest.NewFake())
 	repo := fakeCheckout(t)
 
 	created, err := workflows.NewWorkflow(t.Context(), workflowstore.Config{
@@ -335,7 +335,7 @@ func TestWorkflowWorktreePathsAreStoredCleaned(t *testing.T) {
 // back off.
 func TestUpdateWorkflowWorktree(t *testing.T) {
 	st := newStore(t)
-	workflows := workflowsFor(st, tmuxtest.NewFake())
+	workflows := newWorkflowService(st, tmuxtest.NewFake())
 
 	created, err := workflows.NewWorkflow(t.Context(), workflowstore.Config{Name: "backend", Cwd: "/repo"})
 	require.NoError(t, err)
@@ -368,7 +368,7 @@ func TestUpdateWorkflowWorktree(t *testing.T) {
 // them back rather than starting blank.
 func TestUpdateWorkflowWorktreeDisablePreservesTheDetails(t *testing.T) {
 	st := newStore(t)
-	workflows := workflowsFor(st, tmuxtest.NewFake())
+	workflows := newWorkflowService(st, tmuxtest.NewFake())
 
 	details := workflowstore.WorktreeConfig{
 		BaseBranch:   "develop",
@@ -437,7 +437,7 @@ func TestArchiveWorkflowKillsAPaneWrittenBeforeItsOwnWrite(t *testing.T) {
 		Agents:    st.Agents,
 		Schedules: st.Schedules,
 		Tmux:      tmux,
-		Tx:        txWritingPaneFirst{txRunner: st.Pool, inTheGap: resumeInto(t, st, tmux, agent, "%9")},
+		Tx:        txWritingPaneFirst{txRunner: st.Pool, inTheGap: buildResumeWrite(t, buildResumeWriteParams{Store: st, Tmux: tmux, Agent: agent, Pane: "%9"})},
 	})
 
 	require.NoError(t, workflows.ArchiveWorkflow(ctx, workflowID))
@@ -477,7 +477,7 @@ func TestArchiveWorkflow(t *testing.T) {
 			st := newStore(t)
 			tmux := tmuxtest.NewFake()
 			manager := newManager(tmux, st, "")
-			workflows := workflowsFor(st, tmux)
+			workflows := newWorkflowService(st, tmux)
 			ctx := t.Context()
 
 			id := "00000000-0000-0000-0000-000000000000"
@@ -571,7 +571,7 @@ func TestRestoreWorkflow(t *testing.T) {
 			st := newStore(t)
 			tmux := tmuxtest.NewFake()
 			manager := newManager(tmux, st, "")
-			workflows := workflowsFor(st, tmux)
+			workflows := newWorkflowService(st, tmux)
 			ctx := t.Context()
 
 			id := "00000000-0000-0000-0000-000000000000"
@@ -704,7 +704,7 @@ func TestRestoreAgentRestoresItsWorkflow(t *testing.T) {
 	st := newStore(t)
 	tmux := tmuxtest.NewFake()
 	manager := newManager(tmux, st, "")
-	workflows := workflowsFor(st, tmux)
+	workflows := newWorkflowService(st, tmux)
 	ctx := t.Context()
 
 	created, err := workflows.NewWorkflow(ctx, workflowstore.Config{Name: "backend"})
@@ -743,7 +743,7 @@ func TestRestoreAgentRestoresItsWorkflow(t *testing.T) {
 // which archived rows sitting outside the unique index make possible.
 func TestRestoreWorkflowRefusesTwoArchivedNamesakes(t *testing.T) {
 	st := newStore(t)
-	workflows := workflowsFor(st, tmuxtest.NewFake())
+	workflows := newWorkflowService(st, tmuxtest.NewFake())
 	ctx := t.Context()
 
 	created, err := workflows.NewWorkflow(ctx, workflowstore.Config{Name: "backend"})
@@ -815,7 +815,7 @@ func TestDeleteWorkflow(t *testing.T) {
 			st := newStore(t)
 			tmux := tmuxtest.NewFake()
 			manager := newManager(tmux, st, "")
-			workflows := workflowsFor(st, tmux)
+			workflows := newWorkflowService(st, tmux)
 			ctx := t.Context()
 
 			id := "00000000-0000-0000-0000-000000000000"
@@ -879,7 +879,7 @@ func TestDeleteWorkflowRefusesAScheduleAnotherWorkflowsAgentsHold(t *testing.T) 
 	st := newStore(t)
 	tmux := tmuxtest.NewFake()
 	manager := newManager(tmux, st, "")
-	workflows := workflowsFor(st, tmux)
+	workflows := newWorkflowService(st, tmux)
 	ctx := t.Context()
 
 	launcher, err := workflows.NewWorkflow(ctx, workflowstore.Config{Name: "launcher"})
