@@ -265,7 +265,9 @@ func TestFormsInFlight(t *testing.T) {
 
 		harness.release(create)
 
-		assert.NotContains(t, harness.readFrame(), "submitting…", "the form goes once the create has landed")
+		frame = harness.readFrame()
+		assert.NotContains(t, frame, "submitting…")
+		assert.NotContains(t, frame, "check CI", "the form goes once the create has landed")
 	})
 
 	t.Run("a second submit sends nothing", func(t *testing.T) {
