@@ -438,3 +438,11 @@ func (t *recordingTmux) RespawnPane(pane, dir string, argv ...string) {
 func NewTick(at time.Time) tea.Msg {
 	return tickMsg{at: at}
 }
+
+// SetShown makes tmux report whether a client is looking at the panel's session.
+func (p *Panel) SetShown(isShown bool) {
+	p.tmux.sessionClient = ""
+	if isShown {
+		p.tmux.sessionClient = panelViewer
+	}
+}

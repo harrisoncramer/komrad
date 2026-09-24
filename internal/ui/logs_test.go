@@ -5,10 +5,12 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"weave/config"
 	"weave/internal/ui"
 	agentv1 "weave/proto/gen/agent/v1"
+	"weave/proto/gen/agent/v1/agentv1connect"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -301,6 +303,121 @@ func TestLogsFailedPlaceholder(t *testing.T) {
 	}
 }
 
+// TestLogsRunsRead covers a failed run counting as read once its log has been on screen a while.
+func TestLogsRunsRead(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		press    []string
+		isHidden bool
+		want     []proto.Message
+	}{
+		{
+			name: "nothing is open",
+		},
+		{
+			name:  "the agent's own log rather than its runs",
+			press: []string{"l", "l"},
+		},
+		{
+			name:  "the run log, on a row carrying no mark",
+			press: []string{"l", "k"},
+		},
+		{
+			name:     "the run log, on the row that failed, with the panel hidden",
+			press:    []string{"l"},
+			isHidden: true,
+		},
+		{
+			name:  "the run log, on the row that failed, in front of somebody",
+			press: []string{"l"},
+			want:  []proto.Message{&agentv1.MarkRunsReadRequest{Id: "a1"}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			harness := openFailedRun(t)
+			harness.panel.SetShown(!tt.isHidden)
+			harness.press(tt.press...)
+			at := time.Now()
+
+			harness.send(ui.NewTick(at))
+			harness.assertSentTo(agentv1connect.AgentServiceMarkRunsReadProcedure)
+
+			harness.send(ui.NewTick(at.Add(time.Second)))
+			harness.assertSentTo(agentv1connect.AgentServiceMarkRunsReadProcedure, tt.want...)
+		})
+	}
+
+	t.Run("the look starts again when the cursor leaves the row", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openFailedRun(t)
+		harness.panel.SetShown(true)
+		harness.press("l")
+		at := time.Now()
+
+		harness.send(ui.NewTick(at))
+		harness.press("k")
+		harness.send(ui.NewTick(at.Add(time.Second / 2)))
+		harness.press("j")
+		harness.send(ui.NewTick(at.Add(time.Second)))
+		harness.assertSentTo(agentv1connect.AgentServiceMarkRunsReadProcedure)
+
+		harness.send(ui.NewTick(at.Add(2 * time.Second)))
+		harness.assertSentTo(agentv1connect.AgentServiceMarkRunsReadProcedure, &agentv1.MarkRunsReadRequest{Id: "a1"})
+	})
+
+	t.Run("the run log follows the cursor onto the run that failed", func(t *testing.T) {
+		t.Parallel()
+
+		failed := newRunning()
+		failed.FailedRun = true
+		failed.FailedRunLog = proto.Int32(1)
+		other := newAgent("a2", "zeta", "w1")
+		other.PaneId = "%8"
+		other.Alive = proto.Bool(true)
+		harness, runs := openLogs(t, failed, other)
+		harness.panel.SetShown(true)
+		first := runs.write(t, 1, config.TriggerProvision)
+		runs.write(t, 2, config.TriggerResume)
+		runs.writeFor(t, "a2", 1, config.TriggerProvision)
+		runs.writeFor(t, "a2", 2, config.TriggerResume)
+		at := time.Now()
+
+		harness.press("k", "l")
+		harness.send(ui.NewTick(at))
+		harness.press("j")
+		harness.send(ui.NewTick(at.Add(time.Second)))
+
+		respawns := harness.panel.ReadRespawns()
+		require.NotEmpty(t, respawns)
+		assert.Contains(t, respawns[len(respawns)-1], first, "the pane moved to the run the mark is about")
+		harness.assertSentTo(agentv1connect.AgentServiceMarkRunsReadProcedure)
+
+		harness.send(ui.NewTick(at.Add(2 * time.Second)))
+		harness.assertSentTo(agentv1connect.AgentServiceMarkRunsReadProcedure, &agentv1.MarkRunsReadRequest{Id: "a1"})
+	})
+}
+
+func openFailedRun(t *testing.T) *panelHarness {
+	t.Helper()
+
+	failed := newRunning()
+	failed.FailedRun = true
+	other := newAgent("a2", "zeta", "w1")
+	other.PaneId = "%8"
+	other.Alive = proto.Bool(true)
+	harness, runs := openLogs(t, failed, other)
+	runs.write(t, 1, config.TriggerProvision)
+
+	return harness
+}
+
 func openLogs(t *testing.T, agents ...*agentv1.Agent) (*panelHarness, runLogWriter) {
 	t.Helper()
 
@@ -327,7 +444,13 @@ func openLogs(t *testing.T, agents ...*agentv1.Agent) (*panelHarness, runLogWrit
 func (w runLogWriter) write(t *testing.T, number int, trigger string) string {
 	t.Helper()
 
-	dir := config.RunLogDir(w.root, "a1")
+	return w.writeFor(t, "a1", number, trigger)
+}
+
+func (w runLogWriter) writeFor(t *testing.T, agentID string, number int, trigger string) string {
+	t.Helper()
+
+	dir := config.RunLogDir(w.root, agentID)
 	require.NoError(t, os.MkdirAll(dir, 0o755))
 
 	path := filepath.Join(dir, config.RunLogName(number, trigger, "make-worktree"))
