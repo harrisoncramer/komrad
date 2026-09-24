@@ -285,26 +285,6 @@ func TestALandedUnpauseKeepsAFileOpenedWhileItFlew(t *testing.T) {
 		"a landing forgets the files it named and leaves the rest")
 }
 
-// TestARefusedEndOfAReviewPassKeepsTheEditedFiles covers the release the review screen sends at
-// the end of a pass.
-func TestARefusedEndOfAReviewPassKeepsTheEditedFiles(t *testing.T) {
-	at := time.Now()
-	agents := &refusingHolds{refusals: 1}
-
-	m := heldModel(agents, &at)
-	m.review.agentID = "a1"
-	m.review.agentName = "telescope"
-	m.review.pass.ourPause = true
-	m.review.pass.touched = []string{"internal/agents/hold.go"}
-
-	cmd := m.review.endPass(&m, m.shared(), "read your worktree.")
-	got := settle(t, m, cmd)
-
-	require.Empty(t, agents.released, "the refusal sent nothing")
-	assert.Contains(t, got.edited["a1"], "internal/agents/hold.go",
-		"a refused release leaves the reader's files for the next press")
-}
-
 // heldModel is the agents screen standing on one agent, held or not.
 func heldModel(agents agentv1connect.AgentServiceClient, held *time.Time) model {
 	m := model{

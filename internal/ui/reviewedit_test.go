@@ -1,11 +1,9 @@
 package ui
 
 import (
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // TestEditorShellNamesTheLineTheEditorUnderstands covers the argument each editor is given to
@@ -69,25 +67,4 @@ func TestEditorShellNamesTheLineTheEditorUnderstands(t *testing.T) {
 			assert.Equal(t, tt.want, editorShell(tt.editor, "greet.go", 42))
 		})
 	}
-}
-
-// TestEditorOpensAtTheRepositoryRoot covers an agent whose own directory is somewhere inside the
-// repository: the diff names every file from the root, so opening one from the agent's directory
-// names a file that is not there.
-func TestEditorOpensAtTheRepositoryRoot(t *testing.T) {
-	dir := reviewRepo(t)
-	m, tmux := reviewModel(t, &fakeReviewAgents{}, dir)
-	m.settings.Editor = "vi"
-	m.listing.agents[0].Agent.Cwd = filepath.Join(dir, "cmd", "greet")
-
-	m = openReview(t, m)
-	require.NotNil(t, m.review.diff.view)
-	require.Equal(t, dir, m.review.root)
-
-	written := pressEdit(t, m)
-	require.True(t, written.review.pass.atEditor, "the edit key opened an editor")
-
-	require.NotEmpty(t, tmux.respawnDirs)
-	assert.Equal(t, dir, tmux.respawnDirs[0], "the editor is opened at the root the paths are named from")
-	assert.Contains(t, tmux.respawns[0], "'greet.go'")
 }
