@@ -4,15 +4,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"weave/internal/git"
 	"weave/internal/ui/panel"
 	"weave/internal/view"
 	"weave/lib/xptr"
 	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // TestAgentNotices covers what the record says about each mark a row carries, in the order a person would act on them.
@@ -24,47 +24,66 @@ func TestAgentNotices(t *testing.T) {
 	}{
 		{
 			name: "an agent carrying nothing has nothing to say",
-			row:  noticeRow(panel.AgentRow{Alive: true}),
+			row:  buildNoticeRow(panel.AgentRow{Alive: true}),
+			want: []string{},
+		},
+		{
+			name: "a review released without a conclusion says nothing",
+			row:  buildNoticeRow(panel.AgentRow{LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED}),
+			want: []string{},
+		},
+		{
+			name: "a tree that moved with nothing concluded on it says nothing",
+			row:  buildNoticeRow(panel.AgentRow{LocalTree: git.StandingMoved}),
+			want: []string{},
+		},
+		{
+			name: "a child without a worktree leaves its directory to its parent's row",
+			row: buildPlainChildRow(panel.AgentRow{Agent: panel.Agent{
+				ID:              "a2",
+				ParentAgentID:   xptr.Ptr("a1"),
+				WorktreeRemoved: true,
+			}}),
 			want: []string{},
 		},
 		{
 			name: "a failed create",
-			row:  noticeRow(panel.AgentRow{Agent: panel.Agent{State: panel.StateFailedToCreate}}),
+			row:  buildNoticeRow(panel.AgentRow{Agent: panel.Agent{State: panel.StateFailedToCreate}}),
 			want: []string{failedToCreateNotice},
 		},
 		{
 			name: "a failed cleanup",
-			row:  noticeRow(panel.AgentRow{Agent: panel.Agent{State: panel.StateFailedToCleanup}}),
+			row:  buildNoticeRow(panel.AgentRow{Agent: panel.Agent{State: panel.StateFailedToCleanup}}),
 			want: []string{failedToCleanupNotice},
 		},
 		{
 			name: "a removed worktree",
-			row:  noticeRow(panel.AgentRow{Agent: panel.Agent{WorktreeRemoved: true}}),
+			row:  buildNoticeRow(panel.AgentRow{Agent: panel.Agent{WorktreeRemoved: true}}),
 			want: []string{worktreeRemovedNotice},
 		},
 		{
 			name: "a stopped rebase",
-			row:  noticeRow(panel.AgentRow{Agent: panel.Agent{SequenceInProgress: true}}),
+			row:  buildNoticeRow(panel.AgentRow{Agent: panel.Agent{SequenceInProgress: true}}),
 			want: []string{sequenceNotice},
 		},
 		{
 			name: "a hidden row",
-			row:  noticeRow(panel.AgentRow{Agent: panel.Agent{Hidden: true}}),
+			row:  buildNoticeRow(panel.AgentRow{Agent: panel.Agent{Hidden: true}}),
 			want: []string{hiddenNotice},
 		},
 		{
 			name: "mail waiting",
-			row:  noticeRow(panel.AgentRow{UnreadMail: true}),
+			row:  buildNoticeRow(panel.AgentRow{UnreadMail: true}),
 			want: []string{unreadMailNotice},
 		},
 		{
 			name: "a failed script",
-			row:  noticeRow(panel.AgentRow{FailedRun: true}),
+			row:  buildNoticeRow(panel.AgentRow{FailedRun: true}),
 			want: []string{failedRunNotice},
 		},
 		{
 			name: "a failed create says where its worktree went",
-			row: noticeRow(panel.AgentRow{Agent: panel.Agent{
+			row: buildNoticeRow(panel.AgentRow{Agent: panel.Agent{
 				State:           panel.StateFailedToCreate,
 				WorktreeRemoved: true,
 			}}),
@@ -72,7 +91,7 @@ func TestAgentNotices(t *testing.T) {
 		},
 		{
 			name: "the marks a person would act on come first",
-			row: noticeRow(panel.AgentRow{
+			row: buildNoticeRow(panel.AgentRow{
 				Agent: panel.Agent{
 					State:           panel.StateFailedToCleanup,
 					WorktreeRemoved: true,
@@ -84,23 +103,13 @@ func TestAgentNotices(t *testing.T) {
 			want: []string{failedToCleanupNotice, failedRunNotice, unreadMailNotice, worktreeRemovedNotice, hiddenNotice},
 		},
 		{
-			name: "a review released without a conclusion says nothing",
-			row:  noticeRow(panel.AgentRow{LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED}),
-			want: []string{},
-		},
-		{
-			name: "a tree that moved with nothing concluded on it says nothing",
-			row:  noticeRow(panel.AgentRow{LocalTree: git.StandingMoved}),
-			want: []string{},
-		},
-		{
 			name: "approved on this tree",
-			row:  noticeRow(panel.AgentRow{LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED}),
+			row:  buildNoticeRow(panel.AgentRow{LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED}),
 			want: []string{localApprovedNotice},
 		},
 		{
 			name: "approved, tree moved since",
-			row: noticeRow(panel.AgentRow{
+			row: buildNoticeRow(panel.AgentRow{
 				LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED,
 				LocalTree:    git.StandingMoved,
 			}),
@@ -108,12 +117,12 @@ func TestAgentNotices(t *testing.T) {
 		},
 		{
 			name: "changes requested, agent still owes fixes",
-			row:  noticeRow(panel.AgentRow{LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED}),
+			row:  buildNoticeRow(panel.AgentRow{LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED}),
 			want: []string{localChangesOwedNotice},
 		},
 		{
 			name: "changes requested, agent pushed since",
-			row: noticeRow(panel.AgentRow{
+			row: buildNoticeRow(panel.AgentRow{
 				LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
 				LocalTree:    git.StandingMoved,
 			}),
@@ -121,7 +130,7 @@ func TestAgentNotices(t *testing.T) {
 		},
 		{
 			name: "approved and landed",
-			row: noticeRow(panel.AgentRow{
+			row: buildNoticeRow(panel.AgentRow{
 				LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED,
 				LocalTree:    git.StandingLanded,
 			}),
@@ -129,7 +138,7 @@ func TestAgentNotices(t *testing.T) {
 		},
 		{
 			name: "approved and landed, new work since",
-			row: noticeRow(panel.AgentRow{
+			row: buildNoticeRow(panel.AgentRow{
 				LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED,
 				LocalTree:    git.StandingLandedMoved,
 			}),
@@ -137,7 +146,7 @@ func TestAgentNotices(t *testing.T) {
 		},
 		{
 			name: "changes requested, landed as it was",
-			row: noticeRow(panel.AgentRow{
+			row: buildNoticeRow(panel.AgentRow{
 				LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
 				LocalTree:    git.StandingLanded,
 			}),
@@ -145,7 +154,7 @@ func TestAgentNotices(t *testing.T) {
 		},
 		{
 			name: "changes requested, landed with new work",
-			row: noticeRow(panel.AgentRow{
+			row: buildNoticeRow(panel.AgentRow{
 				LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
 				LocalTree:    git.StandingLandedMoved,
 			}),
@@ -153,7 +162,7 @@ func TestAgentNotices(t *testing.T) {
 		},
 		{
 			name: "an archived row with changes still owed names the verdict as of the archiving",
-			row: noticeRow(panel.AgentRow{
+			row: buildNoticeRow(panel.AgentRow{
 				Agent:        panel.Agent{ArchivedAt: xptr.Ptr(time.Now())},
 				LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
 				LocalTree:    git.StandingMoved,
@@ -162,7 +171,7 @@ func TestAgentNotices(t *testing.T) {
 		},
 		{
 			name: "an archived row with an approval standing names the verdict as of the archiving",
-			row: noticeRow(panel.AgentRow{
+			row: buildNoticeRow(panel.AgentRow{
 				Agent:        panel.Agent{ArchivedAt: xptr.Ptr(time.Now())},
 				LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED,
 				LocalTree:    git.StandingMoved,
@@ -171,7 +180,7 @@ func TestAgentNotices(t *testing.T) {
 		},
 		{
 			name: "an agent without a worktree still says its directory is gone",
-			row: plainRow(panel.AgentRow{Agent: panel.Agent{
+			row: buildPlainRow(panel.AgentRow{Agent: panel.Agent{
 				ID:              "a1",
 				WorktreeRemoved: true,
 			}}),
@@ -179,7 +188,7 @@ func TestAgentNotices(t *testing.T) {
 		},
 		{
 			name: "an agent without a worktree still says a rebase stopped in it",
-			row: plainRow(panel.AgentRow{Agent: panel.Agent{
+			row: buildPlainRow(panel.AgentRow{Agent: panel.Agent{
 				ID:                 "a1",
 				SequenceInProgress: true,
 			}}),
@@ -187,26 +196,17 @@ func TestAgentNotices(t *testing.T) {
 		},
 		{
 			name: "an agent without a worktree still says how its review stands",
-			row: plainRow(panel.AgentRow{
+			row: buildPlainRow(panel.AgentRow{
 				Agent:        panel.Agent{ID: "a1"},
 				LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED,
 			}),
 			want: []string{localApprovedNotice},
 		},
-		{
-			name: "a child without a worktree leaves its directory to its parent's row",
-			row: plainChildRow(panel.AgentRow{Agent: panel.Agent{
-				ID:              "a2",
-				ParentAgentID:   xptr.Ptr("a1"),
-				WorktreeRemoved: true,
-			}}),
-			want: []string{},
-		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, noticeTexts(agentNotices(tt.row)))
+			assert.Equal(t, tt.want, readNoticeTexts(agentNotices(tt.row)))
 		})
 	}
 }
@@ -226,7 +226,7 @@ func TestAgentNoticesWearTheGlyphTheRowDraws(t *testing.T) {
 		LocalTree:    git.StandingMoved,
 	}
 
-	line := view.Prepare(view.Snapshot{Rows: []view.Row{snapshotRow(noticeRow(item), snapshotParams{})}}).Lines[0]
+	line := view.Prepare(view.Snapshot{Rows: []view.Row{snapshotRow(buildNoticeRow(item), snapshotParams{})}}).Lines[0]
 
 	want := map[string]view.Cell{
 		failedRunNotice:          line.Alert,
@@ -236,14 +236,14 @@ func TestAgentNoticesWearTheGlyphTheRowDraws(t *testing.T) {
 		localChangesPushedNotice: line.Columns[1],
 	}
 
-	notices := agentNotices(noticeRow(item))
+	notices := agentNotices(buildNoticeRow(item))
 	require.Len(t, notices, len(want))
 
-	for _, n := range notices {
-		cell, ok := want[n.text]
-		require.True(t, ok, "an unexpected notice %q", n.text)
-		assert.Equal(t, view.Spell(cell.Glyph), n.icon, "the glyph beside %q", n.text)
-		assert.Equal(t, cell.Tone, n.tone, "the tone beside %q", n.text)
+	for _, notice := range notices {
+		cell, ok := want[notice.text]
+		require.True(t, ok, "an unexpected notice %q", notice.text)
+		assert.Equal(t, view.Spell(cell.Glyph), notice.icon, "the glyph beside %q", notice.text)
+		assert.Equal(t, cell.Tone, notice.tone, "the tone beside %q", notice.text)
 	}
 }
 
@@ -271,28 +271,28 @@ func TestAgentNoticesSpeakForEveryColumnState(t *testing.T) {
 
 // TestAgentNoticesLeaveAStoppedRowToItsBar covers a row whose process has gone saying so with its quiet bar and grey name alone.
 func TestAgentNoticesLeaveAStoppedRowToItsBar(t *testing.T) {
-	stopped := noticeRow(panel.AgentRow{Agent: panel.Agent{State: panel.StateIdle}})
+	stopped := buildNoticeRow(panel.AgentRow{Agent: panel.Agent{State: panel.StateIdle}})
 	row := snapshotRow(stopped, snapshotParams{})
 
 	require.Equal(t, view.ProcessStopped, row.Process)
 	require.Equal(t, view.GlyphQuiet, view.StatusCell(row).Glyph)
 	assert.Equal(t, view.EmphasisDim, view.Prepare(view.Snapshot{Rows: []view.Row{row}}).Lines[0].Emphasis)
-	assert.Empty(t, noticeTexts(agentNotices(stopped)))
+	assert.Empty(t, readNoticeTexts(agentNotices(stopped)))
 
-	failed := noticeRow(panel.AgentRow{Agent: panel.Agent{State: panel.StateFailedToCreate}})
+	failed := buildNoticeRow(panel.AgentRow{Agent: panel.Agent{State: panel.StateFailedToCreate}})
 
 	require.Equal(t, view.ProcessAlive, snapshotRow(failed, snapshotParams{}).Process, "a failed create is not a stopped process")
-	assert.Contains(t, noticeTexts(agentNotices(failed)), failedToCreateNotice)
+	assert.Contains(t, readNoticeTexts(agentNotices(failed)), failedToCreateNotice)
 }
 
-func noticeRow(item panel.AgentRow) agentRow {
+func buildNoticeRow(item panel.AgentRow) agentRow {
 	return agentRow{
 		item:     item,
 		workflow: panel.Workflow{Worktree: panel.WorktreeConfig{Enabled: true}},
 	}
 }
 
-func plainRow(item panel.AgentRow) agentRow {
+func buildPlainRow(item panel.AgentRow) agentRow {
 	item.Alive = true
 
 	return agentRow{
@@ -304,15 +304,15 @@ func plainRow(item panel.AgentRow) agentRow {
 	}
 }
 
-func plainChildRow(item panel.AgentRow) agentRow {
-	row := plainRow(item)
+func buildPlainChildRow(item panel.AgentRow) agentRow {
+	row := buildPlainRow(item)
 	row.child = true
 
 	return row
 }
 
-func noticeTexts(notices []notice) []string {
-	return xslice.Map(notices, func(n notice) string {
-		return n.text
+func readNoticeTexts(notices []notice) []string {
+	return xslice.Map(notices, func(notice notice) string {
+		return notice.text
 	})
 }

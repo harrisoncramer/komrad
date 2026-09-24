@@ -6,16 +6,16 @@ import (
 	"strings"
 	"testing"
 
+	"connectrpc.com/connect"
+	"github.com/charmbracelet/x/ansi"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"weave/internal/caller"
 	"weave/internal/engine"
 	"weave/internal/ui"
 	"weave/lib/xslice"
 	"weave/proto/gen/agent/v1/agentv1connect"
-
-	"connectrpc.com/connect"
-	"github.com/charmbracelet/x/ansi"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 const traceID = "7c1f2a94"

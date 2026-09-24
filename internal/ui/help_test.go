@@ -5,10 +5,10 @@ import (
 	"strings"
 	"testing"
 
-	"weave/proto/gen/agent/v1/agentv1connect"
-
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
+
+	"weave/proto/gen/agent/v1/agentv1connect"
 )
 
 // TestHelp covers the legend under the list and the key that expands it.

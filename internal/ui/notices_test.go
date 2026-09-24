@@ -5,12 +5,12 @@ import (
 	"strings"
 	"testing"
 
-	"weave/internal/ui"
-	agentv1 "weave/proto/gen/agent/v1"
-
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
+
+	"weave/internal/ui"
+	agentv1 "weave/proto/gen/agent/v1"
 )
 
 // TestNotices covers the record spelling out the marks on the hovered row above its fields.

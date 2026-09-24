@@ -246,6 +246,18 @@ func (p *Panel) SetPaneSize(width, height int) {
 	p.tmux.width, p.tmux.height, p.tmux.windowWidth = width, height, width
 }
 
+// ReadCopied is everything the panel has put on the clipboard.
+func (p *Panel) ReadCopied() []string {
+	return p.clip.written
+}
+
+// RequireGolden compares a drawn block against the file named for it under testdata.
+func RequireGolden(t *testing.T, name, got string) {
+	t.Helper()
+
+	requireGolden(t, name, got)
+}
+
 func (unsplittableTmux) SplitRight(string, string, string) string {
 	return ""
 }
@@ -439,18 +451,6 @@ func (t *recordingTmux) RespawnPane(pane, dir string, argv ...string) {
 	t.respawns = append(t.respawns, strings.Join(argv, " "))
 	t.respawnPanes = append(t.respawnPanes, pane)
 	t.respawnDirs = append(t.respawnDirs, dir)
-}
-
-// ReadCopied is everything the panel has put on the clipboard.
-func (p *Panel) ReadCopied() []string {
-	return p.clip.written
-}
-
-// RequireGolden compares a drawn block against the file named for it under testdata.
-func RequireGolden(t *testing.T, name, got string) {
-	t.Helper()
-
-	requireGolden(t, name, got)
 }
 
 func requireGolden(t *testing.T, name, got string) {

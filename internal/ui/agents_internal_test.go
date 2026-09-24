@@ -331,7 +331,7 @@ func detailsModel(tmux *recordingTmux) model {
 	return m
 }
 
-func newestMessage(m model) message {
+func getNewestMessage(m model) message {
 	if len(m.messages.items) == 0 {
 		return message{}
 	}

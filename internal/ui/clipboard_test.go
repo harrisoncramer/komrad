@@ -47,7 +47,7 @@ func TestCopyResultReportsOnFailure(t *testing.T) {
 	require.True(t, ok)
 	require.NotNil(t, cmd, "the message that just landed blinks")
 	require.NotEmpty(t, next.messages.items)
-	assert.Contains(t, newestMessage(next).summary, "clipboard")
+	assert.Contains(t, getNewestMessage(next).summary, "clipboard")
 
 	succeeded, _ := next.Update(copyResult{err: nil})
 	final, ok := succeeded.(model)
