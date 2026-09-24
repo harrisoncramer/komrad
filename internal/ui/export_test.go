@@ -37,6 +37,7 @@ type NewPanelParams struct {
 	HarnessFrames harnessFrameReader
 	ConfigErr     error
 	StartupErr    error
+	RefuseSplits  bool
 }
 
 // NewPanel builds the panel the way weave panel does, over a recording tmux.
@@ -47,6 +48,10 @@ func NewPanel(params NewPanelParams) *Panel {
 		width:       params.Width,
 		height:      params.Height,
 		windowWidth: params.Width,
+	}
+	var driven uiTmux = tmux
+	if params.RefuseSplits {
+		driven = unsplittableTmux{tmux}
 	}
 	post := newPostbox()
 	layout := config.DefaultLayout()
@@ -60,7 +65,7 @@ func NewPanel(params NewPanelParams) *Panel {
 	return &Panel{
 		model: newModel(Deps{
 			PopupWindow:   NewPopupWindow(tmux, "test-session"),
-			Tmux:          tmux,
+			Tmux:          driven,
 			Git:           params.Git,
 			Agents:        params.Agents,
 			Workflows:     params.Workflows,
@@ -126,6 +131,13 @@ func (p *Panel) CountRespawns() int {
 func (p *Panel) CountSentKeys() int {
 	return len(p.tmux.sentKeys)
 }
+
+type unsplittableTmux struct {
+	*recordingTmux
+}
+
+func (unsplittableTmux) SplitRight(string, string, string) string { return "" }
+func (unsplittableTmux) SplitLeft(string, string, string) string  { return "" }
 
 // NewWatchLost is the message the panel hears when its watch stream ends.
 func NewWatchLost(err error) tea.Msg {

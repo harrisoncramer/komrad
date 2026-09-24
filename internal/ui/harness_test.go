@@ -156,6 +156,7 @@ type panelHarnessParams struct {
 	harnessFrames harnessFrames
 	configErr     error
 	startupErr    error
+	refuseSplits  bool
 }
 
 func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
@@ -207,6 +208,7 @@ func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
 			HarnessFrames: params.harnessFrames,
 			ConfigErr:     params.configErr,
 			StartupErr:    params.startupErr,
+			RefuseSplits:  params.refuseSplits,
 		}),
 	}
 
