@@ -1,8 +1,9 @@
 ---
+import { REPO_URL } from "../../consts";
 import { link } from "../../site";
 ---
 
-<figure class="splash" aria-label="The weave panel running a dozen agents across six projects">
+<figure class="splash">
   <picture>
     <source media="(max-width: 767.98px)" srcset={link("/splash/splash-960.webp")} />
     <img
@@ -23,6 +24,22 @@ import { link } from "../../site";
     data-webm={link("/splash/splash.webm")}
     data-mp4={link("/splash/splash.mp4")}
   ></video>
+  <div class="scrim" aria-hidden="true"></div>
+  <div class="overlay">
+    <h1>A terminal-based agent manager</h1>
+    <p>
+      Run Claude and Codex agents side by side in tmux. Weave keeps them organised, lets them talk, and remembers what
+      they did.
+    </p>
+    <div class="actions">
+      <a class="primary" href={link("/guides/install")}>
+        Get started
+      </a>
+      <a class="secondary" href={REPO_URL} target="_blank" rel="noreferrer">
+        GitHub
+      </a>
+    </div>
+  </div>
 </figure>
 
 <style>
@@ -55,6 +72,41 @@ import { link } from "../../site";
 
   .splash video[data-playing] {
     @apply opacity-100;
+  }
+
+  .scrim {
+    @apply absolute inset-0;
+    background:
+      radial-gradient(ellipse 60% 70% at 50% 45%, rgba(8, 13, 26, 0.88), rgba(8, 13, 26, 0.55) 70%),
+      rgba(8, 13, 26, 0.25);
+  }
+
+  .overlay {
+    @apply absolute inset-0 flex flex-col items-center justify-center px-6 text-center;
+  }
+
+  .overlay h1 {
+    @apply text-2xl leading-tight font-semibold tracking-tight text-app-white md:text-4xl;
+  }
+
+  .overlay p {
+    @apply mt-3 max-w-md text-sm leading-relaxed text-app-gray md:max-w-xl md:text-base;
+  }
+
+  .actions {
+    @apply mt-6 flex gap-2.5;
+  }
+
+  .actions a {
+    @apply rounded-md px-4 py-2 text-sm font-medium no-underline transition-colors duration-200;
+  }
+
+  .primary {
+    @apply bg-app-blue text-app-black hover:bg-app-white;
+  }
+
+  .secondary {
+    @apply border border-app-gray/30 bg-app-black/40 text-app-white backdrop-blur-sm hover:border-app-blue/60;
   }
 </style>
 
