@@ -10,44 +10,81 @@ import (
 	"time"
 )
 
-const deleteWorktreeSizes = `-- name: DeleteWorktreeSizes :exec
-DELETE FROM worktree_sizes
+const deleteWorktrees = `-- name: DeleteWorktrees :exec
+DELETE FROM worktrees
 WHERE dir = ANY ($1::text[])
 `
 
-func (q *Queries) DeleteWorktreeSizes(ctx context.Context, dirs []string) error {
-	_, err := q.db.Exec(ctx, deleteWorktreeSizes, dirs)
+func (q *Queries) DeleteWorktrees(ctx context.Context, dirs []string) error {
+	_, err := q.db.Exec(ctx, deleteWorktrees, dirs)
 	return err
 }
 
-const listWorktreeSizes = `-- name: ListWorktreeSizes :many
-SELECT
-    dir,
-    size_bytes,
-    measured_at,
-    error,
-    tenant_id
-FROM
-    worktree_sizes
-ORDER BY
-    dir
+const deleteWorktreesByName = `-- name: DeleteWorktreesByName :exec
+DELETE FROM worktrees
+WHERE name = ANY ($1::text[])
 `
 
-func (q *Queries) ListWorktreeSizes(ctx context.Context) ([]*WorktreeSize, error) {
-	rows, err := q.db.Query(ctx, listWorktreeSizes)
+func (q *Queries) DeleteWorktreesByName(ctx context.Context, names []string) error {
+	_, err := q.db.Exec(ctx, deleteWorktreesByName, names)
+	return err
+}
+
+const listWatchedWorktrees = `-- name: ListWatchedWorktrees :many
+SELECT
+    w.dir,
+    w.repo_dir,
+    w.branch,
+    w.readable,
+    w.mtime,
+    w.size_bytes,
+    w.measured_at,
+    w.size_error
+FROM
+    worktrees w
+WHERE ($1::text[] IS NULL
+    OR w.dir = ANY ($1::text[]))
+AND NOT EXISTS (
+    SELECT
+        1
+    FROM
+        agents a
+    WHERE
+        a.id::text = w.name
+        AND a.deleting_at IS NOT NULL)
+ORDER BY
+    w.dir
+`
+
+type ListWatchedWorktreesRow struct {
+	Dir        string
+	RepoDir    string
+	Branch     string
+	Readable   bool
+	Mtime      *time.Time
+	SizeBytes  int64
+	MeasuredAt *time.Time
+	SizeError  *string
+}
+
+func (q *Queries) ListWatchedWorktrees(ctx context.Context, keys []string) ([]*ListWatchedWorktreesRow, error) {
+	rows, err := q.db.Query(ctx, listWatchedWorktrees, keys)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []*WorktreeSize
+	var items []*ListWatchedWorktreesRow
 	for rows.Next() {
-		var i WorktreeSize
+		var i ListWatchedWorktreesRow
 		if err := rows.Scan(
 			&i.Dir,
+			&i.RepoDir,
+			&i.Branch,
+			&i.Readable,
+			&i.Mtime,
 			&i.SizeBytes,
 			&i.MeasuredAt,
-			&i.Error,
-			&i.TenantID,
+			&i.SizeError,
 		); err != nil {
 			return nil, err
 		}
@@ -59,39 +96,140 @@ func (q *Queries) ListWorktreeSizes(ctx context.Context) ([]*WorktreeSize, error
 	return items, nil
 }
 
-const upsertWorktreeSize = `-- name: UpsertWorktreeSize :exec
-INSERT INTO worktree_sizes(
+const listWorktrees = `-- name: ListWorktrees :many
+SELECT
     dir,
+    repo_dir,
+    branch,
+    readable,
+    mtime,
     size_bytes,
     measured_at,
-    error)
+    size_error
+FROM
+    worktrees
+ORDER BY
+    dir
+`
+
+type ListWorktreesRow struct {
+	Dir        string
+	RepoDir    string
+	Branch     string
+	Readable   bool
+	Mtime      *time.Time
+	SizeBytes  int64
+	MeasuredAt *time.Time
+	SizeError  *string
+}
+
+func (q *Queries) ListWorktrees(ctx context.Context) ([]*ListWorktreesRow, error) {
+	rows, err := q.db.Query(ctx, listWorktrees)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*ListWorktreesRow
+	for rows.Next() {
+		var i ListWorktreesRow
+		if err := rows.Scan(
+			&i.Dir,
+			&i.RepoDir,
+			&i.Branch,
+			&i.Readable,
+			&i.Mtime,
+			&i.SizeBytes,
+			&i.MeasuredAt,
+			&i.SizeError,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const recordWorktreeSize = `-- name: RecordWorktreeSize :exec
+UPDATE
+    worktrees
+SET
+    size_bytes = $1,
+    measured_at = $2,
+    size_error = $3
+WHERE
+    dir = $4
+`
+
+type RecordWorktreeSizeParams struct {
+	SizeBytes  int64
+	MeasuredAt *time.Time
+	SizeError  *string
+	Dir        string
+}
+
+func (q *Queries) RecordWorktreeSize(ctx context.Context, arg RecordWorktreeSizeParams) error {
+	_, err := q.db.Exec(ctx, recordWorktreeSize,
+		arg.SizeBytes,
+		arg.MeasuredAt,
+		arg.SizeError,
+		arg.Dir,
+	)
+	return err
+}
+
+const upsertWorktree = `-- name: UpsertWorktree :exec
+INSERT INTO worktrees(
+    dir,
+    name,
+    repo_dir,
+    branch,
+    readable,
+    mtime)
 VALUES (
     $1,
     $2,
     $3,
-    $4)
+    $4,
+    $5,
+    $6)
 ON CONFLICT (
     tenant_id,
     dir)
     DO UPDATE SET
-        size_bytes = EXCLUDED.size_bytes,
-        measured_at = EXCLUDED.measured_at,
-        error = EXCLUDED.error
+        name = EXCLUDED.name,
+        repo_dir = EXCLUDED.repo_dir,
+        branch = EXCLUDED.branch,
+        readable = EXCLUDED.readable,
+        mtime = EXCLUDED.mtime
+    WHERE (
+        worktrees.name, worktrees.repo_dir, worktrees.branch, worktrees.readable, worktrees.mtime) IS DISTINCT FROM (
+        EXCLUDED.name,
+        EXCLUDED.repo_dir,
+        EXCLUDED.branch,
+        EXCLUDED.readable,
+        EXCLUDED.mtime)
 `
 
-type UpsertWorktreeSizeParams struct {
-	Dir        string
-	SizeBytes  int64
-	MeasuredAt time.Time
-	Error      *string
+type UpsertWorktreeParams struct {
+	Dir      string
+	Name     string
+	RepoDir  string
+	Branch   string
+	Readable bool
+	Mtime    *time.Time
 }
 
-func (q *Queries) UpsertWorktreeSize(ctx context.Context, arg UpsertWorktreeSizeParams) error {
-	_, err := q.db.Exec(ctx, upsertWorktreeSize,
+func (q *Queries) UpsertWorktree(ctx context.Context, arg UpsertWorktreeParams) error {
+	_, err := q.db.Exec(ctx, upsertWorktree,
 		arg.Dir,
-		arg.SizeBytes,
-		arg.MeasuredAt,
-		arg.Error,
+		arg.Name,
+		arg.RepoDir,
+		arg.Branch,
+		arg.Readable,
+		arg.Mtime,
 	)
 	return err
 }

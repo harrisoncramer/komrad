@@ -20,6 +20,7 @@ import (
 	reviewstore "weave/internal/store/review"
 	transcriptstore "weave/internal/store/transcript"
 	workflowstore "weave/internal/store/workflow"
+	worktreestore "weave/internal/store/worktree"
 )
 
 // childLister reads the agents attached to a set of parents.
@@ -541,7 +542,11 @@ func (s *LifecycleService) removeAgents(ctx context.Context, ids []string) error
 		}
 		taken = deleted
 
-		return transcriptstore.NewTranscriptStore(db).Delete(ctx, ids)
+		if err := transcriptstore.NewTranscriptStore(db).Delete(ctx, ids); err != nil {
+			return err
+		}
+
+		return worktreestore.NewWorktreeStore(db).DeleteByName(ctx, ids)
 	}); err != nil {
 		return err
 	}

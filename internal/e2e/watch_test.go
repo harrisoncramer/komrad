@@ -23,6 +23,7 @@ import (
 	mailstore "weave/internal/store/mail"
 	markstore "weave/internal/store/mark"
 	pullrequeststore "weave/internal/store/pullrequest"
+	reviewstore "weave/internal/store/review"
 	rowstore "weave/internal/store/row"
 	schedulestore "weave/internal/store/schedule"
 	workflowstore "weave/internal/store/workflow"
@@ -120,6 +121,8 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 	upsertPullRequest(t, st, 1, "agent/api", xptr.Ptr(time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC)))
 	upsertPullRequest(t, st, 3, "agent/nobody", nil)
 	upsertPullRequest(t, st, 4, "main", nil)
+	_, err = st.PullRequests.Observe(ctx)
+	require.NoError(t, err)
 
 	// The stores draw the fixture, so agreement below is over rows that hold something.
 	seeded := viewOf(worldFromStores(t, st), time.Now())
@@ -174,6 +177,20 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 			},
 		},
 		{
+			name: "an agent moves onto a branch and is seen with its pull request",
+			write: func(t *testing.T) {
+				require.NoError(t, st.Agents.SetCheckout(ctx, quiet.ID, agentstore.SetCheckoutParams{
+					Branch:        xptr.Ptr("agent/nobody"),
+					RepositoryURL: xptr.Ptr(watchedRepository),
+				}))
+				_, err := st.PullRequests.Observe(ctx)
+				require.NoError(t, err)
+			},
+			took: func(t *testing.T, stores view) {
+				assert.Equal(t, int32(3), stores.agents[quiet.ID].GetPullRequest().GetNumber())
+			},
+		},
+		{
 			name: "a pull request is deleted",
 			write: func(t *testing.T) {
 				_, err := st.Pool.GetRawPool().Exec(ctx, "DELETE FROM pull_requests WHERE id = $1", openPR)
@@ -182,6 +199,22 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 			took: func(t *testing.T, stores view) {
 				assert.Len(t, stores.agents[api.ID].GetPullRequests(), 1)
 				assert.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED, stores.agents[api.ID].GetPullRequest().GetState())
+			},
+		},
+		{
+			name: "a review of an agent's work is released",
+			write: func(t *testing.T) {
+				reviews := reviewstore.NewReviewStore(st.Pool.GetDB())
+				round, err := reviews.CreateRound(ctx, reviewstore.CreateRoundParams{AgentID: api.ID, BaseSHA: "base", SnapshotSHA: "snapshot"})
+				require.NoError(t, err)
+				review, err := reviews.OpenReview(ctx, reviewstore.OpenReviewParams{AgentID: api.ID, RoundID: round.ID, AuthorKind: reviewstore.AuthorHuman})
+				require.NoError(t, err)
+				_, err = reviews.ReleaseReview(ctx, reviewstore.ReleaseReviewParams{ID: review.ID, Verdict: reviewstore.VerdictApproved, Path: "/tmp/review.md"})
+				require.NoError(t, err)
+			},
+			took: func(t *testing.T, stores view) {
+				assert.Equal(t, int32(1), stores.agents[api.ID].GetLocalReviewRounds())
+				assert.Equal(t, agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED, stores.agents[api.ID].GetLocalReviewVerdict())
 			},
 		},
 		{
@@ -275,8 +308,9 @@ func viewFromGets(t *testing.T, instance *weavetest.Instance, listed view) view 
 }
 
 // worldFromStores reads the watched set the way the agent handler reads a page: the live and
-// archived rows, every mark, the unclaimed mail to them, the pull requests on their branches and
-// their workflows, with the live schedules beside them.
+// archived rows, every mark, the unclaimed mail, the pull requests an agent was seen with,
+// the repositories they sit on, the reviews of their work and their workflows, with the live
+// schedules beside them.
 func worldFromStores(t *testing.T, st *storetest.Stores) assemble.World {
 	t.Helper()
 	ctx := t.Context()
@@ -288,16 +322,25 @@ func worldFromStores(t *testing.T, st *storetest.Stores) assemble.World {
 	rows := slices.Concat(live, archived)
 	agentIDs := xslice.Map(rows, func(row rowstore.Row) string { return row.ID })
 
-	marks, err := st.Marks.List(ctx)
+	marks, err := st.Marks.ListWatched(ctx, nil)
 	require.NoError(t, err)
 
-	mail, err := st.Mail.ListUnclaimedTo(ctx, agentIDs)
+	mail, err := st.Mail.ListWatched(ctx, nil)
 	require.NoError(t, err)
 
-	pullRequests, err := st.PullRequests.ListForAgents(ctx, agentIDs)
+	pullRequests, err := st.PullRequests.ListWatched(ctx, nil)
 	require.NoError(t, err)
 
-	workflows, err := st.Workflows.ListByID(ctx, xslice.Map(rows, func(row rowstore.Row) string { return row.WorkflowID }))
+	repositories, err := st.PullRequestSyncs.ListWatched(ctx, xslice.Map(rows, func(row rowstore.Row) string { return xptr.Deref(row.RepositoryURL) }))
+	require.NoError(t, err)
+
+	reviewStore := reviewstore.NewReviewStore(st.Pool.GetDB())
+	reviewIDs, err := reviewStore.ListIDsOfAgents(ctx, agentIDs)
+	require.NoError(t, err)
+	reviews, err := reviewStore.ListWatched(ctx, reviewIDs)
+	require.NoError(t, err)
+
+	workflows, err := st.Workflows.ListWatched(ctx, xslice.Map(rows, func(row rowstore.Row) string { return row.WorkflowID }))
 	require.NoError(t, err)
 
 	schedules, err := st.Schedules.ListPage(ctx, 100, nil)
@@ -319,6 +362,12 @@ func worldFromStores(t *testing.T, st *storetest.Stores) assemble.World {
 		Mail:  xslice.KeyBy(xslice.Map(mail, render.Mail), func(m *agentv1.Mail) string { return m.GetId() }),
 		PullRequests: xslice.KeyBy(xslice.Map(pullRequests, render.PullRequest), func(p *pullrequestv1.PullRequest) string {
 			return p.GetId()
+		}),
+		Repositories: xslice.KeyBy(xslice.Map(repositories, render.Repository), func(r *pullrequestv1.Repository) string {
+			return r.GetUrl()
+		}),
+		Reviews: xslice.KeyBy(xslice.Map(reviews, render.WatchedReview), func(r *agentv1.WatchedReview) string {
+			return r.GetId()
 		}),
 	}
 }

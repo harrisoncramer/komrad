@@ -28,13 +28,3 @@ func (s *NotifyStore) OpenWatchChannel(ctx context.Context) error {
 
 	return nil
 }
-
-// SendScheduleChange tells the watch a schedule's runs moved, since a firing writes no row of the
-// schedule's own.
-func (s *NotifyStore) SendScheduleChange(ctx context.Context, scheduleID string) error {
-	if err := s.queries.NotifyWatch(ctx, "schedules "+scheduleID); err != nil {
-		return fmt.Errorf("failed to notify the watch of schedule %q: %w", scheduleID, err)
-	}
-
-	return nil
-}

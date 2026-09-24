@@ -107,19 +107,56 @@ func TestCwdSyncerSync(t *testing.T) {
 // newCwdSyncer is a syncer over a git that has no rounds to compare against.
 func newCwdSyncer(agents cwdSetter, heads headReader) *CwdSyncer {
 	return NewCwdSyncer(NewCwdSyncerParams{
-		Agents:  agents,
-		Heads:   heads,
-		Trees:   fakeTrees{},
-		Tallies: fakeTallies{},
-		Bases:   fakeBases{},
+		Agents:       agents,
+		Heads:        heads,
+		Trees:        fakeTrees{},
+		Rounds:       fakeTallies{},
+		Bases:        fakeBases{},
+		PullRequests: &countingObservations{},
 	})
+}
+
+// TestCwdSyncerSyncObservesANewBranch covers that a pass which records a branch the row did not
+// hold observes the pull requests, and a pass that finds every branch where it was does not.
+func TestCwdSyncerSyncObservesANewBranch(t *testing.T) {
+	ctx := t.Context()
+	st := storetest.Open(t)
+	workflowID := seedWorkflow(t, st)
+	cwd := fakeCheckout(t)
+	require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{
+		Name:       "a",
+		State:      agentstore.StateIdle,
+		WorkflowID: workflowID,
+		Cwd:        cwd,
+	}))
+
+	heads := fakeHeads{cwd: {Branch: "agent/x", RepositoryURL: "https://github.com/harrisoncramer/weave"}}
+	observations := &countingObservations{}
+	syncer := NewCwdSyncer(NewCwdSyncerParams{
+		Agents:       st.Agents,
+		Heads:        heads,
+		Trees:        fakeTrees{},
+		Rounds:       fakeTallies{},
+		Bases:        fakeBases{},
+		PullRequests: observations,
+	})
+
+	require.NoError(t, syncer.Sync(ctx))
+	assert.Equal(t, 1, observations.passes, "recording a new branch observes")
+
+	require.NoError(t, syncer.Sync(ctx))
+	assert.Equal(t, 1, observations.passes, "a branch already on the row observes nothing")
+
+	heads[cwd] = git.HeadState{Branch: "agent/y", RepositoryURL: "https://github.com/harrisoncramer/weave"}
+	require.NoError(t, syncer.Sync(ctx))
+	assert.Equal(t, 2, observations.passes, "moving branch observes again")
 }
 
 // fakeHeads is what git would read for each directory, and nothing at all for any other.
 type fakeHeads map[string]git.HeadState
 
-func (f fakeHeads) ReadHeadState(_ context.Context, dir string) git.HeadState {
-	return f[dir]
+func (f fakeHeads) ReadHeadState(_ context.Context, params git.ReadHeadStateParams) git.HeadState {
+	return f[params.Dir]
 }
 
 // TestCwdSyncerSyncRecordsTheRepository covers the identity the pull request join sits on: the
@@ -357,10 +394,10 @@ type recordingHeads struct {
 	dirs []string
 }
 
-func (r *recordingHeads) ReadHeadState(_ context.Context, dir string) git.HeadState {
+func (r *recordingHeads) ReadHeadState(_ context.Context, params git.ReadHeadStateParams) git.HeadState {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.dirs = append(r.dirs, dir)
+	r.dirs = append(r.dirs, params.Dir)
 
 	return git.HeadState{}
 }
@@ -502,6 +539,10 @@ func removedDir(t *testing.T) string {
 // about, and an error for any other.
 type fakeTrees map[string]git.Standing
 
+func (fakeTrees) ProbeTree(context.Context, string) (string, error) {
+	return "", errors.New("no worktree to probe")
+}
+
 func (f fakeTrees) ReadStanding(_ context.Context, params git.ReadStandingParams) (git.Standing, error) {
 	standing, ok := f[params.Dir]
 	if !ok {
@@ -563,12 +604,13 @@ func TestCwdSyncerSyncWritesAStandingOnlyWhenItMoved(t *testing.T) {
 		Agents: agents,
 		Heads:  fakeHeads{},
 		Trees:  trees,
-		Tallies: fakeTallies{{
+		Rounds: fakeTallies{{
 			AgentID:     created.ID,
 			Verdict:     &approved,
 			SnapshotSHA: "snapshot-one",
 		}},
-		Bases: fakeBases{},
+		Bases:        fakeBases{},
+		PullRequests: &countingObservations{},
 	})
 
 	require.NoError(t, syncer.Sync(ctx))
@@ -592,6 +634,10 @@ func TestCwdSyncerSyncWritesAStandingOnlyWhenItMoved(t *testing.T) {
 // failingTrees is a git that knows the tree moved but could not finish the landed question.
 type failingTrees struct{}
 
+func (failingTrees) ProbeTree(context.Context, string) (string, error) {
+	return "", errors.New("no worktree to probe")
+}
+
 func (failingTrees) ReadStanding(context.Context, git.ReadStandingParams) (git.Standing, error) {
 	return git.StandingMoved, errors.New("the base could not be merged")
 }
@@ -608,12 +654,20 @@ func (f fakeTallies) ListTallies(context.Context) ([]reviewstore.Tally, error) {
 	return f, nil
 }
 
+func (fakeTallies) ListNewestRounds(context.Context) ([]reviewstore.NewestRound, error) {
+	return nil, nil
+}
+
 // recordingTrees is a git that remembers which directories it was asked to hash, and against
 // which base.
 type recordingTrees struct {
 	mu    sync.Mutex
 	dirs  []string
 	bases []string
+}
+
+func (r *recordingTrees) ProbeTree(context.Context, string) (string, error) {
+	return "", errors.New("no worktree to probe")
 }
 
 func (r *recordingTrees) ReadStanding(_ context.Context, params git.ReadStandingParams) (git.Standing, error) {
@@ -667,8 +721,9 @@ func TestCwdSyncerSyncReadsWhereTheTreeStands(t *testing.T) {
 			dirs["landed"]:        git.StandingLanded,
 			dirs["landed-edited"]: git.StandingLandedMoved,
 		},
-		Tallies: tallies,
-		Bases:   fakeBases{},
+		Rounds:       tallies,
+		Bases:        fakeBases{},
+		PullRequests: &countingObservations{},
 	})
 
 	assert.Equal(t, git.StandingSame, standingOn(t, st, ids["edited"], "snapshot-edited"), "nothing is recorded before the first pass")
@@ -701,11 +756,12 @@ func TestCwdSyncerSyncKeepsAStandingReportedWithAnError(t *testing.T) {
 
 	approved := reviewstore.VerdictApproved
 	syncer := NewCwdSyncer(NewCwdSyncerParams{
-		Agents: st.Agents,
-		Heads:  fakeHeads{},
-		Trees:  failingTrees{},
-		Bases:  fakeBases{},
-		Tallies: fakeTallies{{
+		Agents:       st.Agents,
+		Heads:        fakeHeads{},
+		Trees:        failingTrees{},
+		Bases:        fakeBases{},
+		PullRequests: &countingObservations{},
+		Rounds: fakeTallies{{
 			AgentID:     created.ID,
 			Verdict:     &approved,
 			SnapshotSHA: "snapshot-one",
@@ -739,7 +795,7 @@ func TestCwdSyncerSyncMeasuresAgainstTheWorkflowsBase(t *testing.T) {
 		Agents: st.Agents,
 		Heads:  fakeHeads{},
 		Trees:  hashed,
-		Tallies: fakeTallies{{
+		Rounds: fakeTallies{{
 			AgentID:     agent.ID,
 			Verdict:     &approved,
 			SnapshotSHA: "snapshot-one",
@@ -748,6 +804,7 @@ func TestCwdSyncerSyncMeasuresAgainstTheWorkflowsBase(t *testing.T) {
 			ID:       workflowID,
 			Worktree: workflowstore.WorktreeConfig{BaseBranch: "develop"},
 		}},
+		PullRequests: &countingObservations{},
 	})
 
 	require.NoError(t, syncer.Sync(ctx))
@@ -786,11 +843,12 @@ func TestCwdSyncerSyncHashesOnlyAReviewedTree(t *testing.T) {
 	approved := reviewstore.VerdictApproved
 	hashed := &recordingTrees{}
 	syncer := NewCwdSyncer(NewCwdSyncerParams{
-		Agents: st.Agents,
-		Heads:  fakeHeads{},
-		Trees:  hashed,
-		Bases:  fakeBases{},
-		Tallies: fakeTallies{
+		Agents:       st.Agents,
+		Heads:        fakeHeads{},
+		Trees:        hashed,
+		Bases:        fakeBases{},
+		PullRequests: &countingObservations{},
+		Rounds: fakeTallies{
 			{
 				AgentID:     reviewedAgent.ID,
 				Verdict:     &approved,
@@ -832,11 +890,12 @@ func TestCwdSyncerSyncForgetsAMoveTheNextPassDoesNotSee(t *testing.T) {
 	approved := reviewstore.VerdictApproved
 	trees := fakeTrees{cwd: git.StandingMoved}
 	syncer := NewCwdSyncer(NewCwdSyncerParams{
-		Agents: st.Agents,
-		Heads:  fakeHeads{},
-		Trees:  trees,
-		Bases:  fakeBases{},
-		Tallies: fakeTallies{{
+		Agents:       st.Agents,
+		Heads:        fakeHeads{},
+		Trees:        trees,
+		Bases:        fakeBases{},
+		PullRequests: &countingObservations{},
+		Rounds: fakeTallies{{
 			AgentID:     created.ID,
 			Verdict:     &approved,
 			SnapshotSHA: "snapshot-one",
@@ -870,11 +929,12 @@ func TestCwdSyncerSyncReportsAProbeItCouldNotMake(t *testing.T) {
 
 	approved := reviewstore.VerdictApproved
 	syncer := NewCwdSyncer(NewCwdSyncerParams{
-		Agents: st.Agents,
-		Heads:  fakeHeads{},
-		Trees:  fakeTrees{},
-		Bases:  fakeBases{},
-		Tallies: fakeTallies{{
+		Agents:       st.Agents,
+		Heads:        fakeHeads{},
+		Trees:        fakeTrees{},
+		Bases:        fakeBases{},
+		PullRequests: &countingObservations{},
+		Rounds: fakeTallies{{
 			AgentID:     created.ID,
 			Verdict:     &approved,
 			SnapshotSHA: "snapshot-one",
@@ -885,4 +945,15 @@ func TestCwdSyncerSyncReportsAProbeItCouldNotMake(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), `failed to compare the tree of "a"`)
 	assert.Equal(t, git.StandingSame, standingOn(t, st, created.ID, "snapshot-one"))
+}
+
+// countingObservations counts the observation passes it is asked for.
+type countingObservations struct {
+	passes int
+}
+
+func (c *countingObservations) Observe(context.Context) (int64, error) {
+	c.passes++
+
+	return 0, nil
 }

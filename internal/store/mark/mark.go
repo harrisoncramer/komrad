@@ -8,7 +8,6 @@ import (
 
 	"weave/db/models"
 	"weave/internal/store"
-	"weave/lib/xslice"
 )
 
 // Mark is one letter and the row it names, exactly one of which is set.
@@ -26,30 +25,6 @@ type MarkStore struct {
 // NewMarkStore builds a mark store over a pool or transaction.
 func NewMarkStore(db store.DBTX) *MarkStore {
 	return &MarkStore{queries: models.New(db)}
-}
-
-// List reads every mark, by letter.
-func (s *MarkStore) List(ctx context.Context) ([]Mark, error) {
-	rows, err := s.queries.SnapshotMarks(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list marks: %w", err)
-	}
-
-	return xslice.Map(rows, fromRow), nil
-}
-
-// ListByKey reads whichever of the ids are still marks.
-func (s *MarkStore) ListByKey(ctx context.Context, ids []string) ([]Mark, error) {
-	if len(ids) == 0 {
-		return nil, nil
-	}
-
-	rows, err := s.queries.ListMarksByKey(ctx, ids)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list %d marks: %w", len(ids), err)
-	}
-
-	return xslice.Map(rows, fromRow), nil
 }
 
 func fromRow(row *models.Mark) Mark {

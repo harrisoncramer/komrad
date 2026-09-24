@@ -4,58 +4,14 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	"weave/internal/ui/paint/label"
 	"weave/internal/ui/panel"
 	"weave/lib/xslice"
 	pullrequestv1 "weave/proto/gen/pullrequest/v1"
-	watchv1 "weave/proto/gen/watch/v1"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
-
-// pullRequestsListedMsg is the pull requests on the branch of an agent that arrived.
-type pullRequestsListedMsg struct {
-	pullRequests []*pullrequestv1.PullRequest
-	err          error
-}
-
-// listArrivedPullRequestsCmd asks for the pull requests on the branch of each agent the world
-// had not seen there.
-func (m *model) listArrivedPullRequestsCmd(arrived []string) tea.Cmd {
-	clients := m.api
-
-	var cmds []tea.Cmd
-	for _, id := range arrived {
-		agent := m.listing.world.Agents[id]
-		repository, branch := agent.GetRepositoryUrl(), agent.GetBranch()
-		if repository == "" || branch == "" || agent.GetArchivedAt() != "" {
-			continue
-		}
-
-		cmds = append(cmds, func() tea.Msg {
-			listed, err := clients.listPullRequests(repository, branch)
-
-			return pullRequestsListedMsg{pullRequests: listed, err: err}
-		})
-	}
-
-	return tea.Batch(cmds...)
-}
-
-// applyPullRequestsListed puts the pull requests answered for a branch into the world.
-func (m *model) applyPullRequestsListed(msg pullRequestsListedMsg) tea.Cmd {
-	m.report("Could not list the pull requests", msg.err)
-
-	return m.withListing(func(l *listing) {
-		for _, pullRequest := range msg.pullRequests {
-			l.world.Put(&watchv1.Row{Row: &watchv1.Row_PullRequest{PullRequest: pullRequest}})
-		}
-
-		l.assemble(time.Now())
-	})
-}
 
 // pullRequestFields are the record's rows for the branch's pull requests: why there is none,
 // or the current one and then the rest when there are any.

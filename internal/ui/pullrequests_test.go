@@ -1,22 +1,18 @@
 package ui
 
 import (
-	"context"
 	"testing"
 	"time"
 
 	"weave/internal/client"
-	"weave/internal/ui/paint/label"
 	"weave/internal/ui/panel"
 	"weave/lib/xptr"
 	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
 	pullrequestv1 "weave/proto/gen/pullrequest/v1"
-	"weave/proto/gen/pullrequest/v1/pullrequestv1connect"
 	watchv1 "weave/proto/gen/watch/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
 
-	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -235,46 +231,13 @@ func indexOf(labels []string, label string) int {
 	return -1
 }
 
-// recordingPullRequests stands in for the service, answering one merged pull request on
-// whatever branch is asked for and keeping the branches asked.
-type recordingPullRequests struct {
-	pullrequestv1connect.PullRequestServiceClient
-	asked []string
-	err   error
-}
-
-func (r *recordingPullRequests) ListPullRequests(_ context.Context, req *connect.Request[pullrequestv1.ListPullRequestsRequest]) (*connect.Response[pullrequestv1.ListPullRequestsResponse], error) {
-	r.asked = append(r.asked, req.Msg.GetRepositoryUrl()+" "+req.Msg.GetHeadBranch())
-	if r.err != nil {
-		return nil, r.err
-	}
-
-	return connect.NewResponse(&pullrequestv1.ListPullRequestsResponse{
-		PullRequests: []*pullrequestv1.PullRequest{{
-			Id:                "pr-740",
-			RepositoryUrl:     req.Msg.GetRepositoryUrl(),
-			HeadRepositoryUrl: req.Msg.GetRepositoryUrl(),
-			HeadBranch:        req.Msg.GetHeadBranch(),
-			Number:            740,
-			Url:               "https://github.com/harrisoncramer/weave/pull/740",
-			State:             pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED,
-			OpenedAt:          "2026-09-19T12:00:00Z",
-			MergedAt:          xptr.Ptr("2026-09-20T10:00:00Z"),
-			ClosedAt:          xptr.Ptr("2026-09-20T10:00:00Z"),
-		}},
-	}), nil
-}
-
-// TestArrivedAgentsListTheirPullRequests covers the one unary call the panel makes for pull
-// requests: for an agent the world had not seen, or one whose branch moved, and never for a
-// snapshot or an event that leaves the branch where it was.
-func TestArrivedAgentsListTheirPullRequests(t *testing.T) {
-	forge := &recordingPullRequests{}
+// TestPullRequestOnNobodysBranchIsHeldAndNotDrawn covers a pull request arriving for a branch
+// no held agent is on: it draws on no row, and draws on the agent that arrives on that branch
+// afterwards.
+func TestPullRequestOnNobodysBranchIsHeldAndNotDrawn(t *testing.T) {
 	m := watchedPanel()
-	m.api.pullRequests = forge
-	m.width, m.height = 200, 40
 
-	m, cmd := update(t, m, client.WatchBatch{snapshotEvent(
+	m, _ = update(t, m, client.WatchBatch{snapshotEvent(
 		workflowRowOf(&workflowv1.Workflow{Id: "w1", Name: "api"}),
 		agentRowOf(&agentv1.Agent{
 			Id:            "a1",
@@ -282,67 +245,7 @@ func TestArrivedAgentsListTheirPullRequests(t *testing.T) {
 			RepositoryUrl: xptr.Ptr(repository),
 			Branch:        xptr.Ptr("agent/x"),
 		}),
-	)})
-	m = settle(t, m, cmd)
-	assert.Empty(t, forge.asked, "the snapshot carries the pull requests of the agents it carries")
-
-	m, cmd = update(t, m, client.WatchBatch{
-		putEvent(agentRowOf(&agentv1.Agent{
-			Id:            "a2",
-			WorkflowId:    "w1",
-			RepositoryUrl: xptr.Ptr(repository),
-			Branch:        xptr.Ptr("agent/y"),
-		})),
-	})
-	m = settle(t, m, cmd)
-	require.Equal(t, []string{repository + " agent/y"}, forge.asked, "an agent the world had not seen is asked for")
-
-	row, ok := m.listing.liveAgent("a2")
-	require.True(t, ok)
-	assert.Equal(t, int32(740), row.PullRequest.Number, "and what came back draws on its row")
-	m.agents.cursor = rowIndexOfAgentID(m.agents.rows(m.shared()), "a2")
-	assert.Contains(t, m.agents.details(m.shared()).fields, recordField{"pull request", "#740 merged " + ageOf(t, "2026-09-20T10:00:00Z") + " ago"})
-
-	m, cmd = update(t, m, client.WatchBatch{
-		putEvent(agentRowOf(&agentv1.Agent{
-			Id:            "a2",
-			Name:          "renamed",
-			WorkflowId:    "w1",
-			RepositoryUrl: xptr.Ptr(repository),
-			Branch:        xptr.Ptr("agent/y"),
-		})),
-	})
-	m = settle(t, m, cmd)
-	assert.Len(t, forge.asked, 1, "an event that leaves the branch where it was asks for nothing")
-
-	m, cmd = update(t, m, client.WatchBatch{
-		putEvent(agentRowOf(&agentv1.Agent{
-			Id:            "a2",
-			WorkflowId:    "w1",
-			RepositoryUrl: xptr.Ptr(repository),
-			Branch:        xptr.Ptr("agent/z"),
-		})),
-	})
-	settle(t, m, cmd)
-	assert.Equal(t, []string{repository + " agent/y", repository + " agent/z"}, forge.asked, "a branch that moved is asked for again")
-}
-
-// TestPullRequestOnNobodysBranchIsHeldAndNotDrawn covers a pull request arriving for a branch
-// no held agent is on: it draws on no row, and draws on the agent that arrives on that branch
-// afterwards.
-func TestPullRequestOnNobodysBranchIsHeldAndNotDrawn(t *testing.T) {
-	m := watchedPanel()
-	m.api.pullRequests = &recordingPullRequests{}
-
-	m, _ = update(t, m, client.WatchBatch{snapshotEvent(
-		workflowRowOf(&workflowv1.Workflow{Id: "w1", Name: "api"}),
-		agentRowOf(&agentv1.Agent{
-			Id:             "a1",
-			WorkflowId:     "w1",
-			RepositoryUrl:  xptr.Ptr(repository),
-			Branch:         xptr.Ptr("agent/x"),
-			RepositoryRead: true,
-		}),
+		&watchv1.Row{Row: &watchv1.Row_Repository{Repository: &pullrequestv1.Repository{Url: repository, Read: true}}},
 	)})
 
 	m, _ = update(t, m, client.WatchBatch{putEvent(pullRequestRowOf("pr-1", "agent/other", 7))})
@@ -377,14 +280,4 @@ func pullRequestRowOf(id, branch string, number int32) *watchv1.Row {
 		State:             pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
 		OpenedAt:          "2026-09-19T12:00:00Z",
 	}}}
-}
-
-// ageOf is how long ago a wire stamp was, as the record spells it.
-func ageOf(t *testing.T, stamp string) string {
-	t.Helper()
-
-	parsed, err := time.Parse(time.RFC3339, stamp)
-	require.NoError(t, err)
-
-	return label.Age(parsed)
 }

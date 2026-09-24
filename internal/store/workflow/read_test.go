@@ -184,49 +184,19 @@ func TestGetIncludingArchived(t *testing.T) {
 	}
 }
 
-// TestListByIDSpansTheArchive pins that the lookup the assembler's page reads finds a workflow
-// live or archived, with its provisioner config, and passes over an id nobody holds.
-func TestListByIDSpansTheArchive(t *testing.T) {
-	st := open(t)
-	ctx := t.Context()
-
-	live, err := st.Create(ctx, Config{
-		Name:     "live",
-		Cwd:      "/repo",
-		Worktree: WorktreeConfig{BaseBranch: "main"},
-	})
-	require.NoError(t, err)
-	archived, err := st.Create(ctx, Config{
-		Name:     "archived",
-		Cwd:      "/repo",
-		Worktree: WorktreeConfig{BaseBranch: "trunk"},
-	})
-	require.NoError(t, err)
-	require.NoError(t, st.Archive(ctx, archived.ID))
-
-	listed, err := st.ListByID(ctx, []string{live.ID, archived.ID, missingID, "not-an-id"})
-	require.NoError(t, err)
-	bases := xslice.KeyBy(listed, func(w Workflow) string { return w.Name })
-	assert.Len(t, bases, 2)
-	assert.Equal(t, "main", bases["live"].Worktree.BaseBranch)
-	assert.Equal(t, "trunk", bases["archived"].Worktree.BaseBranch)
-
-	none, err := st.ListByID(ctx, nil)
-	require.NoError(t, err)
-	assert.Empty(t, none)
-}
-
 // TestWatchedWorkflowsSpanTheArchive pins that the workflows the watch carries are the live and
-// archived ones alike.
+// archived ones alike, each with its hooks.
 func TestWatchedWorkflowsSpanTheArchive(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 
+	hooks := []Hook{{Event: HookPreLaunch, Script: "setup.sh"}}
 	create := func(name string) *Workflow {
 		created, err := st.Create(ctx, Config{
 			Name:     name,
 			Cwd:      "/repo",
 			Worktree: WorktreeConfig{BaseBranch: "main"},
+			Hooks:    hooks,
 		})
 		require.NoError(t, err)
 
@@ -239,13 +209,23 @@ func TestWatchedWorkflowsSpanTheArchive(t *testing.T) {
 		return xslice.Map(workflows, func(w Workflow) string { return w.Name })
 	}
 
-	listed, err := st.GetWatched().List(ctx)
+	listed, err := st.ListWatched(ctx, nil)
 	require.NoError(t, err)
 	assert.Equal(t, []string{"archived", "live"}, names(listed))
+	for _, w := range listed {
+		assert.Equal(t, hooks, w.Hooks, "workflow %s", w.Name)
+	}
 
-	byKey, err := st.GetWatched().ListByKey(ctx, []string{live.ID, archived.ID, missingID})
+	byKey, err := st.ListWatched(ctx, []string{live.ID, archived.ID, missingID})
 	require.NoError(t, err)
 	assert.ElementsMatch(t, []string{"archived", "live"}, names(byKey))
+	for _, w := range byKey {
+		assert.Equal(t, hooks, w.Hooks, "workflow %s", w.Name)
+	}
+
+	none, err := st.ListWatched(ctx, []string{})
+	require.NoError(t, err)
+	assert.Empty(t, none)
 }
 
 // TestListPageArchived pins that a workflow in one listing never shows up in the other, which

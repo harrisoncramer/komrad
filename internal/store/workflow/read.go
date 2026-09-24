@@ -39,38 +39,6 @@ func (s *WorkflowStore) List(ctx context.Context) ([]Workflow, error) {
 	}), nil
 }
 
-// WatchedWorkflowReader reads the workflows the watch carries, which are every one not being deleted.
-type WatchedWorkflowReader struct {
-	store *WorkflowStore
-}
-
-// GetWatched returns the reader of the workflows the watch carries.
-func (s *WorkflowStore) GetWatched() WatchedWorkflowReader {
-	return WatchedWorkflowReader{store: s}
-}
-
-// List returns every workflow not being deleted, archived ones included, by name.
-func (w WatchedWorkflowReader) List(ctx context.Context) ([]Workflow, error) {
-	rows, err := w.store.queries.SnapshotWatchedWorkflows(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list the watched workflows: %w", err)
-	}
-
-	hooks, err := w.store.hooksByWorkflow(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read the hooks of the watched workflows: %w", err)
-	}
-
-	return xslice.Map(rows, func(row *models.SnapshotWatchedWorkflowsRow) Workflow {
-		return workflowFromRow(row.Workflow, row.WorkflowConfig, row.WorkflowProvisionerConfig, hooks[row.Workflow.ID])
-	}), nil
-}
-
-// ListByKey returns the workflows among the given ids that are not being deleted.
-func (w WatchedWorkflowReader) ListByKey(ctx context.Context, ids []string) ([]Workflow, error) {
-	return w.store.ListByKey(ctx, ids)
-}
-
 // ByName is the order every workflow listing is read in, matched by the ORDER BY in
 // db/queries/workflow.sql, which sorts under the C collation because the database's own
 // ignores punctuation and no Go comparison does.
@@ -116,51 +84,6 @@ func (s *WorkflowStore) ListPage(ctx context.Context, limit int64, cursor *Curso
 	}
 
 	return xslice.Map(rows, func(row *models.ListWorkflowsPageRow) Workflow {
-		return workflowFromRow(row.Workflow, row.WorkflowConfig, row.WorkflowProvisionerConfig, hooks[row.Workflow.ID])
-	}), nil
-}
-
-// ListByKey returns the workflows among the given ids that are not being deleted, archived ones
-// included, with their hooks.
-func (s *WorkflowStore) ListByKey(ctx context.Context, ids []string) ([]Workflow, error) {
-	storable := store.KeepIDs(ids)
-	if len(storable) == 0 {
-		return nil, nil
-	}
-
-	rows, err := s.queries.ListWorkflowsByKey(ctx, storable)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get %d workflows: %w", len(storable), err)
-	}
-
-	hooks, err := s.hooksForWorkflows(ctx, xslice.Map(rows, func(row *models.ListWorkflowsByKeyRow) string { return row.Workflow.ID }))
-	if err != nil {
-		return nil, err
-	}
-
-	return xslice.Map(rows, func(row *models.ListWorkflowsByKeyRow) Workflow {
-		return workflowFromRow(row.Workflow, row.WorkflowConfig, row.WorkflowProvisionerConfig, hooks[row.Workflow.ID])
-	}), nil
-}
-
-// ListByID returns the workflows among the given ids, archived or not, with their hooks.
-func (s *WorkflowStore) ListByID(ctx context.Context, ids []string) ([]Workflow, error) {
-	storable := store.KeepIDs(ids)
-	if len(storable) == 0 {
-		return nil, nil
-	}
-
-	rows, err := s.queries.ListWorkflowsByID(ctx, storable)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get %d workflows: %w", len(storable), err)
-	}
-
-	hooks, err := s.hooksForWorkflows(ctx, xslice.Map(rows, func(row *models.ListWorkflowsByIDRow) string { return row.Workflow.ID }))
-	if err != nil {
-		return nil, err
-	}
-
-	return xslice.Map(rows, func(row *models.ListWorkflowsByIDRow) Workflow {
 		return workflowFromRow(row.Workflow, row.WorkflowConfig, row.WorkflowProvisionerConfig, hooks[row.Workflow.ID])
 	}), nil
 }

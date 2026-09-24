@@ -24,8 +24,7 @@ import (
 	"weave/internal/store"
 	"weave/internal/tmux"
 	"weave/internal/watch"
-
-	notifystore "weave/internal/store/notify"
+	"weave/internal/watched"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
@@ -100,9 +99,10 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 	srv.closers = append(srv.closers, svc.review.Close)
 
 	broker := watch.NewBroker(watch.NewBrokerParams{
-		Logger: params.Logger,
-		Pool:   st.pool.GetRawPool(),
-		Rows:   svc.watchRows,
+		Logger:    params.Logger,
+		Pool:      st.pool.GetRawPool(),
+		Rows:      svc.watchRows,
+		Resources: watched.All(),
 	})
 	srv.Watch = broker
 	srv.closers = append(srv.closers, broker.Close)
@@ -134,9 +134,9 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 		return nil, err
 	}
 
-	notifyCtx, stopNotifying := context.WithCancel(context.WithoutCancel(ctx))
-	srv.closers = append(srv.closers, stopNotifying)
-	jobs.NotifyFinishedRuns(notifyCtx, srv.Jobs, notifystore.NewNotifyStore(st.pool.GetRawPool()), params.Logger)
+	signalCtx, stopSignaling := context.WithCancel(context.WithoutCancel(ctx))
+	srv.closers = append(srv.closers, stopSignaling)
+	jobs.SignalFinishedRuns(signalCtx, srv.Jobs, broker, params.Logger)
 
 	// The MCP query tools connect through a least-privilege role, so their pool is opened
 	// apart from the one everything else writes through.
@@ -167,6 +167,7 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 		Stores:   st,
 		Services: svc,
 		Periodic: srv.Periodic,
+		Claimed:  jobs.NewWorktreeDelete(jobs.NewEnqueuer(srv.Jobs, st.pool.GetRawPool())),
 	})
 
 	if err := broker.Start(); err != nil {

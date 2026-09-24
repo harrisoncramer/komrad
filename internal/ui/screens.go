@@ -42,7 +42,7 @@ type screenModel interface {
 	// view draws the screen into the panel's own pane.
 	view(s panelShared) string
 
-	// needs is what the tick lists for the screen.
+	// needs is what the screen draws from.
 	needs() screenNeeds
 
 	// enter lands the cursor on the target where the target is on screen, and puts the stage
@@ -59,13 +59,10 @@ type screenTarget struct {
 	agentID string
 }
 
-// screenNeeds is what the tick lists for a screen.
+// screenNeeds is what a screen draws from.
 type screenNeeds struct {
 	// fromListing is whether the watch's listings are what the screen draws.
 	fromListing bool
-
-	// worktrees is whether the worktree directories are listed for the screen.
-	worktrees bool
 }
 
 // detailed is a screen that draws a record under its list.
@@ -167,7 +164,6 @@ type host interface {
 	// The form, the popup, the screen that is up and the archive and worktree listings are the root's.
 	openForm(f formState) tea.Cmd
 	enter(next screen, target screenTarget) tea.Cmd
-	listCmd() tea.Cmd
 	hide() tea.Cmd
 
 	// The stage is the root's, and every list screen waits for its cursor to rest before staging.

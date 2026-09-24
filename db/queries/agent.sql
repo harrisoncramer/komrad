@@ -8,9 +8,9 @@ WHERE
 ORDER BY
     s.id DESC;
 
--- name: ListAgentsPage :many
+-- name: ListAgentPageIDs :many
 SELECT
-    *
+    s.id
 FROM
     agents s
 WHERE (@archived::boolean) =(s.archived_at IS NOT NULL)
@@ -21,109 +21,44 @@ ORDER BY
     s.id DESC
 LIMIT @lim;
 
--- name: SnapshotAgents :many
-SELECT
-    *
-FROM
-    agents s
-WHERE
-    s.deleting_at IS NULL
-ORDER BY
-    s.id DESC;
-
--- name: ListAgentsByKey :many
-SELECT
-    *
-FROM
-    agents s
-WHERE
-    s.id = ANY (@ids::uuid[])
-    AND s.deleting_at IS NULL
-ORDER BY
-    s.id DESC;
-
--- name: ListAgentFacts :many
-WITH failed AS (
+-- name: ListWatchedAgents :many
+WITH watched AS (
+    SELECT
+        ARRAY (
+            SELECT
+                a.id
+            FROM
+                agents a
+            WHERE
+                a.deleting_at IS NULL
+                AND (sqlc.narg('keys')::text[] IS NULL
+                    OR a.id = ANY (sqlc.narg('keys')::uuid[]))) AS ids
+),
+failed AS (
     SELECT DISTINCT ON (r.agent_id)
         r.agent_id,
         r.log_number
     FROM
-        agent_runs r
+        watched w
+        JOIN agent_runs r ON r.agent_id = ANY (w.ids)
     WHERE
-        r.agent_id = ANY (@ids::uuid[])
-        AND r.failure <> ''
+        r.failure <> ''
         AND r.viewed_at IS NULL
     ORDER BY
         r.agent_id,
         r.started_at DESC,
         r.id DESC
-),
-tallied AS (
-    SELECT
-        v.agent_id,
-(COUNT(DISTINCT v.round_id) FILTER (WHERE v.released_at IS NOT NULL))::int AS rounds,
-        COUNT(*)::int AS reviews,
-        SUM((EXTRACT(EPOCH FROM v.updated_at) * 1000000)::bigint) AS moved
-    FROM
-        reviews v
-    WHERE
-        v.agent_id = ANY (@ids::uuid[])
-    GROUP BY
-        v.agent_id
-),
-concluded AS (
-    SELECT DISTINCT ON (v.agent_id)
-        v.agent_id,
-        v.verdict,
-        n.snapshot_sha
-    FROM
-        reviews v
-        JOIN review_rounds n ON n.id = v.round_id
-    WHERE
-        v.agent_id = ANY (@ids::uuid[])
-        AND v.released_at IS NOT NULL
-        AND v.verdict IN ('approved', 'changes_requested')
-    ORDER BY
-        v.agent_id,
-        n.ordinal DESC,
-        v.released_at DESC
-),
-threaded AS (
-    SELECT
-        t.agent_id,
-        COUNT(*)::int AS threads,
-        SUM((EXTRACT(EPOCH FROM t.updated_at) * 1000000)::bigint) AS moved
-    FROM
-        review_threads t
-    WHERE
-        t.agent_id = ANY (@ids::uuid[])
-    GROUP BY
-        t.agent_id
 )
 SELECT
-    s.id,
+    sqlc.embed(s),
 (f.agent_id IS NOT NULL)::boolean AS failed_run,
-    f.log_number AS failed_run_log,
-    COALESCE(t.rounds, 0)::int AS local_rounds,
-    c.verdict AS local_verdict,
-    c.snapshot_sha AS local_review_sha,
-    EXISTS (
-        SELECT
-            1
-        FROM
-            pull_request_syncs y
-        WHERE
-            y.repository_url = s.repository_url
-            AND y.updated_through IS NOT NULL)::boolean AS repository_read,
-    CONCAT_WS(':', COALESCE(h.threads, 0), COALESCE(t.reviews, 0), h.moved, t.moved)::text AS review_version
+    f.log_number AS failed_run_log
 FROM
-    agents s
+    watched w
+    JOIN agents s ON s.id = ANY (w.ids)
     LEFT JOIN failed f ON f.agent_id = s.id
-    LEFT JOIN tallied t ON t.agent_id = s.id
-    LEFT JOIN concluded c ON c.agent_id = s.id
-    LEFT JOIN threaded h ON h.agent_id = s.id
-WHERE
-    s.id = ANY (@ids::uuid[]);
+ORDER BY
+    s.id DESC;
 
 -- name: ListArchiveSweepPage :many
 SELECT
@@ -831,6 +766,14 @@ UPDATE
 SET
     tree_standing = @tree_standing,
     tree_standing_sha = @tree_standing_sha
+WHERE
+    id = @id;
+
+-- name: SetAgentMovedSinceRound :exec
+UPDATE
+    agents
+SET
+    moved_since_round = @moved_since_round
 WHERE
     id = @id;
 

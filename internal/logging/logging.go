@@ -68,6 +68,7 @@ const (
 	ThrottledUntil         = "weave.forge.throttled_until"
 	Repeats                = "repeats"
 	WatchTable             = "weave.watch.table"
+	WatchResource          = "weave.watch.resource"
 	Handle                 = "handle"
 	ServerAddress          = "server.address"
 	ErrorType              = "error.type"

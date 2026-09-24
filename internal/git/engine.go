@@ -2,7 +2,6 @@ package git
 
 import (
 	"context"
-	"fmt"
 	"os/exec"
 	"strings"
 
@@ -58,44 +57,6 @@ func (c *EngineClient) Replay(ctx context.Context, params ReplayParams) (*Replay
 // IsAncestor reports whether one commit is reachable from another.
 func (c *EngineClient) IsAncestor(ctx context.Context, dir, maybeAncestor, of string) (bool, error) {
 	return isAncestor(ctx, c.on, dir, maybeAncestor, of)
-}
-
-// GetTree is the tree one snapshot commit holds.
-func (c *EngineClient) GetTree(ctx context.Context, dir, sha string) (string, error) {
-	return getTree(ctx, c.on, dir, sha)
-}
-
-// ProbeTree writes an agent's worktree out as a tree on the engine, in one command.
-func (c *EngineClient) ProbeTree(ctx context.Context, dir string) (string, error) {
-	ctx, cancel := context.WithTimeout(ctx, commandTimeout)
-	defer cancel()
-
-	out, err := engineCommand(ctx, c.remote, probeScript(dir)).Output()
-	if err != nil {
-		return "", fmt.Errorf("failed to probe the worktree at %q on %s: %w", dir, c.remote, err)
-	}
-
-	tree := strings.TrimSpace(string(out))
-	if tree == "" {
-		return "", fmt.Errorf("failed to probe the worktree at %q on %s: nothing came back", dir, c.remote)
-	}
-
-	return tree, nil
-}
-
-func probeScript(dir string) string {
-	git := "git -C " + engine.Quote(dir)
-
-	return strings.Join([]string{
-		"set -e",
-		"root=$(" + git + " rev-parse --show-toplevel)",
-		`index=$(mktemp -u "${TMPDIR:-/tmp}/weave-round-XXXXXX")`,
-		`trap 'rm -f "$index" "$index.lock"' EXIT`,
-		`cp -p "$(git -C "$root" rev-parse --absolute-git-dir)/index" "$index" 2>/dev/null` +
-			` || GIT_INDEX_FILE="$index" git -C "$root" read-tree HEAD 2>/dev/null || true`,
-		`GIT_INDEX_FILE="$index" git -C "$root" add -A`,
-		`GIT_INDEX_FILE="$index" git -C "$root" write-tree`,
-	}, "; ")
 }
 
 type engineRunner struct {

@@ -68,6 +68,14 @@ message PullRequest {
   Mergeability mergeability = 21;
 }
 
+// Repository is one repository the pull request sync reads.
+message Repository {
+  // The canonical address of the repository.
+  string url = 1;
+  // Whether the sync has read the repository's pull requests at least once.
+  bool read = 2;
+}
+
 message ListPullRequestsResponse {
   // One page of pull requests, the unfinished ones first and each group newest opened first,
   // so the first is the one an agent's row on the branch stands for.

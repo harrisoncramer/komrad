@@ -1,0 +1,17 @@
+# The review screen following a worktree that moves: open the greeter's diff, then let the
+# agent's checkout change underneath it, and watch cwd sync report the move and the diff catch up.
+key k
+sleep 500ms
+key d
+wait hello, reviewer
+sleep 3s
+sleep 3s
+sleep 3s
+sleep 3s
+sleep 3s
+sleep 3s
+sleep 3s
+sleep 3s
+sleep 3s
+sleep 3s
+key Escape

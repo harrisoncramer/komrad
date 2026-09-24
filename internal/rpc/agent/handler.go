@@ -44,7 +44,7 @@ type agentLiveness interface {
 // for one agent.
 type rowReader interface {
 	ListPage(ctx context.Context, page rowstore.Page) ([]rowstore.Row, error)
-	ListByKey(ctx context.Context, ids []string) ([]rowstore.Row, error)
+	ListWatched(ctx context.Context, keys []string) ([]rowstore.Row, error)
 	Get(ctx context.Context, id string) (*rowstore.Row, error)
 }
 
@@ -77,10 +77,9 @@ type rowWriter interface {
 	RecordReport(ctx context.Context, params agents.RecordReportParams) error
 }
 
-// markReadWriter owns the letters a person types to jump to a row, which span agents and
+// markWriter owns the letters a person types to jump to a row, which span agents and
 // workflows and so are written through a transaction rather than through one store.
-type markReadWriter interface {
-	ListMarks(ctx context.Context) ([]markstore.Mark, error)
+type markWriter interface {
 	SetMark(ctx context.Context, mark string, target markstore.Target) (bool, error)
 	ClearMark(ctx context.Context, target markstore.Target) (bool, error)
 }
@@ -103,10 +102,8 @@ type NewHandlerParams struct {
 	Holder       agentHolder
 	Archive      archiveEmptier
 	Review       reviewConversation
-	Marks        markReadWriter
-	Workflows    workflowReader
-	Unclaimed    unclaimedMailReader
-	PullRequests pullRequestReader
+	Marks        markWriter
+	Watched      WatchedListers
 	Rebaser      worktreeRebaser
 	Orchestrator orchestratorStarter
 	Clock        func() time.Time
@@ -126,10 +123,8 @@ type Handler struct {
 	holder       agentHolder
 	archive      archiveEmptier
 	review       reviewConversation
-	marks        markReadWriter
-	workflows    workflowReader
-	unclaimed    unclaimedMailReader
-	pullRequests pullRequestReader
+	marks        markWriter
+	watched      WatchedListers
 	rebaser      worktreeRebaser
 	orchestrator orchestratorStarter
 	now          func() time.Time
@@ -158,9 +153,7 @@ func NewHandler(params NewHandlerParams) *Handler {
 		archive:      params.Archive,
 		review:       params.Review,
 		marks:        params.Marks,
-		workflows:    params.Workflows,
-		unclaimed:    params.Unclaimed,
-		pullRequests: params.PullRequests,
+		watched:      params.Watched,
 		rebaser:      params.Rebaser,
 		orchestrator: params.Orchestrator,
 		now:          now,
@@ -316,7 +309,7 @@ func (s *Handler) GetAgent(ctx context.Context, req *agentv1.GetAgentRequest) (*
 
 // ListMarks is every mark, by letter.
 func (s *Handler) ListMarks(ctx context.Context, _ *emptypb.Empty) (*agentv1.ListMarksResponse, *fail.Error) {
-	marks, err := s.marks.ListMarks(ctx)
+	marks, err := s.watched.Marks.ListWatched(ctx, nil)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to list the marks")
 	}
@@ -521,7 +514,7 @@ func (s *Handler) RestoreAgents(ctx context.Context, req *agentv1.RestoreAgentsR
 		return nil, rpcerr.From(err, "failed to restore agents")
 	}
 
-	rows, err := s.rows.ListByKey(ctx, agentstore.IDs(restored))
+	rows, err := s.rows.ListWatched(ctx, agentstore.IDs(restored))
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to get the restored agents")
 	}

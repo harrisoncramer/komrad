@@ -212,15 +212,20 @@ func reviewService(t *testing.T) (agentv1weave.AgentServiceAdapter, *storetest.S
 	liveness := &fakeLauncher{}
 
 	return agentv1weave.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{
-		Agents:       st.Agents,
-		Rows:         st.Rows,
-		Mail:         mailer,
-		Review:       review,
-		Marks:        markService(st),
-		Workflows:    st.Workflows,
-		Unclaimed:    st.Mail,
-		PullRequests: st.PullRequests,
-		Liveness:     liveness,
+		Agents: st.Agents,
+		Rows:   st.Rows,
+		Mail:   mailer,
+		Review: review,
+		Marks:  markService(st),
+		Watched: WatchedListers{
+			Marks:        st.Marks,
+			Mail:         st.Mail,
+			PullRequests: st.PullRequests,
+			Repositories: st.PullRequestSyncs,
+			Reviews:      rounds,
+			Workflows:    st.Workflows,
+		},
+		Liveness: liveness,
 	})}, st, rounds
 }
 
@@ -270,7 +275,7 @@ func TestListedAgentsCarryWhereTheirTreeStands(t *testing.T) {
 
 		for _, row := range listed.Msg.GetAgents() {
 			if agent := row.GetAgent(); agent.GetName() == "worker" {
-				return agent.GetLocalReviewTree()
+				return row.GetLocalReviewTree()
 			}
 		}
 
@@ -329,7 +334,7 @@ func TestListedAgentsCarryTheirReviewRounds(t *testing.T) {
 
 		rounds := make(map[string]int32, len(listed.Msg.GetAgents()))
 		for _, row := range listed.Msg.GetAgents() {
-			rounds[row.GetAgent().GetName()] = row.GetAgent().GetLocalReviewRounds()
+			rounds[row.GetAgent().GetName()] = row.GetLocalReviewRounds()
 		}
 
 		return rounds

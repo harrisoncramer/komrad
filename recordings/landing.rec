@@ -1,0 +1,27 @@
+# Create a workflow, an agent in it, and a schedule, and see where the cursor goes after each.
+key w
+type landing
+key Enter
+key Enter
+key Enter
+type /tmp
+key Enter
+key Enter
+key Up
+key C-s
+sleep 2s
+key C-a
+key c
+type reply with the single word ok
+key C-s
+sleep 3s
+key S
+key c
+type landing-probe
+key Enter
+type 0 9 * * 1-5
+key Enter
+key Enter
+type say ok
+key C-s
+sleep 2s

@@ -1395,15 +1395,14 @@ func TestAnEarlierWriteLeavesALaterHoldAlone(t *testing.T) {
 
 	landed, _ := m.applyWrite(writeResult{
 		summary: "Could not start the agent",
-		written: &written{row: agentRowKey("new"), agent: &agentv1.Agent{Id: "new", WorkflowId: workflow.ID}},
+		written: &written{row: agentRowKey("new")},
 		write:   escaped,
 	})
 	got := asModel(t, landed)
 
 	assert.True(t, got.held.active, "the escaped create landing leaves the second form held")
 	assert.True(t, got.form.isActive())
-	_, held := got.listing.liveAgent("new")
-	assert.False(t, held, "and an escaped create takes nobody to the agent it made")
+	assert.Empty(t, got.landing.row, "and an escaped create takes nobody to the agent it made")
 }
 
 // TestSubmittingNoticeCountsUp pins that a held form's notice stands still while the write is

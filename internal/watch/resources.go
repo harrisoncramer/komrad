@@ -8,115 +8,42 @@ type Resource struct {
 	Table string
 	// Enum is the value the wire sends the row under.
 	Enum watchv1.Resource
-	// Subresources includes all of the subtables that are  for a given resource.
-	Subresources []Subresource
+	// KeyColumn is the column of Table a row is keyed by.
+	KeyColumn string
+	// IgnoredColumns are the columns of Table whose changes alone notify nothing.
+	IgnoredColumns []string
+	// Feeders are the other tables whose changes can move the resource's rows.
+	Feeders []Feeder
 }
 
-// Subresource is one table that is rendered or "projected" onto another resource, e.g. agent_metadata into agents.
-type Subresource struct {
-	// Table is the subresource table.
+// Feeder is one table whose changes can move the rows of a resource, e.g. agent_metadata into agents.
+type Feeder struct {
+	// Table is the feeding table.
 	Table string
-	// Key is the column on the subresource row holding the resource's id.
-	Key string
-	// Lookup finds the resources a subresource row belongs to when the row does not hold their id.
+	// Column is the column on the feeding row holding the resource's key.
+	Column string
+	// Lookup finds the resources a feeding row moves when the row does not hold their key.
 	Lookup *Lookup
 }
 
-// Lookup matches a subresource row to its resources by a column on each side.
+// Lookup matches a feeding row to its resources by a column on each side.
 type Lookup struct {
 	// ParentColumn is the column on the resource's table.
 	ParentColumn string
-	// ChildColumn is the column on the subresource row that ParentColumn is matched against.
+	// ChildColumn is the column on the feeding row that ParentColumn is matched against.
 	ChildColumn string
 	// SkipParentsWith is a column of the resource's table that has to be null for the resource to be notified.
 	SkipParentsWith string
+	// OnChangeOf is the one column of the feeding row whose change on an update notifies, or every change when empty.
+	OnChangeOf string
 }
 
-// resources is every table the watch carries the rows of.
-var resources = []Resource{
-	{
-		Enum:  watchv1.Resource_RESOURCE_AGENT,
-		Table: "agents",
-		Subresources: []Subresource{
-			{
-				Table: "agent_metadata",
-				Key:   "agent_id",
-			},
-			{
-				Table: "agent_runs",
-				Key:   "agent_id",
-			},
-			{
-				Table: "reviews",
-				Key:   "agent_id",
-			},
-			{
-				Table: "review_rounds",
-				Key:   "agent_id",
-			},
-			{
-				Table: "review_threads",
-				Key:   "agent_id",
-			},
-			{
-				Table: "pull_request_syncs",
-				Lookup: &Lookup{
-					ParentColumn:    "repository_url",
-					ChildColumn:     "repository_url",
-					SkipParentsWith: "archived_at",
-				},
-			},
-		},
-	},
-	{
-		Enum:  watchv1.Resource_RESOURCE_WORKFLOW,
-		Table: "workflows",
-		Subresources: []Subresource{
-			{
-				Table: "workflow_hooks",
-				Key:   "workflow_id",
-			},
-			{
-				Table: "workflow_configs",
-				Lookup: &Lookup{
-					ParentColumn: "workflow_config_id",
-					ChildColumn:  "id",
-				},
-			},
-			{
-				Table: "workflow_provisioner_configs",
-				Lookup: &Lookup{
-					ParentColumn: "provisioner_config_id",
-					ChildColumn:  "id",
-				},
-			},
-		},
-	},
-	{
-		Enum:  watchv1.Resource_RESOURCE_SCHEDULE,
-		Table: "schedules",
-	},
-	{
-		Enum:  watchv1.Resource_RESOURCE_MARK,
-		Table: "marks",
-	},
-	{
-		Enum:  watchv1.Resource_RESOURCE_MAIL,
-		Table: "mail",
-	},
-	{
-		Enum:  watchv1.Resource_RESOURCE_PULL_REQUEST,
-		Table: "pull_requests",
-	},
-}
-
-// findResource returns the resource whose rows a table holds.
-func findResource(table string) (watchv1.Resource, bool) {
-	for _, r := range resources {
-		if r.Table == table {
-			return r.Enum, true
-		}
+// buildTables maps each resource's table to the resource.
+func buildTables(resources []Resource) map[string]watchv1.Resource {
+	tables := make(map[string]watchv1.Resource, len(resources))
+	for _, resource := range resources {
+		tables[resource.Table] = resource.Enum
 	}
 
-	return watchv1.Resource_RESOURCE_UNSPECIFIED, false
+	return tables
 }

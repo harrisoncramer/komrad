@@ -28,13 +28,11 @@ func gatedReview(t *testing.T, m model, agents *fakeReviewAgents) model {
 	return refreshReview(t, m)
 }
 
-// refreshReview runs the tick the panel runs on its own.
+// refreshReview is the watch delivering what the fake server now holds.
 func refreshReview(t *testing.T, m model) model {
 	t.Helper()
 
-	refreshed, ok := m.review.refreshThreadsCmd(m.shared())().(reviewRefreshedMsg)
-	require.True(t, ok)
-	m.review.applyRefreshed(&m, m.shared(), refreshed)
+	streamServed(&m)
 
 	return m
 }
@@ -57,6 +55,7 @@ func pressReview(t *testing.T, m model, key tea.KeyMsg) model {
 	}
 
 	m.review.applyWrote(&m, m.shared(), wrote)
+	streamServed(&m)
 
 	return m
 }
@@ -112,9 +111,9 @@ func TestReplyingLetsTheNextReviewGo(t *testing.T) {
 	assert.True(t, m.review.threads.releasing, "and what has been written can go")
 }
 
-// TestTheFlagAndTheThreadsDisagreeUntilTheNextTick pins the window where the conversation is
-// fresh and the flag is not.
-func TestTheFlagAndTheThreadsDisagreeUntilTheNextTick(t *testing.T) {
+// TestTheFlagAndTheThreadsAgree pins that the flag is worked out from the same world as the
+// conversation, so settling the last comment clears both at once.
+func TestTheFlagAndTheThreadsAgree(t *testing.T) {
 	dir := reviewRepo(t)
 	agents := &fakeReviewAgents{}
 	m, _ := reviewModel(t, agents, dir)
@@ -124,9 +123,5 @@ func TestTheFlagAndTheThreadsDisagreeUntilTheNextTick(t *testing.T) {
 	m = pressReview(t, m, keyMsg("r"))
 
 	assert.Zero(t, m.review.diff.view.CountOpenThreads(), "the conversation came back settled")
-	assert.True(t, m.review.threads.isOwedAnAnswer(), "and the flag has not been asked again yet")
-
-	m = refreshReview(t, m)
-
-	assert.False(t, m.review.threads.isOwedAnAnswer(), "the tick is what agrees them")
+	assert.False(t, m.review.threads.isOwedAnAnswer(), "and the flag with it")
 }

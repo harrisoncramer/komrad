@@ -11,24 +11,15 @@ ORDER BY
     s.id DESC
 LIMIT @lim;
 
--- name: SnapshotSchedules :many
+-- name: ListWatchedSchedules :many
 SELECT
     sqlc.embed(s)
 FROM
     schedules s
 WHERE
     s.archived_at IS NULL
-ORDER BY
-    s.id DESC;
-
--- name: ListSchedulesByKey :many
-SELECT
-    sqlc.embed(s)
-FROM
-    schedules s
-WHERE
-    s.id = ANY (@ids::uuid[])
-    AND s.archived_at IS NULL
+    AND (sqlc.narg('keys')::text[] IS NULL
+        OR s.id = ANY (sqlc.narg('keys')::uuid[]))
 ORDER BY
     s.id DESC;
 

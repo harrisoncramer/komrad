@@ -130,15 +130,6 @@ func TestMeasureCarriesOnPastADirectoryItCannotRecord(t *testing.T) {
 	assert.Positive(t, f.sizes.stored[after].Bytes)
 }
 
-// fakePaths lists whatever directories the test names, on disk or not.
-type fakePaths struct {
-	paths []string
-}
-
-func (p *fakePaths) ListPaths(context.Context) (Paths, error) {
-	return Paths{Paths: p.paths}, nil
-}
-
 // TestMeasureForgetsADirectoryThatVanishesMidPass covers a directory the listing named that is
 // gone by the time it is walked: its row is deleted and no error is recorded for it.
 func TestMeasureForgetsADirectoryThatVanishesMidPass(t *testing.T) {
@@ -150,9 +141,10 @@ func TestMeasureForgetsADirectoryThatVanishesMidPass(t *testing.T) {
 		MeasuredAt: f.now.Add(-2 * time.Hour),
 	}
 	measurer := NewMeasurer(NewMeasurerParams{
-		Lister: &fakePaths{paths: []string{vanished}},
-		Sizes:  f.sizes,
-		Now:    func() time.Time { return f.now },
+		Lister:    &fakeListing{listing: Listing{Worktrees: []Worktree{{Dir: vanished}}}},
+		Claimed:   f.claims,
+		Worktrees: f.sizes,
+		Now:       func() time.Time { return f.now },
 	})
 
 	require.NoError(t, measurer.Measure(t.Context()))
@@ -160,6 +152,68 @@ func TestMeasureForgetsADirectoryThatVanishesMidPass(t *testing.T) {
 	assert.Equal(t, []string{vanished}, f.sizes.deleted)
 	assert.Empty(t, f.sizes.written)
 	assert.NotContains(t, f.sizes.stored, vanished)
+	assert.NotContains(t, f.sizes.records, vanished)
+}
+
+// TestMeasureRecordsWhatTheFilesystemSays covers every directory getting a row carrying its
+// repository, branch, readability and mtime, whether or not this pass walks it.
+func TestMeasureRecordsWhatTheFilesystemSays(t *testing.T) {
+	f := newFixture(t)
+	dirs := xslice.Map([]string{"aaaa", "bbbb", "cccc", "dddd", "eeee", "ffff", "gggg", "hhhh", "iiii"}, func(id string) string {
+		return f.cut(t, id)
+	})
+	orphan := filepath.Join(f.shared, "orphan")
+	require.NoError(t, os.Mkdir(orphan, 0o755))
+
+	require.NoError(t, f.measurer().Measure(t.Context()))
+
+	require.Len(t, f.sizes.records, len(dirs)+1, "a directory the pass does not walk still has its row")
+	record := f.sizes.records[dirs[8]]
+	assert.Equal(t, f.repo, record.RepoDir)
+	assert.Equal(t, "agent/iiii", record.Branch)
+	assert.True(t, record.Readable)
+	require.NotNil(t, record.ModifiedAt)
+	assert.Equal(t, time.UTC, record.ModifiedAt.Location())
+
+	bare := f.sizes.records[orphan]
+	assert.Empty(t, bare.RepoDir)
+	assert.False(t, bare.Readable)
+	assert.NotNil(t, bare.ModifiedAt, "a directory with no .git file takes its own mtime")
+}
+
+// TestMeasureLeavesOutWhatADeleteNames covers an unowned directory an unfinished delete names
+// losing its row, while an owned one it names and one whose agent is being deleted keep theirs.
+func TestMeasureLeavesOutWhatADeleteNames(t *testing.T) {
+	f := newFixture(t)
+	deleting := f.cut(t, "aaaa")
+	named := f.cut(t, "bbbb")
+	owned := f.cut(t, "cccc")
+	kept := f.cut(t, "dddd")
+	f.own("aaaa", "going", nil)
+	f.owners.rows[0].DeletingAt = &f.now
+	f.own("cccc", "live", nil)
+	for _, dir := range []string{deleting, named, owned, kept} {
+		f.sizes.records[dir] = worktreestore.Worktree{Dir: dir}
+	}
+	f.claims.dirs = []string{named, owned}
+
+	require.NoError(t, f.measurer().Measure(t.Context()))
+
+	assert.Equal(t, []string{named}, f.sizes.deleted)
+	assert.NotContains(t, f.sizes.records, named)
+	assert.Contains(t, f.sizes.records, deleting, "the watch leaves this one out, so the row is kept for a failed delete")
+	assert.Contains(t, f.sizes.records, owned)
+	assert.Contains(t, f.sizes.records, kept)
+	assert.NotContains(t, f.sizes.written, named, "a named directory is not walked")
+}
+
+// fakeListing answers with whatever listing the test names, on disk or not.
+type fakeListing struct {
+	listing Listing
+}
+
+func (l *fakeListing) List(context.Context) (*Listing, error) {
+	return &l.listing, nil
 }
 
 // TestStorableText covers a NUL and a half rune being taken out of an error's text.

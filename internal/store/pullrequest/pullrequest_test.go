@@ -156,11 +156,11 @@ func TestIdentityIsPerHost(t *testing.T) {
 	require.ErrorIs(t, err, store.ErrNotFound)
 }
 
-// TestObserveJoinsLiveAgentsToTheirBranches covers attribution: an agent on the branch a pull
+// TestObserveJoinsAgentsToTheirBranches covers attribution: an agent on the branch a pull
 // request came from is recorded beside it, one on another branch or on the workflow's base
 // branch is not, a fork's pull request is attributed to nobody, and a second pass inside the
 // hour writes nothing.
-func TestObserveJoinsLiveAgentsToTheirBranches(t *testing.T) {
+func TestObserveJoinsAgentsToTheirBranches(t *testing.T) {
 	h := open(t)
 	ctx := t.Context()
 
@@ -183,24 +183,22 @@ func TestObserveJoinsLiveAgentsToTheirBranches(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), written)
 
-	seen, err := h.ListObservations(ctx, onBranch)
+	seen, err := h.ListObservations(ctx, []string{onBranch})
 	require.NoError(t, err)
 	require.Len(t, seen, 1)
 	assert.Equal(t, seen[0].FirstSeenAt, seen[0].LastSeenAt)
 
-	for _, id := range []string{other, onMain} {
-		none, err := h.ListObservations(ctx, id)
-		require.NoError(t, err)
-		assert.Empty(t, none)
-	}
+	none, err := h.ListObservations(ctx, []string{other, onMain, "not-an-id"})
+	require.NoError(t, err)
+	assert.Empty(t, none)
 
 	again, err := h.Observe(ctx)
 	require.NoError(t, err)
 	assert.Zero(t, again, "a pair seen within the hour is not written again")
 }
 
-// TestObserveSkipsArchivedAgents covers that only live agents are attributed.
-func TestObserveSkipsArchivedAgents(t *testing.T) {
+// TestObserveLinksArchivedAgents covers that an archived agent is attributed like a live one.
+func TestObserveLinksArchivedAgents(t *testing.T) {
 	h := open(t)
 	ctx := t.Context()
 
@@ -213,7 +211,7 @@ func TestObserveSkipsArchivedAgents(t *testing.T) {
 
 	written, err := h.Observe(ctx)
 	require.NoError(t, err)
-	assert.Zero(t, written)
+	assert.Equal(t, int64(1), written)
 }
 
 // TestLiveRepositoriesAndUnscannedBranches covers the two listings the pass starts from: the
@@ -507,32 +505,4 @@ func TestSetStandingStampsTheRead(t *testing.T) {
 	stored, err = h.GetByIdentity(ctx, "github.com", "PR_1")
 	require.NoError(t, err)
 	assert.True(t, stored.DecisionChangedAt.Equal(changed.ChangedAt), "the same decision for a later change is still a read")
-}
-
-// TestListForAgentsIsEveryBranchWhateverTheBase covers the listing the assembler is fed: every
-// pull request from the given agents' branches in their repositories, the base branch rule
-// left to the assembler, and nothing for an id nobody holds.
-func TestListForAgentsIsEveryBranchWhateverTheBase(t *testing.T) {
-	h := open(t)
-	ctx := t.Context()
-
-	workflow := h.createWorkflow(t)
-	agent := h.createAgent(t, workflow, "a", weave, "agent/x")
-	onMain := h.createAgent(t, workflow, "on-main", weave, "main")
-	h.createAgent(t, workflow, "elsewhere", weave, "agent/y")
-
-	for _, params := range []UpsertParams{openPullRequest("PR_1", 1, "agent/x"), openPullRequest("PR_2", 2, "main"), openPullRequest("PR_3", 3, "agent/y")} {
-		params.URL = "https://github.com/harrisoncramer/weave/pull/" + params.ProviderID
-		_, err := h.Upsert(ctx, params)
-		require.NoError(t, err)
-	}
-
-	listed, err := h.ListForAgents(ctx, []string{agent, onMain, "not-an-id"})
-	require.NoError(t, err)
-	numbers := xslice.Map(listed, func(p PullRequest) int { return p.Number })
-	assert.ElementsMatch(t, []int{1, 2}, numbers)
-
-	none, err := h.ListForAgents(ctx, nil)
-	require.NoError(t, err)
-	assert.Empty(t, none)
 }

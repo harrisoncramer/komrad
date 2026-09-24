@@ -5,6 +5,7 @@ import (
 
 	"weave/internal/jobs"
 	"weave/internal/jobs/internaljobs"
+	"weave/internal/worktrees"
 )
 
 const ReconcileInterval = 2 * time.Second
@@ -40,6 +41,7 @@ type buildLoopsParams struct {
 	Stores   *stores
 	Services *services
 	Periodic *jobs.RiverPeriodic
+	Claimed  *jobs.WorktreeDelete
 }
 
 func buildLoops(params buildLoopsParams) []Loop {
@@ -77,7 +79,11 @@ func buildLoops(params buildLoopsParams) []Loop {
 		{
 			Name:     WorktreeSizeLoop,
 			Interval: WorktreeSizeInterval,
-			Pass:     params.Services.measurer.Measure,
+			Pass: worktrees.NewMeasurer(worktrees.NewMeasurerParams{
+				Lister:    params.Services.worktreeLister,
+				Claimed:   params.Claimed,
+				Worktrees: params.Stores.worktrees,
+			}).Measure,
 		},
 	}
 }

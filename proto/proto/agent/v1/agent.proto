@@ -110,22 +110,17 @@ message Agent {
   string reported_reason = 29;
   // What the agent was launched to do, which decides the half of the review briefing it is sent.
   AgentRole role = 30;
-  // How many rounds of local review its own work has been through.
-  int32 local_review_rounds = 31;
   // Whether prompt holds only its opening, which a summary listing returns so that a page of
   // agents does not carry every briefing they were launched with.
   bool prompt_truncated = 32;
-  // What the last released local review concluded about the agent's own work, UNSPECIFIED
-  // when none has concluded anything.
-  ReviewVerdict local_review_verdict = 33;
-  // Where the agent's worktree stands against the round that verdict was given on.
-  ReviewTreeStanding local_review_tree = 34;
+  // Where the agent's worktree stood when last measured against the round tree_standing_sha names.
+  ReviewTreeStanding tree_standing = 31;
+  // The snapshot of the round tree_standing was measured against, empty before any measurement.
+  string tree_standing_sha = 33;
+  // The snapshot of its newest round while its worktree no longer hashes to it, empty otherwise.
+  string moved_since_round = 42;
   // When a person stopped this agent and took its worktree, empty while nobody is holding it.
   string held_at = 35;
-  // Whether the pull request sync has swept its repository.
-  bool repository_read = 39;
-  // Changes whenever anything in the review of the agent's own work moves.
-  string review_version = 40;
 }
 
 // AgentRow is an agent with what is drawn beside it: its mark, its waiting mail and the pull
@@ -141,6 +136,13 @@ message AgentRow {
   PullRequestStanding pull_request = 4;
   // Every pull request opened from its branch, the current one first.
   repeated pullrequest.v1.PullRequest pull_requests = 5;
+  // How many rounds of local review its own work has been through.
+  int32 local_review_rounds = 6;
+  // What the last released local review concluded about the agent's own work, UNSPECIFIED
+  // when none has concluded anything.
+  ReviewVerdict local_review_verdict = 7;
+  // Where the agent's worktree stands against the round that verdict was given on.
+  ReviewTreeStanding local_review_tree = 8;
 }
 
 message PullRequestStanding {

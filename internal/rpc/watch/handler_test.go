@@ -15,18 +15,15 @@ import (
 	"weave/internal/dbtest"
 	"weave/internal/interceptors"
 	"weave/internal/logging"
+	"weave/internal/rpc/render"
 	"weave/internal/store"
 	"weave/internal/watch"
+	"weave/internal/watched"
 	"weave/lib/xslice"
 	watchv1 "weave/proto/gen/watch/v1"
 
 	agentstore "weave/internal/store/agent"
-	mailstore "weave/internal/store/mail"
-	markstore "weave/internal/store/mark"
-	pullrequeststore "weave/internal/store/pullrequest"
 	rowstore "weave/internal/store/row"
-	schedulestore "weave/internal/store/schedule"
-	workflowstore "weave/internal/store/workflow"
 	"weave/proto/gen/watch/v1/watchv1connect"
 	watchv1weave "weave/proto/gen/watch/v1/watchv1weave"
 
@@ -44,39 +41,30 @@ type agentStore struct {
 	listErr error
 }
 
-func (s agentStore) List(context.Context) ([]rowstore.Row, error) {
-	if s.listErr != nil {
+func (s agentStore) ListWatched(_ context.Context, keys []string) ([]rowstore.Row, error) {
+	if keys == nil && s.listErr != nil {
 		return nil, s.listErr
 	}
 
-	return xslice.Map(s.ids, func(id string) rowstore.Row {
+	ids := s.ids
+	if keys != nil {
+		ids = xslice.Filter(keys, func(key string) bool { return !strings.HasPrefix(key, "gone-") })
+	}
+
+	return xslice.Map(ids, func(id string) rowstore.Row {
 		return rowstore.Row{Agent: agentstore.Agent{ID: id}}
 	}), nil
 }
 
-func (s agentStore) ListByKey(ctx context.Context, keys []string) ([]rowstore.Row, error) {
-	kept := xslice.Filter(keys, func(key string) bool { return !strings.HasPrefix(key, "gone-") })
-
-	return agentStore{ids: kept}.List(ctx)
-}
-
-// emptyStore is a resource no test here writes to.
-type emptyStore[R any] struct{}
-
-func (emptyStore[R]) List(context.Context) ([]R, error) { return nil, nil }
-
-func (emptyStore[R]) ListByKey(context.Context, []string) ([]R, error) { return nil, nil }
-
 // newRows is the read-back the broker renders through, over the agents a test names.
 func newRows(agents agentStore) *watch.Rows {
-	return watch.NewRows(watch.NewRowsParams{Stores: watch.Stores{
-		Agents:       agents,
-		Workflows:    emptyStore[workflowstore.Workflow]{},
-		Schedules:    emptyStore[schedulestore.Schedule]{},
-		Marks:        emptyStore[markstore.Mark]{},
-		Mail:         emptyStore[mailstore.Mail]{},
-		PullRequests: emptyStore[pullrequeststore.PullRequest]{},
-	}})
+	return watch.NewRows([]watch.Loader{
+		watch.NewLoader(watchv1.Resource_RESOURCE_AGENT, agents, func(row rowstore.Row) (string, *watchv1.Row) {
+			agent := render.WatchedAgent(row)
+
+			return agent.GetId(), &watchv1.Row{Row: &watchv1.Row_Agent{Agent: agent}}
+		}),
+	})
 }
 
 // served is a watch service on a test server over a database of the test's own, with the log
@@ -96,7 +84,11 @@ func serve(t *testing.T, agents agentStore, heartbeat time.Duration) *served {
 	t.Cleanup(func() { _ = st.Close() })
 	pool := st.GetRawPool()
 
-	broker := watch.NewBroker(watch.NewBrokerParams{Pool: pool, Rows: newRows(agents)})
+	broker := watch.NewBroker(watch.NewBrokerParams{
+		Pool:      pool,
+		Rows:      newRows(agents),
+		Resources: watched.All(),
+	})
 	require.NoError(t, broker.Start())
 	t.Cleanup(broker.Close)
 

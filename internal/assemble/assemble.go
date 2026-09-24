@@ -16,68 +16,129 @@ import (
 	schedulev1 "weave/proto/gen/schedule/v1"
 	watchv1 "weave/proto/gen/watch/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
+	worktreev1 "weave/proto/gen/worktree/v1"
 )
 
 // World is every resource a caller holds, by key.
 type World struct {
-	Agents       map[string]*agentv1.Agent
-	Workflows    map[string]*workflowv1.Workflow
-	Schedules    map[string]*schedulev1.Schedule
-	Marks        map[string]*agentv1.Mark
-	Mail         map[string]*agentv1.Mail
-	PullRequests map[string]*pullrequestv1.PullRequest
+	Agents        map[string]*agentv1.Agent
+	Workflows     map[string]*workflowv1.Workflow
+	Schedules     map[string]*schedulev1.Schedule
+	Marks         map[string]*agentv1.Mark
+	Mail          map[string]*agentv1.Mail
+	PullRequests  map[string]*pullrequestv1.PullRequest
+	Repositories  map[string]*pullrequestv1.Repository
+	Reviews       map[string]*agentv1.WatchedReview
+	ReviewThreads map[string]*agentv1.ReviewThread
+	Worktrees     map[string]*worktreev1.WatchedWorktree
 }
 
-// Apply puts or drops the rows one message names, and reports the agents whose key or branch it
-// had not seen.
-func (w *World) Apply(msg *watchv1.WatchEvent) (arrived []string) {
+// Changed is the keys a message put or dropped, by resource.
+type Changed struct {
+	// Replaced is whether a snapshot replaced the world whole.
+	Replaced bool
+	Keys     map[watchv1.Resource][]string
+}
+
+// Merge folds a later change into this one, a snapshot discarding what came before it.
+func (c *Changed) Merge(later Changed) {
+	if later.Replaced {
+		*c = Changed{Replaced: true}
+	}
+	for resource, keys := range later.Keys {
+		for _, key := range keys {
+			c.add(resource, key)
+		}
+	}
+}
+
+func (c *Changed) add(resource watchv1.Resource, key string) {
+	if resource == watchv1.Resource_RESOURCE_UNSPECIFIED {
+		return
+	}
+	if c.Keys == nil {
+		c.Keys = map[watchv1.Resource][]string{}
+	}
+	c.Keys[resource] = append(c.Keys[resource], key)
+}
+
+// Apply puts or drops the rows one message names, and reports the keys it touched.
+func (w *World) Apply(msg *watchv1.WatchEvent) Changed {
+	var changed Changed
 	switch msg := msg.GetEvent().(type) {
 	case *watchv1.WatchEvent_Snapshot:
 		*w = World{}
+		changed.Replaced = true
 		for _, row := range msg.Snapshot.GetRows() {
-			w.Put(row)
+			changed.add(w.put(row))
 		}
 	case *watchv1.WatchEvent_Changes:
 		for _, row := range msg.Changes.GetPuts() {
-			arrived = append(arrived, w.Put(row)...)
+			changed.add(w.put(row))
 		}
 		for _, deleted := range msg.Changes.GetDeleted() {
 			w.drop(deleted)
+			changed.add(deleted.GetResource(), deleted.GetKey())
 		}
 	case *watchv1.WatchEvent_Heartbeat, nil:
 	}
 
-	return arrived
+	return changed
 }
 
-// Put holds one row, reporting the agent when it is one whose key or branch the world had not
-// seen, or one coming back from the archive.
-func (w *World) Put(row *watchv1.Row) (arrived []string) {
+// Put holds one row.
+func (w *World) Put(row *watchv1.Row) {
+	w.put(row)
+}
+
+func (w *World) put(row *watchv1.Row) (watchv1.Resource, string) {
 	w.ensureMaps()
 
 	switch row := row.GetRow().(type) {
 	case *watchv1.Row_Agent:
-		held, ok := w.Agents[row.Agent.GetId()]
 		w.Agents[row.Agent.GetId()] = row.Agent
 
-		isRestored := held.GetArchivedAt() != "" && row.Agent.GetArchivedAt() == ""
-		if !ok || isRestored || held.GetRepositoryUrl() != row.Agent.GetRepositoryUrl() || held.GetBranch() != row.Agent.GetBranch() {
-			return []string{row.Agent.GetId()}
-		}
+		return watchv1.Resource_RESOURCE_AGENT, row.Agent.GetId()
 	case *watchv1.Row_Workflow:
 		w.Workflows[row.Workflow.GetId()] = row.Workflow
+
+		return watchv1.Resource_RESOURCE_WORKFLOW, row.Workflow.GetId()
 	case *watchv1.Row_Schedule:
 		w.Schedules[row.Schedule.GetId()] = row.Schedule
+
+		return watchv1.Resource_RESOURCE_SCHEDULE, row.Schedule.GetId()
 	case *watchv1.Row_Mark:
 		w.Marks[row.Mark.GetId()] = row.Mark
+
+		return watchv1.Resource_RESOURCE_MARK, row.Mark.GetId()
 	case *watchv1.Row_Mail:
 		w.Mail[row.Mail.GetId()] = row.Mail
+
+		return watchv1.Resource_RESOURCE_MAIL, row.Mail.GetId()
 	case *watchv1.Row_PullRequest:
 		w.PullRequests[row.PullRequest.GetId()] = row.PullRequest
+
+		return watchv1.Resource_RESOURCE_PULL_REQUEST, row.PullRequest.GetId()
+	case *watchv1.Row_Repository:
+		w.Repositories[row.Repository.GetUrl()] = row.Repository
+
+		return watchv1.Resource_RESOURCE_REPOSITORY, row.Repository.GetUrl()
+	case *watchv1.Row_Review:
+		w.Reviews[row.Review.GetId()] = row.Review
+
+		return watchv1.Resource_RESOURCE_REVIEW, row.Review.GetId()
+	case *watchv1.Row_ReviewThread:
+		w.ReviewThreads[row.ReviewThread.GetId()] = row.ReviewThread
+
+		return watchv1.Resource_RESOURCE_REVIEW_THREAD, row.ReviewThread.GetId()
+	case *watchv1.Row_Worktree:
+		w.Worktrees[row.Worktree.GetDir()] = row.Worktree
+
+		return watchv1.Resource_RESOURCE_WORKTREE, row.Worktree.GetDir()
 	case nil:
 	}
 
-	return nil
+	return watchv1.Resource_RESOURCE_UNSPECIFIED, ""
 }
 
 func (w *World) ensureMaps() {
@@ -99,6 +160,18 @@ func (w *World) ensureMaps() {
 	if w.PullRequests == nil {
 		w.PullRequests = map[string]*pullrequestv1.PullRequest{}
 	}
+	if w.Repositories == nil {
+		w.Repositories = map[string]*pullrequestv1.Repository{}
+	}
+	if w.Reviews == nil {
+		w.Reviews = map[string]*agentv1.WatchedReview{}
+	}
+	if w.ReviewThreads == nil {
+		w.ReviewThreads = map[string]*agentv1.ReviewThread{}
+	}
+	if w.Worktrees == nil {
+		w.Worktrees = map[string]*worktreev1.WatchedWorktree{}
+	}
 }
 
 func (w *World) drop(deleted *watchv1.Deleted) {
@@ -116,16 +189,25 @@ func (w *World) drop(deleted *watchv1.Deleted) {
 		delete(w.Mail, key)
 	case watchv1.Resource_RESOURCE_PULL_REQUEST:
 		delete(w.PullRequests, key)
+	case watchv1.Resource_RESOURCE_REPOSITORY:
+		delete(w.Repositories, key)
+	case watchv1.Resource_RESOURCE_REVIEW:
+		delete(w.Reviews, key)
+	case watchv1.Resource_RESOURCE_REVIEW_THREAD:
+		delete(w.ReviewThreads, key)
+	case watchv1.Resource_RESOURCE_WORKTREE:
+		delete(w.Worktrees, key)
 	case watchv1.Resource_RESOURCE_UNSPECIFIED:
 	}
 }
 
-// AgentRows draws every agent in the world with its mark, its unread mail and its pull
-// requests, newest first.
+// AgentRows draws every agent in the world with its mark, its unread mail, its pull requests
+// and where the local review of its work stands, newest first.
 func AgentRows(w World, now time.Time) []*agentv1.AgentRow {
 	marks := Marks(w)
 	unread := getAgentsWithUnreadMail(w.Mail, now)
 	onBranch := groupPullRequestsByBranch(w.PullRequests)
+	reviewed := groupReviewsByAgent(w.Reviews)
 
 	rows := make([]*agentv1.AgentRow, 0, len(w.Agents))
 	for _, agent := range w.Agents {
@@ -134,12 +216,13 @@ func AgentRows(w World, now time.Time) []*agentv1.AgentRow {
 		row := &agentv1.AgentRow{
 			Agent:        agent,
 			UnreadMail:   unread[agent.GetId()],
-			PullRequest:  calculatePullRequestStanding(agent, pullRequests),
+			PullRequest:  calculatePullRequestStanding(agent, w.Repositories[agent.GetRepositoryUrl()], pullRequests),
 			PullRequests: pullRequests,
 		}
 		if mark, ok := marks[agent.GetId()]; ok {
 			row.Mark = &mark
 		}
+		setLocalReview(row, reviewed[agent.GetId()])
 
 		rows = append(rows, row)
 	}
@@ -226,10 +309,10 @@ func finishedRank(pullRequest *pullrequestv1.PullRequest) int {
 // calculatePullRequestStanding is where an agent's pull request stands: unread until the sync
 // has looked at the repository, none when it has and found nothing on the branch or the agent
 // has moved past a finished one, else the current one.
-func calculatePullRequestStanding(agent *agentv1.Agent, pullRequests []*pullrequestv1.PullRequest) *agentv1.PullRequestStanding {
+func calculatePullRequestStanding(agent *agentv1.Agent, repository *pullrequestv1.Repository, pullRequests []*pullrequestv1.PullRequest) *agentv1.PullRequestStanding {
 	if len(pullRequests) == 0 {
 		state := pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNREAD
-		if agent.GetRepositoryRead() {
+		if repository.GetRead() {
 			state = pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE
 		}
 

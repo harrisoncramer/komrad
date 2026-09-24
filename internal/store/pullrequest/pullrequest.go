@@ -167,48 +167,6 @@ func (s *PullRequestStore) GetByIdentity(ctx context.Context, host, providerID s
 	return &pullRequest, nil
 }
 
-// ListForAgents is every pull request opened from the branch any of the given agents is on, in
-// its repository.
-func (s *PullRequestStore) ListForAgents(ctx context.Context, agentIDs []string) ([]PullRequest, error) {
-	storable := store.KeepIDs(agentIDs)
-	if len(storable) == 0 {
-		return nil, nil
-	}
-
-	rows, err := s.queries.ListPullRequestsOfAgents(ctx, storable)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list the pull requests of %d agents: %w", len(storable), err)
-	}
-
-	return xslice.Map(rows, fromRow), nil
-}
-
-// List is every pull request opened from a branch an agent, live or archived, is on in its repository.
-func (s *PullRequestStore) List(ctx context.Context) ([]PullRequest, error) {
-	rows, err := s.queries.SnapshotPullRequests(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list the pull requests on agent branches: %w", err)
-	}
-
-	return xslice.Map(rows, fromRow), nil
-}
-
-// ListByKey returns whichever of the given ids hold a pull request opened from a branch an agent,
-// live or archived, is on.
-func (s *PullRequestStore) ListByKey(ctx context.Context, ids []string) ([]PullRequest, error) {
-	storable := store.KeepIDs(ids)
-	if len(storable) == 0 {
-		return nil, nil
-	}
-
-	rows, err := s.queries.ListPullRequestsByKey(ctx, storable)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list %d pull requests: %w", len(storable), err)
-	}
-
-	return xslice.Map(rows, fromRow), nil
-}
-
 // Cursor is where a page of pull requests left off: whether the last was finished, when it
 // was opened and its id.
 type Cursor struct {
@@ -288,9 +246,9 @@ func (s *PullRequestStore) SetStanding(ctx context.Context, id string, standing 
 	return nil
 }
 
-// Observe records every live agent beside every stored pull request opened from its branch in
-// its repository, inserting a pair not seen before and moving last_seen_at on one seen more than
-// an hour ago, and answers how many rows it wrote.
+// Observe records every agent not being deleted beside every stored pull request opened from
+// its branch in its repository, inserting a pair not seen before and moving last_seen_at on one
+// seen more than an hour ago, and answers how many rows it wrote.
 func (s *PullRequestStore) Observe(ctx context.Context) (int64, error) {
 	written, err := s.queries.ObserveAgentPullRequests(ctx)
 	if err != nil {
@@ -300,15 +258,16 @@ func (s *PullRequestStore) Observe(ctx context.Context) (int64, error) {
 	return written, nil
 }
 
-// ListObservations is every pull request an agent has been seen with, oldest first.
-func (s *PullRequestStore) ListObservations(ctx context.Context, agentID string) ([]Observation, error) {
-	if !store.IsID(agentID) {
-		return nil, store.ErrNotFound.Saying("no agent with id %q", agentID)
+// ListObservations is every pull request any of the given agents has been seen with, oldest first.
+func (s *PullRequestStore) ListObservations(ctx context.Context, agentIDs []string) ([]Observation, error) {
+	storable := store.KeepIDs(agentIDs)
+	if len(storable) == 0 {
+		return nil, nil
 	}
 
-	rows, err := s.queries.ListAgentPullRequests(ctx, agentID)
+	rows, err := s.queries.ListAgentPullRequests(ctx, storable)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list the pull requests agent %q was seen with: %w", agentID, err)
+		return nil, fmt.Errorf("failed to list the pull requests %d agents were seen with: %w", len(storable), err)
 	}
 
 	return xslice.Map(rows, func(row *models.AgentPullRequest) Observation {

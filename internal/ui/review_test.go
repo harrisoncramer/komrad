@@ -14,6 +14,7 @@ import (
 	"weave/internal/ui/panel"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
+	watchv1 "weave/proto/gen/watch/v1"
 
 	"connectrpc.com/connect"
 	tea "github.com/charmbracelet/bubbletea"
@@ -318,6 +319,7 @@ func reviewAgent(dir string) panel.Agent {
 func loadReviewMsg(t *testing.T, m model) reviewLoadedMsg {
 	t.Helper()
 
+	holdServedThreads(&m)
 	cmd := m.enterReview(reviewAgent(m.listing.agents[0].Agent.Cwd))
 	require.NotNil(t, cmd)
 
@@ -343,6 +345,7 @@ func openReview(t *testing.T, m model) model {
 func enterReview(t *testing.T, m model) model {
 	t.Helper()
 
+	holdServedThreads(&m)
 	cmd := m.enterReview(reviewAgent(m.listing.agents[0].Agent.Cwd))
 	require.NotNil(t, cmd)
 
@@ -571,7 +574,8 @@ func TestReviewSidebarShowsTheThread(t *testing.T) {
 		}},
 	}}
 
-	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1", threads: agents.threads})
+	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1"})
+	streamThreads(t, &m, agents.threads)
 
 	shown := ansi.Strip(m.review.view(m.shared()))
 	assert.Contains(t, shown, "Review · auth")
@@ -650,7 +654,8 @@ func TestReviewJumpsToASingleThread(t *testing.T) {
 		NewStart:    int32(anchor.NewStart),
 		QuotedLines: anchor.QuotedLines,
 	}}
-	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1", threads: agents.threads})
+	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1"})
+	streamThreads(t, &m, agents.threads)
 
 	next, _ := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("t")})
 	m = next.(model)
@@ -681,7 +686,8 @@ func TestReviewAdriftThreadIsReachable(t *testing.T) {
 			Body:       "still worth reading",
 		}},
 	}}
-	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1", threads: agents.threads})
+	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1"})
+	streamThreads(t, &m, agents.threads)
 
 	next, _ := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("t")})
 	m = next.(model)
@@ -711,7 +717,8 @@ func TestReviewAdriftThreadTakesAReply(t *testing.T) {
 		QuotedLines: []string{"+what this used to say"},
 		Messages:    []*agentv1.ReviewMessage{{Id: "m1", Body: "why did this go?"}},
 	}}
-	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1", threads: agents.threads})
+	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1"})
+	streamThreads(t, &m, agents.threads)
 
 	next, _ := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("t")})
 	m = next.(model)
@@ -763,7 +770,8 @@ func TestReviewViewNeverOutgrowsThePane(t *testing.T) {
 		})
 	}
 
-	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1", threads: threads})
+	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1"})
+	streamThreads(t, &m, threads)
 
 	for _, pane := range []int{10, 12, 24, 50} {
 		for _, composing := range []bool{false, true} {
@@ -811,7 +819,8 @@ func TestReviewThreadScrollsToItsStart(t *testing.T) {
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1", threads: reviewLongThread(t, m)})
+	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1"})
+	streamThreads(t, &m, reviewLongThread(t, m))
 	m.height = 14
 
 	require.NotContains(t, ansi.Strip(m.review.view(m.shared())), "note 0", "the start of the thread is off the sidebar")
@@ -860,7 +869,8 @@ func TestReviewScrollKeysMoveTheThreadWhileItHoldsTheKeys(t *testing.T) {
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
 	m = openReview(t, m)
 
-	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1", threads: reviewLongThread(t, m)})
+	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1"})
+	streamThreads(t, &m, reviewLongThread(t, m))
 	m.height = 14
 
 	next, _ := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyCtrlF})
@@ -890,7 +900,8 @@ func TestReviewThreadCursorMoveDropsTheScroll(t *testing.T) {
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1", threads: reviewLongThread(t, m)})
+	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1"})
+	streamThreads(t, &m, reviewLongThread(t, m))
 	m.height = 14
 
 	next, _ := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyCtrlF})
@@ -916,7 +927,8 @@ func TestReviewThreadWindowNeverOutgrowsThePane(t *testing.T) {
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1", threads: reviewLongThread(t, m)})
+	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1"})
+	streamThreads(t, &m, reviewLongThread(t, m))
 	m.height = 14
 	m.review.threads.focus = true
 
@@ -1031,7 +1043,8 @@ func TestReviewRepliesInAThread(t *testing.T) {
 			Body:       "renamed it, is that what you meant?",
 		}},
 	}}
-	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1", threads: agents.threads})
+	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1"})
+	streamThreads(t, &m, agents.threads)
 
 	m.helpExpanded, m.height = true, 40
 	assert.Contains(t, ansi.Strip(m.review.view(m.shared())), "reply in this thread",
@@ -1148,7 +1161,7 @@ func TestReviewDeliveryViewCountsTheComments(t *testing.T) {
 				agentID: "a1",
 				threads: reviewThreads{
 					list:     tt.threads,
-					activity: reviewActivityOf(tt.threads),
+					delivery: countDeliveries(tt.threads),
 				},
 			}}
 
@@ -1234,7 +1247,8 @@ func TestSettlingAThreadIsWhatQuietsIt(t *testing.T) {
 		QuotedLines: anchor.QuotedLines,
 		Messages:    []*agentv1.ReviewMessage{{Id: "m1", Body: "why did this change?"}},
 	}}
-	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1", threads: agents.threads})
+	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1"})
+	streamThreads(t, &m, agents.threads)
 
 	next, cmd := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("r")})
 	m = next.(model)
@@ -1244,6 +1258,7 @@ func TestSettlingAThreadIsWhatQuietsIt(t *testing.T) {
 	require.True(t, ok)
 	require.NoError(t, wrote.err)
 	m.review.applyWrote(&m, m.shared(), wrote)
+	streamServed(&m)
 
 	require.NotNil(t, agents.settled)
 	assert.Equal(t, "t1", agents.settled.GetId())
@@ -1260,6 +1275,7 @@ func TestSettlingAThreadIsWhatQuietsIt(t *testing.T) {
 	wrote, ok = cmd().(reviewWroteMsg)
 	require.True(t, ok)
 	m.review.applyWrote(&m, m.shared(), wrote)
+	streamServed(&m)
 
 	assert.False(t, agents.settled.GetResolved())
 }
@@ -1280,7 +1296,8 @@ func TestSettlingSurvivesTheCodeMoving(t *testing.T) {
 		QuotedLines: []string{"+what this used to say"},
 		Messages:    []*agentv1.ReviewMessage{{Id: "m1", Body: "why did this go?"}},
 	}}
-	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1", threads: agents.threads})
+	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1"})
+	streamThreads(t, &m, agents.threads)
 
 	next, _ := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("t")})
 	m = next.(model)
@@ -1292,6 +1309,7 @@ func TestSettlingSurvivesTheCodeMoving(t *testing.T) {
 	wrote, ok := cmd().(reviewWroteMsg)
 	require.True(t, ok)
 	m.review.applyWrote(&m, m.shared(), wrote)
+	streamServed(&m)
 
 	require.NotNil(t, agents.settled, "a thread that came adrift settles like any other")
 	assert.Equal(t, "t1", agents.settled.GetId())
@@ -1329,13 +1347,15 @@ func TestDeletingAnAdriftThreadLeavesTheCursorInTheDiff(t *testing.T) {
 		QuotedLines: []string{"+what this used to say"},
 		Messages:    []*agentv1.ReviewMessage{{Id: "m1", Body: "why did this go?"}},
 	}}
-	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1", threads: agents.threads})
+	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1"})
+	streamThreads(t, &m, agents.threads)
 
 	next, _ := m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("t")})
 	m = next.(model)
 	require.Equal(t, m.review.diff.view.GetLastRow(), m.review.diff.cursor)
 
-	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1", threads: nil})
+	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1"})
+	streamThreads(t, &m, nil)
 
 	assert.LessOrEqual(t, m.review.diff.cursor, m.review.diff.view.GetLastRow(), "the cursor stays on a row that exists")
 	assert.NotPanics(t, func() { m.review.scrollToCursor(m.shared()) })
@@ -1544,7 +1564,8 @@ func TestReviewFileJumpSurvivesARepaint(t *testing.T) {
 	m = next.(model)
 	assert.Equal(t, pinned, m.review.diff.top, "panning redraws the same rows and must not move them")
 
-	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1", threads: nil})
+	m.review.applyWrote(&m, m.shared(), reviewWroteMsg{agentID: "a1"})
+	streamThreads(t, &m, nil)
 	assert.Equal(t, pinned, m.review.diff.top, "and neither does a write landing")
 
 	next, _ = m.routeScreenMessage(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("k")})
@@ -1799,6 +1820,7 @@ func standOnAFinishedRound(m model) model {
 func pressReviewBase(t *testing.T, m model) model {
 	t.Helper()
 
+	holdServedThreads(&m)
 	next, cmd := m.routeScreenMessage(keyMsg("<"))
 	m = next.(model)
 	require.NotNil(t, cmd, "the base key reloads the diff")
@@ -1972,4 +1994,73 @@ func typeReviewMessage(t *testing.T, m model, words string) model {
 // reviewHelp is the review legend as the frame draws it.
 func (m model) reviewHelp() keyMap {
 	return m.review.help(m.shared())
+}
+
+// holdServedThreads puts what the fake server holds of the review into the world, as the watch
+// would.
+func holdServedThreads(m *model) {
+	if fake, ok := m.api.agents.(*fakeReviewAgents); ok {
+		holdThreads(m, fake.threads)
+		holdReviews(m, fake.reviews)
+	}
+}
+
+// streamServed is the watch delivering what the fake server holds of the review, and the screen
+// following it.
+func streamServed(m *model) {
+	fake, ok := m.api.agents.(*fakeReviewAgents)
+	if !ok {
+		return
+	}
+
+	holdThreads(m, fake.threads)
+	holdReviews(m, fake.reviews)
+	m.review.followWorld(m.shared())
+}
+
+// holdReviews puts the reviews the fake server holds into the world, as the watch carries them.
+func holdReviews(m *model, reviews []*agentv1.Review) {
+	for _, review := range reviews {
+		agentID := review.GetAgentId()
+		if agentID == "" {
+			agentID = m.listing.agents[0].Agent.ID
+		}
+
+		m.listing.world.Put(&watchv1.Row{Row: &watchv1.Row_Review{Review: &agentv1.WatchedReview{
+			Id:           review.GetId(),
+			AgentId:      agentID,
+			RoundId:      review.GetRoundId(),
+			RoundOrdinal: review.GetRoundOrdinal(),
+			AuthorKind:   review.GetAuthorKind(),
+			Verdict:      review.GetVerdict(),
+			ReleasedAt:   review.GetReleasedAt(),
+			DeliveredAt:  review.GetDeliveredAt(),
+		}}})
+	}
+}
+
+// holdThreads replaces the conversation the world holds on the agent under review.
+func holdThreads(m *model, threads []*agentv1.ReviewThread) {
+	agentID := m.listing.agents[0].Agent.ID
+	for id, held := range m.listing.world.ReviewThreads {
+		if held.GetAgentId() == agentID {
+			delete(m.listing.world.ReviewThreads, id)
+		}
+	}
+
+	for _, thread := range threads {
+		if thread.GetAgentId() == "" {
+			thread.AgentId = agentID
+		}
+
+		m.listing.world.Put(&watchv1.Row{Row: &watchv1.Row_ReviewThread{ReviewThread: thread}})
+	}
+}
+
+// streamThreads is the watch delivering the conversation after a write, and the screen following it.
+func streamThreads(t *testing.T, m *model, threads []*agentv1.ReviewThread) {
+	t.Helper()
+
+	holdThreads(m, threads)
+	m.review.followWorld(m.shared())
 }

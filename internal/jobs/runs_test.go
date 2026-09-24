@@ -105,8 +105,8 @@ func TestRunFromJob(t *testing.T) {
 	}
 }
 
-// TestNotifyFinishedRun covers the watch being told only about launch jobs.
-func TestNotifyFinishedRun(t *testing.T) {
+// TestSignalFinishedRun covers the watch being signaled only about launch jobs.
+func TestSignalFinishedRun(t *testing.T) {
 	tests := []struct {
 		name  string
 		event *river.Event
@@ -135,12 +135,12 @@ func TestNotifyFinishedRun(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			notifier := &fakeNotifier{notified: make(chan string, 1)}
-			notifyFinishedRun(t.Context(), tt.event, notifier, nil)
-			close(notifier.notified)
+			signaler := &fakeSignaler{signaled: make(chan string, 1)}
+			signalFinishedRun(t.Context(), tt.event, signaler, nil)
+			close(signaler.signaled)
 
 			var got []string
-			for id := range notifier.notified {
+			for id := range signaler.signaled {
 				got = append(got, id)
 			}
 

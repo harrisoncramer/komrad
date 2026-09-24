@@ -68,6 +68,28 @@ message Worktree {
   WorktreeFate fate = 11;
 }
 
+// WatchedWorktree is a worktree as the filesystem holds it.
+message WatchedWorktree {
+  // The directory, absolute.
+  string dir = 1;
+  // The repository the worktree was cut from.
+  string repo_dir = 2;
+  // The branch the directory's HEAD names, empty when it is detached or unreadable.
+  string branch = 3;
+  // Whether the gitdir the .git file names is still there.
+  bool readable = 4;
+  // The disk the directory takes, in bytes, unset until it has been measured and while the last
+  // walk failed.
+  optional int64 size_bytes = 5;
+  // When the size was last measured, or last failed to be, in RFC 3339.
+  optional string measured_at = 6;
+  // When git last wrote the directory's .git file, else the directory's own modification time,
+  // in RFC 3339, empty when neither could be read.
+  string modified_at = 7;
+  // Why the last walk failed, empty when it did not.
+  string size_error = 8;
+}
+
 message ListWorktreesResponse {
   // Every directory under the worktree directories, in no particular order.
   repeated Worktree worktrees = 1;

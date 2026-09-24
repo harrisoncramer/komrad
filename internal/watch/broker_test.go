@@ -8,7 +8,7 @@ import (
 
 	"weave/lib/xslice"
 
-	workflowstore "weave/internal/store/workflow"
+	watchv1 "weave/proto/gen/watch/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -22,7 +22,11 @@ const settle = 20 * time.Millisecond
 func newTestBroker(t *testing.T, stores *fakeStores) *Broker {
 	t.Helper()
 
-	broker := NewBroker(NewBrokerParams{Rows: newRows(stores), PassGap: time.Microsecond})
+	broker := NewBroker(NewBrokerParams{
+		Rows:      newRows(stores),
+		Resources: testResources,
+		PassGap:   time.Microsecond,
+	})
 	broker.up()
 	t.Cleanup(broker.Close)
 
@@ -40,21 +44,20 @@ func TestPendingKeysPileUpBehindOneRead(t *testing.T) {
 	require.NoError(t, err)
 
 	stores.agents.put(agentRow("held"), agentRow("a"), agentRow("b"))
-	broker.markPending("agents", "held")
+	broker.Signal(watchv1.Resource_RESOURCE_AGENT, "held")
 	require.Eventually(t, func() bool { return len(stores.agents.reads()) == 1 }, time.Second, time.Millisecond)
 
-	broker.markPending("agents", "b")
-	broker.markPending("agents", "a")
-	broker.markPending("agents", "a")
-	broker.markPending("workflows", "w")
-	broker.markPending("schedules", "s")
+	broker.Signal(watchv1.Resource_RESOURCE_AGENT, "b")
+	broker.Signal(watchv1.Resource_RESOURCE_AGENT, "a")
+	broker.Signal(watchv1.Resource_RESOURCE_AGENT, "a")
+	broker.Signal(watchv1.Resource_RESOURCE_WORKFLOW, "w")
 	close(stores.agents.held)
 
 	require.Equal(t, []string{"held"}, keysInPass(waitForNextPass(t, subscription)))
 	pass := waitForNextPass(t, subscription)
 
 	assert.Equal(t, [][]string{{"held"}, {"a", "b"}}, stores.agents.reads(), "the keys pending behind the held read are one read")
-	require.Equal(t, []string{"a", "b", "w", "s"}, keysInPass(pass), "everything pending behind the held read is one pass")
+	require.Equal(t, []string{"a", "b", "w"}, keysInPass(pass), "everything pending behind the held read is one pass")
 	assert.NotNil(t, pass[0].Row)
 	assert.Nil(t, pass[2].Row, "a key the watcher never held is still sent as gone")
 	assert.Empty(t, drain(subscription))
@@ -71,12 +74,12 @@ func TestABurstIsOnePassAndKeepsTheWatcher(t *testing.T) {
 	require.NoError(t, err)
 
 	stores.agents.put(agentRow("held"))
-	broker.markPending("agents", "held")
+	broker.Signal(watchv1.Resource_RESOURCE_AGENT, "held")
 	require.Eventually(t, func() bool { return len(stores.agents.reads()) == 1 }, time.Second, time.Millisecond)
 
 	burst := 3 * subscriberBuffer
 	for i := range burst {
-		broker.markPending("pull_requests", fmt.Sprintf("pr-%d", i))
+		broker.Signal(watchv1.Resource_RESOURCE_WORKFLOW, fmt.Sprintf("w-%d", i))
 	}
 	close(stores.agents.held)
 
@@ -86,7 +89,7 @@ func TestABurstIsOnePassAndKeepsTheWatcher(t *testing.T) {
 	renamed := agentRow("held")
 	renamed.Name = "renamed"
 	stores.agents.put(renamed)
-	broker.markPending("agents", "held")
+	broker.Signal(watchv1.Resource_RESOURCE_AGENT, "held")
 	assert.Equal(t, []string{"held"}, keysInPass(waitForNextPass(t, subscription)), "and the watcher is still connected")
 }
 
@@ -102,11 +105,11 @@ func TestPassesAreSpacedByTheGap(t *testing.T) {
 	require.NoError(t, err)
 
 	stores.agents.put(agentRow("a"), agentRow("b"))
-	broker.markPending("agents", "a")
+	broker.Signal(watchv1.Resource_RESOURCE_AGENT, "a")
 	waitForNextPass(t, subscription)
 	first := time.Now()
 
-	broker.markPending("agents", "b")
+	broker.Signal(watchv1.Resource_RESOURCE_AGENT, "b")
 	waitForNextPass(t, subscription)
 
 	assert.GreaterOrEqual(t, time.Since(first), gap/2, "the second pass waits out the gap")
@@ -117,7 +120,7 @@ func TestNothingIsReadWithoutAWatcher(t *testing.T) {
 	stores := newStores()
 	broker := newTestBroker(t, stores)
 
-	broker.markPending("agents", "a")
+	broker.Signal(watchv1.Resource_RESOURCE_AGENT, "a")
 	time.Sleep(settle)
 
 	assert.Empty(t, stores.agents.reads())
@@ -135,10 +138,10 @@ func TestSubscriptionOpensWithTheSnapshot(t *testing.T) {
 
 	stores.agents.put(agentRow("a"))
 
-	broker.markPending("agents", "a")
+	broker.Signal(watchv1.Resource_RESOURCE_AGENT, "a")
 	require.Equal(t, []string{"a"}, keysInPass(waitForNextPass(t, first)))
 
-	stores.workflows.put(workflowstore.Workflow{ID: "w"})
+	stores.workflows.put(testRow{ID: "w"})
 
 	second, err := broker.Subscribe(t.Context())
 	require.NoError(t, err)
@@ -147,7 +150,7 @@ func TestSubscriptionOpensWithTheSnapshot(t *testing.T) {
 	renamed := agentRow("a")
 	renamed.Name = "renamed"
 	stores.agents.put(renamed)
-	broker.markPending("agents", "a")
+	broker.Signal(watchv1.Resource_RESOURCE_AGENT, "a")
 	assert.Equal(t, []string{"a"}, keysInPass(waitForNextPass(t, first)))
 	assert.Equal(t, []string{"a"}, keysInPass(waitForNextPass(t, second)))
 }
@@ -165,14 +168,14 @@ func TestATouchDuringTheSnapshotOnlyReachesWatchersWhoseSnapshotPredatesIt(t *te
 	stores.agents.put(agentRow("a"), agentRow("b"))
 
 	// The render is held part way, and a second watcher subscribes behind it.
-	broker.markPending("agents", "a")
+	broker.Signal(watchv1.Resource_RESOURCE_AGENT, "a")
 	require.Eventually(t, func() bool { return len(stores.agents.reads()) == 1 }, time.Second, time.Millisecond)
 
 	second, err := broker.Subscribe(t.Context())
 	require.NoError(t, err)
 	require.Len(t, second.Snapshot(), 2)
 
-	broker.markPending("agents", "b")
+	broker.Signal(watchv1.Resource_RESOURCE_AGENT, "b")
 	close(stores.agents.held)
 
 	assert.Equal(t, []string{"a"}, keysInPass(waitForNextPass(t, first)))
@@ -191,7 +194,7 @@ func TestARenderReadBeforeASnapshotSkipsItsWatcher(t *testing.T) {
 	require.NoError(t, err)
 
 	stores.agents.put(agentRow("a"))
-	broker.markPending("agents", "a")
+	broker.Signal(watchv1.Resource_RESOURCE_AGENT, "a")
 	require.Eventually(t, func() bool { return len(stores.agents.reads()) == 1 }, time.Second, time.Millisecond)
 
 	renamed := agentRow("a")
@@ -225,7 +228,7 @@ func TestASlowWatcherIsDropped(t *testing.T) {
 		row.Name = fmt.Sprintf("agent-a-%d", round)
 		stores.agents.put(row)
 
-		broker.markPending("agents", "a")
+		broker.Signal(watchv1.Resource_RESOURCE_AGENT, "a")
 		require.Eventually(t, func() bool {
 			return len(subscription.changes) == min(round+1, subscriberBuffer)
 		}, time.Second, time.Microsecond)
@@ -270,7 +273,7 @@ func TestCloseEndsEverySubscription(t *testing.T) {
 	_, err = broker.Subscribe(t.Context())
 	require.ErrorIs(t, err, ErrClosed)
 
-	broker.markPending("agents", "a")
+	broker.Signal(watchv1.Resource_RESOURCE_AGENT, "a")
 	subscription.Close()
 }
 
@@ -285,14 +288,14 @@ func TestAFailedReadIsRetriedWithTheNextOne(t *testing.T) {
 	require.NoError(t, err)
 
 	stores.agents.put(agentRow("a"), agentRow("b"))
-	broker.markPending("agents", "a")
+	broker.Signal(watchv1.Resource_RESOURCE_AGENT, "a")
 	require.Eventually(t, func() bool { return len(stores.agents.reads()) == 1 }, time.Second, time.Millisecond)
 
 	stores.agents.mu.Lock()
 	stores.agents.err = nil
 	stores.agents.mu.Unlock()
 
-	broker.markPending("agents", "b")
+	broker.Signal(watchv1.Resource_RESOURCE_AGENT, "b")
 	assert.Equal(t, []string{"a", "b"}, keysInPass(waitForNextPass(t, subscription)), "the key the failed read lost comes back beside the next")
 	assert.Equal(t, []string{"a", "b"}, stores.agents.reads()[1], "one read serves both")
 }
@@ -312,7 +315,7 @@ func TestClosingASubscriptionEndsItsStream(t *testing.T) {
 	_, open := <-subscription.Changes()
 	require.False(t, open)
 
-	broker.markPending("agents", "a")
+	broker.Signal(watchv1.Resource_RESOURCE_AGENT, "a")
 	time.Sleep(settle)
 	assert.Empty(t, stores.agents.reads(), "nothing is read once the last watcher has gone")
 }
@@ -325,7 +328,7 @@ func TestABrokerNeverStartedStillCloses(t *testing.T) {
 	_, err := broker.Subscribe(t.Context())
 	require.ErrorIs(t, err, ErrNotListening)
 
-	broker.markPending("agents", "a")
+	broker.Signal(watchv1.Resource_RESOURCE_AGENT, "a")
 	broker.Close()
 
 	_, err = broker.Subscribe(t.Context())
@@ -348,6 +351,25 @@ func TestHearReadsTheTableAndTheKey(t *testing.T) {
 
 	assert.Equal(t, []string{"a b"}, keysInPass(waitForNextPass(t, subscription)), "the key runs to the end of the payload")
 	assert.Equal(t, [][]string{{"a b"}}, stores.agents.reads())
+}
+
+// TestASignalForAResourceNothingReadsIsDropped pins that a resource with no loader never reaches
+// the render, and the pass carries only what is read.
+func TestASignalForAResourceNothingReadsIsDropped(t *testing.T) {
+	stores := newStores()
+	broker := newTestBroker(t, stores)
+
+	subscription, err := broker.Subscribe(t.Context())
+	require.NoError(t, err)
+
+	stores.agents.put(agentRow("a"))
+	broker.Signal(watchv1.Resource_RESOURCE_UNSPECIFIED, "u")
+	broker.Signal(watchv1.Resource_RESOURCE_REPOSITORY, "https://example.com/repo")
+	broker.Signal(watchv1.Resource_RESOURCE_AGENT, "a")
+
+	pass := waitForNextPass(t, subscription)
+	assert.Equal(t, []string{"a"}, keysInPass(pass))
+	assert.Equal(t, watchv1.Resource_RESOURCE_AGENT, pass[0].Resource)
 }
 
 // waitForNextPass waits for the next pass to reach a subscription.

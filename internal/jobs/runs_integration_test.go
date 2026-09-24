@@ -10,15 +10,16 @@ import (
 	"weave/internal/storetest"
 
 	schedulestore "weave/internal/store/schedule"
+	watchv1 "weave/proto/gen/watch/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// TestFinishedRunIsListedAndNotified covers a firing worked end to end: River finishes the job,
+// TestFinishedRunIsListedAndSignaled covers a firing worked end to end: River finishes the job,
 // the lister reads it back with the reason it was skipped, and the watch is told which schedule
 // moved.
-func TestFinishedRunIsListedAndNotified(t *testing.T) {
+func TestFinishedRunIsListedAndSignaled(t *testing.T) {
 	tests := []struct {
 		name        string
 		schedule    *schedulestore.Schedule
@@ -62,8 +63,8 @@ func TestFinishedRunIsListedAndNotified(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			notifier := &fakeNotifier{notified: make(chan string, 4)}
-			NotifyFinishedRuns(t.Context(), client, notifier, nil)
+			signaler := &fakeSignaler{signaled: make(chan string, 4)}
+			SignalFinishedRuns(t.Context(), client, signaler, nil)
 
 			require.NoError(t, client.Start(t.Context()))
 			t.Cleanup(func() { _ = client.Stop(context.WithoutCancel(t.Context())) })
@@ -73,10 +74,10 @@ func TestFinishedRunIsListedAndNotified(t *testing.T) {
 			require.NoError(t, err)
 
 			select {
-			case id := <-notifier.notified:
+			case id := <-signaler.signaled:
 				assert.Equal(t, "s1", id, "the watch is told which schedule's run finished")
 			case <-time.After(10 * time.Second):
-				t.Fatal("the finished run was never notified")
+				t.Fatal("the finished run was never signaled")
 			}
 
 			runs, err := NewRunLister(pool, schema)
@@ -102,12 +103,16 @@ func TestFinishedRunIsListedAndNotified(t *testing.T) {
 	}
 }
 
-type fakeNotifier struct {
-	notified chan string
+type fakeSignaler struct {
+	signaled chan string
 }
 
-func (f *fakeNotifier) SendScheduleChange(_ context.Context, scheduleID string) error {
-	f.notified <- scheduleID
+func (f *fakeSignaler) Signal(resource watchv1.Resource, keys ...string) {
+	if resource != watchv1.Resource_RESOURCE_SCHEDULE {
+		return
+	}
 
-	return nil
+	for _, key := range keys {
+		f.signaled <- key
+	}
 }

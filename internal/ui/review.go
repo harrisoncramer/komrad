@@ -85,7 +85,7 @@ func (r reviewScreen) isDiffFocused(s panelShared) bool {
 func (r *reviewScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
 	cmd := r.route(h, s, msg)
 
-	return tea.Batch(cmd, r.catchUp(s))
+	return tea.Batch(cmd, r.followWorld(s))
 }
 
 func (r *reviewScreen) route(h host, s panelShared, msg tea.Msg) tea.Cmd {
@@ -96,12 +96,6 @@ func (r *reviewScreen) route(h host, s panelShared, msg tea.Msg) tea.Cmd {
 		return r.applyPaused(h, s, msg)
 	case reviewWroteMsg:
 		return r.applyWrote(h, s, msg)
-	case reviewRefreshedMsg:
-		r.applyRefreshed(h, s, msg)
-
-		return nil
-	case reviewWorktreeHashedMsg:
-		return r.applyWorktreeHashed(s, msg)
 	case messageEditedMsg:
 		r.applyMessageEdited(h, s, msg)
 

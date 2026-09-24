@@ -112,6 +112,34 @@ message Review {
   int32 open_threads = 14;
 }
 
+// WatchedReview is a review as the watch carries it, without its body.
+message WatchedReview {
+  // The handle the threads in this batch name it by.
+  string id = 1;
+  // Whose work is being read.
+  string agent_id = 2;
+  // The snapshot the batch was written against.
+  string round_id = 3;
+  // Which round that is, counting from one.
+  int32 round_ordinal = 4;
+  // The commit that round froze the agent's checkout as.
+  string round_snapshot_sha = 5;
+  // Whether a person or an agent wrote it.
+  ReviewAuthorKind author_kind = 6;
+  // The agent giving the review, absent when the person reviewing is.
+  optional string author_agent_id = 7;
+  // What the author concluded, unspecified while the review is still open.
+  ReviewVerdict verdict = 8;
+  // When the review was let go of, empty while it is still open.
+  string released_at = 9;
+  // When the agent claimed the mail that told it the review was waiting.
+  string delivered_at = 10;
+  // When the batch was opened.
+  string created_at = 11;
+  // When anything in it last moved.
+  string updated_at = 12;
+}
+
 // ReviewThread is one conversation pinned to a place in a round of an agent's diff.
 message ReviewThread {
   // The handle a reply or a resolve names this thread by.

@@ -23,7 +23,6 @@ import (
 	"weave/internal/ui/layout"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	"weave/proto/gen/hook/v1/hookv1connect"
-	"weave/proto/gen/pullrequest/v1/pullrequestv1connect"
 	schedulev1connect "weave/proto/gen/schedule/v1/schedulev1connect"
 	"weave/proto/gen/watch/v1/watchv1connect"
 	"weave/proto/gen/workflow/v1/workflowv1connect"
@@ -150,8 +149,6 @@ type ReviewGit interface {
 	MapRanges(ctx context.Context, params git.MapRangesParams) ([]position.Mapping, error)
 	Replay(ctx context.Context, params git.ReplayParams) (*git.Replayed, error)
 	IsAncestor(ctx context.Context, dir, maybeAncestor, of string) (bool, error)
-	ProbeTree(ctx context.Context, dir string) (string, error)
-	GetTree(ctx context.Context, dir, sha string) (string, error)
 	GetRoot(ctx context.Context, dir string) (string, error)
 	Diff(ctx context.Context, params git.DiffParams) ([]byte, error)
 	ReadFiles(ctx context.Context, dir string, revisions []git.FileRevision) (map[git.FileRevision][]byte, error)
@@ -191,7 +188,6 @@ type Deps struct {
 	Schedules       schedulev1connect.ScheduleServiceClient
 	Hooks           hookv1connect.HookServiceClient
 	Worktrees       worktreev1connect.WorktreeServiceClient
-	PullRequests    pullrequestv1connect.PullRequestServiceClient
 	Watch           watchv1connect.WatchServiceClient
 	Keys            config.Keybindings
 	Layout          config.Layout
@@ -233,6 +229,7 @@ type model struct {
 	messages      messagesState
 	detailsHeight float64
 	listing       listing
+	reactors      []worldReactor
 	agents        agentsScreen
 	runHover      hoverState
 	schedules     schedulesScreen
@@ -252,6 +249,7 @@ type model struct {
 	// detached holds the writes a person escaped out of, which land without taking the screen to
 	// what they made.
 	detached map[int]struct{}
+	landing  landing
 	// edited is the files a reader opened an editor on over an agent's worktree while it was
 	// paused, keyed by agent, so whoever lets that agent go can tell it where to look.
 	edited map[string][]string
@@ -314,12 +312,11 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 		post:   post,
 		drawn:  &lastFrame{},
 		api: api{
-			agents:       deps.Agents,
-			workflows:    deps.Workflows,
-			schedules:    deps.Schedules,
-			hooks:        deps.Hooks,
-			worktrees:    deps.Worktrees,
-			pullRequests: deps.PullRequests,
+			agents:    deps.Agents,
+			workflows: deps.Workflows,
+			schedules: deps.Schedules,
+			hooks:     deps.Hooks,
+			worktrees: deps.Worktrees,
 		},
 		popup:           deps.PopupWindow,
 		clip:            systemClipboard{},
@@ -338,6 +335,7 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 		screen:          screenAgents,
 		rowCursor:       newRowCursor(),
 		warm:            newWarmupState(),
+		reactors:        newWorldReactors(),
 	}
 
 	if m.fatal() != nil {

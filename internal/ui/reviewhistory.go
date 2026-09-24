@@ -3,6 +3,7 @@ package ui
 import (
 	"time"
 
+	"weave/internal/assemble"
 	"weave/lib/dates"
 	agentv1 "weave/proto/gen/agent/v1"
 )
@@ -105,6 +106,31 @@ func findLastOwedReview(reviews []*agentv1.Review) *agentv1.Review {
 	}
 
 	return last
+}
+
+// findOwedReview is the id of the review the person released last on an agent while a thread it
+// opened is unsettled, empty once none is.
+func findOwedReview(w assemble.World, agentID string) string {
+	var last *agentv1.WatchedReview
+	for _, review := range w.Reviews {
+		if review.GetAgentId() != agentID || review.GetAuthorKind() != agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN {
+			continue
+		}
+		if review.GetReleasedAt() == "" {
+			continue
+		}
+		if last == nil || dates.Parse(review.GetReleasedAt()).After(dates.Parse(last.GetReleasedAt())) {
+			last = review
+		}
+	}
+
+	for _, thread := range w.ReviewThreads {
+		if last != nil && thread.GetReviewId() == last.GetId() && thread.GetResolvedAt() == "" {
+			return last.GetId()
+		}
+	}
+
+	return ""
 }
 
 // releasedAtOf is the clock time the person last released a review, which the screen says

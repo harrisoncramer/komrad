@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 
+	"weave/internal/assemble"
 	"weave/internal/diff"
 	"weave/internal/git"
 	"weave/internal/ui/diffview"
 	"weave/internal/ui/paint/label"
 	"weave/internal/ui/panel"
 	agentv1 "weave/proto/gen/agent/v1"
+	"weave/proto/gen/agent/v1/agentv1connect"
 
 	"connectrpc.com/connect"
 	tea "github.com/charmbracelet/bubbletea"
@@ -53,14 +55,15 @@ type reviewLoadedMsg struct {
 	err    error
 }
 
-// reviewWroteMsg is one write and the review as it stands after it.
+// reviewWroteMsg is one write on the review.
 type reviewWroteMsg struct {
 	agentID string
 	notice  string
-	threads []*agentv1.ReviewThread
 	err     error
-	// readErr is the review coming back unreadable after a write that landed.
-	readErr error
+	// readBack says threads is the review of an archived agent read back after the write.
+	readBack bool
+	threads  []*agentv1.ReviewThread
+	readErr  error
 	// sent says this is the answer to a released review rather than to any of the other writes
 	// this screen makes, which all come back the same way.
 	sent bool
@@ -78,8 +81,7 @@ func (r *reviewScreen) open(s panelShared, agent panel.Agent) tea.Cmd {
 		loading:   true,
 		// The whole change is what a review opens on, and it sits before the first round rather
 		// than on it, so the first press of the step key lands on the newest round.
-		diff:    reviewDiff{chapter: -1},
-		threads: reviewThreads{seen: reviewProbeOf(s.listing.world, agent.ID)},
+		diff: reviewDiff{chapter: -1},
 	}
 
 	return r.loadWholeCmd(s)
@@ -151,12 +153,19 @@ func loadReviewCmd(s panelShared, params loadReviewCmdParams) tea.Cmd {
 	agents := s.api.agents
 	agentID, dir, exclude := params.AgentID, params.Dir, params.Exclude
 	repo := s.git
+	_, live := s.listing.liveAgent(agentID)
+	held := assemble.ReviewThreads(s.listing.world, agentID)
 
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
 		defer cancel()
 
-		threads, err := listReviewThreads(ctx, agents, agentID)
+		threads, err := readThreads(ctx, readThreadsParams{
+			Agents:  agents,
+			AgentID: agentID,
+			Live:    live,
+			Held:    held,
+		})
 		if err != nil {
 			return reviewLoadedMsg{agentID: agentID, err: err}
 		}
@@ -261,6 +270,24 @@ func loadReviewCmd(s panelShared, params loadReviewCmdParams) tea.Cmd {
 	}
 }
 
+// readThreadsParams says whose conversation to read, and what the world already holds of it.
+type readThreadsParams struct {
+	Agents  agentv1connect.AgentServiceClient
+	AgentID string
+	// Live says the agent's threads are the world's.
+	Live bool
+	Held []*agentv1.ReviewThread
+}
+
+// readThreads is the conversation on an agent's diff, from the world unless the agent is archived.
+func readThreads(ctx context.Context, params readThreadsParams) ([]*agentv1.ReviewThread, error) {
+	if params.Live {
+		return params.Held, nil
+	}
+
+	return listReviewThreads(ctx, params.Agents, params.AgentID)
+}
+
 // changedSinceLastReviewParams says which round to measure against and what to leave out of the
 // count.
 type changedSinceLastReviewParams struct {
@@ -361,7 +388,6 @@ func (d *reviewDiff) load(msg reviewLoadedMsg, isDark bool) {
 	d.baseAt = msg.earlierAt
 	d.pinned = msg.pinned
 	d.chapters = msg.chapters
-	d.worktree.markCaughtUp()
 	d.since = msg.since
 
 	// The files the reader opened out are the view's own, so a view built again over the patch
@@ -431,9 +457,11 @@ func (r *reviewScreen) applyWrote(h host, s panelShared, msg reviewWroteMsg) tea
 
 	r.notice = msg.notice
 
-	if msg.readErr != nil {
+	switch {
+	case !msg.readBack:
+	case msg.readErr != nil:
 		h.report("Could not read the review of "+r.agentName+" back", msg.readErr)
-	} else {
+	default:
 		r.applyThreads(s, msg.threads)
 	}
 
@@ -492,6 +520,8 @@ func (r *reviewScreen) reload(s panelShared) tea.Cmd {
 	if place, ok := r.diff.view.GetPlace(r.diff.cursor); ok {
 		r.diff.restore = &place
 	}
+
+	r.diff.followedMove = r.findMovedRound(s)
 
 	return loadReviewCmd(s, loadReviewCmdParams{
 		AgentID: r.agentID,

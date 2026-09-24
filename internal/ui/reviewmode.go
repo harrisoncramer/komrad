@@ -101,7 +101,7 @@ func (p reviewPass) pausedSaid() string {
 
 // unsentCount is how many comments the reader is holding.
 func (t reviewThreads) unsentCount() int {
-	return t.activity.delivery[deliverySlot(agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT)]
+	return t.delivery[deliverySlot(agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT)]
 }
 
 // isReadOnly reports whether there is nobody there to receive a comment.

@@ -39,7 +39,7 @@ func NewScheduler(schedules ScheduleLister, periodic periodicJobRegistrar) *Sche
 
 // Reconcile makes River's periodic jobs match the schedules table.
 func (s *Scheduler) Reconcile(ctx context.Context) error {
-	listed, err := s.schedules.List(ctx)
+	listed, err := s.schedules.ListWatched(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("failed to list schedules to reconcile: %w", err)
 	}

@@ -22,7 +22,7 @@ active screen.
 screens.go is what the three of them dispatch through. Each screen is a type of its own,
 agentsScreen and the rest, holding its state and implementing screenModel: update takes every
 message the root did not claim, view draws the screen, enter lands it on a target, needs says
-what the tick lists for it, and takesEveryKey says whether the screen is being typed at.
+what it draws from, and takesEveryKey says whether the screen is being typed at.
 A screen also implements whichever of the facets it draws: detailed for a record under its
 list, filtered for a search over it, tabbed for a strip over it, columned for a block beside it,
 and staged for a row it puts on the stage. The root holds the six screens by value and
@@ -32,8 +32,8 @@ which facets each implements. Every method on a screen takes host, the short int
 a screen may ask the root to do, and panelShared, the read-only value of what the root holds;
 a screen changes screens through host.enter and never by writing into another screen, and a
 value of panelShared is dead after any host call. The root's own state is what routeAsyncMessage
-still switches on: the watch, the archive and worktree listings, the write result, the ticks,
-focus and blur, and the inspections.
+still switches on: the watch, the write result, the ticks, focus and blur, and the
+inspections.
 
 The agents screen is the root's twin, and the line between them is drawn by who owns the
 state. The stage, the warm-up and the write result's landing are the root's, since a pane on
@@ -80,7 +80,8 @@ the keybindings, the dimensions of its own pane.
 
 The panel is told. It holds the service's watch stream open for its whole life: the stream
 opens with a snapshot of every resource the panel draws, agents, workflows, schedules, marks,
-unclaimed mail and the pull requests on live agents' branches, then carries one row per
+unclaimed mail, the pull requests an agent was seen with, repositories, reviews, the review
+threads of live agents and worktree directories, then carries one row per
 change, and the client in internal/client hands the changes over in batches a few tens of
 milliseconds wide. Each row goes into the World in internal/assemble, one map per kind, or
 comes out of it on a tombstone, and the rows the screens draw are assembled again from those
@@ -93,17 +94,14 @@ snapshot replaces what the last stream built. Nothing about an agent is discover
 service watches the panes and writes what it saw, and the panel takes rows like any other
 client.
 
-One thing is listed on arrival. The stream carries a pull request only once a live agent is on
-its branch, so when an agent the panel had not seen arrives, or one it holds moves to another
-branch, the panel asks once for the pull requests stored for that branch and puts them in the
-map, where later changes land over them by key.
+The stream carries a pull request once the server has seen an agent on its branch, which the
+pull request sync and cwd sync both record, so a pull request reaches the panel like any other
+row and the panel never asks for one.
 
-Two listings ride no stream. The archive and the worktree directories are read when a screen
-that draws them is entered and on every tick while it is up, and are left alone otherwise.
-
-A write that makes a row answers with it, and the panel puts that row into the listing and the
-cursor onto it as the write lands, rather than waiting for the stream to carry it. The stream's
-own copy of that row lands over it.
+The stream is the only writer of the World. A write that makes a row answers with it, and the
+panel holds the cursor's target until the stream delivers that row, then puts the cursor on it.
+A screen that has to act on a change subscribes to what each batch changed in the World, and
+the watch handler names no screen.
 
 Cursors are read off the trees still on screen before rows are changed under them, then placed
 again by the row they were on rather than the index that row happened to be drawn at. A batch

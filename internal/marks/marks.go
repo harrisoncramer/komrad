@@ -30,11 +30,6 @@ func NewMarkService(params NewMarkServiceParams) *MarkService {
 	return &MarkService{marks: params.Marks, tx: params.Tx}
 }
 
-// ListMarks reads every mark the panel draws.
-func (s *MarkService) ListMarks(ctx context.Context) ([]markstore.Mark, error) {
-	return s.marks.List(ctx)
-}
-
 // SetMark puts a letter on a live row, freeing the letter and whatever that row already
 // answered to first, and reports whether the row was there to take it.
 func (s *MarkService) SetMark(ctx context.Context, mark string, target markstore.Target) (bool, error) {

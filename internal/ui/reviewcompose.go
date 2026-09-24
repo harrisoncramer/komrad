@@ -481,7 +481,7 @@ func releasedNotice(verdict agentv1.ReviewVerdict, count int32, interrupt bool) 
 	return "no verdict" + sent
 }
 
-// writeCmd runs one write and reads the review back in the same breath.
+// writeCmd runs one write on the review.
 func (r reviewScreen) writeCmd(s panelShared, notice string, write func(context.Context) error) tea.Cmd {
 	return r.writeMsgCmd(s, false, func(ctx context.Context) (string, error) {
 		return notice, write(ctx)
@@ -493,31 +493,29 @@ func (r reviewScreen) sendCmd(s panelShared, write func(context.Context) (string
 	return r.writeMsgCmd(s, true, write)
 }
 
-// writeMsgCmd runs one write and reads the review back, marking whose answer it is.
+// writeMsgCmd runs one write, marking whose answer it is, and reads an archived agent's threads back.
 func (r reviewScreen) writeMsgCmd(s panelShared, sent bool, write func(context.Context) (string, error)) tea.Cmd {
 	agents, agentID := s.api.agents, r.agentID
+	_, live := r.agentRow(s)
 
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
 		defer cancel()
 
 		notice, err := write(ctx)
-		if err != nil {
-			return reviewWroteMsg{
-				agentID: agentID,
-				err:     err,
-				sent:    sent,
-			}
-		}
-
-		threads, readErr := listReviewThreads(ctx, agents, agentID)
-
-		return reviewWroteMsg{
+		wrote := reviewWroteMsg{
 			agentID: agentID,
 			notice:  notice,
-			threads: threads,
-			readErr: readErr,
+			err:     err,
 			sent:    sent,
 		}
+		if err != nil || live {
+			return wrote
+		}
+
+		wrote.readBack = true
+		wrote.threads, wrote.readErr = listReviewThreads(ctx, agents, agentID)
+
+		return wrote
 	}
 }

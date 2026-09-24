@@ -17,7 +17,7 @@ func TestIntegrationReadHeadStateReadsASettledCheckout(t *testing.T) {
 
 	dir := newRepo(t)
 
-	head := client.ReadHeadState(t.Context(), dir)
+	head := client.ReadHeadState(t.Context(), git.ReadHeadStateParams{Dir: dir})
 
 	sha, err := git.Run(t.Context(), dir, "rev-parse", "HEAD")
 	require.NoError(t, err)
@@ -25,6 +25,53 @@ func TestIntegrationReadHeadStateReadsASettledCheckout(t *testing.T) {
 	assert.Equal(t, sha, head.SHA)
 	assert.False(t, head.SequenceInProgress)
 	assert.Empty(t, head.RepositoryURL)
+}
+
+// TestIntegrationReadHeadStateReadsASnapshotsTree covers the tree a named snapshot holds, read in
+// the same command as the head.
+func TestIntegrationReadHeadStateReadsASnapshotsTree(t *testing.T) {
+	t.Parallel()
+
+	dir := newRepo(t)
+	sha, err := git.Run(t.Context(), dir, "rev-parse", "HEAD")
+	require.NoError(t, err)
+	tree, err := git.Run(t.Context(), dir, "rev-parse", "HEAD^{tree}")
+	require.NoError(t, err)
+
+	tests := []struct {
+		name     string
+		snapshot string
+		wantTree string
+	}{
+		{
+			name:     "a snapshot git cannot read leaves the tree empty",
+			snapshot: "0000000000000000000000000000000000000000",
+			wantTree: "",
+		},
+		{
+			name:     "no snapshot named reads no tree",
+			snapshot: "",
+			wantTree: "",
+		},
+		{
+			name:     "a snapshot named reads its tree",
+			snapshot: sha,
+			wantTree: tree,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			head := client.ReadHeadState(t.Context(), git.ReadHeadStateParams{Dir: dir, SnapshotSHA: tt.snapshot})
+
+			assert.Equal(t, tt.wantTree, head.SnapshotTree)
+			assert.Equal(t, "main", head.Branch, "and the head is read either way")
+			assert.Equal(t, sha, head.SHA)
+			assert.NotEmpty(t, head.Root)
+		})
+	}
 }
 
 // TestIntegrationReadHeadStateReadsTheRepository covers the identity a checkout carries: the canonical
@@ -61,7 +108,7 @@ func TestIntegrationReadHeadStateReadsTheRepository(t *testing.T) {
 			dir := newRepo(t)
 			run(t, dir, "remote", "add", "origin", tt.origin)
 
-			head := client.ReadHeadState(t.Context(), dir)
+			head := client.ReadHeadState(t.Context(), git.ReadHeadStateParams{Dir: dir})
 
 			assert.Equal(t, "main", head.Branch)
 			assert.Equal(t, tt.want, head.RepositoryURL)
@@ -82,7 +129,7 @@ func TestIntegrationReadHeadStateNamesTheBranchAStoppedRebaseBelongsTo(t *testin
 	sha, err := git.Run(t.Context(), dir, "rev-parse", "HEAD")
 	require.NoError(t, err)
 
-	head := client.ReadHeadState(t.Context(), dir)
+	head := client.ReadHeadState(t.Context(), git.ReadHeadStateParams{Dir: dir})
 
 	assert.Equal(t, "topic", head.Branch)
 	assert.Equal(t, sha, head.SHA)
@@ -96,7 +143,7 @@ func TestIntegrationReadHeadStateCarriesNoBranchForARebaseOffADetachedHead(t *te
 
 	dir := stoppedRebase(t, "--detach")
 
-	head := client.ReadHeadState(t.Context(), dir)
+	head := client.ReadHeadState(t.Context(), git.ReadHeadStateParams{Dir: dir})
 
 	assert.Empty(t, head.Branch)
 	assert.True(t, head.SequenceInProgress)
@@ -109,7 +156,7 @@ func TestIntegrationReadHeadStateReadsAStoppedMerge(t *testing.T) {
 	dir := newRepo(t)
 	conflict(t, dir)
 
-	head := client.ReadHeadState(t.Context(), dir)
+	head := client.ReadHeadState(t.Context(), git.ReadHeadStateParams{Dir: dir})
 
 	assert.Equal(t, "main", head.Branch)
 	assert.True(t, head.SequenceInProgress)
@@ -122,7 +169,7 @@ func TestIntegrationReadHeadStateClearsItselfWhenTheRebaseIsSettled(t *testing.T
 	dir := stoppedRebase(t)
 	run(t, dir, "rebase", "--abort")
 
-	head := client.ReadHeadState(t.Context(), dir)
+	head := client.ReadHeadState(t.Context(), git.ReadHeadStateParams{Dir: dir})
 
 	assert.Equal(t, "topic", head.Branch)
 	assert.False(t, head.SequenceInProgress)
@@ -133,7 +180,7 @@ func TestIntegrationReadHeadStateClearsItselfWhenTheRebaseIsSettled(t *testing.T
 func TestIntegrationReadHeadStateAnswersEmptyForSomewhereGitWillNotSpeakFor(t *testing.T) {
 	t.Parallel()
 
-	head := client.ReadHeadState(t.Context(), t.TempDir())
+	head := client.ReadHeadState(t.Context(), git.ReadHeadStateParams{Dir: t.TempDir()})
 
 	assert.Empty(t, head.Branch)
 	assert.Empty(t, head.SHA)

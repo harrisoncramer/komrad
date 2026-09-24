@@ -4,11 +4,13 @@ package watch.v1;
 
 import "agent/v1/agent.proto";
 import "agent/v1/mail.proto";
+import "agent/v1/review.proto";
 import "annotation/v1/tool.proto";
 import "google/protobuf/empty.proto";
 import "pullrequest/v1/pullrequest.proto";
 import "schedule/v1/schedule.proto";
 import "workflow/v1/workflow.proto";
+import "worktree/v1/worktree.proto";
 
 option go_package = "weave/proto/gen/watch/v1;watchv1";
 
@@ -55,6 +57,14 @@ message Row {
     agent.v1.Mail mail = 5;
     // A pull request as ListPullRequests renders it.
     pullrequest.v1.PullRequest pull_request = 6;
+    // A repository and whether its pull requests have been read.
+    pullrequest.v1.Repository repository = 7;
+    // A review of an agent's work, without its body.
+    agent.v1.WatchedReview review = 8;
+    // A review thread with its messages.
+    agent.v1.ReviewThread review_thread = 9;
+    // A worktree as the filesystem holds it.
+    worktree.v1.WatchedWorktree worktree = 10;
   }
 }
 
@@ -74,6 +84,14 @@ enum Resource {
   RESOURCE_MAIL = 5;
   // A row of pull_requests.
   RESOURCE_PULL_REQUEST = 6;
+  // A row of pull_request_syncs.
+  RESOURCE_REPOSITORY = 7;
+  // A row of reviews.
+  RESOURCE_REVIEW = 8;
+  // A row of review_threads.
+  RESOURCE_REVIEW_THREAD = 9;
+  // A row of worktrees.
+  RESOURCE_WORKTREE = 10;
 }
 
 // Deleted names a row its watched set no longer holds, whether it was removed or claimed for a

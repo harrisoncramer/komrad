@@ -18,13 +18,3 @@ func (q *Queries) ListenToWatchChannel(ctx context.Context) error {
 	_, err := q.db.Exec(ctx, listenToWatchChannel)
 	return err
 }
-
-const notifyWatch = `-- name: NotifyWatch :exec
-SELECT
-    PG_NOTIFY(watch_channel(), $1::text)
-`
-
-func (q *Queries) NotifyWatch(ctx context.Context, payload string) error {
-	_, err := q.db.Exec(ctx, notifyWatch, payload)
-	return err
-}

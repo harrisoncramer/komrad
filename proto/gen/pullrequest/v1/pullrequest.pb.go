@@ -601,6 +601,61 @@ func (x *PullRequest) GetMergeability() Mergeability {
 	return Mergeability_MERGEABILITY_UNSPECIFIED
 }
 
+// Repository is one repository the pull request sync reads.
+type Repository struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The canonical address of the repository.
+	Url string `protobuf:"bytes,1,opt,name=url,proto3" json:"url,omitempty"`
+	// Whether the sync has read the repository's pull requests at least once.
+	Read          bool `protobuf:"varint,2,opt,name=read,proto3" json:"read,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Repository) Reset() {
+	*x = Repository{}
+	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Repository) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Repository) ProtoMessage() {}
+
+func (x *Repository) ProtoReflect() protoreflect.Message {
+	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Repository.ProtoReflect.Descriptor instead.
+func (*Repository) Descriptor() ([]byte, []int) {
+	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *Repository) GetUrl() string {
+	if x != nil {
+		return x.Url
+	}
+	return ""
+}
+
+func (x *Repository) GetRead() bool {
+	if x != nil {
+		return x.Read
+	}
+	return false
+}
+
 type ListPullRequestsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// One page of pull requests, the unfinished ones first and each group newest opened first,
@@ -614,7 +669,7 @@ type ListPullRequestsResponse struct {
 
 func (x *ListPullRequestsResponse) Reset() {
 	*x = ListPullRequestsResponse{}
-	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[2]
+	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -626,7 +681,7 @@ func (x *ListPullRequestsResponse) String() string {
 func (*ListPullRequestsResponse) ProtoMessage() {}
 
 func (x *ListPullRequestsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[2]
+	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -639,7 +694,7 @@ func (x *ListPullRequestsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPullRequestsResponse.ProtoReflect.Descriptor instead.
 func (*ListPullRequestsResponse) Descriptor() ([]byte, []int) {
-	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{2}
+	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *ListPullRequestsResponse) GetPullRequests() []*PullRequest {
@@ -700,7 +755,11 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\n" +
 	"_merged_atB\f\n" +
 	"\n" +
-	"_closed_at\"\x9d\x01\n" +
+	"_closed_at\"2\n" +
+	"\n" +
+	"Repository\x12\x10\n" +
+	"\x03url\x18\x01 \x01(\tR\x03url\x12\x12\n" +
+	"\x04read\x18\x02 \x01(\bR\x04read\"\x9d\x01\n" +
 	"\x18ListPullRequestsResponse\x12@\n" +
 	"\rpull_requests\x18\x01 \x03(\v2\x1b.pullrequest.v1.PullRequestR\fpullRequests\x12+\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +
@@ -755,7 +814,7 @@ func file_pullrequest_v1_pullrequest_proto_rawDescGZIP() []byte {
 }
 
 var file_pullrequest_v1_pullrequest_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_pullrequest_v1_pullrequest_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_pullrequest_v1_pullrequest_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_pullrequest_v1_pullrequest_proto_goTypes = []any{
 	(PullRequestState)(0),            // 0: pullrequest.v1.PullRequestState
 	(Mergeability)(0),                // 1: pullrequest.v1.Mergeability
@@ -763,18 +822,19 @@ var file_pullrequest_v1_pullrequest_proto_goTypes = []any{
 	(Checks)(0),                      // 3: pullrequest.v1.Checks
 	(*ListPullRequestsRequest)(nil),  // 4: pullrequest.v1.ListPullRequestsRequest
 	(*PullRequest)(nil),              // 5: pullrequest.v1.PullRequest
-	(*ListPullRequestsResponse)(nil), // 6: pullrequest.v1.ListPullRequestsResponse
-	(*v1.Pagination)(nil),            // 7: pagination.v1.Pagination
+	(*Repository)(nil),               // 6: pullrequest.v1.Repository
+	(*ListPullRequestsResponse)(nil), // 7: pullrequest.v1.ListPullRequestsResponse
+	(*v1.Pagination)(nil),            // 8: pagination.v1.Pagination
 }
 var file_pullrequest_v1_pullrequest_proto_depIdxs = []int32{
-	7, // 0: pullrequest.v1.ListPullRequestsRequest.pagination:type_name -> pagination.v1.Pagination
+	8, // 0: pullrequest.v1.ListPullRequestsRequest.pagination:type_name -> pagination.v1.Pagination
 	0, // 1: pullrequest.v1.PullRequest.state:type_name -> pullrequest.v1.PullRequestState
 	2, // 2: pullrequest.v1.PullRequest.review_decision:type_name -> pullrequest.v1.ReviewDecision
 	3, // 3: pullrequest.v1.PullRequest.checks:type_name -> pullrequest.v1.Checks
 	1, // 4: pullrequest.v1.PullRequest.mergeability:type_name -> pullrequest.v1.Mergeability
 	5, // 5: pullrequest.v1.ListPullRequestsResponse.pull_requests:type_name -> pullrequest.v1.PullRequest
 	4, // 6: pullrequest.v1.PullRequestService.ListPullRequests:input_type -> pullrequest.v1.ListPullRequestsRequest
-	6, // 7: pullrequest.v1.PullRequestService.ListPullRequests:output_type -> pullrequest.v1.ListPullRequestsResponse
+	7, // 7: pullrequest.v1.PullRequestService.ListPullRequests:output_type -> pullrequest.v1.ListPullRequestsResponse
 	7, // [7:8] is the sub-list for method output_type
 	6, // [6:7] is the sub-list for method input_type
 	6, // [6:6] is the sub-list for extension type_name
@@ -789,14 +849,14 @@ func file_pullrequest_v1_pullrequest_proto_init() {
 	}
 	file_pullrequest_v1_pullrequest_proto_msgTypes[0].OneofWrappers = []any{}
 	file_pullrequest_v1_pullrequest_proto_msgTypes[1].OneofWrappers = []any{}
-	file_pullrequest_v1_pullrequest_proto_msgTypes[2].OneofWrappers = []any{}
+	file_pullrequest_v1_pullrequest_proto_msgTypes[3].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pullrequest_v1_pullrequest_proto_rawDesc), len(file_pullrequest_v1_pullrequest_proto_rawDesc)),
 			NumEnums:      4,
-			NumMessages:   3,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

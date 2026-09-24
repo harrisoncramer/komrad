@@ -135,6 +135,40 @@ ORDER BY
     r.ordinal,
     v.id;
 
+-- name: ListWatchedReviews :many
+SELECT
+    v.id,
+    v.agent_id,
+    v.round_id,
+    v.author_kind,
+    v.author_agent_id,
+    v.verdict,
+    v.released_at,
+    v.created_at,
+    v.updated_at,
+    r.ordinal AS round_ordinal,
+    r.snapshot_sha AS round_snapshot_sha,
+    d.claimed_at AS delivered_at
+FROM
+    reviews v
+    JOIN review_rounds r ON r.id = v.round_id
+    LEFT JOIN mail d ON d.id = v.doorbell_mail_id
+WHERE
+    sqlc.narg('keys')::text[] IS NULL
+    OR v.id = ANY (sqlc.narg('keys')::uuid[])
+ORDER BY
+    v.id;
+
+-- name: ListReviewIDsOfAgents :many
+SELECT
+    v.id
+FROM
+    reviews v
+WHERE
+    v.agent_id = ANY (@agent_ids::uuid[])
+ORDER BY
+    v.id;
+
 -- name: CountOpenReviewComments :one
 SELECT
     COUNT(*)
@@ -243,6 +277,35 @@ ORDER BY
     t.new_start,
     t.old_start,
     t.id;
+
+-- name: ListWatchedReviewThreads :many
+SELECT
+    t.*,
+    r.ordinal AS round_ordinal,
+(t.last_agent_activity_at IS NOT NULL
+        AND (t.human_read_at IS NULL
+            OR t.last_agent_activity_at > t.human_read_at)) AS unread_by_human
+FROM
+    review_threads t
+    JOIN review_rounds r ON r.id = t.round_id
+    JOIN agents a ON a.id = t.agent_id
+WHERE
+    a.archived_at IS NULL
+    AND (sqlc.narg('keys')::text[] IS NULL
+        OR t.id = ANY (sqlc.narg('keys')::uuid[]))
+ORDER BY
+    t.id;
+
+-- name: ListReviewMessagesOfThreads :many
+SELECT
+    m.*
+FROM
+    review_messages m
+WHERE
+    m.thread_id = ANY (@thread_ids::uuid[])
+ORDER BY
+    m.thread_id,
+    m.id;
 
 -- name: GetReviewThread :one
 SELECT
@@ -507,6 +570,16 @@ SELECT
 FROM
     released r
     LEFT JOIN concluded c ON c.agent_id = r.agent_id;
+
+-- name: ListNewestReviewRounds :many
+SELECT DISTINCT ON (agent_id)
+    agent_id,
+    snapshot_sha
+FROM
+    review_rounds
+ORDER BY
+    agent_id,
+    ordinal DESC;
 
 -- name: ListLiveReviewers :many
 SELECT
