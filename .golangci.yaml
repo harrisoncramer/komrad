@@ -359,10 +359,6 @@ linters:
             # no real store to test against but themselves, then the fakes not yet deleted.
             exclude:
               - ^internal/store/
-              - ^internal/agents/agents_test\.go$
-              - ^internal/agents/fakes_test\.go$
-              - ^internal/agents/resume_test\.go$
-              - ^internal/jobs/internaljobs/empty_archive_test\.go$
               - ^internal/rpc/agent/handler_test\.go$
               - ^internal/rpc/agent/transcript_test\.go$
               - ^internal/rpc/forge/handler_test\.go$
@@ -370,8 +366,6 @@ linters:
               - ^internal/rpc/schedule/handler_test\.go$
               - ^internal/rpc/watch/handler_test\.go$
               - ^internal/rpc/workflow/handler_test\.go$
-              - ^internal/scriptrun/run_test\.go$
-              - ^internal/transcripts/transcripts_test\.go$
           shared_fake:
             skip: false
             fakes:
@@ -423,10 +417,6 @@ linters:
                 fake: gittest.Checkout
             # Unanchored regexps over the path lint was run from. The fakes not yet replaced.
             exclude:
-              - ^internal/agents/fakes_test\.go$
-              - ^internal/agents/reconcile_integration_test\.go$
-              - ^internal/agents/reconcile_test\.go$
-              - ^internal/agents/resume_test\.go$
               - ^internal/checkouts/fakes_test\.go$
               - ^internal/checkouts/rebase_test\.go$
               - ^internal/harness/pane/fakes_test\.go$
@@ -445,13 +435,6 @@ linters:
               - ^internal/ui/export_test\.go$
               - ^config/strict_test\.go$
               - ^db/schema_test\.go$
-              - ^internal/agents/agents_test\.go$
-              - ^internal/agents/alive_test\.go$
-              - ^internal/agents/batch_test\.go$
-              - ^internal/agents/ceiling_test\.go$
-              - ^internal/agents/child_test\.go$
-              - ^internal/agents/fakes_test\.go$
-              - ^internal/agents/harness_test\.go$
               - ^internal/bufcheck/imported_test\.go$
               - ^internal/bufcheck/validation_test\.go$
               - ^internal/checkouts/fakes_test\.go$
