@@ -78,6 +78,8 @@ message Schedule {
   bool prompt_truncated = 14;
   // The newest firing still on record, unset when it has never fired or the record has aged out.
   optional ScheduleRun latest_run = 15;
+  // The newest firings on record, newest first, which only the watch fills.
+  repeated ScheduleRun recent_runs = 16;
 }
 
 message ListSchedulesRequest {

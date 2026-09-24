@@ -228,7 +228,9 @@ type Schedule struct {
 	// Whether prompt holds only its opening, which a summary listing returns.
 	PromptTruncated bool `protobuf:"varint,14,opt,name=prompt_truncated,json=promptTruncated,proto3" json:"prompt_truncated,omitempty"`
 	// The newest firing still on record, unset when it has never fired or the record has aged out.
-	LatestRun     *ScheduleRun `protobuf:"bytes,15,opt,name=latest_run,json=latestRun,proto3,oneof" json:"latest_run,omitempty"`
+	LatestRun *ScheduleRun `protobuf:"bytes,15,opt,name=latest_run,json=latestRun,proto3,oneof" json:"latest_run,omitempty"`
+	// The newest firings on record, newest first, which only the watch fills.
+	RecentRuns    []*ScheduleRun `protobuf:"bytes,16,rep,name=recent_runs,json=recentRuns,proto3" json:"recent_runs,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -336,6 +338,13 @@ func (x *Schedule) GetPromptTruncated() bool {
 func (x *Schedule) GetLatestRun() *ScheduleRun {
 	if x != nil {
 		return x.LatestRun
+	}
+	return nil
+}
+
+func (x *Schedule) GetRecentRuns() []*ScheduleRun {
+	if x != nil {
+		return x.RecentRuns
 	}
 	return nil
 }
@@ -1002,7 +1011,7 @@ const file_schedule_v1_schedule_proto_rawDesc = "" +
 	"\fmax_attempts\x18\x05 \x01(\x05R\vmaxAttempts\x12B\n" +
 	"\ffinalized_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampH\x00R\vfinalizedAt\x88\x01\x01\x12\x18\n" +
 	"\amessage\x18\a \x01(\tR\amessageB\x0f\n" +
-	"\r_finalized_at\"\xe6\x03\n" +
+	"\r_finalized_at\"\xa1\x04\n" +
 	"\bSchedule\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
@@ -1018,7 +1027,9 @@ const file_schedule_v1_schedule_proto_rawDesc = "" +
 	" \x01(\v2\x1a.google.protobuf.TimestampH\x00R\tnextRunAt\x88\x01\x01\x12)\n" +
 	"\x10prompt_truncated\x18\x0e \x01(\bR\x0fpromptTruncated\x12<\n" +
 	"\n" +
-	"latest_run\x18\x0f \x01(\v2\x18.schedule.v1.ScheduleRunH\x01R\tlatestRun\x88\x01\x01B\x0e\n" +
+	"latest_run\x18\x0f \x01(\v2\x18.schedule.v1.ScheduleRunH\x01R\tlatestRun\x88\x01\x01\x129\n" +
+	"\vrecent_runs\x18\x10 \x03(\v2\x18.schedule.v1.ScheduleRunR\n" +
+	"recentRunsB\x0e\n" +
 	"\f_next_run_atB\r\n" +
 	"\v_latest_runJ\x04\b\v\x10\fJ\x04\b\f\x10\rJ\x04\b\r\x10\x0eR\x12last_result_statusR\x13last_result_messageR\x0elast_result_at\"\x92\x01\n" +
 	"\x14ListSchedulesRequest\x12>\n" +
@@ -1130,31 +1141,32 @@ var file_schedule_v1_schedule_proto_depIdxs = []int32{
 	14, // 2: schedule.v1.ScheduleRun.finalized_at:type_name -> google.protobuf.Timestamp
 	14, // 3: schedule.v1.Schedule.next_run_at:type_name -> google.protobuf.Timestamp
 	1,  // 4: schedule.v1.Schedule.latest_run:type_name -> schedule.v1.ScheduleRun
-	15, // 5: schedule.v1.ListSchedulesRequest.pagination:type_name -> pagination.v1.Pagination
-	16, // 6: schedule.v1.ListSchedulesRequest.view:type_name -> view.v1.View
-	2,  // 7: schedule.v1.ListSchedulesResponse.schedules:type_name -> schedule.v1.Schedule
-	2,  // 8: schedule.v1.GetScheduleResponse.schedule:type_name -> schedule.v1.Schedule
-	1,  // 9: schedule.v1.ListScheduleRunsResponse.runs:type_name -> schedule.v1.ScheduleRun
-	2,  // 10: schedule.v1.CreateScheduleResponse.schedule:type_name -> schedule.v1.Schedule
-	3,  // 11: schedule.v1.ScheduleService.ListSchedules:input_type -> schedule.v1.ListSchedulesRequest
-	5,  // 12: schedule.v1.ScheduleService.GetSchedule:input_type -> schedule.v1.GetScheduleRequest
-	7,  // 13: schedule.v1.ScheduleService.ListScheduleRuns:input_type -> schedule.v1.ListScheduleRunsRequest
-	9,  // 14: schedule.v1.ScheduleService.CreateSchedule:input_type -> schedule.v1.CreateScheduleRequest
-	11, // 15: schedule.v1.ScheduleService.UpdateSchedule:input_type -> schedule.v1.UpdateScheduleRequest
-	12, // 16: schedule.v1.ScheduleService.SetScheduleEnabled:input_type -> schedule.v1.SetScheduleEnabledRequest
-	13, // 17: schedule.v1.ScheduleService.ArchiveSchedule:input_type -> schedule.v1.ArchiveScheduleRequest
-	4,  // 18: schedule.v1.ScheduleService.ListSchedules:output_type -> schedule.v1.ListSchedulesResponse
-	6,  // 19: schedule.v1.ScheduleService.GetSchedule:output_type -> schedule.v1.GetScheduleResponse
-	8,  // 20: schedule.v1.ScheduleService.ListScheduleRuns:output_type -> schedule.v1.ListScheduleRunsResponse
-	10, // 21: schedule.v1.ScheduleService.CreateSchedule:output_type -> schedule.v1.CreateScheduleResponse
-	17, // 22: schedule.v1.ScheduleService.UpdateSchedule:output_type -> google.protobuf.Empty
-	17, // 23: schedule.v1.ScheduleService.SetScheduleEnabled:output_type -> google.protobuf.Empty
-	17, // 24: schedule.v1.ScheduleService.ArchiveSchedule:output_type -> google.protobuf.Empty
-	18, // [18:25] is the sub-list for method output_type
-	11, // [11:18] is the sub-list for method input_type
-	11, // [11:11] is the sub-list for extension type_name
-	11, // [11:11] is the sub-list for extension extendee
-	0,  // [0:11] is the sub-list for field type_name
+	1,  // 5: schedule.v1.Schedule.recent_runs:type_name -> schedule.v1.ScheduleRun
+	15, // 6: schedule.v1.ListSchedulesRequest.pagination:type_name -> pagination.v1.Pagination
+	16, // 7: schedule.v1.ListSchedulesRequest.view:type_name -> view.v1.View
+	2,  // 8: schedule.v1.ListSchedulesResponse.schedules:type_name -> schedule.v1.Schedule
+	2,  // 9: schedule.v1.GetScheduleResponse.schedule:type_name -> schedule.v1.Schedule
+	1,  // 10: schedule.v1.ListScheduleRunsResponse.runs:type_name -> schedule.v1.ScheduleRun
+	2,  // 11: schedule.v1.CreateScheduleResponse.schedule:type_name -> schedule.v1.Schedule
+	3,  // 12: schedule.v1.ScheduleService.ListSchedules:input_type -> schedule.v1.ListSchedulesRequest
+	5,  // 13: schedule.v1.ScheduleService.GetSchedule:input_type -> schedule.v1.GetScheduleRequest
+	7,  // 14: schedule.v1.ScheduleService.ListScheduleRuns:input_type -> schedule.v1.ListScheduleRunsRequest
+	9,  // 15: schedule.v1.ScheduleService.CreateSchedule:input_type -> schedule.v1.CreateScheduleRequest
+	11, // 16: schedule.v1.ScheduleService.UpdateSchedule:input_type -> schedule.v1.UpdateScheduleRequest
+	12, // 17: schedule.v1.ScheduleService.SetScheduleEnabled:input_type -> schedule.v1.SetScheduleEnabledRequest
+	13, // 18: schedule.v1.ScheduleService.ArchiveSchedule:input_type -> schedule.v1.ArchiveScheduleRequest
+	4,  // 19: schedule.v1.ScheduleService.ListSchedules:output_type -> schedule.v1.ListSchedulesResponse
+	6,  // 20: schedule.v1.ScheduleService.GetSchedule:output_type -> schedule.v1.GetScheduleResponse
+	8,  // 21: schedule.v1.ScheduleService.ListScheduleRuns:output_type -> schedule.v1.ListScheduleRunsResponse
+	10, // 22: schedule.v1.ScheduleService.CreateSchedule:output_type -> schedule.v1.CreateScheduleResponse
+	17, // 23: schedule.v1.ScheduleService.UpdateSchedule:output_type -> google.protobuf.Empty
+	17, // 24: schedule.v1.ScheduleService.SetScheduleEnabled:output_type -> google.protobuf.Empty
+	17, // 25: schedule.v1.ScheduleService.ArchiveSchedule:output_type -> google.protobuf.Empty
+	19, // [19:26] is the sub-list for method output_type
+	12, // [12:19] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_schedule_v1_schedule_proto_init() }

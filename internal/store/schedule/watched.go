@@ -15,6 +15,12 @@ var WatchedSchedules = watch.Resource{
 	Enum:      watchv1.Resource_RESOURCE_SCHEDULE,
 	Table:     "schedules",
 	KeyColumn: "id",
+	Feeders: []watch.Feeder{
+		{
+			Table:  "schedule_runs",
+			Column: "schedule_id",
+		},
+	},
 }
 
 // ListWatched returns the live schedules among keys, or every one when keys is nil.
@@ -24,7 +30,9 @@ func (s *ScheduleStore) ListWatched(ctx context.Context, keys []string) ([]Sched
 		return nil, fmt.Errorf("failed to list the watched schedules: %w", err)
 	}
 
-	return xslice.Map(rows, func(row *models.ListWatchedSchedulesRow) Schedule {
+	schedules := xslice.Map(rows, func(row *models.ListWatchedSchedulesRow) Schedule {
 		return scheduleFromRow(row.Schedule)
-	}), nil
+	})
+
+	return s.attachRuns(ctx, schedules, recentRunsWatched)
 }

@@ -102,12 +102,7 @@ func (w *schedulesScreen) docRows(s panelShared, width int) []string {
 		return paint.DocStyledRows(noSchedulesMarkdown, width, columnStyle())
 	}
 
-	var runs scheduleRunsRead
-	if s.scheduleRuns.scheduleID == item.schedule.ID {
-		runs = s.scheduleRuns
-	}
-
-	return scheduleDocRows(item, runs, width)
+	return scheduleDocRows(item, width)
 }
 
 func workflowByID(workflows []panel.Workflow, id string) *panel.Workflow {

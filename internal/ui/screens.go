@@ -272,9 +272,6 @@ type panelShared struct {
 	// inspections is what the service has answered for each worktree directory.
 	inspections map[string]worktreeInspection
 
-	// scheduleRuns is what the service has answered for the hovered schedule's firings.
-	scheduleRuns scheduleRunsRead
-
 	// runLogsDir is the directory the run logs are written under.
 	runLogsDir string
 
@@ -321,11 +318,10 @@ func (m *model) unmeasured() panelShared {
 			form:         m.form,
 			helpExpanded: m.helpExpanded,
 		},
-		inspections:  m.inspections,
-		scheduleRuns: m.scheduleRuns,
-		runLogsDir:   m.settings.RunLogsDir,
-		editor:       m.settings.Editor,
-		isDark:       m.isDark,
-		draw:         m,
+		inspections: m.inspections,
+		runLogsDir:  m.settings.RunLogsDir,
+		editor:      m.settings.Editor,
+		isDark:      m.isDark,
+		draw:        m,
 	}
 }

@@ -17,9 +17,10 @@ type Schedule struct {
 	Prompt     string
 	WorkflowID string
 	LatestRun  *ScheduleRun
+	RecentRuns []ScheduleRun
 }
 
-// ScheduleRun is one firing of a schedule as River's job for it stands.
+// ScheduleRun is one firing of a schedule as the launch job recorded it.
 type ScheduleRun struct {
 	ID           int64
 	ScheduledFor time.Time

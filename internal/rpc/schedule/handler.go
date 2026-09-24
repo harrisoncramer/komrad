@@ -33,8 +33,7 @@ type scheduleLister interface {
 }
 
 type runLister interface {
-	List(ctx context.Context, scheduleID string, limit int) ([]schedulestore.Run, error)
-	AttachLatest(ctx context.Context, schedules []schedulestore.Schedule) ([]schedulestore.Schedule, error)
+	ListRuns(ctx context.Context, scheduleID string, limit int) ([]schedulestore.Run, error)
 }
 
 type NewHandlerParams struct {
@@ -50,7 +49,7 @@ type Handler struct {
 }
 
 // NewHandler constructs the handler from the store it lists through, the service that owns
-// the rules, and River's record of the firings.
+// the rules, and the record of the firings.
 func NewHandler(params NewHandlerParams) *Handler {
 	return &Handler{
 		lister:    params.Lister,
@@ -69,11 +68,6 @@ func (s *Handler) ListSchedules(ctx context.Context, req *schedulev1.ListSchedul
 	page, err := s.lister.ListPage(ctx, paginator.Limit(), paginator.Cursor())
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to list schedules")
-	}
-
-	page, err = s.runs.AttachLatest(ctx, page)
-	if err != nil {
-		return nil, rpcerr.From(err, "failed to read the latest runs")
 	}
 
 	now := time.Now()
@@ -99,13 +93,8 @@ func (s *Handler) GetSchedule(ctx context.Context, req *schedulev1.GetScheduleRe
 		return nil, rpcerr.From(err, "failed to get schedule")
 	}
 
-	attached, err := s.runs.AttachLatest(ctx, []schedulestore.Schedule{*found})
-	if err != nil {
-		return nil, rpcerr.From(err, "failed to read the latest run")
-	}
-
 	return &schedulev1.GetScheduleResponse{
-		Schedule: renderSchedule(attached[0], time.Now()).Schedule,
+		Schedule: renderSchedule(*found, time.Now()).Schedule,
 	}, nil
 }
 
@@ -120,7 +109,7 @@ func (s *Handler) ListScheduleRuns(ctx context.Context, req *schedulev1.ListSche
 		limit = defaultRunLimit
 	}
 
-	runs, err := s.runs.List(ctx, req.GetId(), limit)
+	runs, err := s.runs.ListRuns(ctx, req.GetId(), limit)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to list the schedule's runs")
 	}

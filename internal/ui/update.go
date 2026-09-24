@@ -326,10 +326,6 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		m.applyWorktreeInspection(msg)
 
 		return m, nil, true
-	case scheduleRunsReadMsg:
-		m.applyScheduleRunsRead(msg)
-
-		return m, nil, true
 	case urlOpenedMsg:
 		m.applyURLOpened(msg)
 

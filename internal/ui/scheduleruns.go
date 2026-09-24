@@ -4,42 +4,20 @@ import (
 	"fmt"
 	"strings"
 
-	"weave/internal/errui"
 	"weave/internal/ui/paint"
 	"weave/internal/ui/paint/label"
 	"weave/internal/ui/panel"
 	schedulev1 "weave/proto/gen/schedule/v1"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 )
-
-// scheduleRunsShown is how many of a schedule's newest firings its document lists.
-const scheduleRunsShown = 20
 
 // runTimeLayout is how a firing's occurrence is written at the head of its row.
 const runTimeLayout = "01-02 15:04"
 
 // runWordWidth is the column the outcome word is padded to, so every row's detail lines up.
 const runWordWidth = 9
-
-// scheduleRunsRead is what the service answered for one schedule's firings.
-type scheduleRunsRead struct {
-	scheduleID string
-	// latest is the schedule's newest firing as the listing held it when these were asked for, so
-	// a listing that moves it asks again.
-	latest   string
-	pending  bool
-	answered bool
-	runs     []panel.ScheduleRun
-	err      error
-}
-
-// scheduleRunsReadMsg is one schedule's firings come back.
-type scheduleRunsReadMsg struct {
-	read scheduleRunsRead
-}
 
 // runOutcome is how one firing is drawn: a coloured word, what goes beside it, and what goes on
 // the row under it.
@@ -50,80 +28,18 @@ type runOutcome struct {
 	below  string
 }
 
-// readScheduleRunsCmd asks for the hovered schedule's firings unless what stands is already for
-// that schedule and its newest firing.
-func (m *model) readScheduleRunsCmd() tea.Cmd {
-	if m.screen != screenSchedules {
-		return nil
-	}
-
-	item, ok := m.schedules.selected(m.shared())
-	if !ok {
-		return nil
-	}
-
-	id, latest := item.schedule.ID, runKey(item.schedule.LatestRun)
-	last := m.scheduleRuns
-	if last.scheduleID == id && last.latest == latest && (last.pending || last.answered) {
-		return nil
-	}
-
-	next := scheduleRunsRead{scheduleID: id, latest: latest, pending: true}
-	if last.scheduleID == id {
-		next.answered, next.runs, next.err = last.answered, last.runs, last.err
-	}
-	m.scheduleRuns = next
-	clients := m.api
-
-	return func() tea.Msg {
-		runs, err := clients.listScheduleRuns(id)
-
-		return scheduleRunsReadMsg{read: scheduleRunsRead{
-			scheduleID: id,
-			latest:     latest,
-			answered:   true,
-			runs:       runs,
-			err:        err,
-		}}
-	}
-}
-
-// applyScheduleRunsRead keeps an answer for what was last asked, and drops one the cursor or a
-// newer firing has already moved past.
-func (m *model) applyScheduleRunsRead(msg scheduleRunsReadMsg) {
-	if msg.read.scheduleID != m.scheduleRuns.scheduleID || msg.read.latest != m.scheduleRuns.latest {
-		return
-	}
-
-	m.scheduleRuns = msg.read
-}
-
-// runKey names a firing as far as asking again goes, changing whenever River moves the job.
-func runKey(run *panel.ScheduleRun) string {
-	if run == nil {
-		return ""
-	}
-
-	return fmt.Sprintf("%d:%s:%d", run.ID, run.State, run.Attempt)
-}
-
 // scheduleRunRows is the rows a schedule's firings take in its document, indented to the
 // document's own margin and cut to its width.
-func scheduleRunRows(read scheduleRunsRead, width int) []string {
+func scheduleRunRows(runs []panel.ScheduleRun, width int) []string {
 	indent := strings.Repeat(" ", docMargin())
 
-	switch {
-	case read.err != nil:
-		return []string{fitRow(indent+paint.Panel.Style(paint.ToneDanger).Render("could not read runs: "+errui.GetReason(read.err)), width)}
-	case !read.answered:
-		return nil
-	case len(read.runs) == 0:
+	if len(runs) == 0 {
 		return []string{fitRow(indent+dimStyle.Render("never fired"), width)}
 	}
 
 	under := indent + strings.Repeat(" ", len(runTimeLayout)+2+runWordWidth+2)
-	rows := make([]string, 0, len(read.runs))
-	for _, run := range read.runs {
+	rows := make([]string, 0, len(runs))
+	for _, run := range runs {
 		outcome := describeRun(run)
 
 		row := indent + dimStyle.Render(run.ScheduledFor.Format(runTimeLayout)) + "  " +
@@ -141,7 +57,7 @@ func scheduleRunRows(read scheduleRunsRead, width int) []string {
 	return rows
 }
 
-// describeRun is the word River's state for a firing reads as, and what is said beside it.
+// describeRun is the word a firing's state reads as, and what is said beside it.
 func describeRun(run panel.ScheduleRun) runOutcome {
 	message := strings.Join(strings.Fields(run.Message), " ")
 	tries := fmt.Sprintf("%d/%d", run.Attempt, run.MaxAttempts)

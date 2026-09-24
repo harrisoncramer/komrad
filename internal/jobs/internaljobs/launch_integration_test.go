@@ -14,8 +14,10 @@ import (
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/storetest"
 	"weave/internal/tmux"
+	"weave/lib/xslice"
 
 	"github.com/riverqueue/river"
+	"github.com/riverqueue/river/rivertype"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -31,6 +33,7 @@ func TestScheduledLaunchCreatesOneAgent(t *testing.T) {
 		promoteAfterFirst bool
 		wantSkipped       bool
 		wantAgents        int
+		wantRuns          []schedulestore.RunState
 	}{
 		{
 			name:              "a later firing skips while the last agent is still working",
@@ -38,16 +41,19 @@ func TestScheduledLaunchCreatesOneAgent(t *testing.T) {
 			promoteAfterFirst: true,
 			wantSkipped:       true,
 			wantAgents:        1,
+			wantRuns:          []schedulestore.RunState{schedulestore.RunStateCancelled, schedulestore.RunStateCompleted},
 		},
 		{
 			name:        "working the same firing twice launches one agent",
 			occurrences: []time.Time{nine, nine},
 			wantAgents:  1,
+			wantRuns:    []schedulestore.RunState{schedulestore.RunStateCompleted},
 		},
 		{
 			name:        "and a later firing launches once the last one is no longer working",
 			occurrences: []time.Time{nine, nine.Add(24 * time.Hour)},
 			wantAgents:  2,
+			wantRuns:    []schedulestore.RunState{schedulestore.RunStateCompleted, schedulestore.RunStateCompleted},
 		},
 	}
 
@@ -67,11 +73,12 @@ func TestScheduledLaunchCreatesOneAgent(t *testing.T) {
 				WorkflowID: workflow.ID,
 			})
 
-			worker := NewLaunchAgentWorker(stores.Schedules, newAgentService(t, stores), stores.Agents)
+			worker := NewLaunchAgentWorker(stores.Schedules, stores.Schedules, newAgentService(t, stores), stores.Agents)
 
 			for i, occurrence := range tt.occurrences {
 				err := worker.Work(t.Context(), &river.Job[LaunchAgentArgs]{
-					Args: LaunchAgentArgs{ScheduleID: schedule.ID, ScheduledFor: occurrence},
+					JobRow: &rivertype.JobRow{Attempt: 1, MaxAttempts: 5},
+					Args:   LaunchAgentArgs{ScheduleID: schedule.ID, ScheduledFor: occurrence},
 				})
 
 				last := i == len(tt.occurrences)-1
@@ -91,6 +98,10 @@ func TestScheduledLaunchCreatesOneAgent(t *testing.T) {
 			require.NoError(t, err)
 
 			assert.Len(t, listed, tt.wantAgents)
+
+			runs, err := stores.Schedules.ListRuns(t.Context(), schedule.ID, 10)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantRuns, xslice.Map(runs, func(run schedulestore.Run) schedulestore.RunState { return run.State }))
 		})
 	}
 }

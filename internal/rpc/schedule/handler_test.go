@@ -7,9 +7,6 @@ import (
 
 	schedulev1weave "weave/proto/gen/schedule/v1/schedulev1weave"
 
-	"weave/db"
-	"weave/internal/jobs"
-	"weave/internal/jobs/internaljobs"
 	"weave/internal/rpc/render"
 	"weave/internal/schedules"
 	"weave/internal/storetest"
@@ -17,11 +14,10 @@ import (
 	schedulev1 "weave/proto/gen/schedule/v1"
 	viewv1 "weave/proto/gen/view/v1"
 
+	schedulestore "weave/internal/store/schedule"
 	workflowstore "weave/internal/store/workflow"
 
 	"connectrpc.com/connect"
-	"github.com/riverqueue/river"
-	"github.com/riverqueue/river/riverdriver/riverpgxv5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -229,7 +225,7 @@ func TestGetSchedule(t *testing.T) {
 	}
 }
 
-// TestListScheduleRuns covers a schedule's firings coming back newest first from River's own
+// TestListScheduleRuns covers a schedule's firings coming back newest first from the run
 // record, and the newest one riding on the schedule.
 func TestListScheduleRuns(t *testing.T) {
 	tests := []struct {
@@ -251,10 +247,10 @@ func TestListScheduleRuns(t *testing.T) {
 			name: "a schedule that has never fired has no runs",
 		},
 		{
-			name:      "a firing waiting for a worker is listed",
+			name:      "a firing being worked is listed",
 			fired:     1,
 			wantRuns:  1,
-			wantState: schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_AVAILABLE,
+			wantState: schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_RUNNING,
 		},
 		{
 			name:      "a cancelled firing is listed as cancelled",
@@ -268,7 +264,7 @@ func TestListScheduleRuns(t *testing.T) {
 			fired:     3,
 			limit:     2,
 			wantRuns:  2,
-			wantState: schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_AVAILABLE,
+			wantState: schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_RUNNING,
 		},
 	}
 
@@ -586,31 +582,23 @@ func service(t *testing.T) (schedulev1weave.ScheduleServiceAdapter, string) {
 	return svc, workflow
 }
 
-// fireFunc records one firing of a schedule the way the scheduler does, cancelling it when told.
+// fireFunc records one firing of a schedule the way the launch job does, cancelling it when told.
 type fireFunc func(t *testing.T, scheduleID string, scheduledFor time.Time, cancel bool)
 
 func runService(t *testing.T) (schedulev1weave.ScheduleServiceAdapter, string, fireFunc) {
 	t.Helper()
 
 	st := storetest.Open(t)
-	pool, schema := st.Pool.GetRawPool(), st.Pool.GetRiverSchema()
-	require.NoError(t, db.MigrateRiver(t.Context(), pool, schema))
-
-	runs, err := jobs.NewRunLister(pool, schema)
-	require.NoError(t, err)
-
-	inserter, err := river.NewClient(riverpgxv5.New(pool), &river.Config{Schema: schema})
-	require.NoError(t, err)
 
 	fire := func(t *testing.T, scheduleID string, scheduledFor time.Time, cancel bool) {
 		t.Helper()
 
-		inserted, err := inserter.Insert(t.Context(), internaljobs.LaunchAgentArgs{ScheduleID: scheduleID, ScheduledFor: scheduledFor}, nil)
-		require.NoError(t, err)
+		occurrence := schedulestore.RunOccurrence{ScheduleID: scheduleID, ScheduledFor: scheduledFor}
+		require.NoError(t, st.Schedules.StartRun(t.Context(), occurrence, 1, 5))
 
 		if cancel {
-			_, err := inserter.JobCancel(t.Context(), inserted.Job.ID)
-			require.NoError(t, err)
+			outcome := schedulestore.RunOutcome{State: schedulestore.RunStateCancelled, Message: "schedule is paused"}
+			require.NoError(t, st.Schedules.FinishRun(t.Context(), occurrence, outcome))
 		}
 	}
 
@@ -618,7 +606,7 @@ func runService(t *testing.T) (schedulev1weave.ScheduleServiceAdapter, string, f
 	svc := schedulev1weave.ScheduleServiceAdapter{Impl: NewHandler(NewHandlerParams{
 		Lister:    st.Schedules,
 		Schedules: manager,
-		Runs:      runs,
+		Runs:      st.Schedules,
 	})}
 
 	return svc, st.SeedWorkflow(t, workflowstore.Config{Name: "schedules"}).ID, fire

@@ -3,7 +3,6 @@ package server
 import (
 	"time"
 
-	"weave/internal/jobs"
 	"weave/internal/rpc/render"
 	"weave/internal/watch"
 	watchv1 "weave/proto/gen/watch/v1"
@@ -19,11 +18,11 @@ import (
 )
 
 // buildWatchLoaders pairs each watched resource's lister with its renderer.
-func buildWatchLoaders(st *stores, runs *jobs.RunLister) []watch.Loader {
+func buildWatchLoaders(st *stores) []watch.Loader {
 	return []watch.Loader{
 		watch.NewLoader(watchv1.Resource_RESOURCE_AGENT, st.rows, renderWatchedAgent),
 		watch.NewLoader(watchv1.Resource_RESOURCE_WORKFLOW, st.workflows, renderWatchedWorkflow),
-		watch.NewLoader(watchv1.Resource_RESOURCE_SCHEDULE, jobs.NewLatestRunReader(st.schedules, runs), renderWatchedSchedule),
+		watch.NewLoader(watchv1.Resource_RESOURCE_SCHEDULE, st.schedules, renderWatchedSchedule),
 		watch.NewLoader(watchv1.Resource_RESOURCE_MARK, st.marks, renderWatchedMark),
 		watch.NewLoader(watchv1.Resource_RESOURCE_MAIL, st.mail, renderWatchedMail),
 		watch.NewLoader(watchv1.Resource_RESOURCE_PULL_REQUEST, st.pullRequests, renderWatchedPullRequest),
