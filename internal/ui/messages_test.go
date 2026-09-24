@@ -1,543 +1,407 @@
-package ui
+package ui_test
 
 import (
+	"errors"
+	"regexp"
 	"strings"
 	"testing"
 
-	"weave/internal/ui/paint"
-	"weave/internal/ui/paint/label"
+	"weave/internal/caller"
+	"weave/internal/engine"
+	"weave/internal/ui"
+	"weave/lib/xslice"
+	"weave/proto/gen/agent/v1/agentv1connect"
 
+	"connectrpc.com/connect"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// newestMessage is the message a write's refusal was reported as.
-func newestMessage(m model) message {
-	if len(m.messages.items) == 0 {
-		return message{}
-	}
+const traceID = "7c1f2a94"
 
-	return m.messages.items[0]
-}
+var landedAt = regexp.MustCompile(`[A-Z][a-z]{2} \d{1,2} at \d{1,2}:\d{2}[ap]m`)
 
-func oneMessage(summary, detail string) messagesState {
-	return messagesState{items: []message{{
-		kind:    messageError,
-		summary: summary,
-		detail:  detail,
-	}}}
-}
+// TestMessagesRegion covers the rows under the record that say what went wrong.
+func TestMessagesRegion(t *testing.T) {
+	t.Run("an empty stack says weave is running normally", func(t *testing.T) {
+		harness := openMessages(t, panelHarnessParams{}, "no such agent")
 
-// TestMessagesRegionFitsTheMessage covers the rows the region takes: never more than the pane keeps
-// back for it, and one fewer while there is nothing to say.
-func TestMessagesRegionFitsTheMessage(t *testing.T) {
-	m := detailsModel(&recordingTmux{})
-	m.height, m.width = 40, 60
-
-	record, help := m.detailsView(), m.renderHelp(m.agentHelp())
-
-	idle := m.messagesRegion(record, help)
-	require.NotEmpty(t, idle)
-	assert.Contains(t, ansi.Strip(idle), "No messages")
-
-	m.pushMessage(message{
-		kind:    messageError,
-		summary: "Nothing to review in fix-ci",
-		detail:  "the worktree holds no change against the base",
-	})
-	filled := m.messagesRegion(record, help)
-
-	assert.Equal(t, strings.Count(idle, "\n")+1, strings.Count(filled, "\n"), "the idle region gives a row back")
-	assert.LessOrEqual(t, strings.Count(filled, "\n"), messagesRegionRows)
-	assert.Contains(t, ansi.Strip(filled), "Nothing to review in fix-ci")
-}
-
-// TestMessagesRegionGivesUpAShortPane covers a pane with no rows to spare, where the region is
-// dropped rather than drawn past the bottom of the list.
-func TestMessagesRegionGivesUpAShortPane(t *testing.T) {
-	m := detailsModel(&recordingTmux{})
-	m.height, m.width = 13, 60
-
-	assert.Empty(t, m.messagesRegion(m.detailsView(), m.renderHelp(m.agentHelp()), m.agentsHeader()))
-}
-
-// TestMessagesStackKeepsWhatCameBefore covers the stack: a second failure does not erase the
-// first, and the tally says how much is behind the one on screen.
-func TestMessagesStackKeepsWhatCameBefore(t *testing.T) {
-	m := detailsModel(&recordingTmux{})
-	m.height, m.width = 40, 60
-
-	m.report("Could not archive agent", errNoWorkflow)
-	m.report("Could not review agent", errNoWorkflow)
-
-	require.Len(t, m.messages.items, 2)
-	assert.Equal(t, "Could not review agent", newestMessage(m).summary)
-	assert.Contains(t, ansi.Strip(m.messagesRegion(m.detailsView(), m.renderHelp(m.agentHelp()))), "+1")
-}
-
-// TestMessagesFocusTakesTheBlock covers focus moving the keys off the list.
-func TestMessagesFocusTakesTheBlock(t *testing.T) {
-	m := detailsModel(&recordingTmux{})
-	m.height, m.width = 40, 120
-	m.pushMessage(message{
-		kind:    messageError,
-		summary: "Nothing to review in fix-ci",
-		detail:  "the worktree holds no change against the base",
-		trace:   "7c1f2a94",
+		assert.Equal(t, []string{"✔ No messages", "  Weave is running normally"}, readMessages(harness.readFrame()))
 	})
 
-	focused := m.toggleMessagesFocus()
+	t.Run("a message takes back the row the empty region gave the list", func(t *testing.T) {
+		harness := openMessages(t, panelHarnessParams{}, "no such agent")
+		empty := findRule(harness.readFrame())
 
-	require.True(t, focused.isMessagesFocused())
-	assert.False(t, focused.isListFocused(), "the list goes dormant while the region holds the keys")
+		harness.press("enter")
 
-	doc := focused.messagesDoc()
-	assert.Contains(t, doc, "Nothing to review in fix-ci")
-	assert.Contains(t, doc, "the worktree holds no change against the base")
-	assert.Contains(t, doc, "weave log 7c1f2a94")
+		frame := harness.readFrame()
+		assert.Equal(t, []string{"✗ Could not resume ag…", "  no such agent", "  ctrl+g to read"}, readMessages(frame))
+		assert.Equal(t, empty-1, findRule(frame))
+	})
 
-	spec, ok := focused.columnOf()
-	require.True(t, ok, "the region takes the block beside the list")
-	require.NotNil(t, spec.doc)
+	t.Run("a pane with no rows to spare draws no region", func(t *testing.T) {
+		harness := openMessages(t, panelHarnessParams{height: 13}, "no such agent")
+
+		frame := harness.readFrame()
+		assert.NotContains(t, frame, "No messages")
+		assert.Equal(t, "  api-refactor", readHoveredRow(frame))
+	})
+
+	t.Run("the key is refused with nothing to read", func(t *testing.T) {
+		harness := openMessages(t, panelHarnessParams{}, "no such agent")
+
+		harness.press("ctrl+g", "k")
+
+		frame := harness.readFrame()
+		assert.Equal(t, "backend", readHoveredRow(frame), "the list kept the keys")
+		assert.NotContains(t, readLegend(frame), "back to list")
+	})
+
+	t.Run("the region takes the keys from the list", func(t *testing.T) {
+		harness := openMessages(t, panelHarnessParams{}, "no such agent")
+
+		harness.press("enter", "ctrl+g", "k")
+
+		frame := harness.readFrame()
+		assert.Equal(t, "  api-refactor", readHoveredRow(frame))
+		assert.Contains(t, readLegend(frame), "C-g back to list")
+	})
+
+	t.Run("the whole message is drawn once the region has the keys", func(t *testing.T) {
+		harness := openUnreachable(t, engine.Remote{})
+
+		harness.press("ctrl+g")
+
+		frame := harness.readFrame()
+		region := readMessages(frame)
+		require.NotEmpty(t, region)
+		assert.Contains(t, region[0], "1 of 1", "the tally is on the summary row")
+		prose := joinProse(region)
+		assert.Contains(t, prose, "connection refused")
+		assert.Contains(t, prose, "Start it with: weave serve")
+		assert.Contains(t, prose, "error ·", "the footer says what kind of message this is")
+		assert.Contains(t, frame, "Agents & Workflows", "the list is still above it")
+	})
+
+	t.Run("a message carrying a trace says how to read it in the log", func(t *testing.T) {
+		harness := openMessages(t, panelHarnessParams{}, "no such agent")
+
+		harness.press("enter", "ctrl+g")
+
+		assert.Contains(t, joinProse(readMessages(harness.readFrame())), "weave log "+traceID)
+	})
+
+	t.Run("a reason longer than the region scrolls under its pinned summary", func(t *testing.T) {
+		harness := openMessages(t, panelHarnessParams{height: 24}, strings.Repeat("the reason it gave ran on and on. ", 12))
+		harness.press("enter", "ctrl+g")
+
+		top := readMessages(harness.readFrame())
+		require.NotEmpty(t, top)
+		assert.Contains(t, top[0], "Could not resume")
+		assert.Contains(t, joinProse(top), "more", "what is past the bottom is counted")
+
+		harness.press("G")
+
+		moved := readMessages(harness.readFrame())
+		require.NotEmpty(t, moved)
+		assert.Contains(t, moved[0], "Could not resume", "the summary keeps its row")
+		assert.Contains(t, joinProse(moved), "↑", "what is above the window is counted")
+		assert.Contains(t, joinProse(moved), "error ·", "the piece the cursor moved to is on screen")
+	})
+
+	t.Run("the whole message stands beside a form opened over the list", func(t *testing.T) {
+		harness := openMessages(t, panelHarnessParams{}, "no such agent")
+
+		harness.press("enter", "r", "ctrl+g")
+
+		stage := strings.Join(readStage(harness.readFrame()), "\n")
+		assert.Contains(t, stage, "message 1 of 1")
+		assert.Contains(t, stage, "weave log "+traceID)
+	})
 }
 
-// TestMessagesDismissalWalksTheStack covers esc taking the message on screen away and landing on
-// the one behind it, handing the keys back once there is nothing left to read.
-func TestMessagesDismissalWalksTheStack(t *testing.T) {
-	m := detailsModel(&recordingTmux{})
-	m.height, m.width = 40, 120
-	m.report("Could not archive agent", errNoWorkflow)
-	m.report("Could not review agent", errNoWorkflow)
+// TestMessagesStack covers walking back through the messages that have landed.
+func TestMessagesStack(t *testing.T) {
+	t.Run("the newest message is the last of them and < walks back through time", func(t *testing.T) {
+		harness := openMessages(t, panelHarnessParams{}, "no such agent")
+		harness.press("enter", "enter", "enter", "ctrl+g")
 
-	focused := m.toggleMessagesFocus()
-	dismissed := focused.dismissMessage()
-
-	require.Len(t, dismissed.messages.items, 1)
-	assert.Equal(t, "Could not archive agent", newestMessage(dismissed).summary)
-	assert.True(t, dismissed.isMessagesFocused(), "the region keeps the keys while there is more to read")
-
-	empty := dismissed.dismissMessage()
-
-	assert.Empty(t, empty.messages.items)
-	assert.False(t, empty.isMessagesFocused(), "an empty region hands the keys back")
-}
-
-// TestMessagesFocusGoesDormantOffItsScreen covers the review screen, which draws no region, so a
-// focus taken on the agents list does not follow the reader onto a screen without one.
-func TestMessagesFocusGoesDormantOffItsScreen(t *testing.T) {
-	m := detailsModel(&recordingTmux{})
-	m.height, m.width = 40, 120
-	m.pushMessage(message{
-		kind:    messageError,
-		summary: "Nothing to review in fix-ci",
-		detail:  "no change",
-	})
-
-	focused := m.toggleMessagesFocus()
-	require.True(t, focused.isMessagesFocused())
-
-	// The search screen draws no record and so no message region either.
-	focused.screen = screenSearch
-
-	assert.False(t, focused.isMessagesFocused())
-	assert.True(t, focused.isListFocused())
-}
-
-// TestMessagesTallySaysWhereTheKeysAre covers the region's own focus indicator: the tally is dim
-// while the list has the keys and the accent once it does not.
-func TestMessagesTallySaysWhereTheKeysAre(t *testing.T) {
-	m := detailsModel(&recordingTmux{})
-	m.height, m.width = 40, 60
-	m.pushMessage(message{
-		kind:    messageError,
-		summary: "Nothing to review in fix-ci",
-		detail:  "no change",
-	})
-
-	alone := m.messagesTally(0)
-	assert.Empty(t, ansi.Strip(alone), "one message on its own counts nothing while it is unread")
-
-	m.pushMessage(message{
-		kind:    messageInfo,
-		summary: "Archived 4 agents",
-		detail:  "hidden from the sidebar",
-	})
-
-	blurred := m.messagesTally(0)
-	assert.Contains(t, ansi.Strip(blurred), "+1")
-	assert.Contains(t, blurred, dimStyle.Render("+1"), "the count behind the summary is muted while the list has the keys")
-	assert.NotContains(t, blurred, "\x1b[1;34m")
-
-	focused := m.toggleMessagesFocus().messagesTally(0)
-
-	assert.Contains(t, ansi.Strip(focused), "2 of 2")
-	assert.Contains(t, focused, "\x1b[1;34m", "the accent says the region holds the keys")
-}
-
-// TestMessagesTallyCountsFromTheOldest covers which way the stack is read: the newest message is
-// the one on screen and the last of them, so < walks back through time and counts down.
-func TestMessagesTallyCountsFromTheOldest(t *testing.T) {
-	m := detailsModel(&recordingTmux{})
-	m.height, m.width = 30, 66
-	m.pushMessage(message{
-		kind:    messageInfo,
-		summary: "First",
-		detail:  "one",
-	})
-	m.pushMessage(message{
-		kind:    messageInfo,
-		summary: "Second",
-		detail:  "two",
-	})
-	m.pushMessage(message{
-		kind:    messageInfo,
-		summary: "Newest",
-		detail:  "three",
-	})
-
-	focused := m.toggleMessagesFocus()
-
-	assert.Equal(t, "Newest", focused.messages.items[focused.messages.clampedCursor()].summary, "the newest message is the one on screen")
-	assert.Contains(t, ansi.Strip(focused.messagesTally(0)), "3 of 3", "and it is the last of them")
-
-	back := send(t, focused, "<")
-	assert.Equal(t, "Second", back.messages.items[back.messages.clampedCursor()].summary, "< walks back through time")
-	assert.Contains(t, ansi.Strip(back.messagesTally(0)), "2 of 3")
-
-	oldest := send(t, back, "<")
-	assert.Equal(t, "First", oldest.messages.items[oldest.messages.clampedCursor()].summary)
-	assert.Contains(t, ansi.Strip(oldest.messagesTally(0)), "1 of 3")
-
-	forward := send(t, oldest, ">")
-	assert.Equal(t, "Second", forward.messages.items[forward.messages.clampedCursor()].summary, "and > comes back towards the newest")
-}
-
-// TestMessagesRegionExpandsWhenFocused covers the region growing to hold the whole message
-// rather than sending the reader to a block beside the list for the rest of it.
-func TestMessagesRegionExpandsWhenFocused(t *testing.T) {
-	m := detailsModel(&recordingTmux{})
-	m.height, m.width = 30, 66
-	m.pushMessage(message{
-		kind:    messageError,
-		summary: "Cannot reach the server",
-		detail:  "dial tcp 127.0.0.1:8787: connect: connection refused",
-		hint:    "Start it with: weave serve",
-		trace:   "7c1f2a94",
-	})
-
-	record, help := m.detailsView(), m.renderHelp(m.agentHelp())
-	blurred, ok := m.messagesFit(record, help)
-	require.True(t, ok)
-	assert.Equal(t, messagesRows, blurred, "the region keeps its three rows while the list has the keys")
-
-	focused := m.toggleMessagesFocus()
-	rows, ok := focused.messagesFit(record, help)
-	require.True(t, ok)
-	assert.Greater(t, rows, messagesRows, "and takes the rows the message needs once it has them")
-
-	region := ansi.Strip(focused.messagesRegion(record, help))
-	assert.Contains(t, region, "1 of 1", "the tally is on the summary row")
-	assert.Contains(t, region, "connect: connection refused")
-	assert.Contains(t, region, "Start it with: weave serve")
-	assert.Contains(t, region, "weave log 7c1f2a94")
-	assert.Contains(t, region, "error ·", "the footer says what kind of message this is")
-
-	assert.Contains(t, ansi.Strip(focused.render()), "Agents & Workflows", "the list is still above it")
-}
-
-// TestMessagesRegionLeavesTheReasonPlain covers the reason being the one part of an expanded
-// message drawn in the plain foreground.
-func TestMessagesRegionLeavesTheReasonPlain(t *testing.T) {
-	m := detailsModel(&recordingTmux{})
-	m.height, m.width = 30, 66
-	m.pushMessage(message{
-		kind:    messageError,
-		summary: "Could not open a review round",
-		detail:  "git rev-parse --show-toplevel: exit status 128",
-		hint:    "The worktree is gone.",
-	})
-
-	for _, row := range m.messagesSlot() {
-		if strings.Contains(ansi.Strip(row), "exit status 128") {
-			assert.NotEqual(t, ansi.Strip(row), row, "the collapsed row stays dim")
+		var tallies []string
+		for _, key := range []string{"<", "<", "<", ">"} {
+			tallies = append(tallies, readTally(harness.readFrame()))
+			harness.press(key)
 		}
-	}
+		tallies = append(tallies, readTally(harness.readFrame()))
 
-	reason, hint := "", ""
-	for _, row := range m.toggleMessagesFocus().messagesRender().rows {
-		switch {
-		case strings.Contains(ansi.Strip(row), "exit status 128"):
-			reason = row
-		case strings.Contains(ansi.Strip(row), "The worktree is gone."):
-			hint = row
-		}
-	}
-
-	require.NotEmpty(t, reason)
-	require.NotEmpty(t, hint)
-
-	assert.Equal(t, ansi.Strip(reason), reason, "the reason carries no colour of its own")
-	assert.NotEqual(t, ansi.Strip(hint), hint, "what is said around it stays dim")
-}
-
-// TestMessagesRegionPinsTheSummaryWhileMoving covers a message longer than the rows the region
-// can take, where the cursor moves the window the way the record's does and the summary keeps
-// its row throughout.
-func TestMessagesRegionPinsTheSummaryWhileMoving(t *testing.T) {
-	m := detailsModel(&recordingTmux{})
-	m.height, m.width = 20, 66
-	m.pushMessage(message{
-		kind:    messageError,
-		summary: "Cannot reach the server",
-		detail:  strings.Repeat("the reason it gave ran on and on. ", 12),
-		trace:   "7c1f2a94",
+		assert.Equal(t, []string{"3 of 3", "2 of 3", "1 of 3", "1 of 3", "2 of 3"}, tallies)
 	})
 
-	focused := m.toggleMessagesFocus()
-	record, help := focused.detailsView(), focused.renderHelp(focused.agentHelp())
+	t.Run("esc takes the message on screen away and lands on the one behind it", func(t *testing.T) {
+		harness := openMessages(t, panelHarnessParams{}, "no such agent")
+		harness.press("enter", "enter", "ctrl+g", "esc")
 
-	top := ansi.Strip(focused.messagesRegion(record, help))
-	assert.Contains(t, top, "Cannot reach the server")
-	assert.Contains(t, top, "more", "what is past the bottom is counted")
+		frame := harness.readFrame()
+		assert.Equal(t, "1 of 1", readTally(frame))
+		assert.Contains(t, readLegend(frame), "back to list", "the region keeps the keys while there is more to read")
 
-	moved := send(t, focused, "G")
-	assert.Equal(t, len(moved.messagePieces())-1, moved.messagesPiece(), "the cursor is on the last piece")
+		harness.press("esc", "k")
 
-	window := ansi.Strip(moved.messagesRegion(record, help))
-	assert.Contains(t, window, "Cannot reach the server", "the summary keeps its row")
-	assert.Contains(t, window, "↑", "and what is above the window is counted")
-	assert.Contains(t, window, "error ·", "the piece the cursor moved to is on screen")
-}
-
-// TestMessagesPiecesAreCopied covers y putting the piece under the cursor on the clipboard, which
-// is the record's own key doing the record's own thing.
-func TestMessagesPiecesAreCopied(t *testing.T) {
-	clip := &fakeClipboard{}
-
-	m := detailsModel(&recordingTmux{})
-	m.height, m.width = 30, 66
-	m.clip = clip
-	m.pushMessage(message{
-		kind:    messageError,
-		summary: "Could not open a review round",
-		detail:  "git rev-parse --show-toplevel: exit status 128",
-		hint:    "The worktree is gone.",
-		trace:   "7c1f2a94",
+		frame = harness.readFrame()
+		assert.Contains(t, frame, "No messages")
+		assert.Equal(t, "backend", readHoveredRow(frame), "an empty region hands the keys back")
 	})
 
-	focused := m.toggleMessagesFocus()
+	t.Run("a message landing while the region is read leaves the reader where they were", func(t *testing.T) {
+		harness := openMessages(t, panelHarnessParams{}, "no such agent")
 
-	want := []string{
-		"Could not open a review round",
-		"git rev-parse --show-toplevel: exit status 128",
-		"The worktree is gone.",
-		"7c1f2a94",
-		label.Friendly(m.messages.items[0].at),
-	}
+		harness.press("enter", "ctrl+g", "M")
 
-	for i, value := range want {
-		copied, cmd := focused.updateMessages(keyMsg("y"))
-		shown, ok := copied.(model)
-		require.True(t, ok)
-		require.NotNil(t, cmd)
-		require.NoError(t, copyResultFrom(t, cmd).err)
-
-		assert.Equal(t, value, clip.written[len(clip.written)-1], "the piece under the cursor is what y copies")
-		assert.Equal(t, i+1, shown.messages.flashed, "and it flashes while the copy lands")
-
-		focused = send(t, focused, "j")
-	}
+		assert.Equal(t, "1 of 2", readTally(harness.readFrame()))
+	})
 }
 
-// TestMessagesRegionIsColouredByKind covers the expanded region drawing a message in the colour
-// its row carries.
-func TestMessagesRegionIsColouredByKind(t *testing.T) {
+// TestMessagesCopy covers y putting the piece under the cursor on the clipboard.
+func TestMessagesCopy(t *testing.T) {
+	harness := openMessages(t, panelHarnessParams{}, "no such agent")
+	harness.press("enter", "ctrl+g")
+
+	harness.press("y", "j", "y", "j", "y", "j", "y")
+
+	copied := harness.panel.ReadCopied()
+	require.Len(t, copied, 4)
+	assert.Equal(t, []string{`Could not resume agent "api-refactor"`, "no such agent", traceID}, copied[:3])
+	assert.Regexp(t, landedAt, copied[3])
+}
+
+// TestMessagesBlink covers a message blinking as it lands.
+func TestMessagesBlink(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
-		name string
-		kind messageKind
-		want string
+		name  string
+		press []string
 	}{
 		{
-			name: "an error is the scheme's red",
-			kind: messageError,
-			want: "\x1b[91",
+			name:  "a message blinks twice and settles as it found the row",
+			press: []string{"enter"},
 		},
 		{
-			name: "a warning is its yellow",
-			kind: messageWarning,
-			want: "\x1b[93",
-		},
-		{
-			name: "a success is its green",
-			kind: messageSuccess,
-			want: "\x1b[92",
-		},
-		{
-			name: "an info is its muted grey",
-			kind: messageInfo,
-			want: "\x1b[90",
+			name:  "two messages landing together blink at one speed",
+			press: []string{"enter", "enter"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := detailsModel(&recordingTmux{})
-			m.height, m.width = 40, 120
-			m.pushMessage(message{
-				kind:    tt.kind,
-				summary: "Nothing to review in fix-ci",
-				detail:  "no change against the base",
-			})
+			t.Parallel()
 
-			head := ""
-			for _, row := range m.toggleMessagesFocus().messagesRender().rows {
-				if strings.Contains(ansi.Strip(row), "Nothing to review in fix-ci") {
-					head = row
-				}
+			harness := openMessages(t, panelHarnessParams{}, "no such agent")
+			harness.press(tt.press...)
+
+			var heads []string
+			for range 5 {
+				heads = append(heads, readStyledMessages(harness)[0])
+				harness.fireTimers()
 			}
 
-			require.NotEmpty(t, head, "the region draws what happened")
-			assert.Contains(t, head, tt.want)
+			lit, settled := heads[0], heads[4]
+			assert.NotEqual(t, lit, settled)
+			assert.Equal(t, []string{lit, settled, lit, settled, settled}, heads)
+			assert.Equal(t, ansi.Strip(lit), ansi.Strip(settled), "the blink changes no words")
 		})
 	}
+
+	t.Run("a message landing behind the one being read does not blink", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openMessages(t, panelHarnessParams{}, "no such agent")
+		harness.press("enter", "ctrl+g")
+		harness.fireTimers()
+		harness.press("M")
+
+		landed := readStyledSummary(harness)
+		harness.fireTimers()
+
+		assert.Equal(t, landed, readStyledSummary(harness))
+	})
 }
 
-// TestMessagesRefuseFocusWithNothingToRead covers the key being refused rather than opening a
-// region whose block would say there is nothing in it.
-func TestMessagesRefuseFocusWithNothingToRead(t *testing.T) {
-	m := detailsModel(&recordingTmux{})
-	m.height, m.width = 40, 60
-
-	assert.False(t, m.toggleMessagesFocus().isMessagesFocused())
-}
-
-// TestMessagesPulseBlinksWhatJustLanded covers a message blinking twice as it lands, its words
-// taking the kind's own colour on each lit half, and leaving the row as it found it.
-func TestMessagesPulseBlinksWhatJustLanded(t *testing.T) {
-	const summary = "Nothing to review in fix-ci"
+// TestMessagesGolden draws the region whole, colours included.
+func TestMessagesGolden(t *testing.T) {
+	t.Parallel()
 
 	tests := []struct {
 		name string
-		kind messageKind
-		tone paint.Tone
+		open func(t *testing.T) *panelHarness
 	}{
 		{
-			name: "an error blinks red",
-			kind: messageError,
-			tone: paint.ToneDanger,
+			name: "empty",
+			open: func(t *testing.T) *panelHarness {
+				return openMessages(t, panelHarnessParams{}, "no such agent")
+			},
 		},
 		{
-			name: "a success blinks green",
-			kind: messageSuccess,
-			tone: paint.ToneSuccess,
+			name: "an-error-behind-another",
+			open: func(t *testing.T) *panelHarness {
+				harness := openMessages(t, panelHarnessParams{}, "no such agent")
+				harness.press("enter", "enter")
+				settlePulse(harness)
+
+				return harness
+			},
 		},
 		{
-			name: "an info message blinks the accent over its muted icon",
-			kind: messageInfo,
-			tone: paint.ToneAccent,
+			name: "a-warning-read-in-the-region",
+			open: func(t *testing.T) *panelHarness {
+				harness := openMessages(t, panelHarnessParams{}, "no such agent")
+				harness.press("enter", "ctrl+g", "M", "M", ">", ">")
+				settlePulse(harness)
+
+				return harness
+			},
+		},
+		{
+			name: "the-region-holding-the-keys",
+			open: func(t *testing.T) *panelHarness {
+				harness := openUnreachable(t, engine.Remote{})
+				settlePulse(harness)
+				harness.press("ctrl+g")
+
+				return harness
+			},
+		},
+		{
+			name: "a-copied-piece",
+			open: func(t *testing.T) *panelHarness {
+				harness := openMessages(t, panelHarnessParams{}, "no such agent")
+				harness.press("enter", "ctrl+g")
+				settlePulse(harness)
+				harness.press("j", "y")
+
+				return harness
+			},
+		},
+		{
+			name: "an-info-message-read-in-the-region",
+			open: func(t *testing.T) *panelHarness {
+				harness := openArchive(t, buildOneArchivedAgent()...)
+				harness.press("D", "y")
+				settlePulse(harness)
+				harness.press("ctrl+g")
+
+				return harness
+			},
+		},
+		{
+			name: "an-info-message-landing",
+			open: func(t *testing.T) *panelHarness {
+				harness := openArchive(t, buildOneArchivedAgent()...)
+				harness.press("D", "y")
+
+				return harness
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			lit := paint.Panel.Style(tt.tone).Render(summary)
+			t.Parallel()
 
-			m := detailsModel(&recordingTmux{})
-			m.height, m.width = 40, 120
-			m.pushMessage(message{
-				kind:    tt.kind,
-				summary: summary,
-				detail:  "no change against the base",
-			})
+			harness := tt.open(t)
 
-			settled := m.messagesSlot()[0]
-			assert.NotContains(t, settled, lit)
-			assert.Contains(t, settled, " "+summary, "the words sit in the plain foreground")
-			assert.NotContains(t, settled, flashFieldStyle(paint.Panel).Render(summary))
-
-			m, cmd := m.pulseMessages(m.messages.landed - 1)
-			require.NotNil(t, cmd)
-
-			blinks := 0
-			for {
-				row := m.messagesSlot()[0]
-				assert.NotContains(t, row, flashFieldStyle(paint.Panel).Render(summary), "the blink never paints a background")
-				if strings.Contains(row, lit) {
-					blinks++
-				} else {
-					assert.Equal(t, settled, row, "the dark half is the row as it settles")
-				}
-
-				if m.advancePulses() == nil {
-					break
-				}
-			}
-
-			assert.Equal(t, 2, blinks)
-			assert.Equal(t, settled, m.messagesSlot()[0])
+			region := landedAt.ReplaceAllString(strings.Join(readStyledMessages(harness), "\n"), "<landed>")
+			ui.RequireGolden(t, "messages-"+tt.name, region)
 		})
 	}
 }
 
-// TestMessagesPulseHoldsStillOnAnOlderMessage covers a message landing while the reader is back
-// in the stack, where the blink would draw the eye to the wrong summary.
-func TestMessagesPulseHoldsStillOnAnOlderMessage(t *testing.T) {
-	m := detailsModel(&recordingTmux{})
-	m.height, m.width = 40, 120
-	m.pushMessage(message{summary: "first", detail: "one"})
-	m.pushMessage(message{summary: "second", detail: "two"})
+func openMessages(t *testing.T, params panelHarnessParams, reason string) *panelHarness {
+	t.Helper()
 
-	m, _ = m.pulseMessages(m.messages.landed - 1)
-	require.True(t, m.isMessagesPulseOn())
+	harness := newPanelHarness(t, params)
+	answerWorktreeReads(harness)
+	harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), newDormant("api-refactor")))
+	harness.refuse(agentv1connect.AgentServiceResumeAgentProcedure, newTracedRefusal(reason))
+	harness.press("j")
 
-	m.messages.cursor = 1
-	assert.False(t, m.isMessagesPulseOn())
+	return harness
 }
 
-// TestChromeKeepsEveryRowInsideThePane covers every block of chrome the panel draws staying
-// inside the pane it is drawn in.
-func TestChromeKeepsEveryRowInsideThePane(t *testing.T) {
-	const path = "/Users/harrisoncramer/.local/state/weave/worktrees/01a086ae-d59b-769b-a8a0-202d4014bddd/bin/editor"
-
-	// 61 is a width where the wrap misplaces a breakpoint in this path and hands back a row two
-	// columns over the column it was given.
-	for _, width := range []int{20, 30, 45, 61, 80} {
-		m := detailsModel(&recordingTmux{})
-		m.height, m.width = 40, width
-		m.messages = oneMessage("Your editor could not be opened on that message", "fork/exec "+path+": no such file or directory")
-		m.messages.focused = true
-
-		view := m.render()
-		for i, row := range strings.Split(view, "\n") {
-			assert.LessOrEqual(t, ansi.StringWidth(row), width, "message row %d at width %d: %q", i, width, ansi.Strip(row))
-		}
-
-		assert.Equal(t, m.height, strings.Count(view, "\n")+1, "frame rows at width %d", width)
-
-		note := reviewNote(m.shared(), dimStyle, "editing this round replaces the edit of an earlier one in "+path+", so press again to go on")
-		for i, row := range strings.Split(strings.TrimRight(note, "\n"), "\n") {
-			assert.LessOrEqual(t, ansi.StringWidth(row), m.paneWidth(), "review note row %d at width %d: %q", i, width, ansi.Strip(row))
-		}
-
-		for i, row := range m.noticeLines(notice{icon: "✗", text: "nothing was written to " + path}, 0) {
-			assert.LessOrEqual(t, ansi.StringWidth(row), m.paneWidth(), "notice row %d at width %d: %q", i, width, ansi.Strip(row))
-		}
-
-		// A worktree path is nothing but dashes, and a wrap that breaks at one has to keep every
-		// column it was handed: a path the reader copies out and cannot find is the worse failure.
-		joined := strings.Join(paint.WrapRows("a "+path, width), "")
-		assert.Contains(t, strings.ReplaceAll(joined, " ", ""), path, "path survives the wrap at width %d", width)
+func settlePulse(harness *panelHarness) {
+	for range 3 {
+		harness.fireTimers()
 	}
 }
 
-// TestReviewNoteWrapsBeforeTheFirstResize covers the note drawn before the panel has been told how
-// wide it is, which reaches the wrap as a column of nothing and would come out one letter a row.
-func TestReviewNoteWrapsBeforeTheFirstResize(t *testing.T) {
-	m := detailsModel(&recordingTmux{})
-	m.height, m.width = 0, 0
+func newTracedRefusal(reason string) error {
+	refusal := connect.NewError(connect.CodeFailedPrecondition, errors.New(reason))
+	refusal.Meta().Set(caller.TraceHeader, traceID)
 
-	note := strings.TrimRight(reviewNote(m.shared(), dimStyle, "editing this round replaces the edit of an earlier one, so press again to go on"), "\n")
+	return refusal
+}
 
-	assert.Less(t, strings.Count(note, "\n")+1, 10, "rows before the first resize: %q", ansi.Strip(note))
+func readMessages(frame string) []string {
+	lines := splitLines(frame)
+	top, bottom, width := findMessageRules(lines)
+	if top < 0 {
+		return nil
+	}
+
+	return xslice.Map(lines[top+1:bottom], func(line string) string {
+		return strings.TrimRight(ansi.Truncate(line, width, ""), " ")
+	})
+}
+
+func readStyledMessages(harness *panelHarness) []string {
+	styled := splitLines(harness.panel.View())
+	top, bottom, width := findMessageRules(splitLines(harness.readFrame()))
+	if top < 0 {
+		return nil
+	}
+
+	return xslice.Map(styled[top+1:bottom], func(line string) string {
+		return ansi.Truncate(line, width, "")
+	})
+}
+
+func readStyledSummary(harness *panelHarness) string {
+	_, summary, _ := strings.Cut(readStyledMessages(harness)[0], "✗")
+
+	return summary
+}
+
+func findMessageRules(lines []string) (int, int, int) {
+	var rules []int
+	for i, line := range lines {
+		if strings.HasPrefix(line, "─") {
+			rules = append(rules, i)
+		}
+	}
+	if len(rules) < 2 {
+		return -1, -1, 0
+	}
+
+	bottom := rules[len(rules)-1]
+
+	return rules[len(rules)-2], bottom, ansi.StringWidth(strings.TrimRight(lines[bottom], " "))
+}
+
+func readTally(frame string) string {
+	region := readMessages(frame)
+	if len(region) == 0 {
+		return ""
+	}
+
+	fields := strings.Fields(region[0])
+	if len(fields) < 3 {
+		return ""
+	}
+
+	return strings.Join(fields[len(fields)-3:], " ")
+}
+
+func joinProse(lines []string) string {
+	return strings.Join(strings.Fields(strings.Join(lines, " ")), " ")
 }
