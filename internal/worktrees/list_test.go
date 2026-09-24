@@ -9,6 +9,7 @@ import (
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
+	"weave/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -330,6 +331,76 @@ func TestFateIsDecidedByTheRow(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, tt.want, tt.worktree.Fate())
+		})
+	}
+}
+
+// TestUnclaimedLeavesOutWhatADeleteHasClaimed covers an agent being deleted and a directory
+// nothing answers for that an unfinished delete names both being dropped, while an archived
+// agent's directory a delete names is still its agent's.
+func TestUnclaimedLeavesOutWhatADeleteHasClaimed(t *testing.T) {
+	archived := time.Date(2026, 9, 19, 12, 0, 0, 0, time.UTC)
+	owned := Worktree{
+		Dir:      "/trees/owned",
+		Readable: true,
+		Agent:    &Agent{ArchivedAt: &archived},
+	}
+	unowned := Worktree{Dir: "/trees/unowned", Readable: true}
+
+	tests := []struct {
+		name    string
+		listing []Worktree
+		claimed []string
+		want    []string
+	}{
+		{
+			name: "an agent a delete has claimed",
+			listing: []Worktree{
+				{
+					Dir:      "/trees/deleting",
+					Readable: true,
+					Agent:    &Agent{Deleting: true},
+				},
+				unowned,
+			},
+			want: []string{"/trees/unowned"},
+		},
+		{
+			name:    "a directory nothing answers for that a delete names",
+			listing: []Worktree{owned, unowned},
+			claimed: []string{"/trees/unowned"},
+			want:    []string{"/trees/owned"},
+		},
+		{
+			name: "a directory whose agent's delete failed that a delete names",
+			listing: []Worktree{
+				owned,
+				{
+					Dir:   "/trees/stuck",
+					Agent: &Agent{FailedToCleanup: true},
+				},
+			},
+			claimed: []string{"/trees/stuck"},
+			want:    []string{"/trees/owned"},
+		},
+		{
+			name:    "an archived agent's directory that a delete names",
+			listing: []Worktree{owned},
+			claimed: []string{"/trees/owned"},
+			want:    []string{"/trees/owned"},
+		},
+		{
+			name:    "nothing claimed",
+			listing: []Worktree{owned, unowned},
+			want:    []string{"/trees/owned", "/trees/unowned"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := xslice.Map(Unclaimed(tt.listing, tt.claimed), func(worktree Worktree) string { return worktree.Dir })
+
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }

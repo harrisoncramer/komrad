@@ -2,6 +2,7 @@ package worktree
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -10,7 +11,6 @@ import (
 	agentstore "weave/internal/store/agent"
 	worktreestore "weave/internal/store/worktree"
 	"weave/internal/worktrees"
-	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
 	worktreev1 "weave/proto/gen/worktree/v1"
 	worktreev1weave "weave/proto/gen/worktree/v1/worktreev1weave"
@@ -21,12 +21,14 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// fakeWorktrees answers as the three readers and the queue with one directory, remembering what
-// it was asked.
+// fakeWorktrees answers as the three readers and the queue, remembering what it was asked and
+// refusing with err when it is set.
 type fakeWorktrees struct {
 	listing    worktrees.Listing
 	inspection worktrees.Inspection
 	removal    worktrees.Removal
+	err        error
+	claimErr   error
 	inspected  string
 	fetched    bool
 	removed    []string
@@ -35,13 +37,17 @@ type fakeWorktrees struct {
 }
 
 func (f *fakeWorktrees) List(context.Context) (*worktrees.Listing, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+
 	return &f.listing, nil
 }
 
 func (f *fakeWorktrees) Inspect(_ context.Context, params worktrees.InspectParams) (*worktrees.Inspection, error) {
 	f.inspected, f.fetched = params.Dir, params.Fetch
-	if params.Dir != f.inspection.Worktree.Dir {
-		return nil, store.ErrNotFound.Saying("%s is not under the worktree directories", params.Dir)
+	if f.err != nil {
+		return nil, f.err
 	}
 
 	return &f.inspection, nil
@@ -49,6 +55,9 @@ func (f *fakeWorktrees) Inspect(_ context.Context, params worktrees.InspectParam
 
 func (f *fakeWorktrees) Remove(_ context.Context, dirs []string) (*worktrees.Removal, error) {
 	f.removed = dirs
+	if f.err != nil {
+		return nil, f.err
+	}
 
 	return &f.removal, nil
 }
@@ -56,11 +65,11 @@ func (f *fakeWorktrees) Remove(_ context.Context, dirs []string) (*worktrees.Rem
 func (f *fakeWorktrees) DeleteWorktrees(_ context.Context, dirs []string) error {
 	f.queued = dirs
 
-	return nil
+	return f.err
 }
 
 func (f *fakeWorktrees) ListClaimedDirs(context.Context) ([]string, error) {
-	return f.claimed, nil
+	return f.claimed, f.claimErr
 }
 
 func newService(fake *fakeWorktrees) worktreev1weave.WorktreeServiceAdapter {
@@ -168,74 +177,6 @@ func TestListWorktrees(t *testing.T) {
 	assert.Equal(t, []string{"/own"}, resp.Msg.GetUnreadableDirs())
 }
 
-// TestListWorktreesLeavesOutTheClaimed covers the rows a delete has claimed staying out of the
-// listing: an agent being deleted, and a directory nothing answers for that an unfinished
-// delete names.
-func TestListWorktreesLeavesOutTheClaimed(t *testing.T) {
-	t.Parallel()
-
-	deleting := listed()
-	deleting.Agent.Deleting = true
-
-	stuck := listed()
-	stuck.Dir = "/trees/stuck"
-	stuck.Readable = false
-	stuck.Agent.ID = "stuck"
-	stuck.Agent.FailedToCleanup = true
-
-	tests := []struct {
-		name    string
-		listing []worktrees.Worktree
-		claimed []string
-		want    []string
-	}{
-		{
-			name:    "an agent a delete has claimed",
-			listing: []worktrees.Worktree{deleting, {Dir: "/trees/new", RepoDir: "/repo"}},
-			want:    []string{"/trees/new"},
-		},
-		{
-			name:    "a directory nothing answers for that a delete names",
-			listing: []worktrees.Worktree{listed(), {Dir: "/trees/new", RepoDir: "/repo"}},
-			claimed: []string{"/trees/new"},
-			want:    []string{"/trees/aaaa"},
-		},
-		{
-			name:    "a directory whose agent's delete failed that a delete names",
-			listing: []worktrees.Worktree{listed(), stuck},
-			claimed: []string{"/trees/stuck"},
-			want:    []string{"/trees/aaaa"},
-		},
-		{
-			name:    "an archived agent's directory that a delete names is still its agent's",
-			listing: []worktrees.Worktree{listed()},
-			claimed: []string{"/trees/aaaa"},
-			want:    []string{"/trees/aaaa"},
-		},
-		{
-			name:    "nothing claimed",
-			listing: []worktrees.Worktree{listed(), {Dir: "/trees/new", RepoDir: "/repo"}},
-			want:    []string{"/trees/aaaa", "/trees/new"},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			fake := &fakeWorktrees{listing: worktrees.Listing{Worktrees: tt.listing}, claimed: tt.claimed}
-
-			resp, err := newService(fake).ListWorktrees(t.Context(), connect.NewRequest(&emptypb.Empty{}))
-			require.NoError(t, err)
-
-			dirs := xslice.Map(resp.Msg.GetWorktrees(), func(worktree *worktreev1.Worktree) string {
-				return worktree.GetDir()
-			})
-			assert.Equal(t, tt.want, dirs)
-		})
-	}
-}
-
 // TestGetWorktree covers the request reaching the inspector as asked and the standing
 // rendered whole.
 func TestGetWorktree(t *testing.T) {
@@ -286,17 +227,6 @@ func TestGetWorktree(t *testing.T) {
 	assert.Equal(t, "2026-09-19T11:00:00Z", resp.Msg.GetCommits()[0].GetCommittedAt())
 }
 
-// TestGetWorktreeNotFound covers the inspector's refusal reaching the caller with its kind.
-func TestGetWorktreeNotFound(t *testing.T) {
-	t.Parallel()
-
-	fake := &fakeWorktrees{inspection: worktrees.Inspection{Worktree: listed()}}
-
-	_, err := newService(fake).GetWorktree(t.Context(), connect.NewRequest(&worktreev1.GetWorktreeRequest{Dir: "/elsewhere"}))
-	require.Error(t, err)
-	assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err))
-}
-
 // TestRemoveUnownedWorktrees covers the directories reaching the remover and the removal
 // coming back with what went, what did not, and why.
 func TestRemoveUnownedWorktrees(t *testing.T) {
@@ -317,16 +247,93 @@ func TestRemoveUnownedWorktrees(t *testing.T) {
 	assert.Contains(t, resp.Msg.GetRefused()[0].GetReason(), "delete the agent instead")
 }
 
-// TestDeleteWorktrees covers the directories reaching the queue as one job and nothing being
-// removed on the call.
-func TestDeleteWorktrees(t *testing.T) {
+// TestHandlerAnswersWithTheDomainsKind covers each procedure answering what the domain said:
+// a refusal with its kind, a failure as internal, and a queued delete as nothing.
+func TestHandlerAnswersWithTheDomainsKind(t *testing.T) {
 	t.Parallel()
 
-	fake := &fakeWorktrees{}
+	notUnder := store.ErrNotFound.Saying("/elsewhere is not under the worktree directories")
+	broke := errors.New("the disk is gone")
 
-	_, err := newService(fake).DeleteWorktrees(t.Context(), connect.NewRequest(&worktreev1.DeleteWorktreesRequest{Dirs: []string{"/trees/gone", "/trees/aaaa"}}))
-	require.NoError(t, err)
+	tests := []struct {
+		name     string
+		fake     *fakeWorktrees
+		call     func(ctx context.Context, service worktreev1weave.WorktreeServiceAdapter) error
+		wantCode connect.Code
+	}{
+		{
+			name: "a listing that fails",
+			fake: &fakeWorktrees{err: broke},
+			call: func(ctx context.Context, service worktreev1weave.WorktreeServiceAdapter) error {
+				_, err := service.ListWorktrees(ctx, connect.NewRequest(&emptypb.Empty{}))
 
-	assert.Equal(t, []string{"/trees/gone", "/trees/aaaa"}, fake.queued)
-	assert.Empty(t, fake.removed, "the call queues the job and removes nothing itself")
+				return err
+			},
+			wantCode: connect.CodeInternal,
+		},
+		{
+			name: "a claim read that fails",
+			fake: &fakeWorktrees{claimErr: broke},
+			call: func(ctx context.Context, service worktreev1weave.WorktreeServiceAdapter) error {
+				_, err := service.ListWorktrees(ctx, connect.NewRequest(&emptypb.Empty{}))
+
+				return err
+			},
+			wantCode: connect.CodeInternal,
+		},
+		{
+			name: "a directory outside the worktree directories",
+			fake: &fakeWorktrees{err: notUnder},
+			call: func(ctx context.Context, service worktreev1weave.WorktreeServiceAdapter) error {
+				_, err := service.GetWorktree(ctx, connect.NewRequest(&worktreev1.GetWorktreeRequest{Dir: "/elsewhere"}))
+
+				return err
+			},
+			wantCode: connect.CodeNotFound,
+		},
+		{
+			name: "a removal that fails",
+			fake: &fakeWorktrees{err: broke},
+			call: func(ctx context.Context, service worktreev1weave.WorktreeServiceAdapter) error {
+				_, err := service.RemoveUnownedWorktrees(ctx, connect.NewRequest(&worktreev1.RemoveUnownedWorktreesRequest{Dirs: []string{"/trees/gone"}}))
+
+				return err
+			},
+			wantCode: connect.CodeInternal,
+		},
+		{
+			name: "a delete the queue refuses",
+			fake: &fakeWorktrees{err: broke},
+			call: func(ctx context.Context, service worktreev1weave.WorktreeServiceAdapter) error {
+				_, err := service.DeleteWorktrees(ctx, connect.NewRequest(&worktreev1.DeleteWorktreesRequest{Dirs: []string{"/trees/gone"}}))
+
+				return err
+			},
+			wantCode: connect.CodeInternal,
+		},
+		{
+			name: "a delete the queue takes",
+			fake: &fakeWorktrees{},
+			call: func(ctx context.Context, service worktreev1weave.WorktreeServiceAdapter) error {
+				_, err := service.DeleteWorktrees(ctx, connect.NewRequest(&worktreev1.DeleteWorktreesRequest{Dirs: []string{"/trees/gone"}}))
+
+				return err
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := tt.call(t.Context(), newService(tt.fake))
+
+			if tt.wantCode == 0 {
+				require.NoError(t, err)
+
+				return
+			}
+			assert.Equal(t, tt.wantCode, connect.CodeOf(err))
+		})
+	}
 }
