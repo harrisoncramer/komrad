@@ -19,8 +19,6 @@ import (
 func TestGetConfig(t *testing.T) {
 	loaded := weaveconfig.Defaults()
 	loaded.Harness.Claude.Flags = "--model opus"
-	loaded.Connection.DatabaseURL = "postgres://weave:hunter2@db.internal:5432/panel"
-	loaded.Connection.ReadOnlyDatabaseURL = "postgres://reader:alsosecret@db.internal:5432/panel"
 
 	tests := []struct {
 		name      string

@@ -59,7 +59,7 @@ func TestListForgePullRequests(t *testing.T) {
 		MergedAt:   &merged,
 	}}}
 	connector := &fakeConnector{
-		connections: []forgestore.Connection{connected()},
+		connections: []forgestore.Connection{newConnection()},
 		forge:       listing,
 	}
 	service := forgev1weave.ForgeServiceAdapter{Impl: NewHandler(connector)}
@@ -95,7 +95,7 @@ func TestListForgePullRequests(t *testing.T) {
 func TestListForgePullRequestsPages(t *testing.T) {
 	listing := &fakeForge{hasMore: true}
 	connector := &fakeConnector{
-		connections: []forgestore.Connection{connected()},
+		connections: []forgestore.Connection{newConnection()},
 		forge:       listing,
 	}
 	service := forgev1weave.ForgeServiceAdapter{Impl: NewHandler(connector)}

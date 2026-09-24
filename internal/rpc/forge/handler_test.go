@@ -192,7 +192,7 @@ func TestForgeRefusalsMapToCodes(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			connector := &fakeConnector{
-				connections: []forgestore.Connection{connected()},
+				connections: []forgestore.Connection{newConnection()},
 				forge:       &fakeForge{},
 				err:         tt.err,
 			}
@@ -207,7 +207,7 @@ func TestForgeRefusalsMapToCodes(t *testing.T) {
 // TestConnectForge pins that the token reaches the service and never comes back.
 func TestConnectForge(t *testing.T) {
 	connector := &fakeConnector{
-		connections: []forgestore.Connection{connected()},
+		connections: []forgestore.Connection{newConnection()},
 		held:        true,
 	}
 	service := forgev1weave.ForgeServiceAdapter{Impl: NewHandler(connector)}
@@ -276,7 +276,7 @@ func TestCheckForges(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			connector := &fakeConnector{
-				connections: []forgestore.Connection{connected()},
+				connections: []forgestore.Connection{newConnection()},
 				checkErr:    tt.checkErr,
 			}
 			service := forgev1weave.ForgeServiceAdapter{Impl: NewHandler(connector)}
@@ -293,7 +293,7 @@ func TestCheckForges(t *testing.T) {
 	}
 }
 
-func connected() forgestore.Connection {
+func newConnection() forgestore.Connection {
 	at := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
 
 	return forgestore.Connection{
