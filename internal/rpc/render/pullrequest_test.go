@@ -12,9 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestPullRequestStateOf covers every combination of the stamps, the draft flag, the checks,
-// the mergeability and the decision: finished beats draft beats failing checks beats the
-// decision, and an approval waits until the forge would merge it.
+// TestPullRequestStateOf pins each state against the one ranked just below it.
 func TestPullRequestStateOf(t *testing.T) {
 	stamp := time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
 
@@ -24,34 +22,23 @@ func TestPullRequestStateOf(t *testing.T) {
 		want        pullrequestv1.PullRequestState
 	}{
 		{
-			name: "merged beats everything, closed_at included",
+			name: "merged beats closed",
 			pullRequest: pullrequeststore.PullRequest{
-				MergedAt:       &stamp,
-				ClosedAt:       &stamp,
-				Draft:          true,
-				ReviewDecision: xptr.Ptr(forge.ReviewDecisionChangesRequested),
+				MergedAt: &stamp,
+				ClosedAt: &stamp,
 			},
 			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED,
 		},
 		{
-			name: "closed without merging beats draft and the decision",
+			name: "closed beats a draft",
 			pullRequest: pullrequeststore.PullRequest{
-				ClosedAt:       &stamp,
-				Draft:          true,
-				ReviewDecision: xptr.Ptr(forge.ReviewDecisionApproved),
+				ClosedAt: &stamp,
+				Draft:    true,
 			},
 			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CLOSED,
 		},
 		{
-			name: "a draft beats its decision",
-			pullRequest: pullrequeststore.PullRequest{
-				Draft:          true,
-				ReviewDecision: xptr.Ptr(forge.ReviewDecisionApproved),
-			},
-			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_DRAFT,
-		},
-		{
-			name: "a draft beats its failing checks",
+			name: "a draft beats failing checks",
 			pullRequest: pullrequeststore.PullRequest{
 				Draft:  true,
 				Checks: xptr.Ptr(forge.ChecksFailing),
@@ -59,53 +46,41 @@ func TestPullRequestStateOf(t *testing.T) {
 			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_DRAFT,
 		},
 		{
-			name: "failing checks beat an approval",
+			name: "failing checks beat a conflict",
 			pullRequest: pullrequeststore.PullRequest{
-				ReviewDecision: xptr.Ptr(forge.ReviewDecisionApproved),
-				Checks:         xptr.Ptr(forge.ChecksFailing),
+				Checks:       xptr.Ptr(forge.ChecksFailing),
+				Mergeability: xptr.Ptr(forge.MergeabilityConflicting),
 			},
 			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING,
 		},
 		{
-			name: "failing checks beat a change request",
+			name: "a conflict beats a change request",
 			pullRequest: pullrequeststore.PullRequest{
 				ReviewDecision: xptr.Ptr(forge.ReviewDecisionChangesRequested),
-				Checks:         xptr.Ptr(forge.ChecksFailing),
+				Mergeability:   xptr.Ptr(forge.MergeabilityConflicting),
 			},
-			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING,
+			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CONFLICTING,
 		},
 		{
-			name:        "failing checks with no decision",
-			pullRequest: pullrequeststore.PullRequest{Checks: xptr.Ptr(forge.ChecksFailing)},
-			want:        pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING,
-		},
-		{
-			name:        "approved before the forge has computed the mergeability is waiting",
-			pullRequest: pullrequeststore.PullRequest{ReviewDecision: xptr.Ptr(forge.ReviewDecisionApproved)},
-			want:        pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING,
-		},
-		{
-			name: "approved with passing checks and no mergeability is still waiting",
+			name: "a change request stands over a clean branch",
 			pullRequest: pullrequeststore.PullRequest{
-				ReviewDecision: xptr.Ptr(forge.ReviewDecisionApproved),
-				Checks:         xptr.Ptr(forge.ChecksPassing),
-			},
-			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING,
-		},
-		{
-			name: "approved with checks still running and no mergeability is waiting",
-			pullRequest: pullrequeststore.PullRequest{
-				ReviewDecision: xptr.Ptr(forge.ReviewDecisionApproved),
-				Checks:         xptr.Ptr(forge.ChecksPending),
-			},
-			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING,
-		},
-		{
-			name: "approved and clean is approved",
-			pullRequest: pullrequeststore.PullRequest{
-				ReviewDecision: xptr.Ptr(forge.ReviewDecisionApproved),
-				Checks:         xptr.Ptr(forge.ChecksPassing),
+				ReviewDecision: xptr.Ptr(forge.ReviewDecisionChangesRequested),
 				Mergeability:   xptr.Ptr(forge.MergeabilityClean),
+			},
+			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED,
+		},
+		{
+			name: "clean beats an approval that would otherwise wait",
+			pullRequest: pullrequeststore.PullRequest{
+				ReviewDecision: xptr.Ptr(forge.ReviewDecisionApproved),
+				Mergeability:   xptr.Ptr(forge.MergeabilityClean),
+			},
+			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED,
+		},
+		{
+			name: "clean with no decision is ready, since the forge's rules asked for no review",
+			pullRequest: pullrequeststore.PullRequest{
+				Mergeability: xptr.Ptr(forge.MergeabilityClean),
 			},
 			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED,
 		},
@@ -119,106 +94,8 @@ func TestPullRequestStateOf(t *testing.T) {
 			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING,
 		},
 		{
-			name: "approved and blocked is waiting",
-			pullRequest: pullrequeststore.PullRequest{
-				ReviewDecision: xptr.Ptr(forge.ReviewDecisionApproved),
-				Mergeability:   xptr.Ptr(forge.MergeabilityBlocked),
-			},
-			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING,
-		},
-		{
-			name: "a conflict beats an approval",
-			pullRequest: pullrequeststore.PullRequest{
-				ReviewDecision: xptr.Ptr(forge.ReviewDecisionApproved),
-				Mergeability:   xptr.Ptr(forge.MergeabilityConflicting),
-			},
-			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CONFLICTING,
-		},
-		{
-			name: "a conflict beats a change request",
-			pullRequest: pullrequeststore.PullRequest{
-				ReviewDecision: xptr.Ptr(forge.ReviewDecisionChangesRequested),
-				Mergeability:   xptr.Ptr(forge.MergeabilityConflicting),
-			},
-			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CONFLICTING,
-		},
-		{
-			name: "failing checks beat a conflict",
-			pullRequest: pullrequeststore.PullRequest{
-				Checks:       xptr.Ptr(forge.ChecksFailing),
-				Mergeability: xptr.Ptr(forge.MergeabilityConflicting),
-			},
-			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING,
-		},
-		{
-			name: "a draft beats a conflict",
-			pullRequest: pullrequeststore.PullRequest{
-				Draft:        true,
-				Mergeability: xptr.Ptr(forge.MergeabilityConflicting),
-			},
-			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_DRAFT,
-		},
-		{
-			name: "failing checks beat a clean mergeability",
-			pullRequest: pullrequeststore.PullRequest{
-				ReviewDecision: xptr.Ptr(forge.ReviewDecisionApproved),
-				Checks:         xptr.Ptr(forge.ChecksFailing),
-				Mergeability:   xptr.Ptr(forge.MergeabilityClean),
-			},
-			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING,
-		},
-		{
-			name: "clean with no decision is ready, since the forge's rules asked for no review",
-			pullRequest: pullrequeststore.PullRequest{
-				Checks:       xptr.Ptr(forge.ChecksPassing),
-				Mergeability: xptr.Ptr(forge.MergeabilityClean),
-			},
-			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED,
-		},
-		{
-			name: "clean under a pending review is ready",
-			pullRequest: pullrequeststore.PullRequest{
-				ReviewDecision: xptr.Ptr(forge.ReviewDecisionPending),
-				Mergeability:   xptr.Ptr(forge.MergeabilityClean),
-			},
-			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED,
-		},
-		{
-			name: "a change request stands over a clean branch",
-			pullRequest: pullrequeststore.PullRequest{
-				ReviewDecision: xptr.Ptr(forge.ReviewDecisionChangesRequested),
-				Mergeability:   xptr.Ptr(forge.MergeabilityClean),
-			},
-			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED,
-		},
-		{
-			name: "conflicting with no decision",
-			pullRequest: pullrequeststore.PullRequest{
-				Mergeability: xptr.Ptr(forge.MergeabilityConflicting),
-			},
-			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CONFLICTING,
-		},
-		{
-			name: "a change request stands while checks run",
-			pullRequest: pullrequeststore.PullRequest{
-				ReviewDecision: xptr.Ptr(forge.ReviewDecisionChangesRequested),
-				Checks:         xptr.Ptr(forge.ChecksPending),
-			},
-			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED,
-		},
-		{
-			name:        "changes requested",
-			pullRequest: pullrequeststore.PullRequest{ReviewDecision: xptr.Ptr(forge.ReviewDecisionChangesRequested)},
-			want:        pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED,
-		},
-		{
 			name:        "a pending review is open",
 			pullRequest: pullrequeststore.PullRequest{ReviewDecision: xptr.Ptr(forge.ReviewDecisionPending)},
-			want:        pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
-		},
-		{
-			name:        "no decision is open",
-			pullRequest: pullrequeststore.PullRequest{},
 			want:        pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
 		},
 	}

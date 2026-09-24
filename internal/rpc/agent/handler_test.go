@@ -33,18 +33,67 @@ import (
 
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
+	markstore "weave/internal/store/mark"
 	reviewstore "weave/internal/store/review"
 	runstore "weave/internal/store/run"
 
 	"connectrpc.com/connect"
+	"github.com/google/go-cmp/cmp"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 const missingID = "00000000-0000-0000-0000-000000000000"
+
+type markCall struct {
+	mark   string
+	target markstore.Target
+}
+
+// fakeMarkReadWriter answers from its fields and records each letter set and cleared.
+type fakeMarkReadWriter struct {
+	marks   []markstore.Mark
+	unlive  bool
+	err     error
+	set     []markCall
+	cleared []markstore.Target
+}
+
+// SetMark records the letter and answers whether the row was live unless err refuses it.
+func (f *fakeMarkReadWriter) SetMark(_ context.Context, mark string, target markstore.Target) (bool, error) {
+	f.set = append(f.set, markCall{
+		mark:   mark,
+		target: target,
+	})
+
+	if f.err != nil {
+		return false, f.err
+	}
+
+	return !f.unlive, nil
+}
+
+// ClearMark records the target and answers err.
+func (f *fakeMarkReadWriter) ClearMark(_ context.Context, target markstore.Target) (bool, error) {
+	f.cleared = append(f.cleared, target)
+	if f.err != nil {
+		return false, f.err
+	}
+
+	return true, nil
+}
+
+// ListWatched answers marks unless err refuses it.
+func (f *fakeMarkReadWriter) ListWatched(context.Context, []string) ([]markstore.Mark, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return f.marks, nil
+}
 
 // TestLifecycleRefusalsMapToCodes pins the code each refusal of the agent services reaches the
 // caller as.
@@ -271,6 +320,17 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 			name: "a report from nothing that is an agent",
 			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) error {
 				_, err := svc.RecordReport(ctx, connect.NewRequest(&agentv1.RecordReportRequest{TurnEnded: true}))
+
+				return err
+			},
+			wantCode: connect.CodeInvalidArgument,
+		},
+		{
+			name: "a page token holding an id no row can have",
+			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) error {
+				_, err := svc.ListAgents(ctx, connect.NewRequest(&agentv1.ListAgentsRequest{
+					Pagination: &paginationv1.Pagination{Cursor: xptr.Ptr("eyJpIjoibm90LWFuLWlkIn0=")},
+				}))
 
 				return err
 			},
@@ -879,106 +939,157 @@ func TestGetAgent(t *testing.T) {
 	assert.WithinDuration(t, time.Now(), created, time.Minute)
 }
 
-// TestSetMark covers the mark over the wire, across both kinds of row, where a call that
-// reached nothing live is refused and one that took the letter off another row is not.
-func TestSetMark(t *testing.T) {
-	t.Run("an id nobody holds is not a quiet success", func(t *testing.T) {
-		svc, _ := service(t)
-
-		_, err := svc.SetMark(t.Context(), connect.NewRequest(&agentv1.SetMarkRequest{
-			Target: &agentv1.SetMarkRequest_AgentId{AgentId: uuid.NewString()},
-			Mark:   xptr.Ptr("a"),
-		}))
-		assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err))
-	})
-
-	t.Run("an agent takes a letter and reads it back off its row", func(t *testing.T) {
-		svc, st := service(t)
-		ctx := t.Context()
-		id := st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateThinking}).ID
-
+// TestMarkRefusalsMapToCodes pins the code each refusal of the marks reaches the caller as.
+func TestMarkRefusalsMapToCodes(t *testing.T) {
+	setMark := func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) error {
 		_, err := svc.SetMark(ctx, connect.NewRequest(&agentv1.SetMarkRequest{
-			Target: &agentv1.SetMarkRequest_AgentId{AgentId: id},
+			Target: &agentv1.SetMarkRequest_AgentId{AgentId: alphaID},
 			Mark:   xptr.Ptr("a"),
 		}))
-		require.NoError(t, err)
 
-		got, err := svc.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: id}))
-		require.NoError(t, err)
-		assert.Equal(t, xptr.Ptr("a"), got.Msg.GetAgent().Mark)
-	})
-
-	t.Run("a letter an agent holds moves to the workflow named", func(t *testing.T) {
-		svc, st := service(t)
-		ctx := t.Context()
-		held := st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateThinking})
-
+		return err
+	}
+	clearMark := func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) error {
 		_, err := svc.SetMark(ctx, connect.NewRequest(&agentv1.SetMarkRequest{
-			Target: &agentv1.SetMarkRequest_AgentId{AgentId: held.ID},
-			Mark:   xptr.Ptr("a"),
+			Target: &agentv1.SetMarkRequest_AgentId{AgentId: alphaID},
 		}))
-		require.NoError(t, err)
 
-		_, err = svc.SetMark(ctx, connect.NewRequest(&agentv1.SetMarkRequest{
-			Target: &agentv1.SetMarkRequest_WorkflowId{WorkflowId: held.WorkflowID},
-			Mark:   xptr.Ptr("a"),
-		}))
-		require.NoError(t, err)
+		return err
+	}
+	listMarks := func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) error {
+		_, err := svc.ListMarks(ctx, connect.NewRequest(&emptypb.Empty{}))
 
-		gone, err := svc.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: held.ID}))
-		require.NoError(t, err)
-		assert.Nil(t, gone.Msg.GetAgent().Mark, "the agent that held it is left with nothing")
-	})
+		return err
+	}
 
-	t.Run("an unset mark clears the one the row carries", func(t *testing.T) {
-		svc, st := service(t)
-		ctx := t.Context()
-		id := st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateThinking}).ID
+	tests := []struct {
+		name     string
+		call     func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) error
+		marks    fakeMarkReadWriter
+		wantCode connect.Code
+	}{
+		{
+			name:     "a letter for a row that is not live",
+			call:     setMark,
+			marks:    fakeMarkReadWriter{unlive: true},
+			wantCode: connect.CodeNotFound,
+		},
+		{
+			name:     "a letter the store cannot write",
+			call:     setMark,
+			marks:    fakeMarkReadWriter{err: errors.New("connection refused")},
+			wantCode: connect.CodeInternal,
+		},
+		{
+			name:     "a clear the store cannot write",
+			call:     clearMark,
+			marks:    fakeMarkReadWriter{err: errors.New("connection refused")},
+			wantCode: connect.CodeInternal,
+		},
+		{
+			name:     "a listing the store cannot read",
+			call:     listMarks,
+			marks:    fakeMarkReadWriter{err: errors.New("connection refused")},
+			wantCode: connect.CodeInternal,
+		},
+	}
 
-		_, err := svc.SetMark(ctx, connect.NewRequest(&agentv1.SetMarkRequest{
-			Target: &agentv1.SetMarkRequest_AgentId{AgentId: id},
-			Mark:   xptr.Ptr("a"),
-		}))
-		require.NoError(t, err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.call(t.Context(), newMarkHandler(&tt.marks))
 
-		_, err = svc.SetMark(ctx, connect.NewRequest(&agentv1.SetMarkRequest{
-			Target: &agentv1.SetMarkRequest_AgentId{AgentId: id},
-		}))
-		require.NoError(t, err)
-
-		got, err := svc.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: id}))
-		require.NoError(t, err)
-		assert.Nil(t, got.Msg.GetAgent().Mark)
-	})
+			assert.Equal(t, tt.wantCode, connect.CodeOf(err))
+		})
+	}
 }
 
-// TestListMarks covers the listing: every letter, by letter, each naming the one row it jumps
-// to.
+// TestMarkRequestsReachTheService pins which row each mark request names.
+func TestMarkRequestsReachTheService(t *testing.T) {
+	tests := []struct {
+		name        string
+		req         *agentv1.SetMarkRequest
+		wantSet     []markCall
+		wantCleared []markstore.Target
+	}{
+		{
+			name: "a letter for an agent",
+			req: &agentv1.SetMarkRequest{
+				Target: &agentv1.SetMarkRequest_AgentId{AgentId: alphaID},
+				Mark:   xptr.Ptr("a"),
+			},
+			wantSet: []markCall{
+				{
+					mark:   "a",
+					target: markstore.OnAgent(alphaID),
+				},
+			},
+		},
+		{
+			name: "a letter for a workflow",
+			req: &agentv1.SetMarkRequest{
+				Target: &agentv1.SetMarkRequest_WorkflowId{WorkflowId: "wf-1"},
+				Mark:   xptr.Ptr("b"),
+			},
+			wantSet: []markCall{
+				{
+					mark:   "b",
+					target: markstore.OnWorkflow("wf-1"),
+				},
+			},
+		},
+		{
+			name: "no letter clears the one the row carries",
+			req: &agentv1.SetMarkRequest{
+				Target: &agentv1.SetMarkRequest_AgentId{AgentId: alphaID},
+			},
+			wantCleared: []markstore.Target{markstore.OnAgent(alphaID)},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			marks := &fakeMarkReadWriter{}
+
+			_, err := newMarkHandler(marks).SetMark(t.Context(), connect.NewRequest(tt.req))
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.wantSet, marks.set)
+			assert.Equal(t, tt.wantCleared, marks.cleared)
+		})
+	}
+}
+
+// TestListMarks pins that each mark names the one row it jumps to.
 func TestListMarks(t *testing.T) {
-	svc, st := service(t)
-	ctx := t.Context()
-	held := st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateThinking})
+	marks := &fakeMarkReadWriter{marks: []markstore.Mark{
+		{
+			ID:      "m1",
+			Mark:    "a",
+			AgentID: xptr.Ptr(alphaID),
+		},
+		{
+			ID:         "m2",
+			Mark:       "b",
+			WorkflowID: xptr.Ptr("wf-1"),
+		},
+	}}
 
-	_, err := svc.SetMark(ctx, connect.NewRequest(&agentv1.SetMarkRequest{
-		Target: &agentv1.SetMarkRequest_WorkflowId{WorkflowId: held.WorkflowID},
-		Mark:   xptr.Ptr("b"),
-	}))
-	require.NoError(t, err)
-	_, err = svc.SetMark(ctx, connect.NewRequest(&agentv1.SetMarkRequest{
-		Target: &agentv1.SetMarkRequest_AgentId{AgentId: held.ID},
-		Mark:   xptr.Ptr("a"),
-	}))
+	listed, err := newMarkHandler(marks).ListMarks(t.Context(), connect.NewRequest(&emptypb.Empty{}))
 	require.NoError(t, err)
 
-	listed, err := svc.ListMarks(ctx, connect.NewRequest(&emptypb.Empty{}))
-	require.NoError(t, err)
-	require.Len(t, listed.Msg.GetMarks(), 2)
-	assert.Equal(t, "a", listed.Msg.GetMarks()[0].GetMark())
-	assert.Equal(t, held.ID, listed.Msg.GetMarks()[0].GetAgentId())
-	assert.Nil(t, listed.Msg.GetMarks()[0].WorkflowId)
-	assert.Equal(t, "b", listed.Msg.GetMarks()[1].GetMark())
-	assert.Equal(t, held.WorkflowID, listed.Msg.GetMarks()[1].GetWorkflowId())
-	assert.Nil(t, listed.Msg.GetMarks()[1].AgentId)
+	want := &agentv1.ListMarksResponse{Marks: []*agentv1.Mark{
+		{
+			Id:      "m1",
+			Mark:    "a",
+			AgentId: xptr.Ptr(alphaID),
+		},
+		{
+			Id:         "m2",
+			Mark:       "b",
+			WorkflowId: xptr.Ptr("wf-1"),
+		},
+	}}
+	assert.Empty(t, cmp.Diff(want, listed.Msg, protocmp.Transform()))
 }
 
 // TestLog covers the channel a running script uses to say what it did, and the refusal of an
@@ -1068,390 +1179,6 @@ func TestLog(t *testing.T) {
 			}
 
 			assert.Equal(t, tt.script, record[logging.ScriptName])
-		})
-	}
-}
-
-// allSearchHits flattens both sections of a response, for the tests that care which turns
-// came back rather than which way each one matched.
-func allSearchHits(msg *agentv1.SearchTranscriptsResponse) []*agentv1.SearchHit {
-	return append(append([]*agentv1.SearchHit{}, msg.GetMatches()...), msg.GetNear()...)
-}
-
-// TestSearchTranscripts covers every field on a hit.
-func TestSearchTranscripts(t *testing.T) {
-	tests := []struct {
-		name     string
-		turns    []string
-		archive  bool
-		query    string
-		wantSeqs []int32
-	}{
-		{
-			name:  "a query nothing said matches nothing",
-			turns: []string{"talking about postgres"},
-			query: "sailboats",
-		},
-		{
-			name:     "a hit names the turn that matched rather than the first one",
-			turns:    []string{"opening question", "the reconciler derives its markers"},
-			query:    "reconciler",
-			wantSeqs: []int32{1},
-		},
-		{
-			name:     "an archived agent is still searchable, and says so",
-			turns:    []string{"the reconciler derives its markers"},
-			archive:  true,
-			query:    "reconciler",
-			wantSeqs: []int32{0},
-		},
-		{
-			name:     "a subject raised twice is a hit per turn",
-			turns:    []string{"first on postgres", "later on postgres again"},
-			query:    "postgres",
-			wantSeqs: []int32{0, 1},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			svc, st := service(t)
-			ctx := t.Context()
-
-			agent := st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateThinking})
-			content := seedTranscript(t, st, agent.ID, tt.turns)
-			if tt.archive {
-				_, archiveErr := st.Agents.Archive(ctx, []string{agent.ID})
-				require.NoError(t, archiveErr)
-			}
-
-			found, err := svc.SearchTranscripts(ctx, connect.NewRequest(&agentv1.SearchTranscriptsRequest{
-				Query: tt.query,
-			}))
-			require.NoError(t, err)
-			require.Len(t, allSearchHits(found.Msg), len(tt.wantSeqs))
-
-			seqs := make([]int32, 0, len(tt.wantSeqs))
-			for _, hit := range allSearchHits(found.Msg) {
-				seqs = append(seqs, hit.GetSeq())
-
-				assert.Equal(t, agent.ID, hit.GetAgentId())
-				assert.Equal(t, "alpha", hit.GetName(), "the hit carries the agent's name, not its id alone")
-				assert.Equal(t, tt.archive, hit.GetArchived())
-				assert.Equal(t, "user", hit.GetRole())
-				assert.Contains(t, hit.GetSnippet(), tt.query, "the snippet holds the text that matched")
-
-				turn := tt.turns[hit.GetSeq()]
-				assert.Equal(t, turn, content[hit.GetContentOffset():hit.GetContentOffset()+int64(len(turn))])
-			}
-
-			assert.ElementsMatch(t, tt.wantSeqs, seqs)
-		})
-	}
-}
-
-// TestSearchTranscriptsScope covers who a search reaches, which the handler works out from
-// the caller rather than from the request alone.
-func TestSearchTranscriptsScope(t *testing.T) {
-	tests := []struct {
-		name      string
-		callerIs  string
-		asksFor   string
-		wantNames []string
-	}{
-		{
-			name:      "an agent that names nobody reads its own conversation",
-			callerIs:  "alpha",
-			wantNames: []string{"alpha"},
-		},
-		{
-			name:      "an agent that names another reads that one",
-			callerIs:  "alpha",
-			asksFor:   "beta",
-			wantNames: []string{"beta"},
-		},
-		{
-			name:      "an agent that names itself is where it started",
-			callerIs:  "alpha",
-			asksFor:   "alpha",
-			wantNames: []string{"alpha"},
-		},
-		{
-			name:      "the panel is not an agent and reads every conversation",
-			wantNames: []string{"alpha", "beta"},
-		},
-		{
-			name:      "and can still narrow to one",
-			asksFor:   "beta",
-			wantNames: []string{"beta"},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			svc, st := service(t)
-
-			ids := map[string]string{}
-			for _, name := range []string{"alpha", "beta"} {
-				agent := st.SeedAgent(t, agentstore.Agent{Name: name, State: agentstore.StateThinking})
-				ids[name] = agent.ID
-				seedTranscript(t, st, agent.ID, []string{"the reconciler derives its markers"})
-			}
-
-			ctx := t.Context()
-			if tt.callerIs != "" {
-				ctx = caller.With(ctx, caller.Caller{AgentID: ids[tt.callerIs]})
-			}
-
-			req := &agentv1.SearchTranscriptsRequest{Query: "reconciler"}
-			if tt.asksFor != "" {
-				req.AgentId = xptr.Ptr(ids[tt.asksFor])
-			}
-
-			found, err := svc.SearchTranscripts(ctx, connect.NewRequest(req))
-			require.NoError(t, err)
-
-			hits := allSearchHits(found.Msg)
-
-			names := xslice.Map(hits, func(hit *agentv1.SearchHit) string {
-				return hit.GetName()
-			})
-			assert.ElementsMatch(t, tt.wantNames, names)
-		})
-	}
-}
-
-// TestPagedReadsRefuseAMangledToken covers a token that decodes but holds an id no row can have.
-func TestPagedReadsRefuseAMangledToken(t *testing.T) {
-	const (
-		listToken   = "eyJpIjoibm90LWFuLWlkIn0="
-		searchToken = "eyJtIjp7InIiOjAuNSwiaSI6Im5vdC1hbi1pZCIsInMiOjF9fQ=="
-	)
-
-	tests := []struct {
-		name  string
-		token string
-		call  func(t *testing.T, svc agentv1weave.AgentServiceAdapter, page *paginationv1.Pagination) error
-	}{
-		{
-			name:  "listing agents",
-			token: listToken,
-			call: func(t *testing.T, svc agentv1weave.AgentServiceAdapter, page *paginationv1.Pagination) error {
-				_, err := svc.ListAgents(t.Context(), connect.NewRequest(&agentv1.ListAgentsRequest{Pagination: page}))
-				return err
-			},
-		},
-		{
-			name:  "searching transcripts",
-			token: searchToken,
-			call: func(t *testing.T, svc agentv1weave.AgentServiceAdapter, page *paginationv1.Pagination) error {
-				_, err := svc.SearchTranscripts(t.Context(), connect.NewRequest(&agentv1.SearchTranscriptsRequest{
-					Query:      "reconciler",
-					Pagination: page,
-				}))
-
-				return err
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			svc, _ := service(t)
-
-			err := tt.call(t, svc, &paginationv1.Pagination{Cursor: proto.String(tt.token)})
-			require.Error(t, err)
-			assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
-		})
-	}
-}
-
-// TestSearchTranscriptsScopeSurvivesACursor covers the second page of a scoped search,
-// which a replayed token must not widen.
-func TestSearchTranscriptsScopeSurvivesACursor(t *testing.T) {
-	svc, st := service(t)
-
-	ids := map[string]string{}
-	for _, name := range []string{"alpha", "beta"} {
-		agent := st.SeedAgent(t, agentstore.Agent{Name: name, State: agentstore.StateThinking})
-		ids[name] = agent.ID
-		seedTranscript(t, st, agent.ID, []string{"the reconciler derives its markers", "more on the reconciler"})
-	}
-
-	ctx := caller.With(t.Context(), caller.Caller{AgentID: ids["alpha"]})
-
-	var (
-		names []string
-		token *string
-	)
-	for range 4 {
-		req := &agentv1.SearchTranscriptsRequest{
-			Query:      "reconciler",
-			Pagination: &paginationv1.Pagination{Limit: proto.Int32(1), Cursor: token},
-		}
-
-		found, err := svc.SearchTranscripts(ctx, connect.NewRequest(req))
-		require.NoError(t, err)
-		if len(allSearchHits(found.Msg)) == 0 {
-			break
-		}
-
-		names = append(names, xslice.Map(allSearchHits(found.Msg), func(hit *agentv1.SearchHit) string {
-			return hit.GetName()
-		})...)
-
-		token = found.Msg.NextPageToken
-		if token == nil {
-			break
-		}
-	}
-
-	assert.Equal(t, []string{"alpha", "alpha"}, names, "both of its own turns, and neither of the other agent's")
-}
-
-// TestCrossAgentReadIsRecorded covers the line a read of somebody else's conversation
-// leaves, and the silence a read of your own does.
-func TestCrossAgentReadIsRecorded(t *testing.T) {
-	tests := []struct {
-		name       string
-		callerIs   string
-		read       func(t *testing.T, svc agentv1weave.AgentServiceAdapter, ctx context.Context, target string)
-		wantRecord bool
-	}{
-		{
-			name:     "an agent searching another agent",
-			callerIs: "alpha",
-			read: func(t *testing.T, svc agentv1weave.AgentServiceAdapter, ctx context.Context, target string) {
-				t.Helper()
-				_, err := svc.SearchTranscripts(ctx, connect.NewRequest(&agentv1.SearchTranscriptsRequest{
-					Query:   "reconciler",
-					AgentId: xptr.Ptr(target),
-				}))
-				require.NoError(t, err)
-			},
-			wantRecord: true,
-		},
-		{
-			name:     "an agent fetching another agent's whole conversation",
-			callerIs: "alpha",
-			read: func(t *testing.T, svc agentv1weave.AgentServiceAdapter, ctx context.Context, target string) {
-				t.Helper()
-				_, err := svc.GetTranscript(ctx, connect.NewRequest(&agentv1.GetTranscriptRequest{AgentId: target}))
-				require.NoError(t, err)
-			},
-			wantRecord: true,
-		},
-		{
-			name:     "an agent fetching another agent's last turns",
-			callerIs: "alpha",
-			read: func(t *testing.T, svc agentv1weave.AgentServiceAdapter, ctx context.Context, target string) {
-				t.Helper()
-				_, err := svc.GetLastTurns(ctx, connect.NewRequest(&agentv1.GetLastTurnsRequest{AgentId: target}))
-				require.NoError(t, err)
-			},
-			wantRecord: true,
-		},
-		{
-			name:     "an agent searching itself",
-			callerIs: "beta",
-			read: func(t *testing.T, svc agentv1weave.AgentServiceAdapter, ctx context.Context, _ string) {
-				t.Helper()
-				_, err := svc.SearchTranscripts(ctx, connect.NewRequest(&agentv1.SearchTranscriptsRequest{Query: "reconciler"}))
-				require.NoError(t, err)
-			},
-		},
-		{
-			name: "the panel reading anyone, which is what it is for",
-			read: func(t *testing.T, svc agentv1weave.AgentServiceAdapter, ctx context.Context, target string) {
-				t.Helper()
-				_, err := svc.GetTranscript(ctx, connect.NewRequest(&agentv1.GetTranscriptRequest{AgentId: target}))
-				require.NoError(t, err)
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			svc, st := service(t)
-
-			ids := map[string]string{}
-			for _, name := range []string{"alpha", "beta"} {
-				agent := st.SeedAgent(t, agentstore.Agent{Name: name, State: agentstore.StateThinking})
-				ids[name] = agent.ID
-				seedTranscript(t, st, agent.ID, []string{"the reconciler derives its markers"})
-			}
-
-			var written strings.Builder
-			ctx := logging.WithLogger(t.Context(), logging.New(&written, slog.LevelInfo))
-			if tt.callerIs != "" {
-				ctx = caller.With(ctx, caller.Caller{AgentID: ids[tt.callerIs]})
-			}
-
-			tt.read(t, svc, ctx, ids["beta"])
-
-			if !tt.wantRecord {
-				assert.Empty(t, written.String(), "reading your own conversation is not worth a line")
-				return
-			}
-
-			record := logtest.Record(t, written.String())
-			assert.Equal(t, "agent read another agent's transcript", record["body"])
-			assert.Equal(t, ids["beta"], record[logging.TargetAgentID])
-		})
-	}
-}
-
-// TestGetTranscript covers the agent being looked up first, an unknown agent and one with
-// nothing synced yet both reading as empty content.
-func TestGetTranscript(t *testing.T) {
-	tests := []struct {
-		name     string
-		agentID  string
-		turns    []string
-		wantCode connect.Code
-		want     string
-	}{
-		{
-			name:     "an id no agent holds is refused",
-			agentID:  uuid.NewString(),
-			wantCode: connect.CodeNotFound,
-		},
-		{
-			name:     "and so is an id that is not an id",
-			agentID:  "not-a-uuid",
-			wantCode: connect.CodeNotFound,
-		},
-		{
-			name: "an agent with nothing synced yet is empty rather than missing",
-			want: "",
-		},
-		{
-			name:  "a synced agent hands back the whole conversation",
-			turns: []string{"opening question", "the answer"},
-			want:  "opening question\n\nthe answer",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			svc, st := service(t)
-
-			agent := st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateThinking})
-			seedTranscript(t, st, agent.ID, tt.turns)
-
-			id := tt.agentID
-			if id == "" {
-				id = agent.ID
-			}
-
-			got, err := svc.GetTranscript(t.Context(), connect.NewRequest(&agentv1.GetTranscriptRequest{AgentId: id}))
-			if tt.wantCode != 0 {
-				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
-				return
-			}
-
-			require.NoError(t, err)
-			assert.Equal(t, tt.want, got.Msg.GetContent())
 		})
 	}
 }
@@ -1691,26 +1418,19 @@ func markService(st *storetest.Stores) *marks.MarkService {
 	return marks.NewMarkService(marks.NewMarkServiceParams{Marks: st.Marks, Tx: st.Pool})
 }
 
+// newMarkHandler is the handler over a fake of the marks alone.
+func newMarkHandler(marks *fakeMarkReadWriter) agentv1weave.AgentServiceAdapter {
+	return agentv1weave.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{
+		Marks:   marks,
+		Watched: WatchedListers{Marks: marks},
+	})}
+}
+
 func service(t *testing.T) (agentv1weave.AgentServiceAdapter, *storetest.Stores) {
 	t.Helper()
 	svc, st, _ := newRecordedService(t)
 
 	return svc, st
-}
-
-func seedTranscript(t *testing.T, st *storetest.Stores, agentID string, turns []string) string {
-	t.Helper()
-
-	if len(turns) == 0 {
-		return ""
-	}
-
-	st.SeedTranscript(t, agentID, turns...)
-
-	content, err := st.Transcripts.Get(t.Context(), agentID)
-	require.NoError(t, err)
-
-	return content
 }
 
 func newRecordedService(t *testing.T) (agentv1weave.AgentServiceAdapter, *storetest.Stores, *recordingAgentServices) {

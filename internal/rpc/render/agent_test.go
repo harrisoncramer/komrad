@@ -5,7 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	agentstore "weave/internal/store/agent"
 	rowstore "weave/internal/store/row"
@@ -13,71 +15,100 @@ import (
 	agentv1 "weave/proto/gen/agent/v1"
 )
 
-// TestAgentCarriesWhatTheSyncersWrite covers the branch and the worktree removal flag, which a
-// client cannot draw if the response never carries them.
-func TestAgentCarriesWhatTheSyncersWrite(t *testing.T) {
-	t.Parallel()
-
-	rendered := Agent(rowOf(agentstore.Agent{
-		ID:              "a1",
-		Name:            "worker",
-		Branch:          xptr.Ptr("fix/thing"),
-		WorktreeRemoved: true,
-	}), AgentOptions{})
-
-	assert.Equal(t, "fix/thing", rendered.GetBranch())
-	assert.True(t, rendered.GetWorktreeRemoved())
-}
-
-// TestAgentLeavesAPresentWorktreeAlone covers the other side of the flag: an agent whose cwd
-// the syncer still finds is rendered without it.
-func TestAgentLeavesAPresentWorktreeAlone(t *testing.T) {
-	t.Parallel()
-
-	rendered := Agent(rowOf(agentstore.Agent{ID: "a2", Name: "reviewer"}), AgentOptions{})
-
-	assert.False(t, rendered.GetWorktreeRemoved())
-}
-
-// TestAgentCarriesTheStateChange pins the timestamp the panel counts a span from, which is
-// written nowhere but this response.
-func TestAgentCarriesTheStateChange(t *testing.T) {
+// TestAgent pins the fields a client cannot draw unless the response carries them.
+func TestAgent(t *testing.T) {
 	t.Parallel()
 
 	changed := time.Date(2026, time.September, 1, 9, 9, 0, 0, time.UTC)
-	rendered := Agent(rowOf(agentstore.Agent{ID: "a1", StateChangedAt: changed}), AgentOptions{})
 
-	assert.Equal(t, changed.Format(time.RFC3339), rendered.GetStateChangedAt())
+	tests := []struct {
+		name   string
+		stored agentstore.Agent
+		want   *agentv1.Agent
+	}{
+		{
+			name: "an agent nothing has written to",
+			stored: agentstore.Agent{
+				ID:   "a2",
+				Name: "reviewer",
+			},
+			want: &agentv1.Agent{
+				Id:    "a2",
+				Name:  "reviewer",
+				Alive: xptr.Ptr(false),
+			},
+		},
+		{
+			name: "an agent the syncers have written to",
+			stored: agentstore.Agent{
+				ID:              "a1",
+				Name:            "worker",
+				State:           agentstore.StateWaiting,
+				Role:            agentstore.RoleReviewer,
+				StateChangedAt:  changed,
+				Branch:          xptr.Ptr("fix/thing"),
+				WorktreeRemoved: true,
+			},
+			want: &agentv1.Agent{
+				Id:              "a1",
+				Name:            "worker",
+				State:           agentv1.AgentState_AGENT_STATE_WAITING,
+				Role:            agentv1.AgentRole_AGENT_ROLE_REVIEWER,
+				StateChangedAt:  changed.Format(time.RFC3339),
+				Branch:          xptr.Ptr("fix/thing"),
+				WorktreeRemoved: true,
+				Alive:           xptr.Ptr(false),
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Empty(t, cmp.Diff(tt.want, Agent(rowOf(tt.stored), AgentOptions{}), protocmp.Transform()))
+		})
+	}
 }
 
-// TestAgentWithoutAStateChange covers an agent that has never been given one, which sends
-// nothing rather than a formatted zero time.
-func TestAgentWithoutAStateChange(t *testing.T) {
-	t.Parallel()
-
-	assert.Empty(t, Agent(rowOf(agentstore.Agent{ID: "a2"}), AgentOptions{}).GetStateChangedAt())
-}
-
-// TestWatchedAgentCarriesOnlyTheOpeningOfAnArchivedPrompt pins that the watch draws an archived agent
-// with the summary head of its prompt and a live one with the whole of it.
-func TestWatchedAgentCarriesOnlyTheOpeningOfAnArchivedPrompt(t *testing.T) {
+// TestWatchedAgent pins that the watch cuts an archived agent's prompt to its opening and leaves a live one whole.
+func TestWatchedAgent(t *testing.T) {
 	t.Parallel()
 
 	prompt := strings.Repeat("p", SummaryHead*2)
-	archived := WatchedAgent(rowOf(agentstore.Agent{
-		ID:         "archived",
-		Prompt:     prompt,
-		ArchivedAt: xptr.Ptr(time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC)),
-	}))
-	live := WatchedAgent(rowOf(agentstore.Agent{
-		ID:     "live",
-		Prompt: prompt,
-	}))
 
-	assert.Len(t, archived.GetPrompt(), SummaryHead, "the archived agent's prompt is cut to its opening")
-	assert.True(t, archived.GetPromptTruncated())
-	assert.Equal(t, prompt, live.GetPrompt(), "and the live agent's is whole")
-	assert.False(t, live.GetPromptTruncated())
+	tests := []struct {
+		name          string
+		archivedAt    *time.Time
+		wantPrompt    string
+		wantTruncated bool
+	}{
+		{
+			name:          "an archived agent",
+			archivedAt:    xptr.Ptr(time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC)),
+			wantPrompt:    prompt[:SummaryHead],
+			wantTruncated: true,
+		},
+		{
+			name:       "a live agent",
+			wantPrompt: prompt,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			rendered := WatchedAgent(rowOf(agentstore.Agent{
+				ID:         "a1",
+				Prompt:     prompt,
+				ArchivedAt: tt.archivedAt,
+			}))
+
+			assert.Equal(t, tt.wantPrompt, rendered.GetPrompt())
+			assert.Equal(t, tt.wantTruncated, rendered.GetPromptTruncated())
+		})
+	}
 }
 
 // rowOf is an agent's row with nothing beside it.

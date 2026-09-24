@@ -3,7 +3,6 @@ package transcripts
 import (
 	"context"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -11,6 +10,7 @@ import (
 	"weave/internal/harness"
 	"weave/internal/harness/claude"
 	"weave/internal/harness/codex"
+	"weave/internal/harnesstest"
 	agentstore "weave/internal/store/agent"
 	transcriptstore "weave/internal/store/transcript"
 	"weave/internal/storetest"
@@ -291,7 +291,7 @@ func TestSyncAdoptsSessions(t *testing.T) {
 			syncer := NewTranscriptSyncer(NewTranscriptSyncerParams{
 				Agents:      st.Agents,
 				Transcripts: st.Transcripts,
-				Harnesses:   fakeHarnesses{found: tt.found},
+				Harnesses:   harnesstest.Registry{Harness: &harnesstest.Fake{Session: tt.found}},
 			})
 			require.NoError(t, syncer.Sync(ctx))
 
@@ -526,42 +526,4 @@ func mustRegistry(t *testing.T, harnesses ...harness.Harness) *harness.Registry 
 	require.NoError(t, err)
 
 	return registry
-}
-
-// fakeHarnesses answers every id with a harness that finds one session and holds no log.
-type fakeHarnesses struct {
-	found string
-}
-
-func (f fakeHarnesses) GetByID(string) (harness.Harness, error) {
-	return &fakeHarness{found: f.found}, nil
-}
-
-type fakeHarness struct {
-	found string
-}
-
-func (f *fakeHarness) ID() string     { return "claude" }
-func (f *fakeHarness) Binary() string { return "claude" }
-
-func (f *fakeHarness) BuildCommand(harness.Launch) (string, error) {
-	return "", fmt.Errorf("not launched here")
-}
-
-func (f *fakeHarness) MintSessionID() string { return "" }
-
-func (f *fakeHarness) FindSession(string) (string, error) { return f.found, nil }
-
-func (f *fakeHarness) ReadInput(string) harness.Input { return harness.Input{} }
-
-func (f *fakeHarness) ReadReport(harness.Event, []byte) (harness.Report, error) {
-	return harness.Report{}, nil
-}
-
-func (f *fakeHarness) InterruptKeys() []string { return nil }
-
-func (f *fakeHarness) LogPath(string) string { return "" }
-
-func (f *fakeHarness) ReadLog(string, int64) (harness.LogRead, error) {
-	return harness.LogRead{}, nil
 }
