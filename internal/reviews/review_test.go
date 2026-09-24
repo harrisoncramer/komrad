@@ -42,6 +42,11 @@ type reviewFixture struct {
 	stranger  *agentstore.Agent
 }
 
+type recordingResumer struct {
+	mu      sync.Mutex
+	resumed []string
+}
+
 // TestReviewEntitlement pins who may make each review call on whose work.
 func TestReviewEntitlement(t *testing.T) {
 	tests := []struct {
@@ -468,6 +473,7 @@ func TestListReviewThreads(t *testing.T) {
 				Author:   personAuthor,
 			})
 			require.NoError(t, err)
+
 			fx.writeComment(t, newAgentAuthor(fx.reviewer), "and the caller above it")
 
 			reader := tt.reader(fx)
@@ -749,6 +755,7 @@ func TestSetReviewThreadResolved(t *testing.T) {
 					Author:   tt.settler(fx),
 				})
 				require.NoError(t, err)
+
 				settled = reopened
 			}
 
@@ -1076,14 +1083,10 @@ func (fx *reviewFixture) listMail(t *testing.T, agentID string) []mailstore.Mail
 
 	listed, err := fx.stores.Mail.ListPage(t.Context(), agentID, 200, nil)
 	require.NoError(t, err)
+
 	slices.Reverse(listed)
 
 	return listed
-}
-
-type recordingResumer struct {
-	mu      sync.Mutex
-	resumed []string
 }
 
 func (r *recordingResumer) ResumeAgent(_ context.Context, id string) (*agentstore.Agent, error) {

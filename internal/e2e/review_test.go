@@ -73,6 +73,7 @@ func TestIntegrationReviews(t *testing.T) {
 
 		thread, err := instance.Agents.CreateReviewThread(ctx, written)
 		require.NoError(t, err)
+
 		threadID = thread.Msg.GetThread().GetId()
 	})
 
@@ -95,6 +96,7 @@ func TestIntegrationReviews(t *testing.T) {
 
 		released, err := instance.Agents.ReleaseReview(ctx, req)
 		require.NoError(t, err)
+
 		reviewID = released.Msg.GetReview().GetId()
 
 		assert.Equal(t, mail.DeliverySoon, instance.Deliver(worker.GetId()))

@@ -116,6 +116,7 @@ func TestReleaseReviewWritesTheFile(t *testing.T) {
 
 			written, err := os.ReadFile(released.Path)
 			require.NoError(t, err)
+
 			for _, said := range append(tt.wantSaid, fx.worker.ID) {
 				assert.Contains(t, string(written), said)
 			}
@@ -183,6 +184,7 @@ func TestGetReview(t *testing.T) {
 		Author:   personAuthor,
 	})
 	require.NoError(t, err)
+
 	gone, err := fx.service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
 		AgentID:     fx.worker.ID,
 		FilePath:    "gone.go",
@@ -191,6 +193,7 @@ func TestGetReview(t *testing.T) {
 		Author:      personAuthor,
 	})
 	require.NoError(t, err)
+
 	first, err := fx.service.ReleaseReview(t.Context(), ReleaseReviewParams{
 		AgentID: fx.worker.ID,
 		Verdict: reviewstore.VerdictChangesRequested,
@@ -206,6 +209,7 @@ func TestGetReview(t *testing.T) {
 		Author:   personAuthor,
 	})
 	require.NoError(t, err)
+
 	second := fx.releaseReview(t, personAuthor, reviewstore.VerdictChangesRequested)
 
 	whole, err := fx.service.GetReview(t.Context(), first.Review.ID, newAgentAuthor(fx.worker))

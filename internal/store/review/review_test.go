@@ -9,6 +9,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
 	workflowstore "weave/internal/store/workflow"
+	"weave/lib/xptr"
 	"weave/lib/xslice"
 
 	"github.com/google/uuid"
@@ -22,6 +23,19 @@ type fixture struct {
 	mail     *mailstore.MailStore
 	pool     store.DBTX
 	workflow string
+}
+
+// tallyRelease is one review let go of on the tree named.
+type tallyRelease struct {
+	tree       string
+	byReviewer bool
+	verdict    Verdict
+}
+
+// liveReviewerSeed is the agent and the reviewer attached to it in a test of live reviewers.
+type liveReviewerSeed struct {
+	agentID    string
+	reviewerID string
 }
 
 // TestARoundIsNumberedAfterTheOnesBeforeIt pins that the ordinal is the store's to decide.
@@ -371,18 +385,8 @@ func TestASuggestionIsCarriedWithTheComment(t *testing.T) {
 	assert.Equal(t, []string{"if thing == nil {", "\treturn nil", "}"}, messages[0].Suggestion)
 }
 
-// tallyRelease is one review let go of on the tree named.
-type tallyRelease struct {
-	tree       string
-	byReviewer bool
-	verdict    Verdict
-}
-
 // TestListTallies pins which rounds count against which agent and which conclusion stands with them.
 func TestListTallies(t *testing.T) {
-	approved := VerdictApproved
-	changesRequested := VerdictChangesRequested
-
 	tests := []struct {
 		name      string
 		releases  []tallyRelease
@@ -421,7 +425,7 @@ func TestListTallies(t *testing.T) {
 			openOn: "tree-three",
 			wantTally: &Tally{
 				Rounds:      2,
-				Verdict:     &changesRequested,
+				Verdict:     xptr.Ptr(VerdictChangesRequested),
 				SnapshotSHA: "snapshot-tree-two",
 			},
 		},
@@ -440,7 +444,7 @@ func TestListTallies(t *testing.T) {
 			},
 			wantTally: &Tally{
 				Rounds:      1,
-				Verdict:     &changesRequested,
+				Verdict:     xptr.Ptr(VerdictChangesRequested),
 				SnapshotSHA: "snapshot-tree-one",
 			},
 		},
@@ -460,7 +464,7 @@ func TestListTallies(t *testing.T) {
 			},
 			wantTally: &Tally{
 				Rounds:      2,
-				Verdict:     &approved,
+				Verdict:     xptr.Ptr(VerdictApproved),
 				SnapshotSHA: "snapshot-tree-two",
 			},
 		},
@@ -479,7 +483,7 @@ func TestListTallies(t *testing.T) {
 			},
 			wantTally: &Tally{
 				Rounds:      2,
-				Verdict:     &approved,
+				Verdict:     xptr.Ptr(VerdictApproved),
 				SnapshotSHA: "snapshot-tree-one",
 			},
 		},
@@ -630,31 +634,34 @@ func TestDeletingAnAuthorsOpenReviewsLeavesWhatTheyReleased(t *testing.T) {
 func TestLiveReviewers(t *testing.T) {
 	tests := []struct {
 		name     string
-		leave    func(t *testing.T, st *fixture, agentID, reviewerID string)
+		leave    func(t *testing.T, st *fixture, seeded liveReviewerSeed)
+		wantErr  error
 		wantLive bool
 	}{
 		{
 			name: "a reviewer that approved",
-			leave: func(t *testing.T, st *fixture, agentID, reviewerID string) {
-				st.releaseReview(t, st.openReviewBy(t, st.openRound(t, agentID, "tree-one"), reviewerID), VerdictChangesRequested)
-				st.releaseReview(t, st.openReviewBy(t, st.openRound(t, agentID, "tree-two"), reviewerID), VerdictApproved)
+			leave: func(t *testing.T, st *fixture, seeded liveReviewerSeed) {
+				st.releaseReview(t, st.openReviewBy(t, st.openRound(t, seeded.agentID, "tree-one"), seeded.reviewerID), VerdictChangesRequested)
+				st.releaseReview(t, st.openReviewBy(t, st.openRound(t, seeded.agentID, "tree-two"), seeded.reviewerID), VerdictApproved)
 			},
+			wantErr: store.ErrNotFound,
 		},
 		{
 			name: "a reviewer whose setup failed",
-			leave: func(t *testing.T, st *fixture, _, reviewerID string) {
-				require.NoError(t, st.agents.SetStateByID(t.Context(), reviewerID, agentstore.StateFailedToCreate))
+			leave: func(t *testing.T, st *fixture, seeded liveReviewerSeed) {
+				require.NoError(t, st.agents.SetStateByID(t.Context(), seeded.reviewerID, agentstore.StateFailedToCreate))
 			},
+			wantErr: store.ErrNotFound,
 		},
 		{
 			name:     "a reviewer that has released nothing yet",
-			leave:    func(*testing.T, *fixture, string, string) {},
+			leave:    func(*testing.T, *fixture, liveReviewerSeed) {},
 			wantLive: true,
 		},
 		{
 			name: "a reviewer that asked for changes",
-			leave: func(t *testing.T, st *fixture, agentID, reviewerID string) {
-				st.releaseReview(t, st.openReviewBy(t, st.openRound(t, agentID, "tree-one"), reviewerID), VerdictChangesRequested)
+			leave: func(t *testing.T, st *fixture, seeded liveReviewerSeed) {
+				st.releaseReview(t, st.openReviewBy(t, st.openRound(t, seeded.agentID, "tree-one"), seeded.reviewerID), VerdictChangesRequested)
 			},
 			wantLive: true,
 		},
@@ -665,30 +672,38 @@ func TestLiveReviewers(t *testing.T) {
 			st := openFixture(t)
 			ctx := t.Context()
 			agentID := st.seedAgent(t, "worker")
-			reviewerID := st.seedReviewerChild(t, agentID)
+			seeded := liveReviewerSeed{
+				agentID:    agentID,
+				reviewerID: st.seedReviewerChild(t, agentID),
+			}
 			unread := st.seedAgent(t, "unread")
 
-			tt.leave(t, st, agentID, reviewerID)
+			tt.leave(t, st, seeded)
 
 			_, err := st.GetLiveReviewerOf(ctx, unread)
 			require.ErrorIs(t, err, store.ErrNotFound, "an agent nobody reviews has no reviewer")
 
+			reading, err := st.GetLiveReviewerOf(ctx, agentID)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+			} else {
+				require.NoError(t, err)
+			}
+
 			live, err := st.ListLiveReviewers(ctx)
 			require.NoError(t, err)
-			reading, err := st.GetLiveReviewerOf(ctx, agentID)
+
 			if !tt.wantLive {
 				assert.Empty(t, live)
-				require.ErrorIs(t, err, store.ErrNotFound)
 
 				return
 			}
 
 			want := LiveReviewer{
-				AgentID:    agentID,
-				ReviewerID: reviewerID,
+				AgentID:    seeded.agentID,
+				ReviewerID: seeded.reviewerID,
 			}
 			assert.Equal(t, []LiveReviewer{want}, live)
-			require.NoError(t, err)
 			assert.Equal(t, &want, reading)
 		})
 	}

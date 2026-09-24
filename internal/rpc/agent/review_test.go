@@ -23,7 +23,7 @@ import (
 
 var reviewedAt = time.Date(2026, time.September, 24, 9, 0, 0, 0, time.UTC)
 
-// fakeReviewer answers every review call with err, or with the review, round and thread it holds, and records what each call asked.
+// fakeReviewer answers every review call with err or with the rows it holds.
 type fakeReviewer struct {
 	err      error
 	review   reviewstore.Review
@@ -357,13 +357,13 @@ func TestReviewCallsAnswerWhatTheServiceDid(t *testing.T) {
 func TestListReviewThreadsNamesTheCaller(t *testing.T) {
 	tests := []struct {
 		name       string
-		callerIs   string
+		callerID   string
 		agentID    *string
 		wantListed reviews.ListReviewThreadsParams
 	}{
 		{
 			name:     "an agent naming nobody reads its own",
-			callerIs: alphaID,
+			callerID: alphaID,
 			wantListed: reviews.ListReviewThreadsParams{
 				AgentID: alphaID,
 				Author: reviews.ReviewAuthor{
@@ -374,7 +374,7 @@ func TestListReviewThreadsNamesTheCaller(t *testing.T) {
 		},
 		{
 			name:     "an agent reading another's",
-			callerIs: alphaID,
+			callerID: alphaID,
 			agentID:  xptr.Ptr(betaID),
 			wantListed: reviews.ListReviewThreadsParams{
 				AgentID: betaID,
@@ -400,8 +400,8 @@ func TestListReviewThreadsNamesTheCaller(t *testing.T) {
 			svc := newReviewHandler(reviewer)
 
 			ctx := t.Context()
-			if tt.callerIs != "" {
-				ctx = caller.With(ctx, caller.Caller{AgentID: tt.callerIs})
+			if tt.callerID != "" {
+				ctx = caller.With(ctx, caller.Caller{AgentID: tt.callerID})
 			}
 
 			_, err := svc.ListReviewThreads(ctx, connect.NewRequest(&agentv1.ListReviewThreadsRequest{AgentId: tt.agentID}))
@@ -466,7 +466,6 @@ func TestReleaseReviewPassesTheVerdict(t *testing.T) {
 
 // TestGetReviewRendersTheReview pins what a review read whole looks like on the wire.
 func TestGetReviewRendersTheReview(t *testing.T) {
-	verdict := reviewstore.VerdictChangesRequested
 	reviewer := &fakeReviewer{
 		review: reviewstore.Review{
 			ID:            "review-1",
@@ -475,7 +474,7 @@ func TestGetReviewRendersTheReview(t *testing.T) {
 			RoundOrdinal:  1,
 			AuthorKind:    reviewstore.AuthorAgent,
 			AuthorAgentID: xptr.Ptr(alphaID),
-			Verdict:       &verdict,
+			Verdict:       xptr.Ptr(reviewstore.VerdictChangesRequested),
 			ReleasedAt:    &reviewedAt,
 			DeliveredAt:   &reviewedAt,
 			Body:          "two things before it goes",
