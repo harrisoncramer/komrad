@@ -1676,8 +1676,7 @@ func TestCreateAgentValidation(t *testing.T) {
 	}
 }
 
-// TestRequestValidation covers the proto constraints, which run in the interceptor and so
-// need a real client rather than the service directly.
+// TestRequestValidation covers the proto constraints on the agent requests.
 func TestRequestValidation(t *testing.T) {
 	tests := []struct {
 		name    string

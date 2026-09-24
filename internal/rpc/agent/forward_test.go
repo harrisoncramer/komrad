@@ -9,6 +9,7 @@ import (
 	"weave/internal/caller"
 	"weave/internal/mail"
 	"weave/internal/tmuxtest"
+	"weave/internal/transcripts"
 	"weave/lib/dates"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1weave"
@@ -200,9 +201,9 @@ func TestForwardLastTurns(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			rows := &fakeRowReader{}
-			transcripts := &fakeTranscriptReader{turns: tt.turns}
+			reader := &fakeTranscriptReader{turns: tt.turns}
 			mailer := &fakeMailer{err: tt.sendErr}
-			svc, terminal := newForwardHandler(rows, transcripts, mailer)
+			svc, terminal := newForwardHandler(rows, reader, mailer)
 
 			alpha := rows.seed(agentstore.Agent{
 				Name:   "alpha",
@@ -243,10 +244,10 @@ func TestForwardLastTurns(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-			assert.Equal(t, []agents.ListLastTurnsParams{{
+			assert.Equal(t, []transcripts.ListLastTurnsParams{{
 				AgentID: alpha.ID,
 				Turns:   tt.wantTurnsAsked,
-			}}, transcripts.listed)
+			}}, reader.listed)
 
 			want := strings.ReplaceAll(tt.wantBody, "ALPHA", alpha.ID)
 			require.Equal(t, []mail.SendMailParams{{
@@ -351,12 +352,12 @@ func TestMaxMailBodyIsTheWireCap(t *testing.T) {
 }
 
 // newForwardHandler is the handler over fakes of the rows, the transcripts and the mail service, reading liveness off a fake tmux.
-func newForwardHandler(rows *fakeRowReader, transcripts *fakeTranscriptReader, mailer *fakeMailer) (agentv1weave.AgentServiceAdapter, *tmuxtest.Fake) {
+func newForwardHandler(rows *fakeRowReader, reader *fakeTranscriptReader, mailer *fakeMailer) (agentv1weave.AgentServiceAdapter, *tmuxtest.Fake) {
 	terminal := tmuxtest.NewFake()
 
 	return agentv1weave.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{
 		Agents:      rows,
-		Transcripts: transcripts,
+		Transcripts: reader,
 		Mail:        mailer,
 		Liveness:    agents.NewPaneLiveness(terminal),
 		Clock: func() time.Time {

@@ -26,34 +26,35 @@ import (
 )
 
 type services struct {
-	loadConfig      func() (*config.Config, error)
-	script          *scriptrun.ScriptService
-	mail            *mail.MailService
-	review          *reviews.ReviewService
-	schedule        *schedules.ScheduleService
-	liveness        *agents.PaneLiveness
-	rowWriter       *agents.RowWriter
-	rowReader       *agents.RowReader
-	launch          *agents.LaunchService
-	resume          *agents.ResumeService
-	adopt           *agents.AdoptService
-	lifecycle       *agents.LifecycleService
-	orchestrator    *agents.OrchestratorService
-	workflow        *agents.WorkflowService
-	delivery        *mail.DeliveryService
-	reconciler      *agents.Reconciler
-	marks           *marks.MarkService
-	holder          *agents.Holder
-	rebase          *checkouts.RebaseService
-	cwdSync         *checkouts.CwdSyncer
-	transcriptSync  *transcripts.TranscriptSyncer
-	forge           *forge.Service
-	pullRequestSync *pullrequests.PullRequestSyncer
-	pullRequests    *pullrequests.Lister
-	worktreeLister  *worktrees.Lister
-	inspector       *worktrees.Inspector
-	remover         *worktrees.Remover
-	watchRows       *watch.Rows
+	loadConfig       func() (*config.Config, error)
+	script           *scriptrun.ScriptService
+	mail             *mail.MailService
+	review           *reviews.ReviewService
+	schedule         *schedules.ScheduleService
+	liveness         *agents.PaneLiveness
+	rowWriter        *agents.RowWriter
+	rowReader        *agents.RowReader
+	transcriptReader *transcripts.TranscriptReader
+	launch           *agents.LaunchService
+	resume           *agents.ResumeService
+	adopt            *agents.AdoptService
+	lifecycle        *agents.LifecycleService
+	orchestrator     *agents.OrchestratorService
+	workflow         *agents.WorkflowService
+	delivery         *mail.DeliveryService
+	reconciler       *agents.Reconciler
+	marks            *marks.MarkService
+	holder           *agents.Holder
+	rebase           *checkouts.RebaseService
+	cwdSync          *checkouts.CwdSyncer
+	transcriptSync   *transcripts.TranscriptSyncer
+	forge            *forge.Service
+	pullRequestSync  *pullrequests.PullRequestSyncer
+	pullRequests     *pullrequests.Lister
+	worktreeLister   *worktrees.Lister
+	inspector        *worktrees.Inspector
+	remover          *worktrees.Remover
+	watchRows        *watch.Rows
 }
 
 // BuiltinScriptsDir is where the scripts weave ships are installed under a cache directory,
@@ -268,10 +269,13 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 	return &services{
 		loadConfig: loadConfig,
 		watchRows:  watch.NewRows(buildWatchLoaders(st)),
+		transcriptReader: transcripts.NewTranscriptReader(transcripts.NewTranscriptReaderParams{
+			Agents:      st.agents,
+			Transcripts: st.transcripts,
+		}),
 		rowReader: agents.NewRowReader(agents.NewRowReaderParams{
 			Agents:       st.agents,
 			Rows:         st.rows,
-			Transcripts:  st.transcripts,
 			Marks:        st.marks,
 			Mail:         st.mail,
 			PullRequests: st.pullRequests,

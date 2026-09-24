@@ -15,7 +15,6 @@ import (
 	pullrequeststore "weave/internal/store/pullrequest"
 	reviewstore "weave/internal/store/review"
 	rowstore "weave/internal/store/row"
-	transcriptstore "weave/internal/store/transcript"
 	workflowstore "weave/internal/store/workflow"
 
 	"github.com/stretchr/testify/assert"
@@ -24,15 +23,12 @@ import (
 
 const readerRepository = "https://github.com/harrisoncramer/weave"
 
-const missingAgentID = "00000000-0000-0000-0000-000000000000"
-
 func newRowReader(st *storetest.Stores) *RowReader {
 	reviews := reviewstore.NewReviewStore(st.Pool.GetDB())
 
 	return NewRowReader(NewRowReaderParams{
 		Agents:       st.Agents,
 		Rows:         st.Rows,
-		Transcripts:  st.Transcripts,
 		Marks:        st.Marks,
 		Mail:         st.Mail,
 		PullRequests: st.PullRequests,
@@ -40,91 +36,6 @@ func newRowReader(st *storetest.Stores) *RowReader {
 		Reviews:      reviews,
 		Workflows:    st.Workflows,
 	})
-}
-
-// TestRowReaderRefusesAnAgentNobodyHolds pins that a transcript read names the missing agent rather than answering empty.
-func TestRowReaderRefusesAnAgentNobodyHolds(t *testing.T) {
-	tests := []struct {
-		name string
-		read func(t *testing.T, reader *RowReader) error
-	}{
-		{
-			name: "reading its transcript",
-			read: func(t *testing.T, reader *RowReader) error {
-				_, err := reader.ReadTranscript(t.Context(), missingAgentID)
-
-				return err
-			},
-		},
-		{
-			name: "listing its last turns",
-			read: func(t *testing.T, reader *RowReader) error {
-				_, err := reader.ListLastTurns(t.Context(), ListLastTurnsParams{AgentID: missingAgentID})
-
-				return err
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			require.ErrorIs(t, tt.read(t, newRowReader(storetest.Open(t))), ErrAgentNotFound)
-		})
-	}
-}
-
-// TestListLastTurns pins that a listing counts the agent's own turns, one when none is asked for.
-func TestListLastTurns(t *testing.T) {
-	st := storetest.Open(t)
-	reader := newRowReader(st)
-	alpha := st.SeedAgent(t, agentstore.Agent{Name: "alpha"})
-	st.SeedTurns(t, alpha.ID,
-		transcriptstore.Turn{
-			Role:    "user",
-			Content: "opening question",
-		},
-		transcriptstore.Turn{
-			Role:    "assistant",
-			Content: "a first reading",
-		},
-		transcriptstore.Turn{
-			Role:    "user",
-			Content: "a nudge",
-		},
-		transcriptstore.Turn{
-			Role:    "assistant",
-			Content: "the conclusion",
-		},
-	)
-
-	tests := []struct {
-		name     string
-		turns    int32
-		wantSeqs []int32
-	}{
-		{
-			name:     "no count reads the last turn the agent wrote",
-			wantSeqs: []int32{3},
-		},
-		{
-			name:     "two of its own turns come with the prompt between them",
-			turns:    2,
-			wantSeqs: []int32{1, 2, 3},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			turns, err := reader.ListLastTurns(t.Context(), ListLastTurnsParams{
-				AgentID: alpha.ID,
-				Turns:   tt.turns,
-			})
-			require.NoError(t, err)
-			assert.Equal(t, tt.wantSeqs, xslice.Map(turns, func(turn transcriptstore.StoredTurn) int32 {
-				return turn.Seq
-			}))
-		})
-	}
 }
 
 // TestListSurroundings pins which watched rows a page of agents is drawn beside.
@@ -168,7 +79,10 @@ func TestListSurroundings(t *testing.T) {
 	_, err = st.PullRequests.Observe(ctx)
 	require.NoError(t, err)
 
-	rows, err := st.Rows.ListWatched(ctx, []string{opened.ID})
+	reviewed := seedReview(t, st, opened.ID)
+	seedReview(t, st, elsewhere.ID)
+
+	rows, err := reader.ListRowsByID(ctx, []string{opened.ID})
 	require.NoError(t, err)
 
 	surroundings, err := reader.ListSurroundings(ctx, rows)
@@ -185,12 +99,70 @@ func TestListSurroundings(t *testing.T) {
 	assert.Equal(t, []string{opened.WorkflowID}, xslice.Map(surroundings.Workflows, func(w workflowstore.Workflow) string {
 		return w.ID
 	}), "only the workflows the agents on the page are in, never %s", bystander.ID)
-	assert.Empty(t, surroundings.Reviews)
+	assert.Equal(t, []string{reviewed}, xslice.Map(surroundings.Reviews, func(r reviewstore.Review) string {
+		return r.ID
+	}), "only the reviews of the agents on the page")
 
 	nothing, err := reader.ListSurroundings(ctx, []rowstore.Row{})
 	require.NoError(t, err)
 	assert.Empty(t, nothing.PullRequests, "a page of nobody reads no pull request")
 	assert.Empty(t, nothing.Workflows)
+}
+
+// TestListRowsByID pins that a listing reads only the agents it names.
+func TestListRowsByID(t *testing.T) {
+	st := storetest.Open(t)
+	reader := newRowReader(st)
+	alpha := st.SeedAgent(t, agentstore.Agent{Name: "alpha"})
+	st.SeedAgent(t, agentstore.Agent{Name: "beta"})
+
+	tests := []struct {
+		name    string
+		ids     []string
+		wantIDs []string
+	}{
+		{
+			name:    "naming nobody reads nobody",
+			wantIDs: []string{},
+		},
+		{
+			name:    "naming one agent reads that one",
+			ids:     []string{alpha.ID},
+			wantIDs: []string{alpha.ID},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rows, err := reader.ListRowsByID(t.Context(), tt.ids)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantIDs, xslice.Map(rows, func(row rowstore.Row) string {
+				return row.ID
+			}))
+		})
+	}
+}
+
+// seedReview opens a review of the agent's first round and returns its id.
+func seedReview(t *testing.T, st *storetest.Stores, agentID string) string {
+	t.Helper()
+
+	reviews := reviewstore.NewReviewStore(st.Pool.GetDB())
+	round, err := reviews.CreateRound(t.Context(), reviewstore.CreateRoundParams{
+		AgentID:     agentID,
+		BaseSHA:     "base",
+		SnapshotSHA: "snapshot",
+	})
+	require.NoError(t, err)
+
+	review, err := reviews.OpenReview(t.Context(), reviewstore.OpenReviewParams{
+		AgentID:    agentID,
+		RoundID:    round.ID,
+		AuthorKind: reviewstore.AuthorHuman,
+	})
+	require.NoError(t, err)
+
+	return review.ID
 }
 
 // seedAgentOnBranch is a live agent whose checkout is on a branch of a repository.

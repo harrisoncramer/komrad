@@ -87,7 +87,7 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 			Agents:       params.Services.rowReader,
 			Rows:         params.Services.rowReader,
 			Writer:       params.Services.rowWriter,
-			Transcripts:  params.Services.rowReader,
+			Transcripts:  params.Services.transcriptReader,
 			Mail:         params.Services.mail,
 			Creator:      params.Services.launch,
 			Adopter:      params.Services.adopt,

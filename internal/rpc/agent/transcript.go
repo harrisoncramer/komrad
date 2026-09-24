@@ -4,10 +4,10 @@ import (
 	"context"
 	"unicode/utf8"
 
-	"weave/internal/agents"
 	"weave/internal/caller"
 	"weave/internal/fail"
 	"weave/internal/rpcerr"
+	"weave/internal/transcripts"
 	"weave/lib/pagination"
 	"weave/lib/xslice"
 	"weave/lib/xstr"
@@ -18,8 +18,8 @@ import (
 
 type transcriptReader interface {
 	ReadTranscript(ctx context.Context, agentID string) (string, error)
-	ListLastTurns(ctx context.Context, params agents.ListLastTurnsParams) ([]transcriptstore.StoredTurn, error)
-	SearchTranscripts(ctx context.Context, params transcriptstore.SearchParams) (transcriptstore.Results, error)
+	ListLastTurns(ctx context.Context, params transcripts.ListLastTurnsParams) ([]transcriptstore.StoredTurn, error)
+	SearchTranscripts(ctx context.Context, params transcriptstore.SearchParams) (*transcriptstore.Results, error)
 }
 
 // SearchTranscripts runs a search over stored transcripts and returns one page of the turns
@@ -163,7 +163,7 @@ type listLastTurnsParams struct {
 // listLastTurns reads an agent's newest turns and the prompts between them, oldest first, each
 // cut from the head to fit the window.
 func (s *Handler) listLastTurns(ctx context.Context, params listLastTurnsParams) ([]*agentv1.Turn, *fail.Error) {
-	newest, err := s.transcripts.ListLastTurns(ctx, agents.ListLastTurnsParams{
+	newest, err := s.transcripts.ListLastTurns(ctx, transcripts.ListLastTurnsParams{
 		AgentID: params.AgentID,
 		Turns:   params.Turns,
 	})

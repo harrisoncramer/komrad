@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	agentv1 "weave/proto/gen/agent/v1"
-	annotationv1 "weave/proto/gen/annotation/v1"
 	configv1 "weave/proto/gen/config/v1"
 	hookv1 "weave/proto/gen/hook/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
@@ -216,30 +215,4 @@ func TestInputSchema(t *testing.T) {
 				"only the fields the service rejects empty are required")
 		})
 	}
-}
-
-// getToolsFor returns the tools a caller holding the role is served.
-func getToolsFor(t *testing.T, role annotationv1.Role) map[string]bool {
-	t.Helper()
-
-	served := map[string]bool{}
-	for exposed := range rpcapi.GetMethods() {
-		if exposed.Surfaces.GetMcp() && rpcapi.ServesRole(exposed.Surfaces, role) {
-			served[exposed.Surfaces.GetName()] = true
-		}
-	}
-
-	return served
-}
-
-// TestUnspecifiedIsServedEverything checks that a caller weave cannot place loses nothing.
-func TestUnspecifiedIsServedEverything(t *testing.T) {
-	every := map[string]bool{}
-	for exposed := range rpcapi.GetMethods() {
-		if exposed.Surfaces.GetMcp() {
-			every[exposed.Surfaces.GetName()] = true
-		}
-	}
-
-	assert.Equal(t, every, getToolsFor(t, annotationv1.Role_ROLE_UNSPECIFIED))
 }

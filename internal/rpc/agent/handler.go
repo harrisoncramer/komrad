@@ -77,8 +77,7 @@ type rowWriter interface {
 	RecordReport(ctx context.Context, params agents.RecordReportParams) error
 }
 
-// markReadWriter owns the letters a person types to jump to a row, which span agents and
-// workflows and so are written through a transaction rather than through one store.
+// markReadWriter reads and writes the letters a person types to jump to a row.
 type markReadWriter interface {
 	SetMark(ctx context.Context, mark string, target markstore.Target) (bool, error)
 	ClearMark(ctx context.Context, target markstore.Target) (bool, error)

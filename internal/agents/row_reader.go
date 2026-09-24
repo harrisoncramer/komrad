@@ -13,27 +13,13 @@ import (
 	pullrequeststore "weave/internal/store/pullrequest"
 	reviewstore "weave/internal/store/review"
 	rowstore "weave/internal/store/row"
-	transcriptstore "weave/internal/store/transcript"
 	workflowstore "weave/internal/store/workflow"
 )
-
-const assistantRole = "assistant"
-
-type agentExistsGetter interface {
-	agentGetter
-	Exists(ctx context.Context, id string) (bool, error)
-}
 
 type rowPageReader interface {
 	ListPage(ctx context.Context, page rowstore.Page) ([]rowstore.Row, error)
 	ListWatched(ctx context.Context, keys []string) ([]rowstore.Row, error)
 	Get(ctx context.Context, id string) (*rowstore.Row, error)
-}
-
-type transcriptSearcher interface {
-	Get(ctx context.Context, agentID string) (string, error)
-	ListLastTurns(ctx context.Context, params transcriptstore.ListLastTurnsParams) ([]transcriptstore.StoredTurn, error)
-	Search(ctx context.Context, params transcriptstore.SearchParams) (transcriptstore.Results, error)
 }
 
 type watchedLister[R any] interface {
@@ -52,9 +38,8 @@ type agentReviewLister interface {
 
 // NewRowReaderParams is what a row reader is built over.
 type NewRowReaderParams struct {
-	Agents       agentExistsGetter
+	Agents       agentGetter
 	Rows         rowPageReader
-	Transcripts  transcriptSearcher
 	Marks        watchedLister[markstore.Mark]
 	Mail         watchedLister[mailstore.Mail]
 	PullRequests observedPullRequestLister
@@ -63,11 +48,10 @@ type NewRowReaderParams struct {
 	Workflows    watchedLister[workflowstore.Workflow]
 }
 
-// RowReader reads what an agent's row says, what is drawn beside it, and what the agent wrote.
+// RowReader reads what an agent's row says and what is drawn beside it.
 type RowReader struct {
-	agents       agentExistsGetter
+	agents       agentGetter
 	rows         rowPageReader
-	transcripts  transcriptSearcher
 	marks        watchedLister[markstore.Mark]
 	mail         watchedLister[mailstore.Mail]
 	pullRequests observedPullRequestLister
@@ -81,7 +65,6 @@ func NewRowReader(params NewRowReaderParams) *RowReader {
 	return &RowReader{
 		agents:       params.Agents,
 		rows:         params.Rows,
-		transcripts:  params.Transcripts,
 		marks:        params.Marks,
 		mail:         params.Mail,
 		pullRequests: params.PullRequests,
@@ -123,7 +106,7 @@ func (r *RowReader) ListRows(ctx context.Context, page rowstore.Page) ([]rowstor
 
 // ListRowsByID returns the rows of the agents named, leaving out any that are gone.
 func (r *RowReader) ListRowsByID(ctx context.Context, ids []string) ([]rowstore.Row, error) {
-	rows, err := r.rows.ListWatched(ctx, ids)
+	rows, err := listWatchedByKey(ctx, r.rows, ids)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the rows of %d agents: %w", len(ids), err)
 	}
@@ -198,71 +181,6 @@ func (r *RowReader) ListSurroundings(ctx context.Context, rows []rowstore.Row) (
 		Reviews:      reviews,
 		Workflows:    workflows,
 	}, nil
-}
-
-// SearchTranscripts runs a search over the stored transcripts.
-func (r *RowReader) SearchTranscripts(ctx context.Context, params transcriptstore.SearchParams) (transcriptstore.Results, error) {
-	results, err := r.transcripts.Search(ctx, params)
-	if err != nil {
-		return transcriptstore.Results{}, fmt.Errorf("failed to search transcripts: %w", err)
-	}
-
-	return results, nil
-}
-
-// ReadTranscript returns the whole of an agent's stored transcript.
-func (r *RowReader) ReadTranscript(ctx context.Context, agentID string) (string, error) {
-	if err := r.requireAgent(ctx, agentID); err != nil {
-		return "", err
-	}
-
-	content, err := r.transcripts.Get(ctx, agentID)
-	if err != nil {
-		return "", fmt.Errorf("failed to get the transcript of agent %q: %w", agentID, err)
-	}
-
-	return content, nil
-}
-
-// ListLastTurnsParams names the agent and how many of its own turns to read.
-type ListLastTurnsParams struct {
-	AgentID string
-	Turns   int32
-}
-
-// ListLastTurns returns the newest turns an agent wrote and the prompts between them, oldest first, one turn when none is asked for.
-func (r *RowReader) ListLastTurns(ctx context.Context, params ListLastTurnsParams) ([]transcriptstore.StoredTurn, error) {
-	if err := r.requireAgent(ctx, params.AgentID); err != nil {
-		return nil, err
-	}
-
-	count := params.Turns
-	if count <= 0 {
-		count = 1
-	}
-
-	turns, err := r.transcripts.ListLastTurns(ctx, transcriptstore.ListLastTurnsParams{
-		AgentID: params.AgentID,
-		Role:    assistantRole,
-		Limit:   count,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to list the last turns of agent %q: %w", params.AgentID, err)
-	}
-
-	return turns, nil
-}
-
-func (r *RowReader) requireAgent(ctx context.Context, agentID string) error {
-	exists, err := r.agents.Exists(ctx, agentID)
-	if err != nil {
-		return fmt.Errorf("failed to look up agent %q: %w", agentID, err)
-	}
-	if !exists {
-		return ErrAgentNotFound.Saying("no agent with id %q", agentID)
-	}
-
-	return nil
 }
 
 // listWatchedByKey reads the watched rows among keys, and nothing when there are none.
