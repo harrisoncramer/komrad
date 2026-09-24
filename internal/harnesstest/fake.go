@@ -22,6 +22,11 @@ const (
 	FrameUnrecognized = "frame: unrecognized"
 )
 
+var (
+	_ harness.Harness = (*Fake)(nil)
+	_ harness.Channel = (*Channel)(nil)
+)
+
 // Fake is a harness that reads the frames above and records every launch it renders.
 type Fake struct {
 	mu         sync.Mutex
@@ -30,8 +35,6 @@ type Fake struct {
 	Name       string
 	NoSession  bool
 }
-
-var _ harness.Harness = (*Fake)(nil)
 
 // ID is Name, or FakeID when the test gave none.
 func (f *Fake) ID() string {
@@ -87,7 +90,7 @@ func (f *Fake) ReadInput(frame string) harness.Input {
 	case frame == FrameWaiting:
 		return harness.Input{Activity: harness.ActivityWaiting}
 	case strings.HasPrefix(frame, FrameComposing):
-		return harness.Input{Activity: harness.ActivityComposing, Held: composingLines(strings.TrimPrefix(frame, FrameComposing))}
+		return harness.Input{Activity: harness.ActivityComposing, Held: splitComposingLines(strings.TrimPrefix(frame, FrameComposing))}
 	case frame == "":
 		return harness.Input{Activity: harness.ActivityUnknown}
 	case strings.HasPrefix(frame, FrameUnrecognized):
@@ -95,14 +98,6 @@ func (f *Fake) ReadInput(frame string) harness.Input {
 	default:
 		return harness.Input{Activity: harness.ActivityIdle, Held: []string{""}}
 	}
-}
-
-func composingLines(held string) []string {
-	if held == "" {
-		return []string{"half a question about"}
-	}
-
-	return strings.Split(strings.TrimPrefix(held, ": "), "|")
 }
 
 // LogPath is empty.
@@ -149,8 +144,6 @@ type Channel struct {
 	Interrupts  int
 }
 
-var _ harness.Channel = (*Channel)(nil)
-
 // Ready is true unless RefuseReady is set.
 func (c *Channel) Ready(context.Context, harness.Target) (bool, error) {
 	return !c.RefuseReady, nil
@@ -179,4 +172,12 @@ func (c *Channel) Interrupt(context.Context, harness.Target) error {
 // Forget records the agent forgotten.
 func (c *Channel) Forget(agentID string) {
 	c.Forgotten = append(c.Forgotten, agentID)
+}
+
+func splitComposingLines(held string) []string {
+	if held == "" {
+		return []string{"half a question about"}
+	}
+
+	return strings.Split(strings.TrimPrefix(held, ": "), "|")
 }

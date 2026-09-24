@@ -24,12 +24,12 @@ index 23cef252a97433f151c14725c88e0c2dafce63ef..5586caad9270132f074ee5374d4652b8
  }
 `
 
-// reviewOnASecondRoundOfOneFile is the panel on a second round the agent wrote the same file in,
+// buildReviewOnASecondRound is the panel on a second round the agent wrote the same file in,
 // with the first round reviewed and released.
-func reviewOnASecondRoundOfOneFile(t *testing.T, repo *gittest.Repo, agents *fakeReviewAgents) model {
+func buildReviewOnASecondRound(t *testing.T, repo *gittest.Repo, agents *fakeReviewAgents) model {
 	t.Helper()
 
-	m, _ := reviewModelOver(t, agents, repo)
+	m, _ := buildReviewModel(t, agents, repo)
 	m = openReview(t, m)
 	require.Len(t, agents.rounds, 1)
 
@@ -80,7 +80,7 @@ func TestAViewedMarkTakenInAChapterDoesNotEatTheWholeChangeMark(t *testing.T) {
 	repo := gittest.NewRepo(t.TempDir())
 	agents := &fakeReviewAgents{}
 
-	m := reviewOnASecondRoundOfOneFile(t, repo, agents)
+	m := buildReviewOnASecondRound(t, repo, agents)
 
 	next, cmd := m.routeScreenMessage(keyMsg("v"))
 	m = next.(model)

@@ -8,6 +8,7 @@ import (
 	"weave/internal/tmux"
 )
 
+// Fake is a tmux that answers from its fields and records every call made of it.
 type Fake struct {
 	mu              sync.Mutex
 	Owners          map[string]string
@@ -31,6 +32,12 @@ type Fake struct {
 	Respawned       map[string][]Respawn
 }
 
+// Respawn is one respawn of a pane: the directory it started in and the command it ran.
+type Respawn struct {
+	Dir  string
+	Argv []string
+}
+
 // NewFake is a tmux holding no panes.
 func NewFake() *Fake {
 	return &Fake{
@@ -44,11 +51,6 @@ func NewFake() *Fake {
 		Respawned:      map[string][]Respawn{},
 		Shell:          "/bin/zsh",
 	}
-}
-
-type Respawn struct {
-	Dir  string
-	Argv []string
 }
 
 // SetGlobal records a global option.

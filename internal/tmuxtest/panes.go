@@ -15,19 +15,15 @@ type Panes struct {
 	InMode   bool
 	ClientAt bool
 	Frame    string
-
 	// AfterCut is the frame the pane shows once its line has been cut, an empty box unless a
 	// test says otherwise.
 	AfterCut string
-
 	// StaleReads is how many reads after the cut still show the frame from before it, which is
 	// a CLI that has yet to repaint.
 	StaleReads int
-
 	// PasteErr and YankErr are what tmux refuses with.
 	PasteErr error
 	YankErr  error
-
 	// Actions is what was done to the pane, in the order it was done.
 	Actions  []string
 	Pasted   []string

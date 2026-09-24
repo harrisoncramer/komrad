@@ -27,7 +27,7 @@ func tallReview(t *testing.T) (model, *fakeReviewAgents) {
 	t.Helper()
 
 	agents := &fakeReviewAgents{}
-	m, _ := reviewModelOver(t, agents, gittest.NewTallRepo(t.TempDir()))
+	m, _ := buildReviewModel(t, agents, gittest.NewTallRepo(t.TempDir()))
 
 	return openReview(t, m), agents
 }

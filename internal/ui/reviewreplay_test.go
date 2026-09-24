@@ -32,7 +32,7 @@ func reviewAcrossAMovedBase(
 ) model {
 	t.Helper()
 
-	m, _ := reviewModelOver(t, agents, repo)
+	m, _ := buildReviewModel(t, agents, repo)
 	m = openReview(t, m)
 	require.Len(t, agents.rounds, 1)
 
@@ -60,11 +60,11 @@ func reviewAcrossAMovedBase(
 
 	if replayed != nil {
 		repo.Replays = map[string]*git.Replayed{
-			gittest.ReplayOf(olderBase, gittest.BaseSHA, gittest.SnapshotSHA): replayed,
+			gittest.NameReplay(olderBase, gittest.BaseSHA, gittest.SnapshotSHA): replayed,
 		}
 	}
 
-	repo.Patches[gittest.PairOf(replayedTree, gittest.SnapshotOf(secondTree))] = gittest.PatchOfTheSecondFile
+	repo.Patches[gittest.NamePair(replayedTree, gittest.NameSnapshot(secondTree))] = gittest.PatchOfTheSecondFile
 
 	m = openReview(t, m)
 	require.Len(t, agents.rounds, 2)
@@ -81,7 +81,7 @@ func TestARoundAcrossAMovedBaseIsReplayedOntoIt(t *testing.T) {
 	m = pressReviewBase(t, m)
 
 	assert.Equal(t, replayedTree, m.review.diff.base, "the old side is the first round carried onto the moved base")
-	assert.Equal(t, gittest.SnapshotOf(secondTree), m.review.diff.head)
+	assert.Equal(t, gittest.NameSnapshot(secondTree), m.review.diff.head)
 
 	files := m.review.diff.view.Stat().Files
 	assert.Equal(t, 1, files, "only what the agent wrote between the two reviews is drawn")
@@ -128,7 +128,7 @@ func TestAGitThatCannotReplayLeavesTheRefusalStanding(t *testing.T) {
 func TestARewrittenHistoryIsSaidToBeOne(t *testing.T) {
 	agents := &fakeReviewAgents{}
 	repo := gittest.NewRepo(t.TempDir())
-	repo.Rewritten = map[string]bool{gittest.PairOf(olderBase, gittest.BaseSHA): true}
+	repo.Rewritten = map[string]bool{gittest.NamePair(olderBase, gittest.BaseSHA): true}
 	m := reviewAcrossAMovedBase(t, repo, agents, &git.Replayed{Tree: replayedTree})
 
 	m = pressReviewBase(t, m)
@@ -167,7 +167,7 @@ func TestAnOldSideCountedInAReplayedTreePinsOnlyThere(t *testing.T) {
 
 	// The chapter draws the agent's own edit of the first file, whose old side is the replayed
 	// tree.
-	repo.Patches[gittest.PairOf(replayedTree, gittest.SnapshotOf(secondTree))] = gittest.Patch
+	repo.Patches[gittest.NamePair(replayedTree, gittest.NameSnapshot(secondTree))] = gittest.Patch
 
 	agents.threads = []*agentv1.ReviewThread{{
 		Id:          "t1",
@@ -225,8 +225,8 @@ func TestTheFirstChapterIsMeasuredFromItsOwnBase(t *testing.T) {
 
 	// What git reports between the moved base and round one carries main's own commits
 	// reversed, so it is two files where the agent wrote one.
-	repo.Patches[gittest.PairOf(olderBase, gittest.SnapshotSHA)] = gittest.Patch
-	repo.Patches[gittest.PairOf(gittest.BaseSHA, gittest.SnapshotSHA)] = gittest.PatchOfBothFiles
+	repo.Patches[gittest.NamePair(olderBase, gittest.SnapshotSHA)] = gittest.Patch
+	repo.Patches[gittest.NamePair(gittest.BaseSHA, gittest.SnapshotSHA)] = gittest.PatchOfBothFiles
 
 	m = pressReviewBase(t, m)
 	m = pressReviewBase(t, m)

@@ -45,7 +45,7 @@ func TestReviewMoveWaitsWhileTheReaderTypes(t *testing.T) {
 // of an idle agent is read again on its own.
 func TestReviewMoveCatchesUpOnceTheTurnIsOver(t *testing.T) {
 	repo := gittest.NewRepo(t.TempDir())
-	m, tmux := reviewModelOver(t, &fakeReviewAgents{}, repo)
+	m, tmux := buildReviewModel(t, &fakeReviewAgents{}, repo)
 	m = openReview(t, m)
 
 	repo.Wrote(gittest.WroteParams{

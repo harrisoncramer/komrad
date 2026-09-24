@@ -316,7 +316,7 @@ func TestADroppedPassKeepsTheFilesForAReadersOwnPause(t *testing.T) {
 func TestAPassRedrawsTheReadersOwnEdits(t *testing.T) {
 	repo := gittest.NewRepo(t.TempDir())
 	agents := &fakeReviewAgents{}
-	m, _ := reviewModelOver(t, agents, repo)
+	m, _ := buildReviewModel(t, agents, repo)
 	m = openReview(t, m)
 
 	next, cmd := m.routeScreenMessage(keyMsg("c"))
@@ -343,7 +343,7 @@ func TestAPassRedrawsTheReadersOwnEdits(t *testing.T) {
 	require.True(t, ok)
 	m.review.applyLoaded(&m, m.shared(), loaded)
 
-	assert.Equal(t, gittest.SnapshotOf("tree-the-reader-edited"), m.review.diff.view.GetSnapshotSHA())
+	assert.Equal(t, gittest.NameSnapshot("tree-the-reader-edited"), m.review.diff.view.GetSnapshotSHA())
 	assert.Contains(t, ansi.Strip(m.review.view(m.shared())), "written by the agent")
 }
 

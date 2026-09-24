@@ -117,7 +117,7 @@ func TestReviewReloadKeepsTheSearch(t *testing.T) {
 // TestReviewBacksOutWhenTheWorktreeWasEmptied pins a reload that finds no changes returning the reader to the listing.
 func TestReviewBacksOutWhenTheWorktreeWasEmptied(t *testing.T) {
 	repo := gittest.NewRepo(t.TempDir())
-	m, _ := reviewModelOver(t, &fakeReviewAgents{}, repo)
+	m, _ := buildReviewModel(t, &fakeReviewAgents{}, repo)
 	m = openReview(t, m)
 
 	repo.Wrote(gittest.WroteParams{Tree: "tree-of-the-base"})
@@ -139,7 +139,7 @@ func TestReviewBacksOutWhenTheWorktreeWasEmptied(t *testing.T) {
 // lands back where they were standing in the new one.
 func TestReviewReloadKeyOpensTheNextRound(t *testing.T) {
 	repo := gittest.NewRepo(t.TempDir())
-	m, _ := reviewModelOver(t, &fakeReviewAgents{}, repo)
+	m, _ := buildReviewModel(t, &fakeReviewAgents{}, repo)
 	m = openReview(t, m)
 
 	first := m.review.round.GetOrdinal()
@@ -247,7 +247,7 @@ func TestReviewSaysWhenEverythingIsExcluded(t *testing.T) {
 		Hidden: true,
 	})
 
-	m, _ := reviewModelOver(t, &fakeReviewAgents{}, repo)
+	m, _ := buildReviewModel(t, &fakeReviewAgents{}, repo)
 	m = openReview(t, m)
 
 	loaded, ok := loadReviewCmd(m.shared(), loadReviewCmdParams{

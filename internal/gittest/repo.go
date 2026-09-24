@@ -153,27 +153,6 @@ const (
 		"\n\nfunc Three() {}\n\nfunc Four() {}\n"
 )
 
-// ReplayOf names one replay: the base a snapshot was measured from, the base it is carried
-// onto, and the snapshot.
-func ReplayOf(fromBase, ontoBase, snapshot string) string {
-	return fromBase + ">" + ontoBase + ":" + snapshot
-}
-
-// SourceOf names one file's whole source: the snapshot holding it and its path.
-func SourceOf(sha, path string) string {
-	return sha + ":" + path
-}
-
-// SnapshotOf is the round a tree is frozen as.
-func SnapshotOf(tree string) string {
-	return SnapshotPrefix + tree
-}
-
-// PairOf names one diff: the two snapshots it is read between.
-func PairOf(from, to string) string {
-	return from + ".." + to
-}
-
 // Repo is the git a review screen reads, answering for the snapshots a test says the agent
 // took rather than from a repository on disk.
 type Repo struct {
@@ -204,11 +183,11 @@ func NewRepo(root string) *Repo {
 	return &Repo{
 		Root:    root,
 		Tree:    UnmovedTree,
-		Patches: map[string]string{PairOf(BaseSHA, SnapshotSHA): Patch},
+		Patches: map[string]string{NamePair(BaseSHA, SnapshotSHA): Patch},
 		Hidden:  map[string]bool{},
 		Sources: map[string]string{
-			SourceOf(BaseSHA, File):     BaseSource,
-			SourceOf(SnapshotSHA, File): HeadSource,
+			NameSource(BaseSHA, File):     BaseSource,
+			NameSource(SnapshotSHA, File): HeadSource,
 		},
 	}
 }
@@ -219,11 +198,11 @@ func NewTallRepo(root string) *Repo {
 	return &Repo{
 		Root:    root,
 		Tree:    UnmovedTree,
-		Patches: map[string]string{PairOf(BaseSHA, SnapshotSHA): PatchOfATallFile},
+		Patches: map[string]string{NamePair(BaseSHA, SnapshotSHA): PatchOfATallFile},
 		Hidden:  map[string]bool{},
 		Sources: map[string]string{
-			SourceOf(BaseSHA, TallFile):     TallBase,
-			SourceOf(SnapshotSHA, TallFile): TallHead,
+			NameSource(BaseSHA, TallFile):     TallBase,
+			NameSource(SnapshotSHA, TallFile): TallHead,
 		},
 	}
 }
@@ -245,28 +224,28 @@ type WroteParams struct {
 
 // Wrote is the agent writing again, which moves the worktree onto a tree of its own.
 func (f *Repo) Wrote(params WroteParams) {
-	previous := SnapshotOf(f.Tree)
+	previous := NameSnapshot(f.Tree)
 	f.Tree = params.Tree
 
-	sha := SnapshotOf(params.Tree)
-	f.Patches[PairOf(BaseSHA, sha)] = params.Whole
+	sha := NameSnapshot(params.Tree)
+	f.Patches[NamePair(BaseSHA, sha)] = params.Whole
 
 	if params.Since != "" {
-		f.Patches[PairOf(previous, sha)] = params.Since
+		f.Patches[NamePair(previous, sha)] = params.Since
 	}
 
 	for path, source := range params.Sources {
-		f.Sources[SourceOf(sha, path)] = source
+		f.Sources[NameSource(sha, path)] = source
 	}
 
 	if params.Hidden {
-		f.Hidden[PairOf(BaseSHA, sha)] = true
+		f.Hidden[NamePair(BaseSHA, sha)] = true
 	}
 }
 
 // Replay answers the replay the test stated for these three commits.
 func (f *Repo) Replay(_ context.Context, params git.ReplayParams) (*git.Replayed, error) {
-	replayed, stated := f.Replays[ReplayOf(params.FromBase, params.OntoBase, params.SnapshotSHA)]
+	replayed, stated := f.Replays[NameReplay(params.FromBase, params.OntoBase, params.SnapshotSHA)]
 	if !stated {
 		return nil, fmt.Errorf("%w: this test stated no replay of %s from %s onto %s",
 			ErrNoGit, params.SnapshotSHA, params.FromBase, params.OntoBase)
@@ -277,7 +256,7 @@ func (f *Repo) Replay(_ context.Context, params git.ReplayParams) (*git.Replayed
 
 // IsAncestor is true unless the pair is in Rewritten.
 func (f *Repo) IsAncestor(_ context.Context, _, maybeAncestor, of string) (bool, error) {
-	return !f.Rewritten[PairOf(maybeAncestor, of)], nil
+	return !f.Rewritten[NamePair(maybeAncestor, of)], nil
 }
 
 // GetRoot answers Root, or the directory itself when Root is blank.
@@ -295,7 +274,7 @@ func (f *Repo) GetRoot(_ context.Context, dir string) (string, error) {
 
 // Diff answers the patch the test stated between two snapshots.
 func (f *Repo) Diff(_ context.Context, params git.DiffParams) ([]byte, error) {
-	patch, err := f.patchBetween(patchBetweenParams{
+	patch, err := f.readPatchBetween(readPatchBetweenParams{
 		FromSHA: params.FromSHA,
 		ToSHA:   params.ToSHA,
 		Exclude: params.Exclude,
@@ -309,7 +288,7 @@ func (f *Repo) Diff(_ context.Context, params git.DiffParams) ([]byte, error) {
 
 // CountChangedFiles counts the files in the patch between two snapshots.
 func (f *Repo) CountChangedFiles(_ context.Context, params git.CountChangedFilesParams) (int, error) {
-	patch, err := f.patchBetween(patchBetweenParams{
+	patch, err := f.readPatchBetween(readPatchBetweenParams{
 		FromSHA: params.FromSHA,
 		ToSHA:   params.ToSHA,
 		Exclude: params.Exclude,
@@ -321,22 +300,60 @@ func (f *Repo) CountChangedFiles(_ context.Context, params git.CountChangedFiles
 	return strings.Count(patch, "diff --git "), nil
 }
 
-// patchBetweenParams is one read of a diff: the two snapshots, and the paths left out of it.
-type patchBetweenParams struct {
+// ReadFiles answers the sources the test stated for each revision.
+func (f *Repo) ReadFiles(_ context.Context, _ string, revisions []git.FileRevision) (map[git.FileRevision][]byte, error) {
+	files := make(map[git.FileRevision][]byte, len(revisions))
+	for _, revision := range revisions {
+		if source, stated := f.Sources[NameSource(revision.SHA, revision.Path)]; stated {
+			files[revision] = []byte(source)
+		}
+	}
+
+	return files, nil
+}
+
+// WorktreeHead answers as a round nothing has checked out yet.
+func (f *Repo) WorktreeHead(context.Context, string) (string, bool) {
+	return "", false
+}
+
+// NameReplay names one replay: the base a snapshot was measured from, the base it is carried
+// onto, and the snapshot.
+func NameReplay(fromBase, ontoBase, snapshot string) string {
+	return fromBase + ">" + ontoBase + ":" + snapshot
+}
+
+// NameSource names one file's whole source: the snapshot holding it and its path.
+func NameSource(sha, path string) string {
+	return sha + ":" + path
+}
+
+// NameSnapshot is the round a tree is frozen as.
+func NameSnapshot(tree string) string {
+	return SnapshotPrefix + tree
+}
+
+// NamePair names one diff: the two snapshots it is read between.
+func NamePair(from, to string) string {
+	return from + ".." + to
+}
+
+// readPatchBetweenParams is one read of a diff: the two snapshots, and the paths left out of it.
+type readPatchBetweenParams struct {
 	FromSHA string
 	ToSHA   string
 	Exclude []string
 }
 
-// patchBetween is what git reports between two snapshots, refusing a pair the test never stated
+// readPatchBetween is what git reports between two snapshots, refusing a pair the test never stated
 // rather than answering as a pair nothing changed between.
-func (f *Repo) patchBetween(params patchBetweenParams) (string, error) {
+func (f *Repo) readPatchBetween(params readPatchBetweenParams) (string, error) {
 	// A snapshot against itself is nothing changed.
 	if params.FromSHA == params.ToSHA {
 		return "", nil
 	}
 
-	pair := PairOf(params.FromSHA, params.ToSHA)
+	pair := NamePair(params.FromSHA, params.ToSHA)
 
 	patch, stated := f.Patches[pair]
 	if !stated {
@@ -349,21 +366,4 @@ func (f *Repo) patchBetween(params patchBetweenParams) (string, error) {
 	}
 
 	return patch, nil
-}
-
-// ReadFiles answers the sources the test stated for each revision.
-func (f *Repo) ReadFiles(_ context.Context, _ string, revisions []git.FileRevision) (map[git.FileRevision][]byte, error) {
-	files := make(map[git.FileRevision][]byte, len(revisions))
-	for _, revision := range revisions {
-		if source, stated := f.Sources[SourceOf(revision.SHA, revision.Path)]; stated {
-			files[revision] = []byte(source)
-		}
-	}
-
-	return files, nil
-}
-
-// WorktreeHead answers as a round nothing has checked out yet.
-func (f *Repo) WorktreeHead(context.Context, string) (string, bool) {
-	return "", false
 }

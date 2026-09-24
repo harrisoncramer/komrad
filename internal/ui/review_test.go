@@ -137,7 +137,7 @@ func (f *fakeReviewAgents) OpenReviewRound(
 	_ context.Context,
 	req *connect.Request[agentv1.OpenReviewRoundRequest],
 ) (*connect.Response[agentv1.OpenReviewRoundResponse], error) {
-	sha, baseSHA := gittest.SnapshotOf(f.repo.Tree), gittest.BaseSHA
+	sha, baseSHA := gittest.NameSnapshot(f.repo.Tree), gittest.BaseSHA
 
 	if len(f.rounds) == 0 || f.rounds[len(f.rounds)-1].GetSnapshotSha() != sha {
 		f.rounds = append(f.rounds, &agentv1.ReviewRound{
@@ -266,12 +266,12 @@ func reviewRepo(t *testing.T) string {
 func reviewModel(t *testing.T, agents agentv1connect.AgentServiceClient, dir string) (model, *recordingTmux) {
 	t.Helper()
 
-	return reviewModelOver(t, agents, gittest.NewRepo(dir))
+	return buildReviewModel(t, agents, gittest.NewRepo(dir))
 }
 
-// reviewModelOver is a review screen over a repository the test holds on to, for the tests that
+// buildReviewModel is a review screen over a repository the test holds on to, for the tests that
 // move it between rounds.
-func reviewModelOver(t *testing.T, agents agentv1connect.AgentServiceClient, repo *gittest.Repo) (model, *recordingTmux) {
+func buildReviewModel(t *testing.T, agents agentv1connect.AgentServiceClient, repo *gittest.Repo) (model, *recordingTmux) {
 	t.Helper()
 
 	dir := repo.Root
@@ -361,7 +361,7 @@ func TestEnterReviewRefusesAnEmptyWorktree(t *testing.T) {
 	repo := gittest.NewRepo(t.TempDir())
 	repo.Wrote(gittest.WroteParams{Tree: "tree-of-the-base"})
 
-	m, _ := reviewModelOver(t, &fakeReviewAgents{}, repo)
+	m, _ := buildReviewModel(t, &fakeReviewAgents{}, repo)
 
 	m = enterReview(t, m)
 
@@ -382,7 +382,7 @@ func TestEnterReviewOpensAnUntrackedFile(t *testing.T) {
 		Sources: map[string]string{"new.go": "package greet\n"},
 	})
 
-	m, _ := reviewModelOver(t, &fakeReviewAgents{}, repo)
+	m, _ := buildReviewModel(t, &fakeReviewAgents{}, repo)
 
 	m = openReview(t, m)
 
@@ -965,7 +965,7 @@ func TestReviewReportsAFailedLoad(t *testing.T) {
 	repo := gittest.NewRepo(t.TempDir())
 	repo.RootErr = gittest.ErrNoGit
 
-	m, _ := reviewModelOver(t, &fakeReviewAgents{}, repo)
+	m, _ := buildReviewModel(t, &fakeReviewAgents{}, repo)
 
 	m = enterReview(t, m)
 
@@ -1539,7 +1539,7 @@ func TestReviewFileJumpSurvivesARepaint(t *testing.T) {
 	})
 
 	agents := &fakeReviewAgents{}
-	m, _ := reviewModelOver(t, agents, repo)
+	m, _ := buildReviewModel(t, agents, repo)
 	m = openReview(t, m)
 
 	next, _ := m.routeScreenMessage(keyMsg("]"))
@@ -1638,7 +1638,7 @@ func TestMarkingAFileViewedFoldsItAway(t *testing.T) {
 func TestAViewedFileComesBackInTheNextRound(t *testing.T) {
 	repo := gittest.NewRepo(t.TempDir())
 	agents := &fakeReviewAgents{}
-	m, _ := reviewModelOver(t, agents, repo)
+	m, _ := buildReviewModel(t, agents, repo)
 	m = openReview(t, m)
 
 	next, cmd := m.routeScreenMessage(keyMsg("v"))
@@ -1696,7 +1696,7 @@ func TestReviewMatchCountSpellsMatchesOffAMatch(t *testing.T) {
 func TestReviewBaseNarrowsToTheLastReview(t *testing.T) {
 	repo := gittest.NewRepo(t.TempDir())
 	agents := &fakeReviewAgents{}
-	m, _ := reviewModelOver(t, agents, repo)
+	m, _ := buildReviewModel(t, agents, repo)
 
 	m = openReview(t, m)
 	require.Len(t, agents.rounds, 1, "the first look takes a round")
@@ -1755,12 +1755,12 @@ func TestReviewBaseNarrowsToTheLastReview(t *testing.T) {
 	assert.Contains(t, ansi.Strip(m.review.view(m.shared())), "all changes")
 }
 
-// reviewWithAnEarlierReview is the panel on a second round with the first one reviewed and
+// buildReviewWithAnEarlierReview is the panel on a second round with the first one reviewed and
 // released.
-func reviewWithAnEarlierReview(t *testing.T, repo *gittest.Repo, agents *fakeReviewAgents) model {
+func buildReviewWithAnEarlierReview(t *testing.T, repo *gittest.Repo, agents *fakeReviewAgents) model {
 	t.Helper()
 
-	m, _ := reviewModelOver(t, agents, repo)
+	m, _ := buildReviewModel(t, agents, repo)
 	m = openReview(t, m)
 	require.Len(t, agents.rounds, 1)
 
@@ -1834,7 +1834,7 @@ func TestReviewBaseSaysSoWhenNothingChangedSinceThatReview(t *testing.T) {
 	repo := gittest.NewRepo(t.TempDir())
 	agents := &fakeReviewAgents{}
 
-	m, _ := reviewModelOver(t, agents, repo)
+	m, _ := buildReviewModel(t, agents, repo)
 	m = openReview(t, m)
 	first := agents.rounds[0]
 
@@ -1879,7 +1879,7 @@ func TestReviewBaseSaysSoWhenNothingChangedSinceThatReview(t *testing.T) {
 func TestWritingIsRefusedOnAFinishedRound(t *testing.T) {
 	agents := &fakeReviewAgents{}
 
-	m := reviewWithAnEarlierReview(t, gittest.NewRepo(t.TempDir()), agents)
+	m := buildReviewWithAnEarlierReview(t, gittest.NewRepo(t.TempDir()), agents)
 	m = pressReviewBase(t, m)
 	require.NotEmpty(t, m.review.diff.base, "the diff narrowed to a round")
 
@@ -1924,7 +1924,7 @@ func TestWritingIsRefusedOnAFinishedRound(t *testing.T) {
 func TestReviewBaseIsRefusedWhenTheBaseMoved(t *testing.T) {
 	repo := gittest.NewRepo(t.TempDir())
 	agents := &fakeReviewAgents{}
-	m, _ := reviewModelOver(t, agents, repo)
+	m, _ := buildReviewModel(t, agents, repo)
 
 	m = openReview(t, m)
 	first := agents.rounds[0]

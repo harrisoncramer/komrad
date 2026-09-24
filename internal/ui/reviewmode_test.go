@@ -120,7 +120,7 @@ func TestIsReviewHistoryReadsTheDiffOnScreen(t *testing.T) {
 // round they were on, so drawing it under the whole change's label reads as current work.
 func TestReloadWithNoChaptersLetsTheReaderOut(t *testing.T) {
 	agents := &fakeReviewAgents{}
-	m := reviewWithAnEarlierReview(t, gittest.NewRepo(t.TempDir()), agents)
+	m := buildReviewWithAnEarlierReview(t, gittest.NewRepo(t.TempDir()), agents)
 	m = pressReviewBase(t, m)
 	require.NotEmpty(t, m.review.diff.base)
 	require.GreaterOrEqual(t, m.review.diff.chapter, 0)
@@ -418,12 +418,12 @@ func TestSendingAReplyIsAllowedWhileAReviewIsOut(t *testing.T) {
 	assert.Empty(t, m.review.notice)
 }
 
-// reviewRepoWithADeletion is a worktree whose round both changes a file and removes one.
-func reviewRepoWithADeletion(t *testing.T) *gittest.Repo {
+// buildRepoWithADeletion is a worktree whose round both changes a file and removes one.
+func buildRepoWithADeletion(t *testing.T) *gittest.Repo {
 	t.Helper()
 
 	repo := gittest.NewRepo(t.TempDir())
-	repo.Sources[gittest.SourceOf(gittest.BaseSHA, "gone.go")] = "package greet\n\nfunc Gone() {}\n"
+	repo.Sources[gittest.NameSource(gittest.BaseSHA, "gone.go")] = "package greet\n\nfunc Gone() {}\n"
 	repo.Wrote(gittest.WroteParams{
 		Tree:    "tree-with-a-deletion",
 		Whole:   gittest.PatchWithADeletion,
@@ -508,7 +508,7 @@ func reviewRowWithAnEditTarget(t *testing.T, m model) int {
 // which used to switch the screen's mode on the strength of an editor it never opened.
 func TestAnEditRefusedOnADeletedFileOpensNoMode(t *testing.T) {
 	agents := &fakeReviewAgents{}
-	m, _ := reviewModelOver(t, agents, reviewRepoWithADeletion(t))
+	m, _ := buildReviewModel(t, agents, buildRepoWithADeletion(t))
 	m = openReview(t, m)
 
 	m.review.diff.cursor = reviewRowInDeletedFile(t, m)
@@ -785,7 +785,7 @@ func reviewAnchorInTheDiff(t *testing.T, m model) diffview.Anchor {
 // key read it anyway.
 func TestAComposerDoesNotOutliveTheDiffItWasWrittenOn(t *testing.T) {
 	agents := &fakeReviewAgents{}
-	m := reviewWithAnEarlierReview(t, gittest.NewRepo(t.TempDir()), agents)
+	m := buildReviewWithAnEarlierReview(t, gittest.NewRepo(t.TempDir()), agents)
 	m = pressReviewBase(t, m)
 	require.GreaterOrEqual(t, m.review.diff.chapter, 0)
 
@@ -926,7 +926,7 @@ func TestComposingOnARowWithNoLineSaysSo(t *testing.T) {
 func TestACommentOnTheNewestRoundRecordsItsBase(t *testing.T) {
 	agents := &fakeReviewAgents{}
 
-	m := reviewWithAnEarlierReview(t, gittest.NewRepo(t.TempDir()), agents)
+	m := buildReviewWithAnEarlierReview(t, gittest.NewRepo(t.TempDir()), agents)
 	m = pressReviewBase(t, m)
 	require.NotEmpty(t, m.review.diff.base, "the diff is measured from the round reviewed before")
 
@@ -1085,7 +1085,7 @@ func TestTheOpenCommentKeyDoesNotClaimAFoldedReviewIsSettled(t *testing.T) {
 func TestTheOpenCommentKeySaysBothWhenOneIsFoldedAway(t *testing.T) {
 	repo := gittest.NewRepo(t.TempDir())
 	agents := &fakeReviewAgents{}
-	m, _ := reviewModelOver(t, agents, repo)
+	m, _ := buildReviewModel(t, agents, repo)
 
 	repo.Wrote(gittest.WroteParams{
 		Tree:  "tree-with-a-second-file",
