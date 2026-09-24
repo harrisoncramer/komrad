@@ -143,6 +143,7 @@ func TestWorktreeConfigRoundTrip(t *testing.T) {
 				Worktree: WorktreeConfig{
 					Enabled:      true,
 					BaseBranch:   "develop",
+					Dir:          "/repo/.worktrees",
 					CopyPaths:    []string{".env", "config/local.json"},
 					SymlinkPaths: []string{"node_modules"},
 					DiffExclude:  []string{"proto/gen", "*.pb.go"},
@@ -151,6 +152,7 @@ func TestWorktreeConfigRoundTrip(t *testing.T) {
 			want: WorktreeConfig{
 				Enabled:      true,
 				BaseBranch:   "develop",
+				Dir:          "/repo/.worktrees",
 				CopyPaths:    []string{".env", "config/local.json"},
 				SymlinkPaths: []string{"node_modules"},
 				DiffExclude:  []string{"proto/gen", "*.pb.go"},
@@ -169,6 +171,29 @@ func TestWorktreeConfigRoundTrip(t *testing.T) {
 			update: &Config{Name: "backend", Worktree: WorktreeConfig{BaseBranch: "develop"}},
 			want: WorktreeConfig{
 				BaseBranch:   "develop",
+				CopyPaths:    []string{},
+				SymlinkPaths: []string{},
+				DiffExclude:  []string{},
+			},
+		},
+		{
+			name: "an update writes the directory worktrees are cut in",
+			create: Config{
+				Name:     "backend",
+				Worktree: WorktreeConfig{BaseBranch: "main"},
+			},
+			update: &Config{
+				Name: "backend",
+				Worktree: WorktreeConfig{
+					Enabled:    true,
+					BaseBranch: "main",
+					Dir:        "/repo/.worktrees",
+				},
+			},
+			want: WorktreeConfig{
+				Enabled:      true,
+				BaseBranch:   "main",
+				Dir:          "/repo/.worktrees",
 				CopyPaths:    []string{},
 				SymlinkPaths: []string{},
 				DiffExclude:  []string{},

@@ -26,6 +26,10 @@ func TestGet(t *testing.T) {
 			id:   missingID,
 		},
 		{
+			name: "a malformed id is not a workflow",
+			id:   "not-an-id",
+		},
+		{
 			name:    "an archived workflow is hidden",
 			create:  true,
 			archive: true,

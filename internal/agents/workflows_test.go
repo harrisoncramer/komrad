@@ -2,6 +2,8 @@ package agents
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"weave/internal/harnesstest"
@@ -16,32 +18,58 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestNewWorkflow pins what a workflow is stored as, a blank name falling back to a label so
-// the list never draws an empty row.
+// TestNewWorkflow pins what a workflow is stored as.
 func TestNewWorkflow(t *testing.T) {
+	home, err := os.UserHomeDir()
+	require.NoError(t, err)
+
 	tests := []struct {
 		name     string
 		cfg      workflowstore.Config
 		wantName string
+		wantCwd  string
+		wantBase string
 	}{
 		{
 			name:     "a blank name falls back to a label, so the list never renders an empty row",
 			cfg:      workflowstore.Config{Name: "   "},
 			wantName: "workflow",
+			wantBase: "main",
 		},
 		{
-			name:     "a given name is kept",
-			cfg:      workflowstore.Config{Name: "backend"},
+			name: "a home-relative directory is expanded before it is stored",
+			cfg: workflowstore.Config{
+				Name: "platform",
+				Cwd:  "~/repo",
+			},
+			wantName: "platform",
+			wantCwd:  filepath.Join(home, "repo"),
+			wantBase: "main",
+		},
+		{
+			name: "a given base branch is kept",
+			cfg: workflowstore.Config{
+				Name:     "backend",
+				Worktree: workflowstore.WorktreeConfig{BaseBranch: "develop"},
+			},
 			wantName: "backend",
+			wantBase: "develop",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			created, err := newWorkflowService(newStore(t), tmuxtest.NewFake()).NewWorkflow(t.Context(), tt.cfg)
+			st := newStore(t)
+
+			created, err := newWorkflowService(st, tmuxtest.NewFake()).NewWorkflow(t.Context(), tt.cfg)
 			require.NoError(t, err)
 			require.NotNil(t, created)
-			assert.Equal(t, tt.wantName, created.Name)
+
+			stored, err := st.Workflows.Get(t.Context(), created.ID)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantName, stored.Name)
+			assert.Equal(t, tt.wantCwd, stored.Cwd)
+			assert.Equal(t, tt.wantBase, stored.Worktree.BaseBranch)
 		})
 	}
 }
