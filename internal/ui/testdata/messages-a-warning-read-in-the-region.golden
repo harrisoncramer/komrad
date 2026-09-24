@@ -1,11 +1,8 @@
-  [93m![m [1mPane died: axle-i…[m  [1;34m3 of 3[m
-                              
-  the harness exited 1        
-  before the first turn       
-  finished, and the pane it   
-  was running in is gone.     
-  read the run log with l.    
-                              
-  [90mweave log [m[90m91be40c2[m          
-                              
-  [90mwarning · [m[90m<landed>[m  
+  [93m![m [1mPane died: axle-idempotency[m                                 [1;34m3 of 3[m
+                                                                      
+  the harness exited 1 before the first turn finished, and the pane   
+  it was running in is gone. read the run log with l.                 
+                                                                      
+  [90mweave log [m[90m91be40c2[m                                                  
+                                                                      
+  [90mwarning · [m[90m<landed>[m

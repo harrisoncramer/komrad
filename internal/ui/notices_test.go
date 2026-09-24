@@ -28,7 +28,7 @@ func TestNotices(t *testing.T) {
 	t.Run("a row carrying no mark says nothing", func(t *testing.T) {
 		harness := openNoticed(t, panelHarnessParams{}, newNoticed())
 
-		assert.NotContains(t, readRecordProse(harness.readFrame()), "its directory no longer exists")
+		assert.Empty(t, readNoticeBlock(harness))
 	})
 
 	t.Run("the notices take their lines from the fields rather than the list", func(t *testing.T) {
@@ -226,7 +226,9 @@ func readNoticeBlock(harness *panelHarness) []string {
 			break
 		}
 
-		block = append(block, strings.TrimRight(ansi.Truncate(styled[i], width, ""), " "))
+		if strings.TrimSpace(line) != "" {
+			block = append(block, strings.TrimRight(ansi.Truncate(styled[i], width, ""), " "))
+		}
 	}
 
 	return block

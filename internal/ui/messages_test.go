@@ -20,7 +20,10 @@ import (
 
 const traceID = "7c1f2a94"
 
-var landedAt = regexp.MustCompile(`[A-Z][a-z]{2} \d{1,2} at \d{1,2}:\d{2}[ap]m`)
+var (
+	landedAt       = regexp.MustCompile(`[A-Z][a-z]{2} \d{1,2} at \d{1,2}:\d{2}[ap]m`)
+	landedAtPadded = regexp.MustCompile(landedAt.String() + `(\x1b\[m)? *`)
+)
 
 // TestMessagesRegion covers the rows under the record that say what went wrong.
 func TestMessagesRegion(t *testing.T) {
@@ -256,6 +259,7 @@ func TestMessagesGolden(t *testing.T) {
 			name: "a-warning-read-in-the-region",
 			open: func(t *testing.T) *panelHarness {
 				harness := openMessages(t, panelHarnessParams{}, "no such agent")
+				harness.press(widenListPresses...)
 				harness.press("enter", "ctrl+g", "M", "M", ">", ">")
 				settlePulse(harness)
 
@@ -311,7 +315,7 @@ func TestMessagesGolden(t *testing.T) {
 
 			harness := tt.open(t)
 
-			region := landedAt.ReplaceAllString(strings.Join(readStyledMessages(harness), "\n"), "<landed>")
+			region := landedAtPadded.ReplaceAllString(strings.Join(readStyledMessages(harness), "\n"), "<landed>$1")
 			ui.RequireGolden(t, "messages-"+tt.name, region)
 		})
 	}
