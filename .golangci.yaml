@@ -348,15 +348,17 @@ linters:
             # model through the harness.
             types:
               - weave/internal/ui.model
-            # Unanchored regexps over the path lint was run from. The one file that exports the
-            # model to the harness.
+            # Unanchored regexps over the path lint was run from.
             exclude:
+              # This file hands the model to the harness. Something has to reach inside the
+              # package to do that, and keeping it to one file means no other test can.
               - ^internal/ui/export_test\.go$
           fake_store:
             skip: false
-            # Unanchored regexps over the path lint was run from. A store's own tests, which have
-            # no real store to test against but themselves.
+            # Unanchored regexps over the path lint was run from.
             exclude:
+              # A store's own tests are the tests of the real store. A helper there that shares a
+              # method name with the store is setting up rows, not faking anything.
               - ^internal/store/
           shared_fake:
             skip: false
@@ -410,13 +412,19 @@ linters:
             exclude: []
           test_beside:
             skip: false
-            # Unanchored regexps over the path lint was run from. Scenarios are named for the
-            # feature they describe, the panel's harness and export file for what they hold, and
-            # the panel's scenario against a real service for the whole panel it drives.
+            # Unanchored regexps over the path lint was run from.
             exclude:
+              # Scenario files are named for the feature a user meets, such as mail or reviews,
+              # and a feature spans many source files.
               - ^internal/e2e/
+              # The harness every screen test drives the panel through. It is shared by all of
+              # them, so no single source file owns it.
               - ^internal/ui/harness_test\.go$
+              # The one file that opens the model up to the harness. Go's convention names it for
+              # what it does rather than for a source file.
               - ^internal/ui/export_test\.go$
+              # Drives the whole panel against a real service and tmux. It is a scenario for the
+              # panel as a whole, and there is no panel.go for it to sit beside.
               - ^internal/ui/panel_integration_test\.go$
       fussy:
         type: module
