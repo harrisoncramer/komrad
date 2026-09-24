@@ -1,7 +1,7 @@
 package ui
 
 import (
-	"context"
+	"strings"
 	"testing"
 
 	"weave/internal/git"
@@ -11,20 +11,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// countingGit answers with a fixed number of changed files, and records what it was asked.
-type countingGit struct {
-	gittest.NoRepo
-	changed int
-	err     error
-	asked   git.CountChangedFilesParams
-}
-
-func (c *countingGit) CountChangedFiles(_ context.Context, params git.CountChangedFilesParams) (int, error) {
-	c.asked = params
-
-	return c.changed, c.err
-}
-
 // TestChangedSinceLastReview covers the line drawn above a round saying how much of it the
 // person has not seen.
 func TestChangedSinceLastReview(t *testing.T) {
@@ -32,7 +18,7 @@ func TestChangedSinceLastReview(t *testing.T) {
 		name    string
 		earlier *agentv1.ReviewRound
 		changed int
-		err     error
+		refused bool
 		want    string
 	}{
 		{
@@ -44,7 +30,7 @@ func TestChangedSinceLastReview(t *testing.T) {
 		{
 			name:    "git cannot answer, so nothing is said rather than a wrong number",
 			earlier: &agentv1.ReviewRound{SnapshotSha: "earlier"},
-			err:     gittest.ErrNoGit,
+			refused: true,
 			want:    "",
 		},
 		{
@@ -69,10 +55,13 @@ func TestChangedSinceLastReview(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			counter := &countingGit{changed: tt.changed, err: tt.err}
+			repo := &gittest.Repo{Patches: map[string]string{}}
+			if !tt.refused {
+				repo.Patches[gittest.NamePair("earlier", "current")] = strings.Repeat("diff --git a/f.go b/f.go\n", tt.changed)
+			}
 
 			got := changedSinceLastReview(t.Context(), changedSinceLastReviewParams{
-				Git:         counter,
+				Git:         repo,
 				Dir:         "/repo",
 				Exclude:     []string{"proto/gen"},
 				Earlier:     tt.earlier,
@@ -87,20 +76,20 @@ func TestChangedSinceLastReview(t *testing.T) {
 // TestChangedSinceLastReviewMeasuresBetweenTheTwoRounds pins which pair of commits the count
 // is taken across.
 func TestChangedSinceLastReviewMeasuresBetweenTheTwoRounds(t *testing.T) {
-	counter := &countingGit{changed: 2}
+	repo := &gittest.Repo{}
 
 	changedSinceLastReview(t.Context(), changedSinceLastReviewParams{
-		Git:         counter,
+		Git:         repo,
 		Dir:         "/repo",
 		Exclude:     []string{"proto/gen"},
 		Earlier:     &agentv1.ReviewRound{SnapshotSha: "earlier"},
 		SnapshotSHA: "current",
 	})
 
-	assert.Equal(t, git.CountChangedFilesParams{
+	assert.Equal(t, []git.CountChangedFilesParams{{
 		Dir:     "/repo",
 		FromSHA: "earlier",
 		ToSHA:   "current",
 		Exclude: []string{"proto/gen"},
-	}, counter.asked)
+	}}, repo.CountsAsked())
 }

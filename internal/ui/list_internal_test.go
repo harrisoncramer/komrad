@@ -8,9 +8,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestListLines covers the chrome coming off the pane and a pane the chrome fills leaving the
+// TestFitLines covers the chrome coming off the pane and a pane the chrome fills leaving the
 // list nothing.
-func TestListLines(t *testing.T) {
+func TestFitLines(t *testing.T) {
 	const chrome = 6
 
 	header := "Archive\n\n"
@@ -50,9 +50,7 @@ func TestListLines(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			panel := model{height: tt.height}
-
-			assert.Equal(t, tt.want, panel.listLines(header, help))
+			assert.Equal(t, tt.want, fitLines(tt.height, header, help))
 		})
 	}
 }

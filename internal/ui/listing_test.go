@@ -4,6 +4,8 @@ import (
 	"errors"
 	"testing"
 
+	"weave/internal/engine"
+	"weave/internal/ui"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
 
@@ -12,6 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 )
+
+const serverAddr = "127.0.0.1:8787"
 
 type drawReporter struct {
 	isDrawn bool
@@ -311,4 +315,95 @@ func newRunning() *agentv1.Agent {
 	agent.Alive = proto.Bool(true)
 
 	return agent
+}
+
+// TestListingUnreachable covers the server going away being said once per time it goes.
+func TestListingUnreachable(t *testing.T) {
+	t.Run("the tree already drawn stays drawn", func(t *testing.T) {
+		harness := openUnreachable(t, engine.Remote{})
+
+		frame := harness.readFrame()
+		assert.Contains(t, frame, "Cannot reach the")
+		assert.Equal(t, []string{"backend"}, readListRows(frame))
+	})
+
+	t.Run("a stream lost twice in a row is said once", func(t *testing.T) {
+		harness := openUnreachable(t, engine.Remote{})
+
+		harness.send(ui.NewWatchLost(errors.New("connection refused")))
+
+		frame := harness.readFrame()
+		assert.Contains(t, frame, "Cannot reach the")
+		assert.NotContains(t, frame, "+1", "a server still down says nothing more")
+		assert.NotContains(t, frame, "The panel could not list your agents", "and no screen is taken over")
+	})
+
+	t.Run("a close the service chose leaves a lost server lost", func(t *testing.T) {
+		harness := openUnreachable(t, engine.Remote{})
+
+		harness.send(ui.NewWatchLost(nil))
+		harness.send(ui.NewWatchLost(errors.New("connection refused")))
+
+		assert.NotContains(t, harness.readFrame(), "+1")
+	})
+
+	t.Run("a stream that came back and went again is said again", func(t *testing.T) {
+		harness := openUnreachable(t, engine.Remote{})
+
+		harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend")))
+		harness.send(ui.NewWatchLost(errors.New("connection refused")))
+
+		assert.Contains(t, harness.readFrame(), "+1")
+	})
+
+	tests := []struct {
+		name   string
+		remote engine.Remote
+		want   string
+	}{
+		{
+			name: "the hint on this machine says how to start a server",
+			want: "Start it with: weave serve",
+		},
+		{
+			name:   "the hint for a remote engine says the tunnel is dialled again",
+			remote: engine.Remote{Destination: "weave@host"},
+			want:   "The tunnel to the engine is dialled again until it answers",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			harness := openUnreachable(t, tt.remote)
+
+			harness.press("ctrl+g")
+
+			frame := joinProse(splitLines(harness.readFrame()))
+			assert.Contains(t, frame, serverAddr)
+			assert.Contains(t, frame, tt.want)
+		})
+	}
+}
+
+func openUnreachable(t *testing.T, remote engine.Remote) *panelHarness {
+	t.Helper()
+
+	harness := newPanelHarness(t, panelHarnessParams{
+		settings: ui.PanelSettings{Addr: serverAddr},
+		engine:   remote,
+	})
+	harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend")))
+	harness.send(ui.NewWatchLost(errors.New("connection refused")))
+
+	return harness
+}
+
+func newDormant(name string) *agentv1.Agent {
+	return &agentv1.Agent{
+		Id:         "a1",
+		Name:       name,
+		WorkflowId: "w1",
+		State:      agentv1.AgentState_AGENT_STATE_IDLE,
+		Alive:      proto.Bool(false),
+	}
 }

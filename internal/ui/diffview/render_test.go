@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"weave/internal/diff"
+	"weave/internal/ui/paint"
 	agentv1 "weave/proto/gen/agent/v1"
 
 	"charm.land/lipgloss/v2"
@@ -68,4 +69,44 @@ func TestNoRowIsWiderThanThePaneItWasDrawnFor(t *testing.T) {
 			}
 		}
 	}
+}
+
+// TestMarkForSaysWhichThreadIsWhich covers the gutter glyph ranking an unread reply first,
+// then settling, then whether the thread still stands on the code it was written against.
+func TestMarkForSaysWhichThreadIsWhich(t *testing.T) {
+	view := NewView(patchWith(diff.File{
+		OldPath: "greet.go",
+		NewPath: "greet.go",
+		Hunks: []diff.Hunk{hunkOf(
+			diff.Line{
+				Kind:      diff.Context,
+				Text:      "package greet",
+				OldNumber: 1,
+				NewNumber: 1,
+			},
+		)},
+	}), false)
+
+	thread := threadAt("t1", "greet.go", 1, 1, " package greet")
+	view.PinThreads([]*agentv1.ReviewThread{thread})
+
+	mark, style := view.markFor(thread)
+	assert.Equal(t, readMark, mark)
+	assert.Equal(t, paint.Panel.Style(paint.ToneSelf), style, "a thread the person opened is drawn in their colour")
+
+	thread.ResolvedAt = "2026-08-27T12:00:00Z"
+	mark, style = view.markFor(thread)
+	assert.Equal(t, settledMark, mark)
+	assert.Equal(t, paint.Panel.Style(paint.ToneSelf), style, "and the check keeps the author's colour")
+
+	thread.UnreadByHuman = true
+	mark, _ = view.markFor(thread)
+	assert.Equal(t, unreadMark, mark,
+		"a reply nobody has read outranks the settling, the gutter being the only place it is said")
+
+	thread.Messages = []*agentv1.ReviewMessage{
+		{AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT},
+	}
+	_, style = view.markFor(thread)
+	assert.Equal(t, paint.Panel.Style(paint.ToneOther), style, "a thread the agent opened is drawn in its own colour")
 }
