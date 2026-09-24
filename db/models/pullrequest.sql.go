@@ -288,75 +288,6 @@ func (q *Queries) ListLiveRepositories(ctx context.Context) ([]*string, error) {
 	return items, nil
 }
 
-const listPullRequestsByKey = `-- name: ListPullRequestsByKey :many
-SELECT
-    p.id, p.host, p.forge, p.provider_id, p.url, p.repository_url, p.head_repository_url, p.number, p.title, p.head_branch, p.head_sha, p.base_branch, p.base_sha, p.draft, p.state, p.opened_at, p.changed_at, p.merged_at, p.closed_at, p.first_seen_at, p.review_decision, p.decision_changed_at, p.checks, p.checks_sha, p.checks_read_at, p.mergeability, p.tenant_id
-FROM
-    pull_requests p
-WHERE
-    p.id = ANY ($1::uuid[])
-    AND EXISTS (
-        SELECT
-            1
-        FROM
-            agents a
-        WHERE
-            a.deleting_at IS NULL
-            AND a.repository_url = p.repository_url
-            AND a.repository_url = p.head_repository_url
-            AND a.branch = p.head_branch)
-ORDER BY
-    p.id
-`
-
-func (q *Queries) ListPullRequestsByKey(ctx context.Context, ids []string) ([]*PullRequest, error) {
-	rows, err := q.db.Query(ctx, listPullRequestsByKey, ids)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []*PullRequest
-	for rows.Next() {
-		var i PullRequest
-		if err := rows.Scan(
-			&i.ID,
-			&i.Host,
-			&i.Forge,
-			&i.ProviderID,
-			&i.Url,
-			&i.RepositoryUrl,
-			&i.HeadRepositoryUrl,
-			&i.Number,
-			&i.Title,
-			&i.HeadBranch,
-			&i.HeadSha,
-			&i.BaseBranch,
-			&i.BaseSha,
-			&i.Draft,
-			&i.State,
-			&i.OpenedAt,
-			&i.ChangedAt,
-			&i.MergedAt,
-			&i.ClosedAt,
-			&i.FirstSeenAt,
-			&i.ReviewDecision,
-			&i.DecisionChangedAt,
-			&i.Checks,
-			&i.ChecksSha,
-			&i.ChecksReadAt,
-			&i.Mergeability,
-			&i.TenantID,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, &i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listPullRequestsOfAgents = `-- name: ListPullRequestsOfAgents :many
 SELECT
     p.id, p.host, p.forge, p.provider_id, p.url, p.repository_url, p.head_repository_url, p.number, p.title, p.head_branch, p.head_sha, p.base_branch, p.base_sha, p.draft, p.state, p.opened_at, p.changed_at, p.merged_at, p.closed_at, p.first_seen_at, p.review_decision, p.decision_changed_at, p.checks, p.checks_sha, p.checks_read_at, p.mergeability, p.tenant_id
@@ -644,6 +575,73 @@ func (q *Queries) ListUnscannedBranches(ctx context.Context, repositoryUrl *stri
 	return items, nil
 }
 
+const listWatchedPullRequests = `-- name: ListWatchedPullRequests :many
+SELECT
+    p.id, p.host, p.forge, p.provider_id, p.url, p.repository_url, p.head_repository_url, p.number, p.title, p.head_branch, p.head_sha, p.base_branch, p.base_sha, p.draft, p.state, p.opened_at, p.changed_at, p.merged_at, p.closed_at, p.first_seen_at, p.review_decision, p.decision_changed_at, p.checks, p.checks_sha, p.checks_read_at, p.mergeability, p.tenant_id
+FROM
+    pull_requests p
+WHERE
+    EXISTS (
+        SELECT
+            1
+        FROM
+            agent_pull_requests o
+        WHERE
+            o.pull_request_id = p.id)
+    AND ($1::text[] IS NULL
+        OR p.id = ANY ($1::uuid[]))
+ORDER BY
+    p.id
+`
+
+func (q *Queries) ListWatchedPullRequests(ctx context.Context, keys []string) ([]*PullRequest, error) {
+	rows, err := q.db.Query(ctx, listWatchedPullRequests, keys)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*PullRequest
+	for rows.Next() {
+		var i PullRequest
+		if err := rows.Scan(
+			&i.ID,
+			&i.Host,
+			&i.Forge,
+			&i.ProviderID,
+			&i.Url,
+			&i.RepositoryUrl,
+			&i.HeadRepositoryUrl,
+			&i.Number,
+			&i.Title,
+			&i.HeadBranch,
+			&i.HeadSha,
+			&i.BaseBranch,
+			&i.BaseSha,
+			&i.Draft,
+			&i.State,
+			&i.OpenedAt,
+			&i.ChangedAt,
+			&i.MergedAt,
+			&i.ClosedAt,
+			&i.FirstSeenAt,
+			&i.ReviewDecision,
+			&i.DecisionChangedAt,
+			&i.Checks,
+			&i.ChecksSha,
+			&i.ChecksReadAt,
+			&i.Mergeability,
+			&i.TenantID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const markPullRequestSyncListed = `-- name: MarkPullRequestSyncListed :exec
 UPDATE
     pull_request_syncs
@@ -682,7 +680,7 @@ FROM
     JOIN workflows w ON w.id = a.workflow_id
     LEFT JOIN workflow_provisioner_configs c ON c.id = w.provisioner_config_id
 WHERE
-    a.archived_at IS NULL
+    a.deleting_at IS NULL
     AND a.repository_url IS NOT NULL
     AND a.branch IS NOT NULL
     AND a.branch <> ''
@@ -810,74 +808,6 @@ func (q *Queries) SetStanding(ctx context.Context, arg SetStandingParams) error 
 		arg.ID,
 	)
 	return err
-}
-
-const snapshotPullRequests = `-- name: SnapshotPullRequests :many
-SELECT
-    p.id, p.host, p.forge, p.provider_id, p.url, p.repository_url, p.head_repository_url, p.number, p.title, p.head_branch, p.head_sha, p.base_branch, p.base_sha, p.draft, p.state, p.opened_at, p.changed_at, p.merged_at, p.closed_at, p.first_seen_at, p.review_decision, p.decision_changed_at, p.checks, p.checks_sha, p.checks_read_at, p.mergeability, p.tenant_id
-FROM
-    pull_requests p
-WHERE
-    EXISTS (
-        SELECT
-            1
-        FROM
-            agents a
-        WHERE
-            a.deleting_at IS NULL
-            AND a.repository_url = p.repository_url
-            AND a.repository_url = p.head_repository_url
-            AND a.branch = p.head_branch)
-ORDER BY
-    p.id
-`
-
-func (q *Queries) SnapshotPullRequests(ctx context.Context) ([]*PullRequest, error) {
-	rows, err := q.db.Query(ctx, snapshotPullRequests)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []*PullRequest
-	for rows.Next() {
-		var i PullRequest
-		if err := rows.Scan(
-			&i.ID,
-			&i.Host,
-			&i.Forge,
-			&i.ProviderID,
-			&i.Url,
-			&i.RepositoryUrl,
-			&i.HeadRepositoryUrl,
-			&i.Number,
-			&i.Title,
-			&i.HeadBranch,
-			&i.HeadSha,
-			&i.BaseBranch,
-			&i.BaseSha,
-			&i.Draft,
-			&i.State,
-			&i.OpenedAt,
-			&i.ChangedAt,
-			&i.MergedAt,
-			&i.ClosedAt,
-			&i.FirstSeenAt,
-			&i.ReviewDecision,
-			&i.DecisionChangedAt,
-			&i.Checks,
-			&i.ChecksSha,
-			&i.ChecksReadAt,
-			&i.Mergeability,
-			&i.TenantID,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, &i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }
 
 const startPullRequestSweep = `-- name: StartPullRequestSweep :exec

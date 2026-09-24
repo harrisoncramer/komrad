@@ -329,10 +329,6 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		m.applyScheduleRunsRead(msg)
 
 		return m, nil, true
-	case pullRequestsListedMsg:
-		cmd := m.applyPullRequestsListed(msg)
-
-		return m, cmd, true
 	case urlOpenedMsg:
 		m.applyURLOpened(msg)
 

@@ -107,12 +107,49 @@ func TestCwdSyncerSync(t *testing.T) {
 // newCwdSyncer is a syncer over a git that has no rounds to compare against.
 func newCwdSyncer(agents cwdSetter, heads headReader) *CwdSyncer {
 	return NewCwdSyncer(NewCwdSyncerParams{
-		Agents:  agents,
-		Heads:   heads,
-		Trees:   fakeTrees{},
-		Tallies: fakeTallies{},
-		Bases:   fakeBases{},
+		Agents:       agents,
+		Heads:        heads,
+		Trees:        fakeTrees{},
+		Tallies:      fakeTallies{},
+		Bases:        fakeBases{},
+		PullRequests: &countingObservations{},
 	})
+}
+
+// TestCwdSyncerSyncObservesANewBranch covers that a pass which records a branch the row did not
+// hold observes the pull requests, and a pass that finds every branch where it was does not.
+func TestCwdSyncerSyncObservesANewBranch(t *testing.T) {
+	ctx := t.Context()
+	st := storetest.Open(t)
+	workflowID := seedWorkflow(t, st)
+	cwd := fakeCheckout(t)
+	require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{
+		Name:       "a",
+		State:      agentstore.StateIdle,
+		WorkflowID: workflowID,
+		Cwd:        cwd,
+	}))
+
+	heads := fakeHeads{cwd: {Branch: "agent/x", RepositoryURL: "https://github.com/harrisoncramer/weave"}}
+	observations := &countingObservations{}
+	syncer := NewCwdSyncer(NewCwdSyncerParams{
+		Agents:       st.Agents,
+		Heads:        heads,
+		Trees:        fakeTrees{},
+		Tallies:      fakeTallies{},
+		Bases:        fakeBases{},
+		PullRequests: observations,
+	})
+
+	require.NoError(t, syncer.Sync(ctx))
+	assert.Equal(t, 1, observations.passes, "recording a new branch observes")
+
+	require.NoError(t, syncer.Sync(ctx))
+	assert.Equal(t, 1, observations.passes, "a branch already on the row observes nothing")
+
+	heads[cwd] = git.HeadState{Branch: "agent/y", RepositoryURL: "https://github.com/harrisoncramer/weave"}
+	require.NoError(t, syncer.Sync(ctx))
+	assert.Equal(t, 2, observations.passes, "moving branch observes again")
 }
 
 // fakeHeads is what git would read for each directory, and nothing at all for any other.
@@ -568,7 +605,8 @@ func TestCwdSyncerSyncWritesAStandingOnlyWhenItMoved(t *testing.T) {
 			Verdict:     &approved,
 			SnapshotSHA: "snapshot-one",
 		}},
-		Bases: fakeBases{},
+		Bases:        fakeBases{},
+		PullRequests: &countingObservations{},
 	})
 
 	require.NoError(t, syncer.Sync(ctx))
@@ -667,8 +705,9 @@ func TestCwdSyncerSyncReadsWhereTheTreeStands(t *testing.T) {
 			dirs["landed"]:        git.StandingLanded,
 			dirs["landed-edited"]: git.StandingLandedMoved,
 		},
-		Tallies: tallies,
-		Bases:   fakeBases{},
+		Tallies:      tallies,
+		Bases:        fakeBases{},
+		PullRequests: &countingObservations{},
 	})
 
 	assert.Equal(t, git.StandingSame, standingOn(t, st, ids["edited"], "snapshot-edited"), "nothing is recorded before the first pass")
@@ -701,10 +740,11 @@ func TestCwdSyncerSyncKeepsAStandingReportedWithAnError(t *testing.T) {
 
 	approved := reviewstore.VerdictApproved
 	syncer := NewCwdSyncer(NewCwdSyncerParams{
-		Agents: st.Agents,
-		Heads:  fakeHeads{},
-		Trees:  failingTrees{},
-		Bases:  fakeBases{},
+		Agents:       st.Agents,
+		Heads:        fakeHeads{},
+		Trees:        failingTrees{},
+		Bases:        fakeBases{},
+		PullRequests: &countingObservations{},
 		Tallies: fakeTallies{{
 			AgentID:     created.ID,
 			Verdict:     &approved,
@@ -748,6 +788,7 @@ func TestCwdSyncerSyncMeasuresAgainstTheWorkflowsBase(t *testing.T) {
 			ID:       workflowID,
 			Worktree: workflowstore.WorktreeConfig{BaseBranch: "develop"},
 		}},
+		PullRequests: &countingObservations{},
 	})
 
 	require.NoError(t, syncer.Sync(ctx))
@@ -786,10 +827,11 @@ func TestCwdSyncerSyncHashesOnlyAReviewedTree(t *testing.T) {
 	approved := reviewstore.VerdictApproved
 	hashed := &recordingTrees{}
 	syncer := NewCwdSyncer(NewCwdSyncerParams{
-		Agents: st.Agents,
-		Heads:  fakeHeads{},
-		Trees:  hashed,
-		Bases:  fakeBases{},
+		Agents:       st.Agents,
+		Heads:        fakeHeads{},
+		Trees:        hashed,
+		Bases:        fakeBases{},
+		PullRequests: &countingObservations{},
 		Tallies: fakeTallies{
 			{
 				AgentID:     reviewedAgent.ID,
@@ -832,10 +874,11 @@ func TestCwdSyncerSyncForgetsAMoveTheNextPassDoesNotSee(t *testing.T) {
 	approved := reviewstore.VerdictApproved
 	trees := fakeTrees{cwd: git.StandingMoved}
 	syncer := NewCwdSyncer(NewCwdSyncerParams{
-		Agents: st.Agents,
-		Heads:  fakeHeads{},
-		Trees:  trees,
-		Bases:  fakeBases{},
+		Agents:       st.Agents,
+		Heads:        fakeHeads{},
+		Trees:        trees,
+		Bases:        fakeBases{},
+		PullRequests: &countingObservations{},
 		Tallies: fakeTallies{{
 			AgentID:     created.ID,
 			Verdict:     &approved,
@@ -870,10 +913,11 @@ func TestCwdSyncerSyncReportsAProbeItCouldNotMake(t *testing.T) {
 
 	approved := reviewstore.VerdictApproved
 	syncer := NewCwdSyncer(NewCwdSyncerParams{
-		Agents: st.Agents,
-		Heads:  fakeHeads{},
-		Trees:  fakeTrees{},
-		Bases:  fakeBases{},
+		Agents:       st.Agents,
+		Heads:        fakeHeads{},
+		Trees:        fakeTrees{},
+		Bases:        fakeBases{},
+		PullRequests: &countingObservations{},
 		Tallies: fakeTallies{{
 			AgentID:     created.ID,
 			Verdict:     &approved,
@@ -885,4 +929,15 @@ func TestCwdSyncerSyncReportsAProbeItCouldNotMake(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), `failed to compare the tree of "a"`)
 	assert.Equal(t, git.StandingSame, standingOn(t, st, created.ID, "snapshot-one"))
+}
+
+// countingObservations counts the observation passes it is asked for.
+type countingObservations struct {
+	passes int
+}
+
+func (c *countingObservations) Observe(context.Context) (int64, error) {
+	c.passes++
+
+	return 0, nil
 }

@@ -142,7 +142,7 @@ FROM
     JOIN workflows w ON w.id = a.workflow_id
     LEFT JOIN workflow_provisioner_configs c ON c.id = w.provisioner_config_id
 WHERE
-    a.archived_at IS NULL
+    a.deleting_at IS NULL
     AND a.repository_url IS NOT NULL
     AND a.branch IS NOT NULL
     AND a.branch <> ''
@@ -394,7 +394,7 @@ WHERE
 ORDER BY
     p.id;
 
--- name: SnapshotPullRequests :many
+-- name: ListWatchedPullRequests :many
 SELECT
     p.*
 FROM
@@ -404,32 +404,11 @@ WHERE
         SELECT
             1
         FROM
-            agents a
+            agent_pull_requests o
         WHERE
-            a.deleting_at IS NULL
-            AND a.repository_url = p.repository_url
-            AND a.repository_url = p.head_repository_url
-            AND a.branch = p.head_branch)
-ORDER BY
-    p.id;
-
--- name: ListPullRequestsByKey :many
-SELECT
-    p.*
-FROM
-    pull_requests p
-WHERE
-    p.id = ANY (@ids::uuid[])
-    AND EXISTS (
-        SELECT
-            1
-        FROM
-            agents a
-        WHERE
-            a.deleting_at IS NULL
-            AND a.repository_url = p.repository_url
-            AND a.repository_url = p.head_repository_url
-            AND a.branch = p.head_branch)
+            o.pull_request_id = p.id)
+    AND (sqlc.narg('keys')::text[] IS NULL
+        OR p.id = ANY (sqlc.narg('keys')::uuid[]))
 ORDER BY
     p.id;
 

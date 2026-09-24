@@ -15,7 +15,6 @@ import (
 	"weave/lib/xhttp"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	"weave/proto/gen/hook/v1/hookv1connect"
-	"weave/proto/gen/pullrequest/v1/pullrequestv1connect"
 	"weave/proto/gen/schedule/v1/schedulev1connect"
 	"weave/proto/gen/watch/v1/watchv1connect"
 	"weave/proto/gen/workflow/v1/workflowv1connect"
@@ -104,7 +103,6 @@ Use ` + "`weave open`" + ` to bring the panel up.`,
 			scheduleClient := schedulev1connect.NewScheduleServiceClient(httpClient, base)
 			hookClient := hookv1connect.NewHookServiceClient(httpClient, base)
 			worktreeClient := worktreev1connect.NewWorktreeServiceClient(httpClient, base)
-			pullRequestClient := pullrequestv1connect.NewPullRequestServiceClient(httpClient, base)
 			watchClient := watchv1connect.NewWatchServiceClient(httpClient, base)
 
 			state.popup.SilenceStatus(agents.ManagerSession)
@@ -127,7 +125,6 @@ Use ` + "`weave open`" + ` to bring the panel up.`,
 				Keys:          state.keys,
 				Hooks:         hookClient,
 				Worktrees:     worktreeClient,
-				PullRequests:  pullRequestClient,
 				Watch:         watchClient,
 				Layout:        state.layout,
 				Engine:        remote,
