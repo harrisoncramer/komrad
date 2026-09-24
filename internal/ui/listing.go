@@ -38,31 +38,6 @@ type hoverState struct {
 	since   time.Time
 }
 
-// listedMsg is the worktree directories, which the watch does not carry, read for the screen that
-// draws them.
-type listedMsg struct {
-	worktrees    []worktreeItem
-	worktreesErr error
-}
-
-// listCmd reads the worktree directories when the screen that is up draws them.
-func (m model) listCmd() tea.Cmd {
-	if !m.active().needs().worktrees {
-		return nil
-	}
-
-	clients := m.api
-
-	return func() tea.Msg {
-		listed, err := clients.listWorktrees()
-		if err != nil {
-			return listedMsg{worktreesErr: err}
-		}
-
-		return listedMsg{worktrees: worktreeItemsFrom(listed)}
-	}
-}
-
 // reportUnreachable says the server has stopped answering the first time it is found gone.
 func (m *model) reportUnreachable(err error) {
 	was := m.unreachable
@@ -95,16 +70,6 @@ func (m *model) unreachableHint() string {
 	return "Start it with: weave serve"
 }
 
-func (m *model) applyListed(result listedMsg) tea.Cmd {
-	m.reportUnreachable(result.worktreesErr)
-
-	if result.worktreesErr == nil {
-		m.applyWorktrees(result.worktrees, m.worktrees.list().hovered(m.shared()))
-	}
-
-	return m.afterListing()
-}
-
 // withListing changes the listing the screens draw from and puts each cursor back where it was.
 func (m *model) withListing(change func(*listing)) tea.Cmd {
 	treeRow := m.agents.list().hovered(m.shared())
@@ -119,7 +84,7 @@ func (m *model) withListing(change func(*listing)) tea.Cmd {
 	m.agents.apply(m.shared(), treeRow)
 	m.schedules.apply(m, m.shared(), scheduleRow)
 	m.archive.place(m.shared(), archiveRow)
-	m.worktrees.place(m.shared(), worktreeRow)
+	m.applyWorktrees(m.listing.worktrees, worktreeRow)
 	m.sizeAgentWindows()
 
 	preview := m.search.place(m.shared(), searchRow)

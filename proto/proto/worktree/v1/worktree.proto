@@ -78,12 +78,16 @@ message WatchedWorktree {
   string branch = 3;
   // Whether the gitdir the .git file names is still there.
   bool readable = 4;
-  // The disk the directory takes, in bytes, unset until it has been measured.
+  // The disk the directory takes, in bytes, unset until it has been measured and while the last
+  // walk failed.
   optional int64 size_bytes = 5;
-  // When the size was last measured, in RFC 3339.
+  // When the size was last measured, or last failed to be, in RFC 3339.
   optional string measured_at = 6;
-  // When the directory was last modified, in RFC 3339.
+  // When git last wrote the directory's .git file, else the directory's own modification time,
+  // in RFC 3339, empty when neither could be read.
   string modified_at = 7;
+  // Why the last walk failed, empty when it did not.
+  string size_error = 8;
 }
 
 message ListWorktreesResponse {

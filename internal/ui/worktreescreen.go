@@ -21,16 +21,11 @@ const entriesShown = 10
 // enter lands on the directory of the agent the target names, remembering it as the focus for
 // the listing on its way.
 func (w *worktreesScreen) enter(h host, s panelShared, target screenTarget) tea.Cmd {
-	if target.agentID != "" {
-		w.focus = target.agentID
-		if idx := rowIndexOfWorktreeAgent(w.rows(s), target.agentID); idx >= 0 {
-			w.cursor = idx
-		}
-	}
-
+	w.focus = target.agentID
+	w.apply(s, s.listing.worktrees, w.list().hovered(s))
 	w.stage(h, s)
 
-	return h.listCmd()
+	return h.waitToStage()
 }
 
 func (w *worktreesScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
@@ -500,7 +495,6 @@ var (
 func (w *worktreesScreen) needs() screenNeeds {
 	return screenNeeds{
 		fromListing: true,
-		worktrees:   true,
 	}
 }
 

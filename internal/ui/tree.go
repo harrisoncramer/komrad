@@ -502,6 +502,7 @@ type listing struct {
 	archivedAgents    []panel.AgentRow
 	archivedWorkflows []panel.Workflow
 	schedules         []scheduleItem
+	worktrees         []worktreeItem
 	// marks are the letters a person types to jump to rows, keyed by the id of the agent or
 	// workflow each is on.
 	marks map[string]string
@@ -510,6 +511,7 @@ type listing struct {
 // assemble draws the listings, live and archived, and the marks from the world as it stands now.
 func (l *listing) assemble(now time.Time) {
 	agents := agentRowsFrom(assemble.AgentRows(l.world, now))
+	l.worktrees = worktreeItemsFrom(l.world.Worktrees, agents)
 	isArchivedAgent := func(row panel.AgentRow) bool {
 		return row.Agent.ArchivedAt != nil
 	}

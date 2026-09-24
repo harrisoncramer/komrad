@@ -167,6 +167,7 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 		Stores:   st,
 		Services: svc,
 		Periodic: srv.Periodic,
+		Claimed:  jobs.NewWorktreeDelete(jobs.NewEnqueuer(srv.Jobs, st.pool.GetRawPool())),
 	})
 
 	if err := broker.Start(); err != nil {

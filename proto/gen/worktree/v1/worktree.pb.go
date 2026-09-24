@@ -318,12 +318,16 @@ type WatchedWorktree struct {
 	Branch string `protobuf:"bytes,3,opt,name=branch,proto3" json:"branch,omitempty"`
 	// Whether the gitdir the .git file names is still there.
 	Readable bool `protobuf:"varint,4,opt,name=readable,proto3" json:"readable,omitempty"`
-	// The disk the directory takes, in bytes, unset until it has been measured.
+	// The disk the directory takes, in bytes, unset until it has been measured and while the last
+	// walk failed.
 	SizeBytes *int64 `protobuf:"varint,5,opt,name=size_bytes,json=sizeBytes,proto3,oneof" json:"size_bytes,omitempty"`
-	// When the size was last measured, in RFC 3339.
+	// When the size was last measured, or last failed to be, in RFC 3339.
 	MeasuredAt *string `protobuf:"bytes,6,opt,name=measured_at,json=measuredAt,proto3,oneof" json:"measured_at,omitempty"`
-	// When the directory was last modified, in RFC 3339.
-	ModifiedAt    string `protobuf:"bytes,7,opt,name=modified_at,json=modifiedAt,proto3" json:"modified_at,omitempty"`
+	// When git last wrote the directory's .git file, else the directory's own modification time,
+	// in RFC 3339, empty when neither could be read.
+	ModifiedAt string `protobuf:"bytes,7,opt,name=modified_at,json=modifiedAt,proto3" json:"modified_at,omitempty"`
+	// Why the last walk failed, empty when it did not.
+	SizeError     string `protobuf:"bytes,8,opt,name=size_error,json=sizeError,proto3" json:"size_error,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -403,6 +407,13 @@ func (x *WatchedWorktree) GetMeasuredAt() string {
 func (x *WatchedWorktree) GetModifiedAt() string {
 	if x != nil {
 		return x.ModifiedAt
+	}
+	return ""
+}
+
+func (x *WatchedWorktree) GetSizeError() string {
+	if x != nil {
+		return x.SizeError
 	}
 	return ""
 }
@@ -1037,7 +1048,7 @@ const file_worktree_v1_worktree_proto_rawDesc = "" +
 	" \x01(\tR\flastActiveAt\x12-\n" +
 	"\x04fate\x18\v \x01(\x0e2\x19.worktree.v1.WorktreeFateR\x04fateB\r\n" +
 	"\v_size_bytesB\x0e\n" +
-	"\f_measured_at\"\xfc\x01\n" +
+	"\f_measured_at\"\x9b\x02\n" +
 	"\x0fWatchedWorktree\x12\x10\n" +
 	"\x03dir\x18\x01 \x01(\tR\x03dir\x12\x19\n" +
 	"\brepo_dir\x18\x02 \x01(\tR\arepoDir\x12\x16\n" +
@@ -1048,7 +1059,9 @@ const file_worktree_v1_worktree_proto_rawDesc = "" +
 	"\vmeasured_at\x18\x06 \x01(\tH\x01R\n" +
 	"measuredAt\x88\x01\x01\x12\x1f\n" +
 	"\vmodified_at\x18\a \x01(\tR\n" +
-	"modifiedAtB\r\n" +
+	"modifiedAt\x12\x1d\n" +
+	"\n" +
+	"size_error\x18\b \x01(\tR\tsizeErrorB\r\n" +
 	"\v_size_bytesB\x0e\n" +
 	"\f_measured_at\"\x89\x01\n" +
 	"\x15ListWorktreesResponse\x123\n" +

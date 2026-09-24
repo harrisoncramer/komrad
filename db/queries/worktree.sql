@@ -1,34 +1,55 @@
--- name: ListWorktreeSizes :many
+-- name: ListWatchedWorktrees :many
 SELECT
     dir,
+    repo_dir,
+    branch,
+    readable,
+    mtime,
     size_bytes,
     measured_at,
-    error,
+    size_error,
     tenant_id
 FROM
-    worktree_sizes
+    worktrees
+WHERE
+    sqlc.narg(keys)::text[] IS NULL
+    OR dir = ANY (sqlc.narg(keys)::text[])
 ORDER BY
     dir;
 
--- name: UpsertWorktreeSize :exec
-INSERT INTO worktree_sizes(
+-- name: UpsertWorktree :exec
+INSERT INTO worktrees(
     dir,
-    size_bytes,
-    measured_at,
-    error)
+    repo_dir,
+    branch,
+    readable,
+    mtime)
 VALUES (
     @dir,
-    @size_bytes,
-    @measured_at,
-    sqlc.narg(error))
+    @repo_dir,
+    @branch,
+    @readable,
+    sqlc.narg(mtime))
 ON CONFLICT (
     tenant_id,
     dir)
     DO UPDATE SET
-        size_bytes = EXCLUDED.size_bytes,
-        measured_at = EXCLUDED.measured_at,
-        error = EXCLUDED.error;
+        repo_dir = EXCLUDED.repo_dir,
+        branch = EXCLUDED.branch,
+        readable = EXCLUDED.readable,
+        mtime = EXCLUDED.mtime
+    WHERE (worktrees.repo_dir, worktrees.branch, worktrees.readable, worktrees.mtime) IS DISTINCT FROM (EXCLUDED.repo_dir, EXCLUDED.branch, EXCLUDED.readable, EXCLUDED.mtime);
 
--- name: DeleteWorktreeSizes :exec
-DELETE FROM worktree_sizes
+-- name: RecordWorktreeSize :exec
+UPDATE
+    worktrees
+SET
+    size_bytes = @size_bytes,
+    measured_at = @measured_at,
+    size_error = sqlc.narg(size_error)
+WHERE
+    dir = @dir;
+
+-- name: DeleteWorktrees :exec
+DELETE FROM worktrees
 WHERE dir = ANY (@dirs::text[]);

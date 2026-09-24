@@ -52,7 +52,6 @@ type services struct {
 	worktreeLister  *worktrees.Lister
 	inspector       *worktrees.Inspector
 	remover         *worktrees.Remover
-	measurer        *worktrees.Measurer
 	watchRows       *watch.Rows
 	runs            *jobs.RunLister
 }
@@ -255,7 +254,7 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		},
 		Agents:    st.agents,
 		Workflows: st.workflows,
-		Sizes:     st.sizes,
+		Sizes:     st.worktrees,
 	})
 
 	reconciler := agents.NewReconciler(agents.NewReconcilerParams{
@@ -289,16 +288,12 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 			Lister:    worktreeLister,
 			Git:       gitClient,
 			Workflows: st.workflows,
-			Sizes:     st.sizes,
+			Sizes:     st.worktrees,
 		}),
 		remover: worktrees.NewRemover(worktrees.NewRemoverParams{
 			Lister: worktreeLister,
 			Agents: st.agents,
 			Git:    gitClient,
-		}),
-		measurer: worktrees.NewMeasurer(worktrees.NewMeasurerParams{
-			Lister: worktreeLister,
-			Sizes:  st.sizes,
 		}),
 		script:   scriptService,
 		mail:     mailService,

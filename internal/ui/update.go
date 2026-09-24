@@ -33,7 +33,7 @@ func (m model) Init() tea.Cmd {
 
 	m.holdFocusKey()
 
-	return tea.Batch(tick(), m.listCmd(), cursor.Blink)
+	return tea.Batch(tick(), cursor.Blink)
 }
 
 // Update routes a message to the screen that owns it, and keeps the row cursor blinking.
@@ -297,7 +297,7 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 			return next, nil, true
 		}
 
-		return next, tea.Batch(next.listCmd(), tick(), hashWorktree, readRuns, edited), true
+		return next, tea.Batch(tick(), hashWorktree, readRuns, edited), true
 	case tea.BlurMsg:
 		m.blurred = true
 		m.syncKeys()
@@ -346,10 +346,6 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		m.applyWatchLost(msg)
 
 		return m, nil, true
-	case listedMsg:
-		cmd := m.applyListed(msg)
-
-		return m, cmd, true
 	case writeResult:
 		next, cmd := m.applyWrite(msg)
 

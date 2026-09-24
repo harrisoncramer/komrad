@@ -225,10 +225,6 @@ func scheduleRunFrom(r *schedulev1.ScheduleRun) panel.ScheduleRun {
 	return run
 }
 
-func worktreeItemsFrom(listed *worktreev1.ListWorktreesResponse) []worktreeItem {
-	return xslice.Map(listed.GetWorktrees(), worktreeItemFrom)
-}
-
 func worktreeItemFrom(w *worktreev1.Worktree) worktreeItem {
 	item := worktreeItem{
 		dir:          w.GetDir(),

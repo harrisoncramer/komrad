@@ -16,6 +16,7 @@ import (
 	schedulev1 "weave/proto/gen/schedule/v1"
 	watchv1 "weave/proto/gen/watch/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
+	worktreev1 "weave/proto/gen/worktree/v1"
 )
 
 // World is every resource a caller holds, by key.
@@ -26,6 +27,7 @@ type World struct {
 	Marks        map[string]*agentv1.Mark
 	Mail         map[string]*agentv1.Mail
 	PullRequests map[string]*pullrequestv1.PullRequest
+	Worktrees    map[string]*worktreev1.WatchedWorktree
 }
 
 // Apply puts or drops the rows one message names, and reports the agents whose key or branch it
@@ -74,6 +76,8 @@ func (w *World) Put(row *watchv1.Row) (arrived []string) {
 		w.Mail[row.Mail.GetId()] = row.Mail
 	case *watchv1.Row_PullRequest:
 		w.PullRequests[row.PullRequest.GetId()] = row.PullRequest
+	case *watchv1.Row_Worktree:
+		w.Worktrees[row.Worktree.GetDir()] = row.Worktree
 	case nil:
 	}
 
@@ -99,6 +103,9 @@ func (w *World) ensureMaps() {
 	if w.PullRequests == nil {
 		w.PullRequests = map[string]*pullrequestv1.PullRequest{}
 	}
+	if w.Worktrees == nil {
+		w.Worktrees = map[string]*worktreev1.WatchedWorktree{}
+	}
 }
 
 func (w *World) drop(deleted *watchv1.Deleted) {
@@ -116,11 +123,12 @@ func (w *World) drop(deleted *watchv1.Deleted) {
 		delete(w.Mail, key)
 	case watchv1.Resource_RESOURCE_PULL_REQUEST:
 		delete(w.PullRequests, key)
+	case watchv1.Resource_RESOURCE_WORKTREE:
+		delete(w.Worktrees, key)
 	case watchv1.Resource_RESOURCE_UNSPECIFIED,
 		watchv1.Resource_RESOURCE_REPOSITORY,
 		watchv1.Resource_RESOURCE_REVIEW,
-		watchv1.Resource_RESOURCE_REVIEW_THREAD,
-		watchv1.Resource_RESOURCE_WORKTREE:
+		watchv1.Resource_RESOURCE_REVIEW_THREAD:
 	}
 }
 

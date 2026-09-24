@@ -10,6 +10,8 @@ import (
 	"time"
 
 	worktreestore "weave/internal/store/worktree"
+	"weave/lib/xptr"
+	"weave/lib/xslice"
 )
 
 // measuresPerPass is how many directories one pass walks.
@@ -21,31 +23,38 @@ const measureDeadline = 30 * time.Second
 // measureStaleAfter is how old a measurement is before a pass takes it again.
 const measureStaleAfter = time.Hour
 
-type pathLister interface {
-	ListPaths(ctx context.Context) (Paths, error)
+type worktreeLister interface {
+	List(ctx context.Context) (*Listing, error)
 }
 
-type sizeReadWriter interface {
-	ListSizes(ctx context.Context) ([]worktreestore.Size, error)
-	Upsert(ctx context.Context, size worktreestore.Size) error
+type claimedDirLister interface {
+	ListClaimedDirs(ctx context.Context) ([]string, error)
+}
+
+type worktreeReadWriter interface {
+	List(ctx context.Context) ([]worktreestore.Worktree, error)
+	Upsert(ctx context.Context, worktree worktreestore.Worktree) error
+	RecordSize(ctx context.Context, size worktreestore.Size) error
 	Delete(ctx context.Context, dirs []string) error
 }
 
 type NewMeasurerParams struct {
-	Lister pathLister
-	Sizes  sizeReadWriter
+	Lister    worktreeLister
+	Claimed   claimedDirLister
+	Worktrees worktreeReadWriter
 	// Now is the clock, time.Now when unset.
 	Now func() time.Time
 }
 
-// Measurer walks the worktree directories a few at a time and records what each takes.
+// Measurer records the worktree directories and walks a few of them a pass for their size.
 type Measurer struct {
-	lister pathLister
-	sizes  sizeReadWriter
-	now    func() time.Time
+	lister    worktreeLister
+	claimed   claimedDirLister
+	worktrees worktreeReadWriter
+	now       func() time.Time
 }
 
-// NewMeasurer builds a measurer over the lister and the size store.
+// NewMeasurer builds a measurer over the lister, the claims and the worktree store.
 func NewMeasurer(params NewMeasurerParams) *Measurer {
 	now := params.Now
 	if now == nil {
@@ -53,38 +62,52 @@ func NewMeasurer(params NewMeasurerParams) *Measurer {
 	}
 
 	return &Measurer{
-		lister: params.Lister,
-		sizes:  params.Sizes,
-		now:    now,
+		lister:    params.Lister,
+		claimed:   params.Claimed,
+		worktrees: params.Worktrees,
+		now:       now,
 	}
 }
 
-// Measure forgets the directories that have gone, then walks the ones never measured and the
-// ones measured longest ago, at most a few per pass, carrying on past one it cannot record.
+// Measure records every unclaimed directory, forgets the rest, and walks the few most in need of
+// a size, carrying on past one it cannot record.
 func (m *Measurer) Measure(ctx context.Context) error {
-	found, err := m.lister.ListPaths(ctx)
+	listing, err := m.lister.List(ctx)
 	if err != nil {
 		return err
 	}
 
-	sizes, err := m.sizes.ListSizes(ctx)
+	claimed, err := m.claimed.ListClaimedDirs(ctx)
 	if err != nil {
 		return err
 	}
 
-	stored := make(map[string]worktreestore.Size, len(sizes))
-	for _, size := range sizes {
-		stored[size.Dir] = size
+	stored, err := m.worktrees.List(ctx)
+	if err != nil {
+		return err
 	}
 
-	if len(found.Unreadable) == 0 {
-		if err := m.sizes.Delete(ctx, gone(found.Paths, stored)); err != nil {
-			return err
-		}
+	present := Unclaimed(listing.Worktrees, claimed)
+	if err := m.worktrees.Delete(ctx, forgotten(listing, present, stored)); err != nil {
+		return err
 	}
 
 	var failed []error
-	for _, dir := range choose(found.Paths, stored, m.now()) {
+	for _, worktree := range present {
+		if err := m.worktrees.Upsert(ctx, recordOf(worktree)); err != nil {
+			failed = append(failed, err)
+		}
+	}
+
+	sizes := make(map[string]worktreestore.Size, len(stored))
+	for _, worktree := range stored {
+		if worktree.Size != nil {
+			sizes[worktree.Dir] = *worktree.Size
+		}
+	}
+
+	dirs := xslice.Map(present, func(worktree Worktree) string { return worktree.Dir })
+	for _, dir := range choose(dirs, sizes, m.now()) {
 		if err := m.measure(ctx, dir); err != nil {
 			if ctx.Err() != nil {
 				return err
@@ -108,7 +131,7 @@ func (m *Measurer) measure(ctx context.Context, dir string) error {
 		return ctx.Err()
 	}
 	if errors.Is(err, os.ErrNotExist) {
-		return m.sizes.Delete(ctx, []string{dir})
+		return m.worktrees.Delete(ctx, []string{dir})
 	}
 
 	size := worktreestore.Size{Dir: dir, MeasuredAt: m.now()}
@@ -118,7 +141,22 @@ func (m *Measurer) measure(ctx context.Context, dir string) error {
 		size.Bytes = bytes
 	}
 
-	return m.sizes.Upsert(ctx, size)
+	return m.worktrees.RecordSize(ctx, size)
+}
+
+// recordOf is what the filesystem says of a directory, as its row holds it.
+func recordOf(worktree Worktree) worktreestore.Worktree {
+	record := worktreestore.Worktree{
+		Dir:      worktree.Dir,
+		RepoDir:  worktree.RepoDir,
+		Branch:   worktree.Branch,
+		Readable: worktree.Readable,
+	}
+	if !worktree.ModifiedAt.IsZero() {
+		record.ModifiedAt = xptr.Ptr(worktree.ModifiedAt.UTC())
+	}
+
+	return record
 }
 
 // storableText is an error's text as a text column will take it, without NULs or half runes.
@@ -126,17 +164,25 @@ func storableText(text string) string {
 	return strings.ToValidUTF8(strings.ReplaceAll(text, "\x00", ""), "")
 }
 
-// gone is every stored directory the listing no longer holds.
-func gone(paths []string, stored map[string]worktreestore.Size) []string {
-	listed := make(map[string]bool, len(paths))
-	for _, dir := range paths {
-		listed[dir] = true
+// forgotten is every stored directory a delete has claimed or that has gone, a gone one counting
+// only while every worktree directory could be read.
+func forgotten(listing *Listing, present []Worktree, stored []worktreestore.Worktree) []string {
+	kept := make(map[string]bool, len(present))
+	for _, worktree := range present {
+		kept[worktree.Dir] = true
+	}
+
+	onDisk := make(map[string]bool, len(listing.Worktrees))
+	for _, worktree := range listing.Worktrees {
+		onDisk[worktree.Dir] = true
 	}
 
 	var dirs []string
-	for dir := range stored {
-		if !listed[dir] {
-			dirs = append(dirs, dir)
+	for _, worktree := range stored {
+		switch {
+		case kept[worktree.Dir]:
+		case onDisk[worktree.Dir], len(listing.UnreadableDirs) == 0:
+			dirs = append(dirs, worktree.Dir)
 		}
 	}
 	slices.Sort(dirs)

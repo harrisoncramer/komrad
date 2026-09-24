@@ -1,4 +1,4 @@
-// Package worktree stores the disk each worktree directory takes, as it was last measured.
+// Package worktree stores each worktree directory as the filesystem last showed it.
 package worktree
 
 import (
@@ -11,6 +11,19 @@ import (
 	"weave/lib/xslice"
 )
 
+// Worktree is one directory as the size loop last read it.
+type Worktree struct {
+	Dir      string
+	RepoDir  string
+	Branch   string
+	Readable bool
+	// ModifiedAt is when git last wrote the directory's .git file, else the directory's own
+	// modification time, nil when neither could be read.
+	ModifiedAt *time.Time
+	// Size is the last measurement, nil until the first walk.
+	Size *Size
+}
+
 // Size is what one directory took when it was last walked, or why the walk failed.
 type Size struct {
 	Dir        string
@@ -20,64 +33,108 @@ type Size struct {
 	Error string
 }
 
-// WorktreeStore reads and writes worktree sizes.
+// WorktreeStore reads and writes worktree directories.
 type WorktreeStore struct {
 	queries *models.Queries
 }
 
-// NewWorktreeStore builds a size store over a pool or transaction.
+// NewWorktreeStore builds a worktree store over a pool or transaction.
 func NewWorktreeStore(db store.DBTX) *WorktreeStore {
 	return &WorktreeStore{queries: models.New(db)}
 }
 
-// ListSizes reads every measurement, by directory.
-func (s *WorktreeStore) ListSizes(ctx context.Context) ([]Size, error) {
-	rows, err := s.queries.ListWorktreeSizes(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list worktree sizes: %w", err)
-	}
-
-	return xslice.Map(rows, func(row *models.WorktreeSize) Size {
-		size := Size{
-			Dir:        row.Dir,
-			Bytes:      row.SizeBytes,
-			MeasuredAt: row.MeasuredAt,
-		}
-		if row.Error != nil {
-			size.Error = *row.Error
-		}
-
-		return size
-	}), nil
+// List reads every directory, by directory.
+func (s *WorktreeStore) List(ctx context.Context) ([]Worktree, error) {
+	return s.ListWatched(ctx, nil)
 }
 
-// Upsert writes a directory's measurement over whatever it held.
-func (s *WorktreeStore) Upsert(ctx context.Context, size Size) error {
-	params := models.UpsertWorktreeSizeParams{
-		Dir:        size.Dir,
-		SizeBytes:  size.Bytes,
-		MeasuredAt: size.MeasuredAt,
-	}
-	if size.Error != "" {
-		params.Error = &size.Error
+// ListSizes reads every measurement, by directory.
+func (s *WorktreeStore) ListSizes(ctx context.Context) ([]Size, error) {
+	worktrees, err := s.List(ctx)
+	if err != nil {
+		return nil, err
 	}
 
-	if err := s.queries.UpsertWorktreeSize(ctx, params); err != nil {
+	var sizes []Size
+	for _, worktree := range worktrees {
+		if worktree.Size != nil {
+			sizes = append(sizes, *worktree.Size)
+		}
+	}
+
+	return sizes, nil
+}
+
+// Upsert writes what the filesystem says of a directory over whatever it held, leaving its size
+// alone and writing nothing when nothing moved.
+func (s *WorktreeStore) Upsert(ctx context.Context, worktree Worktree) error {
+	err := s.queries.UpsertWorktree(ctx, models.UpsertWorktreeParams{
+		Dir:      worktree.Dir,
+		RepoDir:  worktree.RepoDir,
+		Branch:   worktree.Branch,
+		Readable: worktree.Readable,
+		Mtime:    worktree.ModifiedAt,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to record the worktree %s: %w", worktree.Dir, err)
+	}
+
+	return nil
+}
+
+// RecordSize writes a directory's measurement, and nothing for a directory with no row.
+func (s *WorktreeStore) RecordSize(ctx context.Context, size Size) error {
+	params := models.RecordWorktreeSizeParams{
+		Dir:        size.Dir,
+		SizeBytes:  size.Bytes,
+		MeasuredAt: &size.MeasuredAt,
+	}
+	if size.Error != "" {
+		params.SizeError = &size.Error
+	}
+
+	if err := s.queries.RecordWorktreeSize(ctx, params); err != nil {
 		return fmt.Errorf("failed to record the size of %s: %w", size.Dir, err)
 	}
 
 	return nil
 }
 
-// Delete forgets the measurements of the directories named.
+// Delete forgets the directories named.
 func (s *WorktreeStore) Delete(ctx context.Context, dirs []string) error {
 	if len(dirs) == 0 {
 		return nil
 	}
 
-	if err := s.queries.DeleteWorktreeSizes(ctx, dirs); err != nil {
-		return fmt.Errorf("failed to forget %d worktree sizes: %w", len(dirs), err)
+	if err := s.queries.DeleteWorktrees(ctx, dirs); err != nil {
+		return fmt.Errorf("failed to forget %d worktrees: %w", len(dirs), err)
 	}
 
 	return nil
+}
+
+func worktreeFrom(row *models.ListWatchedWorktreesRow) Worktree {
+	worktree := Worktree{
+		Dir:        row.Dir,
+		RepoDir:    row.RepoDir,
+		Branch:     row.Branch,
+		Readable:   row.Readable,
+		ModifiedAt: row.Mtime,
+	}
+	if row.MeasuredAt != nil {
+		worktree.Size = &Size{
+			Dir:        row.Dir,
+			Bytes:      row.SizeBytes,
+			MeasuredAt: *row.MeasuredAt,
+		}
+		if row.SizeError != nil {
+			worktree.Size.Error = *row.SizeError
+		}
+	}
+
+	return worktree
+}
+
+func worktreesFrom(rows []*models.ListWatchedWorktreesRow) []Worktree {
+	return xslice.Map(rows, worktreeFrom)
 }
