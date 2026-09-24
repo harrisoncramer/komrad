@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+export TF_PLUGIN_CACHE_DIR="${TF_PLUGIN_CACHE_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/terraform/plugins}"
+mkdir -p "$TF_PLUGIN_CACHE_DIR"
+
 run_terraform() {
 	terraform -chdir="$MISE_CONFIG_ROOT/infra/terraform" "$@"
 }
