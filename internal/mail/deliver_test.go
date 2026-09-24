@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"weave/db/testmodels"
 	"weave/internal/agents"
 	"weave/internal/harness"
 	"weave/internal/harness/claude"
@@ -28,6 +29,16 @@ import (
 )
 
 const nudgeLine = "weave: 1 piece(s) of unread mail, call read_mail"
+
+// nudgeSentFailer is the real agent store refusing to record that a nudge was sent.
+type nudgeSentFailer struct {
+	*agentstore.AgentStore
+}
+
+// SetNudgeSent refuses the write.
+func (nudgeSentFailer) SetNudgeSent(context.Context, string) error {
+	return errors.New("no database")
+}
 
 // TestDeliver pins which agents mail is handed to and which are passed over, covering the pane, the state, and how recently it was last told.
 func TestDeliver(t *testing.T) {
@@ -120,14 +131,6 @@ func TestDeliver(t *testing.T) {
 			wantClaim: true,
 		},
 		{
-			name:      "an agent mid-turn that no pass has confirmed since",
-			state:     agentstore.StateThinking,
-			arrange:   backdateStateSeen,
-			want:      DeliverySoon,
-			wantClaim: true,
-			wantNudge: true,
-		},
-		{
 			name:      "an idle agent never told before",
 			want:      DeliverySoon,
 			wantClaim: true,
@@ -183,48 +186,57 @@ func TestDeliver(t *testing.T) {
 	}
 }
 
+// TestDeliverNudgesAnAgentMidTurnThatNoPassHasConfirmed pins that a thinking row nothing has seen lately is typed at rather than trusted.
+func TestDeliverNudgesAnAgentMidTurnThatNoPassHasConfirmed(t *testing.T) {
+	st := storetest.Open(t)
+	terminal := tmuxtest.NewFake()
+	agent := seedListeningAgent(t, st, terminal)
+	require.NoError(t, st.Agents.SetStateByID(t.Context(), agent.ID, agentstore.StateThinking))
+	backdateStateSeen(t, st, agent.ID)
+	sendTo(t, st, agent.ID)
+
+	svc := newDeliveryService(st, terminal, newPaneChannel(terminal))
+
+	got, err := svc.Deliver(t.Context(), agent.ID)
+	require.NoError(t, err)
+	assert.Equal(t, DeliverySoon, got)
+	assert.Equal(t, [][]string{{nudgeLine}}, terminal.Sent[agent.Pane])
+}
+
 // TestDeliverSaysWhenANudgeWentNowhere pins which second nudge is worth a warning.
 func TestDeliverSaysWhenANudgeWentNowhere(t *testing.T) {
 	tests := []struct {
 		name    string
-		arrange func(ctx context.Context, st *storetest.Stores, id string) error
+		arrange func(t *testing.T, st *storetest.Stores, id string)
 		want    string
 	}{
 		{
 			name: "an agent that has ended no turn since the last nudge",
-			arrange: func(ctx context.Context, st *storetest.Stores, id string) error {
-				if err := st.Agents.SetTurnEnded(ctx, id); err != nil {
-					return err
-				}
-
-				return st.Agents.SetNudgeSent(ctx, id)
+			arrange: func(t *testing.T, st *storetest.Stores, id string) {
+				require.NoError(t, st.Agents.SetTurnEnded(t.Context(), id))
+				require.NoError(t, st.Agents.SetNudgeSent(t.Context(), id))
 			},
 			want: "WARN",
 		},
 		{
 			name: "an agent that has never reported a turn at all",
-			arrange: func(ctx context.Context, st *storetest.Stores, id string) error {
-				return st.Agents.SetNudgeSent(ctx, id)
+			arrange: func(t *testing.T, st *storetest.Stores, id string) {
+				require.NoError(t, st.Agents.SetNudgeSent(t.Context(), id))
 			},
 			want: "WARN",
 		},
 		{
 			name: "an agent that ended a turn after the last nudge",
-			arrange: func(ctx context.Context, st *storetest.Stores, id string) error {
-				if err := st.Agents.SetNudgeSent(ctx, id); err != nil {
-					return err
-				}
-
-				return st.Agents.SetTurnEnded(ctx, id)
+			arrange: func(t *testing.T, st *storetest.Stores, id string) {
+				require.NoError(t, st.Agents.SetNudgeSent(t.Context(), id))
+				require.NoError(t, st.Agents.SetTurnEnded(t.Context(), id))
 			},
 			want: "INFO",
 		},
 		{
-			name: "an agent nobody has told before",
-			arrange: func(context.Context, *storetest.Stores, string) error {
-				return nil
-			},
-			want: "INFO",
+			name:    "an agent nobody has told before",
+			arrange: func(*testing.T, *storetest.Stores, string) {},
+			want:    "INFO",
 		},
 	}
 
@@ -234,7 +246,7 @@ func TestDeliverSaysWhenANudgeWentNowhere(t *testing.T) {
 			terminal := tmuxtest.NewFake()
 			agent := seedListeningAgent(t, st, terminal)
 			sendTo(t, st, agent.ID)
-			require.NoError(t, tt.arrange(t.Context(), st, agent.ID))
+			tt.arrange(t, st, agent.ID)
 
 			svc := newDeliveryService(st, terminal, newPaneChannel(terminal))
 			ctx, records := newLoggedContext(t)
@@ -481,22 +493,20 @@ func TestDeliverDefersToARealHarnessStillComingUp(t *testing.T) {
 func TestDeliverTellsTheChannelToForgetAnAgentNothingWillLookAtAgain(t *testing.T) {
 	tests := []struct {
 		name string
-		gone func(ctx context.Context, st *storetest.Stores, id string) error
+		gone func(t *testing.T, st *storetest.Stores, id string)
 	}{
 		{
 			name: "an agent no row holds any more",
-			gone: func(ctx context.Context, st *storetest.Stores, id string) error {
-				_, err := st.Agents.Delete(ctx, []string{id})
-
-				return err
+			gone: func(t *testing.T, st *storetest.Stores, id string) {
+				_, err := st.Agents.Delete(t.Context(), []string{id})
+				require.NoError(t, err)
 			},
 		},
 		{
 			name: "an agent archived while its mail waited",
-			gone: func(ctx context.Context, st *storetest.Stores, id string) error {
-				_, err := st.Agents.Archive(ctx, []string{id})
-
-				return err
+			gone: func(t *testing.T, st *storetest.Stores, id string) {
+				_, err := st.Agents.Archive(t.Context(), []string{id})
+				require.NoError(t, err)
 			},
 		},
 	}
@@ -516,7 +526,7 @@ func TestDeliverTellsTheChannelToForgetAnAgentNothingWillLookAtAgain(t *testing.
 			require.Equal(t, DeliverySoon, got)
 			require.Empty(t, channel.Forgotten)
 
-			require.NoError(t, tt.gone(t.Context(), st, agent.ID))
+			tt.gone(t, st, agent.ID)
 
 			got, err = svc.Deliver(t.Context(), agent.ID)
 			require.NoError(t, err)
@@ -590,16 +600,6 @@ func TestDeliverLeavesTheClaimOnAChannelThatWasNeverReady(t *testing.T) {
 	assert.Nil(t, stored.NudgedAt, "nothing reached the agent, so the right to type is not spent")
 }
 
-// nudgeSentFailer is the real agent store refusing to record that a nudge was sent.
-type nudgeSentFailer struct {
-	*agentstore.AgentStore
-}
-
-// SetNudgeSent refuses the write.
-func (nudgeSentFailer) SetNudgeSent(context.Context, string) error {
-	return errors.New("no database")
-}
-
 func newDeliveryService(st *storetest.Stores, terminal *tmuxtest.Fake, channel harness.Channel) *DeliveryService {
 	return NewDeliveryService(NewDeliveryServiceParams{
 		MailboxReader: st.Mail,
@@ -650,17 +650,21 @@ func sendTo(t *testing.T, st *storetest.Stores, agentID string) {
 func backdateNudge(t *testing.T, st *storetest.Stores, id string) {
 	t.Helper()
 
-	_, err := st.Pool.GetDB().Exec(t.Context(),
-		`UPDATE agents SET nudged_at = NOW() - $2::interval WHERE id = $1`, id, (nudgeRetryAfter + time.Minute).String())
-	require.NoError(t, err)
+	queries := testmodels.New(st.Pool.GetDB())
+	require.NoError(t, queries.BackdateAgentNudge(t.Context(), testmodels.BackdateAgentNudgeParams{
+		AgeMicros: (nudgeRetryAfter + time.Minute).Microseconds(),
+		ID:        id,
+	}))
 }
 
 func backdateStateSeen(t *testing.T, st *storetest.Stores, id string) {
 	t.Helper()
 
-	_, err := st.Pool.GetDB().Exec(t.Context(),
-		`UPDATE agents SET state_seen_at = NOW() - $2::interval WHERE id = $1`, id, (agentstore.StateSeenBound + time.Minute).String())
-	require.NoError(t, err)
+	queries := testmodels.New(st.Pool.GetDB())
+	require.NoError(t, queries.BackdateAgentStateSeen(t.Context(), testmodels.BackdateAgentStateSeenParams{
+		AgeMicros: (agentstore.StateSeenBound + time.Minute).Microseconds(),
+		ID:        id,
+	}))
 }
 
 // newLoggedContext is a context whose log lines a test can read back as records.

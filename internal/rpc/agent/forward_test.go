@@ -237,11 +237,12 @@ func TestForwardLastTurns(t *testing.T) {
 			require.NoError(t, err)
 
 			want := strings.ReplaceAll(tt.wantBody, "ALPHA", alpha.ID)
-			assert.Equal(t, []mail.SendMailParams{{
+			require.Equal(t, []mail.SendMailParams{{
 				From:      from,
 				ToAgentID: beta.ID,
 				Body:      want,
 			}}, mailer.sent)
+			require.Len(t, mailer.mail, 1)
 			assert.Empty(t, cmp.Diff(&agentv1.ForwardLastTurnsResponse{
 				MailId:     mailer.mail[0].ID,
 				ToAgentId:  beta.ID,

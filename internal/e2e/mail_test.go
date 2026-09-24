@@ -11,6 +11,7 @@ import (
 	"weave/internal/mail"
 	agentstore "weave/internal/store/agent"
 	"weave/internal/weavetest"
+	"weave/lib/xptr"
 	agentv1 "weave/proto/gen/agent/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
 
@@ -42,12 +43,12 @@ func TestIntegrationAgentsMailEachOther(t *testing.T) {
 		sent, err := instance.Agents.SendMail(ctx, req)
 		require.NoError(t, err)
 
-		mail := sent.Msg.GetMail()
-		assert.Equal(t, migrations.GetId(), mail.GetToAgentId())
-		assert.Equal(t, api.GetId(), mail.GetFromAgentId())
-		assert.Equal(t, "api", mail.GetFromName())
-		require.NotEmpty(t, mail.GetId())
-		sentID = mail.GetId()
+		sentMail := sent.Msg.GetMail()
+		assert.Equal(t, migrations.GetId(), sentMail.GetToAgentId())
+		assert.Equal(t, api.GetId(), sentMail.GetFromAgentId())
+		assert.Equal(t, "api", sentMail.GetFromName())
+		require.NotEmpty(t, sentMail.GetId())
+		sentID = sentMail.GetId()
 
 		assert.Empty(t, instance.Typed(migrations.GetId()), "sending types nothing at anybody")
 	})
@@ -102,10 +103,9 @@ func TestIntegrationAgentsMailEachOther(t *testing.T) {
 	t.Run("what it was told is searchable afterwards", func(t *testing.T) {
 		instance.SyncTranscripts()
 
-		scope := migrations.GetId()
 		hits, err := instance.Agents.SearchTranscripts(ctx, connect.NewRequest(&agentv1.SearchTranscriptsRequest{
 			Query:   "refund column",
-			AgentId: &scope,
+			AgentId: xptr.Ptr(migrations.GetId()),
 		}))
 		require.NoError(t, err)
 		require.NotEmpty(t, hits.Msg.GetMatches())

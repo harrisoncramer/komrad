@@ -15,6 +15,7 @@ import (
 	"weave/internal/mail"
 	"weave/internal/rpc/render"
 	"weave/internal/tmuxtest"
+	"weave/lib/xptr"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1weave"
 	paginationv1 "weave/proto/gen/pagination/v1"
@@ -34,6 +35,79 @@ const (
 	alphaID = "01a0d1d7-0000-7000-8000-00000000000a"
 	betaID  = "01a0d1d7-0000-7000-8000-00000000000b"
 )
+
+// fakeMailer answers from its fields and records what each call asked of it.
+type fakeMailer struct {
+	recipient  agentstore.Agent
+	resolveErr error
+	err        error
+	mail       []mailstore.Mail
+	resolved   []mail.ResolveRecipientParams
+	sent       []mail.SendMailParams
+	claimed    []string
+	listed     []mail.ListMailParams
+	deleted    []string
+}
+
+// ResolveRecipient records the address and answers recipient unless resolveErr refuses it.
+func (f *fakeMailer) ResolveRecipient(_ context.Context, params mail.ResolveRecipientParams) (*agentstore.Agent, error) {
+	f.resolved = append(f.resolved, params)
+	if f.resolveErr != nil {
+		return nil, f.resolveErr
+	}
+
+	return &f.recipient, nil
+}
+
+// SendMail records the send and answers a fixed piece of mail unless err refuses it.
+func (f *fakeMailer) SendMail(_ context.Context, params mail.SendMailParams) (*mailstore.Mail, error) {
+	f.sent = append(f.sent, params)
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	sent := mailstore.Mail{
+		ID:          "mail-1",
+		FromAgentID: xptr.Ptr(params.From),
+		FromName:    "alpha",
+		ToAgentID:   params.ToAgentID,
+		Body:        params.Body,
+		ReplyTo:     params.ReplyTo,
+		Kind:        mailstore.KindPlain,
+		CreatedAt:   time.Date(2026, time.September, 24, 9, 0, 0, 0, time.UTC),
+		ExpiresAt:   time.Date(2026, time.September, 24, 12, 0, 0, 0, time.UTC),
+	}
+	f.mail = append(f.mail, sent)
+
+	return &sent, nil
+}
+
+// ClaimMail records the mailbox and answers mail unless err refuses it.
+func (f *fakeMailer) ClaimMail(_ context.Context, agentID string) ([]mailstore.Mail, error) {
+	f.claimed = append(f.claimed, agentID)
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return f.mail, nil
+}
+
+// ListMail records the listing and answers mail unless err refuses it.
+func (f *fakeMailer) ListMail(_ context.Context, params mail.ListMailParams) ([]mailstore.Mail, error) {
+	f.listed = append(f.listed, params)
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return f.mail, nil
+}
+
+// DeleteMail records the ids and answers err.
+func (f *fakeMailer) DeleteMail(_ context.Context, ids []string) error {
+	f.deleted = append(f.deleted, ids...)
+
+	return f.err
+}
 
 // TestMailRefusalsMapToCodes pins the code each refusal of the mail service reaches the caller as.
 func TestMailRefusalsMapToCodes(t *testing.T) {
@@ -61,6 +135,7 @@ func TestMailRefusalsMapToCodes(t *testing.T) {
 		call      func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) error
 		err       error
 		atResolve bool
+		asNobody  bool
 		wantCode  connect.Code
 	}{
 		{
@@ -120,6 +195,29 @@ func TestMailRefusalsMapToCodes(t *testing.T) {
 			wantCode: connect.CodeResourceExhausted,
 		},
 		{
+			name:     "reading with no id and no caller identity",
+			call:     read,
+			asNobody: true,
+			wantCode: connect.CodeInvalidArgument,
+		},
+		{
+			name:     "listing with no id and no caller identity",
+			call:     list,
+			asNobody: true,
+			wantCode: connect.CodeInvalidArgument,
+		},
+		{
+			name: "listing with a page token that does not decode",
+			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) error {
+				_, err := svc.ListMail(ctx, connect.NewRequest(&agentv1.ListMailRequest{
+					Pagination: &paginationv1.Pagination{Cursor: proto.String("not a token")},
+				}))
+
+				return err
+			},
+			wantCode: connect.CodeInvalidArgument,
+		},
+		{
 			name:     "reading the mailbox of an agent that does not exist",
 			call:     read,
 			err:      mail.ErrAgentNotFound,
@@ -156,19 +254,65 @@ func TestMailRefusalsMapToCodes(t *testing.T) {
 			}
 			svc, _ := newMailHandler(mailer)
 
-			err := tt.call(caller.With(t.Context(), caller.Caller{AgentID: alphaID}), svc)
+			ctx := t.Context()
+			if !tt.asNobody {
+				ctx = caller.With(ctx, caller.Caller{AgentID: alphaID})
+			}
+
+			err := tt.call(ctx, svc)
 			assert.Equal(t, tt.wantCode, connect.CodeOf(err))
-			require.ErrorIs(t, err, tt.err)
+			if tt.err != nil {
+				require.ErrorIs(t, err, tt.err)
+			}
 		})
 	}
 }
 
-// TestSendMail pins what a send passes down, what it renders, and when it warns that the recipient is dormant.
+// TestSendMail pins what a send passes down and what it renders.
 func TestSendMail(t *testing.T) {
+	mailer := &fakeMailer{recipient: agentstore.Agent{
+		ID:    betaID,
+		Name:  "beta",
+		Pane:  "%beta",
+		State: agentstore.StateIdle,
+	}}
+	svc, terminal := newMailHandler(mailer)
+	terminal.Owners["%beta"] = betaID
+
+	sent, err := svc.SendMail(caller.With(t.Context(), caller.Caller{AgentID: alphaID}), connect.NewRequest(&agentv1.SendMailRequest{
+		To:      "beta",
+		Body:    "which column holds the refund?",
+		ReplyTo: proto.String("mail-0"),
+	}))
+	require.NoError(t, err)
+
+	assert.Equal(t, []mail.ResolveRecipientParams{{From: alphaID, To: "beta"}}, mailer.resolved)
+	assert.Equal(t, []mail.SendMailParams{{
+		From:      alphaID,
+		ToAgentID: betaID,
+		Body:      "which column holds the refund?",
+		ReplyTo:   proto.String("mail-0"),
+	}}, mailer.sent)
+	assert.Empty(t, cmp.Diff(&agentv1.SendMailResponse{
+		Mail: &agentv1.Mail{
+			Id:          "mail-1",
+			FromAgentId: proto.String(alphaID),
+			FromName:    "alpha",
+			ToAgentId:   betaID,
+			Body:        "which column holds the refund?",
+			ReplyTo:     proto.String("mail-0"),
+			CreatedAt:   "2026-09-24T09:00:00Z",
+			ExpiresAt:   "2026-09-24T12:00:00Z",
+			Kind:        agentv1.MailKind_MAIL_KIND_PLAIN,
+		},
+	}, sent.Msg, protocmp.Transform()), "an agent running in its pane draws no warning")
+}
+
+// TestSendMailWarnsOfADormantRecipient pins which recipients nothing runs behind a send says so about.
+func TestSendMailWarnsOfADormantRecipient(t *testing.T) {
 	tests := []struct {
 		name        string
 		state       agentstore.State
-		running     bool
 		wantWarning bool
 	}{
 		{
@@ -180,11 +324,6 @@ func TestSendMail(t *testing.T) {
 			name:  "an agent still being set up, whose pane does not decide yet",
 			state: agentstore.StateSettingUp,
 		},
-		{
-			name:    "an idle agent in its pane",
-			state:   agentstore.StateIdle,
-			running: true,
-		},
 	}
 
 	for _, tt := range tests {
@@ -195,36 +334,13 @@ func TestSendMail(t *testing.T) {
 				Pane:  "%beta",
 				State: tt.state,
 			}}
-			svc, terminal := newMailHandler(mailer)
-			if tt.running {
-				terminal.Owners["%beta"] = betaID
-			}
+			svc, _ := newMailHandler(mailer)
 
 			sent, err := svc.SendMail(caller.With(t.Context(), caller.Caller{AgentID: alphaID}), connect.NewRequest(&agentv1.SendMailRequest{
-				To:      "beta",
-				Body:    "which column holds the refund?",
-				ReplyTo: proto.String("mail-0"),
+				To:   "beta",
+				Body: "which column holds the refund?",
 			}))
 			require.NoError(t, err)
-
-			assert.Equal(t, []mail.ResolveRecipientParams{{From: alphaID, To: "beta"}}, mailer.resolved)
-			assert.Equal(t, []mail.SendMailParams{{
-				From:      alphaID,
-				ToAgentID: betaID,
-				Body:      "which column holds the refund?",
-				ReplyTo:   proto.String("mail-0"),
-			}}, mailer.sent)
-			assert.Empty(t, cmp.Diff(&agentv1.Mail{
-				Id:          "mail-1",
-				FromAgentId: proto.String(alphaID),
-				FromName:    "alpha",
-				ToAgentId:   betaID,
-				Body:        "which column holds the refund?",
-				ReplyTo:     proto.String("mail-0"),
-				CreatedAt:   "2026-09-24T09:00:00Z",
-				ExpiresAt:   "2026-09-24T12:00:00Z",
-				Kind:        agentv1.MailKind_MAIL_KIND_PLAIN,
-			}, sent.Msg.GetMail(), protocmp.Transform()))
 
 			if !tt.wantWarning {
 				assert.Nil(t, sent.Msg.Warning)
@@ -244,14 +360,9 @@ func TestReadMail(t *testing.T) {
 		name        string
 		callerIs    string
 		id          *string
-		wantCode    connect.Code
 		wantClaimed string
 		wantLogged  string
 	}{
-		{
-			name:     "no id and no caller identity",
-			wantCode: connect.CodeInvalidArgument,
-		},
 		{
 			name:        "an unset id falls back to the caller's own",
 			callerIs:    alphaID,
@@ -282,13 +393,6 @@ func TestReadMail(t *testing.T) {
 			ctx, written := newLoggedCaller(t, tt.callerIs)
 
 			read, err := svc.ReadMail(ctx, connect.NewRequest(&agentv1.ReadMailRequest{Id: tt.id}))
-			if tt.wantCode != 0 {
-				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
-				assert.Empty(t, mailer.claimed)
-
-				return
-			}
-
 			require.NoError(t, err)
 			assert.Equal(t, []string{tt.wantClaimed}, mailer.claimed)
 			require.Len(t, read.Msg.GetMail(), 1)
@@ -309,24 +413,10 @@ func TestListMail(t *testing.T) {
 		callerIs   string
 		req        *agentv1.ListMailRequest
 		stored     int
-		wantCode   connect.Code
 		wantListed mail.ListMailParams
 		wantNext   bool
 		wantLogged string
 	}{
-		{
-			name:     "no id and no caller identity",
-			req:      &agentv1.ListMailRequest{},
-			wantCode: connect.CodeInvalidArgument,
-		},
-		{
-			name:     "a page token that does not decode",
-			callerIs: alphaID,
-			req: &agentv1.ListMailRequest{
-				Pagination: &paginationv1.Pagination{Cursor: proto.String("not a token")},
-			},
-			wantCode: connect.CodeInvalidArgument,
-		},
 		{
 			name:     "an unset direction reads the caller's own mailbox",
 			callerIs: alphaID,
@@ -393,13 +483,6 @@ func TestListMail(t *testing.T) {
 			ctx, written := newLoggedCaller(t, tt.callerIs)
 
 			listed, err := svc.ListMail(ctx, connect.NewRequest(tt.req))
-			if tt.wantCode != 0 {
-				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
-				assert.Empty(t, mailer.listed)
-
-				return
-			}
-
 			require.NoError(t, err)
 			assert.Equal(t, []mail.ListMailParams{tt.wantListed}, mailer.listed)
 			require.Len(t, listed.Msg.GetMail(), tt.stored)
@@ -424,74 +507,6 @@ func TestDeleteMail(t *testing.T) {
 	}))
 	require.NoError(t, err)
 	assert.Equal(t, []string{alphaID, betaID}, mailer.deleted)
-}
-
-// fakeMailer answers from its fields and records what each call asked of it.
-type fakeMailer struct {
-	recipient  agentstore.Agent
-	resolveErr error
-	err        error
-	mail       []mailstore.Mail
-	resolved   []mail.ResolveRecipientParams
-	sent       []mail.SendMailParams
-	claimed    []string
-	listed     []mail.ListMailParams
-	deleted    []string
-}
-
-func (f *fakeMailer) ResolveRecipient(_ context.Context, params mail.ResolveRecipientParams) (*agentstore.Agent, error) {
-	f.resolved = append(f.resolved, params)
-	if f.resolveErr != nil {
-		return nil, f.resolveErr
-	}
-
-	return &f.recipient, nil
-}
-
-func (f *fakeMailer) SendMail(_ context.Context, params mail.SendMailParams) (*mailstore.Mail, error) {
-	f.sent = append(f.sent, params)
-	if f.err != nil {
-		return nil, f.err
-	}
-
-	sent := mailstore.Mail{
-		ID:          "mail-1",
-		FromAgentID: &params.From,
-		FromName:    "alpha",
-		ToAgentID:   params.ToAgentID,
-		Body:        params.Body,
-		ReplyTo:     params.ReplyTo,
-		Kind:        mailstore.KindPlain,
-		CreatedAt:   time.Date(2026, time.September, 24, 9, 0, 0, 0, time.UTC),
-		ExpiresAt:   time.Date(2026, time.September, 24, 12, 0, 0, 0, time.UTC),
-	}
-	f.mail = append(f.mail, sent)
-
-	return &sent, nil
-}
-
-func (f *fakeMailer) ClaimMail(_ context.Context, agentID string) ([]mailstore.Mail, error) {
-	f.claimed = append(f.claimed, agentID)
-	if f.err != nil {
-		return nil, f.err
-	}
-
-	return f.mail, nil
-}
-
-func (f *fakeMailer) ListMail(_ context.Context, params mail.ListMailParams) ([]mailstore.Mail, error) {
-	f.listed = append(f.listed, params)
-	if f.err != nil {
-		return nil, f.err
-	}
-
-	return f.mail, nil
-}
-
-func (f *fakeMailer) DeleteMail(_ context.Context, ids []string) error {
-	f.deleted = append(f.deleted, ids...)
-
-	return f.err
 }
 
 // newMailHandler is the handler over a fake mail service, reading liveness off a fake tmux.
