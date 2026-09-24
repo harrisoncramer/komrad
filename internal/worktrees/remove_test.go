@@ -148,6 +148,9 @@ func TestRemoveRefuses(t *testing.T) {
 			fixture := newFixture(t)
 			dir := tt.lay(t, fixture)
 
+			_, statErr := os.Stat(dir)
+			existed := statErr == nil
+
 			removal, err := fixture.newRemover().Remove(t.Context(), []string{dir})
 			require.NoError(t, err)
 
@@ -156,6 +159,9 @@ func TestRemoveRefuses(t *testing.T) {
 			assert.Contains(t, removal.Refused[0].Reason, tt.wantReason)
 			assert.Equal(t, tt.wantFailed, removal.Refused[0].Failed)
 			assert.Empty(t, fixture.git.Pruned)
+			if existed {
+				assert.DirExists(t, dir)
+			}
 		})
 	}
 }
