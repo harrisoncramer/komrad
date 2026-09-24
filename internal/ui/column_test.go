@@ -7,9 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestSplitOfDrawsTheWidthItIsHanded covers the boundary being where the divider is: a measured
-// width is the pane under the panel, so it is drawn there even where it leaves the sidebar or the
-// block less than either would have asked for.
+// TestSplitOfDrawsTheWidthItIsHanded covers the split being drawn at the measured divider.
 func TestSplitOfDrawsTheWidthItIsHanded(t *testing.T) {
 	tests := []struct {
 		name        string

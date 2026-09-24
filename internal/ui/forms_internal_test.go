@@ -29,8 +29,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// TestNewAgentSubmitHoldsTheForm covers the new-agent form staying up with the submitting
-// notice over it until the create lands.
+// TestNewAgentSubmitHoldsTheForm covers the new-agent form staying up until its create lands.
 func TestNewAgentSubmitHoldsTheForm(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -96,8 +95,7 @@ func TestNewAgentSubmitHoldsTheForm(t *testing.T) {
 	}
 }
 
-// TestConfirmingArchiveTracksTheWriteAsPending covers the write being issued on a value
-// receiver, so the model it mutates has to be the one the confirm form returns.
+// TestConfirmingArchiveTracksTheWriteAsPending covers the confirmed archive counting as a write in flight.
 func TestConfirmingArchiveTracksTheWriteAsPending(t *testing.T) {
 	sent := &formRecorder{}
 
@@ -339,8 +337,7 @@ func (f *formRecorder) ArchiveSchedule(_ context.Context, req *connect.Request[s
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// TestFormTakesNoKeysWhileItsWriteIsInFlight covers the second ctrl+s landing before the
-// first write has answered, which would launch the same agent twice.
+// TestFormTakesNoKeysWhileItsWriteIsInFlight covers a second submit while the first write is in flight.
 func TestFormTakesNoKeysWhileItsWriteIsInFlight(t *testing.T) {
 	sent := &formRecorder{}
 
@@ -362,9 +359,7 @@ func TestFormTakesNoKeysWhileItsWriteIsInFlight(t *testing.T) {
 	assert.Equal(t, "check CI", values.Prompt, "and the form is as it was")
 }
 
-// TestEscDetachesFromAHeldForm covers esc during a create: the panel comes back rather than
-// holding every key until a provisioner that may run for minutes has finished, the write still
-// lands the agent it was sent for, and the landing leaves the person where they went.
+// TestEscDetachesFromAHeldForm covers esc handing the panel back during a create that still lands.
 func TestEscDetachesFromAHeldForm(t *testing.T) {
 	sent := &formRecorder{}
 	m := formModel(sent)
@@ -395,8 +390,7 @@ func TestEscDetachesFromAHeldForm(t *testing.T) {
 	assert.False(t, held, "and it lands without taking the cursor to the agent it made")
 }
 
-// TestAnEarlierWriteLeavesALaterHoldAlone covers escaping a slow create and submitting another:
-// the first one landing must not tear down the form the second is still being held for.
+// TestAnEarlierWriteLeavesALaterHoldAlone covers an escaped create landing while a later form is held.
 func TestAnEarlierWriteLeavesALaterHoldAlone(t *testing.T) {
 	sent := &formRecorder{}
 	m := formModel(sent)
@@ -441,8 +435,7 @@ func TestAnEarlierWriteLeavesALaterHoldAlone(t *testing.T) {
 	assert.Empty(t, got.landing.row, "and an escaped create takes nobody to the agent it made")
 }
 
-// TestSubmittingNoticeCountsUp pins that a held form's notice stands still while the write is
-// quick and starts counting once it is not, so a slow provisioner does not read as a wedge.
+// TestSubmittingNoticeCountsUp covers the submitting notice counting once a write is slow.
 func TestSubmittingNoticeCountsUp(t *testing.T) {
 	since := time.Now()
 
@@ -477,8 +470,7 @@ func openWorkflowForm(t *testing.T, m model) model {
 	return asModel(t, opened)
 }
 
-// TestAHeldFormCarriesItsOwnNotice covers where the submitting notice is drawn: under the form
-// rather than above the panel.
+// TestAHeldFormCarriesItsOwnNotice covers the submitting notice being drawn under the form.
 func TestAHeldFormCarriesItsOwnNotice(t *testing.T) {
 	for _, height := range []int{24, 32, 40} {
 		m := resizedTo(t, formColumnModel(t), 160, height)
@@ -509,8 +501,7 @@ func lastFilled(lines []string) string {
 	return ""
 }
 
-// TestFormStillsTheCursorOnTheListBesideIt covers the list a form is opened over, whose row
-// cursor stops blinking once the form has the keys.
+// TestFormStillsTheCursorOnTheListBesideIt covers the list cursor standing still while a form has the keys.
 func TestFormStillsTheCursorOnTheListBesideIt(t *testing.T) {
 	m := formColumnModel(t)
 	m.rowCursor = newRowCursor()

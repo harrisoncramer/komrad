@@ -8,8 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestFilterQuery covers what a typed pattern matches, including a half-typed one that will
-// not compile and so draws every row rather than looking like an empty list.
+// TestFilterQuery covers what a typed pattern matches.
 func TestFilterQuery(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -68,8 +67,7 @@ func TestFilterQuery(t *testing.T) {
 	}
 }
 
-// TestFilterLine covers the colour of the glyph opening the line, which is all an always drawn
-// line has to say whether anything is being searched for.
+// TestFilterLine covers the colour of the glyph opening the filter line.
 func TestFilterLine(t *testing.T) {
 	var idle filterState
 	assert.Contains(t, idle.line(paint.Panel), dimStyle.Render("/"), "an idle line is dim")
@@ -87,15 +85,13 @@ func TestFilterLine(t *testing.T) {
 	assert.NotContains(t, narrowing.line(paint.Panel), paint.Panel.Match().Render("▽"))
 }
 
-// TestFilterHelpNamesTheOtherMode covers the legend under the input saying what tab would
-// switch to.
+// TestFilterHelpNamesTheOtherMode covers the legend naming what tab switches to.
 func TestFilterHelpNamesTheOtherMode(t *testing.T) {
 	assert.Equal(t, "filter instead", filterHelp(filterModeSearch).short[1].Help().Desc)
 	assert.Equal(t, "search instead", filterHelp(filterModeFilter).short[1].Help().Desc)
 }
 
-// TestReviewSearchIgnoresTab covers the review's own search, which shares the input's keys,
-// having no mode to flip.
+// TestReviewSearchIgnoresTab covers the review search having no mode for tab to flip.
 func TestReviewSearchIgnoresTab(t *testing.T) {
 	filter := filterState{typing: true}
 

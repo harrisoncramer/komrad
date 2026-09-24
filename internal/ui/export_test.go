@@ -40,6 +40,10 @@ type NewPanelParams struct {
 	RefuseSplits  bool
 }
 
+type unsplittableTmux struct {
+	*recordingTmux
+}
+
 // NewPanel builds the panel the way weave panel does, over a recording tmux.
 func NewPanel(params NewPanelParams) *Panel {
 	settings := params.Settings
@@ -132,13 +136,6 @@ func (p *Panel) CountSentKeys() int {
 	return len(p.tmux.sentKeys)
 }
 
-type unsplittableTmux struct {
-	*recordingTmux
-}
-
-func (unsplittableTmux) SplitRight(string, string, string) string { return "" }
-func (unsplittableTmux) SplitLeft(string, string, string) string  { return "" }
-
 // NewWatchLost is the message the panel hears when its watch stream ends.
 func NewWatchLost(err error) tea.Msg {
 	return watchLostMsg{err: err}
@@ -196,4 +193,12 @@ func (p *Panel) ReadWindowSizes() map[string]string {
 // SetPaneSize makes tmux report every pane and the window at the given size.
 func (p *Panel) SetPaneSize(width, height int) {
 	p.tmux.width, p.tmux.height, p.tmux.windowWidth = width, height, width
+}
+
+func (unsplittableTmux) SplitRight(string, string, string) string {
+	return ""
+}
+
+func (unsplittableTmux) SplitLeft(string, string, string) string {
+	return ""
 }

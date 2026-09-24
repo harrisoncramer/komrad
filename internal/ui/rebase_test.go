@@ -6,8 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestRefreshDescriptionSaysWhatWillHappen covers the sentence somebody reads before pressing,
-// which has to name what becomes of the branch rather than only what the operation is called.
+// TestRefreshDescriptionSaysWhatWillHappen covers the rebase description naming what becomes of the branch.
 func TestRefreshDescriptionSaysWhatWillHappen(t *testing.T) {
 	t.Parallel()
 
@@ -66,8 +65,7 @@ func TestRefreshDescriptionSaysWhatWillHappen(t *testing.T) {
 	}
 }
 
-// TestRefreshDescriptionAlwaysSaysWhatItDoesToTheFiles pins the half a person is most likely to
-// be wrong about.
+// TestRefreshDescriptionAlwaysSaysWhatItDoesToTheFiles covers the description saying what happens to the files.
 func TestRefreshDescriptionAlwaysSaysWhatItDoesToTheFiles(t *testing.T) {
 	t.Parallel()
 
@@ -92,8 +90,7 @@ func TestRefreshAffirmativeNamesWhatRuns(t *testing.T) {
 	assert.Equal(t, "Move", rebaseAffirmative(rebasePlan{}))
 }
 
-// TestRefreshWarning covers each thing the confirmation is there to say, and the ordinary case
-// saying nothing.
+// TestRefreshWarning covers what the rebase confirmation warns about.
 func TestRefreshWarning(t *testing.T) {
 	t.Parallel()
 

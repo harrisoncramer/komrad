@@ -148,8 +148,7 @@ func TestRunsReadNeedsTheRunLogUpAndReadForASecond(t *testing.T) {
 	}
 }
 
-// TestTheRunLogFollowsTheCursorOntoTheFailedRun covers the pane's target changing under a position
-// worked out for the agent before it.
+// TestTheRunLogFollowsTheCursorOntoTheFailedRun covers the run log moving to the failed run when the cursor reaches it.
 func TestTheRunLogFollowsTheCursorOntoTheFailedRun(t *testing.T) {
 	at := time.Now()
 
@@ -162,12 +161,10 @@ func TestTheRunLogFollowsTheCursorOntoTheFailedRun(t *testing.T) {
 	m.listing.agents[0].FailedRunLog = xptr.Ptr(int32(1))
 	m.info.kind = infoRunLog
 
-	// The pane was opened on the unmarked agent, so it sits on that agent's newest run.
 	m.agents.cursor = 2
 	m, _ = m.dwellRunsRead(at)
 	require.Equal(t, 0, m.info.run)
 
-	// The cursor reaches the agent that failed, whose newest run is the one that went fine.
 	m.agents.cursor = 1
 	m, cmd := m.dwellRunsRead(at.Add(time.Second))
 
@@ -191,8 +188,7 @@ func seedRunLogs(t *testing.T, logsDir, agentID string, count int) {
 	}
 }
 
-// TestRunsReadRestartsWhenTheCursorMoves pins the hold belonging to the row rather than to the
-// pane, so walking the tree with the run log open never claims the rows travelled over.
+// TestRunsReadRestartsWhenTheCursorMoves covers the runs-read hold restarting when the cursor leaves the row.
 func TestRunsReadRestartsWhenTheCursorMoves(t *testing.T) {
 	at := time.Now()
 
@@ -202,7 +198,6 @@ func TestRunsReadRestartsWhenTheCursorMoves(t *testing.T) {
 
 	m, _ = m.dwellRunsRead(at)
 
-	// The cursor lands on the unmarked row and comes back, which restarts the hold.
 	m.agents.cursor = 2
 	m, _ = m.dwellRunsRead(at.Add(viewedDwell / 2))
 	m.agents.cursor = 1

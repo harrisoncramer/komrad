@@ -443,7 +443,10 @@ func readHoveredRow(frame string) string {
 			continue
 		}
 
-		row, _ := cutListRow(line)
+		row, isRow := cutListRow(line)
+		if !isRow {
+			return strings.TrimSpace(strings.TrimPrefix(ansi.Truncate(line, config.DefaultSidebarWidth, ""), "›"))
+		}
 
 		return row
 	}

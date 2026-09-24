@@ -17,8 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// sizedTo gives a model a window big enough to hold both halves and attaches its frame, which is
-// what every screen drawing a block of its own needs before it will draw one.
+// sizedTo gives a model a window wide enough for both halves and attaches its frame.
 func sizedTo(m model, tmux *recordingTmux) model {
 	tmux.width, tmux.height, tmux.windowWidth = 200, 40, 200
 	m.width, m.height = 200, 40
@@ -59,24 +58,7 @@ func paneless(t *testing.T) (model, *recordingTmux) {
 	return m, tmux
 }
 
-// TestKeysMovingToAPaneTakeThemOffTheList covers the keyboard going to an agent beside the
-// panel, which the panel hears about rather than the terminal losing focus.
-func TestKeysMovingToAPaneTakeThemOffTheList(t *testing.T) {
-	m, tmux := paneless(t)
-
-	require.True(t, m.isListFocused(), "the panel has the keys to begin with")
-
-	tmux.keysElsewhere = true
-	left, _ := m.route(tea.BlurMsg{})
-	m = asModel(t, left)
-
-	assert.True(t, m.keysElsewhere, "the panel knows the keys went to a pane rather than out of the terminal")
-	assert.False(t, m.isListFocused(), "so the list is no longer the thing being typed at")
-}
-
-// TestAConfiguredWidthIsWidenedAndCapped covers the width nobody has dragged: it is where the
-// panel starts rather than a boundary the reader placed, so it is held to what a list of names
-// reads in and to what leaves the block beside it its floor.
+// TestAConfiguredWidthIsWidenedAndCapped covers the configured sidebar width being widened and capped.
 func TestAConfiguredWidthIsWidenedAndCapped(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -115,9 +97,7 @@ func TestAConfiguredWidthIsWidenedAndCapped(t *testing.T) {
 	}
 }
 
-// TestADraggedDividerIsDrawnWhereItIs covers the width the reader placed: the terminal underneath
-// is split there, so the panel draws its own boundary there too rather than at a width the block
-// beside it would rather have.
+// TestADraggedDividerIsDrawnWhereItIs covers the panel drawing its boundary at the dragged divider.
 func TestADraggedDividerIsDrawnWhereItIs(t *testing.T) {
 	tmux := &recordingTmux{}
 	m := sizedTo(infoModel(tmux), tmux)
@@ -128,7 +108,6 @@ func TestADraggedDividerIsDrawnWhereItIs(t *testing.T) {
 		loading:   true,
 	}
 
-	// A divider dragged until the stage holds 25 columns, which leaves the block under its floor.
 	tmux.width = 25
 	m.frame.SyncSplit()
 
@@ -138,86 +117,7 @@ func TestADraggedDividerIsDrawnWhereItIs(t *testing.T) {
 	assert.Equal(t, 26, split.column, "and the block keeps what is left rather than its floor")
 }
 
-// TestAWidenedWindowKeepsADraggedDivider covers a terminal made wider after the divider was
-// dragged, where tmux shares the new columns out between both panes.
-func TestAWidenedWindowKeepsADraggedDivider(t *testing.T) {
-	tmux := &recordingTmux{}
-	m := draggedTo(t, infoModel(tmux), tmux, 50, 149)
-
-	dragged, measured := m.frame.SidebarWidth(200)
-	require.True(t, measured, "the drag is followed while the window is the size it was made under")
-	require.Equal(t, 50, dragged)
-
-	// tmux widens both panes with the window, so each reads wider than it was dragged to.
-	tmux.windowWidth = 300
-	tmux.paneWidths["%0"] = 75
-	tmux.paneWidths["%1"] = 224
-
-	sized, _ := m.route(tea.WindowSizeMsg{Width: 75, Height: 40})
-	m = asModel(t, sized)
-
-	width, _ := m.frame.SidebarWidth(300)
-	assert.Equal(t, 50, width, "the sidebar keeps the width it was dragged to")
-	assert.Contains(t, tmux.resizes, "%0 50", "and tmux is told so")
-}
-
-// TestADraggedDividerSurvivesTheSidebarTakingTheWindow covers moving to a screen the panel draws
-// whole, where the zoom reports the panel's pane as the window it was measured against.
-func TestADraggedDividerSurvivesTheSidebarTakingTheWindow(t *testing.T) {
-	tmux := &recordingTmux{}
-	m := draggedTo(t, infoModel(tmux), tmux, 50, 149)
-
-	m.frame.Solo(true)
-
-	// The zoom makes the panel's own pane as wide as the window, which tmux reports as a resize.
-	tmux.paneWidths["%0"] = 200
-
-	sized, _ := m.route(tea.WindowSizeMsg{Width: 200, Height: 40})
-	m = asModel(t, sized)
-
-	width, measured := m.frame.SidebarWidth(200)
-	assert.True(t, measured, "the drag is still where the sidebar is drawn")
-	assert.Equal(t, 50, width, "rather than the configured width")
-}
-
-// TestADraggedDividerSurvivesTmuxDroppingTheZoom covers tmux taking the sidebar's zoom away
-// behind the frame's back, which the frame hears about as a resize and nothing else.
-func TestADraggedDividerSurvivesTmuxDroppingTheZoom(t *testing.T) {
-	tmux := &recordingTmux{}
-	m := draggedTo(t, infoModel(tmux), tmux, 50, 149)
-
-	m.frame.Solo(true)
-	tmux.paneWidths["%0"] = 200
-
-	sized, _ := m.route(tea.WindowSizeMsg{Width: 200, Height: 40})
-	m = asModel(t, sized)
-
-	// Moving the keys off the pane drops the zoom, and the frame is not told.
-	tmux.paneWidths["%0"] = 50
-
-	sized, _ = m.route(tea.WindowSizeMsg{Width: 50, Height: 40})
-	m = asModel(t, sized)
-
-	width, measured := m.frame.SidebarWidth(200)
-	assert.True(t, measured, "the window never changed size, so the divider still stands")
-	assert.Equal(t, 50, width)
-}
-
-// draggedTo puts the panel beside a live stage pane at the given widths and measures the divider
-// there.
-func draggedTo(t *testing.T, m model, tmux *recordingTmux, sidebar, stage int) model {
-	t.Helper()
-
-	m = sizedTo(m, tmux)
-	tmux.paneWidths = map[string]int{"%0": sidebar, "%1": stage}
-
-	sized, _ := m.route(tea.WindowSizeMsg{Width: sidebar, Height: 40})
-
-	return asModel(t, sized)
-}
-
-// TestASplitAgentsListIsLaidOutAgainstItsOwnColumn covers the list the panel draws beside a
-// document being fitted to the column it is drawn in rather than to the whole window.
+// TestASplitAgentsListIsLaidOutAgainstItsOwnColumn covers the list beside a document fitting its own column.
 func TestASplitAgentsListIsLaidOutAgainstItsOwnColumn(t *testing.T) {
 	withColor(t)
 

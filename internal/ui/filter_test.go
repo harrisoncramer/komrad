@@ -369,7 +369,7 @@ func TestFilterScreens(t *testing.T) {
 		idle  string
 	}{
 		{
-			name: "the agents say a filter left nothing rather than that the list is empty",
+			name: "the agents say a filter left nothing",
 		},
 		{
 			name:  "the archive says a filter left nothing rather than that nothing is archived",

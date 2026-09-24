@@ -146,6 +146,54 @@ func TestScreensStage(t *testing.T) {
 	})
 }
 
+// TestScreensDivider covers a divider the reader dragged staying where they put it.
+func TestScreensDivider(t *testing.T) {
+	t.Parallel()
+
+	t.Run("a widened window puts the dragged width back", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openDragged(t)
+
+		harness.panel.SetWindowWidth(300)
+		harness.panel.SetPaneWidth("%0", 75)
+		harness.panel.SetPaneWidth("%9", 224)
+		harness.send(tea.WindowSizeMsg{Width: 75, Height: defaultHarnessHeight})
+
+		assert.Contains(t, harness.panel.ReadResizes(), "%0 50")
+	})
+
+	t.Run("the dragged width survives the sidebar taking the window", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openDragged(t)
+		harness.press("k")
+		harness.fireTimers()
+
+		harness.panel.SetPaneWidth("%0", 200)
+		harness.send(tea.WindowSizeMsg{Width: 200, Height: defaultHarnessHeight})
+
+		assert.Equal(t, 50, measureListRule(harness.readFrame()))
+	})
+
+	t.Run("the dragged width survives tmux dropping the zoom", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openDragged(t)
+		harness.press("k")
+		harness.fireTimers()
+		harness.panel.SetPaneWidth("%0", 200)
+		harness.send(tea.WindowSizeMsg{Width: 200, Height: defaultHarnessHeight})
+
+		harness.panel.SetPaneWidth("%0", 50)
+		harness.send(tea.WindowSizeMsg{Width: 50, Height: defaultHarnessHeight})
+		harness.panel.SetPaneWidth("%0", 200)
+		harness.send(tea.WindowSizeMsg{Width: 200, Height: defaultHarnessHeight})
+
+		assert.Equal(t, 50, measureListRule(harness.readFrame()))
+	})
+}
+
 // TestScreensFitTheLegend covers a list screen fitting its title, its hovered row and its whole legend into the pane.
 func TestScreensFitTheLegend(t *testing.T) {
 	tests := []listScreen{
@@ -175,7 +223,7 @@ func TestScreensFitTheLegend(t *testing.T) {
 			assert.LessOrEqual(t, len(splitLines(frame)), 29)
 			assert.Contains(t, frame, tt.title)
 			assert.Contains(t, frame, "hide help")
-			assert.Contains(t, readHoveredLine(frame), "agent39", "the hovered row is on screen")
+			assert.Contains(t, readHoveredRow(frame), "agent39", "the hovered row is on screen")
 		})
 	}
 }
@@ -251,12 +299,12 @@ func TestScreensRecordGivesWay(t *testing.T) {
 			resize(harness, 80, tt.fills)
 			frame := harness.readFrame()
 			assert.False(t, isRecordDrawn(frame), "the record gives up its rows")
-			assert.Contains(t, readHoveredLine(frame), "agent39", "to the row the cursor stands on")
+			assert.Contains(t, readHoveredRow(frame), "agent39", "to the row the cursor stands on")
 
 			resize(harness, 80, tt.fills+1)
 			frame = harness.readFrame()
 			assert.True(t, isRecordDrawn(frame), "the record is drawn once the list keeps a row beside it")
-			assert.Contains(t, readHoveredLine(frame), "agent39")
+			assert.Contains(t, readHoveredRow(frame), "agent39")
 		})
 	}
 }
@@ -337,7 +385,7 @@ func TestScreensFitATightPane(t *testing.T) {
 
 					assert.Len(t, splitLines(frame), height, "%s in a pane %d lines tall", screen.name, height)
 					if height > fitsFrom && screen.title != "Search" {
-						assert.NotEmpty(t, readHoveredLine(frame), "%s keeps the hovered row on screen in a pane %d lines tall", screen.name, height)
+						assert.NotEmpty(t, readHoveredRow(frame), "%s keeps the hovered row on screen in a pane %d lines tall", screen.name, height)
 					}
 				}
 			}
@@ -424,6 +472,17 @@ func openStaged(t *testing.T, press ...string) *panelHarness {
 	return harness
 }
 
+func openDragged(t *testing.T) *panelHarness {
+	t.Helper()
+
+	harness := openStaged(t, "g", "g", "j")
+	harness.panel.SetPaneWidth("%0", 50)
+	harness.panel.SetPaneWidth("%9", 149)
+	harness.send(tea.WindowSizeMsg{Width: 50, Height: defaultHarnessHeight})
+
+	return harness
+}
+
 func openCrowded(t *testing.T, params panelHarnessParams) *panelHarness {
 	t.Helper()
 
@@ -453,9 +512,6 @@ func buildCrowdedSnapshot(long string) *watchv1.WatchEvent {
 	rows := []proto.Message{newLiveWorkflow("w1", workflow)}
 	for i := range crowdedCount {
 		name := fmt.Sprintf("agent%02d", i)
-		if i == crowdedCount-1 {
-			name = "agent39"
-		}
 		if long != "" && i == 0 {
 			name = long
 		}
@@ -500,16 +556,6 @@ func measureListRule(frame string) int {
 	}
 
 	return 0
-}
-
-func readHoveredLine(frame string) string {
-	for _, line := range readSidebar(frame) {
-		if strings.HasPrefix(line, "›") {
-			return line
-		}
-	}
-
-	return ""
 }
 
 func findRowWith(t *testing.T, frame, want string) string {

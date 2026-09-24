@@ -240,7 +240,7 @@ func TestFormsRefused(t *testing.T) {
 			assert.Contains(t, frame, tt.typed, "the form is still up holding what was filled in")
 
 			harness.press("ctrl+g")
-			assert.Contains(t, harness.readFrame(), "fix and submit again", "esc backs out of the form rather than clearing the message")
+			assert.Contains(t, harness.readFrame(), "fix and submit again", "ctrl+g opens the whole refusal over the form")
 
 			harness.press("ctrl+g", "!")
 			assert.Contains(t, harness.readFrame(), tt.typed+"!", "and the form takes keys again")
