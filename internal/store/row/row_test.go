@@ -332,10 +332,10 @@ func TestListPage(t *testing.T) {
 	assert.Equal(t, archived.ID, old[0].ID)
 }
 
-// TestListByKey pins the watched set: the live and archived rows among the given ids answer, one
+// TestListWatched pins the watched set: the live and archived rows among the given ids answer, one
 // a delete has claimed and an id nothing holds are left out, and one that could not be an id at
 // all does not fail the read.
-func TestListByKey(t *testing.T) {
+func TestListWatched(t *testing.T) {
 	st := storetest.Open(t)
 	ctx := t.Context()
 	first := st.SeedAgent(t, agentstore.Agent{Name: "first"})
@@ -346,32 +346,37 @@ func TestListByKey(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, st.Agents.MarkDeleting(ctx, []string{deleting.ID}))
 
-	rows, err := st.Rows.ListByKey(ctx, []string{first.ID, second.ID, archived.ID, deleting.ID, "00000000-0000-0000-0000-000000000000", "not-an-id"})
+	rows, err := st.Rows.ListWatched(ctx, []string{first.ID, second.ID, archived.ID, deleting.ID, "00000000-0000-0000-0000-000000000000", "not-an-id"})
 	require.NoError(t, err)
 	assert.Equal(t, []string{archived.ID, second.ID, first.ID}, xslice.Map(rows, func(row rowstore.Row) string { return row.ID }))
 
-	rows, err = st.Rows.ListByKey(ctx, []string{"not-an-id"})
+	rows, err = st.Rows.ListWatched(ctx, []string{"not-an-id"})
 	require.NoError(t, err)
 	assert.Empty(t, rows)
 
-	live, err := st.Rows.List(ctx)
+	live, err := st.Rows.ListWatched(ctx, nil)
 	require.NoError(t, err)
 	assert.Equal(t, []string{archived.ID, second.ID, first.ID}, xslice.Map(live, func(row rowstore.Row) string { return row.ID }), "the whole watched set reads the same way")
 }
 
-// TestGet pins the one-row read: an archived row answers, and an id nothing holds, or that
-// could not be an id at all, is not found.
+// TestGet pins the one-row read: an archived row answers, and one a delete has claimed, an id
+// nothing holds, or one that could not be an id at all, is not found.
 func TestGet(t *testing.T) {
 	st := storetest.Open(t)
 	ctx := t.Context()
 	archived := st.SeedAgent(t, agentstore.Agent{Name: "archived"})
+	deleting := st.SeedAgent(t, agentstore.Agent{Name: "deleting"})
 	_, err := st.Agents.Archive(ctx, []string{archived.ID})
 	require.NoError(t, err)
+	require.NoError(t, st.Agents.MarkDeleting(ctx, []string{deleting.ID}))
 
 	row, err := st.Rows.Get(ctx, archived.ID)
 	require.NoError(t, err)
 	assert.Equal(t, "archived", row.Name)
 	assert.NotNil(t, row.ArchivedAt)
+
+	_, err = st.Rows.Get(ctx, deleting.ID)
+	require.ErrorIs(t, err, store.ErrNotFound)
 
 	_, err = st.Rows.Get(ctx, "00000000-0000-0000-0000-000000000000")
 	require.ErrorIs(t, err, store.ErrNotFound)

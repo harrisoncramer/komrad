@@ -2,7 +2,9 @@ package row
 
 import (
 	"context"
+	"fmt"
 
+	"weave/internal/store"
 	"weave/internal/watch"
 	watchv1 "weave/proto/gen/watch/v1"
 )
@@ -47,9 +49,14 @@ var WatchedAgents = watch.Resource{
 
 // ListWatched returns the rows of the agents among keys that are not being deleted, or of every one when keys is nil.
 func (s *RowStore) ListWatched(ctx context.Context, keys []string) ([]Row, error) {
-	if keys == nil {
-		return s.List(ctx)
+	if keys != nil {
+		keys = store.KeepIDs(keys)
 	}
 
-	return s.ListByKey(ctx, keys)
+	watched, err := s.queries.ListWatchedAgents(ctx, keys)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the watched agent rows: %w", err)
+	}
+
+	return s.attachMetadata(ctx, watched)
 }
