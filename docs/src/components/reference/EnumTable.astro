@@ -1,0 +1,42 @@
+---
+import Heading from "./Heading.astro";
+import { anchor, prose } from "../../reference";
+import type { Enum } from "../../reference/types";
+
+type Props = {
+  name: string;
+  value: Enum;
+};
+
+const { name, value } = Astro.props;
+const id = anchor(name);
+---
+
+<section class="type">
+  <Heading id={id} level={3}>
+    {value.name}
+  </Heading>
+  {value.description && <div class="type-description" set:html={prose(value.description)} />}
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>Value</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        {value.values.map((entry) => (
+          <tr id={`${id}-${entry.name}`}>
+            <td>
+              <a class="row-anchor" href={`#${id}-${entry.name}`}>
+                <code>{entry.name}</code>
+              </a>
+            </td>
+            <td set:html={prose(entry.description)} />
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+</section>

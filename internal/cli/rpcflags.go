@@ -201,27 +201,8 @@ func describeField(field protoreflect.FieldDescriptor) string {
 	if field.Kind() == protoreflect.EnumKind {
 		parts = []string{strings.Join(rpcapi.EnumNames(field.Enum()), "|")}
 	}
-	if rpcapi.IsRequired(field) {
-		parts = append(parts, "required")
-	}
 
-	rules := rpcapi.GetRules(field)
-	if text := rules.GetString(); text != nil {
-		if limit := text.GetMaxLen(); limit > 0 {
-			parts = append(parts, fmt.Sprintf("at most %d characters", limit))
-		}
-		if pattern := text.GetPattern(); pattern != "" {
-			parts = append(parts, "matching "+pattern)
-		}
-	}
-
-	if number := rules.GetInt32(); number != nil {
-		if number.GetGte() > 0 || number.GetLte() > 0 {
-			parts = append(parts, fmt.Sprintf("between %d and %d", number.GetGte(), number.GetLte()))
-		}
-	}
-
-	return strings.Join(parts, ", ")
+	return strings.Join(append(parts, rpcapi.DescribeRules(field)...), ", ")
 }
 
 func (f *requestFields) request(set *pflag.FlagSet, raw string) (map[string]any, error) {

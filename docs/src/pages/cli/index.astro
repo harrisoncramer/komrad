@@ -1,0 +1,9 @@
+---
+import CommandPage from "../../components/reference/CommandPage.astro";
+import { commandBySlug } from "../../reference";
+
+const root = commandBySlug.get("");
+if (!root) throw new Error("cli.json has no root command");
+---
+
+<CommandPage command={root} />

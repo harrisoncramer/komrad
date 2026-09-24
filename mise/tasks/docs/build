@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+source "$MISE_CONFIG_ROOT/mise/tasks/_"
+set -euo pipefail
+#MISE description="Build the docs site and its search index into docs/dist."
+
+usage() {
+	echo "Usage: mise run docs:build"
+	echo
+	echo "Builds the static site under docs/ into docs/dist, then runs Pagefind over"
+	echo "it to write the search index the site and the dev server both read."
+	echo
+	echo "The site is built to be served under /<version>/, where the version is"
+	echo "DOCS_VERSION, else a release WEAVE_VERSION, else dev. It is stamped with the"
+	echo "commit the Go build stamps, so a release's docs name the same commit as its"
+	echo "binaries. Serve the result with docs:site."
+}
+
+for arg in "$@"; do
+	case "$arg" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	esac
+done
+
+cd "$MISE_CONFIG_ROOT/docs"
+
+docs_install
+
+PUBLIC_DOCS_VERSION="$(docs_version)"
+PUBLIC_DOCS_COMMIT="$(build_commit)"
+export PUBLIC_DOCS_VERSION PUBLIC_DOCS_COMMIT
+
+gum log --level info "docs at $PUBLIC_DOCS_VERSION, commit ${PUBLIC_DOCS_COMMIT:-none, the tree is dirty}"
+
+npm run build

@@ -2,6 +2,7 @@ bin/
 local/
 dist/
 /weave
+/gen-docs
 /mockup
 
 .terraform/

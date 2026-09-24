@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+source "$MISE_CONFIG_ROOT/mise/tasks/_"
+set -euo pipefail
+#MISE description="Serve the docs site locally with live reload."
+
+usage() {
+	echo "Usage: mise run docs:dev"
+	echo
+	echo "Runs the Astro dev server for the site under docs/. Search reads the index"
+	echo "from the last docs:build, which is built here first when there is none."
+}
+
+for arg in "$@"; do
+	case "$arg" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	esac
+done
+
+cd "$MISE_CONFIG_ROOT/docs"
+
+docs_install
+
+PUBLIC_DOCS_VERSION="$(docs_version)"
+PUBLIC_DOCS_COMMIT="$(build_commit)"
+export PUBLIC_DOCS_VERSION PUBLIC_DOCS_COMMIT
+
+if [ ! -d dist/pagefind ]; then
+	gum log --level info "building once for the search index"
+	npm run build >/dev/null
+fi
+
+gum log --level info "serving the docs at http://localhost:4321/$PUBLIC_DOCS_VERSION/"
+
+npm run dev -- --force

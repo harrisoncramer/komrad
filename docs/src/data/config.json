@@ -1,0 +1,1093 @@
+{
+  "path": "",
+  "description": "Config is the user's customization.",
+  "settings": [
+    {
+      "key": "default_harness",
+      "path": "default_harness",
+      "type": "string",
+      "description": "Which agent CLI a new agent runs when neither the agent nor its workflow\nnames one. It has to be a harness this binary implements, so it is one of\nthe names under [harness] below.",
+      "default": "\"claude\""
+    },
+    {
+      "key": "max_agents",
+      "path": "max_agents",
+      "type": "integer",
+      "description": "How many unarchived agents may exist at once, past which a create is refused.",
+      "default": "50"
+    },
+    {
+      "key": "max_children",
+      "path": "max_children",
+      "type": "integer",
+      "description": "How many children one agent may hold at once, past which attaching another is refused.\nChildren share their parent's checkout, so this is deliberately a much lower ceiling\nthan max_agents.",
+      "default": "3"
+    }
+  ],
+  "sections": [
+    {
+      "path": "harness",
+      "description": "",
+      "settings": [],
+      "sections": [
+        {
+          "path": "harness.claude",
+          "description": "",
+          "settings": [
+            {
+              "key": "flags",
+              "path": "harness.claude.flags",
+              "type": "string",
+              "description": "Flags appended to every agent's command line for this CLI, ahead of the flags that agent carries itself.",
+              "default": "\"\""
+            }
+          ],
+          "sections": []
+        },
+        {
+          "path": "harness.codex",
+          "description": "",
+          "settings": [
+            {
+              "key": "flags",
+              "path": "harness.codex.flags",
+              "type": "string",
+              "description": "Flags appended to every Codex agent's command line, ahead of the flags that agent carries itself.",
+              "default": "\"\""
+            },
+            {
+              "key": "trust_launch_dirs",
+              "path": "harness.codex.trust_launch_dirs",
+              "type": "boolean",
+              "description": "Whether to record each agent's directory as trusted in Codex's own config\nbefore launching it. Codex asks whether a directory is trusted the first\ntime it runs there and waits for an answer, which it reads only from that\nfile, so an agent in a fresh worktree otherwise starts blocked and shows\nhere as waiting. Turning this on edits that file on your behalf.",
+              "default": "false"
+            }
+          ],
+          "sections": []
+        }
+      ]
+    },
+    {
+      "path": "layout",
+      "description": "Where the panel's sidebar, the stage beside it, and the info pane under the stage sit, and how much of the popup each takes.",
+      "settings": [
+        {
+          "key": "sidebar_side",
+          "path": "layout.sidebar_side",
+          "type": "string",
+          "description": "Which side of the popup the panel's sidebar sits on, \"left\" or \"right\".",
+          "default": "\"left\""
+        },
+        {
+          "key": "sidebar_width",
+          "path": "layout.sidebar_width",
+          "type": "integer",
+          "description": "How many columns wide the panel's sidebar opens at. Dragging the divider afterwards moves it, and the panel follows.",
+          "default": "30"
+        },
+        {
+          "key": "info_side",
+          "path": "layout.info_side",
+          "type": "string",
+          "description": "Which side of the stage the info pane opens on, \"below\" or \"above\". That pane is where the server log and an editor are drawn.",
+          "default": "\"below\""
+        },
+        {
+          "key": "info_height",
+          "path": "layout.info_height",
+          "type": "number",
+          "description": "How tall the info pane opens, either a share of the stage's height below one or a whole number of rows.",
+          "default": "0.4"
+        },
+        {
+          "key": "details_height",
+          "path": "layout.details_height",
+          "type": "number",
+          "description": "How many lines the details under the list draw, either a share of the sidebar's height below one or a whole number of lines. The marks the hovered row is carrying are spelled out in that same room, ahead of the fields. The chrome around them is added on top, and the two together never take more than half the sidebar's height. Once the details hold the keys they grow past this to show the whole record, as far as the sidebar allows.",
+          "default": "9"
+        }
+      ],
+      "sections": []
+    },
+    {
+      "path": "keybindings",
+      "description": "Panel keybindings, scoped to the screen each binding acts in.",
+      "settings": [],
+      "sections": [
+        {
+          "path": "keybindings.agents",
+          "description": "The agents list, the panel's main screen.",
+          "settings": [
+            {
+              "key": "archive",
+              "path": "keybindings.agents.archive",
+              "type": "array",
+              "description": "Archive the hovered agent, which stops it and moves it to the archive screen rather than destroying it.",
+              "default": "[\"z\"]"
+            },
+            {
+              "key": "back",
+              "path": "keybindings.agents.back",
+              "type": "array",
+              "description": "Step out of a workflow scope, or quit at the root.",
+              "default": "[\"esc\"]"
+            },
+            {
+              "key": "review",
+              "path": "keybindings.agents.review",
+              "type": "array",
+              "description": "Review what the hovered agent has changed in its worktree, with the diff and the review\nthreads drawn beside each other across the window. The key does nothing for an agent whose\nworkflow does not make worktrees, since there is no base branch to measure one against, and\nthe legend leaves it off there.",
+              "default": "[\"d\"]"
+            },
+            {
+              "key": "pause",
+              "path": "keybindings.agents.pause",
+              "type": "array",
+              "description": "Pause the hovered agent where it stands, or unpause one you have already paused. Weave\nwaits for the agent to come to rest before it claims the worktree, and refuses rather than\nclaiming it when the agent will not stop or its pane cannot be read.",
+              "default": "[\"p\"]"
+            },
+            {
+              "key": "release_silently",
+              "path": "keybindings.agents.release_silently",
+              "type": "array",
+              "description": "Unpause the hovered agent without typing anything at it, which is the way out of a pause\nwhose agent will not take the words weave normally sends it.",
+              "default": "[\"P\"]"
+            },
+            {
+              "key": "hide",
+              "path": "keybindings.agents.hide",
+              "type": "array",
+              "description": "Hide the hovered agent from this list.",
+              "default": "[\"h\"]"
+            },
+            {
+              "key": "new",
+              "path": "keybindings.agents.new",
+              "type": "array",
+              "description": "Start a new agent.",
+              "default": "[\"c\"]"
+            },
+            {
+              "key": "child",
+              "path": "keybindings.agents.child",
+              "type": "array",
+              "description": "Attach a child agent to the hovered agent, which runs in that agent's own checkout\nwith no worktree of its own and is archived along with it.",
+              "default": "[\"C\"]"
+            },
+            {
+              "key": "open",
+              "path": "keybindings.agents.open",
+              "type": "array",
+              "description": "Attach to the hovered agent, or to the workflow's own orchestrator when the cursor is on a\nworkflow. Either one is started first if it is not running.",
+              "default": "[\"enter\"]"
+            },
+            {
+              "key": "quit",
+              "path": "keybindings.agents.quit",
+              "type": "array",
+              "description": "Quit the panel.",
+              "default": "[\"ctrl+c\"]"
+            },
+            {
+              "key": "rename",
+              "path": "keybindings.agents.rename",
+              "type": "array",
+              "description": "Rename the hovered agent.",
+              "default": "[\"r\"]"
+            },
+            {
+              "key": "retry",
+              "path": "keybindings.agents.retry",
+              "type": "array",
+              "description": "Retry the launch of an agent that failed to create, opening a form where the flags can be\ncorrected before confirming.",
+              "default": "[\"R\"]"
+            },
+            {
+              "key": "search",
+              "path": "keybindings.agents.search",
+              "type": "array",
+              "description": "Search every conversation the panel holds for what you type, the archived ones included.",
+              "default": "[\"s\"]"
+            },
+            {
+              "key": "show_hidden",
+              "path": "keybindings.agents.show_hidden",
+              "type": "array",
+              "description": "Toggles visibility of hidden agents alongside the rest.",
+              "default": "[\"H\"]"
+            }
+          ],
+          "sections": []
+        },
+        {
+          "path": "keybindings.archive",
+          "description": "The archive screen, and the key that opens it from the agents list.",
+          "settings": [
+            {
+              "key": "back",
+              "path": "keybindings.archive.back",
+              "type": "array",
+              "description": "Leave the archive for the agents list.",
+              "default": "[\"esc\"]"
+            },
+            {
+              "key": "delete",
+              "path": "keybindings.archive.delete",
+              "type": "array",
+              "description": "Destroy the agent under the cursor for good, with its transcript. This is\nthe one thing in the panel nothing undoes, so it asks first.",
+              "default": "[\"d\"]"
+            },
+            {
+              "key": "empty",
+              "path": "keybindings.archive.empty",
+              "type": "array",
+              "description": "Destroy every archived agent for good, however many there are. The panel hands\nthe work to a background job, since tearing down that many agents takes a while.\nIt asks first.",
+              "default": "[\"D\"]"
+            },
+            {
+              "key": "open",
+              "path": "keybindings.archive.open",
+              "type": "array",
+              "description": "Open the archive from the agents list.",
+              "default": "[\"Z\"]"
+            },
+            {
+              "key": "quit",
+              "path": "keybindings.archive.quit",
+              "type": "array",
+              "description": "Quit the panel.",
+              "default": "[\"ctrl+c\"]"
+            },
+            {
+              "key": "restore",
+              "path": "keybindings.archive.restore",
+              "type": "array",
+              "description": "Put the agent under the cursor back in the panel.",
+              "default": "[\"r\"]"
+            },
+            {
+              "key": "restore_open",
+              "path": "keybindings.archive.restore_open",
+              "type": "array",
+              "description": "Put the agent under the cursor back in the panel and open it, which relaunches its\nconversation in a pane and takes you to it. An agent that never got as far as\nstarting is only restored.",
+              "default": "[\"R\"]"
+            }
+          ],
+          "sections": []
+        },
+        {
+          "path": "keybindings.details",
+          "description": "The details under whichever list is on screen: the key that hands them the\ncursor, and the key that copies the field it lands on.",
+          "settings": [
+            {
+              "key": "copy",
+              "path": "keybindings.details.copy",
+              "type": "array",
+              "description": "Copy the field the details cursor is on to the system clipboard.",
+              "default": "[\"y\"]"
+            },
+            {
+              "key": "focus",
+              "path": "keybindings.details.focus",
+              "type": "array",
+              "description": "Move the cursor between the list on screen and the details under it.",
+              "default": "[\"ctrl+t\"]"
+            }
+          ],
+          "sections": []
+        },
+        {
+          "path": "keybindings.filter",
+          "description": "The filter over whichever list is on screen, shared by every screen that\ndraws one. The key that opens it is \"/\" and is not configured.",
+          "settings": [
+            {
+              "key": "next_match",
+              "path": "keybindings.filter.next_match",
+              "type": "array",
+              "description": "Move the cursor to the next row matching the search, wrapping at the end of the list.",
+              "default": "[\"n\"]"
+            },
+            {
+              "key": "prev_match",
+              "path": "keybindings.filter.prev_match",
+              "type": "array",
+              "description": "Move the cursor to the previous row matching the search.",
+              "default": "[\"N\"]"
+            }
+          ],
+          "sections": []
+        },
+        {
+          "path": "keybindings.help",
+          "description": "The key that draws the legend under a list, shared by every screen for the\nsame reason navigation is.",
+          "settings": [
+            {
+              "key": "toggle",
+              "path": "keybindings.help.toggle",
+              "type": "array",
+              "description": "Toggle for the keybindings",
+              "default": "[\"?\"]"
+            }
+          ],
+          "sections": []
+        },
+        {
+          "path": "keybindings.git",
+          "description": "The git menu on the agents list, and the actions inside it.",
+          "settings": [
+            {
+              "key": "open",
+              "path": "keybindings.git.open",
+              "type": "array",
+              "description": "Open the git menu on the hovered agent.",
+              "default": "[\"b\"]"
+            },
+            {
+              "key": "open_pull_request",
+              "path": "keybindings.git.open_pull_request",
+              "type": "array",
+              "description": "Open the hovered agent's current pull request in your browser: the newest one opened from\nits branch that is not finished, else the newest finished one. The entry says so rather\nthan acting on an agent with none.",
+              "default": "[\"o\"]"
+            },
+            {
+              "key": "rebase",
+              "path": "keybindings.git.rebase",
+              "type": "array",
+              "description": "Bring the hovered agent's worktree up to date on the latest base, which asks first and\nsays what it would do to the branch and to the files.",
+              "default": "[\"r\"]"
+            }
+          ],
+          "sections": []
+        },
+        {
+          "path": "keybindings.logs",
+          "description": "The key that pages the service's log, shared by every screen since the log is\nabout the service rather than about anything a screen lists.",
+          "settings": [
+            {
+              "key": "open",
+              "path": "keybindings.logs.open",
+              "type": "array",
+              "description": "Cycle the hovered agent's logs in the info pane.",
+              "default": "[\"l\"]"
+            },
+            {
+              "key": "older",
+              "path": "keybindings.logs.older",
+              "type": "array",
+              "description": "Step back to the run before the one the info pane is showing.",
+              "default": "[\"L\"]"
+            }
+          ],
+          "sections": []
+        },
+        {
+          "path": "keybindings.marks",
+          "description": "The marks a person puts on rows to jump between them, as vim's own marks work.",
+          "settings": [
+            {
+              "key": "set",
+              "path": "keybindings.marks.set",
+              "type": "array",
+              "description": "Set a mark on the row under the cursor, agent or workflow, then the letter to set, or\nthe letter it already holds to take the mark off it.",
+              "default": "[\"m\"]"
+            },
+            {
+              "key": "jump",
+              "path": "keybindings.marks.jump",
+              "type": "array",
+              "description": "Jump the cursor to a marked row, then the letter to jump to, or the jump key again to\ngo back to where the last jump left from.",
+              "default": "[\"'\"]"
+            }
+          ],
+          "sections": []
+        },
+        {
+          "path": "keybindings.nav",
+          "description": "Navigation, shared by every menu so movement is the same everywhere.",
+          "settings": [
+            {
+              "key": "bottom",
+              "path": "keybindings.nav.bottom",
+              "type": "array",
+              "description": "Jump to the last row.",
+              "default": "[\"G\"]"
+            },
+            {
+              "key": "down",
+              "path": "keybindings.nav.down",
+              "type": "array",
+              "description": "Move the cursor down.",
+              "default": "[\"j\"]"
+            },
+            {
+              "key": "page_down",
+              "path": "keybindings.nav.page_down",
+              "type": "array",
+              "description": "Move the cursor down a chunk of rows, stopping on the last one.",
+              "default": "[\"ctrl+d\"]"
+            },
+            {
+              "key": "page_up",
+              "path": "keybindings.nav.page_up",
+              "type": "array",
+              "description": "Move the cursor up a chunk of rows, stopping on the first one.",
+              "default": "[\"ctrl+u\"]"
+            },
+            {
+              "key": "top",
+              "path": "keybindings.nav.top",
+              "type": "array",
+              "description": "Jump to the first row, pressed twice the way vim's gg is.",
+              "default": "[\"g\"]"
+            },
+            {
+              "key": "up",
+              "path": "keybindings.nav.up",
+              "type": "array",
+              "description": "Move the cursor up.",
+              "default": "[\"k\"]"
+            }
+          ],
+          "sections": []
+        },
+        {
+          "path": "keybindings.review",
+          "description": "The review screen, which draws an agent's diff in the stage and its review\nthreads in the sidebar.",
+          "settings": [
+            {
+              "key": "back",
+              "path": "keybindings.review.back",
+              "type": "array",
+              "description": "Leave the review for the agents list.",
+              "default": "[\"esc\"]"
+            },
+            {
+              "key": "base",
+              "path": "keybindings.review.base",
+              "type": "array",
+              "description": "Walk back a round through the review, from the whole change to the newest round and\non into the older ones, stopping on the oldest.",
+              "default": "[\"\u003c\"]"
+            },
+            {
+              "key": "base_forward",
+              "path": "keybindings.review.base_forward",
+              "type": "array",
+              "description": "Walk the other way through the rounds, towards the newest work and on to the whole\nchange.",
+              "default": "[\"\u003e\"]"
+            },
+            {
+              "key": "compose",
+              "path": "keybindings.review.compose",
+              "type": "array",
+              "description": "Write a message on the line under the cursor, replying in the thread already there\nor opening a new one.",
+              "default": "[\"c\"]"
+            },
+            {
+              "key": "edit_file",
+              "path": "keybindings.review.edit_file",
+              "type": "array",
+              "description": "Open the file under the cursor in your editor, beside the diff, on the line the\ncursor is on. This is the agent's own worktree rather than a copy of it, so what\nyou write is what the agent finds there, and the key is refused while the agent is\nworking rather than letting you both write at once. It is refused on a round the\nagent has written past, since those lines have moved on.",
+              "default": "[\"e\"]"
+            },
+            {
+              "key": "focus_thread",
+              "path": "keybindings.review.focus_thread",
+              "type": "array",
+              "description": "Move the keys onto the thread in the sidebar, so up and down read the conversation\nrather than the diff, and press it again to hand them back. A thread longer than the\nsidebar is otherwise only readable from its end.",
+              "default": "[\"ctrl+f\"]"
+            },
+            {
+              "key": "next_file",
+              "path": "keybindings.review.next_file",
+              "type": "array",
+              "description": "Jump to the next file in the diff.",
+              "default": "[\"]\"]"
+            },
+            {
+              "key": "next_match",
+              "path": "keybindings.review.next_match",
+              "type": "array",
+              "description": "Jump to the next line matching the pattern the filter key searched for.",
+              "default": "[\"n\"]"
+            },
+            {
+              "key": "next_thread",
+              "path": "keybindings.review.next_thread",
+              "type": "array",
+              "description": "Jump to the next line carrying a review thread.",
+              "default": "[\"t\"]"
+            },
+            {
+              "key": "next_open_thread",
+              "path": "keybindings.review.next_open_thread",
+              "type": "array",
+              "description": "Move the cursor to the next comment nobody has settled. It stops on the last one.",
+              "default": "[\"u\"]"
+            },
+            {
+              "key": "pan_left",
+              "path": "keybindings.review.pan_left",
+              "type": "array",
+              "description": "Pan the diff left, for a line wider than the pane.",
+              "default": "[\"h\", \"left\"]"
+            },
+            {
+              "key": "pan_reset",
+              "path": "keybindings.review.pan_reset",
+              "type": "array",
+              "description": "Pan back to the start of the line.",
+              "default": "[\"0\"]"
+            },
+            {
+              "key": "pan_right",
+              "path": "keybindings.review.pan_right",
+              "type": "array",
+              "description": "Pan the diff right.",
+              "default": "[\"l\", \"right\"]"
+            },
+            {
+              "key": "prev_file",
+              "path": "keybindings.review.prev_file",
+              "type": "array",
+              "description": "Jump to the previous file in the diff.",
+              "default": "[\"[\"]"
+            },
+            {
+              "key": "prev_match",
+              "path": "keybindings.review.prev_match",
+              "type": "array",
+              "description": "Jump to the previous line matching the pattern.",
+              "default": "[\"N\"]"
+            },
+            {
+              "key": "prev_open_thread",
+              "path": "keybindings.review.prev_open_thread",
+              "type": "array",
+              "description": "Move the cursor to the previous comment nobody has settled. It stops on the first one.",
+              "default": "[\"U\"]"
+            },
+            {
+              "key": "prev_thread",
+              "path": "keybindings.review.prev_thread",
+              "type": "array",
+              "description": "Jump to the previous line carrying a review thread.",
+              "default": "[\"T\"]"
+            },
+            {
+              "key": "quit",
+              "path": "keybindings.review.quit",
+              "type": "array",
+              "description": "Quit the panel.",
+              "default": "[\"ctrl+c\"]"
+            },
+            {
+              "key": "reload",
+              "path": "keybindings.review.reload",
+              "type": "array",
+              "description": "Catch up with the agent, once the band says it has written since you opened the\ndiff. What you are reading never moves on its own, since that would take the code out\nfrom under a comment being written, so catching up is always yours to ask for.",
+              "default": "[\"R\"]"
+            },
+            {
+              "key": "resolve",
+              "path": "keybindings.review.resolve",
+              "type": "array",
+              "description": "Settle the thread under the cursor, which marks it resolved without deleting it.",
+              "default": "[\"r\"]"
+            },
+            {
+              "key": "expand",
+              "path": "keybindings.review.expand",
+              "type": "array",
+              "description": "Draw the whole of the file the cursor is in rather than the changed lines and the\nthree around them, or go back to those. The lines this adds behave like any other:\nthe cursor rests on them and a comment can be written on one. A file stays open\nwhile you are reading this change and is drawn tight again when you leave.",
+              "default": "[\"E\"]"
+            },
+            {
+              "key": "toggle_viewed",
+              "path": "keybindings.review.toggle_viewed",
+              "type": "array",
+              "description": "Fold away the file the cursor is in once you have read it, or open it again. A file\nthe agent writes to afterwards comes back on its own.",
+              "default": "[\"v\"]"
+            }
+          ],
+          "sections": []
+        },
+        {
+          "path": "keybindings.column",
+          "description": "The keys the mouse wheel presses over the panel, shared by every screen.",
+          "settings": [
+            {
+              "key": "scroll_down",
+              "path": "keybindings.column.scroll_down",
+              "type": "array",
+              "description": "Scroll down.",
+              "default": "[\"ctrl+n\"]"
+            },
+            {
+              "key": "scroll_up",
+              "path": "keybindings.column.scroll_up",
+              "type": "array",
+              "description": "Scroll up.",
+              "default": "[\"ctrl+p\"]"
+            }
+          ],
+          "sections": []
+        },
+        {
+          "path": "keybindings.schedules",
+          "description": "The schedules screen, and the key that opens it from the agents list.",
+          "settings": [
+            {
+              "key": "archive",
+              "path": "keybindings.schedules.archive",
+              "type": "array",
+              "description": "Archive the schedule under the cursor, which stops it firing. The agents it\nlaunched are kept, and nothing brings the schedule back.",
+              "default": "[\"z\"]"
+            },
+            {
+              "key": "back",
+              "path": "keybindings.schedules.back",
+              "type": "array",
+              "description": "Leave the schedules screen for the agents list.",
+              "default": "[\"esc\"]"
+            },
+            {
+              "key": "edit",
+              "path": "keybindings.schedules.edit",
+              "type": "array",
+              "description": "Edit the schedule under the cursor.",
+              "default": "[\"e\"]"
+            },
+            {
+              "key": "new",
+              "path": "keybindings.schedules.new",
+              "type": "array",
+              "description": "Write a new schedule.",
+              "default": "[\"c\"]"
+            },
+            {
+              "key": "open",
+              "path": "keybindings.schedules.open",
+              "type": "array",
+              "description": "Open the schedules screen from the agents list.",
+              "default": "[\"S\"]"
+            },
+            {
+              "key": "quit",
+              "path": "keybindings.schedules.quit",
+              "type": "array",
+              "description": "Quit the panel.",
+              "default": "[\"ctrl+c\"]"
+            },
+            {
+              "key": "toggle",
+              "path": "keybindings.schedules.toggle",
+              "type": "array",
+              "description": "Pause or resume the schedule under the cursor.",
+              "default": "[\"space\"]"
+            }
+          ],
+          "sections": []
+        },
+        {
+          "path": "keybindings.sidebar",
+          "description": "The keys that move the sidebar's edge, shared by every screen.",
+          "settings": [
+            {
+              "key": "narrow",
+              "path": "keybindings.sidebar.narrow",
+              "type": "array",
+              "description": "Make the sidebar narrower.",
+              "default": "[\"{\"]"
+            },
+            {
+              "key": "widen",
+              "path": "keybindings.sidebar.widen",
+              "type": "array",
+              "description": "Make the sidebar wider.",
+              "default": "[\"}\"]"
+            }
+          ],
+          "sections": []
+        },
+        {
+          "path": "keybindings.selection",
+          "description": "Choosing several agents at once, shared by the two screens that draw a tree.",
+          "settings": [
+            {
+              "key": "clear",
+              "path": "keybindings.selection.clear",
+              "type": "array",
+              "description": "Drop the whole selection, which is the way back out of multi-select mode.",
+              "default": "[\"esc\"]"
+            },
+            {
+              "key": "range",
+              "path": "keybindings.selection.range",
+              "type": "array",
+              "description": "Take in every agent between the cursor and the nearest already-selected one.",
+              "default": "[\"V\"]"
+            },
+            {
+              "key": "toggle",
+              "path": "keybindings.selection.toggle",
+              "type": "array",
+              "description": "Take the row under the cursor into the selection, or back out of it.",
+              "default": "[\"v\"]"
+            }
+          ],
+          "sections": []
+        },
+        {
+          "path": "keybindings.tabs",
+          "description": "The row of tabs a screen draws over its list, and the key that hands it the cursor.",
+          "settings": [
+            {
+              "key": "focus",
+              "path": "keybindings.tabs.focus",
+              "type": "array",
+              "description": "Hand the keys to the row of tabs over the list; escape hands them back.",
+              "default": "[\"f\"]"
+            }
+          ],
+          "sections": []
+        },
+        {
+          "path": "keybindings.terminal",
+          "description": "The key that opens a shell in the hovered agent's directory, shared by every\nscreen that lists agents.",
+          "settings": [
+            {
+              "key": "open",
+              "path": "keybindings.terminal.open",
+              "type": "array",
+              "description": "Open a shell in the hovered agent's directory, focus the one already there, or move it here.",
+              "default": "[\"T\"]"
+            }
+          ],
+          "sections": []
+        },
+        {
+          "path": "keybindings.workflows",
+          "description": "The bindings that create and change workflows, from the agents list.",
+          "settings": [
+            {
+              "key": "adopt",
+              "path": "keybindings.workflows.adopt",
+              "type": "array",
+              "description": "Put an agent on a branch that already exists, in the workflow under the\ncursor.",
+              "default": "[\"a\"]"
+            },
+            {
+              "key": "archive",
+              "path": "keybindings.workflows.archive",
+              "type": "array",
+              "description": "Archive the workflow under the cursor, which archives the agents inside it.",
+              "default": "[\"z\"]"
+            },
+            {
+              "key": "edit",
+              "path": "keybindings.workflows.edit",
+              "type": "array",
+              "description": "Edit the workflow under the cursor.",
+              "default": "[\"e\"]"
+            },
+            {
+              "key": "new",
+              "path": "keybindings.workflows.new",
+              "type": "array",
+              "description": "Create a workflow. Works from anywhere in the list.",
+              "default": "[\"w\"]"
+            },
+            {
+              "key": "rename",
+              "path": "keybindings.workflows.rename",
+              "type": "array",
+              "description": "Rename the workflow under the cursor.",
+              "default": "[\"r\"]"
+            }
+          ],
+          "sections": []
+        },
+        {
+          "path": "keybindings.worktrees",
+          "description": "The worktrees screen, which lists every directory weave cut for an agent.",
+          "settings": [
+            {
+              "key": "back",
+              "path": "keybindings.worktrees.back",
+              "type": "array",
+              "description": "Leave the worktrees screen for the agents list.",
+              "default": "[\"esc\"]"
+            },
+            {
+              "key": "clear",
+              "path": "keybindings.worktrees.clear",
+              "type": "array",
+              "description": "Delete everything on the screen that can go: every directory whose agent is archived,\nthrough the agent delete and its hooks, and every directory no agent answers for. A\ndirectory with a live agent in it is never deleted.",
+              "default": "[\"D\"]"
+            },
+            {
+              "key": "delete",
+              "path": "keybindings.worktrees.delete",
+              "type": "array",
+              "description": "Delete the directory under the cursor. One with an archived agent goes through the\nagent delete, which runs the workflow's hooks and the cleanup; one with a live agent\noffers to archive it first; one nothing answers for is removed on its own. It asks first.",
+              "default": "[\"d\"]"
+            },
+            {
+              "key": "jump_to_agent",
+              "path": "keybindings.worktrees.jump_to_agent",
+              "type": "array",
+              "description": "Jump to the agent in the directory under the cursor, on the agents list or in the\narchive.",
+              "default": "[\"J\"]"
+            },
+            {
+              "key": "open",
+              "path": "keybindings.worktrees.open",
+              "type": "array",
+              "description": "Open the worktrees screen from the agents list or the archive, landing on the hovered\nagent's own directory.",
+              "default": "[\"t\"]"
+            },
+            {
+              "key": "quit",
+              "path": "keybindings.worktrees.quit",
+              "type": "array",
+              "description": "Quit the panel.",
+              "default": "[\"ctrl+c\"]"
+            }
+          ],
+          "sections": []
+        }
+      ]
+    },
+    {
+      "path": "hooks",
+      "description": "Where weave finds the scripts a workflow hangs on a moment in its agents' lives.",
+      "settings": [
+        {
+          "key": "dir",
+          "path": "hooks.dir",
+          "type": "string",
+          "description": "Directory for hooks: one executable file per hook, named after the hook.\nA hook is a script or program weave runs at a moment a workflow names it against, in the\nagent's own directory, with agent info in WEAVE_AGENT as JSON and the moment in\nWEAVE_TRIGGER. Default is ~/.config/weave/hooks.",
+          "default": "\"\""
+        }
+      ],
+      "sections": []
+    },
+    {
+      "path": "worktrees",
+      "description": "Where a workflow's generated worktree provisioner creates its worktrees.",
+      "settings": [
+        {
+          "key": "dir",
+          "path": "worktrees.dir",
+          "type": "string",
+          "description": "Directory generated worktrees are created under, one subdirectory per agent.\nLeft empty this is ~/.local/state/weave/worktrees.",
+          "default": "\"\""
+        }
+      ],
+      "sections": []
+    },
+    {
+      "path": "github_app",
+      "description": "The GitHub App an engine fetches and pushes as.",
+      "settings": [
+        {
+          "key": "app_id",
+          "path": "github_app.app_id",
+          "type": "string",
+          "description": "The App's own id, from its settings page. Left empty the engine has no GitHub identity\nand git is left to whatever credentials the account already has, which on a machine\nnobody logs into is none.",
+          "default": "\"\""
+        },
+        {
+          "key": "installation_id",
+          "path": "github_app.installation_id",
+          "type": "string",
+          "description": "The installation the token is minted for, which is what scopes it to the repositories the\nApp was installed on rather than to everything it could reach. GitHub writes it as a\nnumber, and it is in the URL of the installation's own settings page.",
+          "default": "\"\""
+        },
+        {
+          "key": "private_key_path",
+          "path": "github_app.private_key_path",
+          "type": "string",
+          "description": "The PEM the App was created with. On a deployed engine this is fetched into a tmpfs at\nboot rather than written to disk, so the key does not outlive the machine.",
+          "default": "\"\""
+        }
+      ],
+      "sections": []
+    },
+    {
+      "path": "context",
+      "description": "The standing text every agent is started with, whatever workflow it is in.",
+      "settings": [
+        {
+          "key": "file",
+          "path": "context.file",
+          "type": "string",
+          "description": "The file holding global context, read at each launch.\nLeft empty this is ~/.config/weave/context.md, but will not trigger a failure if left blank.",
+          "default": "\"\""
+        }
+      ],
+      "sections": []
+    },
+    {
+      "path": "mail",
+      "description": "How mail between agents is delivered.",
+      "settings": [
+        {
+          "key": "delivery_deadline",
+          "path": "mail.delivery_deadline",
+          "type": "string",
+          "description": "How long mail stays deliverable, as a Go duration such as \"3h\" or \"45m\". Mail past\nit is neither delivered nor readable, and the row is kept as a record that it never\narrived. A duration weave cannot read, or one that is not positive, is refused.",
+          "default": "\"3h\""
+        },
+        {
+          "key": "max_exchange",
+          "path": "mail.max_exchange",
+          "type": "integer",
+          "description": "How much mail two agents may write each other before a send between them is\nrefused. It counts the pair in both directions over every thread, so opening a new\nsubject is not a way around it. When a send is refused weave marks a row for\nattention and tells the recipient its mail was stopped, so an exchange that is cut\noff does not leave the other side waiting on a reply that will never arrive. A\nnegative limit is refused.",
+          "default": "40"
+        }
+      ],
+      "sections": []
+    },
+    {
+      "path": "log",
+      "description": "The log the background service writes, which the panel's log key pages.",
+      "settings": [
+        {
+          "key": "level",
+          "path": "log.level",
+          "type": "string",
+          "description": "How much is written, one of debug, info, warn, or error.",
+          "default": "\"info\""
+        },
+        {
+          "key": "viewer",
+          "path": "log.viewer",
+          "type": "string",
+          "description": "The default log viewer. Switch with fzf, rg, etc.",
+          "default": "\"tail -n +1 -F \\\"$WEAVE_LOG\\\" | grep --line-buffered \\\"$WEAVE_AGENT_ID\\\" | less -R +F\""
+        },
+        {
+          "key": "process_viewer",
+          "path": "log.process_viewer",
+          "type": "string",
+          "description": "The viewer for a provisioner's or deprovisioner's own output, plain text rather than the\nstructured log's JSON lines.",
+          "default": "\"less -R -X \\\"$WEAVE_LOG\\\"\""
+        }
+      ],
+      "sections": []
+    },
+    {
+      "path": "debug",
+      "description": "Puts weave into debug mode which records additional information used to help diagnose issues.",
+      "settings": [
+        {
+          "key": "frames",
+          "path": "debug.frames",
+          "type": "boolean",
+          "description": "Whether the pane capture behind each reading of an agent is kept under the cache\ndirectory.",
+          "default": "false"
+        },
+        {
+          "key": "frame_history",
+          "path": "debug.frame_history",
+          "type": "integer",
+          "description": "How many frames are kept for one agent before the oldest is dropped. A number at or\nbelow zero takes the default.",
+          "default": "500"
+        }
+      ],
+      "sections": []
+    },
+    {
+      "path": "connection",
+      "description": "Which weave this is: the database, the address, the tmux socket, the cache.",
+      "settings": [
+        {
+          "key": "database_url",
+          "path": "connection.database_url",
+          "type": "string",
+          "description": "The Postgres weave keeps every agent, workflow, schedule and transcript in, reached as\nthis engine's own login, which is what keeps its rows apart from every other engine's.\n`weave engine ensure` creates the login and prints this url.",
+          "default": "\"postgres://weave_engine_default:weave@localhost:5460/weave?sslmode=disable\""
+        },
+        {
+          "key": "owner_database_url",
+          "path": "connection.owner_database_url",
+          "type": "string",
+          "description": "The login that owns the schema, used only by `weave migrate` and `weave engine ensure`.\nLeft empty this is database_url, or the local owner while database_url is the default.",
+          "default": "\"\""
+        },
+        {
+          "key": "readonly_database_url",
+          "path": "connection.readonly_database_url",
+          "type": "string",
+          "description": "The least-privilege login the MCP query tools connect as.\nLeft empty this is database_url with the engine's reader login, which is its own login\nwith _reader on the end and the same password.",
+          "default": "\"\""
+        },
+        {
+          "key": "addr",
+          "path": "connection.addr",
+          "type": "string",
+          "description": "Where the background service listens, and where the panel, the CLI and the MCP\nendpoint all reach it. Change it to run two weaves on one machine. It has to be a\nloopback host, since the api has no auth and its writes spawn agents.",
+          "default": "\"127.0.0.1:8787\""
+        },
+        {
+          "key": "tmux_socket",
+          "path": "connection.tmux_socket",
+          "type": "string",
+          "description": "The tmux socket weave runs its own server on. Nothing in your normal tmux sees\nthat server, which is why `tmux -L weave ls` is how you look at it directly.",
+          "default": "\"weave\""
+        },
+        {
+          "key": "cache_dir",
+          "path": "connection.cache_dir",
+          "type": "string",
+          "description": "Where weave keeps what it generates: the service log, the built-in scripts it\nwrites out on every start, and the temp files a harness passes a prompt through.\nLeft empty this is ~/Library/Caches/weave on a Mac and ~/.cache/weave on Linux.\nEverything under it is weave's to delete and rewrite, so nothing of yours belongs here.",
+          "default": "\"\""
+        },
+        {
+          "key": "ssh",
+          "path": "connection.ssh",
+          "type": "string",
+          "description": "The ssh destination the engine runs on, like user@host, when it is not this machine.\nLeft empty the engine is local and an agent's terminal is shown by moving its own pane\ninto the panel, which only works while the panel and the agents share a tmux server.",
+          "default": "\"\""
+        },
+        {
+          "key": "engine_tmux_socket",
+          "path": "connection.engine_tmux_socket",
+          "type": "string",
+          "description": "The tmux socket the engine's own server runs on, which is only consulted when ssh names\na destination. Left empty it is tmux_socket, which is right when both machines run a\ndefault weave and wrong when this machine is also running an engine of its own.",
+          "default": "\"\""
+        },
+        {
+          "key": "panel_key",
+          "path": "connection.panel_key",
+          "type": "string",
+          "description": "The key, after your tmux prefix, that opens and hides the panel, and the picker between\nthis machine and its engines once engine files exist. Left empty it is whatever\n@weave_key says, and failing that g. An engine file may not set it.",
+          "default": "\"\""
+        },
+        {
+          "key": "exec",
+          "path": "connection.exec",
+          "type": "array",
+          "description": "How to run a command on the engine, as an argv, when ssh is not how you reach it.\n\"{{command}}\" is replaced with what weave wants run there, and \"{{command_json}}\" with the\nsame text escaped for embedding in JSON. It needs to allocate a terminal, since what it\ncarries is an interactive one.",
+          "default": "[]"
+        },
+        {
+          "key": "forward",
+          "path": "connection.forward",
+          "type": "array",
+          "description": "How to forward a port from this machine to the engine, as an argv, when ssh is not how you\nreach it. \"{{local_port}}\" and \"{{remote_port}}\" are replaced with the two ends. It should\nstay in the foreground for as long as the forward is wanted.",
+          "default": "[]"
+        },
+        {
+          "key": "engine_user",
+          "path": "connection.engine_user",
+          "type": "string",
+          "description": "The account on the engine that owns its tmux server, where the transport does not already\narrive as it. Left empty nothing is stepped into.",
+          "default": "\"\""
+        }
+      ],
+      "sections": []
+    }
+  ]
+}

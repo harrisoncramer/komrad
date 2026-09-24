@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+source "$MISE_CONFIG_ROOT/mise/tasks/_"
+set -euo pipefail
+#MISE description="Format the docs site with Prettier."
+#MISE alias="docs:fmt"
+
+usage() {
+	echo "Usage: mise run docs:fmt [--check]"
+	echo
+	echo "Rewrites docs/ with Prettier, sorting Tailwind classes as it goes. The"
+	echo "generated reference data under docs/src/data is left alone. Pass --check to"
+	echo "report what would change and exit non-zero instead."
+}
+
+MODE=--write
+for arg in "$@"; do
+	case "$arg" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	--check)
+		MODE=--check
+		;;
+	esac
+done
+
+cd "$MISE_CONFIG_ROOT/docs"
+
+docs_install
+
+if [ "$MODE" = --check ] && ! npx prettier --check .; then
+	echo "docs/ is not Prettier clean; run 'mise run docs:fmt'" >&2
+	exit 1
+fi
+
+if [ "$MODE" = --write ]; then
+	npx prettier --write .
+fi

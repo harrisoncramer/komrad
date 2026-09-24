@@ -8,56 +8,32 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT" /></a>
 </p>
 
-Weave is a terminal-based agent manager. It lets you:
+Weave is an agent manager that lives in your terminal. It runs Claude and Codex agents in tmux, keeps track of them, and lets them work together.
 
-- Create and manage agents backed by Claude or Codex
-- Orchestrate agent pipelines with Weave's MCP
-- Hang your own scripts on the moments in an agent's life
-- Group agents into workflows with common behaviors
-- Create schedules for your agents
+With weave you can create and manage agents, group them into workflows that share settings, run your own scripts at moments in an agent's life, launch agents on a schedule, and let agents manage other agents through weave's MCP server.
 
-If you're a Neovim or Emacs user, or just enjoy working from your terminal, weave is for you.
+If you use Neovim or Emacs, or just like working from a terminal, weave is for you.
 
-<img width="1727" height="1055" alt="Screenshot 2026-08-27 at 7 39 54 AM" src="https://github.com/user-attachments/assets/9a67ecbc-ff0e-4fd1-a8d1-8dd76dd86a5e" />
+<img width="1727" height="1055" alt="The weave panel" src="https://github.com/user-attachments/assets/9a67ecbc-ff0e-4fd1-a8d1-8dd76dd86a5e" />
 
 ## Quickstart
 
-1. Configure a Postgres database and set `connection.database_url` in your weave [configuration file](config.toml).
-2. Install weave. See [installation](docs/install.md) for the full setup guide.
-3. Press `prefix + g` to toggle the agent manager panel. Press `w` to create your first workflow, and then `a` to add your first agent.
+1. Set up a Postgres database and point `connection.database_url` in your weave config at it.
+2. Install weave by following the [installation guide](https://docs.weave.dev/tip/guides/install/).
+3. Press `prefix + g` to open the panel. Press `w` to create your first workflow, then `c` to add your first agent.
 
-## Why Weave
+## Why weave
 
-Keeping track of multiple agent sessions is difficult. Weave's persistent agent manager lets you browse, search, and interact with them more easily than juggling multiple terminal panels.
+Keeping track of several agent sessions is hard. Weave gives you one place to browse, search and talk to all of them, instead of juggling terminal panes.
 
-Weave is different from existing solutions like Conductor, Happy, or WorkMux in a few important ways:
+It is unopinionated. Weave gives you the building blocks as things you manage directly: [workflows](https://docs.weave.dev/tip/guides/workflows/), [agents](https://docs.weave.dev/tip/guides/agents/), [hooks](https://docs.weave.dev/tip/guides/hooks/) and [schedules](https://docs.weave.dev/tip/guides/schedules/). Its [MCP server](https://docs.weave.dev/tip/guides/mcp/) and [CLI](https://docs.weave.dev/tip/cli/) let agents manage other agents. How you put them together is up to you.
 
-### It is unopinionated.
+Weave is built for software work in [git worktrees](https://git-scm.com/docs/git-worktree), but it handles production support, Slack or email work just as well.
 
-Weave provides the primitives behind agentic workflows as resources that you manage directly: [workflows](docs/workflows.md), [agents](docs/agents.md), [hooks](docs/hooks.md), and [schedules](docs/schedules.md). It also provides an [MCP layer](docs/mcp.md) and a [CLI](docs/commands.md) so that you can have weave agents manage other agents. But it doesn't tell you how to use them: that's your call.
-
-Weave is optimized for software development with [worktrees](https://git-scm.com/docs/git-worktree), but is equally capable of handling production support automations, or even Slack or email workflows. Let weave automate the parts of your job you dislike.
-
-### It is terminal (tmux) based.
-
-Weave is a terminal tool, intended for power users. It does not aspire to be a remote coding environment or a standalone application, and meets you in the terminal.
+It lives in tmux. Weave is a tool for people who work in the terminal. It is not a remote coding environment or a separate app.
 
 ## Documentation
 
-### Concepts and guides
+The documentation lives at [docs.weave.dev](https://docs.weave.dev/tip/). The guides explain how weave works and how to use it. The API, CLI and config references are generated from the code, so they always match the build they describe.
 
-- [Installation](docs/install.md): the tmux plugin setup
-- [How it works](docs/concepts.md): the service and the panel, the rows everything is drawn from, how a change reaches the screen, and the loops
-- [Running it remotely](docs/remote.md): keeping the panel on your machine and the agents on a box somewhere else
-- [Administering the engine](docs/engine-admin.md): building that box, deploying to it, and stopping it overnight
-- [Forges](docs/forges.md): connecting weave to GitHub, and where the token lives
-
-### Terminology
-
-- [workflows](docs/workflows.md): The shared templates for agents
-- [agents](docs/agents.md): The core resource of weave
-- [hooks](docs/hooks.md): Custom scripts weave runs at moments in an agent's life
-- [schedules](docs/schedules.md): Durable schedules for running your agents
-- [mcp](docs/mcp.md): Lets agents spawn or manage other agents
-- [mail](docs/mail.md): How agents communicate with each other
-- [cli](docs/commands.md): The CLI tool and commands
+The site's source is in [docs/](docs/). Run `mise run docs:dev` to work on it locally.

@@ -8,6 +8,7 @@
 package rpcapi
 
 import (
+	"fmt"
 	"iter"
 	"slices"
 
@@ -131,6 +132,19 @@ func IsIdempotent(method protoreflect.MethodDescriptor, surfaces *annotationv1.S
 	return level == descriptorpb.MethodOptions_IDEMPOTENT || level == descriptorpb.MethodOptions_NO_SIDE_EFFECTS
 }
 
+// IsDestructive reports whether the call can take something away.
+func IsDestructive(method protoreflect.MethodDescriptor, surfaces *annotationv1.Surfaces) bool {
+	if IsReadOnly(method) {
+		return false
+	}
+
+	if surfaces != nil && surfaces.Destructive != nil {
+		return surfaces.GetDestructive()
+	}
+
+	return true
+}
+
 // ServesRole reports whether a tool is offered to a caller holding the role, every tool being
 // offered to a caller holding none.
 func ServesRole(surfaces *annotationv1.Surfaces, role annotationv1.Role) bool {
@@ -170,6 +184,32 @@ func IsRequired(field protoreflect.FieldDescriptor) bool {
 	}
 
 	return rules.GetString().GetMinLen() > 0 || rules.GetRepeated().GetMinItems() > 0
+}
+
+// DescribeRules spells out what the service refuses of a field, in the order a reader weighs them.
+func DescribeRules(field protoreflect.FieldDescriptor) []string {
+	var parts []string
+	if IsRequired(field) {
+		parts = append(parts, "required")
+	}
+
+	rules := GetRules(field)
+	if text := rules.GetString(); text != nil {
+		if limit := text.GetMaxLen(); limit > 0 {
+			parts = append(parts, fmt.Sprintf("at most %d characters", limit))
+		}
+		if pattern := text.GetPattern(); pattern != "" {
+			parts = append(parts, "matching "+pattern)
+		}
+	}
+
+	if number := rules.GetInt32(); number != nil {
+		if number.GetGte() > 0 || number.GetLte() > 0 {
+			parts = append(parts, fmt.Sprintf("between %d and %d", number.GetGte(), number.GetLte()))
+		}
+	}
+
+	return parts
 }
 
 func getIdempotencyLevel(method protoreflect.MethodDescriptor) descriptorpb.MethodOptions_IdempotencyLevel {

@@ -6,6 +6,7 @@ includes = ["mise/tasks"]
 
 [tools]
 go = "1.25.1"
+node = "22"
 golangci-lint = "v2.7.0"
 "aqua:koalaman/shellcheck" = "0.10.0"
 "aqua:mvdan/sh" = "3.11.0"

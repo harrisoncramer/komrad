@@ -1,0 +1,13 @@
+---
+type Props = {
+  items: { href: string; label: string }[];
+};
+
+const { items } = Astro.props;
+---
+
+<nav class="jump-bar" aria-label="On this page" data-pagefind-ignore>
+  {items.map((item) => (
+    <a href={item.href}>{item.label}</a>
+  ))}
+</nav>

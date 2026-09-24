@@ -70,6 +70,9 @@ STEPS=(
 	"proto:lint"
 	"go:test --kind $KIND"
 	"gen:check"
+	"docs:fmt --check"
+	"docs:lint"
+	"docs:check"
 )
 
 failed=()

@@ -1,0 +1,147 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { getGuides } from "../../guides";
+import { link } from "../../site";
+
+const guides = await getGuides();
+
+const groups = [
+  { id: "start", title: "Getting started", blurb: "Install weave and learn how its pieces fit together." },
+  { id: "concepts", title: "Concepts", blurb: "The things you build with: workflows, agents, and how they talk." },
+  { id: "operations", title: "Operations", blurb: "Connecting forges and running weave on a machine of its own." },
+] as const;
+
+const numbered = guides.map((guide, index) => ({ guide, number: String(index + 1).padStart(2, "0") }));
+---
+
+<Layout title="Guides" description="Hand-written guides to installing, using and running weave.">
+  <header class="intro">
+    <h1>Guides</h1>
+    <p>
+      These guides explain how weave works and how to use it, written to be read start to finish. The API, CLI and
+      config pages are generated from the code and say exactly what each call, command and key does. The guides say why,
+      and how the pieces fit together.
+    </p>
+  </header>
+
+  {groups.map((group) => {
+    const entries = numbered.filter(({ guide }) => guide.data.group === group.id);
+    return (
+      <section class="group">
+        <div class="group-heading">
+          <h2>{group.title}</h2>
+          <p>{group.blurb}</p>
+        </div>
+        <ul class="cards">
+          {entries.map(({ guide, number }) => (
+            <li>
+              <a class="card" href={link(`/guides/${guide.id}`)}>
+                <span class="number">{number}</span>
+                <span class="title">{guide.data.title}</span>
+                {guide.data.description && <span class="description">{guide.data.description}</span>}
+                <span class="arrow" aria-hidden="true">
+                  Read
+                </span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </section>
+    );
+  })}
+</Layout>
+
+<style>
+  @reference "../../styles/global.css";
+
+  .intro {
+    @apply mb-14 max-w-2xl;
+  }
+
+  .intro h1 {
+    @apply mb-4 leading-tight;
+  }
+
+  .intro p {
+    @apply text-lg leading-relaxed text-app-gray-light;
+  }
+
+  .group {
+    @apply mb-16;
+  }
+
+  .group-heading {
+    @apply mb-6 flex flex-col gap-1 border-b border-app-background-medium pb-3 md:flex-row md:items-baseline md:justify-between;
+  }
+
+  .group-heading h2 {
+    @apply text-xl;
+  }
+
+  .group-heading p {
+    @apply text-sm text-app-gray-dim;
+  }
+
+  .cards {
+    @apply grid gap-5 md:grid-cols-2;
+  }
+
+  .cards li {
+    @apply list-none;
+  }
+
+  @media (min-width: 768px) {
+    .cards li:nth-child(even) {
+      transform: translateY(1.75rem);
+    }
+
+    .cards {
+      padding-bottom: 1.75rem;
+    }
+  }
+
+  .card {
+    @apply relative flex h-full flex-col gap-2 overflow-hidden rounded-xl border border-app-background-medium bg-app-background-medium-dark/70 p-6 text-app-white no-underline transition duration-300 ease-out-expo;
+  }
+
+  .card::before {
+    content: "";
+    @apply pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300;
+    background: radial-gradient(circle at 0% 0%, rgba(158, 196, 255, 0.12), transparent 60%);
+  }
+
+  .card:hover,
+  .card:focus-visible {
+    @apply -translate-y-0.5 border-app-blue/40;
+  }
+
+  .card:hover::before,
+  .card:focus-visible::before {
+    @apply opacity-100;
+  }
+
+  .number {
+    @apply font-mono text-xs tracking-widest text-app-blue/70;
+  }
+
+  .title {
+    @apply text-lg font-semibold tracking-tight;
+  }
+
+  .description {
+    @apply text-sm leading-relaxed text-app-gray-light;
+  }
+
+  .arrow {
+    @apply mt-auto pt-3 text-sm text-app-gray-dim transition-colors;
+  }
+
+  .arrow::after {
+    content: " →";
+  }
+
+  .card:hover .arrow,
+  .card:focus-visible .arrow {
+    @apply text-app-blue;
+  }
+</style>

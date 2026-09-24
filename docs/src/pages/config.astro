@@ -1,0 +1,59 @@
+---
+import DocPage from "../layouts/DocPage.astro";
+import Heading from "../components/reference/Heading.astro";
+import JumpBar from "../components/reference/JumpBar.astro";
+import { config, prose } from "../reference";
+import type { Section } from "../reference/types";
+
+const flatten = (section: Section): Section[] => [section, ...section.sections.flatMap(flatten)];
+const sections = flatten(config).filter((section) => section.settings.length > 0 || section.description);
+const firstOf = new Map<string, string>();
+for (const section of sections) {
+  const table = section.path.split(".")[0] ?? "";
+  if (!firstOf.has(table)) firstOf.set(table, section.path);
+}
+const jumps = [...firstOf].map(([table, path]) => ({ href: `#${path || "top-level"}`, label: table || "top level" }));
+---
+
+<DocPage
+  title="Configuration"
+  description="Every key of ~/.config/weave/config.toml with its built-in default. Write only the keys you are changing; an unknown key is an error."
+>
+  <JumpBar items={jumps} />
+  {sections.map((section) => (
+    <section class="type">
+      <Heading id={section.path || "top-level"}>
+        {section.path ? <code class="table-name">[{section.path}]</code> : "Top level"}
+      </Heading>
+      {section.description && <div set:html={prose(section.description)} />}
+      {section.settings.length > 0 && (
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Key</th>
+                <th>Default</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              {section.settings.map((setting) => (
+                <tr id={setting.path}>
+                  <td>
+                    <a class="row-anchor" href={`#${setting.path}`}>
+                      <code>{setting.key}</code>
+                    </a>
+                  </td>
+                  <td class="default-cell" data-sep="=">
+                    <code class:list={{ long: setting.default.length > 24 }}>{setting.default}</code>
+                  </td>
+                  <td set:html={prose(setting.description)} />
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  ))}
+</DocPage>

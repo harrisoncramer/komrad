@@ -1,0 +1,114 @@
+---
+import DocPage from "../../../layouts/DocPage.astro";
+import CallTabs from "../../../components/reference/CallTabs.astro";
+import Heading from "../../../components/reference/Heading.astro";
+import EnumTable from "../../../components/reference/EnumTable.astro";
+import MessageTable from "../../../components/reference/MessageTable.astro";
+import { anchor, api, kebab, messageOf, prose, referencedTypes } from "../../../reference";
+import type { Field } from "../../../reference/types";
+import { link } from "../../../site";
+
+export function getStaticPaths() {
+  return api.services.flatMap((service) =>
+    service.methods.map((method) => ({
+      params: { service: service.slug, method: method.slug },
+      props: { service, method },
+    })),
+  );
+}
+
+const { service, method } = Astro.props;
+const request = messageOf(method.request);
+const response = messageOf(method.response);
+const oneofs = new Set<string>();
+const required = request.fields.filter((field) => {
+  if (!field.rules.includes("required")) return false;
+  if (!field.oneof) return true;
+  if (oneofs.has(field.oneof)) return false;
+  oneofs.add(field.oneof);
+  return true;
+});
+
+const placeholder = (field: Field) => {
+  if (field.repeated) return [`<${field.name}>`];
+  switch (field.type) {
+    case "bool":
+      return true;
+    case "int32":
+    case "int64":
+    case "uint32":
+    case "uint64":
+      return 0;
+    default:
+      return `<${field.name}>`;
+  }
+};
+
+const body = JSON.stringify(Object.fromEntries(required.map((field) => [field.name, placeholder(field)])), null, 2);
+const connect = `curl -X POST http://127.0.0.1:8787${method.path} \\
+  -H 'Content-Type: application/json' \\
+  -d '${body}'`;
+const cli = [method.command, ...required.map((field) => `--${kebab(field.name)} <${field.type}>`)].join(" \\\n  ");
+
+const args = Object.fromEntries(required.map((field) => [field.name, placeholder(field)]));
+const mcp = JSON.stringify({ name: method.tool, arguments: args }, null, 2);
+const offered = method.roles.length > 0 ? ` to ${method.roles.join(", ")} agents` : "";
+const tabs = [
+  { label: "Connect", code: connect, lang: "bash" as const },
+  { label: "CLI", code: cli, lang: "bash" as const },
+  ...(method.mcp
+    ? [{ label: "MCP", code: mcp, lang: "json" as const, note: `Offered by the weave MCP server${offered}.` }]
+    : []),
+];
+const details = method.description.slice(method.summary.length).trim();
+
+const types = referencedTypes([method.request, method.response]);
+const nested = types.messages.filter(([name]) => name !== method.request && name !== method.response);
+
+const traits = [
+  method.readOnly ? "read-only" : "writes",
+  method.idempotent ? "idempotent" : "not idempotent",
+  ...(method.destructive ? ["destructive"] : []),
+  ...(method.mcp ? ["MCP tool"] : ["CLI only"]),
+];
+---
+
+<DocPage title={method.tool} description={method.summary}>
+  <p class="traits">
+    <a href={link(`/api/${service.slug}`)} class="trait trait-link">
+      {service.title}
+    </a>
+    {traits.map((trait) => (
+      <span class="trait">{trait}</span>
+    ))}
+  </p>
+
+  {details && <div set:html={prose(details)} />}
+
+  <Heading id="calling-it">Calling it</Heading>
+  <CallTabs tabs={tabs} />
+
+  <Heading id="request">Request</Heading>
+  <MessageTable name={method.request} message={request} />
+
+  <Heading id="response">Response</Heading>
+  {method.response === method.request ? (
+    <p>
+      The same <a href={`#${anchor(method.request)}`}>{request.name}</a> as the request.
+    </p>
+  ) : (
+    <MessageTable name={method.response} message={response} />
+  )}
+
+  {(nested.length > 0 || types.enums.length > 0) && (
+    <>
+      <Heading id="types">Types</Heading>
+      {nested.map(([name, message]) => (
+        <MessageTable name={name} message={message} />
+      ))}
+      {types.enums.map(([name, value]) => (
+        <EnumTable name={name} value={value} />
+      ))}
+    </>
+  )}
+</DocPage>

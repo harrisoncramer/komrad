@@ -1,0 +1,46 @@
+---
+import "@fontsource-variable/inter";
+import "@fontsource/jetbrains-mono";
+import "../styles/global.css";
+
+import Header from "../components/Header";
+import Search from "../components/Search.astro";
+import { SITE_TITLE } from "../consts";
+import { link } from "../site";
+
+type Props = {
+  title: string;
+  description?: string;
+};
+
+const { title, description } = Astro.props;
+const pageTitle = title === SITE_TITLE ? title : `${title} | ${SITE_TITLE}`;
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    {description && <meta name="description" content={description} />}
+    <link rel="icon" type="image/png" href={link("/favicon.png")} />
+    <title>{pageTitle}</title>
+  </head>
+  <body>
+    <Header client:load path={Astro.url.pathname}>
+      <Search />
+    </Header>
+    <slot name="hero" />
+    <main class="mx-auto max-w-[900px] px-6 py-6">
+      <slot />
+    </main>
+    <script>
+      if (location.hash) {
+        history.scrollRestoration = "manual";
+        const target = document.getElementById(decodeURIComponent(location.hash.slice(1)));
+        const land = () => target?.scrollIntoView({ block: "start" });
+        land();
+        void document.fonts.ready.then(land);
+      }
+    </script>
+  </body>
+</html>
