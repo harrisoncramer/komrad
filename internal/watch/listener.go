@@ -130,7 +130,7 @@ func (b *Broker) handleNotification(payload string) {
 		return
 	}
 
-	b.Signal(resource, key)
+	b.signal(resource, key)
 }
 
 // up says the listener is on the channel, so watchers may open.

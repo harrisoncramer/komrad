@@ -47,7 +47,7 @@ func TestAStampOnlyUpdateSendsNothing(t *testing.T) {
 	require.Len(t, subscription.Snapshot(), 1)
 
 	stores.agents.put(stamped("a", time.Unix(2, 0)))
-	broker.Signal(watchv1.Resource_RESOURCE_AGENT, "a")
+	broker.signal(watchv1.Resource_RESOURCE_AGENT, "a")
 
 	require.Eventually(t, func() bool { return len(stores.agents.reads()) == 1 }, time.Second, time.Millisecond, "the row is read back")
 	assert.Empty(t, drain(subscription), "the rendered row is the one the watcher holds")
@@ -66,13 +66,13 @@ func TestARealChangeSendsOnce(t *testing.T) {
 	renamed := agentRow("a")
 	renamed.Name = "renamed"
 	stores.agents.put(renamed)
-	broker.Signal(watchv1.Resource_RESOURCE_AGENT, "a")
+	broker.signal(watchv1.Resource_RESOURCE_AGENT, "a")
 
 	changes := drain(subscription)
 	require.Len(t, changes, 1)
 	assert.Equal(t, "renamed", changes[0].Row.GetAgent().GetName())
 
-	broker.Signal(watchv1.Resource_RESOURCE_AGENT, "a")
+	broker.signal(watchv1.Resource_RESOURCE_AGENT, "a")
 	assert.Empty(t, drain(subscription), "the same row read back twice is sent once")
 }
 
@@ -87,15 +87,15 @@ func TestARowTouchedTenTimesInOnePassSendsOnce(t *testing.T) {
 	subscription, err := broker.Subscribe(t.Context())
 	require.NoError(t, err)
 
-	// The first Signal holds the loop while the other ten pile up behind it.
-	broker.Signal(watchv1.Resource_RESOURCE_AGENT, "a")
+	// The first signal holds the loop while the other ten pile up behind it.
+	broker.signal(watchv1.Resource_RESOURCE_AGENT, "a")
 	require.Eventually(t, func() bool { return len(stores.agents.reads()) == 1 }, time.Second, time.Millisecond)
 
 	renamed := agentRow("a")
 	renamed.Name = "renamed"
 	stores.agents.put(renamed)
 	for range 10 {
-		broker.Signal(watchv1.Resource_RESOURCE_AGENT, "a")
+		broker.signal(watchv1.Resource_RESOURCE_AGENT, "a")
 	}
 	close(stores.agents.held)
 
@@ -114,13 +114,13 @@ func TestATombstoneSendsWhetherOrNotTheRowWasHeld(t *testing.T) {
 	subscription, err := broker.Subscribe(t.Context())
 	require.NoError(t, err)
 
-	broker.Signal(watchv1.Resource_RESOURCE_AGENT, "never")
+	broker.signal(watchv1.Resource_RESOURCE_AGENT, "never")
 	never := drain(subscription)
 	require.Len(t, never, 1, "a key the watcher never held is still sent as gone")
 	assert.Nil(t, never[0].Row)
 
 	stores.agents.put()
-	broker.Signal(watchv1.Resource_RESOURCE_AGENT, "a")
+	broker.signal(watchv1.Resource_RESOURCE_AGENT, "a")
 
 	changes := drain(subscription)
 	require.Len(t, changes, 1)
@@ -131,6 +131,6 @@ func TestATombstoneSendsWhetherOrNotTheRowWasHeld(t *testing.T) {
 
 	// The row comes back, and is sent although it is the row the watcher last saw.
 	stores.agents.put(agentRow("a"))
-	broker.Signal(watchv1.Resource_RESOURCE_AGENT, "a")
+	broker.signal(watchv1.Resource_RESOURCE_AGENT, "a")
 	assert.Len(t, drain(subscription), 1)
 }
