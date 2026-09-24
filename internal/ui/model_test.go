@@ -177,16 +177,6 @@ func collectMessages(cmd tea.Cmd) []tea.Msg {
 	}
 }
 
-func pressLogs(t *testing.T, m model) model {
-	t.Helper()
-
-	next, _ := m.Update(keyMsg("l"))
-	shown, ok := next.(model)
-	require.True(t, ok)
-
-	return shown
-}
-
 func newFilterModel() model {
 	tmux := &recordingTmux{}
 	workflow := panel.Workflow{ID: "w1", Name: "core"}

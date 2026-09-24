@@ -404,12 +404,6 @@ func findLastFilled(lines []string) string {
 	return ""
 }
 
-func (m model) openRename(agent panel.Agent) model {
-	openRename(&m, agent)
-
-	return m
-}
-
 func (m model) openRenameForm(agent panel.Agent, name *string) model {
 	openRenameForm(&m, agent, name)
 

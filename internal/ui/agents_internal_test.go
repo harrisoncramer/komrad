@@ -15,7 +15,6 @@ import (
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
 
-	tea "charm.land/bubbletea/v2"
 	"connectrpc.com/connect"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
@@ -321,10 +320,6 @@ func (m model) agentsHeader() string {
 	return m.tabbedHeader(params.title, params.tally)
 }
 
-func (m model) agentsListView() string {
-	return m.screenListView(m.agents.listParams(m.shared()))
-}
-
 func detailsModel(tmux *recordingTmux) model {
 	m := infoModel(tmux)
 	m.height, m.width = 24, 40
@@ -346,12 +341,6 @@ func send(t *testing.T, m model, key string) model {
 	require.True(t, ok)
 
 	return shown
-}
-
-func resize(m model, width, height int) tea.Model {
-	next, _ := m.Update(tea.WindowSizeMsg{Width: width, Height: height})
-
-	return next
 }
 
 // readWorktree is a directory read through git as the tests hand it to the record.
