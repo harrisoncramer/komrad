@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"weave/internal/ui"
+	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
 
 	"github.com/stretchr/testify/assert"
@@ -99,18 +100,40 @@ func TestRebuilt(t *testing.T) {
 		}
 	})
 
-	t.Run("a review message being written is not taken over", func(t *testing.T) {
+	t.Run("a review that is busy is not taken over", func(t *testing.T) {
 		t.Parallel()
 
-		binary := &fakeBinary{isReplaced: true}
-		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{binary: binary})
-		harness.press("c")
-		binary.asked = 0
+		tests := []struct {
+			name  string
+			press []string
+		}{
+			{
+				name:  "a release being written",
+				press: []string{"ctrl+s"},
+			},
+			{
+				name:  "a pass over an agent's work",
+				press: []string{"c", "o", "k", "ctrl+s"},
+			},
+		}
 
-		harness.send(ui.NewTick(time.Now()))
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				t.Parallel()
 
-		assert.NotContains(t, harness.readFrame(), rebuiltNotice)
-		assert.Zero(t, binary.asked)
+				server := newReviewServer(t)
+				server.agent.State = agentv1.AgentState_AGENT_STATE_THINKING
+				binary := &fakeBinary{isReplaced: true}
+				harness := openReviewAt(t, server, panelHarnessParams{binary: binary})
+				harness.press(tt.press...)
+				binary.asked = 0
+
+				harness.send(ui.NewTick(time.Now()))
+
+				assert.NotContains(t, harness.readFrame(), rebuiltNotice)
+				assert.Zero(t, binary.asked)
+			})
+		}
 	})
 }
 

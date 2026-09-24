@@ -20,6 +20,7 @@ type undrawn struct {
 
 type driftScreen struct {
 	name    string
+	title   string
 	open    func(t *testing.T) *panelHarness
 	excused []undrawn
 }
@@ -30,7 +31,7 @@ func TestKeyDrift(t *testing.T) {
 
 	for _, screen := range buildDriftScreens() {
 		t.Run("the "+screen.name+" legend names every key it answers", func(t *testing.T) {
-			harness := screen.open(t)
+			harness := openDriftScreen(t, screen)
 			drawn := harness.panel.ReadLegendKeys()
 
 			for _, pressed := range pressable {
@@ -49,7 +50,7 @@ func TestKeyDrift(t *testing.T) {
 		})
 
 		t.Run("every key the "+screen.name+" legend is excused from is still answered", func(t *testing.T) {
-			harness := screen.open(t)
+			harness := openDriftScreen(t, screen)
 
 			for _, excused := range screen.excused {
 				assert.True(t, harness.panel.IsKeyTaken(excused.key),
@@ -76,8 +77,9 @@ func buildDriftScreens() []driftScreen {
 
 	return []driftScreen{
 		{
-			name: "agents",
-			open: openDriftAgents,
+			name:  "agents",
+			title: agentsTitle,
+			open:  openDriftAgents,
 			excused: []undrawn{
 				quit,
 				{
@@ -89,7 +91,8 @@ func buildDriftScreens() []driftScreen {
 			},
 		},
 		{
-			name: "schedules",
+			name:  "schedules",
+			title: schedulesTitle,
 			open: func(t *testing.T) *panelHarness {
 				t.Helper()
 
@@ -104,7 +107,8 @@ func buildDriftScreens() []driftScreen {
 			},
 		},
 		{
-			name: "archive",
+			name:  "archive",
+			title: archiveTitle,
 			open: func(t *testing.T) *panelHarness {
 				t.Helper()
 
@@ -119,7 +123,8 @@ func buildDriftScreens() []driftScreen {
 			},
 		},
 		{
-			name: "search",
+			name:  "search",
+			title: searchTitle,
 			open: func(t *testing.T) *panelHarness {
 				t.Helper()
 
@@ -135,7 +140,8 @@ func buildDriftScreens() []driftScreen {
 			excused: []undrawn{quit},
 		},
 		{
-			name: "review",
+			name:  "review",
+			title: "Review · auth",
 			open: func(t *testing.T) *panelHarness {
 				t.Helper()
 
@@ -154,7 +160,8 @@ func buildDriftScreens() []driftScreen {
 			},
 		},
 		{
-			name: "worktrees",
+			name:  "worktrees",
+			title: worktreesTitle,
 			open: func(t *testing.T) *panelHarness {
 				t.Helper()
 
@@ -166,6 +173,15 @@ func buildDriftScreens() []driftScreen {
 			},
 		},
 	}
+}
+
+func openDriftScreen(t *testing.T, screen driftScreen) *panelHarness {
+	t.Helper()
+
+	harness := screen.open(t)
+	require.Contains(t, splitLines(harness.readFrame())[0], screen.title, "the %s screen is up", screen.name)
+
+	return harness
 }
 
 func openDriftAgents(t *testing.T) *panelHarness {
