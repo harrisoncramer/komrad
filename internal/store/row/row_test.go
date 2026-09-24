@@ -2,7 +2,6 @@ package row_test
 
 import (
 	"testing"
-	"time"
 
 	"weave/internal/store"
 	"weave/internal/storetest"
@@ -10,7 +9,6 @@ import (
 	"weave/lib/xslice"
 
 	agentstore "weave/internal/store/agent"
-	pullrequeststore "weave/internal/store/pullrequest"
 	reviewstore "weave/internal/store/review"
 	rowstore "weave/internal/store/row"
 	runstore "weave/internal/store/run"
@@ -18,8 +16,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-const fixture = "https://github.com/harrisoncramer/weave-forge-fixture"
 
 // rowOf reads one agent's row back.
 func rowOf(t *testing.T, st *storetest.Stores, id string) rowstore.Row {
@@ -59,7 +55,6 @@ func TestRowCarriesTheAgent(t *testing.T) {
 	assert.Zero(t, row.LocalRounds)
 	assert.Nil(t, row.LocalVerdict)
 	assert.Empty(t, row.LocalReviewSHA)
-	assert.False(t, row.RepositoryRead)
 }
 
 // TestFailedRun pins the mark a failed script puts on a row: it names the run that failed last,
@@ -270,28 +265,6 @@ func TestReviewVersionSeesAnOlderStampCommittedLate(t *testing.T) {
 	require.NoError(t, early.Commit(ctx))
 
 	assert.NotEqual(t, before, rowOf(t, st, agent.ID).ReviewVersion)
-}
-
-// TestRepositoryRead pins the flag that tells an unread repository from one whose first sweep
-// completed and found nothing.
-func TestRepositoryRead(t *testing.T) {
-	st := storetest.Open(t)
-	ctx := t.Context()
-	agent := st.SeedAgent(t, agentstore.Agent{Name: "worker"})
-	require.NoError(t, st.Agents.SetCheckout(ctx, agent.ID, agentstore.SetCheckoutParams{RepositoryURL: xptr.Ptr(fixture), Branch: xptr.Ptr("agent/x")}))
-
-	require.NoError(t, st.PullRequestSyncs.EnsureSync(ctx, fixture))
-	require.NoError(t, st.PullRequestSyncs.RecordSyncRequest(ctx, fixture))
-	listed := time.Date(2026, 9, 19, 10, 0, 0, 0, time.UTC)
-	require.NoError(t, st.PullRequestSyncs.StartSweep(ctx, pullrequeststore.StartSweepParams{
-		RepositoryURL: fixture,
-		Newest:        listed,
-		ListedAt:      listed,
-	}))
-	assert.False(t, rowOf(t, st, agent.ID).RepositoryRead, "a request alone, or a sweep in progress, is not a read")
-
-	require.NoError(t, st.PullRequestSyncs.CompleteSweep(ctx, fixture))
-	assert.True(t, rowOf(t, st, agent.ID).RepositoryRead)
 }
 
 // TestListPage pins the paging: live or archived rows, newest first, from the cursor on, with

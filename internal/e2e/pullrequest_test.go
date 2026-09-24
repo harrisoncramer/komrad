@@ -123,7 +123,6 @@ func TestIntegrationPullRequestsReachTheRowFromEachForge(t *testing.T) {
 			assert.Equal(t, "ship the widgets", standing.GetTitle())
 			assert.Contains(t, standing.GetUrl(), "/12")
 
-			assert.True(t, listed.Msg.GetAgent().GetAgent().GetRepositoryRead())
 			onBranch := listed.Msg.GetAgent().GetPullRequests()
 			require.Len(t, onBranch, 2)
 			assert.Equal(t, int32(12), onBranch[0].GetNumber())

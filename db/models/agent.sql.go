@@ -866,14 +866,6 @@ SELECT
     COALESCE(t.rounds, 0)::int AS local_rounds,
     c.verdict AS local_verdict,
     c.snapshot_sha AS local_review_sha,
-    EXISTS (
-        SELECT
-            1
-        FROM
-            pull_request_syncs y
-        WHERE
-            y.repository_url = s.repository_url
-            AND y.updated_through IS NOT NULL)::boolean AS repository_read,
     CONCAT_WS(':', COALESCE(h.threads, 0), COALESCE(t.reviews, 0), h.moved, t.moved)::text AS review_version
 FROM
     agents s
@@ -892,7 +884,6 @@ type ListAgentFactsRow struct {
 	LocalRounds    int32
 	LocalVerdict   NullReviewVerdict
 	LocalReviewSha *string
-	RepositoryRead bool
 	ReviewVersion  string
 }
 
@@ -912,7 +903,6 @@ func (q *Queries) ListAgentFacts(ctx context.Context, ids []string) ([]*ListAgen
 			&i.LocalRounds,
 			&i.LocalVerdict,
 			&i.LocalReviewSha,
-			&i.RepositoryRead,
 			&i.ReviewVersion,
 		); err != nil {
 			return nil, err

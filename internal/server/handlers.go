@@ -101,6 +101,7 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 			Workflows:    params.Stores.workflows,
 			Unclaimed:    params.Stores.mail,
 			PullRequests: params.Stores.pullRequests,
+			Repositories: params.Stores.pullRequestSyncs,
 			Rebaser:      params.Services.rebase,
 			Orchestrator: params.Services.orchestrator,
 		})}, options...))

@@ -456,3 +456,14 @@ ORDER BY
     p.opened_at DESC,
     p.id DESC
 LIMIT @lim;
+
+-- name: ListWatchedRepositories :many
+SELECT
+    *
+FROM
+    pull_request_syncs
+WHERE
+    sqlc.narg('keys')::text[] IS NULL
+    OR repository_url = ANY (sqlc.narg('keys')::text[])
+ORDER BY
+    repository_url;

@@ -644,6 +644,47 @@ func (q *Queries) ListUnscannedBranches(ctx context.Context, repositoryUrl *stri
 	return items, nil
 }
 
+const listWatchedRepositories = `-- name: ListWatchedRepositories :many
+SELECT
+    repository_url, updated_through, listed_at, sweep_cursor, sweep_newest, read_at, calls, tenant_id
+FROM
+    pull_request_syncs
+WHERE
+    $1::text[] IS NULL
+    OR repository_url = ANY ($1::text[])
+ORDER BY
+    repository_url
+`
+
+func (q *Queries) ListWatchedRepositories(ctx context.Context, keys []string) ([]*PullRequestSync, error) {
+	rows, err := q.db.Query(ctx, listWatchedRepositories, keys)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*PullRequestSync
+	for rows.Next() {
+		var i PullRequestSync
+		if err := rows.Scan(
+			&i.RepositoryUrl,
+			&i.UpdatedThrough,
+			&i.ListedAt,
+			&i.SweepCursor,
+			&i.SweepNewest,
+			&i.ReadAt,
+			&i.Calls,
+			&i.TenantID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const markPullRequestSyncListed = `-- name: MarkPullRequestSyncListed :exec
 UPDATE
     pull_request_syncs

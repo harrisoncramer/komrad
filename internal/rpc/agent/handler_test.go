@@ -2319,6 +2319,7 @@ func serviceWithLauncher(t *testing.T) (agentv1weave.AgentServiceAdapter, *store
 		Workflows:    st.Workflows,
 		Unclaimed:    st.Mail,
 		PullRequests: st.PullRequests,
+		Repositories: st.PullRequestSyncs,
 		Creator:      launcher,
 		Adopter:      launcher,
 		Liveness:     launcher,

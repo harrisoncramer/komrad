@@ -25,6 +25,7 @@ func buildWatchLoaders(st *stores, runs *jobs.RunLister) []watch.Loader {
 		watch.NewLoader(watchv1.Resource_RESOURCE_MARK, st.marks, renderWatchedMark),
 		watch.NewLoader(watchv1.Resource_RESOURCE_MAIL, st.mail, renderWatchedMail),
 		watch.NewLoader(watchv1.Resource_RESOURCE_PULL_REQUEST, st.pullRequests, renderWatchedPullRequest),
+		watch.NewLoader(watchv1.Resource_RESOURCE_REPOSITORY, st.pullRequestSyncs, renderWatchedRepository),
 	}
 }
 
@@ -62,4 +63,10 @@ func renderWatchedPullRequest(row pullrequeststore.PullRequest) (string, *watchv
 	pullRequest := render.PullRequest(row)
 
 	return pullRequest.GetId(), &watchv1.Row{Row: &watchv1.Row_PullRequest{PullRequest: pullRequest}}
+}
+
+func renderWatchedRepository(row pullrequeststore.Sync) (string, *watchv1.Row) {
+	repository := render.Repository(row)
+
+	return repository.GetUrl(), &watchv1.Row{Row: &watchv1.Row_Repository{Repository: repository}}
 }

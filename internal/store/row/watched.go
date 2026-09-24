@@ -34,14 +34,6 @@ var WatchedAgents = watch.Resource{
 			Table:  "review_threads",
 			Column: "agent_id",
 		},
-		{
-			Table: "pull_request_syncs",
-			Lookup: &watch.Lookup{
-				ParentColumn:    "repository_url",
-				ChildColumn:     "repository_url",
-				SkipParentsWith: "archived_at",
-			},
-		},
 	},
 }
 

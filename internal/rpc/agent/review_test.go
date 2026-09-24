@@ -220,6 +220,7 @@ func reviewService(t *testing.T) (agentv1weave.AgentServiceAdapter, *storetest.S
 		Workflows:    st.Workflows,
 		Unclaimed:    st.Mail,
 		PullRequests: st.PullRequests,
+		Repositories: st.PullRequestSyncs,
 		Liveness:     liveness,
 	})}, st, rounds
 }

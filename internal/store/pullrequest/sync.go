@@ -174,15 +174,7 @@ func (s *PullRequestSyncStore) GetSync(ctx context.Context, repositoryURL string
 		return nil, fmt.Errorf("failed to get the sync row for %s: %w", repositoryURL, err)
 	}
 
-	return &Sync{
-		RepositoryURL:  row.RepositoryUrl,
-		UpdatedThrough: row.UpdatedThrough,
-		ListedAt:       row.ListedAt,
-		SweepCursor:    row.SweepCursor,
-		SweepNewest:    row.SweepNewest,
-		ReadAt:         row.ReadAt,
-		Calls:          int(row.Calls),
-	}, nil
+	return xptr.Ptr(fromSyncRow(row)), nil
 }
 
 // ResetSyncCalls starts a pass's count of requests for a repository at zero.
@@ -285,4 +277,16 @@ func (s *PullRequestSyncStore) MarkListed(ctx context.Context, repositoryURL str
 	}
 
 	return nil
+}
+
+func fromSyncRow(row *models.PullRequestSync) Sync {
+	return Sync{
+		RepositoryURL:  row.RepositoryUrl,
+		UpdatedThrough: row.UpdatedThrough,
+		ListedAt:       row.ListedAt,
+		SweepCursor:    row.SweepCursor,
+		SweepNewest:    row.SweepNewest,
+		ReadAt:         row.ReadAt,
+		Calls:          int(row.Calls),
+	}
 }

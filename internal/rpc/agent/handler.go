@@ -107,6 +107,7 @@ type NewHandlerParams struct {
 	Workflows    workflowReader
 	Unclaimed    unclaimedMailReader
 	PullRequests pullRequestReader
+	Repositories repositoryReader
 	Rebaser      worktreeRebaser
 	Orchestrator orchestratorStarter
 	Clock        func() time.Time
@@ -130,6 +131,7 @@ type Handler struct {
 	workflows    workflowReader
 	unclaimed    unclaimedMailReader
 	pullRequests pullRequestReader
+	repositories repositoryReader
 	rebaser      worktreeRebaser
 	orchestrator orchestratorStarter
 	now          func() time.Time
@@ -161,6 +163,7 @@ func NewHandler(params NewHandlerParams) *Handler {
 		workflows:    params.Workflows,
 		unclaimed:    params.Unclaimed,
 		pullRequests: params.PullRequests,
+		repositories: params.Repositories,
 		rebaser:      params.Rebaser,
 		orchestrator: params.Orchestrator,
 		now:          now,
