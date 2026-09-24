@@ -133,7 +133,7 @@ func TestWorktreesJump(t *testing.T) {
 	}
 }
 
-// TestWorktreesDelete covers the delete keys, which ask first and go through the path the directory's owner names.
+// TestWorktreesDelete covers what each delete key opens on the row under the cursor.
 func TestWorktreesDelete(t *testing.T) {
 	t.Parallel()
 
@@ -298,7 +298,7 @@ func TestWorktreesDeleteAnswer(t *testing.T) {
 	}
 }
 
-// TestWorktreesRecord covers the record under the list, read first off the listing and filled in once the directory is read.
+// TestWorktreesRecord covers the record the list draws for a directory.
 func TestWorktreesRecord(t *testing.T) {
 	t.Parallel()
 
@@ -486,7 +486,7 @@ func TestWorktreesRecordOccupants(t *testing.T) {
 	}
 }
 
-// TestWorktreesDocument covers the document beside the list, drawn from the read of the directory.
+// TestWorktreesDocument covers the document drawn beside the list.
 func TestWorktreesDocument(t *testing.T) {
 	t.Parallel()
 

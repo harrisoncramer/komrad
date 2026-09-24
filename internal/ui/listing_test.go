@@ -47,7 +47,7 @@ func settle(t *testing.T, m model, cmd tea.Cmd) model {
 	return m
 }
 
-// applyListing hands the model the live workflows the way a watch snapshot does, with no agents.
+// applyListing hands the model a listing of workflows and no agents.
 func applyListing(m *model, workflows []panel.Workflow) {
 	m.withListing(func(l *listing) {
 		l.agents, l.workflows = nil, workflows

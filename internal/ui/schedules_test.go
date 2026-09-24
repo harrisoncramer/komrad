@@ -274,7 +274,7 @@ func TestSchedulesDocument(t *testing.T) {
 	})
 }
 
-// TestSchedulesRecord covers the record under the list: the schedule's own settings, then the defaults of its workflow.
+// TestSchedulesRecord covers the fields the record under the list draws for a schedule.
 func TestSchedulesRecord(t *testing.T) {
 	configured := &workflowv1.Workflow{
 		Id:      "w1",
