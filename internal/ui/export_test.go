@@ -2,6 +2,7 @@ package ui
 
 import (
 	"weave/config"
+	"weave/internal/engine"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	"weave/proto/gen/hook/v1/hookv1connect"
 	schedulev1connect "weave/proto/gen/schedule/v1/schedulev1connect"
@@ -31,10 +32,17 @@ type NewPanelParams struct {
 	SidebarSide   string
 	Width         int
 	Height        int
+	Settings      PanelSettings
+	Engine        engine.Remote
+	HarnessFrames harnessFrameReader
+	ConfigErr     error
+	StartupErr    error
 }
 
 // NewPanel builds the panel the way weave panel does, over a recording tmux.
 func NewPanel(params NewPanelParams) *Panel {
+	settings := params.Settings
+	settings.Pane = "%0"
 	tmux := &recordingTmux{
 		width:       params.Width,
 		height:      params.Height,
@@ -51,17 +59,21 @@ func NewPanel(params NewPanelParams) *Panel {
 
 	return &Panel{
 		model: newModel(Deps{
-			PopupWindow: NewPopupWindow(tmux, "test-session"),
-			Tmux:        tmux,
-			Git:         params.Git,
-			Agents:      params.Agents,
-			Workflows:   params.Workflows,
-			Schedules:   params.Schedules,
-			Hooks:       params.Hooks,
-			Worktrees:   params.Worktrees,
-			Keys:        params.Keys,
-			Layout:      layout,
-			Settings:    PanelSettings{Pane: "%0"},
+			PopupWindow:   NewPopupWindow(tmux, "test-session"),
+			Tmux:          tmux,
+			Git:           params.Git,
+			Agents:        params.Agents,
+			Workflows:     params.Workflows,
+			Schedules:     params.Schedules,
+			Hooks:         params.Hooks,
+			Worktrees:     params.Worktrees,
+			Keys:          params.Keys,
+			Layout:        layout,
+			Engine:        params.Engine,
+			HarnessFrames: params.HarnessFrames,
+			Settings:      settings,
+			ConfigErr:     params.ConfigErr,
+			StartupErr:    params.StartupErr,
 		}, true, post),
 		post: post,
 		tmux: tmux,
@@ -113,4 +125,29 @@ func (p *Panel) CountRespawns() int {
 // CountSentKeys is how many key sends the panel has typed into panes.
 func (p *Panel) CountSentKeys() int {
 	return len(p.tmux.sentKeys)
+}
+
+// NewWatchLost is the message the panel hears when its watch stream ends.
+func NewWatchLost(err error) tea.Msg {
+	return watchLostMsg{err: err}
+}
+
+// ReadGuestPane is the pane the panel has swapped into its stage.
+func (p *Panel) ReadGuestPane() string {
+	return p.model.frame.GuestPane()
+}
+
+// ReadSelectedPanes is every pane the panel has handed the keyboard to.
+func (p *Panel) ReadSelectedPanes() []string {
+	return p.tmux.selected
+}
+
+// ReadRespawns is every command the panel has respawned a pane with.
+func (p *Panel) ReadRespawns() []string {
+	return p.tmux.respawns
+}
+
+// ReadKilledPanes is every pane the panel has killed.
+func (p *Panel) ReadKilledPanes() []string {
+	return p.tmux.killed
 }

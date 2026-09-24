@@ -15,6 +15,7 @@ import (
 
 	"weave/config"
 	"weave/internal/client"
+	"weave/internal/engine"
 	"weave/internal/ui"
 	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
@@ -69,6 +70,10 @@ type panelHarness struct {
 type request struct {
 	procedure string
 	msg       proto.Message
+}
+
+type harnessFrames interface {
+	DoesFrameShowHarness(pane, harnessID string) bool
 }
 
 type answerFunc func(req connect.AnyRequest) (connect.AnyResponse, error)
@@ -146,6 +151,11 @@ type panelHarnessParams struct {
 	sidebarSide   string
 	keys          *config.Keybindings
 	git           ui.ReviewGit
+	settings      ui.PanelSettings
+	engine        engine.Remote
+	harnessFrames harnessFrames
+	configErr     error
+	startupErr    error
 }
 
 func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
@@ -192,6 +202,11 @@ func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
 			SidebarSide:   params.sidebarSide,
 			Width:         width,
 			Height:        height,
+			Settings:      params.settings,
+			Engine:        params.engine,
+			HarnessFrames: params.harnessFrames,
+			ConfigErr:     params.configErr,
+			StartupErr:    params.startupErr,
 		}),
 	}
 

@@ -76,9 +76,6 @@ func TestNewModelWiresTmux(t *testing.T) {
 			m := newModel(Deps{
 				PopupWindow: NewPopupWindow(tmux, "manager"),
 				Tmux:        tmux,
-				Agents:      refusingAgents{},
-				Workflows:   emptyLists{},
-				Schedules:   &fakeSchedules{},
 				Keys:        config.DefaultKeybindings(),
 				Settings:    PanelSettings{Addr: "127.0.0.1:8787"},
 			}, true, nil)
