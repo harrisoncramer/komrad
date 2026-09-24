@@ -28,6 +28,19 @@ type scheduleRow struct {
 	paused   bool
 }
 
+type scheduleWriter struct {
+	stores     *storetest.Stores
+	workflowID string
+	ids        map[string]string
+	keys       map[string]string
+}
+
+type recordingPeriodic struct {
+	added   []string
+	removed []string
+	refused string
+}
+
 // TestSchedulerReconcile pins which schedules a pass registers and which it takes off.
 func TestSchedulerReconcile(t *testing.T) {
 	tests := []struct {
@@ -41,8 +54,8 @@ func TestSchedulerReconcile(t *testing.T) {
 		{
 			name: "a registration River refuses leaves the rest registered",
 			passes: [][]scheduleRow{{
-				armed("older", "0 9 * * *"),
-				armed("newer", "0 10 * * *"),
+				newArmedRow("older", "0 9 * * *"),
+				newArmedRow("newer", "0 10 * * *"),
 			}},
 			failFor:   "newer",
 			wantErr:   true,
@@ -51,10 +64,10 @@ func TestSchedulerReconcile(t *testing.T) {
 		{
 			name: "and a schedule paused since the last pass still comes off",
 			passes: [][]scheduleRow{
-				{armed("good", "0 9 * * *")},
+				{newArmedRow("good", "0 9 * * *")},
 				{
-					armed("broken", "0 10 * * *"),
-					paused("good", "0 9 * * *"),
+					newArmedRow("broken", "0 10 * * *"),
+					newPausedRow("good", "0 9 * * *"),
 				},
 			},
 			failFor:     "broken",
@@ -65,20 +78,20 @@ func TestSchedulerReconcile(t *testing.T) {
 		{
 			name: "an unparseable expression is skipped, leaving the rest registered",
 			passes: [][]scheduleRow{{
-				armed("bad", "0 99 * * *"),
-				armed("good", "0 9 * * *"),
+				newArmedRow("bad", "0 99 * * *"),
+				newArmedRow("good", "0 9 * * *"),
 			}},
 			wantAdded: []string{"good"},
 		},
 		{
 			name:   "a paused schedule is not registered",
-			passes: [][]scheduleRow{{paused("s1", "0 9 * * *")}},
+			passes: [][]scheduleRow{{newPausedRow("s1", "0 9 * * *")}},
 		},
 		{
 			name: "a schedule paused since the last pass is taken off",
 			passes: [][]scheduleRow{
-				{armed("s1", "0 9 * * *")},
-				{paused("s1", "0 9 * * *")},
+				{newArmedRow("s1", "0 9 * * *")},
+				{newPausedRow("s1", "0 9 * * *")},
 			},
 			wantAdded:   []string{"s1"},
 			wantRemoved: []string{"s1"},
@@ -86,7 +99,7 @@ func TestSchedulerReconcile(t *testing.T) {
 		{
 			name: "so is one archived since the last pass",
 			passes: [][]scheduleRow{
-				{armed("s1", "0 9 * * *")},
+				{newArmedRow("s1", "0 9 * * *")},
 				{},
 			},
 			wantAdded:   []string{"s1"},
@@ -95,24 +108,24 @@ func TestSchedulerReconcile(t *testing.T) {
 		{
 			name: "a second pass over an unchanged schedule registers nothing again",
 			passes: [][]scheduleRow{
-				{armed("s1", "0 9 * * *")},
-				{armed("s1", "0 9 * * *")},
+				{newArmedRow("s1", "0 9 * * *")},
+				{newArmedRow("s1", "0 9 * * *")},
 			},
 			wantAdded: []string{"s1"},
 		},
 		{
 			name: "renaming a schedule leaves its registration alone",
 			passes: [][]scheduleRow{
-				{armed("s1", "0 9 * * *")},
-				{renamed(armed("s1", "0 9 * * *"), "new-name")},
+				{newArmedRow("s1", "0 9 * * *")},
+				{renameRow(newArmedRow("s1", "0 9 * * *"), "new-name")},
 			},
 			wantAdded: []string{"s1"},
 		},
 		{
 			name: "a changed expression replaces the registration rather than adding a second",
 			passes: [][]scheduleRow{
-				{armed("s1", "0 9 * * *")},
-				{armed("s1", "*/5 * * * *")},
+				{newArmedRow("s1", "0 9 * * *")},
+				{newArmedRow("s1", "*/5 * * * *")},
 			},
 			wantAdded:   []string{"s1", "s1"},
 			wantRemoved: []string{"s1"},
@@ -120,15 +133,15 @@ func TestSchedulerReconcile(t *testing.T) {
 		{
 			name: "a changed timezone counts as a change too",
 			passes: [][]scheduleRow{
-				{armed("s1", "0 9 * * *")},
-				{inZone(armed("s1", "0 9 * * *"), "America/New_York")},
+				{newArmedRow("s1", "0 9 * * *")},
+				{setRowZone(newArmedRow("s1", "0 9 * * *"), "America/New_York")},
 			},
 			wantAdded:   []string{"s1", "s1"},
 			wantRemoved: []string{"s1"},
 		},
 		{
 			name:      "an armed schedule is registered",
-			passes:    [][]scheduleRow{{armed("s1", "0 9 * * *")}},
+			passes:    [][]scheduleRow{{newArmedRow("s1", "0 9 * * *")}},
 			wantAdded: []string{"s1"},
 		},
 	}
@@ -148,8 +161,8 @@ func TestSchedulerReconcile(t *testing.T) {
 			}
 
 			assert.Equal(t, tt.wantErr, errors.Join(errs...) != nil)
-			assert.Equal(t, tt.wantAdded, writer.keysOf(periodic.added))
-			assert.Equal(t, tt.wantRemoved, writer.keysOf(periodic.removed))
+			assert.Equal(t, tt.wantAdded, writer.lookupKeys(periodic.added))
+			assert.Equal(t, tt.wantRemoved, writer.lookupKeys(periodic.removed))
 		})
 	}
 }
@@ -161,130 +174,13 @@ func TestSchedulerReconcileFailure(t *testing.T) {
 	periodic := &recordingPeriodic{}
 	scheduler := NewScheduler(stores.Schedules, periodic)
 
-	writer.apply(t, []scheduleRow{armed("s1", "0 9 * * *")})
+	writer.apply(t, []scheduleRow{newArmedRow("s1", "0 9 * * *")})
 	require.NoError(t, scheduler.Reconcile(t.Context()))
 
 	require.NoError(t, stores.Pool.Close())
 
 	require.Error(t, scheduler.Reconcile(t.Context()))
 	assert.Empty(t, periodic.removed, "a failed pass must not read as every schedule having been archived")
-}
-
-func armed(key, cron string) scheduleRow {
-	return scheduleRow{
-		key:  key,
-		cron: cron,
-	}
-}
-
-func paused(key, cron string) scheduleRow {
-	row := armed(key, cron)
-	row.paused = true
-
-	return row
-}
-
-func renamed(row scheduleRow, name string) scheduleRow {
-	row.name = name
-
-	return row
-}
-
-func inZone(row scheduleRow, timezone string) scheduleRow {
-	row.timezone = timezone
-
-	return row
-}
-
-type scheduleWriter struct {
-	stores     *storetest.Stores
-	workflowID string
-	ids        map[string]string
-	keys       map[string]string
-}
-
-func newScheduleWriter(t *testing.T, stores *storetest.Stores) *scheduleWriter {
-	t.Helper()
-
-	return &scheduleWriter{
-		stores:     stores,
-		workflowID: stores.SeedWorkflow(t, workflowstore.Config{Name: "nightly"}).ID,
-		ids:        map[string]string{},
-		keys:       map[string]string{},
-	}
-}
-
-func (w *scheduleWriter) apply(t *testing.T, pass []scheduleRow) {
-	t.Helper()
-
-	kept := map[string]bool{}
-	for _, row := range pass {
-		kept[row.key] = true
-
-		name := row.name
-		if name == "" {
-			name = row.key
-		}
-		cfg := schedulestore.Config{
-			Name:       name,
-			Cron:       row.cron,
-			Timezone:   row.timezone,
-			Enabled:    !row.paused,
-			Prompt:     "go",
-			WorkflowID: w.workflowID,
-		}
-
-		if id, ok := w.ids[row.key]; ok {
-			require.NoError(t, w.stores.Schedules.Update(t.Context(), id, cfg))
-
-			continue
-		}
-
-		created, err := w.stores.Schedules.Create(t.Context(), cfg)
-		require.NoError(t, err)
-		w.ids[row.key] = created.ID
-		w.keys[created.ID] = row.key
-	}
-
-	for key, id := range w.ids {
-		if !kept[key] {
-			require.NoError(t, w.stores.Schedules.Archive(t.Context(), id))
-		}
-	}
-}
-
-func (w *scheduleWriter) keysOf(ids []string) []string {
-	if len(ids) == 0 {
-		return nil
-	}
-
-	return xslice.Map(ids, func(id string) string {
-		return w.keys[id]
-	})
-}
-
-type recordingPeriodic struct {
-	added   []string
-	removed []string
-	refused string
-}
-
-func (r *recordingPeriodic) Add(id string, cron river.PeriodicSchedule) error {
-	if cron == nil {
-		return errors.New("a registration with nothing to fire on")
-	}
-
-	r.added = append(r.added, id)
-
-	if id == r.refused {
-		return fmt.Errorf("refusing to register %q", id)
-	}
-
-	return nil
-}
-
-func (r *recordingPeriodic) Remove(id string) {
-	r.removed = append(r.removed, id)
 }
 
 // TestOccurrenceFor covers which firing a job is filed under, whenever River's enqueuer gets to
@@ -396,4 +292,108 @@ func TestLaunchArgsForOccurrence(t *testing.T) {
 
 	assert.Equal(t, "s1", launch.ScheduleID)
 	assert.Equal(t, nine, launch.ScheduledFor.UTC())
+}
+
+func newArmedRow(key, cron string) scheduleRow {
+	return scheduleRow{
+		key:  key,
+		cron: cron,
+	}
+}
+
+func newPausedRow(key, cron string) scheduleRow {
+	row := newArmedRow(key, cron)
+	row.paused = true
+
+	return row
+}
+
+func renameRow(row scheduleRow, name string) scheduleRow {
+	row.name = name
+
+	return row
+}
+
+func setRowZone(row scheduleRow, timezone string) scheduleRow {
+	row.timezone = timezone
+
+	return row
+}
+
+func newScheduleWriter(t *testing.T, stores *storetest.Stores) *scheduleWriter {
+	t.Helper()
+
+	return &scheduleWriter{
+		stores:     stores,
+		workflowID: stores.SeedWorkflow(t, workflowstore.Config{Name: "nightly"}).ID,
+		ids:        map[string]string{},
+		keys:       map[string]string{},
+	}
+}
+
+func (w *scheduleWriter) apply(t *testing.T, pass []scheduleRow) {
+	t.Helper()
+
+	kept := map[string]bool{}
+	for _, row := range pass {
+		kept[row.key] = true
+
+		name := row.name
+		if name == "" {
+			name = row.key
+		}
+		cfg := schedulestore.Config{
+			Name:       name,
+			Cron:       row.cron,
+			Timezone:   row.timezone,
+			Enabled:    !row.paused,
+			Prompt:     "go",
+			WorkflowID: w.workflowID,
+		}
+
+		if id, ok := w.ids[row.key]; ok {
+			require.NoError(t, w.stores.Schedules.Update(t.Context(), id, cfg))
+
+			continue
+		}
+
+		created, err := w.stores.Schedules.Create(t.Context(), cfg)
+		require.NoError(t, err)
+		w.ids[row.key] = created.ID
+		w.keys[created.ID] = row.key
+	}
+
+	for key, id := range w.ids {
+		if !kept[key] {
+			require.NoError(t, w.stores.Schedules.Archive(t.Context(), id))
+		}
+	}
+}
+
+func (w *scheduleWriter) lookupKeys(ids []string) []string {
+	if len(ids) == 0 {
+		return nil
+	}
+
+	return xslice.Map(ids, func(id string) string {
+		return w.keys[id]
+	})
+}
+
+func (r *recordingPeriodic) Add(id string, cron river.PeriodicSchedule) error {
+	if cron == nil {
+		return errors.New("a registration with nothing to fire on")
+	}
+
+	r.added = append(r.added, id)
+
+	if id == r.refused {
+		return fmt.Errorf("refusing to register %q", id)
+	}
+
+	return nil
+}
+
+func (r *recordingPeriodic) Remove(id string) {
+	r.removed = append(r.removed, id)
 }

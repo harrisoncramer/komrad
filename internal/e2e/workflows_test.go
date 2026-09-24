@@ -42,11 +42,14 @@ func TestIntegrationWorkflowsAgainstRealRepositories(t *testing.T) {
 		clone := initGitRepo(t)
 		runGitIn(t, clone, "checkout", "--quiet", "-b", "wip")
 
-		assertStoredBase(t, instance, &workflowv1.CreateWorkflowRequest{
-			Name:     "cloned",
-			Cwd:      clone,
-			Worktree: &workflowv1.WorktreeConfig{Enabled: true},
-		}, "main")
+		assertStoredBase(t, instance, assertStoredBaseParams{
+			req: &workflowv1.CreateWorkflowRequest{
+				Name:     "cloned",
+				Cwd:      clone,
+				Worktree: &workflowv1.WorktreeConfig{Enabled: true},
+			},
+			want: "main",
+		})
 	})
 
 	t.Run("a repository with no origin stores the branch it is on", func(t *testing.T) {
@@ -58,11 +61,14 @@ func TestIntegrationWorkflowsAgainstRealRepositories(t *testing.T) {
 		runGitIn(t, dir, "add", "README.md")
 		runGitIn(t, dir, "commit", "--quiet", "-m", "initial")
 
-		assertStoredBase(t, instance, &workflowv1.CreateWorkflowRequest{
-			Name:     "local",
-			Cwd:      dir,
-			Worktree: &workflowv1.WorktreeConfig{Enabled: true},
-		}, "trunk")
+		assertStoredBase(t, instance, assertStoredBaseParams{
+			req: &workflowv1.CreateWorkflowRequest{
+				Name:     "local",
+				Cwd:      dir,
+				Worktree: &workflowv1.WorktreeConfig{Enabled: true},
+			},
+			want: "trunk",
+		})
 	})
 
 	t.Run("deleting finishes once a slow cleanup catches up", func(t *testing.T) {
@@ -99,14 +105,19 @@ func TestIntegrationWorkflowsAgainstRealRepositories(t *testing.T) {
 	})
 }
 
-func assertStoredBase(t *testing.T, instance *weavetest.Instance, req *workflowv1.CreateWorkflowRequest, want string) {
+type assertStoredBaseParams struct {
+	req  *workflowv1.CreateWorkflowRequest
+	want string
+}
+
+func assertStoredBase(t *testing.T, instance *weavetest.Instance, params assertStoredBaseParams) {
 	t.Helper()
 
-	created, err := instance.Workflows.CreateWorkflow(t.Context(), connect.NewRequest(req))
+	created, err := instance.Workflows.CreateWorkflow(t.Context(), connect.NewRequest(params.req))
 	require.NoError(t, err)
-	assert.Equal(t, want, created.Msg.GetWorkflow().GetWorktree().GetBaseBranch(), "the response carries the base stored")
+	assert.Equal(t, params.want, created.Msg.GetWorkflow().GetWorktree().GetBaseBranch(), "the response carries the base stored")
 
 	read, err := instance.Workflows.GetWorkflow(t.Context(), connect.NewRequest(&workflowv1.GetWorkflowRequest{Id: created.Msg.GetWorkflow().GetId()}))
 	require.NoError(t, err)
-	assert.Equal(t, want, read.Msg.GetWorkflow().GetWorktree().GetBaseBranch())
+	assert.Equal(t, params.want, read.Msg.GetWorkflow().GetWorktree().GetBaseBranch())
 }

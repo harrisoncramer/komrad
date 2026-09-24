@@ -13,9 +13,10 @@ import (
 var nine = time.Date(2026, time.July, 28, 9, 0, 0, 0, time.UTC)
 
 type firing struct {
-	hour    int
-	attempt int
-	outcome *RunOutcome
+	scheduleID string
+	hour       int
+	attempt    int
+	outcome    *RunOutcome
 }
 
 type wantRun struct {
@@ -148,10 +149,14 @@ func TestListRuns(t *testing.T) {
 				Cron:   "0 2 * * *",
 				Prompt: "sweep",
 			})
-			startRun(t, st, other.ID, firing{attempt: 1})
+			startRun(t, st, firing{
+				scheduleID: other.ID,
+				attempt:    1,
+			})
 
 			for _, fire := range tt.firings {
-				startRun(t, st, fired.ID, fire)
+				fire.scheduleID = fired.ID
+				startRun(t, st, fire)
 			}
 
 			limit := tt.limit
@@ -188,10 +193,11 @@ func TestFinishRunPrunesTheOldestRuns(t *testing.T) {
 	})
 
 	for hour := range runsKept + 1 {
-		startRun(t, st, created.ID, firing{
-			hour:    hour,
-			attempt: 1,
-			outcome: &RunOutcome{State: RunStateCompleted},
+		startRun(t, st, firing{
+			scheduleID: created.ID,
+			hour:       hour,
+			attempt:    1,
+			outcome:    &RunOutcome{State: RunStateCompleted},
 		})
 	}
 
@@ -203,54 +209,82 @@ func TestFinishRunPrunesTheOldestRuns(t *testing.T) {
 
 // TestRunsRideOnTheSchedule pins which reads carry a schedule's newest run and which carry its recent ones.
 func TestRunsRideOnTheSchedule(t *testing.T) {
-	st := open(t)
-	ctx := t.Context()
+	tests := []struct {
+		name       string
+		read       func(t *testing.T, st *fixture, id string) []Schedule
+		wantRecent int
+	}{
+		{
+			name: "a read of one schedule carries only its newest run",
+			read: func(t *testing.T, st *fixture, id string) []Schedule {
+				got, err := st.Get(t.Context(), id)
+				require.NoError(t, err)
 
-	fired := seed(t, st, Config{
-		Name:   "morning-ci",
-		Cron:   "0 9 * * *",
-		Prompt: "check CI",
-	})
-	quiet := seed(t, st, Config{
-		Name:   "nightly",
-		Cron:   "0 2 * * *",
-		Prompt: "sweep",
-	})
-	for hour := range 3 {
-		startRun(t, st, fired.ID, firing{
-			hour:    hour,
-			attempt: 1,
-			outcome: &RunOutcome{State: RunStateCompleted},
-		})
+				return []Schedule{*got}
+			},
+		},
+		{
+			name: "a page of schedules carries the newest run of each",
+			read: func(t *testing.T, st *fixture, _ string) []Schedule {
+				page, err := st.ListPage(t.Context(), 10, nil)
+				require.NoError(t, err)
+
+				return page
+			},
+		},
+		{
+			name: "the watched set carries the recent runs too",
+			read: func(t *testing.T, st *fixture, _ string) []Schedule {
+				watched, err := st.ListWatched(t.Context(), nil)
+				require.NoError(t, err)
+
+				return watched
+			},
+			wantRecent: 3,
+		},
 	}
 
-	newest := nine.Add(2 * time.Hour)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := open(t)
 
-	got, err := st.Get(ctx, fired.ID)
-	require.NoError(t, err)
-	require.NotNil(t, got.LatestRun)
-	assert.Equal(t, newest, got.LatestRun.ScheduledFor.UTC(), "a read of one schedule carries its newest run")
-	assert.Empty(t, got.RecentRuns, "and none of the others")
+			fired := seed(t, st, Config{
+				Name:   "morning-ci",
+				Cron:   "0 9 * * *",
+				Prompt: "check CI",
+			})
+			quiet := seed(t, st, Config{
+				Name:   "nightly",
+				Cron:   "0 2 * * *",
+				Prompt: "sweep",
+			})
+			for hour := range 3 {
+				startRun(t, st, firing{
+					scheduleID: fired.ID,
+					hour:       hour,
+					attempt:    1,
+					outcome:    &RunOutcome{State: RunStateCompleted},
+				})
+			}
 
-	page, err := st.ListPage(ctx, 10, nil)
-	require.NoError(t, err)
-	byID := scheduleByID(page)
-	require.NotNil(t, byID[fired.ID].LatestRun)
-	assert.Equal(t, newest, byID[fired.ID].LatestRun.ScheduledFor.UTC(), "so does a page of them")
-	assert.Nil(t, byID[quiet.ID].LatestRun, "a schedule that never fired carries none")
+			byID := indexSchedulesByID(tt.read(t, st, fired.ID))
 
-	watched, err := st.ListWatched(ctx, nil)
-	require.NoError(t, err)
-	byID = scheduleByID(watched)
-	assert.Len(t, byID[fired.ID].RecentRuns, 3, "the watched set carries the recent runs too")
-	assert.Empty(t, byID[quiet.ID].RecentRuns)
+			require.NotNil(t, byID[fired.ID].LatestRun)
+			assert.Equal(t, nine.Add(2*time.Hour), byID[fired.ID].LatestRun.ScheduledFor.UTC())
+			assert.Len(t, byID[fired.ID].RecentRuns, tt.wantRecent)
+			if unfired, ok := byID[quiet.ID]; ok {
+				assert.Nil(t, unfired.LatestRun, "a schedule that never fired carries no run")
+				assert.Empty(t, unfired.RecentRuns)
+			}
+		})
+	}
 }
 
-func startRun(t *testing.T, st *fixture, scheduleID string, fire firing) {
+func startRun(t *testing.T, st *fixture, fire firing) {
 	t.Helper()
 
 	occurrence := RunOccurrence{
-		ScheduleID:   scheduleID,
+		ScheduleID:   fire.scheduleID,
 		ScheduledFor: nine.Add(time.Duration(fire.hour) * time.Hour),
 	}
 	require.NoError(t, st.StartRun(t.Context(), StartRunParams{
@@ -264,7 +298,7 @@ func startRun(t *testing.T, st *fixture, scheduleID string, fire firing) {
 	}
 }
 
-func scheduleByID(schedules []Schedule) map[string]Schedule {
+func indexSchedulesByID(schedules []Schedule) map[string]Schedule {
 	byID := make(map[string]Schedule, len(schedules))
 	for _, schedule := range schedules {
 		byID[schedule.ID] = schedule
