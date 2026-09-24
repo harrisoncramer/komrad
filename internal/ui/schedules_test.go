@@ -81,9 +81,11 @@ func TestSchedulesKeys(t *testing.T) {
 			wantDrawn: []string{archiveAsk},
 		},
 		{
-			name:  "archive once confirmed archives the hovered schedule",
-			rows:  buildSchedules(),
-			press: []string{"z", "y"},
+			name:       "archive once confirmed archives the hovered schedule and lands back on the schedules",
+			rows:       buildSchedules(),
+			press:      []string{"z", "y"},
+			wantDrawn:  []string{schedulesTitle},
+			wantAbsent: []string{archiveAsk},
 			wantSent: []request{{
 				procedure: schedulev1connect.ScheduleServiceArchiveScheduleProcedure,
 				msg:       &schedulev1.ArchiveScheduleRequest{Id: "s1"},
@@ -377,7 +379,7 @@ func TestSchedulesLaunchedAgent(t *testing.T) {
 
 // TestSchedulesForm covers writing a schedule through its form.
 func TestSchedulesForm(t *testing.T) {
-	t.Run("a refused create says why", func(t *testing.T) {
+	t.Run("a refused create says why and keeps what was typed", func(t *testing.T) {
 		harness := openSchedules(t, buildSchedules()...)
 		harness.refuse(schedulev1connect.ScheduleServiceCreateScheduleProcedure, errors.New("cron must be five fields"))
 
@@ -394,7 +396,10 @@ func TestSchedulesForm(t *testing.T) {
 			Enabled:    true,
 			WorkflowId: "w1",
 		})
-		assert.Contains(t, harness.readFrame(), "Could not create the schedule")
+		frame := harness.readFrame()
+		assert.Contains(t, frame, "Could not create the schedule")
+		assert.Contains(t, readStageText(frame), "> x")
+		assert.Contains(t, readStageText(frame), "> 0 9 * * *")
 	})
 
 	t.Run("a refused pause says why", func(t *testing.T) {
@@ -405,6 +410,26 @@ func TestSchedulesForm(t *testing.T) {
 		harness.press("space")
 
 		assert.Contains(t, harness.readFrame(), `Could not pause schedule "morning-ci"`)
+	})
+
+	t.Run("an edit sends the field it changed and the flags it was opened with", func(t *testing.T) {
+		hidden := newSchedule("s1", "morning-ci")
+		hidden.HideAgents = true
+		harness := openSchedules(t, newLiveWorkflow("w1", "api"), hidden)
+
+		harness.press("e", "tab", "tab", "tab")
+		typeText(harness, " harder")
+		harness.press("ctrl+s")
+
+		harness.assertSentTo(schedulev1connect.ScheduleServiceUpdateScheduleProcedure, &schedulev1.UpdateScheduleRequest{
+			Id:         "s1",
+			Name:       "morning-ci",
+			Cron:       "0 9 * * 1-5",
+			Enabled:    true,
+			HideAgents: true,
+			Prompt:     "check CI harder",
+			WorkflowId: "w1",
+		})
 	})
 
 	t.Run("every confirm draws its buttons in the same column", func(t *testing.T) {
