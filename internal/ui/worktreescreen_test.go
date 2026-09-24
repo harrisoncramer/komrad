@@ -207,6 +207,24 @@ func TestWorktreesDelete(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("a directory git cannot read after a failed cleanup is deleted on its own", func(t *testing.T) {
+		t.Parallel()
+
+		stuck := newArchivedAgent("stuck", "stuck", "w1")
+		stuck.State = agentv1.AgentState_AGENT_STATE_FAILED_TO_CLEANUP
+		stuck.Cwd = "/trees/stuck"
+		harness := openWorktrees(t,
+			newLiveWorkflow("w1", "weave"),
+			stuck,
+			&worktreev1.WatchedWorktree{Dir: "/trees/stuck"},
+		)
+		moveToWorktree(t, harness, "stuck")
+
+		harness.press("d")
+
+		assert.Contains(t, readFormProse(harness.readFrame()), "The directory nothing answers for is removed on its own")
+	})
 }
 
 // TestWorktreesDeleteBranch covers the delete prompt saying what happens to a single directory's branch.

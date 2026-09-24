@@ -5,14 +5,17 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"weave/config"
+	"weave/internal/browser"
 	"weave/internal/engine"
 	"weave/internal/panes"
+	"weave/internal/ui/layout"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	"weave/proto/gen/hook/v1/hookv1connect"
 	schedulev1connect "weave/proto/gen/schedule/v1/schedulev1connect"
@@ -71,6 +74,9 @@ type recordingTmux struct {
 	rootUnbinds   []string
 }
 
+// PanelTmux is the tmux a panel under test drives in place of the recording one.
+type PanelTmux = uiTmux
+
 // HarnessFrameReader answers whether a pane is drawing its harness yet.
 type HarnessFrameReader = harnessFrameReader
 
@@ -95,12 +101,16 @@ type NewPanelParams struct {
 	StartupErr    error
 	RefuseSplits  bool
 	Binary        BinaryWatcher
+	Browser       browser.Opener
+	Tmux          PanelTmux
 }
 
 // NewPanel builds the panel the way weave panel does, over a recording tmux.
 func NewPanel(params NewPanelParams) *Panel {
 	settings := params.Settings
-	settings.Pane = "%0"
+	if settings.Pane == "" {
+		settings.Pane = "%0"
+	}
 	tmux := &recordingTmux{
 		width:       params.Width,
 		height:      params.Height,
@@ -109,6 +119,9 @@ func NewPanel(params NewPanelParams) *Panel {
 	var driven uiTmux = tmux
 	if params.RefuseSplits {
 		driven = unsplittableTmux{tmux}
+	}
+	if params.Tmux != nil {
+		driven = params.Tmux
 	}
 	post := newPostbox()
 	layout := config.DefaultLayout()
@@ -140,6 +153,7 @@ func NewPanel(params NewPanelParams) *Panel {
 			ConfigErr:     params.ConfigErr,
 			StartupErr:    params.StartupErr,
 			Binary:        params.Binary,
+			Browser:       params.Browser,
 		}, true, post),
 		post: post,
 		tmux: tmux,
@@ -563,4 +577,70 @@ func (p *Panel) ReadRootUnbinds() []string {
 // CountRootBinds is how many times the panel has bound a key in tmux's root table.
 func (p *Panel) CountRootBinds() int {
 	return p.tmux.rootBindCount
+}
+
+// NewTick is the refresh loop's tick as it lands at the given time.
+func NewTick(at time.Time) tea.Msg {
+	return tickMsg{at: at}
+}
+
+// SetShown makes tmux report whether a client is looking at the panel's session.
+func (p *Panel) SetShown(isShown bool) {
+	p.tmux.sessionClient = ""
+	if isShown {
+		p.tmux.sessionClient = panelViewer
+	}
+}
+
+// SetHostPath makes tmux report the directory of the client the panel was invoked from.
+func (p *Panel) SetHostPath(path string) {
+	p.tmux.path = path
+}
+
+// IsKeyTaken reports whether a press of the key reaches any binding the panel dispatches on.
+func (p *Panel) IsKeyTaken(key string) bool {
+	isTaken := false
+	keyProbe = func([]string) {
+		isTaken = true
+	}
+	defer func() {
+		keyProbe = nil
+	}()
+
+	p.model.route(keyMsg(key))
+
+	return isTaken
+}
+
+// ReadLegendKeys is every key the legend of the screen that is up names.
+func (p *Panel) ReadLegendKeys() []string {
+	shared := p.model.shared()
+
+	var legend keyMap
+	switch p.model.screen {
+	case screenAgents:
+		legend = p.model.listHelp(p.model.agents.help(shared))
+	case screenSchedules:
+		legend = p.model.listHelpOf(p.model.schedules.listParams(shared))
+	case screenArchive:
+		legend = p.model.listHelpOf(p.model.archive.listParams(shared))
+	case screenSearch:
+		legend = p.model.search.help(shared)
+	case screenReview:
+		legend = p.model.review.help(shared)
+	case screenWorktrees:
+		legend = p.model.listHelpOf(p.model.worktrees.listParams(shared))
+	}
+
+	var keys []string
+	for _, binding := range slices.Concat(legend.short, legend.full) {
+		keys = append(keys, binding.Keys()...)
+	}
+
+	return keys
+}
+
+// ReadStagePane is the pane the panel's frame holds as its stage.
+func (p *Panel) ReadStagePane() string {
+	return p.model.frame.Pane(layout.RegionStage)
 }

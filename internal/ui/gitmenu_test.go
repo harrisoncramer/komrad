@@ -1,141 +1,171 @@
-package ui
+package ui_test
 
 import (
 	"context"
 	"errors"
+	"strings"
+	"sync"
 	"testing"
 
-	"github.com/charmbracelet/x/ansi"
-
-	"weave/config"
-	"weave/internal/ui/panel"
+	agentv1 "weave/proto/gen/agent/v1"
+	"weave/proto/gen/agent/v1/agentv1connect"
 	pullrequestv1 "weave/proto/gen/pullrequest/v1"
+	workflowv1 "weave/proto/gen/workflow/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 )
 
-// gitModel is the agents list with the cursor on an agent whose workflow makes worktrees.
-func gitModel(t *testing.T) model {
-	t.Helper()
+const (
+	gitMenuTitle   = "Git on api"
+	pullRequestURL = "https://github.com/harrisoncramer/weave/pull/740"
+)
 
-	m := infoModel(&recordingTmux{width: 200, height: 40})
-	m.width, m.height = 200, 40
-	m.api = driftAPI()
-	m.listing.workflows = []panel.Workflow{{
-		ID:       "w1",
-		Name:     "backend",
-		Worktree: panel.WorktreeConfig{Enabled: true},
-	}}
-
-	return m
+type recordingOpener struct {
+	mu      sync.Mutex
+	targets []string
+	err     error
 }
 
-func routeKey(t *testing.T, m model, pressed string) model {
-	t.Helper()
+// TestGitMenu covers the menu of git actions drawn over the agent the cursor is on.
+func TestGitMenu(t *testing.T) {
+	t.Parallel()
 
-	next, _ := m.route(keyMsgOf(t, pressed))
-	updated, ok := next.(model)
-	require.True(t, ok)
+	t.Run("the git key opens the menu on an agent and not on a workflow header", func(t *testing.T) {
+		t.Parallel()
 
-	return updated
+		harness := openAgents(t, buildGitAgent()...)
+
+		harness.press("k", "b")
+		require.NotContains(t, harness.readFrame(), gitMenuTitle, "a workflow header has no branch of its own")
+
+		harness.press("j", "b")
+		assert.Contains(t, harness.readFrame(), gitMenuTitle)
+	})
+
+	t.Run("esc closes the menu without a word", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openGitMenu(t, buildGitAgent()...)
+
+		harness.press("esc")
+
+		frame := harness.readFrame()
+		assert.NotContains(t, frame, gitMenuTitle)
+		assert.NotContains(t, frame, "Could not")
+	})
+
+	t.Run("an entry answers its own letter", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openGitMenu(t, buildGitAgent()...)
+
+		harness.press("r")
+
+		assert.NotContains(t, harness.readFrame(), gitMenuTitle)
+		harness.assertSentTo(agentv1connect.AgentServicePlanRebaseProcedure, &agentv1.PlanRebaseRequest{AgentId: "a1"})
+	})
+
+	t.Run("the menu takes no filter, so the letters stay the entries'", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openGitMenu(t, buildGitAgent()...)
+		require.NotContains(t, harness.readFrame(), "filter")
+
+		harness.press("/")
+
+		assert.Contains(t, harness.readFrame(), "Rebase onto the base (r)")
+	})
+
+	t.Run("an entry picked after its agent has left the list says so", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openGitMenu(t, buildGitAgent()...)
+		harness.watch(buildSnapshot(buildGitAgent()[0]))
+
+		harness.press("r")
+
+		assert.Contains(t, readOpenMessages(harness), "the agent the menu was opened on has left the list")
+		harness.assertSentTo(agentv1connect.AgentServicePlanRebaseProcedure)
+	})
 }
 
-// TestGitMenuOpensOnAnAgent covers the key that draws the menu, and the row it does nothing on.
-func TestGitMenuOpensOnAnAgent(t *testing.T) {
-	opened := routeKey(t, gitModel(t), "b")
-	assert.Equal(t, formGit, opened.form.kind)
+// TestGitMenuRefusals covers each entry naming why it would do nothing, and saying so when picked.
+func TestGitMenuRefusals(t *testing.T) {
+	t.Parallel()
 
-	onWorkflow := gitModel(t)
-	onWorkflow.agents.cursor = 0
-	assert.Equal(t, formNone, routeKey(t, onWorkflow, "b").form.kind,
-		"a workflow header has no branch of its own")
-}
-
-// TestGitMenuClosesOnEsc covers leaving the menu without picking anything.
-func TestGitMenuClosesOnEsc(t *testing.T) {
-	closed := routeKey(t, routeKey(t, gitModel(t), "b"), "esc")
-
-	assert.Equal(t, formNone, closed.form.kind)
-	assert.Empty(t, closed.messages.items)
-}
-
-// TestGitMenuEntriesAnswerTheirOwnKeys covers picking an entry by its letter rather than by
-// walking the cursor onto it.
-func TestGitMenuEntriesAnswerTheirOwnKeys(t *testing.T) {
-	picked := routeKey(t, routeKey(t, gitModel(t), "b"), "r")
-
-	assert.Equal(t, formNone, picked.form.kind)
-	assert.Empty(t, picked.messages.items, "the entry answered rather than saying why it could not")
-}
-
-// TestGitMenuSaysWhyAnEntryWouldDoNothing covers an agent an entry cannot act on, where the
-// menu is still drawn and the reason is read rather than the press being swallowed.
-func TestGitMenuSaysWhyAnEntryWouldDoNothing(t *testing.T) {
 	tests := []struct {
-		name         string
-		pressed      string
-		standing     panel.PullRequestStanding
-		pullRequests []panel.PullRequest
-		want         string
+		name        string
+		rows        []proto.Message
+		press       string
+		wantEntry   string
+		wantRefusal string
 	}{
 		{
-			name:    "the rebase",
-			pressed: "r",
-			want:    errNoWorktree.Error(),
+			name:        "the rebase of an agent with no worktree of its own",
+			rows:        buildUncutAgent(),
+			press:       "r",
+			wantEntry:   "Rebase onto the base (r) · no worktree of its own",
+			wantRefusal: "this agent has no worktree of its own, so there is no base to move it onto",
 		},
 		{
-			name:     "the pull request of a repository not read yet",
-			pressed:  "o",
-			standing: panel.PullRequestStanding{State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNREAD},
-			want:     errPullRequestsUnread.Error(),
+			name:        "the pull request of a repository not read yet",
+			rows:        buildUncutAgent(),
+			press:       "o",
+			wantEntry:   "Open the pull request (o) · not read yet",
+			wantRefusal: "weave has not read this agent's repository yet",
 		},
 		{
-			name:     "the pull request of a branch with none",
-			pressed:  "o",
-			standing: panel.PullRequestStanding{State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE},
-			want:     errNoPullRequest.Error(),
+			name: "the pull request of a branch with none",
+			rows: append(buildUncutAgent(), &pullrequestv1.Repository{
+				Url:  repositoryURL,
+				Read: true,
+			}),
+			press:       "o",
+			wantEntry:   "Open the pull request (o) · none from this branch",
+			wantRefusal: "weave has read the repository and nothing has been opened from this branch",
 		},
 		{
-			name:         "the pull request of a branch that has moved past its last one",
-			pressed:      "o",
-			standing:     panel.PullRequestStanding{State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE},
-			pullRequests: []panel.PullRequest{{Number: 740, State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED}},
-			want:         errMovedPastPullRequest.Error(),
+			name:        "the pull request of a branch that has moved past its last one",
+			rows:        append(buildUncutAgent(), newMergedPullRequest()),
+			press:       "o",
+			wantEntry:   "Open the pull request (o) · moved on since its last one",
+			wantRefusal: "the branch has moved on since its last pull request finished",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := gitModel(t)
-			m.listing.workflows[0].Worktree.Enabled = false
-			m.listing.agents[0].PullRequest = tt.standing
-			m.listing.agents[0].PullRequests = tt.pullRequests
+			t.Parallel()
 
-			opened := routeKey(t, m, "b")
-			require.Equal(t, formGit, opened.form.kind)
+			harness := openGitMenu(t, tt.rows...)
 
-			picked := routeKey(t, opened, tt.pressed)
+			frame := harness.readFrame()
+			assert.Contains(t, frame, tt.wantEntry)
+			assert.Contains(t, frame, "Cancel")
 
-			assert.Equal(t, formNone, picked.form.kind)
-			require.Len(t, picked.messages.items, 1)
-			assert.Contains(t, picked.messages.items[0].detail, tt.want)
+			harness.press(tt.press)
+
+			assert.NotContains(t, harness.readFrame(), gitMenuTitle)
+			assert.Contains(t, readOpenMessages(harness), tt.wantRefusal)
 		})
 	}
 }
 
-// TestGitMenuOpensTheCurrentPullRequest covers the entry handing the browser the address the
-// listing carries for the agent the cursor was on, and saying so when the browser refuses.
-func TestGitMenuOpensTheCurrentPullRequest(t *testing.T) {
+// TestGitMenuOpensThePullRequest covers the entry handing the browser the current pull request.
+func TestGitMenuOpensThePullRequest(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
-		name    string
-		refuse  error
-		wantErr bool
+		name      string
+		refuse    error
+		wantFrame string
 	}{
 		{
-			name:    "a browser that refuses is reported",
-			refuse:  errors.New("no application knows how to open it"),
-			wantErr: true,
+			name:      "a browser that refuses is reported",
+			refuse:    errors.New("no application knows how to open it"),
+			wantFrame: "Could not open",
 		},
 		{
 			name: "the address is handed over",
@@ -144,144 +174,99 @@ func TestGitMenuOpensTheCurrentPullRequest(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			opener := &recordingOpener{err: tt.refuse}
-			m := gitModel(t)
-			m.browser = opener
-			m.listing.agents[0].PullRequest = panel.PullRequestStanding{
-				State:  pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED,
-				Number: 740,
-				URL:    "https://github.com/harrisoncramer/weave/pull/740",
-			}
+			harness := newPanelHarness(t, panelHarnessParams{browser: opener})
+			answerWorktreeReads(harness)
+			harness.watch(buildSnapshot(append(buildGitAgent(), newOpenPullRequest())...))
+			harness.press("b", "o")
 
-			opened := routeKey(t, m, "b")
-			require.Equal(t, formGit, opened.form.kind)
-
-			next, cmd := opened.route(keyMsgOf(t, "o"))
-			picked, ok := next.(model)
-			require.True(t, ok)
-			assert.Equal(t, formNone, picked.form.kind)
-			require.NotNil(t, cmd, "the browser is asked off the update")
-
-			for _, msg := range collectMessages(cmd) {
-				updated, _ := picked.Update(msg)
-				picked, ok = updated.(model)
-				require.True(t, ok)
-			}
-
-			assert.Equal(t, []string{"https://github.com/harrisoncramer/weave/pull/740"}, opener.targets)
-			if tt.wantErr {
-				require.Len(t, picked.messages.items, 1)
-				assert.Contains(t, picked.messages.items[0].summary, "Could not open")
+			assert.Equal(t, []string{pullRequestURL}, opener.readTargets())
+			frame := harness.readFrame()
+			assert.NotContains(t, frame, gitMenuTitle)
+			if tt.wantFrame == "" {
+				assert.NotContains(t, frame, "Could not")
 
 				return
 			}
-			assert.Empty(t, picked.messages.items)
+			assert.Contains(t, frame, tt.wantFrame)
 		})
 	}
 }
 
-// recordingOpener stands in for the desktop, holding what it was asked to open.
-type recordingOpener struct {
-	targets []string
-	err     error
-}
-
 func (r *recordingOpener) OpenURL(_ context.Context, target string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	r.targets = append(r.targets, target)
 
 	return r.err
 }
 
-// TestGitMenuEntriesNameTheirKeysAndTheirRefusals covers the labels, which carry both the letter
-// that picks an entry and the reason it would do nothing on this agent.
-func TestGitMenuEntriesNameTheirKeysAndTheirRefusals(t *testing.T) {
-	entry := gitEntry{
-		name:    "Rebase onto the base",
-		keys:    config.DefaultKeybindings().Git.Rebase,
-		refusal: "no worktree of its own",
-		held:    true,
-	}
+func (r *recordingOpener) readTargets() []string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
-	assert.Equal(t, "Rebase onto the base (r)", gitEntryLabel(entry))
-
-	entry.held = false
-	assert.Equal(t, "Rebase onto the base (r) · no worktree of its own", gitEntryLabel(entry))
-
-	entry.keys = nil
-	assert.Equal(t, "Rebase onto the base · no worktree of its own", gitEntryLabel(entry))
+	return r.targets
 }
 
-// TestGitMenuDrawsEveryEntry covers the menu on an agent the entry cannot act on, where the
-// select would otherwise scroll it out of the column.
-func TestGitMenuDrawsEveryEntry(t *testing.T) {
-	m := gitModel(t)
-	m.listing.workflows[0].Worktree.Enabled = false
+func openGitMenu(t *testing.T, rows ...proto.Message) *panelHarness {
+	t.Helper()
 
-	drawn := ansi.Strip(routeKey(t, m, "b").render())
+	harness := openAgents(t, rows...)
+	harness.press("b")
+	require.Contains(t, harness.readFrame(), gitMenuTitle)
 
-	assert.Contains(t, drawn, "Rebase onto the base")
-	assert.Contains(t, drawn, "Open the pull request")
-	assert.Contains(t, drawn, "Cancel")
+	return harness
 }
 
-// TestGitMenuDoesNotFilter covers the select's own filter, which would otherwise take the letters
-// the entries answer to.
-func TestGitMenuDoesNotFilter(t *testing.T) {
-	opened := routeKey(t, gitModel(t), "b")
-	assert.NotContains(t, ansi.Strip(opened.render()), "filter", "the footer offers no filter to type into")
+func buildGitAgent() []proto.Message {
+	agent := newBranchAgent("a1", "api", "agent/a1")
+	agent.Cwd = "/trees/a1"
+	agent.HeadSha = proto.String("new")
 
-	typed := routeKey(t, opened, "/")
-
-	assert.Equal(t, formGit, typed.form.kind)
-	assert.Contains(t, ansi.Strip(typed.render()), "Rebase onto the base", "the entries are as they were")
-}
-
-// TestGitMenuActsOnTheAgentItWasOpenedOn covers the row leaving the list while the menu stands,
-// where the entry has nothing left to act on.
-func TestGitMenuActsOnTheAgentItWasOpenedOn(t *testing.T) {
-	opened := routeKey(t, gitModel(t), "b")
-	opened.listing.agents = nil
-
-	picked := routeKey(t, opened, "r")
-
-	assert.Equal(t, formNone, picked.form.kind)
-	require.Len(t, picked.messages.items, 1)
-	assert.Contains(t, picked.messages.items[0].detail, errAgentGone.Error())
-}
-
-// TestPullRequestHint covers the menu's hint beside the pull request entry for each reason an
-// agent has none to open.
-func TestPullRequestHint(t *testing.T) {
-	none := panel.PullRequestStanding{State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE}
-
-	tests := []struct {
-		name string
-		item panel.AgentRow
-		want string
-	}{
-		{
-			name: "a repository not read yet",
-			item: panel.AgentRow{PullRequest: panel.PullRequestStanding{State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNREAD}},
-			want: "not read yet",
+	return []proto.Message{
+		&workflowv1.Workflow{
+			Id:       "w1",
+			Name:     "backend",
+			Worktree: &workflowv1.WorktreeConfig{Enabled: true},
 		},
-		{
-			name: "a branch nothing was opened from",
-			item: panel.AgentRow{PullRequest: none},
-			want: "none from this branch",
-		},
-		{
-			name: "a branch that has moved past its last pull request",
-			item: panel.AgentRow{
-				PullRequest:  none,
-				PullRequests: []panel.PullRequest{{Number: 740, State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED}},
-			},
-			want: "moved on since its last one",
-		},
+		agent,
 	}
+}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, pullRequestHint(pullRequestRefusal(tt.item)))
-		})
+func buildUncutAgent() []proto.Message {
+	rows := buildGitAgent()
+	rows[0] = newLiveWorkflow("w1", "backend")
+
+	return rows
+}
+
+func newOpenPullRequest() *pullrequestv1.PullRequest {
+	return &pullrequestv1.PullRequest{
+		Id:                "pr-740",
+		RepositoryUrl:     repositoryURL,
+		HeadRepositoryUrl: repositoryURL,
+		HeadBranch:        "agent/a1",
+		Number:            740,
+		Url:               pullRequestURL,
+		State:             pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED,
+		OpenedAt:          "2026-09-19T12:00:00Z",
 	}
+}
+
+func newMergedPullRequest() *pullrequestv1.PullRequest {
+	merged := newOpenPullRequest()
+	merged.State = pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED
+	merged.MergedAt = proto.String("2026-09-20T12:00:00Z")
+	merged.HeadSha = "old"
+
+	return merged
+}
+
+func readOpenMessages(harness *panelHarness) string {
+	harness.press("ctrl+g")
+
+	return strings.Join(strings.Fields(harness.readFrame()), " ")
 }

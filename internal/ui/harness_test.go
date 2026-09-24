@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"weave/config"
+	"weave/internal/browser"
 	"weave/internal/client"
 	"weave/internal/engine"
 	"weave/internal/git"
@@ -181,6 +182,17 @@ type panelHarnessParams struct {
 	startupErr    error
 	refuseSplits  bool
 	binary        ui.BinaryWatcher
+	browser       browser.Opener
+	tmux          ui.PanelTmux
+	remote        *panelRemote
+}
+
+type panelRemote struct {
+	agents    agentv1connect.AgentServiceClient
+	workflows workflowv1connect.WorkflowServiceClient
+	schedules schedulev1connect.ScheduleServiceClient
+	hooks     hookv1connect.HookServiceClient
+	worktrees worktreev1connect.WorktreeServiceClient
 }
 
 func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
@@ -205,6 +217,17 @@ func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
 
 	server := httptest.NewServer(mux)
 	t.Cleanup(server.Close)
+
+	remote := params.remote
+	if remote == nil {
+		remote = &panelRemote{
+			agents:    agentv1connect.NewAgentServiceClient(server.Client(), server.URL),
+			workflows: workflowv1connect.NewWorkflowServiceClient(server.Client(), server.URL),
+			schedules: schedulev1connect.NewScheduleServiceClient(server.Client(), server.URL),
+			hooks:     hookv1connect.NewHookServiceClient(server.Client(), server.URL),
+			worktrees: worktreev1connect.NewWorktreeServiceClient(server.Client(), server.URL),
+		}
+	}
 
 	keys := config.DefaultKeybindings()
 	if params.keys != nil {
@@ -232,11 +255,11 @@ func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
 		recorder: recorder,
 		gate:     gate,
 		panel: ui.NewPanel(ui.NewPanelParams{
-			Agents:        agentv1connect.NewAgentServiceClient(server.Client(), server.URL),
-			Workflows:     workflowv1connect.NewWorkflowServiceClient(server.Client(), server.URL),
-			Schedules:     schedulev1connect.NewScheduleServiceClient(server.Client(), server.URL),
-			Hooks:         hookv1connect.NewHookServiceClient(server.Client(), server.URL),
-			Worktrees:     worktreev1connect.NewWorktreeServiceClient(server.Client(), server.URL),
+			Agents:        remote.agents,
+			Workflows:     remote.workflows,
+			Schedules:     remote.schedules,
+			Hooks:         remote.hooks,
+			Worktrees:     remote.worktrees,
 			Git:           reviewGit,
 			Keys:          keys,
 			DetailsHeight: params.detailsHeight,
@@ -251,6 +274,8 @@ func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
 			StartupErr:    params.startupErr,
 			RefuseSplits:  params.refuseSplits,
 			Binary:        params.binary,
+			Browser:       params.browser,
+			Tmux:          params.tmux,
 		}),
 	}
 	t.Cleanup(harness.releaseParked)
@@ -435,6 +460,18 @@ func (h *panelHarness) releaseParked() {
 func (h *panelHarness) fireTimers() {
 	h.t.Helper()
 
+	for _, msg := range h.runTimers() {
+		h.settle(func() tea.Msg {
+			return msg
+		})
+	}
+}
+
+func (h *panelHarness) fireTimersUnsettled() []tea.Cmd {
+	return xslice.Map(h.runTimers(), h.panel.Update)
+}
+
+func (h *panelHarness) runTimers() []tea.Msg {
 	pending := h.timers
 	h.timers = nil
 
@@ -447,11 +484,7 @@ func (h *panelHarness) fireTimers() {
 	}
 	group.Wait()
 
-	for _, msg := range fired {
-		h.settle(func() tea.Msg {
-			return msg
-		})
-	}
+	return fired
 }
 
 func (l *requestRecorder) WrapUnary(connect.UnaryFunc) connect.UnaryFunc {

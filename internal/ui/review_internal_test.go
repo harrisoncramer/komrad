@@ -171,7 +171,3 @@ func putServedRowsInWorld(m *model) {
 		m.listing.world.Put(&watchv1.Row{Row: &watchv1.Row_ReviewThread{ReviewThread: thread}})
 	}
 }
-
-func (m model) reviewHelp() keyMap {
-	return m.review.help(m.shared())
-}

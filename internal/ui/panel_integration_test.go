@@ -1,411 +1,241 @@
 //go:build integration
 
-package ui
+package ui_test
 
 import (
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
-	"time"
 
-	"weave/config"
-	"weave/internal/client"
-	"weave/internal/ui/layout"
+	"weave/internal/ui"
 	"weave/internal/weavetest"
 	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
 	schedulev1 "weave/proto/gen/schedule/v1"
 	viewv1 "weave/proto/gen/view/v1"
-	watchv1 "weave/proto/gen/watch/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
 
-	tea "charm.land/bubbletea/v2"
-	"charm.land/huh/v2"
 	"charm.land/lipgloss/v2"
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 )
 
 const panelSession = "shown"
 
-// listedFromService seeds the panel from the list RPCs the way the watch's snapshot would.
-func listedFromService(t *testing.T, m model) model {
-	t.Helper()
+type servedPanel struct {
+	instance  *weavetest.Instance
+	harness   *panelHarness
+	agentID   string
+	agentPane string
+	navPane   string
+}
 
-	ctx := t.Context()
+// TestIntegrationPanel covers the panel driven against a real service and a real tmux server.
+func TestIntegrationPanel(t *testing.T) {
+	t.Run("the archive key takes an agent all the way to the database", func(t *testing.T) {
+		instance, agentID := startServedAgent(t)
+		harness := newPanelHarness(t, panelHarnessParams{remote: newPanelRemote(instance)})
+		relist(t, instance, harness)
+		require.Equal(t, []string{"backend", "  login"}, readListRows(harness.readFrame()))
 
-	agents, err := m.api.agents.ListAgents(ctx, connect.NewRequest(&agentv1.ListAgentsRequest{View: viewv1.View_VIEW_FULL}))
-	require.NoError(t, err)
-	workflows, err := m.api.workflows.ListWorkflows(ctx, connect.NewRequest(&workflowv1.ListWorkflowsRequest{View: viewv1.View_VIEW_FULL}))
-	require.NoError(t, err)
-	schedules, err := m.api.schedules.ListSchedules(ctx, connect.NewRequest(&schedulev1.ListSchedulesRequest{View: viewv1.View_VIEW_FULL}))
-	require.NoError(t, err)
+		harness.press("z")
+		require.Contains(t, harness.readFrame(), "C-s submit", "the key opens the confirm prompt rather than archiving outright")
+		harness.press("ctrl+s")
 
-	m.applyWatch(client.WatchBatch{
-		{Event: &watchv1.WatchEvent_Snapshot{Snapshot: &watchv1.Snapshot{Rows: slices.Concat(
-			xslice.Map(agents.Msg.GetAgents(), func(row *agentv1.AgentRow) *watchv1.Row { return agentRowOf(row.GetAgent()) }),
-			xslice.Map(workflows.Msg.GetWorkflows(), workflowRowOf),
-			xslice.Map(schedules.Msg.GetSchedules(), scheduleRowOf),
-		)}}},
+		listed, err := instance.Agents.ListAgents(t.Context(), connect.NewRequest(&agentv1.ListAgentsRequest{Archived: true}))
+		require.NoError(t, err)
+		require.Len(t, listed.Msg.GetAgents(), 1)
+		assert.Equal(t, agentID, listed.Msg.GetAgents()[0].GetAgent().GetId())
+		assert.Empty(t, instance.GetOwnedPane(agentID), "archiving from the panel stops what was running")
+
+		relist(t, instance, harness)
+		assert.Equal(t, []string{"backend"}, readListRows(harness.readFrame()), "and the row goes off the list, leaving the folder it was in")
 	})
 
-	return m
+	t.Run("a staged agent's pane dying leaves the panel a nav pane and a stage pane", func(t *testing.T) {
+		served := openServedPanel(t, 0)
+		stagePane := served.harness.panel.ReadStagePane()
+
+		served.instance.Tmux.Run("kill-pane", "-t", served.agentPane)
+		relist(t, served.instance, served.harness)
+
+		assert.False(t, served.instance.Tmux.Client().IsPaneAlive(stagePane), "the pane left in the agent's window is not left running")
+		assert.Equal(t,
+			[]string{served.navPane, served.harness.panel.ReadStagePane()},
+			readPanelPanes(served.instance),
+			"the now-dormant agent's record is in the stage")
+	})
+
+	t.Run("archiving a workflow sends its panes back and leaves the divider where it was dragged", func(t *testing.T) {
+		served := openServedPanel(t, 0)
+		stagePane := served.harness.panel.ReadStagePane()
+		configured := readPaneWidth(t, served.instance, served.agentPane)
+		served.instance.Tmux.Run("resize-pane", "-t", served.navPane, "-x", "60")
+		dragged := readPaneWidth(t, served.instance, served.agentPane)
+		require.NotEqual(t, configured, dragged, "the drag moved the divider off the configured width")
+
+		served.harness.press("k", "z")
+		require.Contains(t, served.harness.readFrame(), "Archive workflow")
+		served.harness.press("ctrl+s")
+		relist(t, served.instance, served.harness)
+
+		assert.Empty(t, served.harness.panel.ReadGuestPane(), "the archived agent's pane is not left standing in the panel")
+		require.True(t, served.instance.Tmux.Client().IsPaneAlive(stagePane), "the panel's own stage pane outlives the archive")
+		assert.Equal(t, stagePane, served.harness.panel.ReadStagePane(), "so the panel is not left splitting another")
+		assert.Equal(t, dragged, readPaneWidth(t, served.instance, stagePane))
+	})
+
+	t.Run("leaving a running agent for its folder zooms the panel over the window", func(t *testing.T) {
+		served := openServedPanel(t, 0)
+		readZoomedFlag := func() string {
+			return served.instance.Tmux.Run("display-message", "-p", "-t", served.navPane, "#{window_zoomed_flag}")
+		}
+		require.Equal(t, "0", readZoomedFlag(), "the agent's own pane has the stage to itself")
+
+		served.harness.press("k")
+		served.harness.fireTimers()
+
+		assert.Equal(t, "1", readZoomedFlag())
+	})
+
+	t.Run("the panel draws at the size of the pane it has just been given", func(t *testing.T) {
+		served := openServedPanel(t, 341)
+		share := readPaneWidth(t, served.instance, served.navPane)
+		require.Less(t, share, 341, "the panel starts on its share of the window")
+
+		held := served.harness.panel.View()
+		served.harness.press("k")
+		unsettled := served.harness.fireTimersUnsettled()
+
+		require.Equal(t, 341, readPaneWidth(t, served.instance, served.navPane), "the folder row takes the window")
+		assert.Equal(t, held, served.harness.panel.View(), "the panel keeps its last frame until it is told the size")
+
+		for _, cmd := range unsettled {
+			served.harness.settle(cmd)
+		}
+		assert.Equal(t, 341, lipgloss.Width(served.harness.panel.View()), "and once told, the frame covers it")
+
+		served.harness.press("j")
+		served.harness.fireTimers()
+
+		require.Equal(t, share, readPaneWidth(t, served.instance, served.navPane), "the agent's own pane takes it back")
+		assert.LessOrEqual(t, lipgloss.Width(served.harness.panel.View()), share, "so nothing drawn runs past the pane and wraps")
+	})
 }
 
-// TestIntegrationPanelArchivesThroughTheService takes the archive key all the way to the database.
-func TestIntegrationPanelArchivesThroughTheService(t *testing.T) {
-	instance := weavetest.Start(t, weavetest.Params{})
-	ctx := t.Context()
-
-	workflow, err := instance.Workflows.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{
-		Name: "backend",
-		Cwd:  t.TempDir(),
-	}))
-	require.NoError(t, err)
-
-	created, err := instance.Agents.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{
-		Prompt:     "fix the flaky login test",
-		Title:      "login",
-		WorkflowId: workflow.Msg.GetWorkflow().GetId(),
-	}))
-	require.NoError(t, err)
-
-	agent := created.Msg.GetAgent()
-	require.NotEmpty(t, instance.GetOwnedPane(agent.GetId()))
-
-	keys := config.DefaultKeybindings()
-	tmux := &recordingTmux{}
-	shown := model{
-		api: api{
-			agents:    instance.Agents,
-			workflows: instance.Workflows,
-			schedules: instance.Schedules,
-			hooks:     instance.Hooks,
-		},
-		tmux:   tmux,
-		popup:  NewPopupWindow(tmux, "test-session"),
-		frame:  layout.New(tmux, config.DefaultLayout()),
-		keys:   keys,
-		screen: screenAgents,
-	}
-
-	shown = listedFromService(t, shown)
-	require.Equal(t, []string{"header:backend", "agent:login"}, describeRows(shown.agents.rows(shown.shared())))
-
-	shown.agents.cursor = 1
-
-	updated, _ := shown.Update(keyMsg(keys.Agents.Archive[0]))
-	pressed, ok := updated.(model)
-	require.True(t, ok)
-	require.Equal(t, formAgentArchive, pressed.form.kind, "the key opens the confirm prompt rather than archiving outright")
-	require.Equal(t, screenAgents, pressed.screen, "and it is drawn over the list it was opened from")
-
-	pressed.form.form.State = huh.StateCompleted
-	confirmed, cmd := pressed.form.update(pressed, keyMsg("enter"))
-	shown, ok = confirmed.(model)
-	require.True(t, ok)
-	shown = settle(t, shown, cmd)
-
-	listed, err := instance.Agents.ListAgents(ctx, connect.NewRequest(&agentv1.ListAgentsRequest{Archived: true}))
-	require.NoError(t, err)
-	require.Len(t, listed.Msg.GetAgents(), 1)
-	assert.Equal(t, agent.GetId(), listed.Msg.GetAgents()[0].GetAgent().GetId())
-
-	assert.Empty(t, instance.GetOwnedPane(agent.GetId()), "archiving from the shown stops what was running")
-
-	shown = listedFromService(t, shown)
-	assert.Equal(t, []string{"header:backend"}, describeRows(shown.agents.rows(shown.shared())),
-		"and the row goes off the shown's own list, leaving the folder it was in")
-}
-
-// TestIntegrationStagedAgentExitsOnItsOwn covers a staged agent's pane dying while staging holds it in the
-// panel's own window.
-func TestIntegrationStagedAgentExitsOnItsOwn(t *testing.T) {
-	staged := newStagedPanel(t)
-	stagePane := staged.shown.frame.Pane(layout.RegionStage)
-
-	staged.shown.tmux.KillPane(staged.agentPane)
-	staged.shown = listedFromService(t, staged.shown)
-
-	assert.False(t, staged.shown.tmux.IsPaneAlive(stagePane), "the pane left in the agent's window is not left running")
-	assert.Equal(t,
-		[]string{staged.navPane, staged.shown.frame.Pane(layout.RegionStage)},
-		panesInPanel(t, staged.instance),
-		"the shown is a nav pane and a stage pane again, the now-dormant agent's record in the stage")
-}
-
-// TestIntegrationArchivingAWorkflowSendsItsPanesBack covers the panel's own stage pane.
-func TestIntegrationArchivingAWorkflowSendsItsPanesBack(t *testing.T) {
-	staged := newStagedPanel(t)
-	shown := staged.shown
-	stagePane := shown.frame.Pane(layout.RegionStage)
-
-	width := func(pane string) string {
-		return staged.instance.Tmux.Run("display-message", "-p", "-t", pane, "#{pane_width}")
-	}
-	// The divider dragged where the user wants it rather than where the config put it.
-	configured := width(staged.agentPane)
-	staged.instance.Tmux.Run("resize-pane", "-t", staged.navPane, "-x", "60")
-	dragged := width(staged.agentPane)
-	require.NotEqual(t, configured, dragged, "the drag moved the divider off the configured width")
-
-	shown.agents.cursor = 0
-	require.True(t, shown.agents.isHoveringWorkflow(shown.shared()), "the cursor is on the folder the agent is in")
-
-	updated, _ := shown.Update(keyMsg(shown.keys.Workflows.Archive[0]))
-	pressed, ok := updated.(model)
-	require.True(t, ok)
-	require.Equal(t, formWorkflowArchive, pressed.form.kind)
-
-	pressed.form.form.State = huh.StateCompleted
-	confirmed, cmd := pressed.form.update(pressed, keyMsg("enter"))
-	shown, ok = confirmed.(model)
-	require.True(t, ok)
-	shown = settle(t, shown, cmd)
-	shown = listedFromService(t, shown)
-
-	assert.Empty(t, shown.frame.GuestPane(), "the archived agent's pane is not left standing in the shown")
-	require.True(t, shown.tmux.IsPaneAlive(stagePane), "the shown's own stage pane outlives the archive")
-	assert.Equal(t, stagePane, shown.frame.Pane(layout.RegionStage), "so the shown is not left splitting another")
-	assert.Equal(t, dragged, width(stagePane), "and the divider stays where it was dragged")
-}
-
-type stagedPanel struct {
-	instance  *weavetest.Instance
-	shown     model
-	navPane   string
-	agentPane string
-}
-
-func newStagedPanel(t *testing.T) *stagedPanel {
+func startServedAgent(t *testing.T) (*weavetest.Instance, string) {
 	t.Helper()
 
 	instance := weavetest.Start(t, weavetest.Params{})
-	ctx := t.Context()
-
-	workflow, err := instance.Workflows.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{
+	workflow, err := instance.Workflows.CreateWorkflow(t.Context(), connect.NewRequest(&workflowv1.CreateWorkflowRequest{
 		Name: "backend",
 		Cwd:  t.TempDir(),
 	}))
 	require.NoError(t, err)
 
-	created, err := instance.Agents.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{
+	created, err := instance.Agents.CreateAgent(t.Context(), connect.NewRequest(&agentv1.CreateAgentRequest{
 		Prompt:     "fix the flaky login test",
 		Title:      "login",
 		WorkflowId: workflow.Msg.GetWorkflow().GetId(),
 	}))
 	require.NoError(t, err)
 
-	agentPane := instance.GetOwnedPane(created.Msg.GetAgent().GetId())
-	require.NotEmpty(t, agentPane)
-	instance.WaitForHarness(created.Msg.GetAgent().GetId())
+	agentID := created.Msg.GetAgent().GetId()
+	require.NotEmpty(t, instance.GetOwnedPane(agentID))
+	instance.WaitForHarness(agentID)
 
+	return instance, agentID
+}
+
+func openServedPanel(t *testing.T, windowWidth int) *servedPanel {
+	t.Helper()
+
+	instance, agentID := startServedAgent(t)
 	instance.Tmux.NewSession(panelSession)
 	navPane := instance.Tmux.Run("display-message", "-p", "-t", panelSession, "#{pane_id}")
-
-	client := instance.Tmux.Client()
-	frame := layout.New(client, config.DefaultLayout())
-	frame.Attach(navPane)
-
-	shown := model{
-		api: api{
-			agents:    instance.Agents,
-			workflows: instance.Workflows,
-			schedules: instance.Schedules,
-			hooks:     instance.Hooks,
-		},
-		tmux:   client,
-		frame:  frame,
-		keys:   config.DefaultKeybindings(),
-		screen: screenAgents,
+	if windowWidth > 0 {
+		instance.Tmux.Run("resize-window", "-t", panelSession, "-x", strconv.Itoa(windowWidth), "-y", "50")
 	}
 
-	shown = listedFromService(t, shown)
-	require.Equal(t, []string{"header:backend", "agent:login"}, describeRows(shown.agents.rows(shown.shared())))
+	client := instance.Tmux.Client()
+	harness := newPanelHarness(t, panelHarnessParams{
+		width:    client.GetPaneWidth(navPane),
+		height:   client.GetPaneHeight(navPane),
+		settings: ui.PanelSettings{Pane: navPane},
+		tmux:     client,
+		remote:   newPanelRemote(instance),
+	})
+	relist(t, instance, harness)
+	require.Equal(t, []string{"backend", "  login"}, readListRows(harness.readFrame()))
 
-	shown.agents.cursor = 1
-	shown.stageSelection()
-	require.Equal(t, agentPane, frame.GuestPane(), "the agent's own pane is swapped into the slot")
-	require.Contains(t, panesInPanel(t, instance), agentPane)
+	harness.fireTimers()
+	agentPane := instance.GetOwnedPane(agentID)
+	require.Equal(t, agentPane, harness.panel.ReadGuestPane(), "the agent's own pane is swapped into the stage")
+	require.Contains(t, readPanelPanes(instance), agentPane)
 
-	return &stagedPanel{
+	return &servedPanel{
 		instance:  instance,
-		shown:     shown,
-		navPane:   navPane,
+		harness:   harness,
+		agentID:   agentID,
 		agentPane: agentPane,
+		navPane:   navPane,
 	}
 }
 
-func panesInPanel(t *testing.T, instance *weavetest.Instance) []string {
+func newPanelRemote(instance *weavetest.Instance) *panelRemote {
+	return &panelRemote{
+		agents:    instance.Agents,
+		workflows: instance.Workflows,
+		schedules: instance.Schedules,
+		hooks:     instance.Hooks,
+		worktrees: instance.Worktrees,
+	}
+}
+
+func relist(t *testing.T, instance *weavetest.Instance, harness *panelHarness) {
 	t.Helper()
 
+	agents, err := instance.Agents.ListAgents(t.Context(), connect.NewRequest(&agentv1.ListAgentsRequest{View: viewv1.View_VIEW_FULL}))
+	require.NoError(t, err)
+	workflows, err := instance.Workflows.ListWorkflows(t.Context(), connect.NewRequest(&workflowv1.ListWorkflowsRequest{View: viewv1.View_VIEW_FULL}))
+	require.NoError(t, err)
+	schedules, err := instance.Schedules.ListSchedules(t.Context(), connect.NewRequest(&schedulev1.ListSchedulesRequest{View: viewv1.View_VIEW_FULL}))
+	require.NoError(t, err)
+
+	rows := slices.Concat(
+		xslice.Map(agents.Msg.GetAgents(), func(row *agentv1.AgentRow) proto.Message {
+			return row.GetAgent()
+		}),
+		xslice.Map(workflows.Msg.GetWorkflows(), func(workflow *workflowv1.Workflow) proto.Message {
+			return workflow
+		}),
+		xslice.Map(schedules.Msg.GetSchedules(), func(schedule *schedulev1.Schedule) proto.Message {
+			return schedule
+		}),
+	)
+
+	harness.watch(buildSnapshot(rows...))
+}
+
+func readPanelPanes(instance *weavetest.Instance) []string {
 	var panes []string
 	for _, line := range strings.Split(instance.Tmux.Run("list-panes", "-s", "-t", panelSession, "-F", "#{pane_id}"), "\n") {
-		if trimmed := strings.TrimSpace(line); trimmed != "" {
-			panes = append(panes, trimmed)
+		if pane := strings.TrimSpace(line); pane != "" {
+			panes = append(panes, pane)
 		}
 	}
 
 	return panes
 }
 
-// TestIntegrationPanelKeepsTheWindowLeavingARunningAgent drives the panel against a real tmux server.
-func TestIntegrationPanelKeepsTheWindowLeavingARunningAgent(t *testing.T) {
-	instance := weavetest.Start(t, weavetest.Params{})
-	ctx := t.Context()
-
-	workflow, err := instance.Workflows.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{
-		Name: "backend",
-		Cwd:  t.TempDir(),
-	}))
-	require.NoError(t, err)
-
-	created, err := instance.Agents.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{
-		Prompt:     "fix the flaky login test",
-		Title:      "login",
-		WorkflowId: workflow.Msg.GetWorkflow().GetId(),
-	}))
-	require.NoError(t, err)
-	require.NotEmpty(t, instance.GetOwnedPane(created.Msg.GetAgent().GetId()))
-	instance.WaitForHarness(created.Msg.GetAgent().GetId())
-
-	instance.Tmux.NewSession(panelSession)
-	sidebar := instance.Tmux.Run("display-message", "-p", "-t", panelSession, "#{pane_id}")
-
-	client := instance.Tmux.Client()
-	shown := model{
-		api: api{
-			agents:    instance.Agents,
-			workflows: instance.Workflows,
-			schedules: instance.Schedules,
-			hooks:     instance.Hooks,
-		},
-		tmux:   client,
-		popup:  NewPopupWindow(client, panelSession),
-		frame:  layout.New(client, config.DefaultLayout()),
-		keys:   config.DefaultKeybindings(),
-		screen: screenAgents,
-	}
-	shown.width, shown.height = 200, 40
-	shown.frame.Attach(sidebar)
-
-	shown = listedFromService(t, shown)
-	require.Equal(t, []string{"header:backend", "agent:login"}, describeRows(shown.agents.rows(shown.shared())))
-
-	zoomed := func() string {
-		return instance.Tmux.Run("display-message", "-p", "-t", sidebar, "#{window_zoomed_flag}")
-	}
-
-	shown.agents.cursor = 1
-	shown.stageSelection()
-	require.Equal(t, "0", zoomed(), "the agent's own pane has the stage to itself")
-
-	shown.agents.cursor = 0
-	shown.stageSelection()
-
-	assert.True(t, shown.frame.IsSolo(), "the shown means to hold the window on its folder row")
-	assert.Equal(t, "1", zoomed(), "and tmux is holding it, rather than the frame only believing so")
-}
-
-// TestIntegrationPanelIsTheSizeOfThePaneItWasGiven covers the panel drawing at the size of the pane it has
-// just been given rather than the one it had before the zoom.
-func TestIntegrationPanelIsTheSizeOfThePaneItWasGiven(t *testing.T) {
-	instance := weavetest.Start(t, weavetest.Params{})
-	ctx := t.Context()
-
-	workflow, err := instance.Workflows.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{
-		Name: "backend",
-		Cwd:  t.TempDir(),
-	}))
-	require.NoError(t, err)
-
-	created, err := instance.Agents.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{
-		Prompt:     "fix the flaky login test",
-		Title:      "login",
-		WorkflowId: workflow.Msg.GetWorkflow().GetId(),
-	}))
-	require.NoError(t, err)
-	require.NotEmpty(t, instance.GetOwnedPane(created.Msg.GetAgent().GetId()))
-	instance.WaitForHarness(created.Msg.GetAgent().GetId())
-
-	instance.Tmux.NewSession(panelSession)
-	sidebar := instance.Tmux.Run("display-message", "-p", "-t", panelSession, "#{pane_id}")
-	instance.Tmux.Run("resize-window", "-t", panelSession, "-x", "341", "-y", "50")
-
-	client := instance.Tmux.Client()
-	shown := model{
-		api: api{
-			agents:    instance.Agents,
-			workflows: instance.Workflows,
-			schedules: instance.Schedules,
-			hooks:     instance.Hooks,
-		},
-		tmux:   client,
-		popup:  NewPopupWindow(client, panelSession),
-		frame:  layout.New(client, config.DefaultLayout()),
-		keys:   config.DefaultKeybindings(),
-		screen: screenAgents,
-		drawn:  &lastFrame{},
-	}
-	shown.frame.Attach(sidebar)
-	shown = listedFromService(t, shown)
-	require.Equal(t, []string{"header:backend", "agent:login"}, describeRows(shown.agents.rows(shown.shared())))
-
-	// The one report the panel gets for free.
-	shown.width, shown.height = client.GetPaneWidth(sidebar), client.GetPaneHeight(sidebar)
-	share := shown.width
-	require.Less(t, share, 341, "the shown starts on its share of the frame")
-
-	// The panel moves its own pane, so the size that leaves it comes back as the resize it is,
-	// which is what the renderer is told and so what the frame may be drawn at.
-	sizes := make(chan tea.WindowSizeMsg, 4)
-	shown.frame.OnResize(func(width, height int) {
-		sizes <- tea.WindowSizeMsg{Width: width, Height: height}
-	})
-
-	paneWidth := func() int {
-		width, _ := shown.frame.SidebarSize()
-
-		return width
-	}
-
-	held := shown.render()
-
-	shown.agents.cursor = 0
-	shown.stageSelection()
-
-	require.Equal(t, 341, paneWidth(), "the folder row takes the window")
-	assert.True(t, shown.awaitingSize, "which the shown has not been told the size of yet")
-	assert.Equal(t, held, shown.render(), "so it draws the frame it has rather than one at a width nobody has been given")
-
-	shown = shown.resizeTo(reportedSize(t, sizes))
-
-	assert.Equal(t, paneWidth(), shown.width, "and once the report lands it is the size of the pane it now has")
-	assert.Equal(t, 341, lipgloss.Width(shown.render()), "so the frame covers it")
-
-	shown.agents.cursor = 1
-	shown.stageSelection()
-
-	require.Equal(t, share, paneWidth(), "the agent's own pane takes it back")
-
-	shown = shown.resizeTo(reportedSize(t, sizes))
-
-	assert.Equal(t, paneWidth(), shown.width, "and the shown is the size of the pane it is left with")
-	assert.LessOrEqual(t, lipgloss.Width(shown.render()), share, "so nothing it draws runs past the pane and wraps")
-}
-
-// reportedSize is the size the frame read back off its own pane, which the panel is handed as a
-// resize rather than reading for itself.
-func reportedSize(t *testing.T, sizes <-chan tea.WindowSizeMsg) tea.WindowSizeMsg {
+func readPaneWidth(t *testing.T, instance *weavetest.Instance, pane string) int {
 	t.Helper()
 
-	select {
-	case size := <-sizes:
-		return size
-	case <-time.After(2 * time.Second):
-		t.Fatal("the frame never reported the size its own pane landed at")
+	width, err := strconv.Atoi(instance.Tmux.Run("display-message", "-p", "-t", pane, "#{pane_width}"))
+	require.NoError(t, err)
 
-		return tea.WindowSizeMsg{}
-	}
+	return width
 }

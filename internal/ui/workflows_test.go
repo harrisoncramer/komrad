@@ -10,20 +10,6 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-func describeRows(rows []agentRow) []string {
-	out := make([]string, 0, len(rows))
-	for _, row := range rows {
-		if row.header {
-			out = append(out, "header:"+row.workflow.Name)
-			continue
-		}
-
-		out = append(out, "agent:"+row.item.Agent.Name)
-	}
-
-	return out
-}
-
 type fakeHooks struct {
 	hookv1connect.HookServiceClient
 }

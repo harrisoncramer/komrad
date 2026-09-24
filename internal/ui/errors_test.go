@@ -131,6 +131,15 @@ func TestErrorsUnreachable(t *testing.T) {
 		assert.NotContains(t, frame, "The panel could not list your agents", "and no screen is taken over")
 	})
 
+	t.Run("a close the service chose leaves a lost server lost", func(t *testing.T) {
+		harness := openUnreachable(t, engine.Remote{})
+
+		harness.send(ui.NewWatchLost(nil))
+		harness.send(ui.NewWatchLost(errors.New("connection refused")))
+
+		assert.NotContains(t, harness.readFrame(), "+1")
+	})
+
 	t.Run("a stream that came back and went again is said again", func(t *testing.T) {
 		harness := openUnreachable(t, engine.Remote{})
 

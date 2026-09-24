@@ -32,10 +32,23 @@ func TestFormsSubmit(t *testing.T) {
 	tests := []struct {
 		name      string
 		workflow  *workflowv1.Workflow
+		hostPath  string
 		press     []string
 		procedure string
 		want      proto.Message
 	}{
+		{
+			name:      "the new-agent form in a workflow with no directory sends the one tmux was invoked from",
+			workflow:  &workflowv1.Workflow{Id: "w1", Name: "api"},
+			hostPath:  "/work/from-tmux",
+			press:     slices.Concat([]string{"c"}, spellKeys("check CI"), []string{"ctrl+s"}),
+			procedure: agentv1connect.AgentServiceCreateAgentProcedure,
+			want: &agentv1.CreateAgentRequest{
+				Prompt:     "check CI",
+				Dir:        "/work/from-tmux",
+				WorkflowId: "w1",
+			},
+		},
 		{
 			name:      "the new-agent form sends the workflow's directory and an overridden harness",
 			press:     slices.Concat([]string{"c"}, spellKeys("check CI"), []string{"enter"}, spellKeys("ci"), []string{"enter", "ctrl+u"}, spellKeys("codex"), []string{"ctrl+s"}),
@@ -149,6 +162,7 @@ func TestFormsSubmit(t *testing.T) {
 				workflow = newFormWorkflow()
 			}
 			harness := openForms(t, workflow, newFormAuthor())
+			harness.panel.SetHostPath(tt.hostPath)
 
 			harness.press(tt.press...)
 
@@ -957,12 +971,4 @@ func findLastFilled(lines []string) string {
 	}
 
 	return ""
-}
-
-type fakeBinary struct {
-	isReplaced bool
-}
-
-func (b *fakeBinary) IsReplaced() bool {
-	return b.isReplaced
 }
