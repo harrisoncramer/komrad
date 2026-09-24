@@ -114,8 +114,6 @@ func TestStageCarriesTheTones(t *testing.T) {
 
 // TestMarkTakesItsToneFromThePalette covers the shape every optional mark on a row is drawn in.
 func TestMarkTakesItsToneFromThePalette(t *testing.T) {
-	withColor(t)
-
 	assert.Empty(t, Panel.Mark(false, "✓", ToneSuccess), "a fact that is not true draws nothing")
 	assert.Equal(t, " "+Panel.Style(ToneSuccess).Render("✓"), Panel.Mark(true, "✓", ToneSuccess))
 }
