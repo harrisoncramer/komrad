@@ -612,6 +612,23 @@ func (p *Panel) IsKeyTaken(key string) bool {
 	return isTaken
 }
 
+// IsGlobalKey reports whether the router answers a press of the key ahead of the screen that is up.
+func (p *Panel) IsGlobalKey(key string) bool {
+	_, _, isTaken := p.model.routeGlobalKey(keyMsg(key))
+
+	return isTaken
+}
+
+// ReadGlobalArmKeys is every key the keybinding check expects the router to answer ahead of the screen that is up.
+func (p *Panel) ReadGlobalArmKeys() []string {
+	var keys []string
+	for _, arm := range globalArms(p.model.screen, p.model.keys) {
+		keys = append(keys, arm.keys...)
+	}
+
+	return keys
+}
+
 // ReadLegendKeys is every key the legend of the screen that is up names.
 func (p *Panel) ReadLegendKeys() []string {
 	shared := p.model.shared()

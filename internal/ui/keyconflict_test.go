@@ -131,34 +131,6 @@ func TestValidateKeybindingsAllowsAKeyOnlyATypingModeReads(t *testing.T) {
 	}
 }
 
-// TestGlobalArmsAnswerForEveryKeyTheRouterTakes presses every configured key against every screen
-// and fails on one routeGlobalKey answers that globalArms does not name.
-func TestGlobalArmsAnswerForEveryKeyTheRouterTakes(t *testing.T) {
-	keys := config.DefaultKeybindings()
-	pressable := configuredKeys(t, keys)
-
-	for _, s := range []screen{screenAgents, screenSchedules, screenArchive, screenReview, screenWorktrees} {
-		t.Run(screenNames[s], func(t *testing.T) {
-			var modelled []string
-			for _, arm := range globalArms(s, keys) {
-				modelled = append(modelled, arm.keys...)
-			}
-
-			for _, pressed := range pressable {
-				// A fresh model every press.
-				_, _, taken := driftModel(t, s).routeGlobalKey(keyMsgOf(t, pressed))
-				if !taken {
-					continue
-				}
-
-				assert.Contains(t, modelled, pressed,
-					"routeGlobalKey answers %q on %s ahead of the screen's own keys, and globalArms does not name it",
-					pressed, screenNames[s])
-			}
-		})
-	}
-}
-
 // TestValidateGitMenuKeysReadsTheKeysTheMenuIsDrawnOver covers an entry bound to a key the form
 // around it needs, which the menu would answer first.
 func TestValidateGitMenuKeysReadsTheKeysTheMenuIsDrawnOver(t *testing.T) {

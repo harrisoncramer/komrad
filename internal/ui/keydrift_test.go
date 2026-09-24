@@ -49,6 +49,19 @@ func TestKeyDrift(t *testing.T) {
 			}
 		})
 
+		t.Run("every key answered ahead of the "+screen.name+" screen is one the keybinding check expects", func(t *testing.T) {
+			harness := openDriftScreen(t, screen)
+			modelled := harness.panel.ReadGlobalArmKeys()
+
+			for _, pressed := range pressable {
+				if !harness.panel.IsGlobalKey(pressed) {
+					continue
+				}
+
+				assert.Contains(t, modelled, pressed, "the router answers %q ahead of the %s screen and the keybinding check does not expect it", pressed, screen.name)
+			}
+		})
+
 		t.Run("every key the "+screen.name+" legend is excused from is still answered", func(t *testing.T) {
 			harness := openDriftScreen(t, screen)
 
