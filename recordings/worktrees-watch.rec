@@ -4,6 +4,7 @@
 # delete then takes it off the screen as soon as it is queued.
 key t
 wait Worktrees
+sleep 2s
 sleep 20s
 wait zz-rec-probe
 key /
@@ -11,7 +12,6 @@ type zz-rec-probe
 key Enter
 key d
 wait Delete
-key Left
-key Enter
+key y
 sleep 2s
 key Escape
