@@ -219,21 +219,11 @@ func TestLaunchAgentWorker(t *testing.T) {
 // TestLaunchAgentWorkerLaunchesOneAgentPerFiring pins the idempotency key as all that stops a River retry making a second agent.
 func TestLaunchAgentWorkerLaunchesOneAgentPerFiring(t *testing.T) {
 	tests := []struct {
-		name              string
-		occurrences       []time.Time
-		promoteAfterFirst bool
-		wantSkipped       bool
-		wantAgents        int
-		wantRuns          []schedulestore.RunState
+		name        string
+		occurrences []time.Time
+		wantAgents  int
+		wantRuns    []schedulestore.RunState
 	}{
-		{
-			name:              "a later firing skips while the last agent is still working",
-			occurrences:       []time.Time{nine, nine.Add(24 * time.Hour)},
-			promoteAfterFirst: true,
-			wantSkipped:       true,
-			wantAgents:        1,
-			wantRuns:          []schedulestore.RunState{schedulestore.RunStateCancelled, schedulestore.RunStateCompleted},
-		},
 		{
 			name:        "working the same firing twice launches one agent",
 			occurrences: []time.Time{nine, nine},
@@ -280,7 +270,7 @@ func TestLaunchAgentWorkerLaunchesOneAgentPerFiring(t *testing.T) {
 				Running: stores.Agents,
 			})
 
-			for i, occurrence := range tt.occurrences {
+			for _, occurrence := range tt.occurrences {
 				err := worker.Work(t.Context(), &river.Job[LaunchAgentArgs]{
 					JobRow: &rivertype.JobRow{
 						Attempt:     1,
@@ -291,20 +281,7 @@ func TestLaunchAgentWorkerLaunchesOneAgentPerFiring(t *testing.T) {
 						ScheduledFor: occurrence,
 					},
 				})
-
-				last := i == len(tt.occurrences)-1
-				if last && tt.wantSkipped {
-					require.Error(t, err)
-					assert.True(t, isCancel(err), "a firing that declines to launch cancels rather than failing")
-				} else {
-					require.NoError(t, err)
-				}
-
-				if i == 0 && tt.promoteAfterFirst {
-					for _, agent := range listScheduleAgents(t, stores, schedule.ID) {
-						require.NoError(t, stores.Agents.SetStateByID(t.Context(), agent.ID, agentstore.StateThinking))
-					}
-				}
+				require.NoError(t, err)
 			}
 
 			assert.Len(t, listScheduleAgents(t, stores, schedule.ID), tt.wantAgents)

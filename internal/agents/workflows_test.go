@@ -18,8 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestNewWorkflow pins what a workflow is stored as, a blank name falling back to a label so
-// the list never draws an empty row.
+// TestNewWorkflow pins what a workflow is stored as.
 func TestNewWorkflow(t *testing.T) {
 	home, err := os.UserHomeDir()
 	require.NoError(t, err)
