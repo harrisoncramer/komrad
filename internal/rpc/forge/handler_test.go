@@ -2,6 +2,7 @@ package forge
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"testing"
 	"time"
@@ -9,8 +10,10 @@ import (
 	"weave/internal/forge"
 	"weave/internal/store"
 	forgestore "weave/internal/store/forge"
+	"weave/lib/xptr"
 	forgev1 "weave/proto/gen/forge/v1"
 	forgev1weave "weave/proto/gen/forge/v1/forgev1weave"
+	paginationv1 "weave/proto/gen/pagination/v1"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
@@ -18,117 +21,212 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// fakeForges answers as a forge service with one connection, remembering what it was told.
-type fakeForges struct {
-	connection *forgestore.Connection
-	forge      forge.Forge
-	checkErr   error
-	held       bool
-	connected  forge.ConnectParams
-	stamped    []*time.Time
+// fakeConnector answers from its fields and records what each call asked of it.
+type fakeConnector struct {
+	connections  []forgestore.Connection
+	forge        forge.Forge
+	err          error
+	checkErr     error
+	held         bool
+	connected    []forge.ConnectParams
+	disconnected []string
+	stamped      []*time.Time
+	hosts        []string
 }
 
-func (f *fakeForges) Connect(_ context.Context, params forge.ConnectParams) (*forgestore.Connection, error) {
-	f.connected = params
-	if f.connection == nil {
-		return nil, forgestore.ErrHostTaken.Saying("%s is already connected", params.Host)
+// Connect records the params and answers the first connection unless err refuses it.
+func (f *fakeConnector) Connect(_ context.Context, params forge.ConnectParams) (*forgestore.Connection, error) {
+	f.connected = append(f.connected, params)
+	if f.err != nil {
+		return nil, f.err
 	}
 
-	return f.connection, nil
+	return &f.connections[0], nil
 }
 
-func (f *fakeForges) List(context.Context) ([]forgestore.Connection, error) {
-	if f.connection == nil {
-		return nil, nil
+// List answers connections unless err refuses it.
+func (f *fakeConnector) List(context.Context) ([]forgestore.Connection, error) {
+	if f.err != nil {
+		return nil, f.err
 	}
 
-	return []forgestore.Connection{*f.connection}, nil
+	return f.connections, nil
 }
 
-func (f *fakeForges) Disconnect(_ context.Context, host string) error {
-	if f.connection == nil || f.connection.Host != host {
-		return store.ErrNotFound.Saying("%s is not connected", host)
-	}
+// Disconnect records the host and answers err.
+func (f *fakeConnector) Disconnect(_ context.Context, host string) error {
+	f.disconnected = append(f.disconnected, host)
 
-	f.connection = nil
-
-	return nil
+	return f.err
 }
 
-func (f *fakeForges) Check(context.Context, forgestore.Connection) (string, error) {
-	if f.checkErr != nil {
-		return "", f.checkErr
-	}
-
-	return f.connection.Login, nil
+// Check answers checkErr.
+func (f *fakeConnector) Check(context.Context, forgestore.Connection) (string, error) {
+	return "", f.checkErr
 }
 
-func (f *fakeForges) HasCredential(context.Context, forgestore.Connection) (bool, error) {
+// HasCredential answers held.
+func (f *fakeConnector) HasCredential(context.Context, forgestore.Connection) (bool, error) {
 	return f.held, nil
 }
 
-func (f *fakeForges) SetVerifiedAt(_ context.Context, _ string, at *time.Time) error {
+// SetVerifiedAt records the stamp.
+func (f *fakeConnector) SetVerifiedAt(_ context.Context, _ string, at *time.Time) error {
 	f.stamped = append(f.stamped, at)
 
 	return nil
 }
 
-func (f *fakeForges) ConnectionFor(_ context.Context, host string) (*forgestore.Connection, error) {
-	if f.connection == nil || f.connection.Host != host {
-		return nil, store.ErrNotFound.Saying("%s is not connected", host)
+// ConnectionFor records the host and answers the first connection unless err refuses it.
+func (f *fakeConnector) ConnectionFor(_ context.Context, host string) (*forgestore.Connection, error) {
+	f.hosts = append(f.hosts, host)
+	if f.err != nil {
+		return nil, f.err
 	}
 
-	return f.connection, nil
+	return &f.connections[0], nil
 }
 
-func (f *fakeForges) ForConnection(forgestore.Connection) (forge.Forge, error) { return f.forge, nil }
+// ForConnection answers forge.
+func (f *fakeConnector) ForConnection(forgestore.Connection) (forge.Forge, error) {
+	return f.forge, nil
+}
 
-func connected() *forgestore.Connection {
-	at := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
+// TestForgeRefusalsMapToCodes pins the code each refusal reaches the caller as.
+func TestForgeRefusalsMapToCodes(t *testing.T) {
+	connectForge := func(ctx context.Context, service forgev1weave.ForgeServiceAdapter) error {
+		_, err := service.ConnectForge(ctx, connect.NewRequest(&forgev1.ConnectForgeRequest{
+			Host:  "github.com",
+			Token: "tok",
+		}))
 
-	return &forgestore.Connection{
-		ID:         "conn-1",
-		Kind:       forge.KindGitHub,
-		Host:       "github.com",
-		Method:     forge.MethodToken,
-		Login:      "harrisoncramer",
-		VerifiedAt: &at,
-		CreatedAt:  at,
+		return err
+	}
+	listForges := func(ctx context.Context, service forgev1weave.ForgeServiceAdapter) error {
+		_, err := service.ListForges(ctx, connect.NewRequest(&emptypb.Empty{}))
+
+		return err
+	}
+	checkForges := func(ctx context.Context, service forgev1weave.ForgeServiceAdapter) error {
+		_, err := service.CheckForges(ctx, connect.NewRequest(&emptypb.Empty{}))
+
+		return err
+	}
+	disconnectForge := func(ctx context.Context, service forgev1weave.ForgeServiceAdapter) error {
+		_, err := service.DisconnectForge(ctx, connect.NewRequest(&forgev1.DisconnectForgeRequest{Host: "github.com"}))
+
+		return err
+	}
+	listPullRequests := func(remote, cursor string) func(ctx context.Context, service forgev1weave.ForgeServiceAdapter) error {
+		return func(ctx context.Context, service forgev1weave.ForgeServiceAdapter) error {
+			req := &forgev1.ListForgePullRequestsRequest{RemoteUrl: remote}
+			if cursor != "" {
+				req.Pagination = &paginationv1.Pagination{Cursor: xptr.Ptr(cursor)}
+			}
+
+			_, err := service.ListForgePullRequests(ctx, connect.NewRequest(req))
+
+			return err
+		}
+	}
+	remote := "git@github.com:harrisoncramer/weave.git"
+
+	tests := []struct {
+		name     string
+		call     func(ctx context.Context, service forgev1weave.ForgeServiceAdapter) error
+		err      error
+		wantCode connect.Code
+	}{
+		{
+			name:     "connecting a host already connected",
+			call:     connectForge,
+			err:      forgestore.ErrHostTaken.Saying("github.com is already connected"),
+			wantCode: connect.CodeAlreadyExists,
+		},
+		{
+			name:     "listing forges the store cannot read",
+			call:     listForges,
+			err:      errors.New("connection refused"),
+			wantCode: connect.CodeInternal,
+		},
+		{
+			name:     "checking forges the store cannot read",
+			call:     checkForges,
+			err:      errors.New("connection refused"),
+			wantCode: connect.CodeInternal,
+		},
+		{
+			name:     "disconnecting a host never connected",
+			call:     disconnectForge,
+			err:      store.ErrNotFound.Saying("github.com is not connected"),
+			wantCode: connect.CodeNotFound,
+		},
+		{
+			name:     "listing pull requests of a remote that is not a forge",
+			call:     listPullRequests("/local/path", ""),
+			wantCode: connect.CodeInvalidArgument,
+		},
+		{
+			name:     "listing pull requests on a host nothing is connected to",
+			call:     listPullRequests(remote, ""),
+			err:      store.ErrNotFound.Saying("github.com is not connected"),
+			wantCode: connect.CodeNotFound,
+		},
+		{
+			name:     "a page token that is not one",
+			call:     listPullRequests(remote, "not-a-token"),
+			wantCode: connect.CodeInvalidArgument,
+		},
+		{
+			name:     "a page token with no cursor",
+			call:     listPullRequests(remote, base64.URLEncoding.EncodeToString([]byte(`{"per_page":20}`))),
+			wantCode: connect.CodeInvalidArgument,
+		},
+		{
+			name:     "a page token with no page size",
+			call:     listPullRequests(remote, base64.URLEncoding.EncodeToString([]byte(`{"cursor":"Y3Vyc29yOjM="}`))),
+			wantCode: connect.CodeInvalidArgument,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			connector := &fakeConnector{
+				connections: []forgestore.Connection{connected()},
+				forge:       &fakeForge{},
+				err:         tt.err,
+			}
+
+			err := tt.call(t.Context(), forgev1weave.ForgeServiceAdapter{Impl: NewHandler(connector)})
+			require.Error(t, err)
+			assert.Equal(t, tt.wantCode, connect.CodeOf(err))
+		})
 	}
 }
 
-// TestConnectForge covers the token travelling once into the service and the connection
-// coming back without it.
+// TestConnectForge pins that the token reaches the service and never comes back.
 func TestConnectForge(t *testing.T) {
-	t.Parallel()
+	connector := &fakeConnector{
+		connections: []forgestore.Connection{connected()},
+		held:        true,
+	}
+	service := forgev1weave.ForgeServiceAdapter{Impl: NewHandler(connector)}
 
-	forges := &fakeForges{connection: connected(), held: true}
-	service := forgev1weave.ForgeServiceAdapter{Impl: NewHandler(forges)}
-
-	resp, err := service.ConnectForge(t.Context(), connect.NewRequest(&forgev1.ConnectForgeRequest{Host: "github.com", Token: "ghp_secret"}))
+	resp, err := service.ConnectForge(t.Context(), connect.NewRequest(&forgev1.ConnectForgeRequest{
+		Host:  "github.com",
+		Token: "ghp_secret",
+	}))
 	require.NoError(t, err)
-	assert.Equal(t, "ghp_secret", forges.connected.Token.Expose())
+
+	require.Len(t, connector.connected, 1)
+	assert.Equal(t, "ghp_secret", connector.connected[0].Token.Expose())
 	assert.Equal(t, "harrisoncramer", resp.Msg.GetForge().GetLogin())
 	assert.True(t, resp.Msg.GetForge().GetHasCredential())
-	assert.NotContains(t, resp.Msg.String(), "ghp_", "the token is never in what comes back")
+	assert.NotContains(t, resp.Msg.String(), "ghp_")
 }
 
-// TestConnectForgeRefusal covers the service's refusal reaching the caller with its kind.
-func TestConnectForgeRefusal(t *testing.T) {
-	t.Parallel()
-
-	service := forgev1weave.ForgeServiceAdapter{Impl: NewHandler(&fakeForges{})}
-
-	_, err := service.ConnectForge(t.Context(), connect.NewRequest(&forgev1.ConnectForgeRequest{Host: "github.com", Token: "tok"}))
-	require.Error(t, err)
-	assert.Equal(t, connect.CodeAlreadyExists, connect.CodeOf(err))
-}
-
-// TestCheckForges covers the answer being recorded on the row: a stamp on success, and the
-// stamp cleared on a refusal but not on a forge that could not be reached.
+// TestCheckForges pins which answers of a check clear the connection's stamp.
 func TestCheckForges(t *testing.T) {
-	t.Parallel()
-
 	tests := []struct {
 		name         string
 		checkErr     error
@@ -159,8 +257,6 @@ func TestCheckForges(t *testing.T) {
 		},
 		{
 			name:         "an accepted credential restores the stamp",
-			checkErr:     nil,
-			wantKind:     "",
 			wantStamped:  true,
 			wantVerified: true,
 		},
@@ -168,14 +264,11 @@ func TestCheckForges(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			forges := &fakeForges{
-				connection: connected(),
-				held:       true,
-				checkErr:   tt.checkErr,
+			connector := &fakeConnector{
+				connections: []forgestore.Connection{connected()},
+				checkErr:    tt.checkErr,
 			}
-			service := forgev1weave.ForgeServiceAdapter{Impl: NewHandler(forges)}
+			service := forgev1weave.ForgeServiceAdapter{Impl: NewHandler(connector)}
 
 			resp, err := service.CheckForges(t.Context(), connect.NewRequest(&emptypb.Empty{}))
 			require.NoError(t, err)
@@ -183,23 +276,22 @@ func TestCheckForges(t *testing.T) {
 
 			check := resp.Msg.GetChecks()[0]
 			assert.Equal(t, tt.wantKind, check.GetProblemKind())
-			assert.Equal(t, tt.wantStamped, len(forges.stamped) == 1)
+			assert.Equal(t, tt.wantStamped, len(connector.stamped) == 1)
 			assert.Equal(t, tt.wantVerified, check.GetForge().VerifiedAt != nil)
 		})
 	}
 }
 
-// TestDisconnectForge covers a host going, and one that was never there.
-func TestDisconnectForge(t *testing.T) {
-	t.Parallel()
+func connected() forgestore.Connection {
+	at := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
 
-	forges := &fakeForges{connection: connected()}
-	service := forgev1weave.ForgeServiceAdapter{Impl: NewHandler(forges)}
-
-	_, err := service.DisconnectForge(t.Context(), connect.NewRequest(&forgev1.DisconnectForgeRequest{Host: "github.com"}))
-	require.NoError(t, err)
-
-	_, err = service.DisconnectForge(t.Context(), connect.NewRequest(&forgev1.DisconnectForgeRequest{Host: "github.com"}))
-	require.Error(t, err)
-	assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err))
+	return forgestore.Connection{
+		ID:         "conn-1",
+		Kind:       forge.KindGitHub,
+		Host:       "github.com",
+		Method:     forge.MethodToken,
+		Login:      "harrisoncramer",
+		VerifiedAt: &at,
+		CreatedAt:  at,
+	}
 }
