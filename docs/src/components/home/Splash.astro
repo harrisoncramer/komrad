@@ -29,10 +29,11 @@ import { link } from "../../site";
   </div>
   <div class="overlay">
     <h1>A terminal-based agent manager</h1>
-    <p>
+    <p class="long">
       Run Claude and Codex agents side by side in tmux. Weave keeps them organised, lets them talk, and remembers what
       they did.
     </p>
+    <p class="short">Claude and Codex agents, side by side in tmux.</p>
     <div class="actions">
       <a class="primary" href={link("/guides/install")}>
         Get started
@@ -62,7 +63,8 @@ import { link } from "../../site";
 
   @media (max-width: 767.98px) {
     .splash {
-      aspect-ratio: 1 / 1;
+      @apply mt-2;
+      aspect-ratio: 4 / 5;
     }
 
     .media {
@@ -95,8 +97,8 @@ import { link } from "../../site";
   @media (max-width: 767.98px) {
     .scrim {
       background:
-        radial-gradient(ellipse 70% 45% at 50% 50%, rgba(8, 13, 26, 0.85), rgba(8, 13, 26, 0) 100%),
-        rgba(8, 13, 26, 0.35);
+        radial-gradient(ellipse 80% 40% at 50% 50%, rgba(8, 13, 26, 0.88), rgba(8, 13, 26, 0) 100%),
+        rgba(8, 13, 26, 0.5);
     }
   }
 
@@ -105,7 +107,8 @@ import { link } from "../../site";
   }
 
   .overlay h1 {
-    @apply text-2xl leading-tight font-semibold tracking-tight md:text-4xl;
+    @apply text-[1.7rem] leading-[1.15] font-semibold tracking-tight md:text-4xl;
+    text-wrap: balance;
     background: linear-gradient(to bottom, #fff 35%, var(--color-app-gray-light));
     background-clip: text;
     color: transparent;
@@ -113,7 +116,22 @@ import { link } from "../../site";
   }
 
   .overlay p {
+    text-wrap: balance;
     @apply mt-3 max-w-md text-sm leading-relaxed text-app-gray md:max-w-xl md:text-base;
+  }
+
+  .overlay .short {
+    @apply hidden;
+  }
+
+  @media (max-width: 767.98px) {
+    .overlay .long {
+      @apply hidden;
+    }
+
+    .overlay .short {
+      @apply block max-w-[18rem];
+    }
   }
 
   .actions {
