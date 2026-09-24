@@ -547,3 +547,33 @@ func landingPanel() model {
 func hoveredAgentRowKey(m model) string {
 	return rowKeyAt(m.agents.rows(m.shared()), m.agents.cursor)
 }
+
+// TestHeldLandingKeepsThePaneTheWriteShowed covers a batch for another row arriving while the
+// landing waits, which leaves the created pane on the stage.
+func TestHeldLandingKeepsThePaneTheWriteShowed(t *testing.T) {
+	tmux := &recordingTmux{}
+	m := watchedPanel()
+	m.tmux = tmux
+	m.frame = layout.New(tmux, config.DefaultLayout())
+	m.frame.Attach("%0")
+	old := &agentv1.Agent{Id: "a1", Name: "old", WorkflowId: "w1", PaneId: "%1", Alive: proto.Bool(true)}
+	m.applyWatch(client.WatchBatch{snapshotEvent(
+		workflowRowOf(&workflowv1.Workflow{Id: "w1", Name: "api"}),
+		agentRowOf(old),
+	)})
+	m.stageSelection()
+	require.Equal(t, "%1", m.frame.GuestPane())
+
+	landed, _ := m.applyWrite(writeResult{written: &written{row: agentRowKey("a2"), pane: "%9"}})
+	got := asModel(t, landed)
+	require.Equal(t, "%9", got.frame.GuestPane())
+
+	got.applyWatch(client.WatchBatch{putEvent(agentRowOf(&agentv1.Agent{Id: "a1", Name: "renamed", WorkflowId: "w1", PaneId: "%1", Alive: proto.Bool(true)}))})
+
+	assert.Equal(t, "%9", got.frame.GuestPane(), "the old row's pane is not swapped back over the new one")
+
+	got.applyWatch(client.WatchBatch{putEvent(agentRowOf(&agentv1.Agent{Id: "a2", Name: "new", WorkflowId: "w1", PaneId: "%9", Alive: proto.Bool(true)}))})
+
+	assert.Equal(t, agentRowKey("a2"), hoveredAgentRowKey(got))
+	assert.Equal(t, "%9", got.frame.GuestPane())
+}

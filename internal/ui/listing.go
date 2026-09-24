@@ -552,14 +552,15 @@ func (m *model) landOn(row written, now time.Time) {
 	m.landing = landing{row: row.row, until: now.Add(landingWait)}
 }
 
+// isLandingHeld reports whether a write's landing is still waiting for the watch to deliver its row.
+func (m *model) isLandingHeld(now time.Time) bool {
+	return m.landing.row != "" && !now.After(m.landing.until)
+}
+
 // landedRow is the row a held landing goes to once the listing holds it, or the hovered row.
 func (m *model) landedRow(hovered string, now time.Time) string {
 	target := m.landing
-	if target.row == "" {
-		return hovered
-	}
-
-	if now.After(target.until) {
+	if !m.isLandingHeld(now) {
 		m.landing = landing{}
 
 		return hovered
