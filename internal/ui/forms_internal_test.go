@@ -12,24 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func deliver(t *testing.T, m model, msg tea.Msg) model {
-	t.Helper()
-
-	updated, cmd := m.Update(msg)
-
-	return deliverAll(t, requireModel(t, updated), cmd)
-}
-
-func deliverAll(t *testing.T, m model, cmd tea.Cmd) model {
-	t.Helper()
-
-	for _, msg := range collectMessages(cmd) {
-		m = deliver(t, m, msg)
-	}
-
-	return m
-}
-
 func requireModel(t *testing.T, updated tea.Model) model {
 	t.Helper()
 
