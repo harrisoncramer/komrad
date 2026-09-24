@@ -10,9 +10,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestListByKeyIsTheWatchedSet pins the read-back to the watched set: every mark is held, so a
+// TestListWatchedIsTheWatchedSet pins the read-back to the watched set: every mark is held, so a
 // mark comes back while it is set and not once it is cleared.
-func TestListByKeyIsTheWatchedSet(t *testing.T) {
+func TestListWatchedIsTheWatchedSet(t *testing.T) {
 	ctx := t.Context()
 	f := open(t)
 	agent := f.seedAgent(t, "agent")
@@ -25,12 +25,12 @@ func TestListByKeyIsTheWatchedSet(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, marked)
 
-	all, err := f.List(ctx)
+	all, err := f.ListWatched(ctx, nil)
 	require.NoError(t, err)
 	require.Len(t, all, 2)
 	ids := xslice.Map(all, func(mark Mark) string { return mark.ID })
 
-	listed, err := f.ListByKey(ctx, append(slices.Clone(ids), "00000000-0000-0000-0000-000000000000"))
+	listed, err := f.ListWatched(ctx, append(slices.Clone(ids), "00000000-0000-0000-0000-000000000000", "not-an-id"))
 	require.NoError(t, err)
 	assert.Equal(t, []Mark{
 		{
@@ -43,21 +43,21 @@ func TestListByKeyIsTheWatchedSet(t *testing.T) {
 			Mark:       "b",
 			WorkflowID: &flow,
 		},
-	}, listed, "an id nobody holds is left out")
+	}, listed, "a key nobody holds is left out")
 
-	none, err := f.ListByKey(ctx, nil)
+	none, err := f.ListWatched(ctx, []string{})
 	require.NoError(t, err)
-	assert.Empty(t, none)
+	assert.Empty(t, none, "an empty key list reads nothing")
 
 	cleared, err := f.Clear(ctx, OnAgent(agent))
 	require.NoError(t, err)
 	require.True(t, cleared)
 
-	listed, err = f.ListByKey(ctx, ids)
+	listed, err = f.ListWatched(ctx, ids)
 	require.NoError(t, err)
 	assert.Equal(t, []string{"b"}, xslice.Map(listed, func(mark Mark) string { return mark.Mark }), "a cleared mark is a tombstone")
 
-	all, err = f.List(ctx)
+	all, err = f.ListWatched(ctx, nil)
 	require.NoError(t, err)
-	assert.Equal(t, listed, all, "the listing is the whole watched set")
+	assert.Equal(t, listed, all, "the snapshot is the whole watched set")
 }

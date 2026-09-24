@@ -79,7 +79,7 @@ func (f *fixture) set(t *testing.T, mark string, target Target) bool {
 func (f *fixture) marks(t *testing.T) map[string]string {
 	t.Helper()
 
-	listed, err := f.List(t.Context())
+	listed, err := f.ListWatched(t.Context(), nil)
 	require.NoError(t, err)
 
 	by := make(map[string]string, len(listed))

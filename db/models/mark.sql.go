@@ -131,55 +131,20 @@ func (q *Queries) InsertWorkflowMark(ctx context.Context, arg InsertWorkflowMark
 	return result.RowsAffected(), nil
 }
 
-const listMarksByKey = `-- name: ListMarksByKey :many
+const listWatchedMarks = `-- name: ListWatchedMarks :many
 SELECT
     mark, agent_id, workflow_id, created_at, id, tenant_id
 FROM
     marks
 WHERE
-    id = ANY ($1::uuid[])
+    $1::text[] IS NULL
+    OR id::text = ANY ($1)
 ORDER BY
     mark
 `
 
-func (q *Queries) ListMarksByKey(ctx context.Context, ids []string) ([]*Mark, error) {
-	rows, err := q.db.Query(ctx, listMarksByKey, ids)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []*Mark
-	for rows.Next() {
-		var i Mark
-		if err := rows.Scan(
-			&i.Mark,
-			&i.AgentID,
-			&i.WorkflowID,
-			&i.CreatedAt,
-			&i.ID,
-			&i.TenantID,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, &i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const snapshotMarks = `-- name: SnapshotMarks :many
-SELECT
-    mark, agent_id, workflow_id, created_at, id, tenant_id
-FROM
-    marks
-ORDER BY
-    mark
-`
-
-func (q *Queries) SnapshotMarks(ctx context.Context) ([]*Mark, error) {
-	rows, err := q.db.Query(ctx, snapshotMarks)
+func (q *Queries) ListWatchedMarks(ctx context.Context, keys []string) ([]*Mark, error) {
+	rows, err := q.db.Query(ctx, listWatchedMarks, keys)
 	if err != nil {
 		return nil, err
 	}

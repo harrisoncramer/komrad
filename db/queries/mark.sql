@@ -1,18 +1,11 @@
--- name: SnapshotMarks :many
-SELECT
-    *
-FROM
-    marks
-ORDER BY
-    mark;
-
--- name: ListMarksByKey :many
+-- name: ListWatchedMarks :many
 SELECT
     *
 FROM
     marks
 WHERE
-    id = ANY (@ids::uuid[])
+    sqlc.narg('keys')::text[] IS NULL
+    OR id::text = ANY (sqlc.narg('keys'))
 ORDER BY
     mark;
 

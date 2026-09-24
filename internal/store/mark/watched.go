@@ -2,8 +2,10 @@ package mark
 
 import (
 	"context"
+	"fmt"
 
 	"weave/internal/watch"
+	"weave/lib/xslice"
 	watchv1 "weave/proto/gen/watch/v1"
 )
 
@@ -16,9 +18,10 @@ var WatchedMarks = watch.Resource{
 
 // ListWatched returns whichever of keys are still marks, or every mark when keys is nil.
 func (s *MarkStore) ListWatched(ctx context.Context, keys []string) ([]Mark, error) {
-	if keys == nil {
-		return s.List(ctx)
+	rows, err := s.queries.ListWatchedMarks(ctx, keys)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list watched marks: %w", err)
 	}
 
-	return s.ListByKey(ctx, keys)
+	return xslice.Map(rows, fromRow), nil
 }
