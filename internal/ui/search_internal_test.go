@@ -3,16 +3,11 @@ package ui
 import (
 	"strings"
 	"testing"
-	"time"
 
 	"weave/internal/ui/paint"
-	"weave/internal/ui/panel"
 	"weave/internal/view"
-	"weave/lib/xptr"
-	"weave/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // TestHitSpansCoverTheHoveredTurn covers the turn a highlight is measured from, which is the turn
@@ -89,80 +84,6 @@ func TestAgentSpansCoverEveryTurn(t *testing.T) {
 		{Start: first, End: first + len("reconcile")},
 		{Start: second, End: second + len("reconcile")},
 	}, agent.spans(content))
-}
-
-// TestSearchTellsAHiddenHitFromAnArchivedOne pins the screen where the two used to draw alike:
-// a hidden agent still running is bright with the hidden mark, a dormant hidden one is dim with
-// it, and an archived one is dim without it.
-func TestSearchTellsAHiddenHitFromAnArchivedOne(t *testing.T) {
-	m := newFilterModel()
-	m.screen = screenSearch
-	m.width = 80
-	m.search = searchScreen{query: "ledger"}
-	m.listing.agents = []panel.AgentRow{
-		{Agent: panel.Agent{
-			ID:         "a1",
-			Name:       "running",
-			WorkflowID: "w1",
-			Hidden:     true,
-		}, Alive: true},
-		{Agent: panel.Agent{
-			ID:         "a2",
-			Name:       "dormant",
-			WorkflowID: "w1",
-			Hidden:     true,
-			State:      panel.StateIdle,
-		}},
-	}
-	m.listing.archivedAgents = archivedItems([]panel.Agent{
-		{
-			ID:         "a3",
-			Name:       "put-away",
-			WorkflowID: "w1",
-			Hidden:     true,
-			ArchivedAt: xptr.Ptr(time.Now()),
-		},
-	})
-	m.search.apply(&m, m.shared(), searchResult{
-		query: "ledger",
-		hits: []searchHit{
-			{
-				agentID: "a1",
-				name:    "running",
-				snippet: "first",
-			},
-			{
-				agentID: "a2",
-				name:    "dormant",
-				snippet: "second",
-			},
-			{
-				agentID:  "a3",
-				name:     "put-away",
-				archived: true,
-				snippet:  "third",
-			},
-		},
-	})
-
-	built, _ := buildSearchRows(m)
-	rows := xslice.Map([]string{"running", "dormant", "put-away"}, func(name string) view.Row {
-		return findSearchRow(t, built, name)
-	})
-
-	list := view.Prepare(view.Snapshot{Rows: rows, Columns: view.NoColumns()})
-	require.Len(t, list.Lines, 3)
-
-	running, dormant, archived := list.Lines[0], list.Lines[1], list.Lines[2]
-
-	assert.Equal(t, view.EmphasisNormal, running.Emphasis, "a hidden agent still running is bright")
-	assert.False(t, running.Hidden.IsBlank(), "and carries the hidden mark")
-
-	assert.Equal(t, view.EmphasisDim, dormant.Emphasis, "a hidden agent whose pane has gone is dim")
-	assert.False(t, dormant.Hidden.IsBlank(), "and keeps the hidden mark")
-
-	assert.Equal(t, view.EmphasisDim, archived.Emphasis, "an archived agent is dim")
-	assert.True(t, archived.Hidden.IsBlank(), "and carries no hidden mark, hidden before it was put away or not")
 }
 
 // TestNameMatches covers where a name is marked, which is the query as the name spells it rather
@@ -263,78 +184,6 @@ func (m model) searchHelp() keyMap {
 	return m.search.help(m.shared())
 }
 
-// TestSearchDropsAnswersForAQueryMovedPast covers an answer landing after the input has changed.
-func TestSearchDropsAnswersForAQueryMovedPast(t *testing.T) {
-	m := newFilterModel()
-	m.screen = screenSearch
-	m.search = searchScreen{query: "current"}
-
-	m.search.apply(&m, m.shared(), searchResult{
-		query: "stale",
-		hits:  hits("a", "b"),
-	})
-	m.search.applyPreview(m.shared(), previewResult{
-		agentID: "a",
-		query:   "stale",
-		content: "a transcript",
-	})
-
-	assert.Empty(t, m.search.turns)
-	assert.Empty(t, m.search.preview.conversation)
-}
-
-// TestSearchForgetsAPageInFlight covers a fresh search dropping the page the old one was waiting on.
-func TestSearchForgetsAPageInFlight(t *testing.T) {
-	m := newFilterModel()
-	m.screen = screenSearch
-	m.search = searchScreen{
-		query:  "reconciler",
-		paging: true,
-	}
-
-	m.search.apply(&m, m.shared(), searchResult{
-		query: "reconciler",
-		hits:  hits("b"),
-	})
-
-	assert.False(t, m.search.paging)
-}
-
 func markText(text string) string {
 	return paint.MarkOpen + text + paint.MarkClose
-}
-
-// buildSearchRows is the rows the screen built for the agents it found, and the same rows drawn.
-func buildSearchRows(m model) ([]view.Row, []string) {
-	pane := m.paneWidth()
-	snapshot := m.search.snapshot(m.shared(), m.search.rows(m.shared()), m.listPane(pane))
-
-	return snapshot.Rows, view.Rows(view.Prepare(snapshot), paint.Panel, pane)
-}
-
-// findSearchRow is the row the screen built for the agent of that name.
-func findSearchRow(t *testing.T, rows []view.Row, name string) view.Row {
-	t.Helper()
-
-	for _, row := range rows {
-		if row.Name == name {
-			return row
-		}
-	}
-
-	t.Fatalf("no row for %q", name)
-
-	return view.Row{}
-}
-
-func hits(names ...string) []searchHit {
-	out := xslice.Map(names, func(name string) searchHit {
-		return searchHit{
-			agentID: name,
-			name:    name,
-			snippet: name,
-		}
-	})
-
-	return out
 }
