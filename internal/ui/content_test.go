@@ -100,7 +100,7 @@ func TestWriteStageFileIsNeverTornInHalf(t *testing.T) {
 	assert.Equal(t, frames, written, "every frame was written")
 }
 
-// TestWriteStageFile covers two panels writing the same stage file and a write that cannot land.
+// TestWriteStageFile covers two writers racing on one stage file and a write that cannot land.
 func TestWriteStageFile(t *testing.T) {
 	t.Run("two writers at once each land a whole frame", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "stage.ansi")

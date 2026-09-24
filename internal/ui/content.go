@@ -67,15 +67,18 @@ func writeStageFile(path, content string) error {
 		return fmt.Errorf("failed to create a temporary file beside %s: %w", path, err)
 	}
 
-	err = fillStageFile(temp, path, content)
-	if err != nil {
+	if err := fillStageFile(temp, content); err != nil {
 		return errors.Join(err, os.Remove(temp.Name()))
+	}
+
+	if err := os.Rename(temp.Name(), path); err != nil {
+		return errors.Join(fmt.Errorf("failed to move %s into place: %w", temp.Name(), err), os.Remove(temp.Name()))
 	}
 
 	return nil
 }
 
-func fillStageFile(temp *os.File, path, content string) error {
+func fillStageFile(temp *os.File, content string) error {
 	if _, err := temp.WriteString(content); err != nil {
 		_ = temp.Close()
 
@@ -84,10 +87,6 @@ func fillStageFile(temp *os.File, path, content string) error {
 
 	if err := temp.Close(); err != nil {
 		return fmt.Errorf("failed to close %s: %w", temp.Name(), err)
-	}
-
-	if err := os.Rename(temp.Name(), path); err != nil {
-		return fmt.Errorf("failed to move %s into place: %w", temp.Name(), err)
 	}
 
 	return nil
