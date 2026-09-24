@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+source "$MISE_CONFIG_ROOT/mise/tasks/_"
+set -euo pipefail
+#MISE description="Serve the docs site locally with live reload."
+
+usage() {
+	echo "Usage: mise run docs:dev"
+	echo
+	echo "Runs the Astro dev server for the site under docs/. Search reads the index"
+	echo "from the last build, so run docs:build once before searching locally."
+}
+
+for arg in "$@"; do
+	case "$arg" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	esac
+done
+
+cd "$MISE_CONFIG_ROOT/docs"
+
+if [ ! -d node_modules ]; then
+	npm ci
+fi
+
+npm run dev

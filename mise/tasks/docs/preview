@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+source "$MISE_CONFIG_ROOT/mise/tasks/_"
+set -euo pipefail
+#MISE description="Serve the built docs site from docs/dist."
+
+usage() {
+	echo "Usage: mise run docs:preview"
+	echo
+	echo "Serves docs/dist as it would be deployed. Run docs:build first."
+}
+
+for arg in "$@"; do
+	case "$arg" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	esac
+done
+
+cd "$MISE_CONFIG_ROOT/docs"
+
+if [ ! -d node_modules ]; then
+	npm ci
+fi
+
+npm run preview

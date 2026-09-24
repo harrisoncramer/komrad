@@ -1,0 +1,79 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: Helvetica, sans-serif;
+  --font-playfair: "Playfair Display", serif;
+  --font-lora: Lora, serif;
+
+  --color-app-blue: #9ec4ff;
+  --color-app-white: #ffffff;
+  --color-app-black: #0d0d0d;
+  --color-app-background-dark: #141414;
+  --color-app-background-medium: #2e2e2e;
+  --color-app-background-medium-dark: #1e1e1e;
+  --color-app-background-light: #242424;
+  --color-app-gray: #c9d1d9;
+}
+
+@layer base {
+  *::selection {
+    @apply bg-app-blue text-app-black;
+  }
+
+  html,
+  body {
+    @apply bg-app-background-dark text-app-white;
+    background-image: url("/fabric-dark.png");
+    background-repeat: repeat;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-playfair);
+    font-weight: 500;
+  }
+
+  h1 {
+    font-size: 2.25em;
+  }
+
+  h2 {
+    font-size: 1.75em;
+  }
+
+  h3 {
+    font-size: 1.5em;
+  }
+
+  p,
+  li {
+    font-family: var(--font-lora);
+    font-size: 1.1em;
+  }
+
+  a {
+    @apply text-app-blue;
+  }
+}
+
+.doc-content {
+  @apply flex flex-col gap-6 mb-24;
+}
+
+.doc-content ul li {
+  @apply list-disc ml-6;
+}
+
+.doc-content ol li {
+  @apply list-decimal ml-6;
+}
+
+.doc-content pre {
+  @apply p-4 overflow-auto rounded-sm;
+}
+
+.doc-content :not(pre) > code {
+  @apply bg-app-background-medium px-1 rounded-sm;
+}

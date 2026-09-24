@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+source "$MISE_CONFIG_ROOT/mise/tasks/_"
+set -euo pipefail
+#MISE description="Build the docs site and its search index into docs/dist."
+
+usage() {
+	echo "Usage: mise run docs:build"
+	echo
+	echo "Builds the static site under docs/ into docs/dist, then runs Pagefind over"
+	echo "it to write the search index the site and the dev server both read."
+}
+
+for arg in "$@"; do
+	case "$arg" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	esac
+done
+
+cd "$MISE_CONFIG_ROOT/docs"
+
+if [ ! -d node_modules ]; then
+	npm ci
+fi
+
+npm run build

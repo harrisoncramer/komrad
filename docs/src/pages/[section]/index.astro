@@ -1,0 +1,33 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { SECTIONS } from "../../consts";
+import { getPages } from "../../pages";
+
+export function getStaticPaths() {
+  return SECTIONS.map((section) => ({
+    params: { section: section.id },
+    props: { section },
+  }));
+}
+
+const { section } = Astro.props;
+const pages = await getPages(section.id);
+---
+
+<Layout title={section.title}>
+  <h1 class="mb-8">{section.title}</h1>
+  {
+    pages.length === 0 ? (
+      <p class="text-app-gray">Nothing here yet.</p>
+    ) : (
+      <ul class="flex flex-col gap-4">
+        {pages.map((page) => (
+          <li>
+            <a href={`/${section.id}/${page.id}`}>{page.data.title}</a>
+            {page.data.description && <p class="text-app-gray">{page.data.description}</p>}
+          </li>
+        ))}
+      </ul>
+    )
+  }
+</Layout>

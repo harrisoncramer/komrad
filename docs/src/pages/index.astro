@@ -1,0 +1,25 @@
+---
+import Layout from "../layouts/Layout.astro";
+import { SECTIONS, SITE_DESCRIPTION, SITE_TITLE } from "../consts";
+---
+
+<Layout title={SITE_TITLE} description={SITE_DESCRIPTION}>
+  <section class="flex flex-col gap-6">
+    <h1>{SITE_TITLE}</h1>
+    <p>{SITE_DESCRIPTION}</p>
+    <ul class="grid gap-4 sm:grid-cols-2">
+      {
+        SECTIONS.map((section) => (
+          <li>
+            <a
+              href={`/${section.id}`}
+              class="block p-4 rounded-sm bg-app-background-light hover:bg-app-background-medium text-app-white"
+            >
+              <h2>{section.title}</h2>
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </section>
+</Layout>

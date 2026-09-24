@@ -1,0 +1,71 @@
+<astro-search class="relative hidden sm:block">
+  <input placeholder="Search" class="py-2 pl-2 border-b border-app-background-medium text-app-white bg-app-black outline-none font-lora" />
+  <div class="absolute z-30 w-72 bg-app-background-dark pt-2 flex-col hidden cursor-pointer rounded-sm" id="search-results"></div>
+</astro-search>
+
+<script>
+  class Search extends HTMLElement {
+    constructor() {
+      super();
+
+      const input = this.querySelector("input") as HTMLInputElement;
+      const resultsNode = this.querySelector("#search-results") as HTMLElement;
+
+      const pagefindPath = "/pagefind/pagefind.js";
+      let pagefind: any;
+      let latestQuery = "";
+
+      function removeResults() {
+        while (resultsNode.firstChild) {
+          resultsNode.removeChild(resultsNode.firstChild);
+        }
+      }
+
+      async function loadPagefind() {
+        if (!pagefind) {
+          pagefind = await import(/* @vite-ignore */ pagefindPath);
+          await pagefind.init();
+        }
+        return pagefind;
+      }
+
+      input.addEventListener("input", async (event: Event) => {
+        const query = (event.target as HTMLInputElement).value;
+        latestQuery = query;
+
+        removeResults();
+        resultsNode.classList.add("hidden");
+        if (query.length === 0) return;
+
+        const engine = await loadPagefind();
+        const search = await engine.search(query);
+        const results = await Promise.all(
+          search.results.slice(0, 8).map((result: any) => result.data()),
+        );
+
+        if (latestQuery !== query) return;
+
+        removeResults();
+        if (results.length === 0) return;
+        resultsNode.classList.remove("hidden");
+
+        for (const result of results) {
+          const node = document.createElement("div");
+          node.addEventListener("mousedown", () => {
+            window.location.href = result.url;
+          });
+          node.classList.add("hover:bg-app-blue", "hover:text-app-black", "py-2", "px-4");
+          node.textContent = result.meta.title;
+          resultsNode.appendChild(node);
+        }
+      });
+
+      input.addEventListener("blur", () => {
+        latestQuery = "";
+        resultsNode.classList.add("hidden");
+        removeResults();
+      });
+    }
+  }
+  customElements.define("astro-search", Search);
+</script>

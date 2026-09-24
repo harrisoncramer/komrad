@@ -1,0 +1,63 @@
+---
+import { SECTIONS } from "../consts";
+import { getPages } from "../pages";
+
+const current = Astro.url.pathname.replace(/\/$/, "");
+
+const sections = await Promise.all(
+  SECTIONS.map(async (section) => ({
+    ...section,
+    pages: await getPages(section.id),
+  })),
+);
+---
+
+<aside
+  id="sidebar"
+  class="fixed md:sticky top-16 left-0 z-10 h-[calc(100vh-4rem)] w-64 shrink-0 overflow-y-auto bg-app-black md:bg-transparent p-4 -translate-x-full md:translate-x-0 transition-transform"
+  data-pagefind-ignore
+>
+  <nav class="flex flex-col gap-6">
+    {
+      sections.map((section) => (
+        <div>
+          <a
+            href={`/${section.id}`}
+            class:list={[
+              "block font-playfair text-lg mb-2",
+              current === `/${section.id}` ? "text-app-blue" : "text-app-white",
+            ]}
+          >
+            {section.title}
+          </a>
+          <ul class="flex flex-col gap-1 border-l border-app-background-medium">
+            {section.pages.map((page) => {
+              const href = `/${section.id}/${page.id}`;
+              return (
+                <li class="text-base">
+                  <a
+                    href={href}
+                    class:list={[
+                      "block pl-3 -ml-px border-l",
+                      current === href
+                        ? "border-app-blue text-app-blue"
+                        : "border-transparent text-app-gray hover:text-app-white",
+                    ]}
+                  >
+                    {page.data.title}
+                  </a>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ))
+    }
+  </nav>
+</aside>
+
+<style is:global>
+  html[data-nav-open] #sidebar {
+    transform: translateX(0);
+  }
+</style>

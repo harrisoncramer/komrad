@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+source "$MISE_CONFIG_ROOT/mise/tasks/_"
+set -euo pipefail
+#MISE description="Type-check the docs site."
+
+usage() {
+	echo "Usage: mise run docs:check"
+	echo
+	echo "Runs astro check over the pages, components and content schema under docs/."
+}
+
+for arg in "$@"; do
+	case "$arg" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	esac
+done
+
+cd "$MISE_CONFIG_ROOT/docs"
+
+if [ ! -d node_modules ]; then
+	npm ci
+fi
+
+npm run check
