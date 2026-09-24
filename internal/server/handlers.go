@@ -147,7 +147,7 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 		}, options...))
 	mux.Handle(watchv1connect.NewWatchServiceHandler(
 		watchv1weave.WatchServiceAdapter{
-			Impl: rpcwatch.NewHandler(rpcwatch.NewHandlerParams{Broker: params.Watch}),
+			Impl: rpcwatch.NewHandler(rpcwatch.NewHandlerParams{Subscriber: rpcwatch.BrokerSubscriber{Broker: params.Watch}}),
 		}, options...))
 	mux.Handle(logv1connect.NewLogServiceHandler(
 		logv1weave.LogServiceAdapter{

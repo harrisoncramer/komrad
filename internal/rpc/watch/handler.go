@@ -3,6 +3,7 @@ package watch
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"weave/internal/fail"
@@ -17,34 +18,60 @@ import (
 // HeartbeatAfter is how long a stream stays silent before a heartbeat goes out.
 const HeartbeatAfter = 15 * time.Second
 
+// Subscription is one watcher's snapshot and every pass after it.
+type Subscription interface {
+	Snapshot() []*watchv1.Row
+	Changes() <-chan []watch.Change
+	Close()
+}
+
+type subscriber interface {
+	Subscribe(ctx context.Context) (Subscription, error)
+}
+
+// BrokerSubscriber opens subscriptions on the broker.
+type BrokerSubscriber struct {
+	Broker *watch.Broker
+}
+
+// Subscribe opens one subscription on the broker.
+func (b BrokerSubscriber) Subscribe(ctx context.Context) (Subscription, error) {
+	subscription, err := b.Broker.Subscribe(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to subscribe to the broker: %w", err)
+	}
+
+	return subscription, nil
+}
+
 // NewHandlerParams is what the handler is built over.
 type NewHandlerParams struct {
-	Broker *watch.Broker
+	Subscriber subscriber
 	// HeartbeatAfter overrides how long a stream stays silent before a heartbeat, HeartbeatAfter
 	// when zero.
 	HeartbeatAfter time.Duration
 }
 
-// Handler serves the watch stream off the broker.
+// Handler serves the watch stream off the subscriptions it opens.
 type Handler struct {
-	broker         *watch.Broker
+	subscriber     subscriber
 	heartbeatAfter time.Duration
 }
 
-// NewHandler builds the handler over the broker the database's notifications reach.
+// NewHandler builds the handler over what opens its subscriptions.
 func NewHandler(params NewHandlerParams) *Handler {
 	after := params.HeartbeatAfter
 	if after == 0 {
 		after = HeartbeatAfter
 	}
 
-	return &Handler{broker: params.Broker, heartbeatAfter: after}
+	return &Handler{subscriber: params.Subscriber, heartbeatAfter: after}
 }
 
 // Watch sends the snapshot, then every change until the caller goes away or the
 // broker closes the subscription, with a heartbeat whenever nothing has been sent for a while.
 func (h *Handler) Watch(ctx context.Context, _ *emptypb.Empty, stream *connect.ServerStream[watchv1.WatchEvent]) *fail.Error {
-	subscription, err := h.broker.Subscribe(ctx)
+	subscription, err := h.subscriber.Subscribe(ctx)
 	if err != nil {
 		return rpcerr.From(err, "failed to open the watch")
 	}
