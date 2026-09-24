@@ -71,13 +71,6 @@ func worktreesModel() model {
 	}
 }
 
-// worktreesHeader is the worktrees header as the frame draws it.
-func (m model) worktreesHeader() string {
-	params := m.worktrees.listParams(m.shared())
-
-	return m.tabbedHeader(params.title, params.tally)
-}
-
 // worktreesHelp is the worktrees legend as the frame draws it.
 func (m model) worktreesHelp() keyMap {
 	return m.listHelpOf(m.worktrees.listParams(m.shared()))
