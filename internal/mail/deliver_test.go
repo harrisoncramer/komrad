@@ -412,7 +412,17 @@ func TestDeliverRetriesANudgeAcrossAnArchive(t *testing.T) {
 	assert.Len(t, terminal.Sent[agent.Pane], 1)
 
 	require.NoError(t, st.Agents.Restore(ctx, []string{agent.ID}))
-	require.NoError(t, st.Agents.Update(ctx, agent), "resumed into the pane it had")
+
+	restored, err := st.Agents.GetByID(ctx, agent.ID)
+	require.NoError(t, err)
+	restored.Pane = agent.Pane
+	require.NoError(t, st.Agents.Update(ctx, *restored), "resumed into the pane it had")
+
+	got, err = svc.Deliver(ctx, agent.ID)
+	require.NoError(t, err)
+	assert.Equal(t, DeliveryLater, got, "the nudge spent before the archive still holds")
+	assert.Len(t, terminal.Sent[agent.Pane], 1)
+
 	backdateNudge(t, st, agent.ID)
 
 	got, err = svc.Deliver(ctx, agent.ID)

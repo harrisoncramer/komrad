@@ -177,7 +177,7 @@ func TestSendMail(t *testing.T) {
 			wantWarning: true,
 		},
 		{
-			name:  "an agent still being set up has no pane yet",
+			name:  "an agent still being set up, whose pane does not decide yet",
 			state: agentstore.StateSettingUp,
 		},
 		{
@@ -214,7 +214,17 @@ func TestSendMail(t *testing.T) {
 				Body:      "which column holds the refund?",
 				ReplyTo:   proto.String("mail-0"),
 			}}, mailer.sent)
-			assert.Empty(t, diffMail(mailer.mail[0], sent.Msg.GetMail()))
+			assert.Empty(t, cmp.Diff(&agentv1.Mail{
+				Id:          "mail-1",
+				FromAgentId: proto.String(alphaID),
+				FromName:    "alpha",
+				ToAgentId:   betaID,
+				Body:        "which column holds the refund?",
+				ReplyTo:     proto.String("mail-0"),
+				CreatedAt:   "2026-09-24T09:00:00Z",
+				ExpiresAt:   "2026-09-24T12:00:00Z",
+				Kind:        agentv1.MailKind_MAIL_KIND_PLAIN,
+			}, sent.Msg.GetMail(), protocmp.Transform()))
 
 			if !tt.wantWarning {
 				assert.Nil(t, sent.Msg.Warning)
@@ -453,6 +463,7 @@ func (f *fakeMailer) SendMail(_ context.Context, params mail.SendMailParams) (*m
 		ReplyTo:     params.ReplyTo,
 		Kind:        mailstore.KindPlain,
 		CreatedAt:   time.Date(2026, time.September, 24, 9, 0, 0, 0, time.UTC),
+		ExpiresAt:   time.Date(2026, time.September, 24, 12, 0, 0, 0, time.UTC),
 	}
 	f.mail = append(f.mail, sent)
 
