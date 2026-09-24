@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestSetHiddenIgnoresAnIDNoRowCouldHold pins the guard it opens with, which a string that is not an id at all would otherwise reach Postgres as a type error past.
+// TestSetHiddenIgnoresAnIDNoRowCouldHold pins the guard that keeps a malformed id from Postgres.
 func TestSetHiddenIgnoresAnIDNoRowCouldHold(t *testing.T) {
 	changed, err := open(t).SetHidden(t.Context(), "not-a-uuid", true)
 

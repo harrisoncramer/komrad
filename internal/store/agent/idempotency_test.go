@@ -60,7 +60,7 @@ func TestIdempotencyKeyIsUnique(t *testing.T) {
 	}
 }
 
-// TestGetByIdempotencyKeyAnswersNotFoundForAKeyNoCreateRecorded pins a reader that speaks for one agent answering not found rather than nothing.
+// TestGetByIdempotencyKeyAnswersNotFoundForAKeyNoCreateRecorded pins store.ErrNotFound for a miss.
 func TestGetByIdempotencyKeyAnswersNotFoundForAKeyNoCreateRecorded(t *testing.T) {
 	tests := []struct {
 		name string
