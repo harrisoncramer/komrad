@@ -339,6 +339,20 @@ func TestArchiveRows(t *testing.T) {
 			wantRows: []string{"backend", "  auth"},
 		},
 		{
+			name: "an orchestrator is a row of its own rather than folded onto its folder",
+			rows: []proto.Message{
+				newLiveWorkflow("w1", "backend"),
+				&agentv1.Agent{
+					Id:         "o1",
+					Name:       "orchestrator",
+					WorkflowId: "w1",
+					Role:       agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR,
+					ArchivedAt: proto.String(archivedAt),
+				},
+			},
+			wantRows: []string{"backend", "  orchestrator"},
+		},
+		{
 			name: "live and archived folders are drawn together by name",
 			rows: []proto.Message{
 				newLiveWorkflow("w2", "frontend"),
@@ -525,9 +539,9 @@ func TestArchiveDocument(t *testing.T) {
 func TestArchiveSort(t *testing.T) {
 	unsorted := []proto.Message{
 		newLiveWorkflow("w1", "backend"),
-		newArchivedAgentAt("zeta", "w1", "2026-07-30T12:00:00Z"),
-		newArchivedAgentAt("mid", "w1", "2026-07-30T13:00:00Z"),
-		newArchivedAgentAt("alpha", "w1", "2026-07-30T09:00:00Z"),
+		newArchivedAgentAt("zeta", "2026-07-30T12:00:00Z"),
+		newArchivedAgentAt("mid", "2026-07-30T13:00:00Z"),
+		newArchivedAgentAt("alpha", "2026-07-30T09:00:00Z"),
 	}
 
 	tests := []struct {
@@ -565,6 +579,19 @@ func TestArchiveSort(t *testing.T) {
 			assert.Equal(t, tt.want, readListRows(harness.readFrame()))
 		})
 	}
+
+	t.Run("the top and bottom keys walk the archive's own rows", func(t *testing.T) {
+		harness := openArchive(t, unsorted...)
+
+		harness.press("G")
+		assert.Equal(t, "  alpha", readHoveredRow(harness.readFrame()))
+
+		harness.press("g")
+		assert.Equal(t, "  alpha", readHoveredRow(harness.readFrame()), "the first press waits for the second")
+
+		harness.press("g")
+		assert.Equal(t, "backend", readHoveredRow(harness.readFrame()))
+	})
 
 	t.Run("the cursor keeps its row as the archive is reordered", func(t *testing.T) {
 		harness := openArchive(t, unsorted...)
@@ -664,9 +691,9 @@ func TestArchiveWindow(t *testing.T) {
 func TestArchiveSelection(t *testing.T) {
 	rows := []proto.Message{
 		newLiveWorkflow("w1", "backend"),
-		newArchivedAgentAt("auth", "w1", "2026-07-30T12:00:00Z"),
-		newArchivedAgentAt("api", "w1", "2026-07-30T11:00:00Z"),
-		newArchivedAgentAt("db", "w1", "2026-07-30T10:00:00Z"),
+		newArchivedAgentAt("auth", "2026-07-30T12:00:00Z"),
+		newArchivedAgentAt("api", "2026-07-30T11:00:00Z"),
+		newArchivedAgentAt("db", "2026-07-30T10:00:00Z"),
 	}
 
 	tests := []struct {
@@ -816,8 +843,8 @@ func newArchivedAgent(id, name, workflowID string) *agentv1.Agent {
 	}
 }
 
-func newArchivedAgentAt(name, workflowID, at string) *agentv1.Agent {
-	agent := newArchivedAgent(name, name, workflowID)
+func newArchivedAgentAt(name, at string) *agentv1.Agent {
+	agent := newArchivedAgent(name, name, "w1")
 	agent.ArchivedAt = proto.String(at)
 
 	return agent

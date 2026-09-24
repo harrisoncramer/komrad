@@ -94,8 +94,8 @@ func TestAgentsRows(t *testing.T) {
 			rows: []proto.Message{
 				newWorkflow("w1", "backend"),
 				newAgent("a1", "auth", "w1"),
-				newHiddenAgent("a2", "chore", "w1"),
-				newHiddenAgent("a3", "sweep", "w1"),
+				newHiddenAgent("a2", "chore"),
+				newHiddenAgent("a3", "sweep"),
 			},
 			want: []string{"backend +2", "  auth"},
 		},
@@ -113,7 +113,7 @@ func TestAgentsRows(t *testing.T) {
 			name: "an orchestrator is drawn on its workflow's row rather than as a row of its own",
 			rows: []proto.Message{
 				newWorkflow("w1", "backend"),
-				newOrchestrator("o1", "w1"),
+				newOrchestrator(),
 				newAgent("a1", "telescope", "w1"),
 			},
 			want: []string{"backend", "  telescope"},
@@ -122,7 +122,7 @@ func TestAgentsRows(t *testing.T) {
 			name: "an orchestrator's child stands on its own",
 			rows: []proto.Message{
 				newWorkflow("w1", "backend"),
-				newOrchestrator("o1", "w1"),
+				newOrchestrator(),
 				newChild("a1", "reader", "o1"),
 			},
 			want: []string{"backend", "  reader"},
@@ -136,6 +136,25 @@ func TestAgentsRows(t *testing.T) {
 			assert.Equal(t, tt.want, readListRows(harness.readFrame()))
 		})
 	}
+
+	t.Run("a row opens at the gutter and every kind of row stands its bar in one column", func(t *testing.T) {
+		harness := openAgents(t,
+			&workflowv1.Workflow{
+				Id:       "w1",
+				Name:     "weave",
+				Worktree: &workflowv1.WorktreeConfig{Enabled: true},
+			},
+			newAgentAt("worker", "w1", 1),
+			newAgentAt("other", "w1", 0),
+		)
+
+		rows := splitLines(harness.readFrame())[5:8]
+		other := rows[2]
+		assert.Len(t, other[:len(other)-len(strings.TrimLeft(other, " "))], 4, "an agent opens on its checkout column after the focus and mark cells")
+		for _, row := range rows[1:] {
+			assert.Equal(t, findBarColumn(rows[0]), findBarColumn(row), "the bar stands in one column whatever the row is")
+		}
+	})
 
 	t.Run("an empty panel still draws its chrome and says where to start", func(t *testing.T) {
 		harness := openAgents(t)
@@ -153,7 +172,7 @@ func TestAgentsShowHidden(t *testing.T) {
 		newWorkflow("w1", "backend"),
 		newWorkflow("w2", "frontend"),
 		newAgent("a1", "auth", "w1"),
-		newHiddenAgent("a2", "chore", "w1"),
+		newHiddenAgent("a2", "chore"),
 		newAgent("a3", "ui", "w2"),
 	}
 
@@ -366,6 +385,17 @@ func answerWorktreeReads(harness *panelHarness) {
 	})
 }
 
+func buildCursorable() []proto.Message {
+	return []proto.Message{
+		newWorkflow("w1", "backend"),
+		newWorkflow("w2", "frontend"),
+		newAgentAt("auth", "w1", 3),
+		newAgentAt("api", "w1", 2),
+		newAgentAt("db", "w1", 1),
+		newAgentAt("ui", "w2", 0),
+	}
+}
+
 func buildFamily() []proto.Message {
 	return []proto.Message{
 		newWorkflow("w1", "weave"),
@@ -432,8 +462,8 @@ func newAgentAt(name, workflowID string, minute int) *agentv1.Agent {
 	return agent
 }
 
-func newHiddenAgent(id, name, workflowID string) *agentv1.Agent {
-	agent := newAgent(id, name, workflowID)
+func newHiddenAgent(id, name string) *agentv1.Agent {
+	agent := newAgent(id, name, "w1")
 	agent.Hidden = true
 
 	return agent
@@ -446,11 +476,11 @@ func newChild(id, name, parentID string) *agentv1.Agent {
 	return agent
 }
 
-func newOrchestrator(id, workflowID string) *agentv1.Agent {
+func newOrchestrator() *agentv1.Agent {
 	return &agentv1.Agent{
-		Id:         id,
+		Id:         "o1",
 		Name:       "orchestrator",
-		WorkflowId: workflowID,
+		WorkflowId: "w1",
 		PaneId:     "%9",
 		Harness:    "claude",
 		Alive:      proto.Bool(true),
@@ -461,14 +491,7 @@ func newOrchestrator(id, workflowID string) *agentv1.Agent {
 
 // TestAgentsCursor covers where the cursor stands as keys move it and the watch reshapes the tree.
 func TestAgentsCursor(t *testing.T) {
-	rows := []proto.Message{
-		newWorkflow("w1", "backend"),
-		newWorkflow("w2", "frontend"),
-		newAgentAt("auth", "w1", 3),
-		newAgentAt("api", "w1", 2),
-		newAgentAt("db", "w1", 1),
-		newAgentAt("ui", "w2", 0),
-	}
+	rows := buildCursorable()
 
 	tests := []struct {
 		name  string
@@ -519,8 +542,13 @@ func TestAgentsCursor(t *testing.T) {
 		assert.Empty(t, readHoveredRow(harness.readFrame()))
 		harness.assertSent()
 	})
+}
 
-	reshapes := []struct {
+// TestAgentsCursorAcrossListings covers the cursor keeping its row as the watch reshapes the tree.
+func TestAgentsCursorAcrossListings(t *testing.T) {
+	rows := buildCursorable()
+
+	tests := []struct {
 		name  string
 		press []string
 		next  []proto.Message
@@ -581,7 +609,7 @@ func TestAgentsCursor(t *testing.T) {
 		},
 	}
 
-	for _, tt := range reshapes {
+	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openAgents(t, rows...)
 			harness.press(tt.press...)
@@ -684,7 +712,7 @@ func TestAgentsRecordFocus(t *testing.T) {
 		harness.press("z", "r", "n", "c")
 
 		assert.Equal(t, before, harness.readFrame())
-		harness.assertSent(readWorktreeRequests("/repo", 2)...)
+		harness.assertSent(readWorktreeRequests(2)...)
 	})
 
 	t.Run("nothing listed leaves the keys with the list", func(t *testing.T) {
@@ -960,11 +988,11 @@ func TestAgentsRecordWorktree(t *testing.T) {
 
 	t.Run("the focus key reads the directory again", func(t *testing.T) {
 		harness := openAgents(t, buildRecorded()...)
-		harness.assertSent(readWorktreeRequests("/repo", 1)...)
+		harness.assertSent(readWorktreeRequests(1)...)
 
 		harness.press("ctrl+t")
 
-		harness.assertSent(readWorktreeRequests("/repo", 2)...)
+		harness.assertSent(readWorktreeRequests(2)...)
 	})
 
 	t.Run("a refused reread keeps the last answer beside the refusal", func(t *testing.T) {
@@ -988,7 +1016,7 @@ func TestAgentsRecordWorktree(t *testing.T) {
 
 		harness.press("ctrl+t", "ctrl+t", "k", "j")
 
-		harness.assertSent(readWorktreeRequests("/repo", 1)...)
+		harness.assertSent(readWorktreeRequests(1)...)
 	})
 
 	t.Run("a focused record grows to show every field and shrinks back", func(t *testing.T) {
@@ -1340,15 +1368,25 @@ func TestAgentsSearchAcrossSections(t *testing.T) {
 	})
 }
 
-func openWorktreeRecord(t *testing.T, params panelHarnessParams, extra ...proto.Message) *panelHarness {
+func openWorktreeRecord(t *testing.T, params panelHarnessParams) *panelHarness {
 	t.Helper()
 
 	harness := newPanelHarness(t, params)
 	harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(buildWorktreeRead()))
-	harness.watch(buildSnapshot(append(buildRecorded(), extra...)...))
+	harness.watch(buildSnapshot(buildRecorded()...))
 	harness.press("ctrl+t")
 
 	return harness
+}
+
+func findBarColumn(row string) int {
+	for _, bar := range listBars {
+		if at := strings.Index(row, strings.TrimSpace(bar)); at >= 0 {
+			return ansi.StringWidth(row[:at])
+		}
+	}
+
+	return -1
 }
 
 func readSearch(frame string) string {
@@ -1409,10 +1447,10 @@ func refuseWith(code connect.Code, reason string) answerFunc {
 	}
 }
 
-func readWorktreeRequests(dir string, count int) []request {
+func readWorktreeRequests(count int) []request {
 	return slices.Repeat([]request{{
 		procedure: worktreev1connect.WorktreeServiceGetWorktreeProcedure,
-		msg:       &worktreev1.GetWorktreeRequest{Dir: dir},
+		msg:       &worktreev1.GetWorktreeRequest{Dir: "/repo"},
 	}}, count)
 }
 
@@ -1602,10 +1640,10 @@ func recordRelease(harness *panelHarness) *[]*agentv1.ReleaseAgentRequest {
 
 // TestAgentsOrchestrator covers the agent that stands behind a workflow's row.
 func TestAgentsOrchestrator(t *testing.T) {
-	dormant := newOrchestrator("o1", "w1")
+	dormant := newOrchestrator()
 	dormant.Alive = nil
 	dormant.State = agentv1.AgentState_AGENT_STATE_IDLE
-	failed := newOrchestrator("o1", "w1")
+	failed := newOrchestrator()
 	failed.Alive = nil
 	failed.State = agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE
 
@@ -1635,7 +1673,7 @@ func TestAgentsOrchestrator(t *testing.T) {
 		},
 		{
 			name: "a workflow whose orchestrator is running stages its pane",
-			rows: []proto.Message{newWorkflow("w1", "backend"), newOrchestrator("o1", "w1")},
+			rows: []proto.Message{newWorkflow("w1", "backend"), newOrchestrator()},
 		},
 	}
 
@@ -1676,7 +1714,7 @@ func TestAgentsOrchestrator(t *testing.T) {
 	t.Run("a flat list draws no row for the orchestrator it folded away", func(t *testing.T) {
 		harness := openAgents(t,
 			newWorkflow("w1", "backend"),
-			newOrchestrator("o1", "w1"),
+			newOrchestrator(),
 			newAgentAt("telescope", "w1", 1),
 			newChild("a2", "reader", "telescope"),
 		)
@@ -1785,6 +1823,15 @@ func TestAgentsChildren(t *testing.T) {
 		frame := harness.readFrame()
 		assert.Contains(t, frame, "may not have children")
 		assert.NotContains(t, frame, "C-s submit")
+	})
+
+	t.Run("the review key on a child opens nothing", func(t *testing.T) {
+		harness := openAgents(t, buildFamily()...)
+
+		harness.press("G", "d")
+
+		assert.Contains(t, splitLines(harness.readFrame())[0], agentsTitle)
+		harness.assertSent()
 	})
 
 	t.Run("only the parent's own worktree is offered a rebase", func(t *testing.T) {
@@ -2017,7 +2064,7 @@ func buildSelectable() []proto.Message {
 		newAgentAt("auth", "w1", 5),
 		newAgentAt("api", "w1", 4),
 		newAgentAt("db", "w1", 3),
-		newHiddenAgent("sweep", "sweep", "w1"),
+		newHiddenAgent("sweep", "sweep"),
 		newAgentAt("ui", "w2", 1),
 	}
 }
@@ -2033,24 +2080,24 @@ func TestAgentsSetMark(t *testing.T) {
 		{
 			name:  "an unmarked agent takes the letter",
 			press: []string{"m", "a"},
-			want:  markAgent("auth", proto.String("a")),
+			want:  markAuth(proto.String("a")),
 		},
 		{
 			name:  "a letter another agent holds is still set, since the service moves it",
 			marks: []proto.Message{newMark("a", "db")},
 			press: []string{"m", "a"},
-			want:  markAgent("auth", proto.String("a")),
+			want:  markAuth(proto.String("a")),
 		},
 		{
 			name:  "the letter the agent already holds takes the mark off it",
 			marks: []proto.Message{newMark("a", "auth")},
 			press: []string{"m", "a"},
-			want:  markAgent("auth", nil),
+			want:  markAuth(nil),
 		},
 		{
 			name:  "a key the screen acts on is read as the letter it is",
 			press: []string{"m", "h"},
-			want:  markAgent("auth", proto.String("h")),
+			want:  markAuth(proto.String("h")),
 		},
 		{
 			name:  "a workflow header takes the letter as a workflow",
@@ -2088,8 +2135,11 @@ func TestAgentsSetMark(t *testing.T) {
 			})
 		})
 	}
+}
 
-	refusals := []struct {
+// TestAgentsSetMarkRefusals covers the mark keys backing out without writing anything.
+func TestAgentsSetMarkRefusals(t *testing.T) {
+	tests := []struct {
 		name       string
 		press      []string
 		wantBanner bool
@@ -2110,7 +2160,7 @@ func TestAgentsSetMark(t *testing.T) {
 		},
 	}
 
-	for _, tt := range refusals {
+	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openAgents(t, buildSelectable()...)
 
@@ -2276,9 +2326,9 @@ func newMark(letter, agentID string) *agentv1.Mark {
 	}
 }
 
-func markAgent(id string, letter *string) *agentv1.SetMarkRequest {
+func markAuth(letter *string) *agentv1.SetMarkRequest {
 	return &agentv1.SetMarkRequest{
-		Target: &agentv1.SetMarkRequest_AgentId{AgentId: id},
+		Target: &agentv1.SetMarkRequest_AgentId{AgentId: "auth"},
 		Mark:   letter,
 	}
 }

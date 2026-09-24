@@ -417,3 +417,12 @@ func TestNoticesReportAPlainWorkflowsDirectory(t *testing.T) {
 
 	assert.Empty(t, noticeTexts(agentNotices(child)), "its parent's row already says it")
 }
+
+// noticeTexts is what a row's notices say, without their icons.
+func noticeTexts(notices []notice) []string {
+	said := xslice.Map(notices, func(n notice) string {
+		return n.text
+	})
+
+	return said
+}

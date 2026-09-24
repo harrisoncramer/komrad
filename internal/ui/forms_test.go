@@ -1553,12 +1553,6 @@ func (m model) openAgentForm(workflow panel.Workflow, values *agentFormValues) m
 	return m
 }
 
-func (m model) openNewChild(parent panel.Agent) (tea.Model, tea.Cmd) {
-	cmd := openNewChild(&m, parent)
-
-	return m, cmd
-}
-
 func (m model) openChildForm(parent panel.Agent, values *agentFormValues) (tea.Model, tea.Cmd) {
 	cmd := openChildForm(&m, parent, values)
 

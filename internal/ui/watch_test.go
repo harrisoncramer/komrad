@@ -13,6 +13,7 @@ import (
 	"weave/lib/xptr"
 	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
+	pullrequestv1 "weave/proto/gen/pullrequest/v1"
 	schedulev1 "weave/proto/gen/schedule/v1"
 	watchv1 "weave/proto/gen/watch/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
@@ -412,4 +413,18 @@ func TestWorktreesAreDrawnFromTheWatch(t *testing.T) {
 	m, _ = update(t, m, client.WatchBatch{deletedEvent(watchv1.Resource_RESOURCE_WORKTREE, "/trees/orphan")})
 
 	assert.Len(t, m.worktrees.items, 3)
+}
+
+const repository = "https://github.com/harrisoncramer/weave"
+
+func pullRequestRowOf(id, branch string, number int32) *watchv1.Row {
+	return &watchv1.Row{Row: &watchv1.Row_PullRequest{PullRequest: &pullrequestv1.PullRequest{
+		Id:                id,
+		RepositoryUrl:     repository,
+		HeadRepositoryUrl: repository,
+		HeadBranch:        branch,
+		Number:            number,
+		State:             pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
+		OpenedAt:          "2026-09-19T12:00:00Z",
+	}}}
 }
