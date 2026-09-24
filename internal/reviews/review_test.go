@@ -345,18 +345,22 @@ func TestReviewEntitlement(t *testing.T) {
 			wantErr: ErrReviewNotFound,
 		},
 		{
-			name: "the person and the agent under review each keeping to their own part",
+			name: "the agent under review rewriting its own answer",
 			call: func(t *testing.T, fx *reviewFixture) error {
-				thread := fx.releaseFirstReview(t)
-				answer := fx.writeAnswer(t, thread.ID)
-				messages, err := fx.reviews.ListMessages(t.Context(), []string{thread.ID})
-				require.NoError(t, err)
-
-				_, err = fx.service.EditReviewMessage(t.Context(), EditReviewMessageParams{
-					ID:     answer.ID,
+				_, err := fx.service.EditReviewMessage(t.Context(), EditReviewMessageParams{
+					ID:     fx.writeAnswer(t, fx.releaseFirstReview(t).ID).ID,
 					Body:   "done, and tested",
 					Author: newAgentAuthor(fx.worker),
 				})
+
+				return err
+			},
+		},
+		{
+			name: "the person rewriting their own comment",
+			call: func(t *testing.T, fx *reviewFixture) error {
+				thread := fx.releaseFirstReview(t)
+				messages, err := fx.reviews.ListMessages(t.Context(), []string{thread.ID})
 				require.NoError(t, err)
 
 				_, err = fx.service.EditReviewMessage(t.Context(), EditReviewMessageParams{
@@ -364,18 +368,33 @@ func TestReviewEntitlement(t *testing.T) {
 					Body:   "this needs a nil check, or a guard above it",
 					Author: personAuthor,
 				})
-				require.NoError(t, err)
 
-				_, err = fx.service.MarkReviewThreadRead(t.Context(), MarkReviewThreadReadParams{
-					ID:     thread.ID,
+				return err
+			},
+		},
+		{
+			name: "the person marking a thread read",
+			call: func(t *testing.T, fx *reviewFixture) error {
+				_, err := fx.service.MarkReviewThreadRead(t.Context(), MarkReviewThreadReadParams{
+					ID:     fx.releaseFirstReview(t).ID,
 					Author: personAuthor,
 				})
-				require.NoError(t, err)
 
-				_, err = fx.service.ListRounds(t.Context(), fx.worker.ID, newAgentAuthor(fx.worker))
-				require.NoError(t, err)
+				return err
+			},
+		},
+		{
+			name: "the agent under review listing its own rounds",
+			call: func(t *testing.T, fx *reviewFixture) error {
+				_, err := fx.service.ListRounds(t.Context(), fx.worker.ID, newAgentAuthor(fx.worker))
 
-				_, err = fx.service.OpenRound(t.Context(), fx.worker.ID, newAgentAuthor(fx.worker))
+				return err
+			},
+		},
+		{
+			name: "the agent under review taking a round of its own work",
+			call: func(t *testing.T, fx *reviewFixture) error {
+				_, err := fx.service.OpenRound(t.Context(), fx.worker.ID, newAgentAuthor(fx.worker))
 
 				return err
 			},

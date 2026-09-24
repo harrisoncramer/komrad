@@ -51,11 +51,6 @@ func TestOpenRound(t *testing.T) {
 
 // TestReleaseReviewWritesTheFile pins what the file a release writes says.
 func TestReleaseReviewWritesTheFile(t *testing.T) {
-	source := make([]string, 0, 20)
-	for line := 1; line <= 20; line++ {
-		source = append(source, fmt.Sprintf("line %d of greet.go", line))
-	}
-
 	tests := []struct {
 		name        string
 		write       func(t *testing.T, fx *reviewFixture) *ReleaseReviewResult
@@ -81,7 +76,7 @@ func TestReleaseReviewWritesTheFile(t *testing.T) {
 		{
 			name: "a comment on a file the round holds",
 			write: func(t *testing.T, fx *reviewFixture) *ReleaseReviewResult {
-				fx.snapshots.Files["greet.go"] = source
+				fx.snapshots.Files["greet.go"] = buildGreetSource()
 				_, err := fx.service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
 					AgentID:  fx.worker.ID,
 					FilePath: "greet.go",
@@ -177,13 +172,8 @@ func TestReleaseReviewWaitsForTheMail(t *testing.T) {
 
 // TestGetReview pins that a released review reads back as what went out with it, around the code it was about.
 func TestGetReview(t *testing.T) {
-	source := make([]string, 0, 20)
-	for line := 1; line <= 20; line++ {
-		source = append(source, fmt.Sprintf("line %d of greet.go", line))
-	}
-
 	fx := newReviewFixture(t, time.Hour)
-	fx.snapshots.Files["greet.go"] = source
+	fx.snapshots.Files["greet.go"] = buildGreetSource()
 	opened, err := fx.service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
 		AgentID:  fx.worker.ID,
 		FilePath: "greet.go",
@@ -365,6 +355,16 @@ func fillMailbox(t *testing.T, fx *reviewFixture) {
 		}
 		require.NoError(t, err)
 	}
+}
+
+// buildGreetSource is twenty numbered lines of the file a round holds.
+func buildGreetSource() []string {
+	source := make([]string, 0, 20)
+	for line := 1; line <= 20; line++ {
+		source = append(source, fmt.Sprintf("line %d of greet.go", line))
+	}
+
+	return source
 }
 
 func readBodies(messages []reviewstore.Message) []string {

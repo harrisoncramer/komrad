@@ -9,11 +9,10 @@ import (
 	"weave/internal/caller"
 	"weave/internal/mail"
 	"weave/internal/reviews"
+	reviewstore "weave/internal/store/review"
 	"weave/lib/xptr"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1weave"
-
-	reviewstore "weave/internal/store/review"
 
 	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
@@ -236,8 +235,11 @@ func TestReviewCallsAnswerWhatTheServiceDid(t *testing.T) {
 			name: "opening a thread",
 			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) (string, error) {
 				got, err := svc.CreateReviewThread(ctx, connect.NewRequest(&agentv1.CreateReviewThreadRequest{AgentId: betaID}))
+				if err != nil {
+					return "", err
+				}
 
-				return got.Msg.GetThread().GetId(), err
+				return got.Msg.GetThread().GetId(), nil
 			},
 			wantID: "thread-1",
 		},
@@ -245,8 +247,11 @@ func TestReviewCallsAnswerWhatTheServiceDid(t *testing.T) {
 			name: "replying in a thread",
 			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) (string, error) {
 				got, err := svc.AddReviewMessage(ctx, connect.NewRequest(&agentv1.AddReviewMessageRequest{ThreadId: "thread-1"}))
+				if err != nil {
+					return "", err
+				}
 
-				return got.Msg.GetMessage().GetId(), err
+				return got.Msg.GetMessage().GetId(), nil
 			},
 			wantID: "message-1",
 		},
@@ -254,8 +259,11 @@ func TestReviewCallsAnswerWhatTheServiceDid(t *testing.T) {
 			name: "rewriting a message",
 			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) (string, error) {
 				got, err := svc.EditReviewMessage(ctx, connect.NewRequest(&agentv1.EditReviewMessageRequest{Id: "message-1"}))
+				if err != nil {
+					return "", err
+				}
 
-				return got.Msg.GetMessage().GetId(), err
+				return got.Msg.GetMessage().GetId(), nil
 			},
 			wantID: "message-1",
 		},
@@ -263,8 +271,11 @@ func TestReviewCallsAnswerWhatTheServiceDid(t *testing.T) {
 			name: "marking a thread read",
 			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) (string, error) {
 				got, err := svc.MarkReviewThreadRead(ctx, connect.NewRequest(&agentv1.MarkReviewThreadReadRequest{Id: "thread-1"}))
+				if err != nil {
+					return "", err
+				}
 
-				return got.Msg.GetThread().GetId(), err
+				return got.Msg.GetThread().GetId(), nil
 			},
 			wantID: "thread-1",
 		},
@@ -272,8 +283,11 @@ func TestReviewCallsAnswerWhatTheServiceDid(t *testing.T) {
 			name: "settling a thread",
 			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) (string, error) {
 				got, err := svc.SetReviewThreadResolved(ctx, connect.NewRequest(&agentv1.SetReviewThreadResolvedRequest{Id: "thread-1"}))
+				if err != nil {
+					return "", err
+				}
 
-				return got.Msg.GetThread().GetId(), err
+				return got.Msg.GetThread().GetId(), nil
 			},
 			wantID: "thread-1",
 		},
@@ -281,8 +295,11 @@ func TestReviewCallsAnswerWhatTheServiceDid(t *testing.T) {
 			name: "opening a round",
 			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) (string, error) {
 				got, err := svc.OpenReviewRound(ctx, connect.NewRequest(&agentv1.OpenReviewRoundRequest{AgentId: betaID}))
+				if err != nil {
+					return "", err
+				}
 
-				return got.Msg.GetRound().GetId(), err
+				return got.Msg.GetRound().GetId(), nil
 			},
 			wantID: "round-1",
 		},
@@ -290,8 +307,15 @@ func TestReviewCallsAnswerWhatTheServiceDid(t *testing.T) {
 			name: "listing the rounds",
 			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) (string, error) {
 				got, err := svc.ListReviewRounds(ctx, connect.NewRequest(&agentv1.ListReviewRoundsRequest{AgentId: betaID}))
+				if err != nil {
+					return "", err
+				}
 
-				return got.Msg.GetRounds()[0].GetId(), err
+				if len(got.Msg.GetRounds()) == 0 {
+					return "", nil
+				}
+
+				return got.Msg.GetRounds()[0].GetId(), nil
 			},
 			wantID: "round-1",
 		},
@@ -299,8 +323,15 @@ func TestReviewCallsAnswerWhatTheServiceDid(t *testing.T) {
 			name: "listing the reviews",
 			call: func(ctx context.Context, svc agentv1weave.AgentServiceAdapter) (string, error) {
 				got, err := svc.ListReviews(ctx, connect.NewRequest(&agentv1.ListReviewsRequest{AgentId: betaID}))
+				if err != nil {
+					return "", err
+				}
 
-				return got.Msg.GetReviews()[0].GetId(), err
+				if len(got.Msg.GetReviews()) == 0 {
+					return "", nil
+				}
+
+				return got.Msg.GetReviews()[0].GetId(), nil
 			},
 			wantID: "review-1",
 		},
