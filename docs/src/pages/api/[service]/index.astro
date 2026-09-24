@@ -14,9 +14,10 @@ const { service } = Astro.props;
 ---
 
 <DocPage title={service.title}>
-  <div set:html={prose(service.description)} />
+  <div class="service-description" set:html={prose(service.description)} />
   <p><code>{service.name}</code></p>
   <IndexList
+    rows
     items={service.methods.map((method) => ({
       href: `/api/${service.slug}/${method.slug}`,
       title: method.tool,

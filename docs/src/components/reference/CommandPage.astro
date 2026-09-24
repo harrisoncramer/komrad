@@ -12,6 +12,9 @@ type Props = {
 
 const { command } = Astro.props;
 const parent = command.slug === "" ? undefined : commandBySlug.get(command.parent);
+const normalize = (text: string) => text.trim().replace(/\.$/, "");
+const paragraphs = command.long.split(/\n\s*\n/);
+const long = normalize(paragraphs[0] ?? "") === normalize(command.short) ? paragraphs.slice(1).join("\n\n") : command.long;
 const children = command.children.flatMap((slug) => commandBySlug.get(slug) ?? []);
 ---
 
@@ -26,7 +29,7 @@ const children = command.children.flatMap((slug) => commandBySlug.get(slug) ?? [
 
   <Code code={command.usage} lang="bash" theme="tokyo-night" />
 
-  {command.long && <div set:html={prose(command.long)} />}
+  {long && <div set:html={prose(long)} />}
 
   {
     command.slug === "rpc" && (
@@ -59,6 +62,7 @@ const children = command.children.flatMap((slug) => commandBySlug.get(slug) ?? [
       <>
         <h2>Commands</h2>
         <IndexList
+          rows
           items={children.map((child) => ({ href: commandHref(child.slug), title: child.path, summary: child.short }))}
         />
       </>

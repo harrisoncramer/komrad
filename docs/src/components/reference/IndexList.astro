@@ -1,12 +1,13 @@
 ---
 type Props = {
   items: { href: string; title: string; summary?: string }[];
+  rows?: boolean;
 };
 
-const { items } = Astro.props;
+const { items, rows = false } = Astro.props;
 ---
 
-<ul class="index-list">
+<ul class:list={["index-list", { rows }]}>
   {
     items.map((item) => (
       <li>

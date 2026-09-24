@@ -1,20 +1,28 @@
 ---
 import DocPage from "../layouts/DocPage.astro";
+import JumpBar from "../components/reference/JumpBar.astro";
 import { config, prose } from "../reference";
 import type { Section } from "../reference/types";
 
 const flatten = (section: Section): Section[] => [section, ...section.sections.flatMap(flatten)];
 const sections = flatten(config).filter((section) => section.settings.length > 0 || section.description);
+const firstOf = new Map<string, string>();
+for (const section of sections) {
+  const table = section.path.split(".")[0];
+  if (!firstOf.has(table)) firstOf.set(table, section.path);
+}
+const jumps = [...firstOf].map(([table, path]) => ({ href: `#${path || "top-level"}`, label: table || "top level" }));
 ---
 
 <DocPage
   title="Configuration"
   description="Every key of ~/.config/weave/config.toml with its built-in default. Write only the keys you are changing; an unknown key is an error."
 >
+  <JumpBar items={jumps} />
   {
     sections.map((section) => (
       <section class="type" id={section.path || "top-level"}>
-        <h2>{section.path ? <code>[{section.path}]</code> : "Top level"}</h2>
+        <h2>{section.path ? <code class="table-name">[{section.path}]</code> : "Top level"}</h2>
         {section.description && <div set:html={prose(section.description)} />}
         {section.settings.length > 0 && (
           <div class="table-scroll">

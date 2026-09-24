@@ -271,3 +271,77 @@
 .doc-content div > :is(p, pre) + :is(p, pre) {
   margin-top: 1rem;
 }
+
+.doc-content ul.index-list.rows {
+  gap: 0;
+}
+
+.doc-content ul.index-list.rows > li {
+  display: grid;
+  gap: 0.25rem 1.5rem;
+  padding: 0.65rem 0;
+  border-bottom: 1px solid var(--color-app-background-medium-dark);
+}
+
+@media (min-width: 768px) {
+  .doc-content ul.index-list.rows > li {
+    grid-template-columns: 15rem 1fr;
+    align-items: baseline;
+  }
+}
+
+.doc-content ul.index-list.rows > li p {
+  margin-top: 0;
+}
+
+.doc-content p.traits a.trait-link {
+  border-color: rgba(158, 196, 255, 0.35);
+  color: var(--color-app-blue);
+  text-decoration: none;
+}
+
+.doc-content .jump-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.doc-content nav.jump-bar a {
+  border: 1px solid var(--color-app-background-medium);
+  border-radius: 999px;
+  padding: 0.2rem 0.8rem;
+  font-family: var(--font-lora);
+  font-size: 0.9rem;
+  color: var(--color-app-gray-light);
+  text-decoration: none;
+  transition: color 150ms, border-color 150ms;
+}
+
+.doc-content nav.jump-bar a:hover,
+.doc-content nav.jump-bar a:focus-visible {
+  border-color: rgba(158, 196, 255, 0.4);
+  color: var(--color-app-blue);
+}
+
+.doc-content .service {
+  scroll-margin-top: 5rem;
+}
+
+.doc-content .service h2 a {
+  text-decoration: none;
+}
+
+.doc-content div.service-description p {
+  color: var(--color-app-gray-light);
+}
+
+.doc-content td:first-child code {
+  white-space: nowrap;
+}
+
+.doc-content .type h2 code.table-name {
+  background: none;
+  padding: 0;
+  font-size: 0.8em;
+  color: var(--color-app-white);
+}
