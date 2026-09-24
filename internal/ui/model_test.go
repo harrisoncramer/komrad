@@ -7,6 +7,7 @@ import (
 
 	"weave/config"
 	"weave/internal/client"
+	"weave/internal/ui/layout"
 	"weave/internal/ui/panel"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
@@ -184,4 +185,43 @@ func pressLogs(t *testing.T, m model) model {
 	require.True(t, ok)
 
 	return shown
+}
+
+func filterModel() model {
+	tmux := &recordingTmux{}
+	workflow := panel.Workflow{ID: "w1", Name: "core"}
+
+	return model{
+		tmux:   tmux,
+		popup:  NewPopupWindow(tmux, "test-session"),
+		frame:  layout.New(tmux, config.DefaultLayout()),
+		keys:   config.DefaultKeybindings(),
+		screen: screenAgents,
+		listing: listing{workflows: []panel.Workflow{workflow}, agents: []panel.AgentRow{
+			{Agent: panel.Agent{
+				ID:         "a1",
+				Name:       "billing",
+				WorkflowID: "w1",
+			}},
+			{Agent: panel.Agent{
+				ID:         "a2",
+				Name:       "payouts",
+				WorkflowID: "w1",
+			}},
+		}}, agents: agentsScreen{rowCursor: rowCursor{cursor: 1}},
+	}
+}
+
+func rowNames(rows []agentRow) []string {
+	var names []string
+	for _, r := range rows {
+		if r.header {
+			names = append(names, r.workflow.Name)
+			continue
+		}
+
+		names = append(names, r.item.Agent.Name)
+	}
+
+	return names
 }

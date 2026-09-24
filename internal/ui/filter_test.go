@@ -1,560 +1,437 @@
-package ui
+package ui_test
 
 import (
 	"strings"
 	"testing"
 
-	"weave/config"
-	"weave/internal/ui/layout"
-	"weave/internal/ui/paint"
-	"weave/internal/ui/panel"
+	schedulev1 "weave/proto/gen/schedule/v1"
 
-	"charm.land/lipgloss/v2"
-	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 )
 
-// TestFilterQuery covers what a typed pattern matches, including a half-typed one that will
-// not compile and so draws every row rather than looking like an empty list.
-func TestFilterQuery(t *testing.T) {
+var filterableRows = []string{"backend", "  auth", "  └ api", "  db", "frontend", "  ui"}
+
+// TestFilterSearch covers the search over a list, which walks the cursor between matches and takes no row away.
+func TestFilterSearch(t *testing.T) {
 	tests := []struct {
-		name       string
-		query      string
-		name2      string
-		wantMatch  bool
-		wantBroken bool
+		name        string
+		from        string
+		press       []string
+		wantHovered string
+		wantSearch  string
 	}{
 		{
-			name:      "an empty query keeps every row",
-			query:     "",
-			name2:     "anything",
-			wantMatch: true,
+			name:        "typing moves nothing",
+			from:        "backend",
+			press:       []string{"/", "d", "b"},
+			wantHovered: "backend",
+			wantSearch:  "/ db▏",
 		},
 		{
-			name:      "a name the pattern does not reach is held back",
-			query:     "^api",
-			name2:     "web-api",
-			wantMatch: false,
+			name:        "enter puts the input away and walks onto the match",
+			from:        "backend",
+			press:       []string{"/", "d", "b", "enter"},
+			wantHovered: "  db",
+			wantSearch:  "/ db",
 		},
 		{
-			name:      "a pattern in lower case matches either case",
-			query:     "api",
-			name2:     "API-gateway",
-			wantMatch: true,
+			name:        "the row the cursor is on counts as the nearest match",
+			from:        "  auth",
+			press:       []string{"/", "a", "u", "t", "h", "enter"},
+			wantHovered: "  auth",
+			wantSearch:  "/ auth",
 		},
 		{
-			name:      "a pattern carrying an upper case letter matches exactly",
-			query:     "API",
-			name2:     "api-gateway",
-			wantMatch: false,
+			name:        "a header matches by its own name",
+			from:        "  auth",
+			press:       []string{"/", "^", "f", "r", "o", "n", "t", "enter"},
+			wantHovered: "frontend",
+			wantSearch:  "/ ^front",
 		},
 		{
-			name:      "a pattern is a regular expression rather than a substring",
-			query:     "^(api|web)-",
-			name2:     "web-ui",
-			wantMatch: true,
+			name:        "escape while typing gives up and puts the cursor back",
+			from:        "backend",
+			press:       []string{"/", "d", "b", "esc"},
+			wantHovered: "backend",
+			wantSearch:  "/",
 		},
 		{
-			name:       "a pattern that will not compile draws every row",
-			query:      "api[",
-			name2:      "unrelated",
-			wantMatch:  true,
-			wantBroken: true,
+			name:        "escape over a standing search clears it and puts the cursor back",
+			from:        "backend",
+			press:       []string{"/", "d", "b", "enter", "esc"},
+			wantHovered: "backend",
+			wantSearch:  "/",
+		},
+		{
+			name:        "a key bound elsewhere is typed rather than acted on",
+			from:        "backend",
+			press:       []string{"/", "i"},
+			wantHovered: "backend",
+			wantSearch:  "/ i▏",
+		},
+		{
+			name:        "backspace takes the last rune back",
+			from:        "backend",
+			press:       []string{"/", "p", "a", "backspace"},
+			wantHovered: "backend",
+			wantSearch:  "/ p▏",
+		},
+		{
+			name:        "n does nothing before a search stands",
+			from:        "  auth",
+			press:       []string{"n"},
+			wantHovered: "  auth",
+			wantSearch:  "/",
+		},
+		{
+			name:        "n walks forward from the row it is on",
+			from:        "  auth",
+			press:       []string{"/", "a", "enter", "n"},
+			wantHovered: "  └ api",
+			wantSearch:  "/ a",
+		},
+		{
+			name:        "N walks back",
+			from:        "  auth",
+			press:       []string{"/", "a", "enter", "n", "N"},
+			wantHovered: "  auth",
+			wantSearch:  "/ a",
+		},
+		{
+			name:        "a step back from the top wraps to the last match",
+			from:        "backend",
+			press:       []string{"/", "^", "(", "b", "a", "c", "k", "e", "n", "d", "|", "u", "i", ")", "$", "enter", "N"},
+			wantHovered: "  ui",
+			wantSearch:  "/ ^(backend|ui)$",
+		},
+		{
+			name:        "a pattern nothing matches leaves the cursor where it is",
+			from:        "  auth",
+			press:       []string{"/", "z", "z", "z", "enter"},
+			wantHovered: "  auth",
+			wantSearch:  "/ zzz",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var filter filterState
-			filter.setQuery(tt.query)
+			harness := openFilterable(t, tt.from)
 
-			assert.Equal(t, tt.wantMatch, filter.doesMatch(tt.name2))
-			assert.Equal(t, tt.wantBroken, filter.broken)
+			harness.press(tt.press...)
+
+			frame := harness.readFrame()
+			assert.Equal(t, filterableRows, readListRows(frame), "a search never takes a row off the screen")
+			assert.Equal(t, tt.wantHovered, readHoveredRow(frame))
+			assert.Equal(t, tt.wantSearch, readSearch(frame))
 		})
 	}
-}
 
-// TestMatchAt covers where a search lands: the nearest match from where it opened, and the walk
-// through the rest of them in either direction, wrapping at both ends.
-func TestMatchAt(t *testing.T) {
-	tests := []struct {
-		name  string
-		query string
-		from  string
-		delta int
-		want  string
-	}{
-		{
-			name:  "the row the cursor is already on counts as the nearest match",
-			query: "auth",
-			from:  agentRowKey("a1"),
-			want:  agentRowKey("a1"),
-		},
-		{
-			name:  "a search from a row that does not match walks forward to one that does",
-			query: "auth",
-			from:  workflowRowKey("w1"),
-			want:  agentRowKey("a1"),
-		},
-		{
-			name:  "a header matches by its own name",
-			query: "^frontend$",
-			from:  agentRowKey("a1"),
-			want:  workflowRowKey("w2"),
-		},
-		{
-			name:  "a step forward leaves the row it is on rather than finding it again",
-			query: "a",
-			from:  agentRowKey("a1"),
-			delta: 1,
-			want:  agentRowKey("a2"),
-		},
-		{
-			name:  "a step back goes the other way",
-			query: "a",
-			from:  agentRowKey("a2"),
-			delta: -1,
-			want:  agentRowKey("a1"),
-		},
-		{
-			name:  "a step past the last match wraps to the first",
-			query: "^api$",
-			from:  agentRowKey("a2"),
-			delta: 1,
-			want:  agentRowKey("a2"),
-		},
-	}
+	t.Run("a selection survives a search", func(t *testing.T) {
+		harness := openFilterable(t, "  auth")
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			m := selectionTree()
-			m.filter.setQuery(tt.query)
-			m.agents.cursor = rowIndexOfKey(m.agents.rows(m.shared()), tt.from)
+		harness.press("v", "j", "v", "/", "d", "b", "enter", "z")
 
-			got, ok := m.matchAt(tt.delta)
-			require.True(t, ok)
-			assert.Equal(t, tt.want, got)
-		})
-	}
-}
-
-// TestMatchAtWrapsBackwardsPastTheTop pins a step back from the first row reaching the last
-// match rather than running off the front of the list.
-func TestMatchAtWrapsBackwardsPastTheTop(t *testing.T) {
-	m := selectionTree()
-	m.filter.setQuery("^(backend|ui)$")
-	m.agents.cursor = rowIndexOfKey(m.agents.rows(m.shared()), workflowRowKey("w1"))
-
-	got, ok := m.matchAt(-1)
-	require.True(t, ok)
-	assert.Equal(t, agentRowKey("a4"), got, "the walk back from the first row lands on the last match")
-}
-
-// TestMatchAtFindsNothing pins a pattern nothing matches leaving the cursor alone rather than
-// moving it somewhere arbitrary.
-func TestMatchAtFindsNothing(t *testing.T) {
-	m := selectionTree()
-	m.filter.setQuery("zzz")
-	m.agents.cursor = rowIndexOfKey(m.agents.rows(m.shared()), agentRowKey("a1"))
-
-	_, ok := m.matchAt(0)
-	assert.False(t, ok)
-}
-
-// TestSearchDoesNotNarrow pins the whole tree staying on screen under a search.
-func TestSearchDoesNotNarrow(t *testing.T) {
-	m := selectionTree()
-	before := m.agents.rows(m.shared())
-
-	m.filter.setQuery("auth")
-
-	assert.Len(t, m.agents.rows(m.shared()), len(before))
-}
-
-// TestSearchEnterKeepsTheRow pins enter putting the input away and leaving the cursor on what
-// the search found, which is the point of typing it.
-func TestSearchEnterKeepsTheRow(t *testing.T) {
-	m := selectionTree()
-	m.agents.cursor = rowIndexOfKey(m.agents.rows(m.shared()), workflowRowKey("w1"))
-
-	opened, _ := m.routeScreenMessage(keyMsg("/"))
-	typed := pressMark(t, opened.(model), "d", "b")
-	landed := pressMark(t, typed, "enter")
-
-	assert.False(t, landed.filter.typing, "the input is put away")
-	assert.True(t, landed.filter.isStanding(), "and what it found still stands")
-	assert.Equal(t, agentRowKey("a3"), rowKeyAt(landed.agents.rows(landed.shared()), landed.agents.cursor))
-}
-
-// TestSearchEscapeGoesBack pins escape giving up on the search and putting the cursor back
-// where it opened.
-func TestSearchEscapeGoesBack(t *testing.T) {
-	m := selectionTree()
-	start := rowIndexOfKey(m.agents.rows(m.shared()), workflowRowKey("w1"))
-	m.agents.cursor = start
-
-	opened, _ := m.routeScreenMessage(keyMsg("/"))
-	typed := pressMark(t, opened.(model), "d", "b")
-	require.Equal(t, start, typed.agents.cursor, "typing moves nothing")
-
-	back := pressMark(t, typed, "esc")
-	assert.False(t, back.filter.isStanding(), "the search is gone")
-	assert.Equal(t, start, back.agents.cursor, "and the cursor is where it was")
-}
-
-// TestSearchEscapeGoesBackFromAStandingSearch pins the escape that clears a search which is no
-// longer being typed at, which is a different path from the one that abandons the input.
-func TestSearchEscapeGoesBackFromAStandingSearch(t *testing.T) {
-	m := selectionTree()
-	start := rowIndexOfKey(m.agents.rows(m.shared()), workflowRowKey("w1"))
-	m.agents.cursor = start
-
-	opened, _ := m.routeScreenMessage(keyMsg("/"))
-	standing := pressMark(t, opened.(model), "d", "b", "enter")
-	require.False(t, standing.filter.typing)
-	require.Equal(t, agentRowKey("a3"), rowKeyAt(standing.agents.rows(standing.shared()), standing.agents.cursor))
-
-	back := pressMark(t, standing, "esc")
-	assert.False(t, back.filter.isStanding(), "the search is gone")
-	assert.Equal(t, start, back.agents.cursor, "and the cursor is back where it started")
-}
-
-// TestArchiveSearchWalksAndClears pins the archive getting the same search as the agents list.
-func TestArchiveSearchWalksAndClears(t *testing.T) {
-	m := archiveModel(&fakeArchiveAgents{}, &fakeArchiveWorkflows{}, config.DefaultKeybindings())
-	m.listing.archivedAgents = archivedItems([]panel.Agent{
-		{
-			ID:         "a1",
-			Name:       "api-refactor",
-			WorkflowID: "w1",
-		},
-		{
-			ID:         "a2",
-			Name:       "auth-fix",
-			WorkflowID: "w1",
-		},
+		assert.Contains(t, harness.readFrame(), "Archive 2 agents")
 	})
-	m.archive.cursor = 0
-	require.Equal(t, workflowRowKey("w1"), rowKeyAt(m.archive.listRows(m.shared()), m.archive.cursor))
 
-	opened, _ := m.routeScreenMessage(keyMsg("/"))
-	standing := pressMark(t, opened.(model), "^", "a", "enter")
-	require.True(t, standing.filter.isStanding())
-	require.Equal(t, agentRowKey("a1"), rowKeyAt(standing.archive.listRows(standing.shared()), standing.archive.cursor))
+	t.Run("the search stays on the screen it was typed on", func(t *testing.T) {
+		harness := openFilterable(t, "backend")
 
-	walked := pressMark(t, standing, "n")
-	assert.Equal(t, agentRowKey("a2"), rowKeyAt(walked.archive.listRows(walked.shared()), walked.archive.cursor), "n walks to the next match")
+		harness.press("/", "d", "b", "enter", "S")
 
-	back := pressMark(t, walked, "N")
-	assert.Equal(t, agentRowKey("a1"), rowKeyAt(back.archive.listRows(back.shared()), back.archive.cursor), "and N walks back")
-
-	cleared := pressMark(t, back, "esc")
-	assert.False(t, cleared.filter.isStanding(), "escape clears the search")
-	assert.Equal(t, workflowRowKey("w1"), rowKeyAt(cleared.archive.listRows(cleared.shared()), cleared.archive.cursor), "and puts the cursor back where it opened")
+		assert.Equal(t, "/", readSearch(harness.readFrame()))
+	})
 }
 
-// TestSearchWalksMatchesOnlyWhileOneStands pins n and N moving between matches once a search
-// stands, and doing nothing of the sort before one does.
-func TestSearchWalksMatchesOnlyWhileOneStands(t *testing.T) {
-	m := selectionTree()
-	m.agents.cursor = rowIndexOfKey(m.agents.rows(m.shared()), agentRowKey("a1"))
-
-	quiet := pressMark(t, m, "n")
-	assert.Equal(t, agentRowKey("a1"), rowKeyAt(quiet.agents.rows(quiet.shared()), quiet.agents.cursor), "n is not a jump with no search up")
-
-	opened, _ := m.routeScreenMessage(keyMsg("/"))
-	standing := pressMark(t, opened.(model), "a", "enter")
-
-	forward := pressMark(t, standing, "n")
-	assert.Equal(t, agentRowKey("a2"), rowKeyAt(forward.agents.rows(forward.shared()), forward.agents.cursor))
-
-	back := pressMark(t, forward, "N")
-	assert.Equal(t, agentRowKey("a1"), rowKeyAt(back.agents.rows(back.shared()), back.agents.cursor))
-}
-
-// TestFilterInput covers the input over the list, where the pattern outlives the input itself so
-// the keys that walk the matches work against what it found.
-func TestFilterInput(t *testing.T) {
+// TestFilterNarrow covers the filter, which takes off the list every row its pattern keeps no reason to show.
+func TestFilterNarrow(t *testing.T) {
 	tests := []struct {
-		name       string
-		keys       []string
-		wantTyping bool
-		wantQuery  string
+		name        string
+		from        string
+		press       []string
+		wantRows    []string
+		wantHovered string
+		wantSearch  string
 	}{
 		{
-			name:       "a key that is not the search leaves the input closed",
-			keys:       []string{"i"},
-			wantTyping: false,
-			wantQuery:  "",
+			name:        "tab while typing flips to a filter that narrows nothing until enter",
+			from:        "backend",
+			press:       []string{"/", "d", "b", "tab"},
+			wantRows:    filterableRows,
+			wantHovered: "backend",
+			wantSearch:  "▽ db▏",
 		},
 		{
-			name:       "typing builds the pattern as it goes",
-			keys:       []string{"/", "p", "a"},
-			wantTyping: true,
-			wantQuery:  "pa",
+			name:        "enter narrows to the match and the header above it",
+			from:        "backend",
+			press:       []string{"/", "d", "b", "tab", "enter"},
+			wantRows:    []string{"backend", "  db"},
+			wantHovered: "backend",
+			wantSearch:  "▽ db",
 		},
 		{
-			name:       "a key bound elsewhere types rather than acting",
-			keys:       []string{"/", "i"},
-			wantTyping: true,
-			wantQuery:  "i",
+			name:        "a second tab puts the search back",
+			from:        "backend",
+			press:       []string{"/", "d", "b", "tab", "tab", "enter"},
+			wantRows:    filterableRows,
+			wantHovered: "  db",
+			wantSearch:  "/ db",
 		},
 		{
-			name:       "backspace takes the last rune back",
-			keys:       []string{"/", "p", "a", "backspace"},
-			wantTyping: true,
-			wantQuery:  "p",
+			name:        "a matching parent keeps its children",
+			from:        "backend",
+			press:       []string{"/", "tab", "^", "a", "u", "t", "h", "$", "enter"},
+			wantRows:    []string{"backend", "  auth", "  └ api"},
+			wantHovered: "backend",
+			wantSearch:  "▽ ^auth$",
 		},
 		{
-			name:       "enter closes the input and leaves the search standing",
-			keys:       []string{"/", "p", "a", "enter"},
-			wantTyping: false,
-			wantQuery:  "pa",
+			name:        "a matching child keeps its parent and the header above that",
+			from:        "backend",
+			press:       []string{"/", "tab", "^", "a", "p", "i", "$", "enter"},
+			wantRows:    []string{"backend", "  auth", "  └ api"},
+			wantHovered: "backend",
+			wantSearch:  "▽ ^api$",
 		},
 		{
-			name:       "esc drops the pattern along with the input",
-			keys:       []string{"/", "p", "a", "esc"},
-			wantTyping: false,
-			wantQuery:  "",
+			name:        "a matching header keeps the whole group under it",
+			from:        "backend",
+			press:       []string{"/", "tab", "^", "b", "a", "c", "k", "e", "n", "d", "$", "enter"},
+			wantRows:    []string{"backend", "  auth", "  └ api", "  db"},
+			wantHovered: "backend",
+			wantSearch:  "▽ ^backend$",
 		},
 		{
-			name:       "esc over a search that stands clears it rather than reopening it",
-			keys:       []string{"/", "p", "a", "enter", "esc"},
-			wantTyping: false,
-			wantQuery:  "",
+			name:        "a pattern that will not compile takes nothing off the list",
+			from:        "backend",
+			press:       []string{"/", "tab", "a", "u", "t", "h", "[", "enter"},
+			wantRows:    filterableRows,
+			wantHovered: "backend",
+			wantSearch:  "▽ auth[",
+		},
+		{
+			name:        "a row it takes away hands the cursor to the nearest match forward",
+			from:        "  db",
+			press:       []string{"/", "u", "tab", "enter"},
+			wantRows:    []string{"backend", "  auth", "  └ api", "frontend", "  ui"},
+			wantHovered: "  ui",
+			wantSearch:  "▽ u",
+		},
+		{
+			name:        "a row it keeps under a matched header holds the cursor",
+			from:        "  auth",
+			press:       []string{"/", "b", "a", "c", "k", "e", "n", "d", "|", "a", "p", "i", "tab", "enter"},
+			wantRows:    []string{"backend", "  auth", "  └ api", "  db"},
+			wantHovered: "  auth",
+			wantSearch:  "▽ backend|api",
+		},
+		{
+			name:        "the last row taken away hands the cursor back up to a match",
+			from:        "  ui",
+			press:       []string{"/", "^", "a", "u", "tab", "enter"},
+			wantRows:    []string{"backend", "  auth", "  └ api"},
+			wantHovered: "  auth",
+			wantSearch:  "▽ ^au",
+		},
+		{
+			name:        "escape while typing gives every row back",
+			from:        "frontend",
+			press:       []string{"/", "tab", "d", "b", "esc"},
+			wantRows:    filterableRows,
+			wantHovered: "frontend",
+			wantSearch:  "/",
+		},
+		{
+			name:        "escape over a standing filter gives every row back",
+			from:        "frontend",
+			press:       []string{"/", "tab", "d", "b", "enter", "esc"},
+			wantRows:    filterableRows,
+			wantHovered: "frontend",
+			wantSearch:  "/",
+		},
+		{
+			name:        "opening the input again starts a search",
+			from:        "backend",
+			press:       []string{"/", "tab", "d", "b", "enter", "/"},
+			wantRows:    filterableRows,
+			wantHovered: "backend",
+			wantSearch:  "/ ▏",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := filterModel()
-			whole := rowNames(m.agents.rows(m.shared()))
+			harness := openFilterable(t, tt.from)
 
-			for _, k := range tt.keys {
-				updated, _ := m.route(keyMsg(k))
-				next, ok := updated.(model)
-				require.True(t, ok)
-				m = next
+			harness.press(tt.press...)
+
+			frame := harness.readFrame()
+			assert.Equal(t, tt.wantRows, readListRows(frame))
+			assert.Equal(t, tt.wantHovered, readHoveredRow(frame))
+			assert.Equal(t, tt.wantSearch, readSearch(frame))
+		})
+	}
+
+	t.Run("a jump to a row the filter took away turns the filter back to a search", func(t *testing.T) {
+		harness := openFilterable(t, "backend +1", newHiddenAgent("sweep", "sweep"), newMark("c", "db"))
+
+		harness.press("/", "tab", "a", "u", "t", "h", "enter", "'", "c")
+
+		frame := harness.readFrame()
+		assert.Equal(t, "  db", readHoveredRow(frame))
+		assert.Equal(t, "/ auth", readSearch(frame))
+		assert.NotContains(t, readListRows(frame), "  sweep"+hiddenMark, "the hidden rows stay hidden")
+	})
+
+	t.Run("a jump to a hidden row the filter keeps reveals it with the filter standing", func(t *testing.T) {
+		harness := openFilterable(t, "backend +1", newHiddenAgent("sweep", "sweep"), newMark("c", "sweep"))
+
+		harness.press("/", "tab", "s", "w", "e", "e", "p", "enter", "'", "c")
+
+		frame := harness.readFrame()
+		assert.Equal(t, "  sweep"+hiddenMark, readHoveredRow(frame))
+		assert.Equal(t, "▽ sweep", readSearch(frame))
+	})
+}
+
+// TestFilterScreens covers every list screen answering the same search and filter keys.
+func TestFilterScreens(t *testing.T) {
+	t.Run("the archive walks its matches and clears back to where it opened", func(t *testing.T) {
+		harness := openArchive(t,
+			newLiveWorkflow("w1", "backend"),
+			newArchivedAgentAt("api-refactor", "2026-07-30T09:00:00Z"),
+			newArchivedAgentAt("auth-fix", "2026-07-30T08:00:00Z"),
+		)
+		require.Equal(t, "backend", readHoveredRow(harness.readFrame()))
+
+		harness.press("/", "^", "a", "enter")
+		assert.Equal(t, "  api-refactor", readHoveredRow(harness.readFrame()))
+
+		harness.press("n")
+		assert.Equal(t, "  auth-fix", readHoveredRow(harness.readFrame()))
+
+		harness.press("N")
+		assert.Equal(t, "  api-refactor", readHoveredRow(harness.readFrame()))
+
+		harness.press("esc")
+		assert.Equal(t, "backend", readHoveredRow(harness.readFrame()))
+	})
+
+	t.Run("the schedules walk their matches and narrow to them", func(t *testing.T) {
+		harness := newPanelHarness(t, panelHarnessParams{})
+		harness.watch(buildSnapshot(
+			newLiveWorkflow("w1", "backend"),
+			newNamedSchedule("s1", "nightly"),
+			newNamedSchedule("s2", "morning"),
+			newNamedSchedule("s3", "weekly"),
+		))
+		listed := func() ([]string, string) {
+			var names []string
+			var hovered string
+			for _, line := range readSidebar(harness.readFrame()) {
+				if _, row, isRow := strings.Cut(line, "◇ "); isRow {
+					names = append(names, strings.Fields(row)[0])
+					if strings.HasPrefix(line, "›") {
+						hovered = names[len(names)-1]
+					}
+				}
 			}
 
-			assert.Equal(t, tt.wantTyping, m.filter.typing)
-			assert.Equal(t, tt.wantQuery, m.filter.query)
-			assert.Equal(t, whole, rowNames(m.agents.rows(m.shared())), "a search never takes a row off the screen")
-		})
-	}
-}
-
-// TestFilterCursor covers where the cursor lands as the search changes.
-func TestFilterCursor(t *testing.T) {
-	tests := []struct {
-		name  string
-		start int
-		query string
-		want  string
-	}{
-		{
-			name:  "a cursor whose row does not match moves to the first match",
-			start: 1,
-			query: "payouts",
-			want:  "payouts",
-		},
-		{
-			name:  "a cursor stays on its row when it matches",
-			start: 2,
-			query: "pa",
-			want:  "payouts",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			m := filterModel()
-			m.agents.cursor = tt.start
-
-			typed := typeIntoFilter(m, tt.query)
-			require.Equal(t, tt.start, typed.agents.cursor, "typing moves nothing")
-
-			got := send(t, typed, "enter")
-
-			rows := got.agents.rows(got.shared())
-			require.Less(t, got.agents.cursor, len(rows))
-			assert.Equal(t, tt.want, rows[got.agents.cursor].item.Agent.Name)
-		})
-	}
-}
-
-// TestFilterKeepsSelection covers a selection surviving a search.
-func TestFilterKeepsSelection(t *testing.T) {
-	m := filterModel()
-	m.agents.selected = selectAgents([]string{"a1", "a2"}...)
-
-	whole := rowNames(m.agents.rows(m.shared()))
-	got := typeIntoFilter(m, "payouts")
-
-	assert.Equal(t, whole, rowNames(got.agents.rows(got.shared())), "the tree is left whole")
-	assert.Equal(t, []string{"a1", "a2"}, panel.IDs(chosenAgents(got.agents.selected, got.agents.rows(got.shared()))), "both chosen agents are still acted on")
-}
-
-// TestFilterDroppedLeavingScreen covers a pattern following the user off the list it was typed
-// on, which it must not: the schedules screen would open already narrowed by a name meant for
-// the agents tree.
-func TestFilterDroppedLeavingScreen(t *testing.T) {
-	m := filterModel()
-	m.filter.setQuery("payouts")
-
-	updated, _ := m.routeScreenMessage(keyMsg("S"))
-	got, ok := updated.(model)
-	require.True(t, ok)
-
-	require.Equal(t, screenSchedules, got.screen)
-	assert.Empty(t, got.filter.query)
-}
-
-// TestFilterHighlight covers a row drawn in pieces so the matched run can take its own colour,
-// and checks the pieces still add up to the name.
-func TestFilterHighlight(t *testing.T) {
-	tests := []struct {
-		name  string
-		query string
-		row   string
-	}{
-		{
-			name:  "a name with no match is drawn whole",
-			query: "zzz",
-			row:   "billing",
-		},
-		{
-			name:  "a match at the start is drawn whole",
-			query: "bill",
-			row:   "billing",
-		},
-		{
-			name:  "a match inside is drawn whole",
-			query: "ill",
-			row:   "billing",
-		},
-		{
-			name:  "a match running to the end is drawn whole",
-			query: "ing$",
-			row:   "billing",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var filter filterState
-			filter.setQuery(tt.query)
-
-			got := filter.highlight(paint.Panel, tt.row, lipgloss.NewStyle())
-
-			assert.Equal(t, tt.row, ansi.Strip(got))
-		})
-	}
-}
-
-// TestFilterViewLine covers the input drawn over the list, which stands whether or not a search
-// does.
-func TestFilterViewLine(t *testing.T) {
-	tests := []struct {
-		name   string
-		query  string
-		typing bool
-		want   string
-	}{
-		{
-			name: "a screen with no filter still draws the line",
-			want: "/",
-		},
-		{
-			name:   "an open input draws what has been typed",
-			query:  "pay",
-			typing: true,
-			want:   "/ pay▏",
-		},
-		{
-			name:  "a closed input keeps the pattern on screen",
-			query: "pay",
-			want:  "/ pay",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			m := filterModel()
-			m.filter.setQuery(tt.query)
-			m.filter.typing = tt.typing
-
-			assert.Equal(t, tt.want, strings.TrimSpace(ansi.Strip(m.filter.line(paint.Panel))))
-		})
-	}
-}
-
-// TestFilterSlashMarksAStandingSearch covers the colour of the slash, which is all a line that is
-// always drawn has to say whether anything is being searched for.
-func TestFilterSlashMarksAStandingSearch(t *testing.T) {
-	m := filterModel()
-
-	assert.Contains(t, m.filter.line(paint.Panel), dimStyle.Render("/"), "an idle line is dim")
-	assert.NotContains(t, m.filter.line(paint.Panel), paint.Panel.Cursor().Render("/"))
-
-	typing := m
-	typing.filter.typing = true
-
-	assert.Contains(t, typing.filter.line(paint.Panel), paint.Panel.Cursor().Render("/"), "an open input takes the accent")
-
-	standing := m
-	standing.filter.setQuery("pay")
-
-	assert.Contains(t, standing.filter.line(paint.Panel), paint.Panel.Cursor().Render("/"), "and so does a pattern left standing")
-}
-
-// typeIntoFilter types a whole pattern at the filter, the way a person does one key at a time.
-func typeIntoFilter(m model, query string) model {
-	m.filter.typing = true
-	for _, r := range query {
-		next, _ := m.updateFilterInput(keyMsg(string(r)))
-		m = next.(model)
-	}
-
-	return m
-}
-
-func filterModel() model {
-	tmux := &recordingTmux{}
-	workflow := panel.Workflow{ID: "w1", Name: "core"}
-
-	return model{
-		tmux:   tmux,
-		popup:  NewPopupWindow(tmux, "test-session"),
-		frame:  layout.New(tmux, config.DefaultLayout()),
-		keys:   config.DefaultKeybindings(),
-		screen: screenAgents,
-		listing: listing{workflows: []panel.Workflow{workflow}, agents: []panel.AgentRow{
-			{Agent: panel.Agent{
-				ID:         "a1",
-				Name:       "billing",
-				WorkflowID: "w1",
-			}},
-			{Agent: panel.Agent{
-				ID:         "a2",
-				Name:       "payouts",
-				WorkflowID: "w1",
-			}},
-		}}, agents: agentsScreen{rowCursor: rowCursor{cursor: 1}},
-	}
-}
-
-func rowNames(rows []agentRow) []string {
-	var names []string
-	for _, r := range rows {
-		if r.header {
-			names = append(names, r.workflow.Name)
-			continue
+			return names, hovered
 		}
+		harness.press("S")
 
-		names = append(names, r.item.Agent.Name)
+		harness.press("/", "l", "y", "enter")
+		names, hovered := listed()
+		assert.Equal(t, []string{"weekly", "morning", "nightly"}, names, "a search leaves the list whole")
+		assert.Equal(t, "weekly", hovered)
+
+		harness.press("n")
+		_, hovered = listed()
+		assert.Equal(t, "nightly", hovered, "n walks to the next match")
+
+		harness.press("N")
+		_, hovered = listed()
+		assert.Equal(t, "weekly", hovered, "and N walks back")
+
+		harness.press("esc", "/", "tab", "l", "y", "enter")
+		names, _ = listed()
+		assert.Equal(t, []string{"weekly", "nightly"}, names)
+	})
+
+	screens := []struct {
+		name  string
+		press []string
+		idle  string
+	}{
+		{
+			name: "the agents",
+		},
+		{
+			name:  "the archive",
+			press: []string{"Z"},
+			idle:  "nothing archived",
+		},
+		{
+			name:  "the schedules",
+			press: []string{"S"},
+			idle:  "no schedules yet",
+		},
 	}
 
-	return names
+	for _, tt := range screens {
+		t.Run(tt.name+" say a filter left nothing rather than that the list is empty", func(t *testing.T) {
+			harness := newPanelHarness(t, panelHarnessParams{})
+			answerWorktreeReads(harness)
+			harness.watch(buildSnapshot(
+				newLiveWorkflow("w1", "backend"),
+				newAgent("a1", "auth", "w1"),
+				newArchivedAgent("a2", "old", "w1"),
+				newNamedSchedule("s1", "nightly"),
+			))
+
+			harness.press(append(tt.press, "/", "tab", "z", "z", "z", "enter")...)
+
+			sidebar := readSidebarProse(harness.readFrame())
+			assert.Contains(t, sidebar, "nothing matches")
+			if tt.idle != "" {
+				assert.NotContains(t, sidebar, tt.idle)
+			}
+		})
+	}
+}
+
+func openFilterable(t *testing.T, from string, rows ...proto.Message) *panelHarness {
+	t.Helper()
+
+	harness := openAgents(t, append([]proto.Message{
+		newLiveWorkflow("w1", "backend"),
+		newLiveWorkflow("w2", "frontend"),
+		newAgentAt("auth", "w1", 5),
+		newChild("api", "api", "auth"),
+		newAgentAt("db", "w1", 3),
+		newAgentAt("ui", "w2", 1),
+	}, rows...)...)
+
+	harness.press("g", "g")
+	for range len(filterableRows) {
+		if readHoveredRow(harness.readFrame()) == from {
+			return harness
+		}
+		harness.press("j")
+	}
+	require.Equal(t, from, readHoveredRow(harness.readFrame()))
+
+	return harness
+}
+
+func newNamedSchedule(id, name string) *schedulev1.Schedule {
+	return &schedulev1.Schedule{
+		Id:         id,
+		Name:       name,
+		WorkflowId: "w1",
+		Cron:       "0 9 * * *",
+	}
 }
