@@ -197,7 +197,6 @@ type host interface {
 	// The keys every list shares are the root's to answer.
 	takeTopPress(pressed string) bool
 	isTopHeld() bool
-	stepIntoDetails() tea.Cmd
 	beginFilter()
 	clearFilter()
 	jumpToFilterMatch(pressed string) tea.Cmd
