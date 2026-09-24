@@ -4,7 +4,6 @@ import (
 	"strings"
 	"testing"
 
-	"weave/config"
 	"weave/internal/ui/paint"
 
 	"github.com/charmbracelet/lipgloss"
@@ -69,42 +68,6 @@ func TestFocusKeyWhileTypingJumpsIntoTheRecord(t *testing.T) {
 	assert.Equal(t, 0, standing.agents.cursor, "enter walked the list onto the header first")
 	header := standing.hoveredDetails()
 	assert.Equal(t, "name", header.fields[standing.detailsCursor(header)].label, "and the jump lands on the header's own match")
-}
-
-// TestTheEdgesScrollThrough covers the down key on the last row of the list walking into the
-// record, and the up key on its first field walking back out, with the list's cursor where it was.
-func TestTheEdgesScrollThrough(t *testing.T) {
-	m := detailsModel(&recordingTmux{})
-	require.Equal(t, 1, m.agents.cursor, "the cursor starts on the last row")
-
-	in := send(t, m, "j")
-	require.True(t, in.isDetailsFocused())
-	assert.Equal(t, 0, in.detailsCursor(in.hoveredDetails()))
-
-	down := send(t, in, "j")
-	assert.Equal(t, 1, down.detailsCursor(down.hoveredDetails()), "a second press moves within the record")
-
-	out := pressMark(t, down, "k", "k")
-	assert.False(t, out.isDetailsFocused())
-	assert.Equal(t, 1, out.agents.cursor)
-
-	up := send(t, out, "k")
-	assert.Equal(t, 0, up.agents.cursor, "and the list moves again from there")
-}
-
-// TestTheEdgesScrollThroughOnTheSchedules covers the same walk on a list with a cursor of its own.
-func TestTheEdgesScrollThroughOnTheSchedules(t *testing.T) {
-	m := scheduleModel(&fakeSchedules{}, config.DefaultKeybindings())
-	m.height, m.width = 24, 40
-	m.detailsHeight = config.DefaultDetailsHeight
-
-	bottom := send(t, m, "G")
-	in := send(t, bottom, "j")
-	require.True(t, in.isDetailsFocused())
-
-	out := send(t, in, "k")
-	assert.False(t, out.isDetailsFocused())
-	assert.Equal(t, bottom.schedules.cursor, out.schedules.cursor)
 }
 
 // TestClearingASearchFromTheOtherSectionLeavesTheCursor covers escape over a standing search:

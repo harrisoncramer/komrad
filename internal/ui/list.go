@@ -196,14 +196,9 @@ func (l screenList[T]) landed(h host, s panelShared) tea.Cmd {
 	return nil
 }
 
-// move steps the cursor, and a step refused at the bottom walks on into the record.
 func (l screenList[T]) move(h host, s panelShared, delta int) tea.Cmd {
 	next, ok := l.cursor().move(delta, len(l.rows(s)))
 	if !ok {
-		if delta > 0 {
-			return h.stepIntoDetails()
-		}
-
 		return nil
 	}
 
