@@ -36,7 +36,7 @@ The service never changes the schema on its own. It refuses to start against a s
 
 ## Hooking it into tmux
 
-Add `run-shell 'weave tmux'` to your tmux config and reload it. That binds the key that opens and hides the panel. The first time you press it, weave starts its service in the background and opens the panel. The key is set by [`panel_key`](../../config/#connection.panel_key).
+Add `run-shell 'weave tmux'` to your tmux config and reload it. That gives tmux a shortcut for opening and hiding the panel, set by [`panel_key`](../../config/#connection.panel_key). The first time you open the panel, weave starts its service in the background.
 
 <figure class="placeholder">
   <figcaption>The panel open in a tmux popup over a normal terminal session, showing an empty workflow list on first run.</figcaption>
