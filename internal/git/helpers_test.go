@@ -14,6 +14,23 @@ import (
 // client is the git these tests drive.
 var client = NewClient()
 
+// TestMain keeps background gc and maintenance out of every repository these tests build.
+func TestMain(m *testing.M) {
+	for key, value := range map[string]string{
+		"GIT_CONFIG_COUNT":   "2",
+		"GIT_CONFIG_KEY_0":   "gc.auto",
+		"GIT_CONFIG_VALUE_0": "0",
+		"GIT_CONFIG_KEY_1":   "maintenance.auto",
+		"GIT_CONFIG_VALUE_1": "false",
+	} {
+		if err := os.Setenv(key, value); err != nil {
+			panic(err)
+		}
+	}
+
+	os.Exit(m.Run())
+}
+
 func write(t *testing.T, root, path, content string) {
 	t.Helper()
 
@@ -38,8 +55,6 @@ func repo(t *testing.T) string {
 	run(t, root, "init", "--initial-branch=main")
 	run(t, root, "config", "user.email", "test@example.com")
 	run(t, root, "config", "user.name", "test")
-	run(t, root, "config", "gc.auto", "0")
-	run(t, root, "config", "maintenance.auto", "false")
 
 	write(t, root, "kept.go", "package main\n")
 	write(t, root, "proto/gen/api.pb.go", "package gen\n")
