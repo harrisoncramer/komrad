@@ -143,6 +143,7 @@ type panelHarnessParams struct {
 	width         int
 	height        int
 	detailsHeight float64
+	sidebarSide   string
 	keys          *config.Keybindings
 	git           ui.ReviewGit
 }
@@ -188,6 +189,7 @@ func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
 			Git:           params.git,
 			Keys:          keys,
 			DetailsHeight: params.detailsHeight,
+			SidebarSide:   params.sidebarSide,
 			Width:         width,
 			Height:        height,
 		}),
@@ -457,7 +459,7 @@ func cutRecord(frame string) ([]string, bool) {
 			if rules == 2 {
 				break
 			}
-			width = ansi.StringWidth(strings.TrimRight(line, " "))
+			width = ansi.StringWidth(line) - ansi.StringWidth(strings.TrimLeft(line, "─"))
 
 			continue
 		}

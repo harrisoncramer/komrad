@@ -28,6 +28,7 @@ type NewPanelParams struct {
 	Git           ReviewGit
 	Keys          config.Keybindings
 	DetailsHeight float64
+	SidebarSide   string
 	Width         int
 	Height        int
 }
@@ -43,6 +44,9 @@ func NewPanel(params NewPanelParams) *Panel {
 	layout := config.DefaultLayout()
 	if params.DetailsHeight != 0 {
 		layout.DetailsHeight = params.DetailsHeight
+	}
+	if params.SidebarSide != "" {
+		layout.SidebarSide = params.SidebarSide
 	}
 
 	return &Panel{
