@@ -26,14 +26,16 @@ type cwdSetter interface {
 	List(ctx context.Context) ([]agentstore.Agent, error)
 	SetCheckout(ctx context.Context, id string, params agentstore.SetCheckoutParams) error
 	SetTreeStanding(ctx context.Context, id string, standing git.Standing, snapshotSHA string) error
+	SetMovedSinceRound(ctx context.Context, id, snapshotSHA string) error
 }
 
 // headReader reads a checkout's HEAD.
 type headReader interface {
-	ReadHeadState(ctx context.Context, dir string) git.HeadState
+	ReadHeadState(ctx context.Context, params git.ReadHeadStateParams) git.HeadState
 }
 
-type standingReader interface {
+type treeReader interface {
+	ProbeTree(ctx context.Context, root string) (string, error)
 	ReadStanding(ctx context.Context, params git.ReadStandingParams) (git.Standing, error)
 }
 
@@ -41,8 +43,9 @@ type workflowLister interface {
 	List(ctx context.Context) ([]workflowstore.Workflow, error)
 }
 
-type tallyLister interface {
+type roundLister interface {
 	ListTallies(ctx context.Context) ([]reviewstore.Tally, error)
+	ListNewestRounds(ctx context.Context) ([]reviewstore.NewestRound, error)
 }
 
 type pullRequestObserver interface {
@@ -53,8 +56,8 @@ type pullRequestObserver interface {
 type NewCwdSyncerParams struct {
 	Agents       cwdSetter
 	Heads        headReader
-	Trees        standingReader
-	Tallies      tallyLister
+	Trees        treeReader
+	Rounds       roundLister
 	Bases        workflowLister
 	PullRequests pullRequestObserver
 }
@@ -64,8 +67,8 @@ type NewCwdSyncerParams struct {
 type CwdSyncer struct {
 	agents       cwdSetter
 	heads        headReader
-	trees        standingReader
-	tallies      tallyLister
+	trees        treeReader
+	rounds       roundLister
 	bases        workflowLister
 	pullRequests pullRequestObserver
 }
@@ -76,7 +79,7 @@ func NewCwdSyncer(params NewCwdSyncerParams) *CwdSyncer {
 		agents:       params.Agents,
 		heads:        params.Heads,
 		trees:        params.Trees,
-		tallies:      params.Tallies,
+		rounds:       params.Rounds,
 		bases:        params.Bases,
 		pullRequests: params.PullRequests,
 	}
@@ -90,7 +93,9 @@ type cwdLook struct {
 	// round is the snapshot the worktree was measured against, empty when no verdict names one.
 	round    string
 	standing git.Standing
-	err      error
+	// movedSinceRound is the newest round's snapshot while the worktree no longer hashes to it.
+	movedSinceRound string
+	err             error
 }
 
 // Sync looks at every live agent's cwd once and writes what changed, clearing the branch and
@@ -102,15 +107,9 @@ func (cs *CwdSyncer) Sync(ctx context.Context) error {
 		return fmt.Errorf("failed to list agents for cwd sync: %w", err)
 	}
 
-	tallied, err := cs.tallies.ListTallies(ctx)
+	rounds, err := cs.listRounds(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to list the review tallies for cwd sync: %w", err)
-	}
-	rounds := map[string]string{}
-	for _, tally := range tallied {
-		if tally.Verdict != nil {
-			rounds[tally.AgentID] = tally.SnapshotSHA
-		}
+		return err
 	}
 
 	bases, err := cs.listBases(ctx)
@@ -136,6 +135,9 @@ func (cs *CwdSyncer) Sync(ctx context.Context) error {
 		if err := cs.writeStanding(ctx, look); err != nil {
 			failures = append(failures, err)
 		}
+		if err := cs.writeMovedSinceRound(ctx, look); err != nil {
+			failures = append(failures, err)
+		}
 	}
 
 	if isObserving {
@@ -145,6 +147,40 @@ func (cs *CwdSyncer) Sync(ctx context.Context) error {
 	}
 
 	return errors.Join(failures...)
+}
+
+// agentRounds are the snapshots one agent's worktree is measured against.
+type agentRounds struct {
+	// concluded is the round its last verdict was given on.
+	concluded string
+	newest    string
+}
+
+// listRounds is every agent's rounds, by agent id.
+func (cs *CwdSyncer) listRounds(ctx context.Context) (map[string]agentRounds, error) {
+	tallies, err := cs.rounds.ListTallies(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the review tallies for cwd sync: %w", err)
+	}
+
+	newest, err := cs.rounds.ListNewestRounds(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the newest review rounds for cwd sync: %w", err)
+	}
+
+	rounds := map[string]agentRounds{}
+	for _, round := range newest {
+		rounds[round.AgentID] = agentRounds{newest: round.SnapshotSHA}
+	}
+	for _, tally := range tallies {
+		if tally.Verdict != nil {
+			agent := rounds[tally.AgentID]
+			agent.concluded = tally.SnapshotSHA
+			rounds[tally.AgentID] = agent
+		}
+	}
+
+	return rounds, nil
 }
 
 // listBases is the branch each workflow cuts its worktrees from, by workflow id.
@@ -162,7 +198,7 @@ func (cs *CwdSyncer) listBases(ctx context.Context) (map[string]string, error) {
 	return bases, nil
 }
 
-func (cs *CwdSyncer) lookAtAll(ctx context.Context, agents []agentstore.Agent, rounds, bases map[string]string) ([]cwdLook, error) {
+func (cs *CwdSyncer) lookAtAll(ctx context.Context, agents []agentstore.Agent, rounds map[string]agentRounds, bases map[string]string) ([]cwdLook, error) {
 	looker, err := streamer.NewStreamer(streamer.NewStreamerParams[agentstore.Agent, cwdLook]{
 		WorkerCount: cwdLookWorkers,
 		Work: func(ctx context.Context, agent agentstore.Agent) (cwdLook, error) {
@@ -195,17 +231,36 @@ func (cs *CwdSyncer) lookAtAll(ctx context.Context, agents []agentstore.Agent, r
 	return looks, nil
 }
 
-func (cs *CwdSyncer) look(ctx context.Context, agent agentstore.Agent, round, base string) cwdLook {
+func (cs *CwdSyncer) look(ctx context.Context, agent agentstore.Agent, rounds agentRounds, base string) cwdLook {
 	look := cwdLook{
 		agent:   agent,
-		round:   round,
+		round:   rounds.concluded,
 		removed: isCwdRemoved(ctx, agent.Cwd),
 	}
-
-	if !look.removed {
-		look.head = cs.readHead(ctx, agent.Cwd)
-		look.standing, look.err = cs.readStanding(ctx, agent, round, base)
+	if look.removed {
+		return look
 	}
+
+	look.head = cs.readHead(ctx, agent.Cwd, rounds.newest)
+
+	probe, err := cs.probeTree(ctx, look.head, rounds.concluded)
+	if err != nil {
+		look.movedSinceRound = agent.MovedSinceRound
+		look.err = fmt.Errorf("failed to hash the worktree of %q: %w", agent.Name, err)
+
+		return look
+	}
+
+	if look.head.SnapshotTree != "" && probe != look.head.SnapshotTree {
+		look.movedSinceRound = rounds.newest
+	}
+
+	look.standing, look.err = cs.readStanding(ctx, readStandingParams{
+		Agent: agent,
+		Round: rounds.concluded,
+		Base:  base,
+		Probe: probe,
+	})
 
 	return look
 }
@@ -241,6 +296,21 @@ func (cs *CwdSyncer) write(ctx context.Context, look cwdLook) error {
 
 	if err := cs.agents.SetCheckout(ctx, agent.ID, checkout); err != nil {
 		return fmt.Errorf("failed to set the checkout for %q: %w", agent.Name, err)
+	}
+
+	return nil
+}
+
+// writeMovedSinceRound records the newest round the worktree has moved away from, when the row
+// says otherwise.
+func (cs *CwdSyncer) writeMovedSinceRound(ctx context.Context, look cwdLook) error {
+	agent := look.agent
+	if agent.MovedSinceRound == look.movedSinceRound {
+		return nil
+	}
+
+	if err := cs.agents.SetMovedSinceRound(ctx, agent.ID, look.movedSinceRound); err != nil {
+		return fmt.Errorf("failed to set the round the worktree of %q moved since: %w", agent.Name, err)
 	}
 
 	return nil
@@ -283,7 +353,7 @@ func isCwdRemoved(ctx context.Context, dir string) bool {
 	}
 }
 
-func (cs *CwdSyncer) readHead(ctx context.Context, dir string) git.HeadState {
+func (cs *CwdSyncer) readHead(ctx context.Context, dir, snapshotSHA string) git.HeadState {
 	if dir == "" {
 		return git.HeadState{}
 	}
@@ -291,11 +361,31 @@ func (cs *CwdSyncer) readHead(ctx context.Context, dir string) git.HeadState {
 	ctx, cancel := context.WithTimeout(ctx, cwdLookTimeout)
 	defer cancel()
 
-	return cs.heads.ReadHeadState(ctx, dir)
+	return cs.heads.ReadHeadState(ctx, git.ReadHeadStateParams{Dir: dir, SnapshotSHA: snapshotSHA})
 }
 
-func (cs *CwdSyncer) readStanding(ctx context.Context, agent agentstore.Agent, round, base string) (git.Standing, error) {
-	if agent.Cwd == "" || round == "" {
+// probeTree hashes the worktree once for both rounds, and not at all when neither needs it.
+func (cs *CwdSyncer) probeTree(ctx context.Context, head git.HeadState, concluded string) (string, error) {
+	if head.Root == "" || (head.SnapshotTree == "" && concluded == "") {
+		return "", nil
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, cwdLookTimeout)
+	defer cancel()
+
+	return cs.trees.ProbeTree(ctx, head.Root)
+}
+
+type readStandingParams struct {
+	Agent agentstore.Agent
+	Round string
+	Base  string
+	Probe string
+}
+
+func (cs *CwdSyncer) readStanding(ctx context.Context, params readStandingParams) (git.Standing, error) {
+	agent := params.Agent
+	if agent.Cwd == "" || params.Round == "" {
 		return git.StandingSame, nil
 	}
 
@@ -304,8 +394,9 @@ func (cs *CwdSyncer) readStanding(ctx context.Context, agent agentstore.Agent, r
 
 	standing, err := cs.trees.ReadStanding(ctx, git.ReadStandingParams{
 		Dir:         agent.Cwd,
-		Base:        base,
-		SnapshotSHA: round,
+		Base:        params.Base,
+		SnapshotSHA: params.Round,
+		Probe:       params.Probe,
 	})
 	if err != nil {
 		return standing, fmt.Errorf("failed to compare the tree of %q against its reviewed round: %w", agent.Name, err)

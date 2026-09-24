@@ -2,7 +2,6 @@ package ui
 
 import (
 	"log/slog"
-	"time"
 
 	"weave/internal/client"
 
@@ -289,7 +288,6 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 	case tickMsg:
 		m.awaitingSize = false
 		next, readRuns := m.dwellRunsRead(msg.at)
-		hashWorktree := next.hashReviewWorktreeCmd(msg.at)
 		edited := next.reconcileEditor()
 
 		next = next.noticeRebuild()
@@ -297,7 +295,7 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 			return next, nil, true
 		}
 
-		return next, tea.Batch(next.listCmd(), tick(), hashWorktree, readRuns, edited), true
+		return next, tea.Batch(next.listCmd(), tick(), readRuns, edited), true
 	case tea.BlurMsg:
 		m.blurred = true
 		m.syncKeys()
@@ -382,15 +380,6 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 	default:
 		return m, nil, false
 	}
-}
-
-// hashReviewWorktreeCmd starts a hash of the agent's worktree while the review is up and one is due.
-func (m *model) hashReviewWorktreeCmd(now time.Time) tea.Cmd {
-	if m.screen != screenReview {
-		return nil
-	}
-
-	return m.review.hashWorktreeIfDue(m.shared(), now)
 }
 
 // reconcileEditor catches the info pane and the review's editor going away on their own.

@@ -724,6 +724,12 @@ table "agents" {
     default = ""
     comment = "The round the standing was measured against."
   }
+  column "moved_since_round" {
+    null    = false
+    type    = text
+    default = ""
+    comment = "The snapshot of the agent's newest review round when its worktree no longer hashes to it, empty while it still does or when there is no round. The cwd syncer rewrites it every pass."
+  }
   column "tenant_id" {
     null    = false
     type    = uuid

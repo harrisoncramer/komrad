@@ -149,8 +149,6 @@ type ReviewGit interface {
 	MapRanges(ctx context.Context, params git.MapRangesParams) ([]position.Mapping, error)
 	Replay(ctx context.Context, params git.ReplayParams) (*git.Replayed, error)
 	IsAncestor(ctx context.Context, dir, maybeAncestor, of string) (bool, error)
-	ProbeTree(ctx context.Context, dir string) (string, error)
-	GetTree(ctx context.Context, dir, sha string) (string, error)
 	GetRoot(ctx context.Context, dir string) (string, error)
 	Diff(ctx context.Context, params git.DiffParams) ([]byte, error)
 	ReadFiles(ctx context.Context, dir string, revisions []git.FileRevision) (map[git.FileRevision][]byte, error)

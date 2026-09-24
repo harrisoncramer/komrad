@@ -816,6 +816,14 @@ SET
 WHERE
     id = @id;
 
+-- name: SetAgentMovedSinceRound :exec
+UPDATE
+    agents
+SET
+    moved_since_round = @moved_since_round
+WHERE
+    id = @id;
+
 -- name: SetAgentHidden :many
 UPDATE
     agents

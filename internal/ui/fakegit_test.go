@@ -34,10 +34,6 @@ func (fakeGit) IsAncestor(context.Context, string, string, string) (bool, error)
 	return false, errNoGit
 }
 
-func (fakeGit) ProbeTree(context.Context, string) (string, error) { return "", errNoGit }
-
-func (fakeGit) GetTree(context.Context, string, string) (string, error) { return "", errNoGit }
-
 func (fakeGit) GetRoot(context.Context, string) (string, error) { return "", errNoGit }
 
 func (fakeGit) Diff(context.Context, git.DiffParams) ([]byte, error) { return nil, errNoGit }

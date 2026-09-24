@@ -343,6 +343,26 @@ func TestIntegrationARebaseMovesTheTree(t *testing.T) {
 	assert.Equal(t, StandingLandedMoved, standing(t, root, snapshot.SHA))
 }
 
+// TestIntegrationAStandingReadsAProbeItIsGiven pins that a probe already taken is measured rather
+// than the worktree hashed again.
+func TestIntegrationAStandingReadsAProbeItIsGiven(t *testing.T) {
+	root := repo(t)
+	snapshot := topicRound(t, root)
+	held, err := client.GetTree(t.Context(), root, snapshot.SHA)
+	require.NoError(t, err)
+
+	write(t, root, "later.go", "package main\n")
+
+	standing, err := client.ReadStanding(t.Context(), ReadStandingParams{
+		Dir:         root,
+		Base:        "main",
+		SnapshotSHA: snapshot.SHA,
+		Probe:       held,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, StandingSame, standing)
+}
+
 // TestIntegrationAnUnreadableBaseIsRefused pins that a base git cannot find is reported rather than read
 // as a standing against something else.
 func TestIntegrationAnUnreadableBaseIsRefused(t *testing.T) {

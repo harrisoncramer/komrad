@@ -743,6 +743,42 @@ func (q *Queries) ListLiveReviewers(ctx context.Context) ([]*ListLiveReviewersRo
 	return items, nil
 }
 
+const listNewestReviewRounds = `-- name: ListNewestReviewRounds :many
+SELECT DISTINCT ON (agent_id)
+    agent_id,
+    snapshot_sha
+FROM
+    review_rounds
+ORDER BY
+    agent_id,
+    ordinal DESC
+`
+
+type ListNewestReviewRoundsRow struct {
+	AgentID     string
+	SnapshotSha string
+}
+
+func (q *Queries) ListNewestReviewRounds(ctx context.Context) ([]*ListNewestReviewRoundsRow, error) {
+	rows, err := q.db.Query(ctx, listNewestReviewRounds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*ListNewestReviewRoundsRow
+	for rows.Next() {
+		var i ListNewestReviewRoundsRow
+		if err := rows.Scan(&i.AgentID, &i.SnapshotSha); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listReviewMessagesByThreads = `-- name: ListReviewMessagesByThreads :many
 SELECT
     m.id, m.thread_id, m.author_kind, m.author_agent_id, m.body, m.created_at, m.updated_at, m.review_id, m.suggestion, m.tenant_id,

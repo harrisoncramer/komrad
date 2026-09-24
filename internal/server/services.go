@@ -234,7 +234,7 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		Agents:       st.agents,
 		Heads:        gitClient,
 		Trees:        gitClient,
-		Tallies:      st.review,
+		Rounds:       st.review,
 		Bases:        st.workflows,
 		PullRequests: st.pullRequests,
 	})
