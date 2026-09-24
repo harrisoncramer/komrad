@@ -121,25 +121,41 @@ func TestReviewWhileTheAgentStops(t *testing.T) {
 	})
 
 	t.Run("dropping the review before the agent stops lets it go", func(t *testing.T) {
-		for _, key := range []string{"e", "c"} {
-			agents := &fakeReviewAgents{}
-			m, _ := buildReviewModel(t, agents)
-			m = openReview(t, m)
-			setReviewAgentState(&m, panel.StateThinking)
+		tests := []struct {
+			name string
+			key  string
+		}{
+			{
+				name: "an edit waiting on the hold",
+				key:  "e",
+			},
+			{
+				name: "a comment waiting on the hold",
+				key:  "c",
+			},
+		}
 
-			next, cmd := m.routeScreenMessage(keyMsg(key))
-			m = next.(model)
-			for m.screen == screenReview {
-				next, _ = m.Update(keyMsg("esc"))
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				agents := &fakeReviewAgents{}
+				m, _ := buildReviewModel(t, agents)
+				m = openReview(t, m)
+				setReviewAgentState(&m, panel.StateThinking)
+
+				next, cmd := m.routeScreenMessage(keyMsg(tt.key))
 				m = next.(model)
-			}
+				for m.screen == screenReview {
+					next, _ = m.Update(keyMsg("esc"))
+					m = next.(model)
+				}
 
-			_, letGo := m.Update(findPaused(t, cmd()))
-			require.NotNil(t, agents.held, key)
-			require.NotNil(t, letGo, key)
-			letGo()
-			require.NotNil(t, agents.letGo, key)
-			assert.Equal(t, "a1", agents.letGo.GetId(), key)
+				_, letGo := m.Update(findPaused(t, cmd()))
+				require.NotNil(t, agents.held)
+				require.NotNil(t, letGo)
+				letGo()
+				require.NotNil(t, agents.letGo)
+				assert.Equal(t, "a1", agents.letGo.GetId())
+			})
 		}
 	})
 }
@@ -213,36 +229,67 @@ func TestIsReviewHistory(t *testing.T) {
 	}
 }
 
-// TestReviewOwedEmphasis covers the owed list brightening the comments drawn beside it.
-func TestReviewOwedEmphasis(t *testing.T) {
-	agents := &fakeReviewAgents{
-		threads: []*agentv1.ReviewThread{{
-			Id:       "t1",
-			ReviewId: "r1",
-			FilePath: gittest.File,
-			NewStart: 2,
-			Messages: []*agentv1.ReviewMessage{{
-				Id:         "m1",
-				AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
-				Delivery:   agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_DELIVERED,
+// TestReviewEmphasis covers what the review draws in colour or weight rather than in text.
+func TestReviewEmphasis(t *testing.T) {
+	t.Run("the owed list brightens the comments drawn beside it", func(t *testing.T) {
+		agents := &fakeReviewAgents{
+			threads: []*agentv1.ReviewThread{{
+				Id:       "t1",
+				ReviewId: "r1",
+				FilePath: gittest.File,
+				NewStart: 2,
+				Messages: []*agentv1.ReviewMessage{{
+					Id:         "m1",
+					AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
+					Delivery:   agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_DELIVERED,
+				}},
 			}},
-		}},
-		reviews: []*agentv1.Review{{
-			Id:          "r1",
-			AuthorKind:  agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
-			ReleasedAt:  "2026-09-13T10:00:00Z",
-			OpenThreads: 1,
-		}},
-	}
-	m, _ := buildReviewModel(t, agents)
-	m = openReview(t, m)
-	bright := paint.Panel.Style(reviewOwedTone).Bold(true).Render(gittest.File + ":2")
-	require.Contains(t, m.review.sidebarView(m.shared()), bright)
+			reviews: []*agentv1.Review{{
+				Id:          "r1",
+				AuthorKind:  agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
+				ReleasedAt:  "2026-09-13T10:00:00Z",
+				OpenThreads: 1,
+			}},
+		}
+		m, _ := buildReviewModel(t, agents)
+		m = openReview(t, m)
+		bright := paint.Panel.Style(reviewOwedTone).Bold(true).Render(gittest.File + ":2")
+		require.Contains(t, m.review.sidebarView(m.shared()), bright)
 
-	m.review.diff.top = m.review.diff.view.Len() + 100
+		m.review.diff.top = m.review.diff.view.Len() + 100
 
-	assert.NotContains(t, m.review.sidebarView(m.shared()), bright)
-	assert.Contains(t, m.review.sidebarView(m.shared()), dimStyle.Render(gittest.File+":2"))
+		assert.NotContains(t, m.review.sidebarView(m.shared()), bright)
+		assert.Contains(t, m.review.sidebarView(m.shared()), dimStyle.Render(gittest.File+":2"))
+	})
+
+	t.Run("the chosen verdict wears its own tone rather than the muted one", func(t *testing.T) {
+		m, _ := buildReviewModel(t, &fakeReviewAgents{})
+		m = openReview(t, m)
+
+		next, _ := m.routeScreenMessage(keyMsg("ctrl+s"))
+		m = next.(model)
+
+		shown := m.review.releaseView(m.shared())
+		verdict := reviewVerdicts[m.review.threads.verdict]
+		chosen := "  ▸ " + describeVerdict(verdict)
+		assert.Contains(t, shown, paint.Panel.Style(verdictTone(verdict)).Render(chosen))
+		assert.NotContains(t, shown, paint.Panel.Style(paint.ToneMuted).Render(chosen))
+	})
+
+	t.Run("the cursor row dims while the record has the keys", func(t *testing.T) {
+		m, _ := buildReviewModel(t, &fakeReviewAgents{})
+		m = openReview(t, m)
+		live := m.render()
+
+		next, _ := m.Update(keyMsg("ctrl+t"))
+		m = next.(model)
+		require.True(t, m.isDetailsFocused())
+		assert.NotEqual(t, live, m.render())
+
+		next, _ = m.Update(keyMsg("ctrl+t"))
+		m = next.(model)
+		assert.Equal(t, live, m.render())
+	})
 }
 
 func (f *fakeReviewAgents) HoldAgent(

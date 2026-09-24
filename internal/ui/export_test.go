@@ -104,3 +104,13 @@ func NewKeyPress(key string) tea.KeyPressMsg {
 func (p *Panel) IsZoomed() bool {
 	return p.tmux.zoomed
 }
+
+// CountRespawns is how many panes the panel has respawned.
+func (p *Panel) CountRespawns() int {
+	return len(p.tmux.respawns)
+}
+
+// CountSentKeys is how many key sends the panel has typed into panes.
+func (p *Panel) CountSentKeys() int {
+	return len(p.tmux.sentKeys)
+}

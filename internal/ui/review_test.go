@@ -143,10 +143,13 @@ func TestReviewCursor(t *testing.T) {
 	t.Run("the movement keys walk the lines", func(t *testing.T) {
 		harness := openReview(t, newReviewServer(t))
 		require.Equal(t, "greet.go:1", readReviewCursor(harness.readFrame()))
+		respawns, sentKeys := harness.panel.CountRespawns(), harness.panel.CountSentKeys()
 
 		harness.press("j")
 
 		assert.Equal(t, "greet.go:2", readReviewCursor(harness.readFrame()))
+		assert.Equal(t, respawns, harness.panel.CountRespawns())
+		assert.Equal(t, sentKeys, harness.panel.CountSentKeys())
 	})
 
 	t.Run("the scroll keys turn the cursor a few rows and back", func(t *testing.T) {
@@ -170,15 +173,20 @@ func TestReviewCursor(t *testing.T) {
 	})
 
 	t.Run("panning moves the text a third of the diff's width", func(t *testing.T) {
-		harness := openReview(t, newReviewServer(t))
-		require.Contains(t, harness.readFrame(), "func Hello() string {")
+		wide := strings.Repeat("a", 56) + "panned-to-here"
+		repo := gittest.NewRepo(t.TempDir())
+		repo.Wrote(gittest.WroteParams{
+			Tree:    "tree-with-a-wide-line",
+			Whole:   "diff --git a/wide.go b/wide.go\nnew file mode 100644\n--- /dev/null\n+++ b/wide.go\n@@ -0,0 +1 @@\n+" + wide + "\n",
+			Sources: map[string]string{"wide.go": wide + "\n"},
+		})
+		harness := openReview(t, newReviewServerOver(repo))
 
 		harness.press("l")
+		assert.Contains(t, findLine(readStage(harness.readFrame()), "1 +"), "1 +  panned-to-here")
 
-		frame := harness.readFrame()
-		assert.NotContains(t, frame, "func Hello() string {")
 		harness.press("0")
-		assert.Contains(t, harness.readFrame(), "func Hello() string {")
+		assert.Contains(t, harness.readFrame(), wide)
 	})
 
 	t.Run("a file jump holds the window across a pan and a watch", func(t *testing.T) {
@@ -1312,15 +1320,17 @@ func TestReviewOwed(t *testing.T) {
 		}
 
 		for _, tt := range tests {
-			harness := openReview(t, newOwedServer(t, tt.threads...))
+			t.Run(tt.name, func(t *testing.T) {
+				harness := openReview(t, newOwedServer(t, tt.threads...))
 
-			harness.press(tt.keys...)
+				harness.press(tt.keys...)
 
-			sidebar := readSidebarProse(harness.readFrame())
-			assert.Contains(t, sidebar, tt.want, tt.name)
-			if tt.absent != "" {
-				assert.NotContains(t, sidebar, tt.absent, tt.name)
-			}
+				sidebar := readSidebarProse(harness.readFrame())
+				assert.Contains(t, sidebar, tt.want)
+				if tt.absent != "" {
+					assert.NotContains(t, sidebar, tt.absent)
+				}
+			})
 		}
 	})
 
@@ -1355,9 +1365,12 @@ func TestReviewRecord(t *testing.T) {
 
 	t.Run("the focus key hands the keys to the record and back", func(t *testing.T) {
 		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{height: 50})
+		respawns, sentKeys := harness.panel.CountRespawns(), harness.panel.CountSentKeys()
 
 		harness.press("ctrl+t", "j")
 		frame := harness.readFrame()
+		assert.Equal(t, respawns, harness.panel.CountRespawns())
+		assert.Equal(t, sentKeys, harness.panel.CountSentKeys())
 		assert.Equal(t, "greet.go:1", readReviewCursor(frame))
 		assert.True(t, strings.HasPrefix(readRecordCursor(frame), "agent"))
 
@@ -1446,9 +1459,11 @@ func TestReviewLayout(t *testing.T) {
 		}
 
 		for _, tt := range tests {
-			harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{sidebarSide: tt.side})
+			t.Run(tt.name, func(t *testing.T) {
+				harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{sidebarSide: tt.side})
 
-			assert.True(t, strings.HasPrefix(splitLines(harness.readFrame())[0], tt.want), tt.name)
+				assert.True(t, strings.HasPrefix(splitLines(harness.readFrame())[0], tt.want))
+			})
 		}
 	})
 
@@ -1964,17 +1979,33 @@ func TestReviewPass(t *testing.T) {
 	})
 
 	t.Run("an agent that will not stop opens nothing", func(t *testing.T) {
-		for _, key := range []string{"e", "c"} {
-			server := newReviewServer(t)
-			server.holdErr = errors.New("the agent did not stop")
-			harness := openReview(t, server)
+		tests := []struct {
+			name string
+			key  string
+		}{
+			{
+				name: "the edit key opens no editor",
+				key:  "e",
+			},
+			{
+				name: "the compose key takes its composer away",
+				key:  "c",
+			},
+		}
 
-			harness.press(key)
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				server := newReviewServer(t)
+				server.holdErr = errors.New("the agent did not stop")
+				harness := openReview(t, server)
 
-			frame := harness.readFrame()
-			assert.NotContains(t, frame, "editing")
-			assert.NotContains(t, frame, "┃ Comment")
-			assert.NotContains(t, frame, "reviewing ·")
+				harness.press(tt.key)
+
+				frame := harness.readFrame()
+				assert.NotContains(t, frame, "editing")
+				assert.NotContains(t, frame, "┃ Comment")
+				assert.NotContains(t, frame, "reviewing ·")
+			})
 		}
 	})
 
@@ -1999,7 +2030,9 @@ func TestReviewPass(t *testing.T) {
 		server.agent.Alive = proto.Bool(false)
 		harness := openReview(t, server)
 
-		harness.press("e", "e", "esc")
+		harness.press("e")
+		require.Contains(t, harness.readFrame(), "editing · greet.go")
+		harness.press("e", "esc")
 
 		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceHoldAgentProcedure))
 		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceReleaseAgentProcedure))
@@ -2088,22 +2121,40 @@ func TestReviewPass(t *testing.T) {
 	})
 
 	t.Run("a pause the reader took is theirs to let go and keeps the files", func(t *testing.T) {
-		for _, leave := range [][]string{{"esc", "esc"}, {"R"}} {
-			server := newReviewServer(t)
-			server.agent.HeldAt = heldAt
-			server.agent.State = agentv1.AgentState_AGENT_STATE_THINKING
-			harness := openReview(t, server)
-			harness.press("e", "e")
+		tests := []struct {
+			name       string
+			keys       []string
+			unreadable bool
+		}{
+			{
+				name:       "the diff becoming unreadable leaves the pause standing",
+				keys:       []string{"R"},
+				unreadable: true,
+			},
+			{
+				name: "backing out of the pass and the screen leaves the pause standing",
+				keys: []string{"esc", "esc"},
+			},
+		}
 
-			if leave[0] == "R" {
-				server.repo.RootErr = gittest.ErrNoGit
-			}
-			harness.press(leave...)
-			assert.Empty(t, harness.readSent(agentv1connect.AgentServiceHoldAgentProcedure))
-			assert.Empty(t, harness.readSent(agentv1connect.AgentServiceReleaseAgentProcedure))
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				server := newReviewServer(t)
+				server.agent.HeldAt = heldAt
+				server.agent.State = agentv1.AgentState_AGENT_STATE_THINKING
+				harness := openReview(t, server)
+				harness.press("e", "e")
 
-			harness.press("p")
-			assert.Contains(t, readReleaseSaid(t, harness), "greet.go")
+				if tt.unreadable {
+					server.repo.RootErr = gittest.ErrNoGit
+				}
+				harness.press(tt.keys...)
+				assert.Empty(t, harness.readSent(agentv1connect.AgentServiceHoldAgentProcedure))
+				assert.Empty(t, harness.readSent(agentv1connect.AgentServiceReleaseAgentProcedure))
+
+				harness.press("p")
+				assert.Contains(t, readReleaseSaid(t, harness), "greet.go")
+			})
 		}
 	})
 
