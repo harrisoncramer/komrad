@@ -84,7 +84,7 @@ func TestRecordCopy(t *testing.T) {
 		m.agents.placed = true
 		down := send(t, send(t, send(t, send(t, m, "ctrl+t"), "j"), "j"), "j")
 
-		applyListing(&down, nil, down.listing.workflows, nil)
+		applyListing(&down, down.listing.workflows)
 		held := down.hoveredDetails()
 		require.Equal(t, "w1", held.id, "the workflow header took the archived agent's place")
 

@@ -1,469 +1,405 @@
-package ui
+package ui_test
 
 import (
-	"context"
 	"errors"
-	"slices"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
 
-	"weave/config"
-	"weave/internal/ui/layout"
-	"weave/internal/ui/paint/label"
-	"weave/internal/ui/panel"
 	"weave/lib/xslice"
+	agentv1 "weave/proto/gen/agent/v1"
 	worktreev1 "weave/proto/gen/worktree/v1"
 	"weave/proto/gen/worktree/v1/worktreev1connect"
 
-	"charm.land/bubbles/v2/key"
-	tea "charm.land/bubbletea/v2"
-	"charm.land/huh/v2"
 	"connectrpc.com/connect"
-	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/proto"
 )
 
-// worktreesModel is the worktrees screen over the fixture listing, with the live agent on the
-// agents list and the archived ones in the archive.
-func worktreesModel() model {
-	archived := time.Date(2026, 9, 17, 12, 0, 0, 0, time.Local)
+const worktreesTitle = "Worktrees"
 
-	return model{
-		frame:         layout.New(&recordingTmux{}, config.DefaultLayout()),
-		keys:          config.DefaultKeybindings(),
-		screen:        screenWorktrees,
-		detailsHeight: config.DefaultDetailsHeight,
-		listing: listing{
-			workflows: []panel.Workflow{{ID: "w1", Name: "weave"}},
-			agents: []panel.AgentRow{
-				{
-					Agent: panel.Agent{
-						ID:         "live",
-						Name:       "worktree-view",
-						WorkflowID: "w1",
-						Harness:    "claude",
-						State:      panel.StateThinking,
-						Cwd:        "/trees/live",
-					},
-					Alive: true,
-				},
-				{
-					Agent: panel.Agent{
-						ID:         "occ",
-						Name:       "review-607",
-						WorkflowID: "w1",
-						Harness:    "claude",
-						Cwd:        "/trees/live",
-					},
-					Alive: true,
-				},
-			},
-			archivedAgents: archivedItems([]panel.Agent{
-				{
-					ID:         "archived",
-					Name:       "review-column",
-					WorkflowID: "w1",
-					Harness:    "claude",
-					ArchivedAt: &archived,
-					Cwd:        "/trees/archived",
-				},
-				{
-					ID:         "admin",
-					Name:       "custom-cargo-fixes",
-					WorkflowID: "w1",
-					Harness:    "claude",
-					ArchivedAt: &archived,
-					Cwd:        "/trees/admin",
-				},
-			}),
-			worktrees: worktreeFixture(),
-		},
-		worktrees: worktreesScreen{items: worktreeFixture()},
-	}
-}
+// TestWorktreesOpen covers the screen opening on the directory of the agent the cursor was on.
+func TestWorktreesOpen(t *testing.T) {
+	t.Parallel()
 
-func pressWorktrees(t *testing.T, m model, key tea.KeyPressMsg) (model, tea.Cmd) {
-	t.Helper()
-
-	next, cmd := m.routeScreenMessage(key)
-	updated, ok := next.(model)
-	require.True(t, ok)
-
-	return updated, cmd
-}
-
-// TestApplyWorktreesSpendsTheFocusOnTheAgentsRow covers a focus set by the key that opened the
-// screen landing the cursor on that agent's directory, an occupant's included, and being spent
-// once.
-func TestApplyWorktreesSpendsTheFocusOnTheAgentsRow(t *testing.T) {
-	m := worktreesModel()
-	m.worktrees.focus = "occ"
-
-	m.applyWorktrees(worktreeFixture(), "")
-
-	assert.Equal(t, "tree:/trees/live", m.worktrees.list().hovered(m.shared()))
-	assert.Empty(t, m.worktrees.focus)
-}
-
-// TestApplyWorktreesKeepsTheCursorOnItsRow covers the cursor following its row as the listing
-// changes under it, and the inspections of directories that left the listing being dropped.
-func TestApplyWorktreesKeepsTheCursorOnItsRow(t *testing.T) {
-	m := worktreesModel()
-	m.worktrees.cursor = 5
-	m.inspections = map[string]worktreeInspection{
-		"/trees/orphan": {answered: true, baseRef: "origin/main"},
-		"/trees/gone":   {answered: true, baseRef: "origin/main"},
-	}
-	require.Equal(t, "tree:/trees/orphan", m.worktrees.list().hovered(m.shared()))
-
-	fresh := worktreeFixture()[1:]
-	m.applyWorktrees(fresh, m.worktrees.list().hovered(m.shared()))
-
-	assert.Equal(t, "tree:/trees/orphan", m.worktrees.list().hovered(m.shared()))
-	assert.Contains(t, m.inspections, "/trees/orphan")
-	assert.NotContains(t, m.inspections, "/trees/gone")
-}
-
-// TestOpenWorktreesLandsOnTheHoveredAgent covers the key from the agents list entering the
-// screen with the cursor already on that agent's directory.
-func TestOpenWorktreesLandsOnTheHoveredAgent(t *testing.T) {
-	m := worktreesModel()
-	m.screen = screenAgents
-
-	m.enter(screenWorktrees, screenTarget{agentID: "archived"})
-
-	assert.Equal(t, screenWorktrees, m.screen)
-	assert.Equal(t, "tree:/trees/archived", m.worktrees.list().hovered(m.shared()))
-}
-
-// TestEnterOnAWorktreeLandsOnItsAgent covers the jump both ways: a live agent to the agents
-// list, an archived one to the archive, and a directory with none staying put.
-func TestEnterOnAWorktreeLandsOnItsAgent(t *testing.T) {
-	t.Run("live", func(t *testing.T) {
-		m := worktreesModel()
-		m.worktrees.cursor = 4
-		require.Equal(t, "tree:/trees/live", m.worktrees.list().hovered(m.shared()))
-
-		after, _ := pressWorktrees(t, m, keyMsg("J"))
-
-		assert.Equal(t, screenAgents, after.screen)
-		assert.Equal(t, "agent:live", after.agents.list().hovered(after.shared()))
-	})
-
-	t.Run("archived", func(t *testing.T) {
-		m := worktreesModel()
-		m.worktrees.cursor = 3
-		require.Equal(t, "tree:/trees/archived", m.worktrees.list().hovered(m.shared()))
-
-		after, _ := pressWorktrees(t, m, keyMsg("J"))
-
-		assert.Equal(t, screenArchive, after.screen)
-		assert.Equal(t, "agent:archived", after.archive.list().hovered(after.shared()))
-	})
-
-	t.Run("nobody's", func(t *testing.T) {
-		m := worktreesModel()
-		m.worktrees.cursor = 5
-		require.Equal(t, "tree:/trees/orphan", m.worktrees.list().hovered(m.shared()))
-
-		after, _ := pressWorktrees(t, m, keyMsg("J"))
-
-		assert.Equal(t, screenWorktrees, after.screen)
-		assert.False(t, m.worktrees.canRowOpen(m.shared()))
-	})
-}
-
-// TestWorktreeFateIsReadOffTheWire covers each fate the server names landing on the item, and
-// one it does not name reading as unowned.
-func TestWorktreeFateIsReadOffTheWire(t *testing.T) {
-	for wire, want := range map[worktreev1.WorktreeFate]worktreeFate{
-		worktreev1.WorktreeFate_WORKTREE_FATE_LIVE:        fateLive,
-		worktreev1.WorktreeFate_WORKTREE_FATE_ARCHIVED:    fateArchived,
-		worktreev1.WorktreeFate_WORKTREE_FATE_UNOWNED:     fateUnowned,
-		worktreev1.WorktreeFate_WORKTREE_FATE_UNSPECIFIED: fateUnowned,
-	} {
-		item := worktreeItemFrom(&worktreev1.Worktree{Dir: "/trees/a", Fate: wire})
-		assert.Equal(t, want, item.fate, wire.String())
-	}
-}
-
-// TestDeleteOnAWorktreeOpensTheFormItsFateNames covers the three keys: the archive choice on a
-// live row, the delete form on an archived one and on one nothing answers for, and nothing on
-// a header.
-func TestDeleteOnAWorktreeOpensTheFormItsFateNames(t *testing.T) {
 	tests := []struct {
-		name   string
-		cursor int
-		kind   formKind
+		name        string
+		press       []string
+		wantHovered string
 	}{
 		{
-			name:   "a header opens nothing",
-			cursor: 2,
-			kind:   formNone,
+			name:        "from the agents list it lands on the hovered agent's directory",
+			press:       []string{"t"},
+			wantHovered: "treeview",
 		},
 		{
-			name:   "a live agent is offered the archive",
-			cursor: 4,
-			kind:   formAgentArchive,
+			name:        "an occupant lands on the directory it works in",
+			press:       []string{"j", "t"},
+			wantHovered: "treeview",
 		},
 		{
-			name:   "an archived agent is offered the delete",
-			cursor: 3,
-			kind:   formWorktreesDelete,
-		},
-		{
-			name:   "nobody's directory is offered the delete",
-			cursor: 5,
-			kind:   formWorktreesDelete,
+			name:        "from the archive it lands on the archived agent's directory",
+			press:       []string{"Z", "j", "t"},
+			wantHovered: "reviewer",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := worktreesModel()
-			m.width, m.height = 200, 40
-			m.worktrees.cursor = tt.cursor
+			t.Parallel()
 
-			after, _ := pressWorktrees(t, m, keyMsg("d"))
+			harness := openAgents(t, buildWorktrees()...)
+			answerWorktreeReads(harness)
 
-			assert.Equal(t, tt.kind, after.form.kind)
+			harness.press(tt.press...)
+
+			frame := harness.readFrame()
+			assert.Contains(t, frame, worktreesTitle)
+			assert.Equal(t, tt.wantHovered, readHoveredWorktree(frame))
+		})
+	}
+
+	t.Run("the panel keeps the whole window, a live agent's pane included", func(t *testing.T) {
+		t.Parallel()
+
+		rows := buildWorktrees()
+		rows[1].(*agentv1.Agent).PaneId = "%7"
+		harness := openAgents(t, rows...)
+		harness.press("t")
+
+		assert.True(t, harness.panel.IsZoomed())
+	})
+
+	t.Run("the title counts the directories and totals what has been measured", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openWorktrees(t)
+		require.Contains(t, splitLines(harness.readFrame())[0], "5 · —")
+
+		harness.watch(buildPuts(
+			newMeasuredWorktree("/trees/live", 49*1024*1024),
+			newMeasuredWorktree("/trees/archived", 49*1024*1024),
+			newMeasuredWorktree("/trees/admin", 1536*1024*1024),
+		))
+
+		assert.Contains(t, splitLines(harness.readFrame())[0], "5 · 1.6G")
+	})
+}
+
+// TestWorktreesJump covers jumping from a directory to the agent it belongs to.
+func TestWorktreesJump(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		row         string
+		wantTitle   string
+		wantHovered string
+	}{
+		{
+			name:        "a directory nothing answers for stays put",
+			row:         "agent/orphan",
+			wantTitle:   worktreesTitle,
+			wantHovered: "agent/orphan",
+		},
+		{
+			name:        "a live agent's directory lands on the agents list",
+			row:         "treeview",
+			wantTitle:   agentsTitle,
+			wantHovered: "treeview",
+		},
+		{
+			name:        "an archived agent's directory lands in the archive",
+			row:         "reviewer",
+			wantTitle:   archiveTitle,
+			wantHovered: "reviewer",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			harness := openWorktrees(t)
+			moveToWorktree(t, harness, tt.row)
+
+			harness.press("J")
+
+			frame := harness.readFrame()
+			assert.Contains(t, frame, tt.wantTitle)
+			assert.Contains(t, readHoveredRow(frame), tt.wantHovered)
 		})
 	}
 }
 
-// TestClearWorktreesTakesEverythingButTheLive covers the clear key gathering the archived and
-// the unowned directories and leaving the live one alone.
-func TestClearWorktreesTakesEverythingButTheLive(t *testing.T) {
-	m := worktreesModel()
-	m.width, m.height = 200, 40
+// TestWorktreesDelete covers what each delete key opens on the row under the cursor.
+func TestWorktreesDelete(t *testing.T) {
+	t.Parallel()
 
-	after, _ := pressWorktrees(t, m, keyMsg("D"))
-
-	require.Equal(t, formWorktreesDelete, after.form.kind)
-	assert.Contains(t, formText(after.form.form), "Delete 4 worktrees?")
-}
-
-// TestDeleteChosenWorktreesRefusesALiveRow covers a bulk delete over a selection holding a
-// live agent being refused in the message region rather than archiving anything.
-func TestDeleteChosenWorktreesRefusesALiveRow(t *testing.T) {
-	m := worktreesModel()
-	m.width, m.height = 200, 40
-	m.worktrees.selected = selection{keys: []string{"tree:/trees/live", "tree:/trees/orphan"}}
-
-	after, _ := pressWorktrees(t, m, keyMsg("d"))
-
-	assert.Equal(t, formNone, after.form.kind)
-	require.NotEmpty(t, after.messages.items)
-	assert.Contains(t, after.messages.items[0].summary, "live agent")
-}
-
-// recordingWorktrees answers the queued delete and keeps the directories the panel named.
-type recordingWorktrees struct {
-	worktreev1connect.WorktreeServiceClient
-	queued [][]string
-	err    error
-}
-
-func (r *recordingWorktrees) ListWorktrees(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[worktreev1.ListWorktreesResponse], error) {
-	return connect.NewResponse(&worktreev1.ListWorktreesResponse{}), nil
-}
-
-func (r *recordingWorktrees) DeleteWorktrees(_ context.Context, req *connect.Request[worktreev1.DeleteWorktreesRequest]) (*connect.Response[emptypb.Empty], error) {
-	r.queued = append(r.queued, req.Msg.GetDirs())
-	if r.err != nil {
-		return nil, r.err
-	}
-
-	return connect.NewResponse(&emptypb.Empty{}), nil
-}
-
-// TestConfirmingAWorktreeDeleteQueuesOneJob covers the clear key's prompt sending every
-// directory that can go as one call, the archived and the unowned alike, the queued job being
-// announced, and a refusal landing in the message region.
-func TestConfirmingAWorktreeDeleteQueuesOneJob(t *testing.T) {
 	tests := []struct {
 		name       string
-		answer     string
-		err        error
-		wantQueued [][]string
-		wantErr    bool
+		row        string
+		press      []string
+		wantDrawn  string
+		wantAbsent string
 	}{
 		{
-			name:    "a queue that refuses is reported",
-			answer:  "y",
-			err:     errors.New("the queue is away"),
-			wantErr: true,
-			wantQueued: [][]string{{
-				"/trees/admin",
-				"/trees/archived",
-				"/trees/orphan",
-				"/trees/broken",
-			}},
+			name:       "a repository header opens nothing",
+			row:        "/home/h/weave",
+			press:      []string{"d"},
+			wantAbsent: "Delete",
+		},
+		{
+			name:      "a selection holding a live agent is refused",
+			row:       "treeview",
+			press:     []string{"v", "j", "v", "d"},
+			wantDrawn: "live agent",
+		},
+		{
+			name:      "a live agent is offered the archive",
+			row:       "treeview",
+			press:     []string{"d"},
+			wantDrawn: `Archive agent "treeview"?`,
+		},
+		{
+			name:      "an archived agent's directory is offered the delete, which keeps a branch nothing else holds",
+			row:       "reviewer",
+			press:     []string{"d"},
+			wantDrawn: "Delete the worktree of reviewer? The directory goes through the agent delete",
+		},
+		{
+			name:      "a directory nothing answers for is offered the delete on its own",
+			row:       "broken",
+			press:     []string{"d"},
+			wantDrawn: "Delete the worktree of broken? The directory nothing answers for is removed on its own",
+		},
+		{
+			name:      "a selection of an archived and two unowned directories counts them",
+			row:       "reviewer",
+			press:     []string{"v", "j", "j", "v", "j", "j", "v", "d"},
+			wantDrawn: "Delete 3 worktrees? The directory goes through the agent delete",
+		},
+		{
+			name:      "clear gathers everything but the live directory",
+			row:       "treeview",
+			press:     []string{"D"},
+			wantDrawn: "Delete 4 worktrees?",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			harness := openWorktrees(t)
+			moveToWorktree(t, harness, tt.row)
+
+			harness.press(tt.press...)
+
+			frame := harness.readFrame()
+			prose := readFormProse(frame) + " " + readSidebarProse(frame)
+			assert.Contains(t, prose, tt.wantDrawn)
+			if tt.wantAbsent != "" {
+				assert.NotContains(t, prose, tt.wantAbsent)
+			}
+		})
+	}
+}
+
+// TestWorktreesDeleteBranch covers the delete prompt saying what happens to a single directory's branch.
+func TestWorktreesDeleteBranch(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		keepsBranch bool
+		want        string
+	}{
+		{
+			name: "a branch whose commits are all elsewhere goes too",
+			want: "The branch goes too",
+		},
+		{
+			name:        "a branch holding the only copy of its commits is kept",
+			keepsBranch: true,
+			want:        "The branch is kept",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			harness := openWorktrees(t)
+			harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(&worktreev1.GetWorktreeResponse{
+				Worktree:    &worktreev1.Worktree{Dir: "/trees/archived"},
+				BaseRef:     "origin/main",
+				KeepsBranch: tt.keepsBranch,
+			}))
+			moveToWorktree(t, harness, "reviewer")
+			harness.fireTimers()
+
+			harness.press("d")
+
+			assert.Contains(t, readFormProse(harness.readFrame()), tt.want)
+		})
+	}
+}
+
+// TestWorktreesDeleteAnswer covers answering the prompt the clear key opens.
+func TestWorktreesDeleteAnswer(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		refusal  error
+		answer   string
+		wantSent []proto.Message
+		want     string
+	}{
+		{
+			name:     "a queue that refuses is reported",
+			refusal:  errors.New("the queue is away"),
+			answer:   "y",
+			wantSent: []proto.Message{&worktreev1.DeleteWorktreesRequest{Dirs: []string{"/trees/admin", "/trees/archived", "/trees/orphan", "/trees/broken"}}},
+			want:     "Could not delete 4 worktrees",
 		},
 		{
 			name:   "declining queues nothing",
 			answer: "n",
+			want:   "No messages",
 		},
 		{
-			name:   "confirming queues the directories in one call",
-			answer: "y",
-			wantQueued: [][]string{{
-				"/trees/admin",
-				"/trees/archived",
-				"/trees/orphan",
-				"/trees/broken",
-			}},
+			name:     "confirming queues every directory that can go in one call",
+			answer:   "y",
+			wantSent: []proto.Message{&worktreev1.DeleteWorktreesRequest{Dirs: []string{"/trees/admin", "/trees/archived", "/trees/orphan", "/trees/broken"}}},
+			want:     "Deleting 4 worktrees",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			client := &recordingWorktrees{err: tt.err}
-			m := worktreesModel()
-			m.width, m.height = 200, 40
-			m.api = api{
-				agents:    emptyLists{},
-				workflows: emptyLists{},
-				schedules: emptyLists{},
-				worktrees: client,
+			t.Parallel()
+
+			harness := openWorktrees(t)
+			if tt.refusal != nil {
+				harness.refuse(worktreev1connect.WorktreeServiceDeleteWorktreesProcedure, tt.refusal)
 			}
+			harness.press(widenListPresses...)
 
-			opened, _ := pressWorktrees(t, m, keyMsg("D"))
-			require.Equal(t, formWorktreesDelete, opened.form.kind)
+			harness.press("D", tt.answer)
 
-			got := answerPrompt(t, opened, tt.answer)
-
-			assert.Equal(t, tt.wantQueued, client.queued)
-			assert.False(t, got.form.isActive(), "the prompt is down")
-			switch {
-			case tt.wantErr:
-				require.NotEmpty(t, got.messages.items)
-				assert.Equal(t, messageError, got.messages.items[0].kind)
-				assert.Contains(t, got.messages.items[0].summary, "Could not delete 4 worktrees")
-			case tt.wantQueued != nil:
-				require.NotEmpty(t, got.messages.items, "the queued delete is announced")
-				assert.Equal(t, messageInfo, got.messages.items[0].kind)
-				assert.Equal(t, "Deleting 4 worktrees", got.messages.items[0].summary)
-			default:
-				assert.Empty(t, got.messages.items)
-			}
+			harness.assertSentTo(worktreev1connect.WorktreeServiceDeleteWorktreesProcedure, tt.wantSent...)
+			frame := harness.readFrame()
+			assert.Contains(t, frame, tt.want)
+			assert.NotContains(t, frame, "Delete 4 worktrees?")
 		})
 	}
 }
 
-// TestDeleteWorktreesFormSaysWhatGoes covers the title naming one directory or counting them,
-// and the branch line following the inspection.
-func TestDeleteWorktreesFormSaysWhatGoes(t *testing.T) {
-	items := worktreeFixture()
-	kept := true
+// TestWorktreesRecord covers the record the list draws for a directory.
+func TestWorktreesRecord(t *testing.T) {
+	t.Parallel()
 
-	form, _ := deleteWorktreesForm(worktreeDeletion{agents: items[1:2]}, &kept, config.FixedFormKeys())
-	drawn := formText(form)
-	assert.Contains(t, drawn, "Delete the worktree of review-column?")
-	assert.Contains(t, drawn, "The branch is kept")
+	t.Run("a directory git cannot read names its repository and no agent", func(t *testing.T) {
+		t.Parallel()
 
-	form, _ = deleteWorktreesForm(worktreeDeletion{agents: items[1:2], unowned: items[2:4]}, nil, config.FixedFormKeys())
-	drawn = formText(form)
-	assert.Contains(t, drawn, "Delete 3 worktrees?")
-	assert.Contains(t, drawn, "2 directories nothing")
-	assert.NotContains(t, drawn, "branch is kept")
+		harness := openWorktrees(t)
+		moveToWorktree(t, harness, "broken")
+		harness.press(widenListPresses...)
 
-	form, _ = deleteWorktreesForm(worktreeDeletion{unowned: items[3:4]}, nil, config.FixedFormKeys())
-	assert.Contains(t, formText(form), "Delete the worktree of broken?")
+		frame := harness.readFrame()
+		assert.Equal(t, "/var/folders/T/repo", readRecordField(frame, "repository"))
+		assert.Equal(t, "none", readRecordField(frame, "agent"))
+		assert.Empty(t, readRecordField(frame, "branch"))
+	})
+
+	t.Run("the listing names the agent through the list that holds it", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openWorktrees(t)
+		moveToWorktree(t, harness, "reviewer")
+		harness.press(widenListPresses...)
+
+		frame := harness.readFrame()
+		assert.Equal(t, "reviewer", readRecordField(frame, "name"))
+		assert.Equal(t, "—", readRecordField(frame, "size"))
+		assert.Equal(t, "agent/archived", readRecordField(frame, "branch"))
+		assert.Equal(t, "weave", readRecordField(frame, "workflow"))
+		assert.True(t, strings.HasPrefix(readRecordField(frame, "agent"), "claude, archived "))
+		assert.Empty(t, readRecordField(frame, "base"))
+	})
+
+	t.Run("the read of the directory adds where the branch stands and what it changed", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openWorktrees(t)
+		harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(&worktreev1.GetWorktreeResponse{
+			Worktree:  &worktreev1.Worktree{Dir: "/trees/archived"},
+			BaseRef:   "origin/main",
+			Ahead:     2,
+			Behind:    12,
+			Modified:  []string{"a.go"},
+			Untracked: []string{"b.txt", "c.txt"},
+		}))
+		moveToWorktree(t, harness, "reviewer")
+		harness.fireTimers()
+		harness.press(widenListPresses...)
+
+		frame := harness.readFrame()
+		assert.Equal(t, "origin/main  ↑2 ↓12", readRecordField(frame, "base"))
+		assert.Equal(t, "1 modified, 2 untracked", readRecordField(frame, "changes"))
+	})
 }
 
-// formText is a form as it draws once it has been given a window, without the styling.
-func formText(form *huh.Form) string {
-	form.Init()
-	form.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
-
-	return ansi.Strip(form.View())
-}
-
-// TestWorktreeFieldsReadTheListingAndTheInspection covers the record drawn at once from the
-// listing and filled in once the inspection lands, with the agent named through the listing
-// that holds it.
-func TestWorktreeFieldsReadTheListingAndTheInspection(t *testing.T) {
-	m := worktreesModel()
-	m.worktrees.cursor = 3
-	require.Equal(t, "tree:/trees/archived", m.worktrees.list().hovered(m.shared()))
-
-	before := fieldMap(m.worktrees.details(m.shared()).fields)
-	assert.Equal(t, "review-column", before["name"])
-	assert.Equal(t, "—", before["size"])
-	assert.Equal(t, "—", before["last active"])
-	assert.Equal(t, "agent/archived", before["branch"])
-	assert.Equal(t, "claude, archived "+label.Day(time.Date(2026, 9, 17, 12, 0, 0, 0, time.UTC)), before["agent"])
-	assert.Equal(t, "weave", before["workflow"])
-	assert.NotContains(t, before, "base")
-
-	m.applyWorktreeInspection(worktreeInspectedMsg{dir: "/trees/archived", inspection: worktreeInspection{
-		answered:  true,
-		baseRef:   "origin/main",
-		ahead:     2,
-		behind:    12,
-		modified:  []string{"a.go"},
-		untracked: []string{"b.txt", "c.txt"},
-	}})
-
-	after := fieldMap(m.worktrees.details(m.shared()).fields)
-	assert.Equal(t, "origin/main  ↑2 ↓12", after["base"])
-	assert.Equal(t, "1 modified, 2 untracked", after["changes"])
-}
-
-// TestWorktreeFieldsSayWhatTheDirectoryTakesAndWhenItWasActive covers the size line carrying the
-// measurement and its age, explaining a failed walk, and the last active line carrying the age
-// and whether the agent was put away.
-func TestWorktreeFieldsSayWhatTheDirectoryTakesAndWhenItWasActive(t *testing.T) {
-	now := time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
-	archived := now.Add(-4 * 24 * time.Hour)
-	items := worktreeFixture()
+// TestWorktreesRecordActivity covers the record saying what a directory takes and when it was last active.
+func TestWorktreesRecordActivity(t *testing.T) {
+	t.Parallel()
 
 	tests := []struct {
 		name           string
-		item           worktreeItem
+		worktree       *worktreev1.WatchedWorktree
+		row            string
 		wantSize       string
 		wantLastActive string
 	}{
 		{
-			name:           "nothing measured and nothing touched",
-			item:           items[2],
+			name: "nothing measured and nothing touched",
+			worktree: &worktreev1.WatchedWorktree{
+				Dir:      "/trees/orphan",
+				Readable: true,
+				Branch:   "agent/orphan",
+			},
+			row:            "agent/orphan",
 			wantSize:       "—",
 			wantLastActive: "—",
 		},
 		{
-			name: "a failed walk",
-			item: worktreeItem{
-				dir:          "/trees/orphan",
-				readable:     true,
-				lastActiveAt: now.Add(-90 * time.Minute),
-				size: &worktreeSize{
-					measuredAt: now.Add(-5 * time.Minute),
-					err:        "permission denied",
-				},
+			name: "a failed walk says why",
+			worktree: &worktreev1.WatchedWorktree{
+				Dir:        "/trees/orphan",
+				Readable:   true,
+				Branch:     "agent/orphan",
+				MeasuredAt: proto.String(formatStampAgo(5 * time.Minute)),
+				SizeError:  "permission denied",
+				ModifiedAt: formatStampAgo(90 * time.Minute),
 			},
+			row:            "agent/orphan",
 			wantSize:       "—, could not measure: permission denied",
 			wantLastActive: "1h ago",
 		},
 		{
 			name: "a measured directory whose agent was put away",
-			item: worktreeItem{
-				dir:      "/trees/archived",
-				readable: true,
-				agent: &worktreeAgent{
-					id:         "archived",
-					name:       "review-column",
-					archivedAt: &archived,
-				},
-				lastActiveAt: archived,
-				size: &worktreeSize{
-					bytes:      49 * 1024 * 1024,
-					measuredAt: now.Add(-5 * time.Minute),
-				},
+			worktree: &worktreev1.WatchedWorktree{
+				Dir:        "/trees/archived",
+				Readable:   true,
+				Branch:     "agent/archived",
+				SizeBytes:  proto.Int64(49 * 1024 * 1024),
+				MeasuredAt: proto.String(formatStampAgo(5 * time.Minute)),
 			},
+			row:            "reviewer",
 			wantSize:       "49M, measured 5m ago",
 			wantLastActive: "4d ago, archived",
 		},
@@ -471,272 +407,322 @@ func TestWorktreeFieldsSayWhatTheDirectoryTakesAndWhenItWasActive(t *testing.T) 
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := worktreesModel()
-			fields := fieldMap(worktreeFields(m.shared(), tt.item, now))
+			t.Parallel()
 
-			assert.Equal(t, tt.wantSize, fields["size"])
-			assert.Equal(t, tt.wantLastActive, fields["last active"])
+			rows := buildWorktrees()
+			rows[3].(*agentv1.Agent).ArchivedAt = proto.String(formatStampAgo(4 * 24 * time.Hour))
+			harness := openWorktrees(t, rows...)
+			harness.watch(buildPuts(tt.worktree))
+			moveToWorktree(t, harness, tt.row)
+			harness.press(widenListPresses...)
+
+			frame := harness.readFrame()
+			assert.Equal(t, tt.wantSize, readRecordField(frame, "size"))
+			assert.Equal(t, tt.wantLastActive, readRecordField(frame, "last active"))
 		})
 	}
 }
 
-// TestWorktreeFieldsNameTheOccupants covers the record naming the other agents working in a
-// directory after its branch, or after its repository where git cannot read it, and saying
-// nothing where there are none.
-func TestWorktreeFieldsNameTheOccupants(t *testing.T) {
+// TestWorktreesRecordOccupants covers the record naming the other agents working in a directory.
+func TestWorktreesRecordOccupants(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
-		name       string
-		item       worktreeItem
-		occupants  []worktreeAgent
-		want       string
-		wantLabels []string
+		name      string
+		row       string
+		dir       string
+		occupants []string
+		want      string
+		wantAfter string
 	}{
 		{
-			name:       "none is left out",
-			item:       worktreeFixture()[0],
-			occupants:  nil,
-			want:       "",
-			wantLabels: []string{"name", "directory", "size", "last active", "branch", "repository", "agent", "workflow"},
+			name: "none is left out",
+			row:  "treeview",
+			dir:  "/trees/live",
 		},
 		{
-			name:       "one is named",
-			item:       worktreeFixture()[0],
-			occupants:  []worktreeAgent{{id: "occ", name: "review-607"}},
-			want:       "review-607",
-			wantLabels: []string{"name", "directory", "size", "last active", "branch", "repository", "also here", "agent", "workflow"},
+			name:      "an unreadable directory names them after its repository",
+			row:       "broken",
+			dir:       "/trees/broken",
+			occupants: []string{"review-607"},
+			want:      "review-607",
+			wantAfter: "repository",
 		},
 		{
-			name: "two are named in the listing's order",
-			item: worktreeFixture()[0],
-			occupants: []worktreeAgent{
-				{id: "occ", name: "review-607"},
-				{id: "reader", name: "second-reader"},
-			},
-			want:       "review-607, second-reader",
-			wantLabels: []string{"name", "directory", "size", "last active", "branch", "repository", "also here", "agent", "workflow"},
+			name:      "one is named after the repository",
+			row:       "treeview",
+			dir:       "/trees/live",
+			occupants: []string{"review-607"},
+			want:      "review-607",
+			wantAfter: "repository",
 		},
 		{
-			name:       "an unreadable directory names them after its repository",
-			item:       worktreeFixture()[3],
-			occupants:  []worktreeAgent{{id: "occ", name: "review-607"}},
-			want:       "review-607",
-			wantLabels: []string{"name", "directory", "size", "last active", "repository", "also here", "agent"},
+			name:      "two are named in order",
+			row:       "treeview",
+			dir:       "/trees/live",
+			occupants: []string{"second-reader", "review-607"},
+			want:      "review-607, second-reader",
+			wantAfter: "repository",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := worktreesModel()
-			item := tt.item
-			item.occupants = tt.occupants
+			t.Parallel()
 
-			fields := worktreeFields(m.shared(), item, time.Now())
+			all := buildWorktrees()
+			rows := []proto.Message{all[0], all[1], all[3], all[4]}
+			for i, name := range tt.occupants {
+				occupant := newAgent(fmt.Sprintf("occ%d", i), name, "w1")
+				occupant.Cwd = tt.dir
+				rows = append(rows, occupant)
+			}
+			rows = append(rows, buildWatchedWorktrees()...)
+			harness := openWorktrees(t, rows...)
+			moveToWorktree(t, harness, tt.row)
+			harness.press(widenListPresses...)
+			harness.press("ctrl+t")
 
-			assert.Equal(t, tt.want, fieldMap(fields)["also here"])
-			assert.Equal(t, tt.wantLabels, xslice.Map(fields, func(field recordField) string { return field.label }))
+			frame := harness.readFrame()
+			assert.Equal(t, tt.want, readRecordField(frame, "also here"))
+			if tt.want != "" {
+				assert.Equal(t, findRecordLine(frame, tt.wantAfter)+1, findRecordLine(frame, "also here"))
+			}
 		})
 	}
 }
 
-// TestWorktreeFieldsOfAnUnreadableDirectory covers the short record for a registration git
-// cannot read.
-func TestWorktreeFieldsOfAnUnreadableDirectory(t *testing.T) {
-	m := worktreesModel()
-	m.worktrees.cursor = 7
-	require.Equal(t, "tree:/trees/broken", m.worktrees.list().hovered(m.shared()))
+// TestWorktreesDocument covers the document drawn beside the list.
+func TestWorktreesDocument(t *testing.T) {
+	t.Parallel()
 
-	fields := fieldMap(m.worktrees.details(m.shared()).fields)
-	assert.Equal(t, "/var/folders/T/repo", fields["repository"])
-	assert.Equal(t, "none", fields["agent"])
-	assert.NotContains(t, fields, "branch")
-}
+	t.Run("a read git refused is drawn rather than asked again", func(t *testing.T) {
+		t.Parallel()
 
-// TestWorktreeDocDrawsTheInspection covers the document's three blocks, the wait before the
-// inspection lands, and an error being drawn rather than asked again.
-func TestWorktreeDocDrawsTheInspection(t *testing.T) {
-	m := worktreesModel()
-	m.worktrees.cursor = 4
-	require.Equal(t, "tree:/trees/live", m.worktrees.list().hovered(m.shared()))
+		harness := openWorktrees(t)
+		harness.refuse(worktreev1connect.WorktreeServiceGetWorktreeProcedure, connect.NewError(connect.CodeInternal, errors.New("git exploded")))
+		moveToWorktree(t, harness, "agent/orphan")
+		harness.fireTimers()
+		asked := len(harness.readSent(worktreev1connect.WorktreeServiceGetWorktreeProcedure))
 
-	assert.Contains(t, m.worktrees.doc(m.shared()), "reading the directory")
+		harness.watch(buildPuts(newMeasuredWorktree("/trees/admin", 1024)))
 
-	m.applyWorktreeInspection(worktreeInspectedMsg{dir: "/trees/live", inspection: worktreeInspection{
-		answered: true,
-		entries: []worktreeEntry{
-			{
-				path:  "local",
-				bytes: 40 * 1024 * 1024,
-				dir:   true,
-			},
-			{path: "go.mod", bytes: 2048},
+		assert.Contains(t, readStageText(harness.readFrame()), "git exploded")
+		assert.Len(t, harness.readSent(worktreev1connect.WorktreeServiceGetWorktreeProcedure), asked)
+	})
+
+	t.Run("a reread refused keeps the last answer beside the refusal", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openWorktrees(t)
+		harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(&worktreev1.GetWorktreeResponse{
+			Worktree: &worktreev1.Worktree{Dir: "/trees/live"},
+			BaseRef:  "origin/main",
+		}))
+		harness.fireTimers()
+		harness.refuse(worktreev1connect.WorktreeServiceGetWorktreeProcedure, connect.NewError(connect.CodeInternal, errors.New("git exploded")))
+
+		harness.press("j", "k")
+		harness.fireTimers()
+
+		document := readStageText(harness.readFrame())
+		assert.Contains(t, document, "could not read: git exploded")
+		assert.Contains(t, document, "Commits since origin/main")
+	})
+
+	entries := []*worktreev1.Entry{
+		{
+			Path:      "local",
+			SizeBytes: 40 * 1024 * 1024,
+			Dir:       true,
 		},
-		modified:  []string{"a.go"},
-		untracked: []string{"b.txt"},
-		baseRef:   "origin/main",
-		commits: []worktreeCommit{{
-			sha:         "87a3bcc98c47",
-			subject:     "fix(view): drop the column",
-			committedAt: time.Now().Add(-2 * time.Hour),
-		}},
-	}})
-
-	doc := m.worktrees.doc(m.shared())
-	assert.Contains(t, doc, "# worktree-view")
-	assert.Contains(t, doc, "local/")
-	assert.Contains(t, doc, "40M")
-	assert.Contains(t, doc, "M a.go")
-	assert.Contains(t, doc, "? b.txt")
-	assert.Contains(t, doc, "## Commits since origin/main")
-	assert.Contains(t, doc, "87a3bcc98c47  2h   fix(view): drop the column")
-
-	m.applyWorktreeInspection(worktreeInspectedMsg{dir: "/trees/live", inspection: worktreeInspection{answered: true, err: errors.New("git exploded")}})
-	assert.Contains(t, m.worktrees.doc(m.shared()), "git exploded")
-}
-
-// TestEntryLinesCutTheListAndCountTheRest covers the entries beyond the first ten folding
-// into one line with their total.
-func TestEntryLinesCutTheListAndCountTheRest(t *testing.T) {
-	entries := make([]worktreeEntry, 0, 12)
-	for i := range 12 {
-		entries = append(entries, worktreeEntry{path: strings.Repeat("x", i+1), bytes: 1024})
+		{
+			Path:      "go.mod",
+			SizeBytes: 2048,
+		},
+	}
+	for i := range 10 {
+		entries = append(entries, &worktreev1.Entry{
+			Path:      strings.Repeat("x", i+1),
+			SizeBytes: 1024,
+		})
 	}
 
-	lines := entryLines(entries)
+	t.Run("the contents, the changes and the commits since the base", func(t *testing.T) {
+		t.Parallel()
 
-	require.Len(t, lines, 11)
-	assert.Contains(t, lines[10], "+ 2 more")
-	assert.Contains(t, lines[10], "2.0K")
-}
+		harness := openWorktrees(t)
+		harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(&worktreev1.GetWorktreeResponse{
+			Worktree:  &worktreev1.Worktree{Dir: "/trees/live"},
+			Entries:   entries,
+			Modified:  []string{"a.go"},
+			Untracked: []string{"b.txt"},
+			BaseRef:   "origin/main",
+			Commits: []*worktreev1.Commit{{
+				Sha:         "87a3bcc98c47",
+				Subject:     "fix(view): drop the column",
+				CommittedAt: formatStampAgo(2 * time.Hour),
+			}},
+		}))
+		harness.fireTimers()
 
-// TestStageTickOnTheWorktreesScreenAsksForTheInspection covers the rest of the cursor being
-// what sends get_worktree, not the move itself.
-func TestStageTickOnTheWorktreesScreenAsksForTheInspection(t *testing.T) {
-	m := worktreesModel()
-	m.worktrees.cursor = 4
-
-	moved, cmd := pressWorktrees(t, m, keyMsg("j"))
-	require.NotNil(t, cmd, "a move schedules a rest")
-	assert.Equal(t, "tree:/trees/orphan", moved.worktrees.list().hovered(moved.shared()))
-
-	inspect := moved.applyStageTick(stageTickMsg{move: moved.staging})
-	assert.NotNil(t, inspect, "the rest asks for the hovered directory")
-
-	stale := moved.applyStageTick(stageTickMsg{move: moved.staging - 1})
-	assert.Nil(t, stale, "a rest the cursor moved on from asks for nothing")
-}
-
-// TestRefreshAsksForTheHoveredDirectoryOnce covers a row the screen opened on being read
-// without a move, and not again while the answer is on its way or once it has come.
-func TestRefreshAsksForTheHoveredDirectoryOnce(t *testing.T) {
-	m := worktreesModel()
-	m.worktrees.cursor = 3
-	require.Equal(t, "tree:/trees/archived", m.worktrees.list().hovered(m.shared()))
-
-	require.NotNil(t, m.inspectHoveredWorktreeCmd())
-	assert.True(t, m.inspections["/trees/archived"].pending)
-	assert.Nil(t, m.inspectHoveredWorktreeCmd(), "an answer on its way is not asked for again")
-	assert.Nil(t, m.inspectWorktreeCmd(), "not even by a rest of the cursor")
-	assert.Contains(t, m.worktrees.doc(m.shared()), "reading the directory")
-
-	m.applyWorktreeInspection(worktreeInspectedMsg{dir: "/trees/archived", inspection: worktreeInspection{answered: true, err: errors.New("refused")}})
-	assert.Nil(t, m.inspectHoveredWorktreeCmd(), "an answer, even a refusal, is not asked for again")
-	assert.NotNil(t, m.inspectWorktreeCmd(), "a rest of the cursor reads it afresh")
-
-	m.screen = screenAgents
-	assert.Nil(t, m.inspectHoveredWorktreeCmd())
-}
-
-// TestARowReturnedToKeepsItsAnswerWhileItIsReadAgain covers the fresh reading a rest asks for
-// leaving the last answer on the record and the document until it lands.
-func TestARowReturnedToKeepsItsAnswerWhileItIsReadAgain(t *testing.T) {
-	m := worktreesModel()
-	m.worktrees.cursor = 3
-	require.Equal(t, "tree:/trees/archived", m.worktrees.list().hovered(m.shared()))
-	m.applyWorktreeInspection(worktreeInspectedMsg{dir: "/trees/archived", inspection: worktreeInspection{
-		answered: true,
-		baseRef:  "origin/main",
-		ahead:    2,
-	}})
-
-	require.NotNil(t, m.inspectWorktreeCmd())
-
-	assert.True(t, m.inspections["/trees/archived"].pending)
-	assert.Equal(t, "origin/main  ↑2", fieldMap(m.worktrees.details(m.shared()).fields)["base"])
-	assert.Contains(t, m.worktrees.doc(m.shared()), "## Commits since origin/main")
-	assert.NotContains(t, m.worktrees.doc(m.shared()), "reading the directory")
-}
-
-// TestWorktreesTallyHeadsTheList covers the title carrying the count and the total of what has
-// been measured across every group, and a dash while nothing has.
-func TestWorktreesTallyHeadsTheList(t *testing.T) {
-	m := worktreesModel()
-	assert.Equal(t, "5 · —", m.worktrees.tally())
-
-	m.worktrees.items = measuredFixture(time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC))
-	assert.Equal(t, "5 · 1.6G", m.worktrees.tally())
-}
-
-func fieldMap(fields []recordField) map[string]string {
-	byKey := map[string]string{}
-	for _, field := range fields {
-		byKey[field.label] = field.value
-	}
-
-	return byKey
-}
-
-// TestWorktreesScreenHoldsTheWindow covers the panel keeping the whole window on this screen,
-// a live agent's pane included, the way the archive does.
-func TestWorktreesScreenHoldsTheWindow(t *testing.T) {
-	tmux := &recordingTmux{}
-	m := worktreesModel()
-	m.screen = screenAgents
-	m.tmux, m.frame = tmux, layout.New(tmux, config.DefaultLayout())
-	m = sizedTo(m, tmux)
-	m.listing.agents[0].Agent.Pane = "%7"
-
-	m.enter(screenWorktrees, screenTarget{agentID: "live"})
-
-	assert.Equal(t, 4, m.worktrees.cursor, "the cursor lands on the live agent's row")
-	assert.True(t, m.frame.IsSolo(), "the panel draws both halves itself")
-	assert.Empty(t, m.frame.GuestPane(), "no agent pane is put on the stage")
-	assert.False(t, screenWorktrees.opensInfoPane(), "and the log and terminal keys do not act here")
-}
-
-// worktreesHeader is the worktrees header as the frame draws it.
-func (m model) worktreesHeader() string {
-	params := m.worktrees.listParams(m.shared())
-
-	return m.tabbedHeader(params.title, params.tally)
-}
-
-// worktreesHelp is the worktrees legend as the frame draws it.
-func (m model) worktreesHelp() keyMap {
-	return m.listHelpOf(m.worktrees.listParams(m.shared()))
-}
-
-// TestWorktreesLegendIsTheOneItDrewBeforeTheMove sweeps the expanded legend across widths
-// against the composition the root drew for the worktrees.
-func TestWorktreesLegendIsTheOneItDrewBeforeTheMove(t *testing.T) {
-	for width := 5; width <= 200; width++ {
-		m := worktreesModel()
-		m.helpExpanded = true
-		m = m.measuredAt(width)
-
-		own := m.worktrees.actions().help(m.shared())
-		before := keyMap{
-			short: slices.Concat(own.short, m.globalHelp()),
-			full: slices.Concat(
-				own.full,
-				[]key.Binding{
-					m.tabsBinding(),
-					m.detailsBinding(),
-					m.messagesBinding(),
-				},
-				m.fullGlobalHelp(),
-			),
+		document := readStageText(harness.readFrame())
+		for _, want := range []string{
+			"treeview",
+			"local/      40M",
+			"+ 2 more   2.0K",
+			"M a.go",
+			"? b.txt",
+			"Commits since origin/main",
+			"87a3bcc98c47  2h   fix(view): drop the column",
+		} {
+			assert.Contains(t, document, want)
 		}
+	})
+}
 
-		assert.Equal(t, m.renderHelp(before), m.renderHelp(m.worktreesHelp()), "width %d", width)
+// TestWorktreesInspection covers when the directory under the cursor is read.
+func TestWorktreesInspection(t *testing.T) {
+	t.Parallel()
+
+	t.Run("the cursor coming to rest reads the directory it rests on, not the ones it passed", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openWorktrees(t)
+		read := &worktreev1.GetWorktreeRequest{Dir: "/trees/live"}
+
+		harness.press("g", "g", "j", "j", "j")
+		harness.assertSentTo(worktreev1connect.WorktreeServiceGetWorktreeProcedure, read)
+		harness.fireTimers()
+
+		harness.assertSentTo(worktreev1connect.WorktreeServiceGetWorktreeProcedure, read, &worktreev1.GetWorktreeRequest{Dir: "/trees/archived"})
+	})
+
+	t.Run("a listing that moves leaves the cursor on its row", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openWorktrees(t)
+		moveToWorktree(t, harness, "agent/orphan")
+
+		harness.watch(buildSnapshot(append(buildWorktrees()[:5], buildWatchedWorktrees()[1:]...)...))
+
+		assert.Equal(t, "agent/orphan", readHoveredWorktree(harness.readFrame()))
+	})
+}
+
+func openWorktrees(t *testing.T, rows ...proto.Message) *panelHarness {
+	t.Helper()
+
+	if len(rows) == 0 {
+		rows = buildWorktrees()
 	}
+
+	harness := openAgents(t, rows...)
+	harness.press("t")
+
+	return harness
+}
+
+func buildWorktrees() []proto.Message {
+	live := newAgent("live", "treeview", "w1")
+	live.Harness = "claude"
+	live.Cwd = "/trees/live"
+	live.Alive = proto.Bool(true)
+	live.State = agentv1.AgentState_AGENT_STATE_THINKING
+
+	occupant := newAgent("occ", "review-607", "w1")
+	occupant.Cwd = "/trees/live"
+	occupant.Alive = proto.Bool(true)
+
+	archived := newArchivedAgent("archived", "reviewer", "w1")
+	archived.Harness = "claude"
+	archived.Cwd = "/trees/archived"
+
+	admin := newArchivedAgent("admin", "cargo-fix", "w1")
+	admin.Cwd = "/trees/admin"
+
+	return append([]proto.Message{
+		newLiveWorkflow("w1", "weave"),
+		live,
+		occupant,
+		archived,
+		admin,
+	}, buildWatchedWorktrees()...)
+}
+
+func buildWatchedWorktrees() []proto.Message {
+	return []proto.Message{
+		&worktreev1.WatchedWorktree{
+			Dir:      "/trees/admin",
+			RepoDir:  "/home/h/gadgets/admin",
+			Branch:   "agent/admin",
+			Readable: true,
+		},
+		&worktreev1.WatchedWorktree{
+			Dir:      "/trees/archived",
+			RepoDir:  "/home/h/weave",
+			Branch:   "agent/archived",
+			Readable: true,
+		},
+		&worktreev1.WatchedWorktree{
+			Dir:     "/trees/broken",
+			RepoDir: "/var/folders/T/repo",
+		},
+		&worktreev1.WatchedWorktree{
+			Dir:      "/trees/live",
+			RepoDir:  "/home/h/weave",
+			Branch:   "agent/live",
+			Readable: true,
+		},
+		&worktreev1.WatchedWorktree{
+			Dir:      "/trees/orphan",
+			RepoDir:  "/home/h/weave",
+			Branch:   "agent/orphan",
+			Readable: true,
+		},
+	}
+}
+
+func newMeasuredWorktree(dir string, size int64) *worktreev1.WatchedWorktree {
+	for _, row := range buildWatchedWorktrees() {
+		worktree, _ := row.(*worktreev1.WatchedWorktree)
+		if worktree.GetDir() == dir {
+			worktree.SizeBytes = proto.Int64(size)
+			worktree.MeasuredAt = proto.String(formatStampAgo(time.Minute))
+
+			return worktree
+		}
+	}
+
+	return nil
+}
+
+func moveToWorktree(t *testing.T, harness *panelHarness, name string) {
+	t.Helper()
+
+	harness.press("g", "g")
+	for range 10 {
+		if readHoveredWorktree(harness.readFrame()) == name {
+			return
+		}
+		harness.press("j")
+	}
+
+	require.Equal(t, name, readHoveredWorktree(harness.readFrame()))
+}
+
+func readHoveredWorktree(frame string) string {
+	return strings.TrimSpace(readHoveredRow(frame))
+}
+
+func formatStampAgo(ago time.Duration) string {
+	return time.Now().Add(-ago).UTC().Format(time.RFC3339)
+}
+
+func readFormProse(frame string) string {
+	lines := xslice.Map(readStage(frame), func(line string) string {
+		return strings.TrimPrefix(strings.TrimSpace(line), "┃")
+	})
+
+	return strings.Join(strings.Fields(strings.Join(lines, " ")), " ")
 }

@@ -1,739 +1,544 @@
-package ui
+package ui_test
 
 import (
-	"context"
 	"errors"
-	"regexp"
-	"slices"
 	"strings"
 	"testing"
 	"time"
 
-	"weave/config"
-	"weave/internal/ui/layout"
-	"weave/internal/ui/panel"
-	"weave/lib/xptr"
-	"weave/lib/xslice"
 	schedulev1 "weave/proto/gen/schedule/v1"
-	"weave/proto/gen/schedule/v1/schedulev1connect"
+	schedulev1connect "weave/proto/gen/schedule/v1/schedulev1connect"
+	workflowv1 "weave/proto/gen/workflow/v1"
 
-	"charm.land/bubbles/v2/key"
-	tea "charm.land/bubbletea/v2"
-	"connectrpc.com/connect"
-	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-// TestScheduleKeys pins where each key lands and what it writes, including doing nothing at
-// all on an empty list.
-func TestScheduleKeys(t *testing.T) {
-	keys := config.DefaultKeybindings()
+const (
+	schedulesTitle = "Schedules"
+	scheduleForm   = "minute hour day month weekday"
+	archiveAsk     = `Archive schedule "morning-ci"?`
+)
 
+// TestSchedulesKeys covers what each key does on the schedule under the cursor.
+func TestSchedulesKeys(t *testing.T) {
 	tests := []struct {
-		name         string
-		empty        bool
-		noWorkflows  bool
-		key          string
-		wantScreen   screen
-		wantForm     formKind
-		wantWrites   int
-		wantReported bool
+		name       string
+		rows       []proto.Message
+		press      []string
+		wantDrawn  []string
+		wantAbsent []string
+		wantSent   []request
 	}{
 		{
-			name:       "back returns to the agents tree",
-			key:        "esc",
-			wantScreen: screenAgents,
+			name:       "edit on an empty list opens no form",
+			rows:       []proto.Message{newLiveWorkflow("w1", "api")},
+			press:      []string{"e"},
+			wantDrawn:  []string{"no schedules yet"},
+			wantAbsent: []string{scheduleForm},
 		},
 		{
-			name:       "new opens the form",
-			key:        "c",
-			wantScreen: screenSchedules,
-			wantForm:   formSchedule,
+			name:       "archive on an empty list opens no prompt",
+			rows:       []proto.Message{newLiveWorkflow("w1", "api")},
+			press:      []string{"z"},
+			wantAbsent: []string{"Archive schedule"},
 		},
 		{
-			name:       "edit opens the form on the hovered schedule",
-			key:        "e",
-			wantScreen: screenSchedules,
-			wantForm:   formSchedule,
+			name:  "toggle on an empty list asks for no write",
+			rows:  []proto.Message{newLiveWorkflow("w1", "api")},
+			press: []string{"space"},
 		},
 		{
-			name:       "archive opens the confirm prompt",
-			key:        "z",
-			wantScreen: screenSchedules,
-			wantForm:   formScheduleArchive,
+			name:       "new with no workflows says why rather than opening the form",
+			press:      append(widenListPresses, "c"),
+			wantDrawn:  []string{"Could not create a schedule"},
+			wantAbsent: []string{scheduleForm},
 		},
 		{
-			name:       "toggle writes straight through, with no form in between",
-			key:        " ",
-			wantScreen: screenSchedules,
-			wantWrites: 1,
+			name:      "back returns to the agents tree",
+			rows:      buildSchedules(),
+			press:     []string{"esc"},
+			wantDrawn: []string{agentsTitle},
 		},
 		{
-			name:       "edit on an empty list does nothing",
-			empty:      true,
-			key:        "e",
-			wantScreen: screenSchedules,
+			name:      "new opens the form on the first workflow",
+			rows:      buildSchedules(),
+			press:     []string{"c"},
+			wantDrawn: []string{scheduleForm, "> api"},
 		},
 		{
-			name:       "archive on an empty list does nothing",
-			empty:      true,
-			key:        "z",
-			wantScreen: screenSchedules,
+			name:      "edit opens the form over the hovered schedule",
+			rows:      buildSchedules(),
+			press:     []string{"e"},
+			wantDrawn: []string{"> morning-ci", "> 0 9 * * 1-5", "check CI"},
 		},
 		{
-			name:       "toggle on an empty list asks for no write",
-			empty:      true,
-			key:        " ",
-			wantScreen: screenSchedules,
+			name:      "archive asks first",
+			rows:      buildSchedules(),
+			press:     []string{"z"},
+			wantDrawn: []string{archiveAsk},
 		},
 		{
-			name:         "new with no workflows reports rather than opening the form",
-			noWorkflows:  true,
-			key:          "c",
-			wantScreen:   screenSchedules,
-			wantReported: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			client := &fakeSchedules{}
-			m := scheduleModel(client, keys)
-			if tt.empty {
-				m.listing.schedules = nil
-			}
-			if tt.noWorkflows {
-				m.listing.workflows = nil
-			}
-
-			updated, cmd := m.routeScreenMessage(keyMsg(tt.key))
-			pressed, ok := updated.(model)
-			require.True(t, ok)
-
-			got := settle(t, pressed, cmd)
-
-			assert.Equal(t, tt.wantScreen, got.screen)
-			assert.Equal(t, tt.wantForm, got.form.kind, "the form that opened, if any")
-			assert.Equal(t, tt.wantWrites, client.writes)
-			assert.Equal(t, tt.wantReported, len(got.messages.items) > 0, "whether the panel had something to say")
-		})
-	}
-}
-
-// TestSchedulesView pins the row saying which of the two states a schedule is in.
-func TestSchedulesView(t *testing.T) {
-	tests := []struct {
-		name      string
-		schedules []scheduleItem
-		wants     []string
-		notWants  []string
-	}{
-		{
-			name:  "an empty list says so rather than rendering nothing",
-			wants: []string{"Schedules", "no schedules yet"},
+			name:  "archive once confirmed archives the hovered schedule",
+			rows:  buildSchedules(),
+			press: []string{"z", "y"},
+			wantSent: []request{{
+				procedure: schedulev1connect.ScheduleServiceArchiveScheduleProcedure,
+				msg:       &schedulev1.ArchiveScheduleRequest{Id: "s1"},
+			}},
 		},
 		{
-			name: "a schedule shows its name and its expression",
-			schedules: []scheduleItem{
-				{schedule: panel.Schedule{
-					Name:    "morning-ci",
-					Cron:    "0 9 * * 1-5",
+			name:  "toggle pauses an armed schedule with no form in between",
+			rows:  buildSchedules(),
+			press: []string{"space"},
+			wantSent: []request{{
+				procedure: schedulev1connect.ScheduleServiceSetScheduleEnabledProcedure,
+				msg:       &schedulev1.SetScheduleEnabledRequest{Id: "s1"},
+			}},
+		},
+		{
+			name:  "toggle resumes a paused schedule",
+			rows:  []proto.Message{newLiveWorkflow("w1", "api"), newPausedSchedule("s1", "nightly")},
+			press: []string{"space"},
+			wantSent: []request{{
+				procedure: schedulev1connect.ScheduleServiceSetScheduleEnabledProcedure,
+				msg: &schedulev1.SetScheduleEnabledRequest{
+					Id:      "s1",
 					Enabled: true,
-				}},
-			},
-			wants: []string{"morning-ci", "0 9 * * 1-5", scheduleIcon(true)},
-		},
-		{
-			name: "a paused one is marked differently from an armed one",
-			schedules: []scheduleItem{
-				{schedule: panel.Schedule{Name: "paused", Cron: "0 9 * * *"}},
-			},
-			wants:    []string{"paused", scheduleIcon(false)},
-			notWants: []string{scheduleIcon(true)},
+				},
+			}},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := scheduleModel(&fakeSchedules{}, config.DefaultKeybindings())
-			m.listing.schedules = tt.schedules
-			m.schedules.cursor = 0
+			harness := openSchedules(t, tt.rows...)
 
-			view := m.schedules.view(m.shared())
-			for _, want := range tt.wants {
-				assert.Contains(t, view, want)
+			harness.press(tt.press...)
+
+			frame := harness.readFrame()
+			for _, drawn := range tt.wantDrawn {
+				assert.Contains(t, frame, drawn)
 			}
-			for _, notWant := range tt.notWants {
-				assert.NotContains(t, view, notWant)
+			for _, absent := range tt.wantAbsent {
+				assert.NotContains(t, frame, absent)
+			}
+			harness.assertSent(tt.wantSent...)
+		})
+	}
+}
+
+// TestSchedulesList covers the rows the list draws and the cursor keeping its schedule.
+func TestSchedulesList(t *testing.T) {
+	t.Run("each schedule shows whether it is armed, its name and its expression", func(t *testing.T) {
+		harness := openSchedules(t, newLiveWorkflow("w1", "api"), newSchedule("s1", "morning-ci"), newPausedSchedule("s2", "nightly"))
+
+		frame := harness.readFrame()
+		assert.Contains(t, frame, schedulesTitle)
+		assert.Equal(t, []string{"◇ nightly  0 1 * * *", "◆ morning-ci  0 9 * * 1-5"}, readScheduleRows(frame))
+	})
+
+	t.Run("the cursor keeps its schedule as another lands above it", func(t *testing.T) {
+		harness := openSchedules(t, newSchedule("a", "alpha"), newSchedule("b", "bravo"))
+		harness.press("j")
+		require.Equal(t, "alpha", readHoveredSchedule(harness.readFrame()))
+
+		harness.watch(buildPuts(newSchedule("c", "charlie")))
+
+		assert.Equal(t, "alpha", readHoveredSchedule(harness.readFrame()))
+	})
+
+	t.Run("a schedule gone from under the cursor leaves it on the last row", func(t *testing.T) {
+		harness := openSchedules(t, newSchedule("a", "alpha"), newSchedule("b", "bravo"), newSchedule("c", "charlie"))
+		harness.press("j", "j")
+		require.Equal(t, "alpha", readHoveredSchedule(harness.readFrame()))
+
+		harness.watch(buildSnapshot(newSchedule("b", "bravo"), newSchedule("c", "charlie")))
+
+		assert.Equal(t, "bravo", readHoveredSchedule(harness.readFrame()))
+	})
+
+	t.Run("the document beside the list follows the cursor", func(t *testing.T) {
+		harness := openSchedules(t, newSchedule("a", "alpha"), newSchedule("b", "bravo"))
+		harness.press("j")
+
+		assert.Contains(t, readStageText(harness.readFrame()), "alpha")
+	})
+}
+
+// TestSchedulesDocument covers the document drawn beside the list for the hovered schedule.
+func TestSchedulesDocument(t *testing.T) {
+	next := time.Date(2026, time.July, 28, 9, 0, 0, 0, time.Local)
+
+	hidden := newSchedule("s1", "quiet")
+	hidden.HideAgents = true
+
+	armed := newSchedule("s1", "morning-ci")
+	armed.NextRunAt = timestamppb.New(next)
+
+	bare := newSchedule("s1", "bare")
+	bare.Prompt = ""
+
+	flaky := newSchedule("s1", "flaky")
+	flaky.RecentRuns = []*schedulev1.ScheduleRun{
+		{
+			ScheduledFor: timestamppb.New(next),
+			State:        schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_DISCARDED,
+			Attempt:      5,
+			MaxAttempts:  5,
+			Message:      "bad directory",
+		},
+		{
+			ScheduledFor: timestamppb.New(next.Add(-time.Hour)),
+			State:        schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_CANCELLED,
+			Attempt:      1,
+			MaxAttempts:  5,
+			Message:      "schedule is paused",
+		},
+		{
+			ScheduledFor: timestamppb.New(next.Add(-2 * time.Hour)),
+			State:        schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_COMPLETED,
+			Attempt:      2,
+			MaxAttempts:  5,
+			Message:      "an earlier attempt's error",
+		},
+	}
+
+	tests := []struct {
+		name       string
+		schedule   *schedulev1.Schedule
+		wantDrawn  []string
+		wantAbsent []string
+	}{
+		{
+			name:      "an empty list says how to write one",
+			wantDrawn: []string{"A schedule launches an agent on a cron expression."},
+		},
+		{
+			name:       "a paused schedule says it will not run",
+			schedule:   newPausedSchedule("s1", "nightly"),
+			wantDrawn:  []string{"nightly", "paused — will not run"},
+			wantAbsent: []string{"next run"},
+		},
+		{
+			name:      "a schedule with no prompt says so rather than paging a blank",
+			schedule:  bare,
+			wantDrawn: []string{"bare", "no prompt set"},
+		},
+		{
+			name:      "one whose runs start hidden says so",
+			schedule:  hidden,
+			wantDrawn: []string{"quiet", "Its runs start hidden."},
+		},
+		{
+			name:      "a schedule that has never fired says so in one line",
+			schedule:  newSchedule("s1", "fresh"),
+			wantDrawn: []string{"never fired", "check CI"},
+		},
+		{
+			name:     "each run reads as its outcome, a skip giving its reason and a failure its error",
+			schedule: flaky,
+			wantDrawn: []string{
+				"07-28 09:00  failed     5/5 attempts",
+				"bad directory",
+				"07-28 08:00  skipped    schedule is paused",
+				"07-28 07:00  launched   2 attempts",
+			},
+			wantAbsent: []string{"an earlier attempt's error"},
+		},
+		{
+			name:       "an armed schedule leads with when it next fires",
+			schedule:   armed,
+			wantDrawn:  []string{"morning-ci", "next run", "check CI"},
+			wantAbsent: []string{"paused"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rows := []proto.Message{newLiveWorkflow("w1", "api")}
+			if tt.schedule != nil {
+				rows = append(rows, tt.schedule)
+			}
+			harness := openSchedules(t, rows...)
+
+			document := readStageText(harness.readFrame())
+			for _, drawn := range tt.wantDrawn {
+				assert.Contains(t, document, drawn)
+			}
+			for _, absent := range tt.wantAbsent {
+				assert.NotContains(t, document, absent)
 			}
 		})
 	}
 }
 
-// TestScheduleFormButtonsLineUp pins the confirm buttons left, which huh otherwise centres
-// under the field's own prompt.
-func TestScheduleFormButtonsLineUp(t *testing.T) {
-	form, _ := scheduleForm(&panel.ScheduleConfig{
-		Name:       "sweeper",
-		Cron:       "*/5 * * * *",
-		Prompt:     "sweep",
-		Enabled:    true,
-		WorkflowID: "w1",
-	}, []panel.Workflow{{
-		ID:   "w1",
-		Name: "api",
-		Cwd:  "/work/api",
-	}}, config.FixedFormKeys())
-	form.Init()
-	form.Update(tea.WindowSizeMsg{Width: 80, Height: 40})
-
-	var indents []int
-	for _, line := range strings.Split(plain(form.View()), "\n") {
-		buttons := strings.TrimLeft(line, " ")
-		if !strings.HasPrefix(buttons, "Armed ") && !strings.HasPrefix(buttons, "Hidden ") {
-			continue
-		}
-
-		indents = append(indents, len(line)-len(buttons))
+// TestSchedulesRecord covers the fields the record under the list draws for a schedule.
+func TestSchedulesRecord(t *testing.T) {
+	configured := &workflowv1.Workflow{
+		Id:      "w1",
+		Name:    "api",
+		Harness: "codex",
+		Cwd:     "/work/api",
+		Flags:   "--model opus",
 	}
 
-	require.Len(t, indents, 2, "one row of buttons per confirm")
-	for _, indent := range indents {
-		assert.Equal(t, indents[0], indent, "every confirm draws its buttons in the same column")
-	}
-}
-
-func plain(rendered string) string {
-	return colourEscape.ReplaceAllString(rendered, "")
-}
-
-var colourEscape = regexp.MustCompile("\x1b\\[[0-9;]*m")
-
-// TestScheduleDocRows covers the document the stage pages beside the list: when the schedule next
-// fires, the runs River holds for it, and the prompt each run is launched with.
-func TestScheduleDocRows(t *testing.T) {
-	next := time.Date(2026, time.July, 28, 9, 0, 0, 0, time.Local)
+	zoned := newSchedule("s1", "morning-ci")
+	zoned.Timezone = "UTC"
 
 	tests := []struct {
 		name     string
-		item     scheduleItem
-		wants    []string
-		notWants []string
+		workflow *workflowv1.Workflow
+		want     []string
 	}{
 		{
-			name: "an armed schedule leads with when it next fires",
-			item: scheduleItem{
-				schedule: panel.Schedule{
-					Name:    "morning-ci",
-					Enabled: true,
-					Prompt:  "check CI",
-				},
-				nextRun: next,
+			name: "a schedule whose workflow was archived says so rather than showing a blank",
+			want: []string{
+				"name morning-ci",
+				"cron 0 9 * * 1-5",
+				"timezone UTC",
+				"workflow — (archived)",
 			},
-			wants:    []string{"morning-ci", "next run", "check CI"},
-			notWants: []string{"paused"},
 		},
 		{
-			name:     "a paused one says it will not run",
-			item:     scheduleItem{schedule: panel.Schedule{Name: "draft", Prompt: "later"}},
-			wants:    []string{"draft", "paused"},
-			notWants: []string{"next run"},
+			name:     "a workflow with no defaults falls back to dashes",
+			workflow: newLiveWorkflow("w1", "api"),
+			want: []string{
+				"name morning-ci",
+				"cron 0 9 * * 1-5",
+				"timezone UTC",
+				"workflow api",
+				"default agent —",
+				"directory —",
+				"flags —",
+				"worktree off",
+			},
 		},
 		{
-			name:  "a schedule with no prompt says so rather than paging a blank",
-			item:  scheduleItem{schedule: panel.Schedule{Name: "bare", Enabled: true}},
-			wants: []string{"bare", "no prompt set"},
-		},
-		{
-			name: "one whose runs start hidden says where they will not appear",
-			item: scheduleItem{schedule: panel.Schedule{
-				Name:       "quiet",
-				Enabled:    true,
-				HideAgents: true,
-			}},
-			wants: []string{"quiet", "start hidden"},
-		},
-		{
-			name:  "a schedule that has never fired says so in one line",
-			item:  scheduleItem{schedule: panel.Schedule{Name: "fresh", Enabled: true, Prompt: "go"}},
-			wants: []string{"never fired", "go"},
-		},
-		{
-			name: "each run reads as its outcome, a skip giving its reason and a failure its error",
-			item: scheduleItem{schedule: panel.Schedule{Name: "flaky", Enabled: true, Prompt: "go", RecentRuns: []panel.ScheduleRun{
-
-				{
-					ScheduledFor: next,
-					State:        schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_DISCARDED,
-					Attempt:      5,
-					MaxAttempts:  5,
-					Message:      "bad directory",
-				},
-				{
-					ScheduledFor: next.Add(-time.Hour),
-					State:        schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_CANCELLED,
-					Attempt:      1,
-					MaxAttempts:  5,
-					Message:      "schedule is paused",
-				},
-				{
-					ScheduledFor: next.Add(-2 * time.Hour),
-					State:        schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_COMPLETED,
-					Attempt:      2,
-					MaxAttempts:  5,
-					Message:      "an earlier attempt's error",
-				},
-			}}},
-			wants:    []string{"07-28 09:00", "failed", "5/5 attempts", "bad directory", "skipped", "schedule is paused", "launched", "2 attempts"},
-			notWants: []string{"an earlier attempt's error"},
+			name:     "its own settings come first, then what the workflow hands each run",
+			workflow: configured,
+			want: []string{
+				"name morning-ci",
+				"cron 0 9 * * 1-5",
+				"timezone UTC",
+				"workflow api",
+				"default agent codex",
+				"directory /work/api",
+				"flags --model opus",
+				"worktree off",
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rendered := ansi.Strip(strings.Join(scheduleDocRows(tt.item, 100), "\n"))
+			rows := []proto.Message{zoned}
+			if tt.workflow != nil {
+				rows = append(rows, tt.workflow)
+			}
+			harness := openSchedules(t, rows...)
 
-			for _, want := range tt.wants {
-				assert.Contains(t, rendered, want)
-			}
-			for _, notWant := range tt.notWants {
-				assert.NotContains(t, rendered, notWant)
-			}
+			assert.Equal(t, tt.want, trimRecord(readRecord(harness.readFrame())))
 		})
 	}
 }
 
-// TestScheduleFields covers what the details under the list draw for a schedule: its own settings
-// first, then the defaults of the workflow it fires into.
-func TestScheduleFields(t *testing.T) {
-	sched := panel.Schedule{
-		Name:     "morning-ci",
-		Cron:     "0 9 * * 1-5",
-		Timezone: "America/New_York",
-		Enabled:  true,
-	}
-
-	t.Run("its own settings, then what the workflow hands each run", func(t *testing.T) {
-		fields := scheduleFields(sched, &panel.Workflow{
-			Name:    "api",
-			Harness: "codex",
-			Cwd:     "/work/api",
-			Flags:   "--model opus",
-		})
-
-		assert.Equal(t, []recordField{
-			{"name", "morning-ci"},
-			{"cron", "0 9 * * 1-5"},
-			{"timezone", "America/New_York"},
-			{"workflow", "api"},
-			{"default agent", "codex"},
-			{"directory", "/work/api"},
-			{"flags", "--model opus"},
-			{"worktree", "off"},
-		}, fields)
-	})
-
-	t.Run("a workflow with no defaults falls back to dashes", func(t *testing.T) {
-		fields := scheduleFields(sched, &panel.Workflow{Name: "api"})
-
-		assert.Contains(t, fields, recordField{"directory", "—"})
-		assert.Contains(t, fields, recordField{"worktree", "off"})
-	})
-
-	t.Run("a schedule whose workflow was archived says so rather than showing a blank", func(t *testing.T) {
-		fields := scheduleFields(sched, nil)
-
-		assert.Contains(t, fields, recordField{"workflow", "— (archived)"})
-		assert.NotContains(t, fields, recordField{"directory", "—"}, "an archived workflow hands out no defaults")
-	})
-}
-
-// TestApplySchedules pins the cursor following the schedule it was on.
-func TestApplySchedules(t *testing.T) {
+// TestSchedulesLaunchedAgent covers an agent's record naming the schedule that launched it.
+func TestSchedulesLaunchedAgent(t *testing.T) {
 	tests := []struct {
 		name       string
-		start      []scheduleItem
-		cursor     int
-		fresh      []scheduleItem
-		wantCursor int
+		scheduleID string
+		want       string
 	}{
 		{
-			name:       "the cursor follows its schedule when the order changes",
-			start:      scheduleItems("a", "b", "c"),
-			cursor:     2,
-			fresh:      scheduleItems("c", "a", "b"),
-			wantCursor: 0,
+			name:       "an agent whose schedule has since gone names nothing",
+			scheduleID: "gone",
 		},
 		{
-			name:       "a vanished schedule leaves the cursor clamped in the list",
-			start:      scheduleItems("a", "b", "c"),
-			cursor:     2,
-			fresh:      scheduleItems("a", "b"),
-			wantCursor: 1,
-		},
-		{
-			name:       "an emptied list leaves the cursor at zero",
-			start:      scheduleItems("a"),
-			cursor:     0,
-			wantCursor: 0,
+			name:       "an agent a schedule launched names it in its own record",
+			scheduleID: "s1",
+			want:       "morning-ci",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := scheduleModel(&fakeSchedules{}, config.DefaultKeybindings())
-			m.listing.schedules = tt.start
-			m.schedules.cursor = tt.cursor
+			launched := newAgent("a1", "morning-ci-1", "w1")
+			launched.ScheduleId = proto.String(tt.scheduleID)
+			harness := openAgents(t, newLiveWorkflow("w1", "api"), newSchedule("s1", "morning-ci"), launched)
+			harness.press("j")
 
-			applyListing(&m, nil, m.listing.workflows, tt.fresh)
-
-			assert.Equal(t, tt.wantCursor, m.schedules.cursor)
-			assert.Len(t, m.listing.schedules, len(tt.fresh))
+			assert.Equal(t, tt.want, readRecordField(harness.readFrame(), "launched by"))
 		})
 	}
 }
 
-// TestScheduleWriteFailure pins a rejected cron expression reaching the screen as a banner.
-func TestScheduleWriteFailure(t *testing.T) {
-	tests := []struct {
-		name    string
-		act     func(t *testing.T, m model) model
-		wantErr string
-	}{
-		{
-			name: "a refused pause",
-			act: func(t *testing.T, m model) model {
-				t.Helper()
-				cmd := m.schedules.toggle(&m, m.shared())
+// TestSchedulesForm covers writing a schedule through its form.
+func TestSchedulesForm(t *testing.T) {
+	t.Run("a refused create says why", func(t *testing.T) {
+		harness := openSchedules(t, buildSchedules()...)
+		harness.refuse(schedulev1connect.ScheduleServiceCreateScheduleProcedure, errors.New("cron must be five fields"))
 
-				return settle(t, m, cmd)
-			},
-			wantErr: "Could not pause schedule",
-		},
-		{
-			name: "a refused create",
-			act: func(t *testing.T, m model) model {
-				t.Helper()
-				values := panel.ScheduleConfig{Name: "x", Cron: "0 9 * * *"}
+		harness.press(widenListPresses...)
+		harness.press("c")
+		typeText(harness, "x")
+		harness.press("enter")
+		typeText(harness, "0 9 * * *")
+		harness.press("ctrl+s")
 
-				m.schedules.openForm(&m, &values, nil)
-
-				updated, cmd := m.answerForm()
-				submitted, ok := updated.(model)
-				require.True(t, ok)
-
-				return settle(t, submitted, cmd)
-			},
-			wantErr: "Could not create the schedule",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			client := &fakeSchedules{err: errors.New("cron must be five fields")}
-			m := scheduleModel(client, config.DefaultKeybindings())
-
-			got := tt.act(t, m)
-
-			require.NotEmpty(t, got.messages.items, "a refused write has to be reported")
-			assert.Contains(t, newestMessage(got).summary+" "+newestMessage(got).detail, tt.wantErr)
+		harness.assertSentTo(schedulev1connect.ScheduleServiceCreateScheduleProcedure, &schedulev1.CreateScheduleRequest{
+			Name:       "x",
+			Cron:       "0 9 * * *",
+			Enabled:    true,
+			WorkflowId: "w1",
 		})
-	}
-}
-
-// TestEnterSchedules covers reaching the screen from the agents list, which is
-// the only way in.
-func TestEnterSchedules(t *testing.T) {
-	tests := []struct {
-		name       string
-		key        string
-		wantScreen screen
-	}{
-		{
-			name:       "the schedules key opens the screen",
-			key:        "S",
-			wantScreen: screenSchedules,
-		},
-		{
-			name:       "another key leaves the agents list where it is",
-			key:        "i",
-			wantScreen: screenAgents,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			m := scheduleModel(&fakeSchedules{}, config.DefaultKeybindings())
-			m.screen = screenAgents
-
-			updated, _ := m.routeScreenMessage(keyMsg(tt.key))
-			got, ok := updated.(model)
-			require.True(t, ok)
-
-			assert.Equal(t, tt.wantScreen, got.screen)
-		})
-	}
-}
-
-func scheduleModel(client schedulev1connect.ScheduleServiceClient, keys config.Keybindings) model {
-	tmux := &recordingTmux{}
-
-	return model{
-		api:    api{schedules: client},
-		tmux:   tmux,
-		popup:  NewPopupWindow(tmux, "test-session"),
-		frame:  layout.New(tmux, config.DefaultLayout()),
-		keys:   keys,
-		screen: screenSchedules,
-		listing: listing{
-			workflows: []panel.Workflow{{
-				ID:   "w1",
-				Name: "api",
-				Cwd:  "/work/api",
-			}},
-			schedules: []scheduleItem{
-				{schedule: panel.Schedule{
-					ID:      "s1",
-					Name:    "morning-ci",
-					Cron:    "0 9 * * 1-5",
-					Enabled: true,
-				}},
-			},
-		},
-	}
-}
-
-func scheduleItems(names ...string) []scheduleItem {
-	out := xslice.Map(names, func(name string) scheduleItem {
-		return scheduleItem{schedule: panel.Schedule{
-			ID:      name,
-			Name:    name,
-			Enabled: true,
-		}}
+		assert.Contains(t, harness.readFrame(), "Could not create the schedule")
 	})
 
-	return out
-}
+	t.Run("a refused pause says why", func(t *testing.T) {
+		harness := openSchedules(t, buildSchedules()...)
+		harness.refuse(schedulev1connect.ScheduleServiceSetScheduleEnabledProcedure, errors.New("cron must be five fields"))
 
-type fakeSchedules struct {
-	schedulev1connect.ScheduleServiceClient
-	err    error
-	writes int
-}
+		harness.press(widenListPresses...)
+		harness.press("space")
 
-func (f *fakeSchedules) ListSchedules(context.Context, *connect.Request[schedulev1.ListSchedulesRequest]) (*connect.Response[schedulev1.ListSchedulesResponse], error) {
-	return connect.NewResponse(&schedulev1.ListSchedulesResponse{}), nil
-}
+		assert.Contains(t, harness.readFrame(), `Could not pause schedule "morning-ci"`)
+	})
 
-func (f *fakeSchedules) GetSchedule(_ context.Context, req *connect.Request[schedulev1.GetScheduleRequest]) (*connect.Response[schedulev1.GetScheduleResponse], error) {
-	return connect.NewResponse(&schedulev1.GetScheduleResponse{
-		Schedule: &schedulev1.Schedule{
-			Id:      req.Msg.GetId(),
-			Name:    "morning-ci",
-			Cron:    "0 9 * * 1-5",
-			Enabled: true,
-		},
-	}), nil
-}
+	t.Run("every confirm draws its buttons in the same column", func(t *testing.T) {
+		harness := openSchedules(t, buildSchedules()...)
+		harness.press("e")
 
-func (f *fakeSchedules) CreateSchedule(context.Context, *connect.Request[schedulev1.CreateScheduleRequest]) (*connect.Response[schedulev1.CreateScheduleResponse], error) {
-	f.writes++
-	if f.err != nil {
-		return nil, f.err
-	}
-
-	return connect.NewResponse(&schedulev1.CreateScheduleResponse{Schedule: &schedulev1.Schedule{Id: "new"}}), nil
-}
-
-func (f *fakeSchedules) UpdateSchedule(context.Context, *connect.Request[schedulev1.UpdateScheduleRequest]) (*connect.Response[emptypb.Empty], error) {
-	f.writes++
-	if f.err != nil {
-		return nil, f.err
-	}
-
-	return connect.NewResponse(&emptypb.Empty{}), nil
-}
-
-func (f *fakeSchedules) SetScheduleEnabled(context.Context, *connect.Request[schedulev1.SetScheduleEnabledRequest]) (*connect.Response[emptypb.Empty], error) {
-	f.writes++
-	if f.err != nil {
-		return nil, f.err
-	}
-
-	return connect.NewResponse(&emptypb.Empty{}), nil
-}
-
-func (f *fakeSchedules) ArchiveSchedule(context.Context, *connect.Request[schedulev1.ArchiveScheduleRequest]) (*connect.Response[emptypb.Empty], error) {
-	f.writes++
-	if f.err != nil {
-		return nil, f.err
-	}
-
-	return connect.NewResponse(&emptypb.Empty{}), nil
-}
-
-// TestScheduleName covers matching the schedule an agent came from against the list the panel
-// polls.
-func TestScheduleName(t *testing.T) {
-	tests := []struct {
-		name  string
-		agent panel.Agent
-		want  string
-	}{
-		{
-			name:  "a schedule still listed maps to its name",
-			agent: panel.Agent{ScheduleID: xptr.Ptr("s1")},
-			want:  "morning-ci",
-		},
-		{
-			name:  "a schedule since deleted maps to nothing",
-			agent: panel.Agent{ScheduleID: xptr.Ptr("gone")},
-		},
-		{
-			name:  "an agent with no schedule maps to nothing",
-			agent: panel.Agent{},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			m := scheduleModel(&fakeSchedules{}, config.DefaultKeybindings())
-
-			assert.Equal(t, tt.want, m.listing.scheduleName(tt.agent))
-		})
-	}
-}
-
-// TestScheduleFormTakesNewWorkflows covers a workflow created while the schedule form is up,
-// which the form has to offer without being closed and opened again.
-func TestScheduleFormTakesNewWorkflows(t *testing.T) {
-	m := scheduleModel(&fakeSchedules{}, config.DefaultKeybindings())
-	m.listing.schedules = []scheduleItem{{schedule: panel.Schedule{
-		ID:         "s1",
-		Name:       "morning-ci",
-		Cron:       "0 9 * * 1-5",
-		Enabled:    true,
-		WorkflowID: "w1",
-	}}}
-	m.width, m.height = 120, 40
-
-	m.schedules.editForm(&m, m.shared())
-	edit := m
-	require.True(t, edit.form.isActive())
-	edit.form.form.Update(tea.WindowSizeMsg{Width: 80, Height: 40})
-	require.NotContains(t, plain(edit.form.form.View()), "brandnew")
-
-	settle(t, edit, edit.form.form.NextField())
-	require.Equal(t, "cron", edit.form.form.GetFocusedField().GetKey())
-
-	cmd := applyListing(&edit, edit.listing.agents, []panel.Workflow{
-		{
-			ID:   "w1",
-			Name: "api",
-			Cwd:  "/work/api",
-		},
-		{
-			ID:   "w2",
-			Name: "brandnew",
-			Cwd:  "/work/new",
-		},
-	}, edit.listing.schedules)
-	settle(t, edit, cmd)
-	edit.form.form.Update(tea.WindowSizeMsg{Width: 80, Height: 40})
-
-	assert.Contains(t, plain(edit.form.form.View()), "brandnew")
-	assert.Equal(t, "cron", edit.form.form.GetFocusedField().GetKey(), "the cursor stays where it was")
-}
-
-// TestScheduleFormKeepsAWorkflowThatIsGone covers the workflow a schedule is bound to being
-// archived while its form is up, which huh would otherwise answer by picking another one.
-func TestScheduleFormKeepsAWorkflowThatIsGone(t *testing.T) {
-	m := scheduleModel(&fakeSchedules{}, config.DefaultKeybindings())
-	m.width, m.height = 120, 40
-
-	values := panel.ScheduleConfig{
-		Name:       "morning-ci",
-		Cron:       "0 9 * * 1-5",
-		Enabled:    true,
-		WorkflowID: "w1",
-	}
-
-	m.schedules.openForm(&m, &values, &panel.Schedule{ID: "s1", Name: "morning-ci"})
-	edit := m
-	edit.form.form.Update(tea.WindowSizeMsg{Width: 80, Height: 40})
-
-	cmd := applyListing(&edit, edit.listing.agents, []panel.Workflow{
-		{
-			ID:   "w2",
-			Name: "other",
-			Cwd:  "/work/other",
-		},
-	}, edit.listing.schedules)
-	settle(t, edit, cmd)
-	edit.form.form.Update(tea.WindowSizeMsg{Width: 80, Height: 40})
-
-	assert.Equal(t, "w1", values.WorkflowID, "the schedule stays on the workflow it was written against")
-	assert.Contains(t, plain(edit.form.form.View()), "w1  gone")
-}
-
-// TestScheduleFormOffersEveryWorkflow covers the options a schedule on any workflow but the
-// first is offered.
-func TestScheduleFormOffersEveryWorkflow(t *testing.T) {
-	values := panel.ScheduleConfig{
-		Name:       "bughunt-fixer-dispatcher",
-		Cron:       "*/5 * * * *",
-		Prompt:     "sweep",
-		Enabled:    true,
-		WorkflowID: "w2",
-	}
-
-	form, _ := scheduleForm(&values, []panel.Workflow{
-		{
-			ID:   "w1",
-			Name: "bughunt",
-			Cwd:  "/repos/weave",
-		},
-		{
-			ID:   "w2",
-			Name: "weave",
-			Cwd:  "/repos/weave",
-		},
-	}, config.FixedFormKeys())
-	form.Init()
-	form.Update(tea.WindowSizeMsg{Width: 80, Height: 60})
-
-	view := plain(form.View())
-	assert.Contains(t, view, "bughunt  /repos/weave")
-	assert.Contains(t, view, "weave  /repos/weave")
-	assert.Equal(t, "w2", values.WorkflowID, "the schedule stays on the workflow it named")
-}
-
-// scheduleHelp is the schedules legend as the frame draws it.
-func (m model) scheduleHelp() keyMap {
-	return m.listHelpOf(m.schedules.listParams(m.shared()))
-}
-
-// TestSchedulesLegendIsTheOneItDrewBeforeTheMove sweeps the expanded legend across widths against
-// the composition the root drew for the schedules.
-func TestSchedulesLegendIsTheOneItDrewBeforeTheMove(t *testing.T) {
-	for width := 5; width <= 200; width++ {
-		m := scheduleModel(&fakeSchedules{}, config.DefaultKeybindings())
-		m.helpExpanded = true
-		m = m.measuredAt(width)
-
-		own := m.schedules.actions().help(m.shared())
-		before := keyMap{
-			short: slices.Concat(own.short, m.globalHelp()),
-			full: slices.Concat(
-				own.full,
-				[]key.Binding{m.detailsBinding(), m.messagesBinding()},
-				m.infoPaneHelp(),
-				m.fullGlobalHelp(),
-			),
+		var indents []int
+		for _, line := range readStage(harness.readFrame()) {
+			buttons := strings.TrimLeft(strings.TrimLeft(line, "┃"), " ")
+			if strings.HasPrefix(buttons, "Armed ") || strings.HasPrefix(buttons, "Hidden ") {
+				indents = append(indents, len(line)-len(buttons))
+			}
 		}
 
-		assert.Equal(t, m.renderHelp(before), m.renderHelp(m.scheduleHelp()), "width %d", width)
+		require.Len(t, indents, 2, "one row of buttons per confirm")
+		assert.Equal(t, indents[0], indents[1])
+	})
+
+	t.Run("a workflow made while the form is up is offered and the cursor stays put", func(t *testing.T) {
+		harness := openSchedules(t, buildSchedules()...)
+		harness.press("e", "tab")
+
+		harness.watch(buildPuts(newLiveWorkflow("w2", "brandnew")))
+
+		form := readStageText(harness.readFrame())
+		assert.Contains(t, form, "brandnew  —")
+		assert.Contains(t, form, "┃ Cron")
+	})
+
+	t.Run("a schedule keeps the workflow it names when that one is archived under the form", func(t *testing.T) {
+		harness := openSchedules(t, buildSchedules()...)
+		harness.press("e")
+
+		harness.watch(buildSnapshot(newLiveWorkflow("w2", "other"), newSchedule("s1", "morning-ci")))
+		require.Contains(t, readStageText(harness.readFrame()), "w1  gone")
+		harness.press("ctrl+s")
+
+		harness.assertSentTo(schedulev1connect.ScheduleServiceUpdateScheduleProcedure, &schedulev1.UpdateScheduleRequest{
+			Id:         "s1",
+			Name:       "morning-ci",
+			Cron:       "0 9 * * 1-5",
+			Enabled:    true,
+			Prompt:     "check CI",
+			WorkflowId: "w1",
+		})
+	})
+
+	t.Run("a schedule on any workflow but the first is offered every one and stays on its own", func(t *testing.T) {
+		second := newSchedule("s1", "bughunt-fixer-dispatcher")
+		second.WorkflowId = "w2"
+		harness := openSchedules(t,
+			&workflowv1.Workflow{
+				Id:   "w1",
+				Name: "bughunt",
+				Cwd:  "/repos/weave",
+			},
+			&workflowv1.Workflow{
+				Id:   "w2",
+				Name: "weave",
+				Cwd:  "/repos/weave",
+			},
+			second,
+		)
+		harness.press("e")
+
+		form := readStageText(harness.readFrame())
+		assert.Contains(t, form, "bughunt  /repos/weave")
+		assert.Contains(t, form, "> weave  /repos/weave")
+	})
+}
+
+func openSchedules(t *testing.T, rows ...proto.Message) *panelHarness {
+	t.Helper()
+
+	harness := openAgents(t, rows...)
+	harness.press("S")
+
+	return harness
+}
+
+func buildSchedules() []proto.Message {
+	return []proto.Message{
+		newLiveWorkflow("w1", "api"),
+		newSchedule("s1", "morning-ci"),
 	}
+}
+
+func newSchedule(id, name string) *schedulev1.Schedule {
+	return &schedulev1.Schedule{
+		Id:         id,
+		Name:       name,
+		Cron:       "0 9 * * 1-5",
+		Enabled:    true,
+		Prompt:     "check CI",
+		WorkflowId: "w1",
+	}
+}
+
+func newPausedSchedule(id, name string) *schedulev1.Schedule {
+	schedule := newSchedule(id, name)
+	schedule.Cron = "0 1 * * *"
+	schedule.Enabled = false
+
+	return schedule
+}
+
+func readScheduleRows(frame string) []string {
+	var rows []string
+	for _, line := range readSidebar(frame) {
+		if row := strings.TrimSpace(strings.TrimPrefix(line, "›")); strings.HasPrefix(row, "◆") || strings.HasPrefix(row, "◇") {
+			rows = append(rows, row)
+		}
+	}
+
+	return rows
+}
+
+func readHoveredSchedule(frame string) string {
+	for _, line := range readSidebar(frame) {
+		if row, isHovered := strings.CutPrefix(line, "›"); isHovered {
+			return strings.Fields(row)[1]
+		}
+	}
+
+	return ""
+}
+
+func trimRecord(record []string) []string {
+	var fields []string
+	for _, line := range record {
+		if field := strings.Fields(strings.TrimPrefix(line, "›")); len(field) > 0 {
+			fields = append(fields, strings.Join(field, " "))
+		}
+	}
+
+	return fields
 }
