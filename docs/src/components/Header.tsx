@@ -49,14 +49,15 @@ const Header = ({ children, path }: HeaderProps) => {
   return (
     <header
       ref={headerRef}
-      className={`sticky top-0 z-10 bg-app-black text-app-white shadow-sm transition-[translate,visibility] duration-300 ${isHidden ? "invisible -translate-y-full" : "visible translate-y-0"}`}
+      className={`sticky top-0 z-10 border-b border-app-background-medium bg-app-black/90 text-app-white shadow-sm backdrop-blur transition-[translate,visibility] duration-300 ${isHidden ? "invisible -translate-y-full" : "visible translate-y-0"}`}
     >
       <div className="grid grid-cols-[1fr_auto_auto] items-center gap-x-2 px-4 py-3 md:grid-cols-[1fr_auto_1fr] md:gap-x-8">
         <a
           href="/"
           data-site-title
-          className="col-start-1 row-start-1 justify-self-start font-['Playfair_Display'] text-base text-app-white transition-opacity duration-200"
+          className="col-start-1 row-start-1 flex items-center gap-2 justify-self-start font-['Playfair_Display'] text-base text-app-white transition-opacity duration-200"
         >
+          <img src="/favicon.png" alt="" className="h-7 w-7" />
           {SITE_TITLE}
         </a>
 

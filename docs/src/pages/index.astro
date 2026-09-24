@@ -1,35 +1,6 @@
 ---
 import Layout from "../layouts/Layout.astro";
-import { SECTIONS, SITE_DESCRIPTION, SITE_TITLE } from "../consts";
+import { SITE_DESCRIPTION, SITE_TITLE } from "../consts";
 ---
 
-<Layout title={SITE_TITLE} description={SITE_DESCRIPTION}>
-  <section>
-    <h1 class="leading-tight">{SITE_TITLE}</h1>
-    <p class="mb-10 mt-4 text-lg text-app-gray-light">{SITE_DESCRIPTION}</p>
-    <ul class="grid gap-6 md:grid-cols-2">
-      {
-        SECTIONS.map((section) => (
-          <li class="list-none">
-            <a href={`/${section.id}`} class="card">
-              <h2>{section.title}</h2>
-            </a>
-          </li>
-        ))
-      }
-    </ul>
-  </section>
-</Layout>
-
-<style>
-  @reference "../styles/global.css";
-
-  .card {
-    @apply block rounded-xs border border-app-background-medium bg-app-background-light px-6 py-5 text-app-white transition-colors duration-200;
-  }
-
-  .card:hover,
-  .card:focus-visible {
-    @apply border-app-blue/40 text-app-blue;
-  }
-</style>
+<Layout title={SITE_TITLE} description={SITE_DESCRIPTION} />

@@ -29,14 +29,14 @@
   --color-transparent: transparent;
   --color-app-blue: #9ec4ff;
   --color-app-white: #ffffff;
-  --color-app-black: #0d0d0d;
-  --color-app-background-dark: #141414;
-  --color-app-background-medium: #2e2e2e;
-  --color-app-background-medium-dark: #1e1e1e;
-  --color-app-background-light: #242424;
-  --color-app-gray: #c9d1d9;
-  --color-app-gray-light: #b0b8c0;
-  --color-app-gray-dim: #888888;
+  --color-app-black: #080d1a;
+  --color-app-background-dark: #0c1322;
+  --color-app-background-medium: #1f2c47;
+  --color-app-background-medium-dark: #111a2e;
+  --color-app-background-light: #152038;
+  --color-app-gray: #c9d4e5;
+  --color-app-gray-light: #a8b5cb;
+  --color-app-gray-dim: #7a879e;
 
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   --shadow-3xl: 0 35px 60px -15px rgba(0, 0, 0, 0.3);
@@ -74,22 +74,10 @@
   body {
     @apply min-h-screen bg-app-background-dark text-app-white;
     background-image:
-      radial-gradient(
-        ellipse at 50% 50%,
-        transparent 0%,
-        rgba(0, 0, 0, 0.02) 15%,
-        rgba(0, 0, 0, 0.05) 25%,
-        rgba(0, 0, 0, 0.08) 35%,
-        rgba(0, 0, 0, 0.12) 45%,
-        rgba(0, 0, 0, 0.17) 55%,
-        rgba(0, 0, 0, 0.22) 65%,
-        rgba(0, 0, 0, 0.28) 75%,
-        rgba(0, 0, 0, 0.34) 85%,
-        rgba(0, 0, 0, 0.4) 100%
-      ),
-      url("/fabric-dark.png");
-    background-attachment: fixed, scroll;
-    background-repeat: no-repeat, repeat;
+      radial-gradient(ellipse 80% 50% at 50% 0%, rgba(158, 196, 255, 0.07), transparent 70%),
+      radial-gradient(ellipse at 50% 50%, transparent 40%, rgba(0, 0, 0, 0.35) 100%);
+    background-attachment: fixed;
+    background-repeat: no-repeat;
   }
 
   h1,
@@ -143,7 +131,7 @@
   max-width: 100%;
   overflow-x: auto;
   padding: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--color-app-background-medium);
   border-radius: 8px;
   font-family: var(--font-mono);
   font-size: 0.9em;

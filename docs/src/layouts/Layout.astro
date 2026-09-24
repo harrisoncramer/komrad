@@ -6,7 +6,6 @@ import "../styles/global.css";
 
 import Header from "../components/Header";
 import Search from "../components/Search.astro";
-import Sidebar from "../components/Sidebar.astro";
 import { SITE_TITLE } from "../consts";
 
 type Props = {
@@ -23,18 +22,15 @@ const pageTitle = title === SITE_TITLE ? title : `${title} | ${SITE_TITLE}`;
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     {description && <meta name="description" content={description} />}
-    <link rel="icon" type="image/png" href="/weave.png" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
     <title>{pageTitle}</title>
   </head>
   <body>
     <Header client:load path={Astro.url.pathname}>
       <Search />
     </Header>
-    <div class="mx-auto flex max-w-[1200px] gap-10 px-6 py-6">
-      <Sidebar />
-      <main class="min-w-0 max-w-[900px] flex-1">
-        <slot />
-      </main>
-    </div>
+    <main class="mx-auto max-w-[900px] px-6 py-6">
+      <slot />
+    </main>
   </body>
 </html>
