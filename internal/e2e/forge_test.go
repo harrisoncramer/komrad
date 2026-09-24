@@ -25,9 +25,20 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
+// forgeTokenEnv names a GitHub token that reads harrisoncramer/weave-forge-fixture, and the
+// live test skips without one so the suite never needs the network.
+const forgeTokenEnv = "WEAVE_E2E_GITHUB_TOKEN"
+
+// fakeForge is a forge answering a fixed pair of pull requests from one branch of one
+// repository, counting how often it was asked for the open one's review decision.
+type fakeForge struct {
+	server    *httptest.Server
+	standings atomic.Int32
+}
+
 // TestIntegrationForges walks a person connecting a forge, using it, and disconnecting it.
 func TestIntegrationForges(t *testing.T) {
-	fake := fakeGitHub(t)
+	fake := startFakeGitHub(t)
 	instance := weavetest.Start(t, weavetest.Params{
 		ForgeBuilders: map[string]forge.Builder{forge.KindGitHub: buildGitHub(fake.server)},
 	})
@@ -90,10 +101,6 @@ func TestIntegrationForges(t *testing.T) {
 	})
 }
 
-// forgeTokenEnv names a GitHub token that reads harrisoncramer/weave-forge-fixture, and the
-// live test skips without one so the suite never needs the network.
-const forgeTokenEnv = "WEAVE_E2E_GITHUB_TOKEN"
-
 // TestIntegrationForgeSpeaksToGitHub connects the real GitHub and reads a pull request through it.
 func TestIntegrationForgeSpeaksToGitHub(t *testing.T) {
 	token := os.Getenv(forgeTokenEnv)
@@ -123,13 +130,6 @@ func TestIntegrationForgeSpeaksToGitHub(t *testing.T) {
 	assert.Nil(t, pullRequests.Msg.GetPullRequests()[0].MergedAt)
 }
 
-// fakeForge is a forge answering a fixed pair of pull requests from one branch of one
-// repository, counting how often it was asked for the open one's review decision.
-type fakeForge struct {
-	server    *httptest.Server
-	standings atomic.Int32
-}
-
 func buildGitHub(server *httptest.Server) forge.Builder {
 	return func(_ string, auth forge.Authenticator) forge.Forge {
 		return github.NewForge(github.NewForgeParams{
@@ -150,8 +150,8 @@ func buildGitLab(server *httptest.Server) forge.Builder {
 	}
 }
 
-// operationOf is the name a posted GraphQL query was written with.
-func operationOf(r *http.Request) string {
+// readOperation is the name a posted GraphQL query was written with.
+func readOperation(r *http.Request) string {
 	var posted struct {
 		Query string `json:"query"`
 	}
@@ -165,8 +165,8 @@ func operationOf(r *http.Request) string {
 	return name
 }
 
-// connection is a page of nodes as either forge's GraphQL answers it.
-func connection(nodes ...map[string]any) map[string]any {
+// buildConnection is a page of nodes as either forge's GraphQL answers it.
+func buildConnection(nodes ...map[string]any) map[string]any {
 	if nodes == nil {
 		nodes = []map[string]any{}
 	}
@@ -177,9 +177,9 @@ func connection(nodes ...map[string]any) map[string]any {
 	}
 }
 
-// fakeGitHub answers GitHub's GraphQL for two pull requests from feature/widgets of
+// startFakeGitHub answers GitHub's GraphQL for two pull requests from feature/widgets of
 // acme/widgets: #12 open and approved, #9 merged, and a search that never answers.
-func fakeGitHub(t *testing.T) *fakeForge {
+func startFakeGitHub(t *testing.T) *fakeForge {
 	t.Helper()
 
 	fake := &fakeForge{}
@@ -209,7 +209,7 @@ func fakeGitHub(t *testing.T) *fakeForge {
 			"baseRepository": repository,
 		}
 	}
-	listing := connection(
+	listing := buildConnection(
 		pullRequest(12, "ship the widgets", "OPEN", false),
 		pullRequest(9, "first cut", "MERGED", true),
 	)
@@ -221,13 +221,13 @@ func fakeGitHub(t *testing.T) *fakeForge {
 			return
 		}
 
-		switch operationOf(r) {
+		switch readOperation(r) {
 		case "Verify":
 			writeJSON(t, w, map[string]any{"data": map[string]any{"viewer": map[string]any{"login": "harrisoncramer"}}})
 		case "ListUpdated", "List":
 			writeJSON(t, w, map[string]any{"data": map[string]any{"repository": map[string]any{"pullRequests": listing}}})
 		case "ListChanged":
-			writeJSON(t, w, map[string]any{"data": map[string]any{"search": connection()}})
+			writeJSON(t, w, map[string]any{"data": map[string]any{"search": buildConnection()}})
 		case "Standings":
 			fake.standings.Add(1)
 			writeJSON(t, w, map[string]any{"data": map[string]any{"repository": map[string]any{"p12": map[string]any{
@@ -245,9 +245,9 @@ func fakeGitHub(t *testing.T) *fakeForge {
 	return fake
 }
 
-// fakeGitLab answers GitLab's GraphQL for two merge requests from feature/widgets of
+// startFakeGitLab answers GitLab's GraphQL for two merge requests from feature/widgets of
 // acme/widgets: !12 open and approved, !9 merged, and no changes since.
-func fakeGitLab(t *testing.T) *fakeForge {
+func startFakeGitLab(t *testing.T) *fakeForge {
 	t.Helper()
 
 	fake := &fakeForge{}
@@ -277,7 +277,7 @@ func fakeGitLab(t *testing.T) *fakeForge {
 			"diffRefs":      map[string]any{"baseSha": "bbb"},
 		}
 	}
-	listing := connection(
+	listing := buildConnection(
 		mergeRequest(12, "ship the widgets", "opened", false),
 		mergeRequest(9, "first cut", "merged", true),
 	)
@@ -298,14 +298,14 @@ func fakeGitLab(t *testing.T) *fakeForge {
 			return
 		}
 
-		switch operationOf(r) {
+		switch readOperation(r) {
 		case "Verify":
 			writeJSON(t, w, map[string]any{"data": map[string]any{"currentUser": map[string]any{"username": "harrisoncramer"}}})
 		case "ListUpdated", "List":
 			writeJSON(t, w, map[string]any{"data": map[string]any{"project": map[string]any{"mergeRequests": listing}}})
 		case "ListChanged":
 			writeJSON(t, w, map[string]any{"data": map[string]any{
-				"r0":              map[string]any{"mergeRequests": connection()},
+				"r0":              map[string]any{"mergeRequests": buildConnection()},
 				"queryComplexity": map[string]any{"score": 52, "limit": 200},
 			}})
 		case "Standings":

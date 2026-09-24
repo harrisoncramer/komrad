@@ -216,7 +216,9 @@ func newSyncFixture(t *testing.T) *syncFixture {
 			Connections: connections,
 			Credentials: forge.NewFileStore(t.TempDir()),
 			Builders: map[string]forge.Builder{
-				forge.KindGitHub: func(string, forge.Authenticator) forge.Forge { return scripted },
+				forge.KindGitHub: func(string, forge.Authenticator) forge.Forge {
+					return scripted
+				},
 			},
 		}),
 		PullRequests: f.pullRequests,

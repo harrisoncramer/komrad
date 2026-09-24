@@ -34,14 +34,14 @@ func TestIntegrationPullRequestsReachTheRowFromEachForge(t *testing.T) {
 			name:   "github",
 			host:   "github.com",
 			remote: "git@github.com:acme/widgets.git",
-			fake:   fakeGitHub,
+			fake:   startFakeGitHub,
 			build:  buildGitHub,
 		},
 		{
 			name:   "gitlab",
 			host:   "gitlab.com",
 			remote: "git@gitlab.com:acme/widgets.git",
-			fake:   fakeGitLab,
+			fake:   startFakeGitLab,
 			build:  buildGitLab,
 		},
 	}
