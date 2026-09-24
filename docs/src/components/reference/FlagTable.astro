@@ -19,26 +19,26 @@ const { flags, prefix } = Astro.props;
       </tr>
     </thead>
     <tbody>
-      {
-        flags.map((flag) => (
-          <tr id={`${prefix}-${flag.name}`}>
-            <td>
-              <a class="row-anchor" href={`#${prefix}-${flag.name}`}>
-                <code>
-                  {flag.shorthand && `-${flag.shorthand}, `}--{flag.name}
-                </code>
-              </a>
-            </td>
-            <td class="type-cell" data-sep=":">{flag.type}</td>
-            <td>
-              <p>{flag.usage}</p>
-              {flag.default && flag.default !== "[]" && flag.default !== "false" && (
-                <p class="rules">default {flag.default}</p>
-              )}
-            </td>
-          </tr>
-        ))
-      }
+      {flags.map((flag) => (
+        <tr id={`${prefix}-${flag.name}`}>
+          <td>
+            <a class="row-anchor" href={`#${prefix}-${flag.name}`}>
+              <code>
+                {flag.shorthand && `-${flag.shorthand}, `}--{flag.name}
+              </code>
+            </a>
+          </td>
+          <td class="type-cell" data-sep=":">
+            {flag.type}
+          </td>
+          <td>
+            <p>{flag.usage}</p>
+            {flag.default && flag.default !== "[]" && flag.default !== "false" && (
+              <p class="rules">default {flag.default}</p>
+            )}
+          </td>
+        </tr>
+      ))}
     </tbody>
   </table>
 </div>

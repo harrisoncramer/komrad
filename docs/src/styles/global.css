@@ -221,7 +221,6 @@
   font-size: 0.85em;
 }
 
-
 .doc-content .type h3 {
   font-size: 1.3em;
   margin-bottom: 0.5rem;
@@ -319,7 +318,9 @@
   font-size: 0.9rem;
   color: var(--color-app-gray-light);
   text-decoration: none;
-  transition: color 150ms, border-color 150ms;
+  transition:
+    color 150ms,
+    border-color 150ms;
 }
 
 .doc-content nav.jump-bar a:hover,
@@ -327,7 +328,6 @@
   border-color: rgba(158, 196, 255, 0.4);
   color: var(--color-app-blue);
 }
-
 
 .doc-content .service h2 a {
   text-decoration: none;
@@ -420,7 +420,6 @@
   }
 }
 
-
 .doc-content a.anchor {
   margin-left: 0.4em;
   color: var(--color-app-gray-dim);
@@ -428,7 +427,9 @@
   font-size: 0.8em;
   text-decoration: none;
   opacity: 0;
-  transition: opacity 150ms, color 150ms;
+  transition:
+    opacity 150ms,
+    color 150ms;
 }
 
 .doc-content .anchored:hover a.anchor,

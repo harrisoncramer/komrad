@@ -16,7 +16,9 @@ const { service } = Astro.props;
 
 <DocPage title={service.title}>
   <div class="service-description" set:html={prose(service.description)} />
-  <p><code>{service.name}</code></p>
+  <p>
+    <code>{service.name}</code>
+  </p>
   <IndexList
     rows
     items={service.methods.map((method) => ({

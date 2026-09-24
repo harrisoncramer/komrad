@@ -12,23 +12,21 @@ import { link } from "../../site";
   description="Every endpoint the service answers, and how to reach it over Connect, from the CLI, and as an MCP tool."
 >
   <JumpBar items={api.services.map((service) => ({ href: `#${service.slug}`, label: service.title }))} />
-  {
-    api.services.map((service) => (
-      <section class="service">
-        <Heading id={service.slug}>
-          <a href={link(`/api/${service.slug}`)}>{service.title}</a>
-        </Heading>
-        <div class="service-description" set:html={prose(service.description)} />
-        <IndexList
-          rows
-          items={service.methods.map((method) => ({
-            href: link(`/api/${service.slug}/${method.slug}`),
-            title: method.tool,
-            summary: method.summary,
-            id: `${service.slug}-${method.slug}`,
-          }))}
-        />
-      </section>
-    ))
-  }
+  {api.services.map((service) => (
+    <section class="service">
+      <Heading id={service.slug}>
+        <a href={link(`/api/${service.slug}`)}>{service.title}</a>
+      </Heading>
+      <div class="service-description" set:html={prose(service.description)} />
+      <IndexList
+        rows
+        items={service.methods.map((method) => ({
+          href: link(`/api/${service.slug}/${method.slug}`),
+          title: method.tool,
+          summary: method.summary,
+          id: `${service.slug}-${method.slug}`,
+        }))}
+      />
+    </section>
+  ))}
 </DocPage>

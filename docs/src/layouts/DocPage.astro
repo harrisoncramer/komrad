@@ -13,17 +13,17 @@ const { title, description, filePath } = Astro.props;
 
 <Layout title={title} description={description}>
   <article data-pagefind-body>
-    <h1 class="title" data-pagefind-meta="title">{title}</h1>
+    <h1 class="title" data-pagefind-meta="title">
+      {title}
+    </h1>
     {description && <p class="mt-2 mb-8 text-lg text-app-gray-light">{description}</p>}
-    {
-      filePath && (
-        <div class="mb-3 flex justify-end" data-pagefind-ignore>
-          <a class="edit-link" href={`${REPO_URL}/blob/main/docs/${filePath}`}>
-            Edit this page on Github
-          </a>
-        </div>
-      )
-    }
+    {filePath && (
+      <div class="mb-3 flex justify-end" data-pagefind-ignore>
+        <a class="edit-link" href={`${REPO_URL}/blob/main/docs/${filePath}`}>
+          Edit this page on Github
+        </a>
+      </div>
+    )}
     <div class="doc-content mt-4">
       <slot />
     </div>

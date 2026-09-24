@@ -16,81 +16,72 @@ const { command } = Astro.props;
 const parent = command.slug === "" ? undefined : commandBySlug.get(command.parent);
 const normalize = (text: string) => text.trim().replace(/\.$/, "");
 const paragraphs = command.long.split(/\n\s*\n/);
-const long = normalize(paragraphs[0] ?? "") === normalize(command.short) ? paragraphs.slice(1).join("\n\n") : command.long;
+const long =
+  normalize(paragraphs[0] ?? "") === normalize(command.short) ? paragraphs.slice(1).join("\n\n") : command.long;
 const children = command.children.flatMap((slug) => commandBySlug.get(slug) ?? []);
 ---
 
 <DocPage title={command.path} description={command.short}>
-  {
-    parent && (
-      <p class="traits">
-        <a href={commandHref(parent.slug)}>{parent.path}</a>
-      </p>
-    )
-  }
+  {parent && (
+    <p class="traits">
+      <a href={commandHref(parent.slug)}>{parent.path}</a>
+    </p>
+  )}
 
   <Code code={command.usage} lang="bash" theme="tokyo-night" />
 
   {long && <div set:html={prose(long)} />}
 
-  {
-    command.slug === "rpc" && (
-      <p>
-        Each subcommand is one endpoint, documented with its request and response in the <a href={link("/api")}>API
-        reference</a>.
-      </p>
-    )
-  }
+  {command.slug === "rpc" && (
+    <p>
+      Each subcommand is one endpoint, documented with its request and response in the{" "}
+      <a href={link("/api")}>API reference</a>.
+    </p>
+  )}
 
-  {
-    command.aliases.length > 0 && (
-      <p>
-        Also answers to {command.aliases.map((alias) => <code>{alias}</code>)}.
-      </p>
-    )
-  }
+  {command.aliases.length > 0 && (
+    <p>
+      Also answers to{" "}
+      {command.aliases.map((alias) => (
+        <code>{alias}</code>
+      ))}
+      .
+    </p>
+  )}
 
-  {
-    command.example && (
-      <>
-        <Heading id="examples">Examples</Heading>
-        <Code code={command.example} lang="bash" theme="tokyo-night" />
-      </>
-    )
-  }
+  {command.example && (
+    <>
+      <Heading id="examples">Examples</Heading>
+      <Code code={command.example} lang="bash" theme="tokyo-night" />
+    </>
+  )}
 
-  {
-    children.length > 0 && (
-      <>
-        <Heading id="commands">Commands</Heading>
-        <IndexList
-          rows
-          items={children.map((child) => ({
-            href: commandHref(child.slug),
-            title: child.path,
-            summary: child.short,
-            id: `command-${child.slug.replaceAll("/", "-")}`,
-          }))}
-        />
-      </>
-    )
-  }
+  {children.length > 0 && (
+    <>
+      <Heading id="commands">Commands</Heading>
+      <IndexList
+        rows
+        items={children.map((child) => ({
+          href: commandHref(child.slug),
+          title: child.path,
+          summary: child.short,
+          id: `command-${child.slug.replaceAll("/", "-")}`,
+        }))}
+      />
+    </>
+  )}
 
-  {
-    command.flags.length > 0 && (
-      <>
-        <Heading id="flags">Flags</Heading>
-        <FlagTable flags={command.flags} prefix="flag" />
-      </>
-    )
-  }
+  {command.flags.length > 0 && (
+    <>
+      <Heading id="flags">Flags</Heading>
+      <FlagTable flags={command.flags} prefix="flag" />
+    </>
+  )}
 
-  {
-    command.inherited.length > 0 && (
-      <>
-        <Heading id="inherited-flags">Inherited flags</Heading>
-        <FlagTable flags={command.inherited} prefix="inherited" />
-      </>
-    )
-  }
+  {command.inherited.length > 0 && (
+    <>
+      <Heading id="inherited-flags">Inherited flags</Heading>
+      <FlagTable flags={command.inherited} prefix="inherited" />
+    </>
+  )}
 </DocPage>

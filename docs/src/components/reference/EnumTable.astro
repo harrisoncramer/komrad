@@ -13,7 +13,9 @@ const id = anchor(name);
 ---
 
 <section class="type">
-  <Heading id={id} level={3}>{value.name}</Heading>
+  <Heading id={id} level={3}>
+    {value.name}
+  </Heading>
   {value.description && <div class="type-description" set:html={prose(value.description)} />}
   <div class="table-scroll">
     <table>
@@ -24,18 +26,16 @@ const id = anchor(name);
         </tr>
       </thead>
       <tbody>
-        {
-          value.values.map((entry) => (
-            <tr id={`${id}-${entry.name}`}>
-              <td>
-                <a class="row-anchor" href={`#${id}-${entry.name}`}>
-                  <code>{entry.name}</code>
-                </a>
-              </td>
-              <td set:html={prose(entry.description)} />
-            </tr>
-          ))
-        }
+        {value.values.map((entry) => (
+          <tr id={`${id}-${entry.name}`}>
+            <td>
+              <a class="row-anchor" href={`#${id}-${entry.name}`}>
+                <code>{entry.name}</code>
+              </a>
+            </td>
+            <td set:html={prose(entry.description)} />
+          </tr>
+        ))}
       </tbody>
     </table>
   </div>

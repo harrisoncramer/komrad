@@ -18,8 +18,12 @@ const VersionPicker = () => {
   useEffect(() => {
     fetch("/versions.json")
       .then((response) => (response.ok ? response.json() : null))
-      .then((body: Versions | null) => setVersions(body))
-      .catch(() => setVersions(null));
+      .then((body: Versions | null) => {
+        setVersions(body);
+      })
+      .catch(() => {
+        setVersions(null);
+      });
   }, []);
 
   useEffect(() => {
@@ -61,7 +65,9 @@ const VersionPicker = () => {
         className="flex h-7 cursor-pointer items-center gap-1 rounded-md border border-app-background-medium px-1.5 font-mono text-[11px] text-app-gray-light transition-colors hover:border-app-blue/40 hover:text-app-white md:h-9 md:gap-1.5 md:px-2.5 md:text-xs"
         aria-label="Documentation version"
         aria-expanded={isOpen}
-        onClick={() => setIsOpen((open) => !open)}
+        onClick={() => {
+          setIsOpen((open) => !open);
+        }}
       >
         {BUILD.version}
         {showsCommit(BUILD.version) && BUILD.commit && (
@@ -72,10 +78,10 @@ const VersionPicker = () => {
         </svg>
       </button>
       {isOpen && (
-        <div className="absolute right-0 top-full z-30 mt-2 w-60 overflow-hidden rounded-lg border border-app-background-medium bg-app-background-dark shadow-3xl">
+        <div className="absolute top-full right-0 z-30 mt-2 w-60 overflow-hidden rounded-lg border border-app-background-medium bg-app-background-dark shadow-3xl">
           {groups.map((group) => (
             <div key={group.title} className="border-b border-app-background-medium py-1 last:border-b-0">
-              <p className="px-3 pb-1 pt-2 text-xs uppercase tracking-wide text-app-gray-dim">{group.title}</p>
+              <p className="px-3 pt-2 pb-1 text-xs tracking-wide text-app-gray-dim uppercase">{group.title}</p>
               {group.releases.map((release, index) => (
                 <a
                   key={release.version}
@@ -94,7 +100,12 @@ const VersionPicker = () => {
           <div className="px-3 py-2 text-xs text-app-gray-dim">
             {groups.length === 0 && <p className="pb-1">No other versions published.</p>}
             {BUILD.commit ? (
-              <a href={`${REPO_URL}/tree/${BUILD.commit}`} className="font-mono hover:text-app-blue" target="_blank" rel="noreferrer">
+              <a
+                href={`${REPO_URL}/tree/${BUILD.commit}`}
+                className="font-mono hover:text-app-blue"
+                target="_blank"
+                rel="noreferrer"
+              >
                 Built from {short(BUILD.commit)}
               </a>
             ) : (

@@ -27,6 +27,7 @@ jobs:
       infra: ${{ github.event_name != 'pull_request' || steps.filter.outputs.infra == 'true' }}
       generated: ${{ github.event_name != 'pull_request' || steps.filter.outputs.generated == 'true' }}
       integration: ${{ github.event_name != 'pull_request' || steps.filter.outputs.integration == 'true' }}
+      docs: ${{ github.event_name != 'pull_request' || steps.filter.outputs.docs == 'true' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -71,6 +72,11 @@ jobs:
               - 'mise/**'
               - 'db/**'
               - 'proto/**'
+              - '.github/workflows/ci.yml'
+            docs:
+              - 'docs/**'
+              - 'mise/tasks/docs/**'
+              - 'mise.toml'
               - '.github/workflows/ci.yml'
             generated:
               - 'proto/**'
@@ -316,13 +322,33 @@ jobs:
       - name: Run the integration tests
         run: mise run go:test --kind integration
 
-  # One status check a ruleset can name, standing in for all seven. The jobs above are filtered
+  # The docs site: formatting, the linter, the type check, and a build.
+  docs:
+    needs: changes
+    if: needs.changes.outputs.docs == 'true'
+    runs-on: namespace-profile-harrisoncramer
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Mise
+        uses: ./.github/actions/use-mise
+        with:
+          gh-access-token: ${{ env.GH_ACCESS_TOKEN }}
+
+      - name: Check the docs
+        run: |
+          mise run docs:fmt --check
+          mise run docs:lint
+          mise run docs:check
+          mise run docs:build
+
+  # One status check a ruleset can name, standing in for all eight. The jobs above are filtered
   # by path, so a pull request touching only documentation leaves several of them skipped, and a
   # ruleset naming those directly would wait forever on a check that never runs. This one runs
   # regardless and fails only on a failure or a cancellation, so a skip passes through. Every job
   # in this file has to appear below: one left out is a failure this gate cannot see.
   required:
-    needs: [changes, shell, proto, infra, db, generated, go, integration]
+    needs: [changes, shell, proto, infra, db, generated, go, integration, docs]
     if: always()
     runs-on: ubuntu-latest
     steps:

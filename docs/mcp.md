@@ -4,7 +4,7 @@ Weave serves itself over MCP, which is what makes an orchestrator possible: an a
 
 The endpoint is `http://127.0.0.1:8787/mcp`, or wherever `WEAVE_ADDR` points. There is no auth on it. It listens on loopback, and the writes let a caller spawn and delete agents, so binding the service to a non-loopback address is a real change in exposure.
 
-Do not hand-roll curl against the HTTP API. It skips the validation the tools carry, skips the headers that attribute the call.  Use `weave rpc` from a shell; see [commands](commands.md).
+Do not hand-roll curl against the HTTP API. It skips the validation the tools carry, skips the headers that attribute the call. Use `weave rpc` from a shell; see [commands](commands.md).
 
 ## Registering it
 

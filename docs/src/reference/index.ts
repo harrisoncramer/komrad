@@ -8,6 +8,12 @@ export const api = apiData as API;
 export const commands = cliData as Command[];
 export const config = configData as Section;
 
+export function messageOf(name: string): Message {
+  const message = api.messages[name];
+  if (!message) throw new Error(`api.json names ${name} but does not describe it`);
+  return message;
+}
+
 export const commandBySlug = new Map(commands.map((command) => [command.slug, command]));
 
 export const commandHref = (slug: string) => link(slug === "" ? "/cli" : `/cli/${slug}`);
@@ -18,8 +24,7 @@ export function referencedTypes(roots: string[]) {
   const seen = new Set<string>();
   const queue = [...roots];
 
-  while (queue.length > 0) {
-    const name = queue.shift() as string;
+  for (let name = queue.shift(); name !== undefined; name = queue.shift()) {
     if (seen.has(name)) continue;
     seen.add(name);
 
@@ -34,7 +39,13 @@ export function referencedTypes(roots: string[]) {
     }
   }
 
-  return { messages, enums: [...enums].map((name) => [name, api.enums[name]] as const) };
+  return {
+    messages,
+    enums: [...enums].flatMap((name) => {
+      const value = api.enums[name];
+      return value ? [[name, value] as const] : [];
+    }),
+  };
 }
 
 export const anchor = (name: string) => name.replaceAll(".", "-");

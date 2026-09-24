@@ -4,7 +4,7 @@ import CallTabs from "../../../components/reference/CallTabs.astro";
 import Heading from "../../../components/reference/Heading.astro";
 import EnumTable from "../../../components/reference/EnumTable.astro";
 import MessageTable from "../../../components/reference/MessageTable.astro";
-import { anchor, api, kebab, prose, referencedTypes } from "../../../reference";
+import { anchor, api, kebab, messageOf, prose, referencedTypes } from "../../../reference";
 import type { Field } from "../../../reference/types";
 import { link } from "../../../site";
 
@@ -18,8 +18,8 @@ export function getStaticPaths() {
 }
 
 const { service, method } = Astro.props;
-const request = api.messages[method.request];
-const response = api.messages[method.response];
+const request = messageOf(method.request);
+const response = messageOf(method.response);
 const oneofs = new Set<string>();
 const required = request.fields.filter((field) => {
   if (!field.rules.includes("required")) return false;
@@ -75,8 +75,12 @@ const traits = [
 
 <DocPage title={method.tool} description={method.summary}>
   <p class="traits">
-    <a href={link(`/api/${service.slug}`)} class="trait trait-link">{service.title}</a>
-    {traits.map((trait) => <span class="trait">{trait}</span>)}
+    <a href={link(`/api/${service.slug}`)} class="trait trait-link">
+      {service.title}
+    </a>
+    {traits.map((trait) => (
+      <span class="trait">{trait}</span>
+    ))}
   </p>
 
   {details && <div set:html={prose(details)} />}
@@ -88,27 +92,23 @@ const traits = [
   <MessageTable name={method.request} message={request} />
 
   <Heading id="response">Response</Heading>
-  {
-    method.response === method.request ? (
-      <p>
-        The same <a href={`#${anchor(method.request)}`}>{request.name}</a> as the request.
-      </p>
-    ) : (
-      <MessageTable name={method.response} message={response} />
-    )
-  }
+  {method.response === method.request ? (
+    <p>
+      The same <a href={`#${anchor(method.request)}`}>{request.name}</a> as the request.
+    </p>
+  ) : (
+    <MessageTable name={method.response} message={response} />
+  )}
 
-  {
-    (nested.length > 0 || types.enums.length > 0) && (
-      <>
-        <Heading id="types">Types</Heading>
-        {nested.map(([name, message]) => (
-          <MessageTable name={name} message={message} />
-        ))}
-        {types.enums.map(([name, value]) => (
-          <EnumTable name={name} value={value} />
-        ))}
-      </>
-    )
-  }
+  {(nested.length > 0 || types.enums.length > 0) && (
+    <>
+      <Heading id="types">Types</Heading>
+      {nested.map(([name, message]) => (
+        <MessageTable name={name} message={message} />
+      ))}
+      {types.enums.map(([name, value]) => (
+        <EnumTable name={name} value={value} />
+      ))}
+    </>
+  )}
 </DocPage>

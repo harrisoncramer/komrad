@@ -52,7 +52,9 @@ const NavigationDropdown = ({ links, path }: NavigationDropdownProps) => {
         aria-label="Menu"
         aria-expanded={isOpen}
         aria-controls={MENU_ID}
-        onClick={() => setIsOpen((open) => !open)}
+        onClick={() => {
+          setIsOpen((open) => !open);
+        }}
       >
         <span
           aria-hidden="true"
@@ -69,7 +71,7 @@ const NavigationDropdown = ({ links, path }: NavigationDropdownProps) => {
       </button>
       <ul
         id={MENU_ID}
-        className={`absolute right-0 top-full min-w-[180px] rounded-b-md border border-app-background-medium bg-app-background-dark pb-3 pt-2 shadow-3xl ${isOpen ? "visible [clip-path:inset(0_0_-1rem_0)] [transition:clip-path_220ms_cubic-bezier(0.16,1,0.3,1),visibility_0s]" : "invisible [clip-path:inset(0_0_100%_0)] [transition:clip-path_160ms_cubic-bezier(0.7,0,0.84,0),visibility_0s_160ms]"}`}
+        className={`absolute top-full right-0 min-w-[180px] rounded-b-md border border-app-background-medium bg-app-background-dark pt-2 pb-3 shadow-3xl ${isOpen ? "visible [clip-path:inset(0_0_-1rem_0)] [transition:clip-path_220ms_cubic-bezier(0.16,1,0.3,1),visibility_0s]" : "invisible [clip-path:inset(0_0_100%_0)] [transition:clip-path_160ms_cubic-bezier(0.7,0,0.84,0),visibility_0s_160ms]"}`}
       >
         {links.map((link) => (
           <li key={link.href}>

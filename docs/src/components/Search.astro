@@ -1,3 +1,7 @@
+---
+import { link } from "../site";
+---
+
 <astro-search class="search" data-expanded="false">
   <button
     type="button"
@@ -31,16 +35,16 @@
     />
   </div>
   <div class="panel" data-search-panel hidden>
-    <ul class="results" id="search-results" role="listbox" aria-label="Search results"></ul>
+    <div class="results" id="search-results" role="listbox" aria-label="Search results"></div>
     <p class="status" role="status" data-search-status></p>
   </div>
   <template data-search-option>
-    <li class="item" role="none">
-      <a class="option" role="option" tabindex="-1" aria-selected="false">
+    <div class="item" role="none">
+      <a class="option" href={link("/")} role="option" tabindex="-1" aria-selected="false">
         <span class="title" data-title></span>
         <span class="excerpt" data-excerpt></span>
       </a>
-    </li>
+    </div>
   </template>
 
   <style>
@@ -69,7 +73,7 @@
 
     @media (max-width: 767.98px) {
       .field {
-        @apply invisible absolute left-4 right-16 top-1/2 z-10 -translate-y-1/2;
+        @apply invisible absolute top-1/2 right-16 left-4 z-10 -translate-y-1/2;
         clip-path: inset(0 0 0 100%);
         transition: none;
       }
@@ -77,7 +81,9 @@
       .search[data-expanded="true"] .field {
         @apply visible;
         clip-path: inset(0);
-        transition: clip-path 120ms cubic-bezier(0.16, 1, 0.3, 1), visibility 0s;
+        transition:
+          clip-path 120ms cubic-bezier(0.16, 1, 0.3, 1),
+          visibility 0s;
       }
 
       .search[data-expanded="true"] .toggle {
@@ -94,7 +100,7 @@
     }
 
     .icon {
-      @apply pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-app-gray opacity-60 transition;
+      @apply pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-app-gray opacity-60 transition;
     }
 
     .search:focus-within .icon {
@@ -102,7 +108,7 @@
     }
 
     .input {
-      @apply w-full rounded-xs border border-app-background-medium bg-app-background-light py-2 pl-9 pr-3 text-base text-app-white transition-colors;
+      @apply w-full rounded-xs border border-app-background-medium bg-app-background-light py-2 pr-3 pl-9 text-base text-app-white transition-colors;
       appearance: none;
       outline: none;
       box-shadow: none;
@@ -124,7 +130,7 @@
     }
 
     .panel {
-      @apply absolute left-0 right-0 top-full z-20 overflow-hidden border-t border-app-background-medium bg-app-black shadow-3xl md:left-auto md:mt-2 md:w-80 md:rounded-xs md:border;
+      @apply absolute top-full right-0 left-0 z-20 overflow-hidden border-t border-app-background-medium bg-app-black shadow-3xl md:left-auto md:mt-2 md:w-80 md:rounded-xs md:border;
     }
 
     .item {
@@ -232,7 +238,7 @@
     private toggle!: HTMLButtonElement;
     private mobile = window.matchMedia("(max-width: 767.98px)");
     private panel!: HTMLElement;
-    private list!: HTMLUListElement;
+    private list!: HTMLElement;
     private status!: HTMLElement;
     private optionTemplate!: HTMLTemplateElement;
     private options: HTMLAnchorElement[] = [];
@@ -244,7 +250,7 @@
       this.input = this.querySelector("input") as HTMLInputElement;
       this.toggle = this.querySelector("[data-search-toggle]") as HTMLButtonElement;
       this.panel = this.querySelector("[data-search-panel]") as HTMLElement;
-      this.list = this.querySelector('[role="listbox"]') as HTMLUListElement;
+      this.list = this.querySelector('[role="listbox"]') as HTMLElement;
       this.status = this.querySelector("[data-search-status]") as HTMLElement;
       this.optionTemplate = this.querySelector("[data-search-option]") as HTMLTemplateElement;
 
@@ -348,9 +354,7 @@
       try {
         const pagefind = await loadPagefind();
         const response = await pagefind.search(query);
-        results = await Promise.all(
-          (response?.results ?? []).slice(0, MAX_RESULTS).map((result) => result.data())
-        );
+        results = await Promise.all((response?.results ?? []).slice(0, MAX_RESULTS).map((result) => result.data()));
       } catch {
         if (this.latestQuery !== query) return;
         this.render([], "Search is unavailable right now.");
@@ -384,9 +388,9 @@
       document.addEventListener("click", this.onOutsideClick, { capture: true });
     }
 
-    private createOption(result: PagefindResultData, index: number): HTMLLIElement {
+    private createOption(result: PagefindResultData, index: number): HTMLElement {
       const fragment = this.optionTemplate.content.cloneNode(true) as DocumentFragment;
-      const item = fragment.querySelector("li") as HTMLLIElement;
+      const item = fragment.querySelector(".item") as HTMLElement;
       const option = item.querySelector("a") as HTMLAnchorElement;
 
       option.id = `search-option-${index}`;

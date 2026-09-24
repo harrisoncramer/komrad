@@ -4,6 +4,7 @@
   "exclude": ["dist", "site"],
   "compilerOptions": {
     "jsx": "react-jsx",
+    "noUncheckedIndexedAccess": true,
     "jsxImportSource": "react"
   }
 }

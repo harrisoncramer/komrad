@@ -13,47 +13,45 @@ const id = anchor(name);
 ---
 
 <section class="type">
-  <Heading id={id} level={3}>{message.name}</Heading>
+  <Heading id={id} level={3}>
+    {message.name}
+  </Heading>
   {message.description && <div class="type-description" set:html={prose(message.description)} />}
-  {
-    message.fields.length === 0 ? (
-      <p class="empty">No fields.</p>
-    ) : (
-      <div class="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>Field</th>
-              <th>Type</th>
-              <th>Description</th>
+  {message.fields.length === 0 ? (
+    <p class="empty">No fields.</p>
+  ) : (
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Field</th>
+            <th>Type</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          {message.fields.map((field) => (
+            <tr id={`${id}-${field.name}`}>
+              <td>
+                <a class="row-anchor" href={`#${id}-${field.name}`}>
+                  <code>{field.name}</code>
+                </a>
+              </td>
+              <td class="type-cell" data-sep=":">
+                {field.map && "map of "}
+                {field.repeated && !field.map && "list of "}
+                {field.ref ? <a href={`#${anchor(field.ref)}`}>{field.type}</a> : field.type}
+              </td>
+              <td>
+                {field.description && <Fragment set:html={prose(field.description)} />}
+                {(field.rules.length > 0 || field.oneof) && (
+                  <p class="rules">{[...field.rules, ...(field.oneof ? [`one of ${field.oneof}`] : [])].join(", ")}</p>
+                )}
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {message.fields.map((field) => (
-              <tr id={`${id}-${field.name}`}>
-                <td>
-                  <a class="row-anchor" href={`#${id}-${field.name}`}>
-                    <code>{field.name}</code>
-                  </a>
-                </td>
-                <td class="type-cell" data-sep=":">
-                  {field.map && "map of "}
-                  {field.repeated && !field.map && "list of "}
-                  {field.ref ? <a href={`#${anchor(field.ref)}`}>{field.type}</a> : field.type}
-                </td>
-                <td>
-                  {field.description && <Fragment set:html={prose(field.description)} />}
-                  {(field.rules.length > 0 || field.oneof) && (
-                    <p class="rules">
-                      {[...field.rules, ...(field.oneof ? [`one of ${field.oneof}`] : [])].join(", ")}
-                    </p>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    )
-  }
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )}
 </section>

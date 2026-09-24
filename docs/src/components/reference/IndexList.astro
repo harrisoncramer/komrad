@@ -10,17 +10,15 @@ const { items, rows = false } = Astro.props;
 ---
 
 <ul class:list={["index-list", { rows }]}>
-  {
-    items.map((item) => (
-      <li id={item.id}>
-        <span class="index-name">
-          <a href={item.href}>
-            <code>{item.title}</code>
-          </a>
-          {item.id && <Anchor id={item.id} />}
-        </span>
-        {item.summary && <p>{item.summary}</p>}
-      </li>
-    ))
-  }
+  {items.map((item) => (
+    <li id={item.id}>
+      <span class="index-name">
+        <a href={item.href}>
+          <code>{item.title}</code>
+        </a>
+        {item.id && <Anchor id={item.id} />}
+      </span>
+      {item.summary && <p>{item.summary}</p>}
+    </li>
+  ))}
 </ul>

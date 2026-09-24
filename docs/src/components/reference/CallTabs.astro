@@ -10,22 +10,18 @@ const { tabs } = Astro.props;
 
 <call-tabs class="call-tabs">
   <div class="tab-list" role="tablist">
-    {
-      tabs.map((tab, index) => (
-        <button type="button" role="tab" class="tab" aria-selected={index === 0 ? "true" : "false"} data-index={index}>
-          {tab.label}
-        </button>
-      ))
-    }
+    {tabs.map((tab, index) => (
+      <button type="button" role="tab" class="tab" aria-selected={index === 0 ? "true" : "false"} data-index={index}>
+        {tab.label}
+      </button>
+    ))}
   </div>
-  {
-    tabs.map((tab, index) => (
-      <div class="tab-panel" role="tabpanel" data-index={index} hidden={index !== 0}>
-        <Code code={tab.code} lang={tab.lang} theme="tokyo-night" />
-        {tab.note && <p class="tab-note">{tab.note}</p>}
-      </div>
-    ))
-  }
+  {tabs.map((tab, index) => (
+    <div class="tab-panel" role="tabpanel" data-index={index} hidden={index !== 0}>
+      <Code code={tab.code} lang={tab.lang} theme="tokyo-night" />
+      {tab.note && <p class="tab-note">{tab.note}</p>}
+    </div>
+  ))}
 </call-tabs>
 
 <style>
