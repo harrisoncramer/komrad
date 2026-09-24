@@ -3,7 +3,9 @@
 package cli
 
 import (
+	"bytes"
 	"context"
+	"io"
 	"os"
 	"path/filepath"
 	"slices"
@@ -141,4 +143,58 @@ func TestIntegrationDoctorAdviceReadsThePanelsOwnPane(t *testing.T) {
 
 	assert.Contains(t, staleFix(t), "kill-server",
 		"a panel is drawing, so stopping the server under it would strand it")
+}
+
+// TestIntegrationColorFollowsWhatItWasAskedFor pins the three modes and the refusal.
+func TestIntegrationColorFollowsWhatItWasAskedFor(t *testing.T) {
+	tests := []struct {
+		name    string
+		mode    string
+		out     io.Writer
+		want    bool
+		wantErr bool
+	}{
+		{
+			name: "always, whatever it is writing to",
+			mode: "always",
+			out:  &bytes.Buffer{},
+			want: true,
+		},
+		{
+			name: "never, even at a terminal",
+			mode: "never",
+			out:  os.Stdout,
+		},
+		{
+			name: "auto into a buffer is not a terminal",
+			mode: "auto",
+			out:  &bytes.Buffer{},
+		},
+		{
+			name: "auto into a file that is not one either",
+			mode: "auto",
+			out:  os.NewFile(0, os.DevNull),
+		},
+		{
+			name:    "anything else is the caller's mistake",
+			mode:    "sometimes",
+			out:     &bytes.Buffer{},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := shouldColorize(tt.mode, tt.out)
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "sometimes", "the refusal names what was asked for")
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
 }

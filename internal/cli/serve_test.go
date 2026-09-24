@@ -3,7 +3,10 @@
 package cli
 
 import (
+	"bytes"
 	"context"
+	"log/slog"
+	"os"
 	"syscall"
 	"testing"
 	"time"
@@ -134,4 +137,39 @@ func TestIntegrationServeRefusesAnAddressTheFileWouldRefuse(t *testing.T) {
 			require.NoError(t, err)
 		})
 	}
+}
+
+// TestIntegrationCloseWithinSaysWhichHandleHungRatherThanWaiting pins the timeout around shutdown.
+func TestIntegrationCloseWithinSaysWhichHandleHungRatherThanWaiting(t *testing.T) {
+	var logged bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&logged, nil))
+
+	closed := make(chan struct{})
+	closeWithin(logger, "the pool", func() { close(closed) })
+
+	select {
+	case <-closed:
+	default:
+		t.Fatal("a handle that closes at once is closed")
+	}
+	assert.Empty(t, logged.String(), "and nothing is said about it")
+
+	release := make(chan struct{})
+	t.Cleanup(func() { close(release) })
+
+	closeWithin(logger, "the wedged pool", func() { <-release })
+
+	assert.Contains(t, logged.String(), "did not close in time")
+	assert.Contains(t, logged.String(), "the wedged pool", "the log names the handle that hung")
+}
+
+// TestIntegrationHookBinaryPathIsThisBuild pins that agents are launched with the hooks of the binary
+// serving them.
+func TestIntegrationHookBinaryPathIsThisBuild(t *testing.T) {
+	path := getHookBinaryPath(t.Context())
+	require.NotEmpty(t, path)
+
+	self, err := os.Executable()
+	require.NoError(t, err)
+	assert.Equal(t, self, path)
 }
