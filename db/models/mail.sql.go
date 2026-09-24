@@ -511,7 +511,7 @@ FROM
 WHERE
     m.claimed_at IS NULL
     AND ($1::text[] IS NULL
-        OR m.id::text = ANY ($1))
+        OR m.id = ANY ($1::uuid[]))
 ORDER BY
     m.id
 `

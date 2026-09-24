@@ -138,7 +138,7 @@ FROM
 WHERE
     m.claimed_at IS NULL
     AND (sqlc.narg('keys')::text[] IS NULL
-        OR m.id::text = ANY (sqlc.narg('keys')))
+        OR m.id = ANY (sqlc.narg('keys')::uuid[]))
 ORDER BY
     m.id;
 

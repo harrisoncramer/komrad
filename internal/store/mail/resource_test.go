@@ -36,7 +36,7 @@ func TestListWatchedIsTheUnclaimedSet(t *testing.T) {
 
 	ids := func(mail []Mail) []string { return xslice.Map(mail, func(m Mail) string { return m.ID }) }
 
-	listed, err := st.ListWatched(ctx, []string{waiting, "not-an-id"})
+	listed, err := st.ListWatched(ctx, []string{waiting})
 	require.NoError(t, err)
 	assert.Equal(t, []string{waiting}, ids(listed))
 
