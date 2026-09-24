@@ -28,6 +28,7 @@ type NewPanelParams struct {
 	Git           ReviewGit
 	Keys          config.Keybindings
 	DetailsHeight float64
+	SidebarSide   string
 	Width         int
 	Height        int
 }
@@ -43,6 +44,9 @@ func NewPanel(params NewPanelParams) *Panel {
 	layout := config.DefaultLayout()
 	if params.DetailsHeight != 0 {
 		layout.DetailsHeight = params.DetailsHeight
+	}
+	if params.SidebarSide != "" {
+		layout.SidebarSide = params.SidebarSide
 	}
 
 	return &Panel{
@@ -99,4 +103,14 @@ func NewKeyPress(key string) tea.KeyPressMsg {
 // IsZoomed reports whether the panel last asked tmux to zoom its pane over the window.
 func (p *Panel) IsZoomed() bool {
 	return p.tmux.zoomed
+}
+
+// CountRespawns is how many panes the panel has respawned.
+func (p *Panel) CountRespawns() int {
+	return len(p.tmux.respawns)
+}
+
+// CountSentKeys is how many key sends the panel has typed into panes.
+func (p *Panel) CountSentKeys() int {
+	return len(p.tmux.sentKeys)
 }

@@ -418,6 +418,82 @@ func TestNoticesReportAPlainWorkflowsDirectory(t *testing.T) {
 	assert.Empty(t, noticeTexts(agentNotices(child)), "its parent's row already says it")
 }
 
+// TestReviewStateNoticesSayWhoseTurnItIs covers the record saying whose move is next in each review state.
+func TestReviewStateNoticesSayWhoseTurnItIs(t *testing.T) {
+	tests := []struct {
+		name string
+		item panel.AgentRow
+		want string
+	}{
+		{
+			name: "never reviewed says nothing",
+			item: panel.AgentRow{},
+		},
+		{
+			name: "a review released without a conclusion says nothing",
+			item: panel.AgentRow{LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED},
+		},
+		{
+			name: "a tree that moved with nothing concluded on it says nothing",
+			item: panel.AgentRow{LocalTree: git.StandingMoved},
+		},
+		{
+			name: "approved on this tree",
+			item: panel.AgentRow{LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED},
+			want: localApprovedNotice,
+		},
+		{
+			name: "approved, tree moved since",
+			item: panel.AgentRow{LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED, LocalTree: git.StandingMoved},
+			want: localApprovedMovedNotice,
+		},
+		{
+			name: "changes requested, agent still owes fixes",
+			item: panel.AgentRow{LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED},
+			want: localChangesOwedNotice,
+		},
+		{
+			name: "changes requested, agent pushed since",
+			item: panel.AgentRow{LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED, LocalTree: git.StandingMoved},
+			want: localChangesPushedNotice,
+		},
+		{
+			name: "approved and landed",
+			item: panel.AgentRow{LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED, LocalTree: git.StandingLanded},
+			want: localApprovedLandedNotice,
+		},
+		{
+			name: "approved and landed, new work since",
+			item: panel.AgentRow{LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED, LocalTree: git.StandingLandedMoved},
+			want: localApprovedLandedMovedNotice,
+		},
+		{
+			name: "changes requested, landed as it was",
+			item: panel.AgentRow{LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED, LocalTree: git.StandingLanded},
+			want: localChangesLandedNotice,
+		},
+		{
+			name: "changes requested, landed with new work",
+			item: panel.AgentRow{LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED, LocalTree: git.StandingLandedMoved},
+			want: localChangesLandedMovedNotice,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			notices := agentNotices(noticeRow(tt.item))
+			if tt.want == "" {
+				require.Empty(t, notices)
+
+				return
+			}
+
+			require.Len(t, notices, 1)
+			assert.Equal(t, tt.want, notices[0].text)
+		})
+	}
+}
+
 // noticeTexts is what a row's notices say, without their icons.
 func noticeTexts(notices []notice) []string {
 	said := xslice.Map(notices, func(n notice) string {

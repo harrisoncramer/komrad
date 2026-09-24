@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"regexp"
 	"runtime"
 	"strings"
 	"sync"
@@ -47,6 +48,8 @@ const (
 	defaultHarnessWidth  = 140
 	defaultHarnessHeight = 40
 )
+
+var reviewCursorLine = regexp.MustCompile(`^[^ ]+:\d+`)
 
 var listBars = []string{"│ ", "┃ "}
 
@@ -140,7 +143,9 @@ type panelHarnessParams struct {
 	width         int
 	height        int
 	detailsHeight float64
+	sidebarSide   string
 	keys          *config.Keybindings
+	git           ui.ReviewGit
 }
 
 func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
@@ -181,8 +186,10 @@ func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
 			Schedules:     schedulev1connect.NewScheduleServiceClient(server.Client(), server.URL),
 			Hooks:         hookv1connect.NewHookServiceClient(server.Client(), server.URL),
 			Worktrees:     worktreev1connect.NewWorktreeServiceClient(server.Client(), server.URL),
+			Git:           params.git,
 			Keys:          keys,
 			DetailsHeight: params.detailsHeight,
+			SidebarSide:   params.sidebarSide,
 			Width:         width,
 			Height:        height,
 		}),
@@ -228,6 +235,27 @@ func (h *panelHarness) assertSent(want ...request) {
 
 	diff := cmp.Diff(want, h.recorder.seen, cmp.AllowUnexported(request{}), protocmp.Transform(), cmpopts.EquateEmpty())
 	assert.Empty(h.t, diff, "the requests sent (-want +got)")
+}
+
+func (h *panelHarness) assertSentTo(procedure string, want ...proto.Message) {
+	h.t.Helper()
+
+	diff := cmp.Diff(want, h.readSent(procedure), protocmp.Transform(), cmpopts.EquateEmpty())
+	assert.Empty(h.t, diff, "the requests sent to %s (-want +got)", procedure)
+}
+
+func (h *panelHarness) readSent(procedure string) []proto.Message {
+	h.recorder.mu.Lock()
+	defer h.recorder.mu.Unlock()
+
+	var sent []proto.Message
+	for _, seen := range h.recorder.seen {
+		if seen.procedure == procedure {
+			sent = append(sent, seen.msg)
+		}
+	}
+
+	return sent
 }
 
 func (h *panelHarness) answer(procedure string, answer answerFunc) {
@@ -361,6 +389,8 @@ func wrapRow(row proto.Message) *watchv1.Row {
 		return &watchv1.Row{Row: &watchv1.Row_Mark{Mark: row}}
 	case *agentv1.WatchedReview:
 		return &watchv1.Row{Row: &watchv1.Row_Review{Review: row}}
+	case *agentv1.ReviewThread:
+		return &watchv1.Row{Row: &watchv1.Row_ReviewThread{ReviewThread: row}}
 	case *agentv1.Mail:
 		return &watchv1.Row{Row: &watchv1.Row_Mail{Mail: row}}
 	case *pullrequestv1.PullRequest:
@@ -436,7 +466,7 @@ func cutRecord(frame string) ([]string, bool) {
 			if rules == 2 {
 				break
 			}
-			width = ansi.StringWidth(strings.TrimRight(line, " "))
+			width = ansi.StringWidth(line) - ansi.StringWidth(strings.TrimLeft(line, "─"))
 
 			continue
 		}
@@ -493,6 +523,32 @@ func readLegend(frame string) string {
 	for i := len(rows) - 1; i >= 0; i-- {
 		if strings.HasPrefix(rows[i], "─") {
 			return strings.Join(rows[i+1:], "\n")
+		}
+	}
+
+	return ""
+}
+
+func readSidebar(frame string) []string {
+	return xslice.Map(splitLines(frame), func(line string) string {
+		return strings.TrimRight(ansi.Truncate(line, config.DefaultSidebarWidth, ""), " ")
+	})
+}
+
+func readSidebarProse(frame string) string {
+	return strings.Join(strings.Fields(strings.Join(readSidebar(frame), " ")), " ")
+}
+
+func readStage(frame string) []string {
+	return xslice.Map(splitLines(frame), func(line string) string {
+		return strings.TrimRight(ansi.TruncateLeft(line, config.DefaultSidebarWidth, ""), " ")
+	})
+}
+
+func readReviewCursor(frame string) string {
+	for _, line := range readSidebar(frame) {
+		if reviewCursorLine.MatchString(line) {
+			return line
 		}
 	}
 
