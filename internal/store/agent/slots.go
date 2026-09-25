@@ -7,8 +7,6 @@ import (
 	"komrade/internal/store"
 )
 
-const slotsLock int64 = 7_240_116
-
 // CountLive returns the number of unarchived agents.
 func (s *AgentStore) CountLive(ctx context.Context) (int64, error) {
 	count, err := s.queries.CountLiveAgents(ctx)
@@ -19,9 +17,9 @@ func (s *AgentStore) CountLive(ctx context.Context) (int64, error) {
 	return count, nil
 }
 
-// LockSlots serializes agent slot claims for the current transaction.
+// LockSlots serializes the current engine's agent slot claims for the current transaction.
 func (s *AgentStore) LockSlots(ctx context.Context) error {
-	if err := s.queries.LockAgentSlots(ctx, slotsLock); err != nil {
+	if err := s.queries.LockAgentSlots(ctx); err != nil {
 		return fmt.Errorf("failed to lock the agent slots: %w", err)
 	}
 
