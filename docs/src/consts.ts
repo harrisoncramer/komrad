@@ -8,4 +8,5 @@ export const SECTIONS = [
   { id: "api", title: "API" },
   { id: "cli", title: "CLI" },
   { id: "config", title: "Config" },
+  { id: "pricing", title: "Pricing" },
 ] as const;

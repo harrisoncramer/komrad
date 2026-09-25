@@ -1,35 +1,29 @@
-# komrade
-
 <p align="center">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT" /></a>
+  <img src="docs/public/favicon.png" alt="komrade" width="120" />
 </p>
 
-Komrade is an agent manager that lives in your terminal. It runs Claude and Codex agents in tmux, keeps track of them, and lets them work together.
+# komrade
 
-With komrade you can create and manage agents, group them into workflows that share settings, run your own scripts at moments in an agent's life, launch agents on a schedule, and let agents manage other agents through komrade's MCP server.
+Komrade is a terminal-based agent manager.
 
-If you use Neovim or Emacs, or just like working from a terminal, komrade is for you.
+It helps you run Claude and Codex agents in a durable, searchable, and coordinated way.
 
-<img width="1727" height="1055" alt="The komrade panel" src="https://github.com/user-attachments/assets/9a67ecbc-ff0e-4fd1-a8d1-8dd76dd86a5e" />
-
-## Quickstart
-
-1. Set up a Postgres database and point `connection.database_url` in your komrade config at it.
-2. Install komrade by following the [installation guide](https://docs.komrade.dev/latest/guides/install/).
-3. Press `prefix + g` to open the panel. Press `w` to create your first workflow, then `c` to add your first agent.
+You can use komrade to run production investigations on a schedule, search through old sessions easily, or orchestrate developer workflows via MCP. It's designed with terminal power users in mind, who want to orchestrate agents on their own laptops, without having to run a heavy Electron application.
 
 ## Why komrade
 
-Keeping track of several agent sessions is hard. Komrade gives you one place to browse, search and talk to all of them, instead of juggling terminal panes.
+Running one agent is easy. Running ten is not, because sessions pile up across terminal panes, a finished conversation is hard to find again, and there is no easy way for one agent to hand work to another.
 
-It is unopinionated. Komrade gives you the building blocks as things you manage directly: [workflows](https://docs.komrade.dev/latest/guides/workflows/), [agents](https://docs.komrade.dev/latest/guides/agents/), [hooks](https://docs.komrade.dev/latest/guides/hooks/) and [schedules](https://docs.komrade.dev/latest/guides/schedules/). Its [MCP server](https://docs.komrade.dev/latest/guides/mcp/) and [CLI](https://docs.komrade.dev/latest/cli/) let agents manage other agents. How you put them together is up to you.
+Komrade gives you one place to browse, search and talk to all of them.
 
-Komrade is built for software work in [git worktrees](https://git-scm.com/docs/git-worktree), but it handles production support, Slack or email work just as well.
+Every agent is a real terminal in a tmux server of komrade's own. Taking over from an agent means attaching to its pane, and any CLI that runs in a terminal works. Closing the panel, or the terminal, stops nothing.
 
-It lives in tmux. Komrade is a tool for people who work in the terminal. It is not a remote coding environment or a separate app.
+Komrade is unopinionated. It gives you [workflows](https://komrade.dev/latest/guides/workflows/), [agents](https://komrade.dev/latest/guides/agents/), [hooks](https://komrade.dev/latest/guides/hooks/), [schedules](https://komrade.dev/latest/guides/schedules/) and [mail](https://komrade.dev/latest/guides/mail/), and leaves how to combine them up to you.
 
-## Documentation
+While komrade doesn't require an account or hosted service, you can run and deploy it remotely to enable "devbox" style development for hands-free or automated flows that don't have any vendor lock-in. Typically, komrade runs on your laptop directly.
 
-The documentation lives at [docs.komrade.dev](https://docs.komrade.dev/latest/). The guides explain how komrade works and how to use it. The API, CLI and config references are generated from the code, so they always match the build they describe.
+Read more in komrade's [docs](https://komrade.dev/latest/).
 
-The site's source is in [docs/](docs/). Run `mise run docs:dev` to work on it locally.
+## Usage
+
+There is no rug-pull. Komrade is free and open source, and is built by [me](https://harrisoncramer.me/about/). If you like it, consider sponsoring me on Github.
