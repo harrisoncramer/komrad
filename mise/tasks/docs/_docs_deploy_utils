@@ -25,7 +25,7 @@ docs_terraform_output() {
 			-backend-config=backend.hcl -input=false -lockfile=readonly >/dev/null 2>&1 || true
 	fi
 
-	terraform -chdir="$MISE_CONFIG_ROOT/infra/docs" output -raw "$name" 2>/dev/null
+	terraform -chdir="$MISE_CONFIG_ROOT/infra/docs" output -raw "$name"
 }
 
 docs_require_output() {
