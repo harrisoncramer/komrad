@@ -269,7 +269,8 @@ func (m *model) scrollDoc(rows int) {
 	}
 
 	doc := m.columnDoc(split)
-	m.docScroll = docScroll{shown: m.docShown(), top: doc.clamp(doc.top+rows, split.rows)}
+	top := doc.clamp(doc.top, split.rows)
+	m.docScroll = docScroll{shown: m.docShown(), top: doc.clamp(top+rows, split.rows)}
 }
 
 // dropStaleDocScroll forgets a scroll once the block shows something else.

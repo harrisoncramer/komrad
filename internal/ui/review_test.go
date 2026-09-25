@@ -184,6 +184,36 @@ func TestReviewCursor(t *testing.T) {
 		assert.Equal(t, "greet.go:1", readReviewCursor(harness.readFrame()))
 	})
 
+	t.Run("the wheel over the diff turns the cursor", func(t *testing.T) {
+		harness := openReview(t, newReviewServer(t))
+
+		wheelOver(harness, defaultHarnessWidth-1, false)
+
+		assert.Equal(t, "greet.go:4 (removed)", readReviewCursor(harness.readFrame()))
+	})
+
+	t.Run("the wheel over the diff leaves a comment being written on its line", func(t *testing.T) {
+		harness := openReview(t, newReviewServer(t))
+		harness.press("c")
+		typeText(harness, "still here")
+
+		wheelOver(harness, defaultHarnessWidth-1, false)
+		harness.press("ctrl+s")
+
+		harness.assertSentTo(agentv1connect.AgentServiceCreateReviewThreadProcedure, &agentv1.CreateReviewThreadRequest{
+			AgentId:     "a1",
+			FilePath:    gittest.File,
+			OldStart:    1,
+			OldEnd:      1,
+			NewStart:    1,
+			NewEnd:      1,
+			QuotedLines: []string{" package greet"},
+			Body:        "still here",
+			BaseSha:     gittest.BaseSHA,
+			SnapshotSha: gittest.SnapshotSHA,
+		})
+	})
+
 	t.Run("the page keys settle on a line and come back", func(t *testing.T) {
 		harness := openReview(t, newReviewServer(t))
 
@@ -434,6 +464,16 @@ func TestReviewThreadFocus(t *testing.T) {
 
 		harness.press("ctrl+n")
 		assert.Contains(t, readSidebarProse(harness.readFrame()), "note 5")
+	})
+
+	t.Run("the wheel over the sidebar scrolls the thread and leaves the diff", func(t *testing.T) {
+		harness := openLongThread(t)
+
+		wheelOver(harness, 1, true)
+
+		frame := harness.readFrame()
+		assert.NotContains(t, readSidebarProse(frame), "note 5")
+		assert.Equal(t, "greet.go:1", readReviewCursor(frame))
 	})
 
 	t.Run("moving the diff cursor drops the scroll and the keys", func(t *testing.T) {
