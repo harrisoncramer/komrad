@@ -48,9 +48,9 @@ func (m model) holdCycleKeys() {
 	m.popup.HoldCycleKeys(m.settings.Pane, m.focusPane() != "")
 }
 
-// pressedElsewhere is the stop a cycle key was pressed in when tmux sent it from a pane beside
+// findPressedElsewhere finds the stop a cycle key was pressed in when tmux sent it from a pane beside
 // the sidebar.
-func (m model) pressedElsewhere(k string) (stop, bool) {
+func (m model) findPressedElsewhere(k string) (stop, bool) {
 	if !m.areCycleKeysBound() || !isCycleKey(k) {
 		return stopList, false
 	}
@@ -84,8 +84,8 @@ func (m model) cycleFromElsewhere(k string, from stop) (tea.Model, tea.Cmd) {
 	return m.cycleView(k, from)
 }
 
-// sidebarStop is the stop holding the keys inside the sidebar.
-func (m model) sidebarStop() stop {
+// readSidebarStop reads the stop holding the keys inside the sidebar.
+func (m model) readSidebarStop() stop {
 	switch {
 	case m.isDetailsFocused():
 		return stopRecord
@@ -96,8 +96,8 @@ func (m model) sidebarStop() stop {
 	return stopList
 }
 
-// stops is the screen's stops in forward order, leaving out any it is not drawing.
-func (m model) stops() []stop {
+// listStops lists the screen's stops in forward order, leaving out any it is not drawing.
+func (m model) listStops() []stop {
 	stops := []stop{stopList}
 
 	switch {
@@ -118,7 +118,7 @@ func (m model) stops() []stop {
 
 // cycleView moves the keys one stop on from where they are, or one back for the backward key.
 func (m model) cycleView(k string, from stop) (tea.Model, tea.Cmd) {
-	stops := m.stops()
+	stops := m.listStops()
 	back := k == cycleBackKey
 
 	at := slices.Index(stops, from)

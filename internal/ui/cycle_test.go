@@ -1,6 +1,7 @@
 package ui_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -78,7 +79,7 @@ func TestViewCycle(t *testing.T) {
 
 			harness.press(tt.press...)
 
-			assert.Equal(t, tt.wantSelected, nilIfEmpty(harness.panel.ReadSelectedPanes()[selected:]))
+			assert.ElementsMatch(t, tt.wantSelected, harness.panel.ReadSelectedPanes()[selected:])
 			assert.Equal(t, tt.wantRecord, readRecordCursor(harness.readFrame()) != "")
 		})
 	}
@@ -116,48 +117,46 @@ func TestViewCycle(t *testing.T) {
 
 // TestReviewViewCycle covers the cycle on the review, where the thread under the cursor is a stop.
 func TestReviewViewCycle(t *testing.T) {
-	t.Run("the diff, the thread and the record in turn", func(t *testing.T) {
-		harness := openLongThread(t)
-
-		harness.press("ctrl+a")
-		assert.Contains(t, readLegend(harness.readFrame()), "back to the diff")
-
-		harness.press("ctrl+a")
-		frame := harness.readFrame()
-		assert.NotEmpty(t, readRecordCursor(frame))
-		assert.NotContains(t, readLegend(frame), "back to the diff")
-
-		harness.press("ctrl+a")
-		frame = harness.readFrame()
-		assert.Empty(t, readRecordCursor(frame))
-		assert.NotContains(t, readLegend(frame), "back to the diff", "the thread let go on the way into the record")
-	})
-
-	t.Run("leaving the record by its own key lands on the diff rather than the thread", func(t *testing.T) {
-		harness := openLongThread(t)
-
-		harness.press("ctrl+a", "ctrl+a", "esc")
-
-		frame := harness.readFrame()
-		assert.Empty(t, readRecordCursor(frame))
-		assert.NotContains(t, readLegend(frame), "back to the diff")
-	})
-
-	t.Run("backward from the record goes to the thread", func(t *testing.T) {
-		harness := openLongThread(t)
-
-		harness.press("ctrl+q", "ctrl+q")
-
-		frame := harness.readFrame()
-		assert.Empty(t, readRecordCursor(frame))
-		assert.Contains(t, readLegend(frame), "back to the diff")
-	})
-}
-
-func nilIfEmpty(panes []string) []string {
-	if len(panes) == 0 {
-		return nil
+	tests := []struct {
+		name       string
+		press      []string
+		wantRecord bool
+		wantThread bool
+	}{
+		{
+			name:       "forward from the diff goes to the thread",
+			press:      []string{"ctrl+a"},
+			wantThread: true,
+		},
+		{
+			name:       "forward from the thread goes to the record",
+			press:      []string{"ctrl+a", "ctrl+a"},
+			wantRecord: true,
+		},
+		{
+			name:  "forward from the record wraps to the diff with the thread let go",
+			press: []string{"ctrl+a", "ctrl+a", "ctrl+a"},
+		},
+		{
+			name:  "leaving the record by its own key lands on the diff rather than the thread",
+			press: []string{"ctrl+a", "ctrl+a", "esc"},
+		},
+		{
+			name:       "backward from the record goes to the thread",
+			press:      []string{"ctrl+q", "ctrl+q"},
+			wantThread: true,
+		},
 	}
 
-	return panes
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			harness := openLongThread(t)
+
+			harness.press(tt.press...)
+
+			frame := harness.readFrame()
+			assert.Equal(t, tt.wantRecord, readRecordCursor(frame) != "")
+			assert.Equal(t, tt.wantThread, strings.Contains(readLegend(frame), "back to the diff"))
+		})
+	}
 }

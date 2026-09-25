@@ -3,6 +3,8 @@ package ui
 import (
 	"fmt"
 	"strings"
+
+	"komrad/lib/xptr"
 )
 
 // CycleKeys move the keys to the next view and the previous one.
@@ -64,10 +66,10 @@ func (p *PopupWindow) HoldCycleKeys(sidebar string, staged bool) {
 		for _, key := range CycleKeys {
 			p.tmux.BindRootKey(key, "send-keys", "-t", sidebar, key)
 		}
-		p.cycling = &staged
+		p.cycling = xptr.Ptr(staged)
 	default:
 		p.unbindCycleKeys()
-		p.cycling = &staged
+		p.cycling = xptr.Ptr(staged)
 	}
 }
 

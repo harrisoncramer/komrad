@@ -100,7 +100,7 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// A cycle key pressed in another pane is answered ahead of every mode.
 	if isKey {
-		if from, ok := m.pressedElsewhere(key.String()); ok {
+		if from, ok := m.findPressedElsewhere(key.String()); ok {
 			return m.cycleFromElsewhere(key.String(), from)
 		}
 	}
@@ -264,7 +264,7 @@ func (m model) routeGlobalKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
 	}
 
 	if m.isDetailsScreen() && isCycleKey(key.String()) {
-		next, cmd := m.cycleView(key.String(), m.sidebarStop())
+		next, cmd := m.cycleView(key.String(), m.readSidebarStop())
 
 		return next, cmd, true
 	}

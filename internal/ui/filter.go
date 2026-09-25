@@ -218,7 +218,7 @@ func (m model) updateFilterInput(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if m.isDetailsScreen() && isCycleKey(key.String()) {
 		m.filter.typing = false
 
-		return m.cycleView(key.String(), m.sidebarStop())
+		return m.cycleView(key.String(), m.readSidebarStop())
 	}
 
 	// Typing lights what it has found and moves nothing; enter is what applies the search.
