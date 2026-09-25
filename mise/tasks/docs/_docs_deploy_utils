@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+
+# The AWS profile is a credential choice belonging to whoever is running the command, so it
+# comes from the environment like it does for every other AWS tool. See
+# mise/tasks/remote/_remote_utils for the fuller version of this explainer.
+require_aws_profile() {
+	if [ -n "${AWS_PROFILE:-}" ] || [ -n "${AWS_ACCESS_KEY_ID:-}" ] || [ -n "${AWS_SESSION_TOKEN:-}" ]; then
+		return 0
+	fi
+
+	echo "no AWS credentials in the environment." >&2
+	echo >&2
+	echo "Export AWS_PROFILE, or whichever of AWS_ACCESS_KEY_ID and friends you use:" >&2
+	echo >&2
+	echo "  export AWS_PROFILE=your-profile" >&2
+	exit 1
+}
+
+# Terraform built the site's bucket and distribution, so Terraform is what says where they are.
+docs_terraform_output() {
+	local name=$1
+
+	if [ ! -d "$MISE_CONFIG_ROOT/infra/docs/.terraform" ] && [ -f "$MISE_CONFIG_ROOT/infra/docs/backend.hcl" ]; then
+		terraform -chdir="$MISE_CONFIG_ROOT/infra/docs" init \
+			-backend-config=backend.hcl -input=false -lockfile=readonly >/dev/null 2>&1 || true
+	fi
+
+	terraform -chdir="$MISE_CONFIG_ROOT/infra/docs" output -raw "$name" 2>/dev/null
+}
+
+docs_require_output() {
+	local name=$1 value
+	value="$(docs_terraform_output "$name")"
+
+	if [ -z "$value" ]; then
+		echo "could not read $name from infra/docs." >&2
+		echo >&2
+		echo "Run 'mise run infra:docs:apply' to build the site's infrastructure." >&2
+		exit 1
+	fi
+
+	echo "$value"
+}

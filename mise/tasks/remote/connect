@@ -40,7 +40,7 @@ fi
 if [ -z "$HOST" ]; then
 	echo "could not read the engine's address from Terraform." >&2
 	echo >&2
-	echo "Run 'mise run terraform:apply' to build one, or set KOMRADE_ENGINE_HOST." >&2
+	echo "Run 'mise run infra:engine:apply' to build one, or set KOMRADE_ENGINE_HOST." >&2
 	exit 1
 fi
 

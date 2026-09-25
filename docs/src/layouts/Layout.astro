@@ -6,7 +6,7 @@ import "../styles/global.css";
 import Header from "../components/Header";
 import Search from "../components/Search.astro";
 import { SITE_TITLE } from "../consts";
-import { link } from "../site";
+import { canonical, link } from "../site";
 
 type Props = {
   title: string;
@@ -23,6 +23,7 @@ const pageTitle = title === SITE_TITLE ? title : `${title} | ${SITE_TITLE}`;
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     {description && <meta name="description" content={description} />}
     <link rel="icon" type="image/png" href={link("/favicon.png")} />
+    <link rel="canonical" href={canonical(Astro.url.pathname)} />
     <title>{pageTitle}</title>
   </head>
   <body>

@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source "$MISE_CONFIG_ROOT/mise/tasks/infra/engine/_terraform_utils"
+
+run_terraform destroy "$@"

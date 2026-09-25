@@ -27,7 +27,7 @@ local_version() {
 	echo "v0.0.0-local.$(git rev-parse --short HEAD)$(dirty_suffix)"
 }
 
-# The docs directory a build publishes to: a release tag, tip, or dev for a local build.
+# The docs directory a build publishes to: a release tag, latest, or dev for a local build.
 docs_version() {
 	if [ -n "${DOCS_VERSION:-}" ]; then
 		echo "$DOCS_VERSION"

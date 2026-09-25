@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+: "${TERRAFORM_MODULE_DIR:?set TERRAFORM_MODULE_DIR to the module this task runs against}"
+
 export TF_PLUGIN_CACHE_DIR="${TF_PLUGIN_CACHE_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/terraform/plugins}"
 mkdir -p "$TF_PLUGIN_CACHE_DIR"
 
 run_terraform() {
-	terraform -chdir="$MISE_CONFIG_ROOT/infra/terraform" "$@"
+	terraform -chdir="$MISE_CONFIG_ROOT/$TERRAFORM_MODULE_DIR" "$@"
 }

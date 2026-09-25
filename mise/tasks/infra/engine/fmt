@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-source "$MISE_CONFIG_ROOT/mise/tasks/terraform/_terraform_utils"
+source "$MISE_CONFIG_ROOT/mise/tasks/infra/engine/_terraform_utils"
 
 if [ "${1:-}" = "--fix" ]; then
 	shift

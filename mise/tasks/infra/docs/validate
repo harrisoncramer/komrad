@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
 set -euo pipefail
-source "$MISE_CONFIG_ROOT/mise/tasks/terraform/_terraform_utils"
+source "$MISE_CONFIG_ROOT/mise/tasks/infra/docs/_terraform_utils"
 
 run_terraform validate "$@"

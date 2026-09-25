@@ -102,7 +102,7 @@ python3 - "$AMI" <<'PY'
 import re
 import sys
 
-path, ami = "infra/terraform/terraform.tfvars", sys.argv[1]
+path, ami = "infra/engine/terraform.tfvars", sys.argv[1]
 text = open(path).read()
 updated, count = re.subn(
     r'(^[ \t]*ami_id[ \t]*=[ \t]*)"[^"]*"',
@@ -118,7 +118,7 @@ if count != 1:
 open(path, "w").write(updated)
 PY
 
-terraform -chdir=infra/terraform apply -input=false "${TERRAFORM_ARGS[@]+"${TERRAFORM_ARGS[@]}"}"
+terraform -chdir=infra/engine apply -input=false "${TERRAFORM_ARGS[@]+"${TERRAFORM_ARGS[@]}"}"
 
 # The address outlives the instance, so what answers on it now has a host key nothing has seen
 # before. Anything still holding the old one refuses to connect until it is dropped, and a shared
