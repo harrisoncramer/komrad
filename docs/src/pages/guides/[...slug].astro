@@ -2,18 +2,28 @@
 import { render } from "astro:content";
 import DocPage from "../../layouts/DocPage.astro";
 import { getGuides } from "../../guides";
+import { link } from "../../site";
 
 export async function getStaticPaths() {
-  return (await getGuides()).map((guide) => ({
+  const guides = await getGuides();
+  return guides.map((guide, index) => ({
     params: { slug: guide.id },
-    props: { guide },
+    props: { guide, prev: guides[index - 1], next: guides[index + 1] },
   }));
 }
 
-const { guide } = Astro.props;
+const { guide, prev, next } = Astro.props;
 const { Content } = await render(guide);
+const neighbour = (entry: typeof guide | undefined) =>
+  entry && { title: entry.data.title, href: link(`/guides/${entry.id}`) };
 ---
 
-<DocPage title={guide.data.title} description={guide.data.description} filePath={guide.filePath}>
+<DocPage
+  title={guide.data.title}
+  description={guide.data.description}
+  filePath={guide.filePath}
+  prev={neighbour(prev)}
+  next={neighbour(next)}
+>
   <Content />
 </DocPage>

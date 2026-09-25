@@ -6,9 +6,17 @@ import { link } from "../../site";
 const guides = await getGuides();
 
 const groups = [
-  { id: "start", title: "Getting started", blurb: "Install komrade and learn how its pieces fit together." },
-  { id: "concepts", title: "Concepts", blurb: "The things you build with: workflows, agents, and how they talk." },
+  {
+    id: "start",
+    title: "Getting started",
+    blurb: "Install komrade, then build up from a workflow to agents that talk to each other.",
+  },
   { id: "operations", title: "Operations", blurb: "Connecting forges and running komrade on a machine of its own." },
+  {
+    id: "architecture",
+    title: "Architecture",
+    blurb: "How komrade works and why, for anyone curious or changing it.",
+  },
 ] as const;
 
 const numbered = guides.map((guide, index) => ({ guide, number: String(index + 1).padStart(2, "0") }));
@@ -27,7 +35,7 @@ const numbered = guides.map((guide, index) => ({ guide, number: String(index + 1
   {groups.map((group) => {
     const entries = numbered.filter(({ guide }) => guide.data.group === group.id);
     return (
-      <section class="group">
+      <section class="group" id={group.id}>
         <div class="group-heading">
           <h2>{group.title}</h2>
           <p>{group.blurb}</p>

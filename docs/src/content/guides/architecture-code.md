@@ -1,0 +1,58 @@
+---
+title: The shape of the code
+description: The layers, what may import what, the linters that hold the line, and where tests live.
+group: architecture
+order: 16
+---
+
+The Go code is arranged in layers. Tools enforce the arrangement, so nobody has to remember it.
+
+## The layers
+
+```
+  cli
+   |
+  server
+   |
+  rpc, mcp        handlers
+   |
+  services        agents, mail, reviews, ...
+   |                          |
+  store                  adapters: git, tmux, harness, forge
+   |                          |
+  Postgres               the outside world
+
+  ui               a client, talks over Connect only
+```
+
+Handlers turn a request into one call on a service. Services hold the rules. Stores read and write their own tables. Anything komrade does not own, like tmux or git, sits behind an adapter. The harness adapter is the only place that knows how Claude and Codex differ. The panel is a client and has no database connection.
+
+## Imports
+
+The arrows above are enforced by depguard. For instance, the panel may not import tmux or the store. A service may not import the generated protos, so wire shapes cannot leak into the rules. A store may not import a service. The generated query package may be imported only by stores. Cross a line and the linter fails.
+
+## Linters
+
+Komrade uses a lot of golangci-lint linters to enforce structure. Many are standard. Some are ours, in a plugin under `tools/komradelint`, written when the same review comment came up one too many times.
+
+For instance, every sentinel error must be made with a `fail` constructor that names its kind, so its RPC code is decided where it is declared. A handler body must be a single call. A constructor must be `NewT(NewTParams)`. Only `config` may read the environment. No bare HTTP client is allowed outside one package. A forge secret may be exposed in three named places and nowhere else.
+
+Tests have rules too. A test file must sit beside a source file of the same name. A test may not declare a method that matches a store method, which keeps services tested against the real store. Unit tests may not run git directly. They take the seam and hand in a fake.
+
+## Tests
+
+Each behaviour is tested at the lowest layer that can see it, and only there.
+
+```
+  store      real Postgres         queries, ordering
+  service    real store, fakes     the rules
+  adapter    a fake service        validation, error codes
+  scenario   real everything       a feature end to end
+  panel      frame and requests    keys, screens, forms
+```
+
+There is one shared fake per outside seam: a fake tmux, a fake harness, fake git. A regression is a new case in the table that owns the behaviour, not a new test function.
+
+## The check
+
+`mise run check` runs everything: formatting, the linters, every test, and the generated-file drift check. It reports every failure at the end instead of stopping at the first. CI runs the same tasks. There are no git hooks.
