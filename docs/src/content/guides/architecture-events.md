@@ -1,0 +1,51 @@
+---
+title: Events and the watch
+description: How a committed row becomes a redraw, and how the loops keep the database honest.
+group: architecture
+order: 13
+---
+
+Komrade never polls the database to find out what changed. The database tells it.
+
+## The path
+
+```
+  write commits
+       |
+       v
+  trigger: pg_notify("agents <key>")
+       |
+       v
+  listener, one dedicated connection
+       |
+       v
+  pending set: keys to re-read
+       |
+       v
+  render pass: read rows back, diff per subscriber
+       |
+       v
+  stream -> panel
+```
+
+Every table the panel draws has a trigger. When a row is inserted, updated or deleted, the trigger calls `pg_notify` with the table name and the row's key. It sends no data. It just says which row to look at. Because it rides on the transaction, it fires only when the write commits.
+
+The service keeps one connection open just to listen. When a notification arrives, it adds the key to a pending set and pokes the render loop. The poke is a channel with room for one message. If the loop is busy, the poke is dropped, and the key is still in the set. So a hundred writes to the same row become one re-read.
+
+The render loop reads the pending rows back using the same queries the List RPCs use. Each subscriber remembers what it was last sent and only gets what differs. A row that no longer exists becomes a tombstone.
+
+## Why this is safe
+
+A notification is a hint, not a record. Nothing is stored and nothing is replayed. If the listener's connection drops, every subscriber is dropped too, and each one reconnects and takes a fresh snapshot. If a subscriber is too slow to keep up, it is dropped for the same reason. Losing a notification costs one reread. It never leaves the screen wrong.
+
+The panel and MCP see the same rows. One function joins an agent to its mail, marks, pull requests and review. The panel runs it on its streamed copy. `ListAgents` runs it on the fly.
+
+## The loops
+
+The outside world does not send notifications. tmux does not say when an agent goes idle. GitHub does not say when a pull request merges. So the service runs loops that go and look on a timer and write what they find onto a row. From there, the trigger and the stream do the rest.
+
+For instance, the reconcile loop reads the bottom of each agent's pane and decides whether the agent is working, waiting, or idle. It reads the screen instead of trusting hooks, because a hook can be missed and a screen cannot lie. Other loops deliver mail, sync pull requests, and measure worktrees.
+
+## River
+
+Work that must happen later, or exactly once, goes through River, a job queue that lives in the same Postgres. Launching an agent for a schedule is a River job. So is emptying the archive. Jobs are unique by their arguments, so pressing a key twice cannot queue the work twice.

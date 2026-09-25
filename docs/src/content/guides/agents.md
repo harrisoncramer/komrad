@@ -1,53 +1,62 @@
 ---
 title: Agents
 description: What an agent is, what the panel shows about it, and how agents work together.
-group: concepts
-order: 4
+group: start
+order: 3
 ---
 
-An agent is a Claude or Codex session that komrade runs for you in a terminal of its own. You can leave it working and come back, restart your machine without losing it, search everything it has said, or have other agents give it work.
+With a [workflow](../workflows/) in place, move the cursor onto it and press `c`. Give the agent a name and a prompt, say `fix-login` and a description of the bug, and it starts. That is an agent: a Claude or Codex session komrade runs for you in a terminal of its own. You can leave it working and come back, restart your machine without losing it, search everything it has said, or have other agents give it work.
 
 <figure class="placeholder">
   <figcaption>The agents list beside an agent's live terminal, with the details panel for that agent underneath.</figcaption>
 </figure>
 
-## What agents are good for
+## Three kinds of agent
 
-The same few ideas cover very different jobs. A worktree agent gets a private checkout of your repository and works on its own branch, so several can change code at once without colliding. A scheduled agent wakes on a timer, say every weekday morning, to read the overnight alerts and write up what needs a person. An orchestrator hands work out: it starts other agents through komrade's [MCP](../mcp/) tools, talks to them by [mail](../mail/), and gathers what they find.
+```
+  workflow
+   |
+   |-- orchestrator      one per workflow, stands behind its row
+   |                     hands work out, writes no code
+   |
+   |-- implementer       its own checkout, its own branch
+   |     |
+   |     '-- reviewer    a child, reads the parent's work
+   |
+   '-- implementer
+         |
+         '-- reviewer
+```
+
+Every agent has a role, and the role decides what it can do.
+
+An implementer is the ordinary agent. It gets a checkout of its own, works on its own branch, and lands the change. Most agents you spawn are implementers.
+
+A reviewer is a child of an implementer. It runs inside its parent's checkout, is told not to change it, and reads the parent's work to write a review. It can only mail its own family, and it goes away when its parent does.
+
+An orchestrator is one agent per workflow. It writes no code and has no checkout. It spawns implementers into its own workflow through [MCP](../mcp/), talks to them by [mail](../mail/), and gathers what they find. Landing on a workflow's row in the panel puts you in a conversation with it, and that conversation accumulates for the life of the workflow. It cannot spawn into another workflow, and it cannot have children of its own.
+
+A scheduled agent is not a fourth kind. It is an implementer that a [schedule](../schedules/) started on a timer.
 
 ## What state an agent is in
 
-Komrade reads each agent's screen to tell what it is doing. An agent is working while it thinks or runs a tool, waiting when it has stopped to ask you something, and idle when it has nothing to do. The panel shows this at a glance, so you can see which agents need you.
+Komrade reads each agent's screen to tell what it is doing. An agent is working while it thinks or runs a tool, waiting when it has stopped to ask you something, and idle when it has nothing to do. If komrade cannot read a screen, it treats the agent as waiting on you, since an unreadable screen might be a question.
 
-Sometimes komrade cannot make sense of a screen. It treats that agent as though it were waiting on you, because an unreadable screen might be a question. It holds back scheduled runs and mail for that agent until the screen reads normally again.
+Separately, an agent is either running or dormant. A dormant agent's CLI has exited, but its conversation is kept, and resuming picks up where it left off.
 
-An agent whose setup failed stays in the list and says what went wrong, so you can fix the cause and try again.
+## What the panel shows
 
-Separately from what it is doing, an agent is either running or dormant. A dormant agent's CLI has exited and its terminal is closed, but its conversation is kept, and resuming it picks up where it left off.
-
-## What the panel shows about an agent
-
-Each agent's row shows its state, whether mail is waiting for it, and the pull request its branch has open, if any. The pull request symbol changes as the pull request moves: open, approved, failing checks, conflicting, merged, or closed.
-
-Beneath the list, the details show everything about the agent under the cursor: what it was launched with, its branch and pull requests, how its checkout compares to the base branch, the facts it has recorded about its own work, and its latest changes and commits.
+Each row shows the agent's state, whether mail is waiting, and its pull request if it has one. The details beneath show what it was launched with, its branch, how its checkout compares to the base, its recent commits, and any metadata it has recorded about its own work, such as the ticket it is on.
 
 <figure class="placeholder">
   <figcaption>The details panel for one agent, showing its branch, its pull request, its recorded metadata and its recent commits.</figcaption>
 </figure>
 
-Agents record facts about their own work as metadata, such as the ticket they are on or a design note they wrote. That is how you find your way back to what an agent did, long after its conversation has scrolled away.
+You can search the list by name, and search every conversation komrade has ever run, archived ones included. Marks let you jump straight back to an agent you care about, the way marks work in vim.
 
-## Finding agents and what they said
+## Children
 
-You can search the list by name, and search the details of the agent you are looking at. You can also search every conversation komrade has ever run, archived ones included, to find the agent that discussed something weeks ago.
-
-Marks let you jump straight back to an agent or a workflow you care about, the way marks work in vim. They belong to you, and no agent can set one.
-
-## Agents that work together
-
-A child agent is attached to a parent agent and reads the parent's work. A reviewer checking a change, or a test runner reporting failures, is the usual case. A child works inside its parent's checkout, is told not to change it, can only mail its own family, and goes away when its parent does. The panel draws it beneath its parent. How many children one agent may hold is capped by [`max_children`](../../config/#max_children), because they all share one checkout.
-
-An agent that writes work of its own needs its own checkout, so it should be a standalone agent rather than a child.
+A child is any agent attached to a parent, and a reviewer is the usual case. Children share the parent's checkout, so [`max_children`](../../config/#max_children) caps how many one parent may hold. An agent that writes work of its own should be a standalone implementer, not a child.
 
 <figure class="placeholder">
   <figcaption>A parent agent with a reviewer child indented beneath it in the agents list.</figcaption>
@@ -55,14 +64,10 @@ An agent that writes work of its own needs its own checkout, so it should be a s
 
 ## Picking up an existing branch
 
-You can put an agent onto a branch that already exists, one that someone else started, which komrade calls adopting it. This works on any git repository, whether or not it lives on a forge. If nothing has that branch checked out, the agent gets a fresh worktree on it. If another checkout already has it, the agent works in that checkout as it is.
-
-The branch stays its owner's. Komrade never resets it, deleting the agent leaves the branch alone, and the agent is told at the start that the commits are not its to rewrite.
+You can put an agent onto a branch someone else started, which komrade calls adopting it. The agent gets a fresh worktree on that branch, or works in the checkout that already has it. The branch stays its owner's. Komrade never resets it, and the agent is told the commits are not its to rewrite.
 
 ## Finishing with an agent
 
-Archiving is the ordinary way to finish. It stops the agent, closes its terminal and takes it out of the list, but keeps its record and its conversation, so search still finds it and you can restore it later.
+Archiving stops the agent and takes it out of the list, but keeps its record and conversation. Deleting is permanent: the record, the conversation and the worktree are all removed. Komrade refuses to run more agents than [`max_agents`](../../config/#max_agents) allows, so archive what you are done with.
 
-Deleting is permanent. It removes the record, the conversation and its search index, and it removes the agent's worktree from disk. You can delete agents from the archive one at a time, several at once, or clear the whole archive. Komrade does the cleanup in the background and shows any agent whose cleanup failed, with the reason.
-
-Komrade refuses to run more agents than [`max_agents`](../../config/#max_agents) allows, so archiving what you are done with keeps room for new work.
+Your agent is working in a fresh worktree, which means it has no dependencies installed. A [hook](../hooks/) fixes that.

@@ -2,13 +2,17 @@
 import Layout from "./Layout.astro";
 import { REPO_URL } from "../consts";
 
+type Neighbour = { title: string; href: string };
+
 type Props = {
   title: string;
   description?: string;
   filePath?: string;
+  prev?: Neighbour;
+  next?: Neighbour;
 };
 
-const { title, description, filePath } = Astro.props;
+const { title, description, filePath, prev, next } = Astro.props;
 ---
 
 <Layout title={title} description={description}>
@@ -27,6 +31,24 @@ const { title, description, filePath } = Astro.props;
     <div class="doc-content mt-4">
       <slot />
     </div>
+    {(prev || next) && (
+      <nav class="pager" aria-label="Guides" data-pagefind-ignore>
+        {prev ? (
+          <a class="pager-link" href={prev.href} rel="prev">
+            <span class="pager-label">Previous</span>
+            <span class="pager-title">&larr; {prev.title}</span>
+          </a>
+        ) : (
+          <span />
+        )}
+        {next && (
+          <a class="pager-link pager-next" href={next.href} rel="next">
+            <span class="pager-label">Next</span>
+            <span class="pager-title">{next.title} &rarr;</span>
+          </a>
+        )}
+      </nav>
+    )}
   </article>
 </Layout>
 
@@ -48,7 +70,28 @@ const { title, description, filePath } = Astro.props;
   }
 
   .doc-content {
-    @apply mb-24 flex flex-col gap-6;
+    @apply mb-12 flex flex-col gap-6;
+  }
+
+  .pager {
+    @apply mb-24 flex justify-between gap-4 border-t border-app-background-medium pt-6;
+  }
+
+  .pager-link {
+    @apply flex flex-col gap-1 text-app-gray-light transition-colors hover:text-app-blue;
+    font-family: var(--font-sans);
+  }
+
+  .pager-next {
+    @apply items-end text-right;
+  }
+
+  .pager-label {
+    @apply text-xs tracking-wide text-app-gray-dim uppercase;
+  }
+
+  .pager-title {
+    @apply text-base;
   }
 
   .doc-content :global(:is(h2, h3, h4)) {
