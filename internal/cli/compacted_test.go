@@ -58,7 +58,7 @@ func TestCompactedHookRemindsTheAgent(t *testing.T) {
 				"Branch: agent/compaction",
 				"Pull request: https://github.com/o/r/pull/9 (changes requested)",
 				"Recorded summary: per-role compaction",
-				"Open review threads (1)",
+				"Open review threads on your work (1), answered with add_review_message",
 				"- thread-open on config/appconfig.go lines 10-12",
 				"Call read_mail.",
 				"build the usage block",
@@ -75,8 +75,13 @@ func TestCompactedHookRemindsTheAgent(t *testing.T) {
 			}},
 			threads:          []*agentv1.ReviewThread{{Id: "thread-open", FilePath: "a.go", NewStart: 1, NewEnd: 1}},
 			wantThreadsOwner: "agent-a",
-			wantText:         []string{"the reviewer agent", "Parent agent: agent-a", "- thread-open on a.go lines 1-1"},
-			wantAbsent:       []string{"read_mail"},
+			wantText: []string{
+				"the reviewer agent",
+				"Parent agent: agent-a",
+				"Your open threads on the work you review (1)",
+				"- thread-open on a.go lines 1-1",
+			},
+			wantAbsent: []string{"read_mail", "add_review_message"},
 		},
 		{
 			name: "an orchestrator has no diff, so no threads are read",
@@ -143,7 +148,7 @@ func TestCompactedHookRemindsTheAgent(t *testing.T) {
 
 			assert.Equal(t, tt.wantThreadsOwner, threadsOwner, "threads are read for the diff the agent works on")
 
-			var printed stopHookOutput
+			var printed hookOutput
 			require.NoError(t, json.Unmarshal(out.Bytes(), &printed))
 			assert.Equal(t, string(claude.EventSessionStart), printed.HookSpecificOutput.HookEventName)
 			for _, want := range tt.wantText {

@@ -59,8 +59,8 @@ reached prints nothing.`,
 			reportHookProblem(cmd, "komrade could not read the review threads, so they are left out", err)
 		}
 
-		return json.NewEncoder(cmd.OutOrStdout()).Encode(stopHookOutput{
-			HookSpecificOutput: stopHookContext{
+		return json.NewEncoder(cmd.OutOrStdout()).Encode(hookOutput{
+			HookSpecificOutput: hookContext{
 				HookEventName:     string(claude.EventSessionStart),
 				AdditionalContext: renderCompactedRecord(row, threads),
 			},
@@ -170,7 +170,7 @@ func renderCompactedRecord(row *agentv1.AgentRow, threads []*agentv1.ReviewThrea
 	})...)
 
 	if len(threads) > 0 {
-		lines = append(lines, fmt.Sprintf("Open review threads (%d), answered with add_review_message:", len(threads)))
+		lines = append(lines, threadsHeading(agent.GetRole(), len(threads)))
 		lines = append(lines, xslice.Map(threads, func(thread *agentv1.ReviewThread) string {
 			return fmt.Sprintf("- %s on %s lines %d-%d", thread.GetId(), thread.GetFilePath(), thread.GetNewStart(), thread.GetNewEnd())
 		})...)
@@ -185,6 +185,15 @@ func renderCompactedRecord(row *agentv1.AgentRow, threads []*agentv1.ReviewThrea
 	}
 
 	return strings.Join(lines, "\n")
+}
+
+func threadsHeading(role agentv1.AgentRole, count int) string {
+	if role == agentv1.AgentRole_AGENT_ROLE_REVIEWER {
+		return fmt.Sprintf("Your open threads on the work you review (%d). Re-read them with list_review_threads, "+
+			"take a fresh round, and resolve each one that is settled or release another review:", count)
+	}
+
+	return fmt.Sprintf("Open review threads on your work (%d), answered with add_review_message:", count)
 }
 
 func roleName(role agentv1.AgentRole) string {

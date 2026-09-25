@@ -108,8 +108,9 @@ func settingsFileName(autoCompaction int) string {
 // HookInstall is how komrade answers one Claude event, kept a struct so an event needing a matcher
 // of its own is a field here.
 type HookInstall struct {
-	Subcommand string
-	Matcher    string
+	Subcommand     string
+	Matcher        string
+	TakesNoReading bool
 }
 
 // InstalledHooks is the events komrade answers, keyed by the event Claude fires.
@@ -118,7 +119,7 @@ var InstalledHooks = map[harness.Event]HookInstall{
 	EventPreToolUse:        {Subcommand: "pre-tool-use"},
 	EventPostToolUse:       {Subcommand: "post-tool-use"},
 	EventPermissionRequest: {Subcommand: "permission-request"},
-	EventSessionStart:      {Subcommand: "compacted", Matcher: CompactMatcher},
+	EventSessionStart:      {Subcommand: "compacted", Matcher: CompactMatcher, TakesNoReading: true},
 }
 
 // hookSettings is the hooks block Claude loads at session start, empty when komrade has no binary

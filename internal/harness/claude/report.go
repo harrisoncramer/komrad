@@ -53,7 +53,7 @@ func (h *Harness) ReadReport(event harness.Event, payload []byte) (harness.Repor
 		}
 
 		return harness.Report{Reason: parsed.ToolName}, nil
-	case EventPostToolUse, EventSessionStart:
+	case EventPostToolUse:
 		return harness.Report{}, nil
 	default:
 		// Refused rather than read as a report of nothing, an empty report clearing the reason on
