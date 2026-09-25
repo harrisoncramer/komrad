@@ -4,21 +4,21 @@ DECLARE
     engine_password text := CURRENT_SETTING('komrad.engine_password');
     login_name text := 'komrad_engine_' || engine_name;
     river_schema text := 'river_' || engine_name;
-    engine_tenant uuid;
+    this_engine uuid;
     mapped uuid;
     login record;
 BEGIN
     SELECT
-        id INTO engine_tenant
+        id INTO this_engine
     FROM
-        tenants
+        engines
     WHERE
         name = engine_name;
-    IF engine_tenant IS NULL THEN
-        INSERT INTO tenants (name)
+    IF this_engine IS NULL THEN
+        INSERT INTO engines (name)
             VALUES (engine_name)
         RETURNING
-            id INTO engine_tenant;
+            id INTO this_engine;
     END IF;
     FOR login IN
     SELECT
@@ -28,12 +28,12 @@ BEGIN
             (login_name || '_reader', 'komrad_reader', TRUE)) AS wanted (role_name, group_name, is_reader)
         LOOP
             SELECT
-                tenant_id INTO mapped
+                engine_id INTO mapped
             FROM
-                tenant_logins
+                engine_logins
             WHERE
                 ROLE = login.role_name;
-            IF mapped IS NOT NULL AND mapped <> engine_tenant THEN
+            IF mapped IS NOT NULL AND mapped <> this_engine THEN
                 RAISE EXCEPTION '% already belongs to another engine', login.role_name;
             END IF;
             IF EXISTS (
@@ -78,8 +78,8 @@ BEGIN
             EXECUTE FORMAT('GRANT %I TO %I', login.group_name, login.role_name);
             EXECUTE FORMAT('GRANT CONNECT ON DATABASE %I TO %I', CURRENT_DATABASE(), login.role_name);
             IF mapped IS NULL THEN
-                INSERT INTO tenant_logins (ROLE, tenant_id, reader)
-                    VALUES (login.role_name, engine_tenant, login.is_reader);
+                INSERT INTO engine_logins (ROLE, engine_id, reader)
+                    VALUES (login.role_name, this_engine, login.is_reader);
             END IF;
         END LOOP;
     IF EXISTS (

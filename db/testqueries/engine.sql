@@ -1,4 +1,4 @@
--- name: ListTablesWithoutTenant :many
+-- name: ListTablesWithoutEngine :many
 SELECT
     c.relname::text AS table_name
 FROM
@@ -7,7 +7,7 @@ FROM
 WHERE
     n.nspname = 'public'
     AND c.relkind = 'r'
-    AND c.relname NOT IN ('tenants', 'schema_migrations')
+    AND c.relname NOT IN ('engines', 'schema_migrations')
     AND NOT EXISTS (
         SELECT
             1
@@ -15,7 +15,7 @@ WHERE
             pg_catalog.pg_attribute a
         WHERE
             a.attrelid = c.oid
-            AND a.attname = 'tenant_id'
+            AND a.attname = 'engine_id'
             AND a.attnotnull
             AND NOT a.attisdropped)
 ORDER BY
@@ -31,9 +31,9 @@ FROM
 WHERE
     n.nspname = 'public'
     AND c.relkind = 'r'
-    AND a.attname = 'tenant_id'
+    AND a.attname = 'engine_id'
     AND NOT a.attisdropped
-    AND c.relname <> 'tenant_logins'
+    AND c.relname <> 'engine_logins'
     AND (NOT c.relrowsecurity
         OR NOT EXISTS (
             SELECT
@@ -50,11 +50,11 @@ WHERE
                     pg_catalog.pg_trigger t
                 WHERE
                     t.tgrelid = c.oid
-                    AND t.tgname = 'stamp_tenant'))
+                    AND t.tgname = 'stamp_engine'))
     ORDER BY
         c.relname;
 
--- name: ListForeignKeysWithoutTenant :many
+-- name: ListForeignKeysWithoutEngine :many
 SELECT
     con.conname::text AS constraint_name
 FROM
@@ -63,16 +63,16 @@ FROM
     JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
     JOIN pg_catalog.pg_class ref ON ref.oid = con.confrelid
     JOIN pg_catalog.pg_attribute a ON a.attrelid = c.oid
-        AND a.attname = 'tenant_id'
+        AND a.attname = 'engine_id'
 WHERE
     n.nspname = 'public'
     AND con.contype = 'f'
-    AND ref.relname <> 'tenants'
+    AND ref.relname <> 'engines'
     AND NOT (a.attnum = ANY (con.conkey))
 ORDER BY
     con.conname;
 
--- name: ListSetNullKeysClearingTenant :many
+-- name: ListSetNullKeysClearingEngine :many
 SELECT
     con.conname::text AS constraint_name
 FROM
@@ -80,7 +80,7 @@ FROM
     JOIN pg_catalog.pg_class c ON c.oid = con.conrelid
     JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
     JOIN pg_catalog.pg_attribute a ON a.attrelid = c.oid
-        AND a.attname = 'tenant_id'
+        AND a.attname = 'engine_id'
 WHERE
     n.nspname = 'public'
     AND con.contype = 'f'
@@ -103,8 +103,8 @@ FROM
 WHERE
     n.nspname = 'public'
     AND x.indisunique
-    AND c.relname NOT IN ('tenants', 'tenant_logins', 'schema_migrations')
-    AND lead.attname <> 'tenant_id'
+    AND c.relname NOT IN ('engines', 'engine_logins', 'schema_migrations')
+    AND lead.attname <> 'engine_id'
     AND lead.atttypid <> 'uuid'::regtype
 ORDER BY
     i.relname;
@@ -119,9 +119,9 @@ FROM
 WHERE
     n.nspname = 'public'
     AND c.relkind = 'r'
-    AND a.attname = 'tenant_id'
+    AND a.attname = 'engine_id'
     AND NOT a.attisdropped
-    AND c.relname <> 'tenant_logins'
+    AND c.relname <> 'engine_logins'
     AND NOT (HAS_TABLE_PRIVILEGE('komrad_engine', c.oid, 'SELECT')
         AND HAS_TABLE_PRIVILEGE('komrad_engine', c.oid, 'INSERT')
         AND HAS_TABLE_PRIVILEGE('komrad_engine', c.oid, 'UPDATE')

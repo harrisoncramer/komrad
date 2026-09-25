@@ -50,20 +50,20 @@ table "worktrees" {
     type    = text
     comment = "Why the last walk failed, null when it did not."
   }
-  column "tenant_id" {
+  column "engine_id" {
     null    = false
     type    = uuid
     comment = "The engine that owns this row, stamped from the login that wrote it."
   }
   primary_key {
-    columns = [column.tenant_id, column.dir]
+    columns = [column.engine_id, column.dir]
   }
   index "worktrees_name" {
-    columns = [column.tenant_id, column.name]
+    columns = [column.engine_id, column.name]
   }
-  foreign_key "worktrees_tenant_id_fkey" {
-    columns     = [column.tenant_id]
-    ref_columns = [table.tenants.column.id]
+  foreign_key "worktrees_engine_id_fkey" {
+    columns     = [column.engine_id]
+    ref_columns = [table.engines.column.id]
     on_delete   = RESTRICT
     on_update   = NO_ACTION
   }

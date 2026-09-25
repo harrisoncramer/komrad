@@ -54,7 +54,7 @@ VALUES (
     @readable,
     sqlc.narg(mtime))
 ON CONFLICT (
-    tenant_id,
+    engine_id,
     dir)
     DO UPDATE SET
         name = EXCLUDED.name,

@@ -44,7 +44,7 @@ table "workflow_configs" {
     type    = timestamptz
     default = sql("now()")
   }
-  column "tenant_id" {
+  column "engine_id" {
     null    = false
     type    = uuid
     comment = "The engine that owns this row, stamped from the login that wrote it."
@@ -52,12 +52,12 @@ table "workflow_configs" {
   primary_key {
     columns = [column.id]
   }
-  unique "workflow_configs_tenant_id_id_key" {
-    columns = [column.tenant_id, column.id]
+  unique "workflow_configs_engine_id_id_key" {
+    columns = [column.engine_id, column.id]
   }
-  foreign_key "workflow_configs_tenant_id_fkey" {
-    columns     = [column.tenant_id]
-    ref_columns = [table.tenants.column.id]
+  foreign_key "workflow_configs_engine_id_fkey" {
+    columns     = [column.engine_id]
+    ref_columns = [table.engines.column.id]
     on_delete   = RESTRICT
     on_update   = NO_ACTION
   }
@@ -111,7 +111,7 @@ table "workflow_provisioner_configs" {
     type    = text
     default = ""
   }
-  column "tenant_id" {
+  column "engine_id" {
     null    = false
     type    = uuid
     comment = "The engine that owns this row, stamped from the login that wrote it."
@@ -119,12 +119,12 @@ table "workflow_provisioner_configs" {
   primary_key {
     columns = [column.id]
   }
-  unique "workflow_provisioner_configs_tenant_id_id_key" {
-    columns = [column.tenant_id, column.id]
+  unique "workflow_provisioner_configs_engine_id_id_key" {
+    columns = [column.engine_id, column.id]
   }
-  foreign_key "workflow_provisioner_configs_tenant_id_fkey" {
-    columns     = [column.tenant_id]
-    ref_columns = [table.tenants.column.id]
+  foreign_key "workflow_provisioner_configs_engine_id_fkey" {
+    columns     = [column.engine_id]
+    ref_columns = [table.engines.column.id]
     on_delete   = RESTRICT
     on_update   = NO_ACTION
   }
@@ -162,7 +162,7 @@ table "workflow_hooks" {
     type    = timestamptz
     default = sql("now()")
   }
-  column "tenant_id" {
+  column "engine_id" {
     null    = false
     type    = uuid
     comment = "The engine that owns this row, stamped from the login that wrote it."
@@ -170,15 +170,15 @@ table "workflow_hooks" {
   primary_key {
     columns = [column.id]
   }
-  foreign_key "workflow_hooks_tenant_id_fkey" {
-    columns     = [column.tenant_id]
-    ref_columns = [table.tenants.column.id]
+  foreign_key "workflow_hooks_engine_id_fkey" {
+    columns     = [column.engine_id]
+    ref_columns = [table.engines.column.id]
     on_delete   = RESTRICT
     on_update   = NO_ACTION
   }
   foreign_key "workflow_hooks_workflow_id_fkey" {
-    columns     = [column.tenant_id, column.workflow_id]
-    ref_columns = [table.workflows.column.tenant_id, table.workflows.column.id]
+    columns     = [column.engine_id, column.workflow_id]
+    ref_columns = [table.workflows.column.engine_id, table.workflows.column.id]
     on_delete   = CASCADE
     on_update   = NO_ACTION
   }
@@ -231,7 +231,7 @@ table "workflows" {
     type    = timestamptz
     comment = "When a delete claimed the workflow, which happens when a delete claims the agents inside it. A claimed workflow is left out of the archive until the last of those agents goes and takes the row with it, and an agent whose delete fails gives the workflow back as it comes back itself."
   }
-  column "tenant_id" {
+  column "engine_id" {
     null    = false
     type    = uuid
     comment = "The engine that owns this row, stamped from the login that wrote it."
@@ -239,24 +239,24 @@ table "workflows" {
   primary_key {
     columns = [column.id]
   }
-  unique "workflows_tenant_id_id_key" {
-    columns = [column.tenant_id, column.id]
+  unique "workflows_engine_id_id_key" {
+    columns = [column.engine_id, column.id]
   }
-  foreign_key "workflows_tenant_id_fkey" {
-    columns     = [column.tenant_id]
-    ref_columns = [table.tenants.column.id]
+  foreign_key "workflows_engine_id_fkey" {
+    columns     = [column.engine_id]
+    ref_columns = [table.engines.column.id]
     on_delete   = RESTRICT
     on_update   = NO_ACTION
   }
   foreign_key "workflows_workflow_config_id_fkey" {
-    columns     = [column.tenant_id, column.workflow_config_id]
-    ref_columns = [table.workflow_configs.column.tenant_id, table.workflow_configs.column.id]
+    columns     = [column.engine_id, column.workflow_config_id]
+    ref_columns = [table.workflow_configs.column.engine_id, table.workflow_configs.column.id]
     on_delete   = RESTRICT
     on_update   = NO_ACTION
   }
   foreign_key "workflows_provisioner_config_id_fkey" {
-    columns     = [column.tenant_id, column.provisioner_config_id]
-    ref_columns = [table.workflow_provisioner_configs.column.tenant_id, table.workflow_provisioner_configs.column.id]
+    columns     = [column.engine_id, column.provisioner_config_id]
+    ref_columns = [table.workflow_provisioner_configs.column.engine_id, table.workflow_provisioner_configs.column.id]
     on_delete   = RESTRICT
     on_update   = NO_ACTION
   }
@@ -298,7 +298,7 @@ table "agent_transcript_sessions" {
     type    = timestamptz
     default = sql("now()")
   }
-  column "tenant_id" {
+  column "engine_id" {
     null    = false
     type    = uuid
     comment = "The engine that owns this row, stamped from the login that wrote it."
@@ -306,18 +306,18 @@ table "agent_transcript_sessions" {
   primary_key {
     columns = [column.id]
   }
-  unique "agent_transcript_sessions_tenant_id_id_key" {
-    columns = [column.tenant_id, column.id]
+  unique "agent_transcript_sessions_engine_id_id_key" {
+    columns = [column.engine_id, column.id]
   }
-  foreign_key "agent_transcript_sessions_tenant_id_fkey" {
-    columns     = [column.tenant_id]
-    ref_columns = [table.tenants.column.id]
+  foreign_key "agent_transcript_sessions_engine_id_fkey" {
+    columns     = [column.engine_id]
+    ref_columns = [table.engines.column.id]
     on_delete   = RESTRICT
     on_update   = NO_ACTION
   }
   foreign_key "agent_transcript_sessions_agent_id_fkey" {
-    columns     = [column.tenant_id, column.agent_id]
-    ref_columns = [table.agents.column.tenant_id, table.agents.column.id]
+    columns     = [column.engine_id, column.agent_id]
+    ref_columns = [table.agents.column.engine_id, table.agents.column.id]
     on_delete   = CASCADE
     on_update   = NO_ACTION
   }
@@ -361,7 +361,7 @@ table "agent_transcript_chunks" {
       type = STORED
     }
   }
-  column "tenant_id" {
+  column "engine_id" {
     null    = false
     type    = uuid
     comment = "The engine that owns this row, stamped from the login that wrote it."
@@ -369,21 +369,21 @@ table "agent_transcript_chunks" {
   primary_key {
     columns = [column.agent_id, column.seq]
   }
-  foreign_key "agent_transcript_chunks_tenant_id_fkey" {
-    columns     = [column.tenant_id]
-    ref_columns = [table.tenants.column.id]
+  foreign_key "agent_transcript_chunks_engine_id_fkey" {
+    columns     = [column.engine_id]
+    ref_columns = [table.engines.column.id]
     on_delete   = RESTRICT
     on_update   = NO_ACTION
   }
   foreign_key "agent_transcript_chunks_agent_id_fkey" {
-    columns     = [column.tenant_id, column.agent_id]
-    ref_columns = [table.agents.column.tenant_id, table.agents.column.id]
+    columns     = [column.engine_id, column.agent_id]
+    ref_columns = [table.agents.column.engine_id, table.agents.column.id]
     on_delete   = CASCADE
     on_update   = NO_ACTION
   }
   foreign_key "agent_transcript_chunks_session_id_fkey" {
-    columns     = [column.tenant_id, column.session_id]
-    ref_columns = [table.agent_transcript_sessions.column.tenant_id, table.agent_transcript_sessions.column.id]
+    columns     = [column.engine_id, column.session_id]
+    ref_columns = [table.agent_transcript_sessions.column.engine_id, table.agent_transcript_sessions.column.id]
     on_delete   = CASCADE
     on_update   = NO_ACTION
   }
@@ -449,7 +449,7 @@ table "agent_runs" {
     null = true
     type = timestamptz
   }
-  column "tenant_id" {
+  column "engine_id" {
     null    = false
     type    = uuid
     comment = "The engine that owns this row, stamped from the login that wrote it."
@@ -457,15 +457,15 @@ table "agent_runs" {
   primary_key {
     columns = [column.id]
   }
-  foreign_key "agent_runs_tenant_id_fkey" {
-    columns     = [column.tenant_id]
-    ref_columns = [table.tenants.column.id]
+  foreign_key "agent_runs_engine_id_fkey" {
+    columns     = [column.engine_id]
+    ref_columns = [table.engines.column.id]
     on_delete   = RESTRICT
     on_update   = NO_ACTION
   }
   foreign_key "agent_runs_agent_id_fkey" {
-    columns     = [column.tenant_id, column.agent_id]
-    ref_columns = [table.agents.column.tenant_id, table.agents.column.id]
+    columns     = [column.engine_id, column.agent_id]
+    ref_columns = [table.agents.column.engine_id, table.agents.column.id]
     on_delete   = CASCADE
     on_update   = NO_ACTION
   }
@@ -689,7 +689,7 @@ table "agents" {
     default = ""
     comment = "The snapshot of the agent's newest review round when its worktree no longer hashes to it, empty while it still does or when there is no round. The cwd syncer rewrites it every pass."
   }
-  column "tenant_id" {
+  column "engine_id" {
     null    = false
     type    = uuid
     comment = "The engine that owns this row, stamped from the login that wrote it."
@@ -697,36 +697,36 @@ table "agents" {
   primary_key {
     columns = [column.id]
   }
-  unique "agents_tenant_id_id_key" {
-    columns = [column.tenant_id, column.id]
+  unique "agents_engine_id_id_key" {
+    columns = [column.engine_id, column.id]
   }
-  foreign_key "agents_tenant_id_fkey" {
-    columns     = [column.tenant_id]
-    ref_columns = [table.tenants.column.id]
+  foreign_key "agents_engine_id_fkey" {
+    columns     = [column.engine_id]
+    ref_columns = [table.engines.column.id]
     on_delete   = RESTRICT
     on_update   = NO_ACTION
   }
   foreign_key "agents_workflow_id_fkey" {
-    columns     = [column.tenant_id, column.workflow_id]
-    ref_columns = [table.workflows.column.tenant_id, table.workflows.column.id]
+    columns     = [column.engine_id, column.workflow_id]
+    ref_columns = [table.workflows.column.engine_id, table.workflows.column.id]
     on_delete   = RESTRICT
     on_update   = NO_ACTION
   }
   foreign_key "agents_schedule_id_fkey" {
-    columns     = [column.tenant_id, column.schedule_id]
-    ref_columns = [table.schedules.column.tenant_id, table.schedules.column.id]
+    columns     = [column.engine_id, column.schedule_id]
+    ref_columns = [table.schedules.column.engine_id, table.schedules.column.id]
     on_delete   = RESTRICT
     on_update   = NO_ACTION
   }
   foreign_key "agents_spawned_by_agent_id_fkey" {
-    columns     = [column.tenant_id, column.spawned_by_agent_id]
-    ref_columns = [table.agents.column.tenant_id, table.agents.column.id]
+    columns     = [column.engine_id, column.spawned_by_agent_id]
+    ref_columns = [table.agents.column.engine_id, table.agents.column.id]
     on_delete   = SET_NULL
     on_update   = NO_ACTION
   }
   foreign_key "agents_parent_agent_id_fkey" {
-    columns     = [column.tenant_id, column.parent_agent_id]
-    ref_columns = [table.agents.column.tenant_id, table.agents.column.id]
+    columns     = [column.engine_id, column.parent_agent_id]
+    ref_columns = [table.agents.column.engine_id, table.agents.column.id]
     on_delete   = CASCADE
     on_update   = NO_ACTION
   }
@@ -751,7 +751,7 @@ table "agents" {
   }
   index "agents_idempotency_key" {
     unique  = true
-    columns = [column.tenant_id, column.idempotency_key]
+    columns = [column.engine_id, column.idempotency_key]
     where   = "idempotency_key IS NOT NULL"
   }
 }
@@ -781,7 +781,7 @@ table "marks" {
     type    = uuid
     default = sql("uuidv7()")
   }
-  column "tenant_id" {
+  column "engine_id" {
     null    = false
     type    = uuid
     comment = "The engine that owns this row, stamped from the login that wrote it."
@@ -789,27 +789,27 @@ table "marks" {
   primary_key {
     columns = [column.id]
   }
-  foreign_key "marks_tenant_id_fkey" {
-    columns     = [column.tenant_id]
-    ref_columns = [table.tenants.column.id]
+  foreign_key "marks_engine_id_fkey" {
+    columns     = [column.engine_id]
+    ref_columns = [table.engines.column.id]
     on_delete   = RESTRICT
     on_update   = NO_ACTION
   }
   foreign_key "marks_agent_id_fkey" {
-    columns     = [column.tenant_id, column.agent_id]
-    ref_columns = [table.agents.column.tenant_id, table.agents.column.id]
+    columns     = [column.engine_id, column.agent_id]
+    ref_columns = [table.agents.column.engine_id, table.agents.column.id]
     on_delete   = CASCADE
     on_update   = NO_ACTION
   }
   foreign_key "marks_workflow_id_fkey" {
-    columns     = [column.tenant_id, column.workflow_id]
-    ref_columns = [table.workflows.column.tenant_id, table.workflows.column.id]
+    columns     = [column.engine_id, column.workflow_id]
+    ref_columns = [table.workflows.column.engine_id, table.workflows.column.id]
     on_delete   = CASCADE
     on_update   = NO_ACTION
   }
   index "marks_mark" {
     unique  = true
-    columns = [column.tenant_id, column.mark]
+    columns = [column.engine_id, column.mark]
   }
   index "marks_agent_id" {
     unique  = true

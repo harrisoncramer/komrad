@@ -40,7 +40,7 @@ table "review_rounds" {
     type    = timestamptz
     default = sql("now()")
   }
-  column "tenant_id" {
+  column "engine_id" {
     null    = false
     type    = uuid
     comment = "The engine that owns this row, stamped from the login that wrote it."
@@ -48,18 +48,18 @@ table "review_rounds" {
   primary_key {
     columns = [column.id]
   }
-  unique "review_rounds_tenant_id_id_key" {
-    columns = [column.tenant_id, column.id]
+  unique "review_rounds_engine_id_id_key" {
+    columns = [column.engine_id, column.id]
   }
-  foreign_key "review_rounds_tenant_id_fkey" {
-    columns     = [column.tenant_id]
-    ref_columns = [table.tenants.column.id]
+  foreign_key "review_rounds_engine_id_fkey" {
+    columns     = [column.engine_id]
+    ref_columns = [table.engines.column.id]
     on_delete   = RESTRICT
     on_update   = NO_ACTION
   }
   foreign_key "review_rounds_agent_id_fkey" {
-    columns     = [column.tenant_id, column.agent_id]
-    ref_columns = [table.agents.column.tenant_id, table.agents.column.id]
+    columns     = [column.engine_id, column.agent_id]
+    ref_columns = [table.agents.column.engine_id, table.agents.column.id]
     on_delete   = CASCADE
     on_update   = NO_ACTION
   }
@@ -133,7 +133,7 @@ table "reviews" {
     default = ""
     comment = "What the reviewer said about the change as a whole rather than about any one line, empty when they said nothing. It goes at the top of the released review file, above the line comments, because it is what the agent should read first."
   }
-  column "tenant_id" {
+  column "engine_id" {
     null    = false
     type    = uuid
     comment = "The engine that owns this row, stamped from the login that wrote it."
@@ -141,36 +141,36 @@ table "reviews" {
   primary_key {
     columns = [column.id]
   }
-  unique "reviews_tenant_id_id_key" {
-    columns = [column.tenant_id, column.id]
+  unique "reviews_engine_id_id_key" {
+    columns = [column.engine_id, column.id]
   }
-  foreign_key "reviews_tenant_id_fkey" {
-    columns     = [column.tenant_id]
-    ref_columns = [table.tenants.column.id]
+  foreign_key "reviews_engine_id_fkey" {
+    columns     = [column.engine_id]
+    ref_columns = [table.engines.column.id]
     on_delete   = RESTRICT
     on_update   = NO_ACTION
   }
   foreign_key "reviews_agent_id_fkey" {
-    columns     = [column.tenant_id, column.agent_id]
-    ref_columns = [table.agents.column.tenant_id, table.agents.column.id]
+    columns     = [column.engine_id, column.agent_id]
+    ref_columns = [table.agents.column.engine_id, table.agents.column.id]
     on_delete   = CASCADE
     on_update   = NO_ACTION
   }
   foreign_key "reviews_round_id_fkey" {
-    columns     = [column.tenant_id, column.round_id]
-    ref_columns = [table.review_rounds.column.tenant_id, table.review_rounds.column.id]
+    columns     = [column.engine_id, column.round_id]
+    ref_columns = [table.review_rounds.column.engine_id, table.review_rounds.column.id]
     on_delete   = CASCADE
     on_update   = NO_ACTION
   }
   foreign_key "reviews_author_agent_id_fkey" {
-    columns     = [column.tenant_id, column.author_agent_id]
-    ref_columns = [table.agents.column.tenant_id, table.agents.column.id]
+    columns     = [column.engine_id, column.author_agent_id]
+    ref_columns = [table.agents.column.engine_id, table.agents.column.id]
     on_delete   = SET_NULL
     on_update   = NO_ACTION
   }
   foreign_key "reviews_doorbell_mail_id_fkey" {
-    columns     = [column.tenant_id, column.doorbell_mail_id]
-    ref_columns = [table.mail.column.tenant_id, table.mail.column.id]
+    columns     = [column.engine_id, column.doorbell_mail_id]
+    ref_columns = [table.mail.column.engine_id, table.mail.column.id]
     on_delete   = SET_NULL
     on_update   = NO_ACTION
   }
@@ -293,7 +293,7 @@ table "review_threads" {
     type    = uuid
     comment = "The agent that settled this thread, null when a person did or when nobody has. Do not read null as meaning a person, because resolved_by_kind is what says that. Deleting that agent clears this column rather than the settling."
   }
-  column "tenant_id" {
+  column "engine_id" {
     null    = false
     type    = uuid
     comment = "The engine that owns this row, stamped from the login that wrote it."
@@ -301,36 +301,36 @@ table "review_threads" {
   primary_key {
     columns = [column.id]
   }
-  unique "review_threads_tenant_id_id_key" {
-    columns = [column.tenant_id, column.id]
+  unique "review_threads_engine_id_id_key" {
+    columns = [column.engine_id, column.id]
   }
-  foreign_key "review_threads_tenant_id_fkey" {
-    columns     = [column.tenant_id]
-    ref_columns = [table.tenants.column.id]
+  foreign_key "review_threads_engine_id_fkey" {
+    columns     = [column.engine_id]
+    ref_columns = [table.engines.column.id]
     on_delete   = RESTRICT
     on_update   = NO_ACTION
   }
   foreign_key "review_threads_agent_id_fkey" {
-    columns     = [column.tenant_id, column.agent_id]
-    ref_columns = [table.agents.column.tenant_id, table.agents.column.id]
+    columns     = [column.engine_id, column.agent_id]
+    ref_columns = [table.agents.column.engine_id, table.agents.column.id]
     on_delete   = CASCADE
     on_update   = NO_ACTION
   }
   foreign_key "review_threads_review_id_fkey" {
-    columns     = [column.tenant_id, column.review_id]
-    ref_columns = [table.reviews.column.tenant_id, table.reviews.column.id]
+    columns     = [column.engine_id, column.review_id]
+    ref_columns = [table.reviews.column.engine_id, table.reviews.column.id]
     on_delete   = CASCADE
     on_update   = NO_ACTION
   }
   foreign_key "review_threads_round_id_fkey" {
-    columns     = [column.tenant_id, column.round_id]
-    ref_columns = [table.review_rounds.column.tenant_id, table.review_rounds.column.id]
+    columns     = [column.engine_id, column.round_id]
+    ref_columns = [table.review_rounds.column.engine_id, table.review_rounds.column.id]
     on_delete   = CASCADE
     on_update   = NO_ACTION
   }
   foreign_key "review_threads_resolved_by_agent_id_fkey" {
-    columns     = [column.tenant_id, column.resolved_by_agent_id]
-    ref_columns = [table.agents.column.tenant_id, table.agents.column.id]
+    columns     = [column.engine_id, column.resolved_by_agent_id]
+    ref_columns = [table.agents.column.engine_id, table.agents.column.id]
     on_delete   = SET_NULL
     on_update   = NO_ACTION
   }
@@ -390,7 +390,7 @@ table "review_messages" {
     default = sql("'{}'::text[]")
     comment = "Replacement lines the reviewer is proposing for the range the thread is pinned to, empty on an ordinary comment. The agent applies them as written rather than treating them as a description of what to do."
   }
-  column "tenant_id" {
+  column "engine_id" {
     null    = false
     type    = uuid
     comment = "The engine that owns this row, stamped from the login that wrote it."
@@ -398,27 +398,27 @@ table "review_messages" {
   primary_key {
     columns = [column.id]
   }
-  foreign_key "review_messages_tenant_id_fkey" {
-    columns     = [column.tenant_id]
-    ref_columns = [table.tenants.column.id]
+  foreign_key "review_messages_engine_id_fkey" {
+    columns     = [column.engine_id]
+    ref_columns = [table.engines.column.id]
     on_delete   = RESTRICT
     on_update   = NO_ACTION
   }
   foreign_key "review_messages_thread_id_fkey" {
-    columns     = [column.tenant_id, column.thread_id]
-    ref_columns = [table.review_threads.column.tenant_id, table.review_threads.column.id]
+    columns     = [column.engine_id, column.thread_id]
+    ref_columns = [table.review_threads.column.engine_id, table.review_threads.column.id]
     on_delete   = CASCADE
     on_update   = NO_ACTION
   }
   foreign_key "review_messages_review_id_fkey" {
-    columns     = [column.tenant_id, column.review_id]
-    ref_columns = [table.reviews.column.tenant_id, table.reviews.column.id]
+    columns     = [column.engine_id, column.review_id]
+    ref_columns = [table.reviews.column.engine_id, table.reviews.column.id]
     on_delete   = SET_NULL
     on_update   = NO_ACTION
   }
   foreign_key "review_messages_author_agent_id_fkey" {
-    columns     = [column.tenant_id, column.author_agent_id]
-    ref_columns = [table.agents.column.tenant_id, table.agents.column.id]
+    columns     = [column.engine_id, column.author_agent_id]
+    ref_columns = [table.agents.column.engine_id, table.agents.column.id]
     on_delete   = SET_NULL
     on_update   = NO_ACTION
   }
@@ -452,7 +452,7 @@ table "review_viewed_files" {
     type    = text
     comment = "A hash of the file's own slice of the patch as it stood when it was read. The panel hashes the file again on every load and shows it as unread once the two disagree, which is what makes an agent writing to the file undo the mark. It is the diff that is hashed rather than the file, since the hunks change when the base moves under a file nothing has touched."
   }
-  column "tenant_id" {
+  column "engine_id" {
     null    = false
     type    = uuid
     comment = "The engine that owns this row, stamped from the login that wrote it."
@@ -460,15 +460,15 @@ table "review_viewed_files" {
   primary_key {
     columns = [column.agent_id, column.file_path]
   }
-  foreign_key "review_viewed_files_tenant_id_fkey" {
-    columns     = [column.tenant_id]
-    ref_columns = [table.tenants.column.id]
+  foreign_key "review_viewed_files_engine_id_fkey" {
+    columns     = [column.engine_id]
+    ref_columns = [table.engines.column.id]
     on_delete   = RESTRICT
     on_update   = NO_ACTION
   }
   foreign_key "review_viewed_files_agent_id_fkey" {
-    columns     = [column.tenant_id, column.agent_id]
-    ref_columns = [table.agents.column.tenant_id, table.agents.column.id]
+    columns     = [column.engine_id, column.agent_id]
+    ref_columns = [table.agents.column.engine_id, table.agents.column.id]
     on_delete   = CASCADE
     on_update   = NO_ACTION
   }

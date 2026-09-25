@@ -70,7 +70,7 @@ func (q *Queries) FinishScheduleRun(ctx context.Context, arg FinishScheduleRunPa
 
 const getSchedule = `-- name: GetSchedule :one
 SELECT
-    s.id, s.name, s.cron, s.timezone, s.enabled, s.hide_agents, s.prompt, s.workflow_id, s.archived_at, s.created_at, s.updated_at, s.tenant_id
+    s.id, s.name, s.cron, s.timezone, s.enabled, s.hide_agents, s.prompt, s.workflow_id, s.archived_at, s.created_at, s.updated_at, s.engine_id
 FROM
     schedules s
 WHERE
@@ -98,7 +98,7 @@ func (q *Queries) GetSchedule(ctx context.Context, id string) (*GetScheduleRow, 
 		&i.Schedule.ArchivedAt,
 		&i.Schedule.CreatedAt,
 		&i.Schedule.UpdatedAt,
-		&i.Schedule.TenantID,
+		&i.Schedule.EngineID,
 	)
 	return &i, err
 }
@@ -121,7 +121,7 @@ VALUES (
     $6,
     $7)
 RETURNING
-    id, name, cron, timezone, enabled, hide_agents, prompt, workflow_id, archived_at, created_at, updated_at, tenant_id
+    id, name, cron, timezone, enabled, hide_agents, prompt, workflow_id, archived_at, created_at, updated_at, engine_id
 `
 
 type InsertScheduleParams struct {
@@ -157,14 +157,14 @@ func (q *Queries) InsertSchedule(ctx context.Context, arg InsertScheduleParams) 
 		&i.ArchivedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.TenantID,
+		&i.EngineID,
 	)
 	return &i, err
 }
 
 const listRecentScheduleRuns = `-- name: ListRecentScheduleRuns :many
 SELECT
-    r.id, r.schedule_id, r.scheduled_for, r.state, r.attempt, r.max_attempts, r.message, r.started_at, r.finalized_at, r.tenant_id
+    r.id, r.schedule_id, r.scheduled_for, r.state, r.attempt, r.max_attempts, r.message, r.started_at, r.finalized_at, r.engine_id
 FROM
     schedule_runs r
 WHERE
@@ -217,7 +217,7 @@ func (q *Queries) ListRecentScheduleRuns(ctx context.Context, arg ListRecentSche
 			&i.ScheduleRun.Message,
 			&i.ScheduleRun.StartedAt,
 			&i.ScheduleRun.FinalizedAt,
-			&i.ScheduleRun.TenantID,
+			&i.ScheduleRun.EngineID,
 		); err != nil {
 			return nil, err
 		}
@@ -231,7 +231,7 @@ func (q *Queries) ListRecentScheduleRuns(ctx context.Context, arg ListRecentSche
 
 const listScheduleRuns = `-- name: ListScheduleRuns :many
 SELECT
-    r.id, r.schedule_id, r.scheduled_for, r.state, r.attempt, r.max_attempts, r.message, r.started_at, r.finalized_at, r.tenant_id
+    r.id, r.schedule_id, r.scheduled_for, r.state, r.attempt, r.max_attempts, r.message, r.started_at, r.finalized_at, r.engine_id
 FROM
     schedule_runs r
 WHERE
@@ -269,7 +269,7 @@ func (q *Queries) ListScheduleRuns(ctx context.Context, arg ListScheduleRunsPara
 			&i.ScheduleRun.Message,
 			&i.ScheduleRun.StartedAt,
 			&i.ScheduleRun.FinalizedAt,
-			&i.ScheduleRun.TenantID,
+			&i.ScheduleRun.EngineID,
 		); err != nil {
 			return nil, err
 		}
@@ -283,7 +283,7 @@ func (q *Queries) ListScheduleRuns(ctx context.Context, arg ListScheduleRunsPara
 
 const listSchedulesPage = `-- name: ListSchedulesPage :many
 SELECT
-    s.id, s.name, s.cron, s.timezone, s.enabled, s.hide_agents, s.prompt, s.workflow_id, s.archived_at, s.created_at, s.updated_at, s.tenant_id
+    s.id, s.name, s.cron, s.timezone, s.enabled, s.hide_agents, s.prompt, s.workflow_id, s.archived_at, s.created_at, s.updated_at, s.engine_id
 FROM
     schedules s
 WHERE
@@ -325,7 +325,7 @@ func (q *Queries) ListSchedulesPage(ctx context.Context, arg ListSchedulesPagePa
 			&i.Schedule.ArchivedAt,
 			&i.Schedule.CreatedAt,
 			&i.Schedule.UpdatedAt,
-			&i.Schedule.TenantID,
+			&i.Schedule.EngineID,
 		); err != nil {
 			return nil, err
 		}
@@ -339,7 +339,7 @@ func (q *Queries) ListSchedulesPage(ctx context.Context, arg ListSchedulesPagePa
 
 const listWatchedSchedules = `-- name: ListWatchedSchedules :many
 SELECT
-    s.id, s.name, s.cron, s.timezone, s.enabled, s.hide_agents, s.prompt, s.workflow_id, s.archived_at, s.created_at, s.updated_at, s.tenant_id
+    s.id, s.name, s.cron, s.timezone, s.enabled, s.hide_agents, s.prompt, s.workflow_id, s.archived_at, s.created_at, s.updated_at, s.engine_id
 FROM
     schedules s
 WHERE
@@ -375,7 +375,7 @@ func (q *Queries) ListWatchedSchedules(ctx context.Context, keys []string) ([]*L
 			&i.Schedule.ArchivedAt,
 			&i.Schedule.CreatedAt,
 			&i.Schedule.UpdatedAt,
-			&i.Schedule.TenantID,
+			&i.Schedule.EngineID,
 		); err != nil {
 			return nil, err
 		}
@@ -389,7 +389,7 @@ func (q *Queries) ListWatchedSchedules(ctx context.Context, keys []string) ([]*L
 
 const listWorkflowSchedules = `-- name: ListWorkflowSchedules :many
 SELECT
-    s.id, s.name, s.cron, s.timezone, s.enabled, s.hide_agents, s.prompt, s.workflow_id, s.archived_at, s.created_at, s.updated_at, s.tenant_id
+    s.id, s.name, s.cron, s.timezone, s.enabled, s.hide_agents, s.prompt, s.workflow_id, s.archived_at, s.created_at, s.updated_at, s.engine_id
 FROM
     schedules s
 WHERE
@@ -423,7 +423,7 @@ func (q *Queries) ListWorkflowSchedules(ctx context.Context, workflowID string) 
 			&i.Schedule.ArchivedAt,
 			&i.Schedule.CreatedAt,
 			&i.Schedule.UpdatedAt,
-			&i.Schedule.TenantID,
+			&i.Schedule.EngineID,
 		); err != nil {
 			return nil, err
 		}
@@ -509,7 +509,7 @@ VALUES (
     $3,
     $4)
 ON CONFLICT (
-    tenant_id,
+    engine_id,
     schedule_id,
     scheduled_for)
     DO UPDATE SET

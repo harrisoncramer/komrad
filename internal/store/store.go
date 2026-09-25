@@ -211,7 +211,7 @@ func checkReader(ctx context.Context, pool *pgxpool.Pool, engineID string) error
 		return fmt.Errorf("%w: it bypasses row security, which would show it every engine's rows", ErrNotThisEnginesReader)
 	case !identity.Reader:
 		return fmt.Errorf("%w: it is not a reader login", ErrNotThisEnginesReader)
-	case identity.TenantID != engineID:
+	case identity.EngineID != engineID:
 		return fmt.Errorf("%w: it belongs to another engine", ErrNotThisEnginesReader)
 	}
 

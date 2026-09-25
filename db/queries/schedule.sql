@@ -123,7 +123,7 @@ VALUES (
     @attempt,
     @max_attempts)
 ON CONFLICT (
-    tenant_id,
+    engine_id,
     schedule_id,
     scheduled_for)
     DO UPDATE SET

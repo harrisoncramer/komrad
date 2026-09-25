@@ -35,7 +35,7 @@ RETURNING
     verified_at,
     created_at,
     throttled_until,
-    tenant_id
+    engine_id
 `
 
 type CreateForgeConnectionParams struct {
@@ -67,7 +67,7 @@ func (q *Queries) CreateForgeConnection(ctx context.Context, arg CreateForgeConn
 		&i.VerifiedAt,
 		&i.CreatedAt,
 		&i.ThrottledUntil,
-		&i.TenantID,
+		&i.EngineID,
 	)
 	return &i, err
 }
@@ -96,7 +96,7 @@ SELECT
     verified_at,
     created_at,
     throttled_until,
-    tenant_id
+    engine_id
 FROM
     forge_connections
 WHERE
@@ -116,7 +116,7 @@ func (q *Queries) GetForgeConnection(ctx context.Context, id string) (*ForgeConn
 		&i.VerifiedAt,
 		&i.CreatedAt,
 		&i.ThrottledUntil,
-		&i.TenantID,
+		&i.EngineID,
 	)
 	return &i, err
 }
@@ -132,7 +132,7 @@ SELECT
     verified_at,
     created_at,
     throttled_until,
-    tenant_id
+    engine_id
 FROM
     forge_connections
 WHERE
@@ -152,7 +152,7 @@ func (q *Queries) GetForgeConnectionByHost(ctx context.Context, host string) (*F
 		&i.VerifiedAt,
 		&i.CreatedAt,
 		&i.ThrottledUntil,
-		&i.TenantID,
+		&i.EngineID,
 	)
 	return &i, err
 }
@@ -168,7 +168,7 @@ SELECT
     verified_at,
     created_at,
     throttled_until,
-    tenant_id
+    engine_id
 FROM
     forge_connections
 ORDER BY
@@ -194,7 +194,7 @@ func (q *Queries) ListForgeConnections(ctx context.Context) ([]*ForgeConnection,
 			&i.VerifiedAt,
 			&i.CreatedAt,
 			&i.ThrottledUntil,
-			&i.TenantID,
+			&i.EngineID,
 		); err != nil {
 			return nil, err
 		}

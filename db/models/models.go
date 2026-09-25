@@ -280,7 +280,7 @@ type Agent struct {
 	// The round the standing was measured against.
 	TreeStandingSha string
 	// The engine that owns this row, stamped from the login that wrote it.
-	TenantID string
+	EngineID string
 	// The commit the agent's checkout has checked out, null when the checkout is gone or git cannot read it. The cwd syncer rewrites it on the same pass that rewrites branch.
 	HeadSha *string
 	// The snapshot of the agent's newest review round when its worktree no longer hashes to it, empty while it still does or when there is no round. The cwd syncer rewrites it every pass.
@@ -297,7 +297,7 @@ type AgentPullRequest struct {
 	// When the pair was last seen together, moved at most once an hour.
 	LastSeenAt time.Time
 	// The engine that owns this row, stamped from the login that wrote it.
-	TenantID string
+	EngineID string
 }
 
 // One run of a script komrad fired for an agent. The output stays on disk and this row says where to find it.
@@ -313,7 +313,7 @@ type AgentRun struct {
 	Failure    string
 	ViewedAt   *time.Time
 	// The engine that owns this row, stamped from the login that wrote it.
-	TenantID string
+	EngineID string
 }
 
 // One turn of an agent's conversation, indexed so it can be searched by word.
@@ -326,7 +326,7 @@ type AgentTranscriptChunk struct {
 	SessionID     string
 	Tsv           interface{}
 	// The engine that owns this row, stamped from the login that wrote it.
-	TenantID string
+	EngineID string
 }
 
 // One conversation an agent has held, holding how far its log has been copied into the store.
@@ -338,7 +338,7 @@ type AgentTranscriptSession struct {
 	SyncedAt     time.Time
 	CreatedAt    time.Time
 	// The engine that owns this row, stamped from the login that wrote it.
-	TenantID string
+	EngineID string
 }
 
 // A branch komrad has listed the pull requests of on purpose, once, which is what finds a pull request older than the sync's horizon on a branch an agent adopted.
@@ -350,7 +350,23 @@ type BranchScan struct {
 	// When the listing answered its last page, after which the branch is never scanned again.
 	CompletedAt *time.Time
 	// The engine that owns this row, stamped from the login that wrote it.
-	TenantID string
+	EngineID string
+}
+
+// An engine, the owner of every row it writes.
+type Engine struct {
+	ID        string
+	Name      string
+	CreatedAt time.Time
+}
+
+// The Postgres logins an engine connects as, which is the only way an engine's identity is known.
+type EngineLogin struct {
+	Role     string
+	EngineID string
+	// Whether this is the engine's read-only login rather than the one it writes with.
+	Reader    bool
+	CreatedAt time.Time
 }
 
 // A forge komrad has been connected to, one row per host, holding who the credential was verified as. The credential itself is a file under komrad's state directory rather than a column.
@@ -372,7 +388,7 @@ type ForgeConnection struct {
 	// When the forge said this credential's rate limit resets, after a refusal or a response whose remaining budget was zero. The pull request sync makes no request through the connection until it passes.
 	ThrottledUntil *time.Time
 	// The engine that owns this row, stamped from the login that wrote it.
-	TenantID string
+	EngineID string
 }
 
 // One piece of mail from one agent to another, held until the recipient claims it.
@@ -393,7 +409,7 @@ type Mail struct {
 	// The other agent a komrad notice is about, null on ordinary mail. Counting unread notices by this column gives the recipient one notice per subject rather than one per kind, so an agent that hits the exchange cap with a second partner is told about that partner too. There is no foreign key here on purpose. The notice has to keep naming the agent whose exchange was cut off after that agent is gone.
 	AboutAgentID *string
 	// The engine that owns this row, stamped from the login that wrote it.
-	TenantID string
+	EngineID string
 }
 
 // A letter a person types to jump to one row. Each letter belongs to a single agent or a single workflow, so it always names one place.
@@ -404,7 +420,7 @@ type Mark struct {
 	CreatedAt  time.Time
 	ID         string
 	// The engine that owns this row, stamped from the login that wrote it.
-	TenantID string
+	EngineID string
 }
 
 // A pull request komrad has read from a forge, one row per forge identity and none owned by an agent. Finished is derived: merged when merged_at is set, closed when closed_at is set and merged_at is not, open otherwise.
@@ -453,7 +469,7 @@ type PullRequest struct {
 	// Where the forge says the pull request stands against its base and its branch rules, in komrad's own words: clean, unstable, blocked, behind or conflicting, null while the forge has not computed it. Read with the checks and kept fresh the same way.
 	Mergeability *string
 	// The engine that owns this row, stamped from the login that wrote it.
-	TenantID string
+	EngineID string
 }
 
 // Where the pull request sync is for one repository: the high-water mark the changes have been read through, the first sweep in progress if one is, and what the last pass cost.
@@ -472,7 +488,7 @@ type PullRequestSync struct {
 	// How many requests the most recent pass made for this repository.
 	Calls int32
 	// The engine that owns this row, stamped from the login that wrote it.
-	TenantID string
+	EngineID string
 }
 
 // One reviewer's batch of comments on one round. Nobody else sees it while it is being written, and it is released all at once.
@@ -498,7 +514,7 @@ type Review struct {
 	// What the reviewer said about the change as a whole rather than about any one line, empty when they said nothing. It goes at the top of the released review file, above the line comments, because it is what the agent should read first.
 	Body string
 	// The engine that owns this row, stamped from the login that wrote it.
-	TenantID string
+	EngineID string
 }
 
 // One message in a review thread, written either by the reviewer or by the agent answering them.
@@ -518,7 +534,7 @@ type ReviewMessage struct {
 	// Replacement lines the reviewer is proposing for the range the thread is pinned to, empty on an ordinary comment. The agent applies them as written rather than treating them as a description of what to do.
 	Suggestion []string
 	// The engine that owns this row, stamped from the login that wrote it.
-	TenantID string
+	EngineID string
 }
 
 // One frozen snapshot of what an agent has written. A review is always given against a round rather than against the working files.
@@ -533,7 +549,7 @@ type ReviewRound struct {
 	SnapshotSha string
 	CreatedAt   time.Time
 	// The engine that owns this row, stamped from the login that wrote it.
-	TenantID string
+	EngineID string
 }
 
 // One conversation pinned to a file and a line range in the round its review was given against.
@@ -571,7 +587,7 @@ type ReviewThread struct {
 	// The agent that settled this thread, null when a person did or when nobody has. Do not read null as meaning a person, because resolved_by_kind is what says that. Deleting that agent clears this column rather than the settling.
 	ResolvedByAgentID *string
 	// The engine that owns this row, stamped from the login that wrote it.
-	TenantID string
+	EngineID string
 }
 
 // One file of an agent's diff the person reviewing has read, and the shape that file had when they read it.
@@ -583,7 +599,7 @@ type ReviewViewedFile struct {
 	// A hash of the file's own slice of the patch as it stood when it was read. The panel hashes the file again on every load and shows it as unread once the two disagree, which is what makes an agent writing to the file undo the mark. It is the diff that is hashed rather than the file, since the hunks change when the base moves under a file nothing has touched.
 	Fingerprint string
 	// The engine that owns this row, stamped from the login that wrote it.
-	TenantID string
+	EngineID string
 }
 
 // A recurring agent launch, holding when to fire and the prompt to launch with.
@@ -600,7 +616,7 @@ type Schedule struct {
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
 	// The engine that owns this row, stamped from the login that wrote it.
-	TenantID string
+	EngineID string
 }
 
 type ScheduleRun struct {
@@ -613,23 +629,7 @@ type ScheduleRun struct {
 	Message      string
 	StartedAt    time.Time
 	FinalizedAt  *time.Time
-	TenantID     string
-}
-
-// An engine, the owner of every row it writes.
-type Tenant struct {
-	ID        string
-	Name      string
-	CreatedAt time.Time
-}
-
-// The Postgres logins an engine connects as, which is the only way an engine's identity is known.
-type TenantLogin struct {
-	Role     string
-	TenantID string
-	// Whether this is the engine's read-only login rather than the one it writes with.
-	Reader    bool
-	CreatedAt time.Time
+	EngineID     string
 }
 
 // A named group of related agents. It is grouping only. Nothing here runs.
@@ -645,7 +645,7 @@ type Workflow struct {
 	// When a delete claimed the workflow, which happens when a delete claims the agents inside it. A claimed workflow is left out of the archive until the last of those agents goes and takes the row with it, and an agent whose delete fails gives the workflow back as it comes back itself.
 	DeletingAt *time.Time
 	// The engine that owns this row, stamped from the login that wrote it.
-	TenantID string
+	EngineID string
 }
 
 // The harness, working directory and flags a workflow gives each new agent it creates.
@@ -657,7 +657,7 @@ type WorkflowConfig struct {
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	// The engine that owns this row, stamped from the login that wrote it.
-	TenantID string
+	EngineID string
 }
 
 // Scripts a workflow runs at one point in an agent's life, in position order.
@@ -669,7 +669,7 @@ type WorkflowHook struct {
 	Position   int32
 	CreatedAt  time.Time
 	// The engine that owns this row, stamped from the login that wrote it.
-	TenantID string
+	EngineID string
 }
 
 // Whether a workflow gives each of its agents a git worktree of its own, and how that worktree is set up.
@@ -685,7 +685,7 @@ type WorkflowProvisionerConfig struct {
 	WorktreeDiffExclude  []string
 	WorktreeDir          string
 	// The engine that owns this row, stamped from the login that wrote it.
-	TenantID string
+	EngineID string
 }
 
 // One directory under the worktree directories as the filesystem holds it, written by the size loop. Keyed by the directory rather than an agent, since a directory outlives its row and one nobody answers for is what the worktrees screen is for. An unowned directory an unfinished delete names has no row, and the watch leaves out one whose agent is being deleted.
@@ -698,7 +698,7 @@ type Worktree struct {
 	// Why the last walk failed, null when it did not.
 	SizeError *string
 	// The engine that owns this row, stamped from the login that wrote it.
-	TenantID string
+	EngineID string
 	// The directory's basename, which is the id of the agent it was cut for.
 	Name string
 	// The repository the directory was cut from, read off its .git file, empty when there is no such file.

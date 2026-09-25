@@ -14,13 +14,13 @@ DECLARE
     ignored text[] := TG_ARGV[1:TG_NARGS - 1];
 BEGIN
     IF TG_OP = 'DELETE' THEN
-        PERFORM pg_notify(watch_channel_of(OLD.tenant_id), TG_TABLE_NAME || ' ' || (to_jsonb(OLD) ->> TG_ARGV[0]));
+        PERFORM pg_notify(watch_channel_of(OLD.engine_id), TG_TABLE_NAME || ' ' || (to_jsonb(OLD) ->> TG_ARGV[0]));
         RETURN NULL;
     END IF;
     IF TG_OP = 'UPDATE' AND to_jsonb(OLD) - ignored = to_jsonb(NEW) - ignored THEN
         RETURN NULL;
     END IF;
-    PERFORM pg_notify(watch_channel_of(NEW.tenant_id), TG_TABLE_NAME || ' ' || (to_jsonb(NEW) ->> TG_ARGV[0]));
+    PERFORM pg_notify(watch_channel_of(NEW.engine_id), TG_TABLE_NAME || ' ' || (to_jsonb(NEW) ->> TG_ARGV[0]));
     RETURN NULL;
 END;
 `,
@@ -30,10 +30,10 @@ END;
 		Body: `
 BEGIN
     IF TG_OP <> 'INSERT' AND (to_jsonb(OLD) ->> TG_ARGV[1]) IS NOT NULL THEN
-        PERFORM pg_notify(watch_channel_of(OLD.tenant_id), TG_ARGV[0] || ' ' || (to_jsonb(OLD) ->> TG_ARGV[1]));
+        PERFORM pg_notify(watch_channel_of(OLD.engine_id), TG_ARGV[0] || ' ' || (to_jsonb(OLD) ->> TG_ARGV[1]));
     END IF;
     IF TG_OP <> 'DELETE' AND (to_jsonb(NEW) ->> TG_ARGV[1]) IS NOT NULL THEN
-        PERFORM pg_notify(watch_channel_of(NEW.tenant_id), TG_ARGV[0] || ' ' || (to_jsonb(NEW) ->> TG_ARGV[1]));
+        PERFORM pg_notify(watch_channel_of(NEW.engine_id), TG_ARGV[0] || ' ' || (to_jsonb(NEW) ->> TG_ARGV[1]));
     END IF;
     RETURN NULL;
 END;
@@ -45,7 +45,7 @@ END;
 DECLARE
     resource_key text;
     narrowing text := 'true';
-    row_tenant uuid := (to_jsonb(COALESCE(NEW, OLD)) ->> 'tenant_id')::uuid;
+    row_engine uuid := (to_jsonb(COALESCE(NEW, OLD)) ->> 'engine_id')::uuid;
     parent_type regtype;
 BEGIN
     IF TG_OP = 'UPDATE' AND TG_ARGV[5] <> '' AND (to_jsonb(OLD) -> TG_ARGV[5]) IS NOT DISTINCT FROM (to_jsonb(NEW) -> TG_ARGV[5]) THEN
@@ -61,9 +61,9 @@ BEGIN
     WHERE
         a.attrelid = TG_ARGV[0]::regclass
         AND a.attname = TG_ARGV[2];
-    FOR resource_key IN EXECUTE FORMAT('SELECT %I::text FROM %I WHERE tenant_id = $2 AND %I = CAST($1 AS %s) AND (%s)', TG_ARGV[1], TG_ARGV[0], TG_ARGV[2], parent_type, narrowing)
-        USING (to_jsonb(COALESCE(NEW, OLD)) ->> TG_ARGV[3]), row_tenant LOOP
-        PERFORM pg_notify(watch_channel_of(row_tenant), TG_ARGV[0] || ' ' || resource_key);
+    FOR resource_key IN EXECUTE FORMAT('SELECT %I::text FROM %I WHERE engine_id = $2 AND %I = CAST($1 AS %s) AND (%s)', TG_ARGV[1], TG_ARGV[0], TG_ARGV[2], parent_type, narrowing)
+        USING (to_jsonb(COALESCE(NEW, OLD)) ->> TG_ARGV[3]), row_engine LOOP
+        PERFORM pg_notify(watch_channel_of(row_engine), TG_ARGV[0] || ' ' || resource_key);
     END LOOP;
     RETURN NULL;
 END;

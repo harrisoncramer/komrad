@@ -196,7 +196,7 @@ VALUES (
     $5,
     $6)
 ON CONFLICT (
-    tenant_id,
+    engine_id,
     dir)
     DO UPDATE SET
         name = EXCLUDED.name,
