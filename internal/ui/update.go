@@ -217,7 +217,7 @@ func (m *model) applySizeRead(msg sizeReadMsg) tea.Cmd {
 		return nil
 	}
 
-	return tea.Tick(sizeFallback, func(time.Time) tea.Msg { return sizeFallbackMsg{size: msg.size} })
+	return tea.Tick(sizeFallback, func(time.Time) tea.Msg { return sizeFallbackMsg(msg) })
 }
 
 // applySizeFallback hands the renderer a read-back size the terminal never reported.
