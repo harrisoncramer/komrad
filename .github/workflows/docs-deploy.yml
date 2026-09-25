@@ -1,0 +1,62 @@
+name: docs deploy
+
+# Publishes the docs site to komrade.dev on every push to main that touches it.
+#
+# It always publishes as latest, the docs' rolling channel and the counterpart of the binary's
+# tip release in main-release.yml: no version promise, replaced on every merge. A stable, tagged
+# version of the docs is a separate concern this does not wire up.
+#
+# TODO(@harrisoncramer): when the first stable release is cut, publish its docs from release.yml
+# with `mise run docs:deploy <tag>`, then point search at it instead of latest. That is two edits:
+# CANONICAL_VERSION in docs/src/consts.ts, and the Sitemap line mise/tasks/docs/deploy writes
+# into robots.txt. latest should then get a noindex so only the stable version is indexed.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "mise/tasks/docs/**"
+      - "mise/tasks/infra/docs/**"
+      - "infra/docs/**"
+      - ".github/workflows/docs-deploy.yml"
+
+concurrency:
+  group: docs-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    if: vars.AWS_DOCS_CI_ROLE != ''
+    runs-on: namespace-profile-harrisoncramer
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Mise
+        uses: ./.github/actions/use-mise
+        with:
+          gh-access-token: ${{ env.GH_ACCESS_TOKEN }}
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DOCS_CI_ROLE }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Point Terraform at the state
+        run: |
+          cat >infra/docs/backend.hcl <<EOF
+          bucket       = "${{ vars.TF_STATE_BUCKET }}"
+          key          = "docs/terraform.tfstate"
+          region       = "${{ vars.AWS_REGION }}"
+          encrypt      = true
+          use_lockfile = true
+          EOF
+
+      - name: Read the state
+        run: mise run infra:docs:init -- -lockfile=readonly
+
+      - name: Publish the docs site
+        run: mise run docs:deploy latest

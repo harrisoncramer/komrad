@@ -25,12 +25,12 @@ require_aws_profile() {
 terraform_output() {
 	local name=$1
 
-	if [ ! -d infra/terraform/.terraform ] && [ -f infra/terraform/backend.hcl ]; then
-		terraform -chdir=infra/terraform init \
+	if [ ! -d infra/engine/.terraform ] && [ -f infra/engine/backend.hcl ]; then
+		terraform -chdir=infra/engine init \
 			-backend-config=backend.hcl -input=false -lockfile=readonly >/dev/null 2>&1 || true
 	fi
 
-	terraform -chdir=infra/terraform output -raw "$name" 2>/dev/null
+	terraform -chdir=infra/engine output -raw "$name" 2>/dev/null
 }
 
 # require_output reads one output, and says what to do when there is no infrastructure to read.
@@ -42,7 +42,7 @@ require_output() {
 	if [ -z "$value" ]; then
 		echo "could not read $name from Terraform, so there is no engine to work with." >&2
 		echo >&2
-		echo "Run 'mise run terraform:apply' to build one, or set the matching KOMRADE_ENGINE_*" >&2
+		echo "Run 'mise run infra:engine:apply' to build one, or set the matching KOMRADE_ENGINE_*" >&2
 		echo "variable to skip Terraform entirely." >&2
 		exit 1
 	fi
@@ -65,7 +65,7 @@ require_instance() {
 	if [ -z "$instance" ]; then
 		echo "could not read the engine's instance from Terraform." >&2
 		echo >&2
-		echo "Run 'mise run terraform:apply' to build one, or set KOMRADE_ENGINE_INSTANCE." >&2
+		echo "Run 'mise run infra:engine:apply' to build one, or set KOMRADE_ENGINE_INSTANCE." >&2
 		exit 1
 	fi
 

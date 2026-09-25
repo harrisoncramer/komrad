@@ -25,9 +25,9 @@ Build the machine image with `mise run packer:build`. It takes a while and print
 
 Register a GitHub App on your account, with no webhook, installed only on the repositories the engine should work in. It needs to read and write repository contents, pull requests, issues and workflows. Generate a private key for it, then store that key in Secrets Manager as `komrade/github-app` before creating the infrastructure. The machine only copies the key in when it boots, so storing it first means the first boot finds it.
 
-Describe the infrastructure by copying the two example files in [`infra/terraform`](https://github.com/harrisoncramer/komrade/tree/main/infra/terraform) and filling them in. They cover your account, region, the image id, your SSH key, and the addresses allowed to connect over SSH. Terraform refuses to let the whole internet in. Fill in the three `github_*` values too. They let this repository's GitHub Actions reach AWS, and deploys, new images and the nightly schedule all depend on them. The defaults assume us-east-1, so another region needs its subnets overridden as well.
+Describe the infrastructure by copying the two example files in [`infra/engine`](https://github.com/harrisoncramer/komrade/tree/main/infra/engine) and filling them in. They cover your account, region, the image id, your SSH key, and the addresses allowed to connect over SSH. Terraform refuses to let the whole internet in. Fill in the three `github_*` values too. They let this repository's GitHub Actions reach AWS, and deploys, new images and the nightly schedule all depend on them. The defaults assume us-east-1, so another region needs its subnets overridden as well.
 
-Create the infrastructure with `mise run terraform:init` and then `mise run terraform:apply`. It builds the network, the machine, the data disk, the database and the permissions between them, and prints the engine's address.
+Create the infrastructure with `mise run infra:engine:init` and then `mise run infra:engine:apply`. It builds the network, the machine, the data disk, the database and the permissions between them, and prints the engine's address.
 
 Configure the engine. Get a shell on it with `mise run remote:connect`. Komrade's config file already exists there, set up by the image, so add the [`[github_app]`](../../config/#github_app) table to it with your App's id, its installation id and the key's path in memory. Check it works with `komrade github token`, which should print a token. Then connect the engine's forge through the App, which you can do from your laptop. [Forges](../forges/) describes what that connection is for.
 
@@ -53,4 +53,4 @@ Stopping the machine does not stop every cost. The disks, database, snapshots an
 
 ## Tearing it down
 
-`mise run terraform:destroy` removes everything. The database is protected from deletion by default, so turn that protection off first. Tearing down keeps a final snapshot of the database.
+`mise run infra:engine:destroy` removes everything. The database is protected from deletion by default, so turn that protection off first. Tearing down keeps a final snapshot of the database.

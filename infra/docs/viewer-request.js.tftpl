@@ -1,0 +1,44 @@
+// The origin is a private S3 bucket read through CloudFront, which does not carry the
+// directory-index behavior an S3 website endpoint gives.
+//
+// Instead every version's build is a tree of index.html files, one per page, so this puts the filename back for any
+// request that named only the directory.
+var domain = "${domain}";
+var assetDirs = ["/_astro/", "/pagefind/"];
+var file = /\.(html|css|js|json|xml|txt|ico|svg|png|jpg|webp|webm|mp4|woff2?)$/;
+
+function redirect(statusCode, location) {
+  return {
+    statusCode: statusCode,
+    statusDescription: statusCode === 301 ? "Moved Permanently" : "Found",
+    headers: { location: { value: location } },
+  };
+}
+
+function handler(event) {
+  var request = event.request;
+  var uri = request.uri;
+  var host = request.headers.host && request.headers.host.value;
+
+  if (host && host !== domain) {
+    return redirect(301, "https://" + domain + uri);
+  }
+
+  if (uri === "/") {
+    return redirect(302, "https://" + domain + "/latest/");
+  }
+
+  for (var i = 0; i < assetDirs.length; i++) {
+    if (uri.indexOf(assetDirs[i]) !== -1) {
+      return request;
+    }
+  }
+
+  if (uri.endsWith("/")) {
+    request.uri = uri + "index.html";
+  } else if (!file.test(uri)) {
+    request.uri = uri + "/index.html";
+  }
+
+  return request;
+}

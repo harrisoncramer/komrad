@@ -41,7 +41,7 @@ jobs:
       # The backend is not in the repository, because it names an account's own bucket.
       - name: Point Terraform at the state
         run: |
-          cat >infra/terraform/backend.hcl <<EOF
+          cat >infra/engine/backend.hcl <<EOF
           bucket       = "${{ vars.TF_STATE_BUCKET }}"
           key          = "${{ vars.TF_STATE_KEY }}"
           region       = "${{ vars.AWS_REGION }}"
@@ -51,7 +51,7 @@ jobs:
 
       # The lock is read as written, never rewritten.
       - name: Read the state
-        run: mise run terraform:init -- -lockfile=readonly
+        run: mise run infra:engine:init -- -lockfile=readonly
 
       - name: Start the engine
         run: mise run remote:start

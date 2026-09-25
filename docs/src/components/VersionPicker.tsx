@@ -8,7 +8,7 @@ type Versions = { stable: Release[]; unstable: Release[] };
 
 const short = (commit: string) => commit.slice(0, 7);
 
-const showsCommit = (version: string) => version === "tip" || version === "dev";
+const showsCommit = (version: string) => version === "latest" || version === "dev";
 
 const VersionPicker = () => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -92,7 +92,7 @@ const VersionPicker = () => {
                 >
                   <span className="font-mono">{release.version}</span>
                   <span className="font-mono text-xs text-app-gray-dim">
-                    {group.title === "Stable" && index === 0 ? "latest" : short(release.commit)}
+                    {group.title === "Stable" && index === 0 ? "newest" : short(release.commit)}
                   </span>
                 </a>
               ))}

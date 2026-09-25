@@ -1,0 +1,90 @@
+#!/usr/bin/env bash
+source "$MISE_CONFIG_ROOT/mise/tasks/_"
+source "$MISE_CONFIG_ROOT/mise/tasks/docs/_docs_deploy_utils"
+set -euo pipefail
+#MISE description="Build one version of the docs site and publish it to komrade.dev."
+
+usage() {
+	echo "Usage: mise run docs:deploy <version>"
+	echo
+	echo "Builds the docs site as the given version (latest, or a release tag like"
+	echo "v0.3.0) into docs/dist/<version> and syncs it to s3://<bucket>/<version>/,"
+	echo "then folds the version into versions.json, at the bucket root, that the"
+	echo "site's version picker reads, and writes the robots.txt that names latest's"
+	echo "sitemap. The distribution sends komrade.dev/ to latest."
+	echo
+	echo "Reads the bucket and distribution id from infra/docs; run"
+	echo "'mise run infra:docs:apply' first if there is none."
+}
+
+for arg in "$@"; do
+	case "$arg" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	esac
+done
+
+VERSION="${1:-}"
+if [ -z "$VERSION" ]; then
+	usage
+	exit 1
+fi
+
+require_aws_profile
+
+cd "$MISE_CONFIG_ROOT/docs"
+docs_install
+
+BUCKET="$(docs_require_output bucket_name)"
+DISTRIBUTION_ID="$(docs_require_output cloudfront_distribution_id)"
+DOMAIN="$(docs_require_output domain_name)"
+
+rm -rf "dist/$VERSION"
+
+PUBLIC_DOCS_VERSION="$VERSION" PUBLIC_DOCS_COMMIT="$(build_commit)" \
+	npx astro build --outDir "dist/$VERSION"
+npx pagefind --site "dist/$VERSION"
+
+gum log --level info "publishing $VERSION to s3://$BUCKET/$VERSION/"
+
+aws s3 sync "dist/$VERSION/" "s3://$BUCKET/$VERSION/" \
+	--exclude "*" --include "_astro/*" --include "pagefind/*" \
+	--cache-control "public,max-age=31536000,immutable"
+
+aws s3 sync "dist/$VERSION/" "s3://$BUCKET/$VERSION/" --delete \
+	--exclude "_astro/*" --exclude "pagefind/*" \
+	--cache-control "public,max-age=300,must-revalidate"
+
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
+
+aws s3 cp "s3://$BUCKET/versions.json" "$TMP/versions.json" --only-show-errors 2>/dev/null ||
+	echo '{"stable":[],"unstable":[]}' >"$TMP/versions.json"
+
+COMMIT="$(build_commit)"
+if [ "$VERSION" = latest ]; then
+	jq --arg commit "$COMMIT" '.unstable = [{version: "latest", commit: $commit}]' \
+		"$TMP/versions.json" >"$TMP/versions.new.json"
+else
+	jq --arg version "$VERSION" --arg commit "$COMMIT" \
+		'.stable = ([{version: $version, commit: $commit}] + (.stable | map(select(.version != $version))))' \
+		"$TMP/versions.json" >"$TMP/versions.new.json"
+fi
+
+cat >"$TMP/robots.txt" <<ROBOTS
+User-agent: *
+Allow: /
+
+Sitemap: https://$DOMAIN/latest/sitemap-index.xml
+ROBOTS
+
+aws s3 cp "$TMP/versions.new.json" "s3://$BUCKET/versions.json" \
+	--cache-control "public,max-age=60,must-revalidate" --content-type "application/json"
+aws s3 cp "$TMP/robots.txt" "s3://$BUCKET/robots.txt" \
+	--cache-control "public,max-age=60,must-revalidate" --content-type "text/plain"
+
+aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION_ID" --paths "/*" >/dev/null
+
+gum log --level info "published $VERSION: https://$DOMAIN/$VERSION/"

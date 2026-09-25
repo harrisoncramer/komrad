@@ -61,7 +61,8 @@ jobs:
             infra:
               - 'infra/**'
               - 'packer/**'
-              - 'mise/tasks/terraform/**'
+              - 'mise/tasks/infra/engine/**'
+              - 'mise/tasks/infra/docs/**'
               - 'mise/tasks/packer/**'
               - 'mise.toml'
               - '.github/workflows/ci.yml'
@@ -136,7 +137,9 @@ jobs:
           gh-access-token: ${{ env.GH_ACCESS_TOKEN }}
 
       - name: Check the Terraform formatting
-        run: mise run terraform:fmt
+        run: |
+          mise run infra:engine:fmt
+          mise run infra:docs:fmt
 
       - name: Check the Packer formatting
         run: mise run packer:fmt

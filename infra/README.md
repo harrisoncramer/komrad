@@ -1,11 +1,46 @@
 # Infrastructure
 
-Terraform for komrade's own remote engine: one EC2 instance, a subnet, a fixed public address, an encrypted data volume mounted at `/var/lib/komrade`, and Postgres on RDS in private subnets reachable only from the instance.
+Two Terraform stacks live here, one per directory. `engine/` is the machine komrade runs on
+when it is not running on a laptop. `docs/` is the website at komrade.dev. They share an AWS
+account, one state bucket, and one GitHub trust, and nothing else.
 
-Setting one up is documented in `docs/src/content/guides/engine-admin.md`, which covers the whole path from a built image to a working panel. Nothing here is run directly; the tasks are `mise run terraform:init`, `plan`, `apply`, `destroy`, `fmt` and `validate` from the repository root.
+```
+                      GitHub Actions
+                    (OIDC, no stored keys)
+                     /                \
+          engine role                 docs role
+               |                          |
+               v                          v
+   +--------------------+     +---------------------------+
+   |  engine/           |     |  docs/                    |
+   |                    |     |                           |
+   |  EC2 + data volume |     |  S3 bucket (private)      |
+   |  RDS Postgres      |     |  CloudFront + certificate |
+   |  VPC, SSH, SSM     |     |  Route53 records          |
+   +--------------------+     +---------------------------+
+               \                          /
+                \                        /
+              one S3 bucket holding both states
+              engine/terraform.tfstate, docs/terraform.tfstate
+```
 
-Two things worth knowing before you apply. Changing `ami_id`, moving the database, or editing the boot script all replace the instance and stop every agent on it, which is the upgrade path rather than an accident: the data volume detaches and follows the new host, and the root volume is discarded. And `database_deletion_protection` defaults to true, so a destroy refuses until it is set false and applied.
+## How the two relate
 
-Stopping the instance is a different thing from replacing it, and Terraform has no part in it. It does not track whether an instance is running, so `terraform plan` sees no drift against a stopped engine and an `apply` will not start one. `mise run remote:stop` and `mise run remote:start` use the AWS CLI for that, and `docs/src/content/guides/engine-admin.md` covers what survives.
+The engine stack creates the GitHub OIDC provider for the account. AWS allows only one per
+issuer, so the docs stack looks it up instead of making its own. That means the engine stack has
+to be applied first, with `github_repository` set, before the docs stack is applied with it set.
+Each stack then has its own IAM role with only the permissions its workflows need.
 
-The image itself is built by Packer from `packer/`, which holds the toolchain, the harnesses, komrade's binary and the boot-time units.
+Both stacks keep their state in the same bucket under different keys. The bucket itself is not
+managed here. It is named in a `backend.hcl` you copy from each directory's example, and in CI it
+is written from the `TF_STATE_BUCKET` repository variable.
+
+## Running Terraform
+
+Nothing here is run with `terraform` directly. Each stack has a mise task group that points
+Terraform at the right directory: `mise run infra:engine:init`, `plan`, `apply`, `destroy`,
+`fmt`, `validate`, and the same under `infra:docs:`. CI checks formatting on every pull request
+that touches this directory.
+
+The engine is set up end to end in `docs/src/content/guides/engine-admin.md`. Each directory's
+own README says what it builds and what to be careful of.
