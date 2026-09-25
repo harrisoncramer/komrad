@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+source "$MISE_CONFIG_ROOT/mise/tasks/_build"
+#MISE description="Rebuild from an agent's worktree and restart the server, leaving the agents running."
+set -euo pipefail
+cd "$MISE_CONFIG_ROOT"
+
+komrade="$MISE_CONFIG_ROOT/bin/komrade"
+
+dir="$(
+	{
+		printf 'main\t%s\n' "$MISE_CONFIG_ROOT"
+		"$komrade" rpc list-agents --compact |
+			jq -r --arg trees "$(git worktree list --porcelain | sed -n 's/^worktree //p')" \
+				'.agents[].agent | select(.cwd | IN($trees | split("\n")[])) | [.name, .cwd] | @tsv'
+	} | fzf --delimiter=$'\t' --with-nth=1 | cut -f2
+)"
+
+(cd "$dir" && go_build_local "$komrade")
+"$komrade" stop
+"$komrade" start
