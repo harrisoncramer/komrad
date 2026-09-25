@@ -13,15 +13,17 @@ locals {
   github_name       = local.github_parts[1]
   github_identified = var.github_owner_id != "" && var.github_repository_id != ""
 
-  # Only main publishes, so only main's ref is trusted.
-  github_ref = "refs/heads/main"
+  # main publishes latest and a version tag publishes its own docs, so only those refs are trusted.
+  github_refs = ["refs/heads/main", "refs/tags/v*"]
 
-  github_subjects = [
-    "repo:${var.github_repository}:ref:${local.github_ref}",
-    local.github_identified
-    ? "repo:${local.github_owner}@${var.github_owner_id}/${local.github_name}@${var.github_repository_id}:ref:${local.github_ref}"
-    : "repo:${local.github_owner}@*/${local.github_name}@*:ref:${local.github_ref}",
-  ]
+  github_subjects = flatten([
+    for ref in local.github_refs : [
+      "repo:${var.github_repository}:ref:${ref}",
+      local.github_identified
+      ? "repo:${local.github_owner}@${var.github_owner_id}/${local.github_name}@${var.github_repository_id}:ref:${ref}"
+      : "repo:${local.github_owner}@*/${local.github_name}@*:ref:${ref}",
+    ]
+  ])
 }
 
 data "aws_iam_policy_document" "github_assume" {

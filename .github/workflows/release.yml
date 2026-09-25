@@ -65,6 +65,13 @@ jobs:
 
           gh release upload "$TAG" dist/* --clobber
 
+  docs:
+    needs: publish
+    uses: ./.github/workflows/docs-deploy.yml
+    secrets: inherit
+    with:
+      version: ${{ github.ref_name }}
+
   # The engine follows published releases rather than every merge, so an intermediate commit that
   # breaks it no longer costs every agent on the box. This installs a binary and restarts the
   # service; it does not replace the instance.

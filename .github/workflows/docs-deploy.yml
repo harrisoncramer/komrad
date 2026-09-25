@@ -1,15 +1,13 @@
 name: docs deploy
 
-# Publishes the docs site to komrade.dev on every push to main that touches it.
+# Publishes the docs site to komrade.dev. A push to main that touches it publishes latest, the
+# docs' rolling channel and the counterpart of the binary's tip release in main-release.yml: no
+# version promise, replaced on every merge. release.yml calls this with the tag, so each stable
+# release publishes its own version of the docs beside latest.
 #
-# It always publishes as latest, the docs' rolling channel and the counterpart of the binary's
-# tip release in main-release.yml: no version promise, replaced on every merge. A stable, tagged
-# version of the docs is a separate concern this does not wire up.
-#
-# TODO(@harrisoncramer): when the first stable release is cut, publish its docs from release.yml
-# with `mise run docs:deploy <tag>`, then point search at it instead of latest. That is two edits:
-# CANONICAL_VERSION in docs/src/consts.ts, and the Sitemap line mise/tasks/docs/deploy writes
-# into robots.txt. latest should then get a noindex so only the stable version is indexed.
+# TODO(@harrisoncramer): point search at the newest stable version instead of latest. That is two
+# edits: CANONICAL_VERSION in docs/src/consts.ts, and the Sitemap line mise/tasks/docs/deploy
+# writes into robots.txt. latest should then get a noindex so only the stable version is indexed.
 on:
   push:
     branches: [main]
@@ -19,6 +17,12 @@ on:
       - "mise/tasks/infra/docs/**"
       - "infra/docs/**"
       - ".github/workflows/docs-deploy.yml"
+  workflow_call:
+    inputs:
+      version:
+        description: The version of the docs to publish, a release tag
+        type: string
+        required: true
 
 concurrency:
   group: docs-deploy
@@ -59,4 +63,6 @@ jobs:
         run: mise run infra:docs:init -- -lockfile=readonly
 
       - name: Publish the docs site
-        run: mise run docs:deploy latest
+        run: mise run docs:deploy "$VERSION"
+        env:
+          VERSION: ${{ inputs.version || 'latest' }}
