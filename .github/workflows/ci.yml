@@ -191,11 +191,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Cache the Go and lint caches
-        uses: namespacelabs/nscloud-cache-action@v1
-        with:
-          cache: go
-
       - name: Use Mise
         uses: ./.github/actions/use-mise
         with:
@@ -231,42 +226,24 @@ jobs:
     env:
       KOMRADE_DATABASE_URL: postgres://komrade:komrade@localhost:5460/komrade?sslmode=disable
 
-      # A warm build cache otherwise lets go test replay a package's last result
-      # instead of running it, and these tests reach a real Postgres that the cache
-      # cannot see. The compile is still cached; only the decision to skip running is
-      # turned off.
-      GOFLAGS: -count=1
-
     steps:
       - uses: actions/checkout@v4
 
-      # The Go build cache, the module cache, and golangci-lint's own cache are
-      # rebuilt from nothing on every run otherwise, about 1.6GB of it. These are
-      # volumes attached to the runner rather than archives to download, and they
-      # are shared across every branch of the repository, so a new branch starts
-      # warm where actions/cache would miss.
-      - name: Cache the Go and lint caches
-        uses: namespacelabs/nscloud-cache-action@v1
-        with:
-          cache: go
-          path: /home/runner/.cache/golangci-lint
-
+      # The module cache, golangci-lint's own cache and the tools are rebuilt from nothing
+      # on every run otherwise. They live on a volume attached to the runner, and Go's
+      # build and test results live in Namespace's remote Go cache. Both are shared across
+      # every branch of the repository, so a new branch starts warm where actions/cache
+      # would miss.
       - name: Use Mise
         uses: ./.github/actions/use-mise
         with:
           gh-access-token: ${{ env.GH_ACCESS_TOKEN }}
 
-      # go:lint builds golangci-lint from source to bundle the repo's plugins,
-      # which dominates the job. The binary only changes when a plugin's pin or
-      # komrade's own rules change, so it is cached against those rather than
-      # rebuilt every run.
-      - name: Cache the custom linter
-        uses: actions/cache@v4
-        with:
-          path: |
-            local/custom-gcl
-            local/custom-gcl.sum
-          key: custom-gcl-v2-${{ runner.os }}-${{ hashFiles('.custom-gcl.yml', 'tools/komradelint/**') }}
+      # Go reuses a passing test result only when every file and folder the test read has
+      # the same mtime as last time. A fresh checkout gives them all a new one, so without
+      # this every test runs again, even ones whose code nothing touched.
+      - name: Give the files the times the test cache expects
+        run: mise run go:mtimehash
 
       - name: Check the formatting
         run: mise run go:fmt --check
@@ -303,20 +280,17 @@ jobs:
 
     env:
       KOMRADE_DATABASE_URL: postgres://komrade:komrade@localhost:5460/komrade?sslmode=disable
-      GOFLAGS: -count=1
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Cache the Go and lint caches
-        uses: namespacelabs/nscloud-cache-action@v1
-        with:
-          cache: go
 
       - name: Use Mise
         uses: ./.github/actions/use-mise
         with:
           gh-access-token: ${{ env.GH_ACCESS_TOKEN }}
+
+      - name: Give the files the times the test cache expects
+        run: mise run go:mtimehash
 
       # A test that needs tmux fails without it rather than skipping, so this step is what
       # keeps the job honest. less is what the panel pages a dormant agent's placeholder
@@ -355,7 +329,7 @@ jobs:
   required:
     needs: [changes, shell, proto, infra, db, generated, go, integration, docs]
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: namespace-profile-harrisoncramer
     steps:
       - name: Fail when a needed job did not succeed
         if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')

@@ -1,18 +1,29 @@
 name: Use Mise
-description: Install mise tools with caching.
+description: >-
+  Mount the repository's cache volume and install mise tools. Every job mounts the same
+  paths whether or not it writes them all: a job forks the volume when it starts and the
+  last job to finish cleanly becomes its next version, so a path only some jobs mounted
+  would be dropped by whichever job finished after them.
 
 inputs:
   gh-access-token:
     description: GitHub access token for private repository access. Configures git to authenticate against private Go modules.
     required: true
-  cache:
-    description: Whether to enable mise-action built-in caching. Disable when using an external cache (e.g. nscloud-cache-action).
-    required: false
-    default: "true"
 
 runs:
   using: composite
   steps:
+    - name: Mount the cache volume
+      uses: namespacelabs/nscloud-cache-action@v1
+      with:
+        cache: apt,go,mise
+        path: |
+          /home/runner/.cache/golangci-lint
+          /home/runner/.cache/terraform/plugins
+          /home/runner/.config/packer/plugins
+          /home/runner/.npm
+          ${{ github.workspace }}/local
+
     - name: Configure Private GitHub Repositories
       shell: bash
       run: git config --global url.https://"$GH_ACCESS_TOKEN"@github.com/.insteadOf https://github.com/
@@ -26,10 +37,25 @@ runs:
       run: |
         echo "MISE_DISABLE_TOOLS=cargo:worktrunk,rust,kubectl,mc,aqua:junegunn/fzf,go:github.com/go-delve/delve/cmd/dlv,air,aqua:securego/gosec,aqua:aws/session-manager-plugin" >> "$GITHUB_ENV"
 
+    # Go's build and test results go to Namespace's remote Go cache instead of the volume.
+    # The volume is saved whole when a job ends, and the last job to finish wins. A quick job
+    # like docs finishing after the go job replaced its copy, and the test results in it were
+    # lost. The remote cache stores each result the moment Go produces it, so every job adds
+    # to one shared store and none can overwrite another.
+    #
+    # It is early access, so the version is pinned. One known gap: a package that runs alone
+    # for over a minute, like internal/ui, loses its upload to a stale connection and reruns
+    # next time. -silent keeps its stats off stderr, where gotestsum counts them as errors.
+    - name: Use Namespace's remote Go cache
+      shell: bash
+      run: |
+        curl -fsSL https://public.namespaceblobs.com/gocacheprog/install.sh | sh -s -- --version v0.0.49
+        echo "GOCACHEPROG=$HOME/.local/bin/gocacheprog -silent" >> "$GITHUB_ENV"
+
     - name: Install mise tools
       uses: jdx/mise-action@v4
       env:
         GOWORK: "off"
       with:
         version: 2026.6.14
-        cache: ${{ inputs.cache == 'true' }}
+        cache: false
