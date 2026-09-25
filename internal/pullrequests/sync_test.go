@@ -29,7 +29,7 @@ import (
 
 const syncRepository = "https://github.com/harrisoncramer/komrade"
 
-const otherRepository = "https://github.com/harrisoncramer/weave-forge-fixture"
+const otherRepository = "https://github.com/harrisoncramer/komrade-forge-fixture"
 
 var syncNow = time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
 
@@ -478,7 +478,7 @@ func TestSyncStaleMarkGoesBackToAFirstSweep(t *testing.T) {
 	other := git.RemoteURL{
 		Scheme: "https",
 		Host:   "github.com",
-		Path:   "harrisoncramer/weave-forge-fixture",
+		Path:   "harrisoncramer/komrade-forge-fixture",
 	}
 	f.forge.elsewhere[other.Path] = map[string]*forge.Page{"": {}}
 	f.pass(t, syncNow.Add(time.Minute))
@@ -532,7 +532,7 @@ func TestSyncSearchLeavesOutAnUnsweptRepository(t *testing.T) {
 	other := git.RemoteURL{
 		Scheme: "https",
 		Host:   "github.com",
-		Path:   "harrisoncramer/weave-forge-fixture",
+		Path:   "harrisoncramer/komrade-forge-fixture",
 	}
 	pages := map[string]*forge.Page{}
 	for page := 1; page <= 12; page++ {
@@ -574,7 +574,7 @@ func TestSyncQuietRepositoryDoesNotDragTheSearchBack(t *testing.T) {
 	other := git.RemoteURL{
 		Scheme: "https",
 		Host:   "github.com",
-		Path:   "harrisoncramer/weave-forge-fixture",
+		Path:   "harrisoncramer/komrade-forge-fixture",
 	}
 	f.forge.updated[""] = &forge.Page{PullRequests: []forge.PullRequest{pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Hour))}}
 	f.forge.elsewhere[other.Path] = map[string]*forge.Page{"": {

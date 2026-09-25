@@ -25,7 +25,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// forgeTokenEnv names a GitHub token that reads harrisoncramer/weave-forge-fixture, and the
+// forgeTokenEnv names a GitHub token that reads harrisoncramer/komrade-forge-fixture, and the
 // live test skips without one so the suite never needs the network.
 const forgeTokenEnv = "KOMRADE_E2E_GITHUB_TOKEN"
 
@@ -121,7 +121,7 @@ func TestIntegrationForgeSpeaksToGitHub(t *testing.T) {
 	assert.Empty(t, checked.Msg.GetChecks()[0].GetProblem())
 
 	pullRequests, err := instance.Forges.ListForgePullRequests(ctx, connect.NewRequest(&forgev1.ListForgePullRequestsRequest{
-		RemoteUrl: "git@github.com:harrisoncramer/weave-forge-fixture.git",
+		RemoteUrl: "git@github.com:harrisoncramer/komrade-forge-fixture.git",
 		Branch:    "fixture/open",
 	}))
 	require.NoError(t, err)

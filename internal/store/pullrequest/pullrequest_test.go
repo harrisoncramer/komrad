@@ -17,7 +17,7 @@ import (
 
 const (
 	komrade = "https://github.com/harrisoncramer/komrade"
-	fixture = "https://github.com/harrisoncramer/weave-forge-fixture"
+	fixture = "https://github.com/harrisoncramer/komrade-forge-fixture"
 )
 
 type harness struct {

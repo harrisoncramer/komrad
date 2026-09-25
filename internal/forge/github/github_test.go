@@ -19,11 +19,11 @@ import (
 )
 
 // The fixtures carry the shape GitHub answered on 20 September 2026, with the rows from other
-// repositories made up: weave-forge-fixture#1 open, komrade#742 merged, widgets#55 from a fork,
+// repositories made up: komrade-forge-fixture#1 open, komrade#742 merged, widgets#55 from a fork,
 // widgets#13 from a fork since deleted, widgets#81544 a draft, a search page over two
 // repositories, and a batch of standings with one number GitHub does not have.
 
-const openPull = `{"id":"PR_kwDOUgkrbM8AAAABEIdmHw","number":1,"title":"fixture: open","url":"https://github.com/harrisoncramer/weave-forge-fixture/pull/1","state":"OPEN","isDraft":false,"createdAt":"2026-09-18T19:14:17Z","updatedAt":"2026-09-18T19:14:17Z","mergedAt":null,"closedAt":null,"headRefName":"fixture/open","headRefOid":"acc6d4fd6caf3511c998a673406e6fed2df7a28b","baseRefName":"main","baseRefOid":"8b32d7985e62febbf494e815545c22b446276b5d","headRepository":{"url":"https://github.com/harrisoncramer/weave-forge-fixture"},"baseRepository":{"url":"https://github.com/harrisoncramer/weave-forge-fixture"}}`
+const openPull = `{"id":"PR_kwDOUgkrbM8AAAABEIdmHw","number":1,"title":"fixture: open","url":"https://github.com/harrisoncramer/komrade-forge-fixture/pull/1","state":"OPEN","isDraft":false,"createdAt":"2026-09-18T19:14:17Z","updatedAt":"2026-09-18T19:14:17Z","mergedAt":null,"closedAt":null,"headRefName":"fixture/open","headRefOid":"acc6d4fd6caf3511c998a673406e6fed2df7a28b","baseRefName":"main","baseRefOid":"8b32d7985e62febbf494e815545c22b446276b5d","headRepository":{"url":"https://github.com/harrisoncramer/komrade-forge-fixture"},"baseRepository":{"url":"https://github.com/harrisoncramer/komrade-forge-fixture"}}`
 
 const mergedPull = `{"id":"PR_kwDOTgPfPc8AAAABEU5L_Q","number":742,"title":"feat(pullrequest): draw pull request marks in the panel","url":"https://github.com/harrisoncramer/komrade/pull/742","state":"MERGED","isDraft":false,"createdAt":"2026-09-20T17:57:28Z","updatedAt":"2026-09-20T18:00:07Z","mergedAt":"2026-09-20T18:00:07Z","closedAt":"2026-09-20T18:00:07Z","headRefName":"agent/01a0bea9-02d2-7ce0-bbb4-1fbfc3e74198","headRefOid":"70b1d987cdd21940203ca3fbc5b3a7998a47c830","baseRefName":"main","baseRefOid":"79a1ad8fe89cca4494a40c5c5015f46458ddc121","headRepository":{"url":"https://github.com/harrisoncramer/komrade"},"baseRepository":{"url":"https://github.com/harrisoncramer/komrade"}}`
 
@@ -171,10 +171,10 @@ var komrade = git.RemoteURL{
 }
 
 var fixture = git.RemoteURL{
-	Raw:    "https://github.com/harrisoncramer/weave-forge-fixture",
+	Raw:    "https://github.com/harrisoncramer/komrade-forge-fixture",
 	Scheme: "https",
 	Host:   "github.com",
-	Path:   "harrisoncramer/weave-forge-fixture",
+	Path:   "harrisoncramer/komrade-forge-fixture",
 }
 
 // TestList covers the branch listing: the variables GitHub wants, the token on the request,
@@ -200,7 +200,7 @@ func TestList(t *testing.T) {
 	assert.Equal(t, listQuery, seen.Query)
 	assert.Equal(t, map[string]any{
 		"owner":  "harrisoncramer",
-		"name":   "weave-forge-fixture",
+		"name":   "komrade-forge-fixture",
 		"first":  float64(50),
 		"after":  "c2",
 		"branch": "fixture/open",
@@ -213,15 +213,15 @@ func TestList(t *testing.T) {
 	require.Len(t, pullRequests, 5)
 
 	repository := git.RemoteURL{
-		Raw:    "https://github.com/harrisoncramer/weave-forge-fixture",
+		Raw:    "https://github.com/harrisoncramer/komrade-forge-fixture",
 		Scheme: "https",
 		Host:   "github.com",
-		Path:   "harrisoncramer/weave-forge-fixture",
+		Path:   "harrisoncramer/komrade-forge-fixture",
 	}
 	assert.Equal(t, forge.PullRequest{
 		Forge:      forge.KindGitHub,
 		ProviderID: "PR_kwDOUgkrbM8AAAABEIdmHw",
-		URL:        "https://github.com/harrisoncramer/weave-forge-fixture/pull/1",
+		URL:        "https://github.com/harrisoncramer/komrade-forge-fixture/pull/1",
 		Repository: repository,
 		Head:       repository,
 		Number:     1,
@@ -470,7 +470,7 @@ func TestNotFound(t *testing.T) {
 			name: "a pull request github does not have",
 			body: `{"data":{"repository":{"pullRequest":null}},"errors":[{"type":"NOT_FOUND","path":["repository","pullRequest"],"locations":[{"line":3,"column":5}],"message":"Could not resolve to a PullRequest with the number of 999."}]}`,
 			call: func(f *Forge) error {
-				_, err := f.Get(t.Context(), "https://github.com/harrisoncramer/weave-forge-fixture/pull/999")
+				_, err := f.Get(t.Context(), "https://github.com/harrisoncramer/komrade-forge-fixture/pull/999")
 
 				return err
 			},
