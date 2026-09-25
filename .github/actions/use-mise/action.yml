@@ -1,5 +1,9 @@
 name: Use Mise
-description: Install mise tools. Caching is the job's concern, through nscloud-cache-action's mise mode.
+description: >-
+  Mount the repository's cache volume and install mise tools. Every job mounts the same
+  paths whether or not it writes them all: a job forks the volume when it starts and the
+  last job to finish cleanly becomes its next version, so a path only some jobs mounted
+  would be dropped by whichever job finished after them.
 
 inputs:
   gh-access-token:
@@ -9,6 +13,17 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Mount the cache volume
+      uses: namespacelabs/nscloud-cache-action@v1
+      with:
+        cache: apt,go,mise
+        path: |
+          /home/runner/.cache/golangci-lint
+          /home/runner/.cache/terraform/plugins
+          /home/runner/.config/packer/plugins
+          /home/runner/.npm
+          ${{ github.workspace }}/local
+
     - name: Configure Private GitHub Repositories
       shell: bash
       run: git config --global url.https://"$GH_ACCESS_TOKEN"@github.com/.insteadOf https://github.com/

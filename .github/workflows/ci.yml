@@ -97,11 +97,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Cache the tools
-        uses: namespacelabs/nscloud-cache-action@v1
-        with:
-          cache: mise
-
       - name: Use Mise
         uses: ./.github/actions/use-mise
         with:
@@ -119,11 +114,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Cache the tools
-        uses: namespacelabs/nscloud-cache-action@v1
-        with:
-          cache: mise
-
       - name: Use Mise
         uses: ./.github/actions/use-mise
         with:
@@ -140,12 +130,6 @@ jobs:
     runs-on: namespace-profile-harrisoncramer
     steps:
       - uses: actions/checkout@v4
-
-      - name: Cache the tools and the Packer plugins
-        uses: namespacelabs/nscloud-cache-action@v1
-        with:
-          cache: mise
-          path: /home/runner/.config/packer/plugins
 
       - name: Use Mise
         uses: ./.github/actions/use-mise
@@ -169,11 +153,6 @@ jobs:
     runs-on: namespace-profile-harrisoncramer
     steps:
       - uses: actions/checkout@v4
-
-      - name: Cache the tools
-        uses: namespacelabs/nscloud-cache-action@v1
-        with:
-          cache: mise
 
       - name: Use Mise
         uses: ./.github/actions/use-mise
@@ -211,11 +190,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Cache the Go caches and the tools
-        uses: namespacelabs/nscloud-cache-action@v1
-        with:
-          cache: go,mise
 
       - name: Use Mise
         uses: ./.github/actions/use-mise
@@ -266,19 +240,6 @@ jobs:
       # volumes attached to the runner rather than archives to download, and they
       # are shared across every branch of the repository, so a new branch starts
       # warm where actions/cache would miss.
-      #
-      # go:lint builds golangci-lint from source to bundle the repo's plugins,
-      # which dominates the job. The binary only changes when a plugin's pin or
-      # komrade's own rules change, and go:lint compares a sum of those before
-      # trusting the binary it finds, so it can sit on the volume too.
-      - name: Cache the Go caches, the tools and the custom linter
-        uses: namespacelabs/nscloud-cache-action@v1
-        with:
-          cache: go,mise
-          path: |
-            /home/runner/.cache/golangci-lint
-            ${{ github.workspace }}/local
-
       - name: Use Mise
         uses: ./.github/actions/use-mise
         with:
@@ -324,11 +285,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Cache the Go caches, the tools and the packages
-        uses: namespacelabs/nscloud-cache-action@v1
-        with:
-          cache: apt,go,mise
-
       - name: Use Mise
         uses: ./.github/actions/use-mise
         with:
@@ -350,12 +306,6 @@ jobs:
     runs-on: namespace-profile-harrisoncramer
     steps:
       - uses: actions/checkout@v4
-
-      - name: Cache the tools and the npm cache
-        uses: namespacelabs/nscloud-cache-action@v1
-        with:
-          cache: mise
-          path: /home/runner/.npm
 
       - name: Use Mise
         uses: ./.github/actions/use-mise

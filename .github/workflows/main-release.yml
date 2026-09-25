@@ -40,11 +40,6 @@ jobs:
           ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0
 
-      - name: Cache the Go caches and the tools
-        uses: namespacelabs/nscloud-cache-action@v1
-        with:
-          cache: go,mise
-
       - name: Use Mise
         uses: ./.github/actions/use-mise
         with:

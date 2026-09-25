@@ -43,11 +43,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Cache the Go caches and the tools
-        uses: namespacelabs/nscloud-cache-action@v1
-        with:
-          cache: go,mise
-
       - name: Use Mise
         uses: ./.github/actions/use-mise
         with:
