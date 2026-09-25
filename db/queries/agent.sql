@@ -342,7 +342,7 @@ WHERE
 
 -- name: LockAgentSlots :exec
 SELECT
-    PG_ADVISORY_XACT_LOCK(@key::bigint);
+    PG_ADVISORY_XACT_LOCK(HASHTEXTEXTENDED(COALESCE(current_tenant()::text, ''), 7240116));
 
 -- name: LockAgentMetadata :exec
 SELECT

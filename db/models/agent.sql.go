@@ -1805,11 +1805,11 @@ func (q *Queries) LockAgentMetadata(ctx context.Context, agentID string) error {
 
 const lockAgentSlots = `-- name: LockAgentSlots :exec
 SELECT
-    PG_ADVISORY_XACT_LOCK($1::bigint)
+    PG_ADVISORY_XACT_LOCK(HASHTEXTEXTENDED(COALESCE(current_tenant()::text, ''), 7240116))
 `
 
-func (q *Queries) LockAgentSlots(ctx context.Context, key int64) error {
-	_, err := q.db.Exec(ctx, lockAgentSlots, key)
+func (q *Queries) LockAgentSlots(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, lockAgentSlots)
 	return err
 }
 
