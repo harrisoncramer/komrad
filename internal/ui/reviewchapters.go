@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"komrade/internal/git"
-	agentv1 "komrade/proto/gen/agent/v1"
+	"komrad/internal/git"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
 	"google.golang.org/protobuf/proto"

@@ -157,7 +157,7 @@ CREATE UNIQUE INDEX "agents_workflow_orchestrator" ON "agents" ("workflow_id") W
 -- Set comment to table: "agents"
 COMMENT ON TABLE "agents" IS 'One background agent, holding everything needed to start it again.';
 -- Set comment to column: "state" on table: "agents"
-COMMENT ON COLUMN "agents"."state" IS 'What the agent is doing. Komrade captures the agent''s terminal every couple of seconds and writes here what it read there. Uncertain means the terminal was captured but could not be understood. The setup and failure values never come from reading a terminal, so something else sets those.';
+COMMENT ON COLUMN "agents"."state" IS 'What the agent is doing. Komrad captures the agent''s terminal every couple of seconds and writes here what it read there. Uncertain means the terminal was captured but could not be understood. The setup and failure values never come from reading a terminal, so something else sets those.';
 -- Set comment to column: "reported_reason" on table: "agents"
 COMMENT ON COLUMN "agents"."reported_reason" IS 'What the agent''s own CLI last said it was doing. It only decorates the state read off the terminal and never sets that state. It is cleared whenever the state changes and when a turn ends, so an empty value means there is nothing to say.';
 -- Set comment to column: "role" on table: "agents"
@@ -167,9 +167,9 @@ COMMENT ON COLUMN "agents"."held_at" IS 'When a person stopped this agent and to
 -- Set comment to column: "held_mid_turn" on table: "agents"
 COMMENT ON COLUMN "agents"."held_mid_turn" IS 'Whether the hold cut a turn that was still running, which is what decides whether letting go has to type the agent back into motion or merely stop holding it.';
 -- Set comment to column: "sequence_in_progress" on table: "agents"
-COMMENT ON COLUMN "agents"."sequence_in_progress" IS 'Whether a merge, a rebase or a cherry-pick is part-way through the agent''s checkout and waiting on somebody. Komrade reads the checkout every few seconds and writes what it found here, so settling the sequence by hand clears this on its own.';
+COMMENT ON COLUMN "agents"."sequence_in_progress" IS 'Whether a merge, a rebase or a cherry-pick is part-way through the agent''s checkout and waiting on somebody. Komrad reads the checkout every few seconds and writes what it found here, so settling the sequence by hand clears this on its own.';
 -- Set comment to column: "repository_url" on table: "agents"
-COMMENT ON COLUMN "agents"."repository_url" IS 'The canonical web address of the repository the agent''s checkout pushes to, such as https://github.com/harrisoncramer/komrade. Null when the checkout is gone or its origin is not a forge. The cwd syncer rewrites it on the same pass that rewrites branch.';
+COMMENT ON COLUMN "agents"."repository_url" IS 'The canonical web address of the repository the agent''s checkout pushes to, such as https://github.com/harrisoncramer/komrad. Null when the checkout is gone or its origin is not a forge. The cwd syncer rewrites it on the same pass that rewrites branch.';
 -- Set comment to column: "deleting_at" on table: "agents"
 COMMENT ON COLUMN "agents"."deleting_at" IS 'When a delete claimed the row. A claimed row is left out of every listing until the delete either removes it or fails, and a failure clears the claim as it records itself. The server clears every claim when it starts, since nothing survives a restart to finish one.';
 -- Set comment to column: "alive" on table: "agents"
@@ -210,7 +210,7 @@ CREATE INDEX "agent_runs_agent_id_started_at" ON "agent_runs" ("agent_id", "star
 -- Create index "agent_runs_unread_failures" to table: "agent_runs"
 CREATE INDEX "agent_runs_unread_failures" ON "agent_runs" ("agent_id") WHERE ((failure <> ''::text) AND (viewed_at IS NULL));
 -- Set comment to table: "agent_runs"
-COMMENT ON TABLE "agent_runs" IS 'One run of a script komrade fired for an agent. The output stays on disk and this row says where to find it.';
+COMMENT ON TABLE "agent_runs" IS 'One run of a script komrad fired for an agent. The output stays on disk and this row says where to find it.';
 -- Create "agent_transcript_sessions" table
 CREATE TABLE "agent_transcript_sessions" (
   "id" uuid NOT NULL,

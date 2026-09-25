@@ -4,10 +4,10 @@ import (
 	"strings"
 	"testing"
 
-	"komrade/internal/store"
-	"komrade/internal/storetest"
+	"komrad/internal/store"
+	"komrad/internal/storetest"
 
-	agentstore "komrade/internal/store/agent"
+	agentstore "komrad/internal/store/agent"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

@@ -3,18 +3,18 @@ package agent
 import (
 	"context"
 
-	"komrade/internal/assemble"
-	"komrade/internal/fail"
-	"komrade/internal/rpc/render"
-	"komrade/internal/rpcerr"
-	"komrade/lib/xslice"
+	"komrad/internal/assemble"
+	"komrad/internal/fail"
+	"komrad/internal/rpc/render"
+	"komrad/internal/rpcerr"
+	"komrad/lib/xslice"
 
-	agentstore "komrade/internal/store/agent"
-	rowstore "komrade/internal/store/row"
-	workflowstore "komrade/internal/store/workflow"
-	agentv1 "komrade/proto/gen/agent/v1"
-	pullrequestv1 "komrade/proto/gen/pullrequest/v1"
-	workflowv1 "komrade/proto/gen/workflow/v1"
+	agentstore "komrad/internal/store/agent"
+	rowstore "komrad/internal/store/row"
+	workflowstore "komrad/internal/store/workflow"
+	agentv1 "komrad/proto/gen/agent/v1"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
+	workflowv1 "komrad/proto/gen/workflow/v1"
 )
 
 // agentRow is an assembled row with the keyset cursor locating it.

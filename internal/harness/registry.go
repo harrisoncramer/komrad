@@ -6,7 +6,7 @@ import (
 	"slices"
 	"strings"
 
-	"komrade/internal/fail"
+	"komrad/internal/fail"
 )
 
 var ErrNotRegistered = fail.InvalidArgument("harness not registered")

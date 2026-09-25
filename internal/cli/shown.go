@@ -3,10 +3,10 @@ package cli
 import (
 	"errors"
 
-	"komrade/config"
-	"komrade/internal/agents"
-	"komrade/internal/tmux"
-	"komrade/internal/ui"
+	"komrad/config"
+	"komrad/internal/agents"
+	"komrad/internal/tmux"
+	"komrad/internal/ui"
 
 	"github.com/spf13/cobra"
 )
@@ -25,7 +25,7 @@ The panel key runs this to decide which of its two branches to take, so it is as
 on every press and answers from what is true at that moment rather than from
 anything a previous press left behind. It succeeds when the panel has a client
 attached and this is the server that opened it, and fails otherwise, which is what
-sends the key to ` + "`komrade open`" + `.
+sends the key to ` + "`komrad open`" + `.
 
 Failing is the safe direction: a press that cannot get an answer opens the panel
 rather than refusing to.`,

@@ -7,7 +7,7 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
-// requestFields walks the fields a request carries, descending into the messages komrade declares
+// requestFields walks the fields a request carries, descending into the messages komrad declares
 // itself and stopping at the ones it imports.
 func requestFields(
 	request check.Request,

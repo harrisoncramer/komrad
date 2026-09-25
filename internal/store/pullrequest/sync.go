@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"time"
 
-	"komrade/db"
-	"komrade/db/models"
-	"komrade/internal/store"
-	"komrade/lib/xptr"
-	"komrade/lib/xslice"
+	"komrad/db"
+	"komrad/db/models"
+	"komrad/internal/store"
+	"komrad/lib/xptr"
+	"komrad/lib/xslice"
 )
 
 // Sync is where the sync is for one repository.

@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	"komrade/config"
-	"komrade/lib/xslice"
+	"komrad/config"
+	"komrad/lib/xslice"
 )
 
 const maxNamedOrphans = 3

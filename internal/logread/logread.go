@@ -9,9 +9,9 @@ import (
 	"io/fs"
 	"os"
 
-	"komrade/internal/fail"
-	"komrade/internal/logging"
-	"komrade/lib/xslice"
+	"komrad/internal/fail"
+	"komrad/internal/logging"
+	"komrad/lib/xslice"
 )
 
 // ErrNoSuchTrace says nothing in the log was written under the trace asked for.

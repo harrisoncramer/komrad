@@ -10,14 +10,14 @@ import (
 	"strings"
 	"time"
 
-	"komrade/lib/xhttp"
-	annotationv1 "komrade/proto/gen/annotation/v1"
+	"komrad/lib/xhttp"
+	annotationv1 "komrad/proto/gen/annotation/v1"
 
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 	"google.golang.org/protobuf/reflect/protoreflect"
 
-	"komrade/internal/caller"
-	"komrade/internal/rpcapi"
+	"komrad/internal/caller"
+	"komrad/internal/rpcapi"
 )
 
 const callTimeout = 30 * time.Second

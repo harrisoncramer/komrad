@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"time"
 
-	"komrade/internal/fail"
-	"komrade/internal/harness"
-	agentstore "komrade/internal/store/agent"
+	"komrad/internal/fail"
+	"komrad/internal/harness"
+	agentstore "komrad/internal/store/agent"
 )
 
-// settleBudget is how long komrade waits for an interrupted agent to come to rest before it gives
+// settleBudget is how long komrad waits for an interrupted agent to come to rest before it gives
 // up.
 const settleBudget = 8 * time.Second
 

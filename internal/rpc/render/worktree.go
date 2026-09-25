@@ -1,10 +1,10 @@
 package render
 
 import (
-	worktreestore "komrade/internal/store/worktree"
-	"komrade/lib/dates"
-	"komrade/lib/xptr"
-	worktreev1 "komrade/proto/gen/worktree/v1"
+	worktreestore "komrad/internal/store/worktree"
+	"komrad/lib/dates"
+	"komrad/lib/xptr"
+	worktreev1 "komrad/proto/gen/worktree/v1"
 )
 
 // WatchedWorktree draws one worktree directory as the watch carries it.

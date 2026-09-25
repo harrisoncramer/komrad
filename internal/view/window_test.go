@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"komrade/internal/ui/paint"
+	"komrad/internal/ui/paint"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"slices"
 
-	"komrade/db/models"
-	"komrade/internal/fail"
-	"komrade/internal/store"
+	"komrad/db/models"
+	"komrad/internal/fail"
+	"komrad/internal/store"
 )
 
 var ErrTooManyMetadataKeys = fail.Exhausted("too many metadata keys")

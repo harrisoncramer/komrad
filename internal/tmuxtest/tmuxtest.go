@@ -1,7 +1,7 @@
 // Package tmuxtest runs a real tmux server for a test to drive, on a socket of its own that is
 // killed when the test ends.
 //
-// A fake tmux would only ever agree with what komrade already assumes about tmux, which is
+// A fake tmux would only ever agree with what komrad already assumes about tmux, which is
 // where the bugs in an adapter live, so these tests spawn panes, type into them, and read
 // frames back for real.
 package tmuxtest
@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"komrade/internal/tmux"
+	"komrad/internal/tmux"
 )
 
 var created atomic.Int64
@@ -33,7 +33,7 @@ func New(t *testing.T) *Server {
 		t.Fatalf("tmux is not installed: %v", err)
 	}
 
-	server := &Server{t: t, socket: fmt.Sprintf("komradetest-%d-%d", os.Getpid(), created.Add(1))}
+	server := &Server{t: t, socket: fmt.Sprintf("komradtest-%d-%d", os.Getpid(), created.Add(1))}
 	t.Cleanup(func() { _ = exec.Command("tmux", "-L", server.socket, "kill-server").Run() })
 
 	return server

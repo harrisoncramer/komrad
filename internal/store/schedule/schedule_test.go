@@ -5,10 +5,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"komrade/internal/dbtest"
-	"komrade/internal/store"
-	workflowstore "komrade/internal/store/workflow"
-	"komrade/lib/xslice"
+	"komrad/internal/dbtest"
+	"komrad/internal/store"
+	workflowstore "komrad/internal/store/workflow"
+	"komrad/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

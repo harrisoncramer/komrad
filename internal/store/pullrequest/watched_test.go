@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"komrade/lib/xslice"
+	"komrad/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -17,7 +17,7 @@ func TestListWatchedIsTheLinkedSet(t *testing.T) {
 	ctx := t.Context()
 	h := open(t)
 	flow := h.createWorkflow(t)
-	onBranch := h.createAgent(t, flow, "on-branch", komrade, "agent/x")
+	onBranch := h.createAgent(t, flow, "on-branch", komrad, "agent/x")
 
 	held, err := h.Upsert(ctx, openPullRequest("PR_1", 1, "agent/x"))
 	require.NoError(t, err)
@@ -61,7 +61,7 @@ func TestListWatchedRepositories(t *testing.T) {
 	h := open(t)
 
 	require.NoError(t, h.syncs.EnsureSync(ctx, fixture))
-	require.NoError(t, h.syncs.EnsureSync(ctx, komrade))
+	require.NoError(t, h.syncs.EnsureSync(ctx, komrad))
 	require.NoError(t, h.syncs.RecordSyncRequest(ctx, fixture))
 	listed := time.Date(2026, 9, 19, 10, 0, 0, 0, time.UTC)
 	require.NoError(t, h.syncs.StartSweep(ctx, StartSweepParams{
@@ -81,7 +81,7 @@ func TestListWatchedRepositories(t *testing.T) {
 
 	snapshot, err := h.syncs.ListWatched(ctx, nil)
 	require.NoError(t, err)
-	assert.Equal(t, map[string]bool{fixture: false, komrade: false}, swept(snapshot), "a request alone, or a sweep in progress, is not a read")
+	assert.Equal(t, map[string]bool{fixture: false, komrad: false}, swept(snapshot), "a request alone, or a sweep in progress, is not a read")
 
 	require.NoError(t, h.syncs.CompleteSweep(ctx, fixture))
 	listedByKey, err := h.syncs.ListWatched(ctx, []string{fixture, "https://github.com/nobody/nothing"})

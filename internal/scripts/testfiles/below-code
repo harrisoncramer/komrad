@@ -1,7 +1,7 @@
 #!/bin/sh
-#KOMRADE description="Declared in the header, where a declaration belongs."
+#KOMRAD description="Declared in the header, where a declaration belongs."
 set -eu
 
 # The line below is a comment about this code rather than a declaration about the file.
-#KOMRADE timeout="30s"
+#KOMRAD timeout="30s"
 echo "declared"

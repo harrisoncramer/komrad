@@ -3,10 +3,10 @@ package agent
 import (
 	"context"
 
-	"komrade/internal/checkouts"
-	"komrade/internal/fail"
-	"komrade/internal/rpcerr"
-	agentv1 "komrade/proto/gen/agent/v1"
+	"komrad/internal/checkouts"
+	"komrad/internal/fail"
+	"komrad/internal/rpcerr"
+	agentv1 "komrad/proto/gen/agent/v1"
 )
 
 // worktreeRebaser brings an agent's existing worktree up to date in place.

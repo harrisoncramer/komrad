@@ -4,9 +4,9 @@ package panel
 import (
 	"time"
 
-	"komrade/internal/git"
-	"komrade/lib/xslice"
-	agentv1 "komrade/proto/gen/agent/v1"
+	"komrad/internal/git"
+	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 )
 
 // State is what an agent is doing.

@@ -6,11 +6,11 @@ import "annotation/v1/tool.proto";
 import "buf/validate/validate.proto";
 import "pagination/v1/pagination.proto";
 
-option go_package = "komrade/proto/gen/pullrequest/v1;pullrequestv1";
+option go_package = "komrad/proto/gen/pullrequest/v1;pullrequestv1";
 
 message ListPullRequestsRequest {
   // The repository the pull requests target, as a git remote spells it or as the canonical
-  // address komrade stores.
+  // address komrad stores.
   string repository_url = 1 [(buf.validate.field).string = {
     min_len: 1
     max_len: 2048
@@ -23,7 +23,7 @@ message ListPullRequestsRequest {
 }
 
 message PullRequest {
-  // The handle komrade keys the row by.
+  // The handle komrad keys the row by.
   string id = 1;
   // Which forge it lives on, such as github.
   string forge = 2;
@@ -164,7 +164,7 @@ enum Checks {
   CHECKS_FAILING = 4;
 }
 
-// PullRequestService reads the pull requests komrade has stored from its forges.
+// PullRequestService reads the pull requests komrad has stored from its forges.
 service PullRequestService {
   rpc ListPullRequests(ListPullRequestsRequest) returns (ListPullRequestsResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
@@ -172,7 +172,7 @@ service PullRequestService {
       cli: true
       mcp: true
       name: "list_pull_requests"
-      description: "List the pull requests komrade has stored for a repository, a page at a time: every one opened from a branch when one is named, whatever its state, or every one stored for the repository when none is. The unfinished ones come first and each group is newest opened first, so the first answered for a branch is the one an agent's row on that branch stands for. Give the repository as a git remote spells it or as its canonical address, and pass the next_page_token back as pagination.cursor for the next page. This reads what the pull request sync has stored rather than asking the forge, so a repository no live agent sits on may be behind or empty; list_forge_pull_requests asks the forge itself."
+      description: "List the pull requests komrad has stored for a repository, a page at a time: every one opened from a branch when one is named, whatever its state, or every one stored for the repository when none is. The unfinished ones come first and each group is newest opened first, so the first answered for a branch is the one an agent's row on that branch stands for. Give the repository as a git remote spells it or as its canonical address, and pass the next_page_token back as pagination.cursor for the next page. This reads what the pull request sync has stored rather than asking the forge, so a repository no live agent sits on may be behind or empty; list_forge_pull_requests asks the forge itself."
       roles: [
         ROLE_IMPLEMENTER,
         ROLE_ORCHESTRATOR

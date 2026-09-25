@@ -19,7 +19,7 @@
      [38;5;167m[48;5;52m 35 -[38;5;231m}                                                                                                                                                                                                                                                                                                    [39m[49m
      [38;5;167m[48;5;52m 36 -[38;5;231m                                                                                                                                                                                                                                                                                                     [39m[49m
      [38;5;167m[48;5;52m 37 -[38;5;231mfunc TestProbeUnaryOverThirtySeconds(t *testing.T) {                                                                                                                                                                                                                                                 [39m[49m
-     [38;5;167m[48;5;52m 38 -[38;5;231m        // The client every panel and komrade rpc call now uses.                                                                                                                                                                                                                                       [39m[49m
+     [38;5;167m[48;5;52m 38 -[38;5;231m        // The client every panel and komrad rpc call now uses.                                                                                                                                                                                                                                       [39m[49m
      [38;5;167m[48;5;52m 39 -[38;5;231m        err := run(t, xhttp.NewClient(0), 32*time.Second)                                                                                                                                                                                                                                            [39m[49m
      [38;5;167m[48;5;52m 40 -[38;5;231m        t.Logf("xhttp.NewClient(0) after 32s handler: err=%v", err)                                                                                                                                                                                                                                  [39m[49m
      [38;5;246m… 7 more lines [39m
@@ -35,25 +35,25 @@
 
 
 
-  [38;5;246mCalled komrade [1m2[0m[38;5;246m times, ran [1m2[0m[38;5;246m shell commands [39m
+  [38;5;246mCalled komrad [1m2[0m[38;5;246m times, ran [1m2[0m[38;5;246m shell commands [39m
 
 [38;5;231m⏺[39m Now the predecessor. Its id came back as bytes; resolve it.
 
-  [38;5;246mCalled komrade [1m2[0m[38;5;246m times [39m
+  [38;5;246mCalled komrad [1m2[0m[38;5;246m times [39m
 
 [38;5;231m⏺[39m Range: 76527925..c3d23b3a, 8 merged PRs (forge connection, GitHub App method, xhttp bounded clients, request_review harness, child-round refusal, archive escape, unviewed mark, thinking bar tone).
 
   Filed:
-  - #703 [94m]8;id=1an7iy5;https://github.com/harrisoncramer/komrade/issues/703\https://github.com/harrisoncramer/komrade/issues/703[39m]8;;\ — PR 696 put the panel's and [38;5;153mkomrade rpc[39m's clients on xhttp's transport, which has a 30s ResponseHeaderTimeout. Connect unary handlers send no headers until they return, so a create whose provisioning plus pre-launch hook runs over 30s now fails
+  - #703 [94m]8;id=1an7iy5;https://github.com/harrisoncramer/komrad/issues/703\https://github.com/harrisoncramer/komrad/issues/703[39m]8;;\ — PR 696 put the panel's and [38;5;153mkomrad rpc[39m's clients on xhttp's transport, which has a 30s ResponseHeaderTimeout. Connect unary handlers send no headers until they return, so a create whose provisioning plus pre-launch hook runs over 30s now fails
     client-side, and the hang-up cancels the request context, which kills the script via exec.CommandContext. Proved both halves against the real agentv1connect handler: 32s handler fails on [38;5;153mxhttp.NewClient(0)[39m, succeeds on old [38;5;153mhttp.DefaultClient[39m; handler ctx cancelled at 30.002s. MCP tools already had a 30s
     cap before this range; noted as related.
-  - #704 [94m]8;id=1an7iy6;https://github.com/harrisoncramer/komrade/issues/704\https://github.com/harrisoncramer/komrade/issues/704[39m]8;;\ — doctor classifies a refused App mint (401 or 404 on access_tokens) as [38;5;153mforge_unreachable[39m with a "failed to reach" message. Mint error is a plain fmt.Errorf, never [38;5;153mErrUnauthorized[39m, and never reaches the 401 Invalidate branch, so verified_at stays set
+  - #704 [94m]8;id=1an7iy6;https://github.com/harrisoncramer/komrad/issues/704\https://github.com/harrisoncramer/komrad/issues/704[39m]8;;\ — doctor classifies a refused App mint (401 or 404 on access_tokens) as [38;5;153mforge_unreachable[39m with a "failed to reach" message. Mint error is a plain fmt.Errorf, never [38;5;153mErrUnauthorized[39m, and never reaches the 401 Invalidate branch, so verified_at stays set
     too. Proved with a test in package doctor against [38;5;153mgithub.Build[39m and an httptest mint.
 
   Checked clean: forge service connect/disconnect symmetry, credential file store, Secret masking and both lint rules against real code (no [38;5;153mhttp.Get[39m/[38;5;153mnew(http.Client)[39m in tree), the three trailing-mark lists in view (render, width, shed all updated), archive escape path vs the tree's own back action,
   request_review harness/flags plumbing through planLaunch.
 
-  Noticed, not filed: [38;5;153mApp.At[39m copies the token cache without keying it on the API host, so two App rows sharing an app id on different hosts would thrash one cache file; [38;5;153mListOnBranch[39m only finds same-owner heads, so fork PRs will not match once the reading path lands; [38;5;153mkomrade forge connect[39m with no pipe blocks
+  Noticed, not filed: [38;5;153mApp.At[39m copies the token cache without keying it on the API host, so two App rows sharing an app id on different hosts would thrash one cache file; [38;5;153mListOnBranch[39m only finds same-owner heads, so fork PRs will not match once the reading path lands; [38;5;153mkomrad forge connect[39m with no pipe blocks
   silently on stdin. Watermark recorded; predecessor bughunt-dispatcher-2 archived.
 
 [38;5;246m✻[39m [38;5;246mSautéed for 9m 29s · done 6:09 PM[39m

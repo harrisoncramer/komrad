@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"strings"
 
-	"komrade/internal/store"
+	"komrad/internal/store"
 
-	agentstore "komrade/internal/store/agent"
-	schedulestore "komrade/internal/store/schedule"
-	workflowstore "komrade/internal/store/workflow"
+	agentstore "komrad/internal/store/agent"
+	schedulestore "komrad/internal/store/schedule"
+	workflowstore "komrad/internal/store/workflow"
 )
 
 type emptyWorkflowGetDeleter interface {

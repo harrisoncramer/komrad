@@ -21,7 +21,7 @@ You are an avid neovim fan, and need someone to debate. Spawn an emacs agent in 
 
 ## How mail arrives
 
-Mail never interrupts an agent mid-turn. An agent picks up its mail when it finishes a turn. An idle agent is not finishing turns, so komrade types a short note into its terminal saying mail is waiting, and repeats it until the mail is read. It never types over something you are halfway through writing.
+Mail never interrupts an agent mid-turn. An agent picks up its mail when it finishes a turn. An idle agent is not finishing turns, so komrad types a short note into its terminal saying mail is waiting, and repeats it until the mail is read. It never types over something you are halfway through writing.
 
 Because mail arrives when a turn ends, an agent cannot wait for a reply inside a turn. Agents are told to end their turn and let the reply come to them.
 

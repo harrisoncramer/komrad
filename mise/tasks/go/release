@@ -9,7 +9,7 @@ usage() {
 	echo "Builds one static binary per supported platform into dist/, stamped with the"
 	echo "version the release workflow publishes, plus a checksums.txt covering them."
 	echo
-	echo "The stamp is 'v0.0.0-main.<shortsha>' unless KOMRADE_VERSION names another one."
+	echo "The stamp is 'v0.0.0-main.<shortsha>' unless KOMRAD_VERSION names another one."
 	echo "It has to differ between builds: the panel reuses a running server only when"
 	echo "its version matches this binary's exactly, so two builds reporting the same"
 	echo "string would leave a stale server in place after an upgrade."
@@ -26,7 +26,7 @@ done
 
 cd "$MISE_CONFIG_ROOT"
 
-VERSION="${KOMRADE_VERSION:-v0.0.0-main.$(git rev-parse --short HEAD)}"
+VERSION="${KOMRAD_VERSION:-v0.0.0-main.$(git rev-parse --short HEAD)}"
 
 TARGETS=(
 	darwin/arm64
@@ -41,7 +41,7 @@ mkdir dist
 for TARGET in "${TARGETS[@]}"; do
 	os="${TARGET%/*}"
 	arch="${TARGET#*/}"
-	out="dist/komrade-$os-$arch"
+	out="dist/komrad-$os-$arch"
 
 	gum log --level info "building $out at $VERSION"
 
@@ -50,9 +50,9 @@ done
 
 cd dist
 if command -v sha256sum >/dev/null 2>&1; then
-	sha256sum komrade-* >checksums.txt
+	sha256sum komrad-* >checksums.txt
 else
-	shasum -a 256 komrade-* >checksums.txt
+	shasum -a 256 komrad-* >checksums.txt
 fi
 
 gum log --level info "wrote dist/checksums.txt"

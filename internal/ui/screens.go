@@ -1,10 +1,10 @@
 package ui
 
 import (
-	"komrade/config"
-	"komrade/internal/ui/layout"
-	"komrade/internal/ui/panel"
-	agentv1 "komrade/proto/gen/agent/v1"
+	"komrad/config"
+	"komrad/internal/ui/layout"
+	"komrad/internal/ui/panel"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
 )

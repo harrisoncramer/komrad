@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"komrade/config"
+	"komrad/config"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -62,7 +62,7 @@ func TestIntegrationShutdownSignalStopsOnASignal(t *testing.T) {
 }
 
 // TestIntegrationServeListensWhereEverythingElseTalks covers the address the service binds: every
-// other command reads it out of KOMRADE_ADDR, so a serve that ignores the variable binds an
+// other command reads it out of KOMRAD_ADDR, so a serve that ignores the variable binds an
 // address nothing is looking at and the panel goes on saying the server cannot be reached.
 func TestIntegrationServeListensWhereEverythingElseTalks(t *testing.T) {
 	tests := []struct {
@@ -98,7 +98,7 @@ func TestIntegrationServeAddrFlagCarriesNoDefault(t *testing.T) {
 	flag := serveCmd(&app{env: &config.Environment{Addr: "127.0.0.1:9999"}}).Flags().Lookup("addr")
 
 	require.NotNil(t, flag)
-	assert.Empty(t, flag.DefValue, "a default here shadows KOMRADE_ADDR")
+	assert.Empty(t, flag.DefValue, "a default here shadows KOMRAD_ADDR")
 }
 
 // TestIntegrationServeRefusesAnAddressTheFileWouldRefuse covers the flag.

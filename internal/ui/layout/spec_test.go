@@ -3,7 +3,7 @@ package layout
 import (
 	"testing"
 
-	"komrade/config"
+	"komrad/config"
 
 	"github.com/stretchr/testify/assert"
 )

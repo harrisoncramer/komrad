@@ -3,7 +3,7 @@ package pane
 import (
 	"time"
 
-	"komrade/internal/harness"
+	"komrad/internal/harness"
 )
 
 // draftStaleAfter is how long an input box has to hold the same text before what it holds is

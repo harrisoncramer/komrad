@@ -5,9 +5,9 @@ package internaljobs
 import (
 	"context"
 
-	"komrade/internal/agents"
-	agentstore "komrade/internal/store/agent"
-	schedulestore "komrade/internal/store/schedule"
+	"komrad/internal/agents"
+	agentstore "komrad/internal/store/agent"
+	schedulestore "komrad/internal/store/schedule"
 )
 
 // ScheduleGetter reads the one schedule a firing names.

@@ -7,11 +7,11 @@ import (
 	"os"
 	"time"
 
-	"komrade/internal/git"
-	agentstore "komrade/internal/store/agent"
-	reviewstore "komrade/internal/store/review"
-	workflowstore "komrade/internal/store/workflow"
-	"komrade/lib/xptr"
+	"komrad/internal/git"
+	agentstore "komrad/internal/store/agent"
+	reviewstore "komrad/internal/store/review"
+	workflowstore "komrad/internal/store/workflow"
+	"komrad/lib/xptr"
 
 	"github.com/harrisoncramer/streamer"
 )

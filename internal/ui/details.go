@@ -5,10 +5,10 @@ import (
 	"strconv"
 	"strings"
 
-	"komrade/config"
-	"komrade/internal/ui/paint"
-	"komrade/internal/view"
-	"komrade/lib/xslice"
+	"komrad/config"
+	"komrad/internal/ui/paint"
+	"komrad/internal/view"
+	"komrad/lib/xslice"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"

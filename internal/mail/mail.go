@@ -8,14 +8,14 @@ import (
 	"strings"
 	"time"
 
-	"komrade/internal/fail"
-	"komrade/internal/logging"
-	"komrade/internal/store"
-	agentstore "komrade/internal/store/agent"
-	mailstore "komrade/internal/store/mail"
-	workflowstore "komrade/internal/store/workflow"
-	"komrade/lib/xslice"
-	"komrade/lib/xstr"
+	"komrad/internal/fail"
+	"komrad/internal/logging"
+	"komrad/internal/store"
+	agentstore "komrad/internal/store/agent"
+	mailstore "komrad/internal/store/mail"
+	workflowstore "komrad/internal/store/workflow"
+	"komrad/lib/xslice"
+	"komrad/lib/xstr"
 )
 
 const maxPendingMail = 100
@@ -25,7 +25,7 @@ const MaxMailBody = 10000
 
 const maxClaimedMail = 20
 
-const exchangeCappedBody = "komrade: %s (%s) wrote to you and the send was refused, because the two of you have now exchanged %d pieces of mail, which is the limit. Nothing further will get through between you, in either direction. Whatever you were waiting on from them is not coming, so do not keep waiting: say where you got to, and tell the person what is unfinished. A row has been marked for attention in the panel so the person knows to look."
+const exchangeCappedBody = "komrad: %s (%s) wrote to you and the send was refused, because the two of you have now exchanged %d pieces of mail, which is the limit. Nothing further will get through between you, in either direction. Whatever you were waiting on from them is not coming, so do not keep waiting: say where you got to, and tell the person what is unfinished. A row has been marked for attention in the panel so the person knows to look."
 
 var ErrRecipientNotFound = fail.NotFound("no agent answers to that address")
 
@@ -53,7 +53,7 @@ var ErrAgentArchived = fail.Precondition("agent is archived")
 // parent's other children.
 var ErrOutsideFamily = fail.Denied("a child agent may only mail its parent and its parent's other children")
 
-const KomradeSenderName = "komrade"
+const KomradSenderName = "komrad"
 
 const namedMissing = 5
 
@@ -193,7 +193,7 @@ func (s *MailService) SendMail(ctx context.Context, params SendMailParams) (*mai
 	})
 }
 
-// SendSystemMail sends mail as komrade itself, still running every check an ordinary send does.
+// SendSystemMail sends mail as komrad itself, still running every check an ordinary send does.
 func (s *MailService) SendSystemMail(ctx context.Context, toAgentID, body string) (*mailstore.Mail, error) {
 	return s.send(ctx, sendParams{
 		ToAgentID: toAgentID,
@@ -212,7 +212,7 @@ type SendNoticeParams struct {
 	About *string
 }
 
-// SendNotice sends a notice as komrade itself, handing back the unread notice about the same
+// SendNotice sends a notice as komrad itself, handing back the unread notice about the same
 // agent instead when the recipient is still holding one.
 func (s *MailService) SendNotice(ctx context.Context, params SendNoticeParams) (*mailstore.Mail, error) {
 	if params.Kind == "" || params.Kind == mailstore.KindPlain {
@@ -249,7 +249,7 @@ func familyID(agent agentstore.Agent) string {
 }
 
 // requireSameFamily holds a child to its parent and that parent's other children, letting
-// through the mail komrade raises itself and the mail a person sends.
+// through the mail komrad raises itself and the mail a person sends.
 func requireSameFamily(sender *agentstore.Agent, recipient agentstore.Agent) error {
 	if sender == nil {
 		return nil
@@ -271,7 +271,7 @@ type sendParams struct {
 	ReplyTo   *string
 	Kind      mailstore.Kind
 	About     *string
-	// System marks mail komrade raises itself rather than on a caller's behalf.
+	// System marks mail komrad raises itself rather than on a caller's behalf.
 	System bool
 }
 
@@ -342,7 +342,7 @@ func (s *MailService) send(ctx context.Context, params sendParams) (*mailstore.M
 		send.FromAgentID = &sender.ID
 		send.FromName = sender.Name
 	} else if params.System {
-		send.FromName = KomradeSenderName
+		send.FromName = KomradSenderName
 	}
 
 	sent, err := s.mailReadWriter.Send(ctx, send)

@@ -1,6 +1,6 @@
 #!/bin/sh
-#KOMRADE description="Names a duration nothing can read."
-#KOMRADE timeout="soon"
+#KOMRAD description="Names a duration nothing can read."
+#KOMRAD timeout="soon"
 set -eu
 
 echo "declared"

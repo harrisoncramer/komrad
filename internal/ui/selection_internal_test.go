@@ -1,7 +1,7 @@
 package ui
 
 import (
-	"komrade/lib/xslice"
+	"komrad/lib/xslice"
 )
 
 // selectAgents is a selection holding the named agents, spelled by id as the tables read.

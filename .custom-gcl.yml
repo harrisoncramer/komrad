@@ -3,5 +3,5 @@ destination: local
 plugins:
   - module: 'github.com/harrisoncramer/fussy'
     version: v0.7.0
-  - module: 'komradelint'
-    path: ./tools/komradelint
+  - module: 'komradlint'
+    path: ./tools/komradlint

@@ -107,8 +107,8 @@ func TestIntegrationGetPrefixKeysReadsBackWhatWasBound(t *testing.T) {
 		client.BindKey(tt.typed, "display-message", "bound")
 	}
 
-	client.BindKey("F9", "if-shell", "/usr/local/bin/komrade shown --config /etc/komrade.toml",
-		"run-shell -b 'hide'", "display-popup -T ' komrade ' -EE 'open'")
+	client.BindKey("F9", "if-shell", "/usr/local/bin/komrad shown --config /etc/komrad.toml",
+		"run-shell -b 'hide'", "display-popup -T ' komrad ' -EE 'open'")
 
 	bound, err := client.GetPrefixKeys()
 	require.NoError(t, err)
@@ -117,8 +117,8 @@ func TestIntegrationGetPrefixKeysReadsBackWhatWasBound(t *testing.T) {
 		assert.Equal(t, "display-message bound", bound[tt.listed], tt.typed)
 	}
 
-	assert.Equal(t, `if-shell "/usr/local/bin/komrade shown --config /etc/komrade.toml" `+
-		`"run-shell -b 'hide'" "display-popup -T ' komrade ' -EE 'open'"`, bound["F9"],
+	assert.Equal(t, `if-shell "/usr/local/bin/komrad shown --config /etc/komrad.toml" `+
+		`"run-shell -b 'hide'" "display-popup -T ' komrad ' -EE 'open'"`, bound["F9"],
 		"an argument holding a space is printed in double quotes")
 
 	for listed, command := range bound {
@@ -182,7 +182,7 @@ func TestIntegrationInfoPaneRoundTripsAndClears(t *testing.T) {
 	assert.Empty(t, client.GetInfoPane(), "the pane is given up rather than left pointing at a dead one")
 }
 
-// TestIntegrationSocketPathNamesTheServerTheClientIsOn pins the answer komrade tells its own server apart
+// TestIntegrationSocketPathNamesTheServerTheClientIsOn pins the answer komrad tells its own server apart
 // from the user's by.
 func TestIntegrationSocketPathNamesTheServerTheClientIsOn(t *testing.T) {
 	client := testServer(t, "socket")
@@ -190,7 +190,7 @@ func TestIntegrationSocketPathNamesTheServerTheClientIsOn(t *testing.T) {
 	path, err := client.GetSocketPath()
 	require.NoError(t, err)
 
-	assert.Contains(t, path, "komrade-test-", "the socket is the one this client was opened on")
+	assert.Contains(t, path, "komrad-test-", "the socket is the one this client was opened on")
 }
 
 // TestIntegrationSessionOptionIsScopedToItsSession pins that setting one leaves the other sessions alone,

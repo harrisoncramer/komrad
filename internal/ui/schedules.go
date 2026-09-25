@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"time"
 
-	"komrade/config"
-	"komrade/internal/ui/paint"
-	"komrade/internal/ui/panel"
-	"komrade/internal/view"
+	"komrad/config"
+	"komrad/internal/ui/paint"
+	"komrad/internal/ui/panel"
+	"komrad/internal/view"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"

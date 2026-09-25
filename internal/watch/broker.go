@@ -7,10 +7,10 @@ import (
 	"sync"
 	"time"
 
-	"komrade/internal/fail"
-	"komrade/internal/logging"
-	"komrade/lib/xslice"
-	watchv1 "komrade/proto/gen/watch/v1"
+	"komrad/internal/fail"
+	"komrad/internal/logging"
+	"komrad/lib/xslice"
+	watchv1 "komrad/proto/gen/watch/v1"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/protobuf/proto"

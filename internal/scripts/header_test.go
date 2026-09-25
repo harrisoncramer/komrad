@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"komrade/lib/xslice"
+	"komrad/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -47,12 +47,12 @@ func TestIntegrationReadHeader(t *testing.T) {
 			},
 		},
 		{
-			name: "a key komrade does not know is reported rather than ignored",
+			name: "a key komrad does not know is reported rather than ignored",
 			file: "unknown-directive",
 			want: Header{
 				Problems: []string{
-					"line 2: summary is not a directive komrade knows",
-					"line 3: tools is not a directive komrade knows",
+					"line 2: summary is not a directive komrad knows",
+					"line 3: tools is not a directive komrad knows",
 				},
 			},
 		},
@@ -139,7 +139,7 @@ func TestIntegrationReadHeader(t *testing.T) {
 	assert.ElementsMatch(t, files, described, "every file in %s wants a row of its own", fixtureDir)
 }
 
-// TestIntegrationReadHeaderUnreadable covers a file komrade cannot open, which reads as no header rather than
+// TestIntegrationReadHeaderUnreadable covers a file komrad cannot open, which reads as no header rather than
 // an error.
 func TestIntegrationReadHeaderUnreadable(t *testing.T) {
 	assert.Equal(t, Header{}, readHeader(filepath.Join(t.TempDir(), "not-there")))

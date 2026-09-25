@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"komrade/internal/logging"
-	notifystore "komrade/internal/store/notify"
+	"komrad/internal/logging"
+	notifystore "komrad/internal/store/notify"
 
 	"github.com/jackc/pgx/v5"
 )

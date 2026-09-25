@@ -1,21 +1,21 @@
-// Package config serves the configuration RPC, which reports the settings komrade is running on
+// Package config serves the configuration RPC, which reports the settings komrad is running on
 // as they were resolved rather than as they were written.
 package config
 
 import (
 	"context"
 
-	komradeconfig "komrade/config"
-	"komrade/internal/fail"
-	"komrade/internal/rpcerr"
-	"komrade/internal/version"
-	configv1 "komrade/proto/gen/config/v1"
+	komradconfig "komrad/config"
+	"komrad/internal/fail"
+	"komrad/internal/rpcerr"
+	"komrad/internal/version"
+	configv1 "komrad/proto/gen/config/v1"
 
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-type loader func() (*komradeconfig.Config, error)
+type loader func() (*komradconfig.Config, error)
 
 type Handler struct {
 	load loader
@@ -33,7 +33,7 @@ func (s *Handler) GetConfig(_ context.Context, _ *emptypb.Empty) (*configv1.GetC
 
 	cfg, err := s.load()
 	if err != nil {
-		cfg = komradeconfig.Defaults()
+		cfg = komradconfig.Defaults()
 		configError = proto.String(err.Error())
 	}
 

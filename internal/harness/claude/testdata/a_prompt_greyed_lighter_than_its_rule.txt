@@ -2,25 +2,25 @@
 
 [38;5;231m⏺[39m Now auth/forge, readonly-role, migrate, install docs, app.go, docker.
 
-  [38;5;246mRead [1m1[0m[38;5;246m file, called komrade, ran [1m8[0m[38;5;246m shell commands [39m
+  [38;5;246mRead [1m1[0m[38;5;246m file, called komrad, ran [1m8[0m[38;5;246m shell commands [39m
 
 [38;5;231m⏺[39m Survey done. No code written. Map below.
 
   [1mWhat exists today[0m
 
-  Install path ([38;5;153mdocs/install.md[39m): download binary, add [38;5;153mrun-shell 'komrade tmux'[39m to [38;5;153m~/.tmux.conf[39m, export [38;5;153mKOMRADE_DATABASE_URL[39m, run [38;5;153mkomrade readonly-role[39m, run [38;5;153mkomrade doctor[39m. All by hand. RFC 0009 already says install is dominated by Postgres.
+  Install path ([38;5;153mdocs/install.md[39m): download binary, add [38;5;153mrun-shell 'komrad tmux'[39m to [38;5;153m~/.tmux.conf[39m, export [38;5;153mKOMRAD_DATABASE_URL[39m, run [38;5;153mkomrad readonly-role[39m, run [38;5;153mkomrad doctor[39m. All by hand. RFC 0009 already says install is dominated by Postgres.
 
-  Config ([38;5;153mconfig/appconfig.go[39m): loaded via viper stack, default path [38;5;153m~/.config/komrade/config.toml[39m, absent file is fine. Env [38;5;153mKOMRADE_*[39m beats file. [38;5;153mDefaultDatabaseURL[39m is checkout docker port 5460, so installed binary must set it. [38;5;153mRenderConfigTOML[39m renders full defaults doc only, preamble says "do not copy this file". No
+  Config ([38;5;153mconfig/appconfig.go[39m): loaded via viper stack, default path [38;5;153m~/.config/komrad/config.toml[39m, absent file is fine. Env [38;5;153mKOMRAD_*[39m beats file. [38;5;153mDefaultDatabaseURL[39m is checkout docker port 5460, so installed binary must set it. [38;5;153mRenderConfigTOML[39m renders full defaults doc only, preamble says "do not copy this file". No
   minimal config writer exists anywhere.
 
-  Postgres: [38;5;153mstore.Open[39m migrates on open (AGENTS.md), [38;5;153mdb.MigrateRiver[39m for queue, [38;5;153mdb.GrantReadOnlyRole[39m creates read-only login. [38;5;153mmigrate[39m and [38;5;153mreadonly-role[39m commands both [38;5;153mHidden: true[39m. Read-only URL derived from writable URL ([38;5;153mkomrade_readonly:komrade_readonly[39m, same host/db) when not set. [38;5;153mdocker-compose.yml[39m is checkout-only,
+  Postgres: [38;5;153mstore.Open[39m migrates on open (AGENTS.md), [38;5;153mdb.MigrateRiver[39m for queue, [38;5;153mdb.GrantReadOnlyRole[39m creates read-only login. [38;5;153mmigrate[39m and [38;5;153mreadonly-role[39m commands both [38;5;153mHidden: true[39m. Read-only URL derived from writable URL ([38;5;153mkomrad_readonly:komrad_readonly[39m, same host/db) when not set. [38;5;153mdocker-compose.yml[39m is checkout-only,
   not shipped. No docker check in doctor.
 
   Auth: two separate things.
-  - [38;5;153mkomrade forge connect <host>[39m reads token from stdin, verifies against forge, stores in state dir file store + DB row. Needs DB up first. [38;5;153mwithForgeService[39m in [38;5;153minternal/cli/forge.go[39m is unexported.
+  - [38;5;153mkomrad forge connect <host>[39m reads token from stdin, verifies against forge, stores in state dir file store + DB row. Needs DB up first. [38;5;153mwithForgeService[39m in [38;5;153minternal/cli/forge.go[39m is unexported.
   - [38;5;153m[github_app][39m config is engine-side App identity, separate concern, probably skip in wizard.
 
-  tmux: [38;5;153mkomrade tmux[39m binds key, needs running server. Nothing edits [38;5;153m~/.tmux.conf[39m.
+  tmux: [38;5;153mkomrad tmux[39m binds key, needs running server. Nothing edits [38;5;153m~/.tmux.conf[39m.
 
   Harness: registry [38;5;153mclaude[39m/[38;5;153mcodex[39m, doctor checks binaries on PATH.
 
@@ -46,14 +46,14 @@
   [1mWizard shape, rough[0m
 
   Steps, each = doctor subset, then repair on failure, then re-run:
-  - tmux binary/version/shell. Offer to append [38;5;153mrun-shell 'komrade tmux'[39m to tmux.conf.
+  - tmux binary/version/shell. Offer to append [38;5;153mrun-shell 'komrad tmux'[39m to tmux.conf.
   - Harness: check claude/codex on PATH, pick [38;5;153mdefault_harness[39m.
   - Postgres: ask URL, or if [38;5;153mdocker[39m on PATH offer [38;5;153mdocker run postgres:18[39m on a port. Run [38;5;153mdatabase[39m check on candidate URL. [38;5;153mdatabase_missing[39m → createdb. Then migrate, then [38;5;153mGrantReadOnlyRole[39m, re-run [38;5;153mschema[39m + [38;5;153mreadonly login[39m.
-  - Write [38;5;153m~/.config/komrade/config.toml[39m holding only what changed (new minimal writer).
+  - Write [38;5;153m~/.config/komrad/config.toml[39m holding only what changed (new minimal writer).
   - Forge: optional, offer [38;5;153mgh auth token[39m pipe if [38;5;153mgh[39m present, else paste. Reuse forge service.
   - Start server via [38;5;153mensureServer[39m, run full [38;5;153mdoctor.Run[39m, print report.
 
-  "Own CLI program": separate binary cannot reuse [38;5;153mapp[39m, [38;5;153mwithForgeService[39m, [38;5;153mensureServer[39m, harness registry, all unexported in [38;5;153minternal/cli[39m. Recommend [38;5;153mkomrade setup[39m subcommand instead. If separate binary required, those need exporting to a shared package first. Flag for decision.
+  "Own CLI program": separate binary cannot reuse [38;5;153mapp[39m, [38;5;153mwithForgeService[39m, [38;5;153mensureServer[39m, harness registry, all unexported in [38;5;153minternal/cli[39m. Recommend [38;5;153mkomrad setup[39m subcommand instead. If separate binary required, those need exporting to a shared package first. Flag for decision.
 
 
 [38;5;244m───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────

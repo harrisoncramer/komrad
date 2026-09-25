@@ -6,12 +6,12 @@ import (
 	"testing"
 	"time"
 
-	"komrade/config"
-	"komrade/internal/ui/paint"
-	"komrade/lib/xslice"
-	agentv1 "komrade/proto/gen/agent/v1"
-	"komrade/proto/gen/agent/v1/agentv1connect"
-	paginationv1 "komrade/proto/gen/pagination/v1"
+	"komrad/config"
+	"komrad/internal/ui/paint"
+	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
+	"komrad/proto/gen/agent/v1/agentv1connect"
+	paginationv1 "komrad/proto/gen/pagination/v1"
 
 	tea "charm.land/bubbletea/v2"
 	"connectrpc.com/connect"

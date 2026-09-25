@@ -1,9 +1,9 @@
 package render
 
 import (
-	mailstore "komrade/internal/store/mail"
-	"komrade/lib/dates"
-	agentv1 "komrade/proto/gen/agent/v1"
+	mailstore "komrad/internal/store/mail"
+	"komrad/lib/dates"
+	agentv1 "komrad/proto/gen/agent/v1"
 )
 
 // Mail draws one piece of mail as the wire carries it.

@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
-	schedulestore "komrade/internal/store/schedule"
-	workflowstore "komrade/internal/store/workflow"
-	"komrade/internal/storetest"
+	schedulestore "komrad/internal/store/schedule"
+	workflowstore "komrad/internal/store/workflow"
+	"komrad/internal/storetest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

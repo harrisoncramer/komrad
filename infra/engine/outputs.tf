@@ -1,21 +1,21 @@
 output "instance_id" {
-  value = aws_instance.komrade.id
+  value = aws_instance.komrad.id
 }
 
 output "instance_public_ip" {
-  value = aws_eip.komrade.public_ip
+  value = aws_eip.komrad.public_ip
 }
 
 output "database_endpoint" {
-  value = aws_db_instance.komrade.address
+  value = aws_db_instance.komrad.address
 }
 
 output "database_secret_arn" {
-  value = aws_db_instance.komrade.master_user_secret[0].secret_arn
+  value = aws_db_instance.komrad.master_user_secret[0].secret_arn
 }
 
 output "instance_ami" {
-  value = aws_instance.komrade.ami
+  value = aws_instance.komrad.ami
 }
 
 output "aws_region" {

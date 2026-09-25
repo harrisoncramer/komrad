@@ -4,10 +4,10 @@ import (
 	"errors"
 	"testing"
 
-	komradeconfig "komrade/config"
-	"komrade/internal/version"
-	configv1 "komrade/proto/gen/config/v1"
-	configv1komrade "komrade/proto/gen/config/v1/configv1komrade"
+	komradconfig "komrad/config"
+	"komrad/internal/version"
+	configv1 "komrad/proto/gen/config/v1"
+	configv1komrad "komrad/proto/gen/config/v1/configv1komrad"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
@@ -17,12 +17,12 @@ import (
 
 // TestGetConfig pins what the handler renders from each answer of its loader.
 func TestGetConfig(t *testing.T) {
-	loaded := komradeconfig.Defaults()
+	loaded := komradconfig.Defaults()
 	loaded.Harness.Claude.Flags = "--model opus"
 
 	tests := []struct {
 		name      string
-		cfg       *komradeconfig.Config
+		cfg       *komradconfig.Config
 		err       error
 		wantError string
 		wantFlags any
@@ -42,7 +42,7 @@ func TestGetConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := configv1komrade.ConfigServiceAdapter{Impl: NewHandler(func() (*komradeconfig.Config, error) {
+			svc := configv1komrad.ConfigServiceAdapter{Impl: NewHandler(func() (*komradconfig.Config, error) {
 				return tt.cfg, tt.err
 			})}
 
@@ -59,11 +59,11 @@ func TestGetConfig(t *testing.T) {
 
 // TestGetConfigRedactsTheConnectionStrings pins that no database password reaches the caller.
 func TestGetConfigRedactsTheConnectionStrings(t *testing.T) {
-	cfg := komradeconfig.Defaults()
-	cfg.Connection.DatabaseURL = "postgres://komrade:hunter2@db.internal:5432/panel"
+	cfg := komradconfig.Defaults()
+	cfg.Connection.DatabaseURL = "postgres://komrad:hunter2@db.internal:5432/panel"
 	cfg.Connection.ReadOnlyDatabaseURL = "postgres://reader:alsosecret@db.internal:5432/panel"
 	cfg.Connection.OwnerDatabaseURL = "postgres://owner:topsecret@db.internal:5432/panel"
-	svc := configv1komrade.ConfigServiceAdapter{Impl: NewHandler(func() (*komradeconfig.Config, error) {
+	svc := configv1komrad.ConfigServiceAdapter{Impl: NewHandler(func() (*komradconfig.Config, error) {
 		return cfg, nil
 	})}
 
@@ -74,7 +74,7 @@ func TestGetConfigRedactsTheConnectionStrings(t *testing.T) {
 	assert.NotContains(t, rendered, "hunter2")
 	assert.NotContains(t, rendered, "alsosecret")
 	assert.NotContains(t, rendered, "topsecret")
-	assert.Equal(t, "postgres://komrade@db.internal:5432/panel", lookup(t, resp.Msg, "connection", "database_url"))
+	assert.Equal(t, "postgres://komrad@db.internal:5432/panel", lookup(t, resp.Msg, "connection", "database_url"))
 }
 
 func lookup(t *testing.T, resp *configv1.GetConfigResponse, path ...string) any {

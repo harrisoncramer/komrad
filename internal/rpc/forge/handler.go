@@ -1,4 +1,4 @@
-// Package forge serves the connections komrade holds to the services pull requests live on, and
+// Package forge serves the connections komrad holds to the services pull requests live on, and
 // reads pull requests through them.
 package forge
 
@@ -7,12 +7,12 @@ import (
 	"errors"
 	"time"
 
-	"komrade/internal/fail"
-	"komrade/internal/forge"
-	"komrade/internal/rpcerr"
-	forgestore "komrade/internal/store/forge"
-	"komrade/lib/dates"
-	forgev1 "komrade/proto/gen/forge/v1"
+	"komrad/internal/fail"
+	"komrad/internal/forge"
+	"komrad/internal/rpcerr"
+	forgestore "komrad/internal/store/forge"
+	"komrad/lib/dates"
+	forgev1 "komrad/proto/gen/forge/v1"
 
 	"google.golang.org/protobuf/types/known/emptypb"
 )

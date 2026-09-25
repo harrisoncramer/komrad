@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"komrade/config"
-	"komrade/db/models"
-	"komrade/lib/xslice"
+	"komrad/config"
+	"komrad/db/models"
+	"komrad/lib/xslice"
 )
 
 // The moments a workflow can hang a script on, each named for the event it hangs on and the

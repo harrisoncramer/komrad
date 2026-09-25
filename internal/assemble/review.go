@@ -4,9 +4,9 @@ import (
 	"cmp"
 	"strings"
 
-	"komrade/lib/dates"
+	"komrad/lib/dates"
 
-	agentv1 "komrade/proto/gen/agent/v1"
+	agentv1 "komrad/proto/gen/agent/v1"
 )
 
 // groupReviewsByAgent indexes the reviews by the agent whose work they read.

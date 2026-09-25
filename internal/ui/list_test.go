@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"komrade/internal/ui/paint"
-	"komrade/internal/view"
+	"komrad/internal/ui/paint"
+	"komrad/internal/view"
 
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"

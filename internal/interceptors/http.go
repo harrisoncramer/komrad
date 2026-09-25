@@ -12,8 +12,8 @@ import (
 	"net/http"
 	"time"
 
-	"komrade/internal/caller"
-	"komrade/internal/logging"
+	"komrad/internal/caller"
+	"komrad/internal/logging"
 
 	"github.com/google/uuid"
 )

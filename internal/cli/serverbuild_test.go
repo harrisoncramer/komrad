@@ -3,7 +3,7 @@ package cli
 import (
 	"testing"
 
-	"komrade/internal/server"
+	"komrad/internal/server"
 
 	"github.com/stretchr/testify/assert"
 )

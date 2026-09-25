@@ -3,9 +3,9 @@ package agent
 import (
 	"testing"
 
-	"komrade/db/models"
-	"komrade/internal/store"
-	"komrade/lib/xptr"
+	"komrad/db/models"
+	"komrad/internal/store"
+	"komrad/lib/xptr"
 
 	"github.com/google/uuid"
 

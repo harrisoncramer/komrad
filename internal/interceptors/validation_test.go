@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	agentv1 "komrade/proto/gen/agent/v1"
-	schedulev1 "komrade/proto/gen/schedule/v1"
-	viewv1 "komrade/proto/gen/view/v1"
+	agentv1 "komrad/proto/gen/agent/v1"
+	schedulev1 "komrad/proto/gen/schedule/v1"
+	viewv1 "komrad/proto/gen/view/v1"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"

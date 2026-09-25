@@ -9,23 +9,23 @@ import (
 	"testing"
 	"time"
 
-	"komrade/internal/forge"
-	"komrade/internal/forge/graphql"
-	"komrade/internal/git"
-	"komrade/lib/xptr"
+	"komrad/internal/forge"
+	"komrad/internal/forge/graphql"
+	"komrad/internal/git"
+	"komrad/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // The fixtures carry the shape GitHub answered on 20 September 2026, with the rows from other
-// repositories made up: komrade-forge-fixture#1 open, komrade#742 merged, widgets#55 from a fork,
+// repositories made up: komrad-forge-fixture#1 open, komrad#742 merged, widgets#55 from a fork,
 // widgets#13 from a fork since deleted, widgets#81544 a draft, a search page over two
 // repositories, and a batch of standings with one number GitHub does not have.
 
-const openPull = `{"id":"PR_kwDOUgkrbM8AAAABEIdmHw","number":1,"title":"fixture: open","url":"https://github.com/harrisoncramer/komrade-forge-fixture/pull/1","state":"OPEN","isDraft":false,"createdAt":"2026-09-18T19:14:17Z","updatedAt":"2026-09-18T19:14:17Z","mergedAt":null,"closedAt":null,"headRefName":"fixture/open","headRefOid":"acc6d4fd6caf3511c998a673406e6fed2df7a28b","baseRefName":"main","baseRefOid":"8b32d7985e62febbf494e815545c22b446276b5d","headRepository":{"url":"https://github.com/harrisoncramer/komrade-forge-fixture"},"baseRepository":{"url":"https://github.com/harrisoncramer/komrade-forge-fixture"}}`
+const openPull = `{"id":"PR_kwDOUgkrbM8AAAABEIdmHw","number":1,"title":"fixture: open","url":"https://github.com/harrisoncramer/komrad-forge-fixture/pull/1","state":"OPEN","isDraft":false,"createdAt":"2026-09-18T19:14:17Z","updatedAt":"2026-09-18T19:14:17Z","mergedAt":null,"closedAt":null,"headRefName":"fixture/open","headRefOid":"acc6d4fd6caf3511c998a673406e6fed2df7a28b","baseRefName":"main","baseRefOid":"8b32d7985e62febbf494e815545c22b446276b5d","headRepository":{"url":"https://github.com/harrisoncramer/komrad-forge-fixture"},"baseRepository":{"url":"https://github.com/harrisoncramer/komrad-forge-fixture"}}`
 
-const mergedPull = `{"id":"PR_kwDOTgPfPc8AAAABEU5L_Q","number":742,"title":"feat(pullrequest): draw pull request marks in the panel","url":"https://github.com/harrisoncramer/komrade/pull/742","state":"MERGED","isDraft":false,"createdAt":"2026-09-20T17:57:28Z","updatedAt":"2026-09-20T18:00:07Z","mergedAt":"2026-09-20T18:00:07Z","closedAt":"2026-09-20T18:00:07Z","headRefName":"agent/01a0bea9-02d2-7ce0-bbb4-1fbfc3e74198","headRefOid":"70b1d987cdd21940203ca3fbc5b3a7998a47c830","baseRefName":"main","baseRefOid":"79a1ad8fe89cca4494a40c5c5015f46458ddc121","headRepository":{"url":"https://github.com/harrisoncramer/komrade"},"baseRepository":{"url":"https://github.com/harrisoncramer/komrade"}}`
+const mergedPull = `{"id":"PR_kwDOTgPfPc8AAAABEU5L_Q","number":742,"title":"feat(pullrequest): draw pull request marks in the panel","url":"https://github.com/harrisoncramer/komrad/pull/742","state":"MERGED","isDraft":false,"createdAt":"2026-09-20T17:57:28Z","updatedAt":"2026-09-20T18:00:07Z","mergedAt":"2026-09-20T18:00:07Z","closedAt":"2026-09-20T18:00:07Z","headRefName":"agent/01a0bea9-02d2-7ce0-bbb4-1fbfc3e74198","headRefOid":"70b1d987cdd21940203ca3fbc5b3a7998a47c830","baseRefName":"main","baseRefOid":"79a1ad8fe89cca4494a40c5c5015f46458ddc121","headRepository":{"url":"https://github.com/harrisoncramer/komrad"},"baseRepository":{"url":"https://github.com/harrisoncramer/komrad"}}`
 
 const forkPull = `{"id":"MDExOlB1bGxSZXF1ZXN0MDAwMDAwMDE=","number":55,"title":"Typo correction","url":"https://github.com/acme/widgets/pull/55","state":"CLOSED","isDraft":false,"createdAt":"2014-06-11T05:07:11Z","updatedAt":"2014-06-13T12:41:36Z","mergedAt":null,"closedAt":"2014-06-11T05:07:37Z","headRefName":"fix-typo","headRefOid":"7a97b155f47ac6fc34eaa630d96ba9caf244d80c","baseRefName":"master","baseRefOid":"fd5d98f21b5008f27513d52ac2faa78292a8a3a8","headRepository":{"url":"https://github.com/someone/widgets"},"baseRepository":{"url":"https://github.com/acme/widgets"}}`
 
@@ -33,11 +33,11 @@ const deletedForkPull = `{"id":"MDExOlB1bGxSZXF1ZXN0MDAwMDAwMDI=","number":13,"t
 
 const draftPull = `{"id":"PR_kwDOAAAAAAAAAAABAAAAAA","number":81544,"title":"unicode: widen the pair members","url":"https://github.com/acme/widgets/pull/81544","state":"OPEN","isDraft":true,"createdAt":"2026-09-15T17:53:12Z","updatedAt":"2026-09-15T18:47:47Z","mergedAt":null,"closedAt":null,"headRefName":"widen-pairs","headRefOid":"695f59abb90db534d1ce005c6b2fc1779728d2b1","baseRefName":"master","baseRefOid":"d90cb4e010dbbf7f39b993db5e64e2904c74e4a4","headRepository":{"url":"https://github.com/someone/widgets"},"baseRepository":{"url":"https://github.com/acme/widgets"}}`
 
-const searchPage = `{"data":{"search":{"issueCount":159,"pageInfo":{"hasNextPage":true,"endCursor":"Y3Vyc29yOjM="},"nodes":[{"id":"PR_kwDOTgPfPc8AAAABEU9Z2Q","number":744,"title":"feat(ui): one row per directory on the worktrees screen","url":"https://github.com/harrisoncramer/komrade/pull/744","state":"MERGED","isDraft":false,"reviewDecision":null,"createdAt":"2026-09-20T18:14:43Z","updatedAt":"2026-09-20T18:17:01Z","mergedAt":"2026-09-20T18:17:01Z","closedAt":"2026-09-20T18:17:01Z","headRefName":"agent/01a0bff6-3c6d-7a9e-b497-e76334bd2ab6","headRefOid":"152131741f12434145b7c8df8652140c218ac0bc","baseRefName":"main","baseRefOid":"0710f696842e4640b08afad7ca4c70cccb8312e6","headRepository":{"url":"https://github.com/harrisoncramer/komrade"},"baseRepository":{"url":"https://github.com/harrisoncramer/komrade"}},{"id":"PR_kwDOTgPfPc8AAAABEU8L2A","number":743,"title":"perf(worktrees): measure a directory in parallel and by its blocks","url":"https://github.com/harrisoncramer/komrade/pull/743","state":"MERGED","isDraft":false,"reviewDecision":null,"createdAt":"2026-09-20T18:09:36Z","updatedAt":"2026-09-20T18:12:58Z","mergedAt":"2026-09-20T18:12:58Z","closedAt":"2026-09-20T18:12:58Z","headRefName":"agent/01a0bec8-14fa-7849-a8fa-f31b25f92847","headRefOid":"fa7b9bd985d17396ddbb416d6599efd5b0054e2f","baseRefName":"main","baseRefOid":"3ff2a452603547ebe7d438ea54ecff19550fb6fa","headRepository":{"url":"https://github.com/harrisoncramer/komrade"},"baseRepository":{"url":"https://github.com/harrisoncramer/komrade"}},{"id":"PR_kwDOTgPfPc8AAAABEU5L_Q","number":742,"title":"feat(pullrequest): draw pull request marks in the panel","url":"https://github.com/harrisoncramer/komrade/pull/742","state":"MERGED","isDraft":false,"reviewDecision":null,"createdAt":"2026-09-20T17:57:28Z","updatedAt":"2026-09-20T18:00:07Z","mergedAt":"2026-09-20T18:00:07Z","closedAt":"2026-09-20T18:00:07Z","headRefName":"agent/01a0bea9-02d2-7ce0-bbb4-1fbfc3e74198","headRefOid":"70b1d987cdd21940203ca3fbc5b3a7998a47c830","baseRefName":"main","baseRefOid":"79a1ad8fe89cca4494a40c5c5015f46458ddc121","headRepository":{"url":"https://github.com/harrisoncramer/komrade"},"baseRepository":{"url":"https://github.com/harrisoncramer/komrade"}}]}}}`
+const searchPage = `{"data":{"search":{"issueCount":159,"pageInfo":{"hasNextPage":true,"endCursor":"Y3Vyc29yOjM="},"nodes":[{"id":"PR_kwDOTgPfPc8AAAABEU9Z2Q","number":744,"title":"feat(ui): one row per directory on the worktrees screen","url":"https://github.com/harrisoncramer/komrad/pull/744","state":"MERGED","isDraft":false,"reviewDecision":null,"createdAt":"2026-09-20T18:14:43Z","updatedAt":"2026-09-20T18:17:01Z","mergedAt":"2026-09-20T18:17:01Z","closedAt":"2026-09-20T18:17:01Z","headRefName":"agent/01a0bff6-3c6d-7a9e-b497-e76334bd2ab6","headRefOid":"152131741f12434145b7c8df8652140c218ac0bc","baseRefName":"main","baseRefOid":"0710f696842e4640b08afad7ca4c70cccb8312e6","headRepository":{"url":"https://github.com/harrisoncramer/komrad"},"baseRepository":{"url":"https://github.com/harrisoncramer/komrad"}},{"id":"PR_kwDOTgPfPc8AAAABEU8L2A","number":743,"title":"perf(worktrees): measure a directory in parallel and by its blocks","url":"https://github.com/harrisoncramer/komrad/pull/743","state":"MERGED","isDraft":false,"reviewDecision":null,"createdAt":"2026-09-20T18:09:36Z","updatedAt":"2026-09-20T18:12:58Z","mergedAt":"2026-09-20T18:12:58Z","closedAt":"2026-09-20T18:12:58Z","headRefName":"agent/01a0bec8-14fa-7849-a8fa-f31b25f92847","headRefOid":"fa7b9bd985d17396ddbb416d6599efd5b0054e2f","baseRefName":"main","baseRefOid":"3ff2a452603547ebe7d438ea54ecff19550fb6fa","headRepository":{"url":"https://github.com/harrisoncramer/komrad"},"baseRepository":{"url":"https://github.com/harrisoncramer/komrad"}},{"id":"PR_kwDOTgPfPc8AAAABEU5L_Q","number":742,"title":"feat(pullrequest): draw pull request marks in the panel","url":"https://github.com/harrisoncramer/komrad/pull/742","state":"MERGED","isDraft":false,"reviewDecision":null,"createdAt":"2026-09-20T17:57:28Z","updatedAt":"2026-09-20T18:00:07Z","mergedAt":"2026-09-20T18:00:07Z","closedAt":"2026-09-20T18:00:07Z","headRefName":"agent/01a0bea9-02d2-7ce0-bbb4-1fbfc3e74198","headRefOid":"70b1d987cdd21940203ca3fbc5b3a7998a47c830","baseRefName":"main","baseRefOid":"79a1ad8fe89cca4494a40c5c5015f46458ddc121","headRepository":{"url":"https://github.com/harrisoncramer/komrad"},"baseRepository":{"url":"https://github.com/harrisoncramer/komrad"}}]}}}`
 
 // searchFailing is one search row as GitHub answers the standings fields on it, the recorded
 // shape with the row made up.
-const searchFailing = `{"data":{"search":{"issueCount":7,"pageInfo":{"hasNextPage":true,"endCursor":"Y3Vyc29yOjE="},"nodes":[{"id":"PR_kwDOTgPfPc8AAAABEU9Z9Z","number":804,"title":"feat(panel): a row for the checks","url":"https://github.com/harrisoncramer/komrade/pull/804","state":"OPEN","isDraft":false,"createdAt":"2026-09-17T22:22:25Z","updatedAt":"2026-09-18T21:44:51Z","mergedAt":null,"closedAt":null,"headRefName":"agent/01a0c3e6-8a93-7441-a4c4-32e36761bb27","headRefOid":"4444444444444444444444444444444444444444","baseRefName":"main","baseRefOid":"06cdb987a45779a11be2fc920da62a489c0c1b71","headRepository":{"url":"https://github.com/harrisoncramer/komrade"},"baseRepository":{"url":"https://github.com/harrisoncramer/komrade"},"reviewDecision":"REVIEW_REQUIRED","mergeStateStatus":"UNSTABLE","commits":{"nodes":[{"commit":{"statusCheckRollup":{"state":"FAILURE"}}}]}}]}}}`
+const searchFailing = `{"data":{"search":{"issueCount":7,"pageInfo":{"hasNextPage":true,"endCursor":"Y3Vyc29yOjE="},"nodes":[{"id":"PR_kwDOTgPfPc8AAAABEU9Z9Z","number":804,"title":"feat(panel): a row for the checks","url":"https://github.com/harrisoncramer/komrad/pull/804","state":"OPEN","isDraft":false,"createdAt":"2026-09-17T22:22:25Z","updatedAt":"2026-09-18T21:44:51Z","mergedAt":null,"closedAt":null,"headRefName":"agent/01a0c3e6-8a93-7441-a4c4-32e36761bb27","headRefOid":"4444444444444444444444444444444444444444","baseRefName":"main","baseRefOid":"06cdb987a45779a11be2fc920da62a489c0c1b71","headRepository":{"url":"https://github.com/harrisoncramer/komrad"},"baseRepository":{"url":"https://github.com/harrisoncramer/komrad"},"reviewDecision":"REVIEW_REQUIRED","mergeStateStatus":"UNSTABLE","commits":{"nodes":[{"commit":{"statusCheckRollup":{"state":"FAILURE"}}}]}}]}}}`
 
 const searchApproved = `{"data":{"search":{"issueCount":2,"pageInfo":{"hasNextPage":false,"endCursor":"Y3Vyc29yOjI="},"nodes":[{"id":"PR_kwDOIGmk9s8AAAABESZ58w","number":11158,"title":"Metrics production image update","url":"https://github.com/acme/deploy/pull/11158","state":"MERGED","isDraft":false,"reviewDecision":"APPROVED","createdAt":"2026-09-20T06:24:15Z","updatedAt":"2026-09-20T06:24:26Z","mergedAt":"2026-09-20T06:24:26Z","closedAt":"2026-09-20T06:24:26Z","headRefName":"update-metrics-images","headRefOid":"41fdd966bfbce0757b89b100efa46f8e28d02218","baseRefName":"main","baseRefOid":"94475aebe2d459bf41137bf67d767023dde7baa3","headRepository":{"url":"https://github.com/acme/deploy"},"baseRepository":{"url":"https://github.com/acme/deploy"}},{"id":"PR_kwDOIGmk9s8AAAABEQX0JA","number":11157,"title":"Admin production image update","url":"https://github.com/acme/deploy/pull/11157","state":"MERGED","isDraft":false,"reviewDecision":"APPROVED","createdAt":"2026-09-19T21:14:05Z","updatedAt":"2026-09-19T21:14:18Z","mergedAt":"2026-09-19T21:14:17Z","closedAt":"2026-09-19T21:14:17Z","headRefName":"update-admin-images","headRefOid":"583d259df0d2f141345f659491de89462a0de6cc","baseRefName":"main","baseRefOid":"24235336d21888966f294aea6434aa64a16cb004","headRepository":{"url":"https://github.com/acme/deploy"},"baseRepository":{"url":"https://github.com/acme/deploy"}}]}}}`
 
@@ -163,18 +163,18 @@ func boolOf(value bool) string {
 	return "false"
 }
 
-var komrade = git.RemoteURL{
-	Raw:    "git@github.com:harrisoncramer/komrade.git",
+var komrad = git.RemoteURL{
+	Raw:    "git@github.com:harrisoncramer/komrad.git",
 	Scheme: "ssh",
 	Host:   "github.com",
-	Path:   "harrisoncramer/komrade",
+	Path:   "harrisoncramer/komrad",
 }
 
 var fixture = git.RemoteURL{
-	Raw:    "https://github.com/harrisoncramer/komrade-forge-fixture",
+	Raw:    "https://github.com/harrisoncramer/komrad-forge-fixture",
 	Scheme: "https",
 	Host:   "github.com",
-	Path:   "harrisoncramer/komrade-forge-fixture",
+	Path:   "harrisoncramer/komrad-forge-fixture",
 }
 
 // TestList covers the branch listing: the variables GitHub wants, the token on the request,
@@ -200,7 +200,7 @@ func TestList(t *testing.T) {
 	assert.Equal(t, listQuery, seen.Query)
 	assert.Equal(t, map[string]any{
 		"owner":  "harrisoncramer",
-		"name":   "komrade-forge-fixture",
+		"name":   "komrad-forge-fixture",
 		"first":  float64(50),
 		"after":  "c2",
 		"branch": "fixture/open",
@@ -213,15 +213,15 @@ func TestList(t *testing.T) {
 	require.Len(t, pullRequests, 5)
 
 	repository := git.RemoteURL{
-		Raw:    "https://github.com/harrisoncramer/komrade-forge-fixture",
+		Raw:    "https://github.com/harrisoncramer/komrad-forge-fixture",
 		Scheme: "https",
 		Host:   "github.com",
-		Path:   "harrisoncramer/komrade-forge-fixture",
+		Path:   "harrisoncramer/komrad-forge-fixture",
 	}
 	assert.Equal(t, forge.PullRequest{
 		Forge:      forge.KindGitHub,
 		ProviderID: "PR_kwDOUgkrbM8AAAABEIdmHw",
-		URL:        "https://github.com/harrisoncramer/komrade-forge-fixture/pull/1",
+		URL:        "https://github.com/harrisoncramer/komrad-forge-fixture/pull/1",
 		Repository: repository,
 		Head:       repository,
 		Number:     1,
@@ -290,14 +290,14 @@ func TestListUpdated(t *testing.T) {
 		body:   listing(true, "Y3Vyc29yOnYyOpK0MjAyNi0wOS0yMFQxMjoxODozN1rPAAAAARE3rZU=", mergedPull, openPull),
 	}})
 
-	listed, err := f.ListUpdated(t.Context(), forge.ListUpdatedParams{Repo: komrade, Cursor: "old"})
+	listed, err := f.ListUpdated(t.Context(), forge.ListUpdatedParams{Repo: komrad, Cursor: "old"})
 	require.NoError(t, err)
 	seen := fake.last(t)
 	assert.Equal(t, "ListUpdated", seen.Operation)
 	assert.Equal(t, listUpdatedQuery, seen.Query)
 	assert.Equal(t, map[string]any{
 		"owner": "harrisoncramer",
-		"name":  "komrade",
+		"name":  "komrad",
 		"first": float64(100),
 		"after": "old",
 	}, seen.Variables)
@@ -318,7 +318,7 @@ func TestListChanged(t *testing.T) {
 
 	since := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
 	listed, err := f.ListChanged(t.Context(), forge.ListChangedParams{
-		Repos: []git.RemoteURL{{Host: "github.com", Path: "acme/widgets"}, komrade},
+		Repos: []git.RemoteURL{{Host: "github.com", Path: "acme/widgets"}, komrad},
 		Since: since,
 	})
 	require.NoError(t, err)
@@ -326,7 +326,7 @@ func TestListChanged(t *testing.T) {
 	assert.Equal(t, "ListChanged", seen.Operation)
 	assert.Equal(t, listChangedQuery, seen.Query)
 	assert.Equal(t, map[string]any{
-		"query": "is:pr repo:acme/widgets repo:harrisoncramer/komrade updated:>=2026-09-18T12:00:00Z sort:updated-desc",
+		"query": "is:pr repo:acme/widgets repo:harrisoncramer/komrad updated:>=2026-09-18T12:00:00Z sort:updated-desc",
 		"first": float64(100),
 		"after": nil,
 	}, seen.Variables)
@@ -336,11 +336,11 @@ func TestListChanged(t *testing.T) {
 	assert.Equal(t, []int{744, 743, 742}, []int{listed.PullRequests[0].Number, listed.PullRequests[1].Number, listed.PullRequests[2].Number})
 	assert.Equal(t, xptr.Ptr(forge.ReviewDecisionNone), listed.PullRequests[0].Decision, "a null decision is still an answer")
 	assert.Equal(t, xptr.Ptr(forge.ChecksNone), listed.PullRequests[0].Checks, "a row with no commits carries none")
-	assert.Equal(t, "https://github.com/harrisoncramer/komrade", listed.PullRequests[0].Repository.Canonical())
+	assert.Equal(t, "https://github.com/harrisoncramer/komrad", listed.PullRequests[0].Repository.Canonical())
 
 	f, _, _ = serve(t, map[string]answer{"ListChanged": {body: searchFailing}})
 	listed, err = f.ListChanged(t.Context(), forge.ListChangedParams{
-		Repos: []git.RemoteURL{komrade},
+		Repos: []git.RemoteURL{komrad},
 		Since: since,
 	})
 	require.NoError(t, err)
@@ -368,11 +368,11 @@ func TestGet(t *testing.T) {
 
 	f, _, fake := serve(t, map[string]answer{"Get": {body: data(`{"repository":{"pullRequest":` + mergedPull + `}}`)}})
 
-	pullRequest, err := f.Get(t.Context(), "https://github.com/harrisoncramer/komrade/pull/742")
+	pullRequest, err := f.Get(t.Context(), "https://github.com/harrisoncramer/komrad/pull/742")
 	require.NoError(t, err)
 	assert.Equal(t, 742, pullRequest.Number)
 	assert.Equal(t, "feat(pullrequest): draw pull request marks in the panel", pullRequest.Title)
-	assert.Equal(t, map[string]any{"owner": "harrisoncramer", "name": "komrade", "number": float64(742)}, fake.last(t).Variables)
+	assert.Equal(t, map[string]any{"owner": "harrisoncramer", "name": "komrad", "number": float64(742)}, fake.last(t).Variables)
 }
 
 // TestGetRefusesWhatIsNotAPullRequest covers the addresses Get will not ask GitHub about.
@@ -411,7 +411,7 @@ func TestListRefusesANestedPath(t *testing.T) {
 
 	_, err := f.List(t.Context(), forge.ListParams{Repo: git.RemoteURL{Host: "github.com", Path: "group/sub/repo"}, Branch: "main"})
 	require.ErrorIs(t, err, forge.ErrNotRepository)
-	_, err = f.ListChanged(t.Context(), forge.ListChangedParams{Repos: []git.RemoteURL{komrade, {Host: "github.com", Path: "group/sub/repo"}}})
+	_, err = f.ListChanged(t.Context(), forge.ListChangedParams{Repos: []git.RemoteURL{komrad, {Host: "github.com", Path: "group/sub/repo"}}})
 	require.ErrorIs(t, err, forge.ErrNotRepository)
 	assert.Empty(t, fake.calls)
 }
@@ -423,7 +423,7 @@ func TestUnauthorizedInvalidatesTheCredential(t *testing.T) {
 
 	f, auth, _ := serve(t, map[string]answer{"List": {status: http.StatusUnauthorized, body: `{"message":"Bad credentials"}`}})
 
-	_, err := f.List(t.Context(), forge.ListParams{Repo: komrade, Branch: "main"})
+	_, err := f.List(t.Context(), forge.ListParams{Repo: komrad, Branch: "main"})
 	require.ErrorIs(t, err, forge.ErrUnauthorized)
 	assert.Equal(t, 1, auth.invalidated)
 }
@@ -470,7 +470,7 @@ func TestNotFound(t *testing.T) {
 			name: "a pull request github does not have",
 			body: `{"data":{"repository":{"pullRequest":null}},"errors":[{"type":"NOT_FOUND","path":["repository","pullRequest"],"locations":[{"line":3,"column":5}],"message":"Could not resolve to a PullRequest with the number of 999."}]}`,
 			call: func(f *Forge) error {
-				_, err := f.Get(t.Context(), "https://github.com/harrisoncramer/komrade-forge-fixture/pull/999")
+				_, err := f.Get(t.Context(), "https://github.com/harrisoncramer/komrad-forge-fixture/pull/999")
 
 				return err
 			},
@@ -479,7 +479,7 @@ func TestNotFound(t *testing.T) {
 			name: "a repository the listing cannot see",
 			body: `{"data":{"repository":null},"errors":[{"type":"NOT_FOUND","path":["repository"],"locations":[{"line":2,"column":3}],"message":"Could not resolve to a Repository with the name 'harrisoncramer/no-such-repository-xyz'."}]}`,
 			call: func(f *Forge) error {
-				_, err := f.ListUpdated(t.Context(), forge.ListUpdatedParams{Repo: komrade})
+				_, err := f.ListUpdated(t.Context(), forge.ListUpdatedParams{Repo: komrad})
 
 				return err
 			},
@@ -497,7 +497,7 @@ func TestNotFound(t *testing.T) {
 	}
 
 	misrouted, _, _ := serve(t, nil)
-	_, err := misrouted.Get(t.Context(), "https://github.com/harrisoncramer/komrade/pull/1")
+	_, err := misrouted.Get(t.Context(), "https://github.com/harrisoncramer/komrad/pull/1")
 	require.Error(t, err)
 	require.NotErrorIs(t, err, forge.ErrNotFound)
 	assert.Contains(t, err.Error(), "/graphql")
@@ -508,7 +508,7 @@ func TestNotFound(t *testing.T) {
 func TestVerifyInstallation(t *testing.T) {
 	t.Parallel()
 
-	f, _, fake := serve(t, map[string]answer{"/installation/repositories": {body: `{"total_count":4,"repositories":[{"full_name":"harrisoncramer/komrade"}]}`}})
+	f, _, fake := serve(t, map[string]answer{"/installation/repositories": {body: `{"total_count":4,"repositories":[{"full_name":"harrisoncramer/komrad"}]}`}})
 
 	reached, err := f.VerifyInstallation(t.Context())
 	require.NoError(t, err)
@@ -615,7 +615,7 @@ func TestRateLimitRefusals(t *testing.T) {
 				body:   tt.body,
 			}})
 
-			_, err := f.ListUpdated(t.Context(), forge.ListUpdatedParams{Repo: komrade})
+			_, err := f.ListUpdated(t.Context(), forge.ListUpdatedParams{Repo: komrad})
 			require.Error(t, err)
 
 			var throttled *forge.ThrottledError
@@ -634,14 +634,14 @@ func TestRateLimitRefusals(t *testing.T) {
 }
 
 // TestStandings covers the batch: one query aliasing every number, each decision and rollup
-// GitHub answers in komrade's words with the head they were read for, a null decision and a
+// GitHub answers in komrad's words with the head they were read for, a null decision and a
 // null rollup as none, and a number GitHub does not have left out rather than failing the rest.
 func TestStandings(t *testing.T) {
 	t.Parallel()
 
 	f, _, fake := serve(t, map[string]answer{"Standings": {body: standingsBatch}})
 
-	standings, err := f.Standings(t.Context(), komrade, []int{801, 802, 803, 1, 9999999})
+	standings, err := f.Standings(t.Context(), komrad, []int{801, 802, 803, 1, 9999999})
 	require.NoError(t, err)
 	assert.Equal(t, map[int]forge.Standing{
 		801: {
@@ -672,7 +672,7 @@ func TestStandings(t *testing.T) {
 
 	seen := fake.last(t)
 	assert.Equal(t, "Standings", seen.Operation)
-	assert.Equal(t, map[string]any{"owner": "harrisoncramer", "name": "komrade"}, seen.Variables)
+	assert.Equal(t, map[string]any{"owner": "harrisoncramer", "name": "komrad"}, seen.Variables)
 	assert.Contains(t, seen.Query, `p801: pullRequest(number: 801) { headRefOid reviewDecision mergeStateStatus commits(last: 1) { nodes { commit { statusCheckRollup { state } } } } }`)
 	assert.Contains(t, seen.Query, `p9999999: pullRequest(number: 9999999) { headRefOid `)
 	assert.Equal(t, 5, strings.Count(seen.Query, "pullRequest(number:"))
@@ -718,7 +718,7 @@ func TestChecksOf(t *testing.T) {
 			want:   forge.ChecksNone,
 		},
 		{
-			name:   "a state komrade does not know is none",
+			name:   "a state komrad does not know is none",
 			rollup: &rollupNode{State: "SOMETHING_NEW"},
 			want:   forge.ChecksNone,
 		},
@@ -776,7 +776,7 @@ func TestStandingsRefusals(t *testing.T) {
 	for i := range numbers {
 		numbers[i] = i + 1
 	}
-	_, err = f.Standings(t.Context(), komrade, numbers)
+	_, err = f.Standings(t.Context(), komrad, numbers)
 	require.Error(t, err)
 	assert.Empty(t, fake.calls)
 }

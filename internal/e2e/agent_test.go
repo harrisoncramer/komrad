@@ -5,12 +5,12 @@ package e2e
 import (
 	"testing"
 
-	"komrade/internal/harness"
-	"komrade/internal/komradetest"
-	agentstore "komrade/internal/store/agent"
-	"komrade/lib/xslice"
-	agentv1 "komrade/proto/gen/agent/v1"
-	workflowv1 "komrade/proto/gen/workflow/v1"
+	"komrad/internal/harness"
+	"komrad/internal/komradtest"
+	agentstore "komrad/internal/store/agent"
+	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
+	workflowv1 "komrad/proto/gen/workflow/v1"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
@@ -20,7 +20,7 @@ import (
 // TestIntegrationAgentLifecycle walks an agent from created to destroyed, asserting the pane alongside
 // the row since the two parting company leaves an agent nobody can reach.
 func TestIntegrationAgentLifecycle(t *testing.T) {
-	instance := komradetest.Start(t, komradetest.Params{})
+	instance := komradtest.Start(t, komradtest.Params{})
 	ctx := t.Context()
 
 	workflow, err := instance.Workflows.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{
@@ -151,11 +151,11 @@ func TestIntegrationAgentLifecycle(t *testing.T) {
 // TestIntegrationAgentsSpawnAgents walks an agent spawning another on its own and a child attached
 // to it.
 func TestIntegrationAgentsSpawnAgents(t *testing.T) {
-	instance := komradetest.Start(t, komradetest.Params{})
+	instance := komradtest.Start(t, komradtest.Params{})
 	ctx := t.Context()
 
 	workflow, err := instance.Workflows.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{
-		Name: "komrade",
+		Name: "komrad",
 		Cwd:  t.TempDir(),
 	}))
 	require.NoError(t, err)
@@ -250,19 +250,19 @@ func TestIntegrationAgentsSpawnAgents(t *testing.T) {
 	})
 }
 
-func liveNames(t *testing.T, instance *komradetest.Instance) []string {
+func liveNames(t *testing.T, instance *komradtest.Instance) []string {
 	t.Helper()
 
 	return names(t, instance, false)
 }
 
-func archivedNames(t *testing.T, instance *komradetest.Instance) []string {
+func archivedNames(t *testing.T, instance *komradtest.Instance) []string {
 	t.Helper()
 
 	return names(t, instance, true)
 }
 
-func names(t *testing.T, instance *komradetest.Instance, archived bool) []string {
+func names(t *testing.T, instance *komradtest.Instance, archived bool) []string {
 	t.Helper()
 
 	listed, err := instance.Agents.ListAgents(t.Context(), connect.NewRequest(&agentv1.ListAgentsRequest{

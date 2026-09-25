@@ -6,12 +6,12 @@ import (
 	"testing"
 	"time"
 
-	"komrade/internal/harness"
-	"komrade/internal/komradetest"
-	"komrade/internal/mail"
-	agentstore "komrade/internal/store/agent"
-	"komrade/lib/xslice"
-	agentv1 "komrade/proto/gen/agent/v1"
+	"komrad/internal/harness"
+	"komrad/internal/komradtest"
+	"komrad/internal/mail"
+	agentstore "komrad/internal/store/agent"
+	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
@@ -22,7 +22,7 @@ import (
 func TestIntegrationReviews(t *testing.T) {
 	isolateGit(t)
 
-	instance := komradetest.Start(t, komradetest.Params{WorktreesDir: t.TempDir()})
+	instance := komradtest.Start(t, komradtest.Params{WorktreesDir: t.TempDir()})
 	ctx := t.Context()
 
 	workflow, err := instance.Workflows.CreateWorkflow(ctx, connect.NewRequest(buildWorktreeWorkflow(t)))
@@ -175,7 +175,7 @@ type listThreadBodiesParams struct {
 }
 
 // listThreadBodies is every message the reader is shown on an agent's diff.
-func listThreadBodies(t *testing.T, instance *komradetest.Instance, params listThreadBodiesParams) []string {
+func listThreadBodies(t *testing.T, instance *komradtest.Instance, params listThreadBodiesParams) []string {
 	t.Helper()
 
 	req := connect.NewRequest(&agentv1.ListReviewThreadsRequest{AgentId: &params.AgentID})

@@ -10,9 +10,9 @@ import (
 )
 
 // TestWriteGHShimNeedsSomewhereToWriteAndSomethingToRun covers a launch with no cache dir or no
-// komrade binary, which gets no stand-in rather than a broken one.
+// komrad binary, which gets no stand-in rather than a broken one.
 func TestWriteGHShimNeedsSomewhereToWriteAndSomethingToRun(t *testing.T) {
-	dir, err := WriteGHShim("", "/usr/local/bin/komrade")
+	dir, err := WriteGHShim("", "/usr/local/bin/komrad")
 	require.NoError(t, err)
 	assert.Empty(t, dir)
 
@@ -26,12 +26,12 @@ func TestWriteGHShimNeedsSomewhereToWriteAndSomethingToRun(t *testing.T) {
 func TestWriteGHShimReplacesTheFileItIsRunFrom(t *testing.T) {
 	cache := t.TempDir()
 
-	dir, err := WriteGHShim(cache, "/usr/local/bin/komrade")
+	dir, err := WriteGHShim(cache, "/usr/local/bin/komrad")
 	require.NoError(t, err)
 	first, err := os.Stat(filepath.Join(dir, "gh"))
 	require.NoError(t, err)
 
-	_, err = WriteGHShim(cache, "/usr/local/bin/komrade")
+	_, err = WriteGHShim(cache, "/usr/local/bin/komrad")
 	require.NoError(t, err)
 
 	second, err := os.Stat(filepath.Join(dir, "gh"))

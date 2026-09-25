@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"strings"
 
-	"komrade/internal/caller"
-	"komrade/internal/harness"
+	"komrad/internal/caller"
+	"komrad/internal/harness"
 )
 
 // BuildCommand renders the command line that puts Codex up, quoting everything interpolated
-// since it is written to a script and parsed by the shell komrade starts the pane with.
+// since it is written to a script and parsed by the shell komrad starts the pane with.
 func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 	if err := h.trustDir(launch.Dir); err != nil {
 		return "", err
@@ -28,11 +28,11 @@ func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 
 	if launch.MCPEndpoint != "" {
 		command += " -c " + harness.QuoteArg(fmt.Sprintf(
-			"mcp_servers.komrade.url=%s",
+			"mcp_servers.komrad.url=%s",
 			tomlString("http://"+launch.MCPEndpoint+"/mcp"),
 		))
 		command += " -c " + harness.QuoteArg(mcpHeaders())
-		command += " -c " + harness.QuoteArg(`mcp_servers.komrade.default_tools_approval_mode="approve"`)
+		command += " -c " + harness.QuoteArg(`mcp_servers.komrad.default_tools_approval_mode="approve"`)
 	}
 
 	if launch.HookCommand != "" {
@@ -77,7 +77,7 @@ func notifyProgram(hookCommand string) string {
 
 func mcpHeaders() string {
 	return fmt.Sprintf(
-		"mcp_servers.komrade.env_http_headers={%s=%s,%s=%s}",
+		"mcp_servers.komrad.env_http_headers={%s=%s,%s=%s}",
 		tomlString(caller.AgentHeader), tomlString(harness.AgentIDEnv),
 		tomlString(caller.SessionHeader), tomlString(harness.SessionIDEnv),
 	)

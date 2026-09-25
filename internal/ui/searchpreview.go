@@ -3,7 +3,7 @@ package ui
 import (
 	"strings"
 
-	"komrade/internal/ui/paint"
+	"komrad/internal/ui/paint"
 
 	tea "charm.land/bubbletea/v2"
 )

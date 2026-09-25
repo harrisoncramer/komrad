@@ -3,7 +3,7 @@ package main
 import (
 	"strings"
 
-	"komrade/lib/xslice"
+	"komrad/lib/xslice"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"

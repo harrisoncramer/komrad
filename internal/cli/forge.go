@@ -7,11 +7,11 @@ import (
 	"os"
 	"strings"
 
-	"komrade/internal/forge"
-	"komrade/lib/dates"
-	"komrade/lib/xhttp"
-	forgev1 "komrade/proto/gen/forge/v1"
-	"komrade/proto/gen/forge/v1/forgev1connect"
+	"komrad/internal/forge"
+	"komrad/lib/dates"
+	"komrad/lib/xhttp"
+	forgev1 "komrad/proto/gen/forge/v1"
+	"komrad/proto/gen/forge/v1/forgev1connect"
 
 	"connectrpc.com/connect"
 	"github.com/spf13/cobra"
@@ -21,10 +21,10 @@ import (
 func forgeCmd(state *app) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "forge",
-		Short: "Connect komrade to the services pull requests live on",
-		Long: `Connect komrade to the services pull requests live on.
+		Short: "Connect komrad to the services pull requests live on",
+		Long: `Connect komrad to the services pull requests live on.
 
-Komrade reads the pull requests its agents open through a connection to each forge,
+Komrad reads the pull requests its agents open through a connection to each forge,
 made once and kept until it is disconnected. The service holds the connection: a
 token lives in a file under its state directory that only its user can read, and
 the row in its database records who the forge said the credential belongs to.
@@ -51,14 +51,14 @@ With --method token, the default, the token is read from standard input, or from
 the file --token-file names. It is never taken as an argument, since arguments are
 visible to every process on the machine. Pipe it in:
 
-    gh auth token | komrade forge connect github.com
-    op read op://vault/github/token | komrade forge connect github.com
+    gh auth token | komrad forge connect github.com
+    op read op://vault/github/token | komrad forge connect github.com
 
 With --method github-app nothing is read. The service mints a token from the App
 named under [github_app] in its own config, checks the installation reaches at
 least one repository, and records the App's own name as the login. That is the
 engine's path, where nobody is there to paste a token and the App's key is already
-on the machine: komrade forge connect github.com --method github-app --engine remote.
+on the machine: komrad forge connect github.com --method github-app --engine remote.
 
 The service asks the forge who the credential belongs to before storing anything,
 so a token that is wrong or expired is refused here rather than found out later.
@@ -114,7 +114,7 @@ for GitHub or /api/v4 for GitLab. The address has to be https.`,
 func forgeListCmd(state *app) *cobra.Command {
 	return &cobra.Command{
 		Use:           "list",
-		Short:         "Show every connected forge and who komrade acts as there",
+		Short:         "Show every connected forge and who komrad acts as there",
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,

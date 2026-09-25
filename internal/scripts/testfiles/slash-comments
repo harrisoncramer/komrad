@@ -1,4 +1,4 @@
 #!/usr/bin/env node
-//KOMRADE description="Declared in a language whose comments are slashes."
-//KOMRADE timeout="1m"
+//KOMRAD description="Declared in a language whose comments are slashes."
+//KOMRAD timeout="1m"
 console.log("declared");

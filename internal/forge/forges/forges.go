@@ -6,11 +6,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"komrade/config"
-	"komrade/internal/forge"
-	"komrade/internal/forge/github"
-	"komrade/internal/forge/gitlab"
-	githubapp "komrade/internal/github/app"
+	"komrad/config"
+	"komrad/internal/forge"
+	"komrad/internal/forge/github"
+	"komrad/internal/forge/gitlab"
+	githubapp "komrad/internal/github/app"
 )
 
 // Builders makes the forge for each kind this build knows.

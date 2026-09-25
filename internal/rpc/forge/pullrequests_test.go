@@ -5,13 +5,13 @@ import (
 	"testing"
 	"time"
 
-	"komrade/internal/forge"
-	"komrade/internal/git"
-	forgestore "komrade/internal/store/forge"
-	"komrade/lib/xptr"
-	forgev1 "komrade/proto/gen/forge/v1"
-	forgev1komrade "komrade/proto/gen/forge/v1/forgev1komrade"
-	paginationv1 "komrade/proto/gen/pagination/v1"
+	"komrad/internal/forge"
+	"komrad/internal/git"
+	forgestore "komrad/internal/store/forge"
+	"komrad/lib/xptr"
+	forgev1 "komrad/proto/gen/forge/v1"
+	forgev1komrad "komrad/proto/gen/forge/v1/forgev1komrad"
+	paginationv1 "komrad/proto/gen/pagination/v1"
 
 	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
@@ -45,11 +45,11 @@ func TestListForgePullRequests(t *testing.T) {
 	listing := &fakeForge{pullRequests: []forge.PullRequest{{
 		Forge:      forge.KindGitHub,
 		ProviderID: "PR_1",
-		URL:        "https://github.com/harrisoncramer/komrade/pull/1",
+		URL:        "https://github.com/harrisoncramer/komrad/pull/1",
 		Repository: git.RemoteURL{
 			Scheme: "https",
 			Host:   "github.com",
-			Path:   "harrisoncramer/komrade",
+			Path:   "harrisoncramer/komrad",
 		},
 		Number:     1,
 		Title:      "one",
@@ -62,10 +62,10 @@ func TestListForgePullRequests(t *testing.T) {
 		connections: []forgestore.Connection{newConnection()},
 		forge:       listing,
 	}
-	service := forgev1komrade.ForgeServiceAdapter{Impl: NewHandler(connector)}
+	service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(connector)}
 
 	resp, err := service.ListForgePullRequests(t.Context(), connect.NewRequest(&forgev1.ListForgePullRequestsRequest{
-		RemoteUrl: "git@github.com:harrisoncramer/komrade.git",
+		RemoteUrl: "git@github.com:harrisoncramer/komrad.git",
 		Branch:    "agent/x",
 	}))
 	require.NoError(t, err)
@@ -73,8 +73,8 @@ func TestListForgePullRequests(t *testing.T) {
 	want := &forgev1.ListForgePullRequestsResponse{PullRequests: []*forgev1.ForgePullRequest{{
 		Forge:         forge.KindGitHub,
 		ProviderId:    "PR_1",
-		Url:           "https://github.com/harrisoncramer/komrade/pull/1",
-		RepositoryUrl: "https://github.com/harrisoncramer/komrade",
+		Url:           "https://github.com/harrisoncramer/komrad/pull/1",
+		RepositoryUrl: "https://github.com/harrisoncramer/komrad",
 		Number:        1,
 		Title:         "one",
 		HeadBranch:    "agent/x",
@@ -84,7 +84,7 @@ func TestListForgePullRequests(t *testing.T) {
 	}}}
 	assert.Equal(t, []string{"github.com"}, connector.hosts)
 	require.Len(t, listing.listed, 1)
-	assert.Equal(t, "harrisoncramer/komrade", listing.listed[0].Repo.Path)
+	assert.Equal(t, "harrisoncramer/komrad", listing.listed[0].Repo.Path)
 	assert.Equal(t, "agent/x", listing.listed[0].Branch)
 	assert.Empty(t, listing.listed[0].Cursor)
 	assert.Equal(t, 20, listing.listed[0].PerPage)
@@ -98,10 +98,10 @@ func TestListForgePullRequestsPages(t *testing.T) {
 		connections: []forgestore.Connection{newConnection()},
 		forge:       listing,
 	}
-	service := forgev1komrade.ForgeServiceAdapter{Impl: NewHandler(connector)}
+	service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(connector)}
 
 	first, err := service.ListForgePullRequests(t.Context(), connect.NewRequest(&forgev1.ListForgePullRequestsRequest{
-		RemoteUrl:  "git@github.com:harrisoncramer/komrade.git",
+		RemoteUrl:  "git@github.com:harrisoncramer/komrad.git",
 		Pagination: &paginationv1.Pagination{Limit: xptr.Ptr(int32(50))},
 	}))
 	require.NoError(t, err)
@@ -109,7 +109,7 @@ func TestListForgePullRequestsPages(t *testing.T) {
 
 	listing.hasMore = false
 	second, err := service.ListForgePullRequests(t.Context(), connect.NewRequest(&forgev1.ListForgePullRequestsRequest{
-		RemoteUrl:  "git@github.com:harrisoncramer/komrade.git",
+		RemoteUrl:  "git@github.com:harrisoncramer/komrad.git",
 		Pagination: &paginationv1.Pagination{Cursor: first.Msg.NextPageToken},
 	}))
 	require.NoError(t, err)

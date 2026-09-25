@@ -3,15 +3,15 @@ package agent
 import (
 	"context"
 
-	"komrade/internal/caller"
-	"komrade/internal/fail"
-	"komrade/internal/reviews"
-	"komrade/internal/rpc/render"
-	"komrade/internal/rpcerr"
-	reviewstore "komrade/internal/store/review"
-	"komrade/lib/dates"
-	"komrade/lib/xslice"
-	agentv1 "komrade/proto/gen/agent/v1"
+	"komrad/internal/caller"
+	"komrad/internal/fail"
+	"komrad/internal/reviews"
+	"komrad/internal/rpc/render"
+	"komrad/internal/rpcerr"
+	reviewstore "komrad/internal/store/review"
+	"komrad/lib/dates"
+	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 )
 
 type reviewConversation interface {

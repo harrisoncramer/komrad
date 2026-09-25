@@ -1,17 +1,17 @@
-// Package worktree serves the directories komrade cut for its agents.
+// Package worktree serves the directories komrad cut for its agents.
 package worktree
 
 import (
 	"context"
 
-	"komrade/internal/fail"
-	"komrade/internal/git"
-	"komrade/internal/rpc/render"
-	"komrade/internal/rpcerr"
-	"komrade/internal/worktrees"
-	"komrade/lib/dates"
-	"komrade/lib/xslice"
-	worktreev1 "komrade/proto/gen/worktree/v1"
+	"komrad/internal/fail"
+	"komrad/internal/git"
+	"komrad/internal/rpc/render"
+	"komrad/internal/rpcerr"
+	"komrad/internal/worktrees"
+	"komrad/lib/dates"
+	"komrad/lib/xslice"
+	worktreev1 "komrad/proto/gen/worktree/v1"
 
 	"google.golang.org/protobuf/types/known/emptypb"
 )

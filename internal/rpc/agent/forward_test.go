@@ -5,17 +5,17 @@ import (
 	"testing"
 	"time"
 
-	"komrade/internal/agents"
-	"komrade/internal/caller"
-	"komrade/internal/mail"
-	"komrade/internal/tmuxtest"
-	"komrade/internal/transcripts"
-	"komrade/lib/dates"
-	agentv1 "komrade/proto/gen/agent/v1"
-	"komrade/proto/gen/agent/v1/agentv1komrade"
+	"komrad/internal/agents"
+	"komrad/internal/caller"
+	"komrad/internal/mail"
+	"komrad/internal/tmuxtest"
+	"komrad/internal/transcripts"
+	"komrad/lib/dates"
+	agentv1 "komrad/proto/gen/agent/v1"
+	"komrad/proto/gen/agent/v1/agentv1komrad"
 
-	agentstore "komrade/internal/store/agent"
-	transcriptstore "komrade/internal/store/transcript"
+	agentstore "komrad/internal/store/agent"
+	transcriptstore "komrad/internal/store/transcript"
 
 	"buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	"connectrpc.com/connect"
@@ -352,10 +352,10 @@ func TestMaxMailBodyIsTheWireCap(t *testing.T) {
 }
 
 // newForwardHandler is the handler over fakes of the rows, the transcripts and the mail service, reading liveness off a fake tmux.
-func newForwardHandler(rows *fakeRowReader, reader *fakeTranscriptReader, mailer *fakeMailer) (agentv1komrade.AgentServiceAdapter, *tmuxtest.Fake) {
+func newForwardHandler(rows *fakeRowReader, reader *fakeTranscriptReader, mailer *fakeMailer) (agentv1komrad.AgentServiceAdapter, *tmuxtest.Fake) {
 	terminal := tmuxtest.NewFake()
 
-	return agentv1komrade.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{
+	return agentv1komrad.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{
 		Agents:      rows,
 		Transcripts: reader,
 		Mail:        mailer,

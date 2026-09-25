@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"komrade/db"
-	"komrade/internal/store"
-	agentstore "komrade/internal/store/agent"
+	"komrad/db"
+	"komrad/internal/store"
+	agentstore "komrad/internal/store/agent"
 )
 
 const orchestratorDirName = "orchestrators"

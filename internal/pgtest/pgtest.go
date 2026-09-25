@@ -14,13 +14,13 @@ import (
 	"testing"
 	"time"
 
-	"komrade/config"
+	"komrad/config"
 
 	"github.com/jackc/pgx/v5"
 )
 
 const (
-	namePrefix = "komrade_test_"
+	namePrefix = "komrad_test_"
 
 	// templateMarker separates a template's name from the version of the schema in it.
 	templateMarker = "_tpl"

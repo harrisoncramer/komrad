@@ -9,7 +9,7 @@ import (
 const panelPaneFormat = "#{==:#{pane_id},#{" + panelPaneOption + "}}"
 
 // wheelOptionPrefix names the global options holding the user's own wheel commands.
-const wheelOptionPrefix = "@komrade_wheel_"
+const wheelOptionPrefix = "@komrad_wheel_"
 
 // panelWheel is the wheel binding's arm over the panel's pane.
 const panelWheel = "send-keys -M -t ="

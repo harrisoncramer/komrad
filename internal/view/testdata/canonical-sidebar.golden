@@ -5,11 +5,11 @@
   o       │ ops
         │   rds-backup-hardening
 ›       ┃   strip-demo 
-  w       │ komrade +3 
+  w       │ komrad +3 
         ┃   frozen-review-bug
        ┃   pr-metadata-fixes  
         │   iss-582 
          ┃   gone-worktree 
         │   iss-641-reviewer 
         │   shipped-yesterday
-          │ komrade-bughunt-job +5 
+          │ komrad-bughunt-job +5 

@@ -4,8 +4,8 @@ import (
 	"sync"
 	"time"
 
-	"komrade/config"
-	"komrade/internal/frames"
+	"komrad/config"
+	"komrad/internal/frames"
 )
 
 // frameSettingsTTL is how long the recording settings are held before the config is read

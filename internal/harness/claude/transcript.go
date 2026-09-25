@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"komrade/internal/harness"
+	"komrad/internal/harness"
 )
 
 // LogPath finds the JSONL log for a session id by globbing the id, so nothing here has to

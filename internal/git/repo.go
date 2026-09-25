@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"komrade/internal/fail"
+	"komrad/internal/fail"
 )
 
 // GetRoot is the top of the working tree any path inside it belongs to.

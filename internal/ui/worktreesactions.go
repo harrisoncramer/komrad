@@ -3,10 +3,10 @@ package ui
 import (
 	"slices"
 
-	"komrade/config"
-	"komrade/internal/ui/paint/label"
-	"komrade/internal/ui/panel"
-	"komrade/lib/xslice"
+	"komrad/config"
+	"komrad/internal/ui/paint/label"
+	"komrad/internal/ui/panel"
+	"komrad/lib/xslice"
 
 	tea "charm.land/bubbletea/v2"
 )

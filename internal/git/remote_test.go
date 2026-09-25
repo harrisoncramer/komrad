@@ -12,7 +12,7 @@ import (
 func TestParseRemoteURL(t *testing.T) {
 	t.Parallel()
 
-	const komrade = "https://github.com/harrisoncramer/komrade"
+	const komrad = "https://github.com/harrisoncramer/komrad"
 
 	tests := []struct {
 		name      string
@@ -23,63 +23,63 @@ func TestParseRemoteURL(t *testing.T) {
 	}{
 		{
 			name: "scp-like with a .git suffix",
-			raw:  "git@github.com:harrisoncramer/komrade.git",
+			raw:  "git@github.com:harrisoncramer/komrad.git",
 			want: RemoteURL{
 				Scheme: "ssh",
 				Host:   "github.com",
-				Path:   "harrisoncramer/komrade",
+				Path:   "harrisoncramer/komrad",
 			},
-			canonical: komrade,
+			canonical: komrad,
 		},
 		{
 			name: "scp-like without a .git suffix",
-			raw:  "git@github.com:harrisoncramer/komrade",
+			raw:  "git@github.com:harrisoncramer/komrad",
 			want: RemoteURL{
 				Scheme: "ssh",
 				Host:   "github.com",
-				Path:   "harrisoncramer/komrade",
+				Path:   "harrisoncramer/komrad",
 			},
-			canonical: komrade,
+			canonical: komrad,
 		},
 		{
 			name: "scp-like user may be anything",
-			raw:  "deploy@github.com:harrisoncramer/komrade.git",
+			raw:  "deploy@github.com:harrisoncramer/komrad.git",
 			want: RemoteURL{
 				Scheme: "ssh",
 				Host:   "github.com",
-				Path:   "harrisoncramer/komrade",
+				Path:   "harrisoncramer/komrad",
 			},
-			canonical: komrade,
+			canonical: komrad,
 		},
 		{
 			name: "scp-like without a user",
-			raw:  "github.com:harrisoncramer/komrade.git",
+			raw:  "github.com:harrisoncramer/komrad.git",
 			want: RemoteURL{
 				Scheme: "ssh",
 				Host:   "github.com",
-				Path:   "harrisoncramer/komrade",
+				Path:   "harrisoncramer/komrad",
 			},
-			canonical: komrade,
+			canonical: komrad,
 		},
 		{
 			name: "scp-like host is lowercased",
-			raw:  "git@GitHub.com:harrisoncramer/komrade.git",
+			raw:  "git@GitHub.com:harrisoncramer/komrad.git",
 			want: RemoteURL{
 				Scheme: "ssh",
 				Host:   "github.com",
-				Path:   "harrisoncramer/komrade",
+				Path:   "harrisoncramer/komrad",
 			},
-			canonical: komrade,
+			canonical: komrad,
 		},
 		{
 			name: "scp-like path is lowercased",
-			raw:  "git@github.com:HarrisonCramer/Komrade.git",
+			raw:  "git@github.com:HarrisonCramer/Komrad.git",
 			want: RemoteURL{
 				Scheme: "ssh",
 				Host:   "github.com",
-				Path:   "harrisoncramer/komrade",
+				Path:   "harrisoncramer/komrad",
 			},
-			canonical: komrade,
+			canonical: komrad,
 		},
 		{
 			name: "scp-like has no port so the number is a path segment",
@@ -103,54 +103,54 @@ func TestParseRemoteURL(t *testing.T) {
 		},
 		{
 			name: "scp-like with a leading slash on the path",
-			raw:  "git@github.com:/harrisoncramer/komrade.git",
+			raw:  "git@github.com:/harrisoncramer/komrad.git",
 			want: RemoteURL{
 				Scheme: "ssh",
 				Host:   "github.com",
-				Path:   "harrisoncramer/komrade",
+				Path:   "harrisoncramer/komrad",
 			},
-			canonical: komrade,
+			canonical: komrad,
 		},
 		{
 			name: "ssh scheme becomes https",
-			raw:  "ssh://git@github.com/harrisoncramer/komrade.git",
+			raw:  "ssh://git@github.com/harrisoncramer/komrad.git",
 			want: RemoteURL{
 				Scheme: "ssh",
 				Host:   "github.com",
-				Path:   "harrisoncramer/komrade",
+				Path:   "harrisoncramer/komrad",
 			},
-			canonical: komrade,
+			canonical: komrad,
 		},
 		{
 			name: "ssh keeps its port on the pieces and drops it from canonical",
-			raw:  "ssh://git@github.com:22/harrisoncramer/komrade.git",
+			raw:  "ssh://git@github.com:22/harrisoncramer/komrad.git",
 			want: RemoteURL{
 				Scheme: "ssh",
 				Host:   "github.com",
 				Port:   "22",
-				Path:   "harrisoncramer/komrade",
+				Path:   "harrisoncramer/komrad",
 			},
-			canonical: komrade,
+			canonical: komrad,
 		},
 		{
 			name: "ssh without a user",
-			raw:  "ssh://github.com/harrisoncramer/komrade.git",
+			raw:  "ssh://github.com/harrisoncramer/komrad.git",
 			want: RemoteURL{
 				Scheme: "ssh",
 				Host:   "github.com",
-				Path:   "harrisoncramer/komrade",
+				Path:   "harrisoncramer/komrad",
 			},
-			canonical: komrade,
+			canonical: komrad,
 		},
 		{
 			name: "ssh drops a user and password",
-			raw:  "ssh://user:secret@github.com/harrisoncramer/komrade.git",
+			raw:  "ssh://user:secret@github.com/harrisoncramer/komrad.git",
 			want: RemoteURL{
 				Scheme: "ssh",
 				Host:   "github.com",
-				Path:   "harrisoncramer/komrade",
+				Path:   "harrisoncramer/komrad",
 			},
-			canonical: komrade,
+			canonical: komrad,
 		},
 		{
 			name: "ssh port on another host is dropped from canonical",
@@ -165,23 +165,23 @@ func TestParseRemoteURL(t *testing.T) {
 		},
 		{
 			name: "ssh host is lowercased",
-			raw:  "ssh://git@GitHub.com/harrisoncramer/komrade.git",
+			raw:  "ssh://git@GitHub.com/harrisoncramer/komrad.git",
 			want: RemoteURL{
 				Scheme: "ssh",
 				Host:   "github.com",
-				Path:   "harrisoncramer/komrade",
+				Path:   "harrisoncramer/komrad",
 			},
-			canonical: komrade,
+			canonical: komrad,
 		},
 		{
 			name: "git+ssh unwraps to ssh",
-			raw:  "git+ssh://git@github.com/harrisoncramer/komrade.git",
+			raw:  "git+ssh://git@github.com/harrisoncramer/komrad.git",
 			want: RemoteURL{
 				Scheme: "ssh",
 				Host:   "github.com",
-				Path:   "harrisoncramer/komrade",
+				Path:   "harrisoncramer/komrad",
 			},
-			canonical: komrade,
+			canonical: komrad,
 		},
 		{
 			name: "git+ssh keeps its port on the pieces and drops it from canonical",
@@ -196,94 +196,94 @@ func TestParseRemoteURL(t *testing.T) {
 		},
 		{
 			name: "git scheme becomes https",
-			raw:  "git://github.com/harrisoncramer/komrade.git",
+			raw:  "git://github.com/harrisoncramer/komrad.git",
 			want: RemoteURL{
 				Scheme: "git",
 				Host:   "github.com",
-				Path:   "harrisoncramer/komrade",
+				Path:   "harrisoncramer/komrad",
 			},
-			canonical: komrade,
+			canonical: komrad,
 		},
 		{
 			name: "git keeps its port on the pieces and drops it from canonical",
-			raw:  "git://github.com:9418/harrisoncramer/komrade.git",
+			raw:  "git://github.com:9418/harrisoncramer/komrad.git",
 			want: RemoteURL{
 				Scheme: "git",
 				Host:   "github.com",
 				Port:   "9418",
-				Path:   "harrisoncramer/komrade",
+				Path:   "harrisoncramer/komrad",
 			},
-			canonical: komrade,
+			canonical: komrad,
 		},
 		{
 			name: "git host is lowercased",
-			raw:  "git://GitHub.com/harrisoncramer/komrade.git",
+			raw:  "git://GitHub.com/harrisoncramer/komrad.git",
 			want: RemoteURL{
 				Scheme: "git",
 				Host:   "github.com",
-				Path:   "harrisoncramer/komrade",
+				Path:   "harrisoncramer/komrad",
 			},
-			canonical: komrade,
+			canonical: komrad,
 		},
 		{
 			name: "https is already canonical",
-			raw:  "https://github.com/harrisoncramer/komrade",
+			raw:  "https://github.com/harrisoncramer/komrad",
 			want: RemoteURL{
 				Scheme: "https",
 				Host:   "github.com",
-				Path:   "harrisoncramer/komrade",
+				Path:   "harrisoncramer/komrad",
 			},
-			canonical: komrade,
+			canonical: komrad,
 		},
 		{
 			name: "https drops a .git suffix",
-			raw:  "https://github.com/harrisoncramer/komrade.git",
+			raw:  "https://github.com/harrisoncramer/komrad.git",
 			want: RemoteURL{
 				Scheme: "https",
 				Host:   "github.com",
-				Path:   "harrisoncramer/komrade",
+				Path:   "harrisoncramer/komrad",
 			},
-			canonical: komrade,
+			canonical: komrad,
 		},
 		{
 			name: "https drops a trailing slash",
-			raw:  "https://github.com/harrisoncramer/komrade/",
+			raw:  "https://github.com/harrisoncramer/komrad/",
 			want: RemoteURL{
 				Scheme: "https",
 				Host:   "github.com",
-				Path:   "harrisoncramer/komrade",
+				Path:   "harrisoncramer/komrad",
 			},
-			canonical: komrade,
+			canonical: komrad,
 		},
 		{
 			name: "https drops a .git suffix and a trailing slash together",
-			raw:  "https://github.com/harrisoncramer/komrade.git/",
+			raw:  "https://github.com/harrisoncramer/komrad.git/",
 			want: RemoteURL{
 				Scheme: "https",
 				Host:   "github.com",
-				Path:   "harrisoncramer/komrade",
+				Path:   "harrisoncramer/komrad",
 			},
-			canonical: komrade,
+			canonical: komrad,
 		},
 		{
 			name: "https host is lowercased",
-			raw:  "https://GitHub.com/harrisoncramer/komrade",
+			raw:  "https://GitHub.com/harrisoncramer/komrad",
 			want: RemoteURL{
 				Scheme: "https",
 				Host:   "github.com",
-				Path:   "harrisoncramer/komrade",
+				Path:   "harrisoncramer/komrad",
 			},
-			canonical: komrade,
+			canonical: komrad,
 		},
 		{
 			name: "www.github.com is github.com",
-			raw:  "https://www.github.com/harrisoncramer/komrade.git",
+			raw:  "https://www.github.com/harrisoncramer/komrad.git",
 			want: RemoteURL{
 				Scheme: "https",
 				Host:   "github.com",
-				Path:   "harrisoncramer/komrade",
+				Path:   "harrisoncramer/komrad",
 			},
-			canonical: komrade,
+			canonical: komrad,
 		},
 		{
 			name: "www is kept on any other host",
@@ -297,33 +297,33 @@ func TestParseRemoteURL(t *testing.T) {
 		},
 		{
 			name: "https drops a user",
-			raw:  "https://harrisoncramer@github.com/harrisoncramer/komrade.git",
+			raw:  "https://harrisoncramer@github.com/harrisoncramer/komrad.git",
 			want: RemoteURL{
 				Scheme: "https",
 				Host:   "github.com",
-				Path:   "harrisoncramer/komrade",
+				Path:   "harrisoncramer/komrad",
 			},
-			canonical: komrade,
+			canonical: komrad,
 		},
 		{
 			name: "https drops a user and token",
-			raw:  "https://user:token@github.com/harrisoncramer/komrade.git",
+			raw:  "https://user:token@github.com/harrisoncramer/komrad.git",
 			want: RemoteURL{
 				Scheme: "https",
 				Host:   "github.com",
-				Path:   "harrisoncramer/komrade",
+				Path:   "harrisoncramer/komrad",
 			},
-			canonical: komrade,
+			canonical: komrad,
 		},
 		{
 			name: "https drops a query and fragment",
-			raw:  "https://github.com/harrisoncramer/komrade.git?foo=bar#frag",
+			raw:  "https://github.com/harrisoncramer/komrad.git?foo=bar#frag",
 			want: RemoteURL{
 				Scheme: "https",
 				Host:   "github.com",
-				Path:   "harrisoncramer/komrade",
+				Path:   "harrisoncramer/komrad",
 			},
-			canonical: komrade,
+			canonical: komrad,
 		},
 		{
 			name: "https keeps its port",
@@ -338,13 +338,13 @@ func TestParseRemoteURL(t *testing.T) {
 		},
 		{
 			name: "https lowercases the path",
-			raw:  "https://github.com/HarrisonCramer/Komrade",
+			raw:  "https://github.com/HarrisonCramer/Komrad",
 			want: RemoteURL{
 				Scheme: "https",
 				Host:   "github.com",
-				Path:   "harrisoncramer/komrade",
+				Path:   "harrisoncramer/komrad",
 			},
-			canonical: komrade,
+			canonical: komrad,
 		},
 		{
 			name: "https keeps a nested path whole",
@@ -388,13 +388,13 @@ func TestParseRemoteURL(t *testing.T) {
 		},
 		{
 			name: "git+https unwraps to https",
-			raw:  "git+https://github.com/harrisoncramer/komrade.git",
+			raw:  "git+https://github.com/harrisoncramer/komrad.git",
 			want: RemoteURL{
 				Scheme: "https",
 				Host:   "github.com",
-				Path:   "harrisoncramer/komrade",
+				Path:   "harrisoncramer/komrad",
 			},
-			canonical: komrade,
+			canonical: komrad,
 		},
 		{
 			name: "git+https keeps its port",
@@ -409,13 +409,13 @@ func TestParseRemoteURL(t *testing.T) {
 		},
 		{
 			name: "http becomes https",
-			raw:  "http://github.com/harrisoncramer/komrade.git",
+			raw:  "http://github.com/harrisoncramer/komrad.git",
 			want: RemoteURL{
 				Scheme: "http",
 				Host:   "github.com",
-				Path:   "harrisoncramer/komrade",
+				Path:   "harrisoncramer/komrad",
 			},
-			canonical: komrade,
+			canonical: komrad,
 		},
 		{
 			name: "http keeps its port",
@@ -462,23 +462,23 @@ func TestParseRemoteURL(t *testing.T) {
 		},
 		{
 			name: "scheme case does not matter",
-			raw:  "HTTPS://github.com/harrisoncramer/komrade",
+			raw:  "HTTPS://github.com/harrisoncramer/komrad",
 			want: RemoteURL{
 				Scheme: "https",
 				Host:   "github.com",
-				Path:   "harrisoncramer/komrade",
+				Path:   "harrisoncramer/komrad",
 			},
-			canonical: komrade,
+			canonical: komrad,
 		},
 		{
 			name: "surrounding whitespace is trimmed and raw is kept as given",
-			raw:  "  git@github.com:harrisoncramer/komrade.git\n",
+			raw:  "  git@github.com:harrisoncramer/komrad.git\n",
 			want: RemoteURL{
 				Scheme: "ssh",
 				Host:   "github.com",
-				Path:   "harrisoncramer/komrade",
+				Path:   "harrisoncramer/komrad",
 			},
-			canonical: komrade,
+			canonical: komrad,
 		},
 		{
 			name:    "empty is not a repository",
@@ -492,7 +492,7 @@ func TestParseRemoteURL(t *testing.T) {
 		},
 		{
 			name:    "an absolute local path is not a repository",
-			raw:     "/Users/harrisoncramer/komrade",
+			raw:     "/Users/harrisoncramer/komrad",
 			refused: true,
 		},
 		{
@@ -512,12 +512,12 @@ func TestParseRemoteURL(t *testing.T) {
 		},
 		{
 			name:    "a windows drive path is not scp-like",
-			raw:     `C:\repos\komrade`,
+			raw:     `C:\repos\komrad`,
 			refused: true,
 		},
 		{
 			name:    "a forward-slash windows drive path is not scp-like",
-			raw:     "C:/repos/komrade",
+			raw:     "C:/repos/komrad",
 			refused: true,
 		},
 		{
@@ -577,12 +577,12 @@ func TestParseRemoteURL(t *testing.T) {
 		},
 		{
 			name:    "ftp is not a scheme git uses",
-			raw:     "ftp://github.com/harrisoncramer/komrade.git",
+			raw:     "ftp://github.com/harrisoncramer/komrad.git",
 			refused: true,
 		},
 		{
 			name:    "a scheme with no host is not a repository",
-			raw:     "https:///harrisoncramer/komrade",
+			raw:     "https:///harrisoncramer/komrad",
 			refused: true,
 		},
 		{

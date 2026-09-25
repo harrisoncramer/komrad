@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 source "$MISE_CONFIG_ROOT/mise/tasks/_"
 set -euo pipefail
-#MISE description="Build the komrade AMI with Packer."
+#MISE description="Build the komrad AMI with Packer."
 
 usage() {
 	echo "Usage: mise run packer:build [-- <packer args>]"
 	echo
-	echo "Builds the komrade machine image in AWS and prints the resulting AMI id."
-	echo "The image is tagged with the revision baked into it, and with KOMRADE_VERSION when"
+	echo "Builds the komrad machine image in AWS and prints the resulting AMI id."
+	echo "The image is tagged with the revision baked into it, and with KOMRAD_VERSION when"
 	echo "one is set. Neither says what the instance ends up running: the binary is replaced"
 	echo "on the next deploy."
 }
@@ -24,15 +24,15 @@ done
 cd "$MISE_CONFIG_ROOT"
 
 REVISION="$(git rev-parse --short HEAD)"
-VERSION="${KOMRADE_VERSION:-v0.0.0-ami.$REVISION}"
+VERSION="${KOMRAD_VERSION:-v0.0.0-ami.$REVISION}"
 
-go_build_binary linux arm64 "$VERSION" dist/komrade-linux-arm64
+go_build_binary linux arm64 "$VERSION" dist/komrad-linux-arm64
 
 cd packer
 
 packer init .
 packer build \
-	-var "komrade_revision=$REVISION" \
-	-var "komrade_version=$VERSION" \
+	-var "komrad_revision=$REVISION" \
+	-var "komrad_version=$VERSION" \
 	"$@" \
 	.

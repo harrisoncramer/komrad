@@ -3,8 +3,8 @@ package jobs
 import (
 	"context"
 
-	"komrade/internal/jobs/internaljobs"
-	agentstore "komrade/internal/store/agent"
+	"komrad/internal/jobs/internaljobs"
+	agentstore "komrad/internal/store/agent"
 
 	"github.com/jackc/pgx/v5"
 )

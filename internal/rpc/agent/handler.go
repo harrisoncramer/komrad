@@ -8,20 +8,20 @@ import (
 	"log/slog"
 	"time"
 
-	"komrade/internal/agents"
-	"komrade/internal/caller"
-	"komrade/internal/fail"
-	"komrade/internal/logging"
-	"komrade/internal/rpc/render"
-	"komrade/internal/rpcerr"
-	"komrade/internal/store"
-	"komrade/lib/pagination"
-	"komrade/lib/xslice"
-	agentv1 "komrade/proto/gen/agent/v1"
+	"komrad/internal/agents"
+	"komrad/internal/caller"
+	"komrad/internal/fail"
+	"komrad/internal/logging"
+	"komrad/internal/rpc/render"
+	"komrad/internal/rpcerr"
+	"komrad/internal/store"
+	"komrad/lib/pagination"
+	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 
-	agentstore "komrade/internal/store/agent"
-	markstore "komrade/internal/store/mark"
-	rowstore "komrade/internal/store/row"
+	agentstore "komrad/internal/store/agent"
+	markstore "komrad/internal/store/mark"
+	rowstore "komrad/internal/store/row"
 
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -378,7 +378,7 @@ func (s *Handler) SetMetadata(ctx context.Context, req *agentv1.SetMetadataReque
 	return &emptypb.Empty{}, nil
 }
 
-// Log writes one line to komrade's log for an agent.
+// Log writes one line to komrad's log for an agent.
 func (s *Handler) Log(ctx context.Context, req *agentv1.LogRequest) (*emptypb.Empty, *fail.Error) {
 	id, failure := scopedAgentID(ctx, req.GetId())
 	if failure != nil {

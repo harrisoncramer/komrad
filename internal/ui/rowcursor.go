@@ -3,8 +3,8 @@ package ui
 import (
 	"time"
 
-	"komrade/internal/ui/paint"
-	"komrade/internal/view"
+	"komrad/internal/ui/paint"
+	"komrad/internal/view"
 
 	"charm.land/bubbles/v2/cursor"
 	tea "charm.land/bubbletea/v2"

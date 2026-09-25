@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"komrade/config"
-	"komrade/internal/harness"
+	"komrad/config"
+	"komrad/internal/harness"
 )
 
 const commandTimeout = 5 * time.Second

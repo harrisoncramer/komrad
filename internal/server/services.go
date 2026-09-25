@@ -5,24 +5,24 @@ import (
 	"os"
 	"path/filepath"
 
-	"komrade/config"
-	"komrade/internal/agents"
-	"komrade/internal/checkouts"
-	"komrade/internal/forge"
-	"komrade/internal/forge/forges"
-	"komrade/internal/frames"
-	"komrade/internal/git"
-	"komrade/internal/harness/pane"
-	"komrade/internal/mail"
-	"komrade/internal/marks"
-	"komrade/internal/pullrequests"
-	"komrade/internal/reviews"
-	"komrade/internal/schedules"
-	"komrade/internal/scriptrun"
-	"komrade/internal/scripts"
-	"komrade/internal/transcripts"
-	"komrade/internal/watch"
-	"komrade/internal/worktrees"
+	"komrad/config"
+	"komrad/internal/agents"
+	"komrad/internal/checkouts"
+	"komrad/internal/forge"
+	"komrad/internal/forge/forges"
+	"komrad/internal/frames"
+	"komrad/internal/git"
+	"komrad/internal/harness/pane"
+	"komrad/internal/mail"
+	"komrad/internal/marks"
+	"komrad/internal/pullrequests"
+	"komrad/internal/reviews"
+	"komrad/internal/schedules"
+	"komrad/internal/scriptrun"
+	"komrad/internal/scripts"
+	"komrad/internal/transcripts"
+	"komrad/internal/watch"
+	"komrad/internal/worktrees"
 )
 
 type services struct {
@@ -57,10 +57,10 @@ type services struct {
 	watchRows        *watch.Rows
 }
 
-// BuiltinScriptsDir is where the scripts komrade ships are installed under a cache directory,
+// BuiltinScriptsDir is where the scripts komrad ships are installed under a cache directory,
 // which is the only place a script that is not a hook is resolved from.
 func BuiltinScriptsDir(cacheDir string) string {
-	return filepath.Join(cacheDir, "komrade-builtin-scripts")
+	return filepath.Join(cacheDir, "komrad-builtin-scripts")
 }
 
 func buildServices(params NewServerParams, st *stores) (*services, error) {

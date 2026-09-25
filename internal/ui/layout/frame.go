@@ -5,9 +5,9 @@ import (
 	"os"
 	"strconv"
 
-	"komrade/config"
-	"komrade/internal/engine"
-	"komrade/internal/panes"
+	"komrad/config"
+	"komrad/internal/engine"
+	"komrad/internal/panes"
 )
 
 type Frame struct {

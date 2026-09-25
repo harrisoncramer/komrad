@@ -3,7 +3,7 @@ package gittest
 import (
 	"context"
 
-	"komrade/internal/git"
+	"komrad/internal/git"
 )
 
 // Rebaser is the git a rebase drives, answering from its fields and recording each call.

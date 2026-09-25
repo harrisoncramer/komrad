@@ -7,16 +7,16 @@ import (
 	"io"
 	"os"
 
-	"komrade/config"
-	"komrade/internal/doctor"
-	"komrade/internal/errui"
-	"komrade/internal/ui"
-	"komrade/internal/version"
-	"komrade/lib/xhttp"
-	"komrade/lib/xslice"
-	doctorv1 "komrade/proto/gen/doctor/v1"
-	"komrade/proto/gen/doctor/v1/doctorv1connect"
-	forgev1 "komrade/proto/gen/forge/v1"
+	"komrad/config"
+	"komrad/internal/doctor"
+	"komrad/internal/errui"
+	"komrad/internal/ui"
+	"komrad/internal/version"
+	"komrad/lib/xhttp"
+	"komrad/lib/xslice"
+	doctorv1 "komrad/proto/gen/doctor/v1"
+	"komrad/proto/gen/doctor/v1/doctorv1connect"
+	forgev1 "komrad/proto/gen/forge/v1"
 
 	"connectrpc.com/connect"
 	"github.com/spf13/cobra"
@@ -32,8 +32,8 @@ func doctorCmd(state *app) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "doctor",
-		Short: "Check that this machine has everything komrade needs",
-		Long: `Check that this machine has everything komrade needs, one line per dependency.
+		Short: "Check that this machine has everything komrad needs",
+		Long: `Check that this machine has everything komrad needs, one line per dependency.
 
 It checks tmux and its version, the shell tmux starts panes with, whether the
 config file parses and names a harness that exists, the hooks and worktrees

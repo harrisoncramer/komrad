@@ -1,6 +1,6 @@
 # Engine
 
-One machine in AWS that runs the komrade server, with its own Postgres and a disk that outlives
+One machine in AWS that runs the komrad server, with its own Postgres and a disk that outlives
 the machine. The image it boots from is built separately by Packer under `packer/`.
 
 ```
@@ -13,8 +13,8 @@ the machine. The image it boots from is built separately by Packer under `packer
    |   public subnet                                        |
    |   +------------------------------+                     |
    |   |  EC2 instance  (fixed IP)    |                     |
-   |   |  komrade serve               |                     |
-   |   |  /var/lib/komrade  <---------+---- EBS data volume |
+   |   |  komrad serve               |                     |
+   |   |  /var/lib/komrad  <---------+---- EBS data volume |
    |   +--------------+---------------+       (encrypted,   |
    |                  |                        follows the  |
    |                  | 5432, only from         instance)   |
@@ -40,7 +40,7 @@ connections only from the instance's security group. Its password is generated b
 Secrets Manager, and the instance role can read it, so nothing in Terraform state or on disk
 holds the password in plain text.
 
-The data volume is a separate encrypted EBS disk mounted at `/var/lib/komrade`. It is attached to
+The data volume is a separate encrypted EBS disk mounted at `/var/lib/komrad`. It is attached to
 the instance rather than part of it, which is the whole point: the instance can be thrown away
 and the disk reattached to the next one.
 
@@ -60,7 +60,7 @@ applied.
 
 ## How CI reaches it
 
-GitHub Actions assumes the `<name>-ci` role, `komrade-development-ci` by default, using a token GitHub signs for each run. The
+GitHub Actions assumes the `<name>-ci` role, `komrad-development-ci` by default, using a token GitHub signs for each run. The
 role trusts only this repository's branches and its `v` tags, so a fork cannot use it. The role
 can read Terraform state to find the instance, send it an SSM command, start and stop it, and
 build an image with Packer. It cannot log in.

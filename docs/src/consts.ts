@@ -1,6 +1,6 @@
-export const SITE_TITLE = "komrade";
+export const SITE_TITLE = "komrad";
 export const SITE_DESCRIPTION = "A tmux panel and CLI for background coding agents.";
-export const REPO_URL = "https://github.com/harrisoncramer/komrade";
+export const REPO_URL = "https://github.com/harrisoncramer/komrad";
 export const CANONICAL_VERSION = "latest";
 
 export const SECTIONS = [

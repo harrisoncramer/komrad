@@ -5,11 +5,11 @@ group: operations
 order: 10
 ---
 
-This guide is for whoever runs the remote engine. Using one that exists is covered in [running komrade remotely](../remote/). Everything here runs from a komrade checkout as a mise task, with AWS credentials in your environment.
+This guide is for whoever runs the remote engine. Using one that exists is covered in [running komrad remotely](../remote/). Everything here runs from a komrad checkout as a mise task, with AWS credentials in your environment.
 
 ## What gets built
 
-The engine is one machine on AWS with a separate data disk and a managed Postgres. The machine is disposable. Everything that matters lives on the disk or in the database: conversations, worktrees, komrade's config, and the agent CLIs' logins. So the machine can be switched off or rebuilt without losing work.
+The engine is one machine on AWS with a separate data disk and a managed Postgres. The machine is disposable. Everything that matters lives on the disk or in the database: conversations, worktrees, komrad's config, and the agent CLIs' logins. So the machine can be switched off or rebuilt without losing work.
 
 The engine pushes code as a GitHub App rather than as you. The App's key is kept in AWS Secrets Manager and copied into memory at boot, so it never touches the disk.
 
@@ -21,13 +21,13 @@ Get an AWS account with a named profile, an S3 bucket for Terraform's state, and
 
 Build the machine image with `mise run packer:build`. It prints an image id at the end.
 
-Register a GitHub App with no webhook, installed only on the repositories the engine should work in, with read and write on contents, pull requests, issues and workflows. Store its private key in Secrets Manager as `komrade/github-app` before the next step, so the first boot finds it.
+Register a GitHub App with no webhook, installed only on the repositories the engine should work in, with read and write on contents, pull requests, issues and workflows. Store its private key in Secrets Manager as `komrad/github-app` before the next step, so the first boot finds it.
 
-Copy the two example files in [`infra/engine`](https://github.com/harrisoncramer/komrade/tree/main/infra/engine) and fill them in: your account, region, the image id, your SSH key, and the addresses allowed in over SSH. Fill in the `github_*` values too, which let GitHub Actions deploy.
+Copy the two example files in [`infra/engine`](https://github.com/harrisoncramer/komrad/tree/main/infra/engine) and fill them in: your account, region, the image id, your SSH key, and the addresses allowed in over SSH. Fill in the `github_*` values too, which let GitHub Actions deploy.
 
 Run `mise run infra:engine:init` and `mise run infra:engine:apply`. It prints the engine's address.
 
-Get a shell with `mise run remote:connect` and add the [`[github_app]`](../../config/#github_app) table to komrade's config with your App's id, its installation id and the key's path. `komrade github token` should print a token. Then connect the engine's forge through the App.
+Get a shell with `mise run remote:connect` and add the [`[github_app]`](../../config/#github_app) table to komrad's config with your App's id, its installation id and the key's path. `komrad github token` should print a token. Then connect the engine's forge through the App.
 
 Finally, clone the repositories agents will work in onto the data disk, point your panel at the engine, and sign the agent CLI in.
 

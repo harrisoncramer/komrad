@@ -6,7 +6,7 @@ set -euo pipefail
 usage() {
 	echo "Usage: MISE_ENV=test mise run record <script> [--width 140] [--height 40] [--pause 1.5s] [--theme name] [--out dir]"
 	echo
-	echo "Drives the panel on tmux socket komrade-test by the keys in the script and takes"
+	echo "Drives the panel on tmux socket komrad-test by the keys in the script and takes"
 	echo "one frame after every step: the panel's window, splits included, drawn by a"
 	echo "client of the recorder's own at the width and height given. The frames, an"
 	echo "asciicast with a marker per step, and the gif agg renders from it land under"
@@ -20,7 +20,7 @@ usage() {
 	echo "shows the text. Scripts live under recordings/."
 	echo
 	echo "It needs the instance up, which 'MISE_ENV=test mise run restart' does, and it"
-	echo "refuses to run against any tmux socket but komrade-test."
+	echo "refuses to run against any tmux socket but komrad-test."
 }
 
 for arg in "$@"; do
@@ -32,8 +32,8 @@ for arg in "$@"; do
 	esac
 done
 
-if [ "${KOMRADE_TMUX_SOCKET:-}" != "komrade-test" ]; then
-	echo "record: KOMRADE_TMUX_SOCKET is '${KOMRADE_TMUX_SOCKET:-}', not komrade-test; run it as MISE_ENV=test mise run record" >&2
+if [ "${KOMRAD_TMUX_SOCKET:-}" != "komrad-test" ]; then
+	echo "record: KOMRAD_TMUX_SOCKET is '${KOMRAD_TMUX_SOCKET:-}', not komrad-test; run it as MISE_ENV=test mise run record" >&2
 	exit 1
 fi
 
@@ -52,11 +52,11 @@ esac
 
 cd "$MISE_CONFIG_ROOT"
 
-(cd tools/komraderec && go build -o "$MISE_CONFIG_ROOT/bin/komraderec" .)
+(cd tools/komradrec && go build -o "$MISE_CONFIG_ROOT/bin/komradrec" .)
 
 alacritty=()
 if [ -f "$HOME/.alacritty.toml" ]; then
 	alacritty=(--alacritty "$HOME/.alacritty.toml")
 fi
 
-exec "$MISE_CONFIG_ROOT/bin/komraderec" --socket "$KOMRADE_TMUX_SOCKET" "${alacritty[@]}" "$@" "$script"
+exec "$MISE_CONFIG_ROOT/bin/komradrec" --socket "$KOMRAD_TMUX_SOCKET" "${alacritty[@]}" "$@" "$script"

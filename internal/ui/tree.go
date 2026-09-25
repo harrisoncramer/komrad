@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"komrade/internal/assemble"
-	"komrade/internal/ui/paint/label"
-	"komrade/internal/ui/panel"
-	"komrade/lib/xslice"
+	"komrad/internal/assemble"
+	"komrad/internal/ui/paint/label"
+	"komrad/internal/ui/panel"
+	"komrad/lib/xslice"
 )
 
 // agentsScreen is the agents screen: the cursor in the tree of workflows and agents, how they

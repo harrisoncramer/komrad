@@ -1,4 +1,4 @@
-// Package forge stores the forges komrade has been connected to, one row per host.
+// Package forge stores the forges komrad has been connected to, one row per host.
 package forge
 
 import (
@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"time"
 
-	"komrade/db"
-	"komrade/db/models"
-	"komrade/internal/fail"
-	"komrade/internal/store"
-	"komrade/lib/xslice"
+	"komrad/db"
+	"komrad/db/models"
+	"komrad/internal/fail"
+	"komrad/internal/store"
+	"komrad/lib/xslice"
 )
 
 // ErrHostTaken says a host already has a connection.

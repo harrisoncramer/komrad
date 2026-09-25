@@ -1,6 +1,6 @@
 placeholder for a screen the classifier cannot read
 
 Deliberately none of Claude's shapes: no rule, no input marker, no
-spinner, no selection footer. A pane komrade has never seen before
+spinner, no selection footer. A pane komrad has never seen before
 looks like this to the harness, and has to read as unrecognized
 rather than be mistaken for an agent that finished.

@@ -6,10 +6,10 @@ import (
 	"strings"
 	"testing"
 
-	"komrade/internal/dbtest"
-	"komrade/internal/store"
-	"komrade/internal/watch"
-	"komrade/lib/xslice"
+	"komrad/internal/dbtest"
+	"komrad/internal/store"
+	"komrad/internal/watch"
+	"komrad/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

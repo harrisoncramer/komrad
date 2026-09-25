@@ -4,21 +4,21 @@ import (
 	"log/slog"
 	"time"
 
-	"komrade/internal/agents"
-	"komrade/internal/browser"
-	"komrade/internal/engine"
-	"komrade/internal/errui"
-	"komrade/internal/git"
-	"komrade/internal/logging"
-	"komrade/internal/ui"
-	"komrade/internal/version"
-	"komrade/lib/xhttp"
-	"komrade/proto/gen/agent/v1/agentv1connect"
-	"komrade/proto/gen/hook/v1/hookv1connect"
-	"komrade/proto/gen/schedule/v1/schedulev1connect"
-	"komrade/proto/gen/watch/v1/watchv1connect"
-	"komrade/proto/gen/workflow/v1/workflowv1connect"
-	"komrade/proto/gen/worktree/v1/worktreev1connect"
+	"komrad/internal/agents"
+	"komrad/internal/browser"
+	"komrad/internal/engine"
+	"komrad/internal/errui"
+	"komrad/internal/git"
+	"komrad/internal/logging"
+	"komrad/internal/ui"
+	"komrad/internal/version"
+	"komrad/lib/xhttp"
+	"komrad/proto/gen/agent/v1/agentv1connect"
+	"komrad/proto/gen/hook/v1/hookv1connect"
+	"komrad/proto/gen/schedule/v1/schedulev1connect"
+	"komrad/proto/gen/watch/v1/watchv1connect"
+	"komrad/proto/gen/workflow/v1/workflowv1connect"
+	"komrad/proto/gen/worktree/v1/worktreev1connect"
 
 	"github.com/spf13/cobra"
 )
@@ -37,7 +37,7 @@ the service if nothing is answering, then draws the panel and talks to that serv
 over the API like any other client. Run by hand outside the manager session it will
 draw, but the popup and the key bindings around it will not be there.
 
-Use ` + "`komrade open`" + ` to bring the panel up.`,
+Use ` + "`komrad open`" + ` to bring the panel up.`,
 		Args:          cobra.NoArgs,
 		Hidden:        true,
 		SilenceUsage:  true,

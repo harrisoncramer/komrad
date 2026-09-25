@@ -4,10 +4,10 @@ import (
 	"testing"
 	"time"
 
-	"komrade/internal/ui/panel"
-	"komrade/lib/xptr"
-	"komrade/lib/xslice"
-	pullrequestv1 "komrade/proto/gen/pullrequest/v1"
+	"komrad/internal/ui/panel"
+	"komrad/lib/xptr"
+	"komrad/lib/xslice"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"testing"
 
-	paginationv1 "komrade/proto/gen/pagination/v1"
+	paginationv1 "komrad/proto/gen/pagination/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

@@ -15,7 +15,7 @@ Which shape should the mailbox use to show threading?
     conversation on the stage     │                                                      │
   3. Indent by reply depth        │   19:48  ┌  ← neovim-fan  ✓  modal editing is the…   │
                                   │   19:49  ├  → neovim-fan  ✓  disagreed on one point… │
-                                  │   19:51  │     ← komrade    ⓘ  review activity         │
+                                  │   19:51  │     ← komrad    ⓘ  review activity         │
                                   │ › 19:52  └  ← neovim-fan  ✉  fair, but the mode err… │
                                   │   19:53        → emacs-fan ✉  clear to land          │
                                   │   19:54        ← emacs-fan !  org-mode is an operat… │

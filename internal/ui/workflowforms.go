@@ -6,9 +6,9 @@ import (
 	"slices"
 	"strings"
 
-	"komrade/config"
-	"komrade/internal/ui/panel"
-	"komrade/lib/xslice"
+	"komrad/config"
+	"komrad/internal/ui/panel"
+	"komrad/lib/xslice"
 
 	"charm.land/huh/v2"
 )

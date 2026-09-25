@@ -4,9 +4,9 @@ package gittest
 import (
 	"context"
 
-	"komrade/internal/fail"
-	"komrade/internal/git"
-	"komrade/internal/position"
+	"komrad/internal/fail"
+	"komrad/internal/git"
+	"komrad/internal/position"
 )
 
 // ErrNoGit is what the fake answers with.

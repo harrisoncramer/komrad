@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	worktreestore "komrade/internal/store/worktree"
-	"komrade/lib/xptr"
-	"komrade/lib/xslice"
+	worktreestore "komrad/internal/store/worktree"
+	"komrad/lib/xptr"
+	"komrad/lib/xslice"
 )
 
 // measuresPerPass is how many directories one pass walks.

@@ -1,12 +1,12 @@
 package render
 
 import (
-	"komrade/lib/dates"
-	"komrade/lib/xslice"
-	"komrade/lib/xstr"
+	"komrad/lib/dates"
+	"komrad/lib/xslice"
+	"komrad/lib/xstr"
 
-	workflowstore "komrade/internal/store/workflow"
-	workflowv1 "komrade/proto/gen/workflow/v1"
+	workflowstore "komrad/internal/store/workflow"
+	workflowv1 "komrad/proto/gen/workflow/v1"
 )
 
 // WorktreeConfigFromProto reads a worktree config off the wire into the store's own shape.

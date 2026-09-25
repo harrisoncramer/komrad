@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"komrade/internal/git"
+	"komrad/internal/git"
 
 	"github.com/bluekeyes/go-gitdiff/gitdiff"
 )

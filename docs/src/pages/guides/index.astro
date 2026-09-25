@@ -9,24 +9,24 @@ const groups = [
   {
     id: "start",
     title: "Getting started",
-    blurb: "Install komrade, then build up from a workflow to agents that talk to each other.",
+    blurb: "Install komrad, then build up from a workflow to agents that talk to each other.",
   },
-  { id: "operations", title: "Operations", blurb: "Connecting forges and running komrade on a machine of its own." },
+  { id: "operations", title: "Operations", blurb: "Connecting forges and running komrad on a machine of its own." },
   {
     id: "architecture",
     title: "Architecture",
-    blurb: "How komrade works and why, for anyone curious or changing it.",
+    blurb: "How komrad works and why, for anyone curious or changing it.",
   },
 ] as const;
 
 const numbered = guides.map((guide, index) => ({ guide, number: String(index + 1).padStart(2, "0") }));
 ---
 
-<Layout title="Guides" description="Hand-written guides to installing, using and running komrade.">
+<Layout title="Guides" description="Hand-written guides to installing, using and running komrad.">
   <header class="intro">
     <h1>Guides</h1>
     <p>
-      These guides explain how komrade works and how to use it, written to be read start to finish. The API, CLI and
+      These guides explain how komrad works and how to use it, written to be read start to finish. The API, CLI and
       config pages are generated from the code and say exactly what each call, command and key does. The guides say why,
       and how the pieces fit together.
     </p>

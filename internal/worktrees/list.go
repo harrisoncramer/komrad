@@ -11,11 +11,11 @@ import (
 	"strings"
 	"time"
 
-	"komrade/config"
-	"komrade/internal/store"
-	agentstore "komrade/internal/store/agent"
-	worktreestore "komrade/internal/store/worktree"
-	"komrade/lib/xslice"
+	"komrad/config"
+	"komrad/internal/store"
+	agentstore "komrad/internal/store/agent"
+	worktreestore "komrad/internal/store/worktree"
+	"komrad/lib/xslice"
 )
 
 // Agent is what a listing says about an agent that holds a directory.

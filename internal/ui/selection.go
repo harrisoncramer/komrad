@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"slices"
 
-	"komrade/internal/ui/panel"
-	"komrade/lib/xslice"
+	"komrad/internal/ui/panel"
+	"komrad/lib/xslice"
 )
 
 // rowRef is what the selection knows of a row.

@@ -12,7 +12,7 @@ import "schedule/v1/schedule.proto";
 import "workflow/v1/workflow.proto";
 import "worktree/v1/worktree.proto";
 
-option go_package = "komrade/proto/gen/watch/v1;watchv1";
+option go_package = "komrad/proto/gen/watch/v1;watchv1";
 
 // WatchEvent is the snapshot a stream opens with, the changes one pass found, or a heartbeat.
 message WatchEvent {

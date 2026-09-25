@@ -3,16 +3,16 @@ package ui
 import (
 	"time"
 
-	"komrade/internal/ui/panel"
-	agentv1 "komrade/proto/gen/agent/v1"
-	pullrequestv1 "komrade/proto/gen/pullrequest/v1"
-	schedulev1 "komrade/proto/gen/schedule/v1"
-	workflowv1 "komrade/proto/gen/workflow/v1"
-	worktreev1 "komrade/proto/gen/worktree/v1"
+	"komrad/internal/ui/panel"
+	agentv1 "komrad/proto/gen/agent/v1"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
+	schedulev1 "komrad/proto/gen/schedule/v1"
+	workflowv1 "komrad/proto/gen/workflow/v1"
+	worktreev1 "komrad/proto/gen/worktree/v1"
 
-	"komrade/internal/git"
-	"komrade/lib/dates"
-	"komrade/lib/xslice"
+	"komrad/internal/git"
+	"komrad/lib/dates"
+	"komrad/lib/xslice"
 )
 
 func agentFrom(s *agentv1.Agent) panel.Agent {

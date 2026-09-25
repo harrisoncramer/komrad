@@ -58,12 +58,12 @@ table "mail" {
     null    = false
     type    = enum.mail_kind
     default = "plain"
-    comment = "Who wrote the mail and why. Plain is mail an agent sent. The other values are notices komrade raised itself, which the panel draws differently. Komrade also counts unread notices by this value. One unread notice of a kind is enough however much is waiting behind it."
+    comment = "Who wrote the mail and why. Plain is mail an agent sent. The other values are notices komrad raised itself, which the panel draws differently. Komrad also counts unread notices by this value. One unread notice of a kind is enough however much is waiting behind it."
   }
   column "about_agent_id" {
     null    = true
     type    = uuid
-    comment = "The other agent a komrade notice is about, null on ordinary mail. Counting unread notices by this column gives the recipient one notice per subject rather than one per kind, so an agent that hits the exchange cap with a second partner is told about that partner too. There is no foreign key here on purpose. The notice has to keep naming the agent whose exchange was cut off after that agent is gone."
+    comment = "The other agent a komrad notice is about, null on ordinary mail. Counting unread notices by this column gives the recipient one notice per subject rather than one per kind, so an agent that hits the exchange cap with a second partner is told about that partner too. There is no foreign key here on purpose. The notice has to keep naming the agent whose exchange was cut off after that agent is gone."
   }
   column "tenant_id" {
     null    = false

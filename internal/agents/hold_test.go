@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"komrade/internal/harness"
-	"komrade/internal/harnesstest"
-	agentstore "komrade/internal/store/agent"
-	"komrade/internal/tmuxtest"
+	"komrad/internal/harness"
+	"komrad/internal/harnesstest"
+	agentstore "komrad/internal/store/agent"
+	"komrad/internal/tmuxtest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

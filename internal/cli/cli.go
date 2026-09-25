@@ -1,4 +1,4 @@
-// Package cli builds the komrade command tree, which opens the panel when run with no subcommand
+// Package cli builds the komrad command tree, which opens the panel when run with no subcommand
 // and otherwise starts the service, attaches to an agent, runs the doctor, or calls one RPC.
 //
 // The rpc subcommands are not written here. They are generated from the same proto descriptors
@@ -11,14 +11,14 @@ import (
 	"fmt"
 	"log/slog"
 
-	"komrade/config"
-	"komrade/internal/agents"
-	"komrade/internal/harness"
-	"komrade/internal/harness/claude"
-	"komrade/internal/harness/codex"
-	"komrade/internal/logging"
-	"komrade/internal/tmux"
-	"komrade/internal/ui"
+	"komrad/config"
+	"komrad/internal/agents"
+	"komrad/internal/harness"
+	"komrad/internal/harness/claude"
+	"komrad/internal/harness/codex"
+	"komrad/internal/logging"
+	"komrad/internal/tmux"
+	"komrad/internal/ui"
 
 	"github.com/spf13/cobra"
 )
@@ -29,7 +29,7 @@ func IsQuiet(err error) bool {
 	return errors.Is(err, ErrLogged) || errors.Is(err, ErrReported) || errors.Is(err, ErrPanelHidden)
 }
 
-// NewRootCommand builds the komrade command tree, which opens the panel when run with no
+// NewRootCommand builds the komrad command tree, which opens the panel when run with no
 // subcommand.
 func NewRootCommand() *cobra.Command {
 	app := &app{}
@@ -40,11 +40,11 @@ func NewRootCommand() *cobra.Command {
 	)
 
 	root := &cobra.Command{
-		Use:   "komrade",
+		Use:   "komrad",
 		Short: "tmux panel and CLI for background coding agents",
-		Long: `Komrade runs coding agents in tmux panes and keeps track of them.
+		Long: `Komrad runs coding agents in tmux panes and keeps track of them.
 
-There are two processes. ` + "`komrade serve`" + ` is the long-lived service that owns the
+There are two processes. ` + "`komrad serve`" + ` is the long-lived service that owns the
 database, answers the API and the MCP endpoint, and watches every pane. The panel
 is a client of it, which is why it can be closed and reopened without stopping
 anything. Every other command here is a client of the same service.

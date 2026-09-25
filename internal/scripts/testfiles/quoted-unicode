@@ -1,5 +1,5 @@
 #!/bin/sh
-#KOMRADE description="Says \"hello\" to the ✨ agent — em dash and all"
+#KOMRAD description="Says \"hello\" to the ✨ agent — em dash and all"
 set -eu
 
 echo "declared"

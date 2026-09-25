@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # A note about why this exists, written for whoever reads the file.
-#KOMRADE description="Declared among ordinary comments."
+#KOMRAD description="Declared among ordinary comments."
 #
 # Another note, and a blank line under it.
-#KOMRADE timeout="90s"
+#KOMRAD timeout="90s"
 
 set -euo pipefail
 

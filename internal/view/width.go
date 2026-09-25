@@ -1,6 +1,6 @@
 package view
 
-import "komrade/internal/ui/paint/label"
+import "komrad/internal/ui/paint/label"
 
 // plainColumns is how many columns one glyph takes.
 const plainColumns = 1

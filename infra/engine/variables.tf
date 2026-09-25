@@ -24,7 +24,7 @@ variable "aws_shared_credentials_file" {
 
 variable "name" {
   type    = string
-  default = "komrade-development"
+  default = "komrad-development"
 }
 
 variable "ami_id" {
@@ -76,7 +76,7 @@ variable "tags" {
   type = map(string)
   default = {
     ManagedBy = "terraform"
-    Project   = "komrade"
+    Project   = "komrad"
   }
 }
 
@@ -127,12 +127,12 @@ variable "database_deletion_protection" {
 
 variable "secret_prefix" {
   type    = string
-  default = "komrade"
+  default = "komrad"
 }
 
 variable "database_final_snapshot" {
   type    = string
-  default = "komrade-development-final"
+  default = "komrad-development-final"
 }
 
 variable "ssh_public_key" {

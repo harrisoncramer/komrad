@@ -3,9 +3,9 @@ package ui
 import (
 	"time"
 
-	"komrade/config"
-	"komrade/internal/ui/panel"
-	agentv1 "komrade/proto/gen/agent/v1"
+	"komrad/config"
+	"komrad/internal/ui/panel"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
 )

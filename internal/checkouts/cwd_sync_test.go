@@ -8,13 +8,13 @@ import (
 	"path/filepath"
 	"testing"
 
-	"komrade/internal/git"
-	"komrade/internal/gittest"
-	agentstore "komrade/internal/store/agent"
-	reviewstore "komrade/internal/store/review"
-	workflowstore "komrade/internal/store/workflow"
-	"komrade/internal/storetest"
-	"komrade/lib/xptr"
+	"komrad/internal/git"
+	"komrad/internal/gittest"
+	agentstore "komrad/internal/store/agent"
+	reviewstore "komrad/internal/store/review"
+	workflowstore "komrad/internal/store/workflow"
+	"komrad/internal/storetest"
+	"komrad/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -52,7 +52,7 @@ func (c *countingPullRequestObserver) Observe(context.Context) (int64, error) {
 
 // TestCwdSyncerSyncRecordsTheCheckout covers what a pass writes of a live agent's checkout.
 func TestCwdSyncerSyncRecordsTheCheckout(t *testing.T) {
-	const komrade = "https://github.com/harrisoncramer/komrade"
+	const komrad = "https://github.com/harrisoncramer/komrad"
 	const other = "https://gitlab.com/group/subgroup/repo"
 
 	tests := []struct {
@@ -81,20 +81,20 @@ func TestCwdSyncerSyncRecordsTheCheckout(t *testing.T) {
 			name: "a cwd that no longer exists is reported removed and cleared",
 			before: agentstore.SetCheckoutParams{
 				Branch:        xptr.Ptr("main"),
-				RepositoryURL: xptr.Ptr(komrade),
+				RepositoryURL: xptr.Ptr(komrad),
 				HeadSHA:       xptr.Ptr("aaa"),
 			},
 			cwd: makeRemovedDir,
 			head: git.HeadState{
 				Branch:        "main",
-				RepositoryURL: komrade,
+				RepositoryURL: komrad,
 				SHA:           "aaa",
 			},
 			wantRemoved: true,
 		},
 		{
 			name:       "a checkout whose origin is not a forge clears what an earlier pass wrote",
-			before:     agentstore.SetCheckoutParams{RepositoryURL: xptr.Ptr(komrade)},
+			before:     agentstore.SetCheckoutParams{RepositoryURL: xptr.Ptr(komrad)},
 			cwd:        makeCheckout,
 			head:       git.HeadState{Branch: "main"},
 			wantBranch: xptr.Ptr("main"),
@@ -103,7 +103,7 @@ func TestCwdSyncerSyncRecordsTheCheckout(t *testing.T) {
 			name: "a checkout records its branch, canonical address and commit over what an earlier pass wrote",
 			before: agentstore.SetCheckoutParams{
 				Branch:        xptr.Ptr("main"),
-				RepositoryURL: xptr.Ptr(komrade),
+				RepositoryURL: xptr.Ptr(komrad),
 				HeadSHA:       xptr.Ptr("aaa"),
 			},
 			cwd: makeCheckout,

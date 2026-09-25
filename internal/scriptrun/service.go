@@ -4,10 +4,10 @@ import (
 	"context"
 	"sync"
 
-	"komrade/config"
+	"komrad/config"
 
-	agentstore "komrade/internal/store/agent"
-	workflowstore "komrade/internal/store/workflow"
+	agentstore "komrad/internal/store/agent"
+	workflowstore "komrad/internal/store/workflow"
 )
 
 const (

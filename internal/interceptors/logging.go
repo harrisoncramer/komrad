@@ -9,8 +9,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"komrade/internal/caller"
-	"komrade/internal/logging"
+	"komrad/internal/caller"
+	"komrad/internal/logging"
 
 	"connectrpc.com/connect"
 	"github.com/google/uuid"

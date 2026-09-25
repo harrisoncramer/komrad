@@ -1,4 +1,4 @@
-module komrade
+module komrad
 
 go 1.25.8
 

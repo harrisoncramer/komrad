@@ -5,7 +5,7 @@ import (
 	"errors"
 	"sync"
 
-	"komrade/internal/git"
+	"komrad/internal/git"
 )
 
 // Heads answers each directory's head from States, and nothing for any other, recording every

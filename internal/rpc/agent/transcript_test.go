@@ -7,21 +7,21 @@ import (
 	"strings"
 	"testing"
 
-	"komrade/internal/agents"
-	"komrade/internal/caller"
-	"komrade/internal/logging"
-	"komrade/internal/logtest"
-	"komrade/internal/rpcerr"
-	"komrade/internal/transcripts"
-	"komrade/lib/pagination"
-	"komrade/lib/xptr"
-	"komrade/lib/xslice"
-	agentv1 "komrade/proto/gen/agent/v1"
-	"komrade/proto/gen/agent/v1/agentv1connect"
-	"komrade/proto/gen/agent/v1/agentv1komrade"
-	paginationv1 "komrade/proto/gen/pagination/v1"
+	"komrad/internal/agents"
+	"komrad/internal/caller"
+	"komrad/internal/logging"
+	"komrad/internal/logtest"
+	"komrad/internal/rpcerr"
+	"komrad/internal/transcripts"
+	"komrad/lib/pagination"
+	"komrad/lib/xptr"
+	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
+	"komrad/proto/gen/agent/v1/agentv1connect"
+	"komrad/proto/gen/agent/v1/agentv1komrad"
+	paginationv1 "komrad/proto/gen/pagination/v1"
 
-	transcriptstore "komrade/internal/store/transcript"
+	transcriptstore "komrad/internal/store/transcript"
 
 	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
@@ -187,8 +187,8 @@ func TestTranscriptWindow(t *testing.T) {
 
 // TestTranscriptRefusalsMapToCodes pins the code each refusal of a transcript read reaches the caller as.
 func TestTranscriptRefusalsMapToCodes(t *testing.T) {
-	getTranscript := func(cursor string) func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
-		return func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+	getTranscript := func(cursor string) func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
+		return func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 			req := &agentv1.GetTranscriptRequest{AgentId: alphaID}
 			if cursor != "" {
 				req.Cursor = proto.String(cursor)
@@ -199,13 +199,13 @@ func TestTranscriptRefusalsMapToCodes(t *testing.T) {
 			return err
 		}
 	}
-	getLastTurns := func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+	getLastTurns := func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 		_, err := svc.GetLastTurns(ctx, connect.NewRequest(&agentv1.GetLastTurnsRequest{AgentId: alphaID}))
 
 		return err
 	}
-	search := func(cursor string) func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
-		return func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+	search := func(cursor string) func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
+		return func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 			req := &agentv1.SearchTranscriptsRequest{Query: "reconciler"}
 			if cursor != "" {
 				req.Pagination = &paginationv1.Pagination{Cursor: proto.String(cursor)}
@@ -219,7 +219,7 @@ func TestTranscriptRefusalsMapToCodes(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		call     func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error
+		call     func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error
 		err      error
 		wantCode connect.Code
 	}{
@@ -416,7 +416,7 @@ func TestSearchTranscripts(t *testing.T) {
 
 // TestCrossAgentReadIsRecorded pins the line a read of somebody else's conversation leaves, and the silence a read of your own does.
 func TestCrossAgentReadIsRecorded(t *testing.T) {
-	searchBeta := func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+	searchBeta := func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 		_, err := svc.SearchTranscripts(ctx, connect.NewRequest(&agentv1.SearchTranscriptsRequest{
 			Query:   "reconciler",
 			AgentId: xptr.Ptr(betaID),
@@ -424,12 +424,12 @@ func TestCrossAgentReadIsRecorded(t *testing.T) {
 
 		return err
 	}
-	getBetaTranscript := func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+	getBetaTranscript := func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 		_, err := svc.GetTranscript(ctx, connect.NewRequest(&agentv1.GetTranscriptRequest{AgentId: betaID}))
 
 		return err
 	}
-	getBetaLastTurns := func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+	getBetaLastTurns := func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 		_, err := svc.GetLastTurns(ctx, connect.NewRequest(&agentv1.GetLastTurnsRequest{AgentId: betaID}))
 
 		return err
@@ -438,7 +438,7 @@ func TestCrossAgentReadIsRecorded(t *testing.T) {
 	tests := []struct {
 		name       string
 		callerIs   string
-		read       func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error
+		read       func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error
 		wantRecord bool
 	}{
 		{
@@ -626,8 +626,8 @@ func TestGetLastTurns(t *testing.T) {
 }
 
 // newTranscriptHandler is the handler over a fake of the transcripts alone.
-func newTranscriptHandler(reader *fakeTranscriptReader) agentv1komrade.AgentServiceAdapter {
-	return agentv1komrade.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{Transcripts: reader})}
+func newTranscriptHandler(reader *fakeTranscriptReader) agentv1komrad.AgentServiceAdapter {
+	return agentv1komrad.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{Transcripts: reader})}
 }
 
 // TestTranscriptRequestValidation covers the proto constraints on a transcript read.

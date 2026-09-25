@@ -8,12 +8,12 @@ import (
 	"os"
 	"path/filepath"
 
-	"komrade/config"
-	"komrade/internal/logging"
-	"komrade/internal/scripts"
-	"komrade/internal/store"
+	"komrad/config"
+	"komrad/internal/logging"
+	"komrad/internal/scripts"
+	"komrad/internal/store"
 
-	runstore "komrade/internal/store/run"
+	runstore "komrad/internal/store/run"
 )
 
 // maxLogRunAttempts bounds the walk up through numbers a second process has already taken.
@@ -26,7 +26,7 @@ type runRecorder interface {
 	Prune(ctx context.Context, agentID string, keep int) error
 }
 
-// runRecord is one run as komrade is watching it.
+// runRecord is one run as komrad is watching it.
 type runRecord struct {
 	logPath string
 	id      string

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"komrade/internal/harness"
+	"komrad/internal/harness"
 
 	"github.com/stretchr/testify/assert"
 )

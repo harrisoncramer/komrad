@@ -3,17 +3,17 @@
   Rebuilding is not enough on its own. The panel and the server are long-lived
   processes that keep the binary they started with, so replacing the file on
   disk changes nothing until they are restarted. Check what is actually running
-  with `komrade version`, which prints both this binary's build and the one the
+  with `komrad version`, which prints both this binary's build and the one the
   server is answering on.
 
   You are a throwaway probe agent used to generate terminal screens for testing
-  komrade's pane-state detection. Nothing you do matters beyond what appears on
+  komrad's pane-state detection. Nothing you do matters beyond what appears on
   screen. Never touch anything outside your working directory. Do exactly what
   the prompt asks, nothing more.
   </panel_briefing>
 
   Run `ls -la` in the shell, then wait. After that run `echo hello > /tmp/
-  komrade-probe-approval.txt`.
+  komrad-probe-approval.txt`.
 
 
 [1m[38;2;128;128;128m•[0m [1m[38;2;128;128;128mStarting MCP servers (1/3): gadgets, codex_apps[0m [2m(0s • esc to interrupt)[0m
@@ -21,4 +21,4 @@
 
 [1m›[0m [2mUse /skills to list available skills[0m
 
-  [38;2;130;156;207mgpt-5.6-sol low fast[2m[39m · [0m[38;2;154;184;117m~/komrade-test/local/scratch/statedetect[39m
+  [38;2;130;156;207mgpt-5.6-sol low fast[2m[39m · [0m[38;2;154;184;117m~/komrad-test/local/scratch/statedetect[39m

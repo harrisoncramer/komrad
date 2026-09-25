@@ -7,10 +7,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"komrade/internal/komradetest"
-	"komrade/lib/xptr"
-	agentv1 "komrade/proto/gen/agent/v1"
-	workflowv1 "komrade/proto/gen/workflow/v1"
+	"komrad/internal/komradtest"
+	"komrad/lib/xptr"
+	agentv1 "komrad/proto/gen/agent/v1"
+	workflowv1 "komrad/proto/gen/workflow/v1"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
@@ -20,7 +20,7 @@ import (
 // TestIntegrationOrchestrator walks a workflow's orchestrator from its first start through the
 // work it hands out to coming back out of the archive.
 func TestIntegrationOrchestrator(t *testing.T) {
-	instance := komradetest.Start(t, komradetest.Params{})
+	instance := komradtest.Start(t, komradtest.Params{})
 	ctx := t.Context()
 
 	workflowID := createWorkflow(t, instance, "checkout")
@@ -115,7 +115,7 @@ func TestIntegrationOrchestrator(t *testing.T) {
 	})
 }
 
-func createWorkflow(t *testing.T, instance *komradetest.Instance, name string) string {
+func createWorkflow(t *testing.T, instance *komradtest.Instance, name string) string {
 	t.Helper()
 
 	created, err := instance.Workflows.CreateWorkflow(t.Context(), connect.NewRequest(&workflowv1.CreateWorkflowRequest{
@@ -127,7 +127,7 @@ func createWorkflow(t *testing.T, instance *komradetest.Instance, name string) s
 	return created.Msg.GetWorkflow().GetId()
 }
 
-func startOrchestrator(t *testing.T, instance *komradetest.Instance, workflowID string) *agentv1.Agent {
+func startOrchestrator(t *testing.T, instance *komradtest.Instance, workflowID string) *agentv1.Agent {
 	t.Helper()
 
 	started, err := instance.Agents.StartOrchestrator(t.Context(), connect.NewRequest(&agentv1.StartOrchestratorRequest{
@@ -138,7 +138,7 @@ func startOrchestrator(t *testing.T, instance *komradetest.Instance, workflowID 
 	return started.Msg.GetAgent()
 }
 
-func archiveAgent(t *testing.T, instance *komradetest.Instance, id string) {
+func archiveAgent(t *testing.T, instance *komradtest.Instance, id string) {
 	t.Helper()
 
 	_, err := instance.Agents.ArchiveAgents(t.Context(), connect.NewRequest(&agentv1.ArchiveAgentsRequest{

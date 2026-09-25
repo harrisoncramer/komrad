@@ -11,12 +11,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"komrade/internal/caller"
-	"komrade/internal/engine"
-	"komrade/internal/ui"
-	"komrade/lib/xslice"
-	agentv1 "komrade/proto/gen/agent/v1"
-	"komrade/proto/gen/agent/v1/agentv1connect"
+	"komrad/internal/caller"
+	"komrad/internal/engine"
+	"komrad/internal/ui"
+	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
+	"komrad/proto/gen/agent/v1/agentv1connect"
 )
 
 const traceID = "7c1f2a94"
@@ -28,10 +28,10 @@ var (
 
 // TestMessagesRegion covers the rows under the record that say what went wrong.
 func TestMessagesRegion(t *testing.T) {
-	t.Run("an empty stack says komrade is running normally", func(t *testing.T) {
+	t.Run("an empty stack says komrad is running normally", func(t *testing.T) {
 		harness := openMessages(t, panelHarnessParams{}, "no such agent")
 
-		assert.Equal(t, []string{"✔ No messages", "  Komrade is running normally"}, readMessages(harness.readFrame()))
+		assert.Equal(t, []string{"✔ No messages", "  Komrad is running normally"}, readMessages(harness.readFrame()))
 	})
 
 	t.Run("a message takes back the row the empty region gave the list", func(t *testing.T) {
@@ -84,7 +84,7 @@ func TestMessagesRegion(t *testing.T) {
 		assert.Contains(t, region[0], "1 of 1", "the tally is on the summary row")
 		prose := joinProse(region)
 		assert.Contains(t, prose, "connection refused")
-		assert.Contains(t, prose, "Start it with: komrade serve")
+		assert.Contains(t, prose, "Start it with: komrad serve")
 		assert.Contains(t, prose, "error ·", "the footer says what kind of message this is")
 		assert.Contains(t, frame, "Agents & Workflows", "the list is still above it")
 	})
@@ -94,7 +94,7 @@ func TestMessagesRegion(t *testing.T) {
 
 		harness.press("enter", "ctrl+g")
 
-		assert.Contains(t, joinProse(readMessages(harness.readFrame())), "komrade log "+traceID)
+		assert.Contains(t, joinProse(readMessages(harness.readFrame())), "komrad log "+traceID)
 	})
 
 	t.Run("a reason longer than the region scrolls under its pinned summary", func(t *testing.T) {
@@ -122,7 +122,7 @@ func TestMessagesRegion(t *testing.T) {
 
 		stage := strings.Join(readStage(harness.readFrame()), "\n")
 		assert.Contains(t, stage, "message 1 of 1")
-		assert.Contains(t, stage, "komrade log "+traceID)
+		assert.Contains(t, stage, "komrad log "+traceID)
 	})
 }
 

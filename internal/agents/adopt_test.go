@@ -5,13 +5,13 @@ import (
 	"path/filepath"
 	"testing"
 
-	"komrade/internal/git"
-	"komrade/internal/gittest"
-	"komrade/internal/tmuxtest"
+	"komrad/internal/git"
+	"komrad/internal/gittest"
+	"komrad/internal/tmuxtest"
 
-	agentstore "komrade/internal/store/agent"
-	workflowstore "komrade/internal/store/workflow"
-	"komrade/lib/xpath"
+	agentstore "komrad/internal/store/agent"
+	workflowstore "komrad/internal/store/workflow"
+	"komrad/lib/xpath"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -120,7 +120,7 @@ func TestAdoptRefusesADirectoryAnotherAgentHolds(t *testing.T) {
 		archived      bool
 	}{
 		{
-			name:   "a branch a komrade agent cut for itself",
+			name:   "a branch a komrad agent cut for itself",
 			branch: "agent/01a04396-15f9-7d80-be65-c197f03c8b52",
 		},
 		{

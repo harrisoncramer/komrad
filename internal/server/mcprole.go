@@ -5,12 +5,12 @@ import (
 	"errors"
 	"log/slog"
 
-	annotationv1 "komrade/proto/gen/annotation/v1"
+	annotationv1 "komrad/proto/gen/annotation/v1"
 
-	"komrade/internal/logging"
-	"komrade/internal/mcp"
-	"komrade/internal/store"
-	agentstore "komrade/internal/store/agent"
+	"komrad/internal/logging"
+	"komrad/internal/mcp"
+	"komrad/internal/store"
+	agentstore "komrad/internal/store/agent"
 )
 
 // toolRoles maps what an agent was launched to do onto the annotation the tools declare.

@@ -1,8 +1,8 @@
 package ui
 
 import (
-	"komrade/internal/errui"
-	"komrade/internal/ui/paint"
+	"komrad/internal/errui"
+	"komrad/internal/ui/paint"
 
 	"charm.land/lipgloss/v2"
 )

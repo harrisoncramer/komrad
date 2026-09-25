@@ -1,10 +1,10 @@
 package render
 
 import (
-	"komrade/lib/dates"
+	"komrad/lib/dates"
 
-	reviewstore "komrade/internal/store/review"
-	agentv1 "komrade/proto/gen/agent/v1"
+	reviewstore "komrad/internal/store/review"
+	agentv1 "komrad/proto/gen/agent/v1"
 )
 
 // WatchedReview draws a review as the watch carries it, without its body.

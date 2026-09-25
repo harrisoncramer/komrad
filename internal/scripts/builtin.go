@@ -9,16 +9,16 @@ import (
 	"path"
 	"path/filepath"
 
-	"komrade/internal/fail"
+	"komrad/internal/fail"
 )
 
 const builtinRoot = "builtin"
 
-const markerName = ".komrade-builtins"
+const markerName = ".komrad-builtins"
 
 var ErrDirNotAbsolute = fail.Internal("the directory is not an absolute path")
 
-var ErrDirNotOurs = fail.Internal("the directory holds files komrade did not write")
+var ErrDirNotOurs = fail.Internal("the directory holds files komrad did not write")
 
 //go:embed all:builtin
 var builtinFS embed.FS

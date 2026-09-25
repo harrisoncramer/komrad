@@ -1,0 +1,26 @@
+[Unit]
+Description=komrad
+After=network-online.target komrad-data-volume.service komrad-database-credentials.service
+Wants=network-online.target komrad-manager-session.service
+Requires=komrad-data-volume.service
+RequiresMountsFor=/var/lib/komrad
+ConditionPathExists=/etc/komrad/database.env
+ConditionPathIsMountPoint=/var/lib/komrad
+
+[Service]
+Type=simple
+User=komrad
+Group=komrad
+Environment=PATH=/opt/mise/data/shims:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
+EnvironmentFile=-/etc/komrad/komrad.env
+EnvironmentFile=/etc/komrad/database.env
+ExecStart=/usr/local/bin/komrad serve
+# The tmux server holding every agent is spawned by komrad and so lands in this service's
+# cgroup, which systemd kills wholesale by default. Killing only komrad leaves the agents
+# running, which is the property tmux is here for: the engine can be upgraded under them.
+KillMode=process
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

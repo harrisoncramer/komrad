@@ -7,7 +7,7 @@ import (
 	"slices"
 	"strings"
 
-	"komrade/lib/xslice"
+	"komrad/lib/xslice"
 )
 
 // reportUnknownKeys is the error naming each key no setting answers to alongside the

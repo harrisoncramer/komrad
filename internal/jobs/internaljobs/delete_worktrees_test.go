@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"komrade/internal/worktrees"
-	"komrade/lib/xptr"
+	"komrad/internal/worktrees"
+	"komrad/lib/xptr"
 
 	"github.com/riverqueue/river"
 	"github.com/stretchr/testify/assert"

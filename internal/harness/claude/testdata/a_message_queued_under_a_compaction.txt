@@ -3,23 +3,23 @@
 
 [38;5;114m⏺[39m [1mBash[0m(sed -n 78,90p internal/rpc/pullrequest/service_test.go; goimports -w internal/forge/service_test.go; go vet ./internal/forge 2>&1 | grep -v "^#" | head -2)
 [38;5;246m  ⎿  [39m   resp, failure := service.ListPullRequests(t.Context(), &pullrequestv1.ListPullRequestsRequest{
-                RemoteUrl: "git@github.com:harrisoncramer/komrade.git",
+                RemoteUrl: "git@github.com:harrisoncramer/komrad.git",
                 Branch:    "agent/x",
      [2m… +10 lines[0m
 [38;5;246m  ⎿  [39mUpdated [1minternal/forge/service_test.go[0m [38;5;246m(+0 -1)[39m
      [2m[38;5;231m 15 [0m[38;5;231m         [38;5;186m"time"[39m
      [2m[38;5;231m 16 [0m[38;5;231m [39m
-     [2m[38;5;231m 17 [0m[38;5;231m         [38;5;186m"komrade/internal/dbtest"[39m
-     [38;5;167m[48;5;52m 18 -[38;5;231m        "komrade/internal/git"                                                                                                                                                                                                                                                                         [39m[49m
-     [2m[38;5;231m 18 [0m[38;5;231m         githubapp [38;5;186m"komrade/internal/github/app"[39m
-     [2m[38;5;231m 19 [0m[38;5;231m         [38;5;186m"komrade/internal/store"[39m
-     [2m[38;5;231m 20 [0m[38;5;231m         forgestore [38;5;186m"komrade/internal/store/forge"[39m
+     [2m[38;5;231m 17 [0m[38;5;231m         [38;5;186m"komrad/internal/dbtest"[39m
+     [38;5;167m[48;5;52m 18 -[38;5;231m        "komrad/internal/git"                                                                                                                                                                                                                                                                         [39m[49m
+     [2m[38;5;231m 18 [0m[38;5;231m         githubapp [38;5;186m"komrad/internal/github/app"[39m
+     [2m[38;5;231m 19 [0m[38;5;231m         [38;5;186m"komrad/internal/store"[39m
+     [2m[38;5;231m 20 [0m[38;5;231m         forgestore [38;5;186m"komrad/internal/store/forge"[39m
 
 [38;5;114m⏺[39m [1mBash[0m(python3 - <<'EOF'
       p='internal/rpc/pullrequest/service_test.go'…)
 [38;5;246m  ⎿  [39m134:       service := NewPullRequestService(&fakeFinder{forge: &fakeForge{}})
      136:       _, failure := service.ListPullRequests(t.Context(), &pullrequestv1.ListPullRequestsRequest{RemoteUrl: "/local/path", Branch: "main"})
-     ok         komrade/internal/forge    1.263s
+     ok         komrad/internal/forge    1.263s
      [2m… +2 lines[0m
 
 
@@ -28,17 +28,17 @@
      [2m[38;5;231m 74 [0m[38;5;231m                 ClosedAt:   &merged,[39m
      [2m[38;5;231m 75 [0m[38;5;231m         }}}[39m
      [38;5;167m[48;5;52m 76 -[38;5;231m        service := NewPullRequestService(&fakeFinder{forge: fake})                                                                                                                                                                                                                                   [39m[49m
-     [38;5;77m[48;5;22m 76 +[38;5;231m        service := [48;5;28mpullrequestv1komrade.PullRequestServiceAdapter{Impl: [48;5;22mNewPullRequestService(&fakeFinder{forge: fake})[48;5;28m}[48;5;22m                                                                                                                                                                               [39m[49m
+     [38;5;77m[48;5;22m 76 +[38;5;231m        service := [48;5;28mpullrequestv1komrad.PullRequestServiceAdapter{Impl: [48;5;22mNewPullRequestService(&fakeFinder{forge: fake})[48;5;28m}[48;5;22m                                                                                                                                                                               [39m[49m
      [2m[38;5;231m 77 [0m[38;5;231m [39m
      [38;5;167m[48;5;52m 78 -[38;5;231m        resp, failure := service.ListPullRequests(t.Context(), &pullrequestv1.ListPullRequestsRequest{                                                                                                                                                                                               [39m[49m
      [38;5;77m[48;5;22m 78 +[38;5;231m        resp, [48;5;28merr[48;5;22m := service.ListPullRequests(t.Context(), [48;5;28mconnect.NewRequest([48;5;22m&pullrequestv1.ListPullRequestsRequest{                                                                                                                                                                                [39m[49m
-     [2m[38;5;231m 79 [0m[38;5;231m                 RemoteUrl: [38;5;186m"git@github.com:harrisoncramer/komrade.git"[38;5;231m,[39m
+     [2m[38;5;231m 79 [0m[38;5;231m                 RemoteUrl: [38;5;186m"git@github.com:harrisoncramer/komrad.git"[38;5;231m,[39m
      [2m[38;5;231m 80 [0m[38;5;231m                 Branch:    [38;5;186m"agent/x"[38;5;231m,[39m
      [38;5;167m[48;5;52m 81 -[38;5;231m        })                                                                                                                                                                                                                                                                                           [39m[49m
      [38;5;167m[48;5;52m 82 -[38;5;231m        require.Nil(t, failure)                                                                                                                                                                                                                                                                      [39m[49m
      [38;5;77m[48;5;22m 81 +[38;5;231m        })[48;5;28m)[48;5;22m                                                                                                                                                                                                                                                                                          [39m[49m
      [38;5;77m[48;5;22m 82 +[38;5;231m        require.NoError(t, err)                                                                                                                                                                                                                                                                      [39m[49m
-     [2m[38;5;231m 83 [0m[38;5;231m         assert.Equal(t, [38;5;186m"harrisoncramer/komrade"[38;5;231m, fake.params.Repo.Path)[39m
+     [2m[38;5;231m 83 [0m[38;5;231m         assert.Equal(t, [38;5;186m"harrisoncramer/komrad"[38;5;231m, fake.params.Repo.Path)[39m
      [2m[38;5;231m 84 [0m[38;5;231m         assert.Equal(t, [38;5;186m"agent/x"[38;5;231m, fake.params.Branch)[39m
      [2m[38;5;231m 85 [0m[38;5;231m         assert.Equal(t, [38;5;141m1[38;5;231m, fake.params.Page)[39m
      [2m[38;5;231m 86 [0m[38;5;231m         assert.Equal(t, [38;5;141m20[38;5;231m, fake.params.PerPage, [38;5;186m"twenty to a page when the caller says nothing"[38;5;231m)[39m
@@ -48,7 +48,7 @@
      [2m[38;5;231m 89 [0m[38;5;231m [39m
      [38;5;167m[48;5;52m 90 -[38;5;231m        pullRequest := resp.GetPullRequests()[0]                                                                                                                                                                                                                                                     [39m[49m
      [38;5;77m[48;5;22m 90 +[38;5;231m        pullRequest := resp.[48;5;28mMsg.[48;5;22mGetPullRequests()[[38;5;141m0[38;5;231m]                                                                                                                                                                                                                                                 [39m[49m
-     [2m[38;5;231m 91 [0m[38;5;231m         assert.Equal(t, [38;5;186m"https://github.com/harrisoncramer/komrade"[38;5;231m, pullRequest.GetRepositoryUrl())[39m
+     [2m[38;5;231m 91 [0m[38;5;231m         assert.Equal(t, [38;5;186m"https://github.com/harrisoncramer/komrad"[38;5;231m, pullRequest.GetRepositoryUrl())[39m
      [2m[38;5;231m 92 [0m[38;5;231m         assert.Empty(t, pullRequest.GetHeadRepositoryUrl(), [38;5;186m"a head the forge no longer has is empty rather than https:///"[38;5;231m)[39m
      [2m[38;5;231m 93 [0m[38;5;231m         assert.NotNil(t, pullRequest.MergedAt)[39m
 

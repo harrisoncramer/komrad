@@ -3,7 +3,7 @@ package ui
 import (
 	"fmt"
 
-	"komrade/config"
+	"komrad/config"
 
 	"charm.land/bubbles/v2/key"
 )

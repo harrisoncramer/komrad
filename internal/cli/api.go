@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"komrade/internal/caller"
+	"komrad/internal/caller"
 )
 
 // dialAPI returns the address this machine reaches the engine's api on, and a release for the
@@ -39,7 +39,7 @@ func (a *app) caller() caller.Caller {
 	return caller.Caller{AgentID: a.env.AgentID, SessionID: a.env.SessionID}
 }
 
-// withAPI reaches the service this komrade is pointed at, on this machine or through a forward
+// withAPI reaches the service this komrad is pointed at, on this machine or through a forward
 // to the engine, and hands the address to run for the length of one command.
 func (a *app) withAPI(ctx context.Context, run func(ctx context.Context, base string) error) error {
 	ctx, cancel := context.WithTimeout(ctx, apiCallTimeout)

@@ -8,23 +8,23 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"komrade/internal/agents"
-	"komrade/internal/caller"
-	"komrade/internal/fail"
-	"komrade/internal/mail"
-	"komrade/internal/rpcerr"
-	"komrade/internal/store"
-	"komrade/lib/dates"
-	agentv1 "komrade/proto/gen/agent/v1"
+	"komrad/internal/agents"
+	"komrad/internal/caller"
+	"komrad/internal/fail"
+	"komrad/internal/mail"
+	"komrad/internal/rpcerr"
+	"komrad/internal/store"
+	"komrad/lib/dates"
+	agentv1 "komrad/proto/gen/agent/v1"
 
-	agentstore "komrade/internal/store/agent"
+	agentstore "komrad/internal/store/agent"
 )
 
 var errNothingToForward = fail.Precondition("the source has no turns synced yet, so there is nothing to forward")
 
 var errForwardTooLong = fail.InvalidArgument("the forward would run past what one piece of mail holds")
 
-// ForwardLastTurns sends another agent's newest turns to a third agent as mail komrade composes.
+// ForwardLastTurns sends another agent's newest turns to a third agent as mail komrad composes.
 func (s *Handler) ForwardLastTurns(ctx context.Context, req *agentv1.ForwardLastTurnsRequest) (*agentv1.ForwardLastTurnsResponse, *fail.Error) {
 	logCrossAgentRead(ctx, req.GetFromAgentId(), "agent read another agent's transcript")
 

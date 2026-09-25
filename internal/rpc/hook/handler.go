@@ -5,11 +5,11 @@ import (
 	"context"
 	"time"
 
-	"komrade/internal/agents"
-	"komrade/internal/fail"
-	"komrade/internal/rpcerr"
-	"komrade/lib/xslice"
-	hookv1 "komrade/proto/gen/hook/v1"
+	"komrad/internal/agents"
+	"komrad/internal/fail"
+	"komrad/internal/rpcerr"
+	"komrad/lib/xslice"
+	hookv1 "komrad/proto/gen/hook/v1"
 
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"

@@ -10,7 +10,7 @@ usage() {
 	echo "it to write the search index the site and the dev server both read."
 	echo
 	echo "The site is built to be served under /<version>/, where the version is"
-	echo "DOCS_VERSION, else a release KOMRADE_VERSION, else dev. It is stamped with the"
+	echo "DOCS_VERSION, else a release KOMRAD_VERSION, else dev. It is stamped with the"
 	echo "commit the Go build stamps, so a release's docs name the same commit as its"
 	echo "binaries. Serve the result with docs:site."
 }

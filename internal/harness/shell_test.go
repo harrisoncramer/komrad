@@ -118,7 +118,7 @@ func TestQuoteArg(t *testing.T) {
 	}
 }
 
-// TestRequirePOSIXShell pins which login shells komrade can launch an agent under and which it
+// TestRequirePOSIXShell pins which login shells komrad can launch an agent under and which it
 // refuses.
 func TestRequirePOSIXShell(t *testing.T) {
 	tests := []struct {

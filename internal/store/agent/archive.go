@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"komrade/db/models"
-	"komrade/internal/store"
-	"komrade/lib/xslice"
+	"komrad/db/models"
+	"komrad/internal/store"
+	"komrad/lib/xslice"
 )
 
 type ArchiveIfUnchangedParams struct {

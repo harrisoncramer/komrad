@@ -1,23 +1,23 @@
 ---
-title: Running komrade remotely
+title: Running komrad remotely
 description: Keep the panel on your laptop and run the agents on a machine that never sleeps.
 group: operations
 order: 9
 ---
 
-[Agents](../agents/) on your laptop stop when your laptop sleeps. Komrade can run them on a remote machine instead. The panel stays on your laptop and looks the same. What moves is the engine: the service, the database, and every agent's terminal.
+[Agents](../agents/) on your laptop stop when your laptop sleeps. Komrad can run them on a remote machine instead. The panel stays on your laptop and looks the same. What moves is the engine: the service, the database, and every agent's terminal.
 
-Komrade's own repository works this way. [Administering the engine](../engine-admin/) covers building that machine. This guide covers using one that exists.
+Komrad's own repository works this way. [Administering the engine](../engine-admin/) covers building that machine. This guide covers using one that exists.
 
 ## Telling your panel about an engine
 
-An engine is a small config file on your laptop in `~/.config/komrade/engines/`, named after the engine. It sets the [`[connection]`](../../config/#connection) table: [`exec`](../../config/#connection.exec) says how to run a command on the engine, and [`forward`](../../config/#connection.forward) says how to carry the engine's service back to your laptop. Both are usually SSH. For a host your SSH config already knows, a plain [`ssh`](../../config/#connection.ssh) destination is enough.
+An engine is a small config file on your laptop in `~/.config/komrad/engines/`, named after the engine. It sets the [`[connection]`](../../config/#connection) table: [`exec`](../../config/#connection.exec) says how to run a command on the engine, and [`forward`](../../config/#connection.forward) says how to carry the engine's service back to your laptop. Both are usually SSH. For a host your SSH config already knows, a plain [`ssh`](../../config/#connection.ssh) destination is enough.
 
 Keep the engine's SSH host keys in a file of their own. A rebuilt engine answers on the same address with a new key.
 
 ## Choosing where to open the panel
 
-Once an engine file exists, opening komrade shows a picker listing your laptop and each engine. An engine that cannot be reached, or runs a different build from yours, is greyed out and says why.
+Once an engine file exists, opening komrad shows a picker listing your laptop and each engine. An engine that cannot be reached, or runs a different build from yours, is greyed out and says why.
 
 <figure class="placeholder">
   <figcaption>The engine picker, with this machine ready, one engine ready, and one greyed out for a build mismatch.</figcaption>
@@ -29,7 +29,7 @@ Agents on the engine run a CLI that has to be logged in and has to trust the che
 
 ## Keeping the two builds in step
 
-Your komrade and the engine's have to be the same build. The engine moves when a release is published, so when the two disagree it is usually your laptop that moved on. Install the release the engine runs. `komrade doctor` checks both and says what to do.
+Your komrad and the engine's have to be the same build. The engine moves when a release is published, so when the two disagree it is usually your laptop that moved on. Install the release the engine runs. `komrad doctor` checks both and says what to do.
 
 ## When the engine is off
 

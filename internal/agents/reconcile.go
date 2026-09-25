@@ -6,11 +6,11 @@ import (
 	"log/slog"
 	"time"
 
-	"komrade/internal/frames"
-	"komrade/internal/harness"
-	"komrade/internal/logging"
-	agentstore "komrade/internal/store/agent"
-	"komrade/internal/tmux"
+	"komrad/internal/frames"
+	"komrad/internal/harness"
+	"komrad/internal/logging"
+	agentstore "komrad/internal/store/agent"
+	"komrad/internal/tmux"
 )
 
 const reconcileMisses = 3
@@ -238,7 +238,7 @@ func (r *Reconciler) settle(ctx context.Context, agent agentstore.Agent, state a
 	}
 
 	// A reported turn end says the agent finished, so it may only hurry along idle, never the
-	// state that says komrade could not tell either way.
+	// state that says komrad could not tell either way.
 	if state == agentstore.StateIdle && r.tally.hasFreshTurnBoundary(agent.ID, agent.StateSeenAt) {
 		r.apply(ctx, agent, state)
 
@@ -249,7 +249,7 @@ func (r *Reconciler) settle(ctx context.Context, agent agentstore.Agent, state a
 		return
 	}
 
-	// A frame komrade could not read is no evidence that a turn ended.
+	// A frame komrad could not read is no evidence that a turn ended.
 	if state == agentstore.StateIdle {
 		r.stampTurnEnd(ctx, agent)
 	}

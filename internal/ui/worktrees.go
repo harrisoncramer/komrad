@@ -6,10 +6,10 @@ import (
 	"strings"
 	"time"
 
-	"komrade/internal/errui"
-	"komrade/internal/ui/panel"
-	"komrade/lib/dates"
-	worktreev1 "komrade/proto/gen/worktree/v1"
+	"komrad/internal/errui"
+	"komrad/internal/ui/panel"
+	"komrad/lib/dates"
+	worktreev1 "komrad/proto/gen/worktree/v1"
 )
 
 // worktreeAgent is what the listing says of an agent that holds a directory.

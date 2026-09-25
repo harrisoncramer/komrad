@@ -14,7 +14,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	paginationv1 "komrade/proto/gen/pagination/v1"
+	paginationv1 "komrad/proto/gen/pagination/v1"
 
 	"connectrpc.com/connect"
 )

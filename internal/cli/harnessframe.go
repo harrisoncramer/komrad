@@ -1,7 +1,7 @@
 package cli
 
 import (
-	"komrade/internal/harness"
+	"komrad/internal/harness"
 )
 
 // paneCapturer hands back what a pane is showing.
@@ -18,7 +18,7 @@ type paneFrameReader struct {
 // DoesFrameShowHarness reports whether a pane holds a frame its harness reads as one of its own,
 // which a harness still starting up has yet to draw.
 func (r paneFrameReader) DoesFrameShowHarness(pane, harnessID string) bool {
-	// A harness komrade cannot look up is taken at its word.
+	// A harness komrad cannot look up is taken at its word.
 	found, err := r.harnesses.GetByID(harnessID)
 	if err != nil {
 		return true

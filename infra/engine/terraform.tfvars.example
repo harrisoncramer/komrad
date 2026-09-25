@@ -1,12 +1,12 @@
 aws_region                      = "us-east-1"
 aws_account_id                  = "123456789012"
-aws_profile                     = "komrade"
+aws_profile                     = "komrad"
 aws_config_file                 = "/absolute/path/to/aws/config"
 aws_shared_credentials_file     = "/absolute/path/to/aws/credentials"
 ami_id                          = "ami-0123456789abcdef0"  # arm64 (Graviton) image, must match instance_type
 availability_zone               = "us-east-1a"
 
-ssh_public_key    = "ssh-ed25519 AAAA... komrade-engine"
+ssh_public_key    = "ssh-ed25519 AAAA... komrad-engine"
 ssh_allowed_cidrs = ["203.0.113.4/32"]
 
 github_repository    = "owner/repo"

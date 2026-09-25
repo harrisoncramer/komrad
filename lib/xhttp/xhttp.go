@@ -1,4 +1,4 @@
-// Package xhttp holds the one shape of HTTP call komrade makes to a JSON API.
+// Package xhttp holds the one shape of HTTP call komrad makes to a JSON API.
 package xhttp
 
 import (
@@ -122,7 +122,7 @@ const responseHeaderTimeout = 30 * time.Second
 // idleConnTimeout is how long a kept-alive connection waits for reuse before it is closed.
 const idleConnTimeout = 90 * time.Second
 
-// NewTransport is the transport every komrade client sits on, with the handshake and header
+// NewTransport is the transport every komrad client sits on, with the handshake and header
 // waits bounded that the standard library's default leaves open.
 func NewTransport() *http.Transport {
 	return &http.Transport{

@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"strings"
 
-	"komrade/internal/git"
-	agentstore "komrade/internal/store/agent"
-	reviewstore "komrade/internal/store/review"
+	"komrad/internal/git"
+	agentstore "komrad/internal/store/agent"
+	reviewstore "komrad/internal/store/review"
 )
 
 // contextLines is how much of the file either side of a comment goes into the review.
@@ -188,10 +188,10 @@ func oldSideSentence(thread reviewstore.Thread, round reviewstore.Round) string 
 }
 
 // reviewerName is who gave the review, spelled for somebody reading the file long afterwards,
-// an empty author meaning the person running komrade.
+// an empty author meaning the person running komrad.
 func reviewerName(author string) string {
 	if author == "" {
-		return "the person running komrade"
+		return "the person running komrad"
 	}
 
 	return "the agent " + author

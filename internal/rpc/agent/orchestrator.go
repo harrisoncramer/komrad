@@ -3,11 +3,11 @@ package agent
 import (
 	"context"
 
-	agentv1 "komrade/proto/gen/agent/v1"
+	agentv1 "komrad/proto/gen/agent/v1"
 
-	"komrade/internal/fail"
-	"komrade/internal/rpcerr"
-	agentstore "komrade/internal/store/agent"
+	"komrad/internal/fail"
+	"komrad/internal/rpcerr"
+	agentstore "komrad/internal/store/agent"
 )
 
 type orchestratorStarter interface {

@@ -3,7 +3,7 @@ package paint
 import (
 	"image/color"
 
-	"komrade/lib/xptr"
+	"komrad/lib/xptr"
 
 	"charm.land/bubbles/v2/help"
 	"charm.land/glamour/v2/ansi"

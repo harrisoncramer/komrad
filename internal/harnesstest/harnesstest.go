@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"komrade/internal/harness"
+	"komrad/internal/harness"
 
 	"github.com/google/uuid"
 )
@@ -26,8 +26,8 @@ const tailLines = 5
 
 const agentScript = `#!/bin/sh
 log="$FAKE_ROOT/logs/$FAKE_SESSION.jsonl"
-state="$FAKE_ROOT/state/$KOMRADE_AGENT_ID"
-typed="$FAKE_ROOT/typed/$KOMRADE_AGENT_ID"
+state="$FAKE_ROOT/state/$KOMRAD_AGENT_ID"
+typed="$FAKE_ROOT/typed/$KOMRAD_AGENT_ID"
 mkdir -p "$FAKE_ROOT/logs" "$FAKE_ROOT/state" "$FAKE_ROOT/typed"
 
 if [ -n "$FAKE_RESUME" ]; then
@@ -52,7 +52,7 @@ done
 
 const scriptShell = "/bin/sh"
 
-const agentArg = "--komrade-fake-agent"
+const agentArg = "--komrad-fake-agent"
 
 func init() {
 	if len(os.Args) != 3 || os.Args[1] != agentArg {

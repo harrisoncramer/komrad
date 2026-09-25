@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"time"
 
-	"komrade/internal/errui"
-	"komrade/internal/ui/paint/label"
-	"komrade/internal/ui/panel"
+	"komrad/internal/errui"
+	"komrad/internal/ui/paint/label"
+	"komrad/internal/ui/panel"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -45,7 +45,7 @@ func (m *model) rereadAgentWorktreeCmd() tea.Cmd {
 }
 
 // agentWorktree is what has been read of an agent's directory, and nothing for one that is not
-// a worktree komrade holds.
+// a worktree komrad holds.
 func agentWorktree(inspections map[string]worktreeInspection, cwd string) (worktreeInspection, bool) {
 	read, ok := inspections[cwd]
 	if !ok || !read.answered || read.isSettled() {

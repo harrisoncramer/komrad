@@ -3,16 +3,16 @@ package render
 import (
 	"time"
 
-	"komrade/internal/git"
-	"komrade/lib/dates"
-	"komrade/lib/xptr"
-	"komrade/lib/xslice"
-	"komrade/lib/xstr"
+	"komrad/internal/git"
+	"komrad/lib/dates"
+	"komrad/lib/xptr"
+	"komrad/lib/xslice"
+	"komrad/lib/xstr"
 
-	agentstore "komrade/internal/store/agent"
-	reviewstore "komrade/internal/store/review"
-	rowstore "komrade/internal/store/row"
-	agentv1 "komrade/proto/gen/agent/v1"
+	agentstore "komrad/internal/store/agent"
+	reviewstore "komrad/internal/store/review"
+	rowstore "komrad/internal/store/row"
+	agentv1 "komrad/proto/gen/agent/v1"
 )
 
 // AgentOptions is how much of an agent is drawn.

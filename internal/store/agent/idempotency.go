@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"komrade/db"
-	"komrade/internal/store"
+	"komrad/db"
+	"komrad/internal/store"
 )
 
 // GetByIdempotencyKey returns the live or archived agent recorded under a key.

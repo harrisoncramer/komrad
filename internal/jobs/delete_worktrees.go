@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"komrade/internal/jobs/internaljobs"
-	agentstore "komrade/internal/store/agent"
-	worktreestore "komrade/internal/store/worktree"
-	"komrade/lib/xslice"
+	"komrad/internal/jobs/internaljobs"
+	agentstore "komrad/internal/store/agent"
+	worktreestore "komrad/internal/store/worktree"
+	"komrad/lib/xslice"
 
 	"github.com/jackc/pgx/v5"
 )

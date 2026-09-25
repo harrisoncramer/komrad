@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"komrade/internal/watch"
-	"komrade/internal/watched"
+	"komrad/internal/watch"
+	"komrad/internal/watched"
 )
 
 var migrationName = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)

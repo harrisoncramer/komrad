@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"komrade/db"
-	"komrade/internal/store"
-	markstore "komrade/internal/store/mark"
+	"komrad/db"
+	"komrad/internal/store"
+	markstore "komrad/internal/store/mark"
 )
 
 type txRunner interface {

@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"strings"
 
-	"komrade/db"
-	"komrade/db/models"
-	"komrade/internal/store"
-	"komrade/lib/xslice"
+	"komrad/db"
+	"komrad/db/models"
+	"komrad/internal/store"
+	"komrad/lib/xslice"
 )
 
 // ListWorktreeDirs returns the directories the workflows cut their worktrees in.

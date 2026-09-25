@@ -1,6 +1,6 @@
 package view
 
-import "komrade/internal/ui/paint"
+import "komrad/internal/ui/paint"
 
 // RowKind is what one line of the agents list stands for, an agent leading so a row that names
 // no kind is the ordinary one.

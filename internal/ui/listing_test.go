@@ -4,10 +4,10 @@ import (
 	"errors"
 	"testing"
 
-	"komrade/internal/engine"
-	"komrade/internal/ui"
-	agentv1 "komrade/proto/gen/agent/v1"
-	"komrade/proto/gen/agent/v1/agentv1connect"
+	"komrad/internal/engine"
+	"komrad/internal/ui"
+	agentv1 "komrad/proto/gen/agent/v1"
+	"komrad/proto/gen/agent/v1/agentv1connect"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
@@ -363,11 +363,11 @@ func TestListingUnreachable(t *testing.T) {
 	}{
 		{
 			name: "the hint on this machine says how to start a server",
-			want: "Start it with: komrade serve",
+			want: "Start it with: komrad serve",
 		},
 		{
 			name:   "the hint for a remote engine says the tunnel is dialled again",
-			remote: engine.Remote{Destination: "komrade@host"},
+			remote: engine.Remote{Destination: "komrad@host"},
 			want:   "The tunnel to the engine is dialled again until it answers",
 		},
 	}

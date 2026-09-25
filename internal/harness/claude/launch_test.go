@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"komrade/internal/caller"
-	"komrade/internal/harness"
+	"komrad/internal/caller"
+	"komrad/internal/harness"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -26,22 +26,22 @@ func TestBuildCommand(t *testing.T) {
 		{
 			name:        "a resume pins the prior conversation by id",
 			launch:      harness.Launch{SessionID: "sess-1", Resume: true},
-			wantCommand: "KOMRADE_SESSION_ID='sess-1' claude --resume 'sess-1'",
+			wantCommand: "KOMRAD_SESSION_ID='sess-1' claude --resume 'sess-1'",
 		},
 		{
 			name:        "a fresh launch pins the id it was given",
 			launch:      harness.Launch{SessionID: "sess-2"},
-			wantCommand: "KOMRADE_SESSION_ID='sess-2' claude --session-id 'sess-2'",
+			wantCommand: "KOMRAD_SESSION_ID='sess-2' claude --session-id 'sess-2'",
 		},
 		{
 			name:        "flags precede the session id",
 			launch:      harness.Launch{Flags: "--model opus", SessionID: "sess-3"},
-			wantCommand: "KOMRADE_SESSION_ID='sess-3' claude '--model' 'opus' --session-id 'sess-3'",
+			wantCommand: "KOMRAD_SESSION_ID='sess-3' claude '--model' 'opus' --session-id 'sess-3'",
 		},
 		{
 			name:        "the agent's own ids lead the line, so they reach claude's environment",
 			launch:      harness.Launch{AgentID: "id-1", SessionID: "sess-4"},
-			wantCommand: "KOMRADE_AGENT_ID='id-1' KOMRADE_SESSION_ID='sess-4' claude --session-id 'sess-4'",
+			wantCommand: "KOMRAD_AGENT_ID='id-1' KOMRAD_SESSION_ID='sess-4' claude --session-id 'sess-4'",
 		},
 		{
 			name: "and they survive a resume",
@@ -50,7 +50,7 @@ func TestBuildCommand(t *testing.T) {
 				SessionID: "sess-5",
 				Resume:    true,
 			},
-			wantCommand: "KOMRADE_AGENT_ID='id-1' KOMRADE_SESSION_ID='sess-5' claude --resume 'sess-5'",
+			wantCommand: "KOMRAD_AGENT_ID='id-1' KOMRAD_SESSION_ID='sess-5' claude --resume 'sess-5'",
 		},
 	}
 
@@ -205,7 +205,7 @@ func TestBuildCommandPassesTextThroughTempFiles(t *testing.T) {
 }
 
 // TestBuildCommandStagesTextUnderTheCacheDir covers the prompt files landing under the directory
-// komrade was told to keep what it generates in rather than the system temp directory.
+// komrad was told to keep what it generates in rather than the system temp directory.
 func TestBuildCommandStagesTextUnderTheCacheDir(t *testing.T) {
 	cache := t.TempDir()
 
@@ -254,7 +254,7 @@ func TestBuildCommandRegistersMCPServer(t *testing.T) {
 
 			match := mcpConfigRef.FindStringSubmatch(command)
 			require.Len(t, match, 2, "the launch carries a config path")
-			assert.Equal(t, filepath.Join(configDir, "komrade-mcp.json"), match[1])
+			assert.Equal(t, filepath.Join(configDir, "komrad-mcp.json"), match[1])
 
 			raw, err := os.ReadFile(match[1])
 			require.NoError(t, err)
@@ -268,7 +268,7 @@ func TestBuildCommandRegistersMCPServer(t *testing.T) {
 			}
 			require.NoError(t, json.Unmarshal(raw, &config))
 
-			server, ok := config.MCPServers["komrade"]
+			server, ok := config.MCPServers["komrad"]
 			require.True(t, ok, "the panel's own server is registered")
 			assert.Equal(t, "http", server.Type)
 			assert.Equal(t, "http://127.0.0.1:9999/mcp", server.URL)
@@ -287,7 +287,7 @@ func stripGeneratedFlags(command string) string {
 	return settingsRef.ReplaceAllString(mcpConfigRef.ReplaceAllString(command, ""), "")
 }
 
-// TestBuildCommandPinsTheConfigDir covers the launch carrying the directory komrade reads its log from.
+// TestBuildCommandPinsTheConfigDir covers the launch carrying the directory komrad reads its log from.
 func TestBuildCommandPinsTheConfigDir(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -374,7 +374,7 @@ func TestMCPConfigCarriesTheAgentsIdentity(t *testing.T) {
 
 	match := mcpConfigRef.FindStringSubmatch(command)
 	require.Len(t, match, 2)
-	assert.Equal(t, filepath.Join(home, ".claude", "komrade-mcp.json"), match[1],
+	assert.Equal(t, filepath.Join(home, ".claude", "komrad-mcp.json"), match[1],
 		"one file for every agent, since the headers name no agent")
 
 	raw, err := os.ReadFile(match[1])
@@ -387,16 +387,16 @@ func TestMCPConfigCarriesTheAgentsIdentity(t *testing.T) {
 	}
 	require.NoError(t, json.Unmarshal(raw, &config))
 
-	headers := config.MCPServers["komrade"].Headers
-	assert.Equal(t, "${KOMRADE_AGENT_ID:-}", headers[caller.AgentHeader])
-	assert.Equal(t, "${KOMRADE_SESSION_ID:-}", headers[caller.SessionHeader])
+	headers := config.MCPServers["komrad"].Headers
+	assert.Equal(t, "${KOMRAD_AGENT_ID:-}", headers[caller.AgentHeader])
+	assert.Equal(t, "${KOMRAD_SESSION_ID:-}", headers[caller.SessionHeader])
 
-	assert.Contains(t, command, "KOMRADE_AGENT_ID='agent-1'")
-	assert.Contains(t, command, "KOMRADE_SESSION_ID='sess-1'")
+	assert.Contains(t, command, "KOMRAD_AGENT_ID='agent-1'")
+	assert.Contains(t, command, "KOMRAD_SESSION_ID='sess-1'")
 }
 
 // TestBuildCommandRegistersTheStopHook pins when the launch command carries the stop hook,
-// which is what lets komrade hear an agent finish a turn.
+// which is what lets komrad hear an agent finish a turn.
 func TestBuildCommandRegistersTheStopHook(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -410,12 +410,12 @@ func TestBuildCommandRegistersTheStopHook(t *testing.T) {
 		},
 		{
 			name:        "a fresh launch",
-			hookCommand: "/usr/local/bin/komrade",
+			hookCommand: "/usr/local/bin/komrad",
 			wantHook:    true,
 		},
 		{
 			name:        "a resume, since mail arrives whether or not the agent was just started",
-			hookCommand: "/usr/local/bin/komrade",
+			hookCommand: "/usr/local/bin/komrad",
 			resume:      true,
 			wantHook:    true,
 		},
@@ -434,7 +434,7 @@ func TestBuildCommandRegistersTheStopHook(t *testing.T) {
 			require.NoError(t, err)
 
 			settings := readSettings(t, command)
-			assert.Equal(t, filepath.Join(configDir, "komrade-settings.json"), settingsPath(t, command))
+			assert.Equal(t, filepath.Join(configDir, "komrad-settings.json"), settingsPath(t, command))
 
 			if !tt.wantHook {
 				assert.Empty(t, settings.Hooks, "no hook is registered")
@@ -442,7 +442,7 @@ func TestBuildCommandRegistersTheStopHook(t *testing.T) {
 				return
 			}
 
-			require.Len(t, settings.Hooks, len(InstalledHooks), "every event komrade answers is written")
+			require.Len(t, settings.Hooks, len(InstalledHooks), "every event komrad answers is written")
 			for event, install := range InstalledHooks {
 				group, ok := settings.Hooks[string(event)]
 				require.True(t, ok, "the %s event is hooked", event)
@@ -465,7 +465,7 @@ func TestBuildCommandSetsTheCompactionPoint(t *testing.T) {
 		command, err := hn.BuildCommand(harness.Launch{
 			CacheDir:       t.TempDir(),
 			SessionID:      "sess",
-			HookCommand:    "/usr/local/bin/komrade",
+			HookCommand:    "/usr/local/bin/komrad",
 			Role:           role,
 			AutoCompaction: autoCompaction,
 		})
@@ -483,9 +483,9 @@ func TestBuildCommandSetsTheCompactionPoint(t *testing.T) {
 	assert.Equal(t, 150000, readSettings(t, orchestrator).AutoCompactWindow)
 	assert.Zero(t, readSettings(t, unset).AutoCompactWindow, "no point leaves claude its own")
 	assert.Equal(t, minAutoCompactWindow, readSettings(t, belowFloor).AutoCompactWindow, "claude ignores a window under its floor, so it is raised to it")
-	assert.Equal(t, filepath.Join(configDir, "komrade-settings.json"), settingsPath(t, unset))
-	assert.Equal(t, filepath.Join(configDir, "komrade-settings-implementer.json"), settingsPath(t, implementer))
-	assert.Equal(t, filepath.Join(configDir, "komrade-settings-orchestrator.json"), settingsPath(t, orchestrator))
+	assert.Equal(t, filepath.Join(configDir, "komrad-settings.json"), settingsPath(t, unset))
+	assert.Equal(t, filepath.Join(configDir, "komrad-settings-implementer.json"), settingsPath(t, implementer))
+	assert.Equal(t, filepath.Join(configDir, "komrad-settings-orchestrator.json"), settingsPath(t, orchestrator))
 }
 
 // TestBuildCommandDeniesSubagents covers the deny that leaves create_agent as the only way an
@@ -498,7 +498,7 @@ func TestBuildCommandDeniesSubagents(t *testing.T) {
 	}{
 		{
 			name:        "a fresh launch",
-			hookCommand: "/usr/local/bin/komrade",
+			hookCommand: "/usr/local/bin/komrad",
 		},
 		{
 			name:   "a launch that registered no hook",
@@ -506,7 +506,7 @@ func TestBuildCommandDeniesSubagents(t *testing.T) {
 		},
 		{
 			name:        "a resume",
-			hookCommand: "/usr/local/bin/komrade",
+			hookCommand: "/usr/local/bin/komrad",
 			resume:      true,
 		},
 	}

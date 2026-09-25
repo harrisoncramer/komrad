@@ -3,12 +3,12 @@ package transcripts
 import (
 	"testing"
 
-	"komrade/internal/agents"
-	"komrade/internal/storetest"
-	"komrade/lib/xslice"
+	"komrad/internal/agents"
+	"komrad/internal/storetest"
+	"komrad/lib/xslice"
 
-	agentstore "komrade/internal/store/agent"
-	transcriptstore "komrade/internal/store/transcript"
+	agentstore "komrad/internal/store/agent"
+	transcriptstore "komrad/internal/store/transcript"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

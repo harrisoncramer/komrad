@@ -7,8 +7,8 @@ import (
 	"strings"
 	"sync"
 
-	"komrade/internal/harness"
-	"komrade/lib/xslice"
+	"komrad/internal/harness"
+	"komrad/lib/xslice"
 
 	"github.com/google/uuid"
 )

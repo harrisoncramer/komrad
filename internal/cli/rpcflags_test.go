@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"testing"
 
-	"komrade/internal/rpcapi"
+	"komrad/internal/rpcapi"
 
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"

@@ -82,7 +82,7 @@ func newForgesCheck() Check {
 				return warn(fmt.Errorf("%w: %w", errForgesUnreadable, err), "")
 			}
 			if len(statuses) == 0 {
-				return warn(errNoForges, "gh auth token | komrade forge connect github.com")
+				return warn(errNoForges, "gh auth token | komrad forge connect github.com")
 			}
 
 			var lines, failed []string

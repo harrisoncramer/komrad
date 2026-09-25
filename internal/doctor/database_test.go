@@ -6,7 +6,7 @@ import (
 	"net"
 	"testing"
 
-	"komrade/internal/store"
+	"komrad/internal/store"
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/stretchr/testify/assert"
@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	writableURL = "postgres://komrade:komrade@localhost:5460/komrade?sslmode=disable"
-	readOnlyURL = "postgres://komrade_readonly:komrade_readonly@localhost:5460/komrade?sslmode=disable"
+	writableURL = "postgres://komrad:komrad@localhost:5460/komrad?sslmode=disable"
+	readOnlyURL = "postgres://komrad_readonly:komrad_readonly@localhost:5460/komrad?sslmode=disable"
 )
 
 type fakeSchema struct {
@@ -69,14 +69,14 @@ func TestDatabaseCheckTellsTheFailuresApart(t *testing.T) {
 		{
 			name:       "a password the server rejected",
 			url:        writableURL,
-			connectErr: &pgconn.PgError{Code: "28P01", Message: `password authentication failed for user "komrade"`},
+			connectErr: &pgconn.PgError{Code: "28P01", Message: `password authentication failed for user "komrad"`},
 			want:       StatusFail,
 			wantCode:   "database_auth_failed",
 		},
 		{
 			name:       "a server that is up with no such database",
 			url:        writableURL,
-			connectErr: &pgconn.PgError{Code: "3D000", Message: `database "komrade" does not exist`},
+			connectErr: &pgconn.PgError{Code: "3D000", Message: `database "komrad" does not exist`},
 			want:       StatusFail,
 			wantCode:   "database_missing",
 		},
@@ -114,9 +114,9 @@ func TestDatabaseCheckTellsTheFailuresApart(t *testing.T) {
 func TestDatabaseCheckHidesThePassword(t *testing.T) {
 	result := newDatabaseCheck().Run(t.Context(), dbEnv(fakeSchema{}, nil, nil))
 
-	assert.NotContains(t, result.Detail, "komrade:komrade")
+	assert.NotContains(t, result.Detail, "komrad:komrad")
 	assert.NotContains(t, result.Detail, "sslmode")
-	assert.Equal(t, "postgres://komrade@localhost:5460/komrade", result.Detail)
+	assert.Equal(t, "postgres://komrad@localhost:5460/komrad", result.Detail)
 }
 
 // TestDatabaseFixAssumesNoCheckout covers that a fix is something the reader can actually
@@ -136,12 +136,12 @@ func TestDatabaseFixAssumesNoCheckout(t *testing.T) {
 		},
 		{
 			name: "somebody else's Postgres on the standard port",
-			url:  "postgres://komrade:komrade@localhost:5432/komrade",
+			url:  "postgres://komrad:komrad@localhost:5432/komrad",
 			want: "start Postgres at localhost:5432, or point the database url at one that is running",
 		},
 		{
 			name: "a Postgres on another host",
-			url:  "postgres://komrade:komrade@db.internal:5460/komrade",
+			url:  "postgres://komrad:komrad@db.internal:5460/komrad",
 			want: "start Postgres at db.internal:5460, or point the database url at one that is running",
 		},
 	}
@@ -161,10 +161,10 @@ func TestDatabaseFixAssumesNoCheckout(t *testing.T) {
 // TestDatabaseMissingFixNamesTheDatabase covers that the fix is runnable rather than a
 // description of the goal.
 func TestDatabaseMissingFixNamesTheDatabase(t *testing.T) {
-	missing := &pgconn.PgError{Code: "3D000", Message: `database "komrade" does not exist`}
+	missing := &pgconn.PgError{Code: "3D000", Message: `database "komrad" does not exist`}
 	result := newDatabaseCheck().Run(t.Context(), dbEnv(fakeSchema{}, missing, nil))
 
-	assert.Equal(t, "createdb komrade, or point the database url at one that exists", result.Fix)
+	assert.Equal(t, "createdb komrad, or point the database url at one that exists", result.Fix)
 }
 
 // TestSchemaCheck covers that being behind is reported rather than treated as broken.
@@ -182,7 +182,7 @@ func TestSchemaCheck(t *testing.T) {
 
 		assert.Equal(t, StatusFail, result.Status, "the service refuses a schema behind its build")
 		assert.Equal(t, "schema_behind", codeOf(result.Err))
-		assert.Contains(t, result.Fix, "komrade migrate")
+		assert.Contains(t, result.Fix, "komrad migrate")
 		assert.Contains(t, result.Err.Error(), "2 migrations")
 	})
 
@@ -209,23 +209,23 @@ func TestReadOnlyLoginCheck(t *testing.T) {
 		result := newReadOnlyLoginCheck().Run(t.Context(), dbEnv(fakeSchema{}, nil, nil))
 
 		assert.Equal(t, StatusOK, result.Status)
-		assert.Equal(t, "postgres://komrade_readonly@localhost:5460/komrade", result.Detail)
+		assert.Equal(t, "postgres://komrad_readonly@localhost:5460/komrad", result.Detail)
 	})
 
 	t.Run("a login that does not exist yet", func(t *testing.T) {
-		refusal := &pgconn.PgError{Code: "28P01", Message: `password authentication failed for user "komrade_readonly"`}
+		refusal := &pgconn.PgError{Code: "28P01", Message: `password authentication failed for user "komrad_readonly"`}
 		result := newReadOnlyLoginCheck().Run(t.Context(), dbEnv(fakeSchema{}, nil, refusal))
 
 		assert.Equal(t, StatusFail, result.Status)
 		assert.Equal(t, "readonly_login_unusable", codeOf(result.Err))
-		assert.Contains(t, result.Fix, "komrade engine ensure")
-		assert.Contains(t, result.Err.Error(), "komrade_readonly",
+		assert.Contains(t, result.Fix, "komrad engine ensure")
+		assert.Contains(t, result.Err.Error(), "komrad_readonly",
 			"the reason names the login, since that is what has to be created")
 	})
 
 	t.Run("a login on another server", func(t *testing.T) {
 		env := dbEnv(fakeSchema{}, nil, nil)
-		env.ReadOnlyDatabaseURL = "postgres://komrade_readonly:komrade_readonly@localhost:5461/komrade?sslmode=disable"
+		env.ReadOnlyDatabaseURL = "postgres://komrad_readonly:komrad_readonly@localhost:5461/komrad?sslmode=disable"
 
 		result := newReadOnlyLoginCheck().Run(t.Context(), env)
 
@@ -243,7 +243,7 @@ func TestReadOnlyLoginCheck(t *testing.T) {
 		result := newReadOnlyLoginCheck().Run(t.Context(), env)
 
 		require.Equal(t, StatusFail, result.Status,
-			"an empty url connects as whoever is running komrade, so it cannot be handed to the pool")
+			"an empty url connects as whoever is running komrad, so it cannot be handed to the pool")
 		assert.Equal(t, "readonly_login_unset", codeOf(result.Err))
 	})
 
@@ -291,6 +291,6 @@ func TestEngineCheck(t *testing.T) {
 
 		assert.Equal(t, StatusFail, result.Status)
 		assert.Equal(t, "not_an_engine", codeOf(result.Err))
-		assert.Contains(t, result.Fix, "komrade engine ensure")
+		assert.Contains(t, result.Fix, "komrad engine ensure")
 	})
 }

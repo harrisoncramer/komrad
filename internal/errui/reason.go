@@ -3,7 +3,7 @@ package errui
 import (
 	"errors"
 
-	"komrade/internal/caller"
+	"komrad/internal/caller"
 
 	"connectrpc.com/connect"
 )

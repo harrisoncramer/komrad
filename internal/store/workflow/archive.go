@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"komrade/internal/store"
+	"komrad/internal/store"
 )
 
 // Archive hides a workflow from the panel without dropping the row, leaving the agents inside

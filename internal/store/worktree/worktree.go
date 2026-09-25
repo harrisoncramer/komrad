@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"time"
 
-	"komrade/db/models"
-	"komrade/internal/store"
-	"komrade/lib/xslice"
+	"komrad/db/models"
+	"komrad/internal/store"
+	"komrad/lib/xslice"
 )
 
 // Worktree is one directory as the size loop last read it.

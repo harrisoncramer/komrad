@@ -5,7 +5,7 @@ package git_test
 import (
 	"testing"
 
-	"komrade/internal/git"
+	"komrad/internal/git"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -86,13 +86,13 @@ func TestIntegrationReadHeadStateReadsTheRepository(t *testing.T) {
 	}{
 		{
 			name:   "an scp-like origin reads as its canonical address",
-			origin: "git@github.com:harrisoncramer/komrade.git",
-			want:   "https://github.com/harrisoncramer/komrade",
+			origin: "git@github.com:harrisoncramer/komrad.git",
+			want:   "https://github.com/harrisoncramer/komrad",
 		},
 		{
 			name:   "an https origin reads as its canonical address",
-			origin: "https://github.com/harrisoncramer/komrade.git",
-			want:   "https://github.com/harrisoncramer/komrade",
+			origin: "https://github.com/harrisoncramer/komrad.git",
+			want:   "https://github.com/harrisoncramer/komrad",
 		},
 		{
 			name:   "a local origin reads as no repository",
@@ -162,7 +162,7 @@ func TestIntegrationReadHeadStateReadsAStoppedMerge(t *testing.T) {
 	assert.True(t, head.SequenceInProgress)
 }
 
-// TestIntegrationReadHeadStateClearsItselfWhenTheRebaseIsSettled covers the recovery nobody tells komrade about.
+// TestIntegrationReadHeadStateClearsItselfWhenTheRebaseIsSettled covers the recovery nobody tells komrad about.
 func TestIntegrationReadHeadStateClearsItselfWhenTheRebaseIsSettled(t *testing.T) {
 	t.Parallel()
 

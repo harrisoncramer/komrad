@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"komrade/internal/fail"
-	"komrade/lib/xslice"
+	"komrad/internal/fail"
+	"komrad/lib/xslice"
 )
 
 var ErrShellUnsupported = fail.Internal("unsupported pane shell")

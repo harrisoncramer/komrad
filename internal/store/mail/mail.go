@@ -9,16 +9,16 @@ import (
 	"strings"
 	"time"
 
-	"komrade/db"
-	"komrade/db/models"
-	"komrade/internal/store"
-	"komrade/lib/xslice"
+	"komrad/db"
+	"komrad/db/models"
+	"komrad/internal/store"
+	"komrad/lib/xslice"
 )
 
 // Cursor pages this listing, which resumes from one row's id.
 type Cursor = store.IDCursor
 
-// Kind separates mail an agent sent, always KindPlain, from a notice komrade raised itself.
+// Kind separates mail an agent sent, always KindPlain, from a notice komrad raised itself.
 type Kind string
 
 const (
@@ -39,7 +39,7 @@ type Mail struct {
 	Body        string
 	Kind        Kind
 	ReplyTo     *string
-	// AboutAgentID is the other agent a notice komrade raised is about, unset on ordinary mail.
+	// AboutAgentID is the other agent a notice komrad raised is about, unset on ordinary mail.
 	AboutAgentID *string
 	ClaimedAt    *time.Time
 	ExpiresAt    time.Time
@@ -233,7 +233,7 @@ func (s *MailStore) Delete(ctx context.Context, ids []string) error {
 }
 
 // CountExchanged is how much plain mail two agents have written to each other, in either
-// direction, leaving out the notices komrade raised itself.
+// direction, leaving out the notices komrad raised itself.
 func (s *MailStore) CountExchanged(ctx context.Context, one, other string) (int64, error) {
 	if !store.IsID(one) || !store.IsID(other) {
 		return 0, nil

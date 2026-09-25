@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"komrade/internal/errui"
-	"komrade/internal/ui/panel"
-	agentv1 "komrade/proto/gen/agent/v1"
+	"komrad/internal/errui"
+	"komrad/internal/ui/panel"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -65,7 +65,7 @@ func (m *model) unreachableHint() string {
 		return "The tunnel to the engine is dialled again until it answers"
 	}
 
-	return "Start it with: komrade serve"
+	return "Start it with: komrad serve"
 }
 
 // withListing changes the listing the screens draw from and puts each cursor back where it was.

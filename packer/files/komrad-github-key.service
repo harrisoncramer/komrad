@@ -1,0 +1,13 @@
+[Unit]
+Description=Fetch the komrad GitHub App key
+Before=komrad.service
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/komrad-github-key
+
+[Install]
+WantedBy=multi-user.target

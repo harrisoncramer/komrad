@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"komrade/internal/store"
+	"komrad/internal/store"
 )
 
 // CountLive returns the number of unarchived agents.

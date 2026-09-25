@@ -6,12 +6,12 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"komrade/internal/forge"
-	"komrade/internal/komradetest"
-	agentv1 "komrade/proto/gen/agent/v1"
-	forgev1 "komrade/proto/gen/forge/v1"
-	pullrequestv1 "komrade/proto/gen/pullrequest/v1"
-	workflowv1 "komrade/proto/gen/workflow/v1"
+	"komrad/internal/forge"
+	"komrad/internal/komradtest"
+	agentv1 "komrad/proto/gen/agent/v1"
+	forgev1 "komrad/proto/gen/forge/v1"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
+	workflowv1 "komrad/proto/gen/workflow/v1"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
@@ -53,7 +53,7 @@ func TestIntegrationPullRequestsReachTheRowFromEachForge(t *testing.T) {
 			fake := tt.fake(t)
 			kind, err := forge.KindForHost(tt.host)
 			require.NoError(t, err)
-			instance := komradetest.Start(t, komradetest.Params{
+			instance := komradtest.Start(t, komradtest.Params{
 				WorktreesDir:  t.TempDir(),
 				ForgeBuilders: map[string]forge.Builder{kind: tt.build(fake.server)},
 			})

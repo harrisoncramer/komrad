@@ -102,7 +102,7 @@ data "aws_iam_policy_document" "github" {
     condition {
       test     = "StringEquals"
       variable = "ssm:resourceTag/Project"
-      values   = ["komrade"]
+      values   = ["komrad"]
     }
   }
 
@@ -133,7 +133,7 @@ data "aws_iam_policy_document" "github" {
     condition {
       test     = "StringEquals"
       variable = "ec2:ResourceTag/Project"
-      values   = ["komrade"]
+      values   = ["komrad"]
     }
   }
 }

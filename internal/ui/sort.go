@@ -4,7 +4,7 @@ import (
 	"cmp"
 	"slices"
 
-	"komrade/lib/xslice"
+	"komrad/lib/xslice"
 )
 
 // sortColumn is one column a list can be ordered by.

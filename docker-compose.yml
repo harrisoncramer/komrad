@@ -4,20 +4,20 @@ services:
   db:
     image: postgres:18
     environment:
-      POSTGRES_USER: komrade
-      POSTGRES_PASSWORD: komrade
-      POSTGRES_DB: komrade
+      POSTGRES_USER: komrad
+      POSTGRES_PASSWORD: komrad
+      POSTGRES_DB: komrad
     ports:
       - "${DB_PORT:-5460}:5432"
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "komrade"]
+      test: ["CMD", "pg_isready", "-U", "komrad"]
       interval: 2s
       timeout: 5s
       retries: 15
     volumes:
-      - komrade-db:/var/lib/postgresql
+      - komrad-db:/var/lib/postgresql
 
-  # The machines komrade doctor is written for, each the same image at a different stage of
+  # The machines komrad doctor is written for, each the same image at a different stage of
   # having been set up. They are the only way to see the first-run experience, since the
   # machine this is developed on has every dependency already.
   #
@@ -31,7 +31,7 @@ services:
       dockerfile: doctor-sandbox.Dockerfile
       target: bare
     volumes: &doctor-sandbox-volumes
-      - ./bin/komrade-linux:/usr/local/bin/komrade:ro
+      - ./bin/komrad-linux:/usr/local/bin/komrad:ro
 
   doctor-tmux-old:
     profiles: ["doctor"]
@@ -55,17 +55,17 @@ services:
     profiles: ["doctor"]
     image: postgres:18
     environment:
-      POSTGRES_USER: komrade
-      POSTGRES_PASSWORD: komrade
-      POSTGRES_DB: komrade
+      POSTGRES_USER: komrad
+      POSTGRES_PASSWORD: komrad
+      POSTGRES_DB: komrad
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "komrade"]
+      test: ["CMD", "pg_isready", "-U", "komrad"]
       interval: 2s
       timeout: 5s
       retries: 15
 
   # The same machine with a Postgres reachable, for the checks that need one to answer.
-  # Override KOMRADE_DATABASE_URL on the run to point it at a database that is missing, unmigrated,
+  # Override KOMRAD_DATABASE_URL on the run to point it at a database that is missing, unmigrated,
   # or refusing the password.
   doctor-postgres:
     profiles: ["doctor"]
@@ -77,7 +77,7 @@ services:
       doctor-db:
         condition: service_healthy
     environment:
-      KOMRADE_DATABASE_URL: postgres://komrade:komrade@doctor-db:5432/komrade?sslmode=disable
+      KOMRAD_DATABASE_URL: postgres://komrad:komrad@doctor-db:5432/komrad?sslmode=disable
 
 volumes:
-  komrade-db:
+  komrad-db:

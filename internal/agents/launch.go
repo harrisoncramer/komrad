@@ -9,17 +9,17 @@ import (
 	"strings"
 	"time"
 
-	"komrade/config"
-	"komrade/internal/caller"
-	"komrade/internal/harness"
-	"komrade/internal/logging"
-	"komrade/internal/scripts"
-	"komrade/internal/store"
-	agentstore "komrade/internal/store/agent"
-	workflowstore "komrade/internal/store/workflow"
-	"komrade/lib/xptr"
-	"komrade/lib/xslice"
-	"komrade/lib/xstr"
+	"komrad/config"
+	"komrad/internal/caller"
+	"komrad/internal/harness"
+	"komrad/internal/logging"
+	"komrad/internal/scripts"
+	"komrad/internal/store"
+	agentstore "komrad/internal/store/agent"
+	workflowstore "komrad/internal/store/workflow"
+	"komrad/lib/xptr"
+	"komrad/lib/xslice"
+	"komrad/lib/xstr"
 )
 
 type agentCounter interface {
@@ -317,7 +317,7 @@ func (s *LaunchService) planLaunch(ctx context.Context, params NewAgentParams) (
 		return nil, err
 	}
 
-	// The worktree is komrade's own, so an agent gets the built-in pair or nothing at all.
+	// The worktree is komrad's own, so an agent gets the built-in pair or nothing at all.
 	provisioner, deprovisioner := "", ""
 	provisions := wf.Worktree.Enabled && !IsProvisionerDisabled(params.ProvisionEnabled)
 	if provisions {

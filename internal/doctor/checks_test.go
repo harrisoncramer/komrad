@@ -3,7 +3,7 @@ package doctor
 import (
 	"testing"
 
-	"komrade/lib/xslice"
+	"komrad/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

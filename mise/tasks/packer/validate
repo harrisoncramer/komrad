@@ -4,10 +4,10 @@ set -euo pipefail
 
 cd "$MISE_CONFIG_ROOT/packer"
 
-if [ ! -e ../dist/komrade-linux-arm64 ]; then
+if [ ! -e ../dist/komrad-linux-arm64 ]; then
 	mkdir -p ../dist
-	: >../dist/komrade-linux-arm64
-	trap 'rm -f "$MISE_CONFIG_ROOT/dist/komrade-linux-arm64"' EXIT
+	: >../dist/komrad-linux-arm64
+	trap 'rm -f "$MISE_CONFIG_ROOT/dist/komrad-linux-arm64"' EXIT
 fi
 
 packer init .

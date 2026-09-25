@@ -5,23 +5,23 @@ import (
 	"testing"
 	"time"
 
-	"komrade/internal/forge"
-	"komrade/internal/storetest"
-	"komrade/lib/xslice"
+	"komrad/internal/forge"
+	"komrad/internal/storetest"
+	"komrad/lib/xslice"
 
-	agentstore "komrade/internal/store/agent"
-	mailstore "komrade/internal/store/mail"
-	markstore "komrade/internal/store/mark"
-	pullrequeststore "komrade/internal/store/pullrequest"
-	reviewstore "komrade/internal/store/review"
-	rowstore "komrade/internal/store/row"
-	workflowstore "komrade/internal/store/workflow"
+	agentstore "komrad/internal/store/agent"
+	mailstore "komrad/internal/store/mail"
+	markstore "komrad/internal/store/mark"
+	pullrequeststore "komrad/internal/store/pullrequest"
+	reviewstore "komrad/internal/store/review"
+	rowstore "komrad/internal/store/row"
+	workflowstore "komrad/internal/store/workflow"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-const readerRepository = "https://github.com/harrisoncramer/komrade"
+const readerRepository = "https://github.com/harrisoncramer/komrad"
 
 func newRowReader(st *storetest.Stores) *RowReader {
 	reviews := reviewstore.NewReviewStore(st.Pool.GetDB())

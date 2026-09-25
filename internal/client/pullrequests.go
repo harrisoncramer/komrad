@@ -3,9 +3,9 @@ package client
 import (
 	"context"
 
-	forgev1 "komrade/proto/gen/forge/v1"
-	"komrade/proto/gen/forge/v1/forgev1connect"
-	paginationv1 "komrade/proto/gen/pagination/v1"
+	forgev1 "komrad/proto/gen/forge/v1"
+	"komrad/proto/gen/forge/v1/forgev1connect"
+	paginationv1 "komrad/proto/gen/pagination/v1"
 
 	"connectrpc.com/connect"
 )

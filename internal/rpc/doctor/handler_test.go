@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"testing"
 
-	"komrade/internal/doctor"
-	doctorv1 "komrade/proto/gen/doctor/v1"
-	"komrade/proto/gen/doctor/v1/doctorv1komrade"
+	"komrad/internal/doctor"
+	doctorv1 "komrad/proto/gen/doctor/v1"
+	"komrad/proto/gen/doctor/v1/doctorv1komrad"
 
 	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
@@ -44,7 +44,7 @@ func TestRunDoctorRendersTheReport(t *testing.T) {
 			},
 		},
 	}
-	service := doctorv1komrade.DoctorServiceAdapter{Impl: NewHandler(NewHandlerParams{Checks: checks})}
+	service := doctorv1komrad.DoctorServiceAdapter{Impl: NewHandler(NewHandlerParams{Checks: checks})}
 
 	resp, err := service.RunDoctor(t.Context(), connect.NewRequest(&emptypb.Empty{}))
 	require.NoError(t, err)
@@ -125,7 +125,7 @@ func TestRunDoctorRendersTheSummary(t *testing.T) {
 					})
 				}
 			}
-			service := doctorv1komrade.DoctorServiceAdapter{Impl: NewHandler(NewHandlerParams{Checks: checks})}
+			service := doctorv1komrad.DoctorServiceAdapter{Impl: NewHandler(NewHandlerParams{Checks: checks})}
 
 			resp, err := service.RunDoctor(t.Context(), connect.NewRequest(&emptypb.Empty{}))
 			require.NoError(t, err)

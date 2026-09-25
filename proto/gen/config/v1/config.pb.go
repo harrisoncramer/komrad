@@ -11,7 +11,7 @@ import (
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
-	_ "komrade/proto/gen/annotation/v1"
+	_ "komrad/proto/gen/annotation/v1"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -101,7 +101,7 @@ const file_config_v1_config_proto_rawDesc = "" +
 	"\r_config_error2\xb5\x05\n" +
 	"\rConfigService\x12\xa3\x05\n" +
 	"\tGetConfig\x12\x16.google.protobuf.Empty\x1a\x1c.config.v1.GetConfigResponse\"\xdf\x04\x9a\xb5\x18\xd7\x04\b\x01\x10\x01\x1a\n" +
-	"get_config\"\xc1\x04Read the panel's configuration as it is currently in force, keyed the same way the user's config file is. Covers the default flags every new agent inherits and the keybindings for each of the panel's screens. Anything the user left out of their file reads back as the built-in default. A configError in the response means their file would not parse, in which case the configuration returned is the defaults the panel is running on instead. The version is the build the server answering you is running, which is worth quoting in a bug report about behaviour that makes no sense.B\x01\x03\x90\x02\x01B&Z$komrade/proto/gen/config/v1;configv1b\x06proto3"
+	"get_config\"\xc1\x04Read the panel's configuration as it is currently in force, keyed the same way the user's config file is. Covers the default flags every new agent inherits and the keybindings for each of the panel's screens. Anything the user left out of their file reads back as the built-in default. A configError in the response means their file would not parse, in which case the configuration returned is the defaults the panel is running on instead. The version is the build the server answering you is running, which is worth quoting in a bug report about behaviour that makes no sense.B\x01\x03\x90\x02\x01B%Z#komrad/proto/gen/config/v1;configv1b\x06proto3"
 
 var (
 	file_config_v1_config_proto_rawDescOnce sync.Once

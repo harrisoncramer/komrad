@@ -1,7 +1,7 @@
 package ui
 
 import (
-	"komrade/internal/errui"
+	"komrad/internal/errui"
 )
 
 // BinaryWatcher says whether the file this panel was started from has been replaced.

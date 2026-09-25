@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"komrade/internal/harness"
+	"komrad/internal/harness"
 
 	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/assert"

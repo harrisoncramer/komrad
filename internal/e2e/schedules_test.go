@@ -6,13 +6,13 @@ import (
 	"testing"
 	"time"
 
-	"komrade/internal/harness"
-	"komrade/internal/komradetest"
-	agentstore "komrade/internal/store/agent"
-	"komrade/lib/xslice"
-	agentv1 "komrade/proto/gen/agent/v1"
-	schedulev1 "komrade/proto/gen/schedule/v1"
-	viewv1 "komrade/proto/gen/view/v1"
+	"komrad/internal/harness"
+	"komrad/internal/komradtest"
+	agentstore "komrad/internal/store/agent"
+	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
+	schedulev1 "komrad/proto/gen/schedule/v1"
+	viewv1 "komrad/proto/gen/view/v1"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
@@ -21,7 +21,7 @@ import (
 
 // TestIntegrationSchedulesLaunchOnTheirFirings walks one schedule from its creation through its firings to its archive.
 func TestIntegrationSchedulesLaunchOnTheirFirings(t *testing.T) {
-	instance := komradetest.Start(t, komradetest.Params{})
+	instance := komradtest.Start(t, komradtest.Params{})
 	ctx := t.Context()
 
 	workflowID := createWorkflow(t, instance, "nightly")
@@ -112,7 +112,7 @@ func TestIntegrationSchedulesLaunchOnTheirFirings(t *testing.T) {
 	})
 }
 
-func listScheduleAgents(t *testing.T, instance *komradetest.Instance, scheduleID string) []*agentv1.Agent {
+func listScheduleAgents(t *testing.T, instance *komradtest.Instance, scheduleID string) []*agentv1.Agent {
 	t.Helper()
 
 	listed, err := instance.Agents.ListAgents(t.Context(), connect.NewRequest(&agentv1.ListAgentsRequest{View: viewv1.View_VIEW_FULL}))
@@ -127,7 +127,7 @@ func listScheduleAgents(t *testing.T, instance *komradetest.Instance, scheduleID
 	})
 }
 
-func listScheduleRuns(t *testing.T, instance *komradetest.Instance, scheduleID string) []*schedulev1.ScheduleRun {
+func listScheduleRuns(t *testing.T, instance *komradtest.Instance, scheduleID string) []*schedulev1.ScheduleRun {
 	t.Helper()
 
 	listed, err := instance.Schedules.ListScheduleRuns(t.Context(), connect.NewRequest(&schedulev1.ListScheduleRunsRequest{Id: scheduleID}))

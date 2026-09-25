@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"komrade/internal/tmux"
+	"komrad/internal/tmux"
 )
 
 // Fake is a tmux that answers from its fields and records every call made of it.

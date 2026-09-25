@@ -7,9 +7,9 @@ import (
 	"strconv"
 	"testing"
 
-	"komrade/config"
-	"komrade/internal/caller"
-	"komrade/internal/engine"
+	"komrad/config"
+	"komrad/internal/caller"
+	"komrad/internal/engine"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -31,7 +31,7 @@ func TestDialAPIReachesARemoteEngineThroughItsForward(t *testing.T) {
 		},
 		{
 			name: "the engine is elsewhere, so the forward is dialled instead",
-			ssh:  "komrade@203.0.113.4",
+			ssh:  "komrad@203.0.113.4",
 		},
 	}
 

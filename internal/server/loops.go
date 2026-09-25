@@ -3,9 +3,9 @@ package server
 import (
 	"time"
 
-	"komrade/internal/jobs"
-	"komrade/internal/jobs/internaljobs"
-	"komrade/internal/worktrees"
+	"komrad/internal/jobs"
+	"komrad/internal/jobs/internaljobs"
+	"komrad/internal/worktrees"
 )
 
 const ReconcileInterval = 2 * time.Second

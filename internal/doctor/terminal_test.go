@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"komrade/internal/view"
-	"komrade/lib/xslice"
+	"komrad/internal/view"
+	"komrad/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -100,7 +100,7 @@ func TestGlyphCheckReportsWidthsThatDisagree(t *testing.T) {
 	result := newTerminalGlyphCheck().Run(t.Context(), measuring(t, 2))
 
 	require.Equal(t, StatusWarn, result.Status,
-		"a font the terminal lacks is a degraded panel rather than a broken komrade")
+		"a font the terminal lacks is a degraded panel rather than a broken komrad")
 	require.ErrorIs(t, result.Err, errGlyphWidthUnexpected)
 	assert.Contains(t, result.Err.Error(), fmt.Sprintf("%d glyphs drew in 2 columns where the layout counts them as 1", len(view.Drawings())))
 	assert.NotEmpty(t, result.Fix)
@@ -209,7 +209,7 @@ func TestEmphasisCheckPasses(t *testing.T) {
 	assert.Equal(t, StatusOK, newTerminalEmphasisCheck().Run(t.Context(), env).Status)
 }
 
-// TestEmphasisCheckAsksTmuxRatherThanItsOwnTerm covers the environment komrade always runs in,
+// TestEmphasisCheckAsksTmuxRatherThanItsOwnTerm covers the environment komrad always runs in,
 // where the entry tmux advertises to what it runs answers for nothing a person can see.
 func TestEmphasisCheckAsksTmuxRatherThanItsOwnTerm(t *testing.T) {
 	env := naming("xterm-256color", "tmux-256color", italicCapable())
@@ -319,7 +319,7 @@ func TestDoesTmuxSubstituteItalics(t *testing.T) {
 			entry: "ansi",
 		},
 		{
-			name:  "the entry komrade would want",
+			name:  "the entry komrad would want",
 			entry: "tmux-256color",
 		},
 	} {

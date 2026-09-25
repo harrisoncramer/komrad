@@ -19,6 +19,10 @@ resource "aws_cloudfront_function" "viewer_request" {
   comment = "Redirects www and the root, and appends index.html to a request for a directory."
   publish = true
   code    = templatefile("${path.module}/viewer-request.js.tftpl", { domain = var.domain_name })
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 resource "aws_cloudfront_distribution" "site" {

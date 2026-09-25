@@ -8,11 +8,11 @@ import (
 	"strings"
 	"time"
 
-	"komrade/internal/ui/paint"
-	"komrade/internal/ui/paint/label"
-	"komrade/internal/ui/panel"
-	"komrade/internal/view"
-	"komrade/lib/xslice"
+	"komrad/internal/ui/paint"
+	"komrad/internal/ui/paint/label"
+	"komrad/internal/ui/panel"
+	"komrad/internal/view"
+	"komrad/lib/xslice"
 )
 
 // worktreeRow is one line of the worktrees list: a repository heading its directories, or a

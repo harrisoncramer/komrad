@@ -6,7 +6,7 @@ import "errors"
 var ErrEngineBuild = errors.New("engine build mismatch")
 
 // ErrRebuilt marks a panel whose binary was replaced while it was running.
-var ErrRebuilt = errors.New("komrade was rebuilt")
+var ErrRebuilt = errors.New("komrad was rebuilt")
 
 type Finding struct {
 	Name   string
@@ -43,12 +43,12 @@ func RenderStartupError(width int, err error, findings []Finding) string {
 	if errors.Is(err, ErrEngineBuild) {
 		screen.Title = "The engine is running different code"
 		screen.Body = []string{
-			"The panel did not start. The engine is up and every agent on it is still running, so there is nothing to restart over there: what does not match is the komrade on this machine.",
+			"The panel did not start. The engine is up and every agent on it is still running, so there is nothing to restart over there: what does not match is the komrad on this machine.",
 		}
 	}
 
 	if errors.Is(err, ErrRebuilt) {
-		screen.Title = "komrade was rebuilt"
+		screen.Title = "komrad was rebuilt"
 		screen.Body = []string{
 			"The binary this panel was started from has changed, so this panel has stopped drawing. Nothing about your agents has changed, and none of them were stopped. The panel key opens a panel from the new build.",
 		}
@@ -64,7 +64,7 @@ func RenderStartupError(width int, err error, findings []Finding) string {
 	screen.Details = append(screen.Details, Detail{Label: "error", Value: err.Error()})
 
 	if len(findings) == 0 && !errors.Is(err, ErrRebuilt) {
-		screen.Hints = append(screen.Hints, "Run komrade doctor for what this machine is missing.")
+		screen.Hints = append(screen.Hints, "Run komrad doctor for what this machine is missing.")
 	}
 
 	screen.Hints = append(screen.Hints, "Press any key to close.")

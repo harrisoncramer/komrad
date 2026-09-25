@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"komrade/internal/git"
-	"komrade/internal/store"
-	"komrade/lib/xptr"
+	"komrad/internal/git"
+	"komrad/internal/store"
+	"komrad/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

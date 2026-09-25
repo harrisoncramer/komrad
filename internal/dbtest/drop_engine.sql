@@ -1,6 +1,6 @@
 DO $$
 DECLARE
-    login_name text := CURRENT_SETTING('komrade.engine_login');
+    login_name text := CURRENT_SETTING('komrad.engine_login');
     target text;
 BEGIN
     FOREACH target IN ARRAY ARRAY[login_name, login_name || '_reader']

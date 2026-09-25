@@ -1,4 +1,4 @@
-// Package doctor checks the things komrade needs from the machine around it and reports what is
+// Package doctor checks the things komrad needs from the machine around it and reports what is
 // wrong in terms a person can act on: the configuration file, the database and its schema, the
 // service, tmux and its shell, the directories the hooks and worktree features read and write,
 // and the CLI binary each harness runs.
@@ -137,7 +137,7 @@ func EngineUnanswered(err error) Finding {
 		Status:      StatusFail,
 		Code:        codeOf(wrapped),
 		Error:       wrapped.Error(),
-		Fix:         "run komrade doctor on the engine, or read the service's log there",
+		Fix:         "run komrad doctor on the engine, or read the service's log there",
 		Where:       WhereEngine,
 	}
 }

@@ -1,9 +1,9 @@
 #!/bin/sh
-#KOMRADE description="Komrade's own script for making an agent a worktree, run when its workflow's worktree toggle is on. Not yours to name or fire."
+#KOMRAD description="Komrad's own script for making an agent a worktree, run when its workflow's worktree toggle is on. Not yours to name or fire."
 set -eu
 
-repo="$KOMRADE_WORKTREE_REPO"
-tree="$KOMRADE_WORKTREES_DIR/$KOMRADE_AGENT_ID"
+repo="$KOMRAD_WORKTREE_REPO"
+tree="$KOMRAD_WORKTREES_DIR/$KOMRAD_AGENT_ID"
 
 # The directory worktrees are made in can be pointed somewhere else while an agent is already
 # provisioned, and the tree it holds is where its branch is checked out, so a resume goes back
@@ -12,9 +12,9 @@ tree="$KOMRADE_WORKTREES_DIR/$KOMRADE_AGENT_ID"
 # when setup never got as far as replacing it, and taking that would put the agent inside the
 # repository. Setup names the directory after the agent, and a linked worktree carries a .git
 # file where a checkout carries a directory, which is the same claim cleanup makes.
-if [ "$KOMRADE_TRIGGER" = resume ] && [ -d "$KOMRADE_AGENT_CWD" ] &&
-	[ "$(basename "$KOMRADE_AGENT_CWD")" = "$KOMRADE_AGENT_ID" ] && [ -f "$KOMRADE_AGENT_CWD/.git" ]; then
-	tree="$KOMRADE_AGENT_CWD"
+if [ "$KOMRAD_TRIGGER" = resume ] && [ -d "$KOMRAD_AGENT_CWD" ] &&
+	[ "$(basename "$KOMRAD_AGENT_CWD")" = "$KOMRAD_AGENT_ID" ] && [ -f "$KOMRAD_AGENT_CWD/.git" ]; then
+	tree="$KOMRAD_AGENT_CWD"
 fi
 
 apply_paths() {
@@ -124,10 +124,10 @@ add_worktree() {
 }
 
 # The branch of an adopted agent belongs to whoever made it, so it is checked out as it
-# stands: no -B, which would reset it onto a base, and no branch of komrade's own. A branch that
+# stands: no -B, which would reset it onto a base, and no branch of komrad's own. A branch that
 # is only on origin is checked out by name too, which is git making the tracking branch here.
 adopt_worktree() {
-	branch="$KOMRADE_WORKTREE_ADOPT_BRANCH"
+	branch="$KOMRAD_WORKTREE_ADOPT_BRANCH"
 
 	if [ -n "$origin" ]; then
 		echo "fetching $branch from origin" >&2
@@ -139,7 +139,7 @@ adopt_worktree() {
 		exit 1
 	fi
 
-	mkdir -p "$KOMRADE_WORKTREES_DIR"
+	mkdir -p "$KOMRAD_WORKTREES_DIR"
 	echo "creating a worktree at $tree on $branch" >&2
 	add_worktree "$tree" "$branch"
 }
@@ -147,18 +147,18 @@ adopt_worktree() {
 # The worktree of an agent starting fresh work is its own branch cut from the base, named
 # after the agent so nothing else claims it.
 fresh_worktree() {
-	branch="agent/$KOMRADE_AGENT_ID"
+	branch="agent/$KOMRAD_AGENT_ID"
 
 	# A branch this agent already has holds commits of its own, so it is checked out as it
 	# stands rather than reset onto the base, which is what the -B below would do.
 	if has_ref "refs/heads/$branch"; then
-		mkdir -p "$KOMRADE_WORKTREES_DIR"
+		mkdir -p "$KOMRAD_WORKTREES_DIR"
 		echo "creating a worktree at $tree on the existing $branch" >&2
 		add_worktree "$tree" "$branch"
 		return
 	fi
 
-	base="$KOMRADE_WORKTREE_BASE_BRANCH"
+	base="$KOMRAD_WORKTREE_BASE_BRANCH"
 	if [ -z "$base" ]; then
 		echo "worktree setup: the workflow names no base branch" >&2
 		exit 1
@@ -169,7 +169,7 @@ fresh_worktree() {
 	# is no proof of origin/$base. FETCH_HEAD is the obvious place to read what was fetched
 	# instead and is one file the whole repo shares, so concurrent setups would read each
 	# other's, and the fetch is made again under a name belonging to this agent alone.
-	staged="refs/komrade/base/$KOMRADE_AGENT_ID"
+	staged="refs/komrad/base/$KOMRAD_AGENT_ID"
 	point=
 	if [ -n "$origin" ]; then
 		fetch_base || true
@@ -192,7 +192,7 @@ fresh_worktree() {
 		exit 1
 	fi
 
-	mkdir -p "$KOMRADE_WORKTREES_DIR"
+	mkdir -p "$KOMRAD_WORKTREES_DIR"
 	echo "creating a worktree at $tree from $point" >&2
 
 	# --no-track leaves the branch with no upstream, so git status inside the worktree measures
@@ -215,7 +215,7 @@ else
 		origin=yes
 	fi
 
-	if [ -n "$KOMRADE_WORKTREE_ADOPT_BRANCH" ]; then
+	if [ -n "$KOMRAD_WORKTREE_ADOPT_BRANCH" ]; then
 		adopt_worktree
 	else
 		fresh_worktree
@@ -234,8 +234,8 @@ else
 	# Only a worktree this run made is furnished. One that was already there holds
 	# whatever the agent has done to it since, and copying a directory over one that
 	# is already present nests it a level deeper every time.
-	apply_paths "$KOMRADE_WORKTREE_COPY_PATHS" copy || true
-	apply_paths "$KOMRADE_WORKTREE_SYMLINK_PATHS" symlink || true
+	apply_paths "$KOMRAD_WORKTREE_COPY_PATHS" copy || true
+	apply_paths "$KOMRAD_WORKTREE_SYMLINK_PATHS" symlink || true
 fi
 
-printf '%s' "$tree" >"$KOMRADE_SETUP_DIR_FILE"
+printf '%s' "$tree" >"$KOMRAD_SETUP_DIR_FILE"

@@ -3,18 +3,18 @@ package server
 import (
 	"testing"
 
-	"komrade/internal/watch"
-	"komrade/internal/watched"
-	"komrade/lib/xslice"
-	watchv1 "komrade/proto/gen/watch/v1"
+	"komrad/internal/watch"
+	"komrad/internal/watched"
+	"komrad/lib/xslice"
+	watchv1 "komrad/proto/gen/watch/v1"
 
-	agentstore "komrade/internal/store/agent"
-	mailstore "komrade/internal/store/mail"
-	markstore "komrade/internal/store/mark"
-	pullrequeststore "komrade/internal/store/pullrequest"
-	rowstore "komrade/internal/store/row"
-	schedulestore "komrade/internal/store/schedule"
-	workflowstore "komrade/internal/store/workflow"
+	agentstore "komrad/internal/store/agent"
+	mailstore "komrad/internal/store/mail"
+	markstore "komrad/internal/store/mark"
+	pullrequeststore "komrad/internal/store/pullrequest"
+	rowstore "komrad/internal/store/row"
+	schedulestore "komrad/internal/store/schedule"
+	workflowstore "komrad/internal/store/workflow"
 
 	"github.com/stretchr/testify/assert"
 )

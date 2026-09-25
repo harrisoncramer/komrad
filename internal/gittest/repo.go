@@ -6,8 +6,8 @@ import (
 	"strings"
 	"sync"
 
-	"komrade/internal/git"
-	"komrade/internal/position"
+	"komrad/internal/git"
+	"komrad/internal/position"
 )
 
 // Patch is what git writes between the two commits Repo stands for, taken from a real

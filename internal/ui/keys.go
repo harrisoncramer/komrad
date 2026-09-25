@@ -4,7 +4,7 @@ import (
 	"slices"
 	"strings"
 
-	"komrade/config"
+	"komrad/config"
 
 	tea "charm.land/bubbletea/v2"
 )

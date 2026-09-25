@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"strings"
 
-	"komrade/internal/ui/paint/label"
-	"komrade/internal/ui/panel"
-	"komrade/lib/xslice"
-	pullrequestv1 "komrade/proto/gen/pullrequest/v1"
+	"komrad/internal/ui/paint/label"
+	"komrad/internal/ui/panel"
+	"komrad/lib/xslice"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	tea "charm.land/bubbletea/v2"
 )

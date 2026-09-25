@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"testing"
 
-	agentstore "komrade/internal/store/agent"
-	workflowstore "komrade/internal/store/workflow"
-	"komrade/internal/storetest"
+	agentstore "komrad/internal/store/agent"
+	workflowstore "komrad/internal/store/workflow"
+	"komrad/internal/storetest"
 
 	"github.com/riverqueue/river"
 	"github.com/stretchr/testify/assert"

@@ -1,6 +1,6 @@
 package diffview
 
-import agentv1 "komrade/proto/gen/agent/v1"
+import agentv1 "komrad/proto/gen/agent/v1"
 
 // Traced is where a thread's lines went between the snapshot it was written against and the one
 // on screen, as git reports it.

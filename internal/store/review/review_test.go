@@ -4,13 +4,13 @@ import (
 	"testing"
 	"time"
 
-	"komrade/internal/dbtest"
-	"komrade/internal/store"
-	agentstore "komrade/internal/store/agent"
-	mailstore "komrade/internal/store/mail"
-	workflowstore "komrade/internal/store/workflow"
-	"komrade/lib/xptr"
-	"komrade/lib/xslice"
+	"komrad/internal/dbtest"
+	"komrad/internal/store"
+	agentstore "komrad/internal/store/agent"
+	mailstore "komrad/internal/store/mail"
+	workflowstore "komrad/internal/store/workflow"
+	"komrad/lib/xptr"
+	"komrad/lib/xslice"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -898,7 +898,7 @@ func (st *fixture) releaseReview(t *testing.T, review *Review, verdict Verdict) 
 
 	sent, err := st.mail.Send(t.Context(), mailstore.SendParams{
 		ToAgentID: review.AgentID,
-		Body:      "komrade: review of round 1, changes requested, 1 comment(s)",
+		Body:      "komrad: review of round 1, changes requested, 1 comment(s)",
 		Kind:      mailstore.KindReviewActivity,
 		Deadline:  time.Hour,
 	})

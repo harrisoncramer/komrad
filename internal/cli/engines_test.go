@@ -11,10 +11,10 @@ import (
 	"strings"
 	"testing"
 
-	"komrade/config"
-	"komrade/internal/store"
-	"komrade/internal/ui/enginepick"
-	"komrade/internal/version"
+	"komrad/config"
+	"komrad/internal/store"
+	"komrad/internal/ui/enginepick"
+	"komrad/internal/version"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -31,18 +31,18 @@ func TestOpenEngineArgs(t *testing.T) {
 		{
 			name:  "the default config",
 			stack: config.Stack{},
-			want:  []string{"/opt/komrade", "open", "--engine", "remote"},
+			want:  []string{"/opt/komrad", "open", "--engine", "remote"},
 		},
 		{
 			name:  "named config files, in order",
 			stack: config.Stack{Paths: []string{"/a.toml", "/b.toml"}},
-			want:  []string{"/opt/komrade", "open", "--engine", "remote", "--config", "/a.toml", "--config", "/b.toml"},
+			want:  []string{"/opt/komrad", "open", "--engine", "remote", "--config", "/a.toml", "--config", "/b.toml"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, openEngineArgs("/opt/komrade", tt.stack, "remote"))
+			assert.Equal(t, tt.want, openEngineArgs("/opt/komrad", tt.stack, "remote"))
 		})
 	}
 }
@@ -61,7 +61,7 @@ func TestTmuxRefusesAnEngine(t *testing.T) {
 func TestEngineRowsStartWithThisMachine(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	for _, name := range []string{"KOMRADE_CONFIG", "KOMRADE_ADDR", "KOMRADE_TMUX_SOCKET", "KOMRADE_CACHE_DIR", "KOMRADE_DATABASE_URL", "KOMRADE_READONLY_DATABASE_URL"} {
+	for _, name := range []string{"KOMRAD_CONFIG", "KOMRAD_ADDR", "KOMRAD_TMUX_SOCKET", "KOMRAD_CACHE_DIR", "KOMRAD_DATABASE_URL", "KOMRAD_READONLY_DATABASE_URL"} {
 		t.Setenv(name, "")
 	}
 
@@ -71,10 +71,10 @@ func TestEngineRowsStartWithThisMachine(t *testing.T) {
 	assert.Empty(t, rows[0].Name)
 	assert.Equal(t, "this machine", rows[0].Title())
 
-	engines := filepath.Join(home, ".config", "komrade", "engines")
+	engines := filepath.Join(home, ".config", "komrad", "engines")
 	require.NoError(t, os.MkdirAll(engines, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(engines, "remote.toml"),
-		[]byte("[connection]\naddr = \"127.0.0.1:8799\"\nssh = \"komrade@host\"\ntmux_socket = \"komrade-remote\"\n"), 0o600))
+		[]byte("[connection]\naddr = \"127.0.0.1:8799\"\nssh = \"komrad@host\"\ntmux_socket = \"komrad-remote\"\n"), 0o600))
 
 	rows, err = engineRows(config.Stack{})
 	require.NoError(t, err)
@@ -88,15 +88,15 @@ func TestEngineRowsStartWithThisMachine(t *testing.T) {
 
 	assert.Equal(t, filepath.Join(engines, "remote.toml"), facts["file"])
 	assert.Equal(t, "127.0.0.1:8799", facts["addr"])
-	assert.Equal(t, "komrade-remote", facts["tmux"])
-	assert.Contains(t, facts["engine"], "komrade@host")
+	assert.Equal(t, "komrad-remote", facts["tmux"])
+	assert.Contains(t, facts["engine"], "komrad@host")
 }
 
 // TestProbeWarnsOfAFailingLoginAndRefusesOnlyWhatCannotStart pins a bad password showing in the picker without locking out a running engine.
 func TestProbeWarnsOfAFailingLoginAndRefusesOnlyWhatCannotStart(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	for _, name := range []string{"KOMRADE_CONFIG", "KOMRADE_ADDR", "KOMRADE_TMUX_SOCKET", "KOMRADE_CACHE_DIR", "KOMRADE_DATABASE_URL", "KOMRADE_READONLY_DATABASE_URL", "KOMRADE_OWNER_DATABASE_URL"} {
+	for _, name := range []string{"KOMRAD_CONFIG", "KOMRAD_ADDR", "KOMRAD_TMUX_SOCKET", "KOMRAD_CACHE_DIR", "KOMRAD_DATABASE_URL", "KOMRAD_READONLY_DATABASE_URL", "KOMRAD_OWNER_DATABASE_URL"} {
 		t.Setenv(name, "")
 	}
 
@@ -105,11 +105,11 @@ func TestProbeWarnsOfAFailingLoginAndRefusesOnlyWhatCannotStart(t *testing.T) {
 	}))
 	t.Cleanup(answering.Close)
 
-	engines := filepath.Join(home, ".config", "komrade", "engines")
+	engines := filepath.Join(home, ".config", "komrad", "engines")
 	require.NoError(t, os.MkdirAll(engines, 0o755))
 	write := func(name, addr string) {
 		require.NoError(t, os.WriteFile(filepath.Join(engines, name+".toml"), []byte(
-			"[connection]\ndatabase_url = \"postgres://komrade_engine_second:wrong@localhost:5460/komrade\"\naddr = \""+addr+"\"\ntmux_socket = \"komrade-"+name+"\"\n"), 0o600))
+			"[connection]\ndatabase_url = \"postgres://komrad_engine_second:wrong@localhost:5460/komrad\"\naddr = \""+addr+"\"\ntmux_socket = \"komrad-"+name+"\"\n"), 0o600))
 	}
 	write("stopped", "127.0.0.1:1")
 	write("running", strings.TrimPrefix(answering.URL, "http://"))

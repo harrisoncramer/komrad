@@ -6,19 +6,19 @@ import (
 	"strconv"
 	"strings"
 
-	"komrade/lib/xslice"
+	"komrad/lib/xslice"
 
 	"github.com/invopop/jsonschema"
 )
 
-const preamble = `# komrade configuration (github.com/harrisoncramer/komrade).
+const preamble = `# komrad configuration (github.com/harrisoncramer/komrad).
 #
 # Generated from the Config struct in config. Do not edit by hand;
 # change the struct's doc comments or its default tag and run
 # 'mise run gen:config'.
 #
 # These are the built-in defaults. Do not copy this file over: write
-# ~/.config/komrade/config.toml holding only what you are changing. An unknown key
+# ~/.config/komrad/config.toml holding only what you are changing. An unknown key
 # is an error.
 `
 

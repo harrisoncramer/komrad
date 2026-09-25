@@ -1,0 +1,19 @@
+[Unit]
+Description=Create the tmux session komrad holds its agents in
+After=komrad.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# komrad forks the tmux server holding every agent, so it lands in this unit's cgroup and the
+# default KillMode would take it down with this unit.
+KillMode=process
+User=komrad
+Group=komrad
+Environment=PATH=/opt/mise/data/shims:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
+EnvironmentFile=-/etc/komrad/komrad.env
+EnvironmentFile=/etc/komrad/database.env
+ExecStart=/usr/local/sbin/komrad-manager-session
+
+[Install]
+WantedBy=multi-user.target

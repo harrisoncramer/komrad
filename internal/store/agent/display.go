@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"komrade/db/models"
-	"komrade/internal/store"
+	"komrad/db/models"
+	"komrad/internal/store"
 )
 
 // SetHidden updates a live agent's hidden state.

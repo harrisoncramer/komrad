@@ -5,11 +5,11 @@ group: start
 order: 2
 ---
 
-You have [installed komrade](../install/) and the panel is open and empty. Before you can start an agent, you need a workflow, because every agent belongs to one. A workflow is the template an agent is created from. Think of it as a group of agents that do the same kind of work.
+You have [installed komrad](../install/) and the panel is open and empty. Before you can start an agent, you need a workflow, because every agent belongs to one. A workflow is the template an agent is created from. Think of it as a group of agents that do the same kind of work.
 
 ## Creating one
 
-Press `w` in the panel. Give the workflow a name and a directory, say `myapp` and `~/code/myapp`, and turn worktrees on if that directory is a git clone. Komrade works out the base branch from the clone. That is enough to start with. Everything below can be added later with `e` on the workflow's row, or from a script with `komrade rpc create-workflow`.
+Press `w` in the panel. Give the workflow a name and a directory, say `myapp` and `~/code/myapp`, and turn worktrees on if that directory is a git clone. Komrad works out the base branch from the clone. That is enough to start with. Everything below can be added later with `e` on the workflow's row, or from a script with `komrad rpc create-workflow`.
 
 <figure class="placeholder">
   <figcaption>The agents list, with two workflows expanded and their agents grouped beneath each one.</figcaption>
@@ -21,7 +21,7 @@ A workflow says where its agents start, which CLI they run, and what flags it is
 
 ## Shared context
 
-A workflow can hold text that is added to every agent's system prompt. This is where you put what you would otherwise tell each agent by hand: how tests run, how branches are named, what to leave alone. It comes after komrade's own briefing and your [global context](../../config/#context), so it has the final word.
+A workflow can hold text that is added to every agent's system prompt. This is where you put what you would otherwise tell each agent by hand: how tests run, how branches are named, what to leave alone. It comes after komrad's own briefing and your [global context](../../config/#context), so it has the final word.
 
 ## A checkout per agent
 
@@ -29,7 +29,7 @@ Agents that write code need to stay out of each other's way. A workflow can give
 
 Worktrees go in [`worktrees.dir`](../../config/#worktrees.dir) unless the workflow names its own place. A new worktree is a clean checkout, so a workflow can list files to copy in, like a local environment file. For anything heavier, like installing dependencies, use a [hook](../hooks/).
 
-The base branch is worked out from your clone when you create the workflow. New worktrees are cut from it and an agent's work is measured against it. If the clone loses that branch, `komrade doctor` says so.
+The base branch is worked out from your clone when you create the workflow. New worktrees are cut from it and an agent's work is measured against it. If the clone loses that branch, `komrad doctor` says so.
 
 A workflow can also list paths to leave out of the diff the panel shows, so generated code does not bury the parts worth reading.
 

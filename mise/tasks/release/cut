@@ -13,7 +13,7 @@ usage() {
 	echo "The tag has to be pushed from here rather than by CI: a tag pushed with a"
 	echo "workflow's own GITHUB_TOKEN starts no other workflow, so nothing would happen."
 	echo
-	echo "Komrade keeps no backward compatibility, so releases stay on v0.x and a minor bump"
+	echo "Komrad keeps no backward compatibility, so releases stay on v0.x and a minor bump"
 	echo "is the ordinary one."
 }
 

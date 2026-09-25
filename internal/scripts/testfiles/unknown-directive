@@ -1,6 +1,6 @@
 #!/bin/sh
-#KOMRADE summary="A key komrade does not read."
-#KOMRADE tools.node="20"
+#KOMRAD summary="A key komrad does not read."
+#KOMRAD tools.node="20"
 set -eu
 
 echo "declared"

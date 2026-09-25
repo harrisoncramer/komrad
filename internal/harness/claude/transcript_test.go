@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"komrade/internal/harness"
+	"komrad/internal/harness"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

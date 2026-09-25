@@ -9,10 +9,10 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"komrade/db"
-	"komrade/db/models"
-	"komrade/internal/store"
-	"komrade/lib/xslice"
+	"komrad/db"
+	"komrad/db/models"
+	"komrad/internal/store"
+	"komrad/lib/xslice"
 )
 
 // Session is one conversation an agent has held.

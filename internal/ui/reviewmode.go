@@ -3,9 +3,9 @@ package ui
 import (
 	"fmt"
 
-	"komrade/internal/ui/paint"
-	"komrade/internal/ui/paint/label"
-	agentv1 "komrade/proto/gen/agent/v1"
+	"komrad/internal/ui/paint"
+	"komrad/internal/ui/paint/label"
+	agentv1 "komrad/proto/gen/agent/v1"
 )
 
 // The mode is the one thing on the screen that changes what every key does, so each state gets

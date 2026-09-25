@@ -3,9 +3,9 @@ package view
 import (
 	"strings"
 
-	"komrade/internal/ui/paint"
-	"komrade/internal/ui/paint/label"
-	"komrade/lib/xslice"
+	"komrad/internal/ui/paint"
+	"komrad/internal/ui/paint/label"
+	"komrad/lib/xslice"
 
 	"charm.land/lipgloss/v2"
 )

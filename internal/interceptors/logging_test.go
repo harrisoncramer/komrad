@@ -7,10 +7,10 @@ import (
 	"log/slog"
 	"testing"
 
-	"komrade/internal/caller"
-	"komrade/internal/logging"
-	"komrade/internal/logtest"
-	agentv1 "komrade/proto/gen/agent/v1"
+	"komrad/internal/caller"
+	"komrad/internal/logging"
+	"komrad/internal/logtest"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"

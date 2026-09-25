@@ -1,0 +1,24 @@
+# The throwaway instance's config, pointed at by KOMRAD_CONFIG in mise.test.toml.
+#
+# It is deliberately almost empty. The point of naming a config file here is not to configure
+# anything, it is to stop the test instance reading ~/.config/komrad and picking up the panel
+# settings, and now the database, of the checkout being developed against. Everything left out
+# is a built-in default, which is what you want when you are checking a build rather than
+# working in it.
+#
+# The connection settings that isolate this instance are in mise.test.toml as environment
+# variables, since the environment beats the file and mise cannot write one.
+
+[log]
+# Louder than the default, because the reason to open this instance is usually to watch it.
+level = "debug"
+
+[debug]
+# The throwaway instance is where a misread is chased down, and a pane redraws over the frame
+# it was misread from, so the recording is on here and off everywhere else.
+frames = true
+
+# Its own worktrees directory, so an agent the throwaway instance cuts a worktree for lands
+# beside its own state rather than in the directory the panel being developed against lists.
+[worktrees]
+dir = "~/.local/state/komrad-test/worktrees"

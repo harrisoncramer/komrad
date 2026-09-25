@@ -104,7 +104,7 @@ func TestIntegrationDiscover(t *testing.T) {
 func TestIntegrationDiscoverReadsWhatAFileDeclares(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "open-pr"), []byte(
-		"#!/bin/sh\n#KOMRADE description=\"Open the pull request.\"\n#KOMRADE timeout=\"45s\"\n",
+		"#!/bin/sh\n#KOMRAD description=\"Open the pull request.\"\n#KOMRAD timeout=\"45s\"\n",
 	), 0o755))
 	write(t, filepath.Join(dir, "silent"), 0o755)
 
@@ -133,10 +133,10 @@ func TestIntegrationRunPassesTheEnvironmentAndDirectory(t *testing.T) {
 	out := filepath.Join(dir, "out")
 	script := filepath.Join(dir, "record")
 	require.NoError(t, os.WriteFile(script, []byte(
-		"#!/bin/sh\n{ printf '%s\\n' \"$KOMRADE_AGENT\" \"$PWD\" \"$KOMRADE_TEST_INHERITED\"; } > "+out+"\n",
+		"#!/bin/sh\n{ printf '%s\\n' \"$KOMRAD_AGENT\" \"$PWD\" \"$KOMRAD_TEST_INHERITED\"; } > "+out+"\n",
 	), 0o755))
 
-	t.Setenv("KOMRADE_TEST_INHERITED", "from the panel")
+	t.Setenv("KOMRAD_TEST_INHERITED", "from the panel")
 
 	work := t.TempDir()
 	found, err := discover(dir)
@@ -146,7 +146,7 @@ func TestIntegrationRunPassesTheEnvironmentAndDirectory(t *testing.T) {
 	require.NoError(t, NewRunner().Run(RunParams{
 		Script: found[0],
 		Dir:    work,
-		Env:    []string{`KOMRADE_AGENT={"name":"auth"}`},
+		Env:    []string{`KOMRAD_AGENT={"name":"auth"}`},
 	}))
 
 	written := eventually(t, out)
@@ -344,7 +344,7 @@ func await(t *testing.T, reported chan outcomeReport) outcomeReport {
 func TestIntegrationRunAndWaitReportsWhatTheScriptSaid(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "provision"), []byte(
-		"#!/bin/sh\necho progress >&2\nprintf '%s\\n' \"$KOMRADE_TEST_ANSWER\"\n",
+		"#!/bin/sh\necho progress >&2\nprintf '%s\\n' \"$KOMRAD_TEST_ANSWER\"\n",
 	), 0o755))
 
 	found, err := discover(dir)
@@ -354,7 +354,7 @@ func TestIntegrationRunAndWaitReportsWhatTheScriptSaid(t *testing.T) {
 	result, err := NewRunner().RunAndWait(t.Context(), RunParams{
 		Script: found[0],
 		Dir:    dir,
-		Env:    []string{"KOMRADE_TEST_ANSWER=/work/api-auth"},
+		Env:    []string{"KOMRAD_TEST_ANSWER=/work/api-auth"},
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "/work/api-auth", strings.TrimSpace(string(result.Stdout)), "stdout carries what the script answered")

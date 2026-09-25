@@ -3,9 +3,9 @@ package server
 import (
 	"testing"
 
-	annotationv1 "komrade/proto/gen/annotation/v1"
+	annotationv1 "komrad/proto/gen/annotation/v1"
 
-	agentstore "komrade/internal/store/agent"
+	agentstore "komrad/internal/store/agent"
 
 	"github.com/stretchr/testify/assert"
 )

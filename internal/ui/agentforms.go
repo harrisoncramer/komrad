@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"strings"
 
-	"komrade/config"
-	"komrade/internal/ui/paint"
-	"komrade/internal/ui/paint/label"
-	"komrade/internal/ui/panel"
-	"komrade/lib/xptr"
+	"komrad/config"
+	"komrad/internal/ui/paint"
+	"komrad/internal/ui/paint/label"
+	"komrad/internal/ui/panel"
+	"komrad/lib/xptr"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"

@@ -7,10 +7,10 @@ import (
 	"strings"
 	"testing"
 
-	"komrade/config"
-	"komrade/internal/agents"
-	"komrade/internal/tmux"
-	"komrade/internal/ui"
+	"komrad/config"
+	"komrad/internal/agents"
+	"komrad/internal/tmux"
+	"komrad/internal/ui"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

@@ -11,11 +11,11 @@ import (
 	"slices"
 	"testing"
 
-	"komrade/config"
-	"komrade/internal/agents"
-	"komrade/internal/doctor"
-	"komrade/internal/harness"
-	"komrade/internal/harness/claude"
+	"komrad/config"
+	"komrad/internal/agents"
+	"komrad/internal/doctor"
+	"komrad/internal/harness"
+	"komrad/internal/harness/claude"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -49,7 +49,7 @@ func TestIntegrationDoctorReadsTheConfigTheUserNamed(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			home := t.TempDir()
 			t.Setenv("HOME", home)
-			engines := filepath.Join(home, ".config", "komrade", "engines")
+			engines := filepath.Join(home, ".config", "komrad", "engines")
 			require.NoError(t, os.MkdirAll(engines, 0o755))
 			require.NoError(t, os.WriteFile(filepath.Join(engines, "remote.toml"), []byte(""), 0o600))
 
@@ -80,7 +80,7 @@ func TestIntegrationDoctorReadsTheConfigTheUserNamed(t *testing.T) {
 }
 
 // TestIntegrationDoctorSurvivesAnEmptyLayerElement covers a layer list that will not resolve still
-// reaching a report, which an unset KOMRADE_CONFIG produces through the append idiom.
+// reaching a report, which an unset KOMRAD_CONFIG produces through the append idiom.
 func TestIntegrationDoctorSurvivesAnEmptyLayerElement(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
@@ -135,7 +135,7 @@ func TestIntegrationDoctorAdviceReadsThePanelsOwnPane(t *testing.T) {
 		return checks[index].Run(t.Context(), env).Fix
 	}
 
-	assert.Equal(t, "komrade stop, then reopen the panel", staleFix(t),
+	assert.Equal(t, "komrad stop, then reopen the panel", staleFix(t),
 		"an agent's window holds the session up with no panel drawing")
 
 	state.tmux.RecordPanelPane(hostQuery(t, socket, "display-message", "-p",

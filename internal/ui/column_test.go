@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	workflowv1 "komrade/proto/gen/workflow/v1"
+	workflowv1 "komrad/proto/gen/workflow/v1"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/assert"

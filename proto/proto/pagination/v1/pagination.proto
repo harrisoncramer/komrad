@@ -4,7 +4,7 @@ package pagination.v1;
 
 import "buf/validate/validate.proto";
 
-option go_package = "komrade/proto/gen/pagination/v1;paginationv1";
+option go_package = "komrad/proto/gen/pagination/v1;paginationv1";
 
 message Pagination {
   // How many rows to return, capped by the server, and left to the server entirely when unset.

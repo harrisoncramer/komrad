@@ -3,13 +3,13 @@ package mcp
 import (
 	"testing"
 
-	agentv1 "komrade/proto/gen/agent/v1"
-	configv1 "komrade/proto/gen/config/v1"
-	hookv1 "komrade/proto/gen/hook/v1"
-	workflowv1 "komrade/proto/gen/workflow/v1"
+	agentv1 "komrad/proto/gen/agent/v1"
+	configv1 "komrad/proto/gen/config/v1"
+	hookv1 "komrad/proto/gen/hook/v1"
+	workflowv1 "komrad/proto/gen/workflow/v1"
 
-	"komrade/internal/rpcapi"
-	"komrade/lib/xptr"
+	"komrad/internal/rpcapi"
+	"komrad/lib/xptr"
 
 	"google.golang.org/protobuf/reflect/protoreflect"
 

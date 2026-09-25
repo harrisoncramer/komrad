@@ -10,9 +10,9 @@ import (
 	"strings"
 	"testing"
 
-	"komrade/config"
-	"komrade/internal/agents"
-	"komrade/internal/version"
+	"komrad/config"
+	"komrad/internal/agents"
+	"komrad/internal/version"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -45,23 +45,23 @@ func forwardedEnv(t *testing.T, args []string) map[string]string {
 // shell had for it.
 func TestIntegrationBuildManagerSessionArgsForwardsTheEnvironment(t *testing.T) {
 	state := &app{env: &config.Environment{
-		DatabaseURL:         "postgres://komrade@db/komrade",
-		ReadOnlyDatabaseURL: "postgres://komrade_readonly@db/komrade",
+		DatabaseURL:         "postgres://komrad@db/komrad",
+		ReadOnlyDatabaseURL: "postgres://komrad_readonly@db/komrad",
 		Addr:                "127.0.0.1:9999",
-		TmuxSocket:          "komrade-test",
+		TmuxSocket:          "komrad-test",
 		CacheDir:            "/tmp/cache",
 		Editor:              "nvim",
 	}}
 
-	args := buildManagerSessionArgs(state, "/usr/local/bin/komrade", false)
+	args := buildManagerSessionArgs(state, "/usr/local/bin/komrad", false)
 
 	assert.Equal(t, map[string]string{
-		"KOMRADE_DATABASE_URL":          "postgres://komrade@db/komrade",
-		"KOMRADE_READONLY_DATABASE_URL": "postgres://komrade_readonly@db/komrade",
-		"KOMRADE_ADDR":                  "127.0.0.1:9999",
-		"KOMRADE_TMUX_SOCKET":           "komrade-test",
-		"EDITOR":                        "nvim",
-		"KOMRADE_CACHE_DIR":             "/tmp/cache",
+		"KOMRAD_DATABASE_URL":          "postgres://komrad@db/komrad",
+		"KOMRAD_READONLY_DATABASE_URL": "postgres://komrad_readonly@db/komrad",
+		"KOMRAD_ADDR":                  "127.0.0.1:9999",
+		"KOMRAD_TMUX_SOCKET":           "komrad-test",
+		"EDITOR":                       "nvim",
+		"KOMRAD_CACHE_DIR":             "/tmp/cache",
 	}, forwardedEnv(t, args))
 }
 
@@ -77,17 +77,17 @@ func TestIntegrationBuildManagerSessionArgsCarriesTheConfigPath(t *testing.T) {
 		{
 			name:  "no path given",
 			stack: config.Stack{},
-			want:  []string{"--", "/usr/local/bin/komrade", "panel"},
+			want:  []string{"--", "/usr/local/bin/komrad", "panel"},
 		},
 		{
 			name:  "a path given",
 			stack: config.Stack{Paths: []string{"/tmp/somewhere/config.toml"}},
-			want:  []string{"--", "/usr/local/bin/komrade", "panel", "--config", "/tmp/somewhere/config.toml"},
+			want:  []string{"--", "/usr/local/bin/komrad", "panel", "--config", "/tmp/somewhere/config.toml"},
 		},
 		{
 			name:  "an engine given",
 			stack: config.Stack{Engine: "remote"},
-			want:  []string{"--", "/usr/local/bin/komrade", "panel", "--engine", "remote"},
+			want:  []string{"--", "/usr/local/bin/komrad", "panel", "--engine", "remote"},
 		},
 	}
 
@@ -95,7 +95,7 @@ func TestIntegrationBuildManagerSessionArgsCarriesTheConfigPath(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			state := &app{env: &config.Environment{}, configStack: tt.stack}
 
-			args := buildManagerSessionArgs(state, "/usr/local/bin/komrade", false)
+			args := buildManagerSessionArgs(state, "/usr/local/bin/komrad", false)
 
 			separator := len(args) - len(tt.want)
 			require.GreaterOrEqual(t, separator, 0, "the command line is shorter than what it has to end with")
@@ -113,7 +113,7 @@ func TestIntegrationUserPanelKeyReadsTheServerTheUserIsAt(t *testing.T) {
 	hostSocket := throwawaySocket(t)
 	require.NoError(t, exec.Command("tmux", "-L", hostSocket, "-f", "/dev/null",
 		"new-session", "-d", "-s", "userland").Run())
-	require.NoError(t, exec.Command("tmux", "-L", hostSocket, "set-option", "-g", "@komrade_key", "w").Run())
+	require.NoError(t, exec.Command("tmux", "-L", hostSocket, "set-option", "-g", "@komrad_key", "w").Run())
 
 	hostPath := hostQuery(t, hostSocket, "display-message", "-p", "#{socket_path}")
 	state := hideState(t, managerSocket, "")
@@ -133,21 +133,21 @@ func TestIntegrationUserPanelKeyReadsTheServerTheUserIsAt(t *testing.T) {
 func TestIntegrationBuildPanelWindowArgsOpensInTheSessionItAlreadyHas(t *testing.T) {
 	state := &app{
 		env: &config.Environment{
-			DatabaseURL:         "postgres://komrade@db/komrade",
-			ReadOnlyDatabaseURL: "postgres://komrade_readonly@db/komrade",
+			DatabaseURL:         "postgres://komrad@db/komrad",
+			ReadOnlyDatabaseURL: "postgres://komrad_readonly@db/komrad",
 			Addr:                "127.0.0.1:9999",
-			TmuxSocket:          "komrade-test",
+			TmuxSocket:          "komrad-test",
 			CacheDir:            "/tmp/cache",
 			Editor:              "nvim",
 		},
 		configStack: config.Stack{Paths: []string{"/tmp/somewhere/config.toml"}},
 	}
 
-	args := buildPanelWindowArgs(state, "/usr/local/bin/komrade", false)
+	args := buildPanelWindowArgs(state, "/usr/local/bin/komrad", false)
 
 	assert.Equal(t, []string{"new-window", "-t", agents.ManagerSession + ":"}, args[:3])
-	assert.Equal(t, forwardedEnv(t, buildManagerSessionArgs(state, "/usr/local/bin/komrade", false)), forwardedEnv(t, args))
-	assert.Equal(t, []string{"--", "/usr/local/bin/komrade", "panel", "--config", "/tmp/somewhere/config.toml"},
+	assert.Equal(t, forwardedEnv(t, buildManagerSessionArgs(state, "/usr/local/bin/komrad", false)), forwardedEnv(t, args))
+	assert.Equal(t, []string{"--", "/usr/local/bin/komrad", "panel", "--config", "/tmp/somewhere/config.toml"},
 		args[len(args)-5:])
 }
 
@@ -197,7 +197,7 @@ func TestIntegrationBuildPanelWindowArgsDetachesWhenNobodyIsAttaching(t *testing
 		t.Run(tt.name, func(t *testing.T) {
 			state := &app{env: &config.Environment{}}
 
-			args := buildPanelWindowArgs(state, "/usr/local/bin/komrade", tt.detached)
+			args := buildPanelWindowArgs(state, "/usr/local/bin/komrad", tt.detached)
 
 			assert.Equal(t, tt.want, args[:len(tt.want)])
 		})
@@ -227,18 +227,18 @@ func TestIntegrationEnsureManagerSessionLeavesTheCurrentWindowAlone(t *testing.T
 // machine, where a panel here would swap an agent's pane into a stage nobody is looking at.
 func TestIntegrationBuildManagerSessionArgsHeadlessHoldsNoPanel(t *testing.T) {
 	state := &app{env: &config.Environment{
-		DatabaseURL: "postgres://komrade@db/komrade",
+		DatabaseURL: "postgres://komrad@db/komrad",
 		Addr:        "127.0.0.1:9999",
-		TmuxSocket:  "komrade-test",
+		TmuxSocket:  "komrad-test",
 	}}
 
-	args := buildManagerSessionArgs(state, "/usr/local/bin/komrade", true)
+	args := buildManagerSessionArgs(state, "/usr/local/bin/komrad", true)
 
 	assert.NotContains(t, args, "panel")
-	assert.NotContains(t, args, "/usr/local/bin/komrade")
+	assert.NotContains(t, args, "/usr/local/bin/komrad")
 	assert.Contains(t, strings.Join(args, " "), "sleep")
 	assert.Equal(t,
-		forwardedEnv(t, buildManagerSessionArgs(state, "/usr/local/bin/komrade", false)),
+		forwardedEnv(t, buildManagerSessionArgs(state, "/usr/local/bin/komrad", false)),
 		forwardedEnv(t, args),
 		"a headless session still carries what an agent launched into it needs")
 }
@@ -261,7 +261,7 @@ func TestIntegrationUserPanelKeyPrefersTheConfiguredKey(t *testing.T) {
 	assert.Equal(t, "w", userPanelKey(state, hostPath),
 		"the config names the key the opener was bound on, so it names the one that hides too")
 
-	require.NoError(t, exec.Command("tmux", "-L", hostSocket, "set-option", "-g", "@komrade_key", "j").Run())
+	require.NoError(t, exec.Command("tmux", "-L", hostSocket, "set-option", "-g", "@komrad_key", "j").Run())
 
 	assert.Equal(t, "w", userPanelKey(state, hostPath),
 		"the opener takes the config over the tmux option, so the hide key cannot take the other")
@@ -272,11 +272,11 @@ func TestIntegrationUserPanelKeyPrefersTheConfiguredKey(t *testing.T) {
 		"with no key configured the tmux option is still what both sides read")
 }
 
-// sleepingPanel is a stand-in for the komrade binary whose panel subcommand only sleeps.
+// sleepingPanel is a stand-in for the komrad binary whose panel subcommand only sleeps.
 func sleepingPanel(t *testing.T) string {
 	t.Helper()
 
-	path := filepath.Join(t.TempDir(), "komrade")
+	path := filepath.Join(t.TempDir(), "komrad")
 	require.NoError(t, os.WriteFile(path, []byte("#!/bin/sh\nsleep 60\n"), 0o755))
 
 	return path
@@ -373,7 +373,7 @@ func TestIntegrationEnsureManagerSessionReplacesAPanelHoldingAGuest(t *testing.T
 			panelPane := hostQuery(t, socket, "display-message", "-p", "-t", agents.ManagerSession, "#{pane_id}")
 			state.tmux.RecordPanelPane(panelPane)
 			state.tmux.RecordPanelBuild("devel (0000000)")
-			require.NoError(t, exec.Command("tmux", "-L", socket, "rename-window", "-t", panelPane, "komrade").Run())
+			require.NoError(t, exec.Command("tmux", "-L", socket, "rename-window", "-t", panelPane, "komrad").Run())
 
 			guest := hostQuery(t, socket, "split-window", "-d", "-h", "-t", panelPane, "-P", "-F", "#{pane_id}", "sleep 60")
 			if tt.owner != "" {

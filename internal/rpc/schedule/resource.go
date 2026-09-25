@@ -3,10 +3,10 @@ package schedule
 import (
 	"time"
 
-	"komrade/internal/rpc/render"
-	schedulestore "komrade/internal/store/schedule"
-	schedulev1 "komrade/proto/gen/schedule/v1"
-	viewv1 "komrade/proto/gen/view/v1"
+	"komrad/internal/rpc/render"
+	schedulestore "komrad/internal/store/schedule"
+	schedulev1 "komrad/proto/gen/schedule/v1"
+	viewv1 "komrad/proto/gen/view/v1"
 )
 
 type schedule struct {

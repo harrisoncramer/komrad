@@ -9,14 +9,14 @@ import (
 	"strings"
 	"time"
 
-	"komrade/config"
-	"komrade/db"
-	"komrade/internal/doctor"
-	"komrade/internal/engine"
-	"komrade/internal/store"
-	"komrade/internal/ui/enginepick"
-	"komrade/internal/version"
-	"komrade/lib/xslice"
+	"komrad/config"
+	"komrad/db"
+	"komrad/internal/doctor"
+	"komrad/internal/engine"
+	"komrad/internal/store"
+	"komrad/internal/ui/enginepick"
+	"komrad/internal/version"
+	"komrad/lib/xslice"
 )
 
 // errPickerClosed is the picker being closed with nothing chosen.
@@ -165,7 +165,7 @@ func (p engineProber) probe(ctx context.Context, row enginepick.Row) enginepick.
 		return enginepick.Status{
 			Build: version.Describe(served.version, served.commit),
 			Label: "mismatch",
-			Refused: fmt.Sprintf("the engine runs other code than this komrade, %s: %s",
+			Refused: fmt.Sprintf("the engine runs other code than this komrad, %s: %s",
 				version.Describe(version.Version(), version.Commit()),
 				doctor.StaleEngineFix(served.version, served.commit)),
 		}

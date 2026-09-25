@@ -5,7 +5,7 @@ group: start
 order: 3
 ---
 
-With a [workflow](../workflows/) in place, move the cursor onto it and press `c`. Give the agent a name and a prompt, say `fix-login` and a description of the bug, and it starts. That is an agent: a Claude or Codex session komrade runs for you in a terminal of its own. You can leave it working and come back, restart your machine without losing it, search everything it has said, or have other agents give it work.
+With a [workflow](../workflows/) in place, move the cursor onto it and press `c`. Give the agent a name and a prompt, say `fix-login` and a description of the bug, and it starts. That is an agent: a Claude or Codex session komrad runs for you in a terminal of its own. You can leave it working and come back, restart your machine without losing it, search everything it has said, or have other agents give it work.
 
 <figure class="placeholder">
   <figcaption>The agents list beside an agent's live terminal, with the details panel for that agent underneath.</figcaption>
@@ -40,7 +40,7 @@ A scheduled agent is not a fourth kind. It is an implementer that a [schedule](.
 
 ## What state an agent is in
 
-Komrade reads each agent's screen to tell what it is doing. An agent is working while it thinks or runs a tool, waiting when it has stopped to ask you something, and idle when it has nothing to do. If komrade cannot read a screen, it treats the agent as waiting on you, since an unreadable screen might be a question.
+Komrad reads each agent's screen to tell what it is doing. An agent is working while it thinks or runs a tool, waiting when it has stopped to ask you something, and idle when it has nothing to do. If komrad cannot read a screen, it treats the agent as waiting on you, since an unreadable screen might be a question.
 
 Separately, an agent is either running or dormant. A dormant agent's CLI has exited, but its conversation is kept, and resuming picks up where it left off.
 
@@ -52,7 +52,7 @@ Each row shows the agent's state, whether mail is waiting, and its pull request 
   <figcaption>The details panel for one agent, showing its branch, its pull request, its recorded metadata and its recent commits.</figcaption>
 </figure>
 
-You can search the list by name, and search every conversation komrade has ever run, archived ones included. Marks let you jump straight back to an agent you care about, the way marks work in vim.
+You can search the list by name, and search every conversation komrad has ever run, archived ones included. Marks let you jump straight back to an agent you care about, the way marks work in vim.
 
 ## Children
 
@@ -64,10 +64,10 @@ A child is any agent attached to a parent, and a reviewer is the usual case. Chi
 
 ## Picking up an existing branch
 
-You can put an agent onto a branch someone else started, which komrade calls adopting it. The agent gets a fresh worktree on that branch, or works in the checkout that already has it. The branch stays its owner's. Komrade never resets it, and the agent is told the commits are not its to rewrite.
+You can put an agent onto a branch someone else started, which komrad calls adopting it. The agent gets a fresh worktree on that branch, or works in the checkout that already has it. The branch stays its owner's. Komrad never resets it, and the agent is told the commits are not its to rewrite.
 
 ## Finishing with an agent
 
-Archiving stops the agent and takes it out of the list, but keeps its record and conversation. Deleting is permanent: the record, the conversation and the worktree are all removed. Komrade refuses to run more agents than [`usage.max_agents`](../../config/#usage.max_agents) allows, so archive what you are done with.
+Archiving stops the agent and takes it out of the list, but keeps its record and conversation. Deleting is permanent: the record, the conversation and the worktree are all removed. Komrad refuses to run more agents than [`usage.max_agents`](../../config/#usage.max_agents) allows, so archive what you are done with.
 
 Your agent is working in a fresh worktree, which means it has no dependencies installed. A [hook](../hooks/) fixes that.

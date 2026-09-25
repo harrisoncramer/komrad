@@ -5,7 +5,7 @@ package git_test
 import (
 	"testing"
 
-	"komrade/internal/git"
+	"komrad/internal/git"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

@@ -6,11 +6,11 @@ import (
 	"log/slog"
 	"slices"
 
-	"komrade/internal/logging"
-	"komrade/internal/store"
+	"komrad/internal/logging"
+	"komrad/internal/store"
 
-	agentstore "komrade/internal/store/agent"
-	workflowstore "komrade/internal/store/workflow"
+	agentstore "komrad/internal/store/agent"
+	workflowstore "komrad/internal/store/workflow"
 )
 
 // hookRunParams is one moment's worth of work: the hooks a workflow lists, the agent they run
@@ -130,7 +130,7 @@ func IsProvisionerDisabled(override *bool) bool {
 	return override != nil && !*override
 }
 
-// doesProvisionWorktree reports whether an agent's directory is komrade's to make.
+// doesProvisionWorktree reports whether an agent's directory is komrad's to make.
 func doesProvisionWorktree(ctx context.Context, workflows workflowReader, agent agentstore.Agent) bool {
 	if IsProvisionerDisabled(agent.ProvisionEnabled) {
 		return false

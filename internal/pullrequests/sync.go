@@ -6,14 +6,14 @@ import (
 	"log/slog"
 	"time"
 
-	"komrade/internal/fail"
-	"komrade/internal/forge"
-	"komrade/internal/git"
-	"komrade/internal/logging"
-	"komrade/internal/store"
-	forgestore "komrade/internal/store/forge"
-	pullrequeststore "komrade/internal/store/pullrequest"
-	"komrade/lib/xslice"
+	"komrad/internal/fail"
+	"komrad/internal/forge"
+	"komrad/internal/git"
+	"komrad/internal/logging"
+	"komrad/internal/store"
+	forgestore "komrad/internal/store/forge"
+	pullrequeststore "komrad/internal/store/pullrequest"
+	"komrad/lib/xslice"
 )
 
 // pullRequestSyncBudget is how many requests one pass may make for one repository, its first

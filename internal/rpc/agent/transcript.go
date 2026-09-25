@@ -4,16 +4,16 @@ import (
 	"context"
 	"unicode/utf8"
 
-	"komrade/internal/caller"
-	"komrade/internal/fail"
-	"komrade/internal/rpcerr"
-	"komrade/internal/transcripts"
-	"komrade/lib/pagination"
-	"komrade/lib/xslice"
-	"komrade/lib/xstr"
-	agentv1 "komrade/proto/gen/agent/v1"
+	"komrad/internal/caller"
+	"komrad/internal/fail"
+	"komrad/internal/rpcerr"
+	"komrad/internal/transcripts"
+	"komrad/lib/pagination"
+	"komrad/lib/xslice"
+	"komrad/lib/xstr"
+	agentv1 "komrad/proto/gen/agent/v1"
 
-	transcriptstore "komrade/internal/store/transcript"
+	transcriptstore "komrad/internal/store/transcript"
 )
 
 type transcriptReader interface {

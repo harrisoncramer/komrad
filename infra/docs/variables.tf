@@ -24,7 +24,7 @@ variable "aws_shared_credentials_file" {
 
 variable "name" {
   type    = string
-  default = "komrade-docs"
+  default = "komrad-docs"
 }
 
 variable "domain_name" {
@@ -46,7 +46,7 @@ variable "tags" {
   type = map(string)
   default = {
     ManagedBy = "terraform"
-    Project   = "komrade"
+    Project   = "komrad"
   }
 }
 

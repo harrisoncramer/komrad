@@ -11,9 +11,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"komrade/internal/caller"
-	"komrade/internal/logging"
-	"komrade/lib/xsync"
+	"komrad/internal/caller"
+	"komrad/internal/logging"
+	"komrad/lib/xsync"
 )
 
 const loopStopTimeout = 2 * time.Second

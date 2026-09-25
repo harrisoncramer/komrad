@@ -1,5 +1,5 @@
 // Package browser hands a URL to whatever the person at the panel opens links with, which is
-// the desktop's own opener rather than a browser komrade picks. Nothing here knows what the URL
+// the desktop's own opener rather than a browser komrad picks. Nothing here knows what the URL
 // is for, so anything with an address to show a person can use it.
 package browser
 
@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"komrade/internal/fail"
+	"komrad/internal/fail"
 )
 
 const (
@@ -38,8 +38,8 @@ func NewDesktop() *Desktop {
 
 // OpenURL waits for the opener rather than the browser.
 func (*Desktop) OpenURL(ctx context.Context, target string) error {
-	// An opener given a path or an app's own scheme acts on it, and a URL komrade was handed is
-	// not always one komrade wrote, so only a web address is passed on.
+	// An opener given a path or an app's own scheme acts on it, and a URL komrad was handed is
+	// not always one komrad wrote, so only a web address is passed on.
 	if !isWebURL(target) {
 		return fmt.Errorf("%w: %q", ErrNotAWebURL, target)
 	}

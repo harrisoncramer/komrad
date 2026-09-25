@@ -1,8 +1,8 @@
 DO $$
 DECLARE
-    engine_name text := CURRENT_SETTING('komrade.engine_name');
-    engine_password text := CURRENT_SETTING('komrade.engine_password');
-    login_name text := 'komrade_engine_' || engine_name;
+    engine_name text := CURRENT_SETTING('komrad.engine_name');
+    engine_password text := CURRENT_SETTING('komrad.engine_password');
+    login_name text := 'komrad_engine_' || engine_name;
     river_schema text := 'river_' || engine_name;
     engine_tenant uuid;
     mapped uuid;
@@ -24,8 +24,8 @@ BEGIN
     SELECT
         *
     FROM (
-        VALUES (login_name, 'komrade_engine', FALSE),
-            (login_name || '_reader', 'komrade_reader', TRUE)) AS wanted (role_name, group_name, is_reader)
+        VALUES (login_name, 'komrad_engine', FALSE),
+            (login_name || '_reader', 'komrad_reader', TRUE)) AS wanted (role_name, group_name, is_reader)
         LOOP
             SELECT
                 tenant_id INTO mapped

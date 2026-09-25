@@ -31,7 +31,7 @@ func TestFromHeader(t *testing.T) {
 		},
 		{
 			name:    "a variable the CLI passed through without expanding it",
-			headers: map[string]string{AgentHeader: "${KOMRADE_AGENT_ID}"},
+			headers: map[string]string{AgentHeader: "${KOMRAD_AGENT_ID}"},
 		},
 		{
 			name:    "an agent with no conversation yet",

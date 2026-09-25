@@ -1,5 +1,5 @@
 #!/bin/sh
-#KOMRADE description = just words, unquoted
+#KOMRAD description = just words, unquoted
 set -eu
 
 echo "declared"
