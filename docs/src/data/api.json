@@ -38,8 +38,8 @@
             "reviewer",
             "orchestrator"
           ],
-          "summary": "Fetch one agent by id, including whatever metadata it has recorded about its own work.",
-          "description": "Fetch one agent by id, including whatever metadata it has recorded about its own work. Spans the archived agents too, since an id is the one handle those still answer to. Returns not_found if no agent has that id.",
+          "summary": "Fetch one agent by id.",
+          "description": "Fetch one agent by id. Spans the archived agents too, since an id is the one handle those still answer to. Returns not_found if no agent has that id.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -158,26 +158,6 @@
           "idempotent": true,
           "destructive": false,
           "request": "agent.v1.SetHiddenRequest",
-          "response": "google.protobuf.Empty"
-        },
-        {
-          "slug": "set-agent-metadata",
-          "name": "SetMetadata",
-          "path": "/agent.v1.AgentService/SetMetadata",
-          "command": "komrad rpc set-agent-metadata",
-          "tool": "set_agent_metadata",
-          "mcp": true,
-          "roles": [
-            "implementer",
-            "reviewer",
-            "orchestrator"
-          ],
-          "summary": "Record one fact about an agent's work under a key of your choosing, keyed by the agent's id, or clear that key by omitting the value.",
-          "description": "Record one fact about an agent's work under a key of your choosing, keyed by the agent's id, or clear that key by omitting the value. Use this on yourself as you work, whenever you learn something a person would want to jump to later: the Linear issue you are implementing, the branch you are on. Your own id is in the KOMRAD_AGENT_ID environment variable. Store the full URL rather than a bare number, since the panel shows the value as it is. Keys are lowercase letters, digits, underscores, and dashes; call this once per key, which leaves every other key on the agent untouched. The key pr is refused: pull requests are read from the forge and shown on the row, so there is nothing to record. Do not record what the agent is currently doing, which is already its state, and do not paste findings here, which belong in your reply.",
-          "readOnly": false,
-          "idempotent": true,
-          "destructive": false,
-          "request": "agent.v1.SetMetadataRequest",
           "response": "google.protobuf.Empty"
         },
         {
@@ -1646,16 +1626,6 @@
           "description": "Whether the panel draws a row for it, which changes nothing about the agent itself."
         },
         {
-          "name": "metadata",
-          "type": "AgentMetadata",
-          "ref": "agent.v1.AgentMetadata",
-          "repeated": true,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "Facts it has recorded about its own work, such as the ticket it is implementing."
-        },
-        {
           "name": "idempotencyKey",
           "type": "string",
           "ref": "",
@@ -1776,6 +1746,16 @@
           "description": "What the agent's own CLI last reported it was doing, which annotates the state the pane decided rather than replacing it."
         },
         {
+          "name": "failureReason",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Why its create or cleanup last failed, empty when neither has."
+        },
+        {
           "name": "role",
           "type": "AgentRole",
           "ref": "agent.v1.AgentRole",
@@ -1834,32 +1814,6 @@
           "oneof": "",
           "rules": [],
           "description": "When a person stopped this agent and took its worktree, empty while nobody is holding it."
-        }
-      ]
-    },
-    "agent.v1.AgentMetadata": {
-      "name": "AgentMetadata",
-      "description": "",
-      "fields": [
-        {
-          "name": "key",
-          "type": "string",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "What the fact is filed under, such as pr or branch."
-        },
-        {
-          "name": "value",
-          "type": "string",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "The fact as the panel shows it, which is why a URL belongs here whole."
         }
       ]
     },
@@ -4633,46 +4587,6 @@
           "oneof": "",
           "rules": [],
           "description": "The letter to put on it, left out to take off whichever letter the row answers to."
-        }
-      ]
-    },
-    "agent.v1.SetMetadataRequest": {
-      "name": "SetMetadataRequest",
-      "description": "",
-      "fields": [
-        {
-          "name": "id",
-          "type": "string",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [
-            "required"
-          ],
-          "description": "Which agent the fact is about, which an agent recording its own work reads from KOMRAD_AGENT_ID."
-        },
-        {
-          "name": "key",
-          "type": "string",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [
-            "at most 64 characters"
-          ],
-          "description": "What to file it under, leaving every other key on the agent untouched."
-        },
-        {
-          "name": "value",
-          "type": "string",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "The fact as the panel will show it, left out to clear the key."
         }
       ]
     },

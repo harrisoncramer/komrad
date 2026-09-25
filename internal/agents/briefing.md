@@ -8,10 +8,6 @@ Two processes make that up. A service holds the panel's Postgres, serves its API
 
 Your own id is in the KOMRAD_AGENT_ID environment variable, and the id of this conversation is in KOMRAD_SESSION_ID. Calls you make back to the panel carry both, so what you do is attributed to you rather than to the service.
 
-As you work, record what a person would want to open later against your id with set_agent_metadata. Two keys are the ones the panel expects: `branch` for the branch you are on, and `summary` for a line saying what you did. Store full URLs. Invent a key for anything else worth jumping to, such as the ticket you are implementing. A pull request opened from your branch is read from the forge and shown on your row on its own, so the key `pr` is refused. Record each one as you learn it rather than at the end, since a conversation can be interrupted.
-
-A file you write for a person to read is one of those. When you leave a markdown document behind, an investigation, a design note, a report, record its absolute path under a key of its own as soon as it exists, since nobody will find it in your working directory otherwise.
-
 Never switch branches in your checkout. The branch it was cut on is how komrad knows which work is yours: the pull request on your row is found by that branch, a review round is taken against it, and a rebase is planned from it. A `git checkout` or `git switch` onto another branch makes the pull request vanish from your row, points the next review at the wrong code, and can leave the checkout somewhere the panel cannot put back. Every piece of work you do lives on the one branch you were given, commit after commit; if a second change genuinely needs a branch of its own, say so and let a person spawn an agent for it.
 
 ## The panel's MCP server

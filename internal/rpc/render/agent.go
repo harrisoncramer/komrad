@@ -6,7 +6,6 @@ import (
 	"komrad/internal/git"
 	"komrad/lib/dates"
 	"komrad/lib/xptr"
-	"komrad/lib/xslice"
 	"komrad/lib/xstr"
 
 	agentstore "komrad/internal/store/agent"
@@ -24,10 +23,6 @@ type AgentOptions struct {
 // Agent draws one agent's row as the wire carries it.
 func Agent(row rowstore.Row, options AgentOptions) *agentv1.Agent {
 	stored := row.Agent
-	metadata := xslice.Map(stored.Metadata, func(entry agentstore.Metadata) *agentv1.AgentMetadata {
-		return &agentv1.AgentMetadata{Key: entry.Key, Value: entry.Value}
-	})
-
 	prompt, promptTruncated := stored.Prompt, false
 	if options.PromptHead > 0 {
 		prompt, promptTruncated = xstr.Head(stored.Prompt, options.PromptHead)
@@ -50,10 +45,10 @@ func Agent(row rowstore.Row, options AgentOptions) *agentv1.Agent {
 		CreatedAt:          dates.Stamp(stored.CreatedAt),
 		StateChangedAt:     dates.Stamp(stored.StateChangedAt),
 		ReportedReason:     stored.ReportedReason,
+		FailureReason:      stored.FailureReason,
 		ArchivedAt:         dates.StampPtr(stored.ArchivedAt),
 		Alive:              xptr.Ptr(stored.Alive),
 		Hidden:             stored.Hidden,
-		Metadata:           metadata,
 		IdempotencyKey:     stored.IdempotencyKey,
 		SpawnedByAgentId:   stored.SpawnedByAgentID,
 		ParentAgentId:      stored.ParentAgentID,

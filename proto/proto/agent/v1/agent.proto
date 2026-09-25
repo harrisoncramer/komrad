@@ -78,8 +78,6 @@ message Agent {
   optional bool alive = 11;
   // Whether the panel draws a row for it, which changes nothing about the agent itself.
   bool hidden = 15;
-  // Facts it has recorded about its own work, such as the ticket it is implementing.
-  repeated AgentMetadata metadata = 16;
   // The key a retry of its create carried, which is what answers a repeat with this agent.
   optional string idempotency_key = 17;
   // Which agent called create, unset for one a person spawned.
@@ -108,6 +106,8 @@ message Agent {
   // What the agent's own CLI last reported it was doing, which annotates the state the pane
   // decided rather than replacing it.
   string reported_reason = 29;
+  // Why its create or cleanup last failed, empty when neither has.
+  string failure_reason = 43;
   // What the agent was launched to do, which decides the half of the review briefing it is sent.
   AgentRole role = 30;
   // Whether prompt holds only its opening, which a summary listing returns so that a page of
@@ -160,13 +160,6 @@ message PullRequestStanding {
   // Where the forge says the current pull request stands against its base and rules,
   // UNSPECIFIED for UNREAD and NONE.
   pullrequest.v1.Mergeability mergeability = 6;
-}
-
-message AgentMetadata {
-  // What the fact is filed under, such as pr or branch.
-  string key = 1;
-  // The fact as the panel shows it, which is why a URL belongs here whole.
-  string value = 2;
 }
 
 message ListAgentsRequest {
@@ -457,27 +450,6 @@ message MarkRunsReadRequest {
   string id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
-message SetMetadataRequest {
-  // Which agent the fact is about, which an agent recording its own work reads from
-  // KOMRAD_AGENT_ID.
-  string id = 1 [(buf.validate.field).string.min_len = 1];
-  // What to file it under, leaving every other key on the agent untouched.
-  string key = 2 [
-    (buf.validate.field).string.max_len = 64,
-    (buf.validate.field).cel = {
-      id: "key.slug"
-      message: "a metadata key must be lowercase letters, digits, underscores, or dashes"
-      expression: "this.matches('^[a-z0-9_-]+$')"
-    }
-  ];
-  // The fact as the panel will show it, left out to clear the key.
-  optional string value = 3 [(buf.validate.field).cel = {
-    id: "value.printable"
-    message: "a metadata value must be a single line of at most 2048 characters carrying no control characters"
-    expression: "this.size() <= 2048 && !this.matches('[[:cntrl:]]')"
-  }];
-}
-
 message LogRequest {
   // Which agent the line is about, or unset for the caller's own.
   optional string id = 1 [(buf.validate.field).string.min_len = 1];
@@ -637,7 +609,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "get_agent"
-      description: "Fetch one agent by id, including whatever metadata it has recorded about its own work. Spans the archived agents too, since an id is the one handle those still answer to. Returns not_found if no agent has that id."
+      description: "Fetch one agent by id. Spans the archived agents too, since an id is the one handle those still answer to. Returns not_found if no agent has that id."
       roles: [
         ROLE_IMPLEMENTER,
         ROLE_REVIEWER,
@@ -717,21 +689,6 @@ service AgentService {
       description: "Hide an agent from the panel's sidebar, keyed by its id, or unhide it by passing hidden false. This changes nothing about the agent: it keeps running, the reconciler keeps moving its state, and every tool still returns it. It only decides whether the person watching the panel sees a row for it, which is theirs to decide, so do not hide work you were not asked to hide."
       destructive: false
       roles: [ROLE_ORCHESTRATOR]
-    };
-  }
-  rpc SetMetadata(SetMetadataRequest) returns (google.protobuf.Empty) {
-    option idempotency_level = IDEMPOTENT;
-    option (annotation.v1.surfaces) = {
-      cli: true
-      mcp: true
-      name: "set_agent_metadata"
-      description: "Record one fact about an agent's work under a key of your choosing, keyed by the agent's id, or clear that key by omitting the value. Use this on yourself as you work, whenever you learn something a person would want to jump to later: the Linear issue you are implementing, the branch you are on. Your own id is in the KOMRAD_AGENT_ID environment variable. Store the full URL rather than a bare number, since the panel shows the value as it is. Keys are lowercase letters, digits, underscores, and dashes; call this once per key, which leaves every other key on the agent untouched. The key pr is refused: pull requests are read from the forge and shown on the row, so there is nothing to record. Do not record what the agent is currently doing, which is already its state, and do not paste findings here, which belong in your reply."
-      destructive: false
-      roles: [
-        ROLE_IMPLEMENTER,
-        ROLE_REVIEWER,
-        ROLE_ORCHESTRATOR
-      ]
     };
   }
   rpc Log(LogRequest) returns (google.protobuf.Empty) {

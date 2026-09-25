@@ -344,10 +344,6 @@ WHERE
 SELECT
     PG_ADVISORY_XACT_LOCK(HASHTEXTEXTENDED(COALESCE(current_tenant()::text, ''), 7240116));
 
--- name: LockAgentMetadata :exec
-SELECT
-    PG_ADVISORY_XACT_LOCK(HASHTEXTEXTENDED(@agent_id::text, 0));
-
 -- name: InsertAgent :one
 INSERT INTO agents(
     id,
@@ -799,49 +795,15 @@ WHERE
 RETURNING
     id;
 
--- name: SetAgentMetadata :many
-INSERT INTO agent_metadata(
-    agent_id,
-    KEY,
-    value)
-SELECT
-    @agent_id,
-    @key,
-    @value
+-- name: SetAgentFailureReason :many
+UPDATE
+    agents
+SET
+    failure_reason = @failure_reason
 WHERE
-    EXISTS (
-        SELECT
-            1
-        FROM
-            agents
-        WHERE
-            id = @agent_id)
-ON CONFLICT (agent_id,
-    KEY)
-    DO UPDATE SET
-        value = @value
-    RETURNING
-        agent_id;
-
--- name: DeleteAgentMetadata :many
-DELETE FROM agent_metadata
-WHERE agent_id = @agent_id
-    AND KEY = @key
+    id = @id
 RETURNING
-    agent_id;
-
--- name: ListAgentMetadata :many
-SELECT
-    agent_id,
-    KEY,
-    value
-FROM
-    agent_metadata
-WHERE
-    agent_id = ANY (@agent_ids::uuid[])
-ORDER BY
-    agent_id,
-    KEY;
+    id;
 
 -- name: DeleteAgentsByID :many
 DELETE FROM agents

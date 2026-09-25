@@ -24,7 +24,6 @@ type AgentServiceImpl interface {
 	ListMarks(context.Context, *emptypb.Empty) (*v1.ListMarksResponse, *fail.Error)
 	SetMark(context.Context, *v1.SetMarkRequest) (*emptypb.Empty, *fail.Error)
 	SetHidden(context.Context, *v1.SetHiddenRequest) (*emptypb.Empty, *fail.Error)
-	SetMetadata(context.Context, *v1.SetMetadataRequest) (*emptypb.Empty, *fail.Error)
 	Log(context.Context, *v1.LogRequest) (*emptypb.Empty, *fail.Error)
 	SendMail(context.Context, *v1.SendMailRequest) (*v1.SendMailResponse, *fail.Error)
 	ForwardLastTurns(context.Context, *v1.ForwardLastTurnsRequest) (*v1.ForwardLastTurnsResponse, *fail.Error)
@@ -107,11 +106,6 @@ func (a AgentServiceAdapter) SetMark(ctx context.Context, req *connect.Request[v
 // SetHidden answers the request as connect serves it.
 func (a AgentServiceAdapter) SetHidden(ctx context.Context, req *connect.Request[v1.SetHiddenRequest]) (*connect.Response[emptypb.Empty], error) {
 	return rpcerr.Answer(a.Impl.SetHidden(ctx, req.Msg))
-}
-
-// SetMetadata answers the request as connect serves it.
-func (a AgentServiceAdapter) SetMetadata(ctx context.Context, req *connect.Request[v1.SetMetadataRequest]) (*connect.Response[emptypb.Empty], error) {
-	return rpcerr.Answer(a.Impl.SetMetadata(ctx, req.Msg))
 }
 
 // Log answers the request as connect serves it.

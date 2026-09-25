@@ -8,6 +8,7 @@ import (
 	"komrad/db"
 	"komrad/db/models"
 	"komrad/internal/store"
+	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 )
 
@@ -18,7 +19,7 @@ func (s *AgentStore) List(ctx context.Context) ([]Agent, error) {
 		return nil, fmt.Errorf("failed to list agents: %w", err)
 	}
 
-	return s.hydrateMetadataForAgents(ctx, rows)
+	return FromRows(rows), nil
 }
 
 // Cursor pages this listing, which resumes from one row's id.
@@ -73,7 +74,7 @@ func (s *AgentStore) ListArchiveSweepPage(ctx context.Context, limit int64, curs
 		return nil, fmt.Errorf("failed to list a page of the archive for the sweep: %w", err)
 	}
 
-	return s.hydrateMetadataForAgents(ctx, rows)
+	return FromRows(rows), nil
 }
 
 // ListAll returns every agent including archived ones, newest first, for search.
@@ -83,7 +84,7 @@ func (s *AgentStore) ListAll(ctx context.Context) ([]Agent, error) {
 		return nil, fmt.Errorf("failed to list all agents: %w", err)
 	}
 
-	return s.hydrateMetadataForAgents(ctx, rows)
+	return FromRows(rows), nil
 }
 
 // ListForTranscriptSync returns every agent whose log can still hold turns nobody has read: the
@@ -94,7 +95,7 @@ func (s *AgentStore) ListForTranscriptSync(ctx context.Context) ([]Agent, error)
 		return nil, fmt.Errorf("failed to list agents for transcript sync: %w", err)
 	}
 
-	return s.hydrateMetadataForAgents(ctx, rows)
+	return FromRows(rows), nil
 }
 
 // GetInWorkflow returns a live agent by workflow and name.
@@ -110,7 +111,7 @@ func (s *AgentStore) GetInWorkflow(ctx context.Context, workflowID, name string)
 		return nil, fmt.Errorf("failed to get agent %q in workflow %q: %w", name, workflowID, err)
 	}
 
-	return s.hydrateMetadataForAgent(ctx, row)
+	return xptr.Ptr(FromRow(*row)), nil
 }
 
 // ListLiveNamed returns the live agents holding a name, across every workflow.
@@ -120,7 +121,7 @@ func (s *AgentStore) ListLiveNamed(ctx context.Context, name string) ([]Agent, e
 		return nil, fmt.Errorf("failed to list the live agents named %q: %w", name, err)
 	}
 
-	return s.hydrateMetadataForAgents(ctx, rows)
+	return FromRows(rows), nil
 }
 
 // GetByID returns a live or archived agent by ID.
@@ -137,7 +138,7 @@ func (s *AgentStore) GetByID(ctx context.Context, id string) (*Agent, error) {
 		return nil, fmt.Errorf("failed to get agent %q: %w", id, err)
 	}
 
-	return s.hydrateMetadataForAgent(ctx, row)
+	return xptr.Ptr(FromRow(*row)), nil
 }
 
 // ListByID returns live and archived agents matching the given IDs.
@@ -152,7 +153,7 @@ func (s *AgentStore) ListByID(ctx context.Context, ids []string) ([]Agent, error
 		return nil, fmt.Errorf("failed to get %d agents: %w", len(storable), err)
 	}
 
-	return s.hydrateMetadataForAgents(ctx, rows)
+	return FromRows(rows), nil
 }
 
 // Exists reports whether any agent holds the given id, including archived ones.
@@ -207,7 +208,7 @@ func (s *AgentStore) ListLiveInWorkflow(ctx context.Context, workflowID string) 
 		return nil, fmt.Errorf("failed to list live agents of workflow %q: %w", workflowID, err)
 	}
 
-	return s.hydrateMetadataForAgents(ctx, rows)
+	return FromRows(rows), nil
 }
 
 // ListArchivedInWorkflow returns the archived agents in a workflow.
@@ -217,7 +218,7 @@ func (s *AgentStore) ListArchivedInWorkflow(ctx context.Context, workflowID stri
 		return nil, fmt.Errorf("failed to list archived agents of workflow %q: %w", workflowID, err)
 	}
 
-	return s.hydrateMetadataForAgents(ctx, rows)
+	return FromRows(rows), nil
 }
 
 // ListChildren returns the agents attached to the given parents, archived ones included.
@@ -232,7 +233,7 @@ func (s *AgentStore) ListChildren(ctx context.Context, parentIDs []string) ([]Ag
 		return nil, fmt.Errorf("failed to list the children of %d agents: %w", len(storable), err)
 	}
 
-	return s.hydrateMetadataForAgents(ctx, rows)
+	return FromRows(rows), nil
 }
 
 // CountLiveSpawned returns how many live agents one agent spawned that are not attached to a parent.

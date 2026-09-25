@@ -31,9 +31,8 @@ func compactedHookCmd(state *app) *cobra.Command {
 
 Claude runs this on its SessionStart event when a conversation has just been
 summarized. It reads the agent's record from komrad, its branch, pull request,
-recorded metadata, open review threads, waiting mail and the task it was
-launched with, and prints it back as additional context. A panel that cannot be
-reached prints nothing.`,
+open review threads, waiting mail and the task it was launched with, and prints
+it back as additional context. A panel that cannot be reached prints nothing.`,
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -165,9 +164,6 @@ func renderCompactedRecord(row *agentv1.AgentRow, threads []*agentv1.ReviewThrea
 	if agent.GetParentAgentId() != "" {
 		lines = append(lines, "Parent agent: "+agent.GetParentAgentId())
 	}
-	lines = append(lines, xslice.Map(agent.GetMetadata(), func(meta *agentv1.AgentMetadata) string {
-		return fmt.Sprintf("Recorded %s: %s", meta.GetKey(), meta.GetValue())
-	})...)
 
 	if len(threads) > 0 {
 		lines = append(lines, threadsHeading(agent.GetRole(), len(threads)))

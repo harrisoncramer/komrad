@@ -71,7 +71,6 @@ type agentReader interface {
 // rowWriter changes what an agent's row says.
 type rowWriter interface {
 	SetHidden(ctx context.Context, id string, hidden bool) error
-	SetMetadata(ctx context.Context, params agents.SetMetadataParams) error
 	Rename(ctx context.Context, id, name string) error
 	MarkRunsRead(ctx context.Context, id string) error
 	RecordReport(ctx context.Context, params agents.RecordReportParams) error
@@ -358,21 +357,6 @@ func (s *Handler) SetHidden(ctx context.Context, req *agentv1.SetHiddenRequest) 
 func (s *Handler) MarkRunsRead(ctx context.Context, req *agentv1.MarkRunsReadRequest) (*emptypb.Empty, *fail.Error) {
 	if err := s.writer.MarkRunsRead(ctx, req.GetId()); err != nil {
 		return nil, rpcerr.From(err, "failed to claim the agent's failed runs")
-	}
-
-	return &emptypb.Empty{}, nil
-}
-
-// SetMetadata records one fact an agent found out about its own work, or clears the key
-// when the value is unset.
-func (s *Handler) SetMetadata(ctx context.Context, req *agentv1.SetMetadataRequest) (*emptypb.Empty, *fail.Error) {
-	err := s.writer.SetMetadata(ctx, agents.SetMetadataParams{
-		AgentID: req.GetId(),
-		Key:     req.GetKey(),
-		Value:   req.Value,
-	})
-	if err != nil {
-		return nil, rpcerr.From(err, "failed to set the metadata")
 	}
 
 	return &emptypb.Empty{}, nil

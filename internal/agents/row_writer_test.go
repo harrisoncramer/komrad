@@ -8,7 +8,6 @@ import (
 	agentstore "komrad/internal/store/agent"
 	rowstore "komrad/internal/store/row"
 	runstore "komrad/internal/store/run"
-	"komrad/lib/xptr"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -42,38 +41,6 @@ func TestRowWriterRefusals(t *testing.T) {
 				return writer.SetHidden(ctx, uuid.NewString(), true)
 			},
 			wantErr: ErrAgentNotFound,
-		},
-		{
-			name: "recording a fact on an id nobody holds",
-			write: func(ctx context.Context, writer *RowWriter, _ agentstore.Agent) error {
-				return writer.SetMetadata(ctx, SetMetadataParams{
-					AgentID: uuid.NewString(),
-					Key:     "linear_issue",
-					Value:   xptr.Ptr("https://linear.app/x/issue/ENG-1"),
-				})
-			},
-			wantErr: ErrAgentNotFound,
-		},
-		{
-			name: "recording the pull request key the forge fills",
-			write: func(ctx context.Context, writer *RowWriter, agent agentstore.Agent) error {
-				return writer.SetMetadata(ctx, SetMetadataParams{
-					AgentID: agent.ID,
-					Key:     pullRequestMetadataKey,
-					Value:   xptr.Ptr("https://github.com/o/r/pull/1"),
-				})
-			},
-			wantErr: ErrPullRequestKey,
-		},
-		{
-			name: "clearing the pull request key",
-			write: func(ctx context.Context, writer *RowWriter, agent agentstore.Agent) error {
-				return writer.SetMetadata(ctx, SetMetadataParams{
-					AgentID: agent.ID,
-					Key:     pullRequestMetadataKey,
-				})
-			},
-			wantErr: ErrPullRequestKey,
 		},
 		{
 			name: "renaming an id nobody holds",
@@ -112,42 +79,12 @@ func TestRowWriterWrites(t *testing.T) {
 		check func(t *testing.T, row rowstore.Row)
 	}{
 		{
-			name: "clearing a key nothing held is served",
-			write: func(ctx context.Context, writer *RowWriter, agent agentstore.Agent) error {
-				return writer.SetMetadata(ctx, SetMetadataParams{
-					AgentID: agent.ID,
-					Key:     "linear_issue",
-				})
-			},
-			check: func(t *testing.T, row rowstore.Row) {
-				assert.Empty(t, row.Metadata)
-			},
-		},
-		{
 			name: "hiding",
 			write: func(ctx context.Context, writer *RowWriter, agent agentstore.Agent) error {
 				return writer.SetHidden(ctx, agent.ID, true)
 			},
 			check: func(t *testing.T, row rowstore.Row) {
 				assert.True(t, row.Hidden)
-			},
-		},
-		{
-			name: "recording a fact",
-			write: func(ctx context.Context, writer *RowWriter, agent agentstore.Agent) error {
-				return writer.SetMetadata(ctx, SetMetadataParams{
-					AgentID: agent.ID,
-					Key:     "linear_issue",
-					Value:   xptr.Ptr("https://linear.app/x/issue/ENG-1"),
-				})
-			},
-			check: func(t *testing.T, row rowstore.Row) {
-				assert.Equal(t, []agentstore.Metadata{
-					{
-						Key:   "linear_issue",
-						Value: "https://linear.app/x/issue/ENG-1",
-					},
-				}, row.Metadata)
 			},
 		},
 		{

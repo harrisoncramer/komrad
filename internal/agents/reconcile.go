@@ -28,7 +28,6 @@ type agentStateReadWriter interface {
 	SetStateByID(ctx context.Context, id string, state agentstore.State) error
 	SetTurnEnded(ctx context.Context, id string) error
 	ForgetPane(ctx context.Context, params agentstore.ForgetPaneParams) (bool, error)
-	SetMetadata(ctx context.Context, params agentstore.SetMetadataParams) (bool, error)
 	SetAlive(ctx context.Context, ids []string, alive bool) error
 }
 

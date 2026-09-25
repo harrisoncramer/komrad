@@ -37,7 +37,6 @@ type worktreeLister interface {
 type adoptAgentReadWriter interface {
 	List(ctx context.Context) ([]agentstore.Agent, error)
 	ListAll(ctx context.Context) ([]agentstore.Agent, error)
-	SetMetadata(ctx context.Context, params agentstore.SetMetadataParams) (bool, error)
 }
 
 type NewAdoptServiceParams struct {

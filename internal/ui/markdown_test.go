@@ -91,8 +91,8 @@ func TestWorkflowFieldsWorktree(t *testing.T) {
 	assert.NotContains(t, fields, recordField{"worktree", "off"}, "a worktree workflow says what it cuts them from, not that it has none")
 }
 
-// TestAgentFields covers what an agent shows in the section: what it was launched with,
-// the schedule that started it when one did, and whatever it has recorded about its own work.
+// TestAgentFields covers what an agent shows in the section: what it was launched with and
+// the schedule that started it when one did.
 func TestAgentFields(t *testing.T) {
 	agent := panel.Agent{
 		ID:        "a1",
@@ -106,7 +106,7 @@ func TestAgentFields(t *testing.T) {
 		name       string
 		schedule   string
 		branch     *string
-		metadata   []panel.Metadata
+		failure    string
 		wantLabels []string
 		wantValues []string
 		wantAbsent []string
@@ -128,17 +128,8 @@ func TestAgentFields(t *testing.T) {
 			wantAbsent: []string{"launched by"},
 		},
 		{
-			name:       "an agent that recorded nothing adds nothing for it",
-			wantAbsent: []string{"pr", "branch"},
-		},
-		{
-			name: "what the agent recorded comes after what it was launched with",
-			metadata: []panel.Metadata{
-				{Key: "branch", Value: "harry/rate-limits"},
-				{Key: "pr", Value: "https://github.com/o/r/pull/312"},
-			},
-			wantLabels: []string{"branch", "pr"},
-			wantValues: []string{"harry/rate-limits", "https://github.com/o/r/pull/312"},
+			name:       "an agent off any branch draws none",
+			wantAbsent: []string{"branch"},
 		},
 		{
 			name:       "the branch the checkout is on shows without the agent recording it",
@@ -147,28 +138,16 @@ func TestAgentFields(t *testing.T) {
 			wantValues: []string{"harry/rate-limits"},
 		},
 		{
-			name:       "the branch read from the checkout wins over one the agent recorded itself",
-			branch:     xptr.Ptr("harry/rate-limits"),
-			metadata:   []panel.Metadata{{Key: "branch", Value: "harry/stale"}},
-			wantValues: []string{"harry/rate-limits"},
-			wantAbsent: []string{"harry/stale"},
-			wantOnce:   []string{"branch"},
-		},
-		{
-			name: "why a create or cleanup failed is left to the failed placeholder, not repeated here",
-			metadata: []panel.Metadata{
-				{Key: "error", Value: "the provisioner failed: exited 1"},
-				{Key: "branch", Value: "harry/rate-limits"},
-			},
-			wantLabels: []string{"branch"},
-			wantAbsent: []string{"error"},
+			name:       "why a create or cleanup failed is left to the failed placeholder, not repeated here",
+			failure:    "the provisioner failed: exited 1",
+			wantAbsent: []string{"the provisioner failed: exited 1"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			agent := agent
-			agent.Metadata = tt.metadata
+			agent.FailureReason = tt.failure
 			agent.Branch = tt.branch
 
 			fields := agentFields(agentFieldsParams{agent: agent, schedule: tt.schedule})
@@ -201,31 +180,22 @@ func TestAgentFieldsReviewingRow(t *testing.T) {
 	tests := []struct {
 		name       string
 		role       panel.Role
-		metadata   []panel.Metadata
 		wantLabels []string
 		wantOnce   []string
 		wantAbsent []string
 	}{
 		{
-			name:       "a reviewer that recorded the key too draws one row, not two",
+			name:       "a reviewer draws whose work it reads once",
 			role:       panel.RoleReviewer,
-			metadata:   []panel.Metadata{{Key: "reviewing", Value: "01a0-stale"}},
 			wantLabels: []string{"reviewing"},
 			wantOnce:   []string{"reviewing"},
-			wantAbsent: []string{"01a0-stale", "attached to"},
+			wantAbsent: []string{"attached to"},
 		},
 		{
 			name:       "an ordinary child is drawn as attached rather than reviewing",
 			role:       panel.RoleImplementer,
 			wantLabels: []string{"attached to"},
 			wantAbsent: []string{"reviewing"},
-		},
-		{
-			name:       "a child that recorded the key without the role keeps what it recorded",
-			role:       panel.RoleImplementer,
-			metadata:   []panel.Metadata{{Key: "reviewing", Value: "01a0-someone"}},
-			wantLabels: []string{"attached to", "reviewing"},
-			wantOnce:   []string{"reviewing"},
 		},
 	}
 
@@ -235,7 +205,6 @@ func TestAgentFieldsReviewingRow(t *testing.T) {
 				Name:          "reader",
 				Role:          tt.role,
 				ParentAgentID: xptr.Ptr("01a0-parent"),
-				Metadata:      tt.metadata,
 			}
 
 			fields := agentFields(agentFieldsParams{agent: agent, parent: "author"})

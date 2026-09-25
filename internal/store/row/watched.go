@@ -17,10 +17,6 @@ var WatchedAgents = watch.Resource{
 	IgnoredColumns: []string{"state_seen_at", "updated_at"},
 	Feeders: []watch.Feeder{
 		{
-			Table:  "agent_metadata",
-			Column: "agent_id",
-		},
-		{
 			Table:  "agent_runs",
 			Column: "agent_id",
 		},
@@ -38,5 +34,5 @@ func (s *RowStore) ListWatched(ctx context.Context, keys []string) ([]Row, error
 		return nil, fmt.Errorf("failed to list the watched agent rows: %w", err)
 	}
 
-	return s.attachMetadata(ctx, watched)
+	return fromWatched(watched), nil
 }

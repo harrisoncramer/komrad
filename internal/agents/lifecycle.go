@@ -659,11 +659,7 @@ func failAs(ctx context.Context, agents agentFailWriter, agent agentstore.Agent,
 	}
 
 	reason := store.FailureReason(cause)
-	if _, err := agents.SetMetadata(ctx, agentstore.SetMetadataParams{
-		ID:    agent.ID,
-		Key:   "error",
-		Value: &reason,
-	}); err != nil {
+	if _, err := agents.SetFailureReason(ctx, agent.ID, reason); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to record why an agent's lifecycle action failed",
 			append([]slog.Attr{
 				slog.String(logging.AgentID, agent.ID),

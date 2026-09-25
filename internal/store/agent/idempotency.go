@@ -6,6 +6,7 @@ import (
 
 	"komrad/db"
 	"komrad/internal/store"
+	"komrad/lib/xptr"
 )
 
 // GetByIdempotencyKey returns the live or archived agent recorded under a key.
@@ -22,7 +23,7 @@ func (s *AgentStore) GetByIdempotencyKey(ctx context.Context, key string) (*Agen
 		return nil, fmt.Errorf("failed to get the agent for idempotency key %q: %w", key, err)
 	}
 
-	return s.hydrateMetadataForAgent(ctx, row)
+	return xptr.Ptr(FromRow(*row)), nil
 }
 
 // ReleaseIdempotencyKey takes a key back off the failed create holding it and reports whether

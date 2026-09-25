@@ -75,7 +75,7 @@ type nameChecker interface {
 // agentFailWriter records that an agent's create or cleanup gave up.
 type agentFailWriter interface {
 	Update(ctx context.Context, agent agentstore.Agent) error
-	SetMetadata(ctx context.Context, params agentstore.SetMetadataParams) (bool, error)
+	SetFailureReason(ctx context.Context, id, reason string) (bool, error)
 }
 
 type paneLister interface {

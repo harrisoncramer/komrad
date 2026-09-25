@@ -286,17 +286,8 @@ type Agent struct {
 	HeadSha *string
 	// The snapshot of the agent's newest review round when its worktree no longer hashes to it, empty while it still does or when there is no round. The cwd syncer rewrites it every pass.
 	MovedSinceRound string
-}
-
-// Facts an agent recorded about its own work, such as the pull request it opened.
-type AgentMetadatum struct {
-	AgentID   pgtype.UUID
-	Key       string
-	Value     string
-	CreatedAt pgtype.Timestamptz
-	UpdatedAt pgtype.Timestamptz
-	// The engine that owns this row, stamped from the login that wrote it.
-	TenantID pgtype.UUID
+	// Why the agent's create or cleanup failed, empty unless it is in one of the failed states.
+	FailureReason string
 }
 
 // Which agents were seen with which pull requests, one row per pair, never re-pointed. The watch carries every pull request with a row here.

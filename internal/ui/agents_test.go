@@ -640,12 +640,13 @@ func TestAgentsRecordFocus(t *testing.T) {
 
 	t.Run("a record shortened under the cursor holds it on its last field", func(t *testing.T) {
 		rows := buildRecorded()
+		agent, _ := rows[1].(*agentv1.Agent)
+		agent.ReportedReason = "reading the diff"
 		harness := openAgents(t, rows...)
 		harness.press("ctrl+a", "G")
-		require.Regexp(t, `^pr\s`, readRecordCursor(harness.readFrame()))
+		require.Regexp(t, `^created\s`, readRecordCursor(harness.readFrame()))
 
-		agent, _ := rows[1].(*agentv1.Agent)
-		agent.Metadata = nil
+		agent.ReportedReason = ""
 		harness.watch(buildSnapshot(rows...))
 
 		assert.Regexp(t, `^created\s`, readRecordCursor(harness.readFrame()))
@@ -693,12 +694,20 @@ func TestAgentsRecordCopy(t *testing.T) {
 	}{
 		{
 			name: "the whole value is taken rather than the clipped line it is drawn on",
-			open: openCopyRecord,
-			press: []string{
-				"ctrl+a",
-				"G",
+			open: func(t *testing.T) *panelHarness {
+				t.Helper()
+
+				rows := buildRecorded()
+				agent, _ := rows[1].(*agentv1.Agent)
+				agent.ReportedReason = strings.Repeat("reading the diff of every file on the branch ", 4)
+				harness := newPanelHarness(t, panelHarnessParams{})
+				answerWorktreeReads(harness)
+				harness.watch(buildSnapshot(rows...))
+
+				return harness
 			},
-			want: "https://github.com/o/r/pull/312",
+			press: []string{"ctrl+a", "j", "j", "j", "j"},
+			want:  strings.Repeat("reading the diff of every file on the branch ", 4),
 		},
 		{
 			name: "a narrowed record copies from the rows that are left",
@@ -839,7 +848,10 @@ func TestAgentsRecordHeight(t *testing.T) {
 	})
 
 	t.Run("a record longer than its share says how much is left either side of the cursor", func(t *testing.T) {
-		harness := openAgents(t, buildRecorded()...)
+		rows := buildRecorded()
+		agent, _ := rows[1].(*agentv1.Agent)
+		agent.ReportedReason = "reading the diff"
+		harness := openAgents(t, rows...)
 		require.Equal(t, "  ↓ 2 more", readRecord(harness.readFrame())[8])
 
 		harness.press("ctrl+a", "G", "ctrl+a")
@@ -2473,10 +2485,6 @@ func buildRecorded() []proto.Message {
 	agent.Id = "a1"
 	agent.Cwd = "/repo"
 	agent.SessionId = "abc"
-	agent.Metadata = []*agentv1.AgentMetadata{{
-		Key:   "pr",
-		Value: "https://github.com/o/r/pull/312",
-	}}
 
 	return []proto.Message{
 		&workflowv1.Workflow{

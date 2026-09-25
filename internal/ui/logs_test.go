@@ -317,7 +317,7 @@ func TestLogsFailedPlaceholder(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			failed := newAgent("a1", "old", "w1")
 			failed.State = tt.state
-			failed.Metadata = []*agentv1.AgentMetadata{{Key: "error", Value: tt.reason}}
+			failed.FailureReason = tt.reason
 			harness, runs := openLogs(t)
 			for i, trigger := range tt.runs {
 				path := runs.write(t, i+1, trigger)
