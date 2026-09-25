@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 source "$MISE_CONFIG_ROOT/mise/tasks/_"
 set -euo pipefail
-#MISE description="Set every tracked file's mtime from its content, so Go's test cache survives a fresh checkout."
+#MISE description="Pin every tracked file's and directory's mtime, so Go's test cache survives a fresh checkout."
 
 usage() {
 	echo "Usage: mise run go:mtimehash"
@@ -10,7 +10,13 @@ usage() {
 	echo "every file the test opened, and a checkout stamps every file with the moment it"
 	echo "was cloned. Setting each tracked file's mtime from a hash of its content gives the"
 	echo "same content the same time on every runner, so a package nothing touched is not"
-	echo "run again. Only CI wants this; on a working copy it does nothing."
+	echo "run again."
+	echo
+	echo "A test that lists a directory is keyed on the directory's own mtime as well as"
+	echo "its entries, so every tracked directory is pinned to one fixed time. That is safe"
+	echo "because an added or removed file still changes the entries Go hashes."
+	echo
+	echo "Only CI wants this; on a working copy it does nothing."
 }
 
 for arg in "$@"; do
@@ -30,3 +36,7 @@ fi
 cd "$MISE_CONFIG_ROOT"
 
 git ls-files | mtimehash
+{
+	echo .
+	git ls-tree -r -d --name-only HEAD
+} | xargs touch -t 200001010000
