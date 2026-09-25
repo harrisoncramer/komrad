@@ -190,7 +190,7 @@ func (p *Panel) Update(msg tea.Msg) tea.Cmd {
 	}
 
 	return tea.Batch(cmd, func() tea.Msg {
-		return *size
+		return sizeReadMsg{size: *size}
 	})
 }
 

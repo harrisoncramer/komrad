@@ -13,6 +13,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"komrad/config"
 	"komrad/internal/browser"
@@ -116,10 +117,22 @@ func (p *postbox) send(msg tea.Msg) {
 func (p *postbox) deliver() {
 	for range p.wake {
 		if size := p.takePending(); size != nil {
-			p.program.Send(*size)
+			p.program.Send(sizeReadMsg{size: *size})
 		}
 	}
 }
+
+// sizeReadMsg is the size the frame read back off tmux after moving the panel's own pane.
+type sizeReadMsg struct {
+	size tea.WindowSizeMsg
+}
+
+// sizeFallbackMsg is a read-back size the terminal has not confirmed within sizeFallback.
+type sizeFallbackMsg struct {
+	size tea.WindowSizeMsg
+}
+
+const sizeFallback = 200 * time.Millisecond
 
 func (p *postbox) takePending() *tea.WindowSizeMsg {
 	p.mu.Lock()
