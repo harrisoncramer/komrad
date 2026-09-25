@@ -22,7 +22,7 @@ permissions:
 jobs:
   # Answered before the suite is spent on it, since a dispatch is hand-typed.
   tag:
-    runs-on: ubuntu-latest
+    runs-on: namespace-profile-harrisoncramer
     steps:
       - name: Refuse anything that is not a tag
         if: github.ref_type != 'tag'
@@ -38,15 +38,20 @@ jobs:
 
   publish:
     needs: check
-    runs-on: ubuntu-latest
+    runs-on: namespace-profile-harrisoncramer
 
     steps:
       - uses: actions/checkout@v4
 
-      - uses: jdx/mise-action@v2
+      - name: Cache the Go caches and the tools
+        uses: namespacelabs/nscloud-cache-action@v1
         with:
-          install: true
-          cache: true
+          cache: go,mise
+
+      - name: Use Mise
+        uses: ./.github/actions/use-mise
+        with:
+          gh-access-token: ${{ env.GH_ACCESS_TOKEN }}
 
       - name: Build
         run: mise run go:release

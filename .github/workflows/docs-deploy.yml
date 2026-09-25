@@ -35,6 +35,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Cache the tools, the npm cache and the Terraform providers
+        uses: namespacelabs/nscloud-cache-action@v1
+        with:
+          cache: mise
+          path: |
+            /home/runner/.npm
+            /home/runner/.cache/terraform/plugins
+
       - name: Use Mise
         uses: ./.github/actions/use-mise
         with:

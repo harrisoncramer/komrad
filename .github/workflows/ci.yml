@@ -97,6 +97,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Cache the tools
+        uses: namespacelabs/nscloud-cache-action@v1
+        with:
+          cache: mise
+
       - name: Use Mise
         uses: ./.github/actions/use-mise
         with:
@@ -114,6 +119,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Cache the tools
+        uses: namespacelabs/nscloud-cache-action@v1
+        with:
+          cache: mise
+
       - name: Use Mise
         uses: ./.github/actions/use-mise
         with:
@@ -130,6 +140,12 @@ jobs:
     runs-on: namespace-profile-harrisoncramer
     steps:
       - uses: actions/checkout@v4
+
+      - name: Cache the tools and the Packer plugins
+        uses: namespacelabs/nscloud-cache-action@v1
+        with:
+          cache: mise
+          path: /home/runner/.config/packer/plugins
 
       - name: Use Mise
         uses: ./.github/actions/use-mise
@@ -153,6 +169,11 @@ jobs:
     runs-on: namespace-profile-harrisoncramer
     steps:
       - uses: actions/checkout@v4
+
+      - name: Cache the tools
+        uses: namespacelabs/nscloud-cache-action@v1
+        with:
+          cache: mise
 
       - name: Use Mise
         uses: ./.github/actions/use-mise
@@ -191,10 +212,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Cache the Go and lint caches
+      - name: Cache the Go caches and the tools
         uses: namespacelabs/nscloud-cache-action@v1
         with:
-          cache: go
+          cache: go,mise
 
       - name: Use Mise
         uses: ./.github/actions/use-mise
@@ -240,33 +261,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # The Go build cache, the module cache, and golangci-lint's own cache are
-      # rebuilt from nothing on every run otherwise, about 1.6GB of it. These are
+      # The Go build cache, the module cache, golangci-lint's own cache and the tools
+      # are rebuilt from nothing on every run otherwise, about 1.6GB of it. These are
       # volumes attached to the runner rather than archives to download, and they
       # are shared across every branch of the repository, so a new branch starts
       # warm where actions/cache would miss.
-      - name: Cache the Go and lint caches
+      #
+      # go:lint builds golangci-lint from source to bundle the repo's plugins,
+      # which dominates the job. The binary only changes when a plugin's pin or
+      # komrade's own rules change, and go:lint compares a sum of those before
+      # trusting the binary it finds, so it can sit on the volume too.
+      - name: Cache the Go caches, the tools and the custom linter
         uses: namespacelabs/nscloud-cache-action@v1
         with:
-          cache: go
-          path: /home/runner/.cache/golangci-lint
+          cache: go,golangci-lint,mise
+          path: ${{ github.workspace }}/local
 
       - name: Use Mise
         uses: ./.github/actions/use-mise
         with:
           gh-access-token: ${{ env.GH_ACCESS_TOKEN }}
-
-      # go:lint builds golangci-lint from source to bundle the repo's plugins,
-      # which dominates the job. The binary only changes when a plugin's pin or
-      # komrade's own rules change, so it is cached against those rather than
-      # rebuilt every run.
-      - name: Cache the custom linter
-        uses: actions/cache@v4
-        with:
-          path: |
-            local/custom-gcl
-            local/custom-gcl.sum
-          key: custom-gcl-v2-${{ runner.os }}-${{ hashFiles('.custom-gcl.yml', 'tools/komradelint/**') }}
 
       - name: Check the formatting
         run: mise run go:fmt --check
@@ -308,10 +322,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Cache the Go and lint caches
+      - name: Cache the Go caches, the tools and the packages
         uses: namespacelabs/nscloud-cache-action@v1
         with:
-          cache: go
+          cache: apt,go,mise
 
       - name: Use Mise
         uses: ./.github/actions/use-mise
@@ -335,6 +349,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Cache the tools and the npm cache
+        uses: namespacelabs/nscloud-cache-action@v1
+        with:
+          cache: mise
+          path: /home/runner/.npm
+
       - name: Use Mise
         uses: ./.github/actions/use-mise
         with:
@@ -355,7 +375,7 @@ jobs:
   required:
     needs: [changes, shell, proto, infra, db, generated, go, integration, docs]
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: namespace-profile-harrisoncramer
     steps:
       - name: Fail when a needed job did not succeed
         if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')

@@ -1,14 +1,10 @@
 name: Use Mise
-description: Install mise tools with caching.
+description: Install mise tools. Caching is the job's concern, through nscloud-cache-action's mise mode.
 
 inputs:
   gh-access-token:
     description: GitHub access token for private repository access. Configures git to authenticate against private Go modules.
     required: true
-  cache:
-    description: Whether to enable mise-action built-in caching. Disable when using an external cache (e.g. nscloud-cache-action).
-    required: false
-    default: "true"
 
 runs:
   using: composite
@@ -32,4 +28,4 @@ runs:
         GOWORK: "off"
       with:
         version: 2026.6.14
-        cache: ${{ inputs.cache == 'true' }}
+        cache: false

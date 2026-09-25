@@ -30,7 +30,7 @@ concurrency:
 jobs:
   publish:
     if: github.event.workflow_run.conclusion == 'success'
-    runs-on: ubuntu-latest
+    runs-on: namespace-profile-harrisoncramer
 
     steps:
       # A workflow_run checks out the default branch by default, not the commit that was tested.
@@ -40,10 +40,15 @@ jobs:
           ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0
 
-      - uses: jdx/mise-action@v2
+      - name: Cache the Go caches and the tools
+        uses: namespacelabs/nscloud-cache-action@v1
         with:
-          install: true
-          cache: true
+          cache: go,mise
+
+      - name: Use Mise
+        uses: ./.github/actions/use-mise
+        with:
+          gh-access-token: ${{ env.GH_ACCESS_TOKEN }}
 
       # All four targets, macOS included, build here with CGO off. The Go linker ad-hoc
       # signs the darwin/arm64 binary, which is what Apple Silicon refuses to run without,

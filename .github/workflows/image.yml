@@ -19,6 +19,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Cache the Go caches, the tools and the Packer plugins
+        uses: namespacelabs/nscloud-cache-action@v1
+        with:
+          cache: go,mise
+          path: /home/runner/.config/packer/plugins
+
       - name: Use Mise
         uses: ./.github/actions/use-mise
         with:
