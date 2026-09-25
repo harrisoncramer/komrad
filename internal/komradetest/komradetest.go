@@ -176,7 +176,7 @@ func Start(t *testing.T, p Params) *Instance {
 		Tmux:               manager,
 		Harnesses:          harnesses,
 		DefaultHarness:     harnesstest.ID,
-		MaxAgents:          p.MaxAgents,
+		Usage:              config.Usage{MaxAgents: p.MaxAgents},
 		FallbackResumeRoot: filepath.Join(root, "restored"),
 		ForgeBuilders:      p.ForgeBuilders,
 		Doctor: doctor.Settings{

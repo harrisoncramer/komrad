@@ -235,6 +235,20 @@ func (s *AgentStore) ListChildren(ctx context.Context, parentIDs []string) ([]Ag
 	return s.hydrateMetadataForAgents(ctx, rows)
 }
 
+// CountLiveSpawned returns how many live agents one agent spawned that are not attached to a parent.
+func (s *AgentStore) CountLiveSpawned(ctx context.Context, spawnerID string) (int, error) {
+	if !store.IsID(spawnerID) {
+		return 0, nil
+	}
+
+	count, err := s.queries.CountLiveSpawnedAgents(ctx, &spawnerID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count the agents spawned by %q: %w", spawnerID, err)
+	}
+
+	return int(count), nil
+}
+
 // CountLiveChildren returns how many live agents are attached to one parent.
 func (s *AgentStore) CountLiveChildren(ctx context.Context, parentID string) (int, error) {
 	if !store.IsID(parentID) {

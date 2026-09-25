@@ -461,11 +461,12 @@ func TestBuildCommandSetsTheCompactionPoint(t *testing.T) {
 	configDir := t.TempDir()
 	hn := NewHarness(NewHarnessParams{ConfigDir: configDir})
 
-	build := func(autoCompaction int) string {
+	build := func(role string, autoCompaction int) string {
 		command, err := hn.BuildCommand(harness.Launch{
 			CacheDir:       t.TempDir(),
 			SessionID:      "sess",
 			HookCommand:    "/usr/local/bin/komrade",
+			Role:           role,
 			AutoCompaction: autoCompaction,
 		})
 		require.NoError(t, err)
@@ -473,15 +474,18 @@ func TestBuildCommandSetsTheCompactionPoint(t *testing.T) {
 		return command
 	}
 
-	implementer := build(250000)
-	orchestrator := build(150000)
-	unset := build(0)
+	implementer := build("implementer", 250000)
+	orchestrator := build("orchestrator", 150000)
+	unset := build("", 0)
+	belowFloor := build("reviewer", 40000)
 
 	assert.Equal(t, 250000, readSettings(t, implementer).AutoCompactWindow, "a launch just after it did not overwrite its settings")
 	assert.Equal(t, 150000, readSettings(t, orchestrator).AutoCompactWindow)
 	assert.Zero(t, readSettings(t, unset).AutoCompactWindow, "no point leaves claude its own")
+	assert.Equal(t, minAutoCompactWindow, readSettings(t, belowFloor).AutoCompactWindow, "claude ignores a window under its floor, so it is raised to it")
 	assert.Equal(t, filepath.Join(configDir, "komrade-settings.json"), settingsPath(t, unset))
-	assert.NotEqual(t, settingsPath(t, implementer), settingsPath(t, orchestrator))
+	assert.Equal(t, filepath.Join(configDir, "komrade-settings-implementer.json"), settingsPath(t, implementer))
+	assert.Equal(t, filepath.Join(configDir, "komrade-settings-orchestrator.json"), settingsPath(t, orchestrator))
 }
 
 // TestBuildCommandDeniesSubagents covers the deny that leaves create_agent as the only way an

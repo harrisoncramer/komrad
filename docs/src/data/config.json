@@ -61,15 +61,8 @@
           "key": "max_agents",
           "path": "usage.max_agents",
           "type": "integer",
-          "description": "How many unarchived agents may exist at once, past which a create is refused.",
+          "description": "How many unarchived agents this engine may run at once, past which a create is refused.",
           "default": "50"
-        },
-        {
-          "key": "max_children",
-          "path": "usage.max_children",
-          "type": "integer",
-          "description": "How many children one agent may hold at once, past which attaching another is refused.\nChildren share their parent's checkout, so this is deliberately a much lower ceiling\nthan max_agents.",
-          "default": "3"
         }
       ],
       "sections": [
@@ -81,8 +74,15 @@
               "key": "auto_compaction",
               "path": "usage.implementer.auto_compaction",
               "type": "integer",
-              "description": "The conversation size in tokens an agent is held under, summarizing its history a little\nbefore it gets there. Lower costs less per turn and forgets more. Between 100000 and\n1000000, or 0 for the agent CLI's own default.",
+              "description": "The conversation size in tokens an agent is held under, summarizing its history a little\nbefore it gets there. Lower costs less per turn and forgets more. 0 leaves the agent CLI's\nown default, and a value the CLI will not take is moved to the nearest one it will.",
               "default": "250000"
+            },
+            {
+              "key": "max_children",
+              "path": "usage.implementer.max_children",
+              "type": "integer",
+              "description": "How many children, such as its reviewer, one implementer may hold at once. Children share\ntheir parent's checkout, so this is deliberately far lower than max_agents.",
+              "default": "3"
             }
           ],
           "sections": []
@@ -95,7 +95,7 @@
               "key": "auto_compaction",
               "path": "usage.reviewer.auto_compaction",
               "type": "integer",
-              "description": "The conversation size in tokens an agent is held under, summarizing its history a little\nbefore it gets there. Lower costs less per turn and forgets more. Between 100000 and\n1000000, or 0 for the agent CLI's own default.",
+              "description": "The conversation size in tokens an agent is held under, summarizing its history a little\nbefore it gets there. Lower costs less per turn and forgets more. 0 leaves the agent CLI's\nown default, and a value the CLI will not take is moved to the nearest one it will.",
               "default": "250000"
             }
           ],
@@ -109,8 +109,15 @@
               "key": "auto_compaction",
               "path": "usage.orchestrator.auto_compaction",
               "type": "integer",
-              "description": "The conversation size in tokens an agent is held under, summarizing its history a little\nbefore it gets there. Lower costs less per turn and forgets more. Between 100000 and\n1000000, or 0 for the agent CLI's own default.",
+              "description": "The conversation size in tokens an agent is held under, summarizing its history a little\nbefore it gets there. Lower costs less per turn and forgets more. 0 leaves the agent CLI's\nown default, and a value the CLI will not take is moved to the nearest one it will.",
               "default": "150000"
+            },
+            {
+              "key": "max_children",
+              "path": "usage.orchestrator.max_children",
+              "type": "integer",
+              "description": "How many agents one orchestrator may have spawned and running at once, not counting their\nchildren. 0 sets no limit of its own, leaving max_agents as the cap.",
+              "default": "0"
             }
           ],
           "sections": []

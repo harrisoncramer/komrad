@@ -187,50 +187,46 @@ func TestLoadLayout(t *testing.T) {
 	}
 }
 
-// TestLoadAutoCompaction covers each role's compaction point and the range a CLI will take.
-func TestLoadAutoCompaction(t *testing.T) {
+// TestLoadUsage covers each role's limits and what an omitted key takes.
+func TestLoadUsage(t *testing.T) {
 	tests := []struct {
 		name    string
 		file    string
-		want    map[string]int
+		want    Usage
 		wantErr string
 	}{
 		{
-			name: "a file naming none takes the built-in for each role",
-			file: "default_harness = \"claude\"\n",
-			want: map[string]int{
-				"implementer":  DefaultImplementerAutoCompaction,
-				"reviewer":     DefaultReviewerAutoCompaction,
-				"orchestrator": DefaultOrchestratorAutoCompaction,
-			},
-		},
-		{
-			name: "one role changed leaves the others on the built-in",
-			file: "[usage.reviewer]\nauto_compaction = 120000\n",
-			want: map[string]int{
-				"implementer":  DefaultImplementerAutoCompaction,
-				"reviewer":     120000,
-				"orchestrator": DefaultOrchestratorAutoCompaction,
-			},
-		},
-		{
-			name: "zero hands the role back to the CLI's own default",
-			file: "[usage.orchestrator]\nauto_compaction = 0\n",
-			want: map[string]int{
-				"implementer":  DefaultImplementerAutoCompaction,
-				"reviewer":     DefaultReviewerAutoCompaction,
-				"orchestrator": 0,
-			},
-		},
-		{
-			name:    "a point below what a CLI takes is refused",
-			file:    "[usage.implementer]\nauto_compaction = 50000\n",
+			name:    "a negative compaction point is refused",
+			file:    "[usage.implementer]\nauto_compaction = -1\n",
 			wantErr: "usage.implementer.auto_compaction",
 		},
 		{
-			name:    "a point above what a CLI takes is refused",
-			file:    "[usage.orchestrator]\nauto_compaction = 2000000\n",
-			wantErr: "usage.orchestrator.auto_compaction",
+			name:    "a negative child limit on an implementer is refused",
+			file:    "[usage.implementer]\nmax_children = -1\n",
+			wantErr: "usage.implementer.max_children",
+		},
+		{
+			name:    "a negative child limit on an orchestrator is refused",
+			file:    "[usage.orchestrator]\nmax_children = -2\n",
+			wantErr: "usage.orchestrator.max_children",
+		},
+		{
+			name: "a file naming none takes the built-in, with no orchestrator limit of its own",
+			file: "default_harness = \"claude\"\n",
+			want: NewUsage(),
+		},
+		{
+			name: "zero hands a role's compaction back to the CLI and one role changed leaves the rest",
+			file: "[usage.reviewer]\nauto_compaction = 120000\n[usage.orchestrator]\nauto_compaction = 0\nmax_children = 4\n",
+			want: Usage{
+				MaxAgents: DefaultMaxAgents,
+				Implementer: ImplementerUsage{
+					AutoCompaction: DefaultImplementerAutoCompaction,
+					MaxChildren:    DefaultMaxChildren,
+				},
+				Reviewer:     ReviewerUsage{AutoCompaction: 120000},
+				Orchestrator: OrchestratorUsage{MaxChildren: 4},
+			},
 		},
 	}
 
@@ -248,7 +244,7 @@ func TestLoadAutoCompaction(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-			assert.Equal(t, tt.want, cfg.Usage.AutoCompactionByRole())
+			assert.Equal(t, tt.want, cfg.Usage)
 		})
 	}
 }

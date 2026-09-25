@@ -27,6 +27,7 @@ var (
 	ErrParentIsOrchestrator = fail.InvalidArgument("an orchestrator may not have children of its own")
 	ErrChildOwnsLaunch      = fail.InvalidArgument("a child agent takes its launch from its parent")
 	ErrTooManyChildren      = fail.Exhausted("too many children")
+	ErrTooManySpawned       = fail.Exhausted("too many spawned agents")
 
 	// ErrChildNeedsParentDirectory says the agent a child was to be attached to has no directory
 	// recorded.

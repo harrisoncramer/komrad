@@ -208,6 +208,25 @@ func (q *Queries) CountLiveScheduleAgents(ctx context.Context, scheduleID *strin
 	return count, err
 }
 
+const countLiveSpawnedAgents = `-- name: CountLiveSpawnedAgents :one
+SELECT
+    COUNT(*)
+FROM
+    agents
+WHERE
+    spawned_by_agent_id = $1
+    AND parent_agent_id IS NULL
+    AND archived_at IS NULL
+    AND state NOT IN ('failed_to_create', 'failed_to_cleanup')
+`
+
+func (q *Queries) CountLiveSpawnedAgents(ctx context.Context, spawnedByAgentID *string) (int64, error) {
+	row := q.db.QueryRow(ctx, countLiveSpawnedAgents, spawnedByAgentID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const deleteAgentMetadata = `-- name: DeleteAgentMetadata :many
 DELETE FROM agent_metadata
 WHERE agent_id = $1

@@ -64,8 +64,7 @@ type NewWorkflowServiceParams struct {
 	Tmux         paneKiller
 	Tx           txRunner
 	Scripts      agentScriptRunner
-	MaxAgents    int
-	MaxChildren  int
+	Usage        config.Usage
 }
 
 type WorkflowService struct {
@@ -78,8 +77,7 @@ type WorkflowService struct {
 	tmux         paneKiller
 	tx           txRunner
 	scripts      agentScriptRunner
-	maxAgents    int
-	maxChildren  int
+	usage        config.Usage
 }
 
 // NewWorkflowService builds the service from its dependencies.
@@ -94,8 +92,7 @@ func NewWorkflowService(params NewWorkflowServiceParams) *WorkflowService {
 		tmux:         params.Tmux,
 		tx:           params.Tx,
 		scripts:      params.Scripts,
-		maxAgents:    params.MaxAgents,
-		maxChildren:  params.MaxChildren,
+		usage:        params.Usage,
 	}
 }
 
@@ -396,10 +393,13 @@ func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*work
 		}
 		// A partial restore would read as a whole one, so the ceiling and the names live agents
 		// hold are both checked before anything is written.
-		if err := claimRoomForAgents(ctx, agents, w.maxAgents, len(archived)); err != nil {
+		if err := claimRoomForAgents(ctx, agents, w.usage.MaxAgents, len(archived)); err != nil {
 			return err
 		}
-		if err := claimRoomForRestoredChildren(ctx, agents, w.maxChildren, archived); err != nil {
+		if err := claimRoomForRestoredChildren(ctx, agents, w.usage.Implementer.MaxChildren, archived); err != nil {
+			return err
+		}
+		if err := claimRoomForRestoredSpawned(ctx, agents, w.usage.Orchestrator.MaxChildren, archived); err != nil {
 			return err
 		}
 		if err := requireNamesFree(ctx, agents, archived); err != nil {

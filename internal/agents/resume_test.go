@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"komrade/config"
 	"komrade/internal/harness"
 	"komrade/internal/harness/pane"
 	"komrade/internal/harnesstest"
@@ -810,10 +811,13 @@ func TestResumeCompactsAtItsRolesPoint(t *testing.T) {
 	st := newStore(t)
 	harness := &harnesstest.Fake{}
 	manager := st.agentService(agentServiceOptions{
-		tmux:           tmux,
-		harnesses:      harnesstest.Registry{Harness: harness},
-		lifecycle:      &fakeLifecycle{},
-		autoCompaction: map[string]int{"implementer": 250000, "orchestrator": 150000},
+		tmux:      tmux,
+		harnesses: harnesstest.Registry{Harness: harness},
+		lifecycle: &fakeLifecycle{},
+		usage: config.Usage{
+			Implementer:  config.ImplementerUsage{AutoCompaction: 250000},
+			Orchestrator: config.OrchestratorUsage{AutoCompaction: 150000},
+		},
 	})
 
 	agent := seed(t, st, "auth", "", agentstore.StateThinking)

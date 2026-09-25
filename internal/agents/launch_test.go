@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"komrade/config"
 	"komrade/internal/caller"
 	"komrade/internal/harness"
 	"komrade/internal/harnesstest"
@@ -1276,10 +1277,10 @@ func TestNewChildAgentUnderTheChildCeiling(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	manager := st.agentService(agentServiceOptions{
-		tmux:        tmux,
-		harnesses:   harnesstest.Registry{Harness: &harnesstest.Fake{}},
-		addr:        "127.0.0.1:9999",
-		maxChildren: 1,
+		tmux:      tmux,
+		harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}},
+		addr:      "127.0.0.1:9999",
+		usage:     config.Usage{Implementer: config.ImplementerUsage{MaxChildren: 1}},
 	})
 	ctx := t.Context()
 
@@ -1294,6 +1295,113 @@ func TestNewChildAgentUnderTheChildCeiling(t *testing.T) {
 
 	require.NoError(t, attach("reviewer"))
 	require.ErrorIs(t, attach("second-reviewer"), ErrTooManyChildren)
+}
+
+// TestNewAgentUnderTheOrchestratorCeiling pins the cap on agents one orchestrator runs, which
+// leaves their children out.
+func TestNewAgentUnderTheOrchestratorCeiling(t *testing.T) {
+	tests := []struct {
+		name       string
+		maxSpawned int
+		child      bool
+		wantErrIs  error
+	}{
+		{
+			name:       "a second agent past a limit of one is refused",
+			maxSpawned: 1,
+			wantErrIs:  ErrTooManySpawned,
+		},
+		{
+			name:       "a child hung under the agent it spawned does not count",
+			maxSpawned: 1,
+			child:      true,
+		},
+		{
+			name: "no limit of its own leaves max_agents as the cap",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmux := tmuxtest.NewFake()
+			st := newStore(t)
+			manager := st.agentService(agentServiceOptions{
+				tmux:      tmux,
+				harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}},
+				addr:      "127.0.0.1:9999",
+				usage: config.Usage{
+					Implementer:  config.ImplementerUsage{MaxChildren: 3},
+					Orchestrator: config.OrchestratorUsage{MaxChildren: tt.maxSpawned},
+				},
+			})
+
+			orchestrator := seedOrchestrator(t, st, tmux)
+			ctx := caller.With(t.Context(), caller.Caller{AgentID: orchestrator.ID})
+
+			first, err := manager.launch.NewAgent(ctx, NewAgentParams{
+				Title:      "first",
+				Dir:        t.TempDir(),
+				Prompt:     "do the thing",
+				WorkflowID: orchestrator.WorkflowID,
+			})
+			require.NoError(t, err)
+
+			second := NewAgentParams{
+				Title:      "second",
+				Dir:        t.TempDir(),
+				Prompt:     "do the other thing",
+				WorkflowID: orchestrator.WorkflowID,
+			}
+			if tt.child {
+				second = childOf(*first, "reader")
+			}
+
+			_, err = manager.launch.NewAgent(ctx, second)
+			if tt.wantErrIs != nil {
+				require.ErrorIs(t, err, tt.wantErrIs)
+
+				return
+			}
+
+			require.NoError(t, err)
+		})
+	}
+}
+
+// TestRestoreUnderTheOrchestratorCeiling pins that bringing an orchestrator's agent back is held
+// to the same cap as spawning one.
+func TestRestoreUnderTheOrchestratorCeiling(t *testing.T) {
+	tmux := tmuxtest.NewFake()
+	st := newStore(t)
+	manager := st.agentService(agentServiceOptions{
+		tmux:      tmux,
+		harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}},
+		addr:      "127.0.0.1:9999",
+		lifecycle: &fakeLifecycle{},
+		usage:     config.Usage{Orchestrator: config.OrchestratorUsage{MaxChildren: 1}},
+	})
+
+	orchestrator := seedOrchestrator(t, st, tmux)
+	ctx := caller.With(t.Context(), caller.Caller{AgentID: orchestrator.ID})
+
+	spawn := func(title string) *agentstore.Agent {
+		created, err := manager.launch.NewAgent(ctx, NewAgentParams{
+			Title:      title,
+			Dir:        t.TempDir(),
+			Prompt:     "do the thing",
+			WorkflowID: orchestrator.WorkflowID,
+		})
+		require.NoError(t, err)
+
+		return created
+	}
+
+	first := spawn("first")
+	require.NoError(t, manager.lifecycle.ArchiveAgents(t.Context(), []string{first.ID}))
+	spawn("second")
+
+	_, err := manager.lifecycle.RestoreAgents(t.Context(), []string{first.ID})
+	require.ErrorIs(t, err, ErrTooManySpawned)
 }
 
 func childOf(parent agentstore.Agent, title string) NewAgentParams {

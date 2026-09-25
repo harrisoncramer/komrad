@@ -40,9 +40,7 @@ type NewServerParams struct {
 	Harnesses          *harness.Registry
 	DefaultHarness     string
 	DefaultFlags       map[string]string
-	MaxAgents          int
-	MaxChildren        int
-	AutoCompaction     map[string]int
+	Usage              config.Usage
 	ContextPath        string
 	HookCommand        string
 	FallbackResumeRoot string

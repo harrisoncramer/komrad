@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"komrade/config"
 	"komrade/internal/harness"
 	"komrade/internal/logging"
 	agentstore "komrade/internal/store/agent"
@@ -42,18 +43,18 @@ type NewLauncherParams struct {
 	LogPath     string
 	ContextPath string
 	// BinPath is komrade's own binary, which an agent's hooks and its gh stand-in both run.
-	BinPath        string
-	AutoCompaction map[string]int
+	BinPath string
+	Usage   config.Usage
 }
 
 type Launcher struct {
-	tmux           paneStarter
-	serverAddr     string
-	cacheDir       string
-	logPath        string
-	contextPath    string
-	binPath        string
-	autoCompaction map[string]int
+	tmux        paneStarter
+	serverAddr  string
+	cacheDir    string
+	logPath     string
+	contextPath string
+	binPath     string
+	usage       config.Usage
 }
 
 // NewLauncher builds a launcher that points spawned agents at the given address.
@@ -63,13 +64,13 @@ func NewLauncher(params NewLauncherParams) *Launcher {
 	}
 
 	return &Launcher{
-		tmux:           params.Tmux,
-		serverAddr:     params.Addr,
-		cacheDir:       params.CacheDir,
-		logPath:        params.LogPath,
-		contextPath:    params.ContextPath,
-		binPath:        params.BinPath,
-		autoCompaction: params.AutoCompaction,
+		tmux:        params.Tmux,
+		serverAddr:  params.Addr,
+		cacheDir:    params.CacheDir,
+		logPath:     params.LogPath,
+		contextPath: params.ContextPath,
+		binPath:     params.BinPath,
+		usage:       params.Usage,
 	}
 }
 
@@ -179,12 +180,17 @@ func (l *Launcher) toolsDir() string {
 	return dir
 }
 
-func (l *Launcher) autoCompactionFor(role agentstore.Role) int {
-	if role == "" {
-		role = agentstore.RoleImplementer
+func (l *Launcher) getAutoCompaction(role agentstore.Role) int {
+	switch role {
+	case agentstore.RoleReviewer:
+		return l.usage.Reviewer.AutoCompaction
+	case agentstore.RoleOrchestrator:
+		return l.usage.Orchestrator.AutoCompaction
+	case agentstore.RoleImplementer:
+		return l.usage.Implementer.AutoCompaction
+	default:
+		return 0
 	}
-
-	return l.autoCompaction[string(role)]
 }
 
 type launchParams struct {
@@ -208,6 +214,11 @@ type launchParams struct {
 }
 
 func (l *Launcher) launch(h harness.Harness, params launchParams) error {
+	role := params.Role
+	if role == "" {
+		role = agentstore.RoleImplementer
+	}
+
 	command, err := h.BuildCommand(harness.Launch{
 		ToolsDir:       l.toolsDir(),
 		Flags:          params.Flags,
@@ -220,7 +231,8 @@ func (l *Launcher) launch(h harness.Harness, params launchParams) error {
 		CacheDir:       l.cacheDir,
 		HookCommand:    l.binPath,
 		Resume:         params.Resume,
-		AutoCompaction: l.autoCompactionFor(params.Role),
+		Role:           string(role),
+		AutoCompaction: l.getAutoCompaction(role),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to build the launch command: %w", err)

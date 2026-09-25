@@ -56,7 +56,7 @@ You can search the list by name, and search every conversation komrade has ever 
 
 ## Children
 
-A child is any agent attached to a parent, and a reviewer is the usual case. Children share the parent's checkout, so [`usage.max_children`](../../config/#usage.max_children) caps how many one parent may hold. An agent that writes work of its own should be a standalone implementer, not a child.
+A child is any agent attached to a parent, and a reviewer is the usual case. Children share the parent's checkout, so [`usage.implementer.max_children`](../../config/#usage.implementer.max_children) caps how many one parent may hold. An agent that writes work of its own should be a standalone implementer, not a child.
 
 <figure class="placeholder">
   <figcaption>A parent agent with a reviewer child indented beneath it in the agents list.</figcaption>

@@ -16,9 +16,7 @@ type app struct {
 	harnesses      *harness.Registry
 	defaultHarness string
 	defaultFlags   map[string]string
-	maxAgents      int
-	maxChildren    int
-	autoCompaction map[string]int
+	usage          config.Usage
 	logViewer      string
 	processViewer  string
 	logLevel       string

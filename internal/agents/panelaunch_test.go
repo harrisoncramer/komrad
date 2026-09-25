@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"komrade/config"
 	"komrade/internal/harness"
 	"komrade/internal/harnesstest"
 	agentstore "komrade/internal/store/agent"
@@ -152,8 +153,11 @@ func TestLaunchCompactsAtTheRolesPoint(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fakeHarness := &harnesstest.Fake{}
 			launcher := NewLauncher(NewLauncherParams{
-				Tmux:           tmuxtest.NewFake(),
-				AutoCompaction: map[string]int{"implementer": 250000, "orchestrator": 150000},
+				Tmux: tmuxtest.NewFake(),
+				Usage: config.Usage{
+					Implementer:  config.ImplementerUsage{AutoCompaction: 250000},
+					Orchestrator: config.OrchestratorUsage{AutoCompaction: 150000},
+				},
 			})
 
 			require.NoError(t, launcher.launch(fakeHarness, launchParams{Pane: "pane", Role: tt.role}))

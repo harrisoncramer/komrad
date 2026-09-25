@@ -105,13 +105,13 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 	})
 
 	harnessLauncher := agents.NewLauncher(agents.NewLauncherParams{
-		Tmux:           params.Tmux,
-		Addr:           params.Addr,
-		CacheDir:       params.Env.CacheDir,
-		LogPath:        params.Env.LogPath(),
-		ContextPath:    params.ContextPath,
-		BinPath:        params.HookCommand,
-		AutoCompaction: params.AutoCompaction,
+		Tmux:        params.Tmux,
+		Addr:        params.Addr,
+		CacheDir:    params.Env.CacheDir,
+		LogPath:     params.Env.LogPath(),
+		ContextPath: params.ContextPath,
+		BinPath:     params.HookCommand,
+		Usage:       params.Usage,
 	})
 	paneLiveness := agents.NewPaneLiveness(params.Tmux)
 	paneChannel := pane.NewPane(pane.NewPaneParams{Terminal: params.Tmux, Harnesses: params.Harnesses})
@@ -126,8 +126,7 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		Scripts:            scriptService,
 		UserDefaultHarness: params.DefaultHarness,
 		UserDefaultFlags:   params.DefaultFlags,
-		MaxAgents:          params.MaxAgents,
-		MaxChildren:        params.MaxChildren,
+		Usage:              params.Usage,
 	})
 	resumeService := agents.NewResumeService(agents.NewResumeServiceParams{
 		Tmux:               params.Tmux,
@@ -189,8 +188,7 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		Snapshots:      gitClient,
 		LogsDir:        runLogsDir,
 		FramesDir:      params.Env.FramesDir(),
-		MaxAgents:      params.MaxAgents,
-		MaxChildren:    params.MaxChildren,
+		Usage:          params.Usage,
 	})
 	workflowService := agents.NewWorkflowService(agents.NewWorkflowServiceParams{
 		Workflows:    st.workflows,
@@ -202,8 +200,7 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		Tmux:         params.Tmux,
 		Tx:           st.pool,
 		Scripts:      scriptService,
-		MaxAgents:    params.MaxAgents,
-		MaxChildren:  params.MaxChildren,
+		Usage:        params.Usage,
 	})
 
 	markService := marks.NewMarkService(marks.NewMarkServiceParams{Marks: st.marks, Tx: st.pool})

@@ -53,6 +53,7 @@ type Launch struct {
 	// the agent runs with.
 	ToolsDir       string
 	Resume         bool
+	Role           string
 	AutoCompaction int
 }
 

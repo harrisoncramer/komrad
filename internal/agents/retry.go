@@ -39,7 +39,7 @@ func (s *LaunchService) RetryCreate(ctx context.Context, params RetryCreateParam
 		return nil, ErrAgentNotFailed.Saying("%q is %s, not failed_to_create", agent.Name, agent.State)
 	}
 
-	if err := requireRoomForAgents(ctx, s.agents, s.maxAgents, 1); err != nil {
+	if err := requireRoomForAgents(ctx, s.agents, s.usage.MaxAgents, 1); err != nil {
 		return nil, err
 	}
 

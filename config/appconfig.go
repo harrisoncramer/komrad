@@ -80,12 +80,6 @@ const DefaultReviewerAutoCompaction = 250_000
 // DefaultOrchestratorAutoCompaction is the conversation size an orchestrator compacts at.
 const DefaultOrchestratorAutoCompaction = 150_000
 
-// MinAutoCompaction is the smallest compaction point a CLI will take.
-const MinAutoCompaction = 100_000
-
-// MaxAutoCompaction is the largest compaction point a CLI will take.
-const MaxAutoCompaction = 1_000_000
-
 // The connection settings a config that names none runs on. They live here rather than as
 // envDefault tags on the runtime config so that the built-in default sits underneath the
 // file, which is where the precedence chain wants it. A tag default would sit beside the
@@ -610,46 +604,82 @@ type Harnesses struct {
 
 // Usage is how much agents may run and how large their conversations may grow.
 type Usage struct {
-	// How many unarchived agents may exist at once, past which a create is refused.
+	// How many unarchived agents this engine may run at once, past which a create is refused.
 	MaxAgents int `mapstructure:"max_agents"`
-	// How many children one agent may hold at once, past which attaching another is refused.
-	// Children share their parent's checkout, so this is deliberately a much lower ceiling
-	// than max_agents.
-	MaxChildren int `mapstructure:"max_children"`
 	// What an implementer, the agent that lands work on a branch of its own, may use.
-	Implementer RoleUsage `mapstructure:"implementer"`
+	Implementer ImplementerUsage `mapstructure:"implementer"`
 	// What a reviewer, the child that reads another agent's work, may use.
-	Reviewer RoleUsage `mapstructure:"reviewer"`
+	Reviewer ReviewerUsage `mapstructure:"reviewer"`
 	// What a workflow's orchestrator may use.
-	Orchestrator RoleUsage `mapstructure:"orchestrator"`
+	Orchestrator OrchestratorUsage `mapstructure:"orchestrator"`
 }
 
-// RoleUsage is what one role's agents may use.
-type RoleUsage struct {
+// ImplementerUsage is what one implementer may use.
+type ImplementerUsage struct {
 	// The conversation size in tokens an agent is held under, summarizing its history a little
-	// before it gets there. Lower costs less per turn and forgets more. Between 100000 and
-	// 1000000, or 0 for the agent CLI's own default.
+	// before it gets there. Lower costs less per turn and forgets more. 0 leaves the agent CLI's
+	// own default, and a value the CLI will not take is moved to the nearest one it will.
+	AutoCompaction int `mapstructure:"auto_compaction"`
+	// How many children, such as its reviewer, one implementer may hold at once. Children share
+	// their parent's checkout, so this is deliberately far lower than max_agents.
+	MaxChildren int `mapstructure:"max_children"`
+}
+
+// ReviewerUsage is what one reviewer may use.
+type ReviewerUsage struct {
+	// The conversation size in tokens an agent is held under, summarizing its history a little
+	// before it gets there. Lower costs less per turn and forgets more. 0 leaves the agent CLI's
+	// own default, and a value the CLI will not take is moved to the nearest one it will.
 	AutoCompaction int `mapstructure:"auto_compaction"`
 }
 
-// DefaultUsage is the usage limits a config that names none runs on.
-func DefaultUsage() Usage {
+// OrchestratorUsage is what one orchestrator may use.
+type OrchestratorUsage struct {
+	// The conversation size in tokens an agent is held under, summarizing its history a little
+	// before it gets there. Lower costs less per turn and forgets more. 0 leaves the agent CLI's
+	// own default, and a value the CLI will not take is moved to the nearest one it will.
+	AutoCompaction int `mapstructure:"auto_compaction"`
+	// How many agents one orchestrator may have spawned and running at once, not counting their
+	// children. 0 sets no limit of its own, leaving max_agents as the cap.
+	MaxChildren int `mapstructure:"max_children"`
+}
+
+// NewUsage is the usage limits a config that names none runs on.
+func NewUsage() Usage {
 	return Usage{
-		MaxAgents:    DefaultMaxAgents,
-		MaxChildren:  DefaultMaxChildren,
-		Implementer:  RoleUsage{AutoCompaction: DefaultImplementerAutoCompaction},
-		Reviewer:     RoleUsage{AutoCompaction: DefaultReviewerAutoCompaction},
-		Orchestrator: RoleUsage{AutoCompaction: DefaultOrchestratorAutoCompaction},
+		MaxAgents: DefaultMaxAgents,
+		Implementer: ImplementerUsage{
+			AutoCompaction: DefaultImplementerAutoCompaction,
+			MaxChildren:    DefaultMaxChildren,
+		},
+		Reviewer:     ReviewerUsage{AutoCompaction: DefaultReviewerAutoCompaction},
+		Orchestrator: OrchestratorUsage{AutoCompaction: DefaultOrchestratorAutoCompaction},
 	}
 }
 
-// AutoCompactionByRole is each role's compaction point, keyed by the role's stored name.
-func (u Usage) AutoCompactionByRole() map[string]int {
-	return map[string]int{
-		"implementer":  u.Implementer.AutoCompaction,
-		"reviewer":     u.Reviewer.AutoCompaction,
-		"orchestrator": u.Orchestrator.AutoCompaction,
+func (u Usage) validate() error {
+	// A negative ceiling would read as zero and take the default, leaving the file saying
+	// one thing while the panel does another.
+	if u.MaxAgents < 0 {
+		return fmt.Errorf("usage.max_agents: %d is not a number of agents", u.MaxAgents)
 	}
+	if u.Implementer.MaxChildren < 0 {
+		return fmt.Errorf("usage.implementer.max_children: %d is not a number of agents", u.Implementer.MaxChildren)
+	}
+	if u.Orchestrator.MaxChildren < 0 {
+		return fmt.Errorf("usage.orchestrator.max_children: %d is not a number of agents", u.Orchestrator.MaxChildren)
+	}
+	if u.Implementer.AutoCompaction < 0 {
+		return fmt.Errorf("usage.implementer.auto_compaction: %d is not a number of tokens", u.Implementer.AutoCompaction)
+	}
+	if u.Reviewer.AutoCompaction < 0 {
+		return fmt.Errorf("usage.reviewer.auto_compaction: %d is not a number of tokens", u.Reviewer.AutoCompaction)
+	}
+	if u.Orchestrator.AutoCompaction < 0 {
+		return fmt.Errorf("usage.orchestrator.auto_compaction: %d is not a number of tokens", u.Orchestrator.AutoCompaction)
+	}
+
+	return nil
 }
 
 // Mail is how long komrade keeps trying to hand mail to the agent it was addressed
@@ -821,7 +851,7 @@ type Config struct {
 func Defaults() *Config {
 	return &Config{
 		DefaultHarness: DefaultHarness,
-		Usage:          DefaultUsage(),
+		Usage:          NewUsage(),
 		Layout:         DefaultLayout(),
 		Keybindings:    DefaultKeybindings(),
 		Mail:           Mail{DeliveryDeadline: DefaultDeliveryDeadline, MaxExchange: DefaultMaxExchange},
@@ -958,7 +988,7 @@ func (c Config) validate() error {
 	if err := validateLog(c.Log); err != nil {
 		return err
 	}
-	if err := validateUsage(c.Usage); err != nil {
+	if err := c.Usage.validate(); err != nil {
 		return err
 	}
 	if err := newKeyChecker().checkKeybindings(c.Keybindings); err != nil {
@@ -985,27 +1015,6 @@ func validateMail(mail Mail) error {
 	}
 	if _, err := mail.GetMaxExchange(); err != nil {
 		return fmt.Errorf("mail.max_exchange: %w", err)
-	}
-
-	return nil
-}
-
-func validateUsage(usage Usage) error {
-	// A negative ceiling would read as zero and take the default, leaving the file saying
-	// one thing while the panel does another.
-	if usage.MaxAgents < 0 {
-		return fmt.Errorf("usage.max_agents: %d is not a number of agents", usage.MaxAgents)
-	}
-	if usage.MaxChildren < 0 {
-		return fmt.Errorf("usage.max_children: %d is not a number of agents", usage.MaxChildren)
-	}
-
-	for _, role := range []string{"implementer", "reviewer", "orchestrator"} {
-		value := usage.AutoCompactionByRole()[role]
-		if value != 0 && (value < MinAutoCompaction || value > MaxAutoCompaction) {
-			return fmt.Errorf("usage.%s.auto_compaction: %d is outside %d to %d, and 0 leaves the CLI's own default",
-				role, value, MinAutoCompaction, MaxAutoCompaction)
-		}
 	}
 
 	return nil
@@ -1344,8 +1353,8 @@ func (c *Config) normalizeZeroValues() {
 	if c.Usage.MaxAgents == 0 {
 		c.Usage.MaxAgents = DefaultMaxAgents
 	}
-	if c.Usage.MaxChildren == 0 {
-		c.Usage.MaxChildren = DefaultMaxChildren
+	if c.Usage.Implementer.MaxChildren == 0 {
+		c.Usage.Implementer.MaxChildren = DefaultMaxChildren
 	}
 	if c.Layout.SidebarWidth == 0 {
 		c.Layout.SidebarWidth = DefaultSidebarWidth

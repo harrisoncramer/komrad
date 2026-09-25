@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"komrade/config"
 	"komrade/db/testmodels"
 	"komrade/internal/frames"
 	"komrade/internal/gittest"
@@ -134,19 +135,17 @@ type testAgents struct {
 }
 
 type agentServiceOptions struct {
-	tmux           fakeTmuxController
-	harnesses      harnesstest.Registry
-	addr           string
-	flags          string
-	lifecycle      agentScriptRunner
-	maxAgents      int
-	maxChildren    int
-	autoCompaction map[string]int
-	logsDir        string
-	framesDir      string
-	agents         testAgentStore
-	tx             txRunner
-	stateDir       string
+	tmux      fakeTmuxController
+	harnesses harnesstest.Registry
+	addr      string
+	flags     string
+	lifecycle agentScriptRunner
+	usage     config.Usage
+	logsDir   string
+	framesDir string
+	agents    testAgentStore
+	tx        txRunner
+	stateDir  string
 }
 
 func (s *testStore) agentService(options agentServiceOptions) *testAgents {
@@ -160,7 +159,7 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 		tx = s.Pool
 	}
 
-	launcher := NewLauncher(NewLauncherParams{Tmux: options.tmux, Addr: options.addr, AutoCompaction: options.autoCompaction})
+	launcher := NewLauncher(NewLauncherParams{Tmux: options.tmux, Addr: options.addr, Usage: options.usage})
 	emptied := NewEmptyWorkflowDeleter(NewEmptyWorkflowDeleterParams{
 		Workflows: s.Workflows,
 		Agents:    s.Agents,
@@ -178,8 +177,7 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 		Scripts:            options.lifecycle,
 		UserDefaultHarness: harnesstest.FakeID,
 		UserDefaultFlags:   map[string]string{harnesstest.FakeID: options.flags},
-		MaxAgents:          options.maxAgents,
-		MaxChildren:        options.maxChildren,
+		Usage:              options.usage,
 	})
 
 	snapshots := &gittest.Snapshots{}
@@ -212,8 +210,7 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 			Snapshots:      snapshots,
 			LogsDir:        options.logsDir,
 			FramesDir:      options.framesDir,
-			MaxAgents:      options.maxAgents,
-			MaxChildren:    options.maxChildren,
+			Usage:          options.usage,
 		}),
 		panes:   NewPaneLiveness(options.tmux),
 		emptied: emptied,
@@ -268,7 +265,7 @@ func (s *testStore) agentServiceCapped(tmux *tmuxtest.Fake, lifecycle agentScrip
 		harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}},
 		addr:      "127.0.0.1:9999",
 		lifecycle: lifecycle,
-		maxAgents: maxAgents,
+		usage:     config.Usage{MaxAgents: maxAgents},
 	})
 }
 
@@ -366,10 +363,9 @@ func (f *fakeLifecycle) RunDeprovision(ctx context.Context, agent agentstore.Age
 }
 
 type workflowServiceOptions struct {
-	tmux        *tmuxtest.Fake
-	lifecycle   agentScriptRunner
-	maxAgents   int
-	maxChildren int
+	tmux      *tmuxtest.Fake
+	lifecycle agentScriptRunner
+	usage     config.Usage
 }
 
 func (s *testStore) workflowService(options workflowServiceOptions) *WorkflowService {
@@ -388,8 +384,7 @@ func (s *testStore) workflowService(options workflowServiceOptions) *WorkflowSer
 		Tmux:         options.tmux,
 		Tx:           s.Pool,
 		Scripts:      options.lifecycle,
-		MaxAgents:    options.maxAgents,
-		MaxChildren:  options.maxChildren,
+		Usage:        options.usage,
 	})
 }
 
