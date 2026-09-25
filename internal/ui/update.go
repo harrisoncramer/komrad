@@ -49,6 +49,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	warming := routed.warm.poll()
 	routed, pulse := routed.pulseMessages(m.messages.landed)
 	routed = routed.releaseHiddenDetails()
+	routed = routed.dropStaleDocScroll()
 	routed.holdFocusKey()
 
 	return routed, tea.Batch(cmd, blink, warming, pulse)
@@ -416,27 +417,46 @@ func (m model) isTyping() bool {
 	return m.active().takesEveryKey()
 }
 
-// wheeled is a screen that scrolls whichever half of the window the mouse is over.
-type wheeled interface {
-	wheel(h host, s panelShared, overColumn, up bool) tea.Cmd
+// columnScroller is a screen that scrolls its own block beside the list.
+type columnScroller interface {
+	scrollColumn(h host, s panelShared, rows int) tea.Cmd
 }
 
-// routeWheel hands a turn of the wheel to a screen that tells its halves apart, and presses the
-// scroll key otherwise.
+// listScroller is a screen whose scroll key does not move its list.
+type listScroller interface {
+	scrollList(h host, s panelShared, rows int) tea.Cmd
+}
+
+// columnWheelStep is how many rows one turn of the wheel moves the block beside the list.
+const columnWheelStep = 3
+
+// routeWheel scrolls the block beside the list when the mouse is over it, and the list otherwise.
 func (m model) routeWheel(wheel tea.MouseWheelMsg) (tea.Model, tea.Cmd) {
 	pressed, ok := m.wheelKey(wheel)
 	if !ok {
 		return m, nil
 	}
 
-	screen, ok := m.active().(wheeled)
-	if !ok || m.form.isActive() || m.held.active {
+	rows := 1
+	if wheel.Button == tea.MouseWheelUp {
+		rows = -1
+	}
+
+	if m.form.isActive() || m.held.active || !m.isOverColumn(wheel.X) {
+		if screen, ok := m.active().(listScroller); ok {
+			return m, screen.scrollList(&m, m.shared(), rows)
+		}
+
 		return m.route(pressed)
 	}
 
-	cmd := screen.wheel(&m, m.shared(), m.isOverColumn(wheel.X), wheel.Button == tea.MouseWheelUp)
+	if screen, ok := m.active().(columnScroller); ok {
+		return m, screen.scrollColumn(&m, m.shared(), rows*columnWheelStep)
+	}
 
-	return m, cmd
+	m.scrollDoc(rows * columnWheelStep)
+
+	return m, nil
 }
 
 // wheelKey is the scroll key a turn of the mouse wheel presses.

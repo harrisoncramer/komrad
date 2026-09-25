@@ -113,18 +113,12 @@ func (w *searchScreen) scrollPreviewBy(s panelShared, rows int) tea.Cmd {
 	return nil
 }
 
-// wheel scrolls the transcript when the mouse is over it, and moves through the hits otherwise.
-func (w *searchScreen) wheel(h host, s panelShared, overColumn, up bool) tea.Cmd {
-	delta := 1
-	if up {
-		delta = -1
-	}
+func (w *searchScreen) scrollColumn(_ host, s panelShared, rows int) tea.Cmd {
+	return w.scrollPreviewBy(s, rows)
+}
 
-	if overColumn {
-		return w.scrollPreviewBy(s, delta*previewWheelStep)
-	}
-
-	return w.list().move(h, s, delta)
+func (w *searchScreen) scrollList(h host, s panelShared, rows int) tea.Cmd {
+	return w.list().move(h, s, rows)
 }
 
 // previewView is the screenful of the transcript beside the list, drawn without the markers the

@@ -357,6 +357,18 @@ func (r *reviewScreen) wheelPressed(h host, s panelShared, pressed string) tea.C
 	return r.step(s, 1, reviewWheelStep)
 }
 
+func (r *reviewScreen) scrollColumn(_ host, s panelShared, rows int) tea.Cmd {
+	if r.isWriting() {
+		return nil
+	}
+
+	if rows < 0 {
+		return r.step(s, -1, -rows)
+	}
+
+	return r.step(s, 1, rows)
+}
+
 func (r *reviewScreen) step(s panelShared, direction, rows int) tea.Cmd {
 	cursor := r.diff.cursor
 	for range rows {
