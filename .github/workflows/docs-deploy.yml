@@ -1,6 +1,6 @@
 name: docs deploy
 
-# Publishes the docs site to komrade.dev. A push to main that touches it publishes latest, the
+# Publishes the docs site to komrad.dev. A push to main that touches it publishes latest, the
 # docs' rolling channel and the counterpart of the binary's tip release in main-release.yml: no
 # version promise, replaced on every merge. release.yml calls this with the tag, so each stable
 # release publishes its own version of the docs beside latest.

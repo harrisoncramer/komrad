@@ -2,7 +2,7 @@
 source "$MISE_CONFIG_ROOT/mise/tasks/_"
 source "$MISE_CONFIG_ROOT/mise/tasks/docs/_docs_deploy_utils"
 set -euo pipefail
-#MISE description="Build one version of the docs site and publish it to komrade.dev."
+#MISE description="Build one version of the docs site and publish it to komrad.dev."
 
 usage() {
 	echo "Usage: mise run docs:deploy <version>"
@@ -11,7 +11,7 @@ usage() {
 	echo "v0.3.0) into docs/dist/<version> and syncs it to s3://<bucket>/<version>/,"
 	echo "then folds the version into versions.json, at the bucket root, that the"
 	echo "site's version picker reads, and writes the robots.txt that names latest's"
-	echo "sitemap. The distribution sends komrade.dev/ to latest."
+	echo "sitemap. The distribution sends komrad.dev/ to latest."
 	echo
 	echo "Reads the bucket and distribution id from infra/docs; run"
 	echo "'mise run infra:docs:apply' first if there is none."

@@ -1,27 +1,33 @@
 # Docs site
 
-The website at komrade.dev. A private S3 bucket holds the built pages, CloudFront serves them,
-and Route53 and ACM give the distribution its names and its certificate. Terraform builds those
-and nothing else. The pages are put there by a script.
+The website at komrad.dev. A private S3 bucket holds the built pages, CloudFront serves them
+under an ACM certificate, and Cloudflare holds the DNS for every komrade domain. Terraform builds
+those and nothing else. The pages are put there by a script.
 
 ```
    browser
-      |  https://komrade.dev/latest/guides/agents
+      |  https://komrad.dev/latest/guides/agents
       v
-   Route53 -----> CloudFront distribution
-                  |
-                  |  viewer-request function
-                  |    www.komrade.dev  ->  301 to komrade.dev
-                  |    /                ->  302 to /latest/
-                  |    /latest/guides/agents  rewritten to /latest/guides/agents/index.html
-                  |
-                  |  signed read, allowed only from this distribution
-                  v
+   Cloudflare DNS -----> CloudFront distribution
+                         |
+                         |  viewer-request function
+                         |    www.komrad.dev   ->  301 to komrad.dev
+                         |    /                ->  302 to /latest/
+                         |    /latest/guides/agents  rewritten to /latest/guides/agents/index.html
+                         |
+                         |  signed read, allowed only from this distribution
+                         v
    S3 bucket komrade.dev (private)
       versions.json  robots.txt
       latest/     index.html  404.html  sitemap-index.xml  guides/agents/index.html  _astro/  pagefind/
       v0.3.0/     ...
 ```
+
+komrad.ai, komrade.app and komrade.dev never reach CloudFront. A redirect rule in each Cloudflare
+zone sends them to komrad.dev, keeping the path and query.
+
+The bucket keeps the name komrade.dev, since a bucket cannot be renamed and every published
+version lives in it.
 
 ## What is in the bucket
 
@@ -54,4 +60,5 @@ fold it into `versions.json`, and invalidate the cache.
 ## Running it
 
 Copy `backend.hcl.example` to `backend.hcl`, then `mise run infra:docs:init` and
-`mise run infra:docs:apply` command.
+`mise run infra:docs:apply` command. Applying needs a Cloudflare API token in
+`CLOUDFLARE_API_TOKEN` that can read the four zones and edit their DNS and redirect rules.

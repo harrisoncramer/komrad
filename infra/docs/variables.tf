@@ -29,6 +29,16 @@ variable "name" {
 
 variable "domain_name" {
   type    = string
+  default = "komrad.dev"
+}
+
+variable "redirect_domain_names" {
+  type    = list(string)
+  default = ["komrad.ai", "komrade.app", "komrade.dev"]
+}
+
+variable "bucket_name" {
+  type    = string
   default = "komrade.dev"
 }
 

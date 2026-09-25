@@ -3,7 +3,7 @@
 # except through the distribution's own certificate and caching.
 
 resource "aws_s3_bucket" "site" {
-  bucket        = var.domain_name
+  bucket        = var.bucket_name
   force_destroy = false
 
   tags = local.tags

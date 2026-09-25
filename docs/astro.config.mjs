@@ -54,7 +54,7 @@ const pagefind = {
 };
 
 export default defineConfig({
-  site: "https://komrade.dev",
+  site: "https://komrad.dev",
   base,
   trailingSlash: "ignore",
   integrations: [mdx(), react(), sitemap({ filter: (page) => !page.endsWith("/404/") })],

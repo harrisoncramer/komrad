@@ -57,7 +57,7 @@ cat >site/robots.txt <<'ROBOTS'
 User-agent: *
 Allow: /
 
-Sitemap: https://komrade.dev/latest/sitemap-index.xml
+Sitemap: https://komrad.dev/latest/sitemap-index.xml
 ROBOTS
 
 gum log --level info "serving docs/site on http://localhost:4330/latest/"

@@ -1,7 +1,7 @@
 # Infrastructure
 
 Two Terraform stacks live here, one per directory. `engine/` is the machine komrade runs on
-when it is not running on a laptop. `docs/` is the website at komrade.dev. They share an AWS
+when it is not running on a laptop. `docs/` is the website at komrad.dev. They share an AWS
 account, one state bucket, and one GitHub trust, and nothing else.
 
 ```
@@ -16,7 +16,7 @@ account, one state bucket, and one GitHub trust, and nothing else.
    |                    |     |                           |
    |  EC2 + data volume |     |  S3 bucket (private)      |
    |  RDS Postgres      |     |  CloudFront + certificate |
-   |  VPC, SSH, SSM     |     |  Route53 records          |
+   |  VPC, SSH, SSM     |     |  Cloudflare DNS           |
    +--------------------+     +---------------------------+
                \                          /
                 \                        /
