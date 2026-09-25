@@ -274,8 +274,10 @@ jobs:
       - name: Cache the Go caches, the tools and the custom linter
         uses: namespacelabs/nscloud-cache-action@v1
         with:
-          cache: go,golangci-lint,mise
-          path: ${{ github.workspace }}/local
+          cache: go,mise
+          path: |
+            /home/runner/.cache/golangci-lint
+            ${{ github.workspace }}/local
 
       - name: Use Mise
         uses: ./.github/actions/use-mise
