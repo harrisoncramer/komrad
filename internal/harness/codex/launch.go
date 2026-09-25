@@ -39,6 +39,10 @@ func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 		command += " -c " + harness.QuoteArg(notifyProgram(launch.HookCommand))
 	}
 
+	if launch.AutoCompaction > 0 {
+		command += " -c " + harness.QuoteArg(fmt.Sprintf("model_auto_compact_token_limit=%d", launch.AutoCompaction))
+	}
+
 	if resuming {
 		command += " " + harness.QuoteArg(launch.SessionID)
 		if launch.Prompt == "" {

@@ -56,7 +56,7 @@ You can search the list by name, and search every conversation komrade has ever 
 
 ## Children
 
-A child is any agent attached to a parent, and a reviewer is the usual case. Children share the parent's checkout, so [`max_children`](../../config/#max_children) caps how many one parent may hold. An agent that writes work of its own should be a standalone implementer, not a child.
+A child is any agent attached to a parent, and a reviewer is the usual case. Children share the parent's checkout, so [`usage.max_children`](../../config/#usage.max_children) caps how many one parent may hold. An agent that writes work of its own should be a standalone implementer, not a child.
 
 <figure class="placeholder">
   <figcaption>A parent agent with a reviewer child indented beneath it in the agents list.</figcaption>
@@ -68,6 +68,6 @@ You can put an agent onto a branch someone else started, which komrade calls ado
 
 ## Finishing with an agent
 
-Archiving stops the agent and takes it out of the list, but keeps its record and conversation. Deleting is permanent: the record, the conversation and the worktree are all removed. Komrade refuses to run more agents than [`max_agents`](../../config/#max_agents) allows, so archive what you are done with.
+Archiving stops the agent and takes it out of the list, but keeps its record and conversation. Deleting is permanent: the record, the conversation and the worktree are all removed. Komrade refuses to run more agents than [`usage.max_agents`](../../config/#usage.max_agents) allows, so archive what you are done with.
 
 Your agent is working in a fresh worktree, which means it has no dependencies installed. A [hook](../hooks/) fixes that.

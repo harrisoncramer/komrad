@@ -804,6 +804,28 @@ func TestResumeAfterARefusedRelaunchGetsThrough(t *testing.T) {
 	assert.Equal(t, agentstore.StateIdle, resumed.State)
 }
 
+// TestResumeCompactsAtItsRolesPoint pins that a relaunch keeps the role's compaction point.
+func TestResumeCompactsAtItsRolesPoint(t *testing.T) {
+	tmux := tmuxtest.NewFake()
+	st := newStore(t)
+	harness := &harnesstest.Fake{}
+	manager := st.agentService(agentServiceOptions{
+		tmux:           tmux,
+		harnesses:      harnesstest.Registry{Harness: harness},
+		lifecycle:      &fakeLifecycle{},
+		autoCompaction: map[string]int{"implementer": 250000, "orchestrator": 150000},
+	})
+
+	agent := seed(t, st, "auth", "", agentstore.StateThinking)
+	require.Equal(t, agentstore.RoleImplementer, agent.Role)
+
+	_, err := manager.resume.ResumeAgent(t.Context(), agent.ID)
+
+	require.NoError(t, err)
+	require.Len(t, harness.Launches, 1)
+	assert.Equal(t, 250000, harness.Launches[0].AutoCompaction)
+}
+
 // TestResumeRefusesArchived pins the refusal naming the way out.
 func TestResumeRefusesArchived(t *testing.T) {
 	tmux := tmuxtest.NewFake()

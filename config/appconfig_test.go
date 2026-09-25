@@ -187,6 +187,72 @@ func TestLoadLayout(t *testing.T) {
 	}
 }
 
+// TestLoadAutoCompaction covers each role's compaction point and the range a CLI will take.
+func TestLoadAutoCompaction(t *testing.T) {
+	tests := []struct {
+		name    string
+		file    string
+		want    map[string]int
+		wantErr string
+	}{
+		{
+			name: "a file naming none takes the built-in for each role",
+			file: "default_harness = \"claude\"\n",
+			want: map[string]int{
+				"implementer":  DefaultImplementerAutoCompaction,
+				"reviewer":     DefaultReviewerAutoCompaction,
+				"orchestrator": DefaultOrchestratorAutoCompaction,
+			},
+		},
+		{
+			name: "one role changed leaves the others on the built-in",
+			file: "[usage.reviewer]\nauto_compaction = 120000\n",
+			want: map[string]int{
+				"implementer":  DefaultImplementerAutoCompaction,
+				"reviewer":     120000,
+				"orchestrator": DefaultOrchestratorAutoCompaction,
+			},
+		},
+		{
+			name: "zero hands the role back to the CLI's own default",
+			file: "[usage.orchestrator]\nauto_compaction = 0\n",
+			want: map[string]int{
+				"implementer":  DefaultImplementerAutoCompaction,
+				"reviewer":     DefaultReviewerAutoCompaction,
+				"orchestrator": 0,
+			},
+		},
+		{
+			name:    "a point below what a CLI takes is refused",
+			file:    "[usage.implementer]\nauto_compaction = 50000\n",
+			wantErr: "usage.implementer.auto_compaction",
+		},
+		{
+			name:    "a point above what a CLI takes is refused",
+			file:    "[usage.orchestrator]\nauto_compaction = 2000000\n",
+			wantErr: "usage.orchestrator.auto_compaction",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "config.toml")
+			require.NoError(t, os.WriteFile(path, []byte(tt.file), 0o644))
+
+			cfg, err := LoadStack(Stack{Paths: []string{path}})
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, cfg.Usage.AutoCompactionByRole())
+		})
+	}
+}
+
 // TestLoadMaxAgents covers the ceiling on how many agents may exist, which an omitted key
 // takes the built-in for rather than reading as none.
 func TestLoadMaxAgents(t *testing.T) {
@@ -203,18 +269,18 @@ func TestLoadMaxAgents(t *testing.T) {
 		},
 		{
 			name: "the ceiling the user chose",
-			file: "max_agents = 12\n",
+			file: "[usage]\nmax_agents = 12\n",
 			want: 12,
 		},
 		{
 			// Zero reads the same as the key being absent, so it cannot mean no ceiling.
 			name: "zero is an omitted key rather than a ceiling of none",
-			file: "max_agents = 0\n",
+			file: "[usage]\nmax_agents = 0\n",
 			want: DefaultMaxAgents,
 		},
 		{
 			name:    "a negative ceiling is not a number of agents",
-			file:    "max_agents = -1\n",
+			file:    "[usage]\nmax_agents = -1\n",
 			wantErr: true,
 		},
 	}
@@ -231,7 +297,7 @@ func TestLoadMaxAgents(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-			assert.Equal(t, tt.want, cfg.MaxAgents)
+			assert.Equal(t, tt.want, cfg.Usage.MaxAgents)
 		})
 	}
 }
@@ -541,17 +607,17 @@ func TestLoadMergesLayers(t *testing.T) {
 	}{
 		{
 			name:  "a later layer wins a scalar",
-			files: []string{"max_agents = 10\n", "max_agents = 99\n"},
+			files: []string{"[usage]\nmax_agents = 10\n", "[usage]\nmax_agents = 99\n"},
 			check: func(t *testing.T, cfg *Config) {
-				assert.Equal(t, 99, cfg.MaxAgents)
+				assert.Equal(t, 99, cfg.Usage.MaxAgents)
 			},
 		},
 		{
 			name:  "a scalar only the first layer sets survives",
-			files: []string{"default_harness = \"codex\"\n", "max_agents = 99\n"},
+			files: []string{"default_harness = \"codex\"\n", "[usage]\nmax_agents = 99\n"},
 			check: func(t *testing.T, cfg *Config) {
 				assert.Equal(t, "codex", cfg.DefaultHarness)
-				assert.Equal(t, 99, cfg.MaxAgents)
+				assert.Equal(t, 99, cfg.Usage.MaxAgents)
 			},
 		},
 		{
@@ -576,7 +642,7 @@ func TestLoadMergesLayers(t *testing.T) {
 			name: "a list the later layer does not mention is not reset",
 			files: []string{
 				"[keybindings.nav]\ndown = [\"x\"]\n",
-				"max_agents = 5\n",
+				"[usage]\nmax_agents = 5\n",
 			},
 			check: func(t *testing.T, cfg *Config) {
 				assert.Equal(t, []string{"x"}, cfg.Keybindings.Nav.Down)

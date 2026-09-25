@@ -66,6 +66,7 @@ meant to be run by hand.`,
 
 	cmd.AddCommand(stopHookCmd(state))
 	cmd.AddCommand(turnEndHookCmd(state))
+	cmd.AddCommand(compactedHookCmd(state))
 	cmd.AddCommand(payloadHookCmd(state, payloadHook{
 		use:   "pre-tool-use",
 		short: "Record the tool an agent is about to run",

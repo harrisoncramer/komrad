@@ -12,12 +12,6 @@
 # names one. It has to be a harness this binary implements, so it is one of
 # the names under [harness] below.
 default_harness = "claude"
-# How many unarchived agents may exist at once, past which a create is refused.
-max_agents      = 50
-# How many children one agent may hold at once, past which attaching another is refused.
-# Children share their parent's checkout, so this is deliberately a much lower ceiling
-# than max_agents.
-max_children    = 3
 
 [harness.claude]
 # Flags appended to every agent's command line for this CLI, ahead of the flags that agent carries itself.
@@ -32,6 +26,36 @@ flags             = ""
 # file, so an agent in a fresh worktree otherwise starts blocked and shows
 # here as waiting. Turning this on edits that file on your behalf.
 trust_launch_dirs = false
+
+# How much agents may run and how large their conversations may grow.
+[usage]
+# How many unarchived agents may exist at once, past which a create is refused.
+max_agents   = 50
+# How many children one agent may hold at once, past which attaching another is refused.
+# Children share their parent's checkout, so this is deliberately a much lower ceiling
+# than max_agents.
+max_children = 3
+
+# What an implementer, the agent that lands work on a branch of its own, may use.
+[usage.implementer]
+# The conversation size in tokens an agent is held under, summarizing its history a little
+# before it gets there. Lower costs less per turn and forgets more. Between 100000 and
+# 1000000, or 0 for the agent CLI's own default.
+auto_compaction = 250000
+
+# What a reviewer, the child that reads another agent's work, may use.
+[usage.reviewer]
+# The conversation size in tokens an agent is held under, summarizing its history a little
+# before it gets there. Lower costs less per turn and forgets more. Between 100000 and
+# 1000000, or 0 for the agent CLI's own default.
+auto_compaction = 250000
+
+# What a workflow's orchestrator may use.
+[usage.orchestrator]
+# The conversation size in tokens an agent is held under, summarizing its history a little
+# before it gets there. Lower costs less per turn and forgets more. Between 100000 and
+# 1000000, or 0 for the agent CLI's own default.
+auto_compaction = 150000
 
 # Where the panel's sidebar, the stage beside it, and the info pane under the stage sit, and how much of the popup each takes.
 [layout]

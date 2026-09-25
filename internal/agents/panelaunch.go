@@ -42,16 +42,18 @@ type NewLauncherParams struct {
 	LogPath     string
 	ContextPath string
 	// BinPath is komrade's own binary, which an agent's hooks and its gh stand-in both run.
-	BinPath string
+	BinPath        string
+	AutoCompaction map[string]int
 }
 
 type Launcher struct {
-	tmux        paneStarter
-	serverAddr  string
-	cacheDir    string
-	logPath     string
-	contextPath string
-	binPath     string
+	tmux           paneStarter
+	serverAddr     string
+	cacheDir       string
+	logPath        string
+	contextPath    string
+	binPath        string
+	autoCompaction map[string]int
 }
 
 // NewLauncher builds a launcher that points spawned agents at the given address.
@@ -61,12 +63,13 @@ func NewLauncher(params NewLauncherParams) *Launcher {
 	}
 
 	return &Launcher{
-		tmux:        params.Tmux,
-		serverAddr:  params.Addr,
-		cacheDir:    params.CacheDir,
-		logPath:     params.LogPath,
-		contextPath: params.ContextPath,
-		binPath:     params.BinPath,
+		tmux:           params.Tmux,
+		serverAddr:     params.Addr,
+		cacheDir:       params.CacheDir,
+		logPath:        params.LogPath,
+		contextPath:    params.ContextPath,
+		binPath:        params.BinPath,
+		autoCompaction: params.AutoCompaction,
 	}
 }
 
@@ -176,6 +179,14 @@ func (l *Launcher) toolsDir() string {
 	return dir
 }
 
+func (l *Launcher) autoCompactionFor(role agentstore.Role) int {
+	if role == "" {
+		role = agentstore.RoleImplementer
+	}
+
+	return l.autoCompaction[string(role)]
+}
+
 type launchParams struct {
 	Pane             string
 	Dir              string
@@ -198,17 +209,18 @@ type launchParams struct {
 
 func (l *Launcher) launch(h harness.Harness, params launchParams) error {
 	command, err := h.BuildCommand(harness.Launch{
-		ToolsDir:    l.toolsDir(),
-		Flags:       params.Flags,
-		Prompt:      params.Prompt,
-		Dir:         params.Dir,
-		Context:     l.appendedSystemPrompt(params),
-		SessionID:   params.SessionID,
-		AgentID:     params.AgentID,
-		MCPEndpoint: l.serverAddr,
-		CacheDir:    l.cacheDir,
-		HookCommand: l.binPath,
-		Resume:      params.Resume,
+		ToolsDir:       l.toolsDir(),
+		Flags:          params.Flags,
+		Prompt:         params.Prompt,
+		Dir:            params.Dir,
+		Context:        l.appendedSystemPrompt(params),
+		SessionID:      params.SessionID,
+		AgentID:        params.AgentID,
+		MCPEndpoint:    l.serverAddr,
+		CacheDir:       l.cacheDir,
+		HookCommand:    l.binPath,
+		Resume:         params.Resume,
+		AutoCompaction: l.autoCompactionFor(params.Role),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to build the launch command: %w", err)

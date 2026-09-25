@@ -244,6 +244,7 @@ func (s *ResumeService) resume(ctx context.Context, agent agentstore.Agent) erro
 		Prompt:    prompt,
 		SessionID: agent.SessionID,
 		AgentID:   agent.ID,
+		Role:      agent.Role,
 		Resume:    resuming,
 	}); err != nil {
 		return fmt.Errorf("failed to relaunch the agent for %q: %w", agent.Name, err)

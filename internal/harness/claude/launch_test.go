@@ -447,12 +447,41 @@ func TestBuildCommandRegistersTheStopHook(t *testing.T) {
 				group, ok := settings.Hooks[string(event)]
 				require.True(t, ok, "the %s event is hooked", event)
 				require.Len(t, group, 1)
+				assert.Equal(t, install.Matcher, group[0].Matcher)
 				require.Len(t, group[0].Hooks, 1)
 				assert.Equal(t, "command", group[0].Hooks[0].Type)
 				assert.Equal(t, tt.hookCommand+" hook "+install.Subcommand, group[0].Hooks[0].Command)
 			}
 		})
 	}
+}
+
+// TestBuildCommandSetsTheCompactionPoint pins the point reaching claude's own settings.
+func TestBuildCommandSetsTheCompactionPoint(t *testing.T) {
+	configDir := t.TempDir()
+	hn := NewHarness(NewHarnessParams{ConfigDir: configDir})
+
+	build := func(autoCompaction int) string {
+		command, err := hn.BuildCommand(harness.Launch{
+			CacheDir:       t.TempDir(),
+			SessionID:      "sess",
+			HookCommand:    "/usr/local/bin/komrade",
+			AutoCompaction: autoCompaction,
+		})
+		require.NoError(t, err)
+
+		return command
+	}
+
+	implementer := build(250000)
+	orchestrator := build(150000)
+	unset := build(0)
+
+	assert.Equal(t, 250000, readSettings(t, implementer).AutoCompactWindow, "a launch just after it did not overwrite its settings")
+	assert.Equal(t, 150000, readSettings(t, orchestrator).AutoCompactWindow)
+	assert.Zero(t, readSettings(t, unset).AutoCompactWindow, "no point leaves claude its own")
+	assert.Equal(t, filepath.Join(configDir, "komrade-settings.json"), settingsPath(t, unset))
+	assert.NotEqual(t, settingsPath(t, implementer), settingsPath(t, orchestrator))
 }
 
 // TestBuildCommandDeniesSubagents covers the deny that leaves create_agent as the only way an
@@ -497,8 +526,10 @@ func TestBuildCommandDeniesSubagents(t *testing.T) {
 }
 
 type claudeSettings struct {
-	Hooks map[string][]struct {
-		Hooks []struct {
+	AutoCompactWindow int `json:"autoCompactWindow"`
+	Hooks             map[string][]struct {
+		Matcher string `json:"matcher"`
+		Hooks   []struct {
 			Type    string `json:"type"`
 			Command string `json:"command"`
 		} `json:"hooks"`

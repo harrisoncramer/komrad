@@ -18,6 +18,7 @@ type app struct {
 	defaultFlags   map[string]string
 	maxAgents      int
 	maxChildren    int
+	autoCompaction map[string]int
 	logViewer      string
 	processViewer  string
 	logLevel       string

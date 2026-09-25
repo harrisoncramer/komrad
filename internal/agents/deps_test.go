@@ -134,18 +134,19 @@ type testAgents struct {
 }
 
 type agentServiceOptions struct {
-	tmux        fakeTmuxController
-	harnesses   harnesstest.Registry
-	addr        string
-	flags       string
-	lifecycle   agentScriptRunner
-	maxAgents   int
-	maxChildren int
-	logsDir     string
-	framesDir   string
-	agents      testAgentStore
-	tx          txRunner
-	stateDir    string
+	tmux           fakeTmuxController
+	harnesses      harnesstest.Registry
+	addr           string
+	flags          string
+	lifecycle      agentScriptRunner
+	maxAgents      int
+	maxChildren    int
+	autoCompaction map[string]int
+	logsDir        string
+	framesDir      string
+	agents         testAgentStore
+	tx             txRunner
+	stateDir       string
 }
 
 func (s *testStore) agentService(options agentServiceOptions) *testAgents {
@@ -159,7 +160,7 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 		tx = s.Pool
 	}
 
-	launcher := NewLauncher(NewLauncherParams{Tmux: options.tmux, Addr: options.addr})
+	launcher := NewLauncher(NewLauncherParams{Tmux: options.tmux, Addr: options.addr, AutoCompaction: options.autoCompaction})
 	emptied := NewEmptyWorkflowDeleter(NewEmptyWorkflowDeleterParams{
 		Workflows: s.Workflows,
 		Agents:    s.Agents,

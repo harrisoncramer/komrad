@@ -107,8 +107,9 @@ the machine, start or stop the service, or call an endpoint from a script.`,
 			app.configSources = report.Sources
 			app.keys = cfg.Keybindings
 			app.defaultHarness = cfg.DefaultHarness
-			app.maxAgents = cfg.MaxAgents
-			app.maxChildren = cfg.MaxChildren
+			app.maxAgents = cfg.Usage.MaxAgents
+			app.maxChildren = cfg.Usage.MaxChildren
+			app.autoCompaction = cfg.Usage.AutoCompactionByRole()
 
 			app.tmux = tmux.NewClient(env.TmuxSocket)
 

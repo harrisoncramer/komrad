@@ -51,8 +51,9 @@ type Launch struct {
 	HookCommand string
 	// ToolsDir holds komrade's stand-ins for the tools an agent calls, and goes ahead of the PATH
 	// the agent runs with.
-	ToolsDir string
-	Resume   bool
+	ToolsDir       string
+	Resume         bool
+	AutoCompaction int
 }
 
 type Activity int

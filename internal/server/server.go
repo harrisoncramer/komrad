@@ -42,6 +42,7 @@ type NewServerParams struct {
 	DefaultFlags       map[string]string
 	MaxAgents          int
 	MaxChildren        int
+	AutoCompaction     map[string]int
 	ContextPath        string
 	HookCommand        string
 	FallbackResumeRoot string

@@ -168,6 +168,7 @@ func serve(ctx context.Context, params serveParams) error {
 		DefaultFlags:   state.defaultFlags,
 		MaxAgents:      state.maxAgents,
 		MaxChildren:    state.maxChildren,
+		AutoCompaction: state.autoCompaction,
 		ContextPath:    state.contextPath,
 		HookCommand:    getHookBinaryPath(ctx),
 		Doctor:         doctorSettings,
