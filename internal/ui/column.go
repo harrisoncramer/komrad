@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"strings"
 
 	"komrade/internal/ui/paint"
@@ -183,6 +184,20 @@ func (m *model) syncKeys() {
 	m.frame.SyncKeys()
 }
 
+// isOverColumn reports whether a column of the window falls in the block beside the list.
+func (m model) isOverColumn(x int) bool {
+	split, ok := m.screenColumnSplit()
+	if !ok {
+		return false
+	}
+
+	if m.frame.IsSidebarOnRight() {
+		return x < split.column
+	}
+
+	return x >= split.sidebar
+}
+
 // joinColumns lays the two halves of the window side by side, on the side the frame puts the
 // sidebar, having squared each off at its share first.
 func (m model) joinColumns(split columnSplit, sidebar, column string) string {
@@ -234,9 +249,50 @@ func (m model) docColumnView(split columnSplit) string {
 	return m.columnDoc(split).view(split.rows)
 }
 
-// columnDoc is the document the block is drawn from, and empty on a screen whose block is not
-// one.
+// docScroll is how far down the block beside the list the reader has scrolled, and what the block
+// was showing when they did.
+type docScroll struct {
+	shown string
+	top   int
+}
+
+// docShown names what the block beside the list is showing, so a scroll is dropped once it changes.
+func (m model) docShown() string {
+	return fmt.Sprintf("%d/%s/%t", m.screen, m.hoveredDetails().id, m.isMessagesFocused())
+}
+
+// scrollDoc moves the block beside the list, stopping at either end.
+func (m *model) scrollDoc(rows int) {
+	split, ok := m.screenColumnSplit()
+	if !ok {
+		return
+	}
+
+	doc := m.columnDoc(split)
+	top := doc.clamp(doc.top, split.rows)
+	m.docScroll = docScroll{shown: m.docShown(), top: doc.clamp(top+rows, split.rows)}
+}
+
+// dropStaleDocScroll forgets a scroll once the block shows something else.
+func (m model) dropStaleDocScroll() model {
+	if m.docScroll.shown != m.docShown() {
+		m.docScroll = docScroll{}
+	}
+
+	return m
+}
+
+// columnDoc is the document the block is drawn from, scrolled where the reader left it.
 func (m model) columnDoc(split columnSplit) docWindow {
+	doc := m.unscrolledDoc(split)
+	doc.top = m.docScroll.top
+
+	return doc
+}
+
+// unscrolledDoc is the document the block is drawn from, and empty on a screen whose block is not
+// one.
+func (m model) unscrolledDoc(split columnSplit) docWindow {
 	// The region draws the message in its own rows, except under a form, which covers them.
 	if m.isMessagesFocused() && m.form.isOpening() {
 		return m.messagesBlock(split)

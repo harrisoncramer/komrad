@@ -49,6 +49,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	warming := routed.warm.poll()
 	routed, pulse := routed.pulseMessages(m.messages.landed)
 	routed = routed.releaseHiddenDetails()
+	routed = routed.dropStaleDocScroll()
 	routed.holdFocusKey()
 
 	return routed, tea.Batch(cmd, blink, warming, pulse)
@@ -76,12 +77,7 @@ func (m model) focusPane() string {
 
 func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if wheel, ok := msg.(tea.MouseWheelMsg); ok {
-		pressed, ok := m.wheelKey(wheel)
-		if !ok {
-			return m, nil
-		}
-
-		msg = pressed
+		return m.routeWheel(wheel)
 	}
 
 	if size, ok := msg.(tea.WindowSizeMsg); ok {
@@ -419,6 +415,48 @@ func (m model) isTyping() bool {
 	}
 
 	return m.active().takesEveryKey()
+}
+
+// columnScroller is a screen that scrolls its own block beside the list.
+type columnScroller interface {
+	scrollColumn(h host, s panelShared, rows int) tea.Cmd
+}
+
+// listScroller is a screen whose scroll key does not move its list.
+type listScroller interface {
+	scrollList(h host, s panelShared, rows int) tea.Cmd
+}
+
+// columnWheelStep is how many rows one turn of the wheel moves the block beside the list.
+const columnWheelStep = 3
+
+// routeWheel scrolls the block beside the list when the mouse is over it, and the list otherwise.
+func (m model) routeWheel(wheel tea.MouseWheelMsg) (tea.Model, tea.Cmd) {
+	pressed, ok := m.wheelKey(wheel)
+	if !ok {
+		return m, nil
+	}
+
+	rows := 1
+	if wheel.Button == tea.MouseWheelUp {
+		rows = -1
+	}
+
+	if m.form.isActive() || m.held.active || !m.isOverColumn(wheel.X) {
+		if screen, ok := m.active().(listScroller); ok {
+			return m, screen.scrollList(&m, m.shared(), rows)
+		}
+
+		return m.route(pressed)
+	}
+
+	if screen, ok := m.active().(columnScroller); ok {
+		return m, screen.scrollColumn(&m, m.shared(), rows*columnWheelStep)
+	}
+
+	m.scrollDoc(rows * columnWheelStep)
+
+	return m, nil
 }
 
 // wheelKey is the scroll key a turn of the mouse wheel presses.
