@@ -704,6 +704,32 @@ func TestSearchPreview(t *testing.T) {
 		}
 	})
 
+	t.Run("the wheel over the transcript scrolls it and leaves the hits alone", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openPreview(t, panelHarnessParams{})
+		before := harness.readFrame()
+
+		harness.send(tea.MouseWheelMsg{X: defaultHarnessWidth - 1, Y: 5, Button: tea.MouseWheelDown})
+
+		frame := harness.readFrame()
+		assert.NotEqual(t, readStage(before)[0], readStage(frame)[0])
+		assert.Equal(t, readHoveredSearchRow(before), readHoveredSearchRow(frame))
+	})
+
+	t.Run("the wheel over the hits moves through them and leaves the transcript alone", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openPreview(t, panelHarnessParams{})
+		before := harness.readFrame()
+
+		harness.send(tea.MouseWheelMsg{X: 1, Y: 5, Button: tea.MouseWheelDown})
+
+		frame := harness.readFrame()
+		assert.NotEqual(t, readHoveredSearchRow(before), readHoveredSearchRow(frame))
+		assert.Equal(t, readStage(before)[0], readStage(frame)[0])
+	})
+
 	t.Run("a height change keeps the reader's place", func(t *testing.T) {
 		t.Parallel()
 

@@ -183,6 +183,20 @@ func (m *model) syncKeys() {
 	m.frame.SyncKeys()
 }
 
+// isOverColumn reports whether a column of the window falls in the block beside the list.
+func (m model) isOverColumn(x int) bool {
+	split, ok := m.screenColumnSplit()
+	if !ok {
+		return false
+	}
+
+	if m.frame.IsSidebarOnRight() {
+		return x < split.column
+	}
+
+	return x >= split.sidebar
+}
+
 // joinColumns lays the two halves of the window side by side, on the side the frame puts the
 // sidebar, having squared each off at its share first.
 func (m model) joinColumns(split columnSplit, sidebar, column string) string {

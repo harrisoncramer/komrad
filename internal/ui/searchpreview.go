@@ -94,20 +94,37 @@ func (w *searchScreen) drawPreview(s panelShared) {
 
 // scrollPreview moves the transcript beside the list, stopping at either end.
 func (w *searchScreen) scrollPreview(s panelShared, pressed string) tea.Cmd {
+	if isBound(pressed, s.keys.Column.ScrollUp) {
+		return w.scrollPreviewBy(s, -previewWheelStep)
+	}
+
+	return w.scrollPreviewBy(s, previewWheelStep)
+}
+
+func (w *searchScreen) scrollPreviewBy(s panelShared, rows int) tea.Cmd {
 	split, ok := s.draw.screenColumnSplit()
 	if !ok {
 		return nil
 	}
 
-	delta := previewWheelStep
-	if isBound(pressed, s.keys.Column.ScrollUp) {
-		delta = -delta
-	}
-
 	doc := &w.preview.doc
-	doc.top = doc.clamp(doc.top+delta, split.rows)
+	doc.top = doc.clamp(doc.top+rows, split.rows)
 
 	return nil
+}
+
+// wheel scrolls the transcript when the mouse is over it, and moves through the hits otherwise.
+func (w *searchScreen) wheel(h host, s panelShared, overColumn, up bool) tea.Cmd {
+	delta := 1
+	if up {
+		delta = -1
+	}
+
+	if overColumn {
+		return w.scrollPreviewBy(s, delta*previewWheelStep)
+	}
+
+	return w.list().move(h, s, delta)
 }
 
 // previewView is the screenful of the transcript beside the list, drawn without the markers the

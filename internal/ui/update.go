@@ -76,12 +76,7 @@ func (m model) focusPane() string {
 
 func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if wheel, ok := msg.(tea.MouseWheelMsg); ok {
-		pressed, ok := m.wheelKey(wheel)
-		if !ok {
-			return m, nil
-		}
-
-		msg = pressed
+		return m.routeWheel(wheel)
 	}
 
 	if size, ok := msg.(tea.WindowSizeMsg); ok {
@@ -419,6 +414,29 @@ func (m model) isTyping() bool {
 	}
 
 	return m.active().takesEveryKey()
+}
+
+// wheeled is a screen that scrolls whichever half of the window the mouse is over.
+type wheeled interface {
+	wheel(h host, s panelShared, overColumn, up bool) tea.Cmd
+}
+
+// routeWheel hands a turn of the wheel to a screen that tells its halves apart, and presses the
+// scroll key otherwise.
+func (m model) routeWheel(wheel tea.MouseWheelMsg) (tea.Model, tea.Cmd) {
+	pressed, ok := m.wheelKey(wheel)
+	if !ok {
+		return m, nil
+	}
+
+	screen, ok := m.active().(wheeled)
+	if !ok || m.form.isActive() || m.held.active {
+		return m.route(pressed)
+	}
+
+	cmd := screen.wheel(&m, m.shared(), m.isOverColumn(wheel.X), wheel.Button == tea.MouseWheelUp)
+
+	return m, cmd
 }
 
 // wheelKey is the scroll key a turn of the mouse wheel presses.
