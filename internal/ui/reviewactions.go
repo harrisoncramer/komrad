@@ -141,15 +141,6 @@ func (r *reviewScreen) table() []screenAction {
 				return nil
 			},
 		},
-		{
-			id:   actionReviewFocusThread,
-			keys: func(k config.Keybindings) []string { return k.Review.FocusThread },
-			run: func(host, panelShared, string) tea.Cmd {
-				r.focusThread()
-
-				return nil
-			},
-		},
 		// The two keys that write are taken whether or not anybody is there to read.
 		{
 			id:   actionReviewCompose,
@@ -305,10 +296,6 @@ func (r *reviewScreen) legend() []screenLegendRow {
 		{
 			of:   []actionID{actionReviewViewed, actionReviewExpand},
 			desc: func(panelShared) string { return r.diff.fileDesc() },
-		},
-		{
-			of:   []actionID{actionReviewFocusThread},
-			desc: func(panelShared) string { return r.threadDesc() },
 		},
 		{
 			of:   []actionID{actionReviewBaseForward},

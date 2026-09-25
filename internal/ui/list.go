@@ -499,7 +499,7 @@ type drawer interface {
 	renderHelp(k keyMap, above ...string) string
 	globalHelp() []key.Binding
 	fullGlobalHelp() []key.Binding
-	detailsBinding() key.Binding
+	cycleBinding() key.Binding
 	listLines(chrome ...string) int
 	listPane(width int) listPane
 	detailsView() string
@@ -596,7 +596,7 @@ func (m model) listHelp(own keyMap) keyMap {
 			own.full,
 			tabs,
 			[]key.Binding{
-				m.detailsBinding(),
+				m.cycleBinding(),
 				m.messagesBinding(),
 			},
 			m.infoPaneHelp(),

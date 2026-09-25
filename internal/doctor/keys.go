@@ -17,9 +17,9 @@ var (
 		Code:    "key_on_two_actions",
 		Message: "one key is bound to two actions a screen answers, so the panel would refuse to draw",
 	}
-	errFocusKeyUnavailable = &ProblemError{
-		Code:    "focus_key_unavailable",
-		Message: "the key that moves focus between the panel and an agent's pane cannot be bound",
+	errCycleKeyUnavailable = &ProblemError{
+		Code:    "cycle_key_unavailable",
+		Message: "a key that moves between the panel's views and an agent's pane cannot be bound",
 	}
 )
 
@@ -48,22 +48,25 @@ func newKeybindingsCheck() Check {
 
 			rootKeys := readRootKeys(ctx, env)
 
-			if prefix := readTmuxPrefix(ctx, env); prefix == env.FocusKey {
-				return fail(
-					fmt.Errorf("%w: %s is your tmux prefix, which tmux reads before the root table",
-						errFocusKeyUnavailable, env.FocusKey),
-					"prefix "+prefix,
-					"set-option -g prefix to something other than "+env.FocusKey,
-				)
-			}
+			prefix := readTmuxPrefix(ctx, env)
+			for _, key := range env.CycleKeys {
+				if prefix == key {
+					return fail(
+						fmt.Errorf("%w: %s is your tmux prefix, which tmux reads before the root table",
+							errCycleKeyUnavailable, key),
+						"prefix "+prefix,
+						"set-option -g prefix to something other than "+key,
+					)
+				}
 
-			if held, ok := heldByAnythingElse(rootKeys, env.FocusKey); ok {
-				return fail(
-					fmt.Errorf("%w: %s is bound in your tmux root table to %s",
-						errFocusKeyUnavailable, env.FocusKey, held),
-					env.FocusKey,
-					"unbind -n "+env.FocusKey+" in your tmux config",
-				)
+				if held, ok := heldByAnythingElse(rootKeys, key); ok {
+					return fail(
+						fmt.Errorf("%w: %s is bound in your tmux root table to %s",
+							errCycleKeyUnavailable, key, held),
+						key,
+						"unbind -n "+key+" in your tmux config",
+					)
+				}
 			}
 
 			var waiting []string
@@ -144,16 +147,16 @@ func parseRootBinding(line string) (key, command string, ok bool) {
 // the panel holds itself.
 func heldByAnythingElse(rootKeys map[string]string, key string) (string, bool) {
 	command, held := rootKeys[key]
-	if !held || isPanelFocusBinding(command) || tmux.IsPanelPassThrough(command) {
+	if !held || isPanelCycleBinding(command) || tmux.IsPanelPassThrough(command) {
 		return "", false
 	}
 
 	return command, true
 }
 
-// isPanelFocusBinding reports whether a root binding is the one the panel moves focus with.
-func isPanelFocusBinding(command string) bool {
-	return strings.HasPrefix(command, "if-shell") && strings.Contains(command, "#{==:#{pane_id},%")
+// isPanelCycleBinding reports whether a root binding is one the panel moves between views with.
+func isPanelCycleBinding(command string) bool {
+	return strings.HasPrefix(strings.ReplaceAll(command, `"`, ""), "send-keys -t %")
 }
 
 func readTmuxPrefix(ctx context.Context, env Env) string {

@@ -93,7 +93,6 @@ const (
 	actionReviewBaseForward
 	actionReviewCompose
 	actionReviewSend
-	actionReviewFocusThread
 )
 
 type action struct {

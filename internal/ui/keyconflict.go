@@ -182,10 +182,10 @@ func globalArms(s screen, keys config.Keybindings) []dispatchArm {
 
 	if _, ok := zero.screenOf(s).(detailed); ok {
 		arms = append(arms,
-			// Neither of these is configurable, and both are read ahead of the screen's own keys.
+			// None of these is configurable, and all are read ahead of the screen's own keys.
 			dispatchArm{describe: "the key that reads the messages", keys: []string{messagesFocusKey}},
 			dispatchArm{describe: "the key that pushes a fixture into the messages", keys: []string{messagesMockKey}},
-			dispatchArm{describe: "the details focus", keys: keys.Details.Focus},
+			dispatchArm{describe: "the view cycle", keys: []string{cycleForwardKey, cycleBackKey}},
 			// The copy key answers only while the details hold the cursor.
 			dispatchArm{
 				describe: "the details copy",

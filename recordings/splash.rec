@@ -31,13 +31,13 @@ sleep 300ms
 type Now add a rollback step for payouts that fail halfway, and list what it must undo.
 key Enter
 sleep 1500ms
-key C-a
+key C-q
 key '
 key c
 sleep 700ms
-key C-t
+key C-q
 sleep 900ms
-key C-t
+key C-a
 key g
 key j
 sleep 300ms

@@ -72,6 +72,8 @@ type recordingTmux struct {
 	zoomed        bool
 	// keysElsewhere is the keyboard sitting in a pane other than the one being asked about.
 	keysElsewhere bool
+	// activePane is the pane the window sends keys to, where a test has put them somewhere named.
+	activePane    string
 	rootBinds     map[string][]string
 	rootBindCount int
 	rootUnbinds   []string
@@ -396,6 +398,13 @@ func (p *Panel) SetWindowWidth(width int) {
 	p.tmux.windowWidth = width
 }
 
+// SetActivePane makes tmux report the keyboard in pane, which is elsewhere unless it is the
+// panel's own.
+func (p *Panel) SetActivePane(pane string) {
+	p.tmux.activePane = pane
+	p.tmux.keysElsewhere = pane != p.model.settings.Pane
+}
+
 // SetKeysElsewhere makes tmux report whether the keyboard is in a pane other than the panel's.
 func (p *Panel) SetKeysElsewhere(elsewhere bool) {
 	p.tmux.keysElsewhere = elsewhere
@@ -602,6 +611,18 @@ func (t *recordingTmux) split(pane string) string {
 
 func (t *recordingTmux) SetInfoPane(pane string) {
 	t.infoPane = pane
+}
+
+func (t *recordingTmux) GetActivePane(pane string) string {
+	if t.activePane != "" {
+		return t.activePane
+	}
+
+	if t.keysElsewhere {
+		return ""
+	}
+
+	return pane
 }
 
 func (t *recordingTmux) SelectPane(pane string) {

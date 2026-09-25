@@ -215,8 +215,10 @@ func (m model) updateFilterInput(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.hide()
 	}
 
-	if isBound(key.String(), m.keys.Details.Focus) && m.isDetailsScreen() {
-		return m.closeSearchAndMoveKeys()
+	if m.isDetailsScreen() && isCycleKey(key.String()) {
+		m.filter.typing = false
+
+		return m.cycleView(key.String(), m.sidebarStop())
 	}
 
 	// Typing lights what it has found and moves nothing; enter is what applies the search.
@@ -257,22 +259,10 @@ func (m model) isFilterRowShown(key string) bool {
 	return slices.ContainsFunc(rows, func(row filterRow) bool { return row.key == key })
 }
 
-// closeSearchAndMoveKeys answers the focus key while the search is being typed: the input closes
-// with the pattern standing and the keys move to the other pane.
-func (m model) closeSearchAndMoveKeys() (tea.Model, tea.Cmd) {
-	if !m.isDetailsDrawn(m.hoveredDetails()) {
-		return m, nil
-	}
-
-	m.filter.typing = false
-
-	return m.jumpIntoDetails()
-}
-
-// jumpIntoDetails is the focus key: the keys go into the record and land on its nearest match
-// when a search is up, while the way back out only moves the keys.
+// jumpIntoDetails gives the record the keys and lands them on its nearest match when a search is
+// up.
 func (m model) jumpIntoDetails() (tea.Model, tea.Cmd) {
-	next, cmd := m.toggleDetailsFocus()
+	next, cmd := m.focusDetails()
 	if !next.isDetailsFocused() {
 		return next, cmd
 	}

@@ -86,7 +86,7 @@ func (r reviewScreen) help(s panelShared) keyMap {
 		short: slices.Concat(own.short, s.draw.globalHelp()),
 		full: slices.Concat(
 			own.full,
-			[]key.Binding{s.draw.detailsBinding()},
+			[]key.Binding{s.draw.cycleBinding()},
 			s.draw.fullGlobalHelp(),
 		),
 	}
@@ -101,7 +101,7 @@ func (r reviewScreen) isThreadHolding() bool {
 func (r reviewScreen) threadHelp(s panelShared) keyMap {
 	scroll := binding(slices.Concat(s.keys.Nav.Up, s.keys.Nav.Down), "scroll the thread")
 	ends := binding(slices.Concat(s.keys.Nav.Top, s.keys.Nav.Bottom), "top/bottom")
-	back := binding(s.keys.Review.FocusThread, "back to the diff")
+	back := binding([]string{"esc"}, "back to the diff")
 	reply := binding(s.keys.Review.Compose, "reply")
 	settle := binding(s.keys.Review.Resolve, r.diff.resolveDesc())
 	send := binding(formKeys().Submit, "send the review")
@@ -110,16 +110,6 @@ func (r reviewScreen) threadHelp(s panelShared) keyMap {
 		short: slices.Concat([]key.Binding{scroll, back, reply, settle}, s.draw.globalHelp()),
 		full:  slices.Concat([]key.Binding{scroll, ends, back, reply, settle, send}, s.draw.fullGlobalHelp()),
 	}
-}
-
-// threadDesc names the key that moves between the diff and the conversation beside it, read from
-// the flag and not from whether the thread holds the keys.
-func (r reviewScreen) threadDesc() string {
-	if r.isThreadTaken() {
-		return "back to the diff"
-	}
-
-	return "read the thread"
 }
 
 // window cuts the conversation down to the rows the sidebar has, keeping its end unless the

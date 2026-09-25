@@ -216,15 +216,6 @@ func (m model) fullGlobalHelp() []key.Binding {
 	return append(m.globalHelp(), binding(slices.Concat(m.keys.Sidebar.Narrow, m.keys.Sidebar.Widen), "resize"))
 }
 
-func (m model) detailsBinding() key.Binding {
-	desc := "details"
-	if m.isDetailsFocused() {
-		desc = "back to the list"
-	}
-
-	return binding(m.keys.Details.Focus, desc)
-}
-
 func keyLabel(keys []string) string {
 	out := make([]string, len(keys))
 	for i, k := range keys {

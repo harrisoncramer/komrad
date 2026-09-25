@@ -202,8 +202,6 @@ type HelpKeys struct {
 type DetailsKeys struct {
 	// Copy the field the details cursor is on to the system clipboard.
 	Copy []string `mapstructure:"copy" default:"y"`
-	// Move the cursor between the list on screen and the details under it.
-	Focus []string `mapstructure:"focus" default:"ctrl+t"`
 }
 
 // LogsKeys are the bindings that read the hovered agent's own logs in the info pane. Open
@@ -411,10 +409,6 @@ type ReviewKeys struct {
 	// working rather than letting you both write at once. It is refused on a round the
 	// agent has written past, since those lines have moved on.
 	EditFile []string `mapstructure:"edit_file" default:"e"`
-	// Move the keys onto the thread in the sidebar, so up and down read the conversation
-	// rather than the diff, and press it again to hand them back. A thread longer than the
-	// sidebar is otherwise only readable from its end.
-	FocusThread []string `mapstructure:"focus_thread" default:"ctrl+f"`
 	// Jump to the next file in the diff.
 	NextFile []string `mapstructure:"next_file" default:"]"`
 	// Jump to the next line matching the pattern the filter key searched for.

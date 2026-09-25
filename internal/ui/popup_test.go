@@ -146,80 +146,75 @@ func TestPopupWindow(t *testing.T) {
 		assert.Equal(t, []string{"w"}, tmux.unbound)
 	})
 
-	t.Run("the focus key toggles between the sidebar and the agent's pane", func(t *testing.T) {
+	t.Run("the cycle keys hand a press in any pane to the sidebar", func(t *testing.T) {
 		tmux := &bindRecorder{}
 
-		ui.NewPopupWindow(tmux, "komrad").HoldFocusKey("%3", "%9")
+		ui.NewPopupWindow(tmux, "komrad").HoldCycleKeys("%3", true)
 
-		assert.Equal(t, []string{
-			"if-shell", "-F", "#{==:#{pane_id},%3}",
-			"select-pane -t %9", "select-pane -t %3",
-		}, tmux.bound["root:"+ui.FocusKey], "a tmux format rather than a shell command")
+		assert.Equal(t, []string{"send-keys", "-t", "%3", "C-a"}, tmux.bound["root:C-a"])
+		assert.Equal(t, []string{"send-keys", "-t", "%3", "C-q"}, tmux.bound["root:C-q"])
 	})
 
 	t.Run("no sidebar binds nothing", func(t *testing.T) {
 		tmux := &bindRecorder{}
 
-		ui.NewPopupWindow(tmux, "komrad").HoldFocusKey("", "%9")
+		ui.NewPopupWindow(tmux, "komrad").HoldCycleKeys("", true)
 
 		assert.Empty(t, tmux.bound)
 	})
 
-	t.Run("an empty stage gives the key back once and then says nothing", func(t *testing.T) {
+	t.Run("an empty stage gives the keys back once and then says nothing", func(t *testing.T) {
 		tmux := &bindRecorder{}
 		popup := ui.NewPopupWindow(tmux, "komrad")
 
-		popup.HoldFocusKey("%3", "%9")
-		popup.HoldFocusKey("%3", "")
-		popup.HoldFocusKey("%3", "")
+		popup.HoldCycleKeys("%3", true)
+		popup.HoldCycleKeys("%3", false)
+		popup.HoldCycleKeys("%3", false)
 
-		assert.NotContains(t, tmux.bound, "root:"+ui.FocusKey)
-		assert.Equal(t, []string{ui.FocusKey}, tmux.unbound)
+		assert.Empty(t, tmux.bound)
+		assert.Equal(t, ui.CycleKeys, tmux.unbound)
 	})
 }
 
-// TestPopupFocusKey covers the panel holding the focus key only while an agent's pane is on show.
-func TestPopupFocusKey(t *testing.T) {
-	held := []string{
-		"if-shell", "-F", "#{==:#{pane_id},%0}",
-		"select-pane -t %9", "select-pane -t %0",
-	}
-
-	t.Run("the panel going gives the key back", func(t *testing.T) {
+// TestPopupCycleKeys covers the panel holding the cycle keys only while an agent's pane is on show.
+func TestPopupCycleKeys(t *testing.T) {
+	t.Run("the panel going gives the keys back", func(t *testing.T) {
 		tmux := &bindRecorder{}
 		popup := ui.NewPopupWindow(tmux, "komrad")
 
-		popup.HoldFocusKey("%3", "%9")
-		popup.ReleaseFocusKey()
+		popup.HoldCycleKeys("%3", true)
+		popup.ReleaseCycleKeys()
 
-		assert.Equal(t, []string{ui.FocusKey}, tmux.unbound, "tmux keeps a root binding until the server dies")
+		assert.Equal(t, ui.CycleKeys, tmux.unbound, "tmux keeps a root binding until the server dies")
 	})
 
-	t.Run("releasing a key nobody held says nothing to tmux", func(t *testing.T) {
+	t.Run("releasing keys nobody held says nothing to tmux", func(t *testing.T) {
 		tmux := &bindRecorder{}
 
-		ui.NewPopupWindow(tmux, "komrad").ReleaseFocusKey()
+		ui.NewPopupWindow(tmux, "komrad").ReleaseCycleKeys()
 
 		assert.Empty(t, tmux.unbound)
 	})
 
-	t.Run("a staged agent holds the key once and a screen staging none gives it back", func(t *testing.T) {
+	t.Run("a staged agent holds the keys once and a screen staging none gives them back", func(t *testing.T) {
 		harness := openFocus(t)
 		harness.watch(buildSnapshot(buildFocusRows()...))
 
-		command, bound := harness.panel.ReadRootBinding(ui.FocusKey)
-		require.True(t, bound)
-		assert.Equal(t, held, command)
-		assert.Equal(t, 1, harness.panel.CountRootBinds(), "a key that is already right is left alone")
+		for _, key := range ui.CycleKeys {
+			command, bound := harness.panel.ReadRootBinding(key)
+			require.True(t, bound)
+			assert.Equal(t, []string{"send-keys", "-t", "%0", key}, command)
+		}
+		assert.Equal(t, 2, harness.panel.CountRootBinds(), "keys that are already right are left alone")
 
 		given := len(harness.panel.ReadRootUnbinds())
 
 		harness.press("t")
 
-		assertFocusKeyGivenBack(t, harness, given)
+		assertCycleKeysGivenBack(t, harness, given)
 	})
 
-	t.Run("the key follows the pane that takes the stage", func(t *testing.T) {
+	t.Run("another agent taking the stage leaves the keys where they are", func(t *testing.T) {
 		harness := openFocus(t)
 		second := newFocusAgent("a2", "%12")
 		second.CreatedAt = "2026-09-20T11:00:00Z"
@@ -228,10 +223,10 @@ func TestPopupFocusKey(t *testing.T) {
 		harness.press("j")
 		harness.fireTimers()
 
-		command, bound := harness.panel.ReadRootBinding(ui.FocusKey)
-		require.True(t, bound)
-		assert.Equal(t, "select-pane -t %12", command[3])
-		assert.Equal(t, 2, harness.panel.CountRootBinds())
+		require.Equal(t, "%12", harness.panel.ReadGuestPane())
+		_, bound := harness.panel.ReadRootBinding(ui.CycleKeys[0])
+		assert.True(t, bound)
+		assert.Equal(t, 2, harness.panel.CountRootBinds(), "the keys reach the sidebar whichever agent is staged")
 	})
 
 	t.Run("an agent whose pane goes gives the key back", func(t *testing.T) {
@@ -243,7 +238,7 @@ func TestPopupFocusKey(t *testing.T) {
 
 		harness.watch(buildSnapshot(rows...))
 
-		assertFocusKeyGivenBack(t, harness, given)
+		assertCycleKeysGivenBack(t, harness, given)
 	})
 
 	t.Run("a form over the list gives the key back and closing it takes it again", func(t *testing.T) {
@@ -251,10 +246,10 @@ func TestPopupFocusKey(t *testing.T) {
 		given := len(harness.panel.ReadRootUnbinds())
 
 		harness.press("r")
-		assertFocusKeyGivenBack(t, harness, given)
+		assertCycleKeysGivenBack(t, harness, given)
 
 		harness.press("esc")
-		_, bound := harness.panel.ReadRootBinding(ui.FocusKey)
+		_, bound := harness.panel.ReadRootBinding(ui.CycleKeys[0])
 		assert.True(t, bound)
 	})
 
@@ -267,7 +262,7 @@ func TestPopupFocusKey(t *testing.T) {
 		require.True(t, harness.panel.IsZoomed(), "a header row takes the window")
 		require.Equal(t, "%9", harness.panel.ReadGuestPane(), "with the agent's pane left parked behind it")
 
-		assertFocusKeyGivenBack(t, harness, given)
+		assertCycleKeysGivenBack(t, harness, given)
 	})
 }
 
@@ -354,12 +349,14 @@ func newFocusAgent(id, pane string) *agentv1.Agent {
 	return agent
 }
 
-func assertFocusKeyGivenBack(t *testing.T, harness *panelHarness, given int) {
+func assertCycleKeysGivenBack(t *testing.T, harness *panelHarness, given int) {
 	t.Helper()
 
-	_, bound := harness.panel.ReadRootBinding(ui.FocusKey)
-	assert.False(t, bound)
-	assert.Equal(t, []string{ui.FocusKey}, harness.panel.ReadRootUnbinds()[given:], "given back once")
+	for _, key := range ui.CycleKeys {
+		_, bound := harness.panel.ReadRootBinding(key)
+		assert.False(t, bound)
+	}
+	assert.Equal(t, ui.CycleKeys, harness.panel.ReadRootUnbinds()[given:], "given back once")
 }
 
 func printBinding(command []string) string {

@@ -5,8 +5,9 @@ import (
 	"strings"
 )
 
-// FocusKey moves the cursor between the panel's sidebar and the agent's pane on the stage.
-const FocusKey = "C-a"
+// CycleKeys move the keys to the next view and the previous one, bound in tmux's root table so a
+// press in the agent's pane reaches the panel.
+var CycleKeys = []string{"C-a", "C-q"}
 
 const managerKeyOption = "@komrad_key"
 
@@ -29,9 +30,8 @@ type popupTmux interface {
 type PopupWindow struct {
 	tmux    popupTmux
 	session string
-	// focus is the pane the key is bound to jump to, empty where it is unbound, and nil until the
-	// panel has settled it once.
-	focus *string
+	// cycling is whether the cycle keys are bound, nil until the panel has settled it once.
+	cycling *bool
 }
 
 // NewPopupWindow builds the popup's window over a tmux client, for the panel running in the
@@ -55,30 +55,37 @@ func (p *PopupWindow) BindHide(key string) {
 	p.tmux.SetGlobal(hideKeyOption, key)
 }
 
-// HoldFocusKey takes the focus key while an agent's pane is on the stage beside sidebar, or gives
-// it back to the panes when that pane is empty.
-func (p *PopupWindow) HoldFocusKey(sidebar, agent string) {
+// HoldCycleKeys takes the cycle keys for sidebar while an agent's pane is on the stage beside it,
+// or gives them back to the panes when there is none.
+func (p *PopupWindow) HoldCycleKeys(sidebar string, staged bool) {
 	switch {
 	case sidebar == "":
-	case p.focus != nil && *p.focus == agent:
-	case agent != "":
-		p.tmux.BindRootKey(FocusKey, "if-shell", "-F", "#{==:#{pane_id},"+sidebar+"}",
-			"select-pane -t "+agent, "select-pane -t "+sidebar)
-		p.focus = &agent
+	case p.cycling != nil && *p.cycling == staged:
+	case staged:
+		for _, key := range CycleKeys {
+			p.tmux.BindRootKey(key, "send-keys", "-t", sidebar, key)
+		}
+		p.cycling = &staged
 	default:
-		p.tmux.UnbindRootKey(FocusKey)
-		p.focus = &agent
+		p.unbindCycleKeys()
+		p.cycling = &staged
 	}
 }
 
-// ReleaseFocusKey gives the focus key back to the panes on the panel's way out.
-func (p *PopupWindow) ReleaseFocusKey() {
-	if p.focus == nil || *p.focus == "" {
+// ReleaseCycleKeys gives the cycle keys back to the panes on the panel's way out.
+func (p *PopupWindow) ReleaseCycleKeys() {
+	if p.cycling == nil || !*p.cycling {
 		return
 	}
 
-	p.tmux.UnbindRootKey(FocusKey)
-	p.focus = nil
+	p.unbindCycleKeys()
+	p.cycling = nil
+}
+
+func (p *PopupWindow) unbindCycleKeys() {
+	for _, key := range CycleKeys {
+		p.tmux.UnbindRootKey(key)
+	}
 }
 
 type keyNamer interface {

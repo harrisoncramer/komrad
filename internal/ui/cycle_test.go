@@ -1,0 +1,163 @@
+package ui_test
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+// TestViewCycle covers the two keys that move the keyboard between the list, the agent and the
+// record.
+func TestViewCycle(t *testing.T) {
+	sidebar, agent := "%0", "%9"
+
+	tests := []struct {
+		name         string
+		press        []string
+		from         string
+		wantSelected []string
+		wantRecord   bool
+	}{
+		{
+			name:         "forward from the list goes to the agent",
+			press:        []string{"ctrl+a"},
+			wantSelected: []string{agent},
+		},
+		{
+			name:       "backward from the list goes to the record",
+			press:      []string{"ctrl+q"},
+			wantRecord: true,
+		},
+		{
+			name:         "backward from the record goes to the agent",
+			press:        []string{"ctrl+q", "ctrl+q"},
+			wantSelected: []string{agent},
+			wantRecord:   true,
+		},
+		{
+			name:  "forward from the record wraps to the list",
+			press: []string{"ctrl+q", "ctrl+a"},
+		},
+		{
+			name:         "forward from the agent's pane goes to its record",
+			press:        []string{"ctrl+a"},
+			from:         agent,
+			wantSelected: []string{sidebar},
+			wantRecord:   true,
+		},
+		{
+			name:         "backward from the agent's pane goes to the list",
+			press:        []string{"ctrl+q"},
+			from:         agent,
+			wantSelected: []string{sidebar},
+		},
+		{
+			name:         "forward from the info pane goes to the list",
+			press:        []string{"ctrl+a"},
+			from:         "%77",
+			wantSelected: []string{sidebar},
+		},
+		{
+			name:         "backward from the info pane goes to the record",
+			press:        []string{"ctrl+q"},
+			from:         "%77",
+			wantSelected: []string{sidebar},
+			wantRecord:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			harness := openFocus(t)
+			require.Equal(t, agent, harness.panel.ReadGuestPane())
+			if tt.from != "" {
+				harness.panel.SetActivePane(tt.from)
+			}
+			selected := len(harness.panel.ReadSelectedPanes())
+
+			harness.press(tt.press...)
+
+			assert.Equal(t, tt.wantSelected, nilIfEmpty(harness.panel.ReadSelectedPanes()[selected:]))
+			assert.Equal(t, tt.wantRecord, readRecordCursor(harness.readFrame()) != "")
+		})
+	}
+
+	t.Run("a press from the agent's pane lands in a search being typed without moving past it", func(t *testing.T) {
+		harness := openFocus(t)
+		harness.press("/", "a")
+		_, bound := harness.panel.ReadRootBinding("C-a")
+		require.True(t, bound, "typing a search leaves the agent on the stage")
+		harness.panel.SetActivePane(agent)
+		selected := len(harness.panel.ReadSelectedPanes())
+
+		harness.press("ctrl+a")
+
+		frame := harness.readFrame()
+		assert.Equal(t, []string{sidebar}, harness.panel.ReadSelectedPanes()[selected:])
+		assert.Contains(t, frame, "/ a▏", "the search is still being typed")
+		assert.Empty(t, readRecordCursor(frame))
+	})
+
+	t.Run("the sort strip hands the keys back to the list and the cycle moves on from there", func(t *testing.T) {
+		harness := openAgents(t, buildSelectable()...)
+
+		harness.press("f", "ctrl+a")
+
+		assert.NotEmpty(t, readRecordCursor(harness.readFrame()))
+	})
+
+	t.Run("the legend names the pair as one row", func(t *testing.T) {
+		harness := openHelp(t, panelHarnessParams{height: 50}, "}", "}", "}", "}", "?")
+
+		assert.Regexp(t, `C-a/C-q +next/prev view`, readLegend(harness.readFrame()))
+	})
+}
+
+// TestReviewViewCycle covers the cycle on the review, where the thread under the cursor is a stop.
+func TestReviewViewCycle(t *testing.T) {
+	t.Run("the diff, the thread and the record in turn", func(t *testing.T) {
+		harness := openLongThread(t)
+
+		harness.press("ctrl+a")
+		assert.Contains(t, readLegend(harness.readFrame()), "back to the diff")
+
+		harness.press("ctrl+a")
+		frame := harness.readFrame()
+		assert.NotEmpty(t, readRecordCursor(frame))
+		assert.NotContains(t, readLegend(frame), "back to the diff")
+
+		harness.press("ctrl+a")
+		frame = harness.readFrame()
+		assert.Empty(t, readRecordCursor(frame))
+		assert.NotContains(t, readLegend(frame), "back to the diff", "the thread let go on the way into the record")
+	})
+
+	t.Run("leaving the record by its own key lands on the diff rather than the thread", func(t *testing.T) {
+		harness := openLongThread(t)
+
+		harness.press("ctrl+a", "ctrl+a", "esc")
+
+		frame := harness.readFrame()
+		assert.Empty(t, readRecordCursor(frame))
+		assert.NotContains(t, readLegend(frame), "back to the diff")
+	})
+
+	t.Run("backward from the record goes to the thread", func(t *testing.T) {
+		harness := openLongThread(t)
+
+		harness.press("ctrl+q", "ctrl+q")
+
+		frame := harness.readFrame()
+		assert.Empty(t, readRecordCursor(frame))
+		assert.Contains(t, readLegend(frame), "back to the diff")
+	})
+}
+
+func nilIfEmpty(panes []string) []string {
+	if len(panes) == 0 {
+		return nil
+	}
+
+	return panes
+}
