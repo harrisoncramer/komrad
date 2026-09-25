@@ -66,10 +66,10 @@ func (m model) pressedElsewhere(k string) (stop, bool) {
 	return stopOther, true
 }
 
-// cycleFromElsewhere takes the keys back into the sidebar, leaving a mode that holds the keyboard
-// where it stands rather than moving past it.
+// cycleFromElsewhere takes the keys back into the sidebar, leaving a search being typed where it
+// stands.
 func (m model) cycleFromElsewhere(k string, from stop) (tea.Model, tea.Cmd) {
-	if m.held.active || m.form.isActive() || m.isTyping() {
+	if m.isTyping() {
 		m.tmux.SelectPane(m.settings.Pane)
 
 		return m, nil

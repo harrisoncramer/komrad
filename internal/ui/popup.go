@@ -5,8 +5,7 @@ import (
 	"strings"
 )
 
-// CycleKeys move the keys to the next view and the previous one, bound in tmux's root table so a
-// press in the agent's pane reaches the panel.
+// CycleKeys move the keys to the next view and the previous one.
 var CycleKeys = []string{"C-a", "C-q"}
 
 const managerKeyOption = "@komrad_key"

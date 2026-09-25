@@ -98,7 +98,7 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 	}
 
-	// A cycle key pressed in another pane is how the keyboard gets back, so no mode keeps it.
+	// A cycle key pressed in another pane is answered ahead of every mode.
 	if isKey {
 		if from, ok := m.pressedElsewhere(key.String()); ok {
 			return m.cycleFromElsewhere(key.String(), from)
