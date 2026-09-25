@@ -74,9 +74,9 @@ func TestValidateKeybindingsReadsTheGlobalKeys(t *testing.T) {
 			names:  "the terminal",
 		},
 		{
-			name:   "the details focus taking the filter key",
-			rebind: func(k *config.Keybindings) { k.Details.Focus = []string{filterOpenKey} },
-			names:  "the details focus",
+			name:   "the backward view cycle, which is not configurable either",
+			rebind: func(k *config.Keybindings) { k.Agents.Pause = []string{cycleBackKey} },
+			names:  "the view cycle",
 		},
 		{
 			name:   "the key that reads the messages, which is not configurable at all",

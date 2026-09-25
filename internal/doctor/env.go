@@ -71,9 +71,9 @@ type Settings struct {
 	DatabaseURL         string
 	ReadOnlyDatabaseURL string
 	Addr                string
-	// FocusKey is the key the panel binds in tmux's root table to take focus, which the
+	// CycleKeys are the keys the panel binds in tmux's root table to move between views, which the
 	// keybindings check keeps free for it.
-	FocusKey       string
+	CycleKeys      []string
 	EngineIsRemote bool
 	Version        string
 	Commit         string

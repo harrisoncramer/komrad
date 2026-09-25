@@ -31,7 +31,7 @@ func (m model) Init() tea.Cmd {
 		return nil
 	}
 
-	m.holdFocusKey()
+	m.holdCycleKeys()
 
 	return tea.Batch(tick(), cursor.Blink, tea.RequestBackgroundColor)
 }
@@ -50,22 +50,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	routed, pulse := routed.pulseMessages(m.messages.landed)
 	routed = routed.releaseHiddenDetails()
 	routed = routed.dropStaleDocScroll()
-	routed.holdFocusKey()
+	routed.holdCycleKeys()
 
 	return routed, tea.Batch(cmd, blink, warming, pulse)
 }
 
-// holdFocusKey binds the focus key while an agent's pane is on the stage, and gives it back when
-// there is no pane for the key to jump to.
-func (m model) holdFocusKey() {
-	if m.popup == nil || m.frame == nil {
-		return
-	}
-
-	m.popup.HoldFocusKey(m.settings.Pane, m.focusPane())
-}
-
-// focusPane is the agent's pane the focus key jumps to, empty where the stage holds none or the
+// focusPane is the agent's pane the cycle stops at, empty where the stage holds none or the
 // panel is drawn over it.
 func (m model) focusPane() string {
 	if m.screen != screenAgents || m.frame.IsSolo() {
@@ -108,6 +98,13 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 	}
 
+	// A cycle key pressed in another pane is answered ahead of every mode.
+	if isKey {
+		if from, ok := m.findPressedElsewhere(key.String()); ok {
+			return m.cycleFromElsewhere(key.String(), from)
+		}
+	}
+
 	if next, cmd, handled := m.routeAsyncMessage(msg); handled {
 		return next, cmd
 	}
@@ -115,6 +112,8 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Reached before the form and before a held write.
 	if isKey && m.isMessagesRegion() {
 		switch {
+		case m.isMessagesFocused() && isCycleKey(key.String()):
+			m = m.toggleMessagesFocus()
 		case m.isMessagesFocused():
 			return m.updateMessages(key)
 		case key.String() == messagesFocusKey:
@@ -264,6 +263,12 @@ func (m model) routeGlobalKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
 		return m.pushMockMessage(), nil, true
 	}
 
+	if m.isDetailsScreen() && isCycleKey(key.String()) {
+		next, cmd := m.cycleView(key.String(), m.readSidebarStop())
+
+		return next, cmd, true
+	}
+
 	if _, ok := m.activeTabs(); ok {
 		if m.isTabsFocused() {
 			next, cmd := m.updateTabs(key)
@@ -275,17 +280,10 @@ func (m model) routeGlobalKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
 		}
 	}
 
-	if m.isDetailsScreen() {
-		if m.isDetailsFocused() {
-			next, cmd := m.updateDetails(key)
+	if m.isDetailsScreen() && m.isDetailsFocused() {
+		next, cmd := m.updateDetails(key)
 
-			return next, cmd, true
-		}
-		if isBound(key.String(), m.keys.Details.Focus) {
-			next, cmd := m.jumpIntoDetails()
-
-			return next, cmd, true
-		}
+		return next, cmd, true
 	}
 
 	return m, nil, false

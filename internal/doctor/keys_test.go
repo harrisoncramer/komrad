@@ -21,7 +21,7 @@ func rootKeysEnv(cfg *config.Config, rootKeys ...string) Env {
 func rootKeysEnvWithPrefix(cfg *config.Config, prefix string, rootKeys ...string) Env {
 	env := configEnv(cfg, nil, true)
 	env.TmuxSocket = "komrad"
-	env.FocusKey = ui.FocusKey
+	env.CycleKeys = ui.CycleKeys
 	env.ValidateKeybindings = ui.ValidateKeybindings
 	env.IsPanelRunning = func(context.Context) bool { return true }
 	env.Output = func(_ context.Context, _ string, args ...string) (string, error) {
@@ -64,16 +64,17 @@ func TestKeybindingsCheckPassesWhenTmuxHoldsNothing(t *testing.T) {
 	assert.Equal(t, StatusOK, result.Status)
 }
 
-// TestKeybindingsCheckIgnoresThePanelsOwnFocusBinding covers the focus key the panel binds itself.
-func TestKeybindingsCheckIgnoresThePanelsOwnFocusBinding(t *testing.T) {
+// TestKeybindingsCheckIgnoresThePanelsOwnCycleBindings covers the cycle keys the panel binds itself.
+func TestKeybindingsCheckIgnoresThePanelsOwnCycleBindings(t *testing.T) {
 	env := configEnv(config.Defaults(), nil, true)
 	env.TmuxSocket = "komrad"
-	env.FocusKey = ui.FocusKey
+	env.CycleKeys = ui.CycleKeys
 	env.ValidateKeybindings = ui.ValidateKeybindings
 	env.IsPanelRunning = func(context.Context) bool { return true }
 	env.Output = func(_ context.Context, _ string, args ...string) (string, error) {
 		if slices.Contains(args, "list-keys") {
-			return `bind-key  -T root C-a    if-shell -F #{==:#{pane_id},%3} "select-pane -t %9" "select-pane -t %3"`, nil
+			return `bind-key  -T root C-a    send-keys -t "%3" C-a
+bind-key  -T root C-q    send-keys -t "%3" C-q`, nil
 		}
 
 		return "C-b\n", nil
@@ -89,7 +90,7 @@ func TestKeybindingsCheckIgnoresThePanelsOwnFocusBinding(t *testing.T) {
 func TestKeybindingsCheckIgnoresAKeyThePanelHasTaken(t *testing.T) {
 	env := configEnv(config.Defaults(), nil, true)
 	env.TmuxSocket = "komrad"
-	env.FocusKey = ui.FocusKey
+	env.CycleKeys = ui.CycleKeys
 	env.ValidateKeybindings = ui.ValidateKeybindings
 	env.IsPanelRunning = func(context.Context) bool { return true }
 	env.Output = func(_ context.Context, _ string, args ...string) (string, error) {
@@ -129,22 +130,30 @@ func TestKeybindingsCheckFindsAKeyThePanelCouldNotTake(t *testing.T) {
 	assert.Contains(t, result.Fix, "unbind -n C-d")
 }
 
-// TestKeybindingsCheckFindsAPrefixOnTheFocusKey covers a prefix set to the focus key, which tmux
-// reads before the root table, so the focus key installs and never fires.
-func TestKeybindingsCheckFindsAPrefixOnTheFocusKey(t *testing.T) {
-	result := newKeybindingsCheck().Run(t.Context(), rootKeysEnvWithPrefix(config.Defaults(), ui.FocusKey))
+// TestKeybindingsCheckFindsAPrefixOnACycleKey covers a prefix set to a cycle key, which tmux reads
+// before the root table, so the cycle key installs and never fires.
+func TestKeybindingsCheckFindsAPrefixOnACycleKey(t *testing.T) {
+	for _, key := range ui.CycleKeys {
+		t.Run(key, func(t *testing.T) {
+			result := newKeybindingsCheck().Run(t.Context(), rootKeysEnvWithPrefix(config.Defaults(), key))
 
-	assert.Equal(t, StatusFail, result.Status, "the prefix is read first, so the focus key is dead")
-	assert.Contains(t, result.Fix, "prefix")
+			assert.Equal(t, StatusFail, result.Status, "the prefix is read first, so the cycle key is dead")
+			assert.Contains(t, result.Fix, "prefix")
+		})
+	}
 }
 
-// TestKeybindingsCheckFindsTheFocusKeyTakenByTmux covers the focus key already bound in the root
-// table by the user's own tmux config, which the panel would overwrite and then give back.
-func TestKeybindingsCheckFindsTheFocusKeyTakenByTmux(t *testing.T) {
-	result := newKeybindingsCheck().Run(t.Context(), rootKeysEnv(config.Defaults(), ui.FocusKey))
+// TestKeybindingsCheckFindsACycleKeyTakenByTmux covers a cycle key already bound in the root table
+// by the user's own tmux config, which the panel would overwrite and then give back.
+func TestKeybindingsCheckFindsACycleKeyTakenByTmux(t *testing.T) {
+	for _, key := range ui.CycleKeys {
+		t.Run(key, func(t *testing.T) {
+			result := newKeybindingsCheck().Run(t.Context(), rootKeysEnv(config.Defaults(), key))
 
-	assert.Equal(t, StatusFail, result.Status)
-	assert.Contains(t, result.Fix, "unbind -n "+ui.FocusKey)
+			assert.Equal(t, StatusFail, result.Status)
+			assert.Contains(t, result.Fix, "unbind -n "+key)
+		})
+	}
 }
 
 // TestTheKeybindingsCheckIsRun pins the check being one doctor makes.

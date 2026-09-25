@@ -1,0 +1,167 @@
+package ui
+
+import (
+	"slices"
+
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
+)
+
+// The cycle keys as the panel reads them, which tmux spells as CycleKeys.
+const (
+	cycleForwardKey = "ctrl+a"
+	cycleBackKey    = "ctrl+q"
+)
+
+// stop is a place that holds the keys and shows something about the hovered row.
+type stop int
+
+const (
+	stopList stop = iota
+	stopAgent
+	stopThread
+	stopRecord
+	// stopOther is a pane beside the sidebar that is not a stop, such as the info pane.
+	stopOther
+)
+
+func isCycleKey(k string) bool {
+	return isBound(k, []string{cycleForwardKey, cycleBackKey})
+}
+
+func (m model) cycleBinding() key.Binding {
+	return binding([]string{cycleForwardKey, cycleBackKey}, "next/prev view")
+}
+
+// areCycleKeysBound reports whether tmux sends the cycle keys to the panel from every pane.
+func (m model) areCycleKeysBound() bool {
+	return m.popup != nil && m.frame != nil && m.focusPane() != ""
+}
+
+// holdCycleKeys binds the cycle keys while an agent's pane is on the stage, and gives them back
+// when there is no pane beside the sidebar for them to reach.
+func (m model) holdCycleKeys() {
+	if m.popup == nil || m.frame == nil {
+		return
+	}
+
+	m.popup.HoldCycleKeys(m.settings.Pane, m.focusPane() != "")
+}
+
+// findPressedElsewhere finds the stop a cycle key was pressed in when tmux sent it from a pane beside
+// the sidebar.
+func (m model) findPressedElsewhere(k string) (stop, bool) {
+	if !m.areCycleKeysBound() || !isCycleKey(k) {
+		return stopList, false
+	}
+
+	active := m.tmux.GetActivePane(m.settings.Pane)
+	switch active {
+	case "", m.settings.Pane:
+		return stopList, false
+	case m.focusPane():
+		return stopAgent, true
+	}
+
+	return stopOther, true
+}
+
+// cycleFromElsewhere takes the keys back into the sidebar, leaving a search being typed where it
+// stands.
+func (m model) cycleFromElsewhere(k string, from stop) (tea.Model, tea.Cmd) {
+	if m.isTyping() {
+		m.tmux.SelectPane(m.settings.Pane)
+
+		return m, nil
+	}
+
+	if m.isMessagesFocused() {
+		m = m.toggleMessagesFocus()
+	}
+
+	m.keysElsewhere = true
+
+	return m.cycleView(k, from)
+}
+
+// readSidebarStop reads the stop holding the keys inside the sidebar.
+func (m model) readSidebarStop() stop {
+	switch {
+	case m.isDetailsFocused():
+		return stopRecord
+	case m.screen == screenReview && m.review.isThreadTaken():
+		return stopThread
+	}
+
+	return stopList
+}
+
+// listStops lists the screen's stops in forward order, leaving out any it is not drawing.
+func (m model) listStops() []stop {
+	stops := []stop{stopList}
+
+	switch {
+	case m.screen == screenReview:
+		if _, ok := m.review.diff.threadAtCursor(); ok {
+			stops = append(stops, stopThread)
+		}
+	case m.focusPane() != "":
+		stops = append(stops, stopAgent)
+	}
+
+	if m.isDetailsDrawn(m.hoveredDetails()) {
+		stops = append(stops, stopRecord)
+	}
+
+	return stops
+}
+
+// cycleView moves the keys one stop on from where they are, or one back for the backward key.
+func (m model) cycleView(k string, from stop) (tea.Model, tea.Cmd) {
+	stops := m.listStops()
+	back := k == cycleBackKey
+
+	at := slices.Index(stops, from)
+	switch {
+	case at < 0 && back:
+		at = len(stops) - 1
+	case at < 0:
+		at = 0
+	case back:
+		at = (at + len(stops) - 1) % len(stops)
+	default:
+		at = (at + 1) % len(stops)
+	}
+
+	return m.enterStop(stops[at])
+}
+
+func (m model) enterStop(to stop) (tea.Model, tea.Cmd) {
+	switch to {
+	case stopAgent:
+		m.tmux.SelectPane(m.focusPane())
+	case stopRecord:
+		return m.enterSidebar(to).jumpIntoDetails()
+	case stopThread:
+		m = m.enterSidebar(to).blurDetails()
+		m.review.threads.focus = true
+	case stopList, stopOther:
+		m = m.enterSidebar(to).blurDetails()
+	}
+
+	return m, nil
+}
+
+func (m model) enterSidebar(to stop) model {
+	if m.keysElsewhere {
+		m.tmux.SelectPane(m.settings.Pane)
+		m.keysElsewhere = false
+	}
+
+	m.blurTabs()
+	if m.screen == screenReview && to != stopThread {
+		m.review.threads.blur()
+	}
+
+	return m
+}

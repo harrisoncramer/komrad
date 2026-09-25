@@ -140,9 +140,7 @@ restore_open = ["R"]
 # cursor, and the key that copies the field it lands on.
 [keybindings.details]
 # Copy the field the details cursor is on to the system clipboard.
-copy  = ["y"]
-# Move the cursor between the list on screen and the details under it.
-focus = ["ctrl+t"]
+copy = ["y"]
 
 # The filter over whichever list is on screen, shared by every screen that
 # draws one. The key that opens it is "/" and is not configured.
@@ -222,10 +220,6 @@ compose          = ["c"]
 # working rather than letting you both write at once. It is refused on a round the
 # agent has written past, since those lines have moved on.
 edit_file        = ["e"]
-# Move the keys onto the thread in the sidebar, so up and down read the conversation
-# rather than the diff, and press it again to hand them back. A thread longer than the
-# sidebar is otherwise only readable from its end.
-focus_thread     = ["ctrl+f"]
 # Jump to the next file in the diff.
 next_file        = ["]"]
 # Jump to the next line matching the pattern the filter key searched for.

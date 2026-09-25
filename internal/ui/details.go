@@ -133,15 +133,6 @@ func (m model) isDetailsFocused() bool {
 	return m.details.focused && m.isDetailsDrawn(m.hoveredDetails())
 }
 
-// toggleDetailsFocus moves the keys between the list and the record.
-func (m model) toggleDetailsFocus() (model, tea.Cmd) {
-	if m.isDetailsFocused() {
-		return m.blurDetails(), nil
-	}
-
-	return m.focusDetails()
-}
-
 // focusDetails gives the record the keys, reading its directory again on the way in.
 func (m model) focusDetails() (model, tea.Cmd) {
 	held := m.hoveredDetails()
@@ -198,7 +189,7 @@ func detailsActions() actionSpec {
 			},
 			{
 				id:   actionDetails,
-				keys: func(k config.Keybindings) []string { return append(slices.Clone(k.Details.Focus), "esc") },
+				keys: func(config.Keybindings) []string { return []string{"esc"} },
 				run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.blurDetails(), nil },
 			},
 			{
@@ -247,7 +238,6 @@ func detailsActions() actionSpec {
 			{
 				of:    []actionID{actionDetails},
 				desc:  func(model) string { return "back to the list" },
-				label: func(k config.Keybindings) string { return keyLabel(k.Details.Focus) },
 				strip: true,
 			},
 			{

@@ -291,6 +291,27 @@ func (c *Client) GetPaneFocus(pane string) (focused, zoomed bool) {
 	return active == "1", active == "1" && window == "1"
 }
 
+// GetActivePane is the pane the window holding pane is sending keys to, empty where tmux cannot
+// say.
+func (c *Client) GetActivePane(pane string) string {
+	if pane == "" {
+		return ""
+	}
+
+	out, err := c.query("list-panes", "-t", pane, "-F", "#{pane_active} #{pane_id}")
+	if err != nil {
+		return ""
+	}
+
+	for _, line := range strings.Split(out, "\n") {
+		if active, ok := strings.CutPrefix(line, "1 "); ok {
+			return active
+		}
+	}
+
+	return ""
+}
+
 // NewWindow creates a detached window in a session, rooted at dir and titled name, and
 // returns its pane id.
 func (c *Client) NewWindow(session, name, dir string) (string, error) {

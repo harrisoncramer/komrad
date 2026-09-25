@@ -45,7 +45,7 @@ func Run(ctx context.Context, deps Deps) error {
 	post.attach(program)
 
 	defer post.close()
-	defer deps.PopupWindow.ReleaseFocusKey()
+	defer deps.PopupWindow.ReleaseCycleKeys()
 
 	if deps.Watch != nil && m.fatal() == nil {
 		watching, stop := context.WithCancel(ctx)
@@ -140,6 +140,7 @@ type uiTmux interface {
 	GetDefaultShell() string
 	SetInfoPane(pane string)
 	SelectPane(pane string)
+	GetActivePane(pane string) string
 	SendKeys(target string, keys ...string) error
 }
 

@@ -342,13 +342,6 @@
               "type": "array",
               "description": "Copy the field the details cursor is on to the system clipboard.",
               "default": "[\"y\"]"
-            },
-            {
-              "key": "focus",
-              "path": "keybindings.details.focus",
-              "type": "array",
-              "description": "Move the cursor between the list on screen and the details under it.",
-              "default": "[\"ctrl+t\"]"
             }
           ],
           "sections": []
@@ -545,13 +538,6 @@
               "type": "array",
               "description": "Open the file under the cursor in your editor, beside the diff, on the line the\ncursor is on. This is the agent's own worktree rather than a copy of it, so what\nyou write is what the agent finds there, and the key is refused while the agent is\nworking rather than letting you both write at once. It is refused on a round the\nagent has written past, since those lines have moved on.",
               "default": "[\"e\"]"
-            },
-            {
-              "key": "focus_thread",
-              "path": "keybindings.review.focus_thread",
-              "type": "array",
-              "description": "Move the keys onto the thread in the sidebar, so up and down read the conversation\nrather than the diff, and press it again to hand them back. A thread longer than the\nsidebar is otherwise only readable from its end.",
-              "default": "[\"ctrl+f\"]"
             },
             {
               "key": "next_file",

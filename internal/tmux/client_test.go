@@ -368,6 +368,7 @@ func TestIntegrationSelectPaneMovesTheKeyboard(t *testing.T) {
 
 	wasFocused, _ := client.GetPaneFocus(first)
 	assert.False(t, wasFocused, "and the one that had them has given them up")
+	assert.Equal(t, second, client.GetActivePane(first), "the window names the pane holding the keys from any pane in it")
 }
 
 // TestIntegrationPaneFocusAnswersForBothHalvesAtOnce pins the two facts one query carries, focus and zoom

@@ -59,7 +59,7 @@ func (r *reviewScreen) updateThread(s panelShared, k string) bool {
 	}
 
 	switch {
-	case isBound(k, s.keys.Review.FocusThread), k == "esc":
+	case k == "esc":
 		r.threads.blur()
 
 		return true
@@ -90,17 +90,6 @@ func (r *reviewScreen) updateThread(s panelShared, k string) bool {
 	}
 
 	return false
-}
-
-// focusThread moves the keys onto the conversation, refused while there is none to read.
-func (r *reviewScreen) focusThread() {
-	if _, ok := r.diff.threadAtCursor(); !ok {
-		r.notice = "no thread here to read"
-
-		return
-	}
-
-	r.threads.focus = true
 }
 
 // blur hands the keys back to the diff and drops the reader back to the end of the conversation.

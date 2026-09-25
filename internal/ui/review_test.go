@@ -437,7 +437,7 @@ func TestReviewThreadFocus(t *testing.T) {
 		harness := openLongThread(t)
 		require.NotContains(t, readSidebarProse(harness.readFrame()), "note 0")
 
-		harness.press("ctrl+f")
+		harness.press("ctrl+a")
 		for range 20 {
 			harness.press("k")
 		}
@@ -456,7 +456,7 @@ func TestReviewThreadFocus(t *testing.T) {
 
 	t.Run("the scroll keys move the thread while it holds the keys", func(t *testing.T) {
 		harness := openLongThread(t)
-		harness.press("ctrl+f")
+		harness.press("ctrl+a")
 
 		harness.press("ctrl+p")
 		assert.NotContains(t, readSidebarProse(harness.readFrame()), "note 5")
@@ -478,7 +478,7 @@ func TestReviewThreadFocus(t *testing.T) {
 
 	t.Run("moving the diff cursor drops the scroll and the keys", func(t *testing.T) {
 		harness := openLongThread(t)
-		harness.press("ctrl+f", "k")
+		harness.press("ctrl+a", "k")
 		require.Contains(t, readLegend(harness.readFrame()), "back to the diff")
 
 		harness.press("ctrl+d")
@@ -488,12 +488,12 @@ func TestReviewThreadFocus(t *testing.T) {
 		assert.NotContains(t, readLegend(frame), "back to the diff")
 	})
 
-	t.Run("a line with no thread refuses the key and says so", func(t *testing.T) {
+	t.Run("a line with no thread is passed over for the record", func(t *testing.T) {
 		harness := openReview(t, newReviewServer(t))
 
-		harness.press("ctrl+f")
+		harness.press("ctrl+a")
 
-		assert.Contains(t, readSidebarProse(harness.readFrame()), "no thread here to read")
+		assert.NotEmpty(t, readRecordCursor(harness.readFrame()))
 	})
 }
 
@@ -507,7 +507,7 @@ func TestReviewFitsThePane(t *testing.T) {
 
 			assert.Len(t, splitLines(harness.readFrame()), height)
 
-			harness.press("ctrl+f", "k", "k", "k", "k", "k")
+			harness.press("ctrl+a", "k", "k", "k", "k", "k")
 			assert.Len(t, splitLines(harness.readFrame()), height)
 
 			harness.press("esc", "c")
@@ -1393,12 +1393,12 @@ func TestReviewOwed(t *testing.T) {
 		diff := readLegend(harness.readFrame())
 		require.NotContains(t, diff, "scroll the thread")
 
-		harness.press("ctrl+f")
+		harness.press("ctrl+a")
 		thread := readLegend(harness.readFrame())
 		assert.Contains(t, thread, "scroll the thread")
 		assert.Contains(t, thread, "back to the diff")
 
-		harness.press("ctrl+f")
+		harness.press("ctrl+q")
 		assert.Equal(t, diff, readLegend(harness.readFrame()))
 	})
 }
@@ -1407,7 +1407,7 @@ func TestReviewOwed(t *testing.T) {
 func TestReviewRecord(t *testing.T) {
 	t.Run("the record names the agent and the two commits the diff is between", func(t *testing.T) {
 		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{height: 50})
-		harness.press("ctrl+t")
+		harness.press("ctrl+q")
 
 		frame := harness.readFrame()
 		assert.Equal(t, "auth", readRecordField(frame, "name"))
@@ -1420,14 +1420,14 @@ func TestReviewRecord(t *testing.T) {
 		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{height: 50})
 		respawns, sentKeys := harness.panel.CountRespawns(), harness.panel.CountSentKeys()
 
-		harness.press("ctrl+t", "j")
+		harness.press("ctrl+q", "j")
 		frame := harness.readFrame()
 		assert.Equal(t, respawns, harness.panel.CountRespawns())
 		assert.Equal(t, sentKeys, harness.panel.CountSentKeys())
 		assert.Equal(t, "greet.go:1", readReviewCursor(frame))
 		assert.True(t, strings.HasPrefix(readRecordCursor(frame), "agent"))
 
-		harness.press("ctrl+t", "j")
+		harness.press("ctrl+a", "j")
 		assert.Equal(t, "greet.go:2", readReviewCursor(harness.readFrame()))
 	})
 
@@ -1480,7 +1480,7 @@ func TestReviewRecord(t *testing.T) {
 				taken := 0
 				for height := range 60 {
 					harness.send(tea.WindowSizeMsg{Width: reviewWidth, Height: height})
-					harness.press("ctrl+t")
+					harness.press("ctrl+q")
 					if readRecordCursor(harness.readFrame()) == "" {
 						harness.press("j")
 						assert.NotEqual(t, "greet.go:1", readReviewCursor(harness.readFrame()),
@@ -1491,7 +1491,7 @@ func TestReviewRecord(t *testing.T) {
 					}
 
 					taken++
-					harness.press("ctrl+t")
+					harness.press("ctrl+a")
 				}
 
 				assert.Positive(t, taken)
@@ -1501,7 +1501,7 @@ func TestReviewRecord(t *testing.T) {
 
 	t.Run("a shrink under a focused record gives the keys back to the diff", func(t *testing.T) {
 		harness := openReview(t, newReviewServer(t))
-		harness.press("ctrl+t")
+		harness.press("ctrl+q")
 		require.NotEmpty(t, readRecordCursor(harness.readFrame()))
 
 		harness.press("?")
@@ -2539,13 +2539,13 @@ func TestReviewEmphasis(t *testing.T) {
 		harness := openReview(t, newReviewServer(t))
 		live := readRawCursorRow(harness)
 
-		harness.press("ctrl+t")
+		harness.press("ctrl+q")
 		dimmed := readRawCursorRow(harness)
 		require.NotEmpty(t, ansi.Strip(live))
 		assert.Equal(t, ansi.Strip(live), ansi.Strip(dimmed), "the same row, restyled")
 		assert.NotEqual(t, live, dimmed)
 
-		harness.press("ctrl+t")
+		harness.press("ctrl+a")
 		assert.Equal(t, live, readRawCursorRow(harness))
 	})
 }
