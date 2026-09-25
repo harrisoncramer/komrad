@@ -21,7 +21,7 @@ func TestLoadNamesWhatTheTableTakes(t *testing.T) {
 		{
 			name: "a misspelled top-level key",
 			file: "default_harnes = \"codex\"\n",
-			want: []string{"default_harnes is not a setting; the top level takes default_harness, max_agents"},
+			want: []string{"default_harnes is not a setting; the top level takes default_harness, harness, usage"},
 		},
 		{
 			name: "a misspelled key inside a table",
@@ -68,7 +68,7 @@ func TestLoadNamesWhatTheTableTakes(t *testing.T) {
 // longer fails on a key it did not use.
 func TestLoadStillRejectsAValueItCannotRead(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
-	require.NoError(t, os.WriteFile(path, []byte("max_agents = \"lots\"\n"), 0o644))
+	require.NoError(t, os.WriteFile(path, []byte("[usage]\nmax_agents = \"lots\"\n"), 0o644))
 
 	_, err := LoadStack(Stack{Paths: []string{path}})
 
@@ -110,7 +110,7 @@ func TestListKnownKeys(t *testing.T) {
 		},
 		{
 			name:  "a value rather than a table",
-			table: "max_agents",
+			table: "default_harness",
 			want:  nil,
 		},
 		{

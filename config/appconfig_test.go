@@ -187,6 +187,68 @@ func TestLoadLayout(t *testing.T) {
 	}
 }
 
+// TestLoadUsage covers each role's limits and what an omitted key takes.
+func TestLoadUsage(t *testing.T) {
+	tests := []struct {
+		name    string
+		file    string
+		want    Usage
+		wantErr string
+	}{
+		{
+			name:    "a negative compaction point is refused",
+			file:    "[usage.implementer]\nauto_compaction = -1\n",
+			wantErr: "usage.implementer.auto_compaction",
+		},
+		{
+			name:    "a negative child limit on an implementer is refused",
+			file:    "[usage.implementer]\nmax_children = -1\n",
+			wantErr: "usage.implementer.max_children",
+		},
+		{
+			name:    "a negative child limit on an orchestrator is refused",
+			file:    "[usage.orchestrator]\nmax_children = -2\n",
+			wantErr: "usage.orchestrator.max_children",
+		},
+		{
+			name: "a file naming none takes the built-in, with no orchestrator limit of its own",
+			file: "default_harness = \"claude\"\n",
+			want: NewUsage(),
+		},
+		{
+			name: "zero hands a role's compaction back to the CLI and one role changed leaves the rest",
+			file: "[usage.reviewer]\nauto_compaction = 120000\n[usage.orchestrator]\nauto_compaction = 0\nmax_children = 4\n",
+			want: Usage{
+				MaxAgents: DefaultMaxAgents,
+				Implementer: ImplementerUsage{
+					AutoCompaction: DefaultImplementerAutoCompaction,
+					MaxChildren:    DefaultMaxChildren,
+				},
+				Reviewer:     ReviewerUsage{AutoCompaction: 120000},
+				Orchestrator: OrchestratorUsage{MaxChildren: 4},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "config.toml")
+			require.NoError(t, os.WriteFile(path, []byte(tt.file), 0o644))
+
+			cfg, err := LoadStack(Stack{Paths: []string{path}})
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, cfg.Usage)
+		})
+	}
+}
+
 // TestLoadMaxAgents covers the ceiling on how many agents may exist, which an omitted key
 // takes the built-in for rather than reading as none.
 func TestLoadMaxAgents(t *testing.T) {
@@ -203,18 +265,18 @@ func TestLoadMaxAgents(t *testing.T) {
 		},
 		{
 			name: "the ceiling the user chose",
-			file: "max_agents = 12\n",
+			file: "[usage]\nmax_agents = 12\n",
 			want: 12,
 		},
 		{
 			// Zero reads the same as the key being absent, so it cannot mean no ceiling.
 			name: "zero is an omitted key rather than a ceiling of none",
-			file: "max_agents = 0\n",
+			file: "[usage]\nmax_agents = 0\n",
 			want: DefaultMaxAgents,
 		},
 		{
 			name:    "a negative ceiling is not a number of agents",
-			file:    "max_agents = -1\n",
+			file:    "[usage]\nmax_agents = -1\n",
 			wantErr: true,
 		},
 	}
@@ -231,7 +293,7 @@ func TestLoadMaxAgents(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-			assert.Equal(t, tt.want, cfg.MaxAgents)
+			assert.Equal(t, tt.want, cfg.Usage.MaxAgents)
 		})
 	}
 }
@@ -541,17 +603,17 @@ func TestLoadMergesLayers(t *testing.T) {
 	}{
 		{
 			name:  "a later layer wins a scalar",
-			files: []string{"max_agents = 10\n", "max_agents = 99\n"},
+			files: []string{"[usage]\nmax_agents = 10\n", "[usage]\nmax_agents = 99\n"},
 			check: func(t *testing.T, cfg *Config) {
-				assert.Equal(t, 99, cfg.MaxAgents)
+				assert.Equal(t, 99, cfg.Usage.MaxAgents)
 			},
 		},
 		{
 			name:  "a scalar only the first layer sets survives",
-			files: []string{"default_harness = \"codex\"\n", "max_agents = 99\n"},
+			files: []string{"default_harness = \"codex\"\n", "[usage]\nmax_agents = 99\n"},
 			check: func(t *testing.T, cfg *Config) {
 				assert.Equal(t, "codex", cfg.DefaultHarness)
-				assert.Equal(t, 99, cfg.MaxAgents)
+				assert.Equal(t, 99, cfg.Usage.MaxAgents)
 			},
 		},
 		{
@@ -576,7 +638,7 @@ func TestLoadMergesLayers(t *testing.T) {
 			name: "a list the later layer does not mention is not reset",
 			files: []string{
 				"[keybindings.nav]\ndown = [\"x\"]\n",
-				"max_agents = 5\n",
+				"[usage]\nmax_agents = 5\n",
 			},
 			check: func(t *testing.T, cfg *Config) {
 				assert.Equal(t, []string{"x"}, cfg.Keybindings.Nav.Down)

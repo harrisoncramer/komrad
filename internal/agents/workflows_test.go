@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"komrade/config"
 	"komrade/internal/harnesstest"
 	"komrade/internal/store"
 	agentstore "komrade/internal/store/agent"
@@ -678,7 +679,7 @@ func TestRestoreWorkflowCeiling(t *testing.T) {
 	st := newStore(t)
 	tmux := tmuxtest.NewFake()
 	manager := newManager(tmux, st, "")
-	workflows := st.workflowService(workflowServiceOptions{tmux: tmux, maxAgents: 3})
+	workflows := st.workflowService(workflowServiceOptions{tmux: tmux, usage: config.Usage{MaxAgents: 3}})
 	ctx := t.Context()
 
 	created, err := workflows.NewWorkflow(ctx, workflowstore.Config{Name: "backend"})
@@ -1050,12 +1051,12 @@ func TestRestoreOfAWorkflowUnderTheChildCeiling(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	manager := st.agentService(agentServiceOptions{
-		tmux:        tmux,
-		harnesses:   harnesstest.Registry{Harness: &harnesstest.Fake{}},
-		addr:        "127.0.0.1:9999",
-		maxChildren: 1,
+		tmux:      tmux,
+		harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}},
+		addr:      "127.0.0.1:9999",
+		usage:     config.Usage{Implementer: config.ImplementerUsage{MaxChildren: 1}},
 	})
-	workflows := st.workflowService(workflowServiceOptions{tmux: tmux, maxChildren: 1})
+	workflows := st.workflowService(workflowServiceOptions{tmux: tmux, usage: config.Usage{Implementer: config.ImplementerUsage{MaxChildren: 1}}})
 	ctx := t.Context()
 
 	parent := seedRunning(t, st, tmux, "author", "%author", agentstore.StateIdle)

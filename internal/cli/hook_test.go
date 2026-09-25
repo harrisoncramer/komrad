@@ -161,7 +161,7 @@ func TestIntegrationStopHookDeliversMail(t *testing.T) {
 				assert.Contains(t, logged[0], item.ID)
 			}
 
-			var printed stopHookOutput
+			var printed hookOutput
 			require.NoError(t, json.Unmarshal(out.Bytes(), &printed))
 			assert.Equal(t, string(claude.EventStop), printed.HookSpecificOutput.HookEventName)
 

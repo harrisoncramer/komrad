@@ -1270,10 +1270,10 @@ func TestRestoreOfAChildUnderTheChildCeiling(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	manager := st.agentService(agentServiceOptions{
-		tmux:        tmux,
-		harnesses:   harnesstest.Registry{Harness: &harnesstest.Fake{}},
-		addr:        "127.0.0.1:9999",
-		maxChildren: 1,
+		tmux:      tmux,
+		harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}},
+		addr:      "127.0.0.1:9999",
+		usage:     config.Usage{Implementer: config.ImplementerUsage{MaxChildren: 1}},
 	})
 	ctx := t.Context()
 

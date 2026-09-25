@@ -8,20 +8,6 @@
       "type": "string",
       "description": "Which agent CLI a new agent runs when neither the agent nor its workflow\nnames one. It has to be a harness this binary implements, so it is one of\nthe names under [harness] below.",
       "default": "\"claude\""
-    },
-    {
-      "key": "max_agents",
-      "path": "max_agents",
-      "type": "integer",
-      "description": "How many unarchived agents may exist at once, past which a create is refused.",
-      "default": "50"
-    },
-    {
-      "key": "max_children",
-      "path": "max_children",
-      "type": "integer",
-      "description": "How many children one agent may hold at once, past which attaching another is refused.\nChildren share their parent's checkout, so this is deliberately a much lower ceiling\nthan max_agents.",
-      "default": "3"
     }
   ],
   "sections": [
@@ -61,6 +47,77 @@
               "type": "boolean",
               "description": "Whether to record each agent's directory as trusted in Codex's own config\nbefore launching it. Codex asks whether a directory is trusted the first\ntime it runs there and waits for an answer, which it reads only from that\nfile, so an agent in a fresh worktree otherwise starts blocked and shows\nhere as waiting. Turning this on edits that file on your behalf.",
               "default": "false"
+            }
+          ],
+          "sections": []
+        }
+      ]
+    },
+    {
+      "path": "usage",
+      "description": "How much agents may run and how large their conversations may grow.",
+      "settings": [
+        {
+          "key": "max_agents",
+          "path": "usage.max_agents",
+          "type": "integer",
+          "description": "How many unarchived agents this engine may run at once, past which a create is refused.",
+          "default": "50"
+        }
+      ],
+      "sections": [
+        {
+          "path": "usage.implementer",
+          "description": "What an implementer, the agent that lands work on a branch of its own, may use.",
+          "settings": [
+            {
+              "key": "auto_compaction",
+              "path": "usage.implementer.auto_compaction",
+              "type": "integer",
+              "description": "The conversation size in tokens an agent is held under, summarizing its history a little\nbefore it gets there. Lower costs less per turn and forgets more. 0 leaves the agent CLI's\nown default, and a value the CLI will not take is moved to the nearest one it will.",
+              "default": "250000"
+            },
+            {
+              "key": "max_children",
+              "path": "usage.implementer.max_children",
+              "type": "integer",
+              "description": "How many children, such as its reviewer, one implementer may hold at once. Children share\ntheir parent's checkout, so this is deliberately far lower than max_agents.",
+              "default": "3"
+            }
+          ],
+          "sections": []
+        },
+        {
+          "path": "usage.reviewer",
+          "description": "What a reviewer, the child that reads another agent's work, may use.",
+          "settings": [
+            {
+              "key": "auto_compaction",
+              "path": "usage.reviewer.auto_compaction",
+              "type": "integer",
+              "description": "The conversation size in tokens an agent is held under, summarizing its history a little\nbefore it gets there. Lower costs less per turn and forgets more. 0 leaves the agent CLI's\nown default, and a value the CLI will not take is moved to the nearest one it will.",
+              "default": "250000"
+            }
+          ],
+          "sections": []
+        },
+        {
+          "path": "usage.orchestrator",
+          "description": "What a workflow's orchestrator may use.",
+          "settings": [
+            {
+              "key": "auto_compaction",
+              "path": "usage.orchestrator.auto_compaction",
+              "type": "integer",
+              "description": "The conversation size in tokens an agent is held under, summarizing its history a little\nbefore it gets there. Lower costs less per turn and forgets more. 0 leaves the agent CLI's\nown default, and a value the CLI will not take is moved to the nearest one it will.",
+              "default": "150000"
+            },
+            {
+              "key": "max_children",
+              "path": "usage.orchestrator.max_children",
+              "type": "integer",
+              "description": "How many agents one orchestrator may have spawned and running at once, not counting their\nchildren. 0 sets no limit of its own, leaving max_agents as the cap.",
+              "default": "0"
             }
           ],
           "sections": []

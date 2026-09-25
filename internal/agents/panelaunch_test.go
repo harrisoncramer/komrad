@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"komrade/config"
 	"komrade/internal/harness"
 	"komrade/internal/harnesstest"
 	agentstore "komrade/internal/store/agent"
@@ -133,6 +134,38 @@ func TestLaunchPassesWhatThePanelKnows(t *testing.T) {
 	assert.True(t, launch.Resume)
 
 	assert.Contains(t, launch.Context, "http://127.0.0.1:9999/mcp")
+}
+
+// TestLaunchCompactsAtTheRolesPoint pins that an agent is launched with its own role's point.
+func TestLaunchCompactsAtTheRolesPoint(t *testing.T) {
+	tests := []struct {
+		name string
+		role agentstore.Role
+		want int
+	}{
+		{name: "an implementer", role: agentstore.RoleImplementer, want: 250000},
+		{name: "an agent created without naming a role", want: 250000},
+		{name: "an orchestrator", role: agentstore.RoleOrchestrator, want: 150000},
+		{name: "a role the config leaves to the CLI", role: agentstore.RoleReviewer, want: 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fakeHarness := &harnesstest.Fake{}
+			launcher := NewLauncher(NewLauncherParams{
+				Tmux: tmuxtest.NewFake(),
+				Usage: config.Usage{
+					Implementer:  config.ImplementerUsage{AutoCompaction: 250000},
+					Orchestrator: config.OrchestratorUsage{AutoCompaction: 150000},
+				},
+			})
+
+			require.NoError(t, launcher.launch(fakeHarness, launchParams{Pane: "pane", Role: tt.role}))
+
+			require.Len(t, fakeHarness.Launches, 1)
+			assert.Equal(t, tt.want, fakeHarness.Launches[0].AutoCompaction)
+		})
+	}
 }
 
 const briefedLogPath = "/var/cache/komrade/komrade.log"

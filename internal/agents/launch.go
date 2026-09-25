@@ -42,6 +42,16 @@ type restoredChildSlotLocker interface {
 	ListByID(ctx context.Context, ids []string) ([]agentstore.Agent, error)
 }
 
+type spawnedSlotLocker interface {
+	CountLiveSpawned(ctx context.Context, spawnerID string) (int, error)
+	LockSlots(ctx context.Context) error
+}
+
+type restoredSpawnedSlotLocker interface {
+	spawnedSlotLocker
+	ListByID(ctx context.Context, ids []string) ([]agentstore.Agent, error)
+}
+
 type agentSlotLocker interface {
 	agentCounter
 	LockSlots(ctx context.Context) error
@@ -73,8 +83,7 @@ type NewLaunchServiceParams struct {
 	Scripts            agentScriptRunner
 	UserDefaultHarness string
 	UserDefaultFlags   map[string]string
-	MaxAgents          int
-	MaxChildren        int
+	Usage              config.Usage
 }
 
 type LaunchService struct {
@@ -88,8 +97,7 @@ type LaunchService struct {
 	scripts            agentScriptRunner
 	userDefaultHarness string
 	userDefaultFlags   map[string]string
-	maxAgents          int
-	maxChildren        int
+	usage              config.Usage
 }
 
 // NewLaunchService builds the service from its dependencies.
@@ -105,8 +113,7 @@ func NewLaunchService(params NewLaunchServiceParams) *LaunchService {
 		scripts:            params.Scripts,
 		userDefaultHarness: params.UserDefaultHarness,
 		userDefaultFlags:   params.UserDefaultFlags,
-		maxAgents:          params.MaxAgents,
-		maxChildren:        params.MaxChildren,
+		usage:              params.Usage,
 	}
 }
 
@@ -170,7 +177,7 @@ func (s *LaunchService) NewAgent(ctx context.Context, params NewAgentParams) (*a
 		params = childParams(params, *found)
 	}
 
-	if err := requireRoomForAgents(ctx, s.agents, s.maxAgents, 1); err != nil {
+	if err := requireRoomForAgents(ctx, s.agents, s.usage.MaxAgents, 1); err != nil {
 		return nil, err
 	}
 
@@ -416,7 +423,7 @@ func (s *LaunchService) launchAgent(ctx context.Context, params NewAgentParams, 
 	agent := plan.agent(params, id, sessionID, plan.dir, "", spawner)
 	agent.State = agentstore.StateSettingUp
 
-	if err := s.createUnderCeiling(ctx, agent, parent); err != nil {
+	if err := s.createUnderCeiling(ctx, agent, spawner, parent); err != nil {
 		return nil, err
 	}
 
@@ -598,15 +605,20 @@ func namedDir(named string) (string, error) {
 	return dir, nil
 }
 
-func (s *LaunchService) createUnderCeiling(ctx context.Context, agent agentstore.Agent, parent *agentstore.Agent) error {
+func (s *LaunchService) createUnderCeiling(ctx context.Context, agent agentstore.Agent, spawner, parent *agentstore.Agent) error {
 	return s.tx.InTx(ctx, func(db store.DBTX) error {
 		agentStore := agentstore.NewAgentStore(db)
 
-		if err := claimRoomForAgents(ctx, agentStore, s.maxAgents, 1); err != nil {
+		if err := claimRoomForAgents(ctx, agentStore, s.usage.MaxAgents, 1); err != nil {
 			return err
 		}
-		if err := claimRoomForChildren(ctx, agentStore, s.maxChildren, parent); err != nil {
+		if err := claimRoomForChildren(ctx, agentStore, s.usage.Implementer.MaxChildren, parent); err != nil {
 			return err
+		}
+		if parent == nil {
+			if err := claimRoomForSpawned(ctx, agentStore, s.usage.Orchestrator.MaxChildren, spawner); err != nil {
+				return err
+			}
 		}
 
 		if err := agentStore.Create(ctx, agent); err != nil {
@@ -687,6 +699,78 @@ func claimRoomForRestoredChildren(ctx context.Context, agents restoredChildSlotL
 	})
 
 	return requireRoomForChildren(ctx, agents, maxChildren, wanted)
+}
+
+func claimRoomForSpawned(ctx context.Context, agents spawnedSlotLocker, maxSpawned int, spawner *agentstore.Agent) error {
+	if spawner == nil || spawner.Role != agentstore.RoleOrchestrator || maxSpawned <= 0 {
+		return nil
+	}
+	if err := agents.LockSlots(ctx); err != nil {
+		return err
+	}
+
+	return requireRoomForSpawned(ctx, agents, maxSpawned, []parentRoom{{
+		id:   spawner.ID,
+		name: spawner.Name,
+		want: 1,
+	}})
+}
+
+func claimRoomForRestoredSpawned(ctx context.Context, agents restoredSpawnedSlotLocker, maxSpawned int, restoring []agentstore.Agent) error {
+	if maxSpawned <= 0 {
+		return nil
+	}
+
+	want := make(map[string]int, len(restoring))
+	var spawnerIDs []string
+	for _, agent := range restoring {
+		if agent.SpawnedByAgentID == nil || agent.ParentAgentID != nil {
+			continue
+		}
+		if want[*agent.SpawnedByAgentID] == 0 {
+			spawnerIDs = append(spawnerIDs, *agent.SpawnedByAgentID)
+		}
+		want[*agent.SpawnedByAgentID]++
+	}
+	if len(spawnerIDs) == 0 {
+		return nil
+	}
+
+	if err := agents.LockSlots(ctx); err != nil {
+		return err
+	}
+
+	spawners, err := agents.ListByID(ctx, spawnerIDs)
+	if err != nil {
+		return fmt.Errorf("failed to look up %d agents that spawned the restoring ones: %w", len(spawnerIDs), err)
+	}
+
+	orchestrators := xslice.Filter(spawners, func(spawner agentstore.Agent) bool {
+		return spawner.Role == agentstore.RoleOrchestrator
+	})
+
+	return requireRoomForSpawned(ctx, agents, maxSpawned, xslice.Map(orchestrators, func(spawner agentstore.Agent) parentRoom {
+		return parentRoom{
+			id:   spawner.ID,
+			name: spawner.Name,
+			want: want[spawner.ID],
+		}
+	}))
+}
+
+func requireRoomForSpawned(ctx context.Context, agents spawnedSlotLocker, maxSpawned int, wanted []parentRoom) error {
+	for _, spawner := range wanted {
+		held, err := agents.CountLiveSpawned(ctx, spawner.id)
+		if err != nil {
+			return fmt.Errorf("failed to count the agents spawned by %q: %w", spawner.name, err)
+		}
+		if held+spawner.want > maxSpawned {
+			return fmt.Errorf("%w: %q may run %d agents it spawned at once and this would make %d",
+				ErrTooManySpawned, spawner.name, maxSpawned, held+spawner.want)
+		}
+	}
+
+	return nil
 }
 
 // parentRoom is one parent and how many children a call wants to put under it.

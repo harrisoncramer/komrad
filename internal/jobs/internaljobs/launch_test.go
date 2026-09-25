@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"komrade/config"
 	"komrade/internal/agents"
 	"komrade/internal/harness"
 	"komrade/internal/harness/claude"
@@ -319,7 +320,7 @@ func newAgentService(t *testing.T, params newAgentServiceParams) *agents.LaunchS
 		}),
 		Harnesses:          registry,
 		UserDefaultHarness: claudeHarnessID,
-		MaxAgents:          params.maxAgents,
+		Usage:              config.Usage{MaxAgents: params.maxAgents},
 	})
 }
 

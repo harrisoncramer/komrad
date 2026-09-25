@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"komrade/config"
 	"komrade/internal/harness"
 	"komrade/internal/logging"
 	agentstore "komrade/internal/store/agent"
@@ -43,6 +44,7 @@ type NewLauncherParams struct {
 	ContextPath string
 	// BinPath is komrade's own binary, which an agent's hooks and its gh stand-in both run.
 	BinPath string
+	Usage   config.Usage
 }
 
 type Launcher struct {
@@ -52,6 +54,7 @@ type Launcher struct {
 	logPath     string
 	contextPath string
 	binPath     string
+	usage       config.Usage
 }
 
 // NewLauncher builds a launcher that points spawned agents at the given address.
@@ -67,6 +70,7 @@ func NewLauncher(params NewLauncherParams) *Launcher {
 		logPath:     params.LogPath,
 		contextPath: params.ContextPath,
 		binPath:     params.BinPath,
+		usage:       params.Usage,
 	}
 }
 
@@ -176,6 +180,19 @@ func (l *Launcher) toolsDir() string {
 	return dir
 }
 
+func (l *Launcher) getAutoCompaction(role agentstore.Role) int {
+	switch role {
+	case agentstore.RoleReviewer:
+		return l.usage.Reviewer.AutoCompaction
+	case agentstore.RoleOrchestrator:
+		return l.usage.Orchestrator.AutoCompaction
+	case agentstore.RoleImplementer:
+		return l.usage.Implementer.AutoCompaction
+	default:
+		return 0
+	}
+}
+
 type launchParams struct {
 	Pane             string
 	Dir              string
@@ -197,18 +214,25 @@ type launchParams struct {
 }
 
 func (l *Launcher) launch(h harness.Harness, params launchParams) error {
+	role := params.Role
+	if role == "" {
+		role = agentstore.RoleImplementer
+	}
+
 	command, err := h.BuildCommand(harness.Launch{
-		ToolsDir:    l.toolsDir(),
-		Flags:       params.Flags,
-		Prompt:      params.Prompt,
-		Dir:         params.Dir,
-		Context:     l.appendedSystemPrompt(params),
-		SessionID:   params.SessionID,
-		AgentID:     params.AgentID,
-		MCPEndpoint: l.serverAddr,
-		CacheDir:    l.cacheDir,
-		HookCommand: l.binPath,
-		Resume:      params.Resume,
+		ToolsDir:       l.toolsDir(),
+		Flags:          params.Flags,
+		Prompt:         params.Prompt,
+		Dir:            params.Dir,
+		Context:        l.appendedSystemPrompt(params),
+		SessionID:      params.SessionID,
+		AgentID:        params.AgentID,
+		MCPEndpoint:    l.serverAddr,
+		CacheDir:       l.cacheDir,
+		HookCommand:    l.binPath,
+		Resume:         params.Resume,
+		Role:           string(role),
+		AutoCompaction: l.getAutoCompaction(role),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to build the launch command: %w", err)

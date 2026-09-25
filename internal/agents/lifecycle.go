@@ -69,8 +69,7 @@ type NewLifecycleServiceParams struct {
 	Snapshots      snapshotReleaser
 	LogsDir        string
 	FramesDir      string
-	MaxAgents      int
-	MaxChildren    int
+	Usage          config.Usage
 }
 
 // LifecycleService moves agents between the live listing, the archive and gone, running the
@@ -86,8 +85,7 @@ type LifecycleService struct {
 	snapshots      snapshotReleaser
 	logsDir        string
 	framesDir      string
-	maxAgents      int
-	maxChildren    int
+	usage          config.Usage
 	tearingDownMu  sync.Mutex
 	tearingDown    map[string]struct{}
 }
@@ -105,8 +103,7 @@ func NewLifecycleService(params NewLifecycleServiceParams) *LifecycleService {
 		snapshots:      params.Snapshots,
 		logsDir:        params.LogsDir,
 		framesDir:      params.FramesDir,
-		maxAgents:      params.MaxAgents,
-		maxChildren:    params.MaxChildren,
+		usage:          params.Usage,
 		tearingDown:    make(map[string]struct{}),
 	}
 }
@@ -377,10 +374,13 @@ func (s *LifecycleService) RestoreAgents(ctx context.Context, ids []string) ([]a
 	err = s.tx.InTx(ctx, func(db store.DBTX) error {
 		agentStore, workflowStore := agentstore.NewAgentStore(db), workflowstore.NewWorkflowStore(db)
 
-		if err := claimRoomForAgents(ctx, agentStore, s.maxAgents, len(archived)); err != nil {
+		if err := claimRoomForAgents(ctx, agentStore, s.usage.MaxAgents, len(archived)); err != nil {
 			return err
 		}
-		if err := claimRoomForRestoredChildren(ctx, agentStore, s.maxChildren, archived); err != nil {
+		if err := claimRoomForRestoredChildren(ctx, agentStore, s.usage.Implementer.MaxChildren, archived); err != nil {
+			return err
+		}
+		if err := claimRoomForRestoredSpawned(ctx, agentStore, s.usage.Orchestrator.MaxChildren, archived); err != nil {
 			return err
 		}
 		if err := requireNamesFree(ctx, agentStore, archived); err != nil {

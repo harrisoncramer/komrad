@@ -542,6 +542,17 @@ WHERE
     parent_agent_id = @parent_agent_id
     AND archived_at IS NULL;
 
+-- name: CountLiveSpawnedAgents :one
+SELECT
+    COUNT(*)
+FROM
+    agents
+WHERE
+    spawned_by_agent_id = @spawned_by_agent_id
+    AND parent_agent_id IS NULL
+    AND archived_at IS NULL
+    AND state NOT IN ('failed_to_create', 'failed_to_cleanup');
+
 -- name: ListLiveWorkflowAgents :many
 SELECT
     *

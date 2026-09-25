@@ -14,6 +14,10 @@ const mcpConfigJSON = `{"mcpServers":{"komrade":{"type":"http","url":"http://%s/
 	`"headers":{"` + caller.AgentHeader + `":"${` + harness.AgentIDEnv + `:-}",` +
 	`"` + caller.SessionHeader + `":"${` + harness.SessionIDEnv + `:-}"}}}}`
 
+const minAutoCompactWindow = 100_000
+
+const maxAutoCompactWindow = 1_000_000
+
 var deniedAgents = []string{"Agent(general-purpose)", "Agent(claude)"}
 
 // BuildCommand renders the command line that puts Claude up, quoting everything interpolated
@@ -33,7 +37,7 @@ func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 		command += fmt.Sprintf(" --mcp-config '%s'", path)
 	}
 
-	if path, err := h.writeSettings(launch.HookCommand); err == nil {
+	if path, err := h.writeSettings(launch.HookCommand, launch.Role, launch.AutoCompaction); err == nil {
 		command += fmt.Sprintf(" --settings '%s'", path)
 	}
 
@@ -64,7 +68,7 @@ func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 	return command, nil
 }
 
-func (h *Harness) writeSettings(hookCommand string) (string, error) {
+func (h *Harness) writeSettings(hookCommand, role string, autoCompaction int) (string, error) {
 	configDir, err := h.resolveConfigDir()
 	if err != nil {
 		return "", err
@@ -80,13 +84,16 @@ func (h *Harness) writeSettings(hookCommand string) (string, error) {
 	if hooks := hookSettings(hookCommand); len(hooks) > 0 {
 		settings["hooks"] = hooks
 	}
+	if autoCompaction > 0 {
+		settings["autoCompactWindow"] = min(max(autoCompaction, minAutoCompactWindow), maxAutoCompactWindow)
+	}
 
 	body, err := json.Marshal(settings)
 	if err != nil {
 		return "", fmt.Errorf("failed to encode the settings: %w", err)
 	}
 
-	path := filepath.Join(configDir, "komrade-settings.json")
+	path := filepath.Join(configDir, settingsFileName(role))
 	if err := os.WriteFile(path, body, 0o644); err != nil {
 		return "", fmt.Errorf("failed to write the settings: %w", err)
 	}
@@ -94,10 +101,20 @@ func (h *Harness) writeSettings(hookCommand string) (string, error) {
 	return path, nil
 }
 
+func settingsFileName(role string) string {
+	if role == "" {
+		return "komrade-settings.json"
+	}
+
+	return fmt.Sprintf("komrade-settings-%s.json", role)
+}
+
 // HookInstall is how komrade answers one Claude event, kept a struct so an event needing a matcher
 // of its own is a field here.
 type HookInstall struct {
-	Subcommand string
+	Subcommand     string
+	Matcher        string
+	TakesNoReading bool
 }
 
 // InstalledHooks is the events komrade answers, keyed by the event Claude fires.
@@ -106,6 +123,7 @@ var InstalledHooks = map[harness.Event]HookInstall{
 	EventPreToolUse:        {Subcommand: "pre-tool-use"},
 	EventPostToolUse:       {Subcommand: "post-tool-use"},
 	EventPermissionRequest: {Subcommand: "permission-request"},
+	EventSessionStart:      {Subcommand: "compacted", Matcher: CompactMatcher, TakesNoReading: true},
 }
 
 // hookSettings is the hooks block Claude loads at session start, empty when komrade has no binary
@@ -117,9 +135,13 @@ func hookSettings(hookCommand string) map[string]any {
 
 	hooks := make(map[string]any, len(InstalledHooks))
 	for event, install := range InstalledHooks {
-		hooks[string(event)] = []any{map[string]any{
+		group := map[string]any{
 			"hooks": []any{map[string]any{"type": "command", "command": hookCommand + " hook " + install.Subcommand}},
-		}}
+		}
+		if install.Matcher != "" {
+			group["matcher"] = install.Matcher
+		}
+		hooks[string(event)] = []any{group}
 	}
 
 	return hooks

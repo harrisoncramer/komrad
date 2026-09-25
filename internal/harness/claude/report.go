@@ -20,7 +20,13 @@ const (
 
 	// EventPermissionRequest is fired when a tool call puts a dialog up for a person to answer.
 	EventPermissionRequest harness.Event = "PermissionRequest"
+
+	// EventSessionStart is fired as a conversation starts, resumes, clears or has just compacted.
+	EventSessionStart harness.Event = "SessionStart"
 )
+
+// CompactMatcher narrows the SessionStart hook to a conversation that has just compacted.
+const CompactMatcher = "compact"
 
 // toolPayload is a tool event, of which only the name of the tool is read.
 type toolPayload struct {

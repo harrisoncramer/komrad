@@ -146,7 +146,14 @@ func TestReadReportOnCapturedPayloads(t *testing.T) {
 func TestEveryInstalledHookIsRead(t *testing.T) {
 	hn := NewHarness(NewHarnessParams{ConfigDir: t.TempDir()})
 
-	for event := range InstalledHooks {
+	for event, install := range InstalledHooks {
+		if install.TakesNoReading {
+			_, err := hn.ReadReport(event, []byte(`{}`))
+			require.Error(t, err, "the %s hook records nothing, so no reading may clear the row's reason", event)
+
+			continue
+		}
+
 		_, err := hn.ReadReport(event, []byte(`{}`))
 		assert.NoError(t, err, "the %s hook is installed, so a reading is taken from it", event)
 	}

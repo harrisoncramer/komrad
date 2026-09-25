@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"komrade/config"
 	"komrade/internal/harness"
 	"komrade/internal/harness/pane"
 	"komrade/internal/harnesstest"
@@ -802,6 +803,31 @@ func TestResumeAfterARefusedRelaunchGetsThrough(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, harness.Launches, 2, "the second resume reaches the CLI rather than reporting a pane that is already running")
 	assert.Equal(t, agentstore.StateIdle, resumed.State)
+}
+
+// TestResumeCompactsAtItsRolesPoint pins that a relaunch keeps the role's compaction point.
+func TestResumeCompactsAtItsRolesPoint(t *testing.T) {
+	tmux := tmuxtest.NewFake()
+	st := newStore(t)
+	harness := &harnesstest.Fake{}
+	manager := st.agentService(agentServiceOptions{
+		tmux:      tmux,
+		harnesses: harnesstest.Registry{Harness: harness},
+		lifecycle: &fakeLifecycle{},
+		usage: config.Usage{
+			Implementer:  config.ImplementerUsage{AutoCompaction: 250000},
+			Orchestrator: config.OrchestratorUsage{AutoCompaction: 150000},
+		},
+	})
+
+	agent := seed(t, st, "auth", "", agentstore.StateThinking)
+	require.Equal(t, agentstore.RoleImplementer, agent.Role)
+
+	_, err := manager.resume.ResumeAgent(t.Context(), agent.ID)
+
+	require.NoError(t, err)
+	require.Len(t, harness.Launches, 1)
+	assert.Equal(t, 250000, harness.Launches[0].AutoCompaction)
 }
 
 // TestResumeRefusesArchived pins the refusal naming the way out.

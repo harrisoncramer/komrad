@@ -29,11 +29,11 @@ type stopHookPayload struct {
 	StopHookActive bool `json:"stop_hook_active"`
 }
 
-type stopHookOutput struct {
-	HookSpecificOutput stopHookContext `json:"hookSpecificOutput"`
+type hookOutput struct {
+	HookSpecificOutput hookContext `json:"hookSpecificOutput"`
 }
 
-type stopHookContext struct {
+type hookContext struct {
 	HookEventName     string `json:"hookEventName"`
 	AdditionalContext string `json:"additionalContext"`
 }
@@ -66,6 +66,7 @@ meant to be run by hand.`,
 
 	cmd.AddCommand(stopHookCmd(state))
 	cmd.AddCommand(turnEndHookCmd(state))
+	cmd.AddCommand(compactedHookCmd(state))
 	cmd.AddCommand(payloadHookCmd(state, payloadHook{
 		use:   "pre-tool-use",
 		short: "Record the tool an agent is about to run",
@@ -240,8 +241,8 @@ turn end.`,
 			reportHookProblem(cmd, "komrade did not record the delivery", err)
 		}
 
-		return json.NewEncoder(cmd.OutOrStdout()).Encode(stopHookOutput{
-			HookSpecificOutput: stopHookContext{
+		return json.NewEncoder(cmd.OutOrStdout()).Encode(hookOutput{
+			HookSpecificOutput: hookContext{
 				HookEventName:     string(claude.EventStop),
 				AdditionalContext: renderMail(mail.Mail),
 			},

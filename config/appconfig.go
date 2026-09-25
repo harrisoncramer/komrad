@@ -71,6 +71,15 @@ const DefaultMaxAgents = 50
 // of their own.
 const DefaultMaxChildren = 3
 
+// DefaultImplementerAutoCompaction is the conversation size an implementer compacts at.
+const DefaultImplementerAutoCompaction = 250_000
+
+// DefaultReviewerAutoCompaction is the conversation size a reviewer compacts at.
+const DefaultReviewerAutoCompaction = 250_000
+
+// DefaultOrchestratorAutoCompaction is the conversation size an orchestrator compacts at.
+const DefaultOrchestratorAutoCompaction = 150_000
+
 // The connection settings a config that names none runs on. They live here rather than as
 // envDefault tags on the runtime config so that the built-in default sits underneath the
 // file, which is where the precedence chain wants it. A tag default would sit beside the
@@ -593,6 +602,86 @@ type Harnesses struct {
 	Codex  Codex   `mapstructure:"codex"`
 }
 
+// Usage is how much agents may run and how large their conversations may grow.
+type Usage struct {
+	// How many unarchived agents this engine may run at once, past which a create is refused.
+	MaxAgents int `mapstructure:"max_agents"`
+	// What an implementer, the agent that lands work on a branch of its own, may use.
+	Implementer ImplementerUsage `mapstructure:"implementer"`
+	// What a reviewer, the child that reads another agent's work, may use.
+	Reviewer ReviewerUsage `mapstructure:"reviewer"`
+	// What a workflow's orchestrator may use.
+	Orchestrator OrchestratorUsage `mapstructure:"orchestrator"`
+}
+
+// ImplementerUsage is what one implementer may use.
+type ImplementerUsage struct {
+	// The conversation size in tokens an agent is held under, summarizing its history a little
+	// before it gets there. Lower costs less per turn and forgets more. 0 leaves the agent CLI's
+	// own default, and a value the CLI will not take is moved to the nearest one it will.
+	AutoCompaction int `mapstructure:"auto_compaction"`
+	// How many children, such as its reviewer, one implementer may hold at once. Children share
+	// their parent's checkout, so this is deliberately far lower than max_agents.
+	MaxChildren int `mapstructure:"max_children"`
+}
+
+// ReviewerUsage is what one reviewer may use.
+type ReviewerUsage struct {
+	// The conversation size in tokens an agent is held under, summarizing its history a little
+	// before it gets there. Lower costs less per turn and forgets more. 0 leaves the agent CLI's
+	// own default, and a value the CLI will not take is moved to the nearest one it will.
+	AutoCompaction int `mapstructure:"auto_compaction"`
+}
+
+// OrchestratorUsage is what one orchestrator may use.
+type OrchestratorUsage struct {
+	// The conversation size in tokens an agent is held under, summarizing its history a little
+	// before it gets there. Lower costs less per turn and forgets more. 0 leaves the agent CLI's
+	// own default, and a value the CLI will not take is moved to the nearest one it will.
+	AutoCompaction int `mapstructure:"auto_compaction"`
+	// How many agents one orchestrator may have spawned and running at once, not counting their
+	// children. 0 sets no limit of its own, leaving max_agents as the cap.
+	MaxChildren int `mapstructure:"max_children"`
+}
+
+// NewUsage is the usage limits a config that names none runs on.
+func NewUsage() Usage {
+	return Usage{
+		MaxAgents: DefaultMaxAgents,
+		Implementer: ImplementerUsage{
+			AutoCompaction: DefaultImplementerAutoCompaction,
+			MaxChildren:    DefaultMaxChildren,
+		},
+		Reviewer:     ReviewerUsage{AutoCompaction: DefaultReviewerAutoCompaction},
+		Orchestrator: OrchestratorUsage{AutoCompaction: DefaultOrchestratorAutoCompaction},
+	}
+}
+
+func (u Usage) validate() error {
+	// A negative ceiling would read as zero and take the default, leaving the file saying
+	// one thing while the panel does another.
+	if u.MaxAgents < 0 {
+		return fmt.Errorf("usage.max_agents: %d is not a number of agents", u.MaxAgents)
+	}
+	if u.Implementer.MaxChildren < 0 {
+		return fmt.Errorf("usage.implementer.max_children: %d is not a number of agents", u.Implementer.MaxChildren)
+	}
+	if u.Orchestrator.MaxChildren < 0 {
+		return fmt.Errorf("usage.orchestrator.max_children: %d is not a number of agents", u.Orchestrator.MaxChildren)
+	}
+	if u.Implementer.AutoCompaction < 0 {
+		return fmt.Errorf("usage.implementer.auto_compaction: %d is not a number of tokens", u.Implementer.AutoCompaction)
+	}
+	if u.Reviewer.AutoCompaction < 0 {
+		return fmt.Errorf("usage.reviewer.auto_compaction: %d is not a number of tokens", u.Reviewer.AutoCompaction)
+	}
+	if u.Orchestrator.AutoCompaction < 0 {
+		return fmt.Errorf("usage.orchestrator.auto_compaction: %d is not a number of tokens", u.Orchestrator.AutoCompaction)
+	}
+
+	return nil
+}
+
 // Mail is how long komrade keeps trying to hand mail to the agent it was addressed
 // to. Delivery waits on the recipient: an agent that is busy gets its mail as its turn
 // ends, and one that has stopped is nudged, so an agent nobody is running holds mail until
@@ -731,14 +820,10 @@ type Config struct {
 	// Which agent CLI a new agent runs when neither the agent nor its workflow
 	// names one. It has to be a harness this binary implements, so it is one of
 	// the names under [harness] below.
-	DefaultHarness string `mapstructure:"default_harness"`
-	// How many unarchived agents may exist at once, past which a create is refused.
-	MaxAgents int `mapstructure:"max_agents"`
-	// How many children one agent may hold at once, past which attaching another is refused.
-	// Children share their parent's checkout, so this is deliberately a much lower ceiling
-	// than max_agents.
-	MaxChildren int       `mapstructure:"max_children"`
-	Harness     Harnesses `mapstructure:"harness"`
+	DefaultHarness string    `mapstructure:"default_harness"`
+	Harness        Harnesses `mapstructure:"harness"`
+	// How much agents may run and how large their conversations may grow.
+	Usage Usage `mapstructure:"usage"`
 	// Where the panel's sidebar, the stage beside it, and the info pane under the stage sit, and how much of the popup each takes.
 	Layout Layout `mapstructure:"layout"`
 	// Panel keybindings, scoped to the screen each binding acts in.
@@ -766,8 +851,7 @@ type Config struct {
 func Defaults() *Config {
 	return &Config{
 		DefaultHarness: DefaultHarness,
-		MaxAgents:      DefaultMaxAgents,
-		MaxChildren:    DefaultMaxChildren,
+		Usage:          NewUsage(),
 		Layout:         DefaultLayout(),
 		Keybindings:    DefaultKeybindings(),
 		Mail:           Mail{DeliveryDeadline: DefaultDeliveryDeadline, MaxExchange: DefaultMaxExchange},
@@ -904,13 +988,8 @@ func (c Config) validate() error {
 	if err := validateLog(c.Log); err != nil {
 		return err
 	}
-	// A negative ceiling would read as zero and take the default, leaving the file saying
-	// one thing while the panel does another.
-	if c.MaxAgents < 0 {
-		return fmt.Errorf("max_agents: %d is not a number of agents", c.MaxAgents)
-	}
-	if c.MaxChildren < 0 {
-		return fmt.Errorf("max_children: %d is not a number of agents", c.MaxChildren)
+	if err := c.Usage.validate(); err != nil {
+		return err
 	}
 	if err := newKeyChecker().checkKeybindings(c.Keybindings); err != nil {
 		return err
@@ -1271,11 +1350,11 @@ func (c *Config) normalizeZeroValues() {
 	if strings.TrimSpace(c.DefaultHarness) == "" {
 		c.DefaultHarness = DefaultHarness
 	}
-	if c.MaxAgents == 0 {
-		c.MaxAgents = DefaultMaxAgents
+	if c.Usage.MaxAgents == 0 {
+		c.Usage.MaxAgents = DefaultMaxAgents
 	}
-	if c.MaxChildren == 0 {
-		c.MaxChildren = DefaultMaxChildren
+	if c.Usage.Implementer.MaxChildren == 0 {
+		c.Usage.Implementer.MaxChildren = DefaultMaxChildren
 	}
 	if c.Layout.SidebarWidth == 0 {
 		c.Layout.SidebarWidth = DefaultSidebarWidth

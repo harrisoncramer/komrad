@@ -45,6 +45,16 @@ func TestBuildCommand(t *testing.T) {
 			},
 		},
 		{
+			name:        "a compaction point becomes codex's own token limit",
+			launch:      harness.Launch{AutoCompaction: 250000, Prompt: "go"},
+			wantContain: []string{"-c 'model_auto_compact_token_limit=250000'"},
+		},
+		{
+			name:       "no compaction point leaves codex its own",
+			launch:     harness.Launch{Prompt: "go"},
+			wantAbsent: []string{"model_auto_compact_token_limit"},
+		},
+		{
 			name:       "a fresh launch pins no id",
 			launch:     harness.Launch{Prompt: "do the thing"},
 			wantAbsent: []string{"resume", "--session-id"},
