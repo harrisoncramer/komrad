@@ -36,6 +36,9 @@ fi
 cd "$MISE_CONFIG_ROOT"
 
 git ls-files | mtimehash
+
+# Folders need pinning too. Go records the mtime of any folder a test lists, and pinning
+# files alone left config, cmd/gen-docs and internal/scripts rerunning on every run.
 {
 	echo .
 	git ls-tree -r -d --name-only HEAD

@@ -229,16 +229,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # The Go build cache, the module cache, golangci-lint's own cache and the tools
-      # are rebuilt from nothing on every run otherwise, about 1.6GB of it. These are
-      # volumes attached to the runner rather than archives to download, and they
-      # are shared across every branch of the repository, so a new branch starts
-      # warm where actions/cache would miss.
+      # The module cache, golangci-lint's own cache and the tools are rebuilt from nothing
+      # on every run otherwise. They live on a volume attached to the runner, and Go's
+      # build and test results live in Namespace's remote Go cache. Both are shared across
+      # every branch of the repository, so a new branch starts warm where actions/cache
+      # would miss.
       - name: Use Mise
         uses: ./.github/actions/use-mise
         with:
           gh-access-token: ${{ env.GH_ACCESS_TOKEN }}
 
+      # Go reuses a passing test result only when every file and folder the test read has
+      # the same mtime as last time. A fresh checkout gives them all a new one, so without
+      # this every test runs again, even ones whose code nothing touched.
       - name: Give the files the times the test cache expects
         run: mise run go:mtimehash
 
