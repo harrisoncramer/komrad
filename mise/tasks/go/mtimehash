@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+source "$MISE_CONFIG_ROOT/mise/tasks/_"
+set -euo pipefail
+#MISE description="Set every tracked file's mtime from its content, so Go's test cache survives a fresh checkout."
+
+usage() {
+	echo "Usage: mise run go:mtimehash"
+	echo
+	echo "go test decides whether a cached result still stands by the modification time of"
+	echo "every file the test opened, and a checkout stamps every file with the moment it"
+	echo "was cloned. Setting each tracked file's mtime from a hash of its content gives the"
+	echo "same content the same time on every runner, so a package nothing touched is not"
+	echo "run again. Only CI wants this; on a working copy it does nothing."
+}
+
+for arg in "$@"; do
+	case "$arg" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	esac
+done
+
+if [ "${CI:-}" != "true" ]; then
+	echo "go:mtimehash only runs in CI, where a checkout is fresh"
+	exit 0
+fi
+
+cd "$MISE_CONFIG_ROOT"
+
+git ls-files | mtimehash

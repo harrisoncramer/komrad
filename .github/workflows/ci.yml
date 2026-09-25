@@ -226,12 +226,6 @@ jobs:
     env:
       KOMRADE_DATABASE_URL: postgres://komrade:komrade@localhost:5460/komrade?sslmode=disable
 
-      # A warm build cache otherwise lets go test replay a package's last result
-      # instead of running it, and these tests reach a real Postgres that the cache
-      # cannot see. The compile is still cached; only the decision to skip running is
-      # turned off.
-      GOFLAGS: -count=1
-
     steps:
       - uses: actions/checkout@v4
 
@@ -244,6 +238,9 @@ jobs:
         uses: ./.github/actions/use-mise
         with:
           gh-access-token: ${{ env.GH_ACCESS_TOKEN }}
+
+      - name: Give the files the times the test cache expects
+        run: mise run go:mtimehash
 
       - name: Check the formatting
         run: mise run go:fmt --check
@@ -280,7 +277,6 @@ jobs:
 
     env:
       KOMRADE_DATABASE_URL: postgres://komrade:komrade@localhost:5460/komrade?sslmode=disable
-      GOFLAGS: -count=1
 
     steps:
       - uses: actions/checkout@v4
@@ -289,6 +285,9 @@ jobs:
         uses: ./.github/actions/use-mise
         with:
           gh-access-token: ${{ env.GH_ACCESS_TOKEN }}
+
+      - name: Give the files the times the test cache expects
+        run: mise run go:mtimehash
 
       # A test that needs tmux fails without it rather than skipping, so this step is what
       # keeps the job honest. less is what the panel pages a dormant agent's placeholder
