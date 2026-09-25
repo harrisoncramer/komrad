@@ -73,6 +73,7 @@ func beginTx(t *testing.T, url string) pgx.Tx {
 
 	conn, err := pgx.Connect(t.Context(), url)
 	require.NoError(t, err)
+
 	t.Cleanup(func() { _ = conn.Close(context.WithoutCancel(t.Context())) })
 
 	tx, err := conn.Begin(t.Context())
