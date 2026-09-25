@@ -4,13 +4,11 @@
 
 # komrade
 
-Agents of the world, unite!
+Komrade is a terminal-based agent manager.
 
-Komrade is a terminal-based agent manager. It helps you runs Claude and Codex agents, keeps track of them, and lets them work together.
+It helps you run Claude and Codex agents in a durable, searchable, and coordinated way.
 
-You can use komrade to manage, restore, and search through old agent sessions, launch and manage them with komrade's MCP, schedule agents, and much more. It's designed to be familiar to terminal power users.
-
-It's free and open source, and is built by [me](https://harrisoncramer.me/about/) so there'll be no rug-pull.
+You can use komrade to run production investigations on a schedule, search through old sessions easily, or orchestrate developer workflows via MCP. It's designed with terminal power users in mind, who want to orchestrate agents on their own laptops, without having to run a heavy Electron application.
 
 ## Why komrade
 
@@ -25,3 +23,7 @@ Komrade is unopinionated. It gives you [workflows](https://komrade.dev/latest/gu
 While komrade doesn't require an account or hosted service, you can run and deploy it remotely to enable "devbox" style development for hands-free or automated flows that don't have any vendor lock-in. Typically, komrade runs on your laptop directly.
 
 Read more in komrade's [docs](https://komrade.dev/latest/).
+
+## Usage
+
+There is no rug-pull. Komrade is free and open source, and is built by [me](https://harrisoncramer.me/about/). If you like it, consider sponsoring me on Github.
