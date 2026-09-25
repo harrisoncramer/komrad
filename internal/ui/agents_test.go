@@ -994,7 +994,7 @@ func TestAgentsRecordWorktree(t *testing.T) {
 		require.Positive(t, directory)
 		assert.Less(t, directory, base)
 		assert.Less(t, size, flags, "the standing comes before the ids")
-		assert.Less(t, pr, uncommitted, "the lists come after the metadata")
+		assert.Less(t, pr, uncommitted, "the lists come after the pull request")
 		assert.Equal(t, "M b.go", strings.TrimSpace(splitLines(frame)[uncommitted+1]), "a second path carries no label of its own")
 		assert.Regexp(t, `^87a3bcc98c47\s+2h\s+fix\(view\): drop the column$`, readRecordField(frame, "commits"))
 		assert.Positive(t, commits)

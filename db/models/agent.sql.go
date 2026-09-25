@@ -1835,6 +1835,7 @@ SET
     state = 'setting_up',
     state_changed_at = NOW(),
     reported_reason = '',
+    failure_reason = '',
     state_seen_at = NOW()
 WHERE
     id = $1
