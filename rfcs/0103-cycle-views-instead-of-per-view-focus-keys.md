@@ -124,6 +124,6 @@ C-q has not been measured against Claude and Codex. Before building, press it in
 
 A pane in copy mode has its own key table, so neither key fires there, as RFC 0033 found for C-a. A user whose tmux prefix is C-q loses the backward key the way one whose prefix is C-a loses the forward key today; doctor says so for both.
 
-The press lands in the panel before tmux reports the focus change that follows it, and the panel reads where the keyboard is at that moment. If `frame.SyncKeys` on every cycle press turns out to be too slow, the panel can read `keysElsewhere` instead, which is only wrong for the moment between a mouse click in another pane and the blur it causes.
+Every cycle press costs one tmux call to read the window's active pane, since nothing the panel already holds can tell the agent's pane from the info pane. That is the price of the panel deciding, and it is paid only on a press of one of these two keys.
 
 The review draws its diff itself and has no agent on the stage, so on the review the keys are never root bindings and never reach an editor opened with e, even while that editor splits the frame. That keeps nvim's C-a working, and it means the editor is still left by quitting it.
