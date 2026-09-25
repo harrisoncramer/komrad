@@ -191,9 +191,12 @@ func (p *Panel) Update(msg tea.Msg) tea.Cmd {
 		return cmd
 	}
 
-	return tea.Batch(cmd, func() tea.Msg {
-		return *size
-	})
+	read := func() tea.Msg { return sizeReadMsg{size: *size} }
+	if size.Width == p.model.width && size.Height == p.model.height {
+		return tea.Batch(cmd, read)
+	}
+
+	return tea.Batch(cmd, read, func() tea.Msg { return *size })
 }
 
 // View is the frame the panel draws.

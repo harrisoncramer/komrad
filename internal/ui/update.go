@@ -2,6 +2,7 @@ package ui
 
 import (
 	"log/slog"
+	"time"
 
 	"komrad/internal/client"
 	"komrad/internal/ui/paint"
@@ -206,6 +207,27 @@ func (m model) resizeTo(size tea.WindowSizeMsg) model {
 	return m.relayout(rewrap)
 }
 
+// applySizeRead settles a size the frame read back, leaving a changed one to the resize the
+// terminal itself reports.
+func (m *model) applySizeRead(msg sizeReadMsg) tea.Cmd {
+	if msg.size.Width == m.width && msg.size.Height == m.height {
+		m.awaitingSize = false
+
+		return nil
+	}
+
+	return tea.Tick(sizeFallback, func(time.Time) tea.Msg { return sizeFallbackMsg(msg) })
+}
+
+// applySizeFallback hands the renderer a read-back size the terminal never reported.
+func (m model) applySizeFallback(msg sizeFallbackMsg) tea.Cmd {
+	if msg.size.Width == m.width && msg.size.Height == m.height {
+		return nil
+	}
+
+	return func() tea.Msg { return msg.size }
+}
+
 // relayout sizes everything drawn off the split again, once the split has moved.
 func (m model) relayout(rewrap bool) model {
 	m.sizeAgentWindows()
@@ -329,6 +351,10 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		m.reconcileSolo()
 
 		return m, cmd, true
+	case sizeReadMsg:
+		return m, m.applySizeRead(msg), true
+	case sizeFallbackMsg:
+		return m, m.applySizeFallback(msg), true
 	case warmupTickMsg:
 		next, cmd := m.applyWarmupTick()
 

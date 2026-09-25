@@ -476,6 +476,10 @@ linters:
               - Value
               - Workflow
   exclusions:
+    # The docs site is a node project, and a package under its node_modules can ship a Go file
+    # of its own.
+    paths:
+      - ^docs/
     rules:
       # The rule is about tests. Everything else constructs the real client on purpose, which
       # is what a seam is for.
@@ -543,6 +547,9 @@ formatters:
   enable:
     - gofmt
     - goimports
+  exclusions:
+    paths:
+      - ^docs/
   settings:
     goimports:
       local-prefixes:
