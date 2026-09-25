@@ -3,7 +3,6 @@ package agent
 import (
 	"testing"
 
-	"komrad/db/models"
 	"komrad/internal/store"
 	"komrad/lib/xptr"
 
@@ -272,33 +271,6 @@ func TestDeleteTakesTheChildren(t *testing.T) {
 
 	_, err = f.GetByID(ctx, child.ID)
 	require.ErrorIs(t, err, store.ErrNotFound)
-}
-
-// TestDeleteTakesMetadata pins that a hard delete carries an agent's facts with it.
-func TestDeleteTakesMetadata(t *testing.T) {
-	st := open(t)
-	ctx := t.Context()
-
-	require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateIdle}))
-	created, err := st.Get(ctx, "agent")
-	require.NoError(t, err)
-	require.NotNil(t, created)
-
-	changed, err := st.SetMetadata(ctx, SetMetadataParams{
-		ID:    created.ID,
-		Key:   "pr",
-		Value: xptr.Ptr("https://github.com/o/r/pull/1"),
-	})
-	require.NoError(t, err)
-	require.True(t, changed)
-
-	_, deleteErr := st.Delete(ctx, []string{created.ID})
-
-	require.NoError(t, deleteErr)
-
-	orphaned, err := models.New(st.db).ListAgentMetadata(ctx, []string{created.ID})
-	require.NoError(t, err)
-	assert.Empty(t, orphaned)
 }
 
 // TestRename pins that a rename onto a live agent's name comes back as the caller's mistake

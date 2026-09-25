@@ -48,12 +48,6 @@ const (
 	RoleOrchestrator Role = "orchestrator"
 )
 
-// Metadata is one fact an agent recorded about its own work.
-type Metadata struct {
-	Key   string
-	Value string
-}
-
 // Agent is one agent as the service listed it.
 type Agent struct {
 	ID             string
@@ -66,6 +60,7 @@ type Agent struct {
 	State          State
 	StateChangedAt time.Time
 	ReportedReason string
+	FailureReason  string
 	Harness        string
 	SessionID      string
 	WorkflowID     string
@@ -73,7 +68,6 @@ type Agent struct {
 	CreatedAt      time.Time
 	ArchivedAt     *time.Time
 	Hidden         bool
-	Metadata       []Metadata
 	Branch         *string
 	// ParentAgentID is the agent this one is attached to, whose archive, delete and restore it
 	// follows.

@@ -30,12 +30,11 @@ type Page struct {
 
 type RowStore struct {
 	queries *models.Queries
-	agents  *agentstore.AgentStore
 }
 
 // NewRowStore builds a row store over a pool or transaction.
 func NewRowStore(db store.DBTX) *RowStore {
-	return &RowStore{queries: models.New(db), agents: agentstore.NewAgentStore(db)}
+	return &RowStore{queries: models.New(db)}
 }
 
 // ListPage returns one page of live or archived rows, newest first.
@@ -69,26 +68,13 @@ func (s *RowStore) Get(ctx context.Context, id string) (*Row, error) {
 	return &rows[0], nil
 }
 
-// attachMetadata builds each watched agent's row with the metadata recorded against it.
-func (s *RowStore) attachMetadata(ctx context.Context, watched []*models.ListWatchedAgentsRow) ([]Row, error) {
-	if len(watched) == 0 {
-		return nil, nil
-	}
-	ids := xslice.Map(watched, func(row *models.ListWatchedAgentsRow) string { return row.Agent.ID })
-
-	metadata, err := s.agents.ListMetadata(ctx, ids)
-	if err != nil {
-		return nil, err
-	}
-
+// fromWatched builds each watched agent's row.
+func fromWatched(watched []*models.ListWatchedAgentsRow) []Row {
 	return xslice.Map(watched, func(fact *models.ListWatchedAgentsRow) Row {
-		agent := agentstore.FromRow(fact.Agent)
-		agent.Metadata = metadata[fact.Agent.ID]
-
 		return Row{
-			Agent:        agent,
+			Agent:        agentstore.FromRow(fact.Agent),
 			FailedRun:    fact.FailedRun,
 			FailedRunLog: fact.FailedRunLog,
 		}
-	}), nil
+	})
 }

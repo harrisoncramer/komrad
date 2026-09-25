@@ -522,7 +522,7 @@
     "usage": "komrad hook compacted",
     "aliases": [],
     "short": "Remind an agent of its own record once its conversation has compacted",
-    "long": "Remind an agent of its own record once its conversation has compacted.\n\nClaude runs this on its SessionStart event when a conversation has just been\nsummarized. It reads the agent's record from komrad, its branch, pull request,\nrecorded metadata, open review threads, waiting mail and the task it was\nlaunched with, and prints it back as additional context. A panel that cannot be\nreached prints nothing.",
+    "long": "Remind an agent of its own record once its conversation has compacted.\n\nClaude runs this on its SessionStart event when a conversation has just been\nsummarized. It reads the agent's record from komrad, its branch, pull request,\nopen review threads, waiting mail and the task it was launched with, and prints\nit back as additional context. A panel that cannot be reached prints nothing.",
     "example": "",
     "flags": [],
     "inherited": [

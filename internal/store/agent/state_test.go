@@ -322,6 +322,27 @@ func TestMarkSettingUpClearsTheReportedReason(t *testing.T) {
 	assert.Empty(t, resumed.ReportedReason)
 }
 
+// TestARetriedCreateDropsTheFailureReason pins that a retry starts without the old failure.
+func TestARetriedCreateDropsTheFailureReason(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateFailedToCreate}))
+	created, err := st.Get(ctx, "agent")
+	require.NoError(t, err)
+	written, err := st.SetFailureReason(ctx, created.ID, "worktree is dirty")
+	require.NoError(t, err)
+	require.True(t, written)
+
+	marked, err := st.MarkSettingUpIfFailedToCreate(ctx, created.ID)
+	require.NoError(t, err)
+	require.True(t, marked)
+
+	retried, err := st.Get(ctx, "agent")
+	require.NoError(t, err)
+	assert.Empty(t, retried.FailureReason)
+}
+
 // TestSetTurnEndedRefusesAnIDThatIsNotOne pins that a malformed id is an error rather than a
 // write that silently reaches nothing.
 func TestSetTurnEndedRefusesAnIDThatIsNotOne(t *testing.T) {

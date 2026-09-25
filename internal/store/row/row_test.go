@@ -26,7 +26,7 @@ func rowOf(t *testing.T, st *storetest.Stores, id string) rowstore.Row {
 	return *row
 }
 
-// TestRowCarriesTheAgent pins that the row is the agent as stored, metadata included, with
+// TestRowCarriesTheAgent pins that the row is the agent as stored, failure reason included, with
 // nothing beside it for an agent nothing has happened to.
 func TestRowCarriesTheAgent(t *testing.T) {
 	st := storetest.Open(t)
@@ -36,11 +36,7 @@ func TestRowCarriesTheAgent(t *testing.T) {
 		Cwd:    "/repo",
 		Prompt: "go",
 	})
-	_, err := st.Agents.SetMetadata(ctx, agentstore.SetMetadataParams{
-		ID:    alpha.ID,
-		Key:   "branch",
-		Value: xptr.Ptr("agent/x"),
-	})
+	_, err := st.Agents.SetFailureReason(ctx, alpha.ID, "worktree is dirty")
 	require.NoError(t, err)
 
 	row := rowOf(t, st, alpha.ID)
@@ -48,7 +44,7 @@ func TestRowCarriesTheAgent(t *testing.T) {
 	assert.Equal(t, "alpha", row.Name)
 	assert.Equal(t, "/repo", row.Cwd)
 	assert.Equal(t, "go", row.Prompt)
-	assert.Equal(t, []agentstore.Metadata{{Key: "branch", Value: "agent/x"}}, row.Metadata)
+	assert.Equal(t, "worktree is dirty", row.FailureReason)
 	assert.False(t, row.FailedRun)
 	assert.Nil(t, row.FailedRunLog)
 }

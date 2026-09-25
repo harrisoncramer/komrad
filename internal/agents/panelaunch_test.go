@@ -187,7 +187,6 @@ func TestAppendedSystemPrompt(t *testing.T) {
 				"agent_transcript_chunks",
 
 				"KOMRAD_AGENT_ID",
-				"set_agent_metadata",
 
 				briefedLogPath,
 			},
@@ -456,9 +455,6 @@ func TestBriefingKeepsWhatEveryAgentNeeds(t *testing.T) {
 	assert.Contains(t, prompt, "spawn that one with request_review rather than create_agent",
 		"since create_agent cannot mark a reviewer, and an unmarked child is told none of this")
 	assert.Contains(t, prompt, "never touches a forge", "so does the rule against mailing one")
-	for _, key := range []string{"`branch`", "`summary`"} {
-		assert.Contains(t, prompt, key, "the metadata keys are named rather than left to invention")
-	}
 }
 
 // TestRoleBriefing pins which document an agent is given.

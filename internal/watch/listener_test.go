@@ -304,7 +304,7 @@ func TestAWriteReachesTheWatchersUnderItsResourceKey(t *testing.T) {
 	moved := agentRow(agent)
 	moved.Name = "moved"
 	stores.agents.put(moved)
-	l.exec(t, `INSERT INTO agent_metadata (agent_id, key, value) VALUES ($1, 'branch', 'agent/x')`, agent)
+	l.exec(t, `INSERT INTO agent_runs (agent_id, trigger, script) VALUES ($1, 'provision', 'setup.sh')`, agent)
 
 	change := waitForPassOfOneChange(t, subscription)
 	assert.Equal(t, agent, change.Key, "a write to a subresource reaches the watcher under its resource's key")

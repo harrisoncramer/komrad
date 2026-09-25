@@ -374,20 +374,6 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 			wantCode: connect.CodeNotFound,
 		},
 		{
-			name: "recording the pull request key",
-			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.SetMetadata(ctx, connect.NewRequest(&agentv1.SetMetadataRequest{
-					Id:    alphaID,
-					Key:   "pr",
-					Value: xptr.Ptr("https://github.com/o/r/pull/1"),
-				}))
-
-				return err
-			},
-			err:      agents.ErrPullRequestKey,
-			wantCode: connect.CodeInvalidArgument,
-		},
-		{
 			name: "a report from nothing that is an agent",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				_, err := svc.RecordReport(ctx, connect.NewRequest(&agentv1.RecordReportRequest{TurnEnded: true}))
@@ -757,25 +743,6 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 			},
 			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
 				assert.Equal(t, map[string]bool{ids[0]: true}, services.hidden)
-			},
-		},
-		{
-			name: "recording a fact",
-			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
-				_, err := svc.SetMetadata(ctx, connect.NewRequest(&agentv1.SetMetadataRequest{
-					Id:    ids[0],
-					Key:   "linear_issue",
-					Value: xptr.Ptr("https://linear.app/x/issue/ENG-1"),
-				}))
-
-				return "", err
-			},
-			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
-				assert.Equal(t, agents.SetMetadataParams{
-					AgentID: ids[0],
-					Key:     "linear_issue",
-					Value:   xptr.Ptr("https://linear.app/x/issue/ENG-1"),
-				}, services.metadata)
 			},
 		},
 		{
@@ -1358,7 +1325,6 @@ type recordingAgentServices struct {
 	adopted      agents.AdoptParams
 	retried      agents.RetryCreateParams
 	released     agents.ReleaseParams
-	metadata     agents.SetMetadataParams
 	reported     agents.RecordReportParams
 	resumed      []string
 	held         []string
@@ -1514,12 +1480,6 @@ func (f *recordingAgentServices) SetHidden(_ context.Context, id string, hidden 
 		f.hidden = map[string]bool{}
 	}
 	f.hidden[id] = hidden
-
-	return f.err
-}
-
-func (f *recordingAgentServices) SetMetadata(_ context.Context, params agents.SetMetadataParams) error {
-	f.metadata = params
 
 	return f.err
 }
@@ -1866,85 +1826,6 @@ func TestRequestValidation(t *testing.T) {
 				return err
 			},
 			wantErr: true,
-		},
-		{
-			name: "a metadata key carrying a capital is refused",
-			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
-				_, err := c.SetMetadata(t.Context(), connect.NewRequest(&agentv1.SetMetadataRequest{
-					Id:    uuid.NewString(),
-					Key:   "PullRequest",
-					Value: xptr.Ptr("https://github.com/o/r/pull/1"),
-				}))
-
-				return err
-			},
-			wantErr: true,
-		},
-		{
-			name: "so is one carrying a space",
-			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
-				_, err := c.SetMetadata(t.Context(), connect.NewRequest(&agentv1.SetMetadataRequest{
-					Id:    uuid.NewString(),
-					Key:   "pull request",
-					Value: xptr.Ptr("https://github.com/o/r/pull/1"),
-				}))
-
-				return err
-			},
-			wantErr: true,
-		},
-		{
-			name: "a metadata write with no key at all is refused",
-			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
-				_, err := c.SetMetadata(t.Context(), connect.NewRequest(&agentv1.SetMetadataRequest{
-					Id:    uuid.NewString(),
-					Key:   "",
-					Value: xptr.Ptr("https://github.com/o/r/pull/1"),
-				}))
-
-				return err
-			},
-			wantErr: true,
-		},
-		{
-			name: "a metadata value spanning two lines is refused",
-			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
-				_, err := c.SetMetadata(t.Context(), connect.NewRequest(&agentv1.SetMetadataRequest{
-					Id:    uuid.NewString(),
-					Key:   "linear_issue",
-					Value: xptr.Ptr("https://linear.app/x/issue/ENG-1\nand another"),
-				}))
-
-				return err
-			},
-			wantErr: true,
-		},
-		{
-			name: "a slug key and a single-line url are what the constraint lets through",
-			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
-				_, err := c.SetMetadata(t.Context(), connect.NewRequest(&agentv1.SetMetadataRequest{
-					Id:    uuid.NewString(),
-					Key:   "linear_issue",
-					Value: xptr.Ptr("https://linear.app/x/issue/ENG-1"),
-				}))
-
-				if connect.CodeOf(err) == connect.CodeNotFound {
-					return nil
-				}
-
-				return err
-			},
-		},
-		{
-			name: "clearing a key needs no value",
-			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
-				_, err := c.SetMetadata(t.Context(), connect.NewRequest(&agentv1.SetMetadataRequest{
-					Id:  uuid.NewString(),
-					Key: "linear_issue",
-				}))
-
-				return err
-			},
 		},
 	}
 

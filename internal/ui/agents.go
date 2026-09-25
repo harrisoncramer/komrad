@@ -295,9 +295,6 @@ func noAgentsMarkdown(keys config.Keybindings) string {
 
 const settingUpPlaceholder = "_setting up…_\n\nMaking this agent's worktree. It has no pane yet."
 
-// failureReasonKey is the metadata key a failed create or cleanup records its reason under.
-const failureReasonKey = "error"
-
 func failedPlaceholder(s panelShared, agent panel.Agent) string {
 	// A create dies at the provisioner or at one of the pre-launch hooks after it, so the run
 	// that failed is the newest of either rather than the newest provision run.
@@ -312,12 +309,7 @@ func failedPlaceholder(s panelShared, agent panel.Agent) string {
 		return fmt.Sprintf("_%s failed_\n\nPress \"l\" to see run %03d, which is the one that failed.", label, run.Number)
 	}
 
-	reason := ""
-	for _, entry := range agent.Metadata {
-		if entry.Key == failureReasonKey {
-			reason = entry.Value
-		}
-	}
+	reason := agent.FailureReason
 	if reason == "" {
 		reason = "no reason was recorded"
 	}

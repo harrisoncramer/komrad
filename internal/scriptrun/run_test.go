@@ -136,7 +136,6 @@ func TestScriptPayload(t *testing.T) {
 	created, err := time.Parse(time.RFC3339, payload.CreatedAt)
 	require.NoError(t, err, "the creation time is RFC 3339")
 	assert.True(t, created.Equal(seeded.CreatedAt.Truncate(time.Second)), "and names the instant the row was written")
-	assert.Equal(t, map[string]string{"pr": "https://example.test/1"}, payload.Metadata)
 	assert.Equal(t, "fix auth", payload.Prompt)
 	assert.False(t, payload.PromptTruncated, "a prompt that fits arrives whole and says so")
 	assert.NotContains(t, values["KOMRAD_AGENT"], "transcript", "a transcript is far past what an environment holds")
@@ -1535,16 +1534,8 @@ func seedFixture(t *testing.T, st *storetest.Stores, agent agentstore.Agent, wor
 	t.Helper()
 
 	agent.WorkflowID = st.SeedWorkflow(t, workflow).ID
-	seeded := st.SeedAgent(t, agent)
 
-	_, err := st.Agents.SetMetadata(t.Context(), agentstore.SetMetadataParams{
-		ID:    seeded.ID,
-		Key:   "pr",
-		Value: xptr.Ptr("https://example.test/1"),
-	})
-	require.NoError(t, err)
-
-	return seeded
+	return st.SeedAgent(t, agent)
 }
 
 type fakePaneOwner struct {

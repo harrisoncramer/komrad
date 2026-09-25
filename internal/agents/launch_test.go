@@ -137,7 +137,7 @@ func TestNewAgent(t *testing.T) {
 				if tt.wantsFailedRow {
 					require.Len(t, agents, 1, "a launch that had already claimed a slot leaves a row to look at")
 					assert.Equal(t, agentstore.StateFailedToCreate, agents[0].State)
-					assert.Contains(t, metadataValue(agents[0].Metadata), tt.wantErr, "and why, for the row that is left")
+					assert.Contains(t, agents[0].FailureReason, tt.wantErr, "and why, for the row that is left")
 				} else {
 					assert.Empty(t, agents, "a refused launch before any slot was claimed records nothing")
 				}
@@ -168,16 +168,6 @@ func TestNewAgent(t *testing.T) {
 			assert.True(t, manager.panes.IsAgentRunning(*stored), "and the agent reads as running in it")
 		})
 	}
-}
-
-func metadataValue(md []agentstore.Metadata) string {
-	for _, entry := range md {
-		if entry.Key == "error" {
-			return entry.Value
-		}
-	}
-
-	return ""
 }
 
 // TestNewAgentIdempotency pins a retry finding the agent it already made, or the same prompt
@@ -608,7 +598,7 @@ func TestNewAgentRunsWorkflowSetup(t *testing.T) {
 				require.NoError(t, getErr)
 				require.NotNil(t, stored, "a refused setup leaves a row to look at rather than none")
 				assert.Equal(t, agentstore.StateFailedToCreate, stored.State)
-				assert.NotEmpty(t, metadataValue(stored.Metadata), "and why")
+				assert.NotEmpty(t, stored.FailureReason, "and why")
 				assert.Empty(t, fakeHarness.Launches, "and launches nothing")
 
 				return
@@ -838,7 +828,7 @@ func TestNewAgentCleansUpAfterASetupThatRan(t *testing.T) {
 			require.NoError(t, listErr)
 			require.Len(t, agents, 1, "the row stays, marked failed, rather than vanishing")
 			assert.Equal(t, agentstore.StateFailedToCreate, agents[0].State)
-			assert.NotEmpty(t, metadataValue(agents[0].Metadata))
+			assert.NotEmpty(t, agents[0].FailureReason)
 		})
 	}
 }
@@ -911,7 +901,7 @@ func TestNewAgentClosesOutACreateTheCallerAbandoned(t *testing.T) {
 	require.NoError(t, listErr)
 	require.Len(t, agents, 1)
 	assert.Equal(t, agentstore.StateFailedToCreate, agents[0].State, "an abandoned create is not left setting up forever")
-	assert.NotEmpty(t, metadataValue(agents[0].Metadata), "the row says why it failed")
+	assert.NotEmpty(t, agents[0].FailureReason, "the row says why it failed")
 
 	assert.Equal(t, []string{worktreeDeprovisioner}, lifecycle.deprovision, "what setup built is taken back")
 	assert.Equal(t, []error{nil}, lifecycle.deprovisionCtxErr, "cleanup gets a context it can still read the workflow on")

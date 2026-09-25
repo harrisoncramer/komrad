@@ -16,7 +16,7 @@ type Resource struct {
 	Feeders []Feeder
 }
 
-// Feeder is one table whose changes can move the rows of a resource, e.g. agent_metadata into agents.
+// Feeder is one table whose changes can move the rows of a resource, e.g. agent_runs into agents.
 type Feeder struct {
 	// Table is the feeding table.
 	Table string

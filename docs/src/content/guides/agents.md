@@ -46,10 +46,10 @@ Separately, an agent is either running or dormant. A dormant agent's CLI has exi
 
 ## What the panel shows
 
-Each row shows the agent's state, whether mail is waiting, and its pull request if it has one. The details beneath show what it was launched with, its branch, how its checkout compares to the base, its recent commits, and any metadata it has recorded about its own work, such as the ticket it is on.
+Each row shows the agent's state, whether mail is waiting, and its pull request if it has one. The details beneath show what it was launched with, its branch, how its checkout compares to the base, and its recent commits.
 
 <figure class="placeholder">
-  <figcaption>The details panel for one agent, showing its branch, its pull request, its recorded metadata and its recent commits.</figcaption>
+  <figcaption>The details panel for one agent, showing its branch, its pull request and its recent commits.</figcaption>
 </figure>
 
 You can search the list by name, and search every conversation komrad has ever run, archived ones included. Marks let you jump straight back to an agent you care about, the way marks work in vim.

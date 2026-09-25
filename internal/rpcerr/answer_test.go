@@ -15,8 +15,6 @@ import (
 	"komrad/internal/scripts"
 	"komrad/internal/store"
 
-	agentstore "komrad/internal/store/agent"
-
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -91,7 +89,6 @@ func TestWrapCodes(t *testing.T) {
 		{mail.ErrMailboxFull, connect.CodeResourceExhausted},
 		{mail.ErrExchangeCapped, connect.CodeResourceExhausted},
 		{agents.ErrTooManyChildren, connect.CodeResourceExhausted},
-		{agentstore.ErrTooManyMetadataKeys, connect.CodeResourceExhausted},
 		{reviews.ErrReviewNotYours, connect.CodePermissionDenied},
 		{reviews.ErrReviewHumanOnly, connect.CodePermissionDenied},
 		{reviews.ErrReviewNotEntitled, connect.CodePermissionDenied},

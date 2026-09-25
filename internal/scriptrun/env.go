@@ -24,21 +24,20 @@ const maxScriptPrompt = 16 * 1024
 type configLoader func() (*config.Config, error)
 
 type scriptPayload struct {
-	ID              string            `json:"id"`
-	Name            string            `json:"name"`
-	State           string            `json:"state"`
-	Alive           bool              `json:"alive"`
-	Cwd             string            `json:"cwd"`
-	Harness         string            `json:"harness"`
-	SessionID       string            `json:"session_id"`
-	Flags           string            `json:"flags"`
-	Prompt          string            `json:"prompt"`
-	PromptTruncated bool              `json:"prompt_truncated"`
-	Pane            string            `json:"pane"`
-	Workflow        string            `json:"workflow"`
-	Hidden          bool              `json:"hidden"`
-	CreatedAt       string            `json:"created_at"`
-	Metadata        map[string]string `json:"metadata"`
+	ID              string `json:"id"`
+	Name            string `json:"name"`
+	State           string `json:"state"`
+	Alive           bool   `json:"alive"`
+	Cwd             string `json:"cwd"`
+	Harness         string `json:"harness"`
+	SessionID       string `json:"session_id"`
+	Flags           string `json:"flags"`
+	Prompt          string `json:"prompt"`
+	PromptTruncated bool   `json:"prompt_truncated"`
+	Pane            string `json:"pane"`
+	Workflow        string `json:"workflow"`
+	Hidden          bool   `json:"hidden"`
+	CreatedAt       string `json:"created_at"`
 }
 
 type scriptEnvParams struct {
@@ -111,14 +110,10 @@ func (s *ScriptService) env(ctx context.Context, params scriptEnvParams) ([]stri
 		Pane:      agent.Pane,
 		Workflow:  workflowName(workflow),
 		Hidden:    agent.Hidden,
-		Metadata:  make(map[string]string, len(agent.Metadata)),
 	}
 	payload.Prompt, payload.PromptTruncated = xstr.Head(agent.Prompt, maxScriptPrompt)
 	if !agent.CreatedAt.IsZero() {
 		payload.CreatedAt = agent.CreatedAt.Format(time.RFC3339)
-	}
-	for _, entry := range agent.Metadata {
-		payload.Metadata[entry.Key] = entry.Value
 	}
 
 	encoded, err := json.Marshal(payload)

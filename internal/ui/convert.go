@@ -16,10 +16,6 @@ import (
 )
 
 func agentFrom(s *agentv1.Agent) panel.Agent {
-	metadata := xslice.Map(s.GetMetadata(), func(entry *agentv1.AgentMetadata) panel.Metadata {
-		return panel.Metadata{Key: entry.GetKey(), Value: entry.GetValue()}
-	})
-
 	return panel.Agent{
 		ID:                 s.GetId(),
 		Name:               s.GetName(),
@@ -30,6 +26,7 @@ func agentFrom(s *agentv1.Agent) panel.Agent {
 		State:              stateFrom(s.GetState()),
 		Role:               roleFrom(s.GetRole()),
 		ReportedReason:     s.GetReportedReason(),
+		FailureReason:      s.GetFailureReason(),
 		Harness:            s.GetHarness(),
 		SessionID:          s.GetSessionId(),
 		WorkflowID:         s.GetWorkflowId(),
@@ -38,7 +35,6 @@ func agentFrom(s *agentv1.Agent) panel.Agent {
 		StateChangedAt:     dates.Parse(s.GetStateChangedAt()),
 		ArchivedAt:         dates.ParsePtr(s.GetArchivedAt()),
 		Hidden:             s.GetHidden(),
-		Metadata:           metadata,
 		Branch:             s.Branch,
 		WorktreeRemoved:    s.GetWorktreeRemoved(),
 		SequenceInProgress: s.GetSequenceInProgress(),

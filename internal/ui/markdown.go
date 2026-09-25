@@ -99,7 +99,6 @@ func agentFields(params agentFieldsParams) []recordField {
 	fields := []recordField{{"name", label.OrDash(agent.Name)}}
 	// What a child is attached to comes early, and for a reviewer that same row is whose work it
 	// is reading.
-	reviewingDrawn := agent.ParentAgentID != nil && agent.Role == panel.RoleReviewer
 	if agent.ParentAgentID != nil {
 		fields = append(fields, recordField{attachmentFieldKey(agent.Role), label.OrDash(parent)})
 	}
@@ -114,8 +113,7 @@ func agentFields(params agentFieldsParams) []recordField {
 		fields = append(fields, recordField{"doing", agent.ReportedReason})
 	}
 
-	readBranch := agent.Branch != nil
-	if readBranch {
+	if agent.Branch != nil {
 		fields = append(fields, recordField{branchFieldKey, *agent.Branch})
 		fields = append(fields, pullRequestFields(params.standing, params.pullRequests)...)
 	}
@@ -139,19 +137,6 @@ func agentFields(params agentFieldsParams) []recordField {
 		if archived := label.Friendly(*agent.ArchivedAt); archived != "" {
 			fields = append(fields, recordField{"archived", archived})
 		}
-	}
-	for _, entry := range agent.Metadata {
-		if entry.Key == failureReasonKey {
-			continue
-		}
-		if entry.Key == branchFieldKey && readBranch {
-			continue
-		}
-		if entry.Key == reviewingFieldKey && reviewingDrawn {
-			continue
-		}
-
-		fields = append(fields, recordField{entry.Key, entry.Value})
 	}
 	if params.read {
 		fields = append(fields, worktreeHistoryFields(params.worktree)...)

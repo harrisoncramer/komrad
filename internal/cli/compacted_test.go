@@ -32,15 +32,14 @@ func TestCompactedHookRemindsTheAgent(t *testing.T) {
 		wantAbsent       []string
 	}{
 		{
-			name: "an implementer is handed its branch, pull request, record, open threads and task",
+			name: "an implementer is handed its branch, pull request, open threads and task",
 			row: &agentv1.AgentRow{
 				Agent: &agentv1.Agent{
-					Id:       "agent-a",
-					Name:     "compaction",
-					Role:     agentv1.AgentRole_AGENT_ROLE_IMPLEMENTER,
-					Branch:   xptr.Ptr("agent/compaction"),
-					Prompt:   "build the usage block",
-					Metadata: []*agentv1.AgentMetadata{{Key: "summary", Value: "per-role compaction"}},
+					Id:     "agent-a",
+					Name:   "compaction",
+					Role:   agentv1.AgentRole_AGENT_ROLE_IMPLEMENTER,
+					Branch: xptr.Ptr("agent/compaction"),
+					Prompt: "build the usage block",
 				},
 				UnreadMail: true,
 				PullRequests: []*pullrequestv1.PullRequest{{
@@ -57,7 +56,6 @@ func TestCompactedHookRemindsTheAgent(t *testing.T) {
 				"You are compaction (agent-a), the implementer agent.",
 				"Branch: agent/compaction",
 				"Pull request: https://github.com/o/r/pull/9 (changes requested)",
-				"Recorded summary: per-role compaction",
 				"Open review threads on your work (1), answered with add_review_message",
 				"- thread-open on config/appconfig.go lines 10-12",
 				"Call read_mail.",

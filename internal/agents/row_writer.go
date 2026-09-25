@@ -3,21 +3,10 @@ package agents
 import (
 	"context"
 	"fmt"
-
-	"komrad/internal/fail"
-
-	agentstore "komrad/internal/store/agent"
 )
-
-// ErrPullRequestKey is a metadata write under the key the forge now fills.
-var ErrPullRequestKey = fail.InvalidArgument("pull requests are read from the forge and shown on the row; nothing needs recording here")
-
-// pullRequestMetadataKey is the key agents used to record the pull request they opened.
-const pullRequestMetadataKey = "pr"
 
 type rowWriteStore interface {
 	SetHidden(ctx context.Context, id string, hidden bool) (bool, error)
-	SetMetadata(ctx context.Context, params agentstore.SetMetadataParams) (bool, error)
 	Rename(ctx context.Context, id, name string) (bool, error)
 	SetReportedReason(ctx context.Context, id, reason string) error
 	SetTurnEnded(ctx context.Context, id string) error
@@ -64,36 +53,6 @@ func (w *RowWriter) SetHidden(ctx context.Context, id string, hidden bool) error
 	}
 	if !changed {
 		return ErrAgentNotFound.Saying("no agent with id %q", id)
-	}
-
-	return nil
-}
-
-// SetMetadataParams is one fact to record on an agent, or to clear when Value is unset.
-type SetMetadataParams struct {
-	AgentID string
-	Key     string
-	Value   *string
-}
-
-// SetMetadata records one fact an agent found out about its own work, or clears the key when
-// the value is unset, refusing the key the forge fills on its own.
-func (w *RowWriter) SetMetadata(ctx context.Context, params SetMetadataParams) error {
-	if params.Key == pullRequestMetadataKey {
-		return ErrPullRequestKey
-	}
-
-	changed, err := w.agents.SetMetadata(ctx, agentstore.SetMetadataParams{
-		ID:    params.AgentID,
-		Key:   params.Key,
-		Value: params.Value,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to set metadata %q on agent %q: %w", params.Key, params.AgentID, err)
-	}
-	// Clearing a key nothing held is not an error.
-	if !changed && params.Value != nil {
-		return ErrAgentNotFound.Saying("no agent with id %q", params.AgentID)
 	}
 
 	return nil

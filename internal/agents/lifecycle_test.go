@@ -119,7 +119,7 @@ func TestDeleteAgentMarksFailedToCleanupWhenTeardownFails(t *testing.T) {
 	require.NoError(t, listErr)
 	require.Len(t, agents, 1, "a failed teardown leaves the row rather than dropping it")
 	assert.Equal(t, agentstore.StateFailedToCleanup, agents[0].State)
-	assert.Contains(t, metadataValue(agents[0].Metadata), "worktree is dirty")
+	assert.Contains(t, agents[0].FailureReason, "worktree is dirty")
 }
 
 // TestDeleteClaimsTheRowWhileTheTeardownRuns covers the row leaving the page listing the
@@ -266,7 +266,7 @@ func TestDeleteAgentRetryRecordsTheLatestReasonOnly(t *testing.T) {
 	agents, err := st.Agents.List(t.Context())
 	require.NoError(t, err)
 	require.Len(t, agents, 1)
-	assert.Contains(t, metadataValue(agents[0].Metadata), "worktree is dirty")
+	assert.Contains(t, agents[0].FailureReason, "worktree is dirty")
 
 	lifecycle.deprovisionRunErr = errors.New("network unreachable")
 	require.NoError(t, manager.lifecycle.DeleteAgents(t.Context(), []string{agent.ID}))
@@ -275,8 +275,8 @@ func TestDeleteAgentRetryRecordsTheLatestReasonOnly(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, agents, 1, "still failing, so still here")
 	assert.Equal(t, agentstore.StateFailedToCleanup, agents[0].State)
-	assert.Contains(t, metadataValue(agents[0].Metadata), "network unreachable")
-	assert.NotContains(t, metadataValue(agents[0].Metadata), "worktree is dirty", "the stale reason does not linger alongside the new one")
+	assert.Contains(t, agents[0].FailureReason, "network unreachable")
+	assert.NotContains(t, agents[0].FailureReason, "worktree is dirty", "the stale reason does not linger alongside the new one")
 }
 
 // TestDeleteAgentsHandlesMixedCleanupOutcomes pins each agent's cleanup outcome landing on
@@ -315,7 +315,7 @@ func TestDeleteAgentsHandlesMixedCleanupOutcomes(t *testing.T) {
 	require.Len(t, agents, 1, "the one that succeeded is gone, the one that failed is left")
 	assert.Equal(t, bad.ID, agents[0].ID)
 	assert.Equal(t, agentstore.StateFailedToCleanup, agents[0].State)
-	assert.Contains(t, metadataValue(agents[0].Metadata), "container is still running")
+	assert.Contains(t, agents[0].FailureReason, "container is still running")
 }
 
 // TestDeleteAgentRemovesItsRunLogs pins a delete taking the agent's logs with it, and

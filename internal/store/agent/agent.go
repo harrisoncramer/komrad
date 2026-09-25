@@ -1,10 +1,8 @@
 // Package agent stores the agents themselves: the row for each one, the state the reconciler
-// keeps up to date, the metadata an agent records about its own work, and whether it is archived
-// or still on screen.
+// keeps up to date, and whether it is archived or still on screen.
 package agent
 
 import (
-	"context"
 	"strings"
 	"time"
 
@@ -12,8 +10,6 @@ import (
 	"komrad/internal/git"
 	"komrad/internal/store"
 	"komrad/lib/xslice"
-
-	"github.com/jackc/pgx/v5"
 )
 
 // StateSeenBound is how long a reading of an agent's state stands before it is unconfirmed.
@@ -114,6 +110,9 @@ type Agent struct {
 	// ReportedReason is what the agent's own CLI last said it was doing, cleared whenever the
 	// state changes.
 	ReportedReason string
+
+	// FailureReason is why the agent's create or cleanup last failed.
+	FailureReason  string
 	Harness        string
 	SessionID      string
 	WorkflowID     string
@@ -127,7 +126,6 @@ type Agent struct {
 	// typed nothing does not set.
 	NudgeSentAt      *time.Time
 	Hidden           bool
-	Metadata         []Metadata
 	SpawnedByAgentID *string
 
 	// ParentAgentID is the agent this one is attached to, whose archive, delete and restore it
@@ -193,14 +191,15 @@ func NewAgentStore(db store.DBTX) *AgentStore {
 	return &AgentStore{queries: models.New(db), db: db}
 }
 
-type txBeginner interface {
-	Begin(ctx context.Context) (pgx.Tx, error)
-}
-
 // AgentPane names a pane and the agent that owns it.
 type AgentPane struct {
 	AgentID string
 	Pane    string
+}
+
+// FromRows is the agents the stored rows describe, in the order given.
+func FromRows(rows []*models.Agent) []Agent {
+	return xslice.Map(rows, func(row *models.Agent) Agent { return FromRow(*row) })
 }
 
 // IDs is the id of each agent, in the order they were given.
@@ -208,7 +207,7 @@ func IDs(agents []Agent) []string {
 	return xslice.Map(agents, func(agent Agent) string { return agent.ID })
 }
 
-// FromRow is the agent one stored row describes, its metadata left for a second read.
+// FromRow is the agent one stored row describes.
 func FromRow(agent models.Agent) Agent {
 	return Agent{
 		ID:                 agent.ID,
@@ -224,6 +223,7 @@ func FromRow(agent models.Agent) Agent {
 		StateSeenAt:        agent.StateSeenAt,
 		TurnEndedAt:        agent.TurnEndedAt,
 		ReportedReason:     agent.ReportedReason,
+		FailureReason:      agent.FailureReason,
 		Harness:            agent.Harness,
 		SessionID:          agent.SessionID,
 		WorkflowID:         agent.WorkflowID,

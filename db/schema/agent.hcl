@@ -403,53 +403,6 @@ table "agent_transcript_chunks" {
   }
 }
 
-table "agent_metadata" {
-  schema  = schema.public
-  comment = "Facts an agent recorded about its own work, such as the pull request it opened."
-  column "agent_id" {
-    null = false
-    type = uuid
-  }
-  column "key" {
-    null = false
-    type = text
-  }
-  column "value" {
-    null = false
-    type = text
-  }
-  column "created_at" {
-    null    = false
-    type    = timestamptz
-    default = sql("now()")
-  }
-  column "updated_at" {
-    null    = false
-    type    = timestamptz
-    default = sql("now()")
-  }
-  column "tenant_id" {
-    null    = false
-    type    = uuid
-    comment = "The engine that owns this row, stamped from the login that wrote it."
-  }
-  primary_key {
-    columns = [column.agent_id, column.key]
-  }
-  foreign_key "agent_metadata_tenant_id_fkey" {
-    columns     = [column.tenant_id]
-    ref_columns = [table.tenants.column.id]
-    on_delete   = RESTRICT
-    on_update   = NO_ACTION
-  }
-  foreign_key "agent_metadata_agent_id_fkey" {
-    columns     = [column.tenant_id, column.agent_id]
-    ref_columns = [table.agents.column.tenant_id, table.agents.column.id]
-    on_delete   = CASCADE
-    on_update   = NO_ACTION
-  }
-}
-
 table "agent_runs" {
   schema  = schema.public
   comment = "One run of a script komrad fired for an agent. The output stays on disk and this row says where to find it."
@@ -669,6 +622,12 @@ table "agents" {
     type    = enum.agent_role
     default = "implementer"
     comment = "What the agent was launched to do. It decides which review briefing the agent is given. A reviewer reads the work of the agent it is a child of and never writes any code of its own."
+  }
+  column "failure_reason" {
+    null    = false
+    type    = text
+    default = ""
+    comment = "Why the agent's create or cleanup failed, empty unless it is in one of the failed states."
   }
   column "held_at" {
     null    = true

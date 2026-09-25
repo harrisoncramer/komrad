@@ -77,13 +77,6 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 	_, err := st.Agents.Archive(ctx, []string{gone.ID})
 	require.NoError(t, err)
 
-	_, err = st.Agents.SetMetadata(ctx, agentstore.SetMetadataParams{
-		ID:    api.ID,
-		Key:   "ticket",
-		Value: xptr.Ptr("https://example.test/T-1"),
-	})
-	require.NoError(t, err)
-
 	// A mark on an agent and one on a workflow.
 	_, err = st.Marks.Set(ctx, "a", markstore.OnAgent(api.ID))
 	require.NoError(t, err)
@@ -130,7 +123,6 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 	require.True(t, seeded.agents[api.ID].GetUnreadMail())
 	require.Len(t, seeded.agents[api.ID].GetPullRequests(), 2)
 	require.Equal(t, int32(2), seeded.agents[api.ID].GetPullRequest().GetNumber(), "the open pull request is current")
-	require.Equal(t, "ticket", seeded.agents[api.ID].GetAgent().GetMetadata()[0].GetKey())
 	require.Empty(t, seeded.agents[base.ID].GetPullRequests(), "a pull request on the base branch is nobody's")
 	require.False(t, seeded.agents[quiet.ID].GetUnreadMail())
 	require.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE, seeded.agents[quiet.ID].GetPullRequest().GetState())

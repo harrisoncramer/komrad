@@ -309,8 +309,7 @@ func TestSnapshotForge(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			item := panel.AgentRow{
 				Agent: panel.Agent{
-					ID:       "a1",
-					Metadata: []panel.Metadata{{Key: "pr", Value: "https://example.test/1"}},
+					ID: "a1",
 				},
 				PullRequest: panel.PullRequestStanding{State: tt.state},
 			}

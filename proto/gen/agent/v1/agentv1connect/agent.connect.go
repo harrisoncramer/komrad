@@ -52,9 +52,6 @@ const (
 	AgentServiceSetMarkProcedure = "/agent.v1.AgentService/SetMark"
 	// AgentServiceSetHiddenProcedure is the fully-qualified name of the AgentService's SetHidden RPC.
 	AgentServiceSetHiddenProcedure = "/agent.v1.AgentService/SetHidden"
-	// AgentServiceSetMetadataProcedure is the fully-qualified name of the AgentService's SetMetadata
-	// RPC.
-	AgentServiceSetMetadataProcedure = "/agent.v1.AgentService/SetMetadata"
 	// AgentServiceLogProcedure is the fully-qualified name of the AgentService's Log RPC.
 	AgentServiceLogProcedure = "/agent.v1.AgentService/Log"
 	// AgentServiceSendMailProcedure is the fully-qualified name of the AgentService's SendMail RPC.
@@ -166,7 +163,6 @@ type AgentServiceClient interface {
 	ListMarks(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListMarksResponse], error)
 	SetMark(context.Context, *connect.Request[v1.SetMarkRequest]) (*connect.Response[emptypb.Empty], error)
 	SetHidden(context.Context, *connect.Request[v1.SetHiddenRequest]) (*connect.Response[emptypb.Empty], error)
-	SetMetadata(context.Context, *connect.Request[v1.SetMetadataRequest]) (*connect.Response[emptypb.Empty], error)
 	Log(context.Context, *connect.Request[v1.LogRequest]) (*connect.Response[emptypb.Empty], error)
 	SendMail(context.Context, *connect.Request[v1.SendMailRequest]) (*connect.Response[v1.SendMailResponse], error)
 	ForwardLastTurns(context.Context, *connect.Request[v1.ForwardLastTurnsRequest]) (*connect.Response[v1.ForwardLastTurnsResponse], error)
@@ -266,13 +262,6 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			httpClient,
 			baseURL+AgentServiceSetHiddenProcedure,
 			connect.WithSchema(agentServiceMethods.ByName("SetHidden")),
-			connect.WithIdempotency(connect.IdempotencyIdempotent),
-			connect.WithClientOptions(opts...),
-		),
-		setMetadata: connect.NewClient[v1.SetMetadataRequest, emptypb.Empty](
-			httpClient,
-			baseURL+AgentServiceSetMetadataProcedure,
-			connect.WithSchema(agentServiceMethods.ByName("SetMetadata")),
 			connect.WithIdempotency(connect.IdempotencyIdempotent),
 			connect.WithClientOptions(opts...),
 		),
@@ -528,7 +517,6 @@ type agentServiceClient struct {
 	listMarks               *connect.Client[emptypb.Empty, v1.ListMarksResponse]
 	setMark                 *connect.Client[v1.SetMarkRequest, emptypb.Empty]
 	setHidden               *connect.Client[v1.SetHiddenRequest, emptypb.Empty]
-	setMetadata             *connect.Client[v1.SetMetadataRequest, emptypb.Empty]
 	log                     *connect.Client[v1.LogRequest, emptypb.Empty]
 	sendMail                *connect.Client[v1.SendMailRequest, v1.SendMailResponse]
 	forwardLastTurns        *connect.Client[v1.ForwardLastTurnsRequest, v1.ForwardLastTurnsResponse]
@@ -605,11 +593,6 @@ func (c *agentServiceClient) SetMark(ctx context.Context, req *connect.Request[v
 // SetHidden calls agent.v1.AgentService.SetHidden.
 func (c *agentServiceClient) SetHidden(ctx context.Context, req *connect.Request[v1.SetHiddenRequest]) (*connect.Response[emptypb.Empty], error) {
 	return c.setHidden.CallUnary(ctx, req)
-}
-
-// SetMetadata calls agent.v1.AgentService.SetMetadata.
-func (c *agentServiceClient) SetMetadata(ctx context.Context, req *connect.Request[v1.SetMetadataRequest]) (*connect.Response[emptypb.Empty], error) {
-	return c.setMetadata.CallUnary(ctx, req)
 }
 
 // Log calls agent.v1.AgentService.Log.
@@ -802,7 +785,6 @@ type AgentServiceHandler interface {
 	ListMarks(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListMarksResponse], error)
 	SetMark(context.Context, *connect.Request[v1.SetMarkRequest]) (*connect.Response[emptypb.Empty], error)
 	SetHidden(context.Context, *connect.Request[v1.SetHiddenRequest]) (*connect.Response[emptypb.Empty], error)
-	SetMetadata(context.Context, *connect.Request[v1.SetMetadataRequest]) (*connect.Response[emptypb.Empty], error)
 	Log(context.Context, *connect.Request[v1.LogRequest]) (*connect.Response[emptypb.Empty], error)
 	SendMail(context.Context, *connect.Request[v1.SendMailRequest]) (*connect.Response[v1.SendMailResponse], error)
 	ForwardLastTurns(context.Context, *connect.Request[v1.ForwardLastTurnsRequest]) (*connect.Response[v1.ForwardLastTurnsResponse], error)
@@ -898,13 +880,6 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 		AgentServiceSetHiddenProcedure,
 		svc.SetHidden,
 		connect.WithSchema(agentServiceMethods.ByName("SetHidden")),
-		connect.WithIdempotency(connect.IdempotencyIdempotent),
-		connect.WithHandlerOptions(opts...),
-	)
-	agentServiceSetMetadataHandler := connect.NewUnaryHandler(
-		AgentServiceSetMetadataProcedure,
-		svc.SetMetadata,
-		connect.WithSchema(agentServiceMethods.ByName("SetMetadata")),
 		connect.WithIdempotency(connect.IdempotencyIdempotent),
 		connect.WithHandlerOptions(opts...),
 	)
@@ -1165,8 +1140,6 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 			agentServiceSetMarkHandler.ServeHTTP(w, r)
 		case AgentServiceSetHiddenProcedure:
 			agentServiceSetHiddenHandler.ServeHTTP(w, r)
-		case AgentServiceSetMetadataProcedure:
-			agentServiceSetMetadataHandler.ServeHTTP(w, r)
 		case AgentServiceLogProcedure:
 			agentServiceLogHandler.ServeHTTP(w, r)
 		case AgentServiceSendMailProcedure:
@@ -1278,10 +1251,6 @@ func (UnimplementedAgentServiceHandler) SetMark(context.Context, *connect.Reques
 
 func (UnimplementedAgentServiceHandler) SetHidden(context.Context, *connect.Request[v1.SetHiddenRequest]) (*connect.Response[emptypb.Empty], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.SetHidden is not implemented"))
-}
-
-func (UnimplementedAgentServiceHandler) SetMetadata(context.Context, *connect.Request[v1.SetMetadataRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.SetMetadata is not implemented"))
 }
 
 func (UnimplementedAgentServiceHandler) Log(context.Context, *connect.Request[v1.LogRequest]) (*connect.Response[emptypb.Empty], error) {

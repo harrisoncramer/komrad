@@ -464,10 +464,7 @@ func TestArchiveLegend(t *testing.T) {
 func TestArchiveDocument(t *testing.T) {
 	stuck := newArchivedAgent("a1", "api-refactor", "w1")
 	stuck.State = agentv1.AgentState_AGENT_STATE_FAILED_TO_CLEANUP
-	stuck.Metadata = []*agentv1.AgentMetadata{{
-		Key:   "error",
-		Value: "the worktree is dirty",
-	}}
+	stuck.FailureReason = "the worktree is dirty"
 
 	tests := []struct {
 		name       string
