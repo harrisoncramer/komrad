@@ -1,6 +1,6 @@
 package ui
 
-import "komrade/internal/errui"
+import "komrad/internal/errui"
 
 // reportBrief stands in for report where the reason is long and already on screen.
 func (m *model) reportBrief(summary, detail string) {

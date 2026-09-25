@@ -79,5 +79,5 @@ jobs:
 
       - name: Put this build on the engine
         env:
-          KOMRADE_VERSION: ${{ inputs.version }}
+          KOMRAD_VERSION: ${{ inputs.version }}
         run: mise run remote:deploy

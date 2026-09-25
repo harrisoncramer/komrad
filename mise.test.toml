@@ -7,14 +7,14 @@
 # the one being developed against.
 #
 # These are environment variables rather than a config file because the environment beats the
-# file, so the isolation holds whatever a developer has written in ~/.config/komrade. KOMRADE_CONFIG
+# file, so the isolation holds whatever a developer has written in ~/.config/komrad. KOMRAD_CONFIG
 # then keeps the panel settings apart too, since that file can now name a database of its own.
 [env]
 # Its own config, so the throwaway instance is not reading the panel settings of the checkout
-# being developed against. Naming a file here replaces ~/.config/komrade/config.toml rather than
+# being developed against. Naming a file here replaces ~/.config/komrad/config.toml rather than
 # layering on top of it, which is the point. Nothing outside this checkout reaches the test
 # instance.
-KOMRADE_CONFIG = "{{config_root}}/komrade.test.toml"
+KOMRAD_CONFIG = "{{config_root}}/komrad.test.toml"
 
 # Its own Postgres. The port is what docker-compose publishes and what the connection string
 # points at, and the compose project is named after the directory, so `docker:up` brings up a
@@ -22,16 +22,16 @@ KOMRADE_CONFIG = "{{config_root}}/komrade.test.toml"
 # the default engine's login, which `docker:up` provisions, and the owner migrates. Clear an
 # inherited read-only URL so Viper falls through and derives it from the engine's.
 DB_PORT = "5461"
-KOMRADE_DATABASE_URL = "postgres://komrade_engine_default:komrade@localhost:5461/komrade?sslmode=disable"
-KOMRADE_OWNER_DATABASE_URL = "postgres://komrade:komrade@localhost:5461/komrade?sslmode=disable"
-KOMRADE_READONLY_DATABASE_URL = ""
+KOMRAD_DATABASE_URL = "postgres://komrad_engine_default:komrad@localhost:5461/komrad?sslmode=disable"
+KOMRAD_OWNER_DATABASE_URL = "postgres://komrad:komrad@localhost:5461/komrad?sslmode=disable"
+KOMRAD_READONLY_DATABASE_URL = ""
 
 # Its own server, so both can run at once and neither adopts the other's.
-KOMRADE_ADDR = "127.0.0.1:8790"
+KOMRAD_ADDR = "127.0.0.1:8790"
 
 # Its own tmux server. This is the one that matters most: the panel and every agent live
 # on it, and `mise run restart` kills it whole.
-KOMRADE_TMUX_SOCKET = "komrade-test"
+KOMRAD_TMUX_SOCKET = "komrad-test"
 
 # Its own log and generated files, so a tail here is not the other instance's output.
-KOMRADE_CACHE_DIR = "{{env.HOME}}/Library/Caches/komrade-test"
+KOMRAD_CACHE_DIR = "{{env.HOME}}/Library/Caches/komrad-test"

@@ -6,12 +6,12 @@ import (
 	"testing"
 	"time"
 
-	"komrade/internal/harnesstest"
-	"komrade/internal/scripts"
-	agentstore "komrade/internal/store/agent"
-	workflowstore "komrade/internal/store/workflow"
-	"komrade/internal/tmuxtest"
-	"komrade/lib/xptr"
+	"komrad/internal/harnesstest"
+	"komrad/internal/scripts"
+	agentstore "komrad/internal/store/agent"
+	workflowstore "komrad/internal/store/workflow"
+	"komrad/internal/tmuxtest"
+	"komrad/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -202,9 +202,9 @@ func TestARetiredProvisionerRunsNoHooks(t *testing.T) {
 	assert.Empty(t, lifecycle.ranHooks(), "so no moment fires against it")
 }
 
-// TestNewWorkflowRefusesAHookOnAMomentKomradeDoesNotFire pins the refusal a hook hung on a moment
+// TestNewWorkflowRefusesAHookOnAMomentKomradDoesNotFire pins the refusal a hook hung on a moment
 // nothing fires is answered with.
-func TestNewWorkflowRefusesAHookOnAMomentKomradeDoesNotFire(t *testing.T) {
+func TestNewWorkflowRefusesAHookOnAMomentKomradDoesNotFire(t *testing.T) {
 	st := newStore(t)
 	workflows := newWorkflowService(st, tmuxtest.NewFake())
 
@@ -480,8 +480,8 @@ func TestRunDeprovisionLogsOneThatWouldNotStart(t *testing.T) {
 
 	got := recordFor(t, records(), "the deprovisioner would not start")
 	assert.Equal(t, "ERROR", got["severity_text"])
-	assert.Equal(t, "was-renamed", got["komrade.script.name"])
-	assert.Equal(t, "/repo/.worktrees/auth", got["komrade.script.agent.cwd"])
+	assert.Equal(t, "was-renamed", got["komrad.script.name"])
+	assert.Equal(t, "/repo/.worktrees/auth", got["komrad.script.agent.cwd"])
 }
 
 // TestDeprovisionerLogsAWorkflowThatWouldNotRead covers the read that breaks rather than
@@ -502,9 +502,9 @@ func TestDeprovisionerLogsAWorkflowThatWouldNotRead(t *testing.T) {
 
 	got := recordFor(t, records(), "the workflow behind an agent could not be read")
 	assert.Equal(t, "ERROR", got["severity_text"])
-	assert.Equal(t, workflowID, got["komrade.workflow.id"])
-	assert.Equal(t, "a1", got["komrade.script.agent.id"])
-	assert.Equal(t, "/repo/.worktrees/auth", got["komrade.script.agent.cwd"])
+	assert.Equal(t, workflowID, got["komrad.workflow.id"])
+	assert.Equal(t, "a1", got["komrad.script.agent.id"])
+	assert.Equal(t, "/repo/.worktrees/auth", got["komrad.script.agent.cwd"])
 }
 
 // TestDeprovisionerSaysNothingWhenThereIsNothingToTearDown pins that no teardown is named and

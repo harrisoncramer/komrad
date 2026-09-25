@@ -1,8 +1,8 @@
 package ui
 
 import (
-	"komrade/config"
-	"komrade/internal/ui/paint"
+	"komrad/config"
+	"komrad/internal/ui/paint"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"

@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"komrade/internal/dbtest"
-	"komrade/internal/store"
-	workflowstore "komrade/internal/store/workflow"
+	"komrad/internal/dbtest"
+	"komrad/internal/store"
+	workflowstore "komrad/internal/store/workflow"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

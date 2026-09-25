@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"komrade/internal/git"
-	"komrade/lib/xslice"
+	"komrad/internal/git"
+	"komrad/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -200,7 +200,7 @@ func TestIntegrationTakeHoldsCommittedAndUncommittedWorkAlike(t *testing.T) {
 	snapshot, err := gitClient.TakeSnapshot(t.Context(), git.TakeSnapshotParams{
 		Dir:  root,
 		Base: "main",
-		Ref:  "refs/komrade/rounds/one",
+		Ref:  "refs/komrad/rounds/one",
 	})
 	require.NoError(t, err)
 
@@ -234,7 +234,7 @@ func TestIntegrationTakeIsHeldByItsRefAndReadableAfterTheWorktreeMovesOn(t *test
 	snapshot, err := gitClient.TakeSnapshot(t.Context(), git.TakeSnapshotParams{
 		Dir:  root,
 		Base: "main",
-		Ref:  "refs/komrade/rounds/three",
+		Ref:  "refs/komrad/rounds/three",
 	})
 	require.NoError(t, err)
 
@@ -251,20 +251,20 @@ func TestIntegrationTakeIsHeldByItsRefAndReadableAfterTheWorktreeMovesOn(t *test
 	require.Len(t, patch.Files, 1)
 	assert.Equal(t, "kept.go", patch.Files[0].Path())
 	assert.Contains(t, patch.Files[0].NewSource, "func First()")
-	assert.Equal(t, snapshot.SHA, capture(t, root, "rev-parse", "refs/komrade/rounds/three"))
+	assert.Equal(t, snapshot.SHA, capture(t, root, "rev-parse", "refs/komrad/rounds/three"))
 }
 
 // TestIntegrationTakeIgnoresWhatGitIgnores pins that a snapshot obeys the repository's own ignores rather than
 // staging everything on disk.
 func TestIntegrationTakeIgnoresWhatGitIgnores(t *testing.T) {
 	root := repo(t)
-	write(t, root, ".gitignore", ".komrade/\n")
-	write(t, root, ".komrade/reviews/round-1.md", "a review\n")
+	write(t, root, ".gitignore", ".komrad/\n")
+	write(t, root, ".komrad/reviews/round-1.md", "a review\n")
 
 	snapshot, err := gitClient.TakeSnapshot(t.Context(), git.TakeSnapshotParams{
 		Dir:  root,
 		Base: "main",
-		Ref:  "refs/komrade/rounds/four",
+		Ref:  "refs/komrad/rounds/four",
 	})
 	require.NoError(t, err)
 
@@ -275,7 +275,7 @@ func TestIntegrationTakeIgnoresWhatGitIgnores(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	assert.NotContains(t, changed(patch), ".komrade/reviews/round-1.md")
+	assert.NotContains(t, changed(patch), ".komrad/reviews/round-1.md")
 }
 
 // TestIntegrationTakeExcludesNothingItself pins where the workflow's excludes are applied.
@@ -286,7 +286,7 @@ func TestIntegrationTakeExcludesNothingItself(t *testing.T) {
 	snapshot, err := gitClient.TakeSnapshot(t.Context(), git.TakeSnapshotParams{
 		Dir:  root,
 		Base: "main",
-		Ref:  "refs/komrade/rounds/six",
+		Ref:  "refs/komrad/rounds/six",
 	})
 	require.NoError(t, err)
 

@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"strings"
 
-	"komrade/internal/logging"
-	"komrade/internal/panes"
+	"komrad/internal/logging"
+	"komrad/internal/panes"
 )
 
 // zoomedFormat asks whether a pane is the one filling its window, put as a format so tmux can

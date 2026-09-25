@@ -99,7 +99,7 @@ func TestMigratedReusesATemplateNamedByALongVersion(t *testing.T) {
 	assert.True(t, hasMarker(t, second))
 }
 
-// TestURLIsUnmigrated pins the other door, which the tests of the migrations and of komrade doctor
+// TestURLIsUnmigrated pins the other door, which the tests of the migrations and of komrad doctor
 // need to be handed nothing at all.
 func TestURLIsUnmigrated(t *testing.T) {
 	conn, err := pgx.Connect(t.Context(), URL(t))
@@ -124,7 +124,7 @@ func TestLeakedTakesOnlyTheDatabasesPastMaxAge(t *testing.T) {
 		namePrefix + old + "_0f",
 		namePrefix + recent + "_0f",
 		namePrefix + old + "_0f" + templateSuffix("abc"),
-		"komrade",
+		"komrad",
 	}
 
 	assert.Equal(t, []string{names[0], names[2]}, leaked(names, now))

@@ -4,9 +4,9 @@ import (
 	"errors"
 	"testing"
 
-	"komrade/internal/logread"
-	logv1 "komrade/proto/gen/log/v1"
-	"komrade/proto/gen/log/v1/logv1komrade"
+	"komrad/internal/logread"
+	logv1 "komrad/proto/gen/log/v1"
+	"komrad/proto/gen/log/v1/logv1komrad"
 
 	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
@@ -65,7 +65,7 @@ func TestLogRefusalsMapToCodes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			service := logv1komrade.LogServiceAdapter{Impl: NewHandler(&fakeLogReader{err: tt.err})}
+			service := logv1komrad.LogServiceAdapter{Impl: NewHandler(&fakeLogReader{err: tt.err})}
 
 			_, err := service.GetLogLines(t.Context(), connect.NewRequest(&logv1.GetLogLinesRequest{TraceId: "trace-nine"}))
 			assert.Equal(t, tt.wantCode, connect.CodeOf(err))
@@ -93,7 +93,7 @@ func TestGetLogLines(t *testing.T) {
 			"unspeakable":     func() {},
 		},
 	}}}
-	service := logv1komrade.LogServiceAdapter{Impl: NewHandler(reader)}
+	service := logv1komrad.LogServiceAdapter{Impl: NewHandler(reader)}
 
 	resp, err := service.GetLogLines(t.Context(), connect.NewRequest(&logv1.GetLogLinesRequest{TraceId: "trace-one"}))
 	require.NoError(t, err)
@@ -119,7 +119,7 @@ func TestListRecentTraces(t *testing.T) {
 		What:      "ArchiveAgents",
 		Lines:     2,
 	}}}
-	service := logv1komrade.LogServiceAdapter{Impl: NewHandler(reader)}
+	service := logv1komrad.LogServiceAdapter{Impl: NewHandler(reader)}
 
 	resp, err := service.ListRecentTraces(t.Context(), connect.NewRequest(&logv1.ListRecentTracesRequest{Limit: 5}))
 	require.NoError(t, err)

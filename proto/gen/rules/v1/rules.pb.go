@@ -82,7 +82,7 @@ var file_rules_v1_rules_proto_extTypes = []protoimpl.ExtensionInfo{
 
 // Extension fields to validate.StringRules.
 var (
-	// Refuses the characters a shell would act on, for anything komrade passes to one.
+	// Refuses the characters a shell would act on, for anything komrad passes to one.
 	//
 	// optional bool shell_safe = 50100;
 	E_ShellSafe = &file_rules_v1_rules_proto_extTypes[0]
@@ -139,7 +139,7 @@ const file_rules_v1_rules_proto_rawDesc = "" +
 	"\x16string.cron_expression\x12?must be five whitespace-separated fields, such as '0 9 * * 1-5'\x1a7!rule || this.split(' ').filter(f, f != '').size() == 5R\x0ecronExpression:\x84\x02\n" +
 	"\rrelative_path\x12\x19.buf.validate.StringRules\x18\xba\x87\x03 \x01(\bB\xc1\x01\xc2H\xbd\x01\n" +
 	"\xba\x01\n" +
-	"\x14string.relative_path\x12Amust be a relative path, with no leading / or ~ and no .. segment\x1a_!rule || (this != '' && !this.startsWith('/') && !this.startsWith('~') && !this.contains(\"..\"))R\frelativePathB$Z\"komrade/proto/gen/rules/v1;rulesv1b\beditionsp\xe8\a"
+	"\x14string.relative_path\x12Amust be a relative path, with no leading / or ~ and no .. segment\x1a_!rule || (this != '' && !this.startsWith('/') && !this.startsWith('~') && !this.contains(\"..\"))R\frelativePathB#Z!komrad/proto/gen/rules/v1;rulesv1b\beditionsp\xe8\a"
 
 var file_rules_v1_rules_proto_goTypes = []any{
 	(*validate.StringRules)(nil), // 0: buf.validate.StringRules

@@ -3,4 +3,4 @@
 set -euo pipefail
 cd "$MISE_CONFIG_ROOT"
 
-exec "$MISE_CONFIG_ROOT/bin/komrade" open
+exec "$MISE_CONFIG_ROOT/bin/komrad" open

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"komrade/internal/engine"
+	"komrad/internal/engine"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -24,7 +24,7 @@ func TestIsRemoteIsWhetherADestinationWasGiven(t *testing.T) {
 func TestAttachArgvIsEmptyForALocalEngine(t *testing.T) {
 	t.Parallel()
 
-	assert.Nil(t, engine.Remote{Socket: "komrade", Session: "komrade"}.AttachArgv("%9"))
+	assert.Nil(t, engine.Remote{Socket: "komrad", Session: "komrad"}.AttachArgv("%9"))
 }
 
 // TestAttachArgvIsEmptyWithoutAPane covers a stage asked to show nothing.
@@ -33,8 +33,8 @@ func TestAttachArgvIsEmptyWithoutAPane(t *testing.T) {
 
 	remote := engine.Remote{
 		Destination: "ubuntu@host",
-		Socket:      "komrade",
-		Session:     "komrade",
+		Socket:      "komrad",
+		Session:     "komrad",
 	}
 
 	assert.Nil(t, remote.AttachArgv(""))
@@ -47,8 +47,8 @@ func TestAttachArgvRunsSshWithOneScript(t *testing.T) {
 
 	remote := engine.Remote{
 		Destination: "ubuntu@host",
-		Socket:      "komrade",
-		Session:     "komrade",
+		Socket:      "komrad",
+		Session:     "komrad",
 	}
 
 	argv := remote.AttachArgv("%9")
@@ -62,13 +62,13 @@ func TestAttachArgvPointsAtAViewSessionOfItsOwn(t *testing.T) {
 
 	remote := engine.Remote{
 		Destination: "ubuntu@host",
-		Socket:      "komrade",
-		Session:     "komrade",
+		Socket:      "komrad",
+		Session:     "komrad",
 	}
 
 	script := remote.AttachArgv("%9")[3]
-	assert.Contains(t, script, "new-session -d -s 'view-9' -t 'komrade'")
-	assert.Contains(t, script, "exec tmux -L 'komrade' attach -d -t 'view-9'")
+	assert.Contains(t, script, "new-session -d -s 'view-9' -t 'komrad'")
+	assert.Contains(t, script, "exec tmux -L 'komrad' attach -d -t 'view-9'")
 	assert.NotEqual(t, engine.ViewSession("%9"), engine.ViewSession("%10"))
 }
 
@@ -79,8 +79,8 @@ func TestAttachScriptSilencesTheRemoteStatusBar(t *testing.T) {
 
 	remote := engine.Remote{
 		Destination: "ubuntu@host",
-		Socket:      "komrade",
-		Session:     "komrade",
+		Socket:      "komrad",
+		Session:     "komrad",
 	}
 
 	assert.Contains(t, remote.AttachArgv("%9")[3], "set-option -t 'view-9' status off")
@@ -93,8 +93,8 @@ func TestAttachScriptResolvesTheWindowOnTheEngine(t *testing.T) {
 
 	remote := engine.Remote{
 		Destination: "ubuntu@host",
-		Socket:      "komrade",
-		Session:     "komrade",
+		Socket:      "komrad",
+		Session:     "komrad",
 	}
 
 	script := remote.AttachArgv("%9")[3]
@@ -109,8 +109,8 @@ func TestAttachScriptToleratesAViewSessionThatAlreadyExists(t *testing.T) {
 
 	remote := engine.Remote{
 		Destination: "ubuntu@host",
-		Socket:      "komrade",
-		Session:     "komrade",
+		Socket:      "komrad",
+		Session:     "komrad",
 	}
 
 	assert.Contains(t, remote.AttachArgv("%9")[3], "|| true")
@@ -139,8 +139,8 @@ func TestStringNamesTheEngine(t *testing.T) {
 
 	assert.Equal(t, "local", engine.Remote{}.String())
 	assert.Equal(t,
-		"ubuntu@host (tmux -L komrade)",
-		engine.Remote{Destination: "ubuntu@host", Socket: "komrade"}.String())
+		"ubuntu@host (tmux -L komrad)",
+		engine.Remote{Destination: "ubuntu@host", Socket: "komrad"}.String())
 }
 
 // TestTunnelArgvForwardsTheEnginesAddress covers the forward ssh is asked for.
@@ -148,9 +148,9 @@ func TestTunnelArgvForwardsTheEnginesAddress(t *testing.T) {
 	t.Parallel()
 
 	remote := engine.Remote{
-		Destination: "komrade@host",
-		Socket:      "komrade",
-		Session:     "komrade",
+		Destination: "komrad@host",
+		Socket:      "komrad",
+		Session:     "komrad",
 	}
 
 	argv := remote.TunnelArgv("127.0.0.1:54321", "127.0.0.1:8787")
@@ -158,7 +158,7 @@ func TestTunnelArgvForwardsTheEnginesAddress(t *testing.T) {
 	assert.Equal(t, "ssh", argv[0])
 	assert.Contains(t, argv, "-N")
 	assert.Contains(t, argv, "127.0.0.1:54321:127.0.0.1:8787")
-	assert.Equal(t, "komrade@host", argv[len(argv)-1])
+	assert.Equal(t, "komrad@host", argv[len(argv)-1])
 }
 
 // TestTunnelArgvFailsRatherThanOpeningAUselessSession covers ssh otherwise staying up with no
@@ -166,7 +166,7 @@ func TestTunnelArgvForwardsTheEnginesAddress(t *testing.T) {
 func TestTunnelArgvFailsRatherThanOpeningAUselessSession(t *testing.T) {
 	t.Parallel()
 
-	remote := engine.Remote{Destination: "komrade@host"}
+	remote := engine.Remote{Destination: "komrad@host"}
 
 	assert.Contains(t, remote.TunnelArgv("127.0.0.1:1", "127.0.0.1:8787"), "ExitOnForwardFailure=yes")
 }
@@ -196,8 +196,8 @@ func TestTunnelPortIsStableForAnEngine(t *testing.T) {
 	t.Parallel()
 
 	// Two values rather than two calls on one.
-	first := engine.Remote{Destination: "komrade@host"}
-	second := engine.Remote{Destination: "komrade@host"}
+	first := engine.Remote{Destination: "komrad@host"}
+	second := engine.Remote{Destination: "komrad@host"}
 
 	assert.Equal(t, first.TunnelPort("127.0.0.1:8787"), second.TunnelPort("127.0.0.1:8787"))
 }
@@ -207,9 +207,9 @@ func TestTunnelPortIsStableForAnEngine(t *testing.T) {
 func TestTunnelPortDiffersBetweenEngines(t *testing.T) {
 	t.Parallel()
 
-	first := engine.Remote{Destination: "komrade@one"}.TunnelPort("127.0.0.1:8787")
-	second := engine.Remote{Destination: "komrade@two"}.TunnelPort("127.0.0.1:8787")
-	other := engine.Remote{Destination: "komrade@one"}.TunnelPort("127.0.0.1:9999")
+	first := engine.Remote{Destination: "komrad@one"}.TunnelPort("127.0.0.1:8787")
+	second := engine.Remote{Destination: "komrad@two"}.TunnelPort("127.0.0.1:8787")
+	other := engine.Remote{Destination: "komrad@one"}.TunnelPort("127.0.0.1:9999")
 
 	assert.NotEqual(t, first, second)
 	assert.NotEqual(t, first, other)
@@ -220,7 +220,7 @@ func TestTunnelPortDiffersBetweenEngines(t *testing.T) {
 func TestTunnelPortIsInTheChosenRange(t *testing.T) {
 	t.Parallel()
 
-	for _, destination := range []string{"a@b", "komrade@host", "someone@somewhere.example"} {
+	for _, destination := range []string{"a@b", "komrad@host", "someone@somewhere.example"} {
 		port := engine.Remote{Destination: destination}.TunnelPort("127.0.0.1:8787")
 		assert.GreaterOrEqual(t, port, 19000)
 		assert.Less(t, port, 20000)
@@ -228,7 +228,7 @@ func TestTunnelPortIsInTheChosenRange(t *testing.T) {
 }
 
 // ssmEngine is an engine reached by a transport that is not ssh, written the way a user would
-// configure AWS Session Manager, to show komrade needs to know nothing about it.
+// configure AWS Session Manager, to show komrad needs to know nothing about it.
 func ssmEngine() engine.Remote {
 	return engine.Remote{
 		Exec: []string{
@@ -241,9 +241,9 @@ func ssmEngine() engine.Remote {
 			"--document-name", "AWS-StartPortForwardingSession",
 			"--parameters", `{"portNumber":["{{remote_port}}"],"localPortNumber":["{{local_port}}"]}`,
 		},
-		User:    "komrade",
-		Socket:  "komrade",
-		Session: "komrade",
+		User:    "komrad",
+		Socket:  "komrad",
+		Session: "komrad",
 	}
 }
 
@@ -255,7 +255,7 @@ func TestATransportIsRemoteWithoutAnSshDestination(t *testing.T) {
 	assert.True(t, ssmEngine().IsRemote())
 }
 
-// TestAttachArgvUsesTheConfiguredTransport covers komrade running what it was given rather than
+// TestAttachArgvUsesTheConfiguredTransport covers komrad running what it was given rather than
 // anything it knows about a cloud.
 func TestAttachArgvUsesTheConfiguredTransport(t *testing.T) {
 	t.Parallel()
@@ -278,7 +278,7 @@ func TestAttachArgvFillsTheCommandPlaceholder(t *testing.T) {
 	assert.Contains(t, parameters, "view-9")
 
 	// The script quotes with backslashes, and those have to survive being placed inside json or
-	// the far side is handed a different script than the one komrade built.
+	// the far side is handed a different script than the one komrad built.
 	assert.Contains(t, parameters, `\\`)
 }
 
@@ -288,7 +288,7 @@ func TestAttachArgvStepsIntoTheEnginesAccount(t *testing.T) {
 	t.Parallel()
 
 	assert.Contains(t, ssmEngine().AttachArgv("%9")[len(ssmEngine().AttachArgv("%9"))-1],
-		`sudo -u `+"'komrade'")
+		`sudo -u `+"'komrad'")
 }
 
 // TestNoUserMeansNothingIsSteppedInto covers a transport that already arrives as the right
@@ -297,9 +297,9 @@ func TestNoUserMeansNothingIsSteppedInto(t *testing.T) {
 	t.Parallel()
 
 	remote := engine.Remote{
-		Destination: "komrade@host",
-		Socket:      "komrade",
-		Session:     "komrade",
+		Destination: "komrad@host",
+		Socket:      "komrad",
+		Session:     "komrad",
 	}
 
 	assert.NotContains(t, remote.AttachArgv("%9")[3], "sudo")
@@ -322,9 +322,9 @@ func TestSshIsStillTheShorthand(t *testing.T) {
 	t.Parallel()
 
 	remote := engine.Remote{
-		Destination: "komrade@host",
-		Socket:      "komrade",
-		Session:     "komrade",
+		Destination: "komrad@host",
+		Socket:      "komrad",
+		Session:     "komrad",
 	}
 
 	assert.Equal(t, "ssh", remote.AttachArgv("%9")[0])
@@ -362,7 +362,7 @@ func TestCommandArgvUsesTheConfiguredTransportAsTheEnginesAccount(t *testing.T) 
 	argv := ssmEngine().CommandArgv("git status")
 
 	assert.Equal(t, []string{"aws", "ssm", "start-session"}, argv[:3])
-	assert.Contains(t, argv[len(argv)-1], "sudo -u 'komrade' sh -c 'git status'")
+	assert.Contains(t, argv[len(argv)-1], "sudo -u 'komrad' sh -c 'git status'")
 }
 
 // TestQuoteSurvivesAnApostrophe covers the one character single quotes cannot hold.
@@ -376,7 +376,7 @@ func TestQuoteSurvivesAnApostrophe(t *testing.T) {
 func TestShellArgvIsEmptyForALocalEngine(t *testing.T) {
 	t.Parallel()
 
-	assert.Nil(t, engine.Remote{}.ShellArgv("/var/lib/komrade/worktrees/a"))
+	assert.Nil(t, engine.Remote{}.ShellArgv("/var/lib/komrad/worktrees/a"))
 	assert.Nil(t, engine.Remote{Destination: "ubuntu@host"}.ShellArgv(" "))
 }
 
@@ -387,7 +387,7 @@ func TestShellArgvOpensAShellInTheDirectoryOnTheEngine(t *testing.T) {
 
 	remote := engine.Remote{Destination: "ubuntu@host"}
 
-	assert.Equal(t, []string{"ssh", "-t", "ubuntu@host", `cd '/var/lib/komrade/worktrees/a' && exec "${SHELL:-sh}"`}, remote.ShellArgv("/var/lib/komrade/worktrees/a"))
+	assert.Equal(t, []string{"ssh", "-t", "ubuntu@host", `cd '/var/lib/komrad/worktrees/a' && exec "${SHELL:-sh}"`}, remote.ShellArgv("/var/lib/komrad/worktrees/a"))
 }
 
 // TestShellArgvStepsIntoTheEnginesAccount covers the configured transport, where the shell has to
@@ -395,8 +395,8 @@ func TestShellArgvOpensAShellInTheDirectoryOnTheEngine(t *testing.T) {
 func TestShellArgvStepsIntoTheEnginesAccount(t *testing.T) {
 	t.Parallel()
 
-	argv := ssmEngine().ShellArgv("/var/lib/komrade/worktrees/a")
+	argv := ssmEngine().ShellArgv("/var/lib/komrad/worktrees/a")
 
 	assert.Equal(t, []string{"aws", "ssm", "start-session"}, argv[:3])
-	assert.Contains(t, argv[len(argv)-1], `sudo -u 'komrade' sh -c 'cd '\\''/var/lib/komrade/worktrees/a'\\'' && exec`)
+	assert.Contains(t, argv[len(argv)-1], `sudo -u 'komrad' sh -c 'cd '\\''/var/lib/komrad/worktrees/a'\\'' && exec`)
 }

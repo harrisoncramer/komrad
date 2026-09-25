@@ -4,8 +4,8 @@ import (
 	"slices"
 	"strings"
 
-	"komrade/config"
-	"komrade/lib/xslice"
+	"komrad/config"
+	"komrad/lib/xslice"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"

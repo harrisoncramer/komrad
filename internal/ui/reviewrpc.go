@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	agentv1 "komrade/proto/gen/agent/v1"
-	"komrade/proto/gen/agent/v1/agentv1connect"
+	agentv1 "komrad/proto/gen/agent/v1"
+	"komrad/proto/gen/agent/v1/agentv1connect"
 
 	"connectrpc.com/connect"
 )

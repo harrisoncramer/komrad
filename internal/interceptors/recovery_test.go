@@ -7,8 +7,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"komrade/internal/logging"
-	"komrade/internal/logtest"
+	"komrad/internal/logging"
+	"komrad/internal/logtest"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"

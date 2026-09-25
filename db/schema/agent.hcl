@@ -452,7 +452,7 @@ table "agent_metadata" {
 
 table "agent_runs" {
   schema  = schema.public
-  comment = "One run of a script komrade fired for an agent. The output stays on disk and this row says where to find it."
+  comment = "One run of a script komrad fired for an agent. The output stays on disk and this row says where to find it."
   column "id" {
     null    = false
     type    = uuid
@@ -567,7 +567,7 @@ table "agents" {
     null    = false
     type    = enum.agent_state
     default = "idle"
-    comment = "What the agent is doing. Komrade captures the agent's terminal every couple of seconds and writes here what it read there. Uncertain means the terminal was captured but could not be understood. The setup and failure values never come from reading a terminal, so something else sets those."
+    comment = "What the agent is doing. Komrad captures the agent's terminal every couple of seconds and writes here what it read there. Uncertain means the terminal was captured but could not be understood. The setup and failure values never come from reading a terminal, so something else sets those."
   }
   column "state_changed_at" {
     null    = false
@@ -689,7 +689,7 @@ table "agents" {
     null    = false
     type    = boolean
     default = false
-    comment = "Whether a merge, a rebase or a cherry-pick is part-way through the agent's checkout and waiting on somebody. Komrade reads the checkout every few seconds and writes what it found here, so settling the sequence by hand clears this on its own."
+    comment = "Whether a merge, a rebase or a cherry-pick is part-way through the agent's checkout and waiting on somebody. Komrad reads the checkout every few seconds and writes what it found here, so settling the sequence by hand clears this on its own."
   }
   column "head_sha" {
     null    = true
@@ -699,7 +699,7 @@ table "agents" {
   column "repository_url" {
     null    = true
     type    = text
-    comment = "The canonical web address of the repository the agent's checkout pushes to, such as https://github.com/harrisoncramer/komrade. Null when the checkout is gone or its origin is not a forge. The cwd syncer rewrites it on the same pass that rewrites branch."
+    comment = "The canonical web address of the repository the agent's checkout pushes to, such as https://github.com/harrisoncramer/komrad. Null when the checkout is gone or its origin is not a forge. The cwd syncer rewrites it on the same pass that rewrites branch."
   }
   column "deleting_at" {
     null    = true

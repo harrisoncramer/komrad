@@ -1,6 +1,6 @@
 package view
 
-import "komrade/internal/ui/paint"
+import "komrad/internal/ui/paint"
 
 // WindowParams is a prepared list and the pane it is being fitted to.
 type WindowParams struct {

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"komrade/internal/dbtest"
+	"komrad/internal/dbtest"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/assert"

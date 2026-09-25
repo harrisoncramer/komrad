@@ -4,10 +4,10 @@ import (
 	"testing"
 	"time"
 
-	"komrade/internal/dbtest"
-	"komrade/internal/store"
-	agentstore "komrade/internal/store/agent"
-	workflowstore "komrade/internal/store/workflow"
+	"komrad/internal/dbtest"
+	"komrad/internal/store"
+	agentstore "komrad/internal/store/agent"
+	workflowstore "komrad/internal/store/workflow"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -584,7 +584,7 @@ func TestDelete(t *testing.T) {
 }
 
 // answerNotice is what the notice to a reviewer says.
-const answerNotice = "komrade: worker answered your review, read the threads with list_review_threads"
+const answerNotice = "komrad: worker answered your review, read the threads with list_review_threads"
 
 type fixture struct {
 	*MailStore
@@ -706,7 +706,7 @@ func TestPendingNoticeOfKindIsTheOneWaiting(t *testing.T) {
 	require.ErrorIs(t, err, store.ErrNotFound, "once the agent has taken it, nothing is waiting")
 }
 
-// TestOrdinaryMailIsNeverDeduplicated pins that the dedupe covers only notices komrade raises.
+// TestOrdinaryMailIsNeverDeduplicated pins that the dedupe covers only notices komrad raises.
 func TestOrdinaryMailIsNeverDeduplicated(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -736,7 +736,7 @@ func TestNoticeRingsAgainOnceItHasExpired(t *testing.T) {
 
 	first, err := st.Send(ctx, SendParams{
 		ToAgentID: recipient,
-		Body:      "komrade: 1 review thread(s) have activity",
+		Body:      "komrad: 1 review thread(s) have activity",
 		Kind:      KindReviewActivity,
 		Deadline:  -time.Hour,
 	})
@@ -749,7 +749,7 @@ func TestNoticeRingsAgainOnceItHasExpired(t *testing.T) {
 
 	again, err := st.Send(ctx, SendParams{
 		ToAgentID: recipient,
-		Body:      "komrade: 2 review thread(s) have activity",
+		Body:      "komrad: 2 review thread(s) have activity",
 		Kind:      KindReviewActivity,
 		Deadline:  time.Hour,
 	})
@@ -759,7 +759,7 @@ func TestNoticeRingsAgainOnceItHasExpired(t *testing.T) {
 	claimed, err := st.Claim(ctx, recipient, 10)
 	require.NoError(t, err)
 	require.Len(t, claimed, 1, "the notice that replaced it is the only one, and it is deliverable")
-	assert.Equal(t, "komrade: 2 review thread(s) have activity", claimed[0].Body)
+	assert.Equal(t, "komrad: 2 review thread(s) have activity", claimed[0].Body)
 }
 
 // TestExpiredNoticeIsReportableAgain proves a revived notice can expire a second time and still
@@ -772,7 +772,7 @@ func TestExpiredNoticeIsReportableAgain(t *testing.T) {
 	for range 2 {
 		sent, err := st.Send(ctx, SendParams{
 			ToAgentID: recipient,
-			Body:      "komrade: review thread(s) have activity",
+			Body:      "komrad: review thread(s) have activity",
 			Kind:      KindReviewActivity,
 			Deadline:  -time.Hour,
 		})
@@ -786,7 +786,7 @@ func TestExpiredNoticeIsReportableAgain(t *testing.T) {
 }
 
 // TestCountExchangedSpansThreadsAndDirections pins what a send is refused by the size of: every
-// plain message either agent wrote the other however it was addressed, leaving out komrade's own
+// plain message either agent wrote the other however it was addressed, leaving out komrad's own
 // notices and anything belonging to another pair.
 func TestCountExchangedSpansThreadsAndDirections(t *testing.T) {
 	st := open(t)

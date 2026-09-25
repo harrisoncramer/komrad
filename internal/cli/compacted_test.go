@@ -9,12 +9,12 @@ import (
 	"strings"
 	"testing"
 
-	"komrade/config"
-	"komrade/internal/harness/claude"
-	"komrade/lib/xptr"
-	agentv1 "komrade/proto/gen/agent/v1"
-	"komrade/proto/gen/agent/v1/agentv1connect"
-	pullrequestv1 "komrade/proto/gen/pullrequest/v1"
+	"komrad/config"
+	"komrad/internal/harness/claude"
+	"komrad/lib/xptr"
+	agentv1 "komrad/proto/gen/agent/v1"
+	"komrad/proto/gen/agent/v1/agentv1connect"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

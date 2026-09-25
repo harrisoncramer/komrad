@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"komrade/internal/ui/paint"
-	agentv1 "komrade/proto/gen/agent/v1"
+	"komrad/internal/ui/paint"
+	agentv1 "komrad/proto/gen/agent/v1"
 )
 
 // reviewDeliveryOrder is the three states a comment can stand in, ordered by how much they are

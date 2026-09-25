@@ -1,17 +1,17 @@
-// Package pullrequest serves the pull requests komrade has stored from its forges.
+// Package pullrequest serves the pull requests komrad has stored from its forges.
 package pullrequest
 
 import (
 	"context"
 
-	"komrade/internal/fail"
-	"komrade/internal/pullrequests"
-	"komrade/internal/rpc/render"
-	"komrade/internal/rpcerr"
-	pullrequeststore "komrade/internal/store/pullrequest"
-	"komrade/lib/pagination"
-	"komrade/lib/xslice"
-	pullrequestv1 "komrade/proto/gen/pullrequest/v1"
+	"komrad/internal/fail"
+	"komrad/internal/pullrequests"
+	"komrad/internal/rpc/render"
+	"komrad/internal/rpcerr"
+	pullrequeststore "komrad/internal/store/pullrequest"
+	"komrad/lib/pagination"
+	"komrad/lib/xslice"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 )
 
 // pullRequestLister is what the handler reads of what the sync has stored.

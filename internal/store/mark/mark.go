@@ -6,8 +6,8 @@ import (
 	"context"
 	"fmt"
 
-	"komrade/db/models"
-	"komrade/internal/store"
+	"komrad/db/models"
+	"komrad/internal/store"
 )
 
 // Mark is one letter and the row it names, exactly one of which is set.

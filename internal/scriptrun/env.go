@@ -10,13 +10,13 @@ import (
 	"strings"
 	"time"
 
-	"komrade/config"
-	"komrade/internal/scripts"
-	"komrade/internal/store"
-	"komrade/lib/xstr"
+	"komrad/config"
+	"komrad/internal/scripts"
+	"komrad/internal/store"
+	"komrad/lib/xstr"
 
-	agentstore "komrade/internal/store/agent"
-	workflowstore "komrade/internal/store/workflow"
+	agentstore "komrad/internal/store/agent"
+	workflowstore "komrad/internal/store/workflow"
 )
 
 const maxScriptPrompt = 16 * 1024
@@ -86,7 +86,7 @@ func (s *ScriptService) hookDirs() ([]string, error) {
 	return []string{dir}, nil
 }
 
-// builtinDirs is where the scripts komrade ships live.
+// builtinDirs is where the scripts komrad ships live.
 func (s *ScriptService) builtinDirs() []string {
 	return []string{s.builtinDir}
 }
@@ -127,18 +127,18 @@ func (s *ScriptService) env(ctx context.Context, params scriptEnvParams) ([]stri
 	}
 
 	env := []string{
-		"KOMRADE_AGENT=" + string(encoded),
-		"KOMRADE_AGENT_ID=" + agent.ID,
-		"KOMRADE_AGENT_CWD=" + agent.Cwd,
-		"KOMRADE_ADDR=" + s.addr,
-		"KOMRADE_TMUX_SOCKET=" + s.socket,
-		"KOMRADE_SCRIPT_DIR=" + dir,
-		"KOMRADE_TRIGGER=" + trigger,
-		"KOMRADE_SCRIPT=" + params.script,
-		"KOMRADE_INFO_PANE=" + s.tmux.GetInfoPane(),
-		"KOMRADE_HOST_TMUX_SOCKET=" + s.tmux.GetHostSocket(),
+		"KOMRAD_AGENT=" + string(encoded),
+		"KOMRAD_AGENT_ID=" + agent.ID,
+		"KOMRAD_AGENT_CWD=" + agent.Cwd,
+		"KOMRAD_ADDR=" + s.addr,
+		"KOMRAD_TMUX_SOCKET=" + s.socket,
+		"KOMRAD_SCRIPT_DIR=" + dir,
+		"KOMRAD_TRIGGER=" + trigger,
+		"KOMRAD_SCRIPT=" + params.script,
+		"KOMRAD_INFO_PANE=" + s.tmux.GetInfoPane(),
+		"KOMRAD_HOST_TMUX_SOCKET=" + s.tmux.GetHostSocket(),
 		"EDITOR=" + s.editor,
-		"KOMRADE_SHELL=" + s.tmux.GetDefaultShell(),
+		"KOMRAD_SHELL=" + s.tmux.GetDefaultShell(),
 	}
 
 	if s.binPath != "" {
@@ -149,7 +149,7 @@ func (s *ScriptService) env(ctx context.Context, params scriptEnvParams) ([]stri
 	env = append(env, gitPromptGuardEnv()...)
 
 	// An agent that provisions nothing keeps the directory it was given, so its hooks must not
-	// be handed KOMRADE_WORKTREE_REPO pointing at a worktree nobody made for it.
+	// be handed KOMRAD_WORKTREE_REPO pointing at a worktree nobody made for it.
 	if workflow != nil && workflow.Worktree.Enabled && !isProvisionerDisabled(agent.ProvisionEnabled) {
 		worktreeEnv, err := s.worktreeEnv(*workflow, agent)
 		if err != nil {
@@ -205,11 +205,11 @@ func (s *ScriptService) worktreeEnv(workflow workflowstore.Workflow, agent agent
 	}
 
 	return []string{
-		"KOMRADE_WORKTREE_REPO=" + config.ExpandHome(strings.TrimSpace(workflow.Cwd)),
-		"KOMRADE_WORKTREES_DIR=" + worktreesDir,
-		"KOMRADE_WORKTREE_BASE_BRANCH=" + cfg.BaseBranch,
-		"KOMRADE_WORKTREE_COPY_PATHS=" + strings.Join(cfg.CopyPaths, "\n"),
-		"KOMRADE_WORKTREE_SYMLINK_PATHS=" + strings.Join(cfg.SymlinkPaths, "\n"),
-		"KOMRADE_WORKTREE_ADOPT_BRANCH=" + agent.AdoptedBranch,
+		"KOMRAD_WORKTREE_REPO=" + config.ExpandHome(strings.TrimSpace(workflow.Cwd)),
+		"KOMRAD_WORKTREES_DIR=" + worktreesDir,
+		"KOMRAD_WORKTREE_BASE_BRANCH=" + cfg.BaseBranch,
+		"KOMRAD_WORKTREE_COPY_PATHS=" + strings.Join(cfg.CopyPaths, "\n"),
+		"KOMRAD_WORKTREE_SYMLINK_PATHS=" + strings.Join(cfg.SymlinkPaths, "\n"),
+		"KOMRAD_WORKTREE_ADOPT_BRANCH=" + agent.AdoptedBranch,
 	}, nil
 }

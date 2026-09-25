@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"slices"
 
-	"komrade/config"
-	"komrade/internal/ui/paint/label"
-	"komrade/internal/ui/panel"
-	"komrade/lib/xslice"
+	"komrad/config"
+	"komrad/internal/ui/paint/label"
+	"komrad/internal/ui/panel"
+	"komrad/lib/xslice"
 
 	"charm.land/huh/v2"
 	"charm.land/lipgloss/v2"

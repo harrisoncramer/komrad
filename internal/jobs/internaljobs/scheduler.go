@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"komrade/internal/schedules"
+	"komrad/internal/schedules"
 
 	"github.com/riverqueue/river"
 )

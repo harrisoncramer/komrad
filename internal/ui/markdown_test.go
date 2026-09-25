@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
-	"komrade/internal/ui/panel"
-	"komrade/lib/xptr"
-	"komrade/lib/xslice"
+	"komrad/internal/ui/panel"
+	"komrad/lib/xptr"
+	"komrad/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

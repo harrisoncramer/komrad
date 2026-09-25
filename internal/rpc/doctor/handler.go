@@ -4,10 +4,10 @@ package doctor
 import (
 	"context"
 
-	"komrade/internal/doctor"
-	"komrade/internal/fail"
-	"komrade/lib/xslice"
-	doctorv1 "komrade/proto/gen/doctor/v1"
+	"komrad/internal/doctor"
+	"komrad/internal/fail"
+	"komrad/lib/xslice"
+	doctorv1 "komrad/proto/gen/doctor/v1"
 
 	"google.golang.org/protobuf/types/known/emptypb"
 )

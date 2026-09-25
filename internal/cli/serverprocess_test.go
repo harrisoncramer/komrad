@@ -13,10 +13,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"komrade/config"
-	"komrade/internal/errui"
-	"komrade/internal/server"
-	"komrade/internal/version"
+	"komrad/config"
+	"komrad/internal/errui"
+	"komrad/internal/server"
+	"komrad/internal/version"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -376,14 +376,14 @@ func TestIntegrationRequireEngineBuild(t *testing.T) {
 			serve:   true,
 			body:    healthWithCommit(t, "v0.0.0-engine.4b1db3cf", engineCommit),
 			want:    "v0.0.0-engine.4b1db3cf (4b1db3c)",
-			wantFix: "build komrade from 4b1db3c",
+			wantFix: "build komrad from 4b1db3c",
 		},
 		{
 			name:    "an engine deployed from a dirty tree, which has no commit to build from",
 			serve:   true,
 			body:    healthJSON(t, "v0.0.0-engine.4b1db3cf+dirty.131311"),
 			want:    "v0.0.0-engine.4b1db3cf+dirty.131311",
-			wantFix: "dist/komrade-panel",
+			wantFix: "dist/komrad-panel",
 		},
 		{
 			name:  "an engine this panel matches",
@@ -395,7 +395,7 @@ func TestIntegrationRequireEngineBuild(t *testing.T) {
 			serve: false,
 		},
 		{
-			name:  "something answering that is not komrade",
+			name:  "something answering that is not komrad",
 			serve: true,
 			body:  "{}",
 		},

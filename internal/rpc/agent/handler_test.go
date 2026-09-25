@@ -12,30 +12,30 @@ import (
 	"testing"
 	"time"
 
-	agentv1komrade "komrade/proto/gen/agent/v1/agentv1komrade"
+	agentv1komrad "komrad/proto/gen/agent/v1/agentv1komrad"
 
-	"komrade/internal/agents"
-	"komrade/internal/caller"
-	"komrade/internal/checkouts"
-	"komrade/internal/interceptors"
-	"komrade/internal/logging"
-	"komrade/internal/logtest"
-	"komrade/internal/rpc/render"
-	"komrade/internal/store"
-	"komrade/lib/xptr"
-	"komrade/lib/xslice"
-	agentv1 "komrade/proto/gen/agent/v1"
-	"komrade/proto/gen/agent/v1/agentv1connect"
-	paginationv1 "komrade/proto/gen/pagination/v1"
-	viewv1 "komrade/proto/gen/view/v1"
+	"komrad/internal/agents"
+	"komrad/internal/caller"
+	"komrad/internal/checkouts"
+	"komrad/internal/interceptors"
+	"komrad/internal/logging"
+	"komrad/internal/logtest"
+	"komrad/internal/rpc/render"
+	"komrad/internal/store"
+	"komrad/lib/xptr"
+	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
+	"komrad/proto/gen/agent/v1/agentv1connect"
+	paginationv1 "komrad/proto/gen/pagination/v1"
+	viewv1 "komrad/proto/gen/view/v1"
 
-	agentstore "komrade/internal/store/agent"
-	mailstore "komrade/internal/store/mail"
-	markstore "komrade/internal/store/mark"
-	pullrequeststore "komrade/internal/store/pullrequest"
-	reviewstore "komrade/internal/store/review"
-	rowstore "komrade/internal/store/row"
-	workflowstore "komrade/internal/store/workflow"
+	agentstore "komrad/internal/store/agent"
+	mailstore "komrad/internal/store/mail"
+	markstore "komrad/internal/store/mark"
+	pullrequeststore "komrad/internal/store/pullrequest"
+	reviewstore "komrad/internal/store/review"
+	rowstore "komrad/internal/store/row"
+	workflowstore "komrad/internal/store/workflow"
 
 	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
@@ -48,7 +48,7 @@ import (
 
 const missingID = "00000000-0000-0000-0000-000000000000"
 
-const komradeRepository = "https://github.com/harrisoncramer/komrade"
+const komradRepository = "https://github.com/harrisoncramer/komrad"
 
 type markCall struct {
 	mark   string
@@ -171,13 +171,13 @@ func (f *fakeRowReader) find(id string) (*rowstore.Row, error) {
 func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 	tests := []struct {
 		name     string
-		call     func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error
+		call     func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error
 		err      error
 		wantCode connect.Code
 	}{
 		{
 			name: "a launch that cannot start",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				_, err := svc.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{Prompt: "go"}))
 
 				return err
@@ -199,7 +199,7 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 		},
 		{
 			name: "a review requested by nothing that is an agent",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				_, err := svc.RequestReview(ctx, connect.NewRequest(&agentv1.RequestReviewRequest{Prompt: "read it"}))
 
 				return err
@@ -208,7 +208,7 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 		},
 		{
 			name: "a second reviewer",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				_, err := svc.RequestReview(ctx, connect.NewRequest(&agentv1.RequestReviewRequest{
 					Prompt:  "read it",
 					AgentId: xptr.Ptr(alphaID),
@@ -221,7 +221,7 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 		},
 		{
 			name: "a retry of an agent that did not fail",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				_, err := svc.RetryAgent(ctx, connect.NewRequest(&agentv1.RetryAgentRequest{Id: alphaID}))
 
 				return err
@@ -231,7 +231,7 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 		},
 		{
 			name: "a resume of an archived agent",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				_, err := svc.ResumeAgent(ctx, connect.NewRequest(&agentv1.ResumeAgentRequest{Id: alphaID}))
 
 				return err
@@ -241,7 +241,7 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 		},
 		{
 			name: "an agent holding itself",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				ctx = caller.With(ctx, caller.Caller{AgentID: alphaID})
 				_, err := svc.HoldAgent(ctx, connect.NewRequest(&agentv1.HoldAgentRequest{Id: alphaID}))
 
@@ -251,7 +251,7 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 		},
 		{
 			name: "a hold on an agent that will not stop",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				_, err := svc.HoldAgent(ctx, connect.NewRequest(&agentv1.HoldAgentRequest{Id: alphaID}))
 
 				return err
@@ -261,7 +261,7 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 		},
 		{
 			name: "a release of an agent nobody holds",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				_, err := svc.ReleaseAgent(ctx, connect.NewRequest(&agentv1.ReleaseAgentRequest{Id: alphaID}))
 
 				return err
@@ -271,7 +271,7 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 		},
 		{
 			name: "a delete naming an agent nobody holds",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				_, err := svc.DeleteAgents(ctx, connect.NewRequest(&agentv1.DeleteAgentsRequest{Ids: []string{alphaID}}))
 
 				return err
@@ -281,7 +281,7 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 		},
 		{
 			name: "an archive naming an agent nobody holds",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				_, err := svc.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{Ids: []string{alphaID}}))
 
 				return err
@@ -309,7 +309,7 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 		},
 		{
 			name: "a queue that refuses the archive sweep",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				_, err := svc.EmptyArchive(ctx, connect.NewRequest(&emptypb.Empty{}))
 
 				return err
@@ -319,7 +319,7 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 		},
 		{
 			name: "an orchestrator for a workflow that is not there",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				_, err := svc.StartOrchestrator(ctx, connect.NewRequest(&agentv1.StartOrchestratorRequest{WorkflowId: missingID}))
 
 				return err
@@ -329,7 +329,7 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 		},
 		{
 			name: "planning a rebase of an agent with no worktree",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				_, err := svc.PlanRebase(ctx, connect.NewRequest(&agentv1.PlanRebaseRequest{AgentId: alphaID}))
 
 				return err
@@ -339,7 +339,7 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 		},
 		{
 			name: "a rebase of a dirty worktree",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				_, err := svc.RebaseWorktree(ctx, connect.NewRequest(&agentv1.RebaseWorktreeRequest{AgentId: alphaID}))
 
 				return err
@@ -349,7 +349,7 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 		},
 		{
 			name: "a rename onto a name another agent holds",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				_, err := svc.UpdateAgent(ctx, connect.NewRequest(&agentv1.UpdateAgentRequest{
 					Id:   alphaID,
 					Name: "beta",
@@ -362,7 +362,7 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 		},
 		{
 			name: "hiding an agent nobody holds",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				_, err := svc.SetHidden(ctx, connect.NewRequest(&agentv1.SetHiddenRequest{
 					Id:     alphaID,
 					Hidden: true,
@@ -375,7 +375,7 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 		},
 		{
 			name: "recording the pull request key",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				_, err := svc.SetMetadata(ctx, connect.NewRequest(&agentv1.SetMetadataRequest{
 					Id:    alphaID,
 					Key:   "pr",
@@ -389,7 +389,7 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 		},
 		{
 			name: "a report from nothing that is an agent",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				_, err := svc.RecordReport(ctx, connect.NewRequest(&agentv1.RecordReportRequest{TurnEnded: true}))
 
 				return err
@@ -398,7 +398,7 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 		},
 		{
 			name: "a page token holding an id no row can have",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				_, err := svc.ListAgents(ctx, connect.NewRequest(&agentv1.ListAgentsRequest{
 					Pagination: &paginationv1.Pagination{Cursor: xptr.Ptr("eyJpIjoibm90LWFuLWlkIn0=")},
 				}))
@@ -409,7 +409,7 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 		},
 		{
 			name: "reading an agent nobody holds",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				_, err := svc.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: missingID}))
 
 				return err
@@ -438,14 +438,14 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 func TestLifecycleRequestsReachTheServices(t *testing.T) {
 	tests := []struct {
 		name       string
-		call       func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter, ids []string) (string, error)
+		call       func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error)
 		err        error
 		wantAnswer string
 		check      func(t *testing.T, services *recordingAgentServices, ids []string)
 	}{
 		{
 			name: "a spent idempotency key answers with the agent it launched",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter, _ []string) (string, error) {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, _ []string) (string, error) {
 				created, err := svc.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{
 					Prompt:         "go",
 					IdempotencyKey: xptr.Ptr("triage:ENG-5260"),
@@ -464,7 +464,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 		},
 		{
 			name: "creating",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter, ids []string) (string, error) {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
 				created, err := svc.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{
 					Prompt:           "audit the migrations",
 					Title:            "audit",
@@ -499,7 +499,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 		},
 		{
 			name: "requesting a review for the calling agent",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter, ids []string) (string, error) {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
 				ctx = caller.With(ctx, caller.Caller{AgentID: ids[0]})
 				requested, err := svc.RequestReview(ctx, connect.NewRequest(&agentv1.RequestReviewRequest{
 					Prompt:         "read the parser change",
@@ -528,7 +528,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 		},
 		{
 			name: "adopting",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter, _ []string) (string, error) {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, _ []string) (string, error) {
 				adopted, err := svc.Adopt(ctx, connect.NewRequest(&agentv1.AdoptRequest{
 					Ref:            "https://github.com/o/r/pull/1069",
 					Prompt:         "pick it up",
@@ -559,7 +559,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 		},
 		{
 			name: "retrying",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter, ids []string) (string, error) {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
 				retried, err := svc.RetryAgent(ctx, connect.NewRequest(&agentv1.RetryAgentRequest{
 					Id:      ids[0],
 					Flags:   "--model opus",
@@ -584,7 +584,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 		},
 		{
 			name: "resuming",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter, ids []string) (string, error) {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
 				resumed, err := svc.ResumeAgent(ctx, connect.NewRequest(&agentv1.ResumeAgentRequest{Id: ids[0]}))
 				if err != nil {
 					return "", err
@@ -599,7 +599,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 		},
 		{
 			name: "holding from the panel",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter, ids []string) (string, error) {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
 				held, err := svc.HoldAgent(ctx, connect.NewRequest(&agentv1.HoldAgentRequest{Id: ids[0]}))
 				if err != nil {
 					return "", err
@@ -614,7 +614,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 		},
 		{
 			name: "releasing",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter, ids []string) (string, error) {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
 				released, err := svc.ReleaseAgent(ctx, connect.NewRequest(&agentv1.ReleaseAgentRequest{
 					Id:   ids[0],
 					Said: "I rebased your branch",
@@ -635,7 +635,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 		},
 		{
 			name: "starting a workflow's orchestrator",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter, _ []string) (string, error) {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, _ []string) (string, error) {
 				started, err := svc.StartOrchestrator(ctx, connect.NewRequest(&agentv1.StartOrchestratorRequest{WorkflowId: "wf-1"}))
 				if err != nil {
 					return "", err
@@ -650,7 +650,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 		},
 		{
 			name: "planning a rebase",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter, ids []string) (string, error) {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
 				planned, err := svc.PlanRebase(ctx, connect.NewRequest(&agentv1.PlanRebaseRequest{AgentId: ids[0]}))
 				if err != nil {
 					return "", err
@@ -665,7 +665,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 		},
 		{
 			name: "rebasing",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter, ids []string) (string, error) {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
 				rebased, err := svc.RebaseWorktree(ctx, connect.NewRequest(&agentv1.RebaseWorktreeRequest{AgentId: ids[0]}))
 				if err != nil {
 					return "", err
@@ -680,7 +680,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 		},
 		{
 			name: "deleting takes the whole batch",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter, ids []string) (string, error) {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
 				_, err := svc.DeleteAgents(ctx, connect.NewRequest(&agentv1.DeleteAgentsRequest{Ids: ids}))
 
 				return "", err
@@ -691,7 +691,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 		},
 		{
 			name: "archiving from the panel takes the whole batch",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter, ids []string) (string, error) {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
 				_, err := svc.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{Ids: ids}))
 
 				return "", err
@@ -702,7 +702,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 		},
 		{
 			name: "restoring answers with every agent restored",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter, ids []string) (string, error) {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
 				restored, err := svc.RestoreAgents(ctx, connect.NewRequest(&agentv1.RestoreAgentsRequest{Ids: ids}))
 				if err != nil {
 					return "", err
@@ -722,7 +722,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 		},
 		{
 			name: "emptying the archive",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter, _ []string) (string, error) {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, _ []string) (string, error) {
 				_, err := svc.EmptyArchive(ctx, connect.NewRequest(&emptypb.Empty{}))
 
 				return "", err
@@ -733,7 +733,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 		},
 		{
 			name: "renaming",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter, ids []string) (string, error) {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
 				_, err := svc.UpdateAgent(ctx, connect.NewRequest(&agentv1.UpdateAgentRequest{
 					Id:   ids[0],
 					Name: "renamed",
@@ -747,7 +747,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 		},
 		{
 			name: "hiding",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter, ids []string) (string, error) {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
 				_, err := svc.SetHidden(ctx, connect.NewRequest(&agentv1.SetHiddenRequest{
 					Id:     ids[0],
 					Hidden: true,
@@ -761,7 +761,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 		},
 		{
 			name: "recording a fact",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter, ids []string) (string, error) {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
 				_, err := svc.SetMetadata(ctx, connect.NewRequest(&agentv1.SetMetadataRequest{
 					Id:    ids[0],
 					Key:   "linear_issue",
@@ -780,7 +780,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 		},
 		{
 			name: "claiming the failed runs",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter, ids []string) (string, error) {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
 				_, err := svc.MarkRunsRead(ctx, connect.NewRequest(&agentv1.MarkRunsReadRequest{Id: ids[0]}))
 
 				return "", err
@@ -791,7 +791,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 		},
 		{
 			name: "a report from the calling agent's own CLI",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter, ids []string) (string, error) {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
 				ctx = caller.With(ctx, caller.Caller{AgentID: ids[0]})
 				_, err := svc.RecordReport(ctx, connect.NewRequest(&agentv1.RecordReportRequest{
 					Reason:    "Bash",
@@ -997,12 +997,12 @@ func TestListAgents(t *testing.T) {
 func TestListAgentsRefusalsMapToCodes(t *testing.T) {
 	tests := []struct {
 		name     string
-		call     func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error
+		call     func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error
 		wantCode connect.Code
 	}{
 		{
 			name: "a listing that cannot be read",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				_, err := svc.ListAgents(ctx, connect.NewRequest(&agentv1.ListAgentsRequest{}))
 
 				return err
@@ -1011,7 +1011,7 @@ func TestListAgentsRefusalsMapToCodes(t *testing.T) {
 		},
 		{
 			name: "an agent whose surroundings cannot be read",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				_, err := svc.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: alphaID}))
 
 				return err
@@ -1049,7 +1049,7 @@ func TestGetAgent(t *testing.T) {
 					State:         agentstore.StateThinking,
 					CreatedAt:     created,
 					WorkflowID:    "wf-1",
-					RepositoryURL: xptr.Ptr(komradeRepository),
+					RepositoryURL: xptr.Ptr(komradRepository),
 					Branch:        xptr.Ptr("agent/x"),
 				},
 				FailedRun:    true,
@@ -1068,14 +1068,14 @@ func TestGetAgent(t *testing.T) {
 				{
 					ID:                "pr-740",
 					Number:            740,
-					RepositoryURL:     komradeRepository,
-					HeadRepositoryURL: komradeRepository,
+					RepositoryURL:     komradRepository,
+					HeadRepositoryURL: komradRepository,
 					HeadBranch:        "agent/x",
 					State:             "open",
 					OpenedAt:          created,
 				},
 			},
-			Repositories: []pullrequeststore.Sync{{RepositoryURL: komradeRepository}},
+			Repositories: []pullrequeststore.Sync{{RepositoryURL: komradRepository}},
 			Reviews: []reviewstore.Review{
 				{
 					ID:      "review-1",
@@ -1105,7 +1105,7 @@ func TestGetAgent(t *testing.T) {
 
 // TestMarkRefusalsMapToCodes pins the code each refusal of the marks reaches the caller as.
 func TestMarkRefusalsMapToCodes(t *testing.T) {
-	setMark := func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+	setMark := func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 		_, err := svc.SetMark(ctx, connect.NewRequest(&agentv1.SetMarkRequest{
 			Target: &agentv1.SetMarkRequest_AgentId{AgentId: alphaID},
 			Mark:   xptr.Ptr("a"),
@@ -1113,14 +1113,14 @@ func TestMarkRefusalsMapToCodes(t *testing.T) {
 
 		return err
 	}
-	clearMark := func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+	clearMark := func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 		_, err := svc.SetMark(ctx, connect.NewRequest(&agentv1.SetMarkRequest{
 			Target: &agentv1.SetMarkRequest_AgentId{AgentId: alphaID},
 		}))
 
 		return err
 	}
-	listMarks := func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+	listMarks := func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 		_, err := svc.ListMarks(ctx, connect.NewRequest(&emptypb.Empty{}))
 
 		return err
@@ -1128,7 +1128,7 @@ func TestMarkRefusalsMapToCodes(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		call     func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error
+		call     func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error
 		marks    fakeMarkReadWriter
 		wantCode connect.Code
 	}{
@@ -1545,7 +1545,7 @@ func (f *recordingAgentServices) RecordReport(_ context.Context, params agents.R
 	return f.err
 }
 
-func adoptMain(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+func adoptMain(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 	_, err := svc.Adopt(ctx, connect.NewRequest(&agentv1.AdoptRequest{
 		Ref:        "main",
 		WorkflowId: "wf-1",
@@ -1554,20 +1554,20 @@ func adoptMain(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) erro
 	return err
 }
 
-func restoreAlpha(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+func restoreAlpha(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 	_, err := svc.RestoreAgents(ctx, connect.NewRequest(&agentv1.RestoreAgentsRequest{Ids: []string{alphaID}}))
 
 	return err
 }
 
 // newMarkHandler is the handler over a fake of the marks alone.
-func newMarkHandler(marks *fakeMarkReadWriter) agentv1komrade.AgentServiceAdapter {
-	return agentv1komrade.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{Marks: marks})}
+func newMarkHandler(marks *fakeMarkReadWriter) agentv1komrad.AgentServiceAdapter {
+	return agentv1komrad.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{Marks: marks})}
 }
 
 // newRowHandler is the handler over a fake of the rows, reading every agent as dormant.
-func newRowHandler(rows *fakeRowReader) agentv1komrade.AgentServiceAdapter {
-	return agentv1komrade.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{
+func newRowHandler(rows *fakeRowReader) agentv1komrad.AgentServiceAdapter {
+	return agentv1komrad.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{
 		Agents:   rows,
 		Rows:     rows,
 		Liveness: &recordingAgentServices{},
@@ -1575,12 +1575,12 @@ func newRowHandler(rows *fakeRowReader) agentv1komrade.AgentServiceAdapter {
 }
 
 // newRecordedService is the handler over fakes of every agent service, recording what each was asked.
-func newRecordedService(t *testing.T) (agentv1komrade.AgentServiceAdapter, *recordingAgentServices) {
+func newRecordedService(t *testing.T) (agentv1komrad.AgentServiceAdapter, *recordingAgentServices) {
 	t.Helper()
 
 	services := &recordingAgentServices{rows: &fakeRowReader{}}
 
-	return agentv1komrade.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{
+	return agentv1komrad.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{
 		Agents:       services.rows,
 		Rows:         services.rows,
 		Writer:       services,

@@ -42,7 +42,7 @@ func TestFindSession(t *testing.T) {
 				{
 					id:         "sess-somebody",
 					stamp:      "12-05-00",
-					originator: "komrade-agent-1",
+					originator: "komrad-agent-1",
 				},
 			},
 		},
@@ -64,7 +64,7 @@ func TestFindSession(t *testing.T) {
 				{
 					id:         "sess-theirs",
 					stamp:      "12-05-00",
-					originator: "komrade-agent-2",
+					originator: "komrad-agent-2",
 				},
 			},
 		},
@@ -75,7 +75,7 @@ func TestFindSession(t *testing.T) {
 				{
 					id:         "sess-partial",
 					stamp:      "12-05-00",
-					originator: "komrade-agent-1",
+					originator: "komrad-agent-1",
 					unparsed:   true,
 				},
 			},
@@ -87,7 +87,7 @@ func TestFindSession(t *testing.T) {
 				{
 					id:         "sess-headless",
 					stamp:      "12-05-00",
-					originator: "komrade-agent-1",
+					originator: "komrad-agent-1",
 					noMeta:     true,
 				},
 			},
@@ -99,7 +99,7 @@ func TestFindSession(t *testing.T) {
 				{
 					id:         "sess-mine",
 					stamp:      "12-05-00",
-					originator: "komrade-agent-1",
+					originator: "komrad-agent-1",
 				},
 			},
 			want: "sess-mine",
@@ -111,12 +111,12 @@ func TestFindSession(t *testing.T) {
 				{
 					id:         "sess-abandoned",
 					stamp:      "12-05-00",
-					originator: "komrade-agent-1",
+					originator: "komrad-agent-1",
 				},
 				{
 					id:         "sess-live",
 					stamp:      "12-06-00",
-					originator: "komrade-agent-1",
+					originator: "komrad-agent-1",
 				},
 			},
 			want: "sess-live",

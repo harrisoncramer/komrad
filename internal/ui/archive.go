@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"slices"
 
-	"komrade/config"
-	"komrade/internal/ui/paint/label"
-	"komrade/internal/ui/panel"
-	"komrade/internal/view"
-	"komrade/lib/xslice"
-	agentv1 "komrade/proto/gen/agent/v1"
+	"komrad/config"
+	"komrad/internal/ui/paint/label"
+	"komrad/internal/ui/panel"
+	"komrad/internal/view"
+	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
 )

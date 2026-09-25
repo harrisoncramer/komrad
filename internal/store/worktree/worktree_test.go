@@ -4,11 +4,11 @@ import (
 	"testing"
 	"time"
 
-	"komrade/internal/dbtest"
-	"komrade/internal/store"
-	agentstore "komrade/internal/store/agent"
-	"komrade/internal/storetest"
-	"komrade/lib/xslice"
+	"komrad/internal/dbtest"
+	"komrad/internal/store"
+	agentstore "komrad/internal/store/agent"
+	"komrad/internal/storetest"
+	"komrad/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

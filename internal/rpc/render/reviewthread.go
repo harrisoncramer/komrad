@@ -1,11 +1,11 @@
 package render
 
 import (
-	"komrade/lib/dates"
-	"komrade/lib/xslice"
+	"komrad/lib/dates"
+	"komrad/lib/xslice"
 
-	reviewstore "komrade/internal/store/review"
-	agentv1 "komrade/proto/gen/agent/v1"
+	reviewstore "komrad/internal/store/review"
+	agentv1 "komrad/proto/gen/agent/v1"
 )
 
 // WatchedReviewThread draws a thread as the watch carries it.

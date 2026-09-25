@@ -11,11 +11,11 @@ import (
 	"os"
 	"time"
 
-	"komrade/internal/fail"
-	"komrade/internal/logging"
-	"komrade/internal/scripts"
+	"komrad/internal/fail"
+	"komrad/internal/logging"
+	"komrad/internal/scripts"
 
-	agentstore "komrade/internal/store/agent"
+	agentstore "komrad/internal/store/agent"
 )
 
 const provisionTimeout = 10 * time.Minute
@@ -27,7 +27,7 @@ const HookTimeout = 10 * time.Minute
 
 const maxProvisionedDir = 4096
 
-const setupDirFileVar = "KOMRADE_SETUP_DIR_FILE"
+const setupDirFileVar = "KOMRAD_SETUP_DIR_FILE"
 
 var ErrProvisionFailed = fail.Precondition("the provisioner failed")
 
@@ -136,7 +136,7 @@ func (s *ScriptService) runAwaited(ctx context.Context, params prepareParams) (s
 
 	logger := s.runLogger(ctx, params.name, params.trigger, params.agent)
 
-	dirFile, err := os.CreateTemp("", "komrade-provision-dir-*")
+	dirFile, err := os.CreateTemp("", "komrad-provision-dir-*")
 	if err != nil {
 		return "", fmt.Errorf("%w: failed to prepare a place for %s to name its directory: %w", ErrProvisionFailed, params.name, err)
 	}

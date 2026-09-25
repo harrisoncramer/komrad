@@ -7,11 +7,11 @@ import (
 	"strings"
 	"testing"
 
-	"komrade/config"
-	"komrade/internal/harness"
-	"komrade/internal/harnesstest"
-	agentstore "komrade/internal/store/agent"
-	"komrade/internal/tmuxtest"
+	"komrad/config"
+	"komrad/internal/harness"
+	"komrad/internal/harnesstest"
+	agentstore "komrad/internal/store/agent"
+	"komrad/internal/tmuxtest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -168,7 +168,7 @@ func TestLaunchCompactsAtTheRolesPoint(t *testing.T) {
 	}
 }
 
-const briefedLogPath = "/var/cache/komrade/komrade.log"
+const briefedLogPath = "/var/cache/komrad/komrad.log"
 
 // TestAppendedSystemPrompt pins the buildBriefing coming first, so a workflow's own context
 // reads as an addition to it rather than being buried inside it.
@@ -186,7 +186,7 @@ func TestAppendedSystemPrompt(t *testing.T) {
 				"list_tables",
 				"agent_transcript_chunks",
 
-				"KOMRADE_AGENT_ID",
+				"KOMRAD_AGENT_ID",
 				"set_agent_metadata",
 
 				briefedLogPath,
@@ -218,14 +218,14 @@ func TestAppendedSystemPrompt(t *testing.T) {
 			}
 
 			if tt.context != "" {
-				assert.Less(t, strings.Index(prompt, "komrade"), strings.Index(prompt, tt.context),
+				assert.Less(t, strings.Index(prompt, "komrad"), strings.Index(prompt, tt.context),
 					"the buildBriefing comes first")
 			}
 		})
 	}
 }
 
-// TestAppendedSystemPromptDelegateBriefing pins that komrade writes the delegate briefing
+// TestAppendedSystemPromptDelegateBriefing pins that komrad writes the delegate briefing
 // itself, so the wording is the same whether or not the spawning agent thought to say it.
 func TestAppendedSystemPromptDelegateBriefing(t *testing.T) {
 	tests := []struct {
@@ -353,7 +353,7 @@ func TestGlobalContextIsReadPerLaunch(t *testing.T) {
 	assert.NotContains(t, prompt, "before-the-edit")
 }
 
-// TestBriefingCarriesTheReviewRules pins the review surface being part of what komrade ships
+// TestBriefingCarriesTheReviewRules pins the review surface being part of what komrad ships
 // rather than something a person configures.
 func TestBriefingCarriesTheReviewRules(t *testing.T) {
 	launcher := NewLauncher(NewLauncherParams{Addr: "127.0.0.1:8787"})
@@ -565,7 +565,7 @@ func TestLaunchGivesTheAgentAStandInForGH(t *testing.T) {
 		Tmux:     tmuxtest.NewFake(),
 		Addr:     "127.0.0.1:9999",
 		CacheDir: cache,
-		BinPath:  "/usr/local/bin/komrade",
+		BinPath:  "/usr/local/bin/komrad",
 	})
 
 	require.NoError(t, launcher.launch(fakeHarness, launchParams{Pane: "pane"}))
@@ -576,13 +576,13 @@ func TestLaunchGivesTheAgentAStandInForGH(t *testing.T) {
 
 	body, err := os.ReadFile(filepath.Join(tools, "gh"))
 	require.NoError(t, err)
-	assert.Contains(t, string(body), "'/usr/local/bin/komrade'")
+	assert.Contains(t, string(body), "'/usr/local/bin/komrad'")
 	assert.NotContains(t, string(body), "ghs_", "the stand-in holds no token of its own")
 }
 
-// TestLaunchWithoutAKomradeBinaryGivesNoStandIn covers a launcher that cannot name komrade, whose
+// TestLaunchWithoutAKomradBinaryGivesNoStandIn covers a launcher that cannot name komrad, whose
 // agent reaches github the way it always did rather than through a stand-in that cannot mint.
-func TestLaunchWithoutAKomradeBinaryGivesNoStandIn(t *testing.T) {
+func TestLaunchWithoutAKomradBinaryGivesNoStandIn(t *testing.T) {
 	fakeHarness := &harnesstest.Fake{}
 	launcher := NewLauncher(NewLauncherParams{Tmux: tmuxtest.NewFake(), CacheDir: t.TempDir()})
 

@@ -10,7 +10,7 @@ import (
 	_ "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
-	v1 "komrade/proto/gen/pagination/v1"
+	v1 "komrad/proto/gen/pagination/v1"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -623,7 +623,7 @@ const file_agent_v1_transcript_proto_rawDesc = "" +
 	"\acontent\x18\x03 \x01(\tR\acontent\x12\x1c\n" +
 	"\ttruncated\x18\x04 \x01(\bR\ttruncated\"<\n" +
 	"\x14GetLastTurnsResponse\x12$\n" +
-	"\x05turns\x18\x01 \x03(\v2\x0e.agent.v1.TurnR\x05turnsB$Z\"komrade/proto/gen/agent/v1;agentv1b\x06proto3"
+	"\x05turns\x18\x01 \x03(\v2\x0e.agent.v1.TurnR\x05turnsB#Z!komrad/proto/gen/agent/v1;agentv1b\x06proto3"
 
 var (
 	file_agent_v1_transcript_proto_rawDescOnce sync.Once

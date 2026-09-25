@@ -3,19 +3,19 @@ package server
 import (
 	"context"
 
-	"komrade/internal/store"
-	agentstore "komrade/internal/store/agent"
-	forgestore "komrade/internal/store/forge"
-	mailstore "komrade/internal/store/mail"
-	markstore "komrade/internal/store/mark"
-	pullrequeststore "komrade/internal/store/pullrequest"
-	reviewstore "komrade/internal/store/review"
-	rowstore "komrade/internal/store/row"
-	runstore "komrade/internal/store/run"
-	schedulestore "komrade/internal/store/schedule"
-	transcriptstore "komrade/internal/store/transcript"
-	workflowstore "komrade/internal/store/workflow"
-	worktreestore "komrade/internal/store/worktree"
+	"komrad/internal/store"
+	agentstore "komrad/internal/store/agent"
+	forgestore "komrad/internal/store/forge"
+	mailstore "komrad/internal/store/mail"
+	markstore "komrad/internal/store/mark"
+	pullrequeststore "komrad/internal/store/pullrequest"
+	reviewstore "komrad/internal/store/review"
+	rowstore "komrad/internal/store/row"
+	runstore "komrad/internal/store/run"
+	schedulestore "komrad/internal/store/schedule"
+	transcriptstore "komrad/internal/store/transcript"
+	workflowstore "komrad/internal/store/workflow"
+	worktreestore "komrad/internal/store/worktree"
 )
 
 type stores struct {

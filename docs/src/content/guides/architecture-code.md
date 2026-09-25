@@ -25,7 +25,7 @@ The Go code is arranged in layers. Tools enforce the arrangement, so nobody has 
   ui               a client, talks over Connect only
 ```
 
-Handlers turn a request into one call on a service. Services hold the rules. Stores read and write their own tables. Anything komrade does not own, like tmux or git, sits behind an adapter. The harness adapter is the only place that knows how Claude and Codex differ. The panel is a client and has no database connection.
+Handlers turn a request into one call on a service. Services hold the rules. Stores read and write their own tables. Anything komrad does not own, like tmux or git, sits behind an adapter. The harness adapter is the only place that knows how Claude and Codex differ. The panel is a client and has no database connection.
 
 ## Imports
 
@@ -33,7 +33,7 @@ The arrows above are enforced by depguard. For instance, the panel may not impor
 
 ## Linters
 
-Komrade uses a lot of golangci-lint linters to enforce structure. Many are standard. Some are ours, in a plugin under `tools/komradelint`, written when the same review comment came up one too many times.
+Komrad uses a lot of golangci-lint linters to enforce structure. Many are standard. Some are ours, in a plugin under `tools/komradlint`, written when the same review comment came up one too many times.
 
 For instance, every sentinel error must be made with a `fail` constructor that names its kind, so its RPC code is decided where it is declared. A handler body must be a single call. A constructor must be `NewT(NewTParams)`. Only `config` may read the environment. No bare HTTP client is allowed outside one package. A forge secret may be exposed in three named places and nowhere else.
 

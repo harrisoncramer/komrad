@@ -3,15 +3,15 @@ package agents
 import (
 	"context"
 
-	"komrade/internal/fail"
-	"komrade/internal/harness"
-	"komrade/internal/scriptrun"
-	"komrade/internal/scripts"
-	"komrade/internal/store"
-	"komrade/internal/tmux"
+	"komrad/internal/fail"
+	"komrad/internal/harness"
+	"komrad/internal/scriptrun"
+	"komrad/internal/scripts"
+	"komrad/internal/store"
+	"komrad/internal/tmux"
 
-	agentstore "komrade/internal/store/agent"
-	workflowstore "komrade/internal/store/workflow"
+	agentstore "komrad/internal/store/agent"
+	workflowstore "komrad/internal/store/workflow"
 )
 
 var (

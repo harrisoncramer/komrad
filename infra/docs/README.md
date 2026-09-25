@@ -1,7 +1,7 @@
 # Docs site
 
 The website at komrad.dev. A private S3 bucket holds the built pages, CloudFront serves them
-under an ACM certificate, and Cloudflare holds the DNS for every komrade domain. Terraform builds
+under an ACM certificate, and Cloudflare holds the DNS for every komrad domain. Terraform builds
 those and nothing else. The pages are put there by a script.
 
 ```

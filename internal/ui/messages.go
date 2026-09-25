@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"komrade/internal/ui/paint"
-	"komrade/internal/ui/paint/label"
+	"komrad/internal/ui/paint"
+	"komrad/internal/ui/paint/label"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
@@ -210,7 +210,7 @@ func (m model) messagePieces() []messagePiece {
 			style: dimStyle,
 		},
 		{
-			label: "komrade log ",
+			label: "komrad log ",
 			text:  held.trace,
 			value: held.trace,
 			style: dimStyle,
@@ -291,7 +291,7 @@ func (m model) messagesSlot() []string {
 	if len(m.messages.items) == 0 {
 		return []string{
 			m.messagesSummaryStyle(message{kind: messageSuccess}, 0, false) + m.messagesTally(0),
-			dimStyle.Render("  Komrade is running normally"),
+			dimStyle.Render("  Komrad is running normally"),
 		}
 	}
 
@@ -405,7 +405,7 @@ func (s *messagesState) setNewestHint(hint string) {
 // the reason is read at the width of the window.
 func (m model) messagesDoc() string {
 	if len(m.messages.items) == 0 {
-		return "_No messages_\n\nKomrade is running normally."
+		return "_No messages_\n\nKomrad is running normally."
 	}
 
 	held := m.messages.items[m.messages.clampedCursor()]
@@ -420,7 +420,7 @@ func (m model) messagesDoc() string {
 	fmt.Fprintf(&b, "\n_%s · %s · message %d of %d_\n", kindLabel(held.kind), held.at.Format("3:04pm"), len(m.messages.items)-m.messages.clampedCursor(), len(m.messages.items))
 
 	if held.trace != "" {
-		fmt.Fprintf(&b, "\n```\nkomrade log %s\n```\n", held.trace)
+		fmt.Fprintf(&b, "\n```\nkomrad log %s\n```\n", held.trace)
 	}
 
 	return b.String()
@@ -633,7 +633,7 @@ var mockMessages = []message{
 	{
 		kind:    messageError,
 		summary: "Your editor could not be opened on that message",
-		detail:  "fork/exec /Users/harry/.local/state/komrade/worktrees/01a086ae-d59b-769b-a8a0-202d4014bddd/bin/editor: no such file or directory",
+		detail:  "fork/exec /Users/harry/.local/state/komrad/worktrees/01a086ae-d59b-769b-a8a0-202d4014bddd/bin/editor: no such file or directory",
 		trace:   "b3d0117e",
 	},
 	{
@@ -651,7 +651,7 @@ var mockMessages = []message{
 	{
 		kind:    messageInfo,
 		summary: "Archived 4 agents",
-		detail:  "komrade-bughunt-job, iss-408-reviewer, test-2 and test are hidden from the sidebar. restore them from the archive screen with Z.",
+		detail:  "komrad-bughunt-job, iss-408-reviewer, test-2 and test are hidden from the sidebar. restore them from the archive screen with Z.",
 	},
 }
 

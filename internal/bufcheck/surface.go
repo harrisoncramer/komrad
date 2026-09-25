@@ -3,7 +3,7 @@ package bufcheck
 import (
 	"context"
 
-	annotationv1 "komrade/proto/gen/annotation/v1"
+	annotationv1 "komrad/proto/gen/annotation/v1"
 
 	"buf.build/go/bufplugin/check"
 	"google.golang.org/protobuf/proto"
@@ -49,7 +49,7 @@ func checkSurfaces(
 		responseWriter.AddAnnotation(
 			check.WithDescriptor(method),
 			check.WithMessagef(
-				"%q is on a surface with no name, which is what the command and the tool are both generated under, so komrade serves it on neither.",
+				"%q is on a surface with no name, which is what the command and the tool are both generated under, so komrad serves it on neither.",
 				method.Name(),
 			),
 		)

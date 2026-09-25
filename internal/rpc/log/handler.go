@@ -4,12 +4,12 @@ package log
 import (
 	"context"
 
-	"komrade/internal/fail"
-	"komrade/internal/logging"
-	"komrade/internal/logread"
-	"komrade/internal/rpcerr"
-	"komrade/lib/xslice"
-	logv1 "komrade/proto/gen/log/v1"
+	"komrad/internal/fail"
+	"komrad/internal/logging"
+	"komrad/internal/logread"
+	"komrad/internal/rpcerr"
+	"komrad/lib/xslice"
+	logv1 "komrad/proto/gen/log/v1"
 
 	"google.golang.org/protobuf/types/known/structpb"
 )

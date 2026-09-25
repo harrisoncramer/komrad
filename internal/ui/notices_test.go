@@ -9,8 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
 
-	"komrade/internal/ui"
-	agentv1 "komrade/proto/gen/agent/v1"
+	"komrad/internal/ui"
+	agentv1 "komrad/proto/gen/agent/v1"
 )
 
 // TestNotices covers the record spelling out the marks on the hovered row above its fields.
@@ -19,7 +19,7 @@ func TestNotices(t *testing.T) {
 		harness := openNoticed(t, panelHarnessParams{}, newMarked(), newUnreadMail("n1"))
 
 		record := readRecordProse(harness.readFrame())
-		assert.Contains(t, record, "a script komrade fired failed, log unread")
+		assert.Contains(t, record, "a script komrad fired failed, log unread")
 		assert.Contains(t, record, "mail waiting, it has not read it")
 		assert.Contains(t, record, "its directory no longer exists")
 		assert.Equal(t, "worker", readRecordField(harness.readFrame(), "name"))
@@ -53,7 +53,7 @@ func TestNotices(t *testing.T) {
 				height: 13,
 			},
 			rows:       []proto.Message{newMarked(), newUnreadMail("n1")},
-			want:       []string{"name", "a script komrade fired failed"},
+			want:       []string{"name", "a script komrad fired failed"},
 			wantAbsent: []string{"no longer exists"},
 		},
 		{
@@ -63,7 +63,7 @@ func TestNotices(t *testing.T) {
 				height: 13,
 			},
 			rows:       []proto.Message{newFailedRun()},
-			want:       []string{"a script komrade", "…"},
+			want:       []string{"a script komrad", "…"},
 			wantAbsent: []string{"log unread"},
 		},
 		{

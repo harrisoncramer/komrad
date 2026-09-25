@@ -42,9 +42,9 @@ jobs:
               - 'go.sum'
               - '.golangci.yaml'
               - '.custom-gcl.yml'
-              - 'tools/komradelint/**'
-              - 'tools/komradepkg/**'
-              - 'tools/komraderec/**'
+              - 'tools/komradlint/**'
+              - 'tools/komradpkg/**'
+              - 'tools/komradrec/**'
               - '.github/workflows/ci.yml'
             shell:
               - 'mise/**'
@@ -83,13 +83,13 @@ jobs:
               - 'proto/**'
               - 'db/**'
               - 'config/**'
-              - 'cmd/protoc-gen-komrade-rpc/**'
+              - 'cmd/protoc-gen-komrad-rpc/**'
               - 'cmd/gen-docs/**'
               - 'internal/cli/**'
               - 'mise/tasks/gen/**'
               - '.github/workflows/ci.yml'
 
-  # The shell komrade runs: the mise tasks and the builtin scripts an agent's hooks call.
+  # The shell komrad runs: the mise tasks and the builtin scripts an agent's hooks call.
   shell:
     needs: changes
     if: needs.changes.outputs.shell == 'true'
@@ -174,19 +174,19 @@ jobs:
       postgres:
         image: postgres:18
         env:
-          POSTGRES_USER: komrade
-          POSTGRES_PASSWORD: komrade
-          POSTGRES_DB: komrade
+          POSTGRES_USER: komrad
+          POSTGRES_PASSWORD: komrad
+          POSTGRES_DB: komrad
         ports:
           - 5460:5432
         options: >-
-          --health-cmd "pg_isready -U komrade"
+          --health-cmd "pg_isready -U komrad"
           --health-interval 2s
           --health-timeout 5s
           --health-retries 15
 
     env:
-      KOMRADE_DATABASE_URL: postgres://komrade:komrade@localhost:5460/komrade?sslmode=disable
+      KOMRAD_DATABASE_URL: postgres://komrad:komrad@localhost:5460/komrad?sslmode=disable
 
     steps:
       - uses: actions/checkout@v4
@@ -206,25 +206,25 @@ jobs:
     runs-on: namespace-profile-harrisoncramer
 
     # The store tests run against a real Postgres rather than a fake, and
-    # internal/pgtest creates a database per test off the server KOMRADE_DATABASE_URL
+    # internal/pgtest creates a database per test off the server KOMRAD_DATABASE_URL
     # points at. Credentials match docker-compose so nothing else has to change.
     services:
       postgres:
         image: postgres:18
         env:
-          POSTGRES_USER: komrade
-          POSTGRES_PASSWORD: komrade
-          POSTGRES_DB: komrade
+          POSTGRES_USER: komrad
+          POSTGRES_PASSWORD: komrad
+          POSTGRES_DB: komrad
         ports:
           - 5460:5432
         options: >-
-          --health-cmd "pg_isready -U komrade"
+          --health-cmd "pg_isready -U komrad"
           --health-interval 2s
           --health-timeout 5s
           --health-retries 15
 
     env:
-      KOMRADE_DATABASE_URL: postgres://komrade:komrade@localhost:5460/komrade?sslmode=disable
+      KOMRAD_DATABASE_URL: postgres://komrad:komrad@localhost:5460/komrad?sslmode=disable
 
     steps:
       - uses: actions/checkout@v4
@@ -254,7 +254,7 @@ jobs:
       - name: Run the unit tests
         run: mise run go:test --kind unit
 
-  # The integration tests drive a real git, a real tmux and a real komrade, which is slow
+  # The integration tests drive a real git, a real tmux and a real komrad, which is slow
   # and flakes when the machine is busy. They carry a build tag, so this is the only job
   # that compiles them in. The paths above are wide because these tests drive the panel
   # end to end, so most of the module is behind them.
@@ -267,19 +267,19 @@ jobs:
       postgres:
         image: postgres:18
         env:
-          POSTGRES_USER: komrade
-          POSTGRES_PASSWORD: komrade
-          POSTGRES_DB: komrade
+          POSTGRES_USER: komrad
+          POSTGRES_PASSWORD: komrad
+          POSTGRES_DB: komrad
         ports:
           - 5460:5432
         options: >-
-          --health-cmd "pg_isready -U komrade"
+          --health-cmd "pg_isready -U komrad"
           --health-interval 2s
           --health-timeout 5s
           --health-retries 15
 
     env:
-      KOMRADE_DATABASE_URL: postgres://komrade:komrade@localhost:5460/komrade?sslmode=disable
+      KOMRAD_DATABASE_URL: postgres://komrad:komrad@localhost:5460/komrad?sslmode=disable
 
     steps:
       - uses: actions/checkout@v4

@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"komrade/internal/git"
-	pullrequeststore "komrade/internal/store/pullrequest"
+	"komrad/internal/git"
+	pullrequeststore "komrad/internal/store/pullrequest"
 )
 
 type pageLister interface {

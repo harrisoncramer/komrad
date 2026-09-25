@@ -3,9 +3,9 @@ package ui
 import (
 	"time"
 
-	"komrade/internal/assemble"
-	"komrade/lib/dates"
-	agentv1 "komrade/proto/gen/agent/v1"
+	"komrad/internal/assemble"
+	"komrad/lib/dates"
+	agentv1 "komrad/proto/gen/agent/v1"
 )
 
 // findPendingRound is the round a reader's own open review was opened against, and nothing when

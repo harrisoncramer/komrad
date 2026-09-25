@@ -8,24 +8,24 @@ import (
 	"strings"
 	"time"
 
-	"komrade/internal/agents"
-	"komrade/internal/caller"
-	"komrade/internal/fail"
-	"komrade/internal/git"
-	"komrade/internal/logging"
-	"komrade/internal/store"
-	agentstore "komrade/internal/store/agent"
-	mailstore "komrade/internal/store/mail"
-	workflowstore "komrade/internal/store/workflow"
-	"komrade/lib/xpath"
+	"komrad/internal/agents"
+	"komrad/internal/caller"
+	"komrad/internal/fail"
+	"komrad/internal/git"
+	"komrad/internal/logging"
+	"komrad/internal/store"
+	agentstore "komrad/internal/store/agent"
+	mailstore "komrad/internal/store/mail"
+	workflowstore "komrad/internal/store/workflow"
+	"komrad/lib/xpath"
 )
 
 var (
-	// ErrRebaseNoWorktree says the agent sits in a directory komrade did not cut.
+	// ErrRebaseNoWorktree says the agent sits in a directory komrad did not cut.
 	ErrRebaseNoWorktree = fail.Precondition("this agent has no worktree of its own to rebase")
 
 	// ErrRebaseAdopted says the branch belongs to whoever made it.
-	ErrRebaseAdopted = fail.Precondition("this agent is on a branch komrade did not cut, so its history is not komrade's to rewrite")
+	ErrRebaseAdopted = fail.Precondition("this agent is on a branch komrad did not cut, so its history is not komrad's to rewrite")
 
 	// ErrRebaseDirty says the checkout holds tracked changes.
 	ErrRebaseDirty = fail.Precondition("the worktree holds tracked changes, so commit or discard them first")
@@ -65,7 +65,7 @@ type agentSettler interface {
 	Settle(ctx context.Context, agent agentstore.Agent) (bool, error)
 }
 
-// systemMailSender leaves a note from komrade itself in an agent's mailbox.
+// systemMailSender leaves a note from komrad itself in an agent's mailbox.
 type systemMailSender interface {
 	SendSystemMail(ctx context.Context, toAgentID, body string) (*mailstore.Mail, error)
 }
@@ -292,12 +292,12 @@ func (s *RebaseService) rebase(ctx context.Context, agent agentstore.Agent) (*Re
 
 // buildParkRef names where a checkout is held before it is moved.
 func buildParkRef(agentID string) string {
-	return fmt.Sprintf("refs/komrade/prerefresh/%s/%d", agentID, time.Now().UnixNano())
+	return fmt.Sprintf("refs/komrad/prerefresh/%s/%d", agentID, time.Now().UnixNano())
 }
 
 // releaseOlderParks drops the parks this agent left behind before this one.
 func (s *RebaseService) releaseOlderParks(ctx context.Context, agent agentstore.Agent, keep string) {
-	prefix := fmt.Sprintf("refs/komrade/prerefresh/%s/", agent.ID)
+	prefix := fmt.Sprintf("refs/komrad/prerefresh/%s/", agent.ID)
 	if err := s.rebaser.ReleaseRefsUnder(ctx, agent.Cwd, prefix, keep); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to release the older parks of a rebased agent",
 			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)

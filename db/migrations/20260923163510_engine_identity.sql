@@ -168,7 +168,7 @@ CREATE FUNCTION watch_channel_of(tenant uuid)
     IMMUTABLE
     AS $$
     SELECT
-        'komrade_watch_' || REPLACE(tenant::text, '-', '');
+        'komrad_watch_' || REPLACE(tenant::text, '-', '');
 $$;
 
 CREATE FUNCTION watch_channel()
@@ -244,13 +244,13 @@ LANGUAGE plpgsql;
 DO $$
 BEGIN
     BEGIN
-        CREATE ROLE komrade_engine NOLOGIN;
+        CREATE ROLE komrad_engine NOLOGIN;
     EXCEPTION
         WHEN duplicate_object OR unique_violation THEN
             NULL;
     END;
     BEGIN
-        CREATE ROLE komrade_reader NOLOGIN;
+        CREATE ROLE komrad_reader NOLOGIN;
     EXCEPTION
         WHEN duplicate_object OR unique_violation THEN
             NULL;
@@ -262,7 +262,7 @@ DO $$
 DECLARE
     target text;
 BEGIN
-    FOREACH target IN ARRAY ARRAY['komrade_engine', 'komrade_reader']
+    FOREACH target IN ARRAY ARRAY['komrad_engine', 'komrad_reader']
     LOOP
         IF EXISTS (
             SELECT
@@ -292,27 +292,27 @@ END LOOP;
 END;
 $$;
 
-GRANT USAGE ON SCHEMA public TO komrade_engine, komrade_reader;
+GRANT USAGE ON SCHEMA public TO komrad_engine, komrad_reader;
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO komrade_engine;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO komrad_engine;
 
-GRANT SELECT ON ALL TABLES IN SCHEMA public TO komrade_reader;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO komrad_reader;
 
-REVOKE ALL ON tenant_logins FROM komrade_engine, komrade_reader;
+REVOKE ALL ON tenant_logins FROM komrad_engine, komrad_reader;
 
-REVOKE INSERT, UPDATE, DELETE ON tenants FROM komrade_engine;
+REVOKE INSERT, UPDATE, DELETE ON tenants FROM komrad_engine;
 
 DO $$
 BEGIN
     IF to_regclass('public.schema_migrations') IS NOT NULL THEN
-        REVOKE INSERT, UPDATE, DELETE ON schema_migrations FROM komrade_engine;
+        REVOKE INSERT, UPDATE, DELETE ON schema_migrations FROM komrad_engine;
     END IF;
 END;
 $$;
 
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO komrade_engine;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO komrad_engine;
 
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO komrade_reader;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO komrad_reader;
 
 ALTER TABLE tenants ENABLE ROW LEVEL SECURITY;
 

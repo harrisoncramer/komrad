@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"komrade/internal/mail"
-	mailstore "komrade/internal/store/mail"
-	reviewstore "komrade/internal/store/review"
-	"komrade/lib/xslice"
+	"komrad/internal/mail"
+	mailstore "komrad/internal/store/mail"
+	reviewstore "komrad/internal/store/review"
+	"komrad/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -62,7 +62,7 @@ func TestReleaseReviewWritesTheFile(t *testing.T) {
 			write: func(t *testing.T, fx *reviewFixture) *ReleaseReviewResult {
 				return fx.releaseReview(t, personAuthor, reviewstore.VerdictApproved)
 			},
-			wantSaid: []string{"Approved", "round 1", "the person running komrade"},
+			wantSaid: []string{"Approved", "round 1", "the person running komrad"},
 		},
 		{
 			name: "a reviewer's comment",

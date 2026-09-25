@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
-	"komrade/internal/harness"
-	"komrade/internal/store"
+	"komrad/internal/harness"
+	"komrad/internal/store"
 )
 
 type NewInterrupterParams struct {

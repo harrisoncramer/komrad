@@ -12,7 +12,7 @@ import (
 func writeLog(t *testing.T, lines ...string) string {
 	t.Helper()
 
-	path := filepath.Join(t.TempDir(), "komrade.log")
+	path := filepath.Join(t.TempDir(), "komrad.log")
 	body := ""
 	for _, line := range lines {
 		body += line + "\n"
@@ -25,7 +25,7 @@ func writeLog(t *testing.T, lines ...string) string {
 
 const (
 	archiveStarted = `{"timestamp":"2026-08-06T22:47:32.101Z","severity_text":"INFO","body":"rpc served",` +
-		`"trace.id":"trace-one","rpc.method":"ArchiveAgents","komrade.agent.id":"a1"}`
+		`"trace.id":"trace-one","rpc.method":"ArchiveAgents","komrad.agent.id":"a1"}`
 	archiveFailed = `{"timestamp":"2026-08-06T22:47:32.293Z","severity_text":"ERROR","body":"rpc failed",` +
 		`"trace.id":"trace-one","rpc.method":"ArchiveAgents","error.message":"pane already gone"}`
 	otherRPC = `{"timestamp":"2026-08-06T22:47:33.001Z","severity_text":"INFO","body":"rpc served",` +

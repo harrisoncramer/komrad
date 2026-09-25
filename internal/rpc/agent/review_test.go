@@ -5,14 +5,14 @@ import (
 	"testing"
 	"time"
 
-	"komrade/internal/agents"
-	"komrade/internal/caller"
-	"komrade/internal/mail"
-	"komrade/internal/reviews"
-	reviewstore "komrade/internal/store/review"
-	"komrade/lib/xptr"
-	agentv1 "komrade/proto/gen/agent/v1"
-	"komrade/proto/gen/agent/v1/agentv1komrade"
+	"komrad/internal/agents"
+	"komrad/internal/caller"
+	"komrad/internal/mail"
+	"komrad/internal/reviews"
+	reviewstore "komrad/internal/store/review"
+	"komrad/lib/xptr"
+	agentv1 "komrad/proto/gen/agent/v1"
+	"komrad/proto/gen/agent/v1/agentv1komrad"
 
 	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
@@ -39,14 +39,14 @@ type fakeReviewer struct {
 func TestReviewRefusalsMapToCodes(t *testing.T) {
 	tests := []struct {
 		name     string
-		call     func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error
+		call     func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error
 		err      error
 		asNobody bool
 		wantCode connect.Code
 	}{
 		{
 			name: "listing threads with no agent named and no caller identity",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				_, err := svc.ListReviewThreads(ctx, connect.NewRequest(&agentv1.ListReviewThreadsRequest{}))
 
 				return err
@@ -56,7 +56,7 @@ func TestReviewRefusalsMapToCodes(t *testing.T) {
 		},
 		{
 			name: "listing the threads of an agent that does not exist",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				_, err := svc.ListReviewThreads(ctx, connect.NewRequest(&agentv1.ListReviewThreadsRequest{}))
 
 				return err
@@ -65,8 +65,8 @@ func TestReviewRefusalsMapToCodes(t *testing.T) {
 			wantCode: connect.CodeNotFound,
 		},
 		{
-			name: "a comment read from a snapshot komrade never froze",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+			name: "a comment read from a snapshot komrad never froze",
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				_, err := svc.CreateReviewThread(ctx, connect.NewRequest(&agentv1.CreateReviewThreadRequest{AgentId: betaID}))
 
 				return err
@@ -76,7 +76,7 @@ func TestReviewRefusalsMapToCodes(t *testing.T) {
 		},
 		{
 			name: "a second review before the first was answered",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				_, err := svc.CreateReviewThread(ctx, connect.NewRequest(&agentv1.CreateReviewThreadRequest{AgentId: betaID}))
 
 				return err
@@ -86,7 +86,7 @@ func TestReviewRefusalsMapToCodes(t *testing.T) {
 		},
 		{
 			name: "a reply in a thread nothing holds",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				_, err := svc.AddReviewMessage(ctx, connect.NewRequest(&agentv1.AddReviewMessageRequest{ThreadId: betaID}))
 
 				return err
@@ -96,7 +96,7 @@ func TestReviewRefusalsMapToCodes(t *testing.T) {
 		},
 		{
 			name: "rewriting somebody else's words",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				_, err := svc.EditReviewMessage(ctx, connect.NewRequest(&agentv1.EditReviewMessageRequest{Id: betaID}))
 
 				return err
@@ -106,7 +106,7 @@ func TestReviewRefusalsMapToCodes(t *testing.T) {
 		},
 		{
 			name: "an agent marking a thread read",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				_, err := svc.MarkReviewThreadRead(ctx, connect.NewRequest(&agentv1.MarkReviewThreadReadRequest{Id: betaID}))
 
 				return err
@@ -116,7 +116,7 @@ func TestReviewRefusalsMapToCodes(t *testing.T) {
 		},
 		{
 			name: "settling a comment on the caller's own work",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				_, err := svc.SetReviewThreadResolved(ctx, connect.NewRequest(&agentv1.SetReviewThreadResolvedRequest{Id: betaID}))
 
 				return err
@@ -126,7 +126,7 @@ func TestReviewRefusalsMapToCodes(t *testing.T) {
 		},
 		{
 			name: "a round of an agent with no directory",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				_, err := svc.OpenReviewRound(ctx, connect.NewRequest(&agentv1.OpenReviewRoundRequest{AgentId: betaID}))
 
 				return err
@@ -136,7 +136,7 @@ func TestReviewRefusalsMapToCodes(t *testing.T) {
 		},
 		{
 			name: "the rounds of an agent the caller is not reviewing",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				_, err := svc.ListReviewRounds(ctx, connect.NewRequest(&agentv1.ListReviewRoundsRequest{AgentId: betaID}))
 
 				return err
@@ -146,7 +146,7 @@ func TestReviewRefusalsMapToCodes(t *testing.T) {
 		},
 		{
 			name: "the reviews of an agent the caller is not reviewing",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				_, err := svc.ListReviews(ctx, connect.NewRequest(&agentv1.ListReviewsRequest{AgentId: betaID}))
 
 				return err
@@ -156,7 +156,7 @@ func TestReviewRefusalsMapToCodes(t *testing.T) {
 		},
 		{
 			name: "a review nothing holds",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				_, err := svc.GetReview(ctx, connect.NewRequest(&agentv1.GetReviewRequest{ReviewId: betaID}))
 
 				return err
@@ -166,7 +166,7 @@ func TestReviewRefusalsMapToCodes(t *testing.T) {
 		},
 		{
 			name: "releasing notes with nothing in them",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				_, err := svc.ReleaseReview(ctx, connect.NewRequest(&agentv1.ReleaseReviewRequest{AgentId: betaID}))
 
 				return err
@@ -176,7 +176,7 @@ func TestReviewRefusalsMapToCodes(t *testing.T) {
 		},
 		{
 			name: "releasing to an agent whose mailbox is full",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				_, err := svc.ReleaseReview(ctx, connect.NewRequest(&agentv1.ReleaseReviewRequest{AgentId: betaID}))
 
 				return err
@@ -186,7 +186,7 @@ func TestReviewRefusalsMapToCodes(t *testing.T) {
 		},
 		{
 			name: "an agent marking a file viewed",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				_, err := svc.SetReviewFileViewed(ctx, connect.NewRequest(&agentv1.SetReviewFileViewedRequest{AgentId: betaID}))
 
 				return err
@@ -196,7 +196,7 @@ func TestReviewRefusalsMapToCodes(t *testing.T) {
 		},
 		{
 			name: "an agent listing the files viewed",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				_, err := svc.ListReviewViewedFiles(ctx, connect.NewRequest(&agentv1.ListReviewViewedFilesRequest{AgentId: betaID}))
 
 				return err
@@ -228,12 +228,12 @@ func TestReviewRefusalsMapToCodes(t *testing.T) {
 func TestReviewCallsAnswerWhatTheServiceDid(t *testing.T) {
 	tests := []struct {
 		name   string
-		call   func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) (string, error)
+		call   func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) (string, error)
 		wantID string
 	}{
 		{
 			name: "opening a thread",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) (string, error) {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) (string, error) {
 				got, err := svc.CreateReviewThread(ctx, connect.NewRequest(&agentv1.CreateReviewThreadRequest{AgentId: betaID}))
 				if err != nil {
 					return "", err
@@ -245,7 +245,7 @@ func TestReviewCallsAnswerWhatTheServiceDid(t *testing.T) {
 		},
 		{
 			name: "replying in a thread",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) (string, error) {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) (string, error) {
 				got, err := svc.AddReviewMessage(ctx, connect.NewRequest(&agentv1.AddReviewMessageRequest{ThreadId: "thread-1"}))
 				if err != nil {
 					return "", err
@@ -257,7 +257,7 @@ func TestReviewCallsAnswerWhatTheServiceDid(t *testing.T) {
 		},
 		{
 			name: "rewriting a message",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) (string, error) {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) (string, error) {
 				got, err := svc.EditReviewMessage(ctx, connect.NewRequest(&agentv1.EditReviewMessageRequest{Id: "message-1"}))
 				if err != nil {
 					return "", err
@@ -269,7 +269,7 @@ func TestReviewCallsAnswerWhatTheServiceDid(t *testing.T) {
 		},
 		{
 			name: "marking a thread read",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) (string, error) {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) (string, error) {
 				got, err := svc.MarkReviewThreadRead(ctx, connect.NewRequest(&agentv1.MarkReviewThreadReadRequest{Id: "thread-1"}))
 				if err != nil {
 					return "", err
@@ -281,7 +281,7 @@ func TestReviewCallsAnswerWhatTheServiceDid(t *testing.T) {
 		},
 		{
 			name: "settling a thread",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) (string, error) {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) (string, error) {
 				got, err := svc.SetReviewThreadResolved(ctx, connect.NewRequest(&agentv1.SetReviewThreadResolvedRequest{Id: "thread-1"}))
 				if err != nil {
 					return "", err
@@ -293,7 +293,7 @@ func TestReviewCallsAnswerWhatTheServiceDid(t *testing.T) {
 		},
 		{
 			name: "opening a round",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) (string, error) {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) (string, error) {
 				got, err := svc.OpenReviewRound(ctx, connect.NewRequest(&agentv1.OpenReviewRoundRequest{AgentId: betaID}))
 				if err != nil {
 					return "", err
@@ -305,7 +305,7 @@ func TestReviewCallsAnswerWhatTheServiceDid(t *testing.T) {
 		},
 		{
 			name: "listing the rounds",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) (string, error) {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) (string, error) {
 				got, err := svc.ListReviewRounds(ctx, connect.NewRequest(&agentv1.ListReviewRoundsRequest{AgentId: betaID}))
 				if err != nil {
 					return "", err
@@ -321,7 +321,7 @@ func TestReviewCallsAnswerWhatTheServiceDid(t *testing.T) {
 		},
 		{
 			name: "listing the reviews",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) (string, error) {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) (string, error) {
 				got, err := svc.ListReviews(ctx, connect.NewRequest(&agentv1.ListReviewsRequest{AgentId: betaID}))
 				if err != nil {
 					return "", err
@@ -580,8 +580,8 @@ func TestSetReviewFileViewedRendersTheMark(t *testing.T) {
 	}
 }
 
-func newReviewHandler(reviewer *fakeReviewer) agentv1komrade.AgentServiceAdapter {
-	return agentv1komrade.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{
+func newReviewHandler(reviewer *fakeReviewer) agentv1komrad.AgentServiceAdapter {
+	return agentv1komrad.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{
 		Review: reviewer,
 	})}
 }

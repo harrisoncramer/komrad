@@ -11,10 +11,10 @@ import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
-	_ "komrade/proto/gen/annotation/v1"
-	v1 "komrade/proto/gen/pagination/v1"
-	_ "komrade/proto/gen/rules/v1"
-	v11 "komrade/proto/gen/view/v1"
+	_ "komrad/proto/gen/annotation/v1"
+	v1 "komrad/proto/gen/pagination/v1"
+	_ "komrad/proto/gen/rules/v1"
+	v11 "komrad/proto/gen/view/v1"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -40,7 +40,7 @@ type Workflow struct {
 	Cwd string `protobuf:"bytes,4,opt,name=cwd,proto3" json:"cwd,omitempty"`
 	// Command-line flags prefilled for each new agent.
 	Flags string `protobuf:"bytes,5,opt,name=flags,proto3" json:"flags,omitempty"`
-	// Which CLI its agents run, blank for komrade's default.
+	// Which CLI its agents run, blank for komrad's default.
 	Harness string `protobuf:"bytes,6,opt,name=harness,proto3" json:"harness,omitempty"`
 	// When it was hidden from the panel, unset while it is live.
 	ArchivedAt *string `protobuf:"bytes,9,opt,name=archived_at,json=archivedAt,proto3,oneof" json:"archived_at,omitempty"`
@@ -210,7 +210,7 @@ func (x *WorkflowHook) GetScript() string {
 
 type WorktreeConfig struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Whether komrade cuts a worktree for each agent, or leaves it in the directory it was given.
+	// Whether komrad cuts a worktree for each agent, or leaves it in the directory it was given.
 	Enabled bool `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	// The branch worktrees are cut from and every agent's work is measured against, filled in
 	// from the clone when left blank on create and never blank once stored.
@@ -517,7 +517,7 @@ type CreateWorkflowRequest struct {
 	Cwd string `protobuf:"bytes,3,opt,name=cwd,proto3" json:"cwd,omitempty"`
 	// Flags to prefill for each new agent.
 	Flags string `protobuf:"bytes,4,opt,name=flags,proto3" json:"flags,omitempty"`
-	// Which CLI its agents run, blank for komrade's default.
+	// Which CLI its agents run, blank for komrad's default.
 	Harness string `protobuf:"bytes,5,opt,name=harness,proto3" json:"harness,omitempty"`
 	// Whether its agents each get a worktree, and how those are built.
 	Worktree *WorktreeConfig `protobuf:"bytes,8,opt,name=worktree,proto3" json:"worktree,omitempty"`
@@ -665,7 +665,7 @@ type UpdateWorkflowRequest struct {
 	Flags string `protobuf:"bytes,5,opt,name=flags,proto3" json:"flags,omitempty"`
 	// Which CLI agents launched afterwards run.
 	Harness string `protobuf:"bytes,6,opt,name=harness,proto3" json:"harness,omitempty"`
-	// Turning worktrees off reaches agents already running, since whether komrade removes a
+	// Turning worktrees off reaches agents already running, since whether komrad removes a
 	// directory is read when the agent is deleted.
 	Worktree *WorktreeConfig `protobuf:"bytes,9,opt,name=worktree,proto3" json:"worktree,omitempty"`
 	// The whole hook list, so send back the ones you are keeping.
@@ -1015,15 +1015,15 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\x17RestoreWorkflowResponse\x121\n" +
 	"\bworkflow\x18\x01 \x01(\v2\x15.workflow.v1.WorkflowR\bworkflow\"0\n" +
 	"\x15DeleteWorkflowRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id2\xbc)\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id2\xb8)\n" +
 	"\x0fWorkflowService\x12\xcf\x05\n" +
 	"\rListWorkflows\x12!.workflow.v1.ListWorkflowsRequest\x1a\".workflow.v1.ListWorkflowsResponse\"\xf6\x04\x9a\xb5\x18\xee\x04\b\x01\x10\x01\x1a\x0elist_workflows\"\xd2\x04List the workflows agents are grouped into, in alphabetical order, with each one's shared context, the working directory and flags its agents start from, and the scripts hooked to moments in their agents' lives. Archived workflows are excluded unless archived is set, which lists those and only those. Returns one page; pass the response's nextPageToken back as pagination.cursor for the next. The summary this returns by default holds only the opening of each workflow's context, marked by contextTruncated; get_workflow returns one whole, and view VIEW_FULL returns every context on the page.B\x03\x01\x02\x03\x90\x02\x01\x12\xb9\x01\n" +
-	"\vGetWorkflow\x12\x1f.workflow.v1.GetWorkflowRequest\x1a .workflow.v1.GetWorkflowResponse\"g\x9a\xb5\x18`\b\x01\x10\x01\x1a\fget_workflow\"GFetch one workflow by id. Returns not_found if no workflow has that id.B\x03\x01\x02\x03\x90\x02\x01\x12\x84\f\n" +
-	"\x0eCreateWorkflow\x12\".workflow.v1.CreateWorkflowRequest\x1a#.workflow.v1.CreateWorkflowResponse\"\xa8\v\x9a\xb5\x18\xa3\v\b\x01\x10\x01\x1a\x0fcreate_workflow\"\x86\vCreate a workflow to group agents under. Nothing runs as a result; this is organisation. The cwd and flags become the defaults prefilled when an agent is created inside it, and the context is appended to those agents' system prompts. worktree.enabled gives every agent a git worktree of its own, cut from cwd, which komrade makes before the agent starts and removes when it is deleted; left off, agents run in the directory they are given and komrade provisions nothing. hooks hang your own scripts on a moment in those agents' lives, one per moment, each naming a hook from list_hooks and one of pre-launch, post-launch, post-resume, post-restore or pre-teardown; komrade waits for pre-launch and pre-teardown and not the others, so a pre-launch that fails abandons the create and a pre-teardown that fails stops the delete and leaves the directory alone. worktree.baseBranch is the branch worktrees are cut from and every agent's work is measured against, filled in from the clone when left blank, which is what origin/HEAD names there, else the branch cwd is on, else main; the response carries the name stored. worktree.dir names the parent new worktrees are made in, blank meaning the one every workflow shares. worktree.diffExclude drops paths from the diff the panel draws, as paths or globs relative to the checkout such as proto/gen or *.pb.go. docs/src/content/guides/workflows.md says why each is there.(\x00B\x01\x03\x12\xac\b\n" +
-	"\x0eUpdateWorkflow\x12\".workflow.v1.UpdateWorkflowRequest\x1a\x16.google.protobuf.Empty\"\xdd\a\x9a\xb5\x18\xd5\a\b\x01\x10\x01\x1a\x0fupdate_workflow\"\xb8\aReplace a workflow's name, context, directory, flags, worktree config and hooks. Every field is written, so read the workflow first and send back the ones you are not changing, the hooks list included. Editing the context reaches only agents spawned afterwards, since existing agents took a snapshot at launch, while worktree.enabled reaches agents already running, since whether komrade removes an agent's directory is read when the agent is deleted. worktree.baseBranch is the branch worktrees are cut from and every agent's work is measured against, and a blank one is refused here, so send back the stored name when it is not what you are changing. worktree.dir names the parent new worktrees are made in, blank meaning the one every workflow shares. worktree.diffExclude drops paths from the diff the panel draws, as paths or globs relative to the checkout such as proto/gen or *.pb.go. docs/src/content/guides/workflows.md says why each is there.(\x00B\x01\x03\x90\x02\x02\x12\x86\x03\n" +
+	"\vGetWorkflow\x12\x1f.workflow.v1.GetWorkflowRequest\x1a .workflow.v1.GetWorkflowResponse\"g\x9a\xb5\x18`\b\x01\x10\x01\x1a\fget_workflow\"GFetch one workflow by id. Returns not_found if no workflow has that id.B\x03\x01\x02\x03\x90\x02\x01\x12\x81\f\n" +
+	"\x0eCreateWorkflow\x12\".workflow.v1.CreateWorkflowRequest\x1a#.workflow.v1.CreateWorkflowResponse\"\xa5\v\x9a\xb5\x18\xa0\v\b\x01\x10\x01\x1a\x0fcreate_workflow\"\x83\vCreate a workflow to group agents under. Nothing runs as a result; this is organisation. The cwd and flags become the defaults prefilled when an agent is created inside it, and the context is appended to those agents' system prompts. worktree.enabled gives every agent a git worktree of its own, cut from cwd, which komrad makes before the agent starts and removes when it is deleted; left off, agents run in the directory they are given and komrad provisions nothing. hooks hang your own scripts on a moment in those agents' lives, one per moment, each naming a hook from list_hooks and one of pre-launch, post-launch, post-resume, post-restore or pre-teardown; komrad waits for pre-launch and pre-teardown and not the others, so a pre-launch that fails abandons the create and a pre-teardown that fails stops the delete and leaves the directory alone. worktree.baseBranch is the branch worktrees are cut from and every agent's work is measured against, filled in from the clone when left blank, which is what origin/HEAD names there, else the branch cwd is on, else main; the response carries the name stored. worktree.dir names the parent new worktrees are made in, blank meaning the one every workflow shares. worktree.diffExclude drops paths from the diff the panel draws, as paths or globs relative to the checkout such as proto/gen or *.pb.go. docs/src/content/guides/workflows.md says why each is there.(\x00B\x01\x03\x12\xab\b\n" +
+	"\x0eUpdateWorkflow\x12\".workflow.v1.UpdateWorkflowRequest\x1a\x16.google.protobuf.Empty\"\xdc\a\x9a\xb5\x18\xd4\a\b\x01\x10\x01\x1a\x0fupdate_workflow\"\xb7\aReplace a workflow's name, context, directory, flags, worktree config and hooks. Every field is written, so read the workflow first and send back the ones you are not changing, the hooks list included. Editing the context reaches only agents spawned afterwards, since existing agents took a snapshot at launch, while worktree.enabled reaches agents already running, since whether komrad removes an agent's directory is read when the agent is deleted. worktree.baseBranch is the branch worktrees are cut from and every agent's work is measured against, and a blank one is refused here, so send back the stored name when it is not what you are changing. worktree.dir names the parent new worktrees are made in, blank meaning the one every workflow shares. worktree.diffExclude drops paths from the diff the panel draws, as paths or globs relative to the checkout such as proto/gen or *.pb.go. docs/src/content/guides/workflows.md says why each is there.(\x00B\x01\x03\x90\x02\x02\x12\x86\x03\n" +
 	"\x0fArchiveWorkflow\x12#.workflow.v1.ArchiveWorkflowRequest\x1a\x16.google.protobuf.Empty\"\xb5\x02\x9a\xb5\x18\xad\x02\b\x01\x10\x01\x1a\x10archive_workflow\"\x8f\x02Hide a workflow from the panel, archiving the agents inside it. Nothing is destroyed: the agents stay findable through search_transcripts and no transcript goes with them. Refused while any schedule still launches into the workflow, since those would have nowhere to run.(\x00B\x01\x03\x90\x02\x02\x12\xdd\x04\n" +
 	"\x0fRestoreWorkflow\x12#.workflow.v1.RestoreWorkflowRequest\x1a$.workflow.v1.RestoreWorkflowResponse\"\xfe\x03\x9a\xb5\x18\xf6\x03\b\x01\x10\x01\x1a\x10restore_workflow\"\xd8\x03Take a workflow out of the archive, keyed by id, along with every agent archived inside it. The agents come back as dormant rows, so call resume_agent on the ones whose conversations you want in a pane. Returns not_found if the workflow is not archived. It is refused whole rather than in part, either because its agents would not fit under the number the panel is configured to hold, or because live agents have taken their names, which the error lists for you to rename.(\x00B\x01\x03\x90\x02\x02\x12\xfb\x05\n" +
-	"\x0eDeleteWorkflow\x12\".workflow.v1.DeleteWorkflowRequest\x1a\x16.google.protobuf.Empty\"\xac\x05\x9a\xb5\x18\xa4\x05\b\x01\x10\x01\x1a\x0fdelete_workflow\"\x87\x05Permanently delete an archived workflow along with whatever archived agents are still inside it, reusing the same worktree-removal handling a direct agent delete uses. The archived schedules that launched into it go too, since nothing else ever removes them and they would keep the workflow alive. Returns not_found if the workflow does not exist or is not archived, and failed_precondition if a schedule inside it was moved from another workflow whose agents still hold it. An agent whose worktree is still being removed, or whose removal failed, is left behind rather than blocking the call, so the workflow can stay archived and be tried again.(\x01B\x01\x03\x90\x02\x02B*Z(komrade/proto/gen/workflow/v1;workflowv1b\x06proto3"
+	"\x0eDeleteWorkflow\x12\".workflow.v1.DeleteWorkflowRequest\x1a\x16.google.protobuf.Empty\"\xac\x05\x9a\xb5\x18\xa4\x05\b\x01\x10\x01\x1a\x0fdelete_workflow\"\x87\x05Permanently delete an archived workflow along with whatever archived agents are still inside it, reusing the same worktree-removal handling a direct agent delete uses. The archived schedules that launched into it go too, since nothing else ever removes them and they would keep the workflow alive. Returns not_found if the workflow does not exist or is not archived, and failed_precondition if a schedule inside it was moved from another workflow whose agents still hold it. An agent whose worktree is still being removed, or whose removal failed, is left behind rather than blocking the call, so the workflow can stay archived and be tried again.(\x01B\x01\x03\x90\x02\x02B)Z'komrad/proto/gen/workflow/v1;workflowv1b\x06proto3"
 
 var (
 	file_workflow_v1_workflow_proto_rawDescOnce sync.Once

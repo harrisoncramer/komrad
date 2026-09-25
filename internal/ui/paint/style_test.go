@@ -10,7 +10,7 @@ import (
 
 // TestWrapRows covers every row fitting its column with no character of the text dropped.
 func TestWrapRows(t *testing.T) {
-	const path = "/Users/harrisoncramer/.local/state/komrade/worktrees/01a086ae-d59b-769b-a8a0-202d4014bddd/bin/editor"
+	const path = "/Users/harrisoncramer/.local/state/komrad/worktrees/01a086ae-d59b-769b-a8a0-202d4014bddd/bin/editor"
 
 	tests := []struct {
 		name  string

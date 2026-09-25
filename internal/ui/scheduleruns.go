@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"strings"
 
-	"komrade/internal/ui/paint"
-	"komrade/internal/ui/paint/label"
-	"komrade/internal/ui/panel"
-	schedulev1 "komrade/proto/gen/schedule/v1"
+	"komrad/internal/ui/paint"
+	"komrad/internal/ui/paint/label"
+	"komrad/internal/ui/panel"
+	schedulev1 "komrad/proto/gen/schedule/v1"
 
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"

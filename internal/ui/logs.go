@@ -6,14 +6,14 @@ import (
 	"slices"
 	"strings"
 
-	"komrade/config"
-	"komrade/internal/ui/layout"
-	"komrade/internal/ui/panel"
+	"komrad/config"
+	"komrad/internal/ui/layout"
+	"komrad/internal/ui/panel"
 )
 
-const logEnvPath = "KOMRADE_LOG"
+const logEnvPath = "KOMRAD_LOG"
 
-const agentIDEnvVar = "KOMRADE_AGENT_ID"
+const agentIDEnvVar = "KOMRAD_AGENT_ID"
 
 func viewerArgv(viewer, fallback, path, agentID string) []string {
 	command := strings.TrimSpace(viewer)

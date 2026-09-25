@@ -5,10 +5,10 @@ CREATE OR REPLACE FUNCTION watch_subresource()
     AS $$
 BEGIN
     IF TG_OP <> 'INSERT' AND (to_jsonb(OLD) ->> TG_ARGV[1]) IS NOT NULL THEN
-        PERFORM pg_notify('komrade_watch', TG_ARGV[0] || ' ' || (to_jsonb(OLD) ->> TG_ARGV[1]));
+        PERFORM pg_notify('komrad_watch', TG_ARGV[0] || ' ' || (to_jsonb(OLD) ->> TG_ARGV[1]));
     END IF;
     IF TG_OP <> 'DELETE' AND (to_jsonb(NEW) ->> TG_ARGV[1]) IS NOT NULL THEN
-        PERFORM pg_notify('komrade_watch', TG_ARGV[0] || ' ' || (to_jsonb(NEW) ->> TG_ARGV[1]));
+        PERFORM pg_notify('komrad_watch', TG_ARGV[0] || ' ' || (to_jsonb(NEW) ->> TG_ARGV[1]));
     END IF;
     RETURN NULL;
 END;
@@ -30,7 +30,7 @@ BEGIN
     END IF;
     FOR resource_id IN EXECUTE FORMAT('SELECT id::text FROM %I WHERE %I::text = $1 AND (%s)', TG_ARGV[0], TG_ARGV[1], narrowing)
         USING (to_jsonb(COALESCE(NEW, OLD)) ->> TG_ARGV[2]) LOOP
-        PERFORM pg_notify('komrade_watch', TG_ARGV[0] || ' ' || resource_id);
+        PERFORM pg_notify('komrad_watch', TG_ARGV[0] || ' ' || resource_id);
     END LOOP;
     RETURN NULL;
 END;

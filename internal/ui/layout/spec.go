@@ -4,7 +4,7 @@ import (
 	"math"
 	"strconv"
 
-	"komrade/config"
+	"komrad/config"
 )
 
 type spec struct {

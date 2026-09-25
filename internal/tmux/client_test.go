@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"komrade/internal/panes"
+	"komrad/internal/panes"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -24,11 +24,11 @@ func TestIntegrationQueryCarriesStderr(t *testing.T) {
 	_, lookErr := exec.LookPath("tmux")
 	require.NoError(t, lookErr)
 
-	_, err := NewClient("komrade-test-no-such-socket").GetPanes()
+	_, err := NewClient("komrad-test-no-such-socket").GetPanes()
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "list-panes", "the failing command is named")
-	assert.Contains(t, err.Error(), "komrade-test-no-such-socket", "so is the server it ran against")
+	assert.Contains(t, err.Error(), "komrad-test-no-such-socket", "so is the server it ran against")
 	assert.Contains(t, err.Error(), "error connecting", "and tmux's own stderr comes through")
 }
 
@@ -113,7 +113,7 @@ func TestIntegrationKillPaneIsQuietWhenThePaneIsAlreadyGone(t *testing.T) {
 // TestIntegrationKillPaneStillWarnsOnARealFailure guards the quiet case above from swallowing a failure
 // that is not the pane being gone.
 func TestIntegrationKillPaneStillWarnsOnARealFailure(t *testing.T) {
-	t.Setenv("PATH", fakeTmux(t, "#!/bin/sh\necho 'error connecting to /tmp/tmux-501/komrade (No such file or directory)' >&2\nexit 1\n"))
+	t.Setenv("PATH", fakeTmux(t, "#!/bin/sh\necho 'error connecting to /tmp/tmux-501/komrad (No such file or directory)' >&2\nexit 1\n"))
 	buf := captureDefaultLog(t)
 
 	(&Client{}).KillPane("%13")
@@ -142,7 +142,7 @@ func testServer(t *testing.T, name string) *Client {
 	_, lookErr := exec.LookPath("tmux")
 	require.NoError(t, lookErr)
 
-	socket := "komrade-test-" + strings.ReplaceAll(t.Name(), "/", "-")
+	socket := "komrad-test-" + strings.ReplaceAll(t.Name(), "/", "-")
 	client := &Client{server: []string{"-L", socket, "-f", "/dev/null"}}
 
 	t.Cleanup(func() {
@@ -174,13 +174,13 @@ func windowNames(t *testing.T, c *Client, session string) []string {
 // TestIntegrationNewWindowAlongsideASameNamedWindow covers the panel's own case, where tmux matches a
 // bare target against window names before session names and lands on the wrong one.
 func TestIntegrationNewWindowAlongsideASameNamedWindow(t *testing.T) {
-	client := testServer(t, "komrade")
+	client := testServer(t, "komrad")
 
-	pane, err := client.NewWindow("komrade", "agent-one", t.TempDir())
+	pane, err := client.NewWindow("komrad", "agent-one", t.TempDir())
 	require.NoError(t, err)
 	assert.NotEmpty(t, pane)
 
-	assert.Equal(t, []string{"komrade", "agent-one"}, windowNames(t, client, "komrade"))
+	assert.Equal(t, []string{"komrad", "agent-one"}, windowNames(t, client, "komrad"))
 }
 
 // TestIntegrationSessionClientWithNothingAttached checks a server nobody is attached to and a session that
@@ -195,30 +195,30 @@ func TestIntegrationSessionClientWithNothingAttached(t *testing.T) {
 // TestIntegrationNewWindowRepeatedly covers several agents launching into the same session, which is
 // the ordinary case and the one that finds an index tmux was given rather than chose.
 func TestIntegrationNewWindowRepeatedly(t *testing.T) {
-	client := testServer(t, "komrade")
+	client := testServer(t, "komrad")
 
 	for _, name := range []string{"agent-one", "agent-two", "agent-three"} {
-		pane, err := client.NewWindow("komrade", name, t.TempDir())
+		pane, err := client.NewWindow("komrad", name, t.TempDir())
 		require.NoError(t, err, "failed to open a window for %q", name)
 		assert.NotEmpty(t, pane)
 	}
 
-	assert.Equal(t, []string{"komrade", "agent-one", "agent-two", "agent-three"}, windowNames(t, client, "komrade"))
+	assert.Equal(t, []string{"komrad", "agent-one", "agent-two", "agent-three"}, windowNames(t, client, "komrad"))
 }
 
 // TestIntegrationPaneOwners covers the batched lookup a whole listing goes through, where a pane
 // that is gone has to be absent rather than reported under a stale stamp.
 func TestIntegrationPaneOwners(t *testing.T) {
-	client := testServer(t, "komrade")
+	client := testServer(t, "komrad")
 
-	stamped, err := client.NewWindow("komrade", "stamped", t.TempDir())
+	stamped, err := client.NewWindow("komrad", "stamped", t.TempDir())
 	require.NoError(t, err)
 	require.NoError(t, client.SetPaneOwner(stamped, "agent-one"))
 
-	bare, err := client.NewWindow("komrade", "bare", t.TempDir())
+	bare, err := client.NewWindow("komrad", "bare", t.TempDir())
 	require.NoError(t, err)
 
-	killed, err := client.NewWindow("komrade", "killed", t.TempDir())
+	killed, err := client.NewWindow("komrad", "killed", t.TempDir())
 	require.NoError(t, err)
 	require.NoError(t, client.SetPaneOwner(killed, "agent-two"))
 	client.KillPane(killed)
@@ -230,15 +230,15 @@ func TestIntegrationPaneOwners(t *testing.T) {
 	assert.Empty(t, panes[bare].Owner, "an unstamped pane answers to nobody")
 	assert.NotContains(t, panes, killed, "a pane that is gone is absent rather than stale")
 	assert.Equal(t, client.GetPaneOwner(stamped), panes[stamped].Owner, "the batch agrees with the single lookup")
-	assert.True(t, panes[stamped].IsRunningShell(), "a pane komrade opened is a shell until something is launched in it")
+	assert.True(t, panes[stamped].IsRunningShell(), "a pane komrad opened is a shell until something is launched in it")
 }
 
 // TestIntegrationSiblingPanesFindsTheRestOfTheWindow covers a restarted panel finding what the last one
 // left, which needs a real server to confirm tmux maps a pane id to the window holding it.
 func TestIntegrationSiblingPanesFindsTheRestOfTheWindow(t *testing.T) {
-	client := testServer(t, "komrade")
+	client := testServer(t, "komrad")
 
-	panel, err := client.query("display-message", "-p", "-t", "komrade:", "#{pane_id}")
+	panel, err := client.query("display-message", "-p", "-t", "komrad:", "#{pane_id}")
 	require.NoError(t, err)
 
 	first := client.SplitRight(panel, "/tmp", "50%")
@@ -255,7 +255,7 @@ func TestIntegrationSiblingPanesFindsTheRestOfTheWindow(t *testing.T) {
 // TestIntegrationSiblingPanesOfNothing covers the panel running outside tmux, where nothing is reclaimed
 // rather than tmux being asked about the active pane in some other window.
 func TestIntegrationSiblingPanesOfNothing(t *testing.T) {
-	client := testServer(t, "komrade")
+	client := testServer(t, "komrad")
 
 	assert.Empty(t, client.GetSiblingPanes(""))
 }
@@ -263,9 +263,9 @@ func TestIntegrationSiblingPanesOfNothing(t *testing.T) {
 // TestIntegrationBreakPaneKeepsTheID covers a staged agent returning to its own window, where a break
 // that renamed the pane would lose the agent the panel tracks by that id.
 func TestIntegrationBreakPaneKeepsTheID(t *testing.T) {
-	client := testServer(t, "komrade")
+	client := testServer(t, "komrad")
 
-	panel, err := client.query("display-message", "-p", "-t", "komrade:", "#{pane_id}")
+	panel, err := client.query("display-message", "-p", "-t", "komrad:", "#{pane_id}")
 	require.NoError(t, err)
 
 	staged := client.SplitRight(panel, "/tmp", "50%")
@@ -275,7 +275,7 @@ func TestIntegrationBreakPaneKeepsTheID(t *testing.T) {
 
 	assert.True(t, client.IsPaneAlive(staged), "the pane survives being broken out")
 	assert.Empty(t, client.GetSiblingPanes(panel), "and is no longer in the panel's window")
-	assert.Len(t, windowNames(t, client, "komrade"), 2, "it is a window of its own now")
+	assert.Len(t, windowNames(t, client, "komrad"), 2, "it is a window of its own now")
 }
 
 // TestIntegrationSplitsPlaceThePaneWhereTheyAreNamedFor pins which side each one opens on.
@@ -507,7 +507,7 @@ func TestIntegrationPaneOwnerIsStamped(t *testing.T) {
 	assert.Equal(t, "agent-one", client.GetPaneOwner(pane))
 }
 
-// TestIntegrationPaneRunningCLIReadsTheForegroundProgram pins what says the harness komrade typed has started,
+// TestIntegrationPaneRunningCLIReadsTheForegroundProgram pins what says the harness komrad typed has started,
 // which is the foreground of the pane's terminal rather than the process tmux launched.
 func TestIntegrationPaneRunningCLIReadsTheForegroundProgram(t *testing.T) {
 	client := testServer(t, "running")
@@ -529,7 +529,7 @@ func TestIntegrationPaneRunningCLIReadsTheForegroundProgram(t *testing.T) {
 }
 
 // TestIntegrationDefaultShellIsWhatAPaneWouldBeParsedBy pins the option the doctor refuses a login shell
-// komrade cannot launch an agent under by.
+// komrad cannot launch an agent under by.
 func TestIntegrationDefaultShellIsWhatAPaneWouldBeParsedBy(t *testing.T) {
 	client := testServer(t, "shell")
 
@@ -664,9 +664,9 @@ func tmuxRun(t *testing.T, socket string, args ...string) string {
 // TestIntegrationPaneInAModeTakesNoKeys proves that nothing sent to a pane in a mode arrives, literally or
 // not.
 func TestIntegrationPaneInAModeTakesNoKeys(t *testing.T) {
-	client := testServer(t, "komrade")
+	client := testServer(t, "komrad")
 
-	pane, err := client.query("display-message", "-p", "-t", "komrade:", "#{pane_id}")
+	pane, err := client.query("display-message", "-p", "-t", "komrad:", "#{pane_id}")
 	require.NoError(t, err)
 
 	received := filepath.Join(t.TempDir(), "received")

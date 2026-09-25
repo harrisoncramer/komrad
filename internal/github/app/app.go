@@ -33,9 +33,9 @@ import (
 	"strings"
 	"time"
 
-	"komrade/internal/fail"
-	"komrade/internal/logging"
-	"komrade/lib/xhttp"
+	"komrad/internal/fail"
+	"komrad/internal/logging"
+	"komrad/lib/xhttp"
 )
 
 // assertionLife is how far ahead of now the assertion's expiry is set, leaving the span it covers

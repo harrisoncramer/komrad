@@ -4,7 +4,7 @@ package annotation.v1;
 
 import "google/protobuf/descriptor.proto";
 
-option go_package = "komrade/proto/gen/annotation/v1;annotationv1";
+option go_package = "komrad/proto/gen/annotation/v1;annotationv1";
 
 extend google.protobuf.MethodOptions {
   // Which of the generated callers reach the method. Every method declares it. The panel is
@@ -25,7 +25,7 @@ enum Role {
 }
 
 message Surfaces {
-  // Whether komrade rpc gets a subcommand for the method, which is what a script runs.
+  // Whether komrad rpc gets a subcommand for the method, which is what a script runs.
   bool cli = 1;
   // Whether the MCP server offers the method as a tool, which is what a model calls. A tool
   // without a CLI command makes no sense, so mcp implies cli.

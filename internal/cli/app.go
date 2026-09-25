@@ -1,12 +1,12 @@
 package cli
 
 import (
-	"komrade/config"
-	"komrade/internal/agents"
-	"komrade/internal/engine"
-	"komrade/internal/harness"
-	"komrade/internal/tmux"
-	"komrade/internal/ui"
+	"komrad/config"
+	"komrad/internal/agents"
+	"komrad/internal/engine"
+	"komrad/internal/harness"
+	"komrad/internal/tmux"
+	"komrad/internal/ui"
 )
 
 type app struct {

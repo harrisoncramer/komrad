@@ -1,8 +1,8 @@
 package render
 
 import (
-	markstore "komrade/internal/store/mark"
-	agentv1 "komrade/proto/gen/agent/v1"
+	markstore "komrad/internal/store/mark"
+	agentv1 "komrad/proto/gen/agent/v1"
 )
 
 // Mark draws one mark as the wire carries it.

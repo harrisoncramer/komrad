@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	agentstore "komrade/internal/store/agent"
-	"komrade/lib/xslice"
+	agentstore "komrad/internal/store/agent"
+	"komrad/lib/xslice"
 
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"

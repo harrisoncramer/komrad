@@ -1,7 +1,7 @@
 package ui
 
 import (
-	"komrade/internal/ui/layout"
+	"komrad/internal/ui/layout"
 )
 
 type infoKind int

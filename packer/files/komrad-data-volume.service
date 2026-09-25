@@ -1,0 +1,12 @@
+[Unit]
+Description=Mount the komrad data volume
+Before=komrad.service docker.service
+ConditionPathExists=/etc/komrad/data-volume.env
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/komrad-data-volume
+
+[Install]
+WantedBy=multi-user.target

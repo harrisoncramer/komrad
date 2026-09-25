@@ -5,10 +5,10 @@ import (
 	"errors"
 	"fmt"
 
-	"komrade/internal/harness"
-	agentstore "komrade/internal/store/agent"
-	transcriptstore "komrade/internal/store/transcript"
-	"komrade/lib/xslice"
+	"komrad/internal/harness"
+	agentstore "komrad/internal/store/agent"
+	transcriptstore "komrad/internal/store/transcript"
+	"komrad/lib/xslice"
 )
 
 type transcriptReadWriter interface {

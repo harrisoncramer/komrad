@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"time"
 
-	"komrade/internal/agents"
-	"komrade/internal/store"
-	schedulestore "komrade/internal/store/schedule"
-	"komrade/lib/xptr"
+	"komrad/internal/agents"
+	"komrad/internal/store"
+	schedulestore "komrad/internal/store/schedule"
+	"komrad/lib/xptr"
 
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"

@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"komrade/internal/engine"
+	"komrad/internal/engine"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -52,7 +52,7 @@ func droppingEngine(t *testing.T) (engine.Remote, string) {
 	t.Helper()
 
 	remote := engine.Remote{
-		Destination: "komrade@" + t.Name(),
+		Destination: "komrad@" + t.Name(),
 		Forward:     []string{os.Args[0], forwardArg, engine.LocalPortPlaceholder},
 	}
 
@@ -229,7 +229,7 @@ func TestDialGoesBackToBorrowingWhenATakeoverCannotBind(t *testing.T) {
 
 	spawns := filepath.Join(t.TempDir(), "spawns")
 	remote := engine.Remote{
-		Destination: "komrade@" + t.Name(),
+		Destination: "komrad@" + t.Name(),
 		Forward:     []string{"sh", "-c", "echo x >> " + spawns + "; sleep 1.5; exit 1"},
 	}
 	local := net.JoinHostPort("127.0.0.1", strconv.Itoa(remote.TunnelPort("127.0.0.1:8787")))

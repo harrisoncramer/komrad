@@ -5,10 +5,10 @@ import (
 	"errors"
 	"time"
 
-	"komrade/internal/git"
-	"komrade/internal/store"
-	workflowstore "komrade/internal/store/workflow"
-	worktreestore "komrade/internal/store/worktree"
+	"komrad/internal/git"
+	"komrad/internal/store"
+	workflowstore "komrad/internal/store/workflow"
+	worktreestore "komrad/internal/store/worktree"
 )
 
 // commitLimit is how many of a branch's commits an inspection lists.

@@ -4,10 +4,10 @@ import (
 	"testing"
 	"time"
 
-	"komrade/internal/forge"
-	pullrequeststore "komrade/internal/store/pullrequest"
-	"komrade/lib/xptr"
-	pullrequestv1 "komrade/proto/gen/pullrequest/v1"
+	"komrad/internal/forge"
+	pullrequeststore "komrad/internal/store/pullrequest"
+	"komrad/lib/xptr"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	"github.com/stretchr/testify/assert"
 )

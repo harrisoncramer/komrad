@@ -6,11 +6,11 @@ import (
 	"context"
 	"fmt"
 
-	"komrade/db/models"
-	"komrade/internal/store"
-	"komrade/lib/xslice"
+	"komrad/db/models"
+	"komrad/internal/store"
+	"komrad/lib/xslice"
 
-	agentstore "komrade/internal/store/agent"
+	agentstore "komrad/internal/store/agent"
 )
 
 // Row is an agent with the facts about it that live beside its row rather than on it.

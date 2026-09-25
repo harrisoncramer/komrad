@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"komrade/internal/git"
-	agentstore "komrade/internal/store/agent"
-	workflowstore "komrade/internal/store/workflow"
+	"komrad/internal/git"
+	agentstore "komrad/internal/store/agent"
+	workflowstore "komrad/internal/store/workflow"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

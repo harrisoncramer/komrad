@@ -1,11 +1,11 @@
 package workflow
 
 import (
-	"komrade/internal/rpc/render"
+	"komrad/internal/rpc/render"
 
-	workflowstore "komrade/internal/store/workflow"
-	viewv1 "komrade/proto/gen/view/v1"
-	workflowv1 "komrade/proto/gen/workflow/v1"
+	workflowstore "komrad/internal/store/workflow"
+	viewv1 "komrad/proto/gen/view/v1"
+	workflowv1 "komrad/proto/gen/workflow/v1"
 )
 
 type workflow struct {

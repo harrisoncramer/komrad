@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 )
 
-const ManagerSession = "komrade"
+const ManagerSession = "komrad"
 
 const defaultServerAddr = "127.0.0.1:8787"
 
@@ -17,5 +17,5 @@ func defaultFallbackResumeRoot() string {
 		home = ""
 	}
 
-	return filepath.Join(home, ".claude", "komrade", "restored")
+	return filepath.Join(home, ".claude", "komrad", "restored")
 }

@@ -13,9 +13,9 @@ usage() {
 	echo "or moving a package leaves nothing for the diff to resolve to while still"
 	echo "breaking everything that imported it."
 	echo
-	echo "Which packages those are is worked out by 'komradepkg changed', which reads"
+	echo "Which packages those are is worked out by 'komradpkg changed', which reads"
 	echo "the import graph of every module in the repository, so a change under"
-	echo "tools/ is tested and linted the same way as one in komrade itself."
+	echo "tools/ is tested and linted the same way as one in komrad itself."
 	echo
 	echo "It is not the gate. The full test suite, gen:check, and db:validate are"
 	echo "deliberately not here, and the packages that import what you changed are"
@@ -27,7 +27,7 @@ usage() {
 	echo "once and every later check:quick lints for free."
 	echo
 	echo "buf format and buf lint run only when your branch changed a .proto, since"
-	echo "linting builds the check plugin komrade's own proto rules live in."
+	echo "linting builds the check plugin komrad's own proto rules live in."
 }
 
 for arg in "$@"; do
@@ -77,7 +77,7 @@ lint_module() {
 	(cd "$MISE_CONFIG_ROOT/$dir" && "$BIN_PATH" run --config "$CONFIG" --timeout 5m "$@")
 }
 
-PLAN="$(cd tools/komradepkg && go run . changed --base "$BASE_REF" --dir "$MISE_CONFIG_ROOT")"
+PLAN="$(cd tools/komradpkg && go run . changed --base "$BASE_REF" --dir "$MISE_CONFIG_ROOT")"
 
 CHANGED_COUNT="$(plan_field '[.modules[].packages[]] | length')"
 TESTED_COUNT="$(plan_field '[.modules[].packages[] | select(.testable)] | length')"

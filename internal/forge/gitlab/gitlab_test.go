@@ -10,11 +10,11 @@ import (
 	"testing"
 	"time"
 
-	"komrade/internal/forge"
-	"komrade/internal/forge/graphql"
-	"komrade/internal/git"
-	"komrade/lib/xptr"
-	"komrade/lib/xslice"
+	"komrad/internal/forge"
+	"komrad/internal/forge/graphql"
+	"komrad/internal/git"
+	"komrad/lib/xptr"
+	"komrad/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -154,11 +154,11 @@ func page(hasNextPage bool, cursor string, nodes ...string) string {
 	return `{"pageInfo":{"hasNextPage":` + next + `,"endCursor":"` + cursor + `"},"nodes":[` + strings.Join(nodes, ",") + `]}`
 }
 
-var komrade = git.RemoteURL{
-	Raw:    "git@gitlab.com:harrisoncramer/komrade.git",
+var komrad = git.RemoteURL{
+	Raw:    "git@gitlab.com:harrisoncramer/komrad.git",
 	Scheme: "ssh",
 	Host:   "gitlab.com",
-	Path:   "harrisoncramer/komrade",
+	Path:   "harrisoncramer/komrad",
 }
 
 var gitlabOrg = git.RemoteURL{
@@ -239,7 +239,7 @@ func TestListWithoutABranch(t *testing.T) {
 
 	f, _, fake := serve(t, map[string]answer{"List": {body: listing(false, "", openMergeRequest)}})
 
-	_, err := f.List(t.Context(), forge.ListParams{Repo: komrade, PerPage: 20})
+	_, err := f.List(t.Context(), forge.ListParams{Repo: komrad, PerPage: 20})
 	require.NoError(t, err)
 
 	seen := fake.last(t)
@@ -255,7 +255,7 @@ func TestListReadsTheNextPage(t *testing.T) {
 	f, _, _ := serve(t, map[string]answer{"List": {body: listing(true, "eyJjcmVhdGVk", openMergeRequest)}})
 
 	listed, err := f.List(t.Context(), forge.ListParams{
-		Repo:    komrade,
+		Repo:    komrad,
 		Branch:  "agent/x",
 		PerPage: 1,
 	})
@@ -286,13 +286,13 @@ func TestListUpdated(t *testing.T) {
 		body:   listing(true, "eyJ1cGRhdGVk", openMergeRequest, mergedMergeRequest),
 	}})
 
-	listed, err := f.ListUpdated(t.Context(), forge.ListUpdatedParams{Repo: komrade, Cursor: "old"})
+	listed, err := f.ListUpdated(t.Context(), forge.ListUpdatedParams{Repo: komrad, Cursor: "old"})
 	require.NoError(t, err)
 	seen := fake.last(t)
 	assert.Equal(t, "ListUpdated", seen.Operation)
 	assert.Equal(t, listUpdatedQuery, seen.Query)
 	assert.Equal(t, map[string]any{
-		"path":  "harrisoncramer/komrade",
+		"path":  "harrisoncramer/komrad",
 		"first": float64(100),
 		"after": "old",
 	}, seen.Variables)
@@ -317,7 +317,7 @@ func TestListChanged(t *testing.T) {
 
 	since := time.Date(2026, 9, 20, 17, 0, 0, 0, time.UTC)
 	listed, err := f.ListChanged(t.Context(), forge.ListChangedParams{
-		Repos: []git.RemoteURL{komrade, gitlabOrg},
+		Repos: []git.RemoteURL{komrad, gitlabOrg},
 		Since: since,
 	})
 	require.NoError(t, err)
@@ -328,7 +328,7 @@ func TestListChanged(t *testing.T) {
 		"first": float64(100),
 		"p0":    "acme/widgets",
 		"a0":    nil,
-		"p1":    "harrisoncramer/komrade",
+		"p1":    "harrisoncramer/komrad",
 		"a1":    nil,
 	}, seen.Variables)
 	assert.Contains(t, seen.Query, "r0: project(fullPath: $p0) { mergeRequests(updatedAfter: $since, sort: UPDATED_DESC, first: $first, after: $a0)")
@@ -343,7 +343,7 @@ func TestListChanged(t *testing.T) {
 
 	f, _, fake = serve(t, map[string]answer{"ListChanged": {body: `{"data":{"r0":{"mergeRequests":` + page(false, "", mergedMergeRequest) + `},"queryComplexity":{"score":52,"limit":200}}}`}})
 	listed, err = f.ListChanged(t.Context(), forge.ListChangedParams{
-		Repos:  []git.RemoteURL{komrade, gitlabOrg},
+		Repos:  []git.RemoteURL{komrad, gitlabOrg},
 		Since:  since,
 		Cursor: `{"acme/widgets":"eyJ1cGRhdGVk"}`,
 	})
@@ -392,7 +392,7 @@ func TestListChangedRefusesABadCursor(t *testing.T) {
 
 	f, _, fake := serve(t, nil)
 
-	_, err := f.ListChanged(t.Context(), forge.ListChangedParams{Repos: []git.RemoteURL{komrade}, Cursor: "Y3Vyc29yOjM="})
+	_, err := f.ListChanged(t.Context(), forge.ListChangedParams{Repos: []git.RemoteURL{komrad}, Cursor: "Y3Vyc29yOjM="})
 	require.Error(t, err)
 	assert.Empty(t, fake.calls)
 }
@@ -446,7 +446,7 @@ func TestListRefusesABarePath(t *testing.T) {
 
 	_, err := f.List(t.Context(), forge.ListParams{Repo: git.RemoteURL{Host: "gitlab.com", Path: "repo"}, Branch: "main"})
 	require.ErrorIs(t, err, forge.ErrNotRepository)
-	_, err = f.ListChanged(t.Context(), forge.ListChangedParams{Repos: []git.RemoteURL{komrade, {Host: "gitlab.com", Path: "repo"}}})
+	_, err = f.ListChanged(t.Context(), forge.ListChangedParams{Repos: []git.RemoteURL{komrad, {Host: "gitlab.com", Path: "repo"}}})
 	require.ErrorIs(t, err, forge.ErrNotRepository)
 	assert.Empty(t, fake.calls)
 }
@@ -486,9 +486,9 @@ func TestNotFound(t *testing.T) {
 
 	_, err := f.Get(t.Context(), "https://gitlab.com/acme/no-such-project-xyz/-/merge_requests/1")
 	require.ErrorIs(t, err, forge.ErrNotFound)
-	_, err = f.ListUpdated(t.Context(), forge.ListUpdatedParams{Repo: komrade})
+	_, err = f.ListUpdated(t.Context(), forge.ListUpdatedParams{Repo: komrad})
 	require.ErrorIs(t, err, forge.ErrNotFound)
-	_, err = f.Standings(t.Context(), komrade, []int{1})
+	_, err = f.Standings(t.Context(), komrad, []int{1})
 	require.ErrorIs(t, err, forge.ErrNotFound)
 	assert.Equal(t, 0, auth.invalidated)
 
@@ -552,7 +552,7 @@ func TestRateLimitRefusals(t *testing.T) {
 				body:   `{"message":"refused"}`,
 			}})
 
-			_, err := f.ListUpdated(t.Context(), forge.ListUpdatedParams{Repo: komrade})
+			_, err := f.ListUpdated(t.Context(), forge.ListUpdatedParams{Repo: komrad})
 			require.Error(t, err)
 
 			var throttled *forge.ThrottledError
@@ -568,7 +568,7 @@ func TestRateLimitRefusals(t *testing.T) {
 	}
 }
 
-// TestStandings covers the batch: one query aliasing every iid, each folded into komrade's
+// TestStandings covers the batch: one query aliasing every iid, each folded into komrad's
 // words with the head it was read for, and an iid GitLab does not have left out rather than
 // failing the rest.
 func TestStandings(t *testing.T) {
@@ -746,14 +746,14 @@ func TestStandingsRefusesTooMany(t *testing.T) {
 	for i := range numbers {
 		numbers[i] = i + 1
 	}
-	_, err := f.Standings(t.Context(), komrade, numbers)
+	_, err := f.Standings(t.Context(), komrad, numbers)
 	require.Error(t, err)
 	_, err = f.Standings(t.Context(), git.RemoteURL{Host: "gitlab.com", Path: "repo"}, []int{1})
 	require.ErrorIs(t, err, forge.ErrNotRepository)
 	assert.Empty(t, fake.calls)
 }
 
-// TestDecisionFolds covers how the approvals become komrade's word: a reviewer asking for
+// TestDecisionFolds covers how the approvals become komrad's word: a reviewer asking for
 // changes first, then approvals still owed, then anybody having approved, else nothing.
 func TestDecisionFolds(t *testing.T) {
 	t.Parallel()

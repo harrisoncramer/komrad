@@ -3,14 +3,14 @@ package row_test
 import (
 	"testing"
 
-	"komrade/internal/store"
-	"komrade/internal/storetest"
-	"komrade/lib/xptr"
-	"komrade/lib/xslice"
+	"komrad/internal/store"
+	"komrad/internal/storetest"
+	"komrad/lib/xptr"
+	"komrad/lib/xslice"
 
-	agentstore "komrade/internal/store/agent"
-	rowstore "komrade/internal/store/row"
-	runstore "komrade/internal/store/run"
+	agentstore "komrad/internal/store/agent"
+	rowstore "komrad/internal/store/row"
+	runstore "komrad/internal/store/run"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

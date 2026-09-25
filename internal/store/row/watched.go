@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"komrade/internal/store"
-	"komrade/internal/watch"
-	watchv1 "komrade/proto/gen/watch/v1"
+	"komrad/internal/store"
+	"komrad/internal/watch"
+	watchv1 "komrad/proto/gen/watch/v1"
 )
 
 // WatchedAgents declares the agents to the watch.

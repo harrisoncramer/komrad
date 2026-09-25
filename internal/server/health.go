@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"time"
 
-	"komrade/internal/logging"
-	"komrade/internal/version"
+	"komrad/internal/logging"
+	"komrad/internal/version"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )

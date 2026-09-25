@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 source "$MISE_CONFIG_ROOT/mise/tasks/_build"
-#MISE description="Build the komrade binary."
+#MISE description="Build the komrad binary."
 set -euo pipefail
 cd "$MISE_CONFIG_ROOT"
-go_build_local bin/komrade
-bind_panel_key bin/komrade
+go_build_local bin/komrad
+bind_panel_key bin/komrad

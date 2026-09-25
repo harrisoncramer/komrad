@@ -7,10 +7,10 @@ import (
 	"log/slog"
 	"time"
 
-	"komrade/internal/logging"
-	"komrade/internal/scripts"
+	"komrad/internal/logging"
+	"komrad/internal/scripts"
 
-	agentstore "komrade/internal/store/agent"
+	agentstore "komrad/internal/store/agent"
 )
 
 const scriptDetailCap = 400

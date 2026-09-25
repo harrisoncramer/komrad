@@ -14,7 +14,7 @@ import (
 
 // pkgPath is the import path of this package, the key AddGoComments builds its
 // comment map against.
-const pkgPath = "komrade/config"
+const pkgPath = "komrad/config"
 
 // reflectSchema reflects Config into a JSON schema, taking each field's description from its Go doc
 // comment in dir and each leaf's default from Defaults.

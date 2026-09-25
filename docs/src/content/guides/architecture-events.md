@@ -5,7 +5,7 @@ group: architecture
 order: 13
 ---
 
-Komrade never polls the database to find out what changed. The database tells it.
+Komrad never polls the database to find out what changed. The database tells it.
 
 ## The path
 

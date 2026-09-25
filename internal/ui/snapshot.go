@@ -3,12 +3,12 @@ package ui
 import (
 	"regexp"
 
-	"komrade/internal/git"
-	"komrade/internal/ui/panel"
-	"komrade/internal/view"
-	"komrade/lib/xslice"
-	agentv1 "komrade/proto/gen/agent/v1"
-	pullrequestv1 "komrade/proto/gen/pullrequest/v1"
+	"komrad/internal/git"
+	"komrad/internal/ui/panel"
+	"komrad/internal/view"
+	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 )
 
 // snapshotParams is what the panel already holds about the agents list, handed over as plain

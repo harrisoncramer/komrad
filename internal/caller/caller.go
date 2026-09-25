@@ -12,13 +12,13 @@ import (
 	"context"
 	"net/http"
 
-	"komrade/lib/xhttp"
+	"komrad/lib/xhttp"
 )
 
 const (
 	TraceHeader   = "X-Request-Id"
-	AgentHeader   = "X-Komrade-Agent-Id"
-	SessionHeader = "X-Komrade-Session-Id"
+	AgentHeader   = "X-Komrad-Agent-Id"
+	SessionHeader = "X-Komrad-Session-Id"
 )
 
 type Caller struct {

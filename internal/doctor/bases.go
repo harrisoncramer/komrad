@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"komrade/internal/git"
+	"komrad/internal/git"
 )
 
 var (

@@ -5,12 +5,12 @@ import (
 	"strings"
 	"time"
 
-	"komrade/config"
-	"komrade/internal/errui"
-	"komrade/internal/git"
-	"komrade/internal/ui/paint/label"
-	"komrade/internal/view"
-	"komrade/lib/xslice"
+	"komrad/config"
+	"komrad/internal/errui"
+	"komrad/internal/git"
+	"komrad/internal/ui/paint/label"
+	"komrad/internal/view"
+	"komrad/lib/xslice"
 
 	tea "charm.land/bubbletea/v2"
 )

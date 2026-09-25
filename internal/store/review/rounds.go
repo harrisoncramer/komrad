@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"time"
 
-	"komrade/db"
-	"komrade/db/models"
-	"komrade/internal/store"
-	"komrade/lib/xslice"
+	"komrad/db"
+	"komrad/db/models"
+	"komrad/internal/store"
+	"komrad/lib/xslice"
 )
 
 // Verdict is what a reviewer concluded about a round.
@@ -25,7 +25,7 @@ const (
 
 // RoundRef is the ref a round's snapshot is held by.
 func RoundRef(agentID, snapshotSHA string) string {
-	return "refs/komrade/rounds/" + agentID + "/" + snapshotSHA
+	return "refs/komrad/rounds/" + agentID + "/" + snapshotSHA
 }
 
 // Round is one frozen snapshot of what an agent has written, which every review and comment

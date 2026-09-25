@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"time"
 
-	githubapp "komrade/internal/github/app"
-	"komrade/lib/xhttp"
+	githubapp "komrad/internal/github/app"
+	"komrad/lib/xhttp"
 )
 
 // MethodGitHubApp is the method for a credential minted from the engine's GitHub App.

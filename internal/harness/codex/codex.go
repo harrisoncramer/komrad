@@ -1,4 +1,4 @@
-// Package codex runs Codex as a komrade agent, building the command that starts or resumes a
+// Package codex runs Codex as a komrad agent, building the command that starts or resumes a
 // conversation, reading its rollout log, and telling from a captured frame whether it is
 // working, waiting on a person, or idle.
 //
@@ -12,8 +12,8 @@ import (
 	"path/filepath"
 	"slices"
 
-	"komrade/config"
-	"komrade/internal/harness"
+	"komrad/config"
+	"komrad/internal/harness"
 )
 
 const binary = "codex"
@@ -23,7 +23,7 @@ const originatorEnv = "CODEX_INTERNAL_ORIGINATOR_OVERRIDE"
 const homeEnv = "CODEX_HOME"
 
 func originator(agentID string) string {
-	return "komrade-" + agentID
+	return "komrad-" + agentID
 }
 
 func originatorPrefix(agentID string) string {

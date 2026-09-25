@@ -16,12 +16,12 @@ func clearConnectionEnvironment(t *testing.T) {
 	t.Helper()
 
 	for _, name := range []string{
-		"KOMRADE_DATABASE_URL",
-		"KOMRADE_READONLY_DATABASE_URL",
-		"KOMRADE_OWNER_DATABASE_URL",
-		"KOMRADE_ADDR",
-		"KOMRADE_TMUX_SOCKET",
-		"KOMRADE_CACHE_DIR",
+		"KOMRAD_DATABASE_URL",
+		"KOMRAD_READONLY_DATABASE_URL",
+		"KOMRAD_OWNER_DATABASE_URL",
+		"KOMRAD_ADDR",
+		"KOMRAD_TMUX_SOCKET",
+		"KOMRAD_CACHE_DIR",
 	} {
 		t.Setenv(name, "")
 	}
@@ -491,12 +491,12 @@ func TestContextFile(t *testing.T) {
 		{
 			name:       "no config at all falls back beside the config file",
 			file:       "",
-			wantSuffix: filepath.Join(".config", "komrade", "context.md"),
+			wantSuffix: filepath.Join(".config", "komrad", "context.md"),
 		},
 		{
 			name:       "a blank entry is the same as naming none",
 			file:       "[context]\nfile = \"   \"\n",
-			wantSuffix: filepath.Join(".config", "komrade", "context.md"),
+			wantSuffix: filepath.Join(".config", "komrad", "context.md"),
 		},
 		{
 			name: "a file the config names is taken as given",
@@ -556,8 +556,8 @@ func TestConfiguredPathsExpandHome(t *testing.T) {
 		},
 		{
 			name: "a hooks directory under ~ resolves to the home directory",
-			file: "[hooks]\ndir = \"~/dotfiles/komrade/hooks\"\n",
-			want: func(home string) string { return filepath.Join(home, "dotfiles", "komrade", "hooks") },
+			file: "[hooks]\ndir = \"~/dotfiles/komrad/hooks\"\n",
+			want: func(home string) string { return filepath.Join(home, "dotfiles", "komrad", "hooks") },
 			read: Config.GetHooksDir,
 		},
 		{
@@ -568,8 +568,8 @@ func TestConfiguredPathsExpandHome(t *testing.T) {
 		},
 		{
 			name: "a context file under ~ resolves to the home directory",
-			file: "[context]\nfile = \"~/dotfiles/komrade/context.md\"\n",
-			want: func(home string) string { return filepath.Join(home, "dotfiles", "komrade", "context.md") },
+			file: "[context]\nfile = \"~/dotfiles/komrad/context.md\"\n",
+			want: func(home string) string { return filepath.Join(home, "dotfiles", "komrad", "context.md") },
 			read: Config.GetContextFile,
 		},
 	}
@@ -702,7 +702,7 @@ func TestLoadConnectionPrecedence(t *testing.T) {
 	local := filepath.Join(dir, "local.toml")
 	require.NoError(t, os.WriteFile(base, []byte("[connection]\naddr = \"127.0.0.1:1\"\n"), 0o644))
 	require.NoError(t, os.WriteFile(local, []byte("[connection]\naddr = \"127.0.0.2:2\"\n"), 0o644))
-	t.Setenv("KOMRADE_ADDR", "127.0.0.3:3")
+	t.Setenv("KOMRAD_ADDR", "127.0.0.3:3")
 
 	cfg, report, err := LoadWithReport(Stack{Paths: []string{base, local}})
 	require.NoError(t, err)
@@ -717,27 +717,27 @@ func TestLoadDerivesConnectionValuesAfterPrecedence(t *testing.T) {
 	clearConnectionEnvironment(t)
 	path := filepath.Join(t.TempDir(), "config.toml")
 	require.NoError(t, os.WriteFile(path, []byte(
-		"[connection]\ndatabase_url = \"postgres://komrade:secret@db.internal:5432/panel?sslmode=require\"\n",
+		"[connection]\ndatabase_url = \"postgres://komrad:secret@db.internal:5432/panel?sslmode=require\"\n",
 	), 0o644))
-	t.Setenv("KOMRADE_DATABASE_URL", "")
-	t.Setenv("KOMRADE_READONLY_DATABASE_URL", "")
-	t.Setenv("KOMRADE_CACHE_DIR", "")
+	t.Setenv("KOMRAD_DATABASE_URL", "")
+	t.Setenv("KOMRAD_READONLY_DATABASE_URL", "")
+	t.Setenv("KOMRAD_CACHE_DIR", "")
 
 	cfg, report, err := LoadWithReport(Stack{Paths: []string{path}})
 	require.NoError(t, err)
 
 	assert.Equal(t,
-		"postgres://komrade_reader:secret@db.internal:5432/panel?sslmode=require",
+		"postgres://komrad_reader:secret@db.internal:5432/panel?sslmode=require",
 		cfg.Connection.ReadOnlyDatabaseURL,
 	)
 	assert.Equal(t, SourceDerived, report.Sources["readonly_database_url"])
-	assert.Equal(t, "postgres://komrade:secret@db.internal:5432/panel?sslmode=require", cfg.Connection.OwnerDatabaseURL)
+	assert.Equal(t, "postgres://komrad:secret@db.internal:5432/panel?sslmode=require", cfg.Connection.OwnerDatabaseURL)
 	assert.Equal(t, SourceDerived, report.Sources["owner_database_url"])
 	assert.NotEmpty(t, cfg.Connection.CacheDir)
 	assert.Equal(t, SourceDerived, report.Sources["cache_dir"])
 }
 
-// TestLoadTakesTheLocalOwnerWithTheDefaultEngine pins komrade migrate working on a checkout that sets nothing.
+// TestLoadTakesTheLocalOwnerWithTheDefaultEngine pins komrad migrate working on a checkout that sets nothing.
 func TestLoadTakesTheLocalOwnerWithTheDefaultEngine(t *testing.T) {
 	clearConnectionEnvironment(t)
 
@@ -772,8 +772,8 @@ func TestResolveLayers(t *testing.T) {
 		layers, err := ResolveLayers(Stack{})
 		require.NoError(t, err)
 
-		require.Len(t, layers, 1, "komrade looks for one file and never goes hunting for a second")
-		assert.Equal(t, filepath.Join(home, ".config", "komrade", "config.toml"), layers[0].Path)
+		require.Len(t, layers, 1, "komrad looks for one file and never goes hunting for a second")
+		assert.Equal(t, filepath.Join(home, ".config", "komrad", "config.toml"), layers[0].Path)
 		assert.False(t, layers[0].Named, "an absent default is the ordinary install rather than an error")
 	})
 
@@ -817,13 +817,13 @@ func TestEveryBindingShipsAKey(t *testing.T) {
 }
 
 // TestCacheDirExpandsHome covers a cache directory written the way every other directory in the
-// config is, where a literal tilde makes komrade write into a directory of that name instead.
+// config is, where a literal tilde makes komrad write into a directory of that name instead.
 func TestCacheDirExpandsHome(t *testing.T) {
-	t.Setenv("KOMRADE_CACHE_DIR", "")
+	t.Setenv("KOMRAD_CACHE_DIR", "")
 
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.toml")
-	require.NoError(t, os.WriteFile(path, []byte("[connection]\ncache_dir = \"~/.cache/komrade-remote\"\n"), 0o600))
+	require.NoError(t, os.WriteFile(path, []byte("[connection]\ncache_dir = \"~/.cache/komrad-remote\"\n"), 0o600))
 
 	cfg, err := LoadStack(Stack{Paths: []string{path}})
 	require.NoError(t, err)
@@ -831,12 +831,12 @@ func TestCacheDirExpandsHome(t *testing.T) {
 	home, err := os.UserHomeDir()
 	require.NoError(t, err)
 
-	assert.Equal(t, filepath.Join(home, ".cache", "komrade-remote"), cfg.Connection.CacheDir)
+	assert.Equal(t, filepath.Join(home, ".cache", "komrad-remote"), cfg.Connection.CacheDir)
 	assert.NotContains(t, cfg.Connection.CacheDir, "~")
 }
 
 // loadStrict writes one config file and returns what Load made of it, with the connection
-// environment cleared so the file is what is being read rather than the pane komrade started.
+// environment cleared so the file is what is being read rather than the pane komrad started.
 func loadStrict(t *testing.T, file string) (*Config, error) {
 	t.Helper()
 
@@ -979,7 +979,7 @@ func TestLoadRejectsADatabaseUrlPostgresWouldNotAnswer(t *testing.T) {
 	}{
 		{
 			name: "another database's scheme",
-			file: "[connection]\ndatabase_url = \"mysql://root@localhost/komrade\"\n",
+			file: "[connection]\ndatabase_url = \"mysql://root@localhost/komrad\"\n",
 		},
 		{
 			name: "a string that is not a url",
@@ -1016,8 +1016,8 @@ func TestLoadRejectsADatabaseUrlPostgresWouldNotAnswer(t *testing.T) {
 // TestLoadTakesEitherPostgresScheme covers both spellings Postgres answers to.
 func TestLoadTakesEitherPostgresScheme(t *testing.T) {
 	for _, databaseURL := range []string{
-		"postgres://komrade:komrade@localhost:5460/komrade?sslmode=disable",
-		"postgresql://komrade@localhost/komrade",
+		"postgres://komrad:komrad@localhost:5460/komrad?sslmode=disable",
+		"postgresql://komrad@localhost/komrad",
 	} {
 		t.Run(databaseURL, func(t *testing.T) {
 			cfg, err := loadStrict(t, "[connection]\ndatabase_url = \""+databaseURL+"\"\n")

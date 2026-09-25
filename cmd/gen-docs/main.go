@@ -7,8 +7,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"komrade/config"
-	"komrade/internal/cli"
+	"komrad/config"
+	"komrad/internal/cli"
 
 	"github.com/spf13/cobra"
 )

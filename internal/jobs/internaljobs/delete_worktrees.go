@@ -10,9 +10,9 @@ import (
 	"slices"
 	"strings"
 
-	"komrade/internal/logging"
-	"komrade/internal/worktrees"
-	"komrade/lib/xslice"
+	"komrad/internal/logging"
+	"komrad/internal/worktrees"
+	"komrad/lib/xslice"
 
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"

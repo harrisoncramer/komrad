@@ -5,8 +5,8 @@ import (
 	"context"
 	"fmt"
 
-	"komrade/internal/position"
-	"komrade/lib/xslice"
+	"komrad/internal/position"
+	"komrad/lib/xslice"
 
 	"github.com/bluekeyes/go-gitdiff/gitdiff"
 )

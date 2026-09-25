@@ -4,49 +4,49 @@ source "$MISE_CONFIG_ROOT/mise/tasks/_build"
 set -euo pipefail
 cd "$MISE_CONFIG_ROOT"
 
-komrade="$MISE_CONFIG_ROOT/bin/komrade"
+komrad="$MISE_CONFIG_ROOT/bin/komrad"
 
-socket="${KOMRADE_TMUX_SOCKET:-komrade}"
-addr="${KOMRADE_ADDR:-127.0.0.1:8787}"
+socket="${KOMRAD_TMUX_SOCKET:-komrad}"
+addr="${KOMRAD_ADDR:-127.0.0.1:8787}"
 
-go_build_local "$komrade"
+go_build_local "$komrad"
 
 agents="$( (tmux -L "$socket" list-panes -a -F x 2>/dev/null || true) | wc -l | tr -d ' ')"
 
 tmux -L "$socket" kill-server 2>/dev/null || true
 
-if ! "$komrade" stop; then
-	pkill -f "komrade serve --addr $addr" 2>/dev/null || true
+if ! "$komrad" stop; then
+	pkill -f "komrad serve --addr $addr" 2>/dev/null || true
 fi
 
-"$komrade" migrate
+"$komrad" migrate
 
-case "${KOMRADE_DATABASE_URL:-komrade_engine_default:komrade@}" in
-*komrade_engine_default:komrade@*) KOMRADE_ENGINE_PASSWORD=komrade "$komrade" engine ensure default >/dev/null ;;
+case "${KOMRAD_DATABASE_URL:-komrad_engine_default:komrad@}" in
+*komrad_engine_default:komrad@*) KOMRAD_ENGINE_PASSWORD=komrad "$komrad" engine ensure default >/dev/null ;;
 esac
 
-if ! "$komrade" start; then
+if ! "$komrad" start; then
 	echo "warning: the server did not come up, so open the panel to see why" >&2
 	echo "killed $agents panes; the server is not running"
 	exit 1
 fi
 
-if ! "$komrade" open --detach; then
+if ! "$komrad" open --detach; then
 	echo "warning: the panel session did not come up" >&2
 	exit 1
 fi
 
-bind_panel_key "$komrade"
+bind_panel_key "$komrad"
 
-# Runs komrade with the connection read from the engine file alone.
-engine_komrade() {
-	env -u KOMRADE_ADDR -u KOMRADE_TMUX_SOCKET -u KOMRADE_DATABASE_URL -u KOMRADE_READONLY_DATABASE_URL \
-		-u KOMRADE_OWNER_DATABASE_URL -u KOMRADE_CACHE_DIR \
-		"$komrade" "$@"
+# Runs komrad with the connection read from the engine file alone.
+engine_komrad() {
+	env -u KOMRAD_ADDR -u KOMRAD_TMUX_SOCKET -u KOMRAD_DATABASE_URL -u KOMRAD_READONLY_DATABASE_URL \
+		-u KOMRAD_OWNER_DATABASE_URL -u KOMRAD_CACHE_DIR \
+		"$komrad" "$@"
 }
 
 # Replaces the server of every other engine on this machine.
-engines_dir="$HOME/.config/komrade/engines"
+engines_dir="$HOME/.config/komrad/engines"
 if [ "${MISE_ENV:-}" != test ] && [ -d "$engines_dir" ]; then
 	for file in "$engines_dir"/*.toml; do
 		[ -e "$file" ] || continue
@@ -55,8 +55,8 @@ if [ "${MISE_ENV:-}" != test ] && [ -d "$engines_dir" ]; then
 		fi
 
 		name="$(basename "$file" .toml)"
-		engine_komrade stop --engine "$name" 2>/dev/null || true
-		if ! engine_komrade start --engine "$name"; then
+		engine_komrad stop --engine "$name" 2>/dev/null || true
+		if ! engine_komrad start --engine "$name"; then
 			echo "warning: the $name engine's server did not come up" >&2
 		fi
 	done

@@ -4,14 +4,14 @@ import (
 	"context"
 	"fmt"
 
-	"komrade/internal/fail"
-	"komrade/internal/forge"
-	"komrade/internal/git"
-	"komrade/internal/rpcerr"
-	"komrade/lib/dates"
-	"komrade/lib/pagination"
-	"komrade/lib/xslice"
-	forgev1 "komrade/proto/gen/forge/v1"
+	"komrad/internal/fail"
+	"komrad/internal/forge"
+	"komrad/internal/git"
+	"komrad/internal/rpcerr"
+	"komrad/lib/dates"
+	"komrad/lib/pagination"
+	"komrad/lib/xslice"
+	forgev1 "komrad/proto/gen/forge/v1"
 )
 
 // pageCursor is where a listing left off, the forge's cursor for the next page and the size

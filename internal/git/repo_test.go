@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"komrade/lib/xptr"
+	"komrad/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

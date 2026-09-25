@@ -11,12 +11,12 @@ import (
 	"strings"
 	"time"
 
-	"komrade/internal/caller"
-	"komrade/internal/doctor"
-	"komrade/internal/errui"
-	"komrade/internal/rpcapi"
-	"komrade/internal/version"
-	"komrade/lib/xhttp"
+	"komrad/internal/caller"
+	"komrad/internal/doctor"
+	"komrad/internal/errui"
+	"komrad/internal/rpcapi"
+	"komrad/internal/version"
+	"komrad/lib/xhttp"
 
 	"github.com/spf13/cobra"
 )
@@ -122,12 +122,12 @@ func requireServer(ctx context.Context, addr, named string) error {
 			return fmt.Errorf("the engine reached through %s is not serving at %s", addr, named)
 		}
 
-		return fmt.Errorf("nothing is serving at %s, run komrade start first", named)
+		return fmt.Errorf("nothing is serving at %s, run komrad start first", named)
 	}
 
 	if probe.version != "" && !probe.current {
 		if named != addr {
-			return fmt.Errorf("%w: engine %s, this komrade %s; %s",
+			return fmt.Errorf("%w: engine %s, this komrad %s; %s",
 				errui.ErrEngineBuild,
 				version.Describe(probe.version, probe.commit),
 				version.Describe(version.Version(), version.Commit()),

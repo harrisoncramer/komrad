@@ -4,10 +4,10 @@ import (
 	"testing"
 	"time"
 
-	"komrade/internal/ui/panel"
-	agentv1 "komrade/proto/gen/agent/v1"
-	workflowv1 "komrade/proto/gen/workflow/v1"
-	worktreev1 "komrade/proto/gen/worktree/v1"
+	"komrad/internal/ui/panel"
+	agentv1 "komrad/proto/gen/agent/v1"
+	workflowv1 "komrad/proto/gen/workflow/v1"
+	worktreev1 "komrad/proto/gen/worktree/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

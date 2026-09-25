@@ -7,11 +7,11 @@ import (
 	"io"
 	"strings"
 
-	"komrade/internal/caller"
-	"komrade/internal/harness/claude"
-	"komrade/lib/xslice"
-	agentv1 "komrade/proto/gen/agent/v1"
-	"komrade/proto/gen/agent/v1/agentv1connect"
+	"komrad/internal/caller"
+	"komrad/internal/harness/claude"
+	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
+	"komrad/proto/gen/agent/v1/agentv1connect"
 
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -21,7 +21,7 @@ import (
 const promptLimit = 2000
 
 const compactedPreamble = "Your conversation was just compacted, so the summary above may have dropped " +
-	"details komrade keeps for you. This is your record as komrade holds it now."
+	"details komrad keeps for you. This is your record as komrad holds it now."
 
 func compactedHookCmd(state *app) *cobra.Command {
 	cmd := &cobra.Command{
@@ -30,7 +30,7 @@ func compactedHookCmd(state *app) *cobra.Command {
 		Long: `Remind an agent of its own record once its conversation has compacted.
 
 Claude runs this on its SessionStart event when a conversation has just been
-summarized. It reads the agent's record from komrade, its branch, pull request,
+summarized. It reads the agent's record from komrad, its branch, pull request,
 recorded metadata, open review threads, waiting mail and the task it was
 launched with, and prints it back as additional context. A panel that cannot be
 reached prints nothing.`,
@@ -41,7 +41,7 @@ reached prints nothing.`,
 
 	cmd.RunE = func(cmd *cobra.Command, _ []string) error {
 		if _, err := io.Copy(io.Discard, cmd.InOrStdin()); err != nil {
-			reportHookProblem(cmd, "komrade read no hook payload", err)
+			reportHookProblem(cmd, "komrad read no hook payload", err)
 		}
 		if state.env.AgentID == "" {
 			return nil
@@ -49,14 +49,14 @@ reached prints nothing.`,
 
 		row, err := readOwnRow(cmd.Context(), state)
 		if err != nil {
-			reportHookProblem(cmd, "komrade could not be reached, so the agent was not reminded of its record", err)
+			reportHookProblem(cmd, "komrad could not be reached, so the agent was not reminded of its record", err)
 
 			return nil
 		}
 
 		threads, err := readOpenThreads(cmd.Context(), state, threadOwner(row.GetAgent()))
 		if err != nil {
-			reportHookProblem(cmd, "komrade could not read the review threads, so they are left out", err)
+			reportHookProblem(cmd, "komrad could not read the review threads, so they are left out", err)
 		}
 
 		return json.NewEncoder(cmd.OutOrStdout()).Encode(hookOutput{

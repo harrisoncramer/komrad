@@ -3,7 +3,7 @@ package bufcheck_test
 import (
 	"testing"
 
-	"komrade/internal/bufcheck"
+	"komrad/internal/bufcheck"
 
 	"buf.build/go/bufplugin/check/checktest"
 )

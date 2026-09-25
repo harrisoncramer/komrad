@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"komrade/internal/agents"
-	transcriptstore "komrade/internal/store/transcript"
+	"komrad/internal/agents"
+	transcriptstore "komrad/internal/store/transcript"
 )
 
 const assistantRole = "assistant"

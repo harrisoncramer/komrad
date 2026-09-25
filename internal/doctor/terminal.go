@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"strings"
 
-	"komrade/internal/ui/paint/label"
-	"komrade/internal/view"
-	"komrade/lib/xslice"
+	"komrad/internal/ui/paint/label"
+	"komrad/internal/view"
+	"komrad/lib/xslice"
 )
 
 // paletteColors is the number of colours the panel's palette is mixed for.

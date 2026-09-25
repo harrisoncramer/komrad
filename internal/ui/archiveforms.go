@@ -3,8 +3,8 @@ package ui
 import (
 	"fmt"
 
-	"komrade/config"
-	"komrade/internal/ui/panel"
+	"komrad/config"
+	"komrad/internal/ui/panel"
 
 	"charm.land/huh/v2"
 )

@@ -9,7 +9,7 @@ import (
 	"testing/fstest"
 	"time"
 
-	"komrade/internal/pgtest"
+	"komrad/internal/pgtest"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -84,7 +84,7 @@ func TestMigrateConcurrently(t *testing.T) {
 	assert.Equal(t, allVersions(t), appliedVersions(t, pools[0]))
 }
 
-// TestMigrateSharedDatabase is the guard against a checkout migrating the database a running komrade
+// TestMigrateSharedDatabase is the guard against a checkout migrating the database a running komrad
 // is serving from.
 func TestMigrateSharedDatabase(t *testing.T) {
 	tests := []struct {
@@ -94,21 +94,21 @@ func TestMigrateSharedDatabase(t *testing.T) {
 		refused bool
 	}{
 		{
-			name:    "another komrade on the database refuses a pass with migrations to apply",
-			appName: "komrade/elsewhere/1",
+			name:    "another komrad on the database refuses a pass with migrations to apply",
+			appName: "komrad/elsewhere/1",
 			refused: true,
 		},
 		{
-			name:    "a connection of this process's own is not another komrade",
+			name:    "a connection of this process's own is not another komrad",
 			appName: AppName(),
 		},
 		{
-			name:    "anything else on the database is not a komrade",
+			name:    "anything else on the database is not a komrad",
 			appName: "psql",
 		},
 		{
 			name:    "a database already up to date is left alone rather than refused",
-			appName: "komrade/elsewhere/1",
+			appName: "komrad/elsewhere/1",
 			migrate: true,
 		},
 	}

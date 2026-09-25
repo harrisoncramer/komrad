@@ -6,11 +6,11 @@ import (
 	"log/slog"
 	"time"
 
-	"komrade/internal/harness"
-	"komrade/internal/logging"
+	"komrad/internal/harness"
+	"komrad/internal/logging"
 )
 
-// plan is what komrade may do to an agent's input box.
+// plan is what komrad may do to an agent's input box.
 type plan int
 
 const (
@@ -84,7 +84,7 @@ func (p *Pane) Interrupt(_ context.Context, target harness.Target) error {
 	return nil
 }
 
-// planFor reads the pane for what komrade may do to the input box it is showing.
+// planFor reads the pane for what komrad may do to the input box it is showing.
 func (p *Pane) planFor(ctx context.Context, target harness.Target) plan {
 	if !p.terminal.IsPaneRunningCLI(target.Pane) {
 		return planRefuse
@@ -112,7 +112,7 @@ func (p *Pane) planFor(ctx context.Context, target harness.Target) plan {
 	return planRefuse
 }
 
-// planForDraft is what komrade may do to a box already holding text.
+// planForDraft is what komrad may do to a box already holding text.
 func (p *Pane) planForDraft(ctx context.Context, target harness.Target, input harness.Input) plan {
 	since := p.drafts.since(target.AgentID, input.Text(), p.now())
 
@@ -130,22 +130,22 @@ func (p *Pane) planForDraft(ctx context.Context, target harness.Target, input ha
 	return planCutAndRestore
 }
 
-// warnAboutDraft says once that a box komrade will not touch is holding an agent up.
+// warnAboutDraft says once that a box komrad will not touch is holding an agent up.
 func (p *Pane) warnAboutDraft(ctx context.Context, target harness.Target) {
 	if !p.drafts.claimWarning(target.AgentID) {
 		return
 	}
 
-	// The kill ring holds one entry, so a box of more than one line has no cut komrade could put back.
+	// The kill ring holds one entry, so a box of more than one line has no cut komrad could put back.
 	logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "an agent's mail is waiting on a draft of more than one line that nobody is moving",
 		slog.String(logging.TargetAgentID, target.AgentID))
 }
 
-// restoreDraft hands an agent back the line komrade cut out of its input box, reporting rather
+// restoreDraft hands an agent back the line komrad cut out of its input box, reporting rather
 // than failing over.
 func (p *Pane) restoreDraft(ctx context.Context, target harness.Target) {
 	if err := p.terminal.YankLine(target.Pane); err != nil {
-		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to hand back the draft komrade cut out of an agent's input box, which is now only in its CLI's kill ring",
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to hand back the draft komrad cut out of an agent's input box, which is now only in its CLI's kill ring",
 			append(logging.Err(err), slog.String(logging.TargetAgentID, target.AgentID))...)
 	}
 }

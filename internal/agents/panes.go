@@ -4,10 +4,10 @@ import (
 	"context"
 	"log/slog"
 
-	"komrade/internal/logging"
-	"komrade/lib/xslice"
+	"komrad/internal/logging"
+	"komrad/lib/xslice"
 
-	agentstore "komrade/internal/store/agent"
+	agentstore "komrad/internal/store/agent"
 )
 
 func isPaneOwnedBy(owner, agentID string) bool {

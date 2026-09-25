@@ -7,7 +7,7 @@ usage() {
 	echo "Usage: mise run go:test [--kind unit|integration|all]"
 	echo
 	echo "Runs both kinds by default. A test that drives a real git, a real tmux or a"
-	echo "real komrade carries the integration build tag, so it is compiled out of a"
+	echo "real komrad carries the integration build tag, so it is compiled out of a"
 	echo "unit run rather than skipped inside one."
 	echo
 	echo "Every test in a tagged file is named TestIntegration, which is how an"
@@ -65,7 +65,7 @@ cd "$MISE_CONFIG_ROOT"
 
 # The tools are modules of their own, so the suite below does not see them. They run
 # first because a red suite under set -e would otherwise mean they never run at all.
-for TOOL in komradelint komradepkg komraderec; do
+for TOOL in komradlint komradpkg komradrec; do
 	(cd "$MISE_CONFIG_ROOT/tools/$TOOL" && gotestsum --format pkgname --format-hide-empty-pkg -- "${TAGS[@]}" ./...)
 done
 

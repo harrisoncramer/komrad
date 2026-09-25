@@ -9,9 +9,9 @@ import (
 	"slices"
 	"strings"
 
-	"komrade/internal/git"
-	"komrade/internal/logging"
-	agentstore "komrade/internal/store/agent"
+	"komrad/internal/git"
+	"komrad/internal/logging"
+	agentstore "komrad/internal/store/agent"
 )
 
 // Refusal is a directory a removal left alone, and why.

@@ -6,7 +6,7 @@ import (
 	"net"
 	"strconv"
 
-	"komrade/internal/version"
+	"komrad/internal/version"
 )
 
 const maxPort = 65535
@@ -22,7 +22,7 @@ var (
 	}
 	errAddressTaken = &ProblemError{
 		Code:    "address_taken",
-		Message: "something that is not komrade is holding the listen address",
+		Message: "something that is not komrad is holding the listen address",
 	}
 	errServerDown = &ProblemError{
 		Code:    "server_down",
@@ -30,7 +30,7 @@ var (
 	}
 	errAddressUnusable = &ProblemError{
 		Code:    "address_unusable",
-		Message: "KOMRADE_ADDR is not an address the server can listen on",
+		Message: "KOMRAD_ADDR is not an address the server can listen on",
 	}
 	errEngineUnreachable = &ProblemError{
 		Code:    "engine_unreachable",
@@ -53,7 +53,7 @@ func newServerCheck() Check {
 		Description: "the panel reads and changes agents through a local service",
 		Run: func(ctx context.Context, env Env) Result {
 			if err := requireListenable(ctx, env.Addr); err != nil {
-				return fail(err, env.Addr, "set KOMRADE_ADDR to a host and port, such as 127.0.0.1:8787")
+				return fail(err, env.Addr, "set KOMRAD_ADDR to a host and port, such as 127.0.0.1:8787")
 			}
 
 			status, err := env.ProbeServer(ctx)
@@ -70,7 +70,7 @@ func newServerCheck() Check {
 				return fail(
 					fmt.Errorf("%w: the engine answers nothing on %s", errServerDown, env.Addr),
 					env.Addr,
-					"start komrade on the engine, since its service runs whether or not a panel is open",
+					"start komrad on the engine, since its service runs whether or not a panel is open",
 				)
 
 			case !status.Answering:
@@ -82,14 +82,14 @@ func newServerCheck() Check {
 
 			case status.Version == "":
 				return fail(
-					fmt.Errorf("%w: %s answers, but not as komrade", errAddressTaken, env.Addr),
+					fmt.Errorf("%w: %s answers, but not as komrad", errAddressTaken, env.Addr),
 					env.Addr,
 					describeTakenAddressFix(env),
 				)
 
 			case !status.Current:
 				return fail(
-					fmt.Errorf("%w: %s %s, this komrade %s",
+					fmt.Errorf("%w: %s %s, this komrad %s",
 						errServerStale, describeStaleSide(env),
 						version.Describe(status.Version, status.Commit),
 						version.Describe(env.Version, env.Commit)),
@@ -138,7 +138,7 @@ func describeTakenAddressFix(env Env) string {
 		return "free the address on the engine, since what holds it is a process there"
 	}
 
-	return "free the address, or set KOMRADE_ADDR to one nothing else is using"
+	return "free the address, or set KOMRAD_ADDR to one nothing else is using"
 }
 
 func describeStaleSide(env Env) string {
@@ -155,7 +155,7 @@ func describeStaleServerFix(ctx context.Context, env Env, engineVersion, engineC
 	}
 
 	if !env.IsPanelRunning(ctx) {
-		return "komrade stop, then reopen the panel"
+		return "komrad stop, then reopen the panel"
 	}
 
 	return "tmux -L " + env.TmuxSocket + " kill-server, then reopen the panel, which also restarts every agent"
@@ -165,10 +165,10 @@ func describeStaleServerFix(ctx context.Context, env Env, engineVersion, engineC
 func StaleEngineFix(engineVersion, engineCommit string) string {
 	switch {
 	case engineCommit == "":
-		return "use the dist/komrade-panel that deploy built, since it has no commit to build from"
+		return "use the dist/komrad-panel that deploy built, since it has no commit to build from"
 	case version.IsEngineStamp(engineVersion):
-		return "build komrade from " + version.Short(engineCommit) + ", or put this local build on the engine"
+		return "build komrad from " + version.Short(engineCommit) + ", or put this local build on the engine"
 	default:
-		return "install komrade " + engineVersion + ", which the engine runs"
+		return "install komrad " + engineVersion + ", which the engine runs"
 	}
 }

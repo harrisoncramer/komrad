@@ -3,9 +3,9 @@ package ui
 import (
 	"testing"
 
-	"komrade/internal/diff"
-	"komrade/internal/ui/diffview"
-	agentv1 "komrade/proto/gen/agent/v1"
+	"komrad/internal/diff"
+	"komrad/internal/ui/diffview"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/stretchr/testify/assert"
 )

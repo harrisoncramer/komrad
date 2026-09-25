@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"komrade/internal/git"
+	"komrad/internal/git"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -571,7 +571,7 @@ func TestIntegrationParkRecoversWhatAMoveDrops(t *testing.T) {
 	writeFile(t, repo, "scratch.txt", "never committed")
 
 	dropped := out(t, repo, "rev-parse", "HEAD")
-	parked, err := client.Park(t.Context(), repo, "refs/komrade/prerefresh/a1/1")
+	parked, err := client.Park(t.Context(), repo, "refs/komrad/prerefresh/a1/1")
 	require.NoError(t, err)
 
 	prediction, err := client.PredictRebase(t.Context(), repo, "main")
@@ -598,7 +598,7 @@ func TestIntegrationParkLeavesTheCheckoutAlone(t *testing.T) {
 	before := out(t, repo, "status", "--porcelain")
 	head := out(t, repo, "rev-parse", "HEAD")
 
-	_, err := client.Park(t.Context(), repo, "refs/komrade/prerefresh/a1/1")
+	_, err := client.Park(t.Context(), repo, "refs/komrad/prerefresh/a1/1")
 	require.NoError(t, err)
 
 	assert.Equal(t, before, out(t, repo, "status", "--porcelain"), "the working tree reads the same")
@@ -611,14 +611,14 @@ func TestIntegrationReleaseRefsUnderKeepsOnlyTheCurrent(t *testing.T) {
 
 	repo := newRepo(t)
 	head := out(t, repo, "rev-parse", "HEAD")
-	for _, ref := range []string{"refs/komrade/prerefresh/a1/1", "refs/komrade/prerefresh/a1/2", "refs/komrade/prerefresh/a2/1"} {
+	for _, ref := range []string{"refs/komrad/prerefresh/a1/1", "refs/komrad/prerefresh/a1/2", "refs/komrad/prerefresh/a2/1"} {
 		run(t, repo, "update-ref", ref, head)
 	}
 
-	require.NoError(t, client.ReleaseRefsUnder(t.Context(), repo, "refs/komrade/prerefresh/a1/", "refs/komrade/prerefresh/a1/2"))
+	require.NoError(t, client.ReleaseRefsUnder(t.Context(), repo, "refs/komrad/prerefresh/a1/", "refs/komrad/prerefresh/a1/2"))
 
-	left := out(t, repo, "for-each-ref", "--format=%(refname)", "refs/komrade/prerefresh/")
-	assert.Equal(t, "refs/komrade/prerefresh/a1/2\nrefs/komrade/prerefresh/a2/1", left,
+	left := out(t, repo, "for-each-ref", "--format=%(refname)", "refs/komrad/prerefresh/")
+	assert.Equal(t, "refs/komrad/prerefresh/a1/2\nrefs/komrad/prerefresh/a2/1", left,
 		"the current park stays and another agent's is untouched")
 }
 

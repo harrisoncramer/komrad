@@ -13,11 +13,11 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"komrade/internal/forge"
-	"komrade/internal/forge/github"
-	"komrade/internal/forge/gitlab"
-	"komrade/internal/komradetest"
-	forgev1 "komrade/proto/gen/forge/v1"
+	"komrad/internal/forge"
+	"komrad/internal/forge/github"
+	"komrad/internal/forge/gitlab"
+	"komrad/internal/komradtest"
+	forgev1 "komrad/proto/gen/forge/v1"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
@@ -25,9 +25,9 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// forgeTokenEnv names a GitHub token that reads harrisoncramer/komrade-forge-fixture, and the
+// forgeTokenEnv names a GitHub token that reads harrisoncramer/komrad-forge-fixture, and the
 // live test skips without one so the suite never needs the network.
-const forgeTokenEnv = "KOMRADE_E2E_GITHUB_TOKEN"
+const forgeTokenEnv = "KOMRAD_E2E_GITHUB_TOKEN"
 
 // fakeForge is a forge answering a fixed pair of pull requests from one branch of one
 // repository, counting how often it was asked for the open one's review decision.
@@ -39,7 +39,7 @@ type fakeForge struct {
 // TestIntegrationForges walks a person connecting a forge, using it, and disconnecting it.
 func TestIntegrationForges(t *testing.T) {
 	fake := startFakeGitHub(t)
-	instance := komradetest.Start(t, komradetest.Params{
+	instance := komradtest.Start(t, komradtest.Params{
 		ForgeBuilders: map[string]forge.Builder{forge.KindGitHub: buildGitHub(fake.server)},
 	})
 	ctx := t.Context()
@@ -108,7 +108,7 @@ func TestIntegrationForgeSpeaksToGitHub(t *testing.T) {
 		t.Skipf("%s is not set", forgeTokenEnv)
 	}
 
-	instance := komradetest.Start(t, komradetest.Params{})
+	instance := komradtest.Start(t, komradtest.Params{})
 	ctx := t.Context()
 
 	connected, err := instance.Forges.ConnectForge(ctx, connect.NewRequest(&forgev1.ConnectForgeRequest{Host: "github.com", Token: token}))
@@ -121,7 +121,7 @@ func TestIntegrationForgeSpeaksToGitHub(t *testing.T) {
 	assert.Empty(t, checked.Msg.GetChecks()[0].GetProblem())
 
 	pullRequests, err := instance.Forges.ListForgePullRequests(ctx, connect.NewRequest(&forgev1.ListForgePullRequestsRequest{
-		RemoteUrl: "git@github.com:harrisoncramer/komrade-forge-fixture.git",
+		RemoteUrl: "git@github.com:harrisoncramer/komrad-forge-fixture.git",
 		Branch:    "fixture/open",
 	}))
 	require.NoError(t, err)

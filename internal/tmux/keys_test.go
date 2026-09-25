@@ -71,7 +71,7 @@ func TestIsPanelPassThroughTellsThePanelsBindingFromTheUsers(t *testing.T) {
 		},
 		{
 			name:    "a pass-through as tmux prints it",
-			command: `if-shell -F "#{==:#{pane_id},#{@komrade_panel_pane}}" send-keys "copy-mode -u"`,
+			command: `if-shell -F "#{==:#{pane_id},#{@komrad_panel_pane}}" send-keys "copy-mode -u"`,
 			want:    true,
 		},
 	}

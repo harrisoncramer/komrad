@@ -6,12 +6,12 @@ import (
 	"strings"
 	"testing"
 
-	"komrade/internal/ui/paint"
-	agentv1 "komrade/proto/gen/agent/v1"
-	"komrade/proto/gen/agent/v1/agentv1connect"
-	pullrequestv1 "komrade/proto/gen/pullrequest/v1"
-	workflowv1 "komrade/proto/gen/workflow/v1"
-	"komrade/proto/gen/workflow/v1/workflowv1connect"
+	"komrad/internal/ui/paint"
+	agentv1 "komrad/proto/gen/agent/v1"
+	"komrad/proto/gen/agent/v1/agentv1connect"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
+	workflowv1 "komrad/proto/gen/workflow/v1"
+	"komrad/proto/gen/workflow/v1/workflowv1connect"
 
 	"connectrpc.com/connect"
 	"github.com/charmbracelet/x/ansi"
@@ -517,14 +517,14 @@ func TestArchiveDocument(t *testing.T) {
 		agent := newArchivedAgent("a1", "api-refactor", "w1")
 		agent.CreatedAt = "2026-07-29T09:00:00Z"
 		agent.Branch = proto.String("agent/a1")
-		agent.RepositoryUrl = proto.String("https://github.com/harrisoncramer/komrade")
+		agent.RepositoryUrl = proto.String("https://github.com/harrisoncramer/komrad")
 		harness := openArchive(t,
 			newLiveWorkflow("w1", "backend"),
 			agent,
 			&pullrequestv1.PullRequest{
 				Id:                "pr-42",
-				RepositoryUrl:     "https://github.com/harrisoncramer/komrade",
-				HeadRepositoryUrl: "https://github.com/harrisoncramer/komrade",
+				RepositoryUrl:     "https://github.com/harrisoncramer/komrad",
+				HeadRepositoryUrl: "https://github.com/harrisoncramer/komrad",
 				HeadBranch:        "agent/a1",
 				Number:            42,
 				State:             pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED,

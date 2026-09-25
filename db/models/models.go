@@ -236,7 +236,7 @@ type Agent struct {
 	Flags  string
 	Prompt string
 	PaneID string
-	// What the agent is doing. Komrade captures the agent's terminal every couple of seconds and writes here what it read there. Uncertain means the terminal was captured but could not be understood. The setup and failure values never come from reading a terminal, so something else sets those.
+	// What the agent is doing. Komrad captures the agent's terminal every couple of seconds and writes here what it read there. Uncertain means the terminal was captured but could not be understood. The setup and failure values never come from reading a terminal, so something else sets those.
 	State            AgentState
 	StateChangedAt   time.Time
 	Harness          string
@@ -267,9 +267,9 @@ type Agent struct {
 	// Whether the hold cut a turn that was still running, which is what decides whether letting go has to type the agent back into motion or merely stop holding it.
 	HeldMidTurn bool
 	NudgeSentAt *time.Time
-	// Whether a merge, a rebase or a cherry-pick is part-way through the agent's checkout and waiting on somebody. Komrade reads the checkout every few seconds and writes what it found here, so settling the sequence by hand clears this on its own.
+	// Whether a merge, a rebase or a cherry-pick is part-way through the agent's checkout and waiting on somebody. Komrad reads the checkout every few seconds and writes what it found here, so settling the sequence by hand clears this on its own.
 	SequenceInProgress bool
-	// The canonical web address of the repository the agent's checkout pushes to, such as https://github.com/harrisoncramer/komrade. Null when the checkout is gone or its origin is not a forge. The cwd syncer rewrites it on the same pass that rewrites branch.
+	// The canonical web address of the repository the agent's checkout pushes to, such as https://github.com/harrisoncramer/komrad. Null when the checkout is gone or its origin is not a forge. The cwd syncer rewrites it on the same pass that rewrites branch.
 	RepositoryUrl *string
 	// When a delete claimed the row. A claimed row is left out of every listing until the delete either removes it or fails, and a failure clears the claim as it records itself. The server clears every claim when it starts, since nothing survives a restart to finish one.
 	DeletingAt *time.Time
@@ -309,7 +309,7 @@ type AgentPullRequest struct {
 	TenantID string
 }
 
-// One run of a script komrade fired for an agent. The output stays on disk and this row says where to find it.
+// One run of a script komrad fired for an agent. The output stays on disk and this row says where to find it.
 type AgentRun struct {
 	ID         string
 	AgentID    string
@@ -350,7 +350,7 @@ type AgentTranscriptSession struct {
 	TenantID string
 }
 
-// A branch komrade has listed the pull requests of on purpose, once, which is what finds a pull request older than the sync's horizon on a branch an agent adopted.
+// A branch komrad has listed the pull requests of on purpose, once, which is what finds a pull request older than the sync's horizon on a branch an agent adopted.
 type BranchScan struct {
 	RepositoryUrl string
 	Branch        string
@@ -362,7 +362,7 @@ type BranchScan struct {
 	TenantID string
 }
 
-// A forge komrade has been connected to, one row per host, holding who the credential was verified as. The credential itself is a file under komrade's state directory rather than a column.
+// A forge komrad has been connected to, one row per host, holding who the credential was verified as. The credential itself is a file under komrad's state directory rather than a column.
 type ForgeConnection struct {
 	ID string
 	// Which forge the host runs: github or gitlab.
@@ -397,9 +397,9 @@ type Mail struct {
 	ExpiresAt   time.Time
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
-	// Who wrote the mail and why. Plain is mail an agent sent. The other values are notices komrade raised itself, which the panel draws differently. Komrade also counts unread notices by this value. One unread notice of a kind is enough however much is waiting behind it.
+	// Who wrote the mail and why. Plain is mail an agent sent. The other values are notices komrad raised itself, which the panel draws differently. Komrad also counts unread notices by this value. One unread notice of a kind is enough however much is waiting behind it.
 	Kind MailKind
-	// The other agent a komrade notice is about, null on ordinary mail. Counting unread notices by this column gives the recipient one notice per subject rather than one per kind, so an agent that hits the exchange cap with a second partner is told about that partner too. There is no foreign key here on purpose. The notice has to keep naming the agent whose exchange was cut off after that agent is gone.
+	// The other agent a komrad notice is about, null on ordinary mail. Counting unread notices by this column gives the recipient one notice per subject rather than one per kind, so an agent that hits the exchange cap with a second partner is told about that partner too. There is no foreign key here on purpose. The notice has to keep naming the agent whose exchange was cut off after that agent is gone.
 	AboutAgentID *string
 	// The engine that owns this row, stamped from the login that wrote it.
 	TenantID string
@@ -416,7 +416,7 @@ type Mark struct {
 	TenantID string
 }
 
-// A pull request komrade has read from a forge, one row per forge identity and none owned by an agent. Finished is derived: merged when merged_at is set, closed when closed_at is set and merged_at is not, open otherwise.
+// A pull request komrad has read from a forge, one row per forge identity and none owned by an agent. Finished is derived: merged when merged_at is set, closed when closed_at is set and merged_at is not, open otherwise.
 type PullRequest struct {
 	ID string
 	// The forge host the repository lives on, such as github.com, taken from the repository URL. Two installations of one forge hand out overlapping identifiers, so the host is part of the identity.
@@ -443,23 +443,23 @@ type PullRequest struct {
 	State string
 	// When the forge says it was opened, which is what orders the pull requests on one branch.
 	OpenedAt time.Time
-	// The forge's own last-change stamp, which is what the sync pages by. It is the forge's clock and not komrade's, so it is not named updated_at and carries no trigger.
+	// The forge's own last-change stamp, which is what the sync pages by. It is the forge's clock and not komrad's, so it is not named updated_at and carries no trigger.
 	ChangedAt time.Time
 	MergedAt  *time.Time
 	ClosedAt  *time.Time
-	// When komrade first inserted the row.
+	// When komrad first inserted the row.
 	FirstSeenAt time.Time
-	// Where the forge says the reviews stand, in komrade's own words: pending, approved or changes_requested, null while it has said nothing.
+	// Where the forge says the reviews stand, in komrad's own words: pending, approved or changes_requested, null while it has said nothing.
 	ReviewDecision *string
 	// The changed_at the review decision was read for, stale once changed_at has moved past it.
 	DecisionChangedAt *time.Time
-	// Where the forge says the checks on the head commit stand, in komrade's own words: pending, passing or failing, null while it reports none. A check finishing does not move changed_at, so the checks are kept fresh by checks_sha and checks_read_at rather than by the change stamp.
+	// Where the forge says the checks on the head commit stand, in komrad's own words: pending, passing or failing, null while it reports none. A check finishing does not move changed_at, so the checks are kept fresh by checks_sha and checks_read_at rather than by the change stamp.
 	Checks *string
 	// The head commit the checks were read for, stale once head_sha has moved past it.
 	ChecksSha *string
 	// When the checks and mergeability were last read, which is what paces every re-read.
 	ChecksReadAt *time.Time
-	// Where the forge says the pull request stands against its base and its branch rules, in komrade's own words: clean, unstable, blocked, behind or conflicting, null while the forge has not computed it. Read with the checks and kept fresh the same way.
+	// Where the forge says the pull request stands against its base and its branch rules, in komrad's own words: clean, unstable, blocked, behind or conflicting, null while the forge has not computed it. Read with the checks and kept fresh the same way.
 	Mergeability *string
 	// The engine that owns this row, stamped from the login that wrote it.
 	TenantID string
@@ -498,7 +498,7 @@ type Review struct {
 	Verdict NullReviewVerdict
 	// When the review was released, null while it is still being written. None of it reaches the agent until this is set.
 	ReleasedAt *time.Time
-	// The absolute path of the file the released review was written to, empty while the review is still open. The file lives in komrade's own state directory rather than in the agent's checkout.
+	// The absolute path of the file the released review was written to, empty while the review is still open. The file lives in komrad's own state directory rather than in the agent's checkout.
 	Path string
 	// The mail that told the agent a review was waiting. Deleting that mail clears this column rather than deleting the review, so a review whose notice was thrown away reads as undelivered.
 	DoorbellMailID *string
@@ -538,7 +538,7 @@ type ReviewRound struct {
 	Ordinal int32
 	// The commit the agent's branch started from. It is resolved once, when the round is taken, so later movement on the base branch cannot change what the round says.
 	BaseSha string
-	// A commit covering the agent's whole checkout, tracked and untracked files alike. A ref under refs/komrade/rounds keeps it alive so git will not collect it. Writing it leaves the agent's own branch, index and files alone.
+	// A commit covering the agent's whole checkout, tracked and untracked files alike. A ref under refs/komrad/rounds keeps it alive so git will not collect it. Writing it leaves the agent's own branch, index and files alone.
 	SnapshotSha string
 	CreatedAt   time.Time
 	// The engine that owns this row, stamped from the login that wrote it.

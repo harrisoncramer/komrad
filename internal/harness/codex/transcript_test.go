@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"komrade/internal/harness"
+	"komrad/internal/harness"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -19,8 +19,8 @@ const (
 	abortedRecord          = `{"type":"response_item","payload":{"type":"message","role":"developer","content":[{"type":"input_text","text":"<turn_aborted>\nThe previous turn was interrupted on purpose."}]}}`
 	environmentRecord      = `{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"<environment_context>\n  <cwd>/repo/worktree</cwd>\n  <shell>zsh</shell>"}]}}`
 	promptRecord           = `{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"how do I use trigram search"}]}}`
-	briefedRecord          = `{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"<panel_briefing>\nYou are a background agent run by komrade.\n</panel_briefing>\n\nhow do I use trigram search"}]}}`
-	briefingOnlyRecord     = `{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"<panel_briefing>\nYou are a background agent run by komrade.\n</panel_briefing>"}]}}`
+	briefedRecord          = `{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"<panel_briefing>\nYou are a background agent run by komrad.\n</panel_briefing>\n\nhow do I use trigram search"}]}}`
+	briefingOnlyRecord     = `{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"<panel_briefing>\nYou are a background agent run by komrad.\n</panel_briefing>"}]}}`
 	unclosedBriefingRecord = `{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"<panel_briefing>\nYou are a background agent"}]}}`
 	answerRecord           = `{"type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"Use the tsvector column."}]}}`
 	eventRecord            = `{"timestamp":"2026-07-30T12:41:40Z","type":"event_msg","payload":{"type":"task_started"}}`

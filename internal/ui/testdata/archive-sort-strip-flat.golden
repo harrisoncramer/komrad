@@ -14,7 +14,7 @@
 [90m────────────────────────────────────────────[m
   [90mname      [m reviewer
   [90magent     [m claude
-  [90mworkflow  [m komrade
+  [90mworkflow  [m komrad
   [90mdirectory [m /trees/archived
   [90mflags     [m —
   [90magent_id  [m archived
@@ -23,6 +23,6 @@
 
 [90m────────────────────────────────────────────[m
 [92m✔[m No messages
-[90m  Komrade is running normally[m
+[90m  Komrad is running normally[m
 [90m────────────────────────────────────────────[m
 [90mr[m [90mrestore[m[90m • [m[90m?[m [90mshow help[m

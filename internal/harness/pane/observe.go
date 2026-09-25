@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"komrade/internal/harness"
+	"komrad/internal/harness"
 )
 
 // Observe reads the frame the agent's pane is drawing through the harness that drew it.

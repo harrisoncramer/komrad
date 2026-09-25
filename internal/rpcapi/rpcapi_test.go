@@ -3,12 +3,12 @@ package rpcapi
 import (
 	"testing"
 
-	annotationv1 "komrade/proto/gen/annotation/v1"
+	annotationv1 "komrad/proto/gen/annotation/v1"
 
 	"github.com/stretchr/testify/assert"
 )
 
-// TestUnspecifiedIsServedEverything checks that a caller komrade cannot place loses nothing.
+// TestUnspecifiedIsServedEverything checks that a caller komrad cannot place loses nothing.
 func TestUnspecifiedIsServedEverything(t *testing.T) {
 	every := map[string]bool{}
 	served := map[string]bool{}

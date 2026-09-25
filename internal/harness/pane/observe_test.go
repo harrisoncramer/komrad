@@ -3,8 +3,8 @@ package pane
 import (
 	"testing"
 
-	"komrade/internal/harness"
-	"komrade/internal/harnesstest"
+	"komrad/internal/harness"
+	"komrad/internal/harnesstest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

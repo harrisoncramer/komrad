@@ -3,9 +3,9 @@ package diffview
 import (
 	"testing"
 
-	"komrade/internal/diff"
-	"komrade/internal/ui/paint"
-	agentv1 "komrade/proto/gen/agent/v1"
+	"komrad/internal/diff"
+	"komrad/internal/ui/paint"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"

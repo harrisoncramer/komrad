@@ -8,20 +8,20 @@ import (
 	"testing"
 	"time"
 
-	"komrade/internal/agents"
-	"komrade/internal/caller"
-	"komrade/internal/logging"
-	"komrade/internal/logtest"
-	"komrade/internal/mail"
-	"komrade/internal/rpc/render"
-	"komrade/internal/tmuxtest"
-	"komrade/lib/xptr"
-	agentv1 "komrade/proto/gen/agent/v1"
-	"komrade/proto/gen/agent/v1/agentv1komrade"
-	paginationv1 "komrade/proto/gen/pagination/v1"
+	"komrad/internal/agents"
+	"komrad/internal/caller"
+	"komrad/internal/logging"
+	"komrad/internal/logtest"
+	"komrad/internal/mail"
+	"komrad/internal/rpc/render"
+	"komrad/internal/tmuxtest"
+	"komrad/lib/xptr"
+	agentv1 "komrad/proto/gen/agent/v1"
+	"komrad/proto/gen/agent/v1/agentv1komrad"
+	paginationv1 "komrad/proto/gen/pagination/v1"
 
-	agentstore "komrade/internal/store/agent"
-	mailstore "komrade/internal/store/mail"
+	agentstore "komrad/internal/store/agent"
+	mailstore "komrad/internal/store/mail"
 
 	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
@@ -111,7 +111,7 @@ func (f *fakeMailer) DeleteMail(_ context.Context, ids []string) error {
 
 // TestMailRefusalsMapToCodes pins the code each refusal of the mail service reaches the caller as.
 func TestMailRefusalsMapToCodes(t *testing.T) {
-	send := func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+	send := func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 		_, err := svc.SendMail(ctx, connect.NewRequest(&agentv1.SendMailRequest{
 			To:   betaID,
 			Body: "hello",
@@ -119,12 +119,12 @@ func TestMailRefusalsMapToCodes(t *testing.T) {
 
 		return err
 	}
-	read := func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+	read := func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 		_, err := svc.ReadMail(ctx, connect.NewRequest(&agentv1.ReadMailRequest{}))
 
 		return err
 	}
-	list := func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+	list := func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 		_, err := svc.ListMail(ctx, connect.NewRequest(&agentv1.ListMailRequest{}))
 
 		return err
@@ -132,7 +132,7 @@ func TestMailRefusalsMapToCodes(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		call      func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error
+		call      func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error
 		err       error
 		atResolve bool
 		asNobody  bool
@@ -208,7 +208,7 @@ func TestMailRefusalsMapToCodes(t *testing.T) {
 		},
 		{
 			name: "listing with a page token that does not decode",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				_, err := svc.ListMail(ctx, connect.NewRequest(&agentv1.ListMailRequest{
 					Pagination: &paginationv1.Pagination{Cursor: proto.String("not a token")},
 				}))
@@ -231,7 +231,7 @@ func TestMailRefusalsMapToCodes(t *testing.T) {
 		},
 		{
 			name: "deleting mail nothing holds",
-			call: func(ctx context.Context, svc agentv1komrade.AgentServiceAdapter) error {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				_, err := svc.DeleteMail(ctx, connect.NewRequest(&agentv1.DeleteMailRequest{Ids: []string{betaID}}))
 
 				return err
@@ -510,10 +510,10 @@ func TestDeleteMail(t *testing.T) {
 }
 
 // newMailHandler is the handler over a fake mail service, reading liveness off a fake tmux.
-func newMailHandler(mailer *fakeMailer) (agentv1komrade.AgentServiceAdapter, *tmuxtest.Fake) {
+func newMailHandler(mailer *fakeMailer) (agentv1komrad.AgentServiceAdapter, *tmuxtest.Fake) {
 	terminal := tmuxtest.NewFake()
 
-	return agentv1komrade.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{
+	return agentv1komrad.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{
 		Mail:     mailer,
 		Liveness: agents.NewPaneLiveness(terminal),
 	})}, terminal

@@ -7,7 +7,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"komrade/internal/fail"
+	"komrad/internal/fail"
 )
 
 // ErrRebaseConflicted says a rebase stopped part-way on paths it could not settle.

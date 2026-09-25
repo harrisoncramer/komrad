@@ -1,10 +1,10 @@
 package render
 
 import (
-	"komrade/internal/forge"
-	pullrequeststore "komrade/internal/store/pullrequest"
-	"komrade/lib/dates"
-	pullrequestv1 "komrade/proto/gen/pullrequest/v1"
+	"komrad/internal/forge"
+	pullrequeststore "komrad/internal/store/pullrequest"
+	"komrad/lib/dates"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 )
 
 // PullRequest draws one stored pull request as the wire carries it.

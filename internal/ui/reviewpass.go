@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"slices"
 
-	agentv1 "komrade/proto/gen/agent/v1"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
 	"connectrpc.com/connect"

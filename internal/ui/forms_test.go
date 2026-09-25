@@ -8,16 +8,16 @@ import (
 	"strings"
 	"testing"
 
-	"komrade/config"
-	"komrade/internal/ui"
-	"komrade/lib/xslice"
-	agentv1 "komrade/proto/gen/agent/v1"
-	"komrade/proto/gen/agent/v1/agentv1connect"
-	hookv1 "komrade/proto/gen/hook/v1"
-	"komrade/proto/gen/hook/v1/hookv1connect"
-	workflowv1 "komrade/proto/gen/workflow/v1"
-	"komrade/proto/gen/workflow/v1/workflowv1connect"
-	"komrade/proto/gen/worktree/v1/worktreev1connect"
+	"komrad/config"
+	"komrad/internal/ui"
+	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
+	"komrad/proto/gen/agent/v1/agentv1connect"
+	hookv1 "komrad/proto/gen/hook/v1"
+	"komrad/proto/gen/hook/v1/hookv1connect"
+	workflowv1 "komrad/proto/gen/workflow/v1"
+	"komrad/proto/gen/workflow/v1/workflowv1connect"
+	"komrad/proto/gen/worktree/v1/worktreev1connect"
 
 	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
@@ -409,11 +409,11 @@ func TestFormsArchivePrompt(t *testing.T) {
 
 		binary.isReplaced = true
 		harness.fireTimers()
-		require.NotContains(t, harness.readFrame(), "komrade was rebuilt", "the write is still in flight")
+		require.NotContains(t, harness.readFrame(), "komrad was rebuilt", "the write is still in flight")
 
 		harness.release(agentv1connect.AgentServiceArchiveAgentsProcedure)
 		harness.fireTimers()
-		assert.Contains(t, harness.readFrame(), "komrade was rebuilt")
+		assert.Contains(t, harness.readFrame(), "komrad was rebuilt")
 	})
 
 	t.Run("a refused workflow archive says why and keeps the workflow", func(t *testing.T) {

@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"komrade/config"
-	"komrade/internal/tmuxtest"
+	"komrad/config"
+	"komrad/internal/tmuxtest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

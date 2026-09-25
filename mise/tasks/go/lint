@@ -27,13 +27,13 @@ done
 
 cd "$MISE_CONFIG_ROOT"
 
-MODULES=(. tools/komradelint tools/komradepkg tools/komraderec)
+MODULES=(. tools/komradlint tools/komradpkg tools/komradrec)
 
 CONFIG="$MISE_CONFIG_ROOT/.golangci.yaml"
 BIN_PATH="$MISE_CONFIG_ROOT/local/custom-gcl"
 SUM_PATH="$BIN_PATH.sum"
 
-# komrade's own rules are built into the binary from a path rather than pinned as a
+# komrad's own rules are built into the binary from a path rather than pinned as a
 # version, so a binary older than them lints with the rules as they used to be.
 if [ ! -x "$BIN_PATH" ]; then
 	echo "==> custom-gcl missing, building it"

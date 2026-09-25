@@ -1,8 +1,8 @@
 package ui
 
 import (
-	"komrade/internal/assemble"
-	"komrade/lib/xslice"
+	"komrad/internal/assemble"
+	"komrad/lib/xslice"
 
 	tea "charm.land/bubbletea/v2"
 )

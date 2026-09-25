@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"komrade/internal/cli"
-	"komrade/internal/logging"
+	"komrad/internal/cli"
+	"komrad/internal/logging"
 )
 
 func main() {

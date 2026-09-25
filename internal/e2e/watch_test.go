@@ -11,27 +11,27 @@ import (
 	"testing"
 	"time"
 
-	"komrade/internal/assemble"
-	"komrade/internal/client"
-	"komrade/internal/komradetest"
-	"komrade/internal/rpc/render"
-	"komrade/internal/storetest"
-	"komrade/lib/xptr"
-	"komrade/lib/xslice"
+	"komrad/internal/assemble"
+	"komrad/internal/client"
+	"komrad/internal/komradtest"
+	"komrad/internal/rpc/render"
+	"komrad/internal/storetest"
+	"komrad/lib/xptr"
+	"komrad/lib/xslice"
 
-	agentstore "komrade/internal/store/agent"
-	mailstore "komrade/internal/store/mail"
-	markstore "komrade/internal/store/mark"
-	pullrequeststore "komrade/internal/store/pullrequest"
-	reviewstore "komrade/internal/store/review"
-	rowstore "komrade/internal/store/row"
-	schedulestore "komrade/internal/store/schedule"
-	workflowstore "komrade/internal/store/workflow"
-	agentv1 "komrade/proto/gen/agent/v1"
-	pullrequestv1 "komrade/proto/gen/pullrequest/v1"
-	schedulev1 "komrade/proto/gen/schedule/v1"
-	viewv1 "komrade/proto/gen/view/v1"
-	workflowv1 "komrade/proto/gen/workflow/v1"
+	agentstore "komrad/internal/store/agent"
+	mailstore "komrad/internal/store/mail"
+	markstore "komrad/internal/store/mark"
+	pullrequeststore "komrad/internal/store/pullrequest"
+	reviewstore "komrad/internal/store/review"
+	rowstore "komrad/internal/store/row"
+	schedulestore "komrad/internal/store/schedule"
+	workflowstore "komrad/internal/store/workflow"
+	agentv1 "komrad/proto/gen/agent/v1"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
+	schedulev1 "komrad/proto/gen/schedule/v1"
+	viewv1 "komrad/proto/gen/view/v1"
+	workflowv1 "komrad/proto/gen/workflow/v1"
 
 	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
@@ -42,7 +42,7 @@ import (
 )
 
 const (
-	watchedRepository = "https://github.com/harrisoncramer/komrade"
+	watchedRepository = "https://github.com/harrisoncramer/komrad"
 	agreeWithin       = 10 * time.Second
 )
 
@@ -51,7 +51,7 @@ const (
 // the list and get RPCs answer all assemble to the same rows, and a change written after the
 // stream opened brings the watched world back to the stores through the events alone.
 func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
-	instance := komradetest.Start(t, komradetest.Params{})
+	instance := komradtest.Start(t, komradtest.Params{})
 	ctx := t.Context()
 	st := instance.Stores
 
@@ -258,7 +258,7 @@ func viewOf(w assemble.World, now time.Time) view {
 }
 
 // viewFromRPCs is what the list RPCs answer.
-func viewFromRPCs(t *testing.T, instance *komradetest.Instance) view {
+func viewFromRPCs(t *testing.T, instance *komradtest.Instance) view {
 	t.Helper()
 	ctx := t.Context()
 
@@ -289,7 +289,7 @@ func viewFromRPCs(t *testing.T, instance *komradetest.Instance) view {
 
 // viewFromGets is what GetAgent answers for each of the agents a view holds, beside the rest of
 // that view.
-func viewFromGets(t *testing.T, instance *komradetest.Instance, listed view) view {
+func viewFromGets(t *testing.T, instance *komradtest.Instance, listed view) view {
 	t.Helper()
 
 	got := view{
@@ -374,7 +374,7 @@ func worldFromStores(t *testing.T, st *storetest.Stores) assemble.World {
 
 // requireAgreement asserts the watched world, the stores, the list RPCs and GetAgent all say
 // the same thing.
-func requireAgreement(t *testing.T, instance *komradetest.Instance, watched *assemble.World) {
+func requireAgreement(t *testing.T, instance *komradtest.Instance, watched *assemble.World) {
 	t.Helper()
 
 	now := time.Now()
@@ -388,7 +388,7 @@ func requireAgreement(t *testing.T, instance *komradetest.Instance, watched *ass
 
 // awaitAgreement applies batches until the watched world assembles to what the stores hold,
 // then asserts the RPCs agree too.
-func awaitAgreement(t *testing.T, instance *komradetest.Instance, watched *assemble.World, batches <-chan client.WatchBatch) {
+func awaitAgreement(t *testing.T, instance *komradtest.Instance, watched *assemble.World, batches <-chan client.WatchBatch) {
 	t.Helper()
 
 	deadline := time.After(agreeWithin)
@@ -466,7 +466,7 @@ func nameOf(rows ...*agentv1.AgentRow) string {
 }
 
 // openWatch holds a watch open for the test, handing over each batch the stream delivers.
-func openWatch(t *testing.T, instance *komradetest.Instance) <-chan client.WatchBatch {
+func openWatch(t *testing.T, instance *komradtest.Instance) <-chan client.WatchBatch {
 	t.Helper()
 
 	ctx, cancel := context.WithCancel(t.Context())

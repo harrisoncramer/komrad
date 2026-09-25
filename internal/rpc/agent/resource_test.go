@@ -3,8 +3,8 @@ package agent
 import (
 	"testing"
 
-	transcriptstore "komrade/internal/store/transcript"
-	"komrade/internal/ui/paint"
+	transcriptstore "komrad/internal/store/transcript"
+	"komrad/internal/ui/paint"
 
 	"github.com/stretchr/testify/assert"
 )

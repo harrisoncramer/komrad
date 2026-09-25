@@ -7,7 +7,7 @@ import (
 	"net/url"
 	"strings"
 
-	"komrade/internal/logging"
+	"komrad/internal/logging"
 )
 
 // NewLocalGuard refuses a request that was aimed somewhere else before a handler sees it, which

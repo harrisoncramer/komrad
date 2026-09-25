@@ -4,14 +4,14 @@ import (
 	"testing"
 	"time"
 
-	"komrade/internal/assemble"
-	"komrade/lib/dates"
-	"komrade/lib/xptr"
+	"komrad/internal/assemble"
+	"komrad/lib/dates"
+	"komrad/lib/xptr"
 
-	agentv1 "komrade/proto/gen/agent/v1"
-	pullrequestv1 "komrade/proto/gen/pullrequest/v1"
-	watchv1 "komrade/proto/gen/watch/v1"
-	workflowv1 "komrade/proto/gen/workflow/v1"
+	agentv1 "komrad/proto/gen/agent/v1"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
+	watchv1 "komrad/proto/gen/watch/v1"
+	workflowv1 "komrad/proto/gen/workflow/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

@@ -8,19 +8,19 @@ import (
 	"strings"
 	"time"
 
-	"komrade/config"
-	"komrade/internal/fail"
-	"komrade/internal/git"
-	"komrade/internal/store"
-	agentstore "komrade/internal/store/agent"
-	"komrade/lib/xpath"
-	"komrade/lib/xptr"
-	"komrade/lib/xstr"
+	"komrad/config"
+	"komrad/internal/fail"
+	"komrad/internal/git"
+	"komrad/internal/store"
+	agentstore "komrad/internal/store/agent"
+	"komrad/lib/xpath"
+	"komrad/lib/xptr"
+	"komrad/lib/xstr"
 )
 
 var ErrAdoptNeedsWorktree = fail.Precondition("adoption needs a workflow whose agents get a worktree of their own")
 
-var ErrAdoptNotABranch = fail.InvalidArgument("komrade adopts a branch, and this is not one")
+var ErrAdoptNotABranch = fail.InvalidArgument("komrad adopts a branch, and this is not one")
 
 var ErrAdoptBranchInUse = fail.Precondition("that branch is already checked out")
 
@@ -77,7 +77,7 @@ type AdoptParams struct {
 	IdempotencyKey string
 }
 
-// Adopt puts an agent on a branch komrade did not make, running it either in a worktree of its
+// Adopt puts an agent on a branch komrad did not make, running it either in a worktree of its
 // own or in the checkout already holding the branch.
 func (s *AdoptService) Adopt(ctx context.Context, params AdoptParams) (*agentstore.Agent, error) {
 	branch := strings.TrimSpace(params.Ref)
@@ -156,7 +156,7 @@ func (s *AdoptService) Adopt(ctx context.Context, params AdoptParams) (*agentsto
 		return nil, fmt.Errorf("%w: %s is the worktree of agent %s, so adopting into it would hand one directory to two agents", ErrAdoptBranchInUse, trees.holder, owner.Name)
 	default:
 		// The checkout is somebody else's work, so the provisioner is turned off to stop the
-		// workflow making a second one and, on delete, removing a directory komrade never created.
+		// workflow making a second one and, on delete, removing a directory komrad never created.
 		create.Dir = trees.holder
 		create.ProvisionEnabled = xptr.Ptr(false)
 	}

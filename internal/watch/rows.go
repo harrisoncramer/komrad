@@ -6,8 +6,8 @@ import (
 	"maps"
 	"slices"
 
-	"komrade/lib/xslice"
-	watchv1 "komrade/proto/gen/watch/v1"
+	"komrad/lib/xslice"
+	watchv1 "komrad/proto/gen/watch/v1"
 )
 
 // watchedLister reads the rows a resource's watched set holds among the given keys, or every one of them when keys is nil.

@@ -8,8 +8,8 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"komrade/db/testmodels"
-	"komrade/internal/dbtest"
+	"komrad/db/testmodels"
+	"komrad/internal/dbtest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -187,7 +187,7 @@ func TestEngineIsolationHoldsForEveryTable(t *testing.T) {
 		{"foreign keys", queries.ListForeignKeysWithoutTenant, "these foreign keys can point at another engine's row"},
 		{"set null", queries.ListSetNullKeysClearingTenant, "these foreign keys clear tenant_id on delete; name the column in ON DELETE SET NULL (...)"},
 		{"unique keys", queries.ListUniqueKeysAcrossEngines, "these unique keys collide across engines; lead them with tenant_id"},
-		{"grants", queries.ListTablesEnginesCannotReach, "komrade_engine or komrade_reader cannot reach these tables"},
+		{"grants", queries.ListTablesEnginesCannotReach, "komrad_engine or komrad_reader cannot reach these tables"},
 	}
 
 	for _, tt := range tests {

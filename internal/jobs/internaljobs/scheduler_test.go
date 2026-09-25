@@ -6,11 +6,11 @@ import (
 	"testing"
 	"time"
 
-	"komrade/internal/schedules"
-	schedulestore "komrade/internal/store/schedule"
-	workflowstore "komrade/internal/store/workflow"
-	"komrade/internal/storetest"
-	"komrade/lib/xslice"
+	"komrad/internal/schedules"
+	schedulestore "komrad/internal/store/schedule"
+	workflowstore "komrad/internal/store/workflow"
+	"komrad/internal/storetest"
+	"komrad/lib/xslice"
 
 	"github.com/riverqueue/river"
 	robfig "github.com/robfig/cron/v3"

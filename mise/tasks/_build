@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Building komrade, with nothing exported, so a task that starts a server can source it too.
+# Building komrad, with nothing exported, so a task that starts a server can source it too.
 
 tree_is_dirty() {
 	[ -n "$(git status --porcelain)" ]
@@ -31,8 +31,8 @@ local_version() {
 docs_version() {
 	if [ -n "${DOCS_VERSION:-}" ]; then
 		echo "$DOCS_VERSION"
-	elif [[ "${KOMRADE_VERSION:-}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-		echo "$KOMRADE_VERSION"
+	elif [[ "${KOMRAD_VERSION:-}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+		echo "$KOMRAD_VERSION"
 	else
 		echo dev
 	fi
@@ -45,7 +45,7 @@ go_build_binary() {
 
 	CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" go build \
 		-trimpath \
-		-ldflags "-s -w -X komrade/internal/version.stamped=$version -X komrade/internal/version.stampedCommit=$commit" \
+		-ldflags "-s -w -X komrad/internal/version.stamped=$version -X komrad/internal/version.stampedCommit=$commit" \
 		-o "$out" .
 }
 
@@ -57,21 +57,21 @@ go_build_local() {
 	version="$(local_version)"
 	commit="$(build_commit)"
 
-	go build -ldflags "-X komrade/internal/version.stamped=$version -X komrade/internal/version.stampedCommit=$commit" -o "$out" .
+	go build -ldflags "-X komrad/internal/version.stamped=$version -X komrad/internal/version.stampedCommit=$commit" -o "$out" .
 }
 
 bind_panel_key() {
-	local komrade="$1"
+	local komrad="$1"
 
-	if [ -n "${KOMRADE_TMUX_SOCKET:-}" ] || [ "$(git rev-parse --git-common-dir)" != ".git" ]; then
+	if [ -n "${KOMRAD_TMUX_SOCKET:-}" ] || [ "$(git rev-parse --git-common-dir)" != ".git" ]; then
 		return 0
 	fi
 
-	"$komrade" tmux --if-running
+	"$komrad" tmux --if-running
 }
 
 custom_gcl_sum() {
-	find tools/komradelint .custom-gcl.yml -type f -print0 | LC_ALL=C sort -z | xargs -0 git hash-object | git hash-object --stdin
+	find tools/komradlint .custom-gcl.yml -type f -print0 | LC_ALL=C sort -z | xargs -0 git hash-object | git hash-object --stdin
 }
 
 build_custom_gcl() {

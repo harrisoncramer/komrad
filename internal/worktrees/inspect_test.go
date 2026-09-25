@@ -7,11 +7,11 @@ import (
 	"testing"
 	"time"
 
-	"komrade/internal/git"
-	"komrade/internal/store"
-	agentstore "komrade/internal/store/agent"
-	workflowstore "komrade/internal/store/workflow"
-	worktreestore "komrade/internal/store/worktree"
+	"komrad/internal/git"
+	"komrad/internal/store"
+	agentstore "komrad/internal/store/agent"
+	workflowstore "komrad/internal/store/workflow"
+	worktreestore "komrad/internal/store/worktree"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

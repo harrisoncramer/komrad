@@ -11,8 +11,8 @@ import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
-	_ "komrade/proto/gen/annotation/v1"
-	v1 "komrade/proto/gen/pagination/v1"
+	_ "komrad/proto/gen/annotation/v1"
+	v1 "komrad/proto/gen/pagination/v1"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -857,14 +857,14 @@ const file_forge_v1_forge_proto_rawDesc = "" +
 	"\x1dListForgePullRequestsResponse\x12?\n" +
 	"\rpull_requests\x18\x01 \x03(\v2\x1a.forge.v1.ForgePullRequestR\fpullRequests\x12+\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +
-	"\x10_next_page_token2\xa5\x0f\n" +
-	"\fForgeService\x12\xd8\x02\n" +
-	"\fConnectForge\x12\x1d.forge.v1.ConnectForgeRequest\x1a\x1e.forge.v1.ConnectForgeResponse\"\x88\x02\x9a\xb5\x18\x83\x02:\x80\x02komrade forge connect is the one caller, reading the token from stdin or a file. A generated command would take it as an argument, which every process on the machine can read, and a model handed one would be holding a credential it has no business holding.\x12\xf1\x02\n" +
+	"\x10_next_page_token2\xa0\x0f\n" +
+	"\fForgeService\x12\xd7\x02\n" +
+	"\fConnectForge\x12\x1d.forge.v1.ConnectForgeRequest\x1a\x1e.forge.v1.ConnectForgeResponse\"\x87\x02\x9a\xb5\x18\x82\x02:\xff\x01komrad forge connect is the one caller, reading the token from stdin or a file. A generated command would take it as an argument, which every process on the machine can read, and a model handed one would be holding a credential it has no business holding.\x12\xee\x02\n" +
 	"\n" +
-	"ListForges\x12\x16.google.protobuf.Empty\x1a\x1c.forge.v1.ListForgesResponse\"\xac\x02\x9a\xb5\x18\xa4\x02\b\x01\x10\x01\x1a\vlist_forges\"\x8d\x02List the forges komrade is connected to, one per host, with who komrade acts as there and when the forge last confirmed it. The token itself is never returned. A connection is made by a person with komrade forge connect and is what the pull request sweep reads through.B\x01\x03\x90\x02\x01\x12\xb4\x02\n" +
-	"\vCheckForges\x12\x16.google.protobuf.Empty\x1a\x1d.forge.v1.CheckForgesResponse\"\xed\x01\x9a\xb5\x18\xe8\x01\b\x01\x10\x01\x1a\fcheck_forges\"\xce\x01Ask every connected forge whether its credential still works, the way its method allows, and record the answer on each connection. A refusal marks the connection as refused until a person connects it again.(\x00B\x01\x03\x12\xac\x05\n" +
-	"\x15ListForgePullRequests\x12&.forge.v1.ListForgePullRequestsRequest\x1a'.forge.v1.ListForgePullRequestsResponse\"\xc1\x04\x9a\xb5\x18\xb9\x04\b\x01\x10\x01\x1a\x18list_forge_pull_requests\"\x95\x04List a repository's pull requests through the forge connection for its host, a page at a time: every one opened from a branch when one is named, whatever its state, or the open ones when none is. Give the repository as a git remote spells it, and pass the next_page_token back as pagination.cursor for the next page. A repository the connection's credential cannot see is answered as not found, which is also what a repository that does not exist answers. This asks the forge itself; list_pull_requests reads what komrade has stored.B\x01\x03\x90\x02\x01\x12\xdf\x01\n" +
-	"\x0fDisconnectForge\x12 .forge.v1.DisconnectForgeRequest\x1a\x16.google.protobuf.Empty\"\x91\x01\x9a\xb5\x18\x8c\x01\b\x01\x1a\x10disconnect_forge\"8Forget a forge and the credential it was connected with.:<A person gave the credential and is the one to take it away.B$Z\"komrade/proto/gen/forge/v1;forgev1b\x06proto3"
+	"ListForges\x12\x16.google.protobuf.Empty\x1a\x1c.forge.v1.ListForgesResponse\"\xa9\x02\x9a\xb5\x18\xa1\x02\b\x01\x10\x01\x1a\vlist_forges\"\x8a\x02List the forges komrad is connected to, one per host, with who komrad acts as there and when the forge last confirmed it. The token itself is never returned. A connection is made by a person with komrad forge connect and is what the pull request sweep reads through.B\x01\x03\x90\x02\x01\x12\xb4\x02\n" +
+	"\vCheckForges\x12\x16.google.protobuf.Empty\x1a\x1d.forge.v1.CheckForgesResponse\"\xed\x01\x9a\xb5\x18\xe8\x01\b\x01\x10\x01\x1a\fcheck_forges\"\xce\x01Ask every connected forge whether its credential still works, the way its method allows, and record the answer on each connection. A refusal marks the connection as refused until a person connects it again.(\x00B\x01\x03\x12\xab\x05\n" +
+	"\x15ListForgePullRequests\x12&.forge.v1.ListForgePullRequestsRequest\x1a'.forge.v1.ListForgePullRequestsResponse\"\xc0\x04\x9a\xb5\x18\xb8\x04\b\x01\x10\x01\x1a\x18list_forge_pull_requests\"\x94\x04List a repository's pull requests through the forge connection for its host, a page at a time: every one opened from a branch when one is named, whatever its state, or the open ones when none is. Give the repository as a git remote spells it, and pass the next_page_token back as pagination.cursor for the next page. A repository the connection's credential cannot see is answered as not found, which is also what a repository that does not exist answers. This asks the forge itself; list_pull_requests reads what komrad has stored.B\x01\x03\x90\x02\x01\x12\xdf\x01\n" +
+	"\x0fDisconnectForge\x12 .forge.v1.DisconnectForgeRequest\x1a\x16.google.protobuf.Empty\"\x91\x01\x9a\xb5\x18\x8c\x01\b\x01\x1a\x10disconnect_forge\"8Forget a forge and the credential it was connected with.:<A person gave the credential and is the one to take it away.B#Z!komrad/proto/gen/forge/v1;forgev1b\x06proto3"
 
 var (
 	file_forge_v1_forge_proto_rawDescOnce sync.Once

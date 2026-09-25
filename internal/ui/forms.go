@@ -3,9 +3,9 @@ package ui
 import (
 	"time"
 
-	"komrade/config"
+	"komrad/config"
 
-	"komrade/internal/ui/paint"
+	"komrad/internal/ui/paint"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"

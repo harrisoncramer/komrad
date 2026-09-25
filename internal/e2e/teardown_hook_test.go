@@ -9,11 +9,11 @@ import (
 	"testing"
 	"time"
 
-	"komrade/internal/komradetest"
-	agentstore "komrade/internal/store/agent"
-	workflowstore "komrade/internal/store/workflow"
-	agentv1 "komrade/proto/gen/agent/v1"
-	workflowv1 "komrade/proto/gen/workflow/v1"
+	"komrad/internal/komradtest"
+	agentstore "komrad/internal/store/agent"
+	workflowstore "komrad/internal/store/workflow"
+	agentv1 "komrad/proto/gen/agent/v1"
+	workflowv1 "komrad/proto/gen/workflow/v1"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
@@ -22,7 +22,7 @@ import (
 
 // writeTeardownHook writes a pre-teardown hook and returns the request for a worktree workflow
 // that hangs it on the moment.
-func writeTeardownHook(t *testing.T, instance *komradetest.Instance, body string) *workflowv1.CreateWorkflowRequest {
+func writeTeardownHook(t *testing.T, instance *komradtest.Instance, body string) *workflowv1.CreateWorkflowRequest {
 	t.Helper()
 
 	const name = "take-the-stack-down"
@@ -39,7 +39,7 @@ func writeTeardownHook(t *testing.T, instance *komradetest.Instance, body string
 func TestIntegrationPreTeardownRunsWhileTheWorktreeIsStillThere(t *testing.T) {
 	isolateGit(t)
 
-	instance := komradetest.Start(t, komradetest.Params{})
+	instance := komradtest.Start(t, komradtest.Params{})
 	ctx := t.Context()
 
 	seen := filepath.Join(t.TempDir(), "seen")
@@ -77,7 +77,7 @@ func TestIntegrationPreTeardownRunsWhileTheWorktreeIsStillThere(t *testing.T) {
 func TestIntegrationAFailedPreTeardownHoldsTheDelete(t *testing.T) {
 	isolateGit(t)
 
-	instance := komradetest.Start(t, komradetest.Params{})
+	instance := komradtest.Start(t, komradtest.Params{})
 	ctx := t.Context()
 
 	workflow, err := instance.Workflows.CreateWorkflow(ctx, connect.NewRequest(writeTeardownHook(t,
@@ -115,7 +115,7 @@ func TestIntegrationAFailedPreTeardownHoldsTheDelete(t *testing.T) {
 func TestIntegrationPreTeardownIsSkippedOnceTheDirectoryHasGone(t *testing.T) {
 	isolateGit(t)
 
-	instance := komradetest.Start(t, komradetest.Params{})
+	instance := komradtest.Start(t, komradtest.Params{})
 	ctx := t.Context()
 
 	ran := filepath.Join(t.TempDir(), "ran")
@@ -149,7 +149,7 @@ func TestIntegrationPreTeardownIsSkippedOnceTheDirectoryHasGone(t *testing.T) {
 func TestIntegrationOverlappingDeletesRunThePreTeardownOnce(t *testing.T) {
 	isolateGit(t)
 
-	instance := komradetest.Start(t, komradetest.Params{})
+	instance := komradtest.Start(t, komradtest.Params{})
 	ctx := t.Context()
 
 	counted := filepath.Join(t.TempDir(), "counted")

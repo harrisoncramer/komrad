@@ -8,7 +8,7 @@ import (
 	connect "connectrpc.com/connect"
 	context "context"
 	errors "errors"
-	v1 "komrade/proto/gen/log/v1"
+	v1 "komrad/proto/gen/log/v1"
 	http "net/http"
 	strings "strings"
 )

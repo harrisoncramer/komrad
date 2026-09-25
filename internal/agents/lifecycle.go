@@ -8,19 +8,19 @@ import (
 	"os"
 	"sync"
 
-	"komrade/config"
-	"komrade/internal/frames"
-	"komrade/internal/logging"
-	"komrade/internal/scripts"
-	"komrade/internal/store"
-	"komrade/lib/xslice"
-	"komrade/lib/xstr"
+	"komrad/config"
+	"komrad/internal/frames"
+	"komrad/internal/logging"
+	"komrad/internal/scripts"
+	"komrad/internal/store"
+	"komrad/lib/xslice"
+	"komrad/lib/xstr"
 
-	agentstore "komrade/internal/store/agent"
-	reviewstore "komrade/internal/store/review"
-	transcriptstore "komrade/internal/store/transcript"
-	workflowstore "komrade/internal/store/workflow"
-	worktreestore "komrade/internal/store/worktree"
+	agentstore "komrad/internal/store/agent"
+	reviewstore "komrad/internal/store/review"
+	transcriptstore "komrad/internal/store/transcript"
+	workflowstore "komrad/internal/store/workflow"
+	worktreestore "komrad/internal/store/worktree"
 )
 
 // childLister reads the agents attached to a set of parents.

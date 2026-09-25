@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"komrade/internal/position"
-	"komrade/lib/xslice"
+	"komrad/internal/position"
+	"komrad/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

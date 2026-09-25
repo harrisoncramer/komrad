@@ -8,13 +8,13 @@ import (
 	"strings"
 	"testing"
 
-	"komrade/internal/komradetest"
-	"komrade/internal/ui"
-	"komrade/lib/xslice"
-	agentv1 "komrade/proto/gen/agent/v1"
-	schedulev1 "komrade/proto/gen/schedule/v1"
-	viewv1 "komrade/proto/gen/view/v1"
-	workflowv1 "komrade/proto/gen/workflow/v1"
+	"komrad/internal/komradtest"
+	"komrad/internal/ui"
+	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
+	schedulev1 "komrad/proto/gen/schedule/v1"
+	viewv1 "komrad/proto/gen/view/v1"
+	workflowv1 "komrad/proto/gen/workflow/v1"
 
 	"charm.land/lipgloss/v2"
 	"connectrpc.com/connect"
@@ -26,7 +26,7 @@ import (
 const panelSession = "shown"
 
 type servedPanel struct {
-	instance  *komradetest.Instance
+	instance  *komradtest.Instance
 	harness   *panelHarness
 	agentID   string
 	agentPane string
@@ -126,10 +126,10 @@ func TestIntegrationPanel(t *testing.T) {
 	})
 }
 
-func startServedAgent(t *testing.T) (*komradetest.Instance, string) {
+func startServedAgent(t *testing.T) (*komradtest.Instance, string) {
 	t.Helper()
 
-	instance := komradetest.Start(t, komradetest.Params{})
+	instance := komradtest.Start(t, komradtest.Params{})
 	workflow, err := instance.Workflows.CreateWorkflow(t.Context(), connect.NewRequest(&workflowv1.CreateWorkflowRequest{
 		Name: "backend",
 		Cwd:  t.TempDir(),
@@ -185,7 +185,7 @@ func openServedPanel(t *testing.T, windowWidth int) *servedPanel {
 	}
 }
 
-func newPanelRemote(instance *komradetest.Instance) *panelRemote {
+func newPanelRemote(instance *komradtest.Instance) *panelRemote {
 	return &panelRemote{
 		agents:    instance.Agents,
 		workflows: instance.Workflows,
@@ -195,7 +195,7 @@ func newPanelRemote(instance *komradetest.Instance) *panelRemote {
 	}
 }
 
-func relist(t *testing.T, instance *komradetest.Instance, harness *panelHarness) {
+func relist(t *testing.T, instance *komradtest.Instance, harness *panelHarness) {
 	t.Helper()
 
 	agents, err := instance.Agents.ListAgents(t.Context(), connect.NewRequest(&agentv1.ListAgentsRequest{View: viewv1.View_VIEW_FULL}))
@@ -220,7 +220,7 @@ func relist(t *testing.T, instance *komradetest.Instance, harness *panelHarness)
 	harness.watch(buildSnapshot(rows...))
 }
 
-func readPanelPanes(instance *komradetest.Instance) []string {
+func readPanelPanes(instance *komradtest.Instance) []string {
 	var panes []string
 	for _, line := range strings.Split(instance.Tmux.Run("list-panes", "-s", "-t", panelSession, "-F", "#{pane_id}"), "\n") {
 		if pane := strings.TrimSpace(line); pane != "" {
@@ -231,7 +231,7 @@ func readPanelPanes(instance *komradetest.Instance) []string {
 	return panes
 }
 
-func readPaneWidth(t *testing.T, instance *komradetest.Instance, pane string) int {
+func readPaneWidth(t *testing.T, instance *komradtest.Instance, pane string) int {
 	t.Helper()
 
 	width, err := strconv.Atoi(instance.Tmux.Run("display-message", "-p", "-t", pane, "#{pane_width}"))

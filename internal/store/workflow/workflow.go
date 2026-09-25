@@ -5,8 +5,8 @@ package workflow
 import (
 	"time"
 
-	"komrade/db/models"
-	"komrade/internal/store"
+	"komrad/db/models"
+	"komrad/internal/store"
 )
 
 type Workflow struct {

@@ -4,7 +4,7 @@ import (
 	"slices"
 	"strings"
 
-	"komrade/internal/ui/paint"
+	"komrad/internal/ui/paint"
 
 	"charm.land/bubbles/v2/help"
 	"charm.land/bubbles/v2/key"

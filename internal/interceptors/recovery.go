@@ -5,7 +5,7 @@ import (
 	"errors"
 	"net/http"
 
-	"komrade/internal/logging"
+	"komrad/internal/logging"
 
 	"connectrpc.com/connect"
 )

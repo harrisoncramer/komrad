@@ -4,9 +4,9 @@ import (
 	"errors"
 	"testing"
 
-	"komrade/internal/harness"
-	"komrade/internal/harnesstest"
-	agentstore "komrade/internal/store/agent"
+	"komrad/internal/harness"
+	"komrad/internal/harnesstest"
+	agentstore "komrad/internal/store/agent"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -74,7 +74,7 @@ func TestInterruptStopsATurnInFlight(t *testing.T) {
 
 // TestInterruptLeavesAnUnrecognizedFrameAlone is the reading that is not evidence of a turn: the
 // pane was captured and matched none of the harness's patterns, so an agent sitting at rest in a
-// frame komrade cannot read would take the keys in the one case nobody would see it happen.
+// frame komrad cannot read would take the keys in the one case nobody would see it happen.
 func TestInterruptLeavesAnUnrecognizedFrameAlone(t *testing.T) {
 	st := newStore(t)
 	agent := seed(t, st, "quadrant", "%1", agentstore.StateThinking)

@@ -3,8 +3,8 @@ package diffview
 import (
 	"testing"
 
-	"komrade/internal/diff"
-	agentv1 "komrade/proto/gen/agent/v1"
+	"komrad/internal/diff"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

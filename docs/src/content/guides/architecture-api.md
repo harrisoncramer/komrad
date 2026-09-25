@@ -5,7 +5,7 @@ group: architecture
 order: 15
 ---
 
-Every endpoint in komrade is declared once, as an RPC in a protobuf file. Everything else is derived from it.
+Every endpoint in komrad is declared once, as an RPC in a protobuf file. Everything else is derived from it.
 
 ## The pipeline
 
@@ -17,11 +17,11 @@ Every endpoint in komrade is declared once, as an RPC in a protobuf file. Everyt
   buf generate
        |--> types            (protoc-gen-go)
        |--> routes, client   (connect-go)
-       |--> strict handler   (komrade's plugin)
+       |--> strict handler   (komrad's plugin)
        v
   read at startup by internal/rpcapi
        |--> server handlers
-       |--> komrade rpc commands
+       |--> komrad rpc commands
        |--> MCP tools
        |--> docs
 ```
@@ -44,7 +44,7 @@ The caller is carried in two headers naming the agent and its session. That is h
 
 ## CLI and MCP
 
-No CLI or MCP code is generated. At startup, the service walks the compiled proto descriptors and builds one `komrade rpc` subcommand per method, with a flag per field. It builds one MCP server per agent role, holding only the tools that role may use. A tool call is a JSON post to the same route the panel uses, so it arrives at the handler looking exactly like a keypress.
+No CLI or MCP code is generated. At startup, the service walks the compiled proto descriptors and builds one `komrad rpc` subcommand per method, with a flag per field. It builds one MCP server per agent role, holding only the tools that role may use. A tool call is a JSON post to the same route the panel uses, so it arrives at the handler looking exactly like a keypress.
 
 ## Docs and drift
 

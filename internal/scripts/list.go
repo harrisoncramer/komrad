@@ -5,8 +5,8 @@ import (
 	"slices"
 	"strings"
 
-	"komrade/internal/fail"
-	"komrade/lib/xslice"
+	"komrad/internal/fail"
+	"komrad/lib/xslice"
 )
 
 var ErrScriptNotFound = fail.NotFound("script not found")

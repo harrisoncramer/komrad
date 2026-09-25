@@ -3,12 +3,12 @@ package render
 import (
 	"time"
 
-	"komrade/internal/schedules"
-	"komrade/lib/xslice"
-	"komrade/lib/xstr"
+	"komrad/internal/schedules"
+	"komrad/lib/xslice"
+	"komrad/lib/xstr"
 
-	schedulestore "komrade/internal/store/schedule"
-	schedulev1 "komrade/proto/gen/schedule/v1"
+	schedulestore "komrad/internal/store/schedule"
+	schedulev1 "komrad/proto/gen/schedule/v1"
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 )

@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"os"
 
-	"komrade/internal/logging"
+	"komrad/internal/logging"
 )
 
 const StopPath = "/stop"

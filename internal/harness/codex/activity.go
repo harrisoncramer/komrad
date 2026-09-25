@@ -5,7 +5,7 @@ import (
 	"slices"
 	"strings"
 
-	"komrade/internal/harness"
+	"komrad/internal/harness"
 )
 
 var workingLine = regexp.MustCompile(`(?m)^\s*[^\s\p{L}]?\s*Working\s*\(\s*\d+`)

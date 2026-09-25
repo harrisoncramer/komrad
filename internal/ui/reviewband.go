@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"komrade/internal/ui/paint"
-	"komrade/internal/ui/paint/label"
+	"komrad/internal/ui/paint"
+	"komrad/internal/ui/paint/label"
 
 	"charm.land/glamour/v2/ansi"
 	"charm.land/lipgloss/v2"

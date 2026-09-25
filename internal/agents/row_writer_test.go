@@ -4,11 +4,11 @@ import (
 	"context"
 	"testing"
 
-	"komrade/internal/store"
-	agentstore "komrade/internal/store/agent"
-	rowstore "komrade/internal/store/row"
-	runstore "komrade/internal/store/run"
-	"komrade/lib/xptr"
+	"komrad/internal/store"
+	agentstore "komrad/internal/store/agent"
+	rowstore "komrad/internal/store/row"
+	runstore "komrad/internal/store/run"
+	"komrad/lib/xptr"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"

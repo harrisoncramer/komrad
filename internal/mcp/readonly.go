@@ -10,7 +10,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"komrade/lib/xslice"
+	"komrad/lib/xslice"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"

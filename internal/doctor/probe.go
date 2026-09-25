@@ -10,12 +10,12 @@ import (
 	"syscall"
 	"time"
 
-	"komrade/db"
-	"komrade/internal/git"
-	"komrade/internal/store"
-	agentstore "komrade/internal/store/agent"
-	workflowstore "komrade/internal/store/workflow"
-	"komrade/lib/xslice"
+	"komrad/db"
+	"komrad/internal/git"
+	"komrad/internal/store"
+	agentstore "komrad/internal/store/agent"
+	workflowstore "komrad/internal/store/workflow"
+	"komrad/lib/xslice"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -142,7 +142,7 @@ func resolveWorkflowBase(ctx context.Context, dir, base string) (string, error) 
 }
 
 // inspectDir is what a directory looks like from outside: whether it is there, whether it is
-// a directory at all, whether komrade could put something in it, and what it holds.
+// a directory at all, whether komrad could put something in it, and what it holds.
 func inspectDir(path string) (DirState, error) {
 	info, err := os.Stat(path)
 	if errors.Is(err, fs.ErrNotExist) {

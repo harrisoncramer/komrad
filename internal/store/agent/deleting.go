@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"komrade/internal/store"
+	"komrad/internal/store"
 )
 
 // MarkDeleting claims agents and their children for a delete, and with them any archived

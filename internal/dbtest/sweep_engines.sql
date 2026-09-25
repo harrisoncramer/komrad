@@ -8,7 +8,7 @@ BEGIN
     FROM
         pg_roles r
     WHERE
-        r.rolname LIKE 'komrade\_engine\_t%'
+        r.rolname LIKE 'komrad\_engine\_t%'
         AND NOT EXISTS (
             SELECT
                 1

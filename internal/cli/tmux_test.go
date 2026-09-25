@@ -5,7 +5,7 @@ package cli
 import (
 	"testing"
 
-	"komrade/internal/tmux"
+	"komrad/internal/tmux"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -14,7 +14,7 @@ import (
 // TestIntegrationPanelKeySocket covers which tmux server the panel key is bound on, where inheriting it is
 // the failure worth guarding.
 func TestIntegrationPanelKeySocket(t *testing.T) {
-	const managerPath = "/tmp/tmux-501/komrade"
+	const managerPath = "/tmp/tmux-501/komrad"
 
 	tests := []struct {
 		name     string
@@ -42,12 +42,12 @@ func TestIntegrationPanelKeySocket(t *testing.T) {
 		},
 		{
 			name:     "a pane on another engine's server binds on the server that engine recorded",
-			env:      "/tmp/tmux-501/komrade-remote,8121,3",
+			env:      "/tmp/tmux-501/komrad-remote,8121,3",
 			host:     "/tmp/tmux-501/default",
 			wantPath: "/tmp/tmux-501/default",
 		},
 		{
-			name:    "the popup with no recorded server refuses rather than binding on komrade's own",
+			name:    "the popup with no recorded server refuses rather than binding on komrad's own",
 			env:     managerPath + ",8121,3",
 			host:    "",
 			wantErr: true,

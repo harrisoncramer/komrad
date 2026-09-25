@@ -4,11 +4,11 @@ import (
 	"path/filepath"
 	"testing"
 
-	"komrade/internal/caller"
-	"komrade/internal/harnesstest"
-	agentstore "komrade/internal/store/agent"
-	workflowstore "komrade/internal/store/workflow"
-	"komrade/internal/tmuxtest"
+	"komrad/internal/caller"
+	"komrad/internal/harnesstest"
+	agentstore "komrad/internal/store/agent"
+	workflowstore "komrad/internal/store/workflow"
+	"komrad/internal/tmuxtest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

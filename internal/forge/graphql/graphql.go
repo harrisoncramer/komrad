@@ -11,12 +11,12 @@ import (
 	"strings"
 	"time"
 
-	"komrade/internal/fail"
-	"komrade/internal/forge"
-	"komrade/internal/git"
-	"komrade/lib/xhttp"
-	"komrade/lib/xptr"
-	"komrade/lib/xslice"
+	"komrad/internal/fail"
+	"komrad/internal/forge"
+	"komrad/internal/git"
+	"komrad/lib/xhttp"
+	"komrad/lib/xptr"
+	"komrad/lib/xslice"
 )
 
 // DefaultTimeout bounds one call to a forge.
@@ -100,7 +100,7 @@ type Answer struct {
 }
 
 // Query sends one named operation to the GraphQL endpoint, decodes its data, and turns the
-// forge's refusals into komrade's.
+// forge's refusals into komrad's.
 func (c *Client) Query(ctx context.Context, operation string, variables map[string]any, into any) (*Answer, error) {
 	var envelope struct {
 		Data   json.RawMessage `json:"data"`
@@ -135,7 +135,7 @@ func (c *Client) Query(ctx context.Context, operation string, variables map[stri
 }
 
 // Send makes one call with the headers every call carries and turns the forge's refusals into
-// komrade's, a 404 aside.
+// komrad's, a 404 aside.
 func (c *Client) Send(ctx context.Context, params xhttp.JSONParams, into any) (xhttp.Answer, error) {
 	if params.Header == nil {
 		params.Header = http.Header{}

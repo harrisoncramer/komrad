@@ -17,11 +17,11 @@ func TestRequireGitHubRemote(t *testing.T) {
 	}{
 		{
 			name:   "an https remote on github",
-			remote: "https://github.com/harrisoncramer/komrade.git",
+			remote: "https://github.com/harrisoncramer/komrad.git",
 		},
 		{
 			name:   "an ssh remote on github",
-			remote: "git@github.com:harrisoncramer/komrade.git",
+			remote: "git@github.com:harrisoncramer/komrad.git",
 		},
 		{
 			name:   "a remote git cannot be asked about",

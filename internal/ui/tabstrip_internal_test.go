@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"komrade/internal/ui/paint"
+	"komrad/internal/ui/paint"
 
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"

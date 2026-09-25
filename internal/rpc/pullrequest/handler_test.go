@@ -6,21 +6,21 @@ import (
 	"testing"
 	"time"
 
-	"komrade/internal/git"
-	"komrade/internal/pullrequests"
-	pullrequeststore "komrade/internal/store/pullrequest"
-	"komrade/lib/xptr"
-	"komrade/lib/xslice"
-	paginationv1 "komrade/proto/gen/pagination/v1"
-	pullrequestv1 "komrade/proto/gen/pullrequest/v1"
-	"komrade/proto/gen/pullrequest/v1/pullrequestv1komrade"
+	"komrad/internal/git"
+	"komrad/internal/pullrequests"
+	pullrequeststore "komrad/internal/store/pullrequest"
+	"komrad/lib/xptr"
+	"komrad/lib/xslice"
+	paginationv1 "komrad/proto/gen/pagination/v1"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
+	"komrad/proto/gen/pullrequest/v1/pullrequestv1komrad"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-const komradeRepository = "https://github.com/harrisoncramer/komrade"
+const komradRepository = "https://github.com/harrisoncramer/komrad"
 
 // fakePullRequestLister answers from its fields and records each page asked for.
 type fakePullRequestLister struct {
@@ -56,14 +56,14 @@ func TestListPullRequestsRefusalsMapToCodes(t *testing.T) {
 		{
 			name: "a cursor nobody could have been handed",
 			req: &pullrequestv1.ListPullRequestsRequest{
-				RepositoryUrl: komradeRepository,
+				RepositoryUrl: komradRepository,
 				Pagination:    &paginationv1.Pagination{Cursor: xptr.Ptr("not-a-token")},
 			},
 			wantCode: connect.CodeInvalidArgument,
 		},
 		{
 			name:     "a store that cannot be read",
-			req:      &pullrequestv1.ListPullRequestsRequest{RepositoryUrl: komradeRepository},
+			req:      &pullrequestv1.ListPullRequestsRequest{RepositoryUrl: komradRepository},
 			err:      errors.New("connection refused"),
 			wantCode: connect.CodeInternal,
 		},
@@ -72,7 +72,7 @@ func TestListPullRequestsRefusalsMapToCodes(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			reader := &fakePullRequestLister{err: tt.err}
-			service := pullrequestv1komrade.PullRequestServiceAdapter{Impl: NewHandler(NewHandlerParams{PullRequests: reader})}
+			service := pullrequestv1komrad.PullRequestServiceAdapter{Impl: NewHandler(NewHandlerParams{PullRequests: reader})}
 
 			_, err := service.ListPullRequests(t.Context(), connect.NewRequest(tt.req))
 			require.Error(t, err)
@@ -98,10 +98,10 @@ func TestListPullRequests(t *testing.T) {
 			MergedAt: &merged,
 		},
 	}}
-	service := pullrequestv1komrade.PullRequestServiceAdapter{Impl: NewHandler(NewHandlerParams{PullRequests: reader})}
+	service := pullrequestv1komrad.PullRequestServiceAdapter{Impl: NewHandler(NewHandlerParams{PullRequests: reader})}
 
 	first, err := service.ListPullRequests(t.Context(), connect.NewRequest(&pullrequestv1.ListPullRequestsRequest{
-		RepositoryUrl: "git@github.com:harrisoncramer/komrade.git",
+		RepositoryUrl: "git@github.com:harrisoncramer/komrad.git",
 		HeadBranch:    "agent/x",
 		Pagination:    &paginationv1.Pagination{Limit: xptr.Ptr(int32(2))},
 	}))
@@ -115,7 +115,7 @@ func TestListPullRequests(t *testing.T) {
 
 	reader.pullRequests = nil
 	second, err := service.ListPullRequests(t.Context(), connect.NewRequest(&pullrequestv1.ListPullRequestsRequest{
-		RepositoryUrl: komradeRepository,
+		RepositoryUrl: komradRepository,
 		Pagination:    &paginationv1.Pagination{Cursor: first.Msg.NextPageToken},
 	}))
 	require.NoError(t, err)
@@ -123,12 +123,12 @@ func TestListPullRequests(t *testing.T) {
 
 	want := []pullrequests.ListPullRequestsParams{
 		{
-			RepositoryURL: "git@github.com:harrisoncramer/komrade.git",
+			RepositoryURL: "git@github.com:harrisoncramer/komrad.git",
 			HeadBranch:    "agent/x",
 			Limit:         2,
 		},
 		{
-			RepositoryURL: komradeRepository,
+			RepositoryURL: komradRepository,
 			Limit:         20,
 			Cursor: &pullrequeststore.Cursor{
 				Finished: true,

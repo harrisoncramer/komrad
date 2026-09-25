@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	"komrade/db/models"
-	"komrade/internal/store"
-	"komrade/internal/watch"
-	"komrade/lib/xptr"
-	"komrade/lib/xslice"
-	watchv1 "komrade/proto/gen/watch/v1"
+	"komrad/db/models"
+	"komrad/internal/store"
+	"komrad/internal/watch"
+	"komrad/lib/xptr"
+	"komrad/lib/xslice"
+	watchv1 "komrad/proto/gen/watch/v1"
 )
 
 // WatchedReviews declares the reviews to the watch.

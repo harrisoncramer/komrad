@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"komrade/internal/fail"
-	"komrade/internal/store"
-	forgestore "komrade/internal/store/forge"
+	"komrad/internal/fail"
+	"komrad/internal/store"
+	forgestore "komrad/internal/store/forge"
 )
 
 // ErrUnknownKind says no forge of that kind is compiled in.

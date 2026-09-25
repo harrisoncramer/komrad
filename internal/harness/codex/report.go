@@ -1,7 +1,7 @@
 package codex
 
 import (
-	"komrade/internal/harness"
+	"komrad/internal/harness"
 )
 
 // ReadReport reads nothing, Codex's only report being the notify program it runs at the end of a

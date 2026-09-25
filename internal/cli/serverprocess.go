@@ -15,10 +15,10 @@ import (
 	"syscall"
 	"time"
 
-	"komrade/internal/logging"
-	"komrade/internal/server"
-	"komrade/internal/version"
-	"komrade/lib/xhttp"
+	"komrad/internal/logging"
+	"komrad/internal/server"
+	"komrad/internal/version"
+	"komrad/lib/xhttp"
 )
 
 const (
@@ -157,7 +157,7 @@ func healthCheck(ctx context.Context, addr string) (*http.Response, error) {
 func getSelfPath() string {
 	path, err := os.Executable()
 	if err != nil {
-		return "komrade"
+		return "komrad"
 	}
 
 	return path

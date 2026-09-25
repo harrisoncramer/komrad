@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"komrade/internal/caller"
-	"komrade/internal/logging"
-	"komrade/internal/logtest"
-	"komrade/lib/xslice"
+	"komrad/internal/caller"
+	"komrad/internal/logging"
+	"komrad/internal/logtest"
+	"komrad/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

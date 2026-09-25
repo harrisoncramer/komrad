@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"time"
 
-	"komrade/internal/fail"
-	"komrade/internal/harness"
-	"komrade/internal/store"
-	agentstore "komrade/internal/store/agent"
+	"komrad/internal/fail"
+	"komrad/internal/harness"
+	"komrad/internal/store"
+	agentstore "komrad/internal/store/agent"
 )
 
 // ErrReleaseRefused is a release that could not tell the agent to carry on, so the hold stands.
@@ -24,7 +24,7 @@ var ErrAlreadyHeld = fail.AlreadyExists("this agent is already held")
 // ErrHoldSelf is an agent holding itself, which would stop it with nobody who knows to let it go.
 var ErrHoldSelf = fail.InvalidArgument("an agent cannot hold itself")
 
-// ErrAgentHeld is anything else komrade was asked to do to an agent a person is holding.
+// ErrAgentHeld is anything else komrad was asked to do to an agent a person is holding.
 var ErrAgentHeld = fail.Precondition("this agent is held")
 
 type holdStore interface {

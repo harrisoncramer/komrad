@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"os"
 
-	"komrade/config"
+	"komrad/config"
 )
 
 const outputPath = "../config.toml"

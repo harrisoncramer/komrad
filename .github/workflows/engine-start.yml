@@ -2,7 +2,7 @@ name: engine start
 
 # Brings the engine back for the day.
 #
-# It waits for the instance checks to pass, which take minutes, so by the time this finishes komrade
+# It waits for the instance checks to pass, which take minutes, so by the time this finishes komrad
 # has long been serving. The agents that were on the box before the stop are not brought back;
 # their conversations are on the data volume, so resume the ones you want.
 #

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"komrade/internal/ui/paint"
+	"komrad/internal/ui/paint"
 
 	"charm.land/glamour/v2/ansi"
 )

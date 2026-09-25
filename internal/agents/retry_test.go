@@ -4,12 +4,12 @@ import (
 	"errors"
 	"testing"
 
-	"komrade/internal/harness"
-	"komrade/internal/harnesstest"
-	agentstore "komrade/internal/store/agent"
-	reviewstore "komrade/internal/store/review"
-	workflowstore "komrade/internal/store/workflow"
-	"komrade/internal/tmuxtest"
+	"komrad/internal/harness"
+	"komrad/internal/harnesstest"
+	agentstore "komrad/internal/store/agent"
+	reviewstore "komrad/internal/store/review"
+	workflowstore "komrad/internal/store/workflow"
+	"komrad/internal/tmuxtest"
 
 	"github.com/google/uuid"
 

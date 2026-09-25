@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"time"
 
-	"komrade/internal/fail"
-	"komrade/internal/rpcerr"
-	"komrade/internal/watch"
-	watchv1 "komrade/proto/gen/watch/v1"
+	"komrad/internal/fail"
+	"komrad/internal/rpcerr"
+	"komrad/internal/watch"
+	watchv1 "komrad/proto/gen/watch/v1"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"

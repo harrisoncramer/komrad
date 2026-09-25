@@ -5,8 +5,8 @@ import (
 	"slices"
 	"strings"
 
-	"komrade/config"
-	"komrade/internal/ui/paint/label"
+	"komrad/config"
+	"komrad/internal/ui/paint/label"
 
 	"charm.land/huh/v2"
 )

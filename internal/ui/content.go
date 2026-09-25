@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"komrade/internal/ui/layout"
-	"komrade/internal/ui/paint"
+	"komrad/internal/ui/layout"
+	"komrad/internal/ui/paint"
 )
 
 var stageTextPath = stageFilePath("text")
@@ -55,9 +55,9 @@ func newBlankContent() layout.Content {
 }
 
 // stageFilePath names a screenful for the panel that wrote it, in the one temporary directory
-// every komrade on the machine shares.
+// every komrad on the machine shares.
 func stageFilePath(name string) string {
-	return filepath.Join(os.TempDir(), fmt.Sprintf("komrade-%s-%d.ansi", name, os.Getpid()))
+	return filepath.Join(os.TempDir(), fmt.Sprintf("komrad-%s-%d.ansi", name, os.Getpid()))
 }
 
 // writeStageFile writes the frame beside the path and renames it into place.

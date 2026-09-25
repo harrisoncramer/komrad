@@ -1,0 +1,2 @@
+[worktrees]
+dir = "/var/lib/komrad/worktrees"

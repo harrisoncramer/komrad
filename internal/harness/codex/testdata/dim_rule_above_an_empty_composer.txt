@@ -20,4 +20,4 @@
 
 [0;1m›[0m [2mImprove documentation in @filename[0m
 
-  [38;2;130;156;207mgpt-5.6-sol low fast[2m[39m · [0m[38;2;154;184;117m~/komrade-test/local/scratch/statedetect[39m
+  [38;2;130;156;207mgpt-5.6-sol low fast[2m[39m · [0m[38;2;154;184;117m~/komrad-test/local/scratch/statedetect[39m

@@ -1,8 +1,8 @@
 package view
 
 import (
-	"komrade/internal/ui/paint"
-	"komrade/lib/xslice"
+	"komrad/internal/ui/paint"
+	"komrad/lib/xslice"
 )
 
 // Prepare turns a snapshot of the agents list into the view model a renderer draws.
@@ -212,7 +212,7 @@ func MailCell(row Row) Cell {
 	return markCell(row.UnreadMail, GlyphMail, paint.ToneMuted)
 }
 
-// AlertCell is the mark a row draws for a script komrade fired that failed.
+// AlertCell is the mark a row draws for a script komrad fired that failed.
 func AlertCell(row Row) Cell {
 	return markCell(row.FailedRun, GlyphAlert, paint.ToneDanger)
 }

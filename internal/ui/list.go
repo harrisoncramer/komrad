@@ -5,10 +5,10 @@ import (
 	"slices"
 	"strings"
 
-	"komrade/config"
-	"komrade/internal/ui/paint"
-	"komrade/internal/view"
-	"komrade/lib/xslice"
+	"komrad/config"
+	"komrad/internal/ui/paint"
+	"komrad/internal/view"
+	"komrad/lib/xslice"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"

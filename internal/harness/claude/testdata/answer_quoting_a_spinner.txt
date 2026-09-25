@@ -3,7 +3,7 @@
     That is what pinned me: my own answer quoting Choreographing… (2m 41s
 
   Confirmed three ways: ran ReadActivity on both real frames and got Working plus the matching
-  substring; replicated in komrade-test with paired probes differing only in the final character,
+  substring; replicated in komrad-test with paired probes differing only in the final character,
 
 ───────────────────────────────────────────────────────────────────────────────────────────────────
 ❯ 

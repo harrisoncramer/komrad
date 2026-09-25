@@ -3,9 +3,9 @@ package ui
 import (
 	"strings"
 
-	"komrade/internal/ui/diffview"
-	"komrade/internal/ui/paint"
-	agentv1 "komrade/proto/gen/agent/v1"
+	"komrad/internal/ui/diffview"
+	"komrad/internal/ui/paint"
+	agentv1 "komrad/proto/gen/agent/v1"
 )
 
 // reviewDiff is the patch on screen and where the reader is standing in it.

@@ -8,13 +8,13 @@ import (
 	"testing"
 	"time"
 
-	agentv1 "komrade/proto/gen/agent/v1"
-	schedulev1 "komrade/proto/gen/schedule/v1"
-	watchv1 "komrade/proto/gen/watch/v1"
-	"komrade/proto/gen/watch/v1/watchv1connect"
-	workflowv1 "komrade/proto/gen/workflow/v1"
+	agentv1 "komrad/proto/gen/agent/v1"
+	schedulev1 "komrad/proto/gen/schedule/v1"
+	watchv1 "komrad/proto/gen/watch/v1"
+	"komrad/proto/gen/watch/v1/watchv1connect"
+	workflowv1 "komrad/proto/gen/workflow/v1"
 
-	"komrade/lib/xslice"
+	"komrad/lib/xslice"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"

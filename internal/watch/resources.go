@@ -1,6 +1,6 @@
 package watch
 
-import watchv1 "komrade/proto/gen/watch/v1"
+import watchv1 "komrad/proto/gen/watch/v1"
 
 // Resource is one table the watch keeps track of.
 type Resource struct {

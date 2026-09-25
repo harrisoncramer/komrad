@@ -1,7 +1,7 @@
 package cli
 
 import (
-	"komrade/internal/version"
+	"komrad/internal/version"
 
 	"github.com/spf13/cobra"
 )

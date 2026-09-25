@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"komrade/config"
+	"komrad/config"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -57,9 +57,9 @@ func presentDir(files, subdirs []string, writable bool) DirState {
 
 // TestHooksCheck covers the reason this check exists: a hooks directory that has been moved
 // away lists no hooks rather than saying it is gone, so an empty list and a missing directory
-// look the same everywhere else in komrade.
+// look the same everywhere else in komrad.
 func TestHooksCheck(t *testing.T) {
-	const dir = "/home/u/.config/komrade/hooks"
+	const dir = "/home/u/.config/komrad/hooks"
 
 	tests := []struct {
 		name       string
@@ -135,7 +135,7 @@ func TestHooksCheckReportsThePathAsTyped(t *testing.T) {
 // TestWorktreesCheck covers the directory a provisioner has to be able to write in, where the
 // shared one being absent is not wrong on its own since a workflow may name its own.
 func TestWorktreesCheck(t *testing.T) {
-	const dir = "/home/u/.local/state/komrade/worktrees"
+	const dir = "/home/u/.local/state/komrad/worktrees"
 
 	tests := []struct {
 		name       string
@@ -196,7 +196,7 @@ func TestWorktreesCheck(t *testing.T) {
 	}
 }
 
-// TestOrphanedWorktreesCheck covers the one thing nothing else in komrade notices: a worktree
+// TestOrphanedWorktreesCheck covers the one thing nothing else in komrad notices: a worktree
 // is removed when the agent holding it is deleted and never otherwise, so a directory whose
 // agent has gone stays on disk with nobody reporting it.
 func TestOrphanedWorktreesCheck(t *testing.T) {
@@ -230,7 +230,7 @@ func TestOrphanedWorktreesCheck(t *testing.T) {
 			wantIn: []string{"2 worktrees"},
 		},
 		{
-			name:   "an adopted agent running in one komrade did not name",
+			name:   "an adopted agent running in one komrad did not name",
 			state:  map[string]DirState{shared: presentDir(nil, []string{"borrowed"}, true)},
 			owners: WorktreeOwners{AgentIDs: []string{"01a0"}, AgentDirs: []string{filepath.Join(shared, "borrowed")}},
 			want:   StatusOK,
@@ -279,7 +279,7 @@ func TestOrphanedWorktreesCheck(t *testing.T) {
 // orphan there is as unowned as one in the shared directory.
 func TestOrphanedWorktreesCheckReadsTheWorkflowsOwnDirectories(t *testing.T) {
 	const shared = "/home/u/worktrees"
-	const own = "/repos/komrade/trees"
+	const own = "/repos/komrad/trees"
 
 	env := dirsEnv(configWithDirs(t, "", shared), map[string]DirState{
 		shared: presentDir(nil, []string{"01a0"}, true),

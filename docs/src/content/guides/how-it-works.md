@@ -10,36 +10,36 @@ You have used every piece: [workflows](../workflows/), [agents](../agents/), [ho
 ## Two programs
 
 ```
-  your tmux                komrade's tmux
+  your tmux                komrad's tmux
   +-------------+          +-------------------------------+
   |  popup  ----+--------->|  panel   agent   agent   ...  |
   +-------------+          +-----+-------+-------+---------+
                                  |       |       |
                                  v       v       v
                            +-------------------------------+
-                           |  komrade serve                |
+                           |  komrad serve                |
                            +---------------+---------------+
                                            v
                                        Postgres
 ```
 
-Komrade is a service and a panel. The service runs in the background. It owns the database, answers the API, and watches every agent. The panel is just a screen. It talks to the service and remembers nothing itself. You can close it whenever you like.
+Komrad is a service and a panel. The service runs in the background. It owns the database, answers the API, and watches every agent. The panel is just a screen. It talks to the service and remembers nothing itself. You can close it whenever you like.
 
 ## Agents live in tmux
 
-Each agent is a real terminal running Claude or Codex. Komrade runs them in a tmux server of its own, so they never get mixed up with your own windows. The panel lives there too. When you open it, your tmux shows a popup that attaches to komrade's session. Hiding the popup hides the panel and nothing else.
+Each agent is a real terminal running Claude or Codex. Komrad runs them in a tmux server of its own, so they never get mixed up with your own windows. The panel lives there too. When you open it, your tmux shows a popup that attaches to komrad's session. Hiding the popup hides the panel and nothing else.
 
-This is also why you can upgrade komrade without losing your agents. The service restarts. The tmux server does not.
+This is also why you can upgrade komrad without losing your agents. The service restarts. The tmux server does not.
 
 ## One API
 
-Everything goes through one API. The panel uses it. A script using `komrade rpc` uses it. An agent calling an MCP tool uses it. So they all get the same rules and the same checks.
+Everything goes through one API. The panel uses it. A script using `komrad rpc` uses it. An agent calling an MCP tool uses it. So they all get the same rules and the same checks.
 
 The CLI commands and MCP tools are not written by hand. Every endpoint is declared once, and the declaration says which surfaces it appears on. The commands, the tools, and the [API reference](../../api/) are all built from that.
 
 ## Everything is a row
 
-Everything komrade knows is a row in Postgres. An agent, a workflow, a piece of mail, a review. Facts from outside, such as whether an agent is idle, are found by background loops and written onto the row. Nothing important lives only in memory.
+Everything komrad knows is a row in Postgres. An agent, a workflow, a piece of mail, a review. Facts from outside, such as whether an agent is idle, are found by background loops and written onto the row. Nothing important lives only in memory.
 
 ## How a change reaches your screen
 

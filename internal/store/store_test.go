@@ -3,11 +3,11 @@ package store_test
 import (
 	"testing"
 
-	"komrade/db"
-	"komrade/db/models"
-	"komrade/internal/dbtest"
-	"komrade/internal/store"
-	workflowstore "komrade/internal/store/workflow"
+	"komrad/db"
+	"komrad/db/models"
+	"komrad/internal/dbtest"
+	"komrad/internal/store"
+	workflowstore "komrad/internal/store/workflow"
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/stretchr/testify/assert"

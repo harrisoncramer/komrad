@@ -7,8 +7,8 @@ import (
 	"net"
 	"strconv"
 
-	"komrade/internal/dsn"
-	"komrade/internal/store"
+	"komrad/internal/dsn"
+	"komrad/internal/store"
 
 	"github.com/jackc/pgx/v5/pgconn"
 )
@@ -54,7 +54,7 @@ var (
 	}
 	errReadOnlyLoginShared = &ProblemError{
 		Code:    "readonly_login_shared",
-		Message: "KOMRADE_READONLY_DATABASE_URL names the same login as DATABASE_URL",
+		Message: "KOMRAD_READONLY_DATABASE_URL names the same login as DATABASE_URL",
 	}
 	errReadOnlyLoginUnset = &ProblemError{
 		Code:    "readonly_login_unset",
@@ -70,17 +70,17 @@ var (
 	}
 )
 
-// newDatabaseCheck asserts Postgres is there and will let komrade in.
+// newDatabaseCheck asserts Postgres is there and will let komrad in.
 func newDatabaseCheck() Check {
 	return Check{
 		Name:        "database",
-		Description: "every agent, workflow, and schedule komrade knows about lives in Postgres",
+		Description: "every agent, workflow, and schedule komrad knows about lives in Postgres",
 		Run: func(ctx context.Context, env Env) Result {
 			if _, err := pgconn.ParseConfig(env.DatabaseURL); err != nil {
 				return fail(
 					fmt.Errorf("%w: %w", errDatabaseURLInvalid, err),
 					"",
-					"set connection.database_url, or KOMRADE_DATABASE_URL, to a postgres:// url",
+					"set connection.database_url, or KOMRAD_DATABASE_URL, to a postgres:// url",
 				)
 			}
 
@@ -100,19 +100,19 @@ func newDatabaseCheck() Check {
 func newSchemaCheck() Check {
 	return Check{
 		Name:        "schema",
-		Description: "the tables komrade reads have to match the build reading them",
+		Description: "the tables komrad reads have to match the build reading them",
 		Needs:       []string{"database"},
 		Run: func(ctx context.Context, env Env) Result {
 			pending, err := env.ReadPendingMigrations(ctx, env.DatabaseURL)
 			if err != nil {
-				return fail(fmt.Errorf("%w: %w", errSchemaUnreadable, err), "", "komrade migrate")
+				return fail(fmt.Errorf("%w: %w", errSchemaUnreadable, err), "", "komrad migrate")
 			}
 
 			if len(pending) > 0 {
 				return fail(
 					fmt.Errorf("%w: %s not applied yet", errSchemaBehind, describeMigrationCount(len(pending))),
 					"",
-					"komrade migrate, with owner_database_url naming the login that owns the schema",
+					"komrad migrate, with owner_database_url naming the login that owns the schema",
 				)
 			}
 
@@ -130,7 +130,7 @@ func newEngineCheck() Check {
 		Run: func(ctx context.Context, env Env) Result {
 			name, err := env.ReadEngine(ctx, env.DatabaseURL)
 			if errors.Is(err, store.ErrNotAnEngine) {
-				return fail(errNotAnEngine, dsn.Redact(env.DatabaseURL), "komrade engine ensure NAME, then set database_url to the url it prints")
+				return fail(errNotAnEngine, dsn.Redact(env.DatabaseURL), "komrad engine ensure NAME, then set database_url to the url it prints")
 			}
 			if err != nil {
 				return fail(fmt.Errorf("%w: %s", errEngineUnreadable, describeDatabaseReason(err)), dsn.Redact(env.DatabaseURL), "")
@@ -153,7 +153,7 @@ func newReadOnlyLoginCheck() Check {
 				return fail(
 					errReadOnlyLoginUnset,
 					"",
-					"set KOMRADE_READONLY_DATABASE_URL to the reader login komrade engine ensure made",
+					"set KOMRAD_READONLY_DATABASE_URL to the reader login komrad engine ensure made",
 				)
 			}
 
@@ -161,7 +161,7 @@ func newReadOnlyLoginCheck() Check {
 				return fail(
 					errReadOnlyLoginShared,
 					dsn.Redact(env.ReadOnlyDatabaseURL),
-					"point KOMRADE_READONLY_DATABASE_URL at the reader login komrade engine ensure made",
+					"point KOMRAD_READONLY_DATABASE_URL at the reader login komrad engine ensure made",
 				)
 			}
 
@@ -169,7 +169,7 @@ func newReadOnlyLoginCheck() Check {
 				return fail(
 					fmt.Errorf("%w: %s", errReadOnlyLoginUnusable, describeDatabaseReason(err)),
 					dsn.Redact(env.ReadOnlyDatabaseURL),
-					"komrade engine ensure NAME, which resets the reader login's password to the engine's",
+					"komrad engine ensure NAME, which resets the reader login's password to the engine's",
 				)
 			}
 

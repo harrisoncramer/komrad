@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"strings"
 
-	"komrade/internal/fail"
-	"komrade/internal/store"
-	agentstore "komrade/internal/store/agent"
-	reviewstore "komrade/internal/store/review"
+	"komrad/internal/fail"
+	"komrad/internal/store"
+	agentstore "komrad/internal/store/agent"
+	reviewstore "komrad/internal/store/review"
 )
 
 // ErrReviewNeedsOwnWork says the agent asked for has no work of its own to be read, which is

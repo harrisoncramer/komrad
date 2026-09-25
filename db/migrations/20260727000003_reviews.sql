@@ -22,7 +22,7 @@ COMMENT ON COLUMN "review_rounds"."ordinal" IS 'Which round this is for its agen
 -- Set comment to column: "base_sha" on table: "review_rounds"
 COMMENT ON COLUMN "review_rounds"."base_sha" IS 'The commit the agent''s branch started from. It is resolved once, when the round is taken, so later movement on the base branch cannot change what the round says.';
 -- Set comment to column: "snapshot_sha" on table: "review_rounds"
-COMMENT ON COLUMN "review_rounds"."snapshot_sha" IS 'A commit covering the agent''s whole checkout, tracked and untracked files alike. A ref under refs/komrade/rounds keeps it alive so git will not collect it. Writing it leaves the agent''s own branch, index and files alone.';
+COMMENT ON COLUMN "review_rounds"."snapshot_sha" IS 'A commit covering the agent''s whole checkout, tracked and untracked files alike. A ref under refs/komrad/rounds keeps it alive so git will not collect it. Writing it leaves the agent''s own branch, index and files alone.';
 -- Create "reviews" table
 CREATE TABLE "reviews" (
   "id" uuid NOT NULL DEFAULT uuidv7(),
@@ -64,7 +64,7 @@ COMMENT ON COLUMN "reviews"."verdict" IS 'What the reviewer concluded, null whil
 -- Set comment to column: "released_at" on table: "reviews"
 COMMENT ON COLUMN "reviews"."released_at" IS 'When the review was released, null while it is still being written. None of it reaches the agent until this is set.';
 -- Set comment to column: "path" on table: "reviews"
-COMMENT ON COLUMN "reviews"."path" IS 'The absolute path of the file the released review was written to, empty while the review is still open. The file lives in komrade''s own state directory rather than in the agent''s checkout.';
+COMMENT ON COLUMN "reviews"."path" IS 'The absolute path of the file the released review was written to, empty while the review is still open. The file lives in komrad''s own state directory rather than in the agent''s checkout.';
 -- Set comment to column: "doorbell_mail_id" on table: "reviews"
 COMMENT ON COLUMN "reviews"."doorbell_mail_id" IS 'The mail that told the agent a review was waiting. Deleting that mail clears this column rather than deleting the review, so a review whose notice was thrown away reads as undelivered.';
 -- Set comment to column: "body" on table: "reviews"

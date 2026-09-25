@@ -6,15 +6,15 @@ import (
 	"context"
 	"time"
 
-	"komrade/internal/fail"
-	"komrade/internal/rpc/render"
-	"komrade/internal/rpcerr"
-	"komrade/internal/schedules"
-	"komrade/lib/pagination"
-	"komrade/lib/xslice"
-	schedulev1 "komrade/proto/gen/schedule/v1"
+	"komrad/internal/fail"
+	"komrad/internal/rpc/render"
+	"komrad/internal/rpcerr"
+	"komrad/internal/schedules"
+	"komrad/lib/pagination"
+	"komrad/lib/xslice"
+	schedulev1 "komrad/proto/gen/schedule/v1"
 
-	schedulestore "komrade/internal/store/schedule"
+	schedulestore "komrad/internal/store/schedule"
 
 	"google.golang.org/protobuf/types/known/emptypb"
 )

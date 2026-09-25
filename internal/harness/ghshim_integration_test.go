@@ -23,13 +23,13 @@ func writeFakeBinary(t *testing.T, path, body string) string {
 	return path
 }
 
-// shimCase is one run of the stand-in: the environment it is given, what komrade answers, what
+// shimCase is one run of the stand-in: the environment it is given, what komrad answers, what
 // the gh beyond it does, and what all of that should come to.
 type shimCase struct {
 	name string
 	env  []string
-	// komrade is the body of the token command the stand-in asks.
-	komrade string
+	// komrad is the body of the token command the stand-in asks.
+	komrad string
 	// gh is the body of the binary beyond the stand-in, an empty one writing down what it was
 	// handed.
 	gh string
@@ -39,8 +39,8 @@ type shimCase struct {
 	wantExit int
 	// wantGHSaw is the token and arguments the gh beyond wrote down, empty for a gh never run.
 	wantGHSaw string
-	// wantAsked is what komrade was asked for, {dir} standing for the checkout, and empty for a
-	// komrade never asked.
+	// wantAsked is what komrad was asked for, {dir} standing for the checkout, and empty for a
+	// komrad never asked.
 	wantAsked  string
 	wantStdout string
 	wantStderr string
@@ -56,7 +56,7 @@ func runCase(t *testing.T, tt shimCase) {
 	asked := filepath.Join(root, "asked")
 	saw := filepath.Join(root, "saw")
 
-	komrade := writeFakeBinary(t, filepath.Join(root, "komrade"), "echo \"$@\" >"+asked+"\n"+tt.komrade)
+	komrad := writeFakeBinary(t, filepath.Join(root, "komrad"), "echo \"$@\" >"+asked+"\n"+tt.komrad)
 
 	beyond := filepath.Join(root, "beyond")
 	require.NoError(t, os.MkdirAll(beyond, 0o755))
@@ -68,7 +68,7 @@ func runCase(t *testing.T, tt shimCase) {
 		writeFakeBinary(t, filepath.Join(beyond, "gh"), body)
 	}
 
-	dir, err := WriteGHShim(cache, komrade)
+	dir, err := WriteGHShim(cache, komrad)
 	require.NoError(t, err)
 	require.Equal(t, filepath.Join(cache, ToolsDirName), dir)
 
@@ -116,14 +116,14 @@ func TestIntegrationGHShim(t *testing.T) {
 	tests := []shimCase{
 		{
 			name:      "a token minted for this call alone, and handed over rather than printed",
-			komrade:   minted,
+			komrad:    minted,
 			args:      []string{"pr", "create", "--title", "a change"},
 			wantGHSaw: "ghs_minted pr create --title a change",
 			wantAsked: "github token --checkout {dir} --if-configured",
 		},
 		{
-			name:       "komrade holds the credential and will not give it",
-			komrade:    "echo 'no github app is configured' >&2\nexit 1\n",
+			name:       "komrad holds the credential and will not give it",
+			komrad:     "echo 'no github app is configured' >&2\nexit 1\n",
 			args:       []string{"pr", "create"},
 			wantExit:   1,
 			wantAsked:  "github token --checkout {dir} --if-configured",
@@ -131,7 +131,7 @@ func TestIntegrationGHShim(t *testing.T) {
 		},
 		{
 			name:      "a machine naming no app, where gh keeps what it was logged in with",
-			komrade:   "exit 0\n",
+			komrad:    "exit 0\n",
 			args:      []string{"pr", "list"},
 			wantGHSaw: "pr list",
 			wantAsked: "github token --checkout {dir} --if-configured",
@@ -139,20 +139,20 @@ func TestIntegrationGHShim(t *testing.T) {
 		{
 			name:      "a GH_TOKEN somebody else set",
 			env:       []string{"GH_TOKEN=ghp_mine"},
-			komrade:   minted,
+			komrad:    minted,
 			args:      []string{"pr", "list"},
 			wantGHSaw: "ghp_mine pr list",
 		},
 		{
 			name:      "a GITHUB_TOKEN somebody else set, which gh reads itself",
 			env:       []string{"GITHUB_TOKEN=ghp_theirs"},
-			komrade:   minted,
+			komrad:    minted,
 			args:      []string{"pr", "list"},
 			wantGHSaw: "pr list",
 		},
 		{
 			name:       "the exit code and both streams are the real binary's",
-			komrade:    minted,
+			komrad:     minted,
 			gh:         "echo 'all checks passing'\necho 'a warning' >&2\nexit 3\n",
 			args:       []string{"pr", "checks"},
 			wantExit:   3,
@@ -162,11 +162,11 @@ func TestIntegrationGHShim(t *testing.T) {
 		},
 		{
 			name:       "a machine with no gh but the stand-in itself",
-			komrade:    minted,
+			komrad:     minted,
 			noGH:       true,
 			args:       []string{"pr", "create"},
 			wantExit:   127,
-			wantStderr: "komrade: gh is not installed on this machine\n",
+			wantStderr: "komrad: gh is not installed on this machine\n",
 		},
 	}
 

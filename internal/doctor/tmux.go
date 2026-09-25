@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"komrade/internal/harness"
+	"komrad/internal/harness"
 )
 
 var (
@@ -171,7 +171,7 @@ func readTmuxDefaultShell(ctx context.Context, env Env) (shell, from string, err
 		name string
 		args []string
 	}{
-		{name: "komrade's tmux server", args: []string{"-L", env.TmuxSocket}},
+		{name: "komrad's tmux server", args: []string{"-L", env.TmuxSocket}},
 		{name: "your tmux server", args: nil},
 	}
 

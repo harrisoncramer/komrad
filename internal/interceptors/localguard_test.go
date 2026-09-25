@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"komrade/internal/logging"
-	"komrade/internal/logtest"
+	"komrad/internal/logging"
+	"komrad/internal/logtest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

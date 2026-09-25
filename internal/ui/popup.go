@@ -8,11 +8,11 @@ import (
 // FocusKey moves the cursor between the panel's sidebar and the agent's pane on the stage.
 const FocusKey = "C-a"
 
-const managerKeyOption = "@komrade_key"
+const managerKeyOption = "@komrad_key"
 
 const defaultPanelKey = "g"
 
-const hideKeyOption = "@komrade_hide_key"
+const hideKeyOption = "@komrad_hide_key"
 
 type popupTmux interface {
 	keyNamer
@@ -85,7 +85,7 @@ type keyNamer interface {
 	ShowGlobal(name string) string
 }
 
-// PanelKey settles the panel key from the config this komrade was given, falling back to the user
+// PanelKey settles the panel key from the config this komrad was given, falling back to the user
 // tmux server's own option and then to the built-in key.
 func PanelKey(namer keyNamer, configured string) string {
 	if configured != "" {
@@ -109,19 +109,19 @@ type panelKeyTmux interface {
 type BindPanelKeyParams struct {
 	Self       string
 	ConfigArgs []string
-	// Key is the panel key this komrade asks for, empty meaning whatever the tmux option says.
+	// Key is the panel key this komrad asks for, empty meaning whatever the tmux option says.
 	Key string
 }
 
 // BindPanelKey binds the panel key on the user's own tmux server, where it is pressed, and
 // takes back any other key it bound there before.
 func BindPanelKey(t panelKeyTmux, params BindPanelKeyParams) error {
-	// A komrade that names its own key can be bound beside another one.
+	// A komrad that names its own key can be bound beside another one.
 	key := PanelKey(t, params.Key)
 
 	shown := panelCommand(params, "shown")
 	hide := fmt.Sprintf("run-shell -b '%s'", panelCommand(params, "hide"))
-	open := fmt.Sprintf("display-popup -w 100%% -h 100%% -x C -y C -T ' komrade ' -EE '%s'",
+	open := fmt.Sprintf("display-popup -w 100%% -h 100%% -x C -y C -T ' komrad ' -EE '%s'",
 		panelCommand(params, "open"))
 
 	bound, err := t.GetPrefixKeys()

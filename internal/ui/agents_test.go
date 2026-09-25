@@ -9,17 +9,17 @@ import (
 	"testing"
 	"time"
 
-	"komrade/config"
-	"komrade/internal/errui"
-	"komrade/internal/ui/paint"
-	agentv1 "komrade/proto/gen/agent/v1"
-	"komrade/proto/gen/agent/v1/agentv1connect"
-	"komrade/proto/gen/hook/v1/hookv1connect"
-	pullrequestv1 "komrade/proto/gen/pullrequest/v1"
-	workflowv1 "komrade/proto/gen/workflow/v1"
-	"komrade/proto/gen/workflow/v1/workflowv1connect"
-	worktreev1 "komrade/proto/gen/worktree/v1"
-	"komrade/proto/gen/worktree/v1/worktreev1connect"
+	"komrad/config"
+	"komrad/internal/errui"
+	"komrad/internal/ui/paint"
+	agentv1 "komrad/proto/gen/agent/v1"
+	"komrad/proto/gen/agent/v1/agentv1connect"
+	"komrad/proto/gen/hook/v1/hookv1connect"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
+	workflowv1 "komrad/proto/gen/workflow/v1"
+	"komrad/proto/gen/workflow/v1/workflowv1connect"
+	worktreev1 "komrad/proto/gen/worktree/v1"
+	"komrad/proto/gen/worktree/v1/worktreev1connect"
 
 	tea "charm.land/bubbletea/v2"
 	"connectrpc.com/connect"
@@ -33,7 +33,7 @@ import (
 const (
 	hiddenMark    = " \uf4c5"
 	heldAt        = "2026-09-20T12:00:00Z"
-	repositoryURL = "https://github.com/harrisoncramer/komrade"
+	repositoryURL = "https://github.com/harrisoncramer/komrad"
 )
 
 var (
@@ -86,17 +86,17 @@ func TestAgentsRows(t *testing.T) {
 		{
 			name: "a child is drawn under its parent rather than where the listing put it",
 			rows: buildFamily(),
-			want: []string{"komrade", "  fix-gutter", "  author", "  └ test-runner", "  └ reviewer"},
+			want: []string{"komrad", "  fix-gutter", "  author", "  └ test-runner", "  └ reviewer"},
 		},
 		{
 			name: "a child whose parent is not listed stands on its own",
 			rows: []proto.Message{
-				newLiveWorkflow("w1", "komrade"),
+				newLiveWorkflow("w1", "komrad"),
 				newAgentAt("fix-gutter", "w1", 2),
 				newChild("a3", "reviewer", "author"),
 				newChild("a4", "test-runner", "author"),
 			},
-			want: []string{"komrade", "  fix-gutter", "  test-runner", "  reviewer"},
+			want: []string{"komrad", "  fix-gutter", "  test-runner", "  reviewer"},
 		},
 		{
 			name: "a hidden agent gives its row to its workflow's count",
@@ -111,12 +111,12 @@ func TestAgentsRows(t *testing.T) {
 		{
 			name: "a hidden parent takes its children with it",
 			rows: hideAgent(buildFamily(), "author"),
-			want: []string{"komrade +3", "  fix-gutter"},
+			want: []string{"komrad +3", "  fix-gutter"},
 		},
 		{
 			name: "a hidden child counts on its parent rather than on the workflow",
 			rows: hideAgent(buildFamily(), "a3"),
-			want: []string{"komrade", "  fix-gutter", "  author +1", "  └ test-runner"},
+			want: []string{"komrad", "  fix-gutter", "  author +1", "  └ test-runner"},
 		},
 		{
 			name: "an orchestrator is drawn on its workflow's row rather than as a row of its own",
@@ -150,7 +150,7 @@ func TestAgentsRows(t *testing.T) {
 		harness := openAgents(t,
 			&workflowv1.Workflow{
 				Id:       "w1",
-				Name:     "komrade",
+				Name:     "komrad",
 				Worktree: &workflowv1.WorktreeConfig{Enabled: true},
 			},
 			newAgentAt("worker", "w1", 1),
@@ -217,7 +217,7 @@ func TestAgentsShowHidden(t *testing.T) {
 
 		harness.press("H")
 
-		assert.Equal(t, []string{"komrade", "  fix-gutter", "  author" + hiddenMark, "  └ test-runner", "  └ reviewer"}, readListRows(harness.readFrame()))
+		assert.Equal(t, []string{"komrad", "  fix-gutter", "  author" + hiddenMark, "  └ test-runner", "  └ reviewer"}, readListRows(harness.readFrame()))
 	})
 
 	tests := []struct {
@@ -269,27 +269,27 @@ func TestAgentsSort(t *testing.T) {
 	}{
 		{
 			name: "created down is the fallback, the newest family first",
-			want: []string{"gadgets", "  echo", "komrade", "  delta", "  Zulu", "  alpha", "  └ charlie", "  └ bob"},
+			want: []string{"gadgets", "  echo", "komrad", "  delta", "  Zulu", "  alpha", "  └ charlie", "  └ bob"},
 		},
 		{
 			name:  "created up is the oldest family first",
 			press: []string{"f", "k"},
-			want:  []string{"gadgets", "  echo", "komrade", "  alpha", "  └ bob", "  └ charlie", "  Zulu", "  delta"},
+			want:  []string{"gadgets", "  echo", "komrad", "  alpha", "  └ bob", "  └ charlie", "  Zulu", "  delta"},
 		},
 		{
 			name:  "activity down is the family whose head changed state last first",
 			press: []string{"f", "tab", "j"},
-			want:  []string{"gadgets", "  echo", "komrade", "  Zulu", "  alpha", "  └ bob", "  └ charlie", "  delta"},
+			want:  []string{"gadgets", "  echo", "komrad", "  Zulu", "  alpha", "  └ bob", "  └ charlie", "  delta"},
 		},
 		{
 			name:  "name up sorts a name in capitals as its lowercase",
 			press: []string{"f", "tab", "tab", "k"},
-			want:  []string{"gadgets", "  echo", "komrade", "  alpha", "  └ bob", "  └ charlie", "  delta", "  Zulu"},
+			want:  []string{"gadgets", "  echo", "komrad", "  alpha", "  └ bob", "  └ charlie", "  delta", "  Zulu"},
 		},
 		{
 			name:  "name down",
 			press: []string{"f", "tab", "tab", "j"},
-			want:  []string{"gadgets", "  echo", "komrade", "  Zulu", "  delta", "  alpha", "  └ charlie", "  └ bob"},
+			want:  []string{"gadgets", "  echo", "komrad", "  Zulu", "  delta", "  alpha", "  └ charlie", "  └ bob"},
 		},
 		{
 			name:  "a flat list drops the headers and walks every workflow's families together",
@@ -337,7 +337,7 @@ func TestAgentsSort(t *testing.T) {
 
 // TestAgentsLongList covers a list with more rows than its pane.
 func TestAgentsLongList(t *testing.T) {
-	rows := []proto.Message{newLiveWorkflow("w1", "komrade")}
+	rows := []proto.Message{newLiveWorkflow("w1", "komrad")}
 	for i := range 40 {
 		rows = append(rows, newAgentAt(fmt.Sprintf("agent-%02d", i), "w1", 39-i))
 	}
@@ -922,7 +922,7 @@ func TestAgentsRecordWorktree(t *testing.T) {
 		wantAbsent []string
 	}{
 		{
-			name:       "a directory komrade does not hold draws no worktree rows and no error",
+			name:       "a directory komrad does not hold draws no worktree rows and no error",
 			answer:     refuseWith(connect.CodeNotFound, "/repo is not under the worktree directories"),
 			wantAbsent: []string{"worktree", "size", "base"},
 		},
@@ -1061,7 +1061,7 @@ func TestAgentsRecordWorktree(t *testing.T) {
 		}
 	})
 
-	t.Run("a directory komrade does not hold is never asked about twice", func(t *testing.T) {
+	t.Run("a directory komrad does not hold is never asked about twice", func(t *testing.T) {
 		harness := newPanelHarness(t, panelHarnessParams{})
 		harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, refuseWith(connect.CodeNotFound, "/repo is not under the worktree directories"))
 		harness.watch(buildSnapshot(buildRecorded()...))
@@ -1737,7 +1737,7 @@ func TestAgentsChildren(t *testing.T) {
 	t.Run("the hard delete counts the children in the archive's own rows", func(t *testing.T) {
 		reviewer := newArchivedAgent("a3", "reviewer", "w1")
 		reviewer.ParentAgentId = proto.String("a1")
-		harness := openArchive(t, newLiveWorkflow("w1", "komrade"), newArchivedAgent("a1", "author", "w1"), reviewer)
+		harness := openArchive(t, newLiveWorkflow("w1", "komrad"), newArchivedAgent("a1", "author", "w1"), reviewer)
 
 		harness.press("j", "d")
 
@@ -1769,7 +1769,7 @@ func TestAgentsChildren(t *testing.T) {
 		rows := buildFamily()
 		rows[0] = &workflowv1.Workflow{
 			Id:       "w1",
-			Name:     "komrade",
+			Name:     "komrad",
 			Worktree: &workflowv1.WorktreeConfig{Enabled: true},
 		}
 		author, _ := rows[1].(*agentv1.Agent)
@@ -2260,7 +2260,7 @@ func buildCursorable() []proto.Message {
 
 func buildFamily() []proto.Message {
 	return []proto.Message{
-		newLiveWorkflow("w1", "komrade"),
+		newLiveWorkflow("w1", "komrad"),
 		newAgentAt("author", "w1", 1),
 		newAgentAt("fix-gutter", "w1", 2),
 		newChild("a3", "reviewer", "author"),
@@ -2283,7 +2283,7 @@ func buildSortable() []proto.Message {
 	zulu.Name = "Zulu"
 
 	return []proto.Message{
-		newLiveWorkflow("w1", "komrade"),
+		newLiveWorkflow("w1", "komrad"),
 		newLiveWorkflow("w2", "gadgets"),
 		newSortable("delta", "w1", 30, 10),
 		charlie,

@@ -6,12 +6,12 @@ import (
 	"strings"
 	"time"
 
-	"komrade/internal/git"
-	"komrade/internal/ui/diffview"
-	"komrade/internal/ui/paint"
-	"komrade/internal/ui/paint/label"
-	"komrade/internal/ui/panel"
-	agentv1 "komrade/proto/gen/agent/v1"
+	"komrad/internal/git"
+	"komrad/internal/ui/diffview"
+	"komrad/internal/ui/paint"
+	"komrad/internal/ui/paint/label"
+	"komrad/internal/ui/panel"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"charm.land/bubbles/v2/key"
 	"charm.land/lipgloss/v2"
@@ -310,7 +310,7 @@ func (r reviewScreen) originView(s panelShared, thread *agentv1.ReviewThread) st
 }
 
 // originSaid says why a comment is not on the line it was written against, in terms of what
-// happened rather than of the placement komrade settled on.
+// happened rather than of the placement komrad settled on.
 func (d reviewDiff) originSaid(thread *agentv1.ReviewThread) string {
 	if _, drawn := d.view.GetFile(thread.GetFilePath()); !drawn {
 		if d.base != "" {

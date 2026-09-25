@@ -1,6 +1,6 @@
 # Infrastructure
 
-Two Terraform stacks live here, one per directory. `engine/` is the machine komrade runs on
+Two Terraform stacks live here, one per directory. `engine/` is the machine komrad runs on
 when it is not running on a laptop. `docs/` is the website at komrad.dev. They share an AWS
 account, one state bucket, and one GitHub trust, and nothing else.
 

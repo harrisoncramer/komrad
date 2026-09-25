@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"komrade/internal/frames"
-	"komrade/lib/xslice"
+	"komrad/internal/frames"
+	"komrad/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -79,7 +79,7 @@ func TestRecordSkipsAFrameItAlreadyHolds(t *testing.T) {
 }
 
 // TestRecordKeepsAFrameDisputingTheStateOnRecord is the case a recording exists for: the pane
-// has not moved, and what komrade believes about it is wrong.
+// has not moved, and what komrad believes about it is wrong.
 func TestRecordKeepsAFrameDisputingTheStateOnRecord(t *testing.T) {
 	dir := t.TempDir()
 	recorder := frames.NewRecorder(dir, on)

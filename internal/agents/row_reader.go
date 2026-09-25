@@ -4,16 +4,16 @@ import (
 	"context"
 	"fmt"
 
-	"komrade/lib/xptr"
-	"komrade/lib/xslice"
+	"komrad/lib/xptr"
+	"komrad/lib/xslice"
 
-	agentstore "komrade/internal/store/agent"
-	mailstore "komrade/internal/store/mail"
-	markstore "komrade/internal/store/mark"
-	pullrequeststore "komrade/internal/store/pullrequest"
-	reviewstore "komrade/internal/store/review"
-	rowstore "komrade/internal/store/row"
-	workflowstore "komrade/internal/store/workflow"
+	agentstore "komrad/internal/store/agent"
+	mailstore "komrad/internal/store/mail"
+	markstore "komrad/internal/store/mark"
+	pullrequeststore "komrad/internal/store/pullrequest"
+	reviewstore "komrad/internal/store/review"
+	rowstore "komrad/internal/store/row"
+	workflowstore "komrad/internal/store/workflow"
 )
 
 type rowPageReader interface {

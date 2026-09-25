@@ -5,14 +5,14 @@ import (
 	"path/filepath"
 	"testing"
 
-	"komrade/internal/harness"
+	"komrad/internal/harness"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // TestReadReport covers what one hook payload is read as, the event deciding it since that is
-// what komrade pointed a subcommand at.
+// what komrad pointed a subcommand at.
 func TestReadReport(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -28,7 +28,7 @@ func TestReadReport(t *testing.T) {
 			want:    harness.Report{TurnEnded: true},
 		},
 		{
-			name:    "a turn komrade's own last answer caused",
+			name:    "a turn komrad's own last answer caused",
 			event:   EventStop,
 			payload: `{"stop_hook_active":true}`,
 			want:    harness.Report{TurnEnded: true},
@@ -57,7 +57,7 @@ func TestReadReport(t *testing.T) {
 			want:    harness.Report{Reason: "Bash"},
 		},
 		{
-			name:    "a tool call komrade could not read",
+			name:    "a tool call komrad could not read",
 			event:   EventPreToolUse,
 			payload: `{`,
 			wantErr: true,
@@ -142,7 +142,7 @@ func TestReadReportOnCapturedPayloads(t *testing.T) {
 }
 
 // TestEveryInstalledHookIsRead pins the direction the subcommand test cannot cover: an event
-// komrade installs but takes no reading from would fire on every occurrence and be refused.
+// komrad installs but takes no reading from would fire on every occurrence and be refused.
 func TestEveryInstalledHookIsRead(t *testing.T) {
 	hn := NewHarness(NewHarnessParams{ConfigDir: t.TempDir()})
 

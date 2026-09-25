@@ -3,8 +3,8 @@ package workflow
 import (
 	"testing"
 
-	"komrade/internal/dbtest"
-	"komrade/internal/store"
+	"komrad/internal/dbtest"
+	"komrad/internal/store"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

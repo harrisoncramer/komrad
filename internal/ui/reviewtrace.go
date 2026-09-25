@@ -5,11 +5,11 @@ import (
 	"maps"
 	"time"
 
-	"komrade/internal/git"
-	"komrade/internal/position"
-	"komrade/internal/ui/diffview"
-	"komrade/lib/xslice"
-	agentv1 "komrade/proto/gen/agent/v1"
+	"komrad/internal/git"
+	"komrad/internal/position"
+	"komrad/internal/ui/diffview"
+	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 )
 
 // traceTimeout is how long every pair together may take, kept apart from the load's own budget

@@ -5,7 +5,7 @@ import (
 	"sync"
 	"testing"
 
-	"komrade/lib/xptr"
+	"komrad/lib/xptr"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"

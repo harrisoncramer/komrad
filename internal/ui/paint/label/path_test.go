@@ -46,9 +46,9 @@ func TestPath(t *testing.T) {
 		},
 		{
 			name: "a path under home starts with the tilde",
-			path: "/Users/me/src/komrade",
+			path: "/Users/me/src/komrad",
 			home: "/Users/me",
-			want: "~/src/komrade",
+			want: "~/src/komrad",
 		},
 	}
 

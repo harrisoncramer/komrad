@@ -7,11 +7,11 @@ import (
 	"os"
 	"strings"
 
-	"komrade/config"
-	"komrade/internal/harness"
-	"komrade/internal/logging"
-	agentstore "komrade/internal/store/agent"
-	"komrade/lib/xslice"
+	"komrad/config"
+	"komrad/internal/harness"
+	"komrad/internal/logging"
+	agentstore "komrad/internal/store/agent"
+	"komrad/lib/xslice"
 )
 
 //go:embed briefing.md
@@ -42,7 +42,7 @@ type NewLauncherParams struct {
 	CacheDir    string
 	LogPath     string
 	ContextPath string
-	// BinPath is komrade's own binary, which an agent's hooks and its gh stand-in both run.
+	// BinPath is komrad's own binary, which an agent's hooks and its gh stand-in both run.
 	BinPath string
 	Usage   config.Usage
 }
@@ -165,7 +165,7 @@ func (l *Launcher) globalContext() string {
 	return string(text)
 }
 
-// toolsDir is where komrade's stand-ins for the tools an agent calls are written, empty when
+// toolsDir is where komrad's stand-ins for the tools an agent calls are written, empty when
 // they could not be.
 func (l *Launcher) toolsDir() string {
 	dir, err := harness.WriteGHShim(l.cacheDir, l.binPath)
@@ -207,7 +207,7 @@ type launchParams struct {
 	ParentName       string
 	Role             agentstore.Role
 
-	// OwnsCheckout is whether komrade provisioned this agent a tree of its own, which separates an
+	// OwnsCheckout is whether komrad provisioned this agent a tree of its own, which separates an
 	// agent writing a change from one reading somebody else's.
 	OwnsCheckout bool
 	Resume       bool

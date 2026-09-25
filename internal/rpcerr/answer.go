@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"komrade/internal/fail"
+	"komrad/internal/fail"
 
 	"connectrpc.com/connect"
 )

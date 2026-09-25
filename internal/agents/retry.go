@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"strings"
 
-	"komrade/internal/fail"
-	"komrade/internal/harness"
-	"komrade/internal/store"
-	agentstore "komrade/internal/store/agent"
-	workflowstore "komrade/internal/store/workflow"
+	"komrad/internal/fail"
+	"komrad/internal/harness"
+	"komrad/internal/store"
+	agentstore "komrad/internal/store/agent"
+	workflowstore "komrad/internal/store/workflow"
 )
 
 var ErrAgentNotFailed = fail.Precondition("agent is not in a failed state")

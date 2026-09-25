@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"komrade/lib/xhttp"
-	logv1 "komrade/proto/gen/log/v1"
-	"komrade/proto/gen/log/v1/logv1connect"
+	"komrad/lib/xhttp"
+	logv1 "komrad/proto/gen/log/v1"
+	"komrad/proto/gen/log/v1/logv1connect"
 
 	"connectrpc.com/connect"
 	"github.com/spf13/cobra"

@@ -1,11 +1,11 @@
-# komrade configuration (github.com/harrisoncramer/komrade).
+# komrad configuration (github.com/harrisoncramer/komrad).
 #
 # Generated from the Config struct in config. Do not edit by hand;
 # change the struct's doc comments or its default tag and run
 # 'mise run gen:config'.
 #
 # These are the built-in defaults. Do not copy this file over: write
-# ~/.config/komrade/config.toml holding only what you are changing. An unknown key
+# ~/.config/komrad/config.toml holding only what you are changing. An unknown key
 # is an error.
 
 # Which agent CLI a new agent runs when neither the agent nor its workflow
@@ -85,12 +85,12 @@ back             = ["esc"]
 # workflow does not make worktrees, since there is no base branch to measure one against, and
 # the legend leaves it off there.
 review           = ["d"]
-# Pause the hovered agent where it stands, or unpause one you have already paused. Komrade
+# Pause the hovered agent where it stands, or unpause one you have already paused. Komrad
 # waits for the agent to come to rest before it claims the worktree, and refuses rather than
 # claiming it when the agent will not stop or its pane cannot be read.
 pause            = ["p"]
 # Unpause the hovered agent without typing anything at it, which is the way out of a pause
-# whose agent will not take the words komrade normally sends it.
+# whose agent will not take the words komrad normally sends it.
 release_silently = ["P"]
 # Hide the hovered agent from this list.
 hide             = ["h"]
@@ -331,7 +331,7 @@ new     = ["w"]
 # Rename the workflow under the cursor.
 rename  = ["r"]
 
-# The worktrees screen, which lists every directory komrade cut for an agent.
+# The worktrees screen, which lists every directory komrad cut for an agent.
 [keybindings.worktrees]
 # Leave the worktrees screen for the agents list.
 back          = ["esc"]
@@ -352,18 +352,18 @@ open          = ["t"]
 # Quit the panel.
 quit          = ["ctrl+c"]
 
-# Where komrade finds the scripts a workflow hangs on a moment in its agents' lives.
+# Where komrad finds the scripts a workflow hangs on a moment in its agents' lives.
 [hooks]
 # Directory for hooks: one executable file per hook, named after the hook.
-# A hook is a script or program komrade runs at a moment a workflow names it against, in the
-# agent's own directory, with agent info in KOMRADE_AGENT as JSON and the moment in
-# KOMRADE_TRIGGER. Default is ~/.config/komrade/hooks.
+# A hook is a script or program komrad runs at a moment a workflow names it against, in the
+# agent's own directory, with agent info in KOMRAD_AGENT as JSON and the moment in
+# KOMRAD_TRIGGER. Default is ~/.config/komrad/hooks.
 dir = ""
 
 # Where a workflow's generated worktree provisioner creates its worktrees.
 [worktrees]
 # Directory generated worktrees are created under, one subdirectory per agent.
-# Left empty this is ~/.local/state/komrade/worktrees.
+# Left empty this is ~/.local/state/komrad/worktrees.
 dir = ""
 
 # The GitHub App an engine fetches and pushes as.
@@ -383,18 +383,18 @@ private_key_path = ""
 # The standing text every agent is started with, whatever workflow it is in.
 [context]
 # The file holding global context, read at each launch.
-# Left empty this is ~/.config/komrade/context.md, but will not trigger a failure if left blank.
+# Left empty this is ~/.config/komrad/context.md, but will not trigger a failure if left blank.
 file = ""
 
 # How mail between agents is delivered.
 [mail]
 # How long mail stays deliverable, as a Go duration such as "3h" or "45m". Mail past
 # it is neither delivered nor readable, and the row is kept as a record that it never
-# arrived. A duration komrade cannot read, or one that is not positive, is refused.
+# arrived. A duration komrad cannot read, or one that is not positive, is refused.
 delivery_deadline = "3h"
 # How much mail two agents may write each other before a send between them is
 # refused. It counts the pair in both directions over every thread, so opening a new
-# subject is not a way around it. When a send is refused komrade marks a row for
+# subject is not a way around it. When a send is refused komrad marks a row for
 # attention and tells the recipient its mail was stopped, so an exchange that is cut
 # off does not leave the other side waiting on a reply that will never arrive. A
 # negative limit is refused.
@@ -405,12 +405,12 @@ max_exchange      = 40
 # How much is written, one of debug, info, warn, or error.
 level          = "info"
 # The default log viewer. Switch with fzf, rg, etc.
-viewer         = "tail -n +1 -F \"$KOMRADE_LOG\" | grep --line-buffered \"$KOMRADE_AGENT_ID\" | less -R +F"
+viewer         = "tail -n +1 -F \"$KOMRAD_LOG\" | grep --line-buffered \"$KOMRAD_AGENT_ID\" | less -R +F"
 # The viewer for a provisioner's or deprovisioner's own output, plain text rather than the
 # structured log's JSON lines.
-process_viewer = "less -R -X \"$KOMRADE_LOG\""
+process_viewer = "less -R -X \"$KOMRAD_LOG\""
 
-# Puts komrade into debug mode which records additional information used to help diagnose issues.
+# Puts komrad into debug mode which records additional information used to help diagnose issues.
 [debug]
 # Whether the pane capture behind each reading of an agent is kept under the cache
 # directory.
@@ -419,13 +419,13 @@ frames        = false
 # below zero takes the default.
 frame_history = 500
 
-# Which komrade this is: the database, the address, the tmux socket, the cache.
+# Which komrad this is: the database, the address, the tmux socket, the cache.
 [connection]
-# The Postgres komrade keeps every agent, workflow, schedule and transcript in, reached as
+# The Postgres komrad keeps every agent, workflow, schedule and transcript in, reached as
 # this engine's own login, which is what keeps its rows apart from every other engine's.
-# `komrade engine ensure` creates the login and prints this url.
-database_url          = "postgres://komrade_engine_default:komrade@localhost:5460/komrade?sslmode=disable"
-# The login that owns the schema, used only by `komrade migrate` and `komrade engine ensure`.
+# `komrad engine ensure` creates the login and prints this url.
+database_url          = "postgres://komrad_engine_default:komrad@localhost:5460/komrad?sslmode=disable"
+# The login that owns the schema, used only by `komrad migrate` and `komrad engine ensure`.
 # Left empty this is database_url, or the local owner while database_url is the default.
 owner_database_url    = ""
 # The least-privilege login the MCP query tools connect as.
@@ -433,16 +433,16 @@ owner_database_url    = ""
 # with _reader on the end and the same password.
 readonly_database_url = ""
 # Where the background service listens, and where the panel, the CLI and the MCP
-# endpoint all reach it. Change it to run two komrades on one machine. It has to be a
+# endpoint all reach it. Change it to run two komrads on one machine. It has to be a
 # loopback host, since the api has no auth and its writes spawn agents.
 addr                  = "127.0.0.1:8787"
-# The tmux socket komrade runs its own server on. Nothing in your normal tmux sees
-# that server, which is why `tmux -L komrade ls` is how you look at it directly.
-tmux_socket           = "komrade"
-# Where komrade keeps what it generates: the service log, the built-in scripts it
+# The tmux socket komrad runs its own server on. Nothing in your normal tmux sees
+# that server, which is why `tmux -L komrad ls` is how you look at it directly.
+tmux_socket           = "komrad"
+# Where komrad keeps what it generates: the service log, the built-in scripts it
 # writes out on every start, and the temp files a harness passes a prompt through.
-# Left empty this is ~/Library/Caches/komrade on a Mac and ~/.cache/komrade on Linux.
-# Everything under it is komrade's to delete and rewrite, so nothing of yours belongs here.
+# Left empty this is ~/Library/Caches/komrad on a Mac and ~/.cache/komrad on Linux.
+# Everything under it is komrad's to delete and rewrite, so nothing of yours belongs here.
 cache_dir             = ""
 # The ssh destination the engine runs on, like user@host, when it is not this machine.
 # Left empty the engine is local and an agent's terminal is shown by moving its own pane
@@ -450,14 +450,14 @@ cache_dir             = ""
 ssh                   = ""
 # The tmux socket the engine's own server runs on, which is only consulted when ssh names
 # a destination. Left empty it is tmux_socket, which is right when both machines run a
-# default komrade and wrong when this machine is also running an engine of its own.
+# default komrad and wrong when this machine is also running an engine of its own.
 engine_tmux_socket    = ""
 # The key, after your tmux prefix, that opens and hides the panel, and the picker between
 # this machine and its engines once engine files exist. Left empty it is whatever
-# @komrade_key says, and failing that g. An engine file may not set it.
+# @komrad_key says, and failing that g. An engine file may not set it.
 panel_key             = ""
 # How to run a command on the engine, as an argv, when ssh is not how you reach it.
-# "{{command}}" is replaced with what komrade wants run there, and "{{command_json}}" with the
+# "{{command}}" is replaced with what komrad wants run there, and "{{command_json}}" with the
 # same text escaped for embedding in JSON. It needs to allocate a terminal, since what it
 # carries is an interactive one.
 exec                  = []

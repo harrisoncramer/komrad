@@ -4,10 +4,10 @@ package rules.v1;
 
 import "buf/validate/validate.proto";
 
-option go_package = "komrade/proto/gen/rules/v1;rulesv1";
+option go_package = "komrad/proto/gen/rules/v1;rulesv1";
 
 extend buf.validate.StringRules {
-  // Refuses the characters a shell would act on, for anything komrade passes to one.
+  // Refuses the characters a shell would act on, for anything komrad passes to one.
   bool shell_safe = 50100 [(buf.validate.predefined).cel = {
     id: "string.shell_safe"
     message: "must not contain shell metacharacters"

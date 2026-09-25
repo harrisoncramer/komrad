@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"komrade/db/models"
-	"komrade/internal/git"
-	"komrade/internal/store"
-	"komrade/lib/xslice"
+	"komrad/db/models"
+	"komrad/internal/git"
+	"komrad/internal/store"
+	"komrad/lib/xslice"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -56,7 +56,7 @@ func (s State) IsTurnUnfinished() bool {
 	return s == StateThinking || s == StateWaiting
 }
 
-// IsAtRest reports whether a state says the agent is doing nothing komrade could disturb.
+// IsAtRest reports whether a state says the agent is doing nothing komrad could disturb.
 func (s State) IsAtRest() bool {
 	// Written without a default so an eighth state has to be answered for here rather than
 	// falling in with whichever answer the existing seven happen to share.
@@ -143,7 +143,7 @@ type Agent struct {
 	// HeadSHA is the commit the checkout has checked out.
 	HeadSHA *string
 
-	// AdoptedBranch is the branch an agent was put on rather than one komrade made for it.
+	// AdoptedBranch is the branch an agent was put on rather than one komrad made for it.
 	AdoptedBranch   string
 	WorktreeRemoved bool
 	InterruptedAt   *time.Time

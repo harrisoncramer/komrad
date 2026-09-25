@@ -5,9 +5,9 @@ import (
 	"slices"
 	"strings"
 
-	"komrade/internal/ui/panel"
-	"komrade/lib/xslice"
-	hookv1 "komrade/proto/gen/hook/v1"
+	"komrad/internal/ui/panel"
+	"komrad/lib/xslice"
+	hookv1 "komrad/proto/gen/hook/v1"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"

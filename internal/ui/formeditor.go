@@ -75,7 +75,7 @@ func (m model) openFormFieldEditor() (tea.Model, tea.Cmd, bool) {
 
 // formFieldDraftPath is the file a field is written to for the editor to open.
 func formFieldDraftPath(key string) string {
-	return filepath.Join(os.TempDir(), fmt.Sprintf("komrade-field-%s-%d.md", key, os.Getpid()))
+	return filepath.Join(os.TempDir(), fmt.Sprintf("komrad-field-%s-%d.md", key, os.Getpid()))
 }
 
 // applyFormFieldEdited writes what the editor wrote back into the field it was opened on.

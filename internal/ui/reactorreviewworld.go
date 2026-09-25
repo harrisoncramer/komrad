@@ -3,8 +3,8 @@ package ui
 import (
 	"slices"
 
-	"komrade/internal/assemble"
-	watchv1 "komrade/proto/gen/watch/v1"
+	"komrad/internal/assemble"
+	watchv1 "komrad/proto/gen/watch/v1"
 
 	tea "charm.land/bubbletea/v2"
 )

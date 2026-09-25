@@ -6,9 +6,9 @@ import (
 	"maps"
 	"slices"
 
-	"komrade/internal/diff"
-	"komrade/lib/xslice"
-	agentv1 "komrade/proto/gen/agent/v1"
+	"komrad/internal/diff"
+	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 )
 
 type rowKind uint8

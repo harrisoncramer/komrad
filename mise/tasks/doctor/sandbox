@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#MISE description="Run komrade doctor on a container that has just installed it."
+#MISE description="Run komrad doctor on a container that has just installed it."
 set -euo pipefail
 source "$MISE_CONFIG_ROOT/mise/tasks/_"
 
@@ -8,7 +8,7 @@ usage() {
 	echo
 	echo "Runs the doctor against a machine with nothing set up on it, which is the"
 	echo "only way to see what a first run looks like from a checkout that has"
-	echo "everything already. The stage says how much of what komrade needs is there:"
+	echo "everything already. The stage says how much of what komrad needs is there:"
 	echo
 	echo "  bare       the binary and nothing else (default)"
 	echo "  tmux-old   a tmux below the version the panel's key binding needs"
@@ -56,7 +56,7 @@ x86_64 | amd64) arch=amd64 ;;
 	;;
 esac
 
-CGO_ENABLED=0 GOOS=linux GOARCH="$arch" go build -o bin/komrade-linux .
+CGO_ENABLED=0 GOOS=linux GOARCH="$arch" go build -o bin/komrad-linux .
 
 service="doctor-$stage"
 

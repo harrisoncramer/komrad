@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"komrade/internal/git"
+	"komrad/internal/git"
 )
 
 // Snapshots freezes whatever tree its fields name and hands back the files it was given.

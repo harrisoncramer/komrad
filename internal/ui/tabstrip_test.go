@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"komrade/internal/ui"
-	agentv1 "komrade/proto/gen/agent/v1"
+	"komrad/internal/ui"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

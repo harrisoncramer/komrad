@@ -1,4 +1,4 @@
-// Package enginepick is the small picker the panel key opens when more than one komrade can be
+// Package enginepick is the small picker the panel key opens when more than one komrad can be
 // attached to: this machine, or an engine somewhere else.
 package enginepick
 
@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	"komrade/internal/ui/paint"
-	"komrade/lib/xslice"
+	"komrad/internal/ui/paint"
+	"komrad/lib/xslice"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -21,7 +21,7 @@ const gutter = 2
 
 const localName = "this machine"
 
-// Row is one komrade the picker offers.
+// Row is one komrad the picker offers.
 type Row struct {
 	// Name is the engine's name, empty for this machine.
 	Name string
@@ -60,7 +60,7 @@ type Probe func(row Row) Status
 type RunParams struct {
 	Rows  []Row
 	Probe Probe
-	// Self names this komrade's build, drawn in the header.
+	// Self names this komrad's build, drawn in the header.
 	Self string
 }
 
@@ -203,13 +203,13 @@ func (m model) View() tea.View {
 // render draws the rows in a column with the cursor's row described beside them.
 func (m model) render() string {
 	list := make([]string, 0, len(m.rows)+2)
-	list = append(list, paint.Panel.Header().Render("Open which komrade?"), "")
+	list = append(list, paint.Panel.Header().Render("Open which komrad?"), "")
 
 	for index, row := range m.rows {
 		list = append(list, m.rowLine(index, row))
 	}
 
-	header := paint.Panel.Style(paint.ToneMuted).Render("this komrade is " + m.self)
+	header := paint.Panel.Style(paint.ToneMuted).Render("this komrad is " + m.self)
 	body := lipgloss.JoinHorizontal(lipgloss.Top,
 		lipgloss.NewStyle().Width(listWidth).Render(strings.Join(list, "\n")),
 		strings.Repeat(" ", gutter),

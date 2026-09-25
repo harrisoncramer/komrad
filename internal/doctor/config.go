@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"komrade/config"
-	"komrade/lib/xslice"
+	"komrad/config"
+	"komrad/lib/xslice"
 )
 
 var (
@@ -79,7 +79,7 @@ func describeConfigFix(env Env) string {
 	}
 
 	if len(env.configLayers) == 0 {
-		return "drop --config, or KOMRADE_CONFIG, to run on the defaults"
+		return "drop --config, or KOMRAD_CONFIG, to run on the defaults"
 	}
 
 	return "write " + env.configLayers[0].Path + ", or drop --config to run on the defaults"

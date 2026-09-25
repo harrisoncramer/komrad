@@ -7,15 +7,15 @@ import (
 	"testing"
 	"time"
 
-	"komrade/internal/harness"
-	"komrade/internal/harness/pane"
-	"komrade/internal/harnesstest"
-	"komrade/internal/mail"
-	agentstore "komrade/internal/store/agent"
-	mailstore "komrade/internal/store/mail"
-	schedulestore "komrade/internal/store/schedule"
-	"komrade/internal/tmuxtest"
-	"komrade/lib/xptr"
+	"komrad/internal/harness"
+	"komrad/internal/harness/pane"
+	"komrad/internal/harnesstest"
+	"komrad/internal/mail"
+	agentstore "komrad/internal/store/agent"
+	mailstore "komrad/internal/store/mail"
+	schedulestore "komrad/internal/store/schedule"
+	"komrad/internal/tmuxtest"
+	"komrad/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -101,7 +101,7 @@ func TestReconcileSinglePass(t *testing.T) {
 			want:      agentstore.StateThinking,
 		},
 		{
-			name:      "a foreground program komrade does not recognise is taken for the CLI",
+			name:      "a foreground program komrad does not recognise is taken for the CLI",
 			fromState: agentstore.StateIdle,
 			owned:     true,
 			command:   "2.1.241",
@@ -160,7 +160,7 @@ func TestReconcileRecordsTheFrameItRead(t *testing.T) {
 }
 
 // TestReconcileRecordsAnUnrecognizedFrameDisputingAnIdleAgent covers a row the panel calls finished
-// whose pane komrade cannot read.
+// whose pane komrad cannot read.
 func TestReconcileRecordsAnUnrecognizedFrameDisputingAnIdleAgent(t *testing.T) {
 	st := newStore(t)
 	agent := seed(t, st, "agent", "%1", agentstore.StateIdle)
@@ -902,7 +902,7 @@ func TestReconcileLeavesAnAgentAloneWhenTheObserverHasNothingToSay(t *testing.T)
 	assert.Empty(t, recorder.recorded)
 }
 
-// TestReconcileLeavesAnAgentAloneWhenTheObserverFails pins that a reading komrade could not take
+// TestReconcileLeavesAnAgentAloneWhenTheObserverFails pins that a reading komrad could not take
 // is not a reading that moves anything.
 func TestReconcileLeavesAnAgentAloneWhenTheObserverFails(t *testing.T) {
 	st := newStore(t)
@@ -977,7 +977,7 @@ func TestReconcileLeavesTheStampToTheHookWhenItReported(t *testing.T) {
 }
 
 // TestReconcileUnrecognizedFrameTakesAnIdleAgentToUncertain pins the reading that used to be
-// silent: a row the panel calls finished whose pane komrade can no longer read stops claiming the
+// silent: a row the panel calls finished whose pane komrad can no longer read stops claiming the
 // agent is done.
 func TestReconcileUnrecognizedFrameTakesAnIdleAgentToUncertain(t *testing.T) {
 	st := newStore(t)
@@ -1095,8 +1095,8 @@ func TestReconcileReportedReasonMovesNoState(t *testing.T) {
 	assert.Equal(t, "Bash", rec.tally.read(agent.ID).reportedReason)
 }
 
-// TestReconcileTurnBoundaryDoesNotShortcutIntoUncertain pins that the one positive report komrade
-// has that a turn finished cannot be spent reaching the state that says komrade does not know
+// TestReconcileTurnBoundaryDoesNotShortcutIntoUncertain pins that the one positive report komrad
+// has that a turn finished cannot be spent reaching the state that says komrad does not know
 // whether it finished, so an unreadable frame still earns its misses.
 func TestReconcileTurnBoundaryDoesNotShortcutIntoUncertain(t *testing.T) {
 	st := newStore(t)
@@ -1117,7 +1117,7 @@ func TestReconcileTurnBoundaryDoesNotShortcutIntoUncertain(t *testing.T) {
 
 	require.NoError(t, rec.Reconcile(ctx))
 	assert.Equal(t, agentstore.StateThinking, stateOf(t, st, "agent"),
-		"a reported turn end is no evidence for a frame komrade could not read")
+		"a reported turn end is no evidence for a frame komrad could not read")
 
 	for range reconcileMisses - 1 {
 		require.NoError(t, rec.Reconcile(ctx))
@@ -1138,7 +1138,7 @@ func TestReconcileMissesOnlyCountTowardsTheStateTheyWereEarnedFor(t *testing.T) 
 		want    agentstore.State
 	}{
 		{
-			name:    "frames komrade could not read do not pay for declaring the agent idle",
+			name:    "frames komrad could not read do not pay for declaring the agent idle",
 			earned:  harnesstest.FrameUnrecognized,
 			spentOn: harnesstest.FrameIdle,
 			want:    agentstore.StateIdle,

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"os"
 
-	"komrade/internal/ui/layout"
+	"komrad/internal/ui/layout"
 
 	tea "charm.land/bubbletea/v2"
 )

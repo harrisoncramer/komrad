@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"komrade/internal/ui/layout"
-	"komrade/internal/ui/panel"
+	"komrad/internal/ui/layout"
+	"komrad/internal/ui/panel"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -115,14 +115,14 @@ func (r reviewScreen) isEditRefused(s panelShared) (string, bool) {
 	return "", false
 }
 
-// isAgentUnreadable reports whether komrade cannot say what the agent is doing.
+// isAgentUnreadable reports whether komrad cannot say what the agent is doing.
 func (r reviewScreen) isAgentUnreadable(s panelShared) (string, bool) {
 	item, ok := r.agentRow(s)
 	if !ok || !item.Alive || item.Agent.State != panel.StateUncertain {
 		return "", false
 	}
 
-	return "komrade cannot read this agent's pane, so it may be writing in this worktree · " +
+	return "komrad cannot read this agent's pane, so it may be writing in this worktree · " +
 		"look at the pane before you edit", true
 }
 

@@ -8,12 +8,12 @@ import (
 	"os/exec"
 	"strings"
 
-	"komrade/internal/agents"
-	"komrade/internal/tmux"
-	"komrade/internal/ui"
-	"komrade/internal/ui/enginepick"
-	"komrade/internal/version"
-	"komrade/lib/xslice"
+	"komrad/internal/agents"
+	"komrad/internal/tmux"
+	"komrad/internal/ui"
+	"komrad/internal/ui/enginepick"
+	"komrad/internal/version"
+	"komrad/lib/xslice"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -32,17 +32,17 @@ func openCmd(state *app) *cobra.Command {
 
 It creates the manager session if it is not there and attaches either way, so the
 panel keeps its place between opens rather than starting over. The manager session
-lives on komrade's own tmux server, so it does not show up in ` + "`tmux ls`" + `.
+lives on komrad's own tmux server, so it does not show up in ` + "`tmux ls`" + `.
 
 With engine files under the config's engines directory and no --engine given, it
-first asks which komrade to open, this machine or one of them, and runs itself again
+first asks which komrad to open, this machine or one of them, and runs itself again
 on the one chosen. Closing that panel comes back to the question, and closing the
-question closes the popup. An engine running other code than this komrade cannot be
+question closes the popup. An engine running other code than this komrad cannot be
 chosen.
 
 The tmux plugin runs this as the popup's command, so it blocks until the client
 detaches, which is what closes the popup. Pressing the panel key again runs
-` + "`komrade hide`" + `. Run by hand outside a popup it attaches the manager session in the
+` + "`komrad hide`" + `. Run by hand outside a popup it attaches the manager session in the
 terminal instead, which is the panel without the popup around it.
 
 With --detach it creates the session and returns, which is what a script wants when
@@ -244,12 +244,12 @@ func buildPanelWindowArgs(state *app, self string, detached bool) []string {
 
 func sessionEnvArgs(state *app) []string {
 	return []string{
-		"-e", "KOMRADE_TMUX_SOCKET=" + state.env.TmuxSocket,
-		"-e", "KOMRADE_DATABASE_URL=" + state.env.DatabaseURL,
-		"-e", "KOMRADE_READONLY_DATABASE_URL=" + state.env.ReadOnlyDatabaseURL,
-		"-e", "KOMRADE_ADDR=" + state.env.Addr,
+		"-e", "KOMRAD_TMUX_SOCKET=" + state.env.TmuxSocket,
+		"-e", "KOMRAD_DATABASE_URL=" + state.env.DatabaseURL,
+		"-e", "KOMRAD_READONLY_DATABASE_URL=" + state.env.ReadOnlyDatabaseURL,
+		"-e", "KOMRAD_ADDR=" + state.env.Addr,
 		"-e", "EDITOR=" + state.env.Editor,
-		"-e", "KOMRADE_CACHE_DIR=" + state.env.CacheDir,
+		"-e", "KOMRAD_CACHE_DIR=" + state.env.CacheDir,
 	}
 }
 
@@ -301,6 +301,6 @@ func refuseNesting(state *app) error {
 	}
 
 	return fmt.Errorf(
-		"this is agent %s's own pane, so opening a panel here would nest one komrade inside "+
+		"this is agent %s's own pane, so opening a panel here would nest one komrad inside "+
 			"another: open it from your own terminal instead", state.env.AgentID)
 }

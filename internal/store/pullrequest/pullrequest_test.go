@@ -4,20 +4,20 @@ import (
 	"testing"
 	"time"
 
-	"komrade/internal/dbtest"
-	"komrade/internal/forge"
-	"komrade/internal/store"
-	agentstore "komrade/internal/store/agent"
-	workflowstore "komrade/internal/store/workflow"
-	"komrade/lib/xslice"
+	"komrad/internal/dbtest"
+	"komrad/internal/forge"
+	"komrad/internal/store"
+	agentstore "komrad/internal/store/agent"
+	workflowstore "komrad/internal/store/workflow"
+	"komrad/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 const (
-	komrade = "https://github.com/harrisoncramer/komrade"
-	fixture = "https://github.com/harrisoncramer/komrade-forge-fixture"
+	komrad  = "https://github.com/harrisoncramer/komrad"
+	fixture = "https://github.com/harrisoncramer/komrad-forge-fixture"
 )
 
 type harness struct {
@@ -66,7 +66,7 @@ func (h *harness) createWorkflow(t *testing.T) string {
 	t.Helper()
 
 	created, err := h.workflows.Create(t.Context(), workflowstore.Config{
-		Name:     "komrade",
+		Name:     "komrad",
 		Worktree: workflowstore.WorktreeConfig{Enabled: true, BaseBranch: "main"},
 	})
 	require.NoError(t, err)
@@ -81,9 +81,9 @@ func openPullRequest(providerID string, number int, branch string) UpsertParams 
 		Host:              "github.com",
 		Forge:             "github",
 		ProviderID:        providerID,
-		URL:               "https://github.com/harrisoncramer/komrade/pull/" + providerID,
-		RepositoryURL:     komrade,
-		HeadRepositoryURL: komrade,
+		URL:               "https://github.com/harrisoncramer/komrad/pull/" + providerID,
+		RepositoryURL:     komrad,
+		HeadRepositoryURL: komrad,
 		Number:            number,
 		Title:             "one",
 		HeadBranch:        branch,
@@ -165,17 +165,17 @@ func TestObserveJoinsAgentsToTheirBranches(t *testing.T) {
 	ctx := t.Context()
 
 	workflow := h.createWorkflow(t)
-	onBranch := h.createAgent(t, workflow, "on-branch", komrade, "agent/x")
-	other := h.createAgent(t, workflow, "elsewhere", komrade, "agent/y")
-	onMain := h.createAgent(t, workflow, "on-main", komrade, "main")
+	onBranch := h.createAgent(t, workflow, "on-branch", komrad, "agent/x")
+	other := h.createAgent(t, workflow, "elsewhere", komrad, "agent/y")
+	onMain := h.createAgent(t, workflow, "on-main", komrad, "main")
 
 	_, err := h.Upsert(ctx, openPullRequest("PR_1", 1, "agent/x"))
 	require.NoError(t, err)
 	_, err = h.Upsert(ctx, openPullRequest("PR_2", 2, "main"))
 	require.NoError(t, err)
 	fork := openPullRequest("PR_3", 3, "agent/x")
-	fork.HeadRepositoryURL = "https://github.com/someone/komrade"
-	fork.URL = "https://github.com/harrisoncramer/komrade/pull/3"
+	fork.HeadRepositoryURL = "https://github.com/someone/komrad"
+	fork.URL = "https://github.com/harrisoncramer/komrad/pull/3"
 	_, err = h.Upsert(ctx, fork)
 	require.NoError(t, err)
 
@@ -203,7 +203,7 @@ func TestObserveLinksArchivedAgents(t *testing.T) {
 	ctx := t.Context()
 
 	workflow := h.createWorkflow(t)
-	archived := h.createAgent(t, workflow, "archived", komrade, "agent/x")
+	archived := h.createAgent(t, workflow, "archived", komrad, "agent/x")
 	_, err := h.agents.Archive(ctx, []string{archived})
 	require.NoError(t, err)
 	_, err = h.Upsert(ctx, openPullRequest("PR_1", 1, "agent/x"))
@@ -221,8 +221,8 @@ func TestLiveRepositoriesAndUnscannedBranches(t *testing.T) {
 	ctx := t.Context()
 
 	workflow := h.createWorkflow(t)
-	h.createAgent(t, workflow, "a", komrade, "agent/x")
-	h.createAgent(t, workflow, "b", komrade, "agent/y")
+	h.createAgent(t, workflow, "a", komrad, "agent/x")
+	h.createAgent(t, workflow, "b", komrad, "agent/y")
 	h.createAgent(t, workflow, "c", fixture, "fixture/open")
 	archived := h.createAgent(t, workflow, "d", "https://github.com/harrisoncramer/gone", "agent/z")
 	_, err := h.agents.Archive(ctx, []string{archived})
@@ -230,28 +230,28 @@ func TestLiveRepositoriesAndUnscannedBranches(t *testing.T) {
 
 	repositories, err := h.ListLiveRepositories(ctx)
 	require.NoError(t, err)
-	assert.Equal(t, []string{komrade, fixture}, repositories)
+	assert.Equal(t, []string{komrad, fixture}, repositories)
 
-	branches, err := h.syncs.ListUnscannedBranches(ctx, komrade)
+	branches, err := h.syncs.ListUnscannedBranches(ctx, komrad)
 	require.NoError(t, err)
 	assert.Equal(t, []string{"agent/x", "agent/y"}, branches)
 
-	require.NoError(t, h.syncs.SetBranchScanCursor(ctx, komrade, "agent/x", "c2"))
-	scan, err := h.syncs.GetBranchScan(ctx, komrade, "agent/x")
+	require.NoError(t, h.syncs.SetBranchScanCursor(ctx, komrad, "agent/x", "c2"))
+	scan, err := h.syncs.GetBranchScan(ctx, komrad, "agent/x")
 	require.NoError(t, err)
 	assert.Equal(t, "c2", scan.NextCursor)
 	assert.Nil(t, scan.CompletedAt)
 
-	branches, err = h.syncs.ListUnscannedBranches(ctx, komrade)
+	branches, err = h.syncs.ListUnscannedBranches(ctx, komrad)
 	require.NoError(t, err)
 	assert.Equal(t, []string{"agent/x", "agent/y"}, branches, "a scan in progress is still unscanned")
 
-	require.NoError(t, h.syncs.CompleteBranchScan(ctx, komrade, "agent/x", "c3"))
-	branches, err = h.syncs.ListUnscannedBranches(ctx, komrade)
+	require.NoError(t, h.syncs.CompleteBranchScan(ctx, komrad, "agent/x", "c3"))
+	branches, err = h.syncs.ListUnscannedBranches(ctx, komrad)
 	require.NoError(t, err)
 	assert.Equal(t, []string{"agent/y"}, branches)
 
-	_, err = h.syncs.GetBranchScan(ctx, komrade, "agent/q")
+	_, err = h.syncs.GetBranchScan(ctx, komrad, "agent/q")
 	require.ErrorIs(t, err, store.ErrNotFound)
 }
 
@@ -264,21 +264,21 @@ func TestSyncRowRoundTrip(t *testing.T) {
 	h := open(t)
 	ctx := t.Context()
 
-	_, err := h.syncs.GetSync(ctx, komrade)
+	_, err := h.syncs.GetSync(ctx, komrad)
 	require.ErrorIs(t, err, store.ErrNotFound)
 
-	require.NoError(t, h.syncs.EnsureSync(ctx, komrade))
-	require.NoError(t, h.syncs.EnsureSync(ctx, komrade))
-	sync, err := h.syncs.GetSync(ctx, komrade)
+	require.NoError(t, h.syncs.EnsureSync(ctx, komrad))
+	require.NoError(t, h.syncs.EnsureSync(ctx, komrad))
+	sync, err := h.syncs.GetSync(ctx, komrad)
 	require.NoError(t, err)
 	assert.Nil(t, sync.UpdatedThrough)
 	assert.False(t, sync.IsSweeping())
 	assert.False(t, sync.IsSwept())
 	assert.Zero(t, sync.Calls)
 
-	require.NoError(t, h.syncs.RecordSyncRequest(ctx, komrade))
-	require.NoError(t, h.syncs.RecordSyncRequest(ctx, komrade))
-	sync, err = h.syncs.GetSync(ctx, komrade)
+	require.NoError(t, h.syncs.RecordSyncRequest(ctx, komrad))
+	require.NoError(t, h.syncs.RecordSyncRequest(ctx, komrad))
+	sync, err = h.syncs.GetSync(ctx, komrad)
 	require.NoError(t, err)
 	assert.Equal(t, 2, sync.Calls)
 	assert.NotNil(t, sync.ReadAt)
@@ -287,17 +287,17 @@ func TestSyncRowRoundTrip(t *testing.T) {
 	newest := time.Date(2026, 9, 19, 10, 0, 0, 0, time.UTC)
 	listed := newest.Add(time.Minute)
 	require.NoError(t, h.syncs.StartSweep(ctx, StartSweepParams{
-		RepositoryURL: komrade,
+		RepositoryURL: komrad,
 		Newest:        newest,
 		ListedAt:      listed,
 	}))
-	sync, err = h.syncs.GetSync(ctx, komrade)
+	sync, err = h.syncs.GetSync(ctx, komrad)
 	require.NoError(t, err)
 	require.True(t, sync.IsSweeping())
 	assert.Empty(t, *sync.SweepCursor, "page one has no cursor")
 
-	require.NoError(t, h.syncs.AdvanceSweep(ctx, komrade, "c3"))
-	sync, err = h.syncs.GetSync(ctx, komrade)
+	require.NoError(t, h.syncs.AdvanceSweep(ctx, komrad, "c3"))
+	sync, err = h.syncs.GetSync(ctx, komrad)
 	require.NoError(t, err)
 	require.True(t, sync.IsSweeping())
 	assert.Equal(t, "c3", *sync.SweepCursor)
@@ -306,8 +306,8 @@ func TestSyncRowRoundTrip(t *testing.T) {
 	assert.True(t, sync.ListedAt.Equal(listed), "listed when the caller says, not when the database does")
 	assert.Nil(t, sync.UpdatedThrough, "the mark does not move until the sweep completes")
 
-	require.NoError(t, h.syncs.CompleteSweep(ctx, komrade))
-	sync, err = h.syncs.GetSync(ctx, komrade)
+	require.NoError(t, h.syncs.CompleteSweep(ctx, komrad))
+	sync, err = h.syncs.GetSync(ctx, komrad)
 	require.NoError(t, err)
 	assert.False(t, sync.IsSweeping())
 	assert.True(t, sync.IsSwept())
@@ -316,42 +316,42 @@ func TestSyncRowRoundTrip(t *testing.T) {
 
 	older := newest.Add(-time.Hour)
 	require.NoError(t, h.syncs.StartSweep(ctx, StartSweepParams{
-		RepositoryURL: komrade,
+		RepositoryURL: komrad,
 		Newest:        older,
 		ListedAt:      listed,
 	}))
-	require.NoError(t, h.syncs.CompleteSweep(ctx, komrade))
-	sync, err = h.syncs.GetSync(ctx, komrade)
+	require.NoError(t, h.syncs.CompleteSweep(ctx, komrad))
+	sync, err = h.syncs.GetSync(ctx, komrad)
 	require.NoError(t, err)
 	assert.True(t, sync.UpdatedThrough.Equal(newest), "an older page one never regresses the mark")
 
-	require.NoError(t, h.syncs.AdvanceMark(ctx, komrade, older))
-	sync, err = h.syncs.GetSync(ctx, komrade)
+	require.NoError(t, h.syncs.AdvanceMark(ctx, komrad, older))
+	sync, err = h.syncs.GetSync(ctx, komrad)
 	require.NoError(t, err)
 	assert.True(t, sync.UpdatedThrough.Equal(newest), "an older search never regresses the mark")
 
 	later := newest.Add(time.Hour)
-	require.NoError(t, h.syncs.AdvanceMark(ctx, komrade, later))
-	sync, err = h.syncs.GetSync(ctx, komrade)
+	require.NoError(t, h.syncs.AdvanceMark(ctx, komrad, later))
+	sync, err = h.syncs.GetSync(ctx, komrad)
 	require.NoError(t, err)
 	assert.True(t, sync.UpdatedThrough.Equal(later))
 
 	relisted := later.Add(time.Hour)
-	require.NoError(t, h.syncs.MarkListed(ctx, komrade, relisted))
-	sync, err = h.syncs.GetSync(ctx, komrade)
+	require.NoError(t, h.syncs.MarkListed(ctx, komrad, relisted))
+	sync, err = h.syncs.GetSync(ctx, komrad)
 	require.NoError(t, err)
 	assert.True(t, sync.ListedAt.Equal(relisted))
 	assert.True(t, sync.UpdatedThrough.Equal(later), "a listing does not move the mark")
 
-	require.NoError(t, h.syncs.ResetSyncCalls(ctx, komrade))
-	sync, err = h.syncs.GetSync(ctx, komrade)
+	require.NoError(t, h.syncs.ResetSyncCalls(ctx, komrad))
+	sync, err = h.syncs.GetSync(ctx, komrad)
 	require.NoError(t, err)
 	assert.Zero(t, sync.Calls)
 
 	require.NoError(t, h.syncs.EnsureSync(ctx, fixture))
 	require.NoError(t, h.syncs.AdvanceSweep(ctx, fixture, "c9"))
-	require.NoError(t, h.syncs.ResetSweeps(ctx, []string{komrade, fixture}))
-	for _, repository := range []string{komrade, fixture} {
+	require.NoError(t, h.syncs.ResetSweeps(ctx, []string{komrad, fixture}))
+	for _, repository := range []string{komrad, fixture} {
 		sync, err = h.syncs.GetSync(ctx, repository)
 		require.NoError(t, err)
 		assert.False(t, sync.IsSwept(), "%s is back to a first sweep", repository)
@@ -381,8 +381,8 @@ func TestListStaleStandingsAnswersOpenRowsOnAgentBranches(t *testing.T) {
 	ctx := t.Context()
 
 	workflow := h.createWorkflow(t)
-	h.createAgent(t, workflow, "a", komrade, "agent/x")
-	archived := h.createAgent(t, workflow, "b", komrade, "agent/archived")
+	h.createAgent(t, workflow, "a", komrad, "agent/x")
+	archived := h.createAgent(t, workflow, "b", komrad, "agent/archived")
 	_, err := h.agents.Archive(ctx, []string{archived})
 	require.NoError(t, err)
 
@@ -395,7 +395,7 @@ func TestListStaleStandingsAnswersOpenRowsOnAgentBranches(t *testing.T) {
 	noAgent := openPullRequest("PR_6", 6, "agent/nobody")
 	onArchived := openPullRequest("PR_7", 7, "agent/archived")
 	fork := openPullRequest("PR_8", 8, "agent/x")
-	fork.HeadRepositoryURL = "https://github.com/someone/komrade"
+	fork.HeadRepositoryURL = "https://github.com/someone/komrad"
 	pushed := openPullRequest("PR_9", 9, "agent/x")
 	pending := openPullRequest("PR_10", 10, "agent/x")
 	failing := openPullRequest("PR_11", 11, "agent/x")
@@ -436,7 +436,7 @@ func TestListStaleStandingsAnswersOpenRowsOnAgentBranches(t *testing.T) {
 	list := func(now time.Time) []int {
 		t.Helper()
 		stale, err := h.syncs.ListStaleStandings(ctx, ListStaleStandingsParams{
-			RepositoryURL: komrade,
+			RepositoryURL: komrad,
 			Now:           now,
 			PendingAfter:  time.Minute,
 			SettleWithin:  10 * time.Minute,
@@ -542,7 +542,7 @@ func TestListPageOrdersCurrentFirst(t *testing.T) {
 	}
 
 	onBranch, err := h.ListPage(ctx, ListPageParams{
-		RepositoryURL: komrade,
+		RepositoryURL: komrad,
 		HeadBranch:    "agent/x",
 		Limit:         10,
 	})
@@ -553,7 +553,7 @@ func TestListPageOrdersCurrentFirst(t *testing.T) {
 	var cursor *Cursor
 	for {
 		page, err := h.ListPage(ctx, ListPageParams{
-			RepositoryURL: komrade,
+			RepositoryURL: komrad,
 			Limit:         2,
 			Cursor:        cursor,
 		})

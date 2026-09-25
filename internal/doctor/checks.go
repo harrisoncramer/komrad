@@ -1,6 +1,6 @@
 package doctor
 
-import "komrade/lib/xslice"
+import "komrad/lib/xslice"
 
 // HereChecks is what the doctor makes on the machine it runs on: what the panel and the CLI
 // there need, and the service as it is reached from there.

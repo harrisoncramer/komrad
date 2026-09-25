@@ -3,12 +3,12 @@ package run
 import (
 	"testing"
 
-	"komrade/internal/dbtest"
-	"komrade/internal/store"
-	agentstore "komrade/internal/store/agent"
-	rowstore "komrade/internal/store/row"
-	workflowstore "komrade/internal/store/workflow"
-	"komrade/lib/xptr"
+	"komrad/internal/dbtest"
+	"komrad/internal/store"
+	agentstore "komrad/internal/store/agent"
+	rowstore "komrad/internal/store/row"
+	workflowstore "komrad/internal/store/workflow"
+	"komrad/lib/xptr"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"

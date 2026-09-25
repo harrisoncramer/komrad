@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"komrade/db/models"
-	"komrade/internal/watch"
-	"komrade/lib/xslice"
-	watchv1 "komrade/proto/gen/watch/v1"
+	"komrad/db/models"
+	"komrad/internal/watch"
+	"komrad/lib/xslice"
+	watchv1 "komrad/proto/gen/watch/v1"
 )
 
 // WatchedSchedules declares the schedules to the watch.

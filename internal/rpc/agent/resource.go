@@ -1,12 +1,12 @@
 package agent
 
 import (
-	"komrade/internal/rpc/render"
+	"komrad/internal/rpc/render"
 
-	mailstore "komrade/internal/store/mail"
-	transcriptstore "komrade/internal/store/transcript"
-	agentv1 "komrade/proto/gen/agent/v1"
-	viewv1 "komrade/proto/gen/view/v1"
+	mailstore "komrad/internal/store/mail"
+	transcriptstore "komrad/internal/store/transcript"
+	agentv1 "komrad/proto/gen/agent/v1"
+	viewv1 "komrad/proto/gen/view/v1"
 )
 
 // agentViewOptions is how much of an agent the view a request asked for draws.

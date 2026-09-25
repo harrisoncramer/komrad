@@ -5,7 +5,7 @@ import (
 	"slices"
 	"testing"
 
-	"komrade/internal/ui"
+	"komrad/internal/ui"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/assert"
@@ -14,7 +14,7 @@ import (
 
 // TestViewFatalScreens covers the screens that take the whole panel when it cannot start.
 func TestViewFatalScreens(t *testing.T) {
-	configErr := errors.New("failed to parse config /home/u/.config/komrade/config.toml: keybindings.list is not a setting")
+	configErr := errors.New("failed to parse config /home/u/.config/komrad/config.toml: keybindings.list is not a setting")
 	startupErr := errors.New("the agent server stopped during startup: failed to reach db: connection refused")
 
 	tests := []struct {

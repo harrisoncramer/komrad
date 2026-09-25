@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 
-	"komrade/internal/tmux"
-	"komrade/internal/ui"
+	"komrad/internal/tmux"
+	"komrad/internal/ui"
 
 	"github.com/spf13/cobra"
 )
@@ -18,9 +18,9 @@ func tmuxCmd(state *app) *cobra.Command {
 		Short: "Bind the panel key on your tmux server",
 		Long: `Bind the panel key on your tmux server.
 
-This is what a tmux config runs, as ` + "`run-shell 'komrade tmux'`" + `, and it is where the
+This is what a tmux config runs, as ` + "`run-shell 'komrad tmux'`" + `, and it is where the
 key that opens and hides the panel comes from. The path of this binary is resolved
-once and written into the binding, so komrade only has to be findable when tmux parses
+once and written into the binding, so komrad only has to be findable when tmux parses
 its config rather than for the life of the server.
 
 There is one key however many engines this machine knows: pressed, it opens this
@@ -31,9 +31,9 @@ A tmux server has to be running, since binding a key does not start one. The bin
 belongs to the server rather than to a session, so it outlives the session it was
 made from and dies with the server. Running this again binds the key as it now
 stands and unbinds the one it bound before, so run it by hand after changing
-@komrade_key rather than restarting tmux, and after building komrade somewhere else.
+@komrad_key rather than restarting tmux, and after building komrad somewhere else.
 
-Run from a pane on komrade's own server, it binds on the server the last open of the
+Run from a pane on komrad's own server, it binds on the server the last open of the
 panel came from, so a rebuild from inside the panel reaches your key too.
 
 With --if-running it says nothing and does nothing when no tmux server is up, which
@@ -43,7 +43,7 @@ is what a build script wants.`,
 		SilenceErrors: true,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			if state.configStack.Engine != "" {
-				return errors.New("an engine has no panel key of its own: bind the one key with `komrade tmux` and " +
+				return errors.New("an engine has no panel key of its own: bind the one key with `komrad tmux` and " +
 					"choose the engine when you press it")
 			}
 
@@ -58,7 +58,7 @@ is what a build script wants.`,
 				}
 
 				return fmt.Errorf("no tmux server is running to bind the panel key on, so start tmux and "+
-					"run this again, or let tmux bind it on startup with `run-shell 'komrade tmux'` in your "+
+					"run this again, or let tmux bind it on startup with `run-shell 'komrad tmux'` in your "+
 					"tmux config: %w", err)
 			}
 
@@ -104,8 +104,8 @@ func panelKeySocket(env string, manager func() string, hostOf func(string) strin
 	}
 
 	if socket == manager() {
-		return tmuxSocket{}, errors.New("this is komrade's own tmux server, and no panel has opened yet to " +
-			"record which server is yours, so run `komrade tmux` from a shell on your own tmux server instead")
+		return tmuxSocket{}, errors.New("this is komrad's own tmux server, and no panel has opened yet to " +
+			"record which server is yours, so run `komrad tmux` from a shell on your own tmux server instead")
 	}
 
 	return tmuxSocket{path: socket}, nil

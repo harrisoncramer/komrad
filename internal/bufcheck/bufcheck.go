@@ -1,4 +1,4 @@
-// Package bufcheck holds the lint rules buf enforces on komrade's own protobufs.
+// Package bufcheck holds the lint rules buf enforces on komrad's own protobufs.
 package bufcheck
 
 import (

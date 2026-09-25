@@ -4,4 +4,4 @@ set -euo pipefail
 source "$MISE_CONFIG_ROOT/mise/tasks/_"
 
 cd "$MISE_CONFIG_ROOT"
-exec docker compose exec db psql -U komrade -d komrade
+exec docker compose exec db psql -U komrad -d komrad

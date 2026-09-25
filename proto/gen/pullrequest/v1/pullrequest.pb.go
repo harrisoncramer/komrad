@@ -10,8 +10,8 @@ import (
 	_ "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
-	_ "komrade/proto/gen/annotation/v1"
-	v1 "komrade/proto/gen/pagination/v1"
+	_ "komrad/proto/gen/annotation/v1"
+	v1 "komrad/proto/gen/pagination/v1"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -313,7 +313,7 @@ func (Checks) EnumDescriptor() ([]byte, []int) {
 type ListPullRequestsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The repository the pull requests target, as a git remote spells it or as the canonical
-	// address komrade stores.
+	// address komrad stores.
 	RepositoryUrl string `protobuf:"bytes,1,opt,name=repository_url,json=repositoryUrl,proto3" json:"repository_url,omitempty"`
 	// The branch the pull requests were opened from; left empty, every pull request stored for
 	// the repository is listed.
@@ -377,7 +377,7 @@ func (x *ListPullRequestsRequest) GetPagination() *v1.Pagination {
 
 type PullRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The handle komrade keys the row by.
+	// The handle komrad keys the row by.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	// Which forge it lives on, such as github.
 	Forge string `protobuf:"bytes,2,opt,name=forge,proto3" json:"forge,omitempty"`
@@ -797,9 +797,9 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\vCHECKS_NONE\x10\x01\x12\x12\n" +
 	"\x0eCHECKS_PENDING\x10\x02\x12\x12\n" +
 	"\x0eCHECKS_PASSING\x10\x03\x12\x12\n" +
-	"\x0eCHECKS_FAILING\x10\x042\xde\x06\n" +
-	"\x12PullRequestService\x12\xc7\x06\n" +
-	"\x10ListPullRequests\x12'.pullrequest.v1.ListPullRequestsRequest\x1a(.pullrequest.v1.ListPullRequestsResponse\"\xdf\x05\x9a\xb5\x18\xd7\x05\b\x01\x10\x01\x1a\x12list_pull_requests\"\xb8\x05List the pull requests komrade has stored for a repository, a page at a time: every one opened from a branch when one is named, whatever its state, or every one stored for the repository when none is. The unfinished ones come first and each group is newest opened first, so the first answered for a branch is the one an agent's row on that branch stands for. Give the repository as a git remote spells it or as its canonical address, and pass the next_page_token back as pagination.cursor for the next page. This reads what the pull request sync has stored rather than asking the forge, so a repository no live agent sits on may be behind or empty; list_forge_pull_requests asks the forge itself.B\x02\x01\x03\x90\x02\x01B0Z.komrade/proto/gen/pullrequest/v1;pullrequestv1b\x06proto3"
+	"\x0eCHECKS_FAILING\x10\x042\xdd\x06\n" +
+	"\x12PullRequestService\x12\xc6\x06\n" +
+	"\x10ListPullRequests\x12'.pullrequest.v1.ListPullRequestsRequest\x1a(.pullrequest.v1.ListPullRequestsResponse\"\xde\x05\x9a\xb5\x18\xd6\x05\b\x01\x10\x01\x1a\x12list_pull_requests\"\xb7\x05List the pull requests komrad has stored for a repository, a page at a time: every one opened from a branch when one is named, whatever its state, or every one stored for the repository when none is. The unfinished ones come first and each group is newest opened first, so the first answered for a branch is the one an agent's row on that branch stands for. Give the repository as a git remote spells it or as its canonical address, and pass the next_page_token back as pagination.cursor for the next page. This reads what the pull request sync has stored rather than asking the forge, so a repository no live agent sits on may be behind or empty; list_forge_pull_requests asks the forge itself.B\x02\x01\x03\x90\x02\x01B/Z-komrad/proto/gen/pullrequest/v1;pullrequestv1b\x06proto3"
 
 var (
 	file_pullrequest_v1_pullrequest_proto_rawDescOnce sync.Once

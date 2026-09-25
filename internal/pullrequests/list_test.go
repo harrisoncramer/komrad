@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"komrade/internal/git"
-	pullrequeststore "komrade/internal/store/pullrequest"
-	"komrade/internal/storetest"
-	"komrade/lib/xslice"
+	"komrad/internal/git"
+	pullrequeststore "komrad/internal/store/pullrequest"
+	"komrad/internal/storetest"
+	"komrad/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -75,7 +75,7 @@ func TestListPullRequests(t *testing.T) {
 		{
 			name: "a repository spelled as an ssh remote lists its own pull requests on the branch",
 			params: ListPullRequestsParams{
-				RepositoryURL: "git@github.com:harrisoncramer/komrade.git",
+				RepositoryURL: "git@github.com:harrisoncramer/komrad.git",
 				HeadBranch:    "agent/x",
 				Limit:         20,
 			},

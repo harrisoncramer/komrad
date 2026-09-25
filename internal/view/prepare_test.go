@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"komrade/internal/ui/paint"
+	"komrad/internal/ui/paint"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -219,7 +219,7 @@ func TestPrepareColumnsFollowTheRowKind(t *testing.T) {
 			name: "a workflow header stands for none of them",
 			row: Row{
 				Kind:   KindWorkflow,
-				Name:   "komrade",
+				Name:   "komrad",
 				Repo:   RepoGone,
 				Review: ReviewApproved,
 				Forge:  ForgeMerged,

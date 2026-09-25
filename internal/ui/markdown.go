@@ -5,9 +5,9 @@ import (
 	"strings"
 	"time"
 
-	"komrade/internal/ui/paint"
-	"komrade/internal/ui/paint/label"
-	"komrade/internal/ui/panel"
+	"komrad/internal/ui/paint"
+	"komrad/internal/ui/paint/label"
+	"komrad/internal/ui/panel"
 )
 
 type recordField struct {

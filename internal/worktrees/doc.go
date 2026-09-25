@@ -1,4 +1,4 @@
-// Package worktrees reads the directories komrade cut for its agents and removes the ones no
+// Package worktrees reads the directories komrad cut for its agents and removes the ones no
 // agent answers for.
 //
 // The listing runs no git. It reads the .git file and the gitdir's HEAD of each directory and

@@ -1,6 +1,6 @@
 table "forge_connections" {
   schema  = schema.public
-  comment = "A forge komrade has been connected to, one row per host, holding who the credential was verified as. The credential itself is a file under komrade's state directory rather than a column."
+  comment = "A forge komrad has been connected to, one row per host, holding who the credential was verified as. The credential itself is a file under komrad's state directory rather than a column."
   column "id" {
     null    = false
     type    = uuid
@@ -68,7 +68,7 @@ table "forge_connections" {
 
 table "pull_requests" {
   schema  = schema.public
-  comment = "A pull request komrade has read from a forge, one row per forge identity and none owned by an agent. Finished is derived: merged when merged_at is set, closed when closed_at is set and merged_at is not, open otherwise."
+  comment = "A pull request komrad has read from a forge, one row per forge identity and none owned by an agent. Finished is derived: merged when merged_at is set, closed when closed_at is set and merged_at is not, open otherwise."
   column "id" {
     null    = false
     type    = uuid
@@ -146,7 +146,7 @@ table "pull_requests" {
   column "changed_at" {
     null    = false
     type    = timestamptz
-    comment = "The forge's own last-change stamp, which is what the sync pages by. It is the forge's clock and not komrade's, so it is not named updated_at and carries no trigger."
+    comment = "The forge's own last-change stamp, which is what the sync pages by. It is the forge's clock and not komrad's, so it is not named updated_at and carries no trigger."
   }
   column "merged_at" {
     null = true
@@ -160,12 +160,12 @@ table "pull_requests" {
     null    = false
     type    = timestamptz
     default = sql("now()")
-    comment = "When komrade first inserted the row."
+    comment = "When komrad first inserted the row."
   }
   column "review_decision" {
     null    = true
     type    = text
-    comment = "Where the forge says the reviews stand, in komrade's own words: pending, approved or changes_requested, null while it has said nothing."
+    comment = "Where the forge says the reviews stand, in komrad's own words: pending, approved or changes_requested, null while it has said nothing."
   }
   column "decision_changed_at" {
     null    = true
@@ -175,7 +175,7 @@ table "pull_requests" {
   column "checks" {
     null    = true
     type    = text
-    comment = "Where the forge says the checks on the head commit stand, in komrade's own words: pending, passing or failing, null while it reports none. A check finishing does not move changed_at, so the checks are kept fresh by checks_sha and checks_read_at rather than by the change stamp."
+    comment = "Where the forge says the checks on the head commit stand, in komrad's own words: pending, passing or failing, null while it reports none. A check finishing does not move changed_at, so the checks are kept fresh by checks_sha and checks_read_at rather than by the change stamp."
   }
   column "checks_sha" {
     null    = true
@@ -190,7 +190,7 @@ table "pull_requests" {
   column "mergeability" {
     null    = true
     type    = text
-    comment = "Where the forge says the pull request stands against its base and its branch rules, in komrade's own words: clean, unstable, blocked, behind or conflicting, null while the forge has not computed it. Read with the checks and kept fresh the same way."
+    comment = "Where the forge says the pull request stands against its base and its branch rules, in komrad's own words: clean, unstable, blocked, behind or conflicting, null while the forge has not computed it. Read with the checks and kept fresh the same way."
   }
   column "tenant_id" {
     null    = false
@@ -333,7 +333,7 @@ table "pull_request_syncs" {
 
 table "branch_scans" {
   schema  = schema.public
-  comment = "A branch komrade has listed the pull requests of on purpose, once, which is what finds a pull request older than the sync's horizon on a branch an agent adopted."
+  comment = "A branch komrad has listed the pull requests of on purpose, once, which is what finds a pull request older than the sync's horizon on a branch an agent adopted."
   column "repository_url" {
     null = false
     type = text

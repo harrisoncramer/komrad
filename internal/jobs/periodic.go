@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"komrade/internal/jobs/internaljobs"
+	"komrad/internal/jobs/internaljobs"
 
 	"github.com/riverqueue/river"
 )

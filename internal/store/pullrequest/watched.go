@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"komrade/internal/watch"
-	"komrade/lib/xslice"
-	watchv1 "komrade/proto/gen/watch/v1"
+	"komrad/internal/watch"
+	"komrad/lib/xslice"
+	watchv1 "komrad/proto/gen/watch/v1"
 )
 
 // WatchedPullRequests declares the pull requests to the watch.
