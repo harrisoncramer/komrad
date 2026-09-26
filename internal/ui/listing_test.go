@@ -149,7 +149,7 @@ func TestListingLandsWrites(t *testing.T) {
 	t.Run("a write with nothing to do with an open info pane leaves it up", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openLanding(t)
+		harness := openTerminal(t, panelHarnessParams{}, newStagedShellAgent(t.TempDir()))
 		harness.refuse(agentv1connect.AgentServiceUpdateAgentProcedure, connect.NewError(connect.CodeAlreadyExists, errors.New("name is taken")))
 		harness.press("T")
 		opened := len(harness.panel.ReadRespawns())
