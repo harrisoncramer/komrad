@@ -12,4 +12,4 @@ else
 fi
 mise run db:apply
 
-KOMRAD_ENGINE_PASSWORD=komrad go run . engine ensure default >/dev/null
+KOMRAD_ENGINE_PASSWORD=komrad go run . engine ensure "${KOMRAD_TEST_ENGINE:-default}" >/dev/null

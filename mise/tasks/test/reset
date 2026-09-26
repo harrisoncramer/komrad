@@ -9,5 +9,6 @@ if [ "${MISE_ENV:-}" != test ]; then
 fi
 
 cd "$MISE_CONFIG_ROOT"
-test_database_psql -c "DROP DATABASE IF EXISTS \"$KOMRAD_TEST_DATABASE\" WITH (FORCE)"
+test_database_psql -c "DROP DATABASE IF EXISTS \"$KOMRAD_TEST_DATABASE\" WITH (FORCE)" \
+	-c "DROP ROLE IF EXISTS komrad_engine_$KOMRAD_TEST_ENGINE, komrad_engine_${KOMRAD_TEST_ENGINE}_reader"
 exec mise run docker:up

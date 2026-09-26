@@ -28,7 +28,8 @@ func buildSettings(slotDir string, n int) []setting {
 	return []setting{
 		{"DB_PORT", fmt.Sprint(containerPort)},
 		{"KOMRAD_TEST_DATABASE", database},
-		{"KOMRAD_DATABASE_URL", fmt.Sprintf("postgres://komrad_engine_default:komrad@localhost:%d/%s?sslmode=disable", containerPort, database)},
+		{"KOMRAD_TEST_ENGINE", getEngine(n)},
+		{"KOMRAD_DATABASE_URL", fmt.Sprintf("postgres://%s:komrad@localhost:%d/%s?sslmode=disable", getLogin(n), containerPort, database)},
 		{"KOMRAD_OWNER_DATABASE_URL", fmt.Sprintf("postgres://komrad:komrad@localhost:%d/%s?sslmode=disable", containerPort, database)},
 		{"KOMRAD_READONLY_DATABASE_URL", ""},
 		{"KOMRAD_ADDR", serverAddr(n)},
@@ -49,6 +50,15 @@ func getSocket(n int) string {
 
 func getDatabase(n int) string {
 	return fmt.Sprintf("komrad_%d", n)
+}
+
+// getEngine is the engine slot n's server runs as.
+func getEngine(n int) string {
+	return fmt.Sprintf("test_%d", n)
+}
+
+func getLogin(n int) string {
+	return "komrad_engine_" + getEngine(n)
 }
 
 func configPath(slotDir string) string {

@@ -34,7 +34,7 @@ func (e execRunner) probe(ctx context.Context, name string, args ...string) erro
 	return exec.CommandContext(ctx, name, args...).Run()
 }
 
-// down stops everything slot n runs, drops its database and gives the slot back.
+// down stops everything slot n runs, drops its database and logins, and gives the slot back.
 func (r registry) down(ctx context.Context, n int) error {
 	if n < 1 || n > slotMax {
 		return fmt.Errorf("%d is not a slot", n)
@@ -50,9 +50,10 @@ func (r registry) down(ctx context.Context, n int) error {
 		r.log.Printf("no server of slot %d was stopped: %v", n, err)
 	}
 
-	drop := fmt.Sprintf("DROP DATABASE IF EXISTS %s WITH (FORCE)", getDatabase(n))
+	dropDatabase := fmt.Sprintf("DROP DATABASE IF EXISTS %s WITH (FORCE)", getDatabase(n))
+	dropLogins := fmt.Sprintf("DROP ROLE IF EXISTS %s, %s_reader", getLogin(n), getLogin(n))
 	if err := r.cmds.run(ctx, "docker", "compose", "-p", containerProject, "exec", "-T", "db",
-		"psql", "-U", "komrad", "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-c", drop); err != nil {
+		"psql", "-U", "komrad", "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-c", dropDatabase, "-c", dropLogins); err != nil {
 		return r.keepClaim(n, fmt.Errorf("failed to drop the database of slot %d, start the test container with mise run test:container:up and try again: %w", n, err))
 	}
 

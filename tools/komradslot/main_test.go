@@ -60,7 +60,7 @@ func TestEnvThenCheck(t *testing.T) {
 	}
 
 	env := parseEnv(out)
-	if env["KOMRAD_ADDR"] != "127.0.0.1:8801" || env["DB_PORT"] != "5470" || env["KOMRAD_TEST_DATABASE"] != "komrad_1" || env["KOMRAD_TMUX_SOCKET"] != "komrad-test-1" {
+	if env["KOMRAD_ADDR"] != "127.0.0.1:8801" || env["DB_PORT"] != "5470" || env["KOMRAD_TEST_DATABASE"] != "komrad_1" || env["KOMRAD_TEST_ENGINE"] != "test_1" || env["KOMRAD_TMUX_SOCKET"] != "komrad-test-1" {
 		t.Errorf("env printed %q", out)
 	}
 
