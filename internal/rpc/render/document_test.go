@@ -9,8 +9,7 @@ import (
 	documentstore "komrad/internal/store/document"
 )
 
-// TestDocument pins that a rewrite stamps to within the second, so a client sees one that lands
-// in the same second as the write before it.
+// TestDocument pins that a rewrite stamps to within the second.
 func TestDocument(t *testing.T) {
 	t.Parallel()
 

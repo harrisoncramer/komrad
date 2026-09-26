@@ -25,8 +25,7 @@ func TestStampPtr(t *testing.T) {
 	}
 }
 
-// TestPreciseStamp pins that a fraction of a second survives, so two writes in one second stamp
-// apart.
+// TestPreciseStamp pins that a fraction of a second survives.
 func TestPreciseStamp(t *testing.T) {
 	assert.Empty(t, PreciseStamp(time.Time{}))
 	assert.Equal(t, "2026-09-05T14:30:00.25Z", PreciseStamp(time.Date(2026, 9, 5, 14, 30, 0, 250_000_000, time.UTC)))

@@ -23,8 +23,7 @@ func StampPtr(t *time.Time) *string {
 	return &stamped
 }
 
-// PreciseStamp renders a time as Stamp does but to the nanosecond, for a stamp a client
-// compares to learn whether something moved again within the same second.
+// PreciseStamp renders a time as Stamp does but to the nanosecond.
 func PreciseStamp(t time.Time) string {
 	if t.IsZero() {
 		return ""

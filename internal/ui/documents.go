@@ -39,7 +39,7 @@ type documentsScreen struct {
 	agentID string
 	items   []documentItem
 	// listedAt is the agent's newest write the list was read at, and listedCount how many it had
-	// written, so a newer write or another document is listed again.
+	// written.
 	listedAt    *time.Time
 	listedCount int32
 	listed      bool
@@ -214,7 +214,7 @@ func (d *documentsScreen) doc(s panelShared) string {
 }
 
 // documentProse is a document's text without the heading that opens it when that heading only
-// repeats the name, which the title above it already draws.
+// repeats the name.
 func documentProse(name, body string) string {
 	body = strings.TrimSpace(body)
 	first, rest, _ := strings.Cut(body, "\n")
