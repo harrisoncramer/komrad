@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"syscall"
 	"unicode/utf8"
 
 	"komrad/internal/fail"
@@ -100,7 +101,7 @@ func readBody(cwd, path string) (string, error) {
 		path = filepath.Join(cwd, path)
 	}
 
-	file, err := os.Open(path)
+	file, err := os.OpenFile(path, os.O_RDONLY|syscall.O_NONBLOCK, 0)
 	if err != nil {
 		return "", fmt.Errorf("%w: %s", ErrUnreadablePath, path)
 	}

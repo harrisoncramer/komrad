@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 
 	"github.com/google/uuid"
@@ -32,6 +33,7 @@ func TestWrite(t *testing.T) {
 		return path
 	}
 	require.NoError(t, os.Mkdir(filepath.Join(cwd, "folder"), 0o700))
+	require.NoError(t, syscall.Mkfifo(filepath.Join(cwd, "pipe"), 0o600))
 
 	tests := []struct {
 		name     string
@@ -62,6 +64,11 @@ func TestWrite(t *testing.T) {
 		{
 			name:    "a path naming a directory is refused",
 			params:  documents.WriteDocumentParams{Name: "folder", Path: "folder"},
+			wantErr: documents.ErrUnreadablePath,
+		},
+		{
+			name:    "a path naming a pipe is refused without waiting on a writer",
+			params:  documents.WriteDocumentParams{Name: "pipe", Path: "pipe"},
 			wantErr: documents.ErrUnreadablePath,
 		},
 		{
