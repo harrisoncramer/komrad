@@ -20,23 +20,31 @@ func TestSetFailureReason(t *testing.T) {
 	}{
 		{
 			name: "an id no agent holds",
-			id:   func(Agent) string { return uuid.NewString() },
+			id: func(Agent) string {
+				return uuid.NewString()
+			},
 		},
 		{
 			name: "a value that is not an id at all",
-			id:   func(Agent) string { return "not-an-id" },
+			id: func(Agent) string {
+				return "not-an-id"
+			},
 		},
 		{
-			name:        "a live agent",
-			create:      true,
-			id:          func(created Agent) string { return created.ID },
+			name:   "a live agent",
+			create: true,
+			id: func(created Agent) string {
+				return created.ID
+			},
 			wantChanged: true,
 		},
 		{
-			name:        "an archived agent",
-			create:      true,
-			archive:     true,
-			id:          func(created Agent) string { return created.ID },
+			name:    "an archived agent",
+			create:  true,
+			archive: true,
+			id: func(created Agent) string {
+				return created.ID
+			},
 			wantChanged: true,
 		},
 	}
