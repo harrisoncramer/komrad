@@ -59,7 +59,6 @@ type Agent struct {
 	Role           Role
 	State          State
 	StateChangedAt time.Time
-	ReportedReason string
 	FailureReason  string
 	Harness        string
 	SessionID      string

@@ -5,18 +5,19 @@ import (
 	"time"
 
 	"komrad/internal/errui"
+	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 // worktreeReadTTL is how long a reading of an agent's directory stands before the cursor resting
 // on the row asks for it again.
 const worktreeReadTTL = time.Minute
 
-// worktreeRowsShown is how many uncommitted paths and how many commits the record lists before
-// counting the rest.
+// worktreeRowsShown is how many commits the record lists before counting the rest.
 const worktreeRowsShown = 10
 
 // inspectAgentWorktreeCmd asks for the hovered agent's directory where nothing stands for it or
@@ -56,51 +57,87 @@ func agentWorktree(inspections map[string]worktreeInspection, cwd string) (workt
 }
 
 // worktreeStandingFields are the record's rows for where the directory stands: against its base,
-// what is uncommitted in it, and what it takes on disk, with the refusal above them when the
-// last read failed.
+// against its remote branch, what is uncommitted in it, and what it takes on disk, with the
+// refusal above them when the last read failed.
 func worktreeStandingFields(read worktreeInspection, now time.Time) []recordField {
 	fields := []recordField{}
 	if read.err != nil {
-		fields = append(fields, recordField{"worktree", "could not read: " + errui.GetReason(read.err)})
+		fields = append(fields, recordField{label: "worktree", value: "could not read: " + errui.GetReason(read.err)})
 	}
 	if !read.isRead() {
 		return fields
 	}
 
 	if read.item.readable {
-		fields = append(fields,
-			recordField{"base", baseField(read)},
-			recordField{"changes", changesField(read)},
-		)
+		fields = append(fields, baseRecordField(read))
+		if read.item.branch != "" {
+			fields = append(fields, remoteRecordField(read))
+		}
+		fields = append(fields, recordField{label: "changes", value: changesField(read)})
 		if read.landed > 0 {
-			fields = append(fields, recordField{"landed", fmt.Sprintf("%s the base already holds", label.Count(read.landed, "commit", "commits"))})
+			fields = append(fields, recordField{label: "landed", value: fmt.Sprintf("%s the base already holds", label.Count(read.landed, "commit", "commits"))})
 		}
 		if read.sequencing {
-			fields = append(fields, recordField{"sequence", "a merge or rebase is part-way through"})
+			fields = append(fields, recordField{label: "sequence", value: "a merge or rebase is part-way through"})
 		}
 	}
 
-	fields = append(fields, recordField{"size", sizeField(read.item, now)})
+	fields = append(fields, recordField{label: "size", value: sizeField(read.item, now)})
 	if len(read.item.occupants) > 0 {
-		fields = append(fields, recordField{"also here", occupantsField(read.item)})
+		fields = append(fields, recordField{label: "also here", value: occupantsField(read.item)})
 	}
 
 	return fields
 }
 
-// worktreeHistoryFields are the record's rows for what the directory holds that the base does
-// not: the uncommitted paths, then the commits since the base, each list cut and counted.
+// worktreeHistoryFields are the record's rows for the commits since the base, cut and counted.
 func worktreeHistoryFields(read worktreeInspection) []recordField {
-	if !read.isRead() || !read.item.readable {
+	if !read.isRead() || !read.item.readable || read.baseRef == "" || len(read.commits) == 0 {
 		return nil
 	}
 
-	fields := labelledRows("uncommitted", cutRows(changeLines(read), worktreeRowsShown))
-	if read.baseRef != "" && len(read.commits) > 0 {
-		fields = append(fields, labelledRows("commits", cutRows(commitLines(read.commits), worktreeRowsShown))...)
+	return labelledRows("commits", cutRows(commitLines(read.commits), worktreeRowsShown))
+}
+
+// remoteRecordField is where the branch stands against its copy on origin.
+func remoteRecordField(read worktreeInspection) recordField {
+	warning := paint.Panel.Style(paint.ToneWarning)
+	switch {
+	case !read.pushed:
+		return recordField{label: "remote", value: "not pushed", styled: warning.Render("not pushed")}
+	case read.unpushed == 0 && read.unpulled == 0:
+		return recordField{label: "remote", value: "even", styled: dimStyle.Render("even")}
 	}
 
-	return fields
+	unpushed := fmt.Sprintf("↑%d unpushed", read.unpushed)
+	unpulled := fmt.Sprintf("↓%d unpulled", read.unpulled)
+
+	return recordField{
+		label:  "remote",
+		value:  unpushed + " " + unpulled,
+		styled: countStyle(read.unpushed, warning.Bold(true)).Render(unpushed) + " " + countStyle(read.unpulled, paint.Panel.Style(paint.ToneMark)).Render(unpulled),
+	}
+}
+
+// diffStatTag is the lines the branch adds and removes since its base, and nothing where no
+// base could be read.
+func diffStatTag(read worktreeInspection, ok bool) string {
+	if !ok || !read.isRead() || !read.item.readable || read.baseRef == "" {
+		return ""
+	}
+	if read.added == 0 && read.removed == 0 {
+		return dimStyle.Render("clean")
+	}
+
+	return paint.Panel.Style(paint.ToneSuccess).Render(fmt.Sprintf("+%d", read.added)) + " " + paint.Panel.Style(paint.ToneDanger).Render(fmt.Sprintf("−%d", read.removed))
+}
+
+func countStyle(count int, style lipgloss.Style) lipgloss.Style {
+	if count == 0 {
+		return dimStyle
+	}
+
+	return style
 }
 
 // labelledRows is one field per line, the label on the first and the rest under it.
@@ -111,7 +148,7 @@ func labelledRows(key string, lines []string) []recordField {
 			key = ""
 		}
 
-		fields = append(fields, recordField{key, line})
+		fields = append(fields, recordField{label: key, value: line})
 	}
 
 	return fields

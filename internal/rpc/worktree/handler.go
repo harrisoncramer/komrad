@@ -109,6 +109,11 @@ func (s *Handler) GetWorktree(ctx context.Context, req *worktreev1.GetWorktreeRe
 		LandedCommits:      int32(inspection.Landed),
 		SequenceInProgress: inspection.SequenceInProgress,
 		KeepsBranch:        inspection.KeepsBranch,
+		AddedLines:         int32(inspection.DiffStat.Added),
+		RemovedLines:       int32(inspection.DiffStat.Removed),
+		Pushed:             inspection.Remote.Pushed,
+		Unpushed:           int32(inspection.Remote.Unpushed),
+		Unpulled:           int32(inspection.Remote.Unpulled),
 		Commits: xslice.Map(inspection.Commits, func(commit git.Commit) *worktreev1.Commit {
 			return &worktreev1.Commit{
 				Sha:         commit.SHA,

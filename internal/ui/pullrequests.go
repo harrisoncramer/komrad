@@ -19,10 +19,10 @@ func pullRequestFields(standing panel.PullRequestStanding, pullRequests []panel.
 	isNone := standing.State == pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE
 	if len(pullRequests) == 0 {
 		if isNone {
-			return []recordField{{pullRequestFieldKey, "none from this branch"}}
+			return []recordField{{label: pullRequestFieldKey, value: "none from this branch"}}
 		}
 
-		return []recordField{{pullRequestFieldKey, "not read yet"}}
+		return []recordField{{label: pullRequestFieldKey, value: "not read yet"}}
 	}
 
 	current := currentPullRequestField(pullRequests[0])
@@ -30,12 +30,12 @@ func pullRequestFields(standing panel.PullRequestStanding, pullRequests []panel.
 		current = "none since " + current
 	}
 
-	fields := []recordField{{pullRequestFieldKey, current}}
+	fields := []recordField{{label: pullRequestFieldKey, value: current}}
 	rest := xslice.Map(pullRequests[1:], func(pullRequest panel.PullRequest) string {
 		return fmt.Sprintf("#%d %s", pullRequest.Number, pullRequestWords(pullRequest.State, pullRequest.Checks, pullRequest.Mergeability))
 	})
 	if len(rest) > 0 {
-		fields = append(fields, recordField{"pull requests", strings.Join(rest, ", ")})
+		fields = append(fields, recordField{label: "pull requests", value: strings.Join(rest, ", ")})
 	}
 
 	return fields

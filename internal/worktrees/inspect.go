@@ -25,9 +25,11 @@ type Inspection struct {
 	// or the clone does not hold the base.
 	BaseRef string
 	// BaseErr is why the base could not be named, when it could not.
-	BaseErr error
-	Ahead   int
-	Behind  int
+	BaseErr  error
+	Ahead    int
+	Behind   int
+	DiffStat git.DiffStat
+	Remote   git.RemoteStanding
 	// Landed is how many of the branch's own commits the base already holds whole.
 	Landed             int
 	SequenceInProgress bool
@@ -45,6 +47,8 @@ type gitReader interface {
 	PredictRebase(ctx context.Context, dir, ref string) (git.Prediction, error)
 	IsBranchHeldElsewhere(ctx context.Context, dir, branch string) (bool, error)
 	ListCommitsSince(ctx context.Context, dir, ref string, limit int) ([]git.Commit, error)
+	ReadDiffStat(ctx context.Context, params git.ReadDiffStatParams) (git.DiffStat, error)
+	CountAgainstRemote(ctx context.Context, dir, branch string) (git.RemoteStanding, error)
 }
 
 type workflowReader interface {
@@ -122,12 +126,18 @@ func (i *Inspector) Inspect(ctx context.Context, params InspectParams) (*Inspect
 		return inspection, nil
 	}
 
-	base, err := i.baseOf(ctx, inspection.Worktree)
+	if inspection.Worktree.Branch != "" {
+		if inspection.Remote, err = i.git.CountAgainstRemote(ctx, dir, inspection.Worktree.Branch); err != nil {
+			return nil, err
+		}
+	}
+
+	config, err := i.worktreeConfigOf(ctx, inspection.Worktree)
 	if err != nil {
 		return nil, err
 	}
 
-	ref, err := i.nameBase(ctx, dir, base, params.Fetch)
+	ref, err := i.nameBase(ctx, dir, config.BaseBranch, params.Fetch)
 	if errors.Is(err, git.ErrBaseMissing) {
 		inspection.BaseErr = err
 
@@ -138,7 +148,7 @@ func (i *Inspector) Inspect(ctx context.Context, params InspectParams) (*Inspect
 	}
 	inspection.BaseRef = ref
 
-	if err := i.readStanding(ctx, inspection); err != nil {
+	if err := i.readStanding(ctx, inspection, config.DiffExclude); err != nil {
 		return nil, err
 	}
 
@@ -156,24 +166,24 @@ func (i *Inspector) nameBase(ctx context.Context, dir, base string, fetch bool) 
 	return ref, err
 }
 
-// baseOf is the base branch the directory's workflow names, empty when no row names one.
-func (i *Inspector) baseOf(ctx context.Context, worktree Worktree) (string, error) {
+// worktreeConfigOf is the worktree settings the directory's workflow names, empty when no row names one.
+func (i *Inspector) worktreeConfigOf(ctx context.Context, worktree Worktree) (workflowstore.WorktreeConfig, error) {
 	if worktree.Agent == nil || worktree.Agent.WorkflowID == "" {
-		return "", nil
+		return workflowstore.WorktreeConfig{}, nil
 	}
 
 	workflow, err := i.workflows.GetIncludingArchived(ctx, worktree.Agent.WorkflowID)
 	if errors.Is(err, store.ErrNotFound) {
-		return "", nil
+		return workflowstore.WorktreeConfig{}, nil
 	}
 	if err != nil {
-		return "", err
+		return workflowstore.WorktreeConfig{}, err
 	}
 
-	return workflow.Worktree.BaseBranch, nil
+	return workflow.Worktree, nil
 }
 
-func (i *Inspector) readStanding(ctx context.Context, inspection *Inspection) error {
+func (i *Inspector) readStanding(ctx context.Context, inspection *Inspection, exclude []string) error {
 	dir, ref := inspection.Worktree.Dir, inspection.BaseRef
 
 	state, err := i.git.ReadTreeState(ctx, dir)
@@ -187,6 +197,14 @@ func (i *Inspector) readStanding(ctx context.Context, inspection *Inspection) er
 	}
 
 	if inspection.Ahead, inspection.Behind, err = i.git.CountAheadBehind(ctx, dir, ref); err != nil {
+		return err
+	}
+
+	if inspection.DiffStat, err = i.git.ReadDiffStat(ctx, git.ReadDiffStatParams{
+		Dir:     dir,
+		Ref:     ref,
+		Exclude: exclude,
+	}); err != nil {
 		return err
 	}
 

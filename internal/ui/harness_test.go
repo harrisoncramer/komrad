@@ -663,7 +663,12 @@ func cutStyled(line string, width int) string {
 	return emptyStyle.ReplaceAllString(ansi.Truncate(line, width, ""), "")
 }
 
+var taggedRule = regexp.MustCompile(`^─+ [^─│┤┼]+ ─`)
+
 func ruleWidth(line string) int {
+	if tagged := taggedRule.FindString(line); tagged != "" {
+		line = strings.Repeat("─", ansi.StringWidth(tagged)) + line[len(tagged):]
+	}
 	rest := strings.TrimLeft(line, "─")
 	width := ansi.StringWidth(line) - ansi.StringWidth(rest)
 	if strings.HasPrefix(rest, "┤") || strings.HasPrefix(rest, "┼") {

@@ -12,6 +12,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 )
 
 // flashFieldStyle marks a row or a field that has just been copied.
@@ -30,6 +31,7 @@ type details struct {
 	id      string
 	notices []notice
 	fields  []recordField
+	tag     string
 }
 
 // detailsRow is one field as the record draws it, keyed by its place in the whole record.
@@ -431,19 +433,24 @@ func (m model) detailsView() string {
 		rows = []string{dimStyle.Render("  nothing matches")}
 	}
 
-	return m.detailsRule() +
+	return m.detailsRule(held.tag) +
 		block +
 		paint.PadRows(paint.RenderList(rows, cursor, lines, dimStyle), lines) +
-		m.detailsRule()
+		m.detailsRule("")
 }
 
-func (m model) detailsRule() string {
+func (m model) detailsRule(tag string) string {
 	width := m.paneWidth()
 	if width <= 0 {
 		return "\n"
 	}
 
-	return dimStyle.Render(strings.Repeat("─", width)) + "\n"
+	tagWidth := lipgloss.Width(tag)
+	if tag == "" || tagWidth+4 > width {
+		return dimStyle.Render(strings.Repeat("─", width)) + "\n"
+	}
+
+	return dimStyle.Render(strings.Repeat("─", width-tagWidth-3)+" ") + tag + dimStyle.Render(" ─") + "\n"
 }
 
 // detailsNotices are the lines the marks on the row take above the fields, giving up a notice
@@ -517,12 +524,15 @@ func (m model) detailFieldRows(fields []detailsRow, cursor int) []string {
 		}
 
 		label := m.filter.highlight(paint.Panel, padRight(row.field.label, labels), labelStyle)
-		value := paint.Clip(row.field.value, max(m.lineWidth()-labels-gutter-1, 1))
+		width := max(m.lineWidth()-labels-gutter-1, 1)
+		value := paint.Clip(row.field.value, width)
 		switch {
 		case m.details.flashed == i+1:
 			value = flashFieldStyle(paint.Panel).Render(value)
 		case m.filter.pattern != nil:
 			value = m.filter.highlight(paint.Panel, value, lipgloss.NewStyle())
+		case row.field.styled != "":
+			value = ansi.Truncate(row.field.styled, width, "…")
 		}
 
 		rows = append(rows, prefix+label+" "+value)

@@ -837,21 +837,6 @@ func TestSnapshotOfAnEmptyPanelIsEmpty(t *testing.T) {
 	assert.Empty(t, snapshot.Rows)
 }
 
-// TestReportedReasonSurvivesInTheRecord pins the one thing the new row drops that nothing else
-// was showing: what the agent's own CLI last said it was doing.
-func TestReportedReasonSurvivesInTheRecord(t *testing.T) {
-	agent := panel.Agent{
-		ID:             "a1",
-		Name:           "worker",
-		ReportedReason: "reading internal/view",
-	}
-
-	fields := agentFields(agentFieldsParams{agent: agent})
-
-	assert.Contains(t, fields, recordField{"doing", "reading internal/view"})
-	assert.NotContains(t, agentFields(agentFieldsParams{agent: panel.Agent{ID: "a1"}}), recordField{"doing", ""})
-}
-
 // TestSnapshotChildRowCarriesNoTally pins half of why the busiest row a panel can draw is
 // narrower than the busiest row the model can express: a hidden child is counted on the parent
 // drawn above it, so a child row never stands in for anything.

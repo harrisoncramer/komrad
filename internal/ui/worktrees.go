@@ -169,6 +169,11 @@ type worktreeInspection struct {
 	baseError string
 	ahead     int
 	behind    int
+	added     int
+	removed   int
+	pushed    bool
+	unpushed  int
+	unpulled  int
 	// landed is how many of the branch's own commits the base already holds whole.
 	landed int
 	// sequencing says a merge, a rebase or a cherry-pick is part-way through.

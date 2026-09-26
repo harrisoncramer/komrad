@@ -102,12 +102,12 @@ func TestPullRequestFields(t *testing.T) {
 		{
 			name:     "a repository not read yet",
 			standing: panel.PullRequestStanding{State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNREAD},
-			want:     []recordField{{"pull request", "not read yet"}},
+			want:     []recordField{{label: "pull request", value: "not read yet"}},
 		},
 		{
 			name:     "a branch with none",
 			standing: panel.PullRequestStanding{State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE},
-			want:     []recordField{{"pull request", "none from this branch"}},
+			want:     []recordField{{label: "pull request", value: "none from this branch"}},
 		},
 		{
 			name:     "one pull request with how long ago it merged",
@@ -119,7 +119,7 @@ func TestPullRequestFields(t *testing.T) {
 				MergedAt: &twoHoursAgo,
 				ClosedAt: &twoHoursAgo,
 			}},
-			want: []recordField{{"pull request", "#740 merged 2h ago"}},
+			want: []recordField{{label: "pull request", value: "#740 merged 2h ago"}},
 		},
 		{
 			name:     "none since a merged one the branch has moved past",
@@ -140,8 +140,8 @@ func TestPullRequestFields(t *testing.T) {
 				},
 			},
 			want: []recordField{
-				{"pull request", "none since #740 merged 2h ago"},
-				{"pull requests", "#711 closed"},
+				{label: "pull request", value: "none since #740 merged 2h ago"},
+				{label: "pull requests", value: "#711 closed"},
 			},
 		},
 		{
@@ -153,7 +153,7 @@ func TestPullRequestFields(t *testing.T) {
 				OpenedAt: yesterday,
 				ClosedAt: &twoHoursAgo,
 			}},
-			want: []recordField{{"pull request", "#740 closed 2h ago"}},
+			want: []recordField{{label: "pull request", value: "#740 closed 2h ago"}},
 		},
 		{
 			name:     "several, the current one open with the rest on their own row",
@@ -179,8 +179,8 @@ func TestPullRequestFields(t *testing.T) {
 				},
 			},
 			want: []recordField{
-				{"pull request", "#742 ready to merge, opened 2h ago"},
-				{"pull requests", "#711 merged, #708 closed"},
+				{label: "pull request", value: "#742 ready to merge, opened 2h ago"},
+				{label: "pull requests", value: "#711 merged, #708 closed"},
 			},
 		},
 	}
@@ -214,7 +214,7 @@ func TestAgentFieldsPlaceThePullRequestAfterTheBranch(t *testing.T) {
 	assert.Equal(t, "pull request", labels[branch+1])
 
 	agent.Branch = nil
-	assert.NotContains(t, agentFields(agentFieldsParams{agent: agent}), recordField{"pull request", "not read yet"})
+	assert.NotContains(t, agentFields(agentFieldsParams{agent: agent}), recordField{label: "pull request", value: "not read yet"})
 }
 
 func indexOf(labels []string, label string) int {
