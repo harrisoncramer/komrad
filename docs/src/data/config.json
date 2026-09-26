@@ -140,7 +140,7 @@
           "path": "layout.sidebar_width",
           "type": "integer",
           "description": "How many columns wide the panel's sidebar opens at. Dragging the divider afterwards moves it, and the panel follows.",
-          "default": "30"
+          "default": "33"
         },
         {
           "key": "info_side",
