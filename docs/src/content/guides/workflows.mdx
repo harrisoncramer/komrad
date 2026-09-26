@@ -59,16 +59,22 @@ The workflow's directory has to be an ordinary clone for this to work.
 
 Worktrees go in [`worktrees.dir`](../../config/#worktrees.dir) unless the workflow names its own location. Each worktree is a clean checkout, so a workflow can list files to copy in, like local environment files, or local packages. For anything heavier, like installing or networking configuration, use a [hook](../hooks/) instead.
 
-The base branch is worked out from your clone when you create the workflow. New worktrees are cut from it and an agent's work is measured against it. If the clone loses that branch, `komrad doctor` says so.
+<Alert variant="info" >
+    Agents do not have to create worktrees, but be careful: those that do not will run directly inside of the directory specified.
+</Alert>
 
-A workflow can also list paths to leave out of the diff the panel shows, so generated code does not bury the parts worth reading.
+The worktree's branch is worked out from your repository's clone when you create the workflow. New worktrees are cut from it and an agent's work is measured against it. If the clone loses that branch, `komrad doctor` says so.
 
 ## Archiving and restoring
 
-Archiving a workflow puts it and every agent in it away together. Nothing is destroyed, and search still finds what the agents said. Restoring brings the whole workflow back with its agents stopped and ready to resume. A workflow a schedule still launches into cannot be archived until the schedule is.
+Archiving a workflow puts it into cold storage: you can hard-delete it later, but for now, it'll be hidden from your workflow view.
 
-## Starting small
+Nothing is destroyed, and search still finds what the agents said. However, the agents inside of the workflow will be shut down. Restoring brings the whole workflow back, along with its agents in a stopped state, and ready to resume.
 
-A workflow with nothing but a name is a perfectly good folder. Add a directory once you are tired of typing it. Add context once you have told three agents the same thing. Turn on worktrees once agents start treading on each other.
+## Next Steps
 
-You have a workflow. Now spawn an [agent](../agents/) into it.
+You don't have to build your entire workflow right away.
+
+Start with a directory and a worktree setting. Add context later. You can always have multiple workflows in the same directory, for instance, for different purposes like bugfixing or feature work.
+
+Next, the fun part: spawn an [agent](../agents/) into it.
