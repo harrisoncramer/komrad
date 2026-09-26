@@ -160,18 +160,16 @@ test_slot_down() {
 	tmux -L "$socket" kill-server 2>/dev/null || true
 	pkill -f "komrad serve --addr $addr( |\$)" 2>/dev/null || true
 
-	if command -v docker >/dev/null; then
-		if ! docker info >/dev/null 2>&1; then
-			echo "test instance: docker is not reachable, so the database of slot $n cannot be taken down" >&2
-			rm -f "${dir:?}/${n:?}/down"
-			return 1
-		fi
+	if ! docker info >/dev/null 2>&1; then
+		echo "test instance: docker is not reachable, so the database of slot $n cannot be taken down" >&2
+		rm -f "${dir:?}/${n:?}/down"
+		return 1
+	fi
 
-		if ! docker compose -p "$socket" down --volumes --remove-orphans; then
-			echo "test instance: could not take down the database of slot $n" >&2
-			rm -f "${dir:?}/${n:?}/down"
-			return 1
-		fi
+	if ! docker compose -p "$socket" down --volumes --remove-orphans; then
+		echo "test instance: could not take down the database of slot $n" >&2
+		rm -f "${dir:?}/${n:?}/down"
+		return 1
 	fi
 
 	rm -rf "${dir:?}/${n:?}"
