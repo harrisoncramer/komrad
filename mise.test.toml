@@ -1,37 +1,4 @@
-# The throwaway instance, a second checkout kept on main to verify builds against. It is
-# not loaded by default, so a command meant for that checkout names it: MISE_ENV=test mise
-# run restart. Every checkout ignores this file otherwise, including the one you develop in.
-#
-# Everything here is something the two instances would otherwise share. Moving all of it
-# means `mise run restart` in the throwaway checkout cannot reach the agents or the data in
-# the one being developed against.
-#
-# These are environment variables rather than a config file because the environment beats the
-# file, so the isolation holds whatever a developer has written in ~/.config/komrad. KOMRAD_CONFIG
-# then keeps the panel settings apart too, since that file can now name a database of its own.
+# The throwaway instance this checkout tests against, one per checkout. It is not loaded by
+# default, so a command meant for it names it: MISE_ENV=test mise run restart.
 [env]
-# Its own config, so the throwaway instance is not reading the panel settings of the checkout
-# being developed against. Naming a file here replaces ~/.config/komrad/config.toml rather than
-# layering on top of it, which is the point. Nothing outside this checkout reaches the test
-# instance.
-KOMRAD_CONFIG = "{{config_root}}/komrad.test.toml"
-
-# Its own Postgres. The port is what docker-compose publishes and what the connection string
-# points at, and the compose project is named after the directory, so `docker:up` brings up a
-# container of its own rather than colliding on the other instance's. The service connects as
-# the default engine's login, which `docker:up` provisions, and the owner migrates. Clear an
-# inherited read-only URL so Viper falls through and derives it from the engine's.
-DB_PORT = "5461"
-KOMRAD_DATABASE_URL = "postgres://komrad_engine_default:komrad@localhost:5461/komrad?sslmode=disable"
-KOMRAD_OWNER_DATABASE_URL = "postgres://komrad:komrad@localhost:5461/komrad?sslmode=disable"
-KOMRAD_READONLY_DATABASE_URL = ""
-
-# Its own server, so both can run at once and neither adopts the other's.
-KOMRAD_ADDR = "127.0.0.1:8790"
-
-# Its own tmux server. This is the one that matters most: the panel and every agent live
-# on it, and `mise run restart` kills it whole.
-KOMRAD_TMUX_SOCKET = "komrad-test"
-
-# Its own log and generated files, so a tail here is not the other instance's output.
-KOMRAD_CACHE_DIR = "{{env.HOME}}/Library/Caches/komrad-test"
+_.source = { path = "{{config_root}}/mise/tasks/_test_env", tools = true }

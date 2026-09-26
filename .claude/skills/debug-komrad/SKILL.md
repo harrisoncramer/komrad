@@ -33,11 +33,11 @@ Turned off by default, under `[debug]`: `frames = true` records them and `frame_
 how many are kept per agent. Which file to set it in depends on the instance. The development one
 reads `~/.config/komrad/config.toml`; the throwaway one reads `komrad.test.toml` in that checkout,
 named by `KOMRAD_CONFIG` in `mise.test.toml`, which replaces the user's config rather than layering
-on it. That file already turns the recording on, so komrad-test has captures waiting.
+on it. That file already turns the recording on, so the throwaway instance has captures waiting.
 
 They land in `<cache dir>/komrad-frames/<agent id>/`, so
 `~/Library/Caches/komrad/komrad-frames/<agent id>/` for the development instance and
-`~/Library/Caches/komrad-test/komrad-frames/<agent id>/` for the throwaway one. Each file is named
+`~/.local/state/komrad-test/instances/<slot>/cache/komrad-frames/<agent id>/` for the throwaway one. Each file is named
 `<utc stamp>-<seq>-<activity>.txt` and holds the capture exactly as the harness read it, escapes
 and all, so the name tells you what the classifier decided without opening it:
 
@@ -73,7 +73,9 @@ over it needs `state::text`.
 ## Which instance
 
 `~/komrad` on port 8787, tmux socket `komrad`, Postgres 5460, cache `~/Library/Caches/komrad`.
-`~/komrad-test` on 8790, socket `komrad-test`, Postgres 5461, cache `~/Library/Caches/komrad-test`,
-and every command there is prefixed `MISE_ENV=test`. The MCP tools in a normal session point at
-the development instance, so a call meant for the throwaway one has to go to the `komrad-test`
-server.
+Every other checkout, `~/komrad-test` and each worktree, runs a throwaway instance of its own
+under `MISE_ENV=test`, on the numbered slot it claimed under `~/.local/state/komrad-test/instances`:
+server 8800 plus the slot, socket `komrad-test-<slot>`, database `komrad_<slot>` in the shared
+test Postgres on 5470, and a cache in the slot's directory. `MISE_ENV=test mise env` prints them. The MCP tools in a normal session point
+at the development instance, so a call meant for a throwaway one has to go to a server registered
+at that instance's address.

@@ -5,12 +5,15 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/spf13/cobra"
 
 	"komrad/internal/watch"
 	"komrad/internal/watched"
@@ -19,43 +22,52 @@ import (
 var migrationName = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 
 func main() {
-	if len(os.Args) != 2 {
-		fmt.Fprintln(os.Stderr, "usage: go run ./internal/watch/gen/main.go <name>")
-		os.Exit(2)
+	cmd := &cobra.Command{
+		Use:           "gen NAME",
+		Short:         "Write a migration that rebuilds every watch trigger",
+		Args:          cobra.ExactArgs(1),
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return writeMigration(cmd.OutOrStdout(), args[0])
+		},
 	}
 
-	name := os.Args[1]
+	if err := cmd.Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
+
+func writeMigration(out io.Writer, name string) error {
 	if !migrationName.MatchString(name) {
-		fmt.Fprintln(os.Stderr, "migration name must be lowercase words joined by underscores, with no timestamp or extension")
-		os.Exit(2)
+		return fmt.Errorf("migration name must be lowercase words joined by underscores, with no timestamp or extension")
 	}
 
 	path := filepath.Join("db", "migrations", time.Now().UTC().Format("20060102150405")+"_"+name+".sql")
 	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "create %s: %v\n", path, err)
-		os.Exit(1)
+		return fmt.Errorf("create %s: %w", path, err)
 	}
 
 	if _, err := file.Write(render()); err != nil {
 		_ = file.Close()
-		fmt.Fprintf(os.Stderr, "write %s: %v\n", path, err)
-		os.Exit(1)
+		return fmt.Errorf("write %s: %w", path, err)
 	}
 	if err := file.Close(); err != nil {
-		fmt.Fprintf(os.Stderr, "close %s: %v\n", path, err)
-		os.Exit(1)
+		return fmt.Errorf("close %s: %w", path, err)
 	}
 
 	hash := exec.Command("atlas", "migrate", "hash", "--dir", "file://migrations")
 	hash.Dir = "db"
 	hash.Stderr = os.Stderr
 	if err := hash.Run(); err != nil {
-		fmt.Fprintf(os.Stderr, "hash migrations: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("hash migrations: %w", err)
 	}
 
-	fmt.Println(path)
+	_, err = fmt.Fprintln(out, path)
+
+	return err
 }
 
 func render() []byte {

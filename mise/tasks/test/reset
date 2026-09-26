@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+#MISE description="Drop this checkout's test database and make it again, empty and migrated. Run with MISE_ENV=test."
+set -euo pipefail
+source "$MISE_CONFIG_ROOT/mise/tasks/_"
+
+if [ "${MISE_ENV:-}" != test ]; then
+	echo "test:reset: run it with MISE_ENV=test" >&2
+	exit 1
+fi
+
+cd "$MISE_CONFIG_ROOT"
+"$MISE_CONFIG_ROOT/mise/tasks/_test_instance" drop --root "$MISE_CONFIG_ROOT"
+exec mise run docker:up

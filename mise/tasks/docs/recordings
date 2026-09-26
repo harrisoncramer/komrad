@@ -49,8 +49,7 @@ for script in "${SCRIPTS[@]}"; do
 
 	gum log --level info "recording $name"
 
-	MISE_ENV="test" mise run docker:down -v >/dev/null
-	MISE_ENV="test" mise run docker:up >/dev/null
+	MISE_ENV="test" mise run test:reset >/dev/null
 	MISE_ENV="test" mise run restart >/dev/null
 
 	if [ -x "$before" ]; then

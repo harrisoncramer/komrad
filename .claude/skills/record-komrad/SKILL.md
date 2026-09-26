@@ -11,7 +11,8 @@ terminal of its own through ttyd, types what the tape says into it, and renders 
 in a headless browser. Nothing is captured from your screen, so it records the same whether or
 not you are at the machine, and whatever you are doing meanwhile.
 
-The recorder only ever runs against the throwaway instance on tmux socket `komrad-test`. Every
+The recorder only ever runs against this checkout's throwaway instance, on a tmux socket named
+`komrad-test-<slot>`. Every
 command here carries `MISE_ENV=test`; without it the task refuses to run. The live panel on
 socket `komrad` is never recorded.
 
@@ -23,10 +24,9 @@ mise cannot install on macOS, so install that with nix or Homebrew.
     MISE_ENV=test mise run restart
 
 That builds this checkout and brings the throwaway server up with the panel and nothing else.
-To start from no workflows at all, drop its database first:
+To start from no workflows at all, empty its database first:
 
-    MISE_ENV=test mise run docker:down -v
-    MISE_ENV=test mise run docker:up
+    MISE_ENV=test mise run test:reset
     MISE_ENV=test mise run restart
 
 ## Where tapes live

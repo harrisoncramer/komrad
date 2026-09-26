@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Take down this checkout's throwaway instance and give its slot back. Run with MISE_ENV=test."
+set -euo pipefail
+
+exec "$MISE_CONFIG_ROOT/mise/tasks/_test_instance" down --root "$MISE_CONFIG_ROOT"

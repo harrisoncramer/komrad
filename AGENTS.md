@@ -3,7 +3,7 @@
 Komrad's built-in database default is `localhost:5460`, which is the panel you are running
 inside. `komrad migrate` and `mise run restart` migrate it as its owner, so a checkout carrying
 a migration of its own rewrites the panel's schema and leaves the panel refusing to start on its
-older build. Work against the throwaway instance instead, which has its own Postgres, server,
+older build. Work against the throwaway instance instead, which has its own database, server,
 and tmux socket.
 
     MISE_ENV=test mise run docker:up
@@ -11,6 +11,15 @@ and tmux socket.
 
 Never run `mise run docker:up`, `mise run db:apply`, `mise run restart`, or a bare `komrad`
 command from a worktree without it.
+
+Each checkout gets a throwaway instance of its own, so agents testing at once do not share one.
+Every instance keeps its database in one shared test Postgres on port 5470. `MISE_ENV=test mise
+env` prints the instance's database, address and socket, `MISE_ENV=test mise run test:reset`
+empties its database, and `MISE_ENV=test mise run test:down` drops it and takes the instance down.
+
+Never stop the shared test Postgres, since every other checkout's instance is in it. Starting and
+stopping it are `mise run test:container:up` and `test:container:down`, which are for a person
+rather than for day-to-day work.
 
 A change to what the panel draws wants a recording on its pull request, which the throwaway
 instance makes from a script of keypresses under `recordings/`:

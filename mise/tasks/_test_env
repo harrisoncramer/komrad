@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Claims this checkout's slot and exports what it derives.
+
+# shellcheck source=mise/tasks/_test_instance
+source "$(dirname "${BASH_SOURCE[0]}")/_test_instance"
+
+if ! test_env_lines="$(komradslot env --root "$test_instance_root")"; then
+	exit 1
+fi
+
+while IFS= read -r test_env_line; do
+	export "${test_env_line?}"
+done <<<"$test_env_lines"
+
+unset test_env_lines test_env_line

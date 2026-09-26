@@ -81,10 +81,10 @@ Goldens change only through `-update`, and you read every golden diff.
 
 ## Running them
 
-The tests need the test Postgres on 5461. Point every URL at it, never at 5460:
+The tests need this checkout's throwaway Postgres, never the one on 5460. Its port and URLs come
+from the checkout's slot, so read them rather than typing them:
 
-    KOMRAD_OWNER_DATABASE_URL=postgres://komrad:komrad@localhost:5461/komrad?sslmode=disable
-    KOMRAD_DATABASE_URL=postgres://komrad_engine_default:komrad@localhost:5461/komrad?sslmode=disable
+    MISE_ENV=test mise env | grep -E 'DB_PORT|DATABASE_URL'
 
 Run the packages you touched with `GOFLAGS=-count=1`. A cached pass ran nothing. Integration
 tests skip without Postgres rather than fail, so check the count.

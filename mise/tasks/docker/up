@@ -4,7 +4,12 @@ set -euo pipefail
 source "$MISE_CONFIG_ROOT/mise/tasks/_"
 
 cd "$MISE_CONFIG_ROOT"
-docker compose up -d --wait db
+if [ "${MISE_ENV:-}" = test ]; then
+	docker compose up -d --wait --no-recreate db
+	test_database_create
+else
+	docker compose up -d --wait db
+fi
 mise run db:apply
 
-KOMRAD_ENGINE_PASSWORD=komrad go run . engine ensure default >/dev/null
+KOMRAD_ENGINE_PASSWORD=komrad go run . engine ensure "${KOMRAD_TEST_ENGINE:-default}" >/dev/null

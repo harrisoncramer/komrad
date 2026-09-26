@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 source "$MISE_CONFIG_ROOT/mise/tasks/_build"
+source "$MISE_CONFIG_ROOT/mise/tasks/_test_instance"
 #MISE description="Rebuild, then kill and restart the server and the panel, leaving agents stopped."
 set -euo pipefail
+require_test_instance
 cd "$MISE_CONFIG_ROOT"
 
 komrad="$MISE_CONFIG_ROOT/bin/komrad"
@@ -21,8 +23,9 @@ fi
 
 "$komrad" migrate
 
+engine="${KOMRAD_TEST_ENGINE:-default}"
 case "${KOMRAD_DATABASE_URL:-komrad_engine_default:komrad@}" in
-*komrad_engine_default:komrad@*) KOMRAD_ENGINE_PASSWORD=komrad "$komrad" engine ensure default >/dev/null ;;
+*"komrad_engine_$engine:komrad@"*) KOMRAD_ENGINE_PASSWORD=komrad "$komrad" engine ensure "$engine" >/dev/null ;;
 esac
 
 if ! "$komrad" start; then

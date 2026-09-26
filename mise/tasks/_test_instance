@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# The throwaway instance a checkout tests against.
+#
+# Sourced for require_test_instance, or run as `_test_instance down --root <checkout>`.
+
+test_instance_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
+
+# komradslot runs the slot tool, building it first when its source is newer than the binary.
+komradslot() {
+	local bin="$test_instance_root/local/komradslot"
+	local src="$test_instance_root/tools/komradslot"
+	local tmp
+
+	if [ ! -x "$bin" ] || [ -n "$(find "$src" -newer "$bin" -print -quit)" ]; then
+		mkdir -p "$test_instance_root/local"
+		tmp="$(mktemp "$bin.XXXXXX")"
+		if ! go build -C "$src" -o "$tmp" .; then
+			rm -f "$tmp"
+			return 1
+		fi
+		mv -f "$tmp" "$bin"
+	fi
+
+	"$bin" "$@"
+}
+
+# require_test_instance refuses to go on under MISE_ENV=test unless the environment is exactly the
+# one this checkout's slot derives.
+require_test_instance() {
+	[ "${MISE_ENV:-}" = test ] || return 0
+
+	komradslot check --root "$test_instance_root" || exit 1
+}
+
+# test_instance_holds_slot succeeds when some slot names the checkout.
+test_instance_holds_slot() {
+	local root
+	root="$(cd "$1" && pwd -P)"
+
+	cat "$HOME/.local/state/komrad-test/instances"/*/root 2>/dev/null | grep -qxF "$root"
+}
+
+# test_database_psql runs psql as the owner in the shared test container.
+test_database_psql() {
+	docker compose -p komrad-test-pg exec -T db psql -U komrad -d postgres -v ON_ERROR_STOP=1 "$@"
+}
+
+# test_database_create makes this checkout's database in the shared test container.
+test_database_create() {
+	local exists
+	exists="$(test_database_psql -tAc "SELECT 1 FROM pg_database WHERE datname = '$KOMRAD_TEST_DATABASE'")"
+
+	if [ "$exists" != 1 ]; then
+		test_database_psql -c "CREATE DATABASE \"$KOMRAD_TEST_DATABASE\""
+	fi
+}
+
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+	set -euo pipefail
+
+	if [ "${1:-}" = down ] && [ "${2:-}" = --root ] && ! test_instance_holds_slot "${3:?}"; then
+		echo "komradslot: $3 holds no slot"
+		exit 0
+	fi
+
+	komradslot "$@"
+fi

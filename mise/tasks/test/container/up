@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+#MISE description="Start the Postgres every checkout keeps its test database in."
+set -euo pipefail
+
+cd "$MISE_CONFIG_ROOT"
+COMPOSE_PROJECT_NAME=komrad-test-pg DB_PORT=5470 exec docker compose up -d --wait --no-recreate db
