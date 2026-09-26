@@ -19,11 +19,12 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// DrainAfterExit is how long output is still read after the shell ends.
-const DrainAfterExit = 250 * time.Millisecond
-
-// endOfInput is the byte a terminal reads as end of input, control-D.
-const endOfInput = 0x04
+const (
+	// defaultDrainAfterExit is how long output is still read after the shell ends.
+	defaultDrainAfterExit = 250 * time.Millisecond
+	// endOfInput is the byte a terminal reads as end of input, control-D.
+	endOfInput = 0x04
+)
 
 var errNotOpened = fail.InvalidArgument("a shell stream opens with an open message")
 
@@ -47,7 +48,7 @@ type Handler struct {
 func NewHandler(params NewHandlerParams) *Handler {
 	drain := params.DrainAfterExit
 	if drain == 0 {
-		drain = DrainAfterExit
+		drain = defaultDrainAfterExit
 	}
 
 	return &Handler{shells: params.Shells, drainAfterExit: drain}
