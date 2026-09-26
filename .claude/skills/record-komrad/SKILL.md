@@ -42,11 +42,8 @@ committed so it can be remade. Anything else goes in `dev/`, where git ignores i
 `example-*.tape` files in `dev/` are the one exception: they are kept only as worked examples
 of driving the panel, so start a new tape by copying one. Never add a tape anywhere else.
 
-What a tape renders lands beside it and is never committed, in either folder. The two S3
-buckets mirror the same split: the docs bucket's `media/` holds what `prod/` rendered and the
-site shows, and the dev bucket at `https://dev.komrad.dev` holds `recordings/prod/` and
-`recordings/dev/` exactly as they are named here, so a recording made on one machine can be
-seen from any other. The dev bucket drops what is under `recordings/dev/` after thirty days.
+What a tape renders lands beside it and is never committed, in either folder. The docs
+bucket's `media/` holds what `prod/` rendered and the site shows.
 
 ## Write a tape
 
@@ -96,10 +93,6 @@ The output lands beside the tape:
 kept in `local/recordings/my-change/run.tape`. When a step did not do what it meant, add a
 `Screenshot` after it and look.
 
-To share it without a pull request, upload it to the dev bucket, which prints its address:
-
-    mise run infra:dev:recordings upload dev my-change
-
 ## Attach it to a pull request
 
 Keep the description in a file of your own, ending with a reference to the gif by its local
@@ -128,7 +121,6 @@ script runs once the recording is done, to clear what it made.
 
     mise run docs:recordings                           every docs recording
     mise run docs:recordings orchestrator first-agent  just those
-    mise run infra:dev:recordings upload prod          preview them from any machine
     mise run infra:docs:recordings upload              publish them on komrad.dev
 
 `docs:recordings` drops the throwaway instance's database before each one and writes
@@ -142,8 +134,8 @@ the last frame, which is a video's poster or a still on its own. A page reaches 
     </video>
 
 The docs dev server answers `media(...)` from `recordings/prod/` when the file is there, and
-otherwise from the dev bucket's `recordings/prod/`, so a machine that has recorded nothing still
-shows every video once someone has uploaded it there. The built site reads the docs bucket's
+otherwise from komrad.dev's `media/`, so a machine that has recorded nothing still shows every
+video that has been published. The built site reads the docs bucket's
 `media/`, which only the publish step writes, so nothing reaches komrad.dev until it is
 published. The names are fixed, so re-recording and uploading again replaces what the page
 shows.

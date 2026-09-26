@@ -14,8 +14,7 @@ usage() {
 	echo "and a <name>.after script runs once it is done, to clear what it made."
 	echo
 	echo "Every recording drops the throwaway instance's database first, so nothing"
-	echo "recorded depends on what was there. Preview what it made on every machine with"
-	echo "'mise run infra:dev:recordings upload prod', and publish it to the docs site"
+	echo "recorded depends on what was there. Publish what it made to the docs site"
 	echo "with 'mise run infra:docs:recordings upload'."
 }
 

@@ -12,7 +12,6 @@ dist/
 !*.tfvars.example
 /infra/engine/backend.hcl
 /infra/docs/backend.hcl
-/infra/dev/backend.hcl
 crash.log
 crash.*.log
 

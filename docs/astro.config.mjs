@@ -13,7 +13,7 @@ const base = `/${version}/`;
 
 const pagefindDir = new URL("./dist/pagefind/", import.meta.url);
 const mediaDir = new URL("../recordings/prod/", import.meta.url);
-const devMedia = "https://dev.komrad.dev/recordings/prod";
+const publishedMedia = "https://komrad.dev/media";
 
 const absoluteGuideLinks = () => (tree, file) => {
   const page = new URL(`guides/${basename(file.path, extname(file.path))}/`, `http://docs${base}`);
@@ -72,7 +72,7 @@ const media = {
       if (!(extname(requested.pathname) in mediaTypes)) return next();
       if (!existsSync(requested) || !statSync(requested).isFile()) {
         res.statusCode = 302;
-        res.setHeader("Location", `${devMedia}/${basename(requested.pathname)}`);
+        res.setHeader("Location", `${publishedMedia}/${basename(requested.pathname)}`);
         res.end();
         return;
       }

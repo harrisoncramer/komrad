@@ -62,7 +62,6 @@ jobs:
               - 'packer/**'
               - 'mise/tasks/infra/engine/**'
               - 'mise/tasks/infra/docs/**'
-              - 'mise/tasks/infra/dev/**'
               - 'mise/tasks/packer/**'
               - 'mise.toml'
               - '.github/workflows/ci.yml'
@@ -140,7 +139,6 @@ jobs:
         run: |
           mise run infra:engine:fmt
           mise run infra:docs:fmt
-          mise run infra:dev:fmt
 
       - name: Check the Packer formatting
         run: mise run packer:fmt
