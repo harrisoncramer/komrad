@@ -3,7 +3,7 @@
 #
 # To remake it, seed komrad-test with one workflow and one live haiku agent named payouts, then
 # run
-#   MISE_ENV=test mise run record recordings/cycle.tape
+#   MISE_ENV=test mise run record recordings/dev/example-cycle.tape
 Source recordings/panel.tape
 Type "j"
 Wait+Screen@30s /payouts/

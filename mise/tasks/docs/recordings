@@ -1,21 +1,22 @@
 #!/usr/bin/env bash
 source "$MISE_CONFIG_ROOT/mise/tasks/_"
 set -euo pipefail
-#MISE description="Record the docs site's videos and stills into local/docs-recordings."
+#MISE description="Record the docs site's videos and stills into recordings/prod."
 
 usage() {
 	echo "Usage: mise run docs:recordings [name...]"
 	echo
-	echo "Records every script under recordings/docs, or only the ones named, against an"
+	echo "Records every script under recordings/prod, or only the ones named, against an"
 	echo "empty throwaway instance, and writes <name>.mp4, <name>.webm and <name>.png"
-	echo "into local/docs-recordings. The png is the last frame, which is a video's"
+	echo "beside each tape, untracked. The png is the last frame, which is a video's"
 	echo "poster or a still on its own. A <name>.before script beside the recording runs"
 	echo "against the fresh instance first, to set up what the recording should not show,"
 	echo "and a <name>.after script runs once it is done, to clear what it made."
 	echo
 	echo "Every recording drops the throwaway instance's database first, so nothing"
-	echo "recorded depends on what was there. Upload what it made with"
-	echo "'mise run infra:docs:recordings upload'."
+	echo "recorded depends on what was there. Preview what it made on every machine with"
+	echo "'mise run infra:dev:recordings upload prod', and publish it to the docs site"
+	echo "with 'mise run infra:docs:recordings upload'."
 }
 
 for arg in "$@"; do
@@ -29,27 +30,23 @@ done
 
 cd "$MISE_CONFIG_ROOT"
 
-SCRIPTS=(recordings/docs/*.tape)
+SCRIPTS=(recordings/prod/*.tape)
 if [ $# -gt 0 ]; then
 	SCRIPTS=()
 	for name in "$@"; do
-		if [ ! -f "recordings/docs/$name.tape" ]; then
-			echo "no recording named $name under recordings/docs" >&2
+		if [ ! -f "recordings/prod/$name.tape" ]; then
+			echo "no recording named $name under recordings/prod" >&2
 			exit 1
 		fi
 
-		SCRIPTS+=("recordings/docs/$name.tape")
+		SCRIPTS+=("recordings/prod/$name.tape")
 	done
 fi
 
-OUT="$MISE_CONFIG_ROOT/local/docs-recordings"
-mkdir -p "$OUT"
-
 for script in "${SCRIPTS[@]}"; do
 	name="$(basename "$script" .tape)"
-	before="recordings/docs/$name.before"
-	after="recordings/docs/$name.after"
-	recorded="$MISE_CONFIG_ROOT/local/recordings/docs/$name"
+	before="recordings/prod/$name.before"
+	after="recordings/prod/$name.after"
 
 	gum log --level info "recording $name"
 
@@ -61,17 +58,15 @@ for script in "${SCRIPTS[@]}"; do
 		MISE_ENV="test" mise exec -- env PATH="$MISE_CONFIG_ROOT/bin:$PATH" "$before"
 	fi
 
-	MISE_ENV="test" mise run record "$MISE_CONFIG_ROOT/$script" --out "$recorded"
+	MISE_ENV="test" mise run record "$MISE_CONFIG_ROOT/$script"
 
 	if [ -x "$after" ]; then
 		"$after"
 	fi
 
-	cp "$recorded/recording.mp4" "$OUT/$name.mp4"
-	cp "$recorded/recording.webm" "$OUT/$name.webm"
-	cp "$recorded/last.png" "$OUT/$name.png"
+	rm -f "recordings/prod/$name.gif"
 done
 
 MISE_ENV="test" mise run restart >/dev/null
 
-gum log --level info "recorded into $OUT"
+gum log --level info "recorded into recordings/prod"

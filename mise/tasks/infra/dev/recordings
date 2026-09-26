@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+source "$MISE_CONFIG_ROOT/mise/tasks/_"
+source "$MISE_CONFIG_ROOT/mise/tasks/docs/_docs_deploy_utils"
+set -euo pipefail
+#MISE description="Upload rendered recordings to the dev bucket, mirroring recordings/prod and recordings/dev."
+
+usage() {
+	echo "Usage: mise run infra:dev:recordings upload <prod|dev> [name...]"
+	echo
+	echo "Syncs the videos, gifs and stills under recordings/<prod|dev>, or only the"
+	echo "named ones, to s3://<bucket>/recordings/<prod|dev>/ and prints where each one"
+	echo "is served. Nothing here reaches the docs site; publish prod recordings there"
+	echo "with 'mise run infra:docs:recordings upload'. The bucket expires what is under"
+	echo "recordings/dev/ after thirty days."
+	echo
+	echo "Reads the bucket and domain from infra/dev; run 'mise run infra:dev:apply'"
+	echo "first if there is none."
+}
+
+for arg in "$@"; do
+	case "$arg" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	esac
+done
+
+if [ "${1:-}" != upload ] || { [ "${2:-}" != prod ] && [ "${2:-}" != dev ]; }; then
+	usage >&2
+	exit 1
+fi
+
+KIND="$2"
+shift 2
+
+dev_output() {
+	local name=$1 value
+
+	if [ ! -d "$MISE_CONFIG_ROOT/infra/dev/.terraform" ] && [ -f "$MISE_CONFIG_ROOT/infra/dev/backend.hcl" ]; then
+		terraform -chdir="$MISE_CONFIG_ROOT/infra/dev" init \
+			-backend-config=backend.hcl -input=false -lockfile=readonly >/dev/null 2>&1 || true
+	fi
+
+	value="$(terraform -chdir="$MISE_CONFIG_ROOT/infra/dev" output -raw "$name" 2>/dev/null || true)"
+	if [ -z "$value" ]; then
+		echo "could not read $name from infra/dev; run 'mise run infra:dev:apply' first" >&2
+		exit 1
+	fi
+
+	echo "$value"
+}
+
+SOURCE="$MISE_CONFIG_ROOT/recordings/$KIND"
+INCLUDES=()
+if [ $# -eq 0 ]; then
+	INCLUDES=(--include "*.mp4" --include "*.webm" --include "*.gif" --include "*.png")
+else
+	for name in "$@"; do
+		INCLUDES+=(--include "$name.mp4" --include "$name.webm" --include "$name.gif" --include "$name.png")
+	done
+fi
+
+require_aws_profile
+
+BUCKET="$(dev_output bucket_name)"
+DOMAIN="$(dev_output domain_name)"
+
+gum log --level info "uploading $SOURCE to s3://$BUCKET/recordings/$KIND/"
+
+aws s3 sync "$SOURCE/" "s3://$BUCKET/recordings/$KIND/" \
+	--exclude "*" "${INCLUDES[@]}" \
+	--cache-control "public,max-age=60,must-revalidate"
+
+gum log --level info "uploaded: https://$DOMAIN/recordings/$KIND/"

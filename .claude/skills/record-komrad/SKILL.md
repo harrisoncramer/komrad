@@ -29,10 +29,28 @@ To start from no workflows at all, drop its database first:
     MISE_ENV=test mise run docker:up
     MISE_ENV=test mise run restart
 
+## Where tapes live
+
+    recordings/
+      settings.tape shell.tape panel.tape   shared, sourced by every tape
+      prod/                                 tracked: what the docs site shows
+      dev/                                  untracked scratch, for a pull request or a look
+        example-*.tape                      tracked references to copy from
+
+A tape the docs site shows goes in `prod/`, with its `.before` and `.after` scripts, and is
+committed so it can be remade. Anything else goes in `dev/`, where git ignores it. The
+`example-*.tape` files in `dev/` are the one exception: they are kept only as worked examples
+of driving the panel, so start a new tape by copying one. Never add a tape anywhere else.
+
+What a tape renders lands beside it and is never committed, in either folder. The two S3
+buckets mirror the same split: the docs bucket's `media/` holds what `prod/` rendered and the
+site shows, and the dev bucket at `https://dev.komrad.dev` holds `recordings/prod/` and
+`recordings/dev/` exactly as they are named here, so a recording made on one machine can be
+seen from any other. The dev bucket drops what is under `recordings/dev/` after thirty days.
+
 ## Write a tape
 
-Tapes live under `recordings/` and are committed, so the recording can be remade. They are
-[VHS tapes](https://github.com/charmbracelet/vhs), with two things the task adds:
+Tapes are [VHS tapes](https://github.com/charmbracelet/vhs), with two things the task adds:
 
 - `recordings/settings.tape` is sourced ahead of every tape. It sets the size, the font and the
   docs site's colours, so a tape does not set its own.
@@ -64,17 +82,23 @@ to a Claude pane go to Claude, so a bare `Enter` on its folder-trust prompt pick
 
 ## Record
 
-    MISE_ENV=test mise run record recordings/tour.tape
+    cp recordings/dev/example-tour.tape recordings/dev/my-change.tape
+    MISE_ENV=test mise run record recordings/dev/my-change.tape
 
-The output lands under `local/recordings/tour/`, which is not tracked:
+The output lands beside the tape:
 
-    recording.mp4    the video
-    recording.webm   the same video for browsers that prefer it
-    recording.gif    for a pull request
-    last.png         the final frame
-    run.tape         what VHS ran: the settings, the tape and the closing screenshot
+    my-change.mp4    the video
+    my-change.webm   the same video for browsers that prefer it
+    my-change.gif    for a pull request
+    my-change.png    the final frame
 
-`--out` moves it. When a step did not do what it meant, add a `Screenshot` after it and look.
+`--out` moves it. What VHS actually ran, the settings, the tape and the closing screenshot, is
+kept in `local/recordings/my-change/run.tape`. When a step did not do what it meant, add a
+`Screenshot` after it and look.
+
+To share it without a pull request, upload it to the dev bucket, which prints its address:
+
+    mise run infra:dev:recordings upload dev my-change
 
 ## Attach it to a pull request
 
@@ -82,12 +106,12 @@ Keep the description in a file of your own, ending with a reference to the gif b
 path, and hand gh both every time. gh rewrites that reference to the upload, so the live body
 holds an asset URL and a rerun from the same file replaces the gif rather than adding one:
 
-    cat > local/recordings/tour/body.md <<'END'
+    cat > local/recordings/my-change/body.md <<'END'
     The description of the pull request, as it is.
 
-    ![tour](./local/recordings/tour/recording.gif)
+    ![my-change](./recordings/dev/my-change.gif)
     END
-    gh pr edit --body-file local/recordings/tour/body.md --attach ./local/recordings/tour/recording.gif
+    gh pr edit --body-file local/recordings/my-change/body.md --attach ./recordings/dev/my-change.gif
 
 Run that whole block again after every push, writing the file whole each time. Never build
 the file from `gh pr view` or append to it, since either carries the earlier reference along
@@ -96,7 +120,7 @@ for a pull request short.
 
 ## Publish one on the docs site
 
-Recordings the docs pages show live under `recordings/docs/`, one tape per published name,
+Recordings the docs pages show live under `recordings/prod/`, one tape per published name,
 and are never committed as media. A `<name>.before` script beside one runs against the fresh
 throwaway instance first, with this checkout's `komrad` on its PATH, to set up what the video
 should not show, such as a workflow made with `komrad rpc create-workflow`. A `<name>.after`
@@ -104,12 +128,12 @@ script runs once the recording is done, to clear what it made.
 
     mise run docs:recordings                           every docs recording
     mise run docs:recordings orchestrator first-agent  just those
-    mise run infra:docs:recordings upload              publish local/docs-recordings
+    mise run infra:dev:recordings upload prod          preview them from any machine
+    mise run infra:docs:recordings upload              publish them on komrad.dev
 
 `docs:recordings` drops the throwaway instance's database before each one and writes
-`<name>.mp4`, `<name>.webm` and `<name>.png` into `local/docs-recordings`. The png is the last
-frame, which is a video's poster or a still on its own. The upload syncs that directory to the
-`media/` prefix of the docs bucket and invalidates it, and a page reaches a file with
+`<name>.mp4`, `<name>.webm` and `<name>.png` beside each tape in `recordings/prod/`. The png is
+the last frame, which is a video's poster or a still on its own. A page reaches a file with
 `media("<name>.mp4")` from `docs/src/site.ts`:
 
     <video autoplay loop muted playsinline poster={media("first-workflow.png")}>
@@ -117,4 +141,9 @@ frame, which is a video's poster or a still on its own. The upload syncs that di
       <source src={media("first-workflow.mp4")} type="video/mp4" />
     </video>
 
-The names are fixed, so re-recording and uploading again replaces what the page shows.
+The docs dev server answers `media(...)` from `recordings/prod/` when the file is there, and
+otherwise from the dev bucket's `recordings/prod/`, so a machine that has recorded nothing still
+shows every video once someone has uploaded it there. The built site reads the docs bucket's
+`media/`, which only the publish step writes, so nothing reaches komrad.dev until it is
+published. The names are fixed, so re-recording and uploading again replaces what the page
+shows.

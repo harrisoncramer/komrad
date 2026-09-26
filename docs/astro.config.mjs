@@ -12,7 +12,8 @@ const version = process.env.PUBLIC_DOCS_VERSION || "dev";
 const base = `/${version}/`;
 
 const pagefindDir = new URL("./dist/pagefind/", import.meta.url);
-const mediaDir = new URL("../local/docs-recordings/", import.meta.url);
+const mediaDir = new URL("../recordings/prod/", import.meta.url);
+const devMedia = "https://dev.komrad.dev/recordings/prod";
 
 const absoluteGuideLinks = () => (tree, file) => {
   const page = new URL(`guides/${basename(file.path, extname(file.path))}/`, `http://docs${base}`);
@@ -68,7 +69,13 @@ const media = {
     server.middlewares.use("/media", (req, res, next) => {
       const requested = new URL("." + req.url.split("?")[0], mediaDir);
       if (!requested.href.startsWith(mediaDir.href)) return next();
-      if (!existsSync(requested) || !statSync(requested).isFile()) return next();
+      if (!(extname(requested.pathname) in mediaTypes)) return next();
+      if (!existsSync(requested) || !statSync(requested).isFile()) {
+        res.statusCode = 302;
+        res.setHeader("Location", `${devMedia}/${basename(requested.pathname)}`);
+        res.end();
+        return;
+      }
 
       const size = statSync(requested).size;
       res.setHeader("Content-Type", mediaTypes[extname(requested.pathname)] ?? "application/octet-stream");

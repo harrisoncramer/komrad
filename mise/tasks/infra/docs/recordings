@@ -7,10 +7,11 @@ set -euo pipefail
 usage() {
 	echo "Usage: mise run infra:docs:recordings upload"
 	echo
-	echo "Syncs local/docs-recordings, which 'mise run docs:recordings' writes, to"
-	echo "s3://<bucket>/media/ and invalidates /media/* on the distribution. The pages"
-	echo "reach them at https://<domain>/media/<name>. The names are fixed, so a"
-	echo "re-recording replaces the old one under the same URL within five minutes."
+	echo "Syncs the videos and stills under recordings/prod, which 'mise run"
+	echo "docs:recordings' writes, to s3://<bucket>/media/ and invalidates /media/* on"
+	echo "the distribution. The pages reach them at https://<domain>/media/<name>. The"
+	echo "names are fixed, so a re-recording replaces the old one under the same URL"
+	echo "within five minutes."
 	echo
 	echo "Reads the bucket and distribution id from infra/docs; run"
 	echo "'mise run infra:docs:apply' first if there is none."
@@ -30,8 +31,8 @@ if [ "${1:-}" != upload ]; then
 	exit 1
 fi
 
-SOURCE="$MISE_CONFIG_ROOT/local/docs-recordings"
-if [ -z "$(find "$SOURCE" -type f 2>/dev/null)" ]; then
+SOURCE="$MISE_CONFIG_ROOT/recordings/prod"
+if [ -z "$(find "$SOURCE" -type f \( -name '*.mp4' -o -name '*.webm' -o -name '*.png' \) 2>/dev/null)" ]; then
 	echo "nothing in $SOURCE; run 'mise run docs:recordings' first" >&2
 	exit 1
 fi
@@ -45,6 +46,7 @@ DOMAIN="$(docs_require_output domain_name)"
 gum log --level info "uploading $SOURCE to s3://$BUCKET/media/"
 
 aws s3 sync "$SOURCE/" "s3://$BUCKET/media/" \
+	--exclude "*" --include "*.mp4" --include "*.webm" --include "*.png" \
 	--cache-control "public,max-age=300,must-revalidate"
 
 aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION_ID" --paths "/media/*" >/dev/null
