@@ -59,6 +59,8 @@ func Agent(row rowstore.Row, options AgentOptions) *agentv1.Agent {
 		SequenceInProgress: stored.SequenceInProgress,
 		FailedRun:          row.FailedRun,
 		FailedRunLog:       row.FailedRunLog,
+		Documents:          row.Documents,
+		DocumentsUpdatedAt: dates.StampPtr(row.DocumentsUpdatedAt),
 		TreeStanding:       standingOf(stored.TreeStanding),
 		TreeStandingSha:    stored.TreeStandingSHA,
 		MovedSinceRound:    stored.MovedSinceRound,
