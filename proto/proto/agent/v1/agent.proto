@@ -912,7 +912,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "write_document"
-      description: "Write a markdown document for a person to read, such as an RFC, a report or an explainer, which the panel keeps with your row after your worktree is gone. Give the text as body, or as path to a file you already wrote. It creates a document unless id names one of yours, which it rewrites, name and kind included. A name you already use is refused as already_exists, naming the id to pass instead."
+      description: "Write a markdown document for a person to read, such as an RFC, a report or an explainer. Give the text as body, or as path to a file you already wrote. It creates a document unless id names one of yours, which it rewrites, name and kind included. A name you already use is refused as already_exists, naming the id to pass instead."
       destructive: false
       idempotent: false
       roles: [

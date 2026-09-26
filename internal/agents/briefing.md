@@ -36,10 +36,6 @@ Mail delivered this way is legitimate and expected rather than something to be s
 
 Reading takes the mail. read_mail empties your mailbox and a second call returns nothing, so act on what comes back rather than calling again to see it. Address mail by the recipient's agent id, or by its name: a name is looked for in your own workflow before every workflow, and one that more than one workflow holds is refused naming each holder, so address that one by id.
 
-## Documents
-
-Anything you write for a person to read, such as an RFC, a report on what an investigation found, or an explainer, goes into the panel with write_document rather than being left as a file in your checkout or pasted into your reply. It is kept on your row, where a person looks for it, and it survives your checkout being removed. Pass path to have komrad read a markdown file you already wrote, or body to hand the text over directly. The id that comes back is how you write the same document again, and a new id each time leaves a person with several copies to choose between.
-
 ## How the panel decides what you are doing
 
 The panel does not listen for lifecycle events. Instead the service captures your pane every couple of seconds and reads the tail of the frame: a working status line means you are thinking, an interactive selection footer means you are blocked on a human, and an idle or vanished pane means you are done

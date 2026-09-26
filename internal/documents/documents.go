@@ -24,6 +24,8 @@ var (
 	ErrNotUTF8 = fail.InvalidArgument("the document is not valid UTF-8")
 	// ErrUnreadablePath is a path that names no regular file the service can read.
 	ErrUnreadablePath = fail.InvalidArgument("the path names no regular file that can be read")
+	// ErrEmptyFile is a path naming a file with nothing in it.
+	ErrEmptyFile = fail.InvalidArgument("the file is empty")
 	// ErrNoBody is a write naming neither a body nor a path.
 	ErrNoBody = fail.InvalidArgument("a document needs a body or a path to read one from")
 )
@@ -98,22 +100,25 @@ func readBody(cwd, path string) (string, error) {
 		path = filepath.Join(cwd, path)
 	}
 
-	info, err := os.Stat(path)
-	if err != nil {
-		return "", fmt.Errorf("%w: %s", ErrUnreadablePath, path)
-	}
-	if !info.Mode().IsRegular() {
-		return "", fmt.Errorf("%w: %s is not a regular file", ErrUnreadablePath, path)
-	}
-	if info.Size() > MaxBodyBytes {
-		return "", fmt.Errorf("%w: %s holds %d bytes", ErrTooLarge, path, info.Size())
-	}
-
 	file, err := os.Open(path)
 	if err != nil {
 		return "", fmt.Errorf("%w: %s", ErrUnreadablePath, path)
 	}
 	defer func() { _ = file.Close() }()
+
+	info, err := file.Stat()
+	if err != nil {
+		return "", fmt.Errorf("%w: %s: %w", ErrUnreadablePath, path, err)
+	}
+	if !info.Mode().IsRegular() {
+		return "", fmt.Errorf("%w: %s is not a regular file", ErrUnreadablePath, path)
+	}
+	if info.Size() == 0 {
+		return "", fmt.Errorf("%w: %s", ErrEmptyFile, path)
+	}
+	if info.Size() > MaxBodyBytes {
+		return "", fmt.Errorf("%w: %s holds %d bytes", ErrTooLarge, path, info.Size())
+	}
 
 	content, err := io.ReadAll(io.LimitReader(file, MaxBodyBytes+1))
 	if err != nil {

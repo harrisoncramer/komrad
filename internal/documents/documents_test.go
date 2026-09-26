@@ -65,6 +65,11 @@ func TestWrite(t *testing.T) {
 			wantErr: documents.ErrUnreadablePath,
 		},
 		{
+			name:    "a path naming an empty file is refused as empty",
+			params:  documents.WriteDocumentParams{Name: "blank", Path: writeFile("blank.md", "")},
+			wantErr: documents.ErrEmptyFile,
+		},
+		{
 			name:    "a file over the cap is refused before it is read",
 			params:  documents.WriteDocumentParams{Name: "huge", Path: writeFile("huge.md", strings.Repeat("a", documents.MaxBodyBytes+1))},
 			wantErr: documents.ErrTooLarge,
