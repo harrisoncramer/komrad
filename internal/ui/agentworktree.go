@@ -69,9 +69,9 @@ func worktreeStandingFields(read worktreeInspection, now time.Time) []recordFiel
 	}
 
 	if read.item.readable {
-		fields = append(fields, baseRecordField(read))
+		fields = append(fields, buildBaseField(read))
 		if read.item.branch != "" {
-			fields = append(fields, remoteRecordField(read))
+			fields = append(fields, buildRemoteField(read))
 		}
 		fields = append(fields, recordField{label: "changes", value: changesField(read)})
 		if read.landed > 0 {
@@ -99,14 +99,22 @@ func worktreeHistoryFields(read worktreeInspection) []recordField {
 	return labelledRows("commits", cutRows(commitLines(read.commits), worktreeRowsShown))
 }
 
-// remoteRecordField is where the branch stands against its copy on origin.
-func remoteRecordField(read worktreeInspection) recordField {
+// buildRemoteField is where the branch stands against its copy on origin.
+func buildRemoteField(read worktreeInspection) recordField {
 	warning := paint.Panel.Style(paint.ToneWarning)
 	switch {
 	case !read.pushed:
-		return recordField{label: "remote", value: "not pushed", styled: warning.Render("not pushed")}
+		return recordField{
+			label:  "remote",
+			value:  "not pushed",
+			styled: warning.Render("not pushed"),
+		}
 	case read.unpushed == 0 && read.unpulled == 0:
-		return recordField{label: "remote", value: "even", styled: dimStyle.Render("even")}
+		return recordField{
+			label:  "remote",
+			value:  "even",
+			styled: dimStyle.Render("even"),
+		}
 	}
 
 	unpushed := fmt.Sprintf("↑%d unpushed", read.unpushed)
@@ -119,9 +127,9 @@ func remoteRecordField(read worktreeInspection) recordField {
 	}
 }
 
-// diffStatTag is the lines the branch adds and removes since its base, and nothing where no
+// buildDiffStatTag is the lines the branch adds and removes since its base, and nothing where no
 // base could be measured against.
-func diffStatTag(read worktreeInspection, ok bool) string {
+func buildDiffStatTag(read worktreeInspection, ok bool) string {
 	if !ok || !read.isRead() || !read.item.readable || !read.measured {
 		return ""
 	}

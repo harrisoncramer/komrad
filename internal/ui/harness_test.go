@@ -54,6 +54,8 @@ const (
 
 var reviewCursorLine = regexp.MustCompile(`^[^ ]+:\d+`)
 
+var taggedRule = regexp.MustCompile(`^─+ [^─│┤┼]+ ─`)
+
 var listBars = []string{"│ ", "┃ "}
 
 var timerCmds = []string{
@@ -662,8 +664,6 @@ var emptyStyle = regexp.MustCompile(`(\x1b\[[0-9;]+m\x1b\[m)+$`)
 func cutStyled(line string, width int) string {
 	return emptyStyle.ReplaceAllString(ansi.Truncate(line, width, ""), "")
 }
-
-var taggedRule = regexp.MustCompile(`^─+ [^─│┤┼]+ ─`)
 
 func ruleWidth(line string) int {
 	if tagged := taggedRule.FindString(line); tagged != "" {

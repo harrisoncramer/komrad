@@ -159,7 +159,11 @@ func TestGetWorktree(t *testing.T) {
 		SequenceInProgress: true,
 		KeepsBranch:        true,
 		DiffStat:           &git.DiffStat{Added: 214, Removed: 87},
-		Remote:             git.RemoteStanding{Pushed: true, Unpushed: 1, Unpulled: 3},
+		Remote: git.RemoteStanding{
+			Pushed:   true,
+			Unpushed: 1,
+			Unpulled: 3,
+		},
 		Commits: []git.Commit{{
 			SHA:         "abc",
 			Subject:     "own work",

@@ -260,7 +260,7 @@ func worktreeFields(s panelShared, item worktreeItem, now time.Time) []recordFie
 	}
 	if read.isRead() {
 		fields = append(fields,
-			baseRecordField(read),
+			buildBaseField(read),
 			recordField{label: "changes", value: changesField(read)},
 		)
 	}
@@ -298,13 +298,17 @@ func lastActiveField(item worktreeItem, now time.Time) string {
 	return field
 }
 
-// baseRecordField spells where the branch stands against its base, or why git could not name one.
-func baseRecordField(read worktreeInspection) recordField {
+// buildBaseField spells where the branch stands against its base, or why git could not name one.
+func buildBaseField(read worktreeInspection) recordField {
 	if read.baseRef == "" {
 		return recordField{label: "base", value: label.OrDash(read.baseError)}
 	}
 	if read.ahead == 0 && read.behind == 0 {
-		return recordField{label: "base", value: read.baseRef + "  even", styled: read.baseRef + "  " + dimStyle.Render("even")}
+		return recordField{
+			label:  "base",
+			value:  read.baseRef + "  even",
+			styled: read.baseRef + "  " + dimStyle.Render("even"),
+		}
 	}
 
 	ahead := fmt.Sprintf("↑%d", read.ahead)

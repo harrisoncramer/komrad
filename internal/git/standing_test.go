@@ -265,7 +265,7 @@ func TestIntegrationReadDiffStat(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-			assert.Equal(t, tt.want, stat)
+			assert.Equal(t, &tt.want, stat)
 		})
 	}
 }
@@ -344,7 +344,7 @@ func TestIntegrationCountAgainstRemote(t *testing.T) {
 			standing, err := client.CountAgainstRemote(t.Context(), root, "feature")
 			require.NoError(t, err)
 
-			assert.Equal(t, tt.want, standing)
+			assert.Equal(t, &tt.want, standing)
 		})
 	}
 }

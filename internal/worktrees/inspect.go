@@ -3,6 +3,7 @@ package worktrees
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"komrad/internal/git"
@@ -48,8 +49,8 @@ type gitReader interface {
 	PredictRebase(ctx context.Context, dir, ref string) (git.Prediction, error)
 	IsBranchHeldElsewhere(ctx context.Context, dir, branch string) (bool, error)
 	ListCommitsSince(ctx context.Context, dir, ref string, limit int) ([]git.Commit, error)
-	ReadDiffStat(ctx context.Context, params git.ReadDiffStatParams) (git.DiffStat, error)
-	CountAgainstRemote(ctx context.Context, dir, branch string) (git.RemoteStanding, error)
+	ReadDiffStat(ctx context.Context, params git.ReadDiffStatParams) (*git.DiffStat, error)
+	CountAgainstRemote(ctx context.Context, dir, branch string) (*git.RemoteStanding, error)
 }
 
 type workflowReader interface {
@@ -128,12 +129,15 @@ func (i *Inspector) Inspect(ctx context.Context, params InspectParams) (*Inspect
 	}
 
 	if inspection.Worktree.Branch != "" {
-		if inspection.Remote, err = i.git.CountAgainstRemote(ctx, dir, inspection.Worktree.Branch); err != nil {
-			return nil, err
+		remote, err := i.git.CountAgainstRemote(ctx, dir, inspection.Worktree.Branch)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read where %q stands against origin: %w", dir, err)
 		}
+
+		inspection.Remote = *remote
 	}
 
-	config, err := i.worktreeConfigOf(ctx, inspection.Worktree)
+	config, err := i.getWorktreeConfig(ctx, inspection.Worktree)
 	if err != nil {
 		return nil, err
 	}
@@ -167,8 +171,8 @@ func (i *Inspector) nameBase(ctx context.Context, dir, base string, fetch bool) 
 	return ref, err
 }
 
-// worktreeConfigOf is the worktree settings the directory's workflow names, empty when no row names one.
-func (i *Inspector) worktreeConfigOf(ctx context.Context, worktree Worktree) (workflowstore.WorktreeConfig, error) {
+// getWorktreeConfig is the worktree settings the directory's workflow names, empty when no row names one.
+func (i *Inspector) getWorktreeConfig(ctx context.Context, worktree Worktree) (workflowstore.WorktreeConfig, error) {
 	if worktree.Agent == nil || worktree.Agent.WorkflowID == "" {
 		return workflowstore.WorktreeConfig{}, nil
 	}
@@ -207,11 +211,10 @@ func (i *Inspector) readStanding(ctx context.Context, inspection *Inspection, ex
 		Exclude: exclude,
 	})
 	if err != nil && !errors.Is(err, git.ErrBaseUnrelated) {
-		return err
+		return fmt.Errorf("failed to measure %q against %s: %w", dir, ref, err)
 	}
-	if err == nil {
-		inspection.DiffStat = &stat
-	}
+
+	inspection.DiffStat = stat
 
 	prediction, err := i.git.PredictRebase(ctx, dir, ref)
 	if err != nil && !errors.Is(err, git.ErrBaseUnrelated) {

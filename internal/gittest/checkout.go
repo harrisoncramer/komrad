@@ -82,15 +82,22 @@ func (g *Checkout) ListCommitsSince(context.Context, string, string, int) ([]git
 }
 
 // ReadDiffStat records the paths it was told to leave out and answers DiffStat and DiffErr.
-func (g *Checkout) ReadDiffStat(_ context.Context, params git.ReadDiffStatParams) (git.DiffStat, error) {
+func (g *Checkout) ReadDiffStat(_ context.Context, params git.ReadDiffStatParams) (*git.DiffStat, error) {
 	g.Excluded = params.Exclude
+	if g.DiffErr != nil {
+		return nil, g.DiffErr
+	}
 
-	return g.DiffStat, g.DiffErr
+	stat := g.DiffStat
+
+	return &stat, nil
 }
 
 // CountAgainstRemote answers Remote.
-func (g *Checkout) CountAgainstRemote(context.Context, string, string) (git.RemoteStanding, error) {
-	return g.Remote, nil
+func (g *Checkout) CountAgainstRemote(context.Context, string, string) (*git.RemoteStanding, error) {
+	remote := g.Remote
+
+	return &remote, nil
 }
 
 // ListWorktrees answers Registered and ListErr.
