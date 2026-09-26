@@ -1,7 +1,7 @@
-   Worktrees[90m  5 · 1.6G[m
+  Worktrees[90m  5 · 1.6G[m
 
- [90m/[m 
- [90mf[m   [90m↓ size[m  [90mlast-accessed[m  [90m·[m  [90mrepo[m
+[90m/[m
+[90mf[m   [90m↓ size[m  [90mlast-accessed[m  [90m·[m  [90mrepo[m
 
     [90m1.5G[m      [90m│[m [1m/home/h/gadgets/admin[m
     [90m1.5G[m  [90m12h[m [90m│[m   [90mcargo-fix[m
@@ -11,7 +11,7 @@
        [90m—[m   [90m3h[m [90m│[m   [90magent/orphan[m
        [90m—[m      [90m│[m [1m/var/folders/T/repo[m
        [90m—[m   [90m2w[m [90m│[m   [90mbroken[m
-[90m────────────────────────────────────────────[m
+[90m───────────────────────────────────────────[m
   [90mname       [m treeview
   [90mdirectory  [m /trees/live
   [90msize       [m 49M, measured 1h ago
@@ -21,8 +21,8 @@
   [90malso here  [m review-607
   [90mbase       [m —
 [90m  ↓ 3 more[m
-[90m────────────────────────────────────────────[m
+[90m───────────────────────────────────────────[m
 [92m✔[m No messages
 [90m  Komrad is running normally[m
-[90m────────────────────────────────────────────[m
+[90m───────────────────────────────────────────[m
 [90md[m [90marchive the agent[m[90m • [m[90mJ[m [90mjump to agent[m [90m…[m

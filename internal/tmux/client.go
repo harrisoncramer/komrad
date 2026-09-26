@@ -425,6 +425,30 @@ func (c *Client) UnbindRootKey(key string) {
 	c.run("unbind-key", "-n", key)
 }
 
+// BlankBorders draws every pane's border as blank cells, with a blank status line over each pane.
+func (c *Client) BlankBorders() {
+	c.SetGlobal("pane-border-lines", "spaces")
+	c.SetGlobal("pane-border-status", "top")
+	c.SetGlobal("pane-border-format", "")
+	c.SetGlobal("fill-character", " ")
+}
+
+// GutterCells is the blank column right of the panel's window and the blank row under it.
+const GutterCells = 1
+
+// InsetPanelWindow keeps the panel's window a column narrower and a row shorter than each client
+// of the session shows it at.
+func (c *Client) InsetPanelWindow(session string) {
+	resize := fmt.Sprintf(
+		"run-shell -C \"resize-window -t #{%s} -x #{e|-:#{client_width},%d} -y #{e|-:#{client_height},%d}\"",
+		panelPaneOption, GutterCells, GutterCells,
+	)
+
+	for _, hook := range []string{"client-attached", "client-resized", "client-session-changed"} {
+		c.run("set-hook", "-t", session, hook, resize)
+	}
+}
+
 // SetGlobal sets a global tmux option.
 func (c *Client) SetGlobal(name, value string) {
 	c.run("set-option", "-g", name, value)

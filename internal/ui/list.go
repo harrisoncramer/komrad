@@ -689,7 +689,7 @@ func (c rowCursor) jump(idx, length int) (rowCursor, bool) {
 
 // screenTitle is a listing's title: its icon and its name, set in from the pane's edge.
 func screenTitle(icon view.Glyph, name string) string {
-	return " " + view.Spell(icon) + "  " + name
+	return view.Spell(icon) + "  " + name
 }
 
 // talliedHeader is a list's header with a muted tally after its title.
@@ -706,7 +706,7 @@ func (m model) headerLines(title, tally, tabs string) string {
 		header = ansi.Truncate(header, width, "…")
 	}
 
-	return header + "\n\n " + m.filter.line(paint.Panel) + "\n" + tabs + "\n"
+	return header + "\n\n" + m.filter.line(paint.Panel) + "\n" + tabs + "\n"
 }
 
 // headedListView draws a list under its header, padded out to the record and the legend under it.

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"komrad/config"
 	"komrad/internal/engine"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	watchv1 "komrad/proto/gen/watch/v1"
@@ -42,7 +43,7 @@ func TestScreensStage(t *testing.T) {
 		assert.True(t, harness.panel.IsZoomed())
 		assert.Contains(t, frame, "always run the linter")
 		assert.Contains(t, readListRows(frame), "backend")
-		for _, line := range splitLines(frame) {
+		for _, line := range splitLines(harness.readDrawn()) {
 			assert.Equal(t, 200, ansi.StringWidth(line), "every row of the frame is squared off")
 		}
 	})
@@ -54,7 +55,7 @@ func TestScreensStage(t *testing.T) {
 
 		assert.False(t, harness.panel.IsZoomed())
 		assert.Equal(t, "%9", harness.panel.ReadGuestPane())
-		assert.Equal(t, 200, measureListRule(harness.readFrame()), "and the list goes back to the whole of the pane")
+		assert.Equal(t, 197, measureListRule(harness.readFrame()), "and the list goes back to the whole of the pane")
 	})
 
 	t.Run("a dormant agent says why it has no pane", func(t *testing.T) {
@@ -100,7 +101,7 @@ func TestScreensStage(t *testing.T) {
 
 		frame := harness.readFrame()
 		assert.NotContains(t, frame, "always run the linter", "the frame is told what tmux did rather than assuming")
-		assert.Equal(t, 200, measureListRule(frame), "so the list is drawn in the whole of the pane")
+		assert.Equal(t, 199, measureListRule(frame), "so the list is drawn in the whole of the pane")
 
 		harness.panel.SetKeysElsewhere(false)
 		harness.watch(buildSnapshot(newNotedWorkflow(), newRunning()))
@@ -173,7 +174,7 @@ func TestScreensDivider(t *testing.T) {
 		harness.panel.SetPaneWidth("%0", 200)
 		harness.send(tea.WindowSizeMsg{Width: 200, Height: defaultHarnessHeight})
 
-		assert.Equal(t, 50, measureListRule(harness.readFrame()))
+		assert.Equal(t, 47, measureListRule(harness.readFrame()))
 	})
 
 	t.Run("the dragged width survives tmux dropping the zoom", func(t *testing.T) {
@@ -190,7 +191,84 @@ func TestScreensDivider(t *testing.T) {
 		harness.panel.SetPaneWidth("%0", 200)
 		harness.send(tea.WindowSizeMsg{Width: 200, Height: defaultHarnessHeight})
 
-		assert.Equal(t, 50, measureListRule(harness.readFrame()))
+		assert.Equal(t, 47, measureListRule(harness.readFrame()))
+	})
+
+	t.Run("the edge facing the stage", func(t *testing.T) {
+		tests := []struct {
+			name  string
+			side  string
+			edge  func(string) string
+			plain string
+			rule  string
+		}{
+			{
+				name: "stands right of a sidebar on the left, past its gutter",
+				side: config.SidebarSideLeft,
+				edge: func(row string) string {
+					return string([]rune(row)[len([]rune(row))-2:])
+				},
+				plain: " │",
+				rule:  "─┤",
+			},
+			{
+				name: "stands left of a sidebar on the right, before its gutter",
+				side: config.SidebarSideRight,
+				edge: func(row string) string {
+					return string([]rune(row)[:2])
+				},
+				plain: "│ ",
+				rule:  "├─",
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				harness := newPanelHarness(t, panelHarnessParams{width: 200, sidebarSide: tt.side})
+				answerWorktreeReads(harness)
+				harness.watch(buildSnapshot(newNotedWorkflow(), newRunning()))
+				harness.press("g", "g", "j")
+				harness.fireTimers()
+
+				rules := 0
+				for _, row := range splitLines(harness.readDrawn()) {
+					if strings.Contains(row, "──") {
+						rules++
+						assert.Equal(t, tt.rule, tt.edge(row), "a rule meets the edge in a junction")
+
+						continue
+					}
+					assert.Equal(t, tt.plain, tt.edge(row))
+				}
+				assert.Positive(t, rules)
+			})
+		}
+	})
+
+	t.Run("a gutter stands left of a sidebar on the left", func(t *testing.T) {
+		harness := openStaged(t, "g", "g", "j")
+
+		for _, row := range splitLines(harness.readDrawn()) {
+			assert.True(t, strings.HasPrefix(row, " "), row)
+		}
+	})
+
+	t.Run("a table in the document beside the list does not join the divider", func(t *testing.T) {
+		workflow := newNotedWorkflow()
+		workflow.Context = "| a | b |\n|---|---|\n| 1 | 2 |"
+		harness := newPanelHarness(t, panelHarnessParams{width: 200})
+		answerWorktreeReads(harness)
+		harness.watch(buildSnapshot(workflow, newRunning()))
+		harness.press("g", "g")
+		harness.fireTimers()
+
+		frame := harness.readDrawn()
+		require.Contains(t, frame, "┼", "the table's own separator is drawn")
+		for _, row := range splitLines(frame) {
+			if strings.Contains(row, "┼") {
+				assert.NotContains(t, row, "├", "the divider is not joined to the table")
+			}
+		}
 	})
 }
 
@@ -209,7 +287,7 @@ func TestScreensSidebarWidth(t *testing.T) {
 		{
 			name:    "a configured width is capped at what leaves the document its floor",
 			columns: 190,
-			want:    160,
+			want:    156,
 		},
 	}
 
@@ -237,7 +315,7 @@ func TestScreensSidebarWidth(t *testing.T) {
 		harness.send(tea.WindowSizeMsg{Width: 200, Height: defaultHarnessHeight})
 
 		frame := harness.readFrame()
-		assert.Equal(t, 174, measureListRule(frame), "the window less the stage and the divider")
+		assert.Equal(t, 171, measureListRule(frame), "the window less the stage, the divider and its gutters")
 		assert.Contains(t, frame, "always run the linter", "and the document keeps what is left")
 	})
 }
@@ -286,22 +364,22 @@ func TestScreensPromptSitsUnderTheTitle(t *testing.T) {
 		{
 			name:  "a search on the agents tree",
 			press: []string{"/", "d", "b", "enter"},
-			want:  " / db",
+			want:  "/ db",
 		},
 		{
 			name:  "a filter on the agents tree",
 			press: []string{"/", "tab", "d", "b", "enter"},
-			want:  " ▽ db",
+			want:  "▽ db",
 		},
 		{
 			name:  "a search on the worktrees",
 			press: []string{"t", "/", "d", "b", "enter"},
-			want:  " / db",
+			want:  "/ db",
 		},
 		{
 			name:  "the transcript search",
 			press: []string{"s", "d", "b"},
-			want:  " / db",
+			want:  "/ db",
 		},
 	}
 
@@ -599,7 +677,7 @@ func resize(harness *panelHarness, width, height int) {
 func measureListRule(frame string) int {
 	for _, line := range splitLines(frame) {
 		if strings.HasPrefix(line, "─") {
-			return ansi.StringWidth(line) - ansi.StringWidth(strings.TrimLeft(line, "─"))
+			return ruleWidth(line)
 		}
 	}
 

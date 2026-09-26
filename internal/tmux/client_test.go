@@ -4,6 +4,7 @@ package tmux
 
 import (
 	"bytes"
+	"io"
 	"log/slog"
 	"os"
 	"os/exec"
@@ -14,6 +15,7 @@ import (
 
 	"komrad/internal/panes"
 
+	"github.com/creack/pty"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -731,4 +733,42 @@ func sendText(t *testing.T, client *Client, pane, text string) {
 
 	_, err := client.query("send-keys", "-t", pane, "-l", "--", text)
 	require.NoError(t, err)
+}
+
+// TestIntegrationInsetPanelWindowLeavesAGutterPastEveryClient pins the hook arithmetic, a client
+// attaching and then resizing each leaving the panel's window a column and a row short of it.
+func TestIntegrationInsetPanelWindowLeavesAGutterPastEveryClient(t *testing.T) {
+	client := testServer(t, "inset")
+	client.RecordPanelPane(paneAt(t, client, "inset", 0))
+	client.InsetPanelWindow("inset")
+
+	attach := exec.Command("tmux", append(client.server, "attach", "-t", "inset")...)
+	attach.Env = append(os.Environ(), "TERM=xterm-256color")
+	terminal, err := pty.StartWithSize(attach, &pty.Winsize{Cols: 100, Rows: 30})
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_ = attach.Process.Kill()
+		_ = attach.Wait()
+		_ = terminal.Close()
+	})
+	go func() {
+		_, _ = io.Copy(io.Discard, terminal)
+	}()
+
+	windowSize := func() string {
+		out, err := client.query("display-message", "-p", "-t", "inset:", "#{window_width}x#{window_height}")
+		require.NoError(t, err)
+
+		return out
+	}
+
+	assert.Eventually(t, func() bool {
+		return windowSize() == "99x29"
+	}, 5*time.Second, 20*time.Millisecond, "attaching at 100x30 leaves the window a gutter short")
+
+	require.NoError(t, pty.Setsize(terminal, &pty.Winsize{Cols: 120, Rows: 40}))
+
+	assert.Eventually(t, func() bool {
+		return windowSize() == "119x39"
+	}, 5*time.Second, 20*time.Millisecond, "resizing to 120x40 keeps the gutter")
 }

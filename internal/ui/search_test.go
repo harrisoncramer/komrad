@@ -699,7 +699,7 @@ func TestSearchPreview(t *testing.T) {
 			Height: 40,
 		})
 
-		for _, row := range splitLines(harness.readFrame()) {
+		for _, row := range splitLines(harness.readDrawn()) {
 			assert.Equal(t, 120, ansi.StringWidth(row))
 		}
 	})

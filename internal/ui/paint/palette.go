@@ -204,6 +204,9 @@ func stageStyle(palette Palette) ansi.StyleConfig {
 	style := styles.DarkStyleConfig
 
 	style.Document.Color = nil
+	style.Document.BlockPrefix = ""
+	style.Document.BlockSuffix = ""
+	style.Document.Margin = nil
 	style.Text.Color = nil
 	style.Heading.Color = ANSIColor(palette.accent)
 	style.H1.Color = ANSIColor(palette.accent)

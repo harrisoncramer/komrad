@@ -1,7 +1,7 @@
-   Agents & Workflows
+  Agents & Workflows
 
- [90m/[m 
- [90mf[m   [90m↓ created[m  [90mactivity[m  [90mname[m  [90m·[m  [90mworkflow[m
+[90m/[m
+[90mf[m   [90m↓ created[m  [90mactivity[m  [90mname[m  [90m·[m  [90mworkfl…[m
 
           [90m│[m [1mkomrad[m
     [90m[m     [90m│[m   review-607
@@ -11,7 +11,7 @@
 
 
 
-[90m────────────────────────────────────────────[m
+[90m─────────────────────────────────────────[m
   [90mname      [m treeview
   [90magent     [m claude
   [90mworkflow  [m komrad
@@ -21,8 +21,8 @@
   [90magent_id  [m live
   [90msession_id[m —
 
-[90m────────────────────────────────────────────[m
+[90m─────────────────────────────────────────[m
 [92m✔[m No messages
 [90m  Komrad is running normally[m
-[90m────────────────────────────────────────────[m
+[90m─────────────────────────────────────────[m
 [90menter[m [90mopen[m[90m • [m[90m?[m [90mshow help[m

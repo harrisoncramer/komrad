@@ -12,7 +12,7 @@ import (
 
 const (
 	// dividerCols is the columns the divider between the list and the block beside it takes.
-	dividerCols = 1
+	dividerCols = 2*gutter + 1
 	// dividerGlyph is what the divider is drawn with.
 	dividerGlyph = "│"
 )
@@ -90,17 +90,18 @@ func (m model) sidebarColumns() (int, columnSpec, bool) {
 		return 0, columnSpec{}, false
 	}
 
-	sidebar, measured := m.frame.SidebarWidth(m.width)
+	sidebar, measured := m.frame.SidebarWidth(m.paneCols)
 
 	// A configured width is a starting point rather than a boundary anybody placed, so it is
 	// widened to what a list of names reads in and capped at what leaves the block its floor,
 	// while a measured one is drawn where the divider is whatever that leaves either half.
+	chrome := m.countSidebarChrome()
 	if !measured {
-		sidebar = min(max(sidebar, nameWidth), m.width-spec.floor)
+		sidebar = min(max(sidebar, nameWidth+chrome), m.width-spec.floor)
 	}
 
 	// Clamped so the fold and the draw are at one width.
-	return min(max(sidebar-dividerCols, 1), m.width-1-dividerCols), spec, true
+	return min(max(sidebar-chrome, 1), m.width-1-dividerCols), spec, true
 }
 
 // columnGeometry is how wide each half of the window is, and how many rows the block beside the
@@ -198,6 +199,8 @@ func (m model) isOverColumn(x int) bool {
 		return false
 	}
 
+	x -= m.countInsetLeft()
+
 	if m.frame.IsSidebarOnRight() {
 		return x < split.column
 	}
@@ -212,13 +215,62 @@ func (m model) joinColumns(split columnSplit, sidebar, column string) string {
 	sidebar = fitColumn(strings.TrimRight(sidebar, "\n"), split.sidebar)
 	column = fitColumn(column, split.column)
 
-	divider := strings.TrimSuffix(strings.Repeat(dimStyle.Render(dividerGlyph)+"\n", lipgloss.Height(sidebar)), "\n")
-
+	left, right := sidebar, column
 	if m.frame.IsSidebarOnRight() {
-		return lipgloss.JoinHorizontal(lipgloss.Top, column, divider, sidebar)
+		left, right = column, sidebar
 	}
 
-	return lipgloss.JoinHorizontal(lipgloss.Top, sidebar, divider, column)
+	leftLines, rightLines := strings.Split(left, "\n"), strings.Split(right, "\n")
+	rows := max(len(leftLines), len(rightLines))
+	leftWidth, rightWidth := lipgloss.Width(left), lipgloss.Width(right)
+
+	out := make([]string, rows)
+	for i := range rows {
+		l := readLineAt(leftLines, i, leftWidth)
+		r := readLineAt(rightLines, i, rightWidth)
+		out[i] = l + drawDividerRow(isRule(l), isRule(r)) + r
+	}
+
+	return strings.Join(out, "\n")
+}
+
+// readLineAt is the row of a half at i, or blank cells when the half is shorter than the other.
+func readLineAt(lines []string, i, width int) string {
+	if i < len(lines) {
+		return lines[i]
+	}
+
+	return strings.Repeat(" ", width)
+}
+
+// isRule reports whether a row is a rule across the whole of its half.
+func isRule(line string) bool {
+	plain := ansi.Strip(line)
+
+	return plain != "" && strings.Trim(plain, "─") == ""
+}
+
+// drawDividerRow is one row of the divider, joined to the rules that meet it from either side.
+func drawDividerRow(fromLeft, fromRight bool) string {
+	glyph := dividerGlyph
+	switch {
+	case fromLeft && fromRight:
+		glyph = "┼"
+	case fromLeft:
+		glyph = "┤"
+	case fromRight:
+		glyph = "├"
+	}
+
+	leftPad, rightPad := strings.Repeat(" ", gutter), strings.Repeat(" ", gutter)
+	if fromLeft {
+		leftPad = dimStyle.Render(strings.Repeat("─", gutter))
+	}
+	if fromRight {
+		rightPad = dimStyle.Render(strings.Repeat("─", gutter))
+	}
+
+	return leftPad + dimStyle.Render(glyph) + rightPad
 }
 
 // paneWidth is the column the panel draws its own list, record and legend in, which is the whole

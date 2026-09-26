@@ -65,14 +65,17 @@ func (m *model) applyStageTick(msg stageTickMsg) tea.Cmd {
 	return m.inspectAgentWorktreeCmd(time.Now())
 }
 
+// paneStatusRows is the rows the blank status line tmux draws over every pane takes from its window.
+const paneStatusRows = 1
+
 // sizeAgentWindows keeps every agent's own window at the size of the pane it is shown in.
 func (m *model) sizeAgentWindows() {
 	if m.frame.IsRemote() {
 		return
 	}
 
-	width, height := m.frame.StageCols(), m.height
-	if width <= 0 || height <= 0 {
+	width, height := m.frame.StageCols(), m.height+paneStatusRows
+	if width <= 0 || m.height <= 0 {
 		return
 	}
 
@@ -136,8 +139,8 @@ func (m *model) sizeGuestWindow(pane string) {
 		return
 	}
 
-	width, height := m.frame.StageCols(), m.height
-	if pane == "" || pane == m.frame.GuestPane() || width <= 0 || height <= 0 {
+	width, height := m.frame.StageCols(), m.height+paneStatusRows
+	if pane == "" || pane == m.frame.GuestPane() || width <= 0 || m.height <= 0 {
 		return
 	}
 

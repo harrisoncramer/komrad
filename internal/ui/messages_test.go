@@ -367,7 +367,7 @@ func readStyledMessages(harness *panelHarness) []string {
 	}
 
 	return xslice.Map(styled[top+1:bottom], func(line string) string {
-		return ansi.Truncate(line, width, "")
+		return cutStyled(line, width)
 	})
 }
 
@@ -390,7 +390,7 @@ func findMessageRules(lines []string) (int, int, int) {
 
 	bottom := rules[len(rules)-1]
 
-	return rules[len(rules)-2], bottom, ansi.StringWidth(strings.TrimRight(lines[bottom], " "))
+	return rules[len(rules)-2], bottom, measureListRule(lines[bottom])
 }
 
 func readTally(frame string) string {

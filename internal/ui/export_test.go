@@ -197,7 +197,7 @@ func (p *Panel) Update(msg tea.Msg) tea.Cmd {
 	read := func() tea.Msg {
 		return sizeReadMsg{size: *size}
 	}
-	if size.Width == p.model.width && size.Height == p.model.height {
+	if size.Width == p.model.paneCols && size.Height == p.model.height {
 		return tea.Batch(cmd, read)
 	}
 
@@ -211,6 +211,15 @@ func (p *Panel) Update(msg tea.Msg) tea.Cmd {
 // View is the frame the panel draws.
 func (p *Panel) View() string {
 	return p.model.render()
+}
+
+// SidebarCols is the columns the list is drawn in beside a block at the default sidebar width.
+const SidebarCols = config.DefaultSidebarWidth - dividerCols
+
+// Inside is the columns left of the frame the panel draws inside its gutter and edge, and how wide
+// that frame is.
+func (p *Panel) Inside() (int, int) {
+	return p.model.countInsetLeft(), p.model.width
 }
 
 // NewKeyPress is the press bubbletea delivers for a key as a binding spells it.

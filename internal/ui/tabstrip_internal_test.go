@@ -15,7 +15,7 @@ import (
 func TestTabStripView(t *testing.T) {
 	muted := paint.Panel.Style(paint.ToneMuted)
 	accent := paint.Panel.Cursor()
-	title := " " + muted.Render("f") + "   "
+	title := muted.Render("f") + "   "
 	dot := "  " + muted.Render("·") + "  "
 
 	tests := []struct {
