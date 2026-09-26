@@ -12,6 +12,10 @@ and tmux socket.
 Never run `mise run docker:up`, `mise run db:apply`, `mise run restart`, or a bare `komrad`
 command from a worktree without it.
 
+Each checkout gets a throwaway instance of its own, so agents testing at once do not share one.
+`MISE_ENV=test mise env` prints its port, address and socket, and `MISE_ENV=test mise run
+test:down` takes it down.
+
 A change to what the panel draws wants a recording on its pull request, which the throwaway
 instance makes from a script of keypresses under `recordings/`:
 

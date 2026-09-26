@@ -766,6 +766,7 @@ func TestLoadConnectionPrecedence(t *testing.T) {
 	assert.Equal(t, SourceEnvironment, report.Sources["addr"])
 }
 
+// TestLoadWorktreesDirPrecedence pins the environment winning over the file.
 func TestLoadWorktreesDirPrecedence(t *testing.T) {
 	clearConnectionEnvironment(t)
 	path := filepath.Join(t.TempDir(), "config.toml")
