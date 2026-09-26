@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+source "$MISE_CONFIG_ROOT/mise/tasks/_"
+source "$MISE_CONFIG_ROOT/mise/tasks/docs/_docs_deploy_utils"
+set -euo pipefail
+#MISE description="Upload the docs site's recordings to the media prefix of its bucket."
+
+usage() {
+	echo "Usage: mise run infra:docs:recordings upload"
+	echo
+	echo "Syncs local/docs-recordings, which 'mise run docs:recordings' writes, to"
+	echo "s3://<bucket>/media/ and invalidates /media/* on the distribution. The pages"
+	echo "reach them at https://<domain>/media/<name>. The names are fixed, so a"
+	echo "re-recording replaces the old one under the same URL within five minutes."
+	echo
+	echo "Reads the bucket and distribution id from infra/docs; run"
+	echo "'mise run infra:docs:apply' first if there is none."
+}
+
+for arg in "$@"; do
+	case "$arg" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	esac
+done
+
+if [ "${1:-}" != upload ]; then
+	usage >&2
+	exit 1
+fi
+
+SOURCE="$MISE_CONFIG_ROOT/local/docs-recordings"
+if [ -z "$(find "$SOURCE" -type f 2>/dev/null)" ]; then
+	echo "nothing in $SOURCE; run 'mise run docs:recordings' first" >&2
+	exit 1
+fi
+
+require_aws_profile
+
+BUCKET="$(docs_require_output bucket_name)"
+DISTRIBUTION_ID="$(docs_require_output cloudfront_distribution_id)"
+DOMAIN="$(docs_require_output domain_name)"
+
+gum log --level info "uploading $SOURCE to s3://$BUCKET/media/"
+
+aws s3 sync "$SOURCE/" "s3://$BUCKET/media/" \
+	--cache-control "public,max-age=300,must-revalidate"
+
+aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION_ID" --paths "/media/*" >/dev/null
+
+gum log --level info "uploaded: https://$DOMAIN/media/"

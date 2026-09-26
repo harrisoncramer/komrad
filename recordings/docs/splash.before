@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+"$(dirname "$0")/fresh-neovim"
+
+workflow() {
+	komrad rpc create-workflow --name "$1" --cwd "$HOME/neovim" --worktree.enabled --compact | jq -r '.workflow.id'
+}
+
+agent() {
+	komrad rpc create-agent --workflow-id "$1" --title "$2" --prompt "$3" --flags "--model haiku" >/dev/null
+}
+
+neovim="$(workflow neovim)"
+lsp="$(workflow lsp)"
+docs="$(workflow docs)"
+
+agent "$neovim" find-checkhealth "Where is :checkhealth implemented? Answer briefly."
+agent "$neovim" lua-modules "List the Lua modules under runtime/lua/vim."
+agent "$lsp" lsp-layout "Explain how runtime/lua/vim/lsp is organized."
+agent "$lsp" lsp-tests "Which tests cover vim.lsp.buf? Answer briefly."
+agent "$docs" news-summary "Summarize the latest entries in runtime/doc/news.txt."
+agent "$docs" help-tags "How are Neovim's help tags generated? Answer briefly."

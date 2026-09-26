@@ -48,7 +48,7 @@ const { title, subtitle, variant = "info" } = Astro.props;
     font-size: 0.9em;
   }
 
-  .alert-body:not(:empty) {
+  :is(.alert-title, .alert-subtitle) + .alert-body:not(:empty) {
     margin-top: 0.5rem;
   }
 

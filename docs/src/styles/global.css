@@ -138,9 +138,9 @@
   position: relative;
   max-width: 100%;
   overflow-x: auto;
-  padding: 12px;
+  padding: 20px 24px;
   border: 1px solid var(--color-app-background-medium);
-  border-radius: 8px;
+  border-radius: 12px;
   font-family: var(--font-mono);
   font-size: 0.9em;
 }
@@ -264,10 +264,11 @@
 
 .doc-content pre.plain-code {
   overflow-x: auto;
-  padding: 12px;
+  padding: 20px 24px;
   border: 1px solid var(--color-app-background-medium);
-  border-radius: 8px;
-  background: var(--color-app-background-medium-dark);
+  border-radius: 12px;
+  background: #080d1a;
+  color: #c9d4e5;
   font-family: var(--font-mono);
   font-size: 0.9em;
 }
@@ -524,6 +525,14 @@
   h3 {
     font-size: 1.1em;
   }
+}
+
+.doc-content figure :is(img, video) {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--color-app-background-medium);
+  border-radius: 12px;
 }
 
 .doc-content figure.placeholder {

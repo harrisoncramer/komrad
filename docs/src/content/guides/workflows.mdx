@@ -6,7 +6,7 @@ order: 2
 ---
 
 import Alert from "../../components/Alert.astro";
-import { link } from "../../site";
+import { media } from "../../site";
 
 Komrad agents run inside _workflows_. Every agent belongs to one workflow, which provides common, editable settings to every agent spawned within it.
 
@@ -18,22 +18,36 @@ Think of a workflow as the container for agroup of agents that do the same kind 
 
 ## Creating one
 
-Let's set up a dummy repository, so that the workflow can spawn agents into it:
+Let's clone a real repository to work in. This guide uses Neovim, and a shallow clone is enough:
 
 ```sh
-mkdir ~/learning-komrad
-cd ~/learning-komrad
-git init
+git clone --depth 1 https://github.com/neovim/neovim ~/neovim
+cd ~/neovim
 ```
 
-Then run `komrad open` and press `w` in the panel, name the workflow `learning-komrad` and submit it with `<C-s>` to create it.
+Then run `komrad open` and press `w` in the panel, name the workflow `neovim` and submit it with `<C-s>` to create it. The directory is filled in with the one you ran `komrad open` from.
 
 <figure>
-  <video autoplay loop muted playsinline poster={link("/guides/workflows/first-workflow.webp")} width="1382" height="958" aria-label="Making a git repository in a shell, opening komrad, and creating a workflow called learning-komrad that points at it.">
-    <source src={link("/guides/workflows/first-workflow.webm")} type="video/webm" />
-    <source src={link("/guides/workflows/first-workflow.mp4")} type="video/mp4" />
+  <video autoplay loop muted playsinline poster={media("first-workflow.png")} width="1440" height="920" aria-label="Cloning neovim in a shell, opening komrad in it, and creating a workflow called neovim, whose orchestrator then looks around the repository.">
+    <source src={media("first-workflow.webm")} type="video/webm" />
+    <source src={media("first-workflow.mp4")} type="video/mp4" />
   </video>
 </figure>
+
+## The orchestrator
+
+Creating a workflow also starts its _orchestrator_. This is a Claude session that belongs to the workflow itself, and it opens beside the list whenever the workflow's row is selected. The first time, Claude asks whether to trust the folder it runs in. Move down to "Yes, I trust this folder" and press enter.
+
+The orchestrator writes no code of its own. You tell it what you want done, and it spawns agents into the workflow to do the work, passes messages between them, and gathers what they find. Its conversation lasts as long as the workflow does, so it remembers what happened in the workflow.
+
+<figure>
+  <video autoplay loop muted playsinline poster={media("orchestrator.png")} width="1440" height="920" aria-label="Opening the neovim workflow's orchestrator and asking it what the repository is and how it would help.">
+    <source src={media("orchestrator.webm")} type="video/webm" />
+    <source src={media("orchestrator.mp4")} type="video/mp4" />
+  </video>
+</figure>
+
+You will learn more about the orchestrator and the other kinds of agent in the [agents](../agents/) guide.
 
 ## What a workflow decides
 
@@ -43,12 +57,15 @@ Think of a workflow as an editable set of presets for every agent that spawns wi
 
 ## Shared context
 
-Workflows can hold shared text that are included in every agent's system prompt. This is where you put what you would otherwise tell each agent by hand: how tests run, and how branches are named.
+Workflows can hold shared text that is included in every agent's system prompt. This is where you put what you would otherwise tell each agent by hand: how tests run, and how branches are named. For Neovim, that might be "Run make lint before committing any Lua change."
 
 It comes after komrad's own briefing and your [global context](../../config/#context).
 
 <figure>
-    todo video showing how to create a workflow with some global context such as "Neovim is clearly the best editor" and then asking a spawned agent within it what the best agent is.
+  <video autoplay loop muted playsinline poster={media("shared-context.png")} width="1440" height="920" aria-label="Creating a neovim workflow whose shared context says to run make lint before committing Lua changes, then spawning an agent and asking what to run after changing a Lua file.">
+    <source src={media("shared-context.webm")} type="video/webm" />
+    <source src={media("shared-context.mp4")} type="video/mp4" />
+  </video>
 </figure>
 
 ## Worktrees
@@ -77,4 +94,4 @@ You don't have to build your entire workflow right away.
 
 Start with a directory and a worktree setting. Add context later. You can always have multiple workflows in the same directory, for instance, for different purposes like bugfixing or feature work.
 
-Next, the fun part: spawn an [agent](../agents/) into it.
+Next, the fun part: spawn a worker [agent](../agents/) into it.

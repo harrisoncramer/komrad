@@ -1,0 +1,67 @@
+---
+title: Hooks
+description: Your own scripts, run by komrad at moments in an agent's life.
+group: start
+order: 4
+---
+
+import { media } from "../../site";
+
+Your [agent](../agents/) started in a clean worktree, so it has none of the things you built or installed in your own clone. A hook is your own script that komrad runs at a moment in an agent's life, and it is how you fill that gap.
+
+Hooks cover the setup and cleanup komrad cannot know about, like installing dependencies, or tearing down a docker stack an agent started.
+
+## Writing a hook
+
+Hooks are executable files in [`hooks.dir`](../../config/#hooks.dir), which is `~/.config/komrad/hooks` unless you set it. A workflow picks which hook runs at which moment, so one script can serve many workflows. Each hook runs inside its agent's directory.
+
+Neovim builds its dependencies into a `.deps` directory, which takes a few minutes. A fresh worktree does not have one, and rebuilding it for every agent would be slow. A hook can link each worktree to the `.deps` in your main clone instead:
+
+```sh
+mkdir -p ~/.config/komrad/hooks
+cat > ~/.config/komrad/hooks/link-deps <<'EOF'
+#!/usr/bin/env bash
+#KOMRAD description="share the main clone's built dependencies"
+ln -sfn ~/neovim/.deps .deps
+EOF
+chmod +x ~/.config/komrad/hooks/link-deps
+```
+
+The `#KOMRAD` line is optional. A hook can declare a description and a timeout this way, in comment lines at the top of the file.
+
+## Hanging it on a workflow
+
+Press `e` on the workflow's row, move down to "Pre-launch hook", pick `link-deps`, and press `<C-s>`. Every agent spawned from now on runs it once its worktree exists and before its CLI starts.
+
+<figure>
+  <video autoplay loop muted playsinline poster={media("hook-setup.png")} width="1440" height="920" aria-label="Writing the link-deps hook in a shell, picking it as the neovim workflow's pre-launch hook, and spawning an agent that confirms .deps is linked to the main clone.">
+    <source src={media("hook-setup.webm")} type="video/webm" />
+    <source src={media("hook-setup.mp4")} type="video/mp4" />
+  </video>
+</figure>
+
+## The moments
+
+Before launch runs once the agent's directory exists but before its CLI starts. Komrad waits for it. If it fails, the agent is not started and stays in the list marked as failed, so you can fix the cause and retry.
+
+After launch, after resume and after restore run in the background once the CLI is up. Komrad does not wait for them.
+
+Before teardown runs when an agent is deleted, before its worktree is removed. Komrad waits for it, and if it fails the delete stops and the worktree is kept. Write it so it is safe to run twice. Archiving does not run it.
+
+Child agents run no hooks, because the directory they are in is not theirs.
+
+## What a hook knows
+
+Komrad tells a hook about its agent through environment variables. `KOMRAD_AGENT_ID` names the agent, `KOMRAD_AGENT_CWD` is its directory, `KOMRAD_TRIGGER` says which moment fired the hook, and `KOMRAD_ADDR` is where to reach the API. `KOMRAD_AGENT` holds the whole agent as JSON. `komrad` is on the hook's path, so it can ask the API anything else.
+
+## When a hook fails
+
+Every run writes its own log. When a hook fails, the error says so and the agent is marked as never having launched. Move the cursor onto the agent and press `l` to read the hook's log beside it.
+
+Here the workflow's pre-launch hook tries to build Neovim with `cmake --build build`, which fails in a fresh worktree because nothing has configured the build yet.
+
+<figure>
+  <img src={media("hook-failed.png")} alt="An agent whose pre-launch hook failed, marked as never having launched, with the hook's log open beside it showing the build command was not found." width="1440" height="920" />
+</figure>
+
+Agents you start by hand are one thing. A [schedule](../schedules/) starts them for you.

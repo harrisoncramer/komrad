@@ -287,7 +287,12 @@ func userPanelKey(state *app, socket string) string {
 // there can do.
 func hostPath(socket string) string {
 	if socket == "" {
-		return ""
+		dir, err := os.Getwd()
+		if err != nil {
+			return ""
+		}
+
+		return dir
 	}
 
 	return tmux.NewClientAtPath(socket).GetClientPath()

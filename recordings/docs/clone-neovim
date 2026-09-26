@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+git clone --quiet --depth 1 https://github.com/neovim/neovim "$HOME/neovim"

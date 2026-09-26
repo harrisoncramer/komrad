@@ -19,4 +19,3 @@ crash.*.log
 .claude/*
 !.claude/skills/
 tools/komradpkg/komradpkg
-tools/komradrec/komradrec

@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+source "$MISE_CONFIG_ROOT/mise/tasks/_"
+set -euo pipefail
+#MISE description="Record the docs site's videos and stills into local/docs-recordings."
+
+usage() {
+	echo "Usage: mise run docs:recordings [name...]"
+	echo
+	echo "Records every script under recordings/docs, or only the ones named, against an"
+	echo "empty throwaway instance, and writes <name>.mp4, <name>.webm and <name>.png"
+	echo "into local/docs-recordings. The png is the last frame, which is a video's"
+	echo "poster or a still on its own. A <name>.before script beside the recording runs"
+	echo "against the fresh instance first, to set up what the recording should not show,"
+	echo "and a <name>.after script runs once it is done, to clear what it made."
+	echo
+	echo "Every recording drops the throwaway instance's database first, so nothing"
+	echo "recorded depends on what was there. Upload what it made with"
+	echo "'mise run infra:docs:recordings upload'."
+}
+
+for arg in "$@"; do
+	case "$arg" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	esac
+done
+
+cd "$MISE_CONFIG_ROOT"
+
+SCRIPTS=(recordings/docs/*.tape)
+if [ $# -gt 0 ]; then
+	SCRIPTS=()
+	for name in "$@"; do
+		if [ ! -f "recordings/docs/$name.tape" ]; then
+			echo "no recording named $name under recordings/docs" >&2
+			exit 1
+		fi
+
+		SCRIPTS+=("recordings/docs/$name.tape")
+	done
+fi
+
+OUT="$MISE_CONFIG_ROOT/local/docs-recordings"
+mkdir -p "$OUT"
+
+for script in "${SCRIPTS[@]}"; do
+	name="$(basename "$script" .tape)"
+	before="recordings/docs/$name.before"
+	after="recordings/docs/$name.after"
+	recorded="$MISE_CONFIG_ROOT/local/recordings/docs/$name"
+
+	gum log --level info "recording $name"
+
+	MISE_ENV="test" mise run docker:down -v >/dev/null
+	MISE_ENV="test" mise run docker:up >/dev/null
+	MISE_ENV="test" mise run restart >/dev/null
+
+	if [ -x "$before" ]; then
+		MISE_ENV="test" mise exec -- env PATH="$MISE_CONFIG_ROOT/bin:$PATH" "$before"
+	fi
+
+	MISE_ENV="test" mise run record "$MISE_CONFIG_ROOT/$script" --out "$recorded"
+
+	if [ -x "$after" ]; then
+		"$after"
+	fi
+
+	cp "$recorded/recording.mp4" "$OUT/$name.mp4"
+	cp "$recorded/recording.webm" "$OUT/$name.webm"
+	cp "$recorded/last.png" "$OUT/$name.png"
+done
+
+MISE_ENV="test" mise run restart >/dev/null
+
+gum log --level info "recorded into $OUT"

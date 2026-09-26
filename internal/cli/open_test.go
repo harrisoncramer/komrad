@@ -421,3 +421,14 @@ func TestIntegrationEnsureManagerSessionRepairsBesideAWindowNamedAfterTheSession
 	assert.Len(t, strings.Fields(hostQuery(t, socket, "list-panes", "-a", "-F", "#{pane_id}")), 2,
 		"the fresh panel beside the window that was there")
 }
+
+// TestIntegrationHostPathOutsideTmux covers a panel opened from a plain terminal, whose first workflow starts where komrad open ran.
+func TestIntegrationHostPathOutsideTmux(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+
+	want, err := os.Getwd()
+	require.NoError(t, err)
+
+	assert.Equal(t, want, hostPath(""))
+}

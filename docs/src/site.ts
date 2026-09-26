@@ -15,3 +15,6 @@ export const link = (path: string) => {
   const slashed = route.endsWith("/") || /\.[a-z0-9]+$/i.test(route) ? route : `${route}/`;
   return `${base}${slashed}${hash === undefined ? "" : `#${hash}`}`;
 };
+
+export const media = (name: string) =>
+  `${import.meta.env.DEV ? "" : import.meta.env.SITE.replace(/\/$/, "")}/media/${name}`;
