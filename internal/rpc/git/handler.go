@@ -21,7 +21,7 @@ type gitRunner interface {
 	Diff(ctx context.Context, params gitrepo.DiffParams) ([]byte, error)
 	MapRanges(ctx context.Context, params gitrepo.MapRangesParams) ([]position.Mapping, error)
 	Replay(ctx context.Context, params gitrepo.ReplayParams) (*gitrepo.Replayed, error)
-	IsAncestor(ctx context.Context, dir, maybeAncestor, of string) (bool, error)
+	IsAncestor(ctx context.Context, params gitrepo.IsAncestorParams) (bool, error)
 }
 
 // NewHandlerParams is what the handler is built over.
@@ -137,7 +137,11 @@ func (h *Handler) Replay(ctx context.Context, req *gitv1.ReplayRequest) (*gitv1.
 
 // IsAncestor answers whether one commit is reachable from another.
 func (h *Handler) IsAncestor(ctx context.Context, req *gitv1.IsAncestorRequest) (*gitv1.IsAncestorResponse, *fail.Error) {
-	isAncestor, err := h.git.IsAncestor(ctx, req.GetDir(), req.GetMaybeAncestor(), req.GetOf())
+	isAncestor, err := h.git.IsAncestor(ctx, gitrepo.IsAncestorParams{
+		Dir:           req.GetDir(),
+		MaybeAncestor: req.GetMaybeAncestor(),
+		Of:            req.GetOf(),
+	})
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to compare the commits")
 	}

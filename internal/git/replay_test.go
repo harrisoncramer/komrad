@@ -142,11 +142,11 @@ func TestIntegrationReplayRefusesAMissingCommit(t *testing.T) {
 func TestIntegrationIsAncestorTellsAMovedBaseFromARewrittenOne(t *testing.T) {
 	repo, fixture := newMovedBase(t)
 
-	forward, err := client.IsAncestor(t.Context(), repo, fixture.oldBase, fixture.newBase)
+	forward, err := client.IsAncestor(t.Context(), git.IsAncestorParams{Dir: repo, MaybeAncestor: fixture.oldBase, Of: fixture.newBase})
 	require.NoError(t, err)
 	assert.True(t, forward, "the base moved on")
 
-	rewritten, err := client.IsAncestor(t.Context(), repo, fixture.newBase, fixture.oldBase)
+	rewritten, err := client.IsAncestor(t.Context(), git.IsAncestorParams{Dir: repo, MaybeAncestor: fixture.newBase, Of: fixture.oldBase})
 	require.NoError(t, err)
 	assert.False(t, rewritten, "the old base is not reachable from the new one")
 }

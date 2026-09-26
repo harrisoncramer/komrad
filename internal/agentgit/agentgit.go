@@ -17,7 +17,7 @@ type gitReader interface {
 	Diff(ctx context.Context, params git.DiffParams) ([]byte, error)
 	MapRanges(ctx context.Context, params git.MapRangesParams) ([]position.Mapping, error)
 	Replay(ctx context.Context, params git.ReplayParams) (*git.Replayed, error)
-	IsAncestor(ctx context.Context, dir, maybeAncestor, of string) (bool, error)
+	IsAncestor(ctx context.Context, params git.IsAncestorParams) (bool, error)
 }
 
 // NewGitServiceParams is what the service is built over.
@@ -107,11 +107,13 @@ func (s *GitService) Replay(ctx context.Context, params git.ReplayParams) (*git.
 }
 
 // IsAncestor reports whether one commit is reachable from another.
-func (s *GitService) IsAncestor(ctx context.Context, dir, maybeAncestor, of string) (bool, error) {
-	resolved, err := agentdirs.Resolve(ctx, s.agents, dir)
+func (s *GitService) IsAncestor(ctx context.Context, params git.IsAncestorParams) (bool, error) {
+	resolved, err := agentdirs.Resolve(ctx, s.agents, params.Dir)
 	if err != nil {
 		return false, err
 	}
 
-	return s.git.IsAncestor(ctx, resolved, maybeAncestor, of)
+	params.Dir = resolved
+
+	return s.git.IsAncestor(ctx, params)
 }

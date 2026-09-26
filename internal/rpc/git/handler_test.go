@@ -54,7 +54,7 @@ func (f *fakeGit) Replay(context.Context, git.ReplayParams) (*git.Replayed, erro
 	return f.replayed, f.err
 }
 
-func (f *fakeGit) IsAncestor(context.Context, string, string, string) (bool, error) {
+func (f *fakeGit) IsAncestor(context.Context, git.IsAncestorParams) (bool, error) {
 	return f.ancestor, f.err
 }
 
@@ -151,7 +151,7 @@ func TestRefuses(t *testing.T) {
 		{
 			name: "a commit that may be an ancestor and reads as an option",
 			call: func(ctx context.Context, client *git.EngineClient) error {
-				_, err := client.IsAncestor(ctx, "/w", "--x", "b")
+				_, err := client.IsAncestor(ctx, git.IsAncestorParams{Dir: "/w", MaybeAncestor: "--x", Of: "b"})
 
 				return err
 			},
@@ -279,7 +279,7 @@ func TestAnswers(t *testing.T) {
 		{
 			name: "whether one commit is an ancestor of another",
 			call: func(ctx context.Context) (any, error) {
-				return client.IsAncestor(ctx, "/w/agent", "a1", "b2")
+				return client.IsAncestor(ctx, git.IsAncestorParams{Dir: "/w/agent", MaybeAncestor: "a1", Of: "b2"})
 			},
 			want: true,
 		},
