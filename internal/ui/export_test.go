@@ -345,6 +345,8 @@ func (p *Panel) ReadLegendKeys() []string {
 		legend = p.model.review.help(shared)
 	case screenWorktrees:
 		legend = p.model.listHelpOf(p.model.worktrees.listParams(shared))
+	case screenDocuments:
+		legend = p.model.listHelpOf(p.model.documents.listParams(shared))
 	}
 
 	var keys []string

@@ -88,6 +88,10 @@ type AgentRow struct {
 	FailedRun  bool
 	// FailedRunLog is the run its unread failure was written to.
 	FailedRunLog *int32
+	// Documents is how many documents the agent has written.
+	Documents int32
+	// DocumentsUpdatedAt is when the newest of them was last written, nil when there are none.
+	DocumentsUpdatedAt *time.Time
 	// LocalVerdict is what the last released local review concluded about this agent's work,
 	// UNSPECIFIED when none has concluded anything.
 	LocalVerdict agentv1.ReviewVerdict

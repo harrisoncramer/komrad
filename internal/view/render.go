@@ -56,7 +56,7 @@ func drawName(palette paint.Palette, line Line) string {
 // drawTrailing is the odds and ends after a name, each one a space away from what precedes it.
 func drawTrailing(palette paint.Palette, line Line) string {
 	var b strings.Builder
-	for _, cell := range []Cell{line.Held, line.Hidden, line.Mail, line.Alert} {
+	for _, cell := range []Cell{line.Held, line.Hidden, line.Document, line.Mail, line.Alert} {
 		if !cell.IsBlank() {
 			b.WriteString(" " + drawCell(palette, cell))
 		}
@@ -196,6 +196,8 @@ func Spell(glyph Glyph) string {
 		return "\uf467"
 	case GlyphConflicting:
 		return "\uf46e"
+	case GlyphDocument:
+		return "\uf4a5"
 	}
 
 	return ""

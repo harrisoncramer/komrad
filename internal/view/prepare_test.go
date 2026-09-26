@@ -951,8 +951,8 @@ func TestPrepareGivesTheTallyUpBeforeTheMarks(t *testing.T) {
 }
 
 // TestPrepareShedsMarksOnlyWhereTheMarksAloneWillNotFit pins the last thing a row gives up, on
-// the worst row a panel can hold: an agent a schedule launched, hidden, paused, with unread
-// mail, and a failed run nobody has read.
+// the worst row a panel can hold: an agent a schedule launched, hidden, paused, with documents,
+// unread mail, and a failed run nobody has read.
 func TestPrepareShedsMarksOnlyWhereTheMarksAloneWillNotFit(t *testing.T) {
 	worst := Row{
 		Kind:       KindAgent,
@@ -960,6 +960,7 @@ func TestPrepareShedsMarksOnlyWhereTheMarksAloneWillNotFit(t *testing.T) {
 		Scheduled:  true,
 		Hidden:     true,
 		Held:       true,
+		Documents:  true,
 		UnreadMail: true,
 		FailedRun:  true,
 	}
@@ -990,9 +991,14 @@ func TestPrepareShedsMarksOnlyWhereTheMarksAloneWillNotFit(t *testing.T) {
 			want: []Glyph{GlyphPaused, GlyphHidden, GlyphMail, GlyphAlert},
 		},
 		{
-			name: "wider still keeps every mark, the schedule last",
+			name: "the next keeps the documents, which go before the hiding",
 			pane: 24,
-			want: []Glyph{GlyphPaused, GlyphHidden, GlyphMail, GlyphAlert, GlyphSchedule},
+			want: []Glyph{GlyphPaused, GlyphHidden, GlyphDocument, GlyphMail, GlyphAlert},
+		},
+		{
+			name: "wider still keeps every mark, the schedule last",
+			pane: 26,
+			want: []Glyph{GlyphPaused, GlyphHidden, GlyphDocument, GlyphMail, GlyphAlert, GlyphSchedule},
 		},
 	}
 
@@ -1001,8 +1007,8 @@ func TestPrepareShedsMarksOnlyWhereTheMarksAloneWillNotFit(t *testing.T) {
 			list := Prepare(Snapshot{Rows: []Row{worst}, Pane: tt.pane})
 			require.Len(t, list.Lines, 1)
 
-			drawn := make([]Glyph, 0, 5)
-			for _, cell := range []Cell{list.Lines[0].Held, list.Lines[0].Hidden, list.Lines[0].Mail, list.Lines[0].Alert, list.Lines[0].Schedule} {
+			drawn := make([]Glyph, 0, 6)
+			for _, cell := range []Cell{list.Lines[0].Held, list.Lines[0].Hidden, list.Lines[0].Document, list.Lines[0].Mail, list.Lines[0].Alert, list.Lines[0].Schedule} {
 				if !cell.IsBlank() {
 					drawn = append(drawn, cell.Glyph)
 				}

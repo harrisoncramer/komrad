@@ -25,6 +25,24 @@ func TestStampPtr(t *testing.T) {
 	}
 }
 
+// TestPreciseStamp pins that a fraction of a second survives.
+func TestPreciseStamp(t *testing.T) {
+	assert.Empty(t, PreciseStamp(time.Time{}))
+	assert.Equal(t, "2026-09-05T14:30:00.25Z", PreciseStamp(time.Date(2026, 9, 5, 14, 30, 0, 250_000_000, time.UTC)))
+	assert.Equal(t, time.Date(2026, 9, 5, 14, 30, 0, 250_000_000, time.UTC), Parse("2026-09-05T14:30:00.25Z").UTC())
+}
+
+// TestPreciseStampPtr pins that an absent time stays absent.
+func TestPreciseStampPtr(t *testing.T) {
+	assert.Nil(t, PreciseStampPtr(nil))
+
+	at := time.Date(2026, 9, 5, 14, 30, 0, 250_000_000, time.UTC)
+	stamped := PreciseStampPtr(&at)
+	if assert.NotNil(t, stamped) {
+		assert.Equal(t, "2026-09-05T14:30:00.25Z", *stamped)
+	}
+}
+
 // TestParse pins that a stamp komrad cannot read comes back as the zero time rather than as an
 // error the caller would have nothing to do with.
 func TestParse(t *testing.T) {

@@ -22,6 +22,7 @@ const (
 	worktreeRemovedNotice = "its directory no longer exists"
 	sequenceNotice        = "a rebase is stopped part way in it"
 	hiddenNotice          = "hidden from the sidebar"
+	documentsNotice       = "it has written documents for you to read"
 	heldNotice            = "paused: you stopped it and have its worktree"
 	heldWorkingNotice     = "paused, but it has started working again"
 	heldUnreadableNotice  = "paused, but its pane cannot be read, so it may be writing"
@@ -85,6 +86,7 @@ func agentNotices(r agentRow) []notice {
 	notices = appendCellNotice(notices, view.RepoCell(row), repoSaid[row.Repo])
 	notices = appendCellNotice(notices, view.HeldCell(row), heldNoticeText(item))
 	notices = appendCellNotice(notices, view.HiddenCell(row), hiddenNotice)
+	notices = appendCellNotice(notices, view.DocumentCell(row), documentsNotice)
 
 	if row.Archived {
 		return appendCellNotice(notices, view.ReviewCell(row), archivedReviewSaid[row.Review])

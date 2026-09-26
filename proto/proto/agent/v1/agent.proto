@@ -102,6 +102,10 @@ message Agent {
   bool failed_run = 27;
   // The run log that failure was written to, which is the run the panel opens on.
   optional int32 failed_run_log = 28;
+  // How many documents it has written, which list_documents returns.
+  int32 documents = 44;
+  // When the newest of its documents was last written, in RFC 3339, unset when it has none.
+  optional string documents_updated_at = 45;
   // When the state above last moved, in RFC 3339.
   string state_changed_at = 25;
   // What the agent's own CLI last reported it was doing, alongside the state the pane decided.

@@ -23,6 +23,27 @@ func StampPtr(t *time.Time) *string {
 	return &stamped
 }
 
+// PreciseStamp renders a time as Stamp does but to the nanosecond.
+func PreciseStamp(t time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+
+	return t.Format(time.RFC3339Nano)
+}
+
+// PreciseStampPtr renders a time that may not be there to the nanosecond, leaving an absent one
+// absent.
+func PreciseStampPtr(t *time.Time) *string {
+	if t == nil {
+		return nil
+	}
+
+	stamped := t.Format(time.RFC3339Nano)
+
+	return &stamped
+}
+
 // Parse reads a wire stamp, giving back the zero time for anything that will not parse.
 func Parse(stamp string) time.Time {
 	parsed, err := time.Parse(time.RFC3339, stamp)

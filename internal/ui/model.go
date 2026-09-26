@@ -245,6 +245,7 @@ type model struct {
 	schedules     schedulesScreen
 	archive       archiveScreen
 	worktrees     worktreesScreen
+	documents     documentsScreen
 	// inspections is what the service answered for each worktree directory.
 	inspections map[string]worktreeInspection
 
