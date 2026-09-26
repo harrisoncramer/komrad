@@ -11,7 +11,7 @@ Komrad's own repository works this way. [Administering the engine](../engine-adm
 
 ## Telling your panel about an engine
 
-An engine is a small config file on your laptop in `~/.config/komrad/engines/`, named after the engine. It sets the [`[connection]`](../../config/#connection) table: [`exec`](../../config/#connection.exec) says how to run a command on the engine, and [`forward`](../../config/#connection.forward) says how to carry the engine's service back to your laptop. Both are usually SSH. For a host your SSH config already knows, a plain [`ssh`](../../config/#connection.ssh) destination is enough.
+An engine is a small config file on your laptop in `~/.config/komrad/engines/`, named after the engine. It sets the [`[connection]`](../../config/#connection) table: [`forward`](../../config/#connection.forward) says how to carry the engine's API back to your laptop, and everything the panel does on the engine goes through that API. For a host your SSH config already knows, a plain [`ssh`](../../config/#connection.ssh) destination is enough.
 
 Keep the engine's SSH host keys in a file of their own. A rebuilt engine answers on the same address with a new key.
 

@@ -795,11 +795,7 @@ func TestAWindowTooNarrowForTheChosenWidthKeepsIt(t *testing.T) {
 
 // remoteEngine is an engine somewhere this tmux server cannot reach.
 func remoteEngine() engine.Remote {
-	return engine.Remote{
-		Destination: "komrad@host",
-		Socket:      "komrad",
-		Session:     "komrad",
-	}
+	return engine.Remote{Destination: "komrad@host"}
 }
 
 // newRemoteFrame is a frame over an engine somewhere else, reached with komrad terminal.

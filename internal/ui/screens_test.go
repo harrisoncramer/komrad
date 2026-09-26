@@ -135,7 +135,7 @@ func TestScreensStage(t *testing.T) {
 	t.Run("a remote engine's agent windows are left alone", func(t *testing.T) {
 		t.Parallel()
 
-		harness := newPanelHarness(t, panelHarnessParams{width: 200, engine: engine.Remote{Exec: []string{"ssh", "engine"}}})
+		harness := newPanelHarness(t, panelHarnessParams{width: 200, engine: engine.Remote{Forward: []string{"ssh", "engine"}}})
 		answerWorktreeReads(harness)
 		harness.watch(buildSnapshot(newNotedWorkflow(), newRunning()))
 		harness.press("j")

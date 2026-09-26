@@ -17,7 +17,7 @@ import (
 // dialTimeout is how long one attempt to reach the forwarded port may take.
 const dialTimeout = time.Second
 
-// pollInterval is how often the forwarded port is tried while ssh is still setting it up.
+// pollInterval is how often the forwarded port is tried while the forward is still setting it up.
 const pollInterval = 100 * time.Millisecond
 
 // redialDelay is how long a tunnel whose forward has exited waits before running it again.
@@ -36,7 +36,7 @@ const (
 	tunnelPortSpan = 1000
 )
 
-// Tunnel is an ssh forward from a port on this machine to the engine's api.
+// Tunnel is a forward from a port on this machine to the engine's api.
 type Tunnel struct {
 	// Local is the address on this machine that now reaches the engine.
 	Local string
@@ -58,7 +58,7 @@ type forward struct {
 // TunnelPort is the port an engine's forward always lands on, derived from the engine so that two
 // of them never collide and a tunnel outliving its panel is reused rather than leaked.
 func (r Remote) TunnelPort(engineAddr string) int {
-	sum := sha256.Sum256([]byte(r.Destination + strings.Join(r.Exec, " ") + "/" + engineAddr))
+	sum := sha256.Sum256([]byte(r.Destination + strings.Join(r.Forward, " ") + "/" + engineAddr))
 
 	return tunnelPortBase + int(binary.BigEndian.Uint16(sum[:2]))%tunnelPortSpan
 }
@@ -114,7 +114,7 @@ func (r Remote) Dial(ctx context.Context, engineAddr string, wait time.Duration)
 // start runs the forward and waits for the engine to answer through it.
 func (t *Tunnel) start(ctx context.Context) error {
 	// The forward is deliberately left in the panel's process group, so a panel that is killed
-	// outright takes its ssh with it rather than leaving a forward nobody owns.
+	// outright takes its forward with it rather than leaving a forward nobody owns.
 	command := exec.CommandContext(ctx, t.argv[0], t.argv[1:]...) //nolint:gosec // the destination is the user's own config
 
 	if err := command.Start(); err != nil {
