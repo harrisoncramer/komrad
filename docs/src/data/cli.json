@@ -42,6 +42,7 @@
       "shell",
       "start",
       "stop",
+      "terminal",
       "version"
     ]
   },
@@ -984,6 +985,42 @@
     "long": "Ask the running service to stop, and wait until it is gone.\n\nThis asks rather than signals, so the service can finish the launch it is in the\nmiddle of and say when it is done. It returns once the process has actually gone,\nnot when the address stops answering, which happens well before the shutdown is\nfinished. Nothing serving at the address is not an error.\n\nAgents keep running: they are tmux panes, not children of this process. They are\npicked back up when the service returns.",
     "example": "",
     "flags": [],
+    "inherited": [
+      {
+        "name": "config",
+        "shorthand": "",
+        "type": "stringArray",
+        "default": "[]",
+        "usage": "path to a config TOML, repeatable, later files win over earlier ones"
+      },
+      {
+        "name": "engine",
+        "shorthand": "",
+        "type": "string",
+        "default": "",
+        "usage": "engine to reach, named after a file in the config's engines directory, layered over the config"
+      }
+    ],
+    "children": []
+  },
+  {
+    "slug": "terminal",
+    "path": "komrad terminal",
+    "parent": "",
+    "usage": "komrad terminal AGENT [flags]",
+    "aliases": [],
+    "short": "Attach to an agent's terminal on the engine",
+    "long": "Attach to an agent's terminal on the engine.\n\nThe terminal is carried to this one over the engine's api, so it works the same\nwhether the engine is this machine or another one. AGENT is the agent's id, and\nthe agent has to be live and hold a pane. Attaching detaches any other terminal\nattached to the same agent. A dropped connection is dialled again, and since\ntmux keeps the session nothing is lost.",
+    "example": "",
+    "flags": [
+      {
+        "name": "addr",
+        "shorthand": "",
+        "type": "string",
+        "default": "",
+        "usage": "address of the engine's api, reached as it is rather than through a forward of its own"
+      }
+    ],
     "inherited": [
       {
         "name": "config",
