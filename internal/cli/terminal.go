@@ -160,7 +160,7 @@ func (c *streamConn[Req, Res]) open(open *Req) error {
 	if err != nil {
 		c.close()
 
-		return err //nolint:wrapcheck // the caller names what was being opened
+		return fmt.Errorf("failed to hear whether the terminal opened: %w", err)
 	}
 
 	if !c.read(first).ready {
@@ -176,7 +176,11 @@ func (c *streamConn[Req, Res]) send(request *Req) error {
 	c.sending.Lock()
 	defer c.sending.Unlock()
 
-	return c.stream.Send(request) //nolint:wrapcheck // the caller hears about a failed stream from receive
+	if err := c.stream.Send(request); err != nil {
+		return fmt.Errorf("failed to send to the terminal: %w", err)
+	}
+
+	return nil
 }
 
 func (c *streamConn[Req, Res]) sendInput(input []byte) error {
@@ -191,7 +195,11 @@ func (c *streamConn[Req, Res]) closeInput() error {
 	c.sending.Lock()
 	defer c.sending.Unlock()
 
-	return c.stream.CloseRequest() //nolint:wrapcheck // the caller hears about a failed stream from receive
+	if err := c.stream.CloseRequest(); err != nil {
+		return fmt.Errorf("failed to close the terminal's input: %w", err)
+	}
+
+	return nil
 }
 
 func (c *streamConn[Req, Res]) receive() (received, error) {
@@ -201,7 +209,7 @@ func (c *streamConn[Req, Res]) receive() (received, error) {
 	}
 
 	if err != nil {
-		return received{}, err //nolint:wrapcheck // the caller tells a dropped stream apart by its code
+		return received{}, fmt.Errorf("failed to read the next message: %w", err)
 	}
 
 	return c.read(response), nil
