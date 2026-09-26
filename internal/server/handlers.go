@@ -104,6 +104,7 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 			Archive:      jobs.NewArchiveSweep(queue),
 			Review:       params.Services.review,
 			Marks:        params.Services.marks,
+			Documents:    params.Services.documents,
 			Rebaser:      params.Services.rebase,
 			Orchestrator: params.Services.orchestrator,
 		})}, options...))

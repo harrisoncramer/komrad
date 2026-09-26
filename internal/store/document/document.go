@@ -1,0 +1,176 @@
+// Package document stores the markdown documents agents write for people to read.
+package document
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"komrad/db"
+	"komrad/db/models"
+	"komrad/internal/store"
+	"komrad/lib/xslice"
+)
+
+// Kind is what sort of document it is.
+type Kind string
+
+const (
+	KindRFC       Kind = Kind(models.DocumentKindRfc)
+	KindReport    Kind = Kind(models.DocumentKindReport)
+	KindExplainer Kind = Kind(models.DocumentKindExplainer)
+	KindNotes     Kind = Kind(models.DocumentKindNotes)
+)
+
+// Document is one document, with an empty Body when it came from a listing.
+type Document struct {
+	ID        string
+	AgentID   string
+	Name      string
+	Kind      Kind
+	Body      string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+type DocumentStore struct {
+	queries *models.Queries
+}
+
+// NewDocumentStore builds a document store over a pool or transaction.
+func NewDocumentStore(db store.DBTX) *DocumentStore {
+	return &DocumentStore{queries: models.New(db)}
+}
+
+func fromRow(row *models.Document) Document {
+	return Document{
+		ID:        row.ID,
+		AgentID:   row.AgentID,
+		Name:      row.Name,
+		Kind:      Kind(row.Kind),
+		Body:      row.Body,
+		CreatedAt: row.CreatedAt,
+		UpdatedAt: row.UpdatedAt,
+	}
+}
+
+func fromListRow(row *models.ListAgentDocumentsRow) Document {
+	return Document{
+		ID:        row.ID,
+		AgentID:   row.AgentID,
+		Name:      row.Name,
+		Kind:      Kind(row.Kind),
+		CreatedAt: row.CreatedAt,
+		UpdatedAt: row.UpdatedAt,
+	}
+}
+
+type CreateParams struct {
+	AgentID string
+	Name    string
+	Kind    Kind
+	Body    string
+}
+
+// Create writes a new document, refusing a name the agent already uses.
+func (s *DocumentStore) Create(ctx context.Context, params CreateParams) (*Document, error) {
+	row, err := s.queries.InsertDocument(ctx, models.InsertDocumentParams{
+		AgentID: params.AgentID,
+		Name:    params.Name,
+		Kind:    models.DocumentKind(params.Kind),
+		Body:    params.Body,
+	})
+	if db.IsUniqueViolation(err) {
+		return nil, s.nameTaken(ctx, params.AgentID, params.Name)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to create document %q: %w", params.Name, err)
+	}
+
+	created := fromRow(row)
+
+	return &created, nil
+}
+
+type UpdateParams struct {
+	ID      string
+	AgentID string
+	Name    string
+	Kind    Kind
+	Body    string
+}
+
+// Update rewrites one of the agent's own documents.
+func (s *DocumentStore) Update(ctx context.Context, params UpdateParams) (*Document, error) {
+	if !store.IsID(params.ID) {
+		return nil, fmt.Errorf("%w: document %q", store.ErrNotFound, params.ID)
+	}
+
+	row, err := s.queries.UpdateDocument(ctx, models.UpdateDocumentParams{
+		ID:      params.ID,
+		AgentID: params.AgentID,
+		Name:    params.Name,
+		Kind:    models.DocumentKind(params.Kind),
+		Body:    params.Body,
+	})
+	if db.IsNoRows(err) {
+		return nil, fmt.Errorf("%w: document %q of agent %q", store.ErrNotFound, params.ID, params.AgentID)
+	}
+	if db.IsUniqueViolation(err) {
+		return nil, s.nameTaken(ctx, params.AgentID, params.Name)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to update document %q: %w", params.ID, err)
+	}
+
+	updated := fromRow(row)
+
+	return &updated, nil
+}
+
+func (s *DocumentStore) nameTaken(ctx context.Context, agentID, name string) error {
+	id, err := s.queries.GetDocumentIDByName(ctx, models.GetDocumentIDByNameParams{AgentID: agentID, Name: name})
+	if err != nil {
+		return fmt.Errorf("%w: the agent already has a document named %q", store.ErrNameTaken, name)
+	}
+
+	return fmt.Errorf("%w: the agent already has a document named %q, id %s", store.ErrNameTaken, name, id)
+}
+
+// Get returns one document whole.
+func (s *DocumentStore) Get(ctx context.Context, id string) (*Document, error) {
+	if !store.IsID(id) {
+		return nil, fmt.Errorf("%w: document %q", store.ErrNotFound, id)
+	}
+
+	row, err := s.queries.GetDocument(ctx, id)
+	if db.IsNoRows(err) {
+		return nil, fmt.Errorf("%w: document %q", store.ErrNotFound, id)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get document %q: %w", id, err)
+	}
+
+	got := fromRow(row)
+
+	return &got, nil
+}
+
+// List returns an agent's documents without their bodies, newest write first.
+func (s *DocumentStore) List(ctx context.Context, agentID string, kind *Kind) ([]Document, error) {
+	if !store.IsID(agentID) {
+		return nil, nil
+	}
+
+	var filter models.NullDocumentKind
+	if kind != nil {
+		filter = models.NullDocumentKind{DocumentKind: models.DocumentKind(*kind), Valid: true}
+	}
+
+	rows, err := s.queries.ListAgentDocuments(ctx, models.ListAgentDocumentsParams{AgentID: agentID, Kind: filter})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the documents of agent %q: %w", agentID, err)
+	}
+
+	return xslice.Map(rows, fromListRow), nil
+}

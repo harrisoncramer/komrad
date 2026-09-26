@@ -102,6 +102,7 @@ type NewHandlerParams struct {
 	Archive      archiveEmptier
 	Review       reviewConversation
 	Marks        markReadWriter
+	Documents    documentReadWriter
 	Rebaser      worktreeRebaser
 	Orchestrator orchestratorStarter
 	Clock        func() time.Time
@@ -122,6 +123,7 @@ type Handler struct {
 	archive      archiveEmptier
 	review       reviewConversation
 	marks        markReadWriter
+	documents    documentReadWriter
 	rebaser      worktreeRebaser
 	orchestrator orchestratorStarter
 	now          func() time.Time
@@ -150,6 +152,7 @@ func NewHandler(params NewHandlerParams) *Handler {
 		archive:      params.Archive,
 		review:       params.Review,
 		marks:        params.Marks,
+		documents:    params.Documents,
 		rebaser:      params.Rebaser,
 		orchestrator: params.Orchestrator,
 		now:          now,
