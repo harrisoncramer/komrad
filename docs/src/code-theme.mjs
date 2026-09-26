@@ -15,6 +15,7 @@ const rule = (scope, foreground, fontStyle) => ({
   settings: fontStyle ? { foreground, fontStyle } : { foreground },
 });
 
+/** @type {import("shiki").ThemeRegistration} */
 export const codeTheme = {
   name: "komrad",
   type: "dark",
