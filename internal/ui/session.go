@@ -60,8 +60,7 @@ func (s *Session) unbindCycleKeys() {
 	}
 }
 
-// IsShown reports whether anything is attached to the panel's session, which the panel cannot
-// see for itself since hiding only detaches the client and leaves this program running.
+// IsShown reports whether anything is attached to the panel's session.
 func (s *Session) IsShown() bool {
 	return s.tmux.GetSessionClient(s.session) != ""
 }

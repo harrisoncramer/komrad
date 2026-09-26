@@ -122,6 +122,13 @@ const (
 	InfoSideAbove    = "above"
 )
 
+// cycleKeyChoices are the pairs the cycle keys may be set to, forward key first.
+var cycleKeyChoices = [][]string{
+	{"ctrl+a", "ctrl+q"},
+	{"alt+n", "alt+p"},
+	{"alt+j", "alt+k"},
+}
+
 // Keybindings scopes bindings to the screen they act in. Each binding is a list of
 // bubbletea key strings such as "enter", "ctrl+d", or "esc". Every default is a
 // single key, leaving the alternatives to you. A binding left unset falls back to
@@ -171,13 +178,6 @@ type Keybindings struct {
 	Workflows WorkflowsKeys `mapstructure:"workflows"`
 	// The worktrees screen, which lists every directory komrad cut for an agent.
 	Worktrees WorktreesKeys `mapstructure:"worktrees"`
-}
-
-// CycleKeyChoices are the pairs the cycle keys may be set to, forward key first.
-var CycleKeyChoices = [][]string{
-	{"ctrl+a", "ctrl+q"},
-	{"alt+n", "alt+p"},
-	{"alt+j", "alt+k"},
 }
 
 // CycleKeys are the keys that move between the panel's views.
@@ -947,11 +947,14 @@ func defaultKeys(field reflect.StructField) []string {
 }
 
 func validateCycleKeys(keys CycleKeys) error {
-	if slices.ContainsFunc(CycleKeyChoices, func(choice []string) bool { return slices.Equal(choice, keys.Views) }) {
+	isChoice := slices.ContainsFunc(cycleKeyChoices, func(choice []string) bool {
+		return slices.Equal(choice, keys.Views)
+	})
+	if isChoice {
 		return nil
 	}
 
-	return fmt.Errorf("keybindings.cycle.views: %q is not one of the pairs on offer: %q", keys.Views, CycleKeyChoices)
+	return fmt.Errorf("keybindings.cycle.views: %q is not one of the pairs on offer: %q", keys.Views, cycleKeyChoices)
 }
 
 // validateLayout rejects a layout tmux could not lay the panes out at. Zero is how an omitted
