@@ -43,7 +43,7 @@ func TestScreensStage(t *testing.T) {
 		assert.Contains(t, frame, "always run the linter")
 		assert.Contains(t, readListRows(frame), "backend")
 		for _, line := range splitLines(frame) {
-			assert.Equal(t, 200, ansi.StringWidth(line), "every row of the frame is squared off")
+			assert.Equal(t, 199, ansi.StringWidth(line), "every row of the frame is squared off inside its gutter")
 		}
 	})
 
@@ -54,7 +54,7 @@ func TestScreensStage(t *testing.T) {
 
 		assert.False(t, harness.panel.IsZoomed())
 		assert.Equal(t, "%9", harness.panel.ReadGuestPane())
-		assert.Equal(t, 200, measureListRule(harness.readFrame()), "and the list goes back to the whole of the pane")
+		assert.Equal(t, 197, measureListRule(harness.readFrame()), "and the list goes back to the whole of the pane")
 	})
 
 	t.Run("a dormant agent says why it has no pane", func(t *testing.T) {
@@ -100,7 +100,7 @@ func TestScreensStage(t *testing.T) {
 
 		frame := harness.readFrame()
 		assert.NotContains(t, frame, "always run the linter", "the frame is told what tmux did rather than assuming")
-		assert.Equal(t, 200, measureListRule(frame), "so the list is drawn in the whole of the pane")
+		assert.Equal(t, 199, measureListRule(frame), "so the list is drawn in the whole of the pane")
 
 		harness.panel.SetKeysElsewhere(false)
 		harness.watch(buildSnapshot(newNotedWorkflow(), newRunning()))
@@ -173,7 +173,7 @@ func TestScreensDivider(t *testing.T) {
 		harness.panel.SetPaneWidth("%0", 200)
 		harness.send(tea.WindowSizeMsg{Width: 200, Height: defaultHarnessHeight})
 
-		assert.Equal(t, 50, measureListRule(harness.readFrame()))
+		assert.Equal(t, 47, measureListRule(harness.readFrame()))
 	})
 
 	t.Run("the dragged width survives tmux dropping the zoom", func(t *testing.T) {
@@ -190,7 +190,7 @@ func TestScreensDivider(t *testing.T) {
 		harness.panel.SetPaneWidth("%0", 200)
 		harness.send(tea.WindowSizeMsg{Width: 200, Height: defaultHarnessHeight})
 
-		assert.Equal(t, 50, measureListRule(harness.readFrame()))
+		assert.Equal(t, 47, measureListRule(harness.readFrame()))
 	})
 }
 
@@ -209,7 +209,7 @@ func TestScreensSidebarWidth(t *testing.T) {
 		{
 			name:    "a configured width is capped at what leaves the document its floor",
 			columns: 190,
-			want:    160,
+			want:    156,
 		},
 	}
 
@@ -237,7 +237,7 @@ func TestScreensSidebarWidth(t *testing.T) {
 		harness.send(tea.WindowSizeMsg{Width: 200, Height: defaultHarnessHeight})
 
 		frame := harness.readFrame()
-		assert.Equal(t, 174, measureListRule(frame), "the window less the stage and the divider")
+		assert.Equal(t, 171, measureListRule(frame), "the window less the stage, the divider and its gutters")
 		assert.Contains(t, frame, "always run the linter", "and the document keeps what is left")
 	})
 }
@@ -286,22 +286,22 @@ func TestScreensPromptSitsUnderTheTitle(t *testing.T) {
 		{
 			name:  "a search on the agents tree",
 			press: []string{"/", "d", "b", "enter"},
-			want:  " / db",
+			want:  "/ db",
 		},
 		{
 			name:  "a filter on the agents tree",
 			press: []string{"/", "tab", "d", "b", "enter"},
-			want:  " ▽ db",
+			want:  "▽ db",
 		},
 		{
 			name:  "a search on the worktrees",
 			press: []string{"t", "/", "d", "b", "enter"},
-			want:  " / db",
+			want:  "/ db",
 		},
 		{
 			name:  "the transcript search",
 			press: []string{"s", "d", "b"},
-			want:  " / db",
+			want:  "/ db",
 		},
 	}
 
@@ -599,7 +599,7 @@ func resize(harness *panelHarness, width, height int) {
 func measureListRule(frame string) int {
 	for _, line := range splitLines(frame) {
 		if strings.HasPrefix(line, "─") {
-			return ansi.StringWidth(line) - ansi.StringWidth(strings.TrimLeft(line, "─"))
+			return ruleWidth(line)
 		}
 	}
 

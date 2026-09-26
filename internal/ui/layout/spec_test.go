@@ -20,7 +20,7 @@ func TestNewSpecSizes(t *testing.T) {
 		{
 			name:     "a layout naming nothing falls back to the defaults",
 			layout:   config.Layout{},
-			wantNav:  30,
+			wantNav:  config.DefaultSidebarWidth,
 			wantInfo: "40%",
 		},
 		{
@@ -32,13 +32,13 @@ func TestNewSpecSizes(t *testing.T) {
 		{
 			name:     "a height in rows is too",
 			layout:   config.Layout{InfoHeight: 12},
-			wantNav:  30,
+			wantNav:  config.DefaultSidebarWidth,
 			wantInfo: "12",
 		},
 		{
 			name:     "a share of the stage rounds to a percent",
 			layout:   config.Layout{InfoHeight: 0.335},
-			wantNav:  30,
+			wantNav:  config.DefaultSidebarWidth,
 			wantInfo: "34%",
 		},
 	}

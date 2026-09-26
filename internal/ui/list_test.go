@@ -58,7 +58,7 @@ func TestListTitles(t *testing.T) {
 			harness.press(tt.press...)
 
 			first, _, _ := strings.Cut(harness.readRawFrame(), "\n")
-			require.True(t, strings.HasPrefix(first, " "+view.Spell(tt.icon)+"  "+tt.title), "the title opens the frame: %q", ansi.Strip(first))
+			require.True(t, strings.HasPrefix(first, view.Spell(tt.icon)+"  "+tt.title), "the title opens the frame: %q", ansi.Strip(first))
 			assert.NotContains(t, first, paint.Panel.Title(tt.title), "and is drawn plain")
 		})
 	}

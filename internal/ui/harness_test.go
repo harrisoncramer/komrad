@@ -305,11 +305,11 @@ func (h *panelHarness) send(msg tea.Msg) {
 }
 
 func (h *panelHarness) readFrame() string {
-	return ansi.Strip(h.panel.View())
+	return ansi.Strip(h.panel.ViewInside())
 }
 
 func (h *panelHarness) readRawFrame() string {
-	return h.panel.View()
+	return h.panel.ViewInside()
 }
 
 func (h *panelHarness) assertSent(want ...request) {
@@ -615,7 +615,7 @@ func readHoveredRow(frame string) string {
 
 		row, isRow := cutListRow(line)
 		if !isRow {
-			return strings.TrimSpace(strings.TrimPrefix(ansi.Truncate(line, config.DefaultSidebarWidth, ""), "›"))
+			return strings.TrimSpace(strings.TrimPrefix(ansi.Truncate(line, ui.SidebarCols, ""), "›"))
 		}
 
 		return row
@@ -625,7 +625,7 @@ func readHoveredRow(frame string) string {
 }
 
 func cutListRow(line string) (string, bool) {
-	sidebar := ansi.Truncate(line, config.DefaultSidebarWidth, "")
+	sidebar := ansi.Truncate(line, ui.SidebarCols, "")
 	for _, bar := range listBars {
 		if _, row, isRow := strings.Cut(sidebar, bar); isRow {
 			return strings.TrimRight(row, " "), true
@@ -647,6 +647,22 @@ func isRecordDrawn(frame string) bool {
 	return drawn
 }
 
+var emptyStyle = regexp.MustCompile(`(\x1b\[[0-9;]+m\x1b\[m)+$`)
+
+func cutStyled(line string, width int) string {
+	return emptyStyle.ReplaceAllString(ansi.Truncate(line, width, ""), "")
+}
+
+func ruleWidth(line string) int {
+	rest := strings.TrimLeft(line, "─")
+	width := ansi.StringWidth(line) - ansi.StringWidth(rest)
+	if strings.HasPrefix(rest, "┤") || strings.HasPrefix(rest, "┼") {
+		width--
+	}
+
+	return width
+}
+
 func cutRecord(frame string) ([]string, bool) {
 	var record []string
 	width, rules := 0, 0
@@ -656,7 +672,7 @@ func cutRecord(frame string) ([]string, bool) {
 			if rules == 2 {
 				break
 			}
-			width = ansi.StringWidth(line) - ansi.StringWidth(strings.TrimLeft(line, "─"))
+			width = ruleWidth(line)
 
 			continue
 		}
@@ -721,7 +737,7 @@ func readLegend(frame string) string {
 
 func readSidebar(frame string) []string {
 	return xslice.Map(splitLines(frame), func(line string) string {
-		return strings.TrimRight(ansi.Truncate(line, config.DefaultSidebarWidth, ""), " ")
+		return strings.TrimRight(ansi.Truncate(line, ui.SidebarCols, ""), " ")
 	})
 }
 

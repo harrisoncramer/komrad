@@ -700,7 +700,7 @@ func TestSearchPreview(t *testing.T) {
 		})
 
 		for _, row := range splitLines(harness.readFrame()) {
-			assert.Equal(t, 120, ansi.StringWidth(row))
+			assert.Equal(t, 119, ansi.StringWidth(row), "the new width less the gutter")
 		}
 	})
 

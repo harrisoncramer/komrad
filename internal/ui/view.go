@@ -22,8 +22,30 @@ func (m model) View() tea.View {
 	return view
 }
 
-// render renders the active screen, taking the failures in the order they happen.
+// render renders the active screen inside its gutters.
 func (m model) render() string {
+	//nolint:sloglint // temporary trace, no context here to carry a logger on
+	slog.Default().Info("panel trace: drawing", "width", m.width, "height", m.height, "solo", m.frame.IsSolo(), "awaiting", m.awaitingSize, "screen", int(m.screen))
+
+	if m.configErr != nil || m.startupErr != nil {
+		return m.drawInset(m.insideView())
+	}
+
+	if m.awaitingSize && m.drawn != nil && m.drawn.text != "" {
+		return m.drawn.text
+	}
+
+	drawn := m.drawInset(m.insideView())
+
+	if m.drawn != nil {
+		m.drawn.text = drawn
+	}
+
+	return drawn
+}
+
+// insideView is the frame the gutters surround, taking the failures in the order they happen.
+func (m model) insideView() string {
 	if m.configErr != nil {
 		return errui.RenderConfigError(m.width, m.configErr)
 	}
@@ -32,20 +54,7 @@ func (m model) render() string {
 		return errui.RenderStartupError(m.width, m.startupErr, m.startupFindings)
 	}
 
-	//nolint:sloglint // temporary trace, no context here to carry a logger on
-	slog.Default().Info("panel trace: drawing", "width", m.width, "height", m.height, "solo", m.frame.IsSolo(), "awaiting", m.awaitingSize, "screen", int(m.screen))
-
-	if m.awaitingSize && m.drawn != nil && m.drawn.text != "" {
-		return m.drawn.text
-	}
-
-	drawn := m.drawEdge(m.fitFrame(strings.TrimRight(m.screenView(), "\n")))
-
-	if m.drawn != nil {
-		m.drawn.text = drawn
-	}
-
-	return drawn
+	return m.fitFrame(strings.TrimRight(m.screenView(), "\n"))
 }
 
 // submittingNotice is the line drawn under a held form, counting up once the write has taken
@@ -83,36 +92,83 @@ func (m model) fitFrame(view string) string {
 	return view + strings.Repeat("\n"+blank, m.height-rows)
 }
 
-// countEdgeCols is the columns the divider beside the stage takes from the panel.
-func (m model) countEdgeCols() int {
+// gutter is the blank cells the panel keeps between what it draws and the edge of its pane on its
+// left, tmux keeping the rows above and below every pane and the column right of the window blank.
+const gutter = 1
+
+// countInsetCols is the columns the gutter and the divider beside the stage take from the panel.
+func (m model) countInsetCols() int {
 	if m.frame.IsSolo() {
-		return 0
+		return gutter
 	}
 
-	return dividerCols
+	return m.countSidebarChrome()
 }
 
-// drawEdge draws the divider down the side of the panel that faces the stage.
-func (m model) drawEdge(view string) string {
-	if m.countEdgeCols() == 0 || m.width <= 0 {
+// countSidebarChrome is the columns the gutter and the divider take from a sidebar standing beside the
+// stage, the window's own edge standing in for the gutter on the side tmux keeps blank.
+func (m model) countSidebarChrome() int {
+	if m.frame.IsSidebarOnRight() {
+		return gutter + 1
+	}
+
+	return 2*gutter + 1
+}
+
+// countInsetLeft is the columns between the left edge of the pane and what the panel draws.
+func (m model) countInsetLeft() int {
+	if !m.frame.IsSolo() && m.frame.IsSidebarOnRight() {
+		return gutter + 1
+	}
+
+	return gutter
+}
+
+// drawInset puts the gutter left of the frame, and the divider on the side facing the stage.
+func (m model) drawInset(view string) string {
+	if m.width <= 0 {
 		return view
 	}
 
-	edge := dimStyle.Render(dividerGlyph)
-	lines := strings.Split(view, "\n")
+	pad := strings.Repeat(" ", gutter)
+	edged := !m.frame.IsSolo()
+	onRight := m.frame.IsSidebarOnRight()
 
+	lines := strings.Split(view, "\n")
 	for i, line := range lines {
 		line = ansi.Truncate(line, m.width, "")
 		line += strings.Repeat(" ", max(0, m.width-ansi.StringWidth(line)))
 
-		if m.frame.IsSidebarOnRight() {
-			lines[i] = edge + line
-		} else {
-			lines[i] = line + edge
+		left, right := pad, ""
+		switch {
+		case edged && onRight:
+			left = drawEdgeRow(isRuleEnd(line, false), true)
+		case edged:
+			right = drawEdgeRow(isRuleEnd(line, true), false)
 		}
+
+		lines[i] = left + line + right
 	}
 
 	return strings.Join(lines, "\n")
+}
+
+// drawEdgeRow is one row of the divider on the side of the panel facing the stage, joined to a rule
+// that meets it.
+func drawEdgeRow(rule, facingLeft bool) string {
+	if !rule {
+		if facingLeft {
+			return dimStyle.Render(dividerGlyph) + strings.Repeat(" ", gutter)
+		}
+
+		return strings.Repeat(" ", gutter) + dimStyle.Render(dividerGlyph)
+	}
+
+	if facingLeft {
+		return dimStyle.Render("├" + strings.Repeat("─", gutter))
+	}
+
+	return dimStyle.Render(strings.Repeat("─", gutter) + "┤")
 }
 
 func (m model) screenView() string {

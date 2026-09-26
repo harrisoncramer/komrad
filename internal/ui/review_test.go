@@ -225,7 +225,7 @@ func TestReviewCursor(t *testing.T) {
 	})
 
 	t.Run("panning moves the text a third of the diff's width", func(t *testing.T) {
-		wide := strings.Repeat("a", 56) + "panned-to-here"
+		wide := strings.Repeat("a", 55) + "panned-to-here"
 		repo := gittest.NewRepo(t.TempDir())
 		repo.Wrote(gittest.WroteParams{
 			Tree:    "tree-with-a-wide-line",
@@ -1995,7 +1995,7 @@ func TestReviewComposer(t *testing.T) {
 
 		widened := findWidestFieldRow(harness.readFrame())
 		assert.Greater(t, widened, built)
-		assert.LessOrEqual(t, widened, config.DefaultSidebarWidth)
+		assert.LessOrEqual(t, widened, ui.SidebarCols)
 	})
 
 	t.Run("every line typed is drawn at a narrow sidebar", func(t *testing.T) {

@@ -696,7 +696,7 @@ func (w *searchScreen) sidebarView(s panelShared) string {
 	if w.typing {
 		query += palette.Cursor().Render("▏")
 	}
-	header := screenTitle(view.GlyphSearch, "Search") + "\n\n " + query + "\n\n"
+	header := screenTitle(view.GlyphSearch, "Search") + "\n\n" + query + "\n\n"
 	help := s.draw.renderHelp(w.help(s), header)
 
 	rows := w.rows(s)

@@ -215,7 +215,7 @@ func readNoticeBlock(harness *panelHarness) []string {
 	for i, line := range splitLines(harness.readFrame()) {
 		if strings.HasPrefix(line, "─") {
 			rules++
-			width = ansi.StringWidth(strings.TrimRight(line, " "))
+			width = ruleWidth(line)
 
 			continue
 		}
@@ -226,8 +226,8 @@ func readNoticeBlock(harness *panelHarness) []string {
 			break
 		}
 
-		if strings.TrimSpace(line) != "" {
-			block = append(block, strings.TrimRight(ansi.Truncate(styled[i], width, ""), " "))
+		if strings.TrimSpace(ansi.Truncate(line, width, "")) != "" {
+			block = append(block, strings.TrimRight(cutStyled(styled[i], width), " "))
 		}
 	}
 

@@ -184,11 +184,11 @@ func (m model) resizeTo(size tea.WindowSizeMsg) model {
 	// The transcript is wrapped into the column it is read in rather than into a pane that would
 	// fold it, so only a window that changed width has to wrap it again, and a preview that has
 	// never drawn is one the rows are still owed to.
-	width := size.Width - m.countEdgeCols()
+	width := size.Width - m.countInsetCols()
 	rewrap := width != m.width || len(m.search.preview.doc.rows) == 0
 
-	m.height = size.Height
-	m.width = width
+	m.height = max(size.Height, 0)
+	m.width = max(width, 0)
 	m.paneCols = size.Width
 	m.awaitingSize = false
 

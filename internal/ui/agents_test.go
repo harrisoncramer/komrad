@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"komrad/config"
 	"komrad/internal/errui"
 	"komrad/internal/ui"
 	"komrad/internal/ui/paint"
@@ -998,7 +997,9 @@ func TestAgentsRecordWorktree(t *testing.T) {
 		assert.Less(t, directory, base)
 		assert.Less(t, size, flags, "the standing comes before the ids")
 		assert.Less(t, pr, uncommitted, "the lists come after the pull request")
-		assert.Equal(t, "M b.go", strings.TrimSpace(splitLines(frame)[uncommitted+1]), "a second path carries no label of its own")
+		record := readRecord(frame)
+		second := slices.IndexFunc(record, func(line string) bool { return strings.HasPrefix(strings.TrimLeft(line, "› "), "uncommitted ") }) + 1
+		assert.Equal(t, "M b.go", strings.TrimSpace(record[second]), "a second path carries no label of its own")
 		assert.Regexp(t, `^87a3bcc98c47\s+2h\s+fix\(view\): drop the column$`, readRecordField(frame, "commits"))
 		assert.Positive(t, commits)
 	})
@@ -2415,7 +2416,7 @@ func findBarColumn(row string) int {
 }
 
 func readSearch(frame string) string {
-	return strings.TrimSpace(ansi.Truncate(splitLines(frame)[2], config.DefaultSidebarWidth, ""))
+	return strings.TrimSpace(ansi.Truncate(splitLines(frame)[2], ui.SidebarCols, ""))
 }
 
 func findRecordCursor(frame string) int {

@@ -136,7 +136,7 @@ func (s tabStrip) view(state tabsState, palette paint.Palette, width int) string
 		parts = append(parts, text)
 	}
 
-	line := " " + muted.Render(s.title) + "   " + strings.Join(parts, "  ")
+	line := muted.Render(s.title) + "   " + strings.Join(parts, "  ")
 	if s.grouped != "" {
 		group := muted.Render(s.groupLabel(state))
 		if state.focused && state.onGroup {

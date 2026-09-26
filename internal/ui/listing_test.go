@@ -378,7 +378,7 @@ func TestListingUnreachable(t *testing.T) {
 
 			harness.press("ctrl+g")
 
-			frame := joinProse(splitLines(harness.readFrame()))
+			frame := readSidebarProse(harness.readFrame())
 			assert.Contains(t, frame, serverAddr)
 			assert.Contains(t, frame, tt.want)
 		})
