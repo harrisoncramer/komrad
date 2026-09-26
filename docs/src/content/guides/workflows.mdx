@@ -53,9 +53,11 @@ It comes after komrad's own briefing and your [global context](../../config/#con
 
 ## Worktrees
 
-Agents that write code need to stay out of each other's way. Komrad workflow can give each agent its own git worktree, cut fresh from a base branch. The agent works on a branch of its own, and the worktree is removed when the agent is deleted. The workflow's directory has to be an ordinary clone for this to work.
+Agents that write code need to stay out of each other's way. Komrad can automatically create a worktree for each agent, which is cut fresh from a base branch. The agent works on a branch of its own, and the worktree is removed when the agent is deleted.
 
-Worktrees go in [`worktrees.dir`](../../config/#worktrees.dir) unless the workflow names its own place. A new worktree is a clean checkout, so a workflow can list files to copy in, like a local environment file. For anything heavier, like installing dependencies, use a [hook](../hooks/).
+The workflow's directory has to be an ordinary clone for this to work.
+
+Worktrees go in [`worktrees.dir`](../../config/#worktrees.dir) unless the workflow names its own location. Each worktree is a clean checkout, so a workflow can list files to copy in, like local environment files, or local packages. For anything heavier, like installing or networking configuration, use a [hook](../hooks/) instead.
 
 The base branch is worked out from your clone when you create the workflow. New worktrees are cut from it and an agent's work is measured against it. If the clone loses that branch, `komrad doctor` says so.
 
