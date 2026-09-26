@@ -1,5 +1,0 @@
-#!/usr/bin/env bash
-set -euo pipefail
-
-TERRAFORM_MODULE_DIR=infra/dev
-source "$MISE_CONFIG_ROOT/mise/tasks/infra/_terraform_utils"
