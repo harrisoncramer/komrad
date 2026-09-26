@@ -52,7 +52,6 @@ With --headless it creates that session holding nothing but a placeholder, for a
 engine whose panel runs on somebody else's machine and which would otherwise swap
 an agent's pane into a panel nobody is looking at.`,
 		Args:          cobra.ArbitraryArgs,
-		Hidden:        true,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {

@@ -1,0 +1,106 @@
+---
+title: Installing komrad
+description: Get up and runnning with the komrad binary.
+group: start
+order: 1
+---
+
+import Alert from "../../components/Alert.astro";
+
+Komrad is one binary. The binary can run either a client or a server (or multiple servers on different machines) known as _engines_.
+
+
+The client for Komrad runs on your machine. It renders the view of komrad's state in your terminal, and wraps around existing CLI tools like Claude or Codex.
+
+The service, known as the komrad engine, runs your agents and records their activity into Postgres, so you can search through chat history, spawn multiple at once, or have them communicate. The engine can run on your machine or on a remote box.
+
+## Install the binary
+
+```sh
+gh release download tip --repo harrisoncramer/komrad --pattern komrad-darwin-arm64 --output ~/.local/bin/komrad
+chmod +x ~/.local/bin/komrad
+```
+
+Swap `darwin-arm64` for your platform.
+
+The `tip` binary is rebuilt from main on every merge and is unstable. Stable releases have a version number and a changelog. Every release carries a `checksums.txt` file.
+
+## Create your database
+
+Komrad requires Postgres. For local development, running Postgres via Docker is the recommended approach.
+
+```sh
+docker run --name komrad \
+	-e POSTGRES_USER=komrad_owner \
+	-e POSTGRES_PASSWORD=password123 \
+	-e POSTGRES_DB=komrad \
+	-p 5432:5432 \
+	-v komrad_data:/var/lib/postgresql \
+	-d postgres:18
+```
+
+Postgres takes a few seconds to start. Wait until `docker exec komrad pg_isready -h localhost` reports that it is accepting connections before moving on.
+
+The database requires one admin-like user. The komrad engine uses this user to automatically run migrations on start, and each time you update your binary.
+
+```sh
+export KOMRAD_OWNER_DATABASE_URL=postgres://komrad_owner:password123@localhost:5432/komrad
+komrad migrate
+komrad engine ensure laptop
+```
+
+The `komrad migrate` command is the only command that changes the schema.
+
+<Alert title="Having trouble?" variant="warning" >
+  Run `komrad doctor` to check for configuration or installation issues.
+</Alert>
+
+Provide your database connection string to the `komrad migrate` command, and create your first engine. The engine is named `laptop` here.
+
+The komrad engine is one running komrad on one machine. Several can share one database, which enables multiple developers to share the same Postgres database, or for a single developer to scale their workload horizontally across machines.
+
+Komrad will safely auto-migrate the database after you first set it up.
+
+
+## Write the config
+
+Komrad's configuration is stored in a TOML file.
+
+The `komrad engine ensure` command prints an initial `[connection]` block that can be added to the database with a login for the engine. Run it, then put the engine block in `~/.config/komrad/config.toml`, and add the owner URL from the previous step beside it.
+
+```toml
+[connection]
+owner_database_url = "postgres://komrad_owner:password123@localhost:5432/komrad"
+database_url = "postgres://komrad_engine_laptop:8f3a1c9e2b7d4e6f@localhost:5432/komrad"
+```
+
+The `owner_database_url` is only used by `komrad migrate` and `komrad engine ensure`. The service itself connects with `database_url`.
+
+## Open the panel
+
+Komrad runs every agent in a tmux server of its own, so tmux must be installed. Using tmux yourself is optional.
+
+Without tmux, run `komrad open`. The panel takes over the terminal, and closing it stops nothing. If you use tmux, add this to your tmux config and reload it.
+
+```tmux
+run-shell 'komrad tmux'
+```
+
+Your tmux prefix followed by `g` then opens and hides the panel as a popup. Change the key with [`panel_key`](../../config/#connection.panel_key). The first open starts the service in the background.
+
+<figure class="placeholder">
+  <figcaption>The panel open in a tmux popup over a normal terminal session, showing an empty workflow list on first run.</figcaption>
+</figure>
+
+## Upgrading
+
+Download the new binary over the old one, then stop the service and migrate.
+
+```sh
+komrad stop
+komrad migrate
+```
+
+Open the panel again and it starts the new build. Agents keep running throughout, because they live in tmux, not in the service.
+
+The panel is open and empty. The first thing it needs is a [workflow](../workflows/).
