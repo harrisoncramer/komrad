@@ -30,7 +30,11 @@ func TestOpen(t *testing.T) {
 
 	stores := storetest.Open(t)
 	workflowID := stores.SeedWorkflow(t, workflowstore.Config{Name: "flow"}).ID
-	stores.SeedAgent(t, agentstore.Agent{Name: "live", Cwd: live, WorkflowID: workflowID})
+	stores.SeedAgent(t, agentstore.Agent{
+		Name:       "live",
+		Cwd:        live,
+		WorkflowID: workflowID,
+	})
 
 	service := shells.NewShellService(shells.NewShellServiceParams{Agents: stores.Agents, Shell: "sh"})
 

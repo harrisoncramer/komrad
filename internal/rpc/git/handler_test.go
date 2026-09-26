@@ -98,7 +98,11 @@ func TestRefuses(t *testing.T) {
 			name:   "a directory that does not exist",
 			gitErr: agentdirs.ErrNoDirectory,
 			call: func(ctx context.Context, client *git.EngineClient) error {
-				_, err := client.Diff(ctx, git.DiffParams{Dir: "/nowhere", FromSHA: "a", ToSHA: "b"})
+				_, err := client.Diff(ctx, git.DiffParams{
+					Dir:     "/nowhere",
+					FromSHA: "a",
+					ToSHA:   "b",
+				})
 
 				return err
 			},
@@ -107,7 +111,11 @@ func TestRefuses(t *testing.T) {
 		{
 			name: "a commit that reads as an option",
 			call: func(ctx context.Context, client *git.EngineClient) error {
-				_, err := client.Diff(ctx, git.DiffParams{Dir: "/w", FromSHA: "--output=/tmp/x", ToSHA: "b"})
+				_, err := client.Diff(ctx, git.DiffParams{
+					Dir:     "/w",
+					FromSHA: "--output=/tmp/x",
+					ToSHA:   "b",
+				})
 
 				return err
 			},
@@ -116,7 +124,11 @@ func TestRefuses(t *testing.T) {
 		{
 			name: "a commit to map from that reads as an option",
 			call: func(ctx context.Context, client *git.EngineClient) error {
-				_, err := client.MapRanges(ctx, git.MapRangesParams{Dir: "/w", FromSHA: "-p", ToSHA: "b"})
+				_, err := client.MapRanges(ctx, git.MapRangesParams{
+					Dir:     "/w",
+					FromSHA: "-p",
+					ToSHA:   "b",
+				})
 
 				return err
 			},
@@ -125,7 +137,12 @@ func TestRefuses(t *testing.T) {
 		{
 			name: "a commit to replay onto that reads as an option",
 			call: func(ctx context.Context, client *git.EngineClient) error {
-				_, err := client.Replay(ctx, git.ReplayParams{Dir: "/w", FromBase: "a", OntoBase: "--x", SnapshotSHA: "c"})
+				_, err := client.Replay(ctx, git.ReplayParams{
+					Dir:         "/w",
+					FromBase:    "a",
+					OntoBase:    "--x",
+					SnapshotSHA: "c",
+				})
 
 				return err
 			},
@@ -228,21 +245,34 @@ func TestAnswers(t *testing.T) {
 		{
 			name: "the patch",
 			call: func(ctx context.Context) (any, error) {
-				return client.Diff(ctx, git.DiffParams{Dir: "/w/agent", FromSHA: "a1", ToSHA: "b2"})
+				return client.Diff(ctx, git.DiffParams{
+					Dir:     "/w/agent",
+					FromSHA: "a1",
+					ToSHA:   "b2",
+				})
 			},
 			want: []byte("diff --git a/greet.go b/greet.go\n"),
 		},
 		{
 			name: "a rename with a rewritten region and a point, and a deleted file drawn without content",
 			call: func(ctx context.Context) (any, error) {
-				return client.MapRanges(ctx, git.MapRangesParams{Dir: "/w/agent", FromSHA: "a1", ToSHA: "b2"})
+				return client.MapRanges(ctx, git.MapRangesParams{
+					Dir:     "/w/agent",
+					FromSHA: "a1",
+					ToSHA:   "b2",
+				})
 			},
 			want: mappings,
 		},
 		{
 			name: "the replayed tree and the paths that would not settle",
 			call: func(ctx context.Context) (any, error) {
-				return client.Replay(ctx, git.ReplayParams{Dir: "/w/agent", FromBase: "a1", OntoBase: "b2", SnapshotSHA: "c3"})
+				return client.Replay(ctx, git.ReplayParams{
+					Dir:         "/w/agent",
+					FromBase:    "a1",
+					OntoBase:    "b2",
+					SnapshotSHA: "c3",
+				})
 			},
 			want: &git.Replayed{Tree: "t1", Conflicts: []string{"greet.go"}},
 		},

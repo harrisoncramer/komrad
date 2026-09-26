@@ -31,7 +31,11 @@ func TestEveryCallKeepsToTheAgentsDirectories(t *testing.T) {
 
 	stores := storetest.Open(t)
 	workflowID := stores.SeedWorkflow(t, workflowstore.Config{Name: "flow"}).ID
-	stores.SeedAgent(t, agentstore.Agent{Name: "live", Cwd: live, WorkflowID: workflowID})
+	stores.SeedAgent(t, agentstore.Agent{
+		Name:       "live",
+		Cwd:        live,
+		WorkflowID: workflowID,
+	})
 
 	service := agentgit.NewGitService(agentgit.NewGitServiceParams{Agents: stores.Agents, Git: gittest.NoRepo{}})
 

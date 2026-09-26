@@ -56,7 +56,12 @@ func TestIntegrationRemoteReviewReadsThroughTheEngine(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, wantRoot, root)
 
-		diffParams := git.DiffParams{Dir: tree, FromSHA: base, ToSHA: head, Exclude: []string{"proto/gen"}}
+		diffParams := git.DiffParams{
+			Dir:     tree,
+			FromSHA: base,
+			ToSHA:   head,
+			Exclude: []string{"proto/gen"},
+		}
 		patch, err := engine.Diff(ctx, diffParams)
 		require.NoError(t, err)
 		wantPatch, err := local.Diff(ctx, diffParams)
@@ -64,7 +69,12 @@ func TestIntegrationRemoteReviewReadsThroughTheEngine(t *testing.T) {
 		assert.Equal(t, string(wantPatch), string(patch))
 		assert.NotContains(t, string(patch), "api.pb.go")
 
-		changed, err := engine.CountChangedFiles(ctx, git.CountChangedFilesParams{Dir: tree, FromSHA: base, ToSHA: head, Exclude: []string{"proto/gen"}})
+		changed, err := engine.CountChangedFiles(ctx, git.CountChangedFilesParams{
+			Dir:     tree,
+			FromSHA: base,
+			ToSHA:   head,
+			Exclude: []string{"proto/gen"},
+		})
 		require.NoError(t, err)
 		assert.Equal(t, 2, changed)
 
@@ -77,14 +87,23 @@ func TestIntegrationRemoteReviewReadsThroughTheEngine(t *testing.T) {
 			{SHA: head, Path: "it's here.go"}: []byte("package main\n\nfunc main() {}\n"),
 		}, files)
 
-		mapParams := git.MapRangesParams{Dir: tree, FromSHA: base, ToSHA: head}
+		mapParams := git.MapRangesParams{
+			Dir:     tree,
+			FromSHA: base,
+			ToSHA:   head,
+		}
 		mappings, err := engine.MapRanges(ctx, mapParams)
 		require.NoError(t, err)
 		wantMappings, err := local.MapRanges(ctx, mapParams)
 		require.NoError(t, err)
 		assert.Equal(t, wantMappings, mappings)
 
-		replayParams := git.ReplayParams{Dir: tree, FromBase: base, OntoBase: base, SnapshotSHA: head}
+		replayParams := git.ReplayParams{
+			Dir:         tree,
+			FromBase:    base,
+			OntoBase:    base,
+			SnapshotSHA: head,
+		}
 		replayed, err := engine.Replay(ctx, replayParams)
 		require.NoError(t, err)
 		wantReplayed, err := local.Replay(ctx, replayParams)
@@ -101,7 +120,11 @@ func TestIntegrationRemoteReviewReadsThroughTheEngine(t *testing.T) {
 	})
 
 	t.Run("a repository no agent works in is refused", func(t *testing.T) {
-		_, err := engine.Diff(ctx, git.DiffParams{Dir: request.GetCwd(), FromSHA: base, ToSHA: head})
+		_, err := engine.Diff(ctx, git.DiffParams{
+			Dir:     request.GetCwd(),
+			FromSHA: base,
+			ToSHA:   head,
+		})
 
 		require.Error(t, err)
 		assert.Equal(t, connect.CodePermissionDenied, connect.CodeOf(err))

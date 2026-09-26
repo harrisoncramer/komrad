@@ -33,8 +33,16 @@ func TestResolve(t *testing.T) {
 
 	stores := storetest.Open(t)
 	workflowID := stores.SeedWorkflow(t, workflowstore.Config{Name: "flow"}).ID
-	stores.SeedAgent(t, agentstore.Agent{Name: "live", Cwd: live, WorkflowID: workflowID})
-	gone := stores.SeedAgent(t, agentstore.Agent{Name: "gone", Cwd: archived, WorkflowID: workflowID})
+	stores.SeedAgent(t, agentstore.Agent{
+		Name:       "live",
+		Cwd:        live,
+		WorkflowID: workflowID,
+	})
+	gone := stores.SeedAgent(t, agentstore.Agent{
+		Name:       "gone",
+		Cwd:        archived,
+		WorkflowID: workflowID,
+	})
 	_, err = stores.Agents.Archive(t.Context(), []string{gone.ID})
 	require.NoError(t, err)
 
