@@ -319,7 +319,7 @@ func TestStartupOnARebuiltPanel(t *testing.T) {
 	rendered := strings.Join(strings.Fields(RenderStartupError(narrowPane, ErrRebuilt, nil)), " ")
 
 	assert.Contains(t, rendered, "komrad was rebuilt")
-	assert.Contains(t, rendered, "The panel key opens a panel from the new build")
+	assert.Contains(t, rendered, "Run komrad open to start a panel from the new build")
 	assert.Contains(t, rendered, "Press any key to close")
 	assert.NotContains(t, rendered, "The agent server could not be started")
 	assert.NotContains(t, rendered, "komrad doctor")

@@ -175,7 +175,7 @@ func (m model) dwellRunsRead(now time.Time) (model, tea.Cmd) {
 
 	// A hidden panel restarts the dwell, so coming back to it is a fresh look rather than a
 	// mark that was earned while nobody was watching.
-	if !m.popup.IsShown() {
+	if !m.session.IsShown() {
 		m.runHover.since = now
 
 		return m, nil

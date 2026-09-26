@@ -16,6 +16,7 @@ import (
 	"komrad/internal/engine"
 	"komrad/internal/panes"
 	"komrad/internal/ui/layout"
+	"komrad/lib/xslice"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	"komrad/proto/gen/hook/v1/hookv1connect"
 	schedulev1connect "komrad/proto/gen/schedule/v1/schedulev1connect"
@@ -147,7 +148,7 @@ func NewPanel(params NewPanelParams) *Panel {
 
 	panel := &Panel{
 		model: newModel(Deps{
-			PopupWindow:   NewPopupWindow(tmux, "test-session"),
+			Session:       NewSession(tmux, "test-session", spellCycleKeys(params.Keys.Cycle.Views)),
 			Tmux:          driven,
 			Git:           params.Git,
 			Agents:        params.Agents,
@@ -502,8 +503,6 @@ func (t *recordingTmux) DetachSession(string) {
 	t.detaches++
 }
 
-func (t *recordingTmux) BindKey(string, ...string) {}
-
 func (t *recordingTmux) BindRootKey(key string, command ...string) {
 	if t.rootBinds == nil {
 		t.rootBinds = map[string][]string{}
@@ -517,8 +516,6 @@ func (t *recordingTmux) UnbindRootKey(key string) {
 	delete(t.rootBinds, key)
 	t.rootUnbinds = append(t.rootUnbinds, key)
 }
-
-func (t *recordingTmux) UnbindKey(string) {}
 
 func (t *recordingTmux) GetHostPath() string {
 	return t.path
@@ -695,4 +692,8 @@ func (f *recordingClipboard) WriteAll(text string) error {
 	f.written = append(f.written, text)
 
 	return f.err
+}
+
+func spellCycleKeys(keys []string) []string {
+	return xslice.Map(keys, strings.NewReplacer("ctrl+", "C-", "alt+", "M-").Replace)
 }

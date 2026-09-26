@@ -6,7 +6,7 @@
     "usage": "komrad",
     "aliases": [],
     "short": "tmux panel and CLI for background coding agents",
-    "long": "Komrad runs coding agents in tmux panes and keeps track of them.\n\nThere are two processes. `komrad serve` is the long-lived service that owns the\ndatabase, answers the API and the MCP endpoint, and watches every pane. The panel\nis a client of it, which is why it can be closed and reopened without stopping\nanything. Every other command here is a client of the same service.\n\nThe panel is normally reached through the tmux key binding rather than by name,\nand the commands below are for the times something has to be done by hand: check\nthe machine, start or stop the service, or call an endpoint from a script.",
+    "long": "Komrad runs coding agents in tmux panes and keeps track of them.\n\nThere are two processes. `komrad serve` is the long-lived service that owns the\ndatabase, answers the API and the MCP endpoint, and watches every pane. The panel\nis a client of it, which is why it can be closed and reopened without stopping\nanything. Every other command here is a client of the same service.\n\n`komrad open` brings the panel up in this terminal, and the other commands are\nfor the times something has to be done by hand: check the machine, start or stop\nthe service, or call an endpoint from a script.",
     "example": "",
     "flags": [
       {
@@ -31,7 +31,6 @@
       "engine",
       "forge",
       "github",
-      "hide",
       "hook",
       "log",
       "migrate",
@@ -40,10 +39,8 @@
       "pr",
       "rpc",
       "serve",
-      "shown",
       "start",
       "stop",
-      "tmux",
       "version"
     ]
   },
@@ -54,7 +51,7 @@
     "usage": "komrad attach",
     "aliases": [],
     "short": "Attach the running panel in this terminal",
-    "long": "Attach the running panel in this terminal.\n\nThis is the panel without the popup around it, on the same session the panel key\nopens, so both show the same thing and neither disturbs the other. The panel key\ndetaches it, which gives this terminal back and leaves everything running.\n\nIt attaches a panel that is already up and refuses when there is none, since\nstarting one is what the panel key is for.",
+    "long": "Attach the running panel in this terminal.\n\nIt attaches the session `komrad open` puts up, so any number of terminals show the\nsame panel. Detaching gives this terminal back and leaves everything running.\n\nIt attaches a panel that is already up and refuses when there is none, since\nstarting one is what `komrad open` is for.",
     "example": "",
     "flags": [],
     "inherited": [
@@ -453,34 +450,6 @@
     "children": []
   },
   {
-    "slug": "hide",
-    "path": "komrad hide",
-    "parent": "",
-    "usage": "komrad hide",
-    "aliases": [],
-    "short": "Hide the panel popup without stopping anything",
-    "long": "Hide the panel popup.\n\nIt detaches the client the popup is holding, which closes the popup. The manager\nsession stays up, so the next `komrad open` comes back to the panel where it was, and\nthe service and the agents are untouched.\n\nThis is what the panel key runs while the popup is open, so it is rarely typed.",
-    "example": "",
-    "flags": [],
-    "inherited": [
-      {
-        "name": "config",
-        "shorthand": "",
-        "type": "stringArray",
-        "default": "[]",
-        "usage": "path to a config TOML, repeatable, later files win over earlier ones"
-      },
-      {
-        "name": "engine",
-        "shorthand": "",
-        "type": "string",
-        "default": "",
-        "usage": "engine to reach, named after a file in the config's engines directory, layered over the config"
-      }
-    ],
-    "children": []
-  },
-  {
     "slug": "hook",
     "path": "komrad hook",
     "parent": "",
@@ -753,8 +722,8 @@
     "parent": "",
     "usage": "komrad open [flags]",
     "aliases": [],
-    "short": "Open the panel popup, creating or attaching its persistent session",
-    "long": "Open the panel popup over the current tmux session.\n\nIt creates the manager session if it is not there and attaches either way, so the\npanel keeps its place between opens rather than starting over. The manager session\nlives on komrad's own tmux server, so it does not show up in `tmux ls`.\n\nWith engine files under the config's engines directory and no --engine given, it\nfirst asks which komrad to open, this machine or one of them, and runs itself again\non the one chosen. Closing that panel comes back to the question, and closing the\nquestion closes the popup. An engine running other code than this komrad cannot be\nchosen.\n\nThe tmux plugin runs this as the popup's command, so it blocks until the client\ndetaches, which is what closes the popup. Pressing the panel key again runs\n`komrad hide`. Run by hand outside a popup it attaches the manager session in the\nterminal instead, which is the panel without the popup around it.\n\nWith --detach it creates the session and returns, which is what a script wants when\nit needs somewhere for agents to be put back into.\n\nWith --headless it creates that session holding nothing but a placeholder, for an\nengine whose panel runs on somebody else's machine and which would otherwise swap\nan agent's pane into a panel nobody is looking at.",
+    "short": "Open the panel in this terminal, creating or attaching its persistent session",
+    "long": "Open the panel in this terminal.\n\nIt creates the manager session if it is not there and attaches either way, so the\npanel keeps its place between opens rather than starting over. The manager session\nlives on komrad's own tmux server, so it does not show up in `tmux ls`.\n\nWith engine files under the config's engines directory and no --engine given, it\nfirst asks which komrad to open, this machine or one of them, and runs itself again\non the one chosen. Closing that panel comes back to the question, and closing the\nquestion returns. An engine running other code than this komrad cannot be chosen.\n\nIt blocks until the client detaches. Run from inside tmux it nests the panel in the\ncurrent pane.\n\nWith --detach it creates the session and returns, which is what a script wants when\nit needs somewhere for agents to be put back into.\n\nWith --headless it creates that session holding nothing but a placeholder, for an\nengine whose panel runs on somebody else's machine and which would otherwise swap\nan agent's pane into a panel nobody is looking at.",
     "example": "",
     "flags": [
       {
@@ -797,7 +766,7 @@
     "usage": "komrad panel",
     "aliases": [],
     "short": "Run the panel itself, as the manager session's own command",
-    "long": "Run the panel itself.\n\nThis is the command the manager tmux session runs, not the one to type. It starts\nthe service if nothing is answering, then draws the panel and talks to that service\nover the API like any other client. Run by hand outside the manager session it will\ndraw, but the popup and the key bindings around it will not be there.\n\nUse `komrad open` to bring the panel up.",
+    "long": "Run the panel itself.\n\nThis is the command the manager tmux session runs, not the one to type. It starts\nthe service if nothing is answering, then draws the panel and talks to that service\nover the API like any other client. Run by hand outside the manager session it will\ndraw, but the key bindings around it will not be there.\n\nUse `komrad open` to bring the panel up.",
     "example": "",
     "flags": [],
     "inherited": [
@@ -941,34 +910,6 @@
     "children": []
   },
   {
-    "slug": "shown",
-    "path": "komrad shown",
-    "parent": "",
-    "usage": "komrad shown",
-    "aliases": [],
-    "short": "Say in the exit status whether the panel is on screen on this tmux server",
-    "long": "Say whether the panel is on screen on this tmux server.\n\nThe panel key runs this to decide which of its two branches to take, so it is asked\non every press and answers from what is true at that moment rather than from\nanything a previous press left behind. It succeeds when the panel has a client\nattached and this is the server that opened it, and fails otherwise, which is what\nsends the key to `komrad open`.\n\nFailing is the safe direction: a press that cannot get an answer opens the panel\nrather than refusing to.",
-    "example": "",
-    "flags": [],
-    "inherited": [
-      {
-        "name": "config",
-        "shorthand": "",
-        "type": "stringArray",
-        "default": "[]",
-        "usage": "path to a config TOML, repeatable, later files win over earlier ones"
-      },
-      {
-        "name": "engine",
-        "shorthand": "",
-        "type": "string",
-        "default": "",
-        "usage": "engine to reach, named after a file in the config's engines directory, layered over the config"
-      }
-    ],
-    "children": []
-  },
-  {
     "slug": "start",
     "path": "komrad start",
     "parent": "",
@@ -1006,42 +947,6 @@
     "long": "Ask the running service to stop, and wait until it is gone.\n\nThis asks rather than signals, so the service can finish the launch it is in the\nmiddle of and say when it is done. It returns once the process has actually gone,\nnot when the address stops answering, which happens well before the shutdown is\nfinished. Nothing serving at the address is not an error.\n\nAgents keep running: they are tmux panes, not children of this process. They are\npicked back up when the service returns.",
     "example": "",
     "flags": [],
-    "inherited": [
-      {
-        "name": "config",
-        "shorthand": "",
-        "type": "stringArray",
-        "default": "[]",
-        "usage": "path to a config TOML, repeatable, later files win over earlier ones"
-      },
-      {
-        "name": "engine",
-        "shorthand": "",
-        "type": "string",
-        "default": "",
-        "usage": "engine to reach, named after a file in the config's engines directory, layered over the config"
-      }
-    ],
-    "children": []
-  },
-  {
-    "slug": "tmux",
-    "path": "komrad tmux",
-    "parent": "",
-    "usage": "komrad tmux [flags]",
-    "aliases": [],
-    "short": "Bind the panel key on your tmux server",
-    "long": "Bind the panel key on your tmux server.\n\nThis is what a tmux config runs, as `run-shell 'komrad tmux'`, and it is where the\nkey that opens and hides the panel comes from. The path of this binary is resolved\nonce and written into the binding, so komrad only has to be findable when tmux parses\nits config rather than for the life of the server.\n\nThere is one key however many engines this machine knows: pressed, it opens this\nmachine's panel, or a picker when engine files are present. An engine has no key of\nits own, so --engine is refused here.\n\nA tmux server has to be running, since binding a key does not start one. The binding\nbelongs to the server rather than to a session, so it outlives the session it was\nmade from and dies with the server. Running this again binds the key as it now\nstands and unbinds the one it bound before, so run it by hand after changing\n@komrad_key rather than restarting tmux, and after building komrad somewhere else.\n\nRun from a pane on komrad's own server, it binds on the server the last open of the\npanel came from, so a rebuild from inside the panel reaches your key too.\n\nWith --if-running it says nothing and does nothing when no tmux server is up, which\nis what a build script wants.",
-    "example": "",
-    "flags": [
-      {
-        "name": "if-running",
-        "shorthand": "",
-        "type": "bool",
-        "default": "false",
-        "usage": "bind only when a tmux server is running, and say nothing when none is"
-      }
-    ],
     "inherited": [
       {
         "name": "config",

@@ -13,6 +13,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+var defaultCycleKeys = []string{"C-a", "C-q"}
+
 // rootKeysEnv answers tmux with a root table holding the given bindings and a prefix of C-b.
 func rootKeysEnv(cfg *config.Config, rootKeys ...string) Env {
 	return rootKeysEnvWithPrefix(cfg, "C-b", rootKeys...)
@@ -21,7 +23,6 @@ func rootKeysEnv(cfg *config.Config, rootKeys ...string) Env {
 func rootKeysEnvWithPrefix(cfg *config.Config, prefix string, rootKeys ...string) Env {
 	env := configEnv(cfg, nil, true)
 	env.TmuxSocket = "komrad"
-	env.CycleKeys = ui.CycleKeys
 	env.ValidateKeybindings = ui.ValidateKeybindings
 	env.IsPanelRunning = func(context.Context) bool { return true }
 	env.Output = func(_ context.Context, _ string, args ...string) (string, error) {
@@ -68,7 +69,6 @@ func TestKeybindingsCheckPassesWhenTmuxHoldsNothing(t *testing.T) {
 func TestKeybindingsCheckIgnoresThePanelsOwnCycleBindings(t *testing.T) {
 	env := configEnv(config.Defaults(), nil, true)
 	env.TmuxSocket = "komrad"
-	env.CycleKeys = ui.CycleKeys
 	env.ValidateKeybindings = ui.ValidateKeybindings
 	env.IsPanelRunning = func(context.Context) bool { return true }
 	env.Output = func(_ context.Context, _ string, args ...string) (string, error) {
@@ -90,7 +90,6 @@ bind-key  -T root C-q    send-keys -t "%3" C-q`, nil
 func TestKeybindingsCheckIgnoresAKeyThePanelHasTaken(t *testing.T) {
 	env := configEnv(config.Defaults(), nil, true)
 	env.TmuxSocket = "komrad"
-	env.CycleKeys = ui.CycleKeys
 	env.ValidateKeybindings = ui.ValidateKeybindings
 	env.IsPanelRunning = func(context.Context) bool { return true }
 	env.Output = func(_ context.Context, _ string, args ...string) (string, error) {
@@ -133,7 +132,7 @@ func TestKeybindingsCheckFindsAKeyThePanelCouldNotTake(t *testing.T) {
 // TestKeybindingsCheckFindsAPrefixOnACycleKey covers a prefix set to a cycle key, which tmux reads
 // before the root table, so the cycle key installs and never fires.
 func TestKeybindingsCheckFindsAPrefixOnACycleKey(t *testing.T) {
-	for _, key := range ui.CycleKeys {
+	for _, key := range defaultCycleKeys {
 		t.Run(key, func(t *testing.T) {
 			result := newKeybindingsCheck().Run(t.Context(), rootKeysEnvWithPrefix(config.Defaults(), key))
 
@@ -141,12 +140,22 @@ func TestKeybindingsCheckFindsAPrefixOnACycleKey(t *testing.T) {
 			assert.Contains(t, result.Fix, "prefix")
 		})
 	}
+
+	t.Run("another pair leaves the prefix alone", func(t *testing.T) {
+		cfg := config.Defaults()
+		cfg.Keybindings.Cycle.Views = []string{"alt+n", "alt+p"}
+
+		assert.Equal(t, StatusOK, newKeybindingsCheck().Run(t.Context(), rootKeysEnvWithPrefix(cfg, "C-a")).Status)
+
+		result := newKeybindingsCheck().Run(t.Context(), rootKeysEnvWithPrefix(cfg, "M-n"))
+		assert.Equal(t, StatusFail, result.Status)
+	})
 }
 
 // TestKeybindingsCheckFindsACycleKeyTakenByTmux covers a cycle key already bound in the root table
 // by the user's own tmux config, which the panel would overwrite and then give back.
 func TestKeybindingsCheckFindsACycleKeyTakenByTmux(t *testing.T) {
-	for _, key := range ui.CycleKeys {
+	for _, key := range defaultCycleKeys {
 		t.Run(key, func(t *testing.T) {
 			result := newKeybindingsCheck().Run(t.Context(), rootKeysEnv(config.Defaults(), key))
 
@@ -161,4 +170,74 @@ func TestTheKeybindingsCheckIsRun(t *testing.T) {
 	checks := Checks(Settings{Harnesses: claudeAndCodex, TmuxSocket: "komrad"})
 
 	assert.True(t, slices.ContainsFunc(checks, func(c Check) bool { return c.Name == "keybindings" }))
+}
+
+// TestYourTmuxKeysCheck covers the outer tmux komrad is opened inside, whose root table answers a
+// key before the nested panel sees it.
+func TestYourTmuxKeysCheck(t *testing.T) {
+	passThrough := `run-shell "if ps -o comm= -t '#{pane_tty}' | grep -iqE '^(\\S+\\/)?tmux$'; then tmux send-keys C-d; else tmux copy-mode -u; fi"`
+
+	tests := []struct {
+		name       string
+		insideTmux string
+		listed     string
+		want       Status
+		wantDetail string
+	}{
+		{
+			name: "outside tmux there is nothing to check",
+			want: StatusSkip,
+		},
+		{
+			name:       "komrad's own server is the keybindings check's to read",
+			insideTmux: "/tmp/tmux-501/komrad,1,0",
+			want:       StatusSkip,
+		},
+		{
+			name:       "a root table of mouse bindings lets everything through",
+			insideTmux: "/tmp/tmux-501/default,1,0",
+			listed:     "bind-key  -T root MouseDown1Pane    select-pane -t =",
+			want:       StatusOK,
+		},
+		{
+			name:       "a panel key bound for scrolling is lost",
+			insideTmux: "/tmp/tmux-501/default,1,0",
+			listed:     "bind-key  -T root C-d    copy-mode -u\nbind-key  -T root C-u    copy-mode -u",
+			want:       StatusWarn,
+			wantDetail: "C-d, C-u",
+		},
+		{
+			name:       "a cycle key bound by the user is lost",
+			insideTmux: "/tmp/tmux-501/default,1,0",
+			listed:     "bind-key  -T root C-a    last-window",
+			want:       StatusWarn,
+			wantDetail: "C-a",
+		},
+		{
+			name:       "a binding that hands the key to a pane running tmux lets it through",
+			insideTmux: "/tmp/tmux-501/default,1,0",
+			listed:     "bind-key  -T root C-d    " + passThrough,
+			want:       StatusOK,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			env := configEnv(config.Defaults(), nil, true)
+			env.TmuxSocket = "komrad"
+			env.InsideTmux = tt.insideTmux
+			env.Output = func(_ context.Context, _ string, args ...string) (string, error) {
+				assert.Equal(t, []string{"-S", "/tmp/tmux-501/default", "list-keys", "-T", "root"}, args)
+
+				return tt.listed, nil
+			}
+
+			result := newYourTmuxKeysCheck().Run(t.Context(), env)
+
+			assert.Equal(t, tt.want, result.Status)
+			if tt.want == StatusWarn {
+				assert.Equal(t, tt.wantDetail, result.Detail)
+			}
+		})
+	}
 }

@@ -10,7 +10,7 @@ import (
 )
 
 type app struct {
-	popup          *ui.PopupWindow
+	session        *ui.Session
 	env            *config.Environment
 	keys           config.Keybindings
 	harnesses      *harness.Registry

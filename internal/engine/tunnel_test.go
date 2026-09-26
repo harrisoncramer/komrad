@@ -195,7 +195,7 @@ func TestDialBorrowsOnlyAForwardThatAnswers(t *testing.T) {
 	}
 }
 
-// TestDialTakesOverABorrowedForwardThatStopsAnswering covers the panel key replacing a panel
+// TestDialTakesOverABorrowedForwardThatStopsAnswering covers an open replacing a panel
 // whose ssh is still dying when the next panel dials.
 func TestDialTakesOverABorrowedForwardThatStopsAnswering(t *testing.T) {
 	t.Parallel()

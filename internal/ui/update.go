@@ -13,7 +13,7 @@ import (
 
 func (m model) hide() tea.Cmd {
 	return func() tea.Msg {
-		m.popup.Hide()
+		m.session.Hide()
 		return nil
 	}
 }
@@ -113,7 +113,7 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Reached before the form and before a held write.
 	if isKey && m.isMessagesRegion() {
 		switch {
-		case m.isMessagesFocused() && isCycleKey(key.String()):
+		case m.isMessagesFocused() && m.isCycleKey(key.String()):
 			m = m.toggleMessagesFocus()
 		case m.isMessagesFocused():
 			return m.updateMessages(key)
@@ -285,7 +285,7 @@ func (m model) routeGlobalKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
 		return m.pushMockMessage(), nil, true
 	}
 
-	if m.isDetailsScreen() && isCycleKey(key.String()) {
+	if m.isDetailsScreen() && m.isCycleKey(key.String()) {
 		next, cmd := m.cycleView(key.String(), m.readSidebarStop())
 
 		return next, cmd, true

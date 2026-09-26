@@ -42,7 +42,7 @@ var minTmux = tmuxVersion{major: 3, minor: 3}
 func newTmuxBinaryCheck() Check {
 	return Check{
 		Name:        "tmux",
-		Description: "tmux runs the panel popup and every agent pane",
+		Description: "tmux runs the panel and every agent pane",
 		Run: func(_ context.Context, env Env) Result {
 			path, err := env.LookPath("tmux")
 			if err != nil {
@@ -54,12 +54,12 @@ func newTmuxBinaryCheck() Check {
 	}
 }
 
-// newTmuxVersionCheck asserts the installed tmux is new enough for the key binding, warning
+// newTmuxVersionCheck asserts the installed tmux is new enough for the panel, warning
 // rather than failing on a version it cannot parse.
 func newTmuxVersionCheck() Check {
 	return Check{
 		Name:        "tmux version",
-		Description: "the panel's popup needs tmux " + minTmux.String() + " or newer",
+		Description: "the panel needs tmux " + minTmux.String() + " or newer",
 		Needs:       []string{"tmux"},
 		Run: func(ctx context.Context, env Env) Result {
 			reported, err := env.Output(ctx, "tmux", "-V")

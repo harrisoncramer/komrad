@@ -1,4 +1,4 @@
-// Package ui is the panel: one bubbletea program, drawn inside a tmux popup, that holds no
+// Package ui is the panel: one bubbletea program, drawn in its own tmux session, that holds no
 // database connection and knows nothing the service has not told it.
 //
 // It is a client like any other. A keypress becomes an RPC, and the panel learns what came of
@@ -46,7 +46,7 @@ func Run(ctx context.Context, deps Deps) error {
 	post.attach(program)
 
 	defer post.close()
-	defer deps.PopupWindow.ReleaseCycleKeys()
+	defer deps.Session.ReleaseCycleKeys()
 
 	if deps.Watch != nil && m.fatal() == nil {
 		watching, stop := context.WithCancel(ctx)
@@ -192,7 +192,7 @@ type PanelSettings struct {
 }
 
 type Deps struct {
-	PopupWindow     *PopupWindow
+	Session         *Session
 	Tmux            uiTmux
 	Git             ReviewGit
 	Browser         browser.Opener
@@ -214,7 +214,7 @@ type Deps struct {
 }
 
 type model struct {
-	popup         *PopupWindow
+	session       *Session
 	api           api
 	tmux          uiTmux
 	git           ReviewGit
@@ -332,7 +332,7 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 			hooks:     deps.Hooks,
 			worktrees: deps.Worktrees,
 		},
-		popup:           deps.PopupWindow,
+		session:         deps.Session,
 		clip:            systemClipboard{},
 		tmux:            deps.Tmux,
 		git:             deps.Git,

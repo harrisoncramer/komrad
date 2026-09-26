@@ -126,13 +126,13 @@
     },
     {
       "path": "layout",
-      "description": "Where the panel's sidebar, the stage beside it, and the info pane under the stage sit, and how much of the popup each takes.",
+      "description": "Where the panel's sidebar, the stage beside it, and the info pane under the stage sit, and how much of the window each takes.",
       "settings": [
         {
           "key": "sidebar_side",
           "path": "layout.sidebar_side",
           "type": "string",
-          "description": "Which side of the popup the panel's sidebar sits on, \"left\" or \"right\".",
+          "description": "Which side of the window the panel's sidebar sits on, \"left\" or \"right\".",
           "default": "\"left\""
         },
         {
@@ -405,6 +405,20 @@
               "type": "array",
               "description": "Bring the hovered agent's worktree up to date on the latest base, which asks first and\nsays what it would do to the branch and to the files.",
               "default": "[\"r\"]"
+            }
+          ],
+          "sections": []
+        },
+        {
+          "path": "keybindings.cycle",
+          "description": "The pair of keys that move between the sidebar, the staged agent and the details.",
+          "settings": [
+            {
+              "key": "views",
+              "path": "keybindings.cycle.views",
+              "type": "array",
+              "description": "Move to the next view, then the previous one. One of [\"ctrl+a\", \"ctrl+q\"],\n[\"alt+n\", \"alt+p\"] or [\"alt+j\", \"alt+k\"].",
+              "default": "[\"ctrl+a\", \"ctrl+q\"]"
             }
           ],
           "sections": []
@@ -1099,13 +1113,6 @@
           "path": "connection.engine_tmux_socket",
           "type": "string",
           "description": "The tmux socket the engine's own server runs on, which is only consulted when ssh names\na destination. Left empty it is tmux_socket, which is right when both machines run a\ndefault komrad and wrong when this machine is also running an engine of its own.",
-          "default": "\"\""
-        },
-        {
-          "key": "panel_key",
-          "path": "connection.panel_key",
-          "type": "string",
-          "description": "The key, after your tmux prefix, that opens and hides the panel, and the picker between\nthis machine and its engines once engine files exist. Left empty it is whatever\n@komrad_key says, and failing that g. An engine file may not set it.",
           "default": "\"\""
         },
         {

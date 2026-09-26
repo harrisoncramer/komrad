@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestIntegrationFromEnv covers reading the user's server out of the TMUX variable tmux sets in the
-// popup, where a value that is not the three fields tmux writes must yield nothing.
+// TestIntegrationFromEnv covers reading the user's server out of the TMUX variable tmux sets in a
+// pane, where a value that is not the three fields tmux writes must yield nothing.
 func TestIntegrationFromEnv(t *testing.T) {
 	tests := []struct {
 		name       string

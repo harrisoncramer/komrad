@@ -47,15 +47,6 @@ func TestOpenEngineArgs(t *testing.T) {
 	}
 }
 
-// TestTmuxRefusesAnEngine covers the one key there is, which no engine gets one of.
-func TestTmuxRefusesAnEngine(t *testing.T) {
-	state := &app{configStack: config.Stack{Engine: "remote"}}
-
-	err := tmuxCmd(state).RunE(nil, nil)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "an engine has no panel key of its own")
-}
-
 // TestEngineRowsStartWithThisMachine covers what the picker is offered on a machine with and
 // without engine files.
 func TestEngineRowsStartWithThisMachine(t *testing.T) {

@@ -3,9 +3,12 @@ package doctor
 import (
 	"context"
 	"fmt"
+	"path/filepath"
+	"slices"
 	"strings"
 
 	"komrad/internal/tmux"
+	"komrad/lib/xslice"
 )
 
 var (
@@ -20,6 +23,10 @@ var (
 	errCycleKeyUnavailable = &ProblemError{
 		Code:    "cycle_key_unavailable",
 		Message: "a key that moves between the panel's views and an agent's pane cannot be bound",
+	}
+	errKeyHeldByYourTmux = &ProblemError{
+		Code:    "key_held_by_your_tmux",
+		Message: "your own tmux uses keys the panel needs, so they never reach a panel opened inside it",
 	}
 )
 
@@ -49,13 +56,13 @@ func newKeybindingsCheck() Check {
 			rootKeys := readRootKeys(ctx, env)
 
 			prefix := readTmuxPrefix(ctx, env)
-			for _, key := range env.CycleKeys {
+			for _, key := range xslice.Map(cfg.Keybindings.Cycle.Views, tmux.SpellKey) {
 				if prefix == key {
 					return fail(
 						fmt.Errorf("%w: %s is your tmux prefix, which tmux reads before the root table",
 							errCycleKeyUnavailable, key),
 						"prefix "+prefix,
-						"set-option -g prefix to something other than "+key,
+						"set-option -g prefix to something other than "+key+", or pick another pair in keybindings.cycle.views",
 					)
 				}
 
@@ -100,6 +107,67 @@ func newKeybindingsCheck() Check {
 			return pass("no panel key is held by tmux")
 		},
 	}
+}
+
+// newYourTmuxKeysCheck asserts the tmux the panel is opened inside lets the panel's keys through.
+func newYourTmuxKeysCheck() Check {
+	return Check{
+		Name:        "your tmux keys",
+		Description: "a panel opened inside your own tmux still gets its keys",
+		Needs:       []string{"config"},
+		Run: func(ctx context.Context, env Env) Result {
+			socket := tmux.SocketFromEnv(env.InsideTmux)
+			if socket == "" {
+				return skip("komrad is not running inside tmux")
+			}
+			if filepath.Base(socket) == env.TmuxSocket {
+				return skip("this is komrad's own tmux")
+			}
+
+			cfg, err := env.LoadConfig()
+			if err != nil {
+				return fail(fmt.Errorf("%w: %w", errConfigUnreadable, err), "", "")
+			}
+
+			out, err := env.Output(ctx, "tmux", "-S", socket, "list-keys", "-T", "root")
+			if err != nil {
+				return skip("your tmux did not list its keys")
+			}
+
+			rootKeys := map[string]string{}
+			for _, line := range strings.Split(out, "\n") {
+				if key, command, ok := parseRootBinding(line); ok {
+					rootKeys[key] = command
+				}
+			}
+
+			var held []string
+			for _, key := range slices.Concat(cfg.Keybindings.Cycle.Views, cfg.Keybindings.GetBoundKeys()) {
+				spelled := tmux.SpellKey(key)
+				command, ok := rootKeys[spelled]
+				if !ok || passesToNestedTmux(command) || slices.Contains(held, spelled) {
+					continue
+				}
+				held = append(held, spelled)
+			}
+
+			if len(held) == 0 {
+				return pass("your tmux lets every panel key through")
+			}
+
+			return Result{
+				Status: StatusWarn,
+				Detail: strings.Join(held, ", "),
+				Err:    fmt.Errorf("%w: %s", errKeyHeldByYourTmux, strings.Join(held, ", ")),
+				Fix:    "change those bindings in your tmux config to send the key on when the pane is running tmux, or remove them with unbind -n",
+			}
+		},
+	}
+}
+
+// passesToNestedTmux reports whether a root binding checks for a tmux client in the pane before it acts.
+func passesToNestedTmux(command string) bool {
+	return strings.Contains(command, "tmux$")
 }
 
 // readRootKeys is what the root table of komrad's own tmux server holds, keyed by the key, and is

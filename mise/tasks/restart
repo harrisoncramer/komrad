@@ -36,8 +36,6 @@ if ! "$komrad" open --detach; then
 	exit 1
 fi
 
-bind_panel_key "$komrad"
-
 # Runs komrad with the connection read from the engine file alone.
 engine_komrad() {
 	env -u KOMRAD_ADDR -u KOMRAD_TMUX_SOCKET -u KOMRAD_DATABASE_URL -u KOMRAD_READONLY_DATABASE_URL \

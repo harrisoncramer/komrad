@@ -53,11 +53,6 @@ func SpellKey(key string) string {
 	return key
 }
 
-// GetPrefixKeys returns every key bound in the prefix table with its command as tmux prints it.
-func (c *Client) GetPrefixKeys() (map[string]string, error) {
-	return c.getKeys("prefix")
-}
-
 // GetRootKeys returns every key bound in the root table with its command as tmux prints it.
 func (c *Client) GetRootKeys() (map[string]string, error) {
 	return c.getKeys("root")

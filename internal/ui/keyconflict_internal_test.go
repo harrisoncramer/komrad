@@ -74,8 +74,8 @@ func TestValidateKeybindingsReadsTheGlobalKeys(t *testing.T) {
 			names:  "the terminal",
 		},
 		{
-			name:   "the backward view cycle, which is not configurable either",
-			rebind: func(k *config.Keybindings) { k.Agents.Pause = []string{cycleBackKey} },
+			name:   "the backward view cycle",
+			rebind: func(k *config.Keybindings) { k.Agents.Pause = []string{k.Cycle.Views[1]} },
 			names:  "the view cycle",
 		},
 		{

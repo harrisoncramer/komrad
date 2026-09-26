@@ -7,12 +7,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// The cycle keys as the panel reads them, which tmux spells as CycleKeys.
-const (
-	cycleForwardKey = "ctrl+a"
-	cycleBackKey    = "ctrl+q"
-)
-
 // stop is a place that holds the keys and shows something about the hovered row.
 type stop int
 
@@ -25,33 +19,33 @@ const (
 	stopOther
 )
 
-func isCycleKey(k string) bool {
-	return isBound(k, []string{cycleForwardKey, cycleBackKey})
+func (m model) isCycleKey(k string) bool {
+	return isBound(k, m.keys.Cycle.Views)
 }
 
 func (m model) cycleBinding() key.Binding {
-	return binding([]string{cycleForwardKey, cycleBackKey}, "next/prev view")
+	return binding(m.keys.Cycle.Views, "next/prev view")
 }
 
 // areCycleKeysBound reports whether tmux sends the cycle keys to the panel from every pane.
 func (m model) areCycleKeysBound() bool {
-	return m.popup != nil && m.frame != nil && m.focusPane() != ""
+	return m.session != nil && m.frame != nil && m.focusPane() != ""
 }
 
 // holdCycleKeys binds the cycle keys while an agent's pane is on the stage, and gives them back
 // when there is no pane beside the sidebar for them to reach.
 func (m model) holdCycleKeys() {
-	if m.popup == nil || m.frame == nil {
+	if m.session == nil || m.frame == nil {
 		return
 	}
 
-	m.popup.HoldCycleKeys(m.settings.Pane, m.focusPane() != "")
+	m.session.HoldCycleKeys(m.settings.Pane, m.focusPane() != "")
 }
 
 // findPressedElsewhere finds the stop a cycle key was pressed in when tmux sent it from a pane beside
 // the sidebar.
 func (m model) findPressedElsewhere(k string) (stop, bool) {
-	if !m.areCycleKeysBound() || !isCycleKey(k) {
+	if !m.areCycleKeysBound() || !m.isCycleKey(k) {
 		return stopList, false
 	}
 
@@ -119,7 +113,7 @@ func (m model) listStops() []stop {
 // cycleView moves the keys one stop on from where they are, or one back for the backward key.
 func (m model) cycleView(k string, from stop) (tea.Model, tea.Cmd) {
 	stops := m.listStops()
-	back := k == cycleBackKey
+	back := k == m.keys.Cycle.Views[1]
 
 	at := slices.Index(stops, from)
 	switch {

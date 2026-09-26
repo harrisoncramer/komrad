@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -64,9 +65,9 @@ func attachState(socket string) *app {
 	servers := tmux.NewClient(socket)
 
 	return &app{
-		env:   &config.Environment{TmuxSocket: socket},
-		tmux:  servers,
-		popup: ui.NewPopupWindow(servers, agents.ManagerSession),
+		env:     &config.Environment{TmuxSocket: socket},
+		tmux:    servers,
+		session: ui.NewSession(servers, agents.ManagerSession, []string{"C-a", "C-q"}),
 	}
 }
 
@@ -81,4 +82,28 @@ func throwawaySocket(t *testing.T) string {
 	t.Cleanup(func() { _ = exec.Command("tmux", "-L", socket, "kill-server").Run() })
 
 	return socket
+}
+
+func panelState(t *testing.T, socket string) *app {
+	t.Helper()
+	t.Setenv("HOME", t.TempDir())
+
+	return attachState(socket)
+}
+
+func panelSession(t *testing.T, socket string) {
+	t.Helper()
+
+	out, err := exec.Command("tmux", "-L", socket, "-f", "/dev/null",
+		"new-session", "-d", "-s", agents.ManagerSession).CombinedOutput()
+	require.NoError(t, err, "tmux: %s", out)
+}
+
+func hostQuery(t *testing.T, socket string, args ...string) string {
+	t.Helper()
+
+	out, err := exec.Command("tmux", append([]string{"-L", socket}, args...)...).Output()
+	require.NoError(t, err, "tmux %v", args)
+
+	return strings.TrimSpace(string(out))
 }
