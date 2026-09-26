@@ -40,6 +40,21 @@ test_instance_holds_slot() {
 	cat "$HOME/.local/state/komrad-test/instances"/*/root 2>/dev/null | grep -qxF "$root"
 }
 
+# test_database_psql runs psql as the owner in the shared test container.
+test_database_psql() {
+	docker compose -p komrad-test-pg exec -T db psql -U komrad -d postgres -v ON_ERROR_STOP=1 "$@"
+}
+
+# test_database_create makes this checkout's database in the shared test container.
+test_database_create() {
+	local exists
+	exists="$(test_database_psql -tAc "SELECT 1 FROM pg_database WHERE datname = '$KOMRAD_TEST_DATABASE'")"
+
+	if [ "$exists" != 1 ]; then
+		test_database_psql -c "CREATE DATABASE \"$KOMRAD_TEST_DATABASE\""
+	fi
+}
+
 if [ "${BASH_SOURCE[0]}" = "$0" ]; then
 	set -euo pipefail
 

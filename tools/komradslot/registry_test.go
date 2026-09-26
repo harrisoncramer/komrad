@@ -152,8 +152,7 @@ func TestClaim(t *testing.T) {
 			calls: []string{
 				"tmux -L komrad-test-7 kill-server",
 				"pkill -f komrad serve --addr 127.0.0.1:8807( |$)",
-				"docker info",
-				"docker compose -p komrad-test-7 down --volumes --remove-orphans",
+				"docker compose -p komrad-test-pg exec -T db psql -U komrad -d postgres -v ON_ERROR_STOP=1 -c DROP DATABASE IF EXISTS komrad_7 WITH (FORCE)",
 			},
 		},
 	}

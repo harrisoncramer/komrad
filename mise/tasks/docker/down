@@ -3,5 +3,11 @@
 set -euo pipefail
 source "$MISE_CONFIG_ROOT/mise/tasks/_"
 
+if [ "${MISE_ENV:-}" = test ]; then
+	echo "docker:down: every checkout keeps its test database in one shared container, so it is not stopped from here" >&2
+	echo "docker:down: MISE_ENV=test mise run test:reset empties this checkout's database" >&2
+	exit 1
+fi
+
 cd "$MISE_CONFIG_ROOT"
 exec docker compose down "$@"

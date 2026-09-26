@@ -18,27 +18,20 @@ func TestDown(t *testing.T) {
 		wantCalls int
 	}{
 		{
-			name:      "docker being unreachable keeps the claim",
-			fail:      "docker info",
+			name:      "a database that cannot be dropped keeps the claim",
+			fail:      "docker compose -p komrad-test-pg exec -T db psql -U komrad -d postgres -v ON_ERROR_STOP=1 -c DROP DATABASE IF EXISTS komrad_2 WITH (FORCE)",
 			wantErr:   true,
 			wantKept:  true,
 			wantCalls: 3,
 		},
 		{
-			name:      "compose failing keeps the claim",
-			fail:      "docker compose -p komrad-test-2 down --volumes --remove-orphans",
-			wantErr:   true,
-			wantKept:  true,
-			wantCalls: 4,
-		},
-		{
 			name:      "tmux and the server already being gone is not a failure",
 			fail:      "tmux -L komrad-test-2 kill-server",
-			wantCalls: 4,
+			wantCalls: 3,
 		},
 		{
-			name:      "a slot whose database comes down is given back",
-			wantCalls: 4,
+			name:      "a slot whose database is dropped is given back",
+			wantCalls: 3,
 		},
 	}
 

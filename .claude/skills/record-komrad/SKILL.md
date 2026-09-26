@@ -24,10 +24,9 @@ mise cannot install on macOS, so install that with nix or Homebrew.
     MISE_ENV=test mise run restart
 
 That builds this checkout and brings the throwaway server up with the panel and nothing else.
-To start from no workflows at all, drop its database first:
+To start from no workflows at all, empty its database first:
 
-    MISE_ENV=test mise run docker:down -v
-    MISE_ENV=test mise run docker:up
+    MISE_ENV=test mise run test:reset
     MISE_ENV=test mise run restart
 
 ## Where tapes live

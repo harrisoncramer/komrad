@@ -34,7 +34,7 @@ func (e execRunner) probe(ctx context.Context, name string, args ...string) erro
 	return exec.CommandContext(ctx, name, args...).Run()
 }
 
-// down stops everything slot n runs and gives the slot back.
+// down stops everything slot n runs, drops its database and gives the slot back.
 func (r registry) down(ctx context.Context, n int) error {
 	if n < 1 || n > slotMax {
 		return fmt.Errorf("%d is not a slot", n)
@@ -42,20 +42,18 @@ func (r registry) down(ctx context.Context, n int) error {
 
 	r.log.Printf("taking down slot %d", n)
 
-	if err := r.cmds.run(ctx, "tmux", "-L", getSocket(n), "kill-server"); err != nil {
+	if err := r.cmds.probe(ctx, "tmux", "-L", getSocket(n), "kill-server"); err != nil {
 		r.log.Printf("no tmux server of slot %d was stopped: %v", n, err)
 	}
 
-	if err := r.cmds.run(ctx, "pkill", "-f", fmt.Sprintf("komrad serve --addr %s( |$)", serverAddr(n))); err != nil {
+	if err := r.cmds.probe(ctx, "pkill", "-f", fmt.Sprintf("komrad serve --addr %s( |$)", serverAddr(n))); err != nil {
 		r.log.Printf("no server of slot %d was stopped: %v", n, err)
 	}
 
-	if err := r.cmds.probe(ctx, "docker", "info"); err != nil {
-		return r.keepClaim(n, fmt.Errorf("failed to reach docker to take down the database of slot %d: %w", n, err))
-	}
-
-	if err := r.cmds.run(ctx, "docker", "compose", "-p", getSocket(n), "down", "--volumes", "--remove-orphans"); err != nil {
-		return r.keepClaim(n, fmt.Errorf("failed to take down the database of slot %d: %w", n, err))
+	drop := fmt.Sprintf("DROP DATABASE IF EXISTS %s WITH (FORCE)", getDatabase(n))
+	if err := r.cmds.run(ctx, "docker", "compose", "-p", containerProject, "exec", "-T", "db",
+		"psql", "-U", "komrad", "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-c", drop); err != nil {
+		return r.keepClaim(n, fmt.Errorf("failed to drop the database of slot %d, start the test container with mise run test:container:up and try again: %w", n, err))
 	}
 
 	if err := os.RemoveAll(r.slotDir(n)); err != nil {
