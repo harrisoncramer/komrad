@@ -2,10 +2,10 @@ package ui
 
 import (
 	"errors"
-	"komrad/internal/ui/panel"
 	"os"
 
 	"komrad/internal/ui/layout"
+	"komrad/internal/ui/panel"
 
 	tea "charm.land/bubbletea/v2"
 )
