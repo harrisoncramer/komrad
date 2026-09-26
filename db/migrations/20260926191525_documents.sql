@@ -28,3 +28,5 @@ CREATE TRIGGER stamp_engine BEFORE INSERT ON documents FOR EACH ROW EXECUTE FUNC
 ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY engine_isolation ON documents USING (engine_id = (SELECT current_engine())) WITH CHECK (engine_id = (SELECT current_engine()));
+
+SELECT attach_updated_at_triggers();

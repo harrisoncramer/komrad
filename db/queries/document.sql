@@ -18,8 +18,7 @@ UPDATE
 SET
     name = @name,
     kind = @kind,
-    body = @body,
-    updated_at = NOW()
+    body = @body
 WHERE
     id = @id
     AND agent_id = @agent_id

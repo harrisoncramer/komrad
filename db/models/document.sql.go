@@ -166,8 +166,7 @@ UPDATE
 SET
     name = $1,
     kind = $2,
-    body = $3,
-    updated_at = NOW()
+    body = $3
 WHERE
     id = $4
     AND agent_id = $5
