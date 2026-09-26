@@ -2298,7 +2298,7 @@
           "description": "Pass this back to write_document to rewrite the document."
         },
         {
-          "name": "agentId",
+          "name": "agent_id",
           "type": "string",
           "ref": "",
           "repeated": false,
@@ -2338,7 +2338,7 @@
           "description": "The markdown text, empty in a listing."
         },
         {
-          "name": "createdAt",
+          "name": "created_at",
           "type": "string",
           "ref": "",
           "repeated": false,
@@ -2348,7 +2348,7 @@
           "description": "When it was first written, in RFC 3339."
         },
         {
-          "name": "updatedAt",
+          "name": "updated_at",
           "type": "string",
           "ref": "",
           "repeated": false,
@@ -2834,7 +2834,7 @@
       "description": "",
       "fields": [
         {
-          "name": "agentId",
+          "name": "agent_id",
           "type": "string",
           "ref": "",
           "repeated": false,
@@ -7674,7 +7674,7 @@
           "description": "How many of origin's copy's commits the branch does not hold."
         },
         {
-          "name": "unpulledLanded",
+          "name": "unpulled_landed",
           "type": "bool",
           "ref": "",
           "repeated": false,
