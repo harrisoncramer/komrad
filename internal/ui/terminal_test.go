@@ -138,8 +138,20 @@ func TestTerminal(t *testing.T) {
 		assert.Empty(t, harness.panel.ReadRespawns())
 	})
 
-	t.Run("a remote engine's shell is opened over the transport", func(t *testing.T) {
-		remote := panelHarnessParams{engine: engine.Remote{Destination: "ubuntu@engine"}}
+	t.Run("a remote engine with no way to reach it opens no shell", func(t *testing.T) {
+		harness := openTerminal(t, panelHarnessParams{engine: engine.Remote{Destination: "ubuntu@engine"}}, newStagedShellAgent("/var/lib/komrad/worktrees/01a0c466"))
+
+		harness.press("T")
+
+		assert.Empty(t, readShellDirs(harness))
+		assert.Contains(t, harness.readFrame(), terminalRefuse)
+	})
+
+	t.Run("a remote engine's shell is opened over the engine's api", func(t *testing.T) {
+		remote := panelHarnessParams{
+			engine:       engine.Remote{Destination: "ubuntu@engine"},
+			shellCommand: []string{"komrad", "shell", "--addr", "127.0.0.1:19001"},
+		}
 		harness := openTerminal(t, remote, newStagedShellAgent("/var/lib/komrad/worktrees/01a0c466"))
 
 		harness.press("T")
@@ -148,13 +160,16 @@ func TestTerminal(t *testing.T) {
 		require.NotEmpty(t, harness.panel.ReadRespawns())
 		last := len(harness.panel.ReadRespawns()) - 1
 		assert.Equal(t, infoPane, harness.panel.ReadRespawnPanes()[last])
-		assert.Equal(t, `ssh -t ubuntu@engine cd '/var/lib/komrad/worktrees/01a0c466' && exec "${SHELL:-sh}"`, harness.panel.ReadRespawns()[last])
+		assert.Equal(t, "komrad shell --addr 127.0.0.1:19001 -- /var/lib/komrad/worktrees/01a0c466", harness.panel.ReadRespawns()[last])
 		assert.Empty(t, harness.panel.ReadRespawnDirs()[last], "the pane is not rooted at a directory this machine lacks")
 		assert.Equal(t, []string{infoPane}, harness.panel.ReadSelectedPanes())
 	})
 
 	t.Run("a remote engine's agent with no directory opens no shell", func(t *testing.T) {
-		remote := panelHarnessParams{engine: engine.Remote{Destination: "ubuntu@engine"}}
+		remote := panelHarnessParams{
+			engine:       engine.Remote{Destination: "ubuntu@engine"},
+			shellCommand: []string{"komrad", "shell", "--addr", "127.0.0.1:19001"},
+		}
 		harness := openTerminal(t, remote, newStagedShellAgent(""))
 
 		harness.press("T")

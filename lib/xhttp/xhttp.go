@@ -137,6 +137,40 @@ func NewTransport() *http.Transport {
 	}
 }
 
+// streamPingAfter is how long a stream's connection stays silent before it is pinged.
+const streamPingAfter = 15 * time.Second
+
+// streamPingTimeout is how long a ping waits for its answer before the connection is dropped.
+const streamPingTimeout = 15 * time.Second
+
+// NewStreamTransport is the transport a long-lived stream sits on, speaking HTTP/2 without TLS
+// and pinging a silent connection.
+func NewStreamTransport() *http.Transport {
+	protocols := new(http.Protocols)
+	protocols.SetUnencryptedHTTP2(true)
+
+	return &http.Transport{
+		Proxy:           http.ProxyFromEnvironment,
+		DialContext:     (&net.Dialer{Timeout: dialTimeout, KeepAlive: 30 * time.Second}).DialContext,
+		IdleConnTimeout: idleConnTimeout,
+		Protocols:       protocols,
+		HTTP2: &http.HTTP2Config{
+			SendPingTimeout: streamPingAfter,
+			PingTimeout:     streamPingTimeout,
+		},
+	}
+}
+
+// NewServerProtocols is what a komrad server speaks: HTTP/1 for plain calls and HTTP/2 without
+// TLS for the streams a person holds open.
+func NewServerProtocols() *http.Protocols {
+	protocols := new(http.Protocols)
+	protocols.SetHTTP1(true)
+	protocols.SetUnencryptedHTTP2(true)
+
+	return protocols
+}
+
 // NewClient is a client over NewTransport whose whole call is bounded by timeout, or only by
 // the transport's own waits when timeout is zero.
 func NewClient(timeout time.Duration) *http.Client {

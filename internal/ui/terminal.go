@@ -12,7 +12,10 @@ import (
 // fallbackShell is what the terminal runs when tmux answers for no default shell.
 const fallbackShell = "sh"
 
-var errNoAgentDir = errors.New("the agent has no directory")
+var (
+	errNoAgentDir    = errors.New("the agent has no directory")
+	errNoEngineShell = errors.New("the engine is not reachable")
+)
 
 // terminalContent is a shell rooted where it was opened, keyed to be left alone when the region
 // is drawn again.
@@ -89,6 +92,10 @@ func (m model) checkTerminalDir(dir string) error {
 	}
 
 	if m.frame.IsRemote() {
+		if len(m.frame.ShellArgv(dir)) == 0 {
+			return errNoEngineShell
+		}
+
 		return nil
 	}
 

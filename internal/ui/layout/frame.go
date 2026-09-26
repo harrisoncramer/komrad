@@ -3,7 +3,9 @@ package layout
 import (
 	"log/slog"
 	"os"
+	"slices"
 	"strconv"
+	"strings"
 
 	"komrad/config"
 	"komrad/internal/engine"
@@ -48,6 +50,9 @@ type Frame struct {
 
 	// remote is the engine the agents are running in, the zero value meaning this machine.
 	remote engine.Remote
+	// shellCommand is what opens a shell on the engine once given a directory, empty when the
+	// engine is this machine.
+	shellCommand []string
 
 	// remoteGuest is the agent whose terminal the stage is attached to, on a server this one does
 	// not hold.
@@ -66,6 +71,11 @@ type Option func(*Frame)
 // WithEngine says the agents are running somewhere this tmux server cannot reach.
 func WithEngine(remote engine.Remote) Option {
 	return func(f *Frame) { f.remote = remote }
+}
+
+// WithShellCommand says what opens a shell on the engine, before the directory it is rooted in.
+func WithShellCommand(command []string) Option {
+	return func(f *Frame) { f.shellCommand = command }
 }
 
 // New builds the frame the panel lays out around itself, at the geometry the config asks for.
@@ -461,7 +471,11 @@ func (f *Frame) IsRemote() bool {
 // ShellArgv is what a pane runs to open a shell rooted at dir on the engine, empty when the
 // engine is this machine.
 func (f *Frame) ShellArgv(dir string) []string {
-	return f.remote.ShellArgv(dir)
+	if len(f.shellCommand) == 0 || strings.TrimSpace(dir) == "" {
+		return nil
+	}
+
+	return append(slices.Clone(f.shellCommand), "--", dir)
 }
 
 // IsSidebarOnRight is the side the panel's own column sits on, so a screen drawing its own split

@@ -107,6 +107,7 @@ type NewPanelParams struct {
 	Height        int
 	Settings      PanelSettings
 	Engine        engine.Remote
+	ShellCommand  []string
 	HarnessFrames harnessFrameReader
 	ConfigErr     error
 	StartupErr    error
@@ -159,6 +160,7 @@ func NewPanel(params NewPanelParams) *Panel {
 			Keys:          params.Keys,
 			Layout:        layout,
 			Engine:        params.Engine,
+			ShellCommand:  params.ShellCommand,
 			HarnessFrames: params.HarnessFrames,
 			Settings:      settings,
 			ConfigErr:     params.ConfigErr,

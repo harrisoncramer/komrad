@@ -149,6 +149,7 @@ the service, or call an endpoint from a script.`,
 		rpcCmd(app),
 		hookCmd(app),
 		logCmd(app),
+		shellCmd(app),
 	)
 
 	return root

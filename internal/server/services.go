@@ -20,6 +20,7 @@ import (
 	"komrad/internal/schedules"
 	"komrad/internal/scriptrun"
 	"komrad/internal/scripts"
+	"komrad/internal/shells"
 	"komrad/internal/transcripts"
 	"komrad/internal/watch"
 	"komrad/internal/worktrees"
@@ -55,6 +56,7 @@ type services struct {
 	inspector        *worktrees.Inspector
 	remover          *worktrees.Remover
 	watchRows        *watch.Rows
+	shells           *shells.ShellService
 }
 
 // BuiltinScriptsDir is where the scripts komrad ships are installed under a cache directory,
@@ -294,6 +296,10 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		pullRequestSync: pullRequestSyncer,
 		pullRequests:    pullrequests.NewLister(pullrequests.NewListerParams{PullRequests: st.pullRequests}),
 		worktreeLister:  worktreeLister,
+		shells: shells.NewShellService(shells.NewShellServiceParams{
+			Agents: st.agents,
+			Shell:  params.Env.Shell,
+		}),
 		inspector: worktrees.NewInspector(worktrees.NewInspectorParams{
 			Lister:    worktreeLister,
 			Git:       gitClient,

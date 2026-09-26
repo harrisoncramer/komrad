@@ -17,6 +17,7 @@ import (
 	rpclog "komrad/internal/rpc/log"
 	rpcpullrequest "komrad/internal/rpc/pullrequest"
 	rpcschedule "komrad/internal/rpc/schedule"
+	rpcterminal "komrad/internal/rpc/terminal"
 	rpcwatch "komrad/internal/rpc/watch"
 	rpcworkflow "komrad/internal/rpc/workflow"
 	rpcworktree "komrad/internal/rpc/worktree"
@@ -38,6 +39,8 @@ import (
 	pullrequestv1komrad "komrad/proto/gen/pullrequest/v1/pullrequestv1komrad"
 	"komrad/proto/gen/schedule/v1/schedulev1connect"
 	schedulev1komrad "komrad/proto/gen/schedule/v1/schedulev1komrad"
+	"komrad/proto/gen/terminal/v1/terminalv1connect"
+	terminalv1komrad "komrad/proto/gen/terminal/v1/terminalv1komrad"
 	"komrad/proto/gen/watch/v1/watchv1connect"
 	watchv1komrad "komrad/proto/gen/watch/v1/watchv1komrad"
 	"komrad/proto/gen/workflow/v1/workflowv1connect"
@@ -140,6 +143,10 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 	mux.Handle(watchv1connect.NewWatchServiceHandler(
 		watchv1komrad.WatchServiceAdapter{
 			Impl: rpcwatch.NewHandler(rpcwatch.NewHandlerParams{Subscriber: rpcwatch.BrokerSubscriber{Broker: params.Watch}}),
+		}, options...))
+	mux.Handle(terminalv1connect.NewTerminalServiceHandler(
+		terminalv1komrad.TerminalServiceAdapter{
+			Impl: rpcterminal.NewHandler(rpcterminal.NewHandlerParams{Shells: params.Services.shells}),
 		}, options...))
 	mux.Handle(logv1connect.NewLogServiceHandler(
 		logv1komrad.LogServiceAdapter{

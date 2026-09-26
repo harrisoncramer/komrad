@@ -371,32 +371,3 @@ func TestQuoteSurvivesAnApostrophe(t *testing.T) {
 
 	assert.Equal(t, `'it'\''s'`, engine.Quote("it's"))
 }
-
-// TestShellArgvIsEmptyForALocalEngine covers a local engine, whose shell tmux opens itself.
-func TestShellArgvIsEmptyForALocalEngine(t *testing.T) {
-	t.Parallel()
-
-	assert.Nil(t, engine.Remote{}.ShellArgv("/var/lib/komrad/worktrees/a"))
-	assert.Nil(t, engine.Remote{Destination: "ubuntu@host"}.ShellArgv(" "))
-}
-
-// TestShellArgvOpensAShellInTheDirectoryOnTheEngine covers the terminal key over a remote agent,
-// whose directory is on the engine rather than this machine.
-func TestShellArgvOpensAShellInTheDirectoryOnTheEngine(t *testing.T) {
-	t.Parallel()
-
-	remote := engine.Remote{Destination: "ubuntu@host"}
-
-	assert.Equal(t, []string{"ssh", "-t", "ubuntu@host", `cd '/var/lib/komrad/worktrees/a' && exec "${SHELL:-sh}"`}, remote.ShellArgv("/var/lib/komrad/worktrees/a"))
-}
-
-// TestShellArgvStepsIntoTheEnginesAccount covers the configured transport, where the shell has to
-// belong to the account owning the worktree.
-func TestShellArgvStepsIntoTheEnginesAccount(t *testing.T) {
-	t.Parallel()
-
-	argv := ssmEngine().ShellArgv("/var/lib/komrad/worktrees/a")
-
-	assert.Equal(t, []string{"aws", "ssm", "start-session"}, argv[:3])
-	assert.Contains(t, argv[len(argv)-1], `sudo -u 'komrad' sh -c 'cd '\\''/var/lib/komrad/worktrees/a'\\'' && exec`)
-}

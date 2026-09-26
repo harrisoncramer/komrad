@@ -41,6 +41,7 @@ import (
 	"komrad/internal/storetest"
 	"komrad/internal/tmux"
 	"komrad/internal/tmuxtest"
+	"komrad/lib/xhttp"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	"komrad/proto/gen/config/v1/configv1connect"
@@ -50,6 +51,7 @@ import (
 	"komrad/proto/gen/log/v1/logv1connect"
 	"komrad/proto/gen/pullrequest/v1/pullrequestv1connect"
 	"komrad/proto/gen/schedule/v1/schedulev1connect"
+	"komrad/proto/gen/terminal/v1/terminalv1connect"
 	"komrad/proto/gen/watch/v1/watchv1connect"
 	"komrad/proto/gen/workflow/v1/workflowv1connect"
 	"komrad/proto/gen/worktree/v1/worktreev1connect"
@@ -73,6 +75,7 @@ type Instance struct {
 	Worktrees    worktreev1connect.WorktreeServiceClient
 	Config       configv1connect.ConfigServiceClient
 	Watches      watchv1connect.WatchServiceClient
+	Terminals    terminalv1connect.TerminalServiceClient
 	Harness      *harnesstest.Harness
 	Tmux         *tmuxtest.Server
 	Stores       *storetest.Stores
@@ -154,6 +157,7 @@ func Start(t *testing.T, p Params) *Instance {
 		TmuxSocket:          tmuxServer.Socket(),
 		CacheDir:            cacheDir,
 		StateDir:            filepath.Join(root, "state"),
+		Shell:               "sh",
 	}
 
 	logger := logging.New(io.Discard, slog.LevelError)
@@ -191,7 +195,11 @@ func Start(t *testing.T, p Params) *Instance {
 	require.NoError(t, err)
 	t.Cleanup(built.Close)
 
-	httpServer.Config = &http.Server{Handler: built.Handler(), ReadHeaderTimeout: 5 * time.Second}
+	httpServer.Config = &http.Server{
+		Handler:           built.Handler(),
+		ReadHeaderTimeout: 5 * time.Second,
+		Protocols:         xhttp.NewServerProtocols(),
+	}
 	httpServer.Start()
 	t.Cleanup(httpServer.Close)
 
@@ -210,6 +218,7 @@ func Start(t *testing.T, p Params) *Instance {
 		Worktrees:    worktreev1connect.NewWorktreeServiceClient(client, url),
 		Config:       configv1connect.NewConfigServiceClient(client, url),
 		Watches:      watchv1connect.NewWatchServiceClient(client, url),
+		Terminals:    terminalv1connect.NewTerminalServiceClient(xhttp.NewClientOver(xhttp.NewStreamTransport(), 0), url),
 		Harness:      fake,
 		Tmux:         tmuxServer,
 		Stores:       stores,
