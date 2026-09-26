@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"komrad/internal/agentdirs"
 	"komrad/internal/attaches"
 	"komrad/internal/interceptors"
 	"komrad/internal/pty"
@@ -184,13 +185,13 @@ func TestShellRefuses(t *testing.T) {
 		{
 			name:     "a directory outside every live agent",
 			first:    openRequest("/etc"),
-			openErr:  shells.ErrOutsideAgents,
+			openErr:  agentdirs.ErrOutsideAgents,
 			wantCode: connect.CodePermissionDenied,
 		},
 		{
 			name:     "a directory that does not exist",
 			first:    openRequest("/nowhere"),
-			openErr:  shells.ErrNoDirectory,
+			openErr:  agentdirs.ErrNoDirectory,
 			wantCode: connect.CodeInvalidArgument,
 		},
 	}

@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"komrad/config"
+	"komrad/internal/agentgit"
 	"komrad/internal/agents"
 	"komrad/internal/attaches"
 	"komrad/internal/checkouts"
@@ -59,6 +60,7 @@ type services struct {
 	watchRows        *watch.Rows
 	shells           *shells.ShellService
 	attaches         *attaches.AttachService
+	agentGit         *agentgit.GitService
 }
 
 // BuiltinScriptsDir is where the scripts komrad ships are installed under a cache directory,
@@ -306,6 +308,10 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 			Agents:  st.agents,
 			Tmux:    params.Tmux,
 			Session: agents.ManagerSession,
+		}),
+		agentGit: agentgit.NewGitService(agentgit.NewGitServiceParams{
+			Agents: st.agents,
+			Git:    gitClient,
 		}),
 		inspector: worktrees.NewInspector(worktrees.NewInspectorParams{
 			Lister:    worktreeLister,

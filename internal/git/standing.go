@@ -134,7 +134,7 @@ func (c *Client) ReadDiffStat(ctx context.Context, params ReadDiffStatParams) (*
 // other way round, as the clone last fetched it.
 func (c *Client) CountAgainstRemote(ctx context.Context, dir, branch string) (*RemoteStanding, error) {
 	ref := "refs/remotes/origin/" + branch
-	sha, err := runAllowing(ctx, local, dir, 1, "rev-parse", "--verify", "--quiet", ref)
+	sha, err := runAllowing(ctx, dir, 1, "rev-parse", "--verify", "--quiet", ref)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find origin's copy of %s: %w", branch, err)
 	}
@@ -175,7 +175,7 @@ func (c *Client) DoesBaseHoldRemote(ctx context.Context, params DoesBaseHoldRemo
 		return false, nil
 	}
 
-	baseTree, err := getTree(ctx, local, params.Dir, params.Base)
+	baseTree, err := c.GetTree(ctx, params.Dir, params.Base)
 	if err != nil {
 		return false, fmt.Errorf("failed to read the tree of %s against origin's copy of %s: %w", params.Base, params.Branch, err)
 	}

@@ -53,19 +53,10 @@ func (r Remote) AttachArgv(pane string) []string {
 		return nil
 	}
 
-	return r.argv(r.attachScript(pane), true)
+	return r.argv(r.attachScript(pane))
 }
 
-// CommandArgv is what runs one shell command on the engine with no terminal attached.
-func (r Remote) CommandArgv(command string) []string {
-	if !r.IsRemote() || strings.TrimSpace(command) == "" {
-		return nil
-	}
-
-	return r.argv(command, false)
-}
-
-func (r Remote) argv(command string, tty bool) []string {
+func (r Remote) argv(command string) []string {
 	// A transport that does not arrive as the account owning the engine's tmux steps into it
 	// here.
 	if r.User != "" {
@@ -79,11 +70,7 @@ func (r Remote) argv(command string, tty bool) []string {
 		})
 	}
 
-	if tty {
-		return []string{"ssh", "-t", r.Destination, command}
-	}
-
-	return []string{"ssh", r.Destination, command}
+	return []string{"ssh", "-t", r.Destination, command}
 }
 
 // fill replaces the placeholders in a transport's argv, leaving anything else as written.
