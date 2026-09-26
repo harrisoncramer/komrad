@@ -202,9 +202,6 @@ func loadEnvironment(cfg *config.Config) (*config.Environment, error) {
 		TmuxSocket:          cfg.Connection.TmuxSocket,
 		CacheDir:            cfg.Connection.CacheDir,
 		SSH:                 cfg.Connection.SSH,
-		EngineTmuxSocket:    cfg.Connection.EngineTmuxSocket,
-		Exec:                cfg.Connection.Exec,
 		Forward:             cfg.Connection.Forward,
-		EngineUser:          cfg.Connection.EngineUser,
 	})
 }

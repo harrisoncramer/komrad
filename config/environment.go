@@ -25,19 +25,16 @@ type Environment struct {
 	// StateDir is where komrad keeps its own files about agents, such as worktrees, released
 	// reviews and forge credentials, and is the user's state directory unless a test says
 	// otherwise.
-	StateDir         string
-	SSH              string
-	EngineTmuxSocket string
-	Exec             []string
-	Forward          []string
-	EngineUser       string
-	Tmux             string
-	TmuxPane         string
-	AgentID          string
-	SessionID        string
-	Editor           string
-	Shell            string
-	Term             string
+	StateDir  string
+	SSH       string
+	Forward   []string
+	Tmux      string
+	TmuxPane  string
+	AgentID   string
+	SessionID string
+	Editor    string
+	Shell     string
+	Term      string
 }
 
 // LayerPaths returns the config stack named by KOMRAD_CONFIG using the platform's path-list separator, the same convention used by PATH.

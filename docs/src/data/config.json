@@ -1074,32 +1074,11 @@
           "default": "\"\""
         },
         {
-          "key": "engine_tmux_socket",
-          "path": "connection.engine_tmux_socket",
-          "type": "string",
-          "description": "The tmux socket the engine's own server runs on, which is only consulted when ssh names\na destination. Left empty it is tmux_socket, which is right when both machines run a\ndefault komrad and wrong when this machine is also running an engine of its own.",
-          "default": "\"\""
-        },
-        {
-          "key": "exec",
-          "path": "connection.exec",
-          "type": "array",
-          "description": "How to run a command on the engine, as an argv, when ssh is not how you reach it.\n\"{{command}}\" is replaced with what komrad wants run there, and \"{{command_json}}\" with the\nsame text escaped for embedding in JSON. It needs to allocate a terminal, since what it\ncarries is an interactive one.",
-          "default": "[]"
-        },
-        {
           "key": "forward",
           "path": "connection.forward",
           "type": "array",
           "description": "How to forward a port from this machine to the engine, as an argv, when ssh is not how you\nreach it. \"{{local_port}}\" and \"{{remote_port}}\" are replaced with the two ends. It should\nstay in the foreground for as long as the forward is wanted.",
           "default": "[]"
-        },
-        {
-          "key": "engine_user",
-          "path": "connection.engine_user",
-          "type": "string",
-          "description": "The account on the engine that owns its tmux server, where the transport does not already\narrive as it. Left empty nothing is stepped into.",
-          "default": "\"\""
         }
       ],
       "sections": []
