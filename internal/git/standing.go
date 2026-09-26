@@ -155,6 +155,41 @@ func (c *Client) CountAgainstRemote(ctx context.Context, dir, branch string) (*R
 	}, nil
 }
 
+// DoesBaseHoldRemoteParams names the checkout, the branch whose copy on origin is looked for, and
+// the base it is looked for in.
+type DoesBaseHoldRemoteParams struct {
+	Dir    string
+	Branch string
+	Base   string
+}
+
+// DoesBaseHoldRemote reports whether the base already holds the whole of origin's copy of the
+// branch, as it does once a pull request from it was squash-merged, and false where the two share
+// no history.
+func (c *Client) DoesBaseHoldRemote(ctx context.Context, params DoesBaseHoldRemoteParams) (bool, error) {
+	ref := "refs/remotes/origin/" + params.Branch
+	related, err := doesShareHistory(ctx, params.Dir, params.Base, ref)
+	if err != nil {
+		return false, fmt.Errorf("failed to relate origin's copy of %s to %s: %w", params.Branch, params.Base, err)
+	}
+
+	if !related {
+		return false, nil
+	}
+
+	baseTree, err := getTree(ctx, local, params.Dir, params.Base)
+	if err != nil {
+		return false, err
+	}
+
+	held, err := doesHoldWhole(ctx, params.Dir, params.Base, baseTree, ref)
+	if err != nil {
+		return false, fmt.Errorf("failed to test whether %s holds origin's copy of %s: %w", params.Base, params.Branch, err)
+	}
+
+	return held, nil
+}
+
 // IsBranchHeldElsewhere reports whether some other ref reaches the branch's tip.
 func (c *Client) IsBranchHeldElsewhere(ctx context.Context, dir, branch string) (bool, error) {
 	own := "refs/heads/" + branch

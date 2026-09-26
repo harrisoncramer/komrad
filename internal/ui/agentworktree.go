@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"komrad/internal/errui"
@@ -56,9 +57,9 @@ func agentWorktree(inspections map[string]worktreeInspection, cwd string) (workt
 	return read, true
 }
 
-// worktreeStandingFields are the record's rows for where the directory stands: against its base,
-// against its remote branch, what is uncommitted in it, and what it takes on disk, with the
-// refusal above them when the last read failed.
+// worktreeStandingFields are the record's rows for where the directory stands: against its remote
+// branch, what is uncommitted in it, and what it takes on disk, with the refusal above them when
+// the last read failed.
 func worktreeStandingFields(read worktreeInspection, now time.Time) []recordField {
 	fields := []recordField{}
 	if read.err != nil {
@@ -69,7 +70,6 @@ func worktreeStandingFields(read worktreeInspection, now time.Time) []recordFiel
 	}
 
 	if read.item.readable {
-		fields = append(fields, buildBaseField(read))
 		if read.item.branch != "" {
 			fields = append(fields, buildRemoteField(read))
 		}
@@ -99,10 +99,17 @@ func worktreeHistoryFields(read worktreeInspection) []recordField {
 	return labelledRows("commits", cutRows(commitLines(read.commits), worktreeRowsShown))
 }
 
-// buildRemoteField is where the branch stands against its copy on origin.
+// buildRemoteField is where the branch stands against its copy on origin, quiet where there is
+// nothing to push or what origin holds beyond the branch has already landed on the base.
 func buildRemoteField(read worktreeInspection) recordField {
 	warning := paint.Panel.Style(paint.ToneWarning)
 	switch {
+	case !read.pushed && read.baseRef != "" && read.ahead == 0:
+		return recordField{
+			label:  "remote",
+			value:  "nothing to push",
+			styled: dimStyle.Render("nothing to push"),
+		}
 	case !read.pushed:
 		return recordField{
 			label:  "remote",
@@ -119,6 +126,15 @@ func buildRemoteField(read worktreeInspection) recordField {
 
 	unpushed := fmt.Sprintf("↑%d unpushed", read.unpushed)
 	unpulled := fmt.Sprintf("↓%d unpulled", read.unpulled)
+	if read.unpulledLanded {
+		landed := fmt.Sprintf("%s %s · landed on %s", unpushed, unpulled, strings.TrimPrefix(read.baseRef, "origin/"))
+
+		return recordField{
+			label:  "remote",
+			value:  landed,
+			styled: dimStyle.Render(landed),
+		}
+	}
 
 	return recordField{
 		label:  "remote",

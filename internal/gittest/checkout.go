@@ -10,26 +10,28 @@ import (
 // Checkout answers every question about a checkout with what the test put in it, remembering
 // which base it was asked to resolve and which repositories it was asked to prune.
 type Checkout struct {
-	Changes    git.Changes
-	State      git.TreeState
-	Ahead      int
-	Behind     int
-	Prediction git.Prediction
-	PredictErr error
-	Held       bool
-	Unresolved bool
-	Commits    []git.Commit
-	DiffStat   git.DiffStat
-	DiffErr    error
-	Excluded   []string
-	Remote     git.RemoteStanding
-	Resolved   string
-	Resolves   int
-	Fetched    string
-	Fetches    int
-	Pruned     []string
-	Registered []git.Worktree
-	ListErr    error
+	Changes      git.Changes
+	State        git.TreeState
+	Ahead        int
+	Behind       int
+	Prediction   git.Prediction
+	PredictErr   error
+	Held         bool
+	Unresolved   bool
+	Commits      []git.Commit
+	DiffStat     git.DiffStat
+	DiffErr      error
+	Excluded     []string
+	Remote       git.RemoteStanding
+	RemoteLanded bool
+	HoldAsked    string
+	Resolved     string
+	Resolves     int
+	Fetched      string
+	Fetches      int
+	Pruned       []string
+	Registered   []git.Worktree
+	ListErr      error
 }
 
 // ReadChanges answers Changes.
@@ -91,6 +93,13 @@ func (g *Checkout) ReadDiffStat(_ context.Context, params git.ReadDiffStatParams
 	stat := g.DiffStat
 
 	return &stat, nil
+}
+
+// DoesBaseHoldRemote records the base it was asked about and answers RemoteLanded.
+func (g *Checkout) DoesBaseHoldRemote(_ context.Context, params git.DoesBaseHoldRemoteParams) (bool, error) {
+	g.HoldAsked = params.Base
+
+	return g.RemoteLanded, nil
 }
 
 // CountAgainstRemote answers Remote.

@@ -348,3 +348,64 @@ func TestIntegrationCountAgainstRemote(t *testing.T) {
 		})
 	}
 }
+
+// TestIntegrationDoesBaseHoldRemote covers a base that took a branch's pushed work as a squash
+// being told apart from one that never took it.
+func TestIntegrationDoesBaseHoldRemote(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		change func(t *testing.T, root string)
+		want   bool
+	}{
+		{
+			name: "a base without the pushed work does not hold it",
+			change: func(t *testing.T, root string) {
+				run(t, root, "checkout", "-q", "main")
+				write(t, root, "other.go", "package other\n")
+				run(t, root, "add", "-A")
+				run(t, root, "commit", "-q", "-m", "other")
+			},
+			want: false,
+		},
+		{
+			name: "a base that squashed the pushed work holds it",
+			change: func(t *testing.T, root string) {
+				run(t, root, "checkout", "-q", "main")
+				write(t, root, "one.go", "package main\n")
+				write(t, root, "two.go", "package main\n")
+				run(t, root, "add", "-A")
+				run(t, root, "commit", "-q", "-m", "squash")
+			},
+			want: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			root := clonedRepo(t)
+			run(t, root, "config", "user.email", "test@example.com")
+			run(t, root, "config", "user.name", "test")
+			run(t, root, "checkout", "-q", "-b", "feature")
+			for _, name := range []string{"one.go", "two.go"} {
+				write(t, root, name, "package main\n")
+				run(t, root, "add", "-A")
+				run(t, root, "commit", "-q", "-m", name)
+			}
+			run(t, root, "push", "-q", "origin", "feature")
+			tt.change(t, root)
+
+			held, err := client.DoesBaseHoldRemote(t.Context(), DoesBaseHoldRemoteParams{
+				Dir:    root,
+				Branch: "feature",
+				Base:   "main",
+			})
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.want, held)
+		})
+	}
+}

@@ -7384,6 +7384,16 @@
           "oneof": "",
           "rules": [],
           "description": "How many of origin's copy's commits the branch does not hold."
+        },
+        {
+          "name": "unpulledLanded",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Whether the base already holds every commit counted in unpulled, as it does once a pull request from the branch was squash-merged."
         }
       ]
     },
