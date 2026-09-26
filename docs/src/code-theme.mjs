@@ -30,7 +30,10 @@ export const codeTheme = {
     rule(["keyword", "storage", "storage.type", "keyword.control", "keyword.operator.logical"], palette.magenta),
     rule(["entity.name.function", "support.function", "meta.function-call"], palette.blue),
     rule(["entity.name.type", "entity.name.class", "support.type", "support.class"], palette.cyan),
-    rule(["variable.parameter", "variable.other.readwrite", "entity.name.tag", "entity.other.attribute-name"], palette.red),
+    rule(
+      ["variable.parameter", "variable.other.readwrite", "entity.name.tag", "entity.other.attribute-name"],
+      palette.red,
+    ),
     rule(["punctuation", "keyword.operator", "meta.brace"], palette.dim),
     rule(["markup.heading", "entity.name.section"], palette.blue),
   ],

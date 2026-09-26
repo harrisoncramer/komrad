@@ -33,7 +33,16 @@ There are three types of agents, and you've already seen one: the orchestraotr a
 Let's ask our orchestrator to spawn our first implementer agent. You can also hover over the orchestrator and press `c` to give the agent a name, and spawn it with a direct prompt, such as: "Where is :checkhealth implemented?"
 
 <figure>
-  <video autoplay loop muted playsinline poster={media("first-agent.png")} width="1440" height="920" aria-label="Pressing c on the neovim workflow, asking where :checkhealth is implemented, naming the agent find-checkhealth, and opening it to read its answer.">
+  <video
+    autoplay
+    loop
+    muted
+    playsinline
+    poster={media("first-agent.png")}
+    width="1440"
+    height="920"
+    aria-label="Pressing c on the neovim workflow, asking where :checkhealth is implemented, naming the agent find-checkhealth, and opening it to read its answer."
+  >
     <source src={media("first-agent.webm")} type="video/webm" />
     <source src={media("first-agent.mp4")} type="video/mp4" />
   </video>
@@ -54,7 +63,16 @@ You can search the agent list by name, filter it, jump around it with marks(link
 A child is any agent attached to a parent, and a reviewer is the usual case. Children share the parent's checkout, so [`usage.implementer.max_children`](../../config/#usage.implementer.max_children) caps how many one parent may hold. An agent that writes work of its own should be a standalone implementer, not a child.
 
 <figure>
-  <video autoplay loop muted playsinline poster={media("agent-children.png")} width="1440" height="920" aria-label="Asking the neovim workflow's orchestrator to split some reading into three agents, and the three appearing in the list beneath it.">
+  <video
+    autoplay
+    loop
+    muted
+    playsinline
+    poster={media("agent-children.png")}
+    width="1440"
+    height="920"
+    aria-label="Asking the neovim workflow's orchestrator to split some reading into three agents, and the three appearing in the list beneath it."
+  >
     <source src={media("agent-children.webm")} type="video/webm" />
     <source src={media("agent-children.mp4")} type="video/mp4" />
   </video>

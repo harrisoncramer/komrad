@@ -34,7 +34,16 @@ The `#KOMRAD` line is optional. A hook can declare a description and a timeout t
 Press `e` on the workflow's row, move down to "Pre-launch hook", pick `link-deps`, and press `<C-s>`. Every agent spawned from now on runs it once its worktree exists and before its CLI starts.
 
 <figure>
-  <video autoplay loop muted playsinline poster={media("hook-setup.png")} width="1440" height="920" aria-label="Writing the link-deps hook in a shell, picking it as the neovim workflow's pre-launch hook, and spawning an agent that confirms .deps is linked to the main clone.">
+  <video
+    autoplay
+    loop
+    muted
+    playsinline
+    poster={media("hook-setup.png")}
+    width="1440"
+    height="920"
+    aria-label="Writing the link-deps hook in a shell, picking it as the neovim workflow's pre-launch hook, and spawning an agent that confirms .deps is linked to the main clone."
+  >
     <source src={media("hook-setup.webm")} type="video/webm" />
     <source src={media("hook-setup.mp4")} type="video/mp4" />
   </video>
@@ -61,7 +70,12 @@ Every run writes its own log. When a hook fails, the error says so and the agent
 Here the workflow's pre-launch hook tries to build Neovim with `cmake --build build`, which fails in a fresh worktree because nothing has configured the build yet.
 
 <figure>
-  <img src={media("hook-failed.png")} alt="An agent whose pre-launch hook failed, marked as never having launched, with the hook's log open beside it showing the build command was not found." width="1440" height="920" />
+  <img
+    src={media("hook-failed.png")}
+    alt="An agent whose pre-launch hook failed, marked as never having launched, with the hook's log open beside it showing the build command was not found."
+    width="1440"
+    height="920"
+  />
 </figure>
 
 Agents you start by hand are one thing. A [schedule](../schedules/) starts them for you.

@@ -26,9 +26,7 @@ const numbered = guides.map((guide, index) => ({ guide, number: String(index + 1
 <Layout title="Guides" description="Hand-written guides to installing, using and running komrad.">
   <header class="intro">
     <h1>Guides</h1>
-    <p>
-      These guides explain how to install and run komrad, on your own machine or on a remote instance.
-    </p>
+    <p>These guides explain how to install and run komrad, on your own machine or on a remote instance.</p>
   </header>
   {groups.map((group) => {
     const entries = numbered.filter(({ guide }) => guide.data.group === group.id);

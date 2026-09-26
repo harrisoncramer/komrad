@@ -10,7 +10,6 @@ import { media } from "../../site";
 
 Komrad is one binary. The binary can run either a client or a server (or multiple servers on different machines) known as _engines_.
 
-
 The client for Komrad runs on your machine. It renders the view of komrad's state in your terminal, and wraps around existing CLI tools like Claude or Codex.
 
 The service, known as the komrad engine, runs your agents and records their activity into Postgres, so you can search through chat history, spawn multiple at once, or have them communicate. The engine can run on your machine or on a remote box.
@@ -52,7 +51,7 @@ komrad engine ensure laptop
 
 The `komrad migrate` command is the only command that changes the schema.
 
-<Alert title="Having trouble?" variant="warning" >
+<Alert title="Having trouble?" variant="warning">
   Run `komrad doctor` to check for configuration or installation issues.
 </Alert>
 
@@ -61,7 +60,6 @@ Provide your database connection string to the `komrad migrate` command, and cre
 The komrad engine is one running komrad on one machine. Several can share one database, which enables multiple developers to share the same Postgres database, or for a single developer to scale their workload horizontally across machines.
 
 Komrad will safely auto-migrate the database after you first set it up.
-
 
 ## Write the config
 
@@ -84,7 +82,12 @@ Komrad runs every agent in a tmux server of its own, so tmux must be installed. 
 Without tmux, run `komrad open` which opens the client.
 
 <figure>
-  <img src={media("komrad-open.png")} alt="The komrad panel on first run, welcoming you and asking you to press w to set up your first workflow." width="1440" height="920" />
+  <img
+    src={media("komrad-open.png")}
+    alt="The komrad panel on first run, welcoming you and asking you to press w to set up your first workflow."
+    width="1440"
+    height="920"
+  />
 </figure>
 
 ## Komrad + Tmux
