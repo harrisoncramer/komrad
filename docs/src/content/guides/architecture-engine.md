@@ -42,7 +42,7 @@ Agents survive a deploy. The service unit is configured so that stopping it stop
 
 ## Reaching it
 
-An engine is a TOML file in `~/.config/komrad/engines/`. It says how to forward a port to the engine's API, over SSH or any other transport. Everything the panel does there goes through that API: agent terminals, shells in a worktree, and the review screen's git. The API itself has no authentication. It listens on loopback and SSH is the only way in. The panel refuses an engine built from a different commit than itself.
+An engine is a TOML file in `~/.config/komrad/engines/`. It says how to forward a port to the engine's API, over SSH or any other transport. Everything the panel does there goes through that API: agent terminals, shells in a worktree, and the review screen's git. The API itself has no authentication. It listens on loopback and the forward is the only way in. The panel refuses an engine built from a different commit than itself.
 
 On our engine, GitHub access comes from a GitHub App, so no person's token sits on a shared box. `komrad github credential` mints short-lived tokens from the App's key, and git picks them up through the credential helper. An engine without the App still runs on whatever credentials the box has.
 
