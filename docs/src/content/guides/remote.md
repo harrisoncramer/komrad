@@ -23,6 +23,12 @@ Once an engine file exists, opening komrad shows a picker listing your laptop an
   <figcaption>The engine picker, with this machine ready, one engine ready, and one greyed out for a build mismatch.</figcaption>
 </figure>
 
+## Attaching to an agent
+
+An agent's terminal on the engine is streamed to your panel, and `komrad terminal AGENT` does the same in any terminal. The agent's window takes the size of the terminal attached to it, so it fills the stage and follows it when you resize.
+
+The exception is a window someone fixed at a size on the engine itself, for example by opening a panel there, which runs tmux's `resize-window` and sets the window's `window-size` to `manual`. That window keeps its size wherever it is attached, so a smaller terminal crops it and a larger one leaves blank space around it.
+
 ## Signing the agent CLI in
 
 Agents on the engine run a CLI that has to be logged in and has to trust the checkout it works in. Do that once on the engine: start the CLI in the checkout, log in, and accept the trust question. If it is never answered, every agent sits waiting at that question. Both answers live on the engine's data disk.
