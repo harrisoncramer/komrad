@@ -9,6 +9,7 @@ import (
 	"komrad/internal/errui"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 )
 
 // View is the frame, under the terminal modes the panel runs in.
@@ -38,7 +39,7 @@ func (m model) render() string {
 		return m.drawn.text
 	}
 
-	drawn := m.fitFrame(strings.TrimRight(m.screenView(), "\n"))
+	drawn := m.withEdge(m.fitFrame(strings.TrimRight(m.screenView(), "\n")))
 
 	if m.drawn != nil {
 		m.drawn.text = drawn
@@ -80,6 +81,38 @@ func (m model) fitFrame(view string) string {
 	blank := strings.Repeat(" ", m.width)
 
 	return view + strings.Repeat("\n"+blank, m.height-rows)
+}
+
+// edgeCols is the columns the divider beside the stage takes from the panel.
+func (m model) edgeCols() int {
+	if m.frame.IsSolo() {
+		return 0
+	}
+
+	return dividerCols
+}
+
+// withEdge draws the divider down the side of the panel that faces the stage.
+func (m model) withEdge(view string) string {
+	if m.edgeCols() == 0 || m.width <= 0 {
+		return view
+	}
+
+	edge := dimStyle.Render("│")
+	lines := strings.Split(view, "\n")
+
+	for i, line := range lines {
+		line = ansi.Truncate(line, m.width, "")
+		line += strings.Repeat(" ", max(0, m.width-ansi.StringWidth(line)))
+
+		if m.frame.IsSidebarOnRight() {
+			lines[i] = edge + line
+		} else {
+			lines[i] = line + edge
+		}
+	}
+
+	return strings.Join(lines, "\n")
 }
 
 func (m model) screenView() string {
