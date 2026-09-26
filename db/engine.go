@@ -46,7 +46,7 @@ type EnsureEngineParams struct {
 	Password string
 }
 
-// EnsureEngine creates an engine's tenant, logins and River schema, or brings an existing engine's up to date.
+// EnsureEngine creates an engine's row, logins and River schema, or brings an existing engine's up to date.
 func EnsureEngine(ctx context.Context, pool *pgxpool.Pool, params EnsureEngineParams) error {
 	if err := validateEngineName(params.Name); err != nil {
 		return err

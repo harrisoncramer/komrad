@@ -23,7 +23,7 @@ RETURNING
     verified_at,
     created_at,
     throttled_until,
-    tenant_id;
+    engine_id;
 
 -- name: GetForgeConnection :one
 SELECT
@@ -36,7 +36,7 @@ SELECT
     verified_at,
     created_at,
     throttled_until,
-    tenant_id
+    engine_id
 FROM
     forge_connections
 WHERE
@@ -53,7 +53,7 @@ SELECT
     verified_at,
     created_at,
     throttled_until,
-    tenant_id
+    engine_id
 FROM
     forge_connections
 WHERE
@@ -70,7 +70,7 @@ SELECT
     verified_at,
     created_at,
     throttled_until,
-    tenant_id
+    engine_id
 FROM
     forge_connections
 ORDER BY

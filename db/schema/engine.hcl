@@ -1,4 +1,4 @@
-table "tenants" {
+table "engines" {
   schema  = schema.public
   comment = "An engine, the owner of every row it writes."
   column "id" {
@@ -18,19 +18,19 @@ table "tenants" {
   primary_key {
     columns = [column.id]
   }
-  unique "tenants_name_key" {
+  unique "engines_name_key" {
     columns = [column.name]
   }
 }
 
-table "tenant_logins" {
+table "engine_logins" {
   schema  = schema.public
   comment = "The Postgres logins an engine connects as, which is the only way an engine's identity is known."
   column "role" {
     null = false
     type = text
   }
-  column "tenant_id" {
+  column "engine_id" {
     null = false
     type = uuid
   }
@@ -48,13 +48,13 @@ table "tenant_logins" {
   primary_key {
     columns = [column.role]
   }
-  foreign_key "tenant_logins_tenant_id_fkey" {
-    columns     = [column.tenant_id]
-    ref_columns = [table.tenants.column.id]
+  foreign_key "engine_logins_engine_id_fkey" {
+    columns     = [column.engine_id]
+    ref_columns = [table.engines.column.id]
     on_delete   = CASCADE
     on_update   = NO_ACTION
   }
-  index "tenant_logins_tenant_id" {
-    columns = [column.tenant_id]
+  index "engine_logins_engine_id" {
+    columns = [column.engine_id]
   }
 }

@@ -182,11 +182,11 @@ func TestEngineIsolationHoldsForEveryTable(t *testing.T) {
 		list  func(context.Context) ([]string, error)
 		cause string
 	}{
-		{"tenant", queries.ListTablesWithoutTenant, "these tables have no required tenant_id"},
-		{"isolation", queries.ListTablesWithoutEngineIsolation, "these tables lack row security, the engine_isolation policy or the stamp_tenant trigger"},
-		{"foreign keys", queries.ListForeignKeysWithoutTenant, "these foreign keys can point at another engine's row"},
-		{"set null", queries.ListSetNullKeysClearingTenant, "these foreign keys clear tenant_id on delete; name the column in ON DELETE SET NULL (...)"},
-		{"unique keys", queries.ListUniqueKeysAcrossEngines, "these unique keys collide across engines; lead them with tenant_id"},
+		{"engine", queries.ListTablesWithoutEngine, "these tables have no required engine_id"},
+		{"isolation", queries.ListTablesWithoutEngineIsolation, "these tables lack row security, the engine_isolation policy or the stamp_engine trigger"},
+		{"foreign keys", queries.ListForeignKeysWithoutEngine, "these foreign keys can point at another engine's row"},
+		{"set null", queries.ListSetNullKeysClearingEngine, "these foreign keys clear engine_id on delete; name the column in ON DELETE SET NULL (...)"},
+		{"unique keys", queries.ListUniqueKeysAcrossEngines, "these unique keys collide across engines; lead them with engine_id"},
 		{"grants", queries.ListTablesEnginesCannotReach, "komrad_engine or komrad_reader cannot reach these tables"},
 	}
 

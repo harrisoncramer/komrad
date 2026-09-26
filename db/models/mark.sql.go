@@ -133,7 +133,7 @@ func (q *Queries) InsertWorkflowMark(ctx context.Context, arg InsertWorkflowMark
 
 const listWatchedMarks = `-- name: ListWatchedMarks :many
 SELECT
-    mark, agent_id, workflow_id, created_at, id, tenant_id
+    mark, agent_id, workflow_id, created_at, id, engine_id
 FROM
     marks
 WHERE
@@ -158,7 +158,7 @@ func (q *Queries) ListWatchedMarks(ctx context.Context, keys []string) ([]*Mark,
 			&i.WorkflowID,
 			&i.CreatedAt,
 			&i.ID,
-			&i.TenantID,
+			&i.EngineID,
 		); err != nil {
 			return nil, err
 		}

@@ -342,7 +342,7 @@ WHERE
 
 -- name: LockAgentSlots :exec
 SELECT
-    PG_ADVISORY_XACT_LOCK(HASHTEXTEXTENDED(COALESCE(current_tenant()::text, ''), 7240116));
+    PG_ADVISORY_XACT_LOCK(HASHTEXTEXTENDED(COALESCE(current_engine()::text, ''), 7240116));
 
 -- name: InsertAgent :one
 INSERT INTO agents(

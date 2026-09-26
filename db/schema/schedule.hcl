@@ -52,7 +52,7 @@ table "schedules" {
     type    = timestamptz
     default = sql("now()")
   }
-  column "tenant_id" {
+  column "engine_id" {
     null    = false
     type    = uuid
     comment = "The engine that owns this row, stamped from the login that wrote it."
@@ -60,24 +60,24 @@ table "schedules" {
   primary_key {
     columns = [column.id]
   }
-  unique "schedules_tenant_id_id_key" {
-    columns = [column.tenant_id, column.id]
+  unique "schedules_engine_id_id_key" {
+    columns = [column.engine_id, column.id]
   }
-  foreign_key "schedules_tenant_id_fkey" {
-    columns     = [column.tenant_id]
-    ref_columns = [table.tenants.column.id]
+  foreign_key "schedules_engine_id_fkey" {
+    columns     = [column.engine_id]
+    ref_columns = [table.engines.column.id]
     on_delete   = RESTRICT
     on_update   = NO_ACTION
   }
   foreign_key "schedules_workflow_id_fkey" {
-    columns     = [column.tenant_id, column.workflow_id]
-    ref_columns = [table.workflows.column.tenant_id, table.workflows.column.id]
+    columns     = [column.engine_id, column.workflow_id]
+    ref_columns = [table.workflows.column.engine_id, table.workflows.column.id]
     on_delete   = RESTRICT
     on_update   = NO_ACTION
   }
   index "schedules_name_active" {
     unique  = true
-    columns = [column.tenant_id, column.name]
+    columns = [column.engine_id, column.name]
     where   = "archived_at IS NULL"
   }
   index "schedules_workflow_id" {
@@ -128,27 +128,27 @@ table "schedule_runs" {
     null    = true
     type    = timestamptz
   }
-  column "tenant_id" {
+  column "engine_id" {
     null    = false
     type    = uuid
   }
   primary_key {
-    columns = [column.tenant_id, column.id]
+    columns = [column.engine_id, column.id]
   }
-  foreign_key "schedule_runs_tenant_id_fkey" {
-    columns     = [column.tenant_id]
-    ref_columns = [table.tenants.column.id]
+  foreign_key "schedule_runs_engine_id_fkey" {
+    columns     = [column.engine_id]
+    ref_columns = [table.engines.column.id]
     on_delete   = RESTRICT
     on_update   = NO_ACTION
   }
   foreign_key "schedule_runs_schedule_id_fkey" {
-    columns     = [column.tenant_id, column.schedule_id]
-    ref_columns = [table.schedules.column.tenant_id, table.schedules.column.id]
+    columns     = [column.engine_id, column.schedule_id]
+    ref_columns = [table.schedules.column.engine_id, table.schedules.column.id]
     on_delete   = CASCADE
     on_update   = NO_ACTION
   }
   unique "schedule_runs_occurrence_key" {
-    columns = [column.tenant_id, column.schedule_id, column.scheduled_for]
+    columns = [column.engine_id, column.schedule_id, column.scheduled_for]
   }
   check "schedule_runs_state_known" {
     expr = "state IN ('running', 'retryable', 'completed', 'cancelled', 'discarded')"

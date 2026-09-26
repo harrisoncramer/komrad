@@ -65,7 +65,7 @@ table "mail" {
     type    = uuid
     comment = "The other agent a komrad notice is about, null on ordinary mail. Counting unread notices by this column gives the recipient one notice per subject rather than one per kind, so an agent that hits the exchange cap with a second partner is told about that partner too. There is no foreign key here on purpose. The notice has to keep naming the agent whose exchange was cut off after that agent is gone."
   }
-  column "tenant_id" {
+  column "engine_id" {
     null    = false
     type    = uuid
     comment = "The engine that owns this row, stamped from the login that wrote it."
@@ -73,30 +73,30 @@ table "mail" {
   primary_key {
     columns = [column.id]
   }
-  unique "mail_tenant_id_id_key" {
-    columns = [column.tenant_id, column.id]
+  unique "mail_engine_id_id_key" {
+    columns = [column.engine_id, column.id]
   }
-  foreign_key "mail_tenant_id_fkey" {
-    columns     = [column.tenant_id]
-    ref_columns = [table.tenants.column.id]
+  foreign_key "mail_engine_id_fkey" {
+    columns     = [column.engine_id]
+    ref_columns = [table.engines.column.id]
     on_delete   = RESTRICT
     on_update   = NO_ACTION
   }
   foreign_key "mail_from_agent_id_fkey" {
-    columns     = [column.tenant_id, column.from_agent_id]
-    ref_columns = [table.agents.column.tenant_id, table.agents.column.id]
+    columns     = [column.engine_id, column.from_agent_id]
+    ref_columns = [table.agents.column.engine_id, table.agents.column.id]
     on_delete   = SET_NULL
     on_update   = NO_ACTION
   }
   foreign_key "mail_to_agent_id_fkey" {
-    columns     = [column.tenant_id, column.to_agent_id]
-    ref_columns = [table.agents.column.tenant_id, table.agents.column.id]
+    columns     = [column.engine_id, column.to_agent_id]
+    ref_columns = [table.agents.column.engine_id, table.agents.column.id]
     on_delete   = CASCADE
     on_update   = NO_ACTION
   }
   foreign_key "mail_reply_to_fkey" {
-    columns     = [column.tenant_id, column.reply_to]
-    ref_columns = [table.mail.column.tenant_id, table.mail.column.id]
+    columns     = [column.engine_id, column.reply_to]
+    ref_columns = [table.mail.column.engine_id, table.mail.column.id]
     on_delete   = SET_NULL
     on_update   = NO_ACTION
   }

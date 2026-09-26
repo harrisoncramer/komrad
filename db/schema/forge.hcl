@@ -47,7 +47,7 @@ table "forge_connections" {
     type    = timestamptz
     comment = "When the forge said this credential's rate limit resets, after a refusal or a response whose remaining budget was zero. The pull request sync makes no request through the connection until it passes."
   }
-  column "tenant_id" {
+  column "engine_id" {
     null    = false
     type    = uuid
     comment = "The engine that owns this row, stamped from the login that wrote it."
@@ -55,14 +55,14 @@ table "forge_connections" {
   primary_key {
     columns = [column.id]
   }
-  foreign_key "forge_connections_tenant_id_fkey" {
-    columns     = [column.tenant_id]
-    ref_columns = [table.tenants.column.id]
+  foreign_key "forge_connections_engine_id_fkey" {
+    columns     = [column.engine_id]
+    ref_columns = [table.engines.column.id]
     on_delete   = RESTRICT
     on_update   = NO_ACTION
   }
   unique "forge_connections_host_key" {
-    columns = [column.tenant_id, column.host]
+    columns = [column.engine_id, column.host]
   }
 }
 
@@ -192,7 +192,7 @@ table "pull_requests" {
     type    = text
     comment = "Where the forge says the pull request stands against its base and its branch rules, in komrad's own words: clean, unstable, blocked, behind or conflicting, null while the forge has not computed it. Read with the checks and kept fresh the same way."
   }
-  column "tenant_id" {
+  column "engine_id" {
     null    = false
     type    = uuid
     comment = "The engine that owns this row, stamped from the login that wrote it."
@@ -200,20 +200,20 @@ table "pull_requests" {
   primary_key {
     columns = [column.id]
   }
-  unique "pull_requests_tenant_id_id_key" {
-    columns = [column.tenant_id, column.id]
+  unique "pull_requests_engine_id_id_key" {
+    columns = [column.engine_id, column.id]
   }
-  foreign_key "pull_requests_tenant_id_fkey" {
-    columns     = [column.tenant_id]
-    ref_columns = [table.tenants.column.id]
+  foreign_key "pull_requests_engine_id_fkey" {
+    columns     = [column.engine_id]
+    ref_columns = [table.engines.column.id]
     on_delete   = RESTRICT
     on_update   = NO_ACTION
   }
   unique "pull_requests_host_provider_id_key" {
-    columns = [column.tenant_id, column.host, column.provider_id]
+    columns = [column.engine_id, column.host, column.provider_id]
   }
   unique "pull_requests_url_key" {
-    columns = [column.tenant_id, column.url]
+    columns = [column.engine_id, column.url]
   }
   index "pull_requests_unfinished_head" {
     columns = [column.repository_url, column.head_branch]
@@ -246,7 +246,7 @@ table "agent_pull_requests" {
     default = sql("now()")
     comment = "When the pair was last seen together, moved at most once an hour."
   }
-  column "tenant_id" {
+  column "engine_id" {
     null    = false
     type    = uuid
     comment = "The engine that owns this row, stamped from the login that wrote it."
@@ -254,21 +254,21 @@ table "agent_pull_requests" {
   primary_key {
     columns = [column.agent_id, column.pull_request_id]
   }
-  foreign_key "agent_pull_requests_tenant_id_fkey" {
-    columns     = [column.tenant_id]
-    ref_columns = [table.tenants.column.id]
+  foreign_key "agent_pull_requests_engine_id_fkey" {
+    columns     = [column.engine_id]
+    ref_columns = [table.engines.column.id]
     on_delete   = RESTRICT
     on_update   = NO_ACTION
   }
   foreign_key "agent_pull_requests_agent_id_fkey" {
-    columns     = [column.tenant_id, column.agent_id]
-    ref_columns = [table.agents.column.tenant_id, table.agents.column.id]
+    columns     = [column.engine_id, column.agent_id]
+    ref_columns = [table.agents.column.engine_id, table.agents.column.id]
     on_delete   = CASCADE
     on_update   = NO_ACTION
   }
   foreign_key "agent_pull_requests_pull_request_id_fkey" {
-    columns     = [column.tenant_id, column.pull_request_id]
-    ref_columns = [table.pull_requests.column.tenant_id, table.pull_requests.column.id]
+    columns     = [column.engine_id, column.pull_request_id]
+    ref_columns = [table.pull_requests.column.engine_id, table.pull_requests.column.id]
     on_delete   = CASCADE
     on_update   = NO_ACTION
   }
@@ -315,17 +315,17 @@ table "pull_request_syncs" {
     default = 0
     comment = "How many requests the most recent pass made for this repository."
   }
-  column "tenant_id" {
+  column "engine_id" {
     null    = false
     type    = uuid
     comment = "The engine that owns this row, stamped from the login that wrote it."
   }
   primary_key {
-    columns = [column.tenant_id, column.repository_url]
+    columns = [column.engine_id, column.repository_url]
   }
-  foreign_key "pull_request_syncs_tenant_id_fkey" {
-    columns     = [column.tenant_id]
-    ref_columns = [table.tenants.column.id]
+  foreign_key "pull_request_syncs_engine_id_fkey" {
+    columns     = [column.engine_id]
+    ref_columns = [table.engines.column.id]
     on_delete   = RESTRICT
     on_update   = NO_ACTION
   }
@@ -353,17 +353,17 @@ table "branch_scans" {
     type    = timestamptz
     comment = "When the listing answered its last page, after which the branch is never scanned again."
   }
-  column "tenant_id" {
+  column "engine_id" {
     null    = false
     type    = uuid
     comment = "The engine that owns this row, stamped from the login that wrote it."
   }
   primary_key {
-    columns = [column.tenant_id, column.repository_url, column.branch]
+    columns = [column.engine_id, column.repository_url, column.branch]
   }
-  foreign_key "branch_scans_tenant_id_fkey" {
-    columns     = [column.tenant_id]
-    ref_columns = [table.tenants.column.id]
+  foreign_key "branch_scans_engine_id_fkey" {
+    columns     = [column.engine_id]
+    ref_columns = [table.engines.column.id]
     on_delete   = RESTRICT
     on_update   = NO_ACTION
   }

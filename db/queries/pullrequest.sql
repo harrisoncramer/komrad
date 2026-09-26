@@ -39,7 +39,7 @@ WITH written AS (
         sqlc.narg('merged_at'),
         sqlc.narg('closed_at'))
 ON CONFLICT (
-    tenant_id,
+    engine_id,
     host,
     provider_id)
     DO UPDATE SET
@@ -161,7 +161,7 @@ SELECT
     o.pull_request_id,
     o.first_seen_at,
     o.last_seen_at,
-    o.tenant_id
+    o.engine_id
 FROM
     agent_pull_requests o
 WHERE
@@ -216,7 +216,7 @@ VALUES (
     @branch,
     @next_cursor)
 ON CONFLICT (
-    tenant_id,
+    engine_id,
     repository_url,
     branch)
     DO UPDATE SET
@@ -234,7 +234,7 @@ VALUES (
     @next_cursor,
     NOW())
 ON CONFLICT (
-    tenant_id,
+    engine_id,
     repository_url,
     branch)
     DO UPDATE SET
@@ -247,7 +247,7 @@ INSERT INTO pull_request_syncs(
 VALUES (
     @repository_url)
 ON CONFLICT (
-    tenant_id,
+    engine_id,
     repository_url)
     DO NOTHING;
 

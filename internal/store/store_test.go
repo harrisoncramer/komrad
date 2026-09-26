@@ -71,7 +71,7 @@ func TestARowIsStampedWithTheEngineThatWroteIt(t *testing.T) {
 	config, err := models.New(pool.GetDB()).InsertWorkflowConfig(t.Context(), models.InsertWorkflowConfigParams{Harness: "claude"})
 	require.NoError(t, err)
 
-	assert.Equal(t, pool.GetEngine().ID, config.TenantID)
+	assert.Equal(t, pool.GetEngine().ID, config.EngineID)
 	assert.Equal(t, engine.Name, pool.GetEngine().Name)
 }
 
