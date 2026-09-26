@@ -75,7 +75,7 @@ over it needs `state::text`.
 `~/komrad` on port 8787, tmux socket `komrad`, Postgres 5460, cache `~/Library/Caches/komrad`.
 Every other checkout, `~/komrad-test` and each worktree, runs a throwaway instance of its own
 under `MISE_ENV=test`, on the numbered slot it claimed under `~/.local/state/komrad-test/instances`:
-server 8800 plus the slot, socket `komrad-test-<slot>`, Postgres 5470 plus the slot, and a cache in
-the slot's directory. `MISE_ENV=test mise env` prints them. The MCP tools in a normal session point
+server 8800 plus the slot, socket `komrad-test-<slot>`, database `komrad_<slot>` in the shared
+test Postgres on 5470, and a cache in the slot's directory. `MISE_ENV=test mise env` prints them. The MCP tools in a normal session point
 at the development instance, so a call meant for a throwaway one has to go to a server registered
 at that instance's address.
