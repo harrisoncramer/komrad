@@ -146,7 +146,10 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 		}, options...))
 	mux.Handle(terminalv1connect.NewTerminalServiceHandler(
 		terminalv1komrad.TerminalServiceAdapter{
-			Impl: rpcterminal.NewHandler(rpcterminal.NewHandlerParams{Shells: params.Services.shells}),
+			Impl: rpcterminal.NewHandler(rpcterminal.NewHandlerParams{
+				Shells:   params.Services.shells,
+				Attaches: params.Services.attaches,
+			}),
 		}, options...))
 	mux.Handle(logv1connect.NewLogServiceHandler(
 		logv1komrad.LogServiceAdapter{

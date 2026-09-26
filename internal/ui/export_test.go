@@ -93,28 +93,29 @@ type HarnessFrameReader = harnessFrameReader
 
 // NewPanelParams is what a panel under test is built over.
 type NewPanelParams struct {
-	Agents        agentv1connect.AgentServiceClient
-	Workflows     workflowv1connect.WorkflowServiceClient
-	Schedules     schedulev1connect.ScheduleServiceClient
-	Hooks         hookv1connect.HookServiceClient
-	Worktrees     worktreev1connect.WorktreeServiceClient
-	Git           ReviewGit
-	Keys          config.Keybindings
-	DetailsHeight float64
-	SidebarSide   string
-	SidebarWidth  int
-	Width         int
-	Height        int
-	Settings      PanelSettings
-	Engine        engine.Remote
-	ShellCommand  []string
-	HarnessFrames harnessFrameReader
-	ConfigErr     error
-	StartupErr    error
-	RefuseSplits  bool
-	Binary        BinaryWatcher
-	Browser       browser.Opener
-	Tmux          PanelTmux
+	Agents          agentv1connect.AgentServiceClient
+	Workflows       workflowv1connect.WorkflowServiceClient
+	Schedules       schedulev1connect.ScheduleServiceClient
+	Hooks           hookv1connect.HookServiceClient
+	Worktrees       worktreev1connect.WorktreeServiceClient
+	Git             ReviewGit
+	Keys            config.Keybindings
+	DetailsHeight   float64
+	SidebarSide     string
+	SidebarWidth    int
+	Width           int
+	Height          int
+	Settings        PanelSettings
+	Engine          engine.Remote
+	ShellCommand    []string
+	TerminalCommand []string
+	HarnessFrames   harnessFrameReader
+	ConfigErr       error
+	StartupErr      error
+	RefuseSplits    bool
+	Binary          BinaryWatcher
+	Browser         browser.Opener
+	Tmux            PanelTmux
 }
 
 // NewPanel builds the panel the way komrad panel does, over a recording tmux.
@@ -149,24 +150,25 @@ func NewPanel(params NewPanelParams) *Panel {
 
 	panel := &Panel{
 		model: newModel(Deps{
-			Session:       NewSession(tmux, "test-session", spellCycleKeys(params.Keys.Cycle.Views)),
-			Tmux:          driven,
-			Git:           params.Git,
-			Agents:        params.Agents,
-			Workflows:     params.Workflows,
-			Schedules:     params.Schedules,
-			Hooks:         params.Hooks,
-			Worktrees:     params.Worktrees,
-			Keys:          params.Keys,
-			Layout:        layout,
-			Engine:        params.Engine,
-			ShellCommand:  params.ShellCommand,
-			HarnessFrames: params.HarnessFrames,
-			Settings:      settings,
-			ConfigErr:     params.ConfigErr,
-			StartupErr:    params.StartupErr,
-			Binary:        params.Binary,
-			Browser:       params.Browser,
+			Session:         NewSession(tmux, "test-session", spellCycleKeys(params.Keys.Cycle.Views)),
+			Tmux:            driven,
+			Git:             params.Git,
+			Agents:          params.Agents,
+			Workflows:       params.Workflows,
+			Schedules:       params.Schedules,
+			Hooks:           params.Hooks,
+			Worktrees:       params.Worktrees,
+			Keys:            params.Keys,
+			Layout:          layout,
+			Engine:          params.Engine,
+			ShellCommand:    params.ShellCommand,
+			TerminalCommand: params.TerminalCommand,
+			HarnessFrames:   params.HarnessFrames,
+			Settings:        settings,
+			ConfigErr:       params.ConfigErr,
+			StartupErr:      params.StartupErr,
+			Binary:          params.Binary,
+			Browser:         params.Browser,
 		}, true, post),
 		post: post,
 		tmux: tmux,

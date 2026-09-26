@@ -388,6 +388,7 @@ func startOrchestrator(h host, workflow panel.Workflow) tea.Cmd {
 			// stands behind.
 			return written{
 				row:     workflowRowKey(workflow.ID),
+				agent:   agent.GetId(),
 				pane:    agent.GetPaneId(),
 				harness: agent.GetHarness(),
 				focus:   true,

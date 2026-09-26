@@ -145,6 +145,22 @@ func TestScreensStage(t *testing.T) {
 
 		assert.Empty(t, harness.panel.ReadWindowSizes(), "no window on the panel's own server is touched")
 	})
+
+	t.Run("a remote engine's agent is attached over the engine's api", func(t *testing.T) {
+		t.Parallel()
+
+		harness := newPanelHarness(t, panelHarnessParams{
+			width:           200,
+			engine:          engine.Remote{Destination: "ubuntu@engine"},
+			terminalCommand: []string{"komrad", "terminal", "--addr", "127.0.0.1:19001"},
+		})
+		answerWorktreeReads(harness)
+		harness.watch(buildSnapshot(newNotedWorkflow(), newRunning()))
+		harness.press("j")
+		harness.fireTimers()
+
+		assert.Contains(t, harness.panel.ReadRespawns(), "komrad terminal --addr 127.0.0.1:19001 -- a1")
+	})
 }
 
 // TestScreensDivider covers a divider the reader dragged staying where they put it.

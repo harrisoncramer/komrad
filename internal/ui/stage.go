@@ -117,7 +117,7 @@ func (m *model) stageSelection() {
 	switch {
 	case ok && m.isPaneStageable(staged.Agent.Pane, staged.Agent.Harness):
 		m.sizeGuestWindow(staged.Agent.Pane)
-		m.frame.ShowGuest(staged.Agent.Pane)
+		m.frame.ShowGuest(layout.Guest{Agent: staged.Agent.ID, Pane: staged.Agent.Pane})
 	case m.frame.IsSolo() && m.isGuestLive():
 	default:
 		m.frame.Show(layout.RegionStage, newBlankContent())

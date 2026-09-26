@@ -7,6 +7,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/agents"
+	"komrad/internal/attaches"
 	"komrad/internal/checkouts"
 	"komrad/internal/forge"
 	"komrad/internal/forge/forges"
@@ -57,6 +58,7 @@ type services struct {
 	remover          *worktrees.Remover
 	watchRows        *watch.Rows
 	shells           *shells.ShellService
+	attaches         *attaches.AttachService
 }
 
 // BuiltinScriptsDir is where the scripts komrad ships are installed under a cache directory,
@@ -299,6 +301,11 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		shells: shells.NewShellService(shells.NewShellServiceParams{
 			Agents: st.agents,
 			Shell:  params.Env.Shell,
+		}),
+		attaches: attaches.NewAttachService(attaches.NewAttachServiceParams{
+			Agents:  st.agents,
+			Tmux:    params.Tmux,
+			Session: agents.ManagerSession,
 		}),
 		inspector: worktrees.NewInspector(worktrees.NewInspectorParams{
 			Lister:    worktreeLister,

@@ -2,6 +2,7 @@ package tmuxtest
 
 import (
 	"errors"
+	"slices"
 	"sync"
 	"time"
 
@@ -42,6 +43,13 @@ type Fake struct {
 	// CutFrames is what a pane shows once its line is cut, one frame per capture, holding the last.
 	CutFrames map[string][]string
 	cutReads  map[string]int
+	// Views is the pane each view was last opened on.
+	Views map[string]string
+	// SessionClients is how many clients each session answers it has attached.
+	SessionClients map[string]int
+	killedSessions []string
+	// AttachCommand is what an attach runs in place of tmux.
+	AttachCommand []string
 }
 
 // Respawn is one respawn of a pane: the directory it started in and the command it ran.
@@ -65,8 +73,55 @@ func NewFake() *Fake {
 		ClientAt:       map[string]bool{},
 		Edits:          map[string][]string{},
 		CutFrames:      map[string][]string{},
+		Views:          map[string]string{},
+		SessionClients: map[string]int{},
 		Shell:          "/bin/zsh",
+		AttachCommand:  []string{"true"},
 	}
+}
+
+// OpenView records the pane a view is opened on.
+func (f *Fake) OpenView(view, _, pane string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	f.Views[view] = pane
+
+	return nil
+}
+
+// CountSessionClients answers SessionClients for the session.
+func (f *Fake) CountSessionClients(session string) (int, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return f.SessionClients[session], nil
+}
+
+// KillSession records the session.
+func (f *Fake) KillSession(session string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	f.killedSessions = append(f.killedSessions, session)
+
+	return nil
+}
+
+// BuildAttachArgv answers AttachCommand.
+func (f *Fake) BuildAttachArgv(string) []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return f.AttachCommand
+}
+
+// ReadKilledSessions is every session killed so far.
+func (f *Fake) ReadKilledSessions() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return slices.Clone(f.killedSessions)
 }
 
 // SetGlobal records a global option.

@@ -35,6 +35,8 @@ const (
 const (
 	// TerminalServiceShellProcedure is the fully-qualified name of the TerminalService's Shell RPC.
 	TerminalServiceShellProcedure = "/terminal.v1.TerminalService/Shell"
+	// TerminalServiceAttachProcedure is the fully-qualified name of the TerminalService's Attach RPC.
+	TerminalServiceAttachProcedure = "/terminal.v1.TerminalService/Attach"
 )
 
 // TerminalServiceClient is a client for the terminal.v1.TerminalService service.
@@ -42,6 +44,9 @@ type TerminalServiceClient interface {
 	// Shell runs a shell in a directory on the engine, carrying what is typed in and what it draws
 	// out until it exits or the client hangs up.
 	Shell(context.Context) *connect.BidiStreamForClient[v1.ShellRequest, v1.ShellResponse]
+	// Attach shows an agent's terminal, carrying what is typed in and what it draws out until the
+	// attach ends or the client hangs up.
+	Attach(context.Context) *connect.BidiStreamForClient[v1.AttachRequest, v1.AttachResponse]
 }
 
 // NewTerminalServiceClient constructs a client for the terminal.v1.TerminalService service. By
@@ -61,12 +66,19 @@ func NewTerminalServiceClient(httpClient connect.HTTPClient, baseURL string, opt
 			connect.WithSchema(terminalServiceMethods.ByName("Shell")),
 			connect.WithClientOptions(opts...),
 		),
+		attach: connect.NewClient[v1.AttachRequest, v1.AttachResponse](
+			httpClient,
+			baseURL+TerminalServiceAttachProcedure,
+			connect.WithSchema(terminalServiceMethods.ByName("Attach")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // terminalServiceClient implements TerminalServiceClient.
 type terminalServiceClient struct {
-	shell *connect.Client[v1.ShellRequest, v1.ShellResponse]
+	shell  *connect.Client[v1.ShellRequest, v1.ShellResponse]
+	attach *connect.Client[v1.AttachRequest, v1.AttachResponse]
 }
 
 // Shell calls terminal.v1.TerminalService.Shell.
@@ -74,11 +86,19 @@ func (c *terminalServiceClient) Shell(ctx context.Context) *connect.BidiStreamFo
 	return c.shell.CallBidiStream(ctx)
 }
 
+// Attach calls terminal.v1.TerminalService.Attach.
+func (c *terminalServiceClient) Attach(ctx context.Context) *connect.BidiStreamForClient[v1.AttachRequest, v1.AttachResponse] {
+	return c.attach.CallBidiStream(ctx)
+}
+
 // TerminalServiceHandler is an implementation of the terminal.v1.TerminalService service.
 type TerminalServiceHandler interface {
 	// Shell runs a shell in a directory on the engine, carrying what is typed in and what it draws
 	// out until it exits or the client hangs up.
 	Shell(context.Context, *connect.BidiStream[v1.ShellRequest, v1.ShellResponse]) error
+	// Attach shows an agent's terminal, carrying what is typed in and what it draws out until the
+	// attach ends or the client hangs up.
+	Attach(context.Context, *connect.BidiStream[v1.AttachRequest, v1.AttachResponse]) error
 }
 
 // NewTerminalServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -94,10 +114,18 @@ func NewTerminalServiceHandler(svc TerminalServiceHandler, opts ...connect.Handl
 		connect.WithSchema(terminalServiceMethods.ByName("Shell")),
 		connect.WithHandlerOptions(opts...),
 	)
+	terminalServiceAttachHandler := connect.NewBidiStreamHandler(
+		TerminalServiceAttachProcedure,
+		svc.Attach,
+		connect.WithSchema(terminalServiceMethods.ByName("Attach")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/terminal.v1.TerminalService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case TerminalServiceShellProcedure:
 			terminalServiceShellHandler.ServeHTTP(w, r)
+		case TerminalServiceAttachProcedure:
+			terminalServiceAttachHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -109,4 +137,8 @@ type UnimplementedTerminalServiceHandler struct{}
 
 func (UnimplementedTerminalServiceHandler) Shell(context.Context, *connect.BidiStream[v1.ShellRequest, v1.ShellResponse]) error {
 	return connect.NewError(connect.CodeUnimplemented, errors.New("terminal.v1.TerminalService.Shell is not implemented"))
+}
+
+func (UnimplementedTerminalServiceHandler) Attach(context.Context, *connect.BidiStream[v1.AttachRequest, v1.AttachResponse]) error {
+	return connect.NewError(connect.CodeUnimplemented, errors.New("terminal.v1.TerminalService.Attach is not implemented"))
 }
