@@ -169,6 +169,7 @@ type worktreeInspection struct {
 	baseError string
 	ahead     int
 	behind    int
+	measured  bool
 	added     int
 	removed   int
 	pushed    bool

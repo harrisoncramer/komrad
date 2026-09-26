@@ -96,8 +96,17 @@ type ReadDiffStatParams struct {
 	Exclude []string
 }
 
-// ReadDiffStat is the lines the working tree adds and removes since it left ref.
+// ReadDiffStat is the lines the working tree adds and removes since it left ref, refused with
+// ErrBaseUnrelated when the branch shares no history with ref.
 func (c *Client) ReadDiffStat(ctx context.Context, params ReadDiffStatParams) (DiffStat, error) {
+	related, err := doesShareHistory(ctx, params.Dir, params.Ref, "HEAD")
+	if err != nil {
+		return DiffStat{}, err
+	}
+	if !related {
+		return DiffStat{}, fmt.Errorf("%w: %s", ErrBaseUnrelated, params.Ref)
+	}
+
 	args := append([]string{
 		"-c", "core.quotepath=false",
 		"--no-pager", "diff",

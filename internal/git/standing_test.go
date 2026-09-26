@@ -166,11 +166,12 @@ func TestIntegrationReadDiffStat(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name    string
-		exclude []string
-		change  func(t *testing.T, root string)
-		wantErr bool
-		want    DiffStat
+		name      string
+		exclude   []string
+		change    func(t *testing.T, root string)
+		wantErr   bool
+		wantErrIs error
+		want      DiffStat
 	}{
 		{
 			name: "a base the clone does not hold is refused",
@@ -178,6 +179,17 @@ func TestIntegrationReadDiffStat(t *testing.T) {
 				run(t, root, "branch", "-q", "-D", "main")
 			},
 			wantErr: true,
+		},
+		{
+			name: "a base the branch shares no history with is refused as unrelated",
+			change: func(t *testing.T, root string) {
+				run(t, root, "checkout", "-q", "--orphan", "alone")
+				write(t, root, "alone.go", "package alone\n")
+				run(t, root, "add", "-A")
+				run(t, root, "commit", "-q", "-m", "alone")
+			},
+			wantErr:   true,
+			wantErrIs: ErrBaseUnrelated,
 		},
 		{
 			name:    "an excluded path counts for nothing",
@@ -245,6 +257,9 @@ func TestIntegrationReadDiffStat(t *testing.T) {
 			})
 			if tt.wantErr {
 				require.Error(t, err)
+				if tt.wantErrIs != nil {
+					require.ErrorIs(t, err, tt.wantErrIs)
+				}
 
 				return
 			}

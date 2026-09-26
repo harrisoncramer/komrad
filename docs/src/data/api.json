@@ -7343,7 +7343,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The lines the working tree adds since the branch left the base, leaving out the workflow's diff exclusions."
+          "description": "The lines the working tree adds since the branch left the base, leaving out the workflow's diff exclusions, and unset where there is no base or one the branch shares no history with."
         },
         {
           "name": "removedLines",
@@ -7353,7 +7353,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The lines the working tree removes since the branch left the base."
+          "description": "The lines the working tree removes since the branch left the base, unset with added_lines."
         },
         {
           "name": "pushed",

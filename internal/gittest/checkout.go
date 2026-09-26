@@ -20,6 +20,7 @@ type Checkout struct {
 	Unresolved bool
 	Commits    []git.Commit
 	DiffStat   git.DiffStat
+	DiffErr    error
 	Excluded   []string
 	Remote     git.RemoteStanding
 	Resolved   string
@@ -80,11 +81,11 @@ func (g *Checkout) ListCommitsSince(context.Context, string, string, int) ([]git
 	return g.Commits, nil
 }
 
-// ReadDiffStat records the paths it was told to leave out and answers DiffStat.
+// ReadDiffStat records the paths it was told to leave out and answers DiffStat and DiffErr.
 func (g *Checkout) ReadDiffStat(_ context.Context, params git.ReadDiffStatParams) (git.DiffStat, error) {
 	g.Excluded = params.Exclude
 
-	return g.DiffStat, nil
+	return g.DiffStat, g.DiffErr
 }
 
 // CountAgainstRemote answers Remote.

@@ -25,10 +25,11 @@ type Inspection struct {
 	// or the clone does not hold the base.
 	BaseRef string
 	// BaseErr is why the base could not be named, when it could not.
-	BaseErr  error
-	Ahead    int
-	Behind   int
-	DiffStat git.DiffStat
+	BaseErr error
+	Ahead   int
+	Behind  int
+	// DiffStat is nil where there is no base, or one the branch shares no history with.
+	DiffStat *git.DiffStat
 	Remote   git.RemoteStanding
 	// Landed is how many of the branch's own commits the base already holds whole.
 	Landed             int
@@ -200,12 +201,16 @@ func (i *Inspector) readStanding(ctx context.Context, inspection *Inspection, ex
 		return err
 	}
 
-	if inspection.DiffStat, err = i.git.ReadDiffStat(ctx, git.ReadDiffStatParams{
+	stat, err := i.git.ReadDiffStat(ctx, git.ReadDiffStatParams{
 		Dir:     dir,
 		Ref:     ref,
 		Exclude: exclude,
-	}); err != nil {
+	})
+	if err != nil && !errors.Is(err, git.ErrBaseUnrelated) {
 		return err
+	}
+	if err == nil {
+		inspection.DiffStat = &stat
 	}
 
 	prediction, err := i.git.PredictRebase(ctx, dir, ref)

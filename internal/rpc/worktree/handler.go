@@ -13,6 +13,7 @@ import (
 	"komrad/lib/xslice"
 	worktreev1 "komrad/proto/gen/worktree/v1"
 
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -90,6 +91,8 @@ func (s *Handler) GetWorktree(ctx context.Context, req *worktreev1.GetWorktreeRe
 		return nil, rpcerr.From(err, "failed to read the worktree")
 	}
 
+	added, removed := countLines(inspection.DiffStat)
+
 	return &worktreev1.GetWorktreeResponse{
 		Worktree:  renderWorktree(inspection.Worktree),
 		SizeBytes: inspection.Bytes,
@@ -109,8 +112,8 @@ func (s *Handler) GetWorktree(ctx context.Context, req *worktreev1.GetWorktreeRe
 		LandedCommits:      int32(inspection.Landed),
 		SequenceInProgress: inspection.SequenceInProgress,
 		KeepsBranch:        inspection.KeepsBranch,
-		AddedLines:         int32(inspection.DiffStat.Added),
-		RemovedLines:       int32(inspection.DiffStat.Removed),
+		AddedLines:         added,
+		RemovedLines:       removed,
 		Pushed:             inspection.Remote.Pushed,
 		Unpushed:           int32(inspection.Remote.Unpushed),
 		Unpulled:           int32(inspection.Remote.Unpulled),
@@ -193,6 +196,14 @@ func renderAgent(agent worktrees.Agent) *worktreev1.WorktreeAgent {
 		ArchivedAt: dates.StampPtr(agent.ArchivedAt),
 		Adopted:    agent.Adopted,
 	}
+}
+
+func countLines(stat *git.DiffStat) (*int32, *int32) {
+	if stat == nil {
+		return nil, nil
+	}
+
+	return proto.Int32(int32(stat.Added)), proto.Int32(int32(stat.Removed))
 }
 
 func describeBaseErr(err error) string {

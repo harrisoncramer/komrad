@@ -1120,6 +1120,16 @@ func TestAgentsRecordWorktree(t *testing.T) {
 				answer: answerWith(func() *worktreev1.GetWorktreeResponse {
 					read := buildWorktreeRead()
 					read.BaseRef, read.BaseError = "", "no base branch"
+					read.AddedLines, read.RemovedLines = nil, nil
+
+					return read
+				}()),
+			},
+			{
+				name: "a base the branch shares no history with carries nothing",
+				answer: answerWith(func() *worktreev1.GetWorktreeResponse {
+					read := buildWorktreeRead()
+					read.AddedLines, read.RemovedLines = nil, nil
 
 					return read
 				}()),
@@ -1128,7 +1138,7 @@ func TestAgentsRecordWorktree(t *testing.T) {
 				name: "a branch with nothing changed reads clean",
 				answer: answerWith(func() *worktreev1.GetWorktreeResponse {
 					read := buildWorktreeRead()
-					read.AddedLines, read.RemovedLines = 0, 0
+					read.AddedLines, read.RemovedLines = proto.Int32(0), proto.Int32(0)
 
 					return read
 				}()),
@@ -2576,8 +2586,8 @@ func buildWorktreeRead() *worktreev1.GetWorktreeResponse {
 		BaseRef:            "origin/main",
 		Ahead:              3,
 		Behind:             12,
-		AddedLines:         200,
-		RemovedLines:       100,
+		AddedLines:         proto.Int32(200),
+		RemovedLines:       proto.Int32(100),
 		Pushed:             true,
 		Unpushed:           2,
 		Unpulled:           1,

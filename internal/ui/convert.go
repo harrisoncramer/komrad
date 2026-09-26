@@ -287,6 +287,7 @@ func worktreeInspectionFrom(read *worktreev1.GetWorktreeResponse, now time.Time)
 		baseError:   read.GetBaseError(),
 		ahead:       int(read.GetAhead()),
 		behind:      int(read.GetBehind()),
+		measured:    read.AddedLines != nil,
 		added:       int(read.GetAddedLines()),
 		removed:     int(read.GetRemovedLines()),
 		pushed:      read.GetPushed(),

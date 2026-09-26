@@ -51,7 +51,7 @@ func TestInspectReadsABranchAgainstItsWorkflowsBase(t *testing.T) {
 	assert.Equal(t, "origin/develop", inspection.BaseRef)
 	assert.Equal(t, 2, inspection.Ahead)
 	assert.Equal(t, 12, inspection.Behind)
-	assert.Equal(t, git.DiffStat{Added: 214, Removed: 87}, inspection.DiffStat)
+	assert.Equal(t, &git.DiffStat{Added: 214, Removed: 87}, inspection.DiffStat)
 	assert.Equal(t, []string{"proto/gen"}, fixture.git.Excluded)
 	assert.Equal(t, git.RemoteStanding{Pushed: true, Unpushed: 1}, inspection.Remote)
 	assert.Equal(t, 1, inspection.Landed)
@@ -84,7 +84,7 @@ func TestInspectReportsABaseTheCloneDoesNotHold(t *testing.T) {
 	require.ErrorIs(t, inspection.BaseErr, git.ErrBaseMissing)
 	assert.Empty(t, inspection.BaseRef)
 	assert.Empty(t, inspection.Commits)
-	assert.Zero(t, inspection.DiffStat)
+	assert.Nil(t, inspection.DiffStat)
 	assert.Equal(t, git.RemoteStanding{Pushed: true, Unpulled: 3}, inspection.Remote)
 	assert.False(t, inspection.KeepsBranch)
 }
@@ -167,11 +167,13 @@ func TestInspectReadsAnUnrelatedBaseAsNothingLanded(t *testing.T) {
 	dir := fixture.cut(t)
 	fixture.own(t, dir, agentstore.Agent{Name: "unrelated"})
 	fixture.git.PredictErr = git.ErrBaseUnrelated
+	fixture.git.DiffErr = git.ErrBaseUnrelated
 
 	inspection, err := fixture.newInspector().Inspect(t.Context(), InspectParams{Dir: dir})
 	require.NoError(t, err)
 
 	assert.Equal(t, 0, inspection.Landed)
+	assert.Nil(t, inspection.DiffStat, "an unrelated base measures no lines")
 }
 
 // TestInspectReadsOnlyTheEntriesOfAGoneRegistration covers a directory git cannot read

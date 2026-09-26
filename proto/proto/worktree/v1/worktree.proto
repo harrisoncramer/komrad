@@ -158,10 +158,10 @@ message GetWorktreeResponse {
   // The branch's commits the base does not hold, newest first, at most fifty.
   repeated Commit commits = 11;
   // The lines the working tree adds since the branch left the base, leaving out the workflow's
-  // diff exclusions.
-  int32 added_lines = 14;
-  // The lines the working tree removes since the branch left the base.
-  int32 removed_lines = 15;
+  // diff exclusions, and unset where there is no base or one the branch shares no history with.
+  optional int32 added_lines = 14;
+  // The lines the working tree removes since the branch left the base, unset with added_lines.
+  optional int32 removed_lines = 15;
   // Whether origin holds a copy of the branch, false for a detached HEAD.
   bool pushed = 16;
   // How many of the branch's commits origin's copy does not hold.

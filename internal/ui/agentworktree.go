@@ -120,9 +120,9 @@ func remoteRecordField(read worktreeInspection) recordField {
 }
 
 // diffStatTag is the lines the branch adds and removes since its base, and nothing where no
-// base could be read.
+// base could be measured against.
 func diffStatTag(read worktreeInspection, ok bool) string {
-	if !ok || !read.isRead() || !read.item.readable || read.baseRef == "" {
+	if !ok || !read.isRead() || !read.item.readable || !read.measured {
 		return ""
 	}
 	if read.added == 0 && read.removed == 0 {
