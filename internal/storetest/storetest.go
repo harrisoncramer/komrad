@@ -10,6 +10,7 @@ import (
 	"komrad/internal/dbtest"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
+	documentstore "komrad/internal/store/document"
 	mailstore "komrad/internal/store/mail"
 	markstore "komrad/internal/store/mark"
 	pullrequeststore "komrad/internal/store/pullrequest"
@@ -33,6 +34,7 @@ type Stores struct {
 	Schedules        *schedulestore.ScheduleStore
 	Transcripts      *transcriptstore.TranscriptStore
 	Mail             *mailstore.MailStore
+	Documents        *documentstore.DocumentStore
 	Runs             *runstore.RunStore
 	Marks            *markstore.MarkStore
 	PullRequests     *pullrequeststore.PullRequestStore
@@ -60,6 +62,7 @@ func Open(t *testing.T) *Stores {
 		Schedules:        schedulestore.NewScheduleStore(pool.GetDB()),
 		Transcripts:      transcriptstore.NewTranscriptStore(pool.GetDB()),
 		Mail:             mailstore.NewMailStore(pool.GetDB()),
+		Documents:        documentstore.NewDocumentStore(pool.GetDB()),
 		Runs:             runstore.NewRunStore(pool.GetDB()),
 		Marks:            markstore.NewMarkStore(pool.GetDB()),
 		PullRequests:     pullrequeststore.NewPullRequestStore(pool.GetDB()),

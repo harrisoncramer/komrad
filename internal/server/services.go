@@ -10,6 +10,7 @@ import (
 	"komrad/internal/agents"
 	"komrad/internal/attaches"
 	"komrad/internal/checkouts"
+	"komrad/internal/documents"
 	"komrad/internal/forge"
 	"komrad/internal/forge/forges"
 	"komrad/internal/frames"
@@ -47,6 +48,7 @@ type services struct {
 	delivery         *mail.DeliveryService
 	reconciler       *agents.Reconciler
 	marks            *marks.MarkService
+	documents        *documents.DocumentService
 	holder           *agents.Holder
 	rebase           *checkouts.RebaseService
 	cwdSync          *checkouts.CwdSyncer
@@ -293,6 +295,7 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 			Reconciler: reconciler,
 		}),
 		marks:           markService,
+		documents:       documents.NewDocumentService(documents.NewDocumentServiceParams{Agents: st.agents, Documents: st.documents}),
 		rebase:          rebaseService,
 		cwdSync:         cwdSyncer,
 		transcriptSync:  transcriptSyncer,
