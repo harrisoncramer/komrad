@@ -164,6 +164,7 @@ func TestGetWorktree(t *testing.T) {
 			Unpushed: 1,
 			Unpulled: 3,
 		},
+		RemoteLanded: true,
 		Commits: []git.Commit{{
 			SHA:         "abc",
 			Subject:     "own work",
@@ -194,6 +195,7 @@ func TestGetWorktree(t *testing.T) {
 	assert.True(t, resp.Msg.GetPushed())
 	assert.Equal(t, int32(1), resp.Msg.GetUnpushed())
 	assert.Equal(t, int32(3), resp.Msg.GetUnpulled())
+	assert.True(t, resp.Msg.GetUnpulledLanded())
 	require.Len(t, resp.Msg.GetCommits(), 1)
 	assert.Equal(t, "2026-09-19T11:00:00Z", resp.Msg.GetCommits()[0].GetCommittedAt())
 }

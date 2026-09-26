@@ -705,9 +705,11 @@ type GetWorktreeResponse struct {
 	// How many of the branch's commits origin's copy does not hold.
 	Unpushed int32 `protobuf:"varint,17,opt,name=unpushed,proto3" json:"unpushed,omitempty"`
 	// How many of origin's copy's commits the branch does not hold.
-	Unpulled      int32 `protobuf:"varint,18,opt,name=unpulled,proto3" json:"unpulled,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Unpulled int32 `protobuf:"varint,18,opt,name=unpulled,proto3" json:"unpulled,omitempty"`
+	// Whether the base already holds every commit counted in unpulled.
+	UnpulledLanded bool `protobuf:"varint,19,opt,name=unpulled_landed,json=unpulledLanded,proto3" json:"unpulled_landed,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *GetWorktreeResponse) Reset() {
@@ -864,6 +866,13 @@ func (x *GetWorktreeResponse) GetUnpulled() int32 {
 		return x.Unpulled
 	}
 	return 0
+}
+
+func (x *GetWorktreeResponse) GetUnpulledLanded() bool {
+	if x != nil {
+		return x.UnpulledLanded
+	}
+	return false
 }
 
 type RemoveUnownedWorktreesRequest struct {
@@ -1125,7 +1134,7 @@ const file_worktree_v1_worktree_proto_rawDesc = "" +
 	"\x06Commit\x12\x10\n" +
 	"\x03sha\x18\x01 \x01(\tR\x03sha\x12\x18\n" +
 	"\asubject\x18\x02 \x01(\tR\asubject\x12!\n" +
-	"\fcommitted_at\x18\x03 \x01(\tR\vcommittedAt\"\xa4\x05\n" +
+	"\fcommitted_at\x18\x03 \x01(\tR\vcommittedAt\"\xcd\x05\n" +
 	"\x13GetWorktreeResponse\x121\n" +
 	"\bworktree\x18\x01 \x01(\v2\x15.worktree.v1.WorktreeR\bworktree\x12\x1d\n" +
 	"\n" +
@@ -1148,7 +1157,8 @@ const file_worktree_v1_worktree_proto_rawDesc = "" +
 	"\rremoved_lines\x18\x0f \x01(\x05H\x01R\fremovedLines\x88\x01\x01\x12\x16\n" +
 	"\x06pushed\x18\x10 \x01(\bR\x06pushed\x12\x1a\n" +
 	"\bunpushed\x18\x11 \x01(\x05R\bunpushed\x12\x1a\n" +
-	"\bunpulled\x18\x12 \x01(\x05R\bunpulledB\x0e\n" +
+	"\bunpulled\x18\x12 \x01(\x05R\bunpulled\x12'\n" +
+	"\x0funpulled_landed\x18\x13 \x01(\bR\x0eunpulledLandedB\x0e\n" +
 	"\f_added_linesB\x10\n" +
 	"\x0e_removed_lines\"G\n" +
 	"\x1dRemoveUnownedWorktreesRequest\x12&\n" +

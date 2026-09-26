@@ -67,6 +67,51 @@ func TestInspectReadsABranchAgainstItsWorkflowsBase(t *testing.T) {
 	assert.Equal(t, sumEntryBytes(inspection.Entries), inspection.Bytes)
 }
 
+// TestInspectAsksWhetherTheBaseHoldsWhatOriginHas covers a branch behind its copy on origin
+// being asked about against the base, and a branch level with it not being asked.
+func TestInspectAsksWhetherTheBaseHoldsWhatOriginHas(t *testing.T) {
+	tests := []struct {
+		name       string
+		remote     git.RemoteStanding
+		wantAsked  string
+		wantLanded bool
+	}{
+		{
+			name: "nothing unpulled is not asked about",
+			remote: git.RemoteStanding{
+				Pushed:   true,
+				Unpushed: 2,
+			},
+		},
+		{
+			name: "unpulled commits the base holds have landed",
+			remote: git.RemoteStanding{
+				Pushed:   true,
+				Unpushed: 4,
+				Unpulled: 4,
+			},
+			wantAsked:  "origin/main",
+			wantLanded: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fixture := newFixture(t)
+			dir := fixture.cut(t)
+			fixture.own(t, dir, agentstore.Agent{Name: "squashed"})
+			fixture.git.Remote = tt.remote
+			fixture.git.RemoteLanded = true
+
+			inspection, err := fixture.newInspector().Inspect(t.Context(), InspectParams{Dir: dir})
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.wantAsked, fixture.git.HoldAsked)
+			assert.Equal(t, tt.wantLanded, inspection.RemoteLanded)
+		})
+	}
+}
+
 // TestInspectReportsABaseTheCloneDoesNotHold covers a clone without the workflow's base
 // answering with why rather than with a standing against something else.
 func TestInspectReportsABaseTheCloneDoesNotHold(t *testing.T) {

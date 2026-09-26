@@ -32,6 +32,9 @@ type Inspection struct {
 	// DiffStat is nil where there is no base, or one the branch shares no history with.
 	DiffStat *git.DiffStat
 	Remote   git.RemoteStanding
+	// RemoteLanded says the base already holds every commit origin's copy of the branch has that
+	// the branch does not.
+	RemoteLanded bool
 	// Landed is how many of the branch's own commits the base already holds whole.
 	Landed             int
 	SequenceInProgress bool
@@ -51,6 +54,7 @@ type gitReader interface {
 	ListCommitsSince(ctx context.Context, dir, ref string, limit int) ([]git.Commit, error)
 	ReadDiffStat(ctx context.Context, params git.ReadDiffStatParams) (*git.DiffStat, error)
 	CountAgainstRemote(ctx context.Context, dir, branch string) (*git.RemoteStanding, error)
+	DoesBaseHoldRemote(ctx context.Context, params git.DoesBaseHoldRemoteParams) (bool, error)
 }
 
 type workflowReader interface {
@@ -203,6 +207,17 @@ func (i *Inspector) readStanding(ctx context.Context, inspection *Inspection, ex
 
 	if inspection.Ahead, inspection.Behind, err = i.git.CountAheadBehind(ctx, dir, ref); err != nil {
 		return err
+	}
+
+	if inspection.Remote.Unpulled > 0 {
+		inspection.RemoteLanded, err = i.git.DoesBaseHoldRemote(ctx, git.DoesBaseHoldRemoteParams{
+			Dir:    dir,
+			Branch: inspection.Worktree.Branch,
+			Base:   ref,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to read whether %s holds what origin has of %q: %w", ref, dir, err)
+		}
 	}
 
 	stat, err := i.git.ReadDiffStat(ctx, git.ReadDiffStatParams{
