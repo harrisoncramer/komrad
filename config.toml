@@ -174,14 +174,6 @@ rebase            = ["r"]
 # ["alt+n", "alt+p"] or ["alt+j", "alt+k"].
 views = ["ctrl+a", "ctrl+q"]
 
-# The key that pages the service's log, shared by every screen since the log is
-# about the service rather than about anything a screen lists.
-[keybindings.logs]
-# Cycle the hovered agent's logs in the info pane.
-open  = ["l"]
-# Step back to the run before the one the info pane is showing.
-older = ["L"]
-
 # The marks a person puts on rows to jump between them, as vim's own marks work.
 [keybindings.marks]
 # Set a mark on the row under the cursor, agent or workflow, then the letter to set, or
@@ -403,12 +395,7 @@ max_exchange      = 40
 # The log the background service writes, which the panel's log key pages.
 [log]
 # How much is written, one of debug, info, warn, or error.
-level          = "info"
-# The default log viewer. Switch with fzf, rg, etc.
-viewer         = "tail -n +1 -F \"$KOMRAD_LOG\" | grep --line-buffered \"$KOMRAD_AGENT_ID\" | less -R +F"
-# The viewer for a provisioner's or deprovisioner's own output, plain text rather than the
-# structured log's JSON lines.
-process_viewer = "less -R -X \"$KOMRAD_LOG\""
+level = "info"
 
 # Puts komrad into debug mode which records additional information used to help diagnose issues.
 [debug]
