@@ -13,6 +13,7 @@ import (
 	rpcconfig "komrad/internal/rpc/config"
 	rpcdoctor "komrad/internal/rpc/doctor"
 	rpcforge "komrad/internal/rpc/forge"
+	rpcgit "komrad/internal/rpc/git"
 	rpchook "komrad/internal/rpc/hook"
 	rpclog "komrad/internal/rpc/log"
 	rpcpullrequest "komrad/internal/rpc/pullrequest"
@@ -31,6 +32,8 @@ import (
 	doctorv1komrad "komrad/proto/gen/doctor/v1/doctorv1komrad"
 	"komrad/proto/gen/forge/v1/forgev1connect"
 	forgev1komrad "komrad/proto/gen/forge/v1/forgev1komrad"
+	"komrad/proto/gen/git/v1/gitv1connect"
+	gitv1komrad "komrad/proto/gen/git/v1/gitv1komrad"
 	"komrad/proto/gen/hook/v1/hookv1connect"
 	hookv1komrad "komrad/proto/gen/hook/v1/hookv1komrad"
 	"komrad/proto/gen/log/v1/logv1connect"
@@ -150,6 +153,10 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 				Shells:   params.Services.shells,
 				Attaches: params.Services.attaches,
 			}),
+		}, options...))
+	mux.Handle(gitv1connect.NewGitServiceHandler(
+		gitv1komrad.GitServiceAdapter{
+			Impl: rpcgit.NewHandler(rpcgit.NewHandlerParams{Git: params.Services.agentGit}),
 		}, options...))
 	mux.Handle(logv1connect.NewLogServiceHandler(
 		logv1komrad.LogServiceAdapter{
