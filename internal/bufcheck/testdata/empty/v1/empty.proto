@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package empty.v1;
+
+import "google/protobuf/empty.proto";
+
+message FilledRequest {
+  string name = 1;
+}
+
+message HollowResponse {}
+
+message Outer {
+  message Inner {}
+
+  oneof state {
+    google.protobuf.Empty ready = 1;
+  }
+}
