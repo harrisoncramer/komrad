@@ -1,12 +1,4 @@
-# The throwaway instance this checkout tests against. It is not loaded by default, so a command
-# meant for it names it: MISE_ENV=test mise run restart.
-#
-# Every checkout gets an instance of its own, so two agents testing at once never share a
-# database, a server or a tmux server. tools/komradslot claims this checkout a numbered slot
-# under ~/.local/state/komrad-test/instances and prints the port, address, socket, compose
-# project, cache directory and config that slot derives, and _test_env exports them. The config
-# is komrad.test.toml with the slot's own worktrees directory added. `mise run test:down` takes
-# the instance down and gives the slot back, and the komrad-worktree-teardown hook does the same
-# when an agent is deleted.
+# The throwaway instance this checkout tests against, one per checkout. It is not loaded by
+# default, so a command meant for it names it: MISE_ENV=test mise run restart.
 [env]
 _.source = { path = "{{config_root}}/mise/tasks/_test_env", tools = true }

@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
-# The throwaway instance a checkout tests against, run by tools/komradslot.
+# The throwaway instance a checkout tests against.
 #
-# Sourced for require_test_instance, or run as `_test_instance down --root <checkout>` to take a
-# checkout's instance down without going through mise.
+# Sourced for require_test_instance, or run as `_test_instance down --root <checkout>`.
 
 test_instance_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 
@@ -33,7 +32,7 @@ require_test_instance() {
 	komradslot check --root "$test_instance_root" || exit 1
 }
 
-# test_instance_holds_slot succeeds when some slot names the checkout, without building anything.
+# test_instance_holds_slot succeeds when some slot names the checkout.
 test_instance_holds_slot() {
 	local root
 	root="$(cd "$1" && pwd -P)"

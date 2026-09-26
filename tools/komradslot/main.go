@@ -1,5 +1,4 @@
-// Package main gives each komrad checkout a throwaway instance of its own, derived from a
-// numbered slot, and takes it down again.
+// Package main gives each komrad checkout a throwaway instance of its own.
 package main
 
 import (

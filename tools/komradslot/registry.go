@@ -84,7 +84,7 @@ func (r registry) lookup(root string) (int, bool, error) {
 	return 0, false, nil
 }
 
-// locked runs fn holding the registry's lock, which the kernel drops if this process dies.
+// locked runs fn holding the registry's lock.
 func (r registry) locked(fn func() error) error {
 	if err := os.MkdirAll(r.dir, 0o755); err != nil {
 		return fmt.Errorf("failed to create the slot registry: %w", err)
@@ -117,8 +117,7 @@ func (r registry) locked(fn func() error) error {
 	return fn()
 }
 
-// pick returns the checkout's slot, claiming a free one, or marks a stale slot for the caller
-// to take down and reports it as reclaimed.
+// pick returns the checkout's slot, claiming a free one or marking a stale one to reclaim.
 func (r registry) pick(root string) (int, bool, error) {
 	n, ok, err := r.lookup(root)
 	if err != nil || ok {
@@ -157,7 +156,7 @@ func (r registry) pick(root string) (int, bool, error) {
 	return 0, false, fmt.Errorf("all %d slots are held by checkouts that still exist", slotMax)
 }
 
-// claim returns the checkout's slot, taking a stale one down to make room when none is free.
+// claim returns the checkout's slot, claiming one when it holds none.
 func (r registry) claim(ctx context.Context, root string) (int, error) {
 	for range 3 {
 		var (

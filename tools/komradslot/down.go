@@ -34,8 +34,7 @@ func (e execRunner) probe(ctx context.Context, name string, args ...string) erro
 	return exec.CommandContext(ctx, name, args...).Run()
 }
 
-// down stops everything slot n runs and gives the slot back, keeping the claim when the
-// database cannot be taken down.
+// down stops everything slot n runs and gives the slot back.
 func (r registry) down(ctx context.Context, n int) error {
 	if n < 1 || n > slotMax {
 		return fmt.Errorf("%d is not a slot", n)

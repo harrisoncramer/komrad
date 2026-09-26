@@ -6,8 +6,7 @@
 # is a built-in default, which is what you want when you are checking a build rather than
 # working in it.
 #
-# The connection settings that isolate this instance are exported as environment variables,
-# since the environment beats the file.
+# The connection settings that isolate this instance are exported as environment variables.
 
 [log]
 # Louder than the default, because the reason to open this instance is usually to watch it.

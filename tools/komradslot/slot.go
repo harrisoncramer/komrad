@@ -44,8 +44,7 @@ func configPath(slotDir string) string {
 	return filepath.Join(slotDir, "komrad.toml")
 }
 
-// writeConfig writes the slot's config, the checkout's komrad.test.toml with the slot's own
-// worktrees directory added.
+// writeConfig writes the slot's config.
 func writeConfig(root, slotDir string) error {
 	base, err := os.ReadFile(filepath.Join(root, "komrad.test.toml"))
 	if err != nil {

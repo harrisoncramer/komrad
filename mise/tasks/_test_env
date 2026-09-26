@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Sourced by mise.test.toml: claims this checkout's slot and exports what it derives.
+# Claims this checkout's slot and exports what it derives.
 
 # shellcheck source=mise/tasks/_test_instance
 source "$(dirname "${BASH_SOURCE[0]}")/_test_instance"
