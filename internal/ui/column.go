@@ -10,6 +10,13 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
+const (
+	// dividerCols is the columns the divider between the list and the block beside it takes.
+	dividerCols = 1
+	// dividerGlyph is what the divider is drawn with.
+	dividerGlyph = "│"
+)
+
 // columnSplit is how the window is divided while the panel is drawing a block beside its own
 // list: the block on one side, and the list, its record and its legend on the other.
 type columnSplit struct {
@@ -33,9 +40,6 @@ func splitOf(width, rows, sidebar, floor int) (columnSplit, bool) {
 		rows:    rows,
 	}, true
 }
-
-// dividerCols is the columns the divider between the list and the block beside it takes.
-const dividerCols = 1
 
 // columnFloor is the narrowest a document is worth drawing beside a list at.
 const columnFloor = 40
@@ -208,7 +212,7 @@ func (m model) joinColumns(split columnSplit, sidebar, column string) string {
 	sidebar = fitColumn(strings.TrimRight(sidebar, "\n"), split.sidebar)
 	column = fitColumn(column, split.column)
 
-	divider := strings.TrimSuffix(strings.Repeat(dimStyle.Render("│")+"\n", lipgloss.Height(sidebar)), "\n")
+	divider := strings.TrimSuffix(strings.Repeat(dimStyle.Render(dividerGlyph)+"\n", lipgloss.Height(sidebar)), "\n")
 
 	if m.frame.IsSidebarOnRight() {
 		return lipgloss.JoinHorizontal(lipgloss.Top, column, divider, sidebar)

@@ -39,7 +39,7 @@ func (m model) render() string {
 		return m.drawn.text
 	}
 
-	drawn := m.withEdge(m.fitFrame(strings.TrimRight(m.screenView(), "\n")))
+	drawn := m.drawEdge(m.fitFrame(strings.TrimRight(m.screenView(), "\n")))
 
 	if m.drawn != nil {
 		m.drawn.text = drawn
@@ -83,8 +83,8 @@ func (m model) fitFrame(view string) string {
 	return view + strings.Repeat("\n"+blank, m.height-rows)
 }
 
-// edgeCols is the columns the divider beside the stage takes from the panel.
-func (m model) edgeCols() int {
+// countEdgeCols is the columns the divider beside the stage takes from the panel.
+func (m model) countEdgeCols() int {
 	if m.frame.IsSolo() {
 		return 0
 	}
@@ -92,13 +92,13 @@ func (m model) edgeCols() int {
 	return dividerCols
 }
 
-// withEdge draws the divider down the side of the panel that faces the stage.
-func (m model) withEdge(view string) string {
-	if m.edgeCols() == 0 || m.width <= 0 {
+// drawEdge draws the divider down the side of the panel that faces the stage.
+func (m model) drawEdge(view string) string {
+	if m.countEdgeCols() == 0 || m.width <= 0 {
 		return view
 	}
 
-	edge := dimStyle.Render("│")
+	edge := dimStyle.Render(dividerGlyph)
 	lines := strings.Split(view, "\n")
 
 	for i, line := range lines {
