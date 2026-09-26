@@ -7334,6 +7334,56 @@
           "oneof": "",
           "rules": [],
           "description": "The branch's commits the base does not hold, newest first, at most fifty."
+        },
+        {
+          "name": "addedLines",
+          "type": "int32",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The lines the working tree adds since the branch left the base, leaving out the workflow's diff exclusions, and unset where there is no base or one the branch shares no history with."
+        },
+        {
+          "name": "removedLines",
+          "type": "int32",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The lines the working tree removes since the branch left the base, unset with added_lines."
+        },
+        {
+          "name": "pushed",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Whether origin holds a copy of the branch, false for a detached HEAD."
+        },
+        {
+          "name": "unpushed",
+          "type": "int32",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "How many of the branch's commits origin's copy does not hold."
+        },
+        {
+          "name": "unpulled",
+          "type": "int32",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "How many of origin's copy's commits the branch does not hold."
         }
       ]
     },

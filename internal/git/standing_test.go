@@ -160,3 +160,191 @@ func TestIntegrationResolveBaseReadsTheCloneAsItStands(t *testing.T) {
 	require.ErrorIs(t, err, ErrBaseMissing)
 	assert.Contains(t, err.Error(), "trunk")
 }
+
+// TestIntegrationReadDiffStat covers the lines a working tree adds and removes since its base.
+func TestIntegrationReadDiffStat(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		exclude   []string
+		change    func(t *testing.T, root string)
+		wantErr   bool
+		wantErrIs error
+		want      DiffStat
+	}{
+		{
+			name: "a base the clone does not hold is refused",
+			change: func(t *testing.T, root string) {
+				run(t, root, "branch", "-q", "-D", "main")
+			},
+			wantErr: true,
+		},
+		{
+			name: "a base the branch shares no history with is refused as unrelated",
+			change: func(t *testing.T, root string) {
+				run(t, root, "checkout", "-q", "--orphan", "alone")
+				write(t, root, "alone.go", "package alone\n")
+				run(t, root, "add", "-A")
+				run(t, root, "commit", "-q", "-m", "alone")
+			},
+			wantErr:   true,
+			wantErrIs: ErrBaseUnrelated,
+		},
+		{
+			name:    "an excluded path counts for nothing",
+			exclude: []string{"proto/gen"},
+			change: func(t *testing.T, root string) {
+				write(t, root, "proto/gen/api.pb.go", "package gen\n\nvar a = 1\nvar b = 2\n")
+			},
+			want: DiffStat{},
+		},
+		{
+			name: "a binary file counts for no lines",
+			change: func(t *testing.T, root string) {
+				write(t, root, "logo.png", "\x00\x01\x02\x03")
+				run(t, root, "add", "logo.png")
+				run(t, root, "commit", "-q", "-m", "logo")
+			},
+			want: DiffStat{},
+		},
+		{
+			name: "a rename counts only the lines it changed",
+			change: func(t *testing.T, root string) {
+				write(t, root, "big.go", "package main\n\nvar a = 1\nvar b = 2\nvar c = 3\nvar d = 4\nvar e = 5\n")
+				run(t, root, "add", "-A")
+				run(t, root, "commit", "-q", "-m", "big")
+				run(t, root, "branch", "-q", "-f", "main")
+				run(t, root, "mv", "big.go", "moved.go")
+				write(t, root, "moved.go", "package main\n\nvar a = 1\nvar b = 2\nvar c = 3\nvar d = 4\nvar e = 6\n")
+				run(t, root, "add", "-A")
+				run(t, root, "commit", "-q", "-m", "moved")
+			},
+			want: DiffStat{
+				Added:   1,
+				Removed: 1,
+			},
+		},
+		{
+			name: "committed, staged and unstaged lines all count",
+			change: func(t *testing.T, root string) {
+				write(t, root, "one.go", "package main\n\nvar one = 1\n")
+				run(t, root, "add", "-A")
+				run(t, root, "commit", "-q", "-m", "one")
+				write(t, root, "staged.go", "package main\n")
+				run(t, root, "add", "staged.go")
+				write(t, root, "kept.go", "package kept\n")
+			},
+			want: DiffStat{
+				Added:   5,
+				Removed: 1,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			root := repo(t)
+			run(t, root, "checkout", "-q", "-b", "feature")
+			tt.change(t, root)
+
+			stat, err := client.ReadDiffStat(t.Context(), ReadDiffStatParams{
+				Dir:     root,
+				Ref:     "main",
+				Exclude: tt.exclude,
+			})
+			if tt.wantErr {
+				require.Error(t, err)
+				if tt.wantErrIs != nil {
+					require.ErrorIs(t, err, tt.wantErrIs)
+				}
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, &tt.want, stat)
+		})
+	}
+}
+
+// TestIntegrationCountAgainstRemote covers where a branch stands against its copy on origin.
+func TestIntegrationCountAgainstRemote(t *testing.T) {
+	t.Parallel()
+
+	commit := func(t *testing.T, root, name string) {
+		t.Helper()
+
+		write(t, root, name, "package main\n")
+		run(t, root, "add", "-A")
+		run(t, root, "commit", "-q", "-m", name)
+	}
+
+	tests := []struct {
+		name   string
+		change func(t *testing.T, root string)
+		want   RemoteStanding
+	}{
+		{
+			name: "a branch origin has never held is not pushed",
+			change: func(t *testing.T, root string) {
+				commit(t, root, "one.go")
+			},
+			want: RemoteStanding{},
+		},
+		{
+			name: "commits past the pushed copy are unpushed",
+			change: func(t *testing.T, root string) {
+				commit(t, root, "one.go")
+				run(t, root, "push", "-q", "origin", "feature")
+				commit(t, root, "two.go")
+				commit(t, root, "three.go")
+			},
+			want: RemoteStanding{
+				Pushed:   true,
+				Unpushed: 2,
+			},
+		},
+		{
+			name: "commits only the pushed copy holds are unpulled",
+			change: func(t *testing.T, root string) {
+				commit(t, root, "one.go")
+				run(t, root, "push", "-q", "origin", "feature")
+				run(t, root, "reset", "-q", "--hard", "HEAD~1")
+			},
+			want: RemoteStanding{
+				Pushed:   true,
+				Unpulled: 1,
+			},
+		},
+		{
+			name: "a branch level with its pushed copy is even",
+			change: func(t *testing.T, root string) {
+				commit(t, root, "one.go")
+				run(t, root, "push", "-q", "origin", "feature")
+			},
+			want: RemoteStanding{
+				Pushed: true,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			root := clonedRepo(t)
+			run(t, root, "config", "user.email", "test@example.com")
+			run(t, root, "config", "user.name", "test")
+			run(t, root, "checkout", "-q", "-b", "feature")
+			tt.change(t, root)
+
+			standing, err := client.CountAgainstRemote(t.Context(), root, "feature")
+			require.NoError(t, err)
+
+			assert.Equal(t, &tt.want, standing)
+		})
+	}
+}

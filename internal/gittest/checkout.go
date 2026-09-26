@@ -19,6 +19,10 @@ type Checkout struct {
 	Held       bool
 	Unresolved bool
 	Commits    []git.Commit
+	DiffStat   git.DiffStat
+	DiffErr    error
+	Excluded   []string
+	Remote     git.RemoteStanding
 	Resolved   string
 	Resolves   int
 	Fetched    string
@@ -75,6 +79,25 @@ func (g *Checkout) IsBranchHeldElsewhere(context.Context, string, string) (bool,
 // ListCommitsSince answers Commits.
 func (g *Checkout) ListCommitsSince(context.Context, string, string, int) ([]git.Commit, error) {
 	return g.Commits, nil
+}
+
+// ReadDiffStat records the paths it was told to leave out and answers DiffStat and DiffErr.
+func (g *Checkout) ReadDiffStat(_ context.Context, params git.ReadDiffStatParams) (*git.DiffStat, error) {
+	g.Excluded = params.Exclude
+	if g.DiffErr != nil {
+		return nil, g.DiffErr
+	}
+
+	stat := g.DiffStat
+
+	return &stat, nil
+}
+
+// CountAgainstRemote answers Remote.
+func (g *Checkout) CountAgainstRemote(context.Context, string, string) (*git.RemoteStanding, error) {
+	remote := g.Remote
+
+	return &remote, nil
 }
 
 // ListWorktrees answers Registered and ListErr.

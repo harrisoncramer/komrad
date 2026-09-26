@@ -9,8 +9,15 @@ import (
 	"strings"
 )
 
-// EnginesDir holds one file per engine this machine knows how to reach.
+const enginesDirVariable = "KOMRAD_ENGINES_DIR"
+
+// EnginesDir holds one file per engine this machine knows how to reach, or is the directory
+// KOMRAD_ENGINES_DIR names.
 func EnginesDir() (string, error) {
+	if dir := os.Getenv(enginesDirVariable); dir != "" {
+		return dir, nil
+	}
+
 	dir, err := configHome()
 	if err != nil {
 		return "", err

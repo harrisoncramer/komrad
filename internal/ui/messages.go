@@ -119,10 +119,10 @@ func (m model) messagesRegion(record, help string, above ...string) string {
 
 	block := slot
 	if record == "" {
-		block = m.detailsRule() + block
+		block = m.detailsRule("") + block
 	}
 
-	return block + m.detailsRule()
+	return block + m.detailsRule("")
 }
 
 // messagesFit is how many rows the region takes, refused when they would leave the list too

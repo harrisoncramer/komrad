@@ -24,6 +24,19 @@ type Commit struct {
 	CommittedAt time.Time
 }
 
+// DiffStat is how many lines a checkout adds and removes.
+type DiffStat struct {
+	Added   int
+	Removed int
+}
+
+// RemoteStanding is where a branch stands against its own copy on origin.
+type RemoteStanding struct {
+	Pushed   bool
+	Unpushed int
+	Unpulled int
+}
+
 // ReadChanges is every uncommitted path in a checkout, split by whether git tracks it.
 func (c *Client) ReadChanges(ctx context.Context, dir string) (Changes, error) {
 	refreshIndex(ctx, dir)
@@ -81,6 +94,65 @@ func (c *Client) CountAheadBehind(ctx context.Context, dir, ref string) (ahead, 
 	}
 
 	return ahead, behind, nil
+}
+
+// ReadDiffStatParams says which checkout to measure, from which base, and which paths to leave out.
+type ReadDiffStatParams struct {
+	Dir     string
+	Ref     string
+	Exclude []string
+}
+
+// ReadDiffStat is the lines the working tree adds and removes since it left ref, refused with
+// ErrBaseUnrelated when the branch shares no history with ref.
+func (c *Client) ReadDiffStat(ctx context.Context, params ReadDiffStatParams) (*DiffStat, error) {
+	related, err := doesShareHistory(ctx, params.Dir, params.Ref, "HEAD")
+	if err != nil {
+		return nil, fmt.Errorf("failed to relate %q to %s: %w", params.Dir, params.Ref, err)
+	}
+
+	if !related {
+		return nil, fmt.Errorf("%w: %s", ErrBaseUnrelated, params.Ref)
+	}
+
+	args := append([]string{
+		"-c", "core.quotepath=false",
+		"--no-pager", "diff",
+		"--no-ext-diff", "--no-color", "--find-renames", "--numstat", "-z",
+		"--merge-base", params.Ref, "--", ".",
+	}, excludePathspecs(params.Exclude)...)
+
+	out, err := RunBytes(ctx, params.Dir, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to measure %q against %s: %w", params.Dir, params.Ref, err)
+	}
+
+	return parseNumstat(out)
+}
+
+// CountAgainstRemote is how many commits HEAD holds that origin's copy of branch does not, and the
+// other way round, as the clone last fetched it.
+func (c *Client) CountAgainstRemote(ctx context.Context, dir, branch string) (*RemoteStanding, error) {
+	ref := "refs/remotes/origin/" + branch
+	sha, err := runAllowing(ctx, local, dir, 1, "rev-parse", "--verify", "--quiet", ref)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find origin's copy of %s: %w", branch, err)
+	}
+
+	if sha == "" {
+		return &RemoteStanding{}, nil
+	}
+
+	unpushed, unpulled, err := c.CountAheadBehind(ctx, dir, ref)
+	if err != nil {
+		return nil, fmt.Errorf("failed to count %s against origin: %w", branch, err)
+	}
+
+	return &RemoteStanding{
+		Pushed:   true,
+		Unpushed: unpushed,
+		Unpulled: unpulled,
+	}, nil
 }
 
 // IsBranchHeldElsewhere reports whether some other ref reaches the branch's tip.
@@ -149,4 +221,52 @@ func (c *Client) PruneWorktrees(ctx context.Context, repo string) error {
 	}
 
 	return nil
+}
+
+func parseNumstat(out []byte) (*DiffStat, error) {
+	var stat DiffStat
+
+	records := strings.Split(strings.TrimSuffix(string(out), "\x00"), "\x00")
+	for i := 0; i < len(records); i++ {
+		if records[i] == "" {
+			continue
+		}
+
+		fields := strings.SplitN(records[i], "\t", 3)
+		if len(fields) != 3 {
+			return nil, fmt.Errorf("failed to read a numstat line: %q", records[i])
+		}
+
+		if fields[2] == "" {
+			i += 2
+		}
+
+		added, err := readNumstatCount(fields[0])
+		if err != nil {
+			return nil, err
+		}
+
+		removed, err := readNumstatCount(fields[1])
+		if err != nil {
+			return nil, err
+		}
+
+		stat.Added += added
+		stat.Removed += removed
+	}
+
+	return &stat, nil
+}
+
+func readNumstatCount(field string) (int, error) {
+	if field == "-" {
+		return 0, nil
+	}
+
+	count, err := strconv.Atoi(field)
+	if err != nil {
+		return 0, fmt.Errorf("failed to read a numstat count %q: %w", field, err)
+	}
+
+	return count, nil
 }
