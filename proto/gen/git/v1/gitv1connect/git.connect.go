@@ -60,8 +60,7 @@ type GitServiceClient interface {
 	CountChangedFiles(context.Context, *connect.Request[v1.CountChangedFilesRequest]) (*connect.Response[v1.CountChangedFilesResponse], error)
 	// Diff answers with the patch between two commits.
 	Diff(context.Context, *connect.Request[v1.DiffRequest]) (*connect.Response[v1.DiffResponse], error)
-	// MapRanges answers with what the later of two commits did to each file, which is what moves a
-	// review thread from one round to the next.
+	// MapRanges answers with what the later of two commits did to each file.
 	MapRanges(context.Context, *connect.Request[v1.MapRangesRequest]) (*connect.Response[v1.MapRangesResponse], error)
 	// Replay carries a snapshot's own change onto another base in memory, answering with the tree
 	// that results and the paths that would not settle.
@@ -189,8 +188,7 @@ type GitServiceHandler interface {
 	CountChangedFiles(context.Context, *connect.Request[v1.CountChangedFilesRequest]) (*connect.Response[v1.CountChangedFilesResponse], error)
 	// Diff answers with the patch between two commits.
 	Diff(context.Context, *connect.Request[v1.DiffRequest]) (*connect.Response[v1.DiffResponse], error)
-	// MapRanges answers with what the later of two commits did to each file, which is what moves a
-	// review thread from one round to the next.
+	// MapRanges answers with what the later of two commits did to each file.
 	MapRanges(context.Context, *connect.Request[v1.MapRangesRequest]) (*connect.Response[v1.MapRangesResponse], error)
 	// Replay carries a snapshot's own change onto another base in memory, answering with the tree
 	// that results and the paths that would not settle.

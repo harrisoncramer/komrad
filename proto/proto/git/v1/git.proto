@@ -220,8 +220,7 @@ service GitService {
     };
   }
 
-  // MapRanges answers with what the later of two commits did to each file, which is what moves a
-  // review thread from one round to the next.
+  // MapRanges answers with what the later of two commits did to each file.
   rpc MapRanges(MapRangesRequest) returns (MapRangesResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
     option (annotation.v1.surfaces) = {

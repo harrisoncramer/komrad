@@ -28,20 +28,16 @@ type Replayed struct {
 // Replay carries a snapshot's own change onto another base in memory, answering with the tree
 // that results and the paths that would not settle.
 func (c *Client) Replay(ctx context.Context, params ReplayParams) (*Replayed, error) {
-	return replay(ctx, local, params)
-}
-
-func replay(ctx context.Context, on runner, params ReplayParams) (*Replayed, error) {
 	if params.FromBase == "" || params.OntoBase == "" || params.SnapshotSHA == "" {
 		return nil, fmt.Errorf("failed to replay in %q: three commits are needed", params.Dir)
 	}
 
-	root, err := getRoot(ctx, on, params.Dir)
+	root, err := getRoot(ctx, params.Dir)
 	if err != nil {
 		return nil, err
 	}
 
-	tree, conflicts, err := readMergedTree(ctx, on, readMergedTreeParams{
+	tree, conflicts, err := readMergedTree(ctx, readMergedTreeParams{
 		Dir:       root,
 		Left:      params.OntoBase,
 		Right:     params.SnapshotSHA,
@@ -57,5 +53,5 @@ func replay(ctx context.Context, on runner, params ReplayParams) (*Replayed, err
 
 // IsAncestor reports whether one commit is reachable from another.
 func (c *Client) IsAncestor(ctx context.Context, dir, maybeAncestor, of string) (bool, error) {
-	return isAncestor(ctx, local, dir, maybeAncestor, of)
+	return isAncestor(ctx, dir, maybeAncestor, of)
 }
