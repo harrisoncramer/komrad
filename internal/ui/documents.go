@@ -208,7 +208,20 @@ func (d *documentsScreen) doc(s panelShared) string {
 		return renderDocument(item.name, notice, "could not read: "+errui.GetReason(read.err), "")
 	}
 
-	return renderDocument(item.name, notice, strings.TrimSpace(read.body), "")
+	return renderDocument(item.name, notice, documentProse(item.name, read.body), "")
+}
+
+// documentProse is a document's text without the heading that opens it when that heading only
+// repeats the name, which the title above it already draws.
+func documentProse(name, body string) string {
+	body = strings.TrimSpace(body)
+	first, rest, _ := strings.Cut(body, "\n")
+	heading, isHeading := strings.CutPrefix(first, "# ")
+	if isHeading && strings.TrimSpace(heading) == strings.TrimSpace(name) {
+		return strings.TrimSpace(rest)
+	}
+
+	return body
 }
 
 // documentsListedMsg is one agent's documents come back.

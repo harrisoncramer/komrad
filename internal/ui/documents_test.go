@@ -99,6 +99,7 @@ func TestDocumentsRead(t *testing.T) {
 		stage := readStageText(harness.readFrame())
 		assert.Contains(t, stage, "RFC, written")
 		assert.Contains(t, stage, "Keep the cache warm.")
+		assert.Equal(t, 1, strings.Count(stage, "Design the cache"), "a heading that repeats the name is drawn once")
 	})
 
 	t.Run("moving the cursor reads the next", func(t *testing.T) {
@@ -197,7 +198,7 @@ func newDocumentShelf() *documentShelf {
 			{Id: "d2", Name: "Rollout report", Kind: agentv1.DocumentKind_DOCUMENT_KIND_REPORT, UpdatedAt: "2026-09-24T12:00:00Z"},
 		},
 		bodies: map[string]string{
-			"d1": "Keep the cache warm.",
+			"d1": "# Design the cache\n\nKeep the cache warm.",
 			"d2": "It went out on Tuesday.",
 		},
 	}
