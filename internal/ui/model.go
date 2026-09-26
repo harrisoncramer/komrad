@@ -34,6 +34,19 @@ import (
 	"github.com/charmbracelet/colorprofile"
 )
 
+// sizeFallback is how long a read-back size waits for the terminal to report it.
+const sizeFallback = 200 * time.Millisecond
+
+// sizeReadMsg is the size the frame read back off tmux after moving the panel's own pane.
+type sizeReadMsg struct {
+	size tea.WindowSizeMsg
+}
+
+// sizeFallbackMsg is a read-back size the terminal has not confirmed within sizeFallback.
+type sizeFallbackMsg struct {
+	size tea.WindowSizeMsg
+}
+
 // Run launches the panel and blocks for the life of the persistent manager tmux session.
 func Run(ctx context.Context, deps Deps) error {
 	// The panel resizes its own pane by zooming it, and the renderer is told about that the same
@@ -121,18 +134,6 @@ func (p *postbox) deliver() {
 		}
 	}
 }
-
-// sizeReadMsg is the size the frame read back off tmux after moving the panel's own pane.
-type sizeReadMsg struct {
-	size tea.WindowSizeMsg
-}
-
-// sizeFallbackMsg is a read-back size the terminal has not confirmed within sizeFallback.
-type sizeFallbackMsg struct {
-	size tea.WindowSizeMsg
-}
-
-const sizeFallback = 200 * time.Millisecond
 
 func (p *postbox) takePending() *tea.WindowSizeMsg {
 	p.mu.Lock()

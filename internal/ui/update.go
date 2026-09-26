@@ -218,7 +218,9 @@ func (m *model) applySizeRead(msg sizeReadMsg) tea.Cmd {
 		return nil
 	}
 
-	return tea.Tick(sizeFallback, func(time.Time) tea.Msg { return sizeFallbackMsg(msg) })
+	return tea.Tick(sizeFallback, func(time.Time) tea.Msg {
+		return sizeFallbackMsg(msg)
+	})
 }
 
 // applySizeFallback hands the renderer a read-back size the terminal never reported.
@@ -227,7 +229,9 @@ func (m model) applySizeFallback(msg sizeFallbackMsg) tea.Cmd {
 		return nil
 	}
 
-	return func() tea.Msg { return msg.size }
+	return func() tea.Msg {
+		return msg.size
+	}
 }
 
 // relayout sizes everything drawn off the split again, once the split has moved.
