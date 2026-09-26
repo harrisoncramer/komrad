@@ -68,6 +68,7 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 		row.Matches = matchesIn(params.matcher, r.workflow.Name)
 		row.Scheduled = params.scheduled[r.workflow.ID]
 		row.Archived = r.workflow.ArchivedAt != nil
+		row.UnreadMail = r.orchestrator != nil && r.orchestrator.UnreadMail
 
 		// A workflow's bar is its orchestrator's, and one with no orchestrator running behind it
 		// draws no bar at all.
