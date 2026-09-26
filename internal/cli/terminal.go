@@ -393,8 +393,7 @@ func redial(ctx context.Context, params runTerminalParams) (terminalConn, error)
 	}
 }
 
-// isDropped reports whether a stream failed because the connection went rather than because the
-// engine refused it.
+// isDropped reports whether a stream failed from a lost connection.
 func isDropped(ctx context.Context, err error) bool {
 	if ctx.Err() != nil {
 		return false

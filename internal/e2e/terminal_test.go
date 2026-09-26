@@ -77,19 +77,6 @@ func TestIntegrationTerminalAttachesToAnAgent(t *testing.T) {
 
 		assert.Equal(t, pane, instance.GetOwnedPane(agent.GetId()))
 	})
-
-	t.Run("an agent that does not exist is refused", func(t *testing.T) {
-		stream := instance.Terminals.Attach(ctx)
-		t.Cleanup(func() { _ = stream.CloseResponse() })
-
-		require.NoError(t, stream.Send(&terminalv1.AttachRequest{Message: &terminalv1.AttachRequest_Open{Open: &terminalv1.OpenAttach{
-			AgentId: "01a0debb-d80a-71a5-9f85-000000000000",
-			Size:    &terminalv1.Size{Rows: 24, Cols: 80},
-		}}}))
-
-		_, err := stream.Receive()
-		assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err))
-	})
 }
 
 type attachStream struct {

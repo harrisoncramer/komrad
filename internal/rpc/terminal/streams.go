@@ -84,7 +84,7 @@ func (s attachStream) sendExit(code int32) error {
 	return s.stream.Send(&terminalv1.AttachResponse{Message: &terminalv1.AttachResponse_Exit{Exit: &terminalv1.Exit{Code: code}}})
 }
 
-// endInput types nothing, since the agent's own terminal is not the caller's to end.
+// endInput types nothing.
 func (attachStream) endInput(pty.Terminal) error {
 	return nil
 }
