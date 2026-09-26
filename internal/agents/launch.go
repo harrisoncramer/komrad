@@ -236,7 +236,7 @@ func (s *LaunchService) findParent(ctx context.Context, params NewAgentParams) (
 	}
 	if parent.Role == agentstore.RoleOrchestrator {
 		return nil, fmt.Errorf(
-			"%w: %q is drawn on its workflow's own row, so a child of it would have no row anywhere; spawn an ordinary agent into the workflow with provisionEnabled false instead",
+			"%w: %q is drawn on its workflow's own row, so a child of it would have no row anywhere; spawn an ordinary agent into the workflow with provision_enabled false instead",
 			ErrParentIsOrchestrator, parent.Name)
 	}
 

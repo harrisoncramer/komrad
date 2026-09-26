@@ -621,7 +621,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "create_agent"
-      description: "Launch a new agent with an opening prompt. The prompt is everything the agent has to go on, so it should say what the work is and where to start. The agent runs in a tmux window of its own and, when its workflow provisions worktrees, in a fresh worktree cut from the workflow's directory. Leave dir blank to take the workflow's directory, and set provisionEnabled to false when the agent should work in an existing checkout rather than a new worktree. To attach the new agent to one already running, pass that agent's id as parentAgentId. A child shares its parent's directory, may only mail its parent and its siblings, and is archived and deleted along with the parent. Use a child for an agent that reads a tree, such as a test runner, and a standalone agent for one that writes work of its own. There is a limit on how many agents may exist at once, and a call past it is refused as resource_exhausted, which means there is no room rather than that something is broken."
+      description: "Launch a new agent with an opening prompt. The prompt is everything the agent has to go on, so it should say what the work is and where to start. The agent runs in a tmux window of its own and, when its workflow provisions worktrees, in a fresh worktree cut from the workflow's directory. Leave dir blank to take the workflow's directory, and set provision_enabled to false when the agent should work in an existing checkout rather than a new worktree. To attach the new agent to one already running, pass that agent's id as parent_agent_id. A child shares its parent's directory, may only mail its parent and its siblings, and is archived and deleted along with the parent. Use a child for an agent that reads a tree, such as a test runner, and a standalone agent for one that writes work of its own. There is a limit on how many agents may exist at once, and a call past it is refused as resource_exhausted, which means there is no room rather than that something is broken."
       destructive: false
       roles: [
         ROLE_IMPLEMENTER,
@@ -710,7 +710,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "send_mail"
-      description: "Send a message to another agent, addressed by id or by name. Mail is not typed into the recipient's terminal. It waits in the panel until the recipient reads it, which may be a while if that agent is busy or dormant, and the response warns you when nothing is running behind the recipient. Say who you are and what you need in the body, and set replyTo when answering so the exchange reads as a thread. A name is looked up among the live agents of your own workflow first, then everywhere, and a name held in more than one workflow is refused, so address that agent by id. Each pair of agents may exchange only so much mail in total, and a send past that limit is refused for good, so settle an exchange with an answer rather than another round. A child may mail only its parent and its parent's other children."
+      description: "Send a message to another agent, addressed by id or by name. Mail is not typed into the recipient's terminal. It waits in the panel until the recipient reads it, which may be a while if that agent is busy or dormant, and the response warns you when nothing is running behind the recipient. Say who you are and what you need in the body, and set reply_to when answering so the exchange reads as a thread. A name is looked up among the live agents of your own workflow first, then everywhere, and a name held in more than one workflow is refused, so address that agent by id. Each pair of agents may exchange only so much mail in total, and a send past that limit is refused for good, so settle an exchange with an answer rather than another round. A child may mail only its parent and its parent's other children."
       destructive: false
       idempotent: false
       roles: [
@@ -725,7 +725,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "forward_last_turns"
-      description: "Send one agent's latest turns to another agent as mail, without the text passing through your own context. Komrad composes the mail itself: a header naming the source and what was forwarded, your note if you give one, then the turns, which the recipient is told to read as quoted material. By default the source's last turn goes. Set turns for more, and maxBytes to cut each turn from the head so its conclusion survives. The response reports what was sent and how large it was, never the text. Every rule of send_mail applies, since the mail is sent from you. Mail holds at most 10000 characters, and a forward that would run over is refused rather than cut, so pass fewer turns or a smaller maxBytes and try again. Use this when the recipient needs the text and you do not, and get_last_turns when you do."
+      description: "Send one agent's latest turns to another agent as mail, without the text passing through your own context. Komrad composes the mail itself: a header naming the source and what was forwarded, your note if you give one, then the turns, which the recipient is told to read as quoted material. By default the source's last turn goes. Set turns for more, and max_bytes to cut each turn from the head so its conclusion survives. The response reports what was sent and how large it was, never the text. Every rule of send_mail applies, since the mail is sent from you. Mail holds at most 10000 characters, and a forward that would run over is refused rather than cut, so pass fewer turns or a smaller max_bytes and try again. Use this when the recipient needs the text and you do not, and get_last_turns when you do."
       destructive: false
       idempotent: false
       roles: [
@@ -883,7 +883,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "get_transcript"
-      description: "Read an agent's whole conversation as plain text, one window at a time. Pass the returned cursor back to read on until none comes back, and set maxBytes for a smaller window. Transcripts run long, so reach for search_transcripts when looking for something specific and get_last_turns when you only want how it ended."
+      description: "Read an agent's whole conversation as plain text, one window at a time. Pass the returned cursor back to read on until none comes back, and set max_bytes for a smaller window. Transcripts run long, so reach for search_transcripts when looking for something specific and get_last_turns when you only want how it ended."
       roles: [
         ROLE_IMPLEMENTER,
         ROLE_REVIEWER,
@@ -897,7 +897,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "get_last_turns"
-      description: "Read the newest turns of an agent's conversation, which is the quickest way to learn what it concluded. The last turn comes back by default; set turns for more, with the prompts between them, oldest first. A turn is one message, so a reply that ran tools between two pieces of text counts as two. A long turn is cut from the head to fit maxBytes so the conclusion survives, and truncated says when that happened. Use get_transcript to read a conversation through and search_transcripts to find something said in one."
+      description: "Read the newest turns of an agent's conversation, which is the quickest way to learn what it concluded. The last turn comes back by default; set turns for more, with the prompts between them, oldest first. A turn is one message, so a reply that ran tools between two pieces of text counts as two. A long turn is cut from the head to fit max_bytes so the conclusion survives, and truncated says when that happened. Use get_transcript to read a conversation through and search_transcripts to find something said in one."
       roles: [
         ROLE_IMPLEMENTER,
         ROLE_REVIEWER,
@@ -992,7 +992,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "create_review_thread"
-      description: "Pin a comment to a line range in the diff you are reviewing. You may only review the agent you are a child of. Comments collect in a batch nobody sees until you send it with release_review, so write every comment first and release once. Anchor the comment with the file, the line range and the diff lines it is about as quotedLines, so it still makes sense after the code moves, and pass the round's snapshotSha so it is filed against the code you read. Pass suggestion to propose exact replacement lines the agent should apply. Keep the body to a sentence or two, naming the line, value or case you mean and quoting code where the code is the point. Say what is wrong and what to do about it, with no preamble and no hedging."
+      description: "Pin a comment to a line range in the diff you are reviewing. You may only review the agent you are a child of. Comments collect in a batch nobody sees until you send it with release_review, so write every comment first and release once. Anchor the comment with the file, the line range and the diff lines it is about as quoted_lines, so it still makes sense after the code moves, and pass the round's snapshot_sha so it is filed against the code you read. Pass suggestion to propose exact replacement lines the agent should apply. Keep the body to a sentence or two, naming the line, value or case you mean and quoting code where the code is the point. Say what is wrong and what to do about it, with no preamble and no hedging."
       destructive: false
       idempotent: false
       roles: [ROLE_REVIEWER]
@@ -1079,7 +1079,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "open_review_round"
-      description: "Freeze an agent's worktree as it stands and get back the round to review against. A round is a snapshot commit of the whole worktree, committed and uncommitted alike. Call this before reading the diff, and diff the round's baseSha against its snapshotSha to see exactly what you are reviewing. A tree that has not changed since the last round returns that round, so calling twice is safe."
+      description: "Freeze an agent's worktree as it stands and get back the round to review against. A round is a snapshot commit of the whole worktree, committed and uncommitted alike. Call this before reading the diff, and diff the round's base_sha against its snapshot_sha to see exactly what you are reviewing. A tree that has not changed since the last round returns that round, so calling twice is safe."
       destructive: false
       idempotent: true
       roles: [ROLE_REVIEWER]
@@ -1091,7 +1091,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "list_review_rounds"
-      description: "List the rounds taken of an agent, oldest first. Each round is a frozen snapshot of the worktree at that moment, so this is how you find what a review was given against and what changed between two rounds: diff one round's snapshotSha against the next. Use open_review_round to take a new one."
+      description: "List the rounds taken of an agent, oldest first. Each round is a frozen snapshot of the worktree at that moment, so this is how you find what a review was given against and what changed between two rounds: diff one round's snapshot_sha against the next. Use open_review_round to take a new one."
       roles: [
         ROLE_IMPLEMENTER,
         ROLE_REVIEWER,

@@ -18,11 +18,13 @@ import (
 	"komrad/internal/harness/claude"
 	"komrad/internal/harness/codex"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 // TestIntegrationStopHookDeliversMail pins what the stop hook writes back to the agent for each shape of
@@ -339,7 +341,21 @@ func fakeMailServer(t *testing.T, params fakeMailParams) string {
 		*params.asked = caller.FromHeader(r.Header)
 
 		w.Header().Set("Content-Type", "application/json")
-		assert.NoError(t, json.NewEncoder(w).Encode(deliveredMail{Mail: params.mail}))
+		resp := &agentv1.ReadMailResponse{Mail: xslice.Map(params.mail, func(item mailItem) *agentv1.Mail {
+			m := &agentv1.Mail{Id: item.ID, FromName: item.FromName, Body: item.Body}
+			if item.FromAgent != "" {
+				m.FromAgentId = &item.FromAgent
+			}
+			if item.ReplyTo != "" {
+				m.ReplyTo = &item.ReplyTo
+			}
+
+			return m
+		})}
+		out, err := protojson.MarshalOptions{UseProtoNames: true}.Marshal(resp)
+		assert.NoError(t, err)
+		_, err = w.Write(out)
+		assert.NoError(t, err)
 	})
 
 	mux.HandleFunc(agentv1connect.AgentServiceRecordReportProcedure, func(w http.ResponseWriter, r *http.Request) {

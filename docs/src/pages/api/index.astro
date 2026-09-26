@@ -16,10 +16,17 @@ X-Komrad-Session-Id: 3b438df1-9e00-4716-a74c-e1ed2292e091
 { "id": "019991a5-3c4e-7b12-8f3a-1c2d3e4f5a6b" }`;
 
 const record = `{
-  "id": "019991a5-3c4e-7b12-8f3a-1c2d3e4f5a6b",
-  "name": "update-docs-language",
-  "created_at": "2026-09-26T22:56:41.128390Z",
-  "state_changed_at": "2026-09-26T23:14:02.551007Z"
+  "agent": {
+    "agent": {
+      "id": "019991a5-3c4e-7b12-8f3a-1c2d3e4f5a6b",
+      "name": "update-docs-language",
+      "created_at": "2026-09-26T22:56:41.128390Z",
+      "state_changed_at": "2026-09-26T23:14:02.551007Z",
+      ...
+    },
+    "unread_mail": true,
+    "local_review_rounds": 1
+  }
 }`;
 
 const page = `{ "pagination": { "limit": 50, "cursor": "eyJpIjoiMDE5OTkxYTUtM2M0ZS03YjEyLThmM2EtMWMyZDNlNGY1YTZiIn0" } }`;
@@ -84,9 +91,11 @@ X-Request-Id: 019991a6-8b0e-7c3d-9e1f-2a3b4c5d6e7f
       RFC 3339 in UTC.
     </p>
     <p>
-      A field the method page marks optional is left out when it has no value, never sent as null, so a merged pull
-      request carries a <code>merged_at</code> and an open one does not. That strictness runs both ways: a request
-      naming a field the method does not have is refused rather than having the field quietly dropped.
+      A field at its zero value is left out rather than sent: a false, a zero, an empty string and an empty list are all
+      absent, so read a missing field as its zero. A field the method page marks optional is the exception, since it is
+      absent only when unset, so a merged pull request carries a <code>merged_at</code> and an open one does not. That
+      strictness runs both ways: a request naming a field the method does not have is refused rather than having the
+      field quietly dropped.
     </p>
   </section>
 

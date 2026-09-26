@@ -1423,7 +1423,7 @@ func TestNewChildAgentRefusesAnOrchestratorParent(t *testing.T) {
 	created, err := manager.launch.NewAgent(ctx, childOf(parent, "reader"))
 	require.ErrorIs(t, err, ErrParentIsOrchestrator)
 	assert.Nil(t, created)
-	require.ErrorContains(t, err, "provisionEnabled false", "the refusal names the shape to use instead")
+	require.ErrorContains(t, err, "provision_enabled false", "the refusal names the shape to use instead")
 
 	live, err := st.Agents.List(ctx)
 	require.NoError(t, err)
