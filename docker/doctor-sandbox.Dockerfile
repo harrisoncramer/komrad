@@ -14,9 +14,8 @@ WORKDIR /root
 ENTRYPOINT ["/usr/local/bin/komrad"]
 CMD ["doctor"]
 
-# A tmux too old for the panel. Bullseye ships 3.1c, which has display-popup but not the
-# -T flag the binding passes it, so this is the version floor failing for real rather than
-# against a stubbed version string.
+# A tmux too old for the panel. Bullseye ships 3.1c, below the 3.3 floor, so this is the
+# version floor failing for real rather than against a stubbed version string.
 FROM debian:bullseye-slim AS tmux-old
 RUN apt-get update \
 	&& apt-get install -y --no-install-recommends ca-certificates procps tmux \

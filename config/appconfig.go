@@ -180,8 +180,7 @@ var CycleKeyChoices = [][]string{
 	{"alt+j", "alt+k"},
 }
 
-// CycleKeys are bound in tmux's root table while an agent is staged, so they are
-// taken from every pane and are limited to a few pairs.
+// CycleKeys are the keys that move between the panel's views.
 type CycleKeys struct {
 	// Move to the next view, then the previous one. One of ["ctrl+a", "ctrl+q"],
 	// ["alt+n", "alt+p"] or ["alt+j", "alt+k"].

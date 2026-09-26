@@ -141,14 +141,34 @@ func newYourTmuxKeysCheck() Check {
 				}
 			}
 
+			var prefixes []string
+			for _, option := range []string{"prefix", "prefix2"} {
+				prefix, err := env.Output(ctx, "tmux", "-S", socket, "show-options", "-gqv", option)
+				if err == nil && strings.TrimSpace(prefix) != "" {
+					prefixes = append(prefixes, strings.TrimSpace(prefix))
+				}
+			}
+
 			var held []string
 			for _, key := range slices.Concat(cfg.Keybindings.Cycle.Views, cfg.Keybindings.GetBoundKeys()) {
 				spelled := tmux.SpellKey(key)
-				command, ok := rootKeys[spelled]
-				if !ok || passesToNestedTmux(command) || slices.Contains(held, spelled) {
+				if slices.Contains(held, spelled) {
 					continue
 				}
-				held = append(held, spelled)
+
+				if slices.Contains(prefixes, spelled) {
+					return Result{
+						Status: StatusWarn,
+						Detail: "prefix " + spelled,
+						Err:    fmt.Errorf("%w: %s is your tmux prefix", errKeyHeldByYourTmux, spelled),
+						Fix:    "pick another pair in keybindings.cycle.views, or give your tmux a different prefix",
+					}
+				}
+
+				command, ok := rootKeys[spelled]
+				if ok && !passesToNestedTmux(command) {
+					held = append(held, spelled)
+				}
 			}
 
 			if len(held) == 0 {

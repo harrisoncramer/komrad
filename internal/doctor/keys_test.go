@@ -11,6 +11,7 @@ import (
 	"komrad/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var defaultCycleKeys = []string{"C-a", "C-q"}
@@ -181,6 +182,7 @@ func TestYourTmuxKeysCheck(t *testing.T) {
 		name       string
 		insideTmux string
 		listed     string
+		prefix     string
 		want       Status
 		wantDetail string
 	}{
@@ -214,6 +216,19 @@ func TestYourTmuxKeysCheck(t *testing.T) {
 			wantDetail: "C-a",
 		},
 		{
+			name:       "a prefix on a cycle key is lost",
+			insideTmux: "/tmp/tmux-501/default,1,0",
+			prefix:     "C-a",
+			want:       StatusWarn,
+			wantDetail: "prefix C-a",
+		},
+		{
+			name:       "a prefix on no panel key lets everything through",
+			insideTmux: "/tmp/tmux-501/default,1,0",
+			prefix:     "C-]",
+			want:       StatusOK,
+		},
+		{
 			name:       "a binding that hands the key to a pane running tmux lets it through",
 			insideTmux: "/tmp/tmux-501/default,1,0",
 			listed:     "bind-key  -T root C-d    " + passThrough,
@@ -227,9 +242,15 @@ func TestYourTmuxKeysCheck(t *testing.T) {
 			env.TmuxSocket = "komrad"
 			env.InsideTmux = tt.insideTmux
 			env.Output = func(_ context.Context, _ string, args ...string) (string, error) {
-				assert.Equal(t, []string{"-S", "/tmp/tmux-501/default", "list-keys", "-T", "root"}, args)
+				require.Equal(t, []string{"-S", "/tmp/tmux-501/default"}, args[:2])
+				if slices.Contains(args, "prefix") {
+					return tt.prefix, nil
+				}
+				if slices.Contains(args, "list-keys") {
+					return tt.listed, nil
+				}
 
-				return tt.listed, nil
+				return "", nil
 			}
 
 			result := newYourTmuxKeysCheck().Run(t.Context(), env)

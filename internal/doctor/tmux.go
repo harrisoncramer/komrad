@@ -20,7 +20,7 @@ var (
 	}
 	errTmuxTooOld = &ProblemError{
 		Code:    "tmux_too_old",
-		Message: "tmux is too old for the panel's key binding",
+		Message: "tmux is too old for the panel",
 	}
 	errTmuxVersionUnreadable = &ProblemError{
 		Code:    "tmux_version_unreadable",

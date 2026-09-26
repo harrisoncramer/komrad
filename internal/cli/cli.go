@@ -24,7 +24,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// IsQuiet reports whether an error leaves main nothing to print, the command having already had its say.
+// IsQuiet reports whether an error leaves main nothing to print.
 func IsQuiet(err error) bool {
 	return errors.Is(err, ErrLogged) || errors.Is(err, ErrReported)
 }
