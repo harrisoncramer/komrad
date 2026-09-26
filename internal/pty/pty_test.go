@@ -2,7 +2,9 @@ package pty_test
 
 import (
 	"bytes"
+	"strings"
 	"testing"
+	"time"
 
 	"komrad/internal/pty"
 
@@ -109,5 +111,62 @@ func TestStart(t *testing.T) {
 			assert.Equal(t, tt.wantCode, code)
 			assert.Contains(t, output.String(), tt.wantOutput)
 		})
+	}
+}
+
+// TestCloseHangsUp covers a caller leaving while the program still runs.
+func TestCloseHangsUp(t *testing.T) {
+	t.Parallel()
+
+	session, err := pty.Start(t.Context(), pty.StartParams{
+		Argv: []string{"sh", "-c", "echo started; sleep 30; exit 4"},
+		Dir:  t.TempDir(),
+		Size: pty.Size{Rows: 24, Cols: 80},
+	})
+	require.NoError(t, err)
+
+	started := make(chan struct{})
+	read := make(chan struct{})
+	go func() {
+		defer close(read)
+
+		var output bytes.Buffer
+		wasStarted := false
+		buffer := make([]byte, 1024)
+		for {
+			n, err := session.Read(buffer)
+			output.Write(buffer[:n])
+			if !wasStarted && strings.Contains(output.String(), "started") {
+				wasStarted = true
+				close(started)
+			}
+
+			if err != nil {
+				return
+			}
+		}
+	}()
+
+	<-started
+
+	waited := make(chan int, 1)
+	go func() {
+		code, _ := session.Wait()
+		waited <- code
+	}()
+
+	require.NoError(t, session.Close())
+
+	select {
+	case <-read:
+	case <-time.After(5 * time.Second):
+		t.Fatal("a read was still waiting after the terminal closed")
+	}
+
+	select {
+	case code := <-waited:
+		assert.Equal(t, 129, code)
+	case <-time.After(5 * time.Second):
+		t.Fatal("the program was still running after the terminal closed")
 	}
 }

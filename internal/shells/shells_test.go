@@ -52,6 +52,11 @@ func TestOpen(t *testing.T) {
 			wantErr: shells.ErrNoDirectory,
 		},
 		{
+			name:    "a relative directory is refused",
+			dir:     ".",
+			wantErr: shells.ErrNoDirectory,
+		},
+		{
 			name:    "a directory no agent works in is refused",
 			dir:     root,
 			wantErr: shells.ErrOutsideAgents,

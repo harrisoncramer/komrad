@@ -1,5 +1,4 @@
-// Package pty runs a program on a pseudo-terminal, which is how a terminal on the engine is
-// carried to a client somewhere else.
+// Package pty runs a program on a pseudo-terminal.
 package pty
 
 import (
@@ -65,7 +64,12 @@ func Start(ctx context.Context, params StartParams) (*Session, error) {
 		return nil, fmt.Errorf("failed to start %s on a terminal: %w", params.Argv[0], err)
 	}
 
-	return &Session{command: command, file: file}, nil
+	polled, err := pollFile(file)
+	if err != nil {
+		return nil, errors.Join(err, command.Process.Kill())
+	}
+
+	return &Session{command: command, file: polled}, nil
 }
 
 // Read reads what the program drew.
@@ -111,4 +115,22 @@ func (s *Session) Wait() (int, error) {
 // Close hangs up the terminal.
 func (s *Session) Close() error {
 	return s.file.Close()
+}
+
+// pollFile hands the terminal to the runtime poller.
+func pollFile(file *os.File) (*os.File, error) {
+	fd, err := syscall.Dup(int(file.Fd())) //nolint:gosec // a descriptor fits an int
+	if err != nil {
+		_ = file.Close()
+
+		return nil, fmt.Errorf("failed to take over the terminal: %w", err)
+	}
+
+	_ = file.Close()
+
+	if err := syscall.SetNonblock(fd, true); err != nil {
+		return nil, errors.Join(fmt.Errorf("failed to take over the terminal: %w", err), syscall.Close(fd))
+	}
+
+	return os.NewFile(uintptr(fd), "/dev/ptmx"), nil
 }

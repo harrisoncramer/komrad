@@ -52,6 +52,10 @@ type OpenParams struct {
 
 // Open starts a shell in dir, which must be inside a live agent's directory, killed when ctx ends.
 func (s *ShellService) Open(ctx context.Context, params OpenParams) (pty.Terminal, error) {
+	if !filepath.IsAbs(params.Dir) {
+		return nil, fmt.Errorf("%w: %s is not absolute", ErrNoDirectory, params.Dir)
+	}
+
 	dir, err := filepath.EvalSymlinks(params.Dir)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrNoDirectory, params.Dir)

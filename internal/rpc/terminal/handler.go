@@ -16,8 +16,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// DrainAfterExit is how long output is still read after the shell ends, for a program it left
-// behind holding the terminal.
+// DrainAfterExit is how long output is still read after the shell ends.
 const DrainAfterExit = 250 * time.Millisecond
 
 var errNotOpened = fail.InvalidArgument("a shell stream opens with an open message")
@@ -52,6 +51,9 @@ func NewHandler(params NewHandlerParams) *Handler {
 // Shell opens a shell from the stream's first message, carries input and resizes to it and its
 // output back, and ends with its exit status.
 func (h *Handler) Shell(ctx context.Context, stream *connect.BidiStream[terminalv1.ShellRequest, terminalv1.ShellResponse]) *fail.Error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	first, err := stream.Receive()
 	if err != nil {
 		return rpcerr.From(err, "failed to read the opening message")
@@ -82,7 +84,11 @@ func (h *Handler) Shell(ctx context.Context, stream *connect.BidiStream[terminal
 		defer close(drained)
 		sendOutput(stream, terminal)
 	}()
-	go receiveInput(stream, terminal)
+	go func() {
+		defer cancel()
+		defer terminal.Close()
+		receiveInput(stream, terminal)
+	}()
 
 	code, err := terminal.Wait()
 
@@ -128,8 +134,6 @@ func receiveInput(stream *connect.BidiStream[terminalv1.ShellRequest, terminalv1
 	for {
 		request, err := stream.Receive()
 		if err != nil {
-			_ = terminal.Close()
-
 			return
 		}
 

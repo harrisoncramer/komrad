@@ -143,8 +143,8 @@ const streamPingAfter = 15 * time.Second
 // streamPingTimeout is how long a ping waits for its answer before the connection is dropped.
 const streamPingTimeout = 15 * time.Second
 
-// NewStreamTransport is the transport a stream held open for as long as a person uses it sits
-// on, speaking HTTP/2 without TLS and pinging a silent connection so a dead one is noticed.
+// NewStreamTransport is the transport a long-lived stream sits on, speaking HTTP/2 without TLS
+// and pinging a silent connection.
 func NewStreamTransport() *http.Transport {
 	protocols := new(http.Protocols)
 	protocols.SetUnencryptedHTTP2(true)

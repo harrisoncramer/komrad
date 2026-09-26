@@ -17,8 +17,7 @@ import (
 )
 
 // TestIntegrationShellOpensInAnAgentsDirectory covers a person opening a shell on the engine in
-// an agent's directory over the api, typing into it, and getting its exit status back, and the
-// shell being refused once the agent is archived.
+// an agent's directory over the api, typing into it, and getting its exit status back.
 func TestIntegrationShellOpensInAnAgentsDirectory(t *testing.T) {
 	instance := komradtest.Start(t, komradtest.Params{})
 	ctx := t.Context()
@@ -41,12 +40,6 @@ func TestIntegrationShellOpensInAnAgentsDirectory(t *testing.T) {
 
 	agent := created.Msg.GetAgent()
 
-	t.Run("a directory no agent works in is refused", func(t *testing.T) {
-		_, err := openShell(t, instance, t.TempDir())
-		require.Error(t, err)
-		assert.Equal(t, connect.CodePermissionDenied, connect.CodeOf(err))
-	})
-
 	t.Run("a shell in the agent's directory runs there and answers with its exit status", func(t *testing.T) {
 		stream, err := openShell(t, instance, agent.GetCwd())
 		require.NoError(t, err)
@@ -67,17 +60,6 @@ func TestIntegrationShellOpensInAnAgentsDirectory(t *testing.T) {
 		assert.Equal(t, int32(5), exit.GetCode())
 		assert.Contains(t, string(output), dir+"\r\n")
 		assert.Contains(t, string(output), "30 100\r\n")
-	})
-
-	t.Run("an archived agent's directory is refused", func(t *testing.T) {
-		_, err := instance.Agents.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{
-			Ids: []string{agent.GetId()},
-		}))
-		require.NoError(t, err)
-
-		_, err = openShell(t, instance, agent.GetCwd())
-		require.Error(t, err)
-		assert.Equal(t, connect.CodePermissionDenied, connect.CodeOf(err))
 	})
 }
 

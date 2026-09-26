@@ -138,6 +138,15 @@ func TestTerminal(t *testing.T) {
 		assert.Empty(t, harness.panel.ReadRespawns())
 	})
 
+	t.Run("a remote engine with no way to reach it opens no shell", func(t *testing.T) {
+		harness := openTerminal(t, panelHarnessParams{engine: engine.Remote{Destination: "ubuntu@engine"}}, newStagedShellAgent("/var/lib/komrad/worktrees/01a0c466"))
+
+		harness.press("T")
+
+		assert.Empty(t, readShellDirs(harness))
+		assert.Contains(t, harness.readFrame(), terminalRefuse)
+	})
+
 	t.Run("a remote engine's shell is opened over the engine's api", func(t *testing.T) {
 		remote := panelHarnessParams{
 			engine:       engine.Remote{Destination: "ubuntu@engine"},
