@@ -110,11 +110,19 @@ func TestIntegrationRemoteReviewReadsThroughTheEngine(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, wantReplayed, replayed)
 
-		isAncestor, err := engine.IsAncestor(ctx, git.IsAncestorParams{Dir: tree, MaybeAncestor: base, Of: head})
+		isAncestor, err := engine.IsAncestor(ctx, git.IsAncestorParams{
+			Dir:           tree,
+			MaybeAncestor: base,
+			Of:            head,
+		})
 		require.NoError(t, err)
 		assert.True(t, isAncestor)
 
-		isAncestor, err = engine.IsAncestor(ctx, git.IsAncestorParams{Dir: tree, MaybeAncestor: head, Of: base})
+		isAncestor, err = engine.IsAncestor(ctx, git.IsAncestorParams{
+			Dir:           tree,
+			MaybeAncestor: head,
+			Of:            base,
+		})
 		require.NoError(t, err)
 		assert.False(t, isAncestor)
 	})

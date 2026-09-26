@@ -164,7 +164,11 @@ func (c *Client) PredictRebase(ctx context.Context, dir, ref string) (Prediction
 	// A base the branch already contains is not one to catch up to, whatever its content says:
 	// a branch that committed something and then reverted it holds the base's own tree, and
 	// replaying from its tip would drop both commits over a rebase git calls a no-op.
-	contained, err := isAncestor(ctx, IsAncestorParams{Dir: dir, MaybeAncestor: ref, Of: "HEAD"})
+	contained, err := isAncestor(ctx, IsAncestorParams{
+		Dir:           dir,
+		MaybeAncestor: ref,
+		Of:            "HEAD",
+	})
 	if err != nil || contained {
 		return prediction, err
 	}
