@@ -6,6 +6,7 @@ order: 1
 ---
 
 import Alert from "../../components/Alert.astro";
+import { media } from "../../site";
 
 Komrad is one binary. The binary can run either a client or a server (or multiple servers on different machines) known as _engines_.
 
@@ -82,8 +83,8 @@ Komrad runs every agent in a tmux server of its own, so tmux must be installed. 
 
 Without tmux, run `komrad open` which opens the client.
 
-<figure class="placeholder">
-  <figcaption>Recording of opening </figcaption>
+<figure>
+  <img src={media("komrad-open.webp")} alt="The komrad panel on first run, welcoming you and asking you to press w to set up your first workflow." width="1696" height="1160" />
 </figure>
 
 Congratulations! You've created your first komrad workflow.
@@ -92,7 +93,7 @@ Congratulations! You've created your first komrad workflow.
 
 The komrad panel normally takes over the current terminal. If you use tmux, you can also use komrad as a popover. Add this to your tmux config:
 
-```tmux
+```text
 run-shell 'komrad tmux'
 ```
 
