@@ -287,8 +287,8 @@ func fitRow(line Line, width int) Line {
 // where even a nameless row will not fit the pane.
 func shedMarks(line Line, width int) Line {
 	// The schedule and the documents are standing facts about the row, hiding and pausing are
-	// things a person did themselves, mail goes before the output nobody has read, which asks the person to look, and
-	// the failed run nobody else will mention goes last.
+	// things a person did themselves, mail goes before the output nobody has read, which asks
+	// the person to look, and the failed run nobody else will mention goes last.
 	for _, shed := range []*Cell{&line.Schedule, &line.Document, &line.Hidden, &line.Held, &line.Mail, &line.Alert} {
 		if roomForName(line, width) >= 0 {
 			return line

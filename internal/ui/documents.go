@@ -38,12 +38,14 @@ type documentsScreen struct {
 	rowCursor
 	agentID string
 	items   []documentItem
-	// listedAt is the agent's newest write the list was read at, so a newer one is read again.
-	listedAt *time.Time
-	listed   bool
-	listing  bool
-	err      error
-	bodies   map[string]documentBody
+	// listedAt is the agent's newest write the list was read at, and listedCount how many it had
+	// written, so a newer write or another document is listed again.
+	listedAt    *time.Time
+	listedCount int32
+	listed      bool
+	listing     bool
+	err         error
+	bodies      map[string]documentBody
 }
 
 // documentRow is one line of the documents list.
@@ -226,10 +228,16 @@ func documentProse(name, body string) string {
 
 // documentsListedMsg is one agent's documents come back.
 type documentsListedMsg struct {
-	agentID  string
-	listedAt *time.Time
-	items    []documentItem
-	err      error
+	agentID string
+	written documentsWritten
+	items   []documentItem
+	err     error
+}
+
+// documentsWritten is what an agent's row says it has written: how many, and when the newest was.
+type documentsWritten struct {
+	count  int32
+	newest *time.Time
 }
 
 // documentReadMsg is one document's text come back.
@@ -247,22 +255,22 @@ func (m *model) readDocumentsCmd() tea.Cmd {
 	}
 
 	d := &m.documents
-	newest := m.newestDocumentWrite(d.agentID)
-	if !d.listed || !sameStamp(d.listedAt, newest) {
-		return m.listDocumentsCmd(newest)
+	written := m.documentsWritten(d.agentID)
+	if !d.listed || d.listedCount != written.count || !sameStamp(d.listedAt, written.newest) {
+		return m.listDocumentsCmd(written)
 	}
 
 	return m.readHoveredDocumentCmd()
 }
 
-// newestDocumentWrite is when the agent last wrote a document, as its row says.
-func (m *model) newestDocumentWrite(agentID string) *time.Time {
+// documentsWritten is what the agent has written, as its row says.
+func (m *model) documentsWritten(agentID string) documentsWritten {
 	item, ok := m.listing.liveAgent(agentID)
 	if !ok {
-		return nil
+		return documentsWritten{}
 	}
 
-	return item.DocumentsUpdatedAt
+	return documentsWritten{count: item.Documents, newest: item.DocumentsUpdatedAt}
 }
 
 func sameStamp(a, b *time.Time) bool {
@@ -274,7 +282,7 @@ func sameStamp(a, b *time.Time) bool {
 }
 
 // listDocumentsCmd asks for the agent's documents, once at a time.
-func (m *model) listDocumentsCmd(newest *time.Time) tea.Cmd {
+func (m *model) listDocumentsCmd(written documentsWritten) tea.Cmd {
 	d := &m.documents
 	if d.listing {
 		return nil
@@ -286,12 +294,12 @@ func (m *model) listDocumentsCmd(newest *time.Time) tea.Cmd {
 	return func() tea.Msg {
 		documents, err := clients.listDocuments(agentID)
 		if err != nil {
-			return documentsListedMsg{agentID: agentID, listedAt: newest, err: err}
+			return documentsListedMsg{agentID: agentID, written: written, err: err}
 		}
 
 		return documentsListedMsg{
-			agentID:  agentID,
-			listedAt: newest,
+			agentID: agentID,
+			written: written,
 			items: xslice.Map(documents, func(document *agentv1.Document) documentItem {
 				return documentItem{
 					id:        document.GetId(),
@@ -318,7 +326,7 @@ func (m *model) applyDocumentsListed(msg documentsListedMsg) tea.Cmd {
 	}
 
 	hovered := d.list().hovered(m.shared())
-	d.items, d.listedAt, d.listed, d.err = msg.items, msg.listedAt, true, nil
+	d.items, d.listedAt, d.listedCount, d.listed, d.err = msg.items, msg.written.newest, msg.written.count, true, nil
 	d.cursor = placeCursor(rowIndexOfKey(d.rows(m.shared()), hovered), d.cursor, len(d.items))
 
 	return m.readDocumentsCmd()

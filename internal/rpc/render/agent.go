@@ -60,7 +60,7 @@ func Agent(row rowstore.Row, options AgentOptions) *agentv1.Agent {
 		FailedRun:          row.FailedRun,
 		FailedRunLog:       row.FailedRunLog,
 		Documents:          row.Documents,
-		DocumentsUpdatedAt: dates.StampPtr(row.DocumentsUpdatedAt),
+		DocumentsUpdatedAt: dates.PreciseStampPtr(row.DocumentsUpdatedAt),
 		TreeStanding:       standingOf(stored.TreeStanding),
 		TreeStandingSha:    stored.TreeStandingSHA,
 		MovedSinceRound:    stored.MovedSinceRound,

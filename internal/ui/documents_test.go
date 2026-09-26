@@ -131,6 +131,34 @@ func TestDocumentsRead(t *testing.T) {
 		assert.Len(t, harness.readSent(agentv1connect.AgentServiceListDocumentsProcedure), 2)
 		assert.Contains(t, readStageText(harness.readFrame()), "The cache is cold now.")
 	})
+
+	t.Run("a rewrite within the second it was listed in reads again", func(t *testing.T) {
+		t.Parallel()
+
+		harness, docs := openDocuments(t, "author")
+		docs.rewrite("d1", "The cache is cold now.", "2026-09-25T12:00:00.5Z")
+
+		author := buildDocumentAuthors()[2].(*agentv1.Agent)
+		author.DocumentsUpdatedAt = proto.String("2026-09-25T12:00:00.5Z")
+		harness.watch(buildPuts(author))
+
+		assert.Len(t, harness.readSent(agentv1connect.AgentServiceGetDocumentProcedure), 2)
+		assert.Contains(t, readStageText(harness.readFrame()), "The cache is cold now.")
+	})
+
+	t.Run("another document stamped with the newest one's time lists again", func(t *testing.T) {
+		t.Parallel()
+
+		harness, docs := openDocuments(t, "author")
+		docs.add(&agentv1.Document{Id: "d3", Name: "Cache notes", Kind: agentv1.DocumentKind_DOCUMENT_KIND_NOTES, UpdatedAt: "2026-09-25T12:00:00Z"})
+
+		author := buildDocumentAuthors()[2].(*agentv1.Agent)
+		author.Documents = 3
+		harness.watch(buildPuts(author))
+
+		assert.Len(t, harness.readSent(agentv1connect.AgentServiceListDocumentsProcedure), 2)
+		assert.Contains(t, harness.readFrame(), "Cache notes")
+	})
 }
 
 // openDocuments opens the documents screen from the agents list on the row named, and fires the
@@ -215,6 +243,14 @@ func (d *documentShelf) rewrite(id, body, at string) {
 			document.UpdatedAt = at
 		}
 	}
+}
+
+// add is a document written beside the others.
+func (d *documentShelf) add(document *agentv1.Document) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	d.listed = append(d.listed, document)
 }
 
 func (d *documentShelf) answer(harness *panelHarness) {
