@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -27,12 +28,15 @@ func runSlot(t *testing.T, reg registry, env map[string]string, args ...string) 
 	t.Helper()
 
 	var out bytes.Buffer
-	w := world{
+	cmd := newRootCmd(world{
 		getenv: func(name string) string { return env[name] },
 		log:    reg.log,
 		cmds:   reg.cmds,
-	}
-	err := w.run(t.Context(), append(args, "--registry", reg.dir), &out)
+	})
+	cmd.SetArgs(append(args, "--registry", reg.dir))
+	cmd.SetOut(&out)
+	cmd.SetErr(io.Discard)
+	err := cmd.ExecuteContext(t.Context())
 
 	return out.String(), err
 }
@@ -159,5 +163,21 @@ func TestDropKeepsTheSlot(t *testing.T) {
 	want := "docker compose -p komrad-test-pg exec -T db psql -U komrad -d postgres -v ON_ERROR_STOP=1 -c DROP DATABASE IF EXISTS komrad_1 WITH (FORCE) -c DROP ROLE IF EXISTS komrad_engine_slot_1, komrad_engine_slot_1_reader"
 	if len(cmds.calls) != 1 || cmds.calls[0] != want {
 		t.Errorf("ran %q, want %q", cmds.calls, want)
+	}
+}
+
+// TestRefusesWithoutARoot runs nothing for a command naming no checkout.
+func TestRefusesWithoutARoot(t *testing.T) {
+	t.Parallel()
+
+	reg, cmds := newTestRegistry(t)
+	for _, verb := range []string{"env", "check", "drop", "down"} {
+		if _, err := runSlot(t, reg, nil, verb); err == nil || !strings.Contains(err.Error(), "needs --root") {
+			t.Errorf("%s without --root = %v, want a refusal", verb, err)
+		}
+	}
+
+	if len(cmds.calls) != 0 {
+		t.Errorf("ran %q", cmds.calls)
 	}
 }

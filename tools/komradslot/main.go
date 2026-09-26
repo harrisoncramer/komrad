@@ -3,7 +3,6 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -11,13 +10,15 @@ import (
 	"os/signal"
 	"path/filepath"
 	"time"
+
+	"github.com/spf13/cobra"
 )
 
 func main() {
-	os.Exit(run(os.Args[1:]))
+	os.Exit(run())
 }
 
-func run(args []string) int {
+func run() int {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
@@ -28,7 +29,7 @@ func run(args []string) int {
 		cmds:   execRunner{out: os.Stderr},
 	}
 
-	if err := w.run(ctx, args, os.Stdout); err != nil {
+	if err := newRootCmd(w).ExecuteContext(ctx); err != nil {
 		logger.Print(err)
 
 		return 1
@@ -44,47 +45,58 @@ type world struct {
 	cmds   runner
 }
 
-func (w world) run(ctx context.Context, args []string, out io.Writer) error {
-	usage := fmt.Errorf("usage: komradslot env|check|drop|down --root checkout [--registry dir]")
-	if len(args) == 0 {
-		return usage
+func newRootCmd(w world) *cobra.Command {
+	var root, dir string
+
+	cmd := &cobra.Command{
+		Use:           "komradslot",
+		Short:         "Give each komrad checkout a throwaway instance of its own",
+		SilenceUsage:  true,
+		SilenceErrors: true,
 	}
 
-	flags := flag.NewFlagSet(args[0], flag.ContinueOnError)
-	flags.SetOutput(io.Discard)
-	root := flags.String("root", "", "the checkout the instance belongs to")
-	dir := flags.String("registry", "", "the slot registry, ~/.local/state/komrad-test/instances when empty")
+	cmd.PersistentFlags().StringVar(&root, "root", "", "the checkout the instance belongs to")
+	cmd.PersistentFlags().StringVar(&dir, "registry", "", "the slot registry, ~/.local/state/komrad-test/instances when empty")
 
-	if err := flags.Parse(args[1:]); err != nil {
-		return fmt.Errorf("%w: %w", usage, err)
+	slotCmd := func(use, short string, fn func(ctx context.Context, reg registry, checkout string, out io.Writer) error) *cobra.Command {
+		return &cobra.Command{
+			Use:   use,
+			Short: short,
+			Args:  cobra.NoArgs,
+			RunE: func(cmd *cobra.Command, _ []string) error {
+				if root == "" {
+					return fmt.Errorf("%s needs --root", cmd.CommandPath())
+				}
+
+				checkout, err := resolve(root)
+				if err != nil {
+					return err
+				}
+
+				reg, err := w.registry(dir)
+				if err != nil {
+					return err
+				}
+
+				return fn(cmd.Context(), reg, checkout, cmd.OutOrStdout())
+			},
+		}
 	}
 
-	if *root == "" {
-		return usage
-	}
+	cmd.AddCommand(
+		slotCmd("env", "Claim the checkout's slot and print its environment", printEnv),
+		slotCmd("check", "Refuse unless the environment is the checkout's slot", func(_ context.Context, reg registry, checkout string, _ io.Writer) error {
+			return check(reg, checkout, w.getenv)
+		}),
+		slotCmd("drop", "Drop the database and logins of the checkout's slot", func(ctx context.Context, reg registry, checkout string, _ io.Writer) error {
+			return drop(ctx, reg, checkout)
+		}),
+		slotCmd("down", "Take the checkout's instance down and give its slot back", func(ctx context.Context, reg registry, checkout string, _ io.Writer) error {
+			return down(ctx, reg, checkout)
+		}),
+	)
 
-	checkout, err := resolve(*root)
-	if err != nil {
-		return err
-	}
-
-	reg, err := w.registry(*dir)
-	if err != nil {
-		return err
-	}
-
-	switch args[0] {
-	case "env":
-		return printEnv(ctx, reg, checkout, out)
-	case "check":
-		return check(reg, checkout, w.getenv)
-	case "drop":
-		return drop(ctx, reg, checkout)
-	case "down":
-		return down(ctx, reg, checkout)
-	default:
-		return usage
-	}
+	return cmd
 }
 
 func (w world) registry(dir string) (registry, error) {

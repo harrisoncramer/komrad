@@ -2,37 +2,52 @@
 package main
 
 import (
-	"flag"
 	"fmt"
-	"io"
 	"os"
+
+	"github.com/spf13/cobra"
 )
 
 func main() {
-	if err := run(os.Args[1:], os.Stdout); err != nil {
+	if err := newRootCmd().Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, "komradpkg:", err)
 		os.Exit(1)
 	}
 }
 
-func run(args []string, out io.Writer) error {
-	if len(args) == 0 || args[0] != "changed" {
-		return fmt.Errorf("usage: komradpkg changed [--base ref] [--dir root]")
+func newRootCmd() *cobra.Command {
+	root := &cobra.Command{
+		Use:           "komradpkg",
+		Short:         "Answer which Go packages a branch changed",
+		SilenceUsage:  true,
+		SilenceErrors: true,
 	}
 
-	flags := flag.NewFlagSet("changed", flag.ContinueOnError)
-	base := flags.String("base", "origin/main", "the ref to measure the branch against")
-	root := flags.String("dir", ".", "the root of the repository to read")
-	tags := flags.String("tags", "integration", "the build tags to read the packages under, as the linter reads them")
+	root.AddCommand(newChangedCmd())
 
-	if err := flags.Parse(args[1:]); err != nil {
-		return err
+	return root
+}
+
+func newChangedCmd() *cobra.Command {
+	var base, dir, tags string
+
+	changed := &cobra.Command{
+		Use:   "changed",
+		Short: "Print the packages a branch changed and how many packages import them",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			plan, err := describe(dir, base, tags)
+			if err != nil {
+				return err
+			}
+
+			return writePlan(cmd.OutOrStdout(), plan)
+		},
 	}
 
-	plan, err := describe(*root, *base, *tags)
-	if err != nil {
-		return err
-	}
+	changed.Flags().StringVar(&base, "base", "origin/main", "the ref to measure the branch against")
+	changed.Flags().StringVar(&dir, "dir", ".", "the root of the repository to read")
+	changed.Flags().StringVar(&tags, "tags", "integration", "the build tags to read the packages under, as the linter reads them")
 
-	return writePlan(out, plan)
+	return changed
 }
