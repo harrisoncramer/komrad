@@ -9,4 +9,4 @@
 # the instance down and gives the slot back, and the komrad-worktree-teardown hook does the same
 # when an agent is deleted.
 [env]
-_.source = "{{config_root}}/mise/tasks/_test_env"
+_.source = { path = "{{config_root}}/mise/tasks/_test_env", tools = true }

@@ -124,7 +124,7 @@ func printEnv(ctx context.Context, reg registry, root string, out io.Writer) err
 		return err
 	}
 
-	for _, s := range settings(reg.slotDir(n), n) {
+	for _, s := range buildSettings(reg.slotDir(n), n) {
 		if _, err := fmt.Fprintf(out, "%s=%s\n", s.name, s.value); err != nil {
 			return fmt.Errorf("failed to print the environment: %w", err)
 		}
@@ -144,7 +144,7 @@ func check(reg registry, root string, getenv func(string) string) error {
 		return fmt.Errorf("%s holds no slot, so there is no throwaway instance to run against", root)
 	}
 
-	for _, s := range settings(reg.slotDir(n), n) {
+	for _, s := range buildSettings(reg.slotDir(n), n) {
 		if have := getenv(s.name); have != s.value {
 			return fmt.Errorf("%s is %q but slot %d needs %q; refusing to run against it", s.name, have, n, s.value)
 		}

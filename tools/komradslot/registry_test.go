@@ -33,6 +33,10 @@ func (f *fakeRunner) run(_ context.Context, name string, args ...string) error {
 	return nil
 }
 
+func (f *fakeRunner) probe(ctx context.Context, name string, args ...string) error {
+	return f.run(ctx, name, args...)
+}
+
 func newTestRegistry(t *testing.T) (registry, *fakeRunner) {
 	t.Helper()
 
@@ -100,6 +104,15 @@ func TestClaim(t *testing.T) {
 		calls   []string
 	}{
 		{
+			name: "a full registry of live checkouts refuses",
+			arrange: func(t *testing.T, reg registry, _ string) {
+				for n := 1; n <= slotMax; n++ {
+					holdSlot(t, reg, n, checkout(t))
+				}
+			},
+			wantErr: "all 50 slots are held",
+		},
+		{
 			name: "an empty registry hands out the first slot",
 			want: 1,
 		},
@@ -143,15 +156,6 @@ func TestClaim(t *testing.T) {
 				"docker compose -p komrad-test-7 down --volumes --remove-orphans",
 			},
 		},
-		{
-			name: "a full registry of live checkouts refuses",
-			arrange: func(t *testing.T, reg registry, _ string) {
-				for n := 1; n <= slotMax; n++ {
-					holdSlot(t, reg, n, checkout(t))
-				}
-			},
-			wantErr: "all 50 slots are held",
-		},
 	}
 
 	for _, tt := range tests {
@@ -182,8 +186,8 @@ func TestClaim(t *testing.T) {
 				t.Errorf("claim() = %d, want %d", got, tt.want)
 			}
 
-			if reg.rootOf(got) != root {
-				t.Errorf("slot %d holds %q, want %q", got, reg.rootOf(got), root)
+			if reg.getRoot(got) != root {
+				t.Errorf("slot %d holds %q, want %q", got, reg.getRoot(got), root)
 			}
 
 			if strings.Join(cmds.calls, "\n") != strings.Join(tt.calls, "\n") {
@@ -281,7 +285,7 @@ func TestRetire(t *testing.T) {
 		t.Fatalf("retire() = %d, %v, %v, want 3, true, nil", n, ok, err)
 	}
 
-	if !reg.goingDown(3) {
+	if !reg.isGoingDown(3) {
 		t.Error("a retired slot is not marked as going down")
 	}
 

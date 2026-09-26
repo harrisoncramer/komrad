@@ -18,10 +18,6 @@ func TestDown(t *testing.T) {
 		wantCalls int
 	}{
 		{
-			name:      "a slot whose database comes down is given back",
-			wantCalls: 4,
-		},
-		{
 			name:      "docker being unreachable keeps the claim",
 			fail:      "docker info",
 			wantErr:   true,
@@ -38,6 +34,10 @@ func TestDown(t *testing.T) {
 		{
 			name:      "tmux and the server already being gone is not a failure",
 			fail:      "tmux -L komrad-test-2 kill-server",
+			wantCalls: 4,
+		},
+		{
+			name:      "a slot whose database comes down is given back",
 			wantCalls: 4,
 		},
 	}

@@ -33,7 +33,21 @@ require_test_instance() {
 	komradslot check --root "$test_instance_root" || exit 1
 }
 
+# test_instance_holds_slot succeeds when some slot names the checkout, without building anything.
+test_instance_holds_slot() {
+	local root
+	root="$(cd "$1" && pwd -P)"
+
+	cat "$HOME/.local/state/komrad-test/instances"/*/root 2>/dev/null | grep -qxF "$root"
+}
+
 if [ "${BASH_SOURCE[0]}" = "$0" ]; then
 	set -euo pipefail
+
+	if [ "${1:-}" = down ] && [ "${2:-}" = --root ] && ! test_instance_holds_slot "${3:?}"; then
+		echo "komradslot: $3 holds no slot"
+		exit 0
+	fi
+
 	komradslot "$@"
 fi

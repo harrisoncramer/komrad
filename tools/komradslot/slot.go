@@ -16,7 +16,7 @@ type setting struct {
 	value string
 }
 
-func settings(slotDir string, n int) []setting {
+func buildSettings(slotDir string, n int) []setting {
 	port := 5470 + n
 
 	return []setting{
@@ -25,8 +25,8 @@ func settings(slotDir string, n int) []setting {
 		{"KOMRAD_OWNER_DATABASE_URL", fmt.Sprintf("postgres://komrad:komrad@localhost:%d/komrad?sslmode=disable", port)},
 		{"KOMRAD_READONLY_DATABASE_URL", ""},
 		{"KOMRAD_ADDR", serverAddr(n)},
-		{"KOMRAD_TMUX_SOCKET", socket(n)},
-		{"COMPOSE_PROJECT_NAME", socket(n)},
+		{"KOMRAD_TMUX_SOCKET", getSocket(n)},
+		{"COMPOSE_PROJECT_NAME", getSocket(n)},
 		{"KOMRAD_CACHE_DIR", filepath.Join(slotDir, "cache")},
 		{"KOMRAD_CONFIG", configPath(slotDir)},
 	}
@@ -36,7 +36,7 @@ func serverAddr(n int) string {
 	return fmt.Sprintf("127.0.0.1:%d", 8800+n)
 }
 
-func socket(n int) string {
+func getSocket(n int) string {
 	return fmt.Sprintf("komrad-test-%d", n)
 }
 

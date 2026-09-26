@@ -13,6 +13,7 @@ import (
 
 type runner interface {
 	run(ctx context.Context, name string, args ...string) error
+	probe(ctx context.Context, name string, args ...string) error
 }
 
 // execRunner runs a command with its output sent to out.
@@ -28,6 +29,11 @@ func (e execRunner) run(ctx context.Context, name string, args ...string) error 
 	return cmd.Run()
 }
 
+// probe runs a command for its exit status alone.
+func (e execRunner) probe(ctx context.Context, name string, args ...string) error {
+	return exec.CommandContext(ctx, name, args...).Run()
+}
+
 // down stops everything slot n runs and gives the slot back, keeping the claim when the
 // database cannot be taken down.
 func (r registry) down(ctx context.Context, n int) error {
@@ -37,7 +43,7 @@ func (r registry) down(ctx context.Context, n int) error {
 
 	r.log.Printf("taking down slot %d", n)
 
-	if err := r.cmds.run(ctx, "tmux", "-L", socket(n), "kill-server"); err != nil {
+	if err := r.cmds.run(ctx, "tmux", "-L", getSocket(n), "kill-server"); err != nil {
 		r.log.Printf("no tmux server of slot %d was stopped: %v", n, err)
 	}
 
@@ -45,11 +51,11 @@ func (r registry) down(ctx context.Context, n int) error {
 		r.log.Printf("no server of slot %d was stopped: %v", n, err)
 	}
 
-	if err := r.cmds.run(ctx, "docker", "info"); err != nil {
+	if err := r.cmds.probe(ctx, "docker", "info"); err != nil {
 		return r.keepClaim(n, fmt.Errorf("failed to reach docker to take down the database of slot %d: %w", n, err))
 	}
 
-	if err := r.cmds.run(ctx, "docker", "compose", "-p", socket(n), "down", "--volumes", "--remove-orphans"); err != nil {
+	if err := r.cmds.run(ctx, "docker", "compose", "-p", getSocket(n), "down", "--volumes", "--remove-orphans"); err != nil {
 		return r.keepClaim(n, fmt.Errorf("failed to take down the database of slot %d: %w", n, err))
 	}
 

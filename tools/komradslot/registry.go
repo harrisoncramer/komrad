@@ -26,7 +26,7 @@ func (r registry) slotDir(n int) string {
 	return filepath.Join(r.dir, strconv.Itoa(n))
 }
 
-func (r registry) rootOf(n int) string {
+func (r registry) getRoot(n int) string {
 	root, err := os.ReadFile(filepath.Join(r.slotDir(n), "root"))
 	if err != nil {
 		return ""
@@ -35,8 +35,8 @@ func (r registry) rootOf(n int) string {
 	return strings.TrimSpace(string(root))
 }
 
-// goingDown reports whether a live process is taking slot n down.
-func (r registry) goingDown(n int) bool {
+// isGoingDown reports whether a live process is taking slot n down.
+func (r registry) isGoingDown(n int) bool {
 	owner, err := os.ReadFile(filepath.Join(r.slotDir(n), "down"))
 	if err != nil {
 		return false
@@ -76,7 +76,7 @@ func (r registry) lookup(root string) (int, bool, error) {
 			continue
 		}
 
-		if r.rootOf(n) == root && !r.goingDown(n) {
+		if r.getRoot(n) == root && !r.isGoingDown(n) {
 			return n, true, nil
 		}
 	}
@@ -143,7 +143,7 @@ func (r registry) pick(root string) (int, bool, error) {
 	}
 
 	for n := 1; n <= slotMax; n++ {
-		if _, err := os.Stat(r.rootOf(n)); err == nil || r.goingDown(n) {
+		if _, err := os.Stat(r.getRoot(n)); err == nil || r.isGoingDown(n) {
 			continue
 		}
 
