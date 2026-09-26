@@ -271,9 +271,6 @@ type panelShared struct {
 	// inspections is what the service has answered for each worktree directory.
 	inspections map[string]worktreeInspection
 
-	// runLogsDir is the directory the run logs are written under.
-	runLogsDir string
-
 	// editor is the command a file is opened in.
 	editor string
 
@@ -318,7 +315,6 @@ func (m *model) unmeasured() panelShared {
 			helpExpanded: m.helpExpanded,
 		},
 		inspections: m.inspections,
-		runLogsDir:  m.settings.RunLogsDir,
 		editor:      m.settings.Editor,
 		isDark:      m.isDark,
 		draw:        m,

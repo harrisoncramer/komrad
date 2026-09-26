@@ -100,8 +100,6 @@ the service, or call an endpoint from a script.`,
 			app.layout = cfg.Layout
 			app.githubApp = cfg.GitHubApp
 			app.logLevel = cfg.Log.Level
-			app.logViewer = cfg.Log.Viewer
-			app.processViewer = cfg.Log.ProcessViewer
 			app.configStack = stack
 			app.env = env
 			app.configSources = report.Sources

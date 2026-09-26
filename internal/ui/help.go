@@ -181,21 +181,7 @@ func (m model) infoPaneHelp() []key.Binding {
 		return nil
 	}
 
-	return slices.Concat(
-		[]key.Binding{binding(m.keys.Logs.Open, m.logsDesc())},
-		m.olderLogBindings(),
-		[]key.Binding{binding(m.keys.Terminal.Open, m.terminalDesc())},
-	)
-}
-
-// olderLogBindings appear only while the info pane is showing a run, naming which of an agent's
-// runs is on screen.
-func (m model) olderLogBindings() []key.Binding {
-	if m.info.kind != infoRunLog {
-		return nil
-	}
-
-	return []key.Binding{binding(m.keys.Logs.Older, m.runPosition())}
+	return []key.Binding{binding(m.keys.Terminal.Open, m.terminalDesc())}
 }
 
 func (m model) helpBinding() key.Binding {

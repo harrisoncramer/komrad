@@ -179,13 +179,6 @@ type harnessFrameReader interface {
 type PanelSettings struct {
 	// Addr is the address the service answers at.
 	Addr string
-	// LogViewer is the command the service log is read with, and LogPath the file it is in.
-	LogViewer string
-	LogPath   string
-	// ProcessViewer is the command a run log is read with, and RunLogsDir the directory they are
-	// written under.
-	ProcessViewer string
-	RunLogsDir    string
 	// Editor is the command a text field or a reviewed file is opened in.
 	Editor string
 	// Pane is the tmux pane the panel is drawn in.
@@ -248,7 +241,6 @@ type model struct {
 	listing       listing
 	reactors      []worldReactor
 	agents        agentsScreen
-	runHover      hoverState
 	schedules     schedulesScreen
 	archive       archiveScreen
 	worktrees     worktreesScreen

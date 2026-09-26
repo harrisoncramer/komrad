@@ -8,17 +8,12 @@ type infoKind int
 
 const (
 	infoNothing infoKind = iota
-	infoRunLog
-	infoAgentLog
 	infoTerminal
 )
 
 type infoState struct {
 	kind    infoKind
 	subject string
-	// run is how far back through an agent's runs the run-log pane has stepped, zero being the
-	// most recent.
-	run int
 }
 
 func (m *model) claimInfo(kind infoKind, subject string) bool {
@@ -31,7 +26,6 @@ func (m *model) claimInfo(kind infoKind, subject string) bool {
 	m.frame.Claimed(layout.RegionInfo)
 	m.info.kind = kind
 	m.info.subject = subject
-	m.info.run = 0
 	m.reconcileSolo()
 
 	// The stage is uncovered by handing the window back, so whatever was parked in it while it
@@ -53,16 +47,11 @@ func (m *model) forgetInfo() {
 	m.tmux.SetInfoPane("")
 	m.info.kind = infoNothing
 	m.info.subject = ""
-	m.info.run = 0
 	m.reconcileSolo()
 }
 
 func (m *model) stageInfo() {
 	switch m.info.kind {
-	case infoRunLog:
-		m.frame.Show(layout.RegionInfo, m.runLogContent())
-	case infoAgentLog:
-		m.frame.Show(layout.RegionInfo, m.agentLogContent())
 	case infoTerminal:
 		if argv := m.frame.ShellArgv(m.info.subject); len(argv) > 0 {
 			m.frame.Show(layout.RegionInfo, remoteTerminalContent(argv))

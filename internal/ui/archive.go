@@ -336,7 +336,7 @@ func (a *archiveScreen) doc(s panelShared) string {
 // archiveDocument is what the panel draws beside an archived agent's row.
 func archiveDocument(s panelShared, agent panel.Agent) string {
 	if agent.State.IsFailed() {
-		return failedPlaceholder(s, agent)
+		return failedPlaceholder(agent)
 	}
 
 	return archiveMarkdown(agent)

@@ -37,14 +37,6 @@ const readerSuffix = "_reader"
 // service works.
 const DefaultLogLevel = "info"
 
-// DefaultLogViewer is what the agent-log stop opens the log in when the config names
-// nothing: filtered to the lines naming the agent KOMRAD_AGENT_ID carries, followed live
-// rather than read once. An empty KOMRAD_AGENT_ID matches every line, which is what running
-// this outside that stop degrades to.
-const DefaultLogViewer = `tail -n +1 -F "$KOMRAD_LOG" | grep --line-buffered "$KOMRAD_AGENT_ID" | less -R +F`
-
-const DefaultProcessViewer = `less -R -X "$KOMRAD_LOG"`
-
 // DefaultDeliveryDeadline is how long mail stays deliverable when the config names no
 // duration. Long enough that an agent left alone over lunch still gets its mail, short
 // enough that nothing chases a recipient nobody is coming back to.
@@ -151,9 +143,6 @@ type Keybindings struct {
 	Git GitKeys `mapstructure:"git"`
 	// The pair of keys that move between the sidebar, the staged agent and the details.
 	Cycle CycleKeys `mapstructure:"cycle"`
-	// The key that pages the service's log, shared by every screen since the log is
-	// about the service rather than about anything a screen lists.
-	Logs LogsKeys `mapstructure:"logs"`
 	// The marks a person puts on rows to jump between them, as vim's own marks work.
 	Marks MarksKeys `mapstructure:"marks"`
 	// Navigation, shared by every menu so movement is the same everywhere.
@@ -218,17 +207,6 @@ type HelpKeys struct {
 type DetailsKeys struct {
 	// Copy the field the details cursor is on to the system clipboard.
 	Copy []string `mapstructure:"copy" default:"y"`
-}
-
-// LogsKeys are the bindings that read the hovered agent's own logs in the info pane. Open
-// cycles the most recent run of one of its scripts, then the background service's own log
-// filtered to that agent, and a press past the last one closes the pane. Older steps back
-// through the runs before the one on screen, wrapping round to the most recent.
-type LogsKeys struct {
-	// Cycle the hovered agent's logs in the info pane.
-	Open []string `mapstructure:"open" default:"l"`
-	// Step back to the run before the one the info pane is showing.
-	Older []string `mapstructure:"older" default:"L"`
 }
 
 // FilterKeys are the bindings for the search over the list on screen. It is its own group rather
@@ -755,17 +733,10 @@ type Debug struct {
 }
 
 // Log is how much the background service writes about itself. Where it writes is not
-// configurable. The process that spawns the service points its output at the log and the
-// panel's log key pages the same file, and a path the two could disagree about is a log
-// nobody can find.
+// configurable.
 type Log struct {
 	// How much is written, one of debug, info, warn, or error.
 	Level string `mapstructure:"level"`
-	// The default log viewer. Switch with fzf, rg, etc.
-	Viewer string `mapstructure:"viewer"`
-	// The viewer for a provisioner's or deprovisioner's own output, plain text rather than the
-	// structured log's JSON lines.
-	ProcessViewer string `mapstructure:"process_viewer"`
 }
 
 // Connection is which komrad you are talking to: the database it writes, the address it
@@ -861,13 +832,9 @@ func Defaults() *Config {
 		Layout:         DefaultLayout(),
 		Keybindings:    DefaultKeybindings(),
 		Mail:           Mail{DeliveryDeadline: DefaultDeliveryDeadline, MaxExchange: DefaultMaxExchange},
-		Log: Log{
-			Level:         DefaultLogLevel,
-			Viewer:        DefaultLogViewer,
-			ProcessViewer: DefaultProcessViewer,
-		},
-		Debug:      Debug{FrameHistory: DefaultFrameHistory},
-		Connection: defaultConnection(),
+		Log:            Log{Level: DefaultLogLevel},
+		Debug:          Debug{FrameHistory: DefaultFrameHistory},
+		Connection:     defaultConnection(),
 	}
 }
 
@@ -1398,12 +1365,6 @@ func (c *Config) normalizeZeroValues() {
 	}
 	if strings.TrimSpace(c.Log.Level) == "" {
 		c.Log.Level = DefaultLogLevel
-	}
-	if strings.TrimSpace(c.Log.Viewer) == "" {
-		c.Log.Viewer = DefaultLogViewer
-	}
-	if strings.TrimSpace(c.Log.ProcessViewer) == "" {
-		c.Log.ProcessViewer = DefaultProcessViewer
 	}
 	if c.Debug.FrameHistory <= 0 {
 		c.Debug.FrameHistory = DefaultFrameHistory

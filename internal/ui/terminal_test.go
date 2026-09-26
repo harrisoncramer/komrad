@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"komrad/internal/engine"
-	"komrad/internal/ui"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/stretchr/testify/assert"
@@ -32,19 +31,6 @@ func TestTerminal(t *testing.T) {
 		assert.Equal(t, []string{dir}, harness.panel.ReadRespawnDirs())
 		assert.Equal(t, []string{infoPane}, harness.panel.ReadSelectedPanes())
 		assert.Contains(t, readExpandedLegend(harness), "back to the terminal")
-	})
-
-	t.Run("the shell takes the pane the logs were in", func(t *testing.T) {
-		dir := t.TempDir()
-		harness := openTerminal(t, panelHarnessParams{settings: ui.PanelSettings{RunLogsDir: t.TempDir()}}, newStagedShellAgent(dir))
-		harness.press("l")
-		require.Len(t, harness.panel.ReadBelowAnchors(), 1)
-
-		harness.press("T")
-
-		assert.Len(t, harness.panel.ReadBelowAnchors(), 1, "the pane the logs were in is reused")
-		require.Equal(t, []string{infoPane, infoPane}, harness.panel.ReadRespawnPanes())
-		assert.Equal(t, dir, harness.panel.ReadRespawnDirs()[1])
 	})
 
 	t.Run("the key again hands the shell the keys rather than respawning it", func(t *testing.T) {

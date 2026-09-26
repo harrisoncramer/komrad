@@ -281,10 +281,6 @@ func (m model) routeGlobalKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
 	// not line up: the archive and the review draw the whole window and refuse them.
 	if m.screen.opensInfoPane() {
 		switch {
-		case isBound(key.String(), m.keys.Logs.Open):
-			return m.cycleLogs(), nil, true
-		case isBound(key.String(), m.keys.Logs.Older):
-			return m.olderLog(), nil, true
 		case isBound(key.String(), m.keys.Terminal.Open):
 			next, cmd := m.openTerminal()
 
@@ -333,7 +329,7 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 	switch msg := msg.(type) {
 	case tickMsg:
 		m.awaitingSize = false
-		next, readRuns := m.dwellRunsRead(msg.at)
+		next := m
 		edited := next.reconcileEditor()
 
 		next = next.noticeRebuild()
@@ -341,7 +337,7 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 			return next, nil, true
 		}
 
-		return next, tea.Batch(tick(), readRuns, edited), true
+		return next, tea.Batch(tick(), edited), true
 	case tea.BackgroundColorMsg:
 		m.isDark = msg.IsDark()
 		paint.SetDarkBackground(m.isDark)

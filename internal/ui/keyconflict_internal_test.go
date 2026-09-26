@@ -64,11 +64,6 @@ func TestValidateKeybindingsReadsTheGlobalKeys(t *testing.T) {
 			names:  "the help toggle",
 		},
 		{
-			name:   "the log taking the rename key",
-			rebind: func(k *config.Keybindings) { k.Logs.Open = []string{"r"} },
-			names:  "the log",
-		},
-		{
 			name:   "the terminal taking a movement key",
 			rebind: func(k *config.Keybindings) { k.Terminal.Open = []string{"k"} },
 			names:  "the terminal",
