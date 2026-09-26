@@ -19,8 +19,8 @@ const (
 	stopOther
 )
 
-func (m model) isCycleKey(k string) bool {
-	return isBound(k, m.keys.Cycle.Views)
+func (m model) isCycleKey(pressed string) bool {
+	return isBound(pressed, m.keys.Cycle.Views)
 }
 
 func (m model) cycleBinding() key.Binding {
@@ -44,8 +44,8 @@ func (m model) holdCycleKeys() {
 
 // findPressedElsewhere finds the stop a cycle key was pressed in when tmux sent it from a pane beside
 // the sidebar.
-func (m model) findPressedElsewhere(k string) (stop, bool) {
-	if !m.areCycleKeysBound() || !m.isCycleKey(k) {
+func (m model) findPressedElsewhere(pressed string) (stop, bool) {
+	if !m.areCycleKeysBound() || !m.isCycleKey(pressed) {
 		return stopList, false
 	}
 
@@ -62,7 +62,7 @@ func (m model) findPressedElsewhere(k string) (stop, bool) {
 
 // cycleFromElsewhere takes the keys back into the sidebar, leaving a search being typed where it
 // stands.
-func (m model) cycleFromElsewhere(k string, from stop) (tea.Model, tea.Cmd) {
+func (m model) cycleFromElsewhere(pressed string, from stop) (tea.Model, tea.Cmd) {
 	if m.isTyping() {
 		m.tmux.SelectPane(m.settings.Pane)
 
@@ -75,7 +75,7 @@ func (m model) cycleFromElsewhere(k string, from stop) (tea.Model, tea.Cmd) {
 
 	m.keysElsewhere = true
 
-	return m.cycleView(k, from)
+	return m.cycleView(pressed, from)
 }
 
 // readSidebarStop reads the stop holding the keys inside the sidebar.
@@ -111,9 +111,9 @@ func (m model) listStops() []stop {
 }
 
 // cycleView moves the keys one stop on from where they are, or one back for the backward key.
-func (m model) cycleView(k string, from stop) (tea.Model, tea.Cmd) {
+func (m model) cycleView(pressed string, from stop) (tea.Model, tea.Cmd) {
 	stops := m.listStops()
-	back := k == m.keys.Cycle.Views[1]
+	back := pressed == m.keys.Cycle.Views[1]
 
 	at := slices.Index(stops, from)
 	switch {

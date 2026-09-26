@@ -166,7 +166,7 @@ func newYourTmuxKeysCheck() Check {
 				}
 
 				command, ok := rootKeys[spelled]
-				if ok && !passesToNestedTmux(command) {
+				if ok && !doesPassToNestedTmux(command) {
 					held = append(held, spelled)
 				}
 			}
@@ -185,8 +185,8 @@ func newYourTmuxKeysCheck() Check {
 	}
 }
 
-// passesToNestedTmux reports whether a root binding checks for a tmux client in the pane before it acts.
-func passesToNestedTmux(command string) bool {
+// doesPassToNestedTmux reports whether a root binding checks for a tmux client in the pane before it acts.
+func doesPassToNestedTmux(command string) bool {
 	return strings.Contains(command, "tmux$")
 }
 
