@@ -128,8 +128,7 @@ type runShellParams struct {
 	Out     io.Writer
 	Size    func() *terminalv1.Size
 	Resized <-chan os.Signal
-	// Ready readies the local terminal once the shell is open and returns what gives it back.
-	Ready func() (func(), error)
+	Ready   func() (func(), error)
 }
 
 // runShell opens a shell and carries In to it and its output to Out until it exits.

@@ -15,10 +15,8 @@ import (
 )
 
 var (
-	// ErrOutsideAgents is a directory no live agent works in or under.
 	ErrOutsideAgents = fail.Denied("the directory is not inside a live agent's directory")
-	// ErrNoDirectory is a directory that does not exist on the engine.
-	ErrNoDirectory = fail.InvalidArgument("the directory does not exist")
+	ErrNoDirectory   = fail.InvalidArgument("the directory does not exist")
 )
 
 type agentDirLister interface {
@@ -28,8 +26,7 @@ type agentDirLister interface {
 // NewShellServiceParams is what the service is built over.
 type NewShellServiceParams struct {
 	Agents agentDirLister
-	// Shell is the program a shell runs.
-	Shell string
+	Shell  string
 }
 
 // ShellService opens shells in the directories agents work in.

@@ -27,8 +27,7 @@ type shellOpener interface {
 
 // NewHandlerParams is what the handler is built over.
 type NewHandlerParams struct {
-	Shells shellOpener
-	// DrainAfterExit overrides DrainAfterExit when non-zero.
+	Shells         shellOpener
 	DrainAfterExit time.Duration
 }
 

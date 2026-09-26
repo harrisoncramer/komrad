@@ -192,21 +192,20 @@ type PanelSettings struct {
 }
 
 type Deps struct {
-	Session       *Session
-	Tmux          uiTmux
-	Git           ReviewGit
-	Browser       browser.Opener
-	HarnessFrames harnessFrameReader
-	Agents        agentv1connect.AgentServiceClient
-	Workflows     workflowv1connect.WorkflowServiceClient
-	Schedules     schedulev1connect.ScheduleServiceClient
-	Hooks         hookv1connect.HookServiceClient
-	Worktrees     worktreev1connect.WorktreeServiceClient
-	Watch         watchv1connect.WatchServiceClient
-	Keys          config.Keybindings
-	Layout        config.Layout
-	Engine        engine.Remote
-	// ShellCommand is what opens a shell on a remote engine, before the directory it is rooted in.
+	Session         *Session
+	Tmux            uiTmux
+	Git             ReviewGit
+	Browser         browser.Opener
+	HarnessFrames   harnessFrameReader
+	Agents          agentv1connect.AgentServiceClient
+	Workflows       workflowv1connect.WorkflowServiceClient
+	Schedules       schedulev1connect.ScheduleServiceClient
+	Hooks           hookv1connect.HookServiceClient
+	Worktrees       worktreev1connect.WorktreeServiceClient
+	Watch           watchv1connect.WatchServiceClient
+	Keys            config.Keybindings
+	Layout          config.Layout
+	Engine          engine.Remote
 	ShellCommand    []string
 	Binary          BinaryWatcher
 	Settings        PanelSettings
