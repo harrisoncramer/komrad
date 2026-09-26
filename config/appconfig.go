@@ -541,7 +541,7 @@ type Hooks struct {
 // Worktrees is where a workflow's generated git worktree provisioner puts what it creates.
 type Worktrees struct {
 	// Directory generated worktrees are created under, one subdirectory per agent.
-	// Left empty this is ~/.local/state/komrad/worktrees.
+	// Left empty this is ~/.local/state/komrad/worktrees. KOMRAD_WORKTREES_DIR overrides it.
 	Dir string `mapstructure:"dir"`
 }
 
@@ -1446,10 +1446,16 @@ var connectionEnvironment = map[string]string{
 	"connection.cache_dir":             "KOMRAD_CACHE_DIR",
 }
 
+var pathEnvironment = map[string]string{
+	"worktrees.dir": "KOMRAD_WORKTREES_DIR",
+}
+
 func bindEnvironment(cfg *viper.Viper) error {
-	for key, variable := range connectionEnvironment {
-		if err := cfg.BindEnv(key, variable); err != nil {
-			return fmt.Errorf("bind %s to %s: %w", key, variable, err)
+	for _, bindings := range []map[string]string{connectionEnvironment, pathEnvironment} {
+		for key, variable := range bindings {
+			if err := cfg.BindEnv(key, variable); err != nil {
+				return fmt.Errorf("bind %s to %s: %w", key, variable, err)
+			}
 		}
 	}
 

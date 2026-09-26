@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 #MISE description="Open this checkout's panel, for a checkout the tmux plugin does not bind."
 set -euo pipefail
+source "$MISE_CONFIG_ROOT/mise/tasks/_test_instance"
+require_test_instance
 cd "$MISE_CONFIG_ROOT"
 
 exec "$MISE_CONFIG_ROOT/bin/komrad" open

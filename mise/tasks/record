@@ -18,7 +18,7 @@ usage() {
 	echo
 	echo "It needs the instance up, which 'MISE_ENV=test mise run restart' does, and ttyd,"
 	echo "which mise cannot install on macOS; install it with nix or Homebrew. It refuses"
-	echo "to run against any tmux socket but komrad-test."
+	echo "to run against any tmux socket but a throwaway instance's."
 }
 
 TAPE=""
@@ -41,10 +41,13 @@ while [ $# -gt 0 ]; do
 	esac
 done
 
-if [ "${KOMRAD_TMUX_SOCKET:-}" != "komrad-test" ]; then
-	echo "record: KOMRAD_TMUX_SOCKET is '${KOMRAD_TMUX_SOCKET:-}', not komrad-test; run it as MISE_ENV=test mise run record" >&2
+case "${KOMRAD_TMUX_SOCKET:-}" in
+komrad-test-*) ;;
+*)
+	echo "record: KOMRAD_TMUX_SOCKET is '${KOMRAD_TMUX_SOCKET:-}', not a throwaway instance's; run it as MISE_ENV=test mise run record" >&2
 	exit 1
-fi
+	;;
+esac
 
 if [ -z "$TAPE" ]; then
 	usage >&2

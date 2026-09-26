@@ -1,0 +1,195 @@
+#!/usr/bin/env bash
+# The throwaway instance a checkout tests against, one numbered slot per checkout.
+#
+# Sourced for its functions, or run as `_test_instance down-root <checkout>` to take a checkout's
+# instance down without going through mise.
+
+test_instances_dir() {
+	echo "$HOME/.local/state/komrad-test/instances"
+}
+
+test_slot_max=50
+
+# test_slot_env prints every setting slot n derives, one NAME=value per line.
+test_slot_env() {
+	local n="$1"
+	local dir
+	dir="$(test_instances_dir)/$n"
+
+	echo "DB_PORT=$((5470 + n))"
+	echo "KOMRAD_DATABASE_URL=postgres://komrad_engine_default:komrad@localhost:$((5470 + n))/komrad?sslmode=disable"
+	echo "KOMRAD_OWNER_DATABASE_URL=postgres://komrad:komrad@localhost:$((5470 + n))/komrad?sslmode=disable"
+	echo "KOMRAD_READONLY_DATABASE_URL="
+	echo "KOMRAD_ADDR=127.0.0.1:$((8800 + n))"
+	echo "KOMRAD_TMUX_SOCKET=komrad-test-$n"
+	echo "COMPOSE_PROJECT_NAME=komrad-test-$n"
+	echo "KOMRAD_CACHE_DIR=$dir/cache"
+	echo "KOMRAD_WORKTREES_DIR=$dir/worktrees"
+}
+
+# test_slot_for_root prints the slot claimed for a checkout, failing when it holds none.
+test_slot_for_root() {
+	local root="$1"
+	local claim
+
+	for claim in "$(test_instances_dir)"/*/root; do
+		[ -f "$claim" ] || continue
+		if [ "$(cat "$claim")" = "$root" ]; then
+			basename "$(dirname "$claim")"
+			return 0
+		fi
+	done
+
+	return 1
+}
+
+test_lock() {
+	local lock
+	lock="$(test_instances_dir)/.lock"
+	mkdir -p "$(test_instances_dir)"
+
+	for _ in $(seq 1 100); do
+		if mkdir "$lock" 2>/dev/null; then
+			return 0
+		fi
+
+		if [ -n "$(find "$lock" -maxdepth 0 -mmin +2 2>/dev/null)" ]; then
+			rmdir "$lock" 2>/dev/null || true
+			continue
+		fi
+
+		sleep 0.1
+	done
+
+	echo "test instance: could not take $lock" >&2
+	return 1
+}
+
+test_unlock() {
+	rmdir "$(test_instances_dir)/.lock" 2>/dev/null || true
+}
+
+# test_slot_claim prints the checkout's slot, claiming the lowest free one when it holds none.
+test_slot_claim() {
+	local root="$1"
+	local n slot
+
+	test_lock || return 1
+
+	if n="$(test_slot_for_root "$root")"; then
+		test_unlock
+		echo "$n"
+		return 0
+	fi
+
+	for n in $(seq 1 "$test_slot_max"); do
+		slot="$(test_instances_dir)/$n"
+		if mkdir "$slot" 2>/dev/null; then
+			echo "$root" >"$slot/root"
+			test_unlock
+			echo "$n"
+			return 0
+		fi
+	done
+
+	for n in $(seq 1 "$test_slot_max"); do
+		slot="$(test_instances_dir)/$n"
+		if [ ! -d "$(cat "$slot/root" 2>/dev/null)" ]; then
+			if ! test_slot_down "$n" >&2; then
+				test_unlock
+				return 1
+			fi
+
+			mkdir "$slot"
+			echo "$root" >"$slot/root"
+			test_unlock
+			echo "$n"
+			return 0
+		fi
+	done
+
+	test_unlock
+	echo "test instance: all $test_slot_max slots are held by checkouts that still exist" >&2
+	return 1
+}
+
+# test_slot_down stops everything slot n runs and gives the slot back.
+test_slot_down() {
+	local n="$1"
+	local socket="komrad-test-$n"
+	local addr="127.0.0.1:$((8800 + n))"
+
+	case "$n" in
+	'' | *[!0-9]*)
+		echo "test instance: $n is not a slot" >&2
+		return 1
+		;;
+	esac
+
+	if [ "$n" -lt 1 ] || [ "$n" -gt "$test_slot_max" ]; then
+		echo "test instance: $n is not a slot" >&2
+		return 1
+	fi
+
+	echo "test instance: taking down slot $n"
+
+	tmux -L "$socket" kill-server 2>/dev/null || true
+	pkill -f "komrad serve --addr $addr( |\$)" 2>/dev/null || true
+
+	if command -v docker >/dev/null; then
+		if ! docker info >/dev/null 2>&1; then
+			echo "test instance: docker is not reachable, so the database of slot $n cannot be taken down" >&2
+			return 1
+		fi
+
+		docker compose -p "$socket" down --volumes --remove-orphans
+	fi
+
+	local dir
+	dir="$(test_instances_dir)"
+	rm -rf "${dir:?}/${n:?}"
+}
+
+# require_test_instance refuses to go on under MISE_ENV=test unless the environment is exactly the
+# one this checkout's slot derives.
+require_test_instance() {
+	local root n name want have
+
+	[ "${MISE_ENV:-}" = test ] || return 0
+
+	root="$(cd "$MISE_CONFIG_ROOT" && pwd -P)"
+	if ! n="$(test_slot_for_root "$root")"; then
+		echo "test instance: $root holds no slot, so there is no throwaway instance to run against" >&2
+		exit 1
+	fi
+
+	while IFS='=' read -r name want; do
+		have="${!name-}"
+		if [ "$have" != "$want" ]; then
+			echo "test instance: $name is '$have' but slot $n needs '$want'; refusing to run against it" >&2
+			exit 1
+		fi
+	done < <(test_slot_env "$n")
+}
+
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+	set -euo pipefail
+
+	case "${1:-}" in
+	down-root)
+		root="$(cd "${2:?down-root needs a checkout}" && pwd -P)"
+		if ! n="$(test_slot_for_root "$root")"; then
+			echo "test instance: $root holds no slot"
+			exit 0
+		fi
+
+		test_lock
+		trap test_unlock EXIT
+		test_slot_down "$n"
+		;;
+	*)
+		echo "usage: $0 down-root <checkout>" >&2
+		exit 1
+		;;
+	esac
+fi

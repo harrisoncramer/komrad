@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 source "$MISE_CONFIG_ROOT/mise/tasks/_build"
+source "$MISE_CONFIG_ROOT/mise/tasks/_test_instance"
+require_test_instance
+
 : "${DB_PORT:=5460}"
 export DB_PORT
 export KOMRAD_DATABASE_URL="${KOMRAD_DATABASE_URL:-postgres://komrad:komrad@localhost:${DB_PORT}/komrad?sslmode=disable}"

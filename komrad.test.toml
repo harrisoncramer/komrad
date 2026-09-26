@@ -17,8 +17,3 @@ level = "debug"
 # The throwaway instance is where a misread is chased down, and a pane redraws over the frame
 # it was misread from, so the recording is on here and off everywhere else.
 frames = true
-
-# Its own worktrees directory, so an agent the throwaway instance cuts a worktree for lands
-# beside its own state rather than in the directory the panel being developed against lists.
-[worktrees]
-dir = "~/.local/state/komrad-test/worktrees"
