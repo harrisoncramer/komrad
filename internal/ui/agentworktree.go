@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"komrad/internal/errui"
@@ -56,9 +57,9 @@ func agentWorktree(inspections map[string]worktreeInspection, cwd string) (workt
 	return read, true
 }
 
-// worktreeStandingFields are the record's rows for where the directory stands: against its base,
-// against its remote branch, what is uncommitted in it, and what it takes on disk, with the
-// refusal above them when the last read failed.
+// worktreeStandingFields are the record's rows for where the directory stands: against its remote
+// branch, what is uncommitted in it, and what it takes on disk, with the refusal above them when
+// the last read failed.
 func worktreeStandingFields(read worktreeInspection, now time.Time) []recordField {
 	fields := []recordField{}
 	if read.err != nil {
@@ -69,7 +70,6 @@ func worktreeStandingFields(read worktreeInspection, now time.Time) []recordFiel
 	}
 
 	if read.item.readable {
-		fields = append(fields, buildBaseField(read))
 		if read.item.branch != "" {
 			fields = append(fields, buildRemoteField(read))
 		}
@@ -103,6 +103,12 @@ func worktreeHistoryFields(read worktreeInspection) []recordField {
 func buildRemoteField(read worktreeInspection) recordField {
 	warning := paint.Panel.Style(paint.ToneWarning)
 	switch {
+	case !read.pushed && read.baseRef != "" && read.ahead == 0:
+		return recordField{
+			label:  "remote",
+			value:  "nothing to push",
+			styled: dimStyle.Render("nothing to push"),
+		}
 	case !read.pushed:
 		return recordField{
 			label:  "remote",
@@ -119,6 +125,19 @@ func buildRemoteField(read worktreeInspection) recordField {
 
 	unpushed := fmt.Sprintf("↑%d unpushed", read.unpushed)
 	unpulled := fmt.Sprintf("↓%d unpulled", read.unpulled)
+	if read.unpulledLanded {
+		landed := fmt.Sprintf("%s · landed on %s", unpulled, strings.TrimPrefix(read.baseRef, "origin/"))
+		pushing := dimStyle
+		if read.ahead > 0 {
+			pushing = countStyle(read.unpushed, warning.Bold(true))
+		}
+
+		return recordField{
+			label:  "remote",
+			value:  unpushed + " " + landed,
+			styled: pushing.Render(unpushed) + " " + dimStyle.Render(landed),
+		}
+	}
 
 	return recordField{
 		label:  "remote",

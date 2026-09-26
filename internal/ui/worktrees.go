@@ -175,6 +175,8 @@ type worktreeInspection struct {
 	pushed    bool
 	unpushed  int
 	unpulled  int
+	// unpulledLanded says the base already holds every unpulled commit.
+	unpulledLanded bool
 	// landed is how many of the branch's own commits the base already holds whole.
 	landed int
 	// sequencing says a merge, a rebase or a cherry-pick is part-way through.

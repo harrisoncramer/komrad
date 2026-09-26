@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"komrad/internal/ui/paint"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
 	worktreev1 "komrad/proto/gen/worktree/v1"
@@ -370,6 +371,9 @@ func TestWorktreesRecord(t *testing.T) {
 		frame := harness.readFrame()
 		assert.Equal(t, "origin/main  ↑2 ↓12", readRecordField(frame, "base"))
 		assert.Equal(t, "1 modified, 2 untracked", readRecordField(frame, "changes"))
+		raw := harness.readRawFrame()
+		assert.Contains(t, raw, paint.Panel.Style(paint.ToneSuccess).Render("↑2"))
+		assert.Contains(t, raw, paint.Panel.Style(paint.ToneMark).Render("↓12"))
 	})
 }
 
