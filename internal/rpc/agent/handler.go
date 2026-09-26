@@ -303,7 +303,18 @@ func (s *Handler) GetAgent(ctx context.Context, req *agentv1.GetAgentRequest) (*
 		return nil, failure
 	}
 
-	return &agentv1.GetAgentResponse{Agent: resources[0].AgentRow}, nil
+	drawn := resources[0].AgentRow
+
+	return &agentv1.GetAgentResponse{
+		Agent:              drawn.GetAgent(),
+		Mark:               drawn.Mark,
+		UnreadMail:         drawn.GetUnreadMail(),
+		PullRequest:        drawn.GetPullRequest(),
+		PullRequests:       drawn.GetPullRequests(),
+		LocalReviewRounds:  drawn.GetLocalReviewRounds(),
+		LocalReviewVerdict: drawn.GetLocalReviewVerdict(),
+		LocalReviewTree:    drawn.GetLocalReviewTree(),
+	}, nil
 }
 
 // ListMarks is every mark, by letter.
@@ -327,7 +338,7 @@ func (s *Handler) SetMark(ctx context.Context, req *agentv1.SetMarkRequest) (*em
 		target = markstore.OnWorkflow(req.GetWorkflowId())
 	}
 
-	if req.Mark == nil {
+	if req.Letter == nil {
 		if _, err := s.marks.ClearMark(ctx, target); err != nil {
 			return nil, rpcerr.From(err, "failed to clear the mark")
 		}
@@ -335,7 +346,7 @@ func (s *Handler) SetMark(ctx context.Context, req *agentv1.SetMarkRequest) (*em
 		return &emptypb.Empty{}, nil
 	}
 
-	marked, err := s.marks.SetMark(ctx, req.GetMark(), target)
+	marked, err := s.marks.SetMark(ctx, req.GetLetter(), target)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to set the mark")
 	}

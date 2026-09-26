@@ -15,9 +15,8 @@ const (
 	nameJSONCharsetUTF8 = nameJSON + "; charset=utf-8"
 )
 
-// NewStrictJSON replaces connect's JSON codec with one that refuses a request naming a field or
-// an enum value the schema does not have, which connect would otherwise discard and answer as
-// though a different request had been made.
+// NewStrictJSON replaces connect's JSON codec with one that spells fields by their proto names
+// and refuses a request naming a field or an enum value the schema does not have.
 func NewStrictJSON() connect.HandlerOption {
 	return connect.WithHandlerOptions(
 		connect.WithCodec(strictJSON{name: nameJSON}),
@@ -39,7 +38,7 @@ func (c strictJSON) Marshal(message any) ([]byte, error) {
 		return nil, notProto(message)
 	}
 
-	return protojson.MarshalOptions{}.Marshal(protoMessage)
+	return protojson.MarshalOptions{UseProtoNames: true}.Marshal(protoMessage)
 }
 
 func (c strictJSON) MarshalAppend(dst []byte, message any) ([]byte, error) {
@@ -48,7 +47,7 @@ func (c strictJSON) MarshalAppend(dst []byte, message any) ([]byte, error) {
 		return nil, notProto(message)
 	}
 
-	return protojson.MarshalOptions{}.MarshalAppend(dst, protoMessage)
+	return protojson.MarshalOptions{UseProtoNames: true}.MarshalAppend(dst, protoMessage)
 }
 
 func (c strictJSON) Unmarshal(binary []byte, message any) error {

@@ -2256,14 +2256,14 @@ func TestAgentsSetMark(t *testing.T) {
 			press: []string{"k", "m", "a"},
 			want: &agentv1.SetMarkRequest{
 				Target: &agentv1.SetMarkRequest_WorkflowId{WorkflowId: "w1"},
-				Mark:   proto.String("a"),
+				Letter: proto.String("a"),
 			},
 		},
 		{
 			name: "the letter a header already holds takes the mark off it",
 			marks: []proto.Message{&agentv1.Mark{
 				Id:         "m-w1",
-				Mark:       "a",
+				Letter:     "a",
 				WorkflowId: proto.String("w1"),
 			}},
 			press: []string{"k", "m", "a"},
@@ -2360,7 +2360,7 @@ func TestAgentsJumpMark(t *testing.T) {
 			name: "a workflow header",
 			mark: &agentv1.Mark{
 				Id:         "m-w2",
-				Mark:       "c",
+				Letter:     "c",
 				WorkflowId: proto.String("w2"),
 			},
 			press: []string{"'", "c"},
@@ -2370,7 +2370,7 @@ func TestAgentsJumpMark(t *testing.T) {
 			name: "a workflow header from a flat list, which is put back under its headers",
 			mark: &agentv1.Mark{
 				Id:         "m-w2",
-				Mark:       "c",
+				Letter:     "c",
 				WorkflowId: proto.String("w2"),
 			},
 			press: []string{"f", "shift+tab", "j", "esc", "'", "c"},
@@ -2793,7 +2793,7 @@ func buildSelectable() []proto.Message {
 func newMark(letter, agentID string) *agentv1.Mark {
 	return &agentv1.Mark{
 		Id:      "m-" + agentID,
-		Mark:    letter,
+		Letter:  letter,
 		AgentId: proto.String(agentID),
 	}
 }
@@ -2801,6 +2801,6 @@ func newMark(letter, agentID string) *agentv1.Mark {
 func newMarkAuthRequest(letter *string) *agentv1.SetMarkRequest {
 	return &agentv1.SetMarkRequest{
 		Target: &agentv1.SetMarkRequest_AgentId{AgentId: "auth"},
-		Mark:   letter,
+		Letter: letter,
 	}
 }

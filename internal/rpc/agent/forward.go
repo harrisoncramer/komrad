@@ -57,7 +57,7 @@ func (s *Handler) ForwardLastTurns(ctx context.Context, req *agentv1.ForwardLast
 
 	length := utf8.RuneCountInString(body)
 	if length > mail.MaxMailBody {
-		return nil, errForwardTooLong.Saying("the forward would run to %d characters and mail holds at most %d; pass a smaller maxBytes or fewer turns", length, mail.MaxMailBody)
+		return nil, errForwardTooLong.Saying("the forward would run to %d characters and mail holds at most %d; pass a smaller max_bytes or fewer turns", length, mail.MaxMailBody)
 	}
 
 	recipient, err := s.agents.GetAgent(ctx, req.GetToAgentId())

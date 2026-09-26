@@ -210,17 +210,17 @@ func TestAgentRows(t *testing.T) {
 				Marks: map[string]*agentv1.Mark{
 					"mark-a": {
 						Id:      "mark-a",
-						Mark:    "a",
+						Letter:  "a",
 						AgentId: xptr.Ptr(newer),
 					},
 					"mark-w": {
 						Id:         "mark-w",
-						Mark:       "w",
+						Letter:     "w",
 						WorkflowId: xptr.Ptr(flowID),
 					},
 					"mark-o": {
 						Id:      "mark-o",
-						Mark:    "o",
+						Letter:  "o",
 						AgentId: xptr.Ptr(older),
 					},
 				},
@@ -454,15 +454,15 @@ func TestMarks(t *testing.T) {
 	world := assemble.World{Marks: map[string]*agentv1.Mark{
 		"mark-a": {
 			Id:      "mark-a",
-			Mark:    "a",
+			Letter:  "a",
 			AgentId: xptr.Ptr(newer),
 		},
 		"mark-w": {
 			Id:         "mark-w",
-			Mark:       "w",
+			Letter:     "w",
 			WorkflowId: xptr.Ptr(flowID),
 		},
-		"mark-x": {Id: "mark-x", Mark: "x"},
+		"mark-x": {Id: "mark-x", Letter: "x"},
 	}}
 
 	assert.Equal(t, map[string]string{newer: "a", flowID: "w"}, assemble.Marks(world))
@@ -490,7 +490,7 @@ func TestApplyOrdering(t *testing.T) {
 
 	world.Apply(put(&watchv1.Row{Row: &watchv1.Row_Mark{Mark: &agentv1.Mark{
 		Id:      "mark-a",
-		Mark:    "a",
+		Letter:  "a",
 		AgentId: xptr.Ptr(newer),
 	}}}))
 	world.Apply(put(&watchv1.Row{Row: &watchv1.Row_Mail{Mail: mail("m1", newer, time.Minute)}}))
@@ -562,7 +562,7 @@ func TestApplyReportsChanged(t *testing.T) {
 			msg: &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Snapshot{Snapshot: &watchv1.Snapshot{
 				Rows: []*watchv1.Row{
 					agentRow(agent(older)),
-					{Row: &watchv1.Row_Mark{Mark: &agentv1.Mark{Id: "mark-a", Mark: "a"}}},
+					{Row: &watchv1.Row_Mark{Mark: &agentv1.Mark{Id: "mark-a", Letter: "a"}}},
 				},
 			}}},
 			want: assemble.Changed{
@@ -592,7 +592,7 @@ func TestApplySnapshotReplacesTheWorld(t *testing.T) {
 
 	var world assemble.World
 	world.Apply(put(agentRow(agent(newer))))
-	world.Apply(put(&watchv1.Row{Row: &watchv1.Row_Mark{Mark: &agentv1.Mark{Id: "mark-a", Mark: "a"}}}))
+	world.Apply(put(&watchv1.Row{Row: &watchv1.Row_Mark{Mark: &agentv1.Mark{Id: "mark-a", Letter: "a"}}}))
 
 	world.Apply(&watchv1.WatchEvent{Event: &watchv1.WatchEvent_Snapshot{Snapshot: &watchv1.Snapshot{
 		Rows: []*watchv1.Row{agentRow(agent(older))},

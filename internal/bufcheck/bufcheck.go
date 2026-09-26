@@ -30,6 +30,10 @@ const (
 	SurfacesRuleID = "RPC_DECLARES_SURFACES"
 	// NotEmptyRuleID is the rule refusing a message that declares no fields.
 	NotEmptyRuleID = "MESSAGE_NOT_EMPTY"
+	// GetReturnsResourceRuleID is the rule requiring a Get to return its resource under its own name.
+	GetReturnsResourceRuleID = "RPC_GET_RETURNS_RESOURCE"
+	// FieldTypeNoStutterRuleID is the rule refusing a field whose type declares a field of the same name.
+	FieldTypeNoStutterRuleID = "FIELD_TYPE_NO_STUTTER"
 )
 
 var (
@@ -87,6 +91,20 @@ var (
 				Purpose: "Checks that a message declares at least one field, leaving google.protobuf.Empty to stand for nothing.",
 				Type:    check.RuleTypeLint,
 				Handler: checkutil.NewMessageRuleHandler(checkNotEmpty, checkutil.WithoutImports()),
+			},
+			{
+				ID:      GetReturnsResourceRuleID,
+				Default: true,
+				Purpose: "Checks that a method named Get<Noun>, where <Noun> is a message of this module, returns that message as a field named for it, flat rather than wrapped.",
+				Type:    check.RuleTypeLint,
+				Handler: checkutil.NewMethodRuleHandler(checkGetReturnsResource, checkutil.WithoutImports()),
+			},
+			{
+				ID:      FieldTypeNoStutterRuleID,
+				Default: true,
+				Purpose: "Checks that a singular message field is not named the same as a field its type declares, which would read as a.a on the wire.",
+				Type:    check.RuleTypeLint,
+				Handler: checkutil.NewFieldRuleHandler(checkFieldTypeNoStutter, checkutil.WithoutImports()),
 			},
 			{
 				ID:      TypesUniqueRuleID,

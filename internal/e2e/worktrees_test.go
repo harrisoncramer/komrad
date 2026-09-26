@@ -178,8 +178,8 @@ func TestIntegrationWorktrees(t *testing.T) {
 
 		fetched, err := instance.Agents.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: synced.GetId()}))
 		require.NoError(t, err)
-		assert.NotEmpty(t, fetched.Msg.GetAgent().GetAgent().GetBranch())
-		assert.Equal(t, "https://github.com/harrisoncramer/komrad", fetched.Msg.GetAgent().GetAgent().GetRepositoryUrl())
+		assert.NotEmpty(t, fetched.Msg.GetAgent().GetBranch())
+		assert.Equal(t, "https://github.com/harrisoncramer/komrad", fetched.Msg.GetAgent().GetRepositoryUrl())
 	})
 
 	t.Run("a worktree removed by hand reaches the caller", func(t *testing.T) {
@@ -188,7 +188,7 @@ func TestIntegrationWorktrees(t *testing.T) {
 
 		fetched, err := instance.Agents.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: publisher.GetId()}))
 		require.NoError(t, err)
-		assert.True(t, fetched.Msg.GetAgent().GetAgent().GetWorktreeRemoved())
+		assert.True(t, fetched.Msg.GetAgent().GetWorktreeRemoved())
 
 		listed, err := instance.Agents.ListAgents(ctx, connect.NewRequest(&agentv1.ListAgentsRequest{}))
 		require.NoError(t, err)

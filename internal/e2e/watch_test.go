@@ -147,7 +147,7 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 			write: func(t *testing.T) {
 				_, err := instance.Agents.SetMark(ctx, connect.NewRequest(&agentv1.SetMarkRequest{
 					Target: &agentv1.SetMarkRequest_WorkflowId{WorkflowId: pipeline.ID},
-					Mark:   xptr.Ptr("a"),
+					Letter: xptr.Ptr("a"),
 				}))
 				require.NoError(t, err)
 			},
@@ -273,7 +273,7 @@ func viewFromRPCs(t *testing.T, instance *komradtest.Instance) view {
 
 	return view{
 		agents:    xslice.KeyBy(slices.Concat(agents.Msg.GetAgents(), archived.Msg.GetAgents()), func(row *agentv1.AgentRow) string { return row.GetAgent().GetId() }),
-		marks:     assemble.Marks(assemble.World{Marks: xslice.KeyBy(marks.Msg.GetMarks(), func(m *agentv1.Mark) string { return m.GetMark() })}),
+		marks:     assemble.Marks(assemble.World{Marks: xslice.KeyBy(marks.Msg.GetMarks(), func(m *agentv1.Mark) string { return m.GetLetter() })}),
 		workflows: xslice.KeyBy(workflows.Msg.GetWorkflows(), func(w *workflowv1.Workflow) string { return w.GetId() }),
 		schedules: xslice.KeyBy(schedules.Msg.GetSchedules(), func(s *schedulev1.Schedule) string { return s.GetId() }),
 	}
@@ -293,7 +293,16 @@ func viewFromGets(t *testing.T, instance *komradtest.Instance, listed view) view
 	for id := range listed.agents {
 		one, err := instance.Agents.GetAgent(t.Context(), connect.NewRequest(&agentv1.GetAgentRequest{Id: id}))
 		require.NoError(t, err)
-		got.agents[id] = one.Msg.GetAgent()
+		got.agents[id] = &agentv1.AgentRow{
+			Agent:              one.Msg.GetAgent(),
+			Mark:               one.Msg.Mark,
+			UnreadMail:         one.Msg.GetUnreadMail(),
+			PullRequest:        one.Msg.GetPullRequest(),
+			PullRequests:       one.Msg.GetPullRequests(),
+			LocalReviewRounds:  one.Msg.GetLocalReviewRounds(),
+			LocalReviewVerdict: one.Msg.GetLocalReviewVerdict(),
+			LocalReviewTree:    one.Msg.GetLocalReviewTree(),
+		}
 	}
 
 	return got
@@ -350,7 +359,7 @@ func worldFromStores(t *testing.T, st *storetest.Stores) assemble.World {
 		Schedules: xslice.KeyBy(xslice.Map(schedules, func(s schedulestore.Schedule) *schedulev1.Schedule {
 			return render.Schedule(s, now, render.ScheduleOptions{})
 		}), func(s *schedulev1.Schedule) string { return s.GetId() }),
-		Marks: xslice.KeyBy(xslice.Map(marks, render.Mark), func(m *agentv1.Mark) string { return m.GetMark() }),
+		Marks: xslice.KeyBy(xslice.Map(marks, render.Mark), func(m *agentv1.Mark) string { return m.GetLetter() }),
 		Mail:  xslice.KeyBy(xslice.Map(mail, render.Mail), func(m *agentv1.Mail) string { return m.GetId() }),
 		PullRequests: xslice.KeyBy(xslice.Map(pullRequests, render.PullRequest), func(p *pullrequestv1.PullRequest) string {
 			return p.GetId()

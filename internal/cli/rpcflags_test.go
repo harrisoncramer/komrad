@@ -140,7 +140,7 @@ func flagNameOf(field protoreflect.FieldDescriptor) string {
 
 func valueFor(t *testing.T, message protoreflect.MessageDescriptor, path []string) string {
 	t.Helper()
-	field := fieldAtJSON(message, path)
+	field := fieldByPath(message, path)
 	require.NotNil(t, field, "the bound path %v names a field", path)
 
 	if field.Kind() == protoreflect.BoolKind {
@@ -159,8 +159,8 @@ func valueFor(t *testing.T, message protoreflect.MessageDescriptor, path []strin
 	return strconv.Itoa(1)
 }
 
-func fieldAtJSON(message protoreflect.MessageDescriptor, path []string) protoreflect.FieldDescriptor {
-	field := message.Fields().ByJSONName(path[0])
+func fieldByPath(message protoreflect.MessageDescriptor, path []string) protoreflect.FieldDescriptor {
+	field := message.Fields().ByName(protoreflect.Name(path[0]))
 	if field == nil {
 		return nil
 	}
@@ -168,5 +168,5 @@ func fieldAtJSON(message protoreflect.MessageDescriptor, path []string) protoref
 		return field
 	}
 
-	return fieldAtJSON(field.Message(), path[1:])
+	return fieldByPath(field.Message(), path[1:])
 }

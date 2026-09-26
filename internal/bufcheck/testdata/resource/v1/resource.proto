@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+package resource.v1;
+
+import "google/protobuf/empty.proto";
+
+message Cat {
+  string id = 1;
+}
+
+message CatRow {
+  Cat cat = 1;
+  bool unread_mail = 2;
+}
+
+message GetCatRequest {
+  string id = 1;
+}
+
+message GetCatResponse {
+  CatRow cat = 1;
+}
+
+message Dog {
+  string id = 1;
+}
+
+message GetDogRequest {
+  string id = 1;
+}
+
+message GetDogResponse {
+  Dog dog = 1;
+  bool unread_mail = 2;
+}
+
+message GetLogLinesResponse {
+  repeated string lines = 1;
+}
+
+service ResourceService {
+  rpc GetCat(GetCatRequest) returns (GetCatResponse) {}
+  rpc GetDog(GetDogRequest) returns (GetDogResponse) {}
+  rpc GetLogLines(google.protobuf.Empty) returns (GetLogLinesResponse) {}
+}

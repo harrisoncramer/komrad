@@ -192,7 +192,7 @@ func (a api) writeMark(req *agentv1.SetMarkRequest) error {
 }
 
 func markRequest(target markTargetRef, mark *string) *agentv1.SetMarkRequest {
-	req := &agentv1.SetMarkRequest{Mark: mark}
+	req := &agentv1.SetMarkRequest{Letter: mark}
 	if target.workflowID != "" {
 		req.Target = &agentv1.SetMarkRequest_WorkflowId{WorkflowId: target.workflowID}
 
