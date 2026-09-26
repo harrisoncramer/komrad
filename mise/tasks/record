@@ -8,12 +8,13 @@ usage() {
 	echo
 	echo "Runs the tape with VHS against the throwaway instance, after"
 	echo "recordings/settings.tape, which sets the size, the font and the docs site's"
-	echo "colours. recording.mp4, recording.webm, recording.gif and last.png, the final"
-	echo "frame, land under local/recordings/<tape name>/ unless --out says otherwise."
+	echo "colours. <name>.mp4, <name>.webm, <name>.gif and <name>.png, the final frame,"
+	echo "land beside the tape unless --out names another directory."
 	echo
 	echo "The tape runs in a bash of its own, with this checkout's komrad first on the"
 	echo "path. A tape that starts in a shell sources recordings/shell.tape, and one that"
-	echo "starts on the panel sources recordings/panel.tape. Tapes live under recordings/."
+	echo "starts on the panel sources recordings/panel.tape. Tapes live under"
+	echo "recordings/prod, which is tracked, or recordings/dev, which is not."
 	echo
 	echo "It needs the instance up, which 'MISE_ENV=test mise run restart' does, and ttyd,"
 	echo "which mise cannot install on macOS; install it with nix or Homebrew. It refuses"
@@ -62,8 +63,10 @@ esac
 
 cd "$MISE_CONFIG_ROOT"
 
+NAME="$(basename "$TAPE" .tape)"
+
 if [ -z "$OUT" ]; then
-	OUT="local/recordings/$(basename "$TAPE" .tape)"
+	OUT="$(dirname "$TAPE")"
 fi
 
 case "$OUT" in
@@ -71,30 +74,33 @@ case "$OUT" in
 *) OUT="$MISE_CONFIG_ROOT/$OUT" ;;
 esac
 
-rm -rf "$OUT"
-mkdir -p "$OUT"
+SCRATCH="$MISE_CONFIG_ROOT/local/recordings/$NAME"
 
-cat >"$OUT/run.tape" <<TAPE
+rm -rf "$SCRATCH"
+mkdir -p "$SCRATCH" "$OUT"
+rm -f "$OUT/$NAME".{mp4,webm,gif,png}
+
+cat >"$SCRATCH/run.tape" <<TAPE
 Source "recordings/settings.tape"
 Source "$TAPE"
 Sleep 1s
-Screenshot "$OUT/last.png"
+Screenshot "$OUT/$NAME.png"
 TAPE
 
 env -u TMUX -u TMUX_PANE PATH="$MISE_CONFIG_ROOT/bin:$PATH" \
 	vhs --quiet \
-	--output "$OUT/recording.mp4" \
-	--output "$OUT/recording.webm" \
-	--output "$OUT/recording.gif" \
-	"$OUT/run.tape"
+	--output "$OUT/$NAME.mp4" \
+	--output "$OUT/$NAME.webm" \
+	--output "$OUT/$NAME.gif" \
+	"$SCRATCH/run.tape"
 
-if [ ! -s "$OUT/recording.mp4" ]; then
+if [ ! -s "$OUT/$NAME.mp4" ]; then
 	echo "record: VHS wrote no video for $TAPE" >&2
 	exit 1
 fi
 
-if [ ! -s "$OUT/last.png" ]; then
-	ffmpeg -v error -y -sseof -0.1 -i "$OUT/recording.mp4" -frames:v 1 "$OUT/last.png"
+if [ ! -s "$OUT/$NAME.png" ]; then
+	ffmpeg -v error -y -sseof -0.1 -i "$OUT/$NAME.mp4" -frames:v 1 "$OUT/$NAME.png"
 fi
 
-gum log --level info "recorded $(basename "$TAPE" .tape) into $OUT"
+gum log --level info "recorded $NAME into $OUT"

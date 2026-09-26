@@ -12,6 +12,7 @@ dist/
 !*.tfvars.example
 /infra/engine/backend.hcl
 /infra/docs/backend.hcl
+/infra/dev/backend.hcl
 crash.log
 crash.*.log
 
@@ -19,3 +20,11 @@ crash.*.log
 .claude/*
 !.claude/skills/
 tools/komradpkg/komradpkg
+
+/recordings/dev/*
+!/recordings/dev/.gitkeep
+!/recordings/dev/example-*.tape
+/recordings/prod/*.mp4
+/recordings/prod/*.webm
+/recordings/prod/*.gif
+/recordings/prod/*.png
