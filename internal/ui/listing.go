@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"komrad/internal/errui"
+	"komrad/internal/ui/layout"
 	"komrad/internal/ui/panel"
 	agentv1 "komrad/proto/gen/agent/v1"
 
@@ -134,6 +135,7 @@ type released struct {
 // written is the row a write made, as the write answered with it.
 type written struct {
 	row     string
+	agent   string
 	pane    string
 	harness string
 	// focus says the pane the write made is to be handed the keyboard once it is shown.
@@ -367,6 +369,7 @@ func (m *model) paneWriteCmd(summary string, focus bool, write func(api) (*agent
 
 		return written{
 			row:     agentRowKey(agent.GetId()),
+			agent:   agent.GetId(),
 			pane:    agent.GetPaneId(),
 			harness: agent.GetHarness(),
 			focus:   focus,
@@ -413,6 +416,7 @@ func (m *model) createWorkflowCmd(cfg panel.WorkflowConfig) tea.Cmd {
 
 		return written{
 			row:     workflowRowKey(workflow.GetId()),
+			agent:   agent.GetId(),
 			pane:    agent.GetPaneId(),
 			harness: agent.GetHarness(),
 			focus:   true,
@@ -454,15 +458,16 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 		m.landOn(*result.written, time.Now())
 
 		if result.written.pane != "" {
+			guest := layout.Guest{Agent: result.written.agent, Pane: result.written.pane}
 			if m.isPaneWarm(result.written.pane, result.written.harness) {
 				m.frame.Solo(false)
-				m.frame.ShowGuest(result.written.pane)
+				m.frame.ShowGuest(guest)
 
 				if result.written.focus && m.frame.GuestPane() == result.written.pane {
 					m.tmux.SelectPane(result.written.pane)
 				}
 			} else {
-				m.warm.hold(result.written.pane, result.written.harness, result.written.focus)
+				m.warm.hold(guest, result.written.harness, result.written.focus)
 			}
 		}
 	}

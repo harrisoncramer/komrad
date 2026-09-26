@@ -53,6 +53,9 @@ type Frame struct {
 	// shellCommand is what opens a shell on the engine once given a directory, empty when the
 	// engine is this machine.
 	shellCommand []string
+	// terminalCommand is what attaches to an agent's terminal on the engine once given the agent,
+	// empty when the engine is this machine.
+	terminalCommand []string
 
 	// remoteGuest is the agent whose terminal the stage is attached to, on a server this one does
 	// not hold.
@@ -76,6 +79,12 @@ func WithEngine(remote engine.Remote) Option {
 // WithShellCommand says what opens a shell on the engine, before the directory it is rooted in.
 func WithShellCommand(command []string) Option {
 	return func(f *Frame) { f.shellCommand = command }
+}
+
+// WithTerminalCommand says what attaches to an agent's terminal on the engine, before the agent
+// it is given.
+func WithTerminalCommand(command []string) Option {
+	return func(f *Frame) { f.terminalCommand = command }
 }
 
 // New builds the frame the panel lays out around itself, at the geometry the config asks for.
@@ -484,46 +493,51 @@ func (f *Frame) IsSidebarOnRight() bool {
 	return f.spec.sidebarOnRight
 }
 
+// Guest is an agent whose terminal the stage shows.
+type Guest struct {
+	Agent string
+	Pane  string
+}
+
 // ShowGuest puts an agent's terminal in the stage, by moving its pane in when the engine is
-// this machine and by attaching to the engine's tmux when it is not.
-func (f *Frame) ShowGuest(pane string) {
+// this machine and by attaching to it over the engine's api when it is not.
+func (f *Frame) ShowGuest(guest Guest) {
 	defer f.holdSolo()
 
 	f.claimStage()
-	if f.stage == "" || pane == "" {
+	if f.stage == "" || guest.Pane == "" {
 		return
 	}
 
 	if f.remote.IsRemote() {
-		f.showRemoteGuest(pane)
+		f.showRemoteGuest(guest)
 
 		return
 	}
 
-	if pane == f.guest {
+	if guest.Pane == f.guest {
 		return
 	}
 
 	f.restoreGuest()
-	f.move(panes.Swap(pane, f.stage))
-	f.guest = pane
+	f.move(panes.Swap(guest.Pane, f.stage))
+	f.guest = guest.Pane
 	f.forget(RegionStage)
 }
 
-// showRemoteGuest respawns the stage on an ssh attach.
-func (f *Frame) showRemoteGuest(pane string) {
-	argv := f.remote.AttachArgv(pane)
-	if len(argv) == 0 {
+// showRemoteGuest respawns the stage on komrad terminal.
+func (f *Frame) showRemoteGuest(guest Guest) {
+	if len(f.terminalCommand) == 0 || guest.Agent == "" {
 		return
 	}
 
-	if f.isShowing(RegionStage, Content{Key: pane}, Target{Region: RegionStage}) {
+	if f.isShowing(RegionStage, Content{Key: guest.Pane}, Target{Region: RegionStage}) {
 		return
 	}
 
-	f.move(panes.Respawn(f.stage, "", argv...))
-	f.shown[RegionStage] = shown{key: pane}
-	f.remoteGuest = pane
+	f.move(panes.Respawn(f.stage, "", append(slices.Clone(f.terminalCommand), "--", guest.Agent)...))
+	f.shown[RegionStage] = shown{key: guest.Pane}
+	f.remoteGuest = guest.Pane
 }
 
 // ReleaseGuest returns a guest pane to where it came from before it is killed, so the main

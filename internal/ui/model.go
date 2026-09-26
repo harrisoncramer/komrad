@@ -208,6 +208,7 @@ type Deps struct {
 	Layout          config.Layout
 	Engine          engine.Remote
 	ShellCommand    []string
+	TerminalCommand []string
 	Binary          BinaryWatcher
 	Settings        PanelSettings
 	ConfigErr       error
@@ -342,7 +343,7 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 		browser:         deps.Browser,
 		harnessFrames:   deps.HarnessFrames,
 		binary:          deps.Binary,
-		frame:           layout.New(deps.Tmux, deps.Layout, layout.WithEngine(deps.Engine), layout.WithShellCommand(deps.ShellCommand)),
+		frame:           layout.New(deps.Tmux, deps.Layout, layout.WithEngine(deps.Engine), layout.WithShellCommand(deps.ShellCommand), layout.WithTerminalCommand(deps.TerminalCommand)),
 		detailsHeight:   deps.Layout.DetailsHeight,
 		settings:        deps.Settings,
 		keys:            deps.Keys,

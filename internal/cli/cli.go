@@ -150,6 +150,7 @@ the service, or call an endpoint from a script.`,
 		hookCmd(app),
 		logCmd(app),
 		shellCmd(app),
+		terminalCmd(app),
 	)
 
 	return root

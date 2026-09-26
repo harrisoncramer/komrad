@@ -397,6 +397,278 @@ func (*ShellResponse_Output) isShellResponse_Message() {}
 
 func (*ShellResponse_Exit) isShellResponse_Message() {}
 
+// OpenAttach names the agent whose terminal is shown and the terminal it is drawn on.
+type OpenAttach struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The agent, which must be live and hold a pane.
+	AgentId string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	// The size the terminal starts at.
+	Size *Size `protobuf:"bytes,2,opt,name=size,proto3" json:"size,omitempty"`
+	// The terminal type tmux is told it draws on, xterm-256color when empty.
+	Term          string `protobuf:"bytes,3,opt,name=term,proto3" json:"term,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *OpenAttach) Reset() {
+	*x = OpenAttach{}
+	mi := &file_terminal_v1_terminal_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *OpenAttach) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OpenAttach) ProtoMessage() {}
+
+func (x *OpenAttach) ProtoReflect() protoreflect.Message {
+	mi := &file_terminal_v1_terminal_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use OpenAttach.ProtoReflect.Descriptor instead.
+func (*OpenAttach) Descriptor() ([]byte, []int) {
+	return file_terminal_v1_terminal_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *OpenAttach) GetAgentId() string {
+	if x != nil {
+		return x.AgentId
+	}
+	return ""
+}
+
+func (x *OpenAttach) GetSize() *Size {
+	if x != nil {
+		return x.Size
+	}
+	return nil
+}
+
+func (x *OpenAttach) GetTerm() string {
+	if x != nil {
+		return x.Term
+	}
+	return ""
+}
+
+// AttachRequest is one message from the client: the opening, what was typed, or a resize.
+type AttachRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// What the client sent.
+	//
+	// Types that are valid to be assigned to Message:
+	//
+	//	*AttachRequest_Open
+	//	*AttachRequest_Input
+	//	*AttachRequest_Resize
+	Message       isAttachRequest_Message `protobuf_oneof:"message"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AttachRequest) Reset() {
+	*x = AttachRequest{}
+	mi := &file_terminal_v1_terminal_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AttachRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AttachRequest) ProtoMessage() {}
+
+func (x *AttachRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_terminal_v1_terminal_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AttachRequest.ProtoReflect.Descriptor instead.
+func (*AttachRequest) Descriptor() ([]byte, []int) {
+	return file_terminal_v1_terminal_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *AttachRequest) GetMessage() isAttachRequest_Message {
+	if x != nil {
+		return x.Message
+	}
+	return nil
+}
+
+func (x *AttachRequest) GetOpen() *OpenAttach {
+	if x != nil {
+		if x, ok := x.Message.(*AttachRequest_Open); ok {
+			return x.Open
+		}
+	}
+	return nil
+}
+
+func (x *AttachRequest) GetInput() []byte {
+	if x != nil {
+		if x, ok := x.Message.(*AttachRequest_Input); ok {
+			return x.Input
+		}
+	}
+	return nil
+}
+
+func (x *AttachRequest) GetResize() *Size {
+	if x != nil {
+		if x, ok := x.Message.(*AttachRequest_Resize); ok {
+			return x.Resize
+		}
+	}
+	return nil
+}
+
+type isAttachRequest_Message interface {
+	isAttachRequest_Message()
+}
+
+type AttachRequest_Open struct {
+	// The first message of every stream, and only the first.
+	Open *OpenAttach `protobuf:"bytes,1,opt,name=open,proto3,oneof"`
+}
+
+type AttachRequest_Input struct {
+	// Bytes typed into the terminal.
+	Input []byte `protobuf:"bytes,2,opt,name=input,proto3,oneof"`
+}
+
+type AttachRequest_Resize struct {
+	// The terminal's new size.
+	Resize *Size `protobuf:"bytes,3,opt,name=resize,proto3,oneof"`
+}
+
+func (*AttachRequest_Open) isAttachRequest_Message() {}
+
+func (*AttachRequest_Input) isAttachRequest_Message() {}
+
+func (*AttachRequest_Resize) isAttachRequest_Message() {}
+
+// AttachResponse is one message from the engine: ready, output, or the exit.
+type AttachResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// What the engine sent.
+	//
+	// Types that are valid to be assigned to Message:
+	//
+	//	*AttachResponse_Ready
+	//	*AttachResponse_Output
+	//	*AttachResponse_Exit
+	Message       isAttachResponse_Message `protobuf_oneof:"message"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AttachResponse) Reset() {
+	*x = AttachResponse{}
+	mi := &file_terminal_v1_terminal_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AttachResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AttachResponse) ProtoMessage() {}
+
+func (x *AttachResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_terminal_v1_terminal_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AttachResponse.ProtoReflect.Descriptor instead.
+func (*AttachResponse) Descriptor() ([]byte, []int) {
+	return file_terminal_v1_terminal_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *AttachResponse) GetMessage() isAttachResponse_Message {
+	if x != nil {
+		return x.Message
+	}
+	return nil
+}
+
+func (x *AttachResponse) GetReady() *emptypb.Empty {
+	if x != nil {
+		if x, ok := x.Message.(*AttachResponse_Ready); ok {
+			return x.Ready
+		}
+	}
+	return nil
+}
+
+func (x *AttachResponse) GetOutput() []byte {
+	if x != nil {
+		if x, ok := x.Message.(*AttachResponse_Output); ok {
+			return x.Output
+		}
+	}
+	return nil
+}
+
+func (x *AttachResponse) GetExit() *Exit {
+	if x != nil {
+		if x, ok := x.Message.(*AttachResponse_Exit); ok {
+			return x.Exit
+		}
+	}
+	return nil
+}
+
+type isAttachResponse_Message interface {
+	isAttachResponse_Message()
+}
+
+type AttachResponse_Ready struct {
+	// The attach has started, sent once before any output.
+	Ready *emptypb.Empty `protobuf:"bytes,1,opt,name=ready,proto3,oneof"`
+}
+
+type AttachResponse_Output struct {
+	// Bytes the terminal drew.
+	Output []byte `protobuf:"bytes,2,opt,name=output,proto3,oneof"`
+}
+
+type AttachResponse_Exit struct {
+	// The attach has ended, the last message of the stream.
+	Exit *Exit `protobuf:"bytes,3,opt,name=exit,proto3,oneof"`
+}
+
+func (*AttachResponse_Ready) isAttachResponse_Message() {}
+
+func (*AttachResponse_Output) isAttachResponse_Message() {}
+
+func (*AttachResponse_Exit) isAttachResponse_Message() {}
+
 var File_terminal_v1_terminal_proto protoreflect.FileDescriptor
 
 const file_terminal_v1_terminal_proto_rawDesc = "" +
@@ -420,9 +692,25 @@ const file_terminal_v1_terminal_proto_rawDesc = "" +
 	"\x05ready\x18\x01 \x01(\v2\x16.google.protobuf.EmptyH\x00R\x05ready\x12\x18\n" +
 	"\x06output\x18\x02 \x01(\fH\x00R\x06output\x12'\n" +
 	"\x04exit\x18\x03 \x01(\v2\x11.terminal.v1.ExitH\x00R\x04exitB\t\n" +
-	"\amessage2\x96\x01\n" +
+	"\amessage\"s\n" +
+	"\n" +
+	"OpenAttach\x12\"\n" +
+	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\x12-\n" +
+	"\x04size\x18\x02 \x01(\v2\x11.terminal.v1.SizeB\x06\xbaH\x03\xc8\x01\x01R\x04size\x12\x12\n" +
+	"\x04term\x18\x03 \x01(\tR\x04term\"\x95\x01\n" +
+	"\rAttachRequest\x12-\n" +
+	"\x04open\x18\x01 \x01(\v2\x17.terminal.v1.OpenAttachH\x00R\x04open\x12\x16\n" +
+	"\x05input\x18\x02 \x01(\fH\x00R\x05input\x12+\n" +
+	"\x06resize\x18\x03 \x01(\v2\x11.terminal.v1.SizeH\x00R\x06resizeB\x10\n" +
+	"\amessage\x12\x05\xbaH\x02\b\x01\"\x8e\x01\n" +
+	"\x0eAttachResponse\x12.\n" +
+	"\x05ready\x18\x01 \x01(\v2\x16.google.protobuf.EmptyH\x00R\x05ready\x12\x18\n" +
+	"\x06output\x18\x02 \x01(\fH\x00R\x06output\x12'\n" +
+	"\x04exit\x18\x03 \x01(\v2\x11.terminal.v1.ExitH\x00R\x04exitB\t\n" +
+	"\amessage2\xa1\x02\n" +
 	"\x0fTerminalService\x12\x82\x01\n" +
-	"\x05Shell\x12\x19.terminal.v1.ShellRequest\x1a\x1a.terminal.v1.ShellResponse\">\x9a\xb5\x18::8a terminal a person types into, which komrad shell opens(\x010\x01B)Z'komrad/proto/gen/terminal/v1;terminalv1b\x06proto3"
+	"\x05Shell\x12\x19.terminal.v1.ShellRequest\x1a\x1a.terminal.v1.ShellResponse\">\x9a\xb5\x18::8a terminal a person types into, which komrad shell opens(\x010\x01\x12\x88\x01\n" +
+	"\x06Attach\x12\x1a.terminal.v1.AttachRequest\x1a\x1b.terminal.v1.AttachResponse\"A\x9a\xb5\x18=:;a terminal a person types into, which komrad terminal opens(\x010\x01B)Z'komrad/proto/gen/terminal/v1;terminalv1b\x06proto3"
 
 var (
 	file_terminal_v1_terminal_proto_rawDescOnce sync.Once
@@ -436,28 +724,38 @@ func file_terminal_v1_terminal_proto_rawDescGZIP() []byte {
 	return file_terminal_v1_terminal_proto_rawDescData
 }
 
-var file_terminal_v1_terminal_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_terminal_v1_terminal_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_terminal_v1_terminal_proto_goTypes = []any{
-	(*Size)(nil),          // 0: terminal.v1.Size
-	(*OpenShell)(nil),     // 1: terminal.v1.OpenShell
-	(*ShellRequest)(nil),  // 2: terminal.v1.ShellRequest
-	(*Exit)(nil),          // 3: terminal.v1.Exit
-	(*ShellResponse)(nil), // 4: terminal.v1.ShellResponse
-	(*emptypb.Empty)(nil), // 5: google.protobuf.Empty
+	(*Size)(nil),           // 0: terminal.v1.Size
+	(*OpenShell)(nil),      // 1: terminal.v1.OpenShell
+	(*ShellRequest)(nil),   // 2: terminal.v1.ShellRequest
+	(*Exit)(nil),           // 3: terminal.v1.Exit
+	(*ShellResponse)(nil),  // 4: terminal.v1.ShellResponse
+	(*OpenAttach)(nil),     // 5: terminal.v1.OpenAttach
+	(*AttachRequest)(nil),  // 6: terminal.v1.AttachRequest
+	(*AttachResponse)(nil), // 7: terminal.v1.AttachResponse
+	(*emptypb.Empty)(nil),  // 8: google.protobuf.Empty
 }
 var file_terminal_v1_terminal_proto_depIdxs = []int32{
-	0, // 0: terminal.v1.OpenShell.size:type_name -> terminal.v1.Size
-	1, // 1: terminal.v1.ShellRequest.open:type_name -> terminal.v1.OpenShell
-	0, // 2: terminal.v1.ShellRequest.resize:type_name -> terminal.v1.Size
-	5, // 3: terminal.v1.ShellResponse.ready:type_name -> google.protobuf.Empty
-	3, // 4: terminal.v1.ShellResponse.exit:type_name -> terminal.v1.Exit
-	2, // 5: terminal.v1.TerminalService.Shell:input_type -> terminal.v1.ShellRequest
-	4, // 6: terminal.v1.TerminalService.Shell:output_type -> terminal.v1.ShellResponse
-	6, // [6:7] is the sub-list for method output_type
-	5, // [5:6] is the sub-list for method input_type
-	5, // [5:5] is the sub-list for extension type_name
-	5, // [5:5] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+	0,  // 0: terminal.v1.OpenShell.size:type_name -> terminal.v1.Size
+	1,  // 1: terminal.v1.ShellRequest.open:type_name -> terminal.v1.OpenShell
+	0,  // 2: terminal.v1.ShellRequest.resize:type_name -> terminal.v1.Size
+	8,  // 3: terminal.v1.ShellResponse.ready:type_name -> google.protobuf.Empty
+	3,  // 4: terminal.v1.ShellResponse.exit:type_name -> terminal.v1.Exit
+	0,  // 5: terminal.v1.OpenAttach.size:type_name -> terminal.v1.Size
+	5,  // 6: terminal.v1.AttachRequest.open:type_name -> terminal.v1.OpenAttach
+	0,  // 7: terminal.v1.AttachRequest.resize:type_name -> terminal.v1.Size
+	8,  // 8: terminal.v1.AttachResponse.ready:type_name -> google.protobuf.Empty
+	3,  // 9: terminal.v1.AttachResponse.exit:type_name -> terminal.v1.Exit
+	2,  // 10: terminal.v1.TerminalService.Shell:input_type -> terminal.v1.ShellRequest
+	6,  // 11: terminal.v1.TerminalService.Attach:input_type -> terminal.v1.AttachRequest
+	4,  // 12: terminal.v1.TerminalService.Shell:output_type -> terminal.v1.ShellResponse
+	7,  // 13: terminal.v1.TerminalService.Attach:output_type -> terminal.v1.AttachResponse
+	12, // [12:14] is the sub-list for method output_type
+	10, // [10:12] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_terminal_v1_terminal_proto_init() }
@@ -475,13 +773,23 @@ func file_terminal_v1_terminal_proto_init() {
 		(*ShellResponse_Output)(nil),
 		(*ShellResponse_Exit)(nil),
 	}
+	file_terminal_v1_terminal_proto_msgTypes[6].OneofWrappers = []any{
+		(*AttachRequest_Open)(nil),
+		(*AttachRequest_Input)(nil),
+		(*AttachRequest_Resize)(nil),
+	}
+	file_terminal_v1_terminal_proto_msgTypes[7].OneofWrappers = []any{
+		(*AttachResponse_Ready)(nil),
+		(*AttachResponse_Output)(nil),
+		(*AttachResponse_Exit)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_terminal_v1_terminal_proto_rawDesc), len(file_terminal_v1_terminal_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   5,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

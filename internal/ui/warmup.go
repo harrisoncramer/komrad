@@ -3,6 +3,8 @@ package ui
 import (
 	"time"
 
+	"komrad/internal/ui/layout"
+
 	tea "charm.land/bubbletea/v2"
 )
 
@@ -27,6 +29,7 @@ type warmupState struct {
 	since          map[string]time.Time
 	polling        bool
 	pending        string
+	pendingAgent   string
 	pendingHarness string
 	// closesForm says the create's own form is still up behind the wait, so the reveal takes it
 	// down in the same change.
@@ -113,8 +116,9 @@ func (w *warmupState) markWarm(pane string) {
 }
 
 // hold remembers the pane a write wants shown once its harness is up.
-func (w *warmupState) hold(pane, harnessID string, focus bool) {
-	w.pending = pane
+func (w *warmupState) hold(guest layout.Guest, harnessID string, focus bool) {
+	w.pending = guest.Pane
+	w.pendingAgent = guest.Agent
 	w.pendingHarness = harnessID
 	w.pendingFocus = focus
 }
@@ -129,10 +133,11 @@ func (m model) applyWarmupTick() (model, tea.Cmd) {
 			return m, nil
 		}
 
+		guest := layout.Guest{Agent: m.warm.pendingAgent, Pane: pane}
 		focus := m.warm.pendingFocus
-		m.warm.pending, m.warm.pendingHarness, m.warm.pendingFocus = "", "", false
+		m.warm.pending, m.warm.pendingAgent, m.warm.pendingHarness, m.warm.pendingFocus = "", "", "", false
 
-		return m.revealCreated(pane, focus)
+		return m.revealCreated(guest, focus)
 	}
 
 	selected, _ := m.selectedAgentPane()
@@ -166,7 +171,7 @@ func (m model) selectedAgentPane() (pane, harnessID string) {
 
 // revealCreated gives an agent its pane and takes down the form that made it in one
 // change, so the panel is never drawn across the whole window between the two.
-func (m model) revealCreated(pane string, focus bool) (model, tea.Cmd) {
+func (m model) revealCreated(guest layout.Guest, focus bool) (model, tea.Cmd) {
 	m.frame.Begin()
 
 	var cmd tea.Cmd
@@ -183,11 +188,11 @@ func (m model) revealCreated(pane string, focus bool) (model, tea.Cmd) {
 	}
 
 	m.frame.Solo(false)
-	m.frame.ShowGuest(pane)
+	m.frame.ShowGuest(guest)
 	m.frame.Flush()
 
-	if focus && m.frame.GuestPane() == pane {
-		m.tmux.SelectPane(pane)
+	if focus && m.frame.GuestPane() == guest.Pane {
+		m.tmux.SelectPane(guest.Pane)
 	}
 
 	return m, cmd
