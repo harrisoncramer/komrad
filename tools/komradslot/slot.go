@@ -54,7 +54,7 @@ func getDatabase(n int) string {
 
 // getEngine is the engine slot n's server runs as.
 func getEngine(n int) string {
-	return fmt.Sprintf("test_%d", n)
+	return fmt.Sprintf("slot_%d", n)
 }
 
 func getLogin(n int) string {

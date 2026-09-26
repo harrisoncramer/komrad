@@ -60,7 +60,7 @@ func TestEnvThenCheck(t *testing.T) {
 	}
 
 	env := parseEnv(out)
-	if env["KOMRAD_ADDR"] != "127.0.0.1:8801" || env["DB_PORT"] != "5470" || env["KOMRAD_TEST_DATABASE"] != "komrad_1" || env["KOMRAD_TEST_ENGINE"] != "test_1" || env["KOMRAD_TMUX_SOCKET"] != "komrad-test-1" {
+	if env["KOMRAD_ADDR"] != "127.0.0.1:8801" || env["DB_PORT"] != "5470" || env["KOMRAD_TEST_DATABASE"] != "komrad_1" || env["KOMRAD_TEST_ENGINE"] != "slot_1" || env["KOMRAD_TMUX_SOCKET"] != "komrad-test-1" {
 		t.Errorf("env printed %q", out)
 	}
 
@@ -130,5 +130,34 @@ func TestDownGivesTheSlotBack(t *testing.T) {
 
 	if _, err := runSlot(t, reg, nil, "down", "--root", root); err != nil {
 		t.Errorf("down of a checkout with no slot: %v", err)
+	}
+}
+
+// TestDropKeepsTheSlot drops the slot's database and logins and leaves the claim in place.
+func TestDropKeepsTheSlot(t *testing.T) {
+	t.Parallel()
+
+	reg, cmds := newTestRegistry(t)
+	root := testCheckout(t, "")
+
+	if _, err := runSlot(t, reg, nil, "drop", "--root", root); err == nil || !strings.Contains(err.Error(), "holds no slot") {
+		t.Errorf("drop before env = %v, want a refusal", err)
+	}
+
+	if _, err := runSlot(t, reg, nil, "env", "--root", root); err != nil {
+		t.Fatalf("env: %v", err)
+	}
+
+	if _, err := runSlot(t, reg, nil, "drop", "--root", root); err != nil {
+		t.Fatalf("drop: %v", err)
+	}
+
+	if _, err := os.Stat(reg.slotDir(1)); err != nil {
+		t.Errorf("slot 1 was given back by drop: %v", err)
+	}
+
+	want := "docker compose -p komrad-test-pg exec -T db psql -U komrad -d postgres -v ON_ERROR_STOP=1 -c DROP DATABASE IF EXISTS komrad_1 WITH (FORCE) -c DROP ROLE IF EXISTS komrad_engine_slot_1, komrad_engine_slot_1_reader"
+	if len(cmds.calls) != 1 || cmds.calls[0] != want {
+		t.Errorf("ran %q, want %q", cmds.calls, want)
 	}
 }

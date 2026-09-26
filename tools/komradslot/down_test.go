@@ -19,7 +19,7 @@ func TestDown(t *testing.T) {
 	}{
 		{
 			name:      "a database that cannot be dropped keeps the claim",
-			fail:      "docker compose -p komrad-test-pg exec -T db psql -U komrad -d postgres -v ON_ERROR_STOP=1 -c DROP DATABASE IF EXISTS komrad_2 WITH (FORCE) -c DROP ROLE IF EXISTS komrad_engine_test_2, komrad_engine_test_2_reader",
+			fail:      "docker compose -p komrad-test-pg exec -T db psql -U komrad -d postgres -v ON_ERROR_STOP=1 -c DROP DATABASE IF EXISTS komrad_2 WITH (FORCE) -c DROP ROLE IF EXISTS komrad_engine_slot_2, komrad_engine_slot_2_reader",
 			wantErr:   true,
 			wantKept:  true,
 			wantCalls: 3,

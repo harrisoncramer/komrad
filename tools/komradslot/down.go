@@ -50,15 +50,24 @@ func (r registry) down(ctx context.Context, n int) error {
 		r.log.Printf("no server of slot %d was stopped: %v", n, err)
 	}
 
-	dropDatabase := fmt.Sprintf("DROP DATABASE IF EXISTS %s WITH (FORCE)", getDatabase(n))
-	dropLogins := fmt.Sprintf("DROP ROLE IF EXISTS %s, %s_reader", getLogin(n), getLogin(n))
-	if err := r.cmds.run(ctx, "docker", "compose", "-p", containerProject, "exec", "-T", "db",
-		"psql", "-U", "komrad", "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-c", dropDatabase, "-c", dropLogins); err != nil {
-		return r.keepClaim(n, fmt.Errorf("failed to drop the database of slot %d, start the test container with mise run test:container:up and try again: %w", n, err))
+	if err := r.drop(ctx, n); err != nil {
+		return r.keepClaim(n, err)
 	}
 
 	if err := os.RemoveAll(r.slotDir(n)); err != nil {
 		return fmt.Errorf("failed to give slot %d back: %w", n, err)
+	}
+
+	return nil
+}
+
+// drop drops slot n's database and logins.
+func (r registry) drop(ctx context.Context, n int) error {
+	dropDatabase := fmt.Sprintf("DROP DATABASE IF EXISTS %s WITH (FORCE)", getDatabase(n))
+	dropLogins := fmt.Sprintf("DROP ROLE IF EXISTS %s, %s_reader", getLogin(n), getLogin(n))
+	if err := r.cmds.run(ctx, "docker", "compose", "-p", containerProject, "exec", "-T", "db",
+		"psql", "-U", "komrad", "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-c", dropDatabase, "-c", dropLogins); err != nil {
+		return fmt.Errorf("failed to drop the database of slot %d, start the test container with mise run test:container:up and try again: %w", n, err)
 	}
 
 	return nil

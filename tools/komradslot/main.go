@@ -45,7 +45,7 @@ type world struct {
 }
 
 func (w world) run(ctx context.Context, args []string, out io.Writer) error {
-	usage := fmt.Errorf("usage: komradslot env|check|down --root checkout [--registry dir]")
+	usage := fmt.Errorf("usage: komradslot env|check|drop|down --root checkout [--registry dir]")
 	if len(args) == 0 {
 		return usage
 	}
@@ -78,6 +78,8 @@ func (w world) run(ctx context.Context, args []string, out io.Writer) error {
 		return printEnv(ctx, reg, checkout, out)
 	case "check":
 		return check(reg, checkout, w.getenv)
+	case "drop":
+		return drop(ctx, reg, checkout)
 	case "down":
 		return down(ctx, reg, checkout)
 	default:
@@ -150,6 +152,20 @@ func check(reg registry, root string, getenv func(string) string) error {
 	}
 
 	return nil
+}
+
+// drop drops the database and logins of the checkout's slot and keeps the slot.
+func drop(ctx context.Context, reg registry, root string) error {
+	n, ok, err := reg.lookup(root)
+	if err != nil {
+		return err
+	}
+
+	if !ok {
+		return fmt.Errorf("%s holds no slot, so there is no database to drop", root)
+	}
+
+	return reg.drop(ctx, n)
 }
 
 // down takes the checkout's instance down and gives its slot back.
