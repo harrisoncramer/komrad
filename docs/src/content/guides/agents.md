@@ -5,13 +5,13 @@ group: start
 order: 3
 ---
 
-With a [workflow](../workflows/) in place, move the cursor onto it and press `c`. Give the agent a name and a prompt, say `fix-login` and a description of the bug, and it starts. That is an agent: a Claude or Codex session komrad runs for you in a terminal of its own. You can leave it working and come back, restart your machine without losing it, search everything it has said, or have other agents give it work.
+This guide assumes you know what a [workflow](../workflows/) is, and you've created one.
 
-<figure class="placeholder">
-  <figcaption>The agents list beside an agent's live terminal, with the details panel for that agent underneath.</figcaption>
-</figure>
+Agents run your workloads. They are spawned according to workflows.
 
-## Three kinds of agent
+Right now, every agent is a Claude or Codex session. You can leave them working and come back, restart your machine without losing any history or context, search everything they have said, and even have agents spawn and manage other agents.
+
+There are three types of agents, and you've already seen one: the orchestraotr agent(link to page). Orchestrator agents can spawn children called "implementer" agents, which each (typically) get their own worktree. Finally, implementer agents can spawn reviewer agents, which live inside _the same worktree_ and are responsible only for reviewing their work.
 
 ```
   workflow
@@ -28,31 +28,25 @@ With a [workflow](../workflows/) in place, move the cursor onto it and press `c`
          '-- reviewer
 ```
 
-Every agent has a role, and the role decides what it can do.
+Let's ask our orchestrator to spawn our first implementer agent. You can also hover over the orchestrator and press `c` to give the agent a name, and spawn it with a direct prompt, such as: "How many files are in this directory?"
 
-An implementer is the ordinary agent. It gets a checkout of its own, works on its own branch, and lands the change. Most agents you spawn are implementers.
+<figure class="placeholder">
+  example video
+</figure>
 
-A reviewer is a child of an implementer. It runs inside its parent's checkout, is told not to change it, and reads the parent's work to write a review. It can only mail its own family, and it goes away when its parent does.
+## Agent State
 
-An orchestrator is one agent per workflow. It writes no code and has no checkout. It spawns implementers into its own workflow through [MCP](../mcp/), talks to them by [mail](../mail/), and gathers what they find. Landing on a workflow's row in the panel puts you in a conversation with it, and that conversation accumulates for the life of the workflow. It cannot spawn into another workflow, and it cannot have children of its own.
-
-A scheduled agent is not a fourth kind. It is an implementer that a [schedule](../schedules/) started on a timer.
-
-## What state an agent is in
-
-Komrad reads each agent's screen to tell what it is doing. An agent is working while it thinks or runs a tool, waiting when it has stopped to ask you something, and idle when it has nothing to do. If komrad cannot read a screen, it treats the agent as waiting on you, since an unreadable screen might be a question.
+Komrad reads each agent's screen to tell what it is doing. An agent is working while it thinks or runs a tool, waiting when it has stopped to ask you something, and idle when it has nothing to do.
 
 Separately, an agent is either running or dormant. A dormant agent's CLI has exited, but its conversation is kept, and resuming picks up where it left off.
 
-## What the panel shows
-
-Each row shows the agent's state, whether mail is waiting, and its pull request if it has one. The details beneath show what it was launched with, its branch, how its checkout compares to the base, and its recent commits.
+Each row shows the agent's state, whether mail (incoming messages from other agents) is waiting, and any pull request data. The details beneath show what it was launched with, its branch, how its checkout compares to the base, and its recent commits.
 
 <figure class="placeholder">
   <figcaption>The details panel for one agent, showing its branch, its pull request and its recent commits.</figcaption>
 </figure>
 
-You can search the list by name, and search every conversation komrad has ever run, archived ones included. Marks let you jump straight back to an agent you care about, the way marks work in vim.
+You can search the agent list by name, filter it, jump around it with marks(link to config on marks). Press KEYBINDING to cycle through the various views on the agent screen: the agent sidebar, the agent screen, and the inf
 
 ## Children
 
