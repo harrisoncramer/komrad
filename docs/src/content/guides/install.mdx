@@ -80,7 +80,7 @@ The `owner_database_url` is only used by `komrad migrate` and `komrad engine ens
 
 Komrad runs every agent in a tmux server of its own, so tmux must be installed. Using tmux yourself is optional.
 
-Without tmux, run `komrad open` which opens the client, then create your first workflow, giving it a name.
+Without tmux, run `komrad open` which opens the client, then create your first [workflow](../workflows/) with the name "learning-komrad."
 
 <figure class="placeholder">
   <figcaption>Recording of opening </figcaption>
@@ -107,6 +107,4 @@ komrad stop
 komrad migrate
 ```
 
-Open the panel again and it starts the new build. Agents keep running throughout, because they live in tmux, not in the service.
-
-The panel is open and empty. The first thing it needs is a [workflow](../workflows/).
+Open the panel again and it starts the new build. Agents keep running they live in the engine.
